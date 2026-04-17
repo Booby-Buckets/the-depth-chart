@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Team — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,600;1,700&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Inter:wght@300;400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+  <style>
+    :root{
+      --bg:      #111111;
+      --bg2:     #181818;
+      --bg3:     #1f1f1f;
+      --bg4:     #262626;
+      --border:  #2a2a2a;
+      --border2: #333;
+      --text:    #e8e8e8;
+      --text2:   #a0a0a0;
+      --text3:   #606060;
+      --accent:  #c8a96e;
+      --tc:      #003087;
+      --tc-rgb:  0,48,135;
+      --green:   #5ab875;
+      --red:     #e05555;
+    }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{
+      background:var(--bg);color:var(--text);
+      font-family:'Inter',sans-serif;min-height:100vh;
+      -webkit-font-smoothing:antialiased;
+      opacity:0;animation:fadeIn .3s ease forwards;
+    }
+    @keyframes fadeIn{to{opacity:1;}}
+
+    /* ── NAV ── */
+    .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;letter-spacing:-.01em;}
+    .nav-logo span{color:var(--accent);}
+    .nav-actions{display:flex;align-items:center;gap:24px;}
+    .nav-actions a{font-size:12px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;transition:color .15s;}
+    .nav-actions a:hover{color:var(--text);}
+    .nav-signin{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--text);border:none;padding:6px 16px;cursor:pointer;}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;gap:0;}
+    .nav-sub a{font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 16px;height:100%;display:flex;align-items:center;border-bottom:2px solid transparent;transition:all .15s;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
+
+    /* BREADCRUMB */
+    .breadcrumb{
+      padding:10px 40px;font-size:11px;color:var(--text3);
+      border-bottom:1px solid var(--border);letter-spacing:.02em;
+    }
+    .breadcrumb a{color:var(--text3);text-decoration:none;}
+    .breadcrumb a:hover{color:var(--text);}
+
+    /* ── TEAM HERO ── */
+    .team-hero{
+      padding:40px 40px 0;
+      background:linear-gradient(160deg, rgba(var(--tc-rgb),.22) 0%, rgba(var(--tc-rgb),.06) 40%, transparent 70%);
+      border-bottom:1px solid var(--border);
+      position:relative;overflow:hidden;
+    }
+    /* Subtle team color line at very top */
+    .hero-color-line{
+      position:absolute;top:0;left:0;right:0;height:2px;
+      background:var(--tc);transition:background .4s;
+    }
+    .hero-top{
+      display:flex;align-items:flex-end;justify-content:space-between;
+      gap:32px;flex-wrap:wrap;margin-bottom:28px;
+    }
+    .hero-left{}
+    .hero-conf{
+      font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+      color:var(--tc);margin-bottom:8px;display:flex;align-items:center;gap:8px;
+      transition:color .4s;
+    }
+    .hero-conf::before{content:'';width:16px;height:1px;background:var(--tc);transition:background .4s;}
+    .hero-name{
+      font-family:'Playfair Display',serif;
+      font-weight:800;font-size:56px;line-height:.95;
+      letter-spacing:-.02em;color:var(--text);margin-bottom:6px;
+    }
+    .hero-nickname{
+      font-family:'Source Serif 4',serif;font-style:italic;
+      font-size:20px;color:var(--text3);margin-bottom:14px;
+    }
+    .hero-meta{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+    .hero-record{
+      font-family:'Share Tech Mono',monospace;font-size:14px;color:var(--text2);
+    }
+    .hero-rank{
+      font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+      padding:3px 10px;border:1px solid var(--tc);color:var(--tc);
+      transition:all .4s;
+    }
+
+    /* Grade summary top right */
+    .hero-grades{
+      display:flex;gap:1px;background:var(--border);
+      flex-shrink:0;
+    }
+    .hero-grade{
+      background:var(--bg2);padding:16px 24px;text-align:center;min-width:88px;
+    }
+    .hero-grade-val{
+      font-family:'Playfair Display',serif;font-weight:700;font-size:32px;
+      line-height:1;margin-bottom:4px;
+    }
+    .hero-grade-label{
+      font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+      color:var(--text3);
+    }
+
+    /* Page tabs */
+    .hero-tabs{display:flex;gap:0;border-top:1px solid var(--border);margin-top:0;}
+    .hero-tab{
+      font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;
+      padding:12px 20px;color:var(--text3);cursor:pointer;border:none;background:none;
+      border-top:2px solid transparent;transition:all .15s;margin-top:-1px;
+    }
+    .hero-tab:hover{color:var(--text2);}
+    .hero-tab.active{color:var(--text);border-top-color:var(--tc);}
+
+    /* ── MAIN LAYOUT ── */
+    .page-body{display:grid;grid-template-columns:1fr 320px;gap:0;max-width:1300px;}
+    .main-col{padding:32px 40px 64px;border-right:1px solid var(--border);}
+    .side-col{padding:32px 32px 64px;}
+
+    .panel{display:none;}
+    .panel.active{display:block;}
+
+    /* ── SECTION HEADS ── */
+    .sec-head{
+      font-family:'Playfair Display',serif;font-weight:700;
+      font-size:18px;letter-spacing:-.01em;color:var(--text);
+      margin-bottom:20px;padding-bottom:12px;
+      border-bottom:1px solid var(--border);
+      display:flex;align-items:center;justify-content:space-between;
+    }
+    .sec-head-sub{
+      font-family:'Inter',sans-serif;font-size:10px;
+      font-weight:500;letter-spacing:.08em;text-transform:uppercase;
+      color:var(--text3);
+    }
+
+    /* ── DEPTH CHART — NEW LAYOUT ── */
+
+    /* STARTERS GRID — 5 cols across */
+    .starters-grid{
+      display:grid;grid-template-columns:repeat(5,1fr);
+      gap:1px;background:var(--border);
+      border:1px solid var(--border);margin-bottom:28px;
+    }
+    .starter-col{background:var(--bg2);}
+    .starter-col-head{
+      padding:8px 12px;
+      background:rgba(var(--tc-rgb),.08);
+      border-bottom:2px solid var(--tc);
+      display:flex;align-items:center;justify-content:space-between;
+      transition:border-color .4s,background .4s;
+    }
+    .starter-pos{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ffffff;transition:color .4s;}
+    .starter-col-grade{font-family:'Playfair Display',serif;font-weight:700;font-size:15px;}
+    .starter-col-body{padding:10px 12px;}
+    .starter-name{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;line-height:1.2;color:#ffffff;margin-bottom:3px;letter-spacing:-.01em;}
+    .starter-meta-row{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3);margin-bottom:5px;flex-wrap:wrap;}
+    .starter-tag{font-size:8px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:1px 5px;background:rgba(var(--tc-rgb),.15);color:var(--tc);transition:all .4s;}
+    .starter-note{display:none;}
+
+    /* Backup chain under each starter */
+    .backup-chain{border-top:1px solid var(--border);padding:6px 12px;display:flex;flex-direction:column;gap:0;}
+    .backup-item{display:flex;align-items:center;gap:7px;padding:6px 0;border-bottom:1px solid var(--border);}
+    .backup-item:last-child{border-bottom:none;}
+    .backup-num{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text3);width:12px;flex-shrink:0;}
+    .backup-name{font-size:12px;font-weight:500;color:var(--text2);flex:1;}
+    .backup-cls{font-size:10px;color:var(--text3);}
+    .backup-grade{font-family:'Playfair Display',serif;font-weight:700;font-size:13px;}
+
+    /* ROTATION — players 6-12 */
+    .rotation-section{margin-top:8px;}
+    .rotation-head{font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:4px;display:flex;align-items:center;gap:10px;}
+    .rotation-head::after{content:'';flex:1;height:1px;background:var(--border);}
+    .rotation-row{display:grid;grid-template-columns:28px 36px 1fr 44px 44px 36px;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);}
+    .rotation-row:last-child{border-bottom:none;}
+    .rot-num{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text3);text-align:center;}
+    .rot-pos{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .rot-name{font-size:14px;font-weight:500;color:var(--text2);}
+    .rot-cls{font-size:11px;color:var(--text3);}
+    .rot-ht{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text3);}
+    .rot-grade{font-family:'Playfair Display',serif;font-weight:700;font-size:15px;text-align:right;}
+
+    /* Grade colors */
+    .gAp{color:#5ab875;} .gA{color:#6ec27f;} .gAm{color:#85cc94;}
+    .gBp{color:#5b9bd5;} .gB{color:#74aedd;} .gBm{color:#90c1e6;}
+    .gCp{color:#d4a444;} .gC{color:#dbb560;} .gD{color:#e05555;}
+
+    /* ── SIDEBAR ── */
+    .side-card{
+      background:var(--bg2);border:1px solid var(--border);
+      margin-bottom:20px;overflow:hidden;
+    }
+    .side-card-head{
+      padding:12px 16px;border-bottom:1px solid var(--border);
+      font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+      color:var(--text3);
+    }
+    .side-card-head.team-color{color:var(--tc);transition:color .4s;}
+    .side-card-body{padding:14px 16px;}
+
+    /* Grade display in sidebar */
+    .grade-row{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:8px 0;border-bottom:1px solid var(--border);
+    }
+    .grade-row:last-child{border-bottom:none;}
+    .grade-row-label{font-size:12px;color:var(--text3);font-style:italic;}
+    .grade-row-val{
+      font-family:'Playfair Display',serif;font-weight:700;font-size:18px;
+    }
+
+    /* Portal items */
+    .portal-item{
+      display:flex;align-items:start;gap:10px;
+      padding:9px 0;border-bottom:1px solid var(--border);
+    }
+    .portal-item:last-child{border-bottom:none;}
+    .portal-pos{
+      font-size:10px;font-weight:600;letter-spacing:.06em;
+      color:var(--text3);width:24px;flex-shrink:0;padding-top:2px;
+    }
+    .portal-name{font-size:14px;font-weight:500;color:var(--text);margin-bottom:2px;}
+    .portal-from{font-size:11px;color:var(--text3);font-style:italic;}
+    .portal-grade{
+      font-family:'Playfair Display',serif;font-weight:700;font-size:16px;
+      margin-left:auto;flex-shrink:0;
+    }
+
+    /* Outlook */
+    .outlook-text{
+      font-family:'Source Serif 4',serif;font-size:14px;
+      line-height:1.8;color:var(--text2);
+    }
+    .outlook-text p+p{margin-top:12px;}
+
+    /* Court view */
+    .court-wrap{
+      position:relative;width:100%;
+      border:1px solid var(--border);overflow:hidden;
+      background:#0c0c0c;margin-bottom:24px;
+    }
+    .court-color-line{height:2px;background:var(--tc);transition:background .4s;}
+    #courtSvg{width:100%;display:block;}
+    .court-players{position:absolute;inset:0;}
+    .pnode{position:absolute;transform:translate(-50%,-50%);text-align:center;pointer-events:all;}
+    .pnode-circle{
+      width:88px;height:88px;border-radius:50%;
+      background:var(--tc);
+      border:2px solid rgba(255,255,255,.2);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      margin:0 auto 7px;
+      font-family:'Inter',sans-serif;
+      box-shadow:0 6px 24px rgba(0,0,0,.7);
+      position:relative;transition:transform .2s;
+    }
+    .pnode:hover .pnode-circle{transform:scale(1.06);}
+    .pnode-pos{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.6);}
+    .pnode-name{font-size:13px;font-weight:700;color:#fff;line-height:1.2;padding:0 6px;text-align:center;}
+    .pnode-grade{
+      position:absolute;top:-4px;right:-4px;width:24px;height:24px;
+      border-radius:50%;display:flex;align-items:center;justify-content:center;
+      font-family:'Playfair Display',serif;font-weight:700;font-size:10px;
+      background:#111;border:2px solid #111;
+    }
+    .pnode-backups{display:flex;flex-direction:column;gap:2px;margin-top:1px;}
+    .pnode-backup{
+      font-size:9px;font-weight:500;color:rgba(255,255,255,.45);
+      background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.06);
+      padding:1px 6px;white-space:nowrap;
+    }
+    .pnode-backup.b1{color:rgba(255,255,255,.75);font-weight:600;}
+
+    footer{border-top:1px solid var(--border);padding:28px 40px;display:flex;align-items:center;justify-content:space-between;}
+    .footer-logo{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text3);}
+    .footer-logo span{color:var(--accent);}
+    .footer-meta{font-size:11px;color:var(--text3);}
+
+    @media(max-width:960px){
+      .page-body{grid-template-columns:1fr;}
+      .side-col{border-top:1px solid var(--border);padding:24px 20px;}
+      .main-col{padding:24px 20px;border-right:none;}
+      .team-hero,.breadcrumb,.nav-top,.nav-sub{padding-left:20px;padding-right:20px;}
+      .hero-name{font-size:36px;}
+      .hero-grades{display:none;}
+    }
+  </style>
+</head>
+<body>
+
+<div class="nav-wrap">
+  <div class="nav-top">
+    <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+    <div class="nav-actions">
+      <a href="pricing.html">Pricing</a>
+      <a href="login.html">Sign In</a>
+      <button class="nav-signin">Subscribe</button>
+    </div>
+  </div>
+  <div class="nav-sub">
+    <a href="index.html">Rankings</a>
+    <a href="#" class="active">Teams</a>
+    <a href="pricing.html">Pricing</a>
+  </div>
+</div>
+
+<div class="breadcrumb">
+  <a href="index.html">Rankings</a> &rsaquo; <span id="bcTeam">Team</span>
+</div>
+
+<div class="team-hero" id="teamHero">
+  <div class="hero-color-line" id="heroLine"></div>
+  <div class="hero-top">
+    <div class="hero-left">
+      <div class="hero-conf" id="heroConf">ACC</div>
+      <div class="hero-name" id="heroName">Duke</div>
+      <div class="hero-nickname" id="heroNick">Blue Devils</div>
+      <div class="hero-meta">
+        <span class="hero-record" id="heroRecord">35-2</span>
+        <span class="hero-rank" id="heroRank">#1 TDC</span>
+        <span style="font-size:12px;color:var(--text3);font-style:italic;" id="heroCoach"></span>
+      </div>
+    </div>
+    <div class="hero-grades" id="heroGrades"></div>
+  </div>
+  <div class="hero-tabs">
+    <button class="hero-tab active" onclick="switchTab('depth',this)">Depth Chart</button>
+    <button class="hero-tab" onclick="switchTab('analysis',this)">Analysis</button>
+  </div>
+</div>
+
+<div class="page-body">
+  <div class="main-col">
+
+    <!-- DEPTH CHART -->
+    <div class="panel active" id="panel-depth">
+      <div class="sec-head">
+        Depth Chart
+        <span class="sec-head-sub">★ = Starter</span>
+      </div>
+      <div id="depthContent"></div>
+    </div>
+
+    <!-- ANALYSIS -->
+    <div class="panel" id="panel-analysis">
+      <div class="sec-head">Team Outlook</div>
+      <div class="outlook-text" id="outlookText"></div>
+    </div>
+
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="side-col">
+
+    <div class="side-card">
+      <div class="side-card-head team-color" id="gradeCardHead">Roster Grades</div>
+      <div class="side-card-body" id="gradeCardBody"></div>
+    </div>
+
+    <div class="side-card">
+      <div class="side-card-head" style="color:var(--green);">Offseason Additions</div>
+      <div class="side-card-body" id="additionsBody"></div>
+    </div>
+
+    <div class="side-card">
+      <div class="side-card-head" style="color:var(--red);">Key Losses</div>
+      <div class="side-card-body" id="lossesBody"></div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <div class="footer-logo">The Depth <span>Chart</span></div>
+  <div class="footer-meta">College Basketball Roster Analysis · 2025–26</div>
+</footer>
+
+<script>
+const TEAMS = {
+  "Clemson":{
+    nick:"Tigers", conf:"ACC", record:"", rank:0,
+    color:"#F66733", color2:"#522D80", colorRgb:"246,103,51",
+    grades:{roster:"B", depth:"B-", recruit:"C+"},
+    coach:"Brad Brownell",
+    depth:{
+      PG:[
+        {name:"Ace Buckner",     cls:"So.", ht:"—", grade:"B",  starter:true},
+        {name:"Zac Foster",      cls:"R-Fr.",ht:"—",grade:"C+"},
+      ],
+      SG:[
+        {name:"Cole Certa",      cls:"Jr.", ht:"—", grade:"B+", starter:true},
+        {name:"Harris Reynolds", cls:"Fr.", ht:"—", grade:"C"},
+        {name:"Amaer James",     cls:"Fr.", ht:"—", grade:"C"},
+      ],
+      SF:[
+        {name:"Jake Wahlin",     cls:"Sr.", ht:"—", grade:"B",  starter:true},
+        {name:"Dallas Thomas",   cls:"So.", ht:"—", grade:"C+"},
+      ],
+      PF:[
+        {name:"Chase Thompson",  cls:"Sr.", ht:"—", grade:"B",  starter:true},
+        {name:"Carter Welling",  cls:"Sr.", ht:"—", grade:"B-"},
+        {name:"Trent Steinour",  cls:"R-Fr.",ht:"—",grade:"C"},
+        {name:"Blake Davidson",  cls:"R-Fr.",ht:"—",grade:"C"},
+      ],
+      C:[
+        {name:"Will Stevens",    cls:"Fr.", ht:"—", grade:"C+", starter:true},
+      ],
+    },
+    additions:[],
+    losses:[
+      {pos:"PG", name:"Dillon Hunter",   dest:"Transfer"},
+      {pos:"SF", name:"Jake Wahlin",     dest:"Transfer"},
+      {pos:"SG", name:"Jestin Porter",   dest:"Transfer"},
+      {pos:"SG", name:"Butta Johnson",   dest:"Transfer"},
+      {pos:"PF", name:"RJ Godfrey",      dest:"Transfer"},
+      {pos:"PF", name:"Nick Davidson",   dest:"Transfer"},
+    ],
+    outlook:`Clemson faces significant roster turnover after losing multiple key contributors. Brad Brownell will lean on returning pieces while integrating a young group. The Tigers' frontcourt depth gives them a foundation, but replacing the backcourt production lost this offseason is the primary challenge heading into 2025–26.`,
+  },
+
+  "Miami":{
+    nick:"Hurricanes", conf:"ACC", record:"25-8", rank:0,
+    color:"#F47321", color2:"#005030", colorRgb:"244,115,33",
+    grades:{roster:"B+", depth:"B", recruit:"B"},
+    coach:"Jai Lucas",
+    depth:{
+      PG:[
+        {name:"Acaden Lewis",    cls:"So.", ht:"—", grade:"B+", starter:true},
+      ],
+      SG:[
+        {name:"Dante Allen",     cls:"So.", ht:"—", grade:"B",  starter:true},
+        {name:"Marcus Allen",    cls:"Jr.", ht:"—", grade:"B-"},
+      ],
+      SF:[
+        {name:"Shelton Henderson",cls:"So.",ht:"—", grade:"B+", starter:true},
+      ],
+      PF:[
+        {name:"Caleb Gaskins",   cls:"Fr.", ht:"—", grade:"B-", starter:true},
+      ],
+      C:[
+        {name:"Somoto Cyril",    cls:"Jr.", ht:"—", grade:"B+", starter:true},
+      ],
+    },
+    additions:[],
+    losses:[
+      {pos:"SG", name:"Tru Washington",   dest:"Transfer"},
+      {pos:"SF", name:"Timotej Malovec",  dest:"Transfer"},
+      {pos:"PG", name:"Jordyn Kee",       dest:"Transfer"},
+      {pos:"PF", name:"Malik Reneau",     dest:"Transfer"},
+      {pos:"C",  name:"Ernest Udeh Jr.",  dest:"Transfer"},
+      {pos:"PG", name:"Tre Donaldson",    dest:"Transfer"},
+    ],
+    outlook:`Jai Lucas takes over a Miami program with a solid core returning. Acaden Lewis and Somoto Cyril give the Hurricanes a legitimate one-two punch to build around. The bench is thin after significant portal departures, but the starting five has real ACC-level talent if they can stay healthy and cohesive.`,
+  },
+
+  "Duke":{
+    nick:"Blue Devils", conf:"ACC", record:"", rank:0,
+    color:"#003087", color2:"#001a4e", colorRgb:"0,48,135",
+    grades:{roster:"A", depth:"B+", recruit:"A+"},
+    coach:"Jon Scheyer",
+    depth:{
+      PG:[
+        {name:"Cayden Boozer",   cls:"Fr.", ht:"—", grade:"A-", starter:true},
+        {name:"Deron Rippey Jr.",cls:"Fr.", ht:"—", grade:"B-"},
+      ],
+      SG:[
+        {name:"Bryson Howard",   cls:"Fr.", ht:"—", grade:"B+", starter:true},
+      ],
+      SF:[
+        {name:"Dame Sarr",       cls:"Fr.", ht:"—", grade:"B+", starter:true},
+      ],
+      PF:[
+        {name:"Cameron Williams",cls:"Fr.", ht:"—", grade:"B+", starter:true},
+      ],
+      C:[
+        {name:"Patrick Ngongba", cls:"Jr.", ht:"—", grade:"B",  starter:true},
+        {name:"Maxime Meyer",    cls:"Fr.", ht:"—", grade:"C+"},
+      ],
+    },
+    additions:[],
+    losses:[
+      {pos:"PF", name:"Cameron Boozer",  dest:"NBA Draft"},
+      {pos:"SG", name:"Darren Harris",   dest:"Transfer"},
+      {pos:"PG", name:"Caleb Foster",    dest:"Transfer"},
+      {pos:"PF", name:"Nik Khamenia",    dest:"Transfer"},
+      {pos:"SG", name:"Isaiah Evans",    dest:"Transfer"},
+      {pos:"C",  name:"Maliq Brown",     dest:"Transfer"},
+    ],
+    outlook:`Duke reloads with another elite recruiting class under Jon Scheyer. Cayden Boozer steps into the starting PG role after his twin brother departed for the NBA. The Blue Devils are young across the board but the talent ceiling is enormous — this is still one of the ACC's most talented rosters heading into 2025–26.`,
+  },
+
+  "Notre Dame":{
+    nick:"Fighting Irish", conf:"ACC", record:"", rank:0,
+    color:"#0C2340", color2:"#AE9142", colorRgb:"12,35,64",
+    grades:{roster:"B+", depth:"B", recruit:"B"},
+    coach:"Micah Shrewsberry",
+    depth:{
+      PG:[
+        {name:"Logan Imes",      cls:"Sr.", ht:"—", grade:"B",  starter:true},
+        {name:"Jonathan Sanderson",cls:"Fr.",ht:"—",grade:"C+"},
+      ],
+      SG:[
+        {name:"Braeden Shrewsberry",cls:"Sr.",ht:"—",grade:"B+",starter:true},
+        {name:"Nick Shrewsberry", cls:"Fr.", ht:"—", grade:"C"},
+        {name:"Brady Stevens",    cls:"Jr.", ht:"—", grade:"C+"},
+      ],
+      SF:[
+        {name:"Ethan Roberts",   cls:"Gr.", ht:"—", grade:"A-", starter:true},
+        {name:"Tommy Devine",    cls:"So.", ht:"—", grade:"C+"},
+      ],
+      PF:[
+        {name:"Brady Koehler",   cls:"So.", ht:"—", grade:"B-", starter:true},
+      ],
+      C:[
+        {name:"Logan Duncomb",   cls:"Gr.", ht:"—", grade:"A-", starter:true},
+        {name:"Tommy Ahneman",   cls:"R-Fr.",ht:"—",grade:"C"},
+        {name:"Gan-Eredene Solongo",cls:"Fr.",ht:"—",grade:"C"},
+      ],
+    },
+    additions:[],
+    losses:[
+      {pos:"PG", name:"Markus Burton",   dest:"Transfer"},
+      {pos:"SG", name:"Cole Certa",      dest:"Transfer"},
+      {pos:"CG", name:"Jalen Haralson",  dest:"Transfer"},
+      {pos:"C",  name:"Carson Towt",     dest:"Graduated"},
+      {pos:"C",  name:"Kebba Njie",      dest:"Graduated"},
+    ],
+    outlook:`Notre Dame suffered major portal losses but returns two elite graduate players in Ethan Roberts and Logan Duncomb who give Micah Shrewsberry a legitimate foundation. Braeden Shrewsberry emerging as a reliable scorer is key. The Irish will need their veterans to carry the load while the freshmen develop.`,
+  },
+
+  "North Carolina":{
+    nick:"Tar Heels", conf:"ACC", record:"", rank:0,
+    color:"#4B9CD3", color2:"#13294B", colorRgb:"75,156,211",
+    grades:{roster:"B", depth:"B-", recruit:"B+"},
+    coach:"Mike Malone",
+    depth:{
+      PG:[
+        {name:"Neoklis Avdalas", cls:"So.", ht:"—", grade:"B+", starter:true},
+        {name:"Isaiah Denis",    cls:"So.", ht:"—", grade:"B-"},
+      ],
+      SG:[
+        {name:"Jaydon Young",    cls:"Sr.", ht:"—", grade:"B",  starter:true},
+      ],
+      SF:[
+        {name:"Maximo Adams",    cls:"Fr.", ht:"—", grade:"B",  starter:true},
+      ],
+      PF:[
+        {name:"Jarin Stevenson", cls:"Jr.", ht:"—", grade:"B+", starter:true},
+      ],
+      C:[
+        {name:"Henri Veesaar",   cls:"Sr.", ht:"—", grade:"B+", starter:true},
+        {name:"Ivan Matlekovic", cls:"Jr.", ht:"—", grade:"B-"},
+      ],
+    },
+    additions:[],
+    losses:[
+      {pos:"SG", name:"Jonathan Powell",  dest:"Transfer"},
+      {pos:"CG", name:"Kyan Evans",       dest:"Transfer"},
+      {pos:"C",  name:"James Brown",      dest:"Transfer"},
+      {pos:"PF", name:"Zayden High",      dest:"Transfer"},
+      {pos:"PF", name:"Caleb Wilson",     dest:"Transfer"},
+      {pos:"PG", name:"Derek Dixon",      dest:"Transfer"},
+    ],
+    outlook:`Mike Malone inherits a UNC program in transition after a difficult season. The Tar Heels have kept some key pieces and added through the portal, but depth remains a concern. Veesaar and Stevenson give them frontcourt credibility while Neoklis Avdalas is expected to step into a featured role at the point.`,
+  },
+
+  "Virginia":{
+    nick:"Cavaliers", conf:"ACC", record:"", rank:0,
+    color:"#232D4B", color2:"#F84C1E", colorRgb:"35,45,75",
+    grades:{roster:"B-", depth:"C+", recruit:"C+"},
+    coach:"Ryan Odom",
+    depth:{
+      PG:[
+        {name:"Chance Mallory",  cls:"So.", ht:"—", grade:"B-", starter:true},
+      ],
+      SG:[
+        {name:"Elijah Gertrude", cls:"R-Jr.",ht:"—",grade:"B-", starter:true},
+      ],
+      SF:[
+        {name:"Sam Lewis",       cls:"Sr.", ht:"—", grade:"B+", starter:true},
+        {name:"Martin Carrere",  cls:"R-Fr.",ht:"—",grade:"C"},
+      ],
+      PF:[
+        {name:"Thijs De Ridder", cls:"So.", ht:"—", grade:"B",  starter:true},
+        {name:"Carter Lang",     cls:"R-So.",ht:"—",grade:"C+"},
+        {name:"Silas Barksdale", cls:"R-Fr.",ht:"—",grade:"C"},
+      ],
+      C:[
+        {name:"Johann Grunloh",  cls:"So.", ht:"—", grade:"B",  starter:true},
+      ],
+    },
+    additions:[],
+    losses:[
+      {pos:"PG", name:"Malik Thomas",    dest:"Graduated"},
+      {pos:"SG", name:"Jacari White",    dest:"Graduated"},
+      {pos:"C",  name:"Ugonna Onyenso",  dest:"Transfer"},
+      {pos:"PF", name:"Devin Tillis",    dest:"Transfer"},
+    ],
+    outlook:`Ryan Odom begins his tenure at Virginia with a roster that needs significant building. Sam Lewis is the most proven piece and gives the Cavaliers a genuine ACC-caliber wing. The program will lean on Odom's defensive identity while the portal class develops chemistry in what figures to be a developmental year.`,
+  },
+
+  "SMU":{
+    nick:"Mustangs", conf:"ACC", record:"", rank:0,
+    color:"#0033A0", color2:"#C8102E", colorRgb:"0,51,160",
+    grades:{roster:"C+", depth:"C", recruit:"C+"},
+    coach:"Andy Enfield",
+    depth:{
+      PG:[
+        {name:"Cam Lomax",       cls:"Fr.", ht:"—", grade:"C+", starter:true},
+      ],
+      SG:[
+        {name:"Jermaine O'Neal", cls:"So.", ht:"—", grade:"B-", starter:true},
+        {name:"BJ Davis-Ray",    cls:"So.", ht:"—", grade:"C+"},
+      ],
+      SF:[
+        {name:"Billy White III", cls:"R-Fr.",ht:"—",grade:"C+", starter:true},
+      ],
+      PF:[
+        {name:"Nigel Walls",     cls:"R-Fr.",ht:"—",grade:"C",  starter:true},
+      ],
+      C:[
+        {name:"Jaden Toombs",    cls:"So.", ht:"—", grade:"B-", starter:true},
+      ],
+    },
+    additions:[],
+    losses:[
+      {pos:"PG", name:"Boopie Miller",   dest:"Transfer"},
+      {pos:"C",  name:"Simet Yigitoglu", dest:"Transfer"},
+      {pos:"SF", name:"Sam Walters",     dest:"Transfer"},
+      {pos:"CG", name:"BJ Edwards",      dest:"Transfer"},
+      {pos:"SF", name:"Jaron Pierre Jr.",dest:"Graduated"},
+      {pos:"PF", name:"Corey Washington",dest:"Transfer"},
+    ],
+    outlook:`SMU faces its biggest roster challenge since joining the ACC, having lost nearly its entire rotation. Andy Enfield will need to find production from younger players and hope the portal additions gel quickly. Jaden Toombs gives them a foundational piece in the frontcourt to build around.`,
+  },
+
+  "Stanford":{
+    nick:"Cardinal", conf:"ACC", record:"", rank:0,
+    color:"#8C1515", color2:"#2E2D29", colorRgb:"140,21,21",
+    grades:{roster:"B-", depth:"B", recruit:"B-"},
+    coach:"Kyle Smith",
+    depth:{
+      PG:[
+        {name:"Isaiah Rogers",   cls:"Fr.", ht:"—", grade:"B-", starter:true},
+      ],
+      SG:[
+        {name:"Julius Price",    cls:"Fr.", ht:"—", grade:"B-", starter:true},
+        {name:"Elias Obenyah",   cls:"Fr.", ht:"—", grade:"C+"},
+        {name:"Myles Jones",     cls:"R-Fr.",ht:"—",grade:"C"},
+      ],
+      SF:[
+        {name:"Aziz Olajuwon",   cls:"Fr.", ht:"—", grade:"B",  starter:true},
+      ],
+      PF:[
+        {name:"Aidan Cammann",   cls:"Jr.", ht:"—", grade:"B",  starter:true},
+        {name:"Donavin Young",   cls:"Jr.", ht:"—", grade:"B-"},
+        {name:"Drew Anderson",   cls:"Fr.", ht:"—", grade:"C+"},
+        {name:"Kristers Skrinda",cls:"So.", ht:"—", grade:"C+"},
+        {name:"Evan Stinson",    cls:"Jr.", ht:"—", grade:"C+"},
+      ],
+      C:[
+        {name:"Drew Anderson",   cls:"Fr.", ht:"—", grade:"C+", starter:true},
+      ],
+    },
+    additions:[],
+    losses:[
+      {pos:"SG", name:"Benny Gealer",    dest:"Graduated"},
+      {pos:"C",  name:"Oskar Giltay",    dest:"Transfer"},
+      {pos:"SF", name:"Ryan Agarwal",    dest:"Graduated"},
+      {pos:"CG", name:"Jeremy Dent-Smith",dest:"Graduated"},
+      {pos:"PF", name:"Chisom Okpara",   dest:"Graduated"},
+    ],
+    outlook:`Stanford brings in a heavy freshman class as Kyle Smith looks to restock after major losses. The Cardinal will be young but have real athletic upside across the roster. Frontcourt depth is a genuine strength with multiple experienced pieces returning. The question is whether freshman guards can handle ACC perimeter play immediately.`,
+  },
+
+  "Florida State":{
+    nick:"Seminoles", conf:"ACC", record:"", rank:0,
+    color:"#782F40", color2:"#CEB888", colorRgb:"120,47,64",
+    grades:{roster:"B", depth:"B-", recruit:"B"},
+    coach:"Luke Loucks",
+    depth:{
+      PG:[
+        {name:"Jasen Lopez",     cls:"Fr.", ht:"—", grade:"C+", starter:true},
+      ],
+      SG:[
+        {name:"Kameron Taylor",  cls:"Jr.", ht:"—", grade:"A-", starter:true},
+        {name:"Shon Abeav",      cls:"So.", ht:"—", grade:"B-"},
+        {name:"Collin Paul",     cls:"Fr.", ht:"—", grade:"C"},
+        {name:"Brandon Bass Jr.",cls:"Fr.", ht:"—", grade:"C"},
+      ],
+      SF:[
+        {name:"Thomas Bassong",  cls:"So.", ht:"—", grade:"B",  starter:true},
+        {name:"AJ Swinton",      cls:"Jr.", ht:"—", grade:"B-"},
+      ],
+      PF:[
+        {name:"Martay Barnes",   cls:"Fr.", ht:"—", grade:"C+", starter:true},
+      ],
+      C:[
+        {name:"Marcus Ponder",   cls:"Fr.", ht:"—", grade:"C+", starter:true},
+        {name:"Egor Ryzhov",     cls:"R-Fr.",ht:"—",grade:"C"},
+      ],
+    },
+    additions:[],
+    losses:[],
+    outlook:`Luke Loucks leads Florida State with Kameron Taylor as the clear focal point — one of the ACC's most dangerous scorers. The Seminoles have wing depth but are young in the backcourt and frontcourt. Taylor's ability to carry the offense will determine how far FSU can go in a competitive ACC.`,
+  },
+
+  "Louisville":{
+    nick:"Cardinals", conf:"ACC", record:"", rank:0,
+    color:"#AD0000", color2:"#000000", colorRgb:"173,0,0",
+    grades:{roster:"B+", depth:"B", recruit:"B"},
+    coach:"Pat Kelsey",
+    depth:{
+      PG:[
+        {name:"Chucky Hepburn",  cls:"Sr.", ht:"—", grade:"B+", starter:true},
+      ],
+      SG:[
+        {name:"Kasean Pryor",    cls:"Gr.", ht:"—", grade:"B",  starter:true},
+      ],
+      SF:[
+        {name:"Alvaro Folgueiras",cls:"Sr.",ht:"—", grade:"B+", starter:true},
+      ],
+      PF:[
+        {name:"Kaleb Glenn",     cls:"Sr.", ht:"—", grade:"B+", starter:true},
+      ],
+      C:[
+        {name:"Flory Bidunga",   cls:"Jr.", ht:"—", grade:"A-", starter:true},
+        {name:"London Johnson",  cls:"R-Jr.",ht:"—",grade:"B-"},
+      ],
+    },
+    additions:[],
+    losses:[
+      {pos:"PG", name:"Mikel Brown Jr.",  dest:"Transfer"},
+      {pos:"SG", name:"Isaac McKneeley",  dest:"Graduated"},
+      {pos:"PF", name:"J'Vonne Hadley",   dest:"Graduated"},
+      {pos:"SG", name:"Ryan Conwell",     dest:"Graduated"},
+      {pos:"C",  name:"Sananda Fru",      dest:"Graduated"},
+    ],
+    outlook:`Pat Kelsey's second year brings real optimism to Louisville. Flory Bidunga is one of the ACC's most physically dominant bigs and gives the Cardinals a legitimate anchor. The returning core has ACC experience and the roster construction is more balanced than a year ago. Louisville could be a surprise contender in the conference.`,
+  },
+
+  "Wake Forest":{
+    nick:"Demon Deacons", conf:"ACC", record:"", rank:0,
+    color:"#9E7E38", color2:"#000000", colorRgb:"158,126,56",
+    grades:{roster:"C+", depth:"C", recruit:"C"},
+    coach:"Steve Forbes",
+    depth:{
+      PG:[
+        {name:"Kevair Kennedy",  cls:"So.", ht:"—", grade:"B+", starter:true},
+      ],
+      SG:[
+        {name:"Isaac Carr",      cls:"So.", ht:"—", grade:"B-", starter:true},
+      ],
+      SF:[
+        {name:"Gavin Placide",   cls:"Fr.", ht:"—", grade:"C+", starter:true},
+      ],
+      PF:[
+        {name:"Gallagher Placide",cls:"Fr.",ht:"—", grade:"C+", starter:true},
+      ],
+      C:[
+        {name:"Antonio Dorn",    cls:"So.", ht:"—", grade:"C+", starter:true},
+      ],
+    },
+    additions:[],
+    losses:[
+      {pos:"PF", name:"Omaha Biliew",     dest:"Transfer"},
+      {pos:"C",  name:"Cooper Schwieger", dest:"Graduated"},
+      {pos:"SG", name:"Juke Harris",      dest:"Transfer"},
+      {pos:"SF", name:"Myles Colvin",     dest:"Graduated"},
+      {pos:"PG", name:"Nate Calmese",     dest:"Graduated"},
+      {pos:"PF", name:"Tre'Von Spillers", dest:"Graduated"},
+    ],
+    outlook:`Wake Forest suffered devastating portal losses and Steve Forbes faces a major rebuild. Kevair Kennedy is a legitimate ACC-caliber guard and gives the Deacs a go-to scorer, but he can't do it alone. This is a developmental year for a program that needs portal and recruiting hits to go right to stay competitive.`,
+  },
+
+  "NC State":{
+    nick:"Wolfpack", conf:"ACC", record:"", rank:0,
+    color:"#CC0000", color2:"#231F20", colorRgb:"204,0,0",
+    grades:{roster:"C+", depth:"C", recruit:"C+"},
+    coach:"Justin Gainey",
+    depth:{
+      PG:[
+        {name:"Christian Hammond",cls:"Jr.",ht:"—", grade:"B+", starter:true},
+      ],
+      SG:[
+        {name:"Jerry Deng",      cls:"R-Sr.",ht:"—",grade:"B-", starter:true},
+      ],
+      SF:[
+        {name:"Zymicah Wilkins", cls:"So.", ht:"—", grade:"B-", starter:true},
+      ],
+      PF:[
+        {name:"Musa Sagina",     cls:"So.", ht:"—", grade:"B-", starter:true},
+      ],
+      C:[
+        {name:"Trevon Carter-Givens",cls:"Fr.",ht:"—",grade:"C",starter:true},
+      ],
+    },
+    additions:[],
+    losses:[
+      {pos:"CG", name:"Matt Able",        dest:"Transfer"},
+      {pos:"SG", name:"Paul McNeil",      dest:"Transfer"},
+      {pos:"PG", name:"Quadir Copeland",  dest:"Graduated"},
+      {pos:"SF", name:"Darrion Williams", dest:"Graduated"},
+      {pos:"C",  name:"Ven-Allen Lubin",  dest:"Graduated"},
+    ],
+    outlook:`Justin Gainey takes over an NC State program that needs significant reconstruction after the magical 2024 Final Four run depleted the roster through graduation and transfers. Christian Hammond is a proven scorer who gives Gainey a legitimate building block. Expect growing pains as a young roster adjusts to ACC competition.`,
+  },
+
+  "Boston College":{
+    nick:"Eagles", conf:"ACC", record:"0-0", rank:0,
+    color:"#8B0000", color2:"#A4813A", colorRgb:"139,0,0",
+    grades:{roster:"D", depth:"D", recruit:"C"},
+    coach:"Luke Murray",
+    depth:{
+      PG:[{name:"TBD",cls:"—",ht:"—",grade:"C",starter:true}],
+      SG:[{name:"TBD",cls:"—",ht:"—",grade:"C",starter:true}],
+      SF:[
+        {name:"Jack Bailey",     cls:"R-Fr.",ht:"—",grade:"C",  starter:true},
+      ],
+      PF:[{name:"TBD",cls:"—",ht:"—",grade:"C",starter:true}],
+      C:[{name:"TBD",cls:"—",ht:"—",grade:"C",starter:true}],
+    },
+    additions:[],
+    losses:[
+      {pos:"PG", name:"Luke Toews",       dest:"Transfer"},
+      {pos:"CG", name:"Fred Payne",       dest:"Transfer"},
+      {pos:"SG", name:"Donald Hand",      dest:"Transfer"},
+      {pos:"C",  name:"Boden Kapke",      dest:"Graduated"},
+      {pos:"PF", name:"Aidan Shaw",       dest:"Graduated"},
+    ],
+    outlook:`Luke Murray inherits a Boston College program that lost nearly its entire roster and will be building from scratch. This is a true ground-floor rebuild. The Eagles will compete hard but results may be difficult as Murray installs his system and brings in players who fit his vision.`,
+  },
+
+  "California":{
+    nick:"Golden Bears", conf:"ACC", record:"", rank:0,
+    color:"#003262", color2:"#FDB515", colorRgb:"0,50,98",
+    grades:{roster:"B-", depth:"B-", recruit:"C+"},
+    coach:"Mark Madsen",
+    depth:{
+      PG:[
+        {name:"Michael Cooper Jr.",cls:"So.",ht:"—",grade:"B+",starter:true},
+        {name:"Semetri Carr",    cls:"So.", ht:"—", grade:"B-"},
+        {name:"Jovani Ruff",     cls:"R-Fr.",ht:"—",grade:"C"},
+      ],
+      SG:[
+        {name:"Norjus Indrusaitis",cls:"Jr.",ht:"—",grade:"B",  starter:true},
+      ],
+      SF:[
+        {name:"Jake Wilkins",    cls:"So.", ht:"—", grade:"B",  starter:true},
+        {name:"Dionycius Bakare",cls:"Fr.", ht:"—", grade:"C"},
+      ],
+      PF:[
+        {name:"Sammie Yeanay",   cls:"R-So.",ht:"—",grade:"C",  starter:true},
+      ],
+      C:[
+        {name:"Lee Dort",        cls:"R-Sr.",ht:"—",grade:"B",  starter:true},
+        {name:"Nicolas Mitrovic",cls:"Fr.", ht:"—", grade:"C"},
+        {name:"Mantas Kocanas",  cls:"Jr.", ht:"—", grade:"C+"},
+        {name:"Dhiaukuei Dut",   cls:"Jr.", ht:"—", grade:"C"},
+      ],
+    },
+    additions:[],
+    losses:[
+      {pos:"PG", name:"Justin Pippen",    dest:"Transfer"},
+      {pos:"CG", name:"Dai Dai Ames",     dest:"Graduated"},
+      {pos:"SF", name:"Chris Bell",       dest:"Graduated"},
+      {pos:"PF", name:"John Camden",      dest:"Graduated"},
+    ],
+    outlook:`Mark Madsen has built Cal into a more competitive program with Michael Cooper Jr. as the cornerstone. Cooper is one of the ACC's most versatile guards and gives the Bears a genuine star. The frontcourt depth is adequate but the Bears need perimeter shooting to open things up in ACC play.`,
+  },
+
+  "Syracuse":{
+    nick:"Orange", conf:"ACC", record:"", rank:0,
+    color:"#D44500", color2:"#000E54", colorRgb:"212,69,0",
+    grades:{roster:"B+", depth:"B", recruit:"B"},
+    coach:"Gerry McNamara",
+    depth:{
+      PG:[
+        {name:"Garwey Dual",     cls:"Sr.", ht:"—", grade:"B+", starter:true},
+        {name:"Calvin Russell",  cls:"R-Fr.",ht:"—",grade:"C+"},
+      ],
+      SG:[
+        {name:"Aiden Tobiason",  cls:"Jr.", ht:"—", grade:"B+", starter:true},
+        {name:"Kiyan Anthony",   cls:"So.", ht:"—", grade:"B"},
+      ],
+      SF:[
+        {name:"Gavin Doty",      cls:"Jr.", ht:"—", grade:"A-", starter:true},
+        {name:"Mark Morano Mahmutovic",cls:"Fr.",ht:"—",grade:"C+"},
+      ],
+      PF:[
+        {name:"Sadiq White Jr.", cls:"So.", ht:"—", grade:"B-", starter:true},
+        {name:"Tasman Goodrick", cls:"Sr.", ht:"—", grade:"B+"},
+      ],
+      C:[
+        {name:"Abdramane Siby",  cls:"Fr.", ht:"—", grade:"B-", starter:true},
+      ],
+    },
+    additions:[],
+    losses:[
+      {pos:"PG", name:"Naithan George",   dest:"Transfer"},
+      {pos:"PF", name:"Tyler Betsey",     dest:"Transfer"},
+      {pos:"PF", name:"Donnie Freeman",   dest:"Transfer"},
+      {pos:"CG", name:"JJ Starling",      dest:"Graduated"},
+      {pos:"SG", name:"Nate Kingz",       dest:"Graduated"},
+    ],
+    outlook:`Gerry McNamara inherits a Syracuse squad with genuine ACC talent. Gavin Doty is one of the conference's best wings and Tobiason gives them a proven scoring guard. The zone will be familiar to ACC opponents but this group has the athletes to make it work. Kiyan Anthony's development off the bench could be the X-factor.`,
+  },
+
+  "Pittsburgh":{
+    nick:"Panthers", conf:"ACC", record:"", rank:0,
+    color:"#003594", color2:"#FFB81C", colorRgb:"0,53,148",
+    grades:{roster:"B+", depth:"B", recruit:"B"},
+    coach:"Jeff Capel",
+    depth:{
+      PG:[
+        {name:"Naithan George",  cls:"Sr.", ht:"—", grade:"B+", starter:true},
+      ],
+      SG:[
+        {name:"A'lahn Sumler",   cls:"Sr.", ht:"—", grade:"A-", starter:true},
+        {name:"Jalil Bethea",    cls:"Jr.", ht:"—", grade:"B-"},
+        {name:"Jonathan Powell", cls:"Jr.", ht:"—", grade:"B-"},
+        {name:"Jemel Jones",     cls:"Fr.", ht:"—", grade:"C"},
+        {name:"Macari Moore",    cls:"So.", ht:"—", grade:"C"},
+      ],
+      SF:[
+        {name:"Dominique Diomande",cls:"So.",ht:"—",grade:"C+", starter:true},
+      ],
+      PF:[
+        {name:"Baye Ndongo",     cls:"Sr.", ht:"—", grade:"B+", starter:true},
+        {name:"Chase Foster",    cls:"Fr.", ht:"—", grade:"C"},
+        {name:"Henry Lau",       cls:"R-Fr.",ht:"—",grade:"C"},
+      ],
+      C:[
+        {name:"Amdy Ndiaye",     cls:"Jr.", ht:"—", grade:"B-", starter:true},
+      ],
+    },
+    additions:[],
+    losses:[
+      {pos:"CG", name:"Brandin Cummings",  dest:"Transfer"},
+      {pos:"SG", name:"Omari Witherspoon", dest:"Transfer"},
+      {pos:"PF", name:"Roman Siulepa",     dest:"Transfer"},
+      {pos:"PG", name:"Damarco Minor",     dest:"Graduated"},
+      {pos:"C",  name:"Cameron Corhen",    dest:"Graduated"},
+    ],
+    outlook:`Jeff Capel has assembled a veteran-laden roster at Pittsburgh with real ACC upside. A'lahn Sumler is one of the conference's most dangerous scorers and Naithan George (coming from Syracuse) gives them a true floor general. Baye Ndongo is a physical presence inside. Pitt has enough to be a .500+ ACC team and surprise some people.`,
+  },
+
+  "Virginia Tech":{
+    nick:"Hokies", conf:"ACC", record:"", rank:0,
+    color:"#CF4420", color2:"#630031", colorRgb:"207,68,32",
+    grades:{roster:"B", depth:"B-", recruit:"B"},
+    coach:"Mike Young",
+    depth:{
+      PG:[{name:"TBD",cls:"—",ht:"—",grade:"B",starter:true}],
+      SG:[{name:"TBD",cls:"—",ht:"—",grade:"B",starter:true}],
+      SF:[{name:"TBD",cls:"—",ht:"—",grade:"B",starter:true}],
+      PF:[{name:"TBD",cls:"—",ht:"—",grade:"B",starter:true}],
+      C:[{name:"TBD",cls:"—",ht:"—",grade:"B",starter:true}],
+    },
+    additions:[],
+    losses:[],
+    outlook:`Virginia Tech under Mike Young continues to build through the portal and recruiting. The Hokies have been a consistent ACC presence and will look to compete in the middle of the conference standings. Roster details coming soon.`,
+  },
+    nick:"Yellow Jackets", conf:"ACC", record:"0-0", rank:0,
+    color:"#B3A369", color2:"#003057", colorRgb:"179,163,105",
+    grades:{roster:"C", depth:"C", recruit:"C"},
+    coach:"Scott Cross",
+    depth:{
+      PG:[{name:"TBD",cls:"—",ht:"—",grade:"C",starter:true}],
+      SG:[{name:"TBD",cls:"—",ht:"—",grade:"C",starter:true}],
+      SF:[
+        {name:"Kam Craft",       cls:"Sr.", ht:"—", grade:"B-", starter:true},
+      ],
+      PF:[
+        {name:"Tylis Jordan",    cls:"R-Fr.",ht:"—",grade:"C",  starter:true},
+      ],
+      C:[
+        {name:"Cole Kirouac",    cls:"So.", ht:"—", grade:"C+", starter:true},
+      ],
+    },
+    additions:[],
+    losses:[
+      {pos:"CG", name:"Akai Fleming",    dest:"Transfer"},
+      {pos:"C",  name:"Mouhamed Sylla",  dest:"Transfer"},
+      {pos:"PF", name:"Baye Ndongo",     dest:"Transfer"},
+      {pos:"SG", name:"Kowacie Reeves Jr.",dest:"Graduated"},
+      {pos:"PG", name:"Lamar Washington",dest:"Graduated"},
+    ],
+    outlook:`Scott Cross starts from scratch at Georgia Tech after one of the ACC's most significant roster overhauls. Kam Craft gives the Yellow Jackets some continuity and experience, but this is a team in full rebuild mode. Cross has a strong track record at smaller programs and will need time to build the roster to ACC standards.`,
+  },
+};
+
+function gc(g){const m={"A+":"gAp","A":"gA","A-":"gAm","B+":"gBp","B":"gB","B-":"gBm","C+":"gCp","C":"gC","D":"gD"};return m[g]||"gB";}
+function gColor(g){if(g.startsWith("A"))return "#5ab875";if(g.startsWith("B"))return "#5b9bd5";if(g.startsWith("C"))return "#d4a444";return "#e05555";}
+
+// Basket at BOTTOM (y~0.88), half-court line at TOP (y~0)
+// 3pt arc curves above FT circle
+const POS_XY = {
+  PG: {x:.50, y:.25},   // top of key — near 3pt line
+  SG: {x:.16, y:.42},   // left wing outside arc
+  SF: {x:.84, y:.42},   // right wing outside arc
+  PF: {x:.20, y:.74},   // left elbow / low post
+  C:  {x:.50, y:.80},   // paint near basket
+};
+
+function drawCourt(svg, color){
+  const lc = color+"88";
+  const lw = 2.5;
+  const W = 700, H = 620;
+  svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
+
+  const cx = 350;           // center x
+  const baseY = H - 20;     // baseline y
+  const topY  = 20;         // half-court line y
+  const basketY = baseY - 48;  // basket y = 552
+  const backboardY = baseY - 30; // backboard
+
+  // Paint dims
+  const paintW = 240;
+  const paintH = 260;
+  const paintL = cx - paintW/2;   // 230
+  const paintR = cx + paintW/2;   // 470
+  const paintTop = basketY - paintH; // 292
+
+  // FT circle center
+  const ftY = paintTop;  // 292
+
+  svg.innerHTML=`
+    <rect width="${W}" height="${H}" fill="#0a0a0a"/>
+    <rect width="${W}" height="${H}" fill="${color}" opacity=".04"/>
+
+    <!-- Half-court line -->
+    <line x1="20" y1="${topY}" x2="${W-20}" y2="${topY}"
+          stroke="${lc}" stroke-width="${lw}"/>
+    <!-- Half-court circle (arc below line) -->
+    <path d="M${cx-56} ${topY} A56 56 0 0 0 ${cx+56} ${topY}"
+          fill="none" stroke="${lc}" stroke-width="${lw}"/>
+
+    <!-- Side lines -->
+    <line x1="20" y1="${topY}" x2="20" y2="${baseY}" stroke="${lc}" stroke-width="${lw}"/>
+    <line x1="${W-20}" y1="${topY}" x2="${W-20}" y2="${baseY}" stroke="${lc}" stroke-width="${lw}"/>
+
+    <!-- Baseline -->
+    <line x1="20" y1="${baseY}" x2="${W-20}" y2="${baseY}" stroke="${lc}" stroke-width="${lw}"/>
+
+    <!-- 3-point corner lines (from baseline up) -->
+    <line x1="90" y1="${baseY}" x2="90" y2="${basketY+60}"
+          stroke="${lc}" stroke-width="${lw}"/>
+    <line x1="${W-90}" y1="${baseY}" x2="${W-90}" y2="${basketY+60}"
+          stroke="${lc}" stroke-width="${lw}"/>
+    <!-- 3-point arc (sweeps above FT circle) -->
+    <path d="M90 ${basketY+60} A278 278 0 0 1 ${W-90} ${basketY+60}"
+          fill="none" stroke="${lc}" stroke-width="${lw}"/>
+
+    <!-- Paint -->
+    <rect x="${paintL}" y="${paintTop}" width="${paintW}" height="${paintH}"
+          fill="${color}" opacity=".08"
+          stroke="${lc}" stroke-width="${lw}"/>
+
+    <!-- Inner lane lines -->
+    <line x1="${paintL+38}" y1="${paintTop}" x2="${paintL+38}" y2="${basketY}"
+          stroke="${lc}" stroke-width="1.2" opacity=".5"/>
+    <line x1="${paintR-38}" y1="${paintTop}" x2="${paintR-38}" y2="${basketY}"
+          stroke="${lc}" stroke-width="1.2" opacity=".5"/>
+
+    <!-- Hash marks (4 pairs) -->
+    <line x1="${paintL}"    y1="${paintTop+52}"  x2="${paintL+24}"  y2="${paintTop+52}"  stroke="${lc}" stroke-width="${lw}"/>
+    <line x1="${paintR}"    y1="${paintTop+52}"  x2="${paintR-24}"  y2="${paintTop+52}"  stroke="${lc}" stroke-width="${lw}"/>
+    <line x1="${paintL}"    y1="${paintTop+100}" x2="${paintL+24}"  y2="${paintTop+100}" stroke="${lc}" stroke-width="${lw}"/>
+    <line x1="${paintR}"    y1="${paintTop+100}" x2="${paintR-24}"  y2="${paintTop+100}" stroke="${lc}" stroke-width="${lw}"/>
+    <line x1="${paintL}"    y1="${paintTop+148}" x2="${paintL+24}"  y2="${paintTop+148}" stroke="${lc}" stroke-width="${lw}"/>
+    <line x1="${paintR}"    y1="${paintTop+148}" x2="${paintR-24}"  y2="${paintTop+148}" stroke="${lc}" stroke-width="${lw}"/>
+    <line x1="${paintL}"    y1="${paintTop+196}" x2="${paintL+24}"  y2="${paintTop+196}" stroke="${lc}" stroke-width="${lw}"/>
+    <line x1="${paintR}"    y1="${paintTop+196}" x2="${paintR-24}"  y2="${paintTop+196}" stroke="${lc}" stroke-width="${lw}"/>
+
+    <!-- Free throw line -->
+    <line x1="${paintL}" y1="${ftY}" x2="${paintR}" y2="${ftY}"
+          stroke="${lc}" stroke-width="${lw}"/>
+
+    <!-- Free throw circle (full) -->
+    <circle cx="${cx}" cy="${ftY}" r="72"
+            fill="none" stroke="${lc}" stroke-width="${lw}"/>
+
+    <!-- Backboard -->
+    <line x1="${cx-58}" y1="${backboardY}" x2="${cx+58}" y2="${backboardY}"
+          stroke="${lc}" stroke-width="${lw+2.5}"/>
+
+    <!-- Basket rim -->
+    <circle cx="${cx}" cy="${basketY}" r="22"
+            fill="none" stroke="${lc}" stroke-width="${lw+.5}"/>
+
+    <!-- Restricted arc (above basket) -->
+    <path d="M${cx-44} ${basketY} A44 44 0 0 1 ${cx+44} ${basketY}"
+          fill="none" stroke="${lc}" stroke-width="${lw}" stroke-dasharray="5,4"/>
+
+    <!-- Watermark -->
+    <text x="${cx}" y="140" text-anchor="middle"
+          font-family="'Playfair Display',serif" font-size="13"
+          fill="${color}" opacity=".1" letter-spacing="5" font-style="italic">
+      The Depth Chart
+    </text>
+  `;
+}
+
+function renderCourt(t){
+  const svg = document.getElementById("courtSvg");
+  document.getElementById("courtLine").style.background = t.color;
+  drawCourt(svg, t.color);
+  document.getElementById("courtPlayers").innerHTML = Object.entries(t.depth).map(([pos,players])=>{
+    if(!players.length) return "";
+    const starter = players.find(p=>p.starter) || players[0];
+    const backups = players.filter(p=>!p.starter);
+    const {x,y} = POS_XY[pos];
+    const dotColor = gColor(starter.grade);
+    const lastName = starter.name.split(" ").slice(-1)[0];
+    const bkHtml = backups.map((b,i)=>
+      `<div class="pnode-backup ${i===0?'b1':''}">${i+1}. ${b.name.split(" ").slice(-1)[0]}</div>`
+    ).join("");
+    return `<div class="pnode" style="left:${x*100}%;top:${y*100}%;">
+      <div class="pnode-circle" style="background:${t.color};">
+        <div class="pnode-pos">${pos}</div>
+        <div class="pnode-name">${lastName}</div>
+        <div class="pnode-grade ${gc(starter.grade)}" style="background:#111;border-color:#111;">${starter.grade}</div>
+      </div>
+      <div class="pnode-backups">${bkHtml}</div>
+    </div>`;
+  }).join("");
+}
+
+function renderDepth(t){
+  const positions = ["PG","SG","SF","PF","C"];
+
+  // Build starters grid
+  const startersHtml = positions.map(pos => {
+    const players = t.depth[pos] || [];
+    const starter = players.find(p=>p.starter) || players[0];
+    const backups  = players.filter(p=>!p.starter);
+    if(!starter) return `<div class="starter-col"></div>`;
+
+    const backupHtml = backups.length ? `
+      <div class="backup-chain">
+        ${backups.map((b,i)=>`
+        <div class="backup-item">
+          <span class="backup-num">${i+2}</span>
+          <span class="backup-name">${b.name}</span>
+          <span class="backup-cls">${b.cls}</span>
+          <span class="backup-grade ${gc(b.grade)}">${b.grade}</span>
+        </div>`).join("")}
+      </div>` : '';
+
+    return `<div class="starter-col">
+      <div class="starter-col-head" style="border-bottom-color:${t.color};background:rgba(${t.colorRgb},.08);">
+        <span class="starter-pos">${pos}</span>
+        <span class="starter-col-grade ${gc(starter.grade)}">${starter.grade}</span>
+      </div>
+      <div class="starter-col-body">
+        <div class="starter-name">${starter.name}</div>
+        <div class="starter-meta-row">
+          <span>${starter.cls}</span>
+          <span>·</span>
+          <span>${starter.ht}</span>
+          <span class="starter-tag" style="background:rgba(${t.colorRgb},.12);color:${t.color};">★</span>
+        </div>
+        ${starter.note ? `<div class="starter-note">${starter.note}</div>` : ''}
+      </div>
+      ${backupHtml}
+    </div>`;
+  }).join("");
+
+  // Collect all non-starters for rotation section
+  const rotation = [];
+  positions.forEach(pos => {
+    const players = t.depth[pos] || [];
+    players.filter(p=>!p.starter).forEach(p => rotation.push({...p, pos}));
+  });
+
+  const rotationHtml = rotation.length ? `
+    <div class="rotation-section">
+      <div class="rotation-head">Rotation — 6 through ${5+rotation.length}</div>
+      ${rotation.map((p,i)=>`
+      <div class="rotation-row">
+        <div class="rot-num">${i+6}</div>
+        <div class="rot-pos">${p.pos}</div>
+        <div class="rot-name">${p.name}</div>
+        <div class="rot-cls">${p.cls}</div>
+        <div class="rot-ht">${p.ht}</div>
+        <div class="rot-grade ${gc(p.grade)}">${p.grade}</div>
+      </div>`).join("")}
+    </div>` : '';
+
+  document.getElementById("depthContent").innerHTML = `
+    <div class="starters-grid">${startersHtml}</div>
+    ${rotationHtml}`;
+}
+
+function renderSidebar(t){
+  // Grade card
+  document.getElementById("gradeCardHead").style.color = t.color;
+  document.getElementById("gradeCardBody").innerHTML = [
+    {label:"Overall Roster", val:t.grades.roster},
+    {label:"Bench Depth",    val:t.grades.depth},
+    {label:"Recruiting Class",val:t.grades.recruit},
+  ].map(g=>`
+    <div class="grade-row">
+      <span class="grade-row-label">${g.label}</span>
+      <span class="grade-row-val ${gc(g.val)}">${g.val}</span>
+    </div>`).join("");
+
+  // Additions
+  document.getElementById("additionsBody").innerHTML = t.additions.map(a=>`
+    <div class="portal-item">
+      <span class="portal-pos">${a.pos}</span>
+      <div style="flex:1;">
+        <div class="portal-name">${a.name}</div>
+        <div class="portal-from">from ${a.from}</div>
+      </div>
+      <span class="portal-grade ${gc(a.grade)}">${a.grade}</span>
+    </div>`).join("");
+
+  // Losses
+  document.getElementById("lossesBody").innerHTML = t.losses.map(l=>`
+    <div class="portal-item">
+      <span class="portal-pos">${l.pos}</span>
+      <div style="flex:1;">
+        <div class="portal-name">${l.name}</div>
+        <div class="portal-from">${l.dest}</div>
+      </div>
+    </div>`).join("");
+}
+
+function renderOutlook(t){
+  document.getElementById("outlookText").innerHTML =
+    t.outlook.split("\n\n").map(p=>`<p>${p}</p>`).join("");
+}
+
+function init(){
+  const params = new URLSearchParams(window.location.search);
+  const key = params.get("team") || "Duke";
+  const t = TEAMS[key] || TEAMS["Duke"];
+
+  // CSS vars
+  document.documentElement.style.setProperty("--tc", t.color);
+  document.documentElement.style.setProperty("--tc-rgb", t.colorRgb);
+  document.documentElement.style.setProperty("--tc2", t.color2);
+
+  document.title = `${key} — The Depth Chart`;
+  document.getElementById("bcTeam").textContent = key;
+  document.getElementById("heroConf").textContent = t.conf;
+  document.getElementById("heroConf").style.color = t.color;
+  document.getElementById("heroLine").style.background = t.color;
+  document.getElementById("heroName").textContent = key;
+  document.getElementById("heroNick").textContent = t.nick;
+  document.getElementById("heroRecord").textContent = t.record;
+  document.getElementById("heroRank").textContent = t.rank > 0 ? `#${t.rank} TDC` : `ACC`;
+  document.getElementById("heroRank").style.borderColor = t.color;
+  document.getElementById("heroRank").style.color = t.color;
+  document.getElementById("heroCoach").textContent = t.coach ? `HC: ${t.coach}` : '';
+
+  document.getElementById("heroGrades").innerHTML = [
+    {val:t.grades.roster,  lbl:"Roster"},
+    {val:t.grades.depth,   lbl:"Depth"},
+    {val:t.grades.recruit, lbl:"Recruit"},
+  ].map(g=>`
+    <div class="hero-grade">
+      <div class="hero-grade-val ${gc(g.val)}">${g.val}</div>
+      <div class="hero-grade-label">${g.lbl}</div>
+    </div>`).join("");
+
+  renderDepth(t);
+  renderCourt(t);
+  renderSidebar(t);
+  renderOutlook(t);
+}
+
+function switchTab(id, btn){
+  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+  document.querySelectorAll(".hero-tab").forEach(b=>b.classList.remove("active"));
+  document.getElementById("panel-"+id).classList.add("active");
+  btn.classList.add("active");
+}
+
+init();
+</script>
+</body>
+</html>
