@@ -81,14 +81,18 @@
     .rotation-section{margin-top:8px;}
     .rotation-head{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:4px;display:flex;align-items:center;gap:10px;}
     .rotation-head::after{content:'';flex:1;height:1px;background:var(--border);}
-    .rotation-row{display:grid;grid-template-columns:28px 36px 1fr 44px 44px 36px;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);}
+    .rotation-row{display:grid;grid-template-columns:28px 36px 1fr 44px 52px 52px 52px 52px 52px;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);}
     .rotation-row:last-child{border-bottom:none;}
     .rot-num{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text3);text-align:center;}
     .rot-pos{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
     .rot-name{font-size:14px;font-weight:600;color:var(--text2);}
     .rot-cls{font-size:11px;color:var(--text3);}
-    .rot-ht{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text3);}
+    .rot-stat{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text3);text-align:right;}
+    .rot-stat.has-val{color:var(--text2);font-weight:600;}
     .rot-grade{font-family:'Playfair Display',serif;font-weight:700;font-size:15px;text-align:right;}
+    .stat-header{display:grid;grid-template-columns:28px 36px 1fr 44px 52px 52px 52px 52px 52px;align-items:center;gap:8px;padding:6px 0;border-bottom:2px solid var(--border2);}
+    .stat-header-cell{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);text-align:right;}
+    .stat-header-cell.left{text-align:left;}
 
     /* GRADE COLORS */
     .gAp{color:#1a8c3a;}.gA{color:#1a8c3a;}.gAm{color:#2ea84f;}
@@ -217,8 +221,6 @@ const SB_URL = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const SB_KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` };
 
-const POS_ORDER = ['PG','SG','SF','PF','C'];
-
 function gc(g){return {"A+":"gAp","A":"gA","A-":"gAm","B+":"gBp","B":"gB","B-":"gBm","C+":"gCp","C":"gC","D":"gD"}[g]||"";}
 
 function setColor(color, rgb){
@@ -294,6 +296,8 @@ function renderHero(t){
     {val: t.roster_grade  || '—', lbl:'Roster'},
     {val: t.depth_grade   || '—', lbl:'Depth'},
     {val: t.recruit_grade || '—', lbl:'Recruit'},
+    {val: t.nil_grade   || '—', lbl:'NIL $'},
+    {val: t.nil_tier    || '—', lbl: (({'Tier 1':'$20M+','Tier 2':'$16-20M','Tier 3':'$11-16M','Tier 4':'$9-11M','Tier 5':'$6-9M','Tier 6':'$4-6M','Tier 7':'$2-4M','Tier 8':'$500K-2M','Tier 9':'$0-500K'})[t.nil_tier]||'NIL Tier')},
   ].map(g=>`
     <div class="hero-grade">
       <div class="hero-grade-val ${gc(g.val)}">${g.val}</div>
@@ -302,28 +306,24 @@ function renderHero(t){
 }
 
 function renderDepth(t, players){
-  // Group players by position
-  const byPos = {};
-  POS_ORDER.forEach(p => byPos[p] = []);
-  players.forEach(p => {
-    const pos = p.position || 'PG';
-    if(!byPos[pos]) byPos[pos] = [];
-    byPos[pos].push(p);
-  });
-
   const color = t.color || t.primary_color || '#888';
   const rgb   = document.documentElement.style.getPropertyValue('--tc-rgb').trim() || '100,100,100';
 
-  // Starters grid
-  const startersHtml = POS_ORDER.map(pos => {
-    const list    = byPos[pos] || [];
-    const starter = list.find(p=>p.starter) || list[0];
-    const backups = list.filter(p=>!p.starter);
-    if(!starter) return `<div class="starter-col"><div class="starter-col-head" style="border-bottom-color:${color};background:rgba(${rgb},.08);"><span class="starter-pos">${pos}</span></div></div>`;
+  // Sort players by depth_order (sheet order)
+  const sorted = [...players].sort((a,b) => (a.depth_order||0) - (b.depth_order||0));
 
-    const backupHtml = backups.length ? `
+  // Starters = first 5 in sheet order (marked starter:true), bench = rest
+  const starters = sorted.filter(p => p.starter).slice(0,5);
+  const bench    = sorted.filter(p => !p.starter);
+
+  // Build starters grid using actual positions from sheet
+  const startersHtml = starters.map(p => {
+    // Find backups at same position
+    const posBackups = bench.filter(b => b.position === p.position);
+
+    const backupHtml = posBackups.length ? `
       <div class="backup-chain">
-        ${backups.map((b,i)=>`
+        ${posBackups.map((b,i)=>`
         <div class="backup-item">
           <span class="backup-num">${i+2}</span>
           <span class="backup-name">${b.name}</span>
@@ -334,14 +334,13 @@ function renderDepth(t, players){
 
     return `<div class="starter-col">
       <div class="starter-col-head" style="border-bottom-color:${color};background:rgba(${rgb},.08);">
-        <span class="starter-pos">${pos}</span>
-        <span class="starter-col-grade ${gc(starter.tdc_grade||'')}">${starter.tdc_grade||''}</span>
+        <span class="starter-pos">${p.position||''}</span>
+        <span class="starter-col-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||''}</span>
       </div>
       <div class="starter-col-body">
-        <div class="starter-name">${starter.name}</div>
+        <div class="starter-name">${p.name}</div>
         <div class="starter-meta-row">
-          <span>${starter.class_year||starter.yr||''}</span>
-          ${starter.height ? `<span>·</span><span>${starter.height}</span>` : ''}
+          <span>${p.class_year||p.yr||''}</span>
           <span class="starter-tag" style="background:rgba(${rgb},.12);color:${color};">★</span>
         </div>
       </div>
@@ -349,30 +348,41 @@ function renderDepth(t, players){
     </div>`;
   }).join('');
 
-  // Full roster list
-  const allPlayers = [];
-  POS_ORDER.forEach(pos => {
-    const list = byPos[pos] || [];
-    const starter = list.find(p=>p.starter) || list[0];
-    if(starter) allPlayers.push({...starter, pos, isStarter:true});
-  });
-  POS_ORDER.forEach(pos => {
-    (byPos[pos]||[]).filter(p=>!p.starter).forEach(p => allPlayers.push({...p, pos, isStarter:false}));
-  });
+  // Full roster list — all players in sheet order, starters highlighted
+  const fmt = v => (v !== null && v !== undefined && v !== '') ? Number(v).toFixed(1) : '—';
 
-  const fullListHtml = allPlayers.length ? `
+  const fullListHtml = `
     <div class="rotation-section">
-      <div class="rotation-head">Full Roster — ${allPlayers.length} Players</div>
-      ${allPlayers.map((p,i)=>`
-      <div class="rotation-row" style="${p.isStarter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
-        <div class="rot-num" style="${p.isStarter?`color:${color};font-weight:700;`:''}">${i+1}</div>
-        <div class="rot-pos" style="${p.isStarter?`color:${color};`:''}">${p.pos}</div>
-        <div class="rot-name" style="${p.isStarter?'color:var(--text);font-weight:600;':''}">${p.name}${p.isStarter?` <span style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:1px 5px;background:rgba(${rgb},.15);color:${color};">★</span>`:''}</div>
+      <div class="rotation-head">Full Roster — ${sorted.length} Players</div>
+      <div class="stat-header">
+        <div class="stat-header-cell"></div>
+        <div class="stat-header-cell left">Pos</div>
+        <div class="stat-header-cell left">Name</div>
+        <div class="stat-header-cell">Yr</div>
+        <div class="stat-header-cell">PPG</div>
+        <div class="stat-header-cell">RPG</div>
+        <div class="stat-header-cell">APG</div>
+        <div class="stat-header-cell">MPG</div>
+        <div class="stat-header-cell">BPM</div>
+      </div>
+      ${sorted.map((p,i)=>`
+      <div class="rotation-row" style="${p.starter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
+        <div class="rot-num" style="${p.starter?`color:${color};font-weight:700;`:''}">${i+1}</div>
+        <div class="rot-pos" style="${p.starter?`color:${color};`:''}">${p.position||''}</div>
+        <div class="rot-name" style="${p.starter?'color:var(--text);font-weight:700;':''}">
+          ${p.name}
+          ${p.starter?`<span style="font-size:9px;font-weight:700;letter-spacing:.08em;padding:1px 5px;background:rgba(${rgb},.15);color:${color};">★</span>`:''}
+          ${p.starter?`<span style="font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border:1px solid #ccc;color:var(--text3);margin-left:4px;">RET</span>`:''}
+          ${p.hometown?`<span style="font-size:10px;color:var(--text3);font-style:italic;margin-left:6px;">via ${p.hometown}</span>`:''}
+        </div>
         <div class="rot-cls">${p.class_year||p.yr||''}</div>
-        <div class="rot-ht">${p.height||'—'}</div>
-        <div class="rot-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||''}</div>
+        <div class="rot-stat ${p.ppg?'has-val':''}">${fmt(p.ppg)}</div>
+        <div class="rot-stat ${p.rpg?'has-val':''}">${fmt(p.rpg)}</div>
+        <div class="rot-stat ${p.apg?'has-val':''}">${fmt(p.apg)}</div>
+        <div class="rot-stat ${p.mpg?'has-val':''}">${fmt(p.mpg)}</div>
+        <div class="rot-stat ${p.bpm?'has-val':''}">${fmt(p.bpm)}</div>
       </div>`).join('')}
-    </div>` : '';
+    </div>`;
 
   document.getElementById('depthContent').innerHTML =
     `<div class="starters-grid">${startersHtml}</div>${fullListHtml}`;
@@ -398,7 +408,7 @@ function renderSidebar(t, players, losses){
         <span class="portal-pos">${a.position||''}</span>
         <div style="flex:1;">
           <div class="portal-name">${a.name}</div>
-          <div class="portal-from">${a.class_year||a.yr||''}</div>
+          <div class="portal-from">${a.class_year||a.yr||''}${a.hometown ? ' · via '+a.hometown : ''}</div>
         </div>
       </div>`).join('')
     : '<div class="empty-note">None listed</div>';
@@ -410,7 +420,7 @@ function renderSidebar(t, players, losses){
         <span class="portal-pos">${l.pos||''}</span>
         <div style="flex:1;">
           <div class="portal-name">${l.name}</div>
-          <div class="portal-from">${l.dest||''}</div>
+          <div class="portal-from">${l.yr||''}</div>
         </div>
       </div>`).join('')
     : '<div class="empty-note">None listed</div>';
