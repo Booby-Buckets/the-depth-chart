@@ -43,6 +43,8 @@
     .th.center{text-align:center;}
     .team-row{display:grid;grid-template-columns:48px 12px 1fr 80px 80px 80px 80px 80px;gap:0;padding:14px 0;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background .15s;}
     .team-row:hover{background:var(--bg2);}
+    .team-row.fav-row{background:var(--fav-bg, rgba(200,169,110,.06));border-left:3px solid var(--fav-color, var(--accent));}
+    .team-row.fav-row:hover{background:var(--fav-bg-hover, rgba(200,169,110,.1));}
     .tr-rank{font-family:'Playfair Display',serif;font-weight:700;font-size:22px;color:var(--border2);text-align:center;}
     .team-row:hover .tr-rank{color:var(--text3);}
     .tr-color-bar{width:4px;height:100%;border-radius:2px;align-self:stretch;}
@@ -222,6 +224,13 @@ function setConf(conf,btn){
 function applyFilters(){
   const search = document.getElementById('searchInput').value.toLowerCase().trim();
   const srt    = document.getElementById('sortSel').value;
+  const favTeam = localStorage.getItem('tdc_fav') || '';
+  const favData = favTeam ? allTeams.find(t=>t.name===favTeam) : null;
+  const favColor = favData?.color || null;
+  const favBg = favColor ? (()=>{
+    const h=favColor.replace('#',''); const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+    return `rgba(${r},${g},${b},.07)`;
+  })() : null;
 
   let data = allTeams.filter(t=>{
     if(confFilter && t.conf!==confFilter) return false;
@@ -257,7 +266,8 @@ function applyFilters(){
       lastGrade=grp;
     }
     html+=`
-    <div class="team-row" onclick="location='team.html?team=${encodeURIComponent(t.name)}'">
+    <div class="team-row${t.name===favTeam?' fav-row':''}" onclick="location='team.html?team=${encodeURIComponent(t.name)}'"
+      style="${t.name===favTeam&&favColor?`border-left:3px solid ${favColor};background:${favBg};`:''}">
       <div class="tr-rank">${t.rk<9999?t.rk:'—'}</div>
       <div class="tr-color-bar" style="background:${t.color}"></div>
       <div>

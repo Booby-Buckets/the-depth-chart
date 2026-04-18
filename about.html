@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>About — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,600;1,700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#ffffff;--bg2:#f5f5f5;--border:#e0e0e0;--border2:#cccccc;--text:#111111;--text2:#444444;--text3:#888888;--accent:#8B6914;--green:#1a8c3a;--red:#cc2200;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
+    .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;letter-spacing:-.01em;}
+    .nav-logo span{color:var(--accent);}
+    .nav-actions{display:flex;align-items:center;gap:24px;}
+    .nav-actions a{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;}
+    .nav-actions a:hover{color:var(--text);}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 16px;height:100%;display:flex;align-items:center;border-bottom:2px solid transparent;transition:all .15s;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
+
+    .page{max-width:800px;margin:0 auto;padding:60px 40px;}
+
+    .page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px;display:flex;align-items:center;gap:10px;}
+    .page-eyebrow::before{content:'';width:20px;height:1px;background:var(--accent);}
+    .page-h1{font-family:'Playfair Display',serif;font-weight:800;font-size:44px;line-height:1;letter-spacing:-.02em;margin-bottom:32px;}
+
+    .prose{font-family:'Source Serif 4',serif;font-size:17px;line-height:1.85;color:var(--text2);}
+    .prose p+p{margin-top:20px;}
+    .prose strong{color:var(--text);font-weight:600;}
+
+    .divider{height:1px;background:var(--border);margin:48px 0;}
+
+    .what-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:32px 0;}
+    .what-card{border:1px solid var(--border);padding:24px;}
+    .what-card-icon{font-size:22px;margin-bottom:12px;}
+    .what-card-title{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;margin-bottom:8px;}
+    .what-card-text{font-size:13px;color:var(--text3);line-height:1.6;}
+
+    .section-title{font-family:'Playfair Display',serif;font-weight:700;font-size:28px;margin-bottom:8px;}
+    .section-sub{font-size:14px;color:var(--text3);margin-bottom:28px;line-height:1.6;}
+
+    .form-group{margin-bottom:18px;}
+    .form-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:6px;}
+    .form-input{width:100%;padding:10px 14px;border:1px solid var(--border2);background:var(--bg);font-family:'Inter',sans-serif;font-size:14px;font-weight:500;color:var(--text);outline:none;transition:border-color .15s;}
+    .form-input:focus{border-color:var(--accent);}
+    .form-textarea{width:100%;padding:10px 14px;border:1px solid var(--border2);background:var(--bg);font-family:'Inter',sans-serif;font-size:14px;font-weight:500;color:var(--text);outline:none;resize:vertical;min-height:120px;transition:border-color .15s;}
+    .form-textarea:focus{border-color:var(--accent);}
+    .form-btn{padding:12px 28px;background:var(--text);color:var(--bg);border:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:opacity .15s;}
+    .form-btn:hover{opacity:.85;}
+    .form-select{width:100%;padding:10px 14px;border:1px solid var(--border2);background:var(--bg);font-family:'Inter',sans-serif;font-size:14px;font-weight:500;color:var(--text);outline:none;cursor:pointer;}
+    .msg{padding:10px 14px;font-size:13px;font-weight:600;margin-top:16px;display:none;}
+    .msg.success{background:rgba(26,140,58,.08);color:var(--green);border:1px solid rgba(26,140,58,.2);}
+    .msg.error{background:rgba(204,34,0,.08);color:var(--red);border:1px solid rgba(204,34,0,.2);}
+    .msg.show{display:block;}
+
+    .contact-alt{margin-top:20px;font-size:13px;color:var(--text3);}
+    .contact-alt a{color:var(--accent);text-decoration:none;font-weight:600;}
+    .contact-alt a:hover{text-decoration:underline;}
+
+    footer{border-top:1px solid var(--border);padding:28px 40px;display:flex;align-items:center;justify-content:space-between;margin-top:40px;}
+    .footer-logo{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text3);}
+    .footer-logo span{color:var(--accent);}
+    .footer-meta{font-size:11px;font-weight:600;color:var(--text3);}
+
+    @media(max-width:700px){
+      .what-grid{grid-template-columns:1fr;}
+      .page{padding:40px 20px;}
+      .nav-top,.nav-sub{padding-left:20px;padding-right:20px;}
+      .page-h1{font-size:32px;}
+    }
+  </style>
+</head>
+<body>
+
+<div class="nav-wrap">
+  <div class="nav-top">
+    <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+    <div class="nav-actions">
+      <a href="pricing.html">Pricing</a>
+    </div>
+  </div>
+  <div class="nav-sub">
+    <a href="index.html">Rankings</a>
+    <a href="about.html" class="active">About</a>
+    <a href="pricing.html">Pricing</a>
+  </div>
+</div>
+
+<div class="page">
+
+  <div class="page-eyebrow">About</div>
+  <h1 class="page-h1">The Depth Chart</h1>
+
+  <div class="prose">
+    <p>The Depth Chart is an independent college basketball roster analysis site covering every major conference program. We break down rosters the way coaches and scouts do — by depth, position, individual grades, and offseason movement.</p>
+    <p>Every team page includes a <strong>starting five depth chart</strong>, full roster with player grades and stats, offseason additions with transfer origins, key losses, and NIL evaluations. The rankings page lets you sort and filter every program by roster grade, depth, recruiting class, and NIL spending tier.</p>
+    <p>This isn't a stats aggregator. Every grade and evaluation is hand-assigned based on film, context, and roster construction — not just box scores. The goal is to give fans, bettors, and basketball people a cleaner picture of where programs actually stand heading into a season.</p>
+  </div>
+
+  <div class="what-grid">
+    <div class="what-card">
+      <div class="what-card-icon">📋</div>
+      <div class="what-card-title">Depth Charts</div>
+      <div class="what-card-text">Starting five grids built from the actual roster order — not projected. Backups listed by position with individual grades.</div>
+    </div>
+    <div class="what-card">
+      <div class="what-card-icon">📊</div>
+      <div class="what-card-title">Player Grades</div>
+      <div class="what-card-text">Every player on every roster receives an individual grade from A+ to F based on their role, production, and impact.</div>
+    </div>
+    <div class="what-card">
+      <div class="what-card-icon">🔄</div>
+      <div class="what-card-title">Transfer Tracking</div>
+      <div class="what-card-text">Every offseason addition is tracked with their origin school. Key losses are listed for every program too.</div>
+    </div>
+    <div class="what-card">
+      <div class="what-card-icon">💰</div>
+      <div class="what-card-title">NIL Evaluations</div>
+      <div class="what-card-text">Each program receives an NIL spending grade and tier estimate — from Tier 1 ($20M+) down to Tier 9 ($0–500K).</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- FEEDBACK FORM -->
+  <div class="section-title">Leave Feedback</div>
+  <p class="section-sub">Have a correction, suggestion, or question? Send it through and I'll get back to you.</p>
+
+  <div class="form-group">
+    <label class="form-label">Your Email</label>
+    <input class="form-input" type="email" id="fbEmail" placeholder="you@example.com"/>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Type</label>
+    <select class="form-select" id="fbType">
+      <option value="feedback">General Feedback</option>
+      <option value="correction">Roster Correction</option>
+      <option value="suggestion">Feature Suggestion</option>
+      <option value="question">Question</option>
+      <option value="other">Other</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Message</label>
+    <textarea class="form-textarea" id="fbMessage" placeholder="What's on your mind?"></textarea>
+  </div>
+  <button class="form-btn" onclick="sendFeedback()">Send Feedback</button>
+  <div class="msg" id="fbMsg"></div>
+
+  <div class="contact-alt">Or email directly at <a href="mailto:boobylee383@gmail.com">boobylee383@gmail.com</a></div>
+
+</div>
+
+<footer>
+  <div class="footer-logo">The Depth <span>Chart</span></div>
+  <div class="footer-meta">College Basketball Roster Analysis · 2025–26</div>
+</footer>
+
+<script>
+async function sendFeedback(){
+  const email   = document.getElementById('fbEmail').value.trim();
+  const type    = document.getElementById('fbType').value;
+  const message = document.getElementById('fbMessage').value.trim();
+  const msgEl   = document.getElementById('fbMsg');
+
+  if(!email || !message){
+    msgEl.textContent = 'Please fill in your email and message.';
+    msgEl.className = 'msg error show';
+    return;
+  }
+
+  // Send via mailto as fallback (no backend needed)
+  const subject = encodeURIComponent(`[The Depth Chart] ${type.charAt(0).toUpperCase()+type.slice(1)}`);
+  const body    = encodeURIComponent(`From: ${email}\nType: ${type}\n\n${message}`);
+  window.location.href = `mailto:boobylee383@gmail.com?subject=${subject}&body=${body}`;
+
+  msgEl.textContent = 'Opening your email client... Thanks for the feedback!';
+  msgEl.className = 'msg success show';
+}
+</script>
+
+</body>
+</html>

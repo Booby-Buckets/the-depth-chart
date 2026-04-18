@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pricing — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,600;1,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#ffffff;--bg2:#f5f5f5;--border:#e0e0e0;--border2:#cccccc;--text:#111111;--text2:#444444;--text3:#888888;--accent:#8B6914;--green:#1a8c3a;--red:#cc2200;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
+    .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;letter-spacing:-.01em;}
+    .nav-logo span{color:var(--accent);}
+    .nav-actions{display:flex;align-items:center;gap:24px;}
+    .nav-actions a{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;}
+    .nav-actions a:hover{color:var(--text);}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 16px;height:100%;display:flex;align-items:center;border-bottom:2px solid transparent;transition:all .15s;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
+    .page{max-width:1000px;margin:0 auto;padding:60px 40px;}
+    .page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px;display:flex;align-items:center;gap:10px;}
+    .page-eyebrow::before{content:'';width:20px;height:1px;background:var(--accent);}
+    .page-h1{font-family:'Playfair Display',serif;font-weight:800;font-size:44px;line-height:1;letter-spacing:-.02em;margin-bottom:12px;}
+    .page-sub{font-size:15px;color:var(--text3);margin-bottom:48px;line-height:1.6;}
+    .plans{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:56px;}
+    .plan{border:1px solid var(--border);padding:32px;position:relative;}
+    .plan.featured{border:2px solid var(--accent);}
+    .plan-badge{position:absolute;top:-12px;left:24px;background:var(--accent);color:#fff;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 10px;}
+    .plan-name{font-family:'Playfair Display',serif;font-weight:700;font-size:22px;margin-bottom:6px;}
+    .plan-price{font-size:40px;font-weight:800;font-family:'Playfair Display',serif;line-height:1;margin-bottom:4px;}
+    .plan-price span{font-size:16px;font-weight:500;font-family:'Inter',sans-serif;color:var(--text3);}
+    .plan-price-alt{font-size:13px;color:var(--text3);margin-bottom:24px;}
+    .plan-divider{height:1px;background:var(--border);margin-bottom:20px;}
+    .plan-features{list-style:none;margin-bottom:28px;}
+    .plan-features li{font-size:14px;color:var(--text2);padding:7px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+    .plan-features li:last-child{border-bottom:none;}
+    .plan-features li::before{content:'✓';font-weight:700;color:var(--green);flex-shrink:0;}
+    .plan-features li.no::before{content:'✗';color:var(--border2);}
+    .plan-features li.no{color:var(--text3);}
+    .plan-btn{display:block;width:100%;padding:12px;text-align:center;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border:none;transition:all .15s;}
+    .plan-btn.free{background:var(--bg2);color:var(--text2);border:1px solid var(--border2);}
+    .plan-btn.free:hover{background:var(--border);}
+    .plan-btn.paid{background:var(--text);color:var(--bg);}
+    .plan-btn.paid:hover{opacity:.85;}
+    .section{border-top:1px solid var(--border);padding-top:48px;margin-bottom:48px;}
+    .section-title{font-family:'Playfair Display',serif;font-weight:700;font-size:24px;margin-bottom:6px;}
+    .section-sub{font-size:13px;color:var(--text3);margin-bottom:28px;}
+    .auth-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:28px;}
+    .auth-tab{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:10px 20px;border:none;background:none;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;}
+    .auth-tab.active{color:var(--text);border-bottom-color:var(--accent);}
+    .form-panel{display:none;max-width:440px;}
+    .form-panel.active{display:block;}
+    .form-group{margin-bottom:18px;}
+    .form-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:6px;}
+    .form-input{width:100%;padding:10px 14px;border:1px solid var(--border2);background:var(--bg);font-family:'Inter',sans-serif;font-size:14px;font-weight:500;color:var(--text);outline:none;transition:border-color .15s;}
+    .form-input:focus{border-color:var(--accent);}
+    .form-select{width:100%;padding:10px 14px;border:1px solid var(--border2);background:var(--bg);font-family:'Inter',sans-serif;font-size:14px;font-weight:500;color:var(--text);outline:none;cursor:pointer;}
+    .form-hint{font-size:11px;color:var(--text3);margin-top:5px;line-height:1.4;}
+    .form-btn{width:100%;padding:12px;background:var(--text);color:var(--bg);border:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:opacity .15s;margin-top:8px;}
+    .form-btn:hover{opacity:.85;}
+    .form-btn.secondary{background:var(--bg2);color:var(--text2);border:1px solid var(--border2);}
+    .form-btn.secondary:hover{background:var(--border);}
+    .promo-row{display:flex;gap:8px;}
+    .promo-row .form-input{flex:1;}
+    .promo-btn{padding:10px 16px;background:var(--bg2);border:1px solid var(--border2);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s;}
+    .promo-btn:hover{background:var(--border);}
+    .msg{padding:10px 14px;font-size:13px;font-weight:600;margin-bottom:16px;display:none;}
+    .msg.success{background:rgba(26,140,58,.08);color:var(--green);border:1px solid rgba(26,140,58,.2);}
+    .msg.error{background:rgba(204,34,0,.08);color:var(--red);border:1px solid rgba(204,34,0,.2);}
+    .msg.show{display:block;}
+    .account-card{border:1px solid var(--border);padding:24px;margin-bottom:24px;}
+    .account-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
+    .account-row:last-child{border-bottom:none;}
+    .account-label{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .account-val{font-size:14px;font-weight:600;color:var(--text);}
+    .plan-pill{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;background:rgba(139,105,20,.12);color:var(--accent);}
+    .plan-pill.premium{background:rgba(26,140,58,.12);color:var(--green);}
+    .form-divider{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--text3);font-size:12px;}
+    .form-divider::before,.form-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+    footer{border-top:1px solid var(--border);padding:28px 40px;display:flex;align-items:center;justify-content:space-between;margin-top:40px;}
+    .footer-logo{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text3);}
+    .footer-logo span{color:var(--accent);}
+    .footer-meta{font-size:11px;font-weight:600;color:var(--text3);}
+    @media(max-width:700px){.plans{grid-template-columns:1fr;}.page{padding:40px 20px;}.nav-top,.nav-sub{padding-left:20px;padding-right:20px;}}
+  </style>
+</head>
+<body>
+
+<div class="nav-wrap">
+  <div class="nav-top">
+    <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+    <div class="nav-actions"><a href="about.html">About</a></div>
+  </div>
+  <div class="nav-sub">
+    <a href="index.html">Rankings</a>
+    <a href="about.html">About</a>
+    <a href="pricing.html" class="active">Pricing</a>
+  </div>
+</div>
+
+<div class="page">
+  <div class="page-eyebrow">Subscribe</div>
+  <h1 class="page-h1">Get Full Access</h1>
+  <p class="page-sub">Free users see the rankings. Premium unlocks every team page — full depth charts, player grades, stats, NIL evaluations, and more.</p>
+
+  <div class="plans">
+    <div class="plan">
+      <div class="plan-name">Free</div>
+      <div class="plan-price">$0<span>/forever</span></div>
+      <div class="plan-price-alt">&nbsp;</div>
+      <div class="plan-divider"></div>
+      <ul class="plan-features">
+        <li>Full rankings page</li>
+        <li>Conference filters & sorting</li>
+        <li>NIL tier & eval on rankings</li>
+        <li class="no">Team depth charts</li>
+        <li class="no">Player stats & grades</li>
+        <li class="no">Offseason additions & losses</li>
+        <li class="no">Favorite team highlight</li>
+      </ul>
+      <button class="plan-btn free" onclick="goToAuth('signup')">Create Free Account</button>
+    </div>
+    <div class="plan featured">
+      <div class="plan-badge">Best Value</div>
+      <div class="plan-name">Premium</div>
+      <div class="plan-price">$5<span>/month</span></div>
+      <div class="plan-price-alt">or $50/year — save $10</div>
+      <div class="plan-divider"></div>
+      <ul class="plan-features">
+        <li>Everything in Free</li>
+        <li>Full team depth charts</li>
+        <li>Player stats, grades & NIL data</li>
+        <li>Offseason additions & key losses</li>
+        <li>Favorite team highlight on rankings</li>
+        <li>Early access to new features</li>
+      </ul>
+      <button class="plan-btn paid" onclick="goToAuth('signup')">Get Premium</button>
+    </div>
+  </div>
+
+  <!-- AUTH / ACCOUNT SECTION -->
+  <div class="section" id="authSection">
+    <div class="section-title" id="authTitle">Sign In</div>
+    <div class="section-sub" id="authSub">Access your account to manage your subscription and favorite team.</div>
+
+    <div class="auth-tabs" id="authTabs">
+      <button class="auth-tab active" id="tabSignin" onclick="switchTab('signin')">Sign In</button>
+      <button class="auth-tab" id="tabSignup" onclick="switchTab('signup')">Create Account</button>
+    </div>
+
+    <!-- SIGN IN PANEL -->
+    <div class="form-panel active" id="panel-signin">
+      <div class="msg" id="signinMsg"></div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="signinEmail" placeholder="you@example.com"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password" id="signinPw" placeholder="••••••••"/>
+      </div>
+      <button class="form-btn" onclick="handleSignIn()">Sign In</button>
+    </div>
+
+    <!-- SIGN UP PANEL -->
+    <div class="form-panel" id="panel-signup">
+      <div class="msg" id="signupMsg"></div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="signupEmail" placeholder="you@example.com"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password" id="signupPw" placeholder="At least 8 characters"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Favorite Team <span style="font-weight:500;text-transform:none;letter-spacing:0;">(optional)</span></label>
+        <select class="form-select" id="signupTeam">
+          <option value="">Select a team...</option>
+        </select>
+        <div class="form-hint">Your team's row will be highlighted on the rankings page.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Promo Code <span style="font-weight:500;text-transform:none;letter-spacing:0;">(optional)</span></label>
+        <div class="promo-row">
+          <input class="form-input" type="text" id="signupPromo" placeholder="DEPTH-FREE-001" style="text-transform:uppercase;letter-spacing:.06em;"/>
+          <button class="promo-btn" onclick="checkPromoSignup()">Apply</button>
+        </div>
+        <div class="form-hint" id="signupPromoHint"></div>
+      </div>
+      <button class="form-btn" onclick="handleSignUp()">Create Account</button>
+    </div>
+
+    <!-- ACCOUNT PANEL (shown when logged in) -->
+    <div class="form-panel" id="panel-account">
+      <div class="msg" id="accountMsg"></div>
+      <div class="account-card">
+        <div class="account-row">
+          <span class="account-label">Email</span>
+          <span class="account-val" id="acctEmail">—</span>
+        </div>
+        <div class="account-row">
+          <span class="account-label">Plan</span>
+          <span class="account-val"><span class="plan-pill" id="acctPlan">Free</span></span>
+        </div>
+        <div class="account-row">
+          <span class="account-label">Premium Until</span>
+          <span class="account-val" id="acctExpires">—</span>
+        </div>
+        <div class="account-row">
+          <span class="account-label">Favorite Team</span>
+          <span class="account-val" id="acctTeam">—</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Change Favorite Team</label>
+        <select class="form-select" id="acctTeamSel">
+          <option value="">No favorite</option>
+        </select>
+      </div>
+      <button class="form-btn secondary" onclick="saveTeam()" style="margin-bottom:20px;">Save Favorite Team</button>
+
+      <div class="form-group">
+        <label class="form-label">Have a Promo Code?</label>
+        <div class="promo-row">
+          <input class="form-input" type="text" id="acctPromo" placeholder="DEPTH-FREE-001" style="text-transform:uppercase;letter-spacing:.06em;"/>
+          <button class="promo-btn" onclick="checkPromoAccount()">Apply</button>
+        </div>
+        <div class="form-hint" id="acctPromoHint"></div>
+      </div>
+
+      <div class="form-divider">or upgrade your plan</div>
+      <button class="form-btn paid" onclick="alert('Stripe payments coming soon!\n\nTo upgrade now email boobylee383@gmail.com and we\'ll set you up manually.')">Upgrade to Premium — $5/mo or $50/yr</button>
+      <button class="form-btn secondary" onclick="handleSignOut()" style="margin-top:10px;">Sign Out</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-logo">The Depth <span>Chart</span></div>
+  <div class="footer-meta">College Basketball Roster Analysis · 2025–26</div>
+</footer>
+
+<script>
+const SB = 'https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H = { 'apikey':KEY, 'Authorization':`Bearer ${KEY}`, 'Content-Type':'application/json' };
+let user = null, validPromo = null;
+
+function getSession(){ return JSON.parse(localStorage.getItem('tdc_session')||'null'); }
+function setSession(s){ localStorage.setItem('tdc_session', JSON.stringify(s)); }
+function clearSession(){ localStorage.removeItem('tdc_session'); }
+
+async function init(){
+  const s = getSession();
+  if(!s?.access_token) return;
+  try {
+    const r = await fetch(`${SB}/auth/v1/user`,{headers:{...H,'Authorization':`Bearer ${s.access_token}`}});
+    if(!r.ok){ clearSession(); return; }
+    user = await r.json();
+    await renderAccount(s.access_token);
+  } catch(e){ clearSession(); }
+}
+
+async function renderAccount(token){
+  const r = await fetch(`${SB}/rest/v1/profiles?id=eq.${user.id}&select=*`,
+    {headers:{...H,'Authorization':`Bearer ${token}`}});
+  const [profile] = await r.json();
+
+  document.getElementById('authTabs').style.display = 'none';
+  document.getElementById('authTitle').textContent = 'Your Account';
+  document.getElementById('authSub').textContent = 'Manage your subscription and favorite team.';
+  showPanel('account');
+
+  document.getElementById('acctEmail').textContent = user.email;
+  const plan = profile?.plan || 'free';
+  const pill = document.getElementById('acctPlan');
+  pill.textContent = plan === 'premium' ? 'Premium' : 'Free';
+  pill.className = 'plan-pill' + (plan==='premium'?' premium':'');
+
+  const exp = profile?.sub_expires_at;
+  document.getElementById('acctExpires').textContent = exp
+    ? new Date(exp).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+    : '—';
+
+  const fav = profile?.favorite_team || '';
+  document.getElementById('acctTeam').textContent = fav || 'None set';
+  if(fav) document.getElementById('acctTeamSel').value = fav;
+  localStorage.setItem('tdc_fav', fav);
+}
+
+async function handleSignIn(){
+  const email = document.getElementById('signinEmail').value.trim();
+  const pw    = document.getElementById('signinPw').value;
+  if(!email||!pw) return msg('signinMsg','Please fill in all fields.','error');
+  try {
+    const r = await fetch(`${SB}/auth/v1/token?grant_type=password`,
+      {method:'POST',headers:H,body:JSON.stringify({email,password:pw})});
+    const d = await r.json();
+    if(!r.ok) return msg('signinMsg',d.error_description||d.msg||'Sign in failed.','error');
+    setSession(d); user = d.user;
+    msg('signinMsg','Signed in!','success');
+    setTimeout(()=>renderAccount(d.access_token), 700);
+  } catch(e){ msg('signinMsg','Something went wrong.','error'); }
+}
+
+async function handleSignUp(){
+  const email = document.getElementById('signupEmail').value.trim();
+  const pw    = document.getElementById('signupPw').value;
+  const team  = document.getElementById('signupTeam').value;
+  if(!email||!pw) return msg('signupMsg','Please fill in email and password.','error');
+  if(pw.length<8) return msg('signupMsg','Password must be at least 8 characters.','error');
+  try {
+    const r = await fetch(`${SB}/auth/v1/signup`,
+      {method:'POST',headers:H,body:JSON.stringify({email,password:pw})});
+    const d = await r.json();
+    if(!r.ok) return msg('signupMsg',d.error_description||d.msg||'Sign up failed.','error');
+    setSession(d); user = d.user;
+    const tok = d.access_token;
+    if(team){
+      await fetch(`${SB}/rest/v1/profiles?id=eq.${user.id}`,
+        {method:'PATCH',headers:{...H,'Authorization':`Bearer ${tok}`},
+         body:JSON.stringify({favorite_team:team})});
+      localStorage.setItem('tdc_fav', team);
+    }
+    if(validPromo) await redeemCode(validPromo, tok);
+    msg('signupMsg','Account created! Welcome to The Depth Chart.','success');
+    setTimeout(()=>renderAccount(tok), 1000);
+  } catch(e){ msg('signupMsg','Something went wrong.','error'); }
+}
+
+async function handleSignOut(){
+  const s = getSession();
+  if(s) await fetch(`${SB}/auth/v1/logout`,
+    {method:'POST',headers:{...H,'Authorization':`Bearer ${s.access_token}`}}).catch(()=>{});
+  clearSession();
+  location.reload();
+}
+
+async function saveTeam(){
+  const s = getSession();
+  if(!s||!user) return;
+  const team = document.getElementById('acctTeamSel').value;
+  await fetch(`${SB}/rest/v1/profiles?id=eq.${user.id}`,
+    {method:'PATCH',headers:{...H,'Authorization':`Bearer ${s.access_token}`},
+     body:JSON.stringify({favorite_team:team})});
+  document.getElementById('acctTeam').textContent = team||'None set';
+  localStorage.setItem('tdc_fav', team);
+  msg('accountMsg','Favorite team saved!','success');
+}
+
+async function checkPromoSignup(){
+  const code = document.getElementById('signupPromo').value.trim().toUpperCase();
+  if(!code) return;
+  const {valid, err} = await validateCode(code);
+  const hint = document.getElementById('signupPromoHint');
+  if(valid){ validPromo = code; hint.style.color='var(--green)'; hint.textContent='✓ Code applied — 1 free month on signup!'; }
+  else { hint.style.color='var(--red)'; hint.textContent=err; }
+}
+
+async function checkPromoAccount(){
+  const code = document.getElementById('acctPromo').value.trim().toUpperCase();
+  if(!code) return;
+  const {valid,err} = await validateCode(code);
+  const hint = document.getElementById('acctPromoHint');
+  if(!valid){ hint.style.color='var(--red)'; hint.textContent=err; return; }
+  const s = getSession();
+  await redeemCode(code, s.access_token);
+  hint.style.color='var(--green)';
+  hint.textContent='✓ 1 free month of Premium added!';
+  setTimeout(()=>renderAccount(s.access_token), 1000);
+}
+
+async function validateCode(code){
+  const r = await fetch(`${SB}/rest/v1/promo_codes?code=eq.${encodeURIComponent(code)}&select=*`,{headers:H});
+  const [c] = await r.json();
+  if(!c) return {valid:false,err:'Code not found.'};
+  if(c.used) return {valid:false,err:'This code has already been used.'};
+  return {valid:true};
+}
+
+async function redeemCode(code, token){
+  await fetch(`${SB}/rest/v1/promo_codes?code=eq.${encodeURIComponent(code)}`,
+    {method:'PATCH',headers:{...H,'Authorization':`Bearer ${token}`},
+     body:JSON.stringify({used:true,used_by:user.id,used_at:new Date().toISOString()})});
+  const exp = new Date(); exp.setMonth(exp.getMonth()+1);
+  await fetch(`${SB}/rest/v1/profiles?id=eq.${user.id}`,
+    {method:'PATCH',headers:{...H,'Authorization':`Bearer ${token}`},
+     body:JSON.stringify({plan:'premium',sub_expires_at:exp.toISOString()})});
+}
+
+async function loadTeams(){
+  const r = await fetch(`${SB}/rest/v1/teams?select=name,conference&order=name.asc`,{headers:H});
+  const teams = await r.json();
+  const opts = teams.map(t=>`<option value="${t.name}">${t.name} (${t.conference||''})</option>`).join('');
+  document.getElementById('signupTeam').innerHTML = '<option value="">Select a team...</option>'+opts;
+  document.getElementById('acctTeamSel').innerHTML = '<option value="">No favorite</option>'+opts;
+  const fav = localStorage.getItem('tdc_fav');
+  if(fav){ document.getElementById('signupTeam').value=fav; document.getElementById('acctTeamSel').value=fav; }
+}
+
+function switchTab(tab){
+  ['signin','signup'].forEach(t=>{
+    document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('active',t===tab);
+    document.getElementById('panel-'+t).classList.toggle('active',t===tab);
+  });
+}
+
+function showPanel(name){
+  ['signin','signup','account'].forEach(n=>document.getElementById('panel-'+n).classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+}
+
+function goToAuth(tab){
+  document.getElementById('authSection').scrollIntoView({behavior:'smooth'});
+  setTimeout(()=>switchTab(tab),300);
+}
+
+function msg(id,text,type){
+  const el=document.getElementById(id);
+  el.textContent=text; el.className=`msg ${type} show`;
+}
+
+loadTeams();
+init();
+</script>
+</body>
+</html>
