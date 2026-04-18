@@ -317,10 +317,16 @@ function renderDepth(t, players){
   // Strict sheet order
   const sorted = [...players].sort((a,b) => (a.depth_order||0) - (b.depth_order||0));
 
-  // First 5 = starters grid (exactly 5 slots, blank if fewer than 5)
-  const starterSlots = [0,1,2,3,4].map(i => sorted[i] || null);
-  // Everyone after index 4 = bench
-  const bench = sorted.slice(5);
+  // First 5 rows from sheet = starter slots (blank rows included as empty slots)
+  // Players are sorted by depth_order which preserves exact sheet order
+  const starterSlots = [0,1,2,3,4].map(i => {
+    const p = sorted[i] || null;
+    // Treat blank placeholder players as empty slots
+    if(p && (!p.name || p.name === '—' || p.name === '')) return null;
+    return p;
+  });
+  // Bench = everything after position 5 that has an actual name
+  const bench = sorted.slice(5).filter(p => p.name && p.name !== '—' && p.name !== '');
 
   // Build starters grid — always exactly 5 columns
   const startersHtml = starterSlots.map(p => {
