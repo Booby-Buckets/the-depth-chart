@@ -240,9 +240,9 @@ async function loadTeam(name){
     if(!teams.length) throw new Error('Team not found');
     const t = teams[0];
 
-    // Fetch players for this team
+    // Fetch players for this team — strict depth_order only, no resorting
     const pr = await fetch(
-      `${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(name)}&select=*&order=starter.desc,depth_order.asc,position.asc`,
+      `${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(name)}&select=*&order=depth_order.asc`,
       { headers: H }
     );
     const players = await pr.json();
@@ -254,9 +254,17 @@ async function loadTeam(name){
     );
     const losses = await lr.json();
 
-    renderHero(t);
-    renderDepth(t, players);
-    renderSidebar(t, players, losses);
+    // Compute color/rgb once and pass to all render functions
+    const hex2rgb = h => {
+      const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h);
+      return r ? `${parseInt(r[1],16)},${parseInt(r[2],16)},${parseInt(r[3],16)}` : '100,100,100';
+    };
+    const teamColor = t.color || t.primary_color || '#888';
+    const teamRgb   = hex2rgb(teamColor);
+
+    renderHero(t, teamColor, teamRgb);
+    renderDepth(t, players, teamColor, teamRgb);
+    renderSidebar(t, players, losses, teamColor);
     renderOutlook(t);
 
   } catch(e){
@@ -269,15 +277,9 @@ async function loadTeam(name){
   }
 }
 
-function renderHero(t){
-  const color  = t.color || t.primary_color || '#888';
+function renderHero(t, color, rgb){
   const color2 = t.color2 || t.secondary_color || '#111';
-  // Build rgb from hex
-  const hex2rgb = h => {
-    const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h);
-    return r ? `${parseInt(r[1],16)},${parseInt(r[2],16)},${parseInt(r[3],16)}` : '100,100,100';
-  };
-  setColor(color, hex2rgb(color));
+  setColor(color, rgb);
 
   document.title = `${t.name} — The Depth Chart`;
   document.getElementById('bcTeam').textContent = t.name;
@@ -306,7 +308,7 @@ function renderHero(t){
     {val: t.roster_grade  || '—', lbl:'Roster'},
     {val: t.depth_grade   || '—', lbl:'Depth'},
     {val: t.recruit_grade || '—', lbl:'Recruit'},
-    {val: t.nil_grade   || '—', lbl:'NIL $'},
+    {val: t.nil_grade   || '—', lbl:'NIL Eval'},
     {val: t.nil_tier    || '—', lbl: (({'Tier 1':'$20M+','Tier 2':'$16-20M','Tier 3':'$11-16M','Tier 4':'$9-11M','Tier 5':'$6-9M','Tier 6':'$4-6M','Tier 7':'$2-4M','Tier 8':'$500K-2M','Tier 9':'$0-500K'})[t.nil_tier]||'NIL Tier')},
   ].map(g=>`
     <div class="hero-grade">
@@ -315,9 +317,7 @@ function renderHero(t){
     </div>`).join('');
 }
 
-function renderDepth(t, players){
-  const color = t.color || t.primary_color || '#888';
-  const rgb   = document.documentElement.style.getPropertyValue('--tc-rgb').trim() || '100,100,100';
+function renderDepth(t, players, color, rgb){
 
   // Strict sheet order
   const sorted = [...players].sort((a,b) => (a.depth_order||0) - (b.depth_order||0));
@@ -425,7 +425,7 @@ function renderDepth(t, players){
     `<div class="starters-grid" style="grid-template-columns:repeat(5,1fr);">${startersHtml}</div>${fullListHtml}`;
 }
 
-function renderSidebar(t, players, losses){
+function renderSidebar(t, players, losses, color){
   // Grades
   document.getElementById('gradeCardBody').innerHTML = [
     {label:'Overall Roster',   val: t.roster_grade  || '—'},

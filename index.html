@@ -114,6 +114,8 @@
     <option value="roster">Sort: Roster Grade</option>
     <option value="depth">Sort: Depth Grade</option>
     <option value="recruit">Sort: Recruit Grade</option>
+    <option value="nil">Sort: NIL Eval</option>
+    <option value="niltier">Sort: NIL Tier</option>
   </select>
   <div class="filter-count" id="filterCount"></div>
 </div>
@@ -126,7 +128,7 @@
     <div class="th center">Roster</div>
     <div class="th center">Depth</div>
     <div class="th center">Recruit</div>
-    <div class="th center">NIL $</div>
+    <div class="th center">NIL Eval</div>
     <div class="th center">NIL</div>
   </div>
   <div id="rankingsList">
@@ -157,6 +159,11 @@ function nilRange(tier){
     'Tier 7':'$2-4M','Tier 8':'$500K-2M','Tier 9':'$0-500K'
   };
   return map[tier]||'';
+}
+
+function tierNum(tier){
+  const m={'Tier 1':1,'Tier 2':2,'Tier 3':3,'Tier 4':4,'Tier 5':5,'Tier 6':6,'Tier 7':7,'Tier 8':8,'Tier 9':9};
+  return m[tier]||99;
 }
 
 async function loadTeams(){
@@ -228,6 +235,7 @@ function applyFilters(){
     if(srt==='depth')   return gn(b.dg)-gn(a.dg);
     if(srt==='recruit') return gn(b.recg)-gn(a.recg);
     if(srt==='nil')     return gn(b.nilg)-gn(a.nilg);
+    if(srt==='niltier') return tierNum(a.nilt)-tierNum(b.nilt);
     return 0;
   });
 
@@ -259,7 +267,7 @@ function applyFilters(){
       <div class="tr-grade"><div class="grade-val ${gc(t.rg)}">${t.rg}</div><div class="grade-lbl">Roster</div></div>
       <div class="tr-grade"><div class="grade-val ${gc(t.dg)}">${t.dg}</div><div class="grade-lbl">Depth</div></div>
       <div class="tr-grade"><div class="grade-val ${gc(t.recg)}">${t.recg}</div><div class="grade-lbl">Recruit</div></div>
-      <div class="tr-grade"><div class="grade-val ${gc(t.nilg)}">${t.nilg}</div><div class="grade-lbl">NIL $</div></div>
+      <div class="tr-grade"><div class="grade-val ${gc(t.nilg)}">${t.nilg}</div><div class="grade-lbl">NIL Eval</div></div>
       <div class="tr-grade" style="text-align:center;"><div style="font-size:13px;font-weight:700;color:var(--text2);">${t.nilt}</div><div class="grade-lbl">${nilRange(t.nilt)}</div></div>
     </div>`;
   });
