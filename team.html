@@ -83,12 +83,12 @@
     .rotation-head::after{content:'';flex:1;height:1px;background:var(--border);}
     .rotation-row{display:grid;grid-template-columns:28px 36px 1fr 38px 48px 48px 48px 48px 48px 44px;align-items:center;gap:6px;padding:10px 0;border-bottom:1px solid var(--border);}
     .rotation-row:last-child{border-bottom:none;}
-    .rot-num{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text3);text-align:center;}
+    .rot-num{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text3);text-align:center;}
     .rot-pos{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
     .rot-name{font-size:14px;font-weight:600;color:var(--text2);}
     .rot-cls{font-size:11px;color:var(--text3);}
-    .rot-stat{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text3);text-align:right;}
-    .rot-stat.has-val{color:var(--text2);font-weight:600;}
+    .rot-stat{font-family:'Playfair Display',serif;font-size:13px;font-weight:700;color:var(--text3);text-align:right;}
+    .rot-stat.has-val{color:var(--text2);font-weight:700;}
     .rot-grade{font-family:'Playfair Display',serif;font-weight:700;font-size:15px;text-align:right;letter-spacing:-.01em;}
     .stat-header{display:grid;grid-template-columns:28px 36px 1fr 38px 48px 48px 48px 48px 48px 44px;align-items:center;gap:6px;padding:6px 0;border-bottom:2px solid var(--border2);}
     .stat-header-cell{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);text-align:right;}
@@ -186,7 +186,7 @@
 <div class="page-body">
   <div class="main-col">
     <div class="panel active" id="panel-depth">
-      <div class="sec-head">Depth Chart <span class="sec-head-sub">★ = Starter</span></div>
+      <div class="sec-head">Depth Chart <span class="sec-head-sub" style="display:flex;align-items:center;gap:10px;"><span style="display:flex;align-items:center;gap:4px;"><span id="keyStarBadge" style="font-size:9px;font-weight:700;padding:1px 5px;background:rgba(0,0,0,.08);color:#888;">★</span><span>= Starter</span></span><span style="display:flex;align-items:center;gap:4px;"><span id="keyRetBadge" style="font-size:9px;font-weight:700;padding:1px 5px;background:rgba(0,0,0,.08);color:#888;">*</span><span>= Ret. Starter</span></span></span></div>
       <div id="depthContent">
         <div class="loading-state"><div class="loading-spinner"></div><div>Loading roster…</div></div>
       </div>
@@ -296,6 +296,11 @@ function renderHero(t){
   document.querySelectorAll('.side-card-head').forEach(el => {
     el.style.borderLeftColor = color;
   });
+  // Color the key badges
+  const starBadge = document.getElementById('keyStarBadge');
+  const retBadge  = document.getElementById('keyRetBadge');
+  if(starBadge){ starBadge.style.background = `rgba(${rgb},.15)`; starBadge.style.color = color; }
+  if(retBadge){  retBadge.style.background  = `rgba(${rgb},.15)`; retBadge.style.color  = color; }
 
   document.getElementById('heroGrades').innerHTML = [
     {val: t.roster_grade  || '—', lbl:'Roster'},
@@ -317,28 +322,35 @@ function renderDepth(t, players){
   // Strict sheet order
   const sorted = [...players].sort((a,b) => (a.depth_order||0) - (b.depth_order||0));
 
+  const DEFAULT_POS = ['PG','SG/CG','SF','PF','C'];
+
   // First 5 rows from sheet = starter slots (blank rows included as empty slots)
-  // Players are sorted by depth_order which preserves exact sheet order
   const starterSlots = [0,1,2,3,4].map(i => {
     const p = sorted[i] || null;
-    // Treat blank placeholder players as empty slots
     if(p && (!p.name || p.name === '—' || p.name === '')) return null;
     return p;
   });
   // Bench = everything after position 5 that has an actual name
+  // CG players count as SG for backup matching
   const bench = sorted.slice(5).filter(p => p.name && p.name !== '—' && p.name !== '');
 
   // Build starters grid — always exactly 5 columns
-  const startersHtml = starterSlots.map(p => {
-    if(!p || !p.name || p.name === '—') return `<div class="starter-col">
-      <div class="starter-col-head" style="border-bottom-color:${color};background:rgba(${rgb},.08);">
-        <span class="starter-pos">${p ? p.position||'' : ''}</span>
-      </div>
-      <div class="starter-col-body" style="min-height:48px;"></div>
-    </div>`;
+  const startersHtml = starterSlots.map((p, slotIdx) => {
+    const defaultPos = DEFAULT_POS[slotIdx];
+    // For backup matching: CG matches SG slot (slot index 1)
+    const matchPos = p ? p.position : defaultPos;
+    const matchPositions = (matchPos === 'SG' || matchPos === 'CG')
+      ? ['SG','CG'] : [matchPos];
+    const posBackups = bench.filter(b => matchPositions.includes(b.position));
 
-    // Backups = bench players at the same position
-    const posBackups = bench.filter(b => b.position === p.position);
+    if(!p) return `<div class="starter-col">
+      <div class="starter-col-head" style="border-bottom-color:${color};background:rgba(${rgb},.06);">
+        <span class="starter-pos" style="color:var(--text3);">${defaultPos}</span>
+      </div>
+      <div class="starter-col-body" style="min-height:48px;display:flex;align-items:center;padding:10px 12px;">
+        <span style="font-size:12px;color:var(--text3);font-style:italic;">—</span>
+      </div>
+    </div>`;
 
     const backupHtml = posBackups.length ? `
       <div class="backup-chain">
@@ -361,6 +373,7 @@ function renderDepth(t, players){
         <div class="starter-meta-row">
           <span>${p.class_year||p.yr||''}</span>
           <span class="starter-tag" style="background:rgba(${rgb},.12);color:${color};">★</span>
+          ${p.starter?`<span class="starter-tag" style="background:rgba(${rgb},.12);color:${color};">*</span>`:''}
         </div>
       </div>
       ${backupHtml}
@@ -395,6 +408,7 @@ function renderDepth(t, players){
         <div class="rot-name" style="${isStarter?'color:var(--text);font-weight:700;':''}">
           ${p.name}
           ${isStarter?`<span style="font-size:9px;font-weight:700;letter-spacing:.08em;padding:1px 5px;background:rgba(${rgb},.15);color:${color};">★</span>`:''}
+          ${p.starter?`<span style="font-size:9px;font-weight:700;letter-spacing:.08em;padding:1px 5px;background:rgba(${rgb},.15);color:${color};">*</span>`:''}
           ${p.hometown?`<span style="font-size:10px;color:var(--text3);font-style:italic;margin-left:6px;">via ${p.hometown}</span>`:''}
         </div>
         <div class="rot-cls">${p.class_year||p.yr||''}</div>
