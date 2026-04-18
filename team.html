@@ -324,10 +324,11 @@ function renderDepth(t, players){
 
   // Build starters grid — always exactly 5 columns
   const startersHtml = starterSlots.map(p => {
-    if(!p) return `<div class="starter-col">
+    if(!p || !p.name || p.name === '—') return `<div class="starter-col">
       <div class="starter-col-head" style="border-bottom-color:${color};background:rgba(${rgb},.08);">
-        <span class="starter-pos"></span>
+        <span class="starter-pos">${p ? p.position||'' : ''}</span>
       </div>
+      <div class="starter-col-body" style="min-height:48px;"></div>
     </div>`;
 
     // Backups = bench players at the same position
@@ -360,12 +361,13 @@ function renderDepth(t, players){
     </div>`;
   }).join('');
 
-  // Full roster list — strict sheet order, no resorting
+  // Full roster list — strict sheet order, skip blank placeholder rows
   const fmt = v => (v !== null && v !== undefined && v !== '') ? Number(v).toFixed(1) : '—';
+  const visiblePlayers = sorted.filter(p => p.name && p.name !== '—');
 
   const fullListHtml = `
     <div class="rotation-section">
-      <div class="rotation-head">Full Roster — ${sorted.length} Players</div>
+      <div class="rotation-head">Full Roster — ${visiblePlayers.length} Players</div>
       <div class="stat-header">
         <div class="stat-header-cell"></div>
         <div class="stat-header-cell left">Pos</div>
@@ -378,13 +380,15 @@ function renderDepth(t, players){
         <div class="stat-header-cell">BPM</div>
         <div class="stat-header-cell">Gr</div>
       </div>
-      ${sorted.map((p,i)=>`
-      <div class="rotation-row" style="${i<5?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
-        <div class="rot-num" style="${i<5?`color:${color};font-weight:700;`:''}">${i+1}</div>
-        <div class="rot-pos" style="${i<5?`color:${color};`:''}">${p.position||''}</div>
-        <div class="rot-name" style="${i<5?'color:var(--text);font-weight:700;':''}">
+      ${visiblePlayers.map((p,i)=>{
+        const isStarter = sorted.indexOf(p) < 5;
+        return `
+      <div class="rotation-row" style="${isStarter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
+        <div class="rot-num" style="${isStarter?`color:${color};font-weight:700;`:''}">${i+1}</div>
+        <div class="rot-pos" style="${isStarter?`color:${color};`:''}">${p.position||''}</div>
+        <div class="rot-name" style="${isStarter?'color:var(--text);font-weight:700;':''}">
           ${p.name}
-          ${i<5?`<span style="font-size:9px;font-weight:700;letter-spacing:.08em;padding:1px 5px;background:rgba(${rgb},.15);color:${color};">★</span>`:''}
+          ${isStarter?`<span style="font-size:9px;font-weight:700;letter-spacing:.08em;padding:1px 5px;background:rgba(${rgb},.15);color:${color};">★</span>`:''}
           ${p.hometown?`<span style="font-size:10px;color:var(--text3);font-style:italic;margin-left:6px;">via ${p.hometown}</span>`:''}
         </div>
         <div class="rot-cls">${p.class_year||p.yr||''}</div>
@@ -394,7 +398,7 @@ function renderDepth(t, players){
         <div class="rot-stat ${p.mpg?'has-val':''}">${fmt(p.mpg)}</div>
         <div class="rot-stat ${p.bpm?'has-val':''}">${fmt(p.bpm)}</div>
         <div class="rot-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||''}</div>
-      </div>`).join('')}
+      </div>`;}).join('')}
     </div>`;
 
   document.getElementById('depthContent').innerHTML =
