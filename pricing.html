@@ -7,6 +7,27 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,600;1,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
     :root{--bg:#ffffff;--bg2:#f5f5f5;--border:#e0e0e0;--border2:#cccccc;--text:#111111;--text2:#444444;--text3:#888888;--accent:#8B6914;--green:#1a8c3a;--red:#cc2200;}
+
+    [data-theme="dark"]{--bg:#111111;--bg2:#181818;--bg3:#1f1f1f;--border:#2a2a2a;--border2:#333;--text:#e8e8e8;--text2:#a0a0a0;--text3:#606060;--accent:#c8a96e;}
+    [data-theme="dark"] .nav-signin{color:var(--bg);background:var(--text);}
+    [data-theme="dark"] .filter-btn{background:var(--bg2);}
+    [data-theme="dark"] .filter-select{background:var(--bg2);}
+    [data-theme="dark"] .plan{background:var(--bg2);}
+    [data-theme="dark"] .account-card{background:var(--bg2);}
+    [data-theme="dark"] .form-input{background:var(--bg2);color:var(--text);}
+    [data-theme="dark"] .form-select{background:var(--bg2);color:var(--text);}
+    [data-theme="dark"] .form-textarea{background:var(--bg2);color:var(--text);}
+    [data-theme="dark"] .side-card{background:var(--bg2);}
+    [data-theme="dark"] .what-card{background:var(--bg2);}
+    [data-theme="dark"] .gAp,[data-theme="dark"] .gA,[data-theme="dark"] .gAm{color:#5ab875;}
+    [data-theme="dark"] .gBp,[data-theme="dark"] .gB,[data-theme="dark"] .gBm{color:#74aedd;}
+    [data-theme="dark"] .gCp,[data-theme="dark"] .gC,[data-theme="dark"] .gCm{color:#dbb560;}
+    [data-theme="dark"] .gDp,[data-theme="dark"] .gD,[data-theme="dark"] .gDm,[data-theme="dark"] .gF{color:#e07070;}
+    [data-theme="dark"] .nav-signin{background:var(--text) !important;color:var(--bg) !important;}
+    [data-theme="dark"] .form-btn{background:var(--text);color:var(--bg);}
+    [data-theme="dark"] .plan-btn.paid{background:var(--text);color:var(--bg);}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;}
+    .theme-toggle:hover{border-color:var(--text3);color:var(--text);}
     *{margin:0;padding:0;box-sizing:border-box;}
     body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
     .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
@@ -92,7 +113,7 @@
 <div class="nav-wrap">
   <div class="nav-top">
     <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
-    <div class="nav-actions"><a href="about.html">About</a></div>
+    <div class="nav-actions"><button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">🌙</button><a href="about.html">About</a></div>
   </div>
   <div class="nav-sub">
     <a href="index.html">Rankings</a>
@@ -428,5 +449,22 @@ function msg(id,text,type){
 loadTeams();
 init();
 </script>
+<script>
+// Theme toggle
+function toggleTheme(){
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+  const next = isDark ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('tdc_theme', next);
+  document.getElementById('themeBtn').textContent = next==='dark' ? '☀️' : '🌙';
+}
+(function(){
+  const saved = localStorage.getItem('tdc_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved);
+  window.addEventListener('DOMContentLoaded',()=>{
+    const btn = document.getElementById('themeBtn');
+    if(btn) btn.textContent = saved==='dark' ? '☀️' : '🌙';
+  });
+})();</script>
 </body>
 </html>
