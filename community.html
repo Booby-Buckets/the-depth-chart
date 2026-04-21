@@ -212,7 +212,7 @@ function renderFeed(posts){
     if(p.type === 'tweet' && p.tweet_url){
       const tweetId = p.tweet_url.match(/status\/(\d+)/)?.[1];
       content += tweetId
-        ? `<div class="tweet-wrap"><blockquote class="twitter-tweet" data-conversation="none"><a href="${p.tweet_url}"></a></blockquote></div>`
+        ? `<div class="tweet-wrap" id="tweet-${tweetId}"><div class="tweet-loading">Loading tweet...</div></div>`
         : `<div class="tweet-wrap"><a class="post-link" href="${p.tweet_url}" target="_blank">View Tweet →</a></div>`;
     }
 
@@ -226,8 +226,23 @@ function renderFeed(posts){
     </div>`;
   }).join('');
 
-  // Re-run Twitter widget for new embeds
-  if(window.twttr && window.twttr.widgets) window.twttr.widgets.load();
+  // Load tweet embeds via oEmbed
+  const tweetPosts = posts.filter(p => p.type === 'tweet' && p.tweet_url);
+  for(const p of tweetPosts){
+    const tweetId = p.tweet_url.match(/status\/(\d+)/)?.[1];
+    if(!tweetId) continue;
+    const el = document.getElementById('tweet-'+tweetId);
+    if(!el) continue;
+    try {
+      const r = await fetch(`https://publish.twitter.com/oembed?url=${encodeURIComponent(p.tweet_url)}&theme=light&dnt=true`);
+      const d = await r.json();
+      el.innerHTML = d.html;
+      // Load Twitter widget script for this embed
+      if(window.twttr && window.twttr.widgets) window.twttr.widgets.load(el);
+    } catch(e){
+      el.innerHTML = `<a class="post-link" href="${p.tweet_url}" target="_blank">View Tweet on X →</a>`;
+    }
+  }
 }
 
 function updateStats(posts){
