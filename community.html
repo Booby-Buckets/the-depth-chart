@@ -187,7 +187,7 @@ async function loadFeed(){
   try {
     const r = await fetch(`${SB}/rest/v1/posts?select=*&order=pinned.desc,created_at.desc`, {headers:H});
     allPosts = await r.json();
-    renderFeed(allPosts);
+    await renderFeed(allPosts);
     updateStats(allPosts);
   } catch(e){
     document.getElementById('feed').innerHTML =
@@ -195,7 +195,7 @@ async function loadFeed(){
   }
 }
 
-function renderFeed(posts){
+async function renderFeed(posts){
   const feed = document.getElementById('feed');
   if(!posts.length){
     feed.innerHTML = '<div class="empty-state"><div style="font-size:32px;">📋</div><p>No posts yet. Check back soon!</p></div>';
@@ -252,12 +252,12 @@ function updateStats(posts){
   document.getElementById('statNotes').textContent = posts.filter(p=>p.type==='note').length;
 }
 
-function filterFeed(type, btn){
+async function filterFeed(type, btn){
   activeFilter = type;
   document.querySelectorAll('.tag').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
   const filtered = type==='all' ? allPosts : allPosts.filter(p=>p.type===type);
-  renderFeed(filtered);
+  await renderFeed(filtered);
 }
 
 // Theme
