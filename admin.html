@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#ffffff;--bg2:#f5f5f5;--border:#e0e0e0;--border2:#cccccc;--text:#111111;--text2:#444444;--text3:#888888;--accent:#8B6914;--green:#1a8c3a;--red:#cc2200;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg2);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;}
+    .login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;}
+    .login-box{background:var(--bg);border:1px solid var(--border);padding:40px;width:360px;}
+    .login-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;margin-bottom:4px;}
+    .login-logo span{color:var(--accent);}
+    .login-sub{font-size:12px;color:var(--text3);margin-bottom:28px;}
+    .admin-wrap{max-width:900px;margin:0 auto;padding:40px;}
+    .admin-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+    .admin-title{font-family:'Playfair Display',serif;font-weight:800;font-size:28px;}
+    .admin-title span{color:var(--accent);}
+    .compose{background:var(--bg);border:1px solid var(--border);padding:28px;margin-bottom:32px;}
+    .compose-title{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:20px;}
+    .type-tabs{display:flex;gap:8px;margin-bottom:20px;}
+    .type-tab{padding:7px 16px;border:1px solid var(--border2);background:var(--bg2);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;color:var(--text3);transition:all .15s;}
+    .type-tab.active{border-color:var(--accent);color:var(--accent);background:rgba(139,105,20,.06);}
+    .form-group{margin-bottom:16px;}
+    .form-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:6px;}
+    .form-input{width:100%;padding:10px 14px;border:1px solid var(--border2);background:var(--bg);font-family:'Inter',sans-serif;font-size:14px;color:var(--text);outline:none;transition:border-color .15s;}
+    .form-input:focus{border-color:var(--accent);}
+    .form-textarea{width:100%;padding:10px 14px;border:1px solid var(--border2);background:var(--bg);font-family:'Inter',sans-serif;font-size:14px;color:var(--text);outline:none;resize:vertical;min-height:100px;transition:border-color .15s;}
+    .form-textarea:focus{border-color:var(--accent);}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    .form-check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer;}
+    .form-check input{width:16px;height:16px;cursor:pointer;accent-color:var(--accent);}
+    .submit-row{display:flex;align-items:center;justify-content:space-between;margin-top:8px;}
+    .btn{padding:10px 24px;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border:none;transition:opacity .15s;}
+    .btn-primary{background:var(--text);color:var(--bg);}
+    .btn-primary:hover{opacity:.85;}
+    .btn-danger{background:var(--red);color:#fff;padding:6px 14px;font-size:11px;}
+    .btn-danger:hover{opacity:.85;}
+    .btn-ghost{background:none;color:var(--text3);border:1px solid var(--border2);padding:8px 16px;font-size:12px;}
+    .btn-ghost:hover{background:var(--bg2);}
+    .msg{padding:8px 14px;font-size:13px;font-weight:600;display:none;margin-bottom:12px;}
+    .msg.success{background:rgba(26,140,58,.08);color:var(--green);border:1px solid rgba(26,140,58,.2);}
+    .msg.error{background:rgba(204,34,0,.08);color:var(--red);border:1px solid rgba(204,34,0,.2);}
+    .msg.show{display:block;}
+    .posts-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+    .posts-title{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .post-item{background:var(--bg);border:1px solid var(--border);padding:16px 20px;margin-bottom:10px;display:flex;align-items:start;gap:16px;}
+    .post-item-left{flex:1;min-width:0;}
+    .post-item-type{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border:1px solid var(--border2);color:var(--text3);display:inline-block;margin-bottom:6px;}
+    .post-item-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .post-item-body{font-size:12px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .post-item-date{font-size:11px;color:var(--text3);margin-top:4px;}
+    .post-item-actions{display:flex;gap:8px;flex-shrink:0;align-items:center;}
+    .pin-badge{font-size:11px;color:var(--accent);font-weight:700;}
+  </style>
+</head>
+<body>
+
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">The Depth <span>Chart</span></div>
+    <div class="login-sub">Admin Panel — Enter your password to continue</div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input class="form-input" type="password" id="adminPw" placeholder="••••••••" onkeydown="if(event.key==='Enter')checkPw()"/>
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:4px;" onclick="checkPw()">Enter</button>
+    <div class="msg" id="loginMsg" style="margin-top:12px;"></div>
+  </div>
+</div>
+
+<div class="admin-wrap" id="adminPanel" style="display:none;">
+  <div class="admin-header">
+    <div class="admin-title">The Depth <span>Chart</span> — Admin</div>
+    <div style="display:flex;gap:10px;">
+      <a href="community.html" target="_blank" class="btn btn-ghost">View Feed ↗</a>
+      <button class="btn btn-ghost" onclick="lock()">Lock</button>
+    </div>
+  </div>
+
+  <div class="compose">
+    <div class="compose-title">New Post</div>
+    <div class="type-tabs">
+      <button class="type-tab active" onclick="setType('note',this)">📝 Note</button>
+      <button class="type-tab" onclick="setType('headline',this)">📰 Headline</button>
+      <button class="type-tab" onclick="setType('tweet',this)">🐦 Tweet</button>
+    </div>
+    <div class="msg" id="composeMsg"></div>
+
+    <div id="noteFields">
+      <div class="form-group">
+        <label class="form-label">Title <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></label>
+        <input class="form-input" type="text" id="noteTitle" placeholder="Optional title..."/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Body</label>
+        <textarea class="form-textarea" id="noteBody" placeholder="Write your note or take here..."></textarea>
+      </div>
+    </div>
+
+    <div id="headlineFields" style="display:none;">
+      <div class="form-group">
+        <label class="form-label">Headline</label>
+        <input class="form-input" type="text" id="headlineTitle" placeholder="Breaking: ..."/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Summary <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></label>
+        <textarea class="form-textarea" id="headlineBody" placeholder="Brief summary..." style="min-height:70px;"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Link URL <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></label>
+          <input class="form-input" type="url" id="headlineLink" placeholder="https://..."/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Link Label</label>
+          <input class="form-input" type="text" id="headlineLinkLabel" placeholder="Read More"/>
+        </div>
+      </div>
+    </div>
+
+    <div id="tweetFields" style="display:none;">
+      <div class="form-group">
+        <label class="form-label">Tweet URL</label>
+        <input class="form-input" type="url" id="tweetUrl" placeholder="https://x.com/user/status/123456789"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Commentary <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></label>
+        <textarea class="form-textarea" id="tweetBody" placeholder="Your take on this..." style="min-height:70px;"></textarea>
+      </div>
+    </div>
+
+    <div class="submit-row">
+      <label class="form-check">
+        <input type="checkbox" id="pinPost"/> Pin to top
+      </label>
+      <button class="btn btn-primary" onclick="submitPost()">Post to Feed</button>
+    </div>
+  </div>
+
+  <div class="posts-header">
+    <span class="posts-title">All Posts</span>
+    <button class="btn btn-ghost" onclick="loadPosts()">↻ Refresh</button>
+  </div>
+  <div id="postsList"></div>
+</div>
+
+<script>
+const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H   = {'apikey':KEY,'Authorization':`Bearer ${KEY}`,'Content-Type':'application/json'};
+const ADMIN_PW = 'depthchart2025'; // ← Change this to your own password!
+let currentType = 'note';
+
+function checkPw(){
+  if(document.getElementById('adminPw').value === ADMIN_PW){
+    sessionStorage.setItem('tdc_admin','1');
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('adminPanel').style.display='block';
+    loadPosts();
+  } else {
+    showMsg('loginMsg','Incorrect password.','error');
+  }
+}
+
+function lock(){ sessionStorage.removeItem('tdc_admin'); location.reload(); }
+
+function setType(type, btn){
+  currentType = type;
+  document.querySelectorAll('.type-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  ['note','headline','tweet'].forEach(t=>
+    document.getElementById(t+'Fields').style.display = t===type?'block':'none');
+}
+
+async function submitPost(){
+  const pinned = document.getElementById('pinPost').checked;
+  let payload = {type:currentType, pinned};
+
+  if(currentType==='note'){
+    const body = document.getElementById('noteBody').value.trim();
+    if(!body) return showMsg('composeMsg','Please write something.','error');
+    payload.title = document.getElementById('noteTitle').value.trim()||null;
+    payload.body  = body;
+  } else if(currentType==='headline'){
+    const title = document.getElementById('headlineTitle').value.trim();
+    if(!title) return showMsg('composeMsg','Please enter a headline.','error');
+    payload.title      = title;
+    payload.body       = document.getElementById('headlineBody').value.trim()||null;
+    payload.link_url   = document.getElementById('headlineLink').value.trim()||null;
+    payload.link_label = document.getElementById('headlineLinkLabel').value.trim()||'Read More';
+  } else {
+    const url = document.getElementById('tweetUrl').value.trim();
+    if(!url) return showMsg('composeMsg','Please enter a tweet URL.','error');
+    payload.tweet_url = url;
+    payload.body      = document.getElementById('tweetBody').value.trim()||null;
+  }
+
+  try {
+    const r = await fetch(`${SB}/rest/v1/posts`,
+      {method:'POST',headers:{...H,'Prefer':'return=minimal'},body:JSON.stringify(payload)});
+    if(!r.ok) throw new Error(await r.text());
+    showMsg('composeMsg','Posted successfully!','success');
+    ['noteTitle','noteBody','headlineTitle','headlineBody','headlineLink','headlineLinkLabel','tweetUrl','tweetBody']
+      .forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    document.getElementById('pinPost').checked=false;
+    loadPosts();
+  } catch(e){ showMsg('composeMsg','Failed: '+e.message,'error'); }
+}
+
+async function loadPosts(){
+  const el = document.getElementById('postsList');
+  el.innerHTML = '<p style="color:var(--text3);font-size:13px;padding:8px 0;">Loading...</p>';
+  const r = await fetch(`${SB}/rest/v1/posts?select=*&order=created_at.desc`,{headers:H});
+  const posts = await r.json();
+  if(!posts.length){ el.innerHTML='<p style="color:var(--text3);font-size:13px;">No posts yet.</p>'; return; }
+  el.innerHTML = posts.map(p=>`
+    <div class="post-item">
+      <div class="post-item-left">
+        <span class="post-item-type">${p.type}</span>
+        ${p.pinned?'<span class="pin-badge"> 📌 Pinned</span>':''}
+        <div class="post-item-title">${p.title||p.tweet_url||'(untitled)'}</div>
+        <div class="post-item-body">${p.body||''}</div>
+        <div class="post-item-date">${new Date(p.created_at).toLocaleString()}</div>
+      </div>
+      <div class="post-item-actions">
+        <button class="btn btn-ghost" onclick="togglePin(${p.id},${p.pinned})">${p.pinned?'Unpin':'Pin'}</button>
+        <button class="btn btn-danger" onclick="deletePost(${p.id})">Delete</button>
+      </div>
+    </div>`).join('');
+}
+
+async function deletePost(id){
+  if(!confirm('Delete this post?')) return;
+  await fetch(`${SB}/rest/v1/posts?id=eq.${id}`,{method:'DELETE',headers:H});
+  loadPosts();
+}
+
+async function togglePin(id, current){
+  await fetch(`${SB}/rest/v1/posts?id=eq.${id}`,
+    {method:'PATCH',headers:H,body:JSON.stringify({pinned:!current})});
+  loadPosts();
+}
+
+function showMsg(id,text,type){
+  const el=document.getElementById(id);
+  el.textContent=text; el.className=`msg ${type} show`;
+  setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+if(sessionStorage.getItem('tdc_admin')==='1'){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('adminPanel').style.display='block';
+  loadPosts();
+}
+</script>
+</body>
+</html>
