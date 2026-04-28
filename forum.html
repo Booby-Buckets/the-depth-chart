@@ -238,8 +238,10 @@ function verifiedBadge(profile){
   if(!profile?.verified) return '';
   return `<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:var(--accent);border-radius:50%;margin-left:4px;vertical-align:middle;flex-shrink:0;"><svg viewBox="0 0 24 24" style="width:9px;height:9px;fill:#fff;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>`;
 }
+
+function avatarEl(profile, size=36){
   if(profile?.avatar_url){
-    return `<img src="${profile.avatar_url}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='<div style=\'width:${size}px;height:${size}px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:${Math.floor(size*.4)}px;\'>${(profile.username||'?')[0].toUpperCase()}</div>'"/>`;
+    return `<img src="${profile.avatar_url}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'"/>`;
   }
   const initials = (profile?.username||'?')[0].toUpperCase();
   return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:var(--bg2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:${Math.floor(size*.4)}px;">${initials}</div>`;
@@ -264,11 +266,12 @@ function updateNav(){
   if(!currentUser) return;
   const actions = document.getElementById('navActions');
   const uname = currentProfile?.username || currentUser.email?.split('@')[0] || 'User';
+  const vBadge = verifiedBadge(currentProfile);
   actions.innerHTML = `
     <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
     <a href="profile.html" style="display:flex;align-items:center;gap:8px;text-decoration:none;">
       ${avatarEl(currentProfile,32)}
-      <span style="font-size:13px;font-weight:700;color:var(--text);">${uname}</span>
+      <span style="display:flex;align-items:center;font-size:13px;font-weight:700;color:var(--text);">${uname}${vBadge}</span>
     </a>`;
   const saved = localStorage.getItem('tdc_theme')||'light';
   const btn = document.getElementById('themeBtn');
@@ -368,7 +371,7 @@ async function openTopic(id){
 
   document.getElementById('mainContent').innerHTML='<div class="loading-state"><div class="loading-spinner"></div></div>';
 
-  const r = await fetch(`${SB}/rest/v1/forum_replies?topic_id=eq.${id}&select=*,profiles(username,avatar_url)&order=created_at.asc`,{headers:H});
+  const r = await fetch(`${SB}/rest/v1/forum_replies?topic_id=eq.${id}&select=*,profiles(username,avatar_url,verified)&order=created_at.asc`,{headers:H});
   const replies = await r.json();
 
   // Fetch author profiles for display
@@ -394,7 +397,7 @@ async function openTopic(id){
         return `<div class="reply-card">
           <div class="reply-header">
             ${avatarEl(profile,36)}
-            <a href="profile.html?user=${encodeURIComponent(rep.author_name||'')}" class="reply-name">${rep.author_name||'Unknown'}</a>
+            <a href="profile.html?user=${encodeURIComponent(rep.author_name||'')}" class="reply-name">${rep.author_name||'Unknown'}${verifiedBadge(profile)}</a>
             <span class="reply-time">${timeAgo(rep.created_at)}</span>
           </div>
           <div class="reply-body">${rep.body}</div>
