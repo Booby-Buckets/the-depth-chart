@@ -113,11 +113,12 @@
 <div class="nav-wrap">
   <div class="nav-top">
     <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
-    <div class="nav-actions"><button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">🌙</button><a href="about.html">About</a></div>
+    <div class="nav-actions" id="navActions"><button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">🌙</button><a href="about.html">About</a></div>
   </div>
   <div class="nav-sub">
     <a href="index.html">Rankings</a>
     <a href="roster.html">Roster</a>
+    <a href="forum.html">Forum</a>
     <a href="community.html">Community</a>
     <a href="about.html">About</a>
     <a href="pricing.html" class="active">Pricing</a>
@@ -467,6 +468,28 @@ function toggleTheme(){
     const btn = document.getElementById('themeBtn');
     if(btn) btn.textContent = saved==='dark' ? '☀️' : '🌙';
   });
+})();</script>
+<script>
+// Auth nav update
+(function(){
+  const s = JSON.parse(localStorage.getItem('tdc_session')||'null');
+  if(!s?.access_token||!s?.user?.id) return;
+  fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user.id+'&select=username,avatar_url,plan',
+    {headers:{'apikey':'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye','Authorization':'Bearer '+s.access_token}})
+  .then(r=>r.json()).then(([profile])=>{
+    if(!profile) return;
+    const uname = profile.username || s.user?.email?.split('@')[0] || 'User';
+    const avatarHtml = profile.avatar_url
+      ? '<img src="'+profile.avatar_url+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);" />'
+      : '<div style="width:32px;height:32px;border-radius:50%;background:var(--bg2);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:14px;">'+uname[0].toUpperCase()+'</div>';
+    const actions = document.getElementById('navActions');
+    if(actions){
+      actions.innerHTML = '<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">'+
+        (localStorage.getItem('tdc_theme')==='dark'?'☀️':'🌙')+
+        '</button><a href="profile.html" style="display:flex;align-items:center;gap:8px;text-decoration:none;">'+
+        avatarHtml+'<span style="font-size:13px;font-weight:700;color:var(--text);">'+uname+'</span></a>';
+    }
+  }).catch(()=>{});
 })();</script>
 </body>
 </html>

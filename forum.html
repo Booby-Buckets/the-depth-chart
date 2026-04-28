@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Forum — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#fff;--bg2:#f5f5f5;--border:#e0e0e0;--border2:#ccc;--text:#111;--text2:#444;--text3:#888;--accent:#8B6914;--green:#1a8c3a;--red:#cc2200;--blue:#1a5fbf;}
+    [data-theme="dark"]{--bg:#111;--bg2:#181818;--border:#2a2a2a;--border2:#333;--text:#e8e8e8;--text2:#a0a0a0;--text3:#606060;--accent:#c8a96e;}
+    [data-theme="dark"] .nav-signin{background:var(--text)!important;color:var(--bg)!important;}
+    [data-theme="dark"] .topic-card,[data-theme="dark"] .reply-card{background:var(--bg2);}
+    [data-theme="dark"] .form-input,[data-theme="dark"] .form-textarea,[data-theme="dark"] .form-select{background:var(--bg2);color:var(--text);}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;}
+
+    /* NAV */
+    .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;min-width:0;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;white-space:nowrap;}
+    .nav-logo span{color:var(--accent);}
+    .nav-actions{display:flex;align-items:center;gap:14px;}
+    .nav-actions a{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;}
+    .nav-actions a:hover{color:var(--text);}
+    .nav-signin{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--text);padding:6px 16px;text-decoration:none;}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .nav-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover;cursor:pointer;border:2px solid var(--accent);}
+    .nav-username{font-size:13px;font-weight:700;color:var(--text);text-decoration:none;cursor:pointer;}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
+    .nav-sub::-webkit-scrollbar{display:none;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
+
+    /* LAYOUT */
+    .layout{max-width:1100px;margin:0 auto;padding:40px;display:grid;grid-template-columns:220px 1fr;gap:32px;}
+
+    /* SIDEBAR */
+    .sidebar-card{border:1px solid var(--border);margin-bottom:16px;}
+    .sidebar-head{padding:12px 16px;border-bottom:1px solid var(--border);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
+    .category-list{padding:8px 0;}
+    .cat-item{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text2);transition:all .15s;border-left:3px solid transparent;}
+    .cat-item:hover{background:var(--bg2);color:var(--text);}
+    .cat-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(139,105,20,.05);}
+    .cat-count{font-size:11px;font-weight:700;color:var(--text3);}
+    .cat-icon{margin-right:8px;}
+
+    /* MAIN */
+    .main-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+    .main-title{font-family:'Playfair Display',serif;font-weight:800;font-size:28px;}
+    .new-topic-btn{padding:9px 20px;background:var(--text);color:var(--bg);border:none;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:opacity .15s;}
+    .new-topic-btn:hover{opacity:.85;}
+    .new-topic-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+    /* TOPIC CARDS */
+    .topic-card{border:1px solid var(--border);padding:18px 20px;margin-bottom:10px;cursor:pointer;transition:all .15s;display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;}
+    .topic-card:hover{border-color:var(--border2);background:var(--bg2);}
+    .topic-card.pinned{border-left:3px solid var(--accent);}
+    .topic-title{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text);margin-bottom:5px;}
+    .topic-meta{font-size:12px;color:var(--text3);display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+    .topic-author{font-weight:600;color:var(--text2);}
+    .topic-cat{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border:1px solid var(--border2);color:var(--text3);}
+    .topic-stats{text-align:right;flex-shrink:0;}
+    .topic-replies{font-family:'Playfair Display',serif;font-weight:700;font-size:22px;color:var(--text);}
+    .topic-replies-lbl{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;}
+
+    /* THREAD VIEW */
+    .thread-header{margin-bottom:24px;}
+    .back-btn{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);background:none;border:none;cursor:pointer;margin-bottom:16px;padding:0;display:flex;align-items:center;gap:6px;}
+    .back-btn:hover{color:var(--text);}
+    .thread-title{font-family:'Playfair Display',serif;font-weight:800;font-size:28px;margin-bottom:8px;}
+    .thread-meta{font-size:13px;color:var(--text3);display:flex;align-items:center;gap:14px;}
+    .reply-card{border:1px solid var(--border);padding:16px 20px;margin-bottom:10px;}
+    .reply-header{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+    .reply-avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--accent);flex-shrink:0;overflow:hidden;}
+    .reply-avatar img{width:100%;height:100%;object-fit:cover;}
+    .reply-name{font-size:13px;font-weight:700;color:var(--text);text-decoration:none;}
+    .reply-name:hover{color:var(--accent);}
+    .reply-time{font-size:11px;color:var(--text3);margin-left:auto;}
+    .reply-body{font-size:14px;color:var(--text2);line-height:1.7;}
+    .op-card{border:1px solid var(--border);border-left:3px solid var(--accent);padding:20px;margin-bottom:16px;}
+    .op-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;}
+
+    /* REPLY FORM */
+    .reply-form{border:1px solid var(--border);padding:20px;margin-top:16px;}
+    .reply-form-title{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:14px;}
+    .form-group{margin-bottom:14px;}
+    .form-input{width:100%;padding:10px 14px;border:1px solid var(--border2);background:var(--bg);font-family:'Inter',sans-serif;font-size:14px;color:var(--text);outline:none;transition:border-color .15s;}
+    .form-input:focus{border-color:var(--accent);}
+    .form-textarea{width:100%;padding:10px 14px;border:1px solid var(--border2);background:var(--bg);font-family:'Inter',sans-serif;font-size:14px;color:var(--text);outline:none;resize:vertical;min-height:100px;transition:border-color .15s;}
+    .form-textarea:focus{border-color:var(--accent);}
+    .form-select{width:100%;padding:10px 14px;border:1px solid var(--border2);background:var(--bg);font-family:'Inter',sans-serif;font-size:14px;color:var(--text);outline:none;cursor:pointer;}
+    .form-btn{padding:10px 24px;background:var(--text);color:var(--bg);border:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:opacity .15s;}
+    .form-btn:hover{opacity:.85;}
+    .msg{padding:10px 14px;font-size:13px;font-weight:600;margin-bottom:12px;display:none;}
+    .msg.success{background:rgba(26,140,58,.08);color:var(--green);border:1px solid rgba(26,140,58,.2);}
+    .msg.error{background:rgba(204,34,0,.08);color:var(--red);border:1px solid rgba(204,34,0,.2);}
+    .msg.show{display:block;}
+
+    /* NEW TOPIC MODAL */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:center;justify-content:center;}
+    .modal-overlay.show{display:flex;}
+    .modal{background:var(--bg);border:1px solid var(--border);padding:32px;width:560px;max-width:90vw;max-height:90vh;overflow-y:auto;}
+    .modal-title{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;margin-bottom:20px;}
+    .modal-close{float:right;background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);margin-top:-4px;}
+
+    /* EMPTY / LOADING */
+    .loading-state{text-align:center;padding:60px;color:var(--text3);}
+    .loading-spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 12px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .empty-state{text-align:center;padding:60px;color:var(--text3);font-size:14px;}
+
+    .premium-notice{border:1px solid var(--border);padding:16px 20px;background:var(--bg2);font-size:13px;color:var(--text3);display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;}
+    .premium-notice a{color:var(--accent);font-weight:700;text-decoration:none;}
+
+    footer{border-top:1px solid var(--border);padding:28px 40px;display:flex;align-items:center;justify-content:space-between;}
+    .footer-logo{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text3);}
+    .footer-logo span{color:var(--accent);}
+    .footer-meta{font-size:11px;font-weight:600;color:var(--text3);}
+
+    @media(max-width:768px){
+      .layout{grid-template-columns:1fr;padding:20px;gap:20px;}
+      .nav-top,.nav-sub{padding-left:16px;padding-right:16px;}
+      .category-list{display:flex;flex-wrap:wrap;gap:4px;padding:10px;}
+      .cat-item{border:1px solid var(--border2);border-left:3px solid transparent;padding:6px 12px;}
+      .sidebar-card{margin-bottom:8px;}
+    }
+  </style>
+</head>
+<body>
+
+<div class="nav-wrap">
+  <div class="nav-top">
+    <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+    <div class="nav-actions" id="navActions">
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+      <a href="pricing.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;">Sign In</a>
+      <a href="pricing.html" class="nav-signin">Subscribe</a>
+    </div>
+  </div>
+  <div class="nav-sub">
+    <a href="index.html">Rankings</a>
+    <a href="roster.html">Roster</a>
+    <a href="forum.html" class="active">Forum</a>
+    <a href="community.html">Community</a>
+    <a href="about.html">About</a>
+    <a href="pricing.html">Pricing</a>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <div>
+    <div class="sidebar-card">
+      <div class="sidebar-head">Categories</div>
+      <div class="category-list">
+        <div class="cat-item active" onclick="setCategory('',this)"><span class="cat-icon">📋</span>All Topics<span class="cat-count" id="count-all">—</span></div>
+        <div class="cat-item" onclick="setCategory('Transfer Portal',this)"><span class="cat-icon">🔄</span>Transfer Portal<span class="cat-count" id="count-tp">—</span></div>
+        <div class="cat-item" onclick="setCategory('Recruiting',this)"><span class="cat-icon">🎯</span>Recruiting<span class="cat-count" id="count-rec">—</span></div>
+        <div class="cat-item" onclick="setCategory('Game Talk',this)"><span class="cat-icon">🏀</span>Game Talk<span class="cat-count" id="count-gt">—</span></div>
+        <div class="cat-item" onclick="setCategory('General',this)"><span class="cat-icon">💬</span>General<span class="cat-count" id="count-gen">—</span></div>
+      </div>
+    </div>
+    <div class="sidebar-card" id="userCard" style="display:none;">
+      <div class="sidebar-head">Signed In As</div>
+      <div style="padding:14px 16px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="reply-avatar" id="sidebarAvatar">?</div>
+          <div>
+            <div style="font-size:13px;font-weight:700;" id="sidebarUsername">—</div>
+            <div style="font-size:11px;color:var(--text3);" id="sidebarPlan">Free</div>
+          </div>
+        </div>
+        <a href="profile.html" style="display:block;margin-top:12px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);text-decoration:none;">My Profile →</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="mainContent">
+    <div class="loading-state"><div class="loading-spinner"></div>Loading forum...</div>
+  </div>
+</div>
+
+<!-- NEW TOPIC MODAL -->
+<div class="modal-overlay" id="newTopicModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title">New Topic</div>
+    <div class="msg" id="topicMsg"></div>
+    <div class="form-group">
+      <select class="form-select" id="topicCategory">
+        <option value="General">💬 General</option>
+        <option value="Transfer Portal">🔄 Transfer Portal</option>
+        <option value="Recruiting">🎯 Recruiting</option>
+        <option value="Game Talk">🏀 Game Talk</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <input class="form-input" type="text" id="topicTitle" placeholder="Topic title..." maxlength="120"/>
+    </div>
+    <div class="form-group">
+      <textarea class="form-textarea" id="topicBody" placeholder="Share your thoughts..." style="min-height:140px;"></textarea>
+    </div>
+    <button class="form-btn" onclick="submitTopic()">Post Topic</button>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-logo">The Depth <span>Chart</span></div>
+  <div class="footer-meta">College Basketball Roster Analysis · 2025–26</div>
+</footer>
+
+<script>
+const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H   = {'apikey':KEY,'Authorization':`Bearer ${KEY}`,'Content-Type':'application/json'};
+
+let currentUser = null;
+let currentProfile = null;
+let currentCategory = '';
+let currentTopicId = null;
+let allTopics = [];
+
+function getSession(){ return JSON.parse(localStorage.getItem('tdc_session')||'null'); }
+function authH(tok){ return {...H,'Authorization':`Bearer ${tok}`}; }
+
+function timeAgo(d){
+  const s=Math.floor((Date.now()-new Date(d))/1000);
+  if(s<60) return 'just now';
+  if(s<3600) return Math.floor(s/60)+'m ago';
+  if(s<86400) return Math.floor(s/3600)+'h ago';
+  if(s<604800) return Math.floor(s/86400)+'d ago';
+  return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+
+function avatarEl(profile, size=36){
+  if(profile?.avatar_url){
+    return `<img src="${profile.avatar_url}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='<div style=\'width:${size}px;height:${size}px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:${Math.floor(size*.4)}px;\'>${(profile.username||'?')[0].toUpperCase()}</div>'"/>`;
+  }
+  const initials = (profile?.username||'?')[0].toUpperCase();
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:var(--bg2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:${Math.floor(size*.4)}px;">${initials}</div>`;
+}
+
+// ── AUTH ─────────────────────────────────────────────────────
+async function checkAuth(){
+  const s = getSession();
+  if(!s?.access_token) return;
+  try {
+    const r = await fetch(`${SB}/auth/v1/user`,{headers:{...H,'Authorization':`Bearer ${s.access_token}`}});
+    if(!r.ok){ localStorage.removeItem('tdc_session'); return; }
+    currentUser = await r.json();
+    const pr = await fetch(`${SB}/rest/v1/profiles?id=eq.${currentUser.id}&select=*`,{headers:H});
+    const [profile] = await pr.json();
+    currentProfile = profile;
+    updateNav();
+  } catch(e){}
+}
+
+function updateNav(){
+  if(!currentUser) return;
+  const actions = document.getElementById('navActions');
+  const uname = currentProfile?.username || currentUser.email?.split('@')[0] || 'User';
+  actions.innerHTML = `
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+    <a href="profile.html" style="display:flex;align-items:center;gap:8px;text-decoration:none;">
+      ${avatarEl(currentProfile,32)}
+      <span style="font-size:13px;font-weight:700;color:var(--text);">${uname}</span>
+    </a>`;
+  const saved = localStorage.getItem('tdc_theme')||'light';
+  const btn = document.getElementById('themeBtn');
+  if(btn) btn.textContent = saved==='dark'?'☀️':'🌙';
+
+  // Show user card in sidebar
+  document.getElementById('userCard').style.display='block';
+  document.getElementById('sidebarUsername').textContent = uname;
+  document.getElementById('sidebarPlan').textContent = currentProfile?.plan==='premium'?'Premium Member':'Free Member';
+  const av = document.getElementById('sidebarAvatar');
+  if(currentProfile?.avatar_url){
+    av.innerHTML=`<img src="${currentProfile.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"/>`;
+  } else {
+    av.textContent = uname[0].toUpperCase();
+  }
+}
+
+// ── TOPICS ───────────────────────────────────────────────────
+async function loadTopics(){
+  try {
+    const r = await fetch(`${SB}/rest/v1/forum_topics?select=*&order=pinned.desc,created_at.desc`,{headers:H});
+    allTopics = await r.json();
+    updateCounts();
+    renderTopics();
+  } catch(e){
+    document.getElementById('mainContent').innerHTML='<div class="empty-state">Could not load forum.</div>';
+  }
+}
+
+function updateCounts(){
+  const cats={'Transfer Portal':'tp','Recruiting':'rec','Game Talk':'gt','General':'gen'};
+  document.getElementById('count-all').textContent=allTopics.length;
+  Object.entries(cats).forEach(([cat,id])=>{
+    document.getElementById('count-'+id).textContent=allTopics.filter(t=>t.category===cat).length;
+  });
+}
+
+function setCategory(cat, btn){
+  currentCategory=cat;
+  document.querySelectorAll('.cat-item').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTopics();
+}
+
+function renderTopics(){
+  const filtered = currentCategory ? allTopics.filter(t=>t.category===currentCategory) : allTopics;
+  const isPremium = currentProfile?.plan==='premium';
+
+  const postBtn = `<button class="new-topic-btn" onclick="openModal()" ${!currentUser?'disabled title="Sign in to post"':!isPremium?'disabled title="Premium required to post"':''}>+ New Topic</button>`;
+
+  const catLabel = currentCategory || 'All Topics';
+  const notice = !currentUser
+    ? `<div class="premium-notice">Sign in to join the discussion. <a href="pricing.html">Sign In →</a></div>`
+    : !isPremium
+    ? `<div class="premium-notice">Premium members can post topics. <a href="pricing.html">Upgrade →</a></div>`
+    : '';
+
+  if(!filtered.length){
+    document.getElementById('mainContent').innerHTML=`
+      <div class="main-header">
+        <div class="main-title">${catLabel}</div>
+        ${postBtn}
+      </div>
+      ${notice}
+      <div class="empty-state">No topics yet. Be the first to post!</div>`;
+    return;
+  }
+
+  document.getElementById('mainContent').innerHTML=`
+    <div class="main-header">
+      <div class="main-title">${catLabel}</div>
+      ${postBtn}
+    </div>
+    ${notice}
+    ${filtered.map(t=>`
+    <div class="topic-card${t.pinned?' pinned':''}" onclick="openTopic(${t.id})">
+      <div>
+        <div class="topic-title">${t.pinned?'📌 ':''}${t.title}</div>
+        <div class="topic-meta">
+          <span class="topic-author">${t.author_name||'Unknown'}</span>
+          <span class="topic-cat">${t.category}</span>
+          <span>${timeAgo(t.created_at)}</span>
+        </div>
+      </div>
+      <div class="topic-stats">
+        <div class="topic-replies">${t.reply_count||0}</div>
+        <div class="topic-replies-lbl">Replies</div>
+      </div>
+    </div>`).join('')}`;
+}
+
+// ── THREAD ───────────────────────────────────────────────────
+async function openTopic(id){
+  currentTopicId = id;
+  const topic = allTopics.find(t=>t.id===id);
+  if(!topic) return;
+
+  document.getElementById('mainContent').innerHTML='<div class="loading-state"><div class="loading-spinner"></div></div>';
+
+  const r = await fetch(`${SB}/rest/v1/forum_replies?topic_id=eq.${id}&select=*,profiles(username,avatar_url)&order=created_at.asc`,{headers:H});
+  const replies = await r.json();
+
+  // Fetch author profiles for display
+  const isPremium = currentProfile?.plan==='premium';
+  const canReply = currentUser; // any logged in user can reply
+
+  document.getElementById('mainContent').innerHTML=`
+    <button class="back-btn" onclick="backToList()">← Back to Forum</button>
+    <div class="thread-header">
+      <div class="thread-title">${topic.title}</div>
+      <div class="thread-meta">
+        <span class="topic-cat">${topic.category}</span>
+        <span>Posted by <strong>${topic.author_name||'Unknown'}</strong></span>
+        <span>${timeAgo(topic.created_at)}</span>
+      </div>
+    </div>
+
+    ${topic.body?`<div class="op-card"><div class="op-label">Original Post</div><div style="font-size:14px;color:var(--text2);line-height:1.7;">${topic.body}</div></div>`:''}
+
+    <div id="repliesList">
+      ${replies.length ? replies.map(rep=>{
+        const profile = rep.profiles || {};
+        return `<div class="reply-card">
+          <div class="reply-header">
+            ${avatarEl(profile,36)}
+            <a href="profile.html?user=${encodeURIComponent(rep.author_name||'')}" class="reply-name">${rep.author_name||'Unknown'}</a>
+            <span class="reply-time">${timeAgo(rep.created_at)}</span>
+          </div>
+          <div class="reply-body">${rep.body}</div>
+        </div>`;
+      }).join('') : '<div class="empty-state" style="padding:30px;">No replies yet. Be the first!</div>'}
+    </div>
+
+    ${currentUser ? `
+    <div class="reply-form">
+      <div class="reply-form-title">Leave a Reply</div>
+      <div class="msg" id="replyMsg"></div>
+      <div class="form-group">
+        <textarea class="form-textarea" id="replyBody" placeholder="Write your reply..."></textarea>
+      </div>
+      <button class="form-btn" onclick="submitReply()">Post Reply</button>
+    </div>` : `<div class="premium-notice">
+      <span>Sign in to reply to this topic.</span>
+      <a href="pricing.html">Sign In →</a>
+    </div>`}`;
+}
+
+function backToList(){
+  currentTopicId=null;
+  renderTopics();
+}
+
+async function submitReply(){
+  const body = document.getElementById('replyBody').value.trim();
+  if(!body) return showMsg('replyMsg','Please write something.','error');
+  const s = getSession();
+  const uname = currentProfile?.username || currentUser?.email?.split('@')[0] || 'User';
+  try {
+    const r = await fetch(`${SB}/rest/v1/forum_replies`,{
+      method:'POST',headers:{...authH(s.access_token),'Prefer':'return=minimal'},
+      body:JSON.stringify({topic_id:currentTopicId,body,author_id:currentUser.id,author_name:uname})
+    });
+    if(!r.ok) throw new Error();
+    // Increment reply count
+    await fetch(`${SB}/rest/v1/forum_topics?id=eq.${currentTopicId}`,{
+      method:'PATCH',headers:authH(s.access_token),
+      body:JSON.stringify({reply_count:(allTopics.find(t=>t.id===currentTopicId)?.reply_count||0)+1,updated_at:new Date().toISOString()})
+    });
+    document.getElementById('replyBody').value='';
+    showMsg('replyMsg','Reply posted!','success');
+    openTopic(currentTopicId);
+    loadTopics();
+  } catch(e){ showMsg('replyMsg','Could not post reply.','error'); }
+}
+
+// ── NEW TOPIC ────────────────────────────────────────────────
+function openModal(){ document.getElementById('newTopicModal').classList.add('show'); }
+function closeModal(){ document.getElementById('newTopicModal').classList.remove('show'); }
+
+async function submitTopic(){
+  const title = document.getElementById('topicTitle').value.trim();
+  const body  = document.getElementById('topicBody').value.trim();
+  const cat   = document.getElementById('topicCategory').value;
+  if(!title) return showMsg('topicMsg','Please enter a title.','error');
+  const s = getSession();
+  const uname = currentProfile?.username || currentUser?.email?.split('@')[0] || 'User';
+  try {
+    const r = await fetch(`${SB}/rest/v1/forum_topics`,{
+      method:'POST',headers:{...authH(s.access_token),'Prefer':'return=minimal'},
+      body:JSON.stringify({title,body:body||null,category:cat,author_id:currentUser.id,author_name:uname})
+    });
+    if(!r.ok) throw new Error(await r.text());
+    closeModal();
+    document.getElementById('topicTitle').value='';
+    document.getElementById('topicBody').value='';
+    loadTopics();
+  } catch(e){ showMsg('topicMsg','Could not post topic. Make sure you have a Premium account.','error'); }
+}
+
+function showMsg(id,text,type){
+  const el=document.getElementById(id);
+  if(!el) return;
+  el.textContent=text; el.className=`msg ${type} show`;
+  setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+// ── THEME ────────────────────────────────────────────────────
+function toggleTheme(){
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const next=isDark?'light':'dark';
+  document.documentElement.setAttribute('data-theme',next);
+  localStorage.setItem('tdc_theme',next);
+  const btn=document.getElementById('themeBtn');
+  if(btn) btn.textContent=next==='dark'?'☀️':'🌙';
+}
+(function(){
+  const saved=localStorage.getItem('tdc_theme')||'light';
+  document.documentElement.setAttribute('data-theme',saved);
+  window.addEventListener('DOMContentLoaded',()=>{
+    const btn=document.getElementById('themeBtn');
+    if(btn) btn.textContent=saved==='dark'?'☀️':'🌙';
+  });
+})();
+
+// Close modal on overlay click
+document.getElementById('newTopicModal').addEventListener('click',e=>{
+  if(e.target===e.currentTarget) closeModal();
+});
+
+checkAuth().then(()=>loadTopics());
+</script>
+</body>
+</html>
