@@ -146,36 +146,51 @@ function authH(tok){ return {...H,'Authorization':`Bearer ${tok}`}; }
 function timeAgo(d){ const s=Math.floor((Date.now()-new Date(d))/1000); if(s<60)return'just now'; if(s<3600)return Math.floor(s/60)+'m ago'; if(s<86400)return Math.floor(s/3600)+'h ago'; return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
 
 async function init(){
-  const s = getSession();
   const urlUser = new URLSearchParams(location.search).get('user');
+  const s = getSession();
 
+  // Try to get current user from session
   if(s?.access_token){
     try {
-      const r = await fetch(`${SB}/auth/v1/user`,{headers:{...H,'Authorization':`Bearer ${s.access_token}`}});
+      const r = await fetch(`${SB}/auth/v1/user`,{
+        headers:{'apikey':KEY,'Authorization':`Bearer ${s.access_token}`}
+      });
       if(r.ok){
         currentUser = await r.json();
+        // Load profile by auth user ID
         const pr = await fetch(`${SB}/rest/v1/profiles?id=eq.${currentUser.id}&select=*`,{headers:H});
-        const [p] = await pr.json();
-        currentProfile = p;
+        const profiles = await pr.json();
+        currentProfile = profiles[0] || null;
         updateNav();
       }
-    } catch(e){}
+    } catch(e){ console.log('Auth error',e); }
   }
 
-  // Determine whose profile to show
   if(urlUser){
-    // Load by username
+    // Viewing someone else's profile by username
     const r = await fetch(`${SB}/rest/v1/profiles?username=eq.${encodeURIComponent(urlUser)}&select=*`,{headers:H});
     const [profile] = await r.json();
     isOwnProfile = currentUser && profile?.id === currentUser.id;
     renderProfile(profile);
   } else if(currentUser){
-    // Show own profile
+    // Own profile
     isOwnProfile = true;
-    renderProfile(currentProfile);
+    // Use currentProfile or create a minimal one from auth user
+    const profile = currentProfile || {
+      id: currentUser.id,
+      email: currentUser.email,
+      username: null,
+      avatar_url: null,
+      bio: null,
+      banner_color: '#8B6914',
+      favorite_team: null,
+      plan: 'free',
+      created_at: currentUser.created_at
+    };
+    renderProfile(profile);
   } else {
     document.getElementById('profileContent').innerHTML=
-      '<div class="loading-state">Please <a href="pricing.html" style="color:var(--accent);">sign in</a> to view your profile.</div>';
+      '<div class="loading-state" style="padding:60px;text-align:center;">Please <a href="pricing.html" style="color:var(--accent);font-weight:700;">sign in</a> to view your profile.</div>';
   }
 }
 
@@ -198,7 +213,7 @@ function updateNav(){
 
 function renderProfile(profile){
   if(!profile){ document.getElementById('profileContent').innerHTML='<div class="loading-state">Profile not found.</div>'; return; }
-  const uname = profile.username || 'User';
+  const uname = profile.username || profile.email?.split('@')[0] || 'User';
   const banner = profile.banner_color || '#8B6914';
   selectedBannerColor = banner;
   const avatarHtml = profile.avatar_url
