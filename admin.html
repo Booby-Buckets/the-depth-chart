@@ -140,8 +140,18 @@
     </div>
   </div>
 
-  <div class="posts-header">
-    <span class="posts-title">All Posts</span>
+  <div class="posts-header" style="margin-top:32px;">
+    <span class="posts-title">Verify a User</span>
+  </div>
+  <div style="background:var(--bg);border:1px solid var(--border);padding:20px;margin-bottom:32px;display:flex;gap:12px;align-items:flex-end;">
+    <div style="flex:1;">
+      <label class="form-label">Username</label>
+      <input class="form-input" type="text" id="verifyUsername" placeholder="Enter username to verify..."/>
+    </div>
+    <button class="btn btn-primary" onclick="grantVerified(true)">✓ Verify</button>
+    <button class="btn btn-ghost" onclick="grantVerified(false)">Remove</button>
+  </div>
+  <div class="msg" id="verifyMsg" style="margin-bottom:16px;"></div>
     <button class="btn btn-ghost" onclick="loadPosts()">↻ Refresh</button>
   </div>
   <div id="postsList"></div>
@@ -230,6 +240,23 @@ async function loadPosts(){
         <button class="btn btn-danger" onclick="deletePost(${p.id})">Delete</button>
       </div>
     </div>`).join('');
+}
+
+async function grantVerified(grant){
+  const username = document.getElementById('verifyUsername').value.trim();
+  if(!username) return showMsg('verifyMsg','Enter a username.','error');
+  try {
+    // Find profile by username
+    const r = await fetch(`${SB}/rest/v1/profiles?username=eq.${encodeURIComponent(username)}&select=id`,{headers:H});
+    const [profile] = await r.json();
+    if(!profile) return showMsg('verifyMsg','User not found.','error');
+    await fetch(`${SB}/rest/v1/profiles?id=eq.${profile.id}`,{
+      method:'PATCH', headers:H,
+      body:JSON.stringify({verified:grant})
+    });
+    showMsg('verifyMsg', grant ? `✓ ${username} is now verified.` : `${username} verification removed.`, 'success');
+    document.getElementById('verifyUsername').value='';
+  } catch(e){ showMsg('verifyMsg','Error updating user.','error'); }
 }
 
 async function deletePost(id){

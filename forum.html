@@ -234,7 +234,10 @@ function timeAgo(d){
   return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'});
 }
 
-function avatarEl(profile, size=36){
+function verifiedBadge(profile){
+  if(!profile?.verified) return '';
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:var(--accent);border-radius:50%;margin-left:4px;vertical-align:middle;flex-shrink:0;"><svg viewBox="0 0 24 24" style="width:9px;height:9px;fill:#fff;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>`;
+}
   if(profile?.avatar_url){
     return `<img src="${profile.avatar_url}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='<div style=\'width:${size}px;height:${size}px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:${Math.floor(size*.4)}px;\'>${(profile.username||'?')[0].toUpperCase()}</div>'"/>`;
   }

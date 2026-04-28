@@ -28,10 +28,16 @@
     .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
 
     /* PROFILE BANNER */
-    .profile-banner{height:140px;background:var(--bannerColor,#8B6914);position:relative;}
-    .profile-avatar-wrap{position:absolute;bottom:-50px;left:40px;}
-    .profile-avatar{width:100px;height:100px;border-radius:50%;border:4px solid var(--bg);object-fit:cover;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:700;color:var(--accent);overflow:hidden;}
+    .profile-banner{height:180px;background:var(--bannerColor,#8B6914);background-size:cover;background-position:center;position:relative;cursor:pointer;}
+    .profile-banner-overlay{position:absolute;inset:0;background:rgba(0,0,0,0);transition:background .2s;display:flex;align-items:center;justify-content:center;}
+    .profile-banner.editable:hover .profile-banner-overlay{background:rgba(0,0,0,.35);}
+    .profile-banner-edit-hint{color:#fff;font-size:13px;font-weight:700;opacity:0;transition:opacity .2s;letter-spacing:.04em;text-transform:uppercase;}
+    .profile-banner.editable:hover .profile-banner-edit-hint{opacity:1;}
+    .profile-avatar-wrap{position:absolute;bottom:-54px;left:40px;}
+    .profile-avatar{width:108px;height:108px;border-radius:50%;border:4px solid var(--bg);object-fit:cover;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:700;color:var(--accent);overflow:hidden;}
     .profile-avatar img{width:100%;height:100%;object-fit:cover;}
+    .verified-badge{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--accent);border-radius:50%;margin-left:6px;flex-shrink:0;vertical-align:middle;}
+    .verified-badge svg{width:11px;height:11px;fill:#fff;}
 
     /* PROFILE INFO */
     .profile-info{max-width:900px;margin:0 auto;padding:0 40px;}
@@ -221,17 +227,29 @@ function renderProfile(profile){
     : `<span>${uname[0].toUpperCase()}</span>`;
   const joined = new Date(profile.created_at||Date.now()).toLocaleDateString('en-US',{month:'long',year:'numeric'});
 
+  const bannerStyle = profile.banner_url
+    ? `background-image:url('${profile.banner_url}');background-color:${banner};`
+    : `background:${banner};`;
+
+  const verifiedBadge = profile.verified
+    ? `<span class="verified-badge" title="Verified"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>`
+    : '';
+
   document.getElementById('profileContent').innerHTML=`
-    <div class="profile-banner" style="background:${banner};">
+    <div class="profile-banner ${isOwnProfile?'editable':''}" style="${bannerStyle}" onclick="${isOwnProfile?'document.getElementById(\'bannerInput\').click()':''}">
+      <div class="profile-banner-overlay">
+        ${isOwnProfile?'<span class="profile-banner-edit-hint">📷 Change Banner</span>':''}
+      </div>
       <div class="profile-avatar-wrap">
         <div class="profile-avatar">${avatarHtml}</div>
       </div>
+      ${isOwnProfile?'<input type="file" id="bannerInput" accept="image/*" style="display:none;" onchange="uploadBanner(event)"/>':''}
     </div>
 
     <div class="profile-info">
       <div class="profile-info-top">
         <div>
-          <div class="profile-username">${uname}</div>
+          <div class="profile-username">${uname}${verifiedBadge}</div>
           ${profile.bio?`<div class="profile-bio">${profile.bio}</div>`:''}
           <div class="profile-meta">
             ${profile.favorite_team?`<div class="profile-meta-item">🏀 <strong>${profile.favorite_team}</strong></div>`:''}
@@ -370,6 +388,20 @@ function previewAvatar(e){
   reader.readAsDataURL(file);
 }
 
+let newBannerFile = null;
+
+async function uploadBanner(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  newBannerFile = file;
+  // Preview immediately
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.querySelector('.profile-banner').style.backgroundImage = `url('${ev.target.result}')`;
+  };
+  reader.readAsDataURL(file);
+}
+
 async function saveProfile(){
   const s = getSession();
   if(!s) return;
@@ -378,6 +410,7 @@ async function saveProfile(){
   const team     = document.getElementById('editTeam').value;
 
   let avatar_url = currentProfile?.avatar_url || null;
+  let banner_url = currentProfile?.banner_url || null;
 
   // Upload avatar if new one selected
   if(newAvatarFile){
@@ -389,24 +422,43 @@ async function saveProfile(){
         headers:{'apikey':KEY,'Authorization':`Bearer ${s.access_token}`,'Content-Type':newAvatarFile.type,'x-upsert':'true'},
         body:newAvatarFile
       });
-      if(uploadR.ok){
-        avatar_url = `${SB}/storage/v1/object/public/avatars/${path}`;
-      }
+      if(uploadR.ok) avatar_url = `${SB}/storage/v1/object/public/avatars/${path}?t=${Date.now()}`;
     } catch(e){ showMsg('editMsg','Avatar upload failed but other changes will save.','error'); }
+  }
+
+  // Upload banner if new one selected
+  if(newBannerFile){
+    try {
+      const ext = newBannerFile.name.split('.').pop();
+      const path = `${currentUser.id}/banner.${ext}`;
+      const uploadR = await fetch(`${SB}/storage/v1/object/avatars/${path}`,{
+        method:'POST',
+        headers:{'apikey':KEY,'Authorization':`Bearer ${s.access_token}`,'Content-Type':newBannerFile.type,'x-upsert':'true'},
+        body:newBannerFile
+      });
+      if(uploadR.ok) banner_url = `${SB}/storage/v1/object/public/avatars/${path}?t=${Date.now()}`;
+    } catch(e){ showMsg('editMsg','Banner upload failed but other changes will save.','error'); }
   }
 
   try {
     const r = await fetch(`${SB}/rest/v1/profiles?id=eq.${currentUser.id}`,{
       method:'PATCH',
       headers:{...authH(s.access_token),'Prefer':'return=minimal'},
-      body:JSON.stringify({username:username||null,bio:bio||null,favorite_team:team||null,banner_color:selectedBannerColor,avatar_url,updated_at:new Date().toISOString()})
+      body:JSON.stringify({
+        username:username||null, bio:bio||null,
+        favorite_team:team||null, banner_color:selectedBannerColor,
+        avatar_url, banner_url,
+        updated_at:new Date().toISOString()
+      })
     });
     if(!r.ok) throw new Error(await r.text());
-    localStorage.setItem('tdc_fav',team);
+    localStorage.setItem('tdc_fav', team);
     showMsg('editMsg','Profile saved!','success');
-    setTimeout(()=>location.reload(),1000);
+    setTimeout(()=>location.reload(), 1000);
   } catch(e){
-    showMsg('editMsg',e.message.includes('profiles_username_key')?'That username is already taken. Try another.':'Could not save profile.','error');
+    showMsg('editMsg', e.message.includes('profiles_username_key')
+      ? 'That username is already taken. Try another.'
+      : 'Could not save profile.', 'error');
   }
 }
 
