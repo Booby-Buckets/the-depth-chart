@@ -240,15 +240,16 @@ async function loadTeams(){
     const rows = await r.json();
 
     allTeams = rows.map(t => ({
-      rk:     t.tdc_rank || 9999,
+      rk:     t.tdc_rank_num || t.tdc_rank || 9999,
       name:   t.name,
-      conf:   t.conference || '',
+      conf:   t.conference || t.conf || '',
       record: t.record || '',
       rg:     t.roster_grade  || '—',
       dg:     t.depth_grade   || '—',
       recg:   t.recruit_grade || '—',
       nilg:   t.nil_grade  || '—',
       nilt:   t.nil_tier   || '—',
+      tier:   t.team_tier  || '',
       color:  t.color || t.primary_color || '#666',
       updated: t.updated_at,
     }));
@@ -320,12 +321,12 @@ function applyFilters(){
   }
 
   const srt2 = document.getElementById('sortSel').value;
-  let html='', lastGrade='';
+  let html='', lastTier='';
   data.forEach(t=>{
-    const grp = t.rg.startsWith('A')?'A-Tier':t.rg.startsWith('B')?'B-Tier':'C-Tier';
-    if(srt2==='rank' && !confFilter && grp!==lastGrade){
-      html+=`<div class="grade-group-label">${grp}</div>`;
-      lastGrade=grp;
+    // Show tier header when sorting by rank and tier changes
+    if(srt2==='rank' && t.tier && t.tier !== lastTier){
+      html+=`<div class="grade-group-label">${t.tier}</div>`;
+      lastTier = t.tier;
     }
     html+=`
     <div class="team-row${t.name===favTeam?' fav-row':''}" onclick="location='team.html?team=${encodeURIComponent(t.name)}'"
