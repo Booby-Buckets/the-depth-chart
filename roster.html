@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Roster Database — The Depth Chart</title>
+  <title>Player Database — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
     :root{--bg:#ffffff;--bg2:#f5f5f5;--border:#e0e0e0;--border2:#cccccc;--text:#111111;--text2:#444444;--text3:#888888;--accent:#8B6914;--green:#1a8c3a;--blue:#1a5fbf;--amber:#a06000;--red:#cc2200;}
@@ -112,7 +112,7 @@
   </div>
   <div class="nav-sub">
     <a href="index.html">Rankings</a>
-    <a href="roster.html" class="active">Roster</a>
+    <a href="roster.html" class="active">Players</a>
     <a href="community.html">Community</a>
     <a href="about.html">About</a>
     <a href="pricing.html">Pricing</a>
@@ -121,7 +121,7 @@
 
 <div class="page-header">
   <div class="page-eyebrow">Database</div>
-  <h1 class="page-h1">Roster Database</h1>
+  <h1 class="page-h1">Player Database</h1>
   <div class="page-meta" id="pageMeta">Loading players...</div>
 </div>
 
@@ -353,13 +353,20 @@ function renderTable(players){
       <tbody>
         ${players.map(p => {
           const color = p.teamData?.color || '#888';
+          const hex = color.replace('#','');
+          const r = parseInt(hex.slice(0,2),16)||100;
+          const g = parseInt(hex.slice(2,4),16)||100;
+          const b2 = parseInt(hex.slice(4,6),16)||100;
+          // Calculate luminance to decide text color
+          const luminance = (0.299*r + 0.587*g + 0.114*b2) / 255;
+          const textColor = luminance > 0.5 ? '#111' : '#fff';
           const yr    = p.class_year||p.yr||'';
           return `<tr>
             <td>
               <div class="td-name">${p.name}${p.starter?`<span class="starter-badge">*</span>`:''}</div>
             </td>
             <td>
-              <div class="td-team"><a href="team.html?team=${encodeURIComponent(p.team)}" style="color:${color};font-weight:700;">${p.team||'—'}</a></div>
+              <div class="td-team"><a href="team.html?team=${encodeURIComponent(p.team)}" style="color:${textColor};font-weight:700;background:${color};padding:2px 8px;border-radius:2px;">${p.team||'—'}</a></div>
             </td>
             <td><span class="conf-badge">${p.conf||'—'}</span></td>
             <td><span class="td-pos">${p.position||'—'}</span></td>
