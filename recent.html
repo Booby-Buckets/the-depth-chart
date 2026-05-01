@@ -45,19 +45,21 @@
     .date-line{flex:1;height:1px;background:var(--border);}
 
     /* PLAYER CARDS */
-    .player-card{border:1px solid var(--border);padding:16px 20px;margin-bottom:8px;display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;transition:border-color .15s;}
+    .player-card{border:1px solid var(--border);padding:16px 20px;margin-bottom:8px;display:grid;grid-template-columns:48px 1fr auto;gap:12px;align-items:center;transition:border-color .15s;}
     .player-card:hover{border-color:var(--border2);}
-    .player-pos{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:center;}
-    .player-ht{font-size:11px;color:var(--text3);text-align:center;margin-top:2px;}
-    .player-name{font-family:'Playfair Display',serif;font-weight:800;font-size:16px;color:var(--text);margin-bottom:4px;}
-    .player-move{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;flex-wrap:wrap;}
+    .player-pos-col{text-align:center;}
+    .player-pos{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);}
+    .player-ht{font-size:11px;color:var(--text3);margin-top:2px;}
+    .player-name{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);margin-bottom:6px;line-height:1.1;}
+    .player-move{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700;margin-bottom:6px;flex-wrap:wrap;}
     .move-from{color:var(--text3);}
-    .move-arrow{font-size:16px;}
-    .move-to{color:var(--accent);font-weight:700;}
-    .player-yr{font-size:11px;color:var(--text3);margin-top:3px;}
-    .player-right{text-align:right;flex-shrink:0;}
-    .player-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;}
-    .player-stats{font-size:11px;color:var(--text3);margin-top:3px;line-height:1.6;}
+    .move-arrow{color:var(--accent);font-size:18px;}
+    .move-to{color:var(--text);font-weight:800;}
+    .player-stats-row{display:flex;gap:16px;font-size:12px;color:var(--text3);flex-wrap:wrap;}
+    .player-stats-row span strong{color:var(--text2);font-weight:700;}
+    .player-yr-badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;padding:1px 6px;border:1px solid var(--border2);color:var(--text3);margin-left:8px;vertical-align:middle;}
+    .player-grade-col{text-align:right;flex-shrink:0;}
+    .player-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:28px;}
     .gAp,.gA,.gAm{color:#1a8c3a;} .gBp,.gB,.gBm{color:#1a5fbf;}
     .gCp,.gC,.gCm{color:#a06000;} .gDp,.gD,.gDm,.gF{color:#cc2200;}
 
@@ -184,27 +186,28 @@ function render(){
         <div class="date-line"></div>
       </div>
       ${byDate[date].map(p => {
-        const hasStats = p.ppg || p.rpg || p.apg;
-        const statsStr = hasStats
-          ? `${fmt(p.ppg)} PPG · ${fmt(p.rpg)} RPG · ${fmt(p.apg)} APG`
-          : 'No stats available';
         return `<div class="player-card">
-          <div>
+          <div class="player-pos-col">
             <div class="player-pos">${p.position||'—'}</div>
             <div class="player-ht">${p.height||''}</div>
           </div>
           <div>
-            <div class="player-name">${p.name}</div>
+            <div class="player-name">${p.name}<span class="player-yr-badge">${p.class_year||''}</span></div>
             <div class="player-move">
               <span class="move-from">${p.from_team||'—'}</span>
               <span class="move-arrow">➜</span>
               <span class="move-to">${p.to_team||'—'}</span>
             </div>
-            <div class="player-yr">${p.class_year||''}</div>
+            <div class="player-stats-row">
+              ${p.ppg?`<span><strong>${Number(p.ppg).toFixed(1)}</strong> PPG</span>`:''}
+              ${p.rpg?`<span><strong>${Number(p.rpg).toFixed(1)}</strong> RPG</span>`:''}
+              ${p.apg?`<span><strong>${Number(p.apg).toFixed(1)}</strong> APG</span>`:''}
+              ${p.mpg?`<span><strong>${Number(p.mpg).toFixed(1)}</strong> MPG</span>`:''}
+              ${p.bpm?`<span><strong>${Number(p.bpm).toFixed(1)}</strong> BPM</span>`:''}
+            </div>
           </div>
-          <div class="player-right">
+          <div class="player-grade-col">
             <div class="player-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||'—'}</div>
-            <div class="player-stats">${statsStr}</div>
           </div>
         </div>`;
       }).join('')}
