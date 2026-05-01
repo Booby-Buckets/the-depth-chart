@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Player Grade List — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#fff;--bg2:#f5f5f5;--border:#e0e0e0;--border2:#ccc;--text:#111;--text2:#444;--text3:#888;--accent:#8B6914;--green:#1a8c3a;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg2);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;padding:40px;}
+    .card{background:var(--bg);border:1px solid var(--border);max-width:900px;margin:0 auto;}
+    .card-head{padding:24px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+    .card-title{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;}
+    .card-title span{color:var(--accent);}
+    .controls{display:flex;gap:10px;flex-wrap:wrap;}
+    .btn{padding:8px 18px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border:none;transition:opacity .15s;}
+    .btn-primary{background:#111;color:#fff;}
+    .btn-primary:hover{opacity:.85;}
+    .btn-copy{background:var(--accent);color:#fff;}
+    .btn-copy:hover{opacity:.85;}
+    .btn-ghost{background:none;border:1px solid var(--border2);color:var(--text3);}
+    .btn-ghost:hover{background:var(--bg2);}
+    .filter-row{padding:14px 28px;border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;background:var(--bg2);}
+    .filter-select{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;background:var(--bg);border:1px solid var(--border2);color:var(--text2);padding:6px 10px;outline:none;cursor:pointer;}
+    .filter-select:focus{border-color:var(--accent);}
+    .count{font-size:12px;font-weight:600;color:var(--text3);align-self:center;margin-left:auto;}
+    .count strong{color:var(--accent);}
+    .list-area{padding:20px 28px;}
+    .copy-box{width:100%;min-height:400px;max-height:600px;padding:16px;border:1px solid var(--border2);font-family:'Inter',sans-serif;font-size:13px;line-height:1.8;color:var(--text2);resize:vertical;outline:none;background:var(--bg2);}
+    .copy-box:focus{border-color:var(--accent);}
+    .loading{text-align:center;padding:60px;color:var(--text3);}
+    .spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 12px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .copied-msg{color:var(--green);font-size:12px;font-weight:700;display:none;}
+    .copied-msg.show{display:inline;}
+    .format-note{font-size:11px;color:var(--text3);margin-top:10px;line-height:1.5;}
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-head">
+    <div class="card-title">The Depth <span>Chart</span> — Player List</div>
+    <div class="controls">
+      <button class="btn btn-copy" onclick="copyList()">📋 Copy All</button>
+      <span class="copied-msg" id="copiedMsg">Copied!</span>
+      <a href="roster.html" class="btn btn-ghost">← Back to Roster</a>
+    </div>
+  </div>
+
+  <div class="filter-row">
+    <select class="filter-select" id="confFilter" onchange="buildList()">
+      <option value="">All Conferences</option>
+      <option value="ACC">ACC</option>
+      <option value="B10">Big Ten</option>
+      <option value="B12">Big 12</option>
+      <option value="BE">Big East</option>
+      <option value="SEC">SEC</option>
+      <option value="P12">Pac-12</option>
+      <option value="A10">A-10</option>
+      <option value="AAC">AAC</option>
+    </select>
+    <select class="filter-select" id="teamFilter" onchange="buildList()">
+      <option value="">All Teams</option>
+    </select>
+    <select class="filter-select" id="posFilter" onchange="buildList()">
+      <option value="">All Positions</option>
+      <option value="PG">PG</option>
+      <option value="SG">SG</option>
+      <option value="CG">CG</option>
+      <option value="SF">SF</option>
+      <option value="PF">PF</option>
+      <option value="C">C</option>
+    </select>
+    <select class="filter-select" id="formatFilter" onchange="buildList()">
+      <option value="grade">Format: Name | Team | Grade</option>
+      <option value="simple">Format: Name | Team</option>
+      <option value="numbered">Format: #. Name (Team) Grade</option>
+      <option value="csv">Format: CSV</option>
+    </select>
+    <span class="count" id="countEl"></span>
+  </div>
+
+  <div class="list-area">
+    <div class="loading" id="loadingEl">
+      <div class="spinner"></div>
+      Loading players...
+    </div>
+    <textarea class="copy-box" id="listBox" style="display:none;" readonly></textarea>
+    <div class="format-note" id="formatNote"></div>
+  </div>
+</div>
+
+<script>
+const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H   = {'apikey':KEY,'Authorization':`Bearer ${KEY}`};
+
+const GRADE_ORDER = ['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','D-','F'];
+let allPlayers = [];
+let allTeams = [];
+
+async function load(){
+  const [pr, tr] = await Promise.all([
+    fetch(`${SB}/rest/v1/players?select=name,team,position,tdc_grade,class_year,yr,ppg&limit=5000&order=name.asc`, {headers:H}),
+    fetch(`${SB}/rest/v1/teams?select=name,conf,conference&order=name.asc`, {headers:H})
+  ]);
+  allPlayers = await pr.json();
+  allTeams   = await tr.json();
+
+  // Build team map for conf lookup
+  const teamMap = {};
+  allTeams.forEach(t => teamMap[t.name] = t);
+  allPlayers = allPlayers
+    .filter(p => p.name && p.name !== '—')
+    .map(p => ({...p, conf: (teamMap[p.team]||{}).conf || (teamMap[p.team]||{}).conference || ''}));
+
+  // Populate team dropdown
+  const sel = document.getElementById('teamFilter');
+  allTeams.forEach(t => {
+    const o = document.createElement('option');
+    o.value = t.name; o.textContent = t.name;
+    sel.appendChild(o);
+  });
+
+  document.getElementById('loadingEl').style.display = 'none';
+  document.getElementById('listBox').style.display = 'block';
+  buildList();
+}
+
+function buildList(){
+  const conf   = document.getElementById('confFilter').value;
+  const team   = document.getElementById('teamFilter').value;
+  const pos    = document.getElementById('posFilter').value;
+  const fmt    = document.getElementById('formatFilter').value;
+
+  let filtered = allPlayers.filter(p => {
+    if(conf && p.conf !== conf) return false;
+    if(team && p.team !== team) return false;
+    if(pos  && p.position !== pos) return false;
+    return true;
+  });
+
+  // Sort by grade (best to worst), then alphabetically within same grade
+  filtered.sort((a,b) => {
+    const ai = GRADE_ORDER.indexOf(a.tdc_grade||'');
+    const bi = GRADE_ORDER.indexOf(b.tdc_grade||'');
+    const av = ai < 0 ? 99 : ai;
+    const bv = bi < 0 ? 99 : bi;
+    if(av !== bv) return av - bv;
+    return (a.name||'').localeCompare(b.name||'');
+  });
+
+  document.getElementById('countEl').innerHTML = `<strong>${filtered.length}</strong> players`;
+
+  let text = '';
+  if(fmt === 'grade'){
+    // Group by grade
+    let currentGrade = null;
+    filtered.forEach(p => {
+      const g = p.tdc_grade || 'Ungraded';
+      if(g !== currentGrade){
+        if(currentGrade !== null) text += '\n';
+        text += `── ${g} ──\n`;
+        currentGrade = g;
+      }
+      text += `${p.name} | ${p.team}\n`;
+    });
+  } else if(fmt === 'simple'){
+    filtered.forEach(p => { text += `${p.name} | ${p.team}\n`; });
+  } else if(fmt === 'numbered'){
+    filtered.forEach((p,i) => {
+      const g = p.tdc_grade ? ` (${p.tdc_grade})` : '';
+      text += `${i+1}. ${p.name} — ${p.team}${g}\n`;
+    });
+  } else if(fmt === 'csv'){
+    text = 'Name,Team,Conference,Position,Grade\n';
+    filtered.forEach(p => {
+      text += `"${p.name}","${p.team}","${p.conf}","${p.position||''}","${p.tdc_grade||''}"\n`;
+    });
+  }
+
+  document.getElementById('listBox').value = text;
+
+  const notes = {
+    'grade': 'Players grouped by letter grade, best to worst. Copy and paste into your grading spreadsheet.',
+    'simple': 'Just names and teams. Good for a quick reference list.',
+    'numbered': 'Numbered ranking from best to worst grade.',
+    'csv': 'CSV format — paste into Excel or Google Sheets.'
+  };
+  document.getElementById('formatNote').textContent = notes[fmt];
+}
+
+function copyList(){
+  const box = document.getElementById('listBox');
+  box.select();
+  document.execCommand('copy');
+  const msg = document.getElementById('copiedMsg');
+  msg.classList.add('show');
+  setTimeout(()=>msg.classList.remove('show'), 2000);
+}
+
+load();
+</script>
+</body>
+</html>
