@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Team Comparison — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#fff;--bg2:#f5f5f5;--border:#e0e0e0;--border2:#ccc;--text:#111;--text2:#444;--text3:#888;--accent:#8B6914;--green:#1a8c3a;--red:#cc2200;--blue:#1a5fbf;}
+    [data-theme="dark"]{--bg:#111;--bg2:#181818;--border:#2a2a2a;--border2:#333;--text:#e8e8e8;--text2:#a0a0a0;--text3:#606060;--accent:#c8a96e;}
+    [data-theme="dark"] select{background:var(--bg2);color:var(--text);}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;}
+    .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;min-width:0;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;white-space:nowrap;}
+    .nav-logo span{color:var(--accent);}
+    .nav-actions{display:flex;align-items:center;gap:14px;}
+    .nav-signin{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--text);padding:6px 16px;text-decoration:none;}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
+    .nav-sub::-webkit-scrollbar{display:none;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
+
+    .page{max-width:1100px;margin:0 auto;padding:40px;}
+    .page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:10px;}
+    .page-eyebrow::before{content:'';width:20px;height:1px;background:var(--accent);}
+    .page-h1{font-family:'Playfair Display',serif;font-weight:800;font-size:36px;letter-spacing:-.02em;margin-bottom:6px;}
+    .page-sub{font-size:13px;color:var(--text3);margin-bottom:36px;}
+
+    .pickers{display:grid;grid-template-columns:1fr 60px 1fr;gap:0;margin-bottom:36px;align-items:center;}
+    .picker{border:1px solid var(--border);padding:20px;}
+    .picker-label{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
+    .team-select{width:100%;padding:10px 14px;border:1px solid var(--border2);background:var(--bg);font-family:'Inter',sans-serif;font-size:14px;color:var(--text);outline:none;cursor:pointer;}
+    .team-select:focus{border-color:var(--accent);}
+    .vs-badge{display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--text3);border-top:1px solid var(--border);border-bottom:1px solid var(--border);height:100%;background:var(--bg2);}
+
+    /* COMPARE */
+    .compare-section{display:none;}
+    .compare-section.show{display:block;}
+    .compare-header{display:grid;grid-template-columns:1fr 140px 1fr;margin-bottom:2px;}
+    .compare-team-name{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;padding:20px;border:1px solid var(--border);}
+    .compare-team-name .team-conf{font-size:12px;font-weight:500;color:var(--text3);margin-top:4px;font-family:'Inter',sans-serif;}
+    .compare-team-name.right{text-align:right;}
+    .compare-vs{display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--text3);border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg2);}
+    .compare-row{display:grid;grid-template-columns:1fr 140px 1fr;border-bottom:1px solid var(--border);}
+    .compare-cell{padding:14px 20px;font-size:14px;font-weight:600;}
+    .compare-cell.right{text-align:right;}
+    .compare-label{padding:14px 20px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:center;background:var(--bg2);border-left:1px solid var(--border);border-right:1px solid var(--border);}
+    .compare-cell.winner{font-weight:800;}
+    .compare-section-head{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:10px 20px;background:var(--bg2);border:1px solid var(--border);border-bottom:none;margin-top:16px;}
+
+    .grade-val{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;}
+    .gAp,.gA,.gAm{color:#1a8c3a;} .gBp,.gB,.gBm{color:#1a5fbf;}
+    .gCp,.gC,.gCm{color:#a06000;} .gDp,.gD,.gDm,.gF{color:#cc2200;}
+
+    /* ROSTER PREVIEW */
+    .roster-preview{margin-top:16px;}
+    .roster-preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px;}
+    .roster-col{border:1px solid var(--border);}
+    .roster-col-head{padding:10px 14px;border-bottom:1px solid var(--border);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
+    .roster-player{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--border);font-size:13px;}
+    .roster-player:last-child{border-bottom:none;}
+    .rp-name{font-weight:600;}
+    .rp-grade{font-family:'Playfair Display',serif;font-weight:700;font-size:14px;}
+
+    footer{border-top:1px solid var(--border);padding:28px 40px;display:flex;align-items:center;justify-content:space-between;margin-top:40px;}
+    .footer-logo{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text3);}
+    .footer-logo span{color:var(--accent);}
+    @media(max-width:700px){.pickers,.compare-header,.compare-row{grid-template-columns:1fr 50px 1fr;}.page{padding:20px;}.compare-cell,.compare-team-name{padding:10px 12px;font-size:12px;}.nav-top{padding:0 16px;}.nav-sub{padding:0 16px;}.roster-preview-grid{grid-template-columns:1fr;}}
+  </style>
+</head>
+<body>
+<div class="nav-wrap">
+  <div class="nav-top">
+    <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+    <div class="nav-actions" id="navActions">
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+      <a href="pricing.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;">Sign In</a>
+      <a href="pricing.html" class="nav-signin">Subscribe</a>
+    </div>
+  </div>
+  <div class="nav-sub">
+    <a href="index.html">Rankings</a>
+    <a href="roster.html">Players</a>
+    <a href="compare-players.html">Compare Players</a>
+    <a href="compare-teams.html" class="active">Compare Teams</a>
+    <a href="forum.html">Forum</a>
+    <a href="community.html">Community</a>
+    <a href="about.html">About</a>
+    <a href="pricing.html">Pricing</a>
+  </div>
+</div>
+
+<div class="page">
+  <div class="page-eyebrow">Tools</div>
+  <h1 class="page-h1">Team Comparison</h1>
+  <p class="page-sub">Select two teams to compare grades, roster construction, and depth side by side.</p>
+
+  <div class="pickers">
+    <div class="picker">
+      <div class="picker-label">Team 1</div>
+      <select class="team-select" id="team1sel" onchange="onTeamChange()">
+        <option value="">Select a team...</option>
+      </select>
+    </div>
+    <div class="vs-badge">VS</div>
+    <div class="picker">
+      <div class="picker-label">Team 2</div>
+      <select class="team-select" id="team2sel" onchange="onTeamChange()">
+        <option value="">Select a team...</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="compare-section" id="compareSection"></div>
+</div>
+
+<footer>
+  <div class="footer-logo">The Depth <span>Chart</span></div>
+  <div class="footer-meta">College Basketball Roster Analysis · 2025–26</div>
+</footer>
+
+<script>
+const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H   = {'apikey':KEY,'Authorization':`Bearer ${KEY}`};
+
+let allTeams = [];
+let allPlayers = [];
+
+async function load(){
+  const [tr, pr] = await Promise.all([
+    fetch(`${SB}/rest/v1/teams?select=*&order=name.asc`,{headers:H}),
+    fetch(`${SB}/rest/v1/players?select=*&limit=5000`,{headers:H})
+  ]);
+  allTeams = await tr.json();
+  allPlayers = (await pr.json()).filter(p=>p.name&&p.name!=='—');
+
+  const opts = allTeams.map(t=>`<option value="${t.name}">${t.name} (${t.conf||t.conference||''})</option>`).join('');
+  ['team1sel','team2sel'].forEach(id=>{
+    document.getElementById(id).innerHTML='<option value="">Select a team...</option>'+opts;
+  });
+
+  // Check URL params
+  const p = new URLSearchParams(location.search);
+  if(p.get('t1')) document.getElementById('team1sel').value=p.get('t1');
+  if(p.get('t2')) document.getElementById('team2sel').value=p.get('t2');
+  if(p.get('t1')&&p.get('t2')) renderComparison();
+}
+
+function onTeamChange(){
+  const t1 = document.getElementById('team1sel').value;
+  const t2 = document.getElementById('team2sel').value;
+  if(t1&&t2) renderComparison();
+  else document.getElementById('compareSection').classList.remove('show');
+}
+
+function gc(g){ return {'A+':'gAp','A':'gA','A-':'gAm','B+':'gBp','B':'gB','B-':'gBm','C+':'gCp','C':'gC','C-':'gCm','D+':'gDp','D':'gD','D-':'gDm','F':'gF'}[g]||''; }
+function gradeOrder(g){ const i=['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','D-','F'].indexOf(g); return i<0?99:i; }
+
+function gradeRow(label, g1, g2){
+  const go1=gradeOrder(g1), go2=gradeOrder(g2);
+  const w1=go1<go2?'winner':'', w2=go2<go1?'winner':'';
+  return `<div class="compare-row">
+    <div class="compare-cell ${w1}"><span class="grade-val ${gc(g1)}">${g1||'—'}</span></div>
+    <div class="compare-label">${label}</div>
+    <div class="compare-cell right ${w2}"><span class="grade-val ${gc(g2)}">${g2||'—'}</span></div>
+  </div>`;
+}
+
+function statRow(label, a, b, higherBetter=true){
+  const av=parseFloat(a), bv=parseFloat(b);
+  const ok=!isNaN(av)&&!isNaN(bv);
+  const w1=ok&&(higherBetter?av>bv:av<bv)?'winner':'';
+  const w2=ok&&(higherBetter?bv>av:bv<av)?'winner':'';
+  return `<div class="compare-row">
+    <div class="compare-cell ${w1}">${!isNaN(av)?av.toFixed(1):'—'}</div>
+    <div class="compare-label">${label}</div>
+    <div class="compare-cell right ${w2}">${!isNaN(bv)?bv.toFixed(1):'—'}</div>
+  </div>`;
+}
+
+function textRow(label, a, b){
+  return `<div class="compare-row">
+    <div class="compare-cell">${a||'—'}</div>
+    <div class="compare-label">${label}</div>
+    <div class="compare-cell right">${b||'—'}</div>
+  </div>`;
+}
+
+function renderComparison(){
+  const n1=document.getElementById('team1sel').value;
+  const n2=document.getElementById('team2sel').value;
+  const t1=allTeams.find(t=>t.name===n1);
+  const t2=allTeams.find(t=>t.name===n2);
+  if(!t1||!t2) return;
+
+  const c1=t1.color||'#888', c2=t2.color||'#888';
+  const p1=allPlayers.filter(p=>p.team===n1).sort((a,b)=>(a.depth_order||0)-(b.depth_order||0));
+  const p2=allPlayers.filter(p=>p.team===n2).sort((a,b)=>(a.depth_order||0)-(b.depth_order||0));
+
+  // Calculate team averages
+  const avg = (players, field) => {
+    const vals = players.map(p=>parseFloat(p[field])).filter(v=>!isNaN(v));
+    return vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length) : null;
+  };
+
+  const starters1 = p1.slice(0,5), starters2 = p2.slice(0,5);
+
+  const sec = document.getElementById('compareSection');
+  sec.classList.add('show');
+
+  sec.innerHTML = `
+    <div class="compare-header">
+      <div class="compare-team-name" style="border-left:3px solid ${c1};">
+        <span style="color:${c1};">${t1.name}</span>
+        <div class="team-conf">${t1.conference||t1.conf||''} · #${t1.tdc_rank_num||t1.tdc_rank||'NR'} TDC</div>
+      </div>
+      <div class="compare-vs">VS</div>
+      <div class="compare-team-name right" style="border-right:3px solid ${c2};">
+        <span style="color:${c2};">${t2.name}</span>
+        <div class="team-conf">${t2.conference||t2.conf||''} · #${t2.tdc_rank_num||t2.tdc_rank||'NR'} TDC</div>
+      </div>
+    </div>
+
+    <div class="compare-section-head">Roster Grades</div>
+    ${gradeRow('Overall Roster', t1.roster_grade, t2.roster_grade)}
+    ${gradeRow('Bench Depth', t1.depth_grade, t2.depth_grade)}
+    ${gradeRow('Recruiting Class', t1.recruit_grade, t2.recruit_grade)}
+    ${gradeRow('NIL Eval', t1.nil_grade, t2.nil_grade)}
+
+    <div class="compare-section-head">NIL</div>
+    ${textRow('NIL Tier', t1.nil_tier, t2.nil_tier)}
+
+    <div class="compare-section-head">Roster Stats (Team Averages)</div>
+    ${statRow('Avg PPG', avg(p1,'ppg'), avg(p2,'ppg'))}
+    ${statRow('Avg RPG', avg(p1,'rpg'), avg(p2,'rpg'))}
+    ${statRow('Avg APG', avg(p1,'apg'), avg(p2,'apg'))}
+    ${statRow('Avg MPG', avg(p1,'mpg'), avg(p2,'mpg'))}
+    ${statRow('Avg BPM', avg(p1,'bpm'), avg(p2,'bpm'))}
+
+    <div class="compare-section-head">Roster Size</div>
+    ${statRow('Total Players', p1.length, p2.length)}
+    ${statRow('Starters w/ Stats', starters1.filter(p=>p.ppg).length, starters2.filter(p=>p.ppg).length)}
+
+    <div class="compare-section-head">Starting Lineup</div>
+    <div class="roster-preview-grid">
+      <div class="roster-col">
+        <div class="roster-col-head" style="color:${c1};">${t1.name} Starters</div>
+        ${starters1.map(p=>`<div class="roster-player">
+          <span class="rp-name">${p.name} <span style="font-size:10px;color:var(--text3);">${p.position||''}</span></span>
+          <span class="rp-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||'—'}</span>
+        </div>`).join('')}
+      </div>
+      <div class="roster-col">
+        <div class="roster-col-head" style="color:${c2};">${t2.name} Starters</div>
+        ${starters2.map(p=>`<div class="roster-player">
+          <span class="rp-name">${p.name} <span style="font-size:10px;color:var(--text3);">${p.position||''}</span></span>
+          <span class="rp-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||'—'}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+function toggleTheme(){
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const next=isDark?'light':'dark';
+  document.documentElement.setAttribute('data-theme',next);
+  localStorage.setItem('tdc_theme',next);
+  document.getElementById('themeBtn').textContent=next==='dark'?'☀️':'🌙';
+}
+(function(){
+  const saved=localStorage.getItem('tdc_theme')||'light';
+  document.documentElement.setAttribute('data-theme',saved);
+  window.addEventListener('DOMContentLoaded',()=>{
+    const btn=document.getElementById('themeBtn');
+    if(btn) btn.textContent=saved==='dark'?'☀️':'🌙';
+  });
+})();
+
+load();
+</script>
+</body>
+</html>

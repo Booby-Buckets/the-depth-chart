@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Player Comparison — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#fff;--bg2:#f5f5f5;--border:#e0e0e0;--border2:#ccc;--text:#111;--text2:#444;--text3:#888;--accent:#8B6914;--green:#1a8c3a;--red:#cc2200;--blue:#1a5fbf;}
+    [data-theme="dark"]{--bg:#111;--bg2:#181818;--border:#2a2a2a;--border2:#333;--text:#e8e8e8;--text2:#a0a0a0;--text3:#606060;--accent:#c8a96e;}
+    [data-theme="dark"] .search-input,[data-theme="dark"] .player-search-dropdown{background:var(--bg2);color:var(--text);}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;}
+    .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;min-width:0;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;white-space:nowrap;}
+    .nav-logo span{color:var(--accent);}
+    .nav-actions{display:flex;align-items:center;gap:14px;}
+    .nav-signin{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--text);padding:6px 16px;text-decoration:none;}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
+    .nav-sub::-webkit-scrollbar{display:none;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
+
+    .page{max-width:1100px;margin:0 auto;padding:40px;}
+    .page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:10px;}
+    .page-eyebrow::before{content:'';width:20px;height:1px;background:var(--accent);}
+    .page-h1{font-family:'Playfair Display',serif;font-weight:800;font-size:36px;letter-spacing:-.02em;margin-bottom:6px;}
+    .page-sub{font-size:13px;color:var(--text3);margin-bottom:36px;}
+
+    /* PLAYER PICKERS */
+    .pickers{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:36px;}
+    .picker{border:1px solid var(--border);padding:20px;}
+    .picker-label{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;}
+    .search-wrap{position:relative;}
+    .search-input{width:100%;padding:10px 14px;border:1px solid var(--border2);background:var(--bg);font-family:'Inter',sans-serif;font-size:14px;color:var(--text);outline:none;transition:border-color .15s;}
+    .search-input:focus{border-color:var(--accent);}
+    .player-search-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--bg);border:1px solid var(--border2);border-top:none;z-index:50;max-height:220px;overflow-y:auto;display:none;}
+    .player-search-dropdown.show{display:block;}
+    .dropdown-item{padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+    .dropdown-item:hover{background:var(--bg2);}
+    .dropdown-item:last-child{border-bottom:none;}
+    .dropdown-team{font-size:11px;color:var(--text3);}
+    .selected-player{margin-top:12px;display:none;}
+    .sel-name{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;margin-bottom:3px;}
+    .sel-meta{font-size:12px;color:var(--text3);}
+    .sel-meta strong{color:var(--text2);}
+    .clear-btn{font-size:11px;font-weight:700;color:var(--text3);background:none;border:none;cursor:pointer;margin-left:8px;}
+    .clear-btn:hover{color:var(--red);}
+
+    /* COMPARISON TABLE */
+    .compare-section{display:none;}
+    .compare-section.show{display:block;}
+    .compare-header{display:grid;grid-template-columns:1fr 120px 1fr;gap:0;margin-bottom:2px;}
+    .compare-player-name{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;padding:16px 20px;border:1px solid var(--border);}
+    .compare-player-name.right{text-align:right;}
+    .compare-vs{display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--text3);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+    .compare-row{display:grid;grid-template-columns:1fr 120px 1fr;gap:0;border-bottom:1px solid var(--border);}
+    .compare-row:last-child{border-bottom:none;}
+    .compare-cell{padding:12px 20px;font-size:14px;font-weight:600;}
+    .compare-cell.right{text-align:right;}
+    .compare-label{padding:12px 20px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:center;background:var(--bg2);border-left:1px solid var(--border);border-right:1px solid var(--border);}
+    .compare-cell.winner{color:var(--green);font-weight:800;}
+    .compare-cell.loser{color:var(--text3);}
+    .compare-section-head{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:10px 20px;background:var(--bg2);border:1px solid var(--border);border-bottom:none;margin-top:16px;}
+
+    .grade-bar-wrap{display:flex;align-items:center;gap:8px;}
+    .grade-bar{height:6px;border-radius:3px;background:var(--accent);transition:width .4s;}
+    .grade-bar.right{margin-left:auto;}
+
+    .gAp,.gA,.gAm{color:#1a8c3a;} .gBp,.gB,.gBm{color:#1a5fbf;}
+    .gCp,.gC,.gCm{color:#a06000;} .gDp,.gD,.gDm,.gF{color:#cc2200;}
+    footer{border-top:1px solid var(--border);padding:28px 40px;display:flex;align-items:center;justify-content:space-between;margin-top:40px;}
+    .footer-logo{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text3);}
+    .footer-logo span{color:var(--accent);}
+    .footer-meta{font-size:11px;font-weight:600;color:var(--text3);}
+    @media(max-width:700px){.pickers{grid-template-columns:1fr;}.page{padding:20px;}.compare-header,.compare-row{grid-template-columns:1fr 60px 1fr;}.compare-cell,.compare-player-name{padding:10px 12px;font-size:12px;}.nav-top{padding:0 16px;}.nav-sub{padding:0 16px;}}
+  </style>
+</head>
+<body>
+<div class="nav-wrap">
+  <div class="nav-top">
+    <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+    <div class="nav-actions" id="navActions">
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+      <a href="pricing.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;">Sign In</a>
+      <a href="pricing.html" class="nav-signin">Subscribe</a>
+    </div>
+  </div>
+  <div class="nav-sub">
+    <a href="index.html">Rankings</a>
+    <a href="roster.html">Players</a>
+    <a href="compare-players.html" class="active">Compare</a>
+    <a href="forum.html">Forum</a>
+    <a href="community.html">Community</a>
+    <a href="about.html">About</a>
+    <a href="pricing.html">Pricing</a>
+  </div>
+</div>
+
+<div class="page">
+  <div class="page-eyebrow">Tools</div>
+  <h1 class="page-h1">Player Comparison</h1>
+  <p class="page-sub">Search any two players and compare their stats, grades, and profile side by side.</p>
+
+  <div class="pickers">
+    <div class="picker" id="picker1">
+      <div class="picker-label">Player 1</div>
+      <div class="search-wrap">
+        <input class="search-input" type="text" placeholder="Search player name..." oninput="searchPlayers(1,this.value)" autocomplete="off"/>
+        <div class="player-search-dropdown" id="dropdown1"></div>
+      </div>
+      <div class="selected-player" id="selected1"></div>
+    </div>
+    <div class="picker" id="picker2">
+      <div class="picker-label">Player 2</div>
+      <div class="search-wrap">
+        <input class="search-input" type="text" placeholder="Search player name..." oninput="searchPlayers(2,this.value)" autocomplete="off"/>
+        <div class="player-search-dropdown" id="dropdown2"></div>
+      </div>
+      <div class="selected-player" id="selected2"></div>
+    </div>
+  </div>
+
+  <div class="compare-section" id="compareSection"></div>
+</div>
+
+<footer>
+  <div class="footer-logo">The Depth <span>Chart</span></div>
+  <div class="footer-meta">College Basketball Roster Analysis · 2025–26</div>
+</footer>
+
+<script>
+const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H   = {'apikey':KEY,'Authorization':`Bearer ${KEY}`};
+
+let allPlayers = [];
+let selected = [null, null];
+let teamColors = {};
+
+async function load(){
+  const [pr, tr] = await Promise.all([
+    fetch(`${SB}/rest/v1/players?select=*&limit=5000&order=name.asc`,{headers:H}),
+    fetch(`${SB}/rest/v1/teams?select=name,color&order=name.asc`,{headers:H})
+  ]);
+  allPlayers = (await pr.json()).filter(p=>p.name&&p.name!=='—');
+  const teams = await tr.json();
+  teams.forEach(t=>teamColors[t.name]=t.color);
+}
+
+function searchPlayers(slot, query){
+  const dd = document.getElementById('dropdown'+slot);
+  if(!query || query.length < 2){ dd.classList.remove('show'); return; }
+  const q = query.toLowerCase();
+  const matches = allPlayers.filter(p=>p.name.toLowerCase().includes(q)||
+    (p.team||'').toLowerCase().includes(q)).slice(0,12);
+  if(!matches.length){ dd.classList.remove('show'); return; }
+  dd.innerHTML = matches.map(p=>`
+    <div class="dropdown-item" onclick="selectPlayer(${slot},'${p.id}')">
+      <span>${p.name}</span>
+      <span class="dropdown-team">${p.team||''} · ${p.position||''} · ${p.class_year||p.yr||''}</span>
+    </div>`).join('');
+  dd.classList.add('show');
+}
+
+function selectPlayer(slot, id){
+  const p = allPlayers.find(x=>x.id==id);
+  if(!p) return;
+  selected[slot-1] = p;
+  document.getElementById('dropdown'+slot).classList.remove('show');
+  document.querySelector(`#picker${slot} .search-input`).value = p.name;
+  const sel = document.getElementById('selected'+slot);
+  const color = teamColors[p.team]||'#888';
+  sel.style.display='block';
+  sel.innerHTML=`
+    <div style="border-left:3px solid ${color};padding-left:10px;margin-top:8px;">
+      <div class="sel-name">${p.name}</div>
+      <div class="sel-meta"><strong style="color:${color};">${p.team||'—'}</strong> · ${p.position||'—'} · ${p.class_year||p.yr||'—'} · ${p.height||'—'}</div>
+    </div>
+    <button class="clear-btn" onclick="clearPlayer(${slot})">✕ Clear</button>`;
+  if(selected[0]&&selected[1]) renderComparison();
+}
+
+function clearPlayer(slot){
+  selected[slot-1]=null;
+  document.getElementById('selected'+slot).style.display='none';
+  document.querySelector(`#picker${slot} .search-input`).value='';
+  document.getElementById('compareSection').classList.remove('show');
+}
+
+function fmt(v){ return (v!==null&&v!==undefined&&v!=='')? Number(v).toFixed(1):'—'; }
+function gc(g){ return {'A+':'gAp','A':'gA','A-':'gAm','B+':'gBp','B':'gB','B-':'gBm','C+':'gCp','C':'gC','C-':'gCm','D+':'gDp','D':'gD','D-':'gDm','F':'gF'}[g]||''; }
+
+function htToIn(h){
+  if(!h) return 0;
+  const m=h.match(/(\d+)-(\d+)/);
+  return m ? parseInt(m[1])*12+parseInt(m[2]) : 0;
+}
+
+function winner(a, b){ 
+  if(a===null||a===undefined||a==='') return 0;
+  if(b===null||b===undefined||b==='') return 1;
+  return parseFloat(a)>parseFloat(b)?1:parseFloat(b)>parseFloat(a)?2:0;
+}
+
+function statRow(label, a, b, higherIsBetter=true){
+  const av = parseFloat(a), bv = parseFloat(b);
+  const hasA = !isNaN(av), hasB = !isNaN(bv);
+  let wA='', wB='';
+  if(hasA&&hasB){
+    if(higherIsBetter){ wA=av>bv?'winner':'loser'; wB=bv>av?'winner':'loser'; }
+    else { wA=av<bv?'winner':'loser'; wB=bv<av?'winner':'loser'; }
+    if(av===bv){ wA=''; wB=''; }
+  }
+  return `<div class="compare-row">
+    <div class="compare-cell ${wA}">${hasA?fmt(a):'—'}</div>
+    <div class="compare-label">${label}</div>
+    <div class="compare-cell right ${wB}">${hasB?fmt(b):'—'}</div>
+  </div>`;
+}
+
+function gradeOrder(g){ return ['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','D-','F'].indexOf(g); }
+
+function renderComparison(){
+  const [p1,p2] = selected;
+  const c1 = teamColors[p1.team]||'#888';
+  const c2 = teamColors[p2.team]||'#888';
+  const sec = document.getElementById('compareSection');
+  sec.classList.add('show');
+
+  const g1 = gradeOrder(p1.tdc_grade), g2 = gradeOrder(p2.tdc_grade);
+  const gradeWinner = g1>=0&&g2>=0 ? (g1<g2?'winner':'loser') : '';
+  const gradeLoser  = g1>=0&&g2>=0 ? (g2<g1?'winner':'loser') : '';
+
+  const h1 = htToIn(p1.height), h2 = htToIn(p2.height);
+
+  sec.innerHTML = `
+    <div class="compare-header">
+      <div class="compare-player-name" style="border-color:${c1};border-left:3px solid ${c1};">
+        ${p1.name}
+        <div style="font-size:12px;font-weight:500;color:var(--text3);margin-top:3px;">${p1.team} · ${p1.position||'—'}</div>
+      </div>
+      <div class="compare-vs">VS</div>
+      <div class="compare-player-name right" style="border-color:${c2};border-right:3px solid ${c2};">
+        ${p2.name}
+        <div style="font-size:12px;font-weight:500;color:var(--text3);margin-top:3px;">${p2.team} · ${p2.position||'—'}</div>
+      </div>
+    </div>
+
+    <div class="compare-section-head">Profile</div>
+    <div class="compare-row">
+      <div class="compare-cell">${p1.height||'—'}</div>
+      <div class="compare-label">Height</div>
+      <div class="compare-cell right ${h2>h1?'winner':h1>h2?'loser':''}">${p2.height||'—'}</div>
+    </div>
+    <div class="compare-row">
+      <div class="compare-cell">${p1.class_year||p1.yr||'—'}</div>
+      <div class="compare-label">Year</div>
+      <div class="compare-cell right">${p2.class_year||p2.yr||'—'}</div>
+    </div>
+    <div class="compare-row">
+      <div class="compare-cell ${gradeWinner} ${gc(p1.tdc_grade||'')}">${p1.tdc_grade||'—'}</div>
+      <div class="compare-label">TDC Grade</div>
+      <div class="compare-cell right ${gradeLoser} ${gc(p2.tdc_grade||'')}">${p2.tdc_grade||'—'}</div>
+    </div>
+
+    <div class="compare-section-head">Stats</div>
+    ${statRow('PPG', p1.ppg, p2.ppg)}
+    ${statRow('RPG', p1.rpg, p2.rpg)}
+    ${statRow('APG', p1.apg, p2.apg)}
+    ${statRow('MPG', p1.mpg, p2.mpg)}
+    ${statRow('BPM', p1.bpm, p2.bpm)}
+
+    <div class="compare-section-head">Advantage</div>
+    <div class="compare-row">
+      <div class="compare-cell" style="font-size:13px;line-height:1.6;">${getAdvantages(p1,p2,1)}</div>
+      <div class="compare-label">Edge</div>
+      <div class="compare-cell right" style="font-size:13px;line-height:1.6;">${getAdvantages(p1,p2,2)}</div>
+    </div>`;
+}
+
+function getAdvantages(p1, p2, forPlayer){
+  const edges = [];
+  const p = forPlayer===1?p1:p2;
+  const opp = forPlayer===1?p2:p1;
+  if((p.ppg||0)>(opp.ppg||0)) edges.push('Scoring');
+  if((p.rpg||0)>(opp.rpg||0)) edges.push('Rebounding');
+  if((p.apg||0)>(opp.apg||0)) edges.push('Playmaking');
+  if((p.bpm||0)>(opp.bpm||0)) edges.push('Impact (BPM)');
+  if(htToIn(p.height)>htToIn(opp.height)) edges.push('Size');
+  const pg = gradeOrder(p.tdc_grade), og = gradeOrder(opp.tdc_grade);
+  if(pg>=0&&og>=0&&pg<og) edges.push('Overall Grade');
+  return edges.length ? edges.join('<br>') : '—';
+}
+
+// Close dropdowns on outside click
+document.addEventListener('click', e=>{
+  if(!e.target.closest('.search-wrap')){
+    document.querySelectorAll('.player-search-dropdown').forEach(d=>d.classList.remove('show'));
+  }
+});
+
+function toggleTheme(){
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const next=isDark?'light':'dark';
+  document.documentElement.setAttribute('data-theme',next);
+  localStorage.setItem('tdc_theme',next);
+  document.getElementById('themeBtn').textContent=next==='dark'?'☀️':'🌙';
+}
+(function(){
+  const saved=localStorage.getItem('tdc_theme')||'light';
+  document.documentElement.setAttribute('data-theme',saved);
+  window.addEventListener('DOMContentLoaded',()=>{
+    const btn=document.getElementById('themeBtn');
+    if(btn) btn.textContent=saved==='dark'?'☀️':'🌙';
+  });
+})();
+
+load();
+</script>
+</body>
+</html>
