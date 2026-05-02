@@ -68,12 +68,25 @@
     .td-team a:hover{color:var(--accent);}
     .td-pos{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
     .td-ht{font-family:'Playfair Display',serif;font-size:13px;}
-    .td-stat{font-family:'Playfair Display',serif;font-size:14px;font-weight:700;text-align:right;}
-    .td-grade{font-family:'Playfair Display',serif;font-weight:700;font-size:15px;text-align:right;}
+    .td-stat{font-family:'Playfair Display',serif;font-size:13px;font-weight:700;text-align:right;background:var(--bg2);padding:2px 6px;border-radius:2px;}
+    .td-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;text-align:right;letter-spacing:-.01em;}
     .gAp{color:var(--green);}.gA{color:var(--green);}.gAm{color:#2ea84f;}
     .gBp{color:var(--blue);}.gB{color:var(--blue);}.gBm{color:#2e74d4;}
     .gCp{color:var(--amber);}.gC{color:var(--amber);}.gCm{color:#b87000;}
     .gDp{color:var(--red);}.gD{color:var(--red);}.gDm{color:#dd3300;}.gF{color:#aa0000;}
+    /* 2K Number Rating Colors */
+    .g-elite{color:#18c45a;font-weight:800;}
+    .g-great{color:#7bc832;font-weight:800;}
+    .g-good{color:#c8b432;font-weight:800;}
+    .g-avg{color:#e08020;font-weight:800;}
+    .g-below{color:#e05030;font-weight:800;}
+    .g-low{color:#cc2020;font-weight:800;}
+    [data-theme="dark"] .g-elite{color:#22e06a;}
+    [data-theme="dark"] .g-great{color:#96e040;}
+    [data-theme="dark"] .g-good{color:#e0d040;}
+    [data-theme="dark"] .g-avg{color:#e89040;}
+    [data-theme="dark"] .g-below{color:#e86050;}
+    [data-theme="dark"] .g-low{color:#e04040;}
     .starter-badge{font-size:9px;font-weight:700;padding:1px 4px;margin-left:4px;background:rgba(139,105,20,.12);color:var(--accent);}
     .conf-badge{font-size:9px;font-weight:700;letter-spacing:.06em;padding:1px 6px;border:1px solid var(--border2);color:var(--text3);}
 
@@ -170,20 +183,13 @@
     <option value="6-9">6'9"+</option>
   </select>
   <select class="filter-select" id="gradeFilter" onchange="applyFilters()">
-    <option value="">All Grades</option>
-    <option value="A+">A+</option>
-    <option value="A">A</option>
-    <option value="A-">A-</option>
-    <option value="B+">B+</option>
-    <option value="B">B</option>
-    <option value="B-">B-</option>
-    <option value="C+">C+</option>
-    <option value="C">C</option>
-    <option value="C-">C-</option>
-    <option value="D+">D+</option>
-    <option value="D">D</option>
-    <option value="D-">D-</option>
-    <option value="F">F</option>
+    <option value="">All Ratings</option>
+    <option value="90">90–99 (Elite)</option>
+    <option value="80">80–89 (Great)</option>
+    <option value="70">70–79 (Good)</option>
+    <option value="60">60–69 (Average)</option>
+    <option value="50">50–59 (Below Avg)</option>
+    <option value="0">Under 50</option>
   </select>
   <input class="filter-input" type="text" id="searchInput" placeholder="Search player..." oninput="applyFilters()"/>
   <button class="clear-btn" onclick="clearFilters()">Clear</button>
@@ -211,10 +217,19 @@ const H   = {'apikey':KEY,'Authorization':`Bearer ${KEY}`};
 
 let allPlayers = [];
 let allTeams   = [];
-let sortCol    = 'name';
+let sortCol    = 'tdc_grade';
 let sortDir    = 1;
 
-function gc(g){ return {'A+':'gAp','A':'gA','A-':'gAm','B+':'gBp','B':'gB','B-':'gBm','C+':'gCp','C':'gC','C-':'gCm','D+':'gDp','D':'gD','D-':'gDm','F':'gF'}[g]||''; }
+function gc(g){
+  const n = parseInt(g);
+  if(isNaN(n)) return '';
+  if(n >= 90) return 'g-elite';
+  if(n >= 80) return 'g-great';
+  if(n >= 70) return 'g-good';
+  if(n >= 60) return 'g-avg';
+  if(n >= 50) return 'g-below';
+  return 'g-low';
+}
 function fmt(v){ return (v!==null&&v!==undefined&&v!=='') ? Number(v).toFixed(1) : '—'; }
 
 // Height to inches for sorting
@@ -290,7 +305,12 @@ function applyFilters(){
     if(pos    && p.position !== pos) return false;
     if(yr     && (p.class_year||p.yr) !== yr) return false;
     if(ht     && !htMatch(p.height, ht)) return false;
-    if(grade  && p.tdc_grade !== grade) return false;
+    if(grade) {
+      const n = parseInt(p.tdc_grade);
+      const min = parseInt(grade);
+      const max = min === 0 ? 49 : min + 9;
+      if(isNaN(n) || n < min || n > max) return false;
+    }
     if(search && !p.name.toLowerCase().includes(search) && !(p.team||'').toLowerCase().includes(search)) return false;
     return true;
   });
@@ -304,10 +324,9 @@ function applyFilters(){
     }
     if(sortCol==='height'){ av=htToIn(a.height); bv=htToIn(b.height); return (bv-av)*sortDir; }
     if(sortCol==='tdc_grade'){
-      const order=['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','D-','F'];
-      av=order.indexOf(a.tdc_grade??''); bv=order.indexOf(b.tdc_grade??'');
-      av=av<0?99:av; bv=bv<0?99:bv;
-      return (av-bv)*sortDir;
+      av = parseInt(a.tdc_grade??'0') || 0;
+      bv = parseInt(b.tdc_grade??'0') || 0;
+      return (bv-av)*sortDir;
     }
     av=(a[sortCol]||'').toLowerCase(); bv=(b[sortCol]||'').toLowerCase();
     return av<bv?-sortDir:av>bv?sortDir:0;
@@ -347,7 +366,7 @@ function renderTable(players){
           ${col('apg','APG','right')}
           ${col('mpg','MPG','right')}
           ${col('bpm','BPM','right')}
-          ${col('tdc_grade','Gr','right')}
+          ${col('tdc_grade','OVR','right')}
         </tr>
       </thead>
       <tbody>
