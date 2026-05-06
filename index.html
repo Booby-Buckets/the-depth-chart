@@ -60,10 +60,10 @@
     .filter-count{margin-left:auto;font-size:11px;font-weight:600;color:var(--text3);font-family:'Share Tech Mono',monospace;}
     .filter-count strong{color:var(--accent);}
     .table-section{padding:0 40px 64px;}
-    .table-header{display:grid;grid-template-columns:48px 12px 1fr 80px 80px 80px 80px 80px;gap:0;padding:10px 0;border-bottom:2px solid var(--border2);margin-top:24px;}
+    .table-header{display:grid;grid-template-columns:48px 12px 1fr 200px 80px 80px 80px 80px 80px;gap:0;padding:10px 0;border-bottom:2px solid var(--border2);margin-top:24px;}
     .th{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
     .th.center{text-align:center;}
-    .team-row{display:grid;grid-template-columns:48px 12px 1fr 80px 80px 80px 80px 80px;gap:0;padding:14px 0;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background .15s;}
+    .team-row{display:grid;grid-template-columns:48px 12px 1fr 200px 80px 80px 80px 80px 80px;gap:0;padding:14px 0;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background .15s;}
     .team-row:hover{background:var(--bg2);}
     .team-row.fav-row{background:var(--fav-bg, rgba(200,169,110,.06));border-left:3px solid var(--fav-color, var(--accent));}
     .team-row.fav-row:hover{background:var(--fav-bg-hover, rgba(200,169,110,.1));}
@@ -72,7 +72,13 @@
     .tr-color-bar{width:4px;height:100%;border-radius:2px;align-self:stretch;}
     .tr-team-name{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;color:var(--text);letter-spacing:-.01em;margin-bottom:3px;}
     .tr-team-conf{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
-    .tr-grade{text-align:center;}
+    .tr-sparkline{padding:0 16px;display:flex;flex-direction:column;gap:5px;justify-content:center;}
+    .spark-row{display:flex;align-items:center;gap:6px;}
+    .spark-label{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);width:18px;flex-shrink:0;}
+    .spark-track{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+    .spark-fill{height:100%;border-radius:2px;transition:width .4s;}
+    .spark-A{background:#1a8c3a;} .spark-B{background:#1a5fbf;} .spark-C{background:#a06000;} .spark-D,.spark-F{background:#cc2200;}
+    [data-theme="dark"] .spark-A{background:#3aba7a;} [data-theme="dark"] .spark-B{background:#5b9bd5;} [data-theme="dark"] .spark-C{background:#d4a030;}
     .grade-val{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;line-height:1;}
     .grade-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
     .gAp{color:#1a8c3a;}.gA{color:#1a8c3a;}.gAm{color:#2ea84f;}
@@ -107,7 +113,7 @@
   .filter-btn{font-size:10px;padding:4px 8px;}
   .filter-select{font-size:10px;}
   .table-header,.team-row{grid-template-columns:32px 6px 1fr 44px 44px 44px;}
-  .th,.tr-grade{display:none;}
+  .th,.tr-grade,.tr-sparkline{display:none;}
   .th:nth-child(1),.th:nth-child(2),.th:nth-child(3),.th:nth-child(4){display:block;}
   .tr-rank{font-size:16px;}
   .tr-team-name{font-size:14px;}
@@ -191,6 +197,7 @@
     <div class="th">Rk</div>
     <div class="th"></div>
     <div class="th">Team</div>
+    <div class="th">Strength</div>
     <div class="th center">Players</div>
     <div class="th center">Depth</div>
     <div class="th center">Recruit</div>
@@ -272,6 +279,10 @@ async function loadTeams(){
   }
 }
 
+function gradeWidth(g){const m={'A+':100,'A':92,'A-':85,'B+':76,'B':68,'B-':60,'C+':50,'C':42,'C-':34,'D+':24,'D':16,'D-':10,'F':5};return m[g]||0;}
+function sparkClass(g){if(!g)return'';if(g.startsWith('A'))return'spark-A';if(g.startsWith('B'))return'spark-B';if(g.startsWith('C'))return'spark-C';return'spark-D';}
+function sparkBar(label,grade){const w=gradeWidth(grade);const c=sparkClass(grade);return w?`<div class="spark-row"><span class="spark-label">${label}</span><div class="spark-track"><div class="spark-fill ${c}" style="width:${w}%"></div></div></div>`:''}
+
 function gc(g){
   return {"A+":"gAp","A":"gA","A-":"gAm","B+":"gBp","B":"gB","B-":"gBm","C+":"gCp","C":"gC","D":"gD"}[g]||"";
 }
@@ -338,6 +349,12 @@ function applyFilters(){
       <div>
         <div class="tr-team-name">${t.name}</div>
         <div class="tr-team-conf">${t.conf}</div>
+      </div>
+      <div class="tr-sparkline">
+        ${sparkBar('RS',t.rg)}
+        ${sparkBar('DG',t.dg)}
+        ${sparkBar('RC',t.recg)}
+        ${sparkBar('NIL',t.nilg)}
       </div>
       <div class="tr-grade"><div class="grade-val ${gc(t.rg)}">${t.rg}</div><div class="grade-lbl">Players</div></div>
       <div class="tr-grade"><div class="grade-val ${gc(t.dg)}">${t.dg}</div><div class="grade-lbl">Depth</div></div>
