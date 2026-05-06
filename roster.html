@@ -279,15 +279,29 @@ async function loadData(){
       teamSel.appendChild(o);
     });
 
-    // Load all players with explicit column selection
-    const pr = await fetch(`${SB}/rest/v1/players?select=id,name,team,position,height,class_year,yr,starter,is_addition,tdc_grade,ppg,rpg,apg,mpg,bpm,depth_order&order=name.asc&limit=5000`, {headers:H});
-    const raw = await pr.json();
+    // Load all players — paginate to bypass Supabase 1000 row default limit
+    let allRaw = [];
+    let page = 0;
+    const PAGE_SIZE = 1000;
+    while(true){
+      const from = page * PAGE_SIZE;
+      const to   = from + PAGE_SIZE - 1;
+      const pr = await fetch(
+        `${SB}/rest/v1/players?select=id,name,team,position,height,class_year,yr,starter,is_addition,tdc_grade,ppg,rpg,apg,mpg,bpm,depth_order&order=name.asc`,
+        {headers:{...H, 'Range-Unit':'items', 'Range':`${from}-${to}`}}
+      );
+      const batch = await pr.json();
+      if(!Array.isArray(batch) || batch.length === 0) break;
+      allRaw = allRaw.concat(batch);
+      if(batch.length < PAGE_SIZE) break;
+      page++;
+    }
 
     // Attach team info to each player
     const teamMap = {};
     allTeams.forEach(t => teamMap[t.name] = t);
 
-    allPlayers = raw.filter(p => p.name && p.name !== '—').map(p => ({
+    allPlayers = allRaw.filter(p => p.name && p.name !== '—').map(p => ({
       ...p,
       teamData: teamMap[p.team] || {},
       conf: (teamMap[p.team]||{}).conf || (teamMap[p.team]||{}).conference || '',
