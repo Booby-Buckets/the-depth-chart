@@ -38,6 +38,19 @@
   </style>
 </head>
 <body>
+<script>
+// Premium gate check
+(function(){
+  const s = JSON.parse(localStorage.getItem('tdc_session')||'null');
+  if(!s?.access_token){ location.href='pricing.html?gate=1'; return; }
+  // Verify session and check plan
+  fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user?.id+'&select=plan',{
+    headers:{'apikey':'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye','Authorization':'Bearer '+s.access_token}
+  }).then(r=>r.json()).then(([p])=>{
+    if(!p||p.plan!=='premium') location.href='pricing.html?gate=1';
+  }).catch(()=>location.href='pricing.html?gate=1');
+})();
+</script>
 
 <div class="card">
   <div class="card-head">

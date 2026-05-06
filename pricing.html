@@ -128,42 +128,60 @@
 </div>
 
 <div class="page">
-  <div class="page-eyebrow">Subscribe</div>
-  <h1 class="page-h1">Get Full Access</h1>
-  <p class="page-sub">Free users see the rankings. Premium unlocks every team page — full depth charts, player grades, stats, NIL evaluations, and more.</p>
+  <!-- Gate notice (shown when redirected from premium page) -->
+  <div id="gateNotice" style="display:none;background:rgba(204,34,0,.08);border:1px solid rgba(204,34,0,.2);padding:14px 20px;margin-bottom:28px;font-size:14px;font-weight:600;color:#cc2200;">
+    🔒 That page requires a Premium subscription. Sign in or upgrade below.
+  </div>
 
-  <div class="plans">
-    <div class="plan">
-      <div class="plan-name">Free</div>
-      <div class="plan-price">$0<span>/forever</span></div>
-      <div class="plan-price-alt">&nbsp;</div>
-      <div class="plan-divider"></div>
-      <ul class="plan-features">
-        <li>Full rankings page</li>
-        <li>Conference filters & sorting</li>
-        <li>NIL tier & eval on rankings</li>
-        <li class="no">Team depth charts</li>
-        <li class="no">Player stats & grades</li>
-        <li class="no">Offseason additions & losses</li>
-        <li class="no">Favorite team highlight</li>
-      </ul>
-      <button class="plan-btn free" onclick="goToAuth('signup')">Create Free Account</button>
-    </div>
-    <div class="plan featured">
-      <div class="plan-badge">Best Value</div>
-      <div class="plan-name">Premium</div>
-      <div class="plan-price">$5<span>/month</span></div>
-      <div class="plan-price-alt">or $50/year — save $10</div>
-      <div class="plan-divider"></div>
-      <ul class="plan-features">
-        <li>Everything in Free</li>
-        <li>Full team depth charts</li>
-        <li>Player stats, grades & NIL data</li>
-        <li>Offseason additions & key losses</li>
-        <li>Favorite team highlight on rankings</li>
-        <li>Early access to new features</li>
-      </ul>
-      <button class="plan-btn paid" onclick="goToAuth('signup')">Get Premium</button>
+  <!-- Premium status banner (shown when already premium) -->
+  <div id="premiumBanner" style="display:none;background:rgba(26,140,58,.08);border:1px solid rgba(26,140,58,.2);padding:20px 24px;margin-bottom:32px;">
+    <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#1a8c3a;margin-bottom:6px;">✓ Active Subscription</div>
+    <div style="font-family:'Playfair Display',serif;font-weight:800;font-size:22px;margin-bottom:4px;">You're on Premium</div>
+    <div style="font-size:13px;color:var(--text3);" id="premiumExpiry"></div>
+    <a href="index.html" style="display:inline-block;margin-top:12px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#1a8c3a;text-decoration:none;">← Back to Rankings</a>
+  </div>
+
+  <div id="pricingContent">
+    <div class="page-eyebrow">Subscribe</div>
+    <h1 class="page-h1">Get Full Access</h1>
+    <p class="page-sub">Free users see the rankings. Premium unlocks every page — full depth charts, player grades, stats, NIL evaluations, transfer portal, forum, and more.</p>
+
+    <div class="plans">
+      <div class="plan" id="freePlan">
+        <div class="plan-name">Free</div>
+        <div class="plan-price">$0<span>/forever</span></div>
+        <div class="plan-price-alt">&nbsp;</div>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li>Full rankings page</li>
+          <li>Conference filters &amp; sorting</li>
+          <li>NIL tier &amp; eval on rankings</li>
+          <li class="no">Team depth charts</li>
+          <li class="no">Player database</li>
+          <li class="no">Transfer portal tracker</li>
+          <li class="no">Forum access</li>
+          <li class="no">Player &amp; team comparisons</li>
+        </ul>
+        <button class="plan-btn free" id="freePlanBtn" onclick="goToAuth('signup')">Create Free Account</button>
+      </div>
+      <div class="plan featured" id="premiumPlan">
+        <div class="plan-badge">Best Value</div>
+        <div class="plan-name">Premium</div>
+        <div class="plan-price">$5<span>/month</span></div>
+        <div class="plan-price-alt">or $50/year — save $10</div>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li>Everything in Free</li>
+          <li>Full team depth charts</li>
+          <li>Player stats, grades &amp; NIL data</li>
+          <li>Transfer portal tracker</li>
+          <li>Forum — post &amp; reply</li>
+          <li>Player &amp; team comparisons</li>
+          <li>Favorite team highlight</li>
+          <li>Early access to new features</li>
+        </ul>
+        <button class="plan-btn paid" id="premiumPlanBtn" onclick="goToAuth('signup')">Get Premium</button>
+      </div>
     </div>
   </div>
 
@@ -282,8 +300,26 @@ function setSession(s){ localStorage.setItem('tdc_session', JSON.stringify(s)); 
 function clearSession(){ localStorage.removeItem('tdc_session'); }
 
 async function init(){
+  // Show gate notice if redirected
+  if(location.search.includes('gate=1')){
+    document.getElementById('gateNotice').style.display='block';
+  }
+
   const s = getSession();
   if(!s?.access_token) return;
+
+  // Try to refresh if expired
+  try {
+    const payload = JSON.parse(atob(s.access_token.split('.')[1]));
+    if(payload.exp && payload.exp * 1000 < Date.now()){
+      const rf = await fetch(`${SB}/auth/v1/token?grant_type=refresh_token`,{
+        method:'POST',headers:H,body:JSON.stringify({refresh_token:s.refresh_token})
+      });
+      if(rf.ok){ const fresh=await rf.json(); setSession(fresh); s=fresh; }
+      else { clearSession(); return; }
+    }
+  } catch(e){}
+
   try {
     const r = await fetch(`${SB}/auth/v1/user`,{headers:{...H,'Authorization':`Bearer ${s.access_token}`}});
     if(!r.ok){ clearSession(); return; }
@@ -297,16 +333,49 @@ async function renderAccount(token){
     {headers:{...H,'Authorization':`Bearer ${token}`}});
   const [profile] = await r.json();
 
+  const plan = profile?.plan || 'free';
+  const isPremium = plan === 'premium';
+
+  // Update nav
+  const uname = profile?.username || user.email?.split('@')[0] || 'User';
+  const avatarHtml = profile?.avatar_url
+    ? `<img src="${profile.avatar_url}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);" />`
+    : `<div style="width:32px;height:32px;border-radius:50%;background:var(--bg2);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:14px;">${uname[0].toUpperCase()}</div>`;
+  const vBadge = profile?.verified
+    ? `<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:var(--accent);border-radius:50%;margin-left:3px;"><svg viewBox="0 0 24 24" style="width:9px;height:9px;fill:#fff;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>` : '';
+  document.getElementById('navActions').innerHTML = `
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+    <a href="profile.html" style="display:flex;align-items:center;gap:8px;text-decoration:none;">
+      ${avatarHtml}
+      <span style="display:flex;align-items:center;font-size:13px;font-weight:700;color:var(--text);">${uname}${vBadge}</span>
+    </a>`;
+
+  if(isPremium){
+    // Show premium banner, hide/dim pricing section
+    document.getElementById('premiumBanner').style.display = 'block';
+    document.getElementById('pricingContent').style.display = 'none';
+    const exp = profile?.sub_expires_at;
+    document.getElementById('premiumExpiry').textContent = exp
+      ? `Renews ${new Date(exp).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`
+      : 'Active — no expiry date set';
+  } else {
+    // Update plan buttons for signed-in free user
+    const freeBtn = document.getElementById('freePlanBtn');
+    const premBtn = document.getElementById('premiumPlanBtn');
+    if(freeBtn){ freeBtn.textContent = '✓ Your Current Plan'; freeBtn.disabled = true; freeBtn.style.opacity='.5'; }
+    if(premBtn){ premBtn.textContent = 'Upgrade to Premium'; premBtn.onclick = ()=>goToAuth('promo'); }
+  }
+
+  // Show account section
   document.getElementById('authTabs').style.display = 'none';
   document.getElementById('authTitle').textContent = 'Your Account';
   document.getElementById('authSub').textContent = 'Manage your subscription and favorite team.';
   showPanel('account');
 
   document.getElementById('acctEmail').textContent = user.email;
-  const plan = profile?.plan || 'free';
   const pill = document.getElementById('acctPlan');
-  pill.textContent = plan === 'premium' ? 'Premium' : 'Free';
-  pill.className = 'plan-pill' + (plan==='premium'?' premium':'');
+  pill.textContent = isPremium ? 'Premium' : 'Free';
+  pill.className = 'plan-pill' + (isPremium?' premium':'');
 
   const exp = profile?.sub_expires_at;
   document.getElementById('acctExpires').textContent = exp
@@ -328,8 +397,10 @@ async function handleSignIn(){
       {method:'POST',headers:H,body:JSON.stringify({email,password:pw})});
     const d = await r.json();
     if(!r.ok) return msg('signinMsg',d.error_description||d.msg||'Sign in failed.','error');
-    setSession(d); user = d.user;
-    msg('signinMsg','Signed in!','success');
+    // Store full session including refresh_token for persistence
+    setSession(d);
+    user = d.user;
+    msg('signinMsg','Signed in! Welcome back.','success');
     setTimeout(()=>renderAccount(d.access_token), 700);
   } catch(e){ msg('signinMsg','Something went wrong.','error'); }
 }
