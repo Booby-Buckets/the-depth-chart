@@ -77,7 +77,7 @@
     .tr-team-conf{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
     .tr-sparkline{padding:0 16px;display:flex;flex-direction:column;gap:5px;justify-content:center;}
     .spark-row{display:flex;align-items:center;gap:6px;}
-    .spark-label{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);width:18px;flex-shrink:0;}
+    .spark-label{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);width:26px;flex-shrink:0;}
     .spark-track{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
     .spark-fill{height:100%;border-radius:2px;transition:width .4s;}
     .spark-A{background:#1a8c3a;} .spark-B{background:#1a5fbf;} .spark-C{background:#a06000;} .spark-D,.spark-F{background:#cc2200;}
@@ -151,7 +151,6 @@
   <div class="nav-sub">
     <a href="index.html" class="active">Rankings</a>
     <a href="roster.html">Players</a>
-    <a href="recent.html">Recent</a>
     <a href="compare-players.html">Compare</a>
     <a href="forum.html">Forum</a>
     <a href="community.html">Community</a>
@@ -185,7 +184,7 @@
   <div class="filter-sep"></div>
   <select class="filter-select" id="sortSel" onchange="applyFilters()">
     <option value="rank">Sort: Overall Rank</option>
-    <option value="roster">Sort: Roster Grade</option>
+    <option value="roster">Sort: Coach Grade</option>
     <option value="depth">Sort: Depth Grade</option>
     <option value="recruit">Sort: Recruit Grade</option>
     <option value="nil">Sort: NIL Eval</option>
@@ -283,15 +282,34 @@ async function loadTeams(){
   }
 }
 
-function gradeWidth(g){const m={'A+':100,'A':92,'A-':85,'B+':76,'B':68,'B-':60,'C+':50,'C':42,'C-':34,'D+':24,'D':16,'D-':10,'F':5};return m[g]||0;}
-function sparkClass(g){if(!g)return'';if(g.startsWith('A'))return'spark-A';if(g.startsWith('B'))return'spark-B';if(g.startsWith('C'))return'spark-C';return'spark-D';}
+function gradeWidth(g){
+  if(!g||g==='—') return 0;
+  // Numeric grade (coach grade 0-100)
+  const n=parseFloat(g);
+  if(!isNaN(n)) return Math.min(100,Math.max(0,n));
+  // Letter grade
+  const m={'A+':100,'A':92,'A-':85,'B+':76,'B':68,'B-':60,'C+':50,'C':42,'C-':34,'D+':24,'D':16,'D-':10,'F':5};
+  return m[g]||0;
+}
+function sparkClass(g){
+  if(!g||g==='—') return '';
+  const n=parseFloat(g);
+  if(!isNaN(n)){ if(n>=85)return'spark-A'; if(n>=70)return'spark-B'; if(n>=50)return'spark-C'; return'spark-D'; }
+  if(g.startsWith('A'))return'spark-A';
+  if(g.startsWith('B'))return'spark-B';
+  if(g.startsWith('C'))return'spark-C';
+  return'spark-D';
+}
 function sparkBar(label,grade){const w=gradeWidth(grade);const c=sparkClass(grade);return w?`<div class="spark-row"><span class="spark-label">${label}</span><div class="spark-track"><div class="spark-fill ${c}" style="width:${w}%"></div></div></div>`:''}
 
 function gc(g){
   return {"A+":"gAp","A":"gA","A-":"gAm","B+":"gBp","B":"gB","B-":"gBm","C+":"gCp","C":"gC","D":"gD"}[g]||"";
 }
 function gn(g){
-  return {"A+":12,"A":11,"A-":10,"B+":9,"B":8,"B-":7,"C+":6,"C":5,"D":2}[g]||0;
+  if(!g||g==='—') return 0;
+  const n=parseFloat(g);
+  if(!isNaN(n)) return n; // numeric grade (coach)
+  return {"A+":120,"A":110,"A-":100,"B+":90,"B":80,"B-":70,"C+":60,"C":50,"C-":40,"D+":30,"D":20,"D-":10,"F":5}[g]||0;
 }
 
 function setConf(conf,btn){
@@ -364,7 +382,7 @@ function applyFilters(){
         ${sparkBar('CO',t.rg)}
         ${sparkBar('DG',t.dg)}
         ${sparkBar('RC',t.recg)}
-        ${sparkBar('NIL',t.nilg)}
+        ${sparkBar('EVAL',t.nilg)}
       </div>
       <div class="tr-grade"><div class="grade-val ${gc(t.rg)}">${t.rg}</div><div class="grade-lbl">Coach</div></div>
       <div class="tr-grade"><div class="grade-val ${gc(t.dg)}">${t.dg}</div><div class="grade-lbl">Depth</div></div>
