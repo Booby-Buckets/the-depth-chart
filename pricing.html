@@ -26,6 +26,8 @@
     [data-theme="dark"] .nav-signin{background:var(--text) !important;color:var(--bg) !important;}
     [data-theme="dark"] .form-btn{background:var(--text);color:var(--bg);}
     [data-theme="dark"] .plan-btn.paid{background:var(--text);color:var(--bg);}
+    [data-theme="dark"] .plan-toggle{background:var(--bg2);}
+    [data-theme="dark"] .plan-toggle-btn.active{background:var(--text);color:var(--bg);}
     .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;}
     .theme-toggle:hover{border-color:var(--text3);color:var(--text);}
     *{margin:0;padding:0;box-sizing:border-box;}
@@ -82,6 +84,7 @@
     .form-hint{font-size:11px;color:var(--text3);margin-top:5px;line-height:1.4;}
     .form-btn{width:100%;padding:12px;background:var(--text);color:var(--bg);border:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:opacity .15s;margin-top:8px;}
     .form-btn:hover{opacity:.85;}
+    .form-btn:disabled{opacity:.5;cursor:not-allowed;}
     .form-btn.secondary{background:var(--bg2);color:var(--text2);border:1px solid var(--border2);}
     .form-btn.secondary:hover{background:var(--border);}
     .promo-row{display:flex;gap:8px;}
@@ -101,6 +104,12 @@
     .plan-pill.premium{background:rgba(26,140,58,.12);color:var(--green);}
     .form-divider{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--text3);font-size:12px;}
     .form-divider::before,.form-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+    /* Plan toggle */
+    .plan-toggle{display:flex;border:1px solid var(--border2);margin-bottom:14px;overflow:hidden;}
+    .plan-toggle-btn{flex:1;padding:9px 12px;border:none;background:none;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);cursor:pointer;transition:all .15s;text-align:center;}
+    .plan-toggle-btn.active{background:var(--text);color:var(--bg);}
+    .plan-toggle-btn .save-tag{font-size:10px;font-weight:700;color:var(--green);margin-left:5px;}
+    .plan-toggle-btn.active .save-tag{color:#6ee890;}
     footer{border-top:1px solid var(--border);padding:28px 40px;display:flex;align-items:center;justify-content:space-between;margin-top:40px;}
     .footer-logo{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text3);}
     .footer-logo span{color:var(--accent);}
@@ -130,6 +139,14 @@
   <!-- Gate notice (shown when redirected from premium page) -->
   <div id="gateNotice" style="display:none;background:rgba(204,34,0,.08);border:1px solid rgba(204,34,0,.2);padding:14px 20px;margin-bottom:28px;font-size:14px;font-weight:600;color:#cc2200;">
     🔒 That page requires a Premium subscription. Sign in or upgrade below.
+  </div>
+
+  <!-- Stripe success/cancel banners -->
+  <div id="stripeSuccess" style="display:none;background:rgba(26,140,58,.08);border:1px solid rgba(26,140,58,.2);padding:14px 20px;margin-bottom:28px;font-size:14px;font-weight:600;color:#1a8c3a;">
+    🎉 You're subscribed! Welcome to Premium. Your account will update shortly.
+  </div>
+  <div id="stripeCanceled" style="display:none;background:rgba(204,34,0,.08);border:1px solid rgba(204,34,0,.2);padding:14px 20px;margin-bottom:28px;font-size:14px;font-weight:600;color:#cc2200;">
+    Checkout canceled — no charge was made.
   </div>
 
   <!-- Premium status banner (shown when already premium) -->
@@ -276,8 +293,16 @@
         <div class="form-hint" id="acctPromoHint"></div>
       </div>
 
-      <div class="form-divider">or upgrade your plan</div>
-      <button class="form-btn paid" onclick="alert('Stripe payments coming soon!\n\nTo upgrade now email boobylee383@gmail.com and we\'ll set you up manually.')">Upgrade to Premium — $5/mo or $50/yr</button>
+      <!-- STRIPE CHECKOUT -->
+      <div id="upgradeSection">
+        <div class="form-divider">or upgrade your plan</div>
+        <div class="plan-toggle" id="planToggle">
+          <button class="plan-toggle-btn" id="toggleMonthly" onclick="selectPlan('monthly')">Monthly — $5/mo</button>
+          <button class="plan-toggle-btn active" id="toggleYearly" onclick="selectPlan('yearly')">Yearly — $50/yr <span class="save-tag">SAVE $10</span></button>
+        </div>
+        <button class="form-btn paid" id="checkoutBtn" onclick="startCheckout()">Upgrade to Premium</button>
+      </div>
+
       <button class="form-btn secondary" onclick="handleSignOut()" style="margin-top:10px;">Sign Out</button>
     </div>
   </div>
@@ -292,16 +317,72 @@
 const SB = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H = { 'apikey':KEY, 'Authorization':`Bearer ${KEY}`, 'Content-Type':'application/json' };
-let user = null, validPromo = null;
+const EDGE_URL = `${SB}/functions/v1/stripe-checkout`;
+let user = null, validPromo = null, selectedPlan = 'yearly';
 
 function getSession(){ return JSON.parse(localStorage.getItem('tdc_session')||'null'); }
 function setSession(s){ localStorage.setItem('tdc_session', JSON.stringify(s)); }
 function clearSession(){ localStorage.removeItem('tdc_session'); }
 
+// ── Stripe plan toggle ──────────────────────────────────────────────────────
+function selectPlan(plan){
+  selectedPlan = plan;
+  document.getElementById('toggleMonthly').classList.toggle('active', plan==='monthly');
+  document.getElementById('toggleYearly').classList.toggle('active', plan==='yearly');
+}
+
+// ── Stripe Checkout ─────────────────────────────────────────────────────────
+async function startCheckout(){
+  const s = getSession();
+  if(!s?.access_token){
+    goToAuth('signin');
+    return;
+  }
+  const btn = document.getElementById('checkoutBtn');
+  btn.disabled = true;
+  btn.textContent = 'Redirecting to Stripe…';
+
+  const promoCode = document.getElementById('acctPromo')?.value?.trim() || '';
+
+  try {
+    const res = await fetch(EDGE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${s.access_token}`,
+      },
+      body: JSON.stringify({
+        plan: selectedPlan,
+        userId: user?.id,
+        email: user?.email,
+        promoCode,
+      }),
+    });
+    const { url, error } = await res.json();
+    if(error) throw new Error(error);
+    window.location.href = url;
+  } catch(err){
+    console.error('Checkout error:', err);
+    msg('accountMsg', 'Something went wrong starting checkout. Please try again.', 'error');
+    btn.disabled = false;
+    btn.textContent = 'Upgrade to Premium';
+  }
+}
+
 async function init(){
   // Show gate notice if redirected
   if(location.search.includes('gate=1')){
     document.getElementById('gateNotice').style.display='block';
+  }
+  // Stripe redirect banners
+  const params = new URLSearchParams(location.search);
+  if(params.get('success')==='true'){
+    document.getElementById('stripeSuccess').style.display='block';
+    window.history.replaceState({}, '', location.pathname);
+  }
+  if(params.get('canceled')==='true'){
+    document.getElementById('stripeCanceled').style.display='block';
+    window.history.replaceState({}, '', location.pathname);
   }
 
   const s = getSession();
@@ -350,9 +431,9 @@ async function renderAccount(token){
     </a>`;
 
   if(isPremium){
-    // Show premium banner, hide/dim pricing section
     document.getElementById('premiumBanner').style.display = 'block';
     document.getElementById('pricingContent').style.display = 'none';
+    document.getElementById('upgradeSection').style.display = 'none';
     const exp = profile?.sub_expires_at;
     document.getElementById('premiumExpiry').textContent = exp
       ? `Renews ${new Date(exp).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`
@@ -362,7 +443,7 @@ async function renderAccount(token){
     const freeBtn = document.getElementById('freePlanBtn');
     const premBtn = document.getElementById('premiumPlanBtn');
     if(freeBtn){ freeBtn.textContent = '✓ Your Current Plan'; freeBtn.disabled = true; freeBtn.style.opacity='.5'; }
-    if(premBtn){ premBtn.textContent = 'Upgrade to Premium'; premBtn.onclick = ()=>goToAuth('promo'); }
+    if(premBtn){ premBtn.textContent = 'Upgrade to Premium'; premBtn.onclick = ()=>{ goToAuth('account'); }; }
   }
 
   // Show account section
@@ -396,7 +477,6 @@ async function handleSignIn(){
       {method:'POST',headers:H,body:JSON.stringify({email,password:pw})});
     const d = await r.json();
     if(!r.ok) return msg('signinMsg',d.error_description||d.msg||'Sign in failed.','error');
-    // Store full session including refresh_token for persistence
     setSession(d);
     user = d.user;
     msg('signinMsg','Signed in! Welcome back.','success');
