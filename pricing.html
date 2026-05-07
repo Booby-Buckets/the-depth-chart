@@ -300,9 +300,8 @@ function setSession(s){ localStorage.setItem('tdc_session', JSON.stringify(s)); 
 function clearSession(){ localStorage.removeItem('tdc_session'); }
 
 async function init(){
-  if(location.search.includes('gate=1')){
-    document.getElementById('gateNotice').style.display='block';
-  }
+  const gn = document.getElementById('gateNotice');
+  if(gn && location.search.includes('gate=1')) gn.style.display='block';
 
   let s = getSession();
   if(!s?.access_token) return;
@@ -543,7 +542,9 @@ async function startCheckout(plan){
 
 function msg(id,text,type){
   const el=document.getElementById(id);
+  if(!el) return;
   el.textContent=text; el.className=`msg ${type} show`;
+  setTimeout(()=>{ if(el) el.className='msg'; }, 4000);
 }
 
 loadTeams();
@@ -570,11 +571,13 @@ function toggleTheme(){
 // Handle Stripe redirect back
 if(location.search.includes('success=1')){
   setTimeout(()=>{
-    document.getElementById('gateNotice').style.display='none';
+    const gn = document.getElementById('gateNotice');
+    if(gn) gn.style.display='none';
     const b = document.createElement('div');
     b.style.cssText='background:rgba(26,140,58,.1);border:1px solid rgba(26,140,58,.3);padding:16px 20px;margin-bottom:20px;font-size:14px;font-weight:600;color:#1a8c3a;';
     b.textContent='✓ Payment successful! Your account is being upgraded — refresh in a moment.';
-    document.querySelector('.page')?.prepend(b);
+    const page = document.querySelector('.page') || document.body;
+    page.prepend(b);
   }, 500);
 }
 if(location.search.includes('canceled=1')){
