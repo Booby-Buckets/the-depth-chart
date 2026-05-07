@@ -76,8 +76,9 @@
     .tr-team-name{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;color:var(--text);letter-spacing:-.01em;margin-bottom:3px;}
     .tr-team-conf{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
     .tr-grades-mobile{display:none;}
-    .mobile-grade{font-family:'Playfair Display',serif;font-weight:700;font-size:13px;margin-right:10px;display:inline-flex;align-items:baseline;gap:3px;}
-    .mobile-grade-lbl{font-size:10px;font-weight:600;letter-spacing:.03em;color:var(--text3);font-family:'Inter',sans-serif;}
+    .mobile-grade{font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;justify-content:flex-end;}
+    .mobile-grade-val{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;}
+    .mobile-grade-lbl{font-size:10px;font-weight:600;color:var(--text3);font-family:'Inter',sans-serif;min-width:46px;text-align:left;}
     .spark-row{display:flex;align-items:center;gap:6px;}
     .spark-label{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);width:26px;flex-shrink:0;}
     .spark-track{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
@@ -118,9 +119,9 @@
   .filter-bar{gap:6px;padding:10px 12px;flex-wrap:wrap;}
   .filter-btn{font-size:10px;padding:4px 8px;}
   .filter-select{font-size:10px;}
-  .table-header,.team-row{grid-template-columns:44px 6px 1fr;}
+  .table-header,.team-row{grid-template-columns:44px 6px 1fr auto;}
   .th,.tr-grade,.tr-sparkline{display:none;}
-  .tr-grades-mobile{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;align-items:center;padding-right:8px;}
+  .tr-grades-mobile{display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
   .tr-rank-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;}
   .tr-rank{font-size:14px;min-width:30px;padding:2px 4px;}
   .rank-chg{font-size:9px;}
@@ -383,13 +384,13 @@ function applyFilters(){
       <div>
         <div class="tr-team-name">${t.name}</div>
         <div class="tr-team-conf">${t.conf}</div>
-        <div class="tr-grades-mobile">
-          ${t.rg!=='—'?`<span class="mobile-grade ${gc(t.rg)}">${t.rg} <span class="mobile-grade-lbl">Coach</span></span>`:''}
-          ${t.dg!=='—'?`<span class="mobile-grade ${gc(t.dg)}">${t.dg} <span class="mobile-grade-lbl">Depth</span></span>`:''}
-          ${t.recg!=='—'?`<span class="mobile-grade ${gc(t.recg)}">${t.recg} <span class="mobile-grade-lbl">Recruit</span></span>`:''}
-          ${t.nilg!=='—'?`<span class="mobile-grade ${gc(t.nilg)}">${t.nilg} <span class="mobile-grade-lbl">NIL</span></span>`:''}
-          ${t.nilt&&t.nilt!=='—'?`<span class="mobile-grade" style="color:var(--text2);">${t.nilt}</span>`:''}
-        </div>
+      </div>
+      <div class="tr-grades-mobile">
+        ${t.rg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">Coach</span><span class="mobile-grade-val ${gc(t.rg)}">${t.rg}</span></div>`:''}
+        ${t.dg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">Depth</span><span class="mobile-grade-val ${gc(t.dg)}">${t.dg}</span></div>`:''}
+        ${t.recg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">Recruit</span><span class="mobile-grade-val ${gc(t.recg)}">${t.recg}</span></div>`:''}
+        ${t.nilg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">NIL Eval</span><span class="mobile-grade-val ${gc(t.nilg)}">${t.nilg}</span></div>`:''}
+        ${t.nilt&&t.nilt!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl" style="color:var(--text3);">${t.nilt}</span><span style="font-size:11px;font-weight:700;color:var(--text2);">${nilRange(t.nilt)}</span></div>`:''}
       </div>
       <div class="tr-sparkline">
         ${sparkBar('CO',t.rg)}
