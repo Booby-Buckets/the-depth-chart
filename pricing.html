@@ -277,8 +277,7 @@
       </div>
 
       <div class="form-divider">or upgrade your plan</div>
-      <button class="form-btn paid" onclick="startCheckout('monthly')">Upgrade to Premium — $5/mo</button>
-      <button class="form-btn" style="margin-top:8px;background:var(--bg2);color:var(--text);border:1px solid var(--border2);" onclick="startCheckout('yearly')">Get Annual Plan — $50/yr</button>
+      <button class="form-btn paid" onclick="alert('Stripe payments coming soon!\n\nTo upgrade now email boobylee383@gmail.com and we\'ll set you up manually.')">Upgrade to Premium — $5/mo or $50/yr</button>
       <button class="form-btn secondary" onclick="handleSignOut()" style="margin-top:10px;">Sign Out</button>
     </div>
   </div>
@@ -300,12 +299,15 @@ function setSession(s){ localStorage.setItem('tdc_session', JSON.stringify(s)); 
 function clearSession(){ localStorage.removeItem('tdc_session'); }
 
 async function init(){
-  const gn = document.getElementById('gateNotice');
-  if(gn && location.search.includes('gate=1')) gn.style.display='block';
+  // Show gate notice if redirected
+  if(location.search.includes('gate=1')){
+    document.getElementById('gateNotice').style.display='block';
+  }
 
-  let s = getSession();
+  const s = getSession();
   if(!s?.access_token) return;
 
+  // Try to refresh if expired
   try {
     const payload = JSON.parse(atob(s.access_token.split('.')[1]));
     if(payload.exp && payload.exp * 1000 < Date.now()){
@@ -412,7 +414,7 @@ async function handleSignUp(){
     const r = await fetch(`${SB}/auth/v1/signup`,
       {method:'POST',headers:H,body:JSON.stringify({email,password:pw})});
     const d = await r.json();
-    if(!r.ok) return msg('signupMsg', d.error_description || d.msg || d.message || JSON.stringify(d), 'error');
+    if(!r.ok) return msg('signupMsg',d.error_description||d.msg||'Sign up failed.','error');
     setSession(d); user = d.user;
     const tok = d.access_token;
     if(team){
@@ -424,7 +426,7 @@ async function handleSignUp(){
     if(validPromo) await redeemCode(validPromo, tok);
     msg('signupMsg','Account created! Welcome to The Depth Chart.','success');
     setTimeout(()=>renderAccount(tok), 1000);
-  } catch(e){ msg('signupMsg', 'Error: ' + (e.message||'Something went wrong.'), 'error'); }
+  } catch(e){ msg('signupMsg','Something went wrong.','error'); }
 }
 
 async function handleSignOut(){
@@ -509,42 +511,14 @@ function showPanel(name){
   document.getElementById('panel-'+name).classList.add('active');
 }
 
-// ── STRIPE CHECKOUT ─────────────────────────────────────────
-const STRIPE_PK = 'pk_live_51TUEjyRJGPurjxaCC64lRbm0w4Fp118Os0uPdLHYDu8E4rbTusRUi5OYfLiPLfzW24OElObqUBDTxMjpukFzI56W00GmoM3cww';
-
-// Replace these with your actual Stripe Price IDs once you have them
-const PRICE_MONTHLY = 'REPLACE_WITH_MONTHLY_PRICE_ID'; // price_xxx
-const PRICE_YEARLY  = 'REPLACE_WITH_YEARLY_PRICE_ID';  // price_xxx
-
-async function startCheckout(plan){
-  if(!user){ showPanel('signin'); msg('signinMsg','Please sign in first to upgrade.','error'); return; }
-  if(PRICE_MONTHLY === 'REPLACE_WITH_MONTHLY_PRICE_ID'){
-    alert('Payment setup coming very soon! To upgrade now email boobylee383@gmail.com');
-    return;
-  }
-  try {
-    const stripe = Stripe(STRIPE_PK);
-    const priceId = plan === 'yearly' ? PRICE_YEARLY : PRICE_MONTHLY;
-    await stripe.redirectToCheckout({
-      lineItems: [{ price: priceId, quantity: 1 }],
-      mode: 'subscription',
-      successUrl: location.origin + '/pricing.html?success=1',
-      cancelUrl:  location.origin + '/pricing.html?canceled=1',
-      customerEmail: user.email,
-    });
-  } catch(e){
-    alert('Could not start checkout: ' + e.message);
-  }
-}
+function goToAuth(tab){
   document.getElementById('authSection').scrollIntoView({behavior:'smooth'});
   setTimeout(()=>switchTab(tab),300);
 }
 
 function msg(id,text,type){
   const el=document.getElementById(id);
-  if(!el) return;
   el.textContent=text; el.className=`msg ${type} show`;
-  setTimeout(()=>{ if(el) el.className='msg'; }, 4000);
 }
 
 loadTeams();
@@ -566,30 +540,7 @@ function toggleTheme(){
     const btn = document.getElementById('themeBtn');
     if(btn) btn.textContent = saved==='dark' ? '☀️' : '🌙';
   });
-})();
-
-// Handle Stripe redirect back
-if(location.search.includes('success=1')){
-  setTimeout(()=>{
-    const gn = document.getElementById('gateNotice');
-    if(gn) gn.style.display='none';
-    const b = document.createElement('div');
-    b.style.cssText='background:rgba(26,140,58,.1);border:1px solid rgba(26,140,58,.3);padding:16px 20px;margin-bottom:20px;font-size:14px;font-weight:600;color:#1a8c3a;';
-    b.textContent='✓ Payment successful! Your account is being upgraded — refresh in a moment.';
-    const page = document.querySelector('.page') || document.body;
-    page.prepend(b);
-  }, 500);
-}
-if(location.search.includes('canceled=1')){
-  setTimeout(()=>{
-    const b = document.createElement('div');
-    b.style.cssText='background:rgba(204,34,0,.08);border:1px solid rgba(204,34,0,.2);padding:16px 20px;margin-bottom:20px;font-size:14px;font-weight:600;color:#cc2200;';
-    b.textContent='Payment canceled — no charge was made.';
-    document.querySelector('.page')?.prepend(b);
-  }, 500);
-}
-</script>
-<script src="https://js.stripe.com/v3/"></script>
+})();</script>
 <script>
 // Auth nav update
 (function(){
