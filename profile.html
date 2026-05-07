@@ -265,7 +265,9 @@ function renderProfile(profile){
           <div class="profile-meta">
             ${profile.favorite_team?`<div class="profile-meta-item">🏀 <strong>${profile.favorite_team}</strong></div>`:''}
             <div class="profile-meta-item">📅 Member since <strong>${joined}</strong></div>
-            <div class="profile-meta-item">⭐ <strong>${profile.plan==='premium'?'Premium':'Free'}</strong></div>
+            <div class="profile-meta-item" id="followerCountMeta" style="cursor:pointer;" onclick="switchTab('followers')">👥 <strong id="followerCount">0</strong> followers</div>
+            <div class="profile-meta-item" id="followingCountMeta">➡️ <strong id="followingCount">0</strong> following</div>
+            ${profile.plan==='premium'?`<div class="profile-meta-item" style="color:var(--green);">✓ <strong>Premium</strong></div>`:''}
           </div>
         </div>
         ${isOwnProfile?`<button class="edit-btn" onclick="showEditTab()">Edit Profile</button>`:''}
@@ -273,12 +275,19 @@ function renderProfile(profile){
 
       <div class="profile-tabs">
         <button class="profile-tab active" id="tab-posts" onclick="switchTab('posts')">Posts</button>
+        <button class="profile-tab" id="tab-followers" onclick="switchTab('followers')">Followers</button>
         ${isOwnProfile?`<button class="profile-tab" id="tab-edit" onclick="switchTab('edit')">Edit Profile</button>`:''}
         ${isOwnProfile?`<button class="profile-tab" id="tab-account" onclick="switchTab('account')">Account</button>`:''}
       </div>
 
       <div id="tab-content-posts">
         <div class="posts-section" id="postsList">
+          <div class="loading-spinner" style="margin:20px auto;"></div>
+        </div>
+      </div>
+
+      <div id="tab-content-followers" style="display:none;">
+        <div class="posts-section" id="followersList">
           <div class="loading-spinner" style="margin:20px auto;"></div>
         </div>
       </div>
@@ -328,19 +337,31 @@ function renderProfile(profile){
       <div id="tab-content-account" style="display:none;">
         <div class="edit-section">
           <div class="msg" id="accountMsg"></div>
-          <div style="border:1px solid var(--border);padding:20px;margin-bottom:20px;">
+
+          ${profile.plan==='premium'?`
+          <div style="background:rgba(26,140,58,.07);border:1px solid rgba(26,140,58,.2);padding:20px 24px;margin-bottom:20px;">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#1a8c3a;margin-bottom:6px;">✓ Active Subscription</div>
+            <div style="font-family:'Playfair Display',serif;font-weight:800;font-size:22px;margin-bottom:4px;">You're on Premium</div>
+            <div style="font-size:13px;color:var(--text3);">${profile.sub_expires_at?'Renews '+new Date(profile.sub_expires_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}):'Active subscription'}</div>
+          </div>`:
+          `<div style="border:1px solid var(--border);padding:20px;margin-bottom:20px;">
             <div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;">Subscription</div>
-            <div style="font-size:14px;font-weight:600;margin-bottom:6px;">Plan: <span style="color:var(--accent);">${profile.plan==='premium'?'Premium':'Free'}</span></div>
-            ${profile.sub_expires_at?`<div style="font-size:13px;color:var(--text3);">Expires: ${new Date(profile.sub_expires_at).toLocaleDateString()}</div>`:''}
-            ${profile.plan!=='premium'?`<a href="pricing.html" style="display:inline-block;margin-top:12px;padding:8px 20px;background:var(--text);color:var(--bg);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;">Upgrade to Premium</a>`:''}
+            <div style="font-size:14px;font-weight:600;margin-bottom:6px;">Plan: <span style="color:var(--text2);">Free</span></div>
+            <a href="pricing.html" style="display:inline-block;margin-top:12px;padding:8px 20px;background:var(--text);color:var(--bg);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;">Upgrade to Premium</a>
+          </div>`}
+
+          <div style="border:1px solid var(--border);padding:20px;margin-bottom:20px;">
+            <div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;">Account</div>
+            <div style="font-size:13px;color:var(--text3);margin-bottom:16px;">${currentUser?.email||''}</div>
+            <button class="form-btn" style="background:var(--red);" onclick="signOut()">Sign Out</button>
           </div>
-          <button class="form-btn" style="background:var(--red);" onclick="signOut()">Sign Out</button>
         </div>
       </div>`:''}
     </div>`;
 
   loadUserPosts(profile.id||profile.author_id);
   loadTeamsForEdit(profile.favorite_team);
+  loadFollowCounts(profile.id);
 }
 
 async function loadUserPosts(userId){
@@ -369,12 +390,63 @@ async function loadTeamsForEdit(favTeam){
 }
 
 function switchTab(tab){
-  ['posts','edit','account'].forEach(t=>{
+  ['posts','followers','edit','account'].forEach(t=>{
     const btn=document.getElementById('tab-'+t);
     const content=document.getElementById('tab-content-'+t);
     if(btn) btn.classList.toggle('active',t===tab);
     if(content) content.style.display=t===tab?'block':'none';
   });
+  if(tab==='followers') loadFollowers();
+}
+
+async function loadFollowCounts(profileId){
+  try {
+    const [follR, follwR] = await Promise.all([
+      fetch(`${SB}/rest/v1/follows?following_id=eq.${profileId}&select=id`,{headers:H}),
+      fetch(`${SB}/rest/v1/follows?follower_id=eq.${profileId}&select=id`,{headers:H})
+    ]);
+    const followers = await follR.json();
+    const following = await follwR.json();
+    const fc = document.getElementById('followerCount');
+    const fwc = document.getElementById('followingCount');
+    if(fc) fc.textContent = followers.length;
+    if(fwc) fwc.textContent = following.length;
+  } catch(e){}
+}
+
+async function loadFollowers(){
+  const el = document.getElementById('followersList');
+  if(!el) return;
+  // Get profile id from URL or own profile
+  const urlUser = new URLSearchParams(location.search).get('user');
+  let profileId = currentUser?.id;
+  if(urlUser){
+    try{
+      const r=await fetch(`${SB}/rest/v1/profiles?username=eq.${encodeURIComponent(urlUser)}&select=id`,{headers:H});
+      const [p]=await r.json();
+      profileId=p?.id;
+    }catch(e){}
+  }
+  if(!profileId){ el.innerHTML='<div style="padding:20px;color:var(--text3);">Not found.</div>'; return; }
+  try {
+    const r = await fetch(`${SB}/rest/v1/follows?following_id=eq.${profileId}&select=follower_id,profiles!follower_id(username,avatar_url,verified,plan,favorite_team)`,{headers:H});
+    const data = await r.json();
+    if(!data.length){ el.innerHTML='<div style="padding:20px;color:var(--text3);font-size:13px;">No followers yet.</div>'; return; }
+    el.innerHTML = data.map(f=>{
+      const p=f.profiles||{};
+      const uname=p.username||'User';
+      const av=p.avatar_url?`<img src="${p.avatar_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--border2);">`:`<div style="width:40px;height:40px;border-radius:50%;background:var(--bg2);border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:var(--accent);">${uname[0].toUpperCase()}</div>`;
+      const vb=p.verified?`<span style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;background:var(--accent);border-radius:50%;margin-left:3px;"><svg viewBox="0 0 24 24" style="width:8px;height:8px;fill:#fff;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>`:'';
+      return `<a href="profile.html?user=${encodeURIComponent(uname)}" style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);text-decoration:none;">
+        ${av}
+        <div>
+          <div style="font-weight:700;font-size:14px;color:var(--text);display:flex;align-items:center;">${uname}${vb}</div>
+          ${p.favorite_team?`<div style="font-size:12px;color:var(--text3);">🏀 ${p.favorite_team}</div>`:''}
+        </div>
+        <span style="margin-left:auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;${p.plan==='premium'?'background:rgba(26,140,58,.1);color:var(--green);':'background:var(--bg2);color:var(--text3);'}">${p.plan==='premium'?'Premium':'Free'}</span>
+      </a>`;
+    }).join('');
+  } catch(e){ el.innerHTML='<div style="padding:20px;color:var(--text3);">Could not load followers.</div>'; }
 }
 
 function showEditTab(){ switchTab('edit'); document.getElementById('tab-content-edit')?.scrollIntoView({behavior:'smooth'}); }
