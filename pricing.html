@@ -107,7 +107,15 @@
       .page{padding:40px 20px;}
       .nav-top,.nav-sub{padding-left:20px;padding-right:20px;}
     }
-  </style>
+  
+@media(max-width:500px){
+  .nav-top{padding:0 10px!important;height:44px!important;}
+  .nav-logo{font-size:14px!important;}
+  .nav-signin{padding:4px 8px!important;font-size:9px!important;letter-spacing:.02em!important;}
+  .theme-toggle{width:26px!important;height:26px!important;font-size:12px!important;}
+  .nav-actions{gap:6px!important;}
+}
+</style>
 </head>
 <body>
 
@@ -302,7 +310,6 @@ async function checkAuth(){
 }
 
 async function showAccount(token){
-  // Load profile
   const r = await fetch(`${SB_URL}/rest/v1/profiles?id=eq.${currentUser.id}&select=*`, {
     headers: { ...H, 'Authorization': `Bearer ${token}` }
   });
@@ -319,16 +326,43 @@ async function showAccount(token){
   document.getElementById('acctEmail').textContent = currentUser.email || '—';
 
   const plan = profile.plan || 'free';
+  const isPremium = plan === 'premium';
   const pill = document.getElementById('acctPlan');
-  pill.textContent = plan === 'premium' ? 'Premium' : 'Free';
-  pill.className = 'plan-pill' + (plan === 'premium' ? ' premium' : '');
+  pill.textContent = isPremium ? 'Premium' : 'Free';
+  pill.className = 'plan-pill' + (isPremium ? ' premium' : '');
 
   const exp = profile.sub_expires_at;
   document.getElementById('acctExpires').textContent = exp
     ? new Date(exp).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
-    : plan === 'premium' ? 'Active' : '—';
+    : isPremium ? 'Active' : '—';
 
   document.getElementById('acctTeam').textContent = profile.favorite_team || 'None set';
+
+  // Hide plan cards when signed in
+  const plansEl = document.querySelector('.plans');
+  if(plansEl) plansEl.style.display = 'none';
+  const eyebrow = document.querySelector('.page-eyebrow');
+  const h1 = document.querySelector('.page-h1');
+  const sub = document.querySelector('.page-sub');
+  if(eyebrow) eyebrow.style.display = 'none';
+  if(h1) h1.style.display = 'none';
+  if(sub) sub.style.display = 'none';
+
+  // Show premium banner if premium
+  if(isPremium){
+    const existing = document.getElementById('premiumBanner');
+    if(!existing){
+      const banner = document.createElement('div');
+      banner.id = 'premiumBanner';
+      banner.style.cssText = 'background:rgba(26,140,58,.08);border:1px solid rgba(26,140,58,.2);padding:20px 24px;margin-bottom:28px;';
+      banner.innerHTML = `
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#1a8c3a;margin-bottom:6px;">✓ Active Subscription</div>
+        <div style="font-family:'Playfair Display',serif;font-weight:800;font-size:22px;margin-bottom:4px;">You're on Premium</div>
+        <div style="font-size:13px;color:var(--text3);">${exp ? 'Renews ' + new Date(exp).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : 'Active subscription'}</div>
+      `;
+      document.querySelector('.section').prepend(banner);
+    }
+  }
 }
 
 // ── SIGN IN ─────────────────────────────────────────────────
