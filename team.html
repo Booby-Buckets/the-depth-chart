@@ -143,6 +143,18 @@
     /* LOADING */
     .loading-state{text-align:center;padding:80px 40px;color:var(--text3);}
     .loading-spinner{width:32px;height:32px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 16px;}
+    .comment-card{border:1px solid var(--border);padding:14px 16px;margin-bottom:10px;}
+    .comment-header{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+    .comment-author{font-weight:700;font-size:13px;color:var(--text);display:flex;align-items:center;gap:4px;}
+    .comment-time{font-size:11px;color:var(--text3);margin-left:auto;}
+    .comment-body{font-size:14px;color:var(--text2);line-height:1.6;}
+    .comment-form{border:1px solid var(--border);padding:16px;margin-top:12px;}
+    .comment-form-title{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
+    .comment-input{width:100%;padding:8px 12px;border:1px solid var(--border2);background:var(--bg);font-family:'Inter',sans-serif;font-size:13px;color:var(--text);outline:none;resize:vertical;min-height:80px;}
+    .comment-input:focus{border-color:var(--accent);}
+    .comment-submit{margin-top:8px;padding:7px 16px;background:var(--text);color:var(--bg);border:none;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;}
+    .verified-sm{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;background:var(--accent);border-radius:50%;}
+    .verified-sm svg{width:7px;height:7px;fill:#fff;}
     @keyframes spin{to{transform:rotate(360deg);}}
 
     footer{border-top:1px solid var(--border);padding:28px 40px;display:flex;align-items:center;justify-content:space-between;}
@@ -216,8 +228,6 @@
     <a href="index.html">Rankings</a>
     <a href="roster.html">Players</a>
     <a href="compare-players.html">Compare</a>
-    <a href="forum.html">Forum</a>
-    <a href="members.html">Members</a>
     <a href="community.html">Community</a>
     <a href="#" class="active">Teams</a>
     <a href="account.html">Account</a>
@@ -247,7 +257,10 @@
   <div class="hero-tabs">
     <button class="hero-tab active" onclick="switchTab('depth',this)">Depth Chart</button>
     <button class="hero-tab" onclick="switchTab('analysis',this)">Analysis</button>
+    <button class="hero-tab" onclick="switchTab('comments',this)">Comments</button>
+    <button class="hero-tab" id="followTeamBtn" onclick="toggleTeamFollow()" style="margin-left:auto;padding:6px 16px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:none;border:1px solid var(--border2);color:var(--text3);cursor:pointer;font-family:'Inter',sans-serif;border-radius:0;display:flex;align-items:center;gap:6px;">Follow Team</button>
   </div>
+  <div id="teamFollowerCount" style="font-size:11px;color:var(--text3);padding:6px 0 0;"></div>
 </div>
 
 <div class="page-body">
@@ -261,6 +274,12 @@
     <div class="panel" id="panel-analysis">
       <div class="sec-head">Team Outlook</div>
       <div class="outlook-text" id="outlookText"></div>
+    </div>
+    <div class="panel" id="panel-comments">
+      <div class="sec-head">Comments</div>
+      <div id="commentsContent">
+        <div class="loading-state"><div class="loading-spinner"></div></div>
+      </div>
     </div>
   </div>
   <div class="side-col">
@@ -591,6 +610,105 @@ function toggleTheme(){
         avatarHtml+'<span style="display:flex;align-items:center;font-size:13px;font-weight:700;color:var(--text);">'+uname+verifiedHtml+'</span></a>';
     }
   }).catch(()=>{});
-})();</script>
+})();
+
+// ── TEAM FOLLOW + COMMENTS ───────────────────────────────────
+(function(){
+  const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
+  const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+  const H   = {apikey:KEY,'Content-Type':'application/json'};
+  const s   = JSON.parse(localStorage.getItem('tdc_session')||'null');
+  const tok = s?.access_token;
+  const uid = s?.user?.id;
+  const params = new URLSearchParams(location.search);
+  const teamName = params.get('team') || '';
+  let isFollowing = false;
+  let userProfile = null;
+
+  async function initFollowComments(){
+    // Get follower count
+    const tr = await fetch(`${SB}/rest/v1/team_follows?team_name=eq.${encodeURIComponent(teamName)}&select=id`,{headers:{apikey:KEY,Authorization:`Bearer ${KEY}`}});
+    const followers = await tr.json();
+    const countEl = document.getElementById('teamFollowerCount');
+    if(countEl) countEl.textContent = `${followers.length} follower${followers.length!==1?'s':''}`;
+
+    if(!tok||!uid) return;
+
+    // Get user profile for comments
+    const pr = await fetch(`${SB}/rest/v1/profiles?id=eq.${uid}&select=username,avatar_url,verified`,{headers:{apikey:KEY,Authorization:`Bearer ${tok}`}});
+    const [p] = await pr.json();
+    userProfile = p;
+
+    // Check if following
+    const fr = await fetch(`${SB}/rest/v1/team_follows?user_id=eq.${uid}&team_name=eq.${encodeURIComponent(teamName)}&select=id`,{headers:{apikey:KEY,Authorization:`Bearer ${tok}`}});
+    const fdata = await fr.json();
+    isFollowing = fdata.length > 0;
+    updateFollowBtn();
+  }
+
+  function updateFollowBtn(){
+    const btn = document.getElementById('followTeamBtn');
+    if(!btn) return;
+    if(!tok){ btn.textContent='Sign in to Follow'; return; }
+    btn.textContent = isFollowing ? '✓ Following' : '+ Follow Team';
+    btn.style.background = isFollowing ? 'var(--accent)' : 'none';
+    btn.style.color = isFollowing ? '#fff' : 'var(--text3)';
+    btn.style.borderColor = isFollowing ? 'var(--accent)' : 'var(--border2)';
+  }
+
+  window.toggleTeamFollow = async function(){
+    if(!tok){ location.href='pricing.html'; return; }
+    try {
+      if(isFollowing){
+        await fetch(`${SB}/rest/v1/team_follows?user_id=eq.${uid}&team_name=eq.${encodeURIComponent(teamName)}`,{method:'DELETE',headers:{apikey:KEY,Authorization:`Bearer ${tok}`}});
+        isFollowing=false;
+      } else {
+        await fetch(`${SB}/rest/v1/team_follows`,{method:'POST',headers:{apikey:KEY,Authorization:`Bearer ${tok}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({user_id:uid,team_name:teamName})});
+        isFollowing=true;
+      }
+      updateFollowBtn();
+      // Refresh count
+      const tr=await fetch(`${SB}/rest/v1/team_follows?team_name=eq.${encodeURIComponent(teamName)}&select=id`,{headers:{apikey:KEY,Authorization:`Bearer ${KEY}`}});
+      const fc=await tr.json();
+      const countEl=document.getElementById('teamFollowerCount');
+      if(countEl) countEl.textContent=`${fc.length} follower${fc.length!==1?'s':''}`;
+    } catch(e){ console.error('Follow error:',e); }
+  };
+
+  async function loadComments(){
+    try {
+      const r = await fetch(`${SB}/rest/v1/team_comments?team_name=eq.${encodeURIComponent(teamName)}&select=*,profiles(username,avatar_url,verified)&order=created_at.desc`,{headers:{apikey:KEY,Authorization:`Bearer ${KEY}`}});
+      const comments = await r.json();
+      const timeAgo = d=>{const s=Math.floor((Date.now()-new Date(d))/1000);if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'});};
+      const avatarEl=(p,size=32)=>{if(p?.avatar_url)return`<img src="${p.avatar_url}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;">`;const i=(p?.username||'?')[0].toUpperCase();return`<div style="width:${size}px;height:${size}px;border-radius:50%;background:var(--bg2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:${Math.floor(size*.4)}px;">${i}</div>`;};
+      const vb=p=>p?.verified?`<span class="verified-sm"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>`:'';
+      const formHtml = tok ? `<div class="comment-form"><div class="comment-form-title">Leave a Comment</div><textarea class="comment-input" id="commentInput" placeholder="Share your thoughts on this team..."></textarea><div style="font-size:11px;color:var(--red);margin-top:4px;display:none;" id="commentMsg"></div><button class="comment-submit" onclick="submitComment()">Post Comment</button></div>` : `<div style="padding:14px;background:var(--bg2);border:1px solid var(--border);font-size:13px;color:var(--text3);margin-top:12px;"><a href="pricing.html" style="color:var(--accent);font-weight:700;">Sign in</a> to leave a comment.</div>`;
+      document.getElementById('commentsContent').innerHTML = `${formHtml}${comments.length?comments.map(c=>{const p=c.profiles||{};return`<div class="comment-card"><div class="comment-header">${avatarEl(p,32)}<a href="profile.html?user=${encodeURIComponent(c.author_name||'')}" class="comment-author">${c.author_name||'Unknown'}${vb(p)}</a><span class="comment-time">${timeAgo(c.created_at)}</span></div><div class="comment-body">${c.body}</div></div>`;}).join(''):'<div style="text-align:center;padding:32px;color:var(--text3);font-size:13px;">No comments yet. Be the first!</div>'}`;
+    } catch(e){ document.getElementById('commentsContent').innerHTML='<div style="text-align:center;padding:32px;color:var(--text3);">Could not load comments.</div>'; }
+  }
+
+  window.submitComment = async function(){
+    const body = document.getElementById('commentInput').value.trim();
+    if(!body) return;
+    const uname = userProfile?.username || s?.user?.email?.split('@')[0] || 'User';
+    try {
+      const r = await fetch(`${SB}/rest/v1/team_comments`,{method:'POST',headers:{apikey:KEY,Authorization:`Bearer ${tok}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({team_name:teamName,author_id:uid,author_name:uname,body,verified:userProfile?.verified||false})});
+      if(!r.ok) throw new Error();
+      document.getElementById('commentInput').value='';
+      loadComments();
+    } catch(e){ const m=document.getElementById('commentMsg');if(m){m.style.display='block';m.textContent='Could not post comment.';} }
+  };
+
+  // Hook into tab switch to load comments lazily
+  const orig = window.switchTab;
+  let commentsLoaded = false;
+  window.switchTab = function(tab, btn){
+    if(orig) orig(tab, btn);
+    if(tab==='comments' && !commentsLoaded){ commentsLoaded=true; loadComments(); }
+  };
+
+  initFollowComments();
+})();
+</script>
 </body>
 </html>
