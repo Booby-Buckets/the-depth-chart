@@ -513,35 +513,25 @@ function showMsg(id, msg, type){
 loadTeams();
 checkAuth();
 </script>
-<script src="https://js.stripe.com/v3/"></script>
 <script>
-const STRIPE_PK = 'pk_live_51TUEjyRJGPurjxaCC64lRbm0w4Fp118Os0uPdLHYDu8E4rbTusRUi5OYfLiPLfzW24OElObqUBDTxMjpukFzI56W00GmoM3cww';
-const PRICE_MONTHLY = 'price_1TUK5MRJGPurjxaCDM8bq7wd';
-const PRICE_YEARLY  = 'price_1TUK5zRJGPurjxaC4ScvXKsi';
-
-async function startCheckout(plan){
+function startCheckout(plan){
   if(!currentUser){
     showAuth('signin');
     showMsg('signinMsg','Please sign in first to upgrade.','error');
     return;
   }
-  try {
-    const stripe = Stripe(STRIPE_PK);
-    await stripe.redirectToCheckout({
-      lineItems:[{ price: plan==='yearly' ? PRICE_YEARLY : PRICE_MONTHLY, quantity:1 }],
-      mode:'subscription',
-      successUrl: location.origin + '/pricing.html?success=1',
-      cancelUrl:  location.origin + '/pricing.html',
-      customerEmail: currentUser.email,
-    });
-  } catch(e){ alert('Checkout error: ' + e.message); }
+  const monthly = 'https://buy.stripe.com/8x25kF67o36U0ticUn33W00';
+  const yearly  = 'https://buy.stripe.com/14AdRbeDUgXKcc0g6z33W01';
+  const email   = encodeURIComponent(currentUser.email);
+  const url     = (plan==='yearly' ? yearly : monthly) + '?prefilled_email=' + email;
+  location.href = url;
 }
 
 if(location.search.includes('success=1')){
   setTimeout(()=>{
     const b=document.createElement('div');
     b.style.cssText='background:rgba(26,140,58,.1);border:1px solid rgba(26,140,58,.3);padding:16px 20px;margin-bottom:20px;font-size:14px;font-weight:600;color:#1a8c3a;';
-    b.textContent='✓ Payment successful! Email boobylee383@gmail.com with your email and we will activate your Premium account shortly.';
+    b.textContent='✓ Payment successful! Your account will be upgraded shortly.';
     document.querySelector('.page').prepend(b);
   },300);
 }
