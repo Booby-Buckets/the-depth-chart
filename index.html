@@ -60,10 +60,10 @@
     .filter-count{margin-left:auto;font-size:11px;font-weight:600;color:var(--text3);font-family:'Share Tech Mono',monospace;}
     .filter-count strong{color:var(--accent);}
     .table-section{padding:0 40px 64px;}
-    .table-header{display:grid;grid-template-columns:48px 12px 1fr 200px 80px 80px 80px 80px 80px;gap:0;padding:10px 0;border-bottom:2px solid var(--border2);margin-top:24px;}
+    .table-header{display:grid;grid-template-columns:48px 12px 1fr 160px 20px 72px 72px 72px 72px 72px;gap:0;padding:10px 0;border-bottom:2px solid var(--border2);margin-top:24px;}
     .th{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
     .th.center{text-align:center;}
-    .team-row{display:grid;grid-template-columns:48px 12px 1fr 200px 80px 80px 80px 80px 80px;gap:0;padding:14px 0;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background .15s;}
+    .team-row{display:grid;grid-template-columns:48px 12px 1fr 160px 20px 72px 72px 72px 72px 72px;gap:0;padding:14px 0;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background .15s;}
     .team-row:hover{background:var(--bg2);}
     .team-row.fav-row{background:var(--fav-bg, rgba(200,169,110,.06));border-left:3px solid var(--fav-color, var(--accent));}
     .team-row.fav-row:hover{background:var(--fav-bg-hover, rgba(200,169,110,.1));}
@@ -75,7 +75,10 @@
     .tr-color-bar{width:4px;height:100%;border-radius:2px;align-self:stretch;}
     .tr-team-name{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;color:var(--text);letter-spacing:-.01em;margin-bottom:3px;}
     .tr-team-conf{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
-    .tr-sparkline{padding:0 16px;display:flex;flex-direction:column;gap:5px;justify-content:center;}
+    .tr-grades-mobile{display:none;}
+    .mobile-grade{font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;justify-content:flex-end;}
+    .mobile-grade-val{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;}
+    .mobile-grade-lbl{font-size:10px;font-weight:600;color:var(--text3);font-family:'Inter',sans-serif;min-width:46px;text-align:left;}
     .spark-row{display:flex;align-items:center;gap:6px;}
     .spark-label{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);width:26px;flex-shrink:0;}
     .spark-track{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
@@ -116,25 +119,22 @@
   .filter-bar{gap:6px;padding:10px 12px;flex-wrap:wrap;}
   .filter-btn{font-size:10px;padding:4px 8px;}
   .filter-select{font-size:10px;}
-  .table-header,.team-row{grid-template-columns:44px 6px 1fr 54px;}
+  .table-header,.team-row{grid-template-columns:44px 6px 1fr auto;}
   .th,.tr-grade,.tr-sparkline{display:none;}
-  .tr-grade:nth-child(5){display:block;}
-  .th:nth-child(5){display:block;}
+  .tr-grades-mobile{display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
   .tr-rank-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;}
   .tr-rank{font-size:14px;min-width:30px;padding:2px 4px;}
   .rank-chg{font-size:9px;}
   .tr-team-name{font-size:14px;}
   .tr-team-conf{font-size:10px;}
-  .grade-val{font-size:16px;}
-  .grade-lbl{font-size:8px;}
   .grade-group-label{font-size:10px;padding:6px 12px;}
+  .team-row{padding:12px 0;}
 }
 @media(max-width:480px){
   .nav-top{padding:0 10px;}
   .nav-logo{font-size:14px;}
-  .table-header,.team-row{grid-template-columns:40px 5px 1fr 50px;}
   .tr-team-name{font-size:13px;}
-  .grade-val{font-size:14px;}
+  .mobile-grade{font-size:12px;}
 }
 @media(max-width:600px){
   .page-header h1{font-size:24px;}
@@ -148,7 +148,8 @@
   <div class="nav-top">
     <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
     <div class="nav-actions" id="navActions">
-      <a href="pricing.html">Pricing</a>
+      <a href="account.html">Account</a>
+    <a href="pricing.html">Pricing</a>
       <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">🌙</button>
       <a href="pricing.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;margin-right:4px;">Sign In</a>
       <a href="pricing.html" class="nav-signin" style="text-decoration:none;">Subscribe</a>
@@ -159,8 +160,10 @@
     <a href="roster.html">Players</a>
     <a href="compare-players.html">Compare</a>
     <a href="forum.html">Forum</a>
+    <a href="members.html">Members</a>
     <a href="community.html">Community</a>
     <a href="team.html">Teams</a>
+    <a href="account.html">Account</a>
     <a href="pricing.html">Pricing</a>
   </div>
 </div>
@@ -206,6 +209,7 @@
     <div class="th"></div>
     <div class="th">Team</div>
     <div class="th">Strength</div>
+    <div class="th"></div>
     <div class="th center">Coach</div>
     <div class="th center">Depth</div>
     <div class="th center">Recruit</div>
@@ -384,12 +388,20 @@ function applyFilters(){
         <div class="tr-team-name">${t.name}</div>
         <div class="tr-team-conf">${t.conf}</div>
       </div>
+      <div class="tr-grades-mobile">
+        ${t.rg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">Coach</span><span class="mobile-grade-val ${gc(t.rg)}">${t.rg}</span></div>`:''}
+        ${t.dg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">Depth</span><span class="mobile-grade-val ${gc(t.dg)}">${t.dg}</span></div>`:''}
+        ${t.recg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">Recruit</span><span class="mobile-grade-val ${gc(t.recg)}">${t.recg}</span></div>`:''}
+        ${t.nilg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">NIL Eval</span><span class="mobile-grade-val ${gc(t.nilg)}">${t.nilg}</span></div>`:''}
+        ${t.nilt&&t.nilt!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl" style="color:var(--text3);">${t.nilt}</span><span style="font-size:11px;font-weight:700;color:var(--text2);">${nilRange(t.nilt)}</span></div>`:''}
+      </div>
       <div class="tr-sparkline">
         ${sparkBar('CO',t.rg)}
         ${sparkBar('DG',t.dg)}
         ${sparkBar('RC',t.recg)}
         ${sparkBar('EVAL',t.nilg)}
       </div>
+      <div></div>
       <div class="tr-grade"><div class="grade-val ${gc(t.rg)}">${t.rg}</div><div class="grade-lbl">Coach</div></div>
       <div class="tr-grade"><div class="grade-val ${gc(t.dg)}">${t.dg}</div><div class="grade-lbl">Depth</div></div>
       <div class="tr-grade"><div class="grade-val ${gc(t.recg)}">${t.recg}</div><div class="grade-lbl">Recruit</div></div>

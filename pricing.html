@@ -132,6 +132,7 @@
     <a href="roster.html">Players</a>
     <a href="compare-players.html">Compare</a>
     <a href="forum.html">Forum</a>
+    <a href="members.html">Members</a>
     <a href="community.html">Community</a>
     <a href="about.html">About</a>
     <a href="pricing.html" class="active">Pricing</a>
@@ -440,7 +441,9 @@ async function applyPromo(){
   const result = await checkPromoCode(code);
   if(result.valid){
     validatedPromo = code;
-    document.getElementById('promoHint').textContent = '✓ Code applied — 1 free month on signup!';
+    const months = result.promo?.duration?.includes('year') ? 12 : 1;
+    const label = months === 12 ? '1 year' : '1 month';
+    document.getElementById('promoHint').textContent = `✓ Code applied — ${label} of Premium on signup!`;
     document.getElementById('promoHint').style.color = 'var(--green)';
   } else {
     document.getElementById('promoHint').textContent = result.msg;
@@ -477,14 +480,20 @@ async function checkPromoCode(code){
 
 async function redeemPromo(code, token){
   try {
+    // Get code details first to check duration
+    const cr = await fetch(`${SB_URL}/rest/v1/promo_codes?code=eq.${encodeURIComponent(code)}&select=duration`, { headers: H });
+    const cdata = await cr.json();
+    const duration = cdata[0]?.duration || '1 month';
+    const months = duration.includes('year') ? 12 : 1;
+
     // Mark code as used
     await fetch(`${SB_URL}/rest/v1/promo_codes?code=eq.${encodeURIComponent(code)}`, {
       method:'PATCH', headers: { ...H, 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({ used:true, used_by:currentUser.id, used_at:new Date().toISOString() })
     });
-    // Add 1 month premium to profile
+    // Add premium to profile
     const expires = new Date();
-    expires.setMonth(expires.getMonth() + 1);
+    expires.setMonth(expires.getMonth() + months);
     await fetch(`${SB_URL}/rest/v1/profiles?id=eq.${currentUser.id}`, {
       method:'PATCH', headers: { ...H, 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({ plan:'premium', sub_expires_at:expires.toISOString() })

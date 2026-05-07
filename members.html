@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Members — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#fff;--bg2:#f5f5f5;--border:#e0e0e0;--border2:#ccc;--text:#111;--text2:#444;--text3:#888;--accent:#8B6914;--green:#1a8c3a;}
+    [data-theme="dark"]{--bg:#111;--bg2:#181818;--border:#2a2a2a;--border2:#333;--text:#e8e8e8;--text2:#a0a0a0;--text3:#606060;--accent:#c8a96e;}
+    [data-theme="dark"] .member-card{background:var(--bg2);}
+    [data-theme="dark"] .nav-signin{background:var(--text)!important;color:var(--bg)!important;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;}
+    .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;min-width:0;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;white-space:nowrap;}
+    .nav-logo span{color:var(--accent);}
+    .nav-actions{display:flex;align-items:center;gap:14px;}
+    .nav-signin{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--text);padding:6px 16px;text-decoration:none;}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
+    .nav-sub::-webkit-scrollbar{display:none;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
+
+    .page{max-width:1000px;margin:0 auto;padding:40px;}
+    .page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:10px;}
+    .page-eyebrow::before{content:'';width:20px;height:1px;background:var(--accent);}
+    .page-h1{font-family:'Playfair Display',serif;font-weight:800;font-size:38px;letter-spacing:-.02em;margin-bottom:6px;}
+    .page-sub{font-size:13px;color:var(--text3);margin-bottom:32px;}
+
+    /* SEARCH */
+    .search-bar{display:flex;gap:10px;margin-bottom:28px;}
+    .search-input{flex:1;padding:10px 14px;border:1px solid var(--border2);background:var(--bg);font-family:'Inter',sans-serif;font-size:14px;color:var(--text);outline:none;max-width:300px;}
+    .search-input:focus{border-color:var(--accent);}
+    .search-input::placeholder{color:var(--text3);}
+    .member-count{font-size:12px;font-weight:600;color:var(--text3);align-self:center;margin-left:auto;}
+    .member-count strong{color:var(--accent);}
+
+    /* MEMBERS GRID */
+    .members-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;}
+    .member-card{border:1px solid var(--border);padding:20px;cursor:pointer;transition:all .15s;text-decoration:none;display:block;}
+    .member-card:hover{border-color:var(--accent);transform:translateY(-2px);}
+    .member-avatar{width:56px;height:56px;border-radius:50%;background:var(--bg2);border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:22px;color:var(--accent);margin:0 auto 12px;overflow:hidden;}
+    .member-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+    .member-name{font-family:'Playfair Display',serif;font-weight:700;font-size:15px;text-align:center;margin-bottom:4px;color:var(--text);display:flex;align-items:center;justify-content:center;gap:4px;}
+    .member-team{font-size:11px;font-weight:600;color:var(--text3);text-align:center;margin-bottom:6px;}
+    .member-plan{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;text-align:center;display:inline-block;}
+    .member-plan.premium{background:rgba(26,140,58,.1);color:var(--green);}
+    .member-plan.free{background:var(--bg2);color:var(--text3);}
+    .member-joined{font-size:10px;color:var(--text3);text-align:center;margin-top:6px;}
+    .verified-badge{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;background:var(--accent);border-radius:50%;flex-shrink:0;}
+    .verified-badge svg{width:8px;height:8px;fill:#fff;}
+    .member-footer{text-align:center;margin-top:8px;}
+
+    .loading-state{text-align:center;padding:80px;color:var(--text3);}
+    .loading-spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 12px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .empty-state{text-align:center;padding:60px;color:var(--text3);}
+
+    footer{border-top:1px solid var(--border);padding:28px 40px;display:flex;align-items:center;justify-content:space-between;margin-top:40px;}
+    .footer-logo{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text3);}
+    .footer-logo span{color:var(--accent);}
+
+    @media(max-width:600px){
+      .page{padding:20px;}
+      .nav-top,.nav-sub{padding-left:16px;padding-right:16px;}
+      .members-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
+    }
+    @media(max-width:500px){
+      .nav-top{padding:0 10px!important;height:44px!important;}
+      .nav-logo{font-size:14px!important;}
+      .nav-signin{padding:4px 8px!important;font-size:9px!important;}
+      .theme-toggle{width:26px!important;height:26px!important;}
+      .nav-actions{gap:6px!important;}
+    }
+  </style>
+</head>
+<body>
+
+<script>
+(function(){
+  const s=JSON.parse(localStorage.getItem('tdc_session')||'null');
+  if(!s?.access_token){location.href='pricing.html?gate=1';return;}
+  fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user?.id+'&select=plan',{
+    headers:{'apikey':'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye','Authorization':'Bearer '+s.access_token}
+  }).then(r=>r.json()).then(([p])=>{if(!p||p.plan!=='premium')location.href='pricing.html?gate=1';}).catch(()=>location.href='pricing.html?gate=1');
+})();
+</script>
+
+<div class="nav-wrap">
+  <div class="nav-top">
+    <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+    <div class="nav-actions" id="navActions">
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+      <a href="pricing.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;">Sign In</a>
+      <a href="pricing.html" class="nav-signin">Subscribe</a>
+    </div>
+  </div>
+  <div class="nav-sub">
+    <a href="index.html">Rankings</a>
+    <a href="roster.html">Players</a>
+    <a href="compare-players.html">Compare</a>
+    <a href="forum.html">Forum</a>
+    <a href="members.html" class="active">Members</a>
+    <a href="community.html">Community</a>
+    <a href="about.html">About</a>
+    <a href="account.html">Account</a>
+    <a href="pricing.html">Pricing</a>
+  </div>
+</div>
+
+<div class="page">
+  <div class="page-eyebrow">Community</div>
+  <h1 class="page-h1">Members</h1>
+  <p class="page-sub" id="pageSub">See who's part of The Depth Chart community.</p>
+
+  <div class="search-bar">
+    <input class="search-input" type="text" id="searchInput" placeholder="Search members..." oninput="render()"/>
+    <span class="member-count" id="countEl"></span>
+  </div>
+
+  <div id="membersGrid">
+    <div class="loading-state"><div class="loading-spinner"></div>Loading members...</div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-logo">The Depth <span>Chart</span></div>
+  <div style="font-size:11px;font-weight:600;color:var(--text3);">College Basketball · 2025–26</div>
+</footer>
+
+<script>
+const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H   = {apikey:KEY, Authorization:`Bearer ${KEY}`};
+
+let all = [];
+
+function timeAgo(d){
+  const s=Math.floor((Date.now()-new Date(d))/1000);
+  if(s<86400) return 'Today';
+  if(s<604800) return Math.floor(s/86400)+'d ago';
+  return new Date(d).toLocaleDateString('en-US',{month:'short',year:'numeric'});
+}
+
+async function load(){
+  try {
+    // Only load profiles that have a username set
+    const r = await fetch(`${SB}/rest/v1/profiles?username=not.is.null&select=id,username,avatar_url,favorite_team,plan,verified,created_at&order=created_at.desc`, {headers:H});
+    all = await r.json();
+    document.getElementById('pageSub').textContent = `${all.length} member${all.length!==1?'s':''} in the community.`;
+    render();
+  } catch(e){
+    document.getElementById('membersGrid').innerHTML = '<div class="empty-state">Could not load members.</div>';
+  }
+}
+
+function render(){
+  const search = document.getElementById('searchInput').value.toLowerCase().trim();
+  const filtered = all.filter(m =>
+    !search ||
+    (m.username||'').toLowerCase().includes(search) ||
+    (m.favorite_team||'').toLowerCase().includes(search)
+  );
+
+  document.getElementById('countEl').innerHTML = `<strong>${filtered.length}</strong> member${filtered.length!==1?'s':''}`;
+
+  if(!filtered.length){
+    document.getElementById('membersGrid').innerHTML = '<div class="empty-state">No members match your search.</div>';
+    return;
+  }
+
+  document.getElementById('membersGrid').innerHTML = `<div class="members-grid">${
+    filtered.map(m => {
+      const uname = m.username || 'User';
+      const avatar = m.avatar_url
+        ? `<img src="${m.avatar_url}" alt="${uname}"/>`
+        : uname[0].toUpperCase();
+      const verified = m.verified
+        ? `<span class="verified-badge"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>` : '';
+      return `<a class="member-card" href="profile.html?user=${encodeURIComponent(uname)}">
+        <div class="member-avatar">${avatar}</div>
+        <div class="member-name">${uname}${verified}</div>
+        ${m.favorite_team?`<div class="member-team">🏀 ${m.favorite_team}</div>`:''}
+        <div class="member-footer">
+          <span class="member-plan ${m.plan==='premium'?'premium':'free'}">${m.plan==='premium'?'Premium':'Free'}</span>
+          <div class="member-joined">Joined ${timeAgo(m.created_at)}</div>
+        </div>
+      </a>`;
+    }).join('')
+  }</div>`;
+}
+
+function toggleTheme(){
+  const d=document.documentElement.getAttribute('data-theme')==='dark';
+  const n=d?'light':'dark';
+  document.documentElement.setAttribute('data-theme',n);
+  localStorage.setItem('tdc_theme',n);
+  document.getElementById('themeBtn').textContent=n==='dark'?'☀️':'🌙';
+}
+(function(){
+  const s=localStorage.getItem('tdc_theme')||'light';
+  document.documentElement.setAttribute('data-theme',s);
+  window.addEventListener('DOMContentLoaded',()=>{
+    const b=document.getElementById('themeBtn');
+    if(b) b.textContent=s==='dark'?'☀️':'🌙';
+  });
+})();
+
+// Auth nav
+(function(){
+  const s=JSON.parse(localStorage.getItem('tdc_session')||'null');
+  if(!s?.access_token||!s?.user?.id) return;
+  fetch(`${SB}/rest/v1/profiles?id=eq.${s.user.id}&select=username,avatar_url,verified`,
+    {headers:{apikey:KEY,Authorization:'Bearer '+s.access_token}})
+  .then(r=>r.json()).then(([p])=>{
+    if(!p) return;
+    const u=p.username||s.user?.email?.split('@')[0]||'User';
+    const av=p.avatar_url?`<img src="${p.avatar_url}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);">`:`<div style="width:32px;height:32px;border-radius:50%;background:var(--bg2);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);">${u[0].toUpperCase()}</div>`;
+    const vb=p.verified?`<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:var(--accent);border-radius:50%;margin-left:3px;"><svg viewBox="0 0 24 24" style="width:9px;height:9px;fill:#fff;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>`:'';
+    const el=document.getElementById('navActions');
+    if(el) el.innerHTML=`<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">${localStorage.getItem('tdc_theme')==='dark'?'☀️':'🌙'}</button><a href="profile.html" style="display:flex;align-items:center;gap:8px;text-decoration:none;">${av}<span style="display:flex;align-items:center;font-size:13px;font-weight:700;color:var(--text);">${u}${vb}</span></a>`;
+  }).catch(()=>{});
+})();
+
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Account — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#fff;--bg2:#f5f5f5;--border:#e0e0e0;--border2:#ccc;--text:#111;--text2:#444;--text3:#888;--accent:#8B6914;--green:#1a8c3a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#111;--bg2:#181818;--border:#2a2a2a;--border2:#333;--text:#e8e8e8;--text2:#a0a0a0;--text3:#606060;--accent:#c8a96e;}
+    [data-theme="dark"] .nav-signin{background:var(--text)!important;color:var(--bg)!important;}
+    [data-theme="dark"] .form-input,[data-theme="dark"] .form-select{background:var(--bg2);color:var(--text);}
+    [data-theme="dark"] .card{background:var(--bg2);}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;}
+    .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;white-space:nowrap;}
+    .nav-logo span{color:var(--accent);}
+    .nav-actions{display:flex;align-items:center;gap:14px;}
+    .nav-signin{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--text);padding:6px 16px;text-decoration:none;}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
+    .nav-sub::-webkit-scrollbar{display:none;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
+
+    .page{max-width:680px;margin:0 auto;padding:48px 40px;}
+    .page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:10px;}
+    .page-eyebrow::before{content:'';width:20px;height:1px;background:var(--accent);}
+    .page-h1{font-family:'Playfair Display',serif;font-weight:800;font-size:36px;letter-spacing:-.02em;margin-bottom:32px;}
+
+    .card{border:1px solid var(--border);padding:24px;margin-bottom:20px;}
+    .card-title{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);}
+    .info-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
+    .info-row:last-child{border-bottom:none;}
+    .info-label{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .info-val{font-size:14px;font-weight:600;color:var(--text);}
+    .plan-pill{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;}
+    .plan-pill.premium{background:rgba(26,140,58,.1);color:var(--green);}
+    .plan-pill.free{background:var(--bg2);color:var(--text3);}
+
+    .form-group{margin-bottom:16px;}
+    .form-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:6px;}
+    .form-input{width:100%;padding:10px 14px;border:1px solid var(--border2);background:var(--bg);font-family:'Inter',sans-serif;font-size:14px;color:var(--text);outline:none;}
+    .form-input:focus{border-color:var(--accent);}
+    .form-select{width:100%;padding:10px 14px;border:1px solid var(--border2);background:var(--bg);font-family:'Inter',sans-serif;font-size:14px;color:var(--text);outline:none;cursor:pointer;}
+    .form-select:focus{border-color:var(--accent);}
+    .form-btn{padding:10px 20px;background:var(--text);color:var(--bg);border:none;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;}
+    .form-btn:hover{opacity:.85;}
+    .form-btn.secondary{background:var(--bg2);color:var(--text2);border:1px solid var(--border2);}
+    .form-btn.danger{background:#cc2200;color:#fff;}
+    .msg{padding:8px 12px;font-size:12px;font-weight:600;margin-top:10px;display:none;}
+    .msg.success{background:rgba(26,140,58,.08);color:var(--green);border:1px solid rgba(26,140,58,.2);}
+    .msg.error{background:rgba(204,34,0,.08);color:var(--red);border:1px solid rgba(204,34,0,.2);}
+    .msg.show{display:block;}
+
+    .premium-banner{background:rgba(26,140,58,.07);border:1px solid rgba(26,140,58,.2);padding:20px 24px;margin-bottom:20px;}
+    .premium-banner-title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#1a8c3a;margin-bottom:6px;}
+    .premium-banner-h{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;margin-bottom:4px;}
+    .premium-banner-sub{font-size:13px;color:var(--text3);}
+
+    .promo-row{display:flex;gap:8px;}
+    .promo-row .form-input{flex:1;}
+
+    footer{border-top:1px solid var(--border);padding:28px 40px;display:flex;align-items:center;justify-content:space-between;margin-top:40px;}
+    .footer-logo{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text3);}
+    .footer-logo span{color:var(--accent);}
+
+    @media(max-width:600px){.page{padding:24px 16px;}.nav-top,.nav-sub{padding-left:16px;padding-right:16px;}}
+    @media(max-width:500px){
+      .nav-top{padding:0 10px!important;height:44px!important;}
+      .nav-logo{font-size:14px!important;}
+      .theme-toggle{width:26px!important;height:26px!important;}
+      .nav-actions{gap:6px!important;}
+    }
+  </style>
+</head>
+<body>
+
+<div class="nav-wrap">
+  <div class="nav-top">
+    <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+    <div class="nav-actions" id="navActions">
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+      <a href="pricing.html" class="nav-signin">Sign In</a>
+    </div>
+  </div>
+  <div class="nav-sub">
+    <a href="index.html">Rankings</a>
+    <a href="roster.html">Players</a>
+    <a href="compare-players.html">Compare</a>
+    <a href="forum.html">Forum</a>
+    <a href="members.html">Members</a>
+    <a href="community.html">Community</a>
+    <a href="about.html">About</a>
+    <a href="pricing.html">Pricing</a>
+  </div>
+</div>
+
+<div class="page" id="pageContent">
+  <div style="text-align:center;padding:60px;color:var(--text3);">Loading your account...</div>
+</div>
+
+<footer>
+  <div class="footer-logo">The Depth <span>Chart</span></div>
+  <div style="font-size:11px;font-weight:600;color:var(--text3);">College Basketball · 2025–26</div>
+</footer>
+
+<script>
+const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H   = {apikey:KEY,'Content-Type':'application/json'};
+
+let currentUser = null;
+let currentProfile = null;
+let currentToken = null;
+
+function getSession(){ return JSON.parse(localStorage.getItem('tdc_session')||'null'); }
+
+async function init(){
+  const s = getSession();
+  if(!s?.access_token){
+    location.href = 'pricing.html';
+    return;
+  }
+  currentToken = s.access_token;
+  try {
+    const r = await fetch(`${SB}/auth/v1/user`, {headers:{...H, Authorization:`Bearer ${s.access_token}`}});
+    if(!r.ok){ location.href='pricing.html'; return; }
+    currentUser = await r.json();
+    const pr = await fetch(`${SB}/rest/v1/profiles?id=eq.${currentUser.id}&select=*`, {headers:{...H, Authorization:`Bearer ${s.access_token}`}});
+    const profiles = await pr.json();
+    currentProfile = profiles[0]||{};
+    renderPage();
+  } catch(e){ location.href='pricing.html'; }
+}
+
+async function renderPage(){
+  const p = currentProfile;
+  const isPremium = p.plan === 'premium';
+  const uname = p.username || currentUser.email?.split('@')[0] || 'User';
+
+  // Update nav
+  const av = p.avatar_url
+    ? `<img src="${p.avatar_url}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);">`
+    : `<div style="width:32px;height:32px;border-radius:50%;background:var(--bg2);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);">${uname[0].toUpperCase()}</div>`;
+  const vb = p.verified ? `<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:var(--accent);border-radius:50%;margin-left:3px;"><svg viewBox="0 0 24 24" style="width:9px;height:9px;fill:#fff;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>` : '';
+  document.getElementById('navActions').innerHTML = `
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">${localStorage.getItem('tdc_theme')==='dark'?'☀️':'🌙'}</button>
+    <a href="profile.html" style="display:flex;align-items:center;gap:8px;text-decoration:none;">${av}<span style="display:flex;align-items:center;font-size:13px;font-weight:700;color:var(--text);">${uname}${vb}</span></a>`;
+
+  // Load teams for selector
+  let teamOpts = '<option value="">No favorite</option>';
+  try {
+    const tr = await fetch(`${SB}/rest/v1/teams?select=name&order=name.asc`, {headers:{apikey:KEY,Authorization:`Bearer ${currentToken}`}});
+    const teams = await tr.json();
+    teamOpts += teams.map(t=>`<option value="${t.name}"${p.favorite_team===t.name?' selected':''}>${t.name}</option>`).join('');
+  } catch(e){}
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="page-eyebrow">Settings</div>
+    <h1 class="page-h1">Your Account</h1>
+
+    ${isPremium ? `
+    <div class="premium-banner">
+      <div class="premium-banner-title">✓ Active Subscription</div>
+      <div class="premium-banner-h">You're on Premium</div>
+      <div class="premium-banner-sub">${p.sub_expires_at ? 'Renews '+new Date(p.sub_expires_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : 'Active subscription'}</div>
+    </div>` : ''}
+
+    <!-- ACCOUNT INFO -->
+    <div class="card">
+      <div class="card-title">Account Info</div>
+      <div class="info-row"><span class="info-label">Email</span><span class="info-val">${currentUser.email}</span></div>
+      <div class="info-row"><span class="info-label">Plan</span><span class="info-val"><span class="plan-pill ${isPremium?'premium':'free'}">${isPremium?'Premium':'Free'}</span></span></div>
+      <div class="info-row"><span class="info-label">Expires</span><span class="info-val">${p.sub_expires_at ? new Date(p.sub_expires_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'}</span></div>
+      <div class="info-row"><span class="info-label">Username</span><span class="info-val">${p.username||'—'}</span></div>
+    </div>
+
+    <!-- PROFILE SETTINGS -->
+    <div class="card">
+      <div class="card-title">Profile Settings</div>
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input class="form-input" type="text" id="usernameInput" value="${p.username||''}" placeholder="Choose a username"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Favorite Team</label>
+        <select class="form-select" id="teamSelect">${teamOpts}</select>
+      </div>
+      <button class="form-btn" onclick="saveProfile()">Save Changes</button>
+      <div class="msg" id="profileMsg"></div>
+    </div>
+
+    <!-- PROMO CODE -->
+    ${!isPremium ? `
+    <div class="card">
+      <div class="card-title">Redeem Promo Code</div>
+      <div class="promo-row">
+        <input class="form-input" type="text" id="promoInput" placeholder="TDC-XXXX-XXXX-XXXX" style="text-transform:uppercase;"/>
+        <button class="form-btn" onclick="redeemPromo()">Apply</button>
+      </div>
+      <div class="msg" id="promoMsg"></div>
+    </div>
+
+    <!-- UPGRADE -->
+    <div class="card">
+      <div class="card-title">Upgrade to Premium</div>
+      <p style="font-size:13px;color:var(--text3);margin-bottom:16px;">Get full access to all team depth charts, player grades, NIL data, forum, and more.</p>
+      <button class="form-btn" onclick="location.href='https://buy.stripe.com/8x25kF67o36U0ticUn33W00'" style="margin-right:8px;">$5 / Month</button>
+      <button class="form-btn secondary" onclick="location.href='https://buy.stripe.com/14AdRbeDUgXKcc0g6z33W01'">$50 / Year</button>
+    </div>` : ''}
+
+    <!-- SIGN OUT -->
+    <div class="card">
+      <div class="card-title">Session</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:13px;color:var(--text3);">Signed in as ${currentUser.email}</span>
+        <button class="form-btn danger" onclick="signOut()">Sign Out</button>
+      </div>
+    </div>`;
+}
+
+async function saveProfile(){
+  const username = document.getElementById('usernameInput').value.trim();
+  const team = document.getElementById('teamSelect').value;
+  if(!username) return showMsg('profileMsg','Username cannot be empty.','error');
+  try {
+    const r = await fetch(`${SB}/rest/v1/profiles?id=eq.${currentUser.id}`, {
+      method:'PATCH',
+      headers:{...H, Authorization:`Bearer ${currentToken}`, Prefer:'return=minimal'},
+      body: JSON.stringify({username, favorite_team:team})
+    });
+    if(r.status===409) return showMsg('profileMsg','That username is already taken.','error');
+    if(!r.ok) return showMsg('profileMsg','Could not save changes.','error');
+    localStorage.setItem('tdc_fav', team);
+    currentProfile.username = username;
+    currentProfile.favorite_team = team;
+    showMsg('profileMsg','Saved!','success');
+  } catch(e){ showMsg('profileMsg','Something went wrong.','error'); }
+}
+
+async function redeemPromo(){
+  const code = document.getElementById('promoInput').value.trim().toUpperCase();
+  if(!code) return;
+  try {
+    const r = await fetch(`${SB}/rest/v1/promo_codes?code=eq.${encodeURIComponent(code)}&select=*`, {headers:{apikey:KEY,Authorization:`Bearer ${currentToken}`}});
+    const arr = await r.json();
+    const promo = arr[0];
+    if(!promo) return showMsg('promoMsg','Code not found.','error');
+    if(promo.used) return showMsg('promoMsg','This code has already been used.','error');
+
+    const months = promo.duration?.includes('year') ? 12 : 1;
+    const expires = new Date();
+    expires.setMonth(expires.getMonth() + months);
+
+    await fetch(`${SB}/rest/v1/promo_codes?code=eq.${encodeURIComponent(code)}`, {
+      method:'PATCH', headers:{...H, Authorization:`Bearer ${currentToken}`},
+      body: JSON.stringify({used:true, used_by:currentUser.id, used_at:new Date().toISOString()})
+    });
+    await fetch(`${SB}/rest/v1/profiles?id=eq.${currentUser.id}`, {
+      method:'PATCH', headers:{...H, Authorization:`Bearer ${currentToken}`},
+      body: JSON.stringify({plan:'premium', sub_expires_at:expires.toISOString()})
+    });
+    showMsg('promoMsg', `✓ ${months===12?'1 year':'1 month'} of Premium activated!`, 'success');
+    setTimeout(()=>location.reload(), 1500);
+  } catch(e){ showMsg('promoMsg','Something went wrong.','error'); }
+}
+
+function signOut(){
+  const s = getSession();
+  if(s?.access_token){
+    fetch(`${SB}/auth/v1/logout`, {method:'POST', headers:{apikey:KEY, Authorization:`Bearer ${s.access_token}`}}).catch(()=>{});
+  }
+  localStorage.removeItem('tdc_session');
+  location.href = 'pricing.html';
+}
+
+function showMsg(id, text, type){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.textContent = text;
+  el.className = `msg ${type} show`;
+  setTimeout(()=>{ if(el) el.className='msg'; }, 4000);
+}
+
+function toggleTheme(){
+  const d = document.documentElement.getAttribute('data-theme')==='dark';
+  const n = d?'light':'dark';
+  document.documentElement.setAttribute('data-theme',n);
+  localStorage.setItem('tdc_theme',n);
+  const b = document.getElementById('themeBtn');
+  if(b) b.textContent = n==='dark'?'☀️':'🌙';
+}
+(function(){
+  const s = localStorage.getItem('tdc_theme')||'light';
+  document.documentElement.setAttribute('data-theme',s);
+  window.addEventListener('DOMContentLoaded',()=>{
+    const b = document.getElementById('themeBtn');
+    if(b) b.textContent = s==='dark'?'☀️':'🌙';
+  });
+})();
+
+init();
+</script>
+</body>
+</html>
