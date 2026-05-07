@@ -277,7 +277,8 @@
       </div>
 
       <div class="form-divider">or upgrade your plan</div>
-      <button class="form-btn paid" onclick="alert('Stripe payments coming soon!\n\nTo upgrade now email boobylee383@gmail.com and we\'ll set you up manually.')">Upgrade to Premium — $5/mo or $50/yr</button>
+      <button class="form-btn paid" onclick="startCheckout('monthly')">Upgrade to Premium — $5/mo</button>
+      <button class="form-btn" style="margin-top:8px;background:var(--bg2);color:var(--text);border:1px solid var(--border2);" onclick="startCheckout('yearly')">Get Annual Plan — $50/yr</button>
       <button class="form-btn secondary" onclick="handleSignOut()" style="margin-top:10px;">Sign Out</button>
     </div>
   </div>
@@ -288,283 +289,277 @@
   <div class="footer-meta">College Basketball Roster Analysis · 2025–26</div>
 </footer>
 
+<script src="https://js.stripe.com/v3/"></script>
 <script>
-const SB = 'https://izlqhnxowdhtdofkwrho.supabase.co';
+const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
-const H = { 'apikey':KEY, 'Authorization':`Bearer ${KEY}`, 'Content-Type':'application/json' };
+const H   = {'apikey':KEY,'Authorization':`Bearer ${KEY}`,'Content-Type':'application/json'};
 let user = null, validPromo = null;
 
 function getSession(){ return JSON.parse(localStorage.getItem('tdc_session')||'null'); }
-function setSession(s){ localStorage.setItem('tdc_session', JSON.stringify(s)); }
+function setSession(s){ localStorage.setItem('tdc_session',JSON.stringify(s)); }
 function clearSession(){ localStorage.removeItem('tdc_session'); }
 
-async function init(){
-  // Show gate notice if redirected
-  if(location.search.includes('gate=1')){
-    document.getElementById('gateNotice').style.display='block';
-  }
-
-  const s = getSession();
-  if(!s?.access_token) return;
-
-  // Try to refresh if expired
-  try {
-    const payload = JSON.parse(atob(s.access_token.split('.')[1]));
-    if(payload.exp && payload.exp * 1000 < Date.now()){
-      const rf = await fetch(`${SB}/auth/v1/token?grant_type=refresh_token`,{
-        method:'POST',headers:H,body:JSON.stringify({refresh_token:s.refresh_token})
-      });
-      if(rf.ok){ const fresh=await rf.json(); setSession(fresh); s=fresh; }
-      else { clearSession(); return; }
-    }
-  } catch(e){}
-
-  try {
-    const r = await fetch(`${SB}/auth/v1/user`,{headers:{...H,'Authorization':`Bearer ${s.access_token}`}});
-    if(!r.ok){ clearSession(); return; }
-    user = await r.json();
-    await renderAccount(s.access_token);
-  } catch(e){ clearSession(); }
+function msg(id,text,type){
+  const el=document.getElementById(id);
+  if(!el) return;
+  el.textContent=text;
+  el.className='msg '+type+' show';
+  setTimeout(()=>{ if(el) el.className='msg'; },4000);
 }
 
-async function renderAccount(token){
-  const r = await fetch(`${SB}/rest/v1/profiles?id=eq.${user.id}&select=*`,
-    {headers:{...H,'Authorization':`Bearer ${token}`}});
-  const [profile] = await r.json();
+function showPanel(name){
+  ['signin','signup','account'].forEach(n=>{
+    const el=document.getElementById('panel-'+n);
+    if(el) el.classList.toggle('active',n===name);
+  });
+}
 
-  const plan = profile?.plan || 'free';
-  const isPremium = plan === 'premium';
-
-  // Update nav
-  const uname = profile?.username || user.email?.split('@')[0] || 'User';
-  const avatarHtml = profile?.avatar_url
-    ? `<img src="${profile.avatar_url}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);" />`
-    : `<div style="width:32px;height:32px;border-radius:50%;background:var(--bg2);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:14px;">${uname[0].toUpperCase()}</div>`;
-  const vBadge = profile?.verified
-    ? `<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:var(--accent);border-radius:50%;margin-left:3px;"><svg viewBox="0 0 24 24" style="width:9px;height:9px;fill:#fff;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>` : '';
-  document.getElementById('navActions').innerHTML = `
-    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
-    <a href="profile.html" style="display:flex;align-items:center;gap:8px;text-decoration:none;">
-      ${avatarHtml}
-      <span style="display:flex;align-items:center;font-size:13px;font-weight:700;color:var(--text);">${uname}${vBadge}</span>
-    </a>`;
-
-  if(isPremium){
-    // Show premium banner, hide/dim pricing section
-    document.getElementById('premiumBanner').style.display = 'block';
-    document.getElementById('pricingContent').style.display = 'none';
-    const exp = profile?.sub_expires_at;
-    document.getElementById('premiumExpiry').textContent = exp
-      ? `Renews ${new Date(exp).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`
-      : 'Active — no expiry date set';
-  } else {
-    // Update plan buttons for signed-in free user
-    const freeBtn = document.getElementById('freePlanBtn');
-    const premBtn = document.getElementById('premiumPlanBtn');
-    if(freeBtn){ freeBtn.textContent = '✓ Your Current Plan'; freeBtn.disabled = true; freeBtn.style.opacity='.5'; }
-    if(premBtn){ premBtn.textContent = 'Upgrade to Premium'; premBtn.onclick = ()=>goToAuth('promo'); }
-  }
-
-  // Show account section
-  document.getElementById('authTabs').style.display = 'none';
-  document.getElementById('authTitle').textContent = 'Your Account';
-  document.getElementById('authSub').textContent = 'Manage your subscription and favorite team.';
-  showPanel('account');
-
-  document.getElementById('acctEmail').textContent = user.email;
-  const pill = document.getElementById('acctPlan');
-  pill.textContent = isPremium ? 'Premium' : 'Free';
-  pill.className = 'plan-pill' + (isPremium?' premium':'');
-
-  const exp = profile?.sub_expires_at;
-  document.getElementById('acctExpires').textContent = exp
-    ? new Date(exp).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
-    : '—';
-
-  const fav = profile?.favorite_team || '';
-  document.getElementById('acctTeam').textContent = fav || 'None set';
-  if(fav) document.getElementById('acctTeamSel').value = fav;
-  localStorage.setItem('tdc_fav', fav);
+function switchTab(tab){
+  ['signin','signup'].forEach(t=>{
+    const btn=document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1));
+    const panel=document.getElementById('panel-'+t);
+    if(btn) btn.classList.toggle('active',t===tab);
+    if(panel) panel.classList.toggle('active',t===tab);
+  });
 }
 
 async function handleSignIn(){
-  const email = document.getElementById('signinEmail').value.trim();
-  const pw    = document.getElementById('signinPw').value;
+  const email=document.getElementById('signinEmail').value.trim();
+  const pw=document.getElementById('signinPw').value;
   if(!email||!pw) return msg('signinMsg','Please fill in all fields.','error');
-  try {
-    const r = await fetch(`${SB}/auth/v1/token?grant_type=password`,
+  try{
+    const r=await fetch(SB+'/auth/v1/token?grant_type=password',
       {method:'POST',headers:H,body:JSON.stringify({email,password:pw})});
-    const d = await r.json();
-    if(!r.ok) return msg('signinMsg',d.error_description||d.msg||'Sign in failed.','error');
-    // Store full session including refresh_token for persistence
+    const d=await r.json();
+    if(!r.ok) return msg('signinMsg',d.error_description||d.msg||d.message||'Sign in failed.','error');
     setSession(d);
-    user = d.user;
-    msg('signinMsg','Signed in! Welcome back.','success');
-    setTimeout(()=>renderAccount(d.access_token), 700);
-  } catch(e){ msg('signinMsg','Something went wrong.','error'); }
+    user=d.user;
+    msg('signinMsg','Signed in!','success');
+    setTimeout(()=>renderAccount(d.access_token),700);
+  }catch(e){ msg('signinMsg','Network error — try again.','error'); }
 }
 
 async function handleSignUp(){
-  const email = document.getElementById('signupEmail').value.trim();
-  const pw    = document.getElementById('signupPw').value;
-  const team  = document.getElementById('signupTeam').value;
+  const email=document.getElementById('signupEmail').value.trim();
+  const pw=document.getElementById('signupPw').value;
+  const team=document.getElementById('signupTeam').value;
   if(!email||!pw) return msg('signupMsg','Please fill in email and password.','error');
-  if(pw.length<8) return msg('signupMsg','Password must be at least 8 characters.','error');
-  try {
-    const r = await fetch(`${SB}/auth/v1/signup`,
+  if(pw.length<6) return msg('signupMsg','Password must be at least 6 characters.','error');
+  try{
+    const r=await fetch(SB+'/auth/v1/signup',
       {method:'POST',headers:H,body:JSON.stringify({email,password:pw})});
-    const d = await r.json();
-    if(!r.ok) return msg('signupMsg',d.error_description||d.msg||'Sign up failed.','error');
-    setSession(d); user = d.user;
-    const tok = d.access_token;
-    if(team){
-      await fetch(`${SB}/rest/v1/profiles?id=eq.${user.id}`,
-        {method:'PATCH',headers:{...H,'Authorization':`Bearer ${tok}`},
+    const d=await r.json();
+    if(!r.ok) return msg('signupMsg',d.error_description||d.msg||d.message||'Sign up failed.','error');
+    setSession(d);
+    user=d.user;
+    const tok=d.access_token;
+    if(tok&&team){
+      await fetch(SB+'/rest/v1/profiles?id=eq.'+user.id,
+        {method:'PATCH',headers:{...H,'Authorization':'Bearer '+tok},
          body:JSON.stringify({favorite_team:team})});
-      localStorage.setItem('tdc_fav', team);
+      localStorage.setItem('tdc_fav',team);
     }
-    if(validPromo) await redeemCode(validPromo, tok);
+    if(tok&&validPromo) await redeemCode(validPromo,tok);
     msg('signupMsg','Account created! Welcome to The Depth Chart.','success');
-    setTimeout(()=>renderAccount(tok), 1000);
-  } catch(e){ msg('signupMsg','Something went wrong.','error'); }
+    if(tok) setTimeout(()=>renderAccount(tok),1000);
+  }catch(e){ msg('signupMsg','Network error — try again.','error'); }
+}
+
+async function renderAccount(token){
+  try{
+    const r=await fetch(SB+'/rest/v1/profiles?id=eq.'+user.id+'&select=*',
+      {headers:{...H,'Authorization':'Bearer '+token}});
+    const arr=await r.json();
+    const profile=arr[0]||{};
+    const plan=profile.plan||'free';
+    const isPremium=plan==='premium';
+    const uname=profile.username||user.email.split('@')[0]||'User';
+
+    // Update nav
+    const av=profile.avatar_url
+      ?'<img src="'+profile.avatar_url+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);">'
+      :'<div style="width:32px;height:32px;border-radius:50%;background:var(--bg2);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);">'+uname[0].toUpperCase()+'</div>';
+    const vb=profile.verified?'<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:var(--accent);border-radius:50%;margin-left:3px;"><svg viewBox='0 0 24 24' style='width:9px;height:9px;fill:#fff;'><path d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/></svg></span>':'';
+    const na=document.getElementById('navActions');
+    if(na) na.innerHTML='<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">'+(localStorage.getItem('tdc_theme')==='dark'?'☀️':'🌙')+'</button><a href="profile.html" style="display:flex;align-items:center;gap:8px;text-decoration:none;">'+av+'<span style="display:flex;align-items:center;font-size:13px;font-weight:700;color:var(--text);">'+uname+vb+'</span></a>';
+
+    // Show premium banner or update plan buttons
+    const premBanner=document.getElementById('premiumBanner');
+    const pricingContent=document.getElementById('pricingContent');
+    if(isPremium){
+      if(premBanner) premBanner.style.display='block';
+      if(pricingContent) pricingContent.style.display='none';
+      const expEl=document.getElementById('premiumExpiry');
+      if(expEl) expEl.textContent=profile.sub_expires_at
+        ?'Renews '+new Date(profile.sub_expires_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})
+        :'Active subscription';
+    } else {
+      const freeBtn=document.getElementById('freePlanBtn');
+      const premBtn=document.getElementById('premiumPlanBtn');
+      if(freeBtn){freeBtn.textContent='✓ Your Current Plan';freeBtn.disabled=true;freeBtn.style.opacity='.5';}
+      if(premBtn){premBtn.textContent='Upgrade to Premium';premBtn.onclick=()=>startCheckout('monthly');}
+    }
+
+    // Show account panel
+    const authTabs=document.getElementById('authTabs');
+    if(authTabs) authTabs.style.display='none';
+    showPanel('account');
+
+    const acctEmail=document.getElementById('acctEmail');
+    if(acctEmail) acctEmail.textContent=user.email;
+    const pill=document.getElementById('acctPlan');
+    if(pill){pill.textContent=isPremium?'Premium':'Free';pill.className='plan-pill'+(isPremium?' premium':'');}
+    const expEl2=document.getElementById('acctExpires');
+    if(expEl2) expEl2.textContent=profile.sub_expires_at?new Date(profile.sub_expires_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+    const teamEl=document.getElementById('acctTeam');
+    if(teamEl) teamEl.textContent=profile.favorite_team||'None set';
+    const teamSel=document.getElementById('acctTeamSel');
+    if(teamSel&&profile.favorite_team) teamSel.value=profile.favorite_team;
+    localStorage.setItem('tdc_fav',profile.favorite_team||'');
+  }catch(e){ console.error('renderAccount error:',e); }
 }
 
 async function handleSignOut(){
-  const s = getSession();
-  if(s) await fetch(`${SB}/auth/v1/logout`,
-    {method:'POST',headers:{...H,'Authorization':`Bearer ${s.access_token}`}}).catch(()=>{});
+  const s=getSession();
+  if(s?.access_token){
+    await fetch(SB+'/auth/v1/logout',
+      {method:'POST',headers:{...H,'Authorization':'Bearer '+s.access_token}}).catch(()=>{});
+  }
   clearSession();
   location.reload();
 }
 
 async function saveTeam(){
-  const s = getSession();
-  if(!s||!user) return;
-  const team = document.getElementById('acctTeamSel').value;
-  await fetch(`${SB}/rest/v1/profiles?id=eq.${user.id}`,
-    {method:'PATCH',headers:{...H,'Authorization':`Bearer ${s.access_token}`},
+  const team=document.getElementById('acctTeamSel').value;
+  const s=getSession();
+  if(!s?.access_token) return;
+  await fetch(SB+'/rest/v1/profiles?id=eq.'+user.id,
+    {method:'PATCH',headers:{...H,'Authorization':'Bearer '+s.access_token},
      body:JSON.stringify({favorite_team:team})});
-  document.getElementById('acctTeam').textContent = team||'None set';
-  localStorage.setItem('tdc_fav', team);
-  msg('accountMsg','Favorite team saved!','success');
-}
-
-async function checkPromoSignup(){
-  const code = document.getElementById('signupPromo').value.trim().toUpperCase();
-  if(!code) return;
-  const {valid, err} = await validateCode(code);
-  const hint = document.getElementById('signupPromoHint');
-  if(valid){ validPromo = code; hint.style.color='var(--green)'; hint.textContent='✓ Code applied — 1 free month on signup!'; }
-  else { hint.style.color='var(--red)'; hint.textContent=err; }
-}
-
-async function checkPromoAccount(){
-  const code = document.getElementById('acctPromo').value.trim().toUpperCase();
-  if(!code) return;
-  const {valid,err} = await validateCode(code);
-  const hint = document.getElementById('acctPromoHint');
-  if(!valid){ hint.style.color='var(--red)'; hint.textContent=err; return; }
-  const s = getSession();
-  await redeemCode(code, s.access_token);
-  hint.style.color='var(--green)';
-  hint.textContent='✓ 1 free month of Premium added!';
-  setTimeout(()=>renderAccount(s.access_token), 1000);
+  localStorage.setItem('tdc_fav',team);
+  document.getElementById('acctTeam').textContent=team||'None set';
+  msg('acctMsg','Saved!','success');
 }
 
 async function validateCode(code){
-  const r = await fetch(`${SB}/rest/v1/promo_codes?code=eq.${encodeURIComponent(code)}&select=*`,{headers:H});
-  const [c] = await r.json();
+  const r=await fetch(SB+'/rest/v1/promo_codes?code=eq.'+encodeURIComponent(code)+'&select=*',{headers:H});
+  const arr=await r.json();
+  const c=arr[0];
   if(!c) return {valid:false,err:'Code not found.'};
-  if(c.used) return {valid:false,err:'This code has already been used.'};
+  if(c.used) return {valid:false,err:'Code already used.'};
+  validPromo=code;
   return {valid:true};
 }
 
-async function redeemCode(code, token){
-  await fetch(`${SB}/rest/v1/promo_codes?code=eq.${encodeURIComponent(code)}`,
-    {method:'PATCH',headers:{...H,'Authorization':`Bearer ${token}`},
+async function checkPromo(){
+  const code=document.getElementById('promoInput')?.value.trim().toUpperCase();
+  if(!code) return;
+  const {valid,err}=await validateCode(code);
+  const hint=document.getElementById('promoHint');
+  if(hint){hint.textContent=valid?'✓ Valid code! Sign up to apply it.':err;hint.style.color=valid?'var(--green)':'var(--red)';}
+}
+
+async function checkPromoAccount(){
+  const code=document.getElementById('acctPromo')?.value.trim().toUpperCase();
+  if(!code) return;
+  const {valid,err}=await validateCode(code);
+  const hint=document.getElementById('acctPromoHint');
+  if(!valid){if(hint){hint.style.color='var(--red)';hint.textContent=err;}return;}
+  const s=getSession();
+  await redeemCode(code,s.access_token);
+  if(hint){hint.style.color='var(--green)';hint.textContent='✓ 1 free month of Premium added!';}
+  setTimeout(()=>renderAccount(s.access_token),1000);
+}
+
+async function redeemCode(code,token){
+  await fetch(SB+'/rest/v1/promo_codes?code=eq.'+encodeURIComponent(code),
+    {method:'PATCH',headers:{...H,'Authorization':'Bearer '+token},
      body:JSON.stringify({used:true,used_by:user.id,used_at:new Date().toISOString()})});
-  const exp = new Date(); exp.setMonth(exp.getMonth()+1);
-  await fetch(`${SB}/rest/v1/profiles?id=eq.${user.id}`,
-    {method:'PATCH',headers:{...H,'Authorization':`Bearer ${token}`},
+  const exp=new Date();exp.setMonth(exp.getMonth()+1);
+  await fetch(SB+'/rest/v1/profiles?id=eq.'+user.id,
+    {method:'PATCH',headers:{...H,'Authorization':'Bearer '+token},
      body:JSON.stringify({plan:'premium',sub_expires_at:exp.toISOString()})});
 }
 
 async function loadTeams(){
-  const r = await fetch(`${SB}/rest/v1/teams?select=name,conference&order=name.asc`,{headers:H});
-  const teams = await r.json();
-  const opts = teams.map(t=>`<option value="${t.name}">${t.name} (${t.conference||''})</option>`).join('');
-  document.getElementById('signupTeam').innerHTML = '<option value="">Select a team...</option>'+opts;
-  document.getElementById('acctTeamSel').innerHTML = '<option value="">No favorite</option>'+opts;
-  const fav = localStorage.getItem('tdc_fav');
-  if(fav){ document.getElementById('signupTeam').value=fav; document.getElementById('acctTeamSel').value=fav; }
+  try{
+    const r=await fetch(SB+'/rest/v1/teams?select=name,conference&order=name.asc',{headers:H});
+    const teams=await r.json();
+    const opts=teams.map(t=>'<option value="'+t.name+'">'+t.name+' ('+(t.conference||'')+')</option>').join('');
+    const st=document.getElementById('signupTeam');
+    const at=document.getElementById('acctTeamSel');
+    if(st) st.innerHTML='<option value="">Select a team...</option>'+opts;
+    if(at) at.innerHTML='<option value="">No favorite</option>'+opts;
+    const fav=localStorage.getItem('tdc_fav');
+    if(fav&&st) st.value=fav;
+    if(fav&&at) at.value=fav;
+  }catch(e){}
 }
 
-function switchTab(tab){
-  ['signin','signup'].forEach(t=>{
-    document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('active',t===tab);
-    document.getElementById('panel-'+t).classList.toggle('active',t===tab);
+// Stripe
+const STRIPE_PK='pk_live_51TUEjyRJGPurjxaCC64lRbm0w4Fp118Os0uPdLHYDu8E4rbTusRUi5OYfLiPLfzW24OElObqUBDTxMjpukFzI56W00GmoM3cww';
+const PRICE_MONTHLY='REPLACE_WITH_MONTHLY_PRICE_ID';
+const PRICE_YEARLY='REPLACE_WITH_YEARLY_PRICE_ID';
+
+async function startCheckout(plan){
+  if(!user){showPanel('signin');msg('signinMsg','Please sign in first.','error');return;}
+  if(PRICE_MONTHLY==='REPLACE_WITH_MONTHLY_PRICE_ID'){
+    alert('Payment setup coming very soon!\n\nTo upgrade now email boobylee383@gmail.com');
+    return;
+  }
+  try{
+    const stripe=Stripe(STRIPE_PK);
+    await stripe.redirectToCheckout({
+      lineItems:[{price:plan==='yearly'?PRICE_YEARLY:PRICE_MONTHLY,quantity:1}],
+      mode:'subscription',
+      successUrl:location.origin+'/pricing.html?success=1',
+      cancelUrl:location.origin+'/pricing.html?canceled=1',
+      customerEmail:user.email,
+    });
+  }catch(e){alert('Checkout error: '+e.message);}
+}
+
+// Theme
+function toggleTheme(){
+  const d=document.documentElement.getAttribute('data-theme')==='dark';
+  const n=d?'light':'dark';
+  document.documentElement.setAttribute('data-theme',n);
+  localStorage.setItem('tdc_theme',n);
+  const b=document.getElementById('themeBtn');
+  if(b) b.textContent=n==='dark'?'☀️':'🌙';
+}
+(function(){
+  const s=localStorage.getItem('tdc_theme')||'light';
+  document.documentElement.setAttribute('data-theme',s);
+  window.addEventListener('DOMContentLoaded',()=>{
+    const b=document.getElementById('themeBtn');
+    if(b) b.textContent=s==='dark'?'☀️':'🌙';
   });
-}
+})();
 
-function showPanel(name){
-  ['signin','signup','account'].forEach(n=>document.getElementById('panel-'+n).classList.remove('active'));
-  document.getElementById('panel-'+name).classList.add('active');
-}
-
-function goToAuth(tab){
-  document.getElementById('authSection').scrollIntoView({behavior:'smooth'});
-  setTimeout(()=>switchTab(tab),300);
-}
-
-function msg(id,text,type){
-  const el=document.getElementById(id);
-  el.textContent=text; el.className=`msg ${type} show`;
+// Init
+async function init(){
+  const gn=document.getElementById('gateNotice');
+  if(gn&&location.search.includes('gate=1')) gn.style.display='block';
+  if(location.search.includes('success=1')){
+    const b=document.createElement('div');
+    b.style.cssText='background:rgba(26,140,58,.1);border:1px solid rgba(26,140,58,.3);padding:16px 20px;margin-bottom:20px;font-size:14px;font-weight:600;color:#1a8c3a;';
+    b.textContent='✓ Payment successful! Your account is being upgraded — refresh in a moment.';
+    document.querySelector('.page')?.prepend(b);
+  }
+  const s=getSession();
+  if(!s?.access_token) return;
+  try{
+    const r=await fetch(SB+'/auth/v1/user',{headers:{...H,'Authorization':'Bearer '+s.access_token}});
+    if(!r.ok){clearSession();return;}
+    user=await r.json();
+    await renderAccount(s.access_token);
+  }catch(e){clearSession();}
 }
 
 loadTeams();
 init();
 </script>
-<script>
-// Theme toggle
-function toggleTheme(){
-  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
-  const next = isDark ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('tdc_theme', next);
-  document.getElementById('themeBtn').textContent = next==='dark' ? '☀️' : '🌙';
-}
-(function(){
-  const saved = localStorage.getItem('tdc_theme') || 'light';
-  document.documentElement.setAttribute('data-theme', saved);
-  window.addEventListener('DOMContentLoaded',()=>{
-    const btn = document.getElementById('themeBtn');
-    if(btn) btn.textContent = saved==='dark' ? '☀️' : '🌙';
-  });
-})();</script>
-<script>
-// Auth nav update
-(function(){
-  const s = JSON.parse(localStorage.getItem('tdc_session')||'null');
-  if(!s?.access_token||!s?.user?.id) return;
-  fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user.id+'&select=username,avatar_url,plan,verified',
-    {headers:{'apikey':'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye','Authorization':'Bearer '+s.access_token}})
-  .then(r=>r.json()).then(([profile])=>{
-    if(!profile) return;
-    const uname = profile.username || s.user?.email?.split('@')[0] || 'User';
-    const avatarHtml = profile.avatar_url
-      ? '<img src="'+profile.avatar_url+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);" />'
-      : '<div style="width:32px;height:32px;border-radius:50%;background:var(--bg2);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:14px;">'+uname[0].toUpperCase()+'</div>';
-    const verifiedHtml = profile.verified
-      ? '<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:var(--accent);border-radius:50%;margin-left:3px;flex-shrink:0;"><svg viewBox=\"0 0 24 24\" style=\"width:9px;height:9px;fill:#fff;\"><path d=\"M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z\"/></svg></span>'
-      : '';
-    const actions = document.getElementById('navActions');
-    if(actions){
-      actions.innerHTML = '<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">'+
-        (localStorage.getItem('tdc_theme')==='dark'?'☀️':'🌙')+
-        '</button><a href="profile.html" style="display:flex;align-items:center;gap:8px;text-decoration:none;">'+
-        avatarHtml+'<span style="display:flex;align-items:center;font-size:13px;font-weight:700;color:var(--text);">'+uname+verifiedHtml+'</span></a>';
-    }
-  }).catch(()=>{});
-})();</script>
 </body>
 </html>
