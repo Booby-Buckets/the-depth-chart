@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Analytics — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#fff;--bg2:#f5f5f5;--border:#e0e0e0;--border2:#ccc;--text:#111;--text2:#444;--text3:#888;--accent:#8B6914;--green:#1a8c3a;--red:#cc2200;--blue:#1a5fbf;}
+    [data-theme="dark"]{--bg:#111;--bg2:#181818;--border:#2a2a2a;--border2:#333;--text:#e8e8e8;--text2:#a0a0a0;--text3:#606060;--accent:#c8a96e;}
+    [data-theme="dark"] .nav-signin{background:var(--text)!important;color:var(--bg)!important;}
+    [data-theme="dark"] .filter-select{background:var(--bg2);color:var(--text);}
+    [data-theme="dark"] .metric-card{background:var(--bg2);}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
+    .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;min-width:0;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;white-space:nowrap;}
+    .nav-logo span{color:var(--accent);}
+    .nav-actions{display:flex;align-items:center;gap:14px;}
+    .nav-signin{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--text);padding:6px 16px;text-decoration:none;}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
+    .nav-sub::-webkit-scrollbar{display:none;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
+
+    .page-header{padding:36px 40px 28px;border-bottom:1px solid var(--border);}
+    .page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;display:flex;align-items:center;gap:10px;}
+    .page-eyebrow::before{content:'';width:20px;height:1px;background:var(--accent);}
+    .page-h1{font-family:'Playfair Display',serif;font-weight:800;font-size:36px;letter-spacing:-.02em;margin-bottom:6px;}
+    .page-sub{font-size:13px;color:var(--text3);}
+
+    /* TABS */
+    .tab-row{display:flex;border-bottom:1px solid var(--border);padding:0 40px;}
+    .tab-btn{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:12px 20px;border:none;background:none;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;font-family:'Inter',sans-serif;transition:all .15s;}
+    .tab-btn.active{color:var(--text);border-bottom-color:var(--accent);}
+    .tab-panel{display:none;}
+    .tab-panel.active{display:block;}
+
+    /* FILTER BAR */
+    .filter-bar{padding:12px 40px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .filter-select{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;background:var(--bg);border:1px solid var(--border2);color:var(--text2);padding:6px 10px;outline:none;cursor:pointer;}
+    .result-count{margin-left:auto;font-size:12px;font-weight:600;color:var(--text3);}
+    .result-count strong{color:var(--accent);}
+
+    /* ANALYTICS TABLE */
+    .table-wrap{padding:0 40px 60px;overflow-x:auto;margin-top:20px;}
+    .analytics-table{width:100%;border-collapse:collapse;min-width:1200px;}
+    .analytics-table th{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:8px 10px;border-bottom:2px solid var(--border2);text-align:right;cursor:pointer;user-select:none;white-space:nowrap;background:var(--bg);}
+    .analytics-table th:hover{color:var(--text);}
+    .analytics-table th.sorted{color:var(--accent);}
+    .analytics-table th.sorted::after{content:' ▼';font-size:9px;}
+    .analytics-table th.sorted.asc::after{content:' ▲';}
+    .analytics-table th.left{text-align:left;}
+    .analytics-table td{padding:9px 10px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text2);text-align:right;white-space:nowrap;}
+    .analytics-table tr:hover td{background:var(--bg2);}
+    .analytics-table td.left{text-align:left;}
+    .td-team-name{font-family:'Playfair Display',serif;font-weight:700;font-size:14px;color:var(--text);cursor:pointer;}
+    .td-team-name:hover{color:var(--accent);}
+    .td-conf{font-size:10px;font-weight:700;letter-spacing:.06em;padding:1px 6px;border:1px solid var(--border2);color:var(--text3);}
+    .power-bar{display:flex;align-items:center;gap:8px;}
+    .power-bar-inner{height:8px;border-radius:4px;min-width:4px;max-width:80px;}
+    .power-val{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;}
+
+    /* METRIC DEFINITIONS */
+    .metric-legend{padding:20px 40px;border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;}
+    .metric-card{border:1px solid var(--border);padding:14px 16px;}
+    .metric-name{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:4px;}
+    .metric-desc{font-size:12px;color:var(--text3);line-height:1.5;}
+
+    /* GAME SIMULATOR */
+    .simulator{max-width:800px;margin:32px auto;padding:0 40px 60px;}
+    .sim-title{font-family:'Playfair Display',serif;font-weight:800;font-size:28px;margin-bottom:6px;}
+    .sim-sub{font-size:13px;color:var(--text3);margin-bottom:28px;}
+    .sim-teams{display:grid;grid-template-columns:1fr auto 1fr;gap:20px;align-items:end;margin-bottom:20px;}
+    .sim-team-select{display:flex;flex-direction:column;gap:6px;}
+    .sim-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .sim-select{font-family:'Inter',sans-serif;font-size:14px;font-weight:600;padding:10px 14px;border:1px solid var(--border2);background:var(--bg);color:var(--text);outline:none;width:100%;}
+    .sim-select:focus{border-color:var(--accent);}
+    .sim-vs{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;color:var(--text3);padding-bottom:10px;text-align:center;}
+    .sim-options{display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap;}
+    .sim-count-label{font-size:12px;font-weight:600;color:var(--text3);}
+    .sim-count-input{font-family:'Inter',sans-serif;font-size:14px;padding:8px 12px;border:1px solid var(--border2);background:var(--bg);color:var(--text);width:80px;outline:none;}
+    .sim-btn{font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:10px 24px;background:var(--text);color:var(--bg);border:none;cursor:pointer;}
+    .sim-btn:hover{opacity:.85;}
+    .sim-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+    /* RESULTS */
+    .sim-results{border:1px solid var(--border);padding:0;margin-top:24px;}
+    .sim-result-header{display:grid;grid-template-columns:1fr auto 1fr;background:var(--bg2);padding:24px 28px;border-bottom:1px solid var(--border);}
+    .sim-team-result{display:flex;flex-direction:column;}
+    .sim-team-result.right{align-items:flex-end;}
+    .sim-team-nm{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;margin-bottom:4px;}
+    .sim-team-score{font-family:'Playfair Display',serif;font-weight:800;font-size:48px;line-height:1;}
+    .sim-team-score.winner{color:var(--green);}
+    .sim-team-score.loser{color:var(--text3);}
+    .sim-divider{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .sim-win-pct{font-size:13px;font-weight:700;margin-top:4px;}
+    .sim-win-pct.winner{color:var(--green);}
+    .sim-win-pct.loser{color:var(--text3);}
+    .sim-details{padding:20px 28px;display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+    .sim-detail-title{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;}
+    .sim-stat-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;}
+    .sim-stat-row:last-child{border-bottom:none;}
+    .sim-stat-label{color:var(--text3);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;}
+    .sim-stat-val{font-family:'Playfair Display',serif;font-weight:700;font-size:14px;}
+    .win-bar-wrap{padding:16px 28px;border-top:1px solid var(--border);}
+    .win-bar-label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+    .win-bar{display:flex;height:12px;border-radius:6px;overflow:hidden;}
+    .win-bar-t1{background:var(--green);}
+    .win-bar-t2{background:var(--red);}
+    .win-bar-labels{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;font-weight:700;}
+    .bias-note{padding:12px 28px;background:rgba(139,105,20,.06);border-top:1px solid var(--border);font-size:11px;color:var(--text3);}
+
+    .loading-state{text-align:center;padding:60px;color:var(--text3);}
+    .loading-spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 12px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .empty-state{text-align:center;padding:48px;color:var(--text3);}
+    .premium-notice{background:rgba(139,105,20,.06);border:1px solid rgba(139,105,20,.2);padding:16px 20px;margin:20px 40px;font-size:13px;color:var(--text3);}
+    .premium-notice a{color:var(--accent);font-weight:700;text-decoration:none;}
+
+    footer{border-top:1px solid var(--border);padding:28px 40px;display:flex;align-items:center;justify-content:space-between;}
+    .footer-logo{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text3);}
+    .footer-logo span{color:var(--accent);}
+
+    @media(max-width:768px){
+      .nav-top,.nav-sub,.page-header,.filter-bar,.tab-row{padding-left:16px;padding-right:16px;}
+      .table-wrap{padding:0 0 40px;}
+      .simulator{padding:0 16px 40px;}
+      .sim-teams{grid-template-columns:1fr;}
+      .sim-vs{display:none;}
+    }
+    @media(max-width:500px){
+      .nav-top{padding:0 10px!important;height:44px!important;}
+      .nav-logo{font-size:14px!important;}
+      .theme-toggle{width:26px!important;height:26px!important;}
+      .nav-actions{gap:6px!important;}
+    }
+  </style>
+</head>
+<body>
+
+<script>
+(function(){
+  const s=JSON.parse(localStorage.getItem('tdc_session')||'null');
+  if(!s?.access_token){location.href='pricing.html?gate=1';return;}
+})();
+</script>
+
+<div class="nav-wrap">
+  <div class="nav-top">
+    <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+    <div class="nav-actions" id="navActions">
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+      <a href="pricing.html" class="nav-signin">Sign In</a>
+    </div>
+  </div>
+  <div class="nav-sub">
+    <a href="index.html">Rankings</a>
+    <a href="roster.html">Players</a>
+    <a href="compare-players.html">Compare</a>
+    <a href="community.html">Community</a>
+    <a href="analytics.html" class="active">Analytics</a>
+    <a href="about.html">About</a>
+    <a href="account.html">Account</a>
+    <a href="pricing.html">Pricing</a>
+  </div>
+</div>
+
+<div class="page-header">
+  <div class="page-eyebrow">Predictive Model</div>
+  <h1 class="page-h1">Team Analytics</h1>
+  <p class="page-sub">Offensive ratings, defensive projections, and power ratings built from roster-level stats. Conference-adjusted.</p>
+</div>
+
+<div class="tab-row">
+  <button class="tab-btn active" id="tab-metrics" onclick="switchTab('metrics')">Team Metrics</button>
+  <button class="tab-btn" id="tab-simulator" onclick="switchTab('simulator')">Game Simulator</button>
+  <button class="tab-btn" id="tab-glossary" onclick="switchTab('glossary')">Glossary</button>
+</div>
+
+<!-- TEAM METRICS TAB -->
+<div class="tab-panel active" id="panel-metrics">
+  <div id="premiumGate" style="display:none;" class="premium-notice">
+    🔒 Full analytics require Premium. <a href="pricing.html">Upgrade →</a>
+  </div>
+  <div class="filter-bar">
+    <select class="filter-select" id="confFilter" onchange="applyFilters()">
+      <option value="">All Conferences</option>
+      <option>ACC</option><option>B10</option><option>BIG-12</option>
+      <option>Big-East</option><option>SEC</option><option>PAC-12</option>
+      <option>A10</option><option>AAC</option>
+    </select>
+    <span class="result-count" id="countEl"></span>
+  </div>
+  <div class="table-wrap">
+    <div id="metricsTable">
+      <div class="loading-state"><div class="loading-spinner"></div>Loading analytics...</div>
+    </div>
+  </div>
+  <div class="metric-legend" id="metricLegend" style="display:none;">
+    <div class="metric-card"><div class="metric-name">Power Rating</div><div class="metric-desc">Overall team strength score (0-99). Combines offensive rating and projected defensive rating, conference-adjusted.</div></div>
+    <div class="metric-card"><div class="metric-name">ORtg</div><div class="metric-desc">Offensive Rating — estimated points scored per 100 possessions. Conference-adjusted using strength multipliers.</div></div>
+    <div class="metric-card"><div class="metric-name">Proj DRtg</div><div class="metric-desc">Projected Defensive Rating — estimated points allowed per 100 possessions based on current roster defensive attributes (blocks, steals, defensive rebounding).</div></div>
+    <div class="metric-card"><div class="metric-name">Net Rtg</div><div class="metric-desc">Net Rating = ORtg − Proj DRtg. Positive means offense outperforms defense. Best predictor of team quality.</div></div>
+    <div class="metric-card"><div class="metric-name">eFG%</div><div class="metric-desc">Effective Field Goal % — adjusts FG% for the added value of 3-pointers. Formula: (FGM + 0.5×3PM) / FGA.</div></div>
+    <div class="metric-card"><div class="metric-name">Pace</div><div class="metric-desc">Estimated possessions per 40 minutes. Higher = faster tempo. Calculated from FGA, turnovers, FTA, and minutes.</div></div>
+    <div class="metric-card"><div class="metric-name">TOV%</div><div class="metric-desc">Turnover percentage — turnovers per 100 possessions. Lower is better.</div></div>
+    <div class="metric-card"><div class="metric-name">3PAR</div><div class="metric-desc">3-Point Attempt Rate — share of field goal attempts that are 3-pointers. Higher means more perimeter-oriented offense.</div></div>
+    <div class="metric-card"><div class="metric-name">FTAR</div><div class="metric-desc">Free Throw Attempt Rate — FTA per FGA. Measures how often a team gets to the line relative to their shot attempts.</div></div>
+    <div class="metric-card"><div class="metric-name">Rim Prot</div><div class="metric-desc">Rim protection score (0-100) based on block rate and presence of shot-blocking big men on the roster.</div></div>
+    <div class="metric-card"><div class="metric-name">Perim D</div><div class="metric-desc">Perimeter defense score (0-100) based on steal rate and defensive rebounding. Reflects guard/wing defensive ability.</div></div>
+    <div class="metric-card"><div class="metric-name">Conf Mult</div><div class="metric-desc">Conference strength multiplier used to adjust stats. SEC/B10/Big12 = 1.0 (baseline). Lower conferences = lower multiplier, deflating stats when projecting up.</div></div>
+  </div>
+</div>
+
+<!-- GAME SIMULATOR TAB -->
+<div class="tab-panel" id="panel-simulator">
+  <div class="simulator">
+    <div class="sim-title">Game Simulator</div>
+    <div class="sim-sub">Simulate any matchup up to 10,000 times. Results include win probability, projected score, and key metric comparison. <strong>Note:</strong> This is a predictive model with built-in variance — not a guaranteed outcome.</div>
+
+    <div class="sim-teams">
+      <div class="sim-team-select">
+        <span class="sim-label">Team 1</span>
+        <select class="sim-select" id="simTeam1">
+          <option value="">Select a team...</option>
+        </select>
+      </div>
+      <div class="sim-vs">VS</div>
+      <div class="sim-team-select">
+        <span class="sim-label">Team 2</span>
+        <select class="sim-select" id="simTeam2">
+          <option value="">Select a team...</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="sim-options">
+      <span class="sim-count-label">Simulations:</span>
+      <input class="sim-count-input" type="number" id="simCount" value="1000" min="100" max="10000" step="100"/>
+      <button class="sim-btn" id="simBtn" onclick="runSimulation()">Run Simulation</button>
+    </div>
+
+    <div id="simResults"></div>
+  </div>
+</div>
+
+<!-- GLOSSARY TAB -->
+<div class="tab-panel" id="panel-glossary">
+  <div style="max-width:800px;padding:32px 40px 60px;">
+    <div style="font-family:'Playfair Display',serif;font-weight:800;font-size:24px;margin-bottom:20px;">How The Model Works</div>
+    <div style="font-size:14px;color:var(--text2);line-height:1.8;margin-bottom:20px;">
+      The TDC predictive model builds team ratings from individual player statistics, adjusted for conference strength. It is intentionally designed as a <strong>directional model</strong> — giving a reasonable prediction with honest uncertainty ranges, not a precise forecast.
+    </div>
+    <div style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:12px;">Offensive Rating</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:20px;">Built from player-level stats aggregated to a 5-player team. Points per 100 possessions is calculated from scoring, shooting efficiency, turnover rate, and free throw generation. All offensive metrics are multiplied by a conference strength factor to normalize stats across conferences.</div>
+    <div style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:12px;">Defensive Projection</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:20px;">Because rosters turn over significantly in college basketball, last year's team defensive stats are poor predictors of next year's defense. Instead, TDC projects defense from <strong>individual defensive attributes</strong> of the current roster: block rate, steal rate, defensive rebounding, and foul tendency. This approach is better suited for offseason projections.</div>
+    <div style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:12px;">Conference Translation</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:20px;">A player averaging 20 PPG in the Sun Belt is not the same as one averaging 20 PPG in the SEC. Each conference has a strength multiplier (SEC/B10/Big12 = 1.0 baseline) that adjusts stats when comparing across conferences. These multipliers will be refined over time.</div>
+    <div style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:12px;">Game Simulator</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:20px;">The simulator runs N independent game simulations between two teams. Each simulation adds random variance (±${CONFIDENCE_RANGE} points) to reflect real game unpredictability. The win percentage reflects how often each team wins across all simulations — not a guarantee.</div>
+    <div style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:12px;">Limitations</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.7;">This model does not account for injuries, home court advantage, travel, rest days, or coaching adjustments. It is based solely on statistical attributes of the current roster. Treat all outputs as educated estimates, not predictions.</div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-logo">The Depth <span>Chart</span></div>
+  <div style="font-size:11px;font-weight:600;color:var(--text3);">Predictive Model · 2025-26</div>
+</footer>
+
+<script>
+const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H   = {apikey:KEY, Authorization:`Bearer ${KEY}`};
+const CONFIDENCE_RANGE = 7;
+
+let allAnalytics = [];
+let sortCol = 'power_rating';
+let sortDir = -1;
+let isPremium = false;
+
+function switchTab(tab){
+  ['metrics','simulator','glossary'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('active',t===tab);
+    document.getElementById('panel-'+t).classList.toggle('active',t===tab);
+  });
+}
+
+async function init(){
+  // Check auth + premium
+  const s = JSON.parse(localStorage.getItem('tdc_session')||'null');
+  if(!s?.access_token) return;
+  try {
+    const pr = await fetch(`${SB}/rest/v1/profiles?id=eq.${s.user?.id}&select=plan,username,avatar_url,verified`,{headers:{apikey:KEY,Authorization:'Bearer '+s.access_token}});
+    const [p] = await pr.json();
+    isPremium = p?.plan === 'premium';
+    updateNav(p, s);
+    if(!isPremium){
+      document.getElementById('premiumGate').style.display='block';
+    }
+  } catch(e){}
+  loadAnalytics();
+}
+
+function updateNav(p, s){
+  const uname = p?.username || s?.user?.email?.split('@')[0] || 'User';
+  const av = p?.avatar_url
+    ? `<img src="${p.avatar_url}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);">`
+    : `<div style="width:32px;height:32px;border-radius:50%;background:var(--bg2);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);">${uname[0].toUpperCase()}</div>`;
+  const vb = p?.verified ? `<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:var(--accent);border-radius:50%;margin-left:3px;"><svg viewBox="0 0 24 24" style="width:9px;height:9px;fill:#fff;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>` : '';
+  const el = document.getElementById('navActions');
+  if(el) el.innerHTML = `<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">${localStorage.getItem('tdc_theme')==='dark'?'☀️':'🌙'}</button><a href="profile.html" style="display:flex;align-items:center;gap:8px;text-decoration:none;">${av}<span style="display:flex;align-items:center;font-size:13px;font-weight:700;color:var(--text);">${uname}${vb}</span></a>`;
+}
+
+async function loadAnalytics(){
+  try {
+    const r = await fetch(`${SB}/rest/v1/team_analytics?select=*&order=power_rating.desc&limit=500`, {headers:H});
+    allAnalytics = await r.json();
+    // Populate simulator dropdowns
+    const opts = allAnalytics.sort((a,b)=>a.team_name.localeCompare(b.team_name))
+      .map(t=>`<option value="${t.team_name}">${t.team_name}</option>`).join('');
+    document.getElementById('simTeam1').innerHTML = '<option value="">Select a team...</option>' + opts;
+    document.getElementById('simTeam2').innerHTML = '<option value="">Select a team...</option>' + opts;
+    document.getElementById('metricLegend').style.display = 'grid';
+    applyFilters();
+  } catch(e){
+    document.getElementById('metricsTable').innerHTML = '<div class="empty-state">Could not load analytics. Run syncAnalytics() in Apps Script first.</div>';
+  }
+}
+
+function applyFilters(){
+  const conf = document.getElementById('confFilter').value;
+  let filtered = allAnalytics.filter(t => !conf || t.conference === conf);
+  
+  // Sort
+  filtered.sort((a,b) => {
+    const av = a[sortCol]??-999, bv = b[sortCol]??-999;
+    if(typeof av === 'number') return (bv-av)*sortDir;
+    return String(av).localeCompare(String(bv))*sortDir;
+  });
+
+  document.getElementById('countEl').innerHTML = `<strong>${filtered.length}</strong> teams`;
+  renderTable(filtered);
+}
+
+function sc(val, low, high){
+  // Color scale a value between low and high
+  if(val==null) return '';
+  const pct = Math.max(0, Math.min(1, (val-low)/(high-low)));
+  let r,g,b;
+  if(pct>=0.5){const t=(pct-0.5)*2;r=Math.round(204*(1-t)+26*t);g=Math.round(170*(1-t)+140*t);b=Math.round(58*t);}
+  else{const t=pct*2;r=204;g=Math.round(t*170);b=0;}
+  return `background:rgba(${r},${g},${b},0.15);color:rgb(${Math.round(r*.7)},${Math.round(g*.7)},${Math.round(b*.7)});font-weight:700;padding:2px 6px;border-radius:2px;margin:0 1px;`;
+}
+
+function scInv(val, low, high){ return sc(high-(val-low), low, high); } // inverted (lower=better)
+
+function renderTable(teams){
+  if(!teams.length){
+    document.getElementById('metricsTable').innerHTML = '<div class="empty-state">No teams found.</div>';
+    return;
+  }
+
+  const f2 = v => v!=null ? Number(v).toFixed(2) : '—';
+  const f1 = v => v!=null ? Number(v).toFixed(1) : '—';
+  const fi = v => v!=null ? Math.round(v) : '—';
+
+  // Get ranges for color scaling
+  const powers = teams.map(t=>t.power_rating).filter(v=>v!=null);
+  const [minP, maxP] = [Math.min(...powers), Math.max(...powers)];
+
+  const th = (key, label, cls='') => `<th class="${sortCol===key?'sorted':''} ${cls}" onclick="setSort('${key}')">${label}</th>`;
+
+  document.getElementById('metricsTable').innerHTML = `
+    <table class="analytics-table">
+      <thead><tr>
+        <th class="left" style="min-width:32px;">#</th>
+        <th class="left" onclick="setSort('team_name')" style="min-width:160px;">Team</th>
+        <th onclick="setSort('conference')">Conf</th>
+        ${th('power_rating','Power')}
+        ${th('net_rtg','Net Rtg')}
+        ${th('ortg','ORtg')}
+        ${th('proj_drtg','Proj DRtg')}
+        ${th('efg_pct','eFG%')}
+        ${th('pace','Pace')}
+        ${th('tov_pct','TOV%')}
+        ${th('three_par','3PAR')}
+        ${th('ftar','FTAR')}
+        ${th('fg_pct','FG%')}
+        ${th('three_pct','3P%')}
+        ${th('ft_pct','FT%')}
+        ${th('rim_protection','Rim Prot')}
+        ${th('perimeter_defense','Perim D')}
+        ${th('conf_multiplier','Conf Mult')}
+      </tr></thead>
+      <tbody>
+        ${teams.map((t,i)=>{
+          const locked = !isPremium && i >= 10;
+          return `<tr style="${locked?'filter:blur(4px);user-select:none;pointer-events:none;':''}">
+            <td class="left" style="color:var(--text3);font-size:12px;font-weight:700;">${i+1}</td>
+            <td class="left">
+              <div class="td-team-name" onclick="location='team.html?team=${encodeURIComponent(t.team_name)}'">${t.team_name}</div>
+            </td>
+            <td><span class="td-conf">${t.conference||'—'}</span></td>
+            <td>
+              <div class="power-bar">
+                <div class="power-bar-inner" style="width:${Math.round((t.power_rating||0))}%;background:${t.power_rating>=70?'#1a8c3a':t.power_rating>=55?'#a06000':'#cc2200'};"></div>
+                <span class="power-val" style="color:${t.power_rating>=70?'#1a8c3a':t.power_rating>=55?'#a06000':'#cc2200'}">${fi(t.power_rating)}</span>
+              </div>
+            </td>
+            <td style="${sc(t.net_rtg,-15,15)}">${f2(t.net_rtg)}</td>
+            <td style="${sc(t.ortg,85,115)}">${f1(t.ortg)}</td>
+            <td style="${scInv(t.proj_drtg,85,115)}">${f1(t.proj_drtg)}</td>
+            <td style="${sc(t.efg_pct,45,60)}">${f1(t.efg_pct)}%</td>
+            <td style="${sc(t.pace,60,80)}">${f1(t.pace)}</td>
+            <td style="${scInv(t.tov_pct,10,25)}">${f1(t.tov_pct)}%</td>
+            <td style="${sc(t.three_par,0.2,0.5)}">${f2(t.three_par)}</td>
+            <td style="${sc(t.ftar,0.2,0.5)}">${f2(t.ftar)}</td>
+            <td style="${sc(t.fg_pct,42,55)}">${f1(t.fg_pct)}%</td>
+            <td style="${sc(t.three_pct,30,42)}">${f1(t.three_pct)}%</td>
+            <td style="${sc(t.ft_pct,65,82)}">${f1(t.ft_pct)}%</td>
+            <td style="${sc(t.rim_protection,0,100)}">${fi(t.rim_protection)}</td>
+            <td style="${sc(t.perimeter_defense,0,100)}">${fi(t.perimeter_defense)}</td>
+            <td style="color:var(--text3);font-size:12px;">${f2(t.conf_multiplier)}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    ${!isPremium ? '<div style="text-align:center;padding:16px;font-size:13px;color:var(--text3);">🔒 Showing top 10 teams. <a href="pricing.html" style="color:var(--accent);font-weight:700;">Upgrade to Premium</a> to see all teams.</div>' : ''}`;
+}
+
+function setSort(col){
+  if(sortCol===col) sortDir*=-1;
+  else { sortCol=col; sortDir=-1; }
+  applyFilters();
+}
+
+// ── GAME SIMULATOR ──────────────────────────────────────
+async function runSimulation(){
+  const t1Name = document.getElementById('simTeam1').value;
+  const t2Name = document.getElementById('simTeam2').value;
+  const simCount = Math.min(10000, Math.max(100, parseInt(document.getElementById('simCount').value)||1000));
+
+  if(!t1Name||!t2Name){ alert('Please select two teams.'); return; }
+  if(t1Name===t2Name){ alert('Please select two different teams.'); return; }
+
+  if(!isPremium){
+    document.getElementById('simResults').innerHTML = `<div style="border:1px solid var(--border);padding:24px;text-align:center;margin-top:16px;"><div style="font-family:'Playfair Display',serif;font-weight:800;font-size:18px;margin-bottom:8px;">Premium Required</div><div style="font-size:13px;color:var(--text3);margin-bottom:16px;">The game simulator requires a Premium subscription.</div><a href="pricing.html" style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:8px 20px;background:var(--text);color:var(--bg);text-decoration:none;">Upgrade to Premium</a></div>`;
+    return;
+  }
+
+  const btn = document.getElementById('simBtn');
+  btn.disabled = true; btn.textContent = 'Simulating...';
+
+  const t1 = allAnalytics.find(t=>t.team_name===t1Name);
+  const t2 = allAnalytics.find(t=>t.team_name===t2Name);
+
+  if(!t1||!t2){
+    document.getElementById('simResults').innerHTML = '<div class="empty-state">Analytics not found for one or both teams. Run syncAnalytics() first.</div>';
+    btn.disabled=false; btn.textContent='Run Simulation';
+    return;
+  }
+
+  // Run simulation in JS
+  let t1wins=0, t2wins=0, scores=[];
+  const CONF = CONFIDENCE_RANGE;
+
+  for(let i=0;i<simCount;i++){
+    const t1base = ((parseFloat(t1.ortg)||100) + (100-(parseFloat(t2.proj_drtg)||100))) / 2 + (parseFloat(t1.tdc_bias)||0);
+    const t2base = ((parseFloat(t2.ortg)||100) + (100-(parseFloat(t1.proj_drtg)||100))) / 2 + (parseFloat(t2.tdc_bias)||0);
+    const t1score = Math.round(t1base + (Math.random()-0.5)*CONF*2);
+    const t2score = Math.round(t2base + (Math.random()-0.5)*CONF*2);
+    scores.push({t1:t1score,t2:t2score});
+    if(t1score>t2score) t1wins++; else t2wins++;
+  }
+
+  const t1avg = Math.round(scores.reduce((s,x)=>s+x.t1,0)/simCount);
+  const t2avg = Math.round(scores.reduce((s,x)=>s+x.t2,0)/simCount);
+  const t1pct = Math.round(t1wins/simCount*100);
+  const t2pct = 100-t1pct;
+  const t1win = t1avg > t2avg;
+
+  const f1 = v => v!=null?Number(v).toFixed(1):'—';
+  const f2 = v => v!=null?Number(v).toFixed(2):'—';
+
+  document.getElementById('simResults').innerHTML = `
+    <div class="sim-results">
+      <div class="sim-result-header">
+        <div class="sim-team-result">
+          <div class="sim-team-nm">${t1Name}</div>
+          <div class="sim-team-score ${t1win?'winner':'loser'}">${t1avg}</div>
+          <div class="sim-win-pct ${t1win?'winner':'loser'}">${t1pct}% win probability</div>
+        </div>
+        <div class="sim-divider">vs</div>
+        <div class="sim-team-result right">
+          <div class="sim-team-nm">${t2Name}</div>
+          <div class="sim-team-score ${!t1win?'winner':'loser'}">${t2avg}</div>
+          <div class="sim-win-pct ${!t1win?'winner':'loser'}">${t2pct}% win probability</div>
+        </div>
+      </div>
+
+      <div class="win-bar-wrap">
+        <div class="win-bar-label">Win Probability across ${simCount.toLocaleString()} simulations</div>
+        <div class="win-bar">
+          <div class="win-bar-t1" style="width:${t1pct}%;"></div>
+          <div class="win-bar-t2" style="width:${t2pct}%;"></div>
+        </div>
+        <div class="win-bar-labels">
+          <span style="color:var(--green);">${t1Name} ${t1pct}%</span>
+          <span style="color:var(--red);">${t2Name} ${t2pct}%</span>
+        </div>
+      </div>
+
+      <div class="sim-details">
+        <div>
+          <div class="sim-detail-title">${t1Name} Metrics</div>
+          <div class="sim-stat-row"><span class="sim-stat-label">Power Rating</span><span class="sim-stat-val">${Math.round(t1.power_rating)||'—'}</span></div>
+          <div class="sim-stat-row"><span class="sim-stat-label">ORtg</span><span class="sim-stat-val">${f1(t1.ortg)}</span></div>
+          <div class="sim-stat-row"><span class="sim-stat-label">Proj DRtg</span><span class="sim-stat-val">${f1(t1.proj_drtg)}</span></div>
+          <div class="sim-stat-row"><span class="sim-stat-label">Net Rtg</span><span class="sim-stat-val">${f1(t1.net_rtg)}</span></div>
+          <div class="sim-stat-row"><span class="sim-stat-label">eFG%</span><span class="sim-stat-val">${f1(t1.efg_pct)}%</span></div>
+          <div class="sim-stat-row"><span class="sim-stat-label">Pace</span><span class="sim-stat-val">${f1(t1.pace)}</span></div>
+          <div class="sim-stat-row"><span class="sim-stat-label">TOV%</span><span class="sim-stat-val">${f1(t1.tov_pct)}%</span></div>
+          <div class="sim-stat-row"><span class="sim-stat-label">Conf Mult</span><span class="sim-stat-val">${f2(t1.conf_multiplier)}</span></div>
+          ${t1.tdc_bias?`<div class="sim-stat-row"><span class="sim-stat-label">TDC Bias</span><span class="sim-stat-val">${t1.tdc_bias>0?'+':''}${t1.tdc_bias}</span></div>`:''}
+        </div>
+        <div>
+          <div class="sim-detail-title">${t2Name} Metrics</div>
+          <div class="sim-stat-row"><span class="sim-stat-label">Power Rating</span><span class="sim-stat-val">${Math.round(t2.power_rating)||'—'}</span></div>
+          <div class="sim-stat-row"><span class="sim-stat-label">ORtg</span><span class="sim-stat-val">${f1(t2.ortg)}</span></div>
+          <div class="sim-stat-row"><span class="sim-stat-label">Proj DRtg</span><span class="sim-stat-val">${f1(t2.proj_drtg)}</span></div>
+          <div class="sim-stat-row"><span class="sim-stat-label">Net Rtg</span><span class="sim-stat-val">${f1(t2.net_rtg)}</span></div>
+          <div class="sim-stat-row"><span class="sim-stat-label">eFG%</span><span class="sim-stat-val">${f1(t2.efg_pct)}%</span></div>
+          <div class="sim-stat-row"><span class="sim-stat-label">Pace</span><span class="sim-stat-val">${f1(t2.pace)}</span></div>
+          <div class="sim-stat-row"><span class="sim-stat-label">TOV%</span><span class="sim-stat-val">${f1(t2.tov_pct)}%</span></div>
+          <div class="sim-stat-row"><span class="sim-stat-label">Conf Mult</span><span class="sim-stat-val">${f2(t2.conf_multiplier)}</span></div>
+          ${t2.tdc_bias?`<div class="sim-stat-row"><span class="sim-stat-label">TDC Bias</span><span class="sim-stat-val">${t2.tdc_bias>0?'+':''}${t2.tdc_bias}</span></div>`:''}
+        </div>
+      </div>
+
+      <div class="bias-note">
+        ⚠️ Predictions include ±${CONF} point variance per simulation. This model uses offensive ratings and projected defensive attributes only — it does not account for home court, injuries, or coaching adjustments. All results are estimates.
+      </div>
+    </div>`;
+
+  btn.disabled=false; btn.textContent='Run Simulation';
+}
+
+function toggleTheme(){
+  const d=document.documentElement.getAttribute('data-theme')==='dark';
+  const n=d?'light':'dark';
+  document.documentElement.setAttribute('data-theme',n);
+  localStorage.setItem('tdc_theme',n);
+  const b=document.getElementById('themeBtn');
+  if(b)b.textContent=n==='dark'?'☀️':'🌙';
+}
+(function(){
+  const s=localStorage.getItem('tdc_theme')||'light';
+  document.documentElement.setAttribute('data-theme',s);
+  window.addEventListener('DOMContentLoaded',()=>{
+    const b=document.getElementById('themeBtn');
+    if(b)b.textContent=s==='dark'?'☀️':'🌙';
+  });
+})();
+
+init();
+</script>
+</body>
+</html>
