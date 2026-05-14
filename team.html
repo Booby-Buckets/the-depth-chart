@@ -102,7 +102,6 @@
     .rotation-section{margin-top:8px;}
     .rotation-head{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:4px;display:flex;align-items:center;gap:10px;}
     .rotation-head::after{content:'';flex:1;height:1px;background:var(--border);}
-    .rotation-row{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 48px 48px 48px 48px 48px 44px;align-items:center;gap:6px;padding:10px 0;border-bottom:1px solid var(--border);}
     .rotation-row:last-child{border-bottom:none;}
     .rot-num{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text3);text-align:center;}
     .rot-pos{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
@@ -142,7 +141,20 @@
     .outlook-text p+p{margin-top:12px;}
 
     /* LOADING */
-    .loading-state{text-align:center;padding:80px 40px;color:var(--text3);}
+    .rot-stat.elite{background:rgba(26,140,58,.12);color:#1a8c3a;font-weight:700;}
+    .rot-stat.good{background:rgba(26,95,191,.1);color:#1a5fbf;font-weight:600;}
+    .sortable-table{width:100%;border-collapse:collapse;min-width:900px;margin-top:8px;}
+    .sortable-table th{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:8px 10px;border-bottom:2px solid var(--border2);text-align:right;cursor:pointer;user-select:none;white-space:nowrap;}
+    .sortable-table th:hover{color:var(--text);}
+    .sortable-table th.sorted{color:var(--accent);}
+    .sortable-table th.sorted::after{content:' ▼';font-size:9px;}
+    .sortable-table th.sorted.asc::after{content:' ▲';font-size:9px;}
+    .sortable-table th.left{text-align:left;}
+    .sortable-table td{padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text2);text-align:right;white-space:nowrap;}
+    .sortable-table tr:hover td{background:var(--bg2);}
+    .sortable-table td.left{text-align:left;font-weight:600;color:var(--text);}
+    .sortable-table td.elite{background:rgba(26,140,58,.1);color:#1a8c3a;font-weight:700;}
+    .section-head{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:16px 0 10px;border-bottom:1px solid var(--border);margin-bottom:12px;}
     .loading-spinner{width:32px;height:32px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 16px;}
     .comment-card{border:1px solid var(--border);padding:14px 16px;margin-bottom:10px;}
     .comment-header{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
@@ -471,6 +483,10 @@ function renderDepth(t, players, color, rgb){
   const fmt = v => (v !== null && v !== undefined && v !== '') ? Number(v).toFixed(1) : '—';
   const visiblePlayers = sorted.filter(p => p.name && p.name !== '—');
 
+  const statKeys = ['ppg','rpg','apg','mpg','gp','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs'];
+  const p80 = {};
+  statKeys.forEach(k => p80[k] = calcP80(visiblePlayers, k));
+
   const fullListHtml = `
     <div class="rotation-section">
       <div class="rotation-head">Full Roster — ${visiblePlayers.length} Players</div>
@@ -519,30 +535,99 @@ function renderDepth(t, players, color, rgb){
         <div class="rot-cls">${p.class_year||p.yr||''}</div>
         <div class="rot-stat" style="font-size:11px;color:var(--text3);text-align:right;">${p.height||'—'}</div>
         <div class="rot-stat ${p.gp?'has-val':''}">${p.gp||'—'}</div>
-        <div class="rot-stat ${p.ppg?'has-val':''}">${fmt(p.ppg)}</div>
-        <div class="rot-stat ${p.rpg?'has-val':''}">${fmt(p.rpg)}</div>
-        <div class="rot-stat ${p.apg?'has-val':''}">${fmt(p.apg)}</div>
-        <div class="rot-stat ${p.mpg?'has-val':''}">${fmt(p.mpg)}</div>
-        <div class="rot-stat ${p.fgm?'has-val':''}">${fmt(p.fgm)}</div>
-        <div class="rot-stat ${p.fga?'has-val':''}">${fmt(p.fga)}</div>
-        <div class="rot-stat ${p.fg_pct?'has-val':''}">${fmt(p.fg_pct)}</div>
-        <div class="rot-stat ${p.tpm?'has-val':''}">${fmt(p.tpm)}</div>
-        <div class="rot-stat ${p.tpa?'has-val':''}">${fmt(p.tpa)}</div>
-        <div class="rot-stat ${p.tp_pct?'has-val':''}">${fmt(p.tp_pct)}</div>
-        <div class="rot-stat ${p.ftm?'has-val':''}">${fmt(p.ftm)}</div>
-        <div class="rot-stat ${p.fta?'has-val':''}">${fmt(p.fta)}</div>
-        <div class="rot-stat ${p.ft_pct?'has-val':''}">${fmt(p.ft_pct)}</div>
-        <div class="rot-stat ${p.oreb?'has-val':''}">${fmt(p.oreb)}</div>
-        <div class="rot-stat ${p.dreb?'has-val':''}">${fmt(p.dreb)}</div>
-        <div class="rot-stat ${p.stl?'has-val':''}">${fmt(p.stl)}</div>
-        <div class="rot-stat ${p.blk?'has-val':''}">${fmt(p.blk)}</div>
-        <div class="rot-stat ${p.tovs?'has-val':''}">${fmt(p.tovs)}</div>
+        <div class="rot-stat ${p.ppg>=p80.ppg?'elite':p.ppg?'has-val':''}">${fmt(p.ppg)}</div>
+        <div class="rot-stat ${p.rpg>=p80.rpg?'elite':p.rpg?'has-val':''}">${fmt(p.rpg)}</div>
+        <div class="rot-stat ${p.apg>=p80.apg?'elite':p.apg?'has-val':''}">${fmt(p.apg)}</div>
+        <div class="rot-stat ${p.mpg>=p80.mpg?'elite':p.mpg?'has-val':''}">${fmt(p.mpg)}</div>
+        <div class="rot-stat ${p.fgm>=p80.fgm?'elite':p.fgm?'has-val':''}">${fmt(p.fgm)}</div>
+        <div class="rot-stat ${p.fga>=p80.fga?'elite':p.fga?'has-val':''}">${fmt(p.fga)}</div>
+        <div class="rot-stat ${p.fg_pct>=p80.fg_pct?'elite':p.fg_pct?'has-val':''}">${fmt(p.fg_pct)}</div>
+        <div class="rot-stat ${p.tpm>=p80.tpm?'elite':p.tpm?'has-val':''}">${fmt(p.tpm)}</div>
+        <div class="rot-stat ${p.tpa>=p80.tpa?'elite':p.tpa?'has-val':''}">${fmt(p.tpa)}</div>
+        <div class="rot-stat ${p.tp_pct>=p80.tp_pct?'elite':p.tp_pct?'has-val':''}">${fmt(p.tp_pct)}</div>
+        <div class="rot-stat ${p.ftm>=p80.ftm?'elite':p.ftm?'has-val':''}">${fmt(p.ftm)}</div>
+        <div class="rot-stat ${p.fta>=p80.fta?'elite':p.fta?'has-val':''}">${fmt(p.fta)}</div>
+        <div class="rot-stat ${p.ft_pct>=p80.ft_pct?'elite':p.ft_pct?'has-val':''}">${fmt(p.ft_pct)}</div>
+        <div class="rot-stat ${p.oreb>=p80.oreb?'elite':p.oreb?'has-val':''}">${fmt(p.oreb)}</div>
+        <div class="rot-stat ${p.dreb>=p80.dreb?'elite':p.dreb?'has-val':''}">${fmt(p.dreb)}</div>
+        <div class="rot-stat ${p.stl>=p80.stl?'elite':p.stl?'has-val':''}">${fmt(p.stl)}</div>
+        <div class="rot-stat ${p.blk>=p80.blk?'elite':p.blk?'has-val':''}">${fmt(p.blk)}</div>
+        <div class="rot-stat ${p.tovs>=p80.tovs?'elite':p.tovs?'has-val':''}">${fmt(p.tovs)}</div>
         <div class="rot-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||''}</div>
       </div>`;}).join('')}
       </div>
+    </div>`;
 
   document.getElementById('depthContent').innerHTML =
-    `<div class="starters-grid" style="grid-template-columns:repeat(5,1fr);">${startersHtml}</div>${fullListHtml}`;
+    `<div class="starters-grid" style="grid-template-columns:repeat(5,1fr);">${startersHtml}</div>${fullListHtml}${sortableTableHtml(players, p80)}`;
+}
+
+function calcP80(players, key){
+  const vals = players.map(p=>p[key]).filter(v=>v!=null&&v>0).sort((a,b)=>a-b);
+  if(!vals.length) return 0;
+  return vals[Math.floor(vals.length * 0.8)] || 0;
+}
+
+function sortableTableHtml(players, p80){
+  const statCols = [
+    {key:'ppg',label:'PPG'},{key:'rpg',label:'RPG'},{key:'apg',label:'APG'},
+    {key:'mpg',label:'MPG'},{key:'gp',label:'GP'},
+    {key:'fgm',label:'FGM'},{key:'fga',label:'FGA'},{key:'fg_pct',label:'FG%'},
+    {key:'tpm',label:'3PM'},{key:'tpa',label:'3PA'},{key:'tp_pct',label:'3P%'},
+    {key:'ftm',label:'FTM'},{key:'fta',label:'FTA'},{key:'ft_pct',label:'FT%'},
+    {key:'oreb',label:'OR'},{key:'dreb',label:'DR'},
+    {key:'stl',label:'STL'},{key:'blk',label:'BLK'},{key:'tovs',label:'TO'},
+  ];
+  const fmt = v => (v!=null&&v!=='')? Number(v).toFixed(1) : '—';
+  const rows = players.filter(p=>p.name&&p.name!=='—').map(p=>`
+    <tr>
+      <td class="left">${p.name}</td>
+      <td>${p.position||'—'}</td>
+      <td>${p.class_year||p.yr||'—'}</td>
+      ${statCols.map(c=>{
+        const v = p[c.key];
+        const elite = v!=null && p80[c.key] && v >= p80[c.key];
+        return `<td class="${elite?'elite':''}">${fmt(v)}</td>`;
+      }).join('')}
+      <td>${p.tdc_grade||'—'}</td>
+    </tr>`).join('');
+
+  return `
+    <div class="rotation-section" style="margin-top:24px;">
+      <div class="section-head">Team Stats — Sortable</div>
+      <div style="overflow-x:auto;">
+        <table class="sortable-table" id="statsTable">
+          <thead><tr>
+            <th class="left" onclick="sortTable('name',this)">Name</th>
+            <th onclick="sortTable('position',this)">Pos</th>
+            <th onclick="sortTable('class_year',this)">Yr</th>
+            ${statCols.map(c=>`<th onclick="sortTable('${c.key}',this)">${c.label}</th>`).join('')}
+            <th onclick="sortTable('tdc_grade',this)">Gr</th>
+          </tr></thead>
+          <tbody id="statsTableBody">${rows}</tbody>
+        </table>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px;">🟢 Green = top 80th percentile on this team</div>
+    </div>`;
+}
+
+function sortTable(key, th){
+  const tbody = document.getElementById('statsTableBody');
+  if(!tbody) return;
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  const asc = th.classList.contains('sorted') && !th.classList.contains('asc');
+  document.querySelectorAll('.sortable-table th').forEach(h=>{h.classList.remove('sorted','asc');});
+  th.classList.add('sorted');
+  if(asc) th.classList.add('asc');
+  const colIdx = Array.from(th.parentElement.children).indexOf(th);
+  rows.sort((a,b)=>{
+    const av = a.cells[colIdx]?.textContent.trim();
+    const bv = b.cells[colIdx]?.textContent.trim();
+    const an = parseFloat(av), bn = parseFloat(bv);
+    if(!isNaN(an)&&!isNaN(bn)) return asc ? an-bn : bn-an;
+    return asc ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+  rows.forEach(r=>tbody.appendChild(r));
 }
 
 function renderSidebar(t, players, losses, color){
@@ -572,14 +657,34 @@ function renderSidebar(t, players, losses, color){
 
   // Losses from losses table
   document.getElementById('lossesBody').innerHTML = losses.length
-    ? losses.map(l=>`
-      <div class="portal-item">
-        <span class="portal-pos">${l.pos||''}</span>
-        <div style="flex:1;">
-          <div class="portal-name">${l.name}</div>
-          <div class="portal-from">${l.yr||''}</div>
-        </div>
-      </div>`).join('')
+    ? `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;min-width:700px;">
+        <thead><tr style="border-bottom:2px solid var(--border2);">
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;text-align:left;">Pos</th>
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;text-align:left;">Name</th>
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">Yr</th>
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">Ht</th>
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">PPG</th>
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">RPG</th>
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">APG</th>
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">FG%</th>
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">3P%</th>
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">GP</th>
+        </tr></thead>
+        <tbody>${losses.map(l=>`
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:7px 8px;font-size:11px;font-weight:700;color:var(--text3);">${l.pos||'—'}</td>
+            <td style="padding:7px 8px;font-size:13px;font-weight:700;color:var(--text);">${l.name}</td>
+            <td style="padding:7px 8px;font-size:12px;color:var(--text3);text-align:center;">${l.yr||'—'}</td>
+            <td style="padding:7px 8px;font-size:12px;color:var(--text2);text-align:center;">${l.height||'—'}</td>
+            <td style="padding:7px 8px;font-size:12px;font-weight:700;color:var(--text2);text-align:right;">${l.ppg!=null?Number(l.ppg).toFixed(1):'—'}</td>
+            <td style="padding:7px 8px;font-size:12px;color:var(--text2);text-align:right;">${l.rpg!=null?Number(l.rpg).toFixed(1):'—'}</td>
+            <td style="padding:7px 8px;font-size:12px;color:var(--text2);text-align:right;">${l.apg!=null?Number(l.apg).toFixed(1):'—'}</td>
+            <td style="padding:7px 8px;font-size:12px;color:var(--text2);text-align:right;">${l.fg_pct!=null?Number(l.fg_pct).toFixed(1):'—'}</td>
+            <td style="padding:7px 8px;font-size:12px;color:var(--text2);text-align:right;">${l.tp_pct!=null?Number(l.tp_pct).toFixed(1):'—'}</td>
+            <td style="padding:7px 8px;font-size:12px;color:var(--text2);text-align:right;">${l.gp||'—'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>`
     : '<div class="empty-note">None listed</div>';
 }
 
