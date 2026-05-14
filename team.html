@@ -107,9 +107,21 @@
     .rot-pos{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
     .rot-name{font-size:14px;font-weight:600;color:var(--text2);}
     .rot-cls{font-size:11px;color:var(--text3);}
-    .rot-stat{font-family:'Playfair Display',serif;font-size:13px;font-weight:700;color:var(--text3);text-align:right;background:var(--bg2);padding:1px 5px;border-radius:2px;}
+    .rot-stat{font-family:'Playfair Display',serif;font-size:13px;font-weight:700;color:var(--text3);text-align:right;background:var(--bg2);padding:2px 5px;border-radius:3px;margin:0 1px;}
     .rot-stat.has-val{color:var(--text2);font-weight:700;background:var(--bg2);}
     .rot-grade{font-family:'Playfair Display',serif;font-weight:700;font-size:15px;text-align:right;letter-spacing:-.01em;}
+    /* Color toggle switch */
+    .color-toggle-wrap{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:8px 0;}
+    .color-toggle-label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .toggle-switch{position:relative;width:36px;height:20px;cursor:pointer;}
+    .toggle-switch input{opacity:0;width:0;height:0;}
+    .toggle-slider{position:absolute;inset:0;background:var(--border2);border-radius:20px;transition:.2s;}
+    .toggle-slider:before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;}
+    .toggle-switch input:checked+.toggle-slider{background:var(--accent);}
+    .toggle-switch input:checked+.toggle-slider:before{transform:translateX(16px);}
+    /* When colors off — reset all inline styles on rot-stat */
+    body.no-color .rot-stat{background:var(--bg2)!important;color:var(--text2)!important;}
+    body.no-color .sortable-table td{background:none!important;color:var(--text2)!important;}
     .stat-header{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 36px 48px 48px 48px 48px 52px 52px 46px 46px 46px 46px 46px 46px 46px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:6px 0;border-bottom:2px solid var(--border2);}
     .rotation-row{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 36px 48px 48px 48px 48px 52px 52px 46px 46px 46px 46px 46px 46px 46px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;}
     .stat-header-cell{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);text-align:right;}
@@ -550,6 +562,14 @@ function renderDepth(t, players, color, rgb, gp={}){
   const fullListHtml = `
     <div class="rotation-section">
       <div class="rotation-head">Full Roster — ${visiblePlayers.length} Players</div>
+      <div class="color-toggle-wrap">
+        <span class="color-toggle-label">Stat Colors</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="colorToggle" checked onchange="toggleStatColors(this)"/>
+          <span class="toggle-slider"></span>
+        </label>
+        <span style="font-size:11px;color:var(--text3);">Global percentile — red → yellow → green</span>
+      </div>
       <div style="overflow-x:auto;">
       <div class="stat-header" style="min-width:900px;">
         <div class="stat-header-cell"></div>
@@ -670,6 +690,22 @@ function sortableTableHtml(players, p80, gp){
       <div style="font-size:11px;color:var(--text3);margin-top:8px;">🟢 Green = top 80th percentile on this team</div>
     </div>`;
 }
+
+function toggleStatColors(cb){
+  document.body.classList.toggle('no-color', !cb.checked);
+  localStorage.setItem('tdc_stat_colors', cb.checked ? '1' : '0');
+}
+// Restore toggle state
+(function(){
+  const saved = localStorage.getItem('tdc_stat_colors');
+  if(saved === '0'){
+    document.body.classList.add('no-color');
+    window.addEventListener('DOMContentLoaded', ()=>{
+      const cb = document.getElementById('colorToggle');
+      if(cb) cb.checked = false;
+    });
+  }
+})();
 
 function sortTable(key, th){
   const tbody = document.getElementById('statsTableBody');
