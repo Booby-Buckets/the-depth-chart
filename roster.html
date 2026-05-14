@@ -68,7 +68,16 @@
     .td-team a:hover{color:var(--accent);}
     .td-pos{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
     .td-ht{font-family:'Playfair Display',serif;font-size:13px;}
-    .td-stat{font-family:'Playfair Display',serif;font-size:13px;font-weight:700;text-align:right;background:var(--bg2);padding:2px 6px;border-radius:2px;}
+    .td-stat{font-family:'Playfair Display',serif;font-size:13px;font-weight:700;text-align:right;background:var(--bg2);padding:2px 6px;border-radius:2px;margin:0 1px;}
+    .color-toggle-wrap{display:flex;align-items:center;gap:8px;padding:10px 40px 0;}
+    .color-toggle-label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .toggle-switch{position:relative;width:36px;height:20px;cursor:pointer;}
+    .toggle-switch input{opacity:0;width:0;height:0;}
+    .toggle-slider{position:absolute;inset:0;background:var(--border2);border-radius:20px;transition:.2s;}
+    .toggle-slider:before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;}
+    .toggle-switch input:checked+.toggle-slider{background:var(--accent);}
+    .toggle-switch input:checked+.toggle-slider:before{transform:translateX(16px);}
+    body.no-color .td-stat{background:var(--bg2)!important;color:var(--text2)!important;}
     .td-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;text-align:right;letter-spacing:-.01em;}
     .gAp{color:var(--green);}.gA{color:var(--green);}.gAm{color:#2ea84f;}
     .gBp{color:var(--blue);}.gB{color:var(--blue);}.gBm{color:#2e74d4;}
@@ -239,8 +248,17 @@ const H   = {'apikey':KEY,'Authorization':`Bearer ${KEY}`};
 
 let allPlayers = [];
 let allTeams   = [];
+let globalPct = {}; // global percentiles
 let sortCol    = 'tdc_grade';
 let sortDir    = 1;
+
+function toggleColors(cb){
+  document.body.classList.toggle('no-color', !cb.checked);
+  localStorage.setItem('tdc_roster_colors', cb.checked ? '1' : '0');
+}
+(function(){
+  if(localStorage.getItem('tdc_roster_colors')==='0') document.body.classList.add('no-color');
+})();
 
 function gc(g){
   const n = parseInt(g);
@@ -296,7 +314,7 @@ async function loadData(){
       const from = page * PAGE_SIZE;
       const to   = from + PAGE_SIZE - 1;
       const pr = await fetch(
-        `${SB}/rest/v1/players?select=id,name,team,position,height,class_year,yr,starter,is_addition,tdc_grade,ppg,rpg,apg,mpg,bpm,depth_order&order=name.asc`,
+        `${SB}/rest/v1/players?select=id,name,team,position,height,class_year,yr,starter,is_addition,is_injured,is_international,tdc_grade,ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,oreb,dreb,stl,blk,tovs,gp,depth_order&order=name.asc`,
         {headers:{...H, 'Range-Unit':'items', 'Range':`${from}-${to}`}}
       );
       const batch = await pr.json();
@@ -305,6 +323,18 @@ async function loadData(){
       if(batch.length < PAGE_SIZE) break;
       page++;
     }
+
+    // Compute global percentiles for color scaling
+    const statKeys = ['ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs','gp'];
+    statKeys.forEach(k => {
+      const vals = allRaw.map(p=>parseFloat(p[k])).filter(v=>!isNaN(v)&&v>0).sort((a,b)=>a-b);
+      globalPct[k] = {
+        p20: vals[Math.floor(vals.length*0.2)]||0,
+        p40: vals[Math.floor(vals.length*0.4)]||0,
+        p60: vals[Math.floor(vals.length*0.6)]||0,
+        p80: vals[Math.floor(vals.length*0.8)]||0,
+      };
+    });
 
     // Attach team info to each player
     const teamMap = {};
@@ -354,7 +384,8 @@ function applyFilters(){
   // Sort
   filtered.sort((a,b) => {
     let av, bv;
-    if(['ppg','rpg','apg','mpg','bpm'].includes(sortCol)){
+    const numCols = ['ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs','gp'];
+    if(numCols.includes(sortCol)){
       av = a[sortCol]??-999; bv = b[sortCol]??-999;
       return (bv-av)*sortDir;
     }
@@ -388,21 +419,43 @@ function renderTable(players){
   };
 
   document.getElementById('tableContainer').innerHTML = `
+    <div class="color-toggle-wrap" style="margin-bottom:10px;">
+      <span class="color-toggle-label">Stat Colors</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="colorToggle" ${localStorage.getItem('tdc_roster_colors')!=='0'?'checked':''} onchange="toggleColors(this)"/>
+        <span class="toggle-slider"></span>
+      </label>
+      <span style="font-size:11px;color:var(--text3);">National percentile — red → yellow → green</span>
+    </div>
     <table class="roster-table">
       <thead>
         <tr>
+          ${col('tdc_grade','OVR','right')}
           ${col('name','Player')}
           ${col('team','Team')}
           ${col('conf','Conf')}
           ${col('position','Pos')}
           ${col('height','Ht')}
           ${col('class_year','Yr')}
+          ${col('gp','GP','right')}
           ${col('ppg','PPG','right')}
           ${col('rpg','RPG','right')}
           ${col('apg','APG','right')}
           ${col('mpg','MPG','right')}
-          ${col('bpm','BPM','right')}
-          ${col('tdc_grade','OVR','right')}
+          ${col('fgm','FGM','right')}
+          ${col('fga','FGA','right')}
+          ${col('fg_pct','FG%','right')}
+          ${col('tpm','3PM','right')}
+          ${col('tpa','3PA','right')}
+          ${col('tp_pct','3P%','right')}
+          ${col('ftm','FTM','right')}
+          ${col('fta','FTA','right')}
+          ${col('ft_pct','FT%','right')}
+          ${col('oreb','OR','right')}
+          ${col('dreb','DR','right')}
+          ${col('stl','STL','right')}
+          ${col('blk','BLK','right')}
+          ${col('tovs','TO','right')}
         </tr>
       </thead>
       <tbody>
@@ -412,27 +465,51 @@ function renderTable(players){
           const r = parseInt(hex.slice(0,2),16)||100;
           const g = parseInt(hex.slice(2,4),16)||100;
           const b2 = parseInt(hex.slice(4,6),16)||100;
-          // Calculate luminance to decide text color
           const luminance = (0.299*r + 0.587*g + 0.114*b2) / 255;
           const textColor = luminance > 0.5 ? '#111' : '#fff';
-          const yr    = p.class_year||p.yr||'';
+          const yr = p.class_year||p.yr||'';
+          const sc = (v,k) => {
+            if(v==null||v===''||!globalPct[k]) return '';
+            const n=parseFloat(v); if(isNaN(n)||n===0) return '';
+            const {p20,p40,p60,p80}=globalPct[k];
+            const inv=k==='tovs';
+            let pct;
+            if(inv){if(n<=p20)pct=1;else if(n<=p40)pct=0.8;else if(n<=p60)pct=0.6;else if(n<=p80)pct=0.3;else pct=0.1;}
+            else{if(n>=p80)pct=1;else if(n>=p60)pct=0.8;else if(n>=p40)pct=0.6;else if(n>=p20)pct=0.3;else pct=0.1;}
+            let cr,cg,cb;
+            if(pct>=0.5){const t=(pct-0.5)*2;cr=Math.round(204*(1-t)+26*t);cg=Math.round(170*(1-t)+140*t);cb=Math.round(58*t);}
+            else{const t=pct*2;cr=204;cg=Math.round(t*170);cb=0;}
+            return `background:rgba(${cr},${cg},${cb},0.15);color:rgb(${Math.round(cr*.7)},${Math.round(cg*.7)},${Math.round(cb*.7)});font-weight:700;`;
+          };
           return `<tr>
+            <td class="td-grade ${gc(p.tdc_grade||'')} right" style="min-width:44px;">${p.tdc_grade||'—'}</td>
             <td>
-              <div class="td-name">${p.name}${p.starter?`<span class="starter-badge">*</span>`:''}</div>
+              <div class="td-name">${p.name}${p.is_injured?'🏥':''}${p.is_international?'🌍':''}${p.starter?`<span class="starter-badge">*</span>`:''}</div>
             </td>
-            <td>
-              <div class="td-team"><a href="team.html?team=${encodeURIComponent(p.team)}" style="color:${textColor};font-weight:700;background:${color};padding:2px 8px;border-radius:2px;">${p.team||'—'}</a></div>
-            </td>
+            <td><div class="td-team"><a href="team.html?team=${encodeURIComponent(p.team)}" style="color:${textColor};font-weight:700;background:${color};padding:2px 8px;border-radius:2px;">${p.team||'—'}</a></div></td>
             <td><span class="conf-badge">${p.conf||'—'}</span></td>
             <td><span class="td-pos">${p.position||'—'}</span></td>
             <td class="td-ht">${p.height||'—'}</td>
             <td>${yr}</td>
-            <td class="td-stat right">${fmt(p.ppg)}</td>
-            <td class="td-stat right">${fmt(p.rpg)}</td>
-            <td class="td-stat right">${fmt(p.apg)}</td>
-            <td class="td-stat right">${fmt(p.mpg)}</td>
-            <td class="td-stat right">${fmt(p.bpm)}</td>
-            <td class="td-grade ${gc(p.tdc_grade||'')} right">${p.tdc_grade||'—'}</td>
+            <td class="td-stat right" style="${sc(p.gp,'gp')}">${p.gp||'—'}</td>
+            <td class="td-stat right" style="${sc(p.ppg,'ppg')}">${fmt(p.ppg)}</td>
+            <td class="td-stat right" style="${sc(p.rpg,'rpg')}">${fmt(p.rpg)}</td>
+            <td class="td-stat right" style="${sc(p.apg,'apg')}">${fmt(p.apg)}</td>
+            <td class="td-stat right" style="${sc(p.mpg,'mpg')}">${fmt(p.mpg)}</td>
+            <td class="td-stat right" style="${sc(p.fgm,'fgm')}">${fmt(p.fgm)}</td>
+            <td class="td-stat right" style="${sc(p.fga,'fga')}">${fmt(p.fga)}</td>
+            <td class="td-stat right" style="${sc(p.fg_pct,'fg_pct')}">${fmt(p.fg_pct)}</td>
+            <td class="td-stat right" style="${sc(p.tpm,'tpm')}">${fmt(p.tpm)}</td>
+            <td class="td-stat right" style="${sc(p.tpa,'tpa')}">${fmt(p.tpa)}</td>
+            <td class="td-stat right" style="${sc(p.tp_pct,'tp_pct')}">${fmt(p.tp_pct)}</td>
+            <td class="td-stat right" style="${sc(p.ftm,'ftm')}">${fmt(p.ftm)}</td>
+            <td class="td-stat right" style="${sc(p.fta,'fta')}">${fmt(p.fta)}</td>
+            <td class="td-stat right" style="${sc(p.ft_pct,'ft_pct')}">${fmt(p.ft_pct)}</td>
+            <td class="td-stat right" style="${sc(p.oreb,'oreb')}">${fmt(p.oreb)}</td>
+            <td class="td-stat right" style="${sc(p.dreb,'dreb')}">${fmt(p.dreb)}</td>
+            <td class="td-stat right" style="${sc(p.stl,'stl')}">${fmt(p.stl)}</td>
+            <td class="td-stat right" style="${sc(p.blk,'blk')}">${fmt(p.blk)}</td>
+            <td class="td-stat right" style="${sc(p.tovs,'tovs')}">${fmt(p.tovs)}</td>
           </tr>`;
         }).join('')}
       </tbody>
