@@ -269,6 +269,7 @@
   </div>
   <div class="hero-tabs">
     <button class="hero-tab active" onclick="switchTab('depth',this)">Depth Chart</button>
+    <button class="hero-tab" onclick="switchTab('losses',this)">Losses</button>
     <button class="hero-tab" onclick="switchTab('analysis',this)">Analysis</button>
     <button class="hero-tab" onclick="switchTab('comments',this)">Comments</button>
     <button class="hero-tab" id="followTeamBtn" onclick="toggleTeamFollow()" style="margin-left:auto;padding:6px 16px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:none;border:1px solid var(--border2);color:var(--text3);cursor:pointer;font-family:'Inter',sans-serif;border-radius:0;display:flex;align-items:center;gap:6px;">Follow Team</button>
@@ -282,6 +283,12 @@
       <div class="sec-head">Depth Chart <span class="sec-head-sub" style="display:flex;align-items:center;gap:10px;"><span style="display:flex;align-items:center;gap:4px;"><span id="keyStarBadge" style="font-size:9px;font-weight:700;padding:1px 5px;background:rgba(0,0,0,.08);color:#888;">★</span><span>= Starter</span></span><span style="display:flex;align-items:center;gap:4px;"><span id="keyRetBadge" style="font-size:9px;font-weight:700;padding:1px 5px;background:rgba(0,0,0,.08);color:#888;">*</span><span>= Prev. Starter</span></span></span></div>
       <div id="depthContent">
         <div class="loading-state"><div class="loading-spinner"></div><div>Loading roster…</div></div>
+      </div>
+    </div>
+    <div class="panel" id="panel-losses">
+      <div class="sec-head">Significant Losses</div>
+      <div id="lossesPanel">
+        <div class="loading-state"><div class="loading-spinner"></div></div>
       </div>
     </div>
     <div class="panel" id="panel-analysis">
@@ -339,7 +346,7 @@ async function loadTeam(name){
     if(!teams.length) throw new Error('Team not found');
     const t = teams[0];
 
-    // Fetch players for this team — strict depth_order only, no resorting
+    // Fetch players for this team
     const pr = await fetch(
       `${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(name)}&select=*&order=depth_order.asc`,
       { headers: H }
@@ -353,6 +360,15 @@ async function loadTeam(name){
     );
     const losses = await lr.json();
 
+    // Fetch global percentiles for color scaling
+    // Get all players with stats to calculate global p20/p50/p80
+    const gpr = await fetch(
+      `${SB_URL}/rest/v1/players?select=ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,oreb,dreb,stl,blk,tovs,gp&ppg=not.is.null&limit=5000`,
+      { headers: H }
+    );
+    const allPlayers = await gpr.json();
+    const globalPercentiles = calcGlobalPercentiles(allPlayers);
+
     // Compute color/rgb once and pass to all render functions
     const hex2rgb = h => {
       const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h);
@@ -362,8 +378,9 @@ async function loadTeam(name){
     const teamRgb   = hex2rgb(teamColor);
 
     renderHero(t, teamColor, teamRgb);
-    renderDepth(t, players, teamColor, teamRgb);
+    renderDepth(t, players, teamColor, teamRgb, globalPercentiles);
     renderSidebar(t, players, losses, teamColor);
+    renderLosses(losses, globalPercentiles);
     renderOutlook(t);
 
   } catch(e){
@@ -416,7 +433,48 @@ function renderHero(t, color, rgb){
     </div>`).join('');
 }
 
-function renderDepth(t, players, color, rgb){
+function calcGlobalPercentiles(players){
+  const statKeys = ['ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs','gp'];
+  const result = {};
+  statKeys.forEach(k => {
+    const vals = players.map(p=>parseFloat(p[k])).filter(v=>!isNaN(v)&&v>0).sort((a,b)=>a-b);
+    result[k] = {
+      p20: vals[Math.floor(vals.length*0.2)]||0,
+      p40: vals[Math.floor(vals.length*0.4)]||0,
+      p60: vals[Math.floor(vals.length*0.6)]||0,
+      p80: vals[Math.floor(vals.length*0.8)]||0,
+    };
+  });
+  return result;
+}
+
+// Returns background color based on global percentile — red→yellow→green
+function statColor(val, key, gp){
+  if(val==null||val===''||!gp[key]) return '';
+  const v = parseFloat(val);
+  if(isNaN(v)||v===0) return '';
+  const {p20,p40,p60,p80} = gp[key];
+  // TO is inverted — lower is better
+  const invert = key==='tovs';
+  let pct;
+  if(invert){
+    if(v<=p20) pct=1; else if(v<=p40) pct=0.8; else if(v<=p60) pct=0.6; else if(v<=p80) pct=0.3; else pct=0.1;
+  } else {
+    if(v>=p80) pct=1; else if(v>=p60) pct=0.8; else if(v>=p40) pct=0.6; else if(v>=p20) pct=0.3; else pct=0.1;
+  }
+  // Interpolate red(204,34,0) → yellow(204,170,0) → green(26,140,58)
+  let r,g,b;
+  if(pct>=0.5){
+    const t=(pct-0.5)*2;
+    r=Math.round(204*(1-t)+26*t); g=Math.round(170*(1-t)+140*t); b=Math.round(0*(1-t)+58*t);
+  } else {
+    const t=pct*2;
+    r=Math.round(204); g=Math.round(t*170); b=0;
+  }
+  return `background:rgba(${r},${g},${b},0.15);color:rgb(${Math.round(r*0.7)},${Math.round(g*0.7)},${Math.round(b*0.7)});font-weight:700;`;
+}
+
+function renderDepth(t, players, color, rgb, gp={}){
 
   // Strict sheet order
   const sorted = [...players].sort((a,b) => (a.depth_order||0) - (b.depth_order||0));
@@ -486,6 +544,8 @@ function renderDepth(t, players, color, rgb){
   const statKeys = ['ppg','rpg','apg','mpg','gp','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs'];
   const p80 = {};
   statKeys.forEach(k => p80[k] = calcP80(visiblePlayers, k));
+  // Use global percentiles for color scaling, fallback to team p80
+  const p80g = gp && Object.keys(gp).length ? gp : p80;
 
   const fullListHtml = `
     <div class="rotation-section">
@@ -535,31 +595,31 @@ function renderDepth(t, players, color, rgb){
         <div class="rot-cls">${p.class_year||p.yr||''}</div>
         <div class="rot-stat" style="font-size:11px;color:var(--text3);text-align:right;">${p.height||'—'}</div>
         <div class="rot-stat ${p.gp?'has-val':''}">${p.gp||'—'}</div>
-        <div class="rot-stat ${p.ppg>=p80.ppg?'elite':p.ppg?'has-val':''}">${fmt(p.ppg)}</div>
-        <div class="rot-stat ${p.rpg>=p80.rpg?'elite':p.rpg?'has-val':''}">${fmt(p.rpg)}</div>
-        <div class="rot-stat ${p.apg>=p80.apg?'elite':p.apg?'has-val':''}">${fmt(p.apg)}</div>
-        <div class="rot-stat ${p.mpg>=p80.mpg?'elite':p.mpg?'has-val':''}">${fmt(p.mpg)}</div>
-        <div class="rot-stat ${p.fgm>=p80.fgm?'elite':p.fgm?'has-val':''}">${fmt(p.fgm)}</div>
-        <div class="rot-stat ${p.fga>=p80.fga?'elite':p.fga?'has-val':''}">${fmt(p.fga)}</div>
-        <div class="rot-stat ${p.fg_pct>=p80.fg_pct?'elite':p.fg_pct?'has-val':''}">${fmt(p.fg_pct)}</div>
-        <div class="rot-stat ${p.tpm>=p80.tpm?'elite':p.tpm?'has-val':''}">${fmt(p.tpm)}</div>
-        <div class="rot-stat ${p.tpa>=p80.tpa?'elite':p.tpa?'has-val':''}">${fmt(p.tpa)}</div>
-        <div class="rot-stat ${p.tp_pct>=p80.tp_pct?'elite':p.tp_pct?'has-val':''}">${fmt(p.tp_pct)}</div>
-        <div class="rot-stat ${p.ftm>=p80.ftm?'elite':p.ftm?'has-val':''}">${fmt(p.ftm)}</div>
-        <div class="rot-stat ${p.fta>=p80.fta?'elite':p.fta?'has-val':''}">${fmt(p.fta)}</div>
-        <div class="rot-stat ${p.ft_pct>=p80.ft_pct?'elite':p.ft_pct?'has-val':''}">${fmt(p.ft_pct)}</div>
-        <div class="rot-stat ${p.oreb>=p80.oreb?'elite':p.oreb?'has-val':''}">${fmt(p.oreb)}</div>
-        <div class="rot-stat ${p.dreb>=p80.dreb?'elite':p.dreb?'has-val':''}">${fmt(p.dreb)}</div>
-        <div class="rot-stat ${p.stl>=p80.stl?'elite':p.stl?'has-val':''}">${fmt(p.stl)}</div>
-        <div class="rot-stat ${p.blk>=p80.blk?'elite':p.blk?'has-val':''}">${fmt(p.blk)}</div>
-        <div class="rot-stat ${p.tovs>=p80.tovs?'elite':p.tovs?'has-val':''}">${fmt(p.tovs)}</div>
+        <div class="rot-stat" style="${statColor(p.ppg,'ppg',p80g)}">${fmt(p.ppg)}</div>
+        <div class="rot-stat" style="${statColor(p.rpg,'rpg',p80g)}">${fmt(p.rpg)}</div>
+        <div class="rot-stat" style="${statColor(p.apg,'apg',p80g)}">${fmt(p.apg)}</div>
+        <div class="rot-stat" style="${statColor(p.mpg,'mpg',p80g)}">${fmt(p.mpg)}</div>
+        <div class="rot-stat" style="${statColor(p.fgm,'fgm',p80g)}">${fmt(p.fgm)}</div>
+        <div class="rot-stat" style="${statColor(p.fga,'fga',p80g)}">${fmt(p.fga)}</div>
+        <div class="rot-stat" style="${statColor(p.fg_pct,'fg_pct',p80g)}">${fmt(p.fg_pct)}</div>
+        <div class="rot-stat" style="${statColor(p.tpm,'tpm',p80g)}">${fmt(p.tpm)}</div>
+        <div class="rot-stat" style="${statColor(p.tpa,'tpa',p80g)}">${fmt(p.tpa)}</div>
+        <div class="rot-stat" style="${statColor(p.tp_pct,'tp_pct',p80g)}">${fmt(p.tp_pct)}</div>
+        <div class="rot-stat" style="${statColor(p.ftm,'ftm',p80g)}">${fmt(p.ftm)}</div>
+        <div class="rot-stat" style="${statColor(p.fta,'fta',p80g)}">${fmt(p.fta)}</div>
+        <div class="rot-stat" style="${statColor(p.ft_pct,'ft_pct',p80g)}">${fmt(p.ft_pct)}</div>
+        <div class="rot-stat" style="${statColor(p.oreb,'oreb',p80g)}">${fmt(p.oreb)}</div>
+        <div class="rot-stat" style="${statColor(p.dreb,'dreb',p80g)}">${fmt(p.dreb)}</div>
+        <div class="rot-stat" style="${statColor(p.stl,'stl',p80g)}">${fmt(p.stl)}</div>
+        <div class="rot-stat" style="${statColor(p.blk,'blk',p80g)}">${fmt(p.blk)}</div>
+        <div class="rot-stat" style="${statColor(p.tovs,'tovs',p80g)}">${fmt(p.tovs)}</div>
         <div class="rot-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||''}</div>
       </div>`;}).join('')}
       </div>
     </div>`;
 
   document.getElementById('depthContent').innerHTML =
-    `<div class="starters-grid" style="grid-template-columns:repeat(5,1fr);">${startersHtml}</div>${fullListHtml}${sortableTableHtml(players, p80)}`;
+    `<div class="starters-grid" style="grid-template-columns:repeat(5,1fr);">${startersHtml}</div>${fullListHtml}${sortableTableHtml(players, p80, gp)}`;
 }
 
 function calcP80(players, key){
@@ -568,7 +628,7 @@ function calcP80(players, key){
   return vals[Math.floor(vals.length * 0.8)] || 0;
 }
 
-function sortableTableHtml(players, p80){
+function sortableTableHtml(players, p80, gp){
   const statCols = [
     {key:'ppg',label:'PPG'},{key:'rpg',label:'RPG'},{key:'apg',label:'APG'},
     {key:'mpg',label:'MPG'},{key:'gp',label:'GP'},
@@ -579,6 +639,7 @@ function sortableTableHtml(players, p80){
     {key:'stl',label:'STL'},{key:'blk',label:'BLK'},{key:'tovs',label:'TO'},
   ];
   const fmt = v => (v!=null&&v!=='')? Number(v).toFixed(1) : '—';
+  const scaler = gp&&Object.keys(gp).length?gp:p80;
   const rows = players.filter(p=>p.name&&p.name!=='—').map(p=>`
     <tr>
       <td class="left">${p.name}</td>
@@ -586,8 +647,7 @@ function sortableTableHtml(players, p80){
       <td>${p.class_year||p.yr||'—'}</td>
       ${statCols.map(c=>{
         const v = p[c.key];
-        const elite = v!=null && p80[c.key] && v >= p80[c.key];
-        return `<td class="${elite?'elite':''}">${fmt(v)}</td>`;
+        return `<td style="${statColor(v,c.key,scaler)}">${fmt(v)}</td>`;
       }).join('')}
       <td>${p.tdc_grade||'—'}</td>
     </tr>`).join('');
@@ -628,6 +688,38 @@ function sortTable(key, th){
     return asc ? av.localeCompare(bv) : bv.localeCompare(av);
   });
   rows.forEach(r=>tbody.appendChild(r));
+}
+
+function renderLosses(losses, gp){
+  const fmt = v => (v!=null&&v!=='')? Number(v).toFixed(1) : '—';
+  const el = document.getElementById('lossesPanel');
+  if(!el) return;
+  if(!losses.length){ el.innerHTML='<div style="padding:20px;color:var(--text3);font-size:13px;">No significant losses listed.</div>'; return; }
+  el.innerHTML = `<div style="overflow-x:auto;"><table class="sortable-table">
+    <thead><tr>
+      <th class="left">Name</th>
+      <th class="left">Pos</th>
+      <th>Yr</th>
+      <th>Ht</th>
+      <th>GP</th>
+      <th>PPG</th><th>RPG</th><th>APG</th><th>MPG</th>
+      <th>FGM</th><th>FGA</th><th>FG%</th>
+      <th>3PM</th><th>3PA</th><th>3P%</th>
+      <th>FTM</th><th>FTA</th><th>FT%</th>
+      <th>OR</th><th>DR</th><th>STL</th><th>BLK</th><th>TO</th>
+    </tr></thead>
+    <tbody>${losses.map(l=>`<tr>
+      <td class="left">${l.name}</td>
+      <td class="left" style="color:var(--text3);font-size:11px;">${l.pos||'—'}</td>
+      <td>${l.yr||'—'}</td>
+      <td>${l.height||'—'}</td>
+      <td>${l.gp||'—'}</td>
+      ${['ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs'].map(k=>`
+        <td style="${statColor(l[k],k,gp)}">${fmt(l[k])}</td>`).join('')}
+    </tr>`).join('')}
+    </tbody>
+  </table></div>
+  <div style="font-size:11px;color:var(--text3);margin-top:8px;padding:0 4px;">Stats shown are from their last season. Colors reflect national percentile.</div>`;
 }
 
 function renderSidebar(t, players, losses, color){
