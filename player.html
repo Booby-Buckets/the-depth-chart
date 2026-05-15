@@ -212,18 +212,27 @@ function projectPlayer(p, teamConf){
   const rm=depth<=2?1.08:depth<=5?1.03:depth<=8?0.97:0.88;
   const gb=grade>=88?1.04:grade>=82?1.02:grade>=75?1.00:grade>=68?0.98:0.95;
   const fm=ym*rm*gb*transferFactor;
-  const em=1+(fm-1)*0.35;
   const s=k=>parseFloat(p[k])||0;
+
+  // Percentages are skill-based — they change very little year to year
+  // Max change: ±3% for FG/3P, ±2% for FT regardless of multiplier
+  // Transfer effect on pct is also small — conference difficulty changes volume not skill
+  const fgBase=s('fg_pct'), tpBase=s('tp_pct'), ftBase=s('ft_pct');
+  const pctDelta=(fm-1)*0.08; // tiny nudge based on progression
+  const transPctAdj=transferFactor<1?-1.5:transferFactor>1?0.5:0; // slight dip going up in conf
+  const fgProj =r1(Math.max(30,Math.min(65, fgBase + pctDelta*3 + transPctAdj)));
+  const tpProj =r1(Math.max(20,Math.min(50, tpBase + pctDelta*2 + transPctAdj*0.8)));
+  const ftProj =r1(Math.max(50,Math.min(95, ftBase + pctDelta*1.5)));
 
   return {
     ppg:r1(s('ppg')*fm),rpg:r1(s('rpg')*fm),apg:r1(s('apg')*fm),
     mpg:r1(Math.min(36,s('mpg')*(1+(fm-1)*0.4))),
     fgm:r1(s('fgm')*fm),fga:r1(s('fga')*fm),
-    fg_pct:r1(Math.min(65,s('fg_pct')*(1+(em-1)))),
+    fg_pct:fgProj,
     tpm:r1(s('tpm')*fm),tpa:r1(s('tpa')*fm),
-    tp_pct:r1(Math.min(50,s('tp_pct')*(1+(em-1)))),
+    tp_pct:tpProj,
     ftm:r1(s('ftm')*fm),fta:r1(s('fta')*fm),
-    ft_pct:r1(Math.min(95,s('ft_pct')*(1+(em-1)*0.5))),
+    ft_pct:ftProj,
     oreb:r1(s('oreb')*fm),dreb:r1(s('dreb')*fm),
     stl:r1(s('stl')*fm),blk:r1(s('blk')*fm),tovs:r1(s('tovs')*fm),
     _frosh:false,_origin:originConf,_factor:transferFactor,
@@ -327,7 +336,7 @@ function fmtP(v){return v!=null&&v!==''?Number(v).toFixed(1)+'%':'—';}
 function pctCol(p){return p>=80?'#1a8c3a':p>=60?'#4a9a4a':p>=40?'#b8860b':p>=20?'#cc5500':'#cc2200';}
 function gradeClass(g){const n=parseFloat(g);if(!isNaN(n)){if(n>=90)return 'gA';if(n>=80)return 'gB';if(n>=70)return 'gC';if(n>=60)return 'gD';return 'gF';}if(!g)return '';if(g[0]==='A')return 'gA';if(g[0]==='B')return 'gB';if(g[0]==='C')return 'gC';if(g[0]==='D')return 'gD';return 'gF';}
 
-let player=null, teamData=null, allPlayers=[], gPct={}, proj=null, showProj=false;
+let player=null, teamData=null, allPlayers=[], gPct={}, proj=null;
 
 async function init(){
   const s=JSON.parse(localStorage.getItem('tdc_session')||'null');
@@ -368,40 +377,6 @@ function getPct(val,key){
   return key==='tovs'?100-p:p;
 }
 
-function toggleStats(show){
-  showProj=show;
-  document.getElementById('toggleActual').classList.toggle('active',!show);
-  document.getElementById('toggleProj').classList.toggle('active',show);
-  updateStatDisplay();
-}
-
-function updateStatDisplay(){
-  const p=showProj&&proj?proj:player;
-  const statDefs=[
-    {id:'sPPG',key:'ppg'},{id:'sRPG',key:'rpg'},{id:'sAPG',key:'apg'},
-    {id:'sMPG',key:'mpg'},{id:'sFGP',key:'fg_pct',pct:true},{id:'s3PP',key:'tp_pct',pct:true},
-    {id:'sFTP',key:'ft_pct',pct:true},{id:'sSTL',key:'stl'},{id:'sBLK',key:'blk'},{id:'sTO',key:'tovs'},
-  ];
-  statDefs.forEach(sd=>{
-    const el=document.getElementById(sd.id);
-    if(!el) return;
-    const val=p?p[sd.key]:null;
-    const valStr=sd.pct?fmtP(val):fmt(val);
-    el.querySelector('.stat-card-val').textContent=valStr;
-    // Show diff if in projection mode
-    if(showProj&&proj&&player[sd.key]!=null){
-      const diff=r1((parseFloat(proj[sd.key]||0))-(parseFloat(player[sd.key]||0)));
-      const diffEl=el.querySelector('.stat-card-diff');
-      if(diffEl){
-        diffEl.textContent=diff>0?`+${diff}`:diff<0?`${diff}`:'=';
-        diffEl.className='stat-card-diff '+(diff>0.05?'up':diff<-0.05?'dn':'eq');
-      }
-    }
-  });
-  // Update radar
-  drawRadar();
-}
-
 function renderPage(){
   const p=player;
   const color=teamData?.color||'#888';
@@ -439,21 +414,42 @@ function renderPage(){
 
     <!-- OVERVIEW TAB -->
     <div class="tab-panel active" id="panel-overview">
-      ${proj?`<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-        <div class="stat-toggle">
-          <button class="stat-toggle-btn active" id="toggleActual" onclick="toggleStats(false)">2025-26 Actual</button>
-          <button class="stat-toggle-btn" id="toggleProj" onclick="toggleStats(true)">2026-27 Projected</button>
+      ${proj?`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+        <div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">2025-26 Actual</div>
+          <div class="stat-cards">
+            ${[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},{l:'MPG',k:'mpg'},{l:'FG%',k:'fg_pct',pct:true},{l:'3P%',k:'tp_pct',pct:true},{l:'FT%',k:'ft_pct',pct:true},{l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TO',k:'tovs'}].map(s=>`
+              <div class="stat-card">
+                <div class="stat-card-val">${s.pct?fmtP(p[s.k]):fmt(p[s.k])}</div>
+                <div class="stat-card-label">${s.l}</div>
+              </div>`).join('')}
+          </div>
         </div>
-        ${proj._frosh?`<span style="font-size:11px;color:var(--text3);font-style:italic;">Freshman estimate — high variance</span>`:''}
-      </div>`:''}
-      <div class="stat-cards">
-        ${[{id:'sPPG',l:'PPG',k:'ppg'},{id:'sRPG',l:'RPG',k:'rpg'},{id:'sAPG',l:'APG',k:'apg'},{id:'sMPG',l:'MPG',k:'mpg'},{id:'sFGP',l:'FG%',k:'fg_pct',pct:true},{id:'s3PP',l:'3P%',k:'tp_pct',pct:true},{id:'sFTP',l:'FT%',k:'ft_pct',pct:true},{id:'sSTL',l:'STL',k:'stl'},{id:'sBLK',l:'BLK',k:'blk'},{id:'sTO',l:'TO',k:'tovs'}].map(s=>`
-          <div class="stat-card" id="${s.id}">
+        <div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--accent);">2026-27 Projected ${proj._frosh?'<span style="font-size:9px;padding:1px 4px;background:rgba(139,105,20,.12);">EST</span>':''}</div>
+          <div class="stat-cards">
+            ${[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},{l:'MPG',k:'mpg'},{l:'FG%',k:'fg_pct',pct:true},{l:'3P%',k:'tp_pct',pct:true},{l:'FT%',k:'ft_pct',pct:true},{l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TO',k:'tovs'}].map(s=>{
+              const actual=parseFloat(p[s.k])||0, projected=parseFloat(proj[s.k])||0;
+              const diff=r1(projected-actual);
+              const cls=diff>0.05?'up':diff<-0.05?'dn':'eq';
+              const dStr=diff>0.05?`+${diff}`:diff<-0.05?String(diff):'=';
+              return `<div class="stat-card">
+                <div class="stat-card-val" style="color:var(--accent);">${s.pct?fmtP(proj[s.k]):fmt(proj[s.k])}</div>
+                <div class="stat-card-label">${s.l}</div>
+                <div class="stat-card-diff ${cls}">${dStr}</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>`:`
+      <div class="stat-cards" style="margin-bottom:24px;">
+        ${[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},{l:'MPG',k:'mpg'},{l:'FG%',k:'fg_pct',pct:true},{l:'3P%',k:'tp_pct',pct:true},{l:'FT%',k:'ft_pct',pct:true},{l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TO',k:'tovs'}].map(s=>`
+          <div class="stat-card">
             <div class="stat-card-val">${s.pct?fmtP(p[s.k]):fmt(p[s.k])}</div>
             <div class="stat-card-label">${s.l}</div>
-            <div class="stat-card-diff eq"></div>
           </div>`).join('')}
-      </div>
+      </div>`}
       <div class="sec-title" style="margin-bottom:16px;">Skill Profile</div>
       <div class="radar-wrap"><canvas id="radarChart" width="320" height="320"></canvas></div>
       <div class="radar-legend" id="radarLegend"></div>
@@ -462,14 +458,8 @@ function renderPage(){
 
     <!-- FULL STATS TAB -->
     <div class="tab-panel" id="panel-stats">
-      ${proj?`<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
-        <div class="stat-toggle">
-          <button class="stat-toggle-btn active" id="toggleActual2" onclick="toggleStats2(false)">2025-26 Actual</button>
-          <button class="stat-toggle-btn" id="toggleProj2" onclick="toggleStats2(true)">Show Both</button>
-        </div>
-      </div>`:''}
       <div style="overflow-x:auto;" id="fullStatWrap">
-        ${renderStatTable(p, null)}
+        ${renderStatTable(p, proj)}
       </div>
     </div>
 
@@ -557,14 +547,6 @@ function renderStatTable(p, projData){
   </table>`;
 }
 
-let showBothStats=false;
-function toggleStats2(show){
-  showBothStats=show;
-  document.getElementById('toggleActual2').classList.toggle('active',!show);
-  document.getElementById('toggleProj2').classList.toggle('active',show);
-  document.getElementById('fullStatWrap').innerHTML=renderStatTable(player,show?proj:null);
-}
-
 function buildStatNarrative(p){
   const ppg=parseFloat(p.ppg)||0, rpg=parseFloat(p.rpg)||0, apg=parseFloat(p.apg)||0;
   const fg=parseFloat(p.fg_pct)||0, tp=parseFloat(p.tp_pct)||0, ft=parseFloat(p.ft_pct)||0;
@@ -612,18 +594,6 @@ function drawRadar(){
     {label:'Free Throws', val:Math.min(100,getPct(p.ft_pct,'ft_pct'))},
   ];
 
-  // Projection axes
-  let projAxes=null;
-  if(showProj&&proj){
-    projAxes=[
-      {label:'Scoring', val:Math.min(100,getPct(proj.ppg,'ppg'))},
-      {label:'Shooting', val:Math.min(100,Math.round((getPct(proj.fg_pct,'fg_pct')+getPct(proj.tp_pct,'tp_pct'))/2))},
-      {label:'Playmaking', val:Math.min(100,getPct(proj.apg,'apg'))},
-      {label:'Rebounding', val:Math.min(100,getPct(proj.rpg,'rpg'))},
-      {label:'Defense', val:Math.min(100,Math.round((getPct(proj.stl,'stl')+getPct(proj.blk,'blk'))/2))},
-      {label:'Free Throws', val:Math.min(100,getPct(proj.ft_pct,'ft_pct'))},
-    ];
-  }
 
   const cx=W/2, cy=H/2, r=Math.min(W,H)/2-40;
   const n=axes.length;
@@ -668,13 +638,24 @@ function drawRadar(){
 
   // Draw actual
   drawShape(axes,color,color,0.15);
-  // Draw projection if active
-  if(projAxes) drawShape(projAxes,'rgba(139,105,20,1)','#8B6914',0.10);
+  // Always show projected overlay if available
+  const showProjRadar = proj && !proj._frosh;
+  if(showProjRadar){
+    const projAxes=[
+      {label:'Scoring', val:Math.min(100,getPct(proj.ppg,'ppg'))},
+      {label:'Shooting', val:Math.min(100,Math.round((getPct(proj.fg_pct,'fg_pct')+getPct(proj.tp_pct,'tp_pct'))/2))},
+      {label:'Playmaking', val:Math.min(100,getPct(proj.apg,'apg'))},
+      {label:'Rebounding', val:Math.min(100,getPct(proj.rpg,'rpg'))},
+      {label:'Defense', val:Math.min(100,Math.round((getPct(proj.stl,'stl')+getPct(proj.blk,'blk'))/2))},
+      {label:'Free Throws', val:Math.min(100,getPct(proj.ft_pct,'ft_pct'))},
+    ];
+    drawShape(projAxes,'rgba(139,105,20,0.8)','#8B6914',0.12);
+  }
 
   // Legend
   const legendEl=document.getElementById('radarLegend');
   if(legendEl){
-    legendEl.innerHTML=`<div class="radar-legend-item"><div class="radar-legend-dot" style="background:${color};"></div>2025-26 Actual</div>${projAxes?`<div class="radar-legend-item"><div class="radar-legend-dot" style="background:var(--accent);opacity:.5;"></div>2026-27 Projected</div>`:''}`;
+    legendEl.innerHTML=`<div class="radar-legend-item"><div class="radar-legend-dot" style="background:${color};"></div>2025-26 Actual</div>${showProjRadar?`<div class="radar-legend-item"><div class="radar-legend-dot" style="background:var(--accent);opacity:.6;"></div>2026-27 Projected</div>`:''}`;
   }
 }
 
