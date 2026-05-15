@@ -102,6 +102,7 @@
 const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H={apikey:KEY,Authorization:`Bearer ${KEY}`};
+const CONF_MULT={'SEC':1.00,'B10':1.00,'BIG-12':1.00,'Big-East':0.95,'ACC':0.97,'PAC-12':0.92,'A10':0.88,'AAC':0.82,'WCC':0.85,'MVC':0.76,'Big South':0.68,'SBC':0.68,'CAA':0.70,'Horizon':0.70,'Sun Belt':0.71,'Big Sky':0.68,'Ivy':0.72,'Summit':0.67,'SoCon':0.67,'ASUN':0.67,'MAAC':0.67,'OVC':0.67,'Patriot':0.60,'SWAC':0.58,'NEC':0.58,'AEC':0.56,'MEAC':0.55};
 const CONF_TIERS_P = {
   'B10':1,'SEC':1,'BIG-12':1,'ACC':1,
   'Big-East':2,'A10':2,'WCC':2,'PAC-12':2,
@@ -139,13 +140,17 @@ async function init(){
   try{
     if(s?.access_token) updateNav(s);
     const url=pid?`${SB}/rest/v1/players?id=eq.${pid}&select=*&limit=1`:`${SB}/rest/v1/players?name=eq.${encodeURIComponent(pname)}&team=eq.${encodeURIComponent(pteam)}&select=*&limit=1`;
-    const [pr,tr,apr]=await Promise.all([
+    const [pr,apr]=await Promise.all([
       fetch(url,{headers:H}).then(r=>r.json()),
-      fetch(`${SB}/rest/v1/teams?name=eq.${encodeURIComponent(pteam||'')}&select=*&limit=1`,{headers:H}).then(r=>r.json()),
       fetch(`${SB}/rest/v1/players?select=ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs&ppg=not.is.null&limit=5000`,{headers:H}).then(r=>r.json()),
     ]);
     if(!pr.length) throw new Error('Player not found');
-    player=pr[0]; teamData=tr[0]||{}; allPlayers=apr;
+    player=pr[0]; allPlayers=apr;
+
+    // Fetch team data using the player's actual team name
+    const tr=await fetch(`${SB}/rest/v1/teams?name=eq.${encodeURIComponent(player.team||'')}&select=*&limit=1`,{headers:H});
+    const teams=await tr.json();
+    teamData=teams[0]||{};
     calcPct();
     renderPage();
   }catch(e){
@@ -250,6 +255,7 @@ function projectPlayer(p){
   }
 
   if(isFr&&!hasStats){
+    const destMult = CONF_MULT[conf]||0.85;
     const gm=grade>=90?0.85:grade>=85?0.72:grade>=80?0.58:grade>=75?0.44:grade>=70?0.32:grade>=65?0.22:0.14;
     const dm=depth<=2?1.1:depth<=5?1.0:depth<=8?0.65:0.40;
     const t=gm*dm*destMult;
