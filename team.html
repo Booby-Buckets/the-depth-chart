@@ -1049,6 +1049,8 @@ const PROJ_SCHOOL_CONF = (function(){
 })();
 
 function buildTeamProjections(players, conf){
+  const statKeys=['ppg','rpg','apg','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','stl','blk','tovs'];
+
   // Step 1: Project each player individually
   const projected = players
     .filter(p=>p.name&&p.name!=='—')
@@ -1058,36 +1060,43 @@ function buildTeamProjections(players, conf){
 
   if(!projected.length) return [];
 
-  // Step 2: Minutes cohesion — normalize total MPG to 200
-  const totalRawMpg = projected.reduce((s,p)=>s+(parseFloat(p._rawMpg)||parseFloat(p.mpg)||0),0);
-  const minutesScale = totalRawMpg>0 ? TEAM_TOTAL_MINUTES/totalRawMpg : 1.0;
+  // Step 2: Enforce minutes order — player N can never have more MPG than player N-1
+  // Walk down the depth chart and cap each player at 95% of the player above
+  for(let i=1;i<projected.length;i++){
+    const aboveMpg = parseFloat(projected[i-1]._rawMpg)||parseFloat(projected[i-1].mpg)||0;
+    const curMpg   = parseFloat(projected[i]._rawMpg)  ||parseFloat(projected[i].mpg)  ||0;
+    if(curMpg > aboveMpg * 0.97){
+      const cap   = aboveMpg * 0.95;
+      const ratio = curMpg > 0 ? cap/curMpg : 1;
+      projected[i]._rawMpg = cap;
+      projected[i].mpg     = r1t(cap);
+      statKeys.forEach(k=>{ projected[i][k]=r1t((parseFloat(projected[i][k])||0)*ratio); });
+    }
+  }
 
-  // Step 3: Apply minutes scaling to all counting stats
-  const statKeys=['ppg','rpg','apg','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','stl','blk','tovs'];
-  const cohesive = projected.map(function(p){
-    const mpgAdj = r1t((parseFloat(p._rawMpg)||parseFloat(p.mpg)||0)*minutesScale);
-    const mpgRatio = (parseFloat(p.mpg)||1)>0 ? mpgAdj/(parseFloat(p._rawMpg)||parseFloat(p.mpg)||1) : 1;
-    const result={...p, mpg:mpgAdj};
-    // Scale counting stats proportionally to minutes change
-    statKeys.forEach(function(k){
-      result[k]=r1t((parseFloat(p[k])||0)*mpgRatio);
+  // Step 3: Soft minutes cap — if total exceeds 235, scale down proportionally
+  // Allow 200-235 range (accounts for players missing games, short rotations etc.)
+  const totalMpg = projected.reduce((s,p)=>s+(parseFloat(p.mpg)||0),0);
+  if(totalMpg > 235){
+    const mpgScale = 225/totalMpg; // target ~225 as midpoint
+    projected.forEach(p=>{
+      const oldMpg = parseFloat(p.mpg)||0;
+      const newMpg = r1t(oldMpg*mpgScale);
+      const ratio  = oldMpg>0 ? newMpg/oldMpg : 1;
+      p.mpg = newMpg;
+      p._rawMpg = newMpg;
+      statKeys.forEach(k=>{ p[k]=r1t((parseFloat(p[k])||0)*ratio); });
     });
-    return result;
-  });
-
-  // Step 4: Usage cohesion — if total projected PPG > realistic team scoring, compress
-  // D1 avg team scores ~75 PPG. Elite teams ~85. Scale accordingly.
-  const totalProjPPG = cohesive.reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
-  const maxTeamPPG = 88; // reasonable ceiling
-  if(totalProjPPG > maxTeamPPG){
-    const scoreScale = maxTeamPPG/totalProjPPG;
-    const scoreKeys=['ppg','fgm','fga','tpm','tpa','ftm','fta'];
-    cohesive.forEach(function(p){
-      scoreKeys.forEach(function(k){p[k]=r1t((parseFloat(p[k])||0)*scoreScale);});
+  }
+  const totalProjPPG = projected.reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
+  if(totalProjPPG > 88){
+    const scoreScale = 88/totalProjPPG;
+    ['ppg','fgm','fga','tpm','tpa','ftm','fta'].forEach(k=>{
+      projected.forEach(p=>{ p[k]=r1t((parseFloat(p[k])||0)*scoreScale); });
     });
   }
 
-  return cohesive;
+  return projected;
 }
 
 function r1t(v){return v!=null?Math.round(v*10)/10:null;}
@@ -1101,9 +1110,6 @@ function renderProjections(players, conf, color, rgb, gp){
     el.innerHTML='<div style="padding:20px;color:var(--text3);">No projections available — add player grades to enable projections.</div>';
     return;
   }
-
-  const totalMpg=projected.reduce((s,p)=>s+(parseFloat(p.mpg)||0),0);
-  const totalPpg=projected.reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
   const fmt=v=>v!=null&&v!==''?Number(v).toFixed(1):'—';
   const fmtP=v=>v!=null&&v!==''?Number(v).toFixed(1)+'%':'—';
   const sc=(v,k)=>{
@@ -1121,11 +1127,8 @@ function renderProjections(players, conf, color, rgb, gp){
   };
 
   el.innerHTML=`
-    <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:16px;padding:12px 0;border-bottom:1px solid var(--border);">
-      <div style="font-size:12px;color:var(--text3);">Total Proj MPG: <strong style="color:var(--text);">${r1t(totalMpg)}</strong> / 200</div>
-      <div style="font-size:12px;color:var(--text3);">Total Proj PPG: <strong style="color:var(--text);">${r1t(totalPpg)}</strong></div>
-      <div style="font-size:12px;color:var(--text3);">Players projected: <strong style="color:var(--text);">${projected.length}</strong></div>
-      <div style="font-size:11px;color:var(--text3);margin-left:auto;"><span style="background:rgba(139,105,20,.12);color:var(--accent);padding:2px 5px;font-weight:700;">EST</span> = Freshman estimate &nbsp; <span style="background:rgba(26,95,191,.1);color:#1a5fbf;padding:2px 5px;font-weight:700;">TRANS</span> = Transfer translated</div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;padding:4px 0;">
+      <div style="font-size:11px;color:var(--text3);"><span style="background:rgba(139,105,20,.12);color:var(--accent);padding:2px 5px;font-weight:700;">EST</span> = Freshman estimate &nbsp; <span style="background:rgba(26,95,191,.1);color:#1a5fbf;padding:2px 5px;font-weight:700;">×</span> = Transfer factor &nbsp; <span style="background:rgba(180,50,0,.1);color:#cc3300;padding:2px 5px;font-weight:700;">FINAL</span> = Last season</div>
     </div>
     <div style="overflow-x:auto;">
     <div style="min-width:900px;">
@@ -1159,7 +1162,7 @@ function renderProjections(players, conf, color, rgb, gp){
         const isStarter=i<5;
         const yr=p.yr||p.class_year||'';
         // Show next year
-        const nextYr={'Fr.':'So.','R-Fr.':'So.','So.':'Jr.','R-So.':'Jr.','Jr.':'Sr.','R-Jr.':'Sr.','Sr.':'Gr.','R-Sr.':'Gr.','Gr.':'Gr.'}[yr]||(p._isSr?'Final':'?');
+        const nextYr=yr||'—';
         const srBadge=p._isSr?`<span style="font-size:8px;font-weight:700;padding:1px 3px;background:rgba(180,50,0,.1);color:#cc3300;margin-left:3px;">FINAL</span>`:'';
         const transBadge=p._transferFactor&&Math.abs(p._transferFactor-1)>0.05?`<span style="font-size:8px;font-weight:700;padding:1px 3px;background:rgba(26,95,191,.1);color:#1a5fbf;margin-left:3px;">×${r1t(p._transferFactor)}</span>`:'';
         const froshBadge=p._isFrosh?`<span style="font-size:8px;font-weight:700;padding:1px 3px;background:rgba(139,105,20,.12);color:var(--accent);margin-left:3px;">EST</span>`:'';
