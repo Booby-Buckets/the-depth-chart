@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Player — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#fff;--bg2:#f5f5f5;--border:#e0e0e0;--border2:#ccc;--text:#111;--text2:#444;--text3:#888;--accent:#8B6914;--green:#1a8c3a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#111;--bg2:#181818;--border:#2a2a2a;--border2:#333;--text:#e8e8e8;--text2:#a0a0a0;--text3:#606060;--accent:#c8a96e;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
+    .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;}
+    .nav-logo span{color:var(--accent);}
+    .nav-actions{display:flex;align-items:center;gap:14px;}
+    .nav-signin{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--text);padding:6px 16px;text-decoration:none;}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
+    .nav-sub::-webkit-scrollbar{display:none;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
+    .player-hero{padding:36px 40px 28px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:28px;}
+    .player-avatar{width:80px;height:80px;border-radius:50%;background:var(--bg2);border:3px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:800;font-size:28px;color:var(--accent);flex-shrink:0;}
+    .player-info{flex:1;}
+    .player-eyebrow{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+    .player-name{font-family:'Playfair Display',serif;font-weight:800;font-size:36px;letter-spacing:-.02em;margin-bottom:8px;line-height:1.1;}
+    .player-meta{display:flex;flex-wrap:wrap;gap:16px;margin-top:10px;}
+    .player-meta-item{font-size:13px;color:var(--text3);}
+    .player-meta-item strong{color:var(--text2);font-weight:700;}
+    .player-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:52px;line-height:1;flex-shrink:0;}
+    .grade-A{color:#1a8c3a;}.grade-B{color:#2d7a2d;}.grade-C{color:#b8860b;}.grade-D{color:#cc5500;}.grade-F{color:#cc2200;}
+    .team-badge{display:inline-flex;align-items:center;gap:8px;padding:4px 12px 4px 6px;border:1px solid var(--border);font-size:12px;font-weight:700;text-decoration:none;color:var(--text);margin-top:10px;}
+    .team-dot{width:10px;height:10px;border-radius:50%;}
+    .tab-row{display:flex;border-bottom:1px solid var(--border);padding:0 40px;}
+    .tab-btn{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:12px 20px;border:none;background:none;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;font-family:'Inter',sans-serif;transition:all .15s;}
+    .tab-btn.active{color:var(--text);border-bottom-color:var(--accent);}
+    .tab-panel{display:none;padding:32px 40px 60px;}
+    .tab-panel.active{display:block;}
+    .stat-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-bottom:28px;}
+    .stat-card{border:1px solid var(--border);padding:14px 12px;text-align:center;}
+    .stat-card-val{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;line-height:1;margin-bottom:4px;}
+    .stat-card-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
+    .section-title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+    .full-stat-table{width:100%;border-collapse:collapse;min-width:700px;}
+    .full-stat-table th{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 10px;border-bottom:2px solid var(--border2);text-align:right;white-space:nowrap;}
+    .full-stat-table th:first-child{text-align:left;}
+    .full-stat-table td{padding:10px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;text-align:right;white-space:nowrap;}
+    .full-stat-table td:first-child{text-align:left;font-weight:700;color:var(--text);}
+    .proj-box{border:1px solid rgba(139,105,20,.2);background:rgba(139,105,20,.04);padding:20px 24px;margin-bottom:24px;}
+    .proj-title{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:4px;}
+    .proj-sub{font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.5;}
+    .proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(95px,1fr));gap:10px;}
+    .proj-item{text-align:center;padding:10px 8px;background:var(--bg);border:1px solid var(--border);}
+    .proj-val{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;color:var(--accent);line-height:1;margin-bottom:2px;}
+    .proj-label{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .proj-diff{font-size:11px;font-weight:700;margin-top:3px;}
+    .proj-diff.up{color:var(--green);}.proj-diff.down{color:var(--red);}.proj-diff.same{color:var(--text3);}
+    .proj-badge{font-size:9px;font-weight:700;letter-spacing:.06em;padding:1px 6px;background:rgba(139,105,20,.15);color:var(--accent);}
+    .pct-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .pct-label{font-size:12px;font-weight:600;color:var(--text3);width:56px;flex-shrink:0;text-align:right;}
+    .pct-bar-wrap{flex:1;height:8px;background:var(--bg2);border-radius:4px;overflow:hidden;}
+    .pct-bar{height:100%;border-radius:4px;}
+    .pct-val{font-size:12px;font-weight:700;width:40px;text-align:right;flex-shrink:0;}
+    .pct-num{font-size:11px;font-weight:600;color:var(--text3);width:38px;flex-shrink:0;}
+    .loading-state{text-align:center;padding:80px;color:var(--text3);}
+    .loading-spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 12px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    @media(max-width:768px){
+      .nav-top,.nav-sub,.player-hero,.tab-panel,.tab-row{padding-left:16px;padding-right:16px;}
+      .player-hero{flex-wrap:wrap;}
+      .player-name{font-size:26px;}
+      .stat-cards{grid-template-columns:repeat(3,1fr);}
+    }
+  </style>
+</head>
+<body>
+<div class="nav-wrap">
+  <div class="nav-top">
+    <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+    <div class="nav-actions" id="navActions">
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+      <a href="pricing.html" class="nav-signin">Sign In</a>
+    </div>
+  </div>
+  <div class="nav-sub">
+    <a href="index.html">Rankings</a>
+    <a href="roster.html" class="active">Players</a>
+    <a href="compare-players.html">Compare</a>
+    <a href="analytics.html">Analytics</a>
+    <a href="community.html">Community</a>
+    <a href="about.html">About</a>
+    <a href="account.html">Account</a>
+    <a href="pricing.html">Pricing</a>
+  </div>
+</div>
+<div id="heroSection"><div class="loading-state"><div class="loading-spinner"></div></div></div>
+<script>
+const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H={apikey:KEY,Authorization:`Bearer ${KEY}`};
+const CONF_MULT={'SEC':1.00,'B10':1.00,'BIG-12':1.00,'Big-East':0.98,'ACC':0.97,'PAC-12':0.94,'A10':0.88,'AAC':0.87,'WCC':0.85,'MVC':0.82,'Big South':0.78};
+const POS_BASE={'PG':{ppg:10.5,rpg:3.2,apg:4.1,mpg:26,fg_pct:42,tp_pct:36,ft_pct:75,stl:1.2,blk:0.2},'SG':{ppg:11.2,rpg:3.8,apg:2.2,mpg:26,fg_pct:42,tp_pct:37,ft_pct:76,stl:1.0,blk:0.3},'CG':{ppg:10.8,rpg:3.5,apg:3.0,mpg:26,fg_pct:42,tp_pct:36,ft_pct:75,stl:1.1,blk:0.2},'SF':{ppg:10.8,rpg:5.2,apg:1.8,mpg:26,fg_pct:43,tp_pct:37,ft_pct:72,stl:0.9,blk:0.5},'PF':{ppg:10.2,rpg:6.8,apg:1.2,mpg:24,fg_pct:45,tp_pct:33,ft_pct:69,stl:0.6,blk:1.1},'C':{ppg:9.8,rpg:7.4,apg:0.9,mpg:22,fg_pct:49,tp_pct:30,ft_pct:66,stl:0.4,blk:1.6},'G':{ppg:10.0,rpg:3.5,apg:3.0,mpg:25,fg_pct:42,tp_pct:35,ft_pct:74,stl:1.1,blk:0.2},'F':{ppg:10.5,rpg:6.0,apg:1.5,mpg:25,fg_pct:44,tp_pct:35,ft_pct:70,stl:0.7,blk:0.8}};
+let player=null,teamData=null,allPlayers=[],gPct={};
+
+async function init(){
+  const s=JSON.parse(localStorage.getItem('tdc_session')||'null');
+  const params=new URLSearchParams(location.search);
+  const pid=params.get('id'),pname=params.get('name'),pteam=params.get('team');
+  if(!pid&&!pname){document.getElementById('heroSection').innerHTML='<div style="padding:80px;text-align:center;color:var(--text3);">No player specified. <a href="roster.html">Browse players →</a></div>';return;}
+  try{
+    if(s?.access_token) updateNav(s);
+    const url=pid?`${SB}/rest/v1/players?id=eq.${pid}&select=*&limit=1`:`${SB}/rest/v1/players?name=eq.${encodeURIComponent(pname)}&team=eq.${encodeURIComponent(pteam)}&select=*&limit=1`;
+    const [pr,tr,apr]=await Promise.all([
+      fetch(url,{headers:H}).then(r=>r.json()),
+      fetch(`${SB}/rest/v1/teams?name=eq.${encodeURIComponent(pteam||'')}&select=*&limit=1`,{headers:H}).then(r=>r.json()),
+      fetch(`${SB}/rest/v1/players?select=ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs&ppg=not.is.null&limit=5000`,{headers:H}).then(r=>r.json()),
+    ]);
+    if(!pr.length) throw new Error('Player not found');
+    player=pr[0]; teamData=tr[0]||{}; allPlayers=apr;
+    calcPct();
+    renderPage();
+  }catch(e){
+    document.getElementById('heroSection').innerHTML=`<div style="padding:80px;text-align:center;"><div style="font-family:'Playfair Display',serif;font-weight:800;font-size:24px;margin-bottom:8px;">Player not found</div><a href="roster.html" style="color:var(--accent);">← Back to players</a></div>`;
+  }
+}
+
+function calcPct(){
+  ['ppg','rpg','apg','mpg','fg_pct','tp_pct','ft_pct','stl','blk','tovs'].forEach(k=>{
+    gPct[k]=allPlayers.map(p=>parseFloat(p[k])).filter(v=>!isNaN(v)&&v>0).sort((a,b)=>a-b);
+  });
+}
+
+function getPct(val,key){
+  const arr=gPct[key]; if(!arr?.length||val==null) return 0;
+  const v=parseFloat(val); if(isNaN(v)||v===0) return 0;
+  let lo=0,hi=arr.length;
+  while(lo<hi){const mid=(lo+hi)>>1;if(arr[mid]<v)lo=mid+1;else hi=mid;}
+  const p=Math.round(lo/arr.length*100);
+  return key==='tovs'?100-p:p;
+}
+
+function pctCol(p){return p>=80?'#1a8c3a':p>=60?'#4a9a4a':p>=40?'#b8860b':p>=20?'#cc5500':'#cc2200';}
+
+function gradeClass(g){
+  const n=parseFloat(g);
+  if(!isNaN(n)){if(n>=90)return 'grade-A';if(n>=80)return 'grade-B';if(n>=70)return 'grade-C';if(n>=60)return 'grade-D';return 'grade-F';}
+  if(!g)return '';
+  if(g[0]==='A')return 'grade-A';if(g[0]==='B')return 'grade-B';if(g[0]==='C')return 'grade-C';if(g[0]==='D')return 'grade-D';return 'grade-F';
+}
+
+function r1(v){return v!=null?Math.round(v*10)/10:null;}
+function fmt(v){return v!=null&&v!==''?Number(v).toFixed(1):'—';}
+function fmtPct(v){return v!=null&&v!==''?Number(v).toFixed(1)+'%':'—';}
+
+function projectPlayer(p){
+  const yr=(p.yr||p.class_year||'').toLowerCase();
+  const isFr=yr.includes('fr.')||yr.includes('r-fr');
+  const isSr=yr.includes('sr.')||yr.includes('gr.');
+  const pos=p.position||'G';
+  const base=POS_BASE[pos]||POS_BASE['G'];
+  const conf=teamData?.conf||'';
+  const cm=CONF_MULT[conf]||0.85;
+  const grade=parseFloat(p.tdc_grade)||70;
+  const depth=p.depth_order||8;
+  const hasStats=p.ppg&&parseFloat(p.ppg)>0;
+
+  if(isSr) return {note:'Player has graduated — no projection available.'};
+
+  if(isFr&&!hasStats){
+    const gm=grade>=88?0.82:grade>=82?0.65:grade>=75?0.48:grade>=68?0.32:0.18;
+    const dm=depth<=5?1.0:0.55;
+    const t=gm*dm*cm;
+    return {ppg:r1(base.ppg*t),rpg:r1(base.rpg*t),apg:r1(base.apg*t),mpg:r1(base.mpg*t),fg_pct:r1(base.fg_pct),tp_pct:r1(base.tp_pct),ft_pct:r1(base.ft_pct),stl:r1(base.stl*t),blk:r1(base.blk*t),isFrosh:true};
+  }
+
+  if(!hasStats) return {note:'No stats available for projection.'};
+
+  // Year progression multipliers
+  const ym=yr.includes('so.')||yr.includes('r-so.')?1.06:yr.includes('jr.')||yr.includes('r-jr.')?1.08:yr.includes('sr.')||yr.includes('r-sr.')?1.02:1.04;
+
+  return {
+    ppg:r1(parseFloat(p.ppg)*ym),
+    rpg:r1(parseFloat(p.rpg)*ym),
+    apg:r1(parseFloat(p.apg)*ym),
+    mpg:r1(Math.min(36,parseFloat(p.mpg)*(1+(ym-1)*0.5))),
+    fg_pct:r1(Math.min(65,parseFloat(p.fg_pct)*(1+(ym-1)*0.3))),
+    tp_pct:r1(Math.min(50,parseFloat(p.tp_pct)*(1+(ym-1)*0.3))),
+    ft_pct:r1(Math.min(95,parseFloat(p.ft_pct)*(1+(ym-1)*0.2))),
+    stl:r1(parseFloat(p.stl)*ym),
+    blk:r1(parseFloat(p.blk)*ym),
+  };
+}
+
+function renderPage(){
+  const p=player;
+  const color=teamData?.color||'#888';
+  const proj=projectPlayer(p);
+  const yr=p.yr||p.class_year||'';
+
+  const projItem=(label,actual,projected,isPct=false)=>{
+    const a=parseFloat(actual)||0,b=parseFloat(projected)||0;
+    const diff=r1(b-a);
+    const cls=diff>0.05?'up':diff<-0.05?'down':'same';
+    const dStr=diff>0.05?`+${diff}`:diff<-0.05?`${diff}`:'=';
+    const val=isPct?(b?b.toFixed(1)+'%':'—'):(b?b.toFixed(1):'—');
+    return `<div class="proj-item"><div class="proj-val">${val}</div><div class="proj-label">${label}</div><div class="proj-diff ${cls}">${dStr}</div></div>`;
+  };
+
+  document.getElementById('heroSection').innerHTML=`
+    <div class="player-hero">
+      <div class="player-avatar" style="border-color:${color};">${(p.name||'?')[0].toUpperCase()}</div>
+      <div class="player-info">
+        <div class="player-eyebrow">${p.position||'—'} · ${yr} · ${p.height||'—'}${p.is_injured?' 🏥':''}${p.is_international?' 🌍':''}</div>
+        <h1 class="player-name">${p.name}</h1>
+        <a class="team-badge" href="team.html?team=${encodeURIComponent(p.team||'')}">
+          <div class="team-dot" style="background:${color};"></div>
+          ${p.team||'—'} <span style="font-size:10px;color:var(--text3);">${teamData?.conf||''}</span>
+        </a>
+        <div class="player-meta">
+          ${p.hometown?`<div class="player-meta-item">📍 Via <strong>${p.hometown}</strong></div>`:''}
+          ${p.gp?`<div class="player-meta-item">🎮 <strong>${p.gp}</strong> GP</div>`:''}
+          ${p.starter?`<div class="player-meta-item">⭐ <strong>Returning Starter</strong></div>`:''}
+        </div>
+      </div>
+      ${p.tdc_grade?`<div class="player-grade ${gradeClass(p.tdc_grade)}">${p.tdc_grade}</div>`:''}
+    </div>
+
+    <div class="tab-row">
+      <button class="tab-btn active" id="tab-stats" onclick="switchTab('stats')">Stats</button>
+      <button class="tab-btn" id="tab-projection" onclick="switchTab('projection')">2026-27 Projection</button>
+      <button class="tab-btn" id="tab-percentiles" onclick="switchTab('percentiles')">Percentiles</button>
+    </div>
+
+    <div class="tab-panel active" id="panel-stats">
+      <div class="stat-cards">
+        ${[{l:'PPG',v:fmt(p.ppg)},{l:'RPG',v:fmt(p.rpg)},{l:'APG',v:fmt(p.apg)},{l:'MPG',v:fmt(p.mpg)},{l:'FG%',v:fmtPct(p.fg_pct)},{l:'3P%',v:fmtPct(p.tp_pct)},{l:'FT%',v:fmtPct(p.ft_pct)},{l:'STL',v:fmt(p.stl)},{l:'BLK',v:fmt(p.blk)},{l:'TO',v:fmt(p.tovs)},{l:'GP',v:p.gp||'—'}].map(s=>`<div class="stat-card"><div class="stat-card-val">${s.v}</div><div class="stat-card-label">${s.l}</div></div>`).join('')}
+      </div>
+      <div class="section-title">Full Stats — 2025-26</div>
+      <div style="overflow-x:auto;">
+        <table class="full-stat-table">
+          <thead><tr><th>Season</th><th>GP</th><th>PPG</th><th>RPG</th><th>APG</th><th>MPG</th><th>FGM</th><th>FGA</th><th>FG%</th><th>3PM</th><th>3PA</th><th>3P%</th><th>FTM</th><th>FTA</th><th>FT%</th><th>OR</th><th>DR</th><th>STL</th><th>BLK</th><th>TO</th></tr></thead>
+          <tbody><tr>
+            <td>2025-26</td><td>${p.gp||'—'}</td>
+            <td>${fmt(p.ppg)}</td><td>${fmt(p.rpg)}</td><td>${fmt(p.apg)}</td><td>${fmt(p.mpg)}</td>
+            <td>${fmt(p.fgm)}</td><td>${fmt(p.fga)}</td><td>${fmtPct(p.fg_pct)}</td>
+            <td>${fmt(p.tpm)}</td><td>${fmt(p.tpa)}</td><td>${fmtPct(p.tp_pct)}</td>
+            <td>${fmt(p.ftm)}</td><td>${fmt(p.fta)}</td><td>${fmtPct(p.ft_pct)}</td>
+            <td>${fmt(p.oreb)}</td><td>${fmt(p.dreb)}</td>
+            <td>${fmt(p.stl)}</td><td>${fmt(p.blk)}</td><td>${fmt(p.tovs)}</td>
+          </tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-projection">
+      ${proj.note?`<div style="padding:24px;border:1px solid var(--border);color:var(--text3);font-size:13px;">${proj.note}</div>`:`
+      <div class="proj-box">
+        <div class="proj-title">2026-27 Projection ${proj.isFrosh?'<span class="proj-badge">FRESHMAN EST.</span>':''}</div>
+        <div class="proj-sub">${proj.isFrosh
+          ?`Projected from position baseline (${p.position||'G'}), height (${p.height||'—'}), and TDC grade (${p.tdc_grade||'—'}). Freshman projections carry high variance.`
+          :`Based on 2025-26 performance with ${yr.includes('so')?'sophomore leap':yr.includes('jr')?'junior progression':'senior continuity'} multiplier.`
+        }</div>
+        <div class="proj-grid">
+          ${projItem('PPG',p.ppg,proj.ppg)}
+          ${projItem('RPG',p.rpg,proj.rpg)}
+          ${projItem('APG',p.apg,proj.apg)}
+          ${projItem('MPG',p.mpg,proj.mpg)}
+          ${projItem('FG%',p.fg_pct,proj.fg_pct,true)}
+          ${projItem('3P%',p.tp_pct,proj.tp_pct,true)}
+          ${projItem('FT%',p.ft_pct,proj.ft_pct,true)}
+          ${projItem('STL',p.stl,proj.stl)}
+          ${projItem('BLK',p.blk,proj.blk)}
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text3);line-height:1.6;padding:16px 0;border-top:1px solid var(--border);">
+        <strong style="color:var(--text2);">Note:</strong> Projections are estimates only. They account for year-over-year progression and conference strength but not injuries, role changes, or coaching adjustments.
+      </div>`}
+    </div>
+
+    <div class="tab-panel" id="panel-percentiles">
+      <div class="section-title" style="margin-bottom:16px;">National Percentiles — vs all D1 players in TDC database</div>
+      ${[{k:'ppg',l:'PPG',v:p.ppg},{k:'rpg',l:'RPG',v:p.rpg},{k:'apg',l:'APG',v:p.apg},{k:'mpg',l:'MPG',v:p.mpg},{k:'fg_pct',l:'FG%',v:p.fg_pct},{k:'tp_pct',l:'3P%',v:p.tp_pct},{k:'ft_pct',l:'FT%',v:p.ft_pct},{k:'stl',l:'STL',v:p.stl},{k:'blk',l:'BLK',v:p.blk},{k:'tovs',l:'TO',v:p.tovs}].map(s=>{
+        const pct=getPct(s.v,s.k);
+        const col=pctCol(pct);
+        return `<div class="pct-row">
+          <div class="pct-label">${s.l}</div>
+          <div class="pct-bar-wrap"><div class="pct-bar" style="width:${pct}%;background:${col};"></div></div>
+          <div class="pct-val" style="color:${col};">${s.k.includes('pct')?fmtPct(s.v):fmt(s.v)}</div>
+          <div class="pct-num" style="color:${col};">${pct}th</div>
+        </div>`;
+      }).join('')}
+      <div style="font-size:11px;color:var(--text3);margin-top:8px;">Turnovers inverted — lower TO = better percentile.</div>
+    </div>`;
+}
+
+function switchTab(t){
+  ['stats','projection','percentiles'].forEach(x=>{
+    document.getElementById('tab-'+x)?.classList.toggle('active',x===t);
+    document.getElementById('panel-'+x)?.classList.toggle('active',x===t);
+  });
+}
+
+async function updateNav(s){
+  try{
+    const [p]= await fetch(`${SB}/rest/v1/profiles?id=eq.${s.user?.id}&select=username,avatar_url`,{headers:{apikey:KEY,Authorization:'Bearer '+s.access_token}}).then(r=>r.json());
+    const uname=p?.username||'User';
+    const av=p?.avatar_url?`<img src="${p.avatar_url}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);">`:`<div style="width:32px;height:32px;border-radius:50%;background:var(--bg2);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);">${uname[0].toUpperCase()}</div>`;
+    document.getElementById('navActions').innerHTML=`<button class="theme-toggle" onclick="toggleTheme()">${localStorage.getItem('tdc_theme')==='dark'?'☀️':'🌙'}</button><a href="profile.html" style="display:flex;align-items:center;gap:8px;text-decoration:none;">${av}<span style="font-size:13px;font-weight:700;color:var(--text);">${uname}</span></a>`;
+  }catch(e){}
+}
+
+function toggleTheme(){
+  const d=document.documentElement.getAttribute('data-theme')==='dark';
+  const n=d?'light':'dark';
+  document.documentElement.setAttribute('data-theme',n);
+  localStorage.setItem('tdc_theme',n);
+}
+(function(){document.documentElement.setAttribute('data-theme',localStorage.getItem('tdc_theme')||'light');})();
+init();
+</script>
+</body>
+</html>
