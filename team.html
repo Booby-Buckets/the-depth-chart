@@ -524,7 +524,16 @@ function projectPlayer(p, confMult){
   // Year progression multipliers
   const ym=yr.includes('so.')||yr.includes('r-so.')?1.06:yr.includes('jr.')||yr.includes('r-jr.')?1.08:yr.includes('sr.')||yr.includes('r-sr.')?1.02:1.04;
 
-  if(isSr) return null; // graduated
+  if(isSr) {
+    // Keep seniors — project as their final season (flat or slight decline)
+    if(!hasStats) return null;
+    const ym=1.01; // minimal change for seniors
+    const statKeys=['ppg','rpg','apg','mpg','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','stl','blk','tovs'];
+    const proj={fg_pct:r1t(Math.min(65,parseFloat(p.fg_pct||42))),tp_pct:r1t(Math.min(50,parseFloat(p.tp_pct||35))),ft_pct:r1t(Math.min(95,parseFloat(p.ft_pct||70))),_isSr:true};
+    statKeys.forEach(k=>{ proj[k]=r1t(parseFloat(p[k]||0)*ym); });
+    proj._rawMpg=parseFloat(p.mpg||0)*ym;
+    return proj;
+  }
 
   if(isFr&&!hasStats){
     const gm=grade>=88?0.82:grade>=82?0.65:grade>=75?0.48:grade>=68?0.32:0.18;
@@ -966,7 +975,18 @@ function projectSinglePlayer(p, conf, schoolConfMap){
   const hasStats=p.ppg&&parseFloat(p.ppg)>0;
   const isTransfer=p.hometown&&p.hometown.trim()!=='';
 
-  if(isSr&&!yr.includes('r-sr.')&&!yr.includes('r-jr.')) return null;
+  if(isSr&&!yr.includes('r-sr.')&&!yr.includes('r-jr.')){
+    // Keep seniors — project as flat final season
+    if(!hasStats) return null;
+    const s=k=>parseFloat(p[k])||0;
+    return {...p,_proj:true,_isFrosh:false,_isSr:true,_transferFactor:1,
+      _rawMpg:s('mpg'),
+      ppg:r1t(s('ppg')),rpg:r1t(s('rpg')),apg:r1t(s('apg')),mpg:r1t(s('mpg')),
+      fgm:r1t(s('fgm')),fga:r1t(s('fga')),fg_pct:r1t(s('fg_pct')),
+      tpm:r1t(s('tpm')),tpa:r1t(s('tpa')),tp_pct:r1t(s('tp_pct')),
+      ftm:r1t(s('ftm')),fta:r1t(s('fta')),ft_pct:r1t(s('ft_pct')),
+      oreb:r1t(s('oreb')),dreb:r1t(s('dreb')),stl:r1t(s('stl')),blk:r1t(s('blk')),tovs:r1t(s('tovs'))};
+  }
 
   let transferFactor=1.0;
   if(isTransfer&&hasStats){
@@ -1139,7 +1159,8 @@ function renderProjections(players, conf, color, rgb, gp){
         const isStarter=i<5;
         const yr=p.yr||p.class_year||'';
         // Show next year
-        const nextYr={'Fr.':'So.','R-Fr.':'So.','So.':'Jr.','R-So.':'Jr.','Jr.':'Sr.','R-Jr.':'Sr.','Sr.':'Gr.','R-Sr.':'Gr.','Gr.':'—'}[yr]||yr;
+        const nextYr={'Fr.':'So.','R-Fr.':'So.','So.':'Jr.','R-So.':'Jr.','Jr.':'Sr.','R-Jr.':'Sr.','Sr.':'Gr.','R-Sr.':'Gr.','Gr.':'Gr.'}[yr]||(p._isSr?'Final':'?');
+        const srBadge=p._isSr?`<span style="font-size:8px;font-weight:700;padding:1px 3px;background:rgba(180,50,0,.1);color:#cc3300;margin-left:3px;">FINAL</span>`:'';
         const transBadge=p._transferFactor&&Math.abs(p._transferFactor-1)>0.05?`<span style="font-size:8px;font-weight:700;padding:1px 3px;background:rgba(26,95,191,.1);color:#1a5fbf;margin-left:3px;">×${r1t(p._transferFactor)}</span>`:'';
         const froshBadge=p._isFrosh?`<span style="font-size:8px;font-weight:700;padding:1px 3px;background:rgba(139,105,20,.12);color:var(--accent);margin-left:3px;">EST</span>`:'';
         return `
@@ -1148,7 +1169,7 @@ function renderProjections(players, conf, color, rgb, gp){
           <div class="rot-pos" style="${isStarter?`color:${color};`:''}">${p.position||''}</div>
           <div class="rot-name">
             <a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team)}" style="color:inherit;text-decoration:none;font-weight:${isStarter?700:500};">${p.name}</a>
-            ${froshBadge}${transBadge}
+            ${froshBadge}${transBadge}${srBadge}
           </div>
           <div class="rot-cls" style="color:var(--accent);font-size:11px;">${nextYr}</div>
           <div class="rot-stat" style="font-size:11px;color:var(--text3);">${p.height||'—'}</div>
