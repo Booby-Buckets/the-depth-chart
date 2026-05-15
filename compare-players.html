@@ -164,13 +164,24 @@ let selected = [null, null];
 let teamColors = {};
 
 async function load(){
-  const [pr, tr] = await Promise.all([
-    fetch(`${SB}/rest/v1/players?select=*&limit=5000&order=name.asc`,{headers:H}),
-    fetch(`${SB}/rest/v1/teams?select=name,color&order=name.asc`,{headers:H})
-  ]);
-  allPlayers = (await pr.json()).filter(p=>p.name&&p.name!=='—');
+  const tr = await fetch(`${SB}/rest/v1/teams?select=name,color&order=name.asc`,{headers:H});
   const teams = await tr.json();
   teams.forEach(t=>teamColors[t.name]=t.color);
+
+  // Paginate to get all players
+  let page=0;
+  const PAGE=1000;
+  while(true){
+    const from=page*PAGE, to=from+PAGE-1;
+    const pr = await fetch(`${SB}/rest/v1/players?select=*&order=name.asc&name=neq.—`,
+      {headers:{...H,'Range-Unit':'items','Range':`${from}-${to}`}});
+    const batch = await pr.json();
+    if(!Array.isArray(batch)||!batch.length) break;
+    allPlayers = allPlayers.concat(batch.filter(p=>p.name&&p.name!=='—'));
+    if(batch.length<PAGE) break;
+    page++;
+  }
+  console.log('Loaded players:', allPlayers.length);
 }
 
 function searchPlayers(slot, query){
