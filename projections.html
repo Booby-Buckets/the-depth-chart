@@ -255,46 +255,175 @@ function r1(v){return v!=null?Math.round(v*10)/10:null;}
 function fmt(v){return v!=null&&v!==''?Number(v).toFixed(1):'—';}
 function fmtP(v){return v!=null&&v!==''?Number(v).toFixed(1)+'%':'—';}
 
+
+// ── CONFERENCE TRANSLATION MATRIX ─────────────────────────
+// Your custom tier system — row=origin tier, col=destination tier
+const CONF_TIERS = {
+  // Tier 1 — Power conferences
+  'B10':1,'SEC':1,'BIG-12':1,'ACC':1,
+  // Tier 2
+  'Big-East':2,'A10':2,'WCC':2,'PAC-12':2,
+  // Tier 3
+  'MWC':3,'AAC':3,
+  // Tier 4
+  'MVC':4,'WAC':4,'Big West':4,'CUSA':4,'MAC':4,
+  // Tier 5
+  'Big Sky':5,'CAA':5,'Horizon':5,'Sun Belt':5,'Big South':5,'SBC':5,'BSouth':5,
+  // Tier 6
+  'Ivy':6,'Summit':6,'SoCon':6,'ASUN':6,'MAAC':6,'OVC':6,
+  // Tier 7
+  'Patriot':7,'SWAC':7,'NEC':7,'AEC':7,'MEAC':7,
+};
+
+// ACC gets slightly different outgoing factors (1.10/1.25 vs 1.15/1.28)
+// We handle this with a small ACC modifier
+const ACC_OUTGOING = {1:1.00,2:1.10,3:1.25,4:1.40,5:1.40,6:1.40,7:1.40};
+
+// Full translation matrix [originTier][destTier]
+const TRANS_MATRIX = {
+  1: {1:1.00, 2:1.15, 3:1.28, 4:1.40, 5:1.40, 6:1.40, 7:1.40},
+  2: {1:0.90, 2:1.00, 3:1.15, 4:1.20, 5:1.20, 6:1.20, 7:1.20},
+  3: {1:0.75, 2:0.90, 3:1.00, 4:1.05, 5:1.10, 6:1.10, 7:1.10},
+  4: {1:0.49, 2:0.68, 3:0.82, 4:1.00, 5:1.05, 6:1.05, 7:1.05},
+  5: {1:0.43, 2:0.49, 3:0.69, 4:0.82, 5:1.00, 6:1.00, 7:1.00},
+  6: {1:0.40, 2:0.42, 3:0.50, 4:0.69, 5:0.82, 6:1.00, 7:1.00},
+  7: {1:0.30, 2:0.34, 3:0.42, 4:0.48, 5:0.69, 6:0.82, 7:1.00},
+};
+
+function getTransFactor(originConf, destConf){
+  if(!originConf||!destConf) return 1.0;
+  // Same conference — no adjustment needed
+  if(originConf===destConf) return 1.0;
+  const originTier = CONF_TIERS[originConf] || 4;
+  const destTier   = CONF_TIERS[destConf]   || 4;
+  if(originTier===destTier) return 1.0;
+  // Use ACC-specific outgoing factors if origin is ACC
+  if(originConf==='ACC') return ACC_OUTGOING[destTier]||1.0;
+  const row = TRANS_MATRIX[originTier];
+  if(!row) return 1.0;
+  return row[destTier] || 1.0;
+}
+
+
+function gradeTransBoost(grade){
+  const g = parseFloat(grade)||70;
+  if(g >= 90) return 1.22;
+  if(g >= 85) return 1.14;
+  if(g >= 80) return 1.07;
+  if(g >= 75) return 1.02;
+  if(g >= 70) return 0.97;
+  if(g >= 65) return 0.91;
+  return 0.85;
+}
 function projectPlayer(p){
   const yr=(p.yr||p.class_year||'').toLowerCase();
   const isFr=yr.includes('fr.')||yr.includes('r-fr');
-  const isSr=yr.includes('sr.')||yr.includes('gr.');
+  const isSo=yr.includes('so.')||yr.includes('r-so.');
+  const isJr=yr.includes('jr.')||yr.includes('r-jr.');
+  const isSr=yr.includes('sr.')||yr.includes('r-sr.')||yr.includes('gr.');
   const pos=p.position||'G';
   const base=POS_BASE[pos]||POS_BASE['G'];
   const conf=teamConfs[p.team]||'';
-  const cm=CONF_MULT[conf]||0.85;
+  const destMult=CONF_MULT[conf]||0.85;
   const grade=parseFloat(p.tdc_grade)||70;
   const depth=p.depth_order||8;
   const hasStats=p.ppg&&parseFloat(p.ppg)>0;
+  const isTransfer=p.hometown&&p.hometown.trim()!=='';
 
-  if(isSr) return null;
+  // Seniors / Grad students who used eligibility — remove
+  if(isSr&&!yr.includes('r-sr.')&&!yr.includes('r-jr.')) return null;
 
+  // ── TRANSFER TRANSLATION + GRADE MODIFIER ───────────────
+  let transferFactor=1.0;
+  let originConf=null;
+  if(isTransfer&&hasStats){
+    originConf=getSchoolConf(p.hometown);
+    if(originConf){
+      const rawFactor=getTransFactor(originConf, conf);
+      const gBoost=gradeTransBoost(grade);
+      // Grade boosts the translation — better players from weak conferences
+      // retain more of their stats. Worse players get more deflation.
+      transferFactor=rawFactor*gBoost;
+      transferFactor=Math.max(0.20,Math.min(1.6,transferFactor));
+    }
+  }
+
+  // ── FRESHMAN PROJECTION ─────────────────────────────────
   if(isFr&&!hasStats){
-    const gm=grade>=88?0.82:grade>=82?0.65:grade>=75?0.48:grade>=68?0.32:0.18;
-    const dm=depth<=5?1.0:0.55;
-    const t=gm*dm*cm;
-    const proj={...p,_isFrosh:true,_conf:conf};
-    Object.keys(base).forEach(k=>{proj[k]=k.includes('pct')?r1(base[k]):r1(base[k]*t);});
+    const gm=grade>=90?0.85:grade>=85?0.72:grade>=80?0.58:grade>=75?0.44:grade>=70?0.32:grade>=65?0.22:0.14;
+    const dm=depth<=2?1.1:depth<=5?1.0:depth<=8?0.65:0.40;
+    const t=gm*dm*destMult;
+    const proj={...p,_isFrosh:true,_conf:conf,_grade:grade,_depth:depth};
+    // Counting stats scale with t, percentages use baseline
+    ['ppg','rpg','apg','mpg','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','stl','blk','tovs'].forEach(k=>{
+      proj[k]=r1((base[k]||0)*t);
+    });
+    proj.fg_pct=r1(base.fg_pct*(0.85+(grade-60)/400)); // slightly below baseline FG%
+    proj.tp_pct=r1(base.tp_pct*(0.85+(grade-60)/400));
+    proj.ft_pct=r1(base.ft_pct*(0.90+(grade-60)/500));
     return proj;
   }
 
   if(!hasStats) return null;
 
-  const ym=yr.includes('so.')||yr.includes('r-so.')?1.06:yr.includes('jr.')||yr.includes('r-jr.')?1.08:yr.includes('sr.')||yr.includes('r-sr.')?1.02:1.04;
+  // ── RETURNING PLAYER PROJECTION ──────────────────────────
+  // Year-specific multipliers — more nuanced than flat %
+  // Sophomores see biggest leap, juniors steady growth, seniors slight decline or flat
+  let ym, roleMultiplier;
+
+  if(isFr&&hasStats){
+    // Freshman with stats — project sophomore leap (biggest jump)
+    ym=1.12; // avg freshman → sophomore improvement
+    roleMultiplier=depth<=5?1.05:1.0;
+  } else if(isSo){
+    // Sophomore → Junior: continued growth but smaller
+    ym=1.07;
+    roleMultiplier=depth<=3?1.06:depth<=5?1.03:1.0;
+  } else if(isJr){
+    // Junior → Senior: peak years, less growth
+    ym=1.04;
+    roleMultiplier=depth<=5?1.02:0.98;
+  } else {
+    // Default (grad transfer etc)
+    ym=1.02;
+    roleMultiplier=1.0;
+  }
+
+  // Grade modifier — better players project to improve more
+  const gradeBoost=grade>=88?1.04:grade>=82?1.02:grade>=75?1.00:grade>=68?0.98:0.95;
+
+  // Final multiplier for counting stats
+  const finalMult=ym*roleMultiplier*gradeBoost*transferFactor;
+  // Efficiency stats improve less dramatically
+  const effMult=1+(finalMult-1)*0.35;
+
+  const s=v=>parseFloat(p[v])||0;
 
   return {
-    ...p, _isFrosh:false, _conf:conf,
-    ppg:r1(parseFloat(p.ppg)*ym), rpg:r1(parseFloat(p.rpg)*ym), apg:r1(parseFloat(p.apg)*ym),
-    mpg:r1(Math.min(36,parseFloat(p.mpg)*(1+(ym-1)*0.5))),
-    fgm:r1(parseFloat(p.fgm||0)*ym), fga:r1(parseFloat(p.fga||0)*ym),
-    fg_pct:r1(Math.min(65,parseFloat(p.fg_pct||42)*(1+(ym-1)*0.3))),
-    tpm:r1(parseFloat(p.tpm||0)*ym), tpa:r1(parseFloat(p.tpa||0)*ym),
-    tp_pct:r1(Math.min(50,parseFloat(p.tp_pct||35)*(1+(ym-1)*0.3))),
-    ftm:r1(parseFloat(p.ftm||0)*ym), fta:r1(parseFloat(p.fta||0)*ym),
-    ft_pct:r1(Math.min(95,parseFloat(p.ft_pct||70)*(1+(ym-1)*0.2))),
-    oreb:r1(parseFloat(p.oreb||0)*ym), dreb:r1(parseFloat(p.dreb||0)*ym),
-    stl:r1(parseFloat(p.stl||0)*ym), blk:r1(parseFloat(p.blk||0)*ym),
-    tovs:r1(parseFloat(p.tovs||0)*ym),
+    ...p,
+    _isFrosh:false,
+    _conf:conf,
+    _transferFactor:transferFactor,
+    _originConf:originConf,
+    _isTransfer:isTransfer,
+    ppg: r1(s('ppg')*finalMult),
+    rpg: r1(s('rpg')*finalMult),
+    apg: r1(s('apg')*finalMult),
+    mpg: r1(Math.min(36, s('mpg')*(1+(finalMult-1)*0.4))),
+    fgm: r1(s('fgm')*finalMult),
+    fga: r1(s('fga')*finalMult),
+    fg_pct: r1(Math.min(65, s('fg_pct')*(1+(effMult-1)))),
+    tpm: r1(s('tpm')*finalMult),
+    tpa: r1(s('tpa')*finalMult),
+    tp_pct: r1(Math.min(50, s('tp_pct')*(1+(effMult-1)))),
+    ftm: r1(s('ftm')*finalMult),
+    fta: r1(s('fta')*finalMult),
+    ft_pct: r1(Math.min(95, s('ft_pct')*(1+(effMult-1)*0.5))),
+    oreb: r1(s('oreb')*finalMult),
+    dreb: r1(s('dreb')*finalMult),
+    stl: r1(s('stl')*finalMult),
+    blk: r1(s('blk')*finalMult),
+    tovs: r1(s('tovs')*finalMult),
   };
 }
 
@@ -390,7 +519,7 @@ function renderTable(players){
           return `<tr>
             <td class="left"><span class="td-grade" style="color:${gc(p.tdc_grade)};font-family:'Playfair Display',serif;font-weight:800;font-size:15px;">${p.tdc_grade||'—'}</span></td>
             <td class="left">
-              <div class="td-name" onclick="location='player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team)}'">${p.name}${p._isFrosh?'<span class="proj-badge">EST</span>':''}</div>
+              <div class="td-name" onclick="location='player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team)}'">${p.name}${p._isFrosh?'<span class="proj-badge">EST</span>':''}${p._isTransfer&&p._originConf?`<span class="proj-badge" style="background:rgba(26,95,191,.1);color:#1a5fbf;">${p._originConf}→${p._conf||'?'}</span>`:''}</div>
             </td>
             <td class="left"><a href="team.html?team=${encodeURIComponent(p.team)}" style="font-size:11px;font-weight:700;padding:2px 6px;background:${color};color:#fff;text-decoration:none;border-radius:2px;">${p.team||'—'}</a></td>
             <td><span class="yr-badge">${yr}</span></td>

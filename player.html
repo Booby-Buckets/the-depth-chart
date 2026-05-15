@@ -102,7 +102,32 @@
 const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H={apikey:KEY,Authorization:`Bearer ${KEY}`};
-const CONF_MULT={'SEC':1.00,'B10':1.00,'BIG-12':1.00,'Big-East':0.98,'ACC':0.97,'PAC-12':0.94,'A10':0.88,'AAC':0.87,'WCC':0.85,'MVC':0.82,'Big South':0.78};
+const CONF_TIERS_P = {
+  'B10':1,'SEC':1,'BIG-12':1,'ACC':1,
+  'Big-East':2,'A10':2,'WCC':2,'PAC-12':2,
+  'MWC':3,'AAC':3,
+  'MVC':4,'WAC':4,'Big West':4,'CUSA':4,'MAC':4,
+  'Big Sky':5,'CAA':5,'Horizon':5,'Sun Belt':5,'Big South':5,'SBC':5,'BSouth':5,
+  'Ivy':6,'Summit':6,'SoCon':6,'ASUN':6,'MAAC':6,'OVC':6,
+  'Patriot':7,'SWAC':7,'NEC':7,'AEC':7,'MEAC':7,
+};
+const ACC_OUT_P={1:1.00,2:1.10,3:1.25,4:1.40,5:1.40,6:1.40,7:1.40};
+const TRANS_MAT_P={
+  1:{1:1.00,2:1.15,3:1.28,4:1.40,5:1.40,6:1.40,7:1.40},
+  2:{1:0.90,2:1.00,3:1.15,4:1.20,5:1.20,6:1.20,7:1.20},
+  3:{1:0.75,2:0.90,3:1.00,4:1.05,5:1.10,6:1.10,7:1.10},
+  4:{1:0.49,2:0.68,3:0.82,4:1.00,5:1.05,6:1.05,7:1.05},
+  5:{1:0.43,2:0.49,3:0.69,4:0.82,5:1.00,6:1.00,7:1.00},
+  6:{1:0.40,2:0.42,3:0.50,4:0.69,5:0.82,6:1.00,7:1.00},
+  7:{1:0.30,2:0.34,3:0.42,4:0.48,5:0.69,6:0.82,7:1.00},
+};
+function getTransFactorP(o,d){
+  if(!o||!d||o===d) return 1.0;
+  const ot=CONF_TIERS_P[o]||4, dt=CONF_TIERS_P[d]||4;
+  if(ot===dt) return 1.0;
+  if(o==='ACC') return ACC_OUT_P[dt]||1.0;
+  return (TRANS_MAT_P[ot]||{})[dt]||1.0;
+}
 const POS_BASE={'PG':{ppg:10.5,rpg:3.2,apg:4.1,mpg:26,fg_pct:42,tp_pct:36,ft_pct:75,stl:1.2,blk:0.2},'SG':{ppg:11.2,rpg:3.8,apg:2.2,mpg:26,fg_pct:42,tp_pct:37,ft_pct:76,stl:1.0,blk:0.3},'CG':{ppg:10.8,rpg:3.5,apg:3.0,mpg:26,fg_pct:42,tp_pct:36,ft_pct:75,stl:1.1,blk:0.2},'SF':{ppg:10.8,rpg:5.2,apg:1.8,mpg:26,fg_pct:43,tp_pct:37,ft_pct:72,stl:0.9,blk:0.5},'PF':{ppg:10.2,rpg:6.8,apg:1.2,mpg:24,fg_pct:45,tp_pct:33,ft_pct:69,stl:0.6,blk:1.1},'C':{ppg:9.8,rpg:7.4,apg:0.9,mpg:22,fg_pct:49,tp_pct:30,ft_pct:66,stl:0.4,blk:1.6},'G':{ppg:10.0,rpg:3.5,apg:3.0,mpg:25,fg_pct:42,tp_pct:35,ft_pct:74,stl:1.1,blk:0.2},'F':{ppg:10.5,rpg:6.0,apg:1.5,mpg:25,fg_pct:44,tp_pct:35,ft_pct:70,stl:0.7,blk:0.8}};
 let player=null,teamData=null,allPlayers=[],gPct={};
 
@@ -156,42 +181,108 @@ function r1(v){return v!=null?Math.round(v*10)/10:null;}
 function fmt(v){return v!=null&&v!==''?Number(v).toFixed(1):'—';}
 function fmtPct(v){return v!=null&&v!==''?Number(v).toFixed(1)+'%':'—';}
 
+const SCHOOL_CONF_MAP_P=(function(){
+  const m={};
+  [['Alabama','Arkansas','Auburn','Florida','Georgia','Kentucky','LSU','Mississippi State','Missouri','Ole Miss','South Carolina','Tennessee','Texas','Texas A&M','Vanderbilt','Oklahoma'],'SEC'],
+  [['Illinois','Indiana','Iowa','Maryland','Michigan','Michigan State','Minnesota','Nebraska','Northwestern','Ohio State','Penn State','Purdue','Rutgers','Wisconsin','UCLA','USC','Oregon','Washington'],'B10'],
+  [['Arizona','Arizona State','Baylor','BYU','Cincinnati','Colorado','Houston','Iowa State','Kansas','Kansas State','Oklahoma State','TCU','Texas Tech','UCF','Utah','West Virginia'],'BIG-12'],
+  [['Butler','Connecticut','Creighton','DePaul','Georgetown','Marquette','Providence','Seton Hall',"St. John's",'Villanova','Xavier'],'Big-East'],
+  [['Boston College','Clemson','Duke','Florida State','Georgia Tech','Louisville','Miami','NC State','North Carolina','Notre Dame','Pittsburgh','Syracuse','Virginia','Virginia Tech','Wake Forest','California','SMU','Stanford'],'ACC'],
+  [['Gonzaga','San Diego State','Colorado State','Boise State','Utah State','Nevada','New Mexico','Fresno State','Air Force','Wyoming','Oregon State','Washington State','Texas State'],'PAC-12'],
+  [['Dayton','Davidson','Duquesne','Fordham','George Mason','George Washington','La Salle','Loyola Chicago','Rhode Island','Richmond',"Saint Joseph's",'Saint Louis','St. Bonaventure','VCU','Massachusetts'],'A10'],
+  [['Charlotte','East Carolina','Florida Atlantic','Memphis','North Texas','Rice','South Florida','Temple','Tulane','Tulsa','UAB','UTSA','Wichita State'],'AAC'],
+  [['Winthrop','Campbell','Charleston Southern','Gardner-Webb','High Point','Longwood','Presbyterian','Radford','UNC Asheville'],'Big South'],
+  [['Samford','Furman','Chattanooga','ETSU','Mercer','VMI','Western Carolina','Wofford','The Citadel'],'SoCon'],
+  [['Liberty','Belmont','Lipscomb','FGCU','Florida Gulf Coast','North Alabama','Jacksonville','Stetson','Austin Peay','Eastern Kentucky','Morehead State','Murray State'],'ASUN'],
+  ].forEach(pair=>{if(pair&&pair[0]&&pair[1])pair[0].forEach(s=>m[s.toLowerCase()]=pair[1]);});
+  return m;
+})();
+
+function getSchoolConfP(school){
+  if(!school) return null;
+  const lower=school.toLowerCase().trim();
+  if(SCHOOL_CONF_MAP_P[lower]) return SCHOOL_CONF_MAP_P[lower];
+  for(const key of Object.keys(SCHOOL_CONF_MAP_P)){
+    if(lower.includes(key)||key.includes(lower)) return SCHOOL_CONF_MAP_P[key];
+  }
+  return null;
+}
+
+
+function gradeTransBoostP(grade){
+  const g = parseFloat(grade)||70;
+  if(g >= 90) return 1.22;
+  if(g >= 85) return 1.14;
+  if(g >= 80) return 1.07;
+  if(g >= 75) return 1.02;
+  if(g >= 70) return 0.97;
+  if(g >= 65) return 0.91;
+  return 0.85;
+}
 function projectPlayer(p){
   const yr=(p.yr||p.class_year||'').toLowerCase();
   const isFr=yr.includes('fr.')||yr.includes('r-fr');
-  const isSr=yr.includes('sr.')||yr.includes('gr.');
+  const isSo=yr.includes('so.')||yr.includes('r-so.');
+  const isJr=yr.includes('jr.')||yr.includes('r-jr.');
+  const isSr=yr.includes('sr.')||yr.includes('r-sr.')||yr.includes('gr.');
   const pos=p.position||'G';
   const base=POS_BASE[pos]||POS_BASE['G'];
   const conf=teamData?.conf||'';
-  const cm=CONF_MULT[conf]||0.85;
   const grade=parseFloat(p.tdc_grade)||70;
   const depth=p.depth_order||8;
   const hasStats=p.ppg&&parseFloat(p.ppg)>0;
+  const isTransfer=p.hometown&&p.hometown.trim()!=='';
 
-  if(isSr) return {note:'Player has graduated — no projection available.'};
+  if(isSr&&!yr.includes('r-sr.')&&!yr.includes('r-jr.')) return {note:'Player has graduated — no projection available.'};
+
+  // Transfer translation
+  let transferFactor=1.0;
+  let originConf=null;
+  if(isTransfer&&hasStats){
+    originConf=getSchoolConfP(p.hometown);
+    if(originConf){
+      const rawFactor=getTransFactorP(originConf,conf);
+      const gBoost=gradeTransBoostP(grade);
+      transferFactor=rawFactor*gBoost;
+      transferFactor=Math.max(0.20,Math.min(1.6,transferFactor));
+    }
+  }
 
   if(isFr&&!hasStats){
-    const gm=grade>=88?0.82:grade>=82?0.65:grade>=75?0.48:grade>=68?0.32:0.18;
-    const dm=depth<=5?1.0:0.55;
-    const t=gm*dm*cm;
-    return {ppg:r1(base.ppg*t),rpg:r1(base.rpg*t),apg:r1(base.apg*t),mpg:r1(base.mpg*t),fg_pct:r1(base.fg_pct),tp_pct:r1(base.tp_pct),ft_pct:r1(base.ft_pct),stl:r1(base.stl*t),blk:r1(base.blk*t),isFrosh:true};
+    const gm=grade>=90?0.85:grade>=85?0.72:grade>=80?0.58:grade>=75?0.44:grade>=70?0.32:grade>=65?0.22:0.14;
+    const dm=depth<=2?1.1:depth<=5?1.0:depth<=8?0.65:0.40;
+    const t=gm*dm*destMult;
+    return {
+      ppg:r1((base.ppg||0)*t),rpg:r1((base.rpg||0)*t),apg:r1((base.apg||0)*t),
+      mpg:r1((base.mpg||0)*t),stl:r1((base.stl||0)*t),blk:r1((base.blk||0)*t),
+      fg_pct:r1(base.fg_pct*(0.85+(grade-60)/400)),
+      tp_pct:r1(base.tp_pct*(0.85+(grade-60)/400)),
+      ft_pct:r1(base.ft_pct*(0.90+(grade-60)/500)),
+      isFrosh:true,
+    };
   }
 
   if(!hasStats) return {note:'No stats available for projection.'};
 
-  // Year progression multipliers
-  const ym=yr.includes('so.')||yr.includes('r-so.')?1.06:yr.includes('jr.')||yr.includes('r-jr.')?1.08:yr.includes('sr.')||yr.includes('r-sr.')?1.02:1.04;
+  let ym,roleMultiplier;
+  if(isFr&&hasStats){ym=1.12;roleMultiplier=depth<=5?1.05:1.0;}
+  else if(isSo){ym=1.07;roleMultiplier=depth<=3?1.06:depth<=5?1.03:1.0;}
+  else if(isJr){ym=1.04;roleMultiplier=depth<=5?1.02:0.98;}
+  else{ym=1.02;roleMultiplier=1.0;}
+
+  const gradeBoost=grade>=88?1.04:grade>=82?1.02:grade>=75?1.00:grade>=68?0.98:0.95;
+  const finalMult=ym*roleMultiplier*gradeBoost*transferFactor;
+  const effMult=1+(finalMult-1)*0.35;
+  const s=v=>parseFloat(p[v])||0;
 
   return {
-    ppg:r1(parseFloat(p.ppg)*ym),
-    rpg:r1(parseFloat(p.rpg)*ym),
-    apg:r1(parseFloat(p.apg)*ym),
-    mpg:r1(Math.min(36,parseFloat(p.mpg)*(1+(ym-1)*0.5))),
-    fg_pct:r1(Math.min(65,parseFloat(p.fg_pct)*(1+(ym-1)*0.3))),
-    tp_pct:r1(Math.min(50,parseFloat(p.tp_pct)*(1+(ym-1)*0.3))),
-    ft_pct:r1(Math.min(95,parseFloat(p.ft_pct)*(1+(ym-1)*0.2))),
-    stl:r1(parseFloat(p.stl)*ym),
-    blk:r1(parseFloat(p.blk)*ym),
+    ppg:r1(s('ppg')*finalMult), rpg:r1(s('rpg')*finalMult), apg:r1(s('apg')*finalMult),
+    mpg:r1(Math.min(36,s('mpg')*(1+(finalMult-1)*0.4))),
+    fg_pct:r1(Math.min(65,s('fg_pct')*(1+(effMult-1)))),
+    tp_pct:r1(Math.min(50,s('tp_pct')*(1+(effMult-1)))),
+    ft_pct:r1(Math.min(95,s('ft_pct')*(1+(effMult-1)*0.5))),
+    stl:r1(s('stl')*finalMult), blk:r1(s('blk')*finalMult),
+    _transferFactor:transferFactor, _originConf:originConf,
   };
 }
 
