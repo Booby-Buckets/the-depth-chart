@@ -254,6 +254,7 @@
     <a href="roster.html">Players</a>
     <a href="compare-players.html">Compare</a>
     <a href="analytics.html">Analytics</a>
+    <a href="projections.html">Projections</a>
     <a href="community.html">Community</a>
     <a href="#" class="active">Teams</a>
     <a href="account.html">Account</a>
@@ -391,6 +392,8 @@ async function loadTeam(name){
     const teamRgb   = hex2rgb(teamColor);
 
     renderHero(t, teamColor, teamRgb);
+    // Store globally for projection slider
+    teamPlayers=[...players]; teamConf=t.conf||t.conference||''; teamGp=globalPercentiles; teamColor_g=teamColor; teamRgb_g=teamRgb; teamT=t;
     renderDepth(t, players, teamColor, teamRgb, globalPercentiles);
     renderSidebar(t, players, losses, teamColor);
     renderLosses(losses, globalPercentiles);
@@ -487,6 +490,88 @@ function statColor(val, key, gp){
   return `background:rgba(${r},${g},${b},0.15);color:rgb(${Math.round(r*0.7)},${Math.round(g*0.7)},${Math.round(b*0.7)});font-weight:700;`;
 }
 
+// ── PROJECTION SYSTEM ────────────────────────────────────
+const CONF_MULT_TEAM = {'SEC':1.00,'B10':1.00,'BIG-12':1.00,'Big-East':0.98,'ACC':0.97,'PAC-12':0.94,'A10':0.88,'AAC':0.87,'WCC':0.85,'MVC':0.82,'Big South':0.78};
+const POS_BASE_TEAM = {
+  'PG':{ppg:10.5,rpg:3.2,apg:4.1,mpg:26,fg_pct:42,tp_pct:36,ft_pct:75,stl:1.2,blk:0.2,fgm:3.4,fga:8.2,tpm:1.8,tpa:5.0,ftm:1.8,fta:2.4,oreb:0.5,dreb:2.7,tovs:2.1},
+  'SG':{ppg:11.2,rpg:3.8,apg:2.2,mpg:26,fg_pct:42,tp_pct:37,ft_pct:76,stl:1.0,blk:0.3,fgm:3.8,fga:9.0,tpm:1.9,tpa:5.2,ftm:1.6,fta:2.1,oreb:0.7,dreb:3.1,tovs:1.8},
+  'CG':{ppg:10.8,rpg:3.5,apg:3.0,mpg:26,fg_pct:42,tp_pct:36,ft_pct:75,stl:1.1,blk:0.2,fgm:3.6,fga:8.6,tpm:1.8,tpa:5.0,ftm:1.6,fta:2.2,oreb:0.6,dreb:2.9,tovs:1.9},
+  'SF':{ppg:10.8,rpg:5.2,apg:1.8,mpg:26,fg_pct:43,tp_pct:37,ft_pct:72,stl:0.9,blk:0.5,fgm:3.6,fga:8.4,tpm:1.4,tpa:3.8,ftm:1.8,fta:2.5,oreb:1.4,dreb:3.8,tovs:1.8},
+  'PF':{ppg:10.2,rpg:6.8,apg:1.2,mpg:24,fg_pct:45,tp_pct:33,ft_pct:69,stl:0.6,blk:1.1,fgm:3.5,fga:7.8,tpm:0.6,tpa:1.8,ftm:2.0,fta:2.9,oreb:2.4,dreb:4.4,tovs:1.7},
+  'C': {ppg:9.8, rpg:7.4,apg:0.9,mpg:22,fg_pct:49,tp_pct:30,ft_pct:66,stl:0.4,blk:1.6,fgm:3.5,fga:7.2,tpm:0.2,tpa:0.5,ftm:2.1,fta:3.2,oreb:2.8,dreb:4.6,tovs:1.8},
+  'G': {ppg:10.0,rpg:3.5,apg:3.0,mpg:25,fg_pct:42,tp_pct:35,ft_pct:74,stl:1.1,blk:0.2,fgm:3.5,fga:8.4,tpm:1.7,tpa:4.8,ftm:1.7,fta:2.3,oreb:0.6,dreb:2.8,tovs:2.0},
+  'F': {ppg:10.5,rpg:6.0,apg:1.5,mpg:25,fg_pct:44,tp_pct:35,ft_pct:70,stl:0.7,blk:0.8,fgm:3.6,fga:8.1,tpm:1.0,tpa:2.8,ftm:1.9,fta:2.7,oreb:1.9,dreb:4.1,tovs:1.7},
+};
+
+function projectPlayer(p, confMult){
+  const yr=(p.yr||p.class_year||'').toLowerCase();
+  const isFr=yr.includes('fr.')||yr.includes('r-fr');
+  const isSr=yr.includes('sr.')||yr.includes('gr.');
+  const pos=p.position||'G';
+  const base=POS_BASE_TEAM[pos]||POS_BASE_TEAM['G'];
+  const grade=parseFloat(p.tdc_grade)||70;
+  const depth=p.depth_order||8;
+  const hasStats=p.ppg&&parseFloat(p.ppg)>0;
+
+  // Year progression multipliers
+  const ym=yr.includes('so.')||yr.includes('r-so.')?1.06:yr.includes('jr.')||yr.includes('r-jr.')?1.08:yr.includes('sr.')||yr.includes('r-sr.')?1.02:1.04;
+
+  if(isSr) return null; // graduated
+
+  if(isFr&&!hasStats){
+    const gm=grade>=88?0.82:grade>=82?0.65:grade>=75?0.48:grade>=68?0.32:0.18;
+    const dm=depth<=5?1.0:0.55;
+    const t=gm*dm*confMult;
+    const proj={};
+    Object.keys(base).forEach(k=>{ proj[k]=k.includes('pct')?base[k]:r1t(base[k]*t); });
+    proj._projected=true;
+    return proj;
+  }
+
+  if(!hasStats) return null;
+
+  const statKeys=['ppg','rpg','apg','mpg','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','stl','blk','tovs'];
+  const proj={fg_pct:r1t(Math.min(65,parseFloat(p.fg_pct||42)*(1+(ym-1)*0.3))),tp_pct:r1t(Math.min(50,parseFloat(p.tp_pct||35)*(1+(ym-1)*0.3))),ft_pct:r1t(Math.min(95,parseFloat(p.ft_pct||70)*(1+(ym-1)*0.2)))};
+  statKeys.forEach(k=>{ proj[k]=r1t(parseFloat(p[k]||0)*ym); });
+  return proj;
+}
+
+function r1t(v){return v!=null?Math.round(v*10)/10:null;}
+
+function blendStats(actual, projected, pct){
+  // pct=0 → pure actual, pct=100 → pure projected
+  if(!projected) return actual;
+  const t=pct/100;
+  const result={...actual};
+  const keys=['ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs'];
+  keys.forEach(k=>{
+    const a=parseFloat(actual[k])||0;
+    const b=parseFloat(projected[k])||0;
+    if(b>0) result[k]=r1t(a*(1-t)+b*t);
+  });
+  return result;
+}
+
+let projSliderVal=0;
+let teamPlayers=[];
+let teamConf='';
+let teamGp={};
+let teamColor_g='';
+let teamRgb_g='';
+let teamT={};
+
+function updateProjection(val){
+  projSliderVal=parseInt(val);
+  document.getElementById('projSliderVal').textContent=val===0?'2025-26 Actual':val===100?'2026-27 Projected':`${val}% Projected`;
+  if(!teamPlayers.length) return;
+  const confMult=CONF_MULT_TEAM[teamConf]||0.85;
+  const blended=teamPlayers.map(p=>{
+    const proj=projectPlayer(p,confMult);
+    return proj?blendStats(p,proj,projSliderVal):p;
+  });
+  renderDepth(teamT,blended,teamColor_g,teamRgb_g,teamGp);
+}
+
 function renderDepth(t, players, color, rgb, gp={}){
 
   // Strict sheet order
@@ -563,6 +648,19 @@ function renderDepth(t, players, color, rgb, gp={}){
   const fullListHtml = `
     <div class="rotation-section">
       <div class="rotation-head">Full Roster — ${visiblePlayers.length} Players</div>
+
+      <div style="display:flex;align-items:center;gap:16px;padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:8px;flex-wrap:wrap;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);">Season View</div>
+        <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:200px;">
+          <span style="font-size:11px;color:var(--text3);white-space:nowrap;">2025-26</span>
+          <input type="range" min="0" max="100" step="10" value="0" id="projSlider"
+            oninput="updateProjection(this.value)"
+            style="flex:1;accent-color:var(--accent);cursor:pointer;"/>
+          <span style="font-size:11px;color:var(--text3);white-space:nowrap;">2026-27</span>
+        </div>
+        <span id="projSliderVal" style="font-size:12px;font-weight:700;color:var(--accent);min-width:140px;text-align:right;">2025-26 Actual</span>
+      </div>
+
       <div class="color-toggle-wrap">
         <span class="color-toggle-label">Stat Colors</span>
         <label class="toggle-switch">
@@ -609,6 +707,7 @@ function renderDepth(t, players, color, rgb, gp={}){
           <a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team)}" style="color:inherit;text-decoration:none;">${p.name}</a>
           ${p.is_injured?'🏥':''}
           ${p.is_international?'🌍':''}
+          ${p._projected?`<span style="font-size:9px;font-weight:700;letter-spacing:.06em;padding:1px 4px;background:rgba(139,105,20,.15);color:var(--accent);margin-left:4px;">EST</span>`:''}
           ${isStarter?`<span style="font-size:9px;font-weight:700;letter-spacing:.08em;padding:1px 5px;background:rgba(${rgb},.15);color:${color};">★</span>`:''}
           ${p.starter?`<span style="font-size:9px;font-weight:700;letter-spacing:.08em;padding:1px 5px;background:rgba(${rgb},.15);color:${color};">*</span>`:''}
           ${p.hometown?`<span style="font-size:10px;color:var(--text3);font-style:italic;margin-left:6px;">via ${p.hometown}</span>`:''}
