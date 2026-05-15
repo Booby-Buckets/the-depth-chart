@@ -114,6 +114,7 @@
     <a href="index.html">Rankings</a>
     <a href="roster.html">Players</a>
     <a href="compare-players.html" class="active">Compare</a>
+    <a href="analytics.html">Analytics</a>
     <a href="community.html">Community</a>
     <a href="about.html">About</a>
     <a href="account.html">Account</a>
@@ -253,29 +254,28 @@ function renderComparison(){
   sec.classList.add('show');
 
   const g1 = gradeOrder(p1.tdc_grade), g2 = gradeOrder(p2.tdc_grade);
-  const gradeWinner = g1>=0&&g2>=0 ? (g1<g2?'winner':'loser') : '';
-  const gradeLoser  = g1>=0&&g2>=0 ? (g2<g1?'winner':'loser') : '';
-
+  const gradeWinner = g1>=0&&g2>=0?(g1<g2?'winner':'loser'):'';
+  const gradeLoser  = g1>=0&&g2>=0?(g2<g1?'winner':'loser'):'';
   const h1 = htToIn(p1.height), h2 = htToIn(p2.height);
 
   sec.innerHTML = `
     <div class="compare-header">
       <div class="compare-player-name" style="border-color:${c1};border-left:3px solid ${c1};">
-        ${p1.name}
+        <a href="player.html?name=${encodeURIComponent(p1.name)}&team=${encodeURIComponent(p1.team)}" style="color:inherit;text-decoration:none;">${p1.name}</a>
         <div style="font-size:12px;font-weight:500;color:var(--text3);margin-top:3px;">${p1.team} · ${p1.position||'—'}</div>
       </div>
       <div class="compare-vs">VS</div>
       <div class="compare-player-name right" style="border-color:${c2};border-right:3px solid ${c2};">
-        ${p2.name}
+        <a href="player.html?name=${encodeURIComponent(p2.name)}&team=${encodeURIComponent(p2.team)}" style="color:inherit;text-decoration:none;">${p2.name}</a>
         <div style="font-size:12px;font-weight:500;color:var(--text3);margin-top:3px;">${p2.team} · ${p2.position||'—'}</div>
       </div>
     </div>
 
     <div class="compare-section-head">Profile</div>
     <div class="compare-row">
-      <div class="compare-cell">${p1.height||'—'}</div>
+      <div class="compare-cell ${h1>h2?'winner':h1<h2?'loser':''}">${p1.height||'—'}</div>
       <div class="compare-label">Height</div>
-      <div class="compare-cell right ${h2>h1?'winner':h1>h2?'loser':''}">${p2.height||'—'}</div>
+      <div class="compare-cell right ${h2>h1?'winner':h2<h1?'loser':''}">${p2.height||'—'}</div>
     </div>
     <div class="compare-row">
       <div class="compare-cell">${p1.class_year||p1.yr||'—'}</div>
@@ -283,38 +283,75 @@ function renderComparison(){
       <div class="compare-cell right">${p2.class_year||p2.yr||'—'}</div>
     </div>
     <div class="compare-row">
+      <div class="compare-cell">${p1.position||'—'}</div>
+      <div class="compare-label">Position</div>
+      <div class="compare-cell right">${p2.position||'—'}</div>
+    </div>
+    <div class="compare-row">
       <div class="compare-cell ${gradeWinner} ${gc(p1.tdc_grade||'')}">${p1.tdc_grade||'—'}</div>
       <div class="compare-label">TDC Grade</div>
       <div class="compare-cell right ${gradeLoser} ${gc(p2.tdc_grade||'')}">${p2.tdc_grade||'—'}</div>
     </div>
+    <div class="compare-row">
+      <div class="compare-cell">${p1.hometown||'—'}</div>
+      <div class="compare-label">Via (Transfer)</div>
+      <div class="compare-cell right">${p2.hometown||'—'}</div>
+    </div>
 
-    <div class="compare-section-head">Stats</div>
+    <div class="compare-section-head">Scoring</div>
+    ${statRow('GP',  p1.gp,  p2.gp)}
     ${statRow('PPG', p1.ppg, p2.ppg)}
-    ${statRow('RPG', p1.rpg, p2.rpg)}
-    ${statRow('APG', p1.apg, p2.apg)}
     ${statRow('MPG', p1.mpg, p2.mpg)}
-    ${statRow('BPM', p1.bpm, p2.bpm)}
+
+    <div class="compare-section-head">Shooting</div>
+    ${statRow('FGM', p1.fgm, p2.fgm)}
+    ${statRow('FGA', p1.fga, p2.fga)}
+    ${statRow('FG%', p1.fg_pct, p2.fg_pct)}
+    ${statRow('3PM', p1.tpm, p2.tpm)}
+    ${statRow('3PA', p1.tpa, p2.tpa)}
+    ${statRow('3P%', p1.tp_pct, p2.tp_pct)}
+    ${statRow('FTM', p1.ftm, p2.ftm)}
+    ${statRow('FTA', p1.fta, p2.fta)}
+    ${statRow('FT%', p1.ft_pct, p2.ft_pct)}
+
+    <div class="compare-section-head">Rebounding</div>
+    ${statRow('RPG',  p1.rpg,  p2.rpg)}
+    ${statRow('OREB', p1.oreb, p2.oreb)}
+    ${statRow('DREB', p1.dreb, p2.dreb)}
+
+    <div class="compare-section-head">Playmaking & Defense</div>
+    ${statRow('APG', p1.apg,  p2.apg)}
+    ${statRow('STL', p1.stl,  p2.stl)}
+    ${statRow('BLK', p1.blk,  p2.blk)}
+    ${statRow('TO',  p1.tovs, p2.tovs, false)}
 
     <div class="compare-section-head">Advantage</div>
     <div class="compare-row">
-      <div class="compare-cell" style="font-size:13px;line-height:1.6;">${getAdvantages(p1,p2,1)}</div>
+      <div class="compare-cell" style="font-size:13px;line-height:1.8;">${getAdvantages(p1,p2,1)}</div>
       <div class="compare-label">Edge</div>
-      <div class="compare-cell right" style="font-size:13px;line-height:1.6;">${getAdvantages(p1,p2,2)}</div>
+      <div class="compare-cell right" style="font-size:13px;line-height:1.8;">${getAdvantages(p1,p2,2)}</div>
     </div>`;
 }
 
 function getAdvantages(p1, p2, forPlayer){
-  const edges = [];
-  const p = forPlayer===1?p1:p2;
-  const opp = forPlayer===1?p2:p1;
-  if((p.ppg||0)>(opp.ppg||0)) edges.push('Scoring');
-  if((p.rpg||0)>(opp.rpg||0)) edges.push('Rebounding');
-  if((p.apg||0)>(opp.apg||0)) edges.push('Playmaking');
-  if((p.bpm||0)>(opp.bpm||0)) edges.push('Impact (BPM)');
+  const p  = forPlayer===1?p1:p2;
+  const opp= forPlayer===1?p2:p1;
+  const edges=[];
+  const chk=(a,b,label,inv=false)=>{ const av=parseFloat(a)||0,bv=parseFloat(b)||0; if(inv?av<bv:av>bv) edges.push(label); };
+  chk(p.ppg,   opp.ppg,   'Scoring');
+  chk(p.rpg,   opp.rpg,   'Rebounding');
+  chk(p.apg,   opp.apg,   'Playmaking');
+  chk(p.fg_pct,opp.fg_pct,'FG Efficiency');
+  chk(p.tp_pct,opp.tp_pct,'3P Shooting');
+  chk(p.ft_pct,opp.ft_pct,'FT Shooting');
+  chk(p.stl,   opp.stl,   'Steals');
+  chk(p.blk,   opp.blk,   'Blocks');
+  chk(p.oreb,  opp.oreb,  'Off Rebounding');
+  chk(p.tovs,  opp.tovs,  'Ball Security',true);
   if(htToIn(p.height)>htToIn(opp.height)) edges.push('Size');
-  const pg = gradeOrder(p.tdc_grade), og = gradeOrder(opp.tdc_grade);
+  const pg=gradeOrder(p.tdc_grade),og=gradeOrder(opp.tdc_grade);
   if(pg>=0&&og>=0&&pg<og) edges.push('Overall Grade');
-  return edges.length ? edges.join('<br>') : '—';
+  return edges.length?edges.join('<br>'):'—';
 }
 
 // Close dropdowns on outside click
