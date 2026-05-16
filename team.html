@@ -500,7 +500,7 @@ async function loadTeam(name){
 
     // Fetch all players in DB for swap modal (name, team, position, grade)
     const allDbR = await fetch(
-      `${SB_URL}/rest/v1/players?select=id,name,team,position,tdc_grade,class_year,yr,depth_order&order=tdc_grade.desc&limit=5000`,
+      `${SB_URL}/rest/v1/players?select=id,name,team,position,tdc_grade,class_year,yr,depth_order,height,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,oreb,dreb,stl,blk,tovs,gp&order=tdc_grade.desc&limit=5000`,
       { headers: H }
     );
     allDbPlayers = (await allDbR.json()).filter(p=>p.name&&p.name!=='—');
@@ -1305,77 +1305,196 @@ function gradeToNum(g){
   return m[g]||70;
 }
 
-// ── POSITION FIT ENGINE ───────────────────────────────────
-// Returns { fitLabel, fitClass, adjGrade, reason }
-// adjGrade is the grade penalty/bonus on the player's base grade for playing this position
+// ── POSITION FIT ENGINE v2 ────────────────────────────────
+// Philosophy:
+// - Penalties are capped and gradual, not cliff edges
+// - A player's STATS can overcome height disadvantages
+// - Modern positionless trends are baked in (C at PF, big guards, etc.)
+// - adjGrade range: roughly -15 to +5 (natural = 0)
+// - Never penalize more than -15 total — a great player is great anywhere reasonable
+
 function calcPositionFit(p, targetPos){
   const naturalPos = p._naturalPos || p.position || 'G';
-  if(naturalPos === targetPos) return { fitLabel:'Natural', fitClass:'fit-great', adjGrade:0, reason:'' };
 
-  const heightIn = parseHeight(p.height);
-  const apg  = parseFloat(p.apg)  || 0;
-  const tovs = parseFloat(p.tovs) || 2;
-  const rpg  = parseFloat(p.rpg)  || 0;
-  const blk  = parseFloat(p.blk)  || 0;
-  const ppg  = parseFloat(p.ppg)  || 0;
-  const stl  = parseFloat(p.stl)  || 0;
+  // Natural position — check for adjacent positions that are truly fine
+  const natGroup = posGroup(naturalPos);
+  const tgtGroup = posGroup(targetPos);
+  if(naturalPos === targetPos) return { fitLabel:'Natural', fitClass:'fit-great', adjGrade:0, reason:'natural position' };
 
-  // Height expectations (inches): PG=74, SG=76, SF=78, PF=81, C=84
-  const HEIGHT_EXP = {PG:74, SG:76, SF:78, PF:81, C:84};
-  const expectedIn = HEIGHT_EXP[targetPos] || 78;
-  const heightDiff = heightIn - expectedIn; // positive = taller than expected, negative = shorter
+  const heightIn  = parseHeight(p.height);
+  const apg       = parseFloat(p.apg)   || 0;
+  const tovs      = parseFloat(p.tovs)  || 2.0;
+  const rpg       = parseFloat(p.rpg)   || 0;
+  const blk       = parseFloat(p.blk)   || 0;
+  const ppg       = parseFloat(p.ppg)   || 0;
+  const stl       = parseFloat(p.stl)   || 0;
+  const fg_pct    = parseFloat(p.fg_pct)|| 42;
+  const tp_pct    = parseFloat(p.tp_pct)|| 0;
+  const ft_pct    = parseFloat(p.ft_pct)|| 70;
+  const oreb      = parseFloat(p.oreb)  || 0;
+  const grade     = gradeToNum(p.tdc_grade||'');
+
+  // Derived metrics
+  const tov_ratio = apg > 0 ? tovs/apg : 99;  // lower = better ball handler
+  const scoring_eff = fg_pct > 0 ? fg_pct : 42;
+  const is3PThreat  = tp_pct >= 34 && parseFloat(p.tpa||0) >= 2;
+  const isEliteScorer = ppg >= 15 && scoring_eff >= 46;
+  const isEliteRebounder = rpg >= 7 || (rpg >= 5 && oreb >= 2);
+  const isShooter = tp_pct >= 37 && parseFloat(p.tpa||0) >= 3;
 
   let adj = 0;
   let reasons = [];
 
-  // ── SIZE FIT ──
+  // ── HEIGHT vs POSITION ────────────────────────────────
+  // Soft thresholds — stats can partially offset height
+  // Height norms: PG≈74", SG≈76", SF≈78", PF≈81", C≈84"
+
   if(targetPos === 'C'){
-    if(heightIn < 76){ adj -= 18; reasons.push('too short for C'); }
-    else if(heightIn < 79){ adj -= 10; reasons.push('undersized C'); }
-    else if(heightIn < 82){ adj -= 4; reasons.push('slightly short C'); }
-    // Rebounding check for C
-    if(rpg < 3) { adj -= 8; reasons.push('low rebounding'); }
-    else if(rpg >= 6) { adj += 4; reasons.push('strong rebounder'); }
-    if(blk >= 1.5) { adj += 3; reasons.push('shot-blocker'); }
+    if(heightIn >= 84)       { /* ideal */ }
+    else if(heightIn >= 82)  { adj -= 1; }
+    else if(heightIn >= 80)  { adj -= 4; reasons.push('undersized C'); }
+    else if(heightIn >= 78)  { adj -= 8; reasons.push('short for C');
+      // Modern big — can offset with rebounding/blocking
+      if(isEliteRebounder) { adj += 4; reasons.push('elite rebounder compensates'); }
+    }
+    else if(heightIn >= 76)  { adj -= 12; reasons.push('very undersized C');
+      if(isEliteRebounder) adj += 3;
+    }
+    else                     { adj -= 15; reasons.push('too short for C'); }
+
+    // C-specific skills
+    if(rpg >= 8)        { adj += 3; reasons.push('dominant rebounder'); }
+    else if(rpg >= 6)   { adj += 1; }
+    else if(rpg < 3)    { adj -= 4; reasons.push('low rebounds'); }
+    if(blk >= 2.0)      { adj += 3; reasons.push('shot blocker'); }
+    else if(blk >= 1.2) { adj += 1; }
+    if(ft_pct < 55)     { adj -= 3; reasons.push('poor FT% limits spacing'); }
+
+    // ── MODERN BIG TREND: C at PF is fine if efficient ──
+    // Handled below in PF section
+
   } else if(targetPos === 'PF'){
-    if(heightIn < 75){ adj -= 12; reasons.push('very undersized PF'); }
-    else if(heightIn < 78){ adj -= 5; reasons.push('undersized PF'); }
-    if(rpg >= 5) { adj += 2; reasons.push('good rebounder'); }
-    if(rpg < 2) { adj -= 5; reasons.push('low rebounding'); }
+    if(heightIn >= 81)       { /* ideal */ }
+    else if(heightIn >= 79)  { adj -= 1; }
+    else if(heightIn >= 77)  { adj -= 3; reasons.push('undersized PF'); }
+    else if(heightIn >= 75)  { adj -= 6; reasons.push('short for PF'); }
+    else                     { adj -= 10; reasons.push('too small for PF'); }
+
+    if(rpg >= 6)        { adj += 2; reasons.push('strong rebounder'); }
+    else if(rpg < 3)    { adj -= 4; reasons.push('low rebounds for PF'); }
+    if(blk >= 1.0)      { adj += 1; }
+
+    // MODERN BIG: Natural C playing PF — trending in CBB (Zach Edey type, Luka type)
+    if(naturalPos === 'C'){
+      if(fg_pct >= 55 && rpg >= 5){ adj += 4; reasons.push('efficient C playing PF'); }
+      else if(fg_pct >= 50)        { adj += 2; reasons.push('efficient finisher'); }
+      if(is3PThreat)               { adj += 3; reasons.push('C with shooting = elite PF'); }
+      if(oreb >= 2)                { adj += 1; }
+      // C at PF is almost always at least OK in modern CBB
+      adj = Math.max(adj, -3); // floor: never worse than -3 for C at PF
+    }
+
+    // SF at PF — stretch 4 is very common
+    if(naturalPos === 'SF'){
+      if(is3PThreat)  { adj += 2; reasons.push('stretch 4'); }
+      if(rpg >= 5)    { adj += 1; }
+    }
+
   } else if(targetPos === 'SF'){
-    if(heightIn < 74){ adj -= 8; reasons.push('undersized SF'); }
-    if(heightIn > 83){ adj -= 4; reasons.push('too tall for SF'); }
+    if(heightIn >= 78)       { /* ideal */ }
+    else if(heightIn >= 76)  { adj -= 1; }
+    else if(heightIn >= 74)  { adj -= 2; }
+    else                     { adj -= 5; reasons.push('undersized SF'); }
+    if(heightIn > 84)        { adj -= 2; reasons.push('movement concern at SF'); }
+
+    // SG/PG at SF — very common
+    if(naturalPos === 'SG' || naturalPos === 'CG'){
+      if(heightIn >= 77) adj += 1;
+      if(rpg >= 4) { adj += 1; reasons.push('good rebounding guard'); }
+    }
+    // PF/C at SF — works if they have range
+    if(naturalPos === 'PF' || naturalPos === 'C'){
+      if(is3PThreat) { adj += 3; reasons.push('big with shooting range'); }
+      else { adj -= 3; reasons.push('limited range for SF'); }
+    }
+
   } else if(targetPos === 'SG'){
-    if(heightIn > 82){ adj -= 5; reasons.push('too tall for SG'); }
-    if(heightIn < 72){ adj -= 4; reasons.push('short for SG'); }
+    if(heightIn >= 76 && heightIn <= 80) { /* ideal */ }
+    else if(heightIn > 82) { adj -= 3; reasons.push('tall for SG'); }
+    else if(heightIn < 74) { adj -= 3; reasons.push('small for SG'); }
+
+    if(ppg >= 14) { adj += 2; reasons.push('scoring threat'); }
+    if(is3PThreat){ adj += 1; }
+
   } else if(targetPos === 'PG'){
-    if(heightIn > 82){ adj -= 8; reasons.push('tall for PG'); }
-    else if(heightIn > 79){ adj -= 3; reasons.push('slightly tall PG'); }
-    // Playmaking check — critical for PG
-    if(apg >= 5) { adj += 6; reasons.push('elite playmaker'); }
-    else if(apg >= 3) { adj += 2; reasons.push('decent playmaker'); }
-    else if(apg < 1.5) { adj -= 10; reasons.push('low assists'); }
-    if(tovs > 3) { adj -= 6; reasons.push('high turnover rate'); }
-    else if(tovs < 1.5) { adj += 3; reasons.push('low turnovers'); }
+    // Height tolerance at PG is WIDE in modern CBB
+    if(heightIn <= 74)       { /* ideal size */ }
+    else if(heightIn <= 76)  { adj -= 1; }
+    else if(heightIn <= 79)  { adj -= 2; reasons.push('tall PG'); }
+    else if(heightIn <= 82)  { adj -= 4; reasons.push('big for PG');
+      // Can offset with elite playmaking
+      if(apg >= 5) adj += 3;
+    }
+    else { adj -= 7; reasons.push('very big for PG');
+      if(apg >= 6) adj += 4;
+    }
+
+    // Playmaking is the primary factor — this is the most important skill
+    if(apg >= 6)      { adj += 5; reasons.push('elite playmaker'); }
+    else if(apg >= 4) { adj += 2; reasons.push('solid playmaker'); }
+    else if(apg >= 2.5){ adj -= 1; }
+    else if(apg >= 1.5){ adj -= 4; reasons.push('limited playmaking'); }
+    else              { adj -= 8; reasons.push('very low assists'); }
+
+    // Ball security
+    if(tov_ratio < 1.2)    { adj += 3; reasons.push('elite ball security'); }
+    else if(tov_ratio < 1.8){ adj += 1; }
+    else if(tov_ratio > 3)  { adj -= 4; reasons.push('turnover prone'); }
+    else if(tov_ratio > 2.2){ adj -= 2; }
+
+    // Speed/quickness proxy — guards with high stl tend to be quick
+    if(stl >= 1.5) { adj += 1; reasons.push('defensive quickness'); }
   }
 
-  // ── POSITION DISTANCE PENALTY (natural vs target) ──
-  const posOrder = {PG:0, SG:1, CG:1, SF:2, PF:3, C:4};
+  // ── POSITION DISTANCE BASELINE ───────────────────────
+  // Small baseline penalty for cross-position moves, but heavily reducible by stats
+  const posOrder = {PG:0, SG:1, CG:1.5, SF:2, PF:3, C:4};
   const natIdx = posOrder[naturalPos] ?? 2;
   const tgtIdx = posOrder[targetPos] ?? 2;
   const dist = Math.abs(natIdx - tgtIdx);
-  if(dist >= 3) adj -= 10;
-  else if(dist === 2) adj -= 5;
+  let distPenalty = 0;
+  if(dist >= 3.5)     distPenalty = -6;
+  else if(dist >= 2.5) distPenalty = -4;
+  else if(dist >= 1.5) distPenalty = -2;
+  else if(dist >= 0.5) distPenalty = -1;
 
-  const total = Math.round(adj);
+  // High-grade players lose less from positional moves
+  const gradeOffset = grade >= 88 ? 3 : grade >= 82 ? 2 : grade >= 75 ? 1 : 0;
+  adj += distPenalty + gradeOffset;
+
+  // ── ELITE PLAYER FLOOR ────────────────────────────────
+  // A 90+ rated player always contributes somewhere — minimum penalty
+  if(grade >= 90) adj = Math.max(adj, -6);
+  else if(grade >= 85) adj = Math.max(adj, -10);
+
+  // Cap adjustment range
+  const total = Math.max(-15, Math.min(6, Math.round(adj)));
+
   let fitLabel, fitClass;
   if(total >= 0)       { fitLabel = 'Great Fit'; fitClass = 'fit-great'; }
-  else if(total >= -4) { fitLabel = 'OK Fit';    fitClass = 'fit-ok'; }
-  else if(total >= -9) { fitLabel = 'Poor Fit';  fitClass = 'fit-poor'; }
+  else if(total >= -3) { fitLabel = 'Good Fit';  fitClass = 'fit-great'; }
+  else if(total >= -6) { fitLabel = 'OK Fit';    fitClass = 'fit-ok'; }
+  else if(total >= -10){ fitLabel = 'Poor Fit';  fitClass = 'fit-poor'; }
   else                 { fitLabel = 'Bad Fit';   fitClass = 'fit-bad'; }
 
-  const reason = reasons.slice(0,2).join(', ');
+  const reason = reasons.filter(Boolean).slice(0,2).join(', ');
   return { fitLabel, fitClass, adjGrade: total, reason };
+}
+
+function posGroup(pos){
+  if(pos==='PG'||pos==='SG'||pos==='CG') return 'guard';
+  if(pos==='SF') return 'wing';
+  return 'big';
 }
 
 function parseHeight(h){
@@ -1485,6 +1604,91 @@ function renderMinsBudget(){
     ${over?`<span class="mins-over">⚠ ${Math.round(total-MAX_TEAM_MINS)} min over — reduce starter minutes</span>`:''}
   </div>`;
 }
+// ── LINEUP LAB — deeper analytics ─────────────────────────
+function renderLineupLab(analytics){
+  if(!analytics) return '';
+  const starters = POS_KEYS.map(pos=>(customDepth[pos]||[])[0]).filter(Boolean);
+  if(!starters.length) return '';
+
+  const spacers = starters.filter(p=>{
+    return (parseFloat(p.tp_pct)||0)>=33&&(parseFloat(p.tpa||0)||0)>=2;
+  }).length;
+  const spacingScore = spacers>=4?'Elite':spacers===3?'Good':spacers===2?'Adequate':spacers===1?'Limited':'Poor';
+  const spacingColor = spacers>=3?'#1a8c3a':spacers>=2?'#b07000':'#cc2200';
+
+  const totalRpg = starters.reduce((s,p)=>s+(parseFloat(p.rpg)||0),0);
+  const rebScore = totalRpg>=30?'Elite':totalRpg>=24?'Good':totalRpg>=18?'Average':totalRpg>=13?'Below Avg':'Poor';
+  const rebColor = totalRpg>=24?'#1a8c3a':totalRpg>=18?'#b07000':'#cc2200';
+
+  const totalApg = starters.reduce((s,p)=>s+(parseFloat(p.apg)||0),0);
+  const totalTov = starters.reduce((s,p)=>s+(parseFloat(p.tovs)||0),0);
+  const astTov   = totalTov>0?(totalApg/totalTov).toFixed(1):'—';
+  const pmScore  = totalApg>=16?'Elite':totalApg>=12?'Good':totalApg>=8?'Average':'Poor';
+  const pmColor  = totalApg>=12?'#1a8c3a':totalApg>=8?'#b07000':'#cc2200';
+
+  const totalStl = starters.reduce((s,p)=>s+(parseFloat(p.stl)||0),0);
+  const totalBlk = starters.reduce((s,p)=>s+(parseFloat(p.blk)||0),0);
+  const defAct   = totalStl+totalBlk;
+  const defScore = defAct>=8?'Elite':defAct>=6?'Good':defAct>=4?'Average':'Poor';
+  const defColor = defAct>=6?'#1a8c3a':defAct>=4?'#b07000':'#cc2200';
+
+  const totalPpg = starters.reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
+  const maxPpg   = starters.length?Math.max(...starters.map(p=>parseFloat(p.ppg)||0)):0;
+  const starDep  = totalPpg>0?Math.round(maxPpg/totalPpg*100):0;
+  const balScore = starDep<30?'Balanced':starDep<40?'Moderate':starDep<50?'Star-reliant':'One-man show';
+  const balColor = starDep<35?'#1a8c3a':starDep<50?'#b07000':'#cc2200';
+
+  const mismatchCount = starters.filter(p=>{
+    const pos=customPos[p.name]||p.position||'G';
+    return calcPositionFit(p,pos).adjGrade<=-8;
+  }).length;
+
+  const totalMins=calcStarterMins();
+  const minWarning=totalMins>200
+    ?`<span style="color:#cc2200;font-weight:700;">⚠ ${Math.round(totalMins-200)} min over budget</span>`
+    :totalMins>185
+    ?`<span style="color:#b07000;">${Math.round(200-totalMins)} bench mins remaining</span>`
+    :`<span style="color:#1a8c3a;">${Math.round(200-totalMins)} bench mins available</span>`;
+
+  const tips=[];
+  if(spacers<2) tips.push('Add a floor-spacer — no shooting floor congests driving lanes.');
+  if(totalRpg<18) tips.push('Rebounding is low — consider moving a strong rebounder to C or PF.');
+  if(totalApg<8)  tips.push('Limited ball movement — this lineup may struggle vs. zone defense.');
+  if(defAct<4)    tips.push('Low defensive activity — rotate in a disruptive wing or athletic big.');
+  if(mismatchCount>=2) tips.push('Multiple position mismatches hurting effective grades — check fit badges.');
+  if(totalMins>200) tips.push('Over 200 starter minutes — someone would need to play 40+ MPG, not realistic. Reduce sliders.');
+  if(!tips.length) tips.push('Lineup looks balanced. Use sliders to dial in your ideal rotation depth.');
+
+  return `<details style="margin-bottom:12px;">
+    <summary style="cursor:pointer;padding:9px 14px;background:var(--bg2);border:1px solid var(--border);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);user-select:none;display:flex;align-items:center;justify-content:space-between;list-style:none;">
+      <span>▸ Lineup Lab</span><span style="font-size:10px;font-weight:500;">Spacing · Rebounding · Playmaking · Defense · Balance</span>
+    </summary>
+    <div style="border:1px solid var(--border);border-top:none;padding:16px;background:var(--bg);">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
+        ${labCell('Spacing',spacingScore,`${spacers}/5 shooters`,spacingColor)}
+        ${labCell('Rebounding',rebScore,`${totalRpg.toFixed(1)} total RPG`,rebColor)}
+        ${labCell('Playmaking',pmScore,`${totalApg.toFixed(1)} APG · ${astTov} AST/TO`,pmColor)}
+        ${labCell('Defense',defScore,`${totalStl.toFixed(1)} stl + ${totalBlk.toFixed(1)} blk`,defColor)}
+        ${labCell('Balance',balScore,`${starDep}% scoring from top player`,balColor)}
+        ${labCell('Fit Issues',mismatchCount===0?'None':mismatchCount+' slot'+(mismatchCount!==1?'s':''),mismatchCount===0?'All positions fit':'Review fit badges',mismatchCount===0?'#1a8c3a':mismatchCount>=2?'#cc2200':'#b07000')}
+      </div>
+      <div style="padding:8px 12px;background:var(--bg2);border:1px solid var(--border);font-size:11px;color:var(--text3);margin-bottom:10px;">
+        <strong style="color:var(--text2);">Rotation:</strong> ${minWarning} &nbsp;·&nbsp;
+        <strong style="color:var(--text2);">Starter PPG:</strong> ${totalPpg.toFixed(1)} &nbsp;·&nbsp;
+        <strong style="color:var(--text2);">Def. activity:</strong> ${defAct.toFixed(1)} stl+blk
+      </div>
+      <div style="font-size:10px;color:var(--text3);line-height:1.9;">${tips.map(t=>`<span style="display:block;">▸ ${t}</span>`).join('')}</div>
+    </div>
+  </details>`;
+}
+function labCell(label,val,sub,color){
+  return `<div style="background:var(--bg2);border:1px solid var(--border);padding:10px 12px;">
+    <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;">${label}</div>
+    <div style="font-family:'Playfair Display',serif;font-weight:700;font-size:15px;color:${color};margin-bottom:2px;">${val}</div>
+    <div style="font-size:10px;color:var(--text3);">${sub}</div>
+  </div>`;
+}
+
 function renderCustomize(t, players, color, rgb, gp){
   const el=document.getElementById('customizeContent');
   if(!el) return;
@@ -1594,6 +1798,7 @@ function rebuildCustomizeUI(){
   el.innerHTML=`
     ${renderAnalyticsBar(analytics, baseAnalytics)}
     ${renderMinsBudget()}
+    ${renderLineupLab(analytics)}
     <div class="customize-bar">
       <span class="customize-label">Drag ⠿ within a column to reorder depth · Change position with selector · ⇄ swap any slot · Sliders = MPG</span>
       <button class="reset-btn" onclick="resetCustomLineup()">↺ Reset</button>
@@ -1689,12 +1894,15 @@ function onMpgChange(playerName, pKey, val){
     if(mpg>=36&&isBig) w+=(w?' · ':'')+'Foul risk';
     warnEl.textContent=w; warnEl.style.display=w?'block':'none';
   }
-  // Refresh analytics bar + budget bar
+  // Refresh analytics bar + budget bar + lab
   const a=calcCustomAnalytics();
   const bar=document.querySelector('.lineup-analytics');
   if(bar){ const t=document.createElement('div'); t.innerHTML=renderAnalyticsBar(a,baseAnalytics); bar.replaceWith(t.firstElementChild); }
   const budgetBar=document.getElementById('minsBudget');
   if(budgetBar){ const t2=document.createElement('div'); t2.innerHTML=renderMinsBudget(); budgetBar.replaceWith(t2.firstElementChild); }
+  // Lab is inside a <details> — only refresh if it's open to avoid flicker
+  const details=document.querySelector('#customizeContent details');
+  if(details&&details.open){ const t3=document.createElement('div'); t3.innerHTML=renderLineupLab(a); details.replaceWith(t3.firstElementChild); }
 }
 
 // ── RESET ─────────────────────────────────────────────────
@@ -1761,7 +1969,20 @@ function switchTab(id, btn){
   document.querySelectorAll('.hero-tab').forEach(b=>b.classList.remove('active'));
   document.getElementById('panel-'+id).classList.add('active');
   btn.classList.add('active');
-  // If opening customize and lineup not yet initialized, build it
+  // Hide sidebar on customize — it takes the full width
+  const sideCol = document.querySelector('.side-col');
+  const mainCol = document.querySelector('.main-col');
+  if(sideCol && mainCol){
+    if(id==='customize'){
+      sideCol.style.display='none';
+      mainCol.style.borderRight='none';
+      mainCol.style.maxWidth='100%';
+    } else {
+      sideCol.style.display='';
+      mainCol.style.borderRight='';
+      mainCol.style.maxWidth='';
+    }
+  }
   if(id==='customize' && teamPlayers.length && !Object.keys(customDepth).length){
     renderCustomize(teamT, teamPlayers, teamColor_g, teamRgb_g, teamGp);
   }
