@@ -394,7 +394,7 @@ function buildScoutingReport(p, proj, globalPct){
   let projNote='';
   if(proj){
     if(proj._frosh) projNote=`Freshman projection based on ${pos} position baseline, ${p.height||'—'} height, and TDC grade ${grade}. High variance expected.`;
-    else if(proj._origin) projNote=`Transfer from ${proj._origin} (${proj._factor>=1?'step down':'step up'} to ${conf||'this conf'}). Conference translation applied to shooting percentages only (${(proj._factor||1)<1?'−':'+'} ${Math.abs(Math.round(((proj._factor||1)-1)*100))}% difficulty). Per-minute production scales with minutes — not suppressed by conference.`;
+    else if(proj._origin){ const destConf=teamData?.conf||teamData?.conference||'this conf'; projNote=`Transfer from ${proj._origin} (${proj._factor>=1?'step down':'step up'} to ${destConf}). Conference translation applied to shooting percentages only (${(proj._factor||1)<1?'−':'+'} ${Math.abs(Math.round(((proj._factor||1)-1)*100))}% difficulty). Per-minute production scales with minutes.`;}
     else{
       const yr=(p.yr||'').toLowerCase();
       if(yr.includes('fr.')||yr.includes('so.')) projNote='Sophomore/Junior leap projected — typically the largest year-over-year improvement window.';
