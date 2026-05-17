@@ -476,12 +476,11 @@ function renderTable(players){
             const {p20,p40,p60,p80}=globalPct[k];
             const inv=k==='tovs';
             let pct;
-            if(inv){if(n<=p20)pct=1;else if(n<=p40)pct=0.8;else if(n<=p60)pct=0.6;else if(n<=p80)pct=0.3;else pct=0.1;}
-            else{if(n>=p80)pct=1;else if(n>=p60)pct=0.8;else if(n>=p40)pct=0.6;else if(n>=p20)pct=0.3;else pct=0.1;}
-            let cr,cg,cb;
-            if(pct>=0.5){const t=(pct-0.5)*2;cr=Math.round(204*(1-t)+26*t);cg=Math.round(170*(1-t)+140*t);cb=Math.round(58*t);}
-            else{const t=pct*2;cr=204;cg=Math.round(t*170);cb=0;}
-            return `background:rgba(${cr},${cg},${cb},0.15);color:rgb(${Math.round(cr*.7)},${Math.round(cg*.7)},${Math.round(cb*.7)});font-weight:700;`;
+            if(inv){if(n<=p20)pct=4;else if(n<=p40)pct=3;else if(n<=p60)pct=2;else if(n<=p80)pct=1;else pct=0;}
+            else{if(n>=p80)pct=4;else if(n>=p60)pct=3;else if(n>=p40)pct=2;else if(n>=p20)pct=1;else pct=0;}
+            if(pct===0) return '';
+            const bg=['','rgba(60,120,220,.45)','rgba(45,100,210,.58)','rgba(30,82,200,.72)','rgba(18,60,185,.88)'][pct];
+            return `background:${bg};color:#fff;font-weight:700;`;
           };
           return `<tr>
             <td class="td-grade ${gc(p.tdc_grade||'')} right" style="min-width:44px;">${p.tdc_grade||'—'}</td>

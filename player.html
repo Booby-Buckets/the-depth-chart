@@ -35,7 +35,7 @@
     .hero-meta-item{font-size:12px;color:var(--text3);}
     .hero-meta-item strong{color:var(--text2);}
     .hero-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:48px;line-height:1;flex-shrink:0;}
-    .gA{color:#1a8c3a;}.gB{color:#2d7a2d;}.gC{color:#b8860b;}.gD{color:#cc5500;}.gF{color:#cc2200;}
+    .gA{color:#071e5a;}.gB{color:#1040b8;}.gC{color:#4278d4;}.gD{color:#88aadd;}.gF{color:#b8cee8;}
 
     /* STAT TOGGLE */
     .stat-toggle{display:flex;gap:0;margin-bottom:20px;border:1px solid var(--border2);width:fit-content;}
@@ -244,13 +244,37 @@ function projectPlayer(p, teamConf){
   const fm=ym*rm*gb;
   const s=k=>parseFloat(p[k])||0;
 
-  // Percentages: small delta only, conference difficulty adjusts slightly
+  // Percentages: meaningful but not drastic changes
+  // Key drivers: year progression (young players improve efficiency), volume (more shots = slightly lower %),
+  // conference translation (harder conf = slightly lower %)
   const fgBase=s('fg_pct'), tpBase=s('tp_pct'), ftBase=s('ft_pct');
-  const pctDelta=(fm-1)*0.08;
-  const transPctAdj=transferFactor<0.85?-2.0:transferFactor<0.95?-1.0:transferFactor>1.15?+0.8:transferFactor>1.05?+0.4:0;
-  const fgProj =r1(Math.max(30,Math.min(65, fgBase + pctDelta*3 + transPctAdj)));
-  const tpProj =r1(Math.max(20,Math.min(50, tpBase + pctDelta*2 + transPctAdj*0.7)));
-  const ftProj =r1(Math.max(50,Math.min(95, ftBase + pctDelta*1.5)));
+  const fga=s('fga'), mpgLast=s('mpg')||20;
+
+  // Year-based efficiency improvement — young players get more efficient as they learn the game
+  // Fr→So: biggest jump. Sr: flat. These are realistic CBB improvements.
+  const yearEffBoost=isFr?2.0:isSo?1.2:isJr?0.6:0.0;
+
+  // Volume regression — if a player takes significantly more shots, marginal shot quality drops
+  // Estimate new FGA from depth/role: starters typically take 2-3 more FGA than bench players
+  const depthFgaAdd=depth<=2?2.0:depth<=5?1.0:depth<=8?0:-(fga*0.1); // role change FGA delta estimate
+  const newFgaEst=Math.max(1,fga+depthFgaAdd);
+  const volPenalty=fga>0?(newFgaEst/fga-1)*3.5:0; // each 10% more volume → −0.35% FG
+
+  // Conference penalty — slightly harder shots going up
+  const transPctAdj=transferFactor<0.85?-2.5:transferFactor<0.95?-1.2:transferFactor>1.15?+1.0:transferFactor>1.05?+0.5:0;
+
+  // Net FG% change
+  const fgDelta=yearEffBoost-volPenalty+transPctAdj;
+  const fgProj =r1(Math.max(30,Math.min(65, fgBase + fgDelta)));
+
+  // 3P% — more volume-sensitive, year boost smaller
+  const tpVolPenalty=fga>0?((newFgaEst/fga-1)*2.0):0;
+  const tpDelta=(isFr?1.5:isSo?0.8:isJr?0.4:0)-tpVolPenalty+transPctAdj*0.6;
+  const tpProj =r1(Math.max(20,Math.min(50, tpBase + tpDelta)));
+
+  // FT% — least affected by role/volume, mostly skill-based year progression
+  const ftDelta=isFr?1.5:isSo?1.0:isJr?0.5:0;
+  const ftProj =r1(Math.max(50,Math.min(95, ftBase + ftDelta)));
 
   return {
     ppg:r1(s('ppg')*fm),rpg:r1(s('rpg')*fm),apg:r1(s('apg')*fm),
@@ -361,7 +385,7 @@ function buildScoutingReport(p, proj, globalPct){
 function r1(v){return v!=null?Math.round(v*10)/10:null;}
 function fmt(v){return v!=null&&v!==''?Number(v).toFixed(1):'—';}
 function fmtP(v){return v!=null&&v!==''?Number(v).toFixed(1)+'%':'—';}
-function pctCol(p){return p>=80?'#1a8c3a':p>=60?'#4a9a4a':p>=40?'#b8860b':p>=20?'#cc5500':'#cc2200';}
+function pctCol(p){return p>=80?'rgb(18,60,185)':p>=60?'rgb(30,82,200)':p>=40?'rgb(45,100,210)':p>=20?'rgb(60,120,220)':'var(--text3)';}
 function gradeClass(g){const n=parseFloat(g);if(!isNaN(n)){if(n>=90)return 'gA';if(n>=80)return 'gB';if(n>=70)return 'gC';if(n>=60)return 'gD';return 'gF';}if(!g)return '';if(g[0]==='A')return 'gA';if(g[0]==='B')return 'gB';if(g[0]==='C')return 'gC';if(g[0]==='D')return 'gD';return 'gF';}
 
 let player=null, teamData=null, allPlayers=[], gPct={}, proj=null;
@@ -373,20 +397,36 @@ async function init(){
   if(!pid&&!pname){document.getElementById('heroSection').innerHTML='<div style="padding:80px;text-align:center;color:var(--text3);">No player specified. <a href="roster.html" style="color:var(--accent);">Browse players →</a></div>';return;}
   try{
     if(s?.access_token) updateNav(s);
-    const url=pid?`${SB}/rest/v1/players?id=eq.${pid}&select=*&limit=1`:`${SB}/rest/v1/players?name=eq.${encodeURIComponent(pname)}&team=eq.${encodeURIComponent(pteam)}&select=*&limit=1`;
+    // Build lookup URL — team is optional, fall back to name-only if no team
+    let url;
+    if(pid){
+      url=`${SB}/rest/v1/players?id=eq.${pid}&select=*&limit=1`;
+    } else if(pteam){
+      url=`${SB}/rest/v1/players?name=eq.${encodeURIComponent(pname)}&team=eq.${encodeURIComponent(pteam)}&select=*&limit=1`;
+    } else {
+      url=`${SB}/rest/v1/players?name=eq.${encodeURIComponent(pname)}&select=*&limit=1`;
+    }
     const [pr,apr]=await Promise.all([
       fetch(url,{headers:H}).then(r=>r.json()),
       fetch(`${SB}/rest/v1/players?select=ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs&ppg=not.is.null&limit=5000`,{headers:H}).then(r=>r.json()),
     ]);
-    if(!pr.length) throw new Error('Player not found');
-    player=pr[0]; allPlayers=apr;
+    // If exact match fails, try name-only fallback
+    let playerRow=pr[0];
+    if(!playerRow&&pname&&pteam){
+      const fb=await fetch(`${SB}/rest/v1/players?name=eq.${encodeURIComponent(pname)}&select=*&limit=1`,{headers:H});
+      const fbRows=await fb.json();
+      playerRow=fbRows[0];
+    }
+    if(!playerRow) throw new Error('Player not found');
+    player=playerRow; allPlayers=apr;
     const tr=await fetch(`${SB}/rest/v1/teams?name=eq.${encodeURIComponent(player.team||'')}&select=*&limit=1`,{headers:H});
     const teams=await tr.json(); teamData=teams[0]||{};
     calcPct();
-    proj=projectPlayer(player, teamData?.conf||'');
+    proj=projectPlayer(player, teamData?.conf||teamData?.conference||'');
     renderPage();
   }catch(e){
-    document.getElementById('heroSection').innerHTML=`<div style="padding:80px;text-align:center;"><div style="font-family:'Playfair Display',serif;font-weight:800;font-size:24px;margin-bottom:8px;">Player not found</div><a href="roster.html" style="color:var(--accent);">← Back to players</a></div>`;
+    console.error('Player load error:',e);
+    document.getElementById('heroSection').innerHTML=`<div style="padding:80px;text-align:center;"><div style="font-family:'Playfair Display',serif;font-weight:800;font-size:24px;margin-bottom:8px;">Player not found</div><p style="color:var(--text3);margin-bottom:16px;">${e.message}</p><a href="roster.html" style="color:var(--accent);">← Back to players</a></div>`;
   }
 }
 
