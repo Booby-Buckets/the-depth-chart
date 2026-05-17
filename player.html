@@ -136,34 +136,51 @@ const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H   = {apikey:KEY, Authorization:`Bearer ${KEY}`};
 
-// ── CONF / TRANSLATION SYSTEM ───────────────────────────
-const CONF_MULT={'SEC':1.00,'B10':1.00,'BIG-12':1.00,'Big-East':0.95,'ACC':0.97,'PAC-12':0.92,'A10':0.88,'AAC':0.82,'WCC':0.85,'MVC':0.76,'Big South':0.68,'SBC':0.68,'CAA':0.70,'Horizon':0.70,'Sun Belt':0.71,'Big Sky':0.68,'Ivy':0.72,'Summit':0.67,'SoCon':0.67,'ASUN':0.67,'MAAC':0.67,'OVC':0.67,'Patriot':0.60,'SWAC':0.58,'NEC':0.58,'MEAC':0.55};
-const CONF_TIERS={'B10':1,'SEC':1,'BIG-12':1,'ACC':1,'Big-East':2,'A10':2,'WCC':2,'PAC-12':2,'MWC':3,'AAC':3,'MVC':4,'WAC':4,'CUSA':4,'MAC':4,'Big Sky':5,'CAA':5,'Horizon':5,'Sun Belt':5,'Big South':5,'SBC':5,'Ivy':6,'Summit':6,'SoCon':6,'ASUN':6,'MAAC':6,'OVC':6,'Patriot':7,'SWAC':7,'NEC':7,'MEAC':7};
+// ── CANONICAL CONFERENCE SYSTEM ─────────────────────────
+const CONF_MULT={'SEC':1.00,'B10':1.00,'BIG-12':1.00,'ACC':1.00,'Big-East':0.95,'A10':0.90,'MWC':0.88,'WCC':0.87,'PAC-12':0.92,'AAC':0.85,'Ivy':0.82,'MAC':0.80,'CUSA':0.78,'WAC':0.78,'Big West':0.77,'MVC':0.78,'SBC':0.72,'CAA':0.74,'Horizon':0.74,'Sun Belt':0.74,'Big South':0.72,'SoCon':0.72,'ASUN':0.72,'MAAC':0.72,'OVC':0.72,'Summit':0.70,'Patriot':0.66,'Big Sky':0.68,'SWAC':0.60,'NEC':0.60,'MEAC':0.58,'AEC':0.56};
+const CONF_TIERS={'B10':1,'SEC':1,'BIG-12':1,'ACC':1,'Big-East':2,'A10':2,'WCC':2,'PAC-12':2,'MWC':3,'AAC':3,'Ivy':3,'MVC':4,'WAC':4,'CUSA':4,'MAC':4,'Big West':4,'Big Sky':5,'CAA':5,'Horizon':5,'Sun Belt':5,'Big South':5,'SBC':5,'SoCon':6,'ASUN':6,'MAAC':6,'OVC':6,'Summit':6,'Patriot':7,'SWAC':7,'NEC':7,'MEAC':7,'AEC':7};
 const ACC_OUT={1:1.00,2:1.10,3:1.25,4:1.40,5:1.40,6:1.40,7:1.40};
-const TRANS_MAT={1:{1:1.00,2:1.15,3:1.28,4:1.40,5:1.40,6:1.40,7:1.40},2:{1:0.90,2:1.00,3:1.15,4:1.20,5:1.20,6:1.20,7:1.20},3:{1:0.75,2:0.90,3:1.00,4:1.05,5:1.10,6:1.10,7:1.10},4:{1:0.49,2:0.68,3:0.82,4:1.00,5:1.05,6:1.05,7:1.05},5:{1:0.43,2:0.49,3:0.69,4:0.82,5:1.00,6:1.00,7:1.00},6:{1:0.40,2:0.42,3:0.50,4:0.69,5:0.82,6:1.00,7:1.00},7:{1:0.30,2:0.34,3:0.42,4:0.48,5:0.69,6:0.82,7:1.00}};
+const TRANS_MAT={
+  1:{1:1.00,2:1.15,3:1.28,4:1.40,5:1.40,6:1.40,7:1.40},
+  2:{1:0.90,2:1.00,3:1.15,4:1.20,5:1.20,6:1.20,7:1.20},
+  3:{1:0.75,2:0.90,3:1.00,4:1.05,5:1.10,6:1.10,7:1.10},
+  4:{1:0.49,2:0.68,3:0.82,4:1.00,5:1.05,6:1.05,7:1.05},
+  5:{1:0.43,2:0.49,3:0.69,4:0.82,5:1.00,6:1.00,7:1.00},
+  6:{1:0.40,2:0.42,3:0.50,4:0.69,5:0.82,6:1.00,7:1.00},
+  7:{1:0.30,2:0.34,3:0.42,4:0.48,5:0.69,6:0.82,7:1.00},
+};
 const SCHOOL_CONF=(function(){const m={};[
   [['Alabama','Arkansas','Auburn','Florida','Georgia','Kentucky','LSU','Mississippi State','Missouri','Ole Miss','South Carolina','Tennessee','Texas','Texas A&M','Vanderbilt','Oklahoma'],'SEC'],
   [['Illinois','Indiana','Iowa','Maryland','Michigan','Michigan State','Minnesota','Nebraska','Northwestern','Ohio State','Penn State','Purdue','Rutgers','Wisconsin','UCLA','USC','Oregon','Washington'],'B10'],
   [['Arizona','Arizona State','Baylor','BYU','Cincinnati','Colorado','Houston','Iowa State','Kansas','Kansas State','Oklahoma State','TCU','Texas Tech','UCF','Utah','West Virginia'],'BIG-12'],
-  [['Butler','Connecticut','Creighton','DePaul','Georgetown','Marquette','Providence','Seton Hall',"St. John's",'Villanova','Xavier'],'Big-East'],
   [['Boston College','Clemson','Duke','Florida State','Georgia Tech','Louisville','Miami','NC State','North Carolina','Notre Dame','Pittsburgh','Syracuse','Virginia','Virginia Tech','Wake Forest','California','SMU','Stanford'],'ACC'],
-  [['Gonzaga','San Diego State','Colorado State','Boise State','Utah State','Nevada','New Mexico','Fresno State','Air Force','Wyoming','Oregon State','Washington State'],'PAC-12'],
+  [['Butler','Connecticut','Creighton','DePaul','Georgetown','Marquette','Providence','Seton Hall',"St. John's",'Villanova','Xavier'],'Big-East'],
   [['Dayton','Davidson','Duquesne','Fordham','George Mason','George Washington','La Salle','Loyola Chicago','Rhode Island','Richmond',"Saint Joseph's",'Saint Louis','St. Bonaventure','VCU','Massachusetts'],'A10'],
+  [['Gonzaga','BYU','Pacific','Pepperdine','Portland',"Saint Mary's",'San Diego','San Francisco','Santa Clara','Loyola Marymount'],'WCC'],
+  [['Oregon State','Washington State','San Diego State','Colorado State','Boise State','Utah State','Nevada','New Mexico','Fresno State','Air Force','Wyoming','UNLV','San Jose State','Hawaii'],'PAC-12'],
   [['Charlotte','East Carolina','Florida Atlantic','Memphis','North Texas','Rice','South Florida','Temple','Tulane','Tulsa','UAB','UTSA','Wichita State'],'AAC'],
-  [['Winthrop','Campbell','Charleston Southern','Gardner-Webb','High Point','Longwood','Presbyterian','Radford','UNC Asheville'],'Big South'],
-  [['Samford','Furman','Chattanooga','ETSU','Mercer','VMI','Western Carolina','Wofford','The Citadel'],'SoCon'],
-  [['Liberty','Belmont','Lipscomb','FGCU','North Alabama','Jacksonville','Stetson','Austin Peay','Eastern Kentucky','Morehead State','Murray State'],'ASUN'],
-  [['Bradley','Drake','Evansville','Illinois State','Indiana State','Missouri State','Northern Iowa','Southern Illinois','Valparaiso'],'MVC'],
-  [['Nevada','New Mexico','Fresno State','Boise State','Colorado State','Utah State','Air Force','Wyoming','San Diego State','UNLV','San Jose State','Hawaii'],'MWC'],
+  [['Colorado State','San Diego State','Boise State','Utah State','Nevada','New Mexico','Fresno State','Air Force','Wyoming','UNLV','San Jose State','Hawaii'],'MWC'],
+  [['Harvard','Yale','Princeton','Columbia','Cornell','Dartmouth','Brown','Pennsylvania'],'Ivy'],
+  [['Bradley','Drake','Evansville','Illinois State','Indiana State','Missouri State','Northern Iowa','Southern Illinois','Valparaiso','Belmont','Murray State'],'MVC'],
+  [['Grand Canyon','Seattle U','Utah Valley','New Mexico State','Tarleton State','UT Rio Grande Valley','Cal Baptist','Chicago State'],'WAC'],
+  [['Florida Atlantic','FIU','UTSA','Middle Tennessee','Old Dominion','Marshall','Western Kentucky','Charlotte','Louisiana Tech','UAB','Rice','North Texas'],'CUSA'],
   [['Akron','Ball State','Bowling Green','Buffalo','Central Michigan','Eastern Michigan','Kent State','Miami (OH)','Northern Illinois','Ohio','Toledo','Western Michigan'],'MAC'],
-  [['Grand Canyon','Seattle U','Utah Valley','New Mexico State','Tarleton State','UT Rio Grande Valley'],'WAC'],
-  [['Montana','Montana State','Weber State','Idaho','Idaho State','Eastern Washington','Northern Arizona','Northern Colorado','Southern Utah','Portland State','Sacramento State'],'Big Sky'],
-  [['UC Davis','UC Irvine','UC Riverside','UC Santa Barbara','UC San Diego','Cal Poly','Long Beach State','Pacific','Cal State Fullerton','Cal State Northridge'],'Big West'],
-  [['Iona','Manhattan','Marist','Niagara','Quinnipiac','Rider','Saint Peter\'s','Siena','Canisius','Fairfield'],'MAAC'],
-  [['Colgate','Bucknell','Lafayette','Lehigh','Army','Navy','Holy Cross','American','Loyola Maryland'],'Patriot'],
-  [['Grambling','Jackson State','Alabama A&M','Alabama State','Alcorn State','Arkansas Pine Bluff','Bethune-Cookman','Coppin State','Delaware State','Florida A&M','Howard','Maryland Eastern Shore','Mississippi Valley State','Morgan State','Norfolk State','North Carolina A&T','North Carolina Central','Prairie View','Savannah State','South Carolina State','Southern','Texas Southern'],'SWAC'],
-  [['Detroit Mercy','Green Bay','Horizon','IUPUI','IU Indianapolis','Milwaukee','Northern Kentucky','Oakland','Purdue Fort Wayne','Robert Morris','Wright State','Youngstown State'],'Horizon'],
-  [['UT Martin','Tennessee State','Tennessee Tech','Eastern Illinois','Lindenwood','SE Missouri State','SIU Edwardsville','Jacksonville State','Central Arkansas'],'OVC'],
+  [['UC Davis','UC Irvine','UC Riverside','UC Santa Barbara','UC San Diego','Cal Poly','Long Beach State','Pacific','Cal State Fullerton','Cal State Northridge','Hawaii'],'Big West'],
+  [['Montana','Montana State','Weber State','Idaho','Idaho State','Eastern Washington','Northern Arizona','Northern Colorado','Southern Utah','Portland State','Sacramento State','North Dakota','South Dakota','North Dakota State','South Dakota State'],'Big Sky'],
+  [['Hofstra','Charleston','Delaware','Elon','James Madison','Northeastern','Towson','UNC Wilmington','William & Mary','Drexel','Campbell','Stony Brook'],'CAA'],
+  [['Detroit Mercy','Green Bay','IUPUI','IU Indianapolis','Milwaukee','Northern Kentucky','Oakland','Purdue Fort Wayne','Robert Morris','Wright State','Youngstown State','Cleveland State'],'Horizon'],
+  [['Appalachian State','Arkansas State','Coastal Carolina','Georgia Southern','Georgia State','Louisiana','Louisiana Monroe','Old Dominion','South Alabama','Southern Miss','Texas State','Troy'],'Sun Belt'],
+  [['Winthrop','Campbell','Charleston Southern','Gardner-Webb','High Point','Longwood','Presbyterian','Radford','UNC Asheville','USC Upstate'],'Big South'],
+  [['Samford','Furman','Chattanooga','ETSU','Mercer','VMI','Western Carolina','Wofford','The Citadel'],'SoCon'],
+  [['Liberty','Belmont','Lipscomb','FGCU','North Alabama','Jacksonville','Stetson','Austin Peay','Eastern Kentucky','Morehead State','Murray State','Kennesaw State'],'ASUN'],
+  [['Iona','Manhattan','Marist','Niagara','Quinnipiac','Rider',"Saint Peter's",'Siena','Canisius','Fairfield',"Mount St. Mary's"],'MAAC'],
+  [['UT Martin','Tennessee State','Tennessee Tech','Eastern Illinois','Lindenwood','SE Missouri State','SIU Edwardsville','Jacksonville State','Central Arkansas','Bellarmine'],'OVC'],
+  [['Oral Roberts','North Dakota State','South Dakota State','Western Illinois','Denver','Omaha','Kansas City','St. Thomas'],'Summit'],
+  [['Colgate','Bucknell','Lafayette','Lehigh','Army','Navy','Holy Cross','American','Loyola Maryland','Boston University'],'Patriot'],
+  [['Grambling','Jackson State','Alabama A&M','Alabama State','Alcorn State','Arkansas Pine Bluff','Bethune-Cookman','Coppin State','Delaware State','Florida A&M','Howard','Maryland Eastern Shore','Mississippi Valley State','Morgan State','Norfolk State','North Carolina A&T','North Carolina Central','Prairie View','South Carolina State','Southern','Texas Southern'],'SWAC'],
+  [['Bryant','Central Connecticut','LIU','Merrimack','Sacred Heart','Fairleigh Dickinson',"Mount St. Mary's",'Saint Francis','Wagner','FDU'],'NEC'],
+  [['Maine','New Hampshire','UMass Lowell','Albany','Binghamton','Hartford','UMBC','Vermont','Stony Brook','New Jersey Tech'],'AEC'],
+  [['Grambling','Florida A&M','Howard','Morgan State','North Carolina Central','Norfolk State','Coppin State','Delaware State','UMES','Bethune-Cookman'],'MEAC'],
 ].forEach(function(pair){if(pair&&pair[0]&&pair[1])pair[0].forEach(function(s){m[s.toLowerCase()]=pair[1];});});return m;})();
 
 function getTransFactor(origin, dest, grade){
@@ -222,17 +239,17 @@ function projectPlayer(p, teamConf){
   const ym=isFr?1.12:isSo?1.07:isJr?1.04:1.02;
   const rm=depth<=2?1.08:depth<=5?1.03:depth<=8?0.97:0.88;
   const gb=grade>=88?1.04:grade>=82?1.02:grade>=75?1.00:grade>=68?0.98:0.95;
-  const fm=ym*rm*gb*transferFactor;
+  // transferFactor intentionally excluded from fm — per-minute talent doesn't change
+  // by conference. Minutes are set externally. Only percentages adjust for conf difficulty.
+  const fm=ym*rm*gb;
   const s=k=>parseFloat(p[k])||0;
 
-  // Percentages are skill-based — they change very little year to year
-  // Max change: ±3% for FG/3P, ±2% for FT regardless of multiplier
-  // Transfer effect on pct is also small — conference difficulty changes volume not skill
+  // Percentages: small delta only, conference difficulty adjusts slightly
   const fgBase=s('fg_pct'), tpBase=s('tp_pct'), ftBase=s('ft_pct');
-  const pctDelta=(fm-1)*0.08; // tiny nudge based on progression
-  const transPctAdj=transferFactor<1?-1.5:transferFactor>1?0.5:0; // slight dip going up in conf
+  const pctDelta=(fm-1)*0.08;
+  const transPctAdj=transferFactor<0.85?-2.0:transferFactor<0.95?-1.0:transferFactor>1.15?+0.8:transferFactor>1.05?+0.4:0;
   const fgProj =r1(Math.max(30,Math.min(65, fgBase + pctDelta*3 + transPctAdj)));
-  const tpProj =r1(Math.max(20,Math.min(50, tpBase + pctDelta*2 + transPctAdj*0.8)));
+  const tpProj =r1(Math.max(20,Math.min(50, tpBase + pctDelta*2 + transPctAdj*0.7)));
   const ftProj =r1(Math.max(50,Math.min(95, ftBase + pctDelta*1.5)));
 
   return {
@@ -328,7 +345,7 @@ function buildScoutingReport(p, proj, globalPct){
   let projNote='';
   if(proj){
     if(proj._frosh) projNote=`Freshman projection based on ${pos} position baseline, ${p.height||'—'} height, and TDC grade ${grade}. High variance expected.`;
-    else if(proj._origin) projNote=`Transfer from ${proj._origin} — stats translated using conference tier matrix (×${r1(proj._factor||1)}). ${(proj._factor||1)<1?'Conference difficulty increase may reduce production.':'Conference step-down may inflate production.'}`;
+    else if(proj._origin) projNote=`Transfer from ${proj._origin} (${proj._factor>=1?'step down':'step up'} to ${conf||'this conf'}). Conference translation applied to shooting percentages only (${(proj._factor||1)<1?'−':'+'} ${Math.abs(Math.round(((proj._factor||1)-1)*100))}% difficulty). Per-minute production scales with minutes — not suppressed by conference.`;
     else{
       const yr=(p.yr||'').toLowerCase();
       if(yr.includes('fr.')||yr.includes('so.')) projNote='Sophomore/Junior leap projected — typically the largest year-over-year improvement window.';

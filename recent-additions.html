@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Recent Additions — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,600;1,700&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Inter:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#ffffff;--bg2:#f5f5f5;--border:#e0e0e0;--border2:#cccccc;--text:#111111;--text2:#444444;--text3:#888888;--accent:#8B6914;--green:#1a8c3a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#111111;--bg2:#181818;--bg3:#1f1f1f;--border:#2a2a2a;--border2:#333;--text:#e8e8e8;--text2:#a0a0a0;--text3:#606060;--accent:#c8a96e;--green:#3ab85a;--red:#e05030;}
+    [data-theme="dark"] .nav-signin{background:var(--text)!important;color:var(--bg)!important;}
+    [data-theme="dark"] .gAp,[data-theme="dark"] .gA,[data-theme="dark"] .gAm{color:#f0c040;}
+    [data-theme="dark"] .gBp,[data-theme="dark"] .gB,[data-theme="dark"] .gBm{color:#d4a020;}
+    [data-theme="dark"] .gCp,[data-theme="dark"] .gC,[data-theme="dark"] .gCm{color:#b07818;}
+    [data-theme="dark"] .gDp,[data-theme="dark"] .gD,[data-theme="dark"] .gDm,[data-theme="dark"] .gF{color:#785010;}
+    [data-theme="dark"] .card{background:var(--bg2);}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
+
+    /* NAV */
+    .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;letter-spacing:-.01em;}
+    .nav-logo span{color:var(--accent);}
+    .nav-actions{display:flex;align-items:center;gap:16px;}
+    .nav-actions a{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;}
+    .nav-actions a:hover{color:var(--text);}
+    .nav-signin{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--text);border:none;padding:6px 16px;cursor:pointer;}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .theme-toggle:hover{border-color:var(--text3);color:var(--text);}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
+    .nav-sub::-webkit-scrollbar{display:none;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
+
+    /* PAGE HEADER */
+    .page-header{padding:44px 40px 32px;border-bottom:1px solid var(--border);}
+    .page-eyebrow{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:10px;}
+    .page-eyebrow::before{content:'';width:20px;height:1px;background:var(--accent);}
+    .page-title{font-family:'Playfair Display',serif;font-weight:800;font-size:44px;line-height:1;letter-spacing:-.02em;margin-bottom:10px;}
+    .page-meta{font-size:12px;color:var(--text3);display:flex;align-items:center;gap:16px;}
+    .meta-count{font-family:'Share Tech Mono',monospace;font-weight:700;color:var(--text2);}
+
+    /* FILTER BAR */
+    .filter-bar{padding:10px 40px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .filter-btn{font-size:11px;font-weight:700;letter-spacing:.04em;padding:4px 12px;border:1px solid var(--border2);background:var(--bg);color:var(--text3);cursor:pointer;transition:all .15s;}
+    .filter-btn:hover,.filter-btn.active{color:var(--text);border-color:var(--accent);background:rgba(139,105,20,.06);}
+    .filter-sep{width:1px;height:16px;background:var(--border2);margin:0 4px;}
+    .filter-search{font-family:'Inter',sans-serif;font-size:12px;background:var(--bg);border:1px solid var(--border2);color:var(--text);padding:4px 10px;outline:none;margin-left:auto;width:200px;}
+    .filter-search:focus{border-color:var(--accent);}
+    .filter-search::placeholder{color:var(--text3);}
+    .filter-count{font-size:11px;font-weight:600;color:var(--text3);font-family:'Share Tech Mono',monospace;white-space:nowrap;}
+
+    /* CARDS GRID */
+    .cards-wrap{padding:24px 40px 48px;}
+    .cards-grid{display:flex;flex-direction:column;gap:0;}
+
+    /* INDIVIDUAL CARD — matches the image style */
+    .card{border:1px solid var(--border);border-left:4px solid var(--border2);background:var(--bg);margin-bottom:8px;display:grid;grid-template-columns:64px 1fr auto;align-items:center;gap:0;transition:border-color .15s;cursor:pointer;text-decoration:none;color:inherit;}
+    .card:hover{border-color:var(--border2);}
+    .card.new-today{border-left-color:var(--green);}
+
+    /* LEFT: position badge */
+    .card-pos{padding:0 16px;text-align:center;}
+    .card-pos-label{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);}
+
+    /* MAIN: name + transfer info */
+    .card-main{padding:14px 20px 14px 0;border-left:1px solid var(--border);}
+    .card-name-row{display:flex;align-items:center;gap:10px;margin-bottom:5px;flex-wrap:wrap;}
+    .card-name{font-family:'Playfair Display',serif;font-weight:700;font-size:18px;letter-spacing:-.01em;line-height:1;}
+    .card-transfer{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;letter-spacing:.02em;}
+    .card-from{color:var(--red);}
+    .card-arrow{font-size:14px;color:var(--text3);}
+    .card-to{color:var(--green);}
+    .card-meta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+    .card-meta-item{font-size:11px;color:var(--text3);font-family:'Share Tech Mono',monospace;}
+    .card-meta-item strong{color:var(--text2);}
+    .card-stat{font-size:11px;color:var(--text3);}
+    .card-stat strong{color:var(--text2);font-weight:700;}
+    .card-stat-sep{color:var(--border2);}
+
+    /* RIGHT: grade */
+    .card-grade-wrap{padding:0 24px;border-left:1px solid var(--border);text-align:center;min-width:70px;}
+    .card-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:28px;line-height:1;}
+    .card-grade-label{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-top:3px;}
+
+    /* Grade colors — light mode blue scale */
+    .gAp,.gA,.gAm{color:#071e5a;}
+    .gBp,.gB,.gBm{color:#1040b8;}
+    .gCp,.gC,.gCm{color:#4278d4;}
+    .gDp,.gD,.gDm,.gF{color:#88aadd;}
+
+    /* Conf badge */
+    .conf-badge{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;background:var(--bg2);border:1px solid var(--border2);color:var(--text3);white-space:nowrap;}
+
+    /* Type badge */
+    .type-badge{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;white-space:nowrap;}
+    .type-transfer{background:rgba(26,95,191,.10);color:#1a5fbf;border:1px solid rgba(26,95,191,.2);}
+    .type-freshman{background:rgba(139,105,20,.10);color:var(--accent);border:1px solid rgba(139,105,20,.2);}
+    .type-grad{background:rgba(100,100,100,.10);color:var(--text3);border:1px solid var(--border2);}
+
+    /* Empty / loading */
+    .loading-state{padding:60px 40px;text-align:center;color:var(--text3);}
+    .spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 16px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .empty-state{padding:60px 40px;text-align:center;color:var(--text3);font-size:14px;}
+
+    @media(max-width:700px){
+      .nav-top{padding:0 16px;}
+      .nav-sub{padding:0 16px;}
+      .page-header{padding:28px 16px 20px;}
+      .filter-bar{padding:8px 16px;}
+      .cards-wrap{padding:16px 16px 40px;}
+      .card{grid-template-columns:48px 1fr auto;}
+      .card-name{font-size:15px;}
+      .card-grade{font-size:22px;}
+      .card-grade-wrap{padding:0 14px;min-width:55px;}
+      .filter-search{width:130px;}
+    }
+  </style>
+</head>
+<body>
+
+<div class="nav-wrap">
+  <div class="nav-top">
+    <a href="index.html" class="nav-logo">The Depth <span>Chart</span></a>
+    <div class="nav-actions">
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+      <button class="nav-signin" id="navSignin" onclick="window.location.href='pricing.html'">Sign In</button>
+    </div>
+  </div>
+  <div class="nav-sub">
+    <a href="index.html">Rankings</a>
+    <a href="roster.html">Players</a>
+    <a href="compare-players.html">Compare</a>
+    <a href="analytics.html">Analytics</a>
+    <a href="projections.html">Projections</a>
+    <a href="community.html">Community</a>
+    <a href="index.html">Teams</a>
+    <a href="account.html">Account</a>
+    <a href="pricing.html">Pricing</a>
+    <a href="recent-additions.html" class="active">New Additions</a>
+  </div>
+</div>
+
+<div class="page-header">
+  <div class="page-eyebrow">Transfer Portal · Recruiting</div>
+  <div class="page-title">Recent Additions</div>
+  <div class="page-meta">
+    <span class="meta-count" id="addCount">—</span>
+    <span>players added to The Depth Chart</span>
+    <span>·</span>
+    <span id="lastUpdated">—</span>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+  <button class="filter-btn" onclick="setFilter('transfer',this)">Transfers</button>
+  <button class="filter-btn" onclick="setFilter('freshman',this)">Freshmen</button>
+  <button class="filter-btn" onclick="setFilter('grad',this)">Grad Transfers</button>
+  <div class="filter-sep"></div>
+  <button class="filter-btn" onclick="setConfFilter('',this)">All Confs</button>
+  <button class="filter-btn" onclick="setConfFilter('B10',this)">B10</button>
+  <button class="filter-btn" onclick="setConfFilter('SEC',this)">SEC</button>
+  <button class="filter-btn" onclick="setConfFilter('BIG-12',this)">B12</button>
+  <button class="filter-btn" onclick="setConfFilter('ACC',this)">ACC</button>
+  <button class="filter-btn" onclick="setConfFilter('Big-East',this)">BE</button>
+  <input class="filter-search" type="text" placeholder="Search player or school…" id="searchInput" oninput="applyFilters()"/>
+  <span class="filter-count" id="filterCount"></span>
+</div>
+
+<div class="cards-wrap">
+  <div id="additionsList">
+    <div class="loading-state">
+      <div class="spinner"></div>
+      Loading recent additions…
+    </div>
+  </div>
+</div>
+
+<script>
+const SB_URL='https://izlqhnxowdhtdofkwrho.supabase.co';
+const SB_KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H={'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`};
+
+let allAdditions=[];
+let typeFilter='all';
+let confFilter='';
+
+function gc(g){
+  if(!g||g==='—') return '';
+  if(g.startsWith('A+')) return 'gAp';
+  if(g.startsWith('A-')) return 'gAm';
+  if(g.startsWith('A'))  return 'gA';
+  if(g.startsWith('B+')) return 'gBp';
+  if(g.startsWith('B-')) return 'gBm';
+  if(g.startsWith('B'))  return 'gB';
+  if(g.startsWith('C+')) return 'gCp';
+  if(g.startsWith('C-')) return 'gCm';
+  if(g.startsWith('C'))  return 'gC';
+  if(g.startsWith('D+')) return 'gDp';
+  if(g.startsWith('D'))  return 'gD';
+  return 'gF';
+}
+
+function inferType(p){
+  const yr=(p.yr||p.class_year||'').toLowerCase();
+  const isRFr=yr.includes('r-fr')||yr.includes('r.fr');
+  const isFr=yr.includes('fr.')||isRFr;
+  const isGrad=yr.includes('gr.')||yr.includes('r-sr')||yr.includes('grad');
+  const hasOrigin=p.hometown&&p.hometown.trim()!=='';
+  if(isGrad&&hasOrigin) return 'grad';
+  if(hasOrigin) return 'transfer';
+  if(isFr) return 'freshman';
+  return 'transfer'; // default — most additions are transfers
+}
+
+function statLine(p){
+  const fmt=v=>v!=null&&parseFloat(v)>0?Number(v).toFixed(1):null;
+  const parts=[];
+  if(fmt(p.ppg)) parts.push(`<strong>${fmt(p.ppg)}</strong> PPG`);
+  if(fmt(p.rpg)) parts.push(`<strong>${fmt(p.rpg)}</strong> RPG`);
+  if(fmt(p.apg)) parts.push(`<strong>${fmt(p.apg)}</strong> APG`);
+  if(fmt(p.mpg)) parts.push(`<strong>${fmt(p.mpg)}</strong> MPG`);
+  if(!parts.length) return '<span style="color:var(--text3);font-size:11px;">No prior stats</span>';
+  return parts.map((s,i)=>i<parts.length-1?s+' <span class="card-stat-sep">/</span> ':s).join(' ');
+}
+
+function renderCard(p){
+  const type=inferType(p);
+  const typeBadgeClass=type==='transfer'?'type-transfer':type==='freshman'?'type-freshman':'type-grad';
+  const typeBadgeText=type==='transfer'?'Transfer':type==='freshman'?'Freshman':'Grad Transfer';
+  const hasOrigin=p.hometown&&p.hometown.trim()!=='';
+  const grade=p.tdc_grade||'—';
+  const gradeClass=gc(grade);
+
+  const transferSection=hasOrigin
+    ?`<div class="card-transfer">
+        <span class="card-from">${p.hometown}</span>
+        <span class="card-arrow">→</span>
+        <span class="card-to">${p.team||'—'}</span>
+      </div>`
+    :`<div class="card-transfer"><span class="card-to">${p.team||'—'}</span></div>`;
+
+  const conf=p.conf||'';
+
+  return `<a class="card" href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}">
+    <div class="card-pos">
+      <div class="card-pos-label">${p.position||'—'}</div>
+    </div>
+    <div class="card-main">
+      <div class="card-name-row">
+        <span class="card-name">${p.name}</span>
+        <span class="type-badge ${typeBadgeClass}">${typeBadgeText}</span>
+        ${conf?`<span class="conf-badge">${conf}</span>`:''}
+      </div>
+      ${transferSection}
+      <div class="card-meta" style="margin-top:5px;">
+        <span class="card-meta-item">${p.height||''}</span>
+        ${p.height&&(p.yr||p.class_year)?'<span class="card-meta-item">·</span>':''}
+        <span class="card-meta-item">${p.class_year||p.yr||''}</span>
+        ${(p.height||(p.yr||p.class_year))&&(p.ppg||p.rpg)?'<span class="card-meta-item">·</span>':''}
+        <span class="card-stat">${statLine(p)}</span>
+      </div>
+    </div>
+    <div class="card-grade-wrap">
+      <div class="card-grade ${gradeClass}">${grade}</div>
+      <div class="card-grade-label">Grade</div>
+    </div>
+  </a>`;
+}
+
+function applyFilters(){
+  const q=(document.getElementById('searchInput').value||'').toLowerCase();
+  const filtered=allAdditions.filter(p=>{
+    if(typeFilter!=='all'&&inferType(p)!==typeFilter) return false;
+    if(confFilter&&(p.conf||'')!==confFilter) return false;
+    if(q){
+      const haystack=(p.name+' '+(p.team||'')+' '+(p.hometown||'')+' '+(p.position||'')).toLowerCase();
+      if(!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const el=document.getElementById('additionsList');
+  if(!filtered.length){
+    el.innerHTML='<div class="empty-state">No additions match your filters.</div>';
+  } else {
+    el.innerHTML=filtered.map(renderCard).join('');
+  }
+  document.getElementById('filterCount').textContent=`${filtered.length} player${filtered.length!==1?'s':''}`;
+}
+
+function setFilter(f,btn){
+  typeFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>{
+    if(['all','transfer','freshman','grad'].some(x=>b.textContent.toLowerCase().includes(x))||b.textContent==='All'){
+      b.classList.remove('active');
+    }
+  });
+  btn.classList.add('active');
+  applyFilters();
+}
+
+function setConfFilter(c,btn){
+  confFilter=c;
+  // Only remove active from conf buttons (those after the sep)
+  const allBtns=Array.from(document.querySelectorAll('.filter-btn'));
+  const confBtns=allBtns.filter(b=>['All Confs','B10','SEC','B12','ACC','BE'].includes(b.textContent));
+  confBtns.forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+
+async function loadAdditions(){
+  try {
+    // Fetch all players marked as additions, sorted by depth_order / tdc_grade
+    const r=await fetch(
+      `${SB_URL}/rest/v1/players?select=name,team,position,height,yr,class_year,hometown,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,depth_order,is_addition&is_addition=eq.true&order=tdc_grade.desc.nullslast`,
+      {headers:H}
+    );
+    if(!r.ok) throw new Error(`${r.status}`);
+    let rows=await r.json();
+
+    // Also fetch team conf for each player (join via teams table)
+    const teamNames=[...new Set(rows.map(p=>p.team).filter(Boolean))];
+    let confMap={};
+    if(teamNames.length){
+      const tr=await fetch(
+        `${SB_URL}/rest/v1/teams?select=name,conference,conf&name=in.(${teamNames.map(n=>`"${n}"`).join(',')})`,
+        {headers:H}
+      );
+      if(tr.ok){
+        const teams=await tr.json();
+        teams.forEach(t=>{ confMap[t.name]=t.conference||t.conf||''; });
+      }
+    }
+    rows=rows.map(p=>({...p, conf:confMap[p.team]||''}));
+    rows=rows.filter(p=>p.name&&p.name!=='—');
+
+    allAdditions=rows;
+    document.getElementById('addCount').textContent=rows.length;
+
+    // Last updated = most recently updated player (proxy)
+    const now=new Date();
+    document.getElementById('lastUpdated').textContent='Updated '+now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+
+    applyFilters();
+  } catch(e){
+    document.getElementById('additionsList').innerHTML=`<div class="empty-state">Could not load additions — ${e.message}</div>`;
+  }
+}
+
+// Theme
+function toggleTheme(){
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const next=isDark?'light':'dark';
+  document.documentElement.setAttribute('data-theme',next);
+  localStorage.setItem('tdc_theme',next);
+  document.getElementById('themeBtn').textContent=next==='dark'?'☀️':'🌙';
+}
+(function(){
+  const saved=localStorage.getItem('tdc_theme')||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+  document.documentElement.setAttribute('data-theme',saved);
+  document.addEventListener('DOMContentLoaded',()=>{
+    document.getElementById('themeBtn').textContent=saved==='dark'?'☀️':'🌙';
+  });
+})();
+
+// Auth display
+(async function(){
+  const {createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
+  const sb=createClient(SB_URL,SB_KEY);
+  const {data:{user}}=await sb.auth.getUser();
+  if(user){
+    document.getElementById('navSignin').textContent='Account';
+    document.getElementById('navSignin').onclick=()=>window.location.href='account.html';
+  }
+})().catch(()=>{});
+
+loadAdditions();
+</script>
+</body>
+</html>
