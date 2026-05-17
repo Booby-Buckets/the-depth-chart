@@ -210,14 +210,15 @@ function projectPlayer(p, teamConf){
   const isFr=yr.includes('fr.')||yr.includes('r-fr');
   const isSo=yr.includes('so.')||yr.includes('r-so.');
   const isJr=yr.includes('jr.')||yr.includes('r-jr.');
-  const pos=p.position||'G';
-  const base=POS_BASE[pos]||POS_BASE['G'];
+  const isSr=yr.includes('sr.')||yr.includes('r-sr')||yr.includes('gr.');
+  const pos=(p.position||'G').replace(/\d/g,'').trim();
+  const posNorm=['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':'G';
   const conf=teamConf||'';
-  const destMult=CONF_MULT[conf]||0.85;
   const grade=parseFloat(p.tdc_grade)||70;
   const depth=p.depth_order||8;
   const hasStats=p.ppg&&parseFloat(p.ppg)>0;
   const isTransfer=p.hometown&&p.hometown.trim()!=='';
+  const s=k=>parseFloat(p[k])||0;
 
   let transferFactor=1.0, originConf=null;
   if(isTransfer&&hasStats){
@@ -225,68 +226,92 @@ function projectPlayer(p, teamConf){
     if(originConf) transferFactor=getTransFactor(originConf,conf,grade);
   }
 
+  // ── FRESHMAN ──
   if(isFr&&!hasStats){
-    const gm=grade>=90?0.85:grade>=85?0.72:grade>=80?0.58:grade>=75?0.44:grade>=70?0.32:grade>=65?0.22:0.14;
-    const dm=depth<=2?1.1:depth<=5?1.0:depth<=8?0.65:0.40;
-    const t=gm*dm*destMult;
-    return {ppg:r1(base.ppg*t),rpg:r1(base.rpg*t),apg:r1(base.apg*t),mpg:r1(base.mpg*t),
-      fg_pct:r1(base.fg_pct),tp_pct:r1(base.tp_pct),ft_pct:r1(base.ft_pct),
-      stl:r1(base.stl*t),blk:r1(base.blk*t),_frosh:true,_origin:originConf,_factor:transferFactor};
+    const tier=grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
+    const FR={
+      '92+':{PG:{ppg:17.5,rpg:3.5,apg:4.5,fg_pct:45.5,tp_pct:37.5,ft_pct:80.5,stl:1.3,blk:0.3,tovs:2.25},SG:{ppg:16.0,rpg:4.0,apg:2.25,fg_pct:43.5,tp_pct:38.5,ft_pct:74.5,stl:1.1,blk:0.4,tovs:1.5},SF:{ppg:18.5,rpg:5.0,apg:1.75,fg_pct:46.5,tp_pct:36.0,ft_pct:76.0,stl:1.0,blk:0.6,tovs:1.8},PF:{ppg:16.0,rpg:6.5,apg:1.8,fg_pct:50.0,tp_pct:31.0,ft_pct:74.0,stl:0.7,blk:1.2,tovs:1.75},C:{ppg:14.0,rpg:9.0,apg:1.05,fg_pct:56.0,tp_pct:22.0,ft_pct:70.5,stl:0.5,blk:1.9,tovs:1.75}},
+      '85-91':{PG:{ppg:13.0,rpg:2.0,apg:3.1,fg_pct:44.5,tp_pct:34.0,ft_pct:80.5,stl:1.1,blk:0.2,tovs:2.35},SG:{ppg:12.75,rpg:2.6,apg:1.65,fg_pct:42.25,tp_pct:35.5,ft_pct:74.5,stl:0.9,blk:0.3,tovs:1.65},SF:{ppg:13.5,rpg:3.5,apg:1.15,fg_pct:44.5,tp_pct:34.5,ft_pct:76.0,stl:0.8,blk:0.5,tovs:1.8},PF:{ppg:12.5,rpg:5.25,apg:1.15,fg_pct:47.5,tp_pct:29.5,ft_pct:74.0,stl:0.5,blk:0.9,tovs:1.75},C:{ppg:11.0,rpg:6.75,apg:0.7,fg_pct:52.0,tp_pct:19.5,ft_pct:70.5,stl:0.4,blk:1.5,tovs:1.75}},
+      '75-84':{PG:{ppg:7.5,rpg:1.5,apg:2.05,fg_pct:43.5,tp_pct:34.0,ft_pct:80.5,stl:0.9,blk:0.2,tovs:1.75},SG:{ppg:7.5,rpg:2.2,apg:1.25,fg_pct:42.0,tp_pct:35.5,ft_pct:74.5,stl:0.7,blk:0.2,tovs:1.25},SF:{ppg:7.6,rpg:2.65,apg:0.9,fg_pct:43.5,tp_pct:34.5,ft_pct:76.0,stl:0.6,blk:0.4,tovs:1.25},PF:{ppg:6.65,rpg:3.25,apg:0.75,fg_pct:47.0,tp_pct:29.5,ft_pct:74.0,stl:0.4,blk:0.7,tovs:1.35},C:{ppg:6.6,rpg:4.75,apg:0.55,fg_pct:51.0,tp_pct:19.5,ft_pct:70.5,stl:0.3,blk:1.1,tovs:1.3}},
+      'below75':{PG:{ppg:4.0,rpg:1.0,apg:1.3,fg_pct:42.0,tp_pct:32.0,ft_pct:78.0,stl:0.6,blk:0.1,tovs:1.4},SG:{ppg:4.0,rpg:1.2,apg:0.8,fg_pct:40.0,tp_pct:33.0,ft_pct:72.0,stl:0.5,blk:0.1,tovs:1.0},SF:{ppg:4.5,rpg:1.8,apg:0.6,fg_pct:41.0,tp_pct:32.0,ft_pct:72.0,stl:0.4,blk:0.2,tovs:1.0},PF:{ppg:3.5,rpg:2.5,apg:0.5,fg_pct:44.0,tp_pct:26.0,ft_pct:68.0,stl:0.3,blk:0.5,tovs:1.0},C:{ppg:3.5,rpg:3.0,apg:0.4,fg_pct:48.0,tp_pct:15.0,ft_pct:64.0,stl:0.2,blk:0.7,tovs:1.0}},
+    };
+    const base=FR[tier][posNorm]||FR[tier]['SG'];
+    const BASE_MPG=32;
+    // MPG based on depth order
+    const projMpg=depth<=2?30:depth<=5?24:depth<=8?16:9;
+    const scale=projMpg/BASE_MPG;
+    const fga=r1(base.ppg/BASE_MPG*projMpg/0.45*0.5); // rough FGA estimate
+    return {
+      ppg:r1(base.ppg*scale),rpg:r1(base.rpg*scale),apg:r1(base.apg*scale),
+      mpg:r1(projMpg),
+      fgm:r1(fga*(base.fg_pct/100)),fga:r1(fga),fg_pct:r1(base.fg_pct),
+      tpm:r1(fga*0.45*(base.tp_pct/100)),tpa:r1(fga*0.45),tp_pct:r1(base.tp_pct),
+      fta:r1(projMpg*0.09),ftm:r1(projMpg*0.09*(base.ft_pct/100)),ft_pct:r1(base.ft_pct),
+      oreb:r1(base.rpg*scale*0.28),dreb:r1(base.rpg*scale*0.72),
+      stl:r1(base.stl*scale),blk:r1(base.blk||0),tovs:r1(base.tovs*scale),
+      _frosh:true,_origin:originConf,_factor:transferFactor,
+    };
   }
 
   if(!hasStats) return null;
+  if(isSr&&!hasStats) return null;
 
-  const ym=isFr?1.12:isSo?1.07:isJr?1.04:1.02;
-  const rm=depth<=2?1.08:depth<=5?1.03:depth<=8?0.97:0.88;
-  const gb=grade>=88?1.04:grade>=82?1.02:grade>=75?1.00:grade>=68?0.98:0.95;
-  // transferFactor intentionally excluded from fm — per-minute talent doesn't change
-  // by conference. Minutes are set externally. Only percentages adjust for conf difficulty.
-  const fm=ym*rm*gb;
-  const s=k=>parseFloat(p[k])||0;
+  // ── RETURNING / TRANSFER — per-minute rate model ──
+  const oldMpg=Math.max(1,s('mpg'));
 
-  // Percentages: meaningful but not drastic changes
-  // Key drivers: year progression (young players improve efficiency), volume (more shots = slightly lower %),
-  // conference translation (harder conf = slightly lower %)
+  // Per-minute rates from last season
+  const pm={
+    ppg:s('ppg')/oldMpg, rpg:s('rpg')/oldMpg, apg:s('apg')/oldMpg,
+    fgm:s('fgm')/oldMpg, fga:s('fga')/oldMpg,
+    tpm:s('tpm')/oldMpg, tpa:s('tpa')/oldMpg,
+    ftm:s('ftm')/oldMpg, fta:s('fta')/oldMpg,
+    oreb:s('oreb')/oldMpg, dreb:s('dreb')/oldMpg,
+    stl:s('stl')/oldMpg, blk:s('blk')/oldMpg, tovs:s('tovs')/oldMpg,
+  };
+
+  // Year progression multiplier (applied to per-minute rates)
+  const yrMult=isFr?1.10:isSo?1.06:isJr?1.03:1.01;
+
+  // Grade vs stats gap boost
+  const gradeExpPpg=grade>=90?19:grade>=85?16:grade>=80?13:grade>=75?10:grade>=70?8:6;
+  const statsPer32=pm.ppg*32;
+  const gapRatio=gradeExpPpg>0?statsPer32/gradeExpPpg:1;
+  const gapMult=gapRatio<0.50?1.18:gapRatio<0.65?1.12:gapRatio<0.80?1.06:gapRatio<0.95?1.02:gapRatio>1.40?0.97:gapRatio>1.20?0.99:1.0;
+
+  const rateGrowth=yrMult*gapMult;
+
+  // Projected MPG — based on depth order (what the team page uses too)
+  const projMpg=depth<=1?32:depth<=2?30:depth<=3?27:depth<=4?25:depth<=5?23:depth<=6?20:depth<=7?17:depth<=8?14:depth<=9?11:depth<=10?8:5;
+  const newMpg=Math.max(1,Math.min(38,projMpg));
+
+  // Percentages — small deltas, same logic as team.html
   const fgBase=s('fg_pct'), tpBase=s('tp_pct'), ftBase=s('ft_pct');
-  const fga=s('fga'), mpgLast=s('mpg')||20;
-
-  // Year-based efficiency improvement — young players get more efficient as they learn the game
-  // Fr→So: biggest jump. Sr: flat. These are realistic CBB improvements.
-  const yearEffBoost=isFr?2.0:isSo?1.2:isJr?0.6:0.0;
-
-  // Volume regression — if a player takes significantly more shots, marginal shot quality drops
-  // Estimate new FGA from depth/role: starters typically take 2-3 more FGA than bench players
-  const depthFgaAdd=depth<=2?2.0:depth<=5?1.0:depth<=8?0:-(fga*0.1); // role change FGA delta estimate
-  const newFgaEst=Math.max(1,fga+depthFgaAdd);
-  const volPenalty=fga>0?(newFgaEst/fga-1)*3.5:0; // each 10% more volume → −0.35% FG
-
-  // Conference penalty — slightly harder shots going up
+  const oldFga=s('fga');
+  const depthFgaAdd=depth<=2?2.0:depth<=5?1.0:depth<=8?0:-(oldFga*0.1);
+  const newFgaEst=Math.max(1,oldFga+depthFgaAdd);
+  const volPenalty=oldFga>0?(newFgaEst/oldFga-1)*3.5:0;
   const transPctAdj=transferFactor<0.85?-2.5:transferFactor<0.95?-1.2:transferFactor>1.15?+1.0:transferFactor>1.05?+0.5:0;
+  const yearEffBoost=isFr?2.0:isSo?1.2:isJr?0.6:0.0;
+  const fgProj=r1(Math.max(30,Math.min(65,fgBase+yearEffBoost-volPenalty+transPctAdj)));
+  const tpProj=r1(Math.max(20,Math.min(50,tpBase+(isFr?1.5:isSo?0.8:isJr?0.4:0)-(oldFga>0?(newFgaEst/oldFga-1)*2.0:0)+transPctAdj*0.6)));
+  const ftProj=r1(Math.max(50,Math.min(95,ftBase+(isFr?1.5:isSo?1.0:isJr?0.5:0))));
 
-  // Net FG% change
-  const fgDelta=yearEffBoost-volPenalty+transPctAdj;
-  const fgProj =r1(Math.max(30,Math.min(65, fgBase + fgDelta)));
-
-  // 3P% — more volume-sensitive, year boost smaller
-  const tpVolPenalty=fga>0?((newFgaEst/fga-1)*2.0):0;
-  const tpDelta=(isFr?1.5:isSo?0.8:isJr?0.4:0)-tpVolPenalty+transPctAdj*0.6;
-  const tpProj =r1(Math.max(20,Math.min(50, tpBase + tpDelta)));
-
-  // FT% — least affected by role/volume, mostly skill-based year progression
-  const ftDelta=isFr?1.5:isSo?1.0:isJr?0.5:0;
-  const ftProj =r1(Math.max(50,Math.min(95, ftBase + ftDelta)));
-
+  const newFga=r1(pm.fga*rateGrowth*newMpg);
   return {
-    ppg:r1(s('ppg')*fm),rpg:r1(s('rpg')*fm),apg:r1(s('apg')*fm),
-    mpg:r1(Math.min(36,s('mpg')*(1+(fm-1)*0.4))),
-    fgm:r1(s('fgm')*fm),fga:r1(s('fga')*fm),
-    fg_pct:fgProj,
-    tpm:r1(s('tpm')*fm),tpa:r1(s('tpa')*fm),
-    tp_pct:tpProj,
-    ftm:r1(s('ftm')*fm),fta:r1(s('fta')*fm),
-    ft_pct:ftProj,
-    oreb:r1(s('oreb')*fm),dreb:r1(s('dreb')*fm),
-    stl:r1(s('stl')*fm),blk:r1(s('blk')*fm),tovs:r1(s('tovs')*fm),
+    ppg:r1(pm.ppg*rateGrowth*newMpg),
+    rpg:r1(pm.rpg*rateGrowth*newMpg),
+    apg:r1(pm.apg*rateGrowth*newMpg),
+    mpg:r1(newMpg),
+    fgm:r1(newFga*(fgProj/100)),fga:newFga,fg_pct:fgProj,
+    tpm:r1(pm.tpa*rateGrowth*newMpg*(tpProj/100)),
+    tpa:r1(pm.tpa*rateGrowth*newMpg),tp_pct:tpProj,
+    ftm:r1(pm.fta*rateGrowth*newMpg*(ftProj/100)),
+    fta:r1(pm.fta*rateGrowth*newMpg),ft_pct:ftProj,
+    oreb:r1(pm.oreb*rateGrowth*newMpg),
+    dreb:r1(pm.dreb*rateGrowth*newMpg),
+    stl:r1(pm.stl*rateGrowth*newMpg),
+    blk:r1(pm.blk*rateGrowth*newMpg),
+    tovs:r1(pm.tovs*rateGrowth*newMpg),
     _frosh:false,_origin:originConf,_factor:transferFactor,
   };
 }
@@ -397,23 +422,23 @@ async function init(){
   if(!pid&&!pname){document.getElementById('heroSection').innerHTML='<div style="padding:80px;text-align:center;color:var(--text3);">No player specified. <a href="roster.html" style="color:var(--accent);">Browse players →</a></div>';return;}
   try{
     if(s?.access_token) updateNav(s);
-    // Build lookup URL — team is optional, fall back to name-only if no team
+    // Build lookup URL — use ilike for name to handle encoding edge cases
     let url;
     if(pid){
       url=`${SB}/rest/v1/players?id=eq.${pid}&select=*&limit=1`;
     } else if(pteam){
-      url=`${SB}/rest/v1/players?name=eq.${encodeURIComponent(pname)}&team=eq.${encodeURIComponent(pteam)}&select=*&limit=1`;
+      url=`${SB}/rest/v1/players?name=ilike.${encodeURIComponent(pname)}&team=ilike.${encodeURIComponent(pteam)}&select=*&limit=1`;
     } else {
-      url=`${SB}/rest/v1/players?name=eq.${encodeURIComponent(pname)}&select=*&limit=1`;
+      url=`${SB}/rest/v1/players?name=ilike.${encodeURIComponent(pname)}&select=*&limit=1`;
     }
     const [pr,apr]=await Promise.all([
       fetch(url,{headers:H}).then(r=>r.json()),
       fetch(`${SB}/rest/v1/players?select=ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs&ppg=not.is.null&limit=5000`,{headers:H}).then(r=>r.json()),
     ]);
-    // If exact match fails, try name-only fallback
-    let playerRow=pr[0];
-    if(!playerRow&&pname&&pteam){
-      const fb=await fetch(`${SB}/rest/v1/players?name=eq.${encodeURIComponent(pname)}&select=*&limit=1`,{headers:H});
+    // Fallback: if ilike with team fails, try name only
+    let playerRow=Array.isArray(pr)?pr[0]:null;
+    if(!playerRow&&pname){
+      const fb=await fetch(`${SB}/rest/v1/players?name=ilike.${encodeURIComponent(pname)}&select=*&limit=1`,{headers:H});
       const fbRows=await fb.json();
       playerRow=fbRows[0];
     }

@@ -603,8 +603,8 @@ function statColor(val, key, gp){
   }
   if(pct===0) return '';
   // Blue scale — light to strong, clearly distinct from gray background
-  const bg  =['','rgba(50,120,220,.16)','rgba(40,105,210,.28)','rgba(30,90,200,.40)','rgba(20,70,190,.55)'][pct];
-  const text=['','rgb(50,100,190)','rgb(35,85,185)','rgb(20,65,175)','rgb(15,50,165)'][pct];
+  const bg  =['','rgba(60,120,220,.45)','rgba(45,100,210,.58)','rgba(30,82,200,.72)','rgba(18,60,185,.88)'][pct];
+  const text=['','#ffffff','#ffffff','#ffffff','#ffffff'][pct];
   return `background:${bg};color:${text};font-weight:700;`;
 }
 
@@ -1198,7 +1198,7 @@ function buildTeamProjections(players, conf){
   const named=players.filter(p=>p.name&&p.name!=='—');
   if(!named.length) return [];
 
-  // Step 1: Project each player (gets per-minute rates, no minutes yet)
+  // Step 1: Project each player (per-minute rates, no minutes yet)
   const projected=named
     .map(p=>projectSinglePlayer(p,conf))
     .filter(Boolean)
@@ -1212,58 +1212,86 @@ function buildTeamProjections(players, conf){
   const rosterSize=projected.length;
   const rotDepth=inferRotationDepth(projected);
 
-  // Step 3: Assign position slots — track rank within each position group
+  // Step 3: Assign minutes from GLOBAL depth rank (depth_order is law)
+  // Position slot is only used for close same-position pairs in step 5
+  projected.forEach((p,i)=>{
+    const globalSlot=i+1; // 1=starter, 2=2nd man, etc.
+    const grade=parseFloat(p.tdc_grade)||70;
+
+    // Global slot → minutes model
+    // Starters (1-5): 27-34 MPG based on grade vs team avg
+    // 6-8 (key rotation): 14-22 MPG
+    // 9-10 (end of rotation): 8-13 MPG
+    // 11+ (deep bench): 3-6 MPG
+    let base;
+    if(globalSlot<=5){
+      const gradeNorm=Math.max(-1,Math.min(1,(grade-teamGradeAvg)/15));
+      base=30.5+gradeNorm*3.5; // 27-34
+    } else if(globalSlot===6){
+      base=20;
+    } else if(globalSlot===7){
+      base=17;
+    } else if(globalSlot===8){
+      base=14;
+    } else if(globalSlot===9){
+      base=11;
+    } else if(globalSlot===10){
+      base=8;
+    } else {
+      base=Math.max(2, 6-(globalSlot-10)*1.5);
+    }
+
+    // Grade quality modifier within slot: high-grade player gets slight bump
+    const gradeVsAvg=(grade-teamGradeAvg)/20;
+    base=base*(1+gradeVsAvg*0.10);
+
+    // Short bench: starters play more
+    if(globalSlot<=5&&rosterSize<=8) base=Math.min(38,base+2);
+    // Deep bench cap for players outside rotation
+    if(globalSlot>rotDepth) base=Math.min(5,base);
+
+    p._targetMpg=Math.max(1,Math.min(38,base));
+    p._globalSlot=globalSlot;
+  });
+
+  // Step 4: Detect close-grade adjacent pairs and split minutes more evenly
+  // Only applies within same position group — prevents inverting global order
   const posCounts={};
   projected.forEach(p=>{
     const pos=(p.position||'G').replace(/\d/g,'').trim();
-    const grp=pos==='PG'?'G':pos==='SG'?'G':pos==='CG'?'G':pos==='SF'?'W':pos==='PF'?'B':pos==='C'?'B':'G';
-    // Use actual position for slot tracking
     const posKey=['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':pos.includes('G')?'SG':pos.includes('F')?'SF':'C';
     posCounts[posKey]=(posCounts[posKey]||0)+1;
     p._posKey=posKey;
     p._posSlot=posCounts[posKey];
   });
 
-  // Step 4: Assign target minutes using position-aware model
-  projected.forEach((p,i)=>{
-    const globalSlot=i+1;
-    const grade=parseFloat(p.tdc_grade)||70;
-    const posSlot=p._posSlot||1;
-    // Grade diff vs next player at same position
-    const nextAtPos=projected.find((q,j)=>j>i&&q._posKey===p._posKey);
-    const gradeDiff=nextAtPos?grade-(parseFloat(nextAtPos.tdc_grade)||70):20;
-    p._targetMpg=getTargetMpg(posSlot,globalSlot,rosterSize,teamGradeAvg,grade,gradeDiff);
-    // Players outside inferred rotation get hard-capped minutes
-    if(globalSlot>rotDepth) p._targetMpg=Math.min(p._targetMpg,5);
-  });
-
-  // Step 5: Per-position minute split for close starter/backup pairs
-  const posGroups={};
-  projected.forEach(p=>{
-    if(!posGroups[p._posKey]) posGroups[p._posKey]=[];
-    posGroups[p._posKey].push(p);
-  });
-  Object.values(posGroups).forEach(group=>{
-    if(group.length<2) return;
-    const g1=parseFloat(group[0].tdc_grade)||70;
-    const g2=parseFloat(group[1].tdc_grade)||70;
+  // Step 5: Close-grade pair splitting within starter slots only
+  // Only blend adjacent global slots to avoid inverting non-adjacent players
+  for(let i=0;i<Math.min(projected.length-1,9);i++){
+    const p1=projected[i], p2=projected[i+1];
+    if(p1._posKey!==p2._posKey) continue; // only split same-position pairs
+    const g1=parseFloat(p1.tdc_grade)||70;
+    const g2=parseFloat(p2.tdc_grade)||70;
     const diff=g1-g2;
     if(diff<=3){
-      // Very close — almost equal split, starter gets slight edge
-      const combined=group[0]._targetMpg+group[1]._targetMpg;
-      group[0]._targetMpg=combined*0.53;
-      group[1]._targetMpg=combined*0.47;
+      const combined=p1._targetMpg+p2._targetMpg;
+      p1._targetMpg=combined*0.53;
+      p2._targetMpg=combined*0.47;
     } else if(diff<=6){
-      // Moderate difference — starter gets 65%
-      const combined=group[0]._targetMpg+group[1]._targetMpg;
-      group[0]._targetMpg=combined*0.65;
-      group[1]._targetMpg=combined*0.35;
+      const combined=p1._targetMpg+p2._targetMpg;
+      p1._targetMpg=combined*0.65;
+      p2._targetMpg=combined*0.35;
     }
-    // diff >6 = clear starter, no adjustment
-  });
+  }
 
-  // Step 6: Enforce total starter budget ≤ 200
-  // Use the 5 players with highest _targetMpg as the "starters"
+  // Step 6: Enforce monotonic decreasing — no player should have more minutes than player above them
+  for(let i=1;i<projected.length;i++){
+    if(projected[i]._targetMpg>projected[i-1]._targetMpg){
+      projected[i]._targetMpg=projected[i-1]._targetMpg*0.95;
+    }
+  }
+
+  // Step 7: Enforce starter budget ≤ 196
   const top5=projected.slice(0,Math.min(5,projected.length));
   const starterTotal=top5.reduce((s,p)=>s+(p._targetMpg||0),0);
   if(starterTotal>196){
@@ -1547,18 +1575,27 @@ function projectSinglePlayer(p, conf){
 
   // Old FGA for efficiency regression calc
   const oldFga=s('fga');
-
-  // Percentages: small deltas only, conference difficulty adjusts these slightly
-  // Going up in conference = slightly harder shots = tiny % dip
-  // Going down = slightly easier = tiny % boost
-  // But the effect is small — skill doesn't change, just shot quality at the margin
   const fgBase=s('fg_pct'), tpBase=s('tp_pct'), ftBase=s('ft_pct');
-  const pctDelta=(rateGrowth-1)*0.08;
-  // Transfer pct adj: only applied if meaningful conf jump (>1 tier diff)
-  const transPctAdj=transferFactor<0.85?-2.0:transferFactor<0.95?-1.0:transferFactor>1.15?+0.8:transferFactor>1.05?+0.4:0;
-  const fg_pct_proj=r1t(Math.max(30,Math.min(65,fgBase+pctDelta*3+transPctAdj)));
-  const tp_pct_proj=r1t(Math.max(18,Math.min(50,tpBase+pctDelta*2+transPctAdj*0.7)));
-  const ft_pct_proj=r1t(Math.max(45,Math.min(97,ftBase+pctDelta*1.5)));
+
+  // Year-based efficiency improvement
+  const yearEffBoost=isFr?2.0:isSo?1.2:isJr?0.6:0.0;
+
+  // Volume regression — depth order change drives FGA estimate
+  // Will be refined when minutes are assigned, but get a directional estimate here
+  const depthFgaAdd=depth<=2?2.0:depth<=5?1.0:depth<=8?0:-(oldFga*0.1);
+  const newFgaEst=Math.max(1,oldFga+depthFgaAdd);
+  const volPenalty=oldFga>0?(newFgaEst/oldFga-1)*3.5:0;
+
+  // Conference penalty on percentages only
+  const transPctAdj=transferFactor<0.85?-2.5:transferFactor<0.95?-1.2:transferFactor>1.15?+1.0:transferFactor>1.05?+0.5:0;
+
+  const fgDelta=yearEffBoost-volPenalty+transPctAdj;
+  const fg_pct_proj=r1t(Math.max(30,Math.min(65,fgBase+fgDelta)));
+  const tpVolPenalty=oldFga>0?((newFgaEst/oldFga-1)*2.0):0;
+  const tpDelta=(isFr?1.5:isSo?0.8:isJr?0.4:0)-tpVolPenalty+transPctAdj*0.6;
+  const tp_pct_proj=r1t(Math.max(18,Math.min(50,tpBase+tpDelta)));
+  const ftDelta=isFr?1.5:isSo?1.0:isJr?0.5:0;
+  const ft_pct_proj=r1t(Math.max(45,Math.min(97,ftBase+ftDelta)));
 
   // Store per-minute data + rates for minutes scaling in buildTeamProjections
   return {...p,_proj:true,_isFrosh:false,_isSr:false,_transferFactor:transferFactor,
