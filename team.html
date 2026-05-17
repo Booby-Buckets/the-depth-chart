@@ -690,10 +690,8 @@ function projectPlayer(p, teamConf, teamRoster, targetMpg){
   // ── CONFERENCE TRANSFER FACTOR ──
   let transferFactor=1.0, originConf=null;
   if(isTransfer&&hasStats){
-    const lookup=typeof getProjSchoolConf!=='undefined'?getProjSchoolConf:getSchoolConf;
-    const transFn=typeof getProjTransFactor!=='undefined'?getProjTransFactor:getTransFactor;
-    originConf=lookup(p.hometown);
-    if(originConf) transferFactor=transFn(originConf,conf,grade);
+    originConf=getProjSchoolConf(p.hometown)||getSchoolConfFallback(p.hometown);
+    if(originConf) transferFactor=getProjTransFactor(originConf,conf,grade);
   }
 
   // ── MPG RESOLUTION ──
@@ -1232,6 +1230,8 @@ const PROJ_SCHOOL_CONF=(function(){
   return m;
 })();
 
+function getSchoolConfFallback(school){ return getProjSchoolConf(school); }
+
 function getProjSchoolConf(school){
   if(!school) return null;
   const lo=school.toLowerCase().trim();
@@ -1439,38 +1439,39 @@ function buildTeamProjections(players, conf){
     top5.forEach(p=>{ p._targetMpg=p._targetMpg*scale; });
   }
 
-  // Step 7: Run projectPlayer for each player passing targetMpg directly
-  // Same function as player pages — identical output given same inputs
+  // Steps 7-9: Use projectPlayer (the good predictor) for all stat computation
+  // MPG is already computed and stored in _targetMpg — pass it directly
   const withStats = projected.map(p=>{
     const mpg=Math.max(1,Math.min(38,p._targetMpg||10));
-    const playerProj=projectPlayer(p, conf, null, mpg); // pass mpg directly
-    if(!playerProj) return {...p, mpg:r1t(mpg)};
-    return {...p, ...playerProj, mpg:r1t(mpg)}; // mpg override ensures team engine wins
+    // projectPlayer uses the same logic as player pages — this guarantees identical output
+    const pp=projectPlayer(p, conf, null, mpg);
+    if(!pp) return {...p, mpg:r1t(mpg)};
+    return {...p, ...pp, mpg:r1t(mpg)};
   });
 
-  // Step 8: Team usage compression — total starter FGA shouldn't exceed ~55
-  const totalFga = withStats.slice(0,5).reduce((s,p)=>s+(parseFloat(p.fga)||0),0);
+  // FGA compression — starters shouldn't total >55 FGA
+  const totalFga=withStats.slice(0,5).reduce((s,p)=>s+(parseFloat(p.fga)||0),0);
   if(totalFga>55){
-    const fgaScale = 53/totalFga;
+    const fs=53/totalFga;
     withStats.slice(0,5).forEach(p=>{
       if(!p.fga) return;
-      p.fga  = r1t((parseFloat(p.fga)||0)*fgaScale);
-      p.fgm  = r1t(p.fga*(parseFloat(p.fg_pct||42)/100));
-      p.tpa  = r1t((parseFloat(p.tpa)||0)*fgaScale);
-      p.tpm  = r1t(p.tpa*(parseFloat(p.tp_pct||33)/100));
-      p.ppg  = r1t((parseFloat(p.fgm)||0)*2+(parseFloat(p.tpm)||0)+(parseFloat(p.ftm)||0));
+      p.fga=r1t((parseFloat(p.fga)||0)*fs);
+      p.fgm=r1t(p.fga*(parseFloat(p.fg_pct||42)/100));
+      p.tpa=r1t((parseFloat(p.tpa)||0)*fs);
+      p.tpm=r1t(p.tpa*(parseFloat(p.tp_pct||33)/100));
+      p.ppg=r1t((parseFloat(p.fgm)||0)*2+(parseFloat(p.tpm)||0)+(parseFloat(p.ftm)||0));
     });
   }
 
-  // Step 9: Sanity clamps
+  // Sanity clamps
   withStats.forEach(p=>{
-    if(p.fg_pct!=null) p.fg_pct=r1t(Math.min(68,Math.max(28,parseFloat(p.fg_pct)||0)));
-    if(p.tp_pct!=null) p.tp_pct=r1t(Math.min(50,Math.max(15,parseFloat(p.tp_pct)||0)));
-    if(p.ft_pct!=null) p.ft_pct=r1t(Math.min(97,Math.max(45,parseFloat(p.ft_pct)||0)));
-    if(p.ppg!=null)    p.ppg   =r1t(Math.min(35,Math.max(0,parseFloat(p.ppg)||0)));
-    if(p.rpg!=null)    p.rpg   =r1t(Math.min(15,Math.max(0,parseFloat(p.rpg)||0)));
-    if(p.apg!=null)    p.apg   =r1t(Math.min(11,Math.max(0,parseFloat(p.apg)||0)));
-    if(p.mpg!=null)    p.mpg   =r1t(Math.min(38,Math.max(1,parseFloat(p.mpg)||0)));
+    if(p.fg_pct!=null)p.fg_pct=r1t(Math.min(68,Math.max(28,parseFloat(p.fg_pct)||0)));
+    if(p.tp_pct!=null)p.tp_pct=r1t(Math.min(50,Math.max(15,parseFloat(p.tp_pct)||0)));
+    if(p.ft_pct!=null)p.ft_pct=r1t(Math.min(97,Math.max(45,parseFloat(p.ft_pct)||0)));
+    if(p.ppg!=null)p.ppg=r1t(Math.min(35,Math.max(0,parseFloat(p.ppg)||0)));
+    if(p.rpg!=null)p.rpg=r1t(Math.min(15,Math.max(0,parseFloat(p.rpg)||0)));
+    if(p.apg!=null)p.apg=r1t(Math.min(11,Math.max(0,parseFloat(p.apg)||0)));
+    if(p.mpg!=null)p.mpg=r1t(Math.min(38,Math.max(1,parseFloat(p.mpg)||0)));
   });
 
   return withStats;
