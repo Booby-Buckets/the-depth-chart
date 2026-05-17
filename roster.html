@@ -282,6 +282,28 @@ function htToIn(h){
   return parseInt(m[1])*12 + (parseInt(m[2])||0);
 }
 
+// Year sort order: Gr=0, Sr=1, R-Sr=1, Jr=2, R-Jr=2, So=3, R-So=3, Fr=4, R-Fr=4
+function yrOrder(yr){
+  const y=(yr||'').toLowerCase();
+  if(y.includes('gr.')) return 0;
+  if(y.includes('sr.')) return 1;
+  if(y.includes('jr.')) return 2;
+  if(y.includes('so.')) return 3;
+  return 4;
+}
+
+// Position sort order: PG=0, CG=1, SG=2, SF=3, PF=4, C=5
+function posOrder(pos){
+  const p=(pos||'').toUpperCase();
+  if(p==='PG') return 0;
+  if(p==='CG') return 1;
+  if(p==='SG') return 2;
+  if(p==='SF') return 3;
+  if(p==='PF') return 4;
+  if(p==='C')  return 5;
+  return 6;
+}
+
 // Height filter matching
 function htMatch(h, filter){
   if(!filter) return true;
@@ -388,7 +410,7 @@ function applyFilters(){
     let av, bv;
     const numCols = ['ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs','gp'];
     if(numCols.includes(sortCol)){
-      av = a[sortCol]??-999; bv = b[sortCol]??-999;
+      av = parseFloat(a[sortCol]??-999)||0; bv = parseFloat(b[sortCol]??-999)||0;
       return (bv-av)*sortDir;
     }
     if(sortCol==='height'){ av=htToIn(a.height); bv=htToIn(b.height); return (bv-av)*sortDir; }
@@ -396,6 +418,14 @@ function applyFilters(){
       av = parseInt(a.tdc_grade??'0') || 0;
       bv = parseInt(b.tdc_grade??'0') || 0;
       return (bv-av)*sortDir;
+    }
+    if(sortCol==='class_year'||sortCol==='yr'){
+      av=yrOrder(a.class_year||a.yr); bv=yrOrder(b.class_year||b.yr);
+      return (av-bv)*sortDir;
+    }
+    if(sortCol==='position'){
+      av=posOrder(a.position); bv=posOrder(b.position);
+      return (av-bv)*sortDir;
     }
     av=(a[sortCol]||'').toLowerCase(); bv=(b[sortCol]||'').toLowerCase();
     return av<bv?-sortDir:av>bv?sortDir:0;

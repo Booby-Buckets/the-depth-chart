@@ -905,6 +905,9 @@ function toggleStatColors(cb){
   }
 })();
 
+function yrOrder(yr){const y=(yr||'').toLowerCase();if(y.includes('gr.'))return 0;if(y.includes('sr.'))return 1;if(y.includes('jr.'))return 2;if(y.includes('so.'))return 3;return 4;}
+function posOrder(pos){const p=(pos||'').toUpperCase();if(p==='PG')return 0;if(p==='CG')return 1;if(p==='SG')return 2;if(p==='SF')return 3;if(p==='PF')return 4;if(p==='C')return 5;return 6;}
+
 function sortTable(key, th){
   const tbody = document.getElementById('statsTableBody');
   if(!tbody) return;
@@ -915,8 +918,18 @@ function sortTable(key, th){
   if(asc) th.classList.add('asc');
   const colIdx = Array.from(th.parentElement.children).indexOf(th);
   rows.sort((a,b)=>{
-    const av = a.cells[colIdx]?.textContent.trim();
-    const bv = b.cells[colIdx]?.textContent.trim();
+    const av = a.cells[colIdx]?.textContent.trim()||'';
+    const bv = b.cells[colIdx]?.textContent.trim()||'';
+    // Year column
+    if(key==='class_year'||key==='yr'){
+      const ao=yrOrder(av), bo=yrOrder(bv);
+      return asc ? ao-bo : bo-ao;
+    }
+    // Position column
+    if(key==='position'){
+      const ao=posOrder(av), bo=posOrder(bv);
+      return asc ? ao-bo : bo-ao;
+    }
     const an = parseFloat(av), bn = parseFloat(bv);
     if(!isNaN(an)&&!isNaN(bn)) return asc ? an-bn : bn-an;
     return asc ? av.localeCompare(bv) : bv.localeCompare(av);

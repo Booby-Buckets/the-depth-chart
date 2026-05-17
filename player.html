@@ -422,25 +422,41 @@ async function init(){
   if(!pid&&!pname){document.getElementById('heroSection').innerHTML='<div style="padding:80px;text-align:center;color:var(--text3);">No player specified. <a href="roster.html" style="color:var(--accent);">Browse players →</a></div>';return;}
   try{
     if(s?.access_token) updateNav(s);
-    // Build lookup URL — use ilike for name to handle encoding edge cases
+    // PostgREST eq. filter — special chars like + * Jr. need to be handled
+    // Use the player id if available, otherwise fetch by name with proper encoding
+    // Strip any URL-unsafe chars that PostgREST can't handle in eq. comparisons
+    function sbEncode(str){ return encodeURIComponent(str); }
     let url;
     if(pid){
       url=`${SB}/rest/v1/players?id=eq.${pid}&select=*&limit=1`;
     } else if(pteam){
-      url=`${SB}/rest/v1/players?name=ilike.${encodeURIComponent(pname)}&team=ilike.${encodeURIComponent(pteam)}&select=*&limit=1`;
+      url=`${SB}/rest/v1/players?name=eq.${sbEncode(pname)}&team=eq.${sbEncode(pteam)}&select=*&limit=1`;
     } else {
-      url=`${SB}/rest/v1/players?name=ilike.${encodeURIComponent(pname)}&select=*&limit=1`;
+      url=`${SB}/rest/v1/players?name=eq.${sbEncode(pname)}&select=*&limit=1`;
     }
     const [pr,apr]=await Promise.all([
       fetch(url,{headers:H}).then(r=>r.json()),
       fetch(`${SB}/rest/v1/players?select=ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs&ppg=not.is.null&limit=5000`,{headers:H}).then(r=>r.json()),
     ]);
-    // Fallback: if ilike with team fails, try name only
     let playerRow=Array.isArray(pr)?pr[0]:null;
-    if(!playerRow&&pname){
-      const fb=await fetch(`${SB}/rest/v1/players?name=ilike.${encodeURIComponent(pname)}&select=*&limit=1`,{headers:H});
+    // Fallback 1: try name-only if team match failed
+    if(!playerRow&&pname&&pteam){
+      const fb=await fetch(`${SB}/rest/v1/players?name=eq.${sbEncode(pname)}&select=*&limit=1`,{headers:H});
       const fbRows=await fb.json();
-      playerRow=fbRows[0];
+      playerRow=Array.isArray(fbRows)?fbRows[0]:null;
+    }
+    // Fallback 2: fetch all players for this team and find by name client-side
+    // handles special chars that break URL encoding (Jr., +, *, etc.)
+    if(!playerRow&&pname){
+      const teamParam=pteam?`&team=eq.${sbEncode(pteam)}`:'';
+      const fb2=await fetch(`${SB}/rest/v1/players?select=*${teamParam}&limit=500`,{headers:H});
+      const fb2Rows=await fb2.json();
+      if(Array.isArray(fb2Rows)){
+        const nameLower=pname.toLowerCase().trim();
+        playerRow=fb2Rows.find(r=>r.name&&r.name.toLowerCase().trim()===nameLower);
+        // Fuzzy: if exact still fails, try contains
+        if(!playerRow) playerRow=fb2Rows.find(r=>r.name&&r.name.toLowerCase().includes(nameLower.slice(0,8)));
+      }
     }
     if(!playerRow) throw new Error('Player not found');
     player=playerRow; allPlayers=apr;
