@@ -621,6 +621,52 @@ const POS_BASE_TEAM = {
   'F': {ppg:10.5,rpg:6.0,apg:1.5,mpg:25,fg_pct:44,tp_pct:35,ft_pct:70,stl:0.7,blk:0.8,fgm:3.6,fga:8.1,tpm:1.0,tpa:2.8,ftm:1.9,fta:2.7,oreb:1.9,dreb:4.1,tovs:1.7},
 };
 
+// computePlayerMpg — mirrors buildTeamProjections MPG steps exactly
+// Used by player page; team page uses targetMpg directly from buildTeamProjections
+function computePlayerMpg(p, teamRoster){
+  const roster=(Array.isArray(teamRoster)?teamRoster:[]).filter(r=>r.name&&r.name!=='—')
+    .sort((a,b)=>(a.depth_order||99)-(b.depth_order||99));
+  if(!roster.length){const d=p.depth_order||8;return d<=1?32:d<=2?30:d<=3?27:d<=4?25:d<=5?23:d===6?20:d===7?17:d===8?14:d===9?11:d===10?8:5;}
+  const grades=roster.map(r=>parseFloat(r.tdc_grade)||70);
+  const teamGradeAvg=grades.reduce((a,b)=>a+b,0)/grades.length;
+  const rosterSize=roster.length;
+  let rotDepth=rosterSize;
+  for(let i=2;i<roster.length-1;i++){
+    const g1=parseFloat(roster[i-1].tdc_grade)||70,g2=parseFloat(roster[i].tdc_grade)||70;
+    if((g1-g2)>=9&&g2<=68){rotDepth=i;break;}
+    if(g2<63&&i>=6){rotDepth=i;break;}
+  }
+  rotDepth=Math.max(7,Math.min(12,rotDepth));
+  const mpgMap={};
+  roster.forEach((r,i)=>{
+    const g=parseFloat(r.tdc_grade)||70,slot=i+1;
+    let base;
+    if(slot<=5){const gn=Math.max(-1,Math.min(1,(g-teamGradeAvg)/15));base=30.5+gn*3.5;}
+    else if(slot===6)base=20;else if(slot===7)base=17;else if(slot===8)base=14;
+    else if(slot===9)base=11;else if(slot===10)base=8;else base=Math.max(2,6-(slot-10)*1.5);
+    base=base*(1+((g-teamGradeAvg)/20)*0.10);
+    if(slot<=5&&rosterSize<=8)base=Math.min(38,base+2);
+    if(slot>rotDepth)base=Math.min(5,base);
+    mpgMap[r.name]=Math.max(1,Math.min(38,base));
+  });
+  const posCounts={};
+  roster.forEach(r=>{const pos=(r.position||'G').replace(/\d/g,'').trim();const pk=['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':pos.includes('G')?'SG':'C';posCounts[pk]=(posCounts[pk]||0)+1;r._pk2=pk;});
+  for(let i=0;i<Math.min(roster.length-1,9);i++){
+    const r1=roster[i],r2=roster[i+1];
+    if(r1._pk2!==r2._pk2)continue;
+    const g1=parseFloat(r1.tdc_grade)||70,g2=parseFloat(r2.tdc_grade)||70,diff=g1-g2;
+    if(diff<=3){const c=mpgMap[r1.name]+mpgMap[r2.name];mpgMap[r1.name]=c*0.53;mpgMap[r2.name]=c*0.47;}
+    else if(diff<=6){const c=mpgMap[r1.name]+mpgMap[r2.name];mpgMap[r1.name]=c*0.65;mpgMap[r2.name]=c*0.35;}
+  }
+  for(let i=1;i<roster.length;i++){const prev=roster[i-1].name,cur=roster[i].name;if(mpgMap[cur]>mpgMap[prev])mpgMap[cur]=mpgMap[prev]*0.95;}
+  const top5=roster.slice(0,5);
+  const st=top5.reduce((s,r)=>s+(mpgMap[r.name]||0),0);
+  if(st>196){const sc=196/st;top5.forEach(r=>{mpgMap[r.name]=(mpgMap[r.name]||0)*sc;});}
+  const result=mpgMap[p.name];
+  if(result!=null)return Math.max(1,Math.min(38,result));
+  const d=p.depth_order||8;return d<=1?32:d<=2?30:d<=3?27:d<=4?25:d<=5?23:d===6?20:d===7?17:d===8?14:d===9?11:d===10?8:5;
+}
+
 // ── UNIFIED PROJECTION MODEL ─────────────────────────────
 // Single function used by both player pages and team projection page.
 // When called from buildTeamProjections, targetMpg is passed directly.
@@ -656,61 +702,7 @@ function projectPlayer(p, teamConf, teamRoster, targetMpg){
   if(targetMpg!=null){
     newMpg=Math.max(1,Math.min(38,targetMpg));
   } else {
-    // Compute from roster if available (same logic as buildTeamProjections)
-    const roster=Array.isArray(teamRoster)?teamRoster.filter(r=>r.name&&r.name!=='—'):[];
-    const rosterGrades=roster.map(r=>parseFloat(r.tdc_grade)||70).filter(g=>g>0);
-    const teamGradeAvg=rosterGrades.length?rosterGrades.reduce((a,b)=>a+b,0)/rosterGrades.length:75;
-    const rosterSize=roster.length||10;
-
-    // Rotation depth
-    let rotDepth=rosterSize;
-    for(let i=2;i<roster.length-1;i++){
-      const g1=parseFloat(roster[i-1]?.tdc_grade)||70;
-      const g2=parseFloat(roster[i]?.tdc_grade)||70;
-      if((g1-g2)>=9&&g2<=68){rotDepth=i;break;}
-      if(g2<63&&i>=6){rotDepth=i;break;}
-    }
-    rotDepth=Math.max(7,Math.min(12,rotDepth));
-
-    let base;
-    if(depth<=5){
-      const gradeNorm=Math.max(-1,Math.min(1,(grade-teamGradeAvg)/15));
-      base=30.5+gradeNorm*3.5;
-    } else if(depth===6)base=20;
-    else if(depth===7)base=17;
-    else if(depth===8)base=14;
-    else if(depth===9)base=11;
-    else if(depth===10)base=8;
-    else base=Math.max(2,6-(depth-10)*1.5);
-
-    base=base*(1+((grade-teamGradeAvg)/20)*0.10);
-    if(depth<=5&&rosterSize<=8)base=Math.min(38,base+2);
-    if(depth>rotDepth)base=Math.min(5,base);
-
-    // Close-grade adjacent pair split at same position
-    if(roster.length>0){
-      const pkey=posNorm==='SG'?'SG':posNorm;
-      const posPlayers=roster.filter(r=>{
-        const rp=(r.position||'G').replace(/\d/g,'').trim();
-        const rk=['PG','SG','SF','PF','C'].includes(rp)?rp:rp==='CG'?'SG':'G';
-        return rk===pkey;
-      }).sort((a,b)=>(a.depth_order||99)-(b.depth_order||99));
-      const myIdx=posPlayers.findIndex(r=>r.name===p.name);
-      if(myIdx>=0&&myIdx<posPlayers.length-1){
-        const nextGrade=parseFloat(posPlayers[myIdx+1].tdc_grade)||70;
-        const diff=grade-nextGrade;
-        const nextDepth=posPlayers[myIdx+1].depth_order||depth+1;
-        let nextBase;
-        if(nextDepth<=5){const gn=Math.max(-1,Math.min(1,(nextGrade-teamGradeAvg)/15));nextBase=30.5+gn*3.5;}
-        else if(nextDepth===6)nextBase=20;else if(nextDepth===7)nextBase=17;
-        else if(nextDepth===8)nextBase=14;else if(nextDepth===9)nextBase=11;
-        else if(nextDepth===10)nextBase=8;else nextBase=5;
-        const combined=base+nextBase;
-        if(diff<=3)base=combined*0.53;
-        else if(diff<=6)base=combined*0.65;
-      }
-    }
-    newMpg=Math.max(1,Math.min(38,base));
+    newMpg=computePlayerMpg(p, teamRoster);
   }
 
   // ── FRESHMAN — no prior stats ──

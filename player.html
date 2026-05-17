@@ -204,6 +204,85 @@ function getSchoolConf(school){
 // ── POSITION BASELINES ──────────────────────────────────
 const POS_BASE={'PG':{ppg:10.5,rpg:3.2,apg:4.1,mpg:26,fg_pct:42,tp_pct:36,ft_pct:75,stl:1.2,blk:0.2},'SG':{ppg:11.2,rpg:3.8,apg:2.2,mpg:26,fg_pct:42,tp_pct:37,ft_pct:76,stl:1.0,blk:0.3},'CG':{ppg:10.8,rpg:3.5,apg:3.0,mpg:26,fg_pct:42,tp_pct:36,ft_pct:75,stl:1.1,blk:0.2},'SF':{ppg:10.8,rpg:5.2,apg:1.8,mpg:26,fg_pct:43,tp_pct:37,ft_pct:72,stl:0.9,blk:0.5},'PF':{ppg:10.2,rpg:6.8,apg:1.2,mpg:24,fg_pct:45,tp_pct:33,ft_pct:69,stl:0.6,blk:1.1},'C':{ppg:9.8,rpg:7.4,apg:0.9,mpg:22,fg_pct:49,tp_pct:30,ft_pct:66,stl:0.4,blk:1.6},'G':{ppg:10.0,rpg:3.5,apg:3.0,mpg:25,fg_pct:42,tp_pct:35,ft_pct:74,stl:1.1,blk:0.2},'F':{ppg:10.5,rpg:6.0,apg:1.5,mpg:25,fg_pct:44,tp_pct:35,ft_pct:70,stl:0.7,blk:0.8}};
 
+// Runs the exact same MPG model as buildTeamProjections and returns
+// the final MPG for the given player — including monotonic enforcement
+// and starter budget scaling, so it matches the team page exactly.
+function computePlayerMpg(p, teamRoster){
+  const roster=(Array.isArray(teamRoster)?teamRoster:[]).filter(r=>r.name&&r.name!=='—')
+    .sort((a,b)=>(a.depth_order||99)-(b.depth_order||99));
+  if(!roster.length) return 20; // fallback
+
+  const grades=roster.map(r=>parseFloat(r.tdc_grade)||70);
+  const teamGradeAvg=grades.reduce((a,b)=>a+b,0)/grades.length;
+  const rosterSize=roster.length;
+
+  // Rotation depth
+  let rotDepth=rosterSize;
+  for(let i=2;i<roster.length-1;i++){
+    const g1=parseFloat(roster[i-1].tdc_grade)||70;
+    const g2=parseFloat(roster[i].tdc_grade)||70;
+    if((g1-g2)>=9&&g2<=68){rotDepth=i;break;}
+    if(g2<63&&i>=6){rotDepth=i;break;}
+  }
+  rotDepth=Math.max(7,Math.min(12,rotDepth));
+
+  // Compute base MPG for every player on the roster
+  const mpgMap={};
+  roster.forEach((r,i)=>{
+    const g=parseFloat(r.tdc_grade)||70;
+    const slot=i+1;
+    let base;
+    if(slot<=5){const gn=Math.max(-1,Math.min(1,(g-teamGradeAvg)/15));base=30.5+gn*3.5;}
+    else if(slot===6)base=20;else if(slot===7)base=17;else if(slot===8)base=14;
+    else if(slot===9)base=11;else if(slot===10)base=8;
+    else base=Math.max(2,6-(slot-10)*1.5);
+    base=base*(1+((g-teamGradeAvg)/20)*0.10);
+    if(slot<=5&&rosterSize<=8)base=Math.min(38,base+2);
+    if(slot>rotDepth)base=Math.min(5,base);
+    mpgMap[r.name]=Math.max(1,Math.min(38,base));
+  });
+
+  // Position-pair splitting (same-position adjacent players only)
+  const posCounts={};
+  roster.forEach(r=>{
+    const pos=(r.position||'G').replace(/\d/g,'').trim();
+    const pk=['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':pos.includes('G')?'SG':'C';
+    posCounts[pk]=(posCounts[pk]||0)+1;
+    r._pk=pk; r._ps=posCounts[pk];
+  });
+  for(let i=0;i<Math.min(roster.length-1,9);i++){
+    const r1=roster[i], r2=roster[i+1];
+    if(r1._pk!==r2._pk) continue;
+    const g1=parseFloat(r1.tdc_grade)||70, g2=parseFloat(r2.tdc_grade)||70;
+    const diff=g1-g2;
+    if(diff<=3){const c=mpgMap[r1.name]+mpgMap[r2.name];mpgMap[r1.name]=c*0.53;mpgMap[r2.name]=c*0.47;}
+    else if(diff<=6){const c=mpgMap[r1.name]+mpgMap[r2.name];mpgMap[r1.name]=c*0.65;mpgMap[r2.name]=c*0.35;}
+  }
+
+  // Monotonic enforcement
+  for(let i=1;i<roster.length;i++){
+    const prev=roster[i-1].name, cur=roster[i].name;
+    if(mpgMap[cur]>mpgMap[prev]) mpgMap[cur]=mpgMap[prev]*0.95;
+  }
+
+  // Starter budget cap (top 5)
+  const top5=roster.slice(0,5);
+  const starterTotal=top5.reduce((s,r)=>s+(mpgMap[r.name]||0),0);
+  if(starterTotal>196){
+    const scale=196/starterTotal;
+    top5.forEach(r=>{ mpgMap[r.name]=(mpgMap[r.name]||0)*scale; });
+  }
+
+  // Return this player's MPG
+  const result=mpgMap[p.name];
+  if(result!=null) return Math.max(1,Math.min(38,result));
+  // Fallback: use depth_order if player not found in roster
+  const d=p.depth_order||8;
+  if(d<=1)return 32;if(d<=2)return 30;if(d<=3)return 27;if(d<=4)return 25;
+  if(d<=5)return 23;if(d===6)return 20;if(d===7)return 17;if(d===8)return 14;
+  if(d===9)return 11;if(d===10)return 8;return 5;
+}
+
 // ── UNIFIED PROJECTION MODEL ─────────────────────────────
 // Identical to team.html — one model, both pages
 function projectPlayer(p, teamConf, teamRoster, targetMpg){
@@ -228,48 +307,13 @@ function projectPlayer(p, teamConf, teamRoster, targetMpg){
   }
 
   // ── MPG RESOLUTION ──
+  // If targetMpg passed directly (from team page), use it — identical output guaranteed
+  // Otherwise run the full team-engine MPG model on the whole roster and extract this player's minutes
   let newMpg;
   if(targetMpg!=null){
     newMpg=Math.max(1,Math.min(38,targetMpg));
   } else {
-    const roster=Array.isArray(teamRoster)?teamRoster.filter(r=>r.name&&r.name!=='—'):[];
-    const rosterGrades=roster.map(r=>parseFloat(r.tdc_grade)||70).filter(g=>g>0);
-    const teamGradeAvg=rosterGrades.length?rosterGrades.reduce((a,b)=>a+b,0)/rosterGrades.length:75;
-    const rosterSize=roster.length||10;
-    let rotDepth=rosterSize;
-    for(let i=2;i<roster.length-1;i++){
-      const g1=parseFloat(roster[i-1]?.tdc_grade)||70;
-      const g2=parseFloat(roster[i]?.tdc_grade)||70;
-      if((g1-g2)>=9&&g2<=68){rotDepth=i;break;}
-      if(g2<63&&i>=6){rotDepth=i;break;}
-    }
-    rotDepth=Math.max(7,Math.min(12,rotDepth));
-    let base;
-    if(depth<=5){const gn=Math.max(-1,Math.min(1,(grade-teamGradeAvg)/15));base=30.5+gn*3.5;}
-    else if(depth===6)base=20;else if(depth===7)base=17;else if(depth===8)base=14;
-    else if(depth===9)base=11;else if(depth===10)base=8;
-    else base=Math.max(2,6-(depth-10)*1.5);
-    base=base*(1+((grade-teamGradeAvg)/20)*0.10);
-    if(depth<=5&&rosterSize<=8)base=Math.min(38,base+2);
-    if(depth>rotDepth)base=Math.min(5,base);
-    if(roster.length>0){
-      const posPlayers=roster.filter(r=>{
-        const rp=(r.position||'G').replace(/\d/g,'').trim();
-        return(['PG','SG','SF','PF','C'].includes(rp)?rp:rp==='CG'?'SG':'G')===posNorm;
-      }).sort((a,b)=>(a.depth_order||99)-(b.depth_order||99));
-      const myIdx=posPlayers.findIndex(r=>r.name===p.name);
-      if(myIdx>=0&&myIdx<posPlayers.length-1){
-        const ng=parseFloat(posPlayers[myIdx+1].tdc_grade)||70;
-        const nd=posPlayers[myIdx+1].depth_order||depth+1;
-        let nb;
-        if(nd<=5){const gn=Math.max(-1,Math.min(1,(ng-teamGradeAvg)/15));nb=30.5+gn*3.5;}
-        else if(nd===6)nb=20;else if(nd===7)nb=17;else if(nd===8)nb=14;
-        else if(nd===9)nb=11;else if(nd===10)nb=8;else nb=5;
-        const diff=grade-ng;
-        if(diff<=3)base=(base+nb)*0.53;else if(diff<=6)base=(base+nb)*0.65;
-      }
-    }
-    newMpg=Math.max(1,Math.min(38,base));
+    newMpg=computePlayerMpg(p, teamRoster);
   }
 
   // ── FRESHMAN ──
@@ -489,13 +533,37 @@ async function init(){
 
     calcPct();
     try{
-      // Fetch team roster to get full context (same as buildTeamProjections uses)
+      // Fetch team roster using client-side name match (handles special chars in team names)
+      // Fetch full stats so the roster data matches exactly what buildTeamProjections uses
       let teamRoster=[];
       try{
-        const rr=await fetch(`${SB}/rest/v1/players?team=eq.${encodeURIComponent(player.team||'')}&select=name,tdc_grade,depth_order,position,mpg&order=depth_order.asc&limit=20`,{headers:H});
-        teamRoster=await rr.json();
-        if(!Array.isArray(teamRoster)) teamRoster=[];
-      }catch(e3){}
+        // Fetch all players — filter client-side to avoid encoding issues with team names like "UConn"
+        const rr=await fetch(
+          `${SB}/rest/v1/players?select=name,tdc_grade,depth_order,position,mpg,ppg,hometown,yr,class_year&order=depth_order.asc&limit=2000`,
+          {headers:H}
+        );
+        const allRosterRows=await rr.json();
+        if(Array.isArray(allRosterRows)){
+          const tLower=(player.team||'').toLowerCase().trim();
+          // Try exact match first, then partial
+          teamRoster=allRosterRows.filter(r=>{
+            const rTeam=(r.team||'').toLowerCase().trim();
+            return rTeam===tLower;
+          });
+          // If that got nothing (team field not in select), re-fetch with team included
+          if(!teamRoster.length){
+            const rr2=await fetch(
+              `${SB}/rest/v1/players?select=name,team,tdc_grade,depth_order,position,mpg,ppg,hometown,yr,class_year&order=depth_order.asc&limit=2000`,
+              {headers:H}
+            );
+            const rows2=await rr2.json();
+            if(Array.isArray(rows2)){
+              teamRoster=rows2.filter(r=>(r.team||'').toLowerCase().trim()===tLower);
+            }
+          }
+        }
+        teamRoster=teamRoster.filter(r=>r.name&&r.name!=='—');
+      }catch(e3){ console.warn('Roster fetch failed:',e3); }
       proj=projectPlayer(player, teamConf, teamRoster);
     }catch(projErr){
       console.warn('Projection failed:',projErr);
