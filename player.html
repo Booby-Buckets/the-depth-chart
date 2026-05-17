@@ -206,6 +206,7 @@ const POS_BASE={'PG':{ppg:10.5,rpg:3.2,apg:4.1,mpg:26,fg_pct:42,tp_pct:36,ft_pct
 
 // ── PROJECTION ──────────────────────────────────────────
 function projectPlayer(p, teamConf){
+  const conf=(teamConf||'').trim();
   const yr=(p.yr||p.class_year||'').toLowerCase();
   const isFr=yr.includes('fr.')||yr.includes('r-fr');
   const isSo=yr.includes('so.')||yr.includes('r-so.');
@@ -213,7 +214,6 @@ function projectPlayer(p, teamConf){
   const isSr=yr.includes('sr.')||yr.includes('r-sr')||yr.includes('gr.');
   const pos=(p.position||'G').replace(/\d/g,'').trim();
   const posNorm=['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':'G';
-  const conf=teamConf||'';
   const grade=parseFloat(p.tdc_grade)||70;
   const depth=p.depth_order||8;
   const hasStats=p.ppg&&parseFloat(p.ppg)>0;
@@ -458,12 +458,28 @@ async function init(){
         if(!playerRow) playerRow=fb2Rows.find(r=>r.name&&r.name.toLowerCase().includes(nameLower.slice(0,8)));
       }
     }
-    if(!playerRow) throw new Error('Player not found');
+    if(!playerRow) throw new Error('Player not found — check name spelling or try searching from the roster page.');
     player=playerRow; allPlayers=apr;
-    const tr=await fetch(`${SB}/rest/v1/teams?name=eq.${encodeURIComponent(player.team||'')}&select=*&limit=1`,{headers:H});
-    const teams=await tr.json(); teamData=teams[0]||{};
+
+    // Team fetch — use client-side match to handle special chars in team names
+    let teamConf='', teamConfFull='';
+    try{
+      const tr=await fetch(`${SB}/rest/v1/teams?select=*&limit=500`,{headers:H});
+      const allTeams=await tr.json();
+      if(Array.isArray(allTeams)){
+        const tnameLower=(player.team||'').toLowerCase().trim();
+        teamData=allTeams.find(t=>(t.name||'').toLowerCase().trim()===tnameLower)||{};
+        teamConf=teamData?.conf||teamData?.conference||'';
+      }
+    } catch(e2){ teamData={}; }
+
     calcPct();
-    proj=projectPlayer(player, teamData?.conf||teamData?.conference||'');
+    try{
+      proj=projectPlayer(player, teamConf);
+    }catch(projErr){
+      console.warn('Projection failed:',projErr);
+      proj=null;
+    }
     renderPage();
   }catch(e){
     console.error('Player load error:',e);
