@@ -204,87 +204,60 @@ function getSchoolConf(school){
 // ── POSITION BASELINES ──────────────────────────────────
 const POS_BASE={'PG':{ppg:10.5,rpg:3.2,apg:4.1,mpg:26,fg_pct:42,tp_pct:36,ft_pct:75,stl:1.2,blk:0.2},'SG':{ppg:11.2,rpg:3.8,apg:2.2,mpg:26,fg_pct:42,tp_pct:37,ft_pct:76,stl:1.0,blk:0.3},'CG':{ppg:10.8,rpg:3.5,apg:3.0,mpg:26,fg_pct:42,tp_pct:36,ft_pct:75,stl:1.1,blk:0.2},'SF':{ppg:10.8,rpg:5.2,apg:1.8,mpg:26,fg_pct:43,tp_pct:37,ft_pct:72,stl:0.9,blk:0.5},'PF':{ppg:10.2,rpg:6.8,apg:1.2,mpg:24,fg_pct:45,tp_pct:33,ft_pct:69,stl:0.6,blk:1.1},'C':{ppg:9.8,rpg:7.4,apg:0.9,mpg:22,fg_pct:49,tp_pct:30,ft_pct:66,stl:0.4,blk:1.6},'G':{ppg:10.0,rpg:3.5,apg:3.0,mpg:25,fg_pct:42,tp_pct:35,ft_pct:74,stl:1.1,blk:0.2},'F':{ppg:10.5,rpg:6.0,apg:1.5,mpg:25,fg_pct:44,tp_pct:35,ft_pct:70,stl:0.7,blk:0.8}};
 
-// Runs the exact same MPG model as buildTeamProjections and returns
-// the final MPG for the given player — including monotonic enforcement
-// and starter budget scaling, so it matches the team page exactly.
+
+// ═══════════════════════════════════════════════════════
+// PROJECTION ENGINE — verbatim copy of team.html
+// DO NOT EDIT HERE — edit team.html and copy across
+// Player page calls buildTeamProjections() and extracts
+// this player's row. Both pages guaranteed identical output.
+// ═══════════════════════════════════════════════════════
+
+function r1t(v){return v!=null?Math.round(v*10)/10:null;}
+
 function computePlayerMpg(p, teamRoster){
   const roster=(Array.isArray(teamRoster)?teamRoster:[]).filter(r=>r.name&&r.name!=='—')
     .sort((a,b)=>(a.depth_order||99)-(b.depth_order||99));
-  if(!roster.length) return 20; // fallback
-
+  if(!roster.length){const d=p.depth_order||8;return d<=1?32:d<=2?30:d<=3?27:d<=4?25:d<=5?23:d===6?20:d===7?17:d===8?14:d===9?11:d===10?8:5;}
   const grades=roster.map(r=>parseFloat(r.tdc_grade)||70);
   const teamGradeAvg=grades.reduce((a,b)=>a+b,0)/grades.length;
   const rosterSize=roster.length;
-
-  // Rotation depth
   let rotDepth=rosterSize;
   for(let i=2;i<roster.length-1;i++){
-    const g1=parseFloat(roster[i-1].tdc_grade)||70;
-    const g2=parseFloat(roster[i].tdc_grade)||70;
+    const g1=parseFloat(roster[i-1].tdc_grade)||70,g2=parseFloat(roster[i].tdc_grade)||70;
     if((g1-g2)>=9&&g2<=68){rotDepth=i;break;}
     if(g2<63&&i>=6){rotDepth=i;break;}
   }
   rotDepth=Math.max(7,Math.min(12,rotDepth));
-
-  // Compute base MPG for every player on the roster
   const mpgMap={};
   roster.forEach((r,i)=>{
-    const g=parseFloat(r.tdc_grade)||70;
-    const slot=i+1;
+    const g=parseFloat(r.tdc_grade)||70,slot=i+1;
     let base;
     if(slot<=5){const gn=Math.max(-1,Math.min(1,(g-teamGradeAvg)/15));base=30.5+gn*3.5;}
     else if(slot===6)base=20;else if(slot===7)base=17;else if(slot===8)base=14;
-    else if(slot===9)base=11;else if(slot===10)base=8;
-    else base=Math.max(2,6-(slot-10)*1.5);
+    else if(slot===9)base=11;else if(slot===10)base=8;else base=Math.max(2,6-(slot-10)*1.5);
     base=base*(1+((g-teamGradeAvg)/20)*0.10);
     if(slot<=5&&rosterSize<=8)base=Math.min(38,base+2);
     if(slot>rotDepth)base=Math.min(5,base);
     mpgMap[r.name]=Math.max(1,Math.min(38,base));
   });
-
-  // Position-pair splitting (same-position adjacent players only)
   const posCounts={};
-  roster.forEach(r=>{
-    const pos=(r.position||'G').replace(/\d/g,'').trim();
-    const pk=['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':pos.includes('G')?'SG':'C';
-    posCounts[pk]=(posCounts[pk]||0)+1;
-    r._pk=pk; r._ps=posCounts[pk];
-  });
+  roster.forEach(r=>{const pos=(r.position||'G').replace(/\d/g,'').trim();const pk=['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':pos.includes('G')?'SG':'C';posCounts[pk]=(posCounts[pk]||0)+1;r._pk2=pk;});
   for(let i=0;i<Math.min(roster.length-1,9);i++){
-    const r1=roster[i], r2=roster[i+1];
-    if(r1._pk!==r2._pk) continue;
-    const g1=parseFloat(r1.tdc_grade)||70, g2=parseFloat(r2.tdc_grade)||70;
-    const diff=g1-g2;
+    const r1=roster[i],r2=roster[i+1];
+    if(r1._pk2!==r2._pk2)continue;
+    const g1=parseFloat(r1.tdc_grade)||70,g2=parseFloat(r2.tdc_grade)||70,diff=g1-g2;
     if(diff<=3){const c=mpgMap[r1.name]+mpgMap[r2.name];mpgMap[r1.name]=c*0.53;mpgMap[r2.name]=c*0.47;}
     else if(diff<=6){const c=mpgMap[r1.name]+mpgMap[r2.name];mpgMap[r1.name]=c*0.65;mpgMap[r2.name]=c*0.35;}
   }
-
-  // Monotonic enforcement
-  for(let i=1;i<roster.length;i++){
-    const prev=roster[i-1].name, cur=roster[i].name;
-    if(mpgMap[cur]>mpgMap[prev]) mpgMap[cur]=mpgMap[prev]*0.95;
-  }
-
-  // Starter budget cap (top 5)
+  for(let i=1;i<roster.length;i++){const prev=roster[i-1].name,cur=roster[i].name;if(mpgMap[cur]>mpgMap[prev])mpgMap[cur]=mpgMap[prev]*0.95;}
   const top5=roster.slice(0,5);
-  const starterTotal=top5.reduce((s,r)=>s+(mpgMap[r.name]||0),0);
-  if(starterTotal>196){
-    const scale=196/starterTotal;
-    top5.forEach(r=>{ mpgMap[r.name]=(mpgMap[r.name]||0)*scale; });
-  }
-
-  // Return this player's MPG
+  const st=top5.reduce((s,r)=>s+(mpgMap[r.name]||0),0);
+  if(st>196){const sc=196/st;top5.forEach(r=>{mpgMap[r.name]=(mpgMap[r.name]||0)*sc;});}
   const result=mpgMap[p.name];
-  if(result!=null) return Math.max(1,Math.min(38,result));
-  // Fallback: use depth_order if player not found in roster
-  const d=p.depth_order||8;
-  if(d<=1)return 32;if(d<=2)return 30;if(d<=3)return 27;if(d<=4)return 25;
-  if(d<=5)return 23;if(d===6)return 20;if(d===7)return 17;if(d===8)return 14;
-  if(d===9)return 11;if(d===10)return 8;return 5;
+  if(result!=null)return Math.max(1,Math.min(38,result));
+  const d=p.depth_order||8;return d<=1?32:d<=2?30:d<=3?27:d<=4?25:d<=5?23:d===6?20:d===7?17:d===8?14:d===9?11:d===10?8:5;
 }
 
-// ── UNIFIED PROJECTION MODEL ─────────────────────────────
-// Identical to team.html — one model, both pages
 function projectPlayer(p, teamConf, teamRoster, targetMpg){
   const conf=(teamConf||'').trim();
   const yr=(p.yr||p.class_year||'').toLowerCase();
@@ -299,134 +272,55 @@ function projectPlayer(p, teamConf, teamRoster, targetMpg){
   const hasStats=p.ppg&&parseFloat(p.ppg)>0;
   const isTransfer=p.hometown&&p.hometown.trim()!=='';
   const s=k=>parseFloat(p[k])||0;
-
-  let transferFactor=1.0, originConf=null;
+  let transferFactor=1.0,originConf=null;
   if(isTransfer&&hasStats){
     originConf=getSchoolConf(p.hometown);
-    if(originConf) transferFactor=getTransFactor(originConf,conf,grade);
+    if(originConf)transferFactor=getTransFactor(originConf,conf,grade);
   }
-
-  // ── MPG RESOLUTION ──
-  // If targetMpg passed directly (from team page), use it — identical output guaranteed
-  // Otherwise run the full team-engine MPG model on the whole roster and extract this player's minutes
   let newMpg;
   if(targetMpg!=null){
     newMpg=Math.max(1,Math.min(38,targetMpg));
   } else {
-    newMpg=computePlayerMpg(p, teamRoster);
+    newMpg=computePlayerMpg(p,teamRoster);
   }
-
-  // ── FRESHMAN ──
   if(isFr&&!hasStats){
     const tier=grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
-    const FR=typeof FR_BASE!=='undefined'?FR_BASE:{'92+':{'PG':{ppg:17.5,rpg:3.5,apg:4.5,fg_pct:45.5,tp_pct:37.5,ft_pct:80.5,stl:1.3,blk:0.3,oreb:0.6,dreb:2.9,tovs:2.25}},'85-91':{'PG':{ppg:13.0,rpg:2.0,apg:3.1,fg_pct:44.5,tp_pct:34.0,ft_pct:80.5,stl:1.1,blk:0.2,oreb:0.4,dreb:1.6,tovs:2.35}},'75-84':{'PG':{ppg:7.5,rpg:1.5,apg:2.05,fg_pct:43.5,tp_pct:34.0,ft_pct:80.5,stl:0.9,blk:0.2,oreb:0.3,dreb:1.2,tovs:1.75}},'below75':{'PG':{ppg:4.0,rpg:1.0,apg:1.3,fg_pct:42.0,tp_pct:32.0,ft_pct:78.0,stl:0.6,blk:0.1,oreb:0.2,dreb:0.8,tovs:1.4}}};
-    const frBase=(FR[tier]&&FR[tier][posNorm])?FR[tier][posNorm]:(FR[tier]&&FR[tier]['SG'])?FR[tier]['SG']:FR['75-84']['PG'];
+    const frBase=(FR_BASE[tier]&&FR_BASE[tier][posNorm])?FR_BASE[tier][posNorm]:(FR_BASE[tier]&&FR_BASE[tier]['SG'])?FR_BASE[tier]['SG']:FR_BASE['75-84']['SG'];
     const scale=newMpg/32;
-    const fga=r1(newMpg*0.28);
-    return {
-      ppg:r1(frBase.ppg*scale),rpg:r1(frBase.rpg*scale),apg:r1(frBase.apg*scale),mpg:r1(newMpg),
-      fgm:r1(fga*(frBase.fg_pct/100)),fga:r1(fga),fg_pct:r1(frBase.fg_pct),
-      tpm:r1(fga*0.42*(frBase.tp_pct/100)),tpa:r1(fga*0.42),tp_pct:r1(frBase.tp_pct),
-      fta:r1(newMpg*0.09),ftm:r1(newMpg*0.09*(frBase.ft_pct/100)),ft_pct:r1(frBase.ft_pct),
-      oreb:r1((frBase.oreb||frBase.rpg*0.28)*scale),dreb:r1((frBase.dreb||frBase.rpg*0.72)*scale),
-      stl:r1(frBase.stl*scale),blk:r1((frBase.blk||0)*scale),tovs:r1(frBase.tovs*scale),
-      _frosh:true,_origin:originConf,_factor:transferFactor,
-    };
+    const fga=r1t(newMpg*0.28);
+    return {ppg:r1t(frBase.ppg*scale),rpg:r1t(frBase.rpg*scale),apg:r1t(frBase.apg*scale),mpg:r1t(newMpg),fgm:r1t(fga*(frBase.fg_pct/100)),fga:r1t(fga),fg_pct:r1t(frBase.fg_pct),tpm:r1t(fga*0.42*(frBase.tp_pct/100)),tpa:r1t(fga*0.42),tp_pct:r1t(frBase.tp_pct),fta:r1t(newMpg*0.09),ftm:r1t(newMpg*0.09*(frBase.ft_pct/100)),ft_pct:r1t(frBase.ft_pct),oreb:r1t((frBase.oreb||frBase.rpg*0.28)*scale),dreb:r1t((frBase.dreb||frBase.rpg*0.72)*scale),stl:r1t(frBase.stl*scale),blk:r1t((frBase.blk||0)*scale),tovs:r1t(frBase.tovs*scale),_frosh:true,_origin:originConf,_factor:transferFactor};
   }
-
-  if(!hasStats) return null;
-
+  if(!hasStats)return null;
   const oldMpg=Math.max(1,s('mpg'));
-  const pm={
-    ppg:s('ppg')/oldMpg,rpg:s('rpg')/oldMpg,apg:s('apg')/oldMpg,
-    fgm:s('fgm')/oldMpg,fga:s('fga')/oldMpg,
-    tpm:s('tpm')/oldMpg,tpa:s('tpa')/oldMpg,
-    ftm:s('ftm')/oldMpg,fta:s('fta')/oldMpg,
-    oreb:s('oreb')/oldMpg,dreb:s('dreb')/oldMpg,
-    stl:s('stl')/oldMpg,blk:s('blk')/oldMpg,tovs:s('tovs')/oldMpg,
-  };
+  const pm={ppg:s('ppg')/oldMpg,rpg:s('rpg')/oldMpg,apg:s('apg')/oldMpg,fgm:s('fgm')/oldMpg,fga:s('fga')/oldMpg,tpm:s('tpm')/oldMpg,tpa:s('tpa')/oldMpg,ftm:s('ftm')/oldMpg,fta:s('fta')/oldMpg,oreb:s('oreb')/oldMpg,dreb:s('dreb')/oldMpg,stl:s('stl')/oldMpg,blk:s('blk')/oldMpg,tovs:s('tovs')/oldMpg};
   const yrMult=isSo?1.06:isJr?1.03:isSr?1.01:1.04;
   const gradeExpPpg=grade>=90?19:grade>=85?16:grade>=80?13:grade>=75?10:grade>=70?8:6;
-  const gapRatio=(pm.ppg*32)/Math.max(1,gradeExpPpg);
+  const gapRatio=gradeExpPpg>0?(pm.ppg*32)/gradeExpPpg:1;
   const gapMult=gapRatio<0.50?1.18:gapRatio<0.65?1.12:gapRatio<0.80?1.06:gapRatio<0.95?1.02:gapRatio>1.40?0.97:gapRatio>1.20?0.99:1.0;
   const rateGrowth=yrMult*gapMult;
-
-  const fgBase=s('fg_pct'),tpBase=s('tp_pct'),ftBase=s('ft_pct');
-  const oldFga=s('fga');
+  const fgBase=s('fg_pct'),tpBase=s('tp_pct'),ftBase=s('ft_pct'),oldFga=s('fga');
   const newFgaEst=oldFga>0?oldFga*(newMpg/oldMpg):newMpg*0.28;
   const volChange=oldFga>0?(newFgaEst/oldFga-1):0;
-  const transPctAdj=transferFactor<0.85?-2.5:transferFactor<0.95?-1.2:transferFactor>1.15?+1.0:transferFactor>1.05?+0.5:0;
   const yearEffBoost=isSo?1.2:isJr?0.6:isSr?0.0:1.8;
-  const fgProj=r1(Math.max(30,Math.min(65,fgBase+yearEffBoost-volChange*3.5+transPctAdj)));
-  const tpProj=r1(Math.max(18,Math.min(50,tpBase+(isSo?0.8:isJr?0.4:isSr?0:1.5)-volChange*2.0+transPctAdj*0.6)));
-  const ftProj=r1(Math.max(45,Math.min(97,ftBase+(isSo?1.0:isJr?0.5:isSr?0:1.5))));
-
-  const newFga=r1(pm.fga*rateGrowth*newMpg);
-  return {
-    ppg:r1(pm.ppg*rateGrowth*newMpg),rpg:r1(pm.rpg*rateGrowth*newMpg),apg:r1(pm.apg*rateGrowth*newMpg),
-    mpg:r1(newMpg),
-    fgm:r1(newFga*(fgProj/100)),fga:newFga,fg_pct:fgProj,
-    tpm:r1(pm.tpa*rateGrowth*newMpg*(tpProj/100)),tpa:r1(pm.tpa*rateGrowth*newMpg),tp_pct:tpProj,
-    ftm:r1(pm.fta*rateGrowth*newMpg*(ftProj/100)),fta:r1(pm.fta*rateGrowth*newMpg),ft_pct:ftProj,
-    oreb:r1(pm.oreb*rateGrowth*newMpg),dreb:r1(pm.dreb*rateGrowth*newMpg),
-    stl:r1(pm.stl*rateGrowth*newMpg),blk:r1(pm.blk*rateGrowth*newMpg),tovs:r1(pm.tovs*rateGrowth*newMpg),
-    _frosh:false,_origin:originConf,_factor:transferFactor,
-  };
-}
-
-// ── TEAM PROJECTION ENGINE — verbatim copy from team.html ────────────────
-// Player page calls buildTeamProjections and extracts the player's result.
-// This guarantees identical output on both pages.
-
-function inferRotationDepth(sorted){
-  const n=sorted.length;
-  if(n<=7) return n;
-  let cutoff=n;
-  for(let i=2;i<n-1;i++){
-    const g1=parseFloat(sorted[i-1].tdc_grade)||70;
-    const g2=parseFloat(sorted[i].tdc_grade)||70;
-    if((g1-g2)>=9&&g2<=68){cutoff=i;break;}
-    if(g2<63&&i>=6){cutoff=i;break;}
-  }
-  return Math.max(7,Math.min(12,cutoff));
+  const transPctAdj=transferFactor<0.85?-2.5:transferFactor<0.95?-1.2:transferFactor>1.15?+1.0:transferFactor>1.05?+0.5:0;
+  const fgProj=r1t(Math.max(30,Math.min(65,fgBase+yearEffBoost-volChange*3.5+transPctAdj)));
+  const tpProj=r1t(Math.max(18,Math.min(50,tpBase+(isSo?0.8:isJr?0.4:isSr?0:1.5)-volChange*2.0+transPctAdj*0.6)));
+  const ftProj=r1t(Math.max(45,Math.min(97,ftBase+(isSo?1.0:isJr?0.5:isSr?0:1.5))));
+  const newFga=r1t(pm.fga*rateGrowth*newMpg);
+  return {ppg:r1t(pm.ppg*rateGrowth*newMpg),rpg:r1t(pm.rpg*rateGrowth*newMpg),apg:r1t(pm.apg*rateGrowth*newMpg),mpg:r1t(newMpg),fgm:r1t(newFga*(fgProj/100)),fga:newFga,fg_pct:fgProj,tpm:r1t(pm.tpa*rateGrowth*newMpg*(tpProj/100)),tpa:r1t(pm.tpa*rateGrowth*newMpg),tp_pct:tpProj,ftm:r1t(pm.fta*rateGrowth*newMpg*(ftProj/100)),fta:r1t(pm.fta*rateGrowth*newMpg),ft_pct:ftProj,oreb:r1t(pm.oreb*rateGrowth*newMpg),dreb:r1t(pm.dreb*rateGrowth*newMpg),stl:r1t(pm.stl*rateGrowth*newMpg),blk:r1t(pm.blk*rateGrowth*newMpg),tovs:r1t(pm.tovs*rateGrowth*newMpg),_frosh:false,_origin:originConf,_factor:transferFactor};
 }
 
 const FR_BASE={
-  '92+':{
-    PG:{ppg:17.5,rpg:3.5,apg:4.5,fg_pct:45.5,tp_pct:37.5,ft_pct:80.5,stl:1.3,blk:0.3,oreb:0.6,dreb:2.9,tovs:2.25},
-    SG:{ppg:16.0,rpg:4.0,apg:2.25,fg_pct:43.5,tp_pct:38.5,ft_pct:74.5,stl:1.1,blk:0.4,oreb:0.8,dreb:3.2,tovs:1.5},
-    SF:{ppg:18.5,rpg:5.0,apg:1.75,fg_pct:46.5,tp_pct:36.0,ft_pct:76.0,stl:1.0,blk:0.6,oreb:1.3,dreb:3.7,tovs:1.8},
-    PF:{ppg:16.0,rpg:6.5,apg:1.8,fg_pct:50.0,tp_pct:31.0,ft_pct:74.0,stl:0.7,blk:1.2,oreb:2.2,dreb:4.3,tovs:1.75},
-    C:{ppg:14.0,rpg:9.0,apg:1.05,fg_pct:56.0,tp_pct:22.0,ft_pct:70.5,stl:0.5,blk:1.9,oreb:2.7,dreb:6.3,tovs:1.75},
-  },
-  '85-91':{
-    PG:{ppg:13.0,rpg:2.0,apg:3.1,fg_pct:44.5,tp_pct:34.0,ft_pct:80.5,stl:1.1,blk:0.2,oreb:0.4,dreb:1.6,tovs:2.35},
-    SG:{ppg:12.75,rpg:2.6,apg:1.65,fg_pct:42.25,tp_pct:35.5,ft_pct:74.5,stl:0.9,blk:0.3,oreb:0.6,dreb:2.0,tovs:1.65},
-    SF:{ppg:13.5,rpg:3.5,apg:1.15,fg_pct:44.5,tp_pct:34.5,ft_pct:76.0,stl:0.8,blk:0.5,oreb:1.0,dreb:2.5,tovs:1.8},
-    PF:{ppg:12.5,rpg:5.25,apg:1.15,fg_pct:47.5,tp_pct:29.5,ft_pct:74.0,stl:0.5,blk:0.9,oreb:1.7,dreb:3.5,tovs:1.75},
-    C:{ppg:11.0,rpg:6.75,apg:0.7,fg_pct:52.0,tp_pct:19.5,ft_pct:70.5,stl:0.4,blk:1.5,oreb:2.1,dreb:4.6,tovs:1.75},
-  },
-  '75-84':{
-    PG:{ppg:7.5,rpg:1.5,apg:2.05,fg_pct:43.5,tp_pct:34.0,ft_pct:80.5,stl:0.9,blk:0.2,oreb:0.3,dreb:1.2,tovs:1.75},
-    SG:{ppg:7.5,rpg:2.2,apg:1.25,fg_pct:42.0,tp_pct:35.5,ft_pct:74.5,stl:0.7,blk:0.2,oreb:0.5,dreb:1.7,tovs:1.25},
-    SF:{ppg:7.6,rpg:2.65,apg:0.9,fg_pct:43.5,tp_pct:34.5,ft_pct:76.0,stl:0.6,blk:0.4,oreb:0.8,dreb:1.85,tovs:1.25},
-    PF:{ppg:6.65,rpg:3.25,apg:0.75,fg_pct:47.0,tp_pct:29.5,ft_pct:74.0,stl:0.4,blk:0.7,oreb:1.3,dreb:2.35,tovs:1.35},
-    C:{ppg:6.6,rpg:4.75,apg:0.55,fg_pct:51.0,tp_pct:19.5,ft_pct:70.5,stl:0.3,blk:1.1,oreb:1.6,dreb:3.1,tovs:1.3},
-  },
-  'below75':{
-    PG:{ppg:4.0,rpg:1.0,apg:1.3,fg_pct:42.0,tp_pct:32.0,ft_pct:78.0,stl:0.6,blk:0.1,oreb:0.2,dreb:0.8,tovs:1.4},
-    SG:{ppg:4.0,rpg:1.2,apg:0.8,fg_pct:40.0,tp_pct:33.0,ft_pct:72.0,stl:0.5,blk:0.1,oreb:0.3,dreb:1.0,tovs:1.0},
-    SF:{ppg:4.5,rpg:1.8,apg:0.6,fg_pct:41.0,tp_pct:32.0,ft_pct:72.0,stl:0.4,blk:0.2,oreb:0.5,dreb:1.3,tovs:1.0},
-    PF:{ppg:3.5,rpg:2.5,apg:0.5,fg_pct:44.0,tp_pct:26.0,ft_pct:68.0,stl:0.3,blk:0.5,oreb:0.9,dreb:1.6,tovs:1.0},
-    C:{ppg:3.5,rpg:3.0,apg:0.4,fg_pct:48.0,tp_pct:15.0,ft_pct:64.0,stl:0.2,blk:0.7,oreb:1.0,dreb:2.0,tovs:1.0},
-  },
+  '92+':{PG:{ppg:17.5,rpg:3.5,apg:4.5,fg_pct:45.5,tp_pct:37.5,ft_pct:80.5,stl:1.3,blk:0.3,oreb:0.6,dreb:2.9,tovs:2.25},SG:{ppg:16.0,rpg:4.0,apg:2.25,fg_pct:43.5,tp_pct:38.5,ft_pct:74.5,stl:1.1,blk:0.4,oreb:0.8,dreb:3.2,tovs:1.5},SF:{ppg:18.5,rpg:5.0,apg:1.75,fg_pct:46.5,tp_pct:36.0,ft_pct:76.0,stl:1.0,blk:0.6,oreb:1.3,dreb:3.7,tovs:1.8},PF:{ppg:16.0,rpg:6.5,apg:1.8,fg_pct:50.0,tp_pct:31.0,ft_pct:74.0,stl:0.7,blk:1.2,oreb:2.2,dreb:4.3,tovs:1.75},C:{ppg:14.0,rpg:9.0,apg:1.05,fg_pct:56.0,tp_pct:22.0,ft_pct:70.5,stl:0.5,blk:1.9,oreb:2.7,dreb:6.3,tovs:1.75}},
+  '85-91':{PG:{ppg:13.0,rpg:2.0,apg:3.1,fg_pct:44.5,tp_pct:34.0,ft_pct:80.5,stl:1.1,blk:0.2,oreb:0.4,dreb:1.6,tovs:2.35},SG:{ppg:12.75,rpg:2.6,apg:1.65,fg_pct:42.25,tp_pct:35.5,ft_pct:74.5,stl:0.9,blk:0.3,oreb:0.6,dreb:2.0,tovs:1.65},SF:{ppg:13.5,rpg:3.5,apg:1.15,fg_pct:44.5,tp_pct:34.5,ft_pct:76.0,stl:0.8,blk:0.5,oreb:1.0,dreb:2.5,tovs:1.8},PF:{ppg:12.5,rpg:5.25,apg:1.15,fg_pct:47.5,tp_pct:29.5,ft_pct:74.0,stl:0.5,blk:0.9,oreb:1.7,dreb:3.5,tovs:1.75},C:{ppg:11.0,rpg:6.75,apg:0.7,fg_pct:52.0,tp_pct:19.5,ft_pct:70.5,stl:0.4,blk:1.5,oreb:2.1,dreb:4.6,tovs:1.75}},
+  '75-84':{PG:{ppg:7.5,rpg:1.5,apg:2.05,fg_pct:43.5,tp_pct:34.0,ft_pct:80.5,stl:0.9,blk:0.2,oreb:0.3,dreb:1.2,tovs:1.75},SG:{ppg:7.5,rpg:2.2,apg:1.25,fg_pct:42.0,tp_pct:35.5,ft_pct:74.5,stl:0.7,blk:0.2,oreb:0.5,dreb:1.7,tovs:1.25},SF:{ppg:7.6,rpg:2.65,apg:0.9,fg_pct:43.5,tp_pct:34.5,ft_pct:76.0,stl:0.6,blk:0.4,oreb:0.8,dreb:1.85,tovs:1.25},PF:{ppg:6.65,rpg:3.25,apg:0.75,fg_pct:47.0,tp_pct:29.5,ft_pct:74.0,stl:0.4,blk:0.7,oreb:1.3,dreb:2.35,tovs:1.35},C:{ppg:6.6,rpg:4.75,apg:0.55,fg_pct:51.0,tp_pct:19.5,ft_pct:70.5,stl:0.3,blk:1.1,oreb:1.6,dreb:3.1,tovs:1.3}},
+  'below75':{PG:{ppg:4.0,rpg:1.0,apg:1.3,fg_pct:42.0,tp_pct:32.0,ft_pct:78.0,stl:0.6,blk:0.1,oreb:0.2,dreb:0.8,tovs:1.4},SG:{ppg:4.0,rpg:1.2,apg:0.8,fg_pct:40.0,tp_pct:33.0,ft_pct:72.0,stl:0.5,blk:0.1,oreb:0.3,dreb:1.0,tovs:1.0},SF:{ppg:4.5,rpg:1.8,apg:0.6,fg_pct:41.0,tp_pct:32.0,ft_pct:72.0,stl:0.4,blk:0.2,oreb:0.5,dreb:1.3,tovs:1.0},PF:{ppg:3.5,rpg:2.5,apg:0.5,fg_pct:44.0,tp_pct:26.0,ft_pct:68.0,stl:0.3,blk:0.5,oreb:0.9,dreb:1.6,tovs:1.0},C:{ppg:3.5,rpg:3.0,apg:0.4,fg_pct:48.0,tp_pct:15.0,ft_pct:64.0,stl:0.2,blk:0.7,oreb:1.0,dreb:2.0,tovs:1.0}},
 };
 const FR_BASE_MPG=32;
-function getFrBase(grade,pos){const tier=grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';const pk=['PG','SG','SF','PF','C'].includes(pos)?pos:'SG';return FR_BASE[tier][pk];}
-function gradeToStatExpectation(grade,pos){const pk=['PG','SG','SF','PF','C'].includes(pos)?pos:'SG';const t=Math.max(0,Math.min(1,(grade-60)/37));const elite={PG:{ppg:19,rpg:4,apg:6},SG:{ppg:20,rpg:5,apg:3},SF:{ppg:19,rpg:7,apg:3},PF:{ppg:16,rpg:9,apg:2},C:{ppg:14,rpg:11,apg:1.5}};const low={PG:{ppg:5,rpg:2,apg:1.5},SG:{ppg:5,rpg:2,apg:1},SF:{ppg:5,rpg:3,apg:1},PF:{ppg:4,rpg:4,apg:0.8},C:{ppg:4,rpg:5,apg:0.7}};const e=elite[pk],l=low[pk];return{ppg:l.ppg+t*(e.ppg-l.ppg),rpg:l.rpg+t*(e.rpg-l.rpg),apg:l.apg+t*(e.apg-l.apg)};}
+function getFrBase(grade,pos){const tier=grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';return FR_BASE[tier][['PG','SG','SF','PF','C'].includes(pos)?pos:'SG'];}
+function gradeToStatExpectation(grade,pos){const pk=['PG','SG','SF','PF','C'].includes(pos)?pos:'SG';const t=Math.max(0,Math.min(1,(grade-60)/37));const e={PG:{ppg:19,rpg:4,apg:6},SG:{ppg:20,rpg:5,apg:3},SF:{ppg:19,rpg:7,apg:3},PF:{ppg:16,rpg:9,apg:2},C:{ppg:14,rpg:11,apg:1.5}};const l={PG:{ppg:5,rpg:2,apg:1.5},SG:{ppg:5,rpg:2,apg:1},SF:{ppg:5,rpg:3,apg:1},PF:{ppg:4,rpg:4,apg:0.8},C:{ppg:4,rpg:5,apg:0.7}};return{ppg:l[pk].ppg+t*(e[pk].ppg-l[pk].ppg),rpg:l[pk].rpg+t*(e[pk].rpg-l[pk].rpg),apg:l[pk].apg+t*(e[pk].apg-l[pk].apg)};}
 function getYearProgMult(yr){const y=yr.toLowerCase();if(y.includes('fr.')||y.includes('r-fr'))return 1.10;if(y.includes('so.')||y.includes('r-so'))return 1.06;if(y.includes('jr.')||y.includes('r-jr'))return 1.03;return 1.01;}
 function efficiencyRegress(fgPct,fgaOld,fgaNew){if(!fgaOld||fgaOld<=0)return fgPct;const v=fgaNew/fgaOld;if(v<=1.1)return fgPct;return Math.max(fgPct-(v-1)*4.0,fgPct*0.88);}
-function r1t(v){return v!=null?Math.round(v*10)/10:null;}
 
 function projectSinglePlayer(p,conf){
   const yr=(p.yr||p.class_year||'').toLowerCase();
@@ -435,35 +329,24 @@ function projectSinglePlayer(p,conf){
   const isJr=yr.includes('jr.')||yr.includes('r-jr');
   const isSr=yr.includes('sr.')||yr.includes('r-sr.')||yr.includes('gr.');
   const pos=(p.position||'G').replace(/\d/g,'').trim();
-  const posKey=['PG','SG','SF','PF','C','CG'].includes(pos)?pos:'G';
-  const posNorm=posKey==='CG'?'SG':posKey;
+  const posNorm=['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':'G';
   const grade=parseFloat(p.tdc_grade)||70;
   const depth=p.depth_order||8;
   const hasStats=p.ppg&&parseFloat(p.ppg)>0;
   const isTransfer=p.hometown&&p.hometown.trim()!=='';
   const s=k=>parseFloat(p[k])||0;
   let transferFactor=1.0;
-  if(isTransfer&&hasStats){
-    const oc=getSchoolConf(p.hometown)||getProjSchoolConf&&getProjSchoolConf(p.hometown);
-    if(oc){const tf=getTransFactor||getProjTransFactor;if(tf)transferFactor=tf(oc,conf,grade);}
-  }
-  if(isFr&&!hasStats){
-    const base=getFrBase(grade,posNorm);
-    const mpgGuess=grade>=90?30:grade>=85?26:grade>=75?18:10;
-    return {...p,_proj:true,_isFrosh:true,_transferFactor:1,_posNorm:posNorm,
-      _perMin:{ppg:base.ppg/FR_BASE_MPG,rpg:base.rpg/FR_BASE_MPG,apg:base.apg/FR_BASE_MPG,stl:base.stl/FR_BASE_MPG,blk:base.blk/FR_BASE_MPG,oreb:base.oreb/FR_BASE_MPG,dreb:base.dreb/FR_BASE_MPG,tovs:base.tovs/FR_BASE_MPG},
-      _fgPct:base.fg_pct,_tpPct:base.tp_pct,_ftPct:base.ft_pct,_rawMpg:mpgGuess};
-  }
+  if(isTransfer&&hasStats){const oc=getSchoolConf(p.hometown);if(oc)transferFactor=getTransFactor(oc,conf,grade);}
+  if(isFr&&!hasStats){const base=getFrBase(grade,posNorm);const mg=grade>=90?30:grade>=85?26:grade>=75?18:10;return{...p,_proj:true,_isFrosh:true,_transferFactor:1,_posNorm:posNorm,_perMin:{ppg:base.ppg/FR_BASE_MPG,rpg:base.rpg/FR_BASE_MPG,apg:base.apg/FR_BASE_MPG,stl:base.stl/FR_BASE_MPG,blk:base.blk/FR_BASE_MPG,oreb:base.oreb/FR_BASE_MPG,dreb:base.dreb/FR_BASE_MPG,tovs:base.tovs/FR_BASE_MPG},_fgPct:base.fg_pct,_tpPct:base.tp_pct,_ftPct:base.ft_pct,_rawMpg:mg};}
   if(isSr&&!hasStats)return null;
-  if(isSr){const mpg=s('mpg')||20;return {...p,_proj:true,_isSr:true,_transferFactor:1,_rawMpg:mpg,ppg:r1t(s('ppg')),rpg:r1t(s('rpg')),apg:r1t(s('apg')),mpg:r1t(mpg),fgm:r1t(s('fgm')),fga:r1t(s('fga')),fg_pct:r1t(s('fg_pct')),tpm:r1t(s('tpm')),tpa:r1t(s('tpa')),tp_pct:r1t(s('tp_pct')),ftm:r1t(s('ftm')),fta:r1t(s('fta')),ft_pct:r1t(s('ft_pct')),oreb:r1t(s('oreb')),dreb:r1t(s('dreb')),stl:r1t(s('stl')),blk:r1t(s('blk')),tovs:r1t(s('tovs'))};}
+  if(isSr){const mpg=s('mpg')||20;return{...p,_proj:true,_isSr:true,_transferFactor:1,_rawMpg:mpg,ppg:r1t(s('ppg')),rpg:r1t(s('rpg')),apg:r1t(s('apg')),mpg:r1t(mpg),fgm:r1t(s('fgm')),fga:r1t(s('fga')),fg_pct:r1t(s('fg_pct')),tpm:r1t(s('tpm')),tpa:r1t(s('tpa')),tp_pct:r1t(s('tp_pct')),ftm:r1t(s('ftm')),fta:r1t(s('fta')),ft_pct:r1t(s('ft_pct')),oreb:r1t(s('oreb')),dreb:r1t(s('dreb')),stl:r1t(s('stl')),blk:r1t(s('blk')),tovs:r1t(s('tovs'))};}
   if(!hasStats)return null;
   const oldMpg=s('mpg')||1;
   const pm={ppg:s('ppg')/oldMpg,rpg:s('rpg')/oldMpg,apg:s('apg')/oldMpg,fgm:s('fgm')/oldMpg,fga:s('fga')/oldMpg,tpm:s('tpm')/oldMpg,tpa:s('tpa')/oldMpg,ftm:s('ftm')/oldMpg,fta:s('fta')/oldMpg,oreb:s('oreb')/oldMpg,dreb:s('dreb')/oldMpg,stl:s('stl')/oldMpg,blk:s('blk')/oldMpg,tovs:s('tovs')/oldMpg};
   const yrMult=getYearProgMult(yr);
   const gradeExp=gradeToStatExpectation(grade,posNorm);
   const gapRatio=gradeExp.ppg>0?(pm.ppg*32)/gradeExp.ppg:1;
-  let gapMult=1.0;
-  if(gapRatio<0.50)gapMult=1.18;else if(gapRatio<0.65)gapMult=1.12;else if(gapRatio<0.80)gapMult=1.06;else if(gapRatio<0.95)gapMult=1.02;else if(gapRatio>1.40)gapMult=0.97;else if(gapRatio>1.20)gapMult=0.99;
+  let gapMult=gapRatio<0.50?1.18:gapRatio<0.65?1.12:gapRatio<0.80?1.06:gapRatio<0.95?1.02:gapRatio>1.40?0.97:gapRatio>1.20?0.99:1.0;
   const rateGrowth=yrMult*gapMult;
   const oldFga=s('fga'),fgBase=s('fg_pct'),tpBase=s('tp_pct'),ftBase=s('ft_pct');
   const yearEffBoost=isFr?2.0:isSo?1.2:isJr?0.6:0.0;
@@ -472,10 +355,16 @@ function projectSinglePlayer(p,conf){
   const volPenalty=oldFga>0?(newFgaEst/oldFga-1)*3.5:0;
   const transPctAdj=transferFactor<0.85?-2.5:transferFactor<0.95?-1.2:transferFactor>1.15?+1.0:transferFactor>1.05?+0.5:0;
   const fg_pct_proj=r1t(Math.max(30,Math.min(65,fgBase+yearEffBoost-volPenalty+transPctAdj)));
-  const tpDelta=(isFr?1.5:isSo?0.8:isJr?0.4:0)-(oldFga>0?(newFgaEst/oldFga-1)*2.0:0)+transPctAdj*0.6;
-  const tp_pct_proj=r1t(Math.max(18,Math.min(50,tpBase+tpDelta)));
+  const tp_pct_proj=r1t(Math.max(18,Math.min(50,tpBase+(isFr?1.5:isSo?0.8:isJr?0.4:0)-(oldFga>0?(newFgaEst/oldFga-1)*2.0:0)+transPctAdj*0.6)));
   const ft_pct_proj=r1t(Math.max(45,Math.min(97,ftBase+(isFr?1.5:isSo?1.0:isJr?0.5:0))));
-  return {...p,_proj:true,_isFrosh:false,_isSr:false,_transferFactor:transferFactor,_rawMpg:oldMpg,_pm:pm,_rateGrowth:rateGrowth,_fg_pct:fg_pct_proj,_tp_pct:tp_pct_proj,_ft_pct:ft_pct_proj,_oldFga:oldFga};
+  return{...p,_proj:true,_isFrosh:false,_isSr:false,_transferFactor:transferFactor,_rawMpg:oldMpg,_pm:pm,_rateGrowth:rateGrowth,_fg_pct:fg_pct_proj,_tp_pct:tp_pct_proj,_ft_pct:ft_pct_proj,_oldFga:oldFga};
+}
+
+function inferRotationDepth(sorted){
+  const n=sorted.length;if(n<=7)return n;
+  let cutoff=n;
+  for(let i=2;i<n-1;i++){const g1=parseFloat(sorted[i-1].tdc_grade)||70,g2=parseFloat(sorted[i].tdc_grade)||70;if((g1-g2)>=9&&g2<=68){cutoff=i;break;}if(g2<63&&i>=6){cutoff=i;break;}}
+  return Math.max(7,Math.min(12,cutoff));
 }
 
 function buildTeamProjections(players,conf){
@@ -530,7 +419,7 @@ function buildTeamProjections(players,conf){
   });
   return withStats;
 }
-// ── END TEAM PROJECTION ENGINE ───────────────────────────
+// ═══════════════════════════════════════════════════════
 
 // ── PLAYER ARCHETYPE / SCOUTING ─────────────────────────
 function buildScoutingReport(p, proj, globalPct){
@@ -541,12 +430,9 @@ function buildScoutingReport(p, proj, globalPct){
   const tovs=parseFloat(p.tovs)||0, mpg=parseFloat(p.mpg)||0;
   const pos=p.position||'G';
   const grade=parseFloat(p.tdc_grade)||70;
-
-  // Determine archetype
   let archetype='', archetypeDesc='';
   const isGuard=pos==='PG'||pos==='SG'||pos==='CG'||pos==='G';
   const isBig=pos==='C'||pos==='PF';
-
   if(isGuard){
     if(ppg>=16&&apg>=4) archetype='Primary Playmaker';
     else if(ppg>=16&&apg<3) archetype='Scoring Guard';
@@ -562,14 +448,12 @@ function buildScoutingReport(p, proj, globalPct){
     else if(dreb>=5&&oreb>=2) archetype='Rebounding Specialist';
     else if(ppg>=12) archetype='Scoring Big';
     else archetype='Developmental Big';
-  } else { // SF
+  } else {
     if(ppg>=14&&rpg>=5&&apg>=2) archetype='Versatile Wing';
     else if(tp>=1.5&&ppg>=10) archetype='3-and-D Wing';
     else if(ppg>=16) archetype='Wing Scorer';
     else archetype='Role Wing';
   }
-
-  // Strengths
   const strengths=[];
   if(ppg>=15) strengths.push('Elite scorer');
   else if(ppg>=10) strengths.push('Reliable scorer');
@@ -582,8 +466,6 @@ function buildScoutingReport(p, proj, globalPct){
   if(stl>=1.5) strengths.push('Perimeter disruptor');
   if(blk>=1.5) strengths.push('Rim protector');
   if(oreb>=2) strengths.push('Second chance creator');
-
-  // Weaknesses
   const weaknesses=[];
   if(fg<40&&(parseFloat(p.fga)||0)>4) weaknesses.push('Shooting efficiency concerns');
   if(tp<32&&(parseFloat(p.tpa)||0)>3) weaknesses.push('Below-average from three');
@@ -593,8 +475,6 @@ function buildScoutingReport(p, proj, globalPct){
   if(rpg<3&&isBig) weaknesses.push('Below-average rebounding for position');
   if(blk<0.5&&isBig) weaknesses.push('Limited shot-blocking');
   if(mpg<18) weaknesses.push('Limited role / development player');
-
-  // Style tags
   const tags=[];
   if(tp>=(parseFloat(p.fga)||1)*0.35) tags.push({t:'High-Volume 3PA',c:'neu'});
   if(fg>=50) tags.push({t:'Efficient',c:'pos'});
@@ -605,20 +485,12 @@ function buildScoutingReport(p, proj, globalPct){
   if(tp>=38) tags.push({t:'Shooting Threat',c:'pos'});
   if(apg>3) tags.push({t:'Playmaker',c:'pos'});
   if(apg>4&&tovs<2) tags.push({t:'Low-Turnover PG',c:'pos'});
-
-  // Projection context
   let projNote='';
   if(proj){
     if(proj._frosh) projNote=`Freshman projection based on ${pos} position baseline, ${p.height||'—'} height, and TDC grade ${grade}. High variance expected.`;
-    else if(proj._origin){ const destConf=teamData?.conf||teamData?.conference||'this conf'; projNote=`Transfer from ${proj._origin} (${proj._factor>=1?'step down':'step up'} to ${destConf}). Conference translation applied to shooting percentages only (${(proj._factor||1)<1?'−':'+'} ${Math.abs(Math.round(((proj._factor||1)-1)*100))}% difficulty). Per-minute production scales with minutes.`;}
-    else{
-      const yr=(p.yr||'').toLowerCase();
-      if(yr.includes('fr.')||yr.includes('so.')) projNote='Sophomore/Junior leap projected — typically the largest year-over-year improvement window.';
-      else if(yr.includes('jr.')) projNote='Junior-to-senior projection — peak years, modest improvement expected.';
-      else projNote='Returning veteran — projection based on role continuity.';
-    }
+    else if(proj._origin){const destConf=teamData?.conf||teamData?.conference||'this conf';projNote=`Transfer from ${proj._origin} (${proj._factor>=1?'step down':'step up'} to ${destConf}). Conference translation applied to shooting percentages only (${(proj._factor||1)<1?'−':'+'} ${Math.abs(Math.round(((proj._factor||1)-1)*100))}% difficulty). Per-minute production scales with minutes.`;}
+    else{const yr=(p.yr||'').toLowerCase();if(yr.includes('fr.')||yr.includes('so.'))projNote='Sophomore/Junior leap projected — typically the largest year-over-year improvement window.';else if(yr.includes('jr.'))projNote='Junior-to-senior projection — peak years, modest improvement expected.';else projNote='Returning veteran — projection based on role continuity.';}
   }
-
   return {archetype, archetypeDesc, strengths, weaknesses, tags, projNote};
 }
 
