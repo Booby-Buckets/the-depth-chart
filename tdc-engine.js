@@ -199,37 +199,68 @@ function calculateScalability(player){
 }
 
 // ─────────────────────────────────────────────
-// STEP 5 — ARCHETYPE DETECTION
+// STEP 5 — ARCHETYPE DETECTION (30 archetypes)
 // ─────────────────────────────────────────────
 function detectArchetype(player){
 
   const usg = parseFloat(player.usg_pct)||15;
-  const apg = parseFloat(player.apg)||1;
-  const tp = parseFloat(player.tp_pct)||30;
-  const tpa = parseFloat(player.tpa)||2;
-  const ts = parseFloat(player.ts_pct)||52;
-  const rpg = parseFloat(player.rpg)||3;
+  const apg = parseFloat(player.apg)||0;
+  const tp  = parseFloat(player.tp_pct)||0;
+  const tpa = parseFloat(player.tpa)||0;
+  const ts  = parseFloat(player.ts_pct)||52;
+  const rpg = parseFloat(player.rpg)||0;
+  const ppg = parseFloat(player.ppg)||0;
+  const mpg = parseFloat(player.mpg)||0;
+  const blk = parseFloat(player.blk)||0;
+  const stl = parseFloat(player.stl)||0;
+  const oreb= parseFloat(player.oreb)||0;
+  const fga = parseFloat(player.fga)||0;
+  const fg  = parseFloat(player.fg_pct)||0;
+  const tov = parseFloat(player.tovs)||1;
+  const pos = (player.position||'G').replace(/\d/g,'').trim().toUpperCase();
+  const isBig = pos==='PF'||pos==='C';
+  const isG   = pos==='PG'||pos==='SG'||pos==='CG'||pos==='G';
+  const isSF  = pos==='SF'||pos==='F';
 
-  if(usg > 27 && apg > 4){
-    return 'Heliocentric Creator';
-  }
+  // ── GUARDS ──────────────────────────────────
+  if(usg>27&&apg>4)                                return 'Heliocentric Creator';
+  if(isG&&apg>5&&usg<22&&tov<2.5)                 return 'Floor General';
+  if(isG&&apg>3.5&&usg<22)                        return 'Connector Creator';
+  if(isG&&usg>24&&ppg>15&&apg<3)                  return 'Isolation Scorer';
+  if(isG&&usg>22&&ppg>12&&apg>=3)                 return 'Secondary Ball Handler';
+  if(isG&&tp>37&&tpa>5&&usg<22)                   return 'Spacer';
+  if(isG&&tp>35&&tpa>4&&stl>1.2)                  return '3&D Wing';
+  if(isG&&mpg<22&&ppg/Math.max(1,mpg)>0.55)       return 'Microwave Scorer';
+  if(isG&&usg>20&&fg>46&&apg<2.5)                 return 'Slasher';
+  if(isG&&tpa>3&&tpa/Math.max(1,fga)>0.45&&ts<54) return 'High Variance Shooter';
+  if(isG&&tpa>3&&tpa/Math.max(1,fga)>0.40&&ts>54) return 'Movement Shooter';
+  if(isG&&usg<16&&ts>58&&apg>2)                   return 'Low Usage Efficiency';
+  if(isG&&usg<16&&ts>56&&stl>1.0)                 return 'Glue Guy';
+  if(isG&&usg>19&&apg>=2&&ppg>=10)                return 'Combo Guard';
 
-  if(tp > 37 && tpa > 5){
-    return 'Spacer';
-  }
+  // ── WINGS ───────────────────────────────────
+  if(isSF&&apg>3.5&&usg<24)                       return 'Point Forward';
+  if(isSF&&tp>36&&tpa>4&&stl>1.0)                 return '3&D Wing';
+  if(isSF&&tp>36&&tpa>4)                          return 'Spacer';
+  if(isSF&&usg>24&&ppg>14&&apg<2.5)               return 'Shot Creator Wing';
+  if(isSF&&usg>20&&fg>46)                         return 'Slasher';
+  if(isSF&&blk>1.0&&stl>1.0&&usg<20)              return 'Connector Wing';
+  if(isSF&&usg<16&&stl>1.2)                       return 'Defensive Specialist';
+  if(isSF&&usg<18&&ts>56)                         return 'Glue Guy';
 
-  if(rpg > 7 && ts > 58){
-    return 'Interior Finisher';
-  }
+  // ── BIGS ────────────────────────────────────
+  if(isBig&&usg>22&&apg>2.5)                      return 'Post Hub';
+  if(isBig&&tp>33&&tpa>3)                         return 'Stretch Big';
+  if(isBig&&blk>1.8&&usg<18)                      return 'Rim Protector';
+  if(isBig&&blk>1.2&&stl>0.8&&usg<20)             return 'Switch Big';
+  if(isBig&&rpg>7&&ts>58)                         return 'Interior Finisher';
+  if(isBig&&oreb>2.5&&rpg>5&&usg<18)              return 'Energy Big';
+  if(isBig&&tp>28&&tpa>2&&rpg>5)                  return 'Roll Man';
+  if(isBig&&usg<16&&ts>56)                        return 'Low Usage Efficiency';
 
-  if(apg > 3 && usg < 22){
-    return 'Connector Creator';
-  }
-
-  if(ts > 60 && usg < 18){
-    return 'Low Usage Efficiency';
-  }
-
+  // ── FALLBACKS BY POSITION ───────────────────
+  if(isBig)   return 'Energy Big';
+  if(isSF)    return 'Balanced Wing';
   return 'Balanced Wing';
 }
 
@@ -552,6 +583,45 @@ function projectPlayerInContext(player, allTeamPlayers, teamRow){
   return projected.find(p=>p.name===player.name)||null;
 }
 
+// ─────────────────────────────────────────────
+// ARCHETYPE METADATA — colors + descriptions
+// ─────────────────────────────────────────────
+const ARCHETYPE_META = {
+  'Heliocentric Creator':  {color:'#7c3aed',bg:'rgba(124,58,237,.12)',desc:'High-usage primary ball handler / offensive engine'},
+  'Floor General':         {color:'#2563eb',bg:'rgba(37,99,235,.12)', desc:'Pass-first stabilizing point guard'},
+  'Connector Creator':     {color:'#0891b2',bg:'rgba(8,145,178,.12)', desc:'Secondary playmaker who keeps offense flowing'},
+  'Isolation Scorer':      {color:'#dc2626',bg:'rgba(220,38,38,.12)', desc:'Tough-shot self-creator'},
+  'Secondary Ball Handler':{color:'#ea580c',bg:'rgba(234,88,12,.12)', desc:'Secondary initiator under pressure'},
+  'Spacer':                {color:'#16a34a',bg:'rgba(22,163,74,.12)', desc:'High-volume efficient shooter with gravity'},
+  '3&D Wing':              {color:'#15803d',bg:'rgba(21,128,61,.12)', desc:'Defensive wing spacer'},
+  'Microwave Scorer':      {color:'#b45309',bg:'rgba(180,83,9,.12)',  desc:'Bench scorer with high usage in limited minutes'},
+  'Slasher':               {color:'#be123c',bg:'rgba(190,18,60,.12)', desc:'Rim-attacking downhill scorer'},
+  'High Variance Shooter': {color:'#a16207',bg:'rgba(161,98,7,.12)',  desc:'Streaky spacing-dependent scorer'},
+  'Movement Shooter':      {color:'#047857',bg:'rgba(4,120,87,.12)',  desc:'Off-ball shooter relying on motion/screens'},
+  'Low Usage Efficiency':  {color:'#0369a1',bg:'rgba(3,105,161,.12)', desc:'Hyper-efficient low-touch role player'},
+  'Glue Guy':              {color:'#6b7280',bg:'rgba(107,114,128,.12)',desc:'Low-usage impact player improving lineup fit'},
+  'Combo Guard':           {color:'#7c3aed',bg:'rgba(124,58,237,.10)',desc:'Score/pass hybrid guard'},
+  'Point Forward':         {color:'#0891b2',bg:'rgba(8,145,178,.12)', desc:'Forward with playmaking responsibilities'},
+  'Shot Creator Wing':     {color:'#dc2626',bg:'rgba(220,38,38,.12)', desc:'Wing who creates own offense'},
+  'Connector Wing':        {color:'#0369a1',bg:'rgba(3,105,161,.12)', desc:'Scalable low-mistake two-way wing'},
+  'Defensive Specialist':  {color:'#1d4ed8',bg:'rgba(29,78,216,.12)', desc:'Defense-first low-usage player'},
+  'Post Hub':              {color:'#92400e',bg:'rgba(146,64,14,.12)', desc:'Interior offensive facilitator'},
+  'Stretch Big':           {color:'#16a34a',bg:'rgba(22,163,74,.12)', desc:'Big who spaces the floor'},
+  'Rim Protector':         {color:'#1e3a8a',bg:'rgba(30,58,138,.12)', desc:'Defensive interior anchor'},
+  'Switch Big':            {color:'#1d4ed8',bg:'rgba(29,78,216,.12)', desc:'Mobile big with defensive versatility'},
+  'Interior Finisher':     {color:'#92400e',bg:'rgba(146,64,14,.12)', desc:'Efficient rebounder/rim scorer'},
+  'Energy Big':            {color:'#b45309',bg:'rgba(180,83,9,.12)',  desc:'Rebounding/hustle reserve big'},
+  'Roll Man':              {color:'#7c3aed',bg:'rgba(124,58,237,.10)',desc:'Screen-and-roll interior finisher'},
+  'Balanced Wing':         {color:'#6b7280',bg:'rgba(107,114,128,.12)',desc:'Default all-around wing archetype'},
+};
+
+function archetypeBadge(archetype, size){
+  const meta = ARCHETYPE_META[archetype] || {color:'#6b7280',bg:'rgba(107,114,128,.12)',desc:''};
+  const fs = size==='sm' ? '9px' : size==='lg' ? '12px' : '10px';
+  const pad = size==='sm' ? '1px 5px' : '2px 8px';
+  return `<span title="${meta.desc}" style="display:inline-block;font-size:${fs};font-weight:700;letter-spacing:.04em;padding:${pad};background:${meta.bg};color:${meta.color};border-radius:3px;white-space:nowrap;">${archetype}</span>`;
+}
+
 return {
   projectTeam,
   projectPlayerInContext,
@@ -561,6 +631,8 @@ return {
   detectArchetype,
   calculatePortabilityScore,
   calculateScalability,
+  archetypeBadge,
+  ARCHETYPE_META,
 };
 
 })();

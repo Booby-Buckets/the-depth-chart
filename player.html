@@ -620,6 +620,7 @@ function renderPage(){
       <div class="hero-avatar" style="border-color:${color};">${(p.name||'?')[0].toUpperCase()}</div>
       <div class="hero-info">
         <div class="hero-eyebrow">${p.position||'—'} · ${yr} · ${p.height||'—'}${p.is_injured?' 🏥':''}${p.is_international?' 🌍':''}</div>
+        ${proj&&proj._archetype?(typeof TDC!=='undefined'?`<div style="margin-bottom:6px;">${TDC.archetypeBadge(proj._archetype,'sm')}</div>`:''):''}
         <h1 class="hero-name">${p.name}</h1>
         <a class="hero-team" href="team.html?team=${encodeURIComponent(p.team||'')}">
           <div class="team-dot" style="background:${color};"></div>
@@ -713,7 +714,10 @@ function renderPage(){
 
     <!-- SCOUTING REPORT TAB -->
     <div class="tab-panel" id="panel-scout">
-      <div class="archetype-badge">${scout.archetype}</div>
+      <div style="margin-bottom:14px;">
+        ${typeof TDC!=='undefined'&&proj&&proj._archetype ? TDC.archetypeBadge(proj._archetype,'lg') : `<div class="archetype-badge">${scout.archetype}</div>`}
+        ${proj&&proj._portability!=null?`<span style="font-size:11px;color:var(--text3);margin-left:10px;">Portability: <strong style="color:var(--text2);">${Math.round(proj._portability)}</strong> · Scalability: <strong style="color:var(--text2);">${Math.round(proj._scalability)}</strong></span>`:''}
+      </div>
       <div class="scout-grid">
         <div class="scout-card">
           <div class="scout-card-title">Strengths</div>
