@@ -309,6 +309,7 @@ function projectPlayer(p, teamConf, teamRoster, targetMpg){
   const gapRatio=gradeExpPpg>0?(pm.ppg*32)/gradeExpPpg:1;
   const gapMult=gapRatio<0.50?1.18:gapRatio<0.65?1.12:gapRatio<0.80?1.06:gapRatio<0.95?1.02:gapRatio>1.40?0.97:gapRatio>1.20?0.99:1.0;
   const rateGrowth=yrMult*gapMult;
+  const countingTransFactor=transferFactor<1.0?Math.max(transferFactor,0.70):1.0;
   const fgBase=s('fg_pct'),tpBase=s('tp_pct'),ftBase=s('ft_pct'),oldFga=s('fga');
   const newFgaEst=oldFga>0?oldFga*(newMpg/oldMpg):newMpg*0.28;
   const volChange=oldFga>0?(newFgaEst/oldFga-1):0;
@@ -317,8 +318,8 @@ function projectPlayer(p, teamConf, teamRoster, targetMpg){
   const fgProj=r1t(Math.max(30,Math.min(65,fgBase+yearEffBoost-volChange*3.5+transPctAdj)));
   const tpProj=r1t(Math.max(18,Math.min(50,tpBase+(isSo?0.8:isJr?0.4:isSr?0:1.5)-volChange*2.0+transPctAdj*0.6)));
   const ftProj=r1t(Math.max(45,Math.min(97,ftBase+(isSo?1.0:isJr?0.5:isSr?0:1.5))));
-  const newFga=r1t(pm.fga*rateGrowth*newMpg);
-  return {ppg:r1t(pm.ppg*rateGrowth*newMpg),rpg:r1t(pm.rpg*rateGrowth*newMpg),apg:r1t(pm.apg*rateGrowth*newMpg),mpg:r1t(newMpg),fgm:r1t(newFga*(fgProj/100)),fga:newFga,fg_pct:fgProj,tpm:r1t(pm.tpa*rateGrowth*newMpg*(tpProj/100)),tpa:r1t(pm.tpa*rateGrowth*newMpg),tp_pct:tpProj,ftm:r1t(pm.fta*rateGrowth*newMpg*(ftProj/100)),fta:r1t(pm.fta*rateGrowth*newMpg),ft_pct:ftProj,oreb:r1t(pm.oreb*rateGrowth*newMpg),dreb:r1t(pm.dreb*rateGrowth*newMpg),stl:r1t(pm.stl*rateGrowth*newMpg),blk:r1t(pm.blk*rateGrowth*newMpg),tovs:r1t(pm.tovs*rateGrowth*newMpg),_frosh:false,_origin:originConf,_factor:transferFactor};
+  const newFga=r1t(pm.fga*rateGrowth*newMpg*countingTransFactor);
+  return {ppg:r1t(pm.ppg*rateGrowth*newMpg*countingTransFactor),rpg:r1t(pm.rpg*rateGrowth*newMpg*countingTransFactor),apg:r1t(pm.apg*rateGrowth*newMpg*countingTransFactor),mpg:r1t(newMpg),fgm:r1t(newFga*(fgProj/100)),fga:newFga,fg_pct:fgProj,tpm:r1t(pm.tpa*rateGrowth*newMpg*countingTransFactor*(tpProj/100)),tpa:r1t(pm.tpa*rateGrowth*newMpg*countingTransFactor),tp_pct:tpProj,ftm:r1t(pm.fta*rateGrowth*newMpg*countingTransFactor*(ftProj/100)),fta:r1t(pm.fta*rateGrowth*newMpg*countingTransFactor),ft_pct:ftProj,oreb:r1t(pm.oreb*rateGrowth*newMpg*countingTransFactor),dreb:r1t(pm.dreb*rateGrowth*newMpg*countingTransFactor),stl:r1t(pm.stl*rateGrowth*newMpg*countingTransFactor),blk:r1t(pm.blk*rateGrowth*newMpg*countingTransFactor),tovs:r1t(pm.tovs*rateGrowth*newMpg*countingTransFactor),_frosh:false,_origin:originConf,_factor:transferFactor};
 }
 
 const FR_BASE={
@@ -359,6 +360,7 @@ function projectSinglePlayer(p,conf){
   const gapRatio=gradeExp.ppg>0?(pm.ppg*32)/gradeExp.ppg:1;
   let gapMult=gapRatio<0.50?1.18:gapRatio<0.65?1.12:gapRatio<0.80?1.06:gapRatio<0.95?1.02:gapRatio>1.40?0.97:gapRatio>1.20?0.99:1.0;
   const rateGrowth=yrMult*gapMult;
+  const countingTransFactor=transferFactor<1.0?Math.max(transferFactor,0.70):1.0;
   const oldFga=s('fga'),fgBase=s('fg_pct'),tpBase=s('tp_pct'),ftBase=s('ft_pct');
   const yearEffBoost=isFr?2.0:isSo?1.2:isJr?0.6:0.0;
   const depthFgaAdd=depth<=2?2.0:depth<=5?1.0:depth<=8?0:-(oldFga*0.1);

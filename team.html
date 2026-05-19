@@ -749,8 +749,11 @@ function projectPlayer(p, teamConf, teamRoster, targetMpg){
   const gapMult=gapRatio<0.50?1.18:gapRatio<0.65?1.12:gapRatio<0.80?1.06:gapRatio<0.95?1.02:gapRatio>1.40?0.97:gapRatio>1.20?0.99:1.0;
 
   const rateGrowth=yrMult*gapMult;
-  // transferFactor intentionally NOT applied to per-minute rates —
-  // conference difficulty only affects efficiency (%), not per-minute talent
+  // transferFactor applied to counting stats for mid-major transfers going up
+  // A player from MVC going to Big 12 will NOT maintain same per-minute rates
+  // Factor only applied when going UP in conf (factor < 1.0)
+  // Going down is already handled by minutes — they get more MPG = more counting stats
+  const countingTransFactor = transferFactor < 1.0 ? Math.max(transferFactor, 0.70) : 1.0;
 
   // ── PERCENTAGE PROJECTIONS ──
   // Drivers: year progression, volume change, conference difficulty
@@ -767,23 +770,23 @@ function projectPlayer(p, teamConf, teamRoster, targetMpg){
   const tpProj =r1t(Math.max(18,Math.min(50, tpBase+(isSo?0.8:isJr?0.4:isSr?0:1.5)-(volChange*2.0)+transPctAdj*0.6)));
   const ftProj =r1t(Math.max(45,Math.min(97, ftBase+(isSo?1.0:isJr?0.5:isSr?0:1.5))));
 
-  // ── COUNTING STATS ── scaled from per-minute rates × rateGrowth × newMpg
-  const newFga=r1t(pm.fga*rateGrowth*newMpg);
+  // ── COUNTING STATS ── scaled from per-minute rates × rateGrowth × newMpg × conf factor
+  const newFga=r1t(pm.fga*rateGrowth*newMpg*countingTransFactor);
   return {
-    ppg: r1t(pm.ppg*rateGrowth*newMpg),
-    rpg: r1t(pm.rpg*rateGrowth*newMpg),
-    apg: r1t(pm.apg*rateGrowth*newMpg),
+    ppg: r1t(pm.ppg*rateGrowth*newMpg*countingTransFactor),
+    rpg: r1t(pm.rpg*rateGrowth*newMpg*countingTransFactor),
+    apg: r1t(pm.apg*rateGrowth*newMpg*countingTransFactor),
     mpg: r1t(newMpg),
     fgm: r1t(newFga*(fgProj/100)), fga: newFga, fg_pct: fgProj,
-    tpm: r1t(pm.tpa*rateGrowth*newMpg*(tpProj/100)),
-    tpa: r1t(pm.tpa*rateGrowth*newMpg), tp_pct: tpProj,
-    ftm: r1t(pm.fta*rateGrowth*newMpg*(ftProj/100)),
-    fta: r1t(pm.fta*rateGrowth*newMpg), ft_pct: ftProj,
-    oreb: r1t(pm.oreb*rateGrowth*newMpg),
-    dreb: r1t(pm.dreb*rateGrowth*newMpg),
-    stl:  r1t(pm.stl*rateGrowth*newMpg),
-    blk:  r1t(pm.blk*rateGrowth*newMpg),
-    tovs: r1t(pm.tovs*rateGrowth*newMpg),
+    tpm: r1t(pm.tpa*rateGrowth*newMpg*countingTransFactor*(tpProj/100)),
+    tpa: r1t(pm.tpa*rateGrowth*newMpg*countingTransFactor), tp_pct: tpProj,
+    ftm: r1t(pm.fta*rateGrowth*newMpg*countingTransFactor*(ftProj/100)),
+    fta: r1t(pm.fta*rateGrowth*newMpg*countingTransFactor), ft_pct: ftProj,
+    oreb: r1t(pm.oreb*rateGrowth*newMpg*countingTransFactor),
+    dreb: r1t(pm.dreb*rateGrowth*newMpg*countingTransFactor),
+    stl:  r1t(pm.stl*rateGrowth*newMpg*countingTransFactor),
+    blk:  r1t(pm.blk*rateGrowth*newMpg*countingTransFactor),
+    tovs: r1t(pm.tovs*rateGrowth*newMpg*countingTransFactor),
     _frosh:false, _origin:originConf, _factor:transferFactor,
   };
 }
@@ -1639,9 +1642,8 @@ function projectSinglePlayer(p, conf){
 
   // Per-minute rate growth: year progression + grade gap only
   // transferFactor does NOT suppress per-minute rates — a player's per-minute
-  // talent is what it is. Conference difficulty affects EFFICIENCY (%) not output per minute.
-  // Minutes are already being set correctly by the depth chart slot.
   const rateGrowth=yrMult*gapMult;
+  const countingTransFactor=transferFactor<1.0?Math.max(transferFactor,0.70):1.0;
 
   // Old FGA for efficiency regression calc
   const oldFga=s('fga');
