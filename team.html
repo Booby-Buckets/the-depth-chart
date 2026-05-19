@@ -1797,7 +1797,8 @@ function renderProjections(players, conf, color, rgb, gp){
 let customDepth = {};
 let customMpg   = {};
 let customPos   = {};
-let customRole  = {}; // { 'PlayerName': 'role_key' }
+let customRole  = {};
+let _baseCustomProj = []; // baseline projections before any changes
 
 // ── ROLES SYSTEM ─────────────────────────────────────────
 // Each role affects how stats are projected
@@ -2368,6 +2369,7 @@ function renderCustomize(t, players, color, rgb, gp){
     // Deep clone for reset
     POS_KEYS.forEach(pos=>{ baseDepthSnapshot[pos]=[...customDepth[pos]]; });
     baseAnalytics = calcCustomAnalytics();
+    _baseCustomProj = buildCustomProjections();
   }
   rebuildCustomizeUI();
 }
@@ -2593,64 +2595,147 @@ function renderCustomProjectionsTable(){
   const fmt  = v => v!=null&&v!==''?Number(v).toFixed(1):'—';
   const fmtP = v => v!=null&&v!==''?Number(v).toFixed(1)+'%':'—';
   const color = teamColor_g;
+  const rgb   = teamRgb_g;
 
-  const rows = projected.map((p,i) => {
-    const isStarter = i < 5;
-    const roleKey = p._role || 'none';
-    const role = PLAYER_ROLES[roleKey] || PLAYER_ROLES['none'];
-    const roleBadge = roleKey !== 'none'
-      ? `<span style="font-size:9px;font-weight:700;padding:1px 5px;background:rgba(139,105,20,.12);color:var(--accent);margin-left:4px;">${role.icon} ${role.label}</span>`
-      : '';
-    return `<tr style="${isStarter?`background:rgba(${teamRgb_g},.04);border-left:2px solid ${color};`:''}">
-      <td style="text-align:left;padding-left:${isStarter?'6px':'8px'};">
-        <span style="font-weight:${isStarter?700:500};font-size:13px;">${p.name}</span>${roleBadge}
-        ${p._isFrosh?'<span style="font-size:9px;color:var(--accent);margin-left:4px;">EST</span>':''}
-      </td>
-      <td style="font-size:11px;color:var(--text3);">${p.position||'—'}</td>
-      <td style="font-size:11px;color:var(--text3);">${p.class_year||p.yr||'—'}</td>
-      <td>${fmt(p.mpg)}</td>
-      <td style="font-weight:700;">${fmt(p.ppg)}</td>
-      <td>${fmt(p.rpg)}</td>
-      <td>${fmt(p.apg)}</td>
-      <td>${fmtP(p.fg_pct)}</td>
-      <td>${fmtP(p.tp_pct)}</td>
-      <td>${fmtP(p.ft_pct)}</td>
-      <td>${fmt(p.stl)}</td>
-      <td>${fmt(p.blk)}</td>
-      <td>${fmt(p.tovs)}</td>
-    </tr>`;
-  }).join('');
+  // Build lookup of baseline stats by player name
+  const baseMap = {};
+  (_baseCustomProj||[]).forEach(p=>{ baseMap[p.name]=p; });
 
-  const teamPpg = projected.slice(0,Math.min(8,projected.length)).reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
-  const teamRpg = projected.slice(0,Math.min(8,projected.length)).reduce((s,p)=>s+(parseFloat(p.rpg)||0),0);
-  const teamApg = projected.slice(0,Math.min(8,projected.length)).reduce((s,p)=>s+(parseFloat(p.apg)||0),0);
+  // Total minutes budget (all players)
+  const totalMins = projected.reduce((s,p)=>s+(parseFloat(p.mpg)||0),0);
+  const totalPpg  = projected.reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
+  const totalRpg  = projected.reduce((s,p)=>s+(parseFloat(p.rpg)||0),0);
+  const totalApg  = projected.reduce((s,p)=>s+(parseFloat(p.apg)||0),0);
 
-  return `<div id="customProjTable" style="margin-top:20px;">
-    <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-      <span>2026-27 Projected Stats <span style="font-weight:500;font-size:10px;text-transform:none;letter-spacing:0;color:var(--text3);margin-left:6px;">Updates live with minutes & role changes</span></span>
-      <span style="font-size:11px;font-weight:600;color:var(--text3);">Est. Team: <strong style="color:var(--text);">${r1t(teamPpg)} PPG · ${r1t(teamRpg)} RPG · ${r1t(teamApg)} APG</strong></span>
+  // Find baseline depth order for each player
+  const basePosMap = {};
+  (_baseCustomProj||[]).forEach((p,i)=>{ basePosMap[p.name]=i+1; });
+
+  function statDiff(cur, base, key, pct=false){
+    if(base==null||base[key]==null||cur==null) return '';
+    const c=parseFloat(cur[key])||0, b=parseFloat(base[key])||0;
+    const d=Math.round((c-b)*10)/10;
+    if(Math.abs(d)<0.05) return '';
+    const up=d>0; const sign=up?'+':'';
+    const col=up?'#1a8c3a':'#cc2200';
+    return `<span style="font-size:9px;font-weight:700;color:${col};margin-left:3px;">${sign}${d}${pct?'%':''}</span>`;
+  }
+
+  function movementArrow(curIdx, baseName){
+    const baseIdx = basePosMap[baseName];
+    if(baseIdx==null) return '';
+    const moved = curIdx - baseIdx; // positive = moved down, negative = moved up
+    if(moved===0) return '';
+    if(moved < 0) return `<span style="font-size:10px;color:#1a8c3a;margin-left:4px;" title="Moved up ${Math.abs(moved)} spots">↑${Math.abs(moved)}</span>`;
+    return `<span style="font-size:10px;color:#cc2200;margin-left:4px;" title="Moved down ${moved} spots">↓${moved}</span>`;
+  }
+
+  // Split into starters (1-5) and bench groups
+  const starters = projected.slice(0, Math.min(5, projected.length));
+  const rotation = projected.slice(5, Math.min(10, projected.length));
+  const deep     = projected.slice(10);
+
+  function renderGroup(group, startIdx, groupLabel, groupColor){
+    if(!group.length) return '';
+    const rows = group.map((p, i) => {
+      const globalIdx = startIdx + i;
+      const baseP     = baseMap[p.name];
+      const roleKey   = p._role || 'none';
+      const role      = PLAYER_ROLES[roleKey] || PLAYER_ROLES['none'];
+      const roleBadge = roleKey !== 'none'
+        ? `<span style="font-size:9px;font-weight:700;padding:1px 4px;background:rgba(139,105,20,.12);color:var(--accent);margin-left:4px;">${role.icon} ${role.label}</span>`
+        : '';
+      const arrow = movementArrow(globalIdx + 1, p.name);
+      const isStarter = globalIdx < 5;
+
+      return `<div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border);${isStarter?`background:rgba(${rgb},.035);`:''}" class="proj-row" data-name="${p.name}">
+        <!-- Slot number -->
+        <div style="width:28px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${isStarter?color:'var(--text3)'};border-right:1px solid var(--border);">${globalIdx+1}</div>
+        <!-- Player info + MPG slider -->
+        <div style="width:200px;flex-shrink:0;padding:8px 10px;border-right:1px solid var(--border);">
+          <div style="font-size:13px;font-weight:${isStarter?700:500};color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}${arrow}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:1px;">${p.position||'—'} · ${p.class_year||p.yr||'—'}${roleBadge}</div>
+          <!-- MPG input inline -->
+          <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+            <span style="font-size:10px;color:var(--text3);width:28px;">MPG</span>
+            <input type="range" min="1" max="40" step="1" value="${parseFloat(p.mpg)||0}"
+              style="flex:1;accent-color:${color};height:3px;"
+              oninput="onMpgChange('${p.name}','proj-mpg-${globalIdx}',this.value)"/>
+            <span id="proj-mpg-${globalIdx}" style="font-size:11px;font-weight:700;color:var(--text);width:24px;text-align:right;">${fmt(p.mpg)}</span>
+          </div>
+        </div>
+        <!-- Stats -->
+        <div style="flex:1;display:flex;align-items:center;overflow-x:auto;">
+          ${[
+            {l:'PPG',k:'ppg',w:52,bold:true},
+            {l:'RPG',k:'rpg',w:48},
+            {l:'APG',k:'apg',w:48},
+            {l:'FG%',k:'fg_pct',w:52,pct:true},
+            {l:'3P%',k:'tp_pct',w:48,pct:true},
+            {l:'FT%',k:'ft_pct',w:48,pct:true},
+            {l:'STL',k:'stl',w:44},
+            {l:'BLK',k:'blk',w:44},
+            {l:'TO', k:'tovs',w:44},
+          ].map(s=>`<div style="min-width:${s.w}px;padding:0 6px;text-align:center;border-right:1px solid var(--border);">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:2px;">${s.l}</div>
+            <div style="font-size:13px;font-weight:${s.bold?700:600};color:var(--text);">${s.pct?fmtP(p[s.k]):fmt(p[s.k])}</div>
+            ${statDiff(p,baseP,s.k,s.pct||false)}
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div style="margin-bottom:2px;">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${groupColor};background:var(--bg2);padding:4px 10px;border-bottom:1px solid var(--border);">${groupLabel}</div>
+      ${rows}
+    </div>`;
+  }
+
+  // Minutes budget bar (all players)
+  const budgetPct = Math.min(100, (totalMins/200)*100);
+  const budgetColor = totalMins>235?'#cc2200':totalMins>200?'#b07000':'#1a8c3a';
+
+  return `<div id="customProjTable" style="margin-top:24px;border:1px solid var(--border);">
+    <!-- Header -->
+    <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;background:var(--bg2);">
+      <div>
+        <div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);">2026-27 Projected Depth Chart</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px;font-style:italic;">Updates live · ↑↓ = position change vs baseline · green/red = stat change</div>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;">
+        <div style="text-align:center;"><div style="font-size:16px;font-weight:800;font-family:'Playfair Display',serif;">${r1t(totalPpg)}</div><div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">Team PPG</div></div>
+        <div style="text-align:center;"><div style="font-size:16px;font-weight:800;font-family:'Playfair Display',serif;">${r1t(totalRpg)}</div><div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">Team RPG</div></div>
+        <div style="text-align:center;"><div style="font-size:16px;font-weight:800;font-family:'Playfair Display',serif;">${r1t(totalApg)}</div><div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">Team APG</div></div>
+      </div>
     </div>
-    <div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;min-width:750px;font-size:13px;">
-      <thead><tr style="border-bottom:2px solid var(--border2);">
-        <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">Player</th>
-        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">Pos</th>
-        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">Yr</th>
-        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">MPG</th>
-        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">PPG</th>
-        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">RPG</th>
-        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">APG</th>
-        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">FG%</th>
-        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">3P%</th>
-        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">FT%</th>
-        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">STL</th>
-        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">BLK</th>
-        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">TO</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
+
+    <!-- Minutes budget bar — ALL players -->
+    <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--bg2);">
+      <span style="font-size:11px;font-weight:700;color:var(--text3);white-space:nowrap;">Minutes Budget</span>
+      <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+        <div style="height:100%;width:${budgetPct}%;background:${budgetColor};border-radius:3px;transition:width .3s;"></div>
+      </div>
+      <span style="font-size:11px;font-weight:700;color:${budgetColor};white-space:nowrap;">${r1t(totalMins)} / 200 min</span>
+      ${totalMins>235?`<span style="font-size:10px;color:#cc2200;font-weight:700;">⚠ Over budget</span>`:''}
     </div>
-    <div style="font-size:10px;color:var(--text3);margin-top:8px;font-style:italic;">Will slightly vary based on model's projected minutes for each player. Role assignments shift statistical profiles — first options see more volume at lower efficiency; specialists see profile-specific boosts.</div>
+
+    <!-- Column headers -->
+    <div style="display:flex;align-items:center;border-bottom:2px solid var(--border2);background:var(--bg2);">
+      <div style="width:28px;flex-shrink:0;"></div>
+      <div style="width:200px;flex-shrink:0;padding:6px 10px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">Player · MPG</div>
+      <div style="flex:1;display:flex;">
+        ${['PPG','RPG','APG','FG%','3P%','FT%','STL','BLK','TO'].map(l=>`<div style="flex:1;min-width:44px;padding:6px 4px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">${l}</div>`).join('')}
+      </div>
+    </div>
+
+    <!-- Groups -->
+    ${renderGroup(starters, 0, 'Starters', color)}
+    ${rotation.length?renderGroup(rotation, 5, 'Rotation', 'var(--text3)'):''}
+    ${deep.length?renderGroup(deep, 10, 'Deep Bench', 'var(--text3)'):''}
+
+    <div style="padding:8px 14px;font-size:10px;color:var(--text3);font-style:italic;border-top:1px solid var(--border);">
+      Will slightly vary based on model's projected minutes for each player. Role assignments shift statistical profiles.
+    </div>
   </div>`;
 }
 
@@ -2658,6 +2743,7 @@ function renderCustomProjectionsTable(){
 function resetCustomLineup(){
   POS_KEYS.forEach(pos=>{ customDepth[pos]=[...baseDepthSnapshot[pos]]; });
   customMpg={}; customPos={}; customRole={};
+  _baseCustomProj = buildCustomProjections();
   rebuildCustomizeUI();
 }
 
