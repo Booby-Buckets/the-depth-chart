@@ -411,6 +411,11 @@ function projectPlayerAdvanced(player, roster, conf, targetMpg){
     fg_pct: round1(fg),
     tp_pct: round1(tp),
     ft_pct: round1(ft),
+    // Projected USG% — derived from FGA relative to team possession estimate
+    // Use redistributed usage if available, otherwise estimate from FGA scaling
+    usg_pct: round1(player.projected_usg != null
+      ? player.projected_usg
+      : Math.min(38, Math.max(8, (parseFloat(player.usg_pct)||18) * (newMpg/Math.max(1,parseFloat(player.mpg)||20)) * combinedFactor))),
     _portability: portability,
     _scalability: scalability,
     _archetype: archetype,
@@ -542,6 +547,7 @@ function projectTeam(rawPlayers, teamRow){
         stl:round1(0.7*gm*scale),blk:round1(0.4*gm*scale),tovs:round1(1.4*gm*scale),
         _frosh:true,_archetype:detectArchetype(p),
         _portability:calculatePortabilityScore(p),_scalability:calculateScalability(p),
+        usg_pct: round1(Math.min(30, Math.max(10, 14 + gm*8))),
       };
     }
 

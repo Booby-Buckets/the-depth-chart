@@ -660,7 +660,7 @@ function renderPage(){
         <div>
           <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--accent);">2026-27 Projected ${proj._frosh?'<span style="font-size:9px;padding:1px 4px;background:rgba(139,105,20,.12);">EST</span>':''}</div>
           <div class="stat-cards">
-            ${[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},{l:'MPG',k:'mpg'},{l:'FG%',k:'fg_pct',pct:true},{l:'3P%',k:'tp_pct',pct:true},{l:'FT%',k:'ft_pct',pct:true},{l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TO',k:'tovs'}].map(s=>{
+            ${[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},{l:'MPG',k:'mpg'},{l:'USG%',k:'usg_pct',pct:true},{l:'FG%',k:'fg_pct',pct:true},{l:'3P%',k:'tp_pct',pct:true},{l:'FT%',k:'ft_pct',pct:true},{l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TO',k:'tovs'}].map(s=>{
               const actual=parseFloat(p[s.k])||0, projected=parseFloat(proj[s.k])||0;
               const diff=r1(projected-actual);
               const cls=diff>0.05?'up':diff<-0.05?'dn':'eq';
@@ -751,7 +751,7 @@ function renderStatTable(p, projData){
   const showBoth=projData!=null;
   return `<table class="stat-table">
     <thead><tr>
-      <th>Season</th><th>GP</th><th>PPG</th><th>RPG</th><th>APG</th><th>MPG</th>
+      <th>Season</th><th>GP</th><th>PPG</th><th>RPG</th><th>APG</th><th>MPG</th><th>USG%</th>
       <th>FGM</th><th>FGA</th><th>FG%</th><th>3PM</th><th>3PA</th><th>3P%</th>
       <th>FTM</th><th>FTA</th><th>FT%</th><th>OR</th><th>DR</th><th>STL</th><th>BLK</th><th>TO</th>
     </tr></thead>
@@ -759,6 +759,7 @@ function renderStatTable(p, projData){
       <tr class="actual">
         <td>2025-26</td><td>${p.gp||'—'}</td>
         <td>${fmt(p.ppg)}</td><td>${fmt(p.rpg)}</td><td>${fmt(p.apg)}</td><td>${fmt(p.mpg)}</td>
+        <td>${p.usg_pct?fmtP(p.usg_pct):'—'}</td>
         <td>${fmt(p.fgm)}</td><td>${fmt(p.fga)}</td><td>${fmtP(p.fg_pct)}</td>
         <td>${fmt(p.tpm)}</td><td>${fmt(p.tpa)}</td><td>${fmtP(p.tp_pct)}</td>
         <td>${fmt(p.ftm)}</td><td>${fmt(p.fta)}</td><td>${fmtP(p.ft_pct)}</td>
@@ -768,6 +769,7 @@ function renderStatTable(p, projData){
       ${showBoth&&projData?`<tr class="proj">
         <td>2026-27 ★</td><td>—</td>
         <td>${fmt(projData.ppg)}</td><td>${fmt(projData.rpg)}</td><td>${fmt(projData.apg)}</td><td>${fmt(projData.mpg)}</td>
+        <td>${projData.usg_pct?fmtP(projData.usg_pct):'—'}</td>
         <td>${fmt(projData.fgm)}</td><td>${fmt(projData.fga)}</td><td>${fmtP(projData.fg_pct)}</td>
         <td>${fmt(projData.tpm)}</td><td>${fmt(projData.tpa)}</td><td>${fmtP(projData.tp_pct)}</td>
         <td>${fmt(projData.ftm)}</td><td>${fmt(projData.fta)}</td><td>${fmtP(projData.ft_pct)}</td>
