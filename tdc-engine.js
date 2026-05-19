@@ -110,7 +110,7 @@ function buildTeamEnvironment(roster, conf){
 
     totalWeight += weight;
 
-    spacingScore += ((tp * tpa) / 100) * weight;
+    spacingScore += ((tp * Math.sqrt(tpa)) / 100) * weight;
 
     creationScore += ((apg * 1.6) + (usg * 0.35) - (tov * 0.7)) * weight;
 
@@ -237,26 +237,28 @@ function detectArchetype(player){
 // STEP 6 — ADVANCED TRANSFER TRANSLATION
 // ─────────────────────────────────────────────
 function getAdvancedTransferFactor(originConf, newConf, player){
-
   const oldTier = CONF_TIERS[originConf] || 5;
   const newTier = CONF_TIERS[newConf] || 5;
-
-  let factor = (TIER_TRANSLATION[oldTier]||{})[newTier]||1.0;
-
+  let factor = (TIER_TRANSLATION[oldTier]||{})[newTier] || 1.0;
   const portability = calculatePortabilityScore(player);
   const scalability = calculateScalability(player);
-
-  factor *= (0.82 + (portability / 100) * 0.25);
-
-  if(detectArchetype(player) === 'Heliocentric Creator'){
-    factor *= 0.88;
+  const archetype = detectArchetype(player);
+  factor *= (0.92 + ((portability - 50)/100)*0.12);
+  factor *= (0.95 + ((scalability - 50)/100)*0.08);
+  if(archetype === 'Heliocentric Creator'){
+    factor *= 0.92;
   }
-
-  if(scalability > 75){
+  const tp = parseFloat(player.tp_pct)||30;
+  const tpa = parseFloat(player.tpa)||2;
+  if(tp > 37 && tpa > 5){
     factor *= 1.05;
   }
-
-  return Math.max(0.55, Math.min(1.20, factor));
+  const ts = parseFloat(player.ts_pct)||54;
+  const usg = parseFloat(player.usg_pct)||18;
+  if(ts > 60 && usg < 20){
+    factor *= 1.04;
+  }
+  return Math.max(0.72, Math.min(1.12, factor));
 }
 
 // ─────────────────────────────────────────────
@@ -278,10 +280,10 @@ function redistributeUsage(roster){
     const scalability = calculateScalability(p);
     const portability = calculatePortabilityScore(p);
 
-    usg *= (0.9 + scalability / 200);
+    usg *= (0.96 + scalability / 350);
 
     if(portability < 45){
-      usg *= 0.88;
+      usg *= 0.95;
     }
 
     p.projected_usg = usg;
@@ -300,85 +302,84 @@ function redistributeUsage(roster){
 // STEP 8 — MAIN PLAYER PROJECTION
 // ─────────────────────────────────────────────
 function projectPlayerAdvanced(player, roster, conf, targetMpg){
-
   const env = buildTeamEnvironment(roster, conf);
-
   const portability = calculatePortabilityScore(player);
   const scalability = calculateScalability(player);
   const archetype = detectArchetype(player);
-
   const oldMpg = parseFloat(player.mpg)||20;
   const newMpg = targetMpg;
-
-  const rateScale = newMpg / oldMpg;
-
-  let ppg = parseFloat(player.ppg)||0;
-  let rpg = parseFloat(player.rpg)||0;
-  let apg = parseFloat(player.apg)||0;
-
-  ppg *= rateScale;
-  rpg *= rateScale;
-  apg *= rateScale;
-
-  const portabilityMultiplier = 0.82 + (portability / 100) * 0.22;
-
-  ppg *= portabilityMultiplier;
-
-  const scalabilityMultiplier = 0.85 + (scalability / 100) * 0.25;
-
-  ppg *= scalabilityMultiplier;
-
-  if(env.spacingScore > 2.1){
-    ppg *= 1.04;
-  }
-
-  if(env.spacingScore < 1.3){
-    ppg *= 0.94;
-  }
-
-  if(archetype === 'Heliocentric Creator'){
-
-    const usg = parseFloat(player.usg_pct)||20;
-
-    if(usg > 28){
-      ppg *= 0.92;
-    }
-  }
-
-  if(player.hometown){
-
+  const ppm = (parseFloat(player.ppg)||0) / oldMpg;
+  const rpm = (parseFloat(player.rpg)||0) / oldMpg;
+  const apm = (parseFloat(player.apg)||0) / oldMpg;
+  let ppg = ppm * newMpg;
+  let rpg = rpm * newMpg;
+  let apg = apm * newMpg;
+  const portabilityMultiplier = 0.90 + ((portability - 50) / 100) * 0.18;
+  const scalabilityMultiplier = 0.92 + ((scalability - 50) / 100) * 0.15;
+  let transferFactor = 1.0;
+  if(player.hometown && player.hometown.length > 2){
     const oldConf = getProjSchoolConf(player.hometown);
-
     if(oldConf){
-
-      const transferFactor = getAdvancedTransferFactor(oldConf, conf, player);
-
-      ppg *= transferFactor;
-      apg *= transferFactor;
-
-      rpg *= (0.95 + transferFactor * 0.05);
+      transferFactor = getAdvancedTransferFactor(oldConf, conf, player);
     }
   }
-
+  const combinedFactor = (
+    portabilityMultiplier * 0.45 +
+    scalabilityMultiplier * 0.25 +
+    transferFactor * 0.30
+  );
+  ppg *= combinedFactor;
+  apg *= combinedFactor;
+  rpg *= (0.96 + combinedFactor * 0.04);
+  const usg = parseFloat(player.usg_pct)||18;
+  if(scalability > 70 && usg < 24){
+    ppg *= 1.05;
+  }
+  if(archetype === 'Heliocentric Creator'){
+    if(usg > 28){
+      ppg *= 0.95;
+      apg *= 0.96;
+    }
+    if(transferFactor < 0.90){
+      ppg *= 0.94;
+    }
+  }
+  if(env.spacingScore > 2.0){
+    ppg *= 1.03;
+    apg *= 1.04;
+  }
+  if(env.spacingScore < 1.2){
+    ppg *= 0.97;
+    apg *= 0.96;
+  }
   let fg = parseFloat(player.fg_pct)||42;
   let tp = parseFloat(player.tp_pct)||33;
-
-  fg += (env.spacingScore - 1.5) * 2;
-  tp += (env.spacingScore - 1.5) * 1.2;
-
-  if((parseFloat(player.usg_pct)||20) > 26){
-    fg -= 2.5;
-    tp -= 1.5;
+  let ft = parseFloat(player.ft_pct)||72;
+  fg += (env.spacingScore - 1.5) * 1.2;
+  tp += (env.spacingScore - 1.5) * 0.8;
+  if(usg > 26){
+    fg -= 1.4;
+    tp -= 1.0;
   }
-
+  if(transferFactor < 0.90){
+    fg -= 1.2;
+    tp -= 0.8;
+  }
+  if(portability > 70 && tp > 36){
+    tp += 0.7;
+  }
+  fg = Math.max(37, Math.min(65, fg));
+  tp = Math.max(24, Math.min(46, tp));
+  ft = Math.max(55, Math.min(94, ft));
   return {
     ...player,
     mpg: round1(newMpg),
     ppg: round1(ppg),
     rpg: round1(rpg),
     apg: round1(apg),
-    fg_pct: round1(Math.max(35, Math.min(65, fg))),
-    tp_pct: round1(Math.max(22, Math.min(48, tp))),
+    fg_pct: round1(fg),
+    tp_pct: round1(tp),
+    ft_pct: round1(ft),
     _portability: portability,
     _scalability: scalability,
     _archetype: archetype,
@@ -390,18 +391,15 @@ function projectPlayerAdvanced(player, roster, conf, targetMpg){
 // STEP 9 — TEAM STRENGTH ENGINE
 // ─────────────────────────────────────────────
 function buildTeamRatings(roster, conf){
-
   const env = buildTeamEnvironment(roster, conf);
-
-  let ortg = 108;
-  let drtg = 104;
-
-  ortg += env.spacingScore * 3;
-  ortg += env.creationScore * 0.7;
-
-  drtg -= env.defensiveScore * 0.35;
-  drtg -= env.reboundingScore * 0.15;
-
+  let ortg = 109;
+  let drtg = 103;
+  ortg += env.spacingScore * 2.2;
+  ortg += env.creationScore * 0.55;
+  drtg -= env.defensiveScore * 0.22;
+  drtg -= env.reboundingScore * 0.10;
+  if(env.spacingScore > 2.0){ ortg += 2; }
+  if(env.spacingScore < 1.2){ ortg -= 2; }
   return {
     ortg: round1(ortg),
     drtg: round1(drtg),
@@ -450,8 +448,8 @@ function computeMinutes(roster){
     const grade=parseFloat(p.tdc_grade)||70;
     const slot=i+1;
     let base;
-    if(slot<=5){const gn=Math.max(-1,Math.min(1,(grade-avgGrade)/15));base=30.5+gn*3.5;}
-    else if(slot===6)base=20;else if(slot===7)base=17;else if(slot===8)base=14;
+    if(slot<=5){const gn=Math.max(-1,Math.min(1,(grade-avgGrade)/15));base=31.8+gn*4.0;}
+    else if(slot===6)base=22;else if(slot===7)base=19;else if(slot===8)base=16;
     else if(slot===9)base=11;else if(slot===10)base=8;
     else base=Math.max(2,6-(slot-10)*1.5);
 
@@ -494,15 +492,23 @@ function projectTeam(rawPlayers, teamRow){
     const yr=(p.yr||p.class_year||'').toLowerCase();
     const isFr=yr.includes('fr.')||yr.includes('r-fr');
 
-    // Freshman with no stats — use simple baseline
+    // Freshman with no stats — position-aware baseline
     if(isFr&&!hasStats){
       const grade=parseFloat(p.tdc_grade)||70;
       const scale=newMpg/32;
-      const gm=grade>=92?0.85:grade>=85?0.72:grade>=75?0.48:grade>=68?0.32:0.18;
+      const gm=grade>=95?1.05:grade>=90?0.92:grade>=85?0.80:grade>=80?0.68:grade>=75?0.56:grade>=70?0.42:0.25;
+      const pos=(p.position||'').toUpperCase().replace(/\d/g,'').trim();
+      let ppgBase=11,rpgBase=4,apgBase=2;
+      if(pos==='PG'){apgBase=4;ppgBase=12;}
+      else if(pos==='SG'){ppgBase=13;}
+      else if(pos==='SF'){ppgBase=12;rpgBase=5;}
+      else if(pos==='PF'){rpgBase=6;ppgBase=11;}
+      else if(pos==='C'){rpgBase=8;ppgBase=10;}
       return {...p,
-        ppg:round1(12*gm*scale),rpg:round1(4*gm*scale),apg:round1(2*gm*scale),
-        mpg:round1(newMpg),fg_pct:round1(43),tp_pct:round1(34),ft_pct:round1(72),
-        stl:round1(0.8*gm*scale),blk:round1(0.3*gm*scale),tovs:round1(1.5*gm*scale),
+        ppg:round1(ppgBase*gm*scale),rpg:round1(rpgBase*gm*scale),apg:round1(apgBase*gm*scale),
+        mpg:round1(newMpg),
+        fg_pct:round1(43+gm*4),tp_pct:round1(31+gm*4),ft_pct:round1(68+gm*6),
+        stl:round1(0.7*gm*scale),blk:round1(0.4*gm*scale),tovs:round1(1.4*gm*scale),
         _frosh:true,_archetype:detectArchetype(p),
         _portability:calculatePortabilityScore(p),_scalability:calculateScalability(p),
       };
@@ -512,6 +518,26 @@ function projectTeam(rawPlayers, teamRow){
 
     return projectPlayerAdvanced(p, players, conf, newMpg);
   }).filter(Boolean);
+
+  // Team scoring floor normalization
+  const teamPPG = projected.reduce((s,p)=>s+(p.ppg||0),0);
+  if(teamPPG < 67){
+    const scale = 72 / teamPPG;
+    projected.forEach(p=>{
+      if((p.mpg||0) > 12){
+        p.ppg = round1(p.ppg * scale * 0.94);
+      }
+    });
+  }
+
+  // Top scorer floors
+  projected.sort((a,b)=>(b.ppg||0)-(a.ppg||0));
+  if(projected[0] && projected[0].ppg < 13){
+    projected[0].ppg = 13.5;
+  }
+  if(projected[1] && projected[1].ppg < 11){
+    projected[1].ppg = 11.5;
+  }
 
   return projected;
 }
