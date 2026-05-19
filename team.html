@@ -2277,7 +2277,28 @@ function calcAllPlayerMins(){
 
 // Keep old function for backwards compat (used in lineup lab)
 function calcStarterMins(){
-  return POS_KEYS.reduce((sum, pos)=>{\n    const p=(customDepth[pos]||[])[0];\n    if(!p) return sum;\n    const base=parseFloat(p.mpg)||26;\n    return sum + (customMpg[p.name]!==undefined ? customMpg[p.name] : base);\n  }, 0);\n}\n\nfunction renderMinsBudget(){\n  const total=calcAllPlayerMins();\n  const pct=Math.min(100,(total/(MAX_TEAM_MINS*2))*100); // 400 total possible\n  const over=total>MAX_TEAM_MINS*2;\n  const barColor=over?'#cc2200':total>360?'#b07000':total>300?'var(--tc)':'#1a8c3a';\n  const starterTotal=calcStarterMins();\n  return `<div class=\"mins-budget\" id=\"minsBudget\">\n    <span class=\"mins-budget-label\">Minutes Budget</span>\n    <div class=\"mins-budget-bar\"><div class=\"mins-budget-fill\" style=\"width:${pct}%;background:${barColor};\"></div></div>\n    <span class=\"mins-budget-val\" style=\"color:${over?'#cc2200':'var(--text2)'};\">Starters: ${Math.round(starterTotal)} · All: ${Math.round(total)}</span>\n    ${over?`<span class=\"mins-over\">⚠ ${Math.round(total-MAX_TEAM_MINS*2)} min over — reduce minutes</span>`:''}\n  </div>`;
+  return POS_KEYS.reduce((sum,pos)=>{
+    const p=(customDepth[pos]||[])[0];
+    if(!p) return sum;
+    const base=parseFloat(p.mpg)||26;
+    return sum+(customMpg[p.name]!==undefined?customMpg[p.name]:base);
+  },0);
+}
+
+const MAX_TEAM_MINS=200;
+
+function renderMinsBudget(){
+  const total=calcAllPlayerMins();
+  const starterTotal=calcStarterMins();
+  const pct=Math.min(100,(total/400)*100);
+  const over=total>400;
+  const barColor=over?'#cc2200':total>350?'#b07000':total>280?'var(--tc)':'#1a8c3a';
+  return `<div class="mins-budget" id="minsBudget">
+    <span class="mins-budget-label">Minutes Budget</span>
+    <div class="mins-budget-bar"><div class="mins-budget-fill" style="width:${pct}%;background:${barColor};"></div></div>
+    <span class="mins-budget-val" style="color:${over?'#cc2200':'var(--text2)'};">Starters: ${Math.round(starterTotal)} · All: ${Math.round(total)}</span>
+    ${over?`<span class="mins-over">⚠ Over budget — reduce minutes</span>`:''}
+  </div>`;
 }
 // ── LINEUP LAB — deeper analytics ─────────────────────────
 function renderLineupLab(analytics){
