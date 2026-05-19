@@ -106,6 +106,7 @@
       .scout-grid{grid-template-columns:1fr;}
     }
   </style>
+  <script src="tdc-engine.js"></script>
 </head>
 <body>
 <div class="nav-wrap">
@@ -192,8 +193,6 @@ function getTransFactor(origin, dest, grade){
   const boost=g>=90?1.22:g>=85?1.14:g>=80?1.07:g>=75?1.02:g>=70?0.97:g>=65?0.91:0.85;
   return Math.max(0.20,Math.min(1.6,base*boost));
 }
-// Aliases — team.html's buildTeamProjections internally uses these names
-const getProjTransFactor = getTransFactor;
 
 function getSchoolConf(school){
   if(!school) return null;
@@ -202,15 +201,6 @@ function getSchoolConf(school){
   for(const k of Object.keys(SCHOOL_CONF)){if(lo.includes(k)||k.includes(lo)) return SCHOOL_CONF[k];}
   return null;
 }
-// Aliases — team.html's buildTeamProjections internally uses these names
-const getProjSchoolConf = getSchoolConf;
-const getSchoolConfFallback = getSchoolConf;
-// PROJ_ aliases for constants used inside team.html's projectSinglePlayer
-const PROJ_CONF_MULT  = CONF_MULT;
-const PROJ_CONF_TIERS = CONF_TIERS;
-const PROJ_TRANS_MAT  = TRANS_MAT;
-const PROJ_ACC_OUT    = ACC_OUT;
-const PROJ_SCHOOL_CONF = SCHOOL_CONF;
 
 // ── POSITION BASELINES ──────────────────────────────────
 const POS_BASE={'PG':{ppg:10.5,rpg:3.2,apg:4.1,mpg:26,fg_pct:42,tp_pct:36,ft_pct:75,stl:1.2,blk:0.2},'SG':{ppg:11.2,rpg:3.8,apg:2.2,mpg:26,fg_pct:42,tp_pct:37,ft_pct:76,stl:1.0,blk:0.3},'CG':{ppg:10.8,rpg:3.5,apg:3.0,mpg:26,fg_pct:42,tp_pct:36,ft_pct:75,stl:1.1,blk:0.2},'SF':{ppg:10.8,rpg:5.2,apg:1.8,mpg:26,fg_pct:43,tp_pct:37,ft_pct:72,stl:0.9,blk:0.5},'PF':{ppg:10.2,rpg:6.8,apg:1.2,mpg:24,fg_pct:45,tp_pct:33,ft_pct:69,stl:0.6,blk:1.1},'C':{ppg:9.8,rpg:7.4,apg:0.9,mpg:22,fg_pct:49,tp_pct:30,ft_pct:66,stl:0.4,blk:1.6},'G':{ppg:10.0,rpg:3.5,apg:3.0,mpg:25,fg_pct:42,tp_pct:35,ft_pct:74,stl:1.1,blk:0.2},'F':{ppg:10.5,rpg:6.0,apg:1.5,mpg:25,fg_pct:44,tp_pct:35,ft_pct:70,stl:0.7,blk:0.8}};
@@ -309,7 +299,6 @@ function projectPlayer(p, teamConf, teamRoster, targetMpg){
   const gapRatio=gradeExpPpg>0?(pm.ppg*32)/gradeExpPpg:1;
   const gapMult=gapRatio<0.50?1.18:gapRatio<0.65?1.12:gapRatio<0.80?1.06:gapRatio<0.95?1.02:gapRatio>1.40?0.97:gapRatio>1.20?0.99:1.0;
   const rateGrowth=yrMult*gapMult;
-  const countingTransFactor=transferFactor<1.0?Math.max(transferFactor,0.70):1.0;
   const fgBase=s('fg_pct'),tpBase=s('tp_pct'),ftBase=s('ft_pct'),oldFga=s('fga');
   const newFgaEst=oldFga>0?oldFga*(newMpg/oldMpg):newMpg*0.28;
   const volChange=oldFga>0?(newFgaEst/oldFga-1):0;
@@ -318,8 +307,8 @@ function projectPlayer(p, teamConf, teamRoster, targetMpg){
   const fgProj=r1t(Math.max(30,Math.min(65,fgBase+yearEffBoost-volChange*3.5+transPctAdj)));
   const tpProj=r1t(Math.max(18,Math.min(50,tpBase+(isSo?0.8:isJr?0.4:isSr?0:1.5)-volChange*2.0+transPctAdj*0.6)));
   const ftProj=r1t(Math.max(45,Math.min(97,ftBase+(isSo?1.0:isJr?0.5:isSr?0:1.5))));
-  const newFga=r1t(pm.fga*rateGrowth*newMpg*countingTransFactor);
-  return {ppg:r1t(pm.ppg*rateGrowth*newMpg*countingTransFactor),rpg:r1t(pm.rpg*rateGrowth*newMpg*countingTransFactor),apg:r1t(pm.apg*rateGrowth*newMpg*countingTransFactor),mpg:r1t(newMpg),fgm:r1t(newFga*(fgProj/100)),fga:newFga,fg_pct:fgProj,tpm:r1t(pm.tpa*rateGrowth*newMpg*countingTransFactor*(tpProj/100)),tpa:r1t(pm.tpa*rateGrowth*newMpg*countingTransFactor),tp_pct:tpProj,ftm:r1t(pm.fta*rateGrowth*newMpg*countingTransFactor*(ftProj/100)),fta:r1t(pm.fta*rateGrowth*newMpg*countingTransFactor),ft_pct:ftProj,oreb:r1t(pm.oreb*rateGrowth*newMpg*countingTransFactor),dreb:r1t(pm.dreb*rateGrowth*newMpg*countingTransFactor),stl:r1t(pm.stl*rateGrowth*newMpg*countingTransFactor),blk:r1t(pm.blk*rateGrowth*newMpg*countingTransFactor),tovs:r1t(pm.tovs*rateGrowth*newMpg*countingTransFactor),_frosh:false,_origin:originConf,_factor:transferFactor};
+  const newFga=r1t(pm.fga*rateGrowth*newMpg);
+  return {ppg:r1t(pm.ppg*rateGrowth*newMpg),rpg:r1t(pm.rpg*rateGrowth*newMpg),apg:r1t(pm.apg*rateGrowth*newMpg),mpg:r1t(newMpg),fgm:r1t(newFga*(fgProj/100)),fga:newFga,fg_pct:fgProj,tpm:r1t(pm.tpa*rateGrowth*newMpg*(tpProj/100)),tpa:r1t(pm.tpa*rateGrowth*newMpg),tp_pct:tpProj,ftm:r1t(pm.fta*rateGrowth*newMpg*(ftProj/100)),fta:r1t(pm.fta*rateGrowth*newMpg),ft_pct:ftProj,oreb:r1t(pm.oreb*rateGrowth*newMpg),dreb:r1t(pm.dreb*rateGrowth*newMpg),stl:r1t(pm.stl*rateGrowth*newMpg),blk:r1t(pm.blk*rateGrowth*newMpg),tovs:r1t(pm.tovs*rateGrowth*newMpg),_frosh:false,_origin:originConf,_factor:transferFactor};
 }
 
 const FR_BASE={
@@ -360,7 +349,6 @@ function projectSinglePlayer(p,conf){
   const gapRatio=gradeExp.ppg>0?(pm.ppg*32)/gradeExp.ppg:1;
   let gapMult=gapRatio<0.50?1.18:gapRatio<0.65?1.12:gapRatio<0.80?1.06:gapRatio<0.95?1.02:gapRatio>1.40?0.97:gapRatio>1.20?0.99:1.0;
   const rateGrowth=yrMult*gapMult;
-  const countingTransFactor=transferFactor<1.0?Math.max(transferFactor,0.70):1.0;
   const oldFga=s('fga'),fgBase=s('fg_pct'),tpBase=s('tp_pct'),ftBase=s('ft_pct');
   const yearEffBoost=isFr?2.0:isSo?1.2:isJr?0.6:0.0;
   const depthFgaAdd=depth<=2?2.0:depth<=5?1.0:depth<=8?0:-(oldFga*0.1);
@@ -514,7 +502,7 @@ function fmtP(v){return v!=null&&v!==''?Number(v).toFixed(1)+'%':'—';}
 function pctCol(p){return p>=80?'rgb(18,60,185)':p>=60?'rgb(30,82,200)':p>=40?'rgb(45,100,210)':p>=20?'rgb(60,120,220)':'var(--text3)';}
 function gradeClass(g){const n=parseFloat(g);if(!isNaN(n)){if(n>=90)return 'gA';if(n>=80)return 'gB';if(n>=70)return 'gC';if(n>=60)return 'gD';return 'gF';}if(!g)return '';if(g[0]==='A')return 'gA';if(g[0]==='B')return 'gB';if(g[0]==='C')return 'gC';if(g[0]==='D')return 'gD';return 'gF';}
 
-let player=null, teamData=null, allPlayers=[], gPct={}, proj=null;
+let player=null, teamData=null, allPlayers=[], gPct={}, proj=null, teamPlayers=[];
 
 async function init(){
   const s=JSON.parse(localStorage.getItem('tdc_session')||'null');
@@ -576,22 +564,23 @@ async function init(){
 
     calcPct();
     try{
-      // Fetch full roster client-side filtered by team name — same data team page uses
-      const tLower=(player.team||'').toLowerCase().trim();
+      // Fetch full roster for team context
       const rr=await fetch(`${SB}/rest/v1/players?select=*&order=depth_order.asc&limit=5000`,{headers:H});
       const allRows=await rr.json();
-      const teamRoster=Array.isArray(allRows)
+      const tLower=(player.team||'').toLowerCase().trim();
+      teamPlayers=Array.isArray(allRows)
         ?allRows.filter(r=>r.name&&r.name!=='—'&&(r.team||'').toLowerCase().trim()===tLower)
         :[];
 
-      if(teamRoster.length){
-        // Run the exact same buildTeamProjections used on the team page
-        const allProj=buildTeamProjections(teamRoster, teamConf);
-        // Find this player by name
+      if(teamPlayers.length){
+        // Use TDC engine with full team context
+        const allProj=TDC.projectTeam(teamPlayers, teamData);
         const pLower=(player.name||'').toLowerCase().trim();
         proj=allProj.find(r=>(r.name||'').toLowerCase().trim()===pLower)||null;
       }
-      if(!proj) proj=projectPlayer(player, teamConf, [], null);
+      // Fallback: project in isolation
+      if(!proj&&(typeof TDC!=='undefined'))
+        proj=TDC.projectPlayerInContext(player, teamPlayers.length?teamPlayers:[player], teamData)||null;
     }catch(projErr){
       console.warn('Projection failed:',projErr);
       proj=null;
@@ -668,8 +657,7 @@ function renderPage(){
           </div>
         </div>
         <div>
-          <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;padding-bottom:6px;border-bottom:2px solid var(--accent);">2026-27 Projected ${proj._frosh?'<span style="font-size:9px;padding:1px 4px;background:rgba(139,105,20,.12);">EST</span>':''}</div>
-          <div style="font-size:10px;color:var(--text3);margin-bottom:10px;line-height:1.4;font-style:italic;">Will slightly vary based on model's projected minutes for each player.</div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--accent);">2026-27 Projected ${proj._frosh?'<span style="font-size:9px;padding:1px 4px;background:rgba(139,105,20,.12);">EST</span>':''}</div>
           <div class="stat-cards">
             ${[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},{l:'MPG',k:'mpg'},{l:'FG%',k:'fg_pct',pct:true},{l:'3P%',k:'tp_pct',pct:true},{l:'FT%',k:'ft_pct',pct:true},{l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TO',k:'tovs'}].map(s=>{
               const actual=parseFloat(p[s.k])||0, projected=parseFloat(proj[s.k])||0;
