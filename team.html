@@ -123,6 +123,9 @@
     /* CUSTOMIZE BAR */
     .customize-bar{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);}
     .customize-label{font-size:11px;font-weight:600;color:var(--text3);}
+    .dc-role-wrap{margin-top:6px;}
+    .role-select{font-family:'Inter',sans-serif;font-size:11px;font-weight:600;background:var(--bg2);border:1px solid var(--border2);color:var(--text2);padding:4px 8px;outline:none;cursor:pointer;width:100%;}
+    .role-select:focus{border-color:var(--accent);}
     .reset-btn{margin-left:auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border:1px solid var(--border2);background:none;color:var(--text3);cursor:pointer;}
     .reset-btn:hover{color:var(--red);border-color:var(--red);}
 
@@ -749,11 +752,8 @@ function projectPlayer(p, teamConf, teamRoster, targetMpg){
   const gapMult=gapRatio<0.50?1.18:gapRatio<0.65?1.12:gapRatio<0.80?1.06:gapRatio<0.95?1.02:gapRatio>1.40?0.97:gapRatio>1.20?0.99:1.0;
 
   const rateGrowth=yrMult*gapMult;
-  // transferFactor applied to counting stats for mid-major transfers going up
-  // A player from MVC going to Big 12 will NOT maintain same per-minute rates
-  // Factor only applied when going UP in conf (factor < 1.0)
-  // Going down is already handled by minutes — they get more MPG = more counting stats
-  const countingTransFactor = transferFactor < 1.0 ? Math.max(transferFactor, 0.70) : 1.0;
+  // transferFactor intentionally NOT applied to per-minute rates —
+  // conference difficulty only affects efficiency (%), not per-minute talent
 
   // ── PERCENTAGE PROJECTIONS ──
   // Drivers: year progression, volume change, conference difficulty
@@ -770,23 +770,23 @@ function projectPlayer(p, teamConf, teamRoster, targetMpg){
   const tpProj =r1t(Math.max(18,Math.min(50, tpBase+(isSo?0.8:isJr?0.4:isSr?0:1.5)-(volChange*2.0)+transPctAdj*0.6)));
   const ftProj =r1t(Math.max(45,Math.min(97, ftBase+(isSo?1.0:isJr?0.5:isSr?0:1.5))));
 
-  // ── COUNTING STATS ── scaled from per-minute rates × rateGrowth × newMpg × conf factor
-  const newFga=r1t(pm.fga*rateGrowth*newMpg*countingTransFactor);
+  // ── COUNTING STATS ── scaled from per-minute rates × rateGrowth × newMpg
+  const newFga=r1t(pm.fga*rateGrowth*newMpg);
   return {
-    ppg: r1t(pm.ppg*rateGrowth*newMpg*countingTransFactor),
-    rpg: r1t(pm.rpg*rateGrowth*newMpg*countingTransFactor),
-    apg: r1t(pm.apg*rateGrowth*newMpg*countingTransFactor),
+    ppg: r1t(pm.ppg*rateGrowth*newMpg),
+    rpg: r1t(pm.rpg*rateGrowth*newMpg),
+    apg: r1t(pm.apg*rateGrowth*newMpg),
     mpg: r1t(newMpg),
     fgm: r1t(newFga*(fgProj/100)), fga: newFga, fg_pct: fgProj,
-    tpm: r1t(pm.tpa*rateGrowth*newMpg*countingTransFactor*(tpProj/100)),
-    tpa: r1t(pm.tpa*rateGrowth*newMpg*countingTransFactor), tp_pct: tpProj,
-    ftm: r1t(pm.fta*rateGrowth*newMpg*countingTransFactor*(ftProj/100)),
-    fta: r1t(pm.fta*rateGrowth*newMpg*countingTransFactor), ft_pct: ftProj,
-    oreb: r1t(pm.oreb*rateGrowth*newMpg*countingTransFactor),
-    dreb: r1t(pm.dreb*rateGrowth*newMpg*countingTransFactor),
-    stl:  r1t(pm.stl*rateGrowth*newMpg*countingTransFactor),
-    blk:  r1t(pm.blk*rateGrowth*newMpg*countingTransFactor),
-    tovs: r1t(pm.tovs*rateGrowth*newMpg*countingTransFactor),
+    tpm: r1t(pm.tpa*rateGrowth*newMpg*(tpProj/100)),
+    tpa: r1t(pm.tpa*rateGrowth*newMpg), tp_pct: tpProj,
+    ftm: r1t(pm.fta*rateGrowth*newMpg*(ftProj/100)),
+    fta: r1t(pm.fta*rateGrowth*newMpg), ft_pct: ftProj,
+    oreb: r1t(pm.oreb*rateGrowth*newMpg),
+    dreb: r1t(pm.dreb*rateGrowth*newMpg),
+    stl:  r1t(pm.stl*rateGrowth*newMpg),
+    blk:  r1t(pm.blk*rateGrowth*newMpg),
+    tovs: r1t(pm.tovs*rateGrowth*newMpg),
     _frosh:false, _origin:originConf, _factor:transferFactor,
   };
 }
@@ -1642,8 +1642,9 @@ function projectSinglePlayer(p, conf){
 
   // Per-minute rate growth: year progression + grade gap only
   // transferFactor does NOT suppress per-minute rates — a player's per-minute
+  // talent is what it is. Conference difficulty affects EFFICIENCY (%) not output per minute.
+  // Minutes are already being set correctly by the depth chart slot.
   const rateGrowth=yrMult*gapMult;
-  const countingTransFactor=transferFactor<1.0?Math.max(transferFactor,0.70):1.0;
 
   // Old FGA for efficiency regression calc
   const oldFga=s('fga');
@@ -1796,6 +1797,36 @@ function renderProjections(players, conf, color, rgb, gp){
 let customDepth = {};
 let customMpg   = {};
 let customPos   = {};
+let customRole  = {}; // { 'PlayerName': 'role_key' }
+
+// ── ROLES SYSTEM ─────────────────────────────────────────
+// Each role affects how stats are projected
+// stat_mods: multipliers applied to projected stats
+// grade_mod: effective grade adjustment
+const PLAYER_ROLES = {
+  'first_option':   { label:'1st Option',      icon:'★', desc:'Primary scorer/creator',
+    stat_mods:{ppg:1.18,fga:1.22,apg:1.08,fg_pct:0.96,tp_pct:0.97,tovs:1.12}, grade_mod:+3 },
+  'second_option':  { label:'2nd Option',      icon:'◈', desc:'Secondary scorer',
+    stat_mods:{ppg:1.05,fga:1.08,apg:1.02,fg_pct:0.99,tp_pct:0.99,tovs:1.04}, grade_mod:+1 },
+  'third_option':   { label:'3rd Option',      icon:'◇', desc:'Tertiary scorer / role player',
+    stat_mods:{ppg:0.95,fga:0.92,fg_pct:1.01,tp_pct:1.01}, grade_mod:0 },
+  'primary_initiator':{ label:'Primary Initiator', icon:'⟳', desc:'Ball-handler, pick-and-roll driver',
+    stat_mods:{apg:1.25,tovs:1.10,ppg:1.05,fga:1.05,fg_pct:0.98}, grade_mod:+2 },
+  'secondary_initiator':{ label:'Secondary Initiator', icon:'⟲', desc:'Backup creator / secondary PnR',
+    stat_mods:{apg:1.12,tovs:1.05,ppg:1.02,fga:1.02}, grade_mod:+1 },
+  'spacer_shooter': { label:'Spacer/Shooter',  icon:'⊙', desc:'Floor spacer, catch-and-shoot',
+    stat_mods:{tpm:1.18,tpa:1.22,tp_pct:1.02,ppg:0.92,fga:0.88,apg:0.80}, grade_mod:0 },
+  'defensive_specialist':{ label:'Def. Specialist', icon:'⛨', desc:'Lockdown defender, shot-blocker',
+    stat_mods:{stl:1.20,blk:1.15,ppg:0.88,fga:0.85,rpg:1.05}, grade_mod:+2 },
+  'stretch_big':    { label:'Stretch Big',     icon:'⤢', desc:'Big who spaces the floor',
+    stat_mods:{tpm:1.20,tpa:1.25,tp_pct:1.01,rpg:0.90,blk:0.85,ppg:0.95}, grade_mod:0 },
+  'interior_anchor':{ label:'Interior Anchor', icon:'⬛', desc:'Post scorer, rim protector',
+    stat_mods:{rpg:1.12,blk:1.18,oreb:1.15,ppg:1.05,tpm:0.70,tpa:0.60,tp_pct:0.90}, grade_mod:+2 },
+  'glue_guy':       { label:'Glue Guy',        icon:'⬡', desc:'High IQ, does everything',
+    stat_mods:{stl:1.08,rpg:1.05,apg:1.05,tovs:0.92,ppg:0.95}, grade_mod:+1 },
+  'none':           { label:'No Role',         icon:'·', desc:'Default projection',
+    stat_mods:{}, grade_mod:0 },
+};
 let baseAnalytics = null;
 let baseDepthSnapshot = {};
 let swapTargetPos = null;   // { posKey, rowIdx }
@@ -1813,6 +1844,135 @@ function gradeToNum(g){
 // - Modern positionless trends are baked in (C at PF, big guards, etc.)
 // - adjGrade range: roughly -15 to +5 (natural = 0)
 // - Never penalize more than -15 total — a great player is great anywhere reasonable
+
+// ── APPLY ROLE MODIFIERS TO PROJECTED STATS ──────────────
+function applyRoleToProjection(proj, roleKey, playerGrade, naturalPos, assignedPos){
+  if(!proj) return proj;
+  const role = PLAYER_ROLES[roleKey] || PLAYER_ROLES['none'];
+  const result = {...proj};
+
+  // Position mismatch adjustment on stats
+  // If playing out of position, shift stat profile toward assigned position
+  if(naturalPos !== assignedPos && naturalPos && assignedPos){
+    const isG  = p => ['PG','SG','CG','G'].includes(p);
+    const isBig= p => ['PF','C'].includes(p);
+    const isW  = p => p==='SF';
+    const movingToBig = isG(naturalPos) && isBig(assignedPos);
+    const movingToG   = isBig(naturalPos) && isG(assignedPos);
+    if(movingToBig){
+      // Guard playing big: more rebounds, fewer assists/3s
+      result.rpg  = r1t((parseFloat(result.rpg)||0)*1.08);
+      result.apg  = r1t((parseFloat(result.apg)||0)*0.80);
+      result.tpm  = r1t((parseFloat(result.tpm)||0)*0.75);
+      result.tpa  = r1t((parseFloat(result.tpa)||0)*0.75);
+      result.blk  = r1t((parseFloat(result.blk)||0)*1.15);
+    } else if(movingToG){
+      // Big playing guard: more assists, fewer rebounds
+      result.apg  = r1t((parseFloat(result.apg)||0)*1.15);
+      result.rpg  = r1t((parseFloat(result.rpg)||0)*0.82);
+      result.tpm  = r1t((parseFloat(result.tpm)||0)*1.10);
+      result.blk  = r1t((parseFloat(result.blk)||0)*0.80);
+    }
+  }
+
+  // Apply role stat multipliers
+  const mods = role.stat_mods || {};
+  const statKeys = ['ppg','rpg','apg','fgm','fga','fg_pct','tpm','tpa','tp_pct',
+                    'ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs'];
+  statKeys.forEach(k => {
+    if(mods[k] != null && result[k] != null){
+      result[k] = r1t(parseFloat(result[k]) * mods[k]);
+    }
+  });
+
+  // Role-specific caps and floors for realism
+  // First option with poor efficiency shouldn't magically get better
+  if(roleKey === 'first_option'){
+    const grade = parseFloat(playerGrade)||70;
+    // Below-grade players taking on first option see bigger % drops
+    if(grade < 78) {
+      result.fg_pct = r1t(Math.max(30, (parseFloat(result.fg_pct)||42) - 2.5));
+      result.tp_pct = r1t(Math.max(18, (parseFloat(result.tp_pct)||33) - 1.5));
+    }
+    // PPG cap based on grade — can't project a grade 72 guy to avg 28
+    const pctCap = grade>=90?30:grade>=85?25:grade>=80?21:grade>=75?17:grade>=70?13:10;
+    result.ppg = r1t(Math.min(pctCap, parseFloat(result.ppg)||0));
+  }
+
+  // Spacer/shooter: their PPG should mostly come from 3s
+  if(roleKey === 'spacer_shooter'){
+    const tpm = parseFloat(result.tpm)||0;
+    const ftm = parseFloat(result.ftm)||0;
+    // Recalculate PPG as mostly 3PM + FTM (less mid-range)
+    const fgm2 = parseFloat(result.fgm)||0;
+    result.ppg = r1t(fgm2*2 + tpm + ftm);
+  }
+
+  // Clamp sanity
+  if(result.fg_pct) result.fg_pct = r1t(Math.min(68, Math.max(28, parseFloat(result.fg_pct))));
+  if(result.tp_pct) result.tp_pct = r1t(Math.min(50, Math.max(15, parseFloat(result.tp_pct))));
+  if(result.ft_pct) result.ft_pct = r1t(Math.min(97, Math.max(45, parseFloat(result.ft_pct))));
+  if(result.ppg)    result.ppg    = r1t(Math.min(38, Math.max(0,  parseFloat(result.ppg))));
+  if(result.rpg)    result.rpg    = r1t(Math.min(18, Math.max(0,  parseFloat(result.rpg))));
+  if(result.apg)    result.apg    = r1t(Math.min(12, Math.max(0,  parseFloat(result.apg))));
+
+  result._role = roleKey;
+  result._roleLabel = role.label;
+  return result;
+}
+
+// ── BUILD CUSTOM PROJECTIONS ──────────────────────────────
+// Runs the standard buildTeamProjections but then applies
+// custom MPG, position changes, and roles on top
+function buildCustomProjections(){
+  // Flatten all players in depth order from customDepth columns
+  const allCustomPlayers = [];
+  POS_KEYS.forEach(pos => {
+    (customDepth[pos]||[]).forEach((p, i) => {
+      const assignedPos = customPos[p.name] || pos;
+      const role = customRole[p.name] || 'none';
+      allCustomPlayers.push({
+        ...p,
+        position: assignedPos,    // Override position
+        depth_order: allCustomPlayers.length + 1,  // Renumber globally
+        _customMpg: customMpg[p.name] !== undefined ? customMpg[p.name] : null,
+        _assignedPos: assignedPos,
+        _naturalPos: p._naturalPos || p.position || 'G',
+        _role: role,
+      });
+    });
+  });
+
+  if(!allCustomPlayers.length) return [];
+
+  const conf = teamT?.conf || teamT?.conference || '';
+
+  // Run standard projection pipeline
+  const baseProj = buildTeamProjections(allCustomPlayers, conf);
+
+  // Now apply custom MPG overrides, position stat shifts, and roles
+  return baseProj.map(p => {
+    const assignedPos = p._assignedPos || p.position || 'G';
+    const naturalPos  = p._naturalPos  || p.position || 'G';
+    const roleKey     = p._role || customRole[p.name] || 'none';
+
+    // Override MPG with slider value if set
+    if(p._customMpg != null){
+      const mpg = p._customMpg;
+      const oldMpg = parseFloat(p.mpg) || 1;
+      const ratio  = mpg / Math.max(1, oldMpg);
+      // Scale all counting stats proportionally
+      ['ppg','rpg','apg','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','stl','blk','tovs'].forEach(k=>{
+        if(p[k]!=null) p[k] = r1t(parseFloat(p[k])*ratio);
+      });
+      p.mpg = r1t(mpg);
+    }
+
+    // Apply role modifiers
+    const withRole = applyRoleToProjection(p, roleKey, p.tdc_grade, naturalPos, assignedPos);
+    return withRole;
+  });
+}
 
 function calcPositionFit(p, targetPos){
   const naturalPos = p._naturalPos || p.position || 'G';
@@ -2270,6 +2430,11 @@ function rebuildCustomizeUI(){
           </select>
           <button class="dc-swap-btn" onclick="openSwapModal('${pos}',${rowIdx})">⇄ Swap</button>
         </div>
+        <div class="dc-role-wrap">
+          <select class="role-select" title="Assign role" onchange="onRoleChange('${p.name}',this.value)">
+            ${Object.entries(PLAYER_ROLES).map(([k,r])=>`<option value="${k}"${(customRole[p.name]||'none')===k?' selected':''}>${r.icon} ${r.label}</option>`).join('')}
+          </select>
+        </div>
         <div class="dc-mpg-wrap">
           <div class="dc-mpg-row">
             <span>MPG</span>
@@ -2309,7 +2474,8 @@ function rebuildCustomizeUI(){
       <strong style="color:var(--text2);">Position fit</strong> adjusts each player's effective grade based on height, playmaking, rebounding, and distance from their natural position.
       A 6'1" player at C loses ~18 pts. A 6'8" player at PG gains pts if assists ≥5 and TOV &lt;1.5, but loses pts if their numbers don't back it up.
       <strong style="color:var(--text2);">Lineup Quality</strong> = minutes-weighted effective grade of your 5 starters. Wear/foul risk rises at 35+ MPG.
-    </div>`;
+    </div>
+    ${renderCustomProjectionsTable()}`;
 
 }
 
@@ -2404,12 +2570,94 @@ function onMpgChange(playerName, pKey, val){
   // Lab is inside a <details> — only refresh if it's open to avoid flicker
   const details=document.querySelector('#customizeContent details');
   if(details&&details.open){ const t3=document.createElement('div'); t3.innerHTML=renderLineupLab(a); details.replaceWith(t3.firstElementChild); }
+  // Refresh projections table live
+  const projTable=document.getElementById('customProjTable');
+  if(projTable){ const t4=document.createElement('div'); t4.innerHTML=renderCustomProjectionsTable(); projTable.replaceWith(t4.firstElementChild); }
+}
+
+// ── ROLE CHANGE HANDLER ──────────────────────────────────
+function onRoleChange(playerName, roleKey){
+  customRole[playerName] = roleKey;
+  // Refresh analytics + projections table only (no full rebuild needed)
+  const a = calcCustomAnalytics();
+  const bar = document.querySelector('.lineup-analytics');
+  if(bar){ const t=document.createElement('div'); t.innerHTML=renderAnalyticsBar(a,baseAnalytics); bar.replaceWith(t.firstElementChild); }
+  const projTable = document.getElementById('customProjTable');
+  if(projTable){ const t=document.createElement('div'); t.innerHTML=renderCustomProjectionsTable(); projTable.replaceWith(t.firstElementChild); }
+}
+
+// ── CUSTOM PROJECTIONS TABLE ─────────────────────────────
+function renderCustomProjectionsTable(){
+  const projected = buildCustomProjections();
+  if(!projected.length) return '';
+  const fmt  = v => v!=null&&v!==''?Number(v).toFixed(1):'—';
+  const fmtP = v => v!=null&&v!==''?Number(v).toFixed(1)+'%':'—';
+  const color = teamColor_g;
+
+  const rows = projected.map((p,i) => {
+    const isStarter = i < 5;
+    const roleKey = p._role || 'none';
+    const role = PLAYER_ROLES[roleKey] || PLAYER_ROLES['none'];
+    const roleBadge = roleKey !== 'none'
+      ? `<span style="font-size:9px;font-weight:700;padding:1px 5px;background:rgba(139,105,20,.12);color:var(--accent);margin-left:4px;">${role.icon} ${role.label}</span>`
+      : '';
+    return `<tr style="${isStarter?`background:rgba(${teamRgb_g},.04);border-left:2px solid ${color};`:''}">
+      <td style="text-align:left;padding-left:${isStarter?'6px':'8px'};">
+        <span style="font-weight:${isStarter?700:500};font-size:13px;">${p.name}</span>${roleBadge}
+        ${p._isFrosh?'<span style="font-size:9px;color:var(--accent);margin-left:4px;">EST</span>':''}
+      </td>
+      <td style="font-size:11px;color:var(--text3);">${p.position||'—'}</td>
+      <td style="font-size:11px;color:var(--text3);">${p.class_year||p.yr||'—'}</td>
+      <td>${fmt(p.mpg)}</td>
+      <td style="font-weight:700;">${fmt(p.ppg)}</td>
+      <td>${fmt(p.rpg)}</td>
+      <td>${fmt(p.apg)}</td>
+      <td>${fmtP(p.fg_pct)}</td>
+      <td>${fmtP(p.tp_pct)}</td>
+      <td>${fmtP(p.ft_pct)}</td>
+      <td>${fmt(p.stl)}</td>
+      <td>${fmt(p.blk)}</td>
+      <td>${fmt(p.tovs)}</td>
+    </tr>`;
+  }).join('');
+
+  const teamPpg = projected.slice(0,Math.min(8,projected.length)).reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
+  const teamRpg = projected.slice(0,Math.min(8,projected.length)).reduce((s,p)=>s+(parseFloat(p.rpg)||0),0);
+  const teamApg = projected.slice(0,Math.min(8,projected.length)).reduce((s,p)=>s+(parseFloat(p.apg)||0),0);
+
+  return `<div id="customProjTable" style="margin-top:20px;">
+    <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <span>2026-27 Projected Stats <span style="font-weight:500;font-size:10px;text-transform:none;letter-spacing:0;color:var(--text3);margin-left:6px;">Updates live with minutes & role changes</span></span>
+      <span style="font-size:11px;font-weight:600;color:var(--text3);">Est. Team: <strong style="color:var(--text);">${r1t(teamPpg)} PPG · ${r1t(teamRpg)} RPG · ${r1t(teamApg)} APG</strong></span>
+    </div>
+    <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;min-width:750px;font-size:13px;">
+      <thead><tr style="border-bottom:2px solid var(--border2);">
+        <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">Player</th>
+        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">Pos</th>
+        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">Yr</th>
+        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">MPG</th>
+        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">PPG</th>
+        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">RPG</th>
+        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">APG</th>
+        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">FG%</th>
+        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">3P%</th>
+        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">FT%</th>
+        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">STL</th>
+        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">BLK</th>
+        <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;">TO</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-top:8px;font-style:italic;">Will slightly vary based on model's projected minutes for each player. Role assignments shift statistical profiles — first options see more volume at lower efficiency; specialists see profile-specific boosts.</div>
+  </div>`;
 }
 
 // ── RESET ─────────────────────────────────────────────────
 function resetCustomLineup(){
   POS_KEYS.forEach(pos=>{ customDepth[pos]=[...baseDepthSnapshot[pos]]; });
-  customMpg={}; customPos={};
+  customMpg={}; customPos={}; customRole={};
   rebuildCustomizeUI();
 }
 
