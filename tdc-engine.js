@@ -531,6 +531,7 @@ function projectTeam(rawPlayers, teamRow){
   }
 
   // Top scorer floors
+  // Top scorer floors — sort by PPG temporarily, apply floors, then restore depth order
   projected.sort((a,b)=>(b.ppg||0)-(a.ppg||0));
   if(projected[0] && projected[0].ppg < 13){
     projected[0].ppg = 13.5;
@@ -538,6 +539,9 @@ function projectTeam(rawPlayers, teamRow){
   if(projected[1] && projected[1].ppg < 11){
     projected[1].ppg = 11.5;
   }
+
+  // Restore original depth chart order
+  projected.sort((a,b)=>(a.depth_order||99)-(b.depth_order||99));
 
   return projected;
 }
