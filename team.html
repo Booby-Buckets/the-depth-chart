@@ -1926,22 +1926,44 @@ function applyRoleToProjection(proj, roleKey, playerGrade, naturalPos, assignedP
 // Runs the standard buildTeamProjections but then applies
 // custom MPG, position changes, and roles on top
 function buildCustomProjections(){
-  // Flatten all players in depth order from customDepth columns
-  const allCustomPlayers = [];
+  // Build a single flat list sorted by TRUE depth order
+  // Each player gets a global rank based on their position within their column
+  // AND their column's position in POS_KEYS — but the KEY ordering is by
+  // depth_order from the original player data, not by position column
+
+  // First collect all players with their column-local rank
+  const colPlayers = [];
   POS_KEYS.forEach(pos => {
     (customDepth[pos]||[]).forEach((p, i) => {
-      const assignedPos = customPos[p.name] || pos;
-      const role = customRole[p.name] || 'none';
-      allCustomPlayers.push({
-        ...p,
-        position: assignedPos,    // Override position
-        depth_order: allCustomPlayers.length + 1,  // Renumber globally
-        _customMpg: customMpg[p.name] !== undefined ? customMpg[p.name] : null,
-        _assignedPos: assignedPos,
-        _naturalPos: p._naturalPos || p.position || 'G',
-        _role: role,
+      colPlayers.push({
+        p, pos, colRank: i,  // colRank = 0 is starter at that position
       });
     });
+  });
+
+  // Sort by: starters first (colRank=0 sorted by POS_KEYS order),
+  // then backups by colRank, then by original depth_order within same colRank
+  // This ensures: slot 1=PG starter, 2=SG starter, 3=SF starter, 4=PF starter, 5=C starter
+  // then 6=PG backup, 7=SG backup... etc.
+  colPlayers.sort((a, b) => {
+    if(a.colRank !== b.colRank) return a.colRank - b.colRank;
+    // Same colRank — sort by POS_KEYS order
+    return POS_KEYS.indexOf(a.pos) - POS_KEYS.indexOf(b.pos);
+  });
+
+  const allCustomPlayers = colPlayers.map(({p, pos}, i) => {
+    const assignedPos = customPos[p.name] || pos;
+    const role = customRole[p.name] || 'none';
+    return {
+      ...p,
+      position: assignedPos,
+      depth_order: i + 1,
+      _customMpg: customMpg[p.name] !== undefined ? customMpg[p.name] : null,
+      _assignedPos: assignedPos,
+      _naturalPos: p._naturalPos || p.position || 'G',
+      _role: role,
+      _colRank: colPlayers[i].colRank,
+    };
   });
 
   if(!allCustomPlayers.length) return [];
@@ -2241,30 +2263,21 @@ function renderAnalyticsBar(analytics, base){
   </div>`;
 }
 
-// Max minutes per game: 5 starters × 40 min = 200 total available
-// But realistically a player can't play more than 40, and the 5-man unit shares 200 mins
-const MAX_TEAM_MINS = 200;
-
-function calcStarterMins(){
-  return POS_KEYS.reduce((sum, pos)=>{
-    const p=(customDepth[pos]||[])[0];
-    if(!p) return sum;
-    const base=parseFloat(p.mpg)||26;
-    return sum + (customMpg[p.name]!==undefined ? customMpg[p.name] : base);
-  }, 0);
+// Count ALL player minutes — starters + bench combined
+function calcAllPlayerMins(){
+  let total = 0;
+  POS_KEYS.forEach(pos => {
+    (customDepth[pos]||[]).forEach(p => {
+      const base = parseFloat(p.mpg) || (customDepth[pos].indexOf(p)===0 ? 26 : 15);
+      total += customMpg[p.name] !== undefined ? customMpg[p.name] : base;
+    });
+  });
+  return total;
 }
 
-function renderMinsBudget(){
-  const total=calcStarterMins();
-  const pct=Math.min(100,(total/MAX_TEAM_MINS)*100);
-  const over=total>MAX_TEAM_MINS;
-  const barColor=over?'#cc2200':total>185?'#b07000':total>160?'var(--tc)':'#1a8c3a';
-  return `<div class="mins-budget" id="minsBudget">
-    <span class="mins-budget-label">Starter MPG Budget</span>
-    <div class="mins-budget-bar"><div class="mins-budget-fill" style="width:${pct}%;background:${barColor};"></div></div>
-    <span class="mins-budget-val" style="color:${over?'#cc2200':'var(--text2)'};">${Math.round(total)} / ${MAX_TEAM_MINS}</span>
-    ${over?`<span class="mins-over">⚠ ${Math.round(total-MAX_TEAM_MINS)} min over — reduce starter minutes</span>`:''}
-  </div>`;
+// Keep old function for backwards compat (used in lineup lab)
+function calcStarterMins(){
+  return POS_KEYS.reduce((sum, pos)=>{\n    const p=(customDepth[pos]||[])[0];\n    if(!p) return sum;\n    const base=parseFloat(p.mpg)||26;\n    return sum + (customMpg[p.name]!==undefined ? customMpg[p.name] : base);\n  }, 0);\n}\n\nfunction renderMinsBudget(){\n  const total=calcAllPlayerMins();\n  const pct=Math.min(100,(total/(MAX_TEAM_MINS*2))*100); // 400 total possible\n  const over=total>MAX_TEAM_MINS*2;\n  const barColor=over?'#cc2200':total>360?'#b07000':total>300?'var(--tc)':'#1a8c3a';\n  const starterTotal=calcStarterMins();\n  return `<div class=\"mins-budget\" id=\"minsBudget\">\n    <span class=\"mins-budget-label\">Minutes Budget</span>\n    <div class=\"mins-budget-bar\"><div class=\"mins-budget-fill\" style=\"width:${pct}%;background:${barColor};\"></div></div>\n    <span class=\"mins-budget-val\" style=\"color:${over?'#cc2200':'var(--text2)'};\">Starters: ${Math.round(starterTotal)} · All: ${Math.round(total)}</span>\n    ${over?`<span class=\"mins-over\">⚠ ${Math.round(total-MAX_TEAM_MINS*2)} min over — reduce minutes</span>`:''}\n  </div>`;
 }
 // ── LINEUP LAB — deeper analytics ─────────────────────────
 function renderLineupLab(analytics){
@@ -2507,6 +2520,7 @@ function onColDrop(e, pos){
   if(!customDepth[pos]) customDepth[pos]=[];
   customDepth[pos].push(p);
   dcDragFrom=null;
+  _baseCustomProj=[];  // clear so arrows reflect new order
   rebuildCustomizeUI();
 }
 function onDcDrop(e, toPos, toRow){
@@ -2527,6 +2541,7 @@ function onDcDrop(e, toPos, toRow){
     if(!customDepth[toPos]) customDepth[toPos]=[];
     customDepth[toPos].splice(toRow,0,moved);
   }
+  _baseCustomProj=[];
   rebuildCustomizeUI();
 }
 
@@ -2545,36 +2560,54 @@ function onPosChange(playerName, curPos, rowIdx, newPos){
 // ── MINUTE SLIDER ────────────────────────────────────────
 function onMpgChange(playerName, pKey, val){
   customMpg[playerName]=parseInt(val);
-  const lbl=document.getElementById('mpgVal-'+pKey);
+
+  // Update the label that triggered this
+  const lbl=document.getElementById('mpgVal-'+pKey)||document.getElementById(pKey);
   if(lbl) lbl.textContent=val;
-  // find position and row for warn
-  let pos2=null,row2=null;
+
+  // Find which pos column and row this player is in
+  let pos2=null, row2=null;
   POS_KEYS.forEach(pos=>{
-    customDepth[pos].forEach((p,i)=>{ if(p.name===playerName){pos2=pos;row2=i;} });
+    (customDepth[pos]||[]).forEach((p,i)=>{ if(p.name===playerName){pos2=pos;row2=i;} });
   });
-  const warnEl=document.getElementById('mpgWarn-'+pKey);
-  if(warnEl&&pos2!==null){
-    const assignedPos=customPos[playerName]||pos2;
-    const mpg=parseInt(val);
-    const isBig=['PF','C'].includes(assignedPos);
-    let w='';
-    if(mpg>=38) w='⚠ Wear risk';
-    else if(mpg>=35) w='⚠ Fatigue';
-    if(mpg>=36&&isBig) w+=(w?' · ':'')+'Foul risk';
-    warnEl.textContent=w; warnEl.style.display=w?'block':'none';
+
+  if(pos2!==null){
+    // Sync the TOP customize slider label + range input
+    const topKey=`${pos2}-${row2}`;
+    const topLbl=document.getElementById('mpgVal-'+topKey);
+    if(topLbl) topLbl.textContent=val;
+    const topWrap=topLbl?.closest?.('.dc-mpg-wrap');
+    if(topWrap){
+      const topRange=topWrap.querySelector('.mpg-range');
+      if(topRange&&topRange.value!==String(val)) topRange.value=val;
+    }
+    // Sync warn
+    const warnEl=document.getElementById('mpgWarn-'+topKey);
+    if(warnEl){
+      const assignedPos=customPos[playerName]||pos2;
+      const mpg=parseInt(val);
+      const isBig=['PF','C'].includes(assignedPos);
+      let w='';
+      if(mpg>=38) w='⚠ Wear risk';
+      else if(mpg>=35) w='⚠ Fatigue';
+      if(mpg>=36&&isBig) w+=(w?' · ':'')+'Foul risk';
+      warnEl.textContent=w; warnEl.style.display=w?'block':'none';
+    }
   }
+
   // Refresh analytics bar + budget bar + lab
   const a=calcCustomAnalytics();
   const bar=document.querySelector('.lineup-analytics');
   if(bar){ const t=document.createElement('div'); t.innerHTML=renderAnalyticsBar(a,baseAnalytics); bar.replaceWith(t.firstElementChild); }
   const budgetBar=document.getElementById('minsBudget');
   if(budgetBar){ const t2=document.createElement('div'); t2.innerHTML=renderMinsBudget(); budgetBar.replaceWith(t2.firstElementChild); }
-  // Lab is inside a <details> — only refresh if it's open to avoid flicker
   const details=document.querySelector('#customizeContent details');
   if(details&&details.open){ const t3=document.createElement('div'); t3.innerHTML=renderLineupLab(a); details.replaceWith(t3.firstElementChild); }
-  // Refresh projections table live
-  const projTable=document.getElementById('customProjTable');
-  if(projTable){ const t4=document.createElement('div'); t4.innerHTML=renderCustomProjectionsTable(); projTable.replaceWith(t4.firstElementChild); }
+  // Refresh projections table — uses requestAnimationFrame to avoid slider lag
+  requestAnimationFrame(()=>{
+    const projTable=document.getElementById('customProjTable');
+    if(projTable){ const t4=document.createElement('div'); t4.innerHTML=renderCustomProjectionsTable(); projTable.replaceWith(t4.firstElementChild); }
+  });
 }
 
 // ── ROLE CHANGE HANDLER ──────────────────────────────────
@@ -2655,13 +2688,14 @@ function renderCustomProjectionsTable(){
         <div style="width:200px;flex-shrink:0;padding:8px 10px;border-right:1px solid var(--border);">
           <div style="font-size:13px;font-weight:${isStarter?700:500};color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}${arrow}</div>
           <div style="font-size:10px;color:var(--text3);margin-top:1px;">${p.position||'—'} · ${p.class_year||p.yr||'—'}${roleBadge}</div>
-          <!-- MPG input inline -->
+          <!-- MPG input inline — synced with top customize sliders -->
           <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
             <span style="font-size:10px;color:var(--text3);width:28px;">MPG</span>
-            <input type="range" min="1" max="40" step="1" value="${parseFloat(p.mpg)||0}"
+            <input type="range" min="1" max="40" step="1"
+              value="${customMpg[p.name] !== undefined ? customMpg[p.name] : Math.round(parseFloat(p.mpg)||20)}"
               style="flex:1;accent-color:${color};height:3px;"
               oninput="onMpgChange('${p.name}','proj-mpg-${globalIdx}',this.value)"/>
-            <span id="proj-mpg-${globalIdx}" style="font-size:11px;font-weight:700;color:var(--text);width:24px;text-align:right;">${fmt(p.mpg)}</span>
+            <span id="proj-mpg-${globalIdx}" style="font-size:11px;font-weight:700;color:var(--text);width:24px;text-align:right;">${customMpg[p.name] !== undefined ? customMpg[p.name] : Math.round(parseFloat(p.mpg)||20)}</span>
           </div>
         </div>
         <!-- Stats -->
