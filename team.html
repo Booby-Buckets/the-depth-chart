@@ -1723,7 +1723,6 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
         <div class="stat-header-cell">Yr→</div>
         <div class="stat-header-cell">Ht</div>
         <div class="stat-header-cell">MPG</div>
-        <div class="stat-header-cell">USG%</div>
         <div class="stat-header-cell">PPG</div>
         <div class="stat-header-cell">RPG</div>
         <div class="stat-header-cell">APG</div>
@@ -1764,7 +1763,6 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
           <div class="rot-cls" style="color:var(--accent);font-size:11px;">${nextYr}</div>
           <div class="rot-stat" style="font-size:11px;color:var(--text3);">${p.height||'—'}</div>
           <div class="rot-stat" style="${sc(p.mpg,'mpg')}">${fmt(p.mpg)}</div>
-          <div class="rot-stat" style="font-size:12px;color:var(--text2);">${p.usg_pct!=null?fmt(p.usg_pct)+'%':'—'}</div>
           <div class="rot-stat" style="${sc(p.ppg,'ppg')}">${fmt(p.ppg)}</div>
           <div class="rot-stat" style="${sc(p.rpg,'rpg')}">${fmt(p.rpg)}</div>
           <div class="rot-stat" style="${sc(p.apg,'apg')}">${fmt(p.apg)}</div>
@@ -2371,19 +2369,25 @@ function applyRoleToProjection(proj, roleKey, grade, naturalPos, assignedPos){
 
 // ── BUILD CUSTOM PROJECTIONS ────────────────────────────
 function buildCustomProjections(){
-  const allCustomPlayers=[];
+  // Sort by depth rank then position order — NOT by position column
+  const colPlayers=[];
   POS_KEYS.forEach(pos=>{
-    (customDepth[pos]||[]).forEach((p,i)=>{
-      const assignedPos=customPos[p.name]||pos;
-      allCustomPlayers.push({...p,position:assignedPos,depth_order:allCustomPlayers.length+1,
-        _customMpg:customMpg[p.name]!==undefined?customMpg[p.name]:null,
-        _assignedPos:assignedPos,_naturalPos:p._naturalPos||p.position||'G',_role:customRole[p.name]||'none'});
-    });
+    (customDepth[pos]||[]).forEach((p,i)=>{ colPlayers.push({p,pos,colRank:i}); });
+  });
+  colPlayers.sort((a,b)=>{
+    if(a.colRank!==b.colRank) return a.colRank-b.colRank;
+    return POS_KEYS.indexOf(a.pos)-POS_KEYS.indexOf(b.pos);
+  });
+  const allCustomPlayers=colPlayers.map(({p,pos},i)=>{
+    const assignedPos=customPos[p.name]||pos;
+    return {...p,position:assignedPos,depth_order:i+1,
+      _customMpg:customMpg[p.name]!==undefined?customMpg[p.name]:null,
+      _assignedPos:assignedPos,_naturalPos:p._naturalPos||p.position||'G',
+      _role:customRole[p.name]||'none'};
   });
   if(!allCustomPlayers.length) return [];
   const conf=teamT?.conf||teamT?.conference||'';
-  // Use TDC engine if available, fall back to buildTeamProjections
-  const baseProj = typeof TDC!=='undefined' ? TDC.projectTeam(allCustomPlayers,{conf}) : buildTeamProjections(allCustomPlayers,conf);
+  const baseProj=typeof TDC!=='undefined'?TDC.projectTeam(allCustomPlayers,{conf}):buildTeamProjections(allCustomPlayers,conf);
   return baseProj.map(p=>{
     const roleKey=p._role||customRole[p.name]||'none';
     let result={...p};
