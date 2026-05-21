@@ -292,6 +292,7 @@ async function init(){
 
       try {
         const ratings = TDC.buildTeamRatings(proj);
+        if(!ratings||!ratings.profile||ratings.profile.heliocentricity==null) return;
         allRatings.push({
           name: t.name,
           conf: t.conf||t.conference||'',
@@ -301,7 +302,7 @@ async function init(){
           profile: ratings.profile,
         });
         if(t.conf||t.conference) confs.add(t.conf||t.conference);
-      } catch(e){}
+      } catch(e){ console.warn('Skipping team',t.name,e.message); }
     });
 
     // Populate conf filter

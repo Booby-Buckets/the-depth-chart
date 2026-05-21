@@ -425,23 +425,19 @@ function projectPlayerAdvanced(player, roster, conf, targetMpg){
 
 // ─────────────────────────────────────────────
 // STEP 9 — TEAM STRENGTH ENGINE
+// Full implementation below after buildAnalyticalProfile
+// This stub ensures calls with (roster, conf) still work
 // ─────────────────────────────────────────────
-function buildTeamRatings(roster, conf){
+function _buildTeamRatingsSimple(roster, conf){
   const env = buildTeamEnvironment(roster, conf);
-  let ortg = 109;
-  let drtg = 103;
+  let ortg = 109, drtg = 103;
   ortg += env.spacingScore * 2.2;
   ortg += env.creationScore * 0.55;
   drtg -= env.defensiveScore * 0.22;
   drtg -= env.reboundingScore * 0.10;
-  if(env.spacingScore > 2.0){ ortg += 2; }
-  if(env.spacingScore < 1.2){ ortg -= 2; }
-  return {
-    ortg: round1(ortg),
-    drtg: round1(drtg),
-    net: round1(ortg - drtg),
-    pace: round1(env.pace)
-  };
+  if(env.spacingScore > 2.0) ortg += 2;
+  if(env.spacingScore < 1.2) ortg -= 2;
+  return { ortg:round1(ortg), drtg:round1(drtg), net:round1(ortg-drtg), pace:round1(env.pace), profile:env };
 }
 
 // ─────────────────────────────────────────────
@@ -628,10 +624,145 @@ function archetypeBadge(archetype, size){
   return `<span title="${meta.desc}" style="display:inline-block;font-size:${fs};font-weight:700;letter-spacing:.04em;padding:${pad};background:${meta.bg};color:${meta.color};border-radius:3px;white-space:nowrap;">${archetype}</span>`;
 }
 
+
+// =====================================================
+// TEAM ANALYTICAL PROFILE
+// =====================================================
+function buildAnalyticalProfile(roster){
+  const rotation=roster.filter(p=>(p.mpg||0)>=8).sort((a,b)=>(b.mpg||0)-(a.mpg||0));
+  let totalMPG=0,weightedPPG=0,weightedRPG=0,weightedAPG=0;
+  let weightedFG=0,weightedTP=0,weightedFT=0,weightedUSG=0,weightedTS=0;
+  let spacingScore=0,creationScore=0,defensiveScore=0,reboundingScore=0;
+  let rimPressure=0,turnoverRisk=0,shootingGravity=0,heliocentricity=0,variance=0;
+  rotation.forEach(p=>{
+    const w=parseFloat(p.mpg)||0;
+    totalMPG+=w;
+    weightedPPG+=(parseFloat(p.ppg)||0)*w;weightedRPG+=(parseFloat(p.rpg)||0)*w;
+    weightedAPG+=(parseFloat(p.apg)||0)*w;weightedFG+=(parseFloat(p.fg_pct)||42)*w;
+    weightedTP+=(parseFloat(p.tp_pct)||33)*w;weightedFT+=(parseFloat(p.ft_pct)||72)*w;
+    weightedUSG+=(parseFloat(p.projected_usg)||18)*w;weightedTS+=(parseFloat(p.ts_pct)||54)*w;
+    const tp=parseFloat(p.tp_pct)||33,tpa=parseFloat(p.tpa)||2;
+    const apg=parseFloat(p.apg)||1,tov=parseFloat(p.tovs)||1;
+    const stl=parseFloat(p.stl)||0.5,blk=parseFloat(p.blk)||0.3;
+    const rpg=parseFloat(p.rpg)||3,usg=parseFloat(p.projected_usg)||18,fta=parseFloat(p.fta)||2;
+    spacingScore+=((tp*Math.sqrt(tpa))/100)*w;
+    creationScore+=((apg*2.2)+(usg*0.4)-(tov*1.2))*w;
+    defensiveScore+=((stl*2.3)+(blk*2.6)+(rpg*0.55))*w;
+    reboundingScore+=rpg*w;rimPressure+=fta*w;turnoverRisk+=tov*w;
+    shootingGravity+=(tp*tpa)*w;
+    if(usg>26)heliocentricity+=usg*w;
+    if(tp>38&&tpa>5)variance+=1.5*w;
+    if(p._frosh)variance+=2.5*w;
+  });
+  const tw=Math.max(1,totalMPG);
+  return {
+    weightedPPG:weightedPPG/tw||0,weightedRPG:weightedRPG/tw||0,weightedAPG:weightedAPG/tw||0,
+    weightedFG:weightedFG/tw||42,weightedTP:weightedTP/tw||33,weightedFT:weightedFT/tw||72,
+    weightedUSG:weightedUSG/tw||18,weightedTS:weightedTS/tw||54,
+    spacingScore:spacingScore/tw||0,creationScore:creationScore/tw||0,
+    defensiveScore:defensiveScore/tw||0,reboundingScore:reboundingScore/tw||0,
+    rimPressure:rimPressure/tw||0,turnoverRisk:turnoverRisk/tw||0,
+    shootingGravity:shootingGravity/tw||0,heliocentricity:heliocentricity/tw||0,variance:variance/tw||0,
+  };
+}
+
+// =====================================================
+// BUILD TEAM RATINGS (overrides simple version above)
+// =====================================================
+function buildTeamRatings(roster){
+  const profile=buildAnalyticalProfile(roster);
+  let ortg=108,drtg=103;
+  ortg+=profile.spacingScore*2.5;
+  ortg+=profile.creationScore*0.65;
+  ortg+=(profile.weightedTS-54)*0.9;
+  ortg+=profile.rimPressure*0.15;
+  ortg-=profile.turnoverRisk*0.8;
+  if(profile.heliocentricity>8)ortg-=2;
+  drtg-=profile.defensiveScore*0.28;
+  drtg-=profile.reboundingScore*0.12;
+  if(profile.spacingScore>2.1)drtg+=1;
+  ortg-=profile.variance*0.2;
+  ortg=Math.max(96,Math.min(126,ortg));
+  drtg=Math.max(88,Math.min(118,drtg));
+  let pace=69;
+  if(profile.creationScore>10)pace+=2;
+  if(profile.spacingScore>2)pace+=1;
+  if(profile.reboundingScore>5.5)pace-=1;
+  return {ortg:round1(ortg),drtg:round1(drtg),net:round1(ortg-drtg),pace:round1(pace),profile};
+}
+
+// =====================================================
+// MATCHUP MODIFIERS
+// =====================================================
+function calculateMatchup(A,B){
+  let aAdj=0,bAdj=0;
+  if(A.profile.spacingScore>2.1&&B.profile.defensiveScore<4.7)aAdj+=2.5;
+  if(B.profile.spacingScore>2.1&&A.profile.defensiveScore<4.7)bAdj+=2.5;
+  if(A.profile.reboundingScore>B.profile.reboundingScore+1)aAdj+=1.5;
+  if(B.profile.reboundingScore>A.profile.reboundingScore+1)bAdj+=1.5;
+  if(A.profile.creationScore>10&&B.profile.turnoverRisk>1.8)aAdj+=1.2;
+  if(B.profile.creationScore>10&&A.profile.turnoverRisk>1.8)bAdj+=1.2;
+  if(A.profile.heliocentricity>9)aAdj-=1.5;
+  if(B.profile.heliocentricity>9)bAdj-=1.5;
+  return {aAdj,bAdj};
+}
+
+// =====================================================
+// SIMULATE GAME
+// =====================================================
+function simulateGame(teamAName,teamARoster,teamBName,teamBRoster){
+  const A=buildTeamRatings(teamARoster);
+  const B=buildTeamRatings(teamBRoster);
+  const matchup=calculateMatchup(A,B);
+  const poss=(A.pace+B.pace)/2;
+  const aScore=poss*((A.ortg+matchup.aAdj+(100-B.drtg))/100);
+  const bScore=poss*((B.ortg+matchup.bAdj+(100-A.drtg))/100);
+  const spread=aScore-bScore;
+  const winProb=1/(1+Math.exp(-spread/6));
+  return {
+    teamA:teamAName,teamB:teamBName,
+    scoreA:Math.round(aScore),scoreB:Math.round(bScore),
+    spread:round1(spread),
+    winProbA:round1(winProb*100),winProbB:round1((1-winProb)*100),
+    ratingsA:A,ratingsB:B,matchup
+  };
+}
+
+// =====================================================
+// SEASON + MONTE CARLO
+// =====================================================
+function simulateSeason(schedule,teams){
+  const s={};
+  Object.keys(teams).forEach(t=>{s[t]={wins:0,losses:0,net:0};});
+  schedule.forEach(game=>{
+    const r=simulateGame(game.teamA,teams[game.teamA],game.teamB,teams[game.teamB]);
+    if(r.scoreA>r.scoreB){s[game.teamA].wins++;s[game.teamB].losses++;}
+    else{s[game.teamB].wins++;s[game.teamA].losses++;}
+    s[game.teamA].net+=r.spread;s[game.teamB].net-=r.spread;
+  });
+  return s;
+}
+
+function runMonteCarlo(schedule,teams,sims=1000){
+  const totals={};
+  Object.keys(teams).forEach(t=>{totals[t]={wins:0,losses:0};});
+  for(let i=0;i<sims;i++){
+    const sim=simulateSeason(schedule,teams);
+    Object.keys(sim).forEach(t=>{totals[t].wins+=sim[t].wins;totals[t].losses+=sim[t].losses;});
+  }
+  Object.keys(totals).forEach(t=>{totals[t].wins=round1(totals[t].wins/sims);totals[t].losses=round1(totals[t].losses/sims);});
+  return totals;
+}
+
 return {
   projectTeam,
   projectPlayerInContext,
   buildTeamRatings,
+  buildAnalyticalProfile,
+  simulateGame,
+  simulateSeason,
+  runMonteCarlo,
+  calculateMatchup,
   buildTeamEnvironment,
   getWinProbability,
   detectArchetype,
