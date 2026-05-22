@@ -165,7 +165,7 @@
     .dc-mpg-row{display:flex;align-items:center;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:2px;}
     .dc-mpg-val{font-family:'Share Tech Mono',monospace;font-weight:700;color:var(--tc);font-size:9px;}
     .dc-mpg-warn{font-size:8px;color:#cc6600;margin-top:1px;display:none;}
-    input[type=number].mpg-num{-moz-appearance:textfield;} input[type=number].mpg-num::-webkit-inner-spin-button,input[type=number].mpg-num::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+    input[type=range].mpg-range{width:100%;height:3px;accent-color:var(--tc);cursor:pointer;}
     /* Empty slot */
     .dc-empty-slot{padding:10px 8px;font-size:11px;color:var(--text3);font-style:italic;text-align:center;cursor:pointer;border:1px dashed var(--border2);margin:6px;transition:all .12s;}
     .dc-empty-slot:hover{border-color:var(--tc);color:var(--tc);}
@@ -2305,12 +2305,8 @@ function rebuildCustomizeUI(){
             <span>MPG</span>
             <span class="dc-mpg-val" id="mpgVal-${pKey}">${mpgCur}</span>
           </div>
-          <button onclick="onMpgChange('${p.name}','${pKey}',Math.max(0,(parseInt(document.getElementById('mpgVal-${pKey}').value)||0)-1))" style="width:20px;height:20px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:13px;cursor:pointer;font-family:inherit;padding:0;line-height:1;">−</button>
-            <input type="number" class="mpg-num" id="mpgVal-${pKey}" min="0" max="40" value="${mpgCur}"
-              style="width:34px;height:20px;text-align:center;font-size:11px;font-weight:700;border:1px solid var(--border2);background:var(--bg);color:var(--tc);font-family:inherit;padding:0;"
-              oninput="onMpgChange('${p.name}','${pKey}',this.value)" onchange="onMpgChange('${p.name}','${pKey}',this.value)"/>
-            <button onclick="onMpgChange('${p.name}','${pKey}',Math.min(40,(parseInt(document.getElementById('mpgVal-${pKey}').value)||0)+1))" style="width:20px;height:20px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:13px;cursor:pointer;font-family:inherit;padding:0;line-height:1;">+</button>
-          </div>
+          <input type="range" class="mpg-range" min="${minMpg}" max="${maxMpg}" step="1"
+            value="${mpgCur}" oninput="onMpgChange('${p.name}','${pKey}',this.value)"/>
           <div class="dc-mpg-warn" id="mpgWarn-${pKey}" style="${anyWarn?'display:block;':''}">` + `${anyWarn}</div>
         </div>
       </div>`;
@@ -2458,13 +2454,13 @@ function renderCustomProjectionsTable(){
       </div>
       <div class="rot-cls" style="color:var(--accent);font-size:11px;">${p.class_year||p.yr||'—'}</div>
       <div class="rot-stat" style="font-size:11px;color:var(--text3);">${p.height||'—'}</div>
-      <!-- MPG with +/- -->
-      <div class="rot-stat" style="white-space:nowrap;padding:2px 4px;">
-        <button onclick="onMpgChange('${p.name}','${pKey}',Math.max(0,(parseInt(document.getElementById('${pKey}').value)||0)-1))" style="width:18px;height:18px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:11px;cursor:pointer;padding:0;vertical-align:middle;">−</button>
-        <input type="number" id="${pKey}" min="0" max="40" value="${curMpg}"
-          style="width:30px;height:18px;text-align:center;font-size:11px;font-weight:700;border:1px solid var(--border2);background:var(--bg);color:var(--tc);padding:0;vertical-align:middle;"
-          oninput="onMpgChange('${p.name}','${pKey}',this.value)" onchange="onMpgChange('${p.name}','${pKey}',this.value)"/>
-        <button onclick="onMpgChange('${p.name}','${pKey}',Math.min(40,(parseInt(document.getElementById('${pKey}').value)||0)+1))" style="width:18px;height:18px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:11px;cursor:pointer;padding:0;vertical-align:middle;">+</button>
+      <div class="rot-stat" style="white-space:nowrap;padding:2px 6px;">
+        <div style="display:flex;align-items:center;gap:3px;">
+          <input type="range" min="0" max="40" step="1" value="${curMpg}"
+            style="width:60px;accent-color:${color};height:3px;vertical-align:middle;"
+            oninput="onMpgChange('${p.name}','${pKey}',this.value)"/>
+          <span id="${pKey}" style="font-size:11px;font-weight:700;color:var(--tc);min-width:18px;">${curMpg}</span>
+        </div>
         ${diffSpan(p,base,'mpg',false)}
       </div>
       <div class="rot-stat">${fmt(p.ppg)}${diffSpan(p,base,'ppg',false)}</div>
@@ -2621,9 +2617,8 @@ function onMpgChange(playerName, pKey, val){
     const topKey=`${pos2}-${row2}`;
     const topLbl=document.getElementById('mpgVal-'+topKey);
     if(topLbl) topLbl.textContent=val;
-    // Sync top number input
-    const topNumInput=document.getElementById('mpgVal-'+topKey);
-    if(topNumInput&&topNumInput.value!==String(val)) topNumInput.value=val;
+    const topWrap=topLbl?.closest?.('.dc-mpg-wrap');
+    if(topWrap){ const r=topWrap.querySelector('.mpg-range'); if(r&&r.value!==String(val)) r.value=val; }
     const warnEl=document.getElementById('mpgWarn-'+topKey);
     if(warnEl){
       const mpg=parseInt(val),isBig=['PF','C'].includes(customPos[playerName]||pos2);
