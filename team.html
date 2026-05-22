@@ -81,7 +81,9 @@
     .page-body{display:grid;grid-template-columns:1fr 320px;}
     .main-col{padding:32px 40px 64px;border-right:1px solid var(--border);}
     .side-col{padding:32px 32px 64px;}
-    .panel{display:none;}.panel.active{display:block;}
+    .panel{display:none;}.panel.active{display:block;width:100%;box-sizing:border-box;}
+    #customizeContent{width:100%;max-width:100%;overflow-x:hidden;box-sizing:border-box;}
+    #customProjTable{width:100%;max-width:100%;overflow-x:auto;box-sizing:border-box;}
 
     /* SECTION HEADS */
     .sec-head{font-family:'Playfair Display',serif;font-weight:700;font-size:18px;letter-spacing:-.01em;color:var(--text);margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid var(--tc);display:flex;align-items:center;justify-content:space-between;}
@@ -127,7 +129,7 @@
     .reset-btn:hover{color:var(--red);border-color:var(--red);}
 
     /* POSITION DEPTH COLUMNS */
-    .pos-depth-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px;}
+    .pos-depth-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px;width:100%;}
     .pos-col{background:var(--bg2);border:1px solid var(--border);display:flex;flex-direction:column;}
     .pos-col-head{padding:8px 10px;background:rgba(var(--tc-rgb),.10);border-bottom:2px solid var(--tc);display:flex;align-items:center;justify-content:space-between;}
     .pos-col-label{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text);}
@@ -163,7 +165,7 @@
     .dc-mpg-row{display:flex;align-items:center;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:2px;}
     .dc-mpg-val{font-family:'Share Tech Mono',monospace;font-weight:700;color:var(--tc);font-size:9px;}
     .dc-mpg-warn{font-size:8px;color:#cc6600;margin-top:1px;display:none;}
-    input[type=range].mpg-range{width:100%;height:3px;accent-color:var(--tc);cursor:pointer;}
+    input[type=number].mpg-num{-moz-appearance:textfield;} input[type=number].mpg-num::-webkit-inner-spin-button,input[type=number].mpg-num::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
     /* Empty slot */
     .dc-empty-slot{padding:10px 8px;font-size:11px;color:var(--text3);font-style:italic;text-align:center;cursor:pointer;border:1px dashed var(--border2);margin:6px;transition:all .12s;}
     .dc-empty-slot:hover{border-color:var(--tc);color:var(--tc);}
@@ -699,7 +701,7 @@ function projectPlayer(p, teamConf, teamRoster, targetMpg){
   // Priority: (1) explicitly passed targetMpg, (2) computed from roster context
   let newMpg;
   if(targetMpg!=null){
-    newMpg=Math.max(1,Math.min(38,targetMpg));
+    newMpg=Math.max(0,Math.min(40,targetMpg));
   } else {
     newMpg=computePlayerMpg(p, teamRoster);
   }
@@ -1447,7 +1449,7 @@ function buildTeamProjections(players, conf){
   // Steps 7-9: Use projectPlayer (the good predictor) for all stat computation
   // MPG is already computed and stored in _targetMpg — pass it directly
   const withStats = projected.map(p=>{
-    const mpg=Math.max(1,Math.min(38,p._targetMpg||10));
+    const mpg=Math.max(0,Math.min(40,p._targetMpg||10));
     // projectPlayer uses the same logic as player pages — this guarantees identical output
     const pp=projectPlayer(p, conf, null, mpg);
     if(!pp) return {...p, mpg:r1t(mpg)};
@@ -1694,8 +1696,8 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
     el.innerHTML='<div style="padding:20px;color:var(--text3);">No projections available — add player grades to enable projections.</div>';
     return;
   }
-  const fmt=v=>v!=null&&v!==''?Number(v).toFixed(1):'—';
-  const fmtP=v=>v!=null&&v!==''?Number(v).toFixed(1)+'%':'—';
+  const fmt=v=>v!=null&&v!==''?Math.round(Number(v)):'—';
+  const fmtP=v=>v!=null&&v!==''?Math.round(Number(v)*10)/10+'%':'—';
   const sc=(v,k)=>{
     if(!gp||!gp[k]||v==null) return '';
     const n=parseFloat(v); if(isNaN(n)||n===0) return '';
@@ -2254,8 +2256,8 @@ function rebuildCustomizeUI(){
       const isStarter = rowIdx===0;
       const mpgBase = parseFloat(p.mpg)||( isStarter?26:15 );
       const mpgCur  = customMpg[p.name]!==undefined ? customMpg[p.name] : mpgBase;
-      const maxMpg  = isStarter?40:35;
-      const minMpg  = isStarter?10:5;
+      const maxMpg  = 40;
+      const minMpg  = 0;
 
       const wearWarn = mpgCur>=38?'⚠ Wear risk':mpgCur>=35?'⚠ Fatigue':'';
       const foulWarn = mpgCur>=36&&['PF','C'].includes(assignedPos)?'Foul risk':'';
@@ -2303,9 +2305,13 @@ function rebuildCustomizeUI(){
             <span>MPG</span>
             <span class="dc-mpg-val" id="mpgVal-${pKey}">${mpgCur}</span>
           </div>
-          <input type="range" class="mpg-range" min="${minMpg}" max="${maxMpg}" step="1"
-            value="${mpgCur}" oninput="onMpgChange('${p.name}','${pKey}',this.value)"/>
-          <div class="dc-mpg-warn" id="mpgWarn-${pKey}" style="${anyWarn?'display:block;':''}">${anyWarn}</div>
+          <button onclick="onMpgChange('${p.name}','${pKey}',Math.max(0,(parseInt(document.getElementById('mpgVal-${pKey}').value)||0)-1))" style="width:20px;height:20px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:13px;cursor:pointer;font-family:inherit;padding:0;line-height:1;">−</button>
+            <input type="number" class="mpg-num" id="mpgVal-${pKey}" min="0" max="40" value="${mpgCur}"
+              style="width:34px;height:20px;text-align:center;font-size:11px;font-weight:700;border:1px solid var(--border2);background:var(--bg);color:var(--tc);font-family:inherit;padding:0;"
+              oninput="onMpgChange('${p.name}','${pKey}',this.value)" onchange="onMpgChange('${p.name}','${pKey}',this.value)"/>
+            <button onclick="onMpgChange('${p.name}','${pKey}',Math.min(40,(parseInt(document.getElementById('mpgVal-${pKey}').value)||0)+1))" style="width:20px;height:20px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:13px;cursor:pointer;font-family:inherit;padding:0;line-height:1;">+</button>
+          </div>
+          <div class="dc-mpg-warn" id="mpgWarn-${pKey}" style="${anyWarn?'display:block;':''}">` + `${anyWarn}</div>
         </div>
       </div>`;
     }).join('');
@@ -2416,10 +2422,13 @@ function buildCustomProjections(){
 
 // ── CUSTOM PROJECTIONS TABLE ────────────────────────────
 function renderCustomProjectionsTable(){
-  const projected=buildCustomProjections();
+  let projected=buildCustomProjections();
   if(!projected.length) return '<div id="customProjTable"></div>';
-  const fmt=v=>v!=null&&v!==''?Number(v).toFixed(1):'—';
-  const fmtP=v=>v!=null&&v!==''?Number(v).toFixed(1)+'%':'—';
+
+  // Re-sort by projected MPG descending — higher minutes = higher in depth chart
+  projected=[...projected].sort((a,b)=>(parseFloat(b.mpg)||0)-(parseFloat(a.mpg)||0));
+  const fmt=v=>v!=null&&v!==''?Math.round(Number(v)):'—';
+  const fmtP=v=>v!=null&&v!==''?Math.round(Number(v)*10)/10+'%':'—';
   const color=teamColor_g,rgb=teamRgb_g;
   const baseMap={};(_baseCustomProj||[]).forEach(p=>{baseMap[p.name]=p;});
   const basePosMap={};(_baseCustomProj||[]).forEach((p,i)=>{basePosMap[p.name]=i+1;});
@@ -2462,10 +2471,11 @@ function renderCustomProjectionsTable(){
             <div style="font-size:10px;color:var(--text3);">${p.position||'—'} · ${p.class_year||p.yr||'—'} ${roleBadge}</div>
             <div style="display:flex;align-items:center;gap:4px;margin-top:4px;">
               <span style="font-size:9px;color:var(--text3);">MPG</span>
-              <input type="range" min="1" max="40" step="1" value="${customMpg[p.name]!==undefined?customMpg[p.name]:Math.round(parseFloat(p.mpg)||20)}"
-                style="flex:1;accent-color:${color};height:3px;"
-                oninput="onMpgChange('${p.name}','proj-${gi}',this.value)"/>
-              <span id="proj-${gi}" style="font-size:10px;font-weight:700;color:var(--text);width:20px;text-align:right;">${customMpg[p.name]!==undefined?customMpg[p.name]:Math.round(parseFloat(p.mpg)||20)}</span>
+              <button onclick="onMpgChange('${p.name}','proj-${gi}',Math.max(0,(parseInt(document.getElementById('proj-${gi}').value)||0)-1))" style="width:20px;height:20px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:12px;cursor:pointer;flex-shrink:0;font-family:inherit;padding:0;">−</button>
+              <input type="number" id="proj-${gi}" min="0" max="40" value="${customMpg[p.name]!==undefined?customMpg[p.name]:Math.round(parseFloat(p.mpg)||20)}"
+                style="width:36px;height:20px;text-align:center;font-size:11px;font-weight:700;border:1px solid var(--border2);background:var(--bg);color:var(--text);font-family:inherit;padding:0;flex-shrink:0;"
+                oninput="onMpgChange('${p.name}','proj-${gi}',this.value)" onchange="onMpgChange('${p.name}','proj-${gi}',this.value)"/>
+              <button onclick="onMpgChange('${p.name}','proj-${gi}',Math.min(40,(parseInt(document.getElementById('proj-${gi}').value)||0)+1))" style="width:20px;height:20px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:12px;cursor:pointer;flex-shrink:0;font-family:inherit;padding:0;">+</button>
             </div>
           </div>
           <div style="flex:1;display:flex;align-items:center;overflow-x:auto;">
@@ -2573,9 +2583,9 @@ function onPosChange(playerName, curPos, rowIdx, newPos){
 // ── MINUTE SLIDER ────────────────────────────────────────
 function onMpgChange(playerName, pKey, val){
   const newVal=parseInt(val);
-  // Enforce 235 total cap — reduce if over
+  // Enforce 235 total cap
   const currentTotal=calcStarterMins()-(customMpg[playerName]||parseFloat((()=>{let r=0;POS_KEYS.forEach(pos=>{(customDepth[pos]||[]).forEach(p=>{if(p.name===playerName)r=parseFloat(p.mpg)||20;});});return r;})())||20);
-  const allowed=Math.min(newVal, Math.max(1, 235-currentTotal));
+  const allowed=Math.min(newVal, Math.max(0, 235-currentTotal));
   customMpg[playerName]=allowed;
   val=allowed;
 
@@ -2590,8 +2600,9 @@ function onMpgChange(playerName, pKey, val){
     const topKey=`${pos2}-${row2}`;
     const topLbl=document.getElementById('mpgVal-'+topKey);
     if(topLbl) topLbl.textContent=val;
-    const topWrap=topLbl?.closest?.('.dc-mpg-wrap');
-    if(topWrap){ const r=topWrap.querySelector('.mpg-range'); if(r&&r.value!==String(val)) r.value=val; }
+    // Sync top number input
+    const topNumInput=document.getElementById('mpgVal-'+topKey);
+    if(topNumInput&&topNumInput.value!==String(val)) topNumInput.value=val;
     const warnEl=document.getElementById('mpgWarn-'+topKey);
     if(warnEl){
       const mpg=parseInt(val),isBig=['PF','C'].includes(customPos[playerName]||pos2);
