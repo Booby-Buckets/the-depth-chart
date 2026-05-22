@@ -2103,27 +2103,30 @@ function renderAnalyticsBar(analytics, base){
 
 // Max minutes per game: 5 starters × 40 min = 200 total available
 // But realistically a player can't play more than 40, and the 5-man unit shares 200 mins
-const MAX_TEAM_MINS = 200;
+const MAX_TEAM_MINS = 235;
 
 function calcStarterMins(){
-  return POS_KEYS.reduce((sum, pos)=>{
-    const p=(customDepth[pos]||[])[0];
-    if(!p) return sum;
-    const base=parseFloat(p.mpg)||26;
-    return sum + (customMpg[p.name]!==undefined ? customMpg[p.name] : base);
-  }, 0);
+  // Count ALL players — unified 235 min budget
+  let total=0;
+  POS_KEYS.forEach(pos=>{
+    (customDepth[pos]||[]).forEach(p=>{
+      const base=parseFloat(p.mpg)||20;
+      total+=(customMpg[p.name]!==undefined?customMpg[p.name]:base);
+    });
+  });
+  return total;
 }
 
 function renderMinsBudget(){
   const total=calcStarterMins();
   const pct=Math.min(100,(total/MAX_TEAM_MINS)*100);
   const over=total>MAX_TEAM_MINS;
-  const barColor=over?'#cc2200':total>185?'#b07000':total>160?'var(--tc)':'#1a8c3a';
+  const barColor=over?'#cc2200':total>220?'#b07000':total>195?'var(--tc)':'#1a8c3a';
   return `<div class="mins-budget" id="minsBudget">
-    <span class="mins-budget-label">Starter MPG Budget</span>
+    <span class="mins-budget-label">Minutes Budget</span>
     <div class="mins-budget-bar"><div class="mins-budget-fill" style="width:${pct}%;background:${barColor};"></div></div>
     <span class="mins-budget-val" style="color:${over?'#cc2200':'var(--text2)'};">${Math.round(total)} / ${MAX_TEAM_MINS}</span>
-    ${over?`<span class="mins-over">⚠ ${Math.round(total-MAX_TEAM_MINS)} min over — reduce starter minutes</span>`:''}
+    ${over?`<span class="mins-over">⚠ ${Math.round(total-MAX_TEAM_MINS)} min over budget</span>`:''}
   </div>`;
 }
 // ── LINEUP LAB — deeper analytics ─────────────────────────
@@ -2166,11 +2169,11 @@ function renderLineupLab(analytics){
   }).length;
 
   const totalMins=calcStarterMins();
-  const minWarning=totalMins>200
-    ?`<span style="color:#cc2200;font-weight:700;">⚠ ${Math.round(totalMins-200)} min over budget</span>`
-    :totalMins>185
-    ?`<span style="color:#b07000;">${Math.round(200-totalMins)} bench mins remaining</span>`
-    :`<span style="color:#1a8c3a;">${Math.round(200-totalMins)} bench mins available</span>`;
+  const minWarning=totalMins>235
+    ?`<span style="color:#cc2200;font-weight:700;">⚠ ${Math.round(totalMins-235)} min over budget</span>`
+    :totalMins>220
+    ?`<span style="color:#b07000;">${Math.round(235-totalMins)} mins remaining</span>`
+    :`<span style="color:#1a8c3a;">${Math.round(235-totalMins)} mins available</span>`;
 
   const tips=[];
   if(spacers<2) tips.push('Add a floor-spacer — no shooting floor congests driving lanes.');
@@ -2178,7 +2181,7 @@ function renderLineupLab(analytics){
   if(totalApg<8)  tips.push('Limited ball movement — this lineup may struggle vs. zone defense.');
   if(defAct<4)    tips.push('Low defensive activity — rotate in a disruptive wing or athletic big.');
   if(mismatchCount>=2) tips.push('Multiple position mismatches hurting effective grades — check fit badges.');
-  if(totalMins>200) tips.push('Over 200 starter minutes — someone would need to play 40+ MPG, not realistic. Reduce sliders.');
+  if(totalMins>235) tips.push('Over 235 total minutes — someone would need to play 40+ MPG, not realistic. Reduce sliders.');
   if(!tips.length) tips.push('Lineup looks balanced. Use sliders to dial in your ideal rotation depth.');
 
   return `<details style="margin-bottom:12px;">
@@ -2392,9 +2395,20 @@ function buildCustomProjections(){
     const roleKey=p._role||customRole[p.name]||'none';
     let result={...p};
     if(p._customMpg!=null){
-      const mpg=p._customMpg,oldMpg=parseFloat(p.mpg)||1,ratio=mpg/Math.max(1,oldMpg);
+      const mpg=p._customMpg, oldMpg=parseFloat(p.mpg)||1, ratio=mpg/Math.max(1,oldMpg);
       ['ppg','rpg','apg','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','stl','blk','tovs'].forEach(k=>{if(result[k]!=null)result[k]=r1t(parseFloat(result[k])*ratio);});
       result.mpg=r1t(mpg);
+
+      // Gradual efficiency drop for large minute increases
+      // Only triggers when MPG goes up significantly (>4 min increase)
+      const mpgIncrease = mpg - oldMpg;
+      if(mpgIncrease > 4){
+        // Scale: 4-8 min increase = 1%, 8-14 = 2%, 14-20 = 3%, 20+ = 4% drop
+        const drop = mpgIncrease > 20 ? 4 : mpgIncrease > 14 ? 3 : mpgIncrease > 8 ? 2 : 1;
+        result.fg_pct = r1t(Math.max(30, (parseFloat(result.fg_pct)||42) - drop));
+        result.tp_pct = r1t(Math.max(20, (parseFloat(result.tp_pct)||33) - drop*0.7));
+        result.ft_pct = r1t(Math.max(50, (parseFloat(result.ft_pct)||72) - drop*0.4));
+      }
     }
     return applyRoleToProjection(result,roleKey,p.tdc_grade,p._naturalPos||p.position,p._assignedPos||p.position);
   });
@@ -2430,8 +2444,8 @@ function renderCustomProjectionsTable(){
   const starters=projected.slice(0,Math.min(5,projected.length));
   const rotation=projected.slice(5,Math.min(10,projected.length));
   const deep=projected.slice(10);
-  const budgetPct=Math.min(100,(totalMins/400)*100);
-  const budgetCol=totalMins>400?'#cc2200':totalMins>300?'#b07000':'#1a8c3a';
+  const budgetPct=Math.min(100,(totalMins/235)*100);
+  const budgetCol=totalMins>235?'#cc2200':totalMins>220?'#b07000':'#1a8c3a';
 
   function renderGroup(group,startIdx,label,labelColor){
     if(!group.length) return '';
@@ -2479,7 +2493,7 @@ function renderCustomProjectionsTable(){
     <div style="padding:6px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:var(--bg2);">
       <span style="font-size:10px;font-weight:700;color:var(--text3);">Minutes</span>
       <div style="flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden;"><div style="height:100%;width:${budgetPct}%;background:${budgetCol};border-radius:3px;transition:width .3s;"></div></div>
-      <span style="font-size:10px;font-weight:700;color:${budgetCol};">${r1t(totalMins)} total</span>
+      <span style="font-size:10px;font-weight:700;color:${budgetCol};">${r1t(totalMins)} / 235 min</span>
     </div>
     <div style="display:flex;align-items:center;border-bottom:2px solid var(--border2);background:var(--bg2);">
       <div style="width:24px;flex-shrink:0;"></div>
@@ -2558,7 +2572,12 @@ function onPosChange(playerName, curPos, rowIdx, newPos){
 
 // ── MINUTE SLIDER ────────────────────────────────────────
 function onMpgChange(playerName, pKey, val){
-  customMpg[playerName]=parseInt(val);
+  const newVal=parseInt(val);
+  // Enforce 235 total cap — reduce if over
+  const currentTotal=calcStarterMins()-(customMpg[playerName]||parseFloat((()=>{let r=0;POS_KEYS.forEach(pos=>{(customDepth[pos]||[]).forEach(p=>{if(p.name===playerName)r=parseFloat(p.mpg)||20;});});return r;})())||20);
+  const allowed=Math.min(newVal, Math.max(1, 235-currentTotal));
+  customMpg[playerName]=allowed;
+  val=allowed;
 
   // Update triggering label
   const lbl=document.getElementById('mpgVal-'+pKey)||document.getElementById(pKey);
