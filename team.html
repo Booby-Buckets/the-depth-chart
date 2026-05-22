@@ -2425,97 +2425,118 @@ function renderCustomProjectionsTable(){
   let projected=buildCustomProjections();
   if(!projected.length) return '<div id="customProjTable"></div>';
 
-  // Re-sort by projected MPG descending — higher minutes = higher in depth chart
-  projected=[...projected].sort((a,b)=>(parseFloat(b.mpg)||0)-(parseFloat(a.mpg)||0));
-  const fmt=v=>v!=null&&v!==''?Math.round(Number(v)):'—';
-  const fmtP=v=>v!=null&&v!==''?Math.round(Number(v)*10)/10+'%':'—';
-  const color=teamColor_g,rgb=teamRgb_g;
-  const baseMap={};(_baseCustomProj||[]).forEach(p=>{baseMap[p.name]=p;});
-  const basePosMap={};(_baseCustomProj||[]).forEach((p,i)=>{basePosMap[p.name]=i+1;});
-  const totalMins=projected.reduce((s,p)=>s+(parseFloat(p.mpg)||0),0);
-  const totalPpg=projected.reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
-  const totalRpg=projected.reduce((s,p)=>s+(parseFloat(p.rpg)||0),0);
-  const totalApg=projected.reduce((s,p)=>s+(parseFloat(p.apg)||0),0);
+  const fmt  = v => v!=null&&v!=='' ? Math.round(Number(v)) : '—';
+  const fmtP = v => v!=null&&v!=='' ? (Math.round(Number(v)*10)/10)+'%' : '—';
+  const color = teamColor_g, rgb = teamRgb_g;
 
-  function statDiff(p,base,key,pct){
+  // Sort by projected MPG descending
+  projected = [...projected].sort((a,b)=>(parseFloat(b.mpg)||0)-(parseFloat(a.mpg)||0));
+
+  const baseMap = {};
+  (_baseCustomProj||[]).forEach(p=>{ baseMap[p.name]=p; });
+
+  function diffSpan(cur, base, key, pct){
     if(!base||base[key]==null) return '';
-    const d=Math.round((parseFloat(p[key]||0)-parseFloat(base[key]||0))*10)/10;
-    if(Math.abs(d)<0.05) return '';
-    const col=d>0?'#1a8c3a':'#cc2200';
-    return `<span style="font-size:9px;font-weight:700;color:${col};margin-left:2px;">${d>0?'+':''}${d}${pct?'%':''}</span>`;
-  }
-  function arrow(curIdx,name){
-    const b=basePosMap[name]; if(b==null) return '';
-    const d=curIdx-b; if(d===0) return '';
-    return d<0?`<span style="font-size:9px;color:#1a8c3a;margin-left:3px;">↑${Math.abs(d)}</span>`:`<span style="font-size:9px;color:#cc2200;margin-left:3px;">↓${d}</span>`;
+    const d = Math.round((parseFloat(cur[key]||0)-parseFloat(base[key]||0))*(pct?10:1))/(pct?10:1);
+    if(Math.abs(d)<(pct?0.1:0.5)) return '';
+    const col = d>0 ? '#1a8c3a' : '#cc2200';
+    return `<span style="font-size:8px;font-weight:700;color:${col};margin-left:2px;">${d>0?'+':''}${d}${pct?'%':''}</span>`;
   }
 
-  const starters=projected.slice(0,Math.min(5,projected.length));
-  const rotation=projected.slice(5,Math.min(10,projected.length));
-  const deep=projected.slice(10);
-  const budgetPct=Math.min(100,(totalMins/235)*100);
-  const budgetCol=totalMins>235?'#cc2200':totalMins>220?'#b07000':'#1a8c3a';
-
-  function renderGroup(group,startIdx,label,labelColor){
-    if(!group.length) return '';
-    return `<div style="margin-bottom:1px;">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${labelColor};background:var(--bg2);padding:3px 10px;border-bottom:1px solid var(--border);">${label}</div>
-      ${group.map((p,i)=>{
-        const gi=startIdx+i,isS=gi<5,base=baseMap[p.name];
-        const role=PLAYER_ROLES[p._role||'none']||PLAYER_ROLES['none'];
-        const roleBadge=p._role&&p._role!=='none'?`<span style="font-size:8px;padding:0 3px;background:rgba(139,105,20,.12);color:var(--accent);">${role.icon} ${role.label}</span>`:'';
-        return `<div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border);${isS?`background:rgba(${rgb},.03);border-left:2px solid ${color};`:''}">
-          <div style="width:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${isS?color:'var(--text3)'};border-right:1px solid var(--border);">${gi+1}</div>
-          <div style="width:180px;flex-shrink:0;padding:6px 8px;border-right:1px solid var(--border);">
-            <div style="font-size:12px;font-weight:${isS?700:500};">${p.name}${arrow(gi+1,p.name)}</div>
-            <div style="font-size:10px;color:var(--text3);">${p.position||'—'} · ${p.class_year||p.yr||'—'} ${roleBadge}</div>
-            <div style="display:flex;align-items:center;gap:4px;margin-top:4px;">
-              <span style="font-size:9px;color:var(--text3);">MPG</span>
-              <button onclick="onMpgChange('${p.name}','proj-${gi}',Math.max(0,(parseInt(document.getElementById('proj-${gi}').value)||0)-1))" style="width:20px;height:20px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:12px;cursor:pointer;flex-shrink:0;font-family:inherit;padding:0;">−</button>
-              <input type="number" id="proj-${gi}" min="0" max="40" value="${customMpg[p.name]!==undefined?customMpg[p.name]:Math.round(parseFloat(p.mpg)||20)}"
-                style="width:36px;height:20px;text-align:center;font-size:11px;font-weight:700;border:1px solid var(--border2);background:var(--bg);color:var(--text);font-family:inherit;padding:0;flex-shrink:0;"
-                oninput="onMpgChange('${p.name}','proj-${gi}',this.value)" onchange="onMpgChange('${p.name}','proj-${gi}',this.value)"/>
-              <button onclick="onMpgChange('${p.name}','proj-${gi}',Math.min(40,(parseInt(document.getElementById('proj-${gi}').value)||0)+1))" style="width:20px;height:20px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:12px;cursor:pointer;flex-shrink:0;font-family:inherit;padding:0;">+</button>
-            </div>
-          </div>
-          <div style="flex:1;display:flex;align-items:center;overflow-x:auto;">
-            ${[{l:'PPG',k:'ppg',bold:true},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},{l:'FG%',k:'fg_pct',pct:true},{l:'3P%',k:'tp_pct',pct:true},{l:'FT%',k:'ft_pct',pct:true},{l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TO',k:'tovs'}].map(st=>`
-              <div style="min-width:46px;padding:0 4px;text-align:center;border-right:1px solid var(--border);">
-                <div style="font-size:9px;color:var(--text3);">${st.l}</div>
-                <div style="font-size:12px;font-weight:${st.bold?700:600};">${st.pct?fmtP(p[st.k]):fmt(p[st.k])}</div>
-                ${statDiff(p,base,st.k,st.pct||false)}
-              </div>`).join('')}
-          </div>
-        </div>`;
-      }).join('')}
+  const rows = projected.map((p,i)=>{
+    const isStarter = i<5;
+    const base = baseMap[p.name];
+    const pKey = `cproj-${i}`;
+    const curMpg = customMpg[p.name]!==undefined ? customMpg[p.name] : Math.round(parseFloat(p.mpg)||0);
+    return `
+    <div class="rotation-row" style="min-width:900px;${isStarter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
+      <div class="rot-num" style="${isStarter?`color:${color};font-weight:700;`:''}">${i+1}</div>
+      <div class="rot-pos" style="${isStarter?`color:${color};`:''}">${p.position||''}</div>
+      <div class="rot-name" style="min-width:120px;">
+        <a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}" style="color:inherit;text-decoration:none;font-weight:${isStarter?700:500};">${p.name}</a>
+        ${p._frosh?'<span style="font-size:8px;padding:1px 3px;background:rgba(139,105,20,.12);color:var(--accent);margin-left:3px;">EST</span>':''}
+      </div>
+      <div class="rot-cls" style="color:var(--accent);font-size:11px;">${p.class_year||p.yr||'—'}</div>
+      <div class="rot-stat" style="font-size:11px;color:var(--text3);">${p.height||'—'}</div>
+      <!-- MPG with +/- -->
+      <div class="rot-stat" style="white-space:nowrap;padding:2px 4px;">
+        <button onclick="onMpgChange('${p.name}','${pKey}',Math.max(0,(parseInt(document.getElementById('${pKey}').value)||0)-1))" style="width:18px;height:18px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:11px;cursor:pointer;padding:0;vertical-align:middle;">−</button>
+        <input type="number" id="${pKey}" min="0" max="40" value="${curMpg}"
+          style="width:30px;height:18px;text-align:center;font-size:11px;font-weight:700;border:1px solid var(--border2);background:var(--bg);color:var(--tc);padding:0;vertical-align:middle;"
+          oninput="onMpgChange('${p.name}','${pKey}',this.value)" onchange="onMpgChange('${p.name}','${pKey}',this.value)"/>
+        <button onclick="onMpgChange('${p.name}','${pKey}',Math.min(40,(parseInt(document.getElementById('${pKey}').value)||0)+1))" style="width:18px;height:18px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:11px;cursor:pointer;padding:0;vertical-align:middle;">+</button>
+        ${diffSpan(p,base,'mpg',false)}
+      </div>
+      <div class="rot-stat">${fmt(p.ppg)}${diffSpan(p,base,'ppg',false)}</div>
+      <div class="rot-stat">${fmt(p.rpg)}${diffSpan(p,base,'rpg',false)}</div>
+      <div class="rot-stat">${fmt(p.apg)}${diffSpan(p,base,'apg',false)}</div>
+      <div class="rot-stat">${fmt(p.fgm)}</div>
+      <div class="rot-stat">${fmt(p.fga)}</div>
+      <div class="rot-stat">${fmtP(p.fg_pct)}${diffSpan(p,base,'fg_pct',true)}</div>
+      <div class="rot-stat">${fmt(p.tpm)}</div>
+      <div class="rot-stat">${fmt(p.tpa)}</div>
+      <div class="rot-stat">${fmtP(p.tp_pct)}${diffSpan(p,base,'tp_pct',true)}</div>
+      <div class="rot-stat">${fmt(p.ftm)}</div>
+      <div class="rot-stat">${fmt(p.fta)}</div>
+      <div class="rot-stat">${fmtP(p.ft_pct)}</div>
+      <div class="rot-stat">${fmt(p.oreb)}</div>
+      <div class="rot-stat">${fmt(p.dreb)}</div>
+      <div class="rot-stat">${fmt(p.stl)}</div>
+      <div class="rot-stat">${fmt(p.blk)}</div>
+      <div class="rot-stat">${fmt(p.tovs)}</div>
+      <div class="rot-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||''}</div>
     </div>`;
-  }
+  }).join('');
 
-  return `<div id="customProjTable" style="margin-top:20px;border:1px solid var(--border);">
-    <div style="padding:8px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;background:var(--bg2);">
-      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);">2026-27 Projected <span style="font-weight:400;font-size:10px;text-transform:none;letter-spacing:0;"> · ↑↓ = depth change · green/red = stat change</span></div>
-      <div style="display:flex;gap:14px;">
-        <div style="text-align:center;"><div style="font-size:15px;font-weight:800;font-family:'Playfair Display',serif;">${r1t(totalPpg)}</div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;">PPG</div></div>
-        <div style="text-align:center;"><div style="font-size:15px;font-weight:800;font-family:'Playfair Display',serif;">${r1t(totalRpg)}</div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;">RPG</div></div>
-        <div style="text-align:center;"><div style="font-size:15px;font-weight:800;font-family:'Playfair Display',serif;">${r1t(totalApg)}</div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;">APG</div></div>
+  const teamPpg = projected.slice(0,8).reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
+  const totalMins = projected.reduce((s,p)=>s+(parseFloat(p.mpg)||0),0);
+  const budgetCol = totalMins>235?'#cc2200':totalMins>220?'#b07000':'#1a8c3a';
+
+  return `<div id="customProjTable" style="margin-top:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">
+        2026-27 Projected — Customize View
+        <span style="font-weight:400;font-size:10px;text-transform:none;letter-spacing:0;margin-left:8px;color:var(--text3);">green/red = change vs baseline</span>
+      </div>
+      <div style="display:flex;gap:16px;align-items:center;">
+        <span style="font-size:12px;color:var(--text3);">Est. Team PPG: <strong style="color:var(--text);">${Math.round(teamPpg)}</strong></span>
+        <span style="font-size:12px;font-weight:700;color:${budgetCol};">⏱ ${Math.round(totalMins)} / 235 min</span>
       </div>
     </div>
-    <div style="padding:6px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:var(--bg2);">
-      <span style="font-size:10px;font-weight:700;color:var(--text3);">Minutes</span>
-      <div style="flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden;"><div style="height:100%;width:${budgetPct}%;background:${budgetCol};border-radius:3px;transition:width .3s;"></div></div>
-      <span style="font-size:10px;font-weight:700;color:${budgetCol};">${r1t(totalMins)} / 235 min</span>
-    </div>
-    <div style="display:flex;align-items:center;border-bottom:2px solid var(--border2);background:var(--bg2);">
-      <div style="width:24px;flex-shrink:0;"></div>
-      <div style="width:180px;flex-shrink:0;padding:5px 8px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">Player · MPG</div>
-      <div style="flex:1;display:flex;">
-        ${['PPG','RPG','APG','FG%','3P%','FT%','STL','BLK','TO'].map(l=>`<div style="flex:1;min-width:46px;padding:5px 4px;text-align:center;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);">${l}</div>`).join('')}
+    <div style="overflow-x:auto;">
+    <div style="min-width:900px;">
+      <div class="stat-header" style="min-width:900px;">
+        <div class="stat-header-cell"></div>
+        <div class="stat-header-cell left">Pos</div>
+        <div class="stat-header-cell left">Name</div>
+        <div class="stat-header-cell">Yr</div>
+        <div class="stat-header-cell">Ht</div>
+        <div class="stat-header-cell">MPG</div>
+        <div class="stat-header-cell">PPG</div>
+        <div class="stat-header-cell">RPG</div>
+        <div class="stat-header-cell">APG</div>
+        <div class="stat-header-cell">FGM</div>
+        <div class="stat-header-cell">FGA</div>
+        <div class="stat-header-cell">FG%</div>
+        <div class="stat-header-cell">3PM</div>
+        <div class="stat-header-cell">3PA</div>
+        <div class="stat-header-cell">3P%</div>
+        <div class="stat-header-cell">FTM</div>
+        <div class="stat-header-cell">FTA</div>
+        <div class="stat-header-cell">FT%</div>
+        <div class="stat-header-cell">OR</div>
+        <div class="stat-header-cell">DR</div>
+        <div class="stat-header-cell">STL</div>
+        <div class="stat-header-cell">BLK</div>
+        <div class="stat-header-cell">TO</div>
+        <div class="stat-header-cell">Gr</div>
       </div>
+      ${rows}
     </div>
-    ${renderGroup(starters,0,'Starters',color)}
-    ${rotation.length?renderGroup(rotation,5,'Rotation','var(--text3)'):''}
-    ${deep.length?renderGroup(deep,10,'Deep Bench','var(--text3)'):''}
-    <div style="padding:6px 12px;font-size:10px;color:var(--text3);font-style:italic;border-top:1px solid var(--border);">Will slightly vary based on projected minutes. Roles shift statistical profiles.</div>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-top:8px;font-style:italic;">
+      Will slightly vary based on projected minutes. Adjusting MPG changes stats proportionally. Sorted by minutes high → low.
+    </div>
   </div>`;
 }
 
