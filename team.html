@@ -730,7 +730,28 @@ function projectPlayer(p, teamConf, teamRoster, targetMpg){
     };
   }
 
-  if(!hasStats) return null;
+
+  // No prior college stats (international, sat out, no-stat transfer) — use grade-based estimate
+  if(!hasStats){
+    const tier=grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
+    const bases=typeof FR_BASE!=='undefined'?FR_BASE:FR;
+    const frBase=(bases[tier]&&bases[tier][posNorm])?bases[tier][posNorm]:(bases[tier]&&bases[tier]['SG'])?bases[tier]['SG']:bases['75-84']['SG'];
+    const BASE_MPG=32;
+    const scale=newMpg/BASE_MPG;
+    const fga=r1t(newMpg*0.28);
+    return {
+      ppg:r1t(frBase.ppg*scale),rpg:r1t(frBase.rpg*scale),apg:r1t(frBase.apg*scale),
+      mpg:r1t(newMpg),
+      fgm:r1t(fga*(frBase.fg_pct/100)),fga:r1t(fga),fg_pct:r1t(frBase.fg_pct),
+      tpm:r1t(fga*0.42*(frBase.tp_pct/100)),tpa:r1t(fga*0.42),tp_pct:r1t(frBase.tp_pct),
+      fta:r1t(newMpg*0.09),ftm:r1t(newMpg*0.09*(frBase.ft_pct/100)),ft_pct:r1t(frBase.ft_pct),
+      oreb:r1t(frBase.oreb?frBase.oreb*scale:frBase.rpg*scale*0.28),
+      dreb:r1t(frBase.dreb?frBase.dreb*scale:frBase.rpg*scale*0.72),
+      stl:r1t(frBase.stl*scale),blk:r1t((frBase.blk||0)*scale),tovs:r1t(frBase.tovs*scale),
+      _frosh:true,_origin:originConf,_factor:transferFactor,
+    };
+  }
+
 
   // ── RETURNING PLAYER / TRANSFER — per-minute rate model ──
   const oldMpg=Math.max(1,s('mpg'));
@@ -1601,9 +1622,8 @@ function projectSinglePlayer(p, conf){
     };
   }
 
-  // ── SENIOR — flat projection ──
-  if(isSr&&!hasStats) return null;
-  if(isSr){
+  // ── SENIOR — flat projection (only if they have stats) ──
+  if(isSr&&hasStats){
     const mpg=s('mpg')||20;
     return {...p,_proj:true,_isSr:true,_transferFactor:1,
       _rawMpg:mpg,
@@ -1613,8 +1633,20 @@ function projectSinglePlayer(p, conf){
       ftm:r1t(s('ftm')),fta:r1t(s('fta')),ft_pct:r1t(s('ft_pct')),
       oreb:r1t(s('oreb')),dreb:r1t(s('dreb')),stl:r1t(s('stl')),blk:r1t(s('blk')),tovs:r1t(s('tovs'))};
   }
+  // No prior college stats — international, sat-out, no-stat transfer, etc.
+  // Use grade-based estimate (same as freshman path)
+  if(!hasStats){
+    const base=getFrBase(grade,posNorm);
+    const mpgGuess = grade>=90?30:grade>=85?26:grade>=75?18:10;
+    return {...p,_proj:true,_isFrosh:true,_transferFactor:transferFactor,_posNorm:posNorm,
+      _perMin:{ppg:base.ppg/FR_BASE_MPG,rpg:base.rpg/FR_BASE_MPG,apg:base.apg/FR_BASE_MPG,
+        stl:base.stl/FR_BASE_MPG,blk:base.blk/FR_BASE_MPG,oreb:base.oreb/FR_BASE_MPG,dreb:base.dreb/FR_BASE_MPG,tovs:base.tovs/FR_BASE_MPG},
+      _fgPct:base.fg_pct,_tpPct:base.tp_pct,_ftPct:base.ft_pct,
+      _rawMpg:mpgGuess,
+    };
+  }
 
-  if(!hasStats) return null;
+  // (hasStats guaranteed here — no-stats case handled above)
 
   // ── RETURNING PLAYER WITH STATS ──
   const oldMpg=s('mpg')||1;
