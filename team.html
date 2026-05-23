@@ -213,13 +213,16 @@
     body.no-color .rot-stat{background:var(--bg2)!important;color:var(--text2)!important;}
     body.no-color .sortable-table td{background:none!important;color:var(--text2)!important;}
     .stat-header{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 36px 48px 48px 48px 48px 52px 52px 46px 46px 46px 46px 46px 46px 46px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:6px 0;border-bottom:2px solid var(--border2);}
+    /* Customize tab — wider MPG column for slider */
+    .cstat-header{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 48px 48px 48px 48px 48px 52px 52px 46px 46px 46px 46px 46px 46px 46px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:6px 0;border-bottom:2px solid var(--border2);}
+    .crotation-row{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 48px 48px 48px 48px 48px 52px 52px 46px 46px 46px 46px 46px 46px 46px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);}
     .rotation-row{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 36px 48px 48px 48px 48px 52px 52px 46px 46px 46px 46px 46px 46px 46px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;}
     .stat-header-cell{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);text-align:right;}
     .stat-header-cell.left{text-align:left;}
 
     /* GRADE COLORS — blue scale, dark=elite, light=poor */
-    .gAp{color:#071e5a;}.gA{color:#071e5a;}.gAm{color:#0d2d82;}
-    .gBp{color:#1040b8;}.gB{color:#1040b8;}.gBm{color:#2255cc;}
+    .gAp{color:#0a3fd4;}.gA{color:#0a3fd4;}.gAm{color:#1a52e0;}
+    .gBp{color:#2c6ef2;}.gB{color:#2c6ef2;}.gBm{color:#4a84f4;}
     .gCp{color:#4278d4;}.gC{color:#4278d4;}.gCm{color:#5a90de;}
     .gDp{color:#88aadd;}.gD{color:#88aadd;}.gDm{color:#a0bfe6;}.gF{color:#b8cee8;}
 
@@ -791,7 +794,7 @@ function projectPlayer(p, teamConf, teamRoster, targetMpg){
   };
 }
 
-function r1t(v){return v!=null?Math.round(v*10)/10:null;}
+function r1t(v){ return v!=null ? Math.round((v+Number.EPSILON)*10)/10 : null; }
 
 function blendStats(actual, projected, pct){
   // pct=0 → pure actual, pct=100 → pure projected
@@ -2251,8 +2254,9 @@ function rebuildCustomizeUI(){
     const rowsHtml = players.map((p,rowIdx)=>{
       const assignedPos = customPos[p.name]||pos;
       const fit = calcPositionFit(p, assignedPos);
-      const baseGrade = gradeToNum(p.tdc_grade||'');
-      const effGrade  = Math.max(40,Math.min(99,baseGrade+fit.adjGrade));
+      const rawGrade = p.tdc_grade||'';
+      const baseGrade = (()=>{ const n=parseFloat(rawGrade); if(!isNaN(n)) return n; return gradeToNum(rawGrade)||70; })();
+      const effGrade  = Math.max(40,Math.min(99,Math.round(baseGrade+fit.adjGrade)));
       const isStarter = rowIdx===0;
       const mpgBase = parseFloat(p.mpg)||( isStarter?26:15 );
       const mpgCur  = customMpg[p.name]!==undefined ? customMpg[p.name] : parseFloat(mpgBase).toFixed(1);
@@ -2267,7 +2271,7 @@ function rebuildCustomizeUI(){
       const isDark2=document.documentElement.getAttribute('data-theme')==='dark';
       const eGradeColor = isDark2
         ?(effGrade>=90?'#f0c040':effGrade>=83?'#d4a020':effGrade>=76?'#b07818':effGrade>=68?'#8a5c10':'#6a4010')
-        :(effGrade>=90?'#071e5a':effGrade>=83?'#1040b8':effGrade>=76?'#4278d4':effGrade>=68?'#88aadd':'#b8cee8');
+        :(effGrade>=90?'#0a3fd4':effGrade>=83?'#2c6ef2':effGrade>=76?'#4a84f4':effGrade>=68?'#7aaaf8':'#aac4fa');
       const fitTooltip  = fit.reason ? ` title="${fit.reason}"` : '';
       const adjDisplay  = fit.adjGrade!==0 ? `<span style="font-size:9px;color:${fit.adjGrade>0?'#1a8c3a':'#cc2200'};margin-left:2px;">${fit.adjGrade>0?'+':''}${fit.adjGrade}</span>` : '';
 
@@ -2282,8 +2286,8 @@ function rebuildCustomizeUI(){
         <div class="dc-row-top">
           <span class="dc-row-num">${rowIdx+1}</span>
           <div class="dc-row-name">${p.name}</div>
-          <span class="dc-row-grade" style="color:var(--grade-eff-light,${eGradeColor});">
-            ${p.tdc_grade||''}${adjDisplay}
+          <span class="dc-row-grade" style="color:${eGradeColor};font-size:15px;font-weight:800;letter-spacing:-.01em;">
+            ${p.tdc_grade ? effGrade : '—'}
           </span>
           <span class="dc-row-drag" title="Drag within position">⠿</span>
         </div>
@@ -2305,8 +2309,12 @@ function rebuildCustomizeUI(){
             <span>MPG</span>
             <span class="dc-mpg-val" id="mpgVal-${pKey}">${mpgCur}</span>
           </div>
-          <input type="range" class="mpg-range" min="${minMpg}" max="${maxMpg}" step="1"
-            value="${mpgCur}" oninput="onMpgChange('${p.name}','${pKey}',this.value)"/>
+          <div style="display:flex;align-items:center;gap:4px;margin-top:2px;">
+            <button style="width:20px;height:20px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;" onclick="stepMpg('${p.name}','${pKey}',-1)">−</button>
+            <input type="range" class="mpg-range" min="${minMpg}" max="${maxMpg}" step="1"
+              value="${mpgCur}" oninput="onMpgChange('${p.name}','${pKey}',this.value)" style="flex:1;"/>
+            <button style="width:20px;height:20px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;" onclick="stepMpg('${p.name}','${pKey}',+1)">+</button>
+          </div>
           <div class="dc-mpg-warn" id="mpgWarn-${pKey}" style="${anyWarn?'display:block;':''}">` + `${anyWarn}</div>
         </div>
       </div>`;
@@ -2421,13 +2429,13 @@ function renderCustomProjectionsTable(){
   let projected=buildCustomProjections();
   if(!projected.length) return '<div id="customProjTable"></div>';
 
-  const fmt    = v => v!=null&&v!=='' ? Math.round(Number(v)) : '—';
+  const fmt    = v => v!=null&&v!=='' ? Number(v).toFixed(1) : '—';
   const fmtMpg = v => v!=null&&v!=='' ? Number(v).toFixed(1) : '—';
   const fmtP   = v => v!=null&&v!=='' ? (Math.round(Number(v)*10)/10)+'%' : '—';
   const color = teamColor_g, rgb = teamRgb_g;
 
-  // Sort by projected MPG descending
-  projected = [...projected].sort((a,b)=>(parseFloat(b.mpg)||0)-(parseFloat(a.mpg)||0));
+  // Keep column-rank order (position column top-to-bottom, PG→SG→SF→PF→C)
+  // No re-sort — order is already set by buildCustomProjections
 
   const baseMap = {};
   (_baseCustomProj||[]).forEach(p=>{ baseMap[p.name]=p; });
@@ -2446,7 +2454,7 @@ function renderCustomProjectionsTable(){
     const pKey = `cproj-${i}`;
     const curMpg = customMpg[p.name]!==undefined ? customMpg[p.name] : parseFloat(p.mpg||0).toFixed(1);
     return `
-    <div class="rotation-row" style="min-width:900px;${isStarter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
+    <div class="crotation-row" style="min-width:960px;${isStarter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
       <div class="rot-num" style="${isStarter?`color:${color};font-weight:700;`:''}">${i+1}</div>
       <div class="rot-pos" style="${isStarter?`color:${color};`:''}">${p.position||''}</div>
       <div class="rot-name" style="min-width:120px;">
@@ -2455,14 +2463,8 @@ function renderCustomProjectionsTable(){
       </div>
       <div class="rot-cls" style="color:var(--accent);font-size:11px;">${p.class_year||p.yr||'—'}</div>
       <div class="rot-stat" style="font-size:11px;color:var(--text3);">${p.height||'—'}</div>
-      <div class="rot-stat" style="white-space:nowrap;padding:2px 6px;">
-        <div style="display:flex;align-items:center;gap:3px;">
-          <input type="range" min="0" max="40" step="1" value="${curMpg}"
-            style="width:60px;accent-color:${color};height:3px;vertical-align:middle;"
-            oninput="onMpgChange('${p.name}','${pKey}',this.value)"/>
-          <span id="${pKey}" style="font-size:11px;font-weight:700;color:var(--tc);min-width:18px;">${curMpg}</span>
-        </div>
-        ${diffSpan(p,base,'mpg',false)}
+      <div class="rot-stat" style="font-weight:700;color:${color};">
+        ${Number(curMpg).toFixed(1)}${diffSpan(p,base,'mpg',false)}
       </div>
       <div class="rot-stat">${fmt(p.ppg)}${diffSpan(p,base,'ppg',false)}</div>
       <div class="rot-stat">${fmt(p.rpg)}${diffSpan(p,base,'rpg',false)}</div>
@@ -2501,8 +2503,8 @@ function renderCustomProjectionsTable(){
       </div>
     </div>
     <div style="overflow-x:auto;">
-    <div style="min-width:900px;">
-      <div class="stat-header" style="min-width:900px;">
+    <div style="min-width:960px;">
+      <div class="cstat-header" style="min-width:960px;">
         <div class="stat-header-cell"></div>
         <div class="stat-header-cell left">Pos</div>
         <div class="stat-header-cell left">Name</div>
@@ -2599,6 +2601,17 @@ function onPosChange(playerName, curPos, rowIdx, newPos){
 }
 
 // ── MINUTE SLIDER ────────────────────────────────────────
+function stepMpg(playerName, pKey, delta){
+  const current = customMpg[playerName]!==undefined ? parseInt(customMpg[playerName]) : (()=>{
+    let r=0; POS_KEYS.forEach(pos=>{ (customDepth[pos]||[]).forEach(p=>{ if(p.name===playerName) r=parseFloat(p.mpg)||20; }); }); return Math.round(r);
+  })();
+  const newVal = Math.max(0, Math.min(40, current + delta));
+  // Also update the range input visually
+  const wrap = document.getElementById('mpgVal-'+pKey)?.closest?.('.dc-mpg-wrap');
+  if(wrap){ const r=wrap.querySelector('.mpg-range'); if(r) r.value=newVal; }
+  onMpgChange(playerName, pKey, newVal);
+}
+
 function onMpgChange(playerName, pKey, val){
   const newVal=parseInt(val);
   // Enforce 235 total cap
@@ -2609,7 +2622,7 @@ function onMpgChange(playerName, pKey, val){
 
   // Update triggering label
   const lbl=document.getElementById('mpgVal-'+pKey)||document.getElementById(pKey);
-  if(lbl) lbl.textContent=val;
+  if(lbl) lbl.textContent=Number(val).toFixed(1);
 
   // Sync top customize slider for this player
   let pos2=null,row2=null;
@@ -2617,7 +2630,7 @@ function onMpgChange(playerName, pKey, val){
   if(pos2!==null){
     const topKey=`${pos2}-${row2}`;
     const topLbl=document.getElementById('mpgVal-'+topKey);
-    if(topLbl) topLbl.textContent=val;
+    if(topLbl) topLbl.textContent=Number(val).toFixed(1);
     const topWrap=topLbl?.closest?.('.dc-mpg-wrap');
     if(topWrap){ const r=topWrap.querySelector('.mpg-range'); if(r&&r.value!==String(val)) r.value=val; }
     const warnEl=document.getElementById('mpgWarn-'+topKey);
