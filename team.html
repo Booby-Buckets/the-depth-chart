@@ -1362,11 +1362,36 @@ function inferRotationDepth(sorted){
 }
 
 function buildTeamProjections(players, conf){
+  // Pre-process: give grade-based EST stats to any player with no college stats
+  // so TDC.projectTeam never drops them as null
+  const injectEstStats = (arr) => arr.map(p => {
+    const hasStats = p.ppg && parseFloat(p.ppg) > 0;
+    if(hasStats) return p;
+    const grade = parseFloat(p.tdc_grade)||70;
+    const posNorm = ['PG','SG','SF','PF','C'].includes(p.position)?p.position:p.position==='CG'?'SG':'SG';
+    const tier = grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
+    const bases = typeof FR_BASE!=='undefined'?FR_BASE:FR;
+    const frBase = (bases[tier]&&bases[tier][posNorm])?bases[tier][posNorm]:(bases[tier]&&bases[tier]['SG'])?bases[tier]['SG']:bases['75-84']['SG'];
+    const mpgGuess = grade>=90?28:grade>=85?22:grade>=75?16:10;
+    const fga = mpgGuess*0.28;
+    return {...p,
+      ppg:r1t(frBase.ppg*(mpgGuess/32)), rpg:r1t(frBase.rpg*(mpgGuess/32)),
+      apg:r1t(frBase.apg*(mpgGuess/32)), mpg:mpgGuess,
+      fgm:r1t(fga*(frBase.fg_pct/100)), fga:r1t(fga), fg_pct:frBase.fg_pct,
+      tpm:r1t(fga*0.42*(frBase.tp_pct/100)), tpa:r1t(fga*0.42), tp_pct:frBase.tp_pct,
+      fta:r1t(mpgGuess*0.09), ftm:r1t(mpgGuess*0.09*(frBase.ft_pct/100)), ft_pct:frBase.ft_pct,
+      oreb:r1t(frBase.oreb*(mpgGuess/32)), dreb:r1t(frBase.dreb*(mpgGuess/32)),
+      stl:r1t(frBase.stl*(mpgGuess/32)), blk:r1t((frBase.blk||0)*(mpgGuess/32)),
+      tovs:r1t(frBase.tovs*(mpgGuess/32)),
+      _noStatEst:true,
+    };
+  });
+
   // Delegate to TDC engine
   if(typeof TDC !== 'undefined'){
-    return TDC.projectTeam(players, {conf});
+    return TDC.projectTeam(injectEstStats(players), {conf});
   }
-  const named=players.filter(p=>p.name&&p.name!=='—');
+  const named=injectEstStats(players).filter(p=>p.name&&p.name!=='—');
   if(!named.length) return [];
 
   // Step 1: Project each player (per-minute rates, no minutes yet)
@@ -1726,7 +1751,7 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
   const el=document.getElementById('projectionsContent');
   if(!el) return;
 
-  const projected=TDC.projectTeam(players,_teamRow||{conf});
+  const projected=buildTeamProjections(players, _teamRow?.conf||conf);
   if(!projected.length){
     el.innerHTML='<div style="padding:20px;color:var(--text3);">No projections available — add player grades to enable projections.</div>';
     return;
@@ -2432,7 +2457,33 @@ function buildCustomProjections(){
   });
   if(!allCustomPlayers.length) return [];
   const conf=teamT?.conf||teamT?.conference||'';
-  const baseProj=typeof TDC!=='undefined'?TDC.projectTeam(allCustomPlayers,{conf}):buildTeamProjections(allCustomPlayers,conf);
+
+  // Pre-process: inject grade-based EST stats for any player with no college stats
+  // so TDC.projectTeam doesn't drop them as null
+  const readyPlayers = allCustomPlayers.map(p => {
+    const hasStats = p.ppg && parseFloat(p.ppg) > 0;
+    if(hasStats) return p;
+    const grade = parseFloat(p.tdc_grade)||70;
+    const posNorm = ['PG','SG','SF','PF','C'].includes(p.position)?p.position:p.position==='CG'?'SG':'SG';
+    const tier = grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
+    const bases = typeof FR_BASE!=='undefined'?FR_BASE:FR;
+    const frBase = (bases[tier]&&bases[tier][posNorm])?bases[tier][posNorm]:(bases[tier]&&bases[tier]['SG'])?bases[tier]['SG']:bases['75-84']['SG'];
+    const mpgGuess = grade>=90?28:grade>=85?22:grade>=75?16:10;
+    const fga = mpgGuess*0.28;
+    return {...p,
+      ppg:r1t(frBase.ppg*(mpgGuess/32)), rpg:r1t(frBase.rpg*(mpgGuess/32)),
+      apg:r1t(frBase.apg*(mpgGuess/32)), mpg:mpgGuess,
+      fgm:r1t(fga*(frBase.fg_pct/100)), fga:r1t(fga), fg_pct:frBase.fg_pct,
+      tpm:r1t(fga*0.42*(frBase.tp_pct/100)), tpa:r1t(fga*0.42), tp_pct:frBase.tp_pct,
+      fta:r1t(mpgGuess*0.09), ftm:r1t(mpgGuess*0.09*(frBase.ft_pct/100)), ft_pct:frBase.ft_pct,
+      oreb:r1t(frBase.oreb*(mpgGuess/32)), dreb:r1t(frBase.dreb*(mpgGuess/32)),
+      stl:r1t(frBase.stl*(mpgGuess/32)), blk:r1t((frBase.blk||0)*(mpgGuess/32)),
+      tovs:r1t(frBase.tovs*(mpgGuess/32)),
+      _noStatEst:true,
+    };
+  });
+
+  const baseProj=typeof TDC!=='undefined'?TDC.projectTeam(readyPlayers,{conf}):buildTeamProjections(readyPlayers,conf);
   return baseProj.map(p=>{
     const roleKey=p._role||customRole[p.name]||'none';
     let result={...p};
