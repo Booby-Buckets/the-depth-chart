@@ -291,7 +291,13 @@ function projectPlayer(p, teamConf, teamRoster, targetMpg){
     const fga=r1t(newMpg*0.28);
     return {ppg:r1t(frBase.ppg*scale),rpg:r1t(frBase.rpg*scale),apg:r1t(frBase.apg*scale),mpg:r1t(newMpg),fgm:r1t(fga*(frBase.fg_pct/100)),fga:r1t(fga),fg_pct:r1t(frBase.fg_pct),tpm:r1t(fga*0.42*(frBase.tp_pct/100)),tpa:r1t(fga*0.42),tp_pct:r1t(frBase.tp_pct),fta:r1t(newMpg*0.09),ftm:r1t(newMpg*0.09*(frBase.ft_pct/100)),ft_pct:r1t(frBase.ft_pct),oreb:r1t((frBase.oreb||frBase.rpg*0.28)*scale),dreb:r1t((frBase.dreb||frBase.rpg*0.72)*scale),stl:r1t(frBase.stl*scale),blk:r1t((frBase.blk||0)*scale),tovs:r1t(frBase.tovs*scale),_frosh:true,_origin:originConf,_factor:transferFactor};
   }
-  if(!hasStats)return null;
+  // No college stats (international, G-League, sat out) — use grade-based estimate
+  if(!hasStats){
+    const tier2=grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
+    const frBase2=(FR_BASE[tier2]&&FR_BASE[tier2][posNorm])?FR_BASE[tier2][posNorm]:(FR_BASE[tier2]&&FR_BASE[tier2]['SG'])?FR_BASE[tier2]['SG']:FR_BASE['75-84']['SG'];
+    const scale2=newMpg/32; const fga2=r1t(newMpg*0.28);
+    return {ppg:r1t(frBase2.ppg*scale2),rpg:r1t(frBase2.rpg*scale2),apg:r1t(frBase2.apg*scale2),mpg:r1t(newMpg),fgm:r1t(fga2*(frBase2.fg_pct/100)),fga:r1t(fga2),fg_pct:r1t(frBase2.fg_pct),tpm:r1t(fga2*0.42*(frBase2.tp_pct/100)),tpa:r1t(fga2*0.42),tp_pct:r1t(frBase2.tp_pct),fta:r1t(newMpg*0.09),ftm:r1t(newMpg*0.09*(frBase2.ft_pct/100)),ft_pct:r1t(frBase2.ft_pct),oreb:r1t((frBase2.oreb||frBase2.rpg*0.28)*scale2),dreb:r1t((frBase2.dreb||frBase2.rpg*0.72)*scale2),stl:r1t(frBase2.stl*scale2),blk:r1t((frBase2.blk||0)*scale2),tovs:r1t(frBase2.tovs*scale2),_frosh:true,_origin:originConf,_factor:transferFactor};
+  }
   const oldMpg=Math.max(1,s('mpg'));
   const pm={ppg:s('ppg')/oldMpg,rpg:s('rpg')/oldMpg,apg:s('apg')/oldMpg,fgm:s('fgm')/oldMpg,fga:s('fga')/oldMpg,tpm:s('tpm')/oldMpg,tpa:s('tpa')/oldMpg,ftm:s('ftm')/oldMpg,fta:s('fta')/oldMpg,oreb:s('oreb')/oldMpg,dreb:s('dreb')/oldMpg,stl:s('stl')/oldMpg,blk:s('blk')/oldMpg,tovs:s('tovs')/oldMpg};
   const yrMult=isSo?1.06:isJr?1.03:isSr?1.01:1.04;
@@ -339,9 +345,14 @@ function projectSinglePlayer(p,conf){
   let transferFactor=1.0;
   if(isTransfer&&hasStats){const oc=getSchoolConf(p.hometown);if(oc)transferFactor=getTransFactor(oc,conf,grade);}
   if(isFr&&!hasStats){const base=getFrBase(grade,posNorm);const mg=grade>=90?30:grade>=85?26:grade>=75?18:10;return{...p,_proj:true,_isFrosh:true,_transferFactor:1,_posNorm:posNorm,_perMin:{ppg:base.ppg/FR_BASE_MPG,rpg:base.rpg/FR_BASE_MPG,apg:base.apg/FR_BASE_MPG,stl:base.stl/FR_BASE_MPG,blk:base.blk/FR_BASE_MPG,oreb:base.oreb/FR_BASE_MPG,dreb:base.dreb/FR_BASE_MPG,tovs:base.tovs/FR_BASE_MPG},_fgPct:base.fg_pct,_tpPct:base.tp_pct,_ftPct:base.ft_pct,_rawMpg:mg};}
-  if(isSr&&!hasStats)return null;
+  // isSr with no stats falls to grade-based EST below
   if(isSr){const mpg=s('mpg')||20;return{...p,_proj:true,_isSr:true,_transferFactor:1,_rawMpg:mpg,ppg:r1t(s('ppg')),rpg:r1t(s('rpg')),apg:r1t(s('apg')),mpg:r1t(mpg),fgm:r1t(s('fgm')),fga:r1t(s('fga')),fg_pct:r1t(s('fg_pct')),tpm:r1t(s('tpm')),tpa:r1t(s('tpa')),tp_pct:r1t(s('tp_pct')),ftm:r1t(s('ftm')),fta:r1t(s('fta')),ft_pct:r1t(s('ft_pct')),oreb:r1t(s('oreb')),dreb:r1t(s('dreb')),stl:r1t(s('stl')),blk:r1t(s('blk')),tovs:r1t(s('tovs'))};}
-  if(!hasStats)return null;
+  if(!hasStats){
+    const t3=grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
+    const fb3=(FR_BASE[t3]&&FR_BASE[t3][posNorm])?FR_BASE[t3][posNorm]:(FR_BASE[t3]&&FR_BASE[t3]['SG'])?FR_BASE[t3]['SG']:FR_BASE['75-84']['SG'];
+    const mg3=grade>=90?30:grade>=85?26:grade>=75?18:10;
+    return {...p,_proj:true,_isFrosh:true,_transferFactor:transferFactor,_posNorm:posNorm,_perMin:{ppg:fb3.ppg/FR_BASE_MPG,rpg:fb3.rpg/FR_BASE_MPG,apg:fb3.apg/FR_BASE_MPG,stl:fb3.stl/FR_BASE_MPG,blk:fb3.blk/FR_BASE_MPG,oreb:fb3.oreb/FR_BASE_MPG,dreb:fb3.dreb/FR_BASE_MPG,tovs:fb3.tovs/FR_BASE_MPG},_fgPct:fb3.fg_pct,_tpPct:fb3.tp_pct,_ftPct:fb3.ft_pct,_rawMpg:mg3};
+  }
   const oldMpg=s('mpg')||1;
   const pm={ppg:s('ppg')/oldMpg,rpg:s('rpg')/oldMpg,apg:s('apg')/oldMpg,fgm:s('fgm')/oldMpg,fga:s('fga')/oldMpg,tpm:s('tpm')/oldMpg,tpa:s('tpa')/oldMpg,ftm:s('ftm')/oldMpg,fta:s('fta')/oldMpg,oreb:s('oreb')/oldMpg,dreb:s('dreb')/oldMpg,stl:s('stl')/oldMpg,blk:s('blk')/oldMpg,tovs:s('tovs')/oldMpg};
   const yrMult=getYearProgMult(yr);
@@ -574,13 +585,24 @@ async function init(){
 
       if(teamPlayers.length){
         // Use TDC engine with full team context
-        const allProj=TDC.projectTeam(teamPlayers, teamData);
+        // Pre-process: inject EST stats for no-stat players so TDC doesn't drop them
+        const injectEst=(arr)=>arr.map(pl=>{
+          if(pl.ppg&&parseFloat(pl.ppg)>0) return pl;
+          const g=parseFloat(pl.tdc_grade)||70,pn=['PG','SG','SF','PF','C'].includes(pl.position)?pl.position:'SG';
+          const t=g>=92?'92+':g>=85?'85-91':g>=75?'75-84':'below75';
+          const fb=(FR_BASE[t]&&FR_BASE[t][pn])?FR_BASE[t][pn]:(FR_BASE[t]&&FR_BASE[t]['SG'])?FR_BASE[t]['SG']:FR_BASE['75-84']['SG'];
+          const mg=g>=90?28:g>=85?22:g>=75?16:10; const fg=mg*0.28;
+          return {...pl,ppg:r1t(fb.ppg*(mg/32)),rpg:r1t(fb.rpg*(mg/32)),apg:r1t(fb.apg*(mg/32)),mpg:mg,fgm:r1t(fg*(fb.fg_pct/100)),fga:r1t(fg),fg_pct:fb.fg_pct,tpm:r1t(fg*0.42*(fb.tp_pct/100)),tpa:r1t(fg*0.42),tp_pct:fb.tp_pct,fta:r1t(mg*0.09),ftm:r1t(mg*0.09*(fb.ft_pct/100)),ft_pct:fb.ft_pct,oreb:r1t(fb.oreb*(mg/32)),dreb:r1t(fb.dreb*(mg/32)),stl:r1t(fb.stl*(mg/32)),blk:r1t((fb.blk||0)*(mg/32)),tovs:r1t(fb.tovs*(mg/32)),_noStatEst:true};
+        });
+        const allProj=TDC.projectTeam(injectEst(teamPlayers), teamData);
         const pLower=(player.name||'').toLowerCase().trim();
         proj=allProj.find(r=>(r.name||'').toLowerCase().trim()===pLower)||null;
       }
       // Fallback: project in isolation
-      if(!proj&&(typeof TDC!=='undefined'))
-        proj=TDC.projectPlayerInContext(player, teamPlayers.length?teamPlayers:[player], teamData)||null;
+      if(!proj&&(typeof TDC!=='undefined')){
+        const playerForProj=injectEst([player])[0];
+        proj=TDC.projectPlayerInContext(playerForProj, injectEst(teamPlayers.length?teamPlayers:[player]), teamData)||null;
+      }
     }catch(projErr){
       console.warn('Projection failed:',projErr);
       proj=null;
