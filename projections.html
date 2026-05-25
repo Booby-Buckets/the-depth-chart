@@ -396,7 +396,20 @@ function projectPlayer(p){
     return proj;
   }
 
-  if(!hasStats) return null;
+  if(!hasStats){
+    // No college stats (international, G-League, sat out) — grade-based estimate
+    const gm=grade>=90?0.85:grade>=85?0.72:grade>=80?0.58:grade>=75?0.44:grade>=70?0.32:grade>=65?0.22:0.14;
+    const dm=depth<=2?1.1:depth<=5?1.0:depth<=8?0.65:0.40;
+    const t=gm*dm*destMult;
+    const proj={...p,_isFrosh:true,_conf:conf,_grade:grade,_depth:depth};
+    ['ppg','rpg','apg','mpg','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','stl','blk','tovs'].forEach(k=>{
+      proj[k]=r1((base[k]||0)*t);
+    });
+    proj.fg_pct=r1(base.fg_pct*(0.85+(grade-60)/400));
+    proj.tp_pct=r1(base.tp_pct*(0.85+(grade-60)/400));
+    proj.ft_pct=r1(base.ft_pct*(0.90+(grade-60)/500));
+    return proj;
+  }
 
   // ── RETURNING PLAYER PROJECTION ──────────────────────────
   // Year-specific multipliers — more nuanced than flat %
@@ -510,7 +523,14 @@ function applyFilters(){
 
   filtered.sort((a,b)=>{
     const av=parseFloat(a[sortCol])||0, bv=parseFloat(b[sortCol])||0;
-    return (bv-av)*sortDir;
+    // Push ungraded (0) to bottom regardless of sort direction
+    if(sortCol==='tdc_grade'){
+      if(!av&&bv) return 1;
+      if(av&&!bv) return -1;
+    }
+    if(av!==bv) return (bv-av)*sortDir;
+    // Tiebreak: alphabetical by name
+    return (a.name||'').localeCompare(b.name||'');
   });
 
   document.getElementById('countEl').innerHTML=`<strong>${filtered.length}</strong> players`;
