@@ -119,22 +119,29 @@
   .filter-bar{gap:6px;padding:10px 12px;flex-wrap:wrap;}
   .filter-btn{font-size:10px;padding:4px 8px;}
   .filter-select{font-size:10px;}
-  .table-header,.team-row{grid-template-columns:44px 6px 1fr auto;}
+  .table-header,.team-row{grid-template-columns:38px 4px 1fr auto;}
   .th,.tr-grade,.tr-sparkline{display:none;}
-  .tr-grades-mobile{display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
+  /* Horizontal grade pills on mobile */
+  .tr-grades-mobile{display:flex;flex-direction:row;align-items:center;gap:6px;flex-wrap:nowrap;}
+  .mobile-grade{font-size:11px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:32px;}
+  .mobile-grade-val{font-family:'Playfair Display',serif;font-weight:800;font-size:13px;line-height:1;}
+  .mobile-grade-lbl{font-size:8px;font-weight:600;color:var(--text3);font-family:'Inter',sans-serif;letter-spacing:.04em;text-transform:uppercase;}
   .tr-rank-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;}
-  .tr-rank{font-size:14px;min-width:30px;padding:2px 4px;}
-  .rank-chg{font-size:9px;}
-  .tr-team-name{font-size:14px;}
-  .tr-team-conf{font-size:10px;}
+  .tr-rank{font-size:13px;min-width:28px;padding:2px 3px;}
+  .rank-chg{font-size:8px;}
+  .tr-team-name{font-size:13px;margin-bottom:1px;}
+  .tr-team-conf{font-size:9px;}
   .grade-group-label{font-size:10px;padding:6px 12px;}
-  .team-row{padding:12px 0;}
+  .team-row{padding:8px 0;}
 }
 @media(max-width:480px){
   .nav-top{padding:0 10px;}
   .nav-logo{font-size:14px;}
-  .tr-team-name{font-size:13px;}
-  .mobile-grade{font-size:12px;}
+  .tr-team-name{font-size:12px;}
+  .mobile-grade{min-width:28px;}
+  .mobile-grade-val{font-size:12px;}
+  .mobile-grade-lbl{font-size:7px;}
+  .tr-grades-mobile{gap:4px;}
 }
 @media(max-width:600px){
   .page-header h1{font-size:24px;}
@@ -163,7 +170,6 @@
     <a href="projections.html">Projections</a>
     <a href="community.html">Community</a>
     <a href="team.html">Teams</a>
-    <a href="recent-additions.html">New Additions</a>
     <a href="account.html">Account</a>
     <a href="pricing.html">Pricing</a>
   </div>
@@ -392,12 +398,15 @@ function applyFilters(){
       <div class="tr-grades-mobile">
         ${t.rg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">Coach</span><span class="mobile-grade-val ${gc(t.rg)}">${t.rg}</span></div>`:''}
         ${t.dg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">Depth</span><span class="mobile-grade-val ${gc(t.dg)}">${t.dg}</span></div>`:''}
-        ${t.recg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">Recruit</span><span class="mobile-grade-val ${gc(t.recg)}">${t.recg}</span></div>`:''}
-        ${t.nilg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">NIL Eval</span><span class="mobile-grade-val ${gc(t.nilg)}">${t.nilg}</span></div>`:''}
+        ${t.recg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">Recr.</span><span class="mobile-grade-val ${gc(t.recg)}">${t.recg}</span></div>`:''}
+        ${t.nilg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">NIL</span><span class="mobile-grade-val ${gc(t.nilg)}">${t.nilg}</span></div>`:''}
         ${t.nilt&&t.nilt!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl" style="color:var(--text3);">${t.nilt}</span><span style="font-size:11px;font-weight:700;color:var(--text2);">${nilRange(t.nilt)}</span></div>`:''}
       </div>
       <div class="tr-sparkline">
-        
+        ${sparkBar('CO',t.rg)}
+        ${sparkBar('DG',t.dg)}
+        ${sparkBar('RC',t.recg)}
+        ${sparkBar('EVAL',t.nilg)}
       </div>
       <div></div>
       <div class="tr-grade"><div class="grade-val ${gc(t.rg)}">${t.rg}</div><div class="grade-lbl">Coach</div></div>
