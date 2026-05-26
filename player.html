@@ -597,11 +597,45 @@ async function init(){
         const allProj=TDC.projectTeam(injectEst(teamPlayers), teamData);
         const pLower=(player.name||'').toLowerCase().trim();
         proj=allProj.find(r=>(r.name||'').toLowerCase().trim()===pLower)||null;
+        // If TDC returned a per-minute intermediate object (no final ppg), resolve it
+        if(proj && (!proj.ppg || parseFloat(proj.ppg)===0) && proj._perMin){
+          const mpg = proj._rawMpg||proj.mpg||18;
+          const pm = proj._perMin;
+          proj = {...proj,
+            mpg: r1t(mpg),
+            ppg: r1t(pm.ppg*mpg), rpg: r1t((pm.oreb+pm.dreb)*mpg),
+            apg: r1t(pm.apg*mpg), stl: r1t(pm.stl*mpg), blk: r1t(pm.blk*mpg), tovs: r1t(pm.tovs*mpg),
+            oreb: r1t(pm.oreb*mpg), dreb: r1t(pm.dreb*mpg),
+            fg_pct: r1t(proj._fgPct||44), tp_pct: r1t(proj._tpPct||33), ft_pct: r1t(proj._ftPct||70),
+            fga: r1t(mpg*0.28), fgm: r1t(mpg*0.28*(proj._fgPct||44)/100),
+            tpa: r1t(mpg*0.12), tpm: r1t(mpg*0.12*(proj._tpPct||33)/100),
+            fta: r1t(mpg*0.09), ftm: r1t(mpg*0.09*(proj._ftPct||70)/100),
+            _frosh: true,
+          };
+        }
       }
       // Fallback: project in isolation
       if(!proj&&(typeof TDC!=='undefined')){
         const playerForProj=injectEst([player])[0];
         proj=TDC.projectPlayerInContext(playerForProj, injectEst(teamPlayers.length?teamPlayers:[player]), teamData)||null;
+      }
+      // Final guaranteed fallback — directly compute from grade for any no-stat player
+      if(!proj && !(player.ppg && parseFloat(player.ppg)>0)){
+        const g=parseFloat(player.tdc_grade)||70;
+        const pn=['PG','SG','SF','PF','C'].includes(player.position)?player.position:player.position==='CG'?'SG':'SG';
+        const fb=getFrBase(g,pn);
+        const mg=g>=92?30:g>=88?26:g>=83?22:g>=78?18:g>=73?14:10;
+        const scale=mg/FR_BASE_MPG;
+        const fg=r1t(mg*0.28);
+        proj={...player,
+          ppg:r1t(fb.ppg*scale),rpg:r1t((fb.oreb+fb.dreb)*scale),apg:r1t(fb.apg*scale),mpg:mg,
+          fgm:r1t(fg*(fb.fg_pct/100)),fga:fg,fg_pct:fb.fg_pct,
+          tpm:r1t(fg*0.42*(fb.tp_pct/100)),tpa:r1t(fg*0.42),tp_pct:fb.tp_pct,
+          fta:r1t(mg*0.09),ftm:r1t(mg*0.09*(fb.ft_pct/100)),ft_pct:fb.ft_pct,
+          oreb:r1t(fb.oreb*scale),dreb:r1t(fb.dreb*scale),
+          stl:r1t(fb.stl*scale),blk:r1t(fb.blk*scale),tovs:r1t(fb.tovs*scale),
+          _frosh:true,_noStatEst:true
+        };
       }
     }catch(projErr){
       console.warn('Projection failed:',projErr);
@@ -627,6 +661,55 @@ function getPct(val,key){
   while(lo<hi){const mid=(lo+hi)>>1;if(arr[mid]<v)lo=mid+1;else hi=mid;}
   const p=Math.round(lo/arr.length*100);
   return key==='tovs'?100-p:p;
+}
+
+function buildOverviewCards(p, proj){
+  const STATS = [{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},{l:'MPG',k:'mpg'},
+    {l:'FG%',k:'fg_pct',pct:true},{l:'3P%',k:'tp_pct',pct:true},{l:'FT%',k:'ft_pct',pct:true},
+    {l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TO',k:'tovs'}];
+
+  function card(val, label, accent, diff){
+    const col = accent ? 'color:var(--accent);' : '';
+    const diffHtml = diff != null ? '<div class="stat-card-diff '+(diff>0.05?'up':diff<-0.05?'dn':'eq')+'">'+(diff>0.05?'+':'')+diff+'</div>' : '';
+    return '<div class="stat-card"><div class="stat-card-val" style="'+col+'">'+val+'</div><div class="stat-card-label">'+label+'</div>'+diffHtml+'</div>';
+  }
+
+  function cards(src, accent, compare){
+    return STATS.map(s=>{
+      const v = s.pct ? fmtP(src[s.k]) : fmt(src[s.k]);
+      let diff = null;
+      if(compare != null){
+        const d = r1((parseFloat(src[s.k])||0)-(parseFloat(compare[s.k])||0));
+        diff = d;
+      }
+      return card(v, s.l, accent, diff);
+    }).join('');
+  }
+
+  const hasActual = p.ppg && parseFloat(p.ppg) > 0;
+
+  if(!proj){
+    return '<div class="stat-cards" style="margin-bottom:24px;">'+cards(p, false, null)+'</div>';
+  }
+
+  if(!hasActual){
+    return '<div style="margin-bottom:24px;">'
+      +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--accent);display:flex;align-items:center;gap:8px;">2026-27 Projected <span style="font-size:9px;padding:1px 4px;background:rgba(139,105,20,.12);">EST</span></div>'
+      +'<div class="stat-cards">'+cards(proj, true, null)+'</div>'
+      +'</div>';
+  }
+
+  const estBadge = proj._frosh ? ' <span style="font-size:9px;padding:1px 4px;background:rgba(139,105,20,.12);">EST</span>' : '';
+  return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">'
+    +'<div>'
+    +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">2025-26 Actual</div>'
+    +'<div class="stat-cards">'+cards(p, false, null)+'</div>'
+    +'</div>'
+    +'<div>'
+    +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--accent);">2026-27 Projected'+estBadge+'</div>'
+    +'<div class="stat-cards">'+cards(proj, true, p)+'</div>'
+    +'</div>'
+    +'</div>';
 }
 
 function renderPage(){
@@ -667,49 +750,14 @@ function renderPage(){
 
     <!-- OVERVIEW TAB -->
     <div class="tab-panel active" id="panel-overview">
-      ${proj?`
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
-        <div>
-          <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">2025-26 Actual</div>
-          <div class="stat-cards">
-            ${[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},{l:'MPG',k:'mpg'},{l:'FG%',k:'fg_pct',pct:true},{l:'3P%',k:'tp_pct',pct:true},{l:'FT%',k:'ft_pct',pct:true},{l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TO',k:'tovs'}].map(s=>`
-              <div class="stat-card">
-                <div class="stat-card-val">${s.pct?fmtP(p[s.k]):fmt(p[s.k])}</div>
-                <div class="stat-card-label">${s.l}</div>
-              </div>`).join('')}
-          </div>
-        </div>
-        <div>
-          <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--accent);">2026-27 Projected ${proj._frosh?'<span style="font-size:9px;padding:1px 4px;background:rgba(139,105,20,.12);">EST</span>':''}</div>
-          <div class="stat-cards">
-            ${[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},{l:'MPG',k:'mpg'},{l:'FG%',k:'fg_pct',pct:true},{l:'3P%',k:'tp_pct',pct:true},{l:'FT%',k:'ft_pct',pct:true},{l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TO',k:'tovs'}].map(s=>{
-              const actual=parseFloat(p[s.k])||0, projected=parseFloat(proj[s.k])||0;
-              const diff=r1(projected-actual);
-              const cls=diff>0.05?'up':diff<-0.05?'dn':'eq';
-              const dStr=diff>0.05?`+${diff}`:diff<-0.05?String(diff):'=';
-              return `<div class="stat-card">
-                <div class="stat-card-val" style="color:var(--accent);">${s.pct?fmtP(proj[s.k]):fmt(proj[s.k])}</div>
-                <div class="stat-card-label">${s.l}</div>
-                <div class="stat-card-diff ${cls}">${dStr}</div>
-              </div>`;
-            }).join('')}
-          </div>
-        </div>
-      </div>`:`
-      <div class="stat-cards" style="margin-bottom:24px;">
-        ${[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},{l:'MPG',k:'mpg'},{l:'FG%',k:'fg_pct',pct:true},{l:'3P%',k:'tp_pct',pct:true},{l:'FT%',k:'ft_pct',pct:true},{l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TO',k:'tovs'}].map(s=>`
-          <div class="stat-card">
-            <div class="stat-card-val">${s.pct?fmtP(p[s.k]):fmt(p[s.k])}</div>
-            <div class="stat-card-label">${s.l}</div>
-          </div>`).join('')}
-      </div>`}
+    <div class="tab-panel active" id="panel-overview">
+      ${buildOverviewCards(p, proj)}
       <div class="sec-title" style="margin-bottom:16px;">Skill Profile</div>
       <div class="radar-wrap"><canvas id="radarChart" width="320" height="320"></canvas></div>
       <div class="radar-legend" id="radarLegend"></div>
       <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:6px;">Toggle projection view above to compare actual vs projected on radar</div>
     </div>
 
-    <!-- FULL STATS TAB -->
     <div class="tab-panel" id="panel-stats">
       <div style="overflow-x:auto;" id="fullStatWrap">
         ${renderStatTable(p, proj)}
