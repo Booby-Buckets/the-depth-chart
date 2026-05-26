@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,600;1,700&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Inter:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#ffffff;--bg2:#f5f5f5;--border:#e0e0e0;--border2:#cccccc;--text:#111111;--text2:#444444;--text3:#888888;--accent:#8B6914;}
+
+    [data-theme="dark"]{--bg:#111111;--bg2:#181818;--bg3:#1f1f1f;--border:#2a2a2a;--border2:#333;--text:#e8e8e8;--text2:#a0a0a0;--text3:#606060;--accent:#c8a96e;}
+    [data-theme="dark"] .nav-signin{color:var(--bg);background:var(--text);}
+    [data-theme="dark"] .filter-btn{background:var(--bg2);}
+    [data-theme="dark"] .filter-select{background:var(--bg2);}
+    [data-theme="dark"] .plan{background:var(--bg2);}
+    [data-theme="dark"] .account-card{background:var(--bg2);}
+    [data-theme="dark"] .form-input{background:var(--bg2);color:var(--text);}
+    [data-theme="dark"] .form-select{background:var(--bg2);color:var(--text);}
+    [data-theme="dark"] .form-textarea{background:var(--bg2);color:var(--text);}
+    [data-theme="dark"] .side-card{background:var(--bg2);}
+    [data-theme="dark"] .what-card{background:var(--bg2);}
+    [data-theme="dark"] .gAp,[data-theme="dark"] .gA,[data-theme="dark"] .gAm{color:#5ab875;}
+    [data-theme="dark"] .gBp,[data-theme="dark"] .gB,[data-theme="dark"] .gBm{color:#74aedd;}
+    [data-theme="dark"] .gCp,[data-theme="dark"] .gC,[data-theme="dark"] .gCm{color:#dbb560;}
+    [data-theme="dark"] .gDp,[data-theme="dark"] .gD,[data-theme="dark"] .gDm,[data-theme="dark"] .gF{color:#e07070;}
+    [data-theme="dark"] .nav-signin{background:var(--text) !important;color:var(--bg) !important;}
+    [data-theme="dark"] .form-btn{background:var(--text);color:var(--bg);}
+    [data-theme="dark"] .plan-btn.paid{background:var(--text);color:var(--bg);}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;}
+    .theme-toggle:hover{border-color:var(--text3);color:var(--text);}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
+    .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;min-width:0;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;letter-spacing:-.01em;white-space:nowrap;}
+    .nav-logo span{color:var(--accent);}
+    .nav-actions{display:flex;align-items:center;gap:24px;}
+    .nav-actions a{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;}
+    .nav-actions a:hover{color:var(--text);}
+    .nav-signin{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--text);border:none;padding:6px 16px;cursor:pointer;}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+    .nav-sub::-webkit-scrollbar{display:none;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;flex-shrink:0;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
+    .nav-search{margin-left:auto;background:none;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:'Inter',sans-serif;font-size:12px;padding:4px 8px;width:160px;outline:none;}
+    .nav-search:focus{border-bottom-color:var(--accent);}
+    .nav-search::placeholder{color:var(--text3);}
+    .page-header{padding:48px 40px 36px;border-bottom:1px solid var(--border);}
+    .page-header-eyebrow{font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:12px;display:flex;align-items:center;gap:10px;}
+    .page-header-eyebrow::before{content:'';width:20px;height:1px;background:var(--accent);}
+    .page-header h1{font-family:'Playfair Display',serif;font-weight:800;font-size:48px;line-height:1;letter-spacing:-.02em;color:var(--text);margin-bottom:12px;}
+    .page-header-meta{display:flex;align-items:center;gap:20px;font-size:12px;color:var(--text3);}
+    .meta-dot{width:3px;height:3px;border-radius:50%;background:var(--border2);}
+    .filter-bar{padding:12px 40px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--bg2);}
+    .filter-btn{font-size:11px;font-weight:700;letter-spacing:.04em;padding:4px 12px;border:1px solid var(--border2);background:var(--bg);color:var(--text3);cursor:pointer;transition:all .15s;}
+    .filter-btn:hover,.filter-btn.active{color:var(--text);border-color:var(--accent);background:rgba(139,105,20,.06);}
+    .filter-sep{width:1px;height:16px;background:var(--border);margin:0 4px;}
+    .filter-select{font-family:'Inter',sans-serif;font-size:11px;font-weight:600;background:var(--bg);border:1px solid var(--border2);color:var(--text2);padding:4px 8px;outline:none;cursor:pointer;}
+    .filter-count{margin-left:auto;font-size:11px;font-weight:600;color:var(--text3);font-family:'Share Tech Mono',monospace;}
+    .filter-count strong{color:var(--accent);}
+    .table-section{padding:0 40px 64px;}
+    .table-header{display:grid;grid-template-columns:48px 12px 1fr 160px 20px 72px 72px 72px 72px 72px;gap:0;padding:10px 0;border-bottom:2px solid var(--border2);margin-top:24px;}
+    .th{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
+    .th.center{text-align:center;}
+    .team-row{display:grid;grid-template-columns:48px 12px 1fr 160px 20px 72px 72px 72px 72px 72px;gap:0;padding:14px 0;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background .15s;}
+    .team-row:hover{background:var(--bg2);}
+    .team-row.fav-row{background:var(--fav-bg, rgba(200,169,110,.06));border-left:3px solid var(--fav-color, var(--accent));}
+    .team-row.fav-row:hover{background:var(--fav-bg-hover, rgba(200,169,110,.1));}
+    .tr-rank{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text3);text-align:center;background:var(--bg2);border:1px solid var(--border);min-width:36px;padding:2px 6px;border-radius:2px;}
+    .team-row:hover .tr-rank{border-color:var(--border2);color:var(--text);}
+    .tr-rank-wrap{display:flex;flex-direction:column;align-items:center;gap:3px;}
+    .rank-chg{font-size:9px;font-weight:800;letter-spacing:.04em;display:flex;align-items:center;gap:1px;white-space:nowrap;}
+    .rank-up{color:#1a8c3a;} .rank-down{color:#cc2200;} .rank-same{color:var(--text3);}
+    .tr-color-bar{width:4px;height:100%;border-radius:2px;align-self:stretch;}
+    .tr-team-name{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;color:var(--text);letter-spacing:-.01em;margin-bottom:3px;}
+    .tr-team-conf{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .tr-grades-mobile{display:none;}
+    .mobile-grade{font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;justify-content:flex-end;}
+    .mobile-grade-val{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;}
+    .mobile-grade-lbl{font-size:10px;font-weight:600;color:var(--text3);font-family:'Inter',sans-serif;min-width:46px;text-align:left;}
+    .spark-row{display:flex;align-items:center;gap:6px;}
+    .spark-label{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);width:26px;flex-shrink:0;}
+    .spark-track{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+    .spark-fill{height:100%;border-radius:2px;transition:width .4s;}
+    .spark-A{background:#1a8c3a;} .spark-B{background:#1a5fbf;} .spark-C{background:#a06000;} .spark-D,.spark-F{background:#cc2200;}
+    [data-theme="dark"] .spark-A{background:#3aba7a;} [data-theme="dark"] .spark-B{background:#5b9bd5;} [data-theme="dark"] .spark-C{background:#d4a030;}
+    .grade-val{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;line-height:1;}
+    .grade-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
+    .gAp{color:#1a8c3a;}.gA{color:#1a8c3a;}.gAm{color:#2ea84f;}
+    .gBp{color:#1a5fbf;}.gB{color:#1a5fbf;}.gBm{color:#2e74d4;}
+    .gCp{color:#a06000;}.gC{color:#a06000;}.gCm{color:#b87000;}
+    .gDp{color:#cc2200;}.gD{color:#cc2200;}.gDm{color:#dd3300;}.gF{color:#aa0000;}
+    .grade-group-label{padding:20px 0 8px;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;}
+    .grade-group-label::after{content:'';flex:1;height:1px;background:var(--border);}
+    .loading-state{text-align:center;padding:80px 40px;color:var(--text3);}
+    .loading-spinner{width:32px;height:32px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 16px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .error-state{text-align:center;padding:80px 40px;}
+    .error-state h3{font-family:'Playfair Display',serif;font-size:24px;color:var(--text);margin-bottom:8px;}
+    .error-state p{font-size:13px;color:var(--text3);margin-top:6px;}
+    footer{border-top:1px solid var(--border);padding:28px 40px;display:flex;align-items:center;justify-content:space-between;}
+    .footer-logo{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text3);}
+    .footer-logo span{color:var(--accent);}
+    .footer-meta{font-size:11px;font-weight:600;color:var(--text3);}
+    @media(max-width:900px){
+  .nav-top,.nav-sub,.page-header,.filter-bar,.table-section{padding-left:16px;padding-right:16px;}
+  .page-header h1{font-size:28px;}
+  .page-header{padding:28px 16px 20px;}
+  .nav-top{height:44px;padding:0 12px;}
+  .nav-logo{font-size:15px;}
+  .nav-signin{padding:5px 8px;font-size:10px;letter-spacing:.02em;}
+  .nav-actions{gap:8px;}
+  .nav-actions a{font-size:10px;}
+  .theme-toggle{width:28px;height:28px;font-size:13px;}
+  .nav-sub{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 12px;}
+  .nav-sub::-webkit-scrollbar{display:none;}
+  .nav-sub a{white-space:nowrap;padding:0 10px;font-size:10px;}
+  .filter-bar{gap:6px;padding:10px 12px;flex-wrap:wrap;}
+  .filter-btn{font-size:10px;padding:4px 8px;}
+  .filter-select{font-size:10px;}
+  .table-header,.team-row{grid-template-columns:38px 4px 1fr auto;}
+  .th,.tr-grade,.tr-sparkline{display:none;}
+  /* Horizontal grade pills on mobile */
+  .tr-grades-mobile{display:flex;flex-direction:row;align-items:center;gap:6px;flex-wrap:nowrap;}
+  .mobile-grade{font-size:11px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:32px;}
+  .mobile-grade-val{font-family:'Playfair Display',serif;font-weight:800;font-size:13px;line-height:1;}
+  .mobile-grade-lbl{font-size:8px;font-weight:600;color:var(--text3);font-family:'Inter',sans-serif;letter-spacing:.04em;text-transform:uppercase;}
+  .tr-rank-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;}
+  .tr-rank{font-size:13px;min-width:28px;padding:2px 3px;}
+  .rank-chg{font-size:8px;}
+  .tr-team-name{font-size:13px;margin-bottom:1px;}
+  .tr-team-conf{font-size:9px;}
+  .grade-group-label{font-size:10px;padding:6px 12px;}
+  .team-row{padding:8px 0;}
+}
+@media(max-width:480px){
+  .nav-top{padding:0 10px;}
+  .nav-logo{font-size:14px;}
+  .tr-team-name{font-size:12px;}
+  .mobile-grade{min-width:28px;}
+  .mobile-grade-val{font-size:12px;}
+  .mobile-grade-lbl{font-size:7px;}
+  .tr-grades-mobile{gap:4px;}
+}
+@media(max-width:600px){
+  .page-header h1{font-size:24px;}
+  .filter-btn{font-size:9px;padding:3px 7px;}
+}
+  </style>
+</head>
+<body>
+
+<div class="nav-wrap">
+  <div class="nav-top">
+    <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+    <div class="nav-actions" id="navActions">
+      <a href="account.html">Account</a>
+    <a href="pricing.html">Pricing</a>
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">🌙</button>
+      <a href="pricing.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;margin-right:4px;">Sign In</a>
+      <a href="pricing.html" class="nav-signin" style="text-decoration:none;">Subscribe</a>
+    </div>
+  </div>
+  <div class="nav-sub">
+    <a href="index.html" class="active">Rankings</a>
+    <a href="roster.html">Players</a>
+    <a href="compare-players.html">Compare</a>
+    <a href="analytics.html">Analytics</a>
+    <a href="projections.html">Projections</a>
+    <a href="community.html">Community</a>
+    <a href="team.html">Teams</a>
+    <a href="account.html">Account</a>
+    <a href="pricing.html">Pricing</a>
+  </div>
+</div>
+
+<div class="page-header">
+  <div class="page-header-eyebrow">2025–26 Season · College Basketball</div>
+  <h1>Roster Rankings</h1>
+  <div class="page-header-meta">
+    <span>ACC · Big Ten · Big 12 · Big East · SEC · Pac-12 · A-10 · AAC</span>
+    <span class="meta-dot"></span>
+    <span id="lastUpdated">Loading…</span>
+    <span class="meta-dot"></span>
+    <span id="teamCount">—</span>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="setConf('',this)">All</button>
+  <button class="filter-btn" onclick="setConf('ACC',this)">ACC</button>
+  <button class="filter-btn" onclick="setConf('B10',this)">Big Ten</button>
+  <button class="filter-btn" onclick="setConf('B12',this)">Big 12</button>
+  <button class="filter-btn" onclick="setConf('BE',this)">Big East</button>
+  <button class="filter-btn" onclick="setConf('SEC',this)">SEC</button>
+  <button class="filter-btn" onclick="setConf('P12',this)">Pac-12</button>
+  <button class="filter-btn" onclick="setConf('A10',this)">A-10</button>
+  <button class="filter-btn" onclick="setConf('AAC',this)">AAC</button>
+  <div class="filter-sep"></div>
+  <select class="filter-select" id="sortSel" onchange="applyFilters()">
+    <option value="rank">Sort: Overall Rank</option>
+    <option value="roster">Sort: Coach Grade</option>
+    <option value="depth">Sort: Depth Grade</option>
+    <option value="recruit">Sort: Recruit Grade</option>
+    <option value="nil">Sort: NIL Eval</option>
+    <option value="niltier">Sort: NIL Tier</option>
+  </select>
+  <input class="nav-search" id="searchInput" type="text" placeholder="Search teams…" oninput="applyFilters()" style="margin-left:8px;"/>
+  <div class="filter-count" id="filterCount"></div>
+</div>
+
+<div class="table-section">
+  <div class="table-header">
+    <div class="th">Rk</div>
+    <div class="th"></div>
+    <div class="th">Team</div>
+    <div class="th">Strength</div>
+    <div class="th"></div>
+    <div class="th center">Coach</div>
+    <div class="th center">Depth</div>
+    <div class="th center">Recruit</div>
+    <div class="th center">NIL Eval</div>
+    <div class="th center">NIL</div>
+  </div>
+  <div id="rankingsList">
+    <div class="loading-state">
+      <div class="loading-spinner"></div>
+      <div>Loading rankings…</div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-logo">The Depth <span>Chart</span></div>
+  <div class="footer-meta">College Basketball Roster Analysis · 2025–26</div>
+</footer>
+
+<script>
+const SB_URL = 'https://izlqhnxowdhtdofkwrho.supabase.co';
+const SB_KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const HEADERS = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` };
+
+let allTeams = [];
+let confFilter = '';
+
+function nilRange(tier){
+  const map={
+    'Tier 1':'$20M+','Tier 2':'$16-20M','Tier 3':'$11-16M',
+    'Tier 4':'$9-11M','Tier 5':'$6-9M','Tier 6':'$4-6M',
+    'Tier 7':'$2-4M','Tier 8':'$500K-2M','Tier 9':'$0-500K'
+  };
+  return map[tier]||'';
+}
+
+function tierNum(tier){
+  const m={'Tier 1':1,'Tier 2':2,'Tier 3':3,'Tier 4':4,'Tier 5':5,'Tier 6':6,'Tier 7':7,'Tier 8':8,'Tier 9':9};
+  return m[tier]||99;
+}
+
+async function loadTeams(){
+  try {
+    const r = await fetch(
+      `${SB_URL}/rest/v1/teams?select=*&order=tdc_rank.asc.nullslast,name.asc`,
+      { headers: HEADERS }
+    );
+    if(!r.ok) throw new Error(`Supabase error ${r.status}`);
+    const rows = await r.json();
+
+    allTeams = rows.map(t => ({
+      rk:     t.tdc_rank_num || t.tdc_rank || 9999,
+      name:   t.name,
+      conf:   t.conference || t.conf || '',
+      record: t.record || '',
+      rg:     t.coach_grade   || '—',
+      dg:     t.depth_grade   || '—',
+      recg:   t.recruit_grade || '—',
+      nilg:   t.nil_grade  || '—',
+      nilt:   t.nil_tier   || '—',
+      tier:   t.team_tier  || '',
+      chg:    t.rank_change ?? null,
+      color:  t.color || t.primary_color || '#666',
+      updated: t.updated_at,
+    }));
+
+    const d = new Date(rows[0]?.updated_at || Date.now());
+    document.getElementById('lastUpdated').textContent =
+      'Updated ' + d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    document.getElementById('teamCount').textContent = `${allTeams.length} teams ranked`;
+
+    applyFilters();
+  } catch(e) {
+    document.getElementById('rankingsList').innerHTML = `
+      <div class="error-state">
+        <h3>Could not load rankings</h3>
+        <p>Make sure your Supabase tables are populated.</p>
+        <p>${e.message}</p>
+      </div>`;
+  }
+}
+
+function gradeWidth(g){
+  if(!g||g==='—') return 0;
+  // Numeric grade (coach grade 0-100)
+  const n=parseFloat(g);
+  if(!isNaN(n)) return Math.min(100,Math.max(0,n));
+  // Letter grade
+  const m={'A+':100,'A':92,'A-':85,'B+':76,'B':68,'B-':60,'C+':50,'C':42,'C-':34,'D+':24,'D':16,'D-':10,'F':5};
+  return m[g]||0;
+}
+function sparkClass(g){
+  if(!g||g==='—') return '';
+  const n=parseFloat(g);
+  if(!isNaN(n)){ if(n>=85)return'spark-A'; if(n>=70)return'spark-B'; if(n>=50)return'spark-C'; return'spark-D'; }
+  if(g.startsWith('A'))return'spark-A';
+  if(g.startsWith('B'))return'spark-B';
+  if(g.startsWith('C'))return'spark-C';
+  return'spark-D';
+}
+function sparkBar(label,grade){const w=gradeWidth(grade);const c=sparkClass(grade);return w?`<div class="spark-row"><span class="spark-label">${label}</span><div class="spark-track"><div class="spark-fill ${c}" style="width:${w}%"></div></div></div>`:''}
+
+function gc(g){
+  return {"A+":"gAp","A":"gA","A-":"gAm","B+":"gBp","B":"gB","B-":"gBm","C+":"gCp","C":"gC","D":"gD"}[g]||"";
+}
+function gn(g){
+  if(!g||g==='—') return 0;
+  const n=parseFloat(g);
+  if(!isNaN(n)) return n; // numeric grade (coach)
+  return {"A+":120,"A":110,"A-":100,"B+":90,"B":80,"B-":70,"C+":60,"C":50,"C-":40,"D+":30,"D":20,"D-":10,"F":5}[g]||0;
+}
+
+function setConf(conf,btn){
+  confFilter=conf;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+
+function applyFilters(){
+  const search = document.getElementById('searchInput').value.toLowerCase().trim();
+  const srt    = document.getElementById('sortSel').value;
+  const favTeam = localStorage.getItem('tdc_fav') || '';
+  const favData = favTeam ? allTeams.find(t=>t.name===favTeam) : null;
+  const favColor = favData?.color || null;
+  const favBg = favColor ? (()=>{
+    const h=favColor.replace('#',''); const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+    return `rgba(${r},${g},${b},.07)`;
+  })() : null;
+
+  let data = allTeams.filter(t=>{
+    if(confFilter && t.conf!==confFilter) return false;
+    if(search && !t.name.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  data.sort((a,b)=>{
+    if(srt==='rank')    return a.rk-b.rk;
+    if(srt==='roster')  return gn(b.rg)-gn(a.rg);
+    if(srt==='depth')   return gn(b.dg)-gn(a.dg);
+    if(srt==='recruit') return gn(b.recg)-gn(a.recg);
+    if(srt==='nil')     return gn(b.nilg)-gn(a.nilg);
+    if(srt==='niltier') return tierNum(a.nilt)-tierNum(b.nilt);
+    return 0;
+  });
+
+  document.getElementById('filterCount').innerHTML =
+    `<strong>${data.length}</strong> of ${allTeams.length} teams`;
+
+  if(!data.length){
+    document.getElementById('rankingsList').innerHTML =
+      '<div style="padding:40px;text-align:center;color:var(--text3);">No teams found</div>';
+    return;
+  }
+
+  const srt2 = document.getElementById('sortSel').value;
+  let html='', lastTier='';
+  data.forEach(t=>{
+    // Show tier header when sorting by rank and tier changes
+    if(srt2==='rank' && t.tier && t.tier !== lastTier){
+      html+=`<div class="grade-group-label">${t.tier}</div>`;
+      lastTier = t.tier;
+    }
+    html+=`
+    <div class="team-row${t.name===favTeam?' fav-row':''}" onclick="location='team.html?team=${encodeURIComponent(t.name)}'"
+      style="${t.name===favTeam&&favColor?`border-left:3px solid ${favColor};background:${favBg};`:''}">
+      <div class="tr-rank-wrap">
+        <div class="tr-rank">${t.rk<9999?t.rk:'—'}</div>
+        ${t.chg===null||t.chg===undefined?''
+          :t.chg>0?`<span class="rank-chg rank-up">▲${t.chg}</span>`
+          :t.chg<0?`<span class="rank-chg rank-down">▼${Math.abs(t.chg)}</span>`
+          :`<span class="rank-chg rank-same">—</span>`}
+      </div>
+      <div class="tr-color-bar" style="background:${t.color}"></div>
+      <div>
+        <div class="tr-team-name">${t.name}</div>
+        <div class="tr-team-conf">${t.conf}</div>
+      </div>
+      <div class="tr-grades-mobile">
+        ${t.rg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">Coach</span><span class="mobile-grade-val ${gc(t.rg)}">${t.rg}</span></div>`:''}
+        ${t.dg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">Depth</span><span class="mobile-grade-val ${gc(t.dg)}">${t.dg}</span></div>`:''}
+        ${t.recg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">Recr.</span><span class="mobile-grade-val ${gc(t.recg)}">${t.recg}</span></div>`:''}
+        ${t.nilg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">NIL</span><span class="mobile-grade-val ${gc(t.nilg)}">${t.nilg}</span></div>`:''}
+        ${t.nilt&&t.nilt!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl" style="color:var(--text3);">${t.nilt}</span><span style="font-size:11px;font-weight:700;color:var(--text2);">${nilRange(t.nilt)}</span></div>`:''}
+      </div>
+      <div class="tr-sparkline">
+        ${sparkBar('CO',t.rg)}
+        ${sparkBar('DG',t.dg)}
+        ${sparkBar('RC',t.recg)}
+        ${sparkBar('EVAL',t.nilg)}
+      </div>
+      <div></div>
+      <div class="tr-grade"><div class="grade-val ${gc(t.rg)}">${t.rg}</div><div class="grade-lbl">Coach</div></div>
+      <div class="tr-grade"><div class="grade-val ${gc(t.dg)}">${t.dg}</div><div class="grade-lbl">Depth</div></div>
+      <div class="tr-grade"><div class="grade-val ${gc(t.recg)}">${t.recg}</div><div class="grade-lbl">Recruit</div></div>
+      <div class="tr-grade"><div class="grade-val ${gc(t.nilg)}">${t.nilg}</div><div class="grade-lbl">NIL Eval</div></div>
+      <div class="tr-grade" style="text-align:center;"><div style="font-size:13px;font-weight:700;color:var(--text2);">${t.nilt}</div><div class="grade-lbl">${nilRange(t.nilt)}</div></div>
+    </div>`;
+  });
+  document.getElementById('rankingsList').innerHTML=html;
+}
+
+loadTeams();
+</script>
+<script>
+// Theme toggle
+function toggleTheme(){
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+  const next = isDark ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('tdc_theme', next);
+  document.getElementById('themeBtn').textContent = next==='dark' ? '☀️' : '🌙';
+}
+(function(){
+  const saved = localStorage.getItem('tdc_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved);
+  window.addEventListener('DOMContentLoaded',()=>{
+    const btn = document.getElementById('themeBtn');
+    if(btn) btn.textContent = saved==='dark' ? '☀️' : '🌙';
+  });
+})();</script>
+<script>
+// Auth nav update
+(function(){
+  const s = JSON.parse(localStorage.getItem('tdc_session')||'null');
+  if(!s?.access_token||!s?.user?.id) return;
+  fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user.id+'&select=username,avatar_url,plan,verified',
+    {headers:{'apikey':'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye','Authorization':'Bearer '+s.access_token}})
+  .then(r=>r.json()).then(([profile])=>{
+    if(!profile) return;
+    const uname = profile.username || s.user?.email?.split('@')[0] || 'User';
+    const avatarHtml = profile.avatar_url
+      ? '<img src="'+profile.avatar_url+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);" />'
+      : '<div style="width:32px;height:32px;border-radius:50%;background:var(--bg2);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:14px;">'+uname[0].toUpperCase()+'</div>';
+    const verifiedHtml = profile.verified
+      ? '<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:var(--accent);border-radius:50%;margin-left:3px;flex-shrink:0;"><svg viewBox=\"0 0 24 24\" style=\"width:9px;height:9px;fill:#fff;\"><path d=\"M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z\"/></svg></span>'
+      : '';
+    const actions = document.getElementById('navActions');
+    if(actions){
+      actions.innerHTML = '<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">'+
+        (localStorage.getItem('tdc_theme')==='dark'?'☀️':'🌙')+
+        '</button><a href="profile.html" style="display:flex;align-items:center;gap:8px;text-decoration:none;">'+
+        avatarHtml+'<span style="display:flex;align-items:center;font-size:13px;font-weight:700;color:var(--text);">'+uname+verifiedHtml+'</span></a>';
+    }
+  }).catch(()=>{});
+})();</script>
+</body>
+</html>
