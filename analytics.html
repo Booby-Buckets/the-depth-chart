@@ -327,6 +327,10 @@ async function init(){
     document.getElementById('simA').innerHTML='<option value="">Select a team…</option>'+simOpts;
     document.getElementById('simB').innerHTML='<option value="">Select a team…</option>'+simOpts;
 
+    // Sort by net rating and assign permanent global ranks
+    allRatings.sort((a,b)=>((b.ratings.net||0)-(a.ratings.net||0)));
+    allRatings.forEach((t,i)=>{ t._globalRank = i+1; });
+
     document.getElementById('legendGrid').style.display='grid';
     applyFilters();
 
@@ -381,6 +385,14 @@ function applyFilters(){
   });
 
   document.getElementById('countTag').textContent = `${list.length} teams`;
+
+  // Assign global rank based on current full-sorted allRatings (net rating order)
+  // Only re-rank when the full unfiltered list changes (i.e. sort column changes)
+  const isFiltered = list.length < allRatings.length;
+  if(!isFiltered){
+    list.forEach((t,i) => { t._globalRank = i+1; });
+  }
+
   renderTable(list);
 }
 
@@ -413,8 +425,9 @@ function renderTable(list){
     const netCls=net>0.05?'net-pos':net<-0.05?'net-neg':'net-zero';
     const netStr=(net>0?'+':'')+f1(net);
     const helio = p.heliocentricity>0 ? '<span title="Heliocentric roster" style="color:var(--accent);">★</span>' : '';
+    const rank = t._globalRank || (i+1);
     return `<tr>
-      <td class="l"><span class="rank-num">${i+1}</span></td>
+      <td class="l"><span class="rank-num">${rank}</span></td>
       <td class="l">
         <span class="team-name-cell" onclick="location='team.html?team=${encodeURIComponent(t.name)}'">${t.name}</span>
       </td>
