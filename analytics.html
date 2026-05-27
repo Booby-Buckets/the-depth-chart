@@ -194,6 +194,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
       <option value="">All Conferences</option>
     </select>
     <select class="filter-select" id="sortSel" onchange="onSortSel(this.value)">
+      <option value="champ" selected>Champ. Equity</option>
+      <option value="talent">Talent Index</option>
       <option value="net">Net Rating</option>
       <option value="ortg">ORtg</option>
       <option value="drtg">DRtg</option>
@@ -207,15 +209,16 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 
   <!-- ── METRIC DESCRIPTORS ── -->
   <div class="legend-grid" id="legendGrid" style="display:none;">
+    <div class="legend-card"><div class="legend-name">⚡ Champ. Equity</div><div class="legend-desc">Championship probability score (0–100). Balances talent, offensive/defensive ceiling, synergy, experience and tournament translation. Primary ranking metric.</div></div>
+    <div class="legend-card"><div class="legend-name">Talent Index</div><div class="legend-desc">Grade-weighted score of top 8 players. Superstar bonus for 90+ grade players. Heliocentric elite creator adds extra points.</div></div>
+    <div class="legend-card"><div class="legend-name">Ceiling / Floor</div><div class="legend-desc">Ceiling = best realistic outcome (boosted by star power + synergy). Floor = collapse risk (penalized by variance). Neither replaces the main score.</div></div>
     <div class="legend-card"><div class="legend-name">Net Rating</div><div class="legend-desc">ORtg minus DRtg. Best predictor of wins and losses. +8 = tournament team, +15 = title contender, negative = bubble.</div></div>
     <div class="legend-card"><div class="legend-name">ORtg / DRtg</div><div class="legend-desc">Points scored / allowed per 100 possessions, derived from team ecosystem factors. Base = 108 offensive, 103 defensive.</div></div>
     <div class="legend-card"><div class="legend-name">Spacing</div><div class="legend-desc">Weighted 3P% × √3PA across rotation. High = defense must respect perimeter, opens lanes for slashers and creators.</div></div>
-    <div class="legend-card"><div class="legend-name">Creation</div><div class="legend-desc">APG × 2.2 + USG × 0.4 − TOV × 1.2. Measures offensive generation. High = team can break down defenses.</div></div>
-    <div class="legend-card"><div class="legend-name">Defense</div><div class="legend-desc">STL × 2.3 + BLK × 2.6 + RPG × 0.55. Aggregated defensive output across rotation players.</div></div>
-    <div class="legend-card"><div class="legend-name">Rim Pressure</div><div class="legend-desc">Weighted FTA per game. Teams that get to the line control tempo and score efficiently.</div></div>
+    <div class="legend-card"><div class="legend-name">Creation</div><div class="legend-desc">APG weight + FTA rate + 3PA rate − TOV rate. Values shot creation, downhill pressure and rim attacks over safe passing.</div></div>
+    <div class="legend-card"><div class="legend-name">Defense</div><div class="legend-desc">Rim protection (BLK), perimeter pressure (STL), length (avg height), rebounding and defensive rating combined.</div></div>
     <div class="legend-card"><div class="legend-name">TOV Risk</div><div class="legend-desc">Weighted turnovers per game. High = offense prone to breakdowns. Each turnover costs ~0.8 ORtg points.</div></div>
-    <div class="legend-card"><div class="legend-name">Variance</div><div class="legend-desc">Elevated by high-3PA reliance and freshman presence. High variance = wider range of outcomes game-to-game.</div></div>
-    <div class="legend-card"><div class="legend-name">Helio ★</div><div class="legend-desc">Team has a dominant high-usage creator (USG &gt;26). Applied −2 ORtg penalty — heliocentrism is harder to sustain.</div></div>
+    <div class="legend-card"><div class="legend-name">Helio ★</div><div class="legend-desc">Team has a dominant high-usage creator. Applied −2 ORtg penalty but boosts championship equity — star power matters in March.</div></div>
   </div>
 
   <div id="tableWrap"><div class="loading"><div class="spinner"></div>Computing from projected rosters…</div></div>
@@ -316,6 +319,8 @@ async function init(){
           rgb:   t.color_rgb||'136,136,136',
           ratings,
           profile: ratings.profile,
+          roster: proj,   // projected roster for championship score
+          raw: raw,       // raw DB players for grade/height data
         });
         if(t.conf||t.conference) confs.add(t.conf||t.conference);
       } catch(e){ console.warn('Skipping team',t.name,e.message); }
@@ -333,7 +338,16 @@ async function init(){
 
     // Sort by net rating and assign permanent global ranks
     allRatings.sort((a,b)=>((b.ratings.net||0)-(a.ratings.net||0)));
+
+    // Compute championship equity scores
+    allRatings.forEach(t=>{ t.equity = calcChampEquity(t); });
+
+    // Sort by championship equity and assign global ranks
+    allRatings.sort((a,b)=>(b.equity.champScore - a.equity.champScore));
     allRatings.forEach((t,i)=>{ t._globalRank = i+1; });
+
+    // Default sort column
+    sortCol = 'champ';
 
     document.getElementById('legendGrid').style.display='grid';
     applyFilters();
@@ -345,6 +359,165 @@ async function init(){
     </div>`;
     console.error('Analytics init error:', e);
   }
+}
+
+// ── CHAMPIONSHIP EQUITY ENGINE ─────────────────────────
+// "Who has the highest probability to become an elite NCAA tournament team?"
+function calcChampEquity(t){
+  const prof  = t.profile  || {};
+  const rats  = t.ratings  || {};
+  const proj  = t.roster   || [];
+  const raw   = t.raw      || [];
+
+  const clamp  = (v,lo,hi) => Math.max(lo, Math.min(hi, v||0));
+  const norm   = (v,lo,hi) => clamp((v-lo)/(hi-lo)*100, 0, 100);
+
+  // ── 1. TALENT INDEX (25%) ──────────────────────────────
+  // Use tdc_grade as talent signal — grade-tiered, top-8 weighted
+  const graded = raw.filter(p=>p.tdc_grade&&parseFloat(p.tdc_grade)>0)
+                    .sort((a,b)=>parseFloat(b.tdc_grade)-parseFloat(a.tdc_grade));
+  const top8   = graded.slice(0,8);
+  const weights= [0.22,0.18,0.15,0.12,0.10,0.09,0.08,0.06];
+  let talentRaw = 0;
+  top8.forEach((p,i)=>{ talentRaw += parseFloat(p.tdc_grade) * (weights[i]||0.05); });
+  const talentScore = clamp(norm(talentRaw, 60, 92), 0, 100);
+
+  // Superstar bonus — player with grade ≥ 90 is a game-changer
+  const stars = graded.filter(p=>parseFloat(p.tdc_grade)>=90);
+  const starBonus = stars.length>=2 ? 18 : stars.length===1 ? 10 : 0;
+
+  // Heliocentric star (high usage elite creator) — offensive engine
+  const hScore = clamp(prof.heliocentricity||0, 0, 1);
+  const helioBonus = hScore > 0.6 ? 8 : hScore > 0.3 ? 4 : 0;
+
+  const talentFinal = clamp(talentScore + starBonus + helioBonus, 0, 100);
+
+  // ── 2. OFFENSIVE CEILING (20%) ─────────────────────────
+  // Improved creation: values shot creation, downhill pressure, rim attacks
+  const rotation = proj.filter(p=>parseFloat(p.mpg||0)>=8);
+  let totApg=0, totUsg=0, totFta=0, totPpg=0, totTov=0, totTpa=0, totFga=0, totMpg=0;
+  rotation.forEach(p=>{
+    const m=parseFloat(p.mpg)||0;
+    totApg += (parseFloat(p.apg)||0)*m;
+    totFta += (parseFloat(p.fta)||0)*m;
+    totTov += (parseFloat(p.tovs)||0)*m;
+    totPpg += (parseFloat(p.ppg)||0)*m;
+    totTpa += (parseFloat(p.tpa)||0)*m;
+    totFga += (parseFloat(p.fga)||0)*m;
+    totMpg += m;
+  });
+  const wApg = totMpg>0 ? totApg/totMpg : 0;
+  const ftaRate = totMpg>0 ? totFta/totMpg : 0;
+  const tovRate = totMpg>0 ? totTov/totMpg : 0;
+  const tpaRate = totMpg>0 && totFga>0 ? totTpa/totFga : 0;
+
+  // Championship creation formula (improved)
+  const creationRaw = (wApg*0.35) + (ftaRate*18) + (tpaRate*25) - (tovRate*8);
+  const creationScore = clamp(norm(creationRaw, 1, 12), 0, 100);
+
+  const spacingScore  = clamp(norm(prof.spacingScore||0,  10, 60), 0, 100);
+  const rimPressure   = clamp(norm(prof.rimPressure||ftaRate*10, 5, 35), 0, 100);
+  const offEff        = clamp(norm(rats.ortg||100, 95, 120), 0, 100);
+  const ballSec       = clamp(100 - norm(tovRate, 1, 5), 0, 100);
+
+  const offCeiling = (creationScore*0.30 + spacingScore*0.20 + rimPressure*0.20 + offEff*0.20 + ballSec*0.10);
+
+  // ── 3. DEFENSIVE CEILING (20%) ─────────────────────────
+  // Rim protection, athleticism proxy (BLK+length), perimeter defense
+  let totBlk=0, totStl=0, totRpg=0, totHeight=0, heightCount=0;
+  rotation.forEach(p=>{
+    const m=parseFloat(p.mpg)||0, mpgW=m/40;
+    totBlk += (parseFloat(p.blk)||0)*mpgW;
+    totStl += (parseFloat(p.stl)||0)*mpgW;
+    totRpg += ((parseFloat(p.oreb)||0)+(parseFloat(p.dreb)||0))*mpgW;
+    // Height proxy from height string "6-10" → inches
+    if(p.height){
+      const [ft,inc]=(p.height||'6-4').split('-').map(Number);
+      if(!isNaN(ft)){ totHeight+=(ft*12+(inc||0)); heightCount++; }
+    }
+  });
+  const avgHeight  = heightCount>0 ? totHeight/heightCount : 76;
+  const rimProt    = clamp(norm(totBlk, 0.3, 2.5), 0, 100);
+  const poaDef     = clamp(norm(totStl, 0.5, 2.0), 0, 100);
+  const lengthBon  = clamp(norm(avgHeight, 74, 81), 0, 100); // taller = more length
+  const rebDef     = clamp(norm(prof.reboundingScore||totRpg, 5, 25), 0, 100);
+  const drtgScore  = clamp(norm(120-(rats.drtg||112), 0, 25), 0, 100); // lower DRtg = better
+  const tovCreat   = clamp(norm(totStl*1.5+totBlk, 0.5, 3.5), 0, 100);
+
+  const defCeiling = (rimProt*0.25 + poaDef*0.20 + lengthBon*0.15 + rebDef*0.15 + drtgScore*0.15 + tovCreat*0.10);
+
+  // ── 4. SYNERGY (10%) ──────────────────────────────────
+  // Positive: elite spacer + creator, rim runner + creator, multi-creators
+  // Negative: no shooters, ball-dominant overlap, no rim pressure
+  const shooters = rotation.filter(p=>parseFloat(p.tp_pct||0)>=36 && parseFloat(p.tpa||0)>=2).length;
+  const creators = rotation.filter(p=>parseFloat(p.apg||0)>=2.5 || parseFloat(p.ppg||0)>=14).length;
+  const rimRun   = rotation.filter(p=>['C','PF'].includes(p.position) && parseFloat(p.fg_pct||0)>=52).length;
+  const nonShoot = rotation.filter(p=>parseFloat(p.tp_pct||0)<30 && parseFloat(p.tpa||0)<1).length;
+
+  let synergy = 50;
+  synergy += Math.min(shooters, 3) * 8;        // spacing
+  synergy += Math.min(creators, 2) * 7;        // creation depth
+  synergy += rimRun >= 1 ? 6 : 0;              // rim runner
+  synergy += (shooters >= 2 && creators >= 1) ? 8 : 0; // key combo
+  synergy -= Math.min(nonShoot, 3) * 7;        // non-shooters penalty
+  const synergyScore = clamp(synergy, 0, 100);
+
+  // ── 5. EXPERIENCE/CONTINUITY (5%) ─────────────────────
+  const classMap = {fr:1,rfr:1.2,so:2.5,rso:2.8,jr:3.5,rjr:3.8,sr:4.5,gr:5,unk:2};
+  let expTotal=0, expCount=0;
+  rotation.forEach(p=>{
+    const yr=(p.yr||p.class_year||'').toLowerCase().replace(/[^a-z]/g,'');
+    const key=Object.keys(classMap).find(k=>yr.includes(k))||'unk';
+    expTotal+=classMap[key]; expCount++;
+  });
+  const avgExp = expCount>0 ? expTotal/expCount : 2.5;
+  const expScore = clamp(norm(avgExp, 1.5, 4.5), 0, 100);
+
+  // ── 6. VARIANCE ADJUSTMENT ────────────────────────────
+  // High variance = wider ceiling/floor, doesn't kill overall score
+  const varRaw   = prof.variance||0;
+  const varScore = clamp(norm(varRaw, 0, 10), 0, 100);
+  // Floor = penalized by variance; ceiling = boosted by talent
+  const floor   = clamp(talentFinal*0.5 + offCeiling*0.25 + defCeiling*0.25 - varScore*0.15, 0, 100);
+  const ceiling = clamp(talentFinal*0.4 + offCeiling*0.3 + defCeiling*0.2 + starBonus*0.8 + synergyScore*0.1, 0, 100);
+
+  // ── 7. TOURNAMENT TRANSLATION (5%) ────────────────────
+  // Elite guard play, halfcourt creation, FT shooting, defense
+  let totFtPct=0, ftPctCount=0;
+  rotation.forEach(p=>{ if(parseFloat(p.fta||0)>=1){ totFtPct+=parseFloat(p.ft_pct||70); ftPctCount++; } });
+  const ftPct = ftPctCount>0 ? totFtPct/ftPctCount : 70;
+  const guardGrade = raw.filter(p=>['PG','SG','CG'].includes(p.position))
+    .reduce((s,p)=>s+parseFloat(p.tdc_grade||70),0)/Math.max(1,raw.filter(p=>['PG','SG','CG'].includes(p.position)).length);
+
+  const tournScore = clamp(
+    norm(guardGrade,65,92)*0.30 +
+    norm(ftPct,65,85)*0.25 +
+    creationScore*0.25 +
+    drtgScore*0.20
+  , 0, 100);
+
+  // ── FINAL CHAMPIONSHIP EQUITY SCORE ───────────────────
+  // Weights (no coaching — redistributed to talent + synergy)
+  const champScore = clamp(
+    talentFinal  * 0.28 +
+    offCeiling   * 0.20 +
+    defCeiling   * 0.20 +
+    synergyScore * 0.12 +
+    expScore     * 0.05 +
+    tournScore   * 0.05 +
+    (ceiling*0.10)
+  , 0, 100);
+
+  return {
+    champScore: Math.round(champScore*10)/10,
+    talentScore: Math.round(talentFinal),
+    offCeiling:  Math.round(offCeiling),
+    defCeiling:  Math.round(defCeiling),
+    synergy:     Math.round(synergyScore),
+    ceiling:     Math.round(ceiling),
+    floor:       Math.round(floor),
+    stars:       stars.length,
+  };
 }
 
 const HIGH_MAJOR = new Set(['ACC','B10','B12','BE','SEC']);
@@ -376,14 +549,16 @@ function applyFilters(){
     const r=a.ratings,s=b.ratings,p=a.profile,q2=b.profile;
     let av,bv;
     switch(sortCol){
+      case 'champ':      av=a.equity?.champScore||0; bv=b.equity?.champScore||0; break;
+      case 'talent':     av=a.equity?.talentScore||0; bv=b.equity?.talentScore||0; break;
       case 'net':        av=r.net;             bv=s.net; break;
       case 'ortg':       av=r.ortg;            bv=s.ortg; break;
-      case 'drtg':       av=-r.drtg;           bv=-s.drtg; break; // lower=better, invert
+      case 'drtg':       av=-r.drtg;           bv=-s.drtg; break;
       case 'spacing':    av=p.spacingScore;    bv=q2.spacingScore; break;
       case 'creation':   av=p.creationScore;   bv=q2.creationScore; break;
       case 'defense':    av=p.defensiveScore;  bv=q2.defensiveScore; break;
       case 'rebounding': av=p.reboundingScore; bv=q2.reboundingScore; break;
-      default:           av=r.net;             bv=s.net;
+      default:           av=a.equity?.champScore||0; bv=b.equity?.champScore||0;
     }
     return sortDir*((bv||0)-(av||0));
   });
@@ -402,8 +577,8 @@ function applyFilters(){
 
 function setSort(col){
   if(sortCol===col) sortDir*=-1; else{sortCol=col;sortDir=1;}
-  document.getElementById('sortSel').value=
-    col==='spacing'?'spacing':col==='creation'?'creation':col==='defense'?'defense':col==='rebounding'?'rebounding':col;
+  const selMap={'champ':'champ','talent':'talent','spacing':'spacing','creation':'creation','defense':'defense','rebounding':'rebounding','net':'net','ortg':'ortg','drtg':'drtg'};
+  document.getElementById('sortSel').value=selMap[col]||'champ';
   applyFilters();
 }
 function onSortSel(v){ sortCol=v; sortDir=1; applyFilters(); }
@@ -430,23 +605,27 @@ function renderTable(list){
     const netStr=(net>0?'+':'')+f1(net);
     const helio = p.heliocentricity>0 ? '<span title="Heliocentric roster" style="color:var(--accent);">★</span>' : '';
     const rank = t._globalRank || (i+1);
+    const eq = t.equity || {};
+    const champColor = eq.champScore>=75?'#0a3fd4':eq.champScore>=65?'#2c6ef2':eq.champScore>=55?'#4a84f4':'var(--text3)';
+    const starStr = eq.stars>=2?'★★':eq.stars===1?'★':'';
     return `<tr>
       <td class="l"><span class="rank-num">${rank}</span></td>
       <td class="l">
-        <span class="team-name-cell" onclick="location='team.html?team=${encodeURIComponent(t.name)}'">${t.name}</span>
+        <span class="team-name-cell" onclick="location='team.html?team=${encodeURIComponent(t.name)}'">${t.name}${starStr?` <span style="color:#c8a020;font-size:10px;">${starStr}</span>`:''}</span>
       </td>
       <td class="l"><span class="conf-pill">${t.conf||'—'}</span></td>
+      <td><strong style="color:${champColor};font-size:15px;">${Math.round(eq.champScore||0)}</strong></td>
+      <td>${Math.round(eq.talentScore||0)}</td>
+      <td style="color:#1a8c3a;font-weight:600;">${Math.round(eq.ceiling||0)}</td>
+      <td style="color:#cc2200;font-weight:600;">${Math.round(eq.floor||0)}</td>
       <td><span class="${netCls}">${netStr}</span></td>
       <td>${f1(r.ortg)}</td>
       <td>${f1(r.drtg)}</td>
-      <td style="color:var(--text3);">${f1(r.pace)}</td>
       <td>${f2(p.spacingScore)}</td>
       <td>${f2(p.creationScore)}</td>
       <td>${f2(p.defensiveScore)}</td>
       <td>${f2(p.reboundingScore)}</td>
-      <td>${f1(p.rimPressure)}</td>
       <td>${f1(p.turnoverRisk)}</td>
-      <td>${f2(p.variance)}</td>
       <td>${helio}</td>
     </tr>`;
   }).join('');
@@ -456,17 +635,18 @@ function renderTable(list){
       <th class="l" style="width:28px;">#</th>
       <th class="l" style="min-width:150px;">Team</th>
       <th class="l">Conf</th>
+      ${thh('champ','⚡ C.Equity')}
+      ${thh('talent','Talent')}
+      <th>Ceil.</th>
+      <th>Floor</th>
       ${thh('net','Net Rtg')}
       ${thh('ortg','ORtg')}
       ${thh('drtg','DRtg')}
-      <th>Pace</th>
       ${thh('spacing','Spacing')}
       ${thh('creation','Creation')}
       ${thh('defense','Defense')}
       ${thh('rebounding','Reb')}
-      <th>Rim Pres</th>
       <th>TOV Risk</th>
-      <th>Variance</th>
       <th>Helio</th>
     </tr></thead>
     <tbody>${rows}</tbody>
