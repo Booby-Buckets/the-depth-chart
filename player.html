@@ -575,26 +575,36 @@ async function init(){
 
     calcPct();
     try{
-      // Fetch full roster for team context
-      const rr=await fetch(`${SB}/rest/v1/players?select=*&order=depth_order.asc&limit=5000`,{headers:H});
+      // Fetch this player's team roster directly (server-side filter = fast + no limit issues)
+      const teamParam = player.team ? `&team=eq.${sbEncode(player.team)}` : '';
+      const rr=await fetch(`${SB}/rest/v1/players?select=*&order=depth_order.asc&limit=500${teamParam}`,{headers:H});
       const allRows=await rr.json();
-      const tLower=(player.team||'').toLowerCase().trim();
       teamPlayers=Array.isArray(allRows)
-        ?allRows.filter(r=>r.name&&r.name!=='—'&&(r.team||'').toLowerCase().trim()===tLower)
+        ?allRows.filter(r=>r.name&&r.name!=='—')
         :[];
 
-      if(teamPlayers.length){
-        // Use TDC engine with full team context
-        // Pre-process: inject EST stats for no-stat players so TDC doesn't drop them
-        const injectEst=(arr)=>arr.map(pl=>{
-          if(pl.ppg&&parseFloat(pl.ppg)>0) return pl;
-          const g=parseFloat(pl.tdc_grade)||70,pn=['PG','SG','SF','PF','C'].includes(pl.position)?pl.position:'SG';
-          const t=g>=92?'92+':g>=85?'85-91':g>=75?'75-84':'below75';
-          const fb=(FR_BASE[t]&&FR_BASE[t][pn])?FR_BASE[t][pn]:(FR_BASE[t]&&FR_BASE[t]['SG'])?FR_BASE[t]['SG']:FR_BASE['75-84']['SG'];
-          const mg=g>=90?28:g>=85?22:g>=75?16:10; const fg=mg*0.28;
-          return {...pl,ppg:r1t(fb.ppg*(mg/32)),rpg:r1t(fb.rpg*(mg/32)),apg:r1t(fb.apg*(mg/32)),mpg:mg,fgm:r1t(fg*(fb.fg_pct/100)),fga:r1t(fg),fg_pct:fb.fg_pct,tpm:r1t(fg*0.42*(fb.tp_pct/100)),tpa:r1t(fg*0.42),tp_pct:fb.tp_pct,fta:r1t(mg*0.09),ftm:r1t(mg*0.09*(fb.ft_pct/100)),ft_pct:fb.ft_pct,oreb:r1t(fb.oreb*(mg/32)),dreb:r1t(fb.dreb*(mg/32)),stl:r1t(fb.stl*(mg/32)),blk:r1t((fb.blk||0)*(mg/32)),tovs:r1t(fb.tovs*(mg/32)),_noStatEst:true};
-        });
-        const allProj=TDC.projectTeam(injectEst(teamPlayers), teamData);
+ 
+       if(teamPlayers.length){
+         // injectEst — identical to team.html injectEstStats for consistent projections
+         const injectEst=(arr)=>arr.map(pl=>{
+           if(pl.ppg&&parseFloat(pl.ppg)>0) return pl;
+           const g=parseFloat(pl.tdc_grade)||70;
+           const pn=['PG','SG','SF','PF','C'].includes(pl.position)?pl.position:pl.position==='CG'?'SG':'SG';
+           const fb=getFrBase(g,pn);
+           const mg=g>=92?30:g>=88?26:g>=83?22:g>=78?18:g>=73?14:10;
+           const scale=mg/FR_BASE_MPG;
+           const fg=r1t(mg*0.28);
+           return {...pl,
+             ppg:r1t(fb.ppg*scale),rpg:r1t((fb.oreb+fb.dreb)*scale),apg:r1t(fb.apg*scale),mpg:mg,
+             fgm:r1t(fg*(fb.fg_pct/100)),fga:fg,fg_pct:fb.fg_pct,
+             tpm:r1t(fg*0.42*(fb.tp_pct/100)),tpa:r1t(fg*0.42),tp_pct:fb.tp_pct,
+             fta:r1t(mg*0.09),ftm:r1t(mg*0.09*(fb.ft_pct/100)),ft_pct:fb.ft_pct,
+             oreb:r1t(fb.oreb*scale),dreb:r1t(fb.dreb*scale),
+             stl:r1t(fb.stl*scale),blk:r1t(fb.blk*scale),tovs:r1t(fb.tovs*scale),
+             _noStatEst:true,_frosh:true
+           };
+         });
+         const allProj=TDC.projectTeam(injectEst(teamPlayers), teamData);
         const pLower=(player.name||'').toLowerCase().trim();
         proj=allProj.find(r=>(r.name||'').toLowerCase().trim()===pLower)||null;
         // If TDC returned a per-minute intermediate object (no final ppg), resolve it
@@ -619,8 +629,13 @@ async function init(){
         const playerForProj=injectEst([player])[0];
         proj=TDC.projectPlayerInContext(playerForProj, injectEst(teamPlayers.length?teamPlayers:[player]), teamData)||null;
       }
-      // Final guaranteed fallback — directly compute from grade for any no-stat player
-      if(!proj && !(player.ppg && parseFloat(player.ppg)>0)){
+    }catch(projErr){
+      console.warn('Projection failed:',projErr);
+      proj=null;
+    }
+    // Guaranteed fallback OUTSIDE try/catch — always fires for no-stat players
+    if(!proj && !(player.ppg && parseFloat(player.ppg)>0)){
+      try{
         const g=parseFloat(player.tdc_grade)||70;
         const pn=['PG','SG','SF','PF','C'].includes(player.position)?player.position:player.position==='CG'?'SG':'SG';
         const fb=getFrBase(g,pn);
@@ -636,10 +651,7 @@ async function init(){
           stl:r1t(fb.stl*scale),blk:r1t(fb.blk*scale),tovs:r1t(fb.tovs*scale),
           _frosh:true,_noStatEst:true
         };
-      }
-    }catch(projErr){
-      console.warn('Projection failed:',projErr);
-      proj=null;
+      }catch(e2){ console.warn('EST fallback failed:',e2); }
     }
     renderPage();
   }catch(e){
