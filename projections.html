@@ -114,6 +114,7 @@
       .pickers{grid-template-columns:1fr;}
     }
   </style>
+  <script src="tdc-engine.js"></script>
 </head>
 <body>
 
@@ -477,9 +478,10 @@ async function init(){
   if(s?.access_token) updateNav(s);
 
   // Load teams for colors and confs
-  const tr=await fetch(`${SB}/rest/v1/teams?select=name,color,conf`,{headers:H});
+  const tr=await fetch(`${SB}/rest/v1/teams?select=*&limit=500`,{headers:H});
   const teams=await tr.json();
-  teams.forEach(t=>{teamColors[t.name]=t.color;teamConfs[t.name]=t.conf||'';});
+  const teamRows = {}; // full team row keyed by name
+  teams.forEach(t=>{teamColors[t.name]=t.color||'';teamConfs[t.name]=t.conf||'';teamRows[t.name]=t;});
 
   // Load all players paginated
   let page=0;
@@ -495,11 +497,69 @@ async function init(){
     page++;
   }
 
-  // Generate projections
-  projPlayers=allPlayers.map(p=>{
-    const proj=projectPlayer(p);
-    return proj;
-  }).filter(Boolean);
+  // Group players by team and project via TDC engine (same as team page)
+  const byTeam = {};
+  allPlayers.forEach(p => {
+    if(!p.team) return;
+    if(!byTeam[p.team]) byTeam[p.team] = [];
+    byTeam[p.team].push(p);
+  });
+
+  // Inject grade-based EST stats for no-stat players before TDC sees them
+  const r1e = v => Math.round((v+Number.EPSILON)*10)/10;
+  // Use same FR_BASE as team.html for consistent EST projections
+  const FR_BASE_P = {
+    '92+':{PG:{ppg:17.5,rpg:3.5,apg:4.5,fg_pct:45.5,tp_pct:37.5,ft_pct:80.5,stl:1.3,blk:0.3,oreb:0.6,dreb:2.9,tovs:2.25},SG:{ppg:16.0,rpg:4.0,apg:2.25,fg_pct:43.5,tp_pct:38.5,ft_pct:74.5,stl:1.1,blk:0.4,oreb:0.8,dreb:3.2,tovs:1.5},SF:{ppg:18.5,rpg:5.0,apg:1.75,fg_pct:46.5,tp_pct:36.0,ft_pct:76.0,stl:1.0,blk:0.6,oreb:1.3,dreb:3.7,tovs:1.8},PF:{ppg:16.0,rpg:6.5,apg:1.8,fg_pct:50.0,tp_pct:31.0,ft_pct:74.0,stl:0.7,blk:1.2,oreb:2.2,dreb:4.3,tovs:1.75},C:{ppg:14.0,rpg:9.0,apg:1.05,fg_pct:56.0,tp_pct:22.0,ft_pct:70.5,stl:0.5,blk:1.9,oreb:2.7,dreb:6.3,tovs:1.75}},
+    '85-91':{PG:{ppg:13.0,rpg:2.0,apg:3.1,fg_pct:44.5,tp_pct:34.0,ft_pct:80.5,stl:1.1,blk:0.2,oreb:0.4,dreb:1.6,tovs:2.35},SG:{ppg:12.75,rpg:2.6,apg:1.65,fg_pct:42.25,tp_pct:35.5,ft_pct:74.5,stl:0.9,blk:0.3,oreb:0.6,dreb:2.0,tovs:1.65},SF:{ppg:13.5,rpg:3.5,apg:1.15,fg_pct:44.5,tp_pct:34.5,ft_pct:76.0,stl:0.8,blk:0.5,oreb:1.0,dreb:2.5,tovs:1.8},PF:{ppg:12.5,rpg:5.25,apg:1.15,fg_pct:47.5,tp_pct:29.5,ft_pct:74.0,stl:0.5,blk:0.9,oreb:1.7,dreb:3.5,tovs:1.75},C:{ppg:11.0,rpg:6.75,apg:0.7,fg_pct:52.0,tp_pct:19.5,ft_pct:70.5,stl:0.4,blk:1.5,oreb:2.1,dreb:4.6,tovs:1.75}},
+    '75-84':{PG:{ppg:7.5,rpg:1.5,apg:2.05,fg_pct:43.5,tp_pct:34.0,ft_pct:80.5,stl:0.9,blk:0.2,oreb:0.3,dreb:1.2,tovs:1.75},SG:{ppg:7.5,rpg:2.2,apg:1.25,fg_pct:42.0,tp_pct:35.5,ft_pct:74.5,stl:0.7,blk:0.2,oreb:0.5,dreb:1.7,tovs:1.25},SF:{ppg:7.6,rpg:2.65,apg:0.9,fg_pct:43.5,tp_pct:34.5,ft_pct:76.0,stl:0.6,blk:0.4,oreb:0.8,dreb:1.85,tovs:1.25},PF:{ppg:6.65,rpg:3.25,apg:0.75,fg_pct:47.0,tp_pct:29.5,ft_pct:74.0,stl:0.4,blk:0.7,oreb:1.3,dreb:2.35,tovs:1.35},C:{ppg:6.6,rpg:4.75,apg:0.55,fg_pct:51.0,tp_pct:19.5,ft_pct:70.5,stl:0.3,blk:1.1,oreb:1.6,dreb:3.1,tovs:1.3}},
+    'below75':{PG:{ppg:4.0,rpg:1.0,apg:1.3,fg_pct:42.0,tp_pct:32.0,ft_pct:78.0,stl:0.6,blk:0.1,oreb:0.2,dreb:0.8,tovs:1.4},SG:{ppg:4.0,rpg:1.2,apg:0.8,fg_pct:40.0,tp_pct:33.0,ft_pct:72.0,stl:0.5,blk:0.1,oreb:0.3,dreb:1.0,tovs:1.0},SF:{ppg:4.5,rpg:1.8,apg:0.6,fg_pct:41.0,tp_pct:32.0,ft_pct:72.0,stl:0.4,blk:0.2,oreb:0.5,dreb:1.3,tovs:1.0},PF:{ppg:3.5,rpg:2.5,apg:0.5,fg_pct:44.0,tp_pct:26.0,ft_pct:68.0,stl:0.3,blk:0.5,oreb:0.9,dreb:1.6,tovs:1.0},C:{ppg:3.5,rpg:3.0,apg:0.4,fg_pct:48.0,tp_pct:15.0,ft_pct:64.0,stl:0.2,blk:0.7,oreb:1.0,dreb:2.0,tovs:1.0}},
+  };
+  const FR_BASE_MPG_P = 32;
+  function getFrBaseP(g, pos){
+    const tier=g>=92?'92+':g>=85?'85-91':g>=75?'75-84':'below75';
+    const pn=['PG','SG','SF','PF','C'].includes(pos)?pos:'SG';
+    return FR_BASE_P[tier][pn];
+  }
+  // Identical injectEst to team.html
+  const injectEst = arr => arr.map(p => {
+    if(p.ppg && parseFloat(p.ppg) > 0) return p;
+    const g = parseFloat(p.tdc_grade)||70;
+    const pn = ['PG','SG','SF','PF','C'].includes(p.position)?p.position:p.position==='CG'?'SG':'SG';
+    const fb = getFrBaseP(g, pn);
+    const mg = g>=92?30:g>=88?26:g>=83?22:g>=78?18:g>=73?14:10;
+    const scale = mg/FR_BASE_MPG_P;
+    const fg = r1e(mg*0.28);
+    return {...p,
+      ppg:r1e(fb.ppg*scale),rpg:r1e((fb.oreb+fb.dreb)*scale),apg:r1e(fb.apg*scale),mpg:mg,
+      fgm:r1e(fg*(fb.fg_pct/100)),fga:fg,fg_pct:fb.fg_pct,
+      tpm:r1e(fg*0.42*(fb.tp_pct/100)),tpa:r1e(fg*0.42),tp_pct:fb.tp_pct,
+      fta:r1e(mg*0.09),ftm:r1e(mg*0.09*(fb.ft_pct/100)),ft_pct:fb.ft_pct,
+      oreb:r1e(fb.oreb*scale),dreb:r1e(fb.dreb*scale),
+      stl:r1e(fb.stl*scale),blk:r1e(fb.blk*scale),tovs:r1e(fb.tovs*scale),_noStatEst:true,_frosh:true};
+  });
+
+  projPlayers = [];
+  for(const [teamName, roster] of Object.entries(byTeam)){
+    const teamRow = teamRows[teamName] || {conf: teamConfs[teamName]||'', name: teamName};
+    let teamProj;
+    try {
+      if(typeof TDC !== 'undefined')
+        teamProj = TDC.projectTeam(injectEst(roster), teamRow);
+    } catch(e){}
+    if(!teamProj || !teamProj.length)
+      teamProj = roster.map(p => projectPlayer(p)).filter(Boolean);
+    teamProj.forEach(proj => {
+      const orig = roster.find(p => p.name === proj.name) || {};
+      projPlayers.push({
+        ...orig, ...proj,
+        team: teamName,
+        tdc_grade: orig.tdc_grade ?? proj.tdc_grade,
+        position: orig.position || proj.position,
+        yr: orig.yr || orig.class_year || proj.yr || '',
+        class_year: orig.class_year || proj.class_year || '',
+      });
+    });
+  }
 
   applyFilters();
 }
