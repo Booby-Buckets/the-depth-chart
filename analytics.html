@@ -666,109 +666,117 @@ function computeTeamMetrics(proj, raw){
   const twoPm   = fgm - tpm;
   const twoPpct = twoPa>0 ? twoPm/twoPa*100 : 0;
 
-  // ── RATE STATS (per 100 possessions proxy) ────────────────
-  // Possession estimate: FGA + 0.44*FTA + TOV - OREB
-  const poss    = Math.max(1, fga + 0.44*fta + tov - oreb);
-  const astRate = poss>0 ? apg/fgm*100 : 0;            // AST% of made shots
-  const tovRate = poss>0 ? tov/poss*100 : 0;           // TOV%
-  const orebPct = (oreb+dreb)>0 ? oreb/(oreb+dreb)*100: 0; // OREB%
-  const ftaRate = fga>0 ? fta/fga*100 : 0;             // FTA per FGA (FTAR)
-  const tpaRate = fga>0 ? tpa/fga*100 : 0;             // 3PA Rate (%3PA)
-  const rim2Rate= fga>0 ? (fga-tpa)/fga*100 : 0;       // 2PA Rate
+  // ── RATE STATS — wavg (minutes-weighted, scale-invariant) ─────
+  const efgRaw    = wavg(p => { const f=get(p,'fga'); return f ? (get(p,'fgm')+0.5*get(p,'tpm'))/f : 0; });
+  const ftaRateR  = wavg(p => { const f=get(p,'fga'); return f ? get(p,'fta')/f : 0; });
+  const tovRateR  = wavg(p => { const d=get(p,'fga')+0.44*get(p,'fta')+get(p,'tovs'); return d ? get(p,'tovs')/d : 0.16; });
+  const orebRateR = wavg(p => { const r=get(p,'oreb')+get(p,'dreb'); return r ? get(p,'oreb')/r : 0; });
+  const tpaRateR  = wavg(p => { const f=get(p,'fga'); return f ? get(p,'tpa')/f : 0; });
 
-  // ── SCORING MIX ───────────────────────────────────────────
-  const pts3    = tpm*3;
-  const pts2    = twoPm*2;
-  const ptsFt   = ftm;
-  const pct3    = ppg>0 ? pts3/ppg*100 : 0;            // % pts from 3
-  const pct2    = ppg>0 ? pts2/ppg*100 : 0;            // % pts from 2
-  const pctFt   = ppg>0 ? ptsFt/ppg*100 : 0;           // % pts from FT
+  // Display percentages
+  const astRate  = fgm>0 ? apg/fgm*100 : 0;
+  const tovRate  = tovRateR*100;
+  const orebPct  = orebRateR*100;
+  const ftaRate  = ftaRateR*100;
+  const tpaRate  = tpaRateR*100;
+  const rim2Rate = (1-tpaRateR)*100;
+  const poss     = 1; // not used for ortg anymore
 
-  // ── OFFENSIVE EFFICIENCY ─────────────────────────────────
-  // ORtg per 100 possessions
-  const ortg = poss>0 ? r1(ppg/poss*100) : 100;
+  // ── SCORING MIX ──────────────────────────────────────────
+  const pts3 = tpm*3, pts2 = twoPm*2, ptsFt = ftm;
+  const pct3 = ppg>0 ? pts3/ppg*100 : 0;
+  const pct2 = ppg>0 ? pts2/ppg*100 : 0;
+  const pctFt= ppg>0 ? ptsFt/ppg*100 : 0;
 
-  // Points per shot (PPS)
-  const ppsAll  = fga>0 ? ppg/fga : 0;                 // overall PPS
-  const pps2    = twoPa>0 ? pts2/twoPa : 0;            // 2P PPS
-  const pps3    = tpa>0 ? pts3/tpa : 0;                // 3P PPS
+  // ── ORtg — rate-based, D1 range 95–120 ──────────────────
+  // Centered on D1 averages; each coefficient calibrated to real impact
+  const ortg = r1(
+    100
+    + (efgRaw   - 0.490) * 120   // eFG% (avg ~49%)
+    + (ftaRateR - 0.290) * 20    // FTA/FGA (avg ~29%)
+    - (tovRateR - 0.165) * 90    // TOV% (avg ~16.5%)
+    + (orebRateR- 0.285) * 15    // OREB% (avg ~28.5%)
+    + (tpaRateR - 0.340) * 8     // 3PA rate (avg ~34%)
+  );
 
-  // Creation quality: APG + FTA rate + scoring without turnovers
-  const creationScore = r1(apg*1.8 + fta*0.7 - tov*1.2 + ppg*0.08);
+  // Points per shot
+  const ppsAll = r2(efgRaw*2);
+  const pps2   = wavg(p=>{ const a=get(p,'fga')-get(p,'tpa'); return a?((get(p,'fgm')-get(p,'tpm'))*2/a):0; });
+  const pps3   = r2(get({tpm:tpm,tpa:tpa},'tpm')>0 ? tpm*3/tpa : 0);
 
-  // ── SPACING ───────────────────────────────────────────────
-  // Weighted 3P% × √3PA attempts (volume-adjusted quality)
+  // ── CREATION ────────────────────────────────────────────
+  const apgW2  = wavg(p=>get(p,'apg'));
+  const ftaW2  = wavg(p=>get(p,'fta'));
+  const tovW2  = wavg(p=>get(p,'tovs'));
+  const ppgW2  = wavg(p=>get(p,'ppg'));
+  const creationScore = r1(apgW2*1.8 + ftaW2*0.7 - tovW2*1.2 + ppgW2*0.08);
+
+  // ── SPACING ─────────────────────────────────────────────
   const spacingScore = r1(rot.reduce((s,p)=>{
     const a=get(p,'tpa'), pct=get(p,'tp_pct')/100;
     if(a<0.3) return s;
     return s + pct*Math.sqrt(a)*((parseFloat(p.mpg)||0)/40);
   },0)*20);
 
-  // ── DEFENSE ───────────────────────────────────────────────
-  // Rim protection: BLK rate
-  const rimProt   = r1(blk*2.8 + stl*0.5);
-  // Perimeter: STL rate
-  const periDef   = r1(stl*2.2);
-  // Defensive rebounding rate
-  const drebRate  = (dreb+oreb)>0 ? dreb/(dreb+oreb)*100 : 0;
-  const defensiveScore = r1(blk*2.5 + stl*2.0 + dreb*0.4);
+  // ── DEFENSE ─────────────────────────────────────────────
+  const blkRate  = wavg(p=>get(p,'blk'));
+  const stlRate  = wavg(p=>get(p,'stl'));
+  const drebW    = wavg(p=>get(p,'dreb'));
+  const drebRate = wavg(p=>{ const r=get(p,'oreb')+get(p,'dreb'); return r?get(p,'dreb')/r*100:0; });
+  const rimProt  = r1(blkRate*2.8 + stlRate*0.5);
+  const periDef  = r1(stlRate*2.2);
+  const defensiveScore = r1(blkRate*2.5 + stlRate*2.0 + drebW*0.4);
 
-  // DRtg estimate
-  const avgBigH = (() => {
-    const bigs=rot.filter(p=>['C','PF'].includes(p.position));
-    if(!bigs.length) return 78;
-    return bigs.reduce((s,p)=>{const pts=(p.height||'6-8').split('-').map(Number);return s+(pts[0]*12+(pts[1]||0));},0)/bigs.length;
-  })();
-  const drtg = r1(103 - (blk-0.8)*2.5 - (stl-1.0)*2.0 - (dreb-6.0)*0.4 - (avgBigH-78)*0.15);
+  const avgBigH = (()=>{ const bigs=rot.filter(p=>['C','PF'].includes(p.position)); if(!bigs.length) return 78; return bigs.reduce((s,p)=>{const pts=(p.height||'6-8').split('-').map(Number);return s+(pts[0]*12+(pts[1]||0));},0)/bigs.length; })();
 
-  // ── REBOUNDING ───────────────────────────────────────────
-  const reboundingScore = r1((dreb+oreb*1.25)*2.5);
+  // ── DRtg — rate-based, D1 range 95–115 ──────────────────
+  const drtg = r1(
+    106
+    - (blkRate - 0.50) * 3.5
+    - (stlRate - 0.80) * 3.0
+    - (drebW   - 4.50) * 0.8
+    - (avgBigH - 78.0) * 0.20
+  );
 
-  // ── HELIOCENTRIC ─────────────────────────────────────────
+  // ── REBOUNDING ────────────────────────────────────────────
+  const orebW2 = wavg(p=>get(p,'oreb'));
+  const drebW2 = drebW;
+  const reboundingScore = r1((drebW2 + orebW2*1.25)*8);  // scale to 0-60 range
+
+  // ── HELIOCENTRIC ──────────────────────────────────────────
+  // Use raw sorted PPG (not wsum) — individual player stat
   const byPpg = [...rot].sort((a,b)=>get(b,'ppg')-get(a,'ppg'));
   const top1  = get(byPpg[0],'ppg'), top2 = get(byPpg[1],'ppg');
-  const shareTop1 = ppg>0 ? top1/ppg : 0;
-  const heliocentricity = (shareTop1>0.38 || (shareTop1>0.32 && top1-top2>5)) ? 1 : 0;
+  const teamTotalPpg = rot.reduce((s,p)=>s+get(p,'ppg'),0);
+  const shareTop1 = teamTotalPpg>0 ? top1/teamTotalPpg : 0;
+  const heliocentricity = (shareTop1>0.30 || (shareTop1>0.25 && top1-top2>5)) ? 1 : 0;
 
   // ── TURNOVER RISK ─────────────────────────────────────────
-  const turnoverRisk = r1(tov);
+  const turnoverRisk = r1(tovW2);
 
-  // ── NET / PACE ───────────────────────────────────────────
+  // ── NET / PACE ────────────────────────────────────────────
   const net  = r1(ortg - drtg);
-  const pace = r1(68 + apg*0.5 - tov*0.3);
+  const pace = r1(68 + apgW2*0.5 - tovW2*0.3);
 
   return {
-    // Summary
     net, ortg, drtg, pace, heliocentricity,
-
-    // Offensive stats
-    ppg:  r1(ppg),  rpg: r1(rpg), apg: r1(apg),
-    fgm:  r1(fgm),  fga: r1(fga), fgPct: pct1(fgPct),
-    tpm:  r1(tpm),  tpa: r1(tpa), tpPct: pct1(tpPct),
-    ftm:  r1(ftm),  fta: r1(fta), ftPct: pct1(ftPct),
-    efgPct: pct1(efgPct), tsPct: pct1(tsPct),
+    ppg: r1(ppgW2*5), rpg: r1((orebW2+drebW2)*5), apg: r1(apgW2*5),
+    fgm: r1(fgm), fga: r1(fga), fgPct: pct1(fgPct),
+    tpm: r1(tpm), tpa: r1(tpa), tpPct: pct1(tpPct),
+    ftm: r1(ftm), fta: r1(fta), ftPct: pct1(ftPct),
+    efgPct: pct1(efgRaw*100), tsPct: pct1(tsPct),
     twoPpct: pct1(twoPpct),
-
-    // Rates
     ftaRate: pct1(ftaRate), tpaRate: pct1(tpaRate), rim2Rate: pct1(rim2Rate),
     astRate: pct1(astRate), tovRate: pct1(tovRate), orebPct: pct1(orebPct),
-
-    // Scoring mix
     pct3: pct1(pct3), pct2: pct1(pct2), pctFt: pct1(pctFt),
-
-    // Efficiency
     ppsAll: r2(ppsAll), pps2: r2(pps2), pps3: r2(pps3),
-
-    // Defensive
-    stl: r1(stl), blk: r1(blk),
-    oreb: r1(oreb), dreb: r1(dreb),
+    stl: r1(stlRate*5), blk: r1(blkRate*5),
+    oreb: r1(orebW2*5), dreb: r1(drebW2*5),
     drebRate: pct1(drebRate),
     rimProt, periDef, defensiveScore, reboundingScore,
-
-    // Composite scores
     creationScore, spacingScore, turnoverRisk,
     variance: 0,
-    rimPressure: r1(fta*0.7),
+    rimPressure: r1(ftaW2*0.7),
   };
 }
 
