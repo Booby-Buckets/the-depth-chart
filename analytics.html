@@ -185,6 +185,11 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 <div class="tab-panel active" id="panel-rankings">
   <div class="filter-bar">
     <div class="major-filters">
+      <button class="major-btn active" id="view-champ" onclick="setView('champ',this)">⚡ Equity</button>
+      <button class="major-btn" id="view-offense" onclick="setView('offense',this)">Offense</button>
+      <button class="major-btn" id="view-defense" onclick="setView('defense',this)">Defense</button>
+    </div>
+    <div class="major-filters">
       <button class="major-btn active" id="maj-all" onclick="setMajor('all',this)">All</button>
       <button class="major-btn" id="maj-high" onclick="setMajor('high',this)">High Major</button>
       <button class="major-btn" id="maj-mid" onclick="setMajor('mid',this)">Mid Major</button>
@@ -305,22 +310,25 @@ async function init(){
 
       let proj;
       try { proj = TDC.projectTeam(raw, t); } catch(e){ proj=raw; }
-
-      const withStats = proj.filter(p=>parseFloat(p.ppg||0)>0);
-      if(withStats.length < 5) return;
+      if(!proj || proj.length < 3) return;
 
       try {
-        const ratings = TDC.buildTeamRatings(proj);
-        if(!ratings||!ratings.profile||ratings.profile.heliocentricity==null) return;
+        // Compute all metrics ourselves — full control, no black box
+        const ownMetrics = computeTeamMetrics(proj, raw);
+        if(!ownMetrics) return;
+
+        const ratings = { net: ownMetrics.net, ortg: ownMetrics.ortg, drtg: ownMetrics.drtg, pace: ownMetrics.pace };
+        const profile  = ownMetrics;
+
         allRatings.push({
           name: t.name,
           conf: t.conf||t.conference||'',
           color: t.color||'#888',
           rgb:   t.color_rgb||'136,136,136',
           ratings,
-          profile: ratings.profile,
-          roster: proj,   // projected roster for championship score
-          raw: raw,       // raw DB players for grade/height data
+          profile,
+          roster: proj,
+          raw: raw,
         });
         if(t.conf||t.conference) confs.add(t.conf||t.conference);
       } catch(e){ console.warn('Skipping team',t.name,e.message); }
@@ -339,12 +347,12 @@ async function init(){
     // Sort by net rating and assign permanent global ranks
     allRatings.sort((a,b)=>((b.ratings.net||0)-(a.ratings.net||0)));
 
-    // Compute championship equity scores
-    allRatings.forEach(t=>{ t.equity = calcChampEquity(t); });
+    // Compute championship equity scores (percentile-normalized across full dataset)
+    buildChampEquityScores(allRatings);
 
     // Sort by championship equity and assign global ranks
-    allRatings.sort((a,b)=>(b.equity.champScore - a.equity.champScore));
-    allRatings.forEach((t,i)=>{ t._globalRank = i+1; });
+    allRatings.sort((a,b) => (b.equity.champScore - a.equity.champScore));
+    allRatings.forEach((t,i) => { t._globalRank = i+1; });
 
     // Default sort column
     sortCol = 'champ';
@@ -361,162 +369,393 @@ async function init(){
   }
 }
 
-// ── CHAMPIONSHIP EQUITY ENGINE ─────────────────────────
-// "Who has the highest probability to become an elite NCAA tournament team?"
-function calcChampEquity(t){
-  const prof  = t.profile  || {};
-  const rats  = t.ratings  || {};
-  const proj  = t.roster   || [];
-  const raw   = t.raw      || [];
+// ── CHAMPIONSHIP EQUITY ENGINE v2 ────────────────────────
+// Two-pass system:
+// Pass 1: extract raw signals per team
+// Pass 2: percentile-rank each signal across ALL teams → 0-100
+// This self-normalizes so the distribution always looks right regardless of data range.
 
-  const clamp  = (v,lo,hi) => Math.max(lo, Math.min(hi, v||0));
-  const norm   = (v,lo,hi) => clamp((v-lo)/(hi-lo)*100, 0, 100);
+function extractRawSignals(t){
+  const raw   = (t.raw    || []).filter(p => p.name && p.name !== '—');
+  const proj  = (t.roster || []);
+  const prof  = t.profile || {};
+  const rats  = t.ratings || {};
 
-  // ── 1. TALENT INDEX (25%) ──────────────────────────────
-  // Use tdc_grade as talent signal — grade-tiered, top-8 weighted
-  const graded = raw.filter(p=>p.tdc_grade&&parseFloat(p.tdc_grade)>0)
-                    .sort((a,b)=>parseFloat(b.tdc_grade)-parseFloat(a.tdc_grade));
-  const top8   = graded.slice(0,8);
-  const weights= [0.22,0.18,0.15,0.12,0.10,0.09,0.08,0.06];
-  let talentRaw = 0;
-  top8.forEach((p,i)=>{ talentRaw += parseFloat(p.tdc_grade) * (weights[i]||0.05); });
-  const talentScore = clamp(norm(talentRaw, 60, 92), 0, 100);
+  // ── TALENT ────────────────────────────────────────────
+  const graded = raw.filter(p => parseFloat(p.tdc_grade) > 0)
+                    .sort((a,b) => parseFloat(b.tdc_grade) - parseFloat(a.tdc_grade));
 
-  // Superstar bonus — player with grade ≥ 90 is a game-changer
-  const stars = graded.filter(p=>parseFloat(p.tdc_grade)>=90);
-  const starBonus = stars.length>=2 ? 18 : stars.length===1 ? 10 : 0;
+  const g = i => parseFloat(graded[i]?.tdc_grade) || 60;
 
-  // Heliocentric star (high usage elite creator) — offensive engine
-  const hScore = clamp(prof.heliocentricity||0, 0, 1);
-  const helioBonus = hScore > 0.6 ? 8 : hScore > 0.3 ? 4 : 0;
+  // Top player is the single biggest signal in college basketball
+  const topPlayer   = g(0);
+  // Weighted starting 5
+  const startingFive = g(0)*0.30 + g(1)*0.25 + g(2)*0.20 + g(3)*0.15 + g(4)*0.10;
+  // Bench depth 6-10
+  const benchDepth  = graded.slice(5,10).reduce((s,p) => s + parseFloat(p.tdc_grade||60), 0)
+                      / Math.max(1, Math.min(graded.slice(5,10).length, 5));
+  // Star count
+  const stars90 = graded.filter(p => parseFloat(p.tdc_grade) >= 90).length;
+  const stars85 = graded.filter(p => parseFloat(p.tdc_grade) >= 85).length;
 
-  const talentFinal = clamp(talentScore + starBonus + helioBonus, 0, 100);
-
-  // ── 2. OFFENSIVE CEILING (20%) ─────────────────────────
-  // Improved creation: values shot creation, downhill pressure, rim attacks
-  const rotation = proj.filter(p=>parseFloat(p.mpg||0)>=8);
-  let totApg=0, totUsg=0, totFta=0, totPpg=0, totTov=0, totTpa=0, totFga=0, totMpg=0;
-  rotation.forEach(p=>{
-    const m=parseFloat(p.mpg)||0;
-    totApg += (parseFloat(p.apg)||0)*m;
-    totFta += (parseFloat(p.fta)||0)*m;
-    totTov += (parseFloat(p.tovs)||0)*m;
-    totPpg += (parseFloat(p.ppg)||0)*m;
-    totTpa += (parseFloat(p.tpa)||0)*m;
-    totFga += (parseFloat(p.fga)||0)*m;
-    totMpg += m;
+  // ── OFFENSE ───────────────────────────────────────────
+  const rotation = proj.filter(p => parseFloat(p.mpg||0) >= 6);
+  let sumMpg=0, sumPpg=0, sumApg=0, sumFta=0, sumTov=0, sumTpa=0, sumFga=0, sum3pm=0, sumFgm=0;
+  rotation.forEach(p => {
+    const m = parseFloat(p.mpg)||0;
+    sumMpg  += m;
+    sumPpg  += (parseFloat(p.ppg)||0)  * m;
+    sumApg  += (parseFloat(p.apg)||0)  * m;
+    sumFta  += (parseFloat(p.fta)||0)  * m;
+    sumTov  += (parseFloat(p.tovs)||0) * m;
+    sumTpa  += (parseFloat(p.tpa)||0)  * m;
+    sumFga  += (parseFloat(p.fga)||0)  * m;
+    sum3pm  += (parseFloat(p.tpm)||0)  * m;
+    sumFgm  += (parseFloat(p.fgm)||0)  * m;
   });
-  const wApg = totMpg>0 ? totApg/totMpg : 0;
-  const ftaRate = totMpg>0 ? totFta/totMpg : 0;
-  const tovRate = totMpg>0 ? totTov/totMpg : 0;
-  const tpaRate = totMpg>0 && totFga>0 ? totTpa/totFga : 0;
+  const div = v => sumMpg > 0 ? v/sumMpg : 0;
+  const teamPpg   = div(sumPpg);
+  const teamApg   = div(sumApg);
+  const ftaRate   = div(sumFta);
+  const tovRate   = div(sumTov);
+  const tpaRate   = sumFga > 0 ? sumTpa/sumFga : 0;   // 3PA% of all shots
+  const efgPct    = sumFga > 0 ? (sumFgm + 0.5*sum3pm)/sumFga : 0;
 
-  // Championship creation formula (improved)
-  const creationRaw = (wApg*0.35) + (ftaRate*18) + (tpaRate*25) - (tovRate*8);
-  const creationScore = clamp(norm(creationRaw, 1, 12), 0, 100);
+  // Creation: ability to generate shots independently
+  // Rewards assists, getting to the line, 3P shot creation; penalizes turnovers
+  const creationRaw = teamApg*2.0 + ftaRate*6 + tpaRate*15 - tovRate*4;
 
-  const spacingScore  = clamp(norm(prof.spacingScore||0,  10, 60), 0, 100);
-  const rimPressure   = clamp(norm(prof.rimPressure||ftaRate*10, 5, 35), 0, 100);
-  const offEff        = clamp(norm(rats.ortg||100, 95, 120), 0, 100);
-  const ballSec       = clamp(100 - norm(tovRate, 1, 5), 0, 100);
+  const spacingRaw  = prof.spacingScore  || 0;
+  const ortgRaw     = rats.ortg          || 100;
 
-  const offCeiling = (creationScore*0.30 + spacingScore*0.20 + rimPressure*0.20 + offEff*0.20 + ballSec*0.10);
+  // FT shooting quality (clutch margin)
+  let sumFtPct=0, ftPctN=0;
+  rotation.forEach(p => {
+    if(parseFloat(p.fta||0) >= 1){ sumFtPct += parseFloat(p.ft_pct||70); ftPctN++; }
+  });
+  const ftPct = ftPctN > 0 ? sumFtPct/ftPctN : 70;
 
-  // ── 3. DEFENSIVE CEILING (20%) ─────────────────────────
-  // Rim protection, athleticism proxy (BLK+length), perimeter defense
-  let totBlk=0, totStl=0, totRpg=0, totHeight=0, heightCount=0;
-  rotation.forEach(p=>{
-    const m=parseFloat(p.mpg)||0, mpgW=m/40;
-    totBlk += (parseFloat(p.blk)||0)*mpgW;
-    totStl += (parseFloat(p.stl)||0)*mpgW;
-    totRpg += ((parseFloat(p.oreb)||0)+(parseFloat(p.dreb)||0))*mpgW;
-    // Height proxy from height string "6-10" → inches
+  // ── DEFENSE ───────────────────────────────────────────
+  let sumBlk=0, sumStl=0, sumDreb=0, sumOreb=0, hTotal=0, hCount=0;
+  rotation.forEach(p => {
+    const m = parseFloat(p.mpg)||0, w = m/40;
+    sumBlk  += (parseFloat(p.blk)||0)  * w;
+    sumStl  += (parseFloat(p.stl)||0)  * w;
+    sumDreb += (parseFloat(p.dreb)||0) * w;
+    sumOreb += (parseFloat(p.oreb)||0) * w;
     if(p.height){
-      const [ft,inc]=(p.height||'6-4').split('-').map(Number);
-      if(!isNaN(ft)){ totHeight+=(ft*12+(inc||0)); heightCount++; }
+      const parts = (p.height||'').split('-').map(Number);
+      if(!isNaN(parts[0])){ hTotal += parts[0]*12+(parts[1]||0); hCount++; }
     }
   });
-  const avgHeight  = heightCount>0 ? totHeight/heightCount : 76;
-  const rimProt    = clamp(norm(totBlk, 0.3, 2.5), 0, 100);
-  const poaDef     = clamp(norm(totStl, 0.5, 2.0), 0, 100);
-  const lengthBon  = clamp(norm(avgHeight, 74, 81), 0, 100); // taller = more length
-  const rebDef     = clamp(norm(prof.reboundingScore||totRpg, 5, 25), 0, 100);
-  const drtgScore  = clamp(norm(120-(rats.drtg||112), 0, 25), 0, 100); // lower DRtg = better
-  const tovCreat   = clamp(norm(totStl*1.5+totBlk, 0.5, 3.5), 0, 100);
+  const rimProt  = sumBlk;                             // BLK per 40 min weighted
+  const periDef  = sumStl;                             // STL per 40 min weighted
+  const avgHeight= hCount > 0 ? hTotal/hCount : 76;   // avg inches
+  const rebTotal = sumDreb + sumOreb*1.3;              // weighted rebounds
+  const drtgRaw  = rats.drtg || 108;
 
-  const defCeiling = (rimProt*0.25 + poaDef*0.20 + lengthBon*0.15 + rebDef*0.15 + drtgScore*0.15 + tovCreat*0.10);
+  // Guard quality (elite guards win in March)
+  const guards = raw.filter(p => ['PG','SG','CG'].includes(p.position) && parseFloat(p.tdc_grade) > 0);
+  const guardGrade = guards.length > 0
+    ? guards.reduce((s,p) => s+parseFloat(p.tdc_grade), 0) / guards.length : 68;
 
-  // ── 4. SYNERGY (10%) ──────────────────────────────────
-  // Positive: elite spacer + creator, rim runner + creator, multi-creators
-  // Negative: no shooters, ball-dominant overlap, no rim pressure
-  const shooters = rotation.filter(p=>parseFloat(p.tp_pct||0)>=36 && parseFloat(p.tpa||0)>=2).length;
-  const creators = rotation.filter(p=>parseFloat(p.apg||0)>=2.5 || parseFloat(p.ppg||0)>=14).length;
-  const rimRun   = rotation.filter(p=>['C','PF'].includes(p.position) && parseFloat(p.fg_pct||0)>=52).length;
-  const nonShoot = rotation.filter(p=>parseFloat(p.tp_pct||0)<30 && parseFloat(p.tpa||0)<1).length;
+  // Big men length/size
+  const bigs = raw.filter(p => ['PF','C'].includes(p.position) && parseFloat(p.tdc_grade) > 0);
+  const bigGrade = bigs.length > 0
+    ? bigs.reduce((s,p) => s+parseFloat(p.tdc_grade), 0) / bigs.length : 68;
 
-  let synergy = 50;
-  synergy += Math.min(shooters, 3) * 8;        // spacing
-  synergy += Math.min(creators, 2) * 7;        // creation depth
-  synergy += rimRun >= 1 ? 6 : 0;              // rim runner
-  synergy += (shooters >= 2 && creators >= 1) ? 8 : 0; // key combo
-  synergy -= Math.min(nonShoot, 3) * 7;        // non-shooters penalty
-  const synergyScore = clamp(synergy, 0, 100);
-
-  // ── 5. EXPERIENCE/CONTINUITY (5%) ─────────────────────
-  const classMap = {fr:1,rfr:1.2,so:2.5,rso:2.8,jr:3.5,rjr:3.8,sr:4.5,gr:5,unk:2};
-  let expTotal=0, expCount=0;
-  rotation.forEach(p=>{
-    const yr=(p.yr||p.class_year||'').toLowerCase().replace(/[^a-z]/g,'');
-    const key=Object.keys(classMap).find(k=>yr.includes(k))||'unk';
-    expTotal+=classMap[key]; expCount++;
+  // ── EXPERIENCE ────────────────────────────────────────
+  const yrMap = {fr:1,rfr:1.2,'r-fr':1.2,so:2.5,rso:2.8,'r-so':2.8,jr:3.5,rjr:3.8,'r-jr':3.8,sr:4.5,gr:5};
+  let expSum=0, expN=0;
+  rotation.forEach(p => {
+    const yr = (p.yr||p.class_year||'').toLowerCase().replace(/[.\s]/g,'');
+    const val = Object.entries(yrMap).find(([k]) => yr.includes(k))?.[1] || 2;
+    expSum += val; expN++;
   });
-  const avgExp = expCount>0 ? expTotal/expCount : 2.5;
-  const expScore = clamp(norm(avgExp, 1.5, 4.5), 0, 100);
+  const expRaw = expN > 0 ? expSum/expN : 2.5;
 
-  // ── 6. VARIANCE ADJUSTMENT ────────────────────────────
-  // High variance = wider ceiling/floor, doesn't kill overall score
-  const varRaw   = prof.variance||0;
-  const varScore = clamp(norm(varRaw, 0, 10), 0, 100);
-  // Floor = penalized by variance; ceiling = boosted by talent
-  const floor   = clamp(talentFinal*0.5 + offCeiling*0.25 + defCeiling*0.25 - varScore*0.15, 0, 100);
-  const ceiling = clamp(talentFinal*0.4 + offCeiling*0.3 + defCeiling*0.2 + starBonus*0.8 + synergyScore*0.1, 0, 100);
+  // ── SYNERGY ───────────────────────────────────────────
+  // Positive/negative roster construction signals
+  const realShooters  = rotation.filter(p => parseFloat(p.tp_pct||0)>=35 && parseFloat(p.tpa||0)>=2).length;
+  const realCreators  = rotation.filter(p => parseFloat(p.apg||0)>=3 || (parseFloat(p.ppg||0)>=15 && parseFloat(p.apg||0)>=1.5)).length;
+  const rimRunners    = rotation.filter(p => ['C','PF'].includes(p.position) && parseFloat(p.fg_pct||0)>=53).length;
+  const nonShooters   = rotation.filter(p => parseFloat(p.tp_pct||0)<28 && parseFloat(p.tpa||0)<0.8).length;
+  const ballHogs      = rotation.filter(p => parseFloat(p.tovs||0)>2.5 && parseFloat(p.apg||0)<1.5).length;
+  const synergyRaw    = realShooters*3 + realCreators*4 + rimRunners*2
+                      + (realShooters>=2 && realCreators>=1 ? 5 : 0)
+                      - nonShooters*2 - ballHogs*2;
 
-  // ── 7. TOURNAMENT TRANSLATION (5%) ────────────────────
-  // Elite guard play, halfcourt creation, FT shooting, defense
-  let totFtPct=0, ftPctCount=0;
-  rotation.forEach(p=>{ if(parseFloat(p.fta||0)>=1){ totFtPct+=parseFloat(p.ft_pct||70); ftPctCount++; } });
-  const ftPct = ftPctCount>0 ? totFtPct/ftPctCount : 70;
-  const guardGrade = raw.filter(p=>['PG','SG','CG'].includes(p.position))
-    .reduce((s,p)=>s+parseFloat(p.tdc_grade||70),0)/Math.max(1,raw.filter(p=>['PG','SG','CG'].includes(p.position)).length);
-
-  const tournScore = clamp(
-    norm(guardGrade,65,92)*0.30 +
-    norm(ftPct,65,85)*0.25 +
-    creationScore*0.25 +
-    drtgScore*0.20
-  , 0, 100);
-
-  // ── FINAL CHAMPIONSHIP EQUITY SCORE ───────────────────
-  // Weights (no coaching — redistributed to talent + synergy)
-  const champScore = clamp(
-    talentFinal  * 0.28 +
-    offCeiling   * 0.20 +
-    defCeiling   * 0.20 +
-    synergyScore * 0.12 +
-    expScore     * 0.05 +
-    tournScore   * 0.05 +
-    (ceiling*0.10)
-  , 0, 100);
+  // ── VARIANCE ──────────────────────────────────────────
+  const varianceRaw = prof.variance || 0;
+  const freshmen = raw.filter(p => {
+    const yr=(p.yr||p.class_year||'').toLowerCase();
+    return yr.includes('fr') || yr.includes('r-fr');
+  }).length;
 
   return {
-    champScore: Math.round(champScore*10)/10,
-    talentScore: Math.round(talentFinal),
-    offCeiling:  Math.round(offCeiling),
-    defCeiling:  Math.round(defCeiling),
-    synergy:     Math.round(synergyScore),
-    ceiling:     Math.round(ceiling),
-    floor:       Math.round(floor),
-    stars:       stars.length,
+    // Talent
+    topPlayer, startingFive, benchDepth, stars90, stars85,
+    // Offense
+    teamPpg, creationRaw, spacingRaw, ortgRaw, ftaRate, efgPct, ftPct,
+    // Defense
+    rimProt, periDef, avgHeight, rebTotal, drtgRaw,
+    // Position quality
+    guardGrade, bigGrade,
+    // Experience
+    expRaw,
+    // Synergy
+    synergyRaw,
+    // Variance
+    varianceRaw, freshmen,
+  };
+}
+
+// Percentile rank: where does value v sit in array vals (0=worst, 100=best)
+function pctRank(v, vals, higherIsBetter=true){
+  if(vals.length < 2) return 50;
+  const sorted = [...vals].sort((a,b) => a-b);
+  let lo=sorted[0], hi=sorted[sorted.length-1];
+  if(hi === lo) return 50;
+  const pct = (v - lo) / (hi - lo) * 100;
+  return Math.max(0, Math.min(100, higherIsBetter ? pct : 100-pct));
+}
+
+function buildChampEquityScores(allRatings){
+  // Pass 1: extract raw signals
+  allRatings.forEach(t => { t._sigs = extractRawSignals(t); });
+
+  // Pass 2: build percentile arrays for each signal
+  const field = key => allRatings.map(t => t._sigs[key]);
+
+  // Pass 3: score each team using percentile ranks
+  allRatings.forEach(t => {
+    const s = t._sigs;
+    const pct = (key, higher=true) => pctRank(s[key], field(key), higher);
+
+    // ── TALENT (35%) ──
+    // Top player is king; starting 5 matters most; bench is bonus
+    const talentScore =
+      pct('topPlayer')     * 0.35 +
+      pct('startingFive')  * 0.40 +
+      pct('benchDepth')    * 0.15 +
+      pct('guardGrade')    * 0.05 +
+      pct('bigGrade')      * 0.05;
+
+    // Star bonus (hard bonus on top — elite players are legitimately special)
+    const starBonus = s.stars90 >= 2 ? 15 : s.stars90 === 1 ? 8 : s.stars85 >= 2 ? 4 : 0;
+    const talentFinal = Math.min(100, talentScore + starBonus);
+
+    // ── OFFENSE (22%) ──
+    const offScore =
+      pct('creationRaw')   * 0.30 +
+      pct('spacingRaw')    * 0.20 +
+      pct('ortgRaw')       * 0.20 +
+      pct('efgPct')        * 0.15 +
+      pct('ftaRate')       * 0.10 +
+      pct('ftPct')         * 0.05;
+
+    // ── DEFENSE (20%) ──
+    const defScore =
+      pct('drtgRaw', false) * 0.25 +   // lower DRtg = better
+      pct('rimProt')        * 0.20 +
+      pct('periDef')        * 0.20 +
+      pct('avgHeight')      * 0.15 +
+      pct('rebTotal')       * 0.20;
+
+    // ── SYNERGY (10%) ──
+    const synScore  = pct('synergyRaw');
+
+    // ── EXPERIENCE (5%) ──
+    const expScore  = pct('expRaw');
+
+    // ── GUARD QUALITY BONUS — March multiplier ──
+    const guardBonus = pct('guardGrade') > 75 ? 5 : pct('guardGrade') > 55 ? 2 : 0;
+
+    // ── FINAL SCORE ──
+    const champScore = Math.min(100, Math.round(
+      (talentFinal  * 0.35 +
+       offScore     * 0.22 +
+       defScore     * 0.20 +
+       synScore     * 0.10 +
+       expScore     * 0.05 +
+       guardBonus   * 0.08) * 10
+    ) / 10);
+
+    // ── CEILING / FLOOR ──
+    // Ceiling: best-case — driven by star power and offensive upside
+    const ceiling = Math.min(100, Math.round(
+      talentFinal*0.50 + offScore*0.30 + defScore*0.20 + starBonus*0.5
+    ));
+    // Floor: worst-case — driven by experience, consistency (penalize variance + freshmen)
+    const varPenalty = pctRank(s.varianceRaw, field('varianceRaw'), false); // lower variance = better floor
+    const floor = Math.max(0, Math.round(
+      talentFinal*0.35 + offScore*0.20 + defScore*0.20 + expScore*0.15 + varPenalty*0.10
+    ));
+
+    t.equity = {
+      champScore,
+      talentScore: Math.round(talentFinal),
+      offCeiling:  Math.round(offScore),
+      defCeiling:  Math.round(defScore),
+      synergy:     Math.round(synScore),
+      ceiling,
+      floor,
+      stars:       s.stars90,
+    };
+  });
+}
+
+
+// ── OWN METRICS ENGINE ────────────────────────────────────────
+// All metrics computed from projected per-player stats.
+// Per-40-min weighted averages used throughout for scale consistency.
+function computeTeamMetrics(proj, raw){
+  const rot = proj.filter(p => parseFloat(p.mpg||0) >= 4 && p.name && p.name !== '—');
+  if(rot.length < 3) return null;
+
+  const r1  = v => Math.round(v*10)/10;
+  const r2  = v => Math.round(v*100)/100;
+  const pct1= v => Math.round(v*10)/10; // percentage, 1 dec
+
+  // Minutes-weighted average
+  const sumMpg = rot.reduce((s,p)=>s+(parseFloat(p.mpg)||0),0);
+  const wavg = fn => sumMpg>0 ? rot.reduce((s,p)=>s+fn(p)*(parseFloat(p.mpg)||0),0)/sumMpg : 0;
+  // Per-40-min weighted sum (like team totals per 40 team minutes)
+  const wsum = fn => rot.reduce((s,p)=>s+fn(p)*((parseFloat(p.mpg)||0)/40),0);
+
+  const get = (p,k) => parseFloat(p[k]||0);
+
+  // ── RAW TOTALS ────────────────────────────────────────────
+  const ppg   = wsum(p=>get(p,'ppg'));
+  const rpg   = wsum(p=>get(p,'oreb')+get(p,'dreb'));
+  const apg   = wsum(p=>get(p,'apg'));
+  const fgm   = wsum(p=>get(p,'fgm'));
+  const fga   = wsum(p=>get(p,'fga'));
+  const tpm   = wsum(p=>get(p,'tpm'));
+  const tpa   = wsum(p=>get(p,'tpa'));
+  const ftm   = wsum(p=>get(p,'ftm'));
+  const fta   = wsum(p=>get(p,'fta'));
+  const oreb  = wsum(p=>get(p,'oreb'));
+  const dreb  = wsum(p=>get(p,'dreb'));
+  const stl   = wsum(p=>get(p,'stl'));
+  const blk   = wsum(p=>get(p,'blk'));
+  const tov   = wsum(p=>get(p,'tovs'));
+
+  // ── SHOOTING EFFICIENCY ───────────────────────────────────
+  const fgPct   = fga>0 ? fgm/fga*100 : 0;             // FG%
+  const tpPct   = tpa>0 ? tpm/tpa*100 : 0;             // 3P%
+  const ftPct   = fta>0 ? ftm/fta*100 : 0;             // FT%
+  const efgPct  = fga>0 ? (fgm+0.5*tpm)/fga*100 : 0;  // eFG%
+  const tsPct   = (2*(ppg))>0 ? ppg/(2*(fga+0.44*fta))*100 : 0; // TS%
+  // Mid-range: all FGA minus 3PA minus layups (rough: non-3, non-paint)
+  // Approximate paint shots as FGA where FG% > 58 contribution — use FGM-FTline proxy
+  const twoPa   = fga - tpa;
+  const twoPm   = fgm - tpm;
+  const twoPpct = twoPa>0 ? twoPm/twoPa*100 : 0;
+
+  // ── RATE STATS (per 100 possessions proxy) ────────────────
+  // Possession estimate: FGA + 0.44*FTA + TOV - OREB
+  const poss    = Math.max(1, fga + 0.44*fta + tov - oreb);
+  const astRate = poss>0 ? apg/fgm*100 : 0;            // AST% of made shots
+  const tovRate = poss>0 ? tov/poss*100 : 0;           // TOV%
+  const orebPct = (oreb+dreb)>0 ? oreb/(oreb+dreb)*100: 0; // OREB%
+  const ftaRate = fga>0 ? fta/fga*100 : 0;             // FTA per FGA (FTAR)
+  const tpaRate = fga>0 ? tpa/fga*100 : 0;             // 3PA Rate (%3PA)
+  const rim2Rate= fga>0 ? (fga-tpa)/fga*100 : 0;       // 2PA Rate
+
+  // ── SCORING MIX ───────────────────────────────────────────
+  const pts3    = tpm*3;
+  const pts2    = twoPm*2;
+  const ptsFt   = ftm;
+  const pct3    = ppg>0 ? pts3/ppg*100 : 0;            // % pts from 3
+  const pct2    = ppg>0 ? pts2/ppg*100 : 0;            // % pts from 2
+  const pctFt   = ppg>0 ? ptsFt/ppg*100 : 0;           // % pts from FT
+
+  // ── OFFENSIVE EFFICIENCY ─────────────────────────────────
+  // ORtg per 100 possessions
+  const ortg = poss>0 ? r1(ppg/poss*100) : 100;
+
+  // Points per shot (PPS)
+  const ppsAll  = fga>0 ? ppg/fga : 0;                 // overall PPS
+  const pps2    = twoPa>0 ? pts2/twoPa : 0;            // 2P PPS
+  const pps3    = tpa>0 ? pts3/tpa : 0;                // 3P PPS
+
+  // Creation quality: APG + FTA rate + scoring without turnovers
+  const creationScore = r1(apg*1.8 + fta*0.7 - tov*1.2 + ppg*0.08);
+
+  // ── SPACING ───────────────────────────────────────────────
+  // Weighted 3P% × √3PA attempts (volume-adjusted quality)
+  const spacingScore = r1(rot.reduce((s,p)=>{
+    const a=get(p,'tpa'), pct=get(p,'tp_pct')/100;
+    if(a<0.3) return s;
+    return s + pct*Math.sqrt(a)*((parseFloat(p.mpg)||0)/40);
+  },0)*20);
+
+  // ── DEFENSE ───────────────────────────────────────────────
+  // Rim protection: BLK rate
+  const rimProt   = r1(blk*2.8 + stl*0.5);
+  // Perimeter: STL rate
+  const periDef   = r1(stl*2.2);
+  // Defensive rebounding rate
+  const drebRate  = (dreb+oreb)>0 ? dreb/(dreb+oreb)*100 : 0;
+  const defensiveScore = r1(blk*2.5 + stl*2.0 + dreb*0.4);
+
+  // DRtg estimate
+  const avgBigH = (() => {
+    const bigs=rot.filter(p=>['C','PF'].includes(p.position));
+    if(!bigs.length) return 78;
+    return bigs.reduce((s,p)=>{const pts=(p.height||'6-8').split('-').map(Number);return s+(pts[0]*12+(pts[1]||0));},0)/bigs.length;
+  })();
+  const drtg = r1(103 - (blk-0.8)*2.5 - (stl-1.0)*2.0 - (dreb-6.0)*0.4 - (avgBigH-78)*0.15);
+
+  // ── REBOUNDING ───────────────────────────────────────────
+  const reboundingScore = r1((dreb+oreb*1.25)*2.5);
+
+  // ── HELIOCENTRIC ─────────────────────────────────────────
+  const byPpg = [...rot].sort((a,b)=>get(b,'ppg')-get(a,'ppg'));
+  const top1  = get(byPpg[0],'ppg'), top2 = get(byPpg[1],'ppg');
+  const shareTop1 = ppg>0 ? top1/ppg : 0;
+  const heliocentricity = (shareTop1>0.38 || (shareTop1>0.32 && top1-top2>5)) ? 1 : 0;
+
+  // ── TURNOVER RISK ─────────────────────────────────────────
+  const turnoverRisk = r1(tov);
+
+  // ── NET / PACE ───────────────────────────────────────────
+  const net  = r1(ortg - drtg);
+  const pace = r1(68 + apg*0.5 - tov*0.3);
+
+  return {
+    // Summary
+    net, ortg, drtg, pace, heliocentricity,
+
+    // Offensive stats
+    ppg:  r1(ppg),  rpg: r1(rpg), apg: r1(apg),
+    fgm:  r1(fgm),  fga: r1(fga), fgPct: pct1(fgPct),
+    tpm:  r1(tpm),  tpa: r1(tpa), tpPct: pct1(tpPct),
+    ftm:  r1(ftm),  fta: r1(fta), ftPct: pct1(ftPct),
+    efgPct: pct1(efgPct), tsPct: pct1(tsPct),
+    twoPpct: pct1(twoPpct),
+
+    // Rates
+    ftaRate: pct1(ftaRate), tpaRate: pct1(tpaRate), rim2Rate: pct1(rim2Rate),
+    astRate: pct1(astRate), tovRate: pct1(tovRate), orebPct: pct1(orebPct),
+
+    // Scoring mix
+    pct3: pct1(pct3), pct2: pct1(pct2), pctFt: pct1(pctFt),
+
+    // Efficiency
+    ppsAll: r2(ppsAll), pps2: r2(pps2), pps3: r2(pps3),
+
+    // Defensive
+    stl: r1(stl), blk: r1(blk),
+    oreb: r1(oreb), dreb: r1(dreb),
+    drebRate: pct1(drebRate),
+    rimProt, periDef, defensiveScore, reboundingScore,
+
+    // Composite scores
+    creationScore, spacingScore, turnoverRisk,
+    variance: 0,
+    rimPressure: r1(fta*0.7),
   };
 }
 
@@ -553,7 +792,34 @@ function applyFilters(){
       case 'talent':     av=a.equity?.talentScore||0; bv=b.equity?.talentScore||0; break;
       case 'net':        av=r.net;             bv=s.net; break;
       case 'ortg':       av=r.ortg;            bv=s.ortg; break;
-      case 'drtg':       av=-r.drtg;           bv=-s.drtg; break;
+      case 'drtg':       av=-(r.drtg||105);    bv=-(s.drtg||105); break;
+      // Offense cols
+      case 'ppg':        av=p.ppg;             bv=q2.ppg; break;
+      case 'efgPct':     av=p.efgPct;          bv=q2.efgPct; break;
+      case 'tsPct':      av=p.tsPct;           bv=q2.tsPct; break;
+      case 'ftaRate':    av=p.ftaRate;         bv=q2.ftaRate; break;
+      case 'ftPct':      av=p.ftPct;           bv=q2.ftPct; break;
+      case 'tpaRate':    av=p.tpaRate;         bv=q2.tpaRate; break;
+      case 'tpPct':      av=p.tpPct;           bv=q2.tpPct; break;
+      case 'twoPpct':    av=p.twoPpct;         bv=q2.twoPpct; break;
+      case 'astRate':    av=p.astRate;         bv=q2.astRate; break;
+      case 'apg':        av=p.apg;             bv=q2.apg; break;
+      case 'tovRate':    av=-(p.tovRate||20);  bv=-(q2.tovRate||20); break;
+      case 'orebPct':    av=p.orebPct;         bv=q2.orebPct; break;
+      case 'ppsAll':     av=p.ppsAll;          bv=q2.ppsAll; break;
+      case 'pct3':       av=p.pct3;            bv=q2.pct3; break;
+      case 'pctFt':      av=p.pctFt;           bv=q2.pctFt; break;
+      // Defense cols
+      case 'defensiveScore': av=p.defensiveScore; bv=q2.defensiveScore; break;
+      case 'blk':        av=p.blk;             bv=q2.blk; break;
+      case 'stl':        av=p.stl;             bv=q2.stl; break;
+      case 'dreb':       av=p.dreb;            bv=q2.dreb; break;
+      case 'drebRate':   av=p.drebRate;        bv=q2.drebRate; break;
+      case 'rimProt':    av=p.rimProt;         bv=q2.rimProt; break;
+      case 'periDef':    av=p.periDef;         bv=q2.periDef; break;
+      case 'reboundingScore': av=p.reboundingScore; bv=q2.reboundingScore; break;
+      case 'turnoverRisk': av=p.turnoverRisk;  bv=q2.turnoverRisk; break;
+      // Legacy
       case 'spacing':    av=p.spacingScore;    bv=q2.spacingScore; break;
       case 'creation':   av=p.creationScore;   bv=q2.creationScore; break;
       case 'defense':    av=p.defensiveScore;  bv=q2.defensiveScore; break;
@@ -575,13 +841,21 @@ function applyFilters(){
   renderTable(list);
 }
 
-function setSort(col){
-  if(sortCol===col) sortDir*=-1; else{sortCol=col;sortDir=1;}
-  const selMap={'champ':'champ','talent':'talent','spacing':'spacing','creation':'creation','defense':'defense','rebounding':'rebounding','net':'net','ortg':'ortg','drtg':'drtg'};
-  document.getElementById('sortSel').value=selMap[col]||'champ';
+function setView(v, btn){
+  window._analyticsView = v;
+  document.querySelectorAll('[id^="view-"]').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  if(v==='champ')  { sortCol='champ'; sortDir=1; }
+  if(v==='offense'){ sortCol='ortg';  sortDir=1; }
+  if(v==='defense'){ sortCol='drtg';  sortDir=-1; }
   applyFilters();
 }
-function onSortSel(v){ sortCol=v; sortDir=1; applyFilters(); }
+
+function setSort(col){
+  if(sortCol===col) sortDir*=-1; else{sortCol=col; sortDir=col==='drtg'?-1:1;}
+  applyFilters();
+}
+function onSortSel(v){ sortCol=v; sortDir=v==='drtg'?-1:1; applyFilters(); }
 
 // ── TABLE ─────────────────────────────────────────────
 function f1(v){ return v!=null?Number(v).toFixed(1):'—'; }
@@ -593,220 +867,176 @@ function renderTable(list){
     return;
   }
 
-  function thh(col,label,cls=''){
+  // Current view tab: 'champ' | 'offense' | 'defense'
+  const view = window._analyticsView || 'champ';
+
+  const f1  = v => v==null?'—':Number(v).toFixed(1);
+  const f2  = v => v==null?'—':Number(v).toFixed(2);
+  const fp  = v => v==null?'—':Number(v).toFixed(1)+'%';
+
+  function thh(col,label,title=''){
     const active = sortCol===col;
-    return `<th class="${active?'sorted':''} ${cls}" onclick="setSort('${col}')">${label}</th>`;
+    const dir    = active ? (sortDir>0?'▲':'▼') : '';
+    const tip    = title ? ` title="${title}"` : '';
+    return `<th class="${active?'sorted':''}"${tip} onclick="setSort('${col}')" style="cursor:pointer;white-space:nowrap;">${label}${dir?` <span style="font-size:9px;">${dir}</span>`:''}${!active?'<span style="opacity:.3;font-size:9px;"> ▼</span>':''}</th>`;
   }
 
-  const rows = list.map((t,i)=>{
-    const r=t.ratings, p=t.profile;
-    const net=r.net||0;
-    const netCls=net>0.05?'net-pos':net<-0.05?'net-neg':'net-zero';
-    const netStr=(net>0?'+':'')+f1(net);
-    const helio = p.heliocentricity>0 ? '<span title="Heliocentric roster" style="color:var(--accent);">★</span>' : '';
-    const rank = t._globalRank || (i+1);
-    const eq = t.equity || {};
-    const champColor = eq.champScore>=75?'#0a3fd4':eq.champScore>=65?'#2c6ef2':eq.champScore>=55?'#4a84f4':'var(--text3)';
-    const starStr = eq.stars>=2?'★★':eq.stars===1?'★':'';
-    return `<tr>
-      <td class="l"><span class="rank-num">${rank}</span></td>
-      <td class="l">
-        <span class="team-name-cell" onclick="location='team.html?team=${encodeURIComponent(t.name)}'">${t.name}${starStr?` <span style="color:#c8a020;font-size:10px;">${starStr}</span>`:''}</span>
-      </td>
-      <td class="l"><span class="conf-pill">${t.conf||'—'}</span></td>
-      <td><strong style="color:${champColor};font-size:15px;">${Math.round(eq.champScore||0)}</strong></td>
-      <td>${Math.round(eq.talentScore||0)}</td>
-      <td style="color:#1a8c3a;font-weight:600;">${Math.round(eq.ceiling||0)}</td>
-      <td style="color:#cc2200;font-weight:600;">${Math.round(eq.floor||0)}</td>
-      <td><span class="${netCls}">${netStr}</span></td>
-      <td>${f1(r.ortg)}</td>
-      <td>${f1(r.drtg)}</td>
-      <td>${f2(p.spacingScore)}</td>
-      <td>${f2(p.creationScore)}</td>
-      <td>${f2(p.defensiveScore)}</td>
-      <td>${f2(p.reboundingScore)}</td>
-      <td>${f1(p.turnoverRisk)}</td>
-      <td>${helio}</td>
+  // ── VIEW: CHAMPIONSHIP EQUITY ──────────────────────────────
+  if(view==='champ'){
+    const header = `<tr>
+      <th style="width:28px;">#</th>
+      <th class="l" style="min-width:160px;">Team</th>
+      <th class="l" style="width:50px;">Conf</th>
+      ${thh('champ','⚡ Equity','Championship Equity Score')}
+      ${thh('talent','Talent','Grade-weighted roster talent')}
+      <th title="Best-case outcome">Ceil.</th>
+      <th title="Worst-case outcome">Floor</th>
+      ${thh('net','Net Rtg','ORtg − DRtg')}
+      ${thh('ortg','ORtg','Offensive Rating per 100 poss.')}
+      ${thh('drtg','DRtg','Defensive Rating per 100 poss.')}
+      ${thh('spacing','Spacing','3P% × √3PA weighted')}
+      ${thh('creation','Creation','APG + FTA − TOV composite')}
+      ${thh('defense','Defense','BLK + STL + DReb composite')}
+      ${thh('rebounding','Reb.','Weighted rebounds score')}
+      <th title="Turnovers per 40 min">TOV</th>
+      <th title="Heliocentric scorer">Helio</th>
     </tr>`;
-  }).join('');
 
-  document.getElementById('tableWrap').innerHTML = `<div class="tbl-scroll"><table class="tbl">
-    <thead><tr>
-      <th class="l" style="width:28px;">#</th>
-      <th class="l" style="min-width:150px;">Team</th>
-      <th class="l">Conf</th>
-      ${thh('champ','⚡ C.Equity')}
-      ${thh('talent','Talent')}
-      <th>Ceil.</th>
-      <th>Floor</th>
-      ${thh('net','Net Rtg')}
-      ${thh('ortg','ORtg')}
-      ${thh('drtg','DRtg')}
-      ${thh('spacing','Spacing')}
-      ${thh('creation','Creation')}
-      ${thh('defense','Defense')}
-      ${thh('rebounding','Reb')}
-      <th>TOV Risk</th>
-      <th>Helio</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table></div>`;
-}
+    const rows = list.map((t,i)=>{
+      const r=t.ratings||{}, p=t.profile||{}, eq=t.equity||{};
+      const net=r.net||0;
+      const netColor=net>5?'#1a8c3a':net>0?'#5aaa5a':net>-5?'#cc7700':'#cc2200';
+      const champColor=eq.champScore>=75?'#0a3fd4':eq.champScore>=60?'#2c6ef2':'var(--text3)';
+      const stars=eq.stars>=2?'★★':eq.stars===1?'★':'';
+      const rank=t._globalRank||(i+1);
+      return `<tr>
+        <td style="color:var(--text3);font-size:12px;text-align:center;">${rank}</td>
+        <td class="l"><span class="team-link" onclick="location='team.html?team=${encodeURIComponent(t.name)}'">${t.name}${stars?` <span style="color:#c8a020;font-size:9px;">${stars}</span>`:''}</span></td>
+        <td class="l"><span class="conf-pill">${t.conf||'—'}</span></td>
+        <td style="text-align:center;"><strong style="color:${champColor};font-size:16px;">${eq.champScore||'—'}</strong></td>
+        <td style="text-align:center;">${eq.talentScore||'—'}</td>
+        <td style="color:#1a8c3a;text-align:center;font-weight:600;">${eq.ceiling||'—'}</td>
+        <td style="color:#cc2200;text-align:center;font-weight:600;">${eq.floor||'—'}</td>
+        <td style="text-align:center;font-weight:700;color:${netColor};">${net>0?'+':''}${f1(net)}</td>
+        <td style="text-align:center;">${f1(r.ortg)}</td>
+        <td style="text-align:center;">${f1(r.drtg)}</td>
+        <td style="text-align:center;">${f1(p.spacingScore)}</td>
+        <td style="text-align:center;">${f1(p.creationScore)}</td>
+        <td style="text-align:center;">${f1(p.defensiveScore)}</td>
+        <td style="text-align:center;">${f1(p.reboundingScore)}</td>
+        <td style="text-align:center;">${f1(p.turnoverRisk)}</td>
+        <td style="text-align:center;">${p.heliocentricity?'★':''}</td>
+      </tr>`;
+    }).join('');
 
-// ── GAME SIMULATOR ────────────────────────────────────
-function runSim(){
-  const aName = document.getElementById('simA').value;
-  const bName = document.getElementById('simB').value;
-  if(!aName||!bName){ alert('Please select two teams.'); return; }
-  if(aName===bName){ alert('Select two different teams.'); return; }
-
-  const aRaw = playersByTeam[aName]||[];
-  const bRaw = playersByTeam[bName]||[];
-
-  let aProjRoster, bProjRoster;
-  try { aProjRoster = TDC.projectTeam(aRaw, teamRowsMap[aName]||{}); } catch(e){ aProjRoster=aRaw; }
-  try { bProjRoster = TDC.projectTeam(bRaw, teamRowsMap[bName]||{}); } catch(e){ bProjRoster=bRaw; }
-
-  let result;
-  try {
-    result = TDC.simulateGame(aName, aProjRoster, bName, bProjRoster);
-  } catch(e){
-    document.getElementById('simResult').innerHTML=`<div class="empty">Simulation error: ${e.message}</div>`;
-    document.getElementById('simResult').classList.add('show');
+    document.getElementById('tableWrap').innerHTML=`<div class="tbl-scroll"><table class="tbl"><thead>${header}</thead><tbody>${rows}</tbody></table></div>`;
     return;
   }
 
-  renderSimResult(result);
-}
+  // ── VIEW: OFFENSE ──────────────────────────────────────────
+  if(view==='offense'){
+    const header=`<tr>
+      <th style="width:28px;">#</th>
+      <th class="l" style="min-width:150px;">Team</th>
+      <th class="l">Conf</th>
+      ${thh('ppg','PPG','Points per game')}
+      ${thh('efgPct','eFG%','Effective FG% — values 3s')}
+      ${thh('tsPct','TS%','True Shooting % (incl. FTs)')}
+      ${thh('ortg','ORtg','Off. Rating per 100 poss.')}
+      ${thh('ftaRate','FTAR','FTA per FGA — gets to line')}
+      ${thh('ftPct','FT%','Free throw percentage')}
+      ${thh('tpaRate','3PAR','3-point attempt rate')}
+      ${thh('tpPct','3P%','3-point percentage')}
+      ${thh('twoPpct','2P%','2-point percentage')}
+      ${thh('astRate','AST%','% of made shots assisted')}
+      ${thh('apg','APG','Assists per game')}
+      ${thh('tovRate','TOV%','Turnover rate')}
+      ${thh('orebPct','OREB%','Offensive rebounding rate')}
+      ${thh('ppsAll','PPS','Points per shot attempt')}
+      ${thh('pct3','%3Pts','% of points from 3s')}
+      ${thh('pctFt','%FTPts','% of points from FTs')}
+    </tr>`;
 
-function renderSimResult(r){
-  const el = document.getElementById('simResult');
-  el.classList.add('show');
+    const rows=list.map((t,i)=>{
+      const p=t.profile||{}, r=t.ratings||{};
+      const rank=t._globalRank||(i+1);
+      const eFgColor=p.efgPct>=54?'#1a8c3a':p.efgPct>=51?'#5aaa5a':p.efgPct>=48?'inherit':'#cc7700';
+      return `<tr>
+        <td style="color:var(--text3);font-size:12px;text-align:center;">${rank}</td>
+        <td class="l"><span class="team-link" onclick="location='team.html?team=${encodeURIComponent(t.name)}'">${t.name}</span></td>
+        <td class="l"><span class="conf-pill">${t.conf||'—'}</span></td>
+        <td style="text-align:center;font-weight:700;">${f1(p.ppg)}</td>
+        <td style="text-align:center;color:${eFgColor};font-weight:600;">${fp(p.efgPct)}</td>
+        <td style="text-align:center;">${fp(p.tsPct)}</td>
+        <td style="text-align:center;font-weight:700;">${f1(r.ortg)}</td>
+        <td style="text-align:center;">${fp(p.ftaRate)}</td>
+        <td style="text-align:center;">${fp(p.ftPct)}</td>
+        <td style="text-align:center;">${fp(p.tpaRate)}</td>
+        <td style="text-align:center;">${fp(p.tpPct)}</td>
+        <td style="text-align:center;">${fp(p.twoPpct)}</td>
+        <td style="text-align:center;">${fp(p.astRate)}</td>
+        <td style="text-align:center;">${f1(p.apg)}</td>
+        <td style="text-align:center;color:${(p.tovRate||0)>18?'#cc2200':p.tovRate>15?'#cc7700':'inherit'}">${fp(p.tovRate)}</td>
+        <td style="text-align:center;">${fp(p.orebPct)}</td>
+        <td style="text-align:center;">${f2(p.ppsAll)}</td>
+        <td style="text-align:center;">${fp(p.pct3)}</td>
+        <td style="text-align:center;">${fp(p.pctFt)}</td>
+      </tr>`;
+    }).join('');
 
-  const aWin = r.scoreA > r.scoreB;
-  const A=r.ratingsA, B=r.ratingsB;
-  const pA=A.profile, pB=B.profile;
-
-  function statRow(label, av, bv, lowerBetter=false){
-    const aBetter = lowerBetter?(av<bv):(av>bv);
-    const bBetter = lowerBetter?(bv<av):(bv>av);
-    return `<div class="sim-stat-row">
-      <span class="sim-val-a ${aBetter?'val-better':bBetter?'val-worse':''}">${f1(av)}</span>
-      <span class="sim-stat-label">${label}</span>
-      <span class="sim-val-b ${bBetter?'val-better':aBetter?'val-worse':''}">${f1(bv)}</span>
-    </div>`;
+    document.getElementById('tableWrap').innerHTML=`<div class="tbl-scroll"><table class="tbl"><thead>${header}</thead><tbody>${rows}</tbody></table></div>`;
+    return;
   }
 
-  function matchupBar(label, av, bv){
-    const total=Math.max(0.01,av+bv);
-    const aPct=Math.round(av/total*100), bPct=100-aPct;
-    return `<div class="matchup-row">
-      <div class="matchup-row-top">
-        <span class="matchup-bar-label">${label}</span>
-        <span class="matchup-val-a">${f2(av)}</span>
-        <div class="matchup-bar-wrap">
-          <div class="matchup-bar-a" style="width:${aPct}%;"></div>
-          <div class="matchup-bar-b" style="width:${bPct}%;"></div>
-        </div>
-        <span class="matchup-val-b">${f2(bv)}</span>
-      </div>
-    </div>`;
+  // ── VIEW: DEFENSE ──────────────────────────────────────────
+  if(view==='defense'){
+    const header=`<tr>
+      <th style="width:28px;">#</th>
+      <th class="l" style="min-width:150px;">Team</th>
+      <th class="l">Conf</th>
+      ${thh('drtg','DRtg','Defensive Rating — lower=better')}
+      ${thh('net','Net Rtg','ORtg − DRtg')}
+      ${thh('defensiveScore','Def. Score','BLK+STL+DReb composite')}
+      ${thh('blk','BLK','Blocks per 40 min weighted')}
+      ${thh('stl','STL','Steals per 40 min weighted')}
+      ${thh('dreb','DReb','Defensive rebounds weighted')}
+      ${thh('drebRate','DReb%','Defensive rebounding rate')}
+      ${thh('orebPct','OREB% Alwd','Opp. OREB rate proxy')}
+      ${thh('rimProt','Rim Prot.','Rim protection score')}
+      ${thh('periDef','Peri. Def.','Perimeter defense score')}
+      ${thh('reboundingScore','Reb. Score','Total rebounding score')}
+      ${thh('turnoverRisk','TOV Risk','Turnovers per 40 min')}
+      ${thh('ftaRate','FTAR Alwd','FTA rate — foul rate proxy')}
+    </tr>`;
+
+    const rows=list.map((t,i)=>{
+      const p=t.profile||{}, r=t.ratings||{};
+      const rank=t._globalRank||(i+1);
+      const drtg=r.drtg||105;
+      const drtgColor=drtg<=99?'#1a8c3a':drtg<=102?'#5aaa5a':drtg<=106?'inherit':'#cc2200';
+      return `<tr>
+        <td style="color:var(--text3);font-size:12px;text-align:center;">${rank}</td>
+        <td class="l"><span class="team-link" onclick="location='team.html?team=${encodeURIComponent(t.name)}'">${t.name}</span></td>
+        <td class="l"><span class="conf-pill">${t.conf||'—'}</span></td>
+        <td style="text-align:center;font-weight:700;color:${drtgColor};">${f1(drtg)}</td>
+        <td style="text-align:center;">${f1(r.net||0)>0?'+':''}${f1(r.net)}</td>
+        <td style="text-align:center;font-weight:700;">${f1(p.defensiveScore)}</td>
+        <td style="text-align:center;">${f1(p.blk)}</td>
+        <td style="text-align:center;">${f1(p.stl)}</td>
+        <td style="text-align:center;">${f1(p.dreb)}</td>
+        <td style="text-align:center;">${fp(p.drebRate)}</td>
+        <td style="text-align:center;">${fp(p.orebPct?100-p.orebPct:null)}</td>
+        <td style="text-align:center;">${f1(p.rimProt)}</td>
+        <td style="text-align:center;">${f1(p.periDef)}</td>
+        <td style="text-align:center;">${f1(p.reboundingScore)}</td>
+        <td style="text-align:center;color:${(p.turnoverRisk||0)>3.5?'#1a8c3a':p.turnoverRisk>2.5?'inherit':'#cc2200'}">${f1(p.turnoverRisk)}</td>
+        <td style="text-align:center;">${fp(p.ftaRate)}</td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('tableWrap').innerHTML=`<div class="tbl-scroll"><table class="tbl"><thead>${header}</thead><tbody>${rows}</tbody></table></div>`;
+    return;
   }
-
-  const edgeNotes = [];
-  if(r.matchup.aAdj>0) edgeNotes.push(`<strong style="color:var(--blue);">${r.teamA}</strong> gets +${f1(r.matchup.aAdj)} pts from matchup edge`);
-  if(r.matchup.bAdj>0) edgeNotes.push(`<strong style="color:var(--accent);">${r.teamB}</strong> gets +${f1(r.matchup.bAdj)} pts from matchup edge`);
-
-  el.innerHTML = `
-    <div class="scoreboard">
-      <div class="sb-side">
-        <div class="sb-team">${r.teamA}</div>
-        <div class="sb-score ${aWin?'sb-win':'sb-loss'}">${r.scoreA}</div>
-        <div class="sb-prob">${r.winProbA}% win probability</div>
-      </div>
-      <div class="sb-sep">—</div>
-      <div class="sb-side">
-        <div class="sb-team">${r.teamB}</div>
-        <div class="sb-score ${!aWin?'sb-win':'sb-loss'}">${r.scoreB}</div>
-        <div class="sb-prob">${r.winProbB}% win probability</div>
-      </div>
-    </div>
-
-    <div class="sim-body">
-      <div class="sim-cols">
-        <div>
-          <div class="sim-section-title">Ratings</div>
-          ${statRow('ORtg', A.ortg, B.ortg)}
-          ${statRow('DRtg', A.drtg, B.drtg, true)}
-          ${statRow('Net', A.net, B.net)}
-          ${statRow('Pace', A.pace, B.pace)}
-        </div>
-        <div>
-          <div class="sim-section-title">Ecosystem</div>
-          ${statRow('Spacing', pA.spacingScore, pB.spacingScore)}
-          ${statRow('Creation', pA.creationScore, pB.creationScore)}
-          ${statRow('Defense', pA.defensiveScore, pB.defensiveScore)}
-          ${statRow('Rebounding', pA.reboundingScore, pB.reboundingScore)}
-        </div>
-      </div>
-    </div>
-
-    <div class="matchup-section">
-      <div class="sim-section-title" style="margin-bottom:12px;">
-        Matchup Breakdown —
-        <span style="color:var(--blue);">${r.teamA}</span> vs
-        <span style="color:var(--accent);">${r.teamB}</span>
-      </div>
-      ${matchupBar('Spacing',    pA.spacingScore,    pB.spacingScore)}
-      ${matchupBar('Creation',   pA.creationScore,   pB.creationScore)}
-      ${matchupBar('Defense',    pA.defensiveScore,  pB.defensiveScore)}
-      ${matchupBar('Rebounding', pA.reboundingScore, pB.reboundingScore)}
-      ${matchupBar('TOV Risk',   pA.turnoverRisk,    pB.turnoverRisk)}
-      ${edgeNotes.length?`<div class="edge-note">${edgeNotes.join('<br/>')}</div>`:''}
-    </div>`;
 }
 
-// ── TAB SWITCH ────────────────────────────────────────
-function switchTab(t){
-  ['rankings','simulator'].forEach(x=>{
-    document.getElementById('tab-'+x).classList.toggle('active',x===t);
-    document.getElementById('panel-'+x).classList.toggle('active',x===t);
-  });
-}
 
-// ── THEME ─────────────────────────────────────────────
-function toggleTheme(){
-  const d=document.documentElement.getAttribute('data-theme')==='dark';
-  const n=d?'light':'dark';
-  document.documentElement.setAttribute('data-theme',n);
-  localStorage.setItem('tdc_theme',n);
-  document.getElementById('themeBtn').textContent=n==='dark'?'☀️':'🌙';
-}
-(()=>{
-  const s=localStorage.getItem('tdc_theme')||'light';
-  document.documentElement.setAttribute('data-theme',s);
-  if(s==='dark') document.getElementById('themeBtn').textContent='☀️';
-})();
-
-// ── NAV UPDATE ────────────────────────────────────────
-async function updateNav(sess){
-  try{
-    const r=await fetch(`${SB_URL}/rest/v1/profiles?id=eq.${sess.user?.id}&select=username,avatar_url`,
-      {headers:{'apikey':SB_KEY,Authorization:'Bearer '+sess.access_token}}).then(r=>r.json());
-    const p=r[0]||{};
-    const uname=p.username||'User';
-    const av=p.avatar_url
-      ?`<img src="${p.avatar_url}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);">`
-      :`<div style="width:30px;height:30px;border-radius:50%;background:var(--bg2);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:12px;">${uname[0].toUpperCase()}</div>`;
-    document.getElementById('navActions').innerHTML=
-      `<button class="theme-btn" id="themeBtn" onclick="toggleTheme()">${localStorage.getItem('tdc_theme')==='dark'?'☀️':'🌙'}</button>`+
-      `<a href="profile.html" style="display:flex;align-items:center;gap:8px;text-decoration:none;">${av}<span style="font-size:12px;font-weight:700;color:var(--text);">${uname}</span></a>`;
-  }catch(e){}
-}
-
-// ── BOOT ──────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', init);
-
-</script>
-</body>
-</html>
