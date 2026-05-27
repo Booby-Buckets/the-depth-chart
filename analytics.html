@@ -51,6 +51,11 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 
 /* FILTER BAR */
 .filter-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:18px;}
+.major-filters{display:flex;gap:0;border:1px solid var(--border2);overflow:hidden;}
+.major-btn{padding:6px 14px;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border:none;background:var(--bg);color:var(--text3);cursor:pointer;transition:all .15s;border-right:1px solid var(--border2);}
+.major-btn:last-child{border-right:none;}
+.major-btn:hover{background:var(--bg2);color:var(--text);}
+.major-btn.active{background:var(--text);color:var(--bg);}
 .filter-select,.search-input{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;background:var(--bg);border:1px solid var(--border2);color:var(--text2);padding:6px 10px;outline:none;cursor:pointer;letter-spacing:.03em;}
 .search-input{cursor:text;min-width:160px;}
 .search-input::placeholder{color:var(--text3);font-weight:500;}
@@ -178,6 +183,11 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 <!-- ── RANKINGS ── -->
 <div class="tab-panel active" id="panel-rankings">
   <div class="filter-bar">
+    <div class="major-filters">
+      <button class="major-btn active" id="maj-all" onclick="setMajor('all',this)">All</button>
+      <button class="major-btn" id="maj-high" onclick="setMajor('high',this)">High Major</button>
+      <button class="major-btn" id="maj-mid" onclick="setMajor('mid',this)">Mid Major</button>
+    </div>
     <input class="search-input" id="searchBar" type="text" placeholder="Search team..." oninput="applyFilters()"/>
     <select class="filter-select" id="confFilter" onchange="applyFilters()">
       <option value="">All Conferences</option>
@@ -246,10 +256,11 @@ async function init(){
     const sess = JSON.parse(localStorage.getItem('tdc_session')||'null');
     if(sess?.access_token) updateNav(sess);
 
-    // Fetch teams — same as index.html
+    // Fetch teams
+    console.log('Analytics: fetching teams...');
     const teamsRes = await fetch(
-      `${SB_URL}/rest/v1/teams?select=*`,
-      {headers:H}
+      `${SB_URL}/rest/v1/teams?select=*&limit=500`,
+      {headers:H, cache:'no-store'}
     );
     if(!teamsRes.ok){
       const errText = await teamsRes.text();
@@ -258,7 +269,8 @@ async function init(){
     const teams = await teamsRes.json();
     if(!Array.isArray(teams)) throw new Error('Teams response invalid');
 
-    // Fetch players — same columns as team.html line 503
+    // Fetch players
+    console.log('Analytics: fetching players...');
     const playersRes = await fetch(
       `${SB_URL}/rest/v1/players?select=id,name,team,position,tdc_grade,class_year,yr,depth_order,height,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,oreb,dreb,stl,blk,tovs,gp,tpa,fga,fta&order=tdc_grade.desc&limit=5000`,
       {headers:H}
@@ -320,11 +332,23 @@ async function init(){
 
   } catch(e){
     document.getElementById('tableWrap').innerHTML=`<div class="empty" style="color:var(--red);">
-      <strong>Error:</strong> ${e.message}<br/>
-      <span style="font-size:11px;color:var(--text3);margin-top:6px;display:block;">Open DevTools → Console for full details.</span>
+      <strong>Error loading analytics:</strong> ${e.message}<br/>
+      <span style="font-size:11px;color:var(--text3);margin-top:6px;display:block;">Check the console for details.</span>
     </div>`;
     console.error('Analytics init error:', e);
   }
+}
+
+const HIGH_MAJOR = new Set(['ACC','B10','B12','BE','SEC']);
+let activeMajor = 'all';
+
+function setMajor(val, btn){
+  activeMajor = val;
+  document.querySelectorAll('.major-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  // Reset conf dropdown when switching major filter
+  document.getElementById('confFilter').value = '';
+  applyFilters();
 }
 
 // ── FILTERS + SORT ────────────────────────────────────
@@ -335,6 +359,8 @@ function applyFilters(){
   let list = allRatings.filter(t=>{
     if(q && !t.name.toLowerCase().includes(q)) return false;
     if(conf && t.conf!==conf) return false;
+    if(activeMajor==='high' && !HIGH_MAJOR.has(t.conf)) return false;
+    if(activeMajor==='mid'  &&  HIGH_MAJOR.has(t.conf)) return false;
     return true;
   });
 
@@ -582,7 +608,8 @@ async function updateNav(sess){
 }
 
 // ── BOOT ──────────────────────────────────────────────
-init();
+document.addEventListener('DOMContentLoaded', init);
+
 </script>
 </body>
 </html>
