@@ -645,11 +645,20 @@ async function init(){
           }
         : player;
 
+      // Declare all variables needed by targetMpg and projection FIRST
+      const r1 = v => v!=null ? Math.round((v+Number.EPSILON)*10)/10 : null;
+      const yr  = (player.yr||player.class_year||'').toLowerCase();
+      const isFr = yr.includes('fr.')||yr.includes('r-fr');
+      const isSo = yr.includes('so.')||yr.includes('r-so.');
+      const isJr = yr.includes('jr.')||yr.includes('r-jr.');
+      const isSr = yr.includes('sr.')||yr.includes('r-sr')||yr.includes('gr.');
+      const grade = parseFloat(player.tdc_grade)||70;
+      const pos   = (player.position||'G').replace(/\d/g,'').trim();
+      const posNorm = ['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':'G';
+
       // Target MPG: anchor to recent role if player has proven minutes
-      // If they played ≥18 MPG last season, project similar minutes (±20%)
-      // rather than just guessing from depth slot
       const recentMpg = latestH ? parseFloat(latestH.mpg||0) : 0;
-      const targetMpg = (() => {
+      const newMpg = (() => {
         // Proven starter/rotation player — anchor to recent minutes
         if(recentMpg >= 18){
           // Sr/Gr continuity: expect similar role. Jr: slight growth. So/Fr: regression to mean
@@ -673,16 +682,6 @@ async function init(){
 
       // projectPlayer is defined in team.html — on player.html we run a
       // self-contained version of the same logic here
-      const r1 = v => v!=null ? Math.round((v+Number.EPSILON)*10)/10 : null;
-      const yr  = (player.yr||player.class_year||'').toLowerCase();
-      const isFr = yr.includes('fr.')||yr.includes('r-fr');
-      const isSo = yr.includes('so.')||yr.includes('r-so.');
-      const isJr = yr.includes('jr.')||yr.includes('r-jr.');
-      const isSr = yr.includes('sr.')||yr.includes('r-sr')||yr.includes('gr.');
-      const grade = parseFloat(player.tdc_grade)||70;
-      const pos   = (player.position||'G').replace(/\d/g,'').trim();
-      const posNorm = ['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':'G';
-      const newMpg = targetMpg;
 
       const hasCareerStats = latestH && parseFloat(latestH.ppg||0)>0;
       const hasCurrentStats = parseFloat(player.ppg||0)>0;
