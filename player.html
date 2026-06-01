@@ -621,9 +621,14 @@ async function init(){
       const conf = (teamData&&teamData.conf) || (player.team_conf) || '';
 
       // Played seasons from career history (newest first)
+      // Filter out garbage-time seasons (< 6 MPG) — those aren't real sample size
       const played = careerHistory
-        .filter(h => !h.sat_out && parseFloat(h.ppg||0)>0)
+        .filter(h => !h.sat_out && parseFloat(h.ppg||0)>0 && parseFloat(h.mpg||0)>=6)
         .sort((a,b) => b.season_year - a.season_year);
+
+      // "Meaningful" seasons: ≥ 12 MPG — used for trend and FT% smoothing
+      // Avoids bench blowout minutes distorting projections
+      const meaningful = played.filter(h => parseFloat(h.mpg||0) >= 12);
 
       const latestH = played[0] || null;
 
@@ -640,15 +645,29 @@ async function init(){
           }
         : player;
 
-      // Target MPG: use current roster position if we have it, else estimate from depth
+      // Target MPG: anchor to recent role if player has proven minutes
+      // If they played ≥18 MPG last season, project similar minutes (±20%)
+      // rather than just guessing from depth slot
+      const recentMpg = latestH ? parseFloat(latestH.mpg||0) : 0;
       const targetMpg = (() => {
+        // Proven starter/rotation player — anchor to recent minutes
+        if(recentMpg >= 18){
+          // Sr/Gr continuity: expect similar role. Jr: slight growth. So/Fr: regression to mean
+          const mpgGrowthFactor = isSr ? 1.00 : isJr ? 1.04 : isSo ? 1.02 : 1.00;
+          // Grade modifier: high-grade players don't lose their role
+          const gradeMpgBonus = grade >= 88 ? 1.5 : grade >= 82 ? 0.5 : 0;
+          return Math.min(38, recentMpg * mpgGrowthFactor + gradeMpgBonus);
+        }
+        // Rotation player (12-18 MPG) — project modest growth toward starting role
+        if(recentMpg >= 12){
+          return Math.min(30, recentMpg * 1.08);
+        }
+        // No meaningful history — use depth slot estimate
         const slot = player.depth_order || 5;
-        const grade = parseFloat(player.tdc_grade)||70;
-        // Simple MPG from depth slot: starter ~30, backup ~18, deep ~10, bench ~6
         if(slot===1) return Math.min(35, 26 + (grade-70)*0.2);
         if(slot===2) return Math.min(28, 18 + (grade-70)*0.15);
         if(slot===3) return Math.min(20, 12 + (grade-70)*0.1);
-        if(slot===4) return Math.min(14, 8  + (grade-70)*0.08);
+        if(slot===4) return Math.min(14,  8 + (grade-70)*0.08);
         return Math.max(4, 6 + (grade-70)*0.06);
       })();
 
@@ -698,13 +717,36 @@ async function init(){
           stl:g('stl')/baseMpg,  blk:g('blk')/baseMpg,  tovs:g('tovs')/baseMpg,
         };
 
-        // Career trend: compare most recent two played seasons
+        // Career trend — only compare MEANINGFUL seasons (≥12 MPG)
+        // Recency weighted: most recent season matters most
+        // Also: if the most recent meaningful season is a clear breakout
+        // (per-min scoring jumped 30%+), treat that as the new baseline
         let trendMult = 1.0;
-        if(played.length >= 2){
-          const n = played[0], p2 = played[1];
-          const nPm  = parseFloat(n.ppg||0)/Math.max(1,parseFloat(n.mpg||1));
+        if(meaningful.length >= 2){
+          const n  = meaningful[0];  // most recent meaningful
+          const p2 = meaningful[1];  // season before that
+          const nPm  = parseFloat(n.ppg ||0)/Math.max(1,parseFloat(n.mpg ||1));
           const pPm  = parseFloat(p2.ppg||0)/Math.max(1,parseFloat(p2.mpg||1));
-          if(pPm>0){ trendMult = 1.0 + Math.max(-0.12,Math.min(0.12,(nPm/pPm-1)*0.35)); }
+          if(pPm > 0){
+            const rawTrend = nPm / pPm;
+            // Breakout detection: if latest season is 40%+ better per minute
+            // AND they played more minutes, strongly weight that forward
+            const mpgGrowth = parseFloat(n.mpg||0) / Math.max(1,parseFloat(p2.mpg||0));
+            const isBreakout = rawTrend >= 1.40 && mpgGrowth >= 1.20;
+            // Normal damping: ±12% max. Breakout: allow up to +18%
+            const cap = isBreakout ? 0.18 : 0.12;
+            trendMult = 1.0 + Math.max(-cap, Math.min(cap, (rawTrend-1)*0.40));
+          }
+        } else if(meaningful.length === 1 && played.length >= 2){
+          // Only one meaningful season but they have a prior bench season:
+          // the breakout IS the signal — apply a mild positive trend
+          const n   = meaningful[0];
+          const p2  = played.find(h => h !== n);
+          if(p2){
+            const nPm = parseFloat(n.ppg||0)/Math.max(1,parseFloat(n.mpg||1));
+            const pPm = parseFloat(p2.ppg||0)/Math.max(1,parseFloat(p2.mpg||1));
+            if(pPm>0 && nPm/pPm >= 1.5) trendMult = 1.08; // clear breakout
+          }
         }
 
         // Year progression
@@ -750,12 +792,14 @@ async function init(){
         const fgBase = parseFloat(base.fg_pct||0)||44;
         const tpBase = parseFloat(base.tp_pct||0)||33;
         const ftBase = parseFloat(base.ft_pct||0)||70;
-        const careerFtPct = played.length>=2
-          ? played.reduce((s,h)=>s+parseFloat(h.ft_pct||0),0)/played.length : ftBase;
-        const ftSmoothed = ftBase*0.6 + careerFtPct*0.4;
+        // FT% smoothing — use meaningful seasons only (avoids bench noise)
+        const careerFtPct = meaningful.length>=2
+          ? meaningful.reduce((s,h)=>s+parseFloat(h.ft_pct||0),0)/meaningful.length : ftBase;
+        const ftSmoothed = ftBase*0.65 + careerFtPct*0.35;
         const oldFga  = parseFloat(base.fga||0)||1;
         const newFgaE = oldFga*(newMpg/baseMpg);
-        const volChange  = (newFgaE/oldFga)-1;
+        // Only penalize volume increase if player already had a real role (≥12 MPG base)
+        const volChange  = (baseMpg >= 12) ? (newFgaE/oldFga)-1 : 0;
         const volPenalty = volChange*3.5;
         const yearEff = isSo?1.2 : isJr?0.6 : isSr?0.0 : 1.8;
         const transPctAdj = transferFactor<0.75?-3.5 : transferFactor<0.85?-2.5
