@@ -513,7 +513,7 @@ function fmtP(v){return v!=null&&v!==''?Number(v).toFixed(1)+'%':'—';}
 function pctCol(p){return p>=80?'rgb(18,60,185)':p>=60?'rgb(30,82,200)':p>=40?'rgb(45,100,210)':p>=20?'rgb(60,120,220)':'var(--text3)';}
 function gradeClass(g){const n=parseFloat(g);if(!isNaN(n)){if(n>=90)return 'gA';if(n>=80)return 'gB';if(n>=70)return 'gC';if(n>=60)return 'gD';return 'gF';}if(!g)return '';if(g[0]==='A')return 'gA';if(g[0]==='B')return 'gB';if(g[0]==='C')return 'gC';if(g[0]==='D')return 'gD';return 'gF';}
 
-let player=null, teamData=null, allPlayers=[], gPct={}, proj=null, teamPlayers=[];
+let player=null, teamData=null, allPlayers=[], gPct={}, proj=null, teamPlayers=[], careerHistory=[];
 
 async function init(){
   const s=JSON.parse(localStorage.getItem('tdc_session')||'null');
@@ -653,6 +653,16 @@ async function init(){
         };
       }catch(e2){ console.warn('EST fallback failed:',e2); }
     }
+
+    // Fetch career history from player_history (all seasons this player has)
+    try{
+      const chR = await fetch(`${SB}/rest/v1/player_history?name=eq.${sbEncode(player.name)}&select=*&order=season_year.asc&limit=20`,{headers:H});
+      if(chR.ok){
+        careerHistory = await chR.json();
+        if(!Array.isArray(careerHistory)) careerHistory = [];
+      }
+    }catch(e){ console.warn('Career history fetch failed:',e); careerHistory = []; }
+
     renderPage();
   }catch(e){
     console.error('Player load error:',e);
@@ -829,35 +839,72 @@ function renderPage(){
 }
 
 function renderStatTable(p, projData){
-  const showBoth=projData!=null;
+  const seasonLabel = y => {
+    const yr = parseInt(y);
+    return isNaN(yr) ? y : `${yr-1}-${String(yr).slice(2)}`;
+  };
+
+  let rowsHtml = '';
+
+  // If we have career history, show every season the player was rostered
+  if(careerHistory && careerHistory.length){
+    careerHistory.forEach(s=>{
+      if(s.sat_out || (s.ppg==null && (s.gp==null||s.gp===0))){
+        // Sat-out / redshirt season — show team + "Did not play"
+        rowsHtml += `<tr style="opacity:.55;">
+          <td>${seasonLabel(s.season_year)}</td>
+          <td colspan="19" style="text-align:left;font-style:italic;color:var(--text3);">
+            ${s.team||''} — Redshirt / Did not play
+          </td>
+        </tr>`;
+      } else {
+        rowsHtml += `<tr class="actual">
+          <td>${seasonLabel(s.season_year)}<div style="font-size:9px;color:var(--text3);font-weight:600;">${s.team||''}</div></td>
+          <td>${s.gp||'—'}</td>
+          <td>${fmt(s.ppg)}</td><td>${fmt(s.rpg)}</td><td>${fmt(s.apg)}</td><td>${fmt(s.mpg)}</td>
+          <td>${fmt(s.fgm)}</td><td>${fmt(s.fga)}</td><td>${fmtP(s.fg_pct)}</td>
+          <td>${fmt(s.tpm)}</td><td>${fmt(s.tpa)}</td><td>${fmtP(s.tp_pct)}</td>
+          <td>${fmt(s.ftm)}</td><td>${fmt(s.fta)}</td><td>${fmtP(s.ft_pct)}</td>
+          <td>${fmt(s.oreb)}</td><td>${fmt(s.dreb)}</td>
+          <td>${fmt(s.stl)}</td><td>${fmt(s.blk)}</td><td>${fmt(s.tovs)}</td>
+        </tr>`;
+      }
+    });
+  } else {
+    // No career history — fall back to the current season row from players table
+    rowsHtml += `<tr class="actual">
+      <td>2025-26<div style="font-size:9px;color:var(--text3);font-weight:600;">${p.team||''}</div></td>
+      <td>${p.gp||'—'}</td>
+      <td>${fmt(p.ppg)}</td><td>${fmt(p.rpg)}</td><td>${fmt(p.apg)}</td><td>${fmt(p.mpg)}</td>
+      <td>${fmt(p.fgm)}</td><td>${fmt(p.fga)}</td><td>${fmtP(p.fg_pct)}</td>
+      <td>${fmt(p.tpm)}</td><td>${fmt(p.tpa)}</td><td>${fmtP(p.tp_pct)}</td>
+      <td>${fmt(p.ftm)}</td><td>${fmt(p.fta)}</td><td>${fmtP(p.ft_pct)}</td>
+      <td>${fmt(p.oreb)}</td><td>${fmt(p.dreb)}</td>
+      <td>${fmt(p.stl)}</td><td>${fmt(p.blk)}</td><td>${fmt(p.tovs)}</td>
+    </tr>`;
+  }
+
+  // Always append the 2026-27 projection row
+  if(projData){
+    rowsHtml += `<tr class="proj">
+      <td>2026-27 ★<div style="font-size:9px;color:var(--text3);font-weight:600;">Projected</div></td>
+      <td>—</td>
+      <td>${fmt(projData.ppg)}</td><td>${fmt(projData.rpg)}</td><td>${fmt(projData.apg)}</td><td>${fmt(projData.mpg)}</td>
+      <td>${fmt(projData.fgm)}</td><td>${fmt(projData.fga)}</td><td>${fmtP(projData.fg_pct)}</td>
+      <td>${fmt(projData.tpm)}</td><td>${fmt(projData.tpa)}</td><td>${fmtP(projData.tp_pct)}</td>
+      <td>${fmt(projData.ftm)}</td><td>${fmt(projData.fta)}</td><td>${fmtP(projData.ft_pct)}</td>
+      <td>${fmt(projData.oreb)}</td><td>${fmt(projData.dreb)}</td>
+      <td>${fmt(projData.stl)}</td><td>${fmt(projData.blk)}</td><td>${fmt(projData.tovs)}</td>
+    </tr>`;
+  }
+
   return `<table class="stat-table">
     <thead><tr>
       <th>Season</th><th>GP</th><th>PPG</th><th>RPG</th><th>APG</th><th>MPG</th>
       <th>FGM</th><th>FGA</th><th>FG%</th><th>3PM</th><th>3PA</th><th>3P%</th>
       <th>FTM</th><th>FTA</th><th>FT%</th><th>OR</th><th>DR</th><th>STL</th><th>BLK</th><th>TO</th>
     </tr></thead>
-    <tbody>
-      <tr class="actual">
-        <td>2025-26</td><td>${p.gp||'—'}</td>
-        <td>${fmt(p.ppg)}</td><td>${fmt(p.rpg)}</td><td>${fmt(p.apg)}</td><td>${fmt(p.mpg)}</td>
-        <td>${p.usg_pct?fmtP(p.usg_pct):'—'}</td>
-        <td>${fmt(p.fgm)}</td><td>${fmt(p.fga)}</td><td>${fmtP(p.fg_pct)}</td>
-        <td>${fmt(p.tpm)}</td><td>${fmt(p.tpa)}</td><td>${fmtP(p.tp_pct)}</td>
-        <td>${fmt(p.ftm)}</td><td>${fmt(p.fta)}</td><td>${fmtP(p.ft_pct)}</td>
-        <td>${fmt(p.oreb)}</td><td>${fmt(p.dreb)}</td>
-        <td>${fmt(p.stl)}</td><td>${fmt(p.blk)}</td><td>${fmt(p.tovs)}</td>
-      </tr>
-      ${showBoth&&projData?`<tr class="proj">
-        <td>2026-27 ★</td><td>—</td>
-        <td>${fmt(projData.ppg)}</td><td>${fmt(projData.rpg)}</td><td>${fmt(projData.apg)}</td><td>${fmt(projData.mpg)}</td>
-        <td>${projData.usg_pct?fmtP(projData.usg_pct):'—'}</td>
-        <td>${fmt(projData.fgm)}</td><td>${fmt(projData.fga)}</td><td>${fmtP(projData.fg_pct)}</td>
-        <td>${fmt(projData.tpm)}</td><td>${fmt(projData.tpa)}</td><td>${fmtP(projData.tp_pct)}</td>
-        <td>${fmt(projData.ftm)}</td><td>${fmt(projData.fta)}</td><td>${fmtP(projData.ft_pct)}</td>
-        <td>${fmt(projData.oreb)}</td><td>${fmt(projData.dreb)}</td>
-        <td>${fmt(projData.stl)}</td><td>${fmt(projData.blk)}</td><td>${fmt(projData.tovs)}</td>
-      </tr>`:''}
-    </tbody>
+    <tbody>${rowsHtml}</tbody>
   </table>`;
 }
 
