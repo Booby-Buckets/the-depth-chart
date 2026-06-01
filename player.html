@@ -765,23 +765,15 @@ async function init(){
         const PROJ_TRANS_MAT_P  = {1:{1:1.00,2:1.15,3:1.28,4:1.40,5:1.40,6:1.40,7:1.40},2:{1:0.90,2:1.00,3:1.15,4:1.20,5:1.20,6:1.20,7:1.20},3:{1:0.75,2:0.90,3:1.00,4:1.05,5:1.10,6:1.10,7:1.10},4:{1:0.49,2:0.68,3:0.82,4:1.00,5:1.05,6:1.05,7:1.05},5:{1:0.43,2:0.49,3:0.69,4:0.82,5:1.00,6:1.00,7:1.00},6:{1:0.40,2:0.42,3:0.50,4:0.69,5:0.82,6:1.00,7:1.00},7:{1:0.30,2:0.34,3:0.42,4:0.48,5:0.69,6:0.82,7:1.00}};
         let transferFactor = 1.0;
         if(player.hometown && player.hometown.trim()){
-          // Determine origin conference from prior team in career history
-          const prevTeamEntry = played[0]; // most recent — that's the origin if transferring
-          const originConf = (prevTeamEntry && played.length>1)
-            ? conf  // staying at same school — no penalty
-            : (() => {
-                // Try to infer from hometown field (prior school name)
-                const school = (player.hometown||'').toLowerCase().trim();
-                const schoolConfs = {'alabama':1,'arkansas':1,'auburn':1,'florida':1,'georgia':1,'kentucky':1,'lsu':1,'mississippi state':1,'missouri':1,'ole miss':1,'south carolina':1,'tennessee':1,'texas':1,'texas a&m':1,'vanderbilt':1,'illinois':1,'indiana':1,'iowa':1,'maryland':1,'michigan':1,'michigan state':1,'minnesota':1,'nebraska':1,'northwestern':1,'ohio state':1,'penn state':1,'purdue':1,'rutgers':1,'wisconsin':1,'ucla':1,'usc':1,'oregon':1,'washington':1,'arizona':1,'arizona state':1,'baylor':1,'byu':1,'cincinnati':1,'colorado':1,'houston':1,'iowa state':1,'kansas':1,'kansas state':1,'oklahoma state':1,'tcu':1,'texas tech':1,'ucf':1,'utah':1,'west virginia':1,'boston college':1,'clemson':1,'duke':1,'florida state':1,'georgia tech':1,'louisville':1,'miami':1,'nc state':1,'north carolina':1,'notre dame':1,'pittsburgh':1,'syracuse':1,'virginia':1,'virginia tech':1,'wake forest':1,'california':1,'smu':1,'stanford':1,'butler':2,'connecticut':2,'uconn':2,'creighton':2,'depaul':2,'georgetown':2,'marquette':2,'providence':2,'seton hall':2,"st. john's":2,'villanova':2,'xavier':2};
-                for(const [k,tier] of Object.entries(schoolConfs)){
-                  if(school.includes(k)) return Object.keys(PROJ_CONF_TIERS_P).find(c=>PROJ_CONF_TIERS_P[c]===tier&&tier===1)?'SEC':'Big-East';
-                }
-                return null;
-              })();
-          if(originConf && conf){
-            const ot = PROJ_CONF_TIERS_P[originConf]||4;
-            const dt = PROJ_CONF_TIERS_P[conf]||4;
-            const base_tf = (PROJ_TRANS_MAT_P[ot]||{})[dt]||1.0;
+          const school = (player.hometown||'').toLowerCase().trim();
+          const schoolConfs = {'alabama':1,'arkansas':1,'auburn':1,'florida':1,'georgia':1,'kentucky':1,'lsu':1,'mississippi state':1,'missouri':1,'ole miss':1,'south carolina':1,'tennessee':1,'texas':1,'texas a&m':1,'vanderbilt':1,'illinois':1,'indiana':1,'iowa':1,'maryland':1,'michigan':1,'michigan state':1,'minnesota':1,'nebraska':1,'northwestern':1,'ohio state':1,'penn state':1,'purdue':1,'rutgers':1,'wisconsin':1,'ucla':1,'usc':1,'oregon':1,'washington':1,'arizona':1,'arizona state':1,'baylor':1,'byu':1,'cincinnati':1,'colorado':1,'houston':1,'iowa state':1,'kansas':1,'kansas state':1,'oklahoma state':1,'tcu':1,'texas tech':1,'ucf':1,'utah':1,'west virginia':1,'boston college':1,'clemson':1,'duke':1,'florida state':1,'georgia tech':1,'louisville':1,'miami':1,'nc state':1,'north carolina':1,'notre dame':1,'pittsburgh':1,'syracuse':1,'virginia':1,'virginia tech':1,'wake forest':1,'california':1,'smu':1,'stanford':1,'butler':2,'connecticut':2,'uconn':2,'creighton':2,'depaul':2,'georgetown':2,'marquette':2,'providence':2,'seton hall':2,"st. john's":2,'villanova':2,'xavier':2,'belmont':5,'winthrop':5,'samford':6,'furman':6,'appalachian state':5,'eastern kentucky':6,'morehead state':6,'western carolina':6,'unc asheville':6,'st. bonaventure':4,'duquesne':4,'fordham':4,'la salle':4,'davidson':4,'vcu':4};
+          let originTier = null;
+          for(const [k,tier] of Object.entries(schoolConfs)){
+            if(school.includes(k)){ originTier = tier; break; }
+          }
+          if(originTier && conf){
+            const dt = PROJ_CONF_TIERS_P[conf]||3;
+            const base_tf = (PROJ_TRANS_MAT_P[originTier]||{})[dt]||1.0;
             const gBoost  = grade>=90?1.22 : grade>=85?1.14 : grade>=80?1.07 : grade>=75?1.02 : grade>=70?0.97 : 0.91;
             transferFactor = Math.max(0.20, Math.min(1.6, base_tf*gBoost));
           }
@@ -789,7 +781,7 @@ async function init(){
 
         // Efficiency adjustments
         const fgBase = parseFloat(base.fg_pct||0)||44;
-        const tpBase = parseFloat(base.tp_pct||0)||33;
+        const tpBase = parseFloat(base.tp_pct||0)||0;
         const ftBase = parseFloat(base.ft_pct||0)||70;
         // FT% smoothing — use meaningful seasons only (avoids bench noise)
         const careerFtPct = meaningful.length>=2
@@ -806,18 +798,28 @@ async function init(){
                           : transferFactor>1.20?+1.2 : transferFactor>1.10?+0.8
                           : transferFactor>1.04?+0.4 : 0;
         const fgProj = r1(Math.max(30,Math.min(65, fgBase+yearEff-volPenalty+transPctAdj)));
-        const tpProj = r1(Math.max(18,Math.min(50, tpBase+(isSo?0.8:isJr?0.4:isSr?0:1.5)-(volChange*2)+transPctAdj*0.6)));
+
+        // 3P% — only project if player actually shoots threes (career avg ≥0.5 3PA/game)
+        // Prevents centers who shoot 0.0 3PA from getting a fake 3P% projection
+        const careerTpa = meaningful.length
+          ? meaningful.reduce((s,h)=>s+parseFloat(h.tpa||0),0)/meaningful.length : parseFloat(base.tpa||0);
+        const is3Shooter = careerTpa >= 0.5;
+        const tpProj = is3Shooter
+          ? r1(Math.max(18,Math.min(50, tpBase+(isSo?0.8:isJr?0.4:isSr?0:1.5)-(volChange*2)+transPctAdj*0.6)))
+          : tpBase;  // preserve their actual 3P% (0% for non-shooters)
+
         const ftProj = r1(Math.max(45,Math.min(97, ftSmoothed+(isSo?1.0:isJr?0.5:isSr?0:1.5))));
 
         const newFga = r1(pm.fga*rateGrowth*newMpg);
+        const newTpa = is3Shooter ? r1(pm.tpa*rateGrowth*newMpg) : r1(pm.tpa*newMpg);
         proj = {...player,
           ppg: r1(pm.ppg *rateGrowth*newMpg),
           rpg: r1(pm.rpg *rateGrowth*newMpg),
           apg: r1(pm.apg *rateGrowth*newMpg),
           mpg: r1(newMpg),
           fgm: r1(newFga*(fgProj/100)), fga: newFga, fg_pct: fgProj,
-          tpm: r1(pm.tpa*rateGrowth*newMpg*(tpProj/100)),
-          tpa: r1(pm.tpa*rateGrowth*newMpg), tp_pct: tpProj,
+          tpm: r1(newTpa*(tpProj/100)),
+          tpa: newTpa, tp_pct: tpProj,
           ftm: r1(pm.fta*rateGrowth*newMpg*(ftProj/100)),
           fta: r1(pm.fta*rateGrowth*newMpg), ft_pct: ftProj,
           oreb: r1(pm.oreb*rateGrowth*newMpg),
