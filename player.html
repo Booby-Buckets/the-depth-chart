@@ -654,12 +654,34 @@ async function init(){
       }catch(e2){ console.warn('EST fallback failed:',e2); }
     }
 
-    // Fetch career history from player_history (all seasons this player has)
+    // Fetch career history from player_history
+    // Falls back to suffix-stripped name if exact match returns nothing
+    // (handles ESPN naming like "Billy Richmond III" vs sheet "Billy Richmond")
     try{
       const chR = await fetch(`${SB}/rest/v1/player_history?name=eq.${sbEncode(player.name)}&select=*&order=season_year.asc&limit=20`,{headers:H});
       if(chR.ok){
         careerHistory = await chR.json();
         if(!Array.isArray(careerHistory)) careerHistory = [];
+      }
+      // If no results, try stripping suffix from DB names (ilike with base name)
+      if(!careerHistory.length){
+        const baseName = player.name.replace(/\s+(Jr\.?|Sr\.?|II|III|IV|V)$/i,'').trim();
+        const chR2 = await fetch(`${SB}/rest/v1/player_history?name=ilike.${sbEncode(baseName+'*')}&select=*&order=season_year.asc&limit=20`,{headers:H});
+        if(chR2.ok){
+          const res2 = await chR2.json();
+          if(Array.isArray(res2) && res2.length) careerHistory = res2;
+        }
+      }
+      // Also try the reverse — player name has suffix but DB doesn't
+      if(!careerHistory.length){
+        const withoutSuffix = player.name.replace(/\s+(Jr\.?|Sr\.?|II|III|IV|V)$/i,'').trim();
+        if(withoutSuffix !== player.name){
+          const chR3 = await fetch(`${SB}/rest/v1/player_history?name=eq.${sbEncode(withoutSuffix)}&select=*&order=season_year.asc&limit=20`,{headers:H});
+          if(chR3.ok){
+            const res3 = await chR3.json();
+            if(Array.isArray(res3) && res3.length) careerHistory = res3;
+          }
+        }
       }
     }catch(e){ console.warn('Career history fetch failed:',e); careerHistory = []; }
 
