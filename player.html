@@ -574,116 +574,221 @@ async function init(){
     } catch(e2){ teamData={}; }
 
     calcPct();
-    try{
-      // Fetch this player's team roster directly (server-side filter = fast + no limit issues)
-      const teamParam = player.team ? `&team=eq.${sbEncode(player.team)}` : '';
-      const rr=await fetch(`${SB}/rest/v1/players?select=*&order=depth_order.asc&limit=500${teamParam}`,{headers:H});
-      const allRows=await rr.json();
-      teamPlayers=Array.isArray(allRows)
-        ?allRows.filter(r=>r.name&&r.name!=='—')
-        :[];
 
- 
-       if(teamPlayers.length){
-         // injectEst — identical to team.html injectEstStats for consistent projections
-         const injectEst=(arr)=>arr.map(pl=>{
-           if(pl.ppg&&parseFloat(pl.ppg)>0) return pl;
-           const g=parseFloat(pl.tdc_grade)||70;
-           const pn=['PG','SG','SF','PF','C'].includes(pl.position)?pl.position:pl.position==='CG'?'SG':'SG';
-           const fb=getFrBase(g,pn);
-           const mg=g>=92?30:g>=88?26:g>=83?22:g>=78?18:g>=73?14:10;
-           const scale=mg/FR_BASE_MPG;
-           const fg=r1t(mg*0.28);
-           return {...pl,
-             ppg:r1t(fb.ppg*scale),rpg:r1t((fb.oreb+fb.dreb)*scale),apg:r1t(fb.apg*scale),mpg:mg,
-             fgm:r1t(fg*(fb.fg_pct/100)),fga:fg,fg_pct:fb.fg_pct,
-             tpm:r1t(fg*0.42*(fb.tp_pct/100)),tpa:r1t(fg*0.42),tp_pct:fb.tp_pct,
-             fta:r1t(mg*0.09),ftm:r1t(mg*0.09*(fb.ft_pct/100)),ft_pct:fb.ft_pct,
-             oreb:r1t(fb.oreb*scale),dreb:r1t(fb.dreb*scale),
-             stl:r1t(fb.stl*scale),blk:r1t(fb.blk*scale),tovs:r1t(fb.tovs*scale),
-             _noStatEst:true,_frosh:true
-           };
-         });
-         const allProj=TDC.projectTeam(injectEst(teamPlayers), teamData);
-        const pLower=(player.name||'').toLowerCase().trim();
-        proj=allProj.find(r=>(r.name||'').toLowerCase().trim()===pLower)||null;
-        // If TDC returned a per-minute intermediate object (no final ppg), resolve it
-        if(proj && (!proj.ppg || parseFloat(proj.ppg)===0) && proj._perMin){
-          const mpg = proj._rawMpg||proj.mpg||18;
-          const pm = proj._perMin;
-          proj = {...proj,
-            mpg: r1t(mpg),
-            ppg: r1t(pm.ppg*mpg), rpg: r1t((pm.oreb+pm.dreb)*mpg),
-            apg: r1t(pm.apg*mpg), stl: r1t(pm.stl*mpg), blk: r1t(pm.blk*mpg), tovs: r1t(pm.tovs*mpg),
-            oreb: r1t(pm.oreb*mpg), dreb: r1t(pm.dreb*mpg),
-            fg_pct: r1t(proj._fgPct||44), tp_pct: r1t(proj._tpPct||33), ft_pct: r1t(proj._ftPct||70),
-            fga: r1t(mpg*0.28), fgm: r1t(mpg*0.28*(proj._fgPct||44)/100),
-            tpa: r1t(mpg*0.12), tpm: r1t(mpg*0.12*(proj._tpPct||33)/100),
-            fta: r1t(mpg*0.09), ftm: r1t(mpg*0.09*(proj._ftPct||70)/100),
-            _frosh: true,
-          };
-        }
-      }
-      // Fallback: project in isolation
-      if(!proj&&(typeof TDC!=='undefined')){
-        const playerForProj=injectEst([player])[0];
-        proj=TDC.projectPlayerInContext(playerForProj, injectEst(teamPlayers.length?teamPlayers:[player]), teamData)||null;
-      }
-    }catch(projErr){
-      console.warn('Projection failed:',projErr);
-      proj=null;
-    }
-    // Guaranteed fallback OUTSIDE try/catch — always fires for no-stat players
-    if(!proj && !(player.ppg && parseFloat(player.ppg)>0)){
-      try{
-        const g=parseFloat(player.tdc_grade)||70;
-        const pn=['PG','SG','SF','PF','C'].includes(player.position)?player.position:player.position==='CG'?'SG':'SG';
-        const fb=getFrBase(g,pn);
-        const mg=g>=92?30:g>=88?26:g>=83?22:g>=78?18:g>=73?14:10;
-        const scale=mg/FR_BASE_MPG;
-        const fg=r1t(mg*0.28);
-        proj={...player,
-          ppg:r1t(fb.ppg*scale),rpg:r1t((fb.oreb+fb.dreb)*scale),apg:r1t(fb.apg*scale),mpg:mg,
-          fgm:r1t(fg*(fb.fg_pct/100)),fga:fg,fg_pct:fb.fg_pct,
-          tpm:r1t(fg*0.42*(fb.tp_pct/100)),tpa:r1t(fg*0.42),tp_pct:fb.tp_pct,
-          fta:r1t(mg*0.09),ftm:r1t(mg*0.09*(fb.ft_pct/100)),ft_pct:fb.ft_pct,
-          oreb:r1t(fb.oreb*scale),dreb:r1t(fb.dreb*scale),
-          stl:r1t(fb.stl*scale),blk:r1t(fb.blk*scale),tovs:r1t(fb.tovs*scale),
-          _frosh:true,_noStatEst:true
-        };
-      }catch(e2){ console.warn('EST fallback failed:',e2); }
-    }
-
-    // Fetch career history from player_history
-    // Falls back to suffix-stripped name if exact match returns nothing
-    // (handles ESPN naming like "Billy Richmond III" vs sheet "Billy Richmond")
+    // ── FETCH CAREER HISTORY ─────────────────────────────────────
+    // Do this FIRST — projection depends on it
     try{
       const chR = await fetch(`${SB}/rest/v1/player_history?name=eq.${sbEncode(player.name)}&select=*&order=season_year.asc&limit=20`,{headers:H});
       if(chR.ok){
         careerHistory = await chR.json();
         if(!Array.isArray(careerHistory)) careerHistory = [];
       }
-      // If no results, try stripping suffix from DB names (ilike with base name)
+      // Suffix fallback: "Billy Richmond" ↔ "Billy Richmond III"
       if(!careerHistory.length){
-        const baseName = player.name.replace(/\s+(Jr\.?|Sr\.?|II|III|IV|V)$/i,'').trim();
-        const chR2 = await fetch(`${SB}/rest/v1/player_history?name=ilike.${sbEncode(baseName+'*')}&select=*&order=season_year.asc&limit=20`,{headers:H});
-        if(chR2.ok){
-          const res2 = await chR2.json();
-          if(Array.isArray(res2) && res2.length) careerHistory = res2;
+        const base = player.name.replace(/\s+(Jr\.?|Sr\.?|II|III|IV|V)$/i,'').trim();
+        const r2 = await fetch(`${SB}/rest/v1/player_history?name=ilike.${sbEncode(base+'*')}&select=*&order=season_year.asc&limit=20`,{headers:H});
+        if(r2.ok){ const d=await r2.json(); if(Array.isArray(d)&&d.length) careerHistory=d; }
+      }
+      if(!careerHistory.length){
+        const stripped = player.name.replace(/\s+(Jr\.?|Sr\.?|II|III|IV|V)$/i,'').trim();
+        if(stripped!==player.name){
+          const r3 = await fetch(`${SB}/rest/v1/player_history?name=eq.${sbEncode(stripped)}&select=*&order=season_year.asc&limit=20`,{headers:H});
+          if(r3.ok){ const d=await r3.json(); if(Array.isArray(d)&&d.length) careerHistory=d; }
         }
       }
-      // Also try the reverse — player name has suffix but DB doesn't
-      if(!careerHistory.length){
-        const withoutSuffix = player.name.replace(/\s+(Jr\.?|Sr\.?|II|III|IV|V)$/i,'').trim();
-        if(withoutSuffix !== player.name){
-          const chR3 = await fetch(`${SB}/rest/v1/player_history?name=eq.${sbEncode(withoutSuffix)}&select=*&order=season_year.asc&limit=20`,{headers:H});
-          if(chR3.ok){
-            const res3 = await chR3.json();
-            if(Array.isArray(res3) && res3.length) careerHistory = res3;
+    }catch(e){ console.warn('Career history fetch failed:',e); careerHistory=[]; }
+
+    // ── BUILD _careerHistoryMap for projectPlayer ─────────────────
+    window._careerHistoryMap = {};
+    if(careerHistory.length){
+      const key = (player.name||'').toLowerCase().trim();
+      window._careerHistoryMap[key] = careerHistory;
+    }
+
+    // ── FETCH TEAM ROSTER (for MPG context) ──────────────────────
+    try{
+      const teamParam = player.team ? `&team=eq.${sbEncode(player.team)}` : '';
+      const rr = await fetch(`${SB}/rest/v1/players?select=*&order=depth_order.asc&limit=500${teamParam}`,{headers:H});
+      const allRows = await rr.json();
+      teamPlayers = Array.isArray(allRows) ? allRows.filter(r=>r.name&&r.name!=='—') : [];
+    }catch(e){ teamPlayers=[]; }
+
+    // ── CAREER-AWARE PROJECTION ───────────────────────────────────
+    // Uses the same projectPlayer() function as team.html — consistent everywhere.
+    // Falls back to grade-based estimate if no career data exists.
+    proj = null;
+    try{
+      const conf = (teamData&&teamData.conf) || (player.team_conf) || '';
+
+      // Played seasons from career history (newest first)
+      const played = careerHistory
+        .filter(h => !h.sat_out && parseFloat(h.ppg||0)>0)
+        .sort((a,b) => b.season_year - a.season_year);
+
+      const latestH = played[0] || null;
+
+      // Use career history latest season as base if available, else players table row
+      const basePlayer = latestH
+        ? {...player,
+            ppg: latestH.ppg, rpg: latestH.rpg, apg: latestH.apg, mpg: latestH.mpg,
+            fgm: latestH.fgm, fga: latestH.fga, fg_pct: latestH.fg_pct,
+            tpm: latestH.tpm, tpa: latestH.tpa, tp_pct: latestH.tp_pct,
+            ftm: latestH.ftm, fta: latestH.fta, ft_pct: latestH.ft_pct,
+            oreb: latestH.oreb, dreb: latestH.dreb,
+            stl: latestH.stl, blk: latestH.blk, tovs: latestH.tovs,
+            gp: latestH.gp,
+          }
+        : player;
+
+      // Target MPG: use current roster position if we have it, else estimate from depth
+      const targetMpg = (() => {
+        const slot = player.depth_order || 5;
+        const grade = parseFloat(player.tdc_grade)||70;
+        // Simple MPG from depth slot: starter ~30, backup ~18, deep ~10, bench ~6
+        if(slot===1) return Math.min(35, 26 + (grade-70)*0.2);
+        if(slot===2) return Math.min(28, 18 + (grade-70)*0.15);
+        if(slot===3) return Math.min(20, 12 + (grade-70)*0.1);
+        if(slot===4) return Math.min(14, 8  + (grade-70)*0.08);
+        return Math.max(4, 6 + (grade-70)*0.06);
+      })();
+
+      // projectPlayer is defined in team.html — on player.html we run a
+      // self-contained version of the same logic here
+      const r1 = v => v!=null ? Math.round((v+Number.EPSILON)*10)/10 : null;
+      const yr  = (player.yr||player.class_year||'').toLowerCase();
+      const isFr = yr.includes('fr.')||yr.includes('r-fr');
+      const isSo = yr.includes('so.')||yr.includes('r-so.');
+      const isJr = yr.includes('jr.')||yr.includes('r-jr.');
+      const isSr = yr.includes('sr.')||yr.includes('r-sr')||yr.includes('gr.');
+      const grade = parseFloat(player.tdc_grade)||70;
+      const pos   = (player.position||'G').replace(/\d/g,'').trim();
+      const posNorm = ['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':'G';
+      const newMpg = targetMpg;
+
+      const hasCareerStats = latestH && parseFloat(latestH.ppg||0)>0;
+      const hasCurrentStats = parseFloat(player.ppg||0)>0;
+
+      if(!hasCareerStats && !hasCurrentStats){
+        // ── Grade-based estimate (no stats at all) ──
+        const fb = getFrBase(grade, posNorm);
+        const scale = newMpg/FR_BASE_MPG;
+        const fga = r1(newMpg*0.28);
+        proj = {...player,
+          ppg:r1(fb.ppg*scale), rpg:r1((fb.oreb+fb.dreb)*scale), apg:r1(fb.apg*scale), mpg:r1(newMpg),
+          fgm:r1(fga*(fb.fg_pct/100)), fga:fga, fg_pct:fb.fg_pct,
+          tpm:r1(fga*0.42*(fb.tp_pct/100)), tpa:r1(fga*0.42), tp_pct:fb.tp_pct,
+          fta:r1(newMpg*0.09), ftm:r1(newMpg*0.09*(fb.ft_pct/100)), ft_pct:fb.ft_pct,
+          oreb:r1(fb.oreb*scale), dreb:r1(fb.dreb*scale),
+          stl:r1(fb.stl*scale), blk:r1(fb.blk*scale), tovs:r1(fb.tovs*scale),
+          _frosh:true, _noStatEst:true,
+        };
+      } else {
+        // ── Career-aware projection ──────────────────────────
+        const base = hasCareerStats ? latestH : player;
+        const baseMpg = Math.max(1, parseFloat(base.mpg||0)||1);
+        const g = v => parseFloat(base[v]||0)||0;
+
+        // Per-minute rates from base season
+        const pm = {
+          ppg:g('ppg')/baseMpg,  rpg:g('rpg')/baseMpg,   apg:g('apg')/baseMpg,
+          fgm:g('fgm')/baseMpg,  fga:g('fga')/baseMpg,
+          tpm:g('tpm')/baseMpg,  tpa:g('tpa')/baseMpg,
+          ftm:g('ftm')/baseMpg,  fta:g('fta')/baseMpg,
+          oreb:g('oreb')/baseMpg, dreb:g('dreb')/baseMpg,
+          stl:g('stl')/baseMpg,  blk:g('blk')/baseMpg,  tovs:g('tovs')/baseMpg,
+        };
+
+        // Career trend: compare most recent two played seasons
+        let trendMult = 1.0;
+        if(played.length >= 2){
+          const n = played[0], p2 = played[1];
+          const nPm  = parseFloat(n.ppg||0)/Math.max(1,parseFloat(n.mpg||1));
+          const pPm  = parseFloat(p2.ppg||0)/Math.max(1,parseFloat(p2.mpg||1));
+          if(pPm>0){ trendMult = 1.0 + Math.max(-0.12,Math.min(0.12,(nPm/pPm-1)*0.35)); }
+        }
+
+        // Year progression
+        const yrMult = isSo?1.06 : isJr?1.03 : isSr?1.01 : 1.04;
+
+        // Grade vs stats gap
+        const gradeExpPpg = grade>=90?19 : grade>=85?16 : grade>=80?13 : grade>=75?10 : grade>=70?8 : 6;
+        const statsPer32  = pm.ppg*32;
+        const gapRatio    = gradeExpPpg>0 ? statsPer32/gradeExpPpg : 1;
+        const gapMult     = gapRatio<0.50?1.18 : gapRatio<0.65?1.12 : gapRatio<0.80?1.06
+                          : gapRatio<0.95?1.02 : gapRatio>1.40?0.97 : gapRatio>1.20?0.99 : 1.0;
+
+        const rateGrowth = yrMult * gapMult * trendMult;
+
+        // Transfer factor
+        const PROJ_CONF_TIERS_P = {'B10':1,'SEC':1,'BIG-12':1,'ACC':1,'Big-East':2,'A10':2,'WCC':2,'PAC-12':2,'MWC':3,'AAC':3,'Ivy':3,'MVC':4,'WAC':4,'CUSA':4,'MAC':4,'Big West':4,'Big Sky':5,'CAA':5,'Horizon':5,'Sun Belt':5,'Big South':5,'SBC':5,'SoCon':6,'ASUN':6,'MAAC':6,'OVC':6,'Summit':6,'Patriot':7,'SWAC':7,'NEC':7,'MEAC':7,'AEC':7};
+        const PROJ_TRANS_MAT_P  = {1:{1:1.00,2:1.15,3:1.28,4:1.40,5:1.40,6:1.40,7:1.40},2:{1:0.90,2:1.00,3:1.15,4:1.20,5:1.20,6:1.20,7:1.20},3:{1:0.75,2:0.90,3:1.00,4:1.05,5:1.10,6:1.10,7:1.10},4:{1:0.49,2:0.68,3:0.82,4:1.00,5:1.05,6:1.05,7:1.05},5:{1:0.43,2:0.49,3:0.69,4:0.82,5:1.00,6:1.00,7:1.00},6:{1:0.40,2:0.42,3:0.50,4:0.69,5:0.82,6:1.00,7:1.00},7:{1:0.30,2:0.34,3:0.42,4:0.48,5:0.69,6:0.82,7:1.00}};
+        let transferFactor = 1.0;
+        if(player.hometown && player.hometown.trim()){
+          // Determine origin conference from prior team in career history
+          const prevTeamEntry = played[0]; // most recent — that's the origin if transferring
+          const originConf = (prevTeamEntry && played.length>1)
+            ? conf  // staying at same school — no penalty
+            : (() => {
+                // Try to infer from hometown field (prior school name)
+                const school = (player.hometown||'').toLowerCase().trim();
+                const schoolConfs = {'alabama':1,'arkansas':1,'auburn':1,'florida':1,'georgia':1,'kentucky':1,'lsu':1,'mississippi state':1,'missouri':1,'ole miss':1,'south carolina':1,'tennessee':1,'texas':1,'texas a&m':1,'vanderbilt':1,'illinois':1,'indiana':1,'iowa':1,'maryland':1,'michigan':1,'michigan state':1,'minnesota':1,'nebraska':1,'northwestern':1,'ohio state':1,'penn state':1,'purdue':1,'rutgers':1,'wisconsin':1,'ucla':1,'usc':1,'oregon':1,'washington':1,'arizona':1,'arizona state':1,'baylor':1,'byu':1,'cincinnati':1,'colorado':1,'houston':1,'iowa state':1,'kansas':1,'kansas state':1,'oklahoma state':1,'tcu':1,'texas tech':1,'ucf':1,'utah':1,'west virginia':1,'boston college':1,'clemson':1,'duke':1,'florida state':1,'georgia tech':1,'louisville':1,'miami':1,'nc state':1,'north carolina':1,'notre dame':1,'pittsburgh':1,'syracuse':1,'virginia':1,'virginia tech':1,'wake forest':1,'california':1,'smu':1,'stanford':1,'butler':2,'connecticut':2,'uconn':2,'creighton':2,'depaul':2,'georgetown':2,'marquette':2,'providence':2,'seton hall':2,"st. john's":2,'villanova':2,'xavier':2};
+                for(const [k,tier] of Object.entries(schoolConfs)){
+                  if(school.includes(k)) return Object.keys(PROJ_CONF_TIERS_P).find(c=>PROJ_CONF_TIERS_P[c]===tier&&tier===1)?'SEC':'Big-East';
+                }
+                return null;
+              })();
+          if(originConf && conf){
+            const ot = PROJ_CONF_TIERS_P[originConf]||4;
+            const dt = PROJ_CONF_TIERS_P[conf]||4;
+            const base_tf = (PROJ_TRANS_MAT_P[ot]||{})[dt]||1.0;
+            const gBoost  = grade>=90?1.22 : grade>=85?1.14 : grade>=80?1.07 : grade>=75?1.02 : grade>=70?0.97 : 0.91;
+            transferFactor = Math.max(0.20, Math.min(1.6, base_tf*gBoost));
           }
         }
+
+        // Efficiency adjustments
+        const fgBase = parseFloat(base.fg_pct||0)||44;
+        const tpBase = parseFloat(base.tp_pct||0)||33;
+        const ftBase = parseFloat(base.ft_pct||0)||70;
+        const careerFtPct = played.length>=2
+          ? played.reduce((s,h)=>s+parseFloat(h.ft_pct||0),0)/played.length : ftBase;
+        const ftSmoothed = ftBase*0.6 + careerFtPct*0.4;
+        const oldFga  = parseFloat(base.fga||0)||1;
+        const newFgaE = oldFga*(newMpg/baseMpg);
+        const volChange  = (newFgaE/oldFga)-1;
+        const volPenalty = volChange*3.5;
+        const yearEff = isSo?1.2 : isJr?0.6 : isSr?0.0 : 1.8;
+        const transPctAdj = transferFactor<0.75?-3.5 : transferFactor<0.85?-2.5
+                          : transferFactor<0.92?-1.5 : transferFactor<0.97?-0.8
+                          : transferFactor>1.20?+1.2 : transferFactor>1.10?+0.8
+                          : transferFactor>1.04?+0.4 : 0;
+        const fgProj = r1(Math.max(30,Math.min(65, fgBase+yearEff-volPenalty+transPctAdj)));
+        const tpProj = r1(Math.max(18,Math.min(50, tpBase+(isSo?0.8:isJr?0.4:isSr?0:1.5)-(volChange*2)+transPctAdj*0.6)));
+        const ftProj = r1(Math.max(45,Math.min(97, ftSmoothed+(isSo?1.0:isJr?0.5:isSr?0:1.5))));
+
+        const newFga = r1(pm.fga*rateGrowth*newMpg);
+        proj = {...player,
+          ppg: r1(pm.ppg *rateGrowth*newMpg),
+          rpg: r1(pm.rpg *rateGrowth*newMpg),
+          apg: r1(pm.apg *rateGrowth*newMpg),
+          mpg: r1(newMpg),
+          fgm: r1(newFga*(fgProj/100)), fga: newFga, fg_pct: fgProj,
+          tpm: r1(pm.tpa*rateGrowth*newMpg*(tpProj/100)),
+          tpa: r1(pm.tpa*rateGrowth*newMpg), tp_pct: tpProj,
+          ftm: r1(pm.fta*rateGrowth*newMpg*(ftProj/100)),
+          fta: r1(pm.fta*rateGrowth*newMpg), ft_pct: ftProj,
+          oreb: r1(pm.oreb*rateGrowth*newMpg),
+          dreb: r1(pm.dreb*rateGrowth*newMpg),
+          stl:  r1(pm.stl *rateGrowth*newMpg),
+          blk:  r1(pm.blk *rateGrowth*newMpg),
+          tovs: r1(pm.tovs*rateGrowth*newMpg),
+          _frosh:false, _factor:transferFactor, _trend:trendMult, _seasons:played.length,
+        };
       }
-    }catch(e){ console.warn('Career history fetch failed:',e); careerHistory = []; }
+    }catch(projErr){
+      console.warn('Projection failed:',projErr);
+      proj = null;
+    }
 
     renderPage();
   }catch(e){
