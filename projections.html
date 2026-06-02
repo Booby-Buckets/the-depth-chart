@@ -6,23 +6,34 @@
   <title>Projections — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
-    :root{--bg:#fff;--bg2:#f5f5f5;--border:#e0e0e0;--border2:#ccc;--text:#111;--text2:#444;--text3:#888;--accent:#8B6914;--green:#1a8c3a;--red:#cc2200;}
-    [data-theme="dark"]{--bg:#111;--bg2:#181818;--border:#2a2a2a;--border2:#333;--text:#e8e8e8;--text2:#a0a0a0;--text3:#606060;--accent:#c8a96e;}
+    :root{--bg:#ffffff;--bg2:#f5f5f5;--bg3:#ebebeb;--border:#e0e0e0;--border2:#cccccc;--text:#111111;--text2:#444444;--text3:#888888;--accent:#C8A020;--green:#1a8c3a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#070C18;--bg2:#0C1526;--bg3:#14203A;--border:#1A2B44;--border2:#22375A;--text:#E6EAF2;--text2:#9AA4BC;--text3:#4C5C78;--accent:#C8A020;}
     [data-theme="dark"] .search-input,[data-theme="dark"] .player-search-dropdown,[data-theme="dark"] .filter-select{background:var(--bg2);color:var(--text);}
     *{margin:0;padding:0;box-sizing:border-box;}
     body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
-    .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+    /* NAV — frosted glass */
+    .nav-wrap{border-bottom:1px solid var(--border);background:rgba(255,255,255,.82);backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);position:sticky;top:0;z-index:200;}
+    [data-theme="dark"] .nav-wrap{background:rgba(7,12,24,.84);border-bottom-color:rgba(26,43,68,.9);}
     .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
-    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;}
+    @keyframes logoReveal{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:translateX(0);}}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;letter-spacing:-.01em;white-space:nowrap;animation:logoReveal .55s cubic-bezier(.22,1,.36,1) both;}
     .nav-logo span{color:var(--accent);}
     .nav-actions{display:flex;align-items:center;gap:14px;}
-    .nav-signin{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--text);padding:6px 16px;text-decoration:none;}
-    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
-    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
+    .nav-actions a{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;transition:color .15s;}
+    .nav-actions a:hover{color:var(--text);}
+    .nav-signin{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--text);padding:6px 16px;text-decoration:none;display:inline-block;transition:opacity .15s;}
+    .nav-signin:hover{opacity:.85;}
+    .theme-toggle,.theme-btn{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .15s;}
+    .theme-toggle:hover,.theme-btn:hover{border-color:var(--accent);}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
     .nav-sub::-webkit-scrollbar{display:none;}
-    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;position:relative;white-space:nowrap;flex-shrink:0;transition:color .2s;}
     .nav-sub a:first-child{padding-left:0;}
-    .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
+    .nav-sub a::after{content:'';position:absolute;bottom:0;left:14px;right:14px;height:2px;background:var(--accent);transform:scaleX(0);transform-origin:left center;transition:transform .22s cubic-bezier(.22,1,.36,1);}
+    .nav-sub a:first-child::after{left:0;}
+    .nav-sub a:hover{color:var(--text);}
+    .nav-sub a:hover::after,.nav-sub a.active::after{transform:scaleX(1);}
+    .nav-sub a.active{color:var(--text);}
 
     /* TABS */
     .tab-row{display:flex;border-bottom:1px solid var(--border);padding:0 40px;}
@@ -32,10 +43,10 @@
     .tab-panel.active{display:block;}
 
     /* PAGE HEADER */
-    .page-header{padding:36px 40px 24px;border-bottom:1px solid var(--border);}
+    .page-header{padding:42px 40px 28px;border-bottom:1px solid var(--border);position:relative;z-index:1;}
     .page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;display:flex;align-items:center;gap:10px;}
     .page-eyebrow::before{content:'';width:20px;height:1px;background:var(--accent);}
-    .page-h1{font-family:'Playfair Display',serif;font-weight:800;font-size:36px;letter-spacing:-.02em;margin-bottom:6px;}
+    .page-h1{font-family:'Playfair Display',serif;font-weight:800;font-size:42px;letter-spacing:-.025em;margin-bottom:8px;}
     .page-sub{font-size:13px;color:var(--text3);}
 
     /* FILTER BAR */
@@ -56,10 +67,10 @@
     .proj-table th.sorted.asc::after{content:' ▲';}
     .proj-table th.left{text-align:left;}
     .proj-table td{padding:9px 10px;border-bottom:1px solid var(--border);font-size:13px;text-align:right;white-space:nowrap;}
-    .proj-table tr:hover td{background:var(--bg2);}
+    .proj-table tr:hover td{background:var(--bg2);}  .proj-table td{transition:background .12s;}
     .proj-table td.left{text-align:left;}
     .td-name{font-weight:700;color:var(--text);cursor:pointer;}
-    .td-name:hover{color:var(--accent);}
+    .td-name:hover{color:var(--accent);}  .td-name{transition:color .15s;}
     .td-team{font-size:11px;color:var(--text3);}
     .td-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;}
     .td-stat{font-family:'Playfair Display',serif;font-size:13px;font-weight:700;color:var(--text2);padding:2px 6px;border-radius:2px;margin:0 1px;}
@@ -113,10 +124,40 @@
       .table-wrap{padding:0 0 40px;}
       .pickers{grid-template-columns:1fr;}
     }
+  
+    /* AMBIENT + PARTICLES */
+    .ambient-layer{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;}
+    .ambient-blob{position:absolute;border-radius:50%;will-change:transform;}
+    .amb-1{width:800px;height:800px;background:radial-gradient(circle at center,rgba(200,160,32,.04) 0%,transparent 65%);filter:blur(60px);top:-280px;right:-200px;animation:ambA 22s ease-in-out infinite alternate;}
+    .amb-2{width:700px;height:700px;background:radial-gradient(circle at center,rgba(20,60,160,.04) 0%,transparent 65%);filter:blur(70px);bottom:-240px;left:-180px;animation:ambB 28s ease-in-out infinite alternate;}
+    .amb-3{width:400px;height:400px;background:radial-gradient(circle at center,rgba(200,160,32,.025) 0%,transparent 65%);filter:blur(50px);top:40%;left:35%;animation:ambC 16s ease-in-out infinite alternate;}
+    [data-theme="dark"] .amb-1{background:radial-gradient(circle at center,rgba(200,160,32,.09) 0%,transparent 65%);}
+    [data-theme="dark"] .amb-2{background:radial-gradient(circle at center,rgba(20,60,200,.12) 0%,transparent 65%);}
+    @keyframes ambA{0%{transform:translate(0,0) scale(1);}33%{transform:translate(-45px,30px) scale(1.06);}100%{transform:translate(38px,18px) scale(1.04);}}
+    @keyframes ambB{0%{transform:translate(0,0) scale(1);}50%{transform:translate(50px,-30px) scale(1.08);}100%{transform:translate(-32px,16px) scale(1.05);}}
+    @keyframes ambC{0%{transform:translate(0,0) scale(1);}100%{transform:translate(-20px,14px) scale(.90);}}
+    #particleCanvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;}
+    .nav-wrap{z-index:200!important;}
+    /* fade-up for page header content */
+    @keyframes fadeUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+    .page-eyebrow{animation:fadeUp .45s .06s cubic-bezier(.22,1,.36,1) both;}
+    .page-h1{animation:fadeUp .5s .12s cubic-bezier(.22,1,.36,1) both;}
+    .page-sub{animation:fadeUp .5s .18s cubic-bezier(.22,1,.36,1) both;}
+    /* tab panel fade */
+    .tab-panel.active{animation:panelIn .28s cubic-bezier(.22,1,.36,1) forwards;}
+    @keyframes panelIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
   </style>
   <script src="tdc-engine.js"></script>
 </head>
 <body>
+
+<!-- ═══ AMBIENT LAYER ═══════════════════════════════════════ -->
+<div class="ambient-layer" aria-hidden="true">
+  <div class="ambient-blob amb-1"></div>
+  <div class="ambient-blob amb-2"></div>
+  <div class="ambient-blob amb-3"></div>
+</div>
+<canvas id="particleCanvas" aria-hidden="true"></canvas>
 
 <script>
 (function(){
@@ -195,7 +236,7 @@
         <button class="mode-btn" id="modeProjVsProj" onclick="setMode('proj_vs_proj')">Projected vs Projected</button>
         <button class="mode-btn" id="modeActVsAct" onclick="setMode('actual_vs_actual')">Actual vs Actual</button>
       </div>
-      <div style="font-size:12px;color:var(--text3);" id="modeDesc">Compare a player's actual 2025-26 stats vs their 2026-27 projection.</div>
+      <div style="font-size:12px;color:var(--text3);" id="modeDesc">Compare a player's actual 2026-27 stats vs their 2026-27 projection.</div>
     </div>
 
     <div class="pickers" id="pickersWrap">
@@ -666,9 +707,9 @@ function setMode(mode){
     document.getElementById('mode'+{actual_vs_proj:'ActVsProj',proj_vs_proj:'ProjVsProj',actual_vs_actual:'ActVsAct'}[m])?.classList.toggle('active',m===mode);
   });
   const descs={
-    'actual_vs_proj':'Compare a player\'s actual 2025-26 stats vs their 2026-27 projection.',
+    'actual_vs_proj':'Compare a player\'s actual 2026-27 stats vs their 2026-27 projection.',
     'proj_vs_proj':'Compare two different players\' 2026-27 projections.',
-    'actual_vs_actual':'Compare two players\' actual 2025-26 stats.',
+    'actual_vs_actual':'Compare two players\' actual 2026-27 stats.',
   };
   document.getElementById('modeDesc').textContent=descs[mode];
 
@@ -819,5 +860,44 @@ function toggleTheme(){
 
 init();
 </script>
+
+<script>
+/* ── Particle system ──────────────────────────────────────── */
+(function(){
+  const cv=document.getElementById('particleCanvas');
+  if(!cv) return;
+  const ctx=cv.getContext('2d');
+  const N=14,SMIN=5,SMAX=8,RMIN=1.0,RMAX=2.0,OMIN=0.05,OMAX=0.16;
+  let W,H,pts=[];
+  function rsz(){W=cv.width=innerWidth;H=cv.height=innerHeight;}
+  window.addEventListener('resize',rsz,{passive:true});rsz();
+  function rnd(a,b){return a+Math.random()*(b-a);}
+  function mk(){const a=rnd(0,Math.PI*2),s=rnd(SMIN,SMAX);
+    return{x:rnd(0,W),y:rnd(0,H),vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:rnd(RMIN,RMAX),op:rnd(OMIN,OMAX),p:rnd(0,Math.PI*2),ps:rnd(.004,.010)};}
+  for(let i=0;i<N;i++) pts.push(mk());
+  let last=0;
+  function frame(ts){
+    const dt=Math.min((ts-last)/1000,.05);last=ts;
+    ctx.clearRect(0,0,W,H);
+    const dk=document.documentElement.getAttribute('data-theme')==='dark';
+    pts.forEach(p=>{
+      p.x+=p.vx*dt;p.y+=p.vy*dt;
+      if(p.x<-4)p.x=W+4;if(p.x>W+4)p.x=-4;
+      if(p.y<-4)p.y=H+4;if(p.y>H+4)p.y=-4;
+      p.p+=p.ps;
+      const al=p.op*(0.6+0.4*Math.sin(p.p))*(dk?1:.5);
+      const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*2.5);
+      g.addColorStop(0,`rgba(200,160,32,${al})`);
+      g.addColorStop(.4,`rgba(200,160,32,${al*.5})`);
+      g.addColorStop(1,`rgba(200,160,32,0)`);
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r*2.5,0,Math.PI*2);
+      ctx.fillStyle=g;ctx.fill();
+    });
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+
 </body>
 </html>
