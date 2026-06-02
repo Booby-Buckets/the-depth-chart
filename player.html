@@ -889,7 +889,9 @@ async function init(){
 
         // Per-minute rates from base season
         const pm = {
-          ppg:g('ppg')/baseMpg,  rpg:g('rpg')/baseMpg,   apg:g('apg')/baseMpg,
+          ppg:g('ppg')/baseMpg,
+          rpg:((g('oreb')+g('dreb'))>0?(g('oreb')+g('dreb')):g('rpg'))/baseMpg,
+          apg:g('apg')/baseMpg,
           fgm:g('fgm')/baseMpg,  fga:g('fga')/baseMpg,
           tpm:g('tpm')/baseMpg,  tpa:g('tpa')/baseMpg,
           ftm:g('ftm')/baseMpg,  fta:g('fta')/baseMpg,
@@ -914,8 +916,8 @@ async function init(){
             const mpgGrowth = parseFloat(n.mpg||0) / Math.max(1,parseFloat(p2.mpg||0));
             const isBreakout = rawTrend >= 1.40 && mpgGrowth >= 1.20;
             // Normal damping: ±12% max. Breakout: allow up to +18%
-            const cap = isBreakout ? 0.18 : 0.12;
-            trendMult = 1.0 + Math.max(-cap, Math.min(cap, (rawTrend-1)*0.40));
+            const cap = isBreakout ? 0.15 : 0.10;
+            trendMult = 1.0 + Math.max(-cap, Math.min(cap, (rawTrend-1)*0.35));
           }
         } else if(meaningful.length === 1 && played.length >= 2){
           // Only one meaningful season but they have a prior bench season:
@@ -970,7 +972,9 @@ async function init(){
 
         // Efficiency adjustments
         const fgBase = parseFloat(base.fg_pct||0)||44;
-        const tpBase = parseFloat(base.tp_pct||0)||0;
+        const tpBase = meaningful.length
+          ? meaningful.reduce((s,h)=>s+parseFloat(h.tp_pct||0),0)/meaningful.length
+          : (parseFloat(base.tp_pct||0)||parseFloat(player.tp_pct||0)||33);
         const ftBase = parseFloat(base.ft_pct||0)||70;
         // FT% smoothing — use meaningful seasons only (avoids bench noise)
         const careerFtPct = meaningful.length>=2
