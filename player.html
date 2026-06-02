@@ -731,14 +731,22 @@ async function init(){
         }
 
         // Year progression
-        const yrMult = isSo?1.06 : isJr?1.03 : isSr?1.01 : 1.04;
+        // isReturnee: stayed at same school (no hometown = no transfer, or history shows same team)
+        const isTransferIn = !!(player.hometown && player.hometown.trim());
+        const isReturnee   = !isTransferIn;
+
+        // Returners get a small boost — they know the system, role is established
+        // Transfers get a slight extra haircut on top of the conference adjustment
+        const returnBoost  = isReturnee  ? (isSr?1.02 : isJr?1.03 : isSo?1.04 : 1.02) : 1.0;
+        const transferTrim = isTransferIn ? 0.96 : 1.0;  // -4% on top of conf factor
+        const yrMult = (isSo?1.06 : isJr?1.03 : isSr?1.01 : 1.04) * returnBoost * transferTrim;
 
         // Grade vs stats gap
         const gradeExpPpg = grade>=90?19 : grade>=85?16 : grade>=80?13 : grade>=75?10 : grade>=70?8 : 6;
         const statsPer32  = pm.ppg*32;
         const gapRatio    = gradeExpPpg>0 ? statsPer32/gradeExpPpg : 1;
-        const gapMult     = gapRatio<0.50?1.18 : gapRatio<0.65?1.12 : gapRatio<0.80?1.06
-                          : gapRatio<0.95?1.02 : gapRatio>1.40?0.97 : gapRatio>1.20?0.99 : 1.0;
+        const gapMult     = gapRatio<0.50?1.15 : gapRatio<0.65?1.10 : gapRatio<0.80?1.05
+                          : gapRatio<0.95?1.02 : gapRatio>1.40?0.96 : gapRatio>1.20?0.99 : 1.0;
 
         const rateGrowth = yrMult * gapMult * trendMult;
 
