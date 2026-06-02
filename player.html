@@ -142,9 +142,29 @@
     .skill-bar-val{font-family:'Playfair Display',serif;font-weight:700;font-size:12px;width:34px;text-align:right;flex-shrink:0;}
     .skill-bar-pct{font-size:10px;font-weight:700;color:var(--text3);width:32px;text-align:right;flex-shrink:0;}
 
-    .loading-state{text-align:center;padding:80px;color:var(--text3);}
-    .loading-spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 12px;}
-    @keyframes spin{to{transform:rotate(360deg);}}
+    /* PAGE-LOAD ANIMATIONS */
+    @keyframes heroSlideUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+    @keyframes avatarPop{0%{opacity:0;transform:scale(.6);}70%{transform:scale(1.08);}100%{opacity:1;transform:scale(1);}}
+    @keyframes gradeStamp{0%{opacity:0;transform:scale(.5) rotate(-4deg);}65%{transform:scale(1.1) rotate(1deg);}100%{opacity:1;transform:scale(1) rotate(0deg);}}
+    @keyframes statCardIn{from{opacity:0;transform:translateY(10px) scale(.96);}to{opacity:1;transform:translateY(0) scale(1);}}
+
+    .player-hero{animation:heroSlideUp .5s .05s cubic-bezier(.22,1,.36,1) both;}
+    .hero-avatar{animation:avatarPop .55s .15s cubic-bezier(.34,1.56,.64,1) both!important;}
+    .hero-name{animation:heroSlideUp .45s .2s cubic-bezier(.22,1,.36,1) both;}
+    .hero-grade{animation:gradeStamp .6s .3s cubic-bezier(.34,1.46,.64,1) both!important;}
+
+    /* Stat cards stagger in when tab is active */
+    .stat-card{opacity:0;animation:statCardIn .35s cubic-bezier(.22,1,.36,1) both;}
+    .tab-panel.active .stat-card:nth-child(1){animation-delay:.05s;}
+    .tab-panel.active .stat-card:nth-child(2){animation-delay:.09s;}
+    .tab-panel.active .stat-card:nth-child(3){animation-delay:.13s;}
+    .tab-panel.active .stat-card:nth-child(4){animation-delay:.17s;}
+    .tab-panel.active .stat-card:nth-child(5){animation-delay:.21s;}
+    .tab-panel.active .stat-card:nth-child(6){animation-delay:.25s;}
+    .tab-panel.active .stat-card:nth-child(7){animation-delay:.29s;}
+    .tab-panel.active .stat-card:nth-child(8){animation-delay:.33s;}
+    .tab-panel.active .stat-card:nth-child(9){animation-delay:.37s;}
+    .tab-panel.active .stat-card:nth-child(10){animation-delay:.41s;}
     @media(max-width:768px){
       .nav-top,.nav-sub,.player-hero,.tab-panel,.tab-row{padding-left:16px;padding-right:16px;}
       .player-hero{flex-wrap:wrap;}
@@ -513,75 +533,131 @@ function buildTeamProjections(players,conf){
 
 // ── PLAYER ARCHETYPE / SCOUTING ─────────────────────────
 function buildScoutingReport(p, proj, globalPct){
-  const ppg=parseFloat(p.ppg)||0, rpg=parseFloat(p.rpg)||0, apg=parseFloat(p.apg)||0;
-  const fg=parseFloat(p.fg_pct)||0, tp=parseFloat(p.tp_pct)||0, ft=parseFloat(p.ft_pct)||0;
-  const stl=parseFloat(p.stl)||0, blk=parseFloat(p.blk)||0;
-  const oreb=parseFloat(p.oreb)||0, dreb=parseFloat(p.dreb)||0;
-  const tovs=parseFloat(p.tovs)||0, mpg=parseFloat(p.mpg)||0;
-  const pos=p.position||'G';
-  const grade=parseFloat(p.tdc_grade)||70;
-  let archetype='', archetypeDesc='';
-  const isGuard=pos==='PG'||pos==='SG'||pos==='CG'||pos==='G';
-  const isBig=pos==='C'||pos==='PF';
+  var ppg=parseFloat(p.ppg)||0,rpg=parseFloat(p.rpg)||0,apg=parseFloat(p.apg)||0;
+  var fg=parseFloat(p.fg_pct)||0,tp=parseFloat(p.tp_pct)||0,ft=parseFloat(p.ft_pct)||0;
+  var stl=parseFloat(p.stl)||0,blk=parseFloat(p.blk)||0;
+  var oreb=parseFloat(p.oreb)||0,dreb=parseFloat(p.dreb)||0;
+  var tovs=parseFloat(p.tovs)||0,mpg=parseFloat(p.mpg)||0;
+  var pos=p.position||'G', grade=parseFloat(p.tdc_grade)||70;
+  var yr=(p.yr||p.class_year||'').toLowerCase();
+  var isFr=yr.includes('fr.')||yr.includes('r-fr');
+  var isSo=yr.includes('so.')||yr.includes('r-so');
+  var isJr=yr.includes('jr.')||yr.includes('r-jr');
+  var isSr=yr.includes('sr.')||yr.includes('r-sr')||yr.includes('gr.');
+  var isGuard=pos==='PG'||pos==='SG'||pos==='CG'||pos==='G';
+  var isBig=pos==='C'||pos==='PF';
+
+  var archetype='', archetypeDesc='';
   if(isGuard){
-    if(ppg>=16&&apg>=4) archetype='Primary Playmaker';
-    else if(ppg>=16&&apg<3) archetype='Scoring Guard';
-    else if(apg>=5&&ppg<12) archetype='Pass-First Guard';
-    else if(tp>=38&&ppg>=10) archetype='Perimeter Shooter';
-    else if(stl>=1.5) archetype='Disruptive Defender';
-    else if(mpg>=28&&ppg<10) archetype='Role Player';
-    else archetype='Two-Way Guard';
+    if(ppg>=16&&apg>=4){archetype='Primary Playmaker';archetypeDesc='A high-usage guard who initiates the offense and scores at volume. Dangerous both as a finisher and distributor, creating for teammates while maintaining his own scoring threat.';}
+    else if(ppg>=16&&apg<3){archetype='Scoring Guard';archetypeDesc='An off-ball guard built around scoring. Creates his own shot through screens and isolation. A bucket-getter first, with limited but functional playmaking.';}
+    else if(apg>=5&&ppg<12){archetype='Pass-First Guard';archetypeDesc='A true facilitator who makes the offense run. Prioritizes finding shooters and creating easy looks. His value shows up most in others stats.';}
+    else if(tp>=38&&ppg>=10){archetype='Perimeter Shooter';archetypeDesc='A floor-spacer whose shooting gravity opens drives for teammates. Most dangerous off the catch, with reliable mechanics and consistent release point.';}
+    else if(stl>=1.5){archetype='Disruptive Defender';archetypeDesc='A defensive specialist whose anticipation and activity make him a nightmare for ball-handlers. Can change a game without scoring a point.';}
+    else if(mpg>=28&&ppg<10){archetype='Glue Guy';archetypeDesc='A veteran presence who wins with effort and execution. Does the dirty work — screens, defense, communication — that winning teams need.';}
+    else{archetype='Two-Way Guard';archetypeDesc='A balanced guard who contributes on both ends without a single dominant skill. His floor is consistent; ceiling depends on which skill develops further.';}
   } else if(isBig){
-    if(blk>=1.5&&oreb>=2) archetype='Interior Anchor';
-    else if(ppg>=14&&rpg>=7) archetype='Dominant Big';
-    else if(tp>=1.5&&fg>=45) archetype='Stretch Big';
-    else if(dreb>=5&&oreb>=2) archetype='Rebounding Specialist';
-    else if(ppg>=12) archetype='Scoring Big';
-    else archetype='Developmental Big';
+    if(blk>=1.5&&oreb>=2){archetype='Interior Anchor';archetypeDesc='A presence-player whose shot-blocking and rebounding change the defensive geometry. Opponents think twice near the rim, creating space for teammates.';}
+    else if(ppg>=14&&rpg>=7){archetype='Dominant Big';archetypeDesc='A complete interior force — scores on the block, controls the glass, and protects the rim. Among the most impactful players at his position.';}
+    else if(tp>=1.5&&fg>=45){archetype='Stretch Big';archetypeDesc='A modern big who combines interior size with perimeter shooting. His range pulls defenders away from the paint, creating driving lanes for guards.';}
+    else if(dreb>=5&&oreb>=2){archetype='Rebounding Specialist';archetypeDesc='A relentless worker on the boards with exceptional positioning and motor. Gives his team extra possessions every night.';}
+    else if(ppg>=12){archetype='Scoring Big';archetypeDesc='A reliable interior scorer who can punish smaller lineups. Effective in post-ups, pick-and-rolls, and in transition.';}
+    else{archetype='Developmental Big';archetypeDesc='A project with physical tools that have not fully translated to production yet. The upside is real; consistency and polish are works in progress.';}
   } else {
-    if(ppg>=14&&rpg>=5&&apg>=2) archetype='Versatile Wing';
-    else if(tp>=1.5&&ppg>=10) archetype='3-and-D Wing';
-    else if(ppg>=16) archetype='Wing Scorer';
-    else archetype='Role Wing';
+    if(ppg>=14&&rpg>=5&&apg>=2){archetype='Versatile Wing';archetypeDesc='The most coveted modern archetype — a wing who can guard multiple positions, initiate the offense, and create his own shot. A genuine multi-level threat.';}
+    else if(tp>=1.5&&ppg>=10){archetype='3-and-D Wing';archetypeDesc='A specialist built for the modern game. Hits open threes and holds his own defensively, playing a defined but highly valuable role on winning teams.';}
+    else if(ppg>=16){archetype='Wing Scorer';archetypeDesc='An offensive engine from the wing who can create in isolation and off movement. A top scoring option who needs the right supporting cast to thrive.';}
+    else{archetype='Role Wing';archetypeDesc='A contributor whose value is situational. Offers specific skills but lacks the all-around impact to be a rotation anchor without ideal lineup fits.';}
   }
-  const strengths=[];
-  if(ppg>=15) strengths.push('Elite scorer');
-  else if(ppg>=10) strengths.push('Reliable scorer');
-  if(fg>=50) strengths.push('Efficient shooter');
-  if(tp>=38) strengths.push('Three-point threat');
-  if(ft>=80) strengths.push('Free throw specialist');
-  if(apg>=4) strengths.push('Playmaker');
-  if(rpg>=7) strengths.push('Elite rebounder');
-  else if(rpg>=5) strengths.push('Strong rebounder');
-  if(stl>=1.5) strengths.push('Perimeter disruptor');
-  if(blk>=1.5) strengths.push('Rim protector');
-  if(oreb>=2) strengths.push('Second chance creator');
-  const weaknesses=[];
-  if(fg<40&&(parseFloat(p.fga)||0)>4) weaknesses.push('Shooting efficiency concerns');
-  if(tp<32&&(parseFloat(p.tpa)||0)>3) weaknesses.push('Below-average from three');
-  if(ft<65) weaknesses.push('Foul line liability');
-  if(tovs>2.5) weaknesses.push('Turnover prone');
-  if(apg<1&&isGuard) weaknesses.push('Limited playmaking');
-  if(rpg<3&&isBig) weaknesses.push('Below-average rebounding for position');
-  if(blk<0.5&&isBig) weaknesses.push('Limited shot-blocking');
-  if(mpg<18) weaknesses.push('Limited role / development player');
-  const tags=[];
-  if(tp>=(parseFloat(p.fga)||1)*0.35) tags.push({t:'High-Volume 3PA',c:'neu'});
-  if(fg>=50) tags.push({t:'Efficient',c:'pos'});
-  if((parseFloat(p.fta)||0)/(parseFloat(p.fga)||1)>0.4) tags.push({t:'Gets to the Line',c:'pos'});
-  if(tovs>3) tags.push({t:'Ball Security Risk',c:'neg'});
-  if(stl+blk>2.5) tags.push({t:'Defensive Impact',c:'pos'});
-  if(oreb>2) tags.push({t:'Offensive Glass',c:'pos'});
-  if(tp>=38) tags.push({t:'Shooting Threat',c:'pos'});
-  if(apg>3) tags.push({t:'Playmaker',c:'pos'});
-  if(apg>4&&tovs<2) tags.push({t:'Low-Turnover PG',c:'pos'});
-  let projNote='';
+
+  var strengths=[];
+  if(ppg>=18)strengths.push('Elite scorer');else if(ppg>=14)strengths.push('Consistent scorer');else if(ppg>=10)strengths.push('Reliable contributor');
+  if(fg>=52)strengths.push('High-efficiency shooter');else if(fg>=48)strengths.push('Above-avg efficiency');
+  if(tp>=40)strengths.push('Elite 3-point shooting');else if(tp>=36)strengths.push('Consistent from deep');
+  if(ft>=85)strengths.push('Free throw specialist');else if(ft>=78)strengths.push('Reliable at the line');
+  if(apg>=6)strengths.push('Elite playmaker');else if(apg>=4)strengths.push('Strong playmaker');
+  if(rpg>=9)strengths.push('Elite rebounder');else if(rpg>=6)strengths.push('Strong rebounder');
+  if(stl>=2)strengths.push('Elite perimeter disruptor');else if(stl>=1.3)strengths.push('Active ball thief');
+  if(blk>=2)strengths.push('Elite shot blocker');else if(blk>=1.2)strengths.push('Rim protector');
+  if(oreb>=2.5)strengths.push('Exceptional offensive glass');
+  if(tovs>0&&(ppg+apg)/Math.max(1,tovs)>5)strengths.push('Excellent ball security');
+
+  var weaknesses=[];
+  if(fg<40&&(parseFloat(p.fga)||0)>4)weaknesses.push('Field goal efficiency concerns');
+  if(tp<31&&(parseFloat(p.tpa)||0)>3)weaknesses.push('Below-average from three');
+  if(ft<62)weaknesses.push('Significant foul line liability');else if(ft<70)weaknesses.push('Inconsistent at free throws');
+  if(tovs>3.2)weaknesses.push('Ball security issues');else if(tovs>2.5)weaknesses.push('Turnover-prone');
+  if(apg<1.5&&isGuard&&ppg>8)weaknesses.push('Limited playmaking');
+  if(rpg<3.5&&isBig)weaknesses.push('Below-average rebounding for position');
+  if(blk<0.4&&isBig)weaknesses.push('Limited shot-blocking');
+  if(mpg<16&&ppg>0)weaknesses.push('Limited role');
+
+  var tags=[];
+  if((parseFloat(p.tpa)||0)/Math.max(1,parseFloat(p.fga)||1)>0.38)tags.push({t:'Three-Point Heavy',c:'neu'});
+  if(fg>=50)tags.push({t:'Efficient',c:'pos'});
+  if((parseFloat(p.fta)||0)/Math.max(1,parseFloat(p.fga)||1)>0.42)tags.push({t:'Draws Fouls',c:'pos'});
+  if(tovs>3.2)tags.push({t:'Ball Security Risk',c:'neg'});else if(tovs<1.5&&ppg>8)tags.push({t:'Low-Turnover',c:'pos'});
+  if(stl+blk>2.8)tags.push({t:'Defensive Disruptor',c:'pos'});
+  if(oreb>2.2)tags.push({t:'Offensive Glass',c:'pos'});
+  if(tp>=38)tags.push({t:'Shooting Threat',c:'pos'});
+  if(apg>4.5)tags.push({t:'Shot Creator',c:'pos'});
+  if(grade>=90)tags.push({t:'Top-100 Grade',c:'gold'});
+  if(p.starter)tags.push({t:'Returning Starter',c:'neu'});
+  if(p.hometown)tags.push({t:'Transfer',c:'neu'});
+
+  var floor='', ceiling='', floorDesc='', ceilingDesc='';
+  if(grade>=92){
+    ceiling='All-Conference'; ceilingDesc='Has the tools to be a first-team all-conference performer and a legitimate NBA prospect.';
+    floor=isFr||isSo?'Solid Starter':'Dependable Starter'; floorDesc='Even in a down year, should contribute 25+ MPG and provide positive impact.';
+  } else if(grade>=85){
+    ceiling='All-Conference Fringe'; ceilingDesc='Could earn conference recognition with continued development.';
+    floor='Rotation Player'; floorDesc='Reliable contributor in the 18-25 MPG range who fills a defined role.';
+  } else if(grade>=75){
+    ceiling='Starter'; ceilingDesc='Has the ability to crack a starting lineup on the right team.';
+    floor='Deep Rotation'; floorDesc='Will see time off the bench and contribute in specific situations.';
+  } else {
+    ceiling='Rotation Piece'; ceilingDesc='Can carve a niche role in the right system with continued improvement.';
+    floor='Development Player'; floorDesc='Currently a project; needs time and reps to develop college-level impact.';
+  }
+
+  var roleFit = grade>=88?'Starter / Star':grade>=80?'Starting Caliber':grade>=72?'Rotation Player':'Bench Contributor';
+
+  var draftOutlook='', draftNote='';
+  if(grade>=94&&(isFr||isSo)){draftOutlook='Lottery Prospect';draftNote='Elite profile suggests top-30 NBA draft consideration if production matches grade.';}
+  else if(grade>=90&&(isFr||isSo||isJr)){draftOutlook='Draft Prospect';draftNote='High-end grade and age suggest pro-level athleticism. A strong season could earn draft board attention.';}
+  else if(grade>=85&&(isFr||isSo)){draftOutlook='One to Watch';draftNote='Physical tools are there. Development arc will determine professional viability.';}
+
+  var comparable='';
+  if(archetype==='Primary Playmaker')comparable='High-usage PG prototype';
+  else if(archetype==='Scoring Guard')comparable='Off-guard scoring specialist';
+  else if(archetype==='3-and-D Wing')comparable='Modern role-player archetype';
+  else if(archetype==='Stretch Big')comparable='Modern 4/5 hybrid prototype';
+  else comparable=archetype;
+
+  var projNote='';
   if(proj){
-    if(proj._frosh) projNote=`Freshman projection based on ${pos} position baseline, ${p.height||'—'} height, and TDC grade ${grade}. High variance expected.`;
-    else if(proj._origin){const destConf=teamData?.conf||teamData?.conference||'this conf';projNote=`Transfer from ${proj._origin} (${proj._factor>=1?'step down':'step up'} to ${destConf}). Conference translation applied to shooting percentages only (${(proj._factor||1)<1?'−':'+'} ${Math.abs(Math.round(((proj._factor||1)-1)*100))}% difficulty). Per-minute production scales with minutes.`;}
-    else{const yr=(p.yr||'').toLowerCase();if(yr.includes('fr.')||yr.includes('so.'))projNote='Sophomore/Junior leap projected — typically the largest year-over-year improvement window.';else if(yr.includes('jr.'))projNote='Junior-to-senior projection — peak years, modest improvement expected.';else projNote='Returning veteran — projection based on role continuity.';}
+    if(proj._frosh){projNote='Freshman projection based on '+pos+' baseline and TDC grade '+grade+'. High variance expected.';}
+    else if(proj._origin){
+      var dc=(typeof teamData!=='undefined'&&teamData&&(teamData.conf||teamData.conference))||'this conference';
+      projNote='Transfer from '+proj._origin+'. Conference translation applied ('+dc+', factor '+(proj._factor||1).toFixed(2)+').';
+    } else {
+      if(yr.includes('fr.')||yr.includes('so.'))projNote='Sophomore/Junior leap projected — typically the largest year-over-year improvement window.';
+      else if(yr.includes('jr.'))projNote='Junior-to-senior projection — peak years, modest improvement expected.';
+      else projNote='Returning veteran — projection based on role continuity and career trend.';
+    }
   }
-  return {archetype, archetypeDesc, strengths, weaknesses, tags, projNote};
+
+  var scoutScore = Math.round(Math.min(100, Math.max(0,
+    (grade-60)/37*60 + ppg/22*15 + (fg-38)/20*10 + (stl+blk)/3*8 + apg/8*7
+  )));
+
+  return {
+    archetype:archetype, archetypeDesc:archetypeDesc,
+    strengths:strengths, weaknesses:weaknesses, tags:tags, projNote:projNote,
+    floor:floor, ceiling:ceiling, floorDesc:floorDesc, ceilingDesc:ceilingDesc,
+    roleFit:roleFit, draftOutlook:draftOutlook, draftNote:draftNote,
+    comparable:comparable, scoutScore:scoutScore
+  };
 }
 
 
