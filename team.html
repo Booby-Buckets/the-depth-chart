@@ -578,31 +578,30 @@ async function loadTeam(name){
     );
     const players = await pr.json();
 
-    // Fetch career history for all roster players at once
-    // Build window._careerHistoryMap keyed by lowercase player name
-    window._careerHistoryMap = {};
-    try{
-      const names = (Array.isArray(players)?players:[])
-        .map(p=>p.name).filter(n=>n&&n!=='—');
-      if(names.length){
-        // Supabase IN filter — fetch all career history for this roster in one call
-        const nameList = names.map(n=>`"${n}"`).join(',');
-        const chRes = await fetch(
-          `${SB_URL}/rest/v1/player_history?name=in.(${encodeURIComponent(names.map(n=>`${n}`).join(','))})&select=*&order=season_year.asc&limit=1000`,
-          {headers:H}
-        );
-        if(chRes.ok){
-          const chData = await chRes.json();
-          if(Array.isArray(chData)){
-            chData.forEach(row=>{
-              const key = (row.name||'').toLowerCase().trim();
-              if(!window._careerHistoryMap[key]) window._careerHistoryMap[key]=[];
-              window._careerHistoryMap[key].push(row);
-            });
-          }
-        }
-      }
-    }catch(e){ console.warn('Career history fetch failed:',e); }
+     // Fetch career history for all roster players at once
+     window._careerHistoryMap = {};
+     try{
+       const names = (Array.isArray(players)?players:[]).map(p=>p.name).filter(n=>n&&n!=='—');
+       if(names.length){
+         // Proper Supabase IN filter — names with spaces need quotes inside the parens
+         const nameParam = names.map(n => `"${n}"`).join(',');
+         const chRes = await fetch(
+           `${SB_URL}/rest/v1/player_history?name=in.(${nameParam})&select=*&order=season_year.asc&limit=1000`,
+           {headers:H}
+         );
+         if(chRes.ok){
+           const chData = await chRes.json();
+           if(Array.isArray(chData)){
+             chData.forEach(row=>{
+               const key = (row.name||''). toLowerCase().trim();
+               if(!window._careerHistoryMap[key]) window._careerHistoryMap[key]=[];
+               window._careerHistoryMap[key].push(row);
+             });
+             console.log(`Career history: ${chData.length} rows for ${Object.keys(window._careerHistoryMap).length} players`);
+           }
+         } else { console.warn('Career history HTTP', chRes.status); }
+       }
+     }catch(e){ console.warn('Career history error:',e); }
 
     // Fetch losses for this team
     const lr = await fetch(
