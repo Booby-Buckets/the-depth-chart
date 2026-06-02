@@ -477,6 +477,100 @@ function inferRotationDepth(sorted){
   return Math.max(7,Math.min(12,cutoff));
 }
 
+
+// ── TRANSFER CONF TABLES (needed by buildTeamProjections) ──
+const PROJ_CONF_TIERS={'B10':1,'SEC':1,'BIG-12':1,'ACC':1,'Big-East':2,'A10':2,'WCC':2,'PAC-12':2,'MWC':3,'AAC':3,'Ivy':3,'MVC':4,'WAC':4,'CUSA':4,'MAC':4,'Big West':4,'Big Sky':5,'CAA':5,'Horizon':5,'Sun Belt':5,'Big South':5,'SBC':5,'SoCon':6,'ASUN':6,'MAAC':6,'OVC':6,'Summit':6,'Patriot':7,'SWAC':7,'NEC':7,'MEAC':7,'AEC':7};
+
+// Translation matrix: rows=origin tier, cols=destination tier
+// Matches your spreadsheet values exactly
+const PROJ_TRANS_MAT={
+  1:{1:1.00,2:1.15,3:1.28,4:1.40,5:1.40,6:1.40,7:1.40},
+  2:{1:0.90,2:1.00,3:1.15,4:1.20,5:1.20,6:1.20,7:1.20},
+  3:{1:0.75,2:0.90,3:1.00,4:1.05,5:1.10,6:1.10,7:1.10},
+  4:{1:0.49,2:0.68,3:0.82,4:1.00,5:1.05,6:1.05,7:1.05},
+  5:{1:0.43,2:0.49,3:0.69,4:0.82,5:1.00,6:1.00,7:1.00},
+  6:{1:0.40,2:0.42,3:0.50,4:0.69,5:0.82,6:1.00,7:1.00},
+  7:{1:0.30,2:0.34,3:0.42,4:0.48,5:0.69,6:0.82,7:1.00},
+};
+// ACC special case — higher variance moving down
+const PROJ_ACC_OUT={1:1.00,2:1.10,3:1.25,4:1.40,5:1.40,6:1.40,7:1.40};
+
+// Full D1 school → conference map (all ~360 programs)
+const PROJ_SCHOOL_CONF=(function(){
+  const m={};
+  const data=[
+    // ── TIER 1 ──
+    [['Alabama','Arkansas','Auburn','Florida','Georgia','Kentucky','LSU','Mississippi State','Missouri','Ole Miss','South Carolina','Tennessee','Texas','Texas A&M','Vanderbilt','Oklahoma'],'SEC'],
+    [['Illinois','Indiana','Iowa','Maryland','Michigan','Michigan State','Minnesota','Nebraska','Northwestern','Ohio State','Penn State','Purdue','Rutgers','Wisconsin','UCLA','USC','Oregon','Washington','UCLA'],'B10'],
+    [['Arizona','Arizona State','Baylor','BYU','Cincinnati','Colorado','Houston','Iowa State','Kansas','Kansas State','Oklahoma State','TCU','Texas Tech','UCF','Utah','West Virginia'],'BIG-12'],
+    [['Boston College','Clemson','Duke','Florida State','Georgia Tech','Louisville','Miami','NC State','North Carolina','Notre Dame','Pittsburgh','Syracuse','Virginia','Virginia Tech','Wake Forest','California','SMU','Stanford'],'ACC'],
+    // ── TIER 2 ──
+    [['Butler','Connecticut','Creighton','DePaul','Georgetown','Marquette','Providence','Seton Hall',"St. John's",'Villanova','Xavier'],'Big-East'],
+    [['Dayton','Davidson','Duquesne','Fordham','George Mason','George Washington','La Salle','Loyola Chicago','Rhode Island','Richmond',"Saint Joseph's",'Saint Louis','St. Bonaventure','VCU','Massachusetts','Saint Louis','Fordham'],'A10'],
+    [['Gonzaga','BYU','Pacific','Pepperdine','Portland','Saint Mary\'s','San Diego','San Francisco','Santa Clara','Loyola Marymount'],'WCC'],
+    [['Oregon State','Washington State','San Diego State','Colorado State','Boise State','Utah State','Nevada','New Mexico','Fresno State','Air Force','Wyoming','UNLV','San Jose State','Hawaii'],'PAC-12'],
+    // ── TIER 3 ──
+    [['Charlotte','East Carolina','Florida Atlantic','Memphis','North Texas','Rice','South Florida','Temple','Tulane','Tulsa','UAB','UTSA','Wichita State'],'AAC'],
+    [['Colorado State','San Diego State','Boise State','Utah State','Nevada','New Mexico','Fresno State','Air Force','Wyoming','UNLV','San Jose State','Hawaii'],'MWC'],
+    [['Harvard','Yale','Princeton','Columbia','Cornell','Dartmouth','Brown','Pennsylvania'],'Ivy'],
+    // ── TIER 4 ──
+    [['Bradley','Drake','Evansville','Illinois State','Indiana State','Missouri State','Northern Iowa','Southern Illinois','Valparaiso','Belmont','Murray State'],'MVC'],
+    [['Grand Canyon','Seattle U','Utah Valley','New Mexico State','Tarleton State','UT Rio Grande Valley','Cal Baptist','Chicago State','UMKC','UTRGV'],'WAC'],
+    [['Florida Atlantic','FIU','UTSA','Middle Tennessee','Old Dominion','Marshall','Western Kentucky','Charlotte','Louisiana Tech','UAB','Rice','North Texas'],'CUSA'],
+    [['Akron','Ball State','Bowling Green','Buffalo','Central Michigan','Eastern Michigan','Kent State','Miami (OH)','Northern Illinois','Ohio','Toledo','Western Michigan'],'MAC'],
+    [['UC Davis','UC Irvine','UC Riverside','UC Santa Barbara','UC San Diego','Cal Poly','Long Beach State','Pacific','Cal State Fullerton','Cal State Northridge','Hawaii'],'Big West'],
+    // ── TIER 5 ──
+    [['Montana','Montana State','Weber State','Idaho','Idaho State','Eastern Washington','Northern Arizona','Northern Colorado','Southern Utah','Portland State','Sacramento State','North Dakota','South Dakota','North Dakota State','South Dakota State'],'Big Sky'],
+    [['Hofstra','Charleston','Delaware','Elon','James Madison','Northeastern','Towson','UNC Wilmington','William & Mary','Drexel','Campbell','Stony Brook'],'CAA'],
+    [['Detroit Mercy','Green Bay','Horizon','IUPUI','IU Indianapolis','Milwaukee','Northern Kentucky','Oakland','Purdue Fort Wayne','Robert Morris','Wright State','Youngstown State','Cleveland State'],'Horizon'],
+    [['Appalachian State','Arkansas State','Coastal Carolina','Georgia Southern','Georgia State','Louisiana','Louisiana Monroe','Old Dominion','South Alabama','Southern Miss','Texas State','Troy'],'Sun Belt'],
+    [['Winthrop','Campbell','Charleston Southern','Gardner-Webb','High Point','Longwood','Presbyterian','Radford','UNC Asheville','USC Upstate'],'Big South'],
+    [['Arkansas State','Louisiana','Louisiana Monroe','South Alabama','Georgia State','Georgia Southern','Appalachian State','Coastal Carolina','Texas State','Troy'],'SBC'],
+    // ── TIER 6 ──
+    [['Samford','Furman','Chattanooga','ETSU','Mercer','VMI','Western Carolina','Wofford','The Citadel'],'SoCon'],
+    [['Liberty','Belmont','Lipscomb','FGCU','North Alabama','Jacksonville','Stetson','Austin Peay','Eastern Kentucky','Morehead State','Murray State','Kennesaw State'],'ASUN'],
+    [['Iona','Manhattan','Marist','Niagara','Quinnipiac','Rider',"Saint Peter's",'Siena','Canisius','Fairfield','Mount St. Mary\'s'],'MAAC'],
+    [['UT Martin','Tennessee State','Tennessee Tech','Eastern Illinois','Lindenwood','SE Missouri State','SIU Edwardsville','Jacksonville State','Central Arkansas','Bellarmine'],'OVC'],
+    [['Oral Roberts','North Dakota State','South Dakota State','Western Illinois','Denver','Omaha','Kansas City','St. Thomas'],'Summit'],
+    // ── TIER 7 ──
+    [['Colgate','Bucknell','Lafayette','Lehigh','Army','Navy','Holy Cross','American','Loyola Maryland','Boston University','Fordham'],'Patriot'],
+    [['Grambling','Jackson State','Alabama A&M','Alabama State','Alcorn State','Arkansas Pine Bluff','Bethune-Cookman','Coppin State','Delaware State','Florida A&M','Howard','Maryland Eastern Shore','Mississippi Valley State','Morgan State','Norfolk State','North Carolina A&T','North Carolina Central','Prairie View','Savannah State','South Carolina State','Southern','Texas Southern'],'SWAC'],
+    [['Bryant','Central Connecticut','LIU','Merrimack','Sacred Heart','Fairleigh Dickinson','Mount St. Mary\'s','CCSU','Long Island','Saint Francis','Wagner','FDU'],'NEC'],
+    [['Maine','New Hampshire','UMass Lowell','Albany','Binghamton','Hartford','UMBC','Vermont','Stony Brook','New Jersey Tech'],'AEC'],
+    [['Kennesaw State','USC Upstate','North Florida','Northern Kentucky','Queens','Eastern Kentucky','Lindenwood','SIU Edwardsville','Little Rock'],'MEAC'],
+  ];
+  data.forEach(([schools,conf])=>schools.forEach(s=>{ m[s.toLowerCase()]=conf; }));
+  return m;
+})();
+
+
+
+function getProjSchoolConf(school){
+  if(!school) return null;
+  const lo=school.toLowerCase().trim();
+  if(PROJ_SCHOOL_CONF[lo]) return PROJ_SCHOOL_CONF[lo];
+  // Fuzzy match
+  for(const k of Object.keys(PROJ_SCHOOL_CONF)){
+    if(lo.includes(k)||k.includes(lo)) return PROJ_SCHOOL_CONF[k];
+  }
+  return null;
+}
+
+function getSchoolConfFallback(school){ return getProjSchoolConf(school); }
+
+function getProjTransFactor(originConf, destConf, grade){
+  if(!originConf||!destConf||originConf===destConf) return 1.0;
+  const ot=PROJ_CONF_TIERS[originConf]||4, dt=PROJ_CONF_TIERS[destConf]||4;
+  if(ot===dt) return 1.0;
+  // ACC special case going down conferences
+  const base=originConf==='ACC'?PROJ_ACC_OUT[dt]||1.0:(PROJ_TRANS_MAT[ot]||{})[dt]||1.0;
+  const g=parseFloat(grade)||70;
+  // Grade boost: elite players translate better going up in conference
+  // Grade penalty: lower-grade players struggle MORE going up
+  const boost=g>=90?1.22:g>=85?1.14:g>=80?1.07:g>=75?1.02:g>=70?0.97:g>=65?0.91:0.85;
+  return Math.max(0.20,Math.min(1.6,base*boost));
+}
+
 function buildTeamProjections(players, conf){
   const roster = players
     .filter(p => p.name && p.name !== '—')
