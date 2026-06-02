@@ -656,26 +656,13 @@ async function init(){
       const pos   = (player.position||'G').replace(/\d/g,'').trim();
       const posNorm = ['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':'G';
 
-      // Target MPG: computePlayerMpg uses full depth chart + roster context
-      // This is NOT cookie cutter — it factors in every player on the roster
+      // Target MPG: identical to team page — computePlayerMpg with full roster
       const recentMpg = latestH ? parseFloat(latestH.mpg||0) : 0;
-      const newMpg = (() => {
-        // computePlayerMpg reads depth_order + grades of all teammates
-        // so Estrella's minutes shrink if Reed/others are above him
-        const depthMpg = computePlayerMpg(player, teamPlayers);
-
-        console.log(`[MPG] ${player.name}: depthMpg=${depthMpg}, recentMpg=${recentMpg}, depth_order=${player.depth_order}, roster size=${teamPlayers.length}`);
-
-        if(recentMpg >= 12){
-          // Blend: depth chart is primary (70%), recent history is secondary (30%)
-          // But never go below depthMpg — the depth chart is the floor
-          const blended = depthMpg*0.70 + recentMpg*0.30;
-          return Math.max(depthMpg * 0.85, Math.round(blended*2)/2);
-        }
-        return depthMpg;
-      })();
+      const newMpg = computePlayerMpg(player, teamPlayers);
 
       // projectPlayer is defined in team.html — on player.html we run a
+      // self-contained version of the same logic here
+
       // self-contained version of the same logic here
 
       const hasCareerStats = latestH && parseFloat(latestH.ppg||0)>0;
