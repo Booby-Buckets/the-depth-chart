@@ -812,216 +812,53 @@ async function init(){
       teamPlayers = Array.isArray(allRows) ? allRows.filter(r=>r.name&&r.name!=='—') : [];
     }catch(e){ teamPlayers=[]; }
 
-    // ── CAREER-AWARE PROJECTION ───────────────────────────────────
-    // Uses the same projectPlayer() function as team.html — consistent everywhere.
-    // Falls back to grade-based estimate if no career data exists.
+    // ── PROJECTION ─────────────────────────────────────────────────
+    // Project the ENTIRE team using buildTeamProjections (same as team page).
+    // This ensures normalization is applied identically and numbers match.
     proj = null;
     try{
-      const conf = (teamData&&teamData.conf) || (player.team_conf) || '';
+      const conf = (teamData&&teamData.conf)||(player.team_conf)||'';
 
-      // Played seasons from career history (newest first)
-      // Filter out garbage-time seasons (< 6 MPG) — those aren't real sample size
-      const played = careerHistory
-        .filter(h => !h.sat_out && parseFloat(h.ppg||0)>0 && parseFloat(h.mpg||0)>=6)
-        .sort((a,b) => b.season_year - a.season_year);
+      // Build _careerHistoryMap for the full roster
+      window._careerHistoryMap = {};
+      if(careerHistory.length){
+        window._careerHistoryMap[(player.name||'').toLowerCase().trim()] = careerHistory;
+      }
 
-      // "Meaningful" seasons: ≥ 12 MPG — used for trend and FT% smoothing
-      // Avoids bench blowout minutes distorting projections
-      const meaningful = played.filter(h => parseFloat(h.mpg||0) >= 12);
-
-      const latestH = played[0] || null;
-
-      // Use career history latest season as base if available, else players table row
-      const basePlayer = latestH
-        ? {...player,
-            ppg: latestH.ppg, rpg: latestH.rpg, apg: latestH.apg, mpg: latestH.mpg,
-            fgm: latestH.fgm, fga: latestH.fga, fg_pct: latestH.fg_pct,
-            tpm: latestH.tpm, tpa: latestH.tpa, tp_pct: latestH.tp_pct,
-            ftm: latestH.ftm, fta: latestH.fta, ft_pct: latestH.ft_pct,
-            oreb: latestH.oreb, dreb: latestH.dreb,
-            stl: latestH.stl, blk: latestH.blk, tovs: latestH.tovs,
-            gp: latestH.gp,
+      // Also fetch career history for teammates so team normalization is accurate
+      if(teamPlayers.length > 1){
+        try{
+          const teammates = teamPlayers.filter(p=>p.name&&p.name!=='—'&&p.name!==player.name);
+          const orParam = teammates.map(p=>`"${p.name}"`).join(',');
+          const tr = await fetch(`${SB}/rest/v1/player_history?name=in.(${orParam})&select=*&order=season_year.asc&limit=500`,{headers:H});
+          if(tr.ok){
+            const td = await tr.json();
+            if(Array.isArray(td)) td.forEach(row=>{
+              const k=(row.name||'').toLowerCase().trim();
+              if(!window._careerHistoryMap[k]) window._careerHistoryMap[k]=[];
+              window._careerHistoryMap[k].push(row);
+            });
           }
-        : player;
+        }catch(e){ console.warn('Teammate history fetch failed:',e); }
+      }
 
-      // Declare all variables needed by targetMpg and projection FIRST
-      const r1 = v => v!=null ? Math.round((v+Number.EPSILON)*10)/10 : null;
-      const yr  = (player.yr||player.class_year||'').toLowerCase();
-      const isFr = yr.includes('fr.')||yr.includes('r-fr');
-      const isSo = yr.includes('so.')||yr.includes('r-so.');
-      const isJr = yr.includes('jr.')||yr.includes('r-jr.');
-      const isSr = yr.includes('sr.')||yr.includes('r-sr')||yr.includes('gr.');
-      const grade = parseFloat(player.tdc_grade)||70;
-      const pos   = (player.position||'G').replace(/\d/g,'').trim();
-      const posNorm = ['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':'G';
+      // Project full team — includes normalization cap
+      // Then find this player in the result
+      const allProj = buildTeamProjections(teamPlayers, conf);
+      const playerLower = (player.name||'').toLowerCase().trim();
+      const match = allProj.find(pp =>
+        (pp.name||'').toLowerCase().trim() === playerLower
+      );
 
-      // Target MPG: identical to team page — computePlayerMpg with full roster
-      const recentMpg = latestH ? parseFloat(latestH.mpg||0) : 0;
-      const newMpg = computePlayerMpg(player, teamPlayers);
-
-      // projectPlayer is defined in team.html — on player.html we run a
-      // self-contained version of the same logic here
-
-      // self-contained version of the same logic here
-
-      const hasCareerStats = latestH && parseFloat(latestH.ppg||0)>0;
-      const hasCurrentStats = parseFloat(player.ppg||0)>0;
-
-      if(!hasCareerStats && !hasCurrentStats){
-        // ── Grade-based estimate (no stats at all) ──
-        const fb = getFrBase(grade, posNorm);
-        const scale = newMpg/FR_BASE_MPG;
-        const fga = r1(newMpg*0.28);
-        proj = {...player,
-          ppg:r1(fb.ppg*scale), rpg:r1((fb.oreb+fb.dreb)*scale), apg:r1(fb.apg*scale), mpg:r1(newMpg),
-          fgm:r1(fga*(fb.fg_pct/100)), fga:fga, fg_pct:fb.fg_pct,
-          tpm:r1(fga*0.42*(fb.tp_pct/100)), tpa:r1(fga*0.42), tp_pct:fb.tp_pct,
-          fta:r1(newMpg*0.09), ftm:r1(newMpg*0.09*(fb.ft_pct/100)), ft_pct:fb.ft_pct,
-          oreb:r1(fb.oreb*scale), dreb:r1(fb.dreb*scale),
-          stl:r1(fb.stl*scale), blk:r1(fb.blk*scale), tovs:r1(fb.tovs*scale),
-          _frosh:true, _noStatEst:true,
-        };
+      if(match){
+        proj = match;
       } else {
-        // ── Career-aware projection ──────────────────────────
-        const base = hasCareerStats ? latestH : player;
-        const baseMpg = Math.max(1, parseFloat(base.mpg||0)||1);
-        const g = v => parseFloat(base[v]||0)||0;
-
-        // Per-minute rates from base season
-        const pm = {
-          ppg:g('ppg')/baseMpg,
-          rpg:((g('oreb')+g('dreb'))>0?(g('oreb')+g('dreb')):g('rpg'))/baseMpg,
-          apg:g('apg')/baseMpg,
-          fgm:g('fgm')/baseMpg,  fga:g('fga')/baseMpg,
-          tpm:g('tpm')/baseMpg,  tpa:g('tpa')/baseMpg,
-          ftm:g('ftm')/baseMpg,  fta:g('fta')/baseMpg,
-          oreb:g('oreb')/baseMpg, dreb:g('dreb')/baseMpg,
-          stl:g('stl')/baseMpg,  blk:g('blk')/baseMpg,  tovs:g('tovs')/baseMpg,
-        };
-
-        // Career trend — only compare MEANINGFUL seasons (≥12 MPG)
-        // Recency weighted: most recent season matters most
-        // Also: if the most recent meaningful season is a clear breakout
-        // (per-min scoring jumped 30%+), treat that as the new baseline
-        let trendMult = 1.0;
-        if(meaningful.length >= 2){
-          const n  = meaningful[0];  // most recent meaningful
-          const p2 = meaningful[1];  // season before that
-          const nPm  = parseFloat(n.ppg ||0)/Math.max(1,parseFloat(n.mpg ||1));
-          const pPm  = parseFloat(p2.ppg||0)/Math.max(1,parseFloat(p2.mpg||1));
-          if(pPm > 0){
-            const rawTrend = nPm / pPm;
-            // Breakout detection: if latest season is 40%+ better per minute
-            // AND they played more minutes, strongly weight that forward
-            const mpgGrowth = parseFloat(n.mpg||0) / Math.max(1,parseFloat(p2.mpg||0));
-            const isBreakout = rawTrend >= 1.40 && mpgGrowth >= 1.20;
-            // Normal damping: ±12% max. Breakout: allow up to +18%
-            const cap = isBreakout ? 0.15 : 0.10;
-            trendMult = 1.0 + Math.max(-cap, Math.min(cap, (rawTrend-1)*0.35));
-          }
-        } else if(meaningful.length === 1 && played.length >= 2){
-          // Only one meaningful season but they have a prior bench season:
-          // the breakout IS the signal — apply a mild positive trend
-          const n   = meaningful[0];
-          const p2  = played.find(h => h !== n);
-          if(p2){
-            const nPm = parseFloat(n.ppg||0)/Math.max(1,parseFloat(n.mpg||1));
-            const pPm = parseFloat(p2.ppg||0)/Math.max(1,parseFloat(p2.mpg||1));
-            if(pPm>0 && nPm/pPm >= 1.5) trendMult = 1.08; // clear breakout
-          }
-        }
-
-        // Year progression
-        // isReturnee: stayed at same school (no hometown = no transfer, or history shows same team)
-        const isTransferIn = !!(player.hometown && player.hometown.trim());
-        const isReturnee   = !isTransferIn;
-
-        // Returners get a small boost — they know the system, role is established
-        // Transfers get a slight extra haircut on top of the conference adjustment
-        const returnBoost  = isReturnee  ? (isSr?1.02 : isJr?1.03 : isSo?1.04 : 1.02) : 1.0;
-        const transferTrim = isTransferIn ? 0.96 : 1.0;  // -4% on top of conf factor
-        const yrMult = (isSo?1.06 : isJr?1.03 : isSr?1.01 : 1.04) * returnBoost * transferTrim;
-
-        // Grade vs stats gap
-        const gradeExpPpg = grade>=90?19 : grade>=85?16 : grade>=80?13 : grade>=75?10 : grade>=70?8 : 6;
-        const statsPer32  = pm.ppg*32;
-        const gapRatio    = gradeExpPpg>0 ? statsPer32/gradeExpPpg : 1;
-        const gapMult     = gapRatio<0.50?1.15 : gapRatio<0.65?1.10 : gapRatio<0.80?1.05
-                          : gapRatio<0.95?1.02 : gapRatio>1.40?0.96 : gapRatio>1.20?0.99 : 1.0;
-
-        const rateGrowth = yrMult * gapMult * trendMult;
-
-        // Transfer factor
-        const PROJ_CONF_TIERS_P = {'B10':1,'SEC':1,'BIG-12':1,'ACC':1,'Big-East':2,'A10':2,'WCC':2,'PAC-12':2,'MWC':3,'AAC':3,'Ivy':3,'MVC':4,'WAC':4,'CUSA':4,'MAC':4,'Big West':4,'Big Sky':5,'CAA':5,'Horizon':5,'Sun Belt':5,'Big South':5,'SBC':5,'SoCon':6,'ASUN':6,'MAAC':6,'OVC':6,'Summit':6,'Patriot':7,'SWAC':7,'NEC':7,'MEAC':7,'AEC':7};
-        const PROJ_TRANS_MAT_P  = {1:{1:1.00,2:1.15,3:1.28,4:1.40,5:1.40,6:1.40,7:1.40},2:{1:0.90,2:1.00,3:1.15,4:1.20,5:1.20,6:1.20,7:1.20},3:{1:0.75,2:0.90,3:1.00,4:1.05,5:1.10,6:1.10,7:1.10},4:{1:0.49,2:0.68,3:0.82,4:1.00,5:1.05,6:1.05,7:1.05},5:{1:0.43,2:0.49,3:0.69,4:0.82,5:1.00,6:1.00,7:1.00},6:{1:0.40,2:0.42,3:0.50,4:0.69,5:0.82,6:1.00,7:1.00},7:{1:0.30,2:0.34,3:0.42,4:0.48,5:0.69,6:0.82,7:1.00}};
-        let transferFactor = 1.0;
-        if(player.hometown && player.hometown.trim()){
-          const school = (player.hometown||'').toLowerCase().trim();
-          const schoolConfs = {'alabama':1,'arkansas':1,'auburn':1,'florida':1,'georgia':1,'kentucky':1,'lsu':1,'mississippi state':1,'missouri':1,'ole miss':1,'south carolina':1,'tennessee':1,'texas':1,'texas a&m':1,'vanderbilt':1,'illinois':1,'indiana':1,'iowa':1,'maryland':1,'michigan':1,'michigan state':1,'minnesota':1,'nebraska':1,'northwestern':1,'ohio state':1,'penn state':1,'purdue':1,'rutgers':1,'wisconsin':1,'ucla':1,'usc':1,'oregon':1,'washington':1,'arizona':1,'arizona state':1,'baylor':1,'byu':1,'cincinnati':1,'colorado':1,'houston':1,'iowa state':1,'kansas':1,'kansas state':1,'oklahoma state':1,'tcu':1,'texas tech':1,'ucf':1,'utah':1,'west virginia':1,'boston college':1,'clemson':1,'duke':1,'florida state':1,'georgia tech':1,'louisville':1,'miami':1,'nc state':1,'north carolina':1,'notre dame':1,'pittsburgh':1,'syracuse':1,'virginia':1,'virginia tech':1,'wake forest':1,'california':1,'smu':1,'stanford':1,'butler':2,'connecticut':2,'uconn':2,'creighton':2,'depaul':2,'georgetown':2,'marquette':2,'providence':2,'seton hall':2,"st. john's":2,'villanova':2,'xavier':2,'belmont':5,'winthrop':5,'samford':6,'furman':6,'appalachian state':5,'eastern kentucky':6,'morehead state':6,'western carolina':6,'unc asheville':6,'st. bonaventure':4,'duquesne':4,'fordham':4,'la salle':4,'davidson':4,'vcu':4};
-          let originTier = null;
-          for(const [k,tier] of Object.entries(schoolConfs)){
-            if(school.includes(k)){ originTier = tier; break; }
-          }
-          if(originTier && conf){
-            const dt = PROJ_CONF_TIERS_P[conf]||3;
-            const base_tf = (PROJ_TRANS_MAT_P[originTier]||{})[dt]||1.0;
-            const gBoost  = grade>=90?1.22 : grade>=85?1.14 : grade>=80?1.07 : grade>=75?1.02 : grade>=70?0.97 : 0.91;
-            transferFactor = Math.max(0.20, Math.min(1.6, base_tf*gBoost));
-          }
-        }
-
-        // Efficiency adjustments
-        const fgBase = parseFloat(base.fg_pct||0)||44;
-        const tpBase = meaningful.length
-          ? meaningful.reduce((s,h)=>s+parseFloat(h.tp_pct||0),0)/meaningful.length
-          : (parseFloat(base.tp_pct||0)||parseFloat(player.tp_pct||0)||33);
-        const ftBase = parseFloat(base.ft_pct||0)||70;
-        // FT% smoothing — use meaningful seasons only (avoids bench noise)
-        const careerFtPct = meaningful.length>=2
-          ? meaningful.reduce((s,h)=>s+parseFloat(h.ft_pct||0),0)/meaningful.length : ftBase;
-        const ftSmoothed = ftBase*0.65 + careerFtPct*0.35;
-        const oldFga  = parseFloat(base.fga||0)||1;
-        const newFgaE = oldFga*(newMpg/baseMpg);
-        // Only penalize volume increase if player already had a real role (≥12 MPG base)
-        const volChange  = (baseMpg >= 12) ? (newFgaE/oldFga)-1 : 0;
-        const volPenalty = volChange*3.5;
-        const yearEff = isSo?1.2 : isJr?0.6 : isSr?0.0 : 1.8;
-        const transPctAdj = transferFactor<0.75?-3.5 : transferFactor<0.85?-2.5
-                          : transferFactor<0.92?-1.5 : transferFactor<0.97?-0.8
-                          : transferFactor>1.20?+1.2 : transferFactor>1.10?+0.8
-                          : transferFactor>1.04?+0.4 : 0;
-        const fgProj = r1(Math.max(30,Math.min(65, fgBase+yearEff-volPenalty+transPctAdj)));
-
-        // 3P% — only project if player actually shoots threes (career avg ≥0.5 3PA/game)
-        // Prevents centers who shoot 0.0 3PA from getting a fake 3P% projection
-        const careerTpa = meaningful.length
-          ? meaningful.reduce((s,h)=>s+parseFloat(h.tpa||0),0)/meaningful.length : parseFloat(base.tpa||0);
-        const is3Shooter = careerTpa >= 0.5;
-        const tpProj = is3Shooter
-          ? r1(Math.max(18,Math.min(50, tpBase+(isSo?0.8:isJr?0.4:isSr?0:1.5)-(volChange*2)+transPctAdj*0.6)))
-          : tpBase;  // preserve their actual 3P% (0% for non-shooters)
-
-        const ftProj = r1(Math.max(45,Math.min(97, ftSmoothed+(isSo?1.0:isJr?0.5:isSr?0:1.5))));
-
-        const newFga = r1(pm.fga*rateGrowth*newMpg);
-        const newTpa = is3Shooter ? r1(pm.tpa*rateGrowth*newMpg) : r1(pm.tpa*newMpg);
-        proj = {...player,
-          ppg: r1(pm.ppg *rateGrowth*newMpg),
-          rpg: r1(pm.rpg *rateGrowth*newMpg),
-          apg: r1(pm.apg *rateGrowth*newMpg),
-          mpg: r1(newMpg),
-          fgm: r1(newFga*(fgProj/100)), fga: newFga, fg_pct: fgProj,
-          tpm: r1(newTpa*(tpProj/100)),
-          tpa: newTpa, tp_pct: tpProj,
-          ftm: r1(pm.fta*rateGrowth*newMpg*(ftProj/100)),
-          fta: r1(pm.fta*rateGrowth*newMpg), ft_pct: ftProj,
-          oreb: r1(pm.oreb*rateGrowth*newMpg),
-          dreb: r1(pm.dreb*rateGrowth*newMpg),
-          stl:  r1(pm.stl *rateGrowth*newMpg),
-          blk:  r1(pm.blk *rateGrowth*newMpg),
-          tovs: r1(pm.tovs*rateGrowth*newMpg),
-          _frosh:false, _factor:transferFactor, _trend:trendMult, _seasons:played.length,
-        };
+        // Player not found in team projections (name mismatch) — project standalone
+        console.warn('Player not found in team projections, using standalone');
+        // Build careerHistoryMap for just this player and project alone
+        const singleTeam = [player];
+        const singleProj = buildTeamProjections(singleTeam, conf);
+        proj = singleProj[0] || null;
       }
     }catch(projErr){
       console.warn('Projection failed:',projErr);
