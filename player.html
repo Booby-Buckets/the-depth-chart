@@ -656,28 +656,23 @@ async function init(){
       const pos   = (player.position||'G').replace(/\d/g,'').trim();
       const posNorm = ['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':'G';
 
-      // Target MPG: anchor to recent role if player has proven minutes
+      // Target MPG: computePlayerMpg uses full depth chart + roster context
+      // This is NOT cookie cutter — it factors in every player on the roster
       const recentMpg = latestH ? parseFloat(latestH.mpg||0) : 0;
       const newMpg = (() => {
-        // Proven starter/rotation player — anchor to recent minutes
-        if(recentMpg >= 18){
-          // Sr/Gr continuity: expect similar role. Jr: slight growth. So/Fr: regression to mean
-          const mpgGrowthFactor = isSr ? 1.00 : isJr ? 1.04 : isSo ? 1.02 : 1.00;
-          // Grade modifier: high-grade players don't lose their role
-          const gradeMpgBonus = grade >= 88 ? 1.5 : grade >= 82 ? 0.5 : 0;
-          return Math.min(38, recentMpg * mpgGrowthFactor + gradeMpgBonus);
-        }
-        // Rotation player (12-18 MPG) — project modest growth toward starting role
+        // computePlayerMpg reads depth_order + grades of all teammates
+        // so Estrella's minutes shrink if Reed/others are above him
+        const depthMpg = computePlayerMpg(player, teamPlayers);
+
+        console.log(`[MPG] ${player.name}: depthMpg=${depthMpg}, recentMpg=${recentMpg}, depth_order=${player.depth_order}, roster size=${teamPlayers.length}`);
+
         if(recentMpg >= 12){
-          return Math.min(30, recentMpg * 1.08);
+          // Blend: depth chart is primary (70%), recent history is secondary (30%)
+          // But never go below depthMpg — the depth chart is the floor
+          const blended = depthMpg*0.70 + recentMpg*0.30;
+          return Math.max(depthMpg * 0.85, Math.round(blended*2)/2);
         }
-        // No meaningful history — use depth slot estimate
-        const slot = player.depth_order || 5;
-        if(slot===1) return Math.min(35, 26 + (grade-70)*0.2);
-        if(slot===2) return Math.min(28, 18 + (grade-70)*0.15);
-        if(slot===3) return Math.min(20, 12 + (grade-70)*0.1);
-        if(slot===4) return Math.min(14,  8 + (grade-70)*0.08);
-        return Math.max(4, 6 + (grade-70)*0.06);
+        return depthMpg;
       })();
 
       // projectPlayer is defined in team.html — on player.html we run a
