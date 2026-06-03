@@ -1816,12 +1816,39 @@ function buildTeamProjections(players, conf){
   }).filter(Boolean);
 
   // ── TEAM SCORING NORMALIZATION ───────────────────────────
-  // Cap total team PPG to real D1 ranges (68-78 PPG)
-  // This MUST come after the map — stored in `projected` variable
+  // Style-aware ceiling: teams with high-usage guards, fast pace, or
+  // transfer scorers can legitimately score more than grind-it-out teams.
+  // Range: 74 (slow/big-heavy) → 87 (elite fast-paced offense)
   const teamTotalPpg = projected.reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
-  const avgGrade = projected.slice(0,8).reduce((s,p)=>s+(parseFloat(p.tdc_grade)||70),0)
-                 / Math.min(8, projected.length||1);
-  const teamPpgCeiling = avgGrade>=90?87 : avgGrade>=86?84 : avgGrade>=82?80 : 74;
+
+  // Grade base — top 8 rotation players
+  const rot8 = projected.slice(0,8);
+  const avgGrade = rot8.reduce((s,p)=>s+(parseFloat(p.tdc_grade)||70),0) / Math.max(1,rot8.length);
+
+  // Offensive style signals from the projected roster
+  // High 3PA rate = spread offense = more possessions = higher ceiling
+  const team3paRate = rot8.reduce((s,p)=>s+(parseFloat(p.tpa)||0),0);
+  // Guard-heavy lineups tend to pace faster
+  const guardCount = rot8.filter(p=>['PG','SG','CG'].includes((p.position||'').replace(/\d/g,'').trim())).length;
+  // High APG teams = ball movement = efficient offense
+  const teamApg = rot8.reduce((s,p)=>s+(parseFloat(p.apg)||0),0);
+  // High FTA suggests aggressive, high-possession offense
+  const teamFta = rot8.reduce((s,p)=>s+(parseFloat(p.fta)||0),0);
+
+  // Pace/style score: 0–10, higher = faster/more offensive
+  let styleScore = 0;
+  if(team3paRate > 20) styleScore += 2;       // high 3P volume
+  else if(team3paRate > 14) styleScore += 1;
+  if(guardCount >= 4) styleScore += 2;         // guard-heavy
+  else if(guardCount >= 3) styleScore += 1;
+  if(teamApg > 14) styleScore += 2;            // ball movement
+  else if(teamApg > 10) styleScore += 1;
+  if(teamFta > 18) styleScore += 1;            // gets to the line
+
+  // Base ceiling from grade, then adjust ±4 for style
+  const gradeCeiling = avgGrade>=90?85 : avgGrade>=86?82 : avgGrade>=82?79 : 74;
+  const styleAdj = styleScore>=7?3 : styleScore>=5?2 : styleScore>=3?1 : styleScore<=1?-1 : 0;
+  const teamPpgCeiling = Math.max(74, Math.min(87, gradeCeiling + styleAdj));
 
   if(teamTotalPpg > teamPpgCeiling){
     const scale = teamPpgCeiling / teamTotalPpg;
@@ -2143,6 +2170,56 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
       }).join('')}
     </div>
     </div>
+
+    ${(()=>{
+      // ── TEAM TOTALS ROW ──────────────────────────────────
+      const active = projected.filter(p=>!p._injured&&!p._dnp);
+      const tot = k => active.reduce((s,p)=>s+(parseFloat(p[k])||0),0);
+      const wavg = k => {
+        const totalMpg = active.reduce((s,p)=>s+(parseFloat(p.mpg)||0),0);
+        if(!totalMpg) return 0;
+        return active.reduce((s,p)=>s+(parseFloat(p[k]||0))*(parseFloat(p.mpg)||0),0)/totalMpg;
+      };
+      const r1 = v => Math.round(v*10)/10;
+      const tPpg=r1(tot('ppg')), tRpg=r1(tot('rpg')), tApg=r1(tot('apg'));
+      const tFgm=r1(tot('fgm')), tFga=r1(tot('fga'));
+      const tFgPct = tFga>0 ? r1(tFgm/tFga*100) : 0;
+      const tTpm=r1(tot('tpm')), tTpa=r1(tot('tpa'));
+      const tTpPct = tTpa>0 ? r1(tTpm/tTpa*100) : 0;
+      const tFtm=r1(tot('ftm')), tFta=r1(tot('fta'));
+      const tFtPct = tFta>0 ? r1(tFtm/tFta*100) : 0;
+      const tOreb=r1(tot('oreb')), tDreb=r1(tot('dreb'));
+      const tStl=r1(tot('stl')), tBlk=r1(tot('blk')), tTovs=r1(tot('tovs'));
+      return `<div style="overflow-x:auto;margin-top:0;">
+        <div style="min-width:900px;display:flex;align-items:center;padding:10px 8px;background:rgba(${rgb},.06);border-top:2px solid ${color};border-radius:0 0 6px 6px;font-weight:700;font-size:12px;">
+          <div style="width:32px;flex-shrink:0;"></div>
+          <div style="width:32px;flex-shrink:0;"></div>
+          <div style="flex:1;min-width:120px;color:${color};letter-spacing:.04em;text-transform:uppercase;font-size:10px;">Team Totals</div>
+          <div style="width:32px;flex-shrink:0;"></div>
+          <div style="width:38px;flex-shrink:0;"></div>
+          <div class="rot-stat" style="color:${color};">—</div>
+          <div class="rot-stat" style="color:${color};">${tPpg}</div>
+          <div class="rot-stat" style="color:${color};">${tRpg}</div>
+          <div class="rot-stat" style="color:${color};">${tApg}</div>
+          <div class="rot-stat">${tFgm}</div>
+          <div class="rot-stat">${tFga}</div>
+          <div class="rot-stat" style="color:${color};">${tFgPct}%</div>
+          <div class="rot-stat">${tTpm}</div>
+          <div class="rot-stat">${tTpa}</div>
+          <div class="rot-stat" style="color:${color};">${tTpPct}%</div>
+          <div class="rot-stat">${tFtm}</div>
+          <div class="rot-stat">${tFta}</div>
+          <div class="rot-stat" style="color:${color};">${tFtPct}%</div>
+          <div class="rot-stat">${tOreb}</div>
+          <div class="rot-stat">${tDreb}</div>
+          <div class="rot-stat">${tStl}</div>
+          <div class="rot-stat">${tBlk}</div>
+          <div class="rot-stat" style="color:#e55;">${tTovs}</div>
+          <div style="width:36px;flex-shrink:0;"></div>
+        </div>
+      </div>`;
+    })()}
+
     <div style="font-size:11px;color:var(--text3);margin-top:12px;line-height:1.6;">
       Minutes normalized to 200 total. Scoring capped at team realistic ceiling. 
       Transfer multipliers applied using conference tier matrix. 
