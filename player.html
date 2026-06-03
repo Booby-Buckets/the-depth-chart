@@ -314,7 +314,9 @@ const POS_BASE={'PG':{ppg:10.5,rpg:3.2,apg:4.1,mpg:26,fg_pct:42,tp_pct:36,ft_pct
 function r1t(v){return v!=null?Math.round(v*10)/10:null;}
 
 function computePlayerMpg(p, teamRoster){
-  const roster=(Array.isArray(teamRoster)?teamRoster:[]).filter(r=>r.name&&r.name!=='—')
+  // Injured players get 0 MPG — their minutes go to healthy teammates
+  if(p.is_injured) return 0;
+  const roster=(Array.isArray(teamRoster)?teamRoster:[]).filter(r=>r.name&&r.name!=='—'&&!r.is_injured)
     .sort((a,b)=>(a.depth_order||99)-(b.depth_order||99));
   if(!roster.length){const d=p.depth_order||8;return d<=1?32:d<=2?30:d<=3?27:d<=4?25:d<=5?23:d===6?20:d===7?17:d===8?14:d===9?11:d===10?8:5;}
   const grades=roster.map(r=>parseFloat(r.tdc_grade)||70);
@@ -576,6 +578,12 @@ function buildTeamProjections(players, conf){
     .filter(p => p.name && p.name !== '—')
     .sort((a,b) => (a.depth_order||99)-(b.depth_order||99));
 
+  // Injured players: return DNP immediately, don't consume roster minutes
+  const injuredDnp = roster
+    .filter(p => p.is_injured)
+    .map(p => ({...p, ppg:0, rpg:0, apg:0, mpg:0, fgm:0, fga:0, tpm:0, tpa:0,
+      ftm:0, fta:0, oreb:0, dreb:0, stl:0, blk:0, tovs:0, _dnp:true, _injured:true}));
+
   if(!roster.length) return [];
 
   const r1 = v => v!=null ? Math.round((v+Number.EPSILON)*10)/10 : null;
@@ -781,7 +789,7 @@ function buildTeamProjections(players, conf){
     });
   }
 
-  return projected;
+  return [...projected, ...injuredDnp];
 }
 
 
@@ -1169,6 +1177,24 @@ function buildOverviewCards(p, proj){
 
   if(!proj){
     return '<div class="stat-cards" style="margin-bottom:24px;">'+cards(p, false, null)+'</div>';
+  }
+
+  // Injured player — show DNP banner instead of projection stats
+  if(proj._injured || player.is_injured){
+    return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">'\
+      +'<div>'\
+      +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">2026-27 Actual</div>'\
+      +'<div class="stat-cards">'+cards(p, false, null)+'</div>'\
+      +'</div>'\
+      +'<div>'\
+      +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#ef4444;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #ef4444;">2026-27 Projected</div>'\
+      +'<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 16px;background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.2);border-radius:8px;text-align:center;gap:10px;">'\
+      +'<div style="font-size:28px;">🏥</div>'\
+      +'<div style="font-size:14px;font-weight:700;color:#ef4444;">Projected DNP</div>'\
+      +'<div style="font-size:12px;color:var(--text3);line-height:1.5;max-width:220px;">Expected to miss the 2026-27 season. Minutes redistributed to healthy teammates.</div>'\
+      +'</div>'\
+      +'</div>'\
+      +'</div>';
   }
 
   if(!hasActual){

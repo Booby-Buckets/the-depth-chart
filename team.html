@@ -818,7 +818,9 @@ const POS_BASE_TEAM = {
 // computePlayerMpg — mirrors buildTeamProjections MPG steps exactly
 // Used by player page; team page uses targetMpg directly from buildTeamProjections
 function computePlayerMpg(p, teamRoster){
-  const roster=(Array.isArray(teamRoster)?teamRoster:[]).filter(r=>r.name&&r.name!=='—')
+  // Injured players get 0 MPG — their minutes go to healthy teammates
+  if(p.is_injured) return 0;
+  const roster=(Array.isArray(teamRoster)?teamRoster:[]).filter(r=>r.name&&r.name!=='—'&&!r.is_injured)
     .sort((a,b)=>(a.depth_order||99)-(b.depth_order||99));
   if(!roster.length){const d=p.depth_order||8;return d<=1?32:d<=2?30:d<=3?27:d<=4?25:d<=5?23:d===6?20:d===7?17:d===8?14:d===9?11:d===10?8:5;}
   const grades=roster.map(r=>parseFloat(r.tdc_grade)||70);
@@ -1629,6 +1631,12 @@ function buildTeamProjections(players, conf){
     .filter(p => p.name && p.name !== '—')
     .sort((a,b) => (a.depth_order||99)-(b.depth_order||99));
 
+  // Injured players: return DNP immediately, don't consume roster minutes
+  const injuredDnp = roster
+    .filter(p => p.is_injured)
+    .map(p => ({...p, ppg:0, rpg:0, apg:0, mpg:0, fgm:0, fga:0, tpm:0, tpa:0,
+      ftm:0, fta:0, oreb:0, dreb:0, stl:0, blk:0, tovs:0, _dnp:true, _injured:true}));
+
   if(!roster.length) return [];
 
   const r1 = v => v!=null ? Math.round((v+Number.EPSILON)*10)/10 : null;
@@ -1834,7 +1842,7 @@ function buildTeamProjections(players, conf){
     });
   }
 
-  return projected;
+  return [...projected, ...injuredDnp];
 }
 
 
@@ -2087,6 +2095,26 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
         const froshBadge=p._isFrosh?`<span style="font-size:8px;font-weight:700;padding:1px 3px;background:rgba(139,105,20,.12);color:var(--accent);margin-left:3px;">EST</span>`:'';
         const projMpg=parseFloat(p.mpg)||0, prevMpg=parseFloat(p._rawMpg)||projMpg;
         const roleBadge=(!p._isFrosh&&!p._isSr&&projMpg>prevMpg*1.25)?`<span style="font-size:8px;font-weight:700;padding:1px 3px;background:rgba(26,140,58,.12);color:#1a8c3a;margin-left:3px;">↑ ROLE</span>`:'';
+
+        // Injured players — show DNP banner instead of stats
+        if(p._injured || p.is_injured){
+          return `
+          <div class="rotation-row" style="min-width:900px;opacity:0.6;">
+            <div class="rot-num">${i+1}</div>
+            <div class="rot-pos">${p.position||''}</div>
+            <div class="rot-name">
+              <a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team)}" style="color:inherit;text-decoration:none;font-weight:500;">${p.name}</a>
+              <span style="font-size:9px;font-weight:700;padding:2px 5px;background:rgba(220,38,38,.15);color:#ef4444;border:1px solid rgba(220,38,38,.3);border-radius:3px;margin-left:6px;">🏥 INJURED — PROJ. DNP</span>
+            </div>
+            <div class="rot-cls" style="color:var(--accent);font-size:11px;">${nextYr}</div>
+            <div class="rot-stat" style="font-size:11px;color:var(--text3);">${p.height||'—'}</div>
+            <div style="flex:1;display:flex;align-items:center;padding:0 8px;font-size:11px;color:var(--text3);font-style:italic;">
+              Projected Did Not Play — minutes redistributed to healthy teammates
+            </div>
+            <div class="rot-grade ${gc(p.tdc_grade||'')}" style="opacity:0.5;">${p.tdc_grade||''}</div>
+          </div>`;
+        }
+
         return `
         <div class="rotation-row" style="min-width:900px;${isStarter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
           <div class="rot-num" style="${isStarter?`color:${color};font-weight:700;`:''}">${i+1}</div>
