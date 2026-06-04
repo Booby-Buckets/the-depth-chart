@@ -573,6 +573,35 @@ function getProjTransFactor(originConf, destConf, grade){
   return Math.max(0.20,Math.min(1.6,base*boost));
 }
 
+// ── POSITION FIT ENGINE ─────────────────────────────────────────────────────
+// Determines if a player is deployed at their primary or secondary position.
+// If a player has position2 and their primary slot is already occupied by someone
+// with a lower depth_order, but the secondary slot is open → deployed at secondary.
+function getDeployedPos(p, roster) {
+  const pos1 = (p.position  || 'G').replace(/\d/g,'').trim();
+  const pos2 = (p.position2 || '').replace(/\d/g,'').trim();
+  if (!pos2 || !['PG','SG','SF','PF','C'].includes(pos2)) return pos1;
+
+  const dOrder = p.depth_order || 99;
+
+  // How many players share pos1 AND rank higher in depth order?
+  const pos1Ahead = roster.filter(r =>
+    r.name && r.name !== '—' && r.name !== p.name &&
+    (r.position||'G').replace(/\d/g,'').trim() === pos1 &&
+    (r.depth_order||99) < dOrder
+  ).length;
+
+  // How many players have pos2 as their PRIMARY and rank higher?
+  const pos2Ahead = roster.filter(r =>
+    r.name && r.name !== '—' && r.name !== p.name &&
+    (r.position||'G').replace(/\d/g,'').trim() === pos2 &&
+    (r.depth_order||99) < dOrder
+  ).length;
+
+  // Deployed at secondary if primary slot is occupied AND secondary is open ahead of them
+  return (pos1Ahead >= 1 && pos2Ahead === 0) ? pos2 : pos1;
+}
+
 function buildTeamProjections(players, conf){
   const roster = players
     .filter(p => p.name && p.name !== '—')
@@ -597,6 +626,11 @@ function buildTeamProjections(players, conf){
     const grade  = parseFloat(p.tdc_grade)||70;
     const pos    = (p.position||'G').replace(/\d/g,'').trim();
     const posNorm= ['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':'G';
+
+    // Position fit: slight boost playing natural position, slight penalty playing secondary
+    const deployedPos = getDeployedPos(p, roster);
+    const isOutOfPos  = !!(p.position2 && deployedPos !== pos);
+    const posFitMult  = p.position2 ? (isOutOfPos ? 0.97 : 1.02) : 1.0;
 
     // Career history from map (built when team page loads)
     const key    = (p.name||'').toLowerCase().trim();
@@ -745,21 +779,23 @@ function buildTeamProjections(players, conf){
     const newFga = r1(pm.fga*rateGrowth*newMpg);
     const newTpa = is3Shooter ? r1(pm.tpa*rateGrowth*newMpg) : r1(pm.tpa*newMpg);
 
+    const pf = posFitMult;
     return {...p,
-      ppg:  r1(pm.ppg *rateGrowth*newMpg),
-      rpg:  r1(pm.rpg *rateGrowth*newMpg),
-      apg:  r1(pm.apg *rateGrowth*newMpg),
+      ppg:  r1(pm.ppg *rateGrowth*newMpg*pf),
+      rpg:  r1(pm.rpg *rateGrowth*newMpg*pf),
+      apg:  r1(pm.apg *rateGrowth*newMpg*pf),
       mpg:  r1(newMpg),
-      fgm:  r1(newFga*(fgProj/100)), fga:newFga, fg_pct:fgProj,
-      tpm:  r1(newTpa*(tpProj/100)), tpa:newTpa, tp_pct:tpProj,
-      ftm:  r1(pm.fta*rateGrowth*newMpg*(ftProj/100)),
-      fta:  r1(pm.fta*rateGrowth*newMpg), ft_pct:ftProj,
-      oreb: r1(pm.oreb*rateGrowth*newMpg),
-      dreb: r1(pm.dreb*rateGrowth*newMpg),
-      stl:  r1(pm.stl *rateGrowth*newMpg),
-      blk:  r1(pm.blk *rateGrowth*newMpg),
-      tovs: r1(pm.tovs*rateGrowth*newMpg),
+      fgm:  r1(newFga*(fgProj/100)*pf), fga:r1(newFga*pf), fg_pct:fgProj,
+      tpm:  r1(newTpa*(tpProj/100)*pf), tpa:r1(newTpa*pf), tp_pct:tpProj,
+      ftm:  r1(pm.fta*rateGrowth*newMpg*(ftProj/100)*pf),
+      fta:  r1(pm.fta*rateGrowth*newMpg*pf), ft_pct:ftProj,
+      oreb: r1(pm.oreb*rateGrowth*newMpg*pf),
+      dreb: r1(pm.dreb*rateGrowth*newMpg*pf),
+      stl:  r1(pm.stl *rateGrowth*newMpg*pf),
+      blk:  r1(pm.blk *rateGrowth*newMpg*pf),
+      tovs: r1(pm.tovs*rateGrowth*newMpg*pf),
       _frosh:false, _factor:transferFactor, _trend:trendMult, _seasons:played.length,
+      _deployedPos:deployedPos, _posFit:posFitMult,
     };
   }).filter(Boolean);
 
@@ -1243,7 +1279,15 @@ function renderPage(){
     <div class="player-hero">
       <div class="hero-avatar" style="border-color:${color};">${(p.name||'?')[0].toUpperCase()}</div>
       <div class="hero-info">
-        <div class="hero-eyebrow">${p.position||'—'} · ${yr} · ${p.height||'—'}${p.is_injured?' 🏥':''}${p.is_international?' 🌍':''}</div>
+        <div class="hero-eyebrow">
+          ${p.position||'—'}${p.position2
+            ? ` <span style="display:inline-flex;align-items:center;gap:3px;">
+                 <span style="font-size:9px;color:var(--text3);font-weight:400;">·</span>
+                 <span style="font-size:9px;color:var(--text3);font-weight:600;padding:1px 5px;border:1px solid var(--border2);">${p.position2}</span>
+               </span>`
+            : ''}
+          &nbsp;·&nbsp;${yr} · ${p.height||'—'}${p.is_injured?' 🏥':''}${p.is_international?' 🌍':''}
+        </div>
 
         <h1 class="hero-name">${p.name}</h1>
         <a class="hero-team" href="team.html?team=${encodeURIComponent(p.team||'')}">
