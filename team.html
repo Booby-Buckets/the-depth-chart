@@ -1659,84 +1659,86 @@ function getDeployedPos(p, roster) {
 }
 
 function buildTeamProjections(players, conf){
-  // Career-aware projection — uses window._careerHistoryMap built when page loads.
-  // This is the same algorithm as player.html so projections are identical everywhere.
   const roster = players
     .filter(p => p.name && p.name !== '—')
     .sort((a,b) => (a.depth_order||99)-(b.depth_order||99));
 
+  // Injured players: zero stats, excluded from minute distribution
+  const injuredDnp = roster
+    .filter(p => p.is_injured)
+    .map(p => ({...p, ppg:0, rpg:0, apg:0, mpg:0, fgm:0, fga:0, tpm:0, tpa:0,
+      ftm:0, fta:0, oreb:0, dreb:0, stl:0, blk:0, tovs:0, _dnp:true, _injured:true}));
+
   if(!roster.length) return [];
 
   const r1 = v => v!=null ? Math.round((v+Number.EPSILON)*10)/10 : null;
+  const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi, v));
 
-  return roster.map(p => {
-    const yr    = (p.yr||p.class_year||'').toLowerCase();
-    const isFr  = yr.includes('fr.')||yr.includes('r-fr');
-    const isSo  = yr.includes('so.')||yr.includes('r-so.');
-    const isJr  = yr.includes('jr.')||yr.includes('r-jr.');
-    const isSr  = yr.includes('sr.')||yr.includes('r-sr')||yr.includes('gr.');
-    const grade = parseFloat(p.tdc_grade)||70;
-    const pos   = (p.position||'G').replace(/\d/g,'').trim();
-    const posNorm = ['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':'G';
+  const projected = roster.map(p => {
+    const yr     = (p.yr||p.class_year||'').toLowerCase();
+    const isFr   = yr.includes('fr.')||yr.includes('r-fr');
+    const isSo   = yr.includes('so.')||yr.includes('r-so.');
+    const isJr   = yr.includes('jr.')||yr.includes('r-jr.');
+    const isSr   = yr.includes('sr.')||yr.includes('r-sr')||yr.includes('gr.');
+    const grade  = parseFloat(p.tdc_grade)||70;
+    const pos    = (p.position||'G').replace(/\d/g,'').trim();
+    const posNorm= ['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':'G';
+    const isBig  = pos==='C'||pos==='PF';
+    const isGuard= pos==='PG'||pos==='SG'||pos==='CG';
 
-    // Position fit: slight boost playing natural position, slight penalty playing secondary
     const deployedPos = getDeployedPos(p, roster);
     const isOutOfPos  = !!(p.position2 && deployedPos !== pos);
     const posFitMult  = p.position2 ? (isOutOfPos ? 0.97 : 1.02) : 1.0;
 
-    // Get career history for this player
-    const key = (p.name||'').toLowerCase().trim();
-    const history = window._careerHistoryMap && window._careerHistoryMap[key] || [];
+    const key    = (p.name||'').toLowerCase().trim();
+    const history= (window._careerHistoryMap&&window._careerHistoryMap[key])||[];
 
-    // Played seasons with real stats (≥6 MPG)
     const played = history
       .filter(h => !h.sat_out && parseFloat(h.ppg||0)>0 && parseFloat(h.mpg||0)>=6)
       .sort((a,b) => b.season_year - a.season_year);
 
-    // Meaningful seasons (≥12 MPG) for trend + FT% smoothing
-    const meaningful = played.filter(h => parseFloat(h.mpg||0) >= 12);
-    const latestH = played[0] || null;
+    const meaningful = played.filter(h => parseFloat(h.mpg||0)>=12);
+    const latestH    = played[0]||null;
 
-    // MPG from depth chart — same function as team projections tab
     const newMpg = computePlayerMpg(p, roster);
 
-    // ── NO CAREER STATS → grade-based estimate ──────────────
-    const hasCareerStats = latestH && parseFloat(latestH.ppg||0)>0;
+    const hasCareerStats  = latestH && parseFloat(latestH.ppg||0)>0;
     const hasCurrentStats = parseFloat(p.ppg||0)>0;
 
     if(!hasCareerStats && !hasCurrentStats){
-      const fb = getFrBase(grade, posNorm);
-      // effMpg: only use the floor boost for true bench freshmen (<12 MPG)
-      // Players getting 12+ MPG use their actual minutes — the role is real
+      const fb   = getFrBase(grade, posNorm);
       const effMpg = newMpg < 12 ? Math.min(13, newMpg*1.35) : newMpg;
-      const scale = effMpg/FR_BASE_MPG;
-      const fga = r1(newMpg*0.28);
+      const scale  = effMpg/FR_BASE_MPG;
+      const fga    = r1(newMpg*0.28);
       return {...p,
-        ppg:r1(fb.ppg*scale), rpg:r1((fb.oreb+fb.dreb)*scale), apg:r1(fb.apg*scale), mpg:r1(newMpg),
-        fgm:r1(fga*(fb.fg_pct/100)), fga:fga, fg_pct:fb.fg_pct,
-        tpm:r1(fga*0.42*(fb.tp_pct/100)), tpa:r1(fga*0.42), tp_pct:fb.tp_pct,
-        fta:r1(newMpg*0.09), ftm:r1(newMpg*0.09*(fb.ft_pct/100)), ft_pct:fb.ft_pct,
-        oreb:r1(fb.oreb*scale), dreb:r1(fb.dreb*scale),
-        stl:r1(fb.stl*scale), blk:r1(fb.blk*scale), tovs:r1(fb.tovs*scale),
-        _frosh:true, _noStatEst:true,
+        ppg: r1(fb.ppg*scale), rpg: r1((fb.oreb+fb.dreb)*scale), apg: r1(fb.apg*scale),
+        mpg: r1(newMpg),
+        fgm: r1(fga*(fb.fg_pct/100)), fga, fg_pct: fb.fg_pct,
+        tpm: r1(fga*0.42*(fb.tp_pct/100)), tpa: r1(fga*0.42), tp_pct: fb.tp_pct,
+        fta: r1(newMpg*0.09), ftm: r1(newMpg*0.09*(fb.ft_pct/100)), ft_pct: fb.ft_pct,
+        oreb: r1(fb.oreb*scale), dreb: r1(fb.dreb*scale),
+        stl: r1(fb.stl*scale), blk: r1(fb.blk*scale), tovs: r1(fb.tovs*scale),
+        _frosh:true, _noStatEst:true, _deployedPos:deployedPos, _posFit:posFitMult,
       };
     }
 
-    // ── CAREER-AWARE PROJECTION ──────────────────────────────
-    const base = hasCareerStats ? latestH : p;
+    const base    = hasCareerStats ? latestH : p;
     const baseMpg = Math.max(1, parseFloat(base.mpg||0)||1);
     const g = k => parseFloat(base[k]||0)||0;
 
+    const orebBase = g('oreb');
+    const drebBase = g('dreb');
+    const rpgBase  = (orebBase+drebBase) > 0 ? orebBase+drebBase : g('rpg');
+
     const pm = {
-      ppg:g('ppg')/baseMpg,  rpg:g('rpg')/baseMpg,   apg:g('apg')/baseMpg,
-      fgm:g('fgm')/baseMpg,  fga:g('fga')/baseMpg,
-      tpm:g('tpm')/baseMpg,  tpa:g('tpa')/baseMpg,
-      ftm:g('ftm')/baseMpg,  fta:g('fta')/baseMpg,
-      oreb:g('oreb')/baseMpg, dreb:g('dreb')/baseMpg,
-      stl:g('stl')/baseMpg,  blk:g('blk')/baseMpg,  tovs:g('tovs')/baseMpg,
+      ppg:  g('ppg')/baseMpg,  rpg:  rpgBase/baseMpg,   apg:  g('apg')/baseMpg,
+      fgm:  g('fgm')/baseMpg,  fga:  g('fga')/baseMpg,
+      tpm:  g('tpm')/baseMpg,  tpa:  g('tpa')/baseMpg,
+      ftm:  g('ftm')/baseMpg,  fta:  g('fta')/baseMpg,
+      oreb: orebBase/baseMpg,  dreb: drebBase/baseMpg,
+      stl:  g('stl')/baseMpg,  blk:  g('blk')/baseMpg,  tovs: g('tovs')/baseMpg,
     };
 
-    // Career trend (meaningful seasons only)
     let trendMult = 1.0;
     if(meaningful.length >= 2){
       const n=meaningful[0], p2=meaningful[1];
@@ -1746,118 +1748,143 @@ function buildTeamProjections(players, conf){
         const rt=nPm/pPm;
         const mpgGrowth=parseFloat(n.mpg||0)/Math.max(1,parseFloat(p2.mpg||0));
         const isBreakout=rt>=1.40&&mpgGrowth>=1.20;
-        const cap=isBreakout?0.18:0.12;
-        trendMult=1.0+Math.max(-cap,Math.min(cap,(rt-1)*0.40));
+        const cap=isBreakout?0.15:0.10;
+        trendMult=1.0+Math.max(-cap,Math.min(cap,(rt-1)*0.35));
       }
     } else if(meaningful.length===1&&played.length>=2){
-      const n=meaningful[0], p2=played.find(h=>h!==n);
+      const n=meaningful[0],p2=played.find(h=>h!==n);
       if(p2){
         const nPm=parseFloat(n.ppg||0)/Math.max(1,parseFloat(n.mpg||1));
         const pPm=parseFloat(p2.ppg||0)/Math.max(1,parseFloat(p2.mpg||1));
-        if(pPm>0&&nPm/pPm>=1.5) trendMult=1.08;
+        if(pPm>0&&nPm/pPm>=1.5) trendMult=1.06;
       }
     }
 
-    // Returner vs transfer flag
     const isTransferIn = !!(p.hometown && p.hometown.trim());
     const isReturnee   = !isTransferIn;
-
-    // Returners: small boost — know the system, role secured
-    // Transfers: slight extra trim on top of conference adjustment
-    const returnBoost  = isReturnee  ? (isSr?1.02 : isJr?1.03 : isSo?1.04 : 1.02) : 1.0;
+    const returnBoost  = isReturnee  ? (isSr?1.02:isJr?1.03:isSo?1.04:1.02) : 1.0;
     const transferTrim = isTransferIn ? 0.96 : 1.0;
-    const yrMult = (isSo?1.06 : isJr?1.03 : isSr?1.01 : 1.04) * returnBoost * transferTrim;
+    const yrMult = (isSo?1.06:isJr?1.03:isSr?1.01:1.04) * returnBoost * transferTrim;
 
     const gradeExpPpg = grade>=90?19:grade>=85?16:grade>=80?13:grade>=75?10:grade>=70?8:6;
-    const statsPer32 = pm.ppg*32;
-    const gapRatio = gradeExpPpg>0?statsPer32/gradeExpPpg:1;
-    const gapMult = gapRatio<0.50?1.15 : gapRatio<0.65?1.10 : gapRatio<0.80?1.05
-                  : gapRatio<0.95?1.02 : gapRatio>1.40?0.96 : gapRatio>1.20?0.99 : 1.0;
-    const rateGrowth = yrMult*gapMult*trendMult;
+    const statsPer32  = pm.ppg*32;
+    const gapRatio    = gradeExpPpg>0 ? statsPer32/gradeExpPpg : 1;
+    const gapMult     = gapRatio<0.50?1.14:gapRatio<0.65?1.09:gapRatio<0.80?1.05
+                      : gapRatio<0.95?1.02:gapRatio>1.40?0.96:gapRatio>1.20?0.98:1.0;
 
-    // Transfer factor
-    let transferFactor=1.0;
-    if(p.hometown&&p.hometown.trim()){
-      const originConf=getProjSchoolConf(p.hometown)||getSchoolConfFallback(p.hometown);
-      if(originConf&&conf) transferFactor=getProjTransFactor(originConf,conf,grade);
+    const rateGrowth = yrMult * gapMult * trendMult;
+
+    let transferFactor = 1.0;
+    if(p.hometown && p.hometown.trim()){
+      const originConf = getProjSchoolConf(p.hometown)||getSchoolConfFallback(p.hometown);
+      if(originConf && conf) transferFactor = getProjTransFactor(originConf, conf, grade);
     }
 
-    const fgBase=parseFloat(base.fg_pct||0)||44;
-    const tpBase=parseFloat(base.tp_pct||0)||0;
-    const ftBase=parseFloat(base.ft_pct||0)||70;
-    const careerFtPct=meaningful.length>=2
-      ?meaningful.reduce((s,h)=>s+parseFloat(h.ft_pct||0),0)/meaningful.length:ftBase;
-    const ftSmoothed=ftBase*0.65+careerFtPct*0.35;
-    const oldFga=parseFloat(base.fga||0)||1;
-    const newFgaE=oldFga*(newMpg/baseMpg);
-    const volChange=(baseMpg>=12)?(newFgaE/oldFga-1):0;
-    const volPenalty=volChange*3.5;
-    const yearEff=isSo?1.2:isJr?0.6:isSr?0.0:1.8;
-    const transPctAdj=transferFactor<0.75?-3.5:transferFactor<0.85?-2.5
-                    :transferFactor<0.92?-1.5:transferFactor<0.97?-0.8
-                    :transferFactor>1.20?+1.2:transferFactor>1.10?+0.8
-                    :transferFactor>1.04?+0.4:0;
-    const fgProj=r1(Math.max(30,Math.min(65,fgBase+yearEff-volPenalty+transPctAdj)));
+    // Percentage adjustment from conference difficulty
+    const transPctAdj = transferFactor<0.75?-3.5:transferFactor<0.85?-2.5
+                      : transferFactor<0.92?-1.5:transferFactor<0.97?-0.8
+                      : transferFactor>1.20?+1.2:transferFactor>1.10?+0.8
+                      : transferFactor>1.04?+0.4:0;
 
-    const careerTpa=meaningful.length
-      ?meaningful.reduce((s,h)=>s+parseFloat(h.tpa||0),0)/meaningful.length
-      :parseFloat(base.tpa||0);
-    const is3Shooter=careerTpa>=0.5;
-    const tpProj=is3Shooter
-      ?r1(Math.max(18,Math.min(50,tpBase+(isSo?0.8:isJr?0.4:isSr?0:1.5)-(volChange*2)+transPctAdj*0.6)))
-      :tpBase;
-    const ftProj=r1(Math.max(45,Math.min(97,ftSmoothed+(isSo?1.0:isJr?0.5:isSr?0:1.5))));
+    // RPG conference adjustment: stronger competition = fewer easy boards
+    const rpgConfAdj = isTransferIn ? (
+      isBig  ? (transferFactor<0.80?-1.2:transferFactor<0.90?-0.7:transferFactor<0.96?-0.3:transferFactor>1.15?+0.6:0)
+             : (transferFactor<0.80?-0.5:transferFactor<0.90?-0.2:transferFactor>1.15?+0.3:0)
+    ) : 0;
 
-    const newFga=r1(pm.fga*rateGrowth*newMpg);
-    const newTpa=is3Shooter?r1(pm.tpa*rateGrowth*newMpg):r1(pm.tpa*newMpg);
+    // APG conference adjustment: tighter defense = fewer assist opportunities
+    const apgConfAdj = isTransferIn ? (
+      isGuard ? (transferFactor<0.80?-1.0:transferFactor<0.90?-0.5:transferFactor<0.96?-0.2:transferFactor>1.15?+0.5:0)
+              : (transferFactor<0.80?-0.4:transferFactor<0.90?-0.2:transferFactor>1.15?+0.2:0)
+    ) : 0;
 
-    const pf = posFitMult;
+    // FG%: career-smoothed (55% last season, 45% career avg) then conference-adjusted
+    const fgBase      = parseFloat(base.fg_pct||0)||44;
+    const careerFgPct = meaningful.length>=2
+      ? meaningful.reduce((s,h)=>s+parseFloat(h.fg_pct||0),0)/meaningful.length : fgBase;
+    const fgSmoothed  = fgBase*0.55 + careerFgPct*0.45;
+
+    const tpBase = meaningful.length
+      ? meaningful.reduce((s,h)=>s+parseFloat(h.tp_pct||0),0)/meaningful.length
+      : (parseFloat(base.tp_pct||0)||parseFloat(p.tp_pct||0)||33);
+
+    const ftBase      = parseFloat(base.ft_pct||0)||70;
+    const careerFtPct = meaningful.length>=2
+      ? meaningful.reduce((s,h)=>s+parseFloat(h.ft_pct||0),0)/meaningful.length : ftBase;
+    const ftSmoothed  = ftBase*0.65 + careerFtPct*0.35;
+
+    const oldFga     = parseFloat(base.fga||0)||1;
+    const newFgaE    = oldFga*(newMpg/baseMpg);
+    const volChange  = (baseMpg>=12) ? (newFgaE/oldFga-1) : 0;
+    const volPenalty = volChange*3.5;
+    const yearEff    = isSo?1.2:isJr?0.6:isSr?0.0:1.8;
+
+    const fgProj = r1(clamp(fgSmoothed + yearEff - volPenalty + transPctAdj, 30, 65));
+
+    const careerTpa  = meaningful.length
+      ? meaningful.reduce((s,h)=>s+parseFloat(h.tpa||0),0)/meaningful.length
+      : parseFloat(base.tpa||0);
+    const is3Shooter = careerTpa >= 0.5;
+    const tpProj = is3Shooter
+      ? r1(clamp(tpBase+(isSo?0.8:isJr?0.4:isSr?0:1.5)-(volChange*2)+transPctAdj*0.6, 20, 50))
+      : tpBase;
+    const ftProj = r1(clamp(ftSmoothed+(isSo?1.0:isJr?0.5:isSr?0:1.5), 45, 97));
+
+    const newFga = r1(pm.fga*rateGrowth*newMpg);
+    const newTpa = is3Shooter ? r1(pm.tpa*rateGrowth*newMpg) : r1(pm.tpa*newMpg);
+
+    const pf    = posFitMult;
+    const rawRpg = r1(pm.rpg*rateGrowth*newMpg*pf);
+    const rawApg = r1(pm.apg*rateGrowth*newMpg*pf);
+
     return {...p,
-      ppg: r1(pm.ppg *rateGrowth*newMpg*pf),
-      rpg: r1(pm.rpg *rateGrowth*newMpg*pf),
-      apg: r1(pm.apg *rateGrowth*newMpg*pf),
-      mpg: r1(newMpg),
-      fgm: r1(newFga*(fgProj/100)*pf), fga:r1(newFga*pf), fg_pct:fgProj,
-      tpm: r1(newTpa*(tpProj/100)*pf), tpa:r1(newTpa*pf), tp_pct:tpProj,
-      ftm: r1(pm.fta*rateGrowth*newMpg*(ftProj/100)*pf),
-      fta: r1(pm.fta*rateGrowth*newMpg*pf), ft_pct:ftProj,
-      oreb:r1(pm.oreb*rateGrowth*newMpg*pf),
-      dreb:r1(pm.dreb*rateGrowth*newMpg*pf),
-      stl: r1(pm.stl *rateGrowth*newMpg*pf),
-      blk: r1(pm.blk *rateGrowth*newMpg*pf),
-      tovs:r1(pm.tovs*rateGrowth*newMpg*pf),
+      ppg:  r1(pm.ppg *rateGrowth*newMpg*pf),
+      rpg:  r1(Math.max(0, rawRpg + rpgConfAdj)),
+      apg:  r1(Math.max(0, rawApg + apgConfAdj)),
+      mpg:  r1(newMpg),
+      fgm:  r1(newFga*(fgProj/100)*pf), fga:r1(newFga*pf), fg_pct:fgProj,
+      tpm:  r1(newTpa*(tpProj/100)*pf), tpa:r1(newTpa*pf), tp_pct:tpProj,
+      ftm:  r1(pm.fta*rateGrowth*newMpg*(ftProj/100)*pf),
+      fta:  r1(pm.fta*rateGrowth*newMpg*pf), ft_pct:ftProj,
+      oreb: r1(pm.oreb*rateGrowth*newMpg*pf),
+      dreb: r1(pm.dreb*rateGrowth*newMpg*pf),
+      stl:  r1(pm.stl *rateGrowth*newMpg*pf),
+      blk:  r1(pm.blk *rateGrowth*newMpg*pf),
+      tovs: r1(pm.tovs*rateGrowth*newMpg*pf),
       _frosh:false, _factor:transferFactor, _trend:trendMult, _seasons:played.length,
       _deployedPos:deployedPos, _posFit:posFitMult,
     };
   }).filter(Boolean);
 
-  // ── TEAM SCORING NORMALIZATION ────────────────────────────
-  // Real D1 teams score 68-80 PPG. Cap team total to prevent
-  // 4 players each projecting 17+ PPG on the same team.
-  const teamTotalPpg = projected.reduce((s,p) => s+(parseFloat(p.ppg)||0), 0);
-  const avgGrade = projected.slice(0,8).reduce((s,p) => s+(parseFloat(p.tdc_grade)||70),0) / Math.min(8,projected.length||1);
-  // Calibrated to real D1 scoring ranges — elite teams score ~78-80, avg ~72, low ~68
-  const teamPpgCeiling = avgGrade>=90 ? 78 : avgGrade>=86 ? 75 : avgGrade>=82 ? 72 : 69;
+  // ── TEAM SCORING NORMALIZATION ───────────────────────────
+  const teamTotalPpg = projected.reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
+  const rot8 = projected.slice(0,8);
+  const avgGrade   = rot8.reduce((s,p)=>s+(parseFloat(p.tdc_grade)||70),0)/Math.max(1,rot8.length);
+  const team3paRate= rot8.reduce((s,p)=>s+(parseFloat(p.tpa)||0),0);
+  const guardCount = rot8.filter(p=>['PG','SG','CG'].includes((p.position||'').replace(/[0-9]/g,'').trim())).length;
+  const teamApgT   = rot8.reduce((s,p)=>s+(parseFloat(p.apg)||0),0);
+  const teamFtaT   = rot8.reduce((s,p)=>s+(parseFloat(p.fta)||0),0);
+  let styleScore=0;
+  if(team3paRate>20)styleScore+=2; else if(team3paRate>14)styleScore+=1;
+  if(guardCount>=4)styleScore+=2; else if(guardCount>=3)styleScore+=1;
+  if(teamApgT>14)styleScore+=2; else if(teamApgT>10)styleScore+=1;
+  if(teamFtaT>18)styleScore+=1;
+  const gradeCeiling  = avgGrade>=90?85:avgGrade>=86?82:avgGrade>=82?79:74;
+  const styleAdj      = styleScore>=7?3:styleScore>=5?2:styleScore>=3?1:styleScore<=1?-1:0;
+  const teamPpgCeiling= Math.max(74, Math.min(87, gradeCeiling+styleAdj));
+
   if(teamTotalPpg > teamPpgCeiling){
-    const scale = teamPpgCeiling / teamTotalPpg;
+    const scale = teamPpgCeiling/teamTotalPpg;
     projected.forEach(p => {
-      p.ppg  = r1(p.ppg  * scale);
-      p.fgm  = r1(p.fgm  * scale);
-      p.fga  = r1(p.fga  * scale);
-      p.tpm  = r1(p.tpm  * scale);
-      p.tpa  = r1(p.tpa  * scale);
-      p.ftm  = r1(p.ftm  * scale);
-      p.fta  = r1(p.fta  * scale);
-      p.oreb = r1(p.oreb * scale);
-      p.dreb = r1(p.dreb * scale);
-      p.stl  = r1(p.stl  * scale);
-      p.blk  = r1(p.blk  * scale);
-      p.tovs = r1(p.tovs * scale);
+      p.ppg  = r1(p.ppg *scale); p.fgm  = r1(p.fgm *scale); p.fga  = r1(p.fga *scale);
+      p.tpm  = r1(p.tpm *scale); p.tpa  = r1(p.tpa *scale); p.ftm  = r1(p.ftm *scale);
+      p.fta  = r1(p.fta *scale); p.oreb = r1(p.oreb*scale); p.dreb = r1(p.dreb*scale);
+      p.stl  = r1(p.stl *scale); p.blk  = r1(p.blk *scale); p.tovs = r1(p.tovs*scale);
     });
   }
-  return projected;
-}
 
+  return [...projected, ...injuredDnp];
+}
 
 // Reference MPG used in the baseline (starters = ~32 MPG)
 const FR_BASE_MPG = 32;
