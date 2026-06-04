@@ -857,10 +857,26 @@ function buildScoutingReport(p, proj, globalPct){
   var isGuard=pos==='PG'||pos==='SG'||pos==='CG'||pos==='G';
   var isBig=pos==='C'||pos==='PF';
 
+  var isPg = pos==='PG';
+  var isSg = pos==='SG'||pos==='CG';
   var archetype='', archetypeDesc='';
   if(isGuard){
-    if(ppg>=16&&apg>=4){archetype='Primary Playmaker';archetypeDesc='A high-usage guard who initiates the offense and scores at volume. Dangerous both as a finisher and distributor, creating for teammates while maintaining his own scoring threat.';}
-    else if(ppg>=16&&apg<3){archetype='Scoring Guard';archetypeDesc='An off-ball guard built around scoring. Creates his own shot through screens and isolation. A bucket-getter first, with limited but functional playmaking.';}
+    if(ppg>=16&&apg>=4){
+      archetype='Primary Playmaker';
+      archetypeDesc=isPg
+        ?'A ball-dominant PG who scores at volume while running the offense. Attacks closeouts, creates off the dribble, and can find teammates when defenses collapse on him.'
+        :'A high-usage guard who initiates the offense and scores at volume. Dangerous both as a finisher and distributor, creating for teammates while maintaining his own scoring threat.';
+    }
+    else if(ppg>=16&&apg<3){
+      if(isPg){
+        archetype='Scoring Point Guard';
+        archetypeDesc='A ball-dominant PG who prioritizes his own offense over distribution. Gets his own shot off the dribble and thrives as a primary option, but looks to score first and facilitate second.';
+      } else {
+        archetype='Scoring Guard';
+        archetypeDesc='An off-ball guard built around scoring. Creates his own shot through screens and isolation. A bucket-getter first, with limited but functional playmaking.';
+      }
+    }
+    else if(isPg&&apg>=3&&ppg>=10){archetype='Floor General';archetypeDesc='A true point guard who controls the game through pace and decision-making. Keeps the offense organized, creates shots for teammates, and limits mistakes under pressure.';}
     else if(apg>=5&&ppg<12){archetype='Pass-First Guard';archetypeDesc='A true facilitator who makes the offense run. Prioritizes finding shooters and creating easy looks. His value shows up most in others stats.';}
     else if(tp>=38&&ppg>=10){archetype='Perimeter Shooter';archetypeDesc='A floor-spacer whose shooting gravity opens drives for teammates. Most dangerous off the catch, with reliable mechanics and consistent release point.';}
     else if(stl>=1.5){archetype='Disruptive Defender';archetypeDesc='A defensive specialist whose anticipation and activity make him a nightmare for ball-handlers. Can change a game without scoring a point.';}
@@ -940,6 +956,8 @@ function buildScoutingReport(p, proj, globalPct){
   var comparable='';
   if(archetype==='Primary Playmaker')comparable='High-usage PG prototype';
   else if(archetype==='Scoring Guard')comparable='Off-guard scoring specialist';
+  else if(archetype==='Scoring Point Guard')comparable='Ball-dominant scoring PG';
+  else if(archetype==='Floor General')comparable='Pass-first PG prototype';
   else if(archetype==='3-and-D Wing')comparable='Modern role-player archetype';
   else if(archetype==='Stretch Big')comparable='Modern 4/5 hybrid prototype';
   else comparable=archetype;
@@ -1280,13 +1298,10 @@ function renderPage(){
       <div class="hero-avatar" style="border-color:${color};">${(p.name||'?')[0].toUpperCase()}</div>
       <div class="hero-info">
         <div class="hero-eyebrow">
-          ${p.position||'—'}${p.position2
-            ? ` <span style="display:inline-flex;align-items:center;gap:3px;">
-                 <span style="font-size:9px;color:var(--text3);font-weight:400;">·</span>
-                 <span style="font-size:9px;color:var(--text3);font-weight:600;padding:1px 5px;border:1px solid var(--border2);">${p.position2}</span>
-               </span>`
-            : ''}
-          &nbsp;·&nbsp;${yr} · ${p.height||'—'}${p.is_injured?' 🏥':''}${p.is_international?' 🌍':''}
+          ${p.position2
+            ? `${p.position||'—'}<span style="color:var(--text3);font-weight:400;margin:0 3px;">/</span><span style="color:var(--text3);">${p.position2}</span>`
+            : (p.position||'—')
+          } &nbsp;·&nbsp;${yr} · ${p.height||'—'}${p.is_injured?' 🏥':''}${p.is_international?' 🌍':''}
         </div>
 
         <h1 class="hero-name">${p.name}</h1>
