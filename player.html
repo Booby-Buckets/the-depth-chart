@@ -713,8 +713,16 @@ function buildTeamProjections(players, conf){
     const gradeExpPpg = grade>=90?19:grade>=85?16:grade>=80?13:grade>=75?10:grade>=70?8:6;
     const statsPer32  = pm.ppg*32;
     const gapRatio    = gradeExpPpg>0 ? statsPer32/gradeExpPpg : 1;
-    const gapMult     = gapRatio<0.50?1.14:gapRatio<0.65?1.09:gapRatio<0.80?1.05
+    // Raw gap: how far player is from their grade expectation
+    const gapMultRaw  = gapRatio<0.50?1.14:gapRatio<0.65?1.09:gapRatio<0.80?1.05
                       : gapRatio<0.95?1.02:gapRatio>1.40?0.96:gapRatio>1.20?0.98:1.0;
+    // Upperclassmen have found their level — don't push them toward a grade ceiling they may never hit
+    // Fr/So: full gap adjustment (still developing)
+    // Jr: 40% of adjustment (mostly established)
+    // Sr/Gr: 15% of adjustment (this IS their level)
+    const gapMult = isSr ? 1.0+(gapMultRaw-1)*0.15
+                  : isJr ? 1.0+(gapMultRaw-1)*0.40
+                  : gapMultRaw;
 
     const rateGrowth = yrMult * gapMult * trendMult;
 
@@ -800,30 +808,19 @@ function buildTeamProjections(players, conf){
     };
   }).filter(Boolean);
 
-  // ── TEAM SCORING NORMALIZATION ───────────────────────────
+  // ── SANITY CAP ───────────────────────────────────────────
+  // No grade-based normalization — good teams don't always score a lot
+  // and bad teams sometimes do. Project each player based on their actual
+  // history and conference translation. Team totals fall where they fall.
+  // Only cap truly broken outliers (>105 PPG total).
   const teamTotalPpg = projected.reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
-  const rot8 = projected.slice(0,8);
-  const avgGrade   = rot8.reduce((s,p)=>s+(parseFloat(p.tdc_grade)||70),0)/Math.max(1,rot8.length);
-  const team3paRate= rot8.reduce((s,p)=>s+(parseFloat(p.tpa)||0),0);
-  const guardCount = rot8.filter(p=>['PG','SG','CG'].includes((p.position||'').replace(/[0-9]/g,'').trim())).length;
-  const teamApgT   = rot8.reduce((s,p)=>s+(parseFloat(p.apg)||0),0);
-  const teamFtaT   = rot8.reduce((s,p)=>s+(parseFloat(p.fta)||0),0);
-  let styleScore=0;
-  if(team3paRate>20)styleScore+=2; else if(team3paRate>14)styleScore+=1;
-  if(guardCount>=4)styleScore+=2; else if(guardCount>=3)styleScore+=1;
-  if(teamApgT>14)styleScore+=2; else if(teamApgT>10)styleScore+=1;
-  if(teamFtaT>18)styleScore+=1;
-  const gradeCeiling  = avgGrade>=90?85:avgGrade>=86?82:avgGrade>=82?79:74;
-  const styleAdj      = styleScore>=7?3:styleScore>=5?2:styleScore>=3?1:styleScore<=1?-1:0;
-  const teamPpgCeiling= Math.max(74, Math.min(87, gradeCeiling+styleAdj));
-
-  if(teamTotalPpg > teamPpgCeiling){
-    const scale = teamPpgCeiling/teamTotalPpg;
+  if(teamTotalPpg > 105){
+    const scale = 105/teamTotalPpg;
     projected.forEach(p => {
-      p.ppg  = r1(p.ppg *scale); p.fgm  = r1(p.fgm *scale); p.fga  = r1(p.fga *scale);
-      p.tpm  = r1(p.tpm *scale); p.tpa  = r1(p.tpa *scale); p.ftm  = r1(p.ftm *scale);
-      p.fta  = r1(p.fta *scale); p.oreb = r1(p.oreb*scale); p.dreb = r1(p.dreb*scale);
-      p.stl  = r1(p.stl *scale); p.blk  = r1(p.blk *scale); p.tovs = r1(p.tovs*scale);
+      p.ppg = r1(p.ppg*scale);
+      p.fgm = r1(p.fgm*scale); p.fga = r1(p.fga*scale);
+      p.tpm = r1(p.tpm*scale); p.tpa = r1(p.tpa*scale);
+      p.ftm = r1(p.ftm*scale); p.fta = r1(p.fta*scale);
     });
   }
 
