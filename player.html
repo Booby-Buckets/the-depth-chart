@@ -703,12 +703,21 @@ function buildTeamProjections(players, conf){
         if(pPm>0&&nPm/pPm>=1.5) trendMult=1.06;
       }
     }
+    // Cap trend for upperclassmen — seniors don't suddenly spike, jrs get moderate ceiling
+    if(isSr) trendMult = Math.min(1.05, trendMult);
+    else if(isJr) trendMult = Math.min(1.08, trendMult);
 
     const isTransferIn = !!(p.hometown && p.hometown.trim());
     const isReturnee   = !isTransferIn;
-    const returnBoost  = isReturnee  ? (isSr?1.02:isJr?1.03:isSo?1.04:1.02) : 1.0;
+    // Year progression is grade-sensitive for seniors:
+    // Elite Sr (87+): still developing ceiling, e.g. projected NBA picks → modest bump
+    // Good Sr (80-86): minimal progression — mostly established
+    // Role Sr (<80): plateaued — project at per-minute rate only
+    const srYr       = grade>=87 ? 1.02 : grade>=80 ? 1.01 : 1.0;
+    const srReturn   = isReturnee ? (grade>=85 ? 1.01 : 1.0) : 1.0;
+    const returnBoost  = isReturnee ? (isSr ? srReturn : isJr?1.02 : isSo?1.04 : 1.02) : 1.0;
     const transferTrim = isTransferIn ? 0.96 : 1.0;
-    const yrMult = (isSo?1.06:isJr?1.03:isSr?1.01:1.04) * returnBoost * transferTrim;
+    const yrMult = (isSo?1.06 : isJr?1.03 : isSr?srYr : 1.04) * returnBoost * transferTrim;
 
     const gradeExpPpg = grade>=90?19:grade>=85?16:grade>=80?13:grade>=75?10:grade>=70?8:6;
     const statsPer32  = pm.ppg*32;
@@ -771,7 +780,16 @@ function buildTeamProjections(players, conf){
     const volPenalty = volChange*3.5;
     const yearEff    = isSo?1.2:isJr?0.6:isSr?0.0:1.8;
 
-    const fgProj = r1(clamp(fgSmoothed + yearEff - volPenalty + transPctAdj, 30, 65));
+    // Role-reduction efficiency boost: returning players in reduced shot volume
+    // take only their best shots → FG% rises. High-assist PGs also benefit
+    // from playing within a system (they create easier looks for themselves too).
+    // Not for transfers stepping up — they're still adjusting.
+    const roleVolDrop = (isReturnee && baseMpg >= 15 && volChange < -0.12);
+    const roleEffBoost = roleVolDrop ? Math.min(2.5, Math.abs(volChange) * 12) : 0;
+    const pgSystemBoost = (pos==='PG' && parseFloat(p.apg||0)>=4 && isReturnee && !isTransferIn && !isFr)
+      ? 1.0 : 0;
+
+    const fgProj = r1(clamp(fgSmoothed + yearEff - volPenalty + transPctAdj + roleEffBoost + pgSystemBoost, 30, 65));
 
     const careerTpa  = meaningful.length
       ? meaningful.reduce((s,h)=>s+parseFloat(h.tpa||0),0)/meaningful.length
@@ -782,8 +800,10 @@ function buildTeamProjections(players, conf){
       : tpBase;
     const ftProj = r1(clamp(ftSmoothed+(isSo?1.0:isJr?0.5:isSr?0:1.5), 45, 97));
 
-    const newFga = r1(pm.fga*rateGrowth*newMpg);
-    const newTpa = is3Shooter ? r1(pm.tpa*rateGrowth*newMpg) : r1(pm.tpa*newMpg);
+    // Shot volume scales with minutes only — rateGrowth should not inflate attempts/min.
+    // Year progression means better efficiency on the same shots, not more shots per minute.
+    const newFga = r1(pm.fga*newMpg);
+    const newTpa = r1(pm.tpa*newMpg);
 
     const pf    = posFitMult;
     const rawRpg = r1(pm.rpg*rateGrowth*newMpg*pf);
@@ -808,19 +828,21 @@ function buildTeamProjections(players, conf){
     };
   }).filter(Boolean);
 
-  // ── SANITY CAP ───────────────────────────────────────────
-  // No grade-based normalization — good teams don't always score a lot
-  // and bad teams sometimes do. Project each player based on their actual
-  // history and conference translation. Team totals fall where they fall.
-  // Only cap truly broken outliers (>105 PPG total).
-  const teamTotalPpg = projected.reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
-  if(teamTotalPpg > 105){
-    const scale = 105/teamTotalPpg;
+  // ── SHOT VOLUME CAP ──────────────────────────────────────
+  // Physical reality: a team takes ~60-76 FGA per game (not grade-based).
+  // Fast-paced elite teams: ~74-76. Average D1: ~65-68. Cap at 76.
+  // Scaling preserves FG%/3P%/FT% — only volume adjusts, not efficiency.
+  // RPG/APG/STL/BLK/TOV untouched — independent of shot volume.
+  const totalFga = projected.reduce((s,p)=>s+(parseFloat(p.fga)||0),0);
+  const fgaCap = 76;
+  if(totalFga > fgaCap){
+    const vol = fgaCap/totalFga;
     projected.forEach(p => {
-      p.ppg = r1(p.ppg*scale);
-      p.fgm = r1(p.fgm*scale); p.fga = r1(p.fga*scale);
-      p.tpm = r1(p.tpm*scale); p.tpa = r1(p.tpa*scale);
-      p.ftm = r1(p.ftm*scale); p.fta = r1(p.fta*scale);
+      p.ppg  = r1(p.ppg *vol);
+      p.fgm  = r1(p.fgm *vol); p.fga  = r1(p.fga *vol);
+      p.tpm  = r1(p.tpm *vol); p.tpa  = r1(p.tpa *vol);
+      p.ftm  = r1(p.ftm *vol); p.fta  = r1(p.fta *vol);
+      // fg_pct / tp_pct / ft_pct intentionally untouched
     });
   }
 
