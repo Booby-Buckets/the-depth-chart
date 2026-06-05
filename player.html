@@ -850,7 +850,27 @@ function buildTeamProjections(players, conf){
       dreb: r1(pm.dreb*rateGrowth*newMpg*pf),
       stl:  r1(pm.stl *rateGrowth*newMpg*pf),
       blk:  r1(pm.blk *rateGrowth*newMpg*pf),
-      tovs: r1(pm.tovs*rateGrowth*newMpg*pf),
+      // Turnovers: don't use rateGrowth — experience improves ball security.
+      // Expanded roles get a proportional increase; same/reduced roles get a slight cut.
+      // baseMpg already defined above from the career/current base season.
+      tovs: r1((()=>{
+        const roleRatio = baseMpg > 0 ? newMpg/baseMpg : 1;
+        // Returning players in same/smaller role: veteran experience = fewer TOs
+        const tovBase = pm.tovs * newMpg * pf;
+        if(isTransferIn){
+          // Transfers adjusting to new system: modest bump
+          return tovBase * (roleRatio > 1.15 ? 1.05 : 1.0);
+        }
+        if(roleRatio > 1.20){
+          // Clearly expanded role: more possessions, more responsibility → more TOs
+          // But experience still helps — scale is gentler than the role expansion
+          const expFactor = 1.0 + (roleRatio - 1.0) * 0.30;
+          return tovBase * Math.min(1.25, expFactor);
+        }
+        // Same or reduced role: veterans protect the ball better each year
+        const expCut = isSr ? 0.90 : isJr ? 0.93 : isSo ? 0.96 : 1.0;
+        return tovBase * expCut;
+      })()),
       _frosh:false, _factor:transferFactor, _trend:trendMult, _seasons:played.length,
       _deployedPos:deployedPos, _posFit:posFitMult,
     };
