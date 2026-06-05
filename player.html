@@ -805,19 +805,27 @@ function buildTeamProjections(players, conf){
     const newFga = r1(pm.fga*newMpg);
     const newTpa = r1(pm.tpa*newMpg);
 
-    const pf    = posFitMult;
+    const pf     = posFitMult;
+    // Derive all stats from components so PPG is always consistent with FGA.
+    // Year progression shows through efficiency (fgProj) not shot-volume inflation.
+    const fgm_v  = r1(newFga*(fgProj/100)*pf);
+    const tpm_v  = r1(newTpa*(tpProj/100)*pf);
+    const fta_v  = r1(pm.fta*newMpg*pf);          // FTA scales with minutes, not rateGrowth
+    const ftm_v  = r1(fta_v*(ftProj/100));
+    // PPG = 2×FGM + 1×TPM (bonus point for 3s) + FTM
+    const ppg_v  = r1(fgm_v*2 + tpm_v + ftm_v);
+
     const rawRpg = r1(pm.rpg*rateGrowth*newMpg*pf);
     const rawApg = r1(pm.apg*rateGrowth*newMpg*pf);
 
     return {...p,
-      ppg:  r1(pm.ppg *rateGrowth*newMpg*pf),
+      ppg:  ppg_v,
       rpg:  r1(Math.max(0, rawRpg + rpgConfAdj)),
       apg:  r1(Math.max(0, rawApg + apgConfAdj)),
       mpg:  r1(newMpg),
-      fgm:  r1(newFga*(fgProj/100)*pf), fga:r1(newFga*pf), fg_pct:fgProj,
-      tpm:  r1(newTpa*(tpProj/100)*pf), tpa:r1(newTpa*pf), tp_pct:tpProj,
-      ftm:  r1(pm.fta*rateGrowth*newMpg*(ftProj/100)*pf),
-      fta:  r1(pm.fta*rateGrowth*newMpg*pf), ft_pct:ftProj,
+      fgm:  fgm_v, fga: r1(newFga*pf), fg_pct:fgProj,
+      tpm:  tpm_v,  tpa: r1(newTpa*pf), tp_pct:tpProj,
+      ftm:  ftm_v,  fta: fta_v,         ft_pct:ftProj,
       oreb: r1(pm.oreb*rateGrowth*newMpg*pf),
       dreb: r1(pm.dreb*rateGrowth*newMpg*pf),
       stl:  r1(pm.stl *rateGrowth*newMpg*pf),
@@ -828,22 +836,40 @@ function buildTeamProjections(players, conf){
     };
   }).filter(Boolean);
 
-  // ── SHOT VOLUME CAP ──────────────────────────────────────
-  // Physical reality: a team takes ~60-76 FGA per game (not grade-based).
-  // Fast-paced elite teams: ~74-76. Average D1: ~65-68. Cap at 76.
-  // Scaling preserves FG%/3P%/FT% — only volume adjusts, not efficiency.
-  // RPG/APG/STL/BLK/TOV untouched — independent of shot volume.
-  const totalFga = projected.reduce((s,p)=>s+(parseFloat(p.fga)||0),0);
-  const fgaCap = 76;
+  // ── SHOT VOLUME CAP (bench-first) ────────────────────────
+  // Teams take ~62-76 FGA per game. When over, bench players absorb
+  // the cut first — starters keep their projections. Only if starters
+  // alone exceed the cap do they get a light proportional trim.
+  // FG%/3P%/FT% never touched — only shot volume scales.
+  const fgaCap  = 76;
+  const bySlt   = [...projected].sort((a,b)=>(a.depth_order||99)-(b.depth_order||99));
+  const totalFga= bySlt.reduce((s,p)=>s+(parseFloat(p.fga)||0),0);
+
   if(totalFga > fgaCap){
-    const vol = fgaCap/totalFga;
-    projected.forEach(p => {
-      p.ppg  = r1(p.ppg *vol);
-      p.fgm  = r1(p.fgm *vol); p.fga  = r1(p.fga *vol);
-      p.tpm  = r1(p.tpm *vol); p.tpa  = r1(p.tpa *vol);
-      p.ftm  = r1(p.ftm *vol); p.fta  = r1(p.fta *vol);
-      // fg_pct / tp_pct / ft_pct intentionally untouched
-    });
+    const scale = (p, vol) => {
+      p.fgm = r1(p.fgm*vol); p.fga = r1(p.fga*vol);
+      p.tpm = r1(p.tpm*vol); p.tpa = r1(p.tpa*vol);
+      p.ftm = r1(p.ftm*vol); p.fta = r1(p.fta*vol);
+      p.ppg = r1(p.fgm*2 + p.tpm + p.ftm);
+    };
+
+    const starters   = bySlt.slice(0,5);
+    const bench      = bySlt.slice(5);
+    const starterFga = starters.reduce((s,p)=>s+(parseFloat(p.fga)||0),0);
+    const benchFga   = bench.reduce((s,p)=>s+(parseFloat(p.fga)||0),0);
+
+    if(starterFga >= fgaCap){
+      // Loaded starting 5 alone fills the cap — trim everything proportionally
+      const vol = fgaCap/totalFga;
+      bySlt.forEach(p => scale(p, vol));
+    } else {
+      // Bench takes the full cut — starters untouched
+      const benchBudget = Math.max(6, fgaCap - starterFga);
+      if(benchFga > benchBudget){
+        const vol = benchBudget/benchFga;
+        bench.forEach(p => scale(p, vol));
+      }
+    }
   }
 
   return [...projected, ...injuredDnp];
