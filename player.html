@@ -810,10 +810,15 @@ function buildTeamProjections(players, conf){
     // Year progression shows through efficiency (fgProj) not shot-volume inflation.
     const fgm_v  = r1(newFga*(fgProj/100)*pf);
     const tpm_v  = r1(newTpa*(tpProj/100)*pf);
-    const fta_v  = r1(pm.fta*newMpg*pf);          // FTA scales with minutes, not rateGrowth
+    const fta_v  = r1(pm.fta*newMpg*pf);
     const ftm_v  = r1(fta_v*(ftProj/100));
-    // PPG = 2×FGM + 1×TPM (bonus point for 3s) + FTM
-    const ppg_v  = r1(fgm_v*2 + tpm_v + ftm_v);
+    // PPG from components: 2×FGM + bonus point per 3PM + FTM
+    const ppg_comp = fgm_v*2 + tpm_v + ftm_v;
+    // PPG floor: per-minute scoring rate × new minutes × rateGrowth.
+    // Catches cases where player_history FTA is incomplete (under-projects free throws).
+    // Stars who get to the line heavily (e.g. Haugh) stay accurate.
+    const ppg_floor = pm.ppg * rateGrowth * newMpg * pf * 0.88;
+    const ppg_v  = r1(Math.max(ppg_comp, ppg_floor));
 
     const rawRpg = r1(pm.rpg*rateGrowth*newMpg*pf);
     const rawApg = r1(pm.apg*rateGrowth*newMpg*pf);
