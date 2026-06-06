@@ -661,10 +661,11 @@ function buildTeamProjections(players, conf){
     const latestH    = played[0]||null;
 
     const newMpg_raw = computePlayerMpg(p, roster);
-    // Grade 90+ returnees are primary options — protect against minute drops
-    // caused by depth chart ordering. Their actual MPG is the floor.
-    const actualMpg  = parseFloat(p.mpg||0)||0;
-    const eliteMpgFloor = (isReturnee && !isFr && grade >= 90 && actualMpg >= 16)
+    // Grade 90+ returnees are primary options — protect against minute drops.
+    // isReturnee not yet declared here, so derive directly from hometown field.
+    const actualMpg    = parseFloat(p.mpg||0)||0;
+    const _isReturnee  = !(p.hometown && p.hometown.trim());
+    const eliteMpgFloor = (_isReturnee && !isFr && grade >= 90 && actualMpg >= 16)
       ? Math.max(actualMpg * 0.95, newMpg_raw)
       : newMpg_raw;
     const newMpg = eliteMpgFloor;
