@@ -350,15 +350,16 @@ function computePlayerMpg(p, teamRoster){
     if(diff<=3){const c=mpgMap[r1.name]+mpgMap[r2.name];mpgMap[r1.name]=c*0.53;mpgMap[r2.name]=c*0.47;}
     else if(diff<=6){const c=mpgMap[r1.name]+mpgMap[r2.name];mpgMap[r1.name]=c*0.65;mpgMap[r2.name]=c*0.35;}
   }
-  // Grade-aware monotonic enforcement: don't crush a higher-grade player just because
-  // they're deeper in the chart than a lower-grade one.
-  // E.g. Haugh (94, depth 3) should NOT be capped by Boogie (82, depth 2).
-  // Only enforce monotonic order when grades are similar (gap < 8 pts).
+  // Monotonic enforcement — only apply within bench depth (slots 7+).
+  // Starters and first bench wave play different POSITIONS, so cross-position
+  // comparison is wrong: PF1 at grade 92 should NOT be capped by SF1 at grade 85
+  // just because SF comes before PF in the depth order listing.
+  // Deep bench players still enforce: bench #3 shouldn't exceed bench #2.
   for(let i=1;i<roster.length;i++){
+    if(i <= 6) continue; // slots 1-7: each gets independent grade-based minutes
     const prev=roster[i-1], cur=roster[i];
     const gPrev=parseFloat(prev.tdc_grade)||70, gCur=parseFloat(cur.tdc_grade)||70;
-    // Skip: cur is meaningfully higher grade — let their calc stand
-    if(gCur - gPrev >= 8) continue;
+    if(gCur - gPrev >= 6) continue;
     if(mpgMap[cur.name] > mpgMap[prev.name]) mpgMap[cur.name]=mpgMap[prev.name]*0.95;
   }
   // Real team minute totals run 210-215 (dead ball time, sub patterns, etc.)
@@ -659,7 +660,14 @@ function buildTeamProjections(players, conf){
     const meaningful = played.filter(h => parseFloat(h.mpg||0)>=12);
     const latestH    = played[0]||null;
 
-    const newMpg = computePlayerMpg(p, roster);
+    const newMpg_raw = computePlayerMpg(p, roster);
+    // Grade 90+ returnees are primary options — protect against minute drops
+    // caused by depth chart ordering. Their actual MPG is the floor.
+    const actualMpg  = parseFloat(p.mpg||0)||0;
+    const eliteMpgFloor = (isReturnee && !isFr && grade >= 90 && actualMpg >= 16)
+      ? Math.max(actualMpg * 0.95, newMpg_raw)
+      : newMpg_raw;
+    const newMpg = eliteMpgFloor;
 
     const hasCareerStats  = latestH && parseFloat(latestH.ppg||0)>0;
     const hasCurrentStats = parseFloat(p.ppg||0)>0;
