@@ -3580,36 +3580,76 @@ function renderProjNatlChart(projected, color, rgb){
   ];
 
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
-  const textCol=isDark?'rgba(255,255,255,0.75)':'rgba(0,0,0,0.75)';
-  const gridCol=isDark?'rgba(255,255,255,0.15)':'rgba(0,0,0,0.20)';
+  const textCol   = isDark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.80)';
+  const gridCol   = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.30)';
+  const fillOpacity= isDark ? '0.18' : '0.28';
+  const avgLineCol = isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)';
 
   if(window._projNatlChart) { try{window._projNatlChart.destroy();}catch(e){} }
   const canvas=document.getElementById('projNatlChart');
   if(!canvas) return;
+
+  // Give the canvas a subtle background in light mode so the chart area is clear
+  canvas.style.background = isDark ? 'transparent' : 'rgba(0,0,0,0.02)';
+  canvas.style.borderRadius = '6px';
+
   window._projNatlChart=new Chart(canvas,{
     type:'radar',
     data:{
       labels:['PPG','RPG','APG','FG%','3P%','FT%','TOV','STL','BLK','OREB','DREB'],
       datasets:[
-        {label:'This Team',data:teamVals,borderColor:color,backgroundColor:`rgba(${rgb},0.15)`,borderWidth:2,pointBackgroundColor:color,pointRadius:4,pointHoverRadius:6},
-        {label:'D1 Average',data:[50,50,50,50,50,50,50,50,50,50,50],borderColor:isDark?'rgba(255,255,255,0.35)':'rgba(0,0,0,0.35)',backgroundColor:'transparent',borderWidth:1.5,borderDash:[4,3],pointRadius:0}
+        {
+          label:'This Team',
+          data:teamVals,
+          borderColor:color,
+          backgroundColor:`rgba(${rgb},${fillOpacity})`,
+          borderWidth:2.5,
+          pointBackgroundColor:color,
+          pointBorderColor: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.9)',
+          pointBorderWidth:1.5,
+          pointRadius:5,
+          pointHoverRadius:7
+        },
+        {
+          label:'D1 Average',
+          data:[50,50,50,50,50,50,50,50,50,50,50],
+          borderColor:avgLineCol,
+          backgroundColor:'transparent',
+          borderWidth:1.5,
+          borderDash:[5,4],
+          pointRadius:0
+        }
       ]
     },
     options:{
-      responsive:true,maintainAspectRatio:false,
+      responsive:true,
+      maintainAspectRatio:false,
       plugins:{
         legend:{display:false},
         tooltip:{callbacks:{label:c=>c.dataset.label+': '+Math.round(c.raw)+'th pct'}}
       },
-      scales:{r:{min:0,max:100,ticks:{display:false},grid:{color:gridCol},angleLines:{color:gridCol},pointLabels:{color:textCol,font:{size:11,weight:'700'}}}}
+      scales:{r:{
+        min:0,max:100,
+        ticks:{display:false},
+        grid:{color:gridCol},
+        angleLines:{color:gridCol},
+        pointLabels:{color:textCol,font:{size:11,weight:'700'}}
+      }}
     }
   });
 
   // Legend
   const leg=document.getElementById('projChartLegend');
   if(leg){
-    leg.innerHTML=`<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:${textCol}"><span style="width:14px;height:3px;background:${color};border-radius:2px;display:inline-block;"></span>This team (percentile)</span>`
-      +`<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:${textCol}"><span style="width:14px;height:3px;border-top:2px dashed ${gridCol};display:inline-block;"></span>D1 average (50th)</span>`;
+    leg.innerHTML=
+      `<span style="display:flex;align-items:center;gap:6px;font-size:11px;color:${textCol};">
+        <span style="width:16px;height:3px;background:${color};border-radius:2px;display:inline-block;flex-shrink:0;"></span>
+        This team (percentile)
+      </span>`
+      +`<span style="display:flex;align-items:center;gap:6px;font-size:11px;color:${textCol};">
+        <span style="width:16px;height:0;border-top:2px dashed ${avgLineCol};display:inline-block;flex-shrink:0;"></span>
+        D1 average (50th)
+      </span>`;
   }
 }
 </script>
