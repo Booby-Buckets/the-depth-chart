@@ -1724,13 +1724,21 @@ function buildTeamProjections(players, conf){
       const fb   = getFrBase(grade, posNorm);
       const effMpg = newMpg < 12 ? Math.min(13, newMpg*1.35) : newMpg;
       const scale  = effMpg/FR_BASE_MPG;
-      const fga    = r1(newMpg*0.28);
+      // FGA rate: slightly higher for good recruits — they get real looks from day 1
+      const fgaRate = grade>=87 ? 0.34 : grade>=78 ? 0.30 : 0.26;
+      const fga     = r1(newMpg*fgaRate);
+      const fgm_fr  = r1(fga*(fb.fg_pct/100));
+      const tpm_fr  = r1(fga*0.42*(fb.tp_pct/100));
+      const fta_fr  = r1(newMpg*0.10);
+      const ftm_fr  = r1(fta_fr*(fb.ft_pct/100));
+      // PPG derived from components — consistent with rest of model
+      const ppg_fr  = r1(fgm_fr*2 + tpm_fr + ftm_fr);
       return {...p,
-        ppg: r1(fb.ppg*scale), rpg: r1((fb.oreb+fb.dreb)*scale), apg: r1(fb.apg*scale),
+        ppg: ppg_fr, rpg: r1((fb.oreb+fb.dreb)*scale), apg: r1(fb.apg*scale),
         mpg: r1(newMpg),
-        fgm: r1(fga*(fb.fg_pct/100)), fga, fg_pct: fb.fg_pct,
-        tpm: r1(fga*0.42*(fb.tp_pct/100)), tpa: r1(fga*0.42), tp_pct: fb.tp_pct,
-        fta: r1(newMpg*0.09), ftm: r1(newMpg*0.09*(fb.ft_pct/100)), ft_pct: fb.ft_pct,
+        fgm: fgm_fr, fga, fg_pct: fb.fg_pct,
+        tpm: tpm_fr, tpa: r1(fga*0.42), tp_pct: fb.tp_pct,
+        fta: fta_fr, ftm: ftm_fr, ft_pct: fb.ft_pct,
         oreb: r1(fb.oreb*scale), dreb: r1(fb.dreb*scale),
         stl: r1(fb.stl*scale), blk: r1(fb.blk*scale), tovs: r1(fb.tovs*scale),
         _frosh:true, _noStatEst:true, _deployedPos:deployedPos, _posFit:posFitMult,
