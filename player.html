@@ -339,6 +339,19 @@ function computePlayerMpg(p, teamRoster){
     base=base*(1+((g-teamGradeAvg)/20)*0.10);
     if(slot<=5&&rosterSize<=8)base=Math.min(38,base+2);
     if(slot>rotDepth)base=Math.min(5,base);
+
+    // Returners: blend grade formula with actual-MPG evidence of coach trust.
+    // The coach played them X minutes at this school — that's real signal.
+    // Transfers get pure formula — old school usage means nothing here.
+    const rActualMpg=parseFloat(r.mpg||0)||0;
+    const rYr=(r.yr||r.class_year||'').toLowerCase();
+    const rIsFr=rYr.includes('fr.')||rYr.includes('r-fr');
+    const rIsTransfer=!!(r.hometown&&r.hometown.trim());
+    if(!rIsTransfer&&!rIsFr&&rActualMpg>=20&&slot<=7){
+      // 65% actual MPG, 35% grade formula — heavy weight on proven usage
+      base=base*0.35+rActualMpg*0.65;
+    }
+
     mpgMap[r.name]=Math.max(1,Math.min(38,base));
   });
   const posCounts={};
@@ -377,7 +390,7 @@ function computePlayerMpg(p, teamRoster){
 
   // Mostly returnees → coach knows his rotation → realistic ~218 total (e.g. Florida 213)
   // All new players → figuring out who plays → tighter ~208 total
-  const dynamicCap = Math.round(208 + returneeFrac * 12);
+  const dynamicCap = Math.round(208 + returneeFrac * 17); // 208 (all new) → 225 (all returners)
 
   if(totalMpg > dynamicCap){
     const sc = dynamicCap/totalMpg;
