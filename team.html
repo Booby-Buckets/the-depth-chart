@@ -869,11 +869,25 @@ function computePlayerMpg(p, teamRoster){
     if(gCur - gPrev >= 6) continue;
     if(mpgMap[cur.name] > mpgMap[prev.name]) mpgMap[cur.name]=mpgMap[prev.name]*0.95;
   }
-  // Real team minute totals run 210-215 (dead ball time, sub patterns, etc.)
-  // Only trim if truly bloated (>220). Cap any single player at 38.
-  const totalMpg=roster.reduce((s,r)=>s+(mpgMap[r.name]||0),0);
-  if(totalMpg>220){
-    const sc=215/totalMpg;
+  // Dynamic minute cap — responsive to roster continuity and coach system.
+  // Returners know the system: coach plays them predictable, proven minutes.
+  // New rosters (transfers/freshmen) = tighter rotation while building chemistry.
+  const totalMpg = roster.reduce((s,r)=>s+(mpgMap[r.name]||0),0);
+
+  // Fraction of projected minutes held by non-freshman returners
+  const returneeMin = roster.filter(r=>{
+    const yr=(r.yr||r.class_year||'').toLowerCase();
+    const isFr=yr.includes('fr.')||yr.includes('r-fr');
+    return !isFr && !(r.hometown && r.hometown.trim());
+  }).reduce((s,r)=>s+(mpgMap[r.name]||0),0);
+  const returneeFrac = totalMpg > 0 ? returneeMin/totalMpg : 0;
+
+  // Mostly returnees → coach knows his rotation → realistic ~218 total (e.g. Florida 213)
+  // All new players → figuring out who plays → tighter ~208 total
+  const dynamicCap = Math.round(208 + returneeFrac * 12);
+
+  if(totalMpg > dynamicCap){
+    const sc = dynamicCap/totalMpg;
     roster.forEach(r=>{mpgMap[r.name]=(mpgMap[r.name]||0)*sc;});
   }
   roster.forEach(r=>{mpgMap[r.name]=Math.min(38,mpgMap[r.name]||0);});
@@ -1716,15 +1730,12 @@ function buildTeamProjections(players, conf){
     const meaningful = played.filter(h => parseFloat(h.mpg||0)>=12);
     const latestH    = played[0]||null;
 
-    const newMpg_raw = computePlayerMpg(p, roster);
-    // Grade 90+ returnees are primary options — protect against minute drops.
-    // isReturnee not yet declared here, so derive directly from hometown field.
-    const actualMpg    = parseFloat(p.mpg||0)||0;
-    const _isReturnee  = !(p.hometown && p.hometown.trim());
-    const eliteMpgFloor = (_isReturnee && !isFr && grade >= 90 && actualMpg >= 16)
-      ? Math.max(actualMpg * 0.95, newMpg_raw)
-      : newMpg_raw;
-    const newMpg = eliteMpgFloor;
+    // Minutes driven by grade + depth order + dynamic team normalization.
+    // No anchoring to actual previous MPG — a transfer C who played 22 MPG due to
+    // foul trouble can project for more; a PG at 35 MPG can project for less
+    // if the team added competition. Let the roster context decide.
+    const newMpg    = computePlayerMpg(p, roster);
+    const actualMpg = parseFloat(p.mpg||0)||0;
 
     const hasCareerStats  = latestH && parseFloat(latestH.ppg||0)>0;
     const hasCurrentStats = parseFloat(p.ppg||0)>0;
@@ -1904,9 +1915,16 @@ function buildTeamProjections(players, conf){
     const ppg_comp = fgm_v*2 + tpm_v + ftm_v;
     // PPG floor: per-minute scoring rate × new minutes × rateGrowth.
     // Catches cases where player_history FTA is incomplete (under-projects free throws).
-    // Stars who get to the line heavily (e.g. Haugh) stay accurate.
     const ppg_floor = pm.ppg * rateGrowth * newMpg * pf * 0.88;
-    const ppg_v  = r1(Math.max(ppg_comp, ppg_floor));
+
+    // Transfer scoring volume penalty for big conference jumps.
+    // transPctAdj hits FG% but per-minute scoring also drops in stronger competition.
+    // e.g. Winthrop → ACC: grade 84 player who scored 18 PPG won't replicate that rate.
+    const scoringTransMult = (isTransferIn && transferFactor < 0.90)
+      ? Math.max(0.78, 0.50 + transferFactor * 0.60)
+      : 1.0;
+
+    const ppg_v  = r1(Math.max(ppg_comp, ppg_floor) * scoringTransMult);
 
     const rawRpg = r1(pm.rpg*rateGrowth*newMpg*pf);
     const rawApg = r1(pm.apg*rateGrowth*newMpg*pf);
