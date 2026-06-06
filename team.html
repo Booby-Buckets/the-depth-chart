@@ -2204,14 +2204,15 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
 
   const ppgPct=teamPct(tPpg,'ppg'),rpgPct=teamPct(tRpg,'rpg'),apgPct=teamPct(tApg,'apg');
   const fgPct2=teamPct(tFgPct,'fg_pct'),tpPct2=teamPct(tTpPct,'tp_pct'),ftPct2=teamPct(tFtPct,'ft_pct');
-  const tovPct=teamPct(tTovs,'tovs',true),stlPct=teamPct(tStl,'stl'),blkPct=teamPct(tBlk,'blk');
+  const tovPct=teamPct(tTovs,'tovs'),stlPct=teamPct(tStl,'stl'),blkPct=teamPct(tBlk,'blk');
   const orebPct=teamPct(tOreb,'oreb'),drebPct=teamPct(tDreb,'dreb');
 
   const pctBar=(pct)=>{
     const c=pct>=75?color:pct>=50?'#c8a020':pct>=25?'#e07020':'#cc2200';
+    const barW=Math.max(2,pct); // minimum 2% so 0th is still visible
     return `<div style="display:flex;align-items:center;gap:5px;margin-top:8px;">
-      <div style="flex:1;height:3px;background:var(--border2);border-radius:2px;overflow:hidden;">
-        <div style="width:${pct}%;height:100%;background:${c};border-radius:2px;"></div>
+      <div style="flex:1;height:4px;background:rgba(128,128,128,0.25);border-radius:2px;overflow:hidden;">
+        <div style="width:${barW}%;height:100%;background:${c};border-radius:2px;"></div>
       </div>
       <span style="font-size:9px;font-weight:700;color:${c};min-width:28px;text-align:right;">${pct}th</span>
     </div>
@@ -3574,13 +3575,13 @@ function renderProjNatlChart(projected, color, rgb){
   const teamVals=[
     pct(tPpg,'ppg'), pct(tRpg,'rpg'), pct(tApg,'apg'),
     pct(tFgPct,'fg_pct'), pct(tTpPct,'tp_pct'), pct(tFtPct,'ft_pct'),
-    pct(tTovs,'tovs',true), pct(tStl,'stl'), pct(tBlk,'blk'),
+    pct(tTovs,'tovs'), pct(tStl,'stl'), pct(tBlk,'blk'),
     pct(tOreb,'oreb'), pct(tDreb,'dreb')
   ];
 
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
-  const textCol=isDark?'rgba(255,255,255,0.55)':'rgba(0,0,0,0.5)';
-  const gridCol=isDark?'rgba(255,255,255,0.09)':'rgba(0,0,0,0.09)';
+  const textCol=isDark?'rgba(255,255,255,0.75)':'rgba(0,0,0,0.75)';
+  const gridCol=isDark?'rgba(255,255,255,0.15)':'rgba(0,0,0,0.20)';
 
   if(window._projNatlChart) { try{window._projNatlChart.destroy();}catch(e){} }
   const canvas=document.getElementById('projNatlChart');
@@ -3591,7 +3592,7 @@ function renderProjNatlChart(projected, color, rgb){
       labels:['PPG','RPG','APG','FG%','3P%','FT%','TOV','STL','BLK','OREB','DREB'],
       datasets:[
         {label:'This Team',data:teamVals,borderColor:color,backgroundColor:`rgba(${rgb},0.15)`,borderWidth:2,pointBackgroundColor:color,pointRadius:4,pointHoverRadius:6},
-        {label:'D1 Average',data:[50,50,50,50,50,50,50,50,50,50,50],borderColor:gridCol,backgroundColor:'transparent',borderWidth:1.5,borderDash:[4,3],pointRadius:0}
+        {label:'D1 Average',data:[50,50,50,50,50,50,50,50,50,50,50],borderColor:isDark?'rgba(255,255,255,0.35)':'rgba(0,0,0,0.35)',backgroundColor:'transparent',borderWidth:1.5,borderDash:[4,3],pointRadius:0}
       ]
     },
     options:{
