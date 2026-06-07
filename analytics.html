@@ -181,6 +181,15 @@ const COLS = [
 ];
 
 let allRows = [];   // {team, conf, color, stats}
+let teamColors = {}; // populated from teams table
+
+async function loadColors(){
+  try {
+    const r = await fetch(`${SB}/rest/v1/teams?select=name,color&limit=500`, {headers:H});
+    const teams = await r.json();
+    teams.forEach(t => { if(t.name) teamColors[t.name] = t.color || '#8B6914'; });
+  } catch(e) {}
+}
 let sortCol = 'ppg';
 let sortAsc = false;
 
@@ -1414,112 +1423,39 @@ function buildTeamProjections(players, conf){
 async function load(){
   const msg = document.getElementById('loadingMsg');
   const fill = document.getElementById('progressFill');
+  msg.textContent = 'Loading projected team stats…';
 
-  msg.textContent = 'Loading teams…';
-  const [teamRes, playerRes] = await Promise.all([
-    fetch(`${SB}/rest/v1/teams?select=name,conf,conference,color,color_rgb&limit=500`, {headers:H}),
-    fetch(`${SB}/rest/v1/players?select=*&limit=10000&order=team.asc,depth_order.asc`, {headers:H})
-  ]);
-  const teams   = await teamRes.json();
-  const players = await playerRes.json();
-  fill.style.width = '40%';
-  msg.textContent = `Running projections for ${teams.length} teams…`;
+  // Read pre-computed projections written by each team page when viewed
+  // This guarantees numbers match what's shown on each team's Projections tab
+  const res = await fetch(`${SB}/rest/v1/team_projections?select=*&limit=500&order=ppg.desc`, {headers:H});
+  const rows = await res.json();
 
-  // Group players by team
-  const byTeam = {};
-  players.forEach(p => {
-    if(!p.team) return;
-    if(!byTeam[p.team]) byTeam[p.team] = [];
-    byTeam[p.team].push(p);
-  });
+  fill.style.width = '80%';
 
-  // Fetch ALL career history pages — same data the team page uses per-team
-  msg.textContent = 'Loading career stats (chunk 1/3)…';
-  fill.style.width = '15%';
-  let history = [];
-  try {
-    const fetches = [0,6000,12000].map(offset =>
-      fetch(`${SB}/rest/v1/player_history?select=*&limit=6000&offset=${offset}&order=season_year.desc`, {headers:H})
-    );
-    msg.textContent = 'Loading career stats (fetching…)';
-    const results = await Promise.all(fetches);
-    const parsed  = await Promise.all(results.map(r=>r.json()));
-    history = parsed.flat().filter(h=>h&&h.name);
-    msg.textContent = `Career stats loaded: ${history.length} entries`;
-    fill.style.width = '35%';
-  } catch(e) {
-    console.warn('Career history load failed:', e.message);
-    msg.textContent = 'Career stats unavailable — using season stats';
-  }
+  allRows = rows
+    .filter(r => r.team && r.ppg > 0)
+    .map(r => ({
+      name:  r.team,
+      conf:  r.conf || '',
+      color: teamColors[r.team] || '#666',
+      stats: {
+        ppg:  r.ppg  || 0, rpg:  r.rpg  || 0, apg:  r.apg  || 0,
+        fg:   r.fg_pct || 0, tp:   r.tp_pct || 0, ft:   r.ft_pct || 0,
+        fga:  r.fga  || 0, tpa:  r.tpa  || 0,
+        tov:  r.tov  || 0, stl:  r.stl  || 0, blk:  r.blk  || 0,
+        oreb: r.oreb || 0, dreb: r.dreb || 0,
+      }
+    }));
 
-  window._careerHistoryMap = {};
-  history.forEach(h => {
-    const key = (h.name||'').toLowerCase().trim();
-    if(!window._careerHistoryMap[key]) window._careerHistoryMap[key] = [];
-    window._careerHistoryMap[key].push(h);
-  });
-  console.log('Career history entries:', history.length, '— players mapped:', Object.keys(window._careerHistoryMap).length);
-
-  let done = 0;
-  allRows = [];
-  for(const t of teams){
-    const tPlayers = byTeam[t.name] || [];
-    if(tPlayers.length < 1){ done++; continue; }
-    const conf = t.conf || t.conference || '';
-    try{
-      const proj = buildTeamProjections(tPlayers, conf);
-      const row = buildRow(t, conf, proj);
-      if(row) allRows.push(row);
-    }catch(e){ console.error('Projection error for',t.name,':',e.message,e.stack?.split('\n')[1]); }
-    done++;
-    if(done % 10 === 0) fill.style.width = (40 + done/teams.length*55) + '%';
-  }
-
-  msg.textContent = `Building table for ${allRows.length} teams…`;
   fill.style.width = '100%';
-  await new Promise(r=>setTimeout(r,100)); // let browser paint
   document.getElementById('loadingEl').style.display = 'none';
   document.getElementById('statsTable').style.display = 'table';
   document.getElementById('leadersEl').style.display = 'grid';
-  console.log('Total rows built:', allRows.length);
 
   buildHeader();
   render();
 }
 
-function buildRow(team, conf, proj){
-  const r1 = v => v!=null ? Math.round((v+Number.EPSILON)*10)/10 : 0;
-  const active = proj.filter(p => !p._dnp && !p._injured && (parseFloat(p.ppg||0)>0 || p._noStatEst));
-  if(!active.length) return null;
-
-  const sum = (k) => active.reduce((s,p) => s+(parseFloat(p[k]||0)||0), 0);
-  const wavg = (num, den) => {
-    const n = active.reduce((s,p)=>s+(parseFloat(p[num]||0)||0),0);
-    const d = active.reduce((s,p)=>s+(parseFloat(p[den]||0)||0),0);
-    return d>0 ? r1(n/d*100) : 0;
-  };
-
-  return {
-    name:  team.name,
-    conf,
-    color: team.color || '#666',
-    stats: {
-      ppg:  r1(sum('ppg')),
-      rpg:  r1(sum('rpg')),
-      apg:  r1(sum('apg')),
-      fg:   wavg('fgm','fga'),
-      tp:   wavg('tpm','tpa'),
-      ft:   wavg('ftm','fta'),
-      fga:  r1(sum('fga')),
-      tpa:  r1(sum('tpa')),
-      tov:  r1(sum('tovs')),
-      stl:  r1(sum('stl')),
-      blk:  r1(sum('blk')),
-      oreb: r1(sum('oreb')),
-      dreb: r1(sum('dreb')),
-    }
-  };
-}
 
 // ── HEADER ──────────────────────────────────────────────────────
 function buildHeader(){
@@ -1648,7 +1584,7 @@ function toggleTheme(){
   }).catch(()=>{});
 })();
 
-load();
+loadColors().then(()=>load());
 </script>
 </body>
 </html>

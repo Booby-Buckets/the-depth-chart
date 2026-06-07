@@ -841,8 +841,8 @@ function computePlayerMpg(p, teamRoster){
     const g=parseFloat(r.tdc_grade)||70,slot=i+1;
     let base;
     if(slot<=5){const gn=Math.max(-1,Math.min(1,(g-teamGradeAvg)/15));base=30.5+gn*3.5;}
-    else if(slot===6)base=20;else if(slot===7)base=17;else if(slot===8)base=14;
-    else if(slot===9)base=11;else if(slot===10)base=8;else base=Math.max(2,6-(slot-10)*1.5);
+    else if(slot===6)base=18;else if(slot===7)base=13;else if(slot===8)base=10;
+    else if(slot===9)base=8;else if(slot===10)base=5;else base=Math.max(2,4-(slot-10)*1);
     base=base*(1+((g-teamGradeAvg)/20)*0.10);
     if(slot<=5&&rosterSize<=8)base=Math.min(38,base+2);
     if(slot>rotDepth)base=Math.min(5,base);
@@ -904,6 +904,19 @@ function computePlayerMpg(p, teamRoster){
     roster.forEach(r=>{mpgMap[r.name]=(mpgMap[r.name]||0)*sc;});
   }
   roster.forEach(r=>{mpgMap[r.name]=Math.min(38,mpgMap[r.name]||0);});
+
+  // Post-normalization: returning contributors can't lose more than 12% of their proven minutes.
+  // Normalization compresses everyone proportionally — this restores fairness for starters
+  // who proved their usage under this coach last year. Transfers excluded.
+  roster.forEach((r,i)=>{
+    const slot=i+1; if(slot>6) return;
+    const rAMpg=parseFloat(r.mpg||0)||0; if(rAMpg<25) return;
+    const rYr=(r.yr||r.class_year||'').toLowerCase();
+    if(rYr.includes('fr.')||rYr.includes('r-fr')) return;
+    if(r.hometown&&r.hometown.trim()) return;
+    const floor=rAMpg*0.88;
+    if((mpgMap[r.name]||0)<floor) mpgMap[r.name]=floor;
+  });
   const result=mpgMap[p.name];
   if(result!=null)return Math.max(1,Math.min(38,result));
   const d=p.depth_order||8;return d<=1?32:d<=2?30:d<=3?27:d<=4?25:d<=5?23:d===6?20:d===7?17:d===8?14:d===9?11:d===10?8:5;
@@ -2226,6 +2239,25 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
   const tFtPct=tFta>0?r1s(tFtm/tFta*100):0;
   const tStl=r1s(tot('stl')),tBlk=r1s(tot('blk')),tTovs=r1s(tot('tovs'));
   const tOreb=r1s(tot('oreb')),tDreb=r1s(tot('dreb'));
+
+  // ── SAVE TO team_projections SO ANALYTICS PAGE READS EXACT SAME NUMBERS ──
+  const _tname = teamRow?.name || players[0]?.team;
+  const _tconf = teamRow?.conf || teamRow?.conference || conf;
+  if(_tname){
+    fetch(`${SB}/rest/v1/team_projections?on_conflict=team`,{
+      method:'POST',
+      headers:{...H,'Prefer':'return=minimal','Content-Type':'application/json'},
+      body:JSON.stringify({
+        team:_tname, conf:_tconf,
+        ppg:tPpg, rpg:tRpg, apg:tApg,
+        fg_pct:tFgPct, tp_pct:tTpPct, ft_pct:tFtPct,
+        fga:tFga, tpa:tTpa,
+        tov:tTovs, stl:tStl, blk:tBlk,
+        oreb:tOreb, dreb:tDreb,
+        updated_at:new Date().toISOString()
+      })
+    }).catch(()=>{}); // silent — don't block the UI
+  }
 
   // ── NATIONAL PERCENTILE CALC ─────────────────────────────
   const tmap={};
