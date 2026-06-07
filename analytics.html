@@ -1079,6 +1079,15 @@ function getDeployedPos(p, roster) {
   return (pos1Ahead >= 1 && pos2Ahead === 0) ? pos2 : pos1;
 }
 
+
+const FR_BASE_MPG = 32;
+
+function getFrBase(grade, pos){
+  const tier = grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
+  const posKey = ['PG','SG','SF','PF','C'].includes(pos)?pos:'SG';
+  return FR_BASE[tier][posKey];
+}
+
 function buildTeamProjections(players, conf){
   const roster = players
     .filter(p => p.name && p.name !== '—')
@@ -1448,21 +1457,24 @@ async function load(){
   allRows = [];
   for(const t of teams){
     const tPlayers = byTeam[t.name] || [];
-    if(tPlayers.length < 2){ done++; continue; }
+    if(tPlayers.length < 1){ done++; continue; }
     const conf = t.conf || t.conference || '';
     try{
       const proj = buildTeamProjections(tPlayers, conf);
       const row = buildRow(t, conf, proj);
       if(row) allRows.push(row);
-    }catch(e){ /* skip broken team */ }
+    }catch(e){ console.error('Projection error for',t.name,':',e.message,e.stack?.split('\n')[1]); }
     done++;
     if(done % 10 === 0) fill.style.width = (40 + done/teams.length*55) + '%';
   }
 
+  msg.textContent = `Building table for ${allRows.length} teams…`;
   fill.style.width = '100%';
+  await new Promise(r=>setTimeout(r,100)); // let browser paint
   document.getElementById('loadingEl').style.display = 'none';
   document.getElementById('statsTable').style.display = 'table';
   document.getElementById('leadersEl').style.display = 'grid';
+  console.log('Total rows built:', allRows.length);
 
   buildHeader();
   render();
@@ -1470,7 +1482,7 @@ async function load(){
 
 function buildRow(team, conf, proj){
   const r1 = v => v!=null ? Math.round((v+Number.EPSILON)*10)/10 : 0;
-  const active = proj.filter(p => !p._dnp && !p._injured && parseFloat(p.ppg||0)>0);
+  const active = proj.filter(p => !p._dnp && !p._injured && (parseFloat(p.ppg||0)>0 || p._noStatEst));
   if(!active.length) return null;
 
   const sum = (k) => active.reduce((s,p) => s+(parseFloat(p[k]||0)||0), 0);
