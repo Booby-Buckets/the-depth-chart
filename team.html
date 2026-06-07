@@ -2240,24 +2240,6 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
   const tStl=r1s(tot('stl')),tBlk=r1s(tot('blk')),tTovs=r1s(tot('tovs'));
   const tOreb=r1s(tot('oreb')),tDreb=r1s(tot('dreb'));
 
-  // ── SAVE TO team_projections SO ANALYTICS PAGE READS EXACT SAME NUMBERS ──
-  const _tname = teamRow?.name || players[0]?.team;
-  const _tconf = teamRow?.conf || teamRow?.conference || conf;
-  if(_tname){
-    fetch(`${SB}/rest/v1/team_projections?on_conflict=team`,{
-      method:'POST',
-      headers:{...H,'Prefer':'return=minimal','Content-Type':'application/json'},
-      body:JSON.stringify({
-        team:_tname, conf:_tconf,
-        ppg:tPpg, rpg:tRpg, apg:tApg,
-        fg_pct:tFgPct, tp_pct:tTpPct, ft_pct:tFtPct,
-        fga:tFga, tpa:tTpa,
-        tov:tTovs, stl:tStl, blk:tBlk,
-        oreb:tOreb, dreb:tDreb,
-        updated_at:new Date().toISOString()
-      })
-    }).catch(()=>{}); // silent — don't block the UI
-  }
 
   // ── NATIONAL PERCENTILE CALC ─────────────────────────────
   const tmap={};
