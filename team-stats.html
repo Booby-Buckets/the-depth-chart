@@ -1,0 +1,1618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Projected Team Stats — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#fff;--bg2:#f5f5f5;--border:#e0e0e0;--border2:#ccc;--text:#111;--text2:#444;--text3:#888;--accent:#8B6914;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#111;--bg2:#181818;--border:#2a2a2a;--border2:#333;--text:#e8e8e8;--text2:#a0a0a0;--text3:#606060;--accent:#c8a96e;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;}
+    /* NAV */
+    .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;}
+    .nav-logo span{color:var(--accent);}
+    .nav-actions{display:flex;align-items:center;gap:14px;}
+    .nav-signin{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--text);padding:6px 16px;text-decoration:none;}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
+    .nav-sub::-webkit-scrollbar{display:none;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
+    /* HEADER */
+    .page-header{padding:32px 40px 20px;border-bottom:1px solid var(--border);}
+    .page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+    .page-h1{font-family:'Playfair Display',serif;font-weight:800;font-size:32px;letter-spacing:-.02em;margin-bottom:4px;}
+    .page-sub{font-size:13px;color:var(--text3);}
+    /* CONTROLS */
+    .controls{padding:16px 40px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+    .filter-select{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;background:var(--bg);border:1px solid var(--border2);color:var(--text2);padding:6px 10px;outline:none;cursor:pointer;}
+    .filter-select:focus{border-color:var(--accent);}
+    .search-box{font-family:'Inter',sans-serif;font-size:12px;font-weight:500;background:var(--bg);border:1px solid var(--border2);color:var(--text);padding:6px 10px;outline:none;width:180px;}
+    .search-box:focus{border-color:var(--accent);}
+    .search-box::placeholder{color:var(--text3);}
+    .stat-count{font-size:12px;color:var(--text3);margin-left:auto;}
+    .stat-count strong{color:var(--accent);}
+    /* LOADING */
+    .loading{text-align:center;padding:80px;color:var(--text3);}
+    .spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 12px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .progress-bar{width:200px;height:3px;background:var(--border2);margin:12px auto;border-radius:2px;overflow:hidden;}
+    .progress-fill{height:100%;background:var(--accent);width:0%;transition:width .3s;}
+    /* TABLE */
+    .table-wrap{overflow-x:auto;padding:0 0 40px;}
+    table{width:100%;border-collapse:collapse;font-size:12px;}
+    thead tr{border-bottom:2px solid var(--border);}
+    th{padding:10px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);white-space:nowrap;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--bg);z-index:2;}
+    th:first-child,th:nth-child(2){text-align:left;padding-left:40px;}
+    th:hover{color:var(--text);}
+    th.sorted{color:var(--accent);}
+    th .sort-arrow{display:inline-block;margin-left:3px;opacity:0.4;font-size:9px;}
+    th.sorted .sort-arrow{opacity:1;color:var(--accent);}
+    tbody tr{border-bottom:1px solid var(--border);}
+    tbody tr:hover{background:var(--bg2);}
+    td{padding:9px 8px;text-align:right;white-space:nowrap;}
+    td:first-child{text-align:left;padding-left:40px;font-size:11px;font-weight:700;color:var(--text3);width:40px;}
+    td.team-cell{text-align:left;padding-left:8px;}
+    .team-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;flex-shrink:0;}
+    .team-name-link{text-decoration:none;color:var(--text);font-weight:600;font-size:13px;}
+    .team-name-link:hover{color:var(--accent);}
+    .conf-badge{font-size:10px;color:var(--text3);font-weight:600;margin-left:5px;}
+    /* STAT CELL COLORING */
+    .c0{}
+    .c1{background:rgba(60,120,220,.25);color:#1a50c8;font-weight:700;}
+    .c2{background:rgba(45,100,210,.45);color:#fff;font-weight:700;}
+    .c3{background:rgba(30,82,200,.65);color:#fff;font-weight:700;}
+    .c4{background:rgba(18,60,185,.85);color:#fff;font-weight:700;}
+    [data-theme="dark"] .c1{background:rgba(60,120,220,.30);color:#7ab0ff;}
+    [data-theme="dark"] .c2{background:rgba(45,100,210,.50);color:#c0d8ff;}
+    [data-theme="dark"] .c3{background:rgba(30,82,200,.68);color:#fff;}
+    [data-theme="dark"] .c4{background:rgba(18,60,185,.88);color:#fff;}
+    /* LEADERS */
+    .leaders{padding:24px 40px 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px;}
+    .leader-card{border:1px solid var(--border);padding:14px 16px;}
+    .leader-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+    .leader-stat{font-family:'Playfair Display',serif;font-weight:700;font-size:22px;color:var(--accent);margin-bottom:2px;}
+    .leader-team{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    /* FOOTER */
+    footer{border-top:1px solid var(--border);padding:28px 40px;display:flex;align-items:center;justify-content:space-between;margin-top:40px;}
+    .footer-logo{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text3);}
+    .footer-logo span{color:var(--accent);}
+    @media(max-width:600px){
+      .nav-top,.nav-sub,.page-header,.controls,.leaders{padding-left:16px;padding-right:16px;}
+      td:first-child,th:first-child,th:nth-child(2){padding-left:16px;}
+    }
+  </style>
+</head>
+<body>
+
+<div class="nav-wrap">
+  <div class="nav-top">
+    <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+    <div class="nav-actions" id="navActions">
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+      <a href="pricing.html" style="font-size:12px;font-weight:600;color:var(--text3);text-decoration:none;">Sign In</a>
+      <a href="pricing.html" class="nav-signin">Subscribe</a>
+    </div>
+  </div>
+  <div class="nav-sub">
+    <a href="index.html">Rankings</a>
+    <a href="roster.html">Players</a>
+    <a href="compare-players.html">Compare</a>
+    <a href="analytics.html" class="active">Analytics</a>
+    <a href="projections.html">Projections</a>
+    <a href="community.html">Community</a>
+    <a href="about.html">About</a>
+    <a href="account.html">Account</a>
+    <a href="pricing.html">Pricing</a>
+  </div>
+</div>
+
+<div class="page-header">
+  <div class="page-eyebrow">Analytics · Projections</div>
+  <h1 class="page-h1">2026-27 Projected Team Stats</h1>
+  <p class="page-sub">League-wide offensive and defensive projections — click any column to sort</p>
+</div>
+
+<div class="controls">
+  <select class="filter-select" id="confFilter" onchange="render()">
+    <option value="">All Conferences</option>
+    <option value="ACC">ACC</option>
+    <option value="B10">Big Ten</option>
+    <option value="BIG-12">Big 12</option>
+    <option value="Big-East">Big East</option>
+    <option value="SEC">SEC</option>
+    <option value="PAC-12">Pac-12</option>
+    <option value="A10">A-10</option>
+    <option value="AAC">AAC</option>
+    <option value="MWC">MWC</option>
+    <option value="WCC">WCC</option>
+  </select>
+  <input class="search-box" type="text" id="searchBox" placeholder="Search team…" oninput="render()"/>
+  <select class="filter-select" id="minGames" onchange="render()">
+    <option value="0">All teams</option>
+  </select>
+  <span class="stat-count" id="countEl"></span>
+</div>
+
+<div id="leadersEl" class="leaders" style="display:none;"></div>
+
+<div class="table-wrap">
+  <div class="loading" id="loadingEl">
+    <div class="spinner"></div>
+    <div id="loadingMsg">Loading teams…</div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+  <table id="statsTable" style="display:none;">
+    <thead id="thead"></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<footer>
+  <div class="footer-logo">The Depth <span>Chart</span></div>
+  <div style="font-size:11px;font-weight:600;color:var(--text3);">Minutes & scoring adjusted for roster cohesion · 2026-27</div>
+</footer>
+
+<script>
+const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H   = {apikey:KEY, Authorization:`Bearer ${KEY}`};
+
+// ── COLS definition ─────────────────────────────────────────────
+const COLS = [
+  {key:'ppg',  label:'PPG',  desc:'Points per game',            inv:false},
+  {key:'rpg',  label:'RPG',  desc:'Rebounds per game',          inv:false},
+  {key:'apg',  label:'APG',  desc:'Assists per game',           inv:false},
+  {key:'fg',   label:'FG%',  desc:'Field goal %',               inv:false, pct:true},
+  {key:'tp',   label:'3P%',  desc:'3-point %',                  inv:false, pct:true},
+  {key:'ft',   label:'FT%',  desc:'Free throw %',               inv:false, pct:true},
+  {key:'fga',  label:'FGA',  desc:'FG attempts per game',       inv:false},
+  {key:'tpa',  label:'3PA',  desc:'3PA per game',               inv:false},
+  {key:'tov',  label:'TOV',  desc:'Turnovers (lower is better)',inv:true},
+  {key:'stl',  label:'STL',  desc:'Steals per game',            inv:false},
+  {key:'blk',  label:'BLK',  desc:'Blocks per game',            inv:false},
+  {key:'oreb', label:'OREB', desc:'Off rebounds per game',      inv:false},
+  {key:'dreb', label:'DREB', desc:'Def rebounds per game',      inv:false},
+];
+
+let allRows = [];   // {team, conf, color, stats}
+let sortCol = 'ppg';
+let sortAsc = false;
+
+// ── PROJECTION ENGINE ────────────────────────────────────────────
+function computePlayerMpg(p, teamRoster){
+  const roster=(Array.isArray(teamRoster)?teamRoster:[]).filter(r=>r.name&&r.name!=='—')
+    .sort((a,b)=>(a.depth_order||99)-(b.depth_order||99));
+  if(!roster.length){const d=p.depth_order||8;return d<=1?32:d<=2?30:d<=3?27:d<=4?25:d<=5?23:d===6?20:d===7?17:d===8?14:d===9?11:d===10?8:5;}
+  const grades=roster.map(r=>parseFloat(r.tdc_grade)||70);
+  const teamGradeAvg=grades.reduce((a,b)=>a+b,0)/grades.length;
+  const rosterSize=roster.length;
+  let rotDepth=rosterSize;
+  for(let i=2;i<roster.length-1;i++){
+    const g1=parseFloat(roster[i-1].tdc_grade)||70,g2=parseFloat(roster[i].tdc_grade)||70;
+    if((g1-g2)>=9&&g2<=68){rotDepth=i;break;}
+    if(g2<63&&i>=6){rotDepth=i;break;}
+  }
+  rotDepth=Math.max(7,Math.min(12,rotDepth));
+  const mpgMap={};
+  roster.forEach((r,i)=>{
+    const g=parseFloat(r.tdc_grade)||70,slot=i+1;
+    let base;
+    if(slot<=5){const gn=Math.max(-1,Math.min(1,(g-teamGradeAvg)/15));base=30.5+gn*3.5;}
+    else if(slot===6)base=18;else if(slot===7)base=13;else if(slot===8)base=10;
+    else if(slot===9)base=8;else if(slot===10)base=5;else base=Math.max(2,4-(slot-10)*1);
+    base=base*(1+((g-teamGradeAvg)/20)*0.10);
+    if(slot<=5&&rosterSize<=8)base=Math.min(38,base+2);
+    if(slot>rotDepth)base=Math.min(5,base);
+
+    // Returners: blend grade formula with actual-MPG evidence of coach trust.
+    // The coach played them X minutes at this school — that's real signal.
+    // Transfers get pure formula — old school usage means nothing here.
+    const rActualMpg=parseFloat(r.mpg||0)||0;
+    const rYr=(r.yr||r.class_year||'').toLowerCase();
+    const rIsFr=rYr.includes('fr.')||rYr.includes('r-fr');
+    const rIsTransfer=!!(r.hometown&&r.hometown.trim());
+    if(!rIsTransfer&&!rIsFr&&rActualMpg>=20&&slot<=7){
+      // 65% actual MPG, 35% grade formula — heavy weight on proven usage
+      base=base*0.35+rActualMpg*0.65;
+    }
+
+    mpgMap[r.name]=Math.max(1,Math.min(38,base));
+  });
+  const posCounts={};
+  roster.forEach(r=>{const pos=(r.position||'G').replace(/\d/g,'').trim();const pk=['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':pos.includes('G')?'SG':'C';posCounts[pk]=(posCounts[pk]||0)+1;r._pk2=pk;});
+  for(let i=0;i<Math.min(roster.length-1,9);i++){
+    const r1=roster[i],r2=roster[i+1];
+    if(r1._pk2!==r2._pk2)continue;
+    const g1=parseFloat(r1.tdc_grade)||70,g2=parseFloat(r2.tdc_grade)||70,diff=g1-g2;
+    if(diff<=3){const c=mpgMap[r1.name]+mpgMap[r2.name];mpgMap[r1.name]=c*0.53;mpgMap[r2.name]=c*0.47;}
+    else if(diff<=6){const c=mpgMap[r1.name]+mpgMap[r2.name];mpgMap[r1.name]=c*0.65;mpgMap[r2.name]=c*0.35;}
+  }
+  // Monotonic enforcement — only apply within bench depth (slots 7+).
+  // Starters and first bench wave play different POSITIONS, so cross-position
+  // comparison is wrong: PF1 at grade 92 should NOT be capped by SF1 at grade 85
+  // just because SF comes before PF in the depth order listing.
+  // Deep bench players still enforce: bench #3 shouldn't exceed bench #2.
+  for(let i=1;i<roster.length;i++){
+    if(i <= 6) continue; // slots 1-7: each gets independent grade-based minutes
+    const prev=roster[i-1], cur=roster[i];
+    const gPrev=parseFloat(prev.tdc_grade)||70, gCur=parseFloat(cur.tdc_grade)||70;
+    if(gCur - gPrev >= 6) continue;
+    if(mpgMap[cur.name] > mpgMap[prev.name]) mpgMap[cur.name]=mpgMap[prev.name]*0.95;
+  }
+  // Dynamic minute cap — responsive to roster continuity and coach system.
+  // Returners know the system: coach plays them predictable, proven minutes.
+  // New rosters (transfers/freshmen) = tighter rotation while building chemistry.
+  const totalMpg = roster.reduce((s,r)=>s+(mpgMap[r.name]||0),0);
+
+  // Fraction of projected minutes held by non-freshman returners
+  const returneeMin = roster.filter(r=>{
+    const yr=(r.yr||r.class_year||'').toLowerCase();
+    const isFr=yr.includes('fr.')||yr.includes('r-fr');
+    return !isFr && !(r.hometown && r.hometown.trim());
+  }).reduce((s,r)=>s+(mpgMap[r.name]||0),0);
+  const returneeFrac = totalMpg > 0 ? returneeMin/totalMpg : 0;
+
+  // Mostly returnees → coach knows his rotation → realistic ~218 total (e.g. Florida 213)
+  // All new players → figuring out who plays → tighter ~208 total
+  const dynamicCap = Math.round(208 + returneeFrac * 17); // 208 (all new) → 225 (all returners)
+
+  if(totalMpg > dynamicCap){
+    const sc = dynamicCap/totalMpg;
+    roster.forEach(r=>{mpgMap[r.name]=(mpgMap[r.name]||0)*sc;});
+  }
+  roster.forEach(r=>{mpgMap[r.name]=Math.min(38,mpgMap[r.name]||0);});
+
+  // Post-normalization: returning contributors can't lose more than 12% of their proven minutes.
+  // Normalization compresses everyone proportionally — this restores fairness for starters
+  // who proved their usage under this coach last year. Transfers excluded.
+  roster.forEach((r,i)=>{
+    const slot=i+1; if(slot>6) return;
+    const rAMpg=parseFloat(r.mpg||0)||0; if(rAMpg<25) return;
+    const rYr=(r.yr||r.class_year||'').toLowerCase();
+    if(rYr.includes('fr.')||rYr.includes('r-fr')) return;
+    if(r.hometown&&r.hometown.trim()) return;
+    const floor=rAMpg*0.88;
+    if((mpgMap[r.name]||0)<floor) mpgMap[r.name]=floor;
+  });
+  const result=mpgMap[p.name];
+  if(result!=null)return Math.max(1,Math.min(38,result));
+  const d=p.depth_order||8;return d<=1?32:d<=2?30:d<=3?27:d<=4?25:d<=5?23:d===6?20:d===7?17:d===8?14:d===9?11:d===10?8:5;
+}
+
+// ── UNIFIED PROJECTION MODEL ─────────────────────────────
+// Single function used by both player pages and team projection page.
+// When called from buildTeamProjections, targetMpg is passed directly.
+// When called from player page, targetMpg is computed from roster context.
+// All stat outputs are identical given the same inputs.
+function projectPlayer(p, teamConf, teamRoster, targetMpg){
+  const conf  = (teamConf||'').trim();
+  const yr    = (p.yr||p.class_year||'').toLowerCase();
+  const isFr  = yr.includes('fr.')||yr.includes('r-fr');
+  const isSo  = yr.includes('so.')||yr.includes('r-so.');
+  const isJr  = yr.includes('jr.')||yr.includes('r-jr.');
+  const isSr  = yr.includes('sr.')||yr.includes('r-sr')||yr.includes('gr.');
+  const pos   = (p.position||'G').replace(/\d/g,'').trim();
+  const posNorm = ['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':'G';
+  const grade = parseFloat(p.tdc_grade)||70;
+  const s     = k => parseFloat(p[k])||0;
+  const hasStats = p.ppg && parseFloat(p.ppg)>0;
+
+  // ── CAREER HISTORY ────────────────────────────────────────
+  // window._careerHistoryMap is populated by player pages; on team pages
+  // it may not exist — fall back gracefully.
+  const history = (window._careerHistoryMap && window._careerHistoryMap[
+    (p.name||'').toLowerCase().trim()
+  ]) || null;
+
+  // Pull all played seasons (sat_out=false, has real ppg)
+  const playedSeasons = history
+    ? history.filter(h => !h.sat_out && parseFloat(h.ppg||0)>0)
+             .sort((a,b) => b.season_year - a.season_year)   // newest first
+    : [];
+
+  // Most recent season with stats — use as primary base
+  const latestSeason = playedSeasons[0] || null;
+
+  // ── TRANSFER FACTOR ───────────────────────────────────────
+  let transferFactor = 1.0, originConf = null;
+  const isTransfer   = p.hometown && p.hometown.trim() !== '';
+
+  if(isTransfer){
+    originConf = getProjSchoolConf(p.hometown)||getSchoolConfFallback(p.hometown);
+    if(originConf) transferFactor = getProjTransFactor(originConf, conf, grade);
+  }
+
+  // ── MPG ───────────────────────────────────────────────────
+  let newMpg;
+  if(targetMpg != null){
+    newMpg = Math.max(0, Math.min(40, targetMpg));
+  } else {
+    newMpg = computePlayerMpg(p, teamRoster);
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // CASE 1: No prior college stats → grade-based estimate
+  // ─────────────────────────────────────────────────────────
+  if(!hasStats && !latestSeason){
+    const tier = grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
+    const bases = FR_BASE;
+    const frBase = (bases[tier]&&bases[tier][posNorm])?bases[tier][posNorm]
+                 : (bases[tier]&&bases[tier]['SG'])?bases[tier]['SG']
+                 : bases['75-84']['SG'];
+    const BASE_MPG = 32, scale = newMpg/BASE_MPG;
+    const fga = r1t(newMpg*0.28);
+    return {
+      ppg:r1t(frBase.ppg*scale), rpg:r1t(frBase.rpg*scale), apg:r1t(frBase.apg*scale),
+      mpg:r1t(newMpg),
+      fgm:r1t(fga*(frBase.fg_pct/100)), fga:r1t(fga), fg_pct:r1t(frBase.fg_pct),
+      tpm:r1t(fga*0.42*(frBase.tp_pct/100)), tpa:r1t(fga*0.42), tp_pct:r1t(frBase.tp_pct),
+      fta:r1t(newMpg*0.09), ftm:r1t(newMpg*0.09*(frBase.ft_pct/100)), ft_pct:r1t(frBase.ft_pct),
+      oreb:r1t((frBase.oreb||frBase.rpg*0.28)*scale),
+      dreb:r1t((frBase.dreb||frBase.rpg*0.72)*scale),
+      stl:r1t(frBase.stl*scale), blk:r1t((frBase.blk||0)*scale), tovs:r1t(frBase.tovs*scale),
+      _frosh:true, _origin:originConf, _factor:transferFactor,
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // CASE 2: Has career history — use it for richer projection
+  // ─────────────────────────────────────────────────────────
+  // Resolve the base season: prefer latest from history, fall back to players table
+  const base = latestSeason || p;
+  const baseMpg = Math.max(1, parseFloat(base.mpg||0)||Math.max(1,s('mpg')));
+
+  // Per-minute rates from base season
+  const pm = {
+    ppg:  parseFloat(base.ppg ||0)/baseMpg,
+    rpg:  parseFloat(base.rpg ||0)/baseMpg,
+    apg:  parseFloat(base.apg ||0)/baseMpg,
+    fgm:  parseFloat(base.fgm ||0)/baseMpg,
+    fga:  parseFloat(base.fga ||0)/baseMpg,
+    tpm:  parseFloat(base.tpm ||0)/baseMpg,
+    tpa:  parseFloat(base.tpa ||0)/baseMpg,
+    ftm:  parseFloat(base.ftm ||0)/baseMpg,
+    fta:  parseFloat(base.fta ||0)/baseMpg,
+    oreb: parseFloat(base.oreb||0)/baseMpg,
+    dreb: parseFloat(base.dreb||0)/baseMpg,
+    stl:  parseFloat(base.stl ||0)/baseMpg,
+    blk:  parseFloat(base.blk ||0)/baseMpg,
+    tovs: parseFloat(base.tovs||0)/baseMpg,
+  };
+
+  // ── CAREER TREND (multi-year) ─────────────────────────────
+  // If we have 2+ played seasons, calculate the scoring trajectory
+  // and use it to modulate the projection
+  let trendMult = 1.0;
+  if(playedSeasons.length >= 2){
+    const newest = playedSeasons[0], prev = playedSeasons[1];
+    const newPm  = parseFloat(newest.ppg||0)/Math.max(1,parseFloat(newest.mpg||1));
+    const prevPm = parseFloat(prev.ppg  ||0)/Math.max(1,parseFloat(prev.mpg  ||1));
+    if(prevPm > 0){
+      const rawTrend = newPm/prevPm;   // 1.2 = growing 20%, 0.8 = declining
+      // Dampen extremes — don't let a one-season fluke drive the projection
+      // +20% real trend → ~+7% projection boost; -20% → ~-7% pull
+      trendMult = 1.0 + Math.max(-0.12, Math.min(0.12, (rawTrend-1)*0.35));
+    }
+  }
+
+  // ── YEAR PROGRESSION ─────────────────────────────────────
+  // Reflects typical year-to-year improvement curves in college basketball
+  const yrMult = isSo?1.06 : isJr?1.03 : isSr?1.01 : 1.04;
+
+  // ── GRADE vs STATS GAP ────────────────────────────────────
+  // If a player's grade >> what their stats show, project partial convergence
+  const gradeExpPpg = grade>=90?19 : grade>=85?16 : grade>=80?13 : grade>=75?10 : grade>=70?8 : 6;
+  const statsPer32  = pm.ppg*32;
+  const gapRatio    = gradeExpPpg>0 ? statsPer32/gradeExpPpg : 1;
+  const gapMult     = gapRatio<0.50?1.18 : gapRatio<0.65?1.12 : gapRatio<0.80?1.06
+                    : gapRatio<0.95?1.02 : gapRatio>1.40?0.97 : gapRatio>1.20?0.99 : 1.0;
+
+  // Combined rate growth
+  const rateGrowth = yrMult * gapMult * trendMult;
+
+  // ── EFFICIENCY PROJECTION ─────────────────────────────────
+  // Base percentages from the most recent played season
+  const fgBase = parseFloat(base.fg_pct||0)||s('fg_pct');
+  const tpBase = parseFloat(base.tp_pct||0)||s('tp_pct');
+  const ftBase = parseFloat(base.ft_pct||0)||s('ft_pct');
+
+  // Career FT% average (more stable than single season — less variance)
+  const careerFtPct = playedSeasons.length >= 2
+    ? playedSeasons.reduce((sum,h)=>sum+parseFloat(h.ft_pct||0),0)/playedSeasons.length
+    : ftBase;
+  const ftSmoothed = ftBase*0.6 + careerFtPct*0.4;  // blend: recent 60%, career avg 40%
+
+  // Volume change penalty (more shots = slight efficiency drop)
+  const oldFga    = parseFloat(base.fga||0)||s('fga');
+  const newFgaEst = oldFga>0 ? oldFga*(newMpg/baseMpg) : newMpg*0.28;
+  const volChange = oldFga>0 ? (newFgaEst/oldFga - 1) : 0;
+  const volPenalty = volChange*3.5;
+
+  // Year efficiency boost
+  const yearEffBoost = isSo?1.2 : isJr?0.6 : isSr?0.0 : 1.8;
+
+  // Transfer difficulty adjustment (only to efficiency, not per-min rates)
+  const transPctAdj = transferFactor<0.75?-3.5 : transferFactor<0.85?-2.5
+                    : transferFactor<0.92?-1.5 : transferFactor<0.97?-0.8
+                    : transferFactor>1.20?+1.2 : transferFactor>1.10?+0.8
+                    : transferFactor>1.04?+0.4 : 0;
+
+  const fgProj = r1t(Math.max(30, Math.min(65, fgBase+yearEffBoost-volPenalty+transPctAdj)));
+  const tpProj = r1t(Math.max(18, Math.min(50, tpBase+(isSo?0.8:isJr?0.4:isSr?0:1.5)-(volChange*2.0)+transPctAdj*0.6)));
+  const ftProj = r1t(Math.max(45, Math.min(97, ftSmoothed+(isSo?1.0:isJr?0.5:isSr?0:1.5))));
+
+  // ── COUNTING STATS ────────────────────────────────────────
+  const newFga = r1t(pm.fga*rateGrowth*newMpg);
+  return {
+    ppg:  r1t(pm.ppg *rateGrowth*newMpg),
+    rpg:  r1t(pm.rpg *rateGrowth*newMpg),
+    apg:  r1t(pm.apg *rateGrowth*newMpg),
+    mpg:  r1t(newMpg),
+    fgm:  r1t(newFga*(fgProj/100)), fga: newFga, fg_pct: fgProj,
+    tpm:  r1t(pm.tpa*rateGrowth*newMpg*(tpProj/100)),
+    tpa:  r1t(pm.tpa*rateGrowth*newMpg), tp_pct: tpProj,
+    ftm:  r1t(pm.fta*rateGrowth*newMpg*(ftProj/100)),
+    fta:  r1t(pm.fta*rateGrowth*newMpg), ft_pct: ftProj,
+    oreb: r1t(pm.oreb*rateGrowth*newMpg),
+    dreb: r1t(pm.dreb*rateGrowth*newMpg),
+    stl:  r1t(pm.stl *rateGrowth*newMpg),
+    blk:  r1t(pm.blk *rateGrowth*newMpg),
+    tovs: r1t(pm.tovs*rateGrowth*newMpg),
+    _frosh:false, _origin:originConf, _factor:transferFactor,
+    _seasons:playedSeasons.length, _trend:trendMult,
+  };
+}
+
+
+function r1t(v){ return v!=null ? Math.round((v+Number.EPSILON)*10)/10 : null; }
+
+function blendStats(actual, projected, pct){
+  // pct=0 → pure actual, pct=100 → pure projected
+  if(!projected) return actual;
+  const t=pct/100;
+  const result={...actual};
+  const keys=['ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs'];
+  keys.forEach(k=>{
+    const a=parseFloat(actual[k])||0;
+    const b=parseFloat(projected[k])||0;
+    if(b>0) result[k]=r1t(a*(1-t)+b*t);
+  });
+  return result;
+}
+
+let teamPlayers=[];
+let teamConf='';
+let teamGp={};
+let teamColor_g='';
+let teamRgb_g='';
+let teamT={};
+let allDbPlayers=[];
+
+function renderDepth(t, players, color, rgb, gp={}){
+
+  // Strict sheet order
+  const sorted = [...players].sort((a,b) => (a.depth_order||0) - (b.depth_order||0));
+
+  const DEFAULT_POS = ['PG','SG/CG','SF','PF','C'];
+
+  // First 5 rows from sheet = starter slots (blank rows included as empty slots)
+  const starterSlots = [0,1,2,3,4].map(i => {
+    const p = sorted[i] || null;
+    if(p && (!p.name || p.name === '—' || p.name === '')) return null;
+    return p;
+  });
+  // Bench = everything after position 5 that has an actual name
+  // CG players count as SG for backup matching
+  const bench = sorted.slice(5).filter(p => p.name && p.name !== '—' && p.name !== '');
+
+  // Build starters grid — always exactly 5 columns
+  const startersHtml = starterSlots.map((p, slotIdx) => {
+    const defaultPos = DEFAULT_POS[slotIdx];
+    // For backup matching: CG matches SG slot (slot index 1)
+    const matchPos = p ? p.position : defaultPos;
+    const matchPositions = (matchPos === 'SG' || matchPos === 'CG')
+      ? ['SG','CG'] : [matchPos];
+    const posBackups = bench.filter(b => matchPositions.includes(b.position));
+
+    if(!p) return `<div class="starter-col">
+      <div class="starter-col-head" style="border-bottom-color:${color};background:rgba(${rgb},.06);">
+        <span class="starter-pos" style="color:var(--text3);">${defaultPos}</span>
+      </div>
+      <div class="starter-col-body" style="min-height:48px;display:flex;align-items:center;padding:10px 12px;">
+        <span style="font-size:12px;color:var(--text3);font-style:italic;">—</span>
+      </div>
+    </div>`;
+
+    const backupHtml = posBackups.length ? `
+      <div class="backup-chain">
+        ${posBackups.map((b,i)=>`
+        <div class="backup-item">
+          <span class="backup-num">${i+2}</span>
+          <span class="backup-name">${b.name}</span>
+          <span class="backup-cls">${b.class_year||b.yr||''}</span>
+          <span class="backup-grade ${gc(b.tdc_grade||'')}">${b.tdc_grade||''}</span>
+        </div>`).join('')}
+      </div>` : '';
+
+    return `<div class="starter-col">
+      <div class="starter-col-head" style="border-bottom-color:${color};background:rgba(${rgb},.08);">
+        <span class="starter-pos">${p.position||''}</span>
+      </div>
+      <div class="starter-col-body">
+        <div class="starter-name">${p.name}${p.tdc_grade?`<span class="starter-col-grade ${gc(p.tdc_grade)}" style="margin-left:6px;font-size:13px;">${p.tdc_grade}</span>`:''}</div>
+        <div class="starter-meta-row">
+          <span>${p.class_year||p.yr||''}</span>
+          <span class="starter-tag" style="background:rgba(${rgb},.12);color:${color};">★</span>
+          ${p.starter?`<span class="starter-tag" style="background:rgba(${rgb},.12);color:${color};">*</span>`:''}
+        </div>
+      </div>
+      ${backupHtml}
+    </div>`;
+  }).join('');
+
+  // Full roster list — strict sheet order, skip blank placeholder rows
+  const fmt = v => (v !== null && v !== undefined && v !== '') ? Number(v).toFixed(1) : '—';
+  const visiblePlayers = sorted.filter(p => p.name && p.name !== '—');
+
+  const statKeys = ['ppg','rpg','apg','mpg','gp','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs'];
+  const p80 = {};
+  statKeys.forEach(k => p80[k] = calcP80(visiblePlayers, k));
+  // Use global percentiles for color scaling, fallback to team p80
+  const p80g = gp && Object.keys(gp).length ? gp : p80;
+
+  const fullListHtml = `
+    <div class="rotation-section">
+      <div class="rotation-head">Full Roster — ${visiblePlayers.length} Players</div>
+
+      <div class="color-toggle-wrap">
+        <span class="color-toggle-label">Stat Colors</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="colorToggle" onchange="toggleStatColors(this)"/>
+          <span class="toggle-slider"></span>
+        </label>
+        <span style="font-size:11px;color:var(--text3);">Global percentile highlighting</span>
+      </div>
+      <div style="overflow-x:auto;">
+      <div class="stat-header" style="min-width:900px;">
+        <div class="stat-header-cell"></div>
+        <div class="stat-header-cell left">Pos</div>
+        <div class="stat-header-cell left">Name</div>
+        <div class="stat-header-cell">Yr</div>
+        <div class="stat-header-cell">Ht</div>
+        <div class="stat-header-cell">GP</div>
+        <div class="stat-header-cell">PPG</div>
+        <div class="stat-header-cell">RPG</div>
+        <div class="stat-header-cell">APG</div>
+        <div class="stat-header-cell">MPG</div>
+        <div class="stat-header-cell">FGM</div>
+        <div class="stat-header-cell">FGA</div>
+        <div class="stat-header-cell">FG%</div>
+        <div class="stat-header-cell">3PM</div>
+        <div class="stat-header-cell">3PA</div>
+        <div class="stat-header-cell">3P%</div>
+        <div class="stat-header-cell">FTM</div>
+        <div class="stat-header-cell">FTA</div>
+        <div class="stat-header-cell">FT%</div>
+        <div class="stat-header-cell">OR</div>
+        <div class="stat-header-cell">DR</div>
+        <div class="stat-header-cell">STL</div>
+        <div class="stat-header-cell">BLK</div>
+        <div class="stat-header-cell">TO</div>
+        <div class="stat-header-cell">Gr</div>
+      </div>
+      ${visiblePlayers.map((p,i)=>{
+        const isStarter = sorted.indexOf(p) < 5;
+        return `
+      <div class="rotation-row" style="min-width:900px;${isStarter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
+        <div class="rot-num" style="${isStarter?`color:${color};font-weight:700;`:''}">${i+1}</div>
+        <div class="rot-pos" style="${isStarter?`color:${color};`:''}">${p.position||''}</div>
+        <div class="rot-name" style="${isStarter?'color:var(--text);font-weight:700;':''}">
+          <a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team)}" style="color:inherit;text-decoration:none;">${p.name}</a>
+          ${p.is_injured?'🏥':''}
+          ${p.is_international?'🌍':''}
+          ${p._projected?`<span style="font-size:9px;font-weight:700;letter-spacing:.06em;padding:1px 4px;background:rgba(139,105,20,.15);color:var(--accent);margin-left:4px;">EST</span>`:''}
+          ${isStarter?`<span style="font-size:9px;font-weight:700;letter-spacing:.08em;padding:1px 5px;background:rgba(${rgb},.15);color:${color};">★</span>`:''}
+          ${p.starter?`<span style="font-size:9px;font-weight:700;letter-spacing:.08em;padding:1px 5px;background:rgba(${rgb},.15);color:${color};">*</span>`:''}
+          ${p.hometown?`<span style="font-size:10px;color:var(--text3);font-style:italic;margin-left:6px;">via ${p.hometown}</span>`:''}
+        </div>
+        <div class="rot-cls">${p.class_year||p.yr||''}</div>
+        <div class="rot-stat" style="font-size:11px;color:var(--text3);text-align:right;">${p.height||'—'}</div>
+        <div class="rot-stat ${p.gp?'has-val':''}">${p.gp||'—'}</div>
+        <div class="rot-stat" style="${statColor(p.ppg,'ppg',p80g)}">${fmt(p.ppg)}</div>
+        <div class="rot-stat" style="${statColor(p.rpg,'rpg',p80g)}">${fmt(p.rpg)}</div>
+        <div class="rot-stat" style="${statColor(p.apg,'apg',p80g)}">${fmt(p.apg)}</div>
+        <div class="rot-stat" style="${statColor(p.mpg,'mpg',p80g)}">${fmt(p.mpg)}</div>
+        <div class="rot-stat" style="${statColor(p.fgm,'fgm',p80g)}">${fmt(p.fgm)}</div>
+        <div class="rot-stat" style="${statColor(p.fga,'fga',p80g)}">${fmt(p.fga)}</div>
+        <div class="rot-stat" style="${statColor(p.fg_pct,'fg_pct',p80g)}">${fmt(p.fg_pct)}</div>
+        <div class="rot-stat" style="${statColor(p.tpm,'tpm',p80g)}">${fmt(p.tpm)}</div>
+        <div class="rot-stat" style="${statColor(p.tpa,'tpa',p80g)}">${fmt(p.tpa)}</div>
+        <div class="rot-stat" style="${statColor(p.tp_pct,'tp_pct',p80g)}">${fmt(p.tp_pct)}</div>
+        <div class="rot-stat" style="${statColor(p.ftm,'ftm',p80g)}">${fmt(p.ftm)}</div>
+        <div class="rot-stat" style="${statColor(p.fta,'fta',p80g)}">${fmt(p.fta)}</div>
+        <div class="rot-stat" style="${statColor(p.ft_pct,'ft_pct',p80g)}">${fmt(p.ft_pct)}</div>
+        <div class="rot-stat" style="${statColor(p.oreb,'oreb',p80g)}">${fmt(p.oreb)}</div>
+        <div class="rot-stat" style="${statColor(p.dreb,'dreb',p80g)}">${fmt(p.dreb)}</div>
+        <div class="rot-stat" style="${statColor(p.stl,'stl',p80g)}">${fmt(p.stl)}</div>
+        <div class="rot-stat" style="${statColor(p.blk,'blk',p80g)}">${fmt(p.blk)}</div>
+        <div class="rot-stat" style="${statColor(p.tovs,'tovs',p80g)}">${fmt(p.tovs)}</div>
+        <div class="rot-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||''}</div>
+      </div>`;}).join('')}
+      </div>
+    </div>`;
+
+  document.getElementById('depthContent').innerHTML =
+    `<div class="starters-grid" style="grid-template-columns:repeat(5,1fr);">${startersHtml}</div>${fullListHtml}`;
+}
+
+function calcP80(players, key){
+  const vals = players.map(p=>p[key]).filter(v=>v!=null&&v>0).sort((a,b)=>a-b);
+  if(!vals.length) return 0;
+  return vals[Math.floor(vals.length * 0.8)] || 0;
+}
+
+function sortableTableHtml(players, p80, gp){
+  const statCols = [
+    {key:'ppg',label:'PPG'},{key:'rpg',label:'RPG'},{key:'apg',label:'APG'},
+    {key:'mpg',label:'MPG'},{key:'gp',label:'GP'},
+    {key:'fgm',label:'FGM'},{key:'fga',label:'FGA'},{key:'fg_pct',label:'FG%'},
+    {key:'tpm',label:'3PM'},{key:'tpa',label:'3PA'},{key:'tp_pct',label:'3P%'},
+    {key:'ftm',label:'FTM'},{key:'fta',label:'FTA'},{key:'ft_pct',label:'FT%'},
+    {key:'oreb',label:'OR'},{key:'dreb',label:'DR'},
+    {key:'stl',label:'STL'},{key:'blk',label:'BLK'},{key:'tovs',label:'TO'},
+  ];
+  const fmt = v => (v!=null&&v!=='')? Number(v).toFixed(1) : '—';
+  const scaler = gp&&Object.keys(gp).length?gp:p80;
+  const rows = players.filter(p=>p.name&&p.name!=='—').map(p=>`
+    <tr>
+      <td class="left">${p.name}</td>
+      <td>${p.position||'—'}</td>
+      <td>${p.class_year||p.yr||'—'}</td>
+      ${statCols.map(c=>{
+        const v = p[c.key];
+        return `<td style="${statColor(v,c.key,scaler)}">${fmt(v)}</td>`;
+      }).join('')}
+      <td>${p.tdc_grade||'—'}</td>
+    </tr>`).join('');
+
+  return `
+    <div class="rotation-section" style="margin-top:24px;">
+      <div class="section-head">Team Stats — Sortable</div>
+      <div style="overflow-x:auto;">
+        <table class="sortable-table" id="statsTable">
+          <thead><tr>
+            <th class="left" onclick="sortTable('name',this)">Name</th>
+            <th onclick="sortTable('position',this)">Pos</th>
+            <th onclick="sortTable('class_year',this)">Yr</th>
+            ${statCols.map(c=>`<th onclick="sortTable('${c.key}',this)">${c.label}</th>`).join('')}
+            <th onclick="sortTable('tdc_grade',this)">Gr</th>
+          </tr></thead>
+          <tbody id="statsTableBody">${rows}</tbody>
+        </table>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px;">🟢 Green = top 80th percentile on this team</div>
+    </div>`;
+}
+
+function toggleStatColors(cb){
+  document.body.classList.toggle('no-color', !cb.checked);
+  localStorage.setItem('tdc_stat_colors', cb.checked ? '1' : '0');
+}
+(function(){
+  // Default OFF unless explicitly turned on
+  const saved = localStorage.getItem('tdc_stat_colors');
+  if(saved !== '1'){
+    document.body.classList.add('no-color');
+  }
+})();
+
+function yrOrder(yr){const y=(yr||'').toLowerCase();if(y.includes('gr.'))return 0;if(y.includes('sr.'))return 1;if(y.includes('jr.'))return 2;if(y.includes('so.'))return 3;return 4;}
+function posOrder(pos){const p=(pos||'').toUpperCase();if(p==='PG')return 0;if(p==='CG')return 1;if(p==='SG')return 2;if(p==='SF')return 3;if(p==='PF')return 4;if(p==='C')return 5;return 6;}
+
+function sortTable(key, th){
+  const tbody = document.getElementById('statsTableBody');
+  if(!tbody) return;
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  const asc = th.classList.contains('sorted') && !th.classList.contains('asc');
+  document.querySelectorAll('.sortable-table th').forEach(h=>{h.classList.remove('sorted','asc');});
+  th.classList.add('sorted');
+  if(asc) th.classList.add('asc');
+  const colIdx = Array.from(th.parentElement.children).indexOf(th);
+  rows.sort((a,b)=>{
+    const av = a.cells[colIdx]?.textContent.trim()||'';
+    const bv = b.cells[colIdx]?.textContent.trim()||'';
+    // Year column
+    if(key==='class_year'||key==='yr'){
+      const ao=yrOrder(av), bo=yrOrder(bv);
+      return asc ? ao-bo : bo-ao;
+    }
+    // Position column
+    if(key==='position'){
+      const ao=posOrder(av), bo=posOrder(bv);
+      return asc ? ao-bo : bo-ao;
+    }
+    const an = parseFloat(av), bn = parseFloat(bv);
+    if(!isNaN(an)&&!isNaN(bn)) return asc ? an-bn : bn-an;
+    return asc ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+  rows.forEach(r=>tbody.appendChild(r));
+}
+
+function renderLosses(losses, gp){
+  const fmt = v => (v!=null&&v!=='')? Number(v).toFixed(1) : '—';
+  const el = document.getElementById('lossesPanel');
+  if(!el) return;
+  if(!losses.length){ el.innerHTML='<div style="padding:20px;color:var(--text3);font-size:13px;">No significant losses listed.</div>'; return; }
+  el.innerHTML = `<div style="overflow-x:auto;"><table class="sortable-table">
+    <thead><tr>
+      <th class="left">Name</th>
+      <th class="left">Pos</th>
+      <th>Yr</th>
+      <th>Ht</th>
+      <th>GP</th>
+      <th>PPG</th><th>RPG</th><th>APG</th><th>MPG</th>
+      <th>FGM</th><th>FGA</th><th>FG%</th>
+      <th>3PM</th><th>3PA</th><th>3P%</th>
+      <th>FTM</th><th>FTA</th><th>FT%</th>
+      <th>OR</th><th>DR</th><th>STL</th><th>BLK</th><th>TO</th>
+    </tr></thead>
+    <tbody>${losses.map(l=>`<tr>
+      <td class="left">${l.name}</td>
+      <td class="left" style="color:var(--text3);font-size:11px;">${l.pos||'—'}</td>
+      <td>${l.yr||'—'}</td>
+      <td>${l.height||'—'}</td>
+      <td>${l.gp||'—'}</td>
+      ${['ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs'].map(k=>`
+        <td style="${statColor(l[k],k,gp)}">${fmt(l[k])}</td>`).join('')}
+    </tr>`).join('')}
+    </tbody>
+  </table></div>
+  <div style="font-size:11px;color:var(--text3);margin-top:8px;padding:0 4px;">Stats shown are from their last season. Colors reflect national percentile.</div>`;
+}
+
+function renderSidebar(t, players, losses, color){
+  // Grades
+  document.getElementById('gradeCardBody').innerHTML = [
+    {label:'Coach Grade',   val: t.coach_grade  || '—'},
+    {label:'Bench Depth',      val: t.depth_grade   || '—'},
+    {label:'Recruiting Class', val: t.recruit_grade || '—'},
+  ].map(g=>`
+    <div class="grade-row">
+      <span class="grade-row-label">${g.label}</span>
+      <span class="grade-row-val ${gc(g.val)}">${g.val}</span>
+    </div>`).join('');
+
+  // Additions — players marked is_addition in DB
+  const adds = players.filter(p => p.is_addition);
+  document.getElementById('additionsBody').innerHTML = adds.length
+    ? adds.map(a=>`
+      <div class="portal-item">
+        <span class="portal-pos">${a.position||''}</span>
+        <div style="flex:1;">
+          <div class="portal-name">${a.name}</div>
+          <div class="portal-from">${a.class_year||a.yr||''}${a.hometown ? ' · via '+a.hometown : ''}</div>
+        </div>
+      </div>`).join('')
+    : '<div class="empty-note">None listed</div>';
+
+  // Losses from losses table
+  document.getElementById('lossesBody').innerHTML = losses.length
+    ? `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;min-width:700px;">
+        <thead><tr style="border-bottom:2px solid var(--border2);">
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;text-align:left;">Pos</th>
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;text-align:left;">Name</th>
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">Yr</th>
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">Ht</th>
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">PPG</th>
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">RPG</th>
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">APG</th>
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">FG%</th>
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">3P%</th>
+          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">GP</th>
+        </tr></thead>
+        <tbody>${losses.map(l=>`
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:7px 8px;font-size:11px;font-weight:700;color:var(--text3);">${l.pos||'—'}</td>
+            <td style="padding:7px 8px;font-size:13px;font-weight:700;color:var(--text);">${l.name}</td>
+            <td style="padding:7px 8px;font-size:12px;color:var(--text3);text-align:center;">${l.yr||'—'}</td>
+            <td style="padding:7px 8px;font-size:12px;color:var(--text2);text-align:center;">${l.height||'—'}</td>
+            <td style="padding:7px 8px;font-size:12px;font-weight:700;color:var(--text2);text-align:right;">${l.ppg!=null?Number(l.ppg).toFixed(1):'—'}</td>
+            <td style="padding:7px 8px;font-size:12px;color:var(--text2);text-align:right;">${l.rpg!=null?Number(l.rpg).toFixed(1):'—'}</td>
+            <td style="padding:7px 8px;font-size:12px;color:var(--text2);text-align:right;">${l.apg!=null?Number(l.apg).toFixed(1):'—'}</td>
+            <td style="padding:7px 8px;font-size:12px;color:var(--text2);text-align:right;">${l.fg_pct!=null?Number(l.fg_pct).toFixed(1):'—'}</td>
+            <td style="padding:7px 8px;font-size:12px;color:var(--text2);text-align:right;">${l.tp_pct!=null?Number(l.tp_pct).toFixed(1):'—'}</td>
+            <td style="padding:7px 8px;font-size:12px;color:var(--text2);text-align:right;">${l.gp||'—'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>`
+    : '<div class="empty-note">None listed</div>';
+}
+
+function renderOutlook(t){
+  const text = t.outlook || '';
+  document.getElementById('outlookText').innerHTML =
+    text ? text.split('\n\n').map(p=>`<p>${p}</p>`).join('') :
+    '<p style="color:var(--text3);font-style:italic;">No outlook written yet.</p>';
+}
+
+// ── TEAM PROJECTION COHESION ENGINE ──────────────────────
+const TEAM_TOTAL_MINUTES = 200; // 5 players × 40 min
+
+// ── CANONICAL CONFERENCE SYSTEM (shared with player.html) ──
+// Tier matrix matches your spreadsheet exactly
+const PROJ_CONF_MULT={'SEC':1.00,'B10':1.00,'BIG-12':1.00,'ACC':1.00,'Big-East':0.95,'A10':0.90,'MWC':0.88,'WCC':0.87,'PAC-12':0.92,'AAC':0.85,'Ivy':0.82,'MAC':0.80,'CUSA':0.78,'WAC':0.78,'Big West':0.77,'MVC':0.78,'SBC':0.72,'CAA':0.74,'Horizon':0.74,'Sun Belt':0.74,'Big South':0.72,'SoCon':0.72,'ASUN':0.72,'MAAC':0.72,'OVC':0.72,'Summit':0.70,'Patriot':0.66,'Big Sky':0.68,'SWAC':0.60,'NEC':0.60,'MEAC':0.58,'AEC':0.56};
+
+const PROJ_CONF_TIERS={'B10':1,'SEC':1,'BIG-12':1,'ACC':1,'Big-East':2,'A10':2,'WCC':2,'PAC-12':2,'MWC':3,'AAC':3,'Ivy':3,'MVC':4,'WAC':4,'CUSA':4,'MAC':4,'Big West':4,'Big Sky':5,'CAA':5,'Horizon':5,'Sun Belt':5,'Big South':5,'SBC':5,'SoCon':6,'ASUN':6,'MAAC':6,'OVC':6,'Summit':6,'Patriot':7,'SWAC':7,'NEC':7,'MEAC':7,'AEC':7};
+
+// Translation matrix: rows=origin tier, cols=destination tier
+// Matches your spreadsheet values exactly
+const PROJ_TRANS_MAT={
+  1:{1:1.00,2:1.15,3:1.28,4:1.40,5:1.40,6:1.40,7:1.40},
+  2:{1:0.90,2:1.00,3:1.15,4:1.20,5:1.20,6:1.20,7:1.20},
+  3:{1:0.75,2:0.90,3:1.00,4:1.05,5:1.10,6:1.10,7:1.10},
+  4:{1:0.49,2:0.68,3:0.82,4:1.00,5:1.05,6:1.05,7:1.05},
+  5:{1:0.43,2:0.49,3:0.69,4:0.82,5:1.00,6:1.00,7:1.00},
+  6:{1:0.40,2:0.42,3:0.50,4:0.69,5:0.82,6:1.00,7:1.00},
+  7:{1:0.30,2:0.34,3:0.42,4:0.48,5:0.69,6:0.82,7:1.00},
+};
+// ACC special case — higher variance moving down
+
+const PROJ_ACC_OUT={1:1.00,2:1.10,3:1.25,4:1.40,5:1.40,6:1.40,7:1.40};
+
+// Full D1 school → conference map (all ~360 programs)
+const PROJ_SCHOOL_CONF=(function(){
+  const m={};
+  const data=[
+    // ── TIER 1 ──
+    [['Alabama','Arkansas','Auburn','Florida','Georgia','Kentucky','LSU','Mississippi State','Missouri','Ole Miss','South Carolina','Tennessee','Texas','Texas A&M','Vanderbilt','Oklahoma'],'SEC'],
+    [['Illinois','Indiana','Iowa','Maryland','Michigan','Michigan State','Minnesota','Nebraska','Northwestern','Ohio State','Penn State','Purdue','Rutgers','Wisconsin','UCLA','USC','Oregon','Washington','UCLA'],'B10'],
+    [['Arizona','Arizona State','Baylor','BYU','Cincinnati','Colorado','Houston','Iowa State','Kansas','Kansas State','Oklahoma State','TCU','Texas Tech','UCF','Utah','West Virginia'],'BIG-12'],
+    [['Boston College','Clemson','Duke','Florida State','Georgia Tech','Louisville','Miami','NC State','North Carolina','Notre Dame','Pittsburgh','Syracuse','Virginia','Virginia Tech','Wake Forest','California','SMU','Stanford'],'ACC'],
+    // ── TIER 2 ──
+    [['Butler','Connecticut','Creighton','DePaul','Georgetown','Marquette','Providence','Seton Hall',"St. John's",'Villanova','Xavier'],'Big-East'],
+    [['Dayton','Davidson','Duquesne','Fordham','George Mason','George Washington','La Salle','Loyola Chicago','Rhode Island','Richmond',"Saint Joseph's",'Saint Louis','St. Bonaventure','VCU','Massachusetts','Saint Louis','Fordham'],'A10'],
+    [['Gonzaga','BYU','Pacific','Pepperdine','Portland','Saint Mary\'s','San Diego','San Francisco','Santa Clara','Loyola Marymount'],'WCC'],
+    [['Oregon State','Washington State','San Diego State','Colorado State','Boise State','Utah State','Nevada','New Mexico','Fresno State','Air Force','Wyoming','UNLV','San Jose State','Hawaii'],'PAC-12'],
+    // ── TIER 3 ──
+    [['Charlotte','East Carolina','Florida Atlantic','Memphis','North Texas','Rice','South Florida','Temple','Tulane','Tulsa','UAB','UTSA','Wichita State'],'AAC'],
+    [['Colorado State','San Diego State','Boise State','Utah State','Nevada','New Mexico','Fresno State','Air Force','Wyoming','UNLV','San Jose State','Hawaii'],'MWC'],
+    [['Harvard','Yale','Princeton','Columbia','Cornell','Dartmouth','Brown','Pennsylvania'],'Ivy'],
+    // ── TIER 4 ──
+    [['Bradley','Drake','Evansville','Illinois State','Indiana State','Missouri State','Northern Iowa','Southern Illinois','Valparaiso','Belmont','Murray State'],'MVC'],
+    [['Grand Canyon','Seattle U','Utah Valley','New Mexico State','Tarleton State','UT Rio Grande Valley','Cal Baptist','Chicago State','UMKC','UTRGV'],'WAC'],
+    [['Florida Atlantic','FIU','UTSA','Middle Tennessee','Old Dominion','Marshall','Western Kentucky','Charlotte','Louisiana Tech','UAB','Rice','North Texas'],'CUSA'],
+    [['Akron','Ball State','Bowling Green','Buffalo','Central Michigan','Eastern Michigan','Kent State','Miami (OH)','Northern Illinois','Ohio','Toledo','Western Michigan'],'MAC'],
+    [['UC Davis','UC Irvine','UC Riverside','UC Santa Barbara','UC San Diego','Cal Poly','Long Beach State','Pacific','Cal State Fullerton','Cal State Northridge','Hawaii'],'Big West'],
+    // ── TIER 5 ──
+    [['Montana','Montana State','Weber State','Idaho','Idaho State','Eastern Washington','Northern Arizona','Northern Colorado','Southern Utah','Portland State','Sacramento State','North Dakota','South Dakota','North Dakota State','South Dakota State'],'Big Sky'],
+    [['Hofstra','Charleston','Delaware','Elon','James Madison','Northeastern','Towson','UNC Wilmington','William & Mary','Drexel','Campbell','Stony Brook'],'CAA'],
+    [['Detroit Mercy','Green Bay','Horizon','IUPUI','IU Indianapolis','Milwaukee','Northern Kentucky','Oakland','Purdue Fort Wayne','Robert Morris','Wright State','Youngstown State','Cleveland State'],'Horizon'],
+    [['Appalachian State','Arkansas State','Coastal Carolina','Georgia Southern','Georgia State','Louisiana','Louisiana Monroe','Old Dominion','South Alabama','Southern Miss','Texas State','Troy'],'Sun Belt'],
+    [['Winthrop','Campbell','Charleston Southern','Gardner-Webb','High Point','Longwood','Presbyterian','Radford','UNC Asheville','USC Upstate'],'Big South'],
+    [['Arkansas State','Louisiana','Louisiana Monroe','South Alabama','Georgia State','Georgia Southern','Appalachian State','Coastal Carolina','Texas State','Troy'],'SBC'],
+    // ── TIER 6 ──
+    [['Samford','Furman','Chattanooga','ETSU','Mercer','VMI','Western Carolina','Wofford','The Citadel'],'SoCon'],
+    [['Liberty','Belmont','Lipscomb','FGCU','North Alabama','Jacksonville','Stetson','Austin Peay','Eastern Kentucky','Morehead State','Murray State','Kennesaw State'],'ASUN'],
+    [['Iona','Manhattan','Marist','Niagara','Quinnipiac','Rider',"Saint Peter's",'Siena','Canisius','Fairfield','Mount St. Mary\'s'],'MAAC'],
+    [['UT Martin','Tennessee State','Tennessee Tech','Eastern Illinois','Lindenwood','SE Missouri State','SIU Edwardsville','Jacksonville State','Central Arkansas','Bellarmine'],'OVC'],
+    [['Oral Roberts','North Dakota State','South Dakota State','Western Illinois','Denver','Omaha','Kansas City','St. Thomas'],'Summit'],
+    // ── TIER 7 ──
+    [['Colgate','Bucknell','Lafayette','Lehigh','Army','Navy','Holy Cross','American','Loyola Maryland','Boston University','Fordham'],'Patriot'],
+    [['Grambling','Jackson State','Alabama A&M','Alabama State','Alcorn State','Arkansas Pine Bluff','Bethune-Cookman','Coppin State','Delaware State','Florida A&M','Howard','Maryland Eastern Shore','Mississippi Valley State','Morgan State','Norfolk State','North Carolina A&T','North Carolina Central','Prairie View','Savannah State','South Carolina State','Southern','Texas Southern'],'SWAC'],
+    [['Bryant','Central Connecticut','LIU','Merrimack','Sacred Heart','Fairleigh Dickinson','Mount St. Mary\'s','CCSU','Long Island','Saint Francis','Wagner','FDU'],'NEC'],
+    [['Maine','New Hampshire','UMass Lowell','Albany','Binghamton','Hartford','UMBC','Vermont','Stony Brook','New Jersey Tech'],'AEC'],
+    [['Kennesaw State','USC Upstate','North Florida','Northern Kentucky','Queens','Eastern Kentucky','Lindenwood','SIU Edwardsville','Little Rock'],'MEAC'],
+  ];
+  data.forEach(([schools,conf])=>schools.forEach(s=>{ m[s.toLowerCase()]=conf; }));
+  return m;
+})();
+
+function getSchoolConfFallback(school){ return getProjSchoolConf(school); }
+
+function getProjSchoolConf(school){
+  if(!school) return null;
+  const lo=school.toLowerCase().trim();
+  if(PROJ_SCHOOL_CONF[lo]) return PROJ_SCHOOL_CONF[lo];
+  // Fuzzy match
+  for(const k of Object.keys(PROJ_SCHOOL_CONF)){
+    if(lo.includes(k)||k.includes(lo)) return PROJ_SCHOOL_CONF[k];
+  }
+  return null;
+}
+
+function getProjTransFactor(originConf, destConf, grade){
+  if(!originConf||!destConf||originConf===destConf) return 1.0;
+  const ot=PROJ_CONF_TIERS[originConf]||4, dt=PROJ_CONF_TIERS[destConf]||4;
+  if(ot===dt) return 1.0;
+  // ACC special case going down conferences
+  const base=originConf==='ACC'?PROJ_ACC_OUT[dt]||1.0:(PROJ_TRANS_MAT[ot]||{})[dt]||1.0;
+  const g=parseFloat(grade)||70;
+  // Grade boost: elite players translate better going up in conference
+  // Grade penalty: lower-grade players struggle MORE going up
+  const boost=g>=90?1.22:g>=85?1.14:g>=80?1.07:g>=75?1.02:g>=70?0.97:g>=65?0.91:0.85;
+  return Math.max(0.20,Math.min(1.6,base*boost));
+}
+
+const PROJ_POS_BASE = {'PG':{ppg:10.5,rpg:3.2,apg:4.1,mpg:26,fg_pct:42,tp_pct:36,ft_pct:75,stl:1.2,blk:0.2,fgm:3.4,fga:8.2,tpm:1.8,tpa:5.0,ftm:1.8,fta:2.4,oreb:0.5,dreb:2.7,tovs:2.1},'SG':{ppg:11.2,rpg:3.8,apg:2.2,mpg:26,fg_pct:42,tp_pct:37,ft_pct:76,stl:1.0,blk:0.3,fgm:3.8,fga:9.0,tpm:1.9,tpa:5.2,ftm:1.6,fta:2.1,oreb:0.7,dreb:3.1,tovs:1.8},'CG':{ppg:10.8,rpg:3.5,apg:3.0,mpg:26,fg_pct:42,tp_pct:36,ft_pct:75,stl:1.1,blk:0.2,fgm:3.6,fga:8.6,tpm:1.8,tpa:5.0,ftm:1.6,fta:2.2,oreb:0.6,dreb:2.9,tovs:1.9},'SF':{ppg:10.8,rpg:5.2,apg:1.8,mpg:26,fg_pct:43,tp_pct:37,ft_pct:72,stl:0.9,blk:0.5,fgm:3.6,fga:8.4,tpm:1.4,tpa:3.8,ftm:1.8,fta:2.5,oreb:1.4,dreb:3.8,tovs:1.8},'PF':{ppg:10.2,rpg:6.8,apg:1.2,mpg:24,fg_pct:45,tp_pct:33,ft_pct:69,stl:0.6,blk:1.1,fgm:3.5,fga:7.8,tpm:0.6,tpa:1.8,ftm:2.0,fta:2.9,oreb:2.4,dreb:4.4,tovs:1.7},'C':{ppg:9.8,rpg:7.4,apg:0.9,mpg:22,fg_pct:49,tp_pct:30,ft_pct:66,stl:0.4,blk:1.6,fgm:3.5,fga:7.2,tpm:0.2,tpa:0.5,ftm:2.1,fta:3.2,oreb:2.8,dreb:4.6,tovs:1.8},'G':{ppg:10.0,rpg:3.5,apg:3.0,mpg:25,fg_pct:42,tp_pct:35,ft_pct:74,stl:1.1,blk:0.2,fgm:3.5,fga:8.4,tpm:1.7,tpa:4.8,ftm:1.7,fta:2.3,oreb:0.6,dreb:2.8,tovs:2.0},'F':{ppg:10.5,rpg:6.0,apg:1.5,mpg:25,fg_pct:44,tp_pct:35,ft_pct:70,stl:0.7,blk:0.8,fgm:3.6,fga:8.1,tpm:1.0,tpa:2.8,ftm:1.9,fta:2.7,oreb:1.9,dreb:4.1,tovs:1.7}};
+
+// ══════════════════════════════════════════════════════════
+// PROJECTION ENGINE v3
+// Drivers (in priority order):
+//  1. Depth-chart slot → projected MPG (primary driver)
+//  2. Per-minute rates from last season scaled to new minutes
+//  3. Grade vs stats gap → partial upward pull if grade >> stats
+//  4. Year progression (So > Jr progression curves)
+//  5. Transfer conference translation
+//  6. Team usage compression (can't have 5 players all at 20 FGA)
+//  7. Efficiency regression (more shots at higher volume = slight % drop)
+// ══════════════════════════════════════════════════════════
+
+// ── MINUTES MODEL v2 ─────────────────────────────────────
+// Now position-aware: slot = rank within a position group
+// Rotation depth is inferred from team quality and roster size
+// Returns target MPG
+function getTargetMpg(posSlot, globalSlot, rosterSize, teamGradeAvg, slotGrade, gradeDiff){
+  // Position slot 1 = starter at that position, 2 = first backup, etc.
+  // Global slot is the overall roster depth rank
+
+  // Starters: 27-34 MPG range
+  // First backup: 15-22 MPG
+  // Second backup: 8-14 MPG
+  // Deep bench: 3-8 MPG
+
+  // Base from position slot
+  let base;
+  if(posSlot===1){
+    // Starters — scale 27-34 by grade relative to team avg
+    const gradeNorm=Math.max(-1,Math.min(1,(slotGrade-teamGradeAvg)/15));
+    base=30.5+gradeNorm*3.5; // 27-34 range
+  } else if(posSlot===2){
+    // First backup: 13-22 MPG
+    const gradeNorm=Math.max(-1,Math.min(1,(slotGrade-teamGradeAvg)/15));
+    base=17.5+gradeNorm*4.5; // 13-22
+    // If close to starter in grade, gets more time
+    if(gradeDiff<=4) base=Math.min(base+4,22);
+    else if(gradeDiff<=8) base=Math.min(base+2,22);
+  } else if(posSlot===3){
+    base=10+Math.max(0,(slotGrade-65)/5);
+    base=Math.max(6,Math.min(14,base));
+  } else {
+    base=Math.max(2,8-(posSlot-3)*2);
+  }
+
+  // Rotation depth: teams with thin rosters play starters more
+  // rosterSize ≤8 = short bench, starters need more minutes
+  if(posSlot===1){
+    if(rosterSize<=7) base=Math.min(38,base+2.5);
+    else if(rosterSize<=8) base=Math.min(38,base+1.5);
+    else if(rosterSize>=11) base=Math.max(26,base-1.5);
+    else if(rosterSize>=13) base=Math.max(24,base-3);
+  }
+
+  return Math.max(1,Math.min(38,base));
+}
+
+// Determine how many players a team realistically plays (7-12 rotation)
+// Based on quality drop-off down the roster
+function inferRotationDepth(sorted){
+  const n=sorted.length;
+  if(n<=7) return n;
+  // Find the first significant grade cliff
+  let cutoff=n;
+  for(let i=2;i<n-1;i++){
+    const g1=parseFloat(sorted[i-1].tdc_grade)||70;
+    const g2=parseFloat(sorted[i].tdc_grade)||70;
+    const g3=parseFloat(sorted[i+1].tdc_grade)||70;
+    // Hard cliff: >8 pt drop AND next player is also lower
+    if((g1-g2)>=9&&g2<=68){cutoff=i;break;}
+    // Soft cliff: grade drops below 63 — end of useful rotation
+    if(g2<63&&i>=6){cutoff=i;break;}
+  }
+  return Math.max(7,Math.min(12,cutoff));
+}
+
+// ── FR_BASE — grade-tiered baseline stats per position ──────
+
+const FR_BASE = {
+  '92+':{
+    PG:{ppg:17.5,rpg:3.5,apg:4.5,fg_pct:45.5,tp_pct:37.5,ft_pct:80.5,stl:1.3,blk:0.3,oreb:0.6,dreb:2.9,tovs:2.25},
+    SG:{ppg:16.0,rpg:4.0,apg:2.25,fg_pct:43.5,tp_pct:38.5,ft_pct:74.5,stl:1.1,blk:0.4,oreb:0.8,dreb:3.2,tovs:1.5},
+    SF:{ppg:18.5,rpg:5.0,apg:1.75,fg_pct:46.5,tp_pct:36.0,ft_pct:76.0,stl:1.0,blk:0.6,oreb:1.3,dreb:3.7,tovs:1.8},
+    PF:{ppg:16.0,rpg:6.5,apg:1.8,fg_pct:50.0,tp_pct:31.0,ft_pct:74.0,stl:0.7,blk:1.2,oreb:2.2,dreb:4.3,tovs:1.75},
+    C: {ppg:14.0,rpg:9.0,apg:1.05,fg_pct:56.0,tp_pct:22.0,ft_pct:70.5,stl:0.5,blk:1.9,oreb:2.7,dreb:6.3,tovs:1.75},
+  },
+  '85-91':{
+    PG:{ppg:13.0,rpg:2.0,apg:3.1,fg_pct:44.5,tp_pct:34.0,ft_pct:80.5,stl:1.1,blk:0.2,oreb:0.4,dreb:1.6,tovs:2.35},
+    SG:{ppg:12.75,rpg:2.6,apg:1.65,fg_pct:42.25,tp_pct:35.5,ft_pct:74.5,stl:0.9,blk:0.3,oreb:0.6,dreb:2.0,tovs:1.65},
+    SF:{ppg:13.5,rpg:3.5,apg:1.15,fg_pct:44.5,tp_pct:34.5,ft_pct:76.0,stl:0.8,blk:0.5,oreb:1.0,dreb:2.5,tovs:1.8},
+    PF:{ppg:12.5,rpg:5.25,apg:1.15,fg_pct:47.5,tp_pct:29.5,ft_pct:74.0,stl:0.5,blk:0.9,oreb:1.7,dreb:3.5,tovs:1.75},
+    C: {ppg:11.0,rpg:6.75,apg:0.7,fg_pct:52.0,tp_pct:19.5,ft_pct:70.5,stl:0.4,blk:1.5,oreb:2.1,dreb:4.6,tovs:1.75},
+  },
+  '75-84':{
+    PG:{ppg:7.5,rpg:1.5,apg:2.05,fg_pct:43.5,tp_pct:34.0,ft_pct:80.5,stl:0.9,blk:0.2,oreb:0.3,dreb:1.2,tovs:1.75},
+    SG:{ppg:7.5,rpg:2.2,apg:1.25,fg_pct:42.0,tp_pct:35.5,ft_pct:74.5,stl:0.7,blk:0.2,oreb:0.5,dreb:1.7,tovs:1.25},
+    SF:{ppg:7.6,rpg:2.65,apg:0.9,fg_pct:43.5,tp_pct:34.5,ft_pct:76.0,stl:0.6,blk:0.4,oreb:0.8,dreb:1.85,tovs:1.25},
+    PF:{ppg:6.65,rpg:3.25,apg:0.75,fg_pct:47.0,tp_pct:29.5,ft_pct:74.0,stl:0.4,blk:0.7,oreb:1.3,dreb:2.35,tovs:1.35},
+    C: {ppg:6.6,rpg:4.75,apg:0.55,fg_pct:51.0,tp_pct:19.5,ft_pct:70.5,stl:0.3,blk:1.1,oreb:1.6,dreb:3.1,tovs:1.3},
+  },
+  'below75':{
+    PG:{ppg:4.0,rpg:1.0,apg:1.3,fg_pct:42.0,tp_pct:32.0,ft_pct:78.0,stl:0.6,blk:0.1,oreb:0.2,dreb:0.8,tovs:1.4},
+    SG:{ppg:4.0,rpg:1.2,apg:0.8,fg_pct:40.0,tp_pct:33.0,ft_pct:72.0,stl:0.5,blk:0.1,oreb:0.3,dreb:1.0,tovs:1.0},
+    SF:{ppg:4.5,rpg:1.8,apg:0.6,fg_pct:41.0,tp_pct:32.0,ft_pct:72.0,stl:0.4,blk:0.2,oreb:0.5,dreb:1.3,tovs:1.0},
+    PF:{ppg:3.5,rpg:2.5,apg:0.5,fg_pct:44.0,tp_pct:26.0,ft_pct:68.0,stl:0.3,blk:0.5,oreb:0.9,dreb:1.6,tovs:1.0},
+    C: {ppg:3.5,rpg:3.0,apg:0.4,fg_pct:48.0,tp_pct:15.0,ft_pct:64.0,stl:0.2,blk:0.7,oreb:1.0,dreb:2.0,tovs:1.0},
+  },
+};
+
+// ── POSITION FIT ENGINE ──────────────────────────────────────────────────────
+// Determines if a player is deployed at their primary or secondary position.
+// If a player has position2 and their primary slot is already occupied by someone
+// with a lower depth_order, but the secondary slot is open → deployed at secondary.
+function getDeployedPos(p, roster) {
+  const pos1 = (p.position  || 'G').replace(/\d/g,'').trim();
+  const pos2 = (p.position2 || '').replace(/\d/g,'').trim();
+  if (!pos2 || !['PG','SG','SF','PF','C'].includes(pos2)) return pos1;
+
+  const dOrder = p.depth_order || 99;
+
+  // How many players share pos1 AND rank higher in depth order?
+  const pos1Ahead = roster.filter(r =>
+    r.name && r.name !== '—' && r.name !== p.name &&
+    (r.position||'G').replace(/\d/g,'').trim() === pos1 &&
+    (r.depth_order||99) < dOrder
+  ).length;
+
+  // How many players have pos2 as their PRIMARY and rank higher?
+  const pos2Ahead = roster.filter(r =>
+    r.name && r.name !== '—' && r.name !== p.name &&
+    (r.position||'G').replace(/\d/g,'').trim() === pos2 &&
+    (r.depth_order||99) < dOrder
+  ).length;
+
+  // Deployed at secondary if primary slot is occupied AND secondary is open ahead of them
+  return (pos1Ahead >= 1 && pos2Ahead === 0) ? pos2 : pos1;
+}
+
+function buildTeamProjections(players, conf){
+  const roster = players
+    .filter(p => p.name && p.name !== '—')
+    .sort((a,b) => (a.depth_order||99)-(b.depth_order||99));
+
+  // Injured players: zero stats, excluded from minute distribution
+  const injuredDnp = roster
+    .filter(p => p.is_injured)
+    .map(p => ({...p, ppg:0, rpg:0, apg:0, mpg:0, fgm:0, fga:0, tpm:0, tpa:0,
+      ftm:0, fta:0, oreb:0, dreb:0, stl:0, blk:0, tovs:0, _dnp:true, _injured:true}));
+
+  if(!roster.length) return [];
+
+  const r1 = v => v!=null ? Math.round((v+Number.EPSILON)*10)/10 : null;
+  const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi, v));
+
+  const projected = roster.map(p => {
+    const yr     = (p.yr||p.class_year||'').toLowerCase();
+    const isFr   = yr.includes('fr.')||yr.includes('r-fr');
+    const isSo   = yr.includes('so.')||yr.includes('r-so.');
+    const isJr   = yr.includes('jr.')||yr.includes('r-jr.');
+    const isSr   = yr.includes('sr.')||yr.includes('r-sr')||yr.includes('gr.');
+    const grade  = parseFloat(p.tdc_grade)||70;
+    const pos    = (p.position||'G').replace(/\d/g,'').trim();
+    const posNorm= ['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':'G';
+    const isBig  = pos==='C'||pos==='PF';
+    const isGuard= pos==='PG'||pos==='SG'||pos==='CG';
+
+    const deployedPos = getDeployedPos(p, roster);
+    const isOutOfPos  = !!(p.position2 && deployedPos !== pos);
+    const posFitMult  = p.position2 ? (isOutOfPos ? 0.97 : 1.02) : 1.0;
+
+    const key    = (p.name||'').toLowerCase().trim();
+    const history= (window._careerHistoryMap&&window._careerHistoryMap[key])||[];
+
+    const played = history
+      .filter(h => !h.sat_out && parseFloat(h.ppg||0)>0 && parseFloat(h.mpg||0)>=6)
+      .sort((a,b) => b.season_year - a.season_year);
+
+    const meaningful = played.filter(h => parseFloat(h.mpg||0)>=12);
+    const latestH    = played[0]||null;
+
+    // Minutes driven by grade + depth order + dynamic team normalization.
+    // No anchoring to actual previous MPG — a transfer C who played 22 MPG due to
+    // foul trouble can project for more; a PG at 35 MPG can project for less
+    // if the team added competition. Let the roster context decide.
+    const newMpg    = computePlayerMpg(p, roster);
+    const actualMpg = parseFloat(p.mpg||0)||0;
+
+    const hasCareerStats  = latestH && parseFloat(latestH.ppg||0)>0;
+    const hasCurrentStats = parseFloat(p.ppg||0)>0;
+
+    if(!hasCareerStats && !hasCurrentStats){
+      const fb   = getFrBase(grade, posNorm);
+      const effMpg = newMpg < 12 ? Math.min(13, newMpg*1.35) : newMpg;
+      const scale  = effMpg/FR_BASE_MPG;
+      // FGA rate: slightly higher for good recruits — they get real looks from day 1
+      const fgaRate = grade>=87 ? 0.34 : grade>=78 ? 0.30 : 0.26;
+      const fga     = r1(newMpg*fgaRate);
+      const fgm_fr  = r1(fga*(fb.fg_pct/100));
+      const tpm_fr  = r1(fga*0.42*(fb.tp_pct/100));
+      const fta_fr  = r1(newMpg*0.10);
+      const ftm_fr  = r1(fta_fr*(fb.ft_pct/100));
+      // PPG derived from components — consistent with rest of model
+      const ppg_fr  = r1(fgm_fr*2 + tpm_fr + ftm_fr);
+      return {...p,
+        ppg: ppg_fr, rpg: r1((fb.oreb+fb.dreb)*scale), apg: r1(fb.apg*scale),
+        mpg: r1(newMpg),
+        fgm: fgm_fr, fga, fg_pct: fb.fg_pct,
+        tpm: tpm_fr, tpa: r1(fga*0.42), tp_pct: fb.tp_pct,
+        fta: fta_fr, ftm: ftm_fr, ft_pct: fb.ft_pct,
+        oreb: r1(fb.oreb*scale), dreb: r1(fb.dreb*scale),
+        stl: r1(fb.stl*scale), blk: r1(fb.blk*scale), tovs: r1(fb.tovs*scale),
+        _frosh:true, _noStatEst:true, _deployedPos:deployedPos, _posFit:posFitMult,
+      };
+    }
+
+    const base    = hasCareerStats ? latestH : p;
+    const baseMpg = Math.max(1, parseFloat(base.mpg||0)||1);
+    const g = k => parseFloat(base[k]||0)||0;
+
+    const orebBase = g('oreb');
+    const drebBase = g('dreb');
+    const rpgBase  = (orebBase+drebBase) > 0 ? orebBase+drebBase : g('rpg');
+
+    const pm = {
+      ppg:  g('ppg')/baseMpg,  rpg:  rpgBase/baseMpg,   apg:  g('apg')/baseMpg,
+      fgm:  g('fgm')/baseMpg,  fga:  g('fga')/baseMpg,
+      tpm:  g('tpm')/baseMpg,  tpa:  g('tpa')/baseMpg,
+      ftm:  g('ftm')/baseMpg,  fta:  g('fta')/baseMpg,
+      oreb: orebBase/baseMpg,  dreb: drebBase/baseMpg,
+      stl:  g('stl')/baseMpg,  blk:  g('blk')/baseMpg,  tovs: g('tovs')/baseMpg,
+    };
+
+    let trendMult = 1.0;
+    if(meaningful.length >= 2){
+      const n=meaningful[0], p2=meaningful[1];
+      const nPm=parseFloat(n.ppg||0)/Math.max(1,parseFloat(n.mpg||1));
+      const pPm=parseFloat(p2.ppg||0)/Math.max(1,parseFloat(p2.mpg||1));
+      if(pPm>0){
+        const rt=nPm/pPm;
+        const mpgGrowth=parseFloat(n.mpg||0)/Math.max(1,parseFloat(p2.mpg||0));
+        const isBreakout=rt>=1.40&&mpgGrowth>=1.20;
+        const cap=isBreakout?0.15:0.10;
+        trendMult=1.0+Math.max(-cap,Math.min(cap,(rt-1)*0.35));
+      }
+    } else if(meaningful.length===1&&played.length>=2){
+      const n=meaningful[0],p2=played.find(h=>h!==n);
+      if(p2){
+        const nPm=parseFloat(n.ppg||0)/Math.max(1,parseFloat(n.mpg||1));
+        const pPm=parseFloat(p2.ppg||0)/Math.max(1,parseFloat(p2.mpg||1));
+        if(pPm>0&&nPm/pPm>=1.5) trendMult=1.06;
+      }
+    }
+    // Cap trend for upperclassmen — seniors don't suddenly spike, jrs get moderate ceiling
+    if(isSr) trendMult = Math.min(1.05, trendMult);
+    else if(isJr) trendMult = Math.min(1.08, trendMult);
+
+    const isTransferIn = !!(p.hometown && p.hometown.trim());
+    const isReturnee   = !isTransferIn;
+    // Year progression is grade-sensitive for seniors:
+    // Elite Sr (87+): still developing ceiling, e.g. projected NBA picks → modest bump
+    // Good Sr (80-86): minimal progression — mostly established
+    // Role Sr (<80): plateaued — project at per-minute rate only
+    const srYr       = grade>=87 ? 1.02 : grade>=80 ? 1.01 : 1.0;
+    const srReturn   = isReturnee ? (grade>=85 ? 1.01 : 1.0) : 1.0;
+    const returnBoost  = isReturnee ? (isSr ? srReturn : isJr?1.02 : isSo?1.04 : 1.02) : 1.0;
+    const transferTrim = isTransferIn ? 0.96 : 1.0;
+    const yrMult = (isSo?1.06 : isJr?1.03 : isSr?srYr : 1.04) * returnBoost * transferTrim;
+
+    const gradeExpPpg = grade>=90?19:grade>=85?16:grade>=80?13:grade>=75?10:grade>=70?8:6;
+    const statsPer32  = pm.ppg*32;
+    const gapRatio    = gradeExpPpg>0 ? statsPer32/gradeExpPpg : 1;
+    // Raw gap: how far player is from their grade expectation
+    const gapMultRaw  = gapRatio<0.50?1.14:gapRatio<0.65?1.09:gapRatio<0.80?1.05
+                      : gapRatio<0.95?1.02:gapRatio>1.40?0.96:gapRatio>1.20?0.98:1.0;
+    // Upperclassmen have found their level — don't push them toward a grade ceiling they may never hit
+    // Fr/So: full gap adjustment (still developing)
+    // Jr: 40% of adjustment (mostly established)
+    // Sr/Gr: 15% of adjustment (this IS their level)
+    const gapMult = isSr ? 1.0+(gapMultRaw-1)*0.15
+                  : isJr ? 1.0+(gapMultRaw-1)*0.40
+                  : gapMultRaw;
+
+    const rateGrowth = yrMult * gapMult * trendMult;
+
+    let transferFactor = 1.0;
+    if(p.hometown && p.hometown.trim()){
+      const originConf = getProjSchoolConf(p.hometown)||getSchoolConfFallback(p.hometown);
+      if(originConf && conf) transferFactor = getProjTransFactor(originConf, conf, grade);
+    }
+
+    // Percentage adjustment from conference difficulty
+    const transPctAdj = transferFactor<0.75?-3.5:transferFactor<0.85?-2.5
+                      : transferFactor<0.92?-1.5:transferFactor<0.97?-0.8
+                      : transferFactor>1.20?+1.2:transferFactor>1.10?+0.8
+                      : transferFactor>1.04?+0.4:0;
+
+    // RPG conference adjustment: stronger competition = fewer easy boards
+    const rpgConfAdj = isTransferIn ? (
+      isBig  ? (transferFactor<0.80?-1.2:transferFactor<0.90?-0.7:transferFactor<0.96?-0.3:transferFactor>1.15?+0.6:0)
+             : (transferFactor<0.80?-0.5:transferFactor<0.90?-0.2:transferFactor>1.15?+0.3:0)
+    ) : 0;
+
+    // APG conference adjustment: tighter defense = fewer assist opportunities
+    const apgConfAdj = isTransferIn ? (
+      isGuard ? (transferFactor<0.80?-1.0:transferFactor<0.90?-0.5:transferFactor<0.96?-0.2:transferFactor>1.15?+0.5:0)
+              : (transferFactor<0.80?-0.4:transferFactor<0.90?-0.2:transferFactor>1.15?+0.2:0)
+    ) : 0;
+
+    // FG%: career-smoothed (55% last season, 45% career avg) then conference-adjusted
+    const fgBase      = parseFloat(base.fg_pct||0)||44;
+    const careerFgPct = meaningful.length>=2
+      ? meaningful.reduce((s,h)=>s+parseFloat(h.fg_pct||0),0)/meaningful.length : fgBase;
+    const fgSmoothed  = fgBase*0.55 + careerFgPct*0.45;
+
+    const tpBase = meaningful.length
+      ? meaningful.reduce((s,h)=>s+parseFloat(h.tp_pct||0),0)/meaningful.length
+      : (parseFloat(base.tp_pct||0)||parseFloat(p.tp_pct||0)||33);
+
+    const ftBase      = parseFloat(base.ft_pct||0)||70;
+    const careerFtPct = meaningful.length>=2
+      ? meaningful.reduce((s,h)=>s+parseFloat(h.ft_pct||0),0)/meaningful.length : ftBase;
+    const ftSmoothed  = ftBase*0.65 + careerFtPct*0.35;
+
+    const oldFga     = parseFloat(base.fga||0)||1;
+    const newFgaE    = oldFga*(newMpg/baseMpg);
+    const volChange  = (baseMpg>=12) ? (newFgaE/oldFga-1) : 0;
+    const volPenalty = volChange*3.5;
+    const yearEff    = isSo?1.2:isJr?0.6:isSr?0.0:1.8;
+
+    // Role-reduction efficiency boost: returning players in reduced shot volume
+    // take only their best shots → FG% rises. High-assist PGs also benefit
+    // from playing within a system (they create easier looks for themselves too).
+    // Not for transfers stepping up — they're still adjusting.
+    const roleVolDrop = (isReturnee && baseMpg >= 15 && volChange < -0.12);
+    const roleEffBoost = roleVolDrop ? Math.min(2.5, Math.abs(volChange) * 12) : 0;
+    const pgSystemBoost = (pos==='PG' && parseFloat(p.apg||0)>=4 && isReturnee && !isTransferIn && !isFr)
+      ? 1.0 : 0;
+
+    const fgProj = r1(clamp(fgSmoothed + yearEff - volPenalty + transPctAdj + roleEffBoost + pgSystemBoost, 30, 65));
+
+    const careerTpa  = meaningful.length
+      ? meaningful.reduce((s,h)=>s+parseFloat(h.tpa||0),0)/meaningful.length
+      : parseFloat(base.tpa||0);
+    const is3Shooter = careerTpa >= 0.5;
+    const tpProj = is3Shooter
+      ? r1(clamp(tpBase+(isSo?0.8:isJr?0.4:isSr?0:1.5)-(volChange*2)+transPctAdj*0.6, 20, 50))
+      : tpBase;
+    const ftProj = r1(clamp(ftSmoothed+(isSo?1.0:isJr?0.5:isSr?0:1.5), 45, 97));
+
+    // Shot volume scales with minutes only — rateGrowth should not inflate attempts/min.
+    // Year progression means better efficiency on the same shots, not more shots per minute.
+    const newFga = r1(pm.fga*newMpg);
+    const newTpa = r1(pm.tpa*newMpg);
+
+    const pf     = posFitMult;
+    // Derive all stats from components so PPG is always consistent with FGA.
+    // Year progression shows through efficiency (fgProj) not shot-volume inflation.
+    const fgm_v  = r1(newFga*(fgProj/100)*pf);
+    const tpm_v  = r1(newTpa*(tpProj/100)*pf);
+    const fta_v  = r1(pm.fta*newMpg*pf);
+    const ftm_v  = r1(fta_v*(ftProj/100));
+    // PPG from components: 2×FGM + bonus point per 3PM + FTM
+    const ppg_comp = fgm_v*2 + tpm_v + ftm_v;
+    // PPG floor: per-minute scoring rate × new minutes × rateGrowth.
+    // Catches cases where player_history FTA is incomplete (under-projects free throws).
+    const ppg_floor = pm.ppg * rateGrowth * newMpg * pf * 0.88;
+
+    // Transfer scoring volume penalty for big conference jumps.
+    // transPctAdj hits FG% but per-minute scoring also drops in stronger competition.
+    // e.g. Winthrop → ACC: grade 84 player who scored 18 PPG won't replicate that rate.
+    const scoringTransMult = (isTransferIn && transferFactor < 0.90)
+      ? Math.max(0.78, 0.50 + transferFactor * 0.60)
+      : 1.0;
+
+    const ppg_v  = r1(Math.max(ppg_comp, ppg_floor) * scoringTransMult);
+
+    const rawRpg = r1(pm.rpg*rateGrowth*newMpg*pf);
+    const rawApg = r1(pm.apg*rateGrowth*newMpg*pf);
+
+    return {...p,
+      ppg:  ppg_v,
+      rpg:  r1(Math.max(0, rawRpg + rpgConfAdj)),
+      apg:  r1(Math.max(0, rawApg + apgConfAdj)),
+      mpg:  r1(newMpg),
+      fgm:  fgm_v, fga: r1(newFga*pf), fg_pct:fgProj,
+      tpm:  tpm_v,  tpa: r1(newTpa*pf), tp_pct:tpProj,
+      ftm:  ftm_v,  fta: fta_v,         ft_pct:ftProj,
+      oreb: r1(pm.oreb*rateGrowth*newMpg*pf),
+      dreb: r1(pm.dreb*rateGrowth*newMpg*pf),
+      stl:  r1(pm.stl *rateGrowth*newMpg*pf),
+      blk:  r1(pm.blk *rateGrowth*newMpg*pf),
+      // Turnovers: don't use rateGrowth — experience improves ball security.
+      // Expanded roles get a proportional increase; same/reduced roles get a slight cut.
+      // baseMpg already defined above from the career/current base season.
+      tovs: r1((()=>{
+        const roleRatio = baseMpg > 0 ? newMpg/baseMpg : 1;
+        // Returning players in same/smaller role: veteran experience = fewer TOs
+        const tovBase = pm.tovs * newMpg * pf;
+        if(isTransferIn){
+          // Transfers adjusting to new system: modest bump
+          return tovBase * (roleRatio > 1.15 ? 1.05 : 1.0);
+        }
+        if(roleRatio > 1.20){
+          // Clearly expanded role: more possessions, more responsibility → more TOs
+          // But experience still helps — scale is gentler than the role expansion
+          const expFactor = 1.0 + (roleRatio - 1.0) * 0.30;
+          return tovBase * Math.min(1.25, expFactor);
+        }
+        // Same or reduced role: veterans protect the ball better each year
+        const expCut = isSr ? 0.90 : isJr ? 0.93 : isSo ? 0.96 : 1.0;
+        return tovBase * expCut;
+      })()),
+      _frosh:false, _factor:transferFactor, _trend:trendMult, _seasons:played.length,
+      _deployedPos:deployedPos, _posFit:posFitMult,
+    };
+  }).filter(Boolean);
+
+  // ── SHOT VOLUME CAP (bench-first) ────────────────────────
+  // Teams take ~62-76 FGA per game. When over, bench players absorb
+  // the cut first — starters keep their projections. Only if starters
+  // alone exceed the cap do they get a light proportional trim.
+  // FG%/3P%/FT% never touched — only shot volume scales.
+  const fgaCap  = 76;
+  const bySlt   = [...projected].sort((a,b)=>(a.depth_order||99)-(b.depth_order||99));
+  const totalFga= bySlt.reduce((s,p)=>s+(parseFloat(p.fga)||0),0);
+
+  if(totalFga > fgaCap){
+    const scale = (p, vol) => {
+      p.fgm = r1(p.fgm*vol); p.fga = r1(p.fga*vol);
+      p.tpm = r1(p.tpm*vol); p.tpa = r1(p.tpa*vol);
+      p.ftm = r1(p.ftm*vol); p.fta = r1(p.fta*vol);
+      p.ppg = r1(p.fgm*2 + p.tpm + p.ftm);
+    };
+
+    const starters   = bySlt.slice(0,5);
+    const bench      = bySlt.slice(5);
+    const starterFga = starters.reduce((s,p)=>s+(parseFloat(p.fga)||0),0);
+    const benchFga   = bench.reduce((s,p)=>s+(parseFloat(p.fga)||0),0);
+
+    if(starterFga >= fgaCap){
+      // Loaded starting 5 alone fills the cap — trim everything proportionally
+      const vol = fgaCap/totalFga;
+      bySlt.forEach(p => scale(p, vol));
+    } else {
+      // Bench takes the full cut — starters untouched
+      const benchBudget = Math.max(6, fgaCap - starterFga);
+      if(benchFga > benchBudget){
+        const vol = benchBudget/benchFga;
+        bench.forEach(p => scale(p, vol));
+      }
+    }
+  }
+
+  return [...projected, ...injuredDnp];
+}
+
+// Reference MPG used in the baseline (starters = ~32 MPG)
+
+
+
+// ── DATA LOAD ────────────────────────────────────────────────────
+async function load(){
+  const msg = document.getElementById('loadingMsg');
+  const fill = document.getElementById('progressFill');
+
+  msg.textContent = 'Loading teams…';
+  const [teamRes, playerRes] = await Promise.all([
+    fetch(`${SB}/rest/v1/teams?select=name,conf,conference,color,color_rgb&limit=500`, {headers:H}),
+    fetch(`${SB}/rest/v1/players?select=*&limit=10000&order=team.asc,depth_order.asc`, {headers:H})
+  ]);
+  const teams   = await teamRes.json();
+  const players = await playerRes.json();
+  fill.style.width = '40%';
+  msg.textContent = `Running projections for ${teams.length} teams…`;
+
+  // Group players by team
+  const byTeam = {};
+  players.forEach(p => {
+    if(!p.team) return;
+    if(!byTeam[p.team]) byTeam[p.team] = [];
+    byTeam[p.team].push(p);
+  });
+
+  // window._careerHistoryMap not available here — projections use current-season stats
+  window._careerHistoryMap = {};
+
+  let done = 0;
+  allRows = [];
+  for(const t of teams){
+    const tPlayers = byTeam[t.name] || [];
+    if(tPlayers.length < 2){ done++; continue; }
+    const conf = t.conf || t.conference || '';
+    try{
+      const proj = buildTeamProjections(tPlayers, conf);
+      const row = buildRow(t, conf, proj);
+      if(row) allRows.push(row);
+    }catch(e){ /* skip broken team */ }
+    done++;
+    if(done % 10 === 0) fill.style.width = (40 + done/teams.length*55) + '%';
+  }
+
+  fill.style.width = '100%';
+  document.getElementById('loadingEl').style.display = 'none';
+  document.getElementById('statsTable').style.display = 'table';
+  document.getElementById('leadersEl').style.display = 'grid';
+
+  buildHeader();
+  render();
+}
+
+function buildRow(team, conf, proj){
+  const r1 = v => v!=null ? Math.round((v+Number.EPSILON)*10)/10 : 0;
+  const active = proj.filter(p => !p._dnp && !p._injured && parseFloat(p.ppg||0)>0);
+  if(!active.length) return null;
+
+  const sum = (k) => active.reduce((s,p) => s+(parseFloat(p[k]||0)||0), 0);
+  const wavg = (num, den) => {
+    const n = active.reduce((s,p)=>s+(parseFloat(p[num]||0)||0),0);
+    const d = active.reduce((s,p)=>s+(parseFloat(p[den]||0)||0),0);
+    return d>0 ? r1(n/d*100) : 0;
+  };
+
+  return {
+    name:  team.name,
+    conf,
+    color: team.color || '#666',
+    stats: {
+      ppg:  r1(sum('ppg')),
+      rpg:  r1(sum('rpg')),
+      apg:  r1(sum('apg')),
+      fg:   wavg('fgm','fga'),
+      tp:   wavg('tpm','tpa'),
+      ft:   wavg('ftm','fta'),
+      fga:  r1(sum('fga')),
+      tpa:  r1(sum('tpa')),
+      tov:  r1(sum('tovs')),
+      stl:  r1(sum('stl')),
+      blk:  r1(sum('blk')),
+      oreb: r1(sum('oreb')),
+      dreb: r1(sum('dreb')),
+    }
+  };
+}
+
+// ── HEADER ──────────────────────────────────────────────────────
+function buildHeader(){
+  const thead = document.getElementById('thead');
+  thead.innerHTML = `<tr>
+    <th style="text-align:left;padding-left:40px;">RK</th>
+    <th style="text-align:left;" onclick="setSort('name')">TEAM <span class="sort-arrow">${sortCol==='name'?(sortAsc?'↑':'↓'):'↕'}</span></th>
+    ${COLS.map(c=>`<th id="th_${c.key}" title="${c.desc}" onclick="setSort('${c.key}')">${c.label} <span class="sort-arrow">${sortCol===c.key?(sortAsc?'↑':'↓'):'↕'}</span>${c.inv?'<span style="font-size:8px;color:var(--text3);" title="Lower is better"> ↓</span>':''}</th>`).join('')}
+  </tr>`;
+}
+
+// ── SORT & RENDER ────────────────────────────────────────────────
+function setSort(col){
+  if(sortCol === col) sortAsc = !sortAsc;
+  else { sortCol = col; sortAsc = col==='name' ? true : false; }
+  render();
+}
+
+function render(){
+  const conf   = document.getElementById('confFilter').value;
+  const search = document.getElementById('searchBox').value.toLowerCase().trim();
+
+  let rows = allRows.filter(r => {
+    if(conf && r.conf !== conf) return false;
+    if(search && !r.name.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  // Sort
+  rows.sort((a,b) => {
+    let av = sortCol==='name' ? a.name : (a.stats[sortCol]||0);
+    let bv = sortCol==='name' ? b.name : (b.stats[sortCol]||0);
+    const inv = COLS.find(c=>c.key===sortCol)?.inv;
+    if(typeof av==='string') return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+    // For inverted stats (TOV), lower is better — flip sort direction
+    if(inv) return sortAsc ? bv-av : av-bv;
+    return sortAsc ? av-bv : bv-av;
+  });
+
+  document.getElementById('countEl').innerHTML = `<strong>${rows.length}</strong> teams`;
+
+  // Compute percentile buckets per column
+  const buckets = {};
+  COLS.forEach(c => {
+    const vals = rows.map(r=>r.stats[c.key]).sort((a,b)=>a-b);
+    buckets[c.key] = {p25:vals[Math.floor(vals.length*.25)], p50:vals[Math.floor(vals.length*.5)], p75:vals[Math.floor(vals.length*.75)], p90:vals[Math.floor(vals.length*.9)]};
+  });
+
+  function cellClass(col, val){
+    const b = buckets[col]; if(!b) return '';
+    const inv = COLS.find(c=>c.key===col)?.inv;
+    let pct;
+    if(inv){ pct = val<=b.p25?4 : val<=b.p50?3 : val<=b.p75?2 : val<=b.p90?1 : 0; }
+    else   { pct = val>=b.p90?4 : val>=b.p75?3 : val>=b.p50?2 : val>=b.p25?1 : 0; }
+    return `c${pct}`;
+  }
+
+  // Leaders
+  const leadersEl = document.getElementById('leadersEl');
+  const leaderCols = ['ppg','rpg','apg','fg','tp','ft','stl','blk','tov'];
+  leadersEl.innerHTML = leaderCols.map(k => {
+    const col = COLS.find(c=>c.key===k);
+    const best = rows.slice().sort((a,b) => col.inv ? a.stats[k]-b.stats[k] : b.stats[k]-a.stats[k])[0];
+    if(!best) return '';
+    const val = best.stats[k];
+    return `<div class="leader-card">
+      <div class="leader-label">${col.label} Leader</div>
+      <div class="leader-stat">${col.pct ? val+'%' : val}</div>
+      <div class="leader-team"><span class="team-dot" style="background:${best.color};"></span>${best.name}</div>
+    </div>`;
+  }).join('');
+
+  // Rebuild header with sort indicators
+  const thCells = document.querySelectorAll('#thead th');
+  // Just re-render header
+  buildHeader();
+
+  // Table rows
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = rows.map((r, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td class="team-cell">
+        <span class="team-dot" style="background:${r.color};"></span>
+        <a class="team-name-link" href="team.html?team=${encodeURIComponent(r.name)}">${r.name}</a>
+        <span class="conf-badge">${r.conf}</span>
+      </td>
+      ${COLS.map(c => {
+        const v = r.stats[c.key];
+        const cls = cellClass(c.key, v);
+        return `<td class="${cls}">${c.pct ? v+'%' : v}</td>`;
+      }).join('')}
+    </tr>
+  `).join('');
+}
+
+// ── THEME ─────────────────────────────────────────────────────────
+function toggleTheme(){
+  const d=document.documentElement.getAttribute('data-theme')==='dark';
+  const n=d?'light':'dark';
+  document.documentElement.setAttribute('data-theme',n);
+  localStorage.setItem('tdc_theme',n);
+  document.getElementById('themeBtn').textContent=n==='dark'?'☀️':'🌙';
+}
+(function(){
+  const s=localStorage.getItem('tdc_theme')||'light';
+  document.documentElement.setAttribute('data-theme',s);
+  window.addEventListener('DOMContentLoaded',()=>{
+    const b=document.getElementById('themeBtn');
+    if(b)b.textContent=s==='dark'?'☀️':'🌙';
+  });
+})();
+
+// ── AUTH NAV ──────────────────────────────────────────────────────
+(function(){
+  const s=JSON.parse(localStorage.getItem('tdc_session')||'null');
+  if(!s?.access_token||!s?.user?.id) return;
+  fetch(`${SB}/rest/v1/profiles?id=eq.${s.user.id}&select=username,avatar_url`,
+    {headers:{apikey:KEY,Authorization:'Bearer '+s.access_token}})
+  .then(r=>r.json()).then(([p])=>{
+    if(!p) return;
+    const u=p.username||s.user?.email?.split('@')[0]||'User';
+    const av=p.avatar_url?`<img src="${p.avatar_url}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);">`:`<div style="width:32px;height:32px;border-radius:50%;background:var(--bg2);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);">${u[0].toUpperCase()}</div>`;
+    const el=document.getElementById('navActions');
+    if(el) el.innerHTML=`<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">${localStorage.getItem('tdc_theme')==='dark'?'☀️':'🌙'}</button><a href="profile.html" style="display:flex;align-items:center;gap:8px;text-decoration:none;">${av}<span style="font-size:13px;font-weight:700;color:var(--text);">${u}</span></a>`;
+  }).catch(()=>{});
+})();
+
+load();
+</script>
+</body>
+</html>
