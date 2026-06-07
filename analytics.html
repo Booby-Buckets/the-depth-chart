@@ -1433,18 +1433,24 @@ async function load(){
     byTeam[p.team].push(p);
   });
 
-  // Fetch career history for all players so projections match the team page exactly
-  msg.textContent = 'Loading career stats…';
-  fill.style.width = '20%';
+  // Fetch ALL career history pages — same data the team page uses per-team
+  msg.textContent = 'Loading career stats (chunk 1/3)…';
+  fill.style.width = '15%';
   let history = [];
   try {
-    // Fetch in two chunks to avoid URL length limits
-    const [h1, h2] = await Promise.all([
-      fetch(`${SB}/rest/v1/player_history?select=*&limit=8000&offset=0&order=name.asc`, {headers:H}),
-      fetch(`${SB}/rest/v1/player_history?select=*&limit=8000&offset=8000&order=name.asc`, {headers:H})
-    ]);
-    history = [...(await h1.json()), ...(await h2.json())];
-  } catch(e) { console.warn('Career history load failed, using season stats only'); }
+    const fetches = [0,6000,12000].map(offset =>
+      fetch(`${SB}/rest/v1/player_history?select=*&limit=6000&offset=${offset}&order=season_year.desc`, {headers:H})
+    );
+    msg.textContent = 'Loading career stats (fetching…)';
+    const results = await Promise.all(fetches);
+    const parsed  = await Promise.all(results.map(r=>r.json()));
+    history = parsed.flat().filter(h=>h&&h.name);
+    msg.textContent = `Career stats loaded: ${history.length} entries`;
+    fill.style.width = '35%';
+  } catch(e) {
+    console.warn('Career history load failed:', e.message);
+    msg.textContent = 'Career stats unavailable — using season stats';
+  }
 
   window._careerHistoryMap = {};
   history.forEach(h => {
@@ -1452,6 +1458,7 @@ async function load(){
     if(!window._careerHistoryMap[key]) window._careerHistoryMap[key] = [];
     window._careerHistoryMap[key].push(h);
   });
+  console.log('Career history entries:', history.length, '— players mapped:', Object.keys(window._careerHistoryMap).length);
 
   let done = 0;
   allRows = [];
