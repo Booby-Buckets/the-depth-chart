@@ -1424,8 +1424,25 @@ async function load(){
     byTeam[p.team].push(p);
   });
 
-  // window._careerHistoryMap not available here — projections use current-season stats
+  // Fetch career history for all players so projections match the team page exactly
+  msg.textContent = 'Loading career stats…';
+  fill.style.width = '20%';
+  let history = [];
+  try {
+    // Fetch in two chunks to avoid URL length limits
+    const [h1, h2] = await Promise.all([
+      fetch(`${SB}/rest/v1/player_history?select=*&limit=8000&offset=0&order=name.asc`, {headers:H}),
+      fetch(`${SB}/rest/v1/player_history?select=*&limit=8000&offset=8000&order=name.asc`, {headers:H})
+    ]);
+    history = [...(await h1.json()), ...(await h2.json())];
+  } catch(e) { console.warn('Career history load failed, using season stats only'); }
+
   window._careerHistoryMap = {};
+  history.forEach(h => {
+    const key = (h.name||'').toLowerCase().trim();
+    if(!window._careerHistoryMap[key]) window._careerHistoryMap[key] = [];
+    window._careerHistoryMap[key].push(h);
+  });
 
   let done = 0;
   allRows = [];
