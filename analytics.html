@@ -187,31 +187,37 @@ async function load(){
   msg.textContent = 'Loading projected team stats…';
   fill.style.width = '30%';
 
-  // Read exact projections saved by each team page
-  const [projRes, teamRes] = await Promise.all([
-    fetch(`${SB}/rest/v1/team_projections?select=*&limit=500&order=ppg.desc`, {headers:H}),
-    fetch(`${SB}/rest/v1/teams?select=name,color&limit=500`, {headers:H})
-  ]);
-  const projData = await projRes.json();
-  const teamData = await teamRes.json();
-  fill.style.width = '90%';
+  try {
+    const [projRes, teamRes] = await Promise.all([
+      fetch(`${SB}/rest/v1/team_projections?select=*&limit=500&order=ppg.desc`, {headers:H}),
+      fetch(`${SB}/rest/v1/teams?select=name,color&limit=500`, {headers:H})
+    ]);
+    const projData = await projRes.json();
+    const teamData = await teamRes.json();
+    fill.style.width = '90%';
 
-  teamData.forEach(t => { if(t.name) teamColors[t.name] = t.color || '#8B6914'; });
+    (Array.isArray(teamData)?teamData:[]).forEach(t => { if(t.name) teamColors[t.name] = t.color||'#8B6914'; });
 
-  allRows = (Array.isArray(projData) ? projData : [])
-    .filter(r => r.team && (r.ppg||0) > 0)
-    .map(r => ({
-      name:  r.team,
-      conf:  r.conf || '',
-      color: teamColors[r.team] || '#666',
-      stats: {
-        ppg:  r.ppg||0,  rpg:  r.rpg||0,  apg:  r.apg||0,
-        fg:   r.fg_pct||0, tp: r.tp_pct||0, ft:  r.ft_pct||0,
-        fga:  r.fga||0,  tpa:  r.tpa||0,
-        tov:  r.tov||0,  stl:  r.stl||0,  blk:  r.blk||0,
-        oreb: r.oreb||0, dreb: r.dreb||0,
-      }
-    }));
+    allRows = (Array.isArray(projData) ? projData : [])
+      .filter(r => r.team && (r.ppg||0) > 0)
+      .map(r => ({
+        name:  r.team,
+        conf:  r.conf || '',
+        color: teamColors[r.team] || '#666',
+        stats: {
+          ppg:r.ppg||0, rpg:r.rpg||0, apg:r.apg||0,
+          fg:r.fg_pct||0, tp:r.tp_pct||0, ft:r.ft_pct||0,
+          fga:r.fga||0, tpa:r.tpa||0,
+          tov:r.tov||0, stl:r.stl||0, blk:r.blk||0,
+          oreb:r.oreb||0, dreb:r.dreb||0,
+        }
+      }));
+  } catch(e) {
+    document.getElementById('loadingEl').innerHTML =
+      `<div style="font-size:14px;color:#cc2200;">Error loading data: ${e.message}<br>
+      <a href="sync-projections.html" style="color:var(--accent);">Run sync first →</a></div>`;
+    return;
+  }
 
   fill.style.width = '100%';
 
