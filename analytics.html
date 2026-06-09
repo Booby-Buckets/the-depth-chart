@@ -1421,53 +1421,94 @@ function buildTeamProjections(players, conf){
 
 // ── DATA LOAD ────────────────────────────────────────────────────
 async function load(){
-  const msg = document.getElementById('loadingMsg');
+  const msg  = document.getElementById('loadingMsg');
   const fill = document.getElementById('progressFill');
-  msg.textContent = 'Loading projected team stats…';
 
-  // Read pre-computed projections written by each team page when viewed
-  // This guarantees numbers match what's shown on each team's Projections tab
-  const res = await fetch(`${SB}/rest/v1/team_projections?select=*&limit=500&order=ppg.desc`, {headers:H});
-  const rows = await res.json();
+  // ── Step 1: teams + players + career history in parallel ──
+  msg.textContent = 'Loading rosters…';
+  const [tRes, pRes] = await Promise.all([
+    fetch(`${SB}/rest/v1/teams?select=name,conf,conference,color,color_rgb&limit=500`, {headers:H}),
+    fetch(`${SB}/rest/v1/players?select=*&limit=10000&order=team.asc,depth_order.asc`, {headers:H})
+  ]);
+  const teams   = await tRes.json();
+  const players = await pRes.json();
+  fill.style.width = '20%';
 
-  fill.style.width = '80%';
+  msg.textContent = 'Loading career stats…';
+  let history = [];
+  try {
+    const hFetches = [0,5000,10000].map(off =>
+      fetch(`${SB}/rest/v1/player_history?select=*&limit=5000&offset=${off}&order=season_year.desc`, {headers:H})
+    );
+    const hResults = await Promise.all(hFetches);
+    const hParsed  = await Promise.all(hResults.map(r => r.json()));
+    history = hParsed.flat().filter(h => h && h.name);
+  } catch(e) { console.warn('Career history unavailable:', e.message); }
 
-  allRows = rows
-    .filter(r => r.team && r.ppg > 0)
-    .map(r => ({
-      name:  r.team,
-      conf:  r.conf || '',
-      color: teamColors[r.team] || '#666',
-      stats: {
-        ppg:  r.ppg  || 0, rpg:  r.rpg  || 0, apg:  r.apg  || 0,
-        fg:   r.fg_pct || 0, tp:   r.tp_pct || 0, ft:   r.ft_pct || 0,
-        fga:  r.fga  || 0, tpa:  r.tpa  || 0,
-        tov:  r.tov  || 0, stl:  r.stl  || 0, blk:  r.blk  || 0,
-        oreb: r.oreb || 0, dreb: r.dreb || 0,
-      }
-    }));
+  window._careerHistoryMap = {};
+  history.forEach(h => {
+    const k = (h.name||'').toLowerCase().trim();
+    if(!window._careerHistoryMap[k]) window._careerHistoryMap[k] = [];
+    window._careerHistoryMap[k].push(h);
+  });
+  fill.style.width = '45%';
+
+  // ── Step 2: group players and run projections ──
+  msg.textContent = `Computing projections for ${teams.length} teams…`;
+  const byTeam = {};
+  players.forEach(p => { if(p.team){ if(!byTeam[p.team]) byTeam[p.team]=[]; byTeam[p.team].push(p); } });
+
+  // Store colors
+  teams.forEach(t => { if(t.name) teamColors[t.name] = t.color || '#8B6914'; });
+
+  allRows = [];
+  let done = 0;
+  for(const t of teams){
+    const tPlayers = byTeam[t.name] || [];
+    if(tPlayers.length < 2){ done++; continue; }
+    const conf = t.conf || t.conference || '';
+    try {
+      const proj = buildTeamProjections(tPlayers, conf);
+      const row  = buildRow(t, conf, proj);
+      if(row) allRows.push(row);
+    } catch(e) { console.warn('Projection failed for', t.name, e.message); }
+    done++;
+    if(done % 15 === 0) fill.style.width = (45 + done/teams.length*50) + '%';
+  }
 
   fill.style.width = '100%';
 
-  if(!allRows.length){
-    document.getElementById('loadingEl').innerHTML = `
-      <div style="font-size:22px;margin-bottom:12px;">📊</div>
-      <div style="font-size:16px;font-weight:700;margin-bottom:8px;">No projection data yet</div>
-      <div style="font-size:13px;color:var(--text3);margin-bottom:20px;">
-        Go to <strong>Admin → Compute All Projections</strong> to generate the data.<br>
-        This only needs to run once after each roster sync.
-      </div>
-      <a href="admin.html" style="display:inline-block;padding:10px 24px;background:var(--text);color:var(--bg);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;">Go to Admin →</a>
-    `;
-    return;
-  }
+  // ── Step 3: save to team_projections in background (no await) ──
+  saveProjections(allRows);
 
   document.getElementById('loadingEl').style.display = 'none';
   document.getElementById('statsTable').style.display = 'table';
   document.getElementById('leadersEl').style.display = 'grid';
-
   buildHeader();
   render();
+}
+
+async function saveProjections(rows){
+  // Save computed projections to Supabase silently in the background
+  const records = rows.map(r => ({
+    team: r.name, conf: r.conf,
+    ppg: r.stats.ppg, rpg: r.stats.rpg, apg: r.stats.apg,
+    fg_pct: r.stats.fg, tp_pct: r.stats.tp, ft_pct: r.stats.ft,
+    fga: r.stats.fga, tpa: r.stats.tpa,
+    tov: r.stats.tov, stl: r.stats.stl, blk: r.stats.blk,
+    oreb: r.stats.oreb, dreb: r.stats.dreb,
+    updated_at: new Date().toISOString()
+  }));
+  const BATCH = 50;
+  for(let i=0; i<records.length; i+=BATCH){
+    try {
+      await fetch(`${SB}/rest/v1/team_projections?on_conflict=team`, {
+        method:'POST',
+        headers:{...H,'Prefer':'return=minimal','Content-Type':'application/json'},
+        body: JSON.stringify(records.slice(i,i+BATCH))
+      });
+    } catch(e) {}
+  }
 }
 
 
