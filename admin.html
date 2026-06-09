@@ -150,7 +150,7 @@
       This is what the Analytics page reads. Run after any roster sync.
     </p>
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-      <button class="btn btn-primary" onclick="computeAllProjections()">▶ Compute All Projections</button>
+      <button id="computeProjBtn" class="btn btn-primary" onclick="computeAllProjections()">▶ Compute All Projections</button>
       <span id="projStatus" style="font-size:13px;color:var(--text3);"></span>
     </div>
     <div style="margin-top:12px;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden;display:none;" id="projProgressWrap">
@@ -3201,18 +3201,17 @@ function renderProjNatlChart(projected, color, rgb){
 
 // ── BULK COMPUTE ALL PROJECTIONS ───────────────────────────────
 async function computeAllProjections(){
-  const btn    = document.querySelector('[onclick="computeAllProjections()"]');
+  const btn    = document.getElementById('computeProjBtn');
   const status = document.getElementById('projStatus');
   const bar    = document.getElementById('projProgressBar');
   const wrap   = document.getElementById('projProgressWrap');
   const log    = document.getElementById('projLog');
 
-  btn.disabled = true;
-  wrap.style.display = 'block';
-  log.style.display  = 'block';
-  log.innerHTML = '';
-  bar.style.width = '0%';
-  status.textContent = 'Loading teams and players…';
+  if(btn) btn.disabled = true;
+  if(wrap) wrap.style.display = 'block';
+  if(log)  { log.style.display = 'block'; log.innerHTML = ''; }
+  if(bar)  bar.style.width = '0%';
+  if(status) status.textContent = 'Loading teams and players…';
 
   try {
     const [tRes, pRes] = await Promise.all([
@@ -3301,10 +3300,11 @@ async function computeAllProjections(){
     status.textContent = `✓ Done — ${rows.length} teams saved. Analytics page is now up to date.`;
     log.innerHTML += `<strong>Saved ${rows.length} teams.</strong>`;
   } catch(e) {
-    status.textContent = '✗ Error: ' + e.message;
-    log.innerHTML += `ERROR: ${e.message}`;
+    console.error('Projection compute error:', e);
+    if(status) status.textContent = '✗ Error: ' + e.message;
+    if(log) log.innerHTML += `<span style="color:red">ERROR: ${e.message}<br>${e.stack||''}</span>`;
   }
-  btn.disabled = false;
+  if(btn) btn.disabled = false;
 }
 
 </script>
