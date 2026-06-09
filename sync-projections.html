@@ -916,20 +916,27 @@ async function runSync(){
           continue;
         }
 
-        // Fetch career history for this team's players exactly like team.html
-        const names=players.map(p=>p.name).filter(Boolean);
-        const hRes=await fetch(
-          `${SB}/rest/v1/player_history?name=in.(${names.map(n=>encodeURIComponent(n)).join(',')})&order=season_year.desc`,
-          {headers:H});
-        const hist=await hRes.json();
-
-        // Build career map for this team
+        // Fetch career history exactly like team.html — quoted names, batches of 15, asc order
+        const names=players.map(p=>p.name).filter(n=>n&&n!=='—');
         window._careerHistoryMap={};
-        if(Array.isArray(hist)) hist.forEach(h=>{
-          const k=(h.name||'').toLowerCase().trim();
-          if(!window._careerHistoryMap[k]) window._careerHistoryMap[k]=[];
-          window._careerHistoryMap[k].push(h);
-        });
+        if(names.length){
+          const chunks=[];
+          for(let i=0;i<names.length;i+=15) chunks.push(names.slice(i,i+15));
+          for(const chunk of chunks){
+            const orParam=chunk.map(n=>`"${n}"`).join(',');
+            const r=await fetch(
+              `${SB}/rest/v1/player_history?name=in.(${orParam})&select=*&order=season_year.asc&limit=500`,
+              {headers:H});
+            if(r.ok){
+              const d=await r.json();
+              if(Array.isArray(d)) d.forEach(row=>{
+                const k=(row.name||'').toLowerCase().trim();
+                if(!window._careerHistoryMap[k]) window._careerHistoryMap[k]=[];
+                window._careerHistoryMap[k].push(row);
+              });
+            }
+          }
+        }
 
         const conf=t.conf||t.conference||'';
         const proj=buildTeamProjections(players,conf);
