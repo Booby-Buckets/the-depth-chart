@@ -1420,6 +1420,31 @@ function buildTeamProjections(players, conf){
 
 
 // ── DATA LOAD ────────────────────────────────────────────────────
+
+function buildRow(team, conf, proj){
+  const r1 = v => Math.round((v+Number.EPSILON)*10)/10;
+  const active = proj.filter(p => !p._dnp && !p._injured && (parseFloat(p.ppg||0)>0 || p._noStatEst));
+  if(!active.length) return null;
+
+  const sum  = k => active.reduce((s,p)=>s+(parseFloat(p[k]||0)||0),0);
+  const wavg = (num,den) => {
+    const n=active.reduce((s,p)=>s+(parseFloat(p[num]||0)||0),0);
+    const d=active.reduce((s,p)=>s+(parseFloat(p[den]||0)||0),0);
+    return d>0?r1(n/d*100):0;
+  };
+  return {
+    name:  team.name,
+    conf,
+    color: team.color || teamColors[team.name] || '#666',
+    stats: {
+      ppg:  r1(sum('ppg')), rpg:r1(sum('rpg')), apg:r1(sum('apg')),
+      fg:   wavg('fgm','fga'), tp:wavg('tpm','tpa'), ft:wavg('ftm','fta'),
+      fga:  r1(sum('fga')),  tpa:r1(sum('tpa')),
+      tov:  r1(sum('tovs')), stl:r1(sum('stl')), blk:r1(sum('blk')),
+      oreb: r1(sum('oreb')), dreb:r1(sum('dreb')),
+    }
+  };
+}
 async function load(){
   const msg  = document.getElementById('loadingMsg');
   const fill = document.getElementById('progressFill');
