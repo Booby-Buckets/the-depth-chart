@@ -968,26 +968,36 @@ async function runSync(){
       await new Promise(r=>setTimeout(r,50));
     }
 
-    // Clear old data first, then insert fresh — guarantees no stale rows
-    status.textContent=`Clearing old projections…`;
-    await fetch(`${SB}/rest/v1/team_projections?team=neq.NONE`,{
-      method:'DELETE', headers:H
-    });
+    if(!saved.length){
+      status.innerHTML=`<span class="err">No teams computed — check errors above.</span>`;
+      btn.disabled=false; return;
+    }
 
-    // Insert all fresh data in batches of 50
-    status.textContent=`Saving ${saved.length} teams…`;
-    const BATCH=50;
-    for(let i=0;i<saved.length;i+=BATCH){
-      await fetch(`${SB}/rest/v1/team_projections`,{
-        method:'POST',
-        headers:{...H,'Content-Type':'application/json','Prefer':'return=minimal'},
-        body:JSON.stringify(saved.slice(i,i+BATCH))
-      });
+    // Upsert each team one by one — most reliable approach
+    status.textContent=`Saving ${saved.length} teams to database…`;
+    let saveOk=0, saveFail=0;
+    for(const record of saved){
+      try{
+        const r=await fetch(`${SB}/rest/v1/team_projections?on_conflict=team`,{
+          method:'POST',
+          headers:{...H,'Content-Type':'application/json',
+                   'Prefer':'resolution=merge-duplicates,return=minimal'},
+          body:JSON.stringify(record)
+        });
+        if(r.ok||r.status===201||r.status===204){ saveOk++; }
+        else{ const err=await r.text(); log.innerHTML+=`<span class="err">Save failed ${record.team}: ${r.status} ${err.slice(0,80)}</span><br>`; saveFail++; }
+      }catch(e){ log.innerHTML+=`<span class="err">Save error ${record.team}: ${e.message}</span><br>`; saveFail++; }
+      bar.style.width=(95 + saveOk/saved.length*5)+'%';
+      log.scrollTop=log.scrollHeight;
     }
 
     bar.style.width='100%';
-    status.innerHTML=`<strong class="done">✓ Done — ${saved.length} teams synced. <a href="analytics.html">View Analytics →</a></strong>`;
-    log.innerHTML+=`<br><strong>Saved ${saved.length} teams to team_projections.</strong>`;
+    if(saveOk===saved.length){
+      status.innerHTML=`<strong class="done">✓ Done — ${saveOk} teams saved. <a href="analytics.html" style="color:var(--accent)">View Analytics →</a></strong>`;
+      log.innerHTML+=`<br><strong class="done">All ${saveOk} teams saved successfully.</strong>`;
+    } else {
+      status.innerHTML=`<strong>Saved ${saveOk}/${saved.length} — ${saveFail} failed. <a href="analytics.html">View Analytics →</a></strong>`;
+    }
   }catch(e){
     status.innerHTML=`<span class="err">Error: ${e.message}</span>`;
   }
