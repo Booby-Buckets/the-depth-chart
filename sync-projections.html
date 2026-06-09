@@ -968,11 +968,17 @@ async function runSync(){
       await new Promise(r=>setTimeout(r,50));
     }
 
-    // Save all to Supabase in batches of 50
+    // Clear old data first, then insert fresh — guarantees no stale rows
+    status.textContent=`Clearing old projections…`;
+    await fetch(`${SB}/rest/v1/team_projections?team=neq.NONE`,{
+      method:'DELETE', headers:H
+    });
+
+    // Insert all fresh data in batches of 50
     status.textContent=`Saving ${saved.length} teams…`;
     const BATCH=50;
     for(let i=0;i<saved.length;i+=BATCH){
-      await fetch(`${SB}/rest/v1/team_projections?on_conflict=team`,{
+      await fetch(`${SB}/rest/v1/team_projections`,{
         method:'POST',
         headers:{...H,'Content-Type':'application/json','Prefer':'return=minimal'},
         body:JSON.stringify(saved.slice(i,i+BATCH))
