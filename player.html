@@ -407,7 +407,9 @@ function computePlayerMpg(p, teamRoster){
     const rYr=(r.yr||r.class_year||'').toLowerCase();
     if(rYr.includes('fr.')||rYr.includes('r-fr')) return;
     if(r.hometown&&r.hometown.trim()) return;
-    const floor=rAMpg*0.88;
+    const gradeFloor=parseFloat(r.tdc_grade)||70;
+    const floorPct=gradeFloor>=90?0.95:gradeFloor>=83?0.91:0.88;
+    const floor=rAMpg*floorPct;
     if((mpgMap[r.name]||0)<floor) mpgMap[r.name]=floor;
   });
   const result=mpgMap[p.name];
@@ -744,10 +746,12 @@ function buildTeamProjections(players, conf){
 
     if(!hasCareerStats && !hasCurrentStats){
       const fb   = getFrBase(grade, posNorm);
-      const effMpg = newMpg < 12 ? Math.min(13, newMpg*1.35) : newMpg;
+      const effMpg = newMpg < 12 ? Math.min(13, newMpg*1.35)
+                   : newMpg < 20 ? Math.min(22, newMpg*(grade>=87?1.15:1.08))
+                   : newMpg;
       const scale  = effMpg/FR_BASE_MPG;
-      // FGA rate: slightly higher for good recruits — they get real looks from day 1
-      const fgaRate = grade>=87 ? 0.34 : grade>=78 ? 0.30 : 0.26;
+      // FGA rate: more bullish for elite recruits — they earn real looks from day 1
+      const fgaRate = grade>=92 ? 0.42 : grade>=87 ? 0.37 : grade>=78 ? 0.31 : 0.27;
       const fga     = r1(newMpg*fgaRate);
       const fgm_fr  = r1(fga*(fb.fg_pct/100));
       const tpm_fr  = r1(fga*0.42*(fb.tp_pct/100));
