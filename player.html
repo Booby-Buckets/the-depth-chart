@@ -1402,9 +1402,14 @@ function buildOverviewCards(p, proj){
     {l:'FG%',k:'fg_pct',pct:true},{l:'3P%',k:'tp_pct',pct:true},{l:'FT%',k:'ft_pct',pct:true},
     {l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TO',k:'tovs'}];
 
-  function card(val, label, accent, diff){
+  function card(val, label, accent, diff, invert){
     const col = accent ? 'color:var(--accent);' : '';
-    const diffHtml = diff != null ? '<div class="stat-card-diff '+(diff>0.05?'up':diff<-0.05?'dn':'eq')+'">'+(diff>0.05?'+':'')+diff+'</div>' : '';
+    let cls = 'eq';
+    if(diff != null){
+      if(invert) cls = diff < -0.05 ? 'up' : diff > 0.05 ? 'dn' : 'eq';
+      else cls = diff > 0.05 ? 'up' : diff < -0.05 ? 'dn' : 'eq';
+    }
+    const diffHtml = diff != null ? '<div class="stat-card-diff '+cls+'">'+(diff>0.05?'+':'')+diff+'</div>' : '';
     return '<div class="stat-card"><div class="stat-card-val" style="'+col+'">'+val+'</div><div class="stat-card-label">'+label+'</div>'+diffHtml+'</div>';
   }
 
@@ -1416,7 +1421,7 @@ function buildOverviewCards(p, proj){
         const d = r1((parseFloat(src[s.k])||0)-(parseFloat(compare[s.k])||0));
         diff = d;
       }
-      return card(v, s.l, accent, diff);
+      return card(v, s.l, accent, diff, s.l === 'TO');
     }).join('');
   }
 
@@ -1431,7 +1436,7 @@ function buildOverviewCards(p, proj){
     const injuredHTML = [
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">',
       '<div>',
-      '<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">2026-27 Actual</div>',
+      '<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">2025-26 Actual</div>',
       '<div class="stat-cards">' + cards(p, false, null) + '</div>',
       '</div>',
       '<div>',
@@ -1457,7 +1462,7 @@ function buildOverviewCards(p, proj){
   const estBadge = proj._frosh ? ' <span style="font-size:9px;padding:1px 4px;background:rgba(139,105,20,.12);">EST</span>' : '';
   return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">'
     +'<div>'
-    +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">2026-27 Actual</div>'
+    +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">2025-26 Actual</div>'
     +'<div class="stat-cards">'+cards(p, false, null)+'</div>'
     +'</div>'
     +'<div>'
@@ -1789,7 +1794,7 @@ function drawRadar(){
   // Legend
   const legendEl=document.getElementById('radarLegend');
   if(legendEl){
-    legendEl.innerHTML=`<div class="radar-legend-item"><div class="radar-legend-dot" style="background:${color};"></div>2026-27 Actual</div>${showProjRadar?`<div class="radar-legend-item"><div class="radar-legend-dot" style="background:var(--accent);opacity:.6;"></div>2026-27 Projected</div>`:''}`;
+    legendEl.innerHTML=`<div class="radar-legend-item"><div class="radar-legend-dot" style="background:${color};"></div>2025-26 Actual</div>${showProjRadar?`<div class="radar-legend-item"><div class="radar-legend-dot" style="background:var(--accent);opacity:.6;"></div>2026-27 Projected</div>`:''}`;
   }
 }
 
