@@ -2281,9 +2281,11 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
   const bPpg   = _blend(tPpg,   _act.ppg);
   const bRpg   = _blend(tRpg,   _act.rpg);
   const bApg   = _blend(tApg,   _act.apg);
-  const bFgPct = _blend(tFgPct, _act.fg_pct);
-  const bTpPct = _blend(tTpPct, _act.tp_pct);
-  const bFtPct = _blend(tFtPct, _act.ft_pct);
+  // Percentages computed from projected FGM/FGA — don't blend with actual
+  // (actual pct values in DB may be stored incorrectly; pct is already implicit in the shot counts)
+  const bFgPct = tFgPct;
+  const bTpPct = tTpPct;
+  const bFtPct = tFtPct;
   const bFga   = _blend(tFga,   _act.fga);
   const bTpa   = _blend(tTpa,   _act.tpa);
   const bTovs  = _blend(tTovs,  _act.tov);
@@ -2303,9 +2305,10 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
   const fPpg   = _clamp(bPpg,   'ppg');
   const fRpg   = _clamp(bRpg,   'rpg');
   const fApg   = _clamp(bApg,   'apg');
-  const fFgPct = _clamp(bFgPct, 'fg_pct');
-  const fTpPct = _clamp(bTpPct, 'tp_pct');
-  const fFtPct = _clamp(bFtPct, 'ft_pct');
+  // Percentages pass through unchanged — already correct from projected FGM/FGA
+  const fFgPct = bFgPct;
+  const fTpPct = bTpPct;
+  const fFtPct = bFtPct;
   const fFga   = _clamp(bFga,   'fga');
   const fTpa   = _clamp(bTpa,   'tpa');
   const fTovs  = _clamp(bTovs,  'tov');
