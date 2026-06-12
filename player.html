@@ -334,8 +334,8 @@ function computePlayerMpg(p, teamRoster){
     const g=parseFloat(r.tdc_grade)||70,slot=i+1;
     let base;
     if(slot<=5){const gn=Math.max(-1,Math.min(1,(g-teamGradeAvg)/15));base=30.5+gn*3.5;}
-    else if(slot===6)base=20;else if(slot===7)base=17;else if(slot===8)base=14;
-    else if(slot===9)base=11;else if(slot===10)base=8;else base=Math.max(2,6-(slot-10)*1.5);
+    else if(slot===6)base=18;else if(slot===7)base=13;else if(slot===8)base=10;
+    else if(slot===9)base=8;else if(slot===10)base=5;else base=Math.max(2,4-(slot-10)*1);
     base=base*(1+((g-teamGradeAvg)/20)*0.10);
     if(slot<=5&&rosterSize<=8)base=Math.min(38,base+2);
     if(slot>rotDepth)base=Math.min(5,base);
@@ -397,6 +397,19 @@ function computePlayerMpg(p, teamRoster){
     roster.forEach(r=>{mpgMap[r.name]=(mpgMap[r.name]||0)*sc;});
   }
   roster.forEach(r=>{mpgMap[r.name]=Math.min(38,mpgMap[r.name]||0);});
+
+  // Post-normalization: returning contributors can't lose more than 12% of their proven minutes.
+  // Normalization compresses everyone proportionally — this restores fairness for starters
+  // who proved their usage under this coach last year. Transfers excluded.
+  roster.forEach((r,i)=>{
+    const slot=i+1; if(slot>6) return;
+    const rAMpg=parseFloat(r.mpg||0)||0; if(rAMpg<25) return;
+    const rYr=(r.yr||r.class_year||'').toLowerCase();
+    if(rYr.includes('fr.')||rYr.includes('r-fr')) return;
+    if(r.hometown&&r.hometown.trim()) return;
+    const floor=rAMpg*0.88;
+    if((mpgMap[r.name]||0)<floor) mpgMap[r.name]=floor;
+  });
   const result=mpgMap[p.name];
   if(result!=null)return Math.max(1,Math.min(38,result));
   const d=p.depth_order||8;return d<=1?32:d<=2?30:d<=3?27:d<=4?25:d<=5?23:d===6?20:d===7?17:d===8?14:d===9?11:d===10?8:5;
@@ -643,6 +656,30 @@ function getDeployedPos(p, roster) {
 
   // Deployed at secondary if primary slot is occupied AND secondary is open ahead of them
   return (pos1Ahead >= 1 && pos2Ahead === 0) ? pos2 : pos1;
+}
+
+
+function applyPredictionWalls(projected){
+  const active=projected.filter(p=>!p._dnp&&!p._injured&&(parseFloat(p.ppg||0)>0||p._noStatEst));
+  if(!active.length) return projected;
+  const sum=k=>active.reduce((s,p)=>s+(parseFloat(p[k]||0)||0),0);
+  const r1=v=>Math.round((v+Number.EPSILON)*10)/10;
+  const walls={ppg:{min:67.4,max:92.4},rpg:{min:29.0,max:46.3},oreb:{min:5.7,max:17.3},dreb:{min:19.0,max:31.3}};
+  const clamp=(v,w)=>Math.max(w.min,Math.min(w.max,v));
+  const rawPpg=sum('ppg'),rawOreb=sum('oreb'),rawDreb=sum('dreb'),rawRpg=rawOreb+rawDreb;
+  const tgtPpg=clamp(rawPpg,walls.ppg),tgtOreb=clamp(rawOreb,walls.oreb),tgtDreb=clamp(rawDreb,walls.dreb),tgtRpg=clamp(rawRpg,walls.rpg);
+  const rpgScale=rawRpg>0?tgtRpg/rawRpg:1,ppgScale=rawPpg>0?tgtPpg/rawPpg:1;
+  const orebScale=rawOreb>0?Math.max(rpgScale,tgtOreb/rawOreb):1,drebScale=rawDreb>0?Math.max(rpgScale,tgtDreb/rawDreb):1;
+  if(ppgScale===1&&rpgScale===1&&orebScale===1&&drebScale===1) return projected;
+  return projected.map(p=>{
+    if(p._dnp||p._injured||(!parseFloat(p.ppg||0)&&!p._noStatEst)) return p;
+    const sp={...p};
+    if(ppgScale!==1){sp.ppg=r1(parseFloat(p.ppg||0)*ppgScale);sp.fgm=r1(parseFloat(p.fgm||0)*ppgScale);sp.fga=r1(parseFloat(p.fga||0)*ppgScale);sp.tpm=r1(parseFloat(p.tpm||0)*ppgScale);sp.tpa=r1(parseFloat(p.tpa||0)*ppgScale);sp.ftm=r1(parseFloat(p.ftm||0)*ppgScale);sp.fta=r1(parseFloat(p.fta||0)*ppgScale);}
+    if(orebScale!==1) sp.oreb=r1(parseFloat(p.oreb||0)*orebScale);
+    if(drebScale!==1) sp.dreb=r1(parseFloat(p.dreb||0)*drebScale);
+    sp.rpg=r1((parseFloat(sp.oreb||0))+(parseFloat(sp.dreb||0)));
+    return sp;
+  });
 }
 
 function buildTeamProjections(players, conf){
@@ -1295,7 +1332,8 @@ async function init(){
 
       // Project full team — includes normalization cap
       // Then find this player in the result
-      const allProj = buildTeamProjections(teamPlayers, conf);
+      const _rawAllProj = buildTeamProjections(teamPlayers, conf);
+  const allProj = applyPredictionWalls(_rawAllProj);
       const playerLower = (player.name||'').toLowerCase().trim();
       const match = allProj.find(pp =>
         (pp.name||'').toLowerCase().trim() === playerLower

@@ -719,7 +719,20 @@ async function loadTeam(name){
     renderCustomize(t, players, teamColor, teamRgb, globalPercentiles);
     renderSidebar(t, players, losses, teamColor);
     renderLosses(losses, globalPercentiles);
-    // Fetch ALL team actual stats for bounds + this team's stats for 20/80 blend
+    // ── Prediction walls — always applied, based on 2025-26 actual D1 range ──
+    // These are the realistic floor/ceiling for each stat. No team should project
+    // outside what any real team actually did last year.
+    if(!window._statBounds){
+      // Ceilings get +1.2 buffer — trends shift year to year, teams can exceed last year's best
+      window._statBounds = {
+        ppg:  {min:67.4, max:92.4},
+        rpg:  {min:29.0, max:46.3},
+        oreb: {min:5.7,  max:17.3},
+        dreb: {min:19.0, max:31.3},
+      };
+    }
+
+    // Optionally enrich bounds with dynamic p5/p95 from actual data
     if(!window._allActualStats){
       try {
         const _allR = await fetch(
@@ -728,15 +741,14 @@ async function loadTeam(name){
         const _allD = await _allR.json();
         if(Array.isArray(_allD)&&_allD.length){
           window._allActualStats = _allD;
-          // Compute p5/p95 bounds for each stat from real data
-          const _statKeys = ['ppg','rpg','apg','spg','bpg','tov','fg_pct','tp_pct','ft_pct','fga','tpa','oreb','dreb'];
-          window._statBounds = {};
-          _statKeys.forEach(k=>{
+          const _dynKeys = ['apg','spg','bpg','tov','fga','tpa'];
+          _dynKeys.forEach(k=>{
             const vals = _allD.map(r=>parseFloat(r[k]||0)).filter(v=>v>0).sort((a,b)=>a-b);
-            if(!vals.length) return;
-            const p5  = vals[Math.floor(vals.length*0.05)];
-            const p95 = vals[Math.floor(vals.length*0.95)];
-            window._statBounds[k] = {min:p5, max:p95};
+            if(vals.length < 10) return;
+            window._statBounds[k] = {
+              min: vals[Math.floor(vals.length*0.05)],
+              max: vals[Math.floor(vals.length*0.95)]
+            };
           });
         }
       } catch(e){}
@@ -2244,12 +2256,71 @@ function projectSinglePlayer(p, conf){
   };
 }
 
+
+// ── PREDICTION WALL SCALING ──────────────────────────────────────────────────
+// Scales player stats proportionally so team totals stay within realistic bounds.
+// Preserves each player's relative contribution — best rebounders still rebound most.
+function applyPredictionWalls(projected){
+  const active = projected.filter(p=>!p._dnp&&!p._injured&&(parseFloat(p.ppg||0)>0||p._noStatEst));
+  if(!active.length) return projected;
+
+  const sum = k => active.reduce((s,p)=>s+(parseFloat(p[k]||0)||0),0);
+  const r1  = v => Math.round((v+Number.EPSILON)*10)/10;
+
+  // Prediction walls: floor and ceiling (ceiling = last year's best + 1.2 buffer)
+  const walls = {
+    ppg:  {min:67.4, max:92.4},
+    rpg:  {min:29.0, max:46.3},
+    oreb: {min:5.7,  max:17.3},
+    dreb: {min:19.0, max:31.3},
+  };
+
+  const clamp = (v, w) => Math.max(w.min, Math.min(w.max, v));
+
+  // Compute scale factors from team totals
+  const rawPpg  = sum('ppg'),  rawOreb = sum('oreb'), rawDreb = sum('dreb');
+  const rawRpg  = rawOreb + rawDreb;
+
+  const tgtPpg  = clamp(rawPpg,  walls.ppg);
+  const tgtOreb = clamp(rawOreb, walls.oreb);
+  const tgtDreb = clamp(rawDreb, walls.dreb);
+  const tgtRpg  = clamp(rawRpg,  walls.rpg);
+
+  // If RPG wall fires, split adjustment proportionally between oreb/dreb
+  const rpgScale  = rawRpg  > 0 ? tgtRpg  / rawRpg  : 1;
+  const ppgScale  = rawPpg  > 0 ? tgtPpg  / rawPpg  : 1;
+  const orebScale = rawOreb > 0 ? Math.max(rpgScale, tgtOreb/rawOreb) : 1;
+  const drebScale = rawDreb > 0 ? Math.max(rpgScale, tgtDreb/rawDreb) : 1;
+
+  // No-op if no scaling needed
+  if(ppgScale===1 && rpgScale===1 && orebScale===1 && drebScale===1) return projected;
+
+  return projected.map(p=>{
+    if(p._dnp||p._injured||(!parseFloat(p.ppg||0)&&!p._noStatEst)) return p;
+    const sp={...p};
+    if(ppgScale!==1){
+      sp.ppg = r1(parseFloat(p.ppg||0)*ppgScale);
+      sp.fgm = r1(parseFloat(p.fgm||0)*ppgScale);
+      sp.fga = r1(parseFloat(p.fga||0)*ppgScale);
+      sp.tpm = r1(parseFloat(p.tpm||0)*ppgScale);
+      sp.tpa = r1(parseFloat(p.tpa||0)*ppgScale);
+      sp.ftm = r1(parseFloat(p.ftm||0)*ppgScale);
+      sp.fta = r1(parseFloat(p.fta||0)*ppgScale);
+    }
+    if(orebScale!==1) sp.oreb = r1(parseFloat(p.oreb||0)*orebScale);
+    if(drebScale!==1) sp.dreb = r1(parseFloat(p.dreb||0)*drebScale);
+    sp.rpg = r1((parseFloat(sp.oreb||0))+(parseFloat(sp.dreb||0)));
+    return sp;
+  });
+}
+
 function renderProjections(players, conf, color, rgb, gp, teamRow){
   const _teamRow = teamRow || teamT || {conf};
   const el=document.getElementById('projectionsContent');
   if(!el) return;
 
-  const projected=buildTeamProjections(players, _teamRow?.conf||conf);
+  const _rawProjected=buildTeamProjections(players, _teamRow?.conf||conf);
+  const projected=applyPredictionWalls(_rawProjected);
   if(!projected.length){
     el.innerHTML='<div style="padding:20px;color:var(--text3);">No projections available — add player grades to enable projections.</div>';
     return;
