@@ -1024,6 +1024,37 @@ let allRows    = [];
 let sortCol    = 'ppg';
 let sortAsc    = false;
 
+function applyPredictionWalls(projected){
+  const active=projected.filter(p=>!p._dnp&&!p._injured&&(parseFloat(p.ppg||0)>0||p._noStatEst));
+  if(!active.length) return projected;
+  const sum=k=>active.reduce((s,p)=>s+(parseFloat(p[k]||0)||0),0);
+  const r1=v=>Math.round((v+Number.EPSILON)*10)/10;
+  const walls={ppg:{min:67.4,max:92.4},rpg:{min:29.0,max:46.3},oreb:{min:5.7,max:17.3},dreb:{min:19.0,max:31.3},apg:{min:10.0,max:18.0},tov:{min:8.0,max:17.0},stl:{min:3.5,max:10.0},blk:{min:2.0,max:8.0}};
+  const clamp=(v,w)=>Math.max(w.min,Math.min(w.max,v));
+  const rawPpg=sum('ppg'),rawOreb=sum('oreb'),rawDreb=sum('dreb'),rawRpg=rawOreb+rawDreb;
+  const rawApg=sum('apg'),rawTov=sum('tovs'),rawStl=sum('stl'),rawBlk=sum('blk');
+  const tgtPpg=clamp(rawPpg,walls.ppg),tgtOreb=clamp(rawOreb,walls.oreb),tgtDreb=clamp(rawDreb,walls.dreb),tgtRpg=clamp(rawRpg,walls.rpg);
+  const tgtApg=clamp(rawApg,walls.apg),tgtTov=clamp(rawTov,walls.tov),tgtStl=clamp(rawStl,walls.stl),tgtBlk=clamp(rawBlk,walls.blk);
+  const rpgScale=rawRpg>0?tgtRpg/rawRpg:1,ppgScale=rawPpg>0?tgtPpg/rawPpg:1;
+  const orebScale=rawOreb>0?Math.max(rpgScale,tgtOreb/rawOreb):1,drebScale=rawDreb>0?Math.max(rpgScale,tgtDreb/rawDreb):1;
+  const apgScale=rawApg>0?tgtApg/rawApg:1,tovScale=rawTov>0?tgtTov/rawTov:1;
+  const stlScale=rawStl>0?tgtStl/rawStl:1,blkScale=rawBlk>0?tgtBlk/rawBlk:1;
+  if(ppgScale===1&&rpgScale===1&&orebScale===1&&drebScale===1&&apgScale===1&&tovScale===1&&stlScale===1&&blkScale===1) return projected;
+  return projected.map(p=>{
+    if(p._dnp||p._injured||(!parseFloat(p.ppg||0)&&!p._noStatEst)) return p;
+    const sp={...p};
+    if(ppgScale!==1){sp.ppg=r1(parseFloat(p.ppg||0)*ppgScale);sp.fgm=r1(parseFloat(p.fgm||0)*ppgScale);sp.fga=r1(parseFloat(p.fga||0)*ppgScale);sp.tpm=r1(parseFloat(p.tpm||0)*ppgScale);sp.tpa=r1(parseFloat(p.tpa||0)*ppgScale);sp.ftm=r1(parseFloat(p.ftm||0)*ppgScale);sp.fta=r1(parseFloat(p.fta||0)*ppgScale);}
+    if(orebScale!==1) sp.oreb=r1(parseFloat(p.oreb||0)*orebScale);
+    if(drebScale!==1) sp.dreb=r1(parseFloat(p.dreb||0)*drebScale);
+    sp.rpg=r1((parseFloat(sp.oreb||0))+(parseFloat(sp.dreb||0)));
+    if(apgScale!==1) sp.apg=r1(parseFloat(p.apg||0)*apgScale);
+    if(tovScale!==1) sp.tovs=r1(parseFloat(p.tovs||0)*tovScale);
+    if(stlScale!==1) sp.stl=r1(parseFloat(p.stl||0)*stlScale);
+    if(blkScale!==1) sp.blk=r1(parseFloat(p.blk||0)*blkScale);
+    return sp;
+  });
+}
+
 function buildRow(team, conf, proj){
   const r1 = v => Math.round((v+Number.EPSILON)*10)/10;
   const active = proj.filter(p=>!p._dnp&&!p._injured&&(parseFloat(p.ppg||0)>0||p._noStatEst));
@@ -1093,7 +1124,7 @@ async function load(){
     const tp = byTeam[t.name]||[];
     if(tp.length >= 2){
       try{
-        const proj = buildTeamProjections(tp, t.conf||t.conference||'');
+        const proj = applyPredictionWalls(buildTeamProjections(tp, t.conf||t.conference||''));
         const row  = buildRow(t, t.conf||t.conference||'', proj);
         if(row) allRows.push(row);
       }catch(e){}
