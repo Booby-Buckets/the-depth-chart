@@ -1931,20 +1931,28 @@ function buildTeamProjections(players, conf){
               : (transferFactor<0.80?-0.4:transferFactor<0.90?-0.2:transferFactor>1.15?+0.2:0)
     ) : 0;
 
-    // FG%: career-smoothed (55% last season, 45% career avg) then conference-adjusted
+    // Recency-weighted career avg: latest season 70%, older seasons 30% (split equally).
+    // Prevents a weak freshman year from dragging down a breakout sophomore's projection.
+    const recencyAvg=(arr,key)=>{
+      if(!arr.length) return 0;
+      if(arr.length===1) return parseFloat(arr[0][key]||0);
+      const latest=parseFloat(arr[0][key]||0);
+      const restAvg=arr.slice(1).reduce((s,h)=>s+parseFloat(h[key]||0),0)/arr.slice(1).length;
+      return arr.length===2?latest*0.70+restAvg*0.30:latest*0.60+restAvg*0.40;
+    };
+
+    // FG%: recency-weighted career smooth, lean heavily on most recent season
     const fgBase      = parseFloat(base.fg_pct||0)||44;
-    const careerFgPct = meaningful.length>=2
-      ? meaningful.reduce((s,h)=>s+parseFloat(h.fg_pct||0),0)/meaningful.length : fgBase;
-    const fgSmoothed  = fgBase*0.55 + careerFgPct*0.45;
+    const careerFgPct = meaningful.length>=2 ? recencyAvg(meaningful,'fg_pct') : fgBase;
+    const fgSmoothed  = fgBase*0.65 + careerFgPct*0.35;
 
     const tpBase = meaningful.length
-      ? meaningful.reduce((s,h)=>s+parseFloat(h.tp_pct||0),0)/meaningful.length
+      ? (meaningful.length>=2 ? recencyAvg(meaningful,'tp_pct') : parseFloat(meaningful[0].tp_pct||0))
       : (parseFloat(base.tp_pct||0)||parseFloat(p.tp_pct||0)||33);
 
     const ftBase      = parseFloat(base.ft_pct||0)||70;
-    const careerFtPct = meaningful.length>=2
-      ? meaningful.reduce((s,h)=>s+parseFloat(h.ft_pct||0),0)/meaningful.length : ftBase;
-    const ftSmoothed  = ftBase*0.65 + careerFtPct*0.35;
+    const careerFtPct = meaningful.length>=2 ? recencyAvg(meaningful,'ft_pct') : ftBase;
+    const ftSmoothed  = ftBase*0.70 + careerFtPct*0.30;
 
     const oldFga     = parseFloat(base.fga||0)||1;
     const newFgaE    = oldFga*(newMpg/baseMpg);
@@ -1988,7 +1996,8 @@ function buildTeamProjections(players, conf){
     const ppg_comp = fgm_v*2 + tpm_v + ftm_v;
     // PPG floor: per-minute scoring rate × new minutes × rateGrowth.
     // Catches cases where player_history FTA is incomplete (under-projects free throws).
-    const ppg_floor = pm.ppg * rateGrowth * newMpg * pf * 0.88;
+    const ppgFloorMult = grade>=90?0.95:grade>=83?0.91:0.88;
+    const ppg_floor = pm.ppg * rateGrowth * newMpg * pf * ppgFloorMult;
 
     // Transfer scoring volume penalty for big conference jumps.
     // transPctAdj hits FG% but per-minute scoring also drops in stronger competition.
