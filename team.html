@@ -719,16 +719,37 @@ async function loadTeam(name){
     renderCustomize(t, players, teamColor, teamRgb, globalPercentiles);
     renderSidebar(t, players, losses, teamColor);
     renderLosses(losses, globalPercentiles);
-    // Fetch actual 2025-26 stats for 20/80 blend before rendering projections
+    // Fetch ALL team actual stats for bounds + this team's stats for 20/80 blend
+    if(!window._allActualStats){
+      try {
+        const _allR = await fetch(
+          `${SB_URL}/rest/v1/team_actual_stats?season=eq.2025-26&select=*&limit=500`,
+          {headers:H});
+        const _allD = await _allR.json();
+        if(Array.isArray(_allD)&&_allD.length){
+          window._allActualStats = _allD;
+          // Compute p5/p95 bounds for each stat from real data
+          const _statKeys = ['ppg','rpg','apg','spg','bpg','tov','fg_pct','tp_pct','ft_pct','fga','tpa','oreb','dreb'];
+          window._statBounds = {};
+          _statKeys.forEach(k=>{
+            const vals = _allD.map(r=>parseFloat(r[k]||0)).filter(v=>v>0).sort((a,b)=>a-b);
+            if(!vals.length) return;
+            const p5  = vals[Math.floor(vals.length*0.05)];
+            const p95 = vals[Math.floor(vals.length*0.95)];
+            window._statBounds[k] = {min:p5, max:p95};
+          });
+        }
+      } catch(e){}
+    }
+    // Match this team's actual stats for the 20/80 blend
     window._teamActualStats = null;
-    try {
-      const _tword = encodeURIComponent(t.name.split(' ').slice(-1)[0]);
-      const _actR  = await fetch(
-        `${SB_URL}/rest/v1/team_actual_stats?espn_name=ilike.*${_tword}*&season=eq.2025-26&limit=1`,
-        {headers:H});
-      const _actD = await _actR.json();
-      if(Array.isArray(_actD)&&_actD.length) window._teamActualStats = _actD[0];
-    } catch(e){}
+    if(window._allActualStats){
+      const _tname = t.name.toLowerCase();
+      window._teamActualStats = window._allActualStats.find(r=>{
+        const n = (r.espn_name||'').toLowerCase();
+        return n.includes(_tname.split(' ').pop()) || _tname.includes(n.split(' ').pop());
+      }) || null;
+    }
     renderProjections(players, t.conf||t.conference||'', teamColor, teamRgb, globalPercentiles, t);
     renderOutlook(t);
 
@@ -2271,6 +2292,28 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
   const bOreb  = _blend(tOreb,  _act.oreb);
   const bDreb  = _blend(tDreb,  _act.dreb);
 
+  // ── Clamp to realistic bounds (p5–p95 from actual 2025-26 data) ──
+  // Prevents projections from going outside what any real team actually did
+  const _bounds = window._statBounds || {};
+  const _clamp = (val, key) => {
+    const b = _bounds[key]; if(!b) return val;
+    return r1s(Math.max(b.min, Math.min(b.max, val)));
+  };
+  // Apply bounds to final blended values
+  const fPpg   = _clamp(bPpg,   'ppg');
+  const fRpg   = _clamp(bRpg,   'rpg');
+  const fApg   = _clamp(bApg,   'apg');
+  const fFgPct = _clamp(bFgPct, 'fg_pct');
+  const fTpPct = _clamp(bTpPct, 'tp_pct');
+  const fFtPct = _clamp(bFtPct, 'ft_pct');
+  const fFga   = _clamp(bFga,   'fga');
+  const fTpa   = _clamp(bTpa,   'tpa');
+  const fTovs  = _clamp(bTovs,  'tov');
+  const fStl   = _clamp(bStl,   'spg');
+  const fBlk   = _clamp(bBlk,   'bpg');
+  const fOreb  = _clamp(bOreb,  'oreb');
+  const fDreb  = _clamp(bDreb,  'dreb');
+
   // Save to team_projections so analytics page reads exact same numbers
   const _tn=teamRow?.name||players[0]?.team;
   const _tc=teamRow?.conf||teamRow?.conference||conf;
@@ -2278,8 +2321,8 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
     method:'POST',
     headers:{...H,'Content-Type':'application/json','Prefer':'return=minimal'},
     body:JSON.stringify({team:_tn,conf:_tc,
-      ppg:bPpg,rpg:bRpg,apg:bApg,fg_pct:bFgPct,tp_pct:bTpPct,ft_pct:bFtPct,
-      fga:bFga,tpa:bTpa,tov:bTovs,stl:bStl,blk:bBlk,oreb:bOreb,dreb:bDreb,
+      ppg:fPpg,rpg:fRpg,apg:fApg,fg_pct:fFgPct,tp_pct:fTpPct,ft_pct:fFtPct,
+      fga:fFga,tpa:fTpa,tov:fTovs,stl:fStl,blk:fBlk,oreb:fOreb,dreb:fDreb,
       updated_at:new Date().toISOString()})
   }).catch(()=>{});
 
@@ -2307,10 +2350,10 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
     return invert?100-p:p;
   };
 
-  const ppgPct=teamPct(bPpg,'ppg'),rpgPct=teamPct(bRpg,'rpg'),apgPct=teamPct(bApg,'apg');
-  const fgPct2=teamPct(bFgPct,'fg_pct'),tpPct2=teamPct(bTpPct,'tp_pct'),ftPct2=teamPct(bFtPct,'ft_pct');
+  const ppgPct=teamPct(fPpg,'ppg'),rpgPct=teamPct(fRpg,'rpg'),apgPct=teamPct(fApg,'apg');
+  const fgPct2=teamPct(fFgPct,'fg_pct'),tpPct2=teamPct(fTpPct,'tp_pct'),ftPct2=teamPct(fFtPct,'ft_pct');
   const tovPct=teamPct(tTovs,'tovs'),stlPct=teamPct(tStl,'stl'),blkPct=teamPct(tBlk,'blk');
-  const orebPct=teamPct(bOreb,'oreb'),drebPct=teamPct(bDreb,'dreb');
+  const orebPct=teamPct(fOreb,'oreb'),drebPct=teamPct(fDreb,'dreb');
 
   const pctBar=(pct)=>{
     const c=pct>=75?color:pct>=50?'#c8a020':pct>=25?'#e07020':'#cc2200';
@@ -2334,17 +2377,17 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
   const summaryCards=`<div style="margin-bottom:20px;">
     <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;">2026-27 Team Projection — National Comparison</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;">
-      ${statCard('PPG',bPpg,ppgPct)}
-      ${statCard('RPG',bRpg,rpgPct)}
-      ${statCard('APG',bApg,apgPct)}
-      ${statCard('FG%',bFgPct+'%',fgPct2)}
-      ${statCard('3P%',bTpPct+'%',tpPct2)}
-      ${statCard('FT%',bFtPct+'%',ftPct2)}
-      ${statCard('TOV',bTovs,tovPct)}
-      ${statCard('STL',bStl,stlPct)}
-      ${statCard('BLK',bBlk,blkPct)}
-      ${statCard('OREB',bOreb,orebPct)}
-      ${statCard('DREB',bDreb,drebPct)}
+      ${statCard('PPG',fPpg,ppgPct)}
+      ${statCard('RPG',fRpg,rpgPct)}
+      ${statCard('APG',fApg,apgPct)}
+      ${statCard('FG%',fFgPct+'%',fgPct2)}
+      ${statCard('3P%',fTpPct+'%',tpPct2)}
+      ${statCard('FT%',fFtPct+'%',ftPct2)}
+      ${statCard('TOV',fTovs,tovPct)}
+      ${statCard('STL',fStl,stlPct)}
+      ${statCard('BLK',fBlk,blkPct)}
+      ${statCard('OREB',fOreb,orebPct)}
+      ${statCard('DREB',fDreb,drebPct)}
     </div>
   </div>`;
   const sc=(v,k)=>{
@@ -3678,10 +3721,10 @@ function renderProjNatlChart(projected, color, rgb){
   };
 
   const teamVals=[
-    pct(bPpg,'ppg'), pct(bRpg,'rpg'), pct(bApg,'apg'),
-    pct(bFgPct,'fg_pct'), pct(bTpPct,'tp_pct'), pct(bFtPct,'ft_pct'),
-    pct(bTovs,'tovs'), pct(bStl,'stl'), pct(bBlk,'blk'),
-    pct(bOreb,'oreb'), pct(bDreb,'dreb')
+    pct(fPpg,'ppg'), pct(fRpg,'rpg'), pct(fApg,'apg'),
+    pct(fFgPct,'fg_pct'), pct(fTpPct,'tp_pct'), pct(fFtPct,'ft_pct'),
+    pct(fTovs,'tovs'), pct(fStl,'stl'), pct(fBlk,'blk'),
+    pct(fOreb,'oreb'), pct(fDreb,'dreb')
   ];
 
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
