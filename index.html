@@ -1761,13 +1761,13 @@ function toggleTheme(){
 .tc-p-v{font-size:16px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;}
 .tc-p-l{font-size:8px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
 .tc-none{font-size:11px;color:var(--text3);font-style:italic;}
-.tc-pct-h{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:16px 0 9px;}
-.tc-pbars{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:3px 24px;}
-.tc-pbar-row{display:flex;align-items:center;gap:9px;margin:4px 0;}
-.tc-pbar-l{width:40px;font-size:10px;font-weight:700;color:var(--text3);text-align:right;flex-shrink:0;}
-.tc-pbar-track{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
-.tc-pbar-fill{height:100%;border-radius:3px;transition:width .6s cubic-bezier(.22,1,.36,1);}
-.tc-pbar-v{width:32px;font-size:10px;font-weight:700;text-align:right;flex-shrink:0;}
+.tc-pct-h{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:18px 0 18px;}
+.tc-chart{display:flex;gap:8px;align-items:stretch;height:160px;}
+.tc-ccol{flex:1;display:flex;flex-direction:column;min-width:0;}
+.tc-cbar-area{flex:1;display:flex;align-items:flex-end;justify-content:center;}
+.tc-cbar{width:60%;max-width:32px;border-radius:4px 4px 0 0;transition:height .6s cubic-bezier(.22,1,.36,1);position:relative;}
+.tc-cbar-v{position:absolute;top:-16px;left:-6px;right:-6px;text-align:center;font-size:10px;font-weight:700;}
+.tc-clbl{text-align:center;font-size:9px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--text3);padding-top:6px;border-top:1px solid var(--border);margin-top:5px;}
 .tc-foot{margin-top:16px;}
 .tc-foot a{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);text-decoration:none;}
 .tc-foot a:hover{text-decoration:underline;}
@@ -1812,15 +1812,16 @@ function toggleTheme(){
       {l:'FG%',k:'fg_pct'},{l:'3P%',k:'tp_pct'},{l:'FT%',k:'ft_pct'},
       {l:'OREB',k:'oreb'},{l:'DREB',k:'dreb'},
       {l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TOV',k:'tov',inv:1}];
-    var rows=defs.map(function(d){
+    var cols=defs.map(function(d){
       var pct=teamPct(d.k, p[d.k], d.inv); if(pct==null) return '';
       var col=pctColor(pct);
-      return '<div class="tc-pbar-row"><div class="tc-pbar-l">'+d.l+'</div>'+
-        '<div class="tc-pbar-track"><div class="tc-pbar-fill" style="width:'+pct+'%;background:'+col+';"></div></div>'+
-        '<div class="tc-pbar-v" style="color:'+col+';">'+pct+'th</div></div>';
+      return '<div class="tc-ccol"><div class="tc-cbar-area">'+
+        '<div class="tc-cbar" style="height:'+Math.max(pct,3)+'%;background:'+col+';">'+
+        '<div class="tc-cbar-v" style="color:'+col+';">'+pct+'</div></div></div>'+
+        '<div class="tc-clbl">'+d.l+'</div></div>';
     }).filter(Boolean).join('');
-    if(!rows) return '';
-    return '<div class="tc-pct-h">National Percentile — projected vs all D1 teams</div><div class="tc-pbars">'+rows+'</div>';
+    if(!cols) return '';
+    return '<div class="tc-pct-h">National Percentile — projected vs all D1 teams</div><div class="tc-chart">'+cols+'</div>';
   }
   function buildTeamDetail(name){
     var lc=(name||'').toLowerCase().trim();
