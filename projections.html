@@ -6,14 +6,14 @@
   <title>Projections — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
-    :root{--bg:#ffffff;--bg2:#f5f5f5;--bg3:#ebebeb;--border:#e0e0e0;--border2:#cccccc;--text:#111111;--text2:#444444;--text3:#888888;--accent:#C8A020;--green:#1a8c3a;--red:#cc2200;}
-    [data-theme="dark"]{--bg:#070C18;--bg2:#0C1526;--bg3:#14203A;--border:#1A2B44;--border2:#22375A;--text:#E6EAF2;--text2:#9AA4BC;--text3:#4C5C78;--accent:#C8A020;}
+    :root{--bg: #FAFCFB;--bg2: #EEF4F2;--bg3: #E1ECE8;--border: #D5E3DE;--border2: #BAD0C9;--text: #0E1A16;--text2: #3E514B;--text3: #7C8F89;--accent: #C8A020;--green:#1a8c3a;--red:#cc2200;}
+    [data-theme="dark"]{--bg: #06120E;--bg2: #0A1C16;--bg3: #11302A;--border: #1A3A32;--border2: #265A4E;--text: #E8F1ED;--text2: #9DB5AD;--text3: #5E776E;--accent: #C8A020;}
     [data-theme="dark"] .search-input,[data-theme="dark"] .player-search-dropdown,[data-theme="dark"] .filter-select{background:var(--bg2);color:var(--text);}
     *{margin:0;padding:0;box-sizing:border-box;}
     body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
     /* NAV — frosted glass */
     .nav-wrap{border-bottom:1px solid var(--border);background:rgba(255,255,255,.82);backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);position:sticky;top:0;z-index:200;}
-    [data-theme="dark"] .nav-wrap{background:rgba(7,12,24,.84);border-bottom-color:rgba(26,43,68,.9);}
+    [data-theme="dark"] .nav-wrap{background:rgba(6,18,14,.84);border-bottom-color:rgba(26,43,68,.9);}
     .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
     @keyframes logoReveal{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:translateX(0);}}
     .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;letter-spacing:-.01em;white-space:nowrap;animation:logoReveal .55s cubic-bezier(.22,1,.36,1) both;}
@@ -129,7 +129,7 @@
     .ambient-layer{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;}
     .ambient-blob{position:absolute;border-radius:50%;will-change:transform;}
     .amb-1{width:800px;height:800px;background:radial-gradient(circle at center,rgba(200,160,32,.04) 0%,transparent 65%);filter:blur(60px);top:-280px;right:-200px;animation:ambA 22s ease-in-out infinite alternate;}
-    .amb-2{width:700px;height:700px;background:radial-gradient(circle at center,rgba(20,60,160,.04) 0%,transparent 65%);filter:blur(70px);bottom:-240px;left:-180px;animation:ambB 28s ease-in-out infinite alternate;}
+    .amb-2{width:700px;height:700px;background:radial-gradient(circle at center,rgba(45,140,120,.04) 0%,transparent 65%);filter:blur(70px);bottom:-240px;left:-180px;animation:ambB 28s ease-in-out infinite alternate;}
     .amb-3{width:400px;height:400px;background:radial-gradient(circle at center,rgba(200,160,32,.025) 0%,transparent 65%);filter:blur(50px);top:40%;left:35%;animation:ambC 16s ease-in-out infinite alternate;}
     [data-theme="dark"] .amb-1{background:radial-gradient(circle at center,rgba(200,160,32,.09) 0%,transparent 65%);}
     [data-theme="dark"] .amb-2{background:radial-gradient(circle at center,rgba(20,60,200,.12) 0%,transparent 65%);}
@@ -2272,6 +2272,69 @@ init();
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
+})();
+</script>
+
+<style id="tdc-anim-css">
+@media (prefers-reduced-motion: no-preference){
+  .tdc-reveal{opacity:0;transform:translateY(16px);
+    transition:opacity .55s cubic-bezier(.22,1,.36,1), transform .55s cubic-bezier(.22,1,.36,1);}
+  .tdc-reveal.tdc-in{opacity:1;transform:none;}
+}
+</style>
+<script>
+(function(){
+  if(window.__tdcAnim) return; window.__tdcAnim=1;
+  if(!('IntersectionObserver' in window) ||
+     matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var io=new IntersectionObserver(function(es){
+    es.forEach(function(e){
+      if(e.isIntersecting){
+        var el=e.target, d=el.__tdcDelay||0;
+        if(d) el.style.transitionDelay=d+'ms';
+        el.classList.add('tdc-in');
+        setTimeout(function(){el.style.transitionDelay='';}, 650+d);
+        io.unobserve(el);
+      }
+    });
+  },{threshold:.05, rootMargin:'0px 0px -36px 0px'});
+  var batch=0,last=0;
+  function tag(el){
+    if(!el||el.__tdc||el.nodeType!==1) return;
+    var t=el.tagName;
+    if(t==='SCRIPT'||t==='STYLE'||t==='LINK'||t==='BR'||t==='HR') return;
+    if(el.closest('.tdc-noanim')) return;
+    el.__tdc=1;
+    var now=performance.now();
+    batch = (now-last>140) ? 0 : Math.min(batch+1,6);
+    last=now; el.__tdcDelay=batch*45;
+    el.classList.add('tdc-reveal'); io.observe(el);
+  }
+  var DYN='.proj-table tbody tr,.sortable-table tbody tr,.rotation-row,.team-row,.card,.stat-card,.panel,[data-reveal]';
+  function scan(root){
+    try{
+      var wrap=(root&&root.querySelector?root:document)
+        .querySelector('.page,main,.container,.content,.layout');
+      if(wrap){ for(var i=0;i<wrap.children.length;i++) tag(wrap.children[i]); }
+      (root||document).querySelectorAll(DYN).forEach(tag);
+    }catch(e){}
+  }
+  function boot(){
+    scan(document);
+    try{
+      new MutationObserver(function(muts){
+        muts.forEach(function(m){
+          if(!m.addedNodes) return;
+          for(var i=0;i<m.addedNodes.length;i++){
+            var n=m.addedNodes[i];
+            if(n.nodeType===1){ if(n.matches&&n.matches(DYN)) tag(n); scan(n); }
+          }
+        });
+      }).observe(document.body,{childList:true,subtree:true});
+    }catch(e){}
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
+  else boot();
 })();
 </script>
 

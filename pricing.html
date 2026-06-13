@@ -6,7 +6,7 @@
   <title>Pricing — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,600;1,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
-    :root{--bg:#ffffff;--bg2:#f5f5f5;--border:#e0e0e0;--border2:#cccccc;--text:#111111;--text2:#444444;--text3:#888888;--accent:#8B6914;--green:#1a8c3a;--red:#cc2200;}
+    :root{--bg: #FAFCFB;--bg2: #EEF4F2;--border: #D5E3DE;--border2: #BAD0C9;--text: #0E1A16;--text2: #3E514B;--text3: #7C8F89;--accent: #C8A020;--green:#1a8c3a;--red:#cc2200;}
     *{margin:0;padding:0;box-sizing:border-box;}
     body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
     .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
@@ -578,5 +578,68 @@ if(location.search.includes('success=1')){
   },300);
 }
 </script>
+<style id="tdc-anim-css">
+@media (prefers-reduced-motion: no-preference){
+  .tdc-reveal{opacity:0;transform:translateY(16px);
+    transition:opacity .55s cubic-bezier(.22,1,.36,1), transform .55s cubic-bezier(.22,1,.36,1);}
+  .tdc-reveal.tdc-in{opacity:1;transform:none;}
+}
+</style>
+<script>
+(function(){
+  if(window.__tdcAnim) return; window.__tdcAnim=1;
+  if(!('IntersectionObserver' in window) ||
+     matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var io=new IntersectionObserver(function(es){
+    es.forEach(function(e){
+      if(e.isIntersecting){
+        var el=e.target, d=el.__tdcDelay||0;
+        if(d) el.style.transitionDelay=d+'ms';
+        el.classList.add('tdc-in');
+        setTimeout(function(){el.style.transitionDelay='';}, 650+d);
+        io.unobserve(el);
+      }
+    });
+  },{threshold:.05, rootMargin:'0px 0px -36px 0px'});
+  var batch=0,last=0;
+  function tag(el){
+    if(!el||el.__tdc||el.nodeType!==1) return;
+    var t=el.tagName;
+    if(t==='SCRIPT'||t==='STYLE'||t==='LINK'||t==='BR'||t==='HR') return;
+    if(el.closest('.tdc-noanim')) return;
+    el.__tdc=1;
+    var now=performance.now();
+    batch = (now-last>140) ? 0 : Math.min(batch+1,6);
+    last=now; el.__tdcDelay=batch*45;
+    el.classList.add('tdc-reveal'); io.observe(el);
+  }
+  var DYN='.proj-table tbody tr,.sortable-table tbody tr,.rotation-row,.team-row,.card,.stat-card,.panel,[data-reveal]';
+  function scan(root){
+    try{
+      var wrap=(root&&root.querySelector?root:document)
+        .querySelector('.page,main,.container,.content,.layout');
+      if(wrap){ for(var i=0;i<wrap.children.length;i++) tag(wrap.children[i]); }
+      (root||document).querySelectorAll(DYN).forEach(tag);
+    }catch(e){}
+  }
+  function boot(){
+    scan(document);
+    try{
+      new MutationObserver(function(muts){
+        muts.forEach(function(m){
+          if(!m.addedNodes) return;
+          for(var i=0;i<m.addedNodes.length;i++){
+            var n=m.addedNodes[i];
+            if(n.nodeType===1){ if(n.matches&&n.matches(DYN)) tag(n); scan(n); }
+          }
+        });
+      }).observe(document.body,{childList:true,subtree:true});
+    }catch(e){}
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
+  else boot();
+})();
+</script>
+
 </body>
 </html>
