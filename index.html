@@ -1262,6 +1262,16 @@ async function loadTeams(){
       updated: t.updated_at,
     }));
 
+    // Expose team meta + projected stats by name for hover micro-cards
+    window._teamMetaByName = {};
+    allTeams.forEach(t => { window._teamMetaByName[t.name.toLowerCase().trim()] = t; });
+    fetch(`${SB_URL}/rest/v1/team_projections?select=*`, { headers: HEADERS })
+      .then(r => r.ok ? r.json() : [])
+      .then(rows => {
+        window._teamProjByName = {};
+        (rows||[]).forEach(r => { window._teamProjByName[(r.team||'').toLowerCase().trim()] = r; });
+      }).catch(()=>{ window._teamProjByName = {}; });
+
     const d = new Date(rows[0]?.updated_at || Date.now());
     document.getElementById('lastUpdated').textContent =
       'Updated ' + d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
@@ -1372,7 +1382,7 @@ function renderRows(data, srt, favTeam, favColor, favBg){
       lastTier = t.tier;
     }
     html+=`
-    <div class="team-row${t.name===favTeam?' fav-row':''}" onclick="location='team.html?team=${encodeURIComponent(t.name)}'"
+    <div class="team-row${t.name===favTeam?' fav-row':''}" data-tcard="${(t.name||'').replace(/"/g,'&quot;')}" onclick="location='team.html?team=${encodeURIComponent(t.name)}'"
       style="--row-color:${t.color};${t.name===favTeam&&favColor?`border-left:3px solid ${favColor};background:${favBg};`:''}">
       <div class="tr-rank-wrap">
         <div class="tr-rank${t.rk===1?' rank-1':t.rk===2?' rank-2':t.rk===3?' rank-3':''}">${t.rk<9999?t.rk:'—'}</div>
@@ -1726,6 +1736,88 @@ function toggleTheme(){
         avatarHtml+'<span style="display:flex;align-items:center;font-size:13px;font-weight:700;color:var(--text);">'+uname+verifiedHtml+'</span></a>';
     }
   }).catch(()=>{});
+})();
+</script>
+<style id="tdc-teamcard-css">
+#tdc-teamcard{position:fixed;z-index:10000;pointer-events:none;width:288px;
+  background:var(--bg2);border:1px solid var(--border2);border-radius:10px;
+  box-shadow:0 12px 40px rgba(0,0,0,.45),0 0 0 1px rgba(200,160,32,.10);
+  padding:13px 15px;opacity:0;transform:translateY(6px) scale(.98);
+  transition:opacity .16s ease,transform .16s cubic-bezier(.22,1,.36,1);font-family:'Inter',sans-serif;}
+#tdc-teamcard.show{opacity:1;transform:translateY(0) scale(1);}
+#tdc-teamcard .tc-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+#tdc-teamcard .tc-bar{width:4px;align-self:stretch;border-radius:2px;min-height:34px;}
+#tdc-teamcard .tc-rank{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;line-height:1;color:var(--text);}
+#tdc-teamcard .tc-name{font-family:'Playfair Display',serif;font-weight:800;font-size:16px;line-height:1.1;color:var(--text);}
+#tdc-teamcard .tc-conf{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
+#tdc-teamcard .tc-grades{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:11px;}
+#tdc-teamcard .tc-g{text-align:center;}
+#tdc-teamcard .tc-g-val{font-family:'Playfair Display',serif;font-weight:800;font-size:16px;line-height:1;}
+#tdc-teamcard .tc-g-lbl{font-size:8px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:3px;}
+#tdc-teamcard .tc-proj-h{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--accent);}
+#tdc-teamcard .tc-proj{display:grid;grid-template-columns:repeat(3,1fr);gap:7px 6px;}
+#tdc-teamcard .tc-p{display:flex;flex-direction:column;}
+#tdc-teamcard .tc-p-v{font-size:13px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;}
+#tdc-teamcard .tc-p-l{font-size:8px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-top:1px;}
+#tdc-teamcard .tc-none{font-size:11px;color:var(--text3);font-style:italic;}
+@media (max-width:600px){#tdc-teamcard{display:none!important;}}
+</style>
+<script>
+(function(){
+  if(window.__tdcTeamCard) return; window.__tdcTeamCard=1;
+  var card,curName=null,raf=0,mx=0,my=0;
+  function gradeColor(g){var n=parseFloat(g);
+    var dark=document.documentElement.getAttribute('data-theme')==='dark';
+    if(isNaN(n)){ // letter grades
+      var L=(g||'').trim().charAt(0).toUpperCase();
+      if(L==='A')return dark?'#5ab875':'#1a8c3a'; if(L==='B')return dark?'#74aedd':'#1a5fbf';
+      if(L==='C')return dark?'#dbb560':'#a06000'; if(L==='D'||L==='F')return dark?'#e07070':'#cc2200';
+      return 'var(--text3)';
+    }
+    if(n>=90)return dark?'#5ab875':'#1a8c3a'; if(n>=80)return dark?'#74aedd':'#1a5fbf';
+    if(n>=70)return dark?'#dbb560':'#a06000'; return dark?'#e07070':'#cc2200';}
+  function f1(v){return (v!=null&&v!==''&&!isNaN(v))?Number(v).toFixed(1):'—';}
+  function fp(v){return (v!=null&&v!==''&&!isNaN(v))?Number(v).toFixed(1)+'%':'—';}
+  function ensure(){ if(card)return card; card=document.createElement('div'); card.id='tdc-teamcard'; document.body.appendChild(card); return card; }
+  function grd(v,l){ return '<div class="tc-g"><div class="tc-g-val" style="color:'+gradeColor(v)+'">'+(v||'—')+'</div><div class="tc-g-lbl">'+l+'</div></div>'; }
+  function pst(v,l,pct){ return '<div class="tc-p"><div class="tc-p-v">'+(pct?fp(v):f1(v))+'</div><div class="tc-p-l">'+l+'</div></div>'; }
+  function build(name){
+    var lc=(name||'').toLowerCase().trim();
+    var t=(window._teamMetaByName||{})[lc]; if(!t) return null;
+    var p=(window._teamProjByName||{})[lc];
+    var head='<div class="tc-top"><div class="tc-bar" style="background:'+(t.color||'#888')+'"></div>'+
+      '<div class="tc-rank">'+(t.rk&&t.rk<9999?'#'+t.rk:'')+'</div>'+
+      '<div><div class="tc-name">'+(t.name||name)+'</div><div class="tc-conf">'+(t.conf||'')+(t.tier?' · '+t.tier:'')+'</div></div></div>';
+    var grades='<div class="tc-grades">'+grd(t.rg,'Coach')+grd(t.dg,'Depth')+grd(t.recg,'Recruit')+grd(t.nilg,'NIL')+'</div>';
+    var proj;
+    if(p){
+      proj='<div class="tc-proj-h">26-27 Projected</div><div class="tc-proj">'+
+        pst(p.ppg,'PPG')+pst(p.rpg,'RPG')+pst(p.apg,'APG')+
+        pst(p.fg_pct,'FG%',1)+pst(p.tp_pct,'3P%',1)+pst(p.ft_pct,'FT%',1)+'</div>';
+    } else {
+      proj='<div class="tc-proj-h">26-27 Projected</div><div class="tc-none">Open team page to generate projections.</div>';
+    }
+    return head+grades+proj;
+  }
+  function place(){ raf=0; if(!card)return;
+    var w=card.offsetWidth||288,h=card.offsetHeight||190,pad=14,x=mx+18,y=my+18;
+    if(x+w+pad>innerWidth)x=mx-w-18; if(y+h+pad>innerHeight)y=Math.max(pad,innerHeight-h-pad); if(x<pad)x=pad;
+    card.style.left=x+'px'; card.style.top=y+'px';
+  }
+  function nameFrom(t){ var el=t.closest&&t.closest('[data-tcard]'); return el?el.getAttribute('data-tcard'):null; }
+  document.addEventListener('mouseover',function(e){
+    var name=nameFrom(e.target); if(!name)return; if(name===curName)return; curName=name;
+    var html=build(name); if(!html){curName=null;return;}
+    ensure().innerHTML=html; mx=e.clientX; my=e.clientY; place();
+    requestAnimationFrame(function(){card.classList.add('show');});
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!card||!card.classList.contains('show'))return; mx=e.clientX; my=e.clientY; if(!raf)raf=requestAnimationFrame(place);
+  });
+  document.addEventListener('mouseout',function(e){
+    if(!curName)return; var to=e.relatedTarget; if(to&&nameFrom(to)===curName)return;
+    curName=null; if(card)card.classList.remove('show');
+  });
 })();
 </script>
 </body>

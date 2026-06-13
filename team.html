@@ -715,6 +715,9 @@ async function loadTeam(name){
     renderHero(t, teamColor, teamRgb);
     // Store globally for projection slider
     teamPlayers=[...players]; teamConf=t.conf||t.conference||''; teamGp=globalPercentiles; teamColor_g=teamColor; teamRgb_g=teamRgb; teamT=t;
+    // Expose actual stats + team color by name for hover micro-cards
+    window._actualByName={}; players.forEach(pl=>{ window._actualByName[(pl.name||'').toLowerCase().trim()]=pl; });
+    window._hoverTeamColor=teamColor;
     renderDepth(t, players, teamColor, teamRgb, globalPercentiles);
     renderCustomize(t, players, teamColor, teamRgb, globalPercentiles);
     renderSidebar(t, players, losses, teamColor);
@@ -1216,7 +1219,7 @@ function renderDepth(t, players, color, rgb, gp={}){
         ${posBackups.map((b,i)=>`
         <div class="backup-item">
           <span class="backup-num">${i+2}</span>
-          <span class="backup-name">${b.name}</span>
+          <span class="backup-name" data-pcard="${(b.name||'').replace(/"/g,'&quot;')}">${b.name}</span>
           <span class="backup-cls">${b.class_year||b.yr||''}</span>
           <span class="backup-grade ${gc(b.tdc_grade||'')}">${b.tdc_grade||''}</span>
         </div>`).join('')}
@@ -1227,7 +1230,7 @@ function renderDepth(t, players, color, rgb, gp={}){
         <span class="starter-pos">${p.position||''}</span>
       </div>
       <div class="starter-col-body">
-        <div class="starter-name">${p.name}${p.tdc_grade?`<span class="starter-col-grade ${gc(p.tdc_grade)}" style="margin-left:6px;font-size:13px;">${p.tdc_grade}</span>`:''}</div>
+        <div class="starter-name" data-pcard="${(p.name||'').replace(/"/g,'&quot;')}">${p.name}${p.tdc_grade?`<span class="starter-col-grade ${gc(p.tdc_grade)}" style="margin-left:6px;font-size:13px;">${p.tdc_grade}</span>`:''}</div>
         <div class="starter-meta-row">
           <span>${p.class_year||p.yr||''}</span>
           <span class="starter-tag" style="background:rgba(${rgb},.12);color:${color};">★</span>
@@ -2352,6 +2355,9 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
 
   const _rawProjected=buildTeamProjections(players, _teamRow?.conf||conf);
   const projected=applyPredictionWalls(_rawProjected);
+  // Expose projected stats by name for hover micro-cards
+  window._projByName={};
+  projected.forEach(pp=>{ window._projByName[(pp.name||'').toLowerCase().trim()]=pp; });
   if(!projected.length){
     el.innerHTML='<div style="padding:20px;color:var(--text3);">No projections available — add player grades to enable projections.</div>';
     return;
@@ -3941,5 +3947,111 @@ function renderProjNatlChart(projected, color, rgb){
 })();
 </script>
 
+<style id="tdc-hovercard-css">
+#tdc-hovercard{position:fixed;z-index:10000;pointer-events:none;width:268px;
+  background:var(--bg2);border:1px solid var(--border2);border-radius:10px;
+  box-shadow:0 12px 40px rgba(0,0,0,.45),0 0 0 1px rgba(200,160,32,.10);
+  padding:13px 14px;opacity:0;transform:translateY(6px) scale(.98);
+  transition:opacity .16s ease,transform .16s cubic-bezier(.22,1,.36,1);
+  font-family:'Inter',sans-serif;}
+#tdc-hovercard.show{opacity:1;transform:translateY(0) scale(1);}
+#tdc-hovercard .hc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:9px;padding-bottom:9px;border-bottom:1px solid var(--border);}
+#tdc-hovercard .hc-name{font-family:'Playfair Display',serif;font-weight:800;font-size:16px;line-height:1.1;color:var(--text);}
+#tdc-hovercard .hc-meta{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:3px;}
+#tdc-hovercard .hc-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1;flex-shrink:0;}
+#tdc-hovercard .hc-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+#tdc-hovercard .hc-col-h{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+#tdc-hovercard .hc-col-h.proj{color:var(--accent);border-bottom-color:var(--accent);}
+#tdc-hovercard .hc-row{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;margin:2px 0;}
+#tdc-hovercard .hc-k{color:var(--text3);font-weight:600;}
+#tdc-hovercard .hc-v{color:var(--text);font-weight:700;font-variant-numeric:tabular-nums;}
+#tdc-hovercard .hc-v.proj{color:var(--accent);}
+#tdc-hovercard .hc-d{font-size:9px;font-weight:700;margin-left:4px;}
+#tdc-hovercard .hc-d.up{color:#1a8c3a;} #tdc-hovercard .hc-d.dn{color:#cc2200;}
+[data-theme="dark"] #tdc-hovercard .hc-d.up{color:#5ab875;} [data-theme="dark"] #tdc-hovercard .hc-d.dn{color:#e07070;}
+#tdc-hovercard .hc-inj{display:flex;align-items:center;justify-content:center;gap:6px;padding:14px 8px;font-size:12px;font-weight:700;color:#ef4444;background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.2);border-radius:6px;text-align:center;}
+@media (max-width:600px){#tdc-hovercard{display:none!important;}}
+</style>
+<script>
+(function(){
+  if(window.__tdcHoverCard) return; window.__tdcHoverCard=1;
+  var card,curName=null,raf=0,mx=0,my=0;
+  function gradeColor(g){var n=parseFloat(g);if(isNaN(n))return 'var(--text3)';
+    var dark=document.documentElement.getAttribute('data-theme')==='dark';
+    if(n>=90)return dark?'#5ab875':'#1a8c3a'; if(n>=80)return dark?'#74aedd':'#1a5fbf';
+    if(n>=70)return dark?'#dbb560':'#a06000'; return dark?'#e07070':'#cc2200';}
+  function f1(v){return (v!=null&&v!==''&&!isNaN(v))?Number(v).toFixed(1):'—';}
+  function fp(v){return (v!=null&&v!==''&&!isNaN(v))?Number(v).toFixed(1)+'%':'—';}
+  function ensure(){ if(card)return card; card=document.createElement('div'); card.id='tdc-hovercard'; document.body.appendChild(card); return card; }
+  function diff(proj,act){ if(act==null||proj==null||isNaN(act)||isNaN(proj))return '';
+    var d=Math.round((proj-act)*10)/10; if(Math.abs(d)<0.05)return '';
+    return '<span class="hc-d '+(d>0?'up':'dn')+'">'+(d>0?'+':'')+d+'</span>'; }
+  function statRows(a,p,keys){ return keys.map(function(k){
+    var av=a?parseFloat(a[k.k]):null, pv=p?parseFloat(p[k.k]):null;
+    var pvShown=p?(k.pct?fp(pv):f1(pv)):'—';
+    return '<div class="hc-row"><span class="hc-k">'+k.l+'</span>'+
+      '<span class="hc-v proj">'+pvShown+(a&&p?diff(pv,av):'')+'</span></div>';
+  }).join(''); }
+  function actRows(a,keys){ return keys.map(function(k){
+    var av=a?parseFloat(a[k.k]):null;
+    return '<div class="hc-row"><span class="hc-k">'+k.l+'</span>'+
+      '<span class="hc-v">'+(a?(k.pct?fp(av):f1(av)):'—')+'</span></div>';
+  }).join(''); }
+  function build(name){
+    var lc=(name||'').toLowerCase().trim();
+    var a=(window._actualByName||{})[lc];
+    var p=(window._projByName||{})[lc];
+    var src=a||p; if(!src) return null;
+    var grade=src.tdc_grade||'';
+    var meta=[src.position||src.position2||'',(src.class_year||src.yr||''),src.height||''].filter(Boolean).join(' · ');
+    var head='<div class="hc-top"><div><div class="hc-name">'+(src.name||name)+'</div>'+
+      (meta?'<div class="hc-meta">'+meta+'</div>':'')+'</div>'+
+      (grade?'<div class="hc-grade" style="color:'+gradeColor(grade)+'">'+grade+'</div>':'')+'</div>';
+    if(p&&(p._injured||p._dnp)){
+      return head+'<div class="hc-inj">🏥 Projected OUT — 2026-27</div>';
+    }
+    var box=[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},{l:'MPG',k:'mpg'}];
+    var pct=[{l:'FG%',k:'fg_pct',pct:1},{l:'3P%',k:'tp_pct',pct:1},{l:'FT%',k:'ft_pct',pct:1}];
+    var body='<div class="hc-cols"><div><div class="hc-col-h proj">26-27 Proj</div>'+
+      statRows(a,p,box.concat(pct))+'</div>'+
+      '<div><div class="hc-col-h">25-26 Actual</div>'+actRows(a,box.concat(pct))+'</div></div>';
+    return head+body;
+  }
+  function place(){
+    raf=0; if(!card)return;
+    var w=card.offsetWidth||268, h=card.offsetHeight||180, pad=14;
+    var x=mx+18, y=my+18;
+    if(x+w+pad>innerWidth) x=mx-w-18;
+    if(y+h+pad>innerHeight) y=Math.max(pad, innerHeight-h-pad);
+    if(x<pad)x=pad;
+    card.style.left=x+'px'; card.style.top=y+'px';
+  }
+  function targetName(t){
+    var el=t.closest&&t.closest('[data-pcard]');
+    if(el) return el.getAttribute('data-pcard');
+    var a=t.closest&&t.closest('a[href*="player.html?name="]');
+    if(a){ var m=a.getAttribute('href').match(/name=([^&]+)/); if(m){try{return decodeURIComponent(m[1]);}catch(e){return m[1];}} }
+    return null;
+  }
+  document.addEventListener('mouseover',function(e){
+    var name=targetName(e.target); if(!name) return;
+    if(name===curName) return; curName=name;
+    var html=build(name); if(!html){curName=null;return;}
+    ensure().innerHTML=html;
+    mx=e.clientX; my=e.clientY; place();
+    requestAnimationFrame(function(){card.classList.add('show');});
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!card||!card.classList.contains('show'))return;
+    mx=e.clientX; my=e.clientY; if(!raf)raf=requestAnimationFrame(place);
+  });
+  document.addEventListener('mouseout',function(e){
+    if(!curName)return;
+    var to=e.relatedTarget;
+    if(to&&targetName(to)===curName)return;
+    curName=null; if(card)card.classList.remove('show');
+  });
+})();
+</script>
 </body>
 </html>
