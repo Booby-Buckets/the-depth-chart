@@ -1382,7 +1382,7 @@ function renderRows(data, srt, favTeam, favColor, favBg){
       lastTier = t.tier;
     }
     html+=`
-    <div class="team-row${t.name===favTeam?' fav-row':''}" data-tcard="${(t.name||'').replace(/"/g,'&quot;')}" onclick="tdcToggleTeam(this)"
+    <div class="team-row${t.name===favTeam?' fav-row':''}" data-tcard="${(t.name||'').replace(/"/g,'&quot;')}" onclick="tdcToggleTeam(this,event)"
       style="--row-color:${t.color};${t.name===favTeam&&favColor?`border-left:3px solid ${favColor};background:${favBg};`:''}">
       <div class="tr-rank-wrap">
         <div class="tr-rank${t.rk===1?' rank-1':t.rk===2?' rank-2':t.rk===3?' rank-3':''}">${t.rk<9999?t.rk:'—'}</div>
@@ -1393,7 +1393,7 @@ function renderRows(data, srt, favTeam, favColor, favBg){
       </div>
       <div class="tr-color-bar" style="background:${t.color}"></div>
       <div>
-        <div class="tr-team-name">${t.name}</div>
+        <a class="tr-team-name" href="team.html?team=${encodeURIComponent(t.name)}" style="color:inherit;text-decoration:none;display:inline-block;">${t.name}</a>
         <div class="tr-team-conf">${t.conf}</div>
       </div>
       <div class="tr-grades-mobile">
@@ -1800,7 +1800,9 @@ function toggleTheme(){
     var foot='<div class="tc-foot"><a href="team.html?team='+encodeURIComponent(t.name||name)+'">View full team page &rarr;</a></div>';
     return '<div class="tc-cols"><div>'+head+grades+'</div>'+proj+'</div>'+foot;
   }
-  window.tdcToggleTeam=function(row){
+  window.tdcToggleTeam=function(row, e){
+    // Clicking the team name navigates to the team page; elsewhere toggles the row
+    if(e && e.target && e.target.closest('a')) return;
     var name=row.getAttribute('data-tcard');
     var detail=row.nextElementSibling;
     if(!detail||!detail.classList.contains('tdc-detail')) return;
