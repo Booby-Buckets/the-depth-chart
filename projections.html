@@ -1084,69 +1084,12 @@ const TEAM_TOTAL_MINUTES = 200; // 5 players × 40 min
 // Tier matrix matches your spreadsheet exactly
 const PROJ_CONF_MULT={'SEC':1.00,'B10':1.00,'BIG-12':1.00,'ACC':1.00,'Big-East':0.95,'A10':0.90,'MWC':0.88,'WCC':0.87,'PAC-12':0.92,'AAC':0.85,'Ivy':0.82,'MAC':0.80,'CUSA':0.78,'WAC':0.78,'Big West':0.77,'MVC':0.78,'SBC':0.72,'CAA':0.74,'Horizon':0.74,'Sun Belt':0.74,'Big South':0.72,'SoCon':0.72,'ASUN':0.72,'MAAC':0.72,'OVC':0.72,'Summit':0.70,'Patriot':0.66,'Big Sky':0.68,'SWAC':0.60,'NEC':0.60,'MEAC':0.58,'AEC':0.56};
 
-const PROJ_CONF_TIERS={'B10':1,'SEC':1,'BIG-12':1,'ACC':1,'Big-East':2,'A10':2,'WCC':2,'PAC-12':2,'MWC':3,'AAC':3,'Ivy':3,'MVC':4,'WAC':4,'CUSA':4,'MAC':4,'Big West':4,'Big Sky':5,'CAA':5,'Horizon':5,'Sun Belt':5,'Big South':5,'SBC':5,'SoCon':6,'ASUN':6,'MAAC':6,'OVC':6,'Summit':6,'Patriot':7,'SWAC':7,'NEC':7,'MEAC':7,'AEC':7};
 
 // Translation matrix: rows=origin tier, cols=destination tier
 // Matches your spreadsheet values exactly
-const PROJ_TRANS_MAT={
-  1:{1:1.00,2:1.15,3:1.28,4:1.40,5:1.40,6:1.40,7:1.40},
-  2:{1:0.90,2:1.00,3:1.15,4:1.20,5:1.20,6:1.20,7:1.20},
-  3:{1:0.75,2:0.90,3:1.00,4:1.05,5:1.10,6:1.10,7:1.10},
-  4:{1:0.49,2:0.68,3:0.82,4:1.00,5:1.05,6:1.05,7:1.05},
-  5:{1:0.43,2:0.49,3:0.69,4:0.82,5:1.00,6:1.00,7:1.00},
-  6:{1:0.40,2:0.42,3:0.50,4:0.69,5:0.82,6:1.00,7:1.00},
-  7:{1:0.30,2:0.34,3:0.42,4:0.48,5:0.69,6:0.82,7:1.00},
-};
 // ACC special case — higher variance moving down
-const PROJ_ACC_OUT={1:1.00,2:1.10,3:1.25,4:1.40,5:1.40,6:1.40,7:1.40};
 
 // Full D1 school → conference map (all ~360 programs)
-const PROJ_SCHOOL_CONF=(function(){
-  const m={};
-  const data=[
-    // ── TIER 1 ──
-    [['Alabama','Arkansas','Auburn','Florida','Georgia','Kentucky','LSU','Mississippi State','Missouri','Ole Miss','South Carolina','Tennessee','Texas','Texas A&M','Vanderbilt','Oklahoma'],'SEC'],
-    [['Illinois','Indiana','Iowa','Maryland','Michigan','Michigan State','Minnesota','Nebraska','Northwestern','Ohio State','Penn State','Purdue','Rutgers','Wisconsin','UCLA','USC','Oregon','Washington','UCLA'],'B10'],
-    [['Arizona','Arizona State','Baylor','BYU','Cincinnati','Colorado','Houston','Iowa State','Kansas','Kansas State','Oklahoma State','TCU','Texas Tech','UCF','Utah','West Virginia'],'BIG-12'],
-    [['Boston College','Clemson','Duke','Florida State','Georgia Tech','Louisville','Miami','NC State','North Carolina','Notre Dame','Pittsburgh','Syracuse','Virginia','Virginia Tech','Wake Forest','California','SMU','Stanford'],'ACC'],
-    // ── TIER 2 ──
-    [['Butler','Connecticut','Creighton','DePaul','Georgetown','Marquette','Providence','Seton Hall',"St. John's",'Villanova','Xavier'],'Big-East'],
-    [['Dayton','Davidson','Duquesne','Fordham','George Mason','George Washington','La Salle','Loyola Chicago','Rhode Island','Richmond',"Saint Joseph's",'Saint Louis','St. Bonaventure','VCU','Massachusetts','Saint Louis','Fordham'],'A10'],
-    [['Gonzaga','BYU','Pacific','Pepperdine','Portland','Saint Mary\'s','San Diego','San Francisco','Santa Clara','Loyola Marymount'],'WCC'],
-    [['Oregon State','Washington State','San Diego State','Colorado State','Boise State','Utah State','Nevada','New Mexico','Fresno State','Air Force','Wyoming','UNLV','San Jose State','Hawaii'],'PAC-12'],
-    // ── TIER 3 ──
-    [['Charlotte','East Carolina','Florida Atlantic','Memphis','North Texas','Rice','South Florida','Temple','Tulane','Tulsa','UAB','UTSA','Wichita State'],'AAC'],
-    [['Colorado State','San Diego State','Boise State','Utah State','Nevada','New Mexico','Fresno State','Air Force','Wyoming','UNLV','San Jose State','Hawaii'],'MWC'],
-    [['Harvard','Yale','Princeton','Columbia','Cornell','Dartmouth','Brown','Pennsylvania'],'Ivy'],
-    // ── TIER 4 ──
-    [['Bradley','Drake','Evansville','Illinois State','Indiana State','Missouri State','Northern Iowa','Southern Illinois','Valparaiso','Belmont','Murray State'],'MVC'],
-    [['Grand Canyon','Seattle U','Utah Valley','New Mexico State','Tarleton State','UT Rio Grande Valley','Cal Baptist','Chicago State','UMKC','UTRGV'],'WAC'],
-    [['Florida Atlantic','FIU','UTSA','Middle Tennessee','Old Dominion','Marshall','Western Kentucky','Charlotte','Louisiana Tech','UAB','Rice','North Texas'],'CUSA'],
-    [['Akron','Ball State','Bowling Green','Buffalo','Central Michigan','Eastern Michigan','Kent State','Miami (OH)','Northern Illinois','Ohio','Toledo','Western Michigan'],'MAC'],
-    [['UC Davis','UC Irvine','UC Riverside','UC Santa Barbara','UC San Diego','Cal Poly','Long Beach State','Pacific','Cal State Fullerton','Cal State Northridge','Hawaii'],'Big West'],
-    // ── TIER 5 ──
-    [['Montana','Montana State','Weber State','Idaho','Idaho State','Eastern Washington','Northern Arizona','Northern Colorado','Southern Utah','Portland State','Sacramento State','North Dakota','South Dakota','North Dakota State','South Dakota State'],'Big Sky'],
-    [['Hofstra','Charleston','Delaware','Elon','James Madison','Northeastern','Towson','UNC Wilmington','William & Mary','Drexel','Campbell','Stony Brook'],'CAA'],
-    [['Detroit Mercy','Green Bay','Horizon','IUPUI','IU Indianapolis','Milwaukee','Northern Kentucky','Oakland','Purdue Fort Wayne','Robert Morris','Wright State','Youngstown State','Cleveland State'],'Horizon'],
-    [['Appalachian State','Arkansas State','Coastal Carolina','Georgia Southern','Georgia State','Louisiana','Louisiana Monroe','Old Dominion','South Alabama','Southern Miss','Texas State','Troy'],'Sun Belt'],
-    [['Winthrop','Campbell','Charleston Southern','Gardner-Webb','High Point','Longwood','Presbyterian','Radford','UNC Asheville','USC Upstate'],'Big South'],
-    [['Arkansas State','Louisiana','Louisiana Monroe','South Alabama','Georgia State','Georgia Southern','Appalachian State','Coastal Carolina','Texas State','Troy'],'SBC'],
-    // ── TIER 6 ──
-    [['Samford','Furman','Chattanooga','ETSU','Mercer','VMI','Western Carolina','Wofford','The Citadel'],'SoCon'],
-    [['Liberty','Belmont','Lipscomb','FGCU','North Alabama','Jacksonville','Stetson','Austin Peay','Eastern Kentucky','Morehead State','Murray State','Kennesaw State'],'ASUN'],
-    [['Iona','Manhattan','Marist','Niagara','Quinnipiac','Rider',"Saint Peter's",'Siena','Canisius','Fairfield','Mount St. Mary\'s'],'MAAC'],
-    [['UT Martin','Tennessee State','Tennessee Tech','Eastern Illinois','Lindenwood','SE Missouri State','SIU Edwardsville','Jacksonville State','Central Arkansas','Bellarmine'],'OVC'],
-    [['Oral Roberts','North Dakota State','South Dakota State','Western Illinois','Denver','Omaha','Kansas City','St. Thomas'],'Summit'],
-    // ── TIER 7 ──
-    [['Colgate','Bucknell','Lafayette','Lehigh','Army','Navy','Holy Cross','American','Loyola Maryland','Boston University','Fordham'],'Patriot'],
-    [['Grambling','Jackson State','Alabama A&M','Alabama State','Alcorn State','Arkansas Pine Bluff','Bethune-Cookman','Coppin State','Delaware State','Florida A&M','Howard','Maryland Eastern Shore','Mississippi Valley State','Morgan State','Norfolk State','North Carolina A&T','North Carolina Central','Prairie View','Savannah State','South Carolina State','Southern','Texas Southern'],'SWAC'],
-    [['Bryant','Central Connecticut','LIU','Merrimack','Sacred Heart','Fairleigh Dickinson','Mount St. Mary\'s','CCSU','Long Island','Saint Francis','Wagner','FDU'],'NEC'],
-    [['Maine','New Hampshire','UMass Lowell','Albany','Binghamton','Hartford','UMBC','Vermont','Stony Brook','New Jersey Tech'],'AEC'],
-    [['Kennesaw State','USC Upstate','North Florida','Northern Kentucky','Queens','Eastern Kentucky','Lindenwood','SIU Edwardsville','Little Rock'],'MEAC'],
-  ];
-  data.forEach(([schools,conf])=>schools.forEach(s=>{ m[s.toLowerCase()]=conf; }));
-  return m;
-})();
 
 function getSchoolConfFallback(school){ return getProjSchoolConf(school); }
 
@@ -1253,36 +1196,6 @@ function inferRotationDepth(sorted){
 }
 
 // ── FR_BASE — grade-tiered baseline stats per position ──────
-const FR_BASE = {
-  '92+':{
-    PG:{ppg:17.5,rpg:3.5,apg:4.5,fg_pct:45.5,tp_pct:37.5,ft_pct:80.5,stl:1.3,blk:0.3,oreb:0.6,dreb:2.9,tovs:2.25},
-    SG:{ppg:16.0,rpg:4.0,apg:2.25,fg_pct:43.5,tp_pct:38.5,ft_pct:74.5,stl:1.1,blk:0.4,oreb:0.8,dreb:3.2,tovs:1.5},
-    SF:{ppg:18.5,rpg:5.0,apg:1.75,fg_pct:46.5,tp_pct:36.0,ft_pct:76.0,stl:1.0,blk:0.6,oreb:1.3,dreb:3.7,tovs:1.8},
-    PF:{ppg:16.0,rpg:6.5,apg:1.8,fg_pct:50.0,tp_pct:31.0,ft_pct:74.0,stl:0.7,blk:1.2,oreb:2.2,dreb:4.3,tovs:1.75},
-    C: {ppg:14.0,rpg:9.0,apg:1.05,fg_pct:56.0,tp_pct:22.0,ft_pct:70.5,stl:0.5,blk:1.9,oreb:2.7,dreb:6.3,tovs:1.75},
-  },
-  '85-91':{
-    PG:{ppg:13.0,rpg:2.0,apg:3.1,fg_pct:44.5,tp_pct:34.0,ft_pct:80.5,stl:1.1,blk:0.2,oreb:0.4,dreb:1.6,tovs:2.35},
-    SG:{ppg:12.75,rpg:2.6,apg:1.65,fg_pct:42.25,tp_pct:35.5,ft_pct:74.5,stl:0.9,blk:0.3,oreb:0.6,dreb:2.0,tovs:1.65},
-    SF:{ppg:13.5,rpg:3.5,apg:1.15,fg_pct:44.5,tp_pct:34.5,ft_pct:76.0,stl:0.8,blk:0.5,oreb:1.0,dreb:2.5,tovs:1.8},
-    PF:{ppg:12.5,rpg:5.25,apg:1.15,fg_pct:47.5,tp_pct:29.5,ft_pct:74.0,stl:0.5,blk:0.9,oreb:1.7,dreb:3.5,tovs:1.75},
-    C: {ppg:11.0,rpg:6.75,apg:0.7,fg_pct:52.0,tp_pct:19.5,ft_pct:70.5,stl:0.4,blk:1.5,oreb:2.1,dreb:4.6,tovs:1.75},
-  },
-  '75-84':{
-    PG:{ppg:7.5,rpg:1.5,apg:2.05,fg_pct:43.5,tp_pct:34.0,ft_pct:80.5,stl:0.9,blk:0.2,oreb:0.3,dreb:1.2,tovs:1.75},
-    SG:{ppg:7.5,rpg:2.2,apg:1.25,fg_pct:42.0,tp_pct:35.5,ft_pct:74.5,stl:0.7,blk:0.2,oreb:0.5,dreb:1.7,tovs:1.25},
-    SF:{ppg:7.6,rpg:2.65,apg:0.9,fg_pct:43.5,tp_pct:34.5,ft_pct:76.0,stl:0.6,blk:0.4,oreb:0.8,dreb:1.85,tovs:1.25},
-    PF:{ppg:6.65,rpg:3.25,apg:0.75,fg_pct:47.0,tp_pct:29.5,ft_pct:74.0,stl:0.4,blk:0.7,oreb:1.3,dreb:2.35,tovs:1.35},
-    C: {ppg:6.6,rpg:4.75,apg:0.55,fg_pct:51.0,tp_pct:19.5,ft_pct:70.5,stl:0.3,blk:1.1,oreb:1.6,dreb:3.1,tovs:1.3},
-  },
-  'below75':{
-    PG:{ppg:4.0,rpg:1.0,apg:1.3,fg_pct:42.0,tp_pct:32.0,ft_pct:78.0,stl:0.6,blk:0.1,oreb:0.2,dreb:0.8,tovs:1.4},
-    SG:{ppg:4.0,rpg:1.2,apg:0.8,fg_pct:40.0,tp_pct:33.0,ft_pct:72.0,stl:0.5,blk:0.1,oreb:0.3,dreb:1.0,tovs:1.0},
-    SF:{ppg:4.5,rpg:1.8,apg:0.6,fg_pct:41.0,tp_pct:32.0,ft_pct:72.0,stl:0.4,blk:0.2,oreb:0.5,dreb:1.3,tovs:1.0},
-    PF:{ppg:3.5,rpg:2.5,apg:0.5,fg_pct:44.0,tp_pct:26.0,ft_pct:68.0,stl:0.3,blk:0.5,oreb:0.9,dreb:1.6,tovs:1.0},
-    C: {ppg:3.5,rpg:3.0,apg:0.4,fg_pct:48.0,tp_pct:15.0,ft_pct:64.0,stl:0.2,blk:0.7,oreb:1.0,dreb:2.0,tovs:1.0},
-  },
-};
 
 // ── POSITION FIT ENGINE ──────────────────────────────────────────────────────
 // Determines if a player is deployed at their primary or secondary position.
