@@ -3951,23 +3951,22 @@ function renderProjNatlChart(projected, color, rgb){
 .tdc-prow-detail{max-height:0;overflow:hidden;background:var(--bg2);
   transition:max-height .32s cubic-bezier(.22,1,.36,1);}
 .tdc-prow-detail.open{border-bottom:1px solid var(--border);}
-.tdc-prow-inner{padding:12px 14px 14px;border-left:3px solid var(--accent);
-  position:sticky;left:0;max-width:560px;font-family:'Inter',sans-serif;}
+.tdc-prow-inner{padding:13px 16px 16px;border-left:3px solid var(--accent);
+  position:sticky;left:0;max-width:960px;font-family:'Inter',sans-serif;}
 .rotation-row.tdc-rowexp,.crotation-row.tdc-rowexp{background:rgba(200,160,32,.06)!important;}
 .hc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px;padding-bottom:9px;border-bottom:1px solid var(--border);}
 .hc-name{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;line-height:1.1;color:var(--text);}
 .hc-meta{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:3px;}
 .hc-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;line-height:1;flex-shrink:0;}
-.hc-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:420px;}
-.hc-col-h{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border);}
-.hc-col-h.proj{color:var(--accent);border-bottom-color:var(--accent);}
-.hc-row{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin:3px 0;}
-.hc-k{color:var(--text3);font-weight:600;}
-.hc-v{color:var(--text);font-weight:700;font-variant-numeric:tabular-nums;}
-.hc-v.proj{color:var(--accent);}
-.hc-d{font-size:9px;font-weight:700;margin-left:5px;}
-.hc-d.up{color:#1a8c3a;} .hc-d.dn{color:#cc2200;}
-[data-theme="dark"] .hc-d.up{color:#5ab875;} [data-theme="dark"] .hc-d.dn{color:#e07070;}
+.hc-col-h{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--accent);}
+.hc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:9px;}
+.hc-chip{background:var(--bg3);border-radius:7px;padding:8px 5px 7px;text-align:center;}
+.hc-chip-l{font-size:8px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);}
+.hc-chip-v{font-size:17px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;margin-top:3px;line-height:1;}
+.hc-chip-d{font-size:9px;font-weight:700;margin-top:3px;}
+.hc-chip-d.up{color:#1a8c3a;} .hc-chip-d.dn{color:#cc2200;}
+[data-theme="dark"] .hc-chip-d.up{color:#5ab875;} [data-theme="dark"] .hc-chip-d.dn{color:#e07070;}
+.hc-chip-a{font-size:9px;color:var(--text3);margin-top:3px;}
 .hc-inj{display:flex;align-items:center;gap:6px;padding:12px 8px;font-size:12px;font-weight:700;color:#ef4444;background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.2);border-radius:6px;max-width:420px;}
 .hc-foot{margin-top:12px;}
 .hc-foot a{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);text-decoration:none;}
@@ -3985,15 +3984,22 @@ function renderProjNatlChart(projected, color, rgb){
   function diff(proj,act){ if(act==null||proj==null||isNaN(act)||isNaN(proj))return '';
     var d=Math.round((proj-act)*10)/10; if(Math.abs(d)<0.05)return '';
     return '<span class="hc-d '+(d>0?'up':'dn')+'">'+(d>0?'+':'')+d+'</span>'; }
-  function statRows(a,p,keys){ return keys.map(function(k){
-    var av=a?parseFloat(a[k.k]):null, pv=p?parseFloat(p[k.k]):null;
-    var pvShown=p?(k.pct?fp(pv):f1(pv)):'—';
-    return '<div class="hc-row"><span class="hc-k">'+k.l+'</span>'+
-      '<span class="hc-v proj">'+pvShown+(a&&p?diff(pv,av):'')+'</span></div>';}).join(''); }
-  function actRows(a,keys){ return keys.map(function(k){
-    var av=a?parseFloat(a[k.k]):null;
-    return '<div class="hc-row"><span class="hc-k">'+k.l+'</span>'+
-      '<span class="hc-v">'+(a?(k.pct?fp(av):f1(av)):'—')+'</span></div>';}).join(''); }
+  function chip(s,a,p){
+    var pv=p?parseFloat(p[s.k]):null, av=a?parseFloat(a[s.k]):null;
+    var hasP=p&&!isNaN(pv);
+    var vShown=hasP?(s.pct?fp(pv):f1(pv)):(s.pct?fp(av):f1(av));
+    var d='';
+    if(hasP&&a&&!isNaN(av)){
+      var dd=Math.round((pv-av)*10)/10;
+      if(Math.abs(dd)>=0.05){
+        var good=s.inv?dd<0:dd>0;
+        d='<div class="hc-chip-d '+(good?'up':'dn')+'">'+(dd>0?'+':'')+dd+(s.pct?'%':'')+'</div>';
+      }
+    }
+    var aLine=(a&&hasP)?'<div class="hc-chip-a">was '+(s.pct?fp(av):f1(av))+'</div>':'';
+    return '<div class="hc-chip"><div class="hc-chip-l">'+s.l+'</div>'+
+      '<div class="hc-chip-v">'+vShown+'</div>'+d+aLine+'</div>';
+  }
   function build(name){
     var lc=(name||'').toLowerCase().trim();
     var a=(window._actualByName||{})[lc];
@@ -4009,11 +4015,13 @@ function renderProjNatlChart(projected, color, rgb){
     if(p&&(p._injured||p._dnp)){
       return head+'<div class="hc-inj">🏥 Projected OUT — 2026-27 season</div>'+foot;
     }
-    var box=[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},{l:'MPG',k:'mpg'}];
-    var pct=[{l:'FG%',k:'fg_pct',pct:1},{l:'3P%',k:'tp_pct',pct:1},{l:'FT%',k:'ft_pct',pct:1}];
-    var body='<div class="hc-cols"><div><div class="hc-col-h proj">26-27 Proj</div>'+
-      statRows(a,p,box.concat(pct))+'</div>'+
-      '<div><div class="hc-col-h">25-26 Actual</div>'+actRows(a,box.concat(pct))+'</div></div>';
+    var stats=[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},{l:'MPG',k:'mpg'},
+      {l:'FG%',k:'fg_pct',pct:1},{l:'3P%',k:'tp_pct',pct:1},{l:'FT%',k:'ft_pct',pct:1},
+      {l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TO',k:'tovs',inv:1},
+      {l:'OREB',k:'oreb'},{l:'DREB',k:'dreb'}];
+    var hdr=(p?'26-27 Projected':'25-26 Actual')+(a&&p?' · vs last season':'');
+    var body='<div class="hc-col-h proj">'+hdr+'</div><div class="hc-grid">'+
+      stats.map(function(s){return chip(s,a,p);}).join('')+'</div>';
     return head+body+foot;
   }
   function nameFromRow(row){
