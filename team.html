@@ -3967,6 +3967,13 @@ function renderProjNatlChart(projected, color, rgb){
 .hc-chip-d.up{color:#1a8c3a;} .hc-chip-d.dn{color:#cc2200;}
 [data-theme="dark"] .hc-chip-d.up{color:#5ab875;} [data-theme="dark"] .hc-chip-d.dn{color:#e07070;}
 .hc-chip-a{font-size:9px;color:var(--text3);margin-top:3px;}
+.hc-pct-h{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:16px 0 9px;}
+.hc-pbars{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:3px 22px;}
+.hc-pbar-row{display:flex;align-items:center;gap:9px;margin:4px 0;}
+.hc-pbar-l{width:38px;font-size:10px;font-weight:700;color:var(--text3);text-align:right;flex-shrink:0;}
+.hc-pbar-track{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.hc-pbar-fill{height:100%;border-radius:3px;transition:width .6s cubic-bezier(.22,1,.36,1);}
+.hc-pbar-v{width:32px;font-size:10px;font-weight:700;text-align:right;flex-shrink:0;}
 .hc-inj{display:flex;align-items:center;gap:6px;padding:12px 8px;font-size:12px;font-weight:700;color:#ef4444;background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.2);border-radius:6px;max-width:420px;}
 .hc-foot{margin-top:12px;}
 .hc-foot a{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);text-decoration:none;}
@@ -3981,6 +3988,39 @@ function renderProjNatlChart(projected, color, rgb){
     if(n>=70)return dark?'#dbb560':'#a06000'; return dark?'#e07070':'#cc2200';}
   function f1(v){return (v!=null&&v!==''&&!isNaN(v))?Number(v).toFixed(1):'—';}
   function fp(v){return (v!=null&&v!==''&&!isNaN(v))?Number(v).toFixed(1)+'%':'—';}
+  // National percentile vs all D1 players (actual-stat distribution), cached per stat
+  function natDist(key){
+    if(!window._gPctCache) window._gPctCache={};
+    if(window._gPctCache[key]) return window._gPctCache[key];
+    var arr=(window._allPlayersGlobal||[]).map(function(p){return parseFloat(p[key]);})
+      .filter(function(v){return !isNaN(v)&&v>0;}).sort(function(a,b){return a-b;});
+    window._gPctCache[key]=arr; return arr;
+  }
+  function pctOf(key,val,inv){
+    var arr=natDist(key); if(!arr.length) return null;
+    var v=parseFloat(val); if(isNaN(v)) return null;
+    var lo=0,hi=arr.length; while(lo<hi){var m=(lo+hi)>>1; if(arr[m]<v)lo=m+1; else hi=m;}
+    var p=Math.round(lo/arr.length*100); return inv?100-p:p;
+  }
+  function pctColor(pct){
+    var dark=document.documentElement.getAttribute('data-theme')==='dark';
+    if(pct>=80)return dark?'#5ab875':'#1a8c3a'; if(pct>=60)return dark?'#74aedd':'#1a5fbf';
+    if(pct>=40)return 'var(--accent)'; if(pct>=20)return '#b07000'; return '#cc2200';
+  }
+  function pctBars(src){
+    var defs=[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},
+      {l:'FG%',k:'fg_pct'},{l:'3P%',k:'tp_pct'},{l:'FT%',k:'ft_pct'},
+      {l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TO',k:'tovs',inv:1}];
+    var rows=defs.map(function(d){
+      var pct=pctOf(d.k, src[d.k], d.inv); if(pct==null) return '';
+      var col=pctColor(pct);
+      return '<div class="hc-pbar-row"><div class="hc-pbar-l">'+d.l+'</div>'+
+        '<div class="hc-pbar-track"><div class="hc-pbar-fill" style="width:'+pct+'%;background:'+col+';"></div></div>'+
+        '<div class="hc-pbar-v" style="color:'+col+';">'+pct+'th</div></div>';
+    }).filter(Boolean).join('');
+    if(!rows) return '';
+    return '<div class="hc-pct-h">National Percentile — projected vs all D1 players</div><div class="hc-pbars">'+rows+'</div>';
+  }
   function diff(proj,act){ if(act==null||proj==null||isNaN(act)||isNaN(proj))return '';
     var d=Math.round((proj-act)*10)/10; if(Math.abs(d)<0.05)return '';
     return '<span class="hc-d '+(d>0?'up':'dn')+'">'+(d>0?'+':'')+d+'</span>'; }
@@ -4022,7 +4062,8 @@ function renderProjNatlChart(projected, color, rgb){
     var hdr=(p?'26-27 Projected':'25-26 Actual')+(a&&p?' · vs last season':'');
     var body='<div class="hc-col-h proj">'+hdr+'</div><div class="hc-grid">'+
       stats.map(function(s){return chip(s,a,p);}).join('')+'</div>';
-    return head+body+foot;
+    var bars=pctBars(p||a||{});
+    return head+body+bars+foot;
   }
   function nameFromRow(row){
     var a=row.querySelector('a[href*="player.html?name="]');
