@@ -703,6 +703,7 @@ async function loadTeam(name){
       { headers: H }
     );
     allDbPlayers = (await allDbR.json()).filter(p=>p.name&&p.name!=='—');
+    window._allDbPlayers = allDbPlayers; // pool for archetype/national percentiles
 
     // Compute color/rgb once and pass to all render functions
     const hex2rgb = h => {
@@ -3967,12 +3968,22 @@ function renderProjNatlChart(projected, color, rgb){
 .hc-chip-d.up{color:#1a8c3a;} .hc-chip-d.dn{color:#cc2200;}
 [data-theme="dark"] .hc-chip-d.up{color:#5ab875;} [data-theme="dark"] .hc-chip-d.dn{color:#e07070;}
 .hc-chip-a{font-size:9px;color:var(--text3);margin-top:3px;}
-.hc-pct-h{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin:12px 0 13px;}
-.hc-chart{display:flex;gap:5px;align-items:stretch;height:96px;max-width:520px;}
+.hc-pct-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:13px 0 4px;}
+.hc-pct-h{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);}
+.hc-pct-h b{color:var(--text2);}
+.hc-toggle{display:inline-flex;background:var(--bg3);border-radius:6px;padding:2px;gap:2px;}
+.hc-pmode-btn{font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);background:transparent;border:none;cursor:pointer;padding:4px 9px;border-radius:4px;transition:all .15s;}
+.hc-pmode-btn.on{background:var(--accent);color:#1a1205;}
+.hc-legend{display:flex;gap:14px;font-size:9px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);margin:6px 0 12px;}
+.hc-legend span{display:inline-flex;align-items:center;gap:5px;}
+.hc-legend i{width:9px;height:9px;border-radius:2px;display:inline-block;}
+.hc-chart{display:flex;gap:7px;align-items:stretch;height:116px;}
 .hc-ccol{flex:1;display:flex;flex-direction:column;min-width:0;}
-.hc-cbar-area{flex:1;display:flex;align-items:flex-end;justify-content:center;}
-.hc-cbar{width:66%;max-width:20px;border-radius:3px 3px 0 0;transition:height .6s cubic-bezier(.22,1,.36,1);position:relative;}
-.hc-cbar-v{position:absolute;top:-14px;left:-5px;right:-5px;text-align:center;font-size:9px;font-weight:700;}
+.hc-cbar-area{flex:1;display:flex;align-items:flex-end;justify-content:center;gap:3px;}
+.hc-cbar{flex:1;max-width:15px;border-radius:3px 3px 0 0;transition:height .5s cubic-bezier(.22,1,.36,1);position:relative;}
+.hc-cbar.proj{background:var(--accent);}
+.hc-cbar.last{background:#5b9d8f;}
+.hc-cbar-v{position:absolute;top:-13px;left:-4px;right:-4px;text-align:center;font-size:8px;font-weight:700;}
 .hc-clbl{text-align:center;font-size:8px;font-weight:700;letter-spacing:.01em;text-transform:uppercase;color:var(--text3);padding-top:5px;border-top:1px solid var(--border);margin-top:4px;}
 .hc-inj{display:flex;align-items:center;gap:6px;padding:12px 8px;font-size:12px;font-weight:700;color:#ef4444;background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.2);border-radius:6px;max-width:420px;}
 .hc-foot{margin-top:12px;}
@@ -3988,39 +3999,74 @@ function renderProjNatlChart(projected, color, rgb){
     if(n>=70)return dark?'#dbb560':'#a06000'; return dark?'#e07070':'#cc2200';}
   function f1(v){return (v!=null&&v!==''&&!isNaN(v))?Number(v).toFixed(1):'—';}
   function fp(v){return (v!=null&&v!==''&&!isNaN(v))?Number(v).toFixed(1)+'%':'—';}
-  // National percentile vs all D1 players (actual-stat distribution), cached per stat
-  function natDist(key){
-    if(!window._gPctCache) window._gPctCache={};
-    if(window._gPctCache[key]) return window._gPctCache[key];
-    var arr=(window._allPlayersGlobal||[]).map(function(p){return parseFloat(p[key]);})
-      .filter(function(v){return !isNaN(v)&&v>0;}).sort(function(a,b){return a-b;});
-    window._gPctCache[key]=arr; return arr;
+  // ── ARCHETYPE CLASSIFICATION ──
+  function archetypeOf(p){
+    var pos=((p&&p.position)||'').toUpperCase().split(/[\/,\s]/)[0];
+    var apg=parseFloat(p&&p.apg)||0;
+    if(pos==='PG'||pos==='G')  return apg>=4.0?'Lead Guard':'Combo Guard';
+    if(pos==='SG'||pos==='CG') return apg>=4.5?'Combo Guard':'Scoring Guard';
+    if(pos==='SF'||pos==='F')  return 'Wing';
+    if(pos==='PF') return 'Forward';
+    if(pos==='C')  return 'Big';
+    return 'All Players';
   }
-  function pctOf(key,val,inv){
-    var arr=natDist(key); if(!arr.length) return null;
-    var v=parseFloat(val); if(isNaN(v)) return null;
+  // Pool of players for a mode: 'natl' = all, 'arch' = same archetype. Cached.
+  function poolFor(mode,arch){
+    var all=window._allDbPlayers||[];
+    if(mode!=='arch') return all;
+    if(!window._archPoolCache) window._archPoolCache={};
+    if(window._archPoolCache[arch]) return window._archPoolCache[arch];
+    var sub=all.filter(function(p){return archetypeOf(p)===arch;});
+    window._archPoolCache[arch]=sub; return sub;
+  }
+  // distribution of a key within a pool, cached by mode+arch+key
+  function distFor(pool,cacheKey,key){
+    if(!window._distCache) window._distCache={};
+    var ck=cacheKey+'|'+key;
+    if(window._distCache[ck]) return window._distCache[ck];
+    var arr=pool.map(function(p){return parseFloat(p[key]);})
+      .filter(function(v){return !isNaN(v)&&v>0;}).sort(function(a,b){return a-b;});
+    window._distCache[ck]=arr; return arr;
+  }
+  function pctRank(arr,val,inv){
+    if(!arr.length){return null;} var v=parseFloat(val); if(isNaN(v))return null;
     var lo=0,hi=arr.length; while(lo<hi){var m=(lo+hi)>>1; if(arr[m]<v)lo=m+1; else hi=m;}
     var p=Math.round(lo/arr.length*100); return inv?100-p:p;
   }
-  function pctColor(pct){
-    var dark=document.documentElement.getAttribute('data-theme')==='dark';
-    if(pct>=80)return dark?'#5ab875':'#1a8c3a'; if(pct>=60)return dark?'#74aedd':'#1a5fbf';
-    if(pct>=40)return 'var(--accent)'; if(pct>=20)return '#b07000'; return '#cc2200';
-  }
-  function pctBars(src){
-    var defs=[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},
-      {l:'FG%',k:'fg_pct'},{l:'3P%',k:'tp_pct'},{l:'FT%',k:'ft_pct'},
-      {l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TO',k:'tovs',inv:1}];
-    var cols=defs.map(function(d){
-      var pct=pctOf(d.k, src[d.k], d.inv); if(pct==null) return '';
-      var col=pctColor(pct);
+  var PCT_DEFS=[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},
+    {l:'FG%',k:'fg_pct'},{l:'3P%',k:'tp_pct'},{l:'FT%',k:'ft_pct'},
+    {l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TO',k:'tovs',inv:1}];
+  // Build the percentile section (header + toggle + legend + dual bars) for a player
+  function renderPctSection(name,mode){
+    var lc=(name||'').toLowerCase().trim();
+    var a=(window._actualByName||{})[lc];
+    var p=(window._projByName||{})[lc];
+    var src=a||p||{};
+    var arch=archetypeOf(src);
+    var pool=poolFor(mode,arch);
+    var cacheKey=(mode==='arch')?('arch:'+arch):'natl';
+    var cols=PCT_DEFS.map(function(d){
+      var arr=distFor(pool,cacheKey,d.k);
+      var projPct=p?pctRank(arr,p[d.k],d.inv):null;
+      var lastPct=a?pctRank(arr,a[d.k],d.inv):null;
+      var bar=function(pct,cls){ if(pct==null)return '';
+        return '<div class="hc-cbar '+cls+'" style="height:'+Math.max(pct,3)+'%;">'+
+          '<div class="hc-cbar-v">'+pct+'</div></div>'; };
       return '<div class="hc-ccol"><div class="hc-cbar-area">'+
-        '<div class="hc-cbar" style="height:'+Math.max(pct,3)+'%;background:'+col+';">'+
-        '<div class="hc-cbar-v" style="color:'+col+';">'+pct+'</div></div></div>'+
+        bar(projPct,'proj')+bar(lastPct,'last')+'</div>'+
         '<div class="hc-clbl">'+d.l+'</div></div>';
-    }).filter(Boolean).join('');
-    if(!cols) return '';
-    return '<div class="hc-pct-h">National Percentile — projected vs all D1 players</div><div class="hc-chart">'+cols+'</div>';
+    }).join('');
+    var label = (mode==='arch')
+      ? '<b>'+arch+'</b> &middot; '+pool.length+' similar players'
+      : 'vs all D1 players';
+    var toggle='<div class="hc-toggle">'+
+      '<button class="hc-pmode-btn'+(mode==='arch'?' on':'')+'" data-mode="arch">Archetype</button>'+
+      '<button class="hc-pmode-btn'+(mode==='natl'?' on':'')+'" data-mode="natl">National</button></div>';
+    var legend='<div class="hc-legend"><span><i style="background:var(--accent);"></i>26-27 Projected</span>'+
+      '<span><i style="background:#5b9d8f;"></i>25-26 Actual</span></div>';
+    return '<div class="hc-pct-wrap" data-pname="'+(name||'').replace(/"/g,'&quot;')+'" data-mode="'+mode+'">'+
+      '<div class="hc-pct-top"><div class="hc-pct-h">Percentile &mdash; '+label+'</div>'+toggle+'</div>'+
+      legend+'<div class="hc-chart">'+cols+'</div></div>';
   }
   function diff(proj,act){ if(act==null||proj==null||isNaN(act)||isNaN(proj))return '';
     var d=Math.round((proj-act)*10)/10; if(Math.abs(d)<0.05)return '';
@@ -4063,7 +4109,7 @@ function renderProjNatlChart(projected, color, rgb){
     var hdr=(p?'26-27 Projected':'25-26 Actual')+(a&&p?' · vs last season':'');
     var body='<div class="hc-col-h proj">'+hdr+'</div><div class="hc-grid">'+
       stats.map(function(s){return chip(s,a,p);}).join('')+'</div>';
-    var bars=pctBars(p||a||{});
+    var bars=renderPctSection(src.name||name,'arch');
     return head+body+bars+foot;
   }
   function nameFromRow(row){
@@ -4094,6 +4140,21 @@ function renderProjNatlChart(projected, color, rgb){
     row.classList.add('tdc-rowexp');
     requestAnimationFrame(function(){ d.classList.add('open'); d.style.maxHeight=d.scrollHeight+'px'; });
   }
+  // Archetype/National toggle inside an open detail panel
+  document.addEventListener('click',function(e){
+    var btn=e.target.closest('.hc-pmode-btn');
+    if(!btn) return;
+    e.stopPropagation();
+    var wrap=btn.closest('.hc-pct-wrap'); if(!wrap) return;
+    var mode=btn.getAttribute('data-mode');
+    if(mode===wrap.getAttribute('data-mode')) return;
+    var name=wrap.getAttribute('data-pname');
+    var tmp=document.createElement('div'); tmp.innerHTML=renderPctSection(name,mode);
+    var fresh=tmp.firstElementChild;
+    wrap.replaceWith(fresh);
+    var detail=fresh.closest('.tdc-prow-detail');
+    if(detail) detail.style.maxHeight=detail.scrollHeight+'px';
+  });
   document.addEventListener('click',function(e){
     var row=e.target.closest('.rotation-row,.crotation-row');
     if(!row) return;
