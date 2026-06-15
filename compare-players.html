@@ -97,19 +97,33 @@
     .sw-tag.w{background:rgba(204,34,0,.10);color:var(--red);}
     .sw-none{font-size:11px;color:var(--text3);font-style:italic;}
 
-    /* LINEUP */
-    .lineup-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
-    .lineup-card{border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
-    .lineup-team{font-family:'Playfair Display',serif;font-weight:800;font-size:16px;margin-bottom:4px;}
-    .lineup-combo{font-size:11px;font-weight:700;color:var(--text3);margin-bottom:12px;}
-    .lineup-row{display:grid;grid-template-columns:26px 1fr auto auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;}
-    .lineup-row:last-child{border-bottom:none;}
-    .lr-pos{font-size:10px;font-weight:700;color:var(--text3);}
-    .lr-name{font-weight:600;}
-    .lr-name a{color:inherit;text-decoration:none;}
-    .lr-stat{font-size:11px;color:var(--text3);font-variant-numeric:tabular-nums;}
-    .lr-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;}
-    .lineup-foot{display:flex;justify-content:space-between;margin-top:11px;padding-top:11px;border-top:2px solid var(--border2);font-size:12px;font-weight:700;}
+    /* ROSTER */
+    .roster-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+    .rstat{border:1px solid var(--border);border-radius:9px;padding:11px 12px;text-align:center;}
+    .rstat-l{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+    .rstat-vals{display:flex;align-items:baseline;justify-content:center;gap:9px;}
+    .rstat-v{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;}
+    .rstat-sep{color:var(--text3);font-size:10px;font-weight:600;}
+    .roster-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+    .roster-card{border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+    .roster-team{font-family:'Playfair Display',serif;font-weight:800;font-size:16px;padding-left:8px;margin-bottom:11px;}
+    .roster-comp{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+    .rcomp{font-size:10px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:var(--text2);background:var(--bg3);border-radius:5px;padding:4px 8px;}
+    .rcomp b{color:var(--text);font-weight:800;}
+    .roster-sub{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:13px 0 3px;}
+    .roster-row{display:grid;grid-template-columns:24px 1fr auto;gap:9px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);}
+    .roster-row:last-child{border-bottom:none;}
+    .rr-pos{font-size:10px;font-weight:700;color:var(--text3);}
+    .rr-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+    .rr-name{font-weight:700;font-size:13px;}
+    .rr-name a{color:inherit;text-decoration:none;}
+    .rr-yr{font-size:10px;font-weight:600;color:var(--text3);}
+    .rr-badge{font-size:8px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:1px 5px;border-radius:3px;white-space:nowrap;}
+    .rr-badge.t{background:rgba(26,95,191,.16);color:var(--blue);}
+    .rr-badge.f{background:rgba(200,160,32,.16);color:var(--accent);}
+    .rr-stats{font-size:10.5px;color:var(--text3);font-variant-numeric:tabular-nums;margin-top:2px;}
+    .rr-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;align-self:center;}
+    .roster-foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:11px;padding-top:11px;border-top:2px solid var(--border2);font-size:11px;font-weight:700;color:var(--text2);}
 
     /* RAW STAT TABLE */
     .compare-section-head{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:10px 18px;background:var(--bg2);border:1px solid var(--border);border-radius:8px 8px 0 0;border-bottom:none;margin-top:26px;}
@@ -532,8 +546,9 @@ function renderTeams(){
     <div class="compare-section-head">Grades</div>
     ${gradeRow('Coach',t1.coach_grade,t2.coach_grade)}${gradeRow('Bench Depth',t1.depth_grade,t2.depth_grade)}
     ${gradeRow('Recruiting',t1.recruit_grade,t2.recruit_grade)}${gradeRow('NIL',t1.nil_grade,t2.nil_grade)}
-    <div class="compare-section-head">Projected Starting Five</div>
-    <div class="lineup-grid">${lineupCard(t1,c1)}${lineupCard(t2,c2)}</div>
+    <div class="compare-section-head" style="border-radius:8px;margin-bottom:18px;">Roster Breakdown</div>
+    ${rosterStrip(t1,t2)}
+    <div class="roster-grid">${rosterCard(t1,c1)}${rosterCard(t2,c2)}</div>
   `;
   if(hasProj){
     const labels=T_AXES.map(a=>a.l);
@@ -561,23 +576,62 @@ function swCard(t,pj){
     <div class="sw-block"><div class="sw-h s">Strengths</div><div class="sw-tags">${tags(strengths,'s')}</div></div>
     <div class="sw-block"><div class="sw-h w">Weaknesses</div><div class="sw-tags">${tags(weaks,'w')}</div></div></div>`;
 }
-function lineupCard(t,c){
-  const five=allPlayers.filter(p=>p.team===t.name&&p.name&&p.name!=='—')
-    .sort((a,b)=>(parseInt(a.depth_order)||99)-(parseInt(b.depth_order)||99)).slice(0,5);
+function htToIn(h){ if(!h) return 0; var m=(''+h).match(/(\d+)-(\d+)/); return m?parseInt(m[1])*12+parseInt(m[2]):0; }
+function inToHt(i){ if(!i) return '—'; return Math.floor(i/12)+'-'+(i%12); }
+function rosterOf(name){
+  return allPlayers.filter(p=>p.team===name&&p.name&&p.name!=='—')
+    .sort((a,b)=>(parseInt(a.depth_order)||99)-(parseInt(b.depth_order)||99));
+}
+function composition(rost){
+  var ret=0,tr=0,fr=0,gN=0,gS=0,hN=0,hS=0;
+  rost.forEach(p=>{
+    var isTransfer=!!(p.hometown&&(''+p.hometown).trim());
+    var isFr=/fr/i.test((p.class_year||p.yr||''));
+    if(isTransfer) tr++; else if(isFr) fr++; else ret++;
+    var g=parseFloat(p.tdc_grade); if(!isNaN(g)){gN++;gS+=g;}
+    var hi=htToIn(p.height); if(hi){hN++;hS+=hi;}
+  });
+  return {ret,tr,fr,total:rost.length,avgGrade:gN?Math.round(gS/gN):null,avgHtIn:hN?Math.round(hS/hN):0,avgHt:hN?inToHt(Math.round(hS/hN)):'—'};
+}
+function rosterStrip(t1,t2){
+  var c1=composition(rosterOf(t1.name)), c2=composition(rosterOf(t2.name));
+  const tile=(label,v1,v2)=>`<div class="rstat"><div class="rstat-l">${label}</div>
+    <div class="rstat-vals"><span class="rstat-v">${v1==null?'—':v1}</span><span class="rstat-sep">vs</span><span class="rstat-v">${v2==null?'—':v2}</span></div></div>`;
+  return `<div class="roster-strip">
+    ${tile('Avg Roster Grade',c1.avgGrade,c2.avgGrade)}
+    ${tile('Returning',c1.ret,c2.ret)}
+    ${tile('Transfers In',c1.tr,c2.tr)}
+    ${tile('Avg Height',c1.avgHt,c2.avgHt)}
+  </div>`;
+}
+function rosterCard(t,c){
+  const rost=rosterOf(t.name);
+  const comp=composition(rost);
+  const rotation=rost.slice(0,10);
   const POS=['PG','SG','SF','PF','C'];
-  let sumP=0,sumR=0,sumA=0,gradeN=0,gradeS=0;
-  const rows=five.map((p,i)=>{
-    sumP+=parseFloat(p.ppg)||0; sumR+=parseFloat(p.rpg)||0; sumA+=parseFloat(p.apg)||0;
-    const g=parseFloat(p.tdc_grade); if(!isNaN(g)){gradeN++;gradeS+=g;}
-    return `<div class="lineup-row"><div class="lr-pos">${p.position||POS[i]||''}</div>
-      <div class="lr-name"><a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(t.name)}">${p.name}</a></div>
-      <div class="lr-stat">${fmt(p.ppg)}p · ${fmt(p.rpg)}r · ${fmt(p.apg)}a</div>
-      <div class="lr-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||'—'}</div></div>`;
-  }).join('');
-  const avgG=gradeN?Math.round(gradeS/gradeN):'—';
-  return `<div class="lineup-card"><div class="lineup-team" style="border-left:3px solid ${c};padding-left:8px;">${t.name}</div>
-    <div class="lineup-combo">Starting five · last season output</div>${rows}
-    <div class="lineup-foot"><span>${sumP.toFixed(1)} PPG · ${sumR.toFixed(1)} RPG · ${sumA.toFixed(1)} APG</span><span>Avg grade ${avgG}</span></div></div>`;
+  const row=(p,i)=>{
+    const isTransfer=!!(p.hometown&&(''+p.hometown).trim());
+    const isFr=/fr/i.test((p.class_year||p.yr||''));
+    const badges=(isTransfer?`<span class="rr-badge t">via ${p.hometown}</span>`:'')+(isFr&&!isTransfer?'<span class="rr-badge f">Fr</span>':'');
+    const line=`${fmt(p.ppg)} PPG · ${fmt(p.rpg)} RPG · ${fmt(p.apg)} APG · ${fmt(p.mpg)} MPG · ${fmtP(p.fg_pct)} FG · ${fmtP(p.tp_pct)} 3P`;
+    return `<div class="roster-row"><div class="rr-pos">${p.position||POS[i]||''}</div>
+      <div><div class="rr-top"><span class="rr-name"><a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(t.name)}">${p.name}</a></span>
+        <span class="rr-yr">${p.class_year||p.yr||''}</span>${badges}</div>
+        <div class="rr-stats">${line}</div></div>
+      <div class="rr-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||'—'}</div></div>`;
+  };
+  const starters=rotation.slice(0,5).map((p,i)=>row(p,i)).join('');
+  const bench=rotation.slice(5).map((p,i)=>row(p,i+5)).join('');
+  const s5=rotation.slice(0,5);
+  const sp=s5.reduce((a,p)=>a+(parseFloat(p.ppg)||0),0), sr=s5.reduce((a,p)=>a+(parseFloat(p.rpg)||0),0), sa=s5.reduce((a,p)=>a+(parseFloat(p.apg)||0),0);
+  return `<div class="roster-card"><div class="roster-team" style="border-left:3px solid ${c};">${t.name}</div>
+    <div class="roster-comp">
+      <span class="rcomp">Returning <b>${comp.ret}</b></span><span class="rcomp">Transfers <b>${comp.tr}</b></span>
+      <span class="rcomp">Freshmen <b>${comp.fr}</b></span><span class="rcomp">Avg Ht <b>${comp.avgHt}</b></span>
+      <span class="rcomp">Roster <b>${comp.total}</b></span></div>
+    <div class="roster-sub">Starters</div>${starters}
+    ${bench?`<div class="roster-sub">Rotation &amp; Bench</div>${bench}`:''}
+    <div class="roster-foot"><span>Starters: ${sp.toFixed(1)} / ${sr.toFixed(1)} / ${sa.toFixed(1)} P·R·A</span><span>Avg grade ${comp.avgGrade||'—'}</span></div></div>`;
 }
 
 document.addEventListener('click', e=>{
