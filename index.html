@@ -1271,6 +1271,28 @@ async function loadTeams(){
         window._teamProjByName = {};
         (rows||[]).forEach(r => { window._teamProjByName[(r.team||'').toLowerCase().trim()] = r; });
       }).catch(()=>{ window._teamProjByName = {}; });
+    // Last-season actual team stats (ESPN) for the year-over-year comparison bars
+    fetch(`${SB_URL}/rest/v1/team_actual_stats?select=*`, { headers: HEADERS })
+      .then(r => r.ok ? r.json() : [])
+      .then(rows => {
+        const norm = r => ({
+          ppg:+r.ppg, rpg:+r.rpg, apg:+r.apg, oreb:+r.oreb, dreb:+r.dreb,
+          fga:+r.fga, tpa:+r.tpa, tov:+r.tov, stl:+r.spg, blk:+r.bpg,
+          fg_pct:(+r.fg_pct)/100, tp_pct:(+r.tp_pct)/100, ft_pct:(+r.ft_pct)/100
+        });
+        window._teamActualList = (rows||[]).map(norm);
+        // match each ranked team to its ESPN actual row by last-word overlap
+        window._teamActualByName = {};
+        allTeams.forEach(t => {
+          const tn = (t.name||'').toLowerCase();
+          const last = tn.split(' ').pop();
+          const m = (rows||[]).find(r => {
+            const n = (r.espn_name||'').toLowerCase();
+            return n.includes(last) || tn.includes(n.split(' ').pop());
+          });
+          if(m) window._teamActualByName[t.name.toLowerCase().trim()] = norm(m);
+        });
+      }).catch(()=>{ window._teamActualByName = {}; window._teamActualList = []; });
 
     const d = new Date(rows[0]?.updated_at || Date.now());
     document.getElementById('lastUpdated').textContent =
@@ -1755,19 +1777,27 @@ function toggleTheme(){
 .tc-g{text-align:center;background:var(--bg3);border-radius:7px;padding:9px 4px;}
 .tc-g-val{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;line-height:1;}
 .tc-g-lbl{font-size:8px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
-.tc-proj-h{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:11px;padding-bottom:6px;border-bottom:1px solid var(--accent);}
-.tc-proj{display:grid;grid-template-columns:repeat(auto-fit,minmax(58px,1fr));gap:14px 8px;}
+.tc-panel{background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:13px 15px;}
+.tc-panel + .tc-panel{margin-top:14px;}
+.tc-proj-h{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--accent);}
+.tc-proj{display:grid;grid-template-columns:repeat(auto-fit,minmax(56px,1fr));gap:13px 8px;}
 .tc-p{display:flex;flex-direction:column;align-items:center;text-align:center;}
 .tc-p-v{font-size:16px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;}
 .tc-p-l{font-size:8px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
 .tc-none{font-size:11px;color:var(--text3);font-style:italic;}
-.tc-pct-h{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin:12px 0 13px;}
-.tc-chart{display:flex;gap:5px;align-items:stretch;height:96px;}
+.tc-pct-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:11px;}
+.tc-pct-h{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);}
+.tc-legend{display:flex;gap:12px;font-size:8px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
+.tc-legend span{display:inline-flex;align-items:center;gap:5px;}
+.tc-legend i{width:8px;height:8px;border-radius:2px;display:inline-block;}
+.tc-chart{display:flex;gap:6px;align-items:stretch;height:88px;}
 .tc-ccol{flex:1;display:flex;flex-direction:column;min-width:0;}
-.tc-cbar-area{flex:1;display:flex;align-items:flex-end;justify-content:center;}
-.tc-cbar{width:66%;max-width:20px;border-radius:3px 3px 0 0;transition:height .6s cubic-bezier(.22,1,.36,1);position:relative;}
-.tc-cbar-v{position:absolute;top:-14px;left:-5px;right:-5px;text-align:center;font-size:9px;font-weight:700;}
-.tc-clbl{text-align:center;font-size:8px;font-weight:700;letter-spacing:.01em;text-transform:uppercase;color:var(--text3);padding-top:5px;border-top:1px solid var(--border);margin-top:4px;}
+.tc-cbar-area{flex:1;display:flex;align-items:flex-end;justify-content:center;gap:2px;}
+.tc-cbar{flex:1;max-width:13px;border-radius:3px 3px 0 0;transition:height .6s cubic-bezier(.22,1,.36,1);position:relative;}
+.tc-cbar.proj{background:var(--accent);} .tc-cbar.proj .tc-cbar-v{color:var(--accent);}
+.tc-cbar.last{background:#5b9d8f;} .tc-cbar.last .tc-cbar-v{color:#5b9d8f;}
+.tc-cbar-v{position:absolute;top:-13px;left:-4px;right:-4px;text-align:center;font-size:8px;font-weight:700;}
+.tc-clbl{text-align:center;font-size:8px;font-weight:700;letter-spacing:.01em;text-transform:uppercase;color:var(--text3);padding-top:5px;border-top:1px solid var(--border2);margin-top:4px;}
 .tc-foot{margin-top:16px;}
 .tc-foot a{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);text-decoration:none;}
 .tc-foot a:hover{text-decoration:underline;}
@@ -1801,27 +1831,41 @@ function toggleTheme(){
     var lo=0,hi=arr.length; while(lo<hi){var m=(lo+hi)>>1; if(arr[m]<v)lo=m+1; else hi=m;}
     var p=Math.round(lo/arr.length*100); return inv?100-p:p;
   }
-  function pctColor(pct){
-    var dark=document.documentElement.getAttribute('data-theme')==='dark';
-    if(pct>=80)return dark?'#5ab875':'#1a8c3a'; if(pct>=60)return dark?'#74aedd':'#1a5fbf';
-    if(pct>=40)return 'var(--accent)'; if(pct>=20)return '#b07000'; return '#cc2200';
+  // Last-season actual percentile vs all teams' 2025-26 actuals
+  function lastDist(key){
+    if(!window._tLastCache) window._tLastCache={};
+    if(window._tLastCache[key]) return window._tLastCache[key];
+    var arr=(window._teamActualList||[]).map(function(t){return parseFloat(t[key]);})
+      .filter(function(v){return !isNaN(v)&&v>0;}).sort(function(a,b){return a-b;});
+    window._tLastCache[key]=arr; return arr;
   }
-  function teamPctBars(p){
+  function teamPctLast(key,val,inv){
+    var arr=lastDist(key); if(arr.length<8) return null;
+    var v=parseFloat(val); if(isNaN(v)) return null;
+    var lo=0,hi=arr.length; while(lo<hi){var m=(lo+hi)>>1; if(arr[m]<v)lo=m+1; else hi=m;}
+    var p=Math.round(lo/arr.length*100); return inv?100-p:p;
+  }
+  function teamPctBars(p, teamName){
     if(!p) return '';
+    var lastA=(window._teamActualByName||{})[(teamName||'').toLowerCase().trim()];
     var defs=[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},
       {l:'FG%',k:'fg_pct'},{l:'3P%',k:'tp_pct'},{l:'FT%',k:'ft_pct'},
       {l:'OREB',k:'oreb'},{l:'DREB',k:'dreb'},
       {l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TOV',k:'tov',inv:1}];
+    var bar=function(pct,cls){ if(pct==null) return '';
+      return '<div class="tc-cbar '+cls+'" style="height:'+Math.max(pct,3)+'%;"><div class="tc-cbar-v">'+pct+'</div></div>'; };
     var cols=defs.map(function(d){
-      var pct=teamPct(d.k, p[d.k], d.inv); if(pct==null) return '';
-      var col=pctColor(pct);
-      return '<div class="tc-ccol"><div class="tc-cbar-area">'+
-        '<div class="tc-cbar" style="height:'+Math.max(pct,3)+'%;background:'+col+';">'+
-        '<div class="tc-cbar-v" style="color:'+col+';">'+pct+'</div></div></div>'+
-        '<div class="tc-clbl">'+d.l+'</div></div>';
+      var pj=teamPct(d.k, p[d.k], d.inv);
+      var la=lastA?teamPctLast(d.k, lastA[d.k], d.inv):null;
+      if(pj==null&&la==null) return '';
+      return '<div class="tc-ccol"><div class="tc-cbar-area">'+bar(pj,'proj')+bar(la,'last')+
+        '</div><div class="tc-clbl">'+d.l+'</div></div>';
     }).filter(Boolean).join('');
     if(!cols) return '';
-    return '<div class="tc-pct-h">National Percentile — projected vs all D1 teams</div><div class="tc-chart">'+cols+'</div>';
+    var legend = lastA
+      ? '<div class="tc-legend"><span><i style="background:var(--accent)"></i>26-27 Proj</span><span><i style="background:#5b9d8f"></i>25-26 Actual</span></div>'
+      : '';
+    return '<div class="tc-pct-top"><div class="tc-pct-h">National Percentile — vs all D1 teams</div>'+legend+'</div><div class="tc-chart">'+cols+'</div>';
   }
   function buildTeamDetail(name){
     var lc=(name||'').toLowerCase().trim();
@@ -1840,9 +1884,11 @@ function toggleTheme(){
         pst(p.fga,'FGA')+pst(p.tpa,'3PA')+
         pst(p.stl,'STL')+pst(p.blk,'BLK')+pst(p.tov,'TOV')+'</div>';
     } else { proj='<div class="tc-proj-h">26-27 Projected Team Stats</div><div class="tc-none">Open the team page to generate projections.</div>'; }
-    var bars=teamPctBars(p);
+    var bars=teamPctBars(p, t.name||name);
+    var projPanel='<div class="tc-panel">'+proj+'</div>';
+    var barsPanel=bars?'<div class="tc-panel">'+bars+'</div>':'';
     var foot='<div class="tc-foot"><a href="team.html?team='+encodeURIComponent(t.name||name)+'">View full team page &rarr;</a></div>';
-    return '<div class="tc-cols"><div>'+head+grades+'</div><div>'+proj+bars+'</div></div>'+foot;
+    return '<div class="tc-cols"><div>'+head+grades+'</div><div>'+projPanel+barsPanel+'</div></div>'+foot;
   }
   window.tdcToggleTeam=function(row, e){
     // Clicking the team name navigates to the team page; elsewhere toggles the row
