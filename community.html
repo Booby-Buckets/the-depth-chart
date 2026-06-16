@@ -77,8 +77,23 @@
     .member-name{font-family:'Playfair Display',serif;font-weight:700;font-size:14px;color:var(--text);display:flex;align-items:center;justify-content:center;gap:4px;margin-bottom:3px;}
     .member-team{font-size:11px;color:var(--text3);margin-bottom:6px;}
     .member-plan{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;}
-    .member-plan.premium{background:rgba(26,140,58,.1);color:var(--green);}
+    .member-plan.premium{background:linear-gradient(90deg,rgba(177,107,255,.18),rgba(255,77,157,.14));color:var(--accent);}
     .member-plan.free{background:var(--bg2);color:var(--text3);}
+    /* premium members stick out */
+    .member-card.prem{border-color:rgba(177,107,255,.35);box-shadow:0 0 0 1px rgba(177,107,255,.18),0 10px 30px rgba(177,107,255,.12);}
+    .member-card.prem .member-name{color:var(--accent);}
+    .topic-author.prem,.reply-author.prem{color:var(--accent);font-weight:700;}
+    /* ===== PREMIUM BADGE (animated star + check) ===== */
+    .tdc-prem{display:inline-flex;width:1em;height:1em;flex-shrink:0;vertical-align:-0.12em;cursor:default;}
+    .tdc-prem svg{width:100%;height:100%;overflow:visible;}
+    .tdc-prem .tv-seal{transform-origin:50% 50%;transform-box:fill-box;filter:drop-shadow(0 1px 4px rgba(177,107,255,.5));}
+    .tdc-prem .tv-check{stroke-dasharray:16;stroke-dashoffset:0;}
+    @keyframes tvSpin{to{transform:rotate(360deg);}}
+    @keyframes tvDraw{0%{stroke-dashoffset:16;}100%{stroke-dashoffset:0;}}
+    @keyframes tvPulse{0%,100%{filter:drop-shadow(0 1px 4px rgba(177,107,255,.5));}50%{filter:drop-shadow(0 1px 10px rgba(255,77,157,.85));}}
+    .tdc-prem:hover .tv-seal{animation:tvSpin .7s cubic-bezier(.34,1.3,.5,1), tvPulse .7s ease;}
+    .tdc-prem:hover .tv-check{animation:tvDraw .5s .18s both;}
+    @media (prefers-reduced-motion: reduce){.tdc-prem:hover .tv-seal,.tdc-prem:hover .tv-check{animation:none;}}
     .follow-btn{margin-top:8px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:5px 12px;border:1px solid var(--border2);background:none;cursor:pointer;font-family:'Inter',sans-serif;color:var(--text2);width:100%;transition:all .15s;}
     .follow-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
     .follow-btn.following{background:var(--accent);color:#fff;border-color:var(--accent);}
@@ -288,7 +303,11 @@ let tabLoaded={forum:false,members:false,feed:false};
 function getSession(){return JSON.parse(localStorage.getItem('tdc_session')||'null');}
 function authH(t){return{...H,Authorization:`Bearer ${t}`};}
 function timeAgo(d){const s=Math.floor((Date.now()-new Date(d))/1000);if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';if(s<604800)return Math.floor(s/86400)+'d ago';return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'});}
-function vBadge(p){if(!p?.verified)return'';return`<span class="verified-badge"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>`;}
+function vBadge(p){
+  if(p&&p.plan==='premium')return`<span class="tdc-prem" title="Premium member"><svg viewBox="0 0 24 24"><defs><linearGradient id="tvg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#B16BFF"/><stop offset="1" stop-color="#FF4D9D"/></linearGradient></defs><path class="tv-seal" fill="url(#tvg)" d="M12 1.6l3.09 6.26 6.91 1-5 4.87 1.18 6.88L12 17.4l-6.18 3.48L7 13.73l-5-4.87 6.91-1z"/><path class="tv-check" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" d="M8.7 11.9l2.2 2.2 4.3-4.7"/></svg></span>`;
+  if(p&&p.verified)return`<span class="verified-badge"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>`;
+  return'';
+}
 function avatarEl(p,size=36){if(p?.avatar_url)return`<img src="${p.avatar_url}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;">`;const i=(p?.username||'?')[0].toUpperCase();return`<div style="width:${size}px;height:${size}px;border-radius:50%;background:var(--bg2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:${Math.floor(size*.4)}px;">${i}</div>`;}
 function showMsg(id,text,type){const el=document.getElementById(id);if(!el)return;el.textContent=text;el.className=`msg ${type} show`;setTimeout(()=>{if(el)el.className='msg';},3500);}
 
@@ -403,9 +422,9 @@ function renderMembers(){
     const isMe=currentUser&&m.id===currentUser.id;
     const isFollowing=myFollows.has(m.id);
     const followBtn=isMe?'':`<button class="follow-btn${isFollowing?' following':''}" onclick="toggleFollow(event,'${m.id}',this)">${isFollowing?'Following':'Follow'}</button>`;
-    return`<a class="member-card" href="profile.html?user=${encodeURIComponent(uname)}" onclick="return!event.target.classList.contains('follow-btn')">
+    return`<a class="member-card${m.plan==='premium'?' prem':''}" href="profile.html?user=${encodeURIComponent(uname)}" onclick="return!event.target.classList.contains('follow-btn')">
       <div class="member-avatar">${av}</div>
-      <div class="member-name">${uname}${m.verified?`<span class="verified-badge"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>`:''}</div>
+      <div class="member-name">${uname}${vBadge(m)}</div>
       ${m.favorite_team?`<div class="member-team">🏀 ${m.favorite_team}</div>`:''}
       <span class="member-plan ${m.plan==='premium'?'premium':'free'}">${m.plan==='premium'?'Premium':'Free'}</span>
       <div class="member-followers">${m.follower_count||0} follower${m.follower_count!==1?'s':''}</div>
