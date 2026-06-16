@@ -1770,6 +1770,9 @@ function toggleTheme(){
 .tc-top{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:11px;border-bottom:1px solid var(--border);}
 .tc-bar{width:4px;align-self:stretch;border-radius:2px;min-height:34px;}
 .tc-rank{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;line-height:1;color:var(--text);}
+.tc-pwr{text-align:center;flex-shrink:0;padding:2px 8px 2px 4px;}
+.tc-pwr-v{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1;color:var(--accent);}
+.tc-pwr-l{font-size:8px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-top:3px;}
 .tc-name{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;line-height:1.1;color:var(--text);}
 .tc-conf{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
 .tc-cols{display:grid;grid-template-columns:300px 1fr;gap:28px;align-items:start;}
@@ -1825,6 +1828,28 @@ function toggleTheme(){
       .filter(function(v){return !isNaN(v)&&v>0;}).sort(function(a,b){return a-b;});
     window._tPctCache[key]=arr; return arr;
   }
+  // Stats-driven Power Rating (100 = avg), standardized across all projected teams
+  function powerByName(){
+    if(window._powerByName) return window._powerByName;
+    var teams=Object.values(window._teamProjByName||{});
+    if(teams.length<4) return {};
+    teams.forEach(function(t){
+      var poss=Math.max(45,(+t.fga||0)+(+t.tov||0)-(+t.oreb||0));
+      t._ortg=(+t.ppg||0)/poss*100;
+      t._defRaw=(+t.stl||0)*1.6+(+t.blk||0)*1.4+(+t.dreb||0)*0.55;
+      t._secRaw=-(+t.tov||0);
+    });
+    var mean=function(a){return a.reduce(function(x,y){return x+y;},0)/a.length;};
+    var std=function(a,m){return Math.sqrt(a.reduce(function(x,y){return x+(y-m)*(y-m);},0)/a.length)||1;};
+    var Z=function(key){var arr=teams.map(function(t){return t[key];});var m=mean(arr),s=std(arr,m);return function(t){return (t[key]-m)/s;};};
+    var zo=Z('_ortg'),zd=Z('_defRaw'),zs=Z('_secRaw');
+    var map={};
+    teams.forEach(function(t){
+      var pz=zo(t)*0.5+zd(t)*0.38+zs(t)*0.12;
+      map[(t.team||'').toLowerCase().trim()]=Math.round((100+pz*8)*10)/10;
+    });
+    window._powerByName=map; return map;
+  }
   function teamPct(key,val,inv){
     var arr=teamDist(key); if(arr.length<4) return null;
     var v=parseFloat(val); if(isNaN(v)) return null;
@@ -1872,8 +1897,12 @@ function toggleTheme(){
     var t=(window._teamMetaByName||{})[lc]; if(!t) return '<div class="tc-none">No data.</div>';
     var p=(window._teamProjByName||{})[lc];
     var nilLine = (t.nilt&&t.nilt!=='—') ? ' · '+t.nilt : '';
+    var pwr=powerByName()[lc];
+    var pwrBadge = (pwr!=null)
+      ? '<div class="tc-pwr"><div class="tc-pwr-v">'+pwr.toFixed(1)+'</div><div class="tc-pwr-l">Power</div></div>'
+      : '';
     var head='<div class="tc-top"><div class="tc-bar" style="background:'+(t.color||'#888')+'"></div>'+
-      '<div class="tc-rank">'+(t.rk&&t.rk<9999?'#'+t.rk:'')+'</div>'+
+      pwrBadge+
       '<div><div class="tc-name">'+(t.name||name)+'</div><div class="tc-conf">'+(t.conf||'')+(t.tier?' · '+t.tier:'')+nilLine+'</div></div></div>';
     var grades='<div class="tc-grades">'+grd(t.rg,'Coach')+grd(t.dg,'Depth')+grd(t.recg,'Recruit')+grd(t.nilg,'NIL Eval')+'</div>';
     var proj;
