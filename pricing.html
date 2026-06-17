@@ -71,6 +71,8 @@
     .form-select{width:100%;padding:10px 14px;border:1px solid var(--border2);background:var(--bg);font-family:'Inter',sans-serif;font-size:14px;font-weight:500;color:var(--text);outline:none;cursor:pointer;}
     .form-select:focus{border-color:var(--accent);}
     .form-hint{font-size:11px;color:var(--text3);margin-top:5px;}
+    .keep-signed-in{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;margin:4px 0 14px;user-select:none;}
+    .keep-signed-in input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;}
     .form-btn{width:100%;padding:12px;background:var(--text);color:var(--bg);border:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:opacity .15s;margin-top:8px;}
     .form-btn:hover{opacity:.85;}
     .form-btn.secondary{background:var(--bg2);color:var(--text2);border:1px solid var(--border2);}
@@ -232,6 +234,7 @@ body{background:transparent!important;}
         <label class="form-label">Password</label>
         <input class="form-input" type="password" id="signinPassword" placeholder="••••••••"/>
       </div>
+      <label class="keep-signed-in"><input type="checkbox" id="keepSignedIn" checked/> <span>Keep me signed in</span></label>
       <button class="form-btn" onclick="handleSignIn()">Sign In</button>
     </div>
 
@@ -428,7 +431,10 @@ async function handleSignIn(){
     });
     const data = await r.json();
     if(!r.ok) return showMsg('signinMsg', data.error_description || data.msg || 'Sign in failed.','error');
+    const keep = document.getElementById('keepSignedIn')?.checked !== false;
     localStorage.setItem('tdc_session', JSON.stringify(data));
+    localStorage.setItem('tdc_persist', keep ? '1' : '0');
+    if(!keep){ try{ sessionStorage.setItem('tdc_alive','1'); }catch(e){} }
     currentUser = data.user;
     playSignInAnim(()=>showAccount(data.access_token));
   } catch(e){ showMsg('signinMsg','Something went wrong.','error'); }
@@ -703,6 +709,13 @@ if(location.search.includes('success=1')){
 <script>
 (function(){
   if(window.__tdcTheme) return; window.__tdcTheme=1;
+  // session persistence: drop non-persistent logins when the browser is reopened
+  try{
+    if(localStorage.getItem('tdc_session') && localStorage.getItem('tdc_persist')==='0'){
+      if(!sessionStorage.getItem('tdc_alive')){ localStorage.removeItem('tdc_session'); localStorage.removeItem('tdc_persist'); }
+      else { sessionStorage.setItem('tdc_alive','1'); }
+    }
+  }catch(e){}
   function bgOf(t){return t==='dark'?'#07060C':'#FBFAFF';}
   function syncBtn(t){var b=document.getElementById('themeBtn'); if(b) b.textContent=(t==='dark'?'☀️':'🌙');}
   function apply(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('tdc_theme',t);}catch(e){} syncBtn(t);}

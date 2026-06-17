@@ -210,7 +210,6 @@ body{background:transparent!important;}
     <a href="analytics.html">Analytics</a>
     <a href="community.html">Community</a>
     <a href="about.html">About</a>
-    <a href="account.html">Account</a>
     <a href="pricing.html">Pricing</a>
   </div>
 </div>
@@ -2294,6 +2293,13 @@ init();
 <script>
 (function(){
   if(window.__tdcTheme) return; window.__tdcTheme=1;
+  // session persistence: drop non-persistent logins when the browser is reopened
+  try{
+    if(localStorage.getItem('tdc_session') && localStorage.getItem('tdc_persist')==='0'){
+      if(!sessionStorage.getItem('tdc_alive')){ localStorage.removeItem('tdc_session'); localStorage.removeItem('tdc_persist'); }
+      else { sessionStorage.setItem('tdc_alive','1'); }
+    }
+  }catch(e){}
   function bgOf(t){return t==='dark'?'#07060C':'#FBFAFF';}
   function syncBtn(t){var b=document.getElementById('themeBtn'); if(b) b.textContent=(t==='dark'?'☀️':'🌙');}
   function apply(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('tdc_theme',t);}catch(e){} syncBtn(t);}

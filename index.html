@@ -1056,7 +1056,6 @@
   <div class="nav-top">
     <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
     <div class="nav-actions" id="navActions">
-      <a href="account.html">Account</a>
       <a href="pricing.html">Pricing</a>
       <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">🌙</button>
       <a href="pricing.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;margin-right:4px;">Sign In</a>
@@ -1071,7 +1070,6 @@
     <a href="projections.html">Projections</a>
     <a href="community.html">Community</a>
     <a href="team.html">Teams</a>
-    <a href="account.html">Account</a>
     <a href="pricing.html">Pricing</a>
   </div>
 </div>
@@ -1990,6 +1988,13 @@ function toggleTheme(){
 <script>
 (function(){
   if(window.__tdcTheme) return; window.__tdcTheme=1;
+  // session persistence: drop non-persistent logins when the browser is reopened
+  try{
+    if(localStorage.getItem('tdc_session') && localStorage.getItem('tdc_persist')==='0'){
+      if(!sessionStorage.getItem('tdc_alive')){ localStorage.removeItem('tdc_session'); localStorage.removeItem('tdc_persist'); }
+      else { sessionStorage.setItem('tdc_alive','1'); }
+    }
+  }catch(e){}
   function bgOf(t){return t==='dark'?'#07060C':'#FBFAFF';}
   function syncBtn(t){var b=document.getElementById('themeBtn'); if(b) b.textContent=(t==='dark'?'☀️':'🌙');}
   function apply(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('tdc_theme',t);}catch(e){} syncBtn(t);}
