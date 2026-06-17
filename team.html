@@ -4205,26 +4205,31 @@ function renderProjNatlChart(projected, color, rgb){
 @keyframes tdcB1{0%{transform:translate(0,0) scale(1);}25%{transform:translate(240px,120px) scale(1.2);}50%{transform:translate(140px,300px) scale(.85);}75%{transform:translate(-70px,180px) scale(1.12);}100%{transform:translate(0,0) scale(1);}}
 @keyframes tdcB2{0%{transform:translate(0,0) scale(1);}25%{transform:translate(-230px,-140px) scale(1.15);}50%{transform:translate(-320px,80px) scale(.9);}75%{transform:translate(-90px,-240px) scale(1.1);}100%{transform:translate(0,0) scale(1);}}
 @keyframes tdcB3{0%{transform:translate(0,0) scale(1);}25%{transform:translate(-170px,120px) scale(1.22);}50%{transform:translate(110px,-140px) scale(.85);}75%{transform:translate(190px,100px) scale(1.15);}100%{transform:translate(0,0) scale(1);}}
-/* gradual, water-like theme morph: every color eases from old to new at once */
-html.tdc-theming, html.tdc-theming *{
-  transition: background-color 1.3s cubic-bezier(.45,0,.25,1), color 1.3s cubic-bezier(.45,0,.25,1), border-color 1.3s cubic-bezier(.45,0,.25,1), fill 1.3s cubic-bezier(.45,0,.25,1), stroke 1.3s cubic-bezier(.45,0,.25,1), box-shadow 1.3s cubic-bezier(.45,0,.25,1) !important;
-}
-.tdc-bg, html.tdc-theming .tdc-bg{transition:background-color 1.3s cubic-bezier(.45,0,.25,1)!important;}
+.tdc-flood{position:fixed;inset:0;z-index:99990;pointer-events:none;will-change:clip-path,opacity;}
 </style>
 <script>
 (function(){
   if(window.__tdcTheme) return; window.__tdcTheme=1;
+  function bgOf(t){return t==='dark'?'#07060C':'#FBFAFF';}
   function syncBtn(t){var b=document.getElementById('themeBtn'); if(b) b.textContent=(t==='dark'?'☀️':'🌙');}
   function apply(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('tdc_theme',t);}catch(e){} syncBtn(t);}
   window.toggleTheme=function(){
-    var root=document.documentElement;
-    if(root.__busy) return; root.__busy=true;
+    var root=document.documentElement; if(root.__busy) return; root.__busy=true;
     var cur=root.getAttribute('data-theme')==='dark'?'dark':'light';
     var next=cur==='dark'?'light':'dark';
-    root.classList.add('tdc-theming');
-    // ensure the transition is registered before the variables change
-    requestAnimationFrame(function(){ requestAnimationFrame(function(){ apply(next); }); });
-    setTimeout(function(){ root.classList.remove('tdc-theming'); root.__busy=false; }, 1500);
+    var r=Math.round(Math.hypot(window.innerWidth, window.innerHeight))+80;
+    var ov=document.createElement('div'); ov.className='tdc-flood';
+    // overlay shows the NEW theme flooding in from the top-left corner
+    ov.style.background='radial-gradient(circle at 0% 0%, rgba(177,107,255,.45) 0%, rgba(255,77,157,.18) 28%, '+bgOf(next)+' 58%)';
+    ov.style.clipPath='circle(0px at 0% 0%)';
+    ov.style.transition='clip-path 1.3s cubic-bezier(.42,0,.12,1)';
+    document.body.appendChild(ov);
+    requestAnimationFrame(function(){ ov.style.clipPath='circle('+r+'px at 0% 0%)'; });
+    // swap the real page underneath once the flood has nearly covered the screen
+    setTimeout(function(){ apply(next); }, 1180);
+    // then dissolve the overlay to reveal the freshly-themed page
+    setTimeout(function(){ ov.style.transition='opacity .55s ease'; ov.style.opacity='0'; }, 1320);
+    setTimeout(function(){ ov.remove(); root.__busy=false; }, 1950);
   };
   try{var s=localStorage.getItem('tdc_theme'); if(s) document.documentElement.setAttribute('data-theme',s);}catch(e){}
   function init(){ syncBtn(document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light'); }
