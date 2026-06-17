@@ -1524,34 +1524,26 @@ load();
 @keyframes tdcB1{0%{transform:translate(0,0) scale(1);}25%{transform:translate(240px,120px) scale(1.2);}50%{transform:translate(140px,300px) scale(.85);}75%{transform:translate(-70px,180px) scale(1.12);}100%{transform:translate(0,0) scale(1);}}
 @keyframes tdcB2{0%{transform:translate(0,0) scale(1);}25%{transform:translate(-230px,-140px) scale(1.15);}50%{transform:translate(-320px,80px) scale(.9);}75%{transform:translate(-90px,-240px) scale(1.1);}100%{transform:translate(0,0) scale(1);}}
 @keyframes tdcB3{0%{transform:translate(0,0) scale(1);}25%{transform:translate(-170px,120px) scale(1.22);}50%{transform:translate(110px,-140px) scale(.85);}75%{transform:translate(190px,100px) scale(1.15);}100%{transform:translate(0,0) scale(1);}}
-.tdc-flood{position:fixed;inset:0;z-index:-1;pointer-events:none;will-change:clip-path;}
-html.tdc-theming body, html.tdc-theming .nav-wrap, html.tdc-theming .page, html.tdc-theming footer{transition:background-color .55s ease, color .55s ease, border-color .55s ease;}
+/* gradual, water-like theme morph: every color eases from old to new at once */
+html.tdc-theming, html.tdc-theming *{
+  transition: background-color 1.3s cubic-bezier(.45,0,.25,1), color 1.3s cubic-bezier(.45,0,.25,1), border-color 1.3s cubic-bezier(.45,0,.25,1), fill 1.3s cubic-bezier(.45,0,.25,1), stroke 1.3s cubic-bezier(.45,0,.25,1), box-shadow 1.3s cubic-bezier(.45,0,.25,1) !important;
+}
+.tdc-bg, html.tdc-theming .tdc-bg{transition:background-color 1.3s cubic-bezier(.45,0,.25,1)!important;}
 </style>
 <script>
 (function(){
   if(window.__tdcTheme) return; window.__tdcTheme=1;
-  var pt={x:window.innerWidth-44,y:46};
-  document.addEventListener('pointerdown',function(e){pt={x:e.clientX,y:e.clientY};},true);
-  function bgOf(t){return t==='dark'?'#07060C':'#FBFAFF';}
   function syncBtn(t){var b=document.getElementById('themeBtn'); if(b) b.textContent=(t==='dark'?'☀️':'🌙');}
   function apply(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('tdc_theme',t);}catch(e){} syncBtn(t);}
   window.toggleTheme=function(){
-    var cur=document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';
-    var next=cur==='dark'?'light':'dark';
-    var x=pt.x,y=pt.y, r=Math.hypot(Math.max(x,window.innerWidth-x),Math.max(y,window.innerHeight-y))+60;
     var root=document.documentElement;
+    if(root.__busy) return; root.__busy=true;
+    var cur=root.getAttribute('data-theme')==='dark'?'dark':'light';
+    var next=cur==='dark'?'light':'dark';
     root.classList.add('tdc-theming');
-    // subtle flood that lives BEHIND the content (z-index:-1), revealing the new bg
-    var ov=document.createElement('div');
-    ov.className='tdc-flood';
-    ov.style.background='radial-gradient(circle at '+x+'px '+y+'px, rgba(177,107,255,.22), '+bgOf(next)+' 46%)';
-    ov.style.clipPath='circle(0px at '+x+'px '+y+'px)';
-    ov.style.transition='clip-path .72s cubic-bezier(.4,0,.2,1)';
-    document.body.appendChild(ov);
-    requestAnimationFrame(function(){ ov.style.clipPath='circle('+r+'px at '+x+'px '+y+'px)'; });
-    setTimeout(function(){ apply(next); }, 360);
-    setTimeout(function(){ ov.style.transition='opacity .45s ease'; ov.style.opacity='0'; }, 720);
-    setTimeout(function(){ ov.remove(); root.classList.remove('tdc-theming'); }, 1180);
+    // ensure the transition is registered before the variables change
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ apply(next); }); });
+    setTimeout(function(){ root.classList.remove('tdc-theming'); root.__busy=false; }, 1500);
   };
   try{var s=localStorage.getItem('tdc_theme'); if(s) document.documentElement.setAttribute('data-theme',s);}catch(e){}
   function init(){ syncBtn(document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light'); }
