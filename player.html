@@ -1977,7 +1977,8 @@ init();
 @keyframes tdcB1{0%{transform:translate(0,0) scale(1);}25%{transform:translate(240px,120px) scale(1.2);}50%{transform:translate(140px,300px) scale(.85);}75%{transform:translate(-70px,180px) scale(1.12);}100%{transform:translate(0,0) scale(1);}}
 @keyframes tdcB2{0%{transform:translate(0,0) scale(1);}25%{transform:translate(-230px,-140px) scale(1.15);}50%{transform:translate(-320px,80px) scale(.9);}75%{transform:translate(-90px,-240px) scale(1.1);}100%{transform:translate(0,0) scale(1);}}
 @keyframes tdcB3{0%{transform:translate(0,0) scale(1);}25%{transform:translate(-170px,120px) scale(1.22);}50%{transform:translate(110px,-140px) scale(.85);}75%{transform:translate(190px,100px) scale(1.15);}100%{transform:translate(0,0) scale(1);}}
-.tdc-flood{position:fixed;inset:0;z-index:99998;pointer-events:none;will-change:clip-path;}
+.tdc-flood{position:fixed;inset:0;z-index:-1;pointer-events:none;will-change:clip-path;}
+html.tdc-theming body, html.tdc-theming .nav-wrap, html.tdc-theming .page, html.tdc-theming footer{transition:background-color .55s ease, color .55s ease, border-color .55s ease;}
 </style>
 <script>
 (function(){
@@ -1991,15 +1992,19 @@ init();
     var cur=document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';
     var next=cur==='dark'?'light':'dark';
     var x=pt.x,y=pt.y, r=Math.hypot(Math.max(x,window.innerWidth-x),Math.max(y,window.innerHeight-y))+60;
+    var root=document.documentElement;
+    root.classList.add('tdc-theming');
+    // subtle flood that lives BEHIND the content (z-index:-1), revealing the new bg
     var ov=document.createElement('div');
     ov.className='tdc-flood';
-    ov.style.background='radial-gradient(circle, #B16BFF 0%, #FF4D9D 36%, #6B4DFF 66%, '+bgOf(next)+' 100%)';
+    ov.style.background='radial-gradient(circle at '+x+'px '+y+'px, rgba(177,107,255,.22), '+bgOf(next)+' 46%)';
     ov.style.clipPath='circle(0px at '+x+'px '+y+'px)';
-    ov.style.transition='clip-path .62s cubic-bezier(.4,0,.2,1)';
+    ov.style.transition='clip-path .72s cubic-bezier(.4,0,.2,1)';
     document.body.appendChild(ov);
     requestAnimationFrame(function(){ ov.style.clipPath='circle('+r+'px at '+x+'px '+y+'px)'; });
-    setTimeout(function(){ apply(next); }, 520);
-    setTimeout(function(){ ov.style.transition='opacity .38s'; ov.style.opacity='0'; setTimeout(function(){ov.remove();},400); }, 640);
+    setTimeout(function(){ apply(next); }, 360);
+    setTimeout(function(){ ov.style.transition='opacity .45s ease'; ov.style.opacity='0'; }, 720);
+    setTimeout(function(){ ov.remove(); root.classList.remove('tdc-theming'); }, 1180);
   };
   try{var s=localStorage.getItem('tdc_theme'); if(s) document.documentElement.setAttribute('data-theme',s);}catch(e){}
   function init(){ syncBtn(document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light'); }
