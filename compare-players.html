@@ -83,6 +83,17 @@
     .chart-legend{display:flex;gap:18px;justify-content:center;margin-top:10px;font-size:11px;font-weight:600;color:var(--text3);}
     .chart-legend span{display:inline-flex;align-items:center;gap:6px;}
     .chart-legend i{width:11px;height:11px;border-radius:2px;}
+    /* PROJECTED OUTLOOK */
+    .ol-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0 26px;}
+    .ol-card{border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+    .ol-card.right{text-align:right;}
+    .ol-badge{display:inline-block;font-family:'Playfair Display',serif;font-weight:800;font-size:15px;letter-spacing:.01em;padding:8px 15px;border-radius:8px;}
+    .ol-badge.aa{background:linear-gradient(90deg,rgba(200,160,32,.24),rgba(255,77,157,.18));color:#C8A020;border:1px solid rgba(200,160,32,.45);}
+    .ol-badge.ac{background:rgba(177,107,255,.16);color:var(--accent);border:1px solid rgba(177,107,255,.42);}
+    .ol-badge.cs{background:rgba(26,140,58,.16);color:var(--green);border:1px solid rgba(26,140,58,.35);}
+    .ol-badge.rc{background:var(--bg3);color:var(--text2);border:1px solid var(--border2);}
+    .ol-badge.dev{background:var(--bg3);color:var(--text3);border:1px solid var(--border);}
+    .ol-sub{font-size:11px;color:var(--text3);margin-top:9px;}
 
     /* STRENGTHS / WEAKNESSES */
     .sw-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
@@ -461,6 +472,58 @@ const P_AXES=[
 ];
 function avg(){ var a=[].slice.call(arguments).filter(v=>v!=null); return a.length?Math.round(a.reduce((s,x)=>s+x,0)/a.length):0; }
 
+// ── REFERENCE COHORTS / ADVANCED METRICS / TIER PREDICTION ──
+function confOf(p){ var t=teamMap[p.team]; return t?(t.conf||t.conference||''):''; }
+var COHORT_KEYS=['ppg','rpg','apg','stl','blk','tovs','fg_pct','tp_pct','ft_pct','mpg','fgm','fga','tpm','tpa','ftm','fta'];
+function profileOf(arr){ var o={n:arr.length}; COHORT_KEYS.forEach(function(k){ var v=arr.map(function(p){return parseFloat(p[k])||0;}); o[k]=v.length?v.reduce(function(a,b){return a+b;},0)/v.length:0; }); return o; }
+function cohorts(){
+  if(window._cohorts) return window._cohorts;
+  var pl=allPlayers.filter(function(p){return (parseFloat(p.mpg)||0)>=10;});
+  function byGrade(min){ return pl.filter(function(p){return (parseFloat(p.tdc_grade)||0)>=min;}); }
+  var aa=byGrade(92); if(aa.length<5) aa=byGrade(90); if(aa.length<5) aa=byGrade(88);
+  var ac=byGrade(85); if(ac.length<12) ac=byGrade(83);
+  window._cohorts={ allAmerican:profileOf(aa), allConf:profileOf(ac),
+    national:profileOf(pl.filter(function(p){return (parseFloat(p.mpg)||0)>=18;})) };
+  return window._cohorts;
+}
+function confProfile(conf){
+  if(!window._confCache) window._confCache={};
+  if(window._confCache[conf]) return window._confCache[conf];
+  var pl=allPlayers.filter(function(p){return confOf(p)===conf && (parseFloat(p.mpg)||0)>=18;});
+  var prof=profileOf(pl.length?pl:allPlayers.filter(function(p){return (parseFloat(p.mpg)||0)>=18;}));
+  window._confCache[conf]=prof; return prof;
+}
+function adv(p){
+  var fga=parseFloat(p.fga)||0, fta=parseFloat(p.fta)||0, fgm=parseFloat(p.fgm)||0, tpm=parseFloat(p.tpm)||0;
+  var pts=parseFloat(p.ppg)||0, ast=parseFloat(p.apg)||0, tov=parseFloat(p.tovs)||0, mpg=parseFloat(p.mpg)||0, reb=parseFloat(p.rpg)||0;
+  return {
+    ts: (fga+0.44*fta)>0 ? pts/(2*(fga+0.44*fta))*100 : 0,
+    efg: fga>0 ? (fgm+0.5*tpm)/fga*100 : 0,
+    astto: tov>0 ? ast/tov : ast,
+    p40: mpg>0 ? pts*40/mpg : 0,
+    r40: mpg>0 ? reb*40/mpg : 0
+  };
+}
+function outlook(proj, conf){
+  var co=cohorts(), cp=confProfile(conf);
+  var keys=['ppg','rpg','apg','fg_pct','tp_pct'];
+  function hits(prof,frac){ var c=0; keys.forEach(function(k){ if((parseFloat(proj[k])||0) >= (prof[k]||0)*frac) c++; }); return c; }
+  var aa=hits(co.allAmerican,0.92), ac=hits(co.allConf,0.95), cs=hits(cp,1.0);
+  if(aa>=4) return {label:'All-American Caliber',cls:'aa'};
+  if(aa>=3||ac>=4) return {label:'All-Conference Caliber',cls:'ac'};
+  if(cs>=3) return {label:'Conference Starter',cls:'cs'};
+  if(cs>=1) return {label:'Rotation Contributor',cls:'rc'};
+  return {label:'Developing / Bench',cls:'dev'};
+}
+// benchmark radar axes (raw stat extractors)
+var BENCH_AXES=[
+  {l:'Scoring', f:function(s){return parseFloat(s.ppg)||0;}},
+  {l:'Rebounding', f:function(s){return parseFloat(s.rpg)||0;}},
+  {l:'Playmaking', f:function(s){return parseFloat(s.apg)||0;}},
+  {l:'Efficiency', f:function(s){return adv(s).ts||parseFloat(s.fg_pct)||0;}},
+  {l:'Defense', f:function(s){return (parseFloat(s.stl)||0)+(parseFloat(s.blk)||0);}}
+];
+
 function renderPlayers(){
   destroyCharts();
   const [p1,p2]=sel.players;
@@ -473,21 +536,37 @@ function renderPlayers(){
       <div class="ch-tags"><span class="ch-tag gold">${archetypeOf(p)}</span><span class="ch-tag">${roleOf(p)}</span></div>
     </div>`;
   const pr1=projPlayer(p1), pr2=projPlayer(p2);
+  const conf1=confOf(p1), conf2=confOf(p2);
+  const ol1=outlook(pr1,conf1), ol2=outlook(pr2,conf2);
+  const a1=adv(p1), a2=adv(p2);
   sec.innerHTML=`
     <div class="cmp-heads">${head(p1,c1,false)}<div class="cmp-vs">VS</div>${head(p2,c2,true)}</div>
+
+    <div class="compare-section-head" style="border-radius:8px;">Projected Outlook — 2026-27</div>
+    <div class="ol-grid">
+      <div class="ol-card"><div class="ol-badge ${ol1.cls}">${ol1.label}</div><div class="ol-sub">${conf1||'—'} · projects vs national tiers</div></div>
+      <div class="ol-card right"><div class="ol-badge ${ol2.cls}">${ol2.label}</div><div class="ol-sub">${conf2||'—'} · projects vs national tiers</div></div>
+    </div>
+
     <div class="chart-grid">
       <div class="chart-card"><div class="chart-title">Skill Profile · National Percentiles</div>
         <div class="chart-box"><canvas id="pRadar"></canvas></div>
-        <div class="chart-legend"><span><i style="background:${c1}"></i>${p1.name}</span><span><i style="background:${c2}"></i>${p2.name}</span></div>
-      </div>
-      <div class="chart-card"><div class="chart-title">Per-Game Percentile Ranks</div>
-        <div class="chart-box"><canvas id="pBar"></canvas></div>
-        <div class="chart-legend"><span><i style="background:${c1}"></i>${p1.name}</span><span><i style="background:${c2}"></i>${p2.name}</span></div>
-      </div>
+        <div class="chart-legend"><span><i style="background:${c1}"></i>${p1.name}</span><span><i style="background:${c2}"></i>${p2.name}</span></div></div>
+      <div class="chart-card"><div class="chart-title">Projection vs All-American Ceiling</div>
+        <div class="chart-box"><canvas id="pBench"></canvas></div>
+        <div class="chart-legend"><span><i style="background:${c1}"></i>${p1.name}</span><span><i style="background:${c2}"></i>${p2.name}</span><span><i style="background:#C8A020"></i>All-American</span></div></div>
     </div>
+    <div class="chart-card full" style="margin-bottom:26px;"><div class="chart-title">Per-Game Percentile Ranks</div>
+      <div class="chart-box short"><canvas id="pBar"></canvas></div></div>
+
     <div class="compare-section-head">2026-27 Projected · Model Estimate</div>
     ${projRow('PPG',pr1.ppg,pr2.ppg)}${projRow('RPG',pr1.rpg,pr2.rpg)}${projRow('APG',pr1.apg,pr2.apg)}
     ${projRow('FG%',pr1.fg_pct,pr2.fg_pct)}${projRow('3P%',pr1.tp_pct,pr2.tp_pct)}${projRow('FT%',pr1.ft_pct,pr2.ft_pct)}
+
+    <div class="compare-section-head">Advanced Metrics · 2025-26</div>
+    ${statRow('TS%',a1.ts,a2.ts)}${statRow('eFG%',a1.efg,a2.efg)}${statRow('AST/TO',a1.astto,a2.astto)}
+    ${statRow('PTS/40',a1.p40,a2.p40)}${statRow('REB/40',a1.r40,a2.r40)}
+
     <div class="compare-section-head">2025-26 Actual</div>
     ${statRow('PPG',p1.ppg,p2.ppg)}${statRow('RPG',p1.rpg,p2.rpg)}${statRow('APG',p1.apg,p2.apg)}
     ${statRow('FG%',p1.fg_pct,p2.fg_pct)}${statRow('3P%',p1.tp_pct,p2.tp_pct)}${statRow('FT%',p1.ft_pct,p2.ft_pct)}
@@ -495,8 +574,13 @@ function renderPlayers(){
   `;
   const labels=P_AXES.map(a=>a.l);
   const d1=P_AXES.map(a=>a.f(p1)), d2=P_AXES.map(a=>a.f(p2));
+  const aaProf=cohorts().allAmerican;
+  const blabels=BENCH_AXES.map(a=>a.l);
+  const norm=s=>BENCH_AXES.map(a=>{var aa=a.f(aaProf)||1; return Math.round(Math.min(135, a.f(s)/aa*100));});
+  const bp1=norm(pr1), bp2=norm(pr2), baa=BENCH_AXES.map(()=>100);
   setTimeout(()=>{
     radarChart('pRadar',labels,[ds(p1.name,d1,c1),ds(p2.name,d2,c2)]);
+    radarChart('pBench',blabels,[ds(p1.name,bp1,c1),ds(p2.name,bp2,c2),ds('All-American',baa,'#C8A020')]);
     barChart('pBar',labels,[ds(p1.name,d1,c1,true),ds(p2.name,d2,c2,true)]);
   },0);
 }
