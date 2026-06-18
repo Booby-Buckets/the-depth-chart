@@ -1084,11 +1084,15 @@ function buildTeamProjections(players, conf){
 
 
 function buildScoutingReport(p, proj, globalPct){
-  var ppg=parseFloat(p.ppg)||0,rpg=parseFloat(p.rpg)||0,apg=parseFloat(p.apg)||0;
-  var fg=parseFloat(p.fg_pct)||0,tp=parseFloat(p.tp_pct)||0,ft=parseFloat(p.ft_pct)||0;
-  var stl=parseFloat(p.stl)||0,blk=parseFloat(p.blk)||0;
-  var oreb=parseFloat(p.oreb)||0,dreb=parseFloat(p.dreb)||0;
-  var tovs=parseFloat(p.tovs)||0,mpg=parseFloat(p.mpg)||0;
+  // Scouting report runs off PROJECTED stats when available, else last-season actual
+  function _n(o,k){var v=parseFloat(o&&o[k]);return isNaN(v)?0:v;}
+  var useProj = !!(proj && !proj._injured && !proj._dnp && (_n(proj,'ppg')>0||proj._frosh||proj._noStatEst));
+  var s = useProj ? proj : p;
+  var ppg=_n(s,'ppg'),rpg=_n(s,'rpg'),apg=_n(s,'apg');
+  var fg=_n(s,'fg_pct'),tp=_n(s,'tp_pct'),ft=_n(s,'ft_pct');
+  var stl=_n(s,'stl'),blk=_n(s,'blk');
+  var oreb=_n(s,'oreb'),dreb=_n(s,'dreb');
+  var tovs=_n(s,'tovs'),mpg=_n(s,'mpg');
   var pos=p.position||'G', grade=parseFloat(p.tdc_grade)||70;
   var yr=(p.yr||p.class_year||'').toLowerCase();
   var isFr=yr.includes('fr.')||yr.includes('r-fr');
@@ -1172,20 +1176,40 @@ function buildScoutingReport(p, proj, globalPct){
   if(p.starter)tags.push({t:'Returning Starter',c:'neu'});
   if(p.hometown)tags.push({t:'Transfer',c:'neu'});
 
+  var R1=function(x){return Math.round(x*10)/10;};
+  // ── TEAM ROLE (depth chart + projected minutes) ──
+  var dord=parseInt(p.depth_order)||9, role, roleDesc;
+  if(dord<=1){role='Lead Starter';roleDesc='Anchors the rotation as a featured option (~'+Math.round(mpg)+' MPG projected).';}
+  else if(dord<=5||p.starter){role='Projected Starter';roleDesc='Projected into the starting five at roughly '+Math.round(mpg)+' MPG.';}
+  else if(dord===6){role='Sixth Man';roleDesc='Top reserve and first off the bench (~'+Math.round(mpg)+' MPG).';}
+  else if(dord<=8){role='Rotation';roleDesc='A rotation contributor in the '+Math.round(mpg)+'-minute range.';}
+  else {role='Bench / Depth';roleDesc='Projected for limited minutes ('+Math.round(mpg)+' MPG).';}
+
+  // ── PROJECTED JUMP / DECLINE vs last season ──
+  var lastPpg=parseFloat(p.ppg)||0, lastMpg=parseFloat(p.mpg)||0, jumpDir='flat', jumpText='';
+  if(proj&&(proj._frosh||proj._noStatEst)){jumpDir='new';jumpText='No prior college production — projection built from a '+pos+' baseline and his TDC grade ('+grade+'). Expect higher variance.';}
+  else if(proj&&proj._origin){jumpDir='transfer';jumpText='Transfer from '+proj._origin+' — last year’s output re-scaled for a new level of competition.';}
+  else if(useProj&&lastMpg>0){
+    var dPpg=R1(ppg-lastPpg), dMpg=Math.round(mpg-lastMpg);
+    if(dMpg>=6||dPpg>=4){jumpDir='up';jumpText='Projected leap — role expands (+'+dMpg+' MPG) and scoring climbs '+(dPpg>0?'+':'')+dPpg+' PPG over last season.';}
+    else if(dMpg<=-6||dPpg<=-3){jumpDir='down';jumpText='Projected step back — a reduced role ('+dMpg+' MPG) trims his counting stats from last year.';}
+    else {jumpText='Steady year-over-year — a similar role and production to last season ('+(dPpg>0?'+':'')+dPpg+' PPG, '+(dMpg>0?'+':'')+dMpg+' MPG).';}
+  } else {jumpText='Returning contributor — projection based on role continuity and career trend.';}
+
+  // ── FLOOR / CEILING: statistical scoring range + tier outlook ──
+  var variance=(proj&&(proj._frosh||proj._noStatEst))?0.40:(proj&&proj._origin)?0.27:isFr?0.32:isSo?0.24:isJr?0.18:0.14;
+  var projPpg=R1(ppg), floorPpg=Math.max(0,R1(ppg*(1-variance))), ceilPpg=R1(ppg*(1+variance));
+  var starterish=dord<=5||p.starter||mpg>=26;
   var floor='', ceiling='', floorDesc='', ceilingDesc='';
-  if(grade>=92){
-    ceiling='All-Conference'; ceilingDesc='Has the tools to be a first-team all-conference performer and a legitimate NBA prospect.';
-    floor=isFr||isSo?'Solid Starter':'Dependable Starter'; floorDesc='Even in a down year, should contribute 25+ MPG and provide positive impact.';
-  } else if(grade>=85){
-    ceiling='All-Conference Fringe'; ceilingDesc='Could earn conference recognition with continued development.';
-    floor='Rotation Player'; floorDesc='Reliable contributor in the 18-25 MPG range who fills a defined role.';
-  } else if(grade>=75){
-    ceiling='Starter'; ceilingDesc='Has the ability to crack a starting lineup on the right team.';
-    floor='Deep Rotation'; floorDesc='Will see time off the bench and contribute in specific situations.';
-  } else {
-    ceiling='Rotation Piece'; ceilingDesc='Can carve a niche role in the right system with continued improvement.';
-    floor='Development Player'; floorDesc='Currently a project; needs time and reps to develop college-level impact.';
-  }
+  if(grade>=93&&ppg>=15){ceiling='All-American Ceiling';ceilingDesc='If the upside hits, an All-American-level season and a clear pro prospect — up to ~'+ceilPpg+' PPG.';}
+  else if(grade>=88&&ppg>=12){ceiling='All-Conference';ceilingDesc='A first-team all-conference ceiling with a strong year — up to ~'+ceilPpg+' PPG.';}
+  else if(grade>=80||ppg>=10){ceiling='All-Conference Fringe';ceilingDesc='Conference recognition is in range if he pops — up to ~'+ceilPpg+' PPG.';}
+  else if(starterish){ceiling='Quality Starter';ceilingDesc='A dependable starter ceiling on the right roster — up to ~'+ceilPpg+' PPG.';}
+  else {ceiling='Rotation Piece';ceilingDesc='Upside is a defined rotation role — up to ~'+ceilPpg+' PPG.';}
+  if(grade>=90&&starterish){floor='High-End Starter';floorDesc='Even in a down year, a high-level starter around ~'+floorPpg+' PPG.';}
+  else if(grade>=82&&starterish){floor='Solid Starter';floorDesc='A reliable starter floor near ~'+floorPpg+' PPG.';}
+  else if(starterish||grade>=75){floor='Rotation Player';floorDesc='Settles in as a rotation piece (~'+floorPpg+' PPG) at worst.';}
+  else {floor='Deep Bench';floorDesc='Limited-minutes floor; real impact hinges on development.';}
 
   var roleFit = grade>=88?'Starter / Star':grade>=80?'Starting Caliber':grade>=72?'Rotation Player':'Bench Contributor';
 
@@ -1220,13 +1244,30 @@ function buildScoutingReport(p, proj, globalPct){
     (grade-60)/37*60 + ppg/22*15 + (fg-38)/20*10 + (stl+blk)/3*8 + apg/8*7
   )));
 
+  // profile bars computed from the projected basis
+  var gp=function(k,v){return (typeof getPct==='function')?getPct(v,k):0;};
+  var offRtg=Math.round(Math.min(100,ppg/22*50+((fg-30)/30)*30+apg/8*20));
+  var defRtg=Math.round(Math.min(100,gp('stl',stl)*.5+gp('blk',blk)*.5));
+  var rebRtg=Math.round(gp('rpg',rpg));
+  var effRtg=Math.round(Math.min(100,Math.max(0,((fg-30)/35)*60+((ft-40)/55)*40)));
+
   return {
     archetype:archetype, archetypeDesc:archetypeDesc,
     strengths:strengths, weaknesses:weaknesses, tags:tags, projNote:projNote,
     floor:floor, ceiling:ceiling, floorDesc:floorDesc, ceilingDesc:ceilingDesc,
     roleFit:roleFit, draftOutlook:draftOutlook, draftNote:draftNote,
-    comparable:comparable, scoutScore:scoutScore
+    comparable:comparable, scoutScore:scoutScore,
+    role:role, roleDesc:roleDesc, jumpText:jumpText, jumpDir:jumpDir,
+    floorPpg:floorPpg, projPpg:projPpg, ceilPpg:ceilPpg,
+    basedOn: useProj?'2026-27 projected':'2025-26 actual',
+    off:offRtg, def:defRtg, reb:rebRtg, eff:effRtg
   };
+}
+function scoutRangeBar(f,pj,c){
+  var span=Math.max(0.1,c-f), pos=Math.round((pj-f)/span*100);
+  return '<div style="margin-top:8px;"><div style="position:relative;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--bg3),var(--accent));">'+
+    '<div style="position:absolute;top:-3px;left:'+pos+'%;width:3px;height:14px;background:var(--text);border-radius:2px;transform:translateX(-50%);"></div></div>'+
+    '<div style="display:flex;justify-content:space-between;font-size:10px;font-weight:700;color:var(--text3);margin-top:6px;"><span>Floor '+f+'</span><span style="color:var(--accent);">Proj '+pj+'</span><span>Ceiling '+c+'</span></div></div>';
 }
 
 
@@ -1616,19 +1657,20 @@ function renderPage(){
           <div class="scout-archetype-name">${scout.archetype}</div>
           <div class="scout-archetype-desc">${scout.archetypeDesc}</div>
           <div style="margin-top:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-            <span class="scout-tag gold">Role: ${scout.roleFit}</span>
+            <span class="scout-tag gold">${scout.role}</span>
             ${scout.draftOutlook ? '<span class="scout-tag pos">' + scout.draftOutlook + '</span>' : ''}
           </div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:9px;">Report based on ${scout.basedOn} stats</div>
         </div>
         <div class="scout-ratings">
           <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">Scouting Profile</div>
           ${(function(){
             var items=[
               {l:'Overall', v:scout.scoutScore},
-              {l:'Offense', v:Math.round(Math.min(100,(parseFloat(p.ppg)||0)/22*50+((parseFloat(p.fg_pct)||0)-30)/30*30+(parseFloat(p.apg)||0)/8*20))},
-              {l:'Defense', v:Math.round(Math.min(100,getPct(p.stl,'stl')*.5+getPct(p.blk,'blk')*.5))},
-              {l:'Rebnd',   v:Math.round(getPct(p.rpg,'rpg'))},
-              {l:'Effcncy', v:Math.round(Math.min(100,Math.max(0,((parseFloat(p.fg_pct)||0)-30)/35*60+((parseFloat(p.ft_pct)||0)-40)/55*40)))}
+              {l:'Offense', v:scout.off},
+              {l:'Defense', v:scout.def},
+              {l:'Rebnd',   v:scout.reb},
+              {l:'Effcncy', v:scout.eff}
             ];
             return items.map(function(r){
               var v=Math.max(0,Math.min(100,r.v));
@@ -1638,8 +1680,11 @@ function renderPage(){
         </div>
       </div>
       <div class="scout-fc-grid">
+        <div class="scout-fc-card"><div class="scout-fc-label">Team Role</div><div class="scout-fc-val">${scout.role}</div><div class="scout-fc-desc">${scout.roleDesc}</div></div>
+        <div class="scout-fc-card"><div class="scout-fc-label">Projected Outlook</div><div class="scout-fc-val" style="color:${scout.jumpDir==='up'?'#5ab875':scout.jumpDir==='down'?'#e07070':'var(--accent)'};">${({up:'Projected Leap',down:'Reduced Role','new':'Unproven',transfer:'New Level',flat:'Steady'})[scout.jumpDir]||'Steady'}</div><div class="scout-fc-desc">${scout.jumpText}</div></div>
         <div class="scout-fc-card"><div class="scout-fc-label">Floor</div><div class="scout-fc-val">${scout.floor}</div><div class="scout-fc-desc">${scout.floorDesc}</div></div>
         <div class="scout-fc-card"><div class="scout-fc-label">Ceiling</div><div class="scout-fc-val" style="color:var(--accent);">${scout.ceiling}</div><div class="scout-fc-desc">${scout.ceilingDesc}</div></div>
+        <div class="scout-fc-card" style="grid-column:1/-1"><div class="scout-fc-label">Projected Scoring Range</div>${scoutRangeBar(scout.floorPpg,scout.projPpg,scout.ceilPpg)}</div>
         ${scout.draftOutlook ? '<div class="scout-fc-card" style="grid-column:1/-1"><div class="scout-fc-label">Draft Outlook</div><div class="scout-fc-val">' + scout.draftOutlook + '</div><div class="scout-fc-desc">' + scout.draftNote + '</div></div>' : ''}
       </div>
       <div class="scout-grid">
