@@ -1200,16 +1200,26 @@ function buildScoutingReport(p, proj, globalPct){
   var variance=(proj&&(proj._frosh||proj._noStatEst))?0.40:(proj&&proj._origin)?0.27:isFr?0.32:isSo?0.24:isJr?0.18:0.14;
   var projPpg=R1(ppg), floorPpg=Math.max(0,R1(ppg*(1-variance))), ceilPpg=R1(ppg*(1+variance));
   var starterish=dord<=5||p.starter||mpg>=26;
+  // production index — both grade AND output must justify a tier (stops over/under-hyping)
+  var prod = ppg + 0.8*apg + 0.6*rpg + 1.2*(stl+blk);
   var floor='', ceiling='', floorDesc='', ceilingDesc='';
-  if(grade>=93&&ppg>=15){ceiling='All-American Ceiling';ceilingDesc='If the upside hits, an All-American-level season and a clear pro prospect — up to ~'+ceilPpg+' PPG.';}
-  else if(grade>=88&&ppg>=12){ceiling='All-Conference';ceilingDesc='A first-team all-conference ceiling with a strong year — up to ~'+ceilPpg+' PPG.';}
-  else if(grade>=80||ppg>=10){ceiling='All-Conference Fringe';ceilingDesc='Conference recognition is in range if he pops — up to ~'+ceilPpg+' PPG.';}
-  else if(starterish){ceiling='Quality Starter';ceilingDesc='A dependable starter ceiling on the right roster — up to ~'+ceilPpg+' PPG.';}
-  else {ceiling='Rotation Piece';ceilingDesc='Upside is a defined rotation role — up to ~'+ceilPpg+' PPG.';}
-  if(grade>=90&&starterish){floor='High-End Starter';floorDesc='Even in a down year, a high-level starter around ~'+floorPpg+' PPG.';}
-  else if(grade>=82&&starterish){floor='Solid Starter';floorDesc='A reliable starter floor near ~'+floorPpg+' PPG.';}
-  else if(starterish||grade>=75){floor='Rotation Player';floorDesc='Settles in as a rotation piece (~'+floorPpg+' PPG) at worst.';}
-  else {floor='Deep Bench';floorDesc='Limited-minutes floor; real impact hinges on development.';}
+  // CEILING — historically-calibrated ladder (award tiers gated on grade + production)
+  if(grade>=97&&ppg>=17&&prod>=24){ceiling='Naismith Contender';ceilingDesc='An elite, two-way alpha with the grade and projected production of a national-player-of-the-year candidate — peak around ~'+ceilPpg+' PPG.';}
+  else if(grade>=95&&ppg>=15&&prod>=20){ceiling='All-American';ceilingDesc='A consensus All-American ceiling — one of the very best players in the country if his upside lands (~'+ceilPpg+' PPG).';}
+  else if(grade>=90&&ppg>=14){ceiling='First-Team All-Conference';ceilingDesc='Carries a first-team all-conference ceiling and pro radar in a big season — up to ~'+ceilPpg+' PPG.';}
+  else if(grade>=85&&ppg>=12){ceiling='All-Conference';ceilingDesc='An all-conference ceiling with a strong, healthy year — up to ~'+ceilPpg+' PPG.';}
+  else if(grade>=80&&ppg>=10){ceiling='All-Conference Fringe';ceilingDesc='Conference recognition is in range if he takes a step — up to ~'+ceilPpg+' PPG.';}
+  else if(grade>=75||(starterish&&ppg>=9)){ceiling='Quality Starter';ceilingDesc='A dependable, multi-year starter ceiling on the right roster — up to ~'+ceilPpg+' PPG.';}
+  else if(starterish||grade>=70){ceiling='Rotation Starter';ceilingDesc='Upside is a spot starter / high-rotation role — up to ~'+ceilPpg+' PPG.';}
+  else {ceiling='Rotation Piece';ceilingDesc='Upside is a defined bench role — up to ~'+ceilPpg+' PPG.';}
+  // FLOOR — grade + established role lift the floor so vets aren't under-sold
+  if(grade>=96){floor='All-American Floor';floorDesc='An elite profile that rarely busts — even a quiet year is an all-conference-level season (~'+floorPpg+' PPG).';}
+  else if(grade>=91&&starterish){floor='All-Conference Floor';floorDesc='A proven high-end starter who stays a conference standout at worst (~'+floorPpg+' PPG).';}
+  else if(grade>=86&&starterish){floor='High-End Starter';floorDesc='A reliable, high-level starter even in a down year (~'+floorPpg+' PPG).';}
+  else if(grade>=81&&starterish){floor='Solid Starter';floorDesc='A dependable starter floor near ~'+floorPpg+' PPG.';}
+  else if(grade>=75||starterish){floor='Rotation Player';floorDesc='Settles in as a rotation contributor (~'+floorPpg+' PPG) at worst.';}
+  else if(grade>=70){floor='Bench Contributor';floorDesc='A bench role with situational minutes is the realistic downside.';}
+  else {floor='Deep Bench / Development';floorDesc='Limited-minutes floor; real impact hinges on development.';}
 
   var roleFit = grade>=88?'Starter / Star':grade>=80?'Starting Caliber':grade>=72?'Rotation Player':'Bench Contributor';
 
@@ -1245,11 +1255,16 @@ function buildScoutingReport(p, proj, globalPct){
   )));
 
   // profile bars computed from the projected basis
-  var gp=function(k,v){return (typeof getPct==='function')?getPct(v,k):0;};
-  var offRtg=Math.round(Math.min(100,ppg/22*50+((fg-30)/30)*30+apg/8*20));
-  var defRtg=Math.round(Math.min(100,gp('stl',stl)*.5+gp('blk',blk)*.5));
-  var rebRtg=Math.round(gp('rpg',rpg));
-  var effRtg=Math.round(Math.min(100,Math.max(0,((fg-30)/35)*60+((ft-40)/55)*40)));
+  var gp=function(k,v){var x=(typeof getPct==='function')?getPct(v,k):0;return isNaN(x)?0:x;};
+  var clamp=function(x){return Math.round(Math.max(0,Math.min(100,x)));};
+  // position-aware defensive weighting — guards lean steals, bigs lean blocks
+  var dStl=isGuard?0.72:isBig?0.30:0.52, dBlk=isGuard?0.28:isBig?0.70:0.48;
+  var offRtg=clamp(0.55*gp('ppg',ppg)+0.25*gp('apg',apg)+0.20*gp('tp_pct',tp));
+  var defRtg=clamp(dStl*gp('stl',stl)+dBlk*gp('blk',blk));
+  var rebRtg=clamp(gp('rpg',rpg));
+  var effRtg=clamp(0.5*gp('fg_pct',fg)+0.3*gp('ft_pct',ft)+0.2*gp('tp_pct',tp));
+  // Overall = grade-anchored, lifted by on-court ratings
+  scoutScore=clamp(((grade-58)/40)*100*0.55 + offRtg*0.22 + defRtg*0.10 + rebRtg*0.06 + effRtg*0.07);
 
   return {
     archetype:archetype, archetypeDesc:archetypeDesc,
