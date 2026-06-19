@@ -280,6 +280,7 @@ body{background:transparent!important;}
     <a href="index.html">Rankings</a>
     <a href="roster.html" class="active">Players</a>
     <a href="compare-players.html">Compare</a>
+    <a href="draft.html">Draft</a>
     <a href="analytics.html">Analytics</a>
     <a href="projections.html">Projections</a>
     <a href="community.html">Community</a>
@@ -1198,7 +1199,10 @@ function buildScoutingReport(p, proj, globalPct){
 
   // ── FLOOR / CEILING: statistical scoring range + tier outlook ──
   var variance=(proj&&(proj._frosh||proj._noStatEst))?0.40:(proj&&proj._origin)?0.27:isFr?0.32:isSo?0.24:isJr?0.18:0.14;
-  var projPpg=R1(ppg), floorPpg=Math.max(0,R1(ppg*(1-variance))), ceilPpg=R1(ppg*(1+variance));
+  // Ceiling upside is capped and diminishes for high scorers — a high projection
+  // already bakes in volume, so the realistic top end tightens as PPG climbs.
+  var ceilVar=Math.min(variance,0.22)*(ppg>=18?0.62:ppg>=15?0.72:ppg>=12?0.84:1);
+  var projPpg=R1(ppg), floorPpg=Math.max(0,R1(ppg*(1-variance))), ceilPpg=R1(ppg*(1+ceilVar));
   var starterish=dord<=5||p.starter||mpg>=26;
   // production index — both grade AND output must justify a tier (stops over/under-hyping)
   var prod = ppg + 0.8*apg + 0.6*rpg + 1.2*(stl+blk);
@@ -1259,12 +1263,15 @@ function buildScoutingReport(p, proj, globalPct){
   var clamp=function(x){return Math.round(Math.max(0,Math.min(100,x)));};
   // position-aware defensive weighting — guards lean steals, bigs lean blocks
   var dStl=isGuard?0.72:isBig?0.30:0.52, dBlk=isGuard?0.28:isBig?0.70:0.48;
-  var offRtg=clamp(0.55*gp('ppg',ppg)+0.25*gp('apg',apg)+0.20*gp('tp_pct',tp));
-  var defRtg=clamp(dStl*gp('stl',stl)+dBlk*gp('blk',blk));
-  var rebRtg=clamp(gp('rpg',rpg));
-  var effRtg=clamp(0.5*gp('fg_pct',fg)+0.3*gp('ft_pct',ft)+0.2*gp('tp_pct',tp));
-  // Overall = grade-anchored, lifted by on-court ratings
-  scoutScore=clamp(((grade-58)/40)*100*0.55 + offRtg*0.22 + defRtg*0.10 + rebRtg*0.06 + effRtg*0.07);
+  // Overall IS the grade. Every other slider is anchored to the grade so the
+  // whole profile ranks consistently with it, then shifted by the player's
+  // relative skill percentile so strengths/weaknesses still read off the grade.
+  scoutScore=clamp(grade);
+  var anchor=function(raw){return clamp(0.55*grade + 0.45*raw);};
+  var offRtg=anchor(0.55*gp('ppg',ppg)+0.25*gp('apg',apg)+0.20*gp('tp_pct',tp));
+  var defRtg=anchor(dStl*gp('stl',stl)+dBlk*gp('blk',blk));
+  var rebRtg=anchor(gp('rpg',rpg));
+  var effRtg=anchor(0.5*gp('fg_pct',fg)+0.3*gp('ft_pct',ft)+0.2*gp('tp_pct',tp));
 
   return {
     archetype:archetype, archetypeDesc:archetypeDesc,
@@ -1984,6 +1991,79 @@ function _htIn(h){if(!h)return 0;var m=(''+h).match(/(\d+)\s*[-']\s*(\d+)/);retu
 function peerDist(pool,key){var arr=pool.map(function(p){return parseFloat(p[key]);}).filter(function(v){return !isNaN(v)&&v>0;}).sort(function(a,b){return a-b;});return arr;}
 function pctIn(arr,val,inv){if(!arr.length)return null;var v=parseFloat(val);if(isNaN(v))return null;var lo=0,hi=arr.length;while(lo<hi){var m=(lo+hi)>>1;if(arr[m]<v)lo=m+1;else hi=m;}var p=Math.round(lo/arr.length*100);return inv?100-p:p;}
 
+// ── ARCHETYPE FIT RADAR ───────────────────────────────────────
+// Each archetype is a fingerprint of defining traits (national percentiles,
+// some inverted for "low is better"). Closeness = weighted blend of how much
+// the player embodies that archetype's signature traits, 0-100.
+var ARCH_FIT={
+  G:[
+    {label:'Lead',      terms:[{k:'apg',w:2.0},{k:'mpg',w:1.0},{k:'ppg',w:.8}]},
+    {label:'Scorer',    terms:[{k:'ppg',w:2.2},{k:'fg_pct',w:.6},{k:'mpg',w:.7}]},
+    {label:'Shooter',   terms:[{k:'tp_pct',w:2.2},{k:'ppg',w:.8}]},
+    {label:'Floor Gen.',terms:[{k:'apg',w:2.2},{k:'tovs',w:1.0,inv:1}]},
+    {label:'Defender',  terms:[{k:'stl',w:2.0},{k:'blk',w:.6}]},
+    {label:'Combo',     terms:[{k:'ppg',w:1.0},{k:'apg',w:1.0},{k:'tp_pct',w:1.0},{k:'stl',w:.8}]}
+  ],
+  W:[
+    {label:'Versatile', terms:[{k:'ppg',w:1.4},{k:'rpg',w:1.4},{k:'apg',w:1.2}]},
+    {label:'3-and-D',   terms:[{k:'tp_pct',w:2.0},{k:'stl',w:1.0},{k:'blk',w:.6}]},
+    {label:'Scorer',    terms:[{k:'ppg',w:2.2},{k:'fg_pct',w:.6}]},
+    {label:'Slasher',   terms:[{k:'ppg',w:1.4},{k:'fg_pct',w:1.2},{k:'ft_pct',w:.8}]},
+    {label:'Glue',      terms:[{k:'rpg',w:1.0},{k:'stl',w:.8},{k:'apg',w:.6},{k:'tovs',w:1.0,inv:1}]}
+  ],
+  B:[
+    {label:'Anchor',    terms:[{k:'blk',w:2.2},{k:'rpg',w:1.4}]},
+    {label:'Stretch',   terms:[{k:'tp_pct',w:2.2},{k:'ppg',w:1.0}]},
+    {label:'Two-Way',   terms:[{k:'ppg',w:1.3},{k:'rpg',w:1.3},{k:'blk',w:1.3}]},
+    {label:'Scorer',    terms:[{k:'ppg',w:2.0},{k:'fg_pct',w:1.0}]},
+    {label:'Energy',    terms:[{k:'rpg',w:1.6},{k:'blk',w:.8},{k:'stl',w:.6}]}
+  ]
+};
+function _archClose(src,terms){var sw=0,sv=0;terms.forEach(function(t){var pct=(typeof getPct==='function')?getPct(src[t.k],t.k):0;if(isNaN(pct))pct=0;if(t.inv)pct=100-pct;sw+=t.w;sv+=t.w*pct;});return sw?Math.round(sv/sw):0;}
+var _archFitAxes=null, _archFitColor=null, _archFitBest=-1;
+function buildArchFit(src,grp){
+  var defs=ARCH_FIT[grp]||ARCH_FIT.W;
+  var axes=defs.map(function(d){return {label:d.label,val:Math.max(0,Math.min(100,_archClose(src,d.terms)))};});
+  var best=0; axes.forEach(function(a,i){if(a.val>axes[best].val)best=i;});
+  return {axes:axes,best:best};
+}
+function drawArchFit(){
+  var canvas=document.getElementById('archRadar'); if(!canvas||!_archFitAxes) return;
+  var ctx=canvas.getContext('2d'), W=canvas.width, H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  var isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  var textCol=isDark?'#a8a1c4':'#6d6589', gridCol=isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.07)';
+  var color=_archFitColor||'#B16BFF';
+  var axes=_archFitAxes, n=axes.length, cx=W/2, cy=H/2, r=Math.min(W,H)/2-46;
+  for(var ring=1;ring<=4;ring++){
+    ctx.beginPath();
+    for(var i=0;i<n;i++){var a=Math.PI*2*i/n-Math.PI/2;var x=cx+Math.cos(a)*r*(ring/4),y=cy+Math.sin(a)*r*(ring/4);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+    ctx.closePath(); ctx.strokeStyle=gridCol; ctx.lineWidth=1; ctx.stroke();
+  }
+  axes.forEach(function(ax,i){
+    var a=Math.PI*2*i/n-Math.PI/2, x=cx+Math.cos(a)*r, y=cy+Math.sin(a)*r;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(x,y); ctx.strokeStyle=gridCol; ctx.lineWidth=1; ctx.stroke();
+    var lx=cx+Math.cos(a)*(r+22), ly=cy+Math.sin(a)*(r+22), isBest=i===_archFitBest;
+    ctx.fillStyle=isBest?color:textCol; ctx.font=(isBest?'bold ':'600 ')+'11px Inter,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(ax.label,lx,ly);
+  });
+  // player fit shape
+  ctx.beginPath();
+  axes.forEach(function(ax,i){var a=Math.PI*2*i/n-Math.PI/2;var v=ax.val/100;var x=cx+Math.cos(a)*r*v,y=cy+Math.sin(a)*r*v;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  ctx.closePath();
+  ctx.fillStyle=color; ctx.globalAlpha=0.18; ctx.fill();
+  ctx.globalAlpha=1; ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+  // vertices + value labels
+  axes.forEach(function(ax,i){
+    var a=Math.PI*2*i/n-Math.PI/2, v=ax.val/100, x=cx+Math.cos(a)*r*v, y=cy+Math.sin(a)*r*v;
+    ctx.beginPath(); ctx.arc(x,y,i===_archFitBest?3.6:2.4,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
+    if(ax.val>=14){var tx=cx+Math.cos(a)*(r*v+ (i===_archFitBest?13:11)), ty=cy+Math.sin(a)*(r*v+ (i===_archFitBest?13:11));
+      ctx.fillStyle=i===_archFitBest?color:textCol; ctx.font=(i===_archFitBest?'bold ':'600 ')+'10px Inter,sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(ax.val+'%',tx,ty);}
+  });
+}
+
 async function renderArchetype(){
   var el=document.getElementById('archetypeContent'); if(!el||!player) return;
   if(_archDone) return; _archDone=true;
@@ -1996,6 +2076,13 @@ async function renderArchetype(){
   }
   var info=archetypeInfo(player), grp=info.group;
   var pf=_feat(player), ph=_htIn(player.height);
+
+  // archetype-fit radar — use projected basis when available, else actual
+  var fitSrc=(proj && !proj._injured && !proj._dnp && (+proj.ppg>0)) ? proj : player;
+  var fit=buildArchFit(fitSrc,grp);
+  _archFitAxes=fit.axes; _archFitBest=fit.best;
+  _archFitColor=(teamData&&teamData.color)||'#B16BFF';
+  var fitBasis=(fitSrc===proj)?'projected':'current';
 
   // advanced percentile chart: national vs archetype peers
   var peerPool=_allCurrent.filter(function(q){return q.name&&q.name!=='—'&&(parseFloat(q.mpg)||0)>=10&&_norm3(q.position)===grp;});
@@ -2040,6 +2127,9 @@ async function renderArchetype(){
     '<div class="arch-hero"><div class="arch-hero-l"><div class="arch-eyebrow">Player Archetype</div>'+
     '<div class="arch-name">'+info.name+'</div><div class="arch-desc">'+info.desc+'</div>'+
     '<span class="arch-grp-pill">Compared within: '+({G:'Guards',W:'Wings',B:'Bigs'}[grp])+' · '+peerPool.length+' players</span></div></div>'+
+    '<div class="arch-sec-h">Archetype Fit</div>'+
+    '<div class="arch-note" style="margin-top:-4px;margin-bottom:8px;">How closely '+player.name+'&rsquo;s '+fitBasis+' profile matches each '+({G:'guard',W:'wing',B:'big'}[grp])+' archetype — strongest fit highlighted.</div>'+
+    '<div class="radar-wrap" style="margin-bottom:8px;"><canvas id="archRadar" width="360" height="360"></canvas></div>'+
     '<div class="arch-sec-h">Percentile — vs National &amp; Archetype</div>'+
     '<div class="arch-legend"><span><i style="background:var(--accent)"></i>vs All D1</span><span><i style="background:#5b9d8f"></i>vs '+({G:'Guards',W:'Wings',B:'Bigs'}[grp])+'</span></div>'+
     '<div class="arch-chart">'+cols+'</div>'+
@@ -2048,6 +2138,7 @@ async function renderArchetype(){
     '<div class="arch-sec-h">Closest Historical Season Comps</div>'+
     '<div class="comp-grid">'+(hist.length?hist.map(histCard).join(''):'<div class="arch-note">No close historical matches found.</div>')+'</div>'+
     '<div class="arch-note">Similarity blends production, efficiency, shooting, role (minutes), and — for current players — size. Historical comps use season stat lines from prior years (size omitted; not tracked in history).</div>';
+  setTimeout(drawArchFit,30);
 }
 function teamColorFor(name){ return (window._pcColors&&window._pcColors[name])||'#888'; }
 
@@ -2065,7 +2156,7 @@ function toggleTheme(){
   const n=d?'light':'dark';
   document.documentElement.setAttribute('data-theme',n);
   localStorage.setItem('tdc_theme',n);
-  setTimeout(drawRadar,50);
+  setTimeout(function(){drawRadar();drawArchFit();},50);
 }
 (function(){document.documentElement.setAttribute('data-theme',localStorage.getItem('tdc_theme')||'light');})();
 init();

@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Draft — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg: #FBFAFF;--bg2: #F2EFFB;--bg3: #E9E4F7;--border: #E1DBF2;--border2: #C9BFE6;--text: #14101F;--text2: #463D5E;--text3: #847B9C;--accent: #8B3FE0;--teal:#3f8d7d;--green:#1a8c3a;--red:#cc2200;--blue:#1a5fbf;}
+    [data-theme="dark"]{--bg: #07060C;--bg2: #100D1A;--bg3: #181426;--border: #241F36;--border2: #382F54;--text: #F2EFFB;--text2: #A8A1C4;--text3: #6D6589;--accent: #B16BFF;--teal:#5b9d8f;--green:#5ab875;--red:#e07070;--blue:#74aedd;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;}
+    .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;min-width:0;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;white-space:nowrap;}
+    .nav-logo span{color:var(--accent);}
+    .nav-actions{display:flex;align-items:center;gap:14px;}
+    .nav-signin{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--text);padding:6px 16px;text-decoration:none;}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
+    .nav-sub::-webkit-scrollbar{display:none;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
+
+    .page{max-width:1140px;margin:0 auto;padding:40px;}
+    .page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:10px;}
+    .page-eyebrow::before{content:'';width:20px;height:1px;background:var(--accent);}
+    .page-h1{font-family:'Playfair Display',serif;font-weight:800;font-size:36px;letter-spacing:-.02em;margin-bottom:6px;}
+    .page-sub{font-size:13px;color:var(--text3);margin-bottom:24px;max-width:640px;line-height:1.6;}
+
+    /* CONTROLS */
+    .ctl-row{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:22px;}
+    .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:3px;gap:3px;}
+    .seg button{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);background:transparent;border:none;cursor:pointer;padding:8px 18px;border-radius:6px;transition:all .15s;white-space:nowrap;}
+    .seg button.on{background:var(--accent);color:#fff;}
+    [data-theme="dark"] .seg button.on{color:#0a0710;}
+    .seg.sm button{padding:6px 13px;font-size:11px;}
+    .ctl-spacer{flex:1;}
+    .filter-input{padding:8px 13px;border:1px solid var(--border2);border-radius:7px;background:var(--bg);font-family:'Inter',sans-serif;font-size:13px;color:var(--text);outline:none;min-width:180px;transition:border-color .15s;}
+    .filter-input:focus{border-color:var(--accent);}
+    .filter-sel{padding:8px 11px;border:1px solid var(--border2);border-radius:7px;background:var(--bg);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--text2);outline:none;cursor:pointer;}
+    .btn{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);padding:8px 15px;border-radius:7px;cursor:pointer;transition:all .15s;}
+    .btn:hover{border-color:var(--accent);color:var(--text);}
+    .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+    [data-theme="dark"] .btn.primary{color:#0a0710;}
+
+    .view{display:none;} .view.show{display:block;}
+
+    /* BIG BOARD */
+    .bb-note{font-size:12px;color:var(--text3);margin-bottom:16px;}
+    .bb-note b{color:var(--text2);}
+    .bb-head,.bb-row{display:grid;grid-template-columns:38px 1fr 46px repeat(4,60px) 70px;gap:0;align-items:center;}
+    .bb-head{padding:9px 14px;font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);background:var(--bg2);border:1px solid var(--border);border-radius:9px 9px 0 0;position:sticky;top:88px;z-index:5;}
+    .bb-head .c{text-align:center;}
+    .bb-list{border:1px solid var(--border);border-top:none;border-radius:0 0 9px 9px;overflow:hidden;}
+    .bb-row{padding:11px 14px;border-bottom:1px solid var(--border);transition:background .12s;}
+    .bb-row:last-child{border-bottom:none;}
+    .bb-row:hover{background:var(--bg2);}
+    .bb-rank{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;color:var(--text3);text-align:center;}
+    .bb-rank.t1{color:var(--accent);}
+    .bb-id .nm{font-weight:700;font-size:14px;}
+    .bb-id .nm a{color:inherit;text-decoration:none;}
+    .bb-id .nm a:hover{color:var(--accent);}
+    .bb-id .mt{font-size:11px;color:var(--text3);margin-top:2px;display:flex;flex-wrap:wrap;gap:5px;align-items:center;}
+    .bb-id .pos{font-weight:700;color:var(--text2);}
+    .bb-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:16px;text-align:center;}
+    .pcell{text-align:center;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums;}
+    .pcell .pb{height:4px;border-radius:2px;margin:5px auto 0;width:38px;background:var(--bg3);overflow:hidden;}
+    .pcell .pb i{display:block;height:100%;border-radius:2px;}
+    .bb-overall{text-align:center;}
+    .bb-ov-num{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1;}
+    .bb-ov-lbl{font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
+    .bb-more{text-align:center;margin-top:16px;}
+
+    details.method{margin-top:22px;border:1px solid var(--border);border-radius:9px;padding:0 16px;background:var(--bg2);}
+    details.method summary{cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);padding:13px 0;list-style:none;}
+    details.method summary::-webkit-details-marker{display:none;}
+    details.method summary::before{content:'▸ ';color:var(--accent);}
+    details.method[open] summary::before{content:'▾ ';}
+    .method-body{padding:0 0 16px;font-size:12.5px;color:var(--text3);line-height:1.7;}
+    .method-body b{color:var(--text2);}
+    .method-body .mp{margin-bottom:8px;}
+
+    /* MOCK DRAFT */
+    .mock-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px;}
+    .mock-info{font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.6;border-left:2px solid var(--accent);padding-left:12px;}
+    .rnd-head{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;margin:22px 0 10px;display:flex;align-items:center;gap:10px;}
+    .rnd-head::after{content:'';flex:1;height:1px;background:var(--border);}
+    .mock-pick{display:grid;grid-template-columns:48px 150px 1fr;gap:12px;align-items:center;padding:9px 12px;border:1px solid var(--border);border-radius:9px;margin-bottom:8px;background:var(--bg);transition:border-color .12s;}
+    .mock-pick:hover{border-color:var(--border2);}
+    .mock-pick.lotto{background:linear-gradient(90deg,rgba(177,107,255,.06),transparent 60%);}
+    .pk-num{display:flex;flex-direction:column;align-items:center;justify-content:center;}
+    .pk-num b{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;line-height:1;}
+    .pk-num small{font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-top:2px;}
+    .pk-team{width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--text);outline:none;}
+    .pk-team:focus{border-color:var(--accent);}
+    .pk-team::placeholder{color:var(--text3);font-weight:500;}
+    .pk-pro{display:flex;align-items:center;gap:10px;min-width:0;}
+    .pk-sel{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--border2);border-radius:6px;background:var(--bg);font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;color:var(--text);outline:none;cursor:pointer;}
+    .pk-sel:focus{border-color:var(--accent);}
+    .pk-card{display:flex;align-items:center;gap:8px;white-space:nowrap;}
+    .pk-card .pc-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:var(--accent);}
+    .pk-card .pc-meta{font-size:10.5px;color:var(--text3);}
+    .pk-empty{font-size:12px;color:var(--text3);font-style:italic;}
+
+    .empty-hint{border:1px dashed var(--border2);border-radius:10px;padding:40px;text-align:center;color:var(--text3);font-size:13px;}
+    .load-hint{text-align:center;color:var(--text3);font-size:13px;padding:50px;}
+    footer{border-top:1px solid var(--border);padding:28px 40px;display:flex;align-items:center;justify-content:space-between;margin-top:40px;}
+    .footer-logo{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text3);}
+    .footer-logo span{color:var(--accent);}
+    .footer-meta{font-size:11px;font-weight:600;color:var(--text3);}
+
+    @media(max-width:820px){
+      .bb-head,.bb-row{grid-template-columns:30px 1fr 40px 52px 60px;}
+      .bb-head .c.hidem,.pcell.hidem{display:none;}
+      .mock-pick{grid-template-columns:42px 1fr;gap:8px;}
+      .mock-pick .pk-pro{grid-column:1/-1;}
+    }
+    @media(max-width:500px){
+      .page{padding:18px;}
+      .nav-top{padding:0 12px;height:46px;}
+      .nav-logo{font-size:15px;}
+      .nav-sub{padding:0 12px;}
+      .bb-head{top:80px;}
+    }
+
+/* ===== ANIMATED NEON BACKGROUND ===== */
+html{background:var(--bg);}
+body{background:transparent!important;}
+.tdc-bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:var(--bg);}
+.tdc-mesh{position:absolute;inset:-25%;background:radial-gradient(38% 48% at 22% 26%, rgba(255,77,157,.30), transparent 62%),radial-gradient(44% 52% at 80% 28%, rgba(77,125,255,.28), transparent 62%),radial-gradient(50% 50% at 62% 80%, rgba(177,107,255,.32), transparent 62%),radial-gradient(40% 44% at 14% 82%, rgba(56,189,248,.22), transparent 62%);filter:blur(46px);animation:tdcMesh 28s ease-in-out infinite alternate;}
+[data-theme="dark"] .tdc-mesh{opacity:.85;} :root:not([data-theme="dark"]) .tdc-mesh{opacity:.4;}
+@keyframes tdcMesh{0%{transform:translate(0,0) scale(1) rotate(0deg);}50%{transform:translate(2%,-2.5%) scale(1.08) rotate(2deg);}100%{transform:translate(-2%,2%) scale(1.03) rotate(-2deg);}}
+.tdc-blob{position:absolute;border-radius:50%;filter:blur(72px);opacity:.55;mix-blend-mode:screen;}
+:root:not([data-theme="dark"]) .tdc-blob{opacity:.32;mix-blend-mode:multiply;}
+.tdc-blob.b1{width:520px;height:520px;background:radial-gradient(circle,#FF4D9D,transparent 70%);top:-130px;left:-90px;animation:tdcB1 24s ease-in-out infinite alternate;}
+.tdc-blob.b2{width:620px;height:620px;background:radial-gradient(circle,#6B4DFF,transparent 70%);bottom:-180px;right:-130px;animation:tdcB2 30s ease-in-out infinite alternate;}
+.tdc-blob.b3{width:460px;height:460px;background:radial-gradient(circle,#38BDF8,transparent 70%);top:38%;left:54%;animation:tdcB3 22s ease-in-out infinite alternate;}
+@keyframes tdcB1{to{transform:translate(130px,90px) scale(1.18);}}
+@keyframes tdcB2{to{transform:translate(-110px,-100px) scale(1.12);}}
+@keyframes tdcB3{to{transform:translate(-90px,70px) scale(1.22);}}
+.tdc-grain{position:absolute;inset:0;opacity:.4;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:170px 170px;}
+
+</style>
+</head>
+<body>
+<div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
+<script>
+// Premium gate check
+(function(){
+  // local dev bypass — production (non-localhost) stays gated
+  if(location.hostname==='localhost'||location.hostname==='127.0.0.1') return;
+  const s = JSON.parse(localStorage.getItem('tdc_session')||'null');
+  if(!s?.access_token){ location.href='pricing.html?gate=1'; return; }
+  fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user?.id+'&select=plan',{
+    headers:{'apikey':'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye','Authorization':'Bearer '+s.access_token}
+  }).then(r=>r.json()).then(([p])=>{
+    if(!p||p.plan!=='premium') location.href='pricing.html?gate=1';
+  }).catch(()=>location.href='pricing.html?gate=1');
+})();
+</script>
+<div class="nav-wrap">
+  <div class="nav-top">
+    <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+    <div class="nav-actions" id="navActions">
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+      <a href="pricing.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;">Sign In</a>
+      <a href="pricing.html" class="nav-signin">Subscribe</a>
+    </div>
+  </div>
+  <div class="nav-sub">
+    <a href="index.html">Rankings</a>
+    <a href="roster.html">Players</a>
+    <a href="compare-players.html">Compare</a>
+    <a href="draft.html" class="active">Draft</a>
+    <a href="analytics.html">Analytics</a>
+    <a href="projections.html">Projections</a>
+    <a href="community.html">Community</a>
+    <a href="about.html">About</a>
+    <a href="pricing.html">Pricing</a>
+  </div>
+</div>
+
+<div class="page">
+  <div class="page-eyebrow">Tools</div>
+  <h1 class="page-h1">Draft Room</h1>
+  <p class="page-sub">A scouting-driven Big Board scoring every prospect on NBA translatability, readiness, upside, and draftability — plus a Mock Draft tool you can run pick-by-pick.</p>
+
+  <div class="ctl-row">
+    <div class="seg" id="viewSeg">
+      <button class="on" data-v="board" onclick="setView('board')">Big Board</button>
+      <button data-v="mock" onclick="setView('mock')">Mock Draft</button>
+    </div>
+    <div class="seg sm" id="seasonSeg">
+      <button class="on" data-s="2526" onclick="setSeason('2526')">2025-26</button>
+      <button data-s="2627" onclick="setSeason('2627')">2026-27</button>
+    </div>
+  </div>
+
+  <div id="loadHint" class="load-hint">Loading prospects…</div>
+
+  <!-- BIG BOARD -->
+  <div class="view" id="viewBoard">
+    <div class="ctl-row" style="margin-bottom:14px;">
+      <input class="filter-input" id="bbSearch" type="text" placeholder="Search name or team…" oninput="renderBoard()" autocomplete="off"/>
+      <select class="filter-sel" id="bbPos" onchange="renderBoard()">
+        <option value="">All positions</option>
+        <option value="G">Guards</option>
+        <option value="W">Wings</option>
+        <option value="B">Bigs</option>
+      </select>
+      <select class="filter-sel" id="bbClass" onchange="renderBoard()">
+        <option value="">All classes</option>
+        <option value="fr">Freshmen</option>
+        <option value="so">Sophomores</option>
+        <option value="jr">Juniors</option>
+        <option value="sr">Seniors / Grad</option>
+      </select>
+      <select class="filter-sel" id="bbCount" onchange="renderBoard()">
+        <option value="60">Top 60</option>
+        <option value="30">Top 30</option>
+        <option value="14">Lottery 14</option>
+        <option value="100">Top 100</option>
+      </select>
+    </div>
+    <div class="bb-note" id="bbCaption"></div>
+    <div class="bb-head">
+      <div class="c">#</div>
+      <div>Prospect</div>
+      <div class="c">Grd</div>
+      <div class="c hidem">Trans</div>
+      <div class="c hidem">Ready</div>
+      <div class="c hidem">Upside</div>
+      <div class="c hidem">Stock</div>
+      <div class="c">Board</div>
+    </div>
+    <div class="bb-list" id="bbList"></div>
+
+    <details class="method">
+      <summary>How the Big Board score is built</summary>
+      <div class="method-body">
+        <div class="mp">Every prospect is graded 0–100 on four lenses, then blended into the Board score with an <b>NBA-style, upside-led</b> weighting (Translatability 30% · Upside 28% · Stock 24% · Readiness 18%).</div>
+        <div class="mp"><b>Translatability</b> — how the game projects to the next level: size for position, shooting touch (3P% + FT%), defensive playmaking, scoring efficiency (TS%), and ball security.</div>
+        <div class="mp"><b>Readiness</b> — how NBA-ready right now: current production and role, efficiency at volume, college experience, and polish.</div>
+        <div class="mp"><b>Upside</b> — ceiling: youth, physical/defensive tools, scouting-grade ceiling, and per-minute flashes.</div>
+        <div class="mp"><b>Stock (Draftability)</b> — the market read: scouting grade, production, translatable skill, and level of competition.</div>
+        <div class="mp" id="basisNote"></div>
+      </div>
+    </details>
+  </div>
+
+  <!-- MOCK DRAFT -->
+  <div class="view" id="viewMock">
+    <div class="mock-info" id="mockInfo"></div>
+    <div class="mock-toolbar">
+      <button class="btn primary" onclick="autofillMock()">Auto-fill from Big Board</button>
+      <button class="btn" onclick="clearMockPicks()">Clear picks</button>
+      <div class="seg sm" id="roundSeg" style="margin-left:auto;">
+        <button data-n="14" onclick="setRounds(14)">Lottery</button>
+        <button data-n="30" class="on" onclick="setRounds(30)">Round 1</button>
+        <button data-n="60" onclick="setRounds(60)">2 Rounds</button>
+      </div>
+    </div>
+    <div id="mockBody"></div>
+  </div>
+
+  <div class="empty-hint" id="errHint" style="display:none;">Couldn’t load prospect data. Try refreshing.</div>
+</div>
+
+<footer>
+  <div class="footer-logo">The Depth <span>Chart</span></div>
+  <div class="footer-meta">College Basketball Draft Analysis · 2025–26</div>
+</footer>
+
+<script>
+const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H   = {'apikey':KEY,'Authorization':`Bearer ${KEY}`};
+
+let allPlayers=[], teamMap={}, teamColors={};
+let season='2526', view='board';
+let prospects=[];           // scored + ranked for current season
+let prospectById={};
+const POWER=['ACC','Big Ten','Big 12','SEC','Big East','B1G','BIG TEN','BIG 12'];
+const HIGH=['Mountain West','American','A-10','Atlantic 10','WCC','West Coast','Conference USA','C-USA','Sun Belt','MAC','MWC','AAC'];
+
+// ── parsing helpers ──
+function num(v){var x=parseFloat(v);return isNaN(x)?0:x;}
+function htIn(h){if(!h)return 0;var m=(''+h).match(/(\d+)\s*[-']\s*(\d+)/);return m?(+m[1])*12+(+m[2]):0;}
+function pgrp(pos){pos=((pos||'')+'').toUpperCase().split(/[\/,\s]/)[0];
+  if(pos==='PG'||pos==='SG'||pos==='G'||pos==='CG')return 'G';
+  if(pos==='SF'||pos==='F')return 'W';
+  if(pos==='PF'||pos==='C')return 'B'; return 'W';}
+function classInfo(p){var y=((p.class_year||p.yr||'')+'').toLowerCase();
+  var rs=y.indexOf('r-')>=0||y.indexOf('rs')>=0;
+  var lvl=y.indexOf('fr')>=0?0:y.indexOf('so')>=0?1:y.indexOf('jr')>=0?2:(y.indexOf('sr')>=0||y.indexOf('gr')>=0)?3:1;
+  return {lvl:lvl,rs:rs};}
+function classKey(p){var y=((p.class_year||p.yr||'')+'').toLowerCase();
+  return y.indexOf('fr')>=0?'fr':y.indexOf('so')>=0?'so':y.indexOf('jr')>=0?'jr':(y.indexOf('sr')>=0||y.indexOf('gr')>=0)?'sr':'';}
+function clamp(x){return Math.round(Math.max(0,Math.min(100,x)));}
+function tsOf(s){var fga=num(s.fga),fta=num(s.fta),pts=num(s.ppg);var d=2*(fga+0.44*fta);return d>0?pts/d*100:0;}
+function compLevel(team){var t=teamMap[team];var c=((t&&(t.conf||t.conference))||'')+'';
+  if(POWER.indexOf(c)>=0)return 88;
+  if(HIGH.indexOf(c)>=0)return 60; return 46;}
+
+// light projection (class-year progression) for the 2026-27 basis
+function projPlayer(p){
+  var yr=((p.class_year||p.yr||'')+'').toLowerCase();
+  var mult=yr.indexOf('fr')>=0?1.12:yr.indexOf('so')>=0?1.10:yr.indexOf('jr')>=0?1.05:0.99;
+  var bump=yr.indexOf('fr')>=0?1.5:yr.indexOf('so')>=0?1.0:yr.indexOf('jr')>=0?0.5:0;
+  var o={};
+  ['ppg','rpg','apg','mpg','stl','blk','oreb','dreb','tovs','fgm','fga','tpm','tpa','ftm','fta'].forEach(function(k){o[k]=Math.round(num(p[k])*mult*10)/10;});
+  ['fg_pct','tp_pct','ft_pct'].forEach(function(k){o[k]=Math.round((num(p[k])+bump)*10)/10;});
+  return o;
+}
+// the stat basis used for scoring in the active season
+function basisOf(p){
+  if(season==='2627'){ return Object.assign({}, p, projPlayer(p)); }
+  return p;
+}
+
+// ── distributions / percentiles (rebuilt per season) ──
+let _dist={};
+function buildDist(pool){
+  _dist={};
+  var keys=['ppg','rpg','apg','stl','blk','mpg','fg_pct','tp_pct','ft_pct','ts','per36','tovs'];
+  keys.forEach(function(k){_dist[k]=[];});
+  pool.forEach(function(pr){
+    var s=pr._s;
+    _dist.ppg.push(num(s.ppg));_dist.rpg.push(num(s.rpg));_dist.apg.push(num(s.apg));
+    _dist.stl.push(num(s.stl));_dist.blk.push(num(s.blk));_dist.mpg.push(num(s.mpg));
+    _dist.fg_pct.push(num(s.fg_pct));_dist.tp_pct.push(num(s.tp_pct));_dist.ft_pct.push(num(s.ft_pct));
+    _dist.ts.push(tsOf(s));_dist.per36.push(num(s.mpg)>0?num(s.ppg)*36/num(s.mpg):0);_dist.tovs.push(num(s.tovs));
+  });
+  Object.keys(_dist).forEach(function(k){_dist[k]=_dist[k].filter(function(v){return v>0;}).sort(function(a,b){return a-b;});});
+}
+function pctOf(key,val,inv){
+  var arr=_dist[key];if(!arr||!arr.length)return 0;var v=num(val);if(v<=0)return inv?(_dist[key].length?5:0):0;
+  var lo=0,hi=arr.length;while(lo<hi){var m=(lo+hi)>>1;if(arr[m]<v)lo=m+1;else hi=m;}
+  var p=Math.round(lo/arr.length*100);return inv?100-p:p;}
+
+// ── per-prospect scoring ──
+function scoreProspect(p){
+  var s=p._s, grp=pgrp(p.position), ht=htIn(p.height), ci=classInfo(p);
+  var g=parseFloat(p.tdc_grade), hasG=isFinite(g);
+  var ppgP=pctOf('ppg',s.ppg),apgP=pctOf('apg',s.apg),rpgP=pctOf('rpg',s.rpg),
+      stlP=pctOf('stl',s.stl),blkP=pctOf('blk',s.blk),mpgP=pctOf('mpg',s.mpg),
+      fgP=pctOf('fg_pct',s.fg_pct),tpP=pctOf('tp_pct',s.tp_pct),ftP=pctOf('ft_pct',s.ft_pct),
+      tsP=pctOf('ts',tsOf(s)),p36=pctOf('per36',num(s.mpg)>0?num(s.ppg)*36/num(s.mpg):0),
+      tovP=pctOf('tovs',s.tovs,true);
+  // tools
+  var posBase={G:74,W:78,B:81}[grp];
+  var sizeScore=ht>0?clamp(50+(ht-posBase)*6.5):44;
+  var dW=grp==='G'?{s:.72,b:.28}:grp==='B'?{s:.30,b:.70}:{s:.5,b:.5};
+  var defTools=clamp(dW.s*stlP+dW.b*blkP);
+  var shooting=clamp(.6*tpP+.4*ftP);
+  var eff=clamp(.65*tsP+.35*fgP);
+  var production=clamp(.5*ppgP+.3*mpgP+.2*apgP);
+  var ballSec=tovP||40;
+  var youth=clamp([95,72,48,26][ci.lvl]-(ci.rs?6:0));
+  var expS=clamp([34,58,80,92][ci.lvl]+(ci.rs?4:0));
+  var gradeNorm=hasG?clamp((g-58)/41*100):clamp(.6*ppgP+.4*tsP);
+  var flashes=clamp(.6*p36+.4*Math.max(blkP,stlP,tpP));
+  // pillars
+  var trans=clamp(.30*sizeScore+.28*shooting+.18*defTools+.16*eff+.08*ballSec);
+  var ready=clamp(.40*production+.22*tsP+.24*expS+.14*(.5*ftP+.5*ballSec));
+  var pot=clamp(.34*youth+.26*(.55*sizeScore+.45*defTools)+.22*gradeNorm+.18*flashes);
+  var draft=clamp(.45*gradeNorm+.20*ppgP+.20*trans+.15*compLevel(p.team));
+  var overall=clamp(.30*trans+.28*pot+.24*draft+.18*ready);
+  return {trans:trans,ready:ready,pot:pot,draft:draft,overall:overall,grp:grp,sizeScore:sizeScore,gradeNorm:gradeNorm};
+}
+function eligible(p){
+  var g=parseFloat(p.tdc_grade);
+  var hasStats=num(p.mpg)>=8 && p.ppg!=null;
+  return isFinite(g)||hasStats;
+}
+
+function buildBoard(){
+  var pool=allPlayers.filter(eligible);
+  pool.forEach(function(p){p._s=basisOf(p);});
+  buildDist(pool);
+  pool.forEach(function(p){var sc=scoreProspect(p);p._sc=sc;});
+  pool.sort(function(a,b){return b._sc.overall-a._sc.overall || (parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0);});
+  prospects=pool;
+  prospectById={};
+  prospects.forEach(function(p,i){p.rank=i+1;prospectById[p.id]=p;});
+}
+
+// ── color for pillar values ──
+function valColor(v){var h=Math.round(v*1.35);return 'hsl('+h+',64%,'+(document.documentElement.getAttribute('data-theme')==='dark'?'62%':'40%')+')';}
+
+// ── BIG BOARD render ──
+function pcell(v,hide){var c=valColor(v);
+  return '<div class="pcell'+(hide?' hidem':'')+'" style="color:'+c+';">'+v+'<div class="pb"><i style="width:'+v+'%;background:'+c+';"></i></div></div>';}
+function renderBoard(){
+  if(!prospects.length)return;
+  var q=(document.getElementById('bbSearch').value||'').toLowerCase().trim();
+  var fpos=document.getElementById('bbPos').value;
+  var fcl=document.getElementById('bbClass').value;
+  var cap=parseInt(document.getElementById('bbCount').value)||60;
+  var list=prospects.filter(function(p){
+    if(fpos&&p._sc.grp!==fpos)return false;
+    if(fcl&&classKey(p)!==fcl)return false;
+    if(q&&!(p.name.toLowerCase().indexOf(q)>=0||(p.team||'').toLowerCase().indexOf(q)>=0))return false;
+    return true;
+  }).slice(0,cap);
+  var seasonLbl=season==='2526'?'2026 NBA Draft (2025-26 season)':'2027 NBA Draft (2026-27 projected)';
+  document.getElementById('bbCaption').innerHTML='<b>'+list.length+'</b> prospects · '+seasonLbl+(q||fpos||fcl?' · filtered':'');
+  document.getElementById('bbList').innerHTML=list.map(function(p){
+    var sc=p._sc, cl=(p.class_year||p.yr||'').replace(/\./g,'')||'—';
+    var grdTxt=isFinite(parseFloat(p.tdc_grade))?p.tdc_grade:'—';
+    return '<div class="bb-row">'+
+      '<div class="bb-rank'+(p.rank<=14?' t1':'')+'">'+p.rank+'</div>'+
+      '<div class="bb-id"><div class="nm"><a href="player.html?id='+p.id+'">'+p.name+'</a></div>'+
+        '<div class="mt"><span class="pos">'+(p.position||'')+'</span> · '+(p.team||'')+' · '+cl+(htIn(p.height)?' · '+p.height:'')+'</div></div>'+
+      '<div class="bb-grade">'+grdTxt+'</div>'+
+      pcell(sc.trans,true)+pcell(sc.ready,true)+pcell(sc.pot,true)+pcell(sc.draft,true)+
+      '<div class="bb-overall"><div class="bb-ov-num" style="color:'+valColor(sc.overall)+';">'+sc.overall+'</div><div class="bb-ov-lbl">Board</div></div>'+
+    '</div>';
+  }).join('');
+  var bn=document.getElementById('basisNote');
+  if(bn)bn.innerHTML=season==='2627'
+    ? 'The <b>2026-27</b> board scores on projected stats (class-year progression). Incoming freshmen with no college sample lean on grade, youth, and size — production-based lenses stay conservative until they have a season.'
+    : 'The <b>2025-26</b> board scores on actual season production.';
+}
+
+// ── MOCK DRAFT ──
+let mock={'2526':{count:30,picks:[]}, '2627':{count:30,picks:[]}};
+function loadMock(){try{var m=JSON.parse(localStorage.getItem('tdc_mock_v1')||'null');if(m&&m['2526']&&m['2627'])mock=m;}catch(e){}}
+function saveMock(){try{localStorage.setItem('tdc_mock_v1',JSON.stringify(mock));}catch(e){}}
+function ensurePicks(){var st=mock[season];if(!st.picks)st.picks=[];while(st.picks.length<60)st.picks.push({team:'',pid:null});}
+function setRounds(n){mock[season].count=n;saveMock();syncSeg('roundSeg','n',n);renderMock();}
+function autofillMock(){var st=mock[season];ensurePicks();for(var i=0;i<60;i++){st.picks[i].pid=prospects[i]?prospects[i].id:null;}saveMock();renderMock();}
+function clearMockPicks(){mock[season].picks.forEach(function(pk){pk.pid=null;});saveMock();renderMock();}
+function setPickTeam(i,v){ensurePicks();mock[season].picks[i].team=v;saveMock();}
+function setPickPro(i,v){ensurePicks();mock[season].picks[i].pid=v?parseInt(v):null;saveMock();renderMock();}
+function prospectOptions(selId,used){
+  var opts='<option value="">— pick —</option>';
+  var pool=prospects.slice(0,160);
+  for(var i=0;i<pool.length;i++){var pr=pool[i];
+    if(used[pr.id]&&pr.id!==selId)continue;
+    opts+='<option value="'+pr.id+'"'+(pr.id===selId?' selected':'')+'>BB'+pr.rank+' · '+pr.name+' ('+(pr.position||'')+', '+(pr.team||'')+')</option>';}
+  return opts;
+}
+function renderMock(){
+  if(!prospects.length)return;
+  ensurePicks();
+  var st=mock[season], count=st.count;
+  document.getElementById('mockInfo').innerHTML=season==='2526'
+    ? 'Projected <b>2026 NBA Draft</b>. Type each team’s projected slot in the order field, then assign a prospect. Auto-fill drops the Big Board straight in — then trade picks around as you like. Saved to this browser.'
+    : 'Projected <b>2027 NBA Draft</b> — the order isn’t set yet, so slots run in Big Board order by default. Assign prospects (and label teams if you’re projecting an order). Saved to this browser.';
+  var used={};
+  st.picks.slice(0,count).forEach(function(pk){if(pk.pid)used[pk.pid]=1;});
+  var html='';
+  for(var i=0;i<count;i++){
+    var pk=st.picks[i], pr=pk.pid?prospectById[pk.pid]:null, lotto=i<14;
+    if(i===0)html+='<div class="rnd-head">Round 1</div>';
+    if(i===30)html+='<div class="rnd-head">Round 2</div>';
+    var card= pr
+      ? '<div class="pk-card"><span class="pc-grade">'+(isFinite(parseFloat(pr.tdc_grade))?pr.tdc_grade:'—')+'</span><span class="pc-meta">'+(pr._sc?pr._sc.overall:'')+' board · '+(pr.position||'')+'</span></div>'
+      : '<span class="pk-empty">empty</span>';
+    html+='<div class="mock-pick'+(lotto?' lotto':'')+'">'+
+      '<div class="pk-num"><b>'+(i+1)+'</b>'+(lotto?'<small>lotto</small>':'')+'</div>'+
+      '<input class="pk-team" value="'+(pk.team||'').replace(/"/g,'&quot;')+'" placeholder="Team" oninput="setPickTeam('+i+',this.value)"/>'+
+      '<div class="pk-pro"><select class="pk-sel" onchange="setPickPro('+i+',this.value)">'+prospectOptions(pk.pid,used)+'</select>'+card+'</div>'+
+    '</div>';
+  }
+  document.getElementById('mockBody').innerHTML=html;
+  syncSeg('roundSeg','n',count);
+}
+
+// ── view / season switching ──
+function syncSeg(segId,attr,val){
+  var seg=document.getElementById(segId);if(!seg)return;
+  Array.prototype.forEach.call(seg.querySelectorAll('button'),function(b){b.classList.toggle('on',b.getAttribute('data-'+attr)==(''+val));});
+}
+function setView(v){
+  view=v;syncSeg('viewSeg','v',v);
+  document.getElementById('viewBoard').classList.toggle('show',v==='board');
+  document.getElementById('viewMock').classList.toggle('show',v==='mock');
+  if(v==='mock')renderMock();
+}
+function setSeason(s){
+  season=s;syncSeg('seasonSeg','s',s);
+  buildBoard();renderBoard();
+  if(view==='mock')renderMock();
+}
+
+// ── boot ──
+async function load(){
+  try{
+    var tr=await fetch(SB+'/rest/v1/teams?select=*',{headers:H});
+    (await tr.json()).forEach(function(t){teamMap[t.name]=t;teamColors[t.name]=t.color||'#888';});
+    var page=0,PAGE=1000;
+    while(true){
+      var from=page*PAGE,to=from+PAGE-1;
+      var pr=await fetch(SB+'/rest/v1/players?select=*&order=name.asc&name=neq.—',{headers:Object.assign({},H,{'Range-Unit':'items','Range':from+'-'+to})});
+      var batch=await pr.json();
+      if(!Array.isArray(batch)||!batch.length)break;
+      allPlayers=allPlayers.concat(batch.filter(function(p){return p.name&&p.name!=='—';}));
+      if(batch.length<PAGE)break; page++;
+    }
+    if(!allPlayers.length)throw new Error('no players');
+    loadMock();
+    buildBoard();
+    document.getElementById('loadHint').style.display='none';
+    setView('board');
+    renderBoard();
+  }catch(e){
+    document.getElementById('loadHint').style.display='none';
+    document.getElementById('errHint').style.display='block';
+  }
+}
+load();
+</script>
+
+<style id="tdc-theme-css">
+.tdc-mesh{animation:tdcMesh 30s linear infinite!important;}
+.tdc-blob.b1{animation:tdcB1 18s linear infinite!important;}
+.tdc-blob.b2{animation:tdcB2 24s linear infinite!important;}
+.tdc-blob.b3{animation:tdcB3 21s linear infinite!important;}
+@keyframes tdcMesh{0%{transform:translate(0,0) scale(1.05) rotate(0deg);}25%{transform:translate(5%,-4%) scale(1.15) rotate(4deg);}50%{transform:translate(-4%,3%) scale(1.08) rotate(-3deg);}75%{transform:translate(3%,5%) scale(1.12) rotate(3deg);}100%{transform:translate(0,0) scale(1.05) rotate(0deg);}}
+@keyframes tdcB1{0%{transform:translate(0,0) scale(1);}25%{transform:translate(240px,120px) scale(1.2);}50%{transform:translate(140px,300px) scale(.85);}75%{transform:translate(-70px,180px) scale(1.12);}100%{transform:translate(0,0) scale(1);}}
+@keyframes tdcB2{0%{transform:translate(0,0) scale(1);}25%{transform:translate(-230px,-140px) scale(1.15);}50%{transform:translate(-320px,80px) scale(.9);}75%{transform:translate(-90px,-240px) scale(1.1);}100%{transform:translate(0,0) scale(1);}}
+@keyframes tdcB3{0%{transform:translate(0,0) scale(1);}25%{transform:translate(-170px,120px) scale(1.22);}50%{transform:translate(110px,-140px) scale(.85);}75%{transform:translate(190px,100px) scale(1.15);}100%{transform:translate(0,0) scale(1);}}
+</style>
+<script>
+(function(){
+  if(window.__tdcTheme) return; window.__tdcTheme=1;
+  try{
+    if(localStorage.getItem('tdc_session') && localStorage.getItem('tdc_persist')==='0'){
+      if(!sessionStorage.getItem('tdc_alive')){ localStorage.removeItem('tdc_session'); localStorage.removeItem('tdc_persist'); }
+      else { sessionStorage.setItem('tdc_alive','1'); }
+    }
+  }catch(e){}
+  function syncBtn(t){var b=document.getElementById('themeBtn'); if(b) b.textContent=(t==='dark'?'☀️':'🌙');}
+  window.toggleTheme=function(){
+    var cur=document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';
+    var next=cur==='dark'?'light':'dark';
+    document.documentElement.setAttribute('data-theme',next);
+    try{localStorage.setItem('tdc_theme',next);}catch(e){}
+    syncBtn(next);
+    if(typeof renderBoard==='function'&&document.getElementById('viewBoard').classList.contains('show'))renderBoard();
+  };
+  try{var s=localStorage.getItem('tdc_theme'); if(s) document.documentElement.setAttribute('data-theme',s);}catch(e){}
+  function init(){ syncBtn(document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light'); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+})();
+</script>
+</body>
+</html>
