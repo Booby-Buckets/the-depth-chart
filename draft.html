@@ -362,13 +362,30 @@ function scoreProspect(p){
   var expS=clamp([34,58,80,92][ci.lvl]+(ci.rs?4:0));
   var gradeNorm=hasG?clamp((g-58)/41*100):clamp(.6*ppgP+.4*tsP);
   var flashes=clamp(.6*p36+.4*Math.max(blkP,stlP,tpP));
-  // pillars
-  var trans=clamp(.30*sizeScore+.28*shooting+.18*defTools+.16*eff+.08*ballSec);
-  var ready=clamp(.40*production+.22*tsP+.24*expS+.14*(.5*ftP+.5*ballSec));
-  var pot=clamp(.34*youth+.26*(.55*sizeScore+.45*defTools)+.22*gradeNorm+.18*flashes);
-  var draft=clamp(.45*gradeNorm+.20*ppgP+.20*trans+.15*compLevel(p.team));
-  var overall=clamp(.30*trans+.28*pot+.24*draft+.18*ready);
-  return {trans:trans,ready:ready,pot:pot,draft:draft,overall:overall,grp:grp,sizeScore:sizeScore,gradeNorm:gradeNorm};
+  // unproven recruit (incoming freshman, no college sample) — the production
+  // lenses would read 0 and bury elite recruits. Score them like real boards
+  // do: on pedigree (grade), youth, and size, not stats they haven't posted.
+  var noSample=num(s.mpg)<3 && num(s.ppg)<1;
+  var trans,ready,pot,draft;
+  if(noSample){
+    trans=clamp(.50*gradeNorm+.35*sizeScore+.15*youth);
+    ready=clamp(.45*expS+.35*gradeNorm+.20*38);   // genuinely not NBA-ready yet
+    pot=clamp(.46*youth+.34*gradeNorm+.20*sizeScore);
+    draft=clamp(.58*gradeNorm+.26*youth+.16*sizeScore);
+  }else{
+    trans=clamp(.30*sizeScore+.28*shooting+.18*defTools+.16*eff+.08*ballSec);
+    ready=clamp(.40*production+.22*tsP+.24*expS+.14*(.5*ftP+.5*ballSec));
+    pot=clamp(.34*youth+.26*(.55*sizeScore+.45*defTools)+.22*gradeNorm+.18*flashes);
+    draft=clamp(.45*gradeNorm+.20*ppgP+.20*trans+.15*compLevel(p.team));
+  }
+  // GRADE-ANCHORED board: the scouting grade sets the baseline; the four
+  // upside-led lenses nudge a prospect up or down. A class-year tilt rewards
+  // youth — draft boards pay for development runway, so freshmen rise above
+  // equal-graded upperclassmen. Display scale is stretched in buildBoard().
+  var lensScore=clamp(.36*trans+.30*pot+.20*ready+.14*draft);
+  var classBoost=[7,3,0,-4][ci.lvl]-(ci.rs?2.5:0);
+  var blended=.55*gradeNorm+.45*lensScore+classBoost;
+  return {trans:trans,ready:ready,pot:pot,draft:draft,overall:clamp(blended),blended:blended,grp:grp,sizeScore:sizeScore,gradeNorm:gradeNorm,noSample:noSample};
 }
 function eligible(p){
   var g=parseFloat(p.tdc_grade);
@@ -381,7 +398,13 @@ function buildBoard(){
   pool.forEach(function(p){p._s=basisOf(p);});
   buildDist(pool);
   pool.forEach(function(p){var sc=scoreProspect(p);p._sc=sc;});
-  pool.sort(function(a,b){return b._sc.overall-a._sc.overall || (parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0);});
+  pool.sort(function(a,b){return b._sc.blended-a._sc.blended || (parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0);});
+  // stretch the display scale: #1 ≈ 93, end of two rounds (≈60th) ≈ 68
+  var hi=pool.length?pool[0]._sc.blended:100;
+  var loIdx=Math.min(pool.length-1,59);
+  var lo=pool.length?pool[loIdx]._sc.blended:0;
+  var gain=(hi>lo)?(93-68)/(hi-lo):1;
+  pool.forEach(function(p){p._sc.overall=clamp(68+(p._sc.blended-lo)*gain);});
   prospects=pool;
   prospectById={};
   prospects.forEach(function(p,i){p.rank=i+1;prospectById[p.id]=p;});
