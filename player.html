@@ -1879,6 +1879,19 @@ function buildStatNarrative(p){
 }
 
 // ── RADAR CHART ─────────────────────────────────────────
+function _rgbaOf(hex,a){var c=(typeof _hexToRgb==='function')?_hexToRgb(hex):null;return c?'rgba('+c.r+','+c.g+','+c.b+','+a+')':'rgba(150,150,150,'+a+')';}
+// smooth closed Catmull-Rom curve through points (rounded radar)
+function _radarSmooth(ctx,pts){
+  var nn=pts.length;
+  if(nn<3){ctx.moveTo(pts[0].x,pts[0].y);for(var i=1;i<nn;i++)ctx.lineTo(pts[i].x,pts[i].y);ctx.closePath();return;}
+  ctx.moveTo(pts[0].x,pts[0].y);
+  for(var i=0;i<nn;i++){
+    var p0=pts[(i-1+nn)%nn],p1=pts[i],p2=pts[(i+1)%nn],p3=pts[(i+2)%nn];
+    var c1x=p1.x+(p2.x-p0.x)/6,c1y=p1.y+(p2.y-p0.y)/6,c2x=p2.x-(p3.x-p1.x)/6,c2y=p2.y-(p3.y-p1.y)/6;
+    ctx.bezierCurveTo(c1x,c1y,c2x,c2y,p2.x,p2.y);
+  }
+  ctx.closePath();
+}
 function drawRadar(progress){
   const prog=(typeof progress==='number')?progress:1;
   const canvas=document.getElementById('radarChart');
@@ -1908,21 +1921,14 @@ function drawRadar(progress){
 
   const cx=W/2, cy=H/2, r=Math.min(W,H)/2-40;
   const n=axes.length;
+  const accent=(getComputedStyle(document.documentElement).getPropertyValue('--accent').trim())||'#B16BFF';
 
-  // Draw grid rings
-  for(let ring=1;ring<=5;ring++){
-    ctx.beginPath();
-    for(let i=0;i<n;i++){
-      const angle=Math.PI*2*i/n-Math.PI/2;
-      const x=cx+Math.cos(angle)*r*(ring/5);
-      const y=cy+Math.sin(angle)*r*(ring/5);
-      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-    }
-    ctx.closePath();
+  // concentric circular grid rings (softly filled innermost)
+  for(let ring=5;ring>=1;ring--){
+    ctx.beginPath(); ctx.arc(cx,cy,r*ring/5,0,Math.PI*2);
     ctx.strokeStyle=gridCol; ctx.lineWidth=1; ctx.stroke();
   }
-
-  // Draw axis lines and labels
+  // axis spokes + labels
   axes.forEach((ax,i)=>{
     const angle=Math.PI*2*i/n-Math.PI/2;
     const x=cx+Math.cos(angle)*r, y=cy+Math.sin(angle)*r;
@@ -1934,22 +1940,31 @@ function drawRadar(progress){
     ctx.fillText(ax.label,lx,ly);
   });
 
-  function drawShape(axData, fillCol, strokeCol, alpha){
-    ctx.beginPath();
-    axData.forEach((ax,i)=>{
-      const angle=Math.PI*2*i/n-Math.PI/2;
-      const val=ax.val/100*prog;
-      const x=cx+Math.cos(angle)*r*val, y=cy+Math.sin(angle)*r*val;
-      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-    });
-    ctx.closePath();
-    ctx.fillStyle=fillCol; ctx.globalAlpha=alpha; ctx.fill();
-    ctx.globalAlpha=1; ctx.strokeStyle=strokeCol; ctx.lineWidth=2; ctx.stroke();
+  function drawShape(axData, baseCol, fillA){
+    const pts=axData.map((ax,i)=>{const angle=Math.PI*2*i/n-Math.PI/2;const val=ax.val/100*prog;return {x:cx+Math.cos(angle)*r*val, y:cy+Math.sin(angle)*r*val};});
+    // smooth gradient fill
+    ctx.beginPath(); _radarSmooth(ctx,pts);
+    const grad=ctx.createRadialGradient(cx,cy,0,cx,cy,r);
+    grad.addColorStop(0,_rgbaOf(baseCol,Math.min(0.5,fillA*1.7)));
+    grad.addColorStop(1,_rgbaOf(baseCol,fillA*0.4));
+    ctx.fillStyle=grad; ctx.fill();
+    // glowing rounded stroke
+    ctx.save();
+    ctx.beginPath(); _radarSmooth(ctx,pts);
+    ctx.shadowColor=_rgbaOf(baseCol,0.55); ctx.shadowBlur=12;
+    ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.strokeStyle=baseCol; ctx.lineWidth=2.4; ctx.stroke();
+    ctx.restore();
+    // vertex dots, popped in near the end of the grow
+    if(prog>0.82){
+      pts.forEach(pt=>{
+        ctx.beginPath(); ctx.arc(pt.x,pt.y,3.2,0,Math.PI*2); ctx.fillStyle=baseCol; ctx.fill();
+        ctx.beginPath(); ctx.arc(pt.x,pt.y,3.2,0,Math.PI*2); ctx.lineWidth=1.6; ctx.strokeStyle=isDark?'#0b0a12':'#fff'; ctx.stroke();
+      });
+    }
   }
 
-  // Draw actual
-  drawShape(axes,color,color,0.15);
-  // Always show projected overlay if available
+  // projected overlay first (behind), then actual on top
   const showProjRadar = proj && !proj._frosh;
   if(showProjRadar){
     const projAxes=[
@@ -1962,8 +1977,9 @@ function drawRadar(progress){
       {label:'Usage',      val:Math.min(100,getPct(proj.mpg,'mpg'))},
       {label:'Ball Care',  val:Math.min(100,getPct(proj.tovs,'tovs'))},
     ];
-    drawShape(projAxes,'rgba(139,105,20,0.8)','#8B6914',0.12);
+    drawShape(projAxes, accent, 0.12);
   }
+  drawShape(axes, color, 0.16);
 
   // Legend
   const legendEl=document.getElementById('radarLegend');
@@ -2106,10 +2122,9 @@ function drawArchFit(progress){
   var textCol=isDark?'#a8a1c4':'#6d6589', gridCol=isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.07)';
   var color=_archFitColor||'#B16BFF';
   var axes=_archFitAxes, n=axes.length, cx=W/2, cy=H/2, r=Math.min(W,H)/2-46;
-  for(var ring=1;ring<=4;ring++){
-    ctx.beginPath();
-    for(var i=0;i<n;i++){var a=Math.PI*2*i/n-Math.PI/2;var x=cx+Math.cos(a)*r*(ring/4),y=cy+Math.sin(a)*r*(ring/4);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
-    ctx.closePath(); ctx.strokeStyle=gridCol; ctx.lineWidth=1; ctx.stroke();
+  // concentric circular rings
+  for(var ring=4;ring>=1;ring--){
+    ctx.beginPath(); ctx.arc(cx,cy,r*ring/4,0,Math.PI*2); ctx.strokeStyle=gridCol; ctx.lineWidth=1; ctx.stroke();
   }
   axes.forEach(function(ax,i){
     var a=Math.PI*2*i/n-Math.PI/2, x=cx+Math.cos(a)*r, y=cy+Math.sin(a)*r;
@@ -2119,16 +2134,20 @@ function drawArchFit(progress){
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(ax.label,lx,ly);
   });
-  // player fit shape (grows from center with prog)
-  ctx.beginPath();
-  axes.forEach(function(ax,i){var a=Math.PI*2*i/n-Math.PI/2;var v=ax.val/100*prog;var x=cx+Math.cos(a)*r*v,y=cy+Math.sin(a)*r*v;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
-  ctx.closePath();
-  ctx.fillStyle=color; ctx.globalAlpha=0.18*prog; ctx.fill();
-  ctx.globalAlpha=1; ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+  // smooth player-fit shape (grows from center with prog)
+  var pts=axes.map(function(ax,i){var a=Math.PI*2*i/n-Math.PI/2;var v=ax.val/100*prog;return {x:cx+Math.cos(a)*r*v,y:cy+Math.sin(a)*r*v};});
+  ctx.beginPath(); _radarSmooth(ctx,pts);
+  var grad=ctx.createRadialGradient(cx,cy,0,cx,cy,r);
+  grad.addColorStop(0,_rgbaOf(color,0.40)); grad.addColorStop(1,_rgbaOf(color,0.08));
+  ctx.fillStyle=grad; ctx.fill();
+  ctx.save(); ctx.beginPath(); _radarSmooth(ctx,pts);
+  ctx.shadowColor=_rgbaOf(color,0.55); ctx.shadowBlur=12;
+  ctx.lineJoin='round'; ctx.lineCap='round'; ctx.strokeStyle=color; ctx.lineWidth=2.4; ctx.stroke(); ctx.restore();
   // vertices + value labels (labels fade in near the end)
   axes.forEach(function(ax,i){
     var a=Math.PI*2*i/n-Math.PI/2, v=ax.val/100*prog, x=cx+Math.cos(a)*r*v, y=cy+Math.sin(a)*r*v;
-    ctx.beginPath(); ctx.arc(x,y,i===_archFitBest?3.6:2.4,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
+    ctx.beginPath(); ctx.arc(x,y,i===_archFitBest?3.8:2.6,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
+    ctx.beginPath(); ctx.arc(x,y,i===_archFitBest?3.8:2.6,0,Math.PI*2); ctx.lineWidth=1.4; ctx.strokeStyle=isDark?'#0b0a12':'#fff'; ctx.stroke();
     if(ax.val>=14&&prog>=0.6){var lp=(prog-0.6)/0.4,tv=ax.val/100,tx=cx+Math.cos(a)*(r*tv+ (i===_archFitBest?13:11)), ty=cy+Math.sin(a)*(r*tv+ (i===_archFitBest?13:11));
       ctx.globalAlpha=lp; ctx.fillStyle=i===_archFitBest?color:textCol; ctx.font=(i===_archFitBest?'bold ':'600 ')+'10px Inter,sans-serif';
       ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(ax.val+'%',tx,ty); ctx.globalAlpha=1;}
