@@ -273,6 +273,7 @@ body{background:transparent!important;}
   <div class="footer-meta">College Basketball Draft Analysis · 2025–26</div>
 </footer>
 
+<script src="projection-engine.js"></script>
 <script>
 const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -282,6 +283,7 @@ let allPlayers=[], teamMap={}, teamColors={};
 let season='2526', view='board';
 let prospects=[];           // scored + ranked for current season
 let prospectById={};
+let projById={}, projReady=false;   // real per-player 2026-27 projections (engine)
 const POWER=['ACC','Big Ten','Big 12','SEC','Big East','B1G','BIG TEN','BIG 12'];
 const HIGH=['Mountain West','American','A-10','Atlantic 10','WCC','West Coast','Conference USA','C-USA','Sun Belt','MAC','MWC','AAC'];
 
@@ -314,9 +316,15 @@ function projPlayer(p){
   ['fg_pct','tp_pct','ft_pct'].forEach(function(k){o[k]=Math.round((num(p[k])+bump)*10)/10;});
   return o;
 }
-// the stat basis used for scoring in the active season
+// the stat basis used for scoring in the active season.
+// 2026-27 uses the REAL per-player projection engine (same as the player /
+// projections pages) — accounts for departures, role/minutes redistribution,
+// and freshman estimates. projPlayer() is only a fallback until it's ready.
 function basisOf(p){
-  if(season==='2627'){ return Object.assign({}, p, projPlayer(p)); }
+  if(season==='2627'){
+    if(projReady && projById[p.id]) return Object.assign({}, p, projById[p.id]);
+    return Object.assign({}, p, projPlayer(p));
+  }
   return p;
 }
 
@@ -444,7 +452,7 @@ function renderBoard(){
   }).join('');
   var bn=document.getElementById('basisNote');
   if(bn)bn.innerHTML=season==='2627'
-    ? 'The <b>2026-27</b> board scores on projected stats (class-year progression). Incoming freshmen with no college sample lean on grade, youth, and size — production-based lenses stay conservative until they have a season.'
+    ? 'The <b>2026-27</b> board scores on <b>projected stat lines</b> from the full projection engine (same as the player &amp; projections pages) — accounting for roster departures, minutes redistribution, and freshman estimates'+(projReady?'.':' (still computing… showing a quick estimate).')
     : 'The <b>2025-26</b> board scores on actual season production.';
 }
 
@@ -530,10 +538,43 @@ async function load(){
     document.getElementById('loadHint').style.display='none';
     setView('board');
     renderBoard();
+    buildProjections();   // fill real 2026-27 projections in the background
   }catch(e){
     document.getElementById('loadHint').style.display='none';
     document.getElementById('errHint').style.display='block';
   }
+}
+// Compute real per-player 2026-27 projections with the shared engine, grouped
+// by team (the engine redistributes minutes across each roster).
+async function buildProjections(){
+  try{
+    if(typeof buildTeamProjections!=='function'||typeof applyPredictionWalls!=='function')return;
+    window._careerHistoryMap={};
+    var hr=await fetch(SB+'/rest/v1/player_history?select=*&order=season_year.asc&limit=10000',{headers:H});
+    if(hr.ok){var hd=await hr.json();if(Array.isArray(hd))hd.forEach(function(row){var k=(row.name||'').toLowerCase().trim();if(!window._careerHistoryMap[k])window._careerHistoryMap[k]=[];window._careerHistoryMap[k].push(row);});}
+    var byTeam={};
+    allPlayers.forEach(function(p){if(!byTeam[p.team])byTeam[p.team]=[];byTeam[p.team].push(p);});
+    projById={};
+    Object.keys(byTeam).forEach(function(tn){
+      var conf=(teamMap[tn]&&(teamMap[tn].conf||teamMap[tn].conference))||'';
+      // Normalize each depth chart by talent before projecting — the stored
+      // depth_order is unreliable (e.g. a grade-97 returning star slotted 9th),
+      // which would feed the engine bad minutes. Re-slot by grade + production.
+      var roster=byTeam[tn].map(function(p){return Object.assign({},p);});
+      roster.sort(function(a,b){
+        return ((parseFloat(b.tdc_grade)||55)+0.15*(parseFloat(b.ppg)||0))
+             - ((parseFloat(a.tdc_grade)||55)+0.15*(parseFloat(a.ppg)||0));
+      });
+      roster.forEach(function(p,i){p.depth_order=i+1;});
+      try{
+        var raw=buildTeamProjections(roster,conf);
+        var proj=applyPredictionWalls(raw);
+        (proj||[]).forEach(function(pp){if(pp&&pp.id!=null)projById[pp.id]=pp;});
+      }catch(e){}
+    });
+    projReady=true;
+    if(season==='2627'){buildBoard();renderBoard();if(view==='mock')renderMock();}
+  }catch(e){}
 }
 load();
 </script>
