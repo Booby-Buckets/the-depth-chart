@@ -170,6 +170,26 @@
     .tab-panel.active .stat-card:nth-child(8){animation-delay:.33s;}
     .tab-panel.active .stat-card:nth-child(9){animation-delay:.37s;}
     .tab-panel.active .stat-card:nth-child(10){animation-delay:.41s;}
+
+    /* Bars grow in when their tab becomes active */
+    @keyframes growX{from{transform:scaleX(0);}to{transform:scaleX(1);}}
+    @keyframes growY{from{transform:scaleY(0);}to{transform:scaleY(1);}}
+    .tab-panel.active .skill-bar-fill,.tab-panel.active .pct-fill,.tab-panel.active .scout-rating-fill{transform-origin:left center;animation:growX .85s cubic-bezier(.22,1,.36,1) both;}
+    .tab-panel.active .skill-bar-row:nth-child(2) .skill-bar-fill,.tab-panel.active .pct-row:nth-child(2) .pct-fill{animation-delay:.05s;}
+    .tab-panel.active .skill-bar-row:nth-child(3) .skill-bar-fill,.tab-panel.active .pct-row:nth-child(3) .pct-fill{animation-delay:.1s;}
+    .tab-panel.active .skill-bar-row:nth-child(4) .skill-bar-fill,.tab-panel.active .pct-row:nth-child(4) .pct-fill{animation-delay:.15s;}
+    .tab-panel.active .skill-bar-row:nth-child(5) .skill-bar-fill,.tab-panel.active .pct-row:nth-child(5) .pct-fill{animation-delay:.2s;}
+    .tab-panel.active .skill-bar-row:nth-child(n+6) .skill-bar-fill,.tab-panel.active .pct-row:nth-child(n+6) .pct-fill{animation-delay:.25s;}
+    .tab-panel.active .arch-bar{transform-origin:bottom center;animation:growY .7s cubic-bezier(.22,1,.36,1) both;}
+    .tab-panel.active .comp-card{opacity:0;animation:statCardIn .4s cubic-bezier(.22,1,.36,1) both;}
+    .tab-panel.active .comp-card:nth-child(2){animation-delay:.06s;}
+    .tab-panel.active .comp-card:nth-child(3){animation-delay:.12s;}
+    .tab-panel.active .comp-card:nth-child(4){animation-delay:.18s;}
+    .tab-panel.active .comp-card:nth-child(5){animation-delay:.24s;}
+    .tab-panel.active .comp-card:nth-child(6){animation-delay:.3s;}
+    @media (prefers-reduced-motion: reduce){
+      .tab-panel.active .skill-bar-fill,.tab-panel.active .pct-fill,.tab-panel.active .scout-rating-fill,.tab-panel.active .arch-bar,.tab-panel.active .comp-card{animation:none;opacity:1;}
+    }
     @media(max-width:768px){
       .nav-top,.nav-sub,.player-hero,.tab-panel,.tab-row{padding-left:16px;padding-right:16px;}
       .player-hero{flex-wrap:wrap;}
@@ -1765,7 +1785,7 @@ function renderPage(){
     </div>`;
 
   // Draw radar after DOM is ready
-  setTimeout(drawRadar, 100);
+  setTimeout(animateRadar, 120);
 }
 
 function renderStatTable(p, projData){
@@ -1862,7 +1882,8 @@ function buildStatNarrative(p){
 }
 
 // ── RADAR CHART ─────────────────────────────────────────
-function drawRadar(){
+function drawRadar(progress){
+  const prog=(typeof progress==='number')?progress:1;
   const canvas=document.getElementById('radarChart');
   if(!canvas) return;
   const ctx=canvas.getContext('2d');
@@ -1920,7 +1941,7 @@ function drawRadar(){
     ctx.beginPath();
     axData.forEach((ax,i)=>{
       const angle=Math.PI*2*i/n-Math.PI/2;
-      const val=ax.val/100;
+      const val=ax.val/100*prog;
       const x=cx+Math.cos(angle)*r*val, y=cy+Math.sin(angle)*r*val;
       i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
     });
@@ -1953,6 +1974,14 @@ function drawRadar(){
     legendEl.innerHTML=`<div class="radar-legend-item"><div class="radar-legend-dot" style="background:${color};"></div>2025-26 Actual</div>${showProjRadar?`<div class="radar-legend-item"><div class="radar-legend-dot" style="background:var(--accent);opacity:.6;"></div>2026-27 Projected</div>`:''}`;
   }
 }
+function animateRadar(){
+  var start=null, dur=780, done=false;
+  function ease(t){return 1-Math.pow(1-t,3);}
+  function step(ts){ if(start===null)start=ts; var p=Math.min(1,(ts-start)/dur); drawRadar(ease(p)); if(p<1)requestAnimationFrame(step); else done=true; }
+  requestAnimationFrame(step);
+  // safety net: if rAF is throttled/never ticks, guarantee the final render
+  setTimeout(function(){ if(!done) drawRadar(1); }, dur+260);
+}
 
 function switchTab(t){
   const tabs=['overview','stats','percentiles','archetype','scout'];
@@ -1968,7 +1997,7 @@ function switchTab(t){
         else pnl.style.display='none';
       }
     });
-    if(id==='overview')setTimeout(drawRadar,80);
+    if(id==='overview')setTimeout(animateRadar,90);
     if(id==='archetype')setTimeout(renderArchetype,60);
   }
   if(cur&&!cur.id.endsWith(t)){cur.classList.add('leaving');setTimeout(function(){activate(t);},150);}
@@ -2054,7 +2083,8 @@ function buildArchFit(src,grp){
   var best=0; axes.forEach(function(a,i){if(a.val>axes[best].val)best=i;});
   return {axes:axes,best:best};
 }
-function drawArchFit(){
+function drawArchFit(progress){
+  var prog=(typeof progress==='number')?progress:1;
   var canvas=document.getElementById('archRadar'); if(!canvas||!_archFitAxes) return;
   var ctx=canvas.getContext('2d'), W=canvas.width, H=canvas.height;
   ctx.clearRect(0,0,W,H);
@@ -2075,20 +2105,27 @@ function drawArchFit(){
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(ax.label,lx,ly);
   });
-  // player fit shape
+  // player fit shape (grows from center with prog)
   ctx.beginPath();
-  axes.forEach(function(ax,i){var a=Math.PI*2*i/n-Math.PI/2;var v=ax.val/100;var x=cx+Math.cos(a)*r*v,y=cy+Math.sin(a)*r*v;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  axes.forEach(function(ax,i){var a=Math.PI*2*i/n-Math.PI/2;var v=ax.val/100*prog;var x=cx+Math.cos(a)*r*v,y=cy+Math.sin(a)*r*v;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
   ctx.closePath();
-  ctx.fillStyle=color; ctx.globalAlpha=0.18; ctx.fill();
+  ctx.fillStyle=color; ctx.globalAlpha=0.18*prog; ctx.fill();
   ctx.globalAlpha=1; ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
-  // vertices + value labels
+  // vertices + value labels (labels fade in near the end)
   axes.forEach(function(ax,i){
-    var a=Math.PI*2*i/n-Math.PI/2, v=ax.val/100, x=cx+Math.cos(a)*r*v, y=cy+Math.sin(a)*r*v;
+    var a=Math.PI*2*i/n-Math.PI/2, v=ax.val/100*prog, x=cx+Math.cos(a)*r*v, y=cy+Math.sin(a)*r*v;
     ctx.beginPath(); ctx.arc(x,y,i===_archFitBest?3.6:2.4,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
-    if(ax.val>=14){var tx=cx+Math.cos(a)*(r*v+ (i===_archFitBest?13:11)), ty=cy+Math.sin(a)*(r*v+ (i===_archFitBest?13:11));
-      ctx.fillStyle=i===_archFitBest?color:textCol; ctx.font=(i===_archFitBest?'bold ':'600 ')+'10px Inter,sans-serif';
-      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(ax.val+'%',tx,ty);}
+    if(ax.val>=14&&prog>=0.6){var lp=(prog-0.6)/0.4,tv=ax.val/100,tx=cx+Math.cos(a)*(r*tv+ (i===_archFitBest?13:11)), ty=cy+Math.sin(a)*(r*tv+ (i===_archFitBest?13:11));
+      ctx.globalAlpha=lp; ctx.fillStyle=i===_archFitBest?color:textCol; ctx.font=(i===_archFitBest?'bold ':'600 ')+'10px Inter,sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(ax.val+'%',tx,ty); ctx.globalAlpha=1;}
   });
+}
+function animateArchFit(){
+  var start=null, dur=760, done=false;
+  function ease(t){return 1-Math.pow(1-t,3);}
+  function step(ts){ if(start===null)start=ts; var p=Math.min(1,(ts-start)/dur); drawArchFit(ease(p)); if(p<1)requestAnimationFrame(step); else done=true; }
+  requestAnimationFrame(step);
+  setTimeout(function(){ if(!done) drawArchFit(1); }, dur+260);
 }
 
 async function renderArchetype(){
@@ -2165,7 +2202,7 @@ async function renderArchetype(){
     '<div class="arch-sec-h">Closest Historical Season Comps</div>'+
     '<div class="comp-grid">'+(hist.length?hist.map(histCard).join(''):'<div class="arch-note">No close historical matches found.</div>')+'</div>'+
     '<div class="arch-note">Similarity blends production, efficiency, shooting, role (minutes), and — for current players — size. Historical comps use season stat lines from prior years (size omitted; not tracked in history).</div>';
-  setTimeout(drawArchFit,30);
+  setTimeout(animateArchFit,40);
 }
 function teamColorFor(name){ return (window._pcColors&&window._pcColors[name])||'#888'; }
 
