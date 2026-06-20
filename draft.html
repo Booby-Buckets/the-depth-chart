@@ -87,22 +87,32 @@
     .mock-info{font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.6;border-left:2px solid var(--accent);padding-left:12px;}
     .rnd-head{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;margin:22px 0 10px;display:flex;align-items:center;gap:10px;}
     .rnd-head::after{content:'';flex:1;height:1px;background:var(--border);}
-    .mock-pick{display:grid;grid-template-columns:48px 150px 1fr;gap:12px;align-items:center;padding:9px 12px;border:1px solid var(--border);border-radius:9px;margin-bottom:8px;background:var(--bg);transition:border-color .12s;}
+    .mock-pick{display:grid;grid-template-columns:48px 168px 1fr;gap:12px;align-items:center;padding:9px 12px;border:1px solid var(--border);border-radius:9px;margin-bottom:8px;background:var(--bg);transition:border-color .12s;}
     .mock-pick:hover{border-color:var(--border2);}
     .mock-pick.lotto{background:linear-gradient(90deg,rgba(177,107,255,.06),transparent 60%);}
     .pk-num{display:flex;flex-direction:column;align-items:center;justify-content:center;}
     .pk-num b{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;line-height:1;}
     .pk-num small{font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-top:2px;}
-    .pk-team{width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--text);outline:none;}
+    .pk-teamwrap{display:flex;flex-direction:column;gap:4px;min-width:0;}
+    .pk-team{width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);font-family:'Inter',sans-serif;font-size:12.5px;font-weight:700;color:var(--text);outline:none;}
     .pk-team:focus{border-color:var(--accent);}
     .pk-team::placeholder{color:var(--text3);font-weight:500;}
-    .pk-pro{display:flex;align-items:center;gap:10px;min-width:0;}
-    .pk-sel{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--border2);border-radius:6px;background:var(--bg);font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;color:var(--text);outline:none;cursor:pointer;}
-    .pk-sel:focus{border-color:var(--accent);}
-    .pk-card{display:flex;align-items:center;gap:8px;white-space:nowrap;}
-    .pk-card .pc-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:var(--accent);}
-    .pk-card .pc-meta{font-size:10.5px;color:var(--text3);}
+    .pk-need{font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);padding-left:2px;}
+    .pk-pro{display:flex;align-items:center;min-width:0;}
+    .pk-pick{display:flex;align-items:center;gap:10px;min-width:0;text-decoration:none;flex-wrap:wrap;}
+    .pk-pick .pk-bb{font-size:9px;font-weight:800;letter-spacing:.03em;color:#fff;background:var(--accent);border-radius:4px;padding:2px 6px;white-space:nowrap;}
+    [data-theme="dark"] .pk-pick .pk-bb{color:#0a0710;}
+    .pk-pick .pk-nm{font-weight:700;font-size:14px;color:var(--text);}
+    .pk-pick:hover .pk-nm{color:var(--accent);}
+    .pk-pick .pk-meta{font-size:11px;color:var(--text3);}
     .pk-empty{font-size:12px;color:var(--text3);font-style:italic;}
+    .needs-panel{border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:18px;background:var(--bg2);}
+    .needs-h{font-size:12px;color:var(--text3);line-height:1.6;margin-bottom:14px;}
+    .needs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:9px 16px;}
+    .need-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+    .need-team{font-size:12.5px;font-weight:700;color:var(--text2);}
+    .need-sel{padding:5px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--bg);font-family:'Inter',sans-serif;font-size:11.5px;font-weight:600;color:var(--text);outline:none;cursor:pointer;}
+    .need-sel:focus{border-color:var(--accent);}
 
     .empty-hint{border:1px dashed var(--border2);border-radius:10px;padding:40px;text-align:center;color:var(--text3);font-size:13px;}
     .load-hint{text-align:center;color:var(--text3);font-size:13px;padding:50px;}
@@ -254,14 +264,15 @@ body{background:transparent!important;}
   <div class="view" id="viewMock">
     <div class="mock-info" id="mockInfo"></div>
     <div class="mock-toolbar">
-      <button class="btn primary" onclick="autofillMock()">Auto-fill from Big Board</button>
-      <button class="btn" onclick="clearMockPicks()">Clear picks</button>
+      <button class="btn primary" onclick="generateMock()">⚡ Generate Mock Draft</button>
+      <button class="btn" onclick="toggleNeeds()" id="needsToggleBtn">Team needs ▸</button>
+      <button class="btn" onclick="resetOrder()">Reset order</button>
       <div class="seg sm" id="roundSeg" style="margin-left:auto;">
-        <button data-n="14" onclick="setRounds(14)">Lottery</button>
         <button data-n="30" class="on" onclick="setRounds(30)">Round 1</button>
         <button data-n="60" onclick="setRounds(60)">2 Rounds</button>
       </div>
     </div>
+    <div id="needsPanel" class="needs-panel" style="display:none;"></div>
     <div id="mockBody"></div>
   </div>
 
@@ -456,45 +467,78 @@ function renderBoard(){
     : 'The <b>2025-26</b> board scores on actual season production.';
 }
 
-// ── MOCK DRAFT ──
-let mock={'2526':{count:30,picks:[]}, '2627':{count:30,picks:[]}};
-function loadMock(){try{var m=JSON.parse(localStorage.getItem('tdc_mock_v1')||'null');if(m&&m['2526']&&m['2627'])mock=m;}catch(e){}}
-function saveMock(){try{localStorage.setItem('tdc_mock_v1',JSON.stringify(mock));}catch(e){}}
-function ensurePicks(){var st=mock[season];if(!st.picks)st.picks=[];while(st.picks.length<60)st.picks.push({team:'',pid:null});}
-function setRounds(n){mock[season].count=n;saveMock();syncSeg('roundSeg','n',n);renderMock();}
-function autofillMock(){var st=mock[season];ensurePicks();for(var i=0;i<60;i++){st.picks[i].pid=prospects[i]?prospects[i].id:null;}saveMock();renderMock();}
-function clearMockPicks(){mock[season].picks.forEach(function(pk){pk.pid=null;});saveMock();renderMock();}
-function setPickTeam(i,v){ensurePicks();mock[season].picks[i].team=v;saveMock();}
-function setPickPro(i,v){ensurePicks();mock[season].picks[i].pid=v?parseInt(v):null;saveMock();renderMock();}
-function prospectOptions(selId,used){
-  var opts='<option value="">— pick —</option>';
-  var pool=prospects.slice(0,160);
-  for(var i=0;i<pool.length;i++){var pr=pool[i];
-    if(used[pr.id]&&pr.id!==selId)continue;
-    opts+='<option value="'+pr.id+'"'+(pr.id===selId?' selected':'')+'>BB'+pr.rank+' · '+pr.name+' ('+(pr.position||'')+', '+(pr.team||'')+')</option>';}
-  return opts;
+// ── MOCK DRAFT (model-generated) ──
+// You set the draft order (which team picks where) + optional team needs;
+// the model fills every pick from the Big Board: best player available,
+// nudged toward a team's positional need when the value is close.
+const NBA_DEFAULT_ORDER=['Washington','Indiana','Brooklyn','Utah','Sacramento','Memphis','Dallas','New Orleans','Chicago','Milwaukee','Golden St.','LA Clippers','Miami','Charlotte','Portland','Orlando','Phoenix','Philadelphia','Atlanta','Toronto','Minnesota','Cleveland','Houston','New York','LA Lakers','Denver','Boston','Detroit','San Antonio','Oklahoma City'];
+const NEED_OPTS=['Any','PG','SG','SF','PF','C','Guard','Wing','Big'];
+const NEED_BONUS=5;   // board-point nudge toward a team's positional need
+let mock={'2526':null,'2627':null};
+function freshMock(){return {count:30, order:NBA_DEFAULT_ORDER.concat(NBA_DEFAULT_ORDER), needs:{}, picks:[]};}
+function curMock(){if(!mock[season])mock[season]=freshMock();return mock[season];}
+function loadMock(){
+  try{var m=JSON.parse(localStorage.getItem('tdc_mock_v2')||'null');if(m)mock=m;}catch(e){}
+  ['2526','2627'].forEach(function(s){
+    if(!mock[s])mock[s]=freshMock();
+    if(!mock[s].order||mock[s].order.length<60)mock[s].order=NBA_DEFAULT_ORDER.concat(NBA_DEFAULT_ORDER);
+    if(!mock[s].needs)mock[s].needs={};
+    if(!mock[s].picks)mock[s].picks=[];
+    if(!mock[s].count)mock[s].count=30;
+  });
+}
+function saveMock(){try{localStorage.setItem('tdc_mock_v2',JSON.stringify(mock));}catch(e){}}
+function setRounds(n){curMock().count=n;saveMock();syncSeg('roundSeg','n',n);renderMock();}
+function resetOrder(){curMock().order=NBA_DEFAULT_ORDER.concat(NBA_DEFAULT_ORDER);saveMock();renderMock();renderNeedsPanel();}
+function setPickTeam(i,v){curMock().order[i]=v;saveMock();renderNeedsPanel();}
+function setTeamNeed(team,need){curMock().needs[team]=need;saveMock();}
+function toggleNeeds(){var el=document.getElementById('needsPanel'),b=document.getElementById('needsToggleBtn');var show=el.style.display==='none';el.style.display=show?'block':'none';if(b)b.textContent='Team needs '+(show?'▾':'▸');if(show)renderNeedsPanel();}
+function uniqueTeams(){var st=curMock(),seen={},out=[];st.order.slice(0,st.count).forEach(function(t){var k=(t||'').trim();if(k&&!seen[k]){seen[k]=1;out.push(k);}});return out;}
+function fitsNeed(p,need){var pos=((p.position||'')+'').toUpperCase().split(/[\/,\s]/)[0];var grp=p._sc.grp;
+  if(need==='Guard')return grp==='G';if(need==='Wing')return grp==='W';if(need==='Big')return grp==='B';return pos===need;}
+function generateMock(){
+  if(!prospects.length)return;
+  var st=curMock(),needs=st.needs||{},used={},picks=[];
+  for(var i=0;i<st.count;i++){
+    var team=(st.order[i]||'').trim(),need=needs[team]||'Any',best=null,bs=-1;
+    for(var j=0;j<prospects.length;j++){
+      var p=prospects[j];if(used[p.id])continue;
+      var bonus=(need!=='Any'&&fitsNeed(p,need))?NEED_BONUS:0;
+      var sc=p._sc.overall+bonus;
+      if(sc>bs){bs=sc;best=p;}
+    }
+    if(best){used[best.id]=1;picks.push(best.id);}else picks.push(null);
+  }
+  st.picks=picks;saveMock();renderMock();
+}
+function renderNeedsPanel(){
+  var el=document.getElementById('needsPanel');if(!el||el.style.display==='none')return;
+  var st=curMock(),teams=uniqueTeams();
+  el.innerHTML='<div class="needs-h">Give each team a positional need — the model nudges toward it (+'+NEED_BONUS+' board pts) when the value is close. Leave on “Any” for pure best-player-available.</div>'+
+    '<div class="needs-grid">'+teams.map(function(t){
+      var cur=st.needs[t]||'Any', te=(''+t).replace(/'/g,"\\'");
+      return '<div class="need-row"><span class="need-team">'+t+'</span><select class="need-sel" onchange="setTeamNeed(\''+te+'\',this.value)">'+
+        NEED_OPTS.map(function(o){return '<option'+(o===cur?' selected':'')+'>'+o+'</option>';}).join('')+'</select></div>';
+    }).join('')+'</div>';
 }
 function renderMock(){
   if(!prospects.length)return;
-  ensurePicks();
-  var st=mock[season], count=st.count;
-  document.getElementById('mockInfo').innerHTML=season==='2526'
-    ? 'Projected <b>2026 NBA Draft</b>. Type each team’s projected slot in the order field, then assign a prospect. Auto-fill drops the Big Board straight in — then trade picks around as you like. Saved to this browser.'
-    : 'Projected <b>2027 NBA Draft</b> — the order isn’t set yet, so slots run in Big Board order by default. Assign prospects (and label teams if you’re projecting an order). Saved to this browser.';
-  var used={};
-  st.picks.slice(0,count).forEach(function(pk){if(pk.pid)used[pk.pid]=1;});
+  var st=curMock(),count=st.count,hasPicks=st.picks&&st.picks.length;
+  document.getElementById('mockInfo').innerHTML=(season==='2526'?'Projected <b>2026 NBA Draft</b>':'Projected <b>2027 NBA Draft</b>')+
+    ' — set your draft order below (edit any team), optionally assign team needs, then hit <b>Generate Mock Draft</b>. The model fills every pick from the Big Board: best player available, nudged toward each team’s need. Saved to this browser.';
   var html='';
   for(var i=0;i<count;i++){
-    var pk=st.picks[i], pr=pk.pid?prospectById[pk.pid]:null, lotto=i<14;
     if(i===0)html+='<div class="rnd-head">Round 1</div>';
     if(i===30)html+='<div class="rnd-head">Round 2</div>';
-    var card= pr
-      ? '<div class="pk-card"><span class="pc-grade">'+(isFinite(parseFloat(pr.tdc_grade))?pr.tdc_grade:'—')+'</span><span class="pc-meta">'+(pr._sc?pr._sc.overall:'')+' board · '+(pr.position||'')+'</span></div>'
-      : '<span class="pk-empty">empty</span>';
+    var team=st.order[i]||'',need=st.needs[(team||'').trim()]||'Any',lotto=i<14;
+    var pid=hasPicks?st.picks[i]:null,pr=pid?prospectById[pid]:null;
+    var pick=pr
+      ? '<a class="pk-pick" href="player.html?id='+pr.id+'"><span class="pk-bb">BB'+pr.rank+'</span><span class="pk-nm">'+pr.name+'</span><span class="pk-meta">'+(pr.position||'')+' · '+(pr.team||'')+' · '+(isFinite(parseFloat(pr.tdc_grade))?pr.tdc_grade+' grd':'—')+' · '+pr._sc.overall+' board</span></a>'
+      : '<span class="pk-empty">— hit Generate —</span>';
     html+='<div class="mock-pick'+(lotto?' lotto':'')+'">'+
       '<div class="pk-num"><b>'+(i+1)+'</b>'+(lotto?'<small>lotto</small>':'')+'</div>'+
-      '<input class="pk-team" value="'+(pk.team||'').replace(/"/g,'&quot;')+'" placeholder="Team" oninput="setPickTeam('+i+',this.value)"/>'+
-      '<div class="pk-pro"><select class="pk-sel" onchange="setPickPro('+i+',this.value)">'+prospectOptions(pk.pid,used)+'</select>'+card+'</div>'+
+      '<div class="pk-teamwrap"><input class="pk-team" value="'+(''+team).replace(/"/g,'&quot;')+'" placeholder="Team" oninput="setPickTeam('+i+',this.value)"/>'+(need!=='Any'?'<span class="pk-need">needs '+need+'</span>':'')+'</div>'+
+      '<div class="pk-pro">'+pick+'</div>'+
     '</div>';
   }
   document.getElementById('mockBody').innerHTML=html;
