@@ -378,8 +378,8 @@
       .hero-grade-label{font-size:8px;}
       .breadcrumb{font-size:10px;}
       .sec-head{font-size:15px;}
-      .rotation-row{grid-template-columns:22px 28px 1fr 32px 30px 38px 38px 38px 38px 38px 36px;gap:4px;font-size:11px;}
-      .stat-header{grid-template-columns:22px 28px 1fr 32px 30px 38px 38px 38px 38px 38px 36px;gap:4px;}
+      /* keep the full stat columns; the table scrolls horizontally (see 768px block) */
+      .rotation-row{font-size:11px;}
       .stat-header-cell{font-size:8px;}
       .rot-name{font-size:12px;}
       .rot-stat{font-size:11px;}
@@ -447,8 +447,11 @@
   .hero-tab{font-size:9px!important;padding:10px 10px!important;white-space:nowrap!important;flex-shrink:0!important;}
 
   /* ── Page body — single column ── */
-  .page-body{grid-template-columns:1fr!important;}
-  .main-col{padding:12px 12px 40px!important;border-right:none!important;}
+  .page-body{grid-template-columns:1fr!important;min-width:0!important;}
+  /* min-width:0 lets the grid item shrink below its content so wide tables
+     scroll inside their own overflow-x container instead of widening the page */
+  .main-col{padding:12px 12px 40px!important;border-right:none!important;min-width:0!important;overflow-x:hidden!important;}
+  .main-col .panel,#depthContent,.starters-grid{min-width:0!important;}
   .side-col{display:none!important;}
 
   /* ── Stat tables — full horizontal scroll ── */
@@ -475,14 +478,16 @@
     padding-right:8px!important;
   }
 
-  /* ── Depth chart starters — 2 wide columns ── */
+  /* ── Depth chart starters — single column, cards shrink to fit ── */
   .starters-grid{
-    grid-template-columns:1fr 1fr!important;
+    grid-template-columns:1fr!important;
     overflow-x:visible!important;
+    gap:10px!important;
   }
-  .starter-col-head{padding:5px 8px!important;font-size:10px!important;}
-  .starter-name{font-size:11px!important;white-space:normal!important;}
-  .backup-name{font-size:10px!important;white-space:normal!important;}
+  .starter-col,.starter-col-body,.starter,.backup-chain,.backup-item{min-width:0!important;}
+  .starter-col-head{padding:6px 10px!important;font-size:10px!important;}
+  .starter-name{font-size:13px!important;white-space:normal!important;}
+  .backup-name{font-size:11px!important;white-space:normal!important;}
 
   /* ── Customize tab — stack position columns vertically ── */
   #lineupColumns{display:flex!important;flex-direction:column!important;}
