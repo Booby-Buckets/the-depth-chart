@@ -87,6 +87,22 @@
     .view-tabs{display:flex;gap:4px;padding:0 40px;margin-bottom:18px;}
     .vtab{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);background:var(--bg2);border:1px solid var(--border);border-radius:8px;cursor:pointer;padding:9px 20px;transition:all .15s;}
     .vtab.on{background:var(--accent);color:#1a1205;border-color:var(--accent);}
+    /* STAT EXPLORER */
+    #explorerView{padding:0 40px;}
+    .exp-controls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px;margin-bottom:14px;}
+    .exp-controls .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:3px;gap:3px;}
+    .exp-controls .seg button{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);background:transparent;border:none;cursor:pointer;padding:7px 14px;border-radius:6px;transition:all .15s;white-space:nowrap;}
+    .exp-controls .seg button.on{background:var(--accent);color:#fff;}
+    [data-theme="dark"] .exp-controls .seg button.on{color:#0a0710;}
+    .exp-lab{display:flex;flex-direction:column;gap:5px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .exp-sel{padding:8px 11px;border:1px solid var(--border2);border-radius:7px;background:var(--bg);font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;cursor:pointer;}
+    .exp-sel:focus{border-color:var(--accent);}
+    .exp-legend{display:flex;gap:16px;margin-bottom:12px;font-size:11px;font-weight:600;color:var(--text3);}
+    .exp-legend span{display:inline-flex;align-items:center;gap:6px;}
+    .exp-legend i{width:11px;height:11px;border-radius:50%;}
+    .exp-chart-card{border:1px solid var(--border);border-radius:12px;padding:16px;background:var(--bg2);}
+    .exp-chart{position:relative;width:100%;height:560px;}
+    .exp-note{font-size:11px;color:var(--text3);margin-top:12px;line-height:1.6;}
     /* POWER VIEW */
     #powerView{padding:0 40px;}
     .pwr-superlatives{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;}
@@ -178,6 +194,7 @@ body{background:transparent!important;}
 <div class="view-tabs" id="viewTabs">
   <button class="vtab on" id="vtPower" onclick="setView('power')">Power Ratings</button>
   <button class="vtab" id="vtStats" onclick="setView('stats')">Projected Stats</button>
+  <button class="vtab" id="vtExplorer" onclick="setView('explorer')">Stat Explorer</button>
 </div>
 
 <div class="controls">
@@ -227,6 +244,23 @@ body{background:transparent!important;}
       <tbody id="tbody"></tbody>
     </table>
   </div>
+</div>
+
+<!-- STAT EXPLORER (scatter) VIEW -->
+<div id="explorerView" style="display:none;">
+  <div class="exp-controls">
+    <div class="seg" id="expSeasonSeg">
+      <button class="on" data-s="2526" onclick="setExpSeason('2526')">2025-26 Actual</button>
+      <button data-s="2627" onclick="setExpSeason('2627')">2026-27 Projected</button>
+    </div>
+    <label class="exp-lab">X axis <select class="exp-sel" id="expX" onchange="renderExplorer()"></select></label>
+    <label class="exp-lab">Y axis <select class="exp-sel" id="expY" onchange="renderExplorer()"></select></label>
+    <label class="exp-lab">Pos <select class="exp-sel" id="expPos" onchange="renderExplorer()"><option value="">All</option><option value="G">Guards</option><option value="W">Wings</option><option value="B">Bigs</option></select></label>
+    <label class="exp-lab">Min MPG <select class="exp-sel" id="expMin" onchange="renderExplorer()"><option value="10">10+</option><option value="0">All</option><option value="15">15+</option><option value="20">20+</option><option value="25">25+</option></select></label>
+  </div>
+  <div class="exp-legend"><span><i style="background:#B16BFF"></i>Guards</span><span><i style="background:#38BDF8"></i>Wings</span><span><i style="background:#FF4D9D"></i>Bigs</span></div>
+  <div class="exp-chart-card"><div class="exp-chart"><canvas id="expChart"></canvas></div></div>
+  <div class="exp-note" id="expNote"></div>
 </div>
 
 <footer>
@@ -1097,6 +1131,9 @@ function projectSinglePlayer(p, conf){
 // ── PAGE STATE ────────────────────────────────────────────────
 let teamColors = {};
 let allRows    = [];
+let allDbPlayers = [];      // actual 2025-26 player rows
+let allPlayerProj = [];     // projected 2026-27 player rows (engine)
+let expChart = null, expSeason='2526', expReady=false;
 let sortCol    = 'ppg';
 let sortAsc    = false;
 
@@ -1160,6 +1197,7 @@ async function load(){
   const players = await pRes.json();
   fill.style.width = '25%';
   teams.forEach(t=>{ if(t.name) teamColors[t.name]=t.color||'#8B6914'; });
+  allDbPlayers = (Array.isArray(players)?players:[]).filter(p=>p.name&&p.name!=='—');
 
   // Step 2: career history — exact same method as team.html
   // Load all player names, then fetch history in batches of 15 with quoted names
@@ -1201,6 +1239,7 @@ async function load(){
     if(tp.length >= 2){
       try{
         const proj = applyPredictionWalls(buildTeamProjections(tp, t.conf||t.conference||''));
+        (proj||[]).forEach(pp=>{ if(pp&&pp.name&&pp.name!=='—') allPlayerProj.push(Object.assign({},pp,{team:t.name})); });
         const row  = buildRow(t, t.conf||t.conference||'', proj);
         if(row) allRows.push(row);
       }catch(e){}
@@ -1312,13 +1351,92 @@ function setView(v){
   view=v;
   document.getElementById('vtPower').classList.toggle('on',v==='power');
   document.getElementById('vtStats').classList.toggle('on',v==='stats');
+  document.getElementById('vtExplorer').classList.toggle('on',v==='explorer');
   document.getElementById('powerView').style.display=v==='power'?'block':'none';
   document.getElementById('statsView').style.display=v==='stats'?'block':'none';
-  document.getElementById('pageTitle').textContent=v==='power'?'2026-27 Power Ratings':'2026-27 Projected Team Stats';
+  document.getElementById('explorerView').style.display=v==='explorer'?'block':'none';
+  // the conf/search/min-games controls only apply to the table views
+  var ctl=document.querySelector('.controls'); if(ctl) ctl.style.display=v==='explorer'?'none':'flex';
+  document.getElementById('pageTitle').textContent=v==='power'?'2026-27 Power Ratings':v==='stats'?'2026-27 Projected Team Stats':'Stat Explorer';
   document.getElementById('pageSub').textContent=v==='power'
     ?'Projected on-court power index — offense, defense, and ball security for all D1 teams'
-    :'League-wide offensive and defensive projections — click any column to sort';
+    :v==='stats'?'League-wide offensive and defensive projections — click any column to sort'
+    :'Plot every player by any two stats — pick your axes and season';
+  if(v==='explorer'){ initExplorer(); renderExplorer(); return; }
   refresh();
+}
+
+// ── STAT EXPLORER (scatter) ──────────────────────────────────────
+var EXP_STATS=[
+  {k:'ppg',l:'Points / G'},{k:'rpg',l:'Rebounds / G'},{k:'apg',l:'Assists / G'},
+  {k:'mpg',l:'Minutes / G'},{k:'fg_pct',l:'FG%'},{k:'tp_pct',l:'3P%'},{k:'ft_pct',l:'FT%'},
+  {k:'stl',l:'Steals / G'},{k:'blk',l:'Blocks / G'},{k:'tovs',l:'Turnovers / G'},
+  {k:'oreb',l:'Off Reb / G'},{k:'dreb',l:'Def Reb / G'},
+  {k:'_ht',l:'Height (in)'},{k:'tdc_grade',l:'TDC Grade'},
+  {k:'_p40',l:'Points / 40'},{k:'_a40',l:'Assists / 40'},{k:'_r40',l:'Rebounds / 40'},{k:'_ts',l:'True Shooting %'}
+];
+function expHtIn(h){if(!h)return 0;var m=(''+h).match(/(\d+)\s*[-']\s*(\d+)/);return m?(+m[1])*12+(+m[2]):0;}
+function expPosGrp(pos){pos=((pos||'')+'').toUpperCase().split(/[\/,\s]/)[0];
+  if(pos==='PG'||pos==='SG'||pos==='G'||pos==='CG')return 'G';
+  if(pos==='SF'||pos==='F')return 'W';
+  if(pos==='PF'||pos==='C')return 'B'; return 'W';}
+function expVal(p,key){
+  var ppg=parseFloat(p.ppg)||0,mpg=parseFloat(p.mpg)||0,apg=parseFloat(p.apg)||0,rpg=parseFloat(p.rpg)||0;
+  if(key==='_ht')return expHtIn(p.height);
+  if(key==='_p40')return mpg>0?+(ppg*40/mpg).toFixed(1):0;
+  if(key==='_a40')return mpg>0?+(apg*40/mpg).toFixed(1):0;
+  if(key==='_r40')return mpg>0?+(rpg*40/mpg).toFixed(1):0;
+  if(key==='_ts'){var fga=parseFloat(p.fga)||0,fta=parseFloat(p.fta)||0,d=2*(fga+0.44*fta);return d>0?+(ppg/d*100).toFixed(1):0;}
+  var v=parseFloat(p[key]); return isNaN(v)?null:v;
+}
+function initExplorer(){
+  if(expReady) return; expReady=true;
+  var optHtml=EXP_STATS.map(function(s){return '<option value="'+s.k+'">'+s.l+'</option>';}).join('');
+  var x=document.getElementById('expX'), y=document.getElementById('expY');
+  x.innerHTML=optHtml; y.innerHTML=optHtml;
+  x.value='_ht'; y.value='_a40';   // the user's example: height vs assist rate
+}
+function setExpSeason(s){
+  expSeason=s;
+  document.querySelectorAll('#expSeasonSeg button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-s')===s);});
+  renderExplorer();
+}
+function renderExplorer(){
+  var pool=expSeason==='2627'?allPlayerProj:allDbPlayers;
+  if(!pool||!pool.length||typeof Chart==='undefined') return;
+  var xk=document.getElementById('expX').value, yk=document.getElementById('expY').value;
+  var posF=document.getElementById('expPos').value;
+  var minM=parseFloat(document.getElementById('expMin').value)||0;
+  var xl=(EXP_STATS.find(function(s){return s.k===xk;})||{}).l||xk;
+  var yl=(EXP_STATS.find(function(s){return s.k===yk;})||{}).l||yk;
+  var COL={G:'#B16BFF',W:'#38BDF8',B:'#FF4D9D'};
+  var groups={G:[],W:[],B:[]};
+  pool.forEach(function(p){
+    if((parseFloat(p.mpg)||0)<minM) return;
+    var g=expPosGrp(p.position); if(posF&&g!==posF) return;
+    var xv=expVal(p,xk), yv=expVal(p,yk);
+    if(xv==null||yv==null||isNaN(xv)||isNaN(yv)) return;
+    if(xk!=='_ht'&&xv===0&&yk!=='_ht'&&yv===0) return;  // drop empty rows
+    groups[g].push({x:xv,y:yv,nm:p.name,tm:p.team,pos:p.position||g});
+  });
+  var datasets=['G','W','B'].map(function(g){return {
+    label:{G:'Guards',W:'Wings',B:'Bigs'}[g],
+    data:groups[g], backgroundColor:COL[g]+'cc', borderColor:COL[g], pointRadius:3.4, pointHoverRadius:6.5
+  };});
+  var isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  var grid=isDark?'rgba(255,255,255,.07)':'rgba(0,0,0,.07)', tickc=isDark?'#9a93b8':'#6d6589';
+  var total=groups.G.length+groups.W.length+groups.B.length;
+  document.getElementById('expNote').innerHTML='<b>'+total+'</b> players · '+(expSeason==='2627'?'2026-27 projected':'2025-26 actual')+' · '+xl+' (x) vs '+yl+' (y) · hover any point for the player';
+  if(expChart) expChart.destroy();
+  var ctx=document.getElementById('expChart').getContext('2d');
+  expChart=new Chart(ctx,{type:'scatter',data:{datasets:datasets},options:{
+    responsive:true,maintainAspectRatio:false,animation:{duration:500},
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){var d=c.raw;return d.nm+' ('+d.pos+', '+d.tm+') — '+xl+': '+d.x+', '+yl+': '+d.y;}}}},
+    scales:{
+      x:{title:{display:true,text:xl,color:tickc,font:{weight:'700',size:12}},grid:{color:grid},ticks:{color:tickc}},
+      y:{title:{display:true,text:yl,color:tickc,font:{weight:'700',size:12}},grid:{color:grid},ticks:{color:tickc}}
+    }
+  }});
 }
 
 
