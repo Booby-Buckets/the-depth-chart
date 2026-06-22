@@ -1657,7 +1657,15 @@ function _impComponents(s,D){
     efficiency: (_impPctOf(D.fg_pct,+s.fg_pct||0)+_impPctOf(D.ft_pct,+s.ft_pct||0)+_impPctOf(D.tp_pct,+s.tp_pct||0))/3
   };
 }
-function _impScore(c){ return 0.30*c.scoring+0.20*c.creation+0.15*c.rebounding+0.17*c.defense+0.18*c.efficiency; }
+function _impScore(c){
+  // base weighted blend...
+  var base=0.30*c.scoring+0.20*c.creation+0.15*c.rebounding+0.17*c.defense+0.18*c.efficiency;
+  // ...plus a peak-skill bonus so being elite at something is highly valued
+  // (an elite creator/scorer shouldn't be dragged down by positional weak spots).
+  var arr=[c.scoring,c.creation,c.rebounding,c.defense,c.efficiency].sort(function(a,b){return b-a;});
+  var peak=0.62*arr[0]+0.38*arr[1];
+  return 0.5*base+0.5*peak;
+}
 function renderImpact(){
   var host=document.getElementById('impactSection'); if(!host||!player) return;
   var pool=window._tdcAllPlayers; if(!pool||!pool.length) return;
@@ -1689,7 +1697,7 @@ function renderImpact(){
       '<div class="impact-head">'+
         '<div class="impact-num">'+score+'<span>/100</span></div>'+
         '<div class="impact-meta"><div class="impact-rank">'+ord(rank)+' of '+M+' nationally</div>'+
-        '<div class="impact-pctl">Top '+(101-pctl<=1?'1':(101-pctl))+'% &middot; projected box-score impact</div></div>'+
+        '<div class="impact-pctl">Top '+(101-pctl<=1?'1':(101-pctl))+'% &middot; projected impact</div></div>'+
       '</div>'+
       '<div class="impact-bar"><i class="impact-fill" style="width:'+Math.max(score,2)+'%;"></i></div>'+
       '<div class="impact-grid">'+cards+'</div>'+
