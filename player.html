@@ -1616,11 +1616,24 @@ function getPct(val,key){
 // ── IMPACT SCORE ─────────────────────────────────────────
 // A box-score impact index (0-100) blending scoring, creation, rebounding,
 // defense and efficiency as national percentiles, plus a national rank.
+// assist-to-turnover ratio distribution (qualified players) — cached
+function _asttoArr(){
+  if(window.__asttoArr) return window.__asttoArr;
+  var a=(allPlayers||[]).filter(function(r){return (parseFloat(r.mpg)||0)>=10 && r.apg!=null;})
+    .map(function(r){return (parseFloat(r.apg)||0)/Math.max(0.7,(parseFloat(r.tovs)||0));})
+    .filter(function(v){return !isNaN(v);}).sort(function(x,y){return x-y;});
+  window.__asttoArr=a; return a;
+}
+function _pctInArr(arr,v){if(!arr.length)return 0;var lo=0,hi=arr.length;while(lo<hi){var m=(lo+hi)>>1;if(arr[m]<v)lo=m+1;else hi=m;}return Math.round(lo/arr.length*100);}
 function _impactComponents(row){
   function pc(k,inv){var x=getPct(row[k],k);if(isNaN(x))x=0;return inv?100-x:x;}
+  // Creation is assist-dominant; ball security judged by AST:TO ratio (which
+  // rewards high-usage playmakers) rather than raw turnover count.
+  var apg=parseFloat(row.apg)||0, tov=parseFloat(row.tovs)||0;
+  var asttoPct=_pctInArr(_asttoArr(), apg/Math.max(0.7,tov));
   return {
     scoring:    pc('ppg'),
-    creation:   0.7*pc('apg')+0.3*pc('tovs',true),
+    creation:   0.74*pc('apg')+0.26*asttoPct,
     rebounding: pc('rpg'),
     defense:    (pc('stl')+pc('blk'))/2,
     efficiency: (pc('fg_pct')+pc('ft_pct')+pc('tp_pct'))/3
