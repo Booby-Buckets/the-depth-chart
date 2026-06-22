@@ -285,6 +285,7 @@ body{background:transparent!important;}
 </footer>
 
 <script src="projection-engine.js"></script>
+<script src="bigboard-engine.js"></script>
 <script>
 const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -413,20 +414,11 @@ function eligible(p){
 }
 
 function buildBoard(){
-  var pool=allPlayers.filter(eligible);
-  pool.forEach(function(p){p._s=basisOf(p);});
-  buildDist(pool);
-  pool.forEach(function(p){var sc=scoreProspect(p);p._sc=sc;});
-  pool.sort(function(a,b){return b._sc.blended-a._sc.blended || (parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0);});
-  // stretch the display scale: #1 ≈ 93, end of two rounds (≈60th) ≈ 68
-  var hi=pool.length?pool[0]._sc.blended:100;
-  var loIdx=Math.min(pool.length-1,59);
-  var lo=pool.length?pool[loIdx]._sc.blended:0;
-  var gain=(hi>lo)?(93-68)/(hi-lo):1;
-  pool.forEach(function(p){p._sc.overall=clamp(68+(p._sc.blended-lo)*gain);});
-  prospects=pool;
-  prospectById={};
-  prospects.forEach(function(p,i){p.rank=i+1;prospectById[p.id]=p;});
+  // Delegate scoring to the shared engine so player.html's prospect sticker
+  // ranks identically. (Local scoreProspect/buildDist/etc. remain for reference.)
+  var res=TDC_BIGBOARD.compute(allPlayers, teamMap, {season:season, projById:projById, projReady:projReady});
+  prospects=res.prospects;
+  prospectById=res.byId;
 }
 
 // ── color for pillar values ──

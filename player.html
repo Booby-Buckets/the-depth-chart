@@ -51,6 +51,13 @@
     .hero-grade-wrap{display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;padding-left:6px;}
     .hero-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:60px;line-height:.9;background:linear-gradient(155deg, color-mix(in srgb, var(--tc) 88%, #fff), var(--tc));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;filter:drop-shadow(0 4px 18px color-mix(in srgb, var(--tc) 40%, transparent));}
     .hero-grade-lbl{font-size:9px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text3);}
+    /* NBA Draft prospect sticker */
+    .draft-sticker{display:inline-flex;align-items:center;gap:11px;margin-top:14px;padding:7px 16px 7px 11px;border-radius:30px;background:linear-gradient(100deg, color-mix(in srgb, var(--tc) 30%, var(--bg2)), var(--bg2) 80%);border:1px solid color-mix(in srgb, var(--tc) 50%, var(--border2));box-shadow:0 0 0 1px color-mix(in srgb, var(--tc) 16%, transparent), 0 6px 22px color-mix(in srgb, var(--tc) 20%, rgba(0,0,0,.32));animation:gradeStamp .55s .35s cubic-bezier(.34,1.46,.64,1) both;}
+    .ds-rank{font-family:'Playfair Display',serif;font-weight:800;font-size:23px;line-height:1;background:linear-gradient(150deg, color-mix(in srgb, var(--tc) 88%, #fff), var(--tc));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;}
+    .ds-text{display:flex;flex-direction:column;line-height:1.18;}
+    .ds-lbl{font-size:8.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--text3);}
+    .ds-pos{font-size:12px;font-weight:800;color:var(--text);}
+    .ds-emoji{font-size:15px;}
     .gA{color:#071e5a;}.gB{color:#1040b8;}.gC{color:#4278d4;}.gD{color:#88aadd;}.gF{color:#b8cee8;}
 
     /* STAT TOGGLE */
@@ -278,6 +285,7 @@ body{background:transparent!important;}
     .arch-note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:10px;}
 </style>
   <script src="tdc-engine.js"></script>
+  <script src="bigboard-engine.js"></script>
 </head>
 <body>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
@@ -1423,6 +1431,7 @@ async function init(){
         const tnameLower=(player.team||'').toLowerCase().trim();
         teamData=allTeams.find(t=>(t.name||'').toLowerCase().trim()===tnameLower)||{};
         teamConf=teamData?.conf||teamData?.conference||'';
+        window._tdcTeamMap={}; allTeams.forEach(t=>{window._tdcTeamMap[t.name]=t;});
       }
     } catch(e2){ teamData={}; }
 
@@ -1521,6 +1530,7 @@ async function init(){
     }
 
     renderPage();
+    loadDraftSticker();
   }catch(e){
     console.error('Player load error:',e);
     document.getElementById('heroSection').innerHTML=`<div style="padding:80px;text-align:center;"><div style="font-family:'Playfair Display',serif;font-weight:800;font-size:24px;margin-bottom:8px;">Player not found</div><p style="color:var(--text3);margin-bottom:16px;">${e.message}</p><a href="roster.html" style="color:var(--accent);">← Back to players</a></div>`;
@@ -1636,6 +1646,33 @@ function applyTeamTheme(color){
   rs.setProperty('--bgm3',_rgba(c1,.32)); rs.setProperty('--bgm4',_rgba(c3,.22));
 }
 
+// ── NBA Draft prospect sticker (top-100 of the shared Big Board) ──
+async function loadDraftSticker(){
+  try{
+    if(!player||typeof TDC_BIGBOARD==='undefined') return;
+    var teamMap=window._tdcTeamMap||{};
+    var players=[], page=0, PAGE=1000;
+    while(true){
+      var from=page*PAGE, to=from+PAGE-1;
+      var r=await fetch(SB+'/rest/v1/players?select=id,name,team,position,height,class_year,yr,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,fga,fta,stl,blk,tovs,tdc_grade&name=neq.'+encodeURIComponent('—')+'&order=name.asc',{headers:Object.assign({},H,{'Range-Unit':'items','Range':from+'-'+to})});
+      var batch=await r.json();
+      if(!Array.isArray(batch)||!batch.length) break;
+      players=players.concat(batch);
+      if(batch.length<PAGE) break; page++;
+    }
+    if(!players.length) return;
+    var res=TDC_BIGBOARD.compute(players, teamMap, {season:'2526'});
+    var me=res.byId[player.id];
+    if(!me || me.rank>100) return;
+    var el=document.getElementById('draftSticker'); if(!el) return;
+    el.innerHTML='<div class="draft-sticker" title="Ranked #'+me.rank+' on The Depth Chart Big Board — 2026 NBA Draft">'+
+      '<span class="ds-emoji">🏀</span>'+
+      '<span class="ds-rank">#'+me.rank+'</span>'+
+      '<span class="ds-text"><span class="ds-lbl">Big Board Prospect</span><span class="ds-pos">#'+me.posRank+' '+me.posLabel+' &middot; top 100</span></span>'+
+    '</div>';
+  }catch(e){}
+}
+
 function renderPage(){
   const p=player;
   const color=teamData?.color||'#888';
@@ -1668,6 +1705,7 @@ function renderPage(){
           ${p.starter?`<div class="hero-meta-item">⭐ <strong>Returning Starter</strong></div>`:''}
           ${proj&&proj._origin?`<div class="hero-meta-item">🔄 Transfer mult: <strong style="color:var(--accent);">×${r1(proj._factor)}</strong></div>`:''}
         </div>
+        <div id="draftSticker"></div>
       </div>
       ${p.tdc_grade?`<div class="hero-grade-wrap"><div class="hero-grade">${p.tdc_grade}</div><div class="hero-grade-lbl">TDC Grade</div></div>`:''}
     </div>
