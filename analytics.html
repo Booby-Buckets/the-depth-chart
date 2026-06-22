@@ -232,7 +232,7 @@ body{background:transparent!important;}
     <div style="position:relative;width:100%;height:300px;"><canvas id="powerChart"></canvas></div>
   </div>
   <div class="table-wrap"><table id="powerTable"><thead id="pwrThead"></thead><tbody id="pwrTbody"></tbody></table></div>
-  <div class="pwr-note">Power Rating is a projected team-strength index (100 = average) anchored to the TDC roster ranking and adjusted by each team's projected statistical profile — offensive efficiency (points per possession), defensive activity and ball security. The ranking sets the baseline so power stays consistent with the board; the stats nudge teams a few spots. Δ shows how much the stats move a team off its TDC rank (＋ = stats see it better than the rank, − = worse).</div>
+  <div class="pwr-note"><b>Power</b> is a projected <b>Net Rating</b> (ORtg − DRtg), standardized so 100 = D1 average. Everything is built from our <b>2026-27 projections</b> — an edge over sites using last year's stats. <b>ORtg</b> (offense) blends roster scoring talent with tempo-free four-factor efficiency (eFG%, turnovers, offensive rebounding, free-throw rate). <b>DRtg</b> (defense) is roster-based — projected defensive talent, rim protection/size, and disruption — since box scores can't measure points allowed. Δ shows where a team's analytics land vs your TDC ranking (▲ = stats see it higher, ▼ = lower). Hover any column header for its definition.</div>
 </div>
 
 <!-- PROJECTED STATS VIEW -->
@@ -1168,13 +1168,30 @@ function applyPredictionWalls(projected){
   });
 }
 
+function _htIn(h){const m=(''+(h||'')).match(/(\d+)\s*[-']\s*(\d+)/);return m?(+m[1])*12+(+m[2]):0;}
 function buildRow(team, conf, proj){
   const r1 = v => Math.round((v+Number.EPSILON)*10)/10;
   const active = proj.filter(p=>!p._dnp&&!p._injured&&(parseFloat(p.ppg||0)>0||p._noStatEst));
   if(!active.length) return null;
   const sum  = k => active.reduce((s,p)=>s+(parseFloat(p[k]||0)||0),0);
   const wavg = (n,d) => { const nv=active.reduce((s,p)=>s+(parseFloat(p[n]||0)||0),0), dv=active.reduce((s,p)=>s+(parseFloat(p[d]||0)||0),0); return dv>0?r1(nv/dv*100):0; };
-  return { name:team.name, conf, color:team.color||teamColors[team.name]||'#666', tdcRank:team.tdc_rank_num||null, stats:{
+  // ── roster-based defensive inputs (the data the box stats can't see) ──
+  // minute-weighted size, talent, and rim-protection from the projected rotation
+  let mTot=0, htW=0, grW=0, bigHt=0, bigMin=0, blkMin=0, stlMin=0, drbMin=0;
+  active.forEach(p=>{
+    const mp=parseFloat(p.mpg||0)||0; if(mp<=0) return;
+    const h=_htIn(p.height), g=parseFloat(p.tdc_grade)||70;
+    const pos=((p.position||'')+'').toUpperCase().split(/[\/,\s]/)[0];
+    mTot+=mp; htW+=h*mp; grW+=g*mp;
+    if(pos==='PF'||pos==='C'){ bigHt+=h*mp; bigMin+=mp; }
+    blkMin+=(parseFloat(p.blk||0)||0); stlMin+=(parseFloat(p.stl||0)||0); drbMin+=(parseFloat(p.dreb||0)||0);
+  });
+  const avgHt   = mTot>0 ? htW/mTot : 77;
+  const avgGrade= mTot>0 ? grW/mTot : 70;
+  const frontHt = bigMin>0 ? bigHt/bigMin : avgHt;
+  return { name:team.name, conf, color:team.color||teamColors[team.name]||'#666', tdcRank:team.tdc_rank_num||null,
+    def:{ avgHt:avgHt, avgGrade:avgGrade, frontHt:frontHt },
+    stats:{
     ppg:r1(sum('ppg')), rpg:r1(sum('rpg')), apg:r1(sum('apg')),
     fg:wavg('fgm','fga'), tp:wavg('tpm','tpa'), ft:wavg('ftm','fta'),
     fga:r1(sum('fga')), tpa:r1(sum('tpa')),
@@ -1278,33 +1295,60 @@ function tierFor(rank,n){
 }
 function computePower(){
   if(!allRows.length) return;
+  const r1=v=>Math.round(v*10)/10;
+  // ── per-team tempo-free advanced metrics (offense from projected box stats) ──
   allRows.forEach(r=>{
     const s=r.stats;
-    const poss=Math.max(45,(s.fga||0)+(s.tov||0)-(s.oreb||0));
-    r.ortg=Math.round(((s.ppg||0)/poss*100)*10)/10;        // points per 100 possessions
-    r._defRaw=(s.stl||0)*1.6+(s.blk||0)*1.4+(s.dreb||0)*0.55; // defensive activity
-    r._secRaw=-(s.tov||0);                                  // ball security (fewer TOV better)
+    const fga=s.fga||0, tpa=s.tpa||0, tov=s.tov||0, oreb=s.oreb||0, dreb=s.dreb||0, ppg=s.ppg||0;
+    const fgm=fga*(s.fg||0)/100, tpm=tpa*(s.tp||0)/100;
+    const ftPct=(s.ft||0)/100 || 0.7;
+    const ftm=Math.max(0, ppg-(2*fgm+tpm)), fta=ftPct>0?ftm/ftPct:0;
+    const poss=Math.max(55, fga - oreb + tov + 0.44*fta);
+    r.adv={
+      poss:r1(poss),
+      ortg:ppg/poss*100,
+      efg:fga>0?(fgm+0.5*tpm)/fga*100:0,
+      ts:(fga+fta)>0?ppg/(2*(fga+0.44*fta))*100:0,
+      tovr:tov/poss*100,
+      orebr:(fga-fgm)>0?oreb/(fga-fgm)*100:0,
+      ftr:fga>0?fta/fga*100:0,
+      tpar:fga>0?tpa/fga*100:0,
+      astto:tov>0?(s.apg||0)/tov:0,
+      blk100:(s.blk||0)/poss*100, stl100:(s.stl||0)/poss*100, dreb100:(s.dreb||0)/poss*100
+    };
   });
   const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
   const std=(a,m)=>Math.sqrt(a.reduce((x,y)=>x+(y-m)*(y-m),0)/a.length)||1;
-  const Z=key=>{const arr=allRows.map(r=>r[key]);const m=mean(arr),sd=std(arr,m);return r=>(r[key]-m)/sd;};
-  const zo=Z('ortg'), zd=Z('_defRaw'), zs=Z('_secRaw');
+  const Zf=g=>{const arr=allRows.map(g);const m=mean(arr),sd=std(arr,m);return v=>(v-m)/sd;};
+  const zOrtg=Zf(r=>r.adv.ortg), zEfg=Zf(r=>r.adv.efg), zTov=Zf(r=>r.adv.tovr), zOreb=Zf(r=>r.adv.orebr), zFtr=Zf(r=>r.adv.ftr);
+  const zBlk=Zf(r=>r.adv.blk100), zStl=Zf(r=>r.adv.stl100), zDreb=Zf(r=>r.adv.dreb100);
+  const zFront=Zf(r=>r.def.frontHt), zTal=Zf(r=>r.def.avgGrade);
+  const meanOrtg=mean(allRows.map(r=>r.adv.ortg));
   allRows.forEach(r=>{
-    r.offZ=zo(r); r.defZ=zd(r); r.secZ=zs(r);
-    r.offRating=Math.round((100+r.offZ*8)*10)/10;
-    r.defRating=Math.round((100+r.defZ*8)*10)/10;
-    // statistical efficiency index (offense, defensive activity, ball security)
-    const statZ=r.offZ*0.50 + r.defZ*0.30 + r.secZ*0.20;
-    r.statZ=statZ; r.powerZ=statZ;
-    // POWER = projected team strength, ANCHORED to the TDC ranking and then
-    // nudged by the statistical profile. This keeps power consistent with the
-    // board (a team ranked ~50th can't read as a top-10 power) while letting an
-    // unusually efficient roster move a handful of spots. Box-score stats alone
-    // (which can't see points allowed) overrated stat-padding mid-tier teams.
-    const base = r.tdcRank ? (122 - 14*Math.log10(r.tdcRank)) : (100 + statZ*8);
-    const statAdj = Math.max(-2.5, Math.min(2.5, statZ)) * 2.0;
-    r.power = Math.round((base + statAdj)*10)/10;
+    const a=r.adv, d=r.def;
+    // component z-scores
+    const offEffZ = 0.55*zOrtg(a.ortg) + 0.20*zEfg(a.efg) + 0.12*(-zTov(a.tovr)) + 0.08*zOreb(a.orebr) + 0.05*zFtr(a.ftr);
+    const defProfZ = 0.30*zFront(d.frontHt) + 0.26*zBlk(a.blk100) + 0.22*zStl(a.stl100) + 0.22*zDreb(a.dreb100);
+    const talZ = zTal(d.avgGrade);   // minute-weighted roster talent (the reliable preseason signal)
+    a.offEffZ=offEffZ; a.defProfZ=defProfZ; a.talZ=talZ;
+    // OFFENSE = roster scoring talent + projected efficiency (efficiency clamped so
+    // a wildly inflated projected ORtg can't dominate)
+    const offZ = 0.55*talZ + 0.45*Math.max(-2,Math.min(2,offEffZ));
+    // DEFENSE = mostly roster talent (who's actually guarding) + a light defensive
+    // profile. Box-score activity (steals/blocks/rebounds) is a weak, often
+    // misleading proxy for defensive quality, so it gets a small weight.
+    const defZ = 0.75*talZ + 0.25*defProfZ;
+    a.offZ=offZ; a.defZ=defZ;
+    a.adjO=meanOrtg+offZ*7;            // projected pts scored / 100 poss
+    a.adjD=meanOrtg-defZ*7;            // projected pts allowed / 100 poss (lower = better)
+    a.net=a.adjO-a.adjD;
+    r.adjO=r1(a.adjO); r.adjD=r1(a.adjD); r.netRating=r1(a.net);
+    r.offRating=Math.round((100+offZ*8)*10)/10;
+    r.defRating=Math.round((100+defZ*8)*10)/10;   // higher = better D (for superlatives)
   });
+  // POWER = standardized Net Rating (100 = average)
+  const zNet=Zf(r=>r.adv.net);
+  allRows.forEach(r=>{ r.power=Math.round((100+zNet(r.adv.net)*8)*10)/10; });
   const sorted=[...allRows].sort((a,b)=>b.power-a.power);
   sorted.forEach((r,i)=>{ r.powerRank=i+1; r.tier=tierFor(i+1,sorted.length); });
 }
@@ -1315,31 +1359,46 @@ function renderSupers(){
   const card=(label,team,val)=>`<div class="pwr-super"><div class="pwr-super-l">${label}</div>
     <div class="pwr-super-team"><span class="team-dot" style="background:${team.color};"></span>${team.name}</div>
     <div class="pwr-super-v">${val}</div></div>`;
-  const topOff=best('offRating'), topDef=best('defRating'), top3=bestStat('tp'), topPace=bestStat('fga'), bestBall=bestStat('tov',true);
+  const byMax=g=>allRows.slice().sort((a,b)=>g(b)-g(a))[0];
+  const byMin=g=>allRows.slice().sort((a,b)=>g(a)-g(b))[0];
+  const topOff=byMax(r=>r.adjO), topDef=byMin(r=>r.adjD), topNet=byMax(r=>r.netRating);
+  const top3=byMax(r=>r.stats.tp), bestBall=byMin(r=>r.adv.tovr);
   document.getElementById('pwrSupers').innerHTML=
-    card('Best Offense',topOff,'Off '+topOff.offRating.toFixed(1))+
-    card('Best Defense',topDef,'Def '+topDef.defRating.toFixed(1))+
-    card('Best 3P Shooting',top3,top3.stats.tp+'%')+
-    card('Fastest Pace',topPace,topPace.stats.fga+' FGA')+
-    card('Best Ball Security',bestBall,bestBall.stats.tov+' TOV');
+    card('Best Offense',topOff,topOff.adjO.toFixed(1)+' ORtg')+
+    card('Best Defense',topDef,topDef.adjD.toFixed(1)+' DRtg')+
+    card('Best Net Rating',topNet,(topNet.netRating>0?'+':'')+topNet.netRating.toFixed(1))+
+    card('Best 3P Shooting',top3,top3.stats.tp.toFixed(1)+'%')+
+    card('Best Ball Security',bestBall,bestBall.adv.tovr.toFixed(1)+'% TOV');
 }
 function renderPower(){
   const rows=getFilteredRows().slice().sort((a,b)=>a.powerRank-b.powerRank);
   document.getElementById('countEl').innerHTML=`<strong>${rows.length}</strong> teams`;
   renderSupers();
-  document.getElementById('pwrThead').innerHTML=`<tr><th class="left">RK</th><th class="left">TEAM</th>
-    <th class="col-hide">CONF</th><th>POWER</th><th>OFF</th><th>DEF</th><th class="col-hide">Δ TDC</th><th class="left">TIER</th></tr>`;
+  const ACOLS=[
+    {l:'POWER',t:'Net-rating power index (100 = D1 average)',f:r=>`<span class="pwr-val">${r.power.toFixed(1)}</span>`},
+    {l:'NET',t:'Projected scoring margin per 100 possessions (ORtg − DRtg)',f:r=>`<span style="font-weight:700;color:${r.netRating>=0?'var(--green)':'var(--red)'};">${r.netRating>0?'+':''}${r.netRating.toFixed(1)}</span>`},
+    {l:'ORtg',t:'Projected offense — points scored per 100 possessions',f:r=>r.adjO.toFixed(1)},
+    {l:'DRtg',t:'Projected defense — points allowed per 100 possessions (lower is better)',f:r=>r.adjD.toFixed(1)},
+    {l:'eFG%',t:'Effective field goal % (weights threes)',f:r=>r.adv.efg.toFixed(1)},
+    {l:'TS%',t:'True shooting % (includes FTs)',f:r=>r.adv.ts.toFixed(1)},
+    {l:'TOV%',t:'Turnover rate (turnovers per 100 possessions)',f:r=>r.adv.tovr.toFixed(1)},
+    {l:'OREB%',t:'Offensive rebound rate',f:r=>r.adv.orebr.toFixed(1)},
+    {l:'FTr',t:'Free-throw rate (FTA per 100 FGA)',f:r=>r.adv.ftr.toFixed(0)},
+    {l:'3PA%',t:'Share of field-goal attempts from three',f:r=>r.adv.tpar.toFixed(0)},
+    {l:'A/TO',t:'Assist-to-turnover ratio',f:r=>r.adv.astto.toFixed(2)},
+    {l:'PACE',t:'Possessions per game',f:r=>r.adv.poss.toFixed(1)}
+  ];
+  document.getElementById('pwrThead').innerHTML=`<tr><th class="left">RK</th><th class="left">TEAM</th><th class="col-hide">CONF</th>`+
+    ACOLS.map(c=>`<th title="${c.t}">${c.l}</th>`).join('')+`<th class="col-hide" title="Power rank vs your TDC ranking">Δ</th><th class="left">TIER</th></tr>`;
   document.getElementById('pwrTbody').innerHTML=rows.map(r=>{
     const d=(r.tdcRank!=null)?(r.tdcRank-r.powerRank):null;
     const dHtml=d==null?'<span class="pwr-delta-eq">—</span>':(d>0?`<span class="pwr-delta-up">▲${d}</span>`:d<0?`<span class="pwr-delta-dn">▼${-d}</span>`:'<span class="pwr-delta-eq">—</span>');
     return `<tr>
       <td class="left"><span class="pwr-rank">${r.powerRank}</span></td>
       <td class="left"><span class="pwr-team-name"><a href="team.html?team=${encodeURIComponent(r.name)}"><span class="team-dot" style="display:inline-block;background:${r.color};margin-right:6px;"></span>${r.name}</a></span></td>
-      <td class="col-hide" style="color:var(--text3);">${r.conf||''}</td>
-      <td><span class="pwr-val">${r.power.toFixed(1)}</span></td>
-      <td>${r.offRating.toFixed(1)}</td>
-      <td>${r.defRating.toFixed(1)}</td>
-      <td class="col-hide">${dHtml}</td>
+      <td class="col-hide" style="color:var(--text3);">${r.conf||''}</td>`+
+      ACOLS.map(c=>`<td>${c.f(r)}</td>`).join('')+
+      `<td class="col-hide">${dHtml}</td>
       <td class="left"><span class="tier-badge" style="background:${r.tier.c};">${r.tier.l}</span></td>
     </tr>`;
   }).join('');
