@@ -94,6 +94,23 @@
     .sc-arrow{font-size:11px;font-weight:700;color:var(--text3);}
     .sc-proj{font-family:'Playfair Display',serif;font-weight:800;font-size:21px;line-height:1;color:var(--accent);}
     .stat-card .stat-card-label.top{margin-bottom:0;}
+    /* IMPACT SCORE */
+    .impact-wrap{border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:26px;background:linear-gradient(150deg, color-mix(in srgb, var(--tc) 9%, var(--bg2)), var(--bg2) 70%);position:relative;overflow:hidden;}
+    .impact-head{display:flex;align-items:center;gap:18px;margin-bottom:14px;}
+    .impact-num{font-family:'Playfair Display',serif;font-weight:800;font-size:52px;line-height:.9;background:linear-gradient(150deg, color-mix(in srgb,var(--tc) 88%,#fff), var(--tc));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;}
+    .impact-num span{font-size:18px;color:var(--text3);-webkit-text-fill-color:var(--text3);}
+    .impact-meta{flex:1;}
+    .impact-rank{font-size:14px;font-weight:800;color:var(--text);}
+    .impact-pctl{font-size:11px;font-weight:600;color:var(--text3);margin-top:2px;text-transform:uppercase;letter-spacing:.04em;}
+    .impact-bar{height:8px;border-radius:5px;background:var(--bg3);overflow:hidden;margin-bottom:18px;}
+    .impact-bar .impact-fill{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg, color-mix(in srgb,var(--tc) 60%,#fff), var(--tc));}
+    .impact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:10px;}
+    .imp-card{background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:11px 12px;}
+    .imp-card-l{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
+    .imp-card-v{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1;color:var(--text);margin-bottom:8px;}
+    .imp-card-bar{height:4px;border-radius:3px;background:var(--bg3);overflow:hidden;}
+    .imp-card-bar .impact-fill{display:block;height:100%;border-radius:3px;}
+    .impact-fill{transition:width .85s cubic-bezier(.22,1,.36,1);}
     .stat-card-diff.up{color:var(--green);}.stat-card-diff.dn{color:var(--red);}.stat-card-diff.eq{color:var(--text3);}
 
     /* FULL STAT TABLE */
@@ -1557,6 +1574,54 @@ function getPct(val,key){
   return p; // TOV: higher raw rank shown directly — consistent with national comparison
 }
 
+// ── IMPACT SCORE ─────────────────────────────────────────
+// A box-score impact index (0-100) blending scoring, creation, rebounding,
+// defense and efficiency as national percentiles, plus a national rank.
+function _impactComponents(row){
+  function pc(k,inv){var x=getPct(row[k],k);if(isNaN(x))x=0;return inv?100-x:x;}
+  return {
+    scoring:    pc('ppg'),
+    creation:   0.7*pc('apg')+0.3*pc('tovs',true),
+    rebounding: pc('rpg'),
+    defense:    (pc('stl')+pc('blk'))/2,
+    efficiency: (pc('fg_pct')+pc('ft_pct')+pc('tp_pct'))/3
+  };
+}
+function _impactScore(c){ return 0.30*c.scoring+0.20*c.creation+0.15*c.rebounding+0.17*c.defense+0.18*c.efficiency; }
+function buildImpact(p){
+  if(!p||!(parseFloat(p.ppg)>0)||typeof getPct!=='function') return '';
+  var c=_impactComponents(p), my=_impactScore(c), score=Math.round(my);
+  // rank vs all qualified D1 players (mpg>=10) using the same stat pool
+  var pool=(allPlayers||[]).filter(function(r){return (parseFloat(r.mpg)||0)>=10 && r.ppg!=null;});
+  var scores=pool.map(function(r){return _impactScore(_impactComponents(r));});
+  var M=scores.length||1, better=scores.filter(function(v){return v>my+0.0001;}).length, rank=better+1;
+  var pctl=Math.max(1,Math.round((1-(rank-1)/M)*100));
+  function ord(n){var s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
+  var comps=[
+    {l:'Scoring',v:Math.round(c.scoring)},
+    {l:'Creation',v:Math.round(c.creation)},
+    {l:'Rebounding',v:Math.round(c.rebounding)},
+    {l:'Defense',v:Math.round(c.defense)},
+    {l:'Efficiency',v:Math.round(c.efficiency)}
+  ];
+  var cards=comps.map(function(g){
+    var col='var(--tc)';
+    return '<div class="imp-card"><div class="imp-card-l">'+g.l+'</div>'+
+      '<div class="imp-card-v">'+g.v+'</div>'+
+      '<div class="imp-card-bar"><i class="impact-fill" style="width:'+Math.max(g.v,2)+'%;background:'+col+';"></i></div></div>';
+  }).join('');
+  return '<div class="sec-title" style="margin-bottom:14px;">Impact Score</div>'+
+    '<div class="impact-wrap">'+
+      '<div class="impact-head">'+
+        '<div class="impact-num">'+score+'<span>/100</span></div>'+
+        '<div class="impact-meta"><div class="impact-rank">'+ord(rank)+' of '+M+' nationally</div>'+
+        '<div class="impact-pctl">Top '+(101-pctl<=1?'1':(101-pctl))+'% &middot; box-score impact</div></div>'+
+      '</div>'+
+      '<div class="impact-bar"><i class="impact-fill" style="width:'+Math.max(score,2)+'%;"></i></div>'+
+      '<div class="impact-grid">'+cards+'</div>'+
+    '</div>';
+}
+
 function buildOverviewCards(p, proj){
   const STATS = [{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},{l:'MPG',k:'mpg'},
     {l:'FG%',k:'fg_pct',pct:true},{l:'3P%',k:'tp_pct',pct:true},{l:'FT%',k:'ft_pct',pct:true},
@@ -1735,6 +1800,7 @@ function renderPage(){
     <!-- OVERVIEW TAB -->
     <div class="tab-panel active" id="panel-overview">
       ${buildOverviewCards(p, proj)}
+      ${buildImpact(p)}
       <div class="sec-title" style="margin-bottom:16px;">Skill Profile</div>
       <div class="radar-wrap"><canvas id="radarChart" width="340" height="340"></canvas></div>
       <div class="radar-legend" id="radarLegend"></div>
@@ -2051,7 +2117,7 @@ function animateRadar(){
 function growBarsIn(root){
   if(!root) return;
   var i=0;
-  root.querySelectorAll('.pct-fill,.skill-bar-fill,.scout-rating-fill').forEach(function(el){
+  root.querySelectorAll('.pct-fill,.skill-bar-fill,.scout-rating-fill,.impact-fill').forEach(function(el){
     var w=el.style.width; if(!w||w==='0%'||w==='0px') return;
     el.style.width='0'; el.getBoundingClientRect();
     (function(el,w,d){ setTimeout(function(){ el.style.width=w; }, 60+d*40); })(el,w,i++);
