@@ -1136,6 +1136,8 @@ let allPlayerProj = [];     // projected 2026-27 player rows (engine)
 let expChart = null, expSeason='2526', expReady=false;
 let sortCol    = 'ppg';
 let sortAsc    = false;
+let pwrSortKey = 'rk';   // power table sort (default = power rank ascending)
+let pwrSortAsc = true;
 
 function applyPredictionWalls(projected){
   const active=projected.filter(p=>!p._dnp&&!p._injured&&(parseFloat(p.ppg||0)>0||p._noStatEst));
@@ -1370,26 +1372,47 @@ function renderSupers(){
     card('Best 3P Shooting',top3,top3.stats.tp.toFixed(1)+'%')+
     card('Best Ball Security',bestBall,bestBall.adv.tovr.toFixed(1)+'% TOV');
 }
+const PWR_COLS=[
+  {l:'POWER',key:'power',t:'Net-rating power index (100 = D1 average)',v:r=>r.power,f:r=>`<span class="pwr-val">${r.power.toFixed(1)}</span>`},
+  {l:'NET',key:'net',t:'Projected scoring margin per 100 possessions (ORtg − DRtg)',v:r=>r.netRating,f:r=>`<span style="font-weight:700;color:${r.netRating>=0?'var(--green)':'var(--red)'};">${r.netRating>0?'+':''}${r.netRating.toFixed(1)}</span>`},
+  {l:'ORtg',key:'o',t:'Projected offense — points scored per 100 possessions',v:r=>r.adjO,f:r=>r.adjO.toFixed(1)},
+  {l:'DRtg',key:'d',t:'Projected defense — points allowed per 100 possessions (lower is better)',lowGood:1,v:r=>r.adjD,f:r=>r.adjD.toFixed(1)},
+  {l:'eFG%',key:'efg',t:'Effective field goal % (weights threes)',v:r=>r.adv.efg,f:r=>r.adv.efg.toFixed(1)},
+  {l:'TS%',key:'ts',t:'True shooting % (includes FTs)',v:r=>r.adv.ts,f:r=>r.adv.ts.toFixed(1)},
+  {l:'TOV%',key:'tov',t:'Turnover rate (turnovers per 100 possessions)',lowGood:1,v:r=>r.adv.tovr,f:r=>r.adv.tovr.toFixed(1)},
+  {l:'OREB%',key:'oreb',t:'Offensive rebound rate',v:r=>r.adv.orebr,f:r=>r.adv.orebr.toFixed(1)},
+  {l:'FTr',key:'ftr',t:'Free-throw rate (FTA per 100 FGA)',v:r=>r.adv.ftr,f:r=>r.adv.ftr.toFixed(0)},
+  {l:'3PA%',key:'tpar',t:'Share of field-goal attempts from three',v:r=>r.adv.tpar,f:r=>r.adv.tpar.toFixed(0)},
+  {l:'A/TO',key:'astto',t:'Assist-to-turnover ratio',v:r=>r.adv.astto,f:r=>r.adv.astto.toFixed(2)},
+  {l:'PACE',key:'pace',t:'Possessions per game',v:r=>r.adv.poss,f:r=>r.adv.poss.toFixed(1)}
+];
+function pwrValOf(r,key){
+  if(key==='rk') return r.powerRank;
+  if(key==='name') return r.name;
+  if(key==='conf') return r.conf||'';
+  if(key==='delta') return (r.tdcRank!=null)?(r.tdcRank-r.powerRank):-9999;
+  const c=PWR_COLS.find(x=>x.key===key); return c?c.v(r):0;
+}
+function setPwrSort(key){
+  if(pwrSortKey===key) pwrSortAsc=!pwrSortAsc;
+  else { pwrSortKey=key; const c=PWR_COLS.find(x=>x.key===key); pwrSortAsc = (key==='name'||key==='conf'||key==='rk'||!!(c&&c.lowGood)); }
+  renderPower();
+}
 function renderPower(){
-  const rows=getFilteredRows().slice().sort((a,b)=>a.powerRank-b.powerRank);
+  const arr=k=>pwrSortKey===k?(pwrSortAsc?'↑':'↓'):'↕';
+  const rows=getFilteredRows().slice().sort((a,b)=>{
+    let av=pwrValOf(a,pwrSortKey), bv=pwrValOf(b,pwrSortKey);
+    if(typeof av==='string') return pwrSortAsc?av.localeCompare(bv):bv.localeCompare(av);
+    return pwrSortAsc?av-bv:bv-av;
+  });
   document.getElementById('countEl').innerHTML=`<strong>${rows.length}</strong> teams`;
   renderSupers();
-  const ACOLS=[
-    {l:'POWER',t:'Net-rating power index (100 = D1 average)',f:r=>`<span class="pwr-val">${r.power.toFixed(1)}</span>`},
-    {l:'NET',t:'Projected scoring margin per 100 possessions (ORtg − DRtg)',f:r=>`<span style="font-weight:700;color:${r.netRating>=0?'var(--green)':'var(--red)'};">${r.netRating>0?'+':''}${r.netRating.toFixed(1)}</span>`},
-    {l:'ORtg',t:'Projected offense — points scored per 100 possessions',f:r=>r.adjO.toFixed(1)},
-    {l:'DRtg',t:'Projected defense — points allowed per 100 possessions (lower is better)',f:r=>r.adjD.toFixed(1)},
-    {l:'eFG%',t:'Effective field goal % (weights threes)',f:r=>r.adv.efg.toFixed(1)},
-    {l:'TS%',t:'True shooting % (includes FTs)',f:r=>r.adv.ts.toFixed(1)},
-    {l:'TOV%',t:'Turnover rate (turnovers per 100 possessions)',f:r=>r.adv.tovr.toFixed(1)},
-    {l:'OREB%',t:'Offensive rebound rate',f:r=>r.adv.orebr.toFixed(1)},
-    {l:'FTr',t:'Free-throw rate (FTA per 100 FGA)',f:r=>r.adv.ftr.toFixed(0)},
-    {l:'3PA%',t:'Share of field-goal attempts from three',f:r=>r.adv.tpar.toFixed(0)},
-    {l:'A/TO',t:'Assist-to-turnover ratio',f:r=>r.adv.astto.toFixed(2)},
-    {l:'PACE',t:'Possessions per game',f:r=>r.adv.poss.toFixed(1)}
-  ];
-  document.getElementById('pwrThead').innerHTML=`<tr><th class="left">RK</th><th class="left">TEAM</th><th class="col-hide">CONF</th>`+
-    ACOLS.map(c=>`<th title="${c.t}">${c.l}</th>`).join('')+`<th class="col-hide" title="Power rank vs your TDC ranking">Δ</th><th class="left">TIER</th></tr>`;
+  const th=(key,label,cls,title)=>`<th class="${cls||''}${pwrSortKey===key?' sorted':''}"${title?` title="${title}"`:''} onclick="setPwrSort('${key}')">${label} <span class="sort-arrow">${arr(key)}</span></th>`;
+  document.getElementById('pwrThead').innerHTML=`<tr>`+
+    th('rk','RK','left')+th('name','TEAM','left')+th('conf','CONF','col-hide')+
+    PWR_COLS.map(c=>th(c.key,c.l,'',c.t)).join('')+
+    th('delta','Δ','col-hide','Power rank vs your TDC ranking')+
+    `<th class="left">TIER</th></tr>`;
   document.getElementById('pwrTbody').innerHTML=rows.map(r=>{
     const d=(r.tdcRank!=null)?(r.tdcRank-r.powerRank):null;
     const dHtml=d==null?'<span class="pwr-delta-eq">—</span>':(d>0?`<span class="pwr-delta-up">▲${d}</span>`:d<0?`<span class="pwr-delta-dn">▼${-d}</span>`:'<span class="pwr-delta-eq">—</span>');
@@ -1397,12 +1420,13 @@ function renderPower(){
       <td class="left"><span class="pwr-rank">${r.powerRank}</span></td>
       <td class="left"><span class="pwr-team-name"><a href="team.html?team=${encodeURIComponent(r.name)}"><span class="team-dot" style="display:inline-block;background:${r.color};margin-right:6px;"></span>${r.name}</a></span></td>
       <td class="col-hide" style="color:var(--text3);">${r.conf||''}</td>`+
-      ACOLS.map(c=>`<td>${c.f(r)}</td>`).join('')+
+      PWR_COLS.map(c=>`<td>${c.f(r)}</td>`).join('')+
       `<td class="col-hide">${dHtml}</td>
       <td class="left"><span class="tier-badge" style="background:${r.tier.c};">${r.tier.l}</span></td>
     </tr>`;
   }).join('');
-  renderPowerChart(rows.slice(0,16));
+  // chart always shows the top 16 by power, regardless of table sort
+  renderPowerChart(getFilteredRows().slice().sort((a,b)=>a.powerRank-b.powerRank).slice(0,16));
 }
 function renderPowerChart(rows){
   const ctx=document.getElementById('powerChart'); if(!ctx) return;
