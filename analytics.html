@@ -232,7 +232,7 @@ body{background:transparent!important;}
     <div style="position:relative;width:100%;height:300px;"><canvas id="powerChart"></canvas></div>
   </div>
   <div class="table-wrap"><table id="powerTable"><thead id="pwrThead"></thead><tbody id="pwrTbody"></tbody></table></div>
-  <div class="pwr-note">Power Rating is a tempo-free index built from projected offensive efficiency (points per possession), shooting, defensive activity (steals, blocks, defensive rebounding) and ball security, standardized across all D1 teams (100 = average). Δ shows movement vs the TDC roster rank.</div>
+  <div class="pwr-note">Power Rating is a projected team-strength index (100 = average) anchored to the TDC roster ranking and adjusted by each team's projected statistical profile — offensive efficiency (points per possession), defensive activity and ball security. The ranking sets the baseline so power stays consistent with the board; the stats nudge teams a few spots. Δ shows how much the stats move a team off its TDC rank (＋ = stats see it better than the rank, − = worse).</div>
 </div>
 
 <!-- PROJECTED STATS VIEW -->
@@ -1291,10 +1291,19 @@ function computePower(){
   const zo=Z('ortg'), zd=Z('_defRaw'), zs=Z('_secRaw');
   allRows.forEach(r=>{
     r.offZ=zo(r); r.defZ=zd(r); r.secZ=zs(r);
-    r.powerZ=r.offZ*0.50 + r.defZ*0.38 + r.secZ*0.12;
-    r.power=Math.round((100+r.powerZ*8)*10)/10;
     r.offRating=Math.round((100+r.offZ*8)*10)/10;
     r.defRating=Math.round((100+r.defZ*8)*10)/10;
+    // statistical efficiency index (offense, defensive activity, ball security)
+    const statZ=r.offZ*0.50 + r.defZ*0.30 + r.secZ*0.20;
+    r.statZ=statZ; r.powerZ=statZ;
+    // POWER = projected team strength, ANCHORED to the TDC ranking and then
+    // nudged by the statistical profile. This keeps power consistent with the
+    // board (a team ranked ~50th can't read as a top-10 power) while letting an
+    // unusually efficient roster move a handful of spots. Box-score stats alone
+    // (which can't see points allowed) overrated stat-padding mid-tier teams.
+    const base = r.tdcRank ? (122 - 14*Math.log10(r.tdcRank)) : (100 + statZ*8);
+    const statAdj = Math.max(-2.5, Math.min(2.5, statZ)) * 2.0;
+    r.power = Math.round((base + statAdj)*10)/10;
   });
   const sorted=[...allRows].sort((a,b)=>b.power-a.power);
   sorted.forEach((r,i)=>{ r.powerRank=i+1; r.tier=tierFor(i+1,sorted.length); });
