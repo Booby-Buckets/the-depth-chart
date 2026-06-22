@@ -111,6 +111,33 @@
     .imp-card-bar{height:4px;border-radius:3px;background:var(--bg3);overflow:hidden;}
     .imp-card-bar .impact-fill{display:block;height:100%;border-radius:3px;}
     .impact-fill{transition:width .85s cubic-bezier(.22,1,.36,1);}
+    /* PLAYER SPECTRUM */
+    .spec-wrap{border:1px solid var(--border);border-radius:12px;padding:18px 20px 20px;margin-bottom:26px;background:var(--bg2);}
+    .spec-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+    .spec-sel{padding:8px 12px;border:1px solid var(--border2);border-radius:7px;background:var(--bg);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:var(--text);outline:none;cursor:pointer;}
+    .spec-sel:focus{border-color:var(--accent);}
+    .spec-vs{font-size:12px;font-weight:700;color:var(--text3);}
+    .spec-poles{display:flex;justify-content:space-between;font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--text3);margin-bottom:6px;}
+    .spec-poles b{color:var(--text2);}
+    .spec-mid{color:var(--text3);}
+    @media(max-width:560px){.spec-mid{display:none;}}
+    .spec-band{position:relative;height:230px;border-radius:10px;overflow:hidden;background:linear-gradient(90deg, rgba(79,147,196,.10), rgba(255,255,255,0) 38%, rgba(255,255,255,0) 62%, rgba(224,130,60,.10));border:1px solid var(--border);}
+    .spec-band::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:1px;border-left:1px dashed var(--border2);}
+    .spec-dot{position:absolute;width:11px;height:11px;border-radius:50%;opacity:.5;transform:translate(-50%,-50%);transition:opacity .2s;}
+    .spec-dot.me{width:20px;height:20px;opacity:1;z-index:5;border:2px solid var(--bg);}
+    .spec-melabel{position:absolute;top:calc(50% - 22px);transform:translateX(-50%);font-size:10px;font-weight:800;letter-spacing:.03em;color:var(--text);background:var(--bg);border:1px solid var(--border2);border-radius:5px;padding:3px 8px;white-space:nowrap;z-index:6;}
+    .spec-splitlbl{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px;}
+    .spec-split{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+    .spec-pct{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;flex-shrink:0;}
+    .spec-pct.l{color:#4f93c4;} .spec-pct.r{color:#e0823c;}
+    .spec-bar{flex:1;height:10px;border-radius:6px;overflow:hidden;display:flex;background:var(--bg3);}
+    .spec-bar i{display:block;height:100%;transition:width .7s cubic-bezier(.22,1,.36,1);}
+    .spec-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+    .spec-card{border:1px solid var(--border);border-radius:10px;padding:13px 14px;background:var(--bg);}
+    .spec-card.l{border-top:2px solid #4f93c4;} .spec-card.r{border-top:2px solid #e0823c;}
+    .spec-card-l{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+    .spec-card-v{font-family:'Playfair Display',serif;font-weight:800;font-size:30px;line-height:1;}
+    .spec-card-s{font-size:10px;font-weight:600;color:var(--text3);margin-top:6px;}
     .stat-card-diff.up{color:var(--green);}.stat-card-diff.dn{color:var(--red);}.stat-card-diff.eq{color:var(--text3);}
 
     /* FULL STAT TABLE */
@@ -1728,28 +1755,114 @@ function applyTeamTheme(color){
 // ── NBA Draft prospect sticker (top-100 of the shared Big Board) ──
 async function loadDraftSticker(){
   try{
-    if(!player||typeof TDC_BIGBOARD==='undefined') return;
+    if(!player) return;
     var teamMap=window._tdcTeamMap||{};
     var players=[], page=0, PAGE=1000;
     while(true){
       var from=page*PAGE, to=from+PAGE-1;
-      var r=await fetch(SB+'/rest/v1/players?select=id,name,team,position,height,class_year,yr,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,fga,fta,stl,blk,tovs,tdc_grade&name=neq.'+encodeURIComponent('—')+'&order=name.asc',{headers:Object.assign({},H,{'Range-Unit':'items','Range':from+'-'+to})});
+      var r=await fetch(SB+'/rest/v1/players?select=id,name,team,position,height,class_year,yr,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,fga,fta,fgm,tpm,tpa,oreb,dreb,stl,blk,tovs,gp,tdc_grade&name=neq.'+encodeURIComponent('—')+'&order=name.asc',{headers:Object.assign({},H,{'Range-Unit':'items','Range':from+'-'+to})});
       var batch=await r.json();
       if(!Array.isArray(batch)||!batch.length) break;
       players=players.concat(batch);
       if(batch.length<PAGE) break; page++;
     }
     if(!players.length) return;
-    var res=TDC_BIGBOARD.compute(players, teamMap, {season:'2526'});
-    var me=res.byId[player.id];
-    if(!me || me.rank>100) return;
-    var el=document.getElementById('draftSticker'); if(!el) return;
-    el.innerHTML='<div class="draft-sticker" title="Ranked #'+me.rank+' on The Depth Chart Big Board — 2026 NBA Draft">'+
-      '<span class="ds-emoji">🏀</span>'+
-      '<span class="ds-rank">#'+me.rank+'</span>'+
-      '<span class="ds-text"><span class="ds-lbl">Big Board Prospect</span><span class="ds-pos">#'+me.posRank+' '+me.posLabel+' &middot; top 100</span></span>'+
-    '</div>';
+    window._tdcAllPlayers=players;
+    // draft sticker (top-100 of the shared Big Board)
+    if(typeof TDC_BIGBOARD!=='undefined'){
+      var res=TDC_BIGBOARD.compute(players, teamMap, {season:'2526'});
+      var me=res.byId[player.id];
+      var el=document.getElementById('draftSticker');
+      if(el && me && me.rank<=100){
+        el.innerHTML='<div class="draft-sticker" title="Ranked #'+me.rank+' on The Depth Chart Big Board — 2026 NBA Draft">'+
+          '<span class="ds-emoji">🏀</span>'+
+          '<span class="ds-rank">#'+me.rank+'</span>'+
+          '<span class="ds-text"><span class="ds-lbl">Big Board Prospect</span><span class="ds-pos">#'+me.posRank+' '+me.posLabel+' &middot; top 100</span></span>'+
+        '</div>';
+      }
+    }
+    // player spectrum (uses the same pool)
+    buildSpectrum();
   }catch(e){}
+}
+
+// ── PLAYER SPECTRUM ──────────────────────────────────────
+// Position the player on a customizable A ←→ B axis vs all qualifying
+// players, with a split bar and three per-game cards. Pick any two metrics.
+var SPEC_METRICS=[
+  {k:'fga2',l:'2PT Attempts', f:function(p){return Math.max(0,(+p.fga||0)-(+p.tpa||0));}},
+  {k:'fga3',l:'3PT Attempts', f:function(p){return +p.tpa||0;}},
+  {k:'pts2',l:'2PT Points',   f:function(p){return Math.max(0,2*((+p.fgm||0)-(+p.tpm||0)));}},
+  {k:'pts3',l:'3PT Points',   f:function(p){return 3*(+p.tpm||0);}},
+  {k:'ppg', l:'Points',       f:function(p){return +p.ppg||0;}},
+  {k:'rpg', l:'Rebounds',     f:function(p){return +p.rpg||0;}},
+  {k:'apg', l:'Assists',      f:function(p){return +p.apg||0;}},
+  {k:'stl', l:'Steals',       f:function(p){return +p.stl||0;}},
+  {k:'blk', l:'Blocks',       f:function(p){return +p.blk||0;}},
+  {k:'tovs',l:'Turnovers',    f:function(p){return +p.tovs||0;}},
+  {k:'oreb',l:'Off Rebounds', f:function(p){return +p.oreb||0;}},
+  {k:'dreb',l:'Def Rebounds', f:function(p){return +p.dreb||0;}},
+  {k:'fta', l:'FT Attempts',  f:function(p){return +p.fta||0;}},
+  {k:'fga', l:'FG Attempts',  f:function(p){return +p.fga||0;}}
+];
+function _specJitter(name){var h=0,s=(name||'')+'';for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))&0xffff;return (h%1000)/1000;}
+function buildSpectrum(){
+  var sec=document.getElementById('spectrumSection');
+  if(!sec||!player||!window._tdcAllPlayers) return;
+  var opt=function(sel){return SPEC_METRICS.map(function(m){return '<option value="'+m.k+'"'+(m.k===sel?' selected':'')+'>'+m.l+'</option>';}).join('');};
+  sec.innerHTML=
+    '<div class="sec-title" style="margin-bottom:14px;">Player Spectrum</div>'+
+    '<div class="spec-wrap">'+
+      '<div class="spec-controls">'+
+        '<select class="spec-sel" id="specA" onchange="renderSpectrum()">'+opt('fga2')+'</select>'+
+        '<span class="spec-vs">&harr;</span>'+
+        '<select class="spec-sel" id="specB" onchange="renderSpectrum()">'+opt('fga3')+'</select>'+
+      '</div>'+
+      '<div class="spec-poles"><span>&larr; PURE <b id="spPoleA"></b></span><span class="spec-mid">BALANCED</span><span>PURE <b id="spPoleB"></b> &rarr;</span></div>'+
+      '<div class="spec-band" id="specBand"></div>'+
+      '<div class="spec-splitlbl" id="spSplitLbl"></div>'+
+      '<div class="spec-split"><span class="spec-pct l" id="spPctA"></span><div class="spec-bar"><i id="spBarA"></i><i id="spBarB"></i></div><span class="spec-pct r" id="spPctB"></span></div>'+
+      '<div class="spec-cards" id="specCards"></div>'+
+    '</div>';
+  renderSpectrum();
+}
+function renderSpectrum(){
+  var pool=window._tdcAllPlayers; if(!pool||!player) return;
+  var ak=document.getElementById('specA').value, bk=document.getElementById('specB').value;
+  var A=SPEC_METRICS.find(function(m){return m.k===ak;}), B=SPEC_METRICS.find(function(m){return m.k===bk;});
+  if(!A||!B) return;
+  var LCOL='#4f93c4', RCOL='#e0823c', tc=(teamData&&teamData.color)||'#B16BFF';
+  function ratio(p){var a=A.f(p),b=B.f(p),t=a+b;return t>0?b/t:null;}
+  // cloud
+  var dots='';
+  pool.forEach(function(p){
+    if((+p.mpg||0)<10) return;
+    var rr=ratio(p); if(rr==null) return;
+    var x=(3+rr*94).toFixed(2), y=(8+_specJitter(p.name+p.team)*84).toFixed(2);
+    var col=rr<0.42?LCOL:rr>0.58?RCOL:'#8a9a7a';
+    dots+='<span class="spec-dot" style="left:'+x+'%;top:'+y+'%;background:'+col+';"></span>';
+  });
+  var myR=ratio(player);
+  if(myR!=null){
+    var mx=(3+myR*94).toFixed(2);
+    dots+='<span class="spec-dot me" style="left:'+mx+'%;top:50%;background:'+tc+';box-shadow:0 0 0 4px color-mix(in srgb,'+tc+' 22%,transparent),0 4px 14px rgba(0,0,0,.4);"></span>';
+    dots+='<span class="spec-melabel" style="left:'+mx+'%;">'+(player.name||'').toUpperCase()+'</span>';
+  }
+  document.getElementById('specBand').innerHTML=dots;
+  document.getElementById('spPoleA').textContent=A.l.toUpperCase();
+  document.getElementById('spPoleB').textContent=B.l.toUpperCase();
+  // split + cards for the viewed player
+  var a=A.f(player), b=B.f(player), t=a+b;
+  var aPct=t>0?a/t*100:50, bPct=100-aPct;
+  document.getElementById('spSplitLbl').innerHTML='SPLIT &mdash; '+A.l.toUpperCase()+' VS '+B.l.toUpperCase();
+  document.getElementById('spPctA').textContent=aPct.toFixed(1)+'%';
+  document.getElementById('spPctB').textContent=bPct.toFixed(1)+'%';
+  document.getElementById('spBarA').style.cssText='width:'+aPct+'%;background:'+LCOL+';';
+  document.getElementById('spBarB').style.cssText='width:'+bPct+'%;background:'+RCOL+';';
+  var gp=+player.gp||0;
+  function cd(lbl,val,seas,col,cls){return '<div class="spec-card '+cls+'"><div class="spec-card-l">'+lbl+' / G</div><div class="spec-card-v" style="color:'+col+';">'+val.toFixed(1)+'</div><div class="spec-card-s">'+(gp?Math.round(val*gp)+' season':'&nbsp;')+'</div></div>';}
+  document.getElementById('specCards').innerHTML=
+    cd(A.l,a,gp,LCOL,'l')+cd('Total',t,gp,'var(--text)','')+cd(B.l,b,gp,RCOL,'r');
 }
 
 function renderPage(){
@@ -1801,6 +1914,7 @@ function renderPage(){
     <div class="tab-panel active" id="panel-overview">
       ${buildOverviewCards(p, proj)}
       ${buildImpact(p)}
+      <div id="spectrumSection"></div>
       <div class="sec-title" style="margin-bottom:16px;">Skill Profile</div>
       <div class="radar-wrap"><canvas id="radarChart" width="340" height="340"></canvas></div>
       <div class="radar-legend" id="radarLegend"></div>
