@@ -81,7 +81,7 @@
     .tab-panel.leaving{animation:tabOut .14s ease forwards;pointer-events:none;}
 
     /* STAT CARDS */
-    .stat-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(116px,1fr));gap:8px;margin-bottom:24px;}
+    .stat-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:8px;margin-bottom:24px;}
     .stat-card{border:1px solid var(--border);padding:12px 10px;text-align:center;position:relative;border-radius:8px;transition:border-color .2s ease, box-shadow .25s ease, background .25s ease;}
     .stat-card:hover{border-color:color-mix(in srgb, var(--tc) 55%, var(--border2));background:color-mix(in srgb, var(--tc) 8%, transparent);box-shadow:0 0 0 1px color-mix(in srgb, var(--tc) 28%, transparent), 0 6px 22px color-mix(in srgb, var(--tc) 16%, rgba(0,0,0,.28));}
     .stat-card-val{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;line-height:1;margin-bottom:3px;}
@@ -1711,25 +1711,16 @@ function buildOverviewCards(p, proj){
       +'</div>';
   }
 
-  // MERGED view — one card per stat: last-year value → projected value + diff
-  function mergedCards(actual, projd){
-    return STATS.map(s=>{
-      const lv = s.pct ? fmtP(actual[s.k]) : fmt(actual[s.k]);
-      const pv = s.pct ? fmtP(projd[s.k]) : fmt(projd[s.k]);
-      const d  = r1((parseFloat(projd[s.k])||0)-(parseFloat(actual[s.k])||0));
-      const invert = s.l==='TO';
-      const cls = invert ? (d<-0.05?'up':d>0.05?'dn':'eq') : (d>0.05?'up':d<-0.05?'dn':'eq');
-      return '<div class="stat-card"><div class="stat-card-label top">'+s.l+'</div>'
-        +'<div class="sc-merge"><span class="sc-last">'+lv+'</span><span class="sc-arrow">&rarr;</span><span class="sc-proj">'+pv+'</span></div>'
-        +'<div class="stat-card-diff '+cls+'">'+(d>0.05?'+':'')+d+'</div></div>';
-    }).join('');
-  }
   const estBadge = proj._frosh ? ' <span style="font-size:9px;padding:1px 4px;background:rgba(139,105,20,.12);">EST</span>' : '';
-  return '<div style="margin-bottom:24px;">'
-    +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid var(--border2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
-      +'<span>2025-26 Actual</span><span style="color:var(--text3);">&rarr;</span><span style="color:var(--accent);">2026-27 Projected</span>'+estBadge
+  return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">'
+    +'<div>'
+    +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">2025-26 Actual</div>'
+    +'<div class="stat-cards">'+cards(p, false, null)+'</div>'
     +'</div>'
-    +'<div class="stat-cards">'+mergedCards(p, proj)+'</div>'
+    +'<div>'
+    +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--accent);">2026-27 Projected'+estBadge+'</div>'
+    +'<div class="stat-cards">'+cards(proj, true, p)+'</div>'
+    +'</div>'
     +'</div>';
 }
 
