@@ -153,6 +153,12 @@
 
     /* PERCENTILE BARS */
     /* PERCENTILE DISTRIBUTION CARDS */
+    .dist-controls{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;}
+    .dist-controls .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:3px;gap:3px;}
+    .dist-controls .seg button{font-size:11px;font-weight:700;letter-spacing:.03em;color:var(--text3);background:transparent;border:none;cursor:pointer;padding:7px 14px;border-radius:6px;transition:all .15s;white-space:nowrap;}
+    .dist-controls .seg button.on{background:var(--accent);color:#fff;}
+    [data-theme="dark"] .dist-controls .seg button.on{color:#0a0710;}
+    .dist-cap{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:14px;}
     .dist-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:8px;}
     .dist-card{border:1px solid var(--border);border-radius:11px;padding:15px 17px 12px;background:var(--bg2);}
     .dist-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px;}
@@ -1734,9 +1740,21 @@ function _distSvg(arr,val,mean,lo,hi,tc){
     '<circle cx="'+vx.toFixed(1)+'" cy="'+baseY+'" r="3.6" fill="'+tc+'"/>'+
     '</svg>';
 }
-function buildDistCards(p){
-  if(typeof gPct==='undefined'||!gPct.ppg) return '';
+function _segSync(id,idx){var seg=document.getElementById(id);if(!seg)return;var b=seg.querySelectorAll('button');for(var i=0;i<b.length;i++)b[i].classList.toggle('on',i===idx);}
+function setDistSeason(s){window._distSeason=s;_segSync('distSeasonSeg',s==='2526'?0:1);renderDist();}
+function setDistPop(pp){window._distPop=pp;_segSync('distPopSeg',pp==='all'?0:1);renderDist();}
+// distribution cards — population (all D1 / position group) × season (actual / projected)
+function renderDist(){
+  var host=document.getElementById('distSection'); if(!host||!player) return;
+  var pool=window._tdcAllPlayers;
+  if(!pool||!pool.length){host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Loading distributions…</div>';return;}
+  var season=window._distSeason||'2526', pop=window._distPop||'all';
+  var grp=_impPgrp(player.position), grpName=({G:'Guards',W:'Wings',B:'Bigs'})[grp];
   var tc=(teamData&&teamData.color)||'var(--accent)';
+  function line(r){return season==='2627'?projLine(r):r;}
+  var src=pop==='grp'?pool.filter(function(r){return _impPgrp(r.position)===grp;}):pool;
+  var lines=src.map(line).filter(function(l){return (parseFloat(l.mpg)||0)>=10;});
+  var myLine=line(player);
   var DS=[
     {k:'ppg',l:'Points / Game'},{k:'rpg',l:'Rebounds / Game'},{k:'apg',l:'Assists / Game'},
     {k:'mpg',l:'Minutes / Game'},{k:'fg_pct',l:'Field Goal %',pct:1},{k:'tp_pct',l:'Three-Point %',pct:1},
@@ -1744,16 +1762,14 @@ function buildDistCards(p){
     {k:'tovs',l:'Turnovers / Game',inv:1}
   ];
   var cards=DS.map(function(s){
-    var arr=gPct[s.k]||[]; if(!arr.length) return '';
-    var v=parseFloat(p[s.k]); if(isNaN(v)) v=0;
-    var N=arr.length, lo=arr[0], hi=arr[N-1];
+    var arr=lines.map(function(l){return parseFloat(l[s.k])||0;}).filter(function(v){return v>0;}).sort(function(a,b){return a-b;});
+    if(!arr.length) return '';
+    var v=parseFloat(myLine[s.k])||0, N=arr.length, lo=arr[0], hi=arr[N-1];
     var mean=arr.reduce(function(a,b){return a+b;},0)/N;
-    var basePct=getPct(v,s.k); if(isNaN(basePct))basePct=0;
-    var pct=s.inv?100-basePct:basePct;
+    var pct=_impPctOf(arr,v,s.inv);
     var li=_lb(arr,v), ui=_ub(arr,v);
     var rank=s.inv?(li+1):((N-ui)+1);
-    var valTxt=s.pct?fmtP(v):fmt(v);
-    var loTxt=s.pct?fmtP(lo):fmt(lo), hiTxt=s.pct?fmtP(hi):fmt(hi);
+    var valTxt=s.pct?fmtP(v):fmt(v), loTxt=s.pct?fmtP(lo):fmt(lo), hiTxt=s.pct?fmtP(hi):fmt(hi);
     return '<div class="dist-card">'+
       '<div class="dist-top"><div class="dist-name">'+s.l+'</div>'+
         '<div class="dist-rank" style="color:'+tc+';"><b>'+_ord(pct)+'</b> percentile<span>'+_ord(rank)+' of '+N+'</span></div></div>'+
@@ -1762,7 +1778,8 @@ function buildDistCards(p){
       '<div class="dist-axis"><span>'+loTxt+'</span><span>avg</span><span>'+hiTxt+'</span></div>'+
     '</div>';
   }).join('');
-  return '<div class="dist-grid">'+cards+'</div>';
+  var capPop=pop==='grp'?('vs '+grpName):'vs All D1', capSeason=season==='2627'?'2026-27 projected':'2025-26 actual';
+  host.innerHTML='<div class="dist-cap">'+capPop+' &middot; '+capSeason+' &middot; '+lines.length+' players</div><div class="dist-grid">'+cards+'</div>';
 }
 
 function buildOverviewCards(p, proj){
@@ -1888,9 +1905,10 @@ async function loadDraftSticker(){
         '</div>';
       }
     }
-    // predictive impact score + spectrum (both use the same pool)
+    // predictive impact, spectrum, and distribution cards (all use the pool)
     renderImpact();
     buildSpectrum();
+    renderDist();
   }catch(e){}
 }
 
@@ -2037,9 +2055,13 @@ function renderPage(){
 
     <!-- PERCENTILES TAB -->
     <div class="tab-panel" id="panel-percentiles">
-      <div class="sec-title" style="margin-bottom:16px;">National Percentiles — vs all D1 players in TDC database</div>
-      ${buildDistCards(p)}
-      <div style="font-size:11px;color:var(--text3);margin-top:12px;">Each curve is the full D1 distribution for that stat. The colored line marks ${p.name}; the dashed line is the D1 average. Turnovers are inverted — fewer is better.</div>
+      <div class="sec-title" style="margin-bottom:14px;">Percentile Distributions</div>
+      <div class="dist-controls">
+        <div class="seg sm" id="distSeasonSeg"><button class="on" onclick="setDistSeason('2526')">2025-26 Actual</button><button onclick="setDistSeason('2627')">2026-27 Projected</button></div>
+        <div class="seg sm" id="distPopSeg"><button class="on" onclick="setDistPop('all')">vs All D1</button><button onclick="setDistPop('grp')">vs ${({G:'Guards',W:'Wings',B:'Bigs'})[_impPgrp(p.position)]}</button></div>
+      </div>
+      <div id="distSection"><div style="padding:30px;text-align:center;color:var(--text3);">Loading distributions…</div></div>
+      <div style="font-size:11px;color:var(--text3);margin-top:12px;">Each curve is the chosen population's distribution for that stat. The colored line marks ${p.name}; the dashed line is that group's average. Turnovers are inverted — fewer is better.</div>
     </div>
 
     <!-- SCOUTING REPORT TAB -->
