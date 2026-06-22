@@ -2083,26 +2083,26 @@ function pctIn(arr,val,inv){if(!arr.length)return null;var v=parseFloat(val);if(
 // the player embodies that archetype's signature traits, 0-100.
 var ARCH_FIT={
   G:[
-    {label:'Lead',      terms:[{k:'apg',w:2.0},{k:'mpg',w:1.0},{k:'ppg',w:.8}]},
-    {label:'Scorer',    terms:[{k:'ppg',w:2.2},{k:'fg_pct',w:.6},{k:'mpg',w:.7}]},
-    {label:'Shooter',   terms:[{k:'tp_pct',w:2.2},{k:'ppg',w:.8}]},
-    {label:'Floor Gen.',terms:[{k:'apg',w:2.2},{k:'tovs',w:1.0,inv:1}]},
-    {label:'Defender',  terms:[{k:'stl',w:2.0},{k:'blk',w:.6}]},
-    {label:'Combo',     terms:[{k:'ppg',w:1.0},{k:'apg',w:1.0},{k:'tp_pct',w:1.0},{k:'stl',w:.8}]}
+    {label:'Lead',      name:'Lead Guard',     desc:'A primary ball-handler who runs the show, balancing volume scoring with high-usage playmaking.', terms:[{k:'apg',w:2.0},{k:'mpg',w:1.0},{k:'ppg',w:.8}]},
+    {label:'Scorer',    name:'Scoring Guard',  desc:'A bucket-getter who creates his own shot off the dribble and shoulders a heavy scoring load.', terms:[{k:'ppg',w:2.2},{k:'fg_pct',w:.6},{k:'mpg',w:.7}]},
+    {label:'Shooter',   name:'Shooting Guard', desc:'A perimeter sniper whose spacing and off-ball movement bend the defense and open driving lanes.', terms:[{k:'tp_pct',w:2.2},{k:'ppg',w:.8}]},
+    {label:'Floor Gen.',name:'Floor General',  desc:'A pass-first orchestrator who makes the offense run and prioritizes creating easy looks over hunting his own shot.', terms:[{k:'apg',w:2.2},{k:'tovs',w:1.0,inv:1}]},
+    {label:'Defender',  name:'Defensive Guard',desc:'A disruptive on-ball defender whose anticipation turns stops into transition offense.', terms:[{k:'stl',w:2.0},{k:'blk',w:.6}]},
+    {label:'Combo',     name:'Combo Guard',    desc:'A flexible guard who plays on or off the ball, contributing without a single dominant trait.', terms:[{k:'ppg',w:1.0},{k:'apg',w:1.0},{k:'tp_pct',w:1.0},{k:'stl',w:.8}]}
   ],
   W:[
-    {label:'Versatile', terms:[{k:'ppg',w:1.4},{k:'rpg',w:1.4},{k:'apg',w:1.2}]},
-    {label:'3-and-D',   terms:[{k:'tp_pct',w:2.0},{k:'stl',w:1.0},{k:'blk',w:.6}]},
-    {label:'Scorer',    terms:[{k:'ppg',w:2.2},{k:'fg_pct',w:.6}]},
-    {label:'Slasher',   terms:[{k:'ppg',w:1.4},{k:'fg_pct',w:1.2},{k:'ft_pct',w:.8}]},
-    {label:'Glue',      terms:[{k:'rpg',w:1.0},{k:'stl',w:.8},{k:'apg',w:.6},{k:'tovs',w:1.0,inv:1}]}
+    {label:'Versatile', name:'Versatile Wing', desc:'A do-it-all wing who scores, rebounds, and creates — the most coveted modern archetype.', terms:[{k:'ppg',w:1.4},{k:'rpg',w:1.4},{k:'apg',w:1.2}]},
+    {label:'3-and-D',   name:'3-and-D Wing',   desc:'A floor-spacing, defend-first wing built for winning basketball and clean lineup fit.', terms:[{k:'tp_pct',w:2.0},{k:'stl',w:1.0},{k:'blk',w:.6}]},
+    {label:'Scorer',    name:'Wing Scorer',    desc:'A primary perimeter scorer who creates in isolation and off movement at all three levels.', terms:[{k:'ppg',w:2.2},{k:'fg_pct',w:.6}]},
+    {label:'Slasher',   name:'Slashing Wing',  desc:'An attacking wing who pressures the rim and finishes through contact inside the arc.', terms:[{k:'ppg',w:1.4},{k:'fg_pct',w:1.2},{k:'ft_pct',w:.8}]},
+    {label:'Glue',      name:'Role Wing',      desc:'A connective wing whose value comes from spacing, defense, and effort plays.', terms:[{k:'rpg',w:1.0},{k:'stl',w:.8},{k:'apg',w:.6},{k:'tovs',w:1.0,inv:1}]}
   ],
   B:[
-    {label:'Anchor',    terms:[{k:'blk',w:2.2},{k:'rpg',w:1.4}]},
-    {label:'Stretch',   terms:[{k:'tp_pct',w:2.2},{k:'ppg',w:1.0}]},
-    {label:'Two-Way',   terms:[{k:'ppg',w:1.3},{k:'rpg',w:1.3},{k:'blk',w:1.3}]},
-    {label:'Scorer',    terms:[{k:'ppg',w:2.0},{k:'fg_pct',w:1.0}]},
-    {label:'Energy',    terms:[{k:'rpg',w:1.6},{k:'blk',w:.8},{k:'stl',w:.6}]}
+    {label:'Anchor',    name:'Interior Anchor',desc:'A rim-protecting, glass-cleaning presence who reshapes the defense around the paint.', terms:[{k:'blk',w:2.2},{k:'rpg',w:1.4}]},
+    {label:'Stretch',   name:'Stretch Big',    desc:'A modern big who spaces the floor with perimeter shooting and pulls defenders out of the paint.', terms:[{k:'tp_pct',w:2.2},{k:'ppg',w:1.0}]},
+    {label:'Two-Way',   name:'Two-Way Big',    desc:'A complete interior force on both ends — scores, controls the glass, and protects the rim.', terms:[{k:'ppg',w:1.3},{k:'rpg',w:1.3},{k:'blk',w:1.3}]},
+    {label:'Scorer',    name:'Scoring Big',    desc:'An interior scorer who punishes mismatches in the post and as a roll man.', terms:[{k:'ppg',w:2.0},{k:'fg_pct',w:1.0}]},
+    {label:'Energy',    name:'Energy Big',     desc:'A motor big who wins with rebounding, screens, and rim runs rather than volume scoring.', terms:[{k:'rpg',w:1.6},{k:'blk',w:.8},{k:'stl',w:.6}]}
   ]
 };
 function _archClose(src,terms){var sw=0,sv=0;terms.forEach(function(t){var pct=(typeof getPct==='function')?getPct(src[t.k],t.k):0;if(isNaN(pct))pct=0;if(t.inv)pct=100-pct;sw+=t.w;sv+=t.w*pct;});return sw?Math.round(sv/sw):0;}
@@ -2171,7 +2171,7 @@ async function renderArchetype(){
   if(!_allCurrent){
     try{ var rc=await fetch(SB+'/rest/v1/players?select=name,team,position,height,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,fgm,fga,tpm,tpa,ftm,fta,stl,blk,tovs,tdc_grade&ppg=not.is.null&limit=5000',{headers:H}); _allCurrent=rc.ok?await rc.json():[]; }catch(e){ _allCurrent=[]; }
   }
-  var info=archetypeInfo(player), grp=info.group;
+  var grp=_norm3(player.position);
   var pf=_feat(player), ph=_htIn(player.height);
 
   // archetype-fit radar — use projected basis when available, else actual
@@ -2180,6 +2180,9 @@ async function renderArchetype(){
   _archFitAxes=fit.axes; _archFitBest=fit.best;
   _archFitColor=(teamData&&teamData.color)||'#B16BFF';
   var fitBasis=(fitSrc===proj)?'projected':'current';
+  // hero archetype = the radar's strongest fit, so label and chart always agree
+  var bestDef=(ARCH_FIT[grp]||ARCH_FIT.W)[fit.best]||{name:'Combo Guard',desc:''};
+  var info={name:bestDef.name, desc:bestDef.desc, group:grp};
 
   // advanced percentile chart: national vs archetype peers
   var peerPool=_allCurrent.filter(function(q){return q.name&&q.name!=='—'&&(parseFloat(q.mpg)||0)>=10&&_norm3(q.position)===grp;});
