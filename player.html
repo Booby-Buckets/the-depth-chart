@@ -174,6 +174,7 @@
 
     /* RADAR / SPIDER CHART */
     .radar-wrap{display:flex;justify-content:center;margin-bottom:28px;}
+    .radar-wrap canvas{width:100%;max-width:460px;height:auto;}
     .radar-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:12px;}
     .radar-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--text3);}
     .radar-legend-dot{width:10px;height:10px;border-radius:50%;}
@@ -1613,65 +1614,87 @@ function getPct(val,key){
   return p; // TOV: higher raw rank shown directly — consistent with national comparison
 }
 
-// ── IMPACT SCORE ─────────────────────────────────────────
+// ── IMPACT SCORE (PREDICTIVE — 2026-27 projected) ─────────
 // A box-score impact index (0-100) blending scoring, creation, rebounding,
-// defense and efficiency as national percentiles, plus a national rank.
-// assist-to-turnover ratio distribution (qualified players) — cached
-function _asttoArr(){
-  if(window.__asttoArr) return window.__asttoArr;
-  var a=(allPlayers||[]).filter(function(r){return (parseFloat(r.mpg)||0)>=10 && r.apg!=null;})
-    .map(function(r){return (parseFloat(r.apg)||0)/Math.max(0.7,(parseFloat(r.tovs)||0));})
-    .filter(function(v){return !isNaN(v);}).sort(function(x,y){return x-y;});
-  window.__asttoArr=a; return a;
+// defense and efficiency — computed on PROJECTED stats and ranked against a
+// projected pool, so every player (incl. incoming freshmen) gets a score.
+var FROSH_BASE={
+  G:{ppg:8,rpg:2.5,apg:2.6,mpg:20,stl:0.8,blk:0.2,tovs:1.6,fga:7,fta:2.2,fgm:3,tpm:1,tpa:3,oreb:0.5,dreb:2,fg_pct:42,tp_pct:33,ft_pct:72},
+  W:{ppg:8,rpg:3.8,apg:1.5,mpg:20,stl:0.8,blk:0.5,tovs:1.3,fga:6.8,fta:2.4,fgm:3,tpm:0.8,tpa:2.4,oreb:1.2,dreb:2.6,fg_pct:44,tp_pct:33,ft_pct:70},
+  B:{ppg:7.5,rpg:5,apg:0.8,mpg:18,stl:0.5,blk:1.1,tovs:1.4,fga:6,fta:2.6,fgm:3,tpm:0.2,tpa:0.6,oreb:2,dreb:3.4,fg_pct:50,tp_pct:28,ft_pct:66}
+};
+function _impPgrp(pos){pos=((pos||'')+'').toUpperCase().split(/[\/,\s]/)[0];
+  if(pos==='PG'||pos==='SG'||pos==='G'||pos==='CG')return 'G';
+  if(pos==='SF'||pos==='F')return 'W'; if(pos==='PF'||pos==='C')return 'B'; return 'W';}
+// light, frosh-aware projected stat line (consistent across the whole pool)
+function projLine(p){
+  var yr=((p.class_year||p.yr||'')+'').toLowerCase();
+  var has=(parseFloat(p.ppg)||0)>0 || (parseFloat(p.mpg)||0)>=2;
+  var cnt=['ppg','rpg','apg','mpg','stl','blk','tovs','fga','fta','fgm','tpm','tpa','oreb','dreb'];
+  var o={};
+  if(has){
+    var mult=yr.indexOf('fr')>=0?1.12:yr.indexOf('so')>=0?1.10:yr.indexOf('jr')>=0?1.05:0.99;
+    var bump=yr.indexOf('fr')>=0?1.5:yr.indexOf('so')>=0?1.0:yr.indexOf('jr')>=0?0.5:0;
+    cnt.forEach(function(k){o[k]=(parseFloat(p[k])||0)*mult;});
+    ['fg_pct','tp_pct','ft_pct'].forEach(function(k){o[k]=(parseFloat(p[k])||0)+bump;});
+    return o;
+  }
+  // incoming freshman / no sample — estimate from grade + position
+  var g=parseFloat(p.tdc_grade)||72, sc=Math.max(0.4,Math.min(1.9,0.4+(g-70)*0.045));
+  var b=FROSH_BASE[_impPgrp(p.position)];
+  cnt.forEach(function(k){o[k]=b[k]*sc;});
+  ['fg_pct','tp_pct','ft_pct'].forEach(function(k){o[k]=b[k];});
+  return o;
 }
-function _pctInArr(arr,v){if(!arr.length)return 0;var lo=0,hi=arr.length;while(lo<hi){var m=(lo+hi)>>1;if(arr[m]<v)lo=m+1;else hi=m;}return Math.round(lo/arr.length*100);}
-function _impactComponents(row){
-  function pc(k,inv){var x=getPct(row[k],k);if(isNaN(x))x=0;return inv?100-x:x;}
-  // Creation is assist-dominant; ball security judged by AST:TO ratio (which
-  // rewards high-usage playmakers) rather than raw turnover count.
-  var apg=parseFloat(row.apg)||0, tov=parseFloat(row.tovs)||0;
-  var asttoPct=_pctInArr(_asttoArr(), apg/Math.max(0.7,tov));
+function _impPctOf(arr,v,inv){if(!arr||!arr.length)return 0;var lo=0,hi=arr.length;while(lo<hi){var m=(lo+hi)>>1;if(arr[m]<v)lo=m+1;else hi=m;}var pc=Math.round(lo/arr.length*100);return inv?100-pc:pc;}
+function _impComponents(s,D){
+  var apg=+s.apg||0, tov=+s.tovs||0, astto=apg/Math.max(0.7,tov);
   return {
-    scoring:    pc('ppg'),
-    creation:   0.74*pc('apg')+0.26*asttoPct,
-    rebounding: pc('rpg'),
-    defense:    (pc('stl')+pc('blk'))/2,
-    efficiency: (pc('fg_pct')+pc('ft_pct')+pc('tp_pct'))/3
+    scoring:    _impPctOf(D.ppg,+s.ppg||0),
+    creation:   0.74*_impPctOf(D.apg,apg)+0.26*_impPctOf(D.astto,astto),
+    rebounding: _impPctOf(D.rpg,+s.rpg||0),
+    defense:    (_impPctOf(D.stl,+s.stl||0)+_impPctOf(D.blk,+s.blk||0))/2,
+    efficiency: (_impPctOf(D.fg_pct,+s.fg_pct||0)+_impPctOf(D.ft_pct,+s.ft_pct||0)+_impPctOf(D.tp_pct,+s.tp_pct||0))/3
   };
 }
-function _impactScore(c){ return 0.30*c.scoring+0.20*c.creation+0.15*c.rebounding+0.17*c.defense+0.18*c.efficiency; }
-function buildImpact(p){
-  if(!p||!(parseFloat(p.ppg)>0)||typeof getPct!=='function') return '';
-  var c=_impactComponents(p), my=_impactScore(c), score=Math.round(my);
-  // rank vs all qualified D1 players (mpg>=10) using the same stat pool
-  var pool=(allPlayers||[]).filter(function(r){return (parseFloat(r.mpg)||0)>=10 && r.ppg!=null;});
-  var scores=pool.map(function(r){return _impactScore(_impactComponents(r));});
-  var M=scores.length||1, better=scores.filter(function(v){return v>my+0.0001;}).length, rank=better+1;
-  var pctl=Math.max(1,Math.round((1-(rank-1)/M)*100));
+function _impScore(c){ return 0.30*c.scoring+0.20*c.creation+0.15*c.rebounding+0.17*c.defense+0.18*c.efficiency; }
+function renderImpact(){
+  var host=document.getElementById('impactSection'); if(!host||!player) return;
+  var pool=window._tdcAllPlayers; if(!pool||!pool.length) return;
+  // project the whole pool, qualify by projected minutes
+  var lines=[];
+  pool.forEach(function(r){var pl=projLine(r); if((+pl.mpg||0)>=10) lines.push(pl);});
+  if(!lines.length) return;
+  var D={}; ['ppg','rpg','apg','stl','blk','fg_pct','tp_pct','ft_pct'].forEach(function(k){
+    D[k]=lines.map(function(l){return +l[k]||0;}).filter(function(v){return v>0;}).sort(function(a,b){return a-b;});});
+  D.astto=lines.map(function(l){return (+l.apg||0)/Math.max(0.7,(+l.tovs||0));}).filter(function(v){return !isNaN(v);}).sort(function(a,b){return a-b;});
+  var scores=lines.map(function(l){return _impScore(_impComponents(l,D));});
+  var myLine=projLine(player);
+  var c=_impComponents(myLine,D), my=_impScore(c), score=Math.round(my);
+  var M=scores.length, better=scores.filter(function(v){return v>my+0.0001;}).length, rank=better+1;
+  var pctl=Math.max(1,Math.round((1-(rank-1)/Math.max(1,M))*100));
   function ord(n){var s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
   var comps=[
-    {l:'Scoring',v:Math.round(c.scoring)},
-    {l:'Creation',v:Math.round(c.creation)},
-    {l:'Rebounding',v:Math.round(c.rebounding)},
-    {l:'Defense',v:Math.round(c.defense)},
+    {l:'Scoring',v:Math.round(c.scoring)},{l:'Creation',v:Math.round(c.creation)},
+    {l:'Rebounding',v:Math.round(c.rebounding)},{l:'Defense',v:Math.round(c.defense)},
     {l:'Efficiency',v:Math.round(c.efficiency)}
   ];
   var cards=comps.map(function(g){
-    var col='var(--tc)';
     return '<div class="imp-card"><div class="imp-card-l">'+g.l+'</div>'+
       '<div class="imp-card-v">'+g.v+'</div>'+
-      '<div class="imp-card-bar"><i class="impact-fill" style="width:'+Math.max(g.v,2)+'%;background:'+col+';"></i></div></div>';
+      '<div class="imp-card-bar"><i class="impact-fill" style="width:'+Math.max(g.v,2)+'%;background:var(--tc);"></i></div></div>';
   }).join('');
-  return '<div class="sec-title" style="margin-bottom:14px;">Impact Score</div>'+
+  host.innerHTML='<div class="sec-title" style="margin-bottom:14px;">Impact Score <span style="font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--accent);background:rgba(139,105,20,.12);padding:2px 6px;border-radius:4px;vertical-align:middle;">2026-27 PROJ</span></div>'+
     '<div class="impact-wrap">'+
       '<div class="impact-head">'+
         '<div class="impact-num">'+score+'<span>/100</span></div>'+
         '<div class="impact-meta"><div class="impact-rank">'+ord(rank)+' of '+M+' nationally</div>'+
-        '<div class="impact-pctl">Top '+(101-pctl<=1?'1':(101-pctl))+'% &middot; box-score impact</div></div>'+
+        '<div class="impact-pctl">Top '+(101-pctl<=1?'1':(101-pctl))+'% &middot; projected box-score impact</div></div>'+
       '</div>'+
       '<div class="impact-bar"><i class="impact-fill" style="width:'+Math.max(score,2)+'%;"></i></div>'+
       '<div class="impact-grid">'+cards+'</div>'+
     '</div>';
+  growBarsIn(host);
 }
 
 // ── PERCENTILE DISTRIBUTION CARDS ────────────────────────
@@ -1857,7 +1880,8 @@ async function loadDraftSticker(){
         '</div>';
       }
     }
-    // player spectrum (uses the same pool)
+    // predictive impact score + spectrum (both use the same pool)
+    renderImpact();
     buildSpectrum();
   }catch(e){}
 }
@@ -1989,10 +2013,10 @@ function renderPage(){
     <!-- OVERVIEW TAB -->
     <div class="tab-panel active" id="panel-overview">
       ${buildOverviewCards(p, proj)}
-      ${buildImpact(p)}
+      <div id="impactSection"></div>
       <div id="spectrumSection"></div>
       <div class="sec-title" style="margin-bottom:16px;">Skill Profile</div>
-      <div class="radar-wrap"><canvas id="radarChart" width="340" height="340"></canvas></div>
+      <div class="radar-wrap"><canvas id="radarChart" width="480" height="480"></canvas></div>
       <div class="radar-legend" id="radarLegend"></div>
       ${buildSkillBreakdown(p)}
     </div>
@@ -2526,7 +2550,7 @@ async function renderArchetype(){
     '<span class="arch-grp-pill">Compared within: '+({G:'Guards',W:'Wings',B:'Bigs'}[grp])+' · '+peerPool.length+' players</span></div></div>'+
     '<div class="arch-sec-h">Archetype Fit</div>'+
     '<div class="arch-note" style="margin-top:-4px;margin-bottom:8px;">How closely '+player.name+'&rsquo;s '+fitBasis+' profile matches each '+({G:'guard',W:'wing',B:'big'}[grp])+' archetype — strongest fit highlighted.</div>'+
-    '<div class="radar-wrap" style="margin-bottom:8px;"><canvas id="archRadar" width="360" height="360"></canvas></div>'+
+    '<div class="radar-wrap" style="margin-bottom:8px;"><canvas id="archRadar" width="440" height="440"></canvas></div>'+
     '<div class="arch-sec-h">Percentile — vs National &amp; Archetype</div>'+
     '<div class="arch-legend"><span><i style="background:var(--accent)"></i>vs All D1</span><span><i style="background:#5b9d8f"></i>vs '+({G:'Guards',W:'Wings',B:'Bigs'}[grp])+'</span></div>'+
     '<div class="arch-chart">'+cols+'</div>'+
