@@ -1678,13 +1678,20 @@ function projLine(p){
   return o;
 }
 function _impPctOf(arr,v,inv){if(!arr||!arr.length)return 0;var lo=0,hi=arr.length;while(lo<hi){var m=(lo+hi)>>1;if(arr[m]<v)lo=m+1;else hi=m;}var pc=Math.round(lo/arr.length*100);return inv?100-pc:pc;}
+// per-40 rate (minutes floored at 16 so low-minute lines aren't wildly inflated)
+function _imp40(s,k){var mp=Math.max(16,+s.mpg||16);return (+s[k]||0)*40/mp;}
 function _impComponents(s,D){
   var apg=+s.apg||0, tov=+s.tovs||0, astto=apg/Math.max(0.7,tov);
+  // each counting component blends per-game volume with per-40 production-in-role,
+  // so a strong-in-his-minutes bench player is rewarded, not just high-minute starters.
+  var W40=0.4;
+  function blend(k){return (1-W40)*_impPctOf(D[k],+s[k]||0)+W40*_impPctOf(D[k+'40'],_imp40(s,k));}
   return {
-    scoring:    _impPctOf(D.ppg,+s.ppg||0),
-    creation:   0.74*_impPctOf(D.apg,apg)+0.26*_impPctOf(D.astto,astto),
-    rebounding: _impPctOf(D.rpg,+s.rpg||0),
-    defense:    (_impPctOf(D.stl,+s.stl||0)+_impPctOf(D.blk,+s.blk||0))/2,
+    scoring:    blend('ppg'),
+    creation:   0.74*((1-W40)*_impPctOf(D.apg,apg)+W40*_impPctOf(D.apg40,_imp40(s,'apg')))+0.26*_impPctOf(D.astto,astto),
+    rebounding: blend('rpg'),
+    defense:    (1-W40)*((_impPctOf(D.stl,+s.stl||0)+_impPctOf(D.blk,+s.blk||0))/2)
+               +W40*((_impPctOf(D.stl40,_imp40(s,'stl'))+_impPctOf(D.blk40,_imp40(s,'blk')))/2),
     efficiency: (_impPctOf(D.fg_pct,+s.fg_pct||0)+_impPctOf(D.ft_pct,+s.ft_pct||0)+_impPctOf(D.tp_pct,+s.tp_pct||0))/3
   };
 }
@@ -1706,6 +1713,9 @@ function renderImpact(){
   if(!lines.length) return;
   var D={}; ['ppg','rpg','apg','stl','blk','fg_pct','tp_pct','ft_pct'].forEach(function(k){
     D[k]=lines.map(function(l){return +l[k]||0;}).filter(function(v){return v>0;}).sort(function(a,b){return a-b;});});
+  // per-40 distributions for the counting stats (production-in-role)
+  ['ppg','rpg','apg','stl','blk'].forEach(function(k){
+    D[k+'40']=lines.map(function(l){return _imp40(l,k);}).filter(function(v){return v>0;}).sort(function(a,b){return a-b;});});
   D.astto=lines.map(function(l){return (+l.apg||0)/Math.max(0.7,(+l.tovs||0));}).filter(function(v){return !isNaN(v);}).sort(function(a,b){return a-b;});
   var scores=lines.map(function(l){return _impScore(_impComponents(l,D));});
   var myLine=projLine(player);
