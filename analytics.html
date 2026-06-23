@@ -680,7 +680,11 @@ function buildTeamProjections(players, conf){
     const hasCareerStats  = latestH && parseFloat(latestH.ppg||0)>0;
     const hasCurrentStats = parseFloat(p.ppg||0)>0;
 
-    if(!hasCareerStats && !hasCurrentStats){
+    // A negligible sample (e.g. <6 MPG with no meaningful prior season) can't be trusted —
+    // its noisy per-minute rates explode when projected into a real role (a 4-minute player
+    // reading 8 OREB/G). Regress these to a grade/position baseline instead.
+    const tinySample = !hasCareerStats && hasCurrentStats && (parseFloat(p.mpg||0)||0) < 6;
+    if((!hasCareerStats && !hasCurrentStats) || tinySample){
       const fb   = getFrBase(grade, posNorm);
       const effMpg = newMpg < 12 ? Math.min(13, newMpg*1.35) : newMpg;
       const scale  = effMpg/FR_BASE_MPG;
