@@ -1450,6 +1450,25 @@ function gradeClass(g){const n=parseFloat(g);if(!isNaN(n)){if(n>=90)return 'gA';
 
 let player=null, teamData=null, allPlayers=[], gPct={}, proj=null, teamPlayers=[], careerHistory=[];
 
+// Neutralize corrupt rows: a per-game stat physically impossible for the
+// player's minutes (e.g. Sin'Cere Jones — 6.4 APG at 0.3 MPG) is capped to the
+// most it could plausibly be. Only sub-8-MPG samples are touched and the
+// per-minute ceilings sit far above any real player, so legit stats never move.
+const TDC_STAT_CAPS={ppg:1.4,rpg:0.75,apg:0.6,stl:0.28,blk:0.30,tovs:0.45,oreb:0.45,dreb:0.55};
+function tdcSane(p){
+  const mpg=parseFloat(p&&p.mpg)||0;
+  if(mpg<=0||mpg>=8) return p;
+  let out=null;
+  for(const k in TDC_STAT_CAPS){
+    const v=parseFloat(p[k]);
+    if(!isNaN(v) && v > mpg*TDC_STAT_CAPS[k]){
+      if(!out) out=Object.assign({},p);
+      out[k]=Math.round(mpg*TDC_STAT_CAPS[k]*10)/10;
+    }
+  }
+  return out||p;
+}
+
 async function init(){
   const s=JSON.parse(localStorage.getItem('tdc_session')||'null');
   const params=new URLSearchParams(location.search);
@@ -1494,7 +1513,7 @@ async function init(){
       }
     }
     if(!playerRow) throw new Error('Player not found — check name spelling or try searching from the roster page.');
-    player=playerRow; allPlayers=apr;
+    player=tdcSane(playerRow); allPlayers=(Array.isArray(apr)?apr:[]).map(tdcSane);
 
     // Team fetch — use client-side match to handle special chars in team names
     let teamConf='', teamConfFull='';
@@ -1897,7 +1916,7 @@ async function loadDraftSticker(){
       if(batch.length<PAGE) break; page++;
     }
     if(!players.length) return;
-    window._tdcAllPlayers=players;
+    window._tdcAllPlayers=players.map(tdcSane);
     // draft sticker (top-100 of the shared Big Board)
     if(typeof TDC_BIGBOARD!=='undefined'){
       var res=TDC_BIGBOARD.compute(players, teamMap, {season:'2526'});
