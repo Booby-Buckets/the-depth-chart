@@ -1843,7 +1843,28 @@ function toggleTheme(){
 .tc-foot{margin-top:16px;}
 .tc-foot a{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);text-decoration:none;}
 .tc-foot a:hover{text-decoration:underline;}
-@media (max-width:760px){.tc-cols{grid-template-columns:1fr;gap:16px;}}
+/* advanced metric chips (left column) */
+.tc-adv-h{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin:18px 0 10px;}
+.tc-adv{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.tc-adv-i{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 11px;}
+.tc-adv-v{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;line-height:1;color:var(--accent);}
+.tc-adv-l{font-size:8.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
+/* premium percentile bars (Gradient style) */
+.tc-pct-h{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text2);margin-bottom:18px;}
+.tcb-chart{display:flex;gap:9px;align-items:flex-end;}
+.tcb-col{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;}
+.tcb-track{position:relative;width:100%;height:128px;display:flex;align-items:flex-end;}
+.tcb-bar{position:relative;width:100%;border-radius:5px 5px 0 0;min-height:22px;transition:height .6s cubic-bezier(.22,1,.36,1);display:flex;align-items:flex-end;justify-content:center;box-shadow:0 1px 6px rgba(0,0,0,.12);}
+.tcb-val{font-family:'Playfair Display',serif;font-weight:800;font-size:13px;color:#fff;padding-bottom:4px;text-shadow:0 1px 2px rgba(0,0,0,.35);}
+.tcb-badge{position:absolute;left:50%;transform:translateX(-50%);font-size:9px;font-weight:800;padding:1px 5px;border-radius:5px;white-space:nowrap;z-index:3;}
+.tcb-badge.up{background:rgba(47,158,84,.16);color:#218a47;}
+.tcb-badge.dn{background:rgba(198,96,46,.15);color:#b8521f;}
+[data-theme="dark"] .tcb-badge.up{color:#5ab875;background:rgba(90,184,117,.16);}
+[data-theme="dark"] .tcb-badge.dn{color:#e08a6a;background:rgba(224,138,106,.14);}
+.tcb-avg{position:absolute;left:-3px;right:-3px;bottom:50%;height:0;border-top:2px dashed var(--text2);opacity:.45;z-index:1;}
+.tcb-name{font-size:9.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text2);margin-top:9px;}
+.tcb-rank{font-size:9px;font-weight:600;color:var(--text3);margin-top:2px;}
+@media (max-width:760px){.tc-cols{grid-template-columns:1fr;gap:16px;}.tcb-val{font-size:11px;}.tcb-name{font-size:8.5px;}}
 </style>
 <script>
 (function(){
@@ -1909,27 +1930,51 @@ function toggleTheme(){
     var lo=0,hi=arr.length; while(lo<hi){var m=(lo+hi)>>1; if(arr[m]<v)lo=m+1; else hi=m;}
     var p=Math.round(lo/arr.length*100); return inv?100-p:p;
   }
-  function teamPctBars(p, teamName){
+  // ── advanced (tempo-free) metrics derived from the projected team line ──
+  function teamAdv(p){
+    if(!p) return null;
+    var fga=+p.fga||0,tpa=+p.tpa||0,tov=+p.tov||0,oreb=+p.oreb||0,ppg=+p.ppg||0,apg=+p.apg||0;
+    var fgm=fga*(+p.fg_pct||0)/100, tpm=tpa*(+p.tp_pct||0)/100;
+    var ftPct=(+p.ft_pct||0)/100 || 0.7;
+    var ftm=Math.max(0, ppg-(2*fgm+tpm)), fta=ftPct>0?ftm/ftPct:0;
+    var poss=Math.max(55, fga - oreb + tov + 0.44*fta);
+    return { ortg:ppg/poss*100, efg:fga>0?(fgm+0.5*tpm)/fga*100:0,
+      ts:(fga+fta)>0?ppg/(2*(fga+0.44*fta))*100:0, tovr:tov/poss*100,
+      orebr:(fga-fgm)>0?oreb/(fga-fgm)*100:0, pace:poss, astto:tov>0?apg/tov:0 };
+  }
+  function teamAdvPanel(p){
+    var a=teamAdv(p); if(!a) return '';
+    var i=function(l,v){return '<div class="tc-adv-i"><div class="tc-adv-v">'+v+'</div><div class="tc-adv-l">'+l+'</div></div>';};
+    return '<div class="tc-adv-h">Advanced &middot; Projected</div><div class="tc-adv">'+
+      i('ORtg',a.ortg.toFixed(1))+i('eFG%',a.efg.toFixed(1))+i('TS%',a.ts.toFixed(1))+
+      i('TOV%',a.tovr.toFixed(1))+i('OREB%',a.orebr.toFixed(1))+i('Pace',a.pace.toFixed(1))+
+      i('AST/TO',a.astto.toFixed(2))+'</div>';
+  }
+  function tcOrd(n){var s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
+  function tcBarCol(pct){ if(pct>=75)return '#2f9e54'; if(pct>=55)return '#57a546'; if(pct>=40)return '#94ae36'; if(pct>=25)return '#c2922c'; return '#c6602e'; }
+  function teamRank(key,val,inv){
+    var arr=teamDist(key); if(!arr.length) return null;
+    var v=parseFloat(val); if(isNaN(v)) return null;
+    var better=0; for(var i=0;i<arr.length;i++){ if(inv?arr[i]<v:arr[i]>v) better++; }
+    return {rank:better+1,n:arr.length};
+  }
+  // premium percentile bars (Gradient-style: value, D1 average line, +/- badge, rank)
+  function teamPremiumBars(p){
     if(!p) return '';
-    var lastA=(window._teamActualByName||{})[(teamName||'').toLowerCase().trim()];
     var defs=[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},
       {l:'FG%',k:'fg_pct'},{l:'3P%',k:'tp_pct'},{l:'FT%',k:'ft_pct'},
-      {l:'OREB',k:'oreb'},{l:'DREB',k:'dreb'},
       {l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TOV',k:'tov',inv:1}];
-    var bar=function(pct,cls){ if(pct==null) return '';
-      return '<div class="tc-cbar '+cls+'" style="height:'+Math.max(pct,3)+'%;"><div class="tc-cbar-v">'+pct+'</div></div>'; };
     var cols=defs.map(function(d){
-      var pj=teamPct(d.k, p[d.k], d.inv);
-      var la=lastA?teamPctLast(d.k, lastA[d.k], d.inv):null;
-      if(pj==null&&la==null) return '';
-      return '<div class="tc-ccol"><div class="tc-cbar-area">'+bar(pj,'proj')+bar(la,'last')+
-        '</div><div class="tc-clbl">'+d.l+'</div></div>';
+      var pct=teamPct(d.k, p[d.k], d.inv); if(pct==null) return '';
+      var rk=teamRank(d.k, p[d.k], d.inv), diff=pct-50, col=tcBarCol(pct), h=Math.max(pct,4);
+      return '<div class="tcb-col"><div class="tcb-track">'+
+        '<div class="tcb-badge '+(diff>=0?'up':'dn')+'" style="bottom:calc('+h+'% + 5px);">'+(diff>=0?'+':'')+diff+'</div>'+
+        '<div class="tcb-avg"></div>'+
+        '<div class="tcb-bar" style="height:'+h+'%;background:linear-gradient(180deg,'+col+'dd,'+col+');"><div class="tcb-val">'+pct+'</div></div>'+
+        '</div><div class="tcb-name">'+d.l+'</div><div class="tcb-rank">'+(rk?tcOrd(rk.rank):'')+'</div></div>';
     }).filter(Boolean).join('');
     if(!cols) return '';
-    var legend = lastA
-      ? '<div class="tc-legend"><span><i style="background:var(--accent)"></i>26-27 Proj</span><span><i style="background:#5b9d8f"></i>25-26 Actual</span></div>'
-      : '';
-    return '<div class="tc-pct-top"><div class="tc-pct-h">National Percentile — vs all D1 teams</div>'+legend+'</div><div class="tc-chart">'+cols+'</div>';
+    return '<div class="tc-pct-h">Projected Percentile — vs all D1 teams <span style="color:var(--text3);font-weight:600;">· line = D1 avg</span></div><div class="tcb-chart">'+cols+'</div>';
   }
   function buildTeamDetail(name){
     var lc=(name||'').toLowerCase().trim();
@@ -1943,7 +1988,7 @@ function toggleTheme(){
     var head='<div class="tc-top"><div class="tc-bar" style="background:'+(t.color||'#888')+'"></div>'+
       pwrBadge+
       '<div><div class="tc-name">'+(t.name||name)+'</div><div class="tc-conf">'+(t.conf||'')+(t.tier?' · '+t.tier:'')+nilLine+'</div></div></div>';
-    var grades='<div class="tc-grades">'+grd(t.rg,'Coach')+grd(t.dg,'Depth')+grd(t.recg,'Recruit')+grd(t.nilg,'NIL Eval')+'</div>';
+    var advPanel = p ? teamAdvPanel(p) : '';
     var proj;
     if(p){ proj='<div class="tc-proj-h">26-27 Projected Team Stats</div><div class="tc-proj">'+
         pst(p.ppg,'PPG')+pst(p.rpg,'RPG')+pst(p.apg,'APG')+
@@ -1952,11 +1997,11 @@ function toggleTheme(){
         pst(p.fga,'FGA')+pst(p.tpa,'3PA')+
         pst(p.stl,'STL')+pst(p.blk,'BLK')+pst(p.tov,'TOV')+'</div>';
     } else { proj='<div class="tc-proj-h">26-27 Projected Team Stats</div><div class="tc-none">Open the team page to generate projections.</div>'; }
-    var bars=teamPctBars(p, t.name||name);
+    var bars=teamPremiumBars(p);
     var projPanel='<div class="tc-panel">'+proj+'</div>';
     var barsPanel=bars?'<div class="tc-panel">'+bars+'</div>':'';
     var foot='<div class="tc-foot"><a href="team.html?team='+encodeURIComponent(t.name||name)+'">View full team page &rarr;</a></div>';
-    return '<div class="tc-cols"><div>'+head+grades+'</div><div>'+projPanel+barsPanel+'</div></div>'+foot;
+    return '<div class="tc-cols"><div>'+head+advPanel+'</div><div>'+projPanel+barsPanel+'</div></div>'+foot;
   }
   window.tdcToggleTeam=function(row, e){
     // Clicking the team name navigates to the team page; elsewhere toggles the row
