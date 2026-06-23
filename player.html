@@ -2422,7 +2422,7 @@ function switchTab(t){
 
 
 // ── ARCHETYPE & COMPS ─────────────────────────────────────────
-var _archDone=false, _allHistory=null, _allCurrent=null;
+var _archDone=false, _allHistory=null, _allCurrent=null, _gPctProj=null;
 function _norm3(pos){pos=((pos||'')+'').toUpperCase().split(/[\/,\s]/)[0];
   if(pos==='PG'||pos==='SG'||pos==='CG'||pos==='G')return 'G';
   if(pos==='SF'||pos==='F')return 'W'; if(pos==='PF'||pos==='C')return 'B'; return 'W';}
@@ -2491,11 +2491,11 @@ var ARCH_FIT={
     {label:'Energy',    name:'Energy Big',     desc:'A motor big who wins with rebounding, screens, and rim runs rather than volume scoring.', terms:[{k:'rpg',w:1.6},{k:'blk',w:.8},{k:'stl',w:.6}]}
   ]
 };
-function _archClose(src,terms){var sw=0,sv=0;terms.forEach(function(t){var pct=(typeof getPct==='function')?getPct(src[t.k],t.k):0;if(isNaN(pct))pct=0;if(t.inv)pct=100-pct;sw+=t.w;sv+=t.w*pct;});return sw?Math.round(sv/sw):0;}
+function _archClose(src,terms,pctFn){var pf=pctFn||((typeof getPct==='function')?getPct:function(){return 0;});var sw=0,sv=0;terms.forEach(function(t){var pct=pf(src[t.k],t.k);if(isNaN(pct))pct=0;if(t.inv)pct=100-pct;sw+=t.w;sv+=t.w*pct;});return sw?Math.round(sv/sw):0;}
 var _archFitAxes=null, _archFitColor=null, _archFitBest=-1;
-function buildArchFit(src,grp){
+function buildArchFit(src,grp,pctFn){
   var defs=ARCH_FIT[grp]||ARCH_FIT.W;
-  var axes=defs.map(function(d){return {label:d.label,val:Math.max(0,Math.min(100,_archClose(src,d.terms)))};});
+  var axes=defs.map(function(d){return {label:d.label,val:Math.max(0,Math.min(100,_archClose(src,d.terms,pctFn)))};});
   var best=0; axes.forEach(function(a,i){if(a.val>axes[best].val)best=i;});
   return {axes:axes,best:best};
 }
@@ -2560,25 +2560,37 @@ async function renderArchetype(){
   var grp=_norm3(player.position);
   var pf=_feat(player), ph=_htIn(player.height);
 
-  // archetype-fit radar — use projected basis when available, else actual
-  var fitSrc=(proj && !proj._injured && !proj._dnp && (+proj.ppg>0)) ? proj : player;
-  var fit=buildArchFit(fitSrc,grp);
+  // projected (2026-27) percentile pool — every player's predicted line, so the
+  // archetype ranks predicted production against predicted peers (same basis as Impact)
+  if(!_gPctProj){
+    var plines=_allCurrent.map(function(q){return projLine(q);}).filter(function(l){return (+l.mpg||0)>=8;});
+    _gPctProj={};
+    ['ppg','rpg','apg','mpg','fg_pct','tp_pct','ft_pct','stl','blk','tovs'].forEach(function(k){
+      _gPctProj[k]=plines.map(function(l){return +l[k]||0;}).filter(function(v){return v>0;}).sort(function(a,b){return a-b;});
+    });
+  }
+  function getPctProj(val,key){var arr=_gPctProj[key];if(!arr||!arr.length||val==null)return 0;var v=parseFloat(val);if(isNaN(v)||v===0)return 0;var lo=0,hi=arr.length;while(lo<hi){var m=(lo+hi)>>1;if(arr[m]<v)lo=m+1;else hi=m;}return Math.round(lo/arr.length*100);}
+
+  // archetype-fit radar — player's projected 2026-27 line vs projected peers
+  var projP=projLine(player);
+  var fit=buildArchFit(projP,grp,getPctProj);
   _archFitAxes=fit.axes; _archFitBest=fit.best;
   _archFitColor=(teamData&&teamData.color)||'#B16BFF';
-  var fitBasis=(fitSrc===proj)?'projected':'current';
+  var fitBasis='projected';
   // hero archetype = the radar's strongest fit, so label and chart always agree
   var bestDef=(ARCH_FIT[grp]||ARCH_FIT.W)[fit.best]||{name:'Combo Guard',desc:''};
   var info={name:bestDef.name, desc:bestDef.desc, group:grp};
 
-  // advanced percentile chart: national vs archetype peers
+  // advanced percentile chart: projected national vs projected archetype peers
   var peerPool=_allCurrent.filter(function(q){return q.name&&q.name!=='—'&&(parseFloat(q.mpg)||0)>=10&&_norm3(q.position)===grp;});
+  var peerProj=peerPool.map(function(q){return projLine(q);});
   var DEFS=[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},{l:'FG%',k:'fg_pct'},{l:'3P%',k:'tp_pct'},{l:'FT%',k:'ft_pct'},{l:'STL',k:'stl'},{l:'BLK',k:'blk'},{l:'TO',k:'tovs',inv:1}];
   var peerCache={};
   var cols=DEFS.map(function(d){
-    var nat=(typeof getPct==='function')?getPct(player[d.k],d.k):null;
+    var nat=getPctProj(projP[d.k],d.k);
     if(d.inv&&nat!=null) nat=100-nat;
-    if(!peerCache[d.k]) peerCache[d.k]=peerDist(peerPool,d.k);
-    var pr=pctIn(peerCache[d.k],player[d.k],d.inv);
+    if(!peerCache[d.k]) peerCache[d.k]=peerProj.map(function(l){return +l[d.k]||0;}).filter(function(v){return v>0;}).sort(function(a,b){return a-b;});
+    var pr=pctIn(peerCache[d.k],projP[d.k],d.inv);
     function bar(v,cls){if(v==null)return '';return '<div class="arch-bar '+cls+'" style="height:'+Math.max(v,3)+'%;"><div class="arch-v">'+v+'</div></div>';}
     return '<div class="arch-col"><div class="arch-bars">'+bar(nat,'nat')+bar(pr,'peer')+'</div><div class="arch-lbl">'+d.l+'</div></div>';
   }).join('');
@@ -2616,7 +2628,7 @@ async function renderArchetype(){
     '<div class="arch-sec-h">Archetype Fit</div>'+
     '<div class="arch-note" style="margin-top:-4px;margin-bottom:8px;">How closely '+player.name+'&rsquo;s '+fitBasis+' profile matches each '+({G:'guard',W:'wing',B:'big'}[grp])+' archetype — strongest fit highlighted.</div>'+
     '<div class="radar-wrap" style="margin-bottom:8px;"><canvas id="archRadar" width="440" height="440"></canvas></div>'+
-    '<div class="arch-sec-h">Percentile — vs National &amp; Archetype</div>'+
+    '<div class="arch-sec-h">Projected Percentile — vs National &amp; Archetype</div>'+
     '<div class="arch-legend"><span><i style="background:var(--accent)"></i>vs All D1</span><span><i style="background:#5b9d8f"></i>vs '+({G:'Guards',W:'Wings',B:'Bigs'}[grp])+'</span></div>'+
     '<div class="arch-chart">'+cols+'</div>'+
     '<div class="arch-sec-h">Most Similar Players · 2025-26</div>'+
