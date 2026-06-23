@@ -1479,10 +1479,14 @@ function expPosGrp(pos){pos=((pos||'')+'').toUpperCase().split(/[\/,\s]/)[0];
 function expVal(p,key){
   var ppg=parseFloat(p.ppg)||0,mpg=parseFloat(p.mpg)||0,apg=parseFloat(p.apg)||0,rpg=parseFloat(p.rpg)||0;
   if(key==='_ht')return expHtIn(p.height);
-  if(key==='_p40')return mpg>0?+(ppg*40/mpg).toFixed(1):0;
-  if(key==='_a40')return mpg>0?+(apg*40/mpg).toFixed(1):0;
-  if(key==='_r40')return mpg>0?+(rpg*40/mpg).toFixed(1):0;
-  if(key==='_ts'){var fga=parseFloat(p.fga)||0,fta=parseFloat(p.fta)||0,d=2*(fga+0.44*fta);return d>0?+(ppg/d*100).toFixed(1):0;}
+  // per-40 / efficiency rates need a real minutes sample — below ~5 MPG the
+  // denominator explodes (a 0.3-MPG player with a stray assist reads 800+ /40),
+  // so return null and let renderExplorer skip the point.
+  var RATE_MIN=5;
+  if(key==='_p40')return mpg>=RATE_MIN?+(ppg*40/mpg).toFixed(1):null;
+  if(key==='_a40')return mpg>=RATE_MIN?+(apg*40/mpg).toFixed(1):null;
+  if(key==='_r40')return mpg>=RATE_MIN?+(rpg*40/mpg).toFixed(1):null;
+  if(key==='_ts'){if(mpg<RATE_MIN)return null;var fga=parseFloat(p.fga)||0,fta=parseFloat(p.fta)||0,d=2*(fga+0.44*fta);return d>0?+(ppg/d*100).toFixed(1):null;}
   var v=parseFloat(p[key]); return isNaN(v)?null:v;
 }
 function initExplorer(){
