@@ -1677,6 +1677,13 @@ function projLine(p){
   ['fg_pct','tp_pct','ft_pct'].forEach(function(k){o[k]=b[k];});
   return o;
 }
+// The player's AUTHORITATIVE projected line — the heavy team-engine projection
+// shown on the Overview. Falls back to the light projLine only if the engine
+// projection is missing (so the player's predicted stats are identical everywhere).
+function playerProjLine(){
+  if(typeof proj!=='undefined' && proj && !proj._injured && !proj._dnp && (parseFloat(proj.ppg)||0)>0) return proj;
+  return projLine(player);
+}
 function _impPctOf(arr,v,inv){if(!arr||!arr.length)return 0;var lo=0,hi=arr.length;while(lo<hi){var m=(lo+hi)>>1;if(arr[m]<v)lo=m+1;else hi=m;}var pc=Math.round(lo/arr.length*100);return inv?100-pc:pc;}
 // per-40 rate (minutes floored at 16 so low-minute lines aren't wildly inflated)
 function _imp40(s,k){var mp=Math.max(16,+s.mpg||16);return (+s[k]||0)*40/mp;}
@@ -1718,7 +1725,7 @@ function renderImpact(){
     D[k+'40']=lines.map(function(l){return _imp40(l,k);}).filter(function(v){return v>0;}).sort(function(a,b){return a-b;});});
   D.astto=lines.map(function(l){return (+l.apg||0)/Math.max(0.7,(+l.tovs||0));}).filter(function(v){return !isNaN(v);}).sort(function(a,b){return a-b;});
   var scores=lines.map(function(l){return _impScore(_impComponents(l,D));});
-  var myLine=projLine(player);
+  var myLine=playerProjLine();
   var c=_impComponents(myLine,D), my=_impScore(c), score=Math.round(my);
   var M=scores.length, better=scores.filter(function(v){return v>my+0.0001;}).length, rank=better+1;
   var pctl=Math.max(1,Math.round((1-(rank-1)/Math.max(1,M))*100));
@@ -1789,7 +1796,8 @@ function renderDist(){
   function line(r){return season==='2627'?projLine(r):r;}
   var src=pop==='grp'?pool.filter(function(r){return _impPgrp(r.position)===grp;}):pool;
   var lines=src.map(line).filter(function(l){return (parseFloat(l.mpg)||0)>=10;});
-  var myLine=line(player);
+  // player's own value = the real engine projection (matches the Overview), not the light pool estimate
+  var myLine=(season==='2627')?playerProjLine():player;
   var DS=[
     {k:'ppg',l:'Points / Game'},{k:'rpg',l:'Rebounds / Game'},{k:'apg',l:'Assists / Game'},
     {k:'mpg',l:'Minutes / Game'},{k:'fg_pct',l:'Field Goal %',pct:1},{k:'tp_pct',l:'Three-Point %',pct:1},
@@ -2571,8 +2579,8 @@ async function renderArchetype(){
   }
   function getPctProj(val,key){var arr=_gPctProj[key];if(!arr||!arr.length||val==null)return 0;var v=parseFloat(val);if(isNaN(v)||v===0)return 0;var lo=0,hi=arr.length;while(lo<hi){var m=(lo+hi)>>1;if(arr[m]<v)lo=m+1;else hi=m;}return Math.round(lo/arr.length*100);}
 
-  // archetype-fit radar — player's projected 2026-27 line vs projected peers
-  var projP=projLine(player);
+  // archetype-fit radar — player's real projected 2026-27 line vs projected peers
+  var projP=playerProjLine();
   var fit=buildArchFit(projP,grp,getPctProj);
   _archFitAxes=fit.axes; _archFitBest=fit.best;
   _archFitColor=(teamData&&teamData.color)||'#B16BFF';
