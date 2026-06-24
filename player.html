@@ -2571,7 +2571,25 @@ async function renderArchetype(){
   if(_archDone) return; _archDone=true;
   el.innerHTML='<div style="padding:50px;text-align:center;color:var(--text3);">Analyzing archetype & finding comps…</div>';
   if(!_allHistory){
-    try{ var r=await fetch(SB+'/rest/v1/player_history?select=name,season_year,team,position,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,fgm,fga,tpm,tpa,ftm,fta,stl,blk,tovs&mpg=gte.10&limit=20000',{headers:H}); _allHistory=r.ok?await r.json():[]; }catch(e){ _allHistory=[]; }
+    try{
+      // Get total row count first, then fetch all pages concurrently in batches
+      var _PG=1000;
+      var _hd=await fetch(SB+'/rest/v1/player_history?select=name&mpg=gte.10',
+        {method:'HEAD',headers:{...H,'Prefer':'count=exact'}});
+      var _total=parseInt((_hd.headers.get('content-range')||'/0').split('/')[1]||0);
+      var _pages=Math.ceil(_total/_PG);
+      var _url=SB+'/rest/v1/player_history?select=name,season_year,team,position,ppg,rpg,apg,stl,blk,tpm,mpg,fg_pct,tp_pct,ft_pct,fga,fta&mpg=gte.10';
+      var _fetches=Array.from({length:_pages},function(_,pg){
+        return fetch(_url,{headers:{...H,'Range-Unit':'items','Range':pg*_PG+'-'+(pg*_PG+_PG-1)}}).then(function(r){return r.ok?r.json():[]; });
+      });
+      // Process concurrently in batches of 8 to stay within browser connection limits
+      var _allRows=[];
+      for(var _j=0;_j<_fetches.length;_j+=8){
+        var _res=await Promise.all(_fetches.slice(_j,_j+8));
+        _res.forEach(function(b){ _allRows=_allRows.concat(b); });
+      }
+      _allHistory=_allRows;
+    }catch(e){ _allHistory=[]; }
   }
   if(!_allCurrent){
     try{ var rc=await fetch(SB+'/rest/v1/players?select=name,team,position,height,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,fgm,fga,tpm,tpa,ftm,fta,stl,blk,tovs,tdc_grade&ppg=not.is.null&limit=5000',{headers:H}); _allCurrent=rc.ok?await rc.json():[]; }catch(e){ _allCurrent=[]; }
