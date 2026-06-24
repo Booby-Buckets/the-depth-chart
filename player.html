@@ -2659,11 +2659,17 @@ async function renderArchetype(){
     return {p:c.p,isCur:c.isCur,d:d};
   }).sort(function(a,b){return a.d-b.d;});
 
-  // Deduplicate by player name — show each player only once (best-matching season)
-  var seenNames={},topComps=[];
-  for(var i=0;i<scored.length&&topComps.length<6;i++){
-    var nm=scored[i].p.name; if(seenNames[nm]) continue; seenNames[nm]=true; topComps.push(scored[i]);
+  // Split into current (2026-27 projections) and historical (≤ 2024-25 seasons).
+  // Take top 3 from each pool so historical players always appear in comps.
+  var seenAll={},topCur=[],topHist=[];
+  for(var i=0;i<scored.length;i++){
+    var c=scored[i],nm=c.p.name;
+    if(seenAll[nm]) continue;
+    if(c.isCur && topCur.length<3){ seenAll[nm]=true; topCur.push(c); }
+    else if(!c.isCur && (c.p.season_year||2026)<=2025 && topHist.length<3){ seenAll[nm]=true; topHist.push(c); }
+    if(topCur.length>=3&&topHist.length>=3) break;
   }
+  var topComps=topCur.concat(topHist).sort(function(a,b){return a.d-b.d;});
 
   function fmt(v){return (v!=null&&v!==''&&!isNaN(v))?Number(v).toFixed(1):'—';}
   function fmtP(v){return (v!=null&&v!==''&&!isNaN(v))?Number(v).toFixed(1)+'%':'—';}
