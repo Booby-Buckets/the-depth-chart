@@ -368,20 +368,57 @@ function projPlayer(p){
 
 // ── search / select ──
 function pool(){ return mode==='players'? allPlayers : teams; }
-function onSearch(slot, query){
+function _seasonLabel(p){ const yr=p.season_year||2026; return `${yr-1}-${(''+yr).slice(2)}`; }
+
+let _histResults={}, _histTimer=null;
+async function onSearch(slot, query){
   const dd=document.getElementById('dropdown'+slot);
   if(!query||query.length<2){ dd.classList.remove('show'); return; }
   const q=query.toLowerCase();
-  let matches;
   if(mode==='players'){
-    matches=allPlayers.filter(p=>p.name.toLowerCase().includes(q)||(p.team||'').toLowerCase().includes(q)).slice(0,12);
-    dd.innerHTML=matches.map(p=>`<div class="dropdown-item" onclick="pick(${slot},'p','${(p.id+'').replace(/'/g,'')}')"><span>${p.name}</span><span class="dropdown-team">${p.team||''} · ${p.position||''}</span></div>`).join('');
+    const curMatches=allPlayers.filter(p=>p.name.toLowerCase().includes(q)||(p.team||'').toLowerCase().includes(q)).slice(0,8);
+    _renderDropdown(slot, curMatches, _histResults[slot]||[], dd);
+    clearTimeout(_histTimer);
+    _histTimer=setTimeout(async()=>{
+      try{
+        const r=await fetch(`${SB}/rest/v1/player_history?name=ilike.*${encodeURIComponent(query)}*&select=name,season_year,team,position,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,fgm,fga,tpm,tpa,ftm,fta,stl,blk,tovs,oreb,dreb,gp,tdc_grade,height,yr&mpg=gte.10&order=season_year.desc&limit=40`,{headers:H});
+        if(!r.ok) return;
+        const data=await r.json();
+        const curNames=new Set(curMatches.map(p=>p.name));
+        const byName={};
+        data.forEach(h=>{ if(!curNames.has(h.name)&&(!byName[h.name]||h.season_year>byName[h.name].season_year)) byName[h.name]=h; });
+        _histResults[slot]=Object.values(byName).slice(0,6).map(h=>({...h,_isHistory:true}));
+        _renderDropdown(slot, curMatches, _histResults[slot], dd);
+      }catch(e){}
+    },280);
   } else {
-    matches=teams.filter(t=>(t.name||'').toLowerCase().includes(q)||(t.conf||t.conference||'').toLowerCase().includes(q)).slice(0,12);
+    const matches=teams.filter(t=>(t.name||'').toLowerCase().includes(q)||(t.conf||t.conference||'').toLowerCase().includes(q)).slice(0,12);
     dd.innerHTML=matches.map(t=>`<div class="dropdown-item" onclick="pick(${slot},'t','${(t.name+'').replace(/'/g,'\\\\\'')}')"><span>${t.name}</span><span class="dropdown-team">${t.conf||t.conference||''}</span></div>`).join('');
+    if(!matches.length){ dd.classList.remove('show'); return; }
+    dd.classList.add('show');
   }
-  if(!matches.length){ dd.classList.remove('show'); return; }
+}
+function _renderDropdown(slot, cur, hist, dd){
+  const curHTML=cur.map(p=>`<div class="dropdown-item" onclick="pick(${slot},'p','${(p.id+'').replace(/'/g,'')}')"><span>${p.name}</span><span class="dropdown-team">${p.team||''} · ${p.position||''}</span></div>`).join('');
+  const histHTML=hist.map((h,i)=>`<div class="dropdown-item" onclick="pickHist(${slot},${i})"><span>${h.name}</span><span class="dropdown-team" style="color:#5b9d8f;">${_seasonLabel(h)} · ${h.team||''} · ${h.position||''}</span></div>`).join('');
+  if(!curHTML&&!histHTML){ dd.classList.remove('show'); return; }
+  dd.innerHTML=curHTML+(hist.length?`<div style="padding:3px 12px;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);border-top:1px solid var(--border);margin-top:3px;">Historical Seasons</div>`+histHTML:``);
   dd.classList.add('show');
+}
+function pickHist(slot, idx){
+  const item=(_histResults[slot]||[])[idx]; if(!item) return;
+  sel.players[slot-1]=item;
+  document.getElementById('dropdown'+slot).classList.remove('show');
+  document.getElementById('si'+slot).value=item.name;
+  const selEl=document.getElementById('selected'+slot);
+  const color=teamColors[item.team]||'#5b9d8f';
+  const yr=_seasonLabel(item);
+  selEl.style.display='block';
+  selEl.innerHTML=`<div style="border-left:3px solid ${color};padding-left:10px;margin-top:8px;">
+    <div class="sel-name">${item.name}</div>
+    <div class="sel-meta"><span style="color:#5b9d8f;font-weight:700;">${yr} · </span><strong style="color:${color};">${item.team||'—'}</strong> · ${item.position||'—'} · ${item.yr||'—'} · ${item.height||'—'}</div>
+  </div><button class="clear-btn" onclick="clearPick(${slot})">✕ Clear</button>`;
+  maybeRender();
 }
 function pick(slot, type, key){
   let item;
@@ -528,45 +565,53 @@ function renderPlayers(){
   const [p1,p2]=sel.players;
   const c1=teamColors[p1.team]||'#B16BFF', c2=teamColors[p2.team]||cssVar('--teal');
   const sec=document.getElementById('compareSection'); sec.classList.add('show');
-  const head=(p,c,right)=>`<div class="cmp-head${right?' right':''}" style="border-color:${c};${right?'border-right':'border-left'}:3px solid ${c};">
-      <div class="ch-name"><a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}">${p.name}</a></div>
-      <div class="ch-sub">${p.team||'—'} · ${p.position||'—'} · ${p.class_year||p.yr||'—'} · ${p.height||'—'}</div>
+  const sl1=_seasonLabel(p1), sl2=_seasonLabel(p2);
+  const head=(p,c,right,sl)=>`<div class="cmp-head${right?' right':''}" style="border-color:${c};${right?'border-right':'border-left'}:3px solid ${c};">
+      <div class="ch-name">${p._isHistory?p.name:`<a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}">${p.name}</a>`}</div>
+      <div class="ch-sub">${p._isHistory?`<span style="color:#5b9d8f;font-weight:700;">${sl} · </span>`:''}${p.team||'—'} · ${p.position||'—'} · ${p.class_year||p.yr||'—'} · ${p.height||'—'}</div>
       <div class="ch-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||'—'}</div>
-      <div class="ch-tags"><span class="ch-tag gold">${archetypeOf(p)}</span><span class="ch-tag">${roleOf(p)}</span></div>
+      <div class="ch-tags"><span class="ch-tag gold">${archetypeOf(p)}</span>${p._isHistory?'':`<span class="ch-tag">${roleOf(p)}</span>`}</div>
     </div>`;
+  const bothCurrent=!p1._isHistory&&!p2._isHistory;
   const pr1=projPlayer(p1), pr2=projPlayer(p2);
   const conf1=confOf(p1), conf2=confOf(p2);
   const ol1=outlook(pr1,conf1), ol2=outlook(pr2,conf2);
   const a1=adv(p1), a2=adv(p2);
+  const statLabel=p1._isHistory||p2._isHistory
+    ? (sl1===sl2?`${sl1} Stats`:`Season Stats`)
+    : '2025-26 Actual';
+  const advLabel=p1._isHistory||p2._isHistory
+    ? (sl1===sl2?`Advanced Metrics · ${sl1}`:`Advanced Metrics`)
+    : 'Advanced Metrics · 2025-26';
   sec.innerHTML=`
-    <div class="cmp-heads">${head(p1,c1,false)}<div class="cmp-vs">VS</div>${head(p2,c2,true)}</div>
+    <div class="cmp-heads">${head(p1,c1,false,sl1)}<div class="cmp-vs">VS</div>${head(p2,c2,true,sl2)}</div>
 
-    <div class="compare-section-head" style="border-radius:8px;">Projected Outlook — 2026-27</div>
+    ${bothCurrent?`<div class="compare-section-head" style="border-radius:8px;">Projected Outlook — 2026-27</div>
     <div class="ol-grid">
       <div class="ol-card"><div class="ol-badge ${ol1.cls}">${ol1.label}</div><div class="ol-sub">${conf1||'—'} · projects vs national tiers</div></div>
       <div class="ol-card right"><div class="ol-badge ${ol2.cls}">${ol2.label}</div><div class="ol-sub">${conf2||'—'} · projects vs national tiers</div></div>
-    </div>
+    </div>`:''}
 
     <div class="chart-grid">
       <div class="chart-card"><div class="chart-title">Skill Profile · National Percentiles</div>
         <div class="chart-box"><canvas id="pRadar"></canvas></div>
         <div class="chart-legend"><span><i style="background:${c1}"></i>${p1.name}</span><span><i style="background:${c2}"></i>${p2.name}</span></div></div>
-      <div class="chart-card"><div class="chart-title">Projection vs All-American Ceiling</div>
+      ${bothCurrent?`<div class="chart-card"><div class="chart-title">Projection vs All-American Ceiling</div>
         <div class="chart-box"><canvas id="pBench"></canvas></div>
-        <div class="chart-legend"><span><i style="background:${c1}"></i>${p1.name}</span><span><i style="background:${c2}"></i>${p2.name}</span><span><i style="background:#C8A020"></i>All-American</span></div></div>
+        <div class="chart-legend"><span><i style="background:${c1}"></i>${p1.name}</span><span><i style="background:${c2}"></i>${p2.name}</span><span><i style="background:#C8A020"></i>All-American</span></div></div>`:''}
     </div>
     <div class="chart-card full" style="margin-bottom:26px;"><div class="chart-title">Per-Game Percentile Ranks</div>
       <div class="chart-box short"><canvas id="pBar"></canvas></div></div>
 
-    <div class="compare-section-head">2026-27 Projected · Model Estimate</div>
+    ${bothCurrent?`<div class="compare-section-head">2026-27 Projected · Model Estimate</div>
     ${projRow('PPG',pr1.ppg,pr2.ppg)}${projRow('RPG',pr1.rpg,pr2.rpg)}${projRow('APG',pr1.apg,pr2.apg)}
-    ${projRow('FG%',pr1.fg_pct,pr2.fg_pct)}${projRow('3P%',pr1.tp_pct,pr2.tp_pct)}${projRow('FT%',pr1.ft_pct,pr2.ft_pct)}
+    ${projRow('FG%',pr1.fg_pct,pr2.fg_pct)}${projRow('3P%',pr1.tp_pct,pr2.tp_pct)}${projRow('FT%',pr1.ft_pct,pr2.ft_pct)}`:''}
 
-    <div class="compare-section-head">Advanced Metrics · 2025-26</div>
+    <div class="compare-section-head">${advLabel}</div>
     ${statRow('TS%',a1.ts,a2.ts)}${statRow('eFG%',a1.efg,a2.efg)}${statRow('AST/TO',a1.astto,a2.astto)}
     ${statRow('PTS/40',a1.p40,a2.p40)}${statRow('REB/40',a1.r40,a2.r40)}
 
-    <div class="compare-section-head">2025-26 Actual</div>
+    <div class="compare-section-head">${statLabel}</div>
     ${statRow('PPG',p1.ppg,p2.ppg)}${statRow('RPG',p1.rpg,p2.rpg)}${statRow('APG',p1.apg,p2.apg)}
     ${statRow('FG%',p1.fg_pct,p2.fg_pct)}${statRow('3P%',p1.tp_pct,p2.tp_pct)}${statRow('FT%',p1.ft_pct,p2.ft_pct)}
     ${statRow('STL',p1.stl,p2.stl)}${statRow('BLK',p1.blk,p2.blk)}${statRow('TO',p1.tovs,p2.tovs,false)}
