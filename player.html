@@ -2475,8 +2475,11 @@ function _feat(p){var fga=+p.fga||0,fta=+p.fta||0,pts=+p.ppg||0;
   var o={ppg:+p.ppg||0,rpg:+p.rpg||0,apg:+p.apg||0,stl:+p.stl||0,blk:+p.blk||0,tpm:+p.tpm||0,mpg:+p.mpg||0,fg_pct:+p.fg_pct||0,tp_pct:+p.tp_pct||0,ft_pct:+p.ft_pct||0};
   o.ts=(fga+0.44*fta)>0?pts/(2*(fga+0.44*fta))*100:0; return o;}
 function _normStats(feats){var s={};SIM_KEYS.forEach(function(k){var v=feats.map(function(f){return f[k];});var m=v.reduce(function(a,b){return a+b;},0)/v.length;var sd=Math.sqrt(v.reduce(function(a,b){return a+(b-m)*(b-m);},0)/v.length)||1;s[k]={m:m,sd:sd};});return s;}
-function _dist(a,b,s,ha,hb){var d=0;SIM_KEYS.forEach(function(k){var za=(a[k]-s[k].m)/s[k].sd,zb=(b[k]-s[k].m)/s[k].sd;d+=(SIM_W[k]||1)*(za-zb)*(za-zb);});
-  if(ha&&hb){var dh=(ha-hb)/2.5;d+=0.6*dh*dh;} return Math.sqrt(d);}
+function _dist(a,b,s,ha,hb,ta,tb){var d=0;SIM_KEYS.forEach(function(k){var za=(a[k]-s[k].m)/s[k].sd,zb=(b[k]-s[k].m)/s[k].sd;d+=(SIM_W[k]||1)*(za-zb)*(za-zb);});
+  if(ha&&hb){var dh=(ha-hb)/2.5;d+=0.6*dh*dh;}
+  if(ta&&tb){var dt=Math.abs(ta-tb);d+=dt*dt*1.0;}
+  return Math.sqrt(d);}
+function _confTier(teamName){var c=(window._teamConf||{})[teamName]||'';return CONF_TIERS[c]||CONF_TIERS[c.replace(/\s/g,'-')]||4;}
 function _sim(d){return Math.max(1,Math.round(100*Math.exp(-d/3.4)));}
 function _htIn(h){if(!h)return 0;var m=(''+h).match(/(\d+)\s*[-']\s*(\d+)/);return m?parseInt(m[1])*12+parseInt(m[2]):0;}
 function peerDist(pool,key){var arr=pool.map(function(p){return parseFloat(p[key]);}).filter(function(v){return !isNaN(v)&&v>0;}).sort(function(a,b){return a-b;});return arr;}
@@ -2594,6 +2597,9 @@ async function renderArchetype(){
   if(!_allCurrent){
     try{ var rc=await fetch(SB+'/rest/v1/players?select=name,team,position,height,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,fgm,fga,tpm,tpa,ftm,fta,stl,blk,tovs,tdc_grade&ppg=not.is.null&limit=5000',{headers:H}); _allCurrent=rc.ok?await rc.json():[]; }catch(e){ _allCurrent=[]; }
   }
+  if(!window._teamConf){
+    try{ var rt=await fetch(SB+'/rest/v1/teams?select=name,conf',{headers:H}); window._teamConf={}; (rt.ok?await rt.json():[]).forEach(function(t){window._teamConf[t.name]=t.conf||'';}); }catch(e){ window._teamConf={}; }
+  }
   var grp=_norm3(player.position);
   var pf=_feat(player), ph=_htIn(player.height);
 
@@ -2642,11 +2648,13 @@ async function renderArchetype(){
   // Normalize z-scores across the full combined pool
   var nAll=_normStats(allPool.map(function(c){return _feat(c.p);}).concat([pf]));
 
-  // Score each candidate — apply archetype bonus when style matches
+  // Score each candidate — apply archetype bonus and conference tier penalty
   var playerArchName=info.name;
+  var pTier=_confTier(player.team);
   var scored=allPool.map(function(c){
     var bArch=archetypeInfo(c.p).name;
-    var d=_dist(pf,_feat(c.p),nAll,ph,c.ht);
+    var cTier=_confTier(c.p.team);
+    var d=_dist(pf,_feat(c.p),nAll,ph,c.ht,pTier,cTier);
     if(bArch===playerArchName) d=Math.max(0,d-0.5);
     return {p:c.p,isCur:c.isCur,d:d};
   }).sort(function(a,b){return a.d-b.d;});
