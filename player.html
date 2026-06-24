@@ -2658,10 +2658,13 @@ async function renderArchetype(){
     return {p:c.p,d:d};
   }).sort(function(a,b){return a.d-b.d;});
 
-  // Top 6 unique players (best season per player name)
-  var seenNames={},topComps=[];
+  // Top 6 unique players — max 2 from any single season year to enforce era diversity
+  var seenNames={},seenYears={},topComps=[];
   for(var i=0;i<scored.length&&topComps.length<6;i++){
-    var nm=scored[i].p.name; if(seenNames[nm]) continue; seenNames[nm]=true; topComps.push(scored[i]);
+    var nm=scored[i].p.name,yr=scored[i].p.season_year||0;
+    if(seenNames[nm]) continue;
+    if((seenYears[yr]||0)>=2) continue;
+    seenNames[nm]=true; seenYears[yr]=(seenYears[yr]||0)+1; topComps.push(scored[i]);
   }
 
   function fmt(v){return (v!=null&&v!==''&&!isNaN(v))?Number(v).toFixed(1):'—';}
