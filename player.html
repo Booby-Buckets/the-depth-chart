@@ -2638,14 +2638,13 @@ async function renderArchetype(){
     return '<div class="arch-col"><div class="arch-bars">'+bar(nat,'nat')+bar(pr,'peer')+'</div><div class="arch-lbl">'+d.l+'</div></div>';
   }).join('');
 
-  // Unified comp pool: current 2025-26 players + all historical seasons
+  // Comp pool: real played seasons only (player_history, 2012-2026).
+  // Excludes 2026-27 projections from _allCurrent.
   var allPool=[];
-  _allCurrent.filter(function(q){return q.name&&q.name!==player.name&&q.name!=='—'&&(parseFloat(q.mpg)||0)>=10&&_norm3(q.position)===grp;})
-    .forEach(function(q){allPool.push({p:q,isCur:true,ht:_htIn(q.height)});});
   (_allHistory||[]).filter(function(q){return q.name&&q.name!==player.name&&(parseFloat(q.mpg)||0)>=10&&_norm3(q.position)===grp;})
     .forEach(function(q){allPool.push({p:q,isCur:false,ht:0});});
 
-  // Normalize z-scores across the full combined pool
+  // Normalize z-scores across the pool
   var nAll=_normStats(allPool.map(function(c){return _feat(c.p);}).concat([pf]));
 
   // Score each candidate — apply archetype bonus and conference tier penalty
@@ -2656,34 +2655,25 @@ async function renderArchetype(){
     var cTier=_confTier(c.p.team);
     var d=_dist(pf,_feat(c.p),nAll,ph,c.ht,pTier,cTier);
     if(bArch===playerArchName) d=Math.max(0,d-0.5);
-    return {p:c.p,isCur:c.isCur,d:d};
+    return {p:c.p,d:d};
   }).sort(function(a,b){return a.d-b.d;});
 
-  // Split into current (2026-27 projections) and historical (≤ 2024-25 seasons).
-  // Take top 3 from each pool so historical players always appear in comps.
-  var seenAll={},topCur=[],topHist=[];
-  for(var i=0;i<scored.length;i++){
-    var c=scored[i],nm=c.p.name;
-    if(seenAll[nm]) continue;
-    if(c.isCur && topCur.length<3){ seenAll[nm]=true; topCur.push(c); }
-    else if(!c.isCur && (c.p.season_year||2026)<=2025 && topHist.length<3){ seenAll[nm]=true; topHist.push(c); }
-    if(topCur.length>=3&&topHist.length>=3) break;
+  // Top 6 unique players (best season per player name)
+  var seenNames={},topComps=[];
+  for(var i=0;i<scored.length&&topComps.length<6;i++){
+    var nm=scored[i].p.name; if(seenNames[nm]) continue; seenNames[nm]=true; topComps.push(scored[i]);
   }
-  var topComps=topCur.concat(topHist).sort(function(a,b){return a.d-b.d;});
 
   function fmt(v){return (v!=null&&v!==''&&!isNaN(v))?Number(v).toFixed(1):'—';}
   function fmtP(v){return (v!=null&&v!==''&&!isNaN(v))?Number(v).toFixed(1)+'%':'—';}
   function compCard(x){
-    var q=x.p, simPct=_sim(x.d), color=x.isCur?'var(--accent)':'#5b9d8f';
-    var seasonBadge=x.isCur?'':'<span class="comp-season">'+(q.season_year-1)+'-'+(''+q.season_year).slice(2)+' · </span>';
-    var htStr=x.isCur&&q.height?' · '+q.height:'';
+    var q=x.p, simPct=_sim(x.d);
+    var seasonBadge='<span class="comp-season">'+(q.season_year-1)+'-'+(''+q.season_year).slice(2)+' · </span>';
     var inner='<div class="comp-top"><div><div class="comp-name">'+q.name+'</div>'+
-      '<div class="comp-meta">'+seasonBadge+(q.team||'')+' · '+(q.position||'')+htStr+'</div></div>'+
-      '<div class="comp-sim" style="color:'+color+';">'+simPct+'%<small>match</small></div></div>'+
+      '<div class="comp-meta">'+seasonBadge+(q.team||'')+' · '+(q.position||'')+'</div></div>'+
+      '<div class="comp-sim" style="color:#5b9d8f;">'+simPct+'%<small>match</small></div></div>'+
       '<div class="comp-stats">'+fmt(q.ppg)+' PPG · '+fmt(q.rpg)+' RPG · '+fmt(q.apg)+' APG · '+fmtP(q.fg_pct)+' FG · '+fmtP(q.tp_pct)+' 3P</div>';
-    return x.isCur
-      ?'<a class="comp-card" href="player.html?name='+encodeURIComponent(q.name)+'&team='+encodeURIComponent(q.team||'')+'">'+inner+'</a>'
-      :'<div class="comp-card">'+inner+'</div>';
+    return '<div class="comp-card">'+inner+'</div>';
   }
 
   el.innerHTML=
@@ -2698,7 +2688,7 @@ async function renderArchetype(){
     '<div class="arch-chart">'+cols+'</div>'+
     '<div class="arch-sec-h">Most Similar Players</div>'+
     '<div class="comp-grid">'+(topComps.length?topComps.map(compCard).join(''):'<div class="arch-note">No close matches found.</div>')+'</div>'+
-    '<div class="arch-note">Similarity blends stats, efficiency, shooting profile, role (minutes), archetype, and build. Historical seasons shown in teal; current players link to their profile.</div>';
+    '<div class="arch-note">Similarity blends stats, efficiency, shooting profile, role (minutes), archetype, and build. Comps draw from real played seasons (2011-12 through 2025-26).</div>';
   setTimeout(animateArchFit,40);
   setTimeout(function(){ growBarsIn(document.getElementById('panel-archetype')); }, 60);
 }
