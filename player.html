@@ -2186,21 +2186,32 @@ function renderStatTable(p, projData){
   };
 
   let rowsHtml = '';
+  const teamSub = t => t ? `<div style="font-size:9px;color:var(--text3);font-weight:600;margin-top:1px;">${t}</div>` : '';
 
-  // If we have career history, show every season the player was rostered
-  if(careerHistory && careerHistory.length){
-    careerHistory.forEach(s=>{
+  // Deduplicate history by season_year — keep the row with the most games played per year
+  const dedupedHistory = (() => {
+    const byYear = {};
+    (careerHistory || []).forEach(s => {
+      const yr = s.season_year;
+      const gp = s.gp || 0;
+      if(!byYear[yr] || gp > (byYear[yr].gp || 0)) byYear[yr] = s;
+    });
+    return Object.values(byYear).sort((a,b) => a.season_year - b.season_year);
+  })();
+
+  // Show all seasons from player_history (each row has the correct school for that year)
+  if(dedupedHistory.length){
+    dedupedHistory.forEach(s=>{
       if(s.sat_out || (s.ppg==null && (s.gp==null||s.gp===0))){
-        // Sat-out / redshirt season — show team + "Did not play"
         rowsHtml += `<tr style="opacity:.55;">
-          <td>${seasonLabel(s.season_year)}</td>
+          <td>${seasonLabel(s.season_year)}${teamSub(s.team)}</td>
           <td colspan="19" style="text-align:left;font-style:italic;color:var(--text3);">
             Redshirt / Did not play
           </td>
         </tr>`;
       } else {
         rowsHtml += `<tr class="actual">
-          <td>${seasonLabel(s.season_year)}</td>
+          <td>${seasonLabel(s.season_year)}${teamSub(s.team)}</td>
           <td>${s.gp||'—'}</td>
           <td>${fmt(s.ppg)}</td><td>${fmt(s.rpg)}</td><td>${fmt(s.apg)}</td><td>${fmt(s.mpg)}</td>
           <td>${fmt(s.fgm)}</td><td>${fmt(s.fga)}</td><td>${fmtP(s.fg_pct)}</td>
@@ -2212,9 +2223,9 @@ function renderStatTable(p, projData){
       }
     });
   } else {
-    // No career history — fall back to the current season row from players table
+    // No career history — fall back to current season row from players table
     rowsHtml += `<tr class="actual">
-      <td>2026-27</td>
+      <td>2025-26${teamSub(p.team)}</td>
       <td>${p.gp||'—'}</td>
       <td>${fmt(p.ppg)}</td><td>${fmt(p.rpg)}</td><td>${fmt(p.apg)}</td><td>${fmt(p.mpg)}</td>
       <td>${fmt(p.fgm)}</td><td>${fmt(p.fga)}</td><td>${fmtP(p.fg_pct)}</td>
@@ -2603,31 +2614,45 @@ async function renderArchetype(){
     return '<div class="arch-col"><div class="arch-bars">'+bar(nat,'nat')+bar(pr,'peer')+'</div><div class="arch-lbl">'+d.l+'</div></div>';
   }).join('');
 
-  // similar current players (same group)
-  var cands=_allCurrent.filter(function(q){return q.name&&q.name!==player.name&&q.name!=='—'&&(parseFloat(q.mpg)||0)>=10&&_norm3(q.position)===grp;});
-  var nstats=_normStats(cands.map(_feat).concat([pf]));
-  var simCur=cands.map(function(q){return {p:q,d:_dist(pf,_feat(q),nstats,ph,_htIn(q.height))};}).sort(function(a,b){return a.d-b.d;}).slice(0,6);
+  // Unified comp pool: current 2025-26 players + all historical seasons
+  var allPool=[];
+  _allCurrent.filter(function(q){return q.name&&q.name!==player.name&&q.name!=='—'&&(parseFloat(q.mpg)||0)>=10&&_norm3(q.position)===grp;})
+    .forEach(function(q){allPool.push({p:q,isCur:true,ht:_htIn(q.height)});});
+  (_allHistory||[]).filter(function(q){return q.name&&q.name!==player.name&&(parseFloat(q.mpg)||0)>=10&&_norm3(q.position)===grp;})
+    .forEach(function(q){allPool.push({p:q,isCur:false,ht:0});});
 
-  // historical season matches (same group, exclude same-name)
-  var hpool=(_allHistory||[]).filter(function(q){return q.name&&q.name!==player.name&&(parseFloat(q.mpg)||0)>=10&&_norm3(q.position)===grp;});
-  var hstats=_normStats(hpool.map(_feat).concat([pf]));
-  var simHist=hpool.map(function(q){return {p:q,d:_dist(pf,_feat(q),hstats)};}).sort(function(a,b){return a.d-b.d;});
-  // dedupe by name+season, keep best 4
-  var seen={},hist=[];
-  for(var i=0;i<simHist.length&&hist.length<4;i++){var q=simHist[i].p,key=q.name+q.season_year;if(seen[key])continue;seen[key]=1;hist.push(simHist[i]);}
+  // Normalize z-scores across the full combined pool
+  var nAll=_normStats(allPool.map(function(c){return _feat(c.p);}).concat([pf]));
+
+  // Score each candidate — apply archetype bonus when style matches
+  var playerArchName=info.name;
+  var scored=allPool.map(function(c){
+    var bArch=archetypeInfo(c.p).name;
+    var d=_dist(pf,_feat(c.p),nAll,ph,c.ht);
+    if(bArch===playerArchName) d=Math.max(0,d-0.5);
+    return {p:c.p,isCur:c.isCur,d:d};
+  }).sort(function(a,b){return a.d-b.d;});
+
+  // Deduplicate by player name — show each player only once (best-matching season)
+  var seenNames={},topComps=[];
+  for(var i=0;i<scored.length&&topComps.length<6;i++){
+    var nm=scored[i].p.name; if(seenNames[nm]) continue; seenNames[nm]=true; topComps.push(scored[i]);
+  }
 
   function fmt(v){return (v!=null&&v!==''&&!isNaN(v))?Number(v).toFixed(1):'—';}
   function fmtP(v){return (v!=null&&v!==''&&!isNaN(v))?Number(v).toFixed(1)+'%':'—';}
-  function curCard(x){var q=x.p,col=teamColorFor?teamColorFor(q.team):'#888';
-    return '<a class="comp-card" href="player.html?name='+encodeURIComponent(q.name)+'&team='+encodeURIComponent(q.team||'')+'">'+
-      '<div class="comp-top"><div><div class="comp-name">'+q.name+'</div><div class="comp-meta">'+(q.team||'')+' · '+(q.position||'')+' · '+(q.height||'')+'</div></div>'+
-      '<div class="comp-sim" style="color:var(--accent);">'+_sim(x.d)+'%<small>match</small></div></div>'+
-      '<div class="comp-stats">'+fmt(q.ppg)+' PPG · '+fmt(q.rpg)+' RPG · '+fmt(q.apg)+' APG · '+fmtP(q.fg_pct)+' FG · '+fmtP(q.tp_pct)+' 3P</div></a>';}
-  function histCard(x){var q=x.p;
-    return '<div class="comp-card">'+
-      '<div class="comp-top"><div><div class="comp-name">'+q.name+'</div><div class="comp-meta"><span class="comp-season">'+(q.season_year-1)+'-'+(''+q.season_year).slice(2)+' season</span> · '+(q.team||'')+'</div></div>'+
-      '<div class="comp-sim" style="color:#5b9d8f;">'+_sim(x.d)+'%<small>match</small></div></div>'+
-      '<div class="comp-stats">'+fmt(q.ppg)+' PPG · '+fmt(q.rpg)+' RPG · '+fmt(q.apg)+' APG · '+fmtP(q.fg_pct)+' FG · '+fmtP(q.tp_pct)+' 3P</div></div>';}
+  function compCard(x){
+    var q=x.p, simPct=_sim(x.d), color=x.isCur?'var(--accent)':'#5b9d8f';
+    var seasonBadge=x.isCur?'':'<span class="comp-season">'+(q.season_year-1)+'-'+(''+q.season_year).slice(2)+' · </span>';
+    var htStr=x.isCur&&q.height?' · '+q.height:'';
+    var inner='<div class="comp-top"><div><div class="comp-name">'+q.name+'</div>'+
+      '<div class="comp-meta">'+seasonBadge+(q.team||'')+' · '+(q.position||'')+htStr+'</div></div>'+
+      '<div class="comp-sim" style="color:'+color+';">'+simPct+'%<small>match</small></div></div>'+
+      '<div class="comp-stats">'+fmt(q.ppg)+' PPG · '+fmt(q.rpg)+' RPG · '+fmt(q.apg)+' APG · '+fmtP(q.fg_pct)+' FG · '+fmtP(q.tp_pct)+' 3P</div>';
+    return x.isCur
+      ?'<a class="comp-card" href="player.html?name='+encodeURIComponent(q.name)+'&team='+encodeURIComponent(q.team||'')+'">'+inner+'</a>'
+      :'<div class="comp-card">'+inner+'</div>';
+  }
 
   el.innerHTML=
     '<div class="arch-hero"><div class="arch-hero-l"><div class="arch-eyebrow">Player Archetype</div>'+
@@ -2639,11 +2664,9 @@ async function renderArchetype(){
     '<div class="arch-sec-h">Projected Percentile — vs National &amp; Archetype</div>'+
     '<div class="arch-legend"><span><i style="background:var(--accent)"></i>vs All D1</span><span><i style="background:#5b9d8f"></i>vs '+({G:'Guards',W:'Wings',B:'Bigs'}[grp])+'</span></div>'+
     '<div class="arch-chart">'+cols+'</div>'+
-    '<div class="arch-sec-h">Most Similar Players · 2025-26</div>'+
-    '<div class="comp-grid">'+simCur.map(curCard).join('')+'</div>'+
-    '<div class="arch-sec-h">Closest Historical Season Comps</div>'+
-    '<div class="comp-grid">'+(hist.length?hist.map(histCard).join(''):'<div class="arch-note">No close historical matches found.</div>')+'</div>'+
-    '<div class="arch-note">Similarity blends production, efficiency, shooting, role (minutes), and — for current players — size. Historical comps use season stat lines from prior years (size omitted; not tracked in history).</div>';
+    '<div class="arch-sec-h">Most Similar Players</div>'+
+    '<div class="comp-grid">'+(topComps.length?topComps.map(compCard).join(''):'<div class="arch-note">No close matches found.</div>')+'</div>'+
+    '<div class="arch-note">Similarity blends stats, efficiency, shooting profile, role (minutes), archetype, and build. Historical seasons shown in teal; current players link to their profile.</div>';
   setTimeout(animateArchFit,40);
   setTimeout(function(){ growBarsIn(document.getElementById('panel-archetype')); }, 60);
 }
