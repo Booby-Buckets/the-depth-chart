@@ -214,6 +214,25 @@ body{background:transparent!important;}
   <select class="filter-select" id="teamFilter" onchange="applyFilters()">
     <option value="">All Teams</option>
   </select>
+  <select class="filter-select" id="seasonFilter" onchange="onSeasonChange()">
+    <option value="2027">2026-27 (current)</option>
+    <option value="2026">2025-26</option>
+    <option value="2025">2024-25</option>
+    <option value="2024">2023-24</option>
+    <option value="2023">2022-23</option>
+    <option value="2022">2021-22</option>
+    <option value="2021">2020-21</option>
+    <option value="2020">2019-20</option>
+    <option value="2019">2018-19</option>
+    <option value="2018">2017-18</option>
+    <option value="2017">2016-17</option>
+    <option value="2016">2015-16</option>
+    <option value="2015">2014-15</option>
+    <option value="2014">2013-14</option>
+    <option value="2013">2012-13</option>
+    <option value="2012">2011-12</option>
+    <option value="all">All Seasons</option>
+  </select>
   <select class="filter-select" id="posFilter" onchange="applyFilters()">
     <option value="">All Positions</option>
     <option value="PG">PG</option>
@@ -282,6 +301,18 @@ let globalPct = {}; // global percentiles
 let sortCol    = 'tdc_grade';
 let sortDir    = 1;
 
+// Season browsing — players holds the CURRENT roster; historical seasons are
+// lazy-loaded into seasonCache and shown via the Season filter.
+let activeData = [];          // the dataset currently being filtered/shown
+let seasonCache = {};         // { '2026': [...rows], 'all': [...] }
+let teamBaseIdx = [];         // [ [lowerBaseName, teamObj] ] for mascot stripping
+let _filtered = [];           // current filtered+sorted rows
+let _rendered = 0;            // how many appended so far (infinite scroll)
+let _rkScrollBound = false;
+const RENDER_CHUNK = 80;
+
+function seasonLabel(yr){ yr=+yr; return yr>=2027?(yr-1)+'-'+(''+yr).slice(2)+' (proj)':(yr-1)+'-'+(''+yr).slice(2); }
+
 function toggleColors(cb){
   document.body.classList.toggle('no-color', !cb.checked);
   localStorage.setItem('tdc_roster_colors', cb.checked ? '1' : '0');
@@ -344,6 +375,57 @@ function htMatch(h, filter){
   return true;
 }
 
+function updateMeta(){
+  const s=document.getElementById('seasonFilter').value;
+  const scope = s==='all' ? 'all seasons · 2011-12 → 2026-27' : seasonLabel(s);
+  const noun = (s==='2027') ? 'players' : 'player-seasons';
+  document.getElementById('pageMeta').textContent =
+    `${activeData.length.toLocaleString()} ${noun} · ${scope}`;
+}
+
+// resolve a (possibly mascot-suffixed) historical team name to its team row
+function resolveTeam(name){
+  if(!name) return {teamData:{}, conf:''};
+  const lo=name.toLowerCase().trim();
+  for(const [bn,t] of teamBaseIdx){
+    if(lo===bn || lo.startsWith(bn+' ')) return {teamData:t, conf:t.conf||t.conference||''};
+  }
+  return {teamData:{}, conf:''};
+}
+
+async function loadSeason(yr){
+  if(seasonCache[yr]) return seasonCache[yr];
+  document.getElementById('tableContainer').innerHTML =
+    `<div class="empty-state">Loading ${yr==='all'?'all seasons':seasonLabel(yr)}…</div>`;
+  const base=`${SB}/rest/v1/player_history?select=id,name,team,position,height,yr,tdc_grade,ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,oreb,dreb,stl,blk,tovs,gp,season_year&tdc_grade=not.is.null`;
+  const url = yr==='all' ? base : `${base}&season_year=eq.${yr}`;
+  let rows=[], page=0; const PG=1000;
+  while(true){
+    const from=page*PG, to=from+PG-1;
+    const r=await fetch(url,{headers:{...H,'Range-Unit':'items','Range':`${from}-${to}`}});
+    const b=await r.json();
+    if(!Array.isArray(b)||!b.length) break;
+    rows=rows.concat(b);
+    if(b.length<PG) break; page++;
+  }
+  // dedupe within a season (player listed on two team-rows) — keep higher GP
+  const byKey={};
+  rows.forEach(p=>{ const k=p.name+'|'+p.season_year, gp=+p.gp||0;
+    if(!byKey[k]||gp>(byKey[k]._gp||0)){ p._gp=gp; byKey[k]=p; } });
+  const mapped=Object.values(byKey).map(p=>{ const rt=resolveTeam(p.team);
+    return {...p, class_year:p.yr, _hist:true, teamData:rt.teamData, conf:rt.conf}; });
+  const data = yr==='all' ? allPlayers.concat(mapped) : mapped;
+  seasonCache[yr]=data;
+  return data;
+}
+
+async function onSeasonChange(){
+  const yr=document.getElementById('seasonFilter').value;
+  activeData = await loadSeason(yr);
+  updateMeta();
+  applyFilters();
+}
+
 async function loadData(){
   try {
     // Load teams for team filter + conference lookup
@@ -394,13 +476,18 @@ async function loadData(){
 
     allPlayers = allRaw.filter(p => p.name && p.name !== '—').map(p => ({
       ...p,
+      season_year: 2027, _hist: false,
       teamData: teamMap[p.team] || {},
       conf: (teamMap[p.team]||{}).conf || (teamMap[p.team]||{}).conference || '',
     }));
 
-    document.getElementById('pageMeta').textContent =
-      `${allPlayers.length} players across ${allTeams.length} programs`;
+    // index team base-names (mascot-stripped) for resolving historical teams
+    teamBaseIdx = allTeams.map(t => [ (t.name||'').toLowerCase(), t ])
+                          .sort((a,b)=>b[0].length-a[0].length);
 
+    seasonCache['2027'] = allPlayers;
+    activeData = allPlayers;
+    updateMeta();
     applyFilters();
   } catch(e){
     document.getElementById('tableContainer').innerHTML =
@@ -417,9 +504,9 @@ function applyFilters(){
   const grade  = document.getElementById('gradeFilter').value;
   const search = document.getElementById('searchInput').value.toLowerCase().trim();
 
-  let filtered = allPlayers.filter(p => {
+  let filtered = activeData.filter(p => {
     if(conf   && p.conf !== conf) return false;
-    if(team   && p.team !== team) return false;
+    if(team   && p.team !== team && !((p.team||'').toLowerCase().startsWith(team.toLowerCase()+' '))) return false;
     if(pos    && p.position !== pos) return false;
     if(yr     && (p.class_year||p.yr) !== yr) return false;
     if(ht     && !htMatch(p.height, ht)) return false;
@@ -460,8 +547,10 @@ function applyFilters(){
   });
 
   document.getElementById('countEl').innerHTML =
-    `<strong>${filtered.length}</strong> of ${allPlayers.length} players`;
+    `<strong>${filtered.length.toLocaleString()}</strong> of ${activeData.length.toLocaleString()}`;
 
+  _filtered = filtered;
+  _rendered = 0;
   renderTable(filtered);
 }
 
@@ -518,34 +607,43 @@ function renderTable(players){
           ${col('tovs','TO','right')}
         </tr>
       </thead>
-      <tbody>
-        ${players.map(p => {
-          const color = p.teamData?.color || '#888';
-          const hex = color.replace('#','');
-          const r = parseInt(hex.slice(0,2),16)||100;
-          const g = parseInt(hex.slice(2,4),16)||100;
-          const b2 = parseInt(hex.slice(4,6),16)||100;
-          const luminance = (0.299*r + 0.587*g + 0.114*b2) / 255;
-          const textColor = luminance > 0.5 ? '#111' : '#fff';
-          const yr = p.class_year||p.yr||'';
-          const sc = (v,k) => {
-            if(v==null||v===''||!globalPct[k]) return '';
-            const n=parseFloat(v); if(isNaN(n)||n===0) return '';
-            const {p20,p40,p60,p80}=globalPct[k];
-            const inv=k==='tovs';
-            let pct;
-            if(inv){if(n<=p20)pct=4;else if(n<=p40)pct=3;else if(n<=p60)pct=2;else if(n<=p80)pct=1;else pct=0;}
-            else{if(n>=p80)pct=4;else if(n>=p60)pct=3;else if(n>=p40)pct=2;else if(n>=p20)pct=1;else pct=0;}
-            if(pct===0) return '';
-            const bg=['','rgba(60,120,220,.45)','rgba(45,100,210,.58)','rgba(30,82,200,.72)','rgba(18,60,185,.88)'][pct];
-            return `background:${bg};color:#fff;font-weight:700;`;
-          };
-          return `<tr>
+      <tbody id="rosterBody"></tbody>
+    </table>`;
+  _rendered = 0;
+  _renderMore();
+  if(!_rkScrollBound){ window.addEventListener('scroll', _onRosterScroll, {passive:true}); _rkScrollBound=true; }
+}
+
+function _statColor(v,k){
+  if(v==null||v===''||!globalPct[k]) return '';
+  const n=parseFloat(v); if(isNaN(n)||n===0) return '';
+  const {p20,p40,p60,p80}=globalPct[k];
+  const inv=k==='tovs';
+  let pct;
+  if(inv){if(n<=p20)pct=4;else if(n<=p40)pct=3;else if(n<=p60)pct=2;else if(n<=p80)pct=1;else pct=0;}
+  else{if(n>=p80)pct=4;else if(n>=p60)pct=3;else if(n>=p40)pct=2;else if(n>=p20)pct=1;else pct=0;}
+  if(pct===0) return '';
+  const bg=['','rgba(60,120,220,.45)','rgba(45,100,210,.58)','rgba(30,82,200,.72)','rgba(18,60,185,.88)'][pct];
+  return `background:${bg};color:#fff;font-weight:700;`;
+}
+
+function _rowHTML(p){
+  const color = p.teamData?.color || '#888';
+  const hex = color.replace('#','');
+  const r = parseInt(hex.slice(0,2),16)||100;
+  const g = parseInt(hex.slice(2,4),16)||100;
+  const b2 = parseInt(hex.slice(4,6),16)||100;
+  const luminance = (0.299*r + 0.587*g + 0.114*b2) / 255;
+  const textColor = luminance > 0.5 ? '#111' : '#fff';
+  const yr = p.class_year||p.yr||'';
+  const sc = (v,k)=>_statColor(v,k);
+  const plink = `player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}${p._hist?('&season='+p.season_year):''}`;
+  return `<tr>
             <td class="td-grade ${gc(p.tdc_grade||'')} right" style="min-width:44px;">${p.tdc_grade||'—'}</td>
             <td>
-              <div class="td-name"><a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team)}" style="color:inherit;text-decoration:none;">${p.name}</a>${p.is_injured?'🏥':''}${p.is_international?'🌍':''}${p.starter?`<span class="starter-badge">*</span>`:''}</div>
+              <div class="td-name"><a href="${plink}" style="color:inherit;text-decoration:none;">${p.name}</a>${p.is_injured?'🏥':''}${p.is_international?'🌍':''}${p.starter?`<span class="starter-badge">*</span>`:''}</div>
             </td>
-            <td><div class="td-team"><a href="team.html?team=${encodeURIComponent(p.team)}" style="color:${textColor};font-weight:700;background:${color};padding:2px 8px;border-radius:2px;">${p.team||'—'}</a></div></td>
+            <td><div class="td-team"><a href="team.html?team=${encodeURIComponent(p.team||'')}" style="color:${textColor};font-weight:700;background:${color};padding:2px 8px;border-radius:2px;">${p.team||'—'}</a></div></td>
             <td><span class="conf-badge">${p.conf||'—'}</span></td>
             <td><span class="td-pos">${p.position||'—'}</span></td>
             <td class="td-ht">${p.height||'—'}</td>
@@ -570,9 +668,19 @@ function renderTable(players){
             <td class="td-stat right" style="${sc(p.blk,'blk')}">${fmt(p.blk)}</td>
             <td class="td-stat right" style="${sc(p.tovs,'tovs')}">${fmt(p.tovs)}</td>
           </tr>`;
-        }).join('')}
-      </tbody>
-    </table>`;
+}
+
+function _renderMore(){
+  const body=document.getElementById('rosterBody'); if(!body) return;
+  const slice=_filtered.slice(_rendered, _rendered+RENDER_CHUNK);
+  if(!slice.length) return;
+  body.insertAdjacentHTML('beforeend', slice.map(_rowHTML).join(''));
+  _rendered += slice.length;
+}
+
+function _onRosterScroll(){
+  if(_rendered>=_filtered.length) return;
+  if(window.innerHeight + window.scrollY > document.body.offsetHeight - 800) _renderMore();
 }
 
 function setSort(col){
