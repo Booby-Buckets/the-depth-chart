@@ -42,10 +42,15 @@
 
     /* FILTER BAR */
     .filter-bar{padding:14px 40px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-    .filter-select{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;background:var(--bg);border:1px solid var(--border2);color:var(--text2);padding:6px 10px;outline:none;cursor:pointer;}
-    .filter-select:focus{border-color:var(--accent);}
-    .filter-input{font-family:'Inter',sans-serif;font-size:12px;font-weight:500;background:var(--bg);border:1px solid var(--border2);color:var(--text);padding:6px 10px;outline:none;width:180px;}
-    .filter-input:focus{border-color:var(--accent);}
+    .filter-select{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:8px 30px 8px 12px;border-radius:9px;outline:none;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s;
+      appearance:none;-webkit-appearance:none;-moz-appearance:none;
+      background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="%23847B9C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+      background-repeat:no-repeat;background-position:right 11px center;}
+    .filter-select:hover{border-color:var(--border2);background-color:var(--bg2);}
+    .filter-select:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);}
+    .filter-input{font-family:'Inter',sans-serif;font-size:12px;font-weight:500;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:9px;outline:none;width:190px;transition:border-color .15s,box-shadow .15s;}
+    .filter-input:hover{border-color:var(--border2);}
+    .filter-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);}
     .filter-input::placeholder{color:var(--text3);}
     .filter-count{margin-left:auto;font-size:12px;font-weight:600;color:var(--text3);}
     .filter-count strong{color:var(--accent);}
@@ -68,9 +73,12 @@
     .td-team a:hover{color:var(--accent);}
     .td-pos{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
     .td-ht{font-family:'Playfair Display',serif;font-size:13px;}
+    .td-season{font-family:'Playfair Display',serif;font-size:13px;font-weight:700;color:var(--text2);}
+    .td-season.proj{color:var(--accent);}
     .td-stat{font-family:'Playfair Display',serif;font-size:13px;font-weight:700;text-align:right;background:var(--bg2);padding:2px 6px;border-radius:2px;margin:0 1px;}
     .color-toggle-wrap{display:flex;align-items:center;gap:8px;padding:10px 40px 0;}
     .color-toggle-label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .ckey-grad{display:inline-block;width:54px;height:9px;border-radius:5px;background:linear-gradient(to right,rgba(60,120,220,.4),rgba(45,100,210,.6),rgba(30,82,200,.78),rgba(18,60,185,.95));}
     .toggle-switch{position:relative;width:36px;height:20px;cursor:pointer;}
     .toggle-switch input{opacity:0;width:0;height:0;}
     .toggle-slider{position:absolute;inset:0;background:var(--border2);border-radius:20px;transition:.2s;}
@@ -312,6 +320,7 @@ let _rkScrollBound = false;
 const RENDER_CHUNK = 80;
 
 function seasonLabel(yr){ yr=+yr; return yr>=2027?(yr-1)+'-'+(''+yr).slice(2)+' (proj)':(yr-1)+'-'+(''+yr).slice(2); }
+function seasonShort(yr){ yr=+yr||2027; return (''+(yr-1)).slice(-2)+'-'+(''+yr).slice(-2); }
 
 function toggleColors(cb){
   document.body.classList.toggle('no-color', !cb.checked);
@@ -523,7 +532,7 @@ function applyFilters(){
   // Sort
   filtered.sort((a,b) => {
     let av, bv;
-    const numCols = ['ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs','gp'];
+    const numCols = ['ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs','gp','season_year'];
     if(numCols.includes(sortCol)){
       av = parseFloat(a[sortCol]??-999)||0; bv = parseFloat(b[sortCol]??-999)||0;
       return (bv-av)*sortDir;
@@ -574,13 +583,14 @@ function renderTable(players){
         <input type="checkbox" id="colorToggle" ${localStorage.getItem('tdc_roster_colors')!=='0'?'checked':''} onchange="toggleColors(this)"/>
         <span class="toggle-slider"></span>
       </label>
-      <span style="font-size:11px;color:var(--text3);">National percentile — red → yellow → green</span>
+      <span class="color-key" style="font-size:11px;color:var(--text3);display:inline-flex;align-items:center;gap:7px;">National percentile<span class="ckey-grad"></span>deeper blue = higher</span>
     </div>
     <table class="roster-table">
       <thead>
         <tr>
           ${col('tdc_grade','OVR','right')}
           ${col('name','Player')}
+          ${col('season_year','Season')}
           ${col('team','Team')}
           ${col('conf','Conf')}
           ${col('position','Pos')}
@@ -643,6 +653,7 @@ function _rowHTML(p){
             <td>
               <div class="td-name"><a href="${plink}" style="color:inherit;text-decoration:none;">${p.name}</a>${p.is_injured?'🏥':''}${p.is_international?'🌍':''}${p.starter?`<span class="starter-badge">*</span>`:''}</div>
             </td>
+            <td><span class="td-season${p._hist?'':' proj'}">${seasonShort(p.season_year)}</span></td>
             <td><div class="td-team"><a href="team.html?team=${encodeURIComponent(p.team||'')}" style="color:${textColor};font-weight:700;background:${color};padding:2px 8px;border-radius:2px;">${p.team||'—'}</a></div></td>
             <td><span class="conf-badge">${p.conf||'—'}</span></td>
             <td><span class="td-pos">${p.position||'—'}</span></td>
