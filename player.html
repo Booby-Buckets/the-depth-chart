@@ -92,7 +92,8 @@
     .rk-yr:hover{color:var(--text);border-color:var(--text3);}
     .rk-yr.on{background:var(--accent);border-color:var(--accent);color:#fff;}
     .rk-list{display:flex;flex-direction:column;gap:5px;}
-    .rk-row{display:grid;grid-template-columns:54px 1fr auto 46px;align-items:center;gap:12px;padding:9px 14px;border-radius:9px;background:rgba(255,255,255,.025);border:1px solid transparent;}
+    .rk-row{display:grid;grid-template-columns:54px 1fr auto 46px;align-items:center;gap:12px;padding:9px 14px;border-radius:9px;background:rgba(255,255,255,.025);border:1px solid transparent;text-decoration:none;color:inherit;transition:background .12s,border-color .12s;}
+    .rk-row:hover{background:rgba(177,107,255,.10);border-color:rgba(177,107,255,.3);}
     .rk-row.me{background:rgba(177,107,255,.12);border-color:rgba(177,107,255,.4);}
     .rk-rank{font-family:'Playfair Display',serif;font-weight:800;font-size:16px;color:var(--text3);text-align:right;}
     .rk-row.me .rk-rank{color:var(--accent);}
@@ -1502,7 +1503,7 @@ function tdcSane(p){
 async function init(){
   const s=JSON.parse(localStorage.getItem('tdc_session')||'null');
   const params=new URLSearchParams(location.search);
-  const pid=params.get('id'), pname=params.get('name'), pteam=params.get('team');
+  const pid=params.get('id'), pname=params.get('name'), pteam=params.get('team'), pseason=params.get('season');
   if(!pid&&!pname){document.getElementById('heroSection').innerHTML='<div style="padding:80px;text-align:center;color:var(--text3);">No player specified. <a href="roster.html" style="color:var(--accent);">Browse players →</a></div>';return;}
   try{
     if(s?.access_token) updateNav(s);
@@ -1540,6 +1541,20 @@ async function init(){
         playerRow=fb2Rows.find(r=>r.name&&r.name.toLowerCase().trim()===nameLower);
         // Fuzzy: if exact still fails, try contains
         if(!playerRow) playerRow=fb2Rows.find(r=>r.name&&r.name.toLowerCase().includes(nameLower.slice(0,8)));
+      }
+    }
+    // Fallback 3: historical-only player (not on a current roster) — build
+    // the page from their player_history record so any ranked player is viewable
+    if(!playerRow&&pname){
+      let hq=`${SB}/rest/v1/player_history?name=eq.${sbEncode(pname)}&select=*&order=season_year.desc&limit=40`;
+      let hrows=await fetch(hq,{headers:H}).then(r=>r.json()).catch(()=>[]);
+      if(Array.isArray(hrows)&&hrows.length){
+        let row=null;
+        if(pseason) row=hrows.find(r=>String(r.season_year)===String(pseason)&&(!pteam||r.team===pteam))||hrows.find(r=>String(r.season_year)===String(pseason));
+        if(!row&&pteam) row=hrows.find(r=>r.team===pteam);
+        row=row||hrows[0];
+        playerRow=row;
+        window._historicalView=true;
       }
     }
     if(!playerRow) throw new Error('Player not found — check name spelling or try searching from the roster page.');
@@ -1602,7 +1617,7 @@ async function init(){
     // Project the ENTIRE team using buildTeamProjections (same as team page).
     // This ensures normalization is applied identically and numbers match.
     proj = null;
-    try{
+    if(!window._historicalView) try{
       const conf = (teamData&&teamData.conf)||(player.team_conf)||'';
 
       // Build _careerHistoryMap for the full roster
@@ -1770,7 +1785,8 @@ function renderImpact(){
       '<div class="imp-card-v">'+g.v+'</div>'+
       '<div class="imp-card-bar"><i class="impact-fill" style="width:'+Math.max(g.v,2)+'%;background:var(--tc);"></i></div></div>';
   }).join('');
-  host.innerHTML='<div class="sec-title" style="margin-bottom:14px;">Impact Score <span style="font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--accent);background:rgba(139,105,20,.12);padding:2px 6px;border-radius:4px;vertical-align:middle;">2026-27 PROJ</span></div>'+
+  var _impSeason=(window._historicalView&&player.season_year)?((player.season_year-1)+'-'+(''+player.season_year).slice(2)):'2026-27 PROJ';
+  host.innerHTML='<div class="sec-title" style="margin-bottom:14px;">Impact Score <span style="font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--accent);background:rgba(139,105,20,.12);padding:2px 6px;border-radius:4px;vertical-align:middle;">'+_impSeason+'</span></div>'+
     '<div class="impact-wrap">'+
       '<div class="impact-head">'+
         '<div class="impact-num">'+score+'<span>/100</span></div>'+
@@ -2543,11 +2559,12 @@ function _rkRowHTML(e){
   var me=e.name===player.name;
   var season=e.proj?'<span class="rk-proj">'+_rkSeason(e.yr)+' · proj</span>':_rkSeason(e.yr);
   var stats=_rkFmt(e.ppg)+' / '+_rkFmt(e.rpg)+' / '+_rkFmt(e.apg)+' &middot; '+_rkFmtP(e.fg)+' FG';
-  return '<div class="rk-row'+(me?' me':'')+'">'
+  var href='player.html?name='+encodeURIComponent(e.name)+'&team='+encodeURIComponent(e.team||'')+(e.proj?'':'&season='+e.yr);
+  return '<a class="rk-row'+(me?' me':'')+'" href="'+href+'">'
     +'<div class="rk-rank">'+(e._dr||e.rank)+'</div>'
     +'<div><div class="rk-name">'+e.name+'</div><div class="rk-sub">'+season+' &middot; '+(e.team||'')+' &middot; '+(e.pos||'')+'</div></div>'
     +'<div class="rk-stats">'+stats+'</div>'
-    +'<div class="rk-grade" style="color:'+_rkColor(e.grade)+';">'+e.grade+'</div></div>';
+    +'<div class="rk-grade" style="color:'+_rkColor(e.grade)+';">'+e.grade+'</div></a>';
 }
 
 function _rkRenderMore(){
