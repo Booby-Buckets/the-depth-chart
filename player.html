@@ -191,7 +191,7 @@
     .prog-legend i{display:inline-block;width:18px;height:0;vertical-align:middle;margin-right:6px;}
     .prog-legend .pl-line{border-top:2.5px solid var(--accent);}
     .prog-legend .pl-base{border-top:2px dashed var(--text3);opacity:.6;}
-    .radar-wrap canvas{width:100%;max-width:460px;height:auto;}
+    .radar-wrap canvas{width:100%;max-width:600px;height:auto;}
     .radar-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:12px;}
     .radar-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--text3);cursor:pointer;user-select:none;padding:3px 7px;border-radius:6px;transition:background .12s,opacity .12s;}
     .radar-legend-item:hover{background:var(--bg2);color:var(--text2);}
@@ -2129,7 +2129,7 @@ function renderPage(){
       <div id="impactSection"></div>
       <div id="spectrumSection"></div>
       <div class="sec-title" style="margin-bottom:16px;">Skill Profile</div>
-      <div class="radar-wrap"><canvas id="radarChart" width="480" height="480"></canvas></div>
+      <div class="radar-wrap"><canvas id="radarChart" width="600" height="600"></canvas></div>
       <div class="radar-legend" id="radarLegend"></div>
       ${buildSkillBreakdown(p)}
     </div>
@@ -2500,7 +2500,7 @@ function drawRadar(progress){
     return {lbl:_seasonLbl(s.season_year)||'Actual', col:(isLast?color:PAL[i%PAL.length]),
             vals:axesOf(s), alpha:1, fill:(isLast?0.16:0), proj:false};
   });
-  if(proj && !proj._frosh) series.push({lbl:_seasonLbl(2027)+' Proj', col:accent, vals:axesOf(proj), alpha:0.8, fill:0.10, proj:true});
+  if(proj && !proj._frosh) series.push({lbl:_seasonLbl(2027)+' Proj', col:accent, vals:axesOf(proj), alpha:0.95, fill:0.14, proj:true});
 
   var vis=window._radarVis=window._radarVis||{};
   // projected behind, then seasons oldest→newest (most recent on top)
@@ -2514,7 +2514,7 @@ function drawRadar(progress){
     legendEl.innerHTML=series.map(function(sv){
       var off=(vis[sv.lbl]===false);
       return '<div class="radar-legend-item'+(off?' off':'')+'" onclick="_radarToggle(\''+sv.lbl+'\')">'
-        +'<div class="radar-legend-dot" style="background:'+sv.col+';'+(sv.proj?'opacity:.8;':'')+'"></div>'+sv.lbl+'</div>';
+        +'<div class="radar-legend-dot" style="background:'+sv.col+';'+(sv.proj?'opacity:.95;':'')+'"></div>'+sv.lbl+'</div>';
     }).join('');
   }
 }
