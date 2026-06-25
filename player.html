@@ -68,6 +68,11 @@
     /* TABS — animated */
     .tab-row{display:flex;border-bottom:1px solid var(--border);padding:0 40px;overflow-x:auto;scrollbar-width:none;}
     .tab-row::-webkit-scrollbar{display:none;}
+    /* scroll-hint fade on the right when more tabs are off-screen */
+    .tab-row-wrap{position:relative;}
+    .tab-row-wrap::after{content:'';position:absolute;top:0;right:0;bottom:1px;width:48px;pointer-events:none;
+      background:linear-gradient(to right, transparent, var(--bg));opacity:0;transition:opacity .2s;}
+    .tab-row-wrap.more::after{opacity:1;}
     .tab-btn{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:12px 20px;border:none;background:none;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;font-family:'Inter',sans-serif;transition:color .2s;white-space:nowrap;position:relative;}
     .tab-btn::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background:var(--accent);transform:scaleX(0);transform-origin:center;transition:transform .25s cubic-bezier(.22,1,.36,1);}
     .tab-btn.active{color:var(--text);}
@@ -2091,13 +2096,15 @@ function renderPage(){
       ${p.tdc_grade?`<div class="hero-grade-wrap"><div class="hero-grade">${p.tdc_grade}</div><div class="hero-grade-lbl">TDC Grade</div></div>`:''}
     </div>
 
-    <div class="tab-row">
+    <div class="tab-row-wrap">
+    <div class="tab-row" id="tabRow" onscroll="_tabScrollHint()">
       <button class="tab-btn active" id="tab-overview" onclick="switchTab('overview')">Overview</button>
       <button class="tab-btn" id="tab-stats" onclick="switchTab('stats')">Full Stats</button>
       <button class="tab-btn" id="tab-percentiles" onclick="switchTab('percentiles')">Percentiles</button>
-      <button class="tab-btn" id="tab-archetype" onclick="switchTab('archetype')">Archetype &amp; Comps</button>
-      <button class="tab-btn" id="tab-scout" onclick="switchTab('scout')">Scouting Report</button>
-      <button class="tab-btn" id="tab-rankings" onclick="switchTab('rankings')">League Rankings</button>
+      <button class="tab-btn" id="tab-archetype" onclick="switchTab('archetype')">Archetype</button>
+      <button class="tab-btn" id="tab-scout" onclick="switchTab('scout')">Scouting</button>
+      <button class="tab-btn" id="tab-rankings" onclick="switchTab('rankings')">Rankings</button>
+    </div>
     </div>
 
     <!-- OVERVIEW TAB -->
@@ -2199,6 +2206,7 @@ function renderPage(){
   // Draw radar after DOM is ready
   setTimeout(animateRadar, 120);
   setTimeout(function(){ growBarsIn(document.getElementById('panel-overview')); }, 130);
+  setTimeout(_tabScrollHint, 150);
 }
 
 function renderStatTable(p, projData){
@@ -2438,6 +2446,14 @@ function growBarsIn(root){
     (function(el,h,d){ setTimeout(function(){ el.style.height=h; }, 60+d*35); })(el,h,j++);
   });
 }
+
+function _tabScrollHint(){
+  var row=document.getElementById('tabRow'); if(!row) return;
+  var wrap=row.parentElement;
+  var more=row.scrollWidth - row.clientWidth - row.scrollLeft > 4;
+  if(wrap) wrap.classList.toggle('more', more);
+}
+window.addEventListener('resize',_tabScrollHint);
 
 function switchTab(t){
   const tabs=['overview','stats','percentiles','archetype','scout','rankings'];
