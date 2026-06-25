@@ -2308,8 +2308,11 @@ function buildProgression(p){
     if(!byYear[yr]||gp>(byYear[yr].gp||0)) byYear[yr]={yr:yr,grade:g,gp:gp,cls:s.yr};
   });
   var pts=Object.keys(byYear).map(function(k){return byYear[k];}).sort(function(a,b){return a.yr-b.yr;});
+  // Only project a 2026-27 point if the player is actually on a current roster
+  // (proj is set). Graduated/departed players — loaded from history, proj=null —
+  // end at the last season they played.
   var pg=parseInt(p.tdc_grade);
-  if(!isNaN(pg)) pts.push({yr:2027,grade:pg,proj:true,cls:p.yr||p.class_year});
+  if(proj && !isNaN(pg)) pts.push({yr:2027,grade:pg,proj:true,cls:p.yr||p.class_year});
   if(!pts.length) return '';
 
   var CLS=['Fr','So','Jr','Sr','Gr'], BASE=[64,69,73,76,79];
