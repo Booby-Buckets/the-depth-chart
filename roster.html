@@ -321,6 +321,7 @@ const RENDER_CHUNK = 80;
 
 function seasonLabel(yr){ yr=+yr; return yr>=2027?(yr-1)+'-'+(''+yr).slice(2)+' (proj)':(yr-1)+'-'+(''+yr).slice(2); }
 function seasonShort(yr){ yr=+yr||2027; return (''+(yr-1)).slice(-2)+'-'+(''+yr).slice(-2); }
+function safeHt(h){ h=(''+(h||'')).trim(); return /^\d-\d{1,2}$/.test(h)?h:'—'; }  // guard vs corrupted height strings
 
 function toggleColors(cb){
   document.body.classList.toggle('no-color', !cb.checked);
@@ -657,7 +658,7 @@ function _rowHTML(p){
             <td><div class="td-team"><a href="team.html?team=${encodeURIComponent(p.team||'')}" style="color:${textColor};font-weight:700;background:${color};padding:2px 8px;border-radius:2px;">${p.team||'—'}</a></div></td>
             <td><span class="conf-badge">${p.conf||'—'}</span></td>
             <td><span class="td-pos">${p.position||'—'}</span></td>
-            <td class="td-ht">${p.height||'—'}</td>
+            <td class="td-ht">${safeHt(p.height)}</td>
             <td>${yr}</td>
             <td class="td-stat right" style="${sc(p.gp,'gp')}">${p.gp||'—'}</td>
             <td class="td-stat right" style="${sc(p.ppg,'ppg')}">${fmt(p.ppg)}</td>
