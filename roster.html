@@ -407,7 +407,7 @@ async function loadSeason(yr){
   if(seasonCache[yr]) return seasonCache[yr];
   document.getElementById('tableContainer').innerHTML =
     `<div class="empty-state">Loading ${yr==='all'?'all seasons':seasonLabel(yr)}…</div>`;
-  const base=`${SB}/rest/v1/player_history?select=id,name,team,position,height,yr,tdc_grade,ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,oreb,dreb,stl,blk,tovs,gp,season_year&tdc_grade=not.is.null`;
+  const base=`${SB}/rest/v1/player_history?select=id,name,team,position,height,yr,tdc_grade,ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,oreb,dreb,stl,blk,tovs,gp,season_year&tdc_grade=not.is.null&order=id`;
   const url = yr==='all' ? base : `${base}&season_year=eq.${yr}`;
   let rows=[], page=0; const PG=1000;
   while(true){
@@ -420,7 +420,7 @@ async function loadSeason(yr){
   }
   // dedupe within a season (player listed on two team-rows) — keep higher GP
   const byKey={};
-  rows.forEach(p=>{ const k=p.name+'|'+p.season_year, gp=+p.gp||0;
+  rows.forEach(p=>{ const k=p.name+'|'+p.team+'|'+p.season_year, gp=+p.gp||0;
     if(!byKey[k]||gp>(byKey[k]._gp||0)){ p._gp=gp; byKey[k]=p; } });
   const mapped=Object.values(byKey).map(p=>{ const rt=resolveTeam(p.team);
     return {...p, class_year:p.yr, _hist:true, teamData:rt.teamData, conf:rt.conf}; });

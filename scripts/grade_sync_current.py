@@ -16,9 +16,12 @@ name + closest stat line so transfers map to the right season.
   python3 grade_sync_current.py           # dry run
   python3 grade_sync_current.py --write
 """
-import os, sys, time
+import os, sys, time, re
 import pandas as pd
 import requests
+
+def _strip(n):  # normalize name: drop suffix, lowercase
+    return re.sub(r"\s+(jr\.?|sr\.?|ii|iii|iv|v)$", "", str(n).strip(), flags=re.I).strip().lower()
 
 SB = "https://izlqhnxowdhtdofkwrho.supabase.co"
 KEY = os.environ["SUPABASE_SERVICE_KEY"]
@@ -26,6 +29,7 @@ H = {"apikey": KEY, "Authorization": f"Bearer {KEY}", "Content-Type": "applicati
 DATA = __import__("pathlib").Path(__file__).parent / "data"
 BAND = 2       # max points a graded player can move off their manual grade
 DEADBAND = 3   # keep manual EXACTLY unless the model disagrees by more than this
+PURE = "--pure" in sys.argv  # same-playing-field: grade current roster by the model, no hug
 
 
 def num(s):
@@ -33,6 +37,7 @@ def num(s):
 
 
 def fetch_all(url):
+    url += ("&" if "?" in url else "?") + "order=id"  # stable order — else paged rows shuffle/drop
     rows, pg, PG = [], 0, 1000
     while True:
         r = requests.get(url, headers={**H, "Range-Unit": "items",
@@ -54,10 +59,16 @@ def main(write=False):
         man_by_name.setdefault(m["name"], []).append((m["team"], int(m.grade_num)))
 
     cur = fetch_all(f"{SB}/rest/v1/players?select=id,name,team,ppg,mpg,tdc_grade")
+    # recent seasons so returnees (e.g. RJ Luis, who sat out 25-26) match their
+    # most recent actual season by closest stat line, not just 25-26
     hist = fetch_all(f"{SB}/rest/v1/player_history?select=name,team,ppg,mpg,gp,"
-                     f"tdc_grade&season_year=eq.2026&tdc_grade=not.is.null")
+                     f"tdc_grade&season_year=in.(2024,2025,2026)&tdc_grade=not.is.null")
     hist["ppg_n"] = num(hist.ppg); hist["mpg_n"] = num(hist.mpg)
+    hist["_strip"] = hist.name.map(_strip)
+    hist["_key"] = hist._strip.map(lambda s: (s[:1], s.split()[-1]) if s else ("", ""))
     by_name = {n: g for n, g in hist.groupby("name")}
+    by_strip = {n: g for n, g in hist.groupby("_strip")}
+    by_key = {n: g for n, g in hist.groupby("_key")}
     cur["ppg_n"] = num(cur.ppg); cur["mpg_n"] = num(cur.mpg)
 
     def manual_grade(name, team):
@@ -69,12 +80,25 @@ def main(write=False):
                 return g
         return c[0][1]
 
-    def model_grade(p):
-        cand = by_name.get(p["name"])
-        if cand is None or not len(cand):
-            return None
+    def _closest(cand, p):
         d = (cand.ppg_n - p.ppg_n).abs() + (cand.mpg_n - p.mpg_n).abs()
-        return int(cand.loc[d.idxmin()].tdc_grade)
+        best = cand.loc[d.idxmin()]
+        return best, float(d.loc[d.idxmin()])
+
+    def model_grade(p):
+        # 1) exact name, 2) suffix-stripped name, 3) last-name+initial w/ close stats
+        for cand in (by_name.get(p["name"]), by_strip.get(_strip(p["name"]))):
+            if cand is not None and len(cand):
+                best, _ = _closest(cand, p)
+                return int(best.tdc_grade)
+        sp = _strip(p["name"]).split()
+        if sp:
+            cand = by_key.get((sp[0][:1], sp[-1]))
+            if cand is not None and len(cand):
+                best, dist = _closest(cand, p)
+                if dist < 5:                    # only if stat line genuinely matches
+                    return int(best.tdc_grade)
+        return None
 
     # Recenter the model on the graded roster so the ±BAND hug is symmetric
     # (no uniform drift): the model under-rates hand-picked players because it
@@ -97,7 +121,9 @@ def main(write=False):
             mod = model_grade(p)
             if mod is None and man is None:
                 continue
-            if man is not None and mod is not None:
+            if PURE and mod is not None:
+                final = mod; kind = "model"; n_model += 1     # same-playing-field: pure model
+            elif man is not None and mod is not None:
                 diff = (mod + offset) - man                  # recentered disagreement
                 adj = (1 if diff > 0 else -1) * max(0, abs(diff) - DEADBAND)
                 adj = max(-BAND, min(BAND, adj))             # only outliers move, ≤BAND

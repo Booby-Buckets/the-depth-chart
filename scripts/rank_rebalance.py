@@ -18,6 +18,7 @@ KEY=os.environ["SUPABASE_SERVICE_KEY"]
 H={"apikey":KEY,"Authorization":f"Bearer {KEY}"}
 
 def fetch_all(url):
+    url += ("&" if "?" in url else "?") + "order=id"  # stable order — else paged rows shuffle/drop
     rows,pg,PG=[],0,1000
     while True:
         r=requests.get(url,headers={**H,"Range-Unit":"items","Range":f"{pg*PG}-{pg*PG+PG-1}"},timeout=60)
