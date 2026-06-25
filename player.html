@@ -185,6 +185,12 @@
 
     /* RADAR / SPIDER CHART */
     .radar-wrap{display:flex;justify-content:center;margin-bottom:28px;}
+    .prog-section{margin-bottom:28px;}
+    .prog-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 8px 4px;margin-top:8px;}
+    .prog-legend{display:flex;gap:18px;align-items:center;font-size:11px;font-weight:600;color:var(--text2);}
+    .prog-legend i{display:inline-block;width:18px;height:0;vertical-align:middle;margin-right:6px;}
+    .prog-legend .pl-line{border-top:2.5px solid var(--accent);}
+    .prog-legend .pl-base{border-top:2px dashed var(--text3);opacity:.6;}
     .radar-wrap canvas{width:100%;max-width:460px;height:auto;}
     .radar-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:12px;}
     .radar-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--text3);}
@@ -2104,6 +2110,7 @@ function renderPage(){
     <!-- OVERVIEW TAB -->
     <div class="tab-panel active" id="panel-overview">
       ${buildOverviewCards(p, proj)}
+      <div class="prog-section">${buildProgression(p)}</div>
       <div id="impactSection"></div>
       <div id="spectrumSection"></div>
       <div class="sec-title" style="margin-bottom:16px;">Skill Profile</div>
@@ -2207,6 +2214,9 @@ function renderStatTable(p, projData){
     const yr = parseInt(y);
     return isNaN(yr) ? y : `${yr-1}-${String(yr).slice(2)}`;
   };
+  const gradeC = g => { g=parseInt(g); if(isNaN(g)) return 'var(--text3)';
+    return g>=85?'#5ab875':g>=78?'var(--accent)':g>=70?'var(--text)':g>=64?'var(--text2)':'var(--text3)'; };
+  const ovrCell = g => `<td style="font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:${gradeC(g)};">${(g!=null&&g!==''&&!isNaN(parseInt(g)))?parseInt(g):'—'}</td>`;
 
   let rowsHtml = '';
   const teamSub = t => t ? `<div style="font-size:9px;color:var(--text3);font-weight:600;margin-top:1px;">${t}</div>` : '';
@@ -2228,6 +2238,7 @@ function renderStatTable(p, projData){
       if(s.sat_out || (s.ppg==null && (s.gp==null||s.gp===0))){
         rowsHtml += `<tr style="opacity:.55;">
           <td>${seasonLabel(s.season_year)}${teamSub(s.team)}</td>
+          ${ovrCell(s.tdc_grade)}
           <td colspan="19" style="text-align:left;font-style:italic;color:var(--text3);">
             Redshirt / Did not play
           </td>
@@ -2235,6 +2246,7 @@ function renderStatTable(p, projData){
       } else {
         rowsHtml += `<tr class="actual">
           <td>${seasonLabel(s.season_year)}${teamSub(s.team)}</td>
+          ${ovrCell(s.tdc_grade)}
           <td>${s.gp||'—'}</td>
           <td>${fmt(s.ppg)}</td><td>${fmt(s.rpg)}</td><td>${fmt(s.apg)}</td><td>${fmt(s.mpg)}</td>
           <td>${fmt(s.fgm)}</td><td>${fmt(s.fga)}</td><td>${fmtP(s.fg_pct)}</td>
@@ -2249,6 +2261,7 @@ function renderStatTable(p, projData){
     // No career history — fall back to current season row from players table
     rowsHtml += `<tr class="actual">
       <td>2025-26${teamSub(p.team)}</td>
+      ${ovrCell(p.tdc_grade)}
       <td>${p.gp||'—'}</td>
       <td>${fmt(p.ppg)}</td><td>${fmt(p.rpg)}</td><td>${fmt(p.apg)}</td><td>${fmt(p.mpg)}</td>
       <td>${fmt(p.fgm)}</td><td>${fmt(p.fga)}</td><td>${fmtP(p.fg_pct)}</td>
@@ -2263,6 +2276,7 @@ function renderStatTable(p, projData){
   if(projData){
     rowsHtml += `<tr class="proj">
       <td>2026-27 ★<div style="font-size:9px;color:var(--text3);font-weight:600;">Projected</div></td>
+      ${ovrCell(p.tdc_grade)}
       <td>—</td>
       <td>${fmt(projData.ppg)}</td><td>${fmt(projData.rpg)}</td><td>${fmt(projData.apg)}</td><td>${fmt(projData.mpg)}</td>
       <td>${fmt(projData.fgm)}</td><td>${fmt(projData.fga)}</td><td>${fmtP(projData.fg_pct)}</td>
@@ -2275,12 +2289,76 @@ function renderStatTable(p, projData){
 
   return `<table class="stat-table">
     <thead><tr>
-      <th>Season</th><th>GP</th><th>PPG</th><th>RPG</th><th>APG</th><th>MPG</th>
+      <th>Season</th><th>OVR</th><th>GP</th><th>PPG</th><th>RPG</th><th>APG</th><th>MPG</th>
       <th>FGM</th><th>FGA</th><th>FG%</th><th>3PM</th><th>3PA</th><th>3P%</th>
       <th>FTM</th><th>FTA</th><th>FT%</th><th>OR</th><th>DR</th><th>STL</th><th>BLK</th><th>TO</th>
     </tr></thead>
     <tbody>${rowsHtml}</tbody>
   </table>`;
+}
+
+// Overall progression chart — player's TDC grade across seasons, over a faint
+// "normal progression" (Fr→Grad) reference ramp.
+function buildProgression(p){
+  // dedupe career history by season (keep most games), chronological, graded only
+  var byYear={};
+  (careerHistory||[]).forEach(function(s){
+    var g=parseInt(s.tdc_grade); if(isNaN(g)) return;
+    var yr=+s.season_year, gp=+s.gp||0;
+    if(!byYear[yr]||gp>(byYear[yr].gp||0)) byYear[yr]={yr:yr,grade:g,gp:gp,cls:s.yr};
+  });
+  var pts=Object.keys(byYear).map(function(k){return byYear[k];}).sort(function(a,b){return a.yr-b.yr;});
+  var pg=parseInt(p.tdc_grade);
+  if(!isNaN(pg)) pts.push({yr:2027,grade:pg,proj:true,cls:p.yr||p.class_year});
+  if(!pts.length) return '';
+
+  var CLS=['Fr','So','Jr','Sr','Gr'], BASE=[64,69,73,76,79];
+  pts.forEach(function(pt,i){
+    var ci=Math.min(i,4);  // chronological class position (yr field is unreliable)
+    pt.cidx=ci; pt.base=BASE[ci];
+    pt.label=(''+(pt.yr-1)).slice(-2)+'-'+(''+pt.yr).slice(-2);
+    pt.clsLabel=CLS[ci];
+  });
+
+  var W=720,H=250,padL=20,padR=20,padT=30,padB=46;
+  var vals=pts.map(function(x){return x.grade;}).concat(pts.map(function(x){return x.base;}));
+  var lo=Math.max(45,Math.floor((Math.min.apply(null,vals)-5)/5)*5);
+  var hi=Math.min(99,Math.ceil((Math.max.apply(null,vals)+5)/5)*5);
+  if(hi-lo<15){hi=Math.min(99,lo+15);}
+  var xx=function(i){ return pts.length<2?(W/2):(padL+(W-padL-padR)*i/(pts.length-1)); };
+  var yy=function(g){ return padT+(H-padT-padB)*(1-(g-lo)/(hi-lo)); };
+  var accent=(teamData&&teamData.color)||'#B16BFF';
+
+  // y gridlines
+  var grid='';
+  for(var gv=lo; gv<=hi; gv+=5){ var gy=yy(gv).toFixed(1);
+    grid+='<line x1="'+padL+'" y1="'+gy+'" x2="'+(W-padR)+'" y2="'+gy+'" stroke="var(--border)" stroke-width="1" opacity=".5"/>'
+        +'<text x="'+(padL+2)+'" y="'+(gy-3)+'" font-size="9" fill="var(--text3)" font-weight="600">'+gv+'</text>'; }
+
+  // baseline ("normal progression") — faint area + dashed line
+  var baseLine=pts.map(function(pt,i){return (i?'L':'M')+xx(i).toFixed(1)+' '+yy(pt.base).toFixed(1);}).join(' ');
+  var baseArea='M'+xx(0).toFixed(1)+' '+yy(lo).toFixed(1)+' '+pts.map(function(pt,i){return 'L'+xx(i).toFixed(1)+' '+yy(pt.base).toFixed(1);}).join(' ')+' L'+xx(pts.length-1).toFixed(1)+' '+yy(lo).toFixed(1)+' Z';
+
+  // player line + dots + value labels + x labels
+  var line=pts.map(function(pt,i){return (i?'L':'M')+xx(i).toFixed(1)+' '+yy(pt.grade).toFixed(1);}).join(' ');
+  var dots='', xlabels='';
+  pts.forEach(function(pt,i){
+    var cx=xx(i).toFixed(1), cy=yy(pt.grade).toFixed(1);
+    dots+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(pt.proj?4.5:4)+'" fill="'+(pt.proj?'var(--bg)':accent)+'" stroke="'+accent+'" stroke-width="2.5"/>'
+       +'<text x="'+cx+'" y="'+(yy(pt.grade)-11).toFixed(1)+'" font-size="12" font-weight="800" fill="'+accent+'" text-anchor="middle" font-family="Playfair Display,serif">'+pt.grade+'</text>';
+    xlabels+='<text x="'+cx+'" y="'+(H-padB+18)+'" font-size="10" fill="var(--text2)" font-weight="700" text-anchor="middle">'+pt.label+(pt.proj?' ★':'')+'</text>'
+          +'<text x="'+cx+'" y="'+(H-padB+31)+'" font-size="9" fill="var(--text3)" font-weight="600" text-anchor="middle">'+pt.clsLabel+'</text>';
+  });
+
+  return '<div class="sec-title" style="margin-bottom:6px;">Overall Progression</div>'
+    +'<div class="prog-legend"><span><i class="pl-line"></i>'+p.name.split(' ')[0]+'</span><span><i class="pl-base"></i>Typical Fr→Grad arc</span></div>'
+    +'<div class="prog-wrap"><svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;">'
+    +grid
+    +'<path d="'+baseArea+'" fill="var(--text3)" opacity=".08"/>'
+    +'<path d="'+baseLine+'" fill="none" stroke="var(--text3)" stroke-width="2" stroke-dasharray="5 4" opacity=".45"/>'
+    +'<path d="'+line+'" fill="none" stroke="'+accent+'" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>'
+    +dots+xlabels
+    +'</svg></div>';
 }
 
 function buildStatNarrative(p){
