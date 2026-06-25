@@ -49,7 +49,21 @@ export SUPABASE_SERVICE_KEY=sb_secret_...   # never commit this
 python3 grade_pull.py               # refresh history cache
 python3 grade_finalize.py --write   # re-score + write all player_history
 python3 grade_sync_current.py --write  # copy correct grades onto current roster
+python3 rank_rebalance.py --write   # era rebalance (MUST run last — see below)
 ```
+
+**Era rebalance (`rank_rebalance.py`) — run LAST, after any re-grade.**
+Current-roster grades carry a ~7pt scouting bump (your manual eval beyond the
+box score); historical seasons are pure-stat model grades with no bump. On a
+shared all-time leaderboard that let 2026-27 projections take ~20 of the top 22.
+The fix bumps every `player_history` grade +3 and drops every `players` grade -2,
+which yields a realistic all-time top (~7 current / 18 historical: Edey, Zion,
+Garza, Keegan Murray… interleaved with the top projections). It edits grades in
+place by value, so re-running `grade_finalize`/`grade_sync_current` WILL undo it
+— always re-run `rank_rebalance.py --write` afterward.
+Known wart: a few low-majors (e.g. Maryland Eastern Shore = MEAC) are mis-tiered
+in the grade model's conf map and sit a touch high; fixing needs a conf-map
+update + re-grade.
 
 **Current-roster policy (`grade_sync_current.py`) — your grades are the backbone:**
 
