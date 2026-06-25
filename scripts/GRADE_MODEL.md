@@ -51,14 +51,23 @@ python3 grade_finalize.py --write   # re-score + write all player_history
 python3 grade_sync_current.py --write  # copy correct grades onto current roster
 ```
 
-**Why `grade_sync_current.py`, not `grade_current.py`:** the players table lists
-a transfer's NEW team, but their stats were earned at the OLD team. Grading the
-players row directly (`grade_current.py`) tiers a transfer by the wrong
-conference — e.g. Ryan Prather's Robert Morris (tier 5) stats graded as Iowa
-State (tier 1) gave 91 instead of 75. `grade_sync_current.py` copies each
-player's already-correctly-tiered grade from their `player_history` 2026 row
-(matched by name + closest stat line), fixing every transfer. `grade_current.py`
-is kept only for reference / non-transfer spot checks.
+**Current-roster policy (`grade_sync_current.py`) — your grades are the backbone:**
+
+- **Players you graded** keep their manual grade EXACTLY, unless the stat model
+  (recentered to your grade mean) disagrees by more than `DEADBAND` (3) points —
+  then the grade is nudged toward consistency by at most `BAND` (2). So ~55% of
+  graded players are untouched and only stat-outliers move ≤2.
+- **No-stat freshmen** keep their manual grade (no stats for the model to read).
+- **Players you never graded** (historical + a few current additions) get the
+  full model grade.
+
+The model grade per current player is read from their `player_history` 2026 row,
+which uses the CORRECT conference tier (the team where the stats were earned) —
+fixing the transfer bug where e.g. Ryan Prather's Robert Morris (tier 5) stats
+were graded as Iowa State (tier 1) → 91. With the hug policy he lands at his
+manual 84. Tune `BAND` / `DEADBAND` at the top of the script.
+
+`grade_current.py` is deprecated (tiers transfers by their new team).
 
 ## Caveat — low-major extrapolation
 
