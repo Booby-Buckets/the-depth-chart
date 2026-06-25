@@ -46,10 +46,19 @@ Scripts read the Supabase service key from the environment:
 
 ```bash
 export SUPABASE_SERVICE_KEY=sb_secret_...   # never commit this
-python3 grade_pull.py            # refresh history cache
+python3 grade_pull.py               # refresh history cache
 python3 grade_finalize.py --write   # re-score + write all player_history
-python3 grade_current.py --write    # re-score + write current roster
+python3 grade_sync_current.py --write  # copy correct grades onto current roster
 ```
+
+**Why `grade_sync_current.py`, not `grade_current.py`:** the players table lists
+a transfer's NEW team, but their stats were earned at the OLD team. Grading the
+players row directly (`grade_current.py`) tiers a transfer by the wrong
+conference — e.g. Ryan Prather's Robert Morris (tier 5) stats graded as Iowa
+State (tier 1) gave 91 instead of 75. `grade_sync_current.py` copies each
+player's already-correctly-tiered grade from their `player_history` 2026 row
+(matched by name + closest stat line), fixing every transfer. `grade_current.py`
+is kept only for reference / non-transfer spot checks.
 
 ## Caveat — low-major extrapolation
 

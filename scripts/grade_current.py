@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 """
-Re-grade the current players table with the algorithm. Players with stats
-get algorithm overalls; no-stat freshmen keep their (projection-based)
-manual grade since the production model has no input for them.
+DEPRECATED for production use — see grade_sync_current.py.
+
+This re-grades the players table directly, which tiers TRANSFERS by their
+NEW team instead of the team where their stats were earned (inflates
+low-major -> power transfers, e.g. Prather 91 vs correct 75). Use
+grade_sync_current.py to write current-roster grades. Kept for reference and
+non-transfer spot checks.
+
+Players with stats get algorithm overalls; no-stat freshmen keep their
+(projection-based) manual grade since the production model has no input.
 
   python3 grade_current.py           # dry run
   python3 grade_current.py --write
