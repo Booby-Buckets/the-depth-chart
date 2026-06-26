@@ -1966,6 +1966,52 @@ function buildOverviewCards(p, proj){
     +'</div>';
 }
 
+// ── OVERVIEW season selector (view any season's stats, recolor to that team) ──
+function _seasonLbl2(y){ y=+y; return isNaN(y)?(''+y):((y-1)+'-'+String(y).slice(2)); }
+function _teamInfo(tn){
+  var m=window._tdcTeamMap; if(!tn||!m) return null;
+  if(m[tn]) return m[tn];
+  var lo=(''+tn).toLowerCase().trim();
+  for(var k in m){ var kl=k.toLowerCase().trim(); if(kl===lo||kl.indexOf(lo)===0||lo.indexOf(kl)===0) return m[k]; }
+  return null;
+}
+function _teamColor(tn){ var i=_teamInfo(tn); return i&&i.color?i.color:null; }
+function ovrCardsFor(src){
+  var ST=[['PPG','ppg'],['RPG','rpg'],['APG','apg'],['MPG','mpg'],['FG%','fg_pct',1],['3P%','tp_pct',1],['FT%','ft_pct',1],['STL','stl'],['BLK','blk'],['TO','tovs']];
+  return '<div class="stat-cards" style="margin-bottom:24px;">'+ST.map(function(s){var v=s[2]?fmtP(src[s[1]]):fmt(src[s[1]]);return '<div class="stat-card"><div class="stat-card-val">'+v+'</div><div class="stat-card-label">'+s[0]+'</div></div>';}).join('')+'</div>';
+}
+function _ovrSeasonRow(yr){ var r=(careerHistory||[]).filter(function(s){return +s.season_year===+yr && s.ppg!=null;}); return r.length?r.sort(function(a,b){return (+b.gp||0)-(+a.gp||0);})[0]:null; }
+function _ovrSeasons(){
+  var byYear={}; (careerHistory||[]).forEach(function(s){ if(s.ppg==null && (s.gp==null||s.gp===0)) return; var y=+s.season_year, gp=+s.gp||0; if(!byYear[y]||gp>(+byYear[y].gp||0)) byYear[y]=s; });
+  return Object.values(byYear).sort(function(a,b){return b.season_year-a.season_year;});
+}
+function buildOvrSeasonControl(p, proj){
+  var seasons=_ovrSeasons();
+  if(seasons.length<2) return buildOverviewCards(p, proj);   // nothing to switch between
+  var useProj=(proj && !proj._frosh && !proj._injured);
+  var opts=(useProj?'<option value="proj">2026-27 Projected</option>':'');
+  seasons.forEach(function(s){ opts+='<option value="'+s.season_year+'">'+_seasonLbl2(s.season_year)+' · '+(s.team||'')+'</option>'; });
+  var initial=useProj?buildOverviewCards(p,proj):ovrCardsFor(seasons[0]);
+  return '<div class="ovr-season-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">'
+    +'<span style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);">Season</span>'
+    +'<select class="exp-sel" id="ovrSeasonSel" onchange="setOvrSeason(this.value)">'+opts+'</select></div>'
+    +'<div id="ovrCards">'+initial+'</div>';
+}
+function _updateHeroSeason(team, gp){
+  var col=_teamColor(team); if(col) applyTeamTheme(col);
+  var info=_teamInfo(team), ht=document.getElementById('heroTeam');
+  if(ht && team){ ht.href='team.html?team='+encodeURIComponent(team);
+    ht.innerHTML='<div class="team-dot" style="background:'+(col||'#888')+';"></div>'+team+' <span style="font-size:10px;color:var(--text3);margin-left:2px;">'+((info&&(info.conf||info.conference))||'')+'</span>'; }
+  var g=document.getElementById('heroGp'); if(g){ g.innerHTML=gp?('🎮 <strong>'+gp+'</strong> GP'):''; g.style.display=gp?'':'none'; }
+}
+function setOvrSeason(val){
+  var host=document.getElementById('ovrCards'); if(!host) return;
+  if(val==='proj'){ host.innerHTML=buildOverviewCards(player, proj); _updateHeroSeason(player.team, player.gp); return; }
+  var s=_ovrSeasonRow(val); if(!s) return;
+  host.innerHTML=ovrCardsFor(s);
+  _updateHeroSeason(s.team, s.gp);
+}
+
 // ── team-colored background ──────────────────────────────────
 function _hexToRgb(h){h=(h||'').replace('#','');if(h.length===3)h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];var n=parseInt(h,16);if(isNaN(n))return null;return {r:(n>>16)&255,g:(n>>8)&255,b:n&255};}
 function _rgbToHsl(r,g,b){r/=255;g/=255;b/=255;var mx=Math.max(r,g,b),mn=Math.min(r,g,b),h,s,l=(mx+mn)/2;if(mx===mn){h=s=0;}else{var d=mx-mn;s=l>0.5?d/(2-mx-mn):d/(mx+mn);switch(mx){case r:h=(g-b)/d+(g<b?6:0);break;case g:h=(b-r)/d+2;break;default:h=(r-g)/d+4;}h/=6;}return {h:h*360,s:s,l:l};}
@@ -2018,6 +2064,7 @@ async function loadDraftSticker(){
     renderImpact();
     buildSpectrum();
     setDistSeason(window._distSeason||'2026');
+    var _oss=document.getElementById('ovrSeasonSel'); if(_oss) setOvrSeason(_oss.value);
   }catch(e){}
 }
 
@@ -2178,13 +2225,13 @@ function renderPage(){
         </div>
 
         <h1 class="hero-name">${p.name}</h1>
-        <a class="hero-team" href="team.html?team=${encodeURIComponent(p.team||'')}">
+        <a class="hero-team" id="heroTeam" href="team.html?team=${encodeURIComponent(p.team||'')}">
           <div class="team-dot" style="background:${color};"></div>
           ${p.team||'—'} <span style="font-size:10px;color:var(--text3);margin-left:2px;">${teamData?.conf||''}</span>
         </a>
         <div class="hero-meta">
           ${p.hometown?`<div class="hero-meta-item">📍 Via <strong>${p.hometown}</strong></div>`:''}
-          ${p.gp?`<div class="hero-meta-item">🎮 <strong>${p.gp}</strong> GP</div>`:''}
+          <div class="hero-meta-item" id="heroGp"${p.gp?'':' style="display:none;"'}>${p.gp?`🎮 <strong>${p.gp}</strong> GP`:''}</div>
           ${p.starter?`<div class="hero-meta-item">⭐ <strong>Returning Starter</strong></div>`:''}
           ${proj&&proj._origin?`<div class="hero-meta-item">🔄 Transfer mult: <strong style="color:var(--accent);">×${r1(proj._factor)}</strong></div>`:''}
         </div>
@@ -2205,7 +2252,7 @@ function renderPage(){
 
     <!-- OVERVIEW TAB -->
     <div class="tab-panel active" id="panel-overview">
-      ${buildOverviewCards(p, proj)}
+      ${buildOvrSeasonControl(p, proj)}
       <div class="prog-section">${buildProgression(p)}</div>
       <div id="impactSection"></div>
       <div id="spectrumSection"></div>

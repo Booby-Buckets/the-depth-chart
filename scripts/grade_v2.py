@@ -25,7 +25,7 @@ SB = "https://izlqhnxowdhtdofkwrho.supabase.co"
 BASE, SCALE = 77.0, 6.3
 # non-linear top: below SOFT linear; SOFT..R99 compresses into 90..98; raw>=R99 -> 99,
 # so only a tiny GOAT tier (~3-5 seasons all-time) ever rounds to 99.
-SOFT, R99, GHI = 90.0, 102.3, 98.49
+SOFT, R99, GHI = 90.0, 102.15, 98.49
 MIN_MPG_POP = 8
 # scoring-centric: greatness = efficient high-volume scoring first, then the rest.
 # (Breadth-summing rewarded compilers like 15/7/3 forwards over scoring stars.)
