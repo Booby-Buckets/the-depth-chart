@@ -52,35 +52,39 @@ def _i(x):
 def parse_box(gid, game):
     d = get(SUMMARY.format(id=gid))
     if not d:
-        return None  # signal failure (retry later) vs empty
+        return None  # fetch failed — leave undone to retry next run
     rows = []
-    teams = (d.get("boxscore") or {}).get("players") or []
-    names = [t["team"]["displayName"] for t in teams if t.get("team")]
-    for ti, t in enumerate(teams):
-        if not t.get("statistics"):
-            continue
-        blk = t["statistics"][0]
-        keys = blk.get("keys", [])
-        team = t["team"]["displayName"]
-        opp = names[1-ti] if len(names) == 2 else None
-        for a in blk.get("athletes", []):
-            if a.get("didNotPlay"):
+    try:
+        teams = (d.get("boxscore") or {}).get("players") or []
+        names = [(t.get("team") or {}).get("displayName") for t in teams]
+        for ti, t in enumerate(teams):
+            if not t.get("statistics"):
                 continue
-            stats = a.get("stats") or []
-            if not stats:
-                continue
-            row = {"game_id": gid, "season": game["season"], "date": game["date"],
-                   "team": team, "opp": opp,
-                   "player": a["athlete"]["displayName"], "espn_id": _i(a["athlete"].get("id")),
-                   "starter": bool(a.get("starter"))}
-            for k, v in zip(keys, stats):
-                if k in SINGLE:
-                    row[SINGLE[k]] = _i(v)
-                elif k in PAIRS and isinstance(v, str) and "-" in v:
-                    m, at = v.split("-", 1)
-                    row[PAIRS[k][0]] = _i(m); row[PAIRS[k][1]] = _i(at)
-            if row.get("espn_id"):
-                rows.append(row)
+            blk = t["statistics"][0]
+            keys = blk.get("keys", [])
+            team = (t.get("team") or {}).get("displayName")
+            opp = names[1-ti] if len(names) == 2 else None
+            for a in blk.get("athletes", []):
+                if a.get("didNotPlay"):
+                    continue
+                stats = a.get("stats") or []
+                ath = a.get("athlete") or {}
+                if not stats or not ath.get("id"):
+                    continue
+                row = {"game_id": gid, "season": game["season"], "date": game["date"],
+                       "team": team, "opp": opp,
+                       "player": ath.get("displayName"), "espn_id": _i(ath.get("id")),
+                       "starter": bool(a.get("starter"))}
+                for k, v in zip(keys, stats):
+                    if k in SINGLE:
+                        row[SINGLE[k]] = _i(v)
+                    elif k in PAIRS and isinstance(v, str) and "-" in v:
+                        m, at = v.split("-", 1)
+                        row[PAIRS[k][0]] = _i(m); row[PAIRS[k][1]] = _i(at)
+                if row.get("espn_id"):
+                    rows.append(row)
+    except Exception:
+        return []  # malformed game — skip it (mark done), never crash the run
     return rows
 
 
