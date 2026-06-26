@@ -382,13 +382,15 @@ async function onSearch(slot, query){
     clearTimeout(_histTimer);
     _histTimer=setTimeout(async()=>{
       try{
-        const r=await fetch(`${SB}/rest/v1/player_history?name=ilike.*${encodeURIComponent(query)}*&select=name,season_year,team,position,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,fgm,fga,tpm,tpa,ftm,fta,stl,blk,tovs,oreb,dreb,gp,tdc_grade,height,yr&mpg=gte.10&order=season_year.desc&limit=40`,{headers:H});
+        const r=await fetch(`${SB}/rest/v1/player_history?name=ilike.*${encodeURIComponent(query)}*&select=name,season_year,team,position,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,fgm,fga,tpm,tpa,ftm,fta,stl,blk,tovs,oreb,dreb,gp,tdc_grade,height,weight,photo_url,yr&mpg=gte.10&order=season_year.desc&limit=80`,{headers:H});
         if(!r.ok) return;
         const data=await r.json();
-        const curNames=new Set(curMatches.map(p=>p.name));
-        const byName={};
-        data.forEach(h=>{ if(!curNames.has(h.name)&&(!byName[h.name]||h.season_year>byName[h.name].season_year)) byName[h.name]=h; });
-        _histResults[slot]=Object.values(byName).slice(0,6).map(h=>({...h,_isHistory:true}));
+        // Every era is selectable: keep each distinct (name, season, team) season —
+        // don't collapse to the latest, and don't hide current players' past seasons.
+        const seen=new Set(), hist=[];
+        data.forEach(h=>{ const k=(h.name||'')+'|'+h.season_year+'|'+(h.team||''); if(seen.has(k))return; seen.add(k); hist.push({...h,_isHistory:true}); });
+        hist.sort((a,b)=>(a.name||'').localeCompare(b.name||'')||b.season_year-a.season_year);
+        _histResults[slot]=hist.slice(0,16);
         _renderDropdown(slot, curMatches, _histResults[slot], dd);
       }catch(e){}
     },280);
