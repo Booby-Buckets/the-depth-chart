@@ -17,6 +17,7 @@ record per (team, season, athlete). Resumable: skips already-scraped team-season
   python3 scrape_bio.py --seasons 2024 2025 2026
 """
 import argparse, json, re, sys, time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import cloudscraper
 from scraper import TEAMS   # [(name, espn_id), ...]
@@ -43,6 +44,14 @@ def get(url, tries=3):
     return None
 
 
+def fetch_bio(ref):
+    d = get(ref)
+    if not d:
+        return None
+    return {"name": d.get("displayName"), "ht": d.get("displayHeight"),
+            "wt": d.get("weight"), "hs": (d.get("headshot") or {}).get("href")}
+
+
 def main(seasons, test=False):
     teams = TEAMS[:2] if test else TEAMS
     prog = json.loads(PROG.read_text()) if PROG.exists() and not test else {"done": []}
@@ -58,22 +67,19 @@ def main(seasons, test=False):
                 continue
             lst = get(LIST_URL.format(yr=yr, tid=tid))
             if lst:
+                refs = []
                 for it in lst.get("items", []):
                     m = re.search(r"/athletes/(\d+)", it.get("$ref", ""))
-                    if not m:
-                        continue
-                    aid = m.group(1)
-                    if aid not in bio_cache:
-                        d = get(it["$ref"])
-                        bio_cache[aid] = ({
-                            "name": d.get("displayName"),
-                            "ht": d.get("displayHeight"),
-                            "wt": d.get("weight"),
-                            "hs": (d.get("headshot") or {}).get("href"),
-                        } if d else None)
-                        time.sleep(0.08)
-                    b = bio_cache[aid]
-                    if b and b["name"]:
+                    if m:
+                        refs.append((m.group(1), it["$ref"]))
+                todo = [(aid, ref) for aid, ref in refs if aid not in bio_cache]
+                if todo:                       # fetch this team-season's new athletes in parallel
+                    with ThreadPoolExecutor(max_workers=6) as ex:
+                        for aid, b in ex.map(lambda x: (x[0], fetch_bio(x[1])), todo):
+                            bio_cache[aid] = b
+                for aid, _ in refs:
+                    b = bio_cache.get(aid)
+                    if b and b.get("name"):
                         fout.write(json.dumps({"team": name, "season": yr, "aid": aid, **b}) + "\n")
                         n_rec += 1
                 fout.flush()
