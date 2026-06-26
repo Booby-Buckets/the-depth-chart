@@ -249,10 +249,25 @@ body{background:transparent!important;}
 <!-- STAT EXPLORER (scatter) VIEW -->
 <div id="explorerView" style="display:none;">
   <div class="exp-controls">
-    <div class="seg" id="expSeasonSeg">
-      <button class="on" data-s="2526" onclick="setExpSeason('2526')">2025-26 Actual</button>
-      <button data-s="2627" onclick="setExpSeason('2627')">2026-27 Projected</button>
-    </div>
+    <label class="exp-lab">Season <select class="exp-sel" id="expSeasonSel" onchange="setExpSeason(this.value)">
+      <option value="2627">2026-27 Projected</option>
+      <option value="2026" selected>2025-26</option>
+      <option value="2025">2024-25</option>
+      <option value="2024">2023-24</option>
+      <option value="2023">2022-23</option>
+      <option value="2022">2021-22</option>
+      <option value="2021">2020-21</option>
+      <option value="2020">2019-20</option>
+      <option value="2019">2018-19</option>
+      <option value="2018">2017-18</option>
+      <option value="2017">2016-17</option>
+      <option value="2016">2015-16</option>
+      <option value="2015">2014-15</option>
+      <option value="2014">2013-14</option>
+      <option value="2013">2012-13</option>
+      <option value="2012">2011-12</option>
+      <option value="all">All Seasons</option>
+    </select></label>
     <label class="exp-lab">X axis <select class="exp-sel" id="expX" onchange="renderExplorer()"></select></label>
     <label class="exp-lab">Y axis <select class="exp-sel" id="expY" onchange="renderExplorer()"></select></label>
     <label class="exp-lab">Pos <select class="exp-sel" id="expPos" onchange="renderExplorer()"><option value="">All</option><option value="G">Guards</option><option value="W">Wings</option><option value="B">Bigs</option></select></label>
@@ -1150,7 +1165,23 @@ function tdcSane(p){
   }
   return out||p;
 }
-let expChart = null, expSeason='2526', expReady=false;
+let expChart = null, expSeason='2026', expReady=false;
+let _expPool = null, _expCache = {};   // lazy-loaded player_history per season
+function _expSeasonLbl(k){ if(k==='2627')return '2026-27 projected'; if(k==='all')return 'all seasons'; var y=+k; return (y-1)+'-'+(''+y).slice(2); }
+async function loadExpSeason(key){
+  if(key==='2627') return allPlayerProj;
+  if(_expCache[key]) return _expCache[key];
+  var note=document.getElementById('expNote'); if(note) note.textContent='Loading '+_expSeasonLbl(key)+'…';
+  var base=SB+'/rest/v1/player_history?select=name,team,position,height,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,oreb,dreb,fga,fta,tdc_grade&mpg=not.is.null';
+  var url=key==='all'?base:base+'&season_year=eq.'+key;
+  var rows=[],pg=0;
+  while(true){
+    var r=await fetch(url,{headers:{...H,'Range-Unit':'items','Range':(pg*1000)+'-'+(pg*1000+999)}});
+    var b=await r.json(); if(!Array.isArray(b)||!b.length) break;
+    rows=rows.concat(b); if(b.length<1000) break; pg++;
+  }
+  _expCache[key]=rows; return rows;
+}
 let sortCol    = 'ppg';
 let sortAsc    = false;
 let pwrSortKey = 'rk';   // power table sort (default = power rank ascending)
@@ -1471,7 +1502,7 @@ function setView(v){
     ?'Projected on-court power index — offense, defense, and ball security for all D1 teams'
     :v==='stats'?'League-wide offensive and defensive projections — click any column to sort'
     :'Plot every player by any two stats — pick your axes and season';
-  if(v==='explorer'){ initExplorer(); renderExplorer(); return; }
+  if(v==='explorer'){ initExplorer(); setExpSeason(expSeason); return; }
   refresh();
 }
 
@@ -1491,7 +1522,7 @@ function expPosGrp(pos){pos=((pos||'')+'').toUpperCase().split(/[\/,\s]/)[0];
   if(pos==='PF'||pos==='C')return 'B'; return 'W';}
 function expVal(p,key){
   var ppg=parseFloat(p.ppg)||0,mpg=parseFloat(p.mpg)||0,apg=parseFloat(p.apg)||0,rpg=parseFloat(p.rpg)||0;
-  if(key==='_ht')return expHtIn(p.height);
+  if(key==='_ht'){var _hh=expHtIn(p.height);return _hh>0?_hh:null;}
   // per-40 / efficiency rates need a real minutes sample — below ~5 MPG the
   // denominator explodes (a 0.3-MPG player with a stray assist reads 800+ /40),
   // so return null and let renderExplorer skip the point.
@@ -1509,13 +1540,14 @@ function initExplorer(){
   x.innerHTML=optHtml; y.innerHTML=optHtml;
   x.value='_ht'; y.value='_a40';   // the user's example: height vs assist rate
 }
-function setExpSeason(s){
+async function setExpSeason(s){
   expSeason=s;
-  document.querySelectorAll('#expSeasonSeg button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-s')===s);});
+  var sel=document.getElementById('expSeasonSel'); if(sel) sel.value=s;
+  _expPool=await loadExpSeason(s);
   renderExplorer();
 }
 function renderExplorer(){
-  var pool=expSeason==='2627'?allPlayerProj:allDbPlayers;
+  var pool=_expPool||allDbPlayers;
   if(!pool||!pool.length||typeof Chart==='undefined') return;
   var xk=document.getElementById('expX').value, yk=document.getElementById('expY').value;
   var posF=document.getElementById('expPos').value;
@@ -1539,7 +1571,7 @@ function renderExplorer(){
   var isDark=document.documentElement.getAttribute('data-theme')==='dark';
   var grid=isDark?'rgba(255,255,255,.07)':'rgba(0,0,0,.07)', tickc=isDark?'#9a93b8':'#6d6589';
   var total=groups.G.length+groups.W.length+groups.B.length;
-  document.getElementById('expNote').innerHTML='<b>'+total+'</b> players · '+(expSeason==='2627'?'2026-27 projected':'2025-26 actual')+' · '+xl+' (x) vs '+yl+' (y) · hover any point for the player';
+  document.getElementById('expNote').innerHTML='<b>'+total+'</b> players · '+_expSeasonLbl(expSeason)+' · '+xl+' (x) vs '+yl+' (y) · hover any point for the player';
   if(expChart) expChart.destroy();
   var ctx=document.getElementById('expChart').getContext('2d');
   expChart=new Chart(ctx,{type:'scatter',data:{datasets:datasets},options:{
