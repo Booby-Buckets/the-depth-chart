@@ -368,7 +368,19 @@ body{background:transparent!important;}
     .comp-stats{font-size:11.5px;color:var(--text2);font-variant-numeric:tabular-nums;border-top:1px solid var(--border);padding-top:8px;}
     .comp-season{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);}
     .arch-note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:10px;}
+    /* Stat Explorer (scatter) */
+    .exp-controls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px;margin-bottom:14px;}
+    .exp-lab{display:flex;flex-direction:column;gap:5px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .exp-sel{padding:8px 11px;border:1px solid var(--border2);border-radius:7px;background:var(--bg);font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;cursor:pointer;}
+    .exp-sel:focus{border-color:var(--accent);}
+    .exp-legend{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:12px;font-size:11px;font-weight:600;color:var(--text3);}
+    .exp-legend span{display:inline-flex;align-items:center;gap:6px;}
+    .exp-legend i{width:11px;height:11px;border-radius:50%;}
+    .exp-chart-card{border:1px solid var(--border);border-radius:12px;padding:16px;background:var(--bg2);}
+    .exp-chart{position:relative;width:100%;height:520px;}
+    .exp-note{font-size:11px;color:var(--text3);margin-top:12px;line-height:1.6;}
 </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script src="tdc-engine.js"></script>
   <script src="bigboard-engine.js"></script>
 </head>
@@ -1996,83 +2008,104 @@ async function loadDraftSticker(){
   }catch(e){}
 }
 
-// ── PLAYER SPECTRUM ──────────────────────────────────────
-// Position the player on a customizable A ←→ B axis vs all qualifying
-// players, with a split bar and three per-game cards. Pick any two metrics.
-var SPEC_METRICS=[
-  {k:'fga2',l:'2PT Attempts', f:function(p){return Math.max(0,(+p.fga||0)-(+p.tpa||0));}},
-  {k:'fga3',l:'3PT Attempts', f:function(p){return +p.tpa||0;}},
-  {k:'pts2',l:'2PT Points',   f:function(p){return Math.max(0,2*((+p.fgm||0)-(+p.tpm||0)));}},
-  {k:'pts3',l:'3PT Points',   f:function(p){return 3*(+p.tpm||0);}},
-  {k:'ppg', l:'Points',       f:function(p){return +p.ppg||0;}},
-  {k:'rpg', l:'Rebounds',     f:function(p){return +p.rpg||0;}},
-  {k:'apg', l:'Assists',      f:function(p){return +p.apg||0;}},
-  {k:'stl', l:'Steals',       f:function(p){return +p.stl||0;}},
-  {k:'blk', l:'Blocks',       f:function(p){return +p.blk||0;}},
-  {k:'tovs',l:'Turnovers',    f:function(p){return +p.tovs||0;}},
-  {k:'oreb',l:'Off Rebounds', f:function(p){return +p.oreb||0;}},
-  {k:'dreb',l:'Def Rebounds', f:function(p){return +p.dreb||0;}},
-  {k:'fta', l:'FT Attempts',  f:function(p){return +p.fta||0;}},
-  {k:'fga', l:'FG Attempts',  f:function(p){return +p.fga||0;}}
+// ── STAT EXPLORER (scatter — replaces the old Player Spectrum) ─────
+// Plot the whole league on any two stats, with this player highlighted.
+var EXP_STATS=[
+  {k:'ppg',l:'Points / G'},{k:'rpg',l:'Rebounds / G'},{k:'apg',l:'Assists / G'},
+  {k:'mpg',l:'Minutes / G'},{k:'fg_pct',l:'FG%'},{k:'tp_pct',l:'3P%'},{k:'ft_pct',l:'FT%'},
+  {k:'stl',l:'Steals / G'},{k:'blk',l:'Blocks / G'},{k:'tovs',l:'Turnovers / G'},
+  {k:'oreb',l:'Off Reb / G'},{k:'dreb',l:'Def Reb / G'},
+  {k:'_ht',l:'Height (in)'},{k:'tdc_grade',l:'TDC Grade'},
+  {k:'_p40',l:'Points / 40'},{k:'_a40',l:'Assists / 40'},{k:'_r40',l:'Rebounds / 40'},{k:'_ts',l:'True Shooting %'}
 ];
-function _specJitter(name){var h=0,s=(name||'')+'';for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))&0xffff;return (h%1000)/1000;}
-function buildSpectrum(){
+function expHtIn(h){if(!h)return 0;var m=(''+h).match(/(\d+)\s*[-']\s*(\d+)/);return m?(+m[1])*12+(+m[2]):0;}
+function expPosGrp(pos){pos=((pos||'')+'').toUpperCase().split(/[\/,\s]/)[0];
+  if(pos==='PG'||pos==='SG'||pos==='G'||pos==='CG')return 'G';
+  if(pos==='SF'||pos==='F')return 'W';
+  if(pos==='PF'||pos==='C')return 'B'; return 'W';}
+function expVal(p,key){
+  var ppg=parseFloat(p.ppg)||0,mpg=parseFloat(p.mpg)||0,apg=parseFloat(p.apg)||0,rpg=parseFloat(p.rpg)||0;
+  if(key==='_ht')return expHtIn(p.height);
+  var RATE_MIN=5;
+  if(key==='_p40')return mpg>=RATE_MIN?+(ppg*40/mpg).toFixed(1):null;
+  if(key==='_a40')return mpg>=RATE_MIN?+(apg*40/mpg).toFixed(1):null;
+  if(key==='_r40')return mpg>=RATE_MIN?+(rpg*40/mpg).toFixed(1):null;
+  if(key==='_ts'){if(mpg<RATE_MIN)return null;var fga=parseFloat(p.fga)||0,fta=parseFloat(p.fta)||0,d=2*(fga+0.44*fta);return d>0?+(ppg/d*100).toFixed(1):null;}
+  var v=parseFloat(p[key]); return isNaN(v)?null:v;
+}
+var _pexpChart=null;
+function buildSpectrum(){   // name kept so the existing call site still works
   var sec=document.getElementById('spectrumSection');
-  if(!sec||!player||!window._tdcAllPlayers) return;
-  var opt=function(sel){return SPEC_METRICS.map(function(m){return '<option value="'+m.k+'"'+(m.k===sel?' selected':'')+'>'+m.l+'</option>';}).join('');};
+  if(!sec||!player) return;
+  var optHtml=EXP_STATS.map(function(s){return '<option value="'+s.k+'">'+s.l+'</option>';}).join('');
+  var tc=(teamData&&teamData.color)||'#5ab875';
   sec.innerHTML=
-    '<div class="sec-title" style="margin-bottom:14px;">Player Spectrum</div>'+
-    '<div class="spec-wrap">'+
-      '<div class="spec-controls">'+
-        '<select class="spec-sel" id="specA" onchange="renderSpectrum()">'+opt('fga2')+'</select>'+
-        '<span class="spec-vs">&harr;</span>'+
-        '<select class="spec-sel" id="specB" onchange="renderSpectrum()">'+opt('fga3')+'</select>'+
-      '</div>'+
-      '<div class="spec-poles"><span>&larr; PURE <b id="spPoleA"></b></span><span class="spec-mid">BALANCED</span><span>PURE <b id="spPoleB"></b> &rarr;</span></div>'+
-      '<div class="spec-band" id="specBand"></div>'+
-      '<div class="spec-splitlbl" id="spSplitLbl"></div>'+
-      '<div class="spec-split"><span class="spec-pct l" id="spPctA"></span><div class="spec-bar"><i id="spBarA"></i><i id="spBarB"></i></div><span class="spec-pct r" id="spPctB"></span></div>'+
-      '<div class="spec-cards" id="specCards"></div>'+
-    '</div>';
+    '<div class="sec-title" style="margin-bottom:14px;">Stat Explorer</div>'+
+    '<div class="exp-controls">'+
+      '<label class="exp-lab">X axis <select class="exp-sel" id="pexpX" onchange="renderSpectrum()">'+optHtml+'</select></label>'+
+      '<label class="exp-lab">Y axis <select class="exp-sel" id="pexpY" onchange="renderSpectrum()">'+optHtml+'</select></label>'+
+      '<label class="exp-lab">Pos <select class="exp-sel" id="pexpPos" onchange="renderSpectrum()"><option value="">All</option><option value="G">Guards</option><option value="W">Wings</option><option value="B">Bigs</option></select></label>'+
+      '<label class="exp-lab">Min MPG <select class="exp-sel" id="pexpMin" onchange="renderSpectrum()"><option value="10">10+</option><option value="0">All</option><option value="15">15+</option><option value="20">20+</option><option value="25">25+</option></select></label>'+
+    '</div>'+
+    '<div class="exp-legend"><span><i style="background:#B16BFF"></i>Guards</span><span><i style="background:#38BDF8"></i>Wings</span><span><i style="background:#FF4D9D"></i>Bigs</span><span><i style="background:'+tc+'"></i>'+(player.name||'This player')+'</span></div>'+
+    '<div class="exp-chart-card"><div class="exp-chart"><canvas id="pexpChart"></canvas></div></div>'+
+    '<div class="exp-note" id="pexpNote"></div>';
+  document.getElementById('pexpX').value='ppg';
+  document.getElementById('pexpY').value='apg';
   renderSpectrum();
 }
 function renderSpectrum(){
-  var pool=window._tdcAllPlayers; if(!pool||!player) return;
-  var ak=document.getElementById('specA').value, bk=document.getElementById('specB').value;
-  var A=SPEC_METRICS.find(function(m){return m.k===ak;}), B=SPEC_METRICS.find(function(m){return m.k===bk;});
-  if(!A||!B) return;
-  var LCOL='#4f93c4', RCOL='#e0823c', tc=(teamData&&teamData.color)||'#B16BFF';
-  function ratio(p){var a=A.f(p),b=B.f(p),t=a+b;return t>0?b/t:null;}
-  // cloud
-  var dots='';
+  if(typeof Chart==='undefined') return;
+  var pool=window._tdcAllPlayers; if(!pool||!pool.length||!player) return;
+  var xk=document.getElementById('pexpX').value, yk=document.getElementById('pexpY').value;
+  var posF=document.getElementById('pexpPos').value, minM=parseFloat(document.getElementById('pexpMin').value)||0;
+  var xl=(EXP_STATS.find(function(s){return s.k===xk;})||{}).l||xk;
+  var yl=(EXP_STATS.find(function(s){return s.k===yk;})||{}).l||yk;
+  var COL={G:'#B16BFF',W:'#38BDF8',B:'#FF4D9D'}, groups={G:[],W:[],B:[]};
   pool.forEach(function(p){
-    if((+p.mpg||0)<10) return;
-    var rr=ratio(p); if(rr==null) return;
-    var x=(3+rr*94).toFixed(2), y=(8+_specJitter(p.name+p.team)*84).toFixed(2);
-    var col=rr<0.42?LCOL:rr>0.58?RCOL:'#8a9a7a';
-    dots+='<span class="spec-dot" style="left:'+x+'%;top:'+y+'%;background:'+col+';"></span>';
+    if((parseFloat(p.mpg)||0)<minM) return;
+    if(p.name===player.name) return;   // this player drawn separately
+    var g=expPosGrp(p.position); if(posF&&g!==posF) return;
+    var xv=expVal(p,xk), yv=expVal(p,yk);
+    if(xv==null||yv==null||isNaN(xv)||isNaN(yv)) return;
+    if(xk!=='_ht'&&xv===0&&yk!=='_ht'&&yv===0) return;
+    groups[g].push({x:xv,y:yv,nm:p.name,tm:p.team,pos:p.position||g});
   });
-  var myR=ratio(player);
-  if(myR!=null){
-    var mx=(3+myR*94).toFixed(2);
-    dots+='<span class="spec-dot me" style="left:'+mx+'%;top:50%;background:'+tc+';box-shadow:0 0 0 4px color-mix(in srgb,'+tc+' 22%,transparent),0 4px 14px rgba(0,0,0,.4);"></span>';
-    dots+='<span class="spec-melabel" style="left:'+mx+'%;">'+(player.name||'').toUpperCase()+'</span>';
+  var datasets=['G','W','B'].map(function(g){return {
+    label:{G:'Guards',W:'Wings',B:'Bigs'}[g],
+    data:groups[g], backgroundColor:COL[g]+'aa', borderColor:COL[g], pointRadius:3.2, pointHoverRadius:6
+  };});
+  var tc=(teamData&&teamData.color)||'#5ab875';
+  var mx=expVal(player,xk), my=expVal(player,yk);
+  if(mx!=null&&my!=null&&!isNaN(mx)&&!isNaN(my)){
+    datasets.push({label:'__you',order:-1,data:[{x:mx,y:my,nm:player.name,tm:player.team,pos:player.position||''}],
+      backgroundColor:tc,borderColor:'#fff',borderWidth:2.5,pointRadius:8.5,pointHoverRadius:11});
   }
-  document.getElementById('specBand').innerHTML=dots;
-  document.getElementById('spPoleA').textContent=A.l.toUpperCase();
-  document.getElementById('spPoleB').textContent=B.l.toUpperCase();
-  // split + cards for the viewed player
-  var a=A.f(player), b=B.f(player), t=a+b;
-  var aPct=t>0?a/t*100:50, bPct=100-aPct;
-  document.getElementById('spSplitLbl').innerHTML='SPLIT &mdash; '+A.l.toUpperCase()+' VS '+B.l.toUpperCase();
-  document.getElementById('spPctA').textContent=aPct.toFixed(1)+'%';
-  document.getElementById('spPctB').textContent=bPct.toFixed(1)+'%';
-  document.getElementById('spBarA').style.cssText='width:'+aPct+'%;background:'+LCOL+';';
-  document.getElementById('spBarB').style.cssText='width:'+bPct+'%;background:'+RCOL+';';
-  var gp=+player.gp||0;
-  function cd(lbl,val,seas,col,cls){return '<div class="spec-card '+cls+'"><div class="spec-card-l">'+lbl+' / G</div><div class="spec-card-v" style="color:'+col+';">'+val.toFixed(1)+'</div><div class="spec-card-s">'+(gp?Math.round(val*gp)+' season':'&nbsp;')+'</div></div>';}
-  document.getElementById('specCards').innerHTML=
-    cd(A.l,a,gp,LCOL,'l')+cd('Total',t,gp,'var(--text)','')+cd(B.l,b,gp,RCOL,'r');
+  var isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  var grid=isDark?'rgba(255,255,255,.07)':'rgba(0,0,0,.07)', tickc=isDark?'#9a93b8':'#6d6589';
+  var total=groups.G.length+groups.W.length+groups.B.length;
+  var nt=document.getElementById('pexpNote'); if(nt) nt.innerHTML='<b>'+total+'</b> players · 2025-26 actual · '+xl+' (x) vs '+yl+' (y) · '+(player.name||'')+' highlighted';
+  if(_pexpChart) _pexpChart.destroy();
+  var ctx=document.getElementById('pexpChart').getContext('2d');
+  _pexpChart=new Chart(ctx,{type:'scatter',data:{datasets:datasets},
+    plugins:[{afterDatasetsDraw:function(chart){
+      var di=chart.data.datasets.findIndex(function(d){return d.label==='__you';}); if(di<0)return;
+      var m=chart.getDatasetMeta(di), pt=m.data&&m.data[0]; if(!pt)return;
+      var c=chart.ctx, name=(player.name||'').toUpperCase();
+      c.save(); c.font='800 11px Inter,sans-serif'; var w=c.measureText(name).width+14, bx=pt.x-w/2, by=pt.y-30;
+      c.fillStyle=isDark?'#15101f':'#15101f'; c.strokeStyle=tc; c.lineWidth=1.5;
+      if(c.roundRect){c.beginPath();c.roundRect(bx,by,w,19,5);c.fill();c.stroke();}else{c.fillRect(bx,by,w,19);}
+      c.fillStyle='#fff'; c.textAlign='center'; c.textBaseline='middle'; c.fillText(name,pt.x,by+10); c.restore();
+    }}],
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:{duration:400},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){var d=c.raw;return d.nm+' ('+d.pos+', '+d.tm+') — '+xl+': '+d.x+', '+yl+': '+d.y;}}}},
+      scales:{
+        x:{title:{display:true,text:xl,color:tickc,font:{weight:'700',size:12}},grid:{color:grid},ticks:{color:tickc}},
+        y:{title:{display:true,text:yl,color:tickc,font:{weight:'700',size:12}},grid:{color:grid},ticks:{color:tickc}}
+      }
+    }
+  });
 }
 
 function renderPage(){
