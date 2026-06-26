@@ -1836,21 +1836,34 @@ function _distSvg(arr,val,mean,lo,hi,tc){
     '</svg>';
 }
 function _segSync(id,idx){var seg=document.getElementById(id);if(!seg)return;var b=seg.querySelectorAll('button');for(var i=0;i<b.length;i++)b[i].classList.toggle('on',i===idx);}
-function setDistSeason(s){window._distSeason=s;_segSync('distSeasonSeg',s==='2526'?0:1);renderDist();}
+var _distPool=null;
+async function setDistSeason(s){
+  window._distSeason=s;
+  var sel=document.getElementById('distSeasonSel'); if(sel) sel.value=s;
+  var host=document.getElementById('distSection'); if(host&&!_distCache(s)) host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Loading '+(s==='2627'?'2026-27 projected':_pexpSeasonLbl(s))+'…</div>';
+  _distPool=(s==='2627')?window._tdcAllPlayers:await loadPexpSeason(s);
+  renderDist();
+}
+function _distCache(s){ return s==='2627'||s==='2026'||(_pexpCache&&_pexpCache[s]); }
 function setDistPop(pp){window._distPop=pp;_segSync('distPopSeg',pp==='all'?0:1);renderDist();}
 // distribution cards — population (all D1 / position group) × season (actual / projected)
 function renderDist(){
   var host=document.getElementById('distSection'); if(!host||!player) return;
-  var pool=window._tdcAllPlayers;
+  var season=window._distSeason||'2026', pop=window._distPop||'all';
+  var pool=_distPool||window._tdcAllPlayers;
   if(!pool||!pool.length){host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Loading distributions…</div>';return;}
-  var season=window._distSeason||'2526', pop=window._distPop||'all';
   var grp=_impPgrp(player.position), grpName=({G:'Guards',W:'Wings',B:'Bigs'})[grp];
   var tc=(teamData&&teamData.color)||'var(--accent)';
   function line(r){return season==='2627'?projLine(r):r;}
   var src=pop==='grp'?pool.filter(function(r){return _impPgrp(r.position)===grp;}):pool;
   var lines=src.map(line).filter(function(l){return (parseFloat(l.mpg)||0)>=10;});
-  // player's own value = the real engine projection (matches the Overview), not the light pool estimate
-  var myLine=(season==='2627')?playerProjLine():player;
+  // player's own value for the selected season: projection, this player's row for a
+  // historical year (from career history), else their current actual stats.
+  var myLine;
+  if(season==='2627') myLine=playerProjLine();
+  else if(season==='2026'||season==='all') myLine=player;
+  else { var yr=+season, rws=(careerHistory||[]).filter(function(s2){return +s2.season_year===yr && s2.ppg!=null;});
+    myLine=rws.length?rws.sort(function(a,b){return (+b.gp||0)-(+a.gp||0);})[0]:player; }
   var DS=[
     {k:'ppg',l:'Points / Game'},{k:'rpg',l:'Rebounds / Game'},{k:'apg',l:'Assists / Game'},
     {k:'mpg',l:'Minutes / Game'},{k:'fg_pct',l:'Field Goal %',pct:1},{k:'tp_pct',l:'Three-Point %',pct:1},
@@ -1874,7 +1887,7 @@ function renderDist(){
       '<div class="dist-axis"><span>'+loTxt+'</span><span>avg</span><span>'+hiTxt+'</span></div>'+
     '</div>';
   }).join('');
-  var capPop=pop==='grp'?('vs '+grpName):'vs All D1', capSeason=season==='2627'?'2026-27 projected':'2025-26 actual';
+  var capPop=pop==='grp'?('vs '+grpName):'vs All D1', capSeason=season==='2627'?'2026-27 projected':(season==='2026'?'2025-26 actual':_pexpSeasonLbl(season));
   host.innerHTML='<div class="dist-cap">'+capPop+' &middot; '+capSeason+' &middot; '+lines.length+' players</div><div class="dist-grid">'+cards+'</div>';
 }
 
@@ -2004,7 +2017,7 @@ async function loadDraftSticker(){
     // predictive impact, spectrum, and distribution cards (all use the pool)
     renderImpact();
     buildSpectrum();
-    renderDist();
+    setDistSeason(window._distSeason||'2026');
   }catch(e){}
 }
 
@@ -2210,7 +2223,25 @@ function renderPage(){
     <div class="tab-panel" id="panel-percentiles">
       <div class="sec-title" style="margin-bottom:14px;">Percentile Distributions</div>
       <div class="dist-controls">
-        <div class="seg sm" id="distSeasonSeg"><button class="on" onclick="setDistSeason('2526')">2025-26 Actual</button><button onclick="setDistSeason('2627')">2026-27 Projected</button></div>
+        <select class="exp-sel" id="distSeasonSel" onchange="setDistSeason(this.value)">
+          <option value="2627">2026-27 Projected</option>
+          <option value="2026" selected>2025-26 Actual</option>
+          <option value="2025">2024-25</option>
+          <option value="2024">2023-24</option>
+          <option value="2023">2022-23</option>
+          <option value="2022">2021-22</option>
+          <option value="2021">2020-21</option>
+          <option value="2020">2019-20</option>
+          <option value="2019">2018-19</option>
+          <option value="2018">2017-18</option>
+          <option value="2017">2016-17</option>
+          <option value="2016">2015-16</option>
+          <option value="2015">2014-15</option>
+          <option value="2014">2013-14</option>
+          <option value="2013">2012-13</option>
+          <option value="2012">2011-12</option>
+          <option value="all">All Seasons</option>
+        </select>
         <div class="seg sm" id="distPopSeg"><button class="on" onclick="setDistPop('all')">vs All D1</button><button onclick="setDistPop('grp')">vs ${({G:'Guards',W:'Wings',B:'Bigs'})[_impPgrp(p.position)]}</button></div>
       </div>
       <div id="distSection"><div style="padding:30px;text-align:center;color:var(--text3);">Loading distributions…</div></div>
