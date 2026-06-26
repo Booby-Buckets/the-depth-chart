@@ -38,6 +38,34 @@ EXTRA = {
     "Loyola Marymount": "WCC", "Loyola Chicago": "A10", "Loyola Maryland": "Patriot",
     "California Baptist": "WAC", "Houston Christian": "Southland",
     "Houston Baptist": "Southland", "Cal Baptist": "WAC",
+    # MEAC / SWAC / low-D1 that commonly slip through and rank too high
+    "Maryland Eastern Shore": "MEAC", "Maryland-Eastern Shore": "MEAC",
+    "Norfolk State": "MEAC", "Howard": "MEAC", "Morgan State": "MEAC",
+    "Delaware State": "MEAC", "Coppin State": "MEAC", "Bethune-Cookman": "SWAC",
+    "Grambling": "SWAC", "Grambling State": "SWAC", "Prairie View": "SWAC",
+    "Prairie View A&M": "SWAC", "Alcorn State": "SWAC", "Le Moyne": "NEC",
+    "Mississippi Valley St": "SWAC", "Chicago State": "NEC",
+    "Central Connecticut": "NEC", "Central Connecticut State": "NEC",
+    "St. Francis (PA)": "NEC", "Sacred Heart": "NEC", "Wagner": "NEC",
+    "LIU": "NEC", "Long Island": "NEC", "Stonehill": "NEC", "Mercyhurst": "NEC",
+    "UT Rio Grande Valley": "WAC", "Utah Tech": "WAC", "Tarleton State": "WAC",
+    "Utah Valley": "WAC", "Abilene Christian": "WAC", "Stephen F. Austin": "WAC",
+    "Lamar": "Southland", "McNeese": "Southland", "McNeese State": "Southland",
+    "Nicholls": "Southland", "Nicholls State": "Southland", "New Orleans": "Southland",
+    "Incarnate Word": "Southland", "Houston Baptist": "Southland",
+    "Omaha": "Summit", "Denver": "Summit", "St. Thomas (MN)": "Summit",
+    "Oral Roberts": "Summit", "Western Illinois": "OVC", "Lindenwood": "OVC",
+    "Southern Indiana": "OVC", "Little Rock": "OVC", "Morehead State": "OVC",
+    "Eastern Illinois": "OVC", "Tennessee-Martin": "OVC",
+    "Idaho": "Big Sky", "Idaho State": "Big Sky", "Portland State": "Big Sky",
+    "Weber State": "Big Sky", "Montana": "Big Sky", "Montana State": "Big Sky",
+    "Eastern Washington": "Big Sky", "Southern Utah": "WAC",
+    "UNC Asheville": "Big South", "Gardner-Webb": "Big South", "Longwood": "Big South",
+    "Radford": "Big South", "High Point": "Big South", "Winthrop": "Big South",
+    "Presbyterian": "Big South", "USC Upstate": "Big South",
+    "VMI": "SoCon", "The Citadel": "SoCon", "Mercer": "SoCon", "Wofford": "SoCon",
+    "Samford": "SoCon", "Furman": "SoCon", "Chattanooga": "SoCon", "ETSU": "SoCon",
+    "Western Carolina": "SoCon",
 }
 TIERS.setdefault("Summit", 6)
 TIERS.setdefault("Southland", 6)
@@ -47,7 +75,7 @@ SCHOOL_CONF.update(EXTRA)
 _KEYS = sorted(SCHOOL_CONF.keys(), key=len, reverse=True)
 _KEYS_LO = [(k.lower(), k) for k in _KEYS]
 
-DEFAULT_TIER = 5  # unknown school -> mid/low major
+DEFAULT_TIER = 6  # unknown school -> low major (unmapped schools are ~all low-D1)
 
 
 def _conf(team: str):
@@ -73,8 +101,9 @@ def tier(team: str) -> int:
     return TIERS.get(c, DEFAULT_TIER)
 
 
-# translation of lower-tier production -> tier-1 equivalent (from tdc-engine)
-TIER_TO_T1 = {1: 1.00, 2: 0.90, 3: 0.78, 4: 0.66, 5: 0.58, 6: 0.50, 7: 0.42}
+# translation of lower-tier production -> tier-1 equivalent. Steeper at the low
+# end so dominant low-major box scores don't read like power-conference stars.
+TIER_TO_T1 = {1: 1.00, 2: 0.88, 3: 0.76, 4: 0.62, 5: 0.52, 6: 0.43, 7: 0.35}
 
 
 if __name__ == "__main__":
