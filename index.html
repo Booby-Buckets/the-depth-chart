@@ -708,6 +708,15 @@
   .spark-label { font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); width:26px; flex-shrink:0; }
   .spark-track { flex:1; height:3px; background:var(--border); border-radius:2px; overflow:hidden; }
 
+  /* Analytical stat cells + margin bar */
+  .tr-stat { text-align:center; display:flex; flex-direction:column; gap:2px; align-items:center; justify-content:center; }
+  .tr-stat b { font-size:14px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
+  .tr-stat span { font-size:9px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--text3); }
+  .tr-margin { display:flex; align-items:center; gap:9px; padding-right:6px; }
+  .mbar-track { flex:1; height:7px; border-radius:5px; background:color-mix(in srgb, var(--text3) 20%, transparent); overflow:hidden; }
+  .mbar-fill { height:100%; border-radius:5px; width:0; transition:width .65s cubic-bezier(.22,1,.36,1); }
+  .mbar-val { font-size:12.5px; font-weight:800; font-variant-numeric:tabular-nums; min-width:36px; text-align:right; }
+
   /* Grade cells */
   .tr-grade { text-align:center; }
   .grade-val {
@@ -829,7 +838,7 @@
     .filter-btn { font-size:10px; padding:4px 8px; }
     .filter-select { font-size:10px; }
     .table-header,.team-row,.skeleton-row { grid-template-columns:38px 4px 1fr auto; }
-    .th,.tr-grade,.tr-sparkline { display:none; }
+    .th,.tr-grade,.tr-sparkline,.tr-margin,.tr-stat { display:none; }
     .tr-grades-mobile { display:flex; flex-direction:row; align-items:center; gap:6px; flex-wrap:nowrap; }
     .mobile-grade { font-size:11px; display:flex; flex-direction:column; align-items:center; gap:1px; min-width:32px; }
     .mobile-grade-val { font-family:'Playfair Display',serif; font-weight:800; font-size:13px; line-height:1; }
@@ -1083,10 +1092,10 @@
     <div class="hero-orb orb-3"></div>
   </div>
   <div class="hero-content">
-    <div class="page-header-eyebrow" id="heroEyebrow">2026–27 Season · College Basketball</div>
-    <h1 id="heroTitle">Roster <em>Rankings</em></h1>
+    <div class="page-header-eyebrow" id="heroEyebrow">College Basketball · Team Analytics</div>
+    <h1 id="heroTitle">Team <em>Analytics</em></h1>
     <div class="page-header-meta">
-      <span id="heroConfSpan">ACC · Big Ten · Big 12 · Big East · SEC · Pac-12 · A-10 · AAC</span>
+      <span id="heroConfSpan">Ranked by scoring margin · all of Division I</span>
       <span class="meta-dot"></span>
       <span id="lastUpdated">Loading…</span>
       <span class="meta-dot"></span>
@@ -1095,21 +1104,21 @@
     <div class="hero-stats" id="heroStats">
       <div class="hero-stat" id="heroStat1">
         <div class="hero-stat-num" id="heroStat1Num">—</div>
-        <div class="hero-stat-lbl" id="heroStat1Lbl">Teams Ranked</div>
+        <div class="hero-stat-lbl" id="heroStat1Lbl">Teams</div>
       </div>
       <div class="hero-stat-divider"></div>
       <div class="hero-stat" id="heroStat2">
-        <div class="hero-stat-num" id="heroStat2Num">8</div>
-        <div class="hero-stat-lbl" id="heroStat2Lbl">Conferences</div>
+        <div class="hero-stat-num" id="heroStat2Num">118,780</div>
+        <div class="hero-stat-lbl" id="heroStat2Lbl">Games</div>
       </div>
       <div class="hero-stat-divider"></div>
       <div class="hero-stat" id="heroStat3">
-        <div class="hero-stat-num" id="heroStat3Num">4</div>
-        <div class="hero-stat-lbl" id="heroStat3Lbl">Grade Categories</div>
+        <div class="hero-stat-num" id="heroStat3Num">20</div>
+        <div class="hero-stat-lbl" id="heroStat3Lbl">Seasons</div>
       </div>
       <div class="hero-stat-divider"></div>
       <div class="hero-stat" id="heroStat4">
-        <div class="hero-stat-num" id="heroStat4Num">2026–27</div>
+        <div class="hero-stat-num" id="heroStat4Num">2025–26</div>
         <div class="hero-stat-lbl" id="heroStat4Lbl">Season</div>
       </div>
     </div>
@@ -1128,13 +1137,13 @@
   <button class="filter-btn" onclick="setConf('A10',this)">A-10</button>
   <button class="filter-btn" onclick="setConf('AAC',this)">AAC</button>
   <div class="filter-sep"></div>
+  <select class="filter-select" id="seasonSel" onchange="onSeason(this.value)"></select>
   <select class="filter-select" id="sortSel" onchange="applyFilters(true)">
-    <option value="rank">Sort: Overall Rank</option>
-    <option value="roster">Sort: Coach Grade</option>
-    <option value="depth">Sort: Depth Grade</option>
-    <option value="recruit">Sort: Recruit Grade</option>
-    <option value="nil">Sort: NIL Eval</option>
-    <option value="niltier">Sort: NIL Tier</option>
+    <option value="margin">Sort: Scoring Margin</option>
+    <option value="winpct">Sort: Win %</option>
+    <option value="wins">Sort: Wins</option>
+    <option value="ppg">Sort: Points / Game</option>
+    <option value="oppg">Sort: Opp Points / Game</option>
   </select>
   <input class="nav-search" id="searchInput" type="text" placeholder="Search teams…" oninput="applyFilters()" style="margin-left:8px;"/>
   <div class="filter-count" id="filterCount"></div>
@@ -1146,13 +1155,13 @@
     <div class="th">Rk</div>
     <div class="th"></div>
     <div class="th">Team</div>
-    <div class="th">Strength</div>
+    <div class="th">Scoring Margin</div>
     <div class="th"></div>
-    <div class="th center">Coach</div>
-    <div class="th center">Depth</div>
-    <div class="th center">Recruit</div>
-    <div class="th center">NIL Eval</div>
-    <div class="th center">NIL</div>
+    <div class="th center">W-L</div>
+    <div class="th center">Win%</div>
+    <div class="th center">Conf</div>
+    <div class="th center">PPG</div>
+    <div class="th center">OPP</div>
   </div>
   <div id="rankingsList">
     <!-- Branded skeleton loader -->
@@ -1277,30 +1286,39 @@ function tierNum(tier){
   return m[tier]||99;
 }
 
-async function loadTeams(){
+const CONF_CODE = {'Atlantic Coast Conference':'ACC','Big Ten Conference':'B10','Big 12 Conference':'B12','Big East Conference':'BE','Southeastern Conference':'SEC','Pac-12 Conference':'P12','Atlantic 10 Conference':'A10','American Athletic Conference':'AAC','American Conference':'AAC'};
+let curSeason = 2026, _teamColors = null;
+function seasonLabel(yr){ return `${yr-1}–${(''+yr).slice(2)}`; }
+async function ensureColors(){
+  if(_teamColors) return _teamColors;
+  _teamColors = {};
+  try{ const r=await fetch(`${SB_URL}/rest/v1/teams?select=name,color,primary_color`,{headers:HEADERS});
+       (await r.json()||[]).forEach(t=>{_teamColors[(t.name||'').toLowerCase()]=t.color||t.primary_color||null;}); }catch(e){}
+  return _teamColors;
+}
+function matchColor(mascot, colors){
+  const lo=(mascot||'').toLowerCase(); let best=null,bl=0;
+  for(const k in colors){ if((lo===k||lo.startsWith(k+' '))&&k.length>bl){best=k;bl=k.length;} }
+  return best?{short:mascot.slice(0,best.length),color:colors[best]}:{short:mascot,color:null};
+}
+function onSeason(yr){ loadSeason(yr); }
+async function loadSeason(yr){
+  curSeason=+yr;
   try {
-    const r = await fetch(
-      `${SB_URL}/rest/v1/teams?select=*&order=tdc_rank.asc.nullslast,name.asc`,
-      { headers: HEADERS }
-    );
+    const colors = await ensureColors();
+    const r = await fetch(`${SB_URL}/rest/v1/team_seasons?select=*&season_year=eq.${yr}`, { headers: HEADERS });
     if(!r.ok) throw new Error(`Supabase error ${r.status}`);
     const rows = await r.json();
 
-    allTeams = rows.map(t => ({
-      rk:     t.tdc_rank_num || t.tdc_rank || 9999,
-      name:   t.name,
-      conf:   t.conference || t.conf || '',
-      record: t.record || '',
-      rg:     t.coach_grade   || '—',
-      dg:     t.depth_grade   || '—',
-      recg:   t.recruit_grade || '—',
-      nilg:   t.nil_grade  || '—',
-      nilt:   t.nil_tier   || '—',
-      tier:   t.team_tier  || '',
-      chg:    t.rank_change ?? null,
-      color:  t.color || t.primary_color || '#666',
-      updated: t.updated_at,
-    }));
+    allTeams = rows.map(t => {
+      const w=+t.wins||0,l=+t.losses||0,gp=w+l,mc=matchColor(t.team,colors);
+      return { name:t.team, short:mc.short, color:mc.color||'#7c7c8a',
+        conf:CONF_CODE[t.conference]||'', confName:t.conference||'—',
+        wins:w, losses:l, gp, winpct:gp?w/gp:0, cw:+t.conf_wins||0, cl:+t.conf_losses||0,
+        ppg:+t.ppg||0, oppg:+t.oppg||0, margin:Math.round(((+t.ppg||0)-(+t.oppg||0))*10)/10 };
+    }).filter(t=>t.gp>=5);
+    allTeams.sort((a,b)=>b.margin-a.margin);
+    allTeams.forEach((t,i)=>t.rk=i+1);
 
     // Expose team meta + projected stats by name for hover micro-cards
     window._teamMetaByName = {};
@@ -1334,13 +1352,10 @@ async function loadTeams(){
         });
       }).catch(()=>{ window._teamActualByName = {}; window._teamActualList = []; });
 
-    const d = new Date(rows[0]?.updated_at || Date.now());
-    document.getElementById('lastUpdated').textContent =
-      'Updated ' + d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-    document.getElementById('teamCount').textContent = `${allTeams.length} teams ranked`;
-
-    // Hero stat will be updated by updateHeroForConf after applyFilters
-
+    document.getElementById('lastUpdated').textContent = seasonLabel(yr)+' season';
+    document.getElementById('teamCount').textContent = `${allTeams.length} teams`;
+    var h1=document.getElementById('heroStat1Num'); if(h1) h1.textContent=allTeams.length;
+    var h4=document.getElementById('heroStat4Num'); if(h4) h4.textContent=seasonLabel(yr);
     applyFilters(false);
   } catch(e) {
     document.getElementById('rankingsList').innerHTML = `
@@ -1409,13 +1424,11 @@ function applyFilters(animated){
   });
 
   data.sort((a,b)=>{
-    if(srt==='rank')    return a.rk-b.rk;
-    if(srt==='roster')  return gn(b.rg)-gn(a.rg);
-    if(srt==='depth')   return gn(b.dg)-gn(a.dg);
-    if(srt==='recruit') return gn(b.recg)-gn(a.recg);
-    if(srt==='nil')     return gn(b.nilg)-gn(a.nilg);
-    if(srt==='niltier') return tierNum(a.nilt)-tierNum(b.nilt);
-    return 0;
+    if(srt==='winpct') return b.winpct-a.winpct || b.margin-a.margin;
+    if(srt==='wins')   return b.wins-a.wins || b.margin-a.margin;
+    if(srt==='ppg')    return b.ppg-a.ppg;
+    if(srt==='oppg')   return a.oppg-b.oppg;
+    return b.margin-a.margin;
   });
 
   document.getElementById('filterCount').innerHTML =
@@ -1437,50 +1450,39 @@ function renderRows(data, srt, favTeam, favColor, favBg){
       '<div style="padding:40px;text-align:center;color:var(--text3);">No teams found</div>';
     return;
   }
-  let html='', lastTier='';
+  const maxM = Math.max(8, ...data.map(t=>Math.abs(t.margin)));
+  let html='';
   data.forEach(t=>{
-    if(srt==='rank' && t.tier && t.tier !== lastTier){
-      html+=`<div class="grade-group-label">${t.tier}</div>`;
-      lastTier = t.tier;
-    }
+    const pos = t.margin>=0;
+    const pct = Math.min(100, Math.abs(t.margin)/maxM*100);
+    const barC = pos ? '#3fa66a' : '#c75d5d';
+    const isFav = t.short===favTeam || t.name===favTeam;
     html+=`
-    <div class="team-row${t.name===favTeam?' fav-row':''}" data-tcard="${(t.name||'').replace(/"/g,'&quot;')}" onclick="tdcToggleTeam(this,event)"
-      style="--row-color:${t.color};${t.name===favTeam&&favColor?`border-left:3px solid ${favColor};background:${favBg};`:''}">
-      <div class="tr-rank-wrap">
-        <div class="tr-rank${t.rk===1?' rank-1':t.rk===2?' rank-2':t.rk===3?' rank-3':''}">${t.rk<9999?t.rk:'—'}</div>
-        ${t.chg===null||t.chg===undefined?''
-          :t.chg>0?`<span class="rank-chg rank-up">▲${t.chg}</span>`
-          :t.chg<0?`<span class="rank-chg rank-down">▼${Math.abs(t.chg)}</span>`
-          :`<span class="rank-chg rank-same">—</span>`}
-      </div>
+    <div class="team-row${isFav?' fav-row':''}" style="--row-color:${t.color};${isFav&&favColor?`border-left:3px solid ${favColor};background:${favBg};`:''}">
+      <div class="tr-rank-wrap"><div class="tr-rank${t.rk===1?' rank-1':t.rk===2?' rank-2':t.rk===3?' rank-3':''}">${t.rk}</div></div>
       <div class="tr-color-bar" style="background:${t.color}"></div>
       <div>
-        <a class="tr-team-name" href="team.html?team=${encodeURIComponent(t.name)}" style="color:inherit;text-decoration:none;display:inline-block;">${t.name}</a>
-        <div class="tr-team-conf">${t.conf}</div>
+        <a class="tr-team-name" href="team.html?team=${encodeURIComponent(t.short)}" style="color:inherit;text-decoration:none;display:inline-block;">${t.name}</a>
+        <div class="tr-team-conf">${t.confName}</div>
       </div>
       <div class="tr-grades-mobile">
-        ${t.rg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">Coach</span><span class="mobile-grade-val ${gc(t.rg)}">${t.rg}</span></div>`:''}
-        ${t.dg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">Depth</span><span class="mobile-grade-val ${gc(t.dg)}">${t.dg}</span></div>`:''}
-        ${t.recg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">Recr.</span><span class="mobile-grade-val ${gc(t.recg)}">${t.recg}</span></div>`:''}
-        ${t.nilg!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl">NIL</span><span class="mobile-grade-val ${gc(t.nilg)}">${t.nilg}</span></div>`:''}
-        ${t.nilt&&t.nilt!=='—'?`<div class="mobile-grade"><span class="mobile-grade-lbl" style="color:var(--text3);">${t.nilt}</span><span style="font-size:11px;font-weight:700;color:var(--text2);">${nilRange(t.nilt)}</span></div>`:''}
+        <div class="mobile-grade"><span class="mobile-grade-lbl">MRG</span><span class="mobile-grade-val" style="color:${barC};">${pos?'+':''}${t.margin}</span></div>
+        <div class="mobile-grade"><span class="mobile-grade-lbl">REC</span><span class="mobile-grade-val">${t.wins}-${t.losses}</span></div>
       </div>
-      <div class="tr-sparkline">
-        ${sparkBar('CO',t.rg)}
-        ${sparkBar('DG',t.dg)}
-        ${sparkBar('RC',t.recg)}
-        ${sparkBar('EVAL',t.nilg)}
+      <div class="tr-margin">
+        <div class="mbar-track"><div class="mbar-fill" style="width:0;background:${barC};" data-w="${pct}"></div></div>
+        <span class="mbar-val" style="color:${barC};">${pos?'+':''}${t.margin}</span>
       </div>
       <div></div>
-      <div class="tr-grade"><div class="grade-val ${gc(t.rg)}">${t.rg}</div><div class="grade-lbl">Coach</div></div>
-      <div class="tr-grade"><div class="grade-val ${gc(t.dg)}">${t.dg}</div><div class="grade-lbl">Depth</div></div>
-      <div class="tr-grade"><div class="grade-val ${gc(t.recg)}">${t.recg}</div><div class="grade-lbl">Recruit</div></div>
-      <div class="tr-grade"><div class="grade-val ${gc(t.nilg)}">${t.nilg}</div><div class="grade-lbl">NIL Eval</div></div>
-      <div class="tr-grade" style="text-align:center;"><div style="font-size:13px;font-weight:700;color:var(--text2);">${t.nilt}</div><div class="grade-lbl">${nilRange(t.nilt)}</div></div>
-    </div>
-    <div class="tdc-detail"><div class="tdc-detail-inner"></div></div>`;
+      <div class="tr-stat"><b>${t.wins}–${t.losses}</b><span>W-L</span></div>
+      <div class="tr-stat"><b>${Math.round(t.winpct*100)}%</b><span>Win</span></div>
+      <div class="tr-stat"><b>${t.cw}–${t.cl}</b><span>Conf</span></div>
+      <div class="tr-stat"><b>${t.ppg.toFixed(1)}</b><span>PPG</span></div>
+      <div class="tr-stat"><b>${t.oppg.toFixed(1)}</b><span>OPP</span></div>
+    </div>`;
   });
   document.getElementById('rankingsList').innerHTML = html;
+  requestAnimationFrame(()=>document.querySelectorAll('.mbar-fill').forEach(f=>{ f.style.width=(f.dataset.w||0)+'%'; }));
 
   // Scroll-reveal
   observeRows();
@@ -1490,7 +1492,11 @@ function renderRows(data, srt, favTeam, favColor, favBg){
   updateHeroForConf(confFilter, data);
 }
 
-loadTeams();
+(function bootRankings(){
+  const sel=document.getElementById('seasonSel');
+  if(sel){ let o=''; for(let y=2026;y>=2007;y--) o+=`<option value="${y}">${y-1}–${(''+y).slice(2)}</option>`; sel.innerHTML=o; sel.value='2026'; }
+  loadSeason(2026);
+})();
 </script>
 
 <!-- ═══ ANIMATIONS ════════════════════════════════════════════ -->
@@ -1551,64 +1557,36 @@ function updateHeroForConf(conf, teams){
   const confSpan = document.getElementById('heroConfSpan');
   if(!header || !titleEl) return;
 
+  const lbl = (typeof seasonLabel==='function') ? seasonLabel(curSeason) : '';
+  const avgMargin = teams.length ? teams.reduce((s,t)=>s+t.margin,0)/teams.length : 0;
+  const top = teams.length ? teams.reduce((a,b)=>b.margin>a.margin?b:a) : null;
+
   if(!conf){
     /* ── ALL view ── */
     header.classList.remove('conf-active');
     header.style.removeProperty('--conf-overlay');
     eyebrow.style.color = '';
-
-    // Title
     titleEl.classList.add('swapping');
-    setTimeout(() => {
-      titleEl.innerHTML = 'Roster <em>Rankings</em>';
-      titleEl.classList.remove('swapping');
-    }, 230);
-
-    confSpan.textContent = 'ACC · Big Ten · Big 12 · Big East · SEC · Pac-12 · A-10 · AAC';
-
-    // Stats: total teams, 8 confs, 4 grades, season
-    swapStat('heroStat1', allTeams.length, 'Teams Ranked',    true);
-    swapStat('heroStat2', 8,               'Conferences',     true);
-    swapStat('heroStat3', 4,               'Grade Categories',false);
-    swapStat('heroStat4', '2026–27',       'Season',          false);
+    setTimeout(() => { titleEl.innerHTML = 'Team <em>Analytics</em>'; titleEl.classList.remove('swapping'); }, 230);
+    confSpan.textContent = 'Ranked by scoring margin · all of Division I';
+    swapStat('heroStat1', teams.length, 'Teams', true);
+    swapStat('heroStat2', '118,780',    'Games', false);
+    swapStat('heroStat3', 20,           'Seasons', true);
+    swapStat('heroStat4', lbl,          'Season', false);
 
   } else {
     /* ── Conference view ── */
     const meta = CONF_META[conf] || { name: conf, full: conf, color: 'var(--accent)', overlay: 'rgba(177,107,255,.05)' };
-
-    // Header tint
     header.style.setProperty('--conf-overlay', meta.overlay);
     header.classList.add('conf-active');
     eyebrow.style.color = meta.color;
-
-    // Title crossfade
     titleEl.classList.add('swapping');
-    setTimeout(() => {
-      titleEl.innerHTML = `${meta.name} Roster <em>Rankings</em>`;
-      titleEl.classList.remove('swapping');
-    }, 230);
-
-    confSpan.textContent = `${meta.full} Conference · ${teams.length} Teams`;
-
-    // Compute stats
-    const ranked   = teams.filter(t => t.rk < 9999);
-    const bestRank = ranked.length ? Math.min(...ranked.map(t => t.rk)) : '—';
-    const avgRank  = ranked.length ? Math.round(ranked.reduce((s,t)=>s+t.rk,0)/ranked.length) : '—';
-
-    const coachScores = teams.map(t => gn(t.rg)).filter(n => n > 0);
-    const avgCoach = coachScores.length
-      ? scoreToLetter(coachScores.reduce((a,b)=>a+b,0) / coachScores.length)
-      : '—';
-
-    const nilScores = teams.map(t => gn(t.nilg)).filter(n => n > 0);
-    const avgNil    = nilScores.length
-      ? scoreToLetter(nilScores.reduce((a,b)=>a+b,0) / nilScores.length)
-      : '—';
-
-    swapStat('heroStat1', teams.length, 'Teams',          true);
-    swapStat('heroStat2', typeof avgRank==='number'?avgRank:'—', 'Avg Rank', typeof avgRank==='number');
-    swapStat('heroStat3', avgCoach, 'Avg Coach Grade', false);
-    swapStat('heroStat4', avgNil,   'Avg NIL Grade',   false);
+    setTimeout(() => { titleEl.innerHTML = `${meta.name} <em>Analytics</em>`; titleEl.classList.remove('swapping'); }, 230);
+    confSpan.textContent = `${meta.full} Conference · ${teams.length} teams`;
+    swapStat('heroStat1', teams.length, 'Teams', true);
+    swapStat('heroStat2', top ? (top.margin>0?'+':'')+top.margin : '—', 'Top Margin', false);
+    swapStat('heroStat3', (avgMargin>0?'+':'')+avgMargin.toFixed(1), 'Avg Margin', false);
+    swapStat('heroStat4', lbl, 'Season', false);
   }
 }
 
