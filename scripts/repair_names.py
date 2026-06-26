@@ -91,17 +91,26 @@ def main(write=False):
 
     if not write:
         print("\nDRY RUN — pass --write"); return
-    ok = dup = 0
+    ok = dup = err = 0
     for i, f in enumerate(fixes):
-        r = requests.patch(f"{SB}/rest/v1/player_history?id=eq.{f['id']}",
-                           headers={**H, "Prefer": "return=minimal"}, json={"name": f["name"]}, timeout=60)
-        if r.status_code in (200, 204):
+        sc = None
+        for attempt in range(4):
+            try:
+                sc = requests.patch(f"{SB}/rest/v1/player_history?id=eq.{f['id']}",
+                                    headers={**H, "Prefer": "return=minimal"},
+                                    json={"name": f["name"]}, timeout=60).status_code
+                break
+            except Exception:
+                time.sleep(1 + 2*attempt)
+        if sc in (200, 204):
             ok += 1
-        elif r.status_code == 409:                  # full-name row already exists; leave abbreviated as-is
+        elif sc == 409:                             # full-name row already exists; leave abbreviated as-is
             dup += 1
+        else:
+            err += 1
         if (i+1) % 300 == 0:
-            print(f"  {i+1}/{len(fixes)} (ok {ok}, dup-skip {dup})", flush=True)
-    print(f"repaired {ok} names, skipped {dup} duplicates")
+            print(f"  {i+1}/{len(fixes)} (ok {ok}, dup {dup}, err {err})", flush=True)
+    print(f"repaired {ok} names, skipped {dup} duplicates, {err} errors")
 
 
 if __name__ == "__main__":
