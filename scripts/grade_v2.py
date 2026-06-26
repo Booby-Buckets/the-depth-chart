@@ -23,8 +23,13 @@ SB = "https://izlqhnxowdhtdofkwrho.supabase.co"
 
 # ── tunable scale ───────────────────────────────────────────────────────────
 BASE, SCALE = 77.0, 6.3
+# non-linear top: below SOFT linear; SOFT..R99 compresses into 90..98; raw>=R99 -> 99,
+# so only a tiny GOAT tier (~3-5 seasons all-time) ever rounds to 99.
+SOFT, R99, GHI = 90.0, 102.3, 98.49
 MIN_MPG_POP = 8
-WEIGHTS = {"ppg":1.2,"ts":0.55,"rpg":0.5,"apg":0.62,"stl":0.3,"blk":0.3,"tovs":-0.3,"mpg":0.4}
+# scoring-centric: greatness = efficient high-volume scoring first, then the rest.
+# (Breadth-summing rewarded compilers like 15/7/3 forwards over scoring stars.)
+WEIGHTS = {"ppg":1.9,"ts":0.7,"rpg":0.45,"apg":0.45,"stl":0.25,"blk":0.25,"tovs":-0.25,"mpg":0.3}
 TIER_COUNTS = ["ppg","rpg","apg","stl","blk","tovs","oreb","dreb","fgm","fta","fga"]
 FEAT = {"ppg":"adj_ppg","rpg":"adj_rpg","apg":"adj_apg","stl":"adj_stl",
         "blk":"adj_blk","tovs":"adj_tovs","ts":"ts","mpg":"mpg"}
@@ -62,7 +67,7 @@ def compute(df):
     # Normalize WITHIN position group but ACROSS ALL seasons (tier-adjusted), so a
     # grade reflects absolute, cross-era greatness — only true outliers reach 99 —
     # while staying position-fair (a guard is measured against guards).
-    df["grade"] = np.nan
+    df["raw"] = np.nan
     for grp, idx in df.groupby("_grp").groups.items():
         sub = df.loc[idx]
         qual = sub[sub["mpg"] >= MIN_MPG_POP]
@@ -72,9 +77,19 @@ def compute(df):
             mu, sd = qual[col].mean(), (qual[col].std() or 1)
             comp += WEIGHTS[wk] * ((sub[col]-mu)/sd).clip(-4,4).fillna(0)
         cq = comp.loc[qual.index]; cm, cs = cq.mean(), (cq.std() or 1)
-        g = (BASE + SCALE*((comp-cm)/cs)).clip(40, 99)
-        df.loc[idx, "grade"] = g.round()
+        df.loc[idx, "raw"] = BASE + SCALE*((comp-cm)/cs)   # unclamped linear grade
+    df["grade"] = squash(df["raw"])
     return df
+
+
+def squash(raw):
+    # Below SOFT: linear. SOFT..R99: linearly compressed into SOFT..GHI (so it
+    # rounds to 90..98). raw>=R99: 99. Result is a sharp, tiny 99 tier with a
+    # smooth ramp of 98/97/96 below it, instead of ~100 piled at the cap.
+    r = np.asarray(raw, float)
+    g = np.where(r <= SOFT, r, SOFT + (GHI - SOFT)*(r - SOFT)/(R99 - SOFT))
+    g = np.where(r >= R99, 99.0, g)
+    return np.clip(g, 40, 99).round()
 
 
 def main(write=False):

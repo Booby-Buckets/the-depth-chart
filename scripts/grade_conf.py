@@ -73,7 +73,14 @@ SCHOOL_CONF.update(EXTRA)
 
 # longest school names first for greedy prefix matching
 _KEYS = sorted(SCHOOL_CONF.keys(), key=len, reverse=True)
-_KEYS_LO = [(k.lower(), k) for k in _KEYS]
+def _norm(s):
+    # ESPN drops the "&" (and "."), so "Texas A&M-Corpus Christi" arrives as
+    # "Texas AM-Corpus Christi". Normalize both sides so the full school name
+    # matches instead of greedily prefix-matching a power school ("Texas").
+    return re.sub(r"\s+", " ", re.sub(r"[&.]", "", str(s).lower())).strip()
+
+_KEYS_LO = [(_norm(k), k) for k in _KEYS]
+_KEYS_MAP = dict(_KEYS_LO)
 
 DEFAULT_TIER = 6  # unknown school -> low major (unmapped schools are ~all low-D1)
 
@@ -84,9 +91,9 @@ def _conf(team: str):
     t = team.strip()
     if t in SCHOOL_CONF:
         return SCHOOL_CONF[t]
-    lo = t.lower()
-    if lo in dict(_KEYS_LO):
-        return SCHOOL_CONF[dict(_KEYS_LO)[lo]]
+    lo = _norm(t)
+    if lo in _KEYS_MAP:
+        return SCHOOL_CONF[_KEYS_MAP[lo]]
     # mascot-suffixed: longest known school that is a prefix followed by space
     for klo, k in _KEYS_LO:
         if lo == klo or lo.startswith(klo + " "):
