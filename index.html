@@ -1095,7 +1095,7 @@
     <div class="page-header-eyebrow" id="heroEyebrow">College Basketball · Team Analytics</div>
     <h1 id="heroTitle">Team <em>Analytics</em></h1>
     <div class="page-header-meta">
-      <span id="heroConfSpan">Ranked by scoring margin · all of Division I</span>
+      <span id="heroConfSpan">Ranked by net rating (SRS) · all of Division I</span>
       <span class="meta-dot"></span>
       <span id="lastUpdated">Loading…</span>
       <span class="meta-dot"></span>
@@ -1139,6 +1139,7 @@
   <div class="filter-sep"></div>
   <select class="filter-select" id="seasonSel" onchange="onSeason(this.value)"></select>
   <select class="filter-select" id="sortSel" onchange="applyFilters(true)">
+    <option value="srs">Sort: Net Rating</option>
     <option value="margin">Sort: Scoring Margin</option>
     <option value="winpct">Sort: Win %</option>
     <option value="wins">Sort: Wins</option>
@@ -1155,7 +1156,7 @@
     <div class="th">Rk</div>
     <div class="th"></div>
     <div class="th">Team</div>
-    <div class="th">Scoring Margin</div>
+    <div class="th">Net Rating</div>
     <div class="th"></div>
     <div class="th center">W-L</div>
     <div class="th center">Win%</div>
@@ -1315,9 +1316,11 @@ async function loadSeason(yr){
       return { name:t.team, short:mc.short, color:mc.color||'#7c7c8a',
         conf:CONF_CODE[t.conference]||'', confName:t.conference||'—',
         wins:w, losses:l, gp, winpct:gp?w/gp:0, cw:+t.conf_wins||0, cl:+t.conf_losses||0,
-        ppg:+t.ppg||0, oppg:+t.oppg||0, margin:Math.round(((+t.ppg||0)-(+t.oppg||0))*10)/10 };
+        ppg:+t.ppg||0, oppg:+t.oppg||0, margin:Math.round(((+t.ppg||0)-(+t.oppg||0))*10)/10,
+        srs:(t.srs!=null?Math.round(+t.srs*10)/10:null) };
     }).filter(t=>t.gp>=5);
-    allTeams.sort((a,b)=>b.margin-a.margin);
+    window._useSrs = allTeams.some(t=>t.srs!=null);
+    allTeams.sort((a,b)=> window._useSrs ? ((b.srs??-999)-(a.srs??-999)) : (b.margin-a.margin));
     allTeams.forEach((t,i)=>t.rk=i+1);
 
     // Expose team meta + projected stats by name for hover micro-cards
@@ -1424,11 +1427,12 @@ function applyFilters(animated){
   });
 
   data.sort((a,b)=>{
-    if(srt==='winpct') return b.winpct-a.winpct || b.margin-a.margin;
-    if(srt==='wins')   return b.wins-a.wins || b.margin-a.margin;
+    if(srt==='margin') return b.margin-a.margin;
+    if(srt==='winpct') return b.winpct-a.winpct || (b.srs??b.margin)-(a.srs??a.margin);
+    if(srt==='wins')   return b.wins-a.wins || (b.srs??b.margin)-(a.srs??a.margin);
     if(srt==='ppg')    return b.ppg-a.ppg;
     if(srt==='oppg')   return a.oppg-b.oppg;
-    return b.margin-a.margin;
+    return (b.srs??-999)-(a.srs??-999) || b.margin-a.margin;
   });
 
   document.getElementById('filterCount').innerHTML =
@@ -1450,11 +1454,14 @@ function renderRows(data, srt, favTeam, favColor, favBg){
       '<div style="padding:40px;text-align:center;color:var(--text3);">No teams found</div>';
     return;
   }
-  const maxM = Math.max(8, ...data.map(t=>Math.abs(t.margin)));
+  const _useSrs = window._useSrs;
+  const mval = t => (_useSrs && t.srs!=null) ? t.srs : t.margin;
+  const maxM = Math.max(8, ...data.map(t=>Math.abs(mval(t))));
   let html='';
   data.forEach(t=>{
-    const pos = t.margin>=0;
-    const pct = Math.min(100, Math.abs(t.margin)/maxM*100);
+    const v = mval(t);
+    const pos = v>=0;
+    const pct = Math.min(100, Math.abs(v)/maxM*100);
     const barC = pos ? '#3fa66a' : '#c75d5d';
     const isFav = t.short===favTeam || t.name===favTeam;
     html+=`
@@ -1466,12 +1473,12 @@ function renderRows(data, srt, favTeam, favColor, favBg){
         <div class="tr-team-conf">${t.confName}</div>
       </div>
       <div class="tr-grades-mobile">
-        <div class="mobile-grade"><span class="mobile-grade-lbl">MRG</span><span class="mobile-grade-val" style="color:${barC};">${pos?'+':''}${t.margin}</span></div>
+        <div class="mobile-grade"><span class="mobile-grade-lbl">${_useSrs?'NET':'MRG'}</span><span class="mobile-grade-val" style="color:${barC};">${pos?'+':''}${v}</span></div>
         <div class="mobile-grade"><span class="mobile-grade-lbl">REC</span><span class="mobile-grade-val">${t.wins}-${t.losses}</span></div>
       </div>
       <div class="tr-margin">
         <div class="mbar-track"><div class="mbar-fill" style="width:0;background:${barC};" data-w="${pct}"></div></div>
-        <span class="mbar-val" style="color:${barC};">${pos?'+':''}${t.margin}</span>
+        <span class="mbar-val" style="color:${barC};">${pos?'+':''}${v}</span>
       </div>
       <div></div>
       <div class="tr-stat"><b>${t.wins}–${t.losses}</b><span>W-L</span></div>
@@ -1568,7 +1575,7 @@ function updateHeroForConf(conf, teams){
     eyebrow.style.color = '';
     titleEl.classList.add('swapping');
     setTimeout(() => { titleEl.innerHTML = 'Team <em>Analytics</em>'; titleEl.classList.remove('swapping'); }, 230);
-    confSpan.textContent = 'Ranked by scoring margin · all of Division I';
+    confSpan.textContent = 'Ranked by net rating (SRS) · all of Division I';
     swapStat('heroStat1', teams.length, 'Teams', true);
     swapStat('heroStat2', '118,780',    'Games', false);
     swapStat('heroStat3', 20,           'Seasons', true);
