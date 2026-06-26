@@ -66,9 +66,25 @@ def load_box():
     print(f"  loaded {upload('box_scores', rows, 'game_id,espn_id')}")
 
 
+def load_team_seasons():
+    rows = []
+    for line in (DATA / "team_seasons.jsonl").read_text().splitlines():
+        try:
+            t = json.loads(line)
+        except Exception:
+            continue
+        t["season_year"] = t.pop("season", None)
+        rows.append(t)
+    rows = list({(r["season_year"], r["team"]): r for r in rows}.values())
+    print(f"team_seasons: {len(rows)} unique")
+    print(f"  loaded {upload('team_seasons', rows, 'season_year,team')}")
+
+
 if __name__ == "__main__":
     what = sys.argv[1] if len(sys.argv) > 1 else "both"
     if what in ("games", "both"):
         load_games()
     if what in ("box", "both"):
         load_box()
+    if what in ("teams", "team_seasons"):
+        load_team_seasons()
