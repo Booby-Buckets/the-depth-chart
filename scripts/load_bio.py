@@ -79,19 +79,27 @@ def pick(cands, team):
 
 
 def patch(table, payload, write):
+    # PostgREST bulk-upsert needs every object in a batch to have the SAME keys,
+    # so group by key-set. Grouping also means we never send a null that would
+    # wipe existing data (a row only carries the fields bio actually had).
     if not write or not payload:
         return 0
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for row in payload:
+        groups[tuple(sorted(row))].append(row)
     ok = 0
-    for j in range(0, len(payload), 500):
-        batch = payload[j:j+500]
-        r = requests.post(f"{SB}/rest/v1/{table}?on_conflict=id",
-                          headers={**H, "Prefer": "resolution=merge-duplicates,return=minimal"},
-                          json=batch, timeout=60)
-        if r.status_code in (200, 201, 204):
-            ok += len(batch)
-        else:
-            print(f"  ERR {table} {r.status_code}: {r.text[:200]}"); break
-        time.sleep(0.1)
+    for _, rows in groups.items():
+        for j in range(0, len(rows), 500):
+            batch = rows[j:j+500]
+            r = requests.post(f"{SB}/rest/v1/{table}?on_conflict=id",
+                              headers={**H, "Prefer": "resolution=merge-duplicates,return=minimal"},
+                              json=batch, timeout=60)
+            if r.status_code in (200, 201, 204):
+                ok += len(batch)
+            else:
+                print(f"  ERR {table} {r.status_code}: {r.text[:200]}"); return ok
+            time.sleep(0.1)
     return ok
 
 
