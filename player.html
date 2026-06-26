@@ -2033,15 +2033,45 @@ function expVal(p,key){
   if(key==='_ts'){if(mpg<RATE_MIN)return null;var fga=parseFloat(p.fga)||0,fta=parseFloat(p.fta)||0,d=2*(fga+0.44*fta);return d>0?+(ppg/d*100).toFixed(1):null;}
   var v=parseFloat(p[key]); return isNaN(v)?null:v;
 }
-var _pexpChart=null;
+var _pexpChart=null, _pexpPool=null, _pexpCache={}, _pexpSeason='2026';
+function _pexpSeasonLbl(k){ if(k==='all')return 'all seasons'; var y=+k; return (y-1)+'-'+(''+y).slice(2); }
+async function loadPexpSeason(key){
+  if(key==='2026' && window._tdcAllPlayers && window._tdcAllPlayers.length) return window._tdcAllPlayers; // current rosters (fast)
+  if(_pexpCache[key]) return _pexpCache[key];
+  var nt=document.getElementById('pexpNote'); if(nt) nt.textContent='Loading '+_pexpSeasonLbl(key)+'…';
+  var base=SB+'/rest/v1/player_history?select=name,team,position,height,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,oreb,dreb,fga,fta,tdc_grade&mpg=not.is.null';
+  var url=key==='all'?base:base+'&season_year=eq.'+key;
+  var rows=[],pg=0;
+  while(true){
+    try{ var r=await fetch(url,{headers:{...H,'Range-Unit':'items','Range':(pg*1000)+'-'+(pg*1000+999)}}); var b=await r.json();
+      if(!Array.isArray(b)||!b.length) break; rows=rows.concat(b); if(b.length<1000) break; pg++; }catch(e){ break; }
+  }
+  _pexpCache[key]=rows; return rows;
+}
+// the viewed player's own stat row for the selected season (for the highlight)
+function _pexpPlayerRow(key){
+  if(key==='all') return player;
+  var yr=+key, rows=(careerHistory||[]).filter(function(s){return +s.season_year===yr && s.ppg!=null;});
+  if(rows.length){ rows.sort(function(a,b){return (+b.gp||0)-(+a.gp||0);}); return rows[0]; }
+  return (+key===2026)?player:null;   // default season falls back to the players-table row
+}
+async function onPexpSeason(s){
+  _pexpSeason=s;
+  var sel=document.getElementById('pexpSeason'); if(sel) sel.value=s;
+  _pexpPool=await loadPexpSeason(s);
+  renderSpectrum();
+}
 function buildSpectrum(){   // name kept so the existing call site still works
   var sec=document.getElementById('spectrumSection');
   if(!sec||!player) return;
   var optHtml=EXP_STATS.map(function(s){return '<option value="'+s.k+'">'+s.l+'</option>';}).join('');
+  var yrs=[2026,2025,2024,2023,2022,2021,2020,2019,2018,2017,2016,2015,2014,2013,2012];
+  var seasonOpts=yrs.map(function(y){return '<option value="'+y+'">'+((y-1)+'-'+(''+y).slice(2))+'</option>';}).join('')+'<option value="all">All Seasons</option>';
   var tc=(teamData&&teamData.color)||'#5ab875';
   sec.innerHTML=
     '<div class="sec-title" style="margin-bottom:14px;">Stat Explorer</div>'+
     '<div class="exp-controls">'+
+      '<label class="exp-lab">Season <select class="exp-sel" id="pexpSeason" onchange="onPexpSeason(this.value)">'+seasonOpts+'</select></label>'+
       '<label class="exp-lab">X axis <select class="exp-sel" id="pexpX" onchange="renderSpectrum()">'+optHtml+'</select></label>'+
       '<label class="exp-lab">Y axis <select class="exp-sel" id="pexpY" onchange="renderSpectrum()">'+optHtml+'</select></label>'+
       '<label class="exp-lab">Pos <select class="exp-sel" id="pexpPos" onchange="renderSpectrum()"><option value="">All</option><option value="G">Guards</option><option value="W">Wings</option><option value="B">Bigs</option></select></label>'+
@@ -2052,11 +2082,12 @@ function buildSpectrum(){   // name kept so the existing call site still works
     '<div class="exp-note" id="pexpNote"></div>';
   document.getElementById('pexpX').value='ppg';
   document.getElementById('pexpY').value='apg';
-  renderSpectrum();
+  document.getElementById('pexpSeason').value=_pexpSeason;
+  onPexpSeason(_pexpSeason);
 }
 function renderSpectrum(){
   if(typeof Chart==='undefined') return;
-  var pool=window._tdcAllPlayers; if(!pool||!pool.length||!player) return;
+  var pool=_pexpPool||window._tdcAllPlayers; if(!pool||!pool.length||!player) return;
   var xk=document.getElementById('pexpX').value, yk=document.getElementById('pexpY').value;
   var posF=document.getElementById('pexpPos').value, minM=parseFloat(document.getElementById('pexpMin').value)||0;
   var xl=(EXP_STATS.find(function(s){return s.k===xk;})||{}).l||xk;
@@ -2076,15 +2107,17 @@ function renderSpectrum(){
     data:groups[g], backgroundColor:COL[g]+'aa', borderColor:COL[g], pointRadius:3.2, pointHoverRadius:6
   };});
   var tc=(teamData&&teamData.color)||'#5ab875';
-  var mx=expVal(player,xk), my=expVal(player,yk);
-  if(mx!=null&&my!=null&&!isNaN(mx)&&!isNaN(my)){
+  var meRow=_pexpPlayerRow(_pexpSeason);
+  var mx=meRow?expVal(meRow,xk):null, my=meRow?expVal(meRow,yk):null;
+  var hasMe=(mx!=null&&my!=null&&!isNaN(mx)&&!isNaN(my));
+  if(hasMe){
     datasets.push({label:'__you',order:-1,data:[{x:mx,y:my,nm:player.name,tm:player.team,pos:player.position||''}],
       backgroundColor:tc,borderColor:'#fff',borderWidth:2.5,pointRadius:8.5,pointHoverRadius:11});
   }
   var isDark=document.documentElement.getAttribute('data-theme')==='dark';
   var grid=isDark?'rgba(255,255,255,.07)':'rgba(0,0,0,.07)', tickc=isDark?'#9a93b8':'#6d6589';
   var total=groups.G.length+groups.W.length+groups.B.length;
-  var nt=document.getElementById('pexpNote'); if(nt) nt.innerHTML='<b>'+total+'</b> players · 2025-26 actual · '+xl+' (x) vs '+yl+' (y) · '+(player.name||'')+' highlighted';
+  var nt=document.getElementById('pexpNote'); if(nt) nt.innerHTML='<b>'+total+'</b> players · '+_pexpSeasonLbl(_pexpSeason)+' · '+xl+' (x) vs '+yl+' (y) · '+(hasMe?(player.name||'')+' highlighted':(player.name||'')+' did not qualify this season');
   if(_pexpChart) _pexpChart.destroy();
   var ctx=document.getElementById('pexpChart').getContext('2d');
   _pexpChart=new Chart(ctx,{type:'scatter',data:{datasets:datasets},
