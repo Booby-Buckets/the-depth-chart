@@ -2404,7 +2404,7 @@ function buildProgression(p){
     pt.clsLabel=CLS[ci];
   });
 
-  var W=720,H=250,padL=20,padR=20,padT=30,padB=46;
+  var W=720,H=250,padL=42,padR=24,padT=30,padB=46;
   var vals=pts.map(function(x){return x.grade;}).concat(pts.map(function(x){return x.base;}));
   var lo=Math.max(45,Math.floor((Math.min.apply(null,vals)-5)/5)*5);
   var hi=Math.min(99,Math.ceil((Math.max.apply(null,vals)+5)/5)*5);
@@ -2417,7 +2417,7 @@ function buildProgression(p){
   var grid='';
   for(var gv=lo; gv<=hi; gv+=5){ var gy=yy(gv).toFixed(1);
     grid+='<line x1="'+padL+'" y1="'+gy+'" x2="'+(W-padR)+'" y2="'+gy+'" stroke="var(--border)" stroke-width="1" opacity=".5"/>'
-        +'<text x="'+(padL+2)+'" y="'+(gy-3)+'" font-size="9" fill="var(--text3)" font-weight="600">'+gv+'</text>'; }
+        +'<text x="'+(padL-9)+'" y="'+gy+'" font-size="9" fill="var(--text3)" font-weight="600" text-anchor="end" dominant-baseline="middle">'+gv+'</text>'; }
 
   // baseline ("normal progression") — faint area + dashed line
   var baseLine=pts.map(function(pt,i){return (i?'L':'M')+xx(i).toFixed(1)+' '+yy(pt.base).toFixed(1);}).join(' ');
@@ -2428,8 +2428,10 @@ function buildProgression(p){
   var dots='', xlabels='';
   pts.forEach(function(pt,i){
     var cx=xx(i).toFixed(1), cy=yy(pt.grade).toFixed(1);
+    var anc=(i===0)?'start':(i===pts.length-1?'end':'middle');
+    var lx=(i===0)?(xx(i)-2):(i===pts.length-1?(xx(i)+2):xx(i));
     dots+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(pt.proj?4.5:4)+'" fill="'+(pt.proj?'var(--bg)':accent)+'" stroke="'+accent+'" stroke-width="2.5"/>'
-       +'<text x="'+cx+'" y="'+(yy(pt.grade)-11).toFixed(1)+'" font-size="12" font-weight="800" fill="'+accent+'" text-anchor="middle" font-family="Playfair Display,serif">'+pt.grade+'</text>';
+       +'<text x="'+lx.toFixed(1)+'" y="'+(yy(pt.grade)-11).toFixed(1)+'" font-size="12" font-weight="800" fill="'+accent+'" text-anchor="'+anc+'" font-family="Playfair Display,serif">'+pt.grade+'</text>';
     xlabels+='<text x="'+cx+'" y="'+(H-padB+18)+'" font-size="10" fill="var(--text2)" font-weight="700" text-anchor="middle">'+pt.label+(pt.proj?' ★':'')+'</text>'
           +'<text x="'+cx+'" y="'+(H-padB+31)+'" font-size="9" fill="var(--text3)" font-weight="600" text-anchor="middle">'+pt.clsLabel+'</text>';
   });
