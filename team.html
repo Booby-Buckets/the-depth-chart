@@ -3751,6 +3751,13 @@ async function computeSeasonAwards(rows, yr){
   const clsB=p=>{const y=nt(p.yr); return y.includes('fr')?5:y.includes('so')?3:y.includes('jr')?1:y.includes('sr')?-3:0;};
   const prospect=best(players, p=>grade(p)+clsB(p)+ppg(p)*0.05);
 
+  // Offensive / Defensive POY — from per-game production (rotation players only)
+  const sv=(p,k)=>parseFloat(p[k])||0;
+  const rot=players.filter(p=>mpg(p)>=12); const pool=rot.length?rot:players;
+  const odPool=pool.filter(p=>p!==poy);  // spotlight specialists beyond the overall POY
+  const offPoy=best(odPool.length?odPool:pool, p=>ppg(p) + sv(p,'apg')*1.1 + (sv(p,'fg_pct')-45)*0.16 + (sv(p,'tp_pct')-32)*0.08);
+  const defPoy=best(odPool.length?odPool:pool, p=>sv(p,'blk')*2.4 + sv(p,'stl')*2.0 + sv(p,'dreb')*0.5 + sv(p,'rpg')*0.12);
+
   const link=p=> p.espn_id?`player.html?espn=${p.espn_id}&name=${encodeURIComponent(p.name)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}&season=${yr}`;
   const r1=v=>(Math.round((parseFloat(v)||0)*10)/10).toFixed(1);
   const card=(ac,medal,title,p,detail,chip)=> p ? `
@@ -3766,6 +3773,8 @@ async function computeSeasonAwards(rows, yr){
 
   let html='';
   html+=card('#d4af37','🏆','Player of the Year', poy, poy?`${r1(poy.ppg)} PPG · ${r1(poy.rpg)} RPG · ${r1(poy.apg)} APG`:'', poy?grade(poy):null);
+  html+=card('#fb923c','🎯','Offensive POY', offPoy, offPoy?`${r1(offPoy.ppg)} PPG · ${r1(offPoy.apg)} APG · ${r1(offPoy.fg_pct)}% FG`:'', offPoy?grade(offPoy):null);
+  html+=card('#22d3ee','🛡️','Defensive POY', defPoy, defPoy?`${r1(defPoy.stl)} STL · ${r1(defPoy.blk)} BLK · ${r1(defPoy.dreb)} DREB`:'', defPoy?grade(defPoy):null);
   html+=card('#34d399','🌟','Newcomer of the Year', newcomer, newcomer?`${newcomer.yr||'New'} · ${r1(newcomer.ppg)} PPG`:'', newcomer?grade(newcomer):null);
   if(improved && dgr(improved)>=3)
     html+=card('#38bdf8','📈','Most Improved', improved, `${Math.round(parseFloat(pv(improved).tdc_grade))} → ${grade(improved)} overall`, '+'+Math.round(dgr(improved)));
