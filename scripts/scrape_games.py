@@ -49,15 +49,18 @@ def season_dates(yr):
     return out
 
 
-def parse_game(e, yr):
+def parse_game(e, yr, dt=None):
     try:
         comp = e["competitions"][0]
         cs = {c["homeAway"]: c for c in comp["competitors"]}
         h, a = cs.get("home"), cs.get("away")
         if not h or not a:
             return None
+        # use the scoreboard (venue/ET) date, not the UTC event timestamp, so
+        # evening games don't roll to the next calendar day
+        game_date = f"{dt[:4]}-{dt[4:6]}-{dt[6:8]}" if dt else e["date"][:10]
         return {
-            "id": int(e["id"]), "season": yr, "date": e["date"][:10],
+            "id": int(e["id"]), "season": yr, "date": game_date,
             "home": h["team"]["displayName"], "home_id": _int(h["team"]["id"]), "home_score": _int(h.get("score")),
             "away": a["team"]["displayName"], "away_id": _int(a["team"]["id"]), "away_score": _int(a.get("score")),
             "neutral": bool(comp.get("neutralSite")),
@@ -73,7 +76,7 @@ def fetch_date(dt, yr):
     games = []
     if d:
         for e in d.get("events", []):
-            g = parse_game(e, yr)
+            g = parse_game(e, yr, dt)
             if g:
                 games.append(g)
     return dt, games
