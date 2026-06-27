@@ -42,6 +42,22 @@
     tr.starter td:first-child::after{content:' ★';color:var(--text3);font-size:9px;}
     tr.totals td{border-top:2px solid var(--border2);border-bottom:none;font-weight:800;color:var(--text);padding-top:8px;}
     .loading,.err{padding:50px;text-align:center;color:var(--text3);}
+    /* player links + player of the game */
+    .bs-name{color:inherit;text-decoration:none;}
+    .bs-name:hover{color:var(--accent);text-decoration:underline;}
+    tr.potg td{background:color-mix(in srgb,#f5b301 17%,transparent);}
+    tr.potg td:first-child{font-weight:800;}
+    [data-theme="dark"] tr.potg td{background:color-mix(in srgb,#f5b301 13%,transparent);}
+    .potg-badge{display:inline-block;font-size:8.5px;font-weight:800;letter-spacing:.04em;color:#7a4f00;background:#ffd45e;border-radius:3px;padding:1px 5px;margin-right:6px;vertical-align:middle;}
+    [data-theme="dark"] .potg-badge{color:#1a1206;background:#f0b429;}
+    .potg-callout{display:flex;align-items:center;gap:10px;margin-top:14px;padding:10px 14px;border:1px solid color-mix(in srgb,#f5b301 45%,var(--border));background:color-mix(in srgb,#f5b301 9%,transparent);border-radius:8px;}
+    .potg-callout .crown{font-size:20px;}
+    .potg-callout .lbl{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#a36a00;}
+    [data-theme="dark"] .potg-callout .lbl{color:#f0b429;}
+    .potg-callout .nm{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;}
+    .potg-callout .ln{font-size:12.5px;color:var(--text2);font-variant-numeric:tabular-nums;}
+    .potg-callout a{text-decoration:none;color:inherit;}
+    .potg-callout a:hover .nm{color:var(--accent);}
     @media(max-width:620px){th.h,td.h{display:none;}.wrap{padding:18px 12px 60px;}}
   </style>
 </head>
@@ -67,18 +83,31 @@ const gid=qs.get('id');
 const N=v=>v==null?0:v;
 const fmtD=d=>{try{return new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});}catch(e){return d;}};
 
-function row(p,tot){
-  const pr=k=>p[k]==null?'':p[k];
+// John Hollinger's Game Score — single-number box-score rating
+function gameScore(p){
+  return N(p.pts)+0.4*N(p.fgm)-0.7*N(p.fga)-0.4*(N(p.fta)-N(p.ftm))+0.7*N(p.oreb)+0.3*N(p.dreb)
+    +N(p.stl)+0.7*N(p.ast)+0.7*N(p.blk)-0.4*N(p.pf)-N(p.tov);
+}
+function plink(p){ return `<a class="bs-name" href="player.html?name=${encodeURIComponent(p.player)}">${p.player}</a>`; }
+function statline(p){
+  const bits=[`${N(p.pts)} PTS`,`${N(p.reb)} REB`,`${N(p.ast)} AST`];
+  if(N(p.stl)>=2) bits.push(`${N(p.stl)} STL`);
+  if(N(p.blk)>=2) bits.push(`${N(p.blk)} BLK`);
+  return bits.join(' · ');
+}
+function row(p,tot,isPotg){
   const fg=`${N(p.fgm)}-${N(p.fga)}`, tp=`${N(p.tpm)}-${N(p.tpa)}`, ft=`${N(p.ftm)}-${N(p.fta)}`;
-  return `<tr class="${tot?'totals':(p.starter?'starter':'')}">
-    <td>${tot?'Team':p.player}</td>
+  const cls=[tot?'totals':'',(!tot&&p.starter)?'starter':'',isPotg?'potg':''].filter(Boolean).join(' ');
+  const nameCell=tot?'Team':`${isPotg?'<span class="potg-badge">★ POTG</span>':''}${plink(p)}`;
+  return `<tr class="${cls}">
+    <td>${nameCell}</td>
     <td>${tot?'':N(p.min)}</td>
     <td class="h">${fg}</td><td class="h">${tp}</td><td class="h">${ft}</td>
     <td>${N(p.reb)}</td><td>${N(p.ast)}</td>
     <td class="h">${N(p.stl)}</td><td class="h">${N(p.blk)}</td><td class="h">${N(p.tov)}</td><td class="h">${N(p.pf)}</td>
     <td class="pts">${N(p.pts)}</td></tr>`;
 }
-function tableFor(team,players){
+function tableFor(team,players,potgId){
   const sorted=[...players].sort((a,b)=> (b.starter?1:0)-(a.starter?1:0) || N(b.min)-N(a.min));
   const tot={}; ['min','fgm','fga','tpm','tpa','ftm','fta','reb','ast','stl','blk','tov','pf','pts'].forEach(k=>tot[k]=players.reduce((s,p)=>s+N(p[k]),0));
   return `<div class="bs">
@@ -87,7 +116,7 @@ function tableFor(team,players){
       <th>Player</th><th>Min</th><th class="h">FG</th><th class="h">3PT</th><th class="h">FT</th>
       <th>Reb</th><th>Ast</th><th class="h">Stl</th><th class="h">Blk</th><th class="h">TO</th><th class="h">PF</th><th>Pts</th>
     </tr></thead><tbody>
-      ${sorted.map(p=>row(p,false)).join('')}
+      ${sorted.map(p=>row(p,false,p.espn_id===potgId)).join('')}
       ${row(tot,true)}
     </tbody></table></div>`;
 }
@@ -120,10 +149,19 @@ async function load(){
         <span class="gh-at">@</span>
         <div class="gh-team ${homeWin?'win':'lose'}"><span class="nm">${home}</span><span class="pts">${N(hs)}</span>${homeWin?'<span class="gh-win-tag">Win</span>':''}</div>
       </div></div>`;
+    // player of the game = highest Game Score across both teams
+    let potg=null,bestGs=-1e9;
+    bA.forEach(p=>{const gs=gameScore(p); if(gs>bestGs){bestGs=gs;potg=p;}});
+    const potgId=potg?potg.espn_id:null;
+    const callout=potg?`<div class="potg-callout">
+      <span class="crown">👑</span>
+      <div><div class="lbl">Player of the Game</div>
+        <a href="player.html?name=${encodeURIComponent(potg.player)}"><span class="nm">${potg.player}</span></a>
+        <span class="ln"> — ${statline(potg)} · ${potg.team}</span></div></div>`:'';
     // away team first, then home
     const order=[away,home].filter(t=>byTeam[t]);
     Object.keys(byTeam).forEach(t=>{ if(!order.includes(t)) order.push(t); });
-    c.innerHTML=header+order.map(t=>tableFor(t,byTeam[t])).join('');
+    c.innerHTML=header+callout+order.map(t=>tableFor(t,byTeam[t],potgId)).join('');
   }catch(e){ c.innerHTML='<div class="err">Could not load box score. '+e.message+'</div>'; }
 }
 load();
