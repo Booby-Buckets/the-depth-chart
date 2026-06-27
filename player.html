@@ -81,6 +81,36 @@
     .tab-btn:hover:not(.active){color:var(--text2);}
     .tab-panel{display:none;padding:28px 40px 60px;}
     .tab-panel.active{display:block;}
+    /* Full Stats sub-modes */
+    .statmode-row{display:inline-flex;gap:4px;padding:4px;background:var(--bg2);border:1px solid var(--border);border-radius:9px;margin-bottom:16px;}
+    .statmode-btn{font-size:11.5px;font-weight:700;letter-spacing:.04em;padding:7px 15px;border:none;border-radius:6px;background:none;color:var(--text3);cursor:pointer;font-family:'Inter',sans-serif;transition:all .18s;}
+    .statmode-btn:hover:not(.active){color:var(--text2);}
+    .statmode-btn.active{background:var(--accent);color:#fff;}
+    /* Rankings tab */
+    .rk-top{display:grid;grid-template-columns:170px 1fr;gap:26px;align-items:start;}
+    .rk-gradebox{text-align:center;padding:22px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;}
+    .rk-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:64px;line-height:1;}
+    .rk-grade-lbl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-top:8px;}
+    .rk-season{font-size:12px;color:var(--text2);margin-top:6px;font-weight:600;}
+    .rk-method{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:11px;}
+    .rk-method li{font-size:13px;line-height:1.5;color:var(--text2);padding-left:16px;position:relative;}
+    .rk-method li::before{content:'';position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:50%;background:var(--accent);}
+    .rk-method b{color:var(--text);font-weight:700;}
+    .rk-profile{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px;}
+    .rk-chip{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--text);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 13px;}
+    .rk-chip-k{font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);}
+    .rk-sub{font-size:12.5px;color:var(--text3);margin-bottom:16px;line-height:1.5;}
+    .rk-drivers{display:flex;flex-direction:column;gap:11px;}
+    .rk-row{display:grid;grid-template-columns:160px 56px 1fr 54px;gap:14px;align-items:center;}
+    .rk-name{font-size:13px;font-weight:700;color:var(--text);}
+    .rk-stat{font-size:9.5px;font-weight:700;letter-spacing:.06em;color:var(--text3);margin-left:7px;}
+    .rk-val{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text);text-align:right;}
+    .rk-bar{height:9px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+    .rk-fill{height:100%;background:linear-gradient(90deg,var(--accent),#5ab875);border-radius:6px;transition:width .7s cubic-bezier(.22,1,.36,1);}
+    .rk-fill.neg{background:linear-gradient(90deg,#c77,#e08a6a);}
+    .rk-wt{font-size:12px;font-weight:800;color:var(--text2);text-align:right;font-variant-numeric:tabular-nums;}
+    .rk-foot{font-size:11.5px;color:var(--text3);font-style:italic;margin-top:18px;line-height:1.5;}
+    @media(max-width:640px){.rk-top{grid-template-columns:1fr;}.rk-row{grid-template-columns:120px 46px 1fr 44px;gap:9px;}}
     @keyframes tabIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
     @keyframes tabOut{from{opacity:1;}to{opacity:0;transform:translateY(-5px);}}
     .tab-panel.entering{animation:tabIn .26s cubic-bezier(.22,1,.36,1) both;}
@@ -1496,6 +1526,30 @@ async function buildFromBoxScores(espn, name, season){
   }catch(e){ return null; }
 }
 
+// Flatten a bbref_seasons row into the flat shape the page uses (ppg/rpg/…),
+// converting BBRef ".532" rate strings to 53.2, and keep the raw per-game /
+// per-40 / advanced dicts attached for the Full Stats + Rankings tabs.
+function _bn(v){ const n=parseFloat(v); return isNaN(n)?null:n; }
+function _bp(v){ const n=parseFloat(v); return isNaN(n)?null:Math.round(n*1000)/10; } // ".532" -> 53.2
+function bbrefToFlat(rows){
+  return (rows||[]).map(r=>{
+    const pg=r.pergame||{}, p4=r.per40||{}, adv=r.advanced||{};
+    return {
+      season_year:r.season_year, team:r.school, school:r.school, school_slug:r.school_slug,
+      position:r.pos, height:r.height, weight:r.weight, hometown:r.hometown,
+      class_year:r.class, yr:r.class, tdc_grade:r.tdc_grade, espn_id:r.espn_id, name:r.player,
+      gp:_bn(pg.games), gs:_bn(pg.games_started),
+      ppg:_bn(pg.pts_per_g), rpg:_bn(pg.trb_per_g), apg:_bn(pg.ast_per_g), mpg:_bn(pg.mp_per_g),
+      stl:_bn(pg.stl_per_g), blk:_bn(pg.blk_per_g), tovs:_bn(pg.tov_per_g), pf:_bn(pg.pf_per_g),
+      fgm:_bn(pg.fg_per_g), fga:_bn(pg.fga_per_g), fg_pct:_bp(pg.fg_pct),
+      tpm:_bn(pg.fg3_per_g), tpa:_bn(pg.fg3a_per_g), tp_pct:_bp(pg.fg3_pct),
+      ftm:_bn(pg.ft_per_g), fta:_bn(pg.fta_per_g), ft_pct:_bp(pg.ft_pct),
+      oreb:_bn(pg.orb_per_g), dreb:_bn(pg.drb_per_g),
+      _pergame:pg, _per40:p4, _advanced:adv,
+    };
+  });
+}
+
 // Neutralize corrupt rows: a per-game stat physically impossible for the
 // player's minutes (e.g. Sin'Cere Jones — 6.4 APG at 0.3 MPG) is capped to the
 // most it could plausibly be. Only sub-8-MPG samples are touched and the
@@ -1545,8 +1599,9 @@ async function init(){
       // ESPN id is authoritative — NEVER fall back to a name match (which merges
       // different people who share a name). Roster -> player_history -> box scores.
       if(!playerRow){
-        const hrows=await fetch(`${SB}/rest/v1/player_history?espn_id=eq.${pespn}&select=*&order=season_year.desc&limit=40`,{headers:H}).then(r=>r.json()).catch(()=>[]);
-        if(Array.isArray(hrows)&&hrows.length){
+        const raw=await fetch(`${SB}/rest/v1/bbref_seasons?espn_id=eq.${pespn}&select=*&order=season_year.desc&limit=40`,{headers:H}).then(r=>r.json()).catch(()=>[]);
+        const hrows=bbrefToFlat(Array.isArray(raw)?raw:[]);
+        if(hrows.length){
           playerRow=(pseason&&hrows.find(r=>String(r.season_year)===String(pseason)))||hrows[0];
           window._historicalView=true;
         }
@@ -1614,8 +1669,8 @@ async function init(){
     const _espnId = pespn || (playerRow && playerRow.espn_id) || null;
     try{
       if(_espnId){
-        const chR = await fetch(`${SB}/rest/v1/player_history?espn_id=eq.${_espnId}&select=*&order=season_year.asc&limit=20`,{headers:H});
-        if(chR.ok){ careerHistory = await chR.json(); if(!Array.isArray(careerHistory)) careerHistory=[]; }
+        const chR = await fetch(`${SB}/rest/v1/bbref_seasons?espn_id=eq.${_espnId}&select=*&order=season_year.asc&limit=20`,{headers:H});
+        if(chR.ok){ const raw=await chR.json(); careerHistory = bbrefToFlat(Array.isArray(raw)?raw:[]); }
       }
       // no ESPN id (e.g. true freshman) → no prior college history; leave empty
       // rather than risk merging a different person who shares the name.
@@ -2274,6 +2329,7 @@ function renderPage(){
     <div class="tab-row" id="tabRow" onscroll="_tabScrollHint()">
       <button class="tab-btn active" id="tab-overview" onclick="switchTab('overview')">Overview</button>
       <button class="tab-btn" id="tab-stats" onclick="switchTab('stats')">Full Stats</button>
+      <button class="tab-btn" id="tab-rankings" onclick="switchTab('rankings')">Rankings</button>
       <button class="tab-btn" id="tab-percentiles" onclick="switchTab('percentiles')">Percentiles</button>
       <button class="tab-btn" id="tab-archetype" onclick="switchTab('archetype')">Archetype</button>
       <button class="tab-btn" id="tab-scout" onclick="switchTab('scout')">Scouting</button>
@@ -2293,10 +2349,18 @@ function renderPage(){
     </div>
 
     <div class="tab-panel" id="panel-stats">
-      <div style="overflow-x:auto;" id="fullStatWrap">
-        ${renderStatTable(p, proj)}
+      <div class="statmode-row">
+        <button class="statmode-btn active" id="sm-pergame" onclick="setStatMode('pergame')">Per Game</button>
+        <button class="statmode-btn" id="sm-per40" onclick="setStatMode('per40')">Per 40 Min</button>
+        <button class="statmode-btn" id="sm-advanced" onclick="setStatMode('advanced')">Advanced</button>
       </div>
+      <div style="overflow-x:auto;" id="sm-body-pergame">${renderStatTable(p, proj)}</div>
+      <div style="overflow-x:auto;display:none;" id="sm-body-per40">${renderModeTable('per40')}</div>
+      <div style="overflow-x:auto;display:none;" id="sm-body-advanced">${renderModeTable('advanced')}</div>
     </div>
+
+    <!-- RANKINGS TAB -->
+    <div class="tab-panel" id="panel-rankings"><div id="rankingsContent"></div></div>
 
     <!-- PERCENTILES TAB -->
     <div class="tab-panel" id="panel-percentiles">
@@ -2486,6 +2550,109 @@ function renderStatTable(p, projData){
     </tr></thead>
     <tbody>${rowsHtml}</tbody>
   </table>`;
+}
+
+// ── FULL STATS: Per-40 + Advanced tables (from BBRef per40/advanced dicts) ────
+function _seasonLbl(y){ const yr=parseInt(y); return isNaN(yr)?y:`${yr-1}-${String(yr).slice(2)}`; }
+function _ovrTd(g){ g=parseInt(g); const c=isNaN(g)?'var(--text3)':(g>=85?'#5ab875':g>=78?'var(--accent)':g>=70?'var(--text)':g>=64?'var(--text2)':'var(--text3)');
+  return `<td style="font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:${c};">${isNaN(g)?'—':g}</td>`; }
+function _teamSub(t){ return t?`<div style="font-size:9px;color:var(--text3);font-weight:600;margin-top:1px;">${t}</div>`:''; }
+function _dedupHist(){ const by={}; (careerHistory||[]).forEach(s=>{const y=s.season_year,gp=s.gp||0; if(!by[y]||gp>(by[y].gp||0))by[y]=s;}); return Object.values(by).sort((a,b)=>a.season_year-b.season_year); }
+const _f1=v=>{const n=parseFloat(v);return isNaN(n)?'—':(Math.round(n*10)/10).toFixed(1);};
+const _fp100=v=>{const n=parseFloat(v);return isNaN(n)?'—':(Math.round(n*1000)/10).toFixed(1)+'%';}; // .639 -> 63.9%
+const _fpRaw=v=>{const n=parseFloat(v);return isNaN(n)?'—':n.toFixed(1)+'%';};                       // 22.2 -> 22.2%
+const _f3=v=>{const n=parseFloat(v);return isNaN(n)?'—':n.toFixed(3);};
+const _fi=v=>{const n=parseFloat(v);return isNaN(n)?'—':String(Math.round(n));};
+const STAT_MODES={
+  per40:{src:'_per40',cols:[['MP','mp',_fi],['PTS','pts_per_min',_f1],['TRB','trb_per_min',_f1],['AST','ast_per_min',_f1],
+    ['FG','fg_per_min',_f1],['FGA','fga_per_min',_f1],['FG%','fg_pct',_fp100],['3P','fg3_per_min',_f1],['3PA','fg3a_per_min',_f1],['3P%','fg3_pct',_fp100],
+    ['FT','ft_per_min',_f1],['FTA','fta_per_min',_f1],['FT%','ft_pct',_fp100],['ORB','orb_per_min',_f1],['DRB','drb_per_min',_f1],
+    ['STL','stl_per_min',_f1],['BLK','blk_per_min',_f1],['TOV','tov_per_min',_f1],['PF','pf_per_min',_f1]]},
+  advanced:{src:'_advanced',cols:[['PER','per',_f1],['TS%','ts_pct',_fp100],['USG%','usg_pct',_fpRaw],
+    ['ORB%','orb_pct',_fpRaw],['DRB%','drb_pct',_fpRaw],['TRB%','trb_pct',_fpRaw],['AST%','ast_pct',_fpRaw],
+    ['STL%','stl_pct',_fpRaw],['BLK%','blk_pct',_fpRaw],['TOV%','tov_pct',_fpRaw],
+    ['OWS','ows',_f1],['DWS','dws',_f1],['WS','ws',_f1],['WS/40','ws_per_40',_f3],
+    ['OBPM','obpm',_f1],['DBPM','dbpm',_f1],['BPM','bpm',_f1],['PProd','pprod',_fi]]},
+};
+function renderModeTable(mode){
+  const M=STAT_MODES[mode]; const hist=_dedupHist();
+  if(!hist.length) return `<div style="padding:30px;color:var(--text3);font-style:italic;">No ${mode==='per40'?'per-40':'advanced'} data available.</div>`;
+  const head=`<th>Season</th><th>OVR</th>`+M.cols.map(c=>`<th>${c[0]}</th>`).join('');
+  const body=hist.map(s=>{ const d=s[M.src]||{};
+    return `<tr class="actual"><td>${_seasonLbl(s.season_year)}${_teamSub(s.team)}</td>${_ovrTd(s.tdc_grade)}`
+      +M.cols.map(c=>`<td>${c[2](d[c[1]])}</td>`).join('')+`</tr>`;
+  }).join('');
+  return `<table class="stat-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+function setStatMode(m){
+  ['pergame','per40','advanced'].forEach(k=>{
+    const b=document.getElementById('sm-body-'+k), t=document.getElementById('sm-'+k);
+    if(b)b.style.display=(k===m)?'':'none'; if(t)t.classList.toggle('active',k===m);
+  });
+}
+
+// ── RANKINGS: how the tdc_grade is built ──────────────────────────────────────
+const GRADE_W=[
+  {k:'ppg', lbl:'Scoring',      stat:'PPG',  w:1.9,  max:28, good:1},
+  {k:'ts',  lbl:'Efficiency',   stat:'TS%',  w:0.7,  max:65, good:1},
+  {k:'rpg', lbl:'Rebounding',   stat:'RPG',  w:0.45, max:12, good:1},
+  {k:'apg', lbl:'Playmaking',   stat:'APG',  w:0.45, max:8,  good:1},
+  {k:'mpg', lbl:'Workload',     stat:'MPG',  w:0.3,  max:36, good:1},
+  {k:'stl', lbl:'Steals',       stat:'STL',  w:0.25, max:2.6,good:1},
+  {k:'blk', lbl:'Rim Protection',stat:'BLK', w:0.25, max:3.2,good:1},
+  {k:'tovs',lbl:'Ball Security',stat:'TOV',  w:0.25, max:3.6,good:0},
+];
+const GRP_LBL={G:'Guards',W:'Wings & Forwards',B:'Bigs'};
+function _tsPct(s){ const t=s._advanced&&s._advanced.ts_pct; if(t!=null&&t!=='') return parseFloat(t)*100;
+  const fga=parseFloat(s.fga)||0, fta=parseFloat(s.fta)||0, den=2*(fga+0.44*fta); return den>0?(parseFloat(s.ppg)||0)/den*100:null; }
+function renderRankings(){
+  const host=document.getElementById('rankingsContent'); if(!host) return;
+  const hist=_dedupHist();
+  const s=hist.length?hist[hist.length-1]:player;        // grade the latest actual season
+  const grp=_norm3(s.position||player.position);
+  const g=parseInt(s.tdc_grade!=null?s.tdc_grade:player.tdc_grade);
+  const conf=(teamData&&(teamData.conf||teamData.conference))||'';
+  const tsv=_tsPct(s);
+  const val=k=> k==='ts'?tsv : (parseFloat(s[k])||0);
+  const rows=GRADE_W.map(d=>{
+    const v=val(d.k); const fill=Math.max(0,Math.min(1,(v||0)/d.max));
+    const txt= d.k==='ts' ? (v!=null?v.toFixed(1)+'%':'—') : _f1(v);
+    const neg=!d.good;
+    return `<div class="rk-row">
+      <div class="rk-name">${d.lbl}<span class="rk-stat">${d.stat}</span></div>
+      <div class="rk-val">${txt}</div>
+      <div class="rk-bar"><div class="rk-fill${neg?' neg':''}" data-w="${Math.round(fill*100)}" style="width:0%"></div></div>
+      <div class="rk-wt" title="model weight">${neg?'−':''}${d.w.toFixed(2)}×</div>
+    </div>`;
+  }).join('');
+  const scale=[['99','Generational'],['90','All-American'],['82','All-Conference'],['74','Rotation'],['64','Bench']];
+  const gradeC=isNaN(g)?'var(--text3)':(g>=90?'#5ab875':g>=80?'var(--accent)':g>=70?'var(--text)':'var(--text2)');
+  host.innerHTML=`
+    <div class="rk-top">
+      <div class="rk-gradebox">
+        <div class="rk-grade" style="color:${gradeC};">${isNaN(g)?'—':g}</div>
+        <div class="rk-grade-lbl">Overall Grade</div>
+        <div class="rk-season">${_seasonLbl(s.season_year)||''}</div>
+      </div>
+      <div class="rk-explain">
+        <div class="sec-title" style="margin-bottom:10px;">How this grade is built</div>
+        <ul class="rk-method">
+          <li><b>Position-relative.</b> Measured only against ${GRP_LBL[grp]||'their position'} — the best guard and the best big both top out at 99, so position never inflates or caps the grade.</li>
+          <li><b>Conference-adjusted.</b> Counting stats are scaled by strength of competition${conf?` (${conf})`:''}, so dominating a weaker league counts for less than the same line in a power conference.</li>
+          <li><b>Cross-era.</b> Compared against every ${GRP_LBL[grp]||'player'} season since 2006-07 — only true outliers reach the high 90s (~3 seasons a year hit 99).</li>
+        </ul>
+      </div>
+    </div>
+    <div class="rk-profile">
+      <span class="rk-chip"><span class="rk-chip-k">Position group</span>${GRP_LBL[grp]||'—'}</span>
+      ${conf?`<span class="rk-chip"><span class="rk-chip-k">Conference</span>${conf}</span>`:''}
+      <span class="rk-chip"><span class="rk-chip-k">Height</span>${s.height||player.height||'—'}</span>
+    </div>
+    <div class="sec-title" style="margin:24px 0 4px;">What drives it</div>
+    <div class="rk-sub">Each input's bar shows this player's level; the weight (×) is how heavily the model leans on it. Scoring and efficiency lead; turnovers subtract.</div>
+    <div class="rk-drivers">${rows}</div>
+    <div class="rk-foot">Inputs are tier-adjusted, then z-scored within ${GRP_LBL[grp]||'position'} across all seasons and combined by the weights above into the 40–99 grade.</div>`;
+  setTimeout(()=>host.querySelectorAll('.rk-fill').forEach(el=>{el.style.width=el.getAttribute('data-w')+'%';}),60);
 }
 
 // Overall progression chart — player's TDC grade across seasons, over a faint
@@ -2731,7 +2898,7 @@ function _tabScrollHint(){
 window.addEventListener('resize',_tabScrollHint);
 
 function switchTab(t){
-  const tabs=['overview','stats','percentiles','archetype','scout'];
+  const tabs=['overview','stats','rankings','percentiles','archetype','scout'];
   const cur=tabs.map(x=>document.getElementById('panel-'+x)).find(el=>el&&el.classList.contains('active'));
   function activate(id){
     tabs.forEach(x=>{
@@ -2745,6 +2912,7 @@ function switchTab(t){
       }
     });
     if(id==='overview')setTimeout(animateRadar,90);
+    if(id==='rankings')setTimeout(renderRankings,40);
     if(id==='archetype')setTimeout(renderArchetype,60);
     if(id!=='archetype')setTimeout(function(){ growBarsIn(document.getElementById('panel-'+id)); }, 80);
   }
