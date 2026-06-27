@@ -80,6 +80,22 @@ def load_team_seasons():
     print(f"  loaded {upload('team_seasons', rows, 'season_year,team')}")
 
 
+def load_postseason():
+    seen, rows = set(), []
+    for line in (DATA / "postseason.jsonl").read_text().splitlines():
+        try:
+            r = json.loads(line)
+        except Exception:
+            continue
+        if r["id"] in seen:
+            continue
+        seen.add(r["id"])
+        r["season_year"] = r.pop("season", None)
+        rows.append(r)
+    print(f"postseason_games: {len(rows)} games")
+    print(f"  loaded {upload('postseason_games', rows, 'id')}")
+
+
 if __name__ == "__main__":
     what = sys.argv[1] if len(sys.argv) > 1 else "both"
     if what in ("games", "both"):
@@ -88,3 +104,5 @@ if __name__ == "__main__":
         load_box()
     if what in ("teams", "team_seasons"):
         load_team_seasons()
+    if what in ("postseason", "post"):
+        load_postseason()
