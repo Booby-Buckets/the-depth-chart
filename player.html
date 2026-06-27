@@ -1477,6 +1477,25 @@ function gradeClass(g){const n=parseFloat(g);if(!isNaN(n)){if(n>=90)return 'gA';
 
 let player=null, teamData=null, allPlayers=[], gPct={}, proj=null, teamPlayers=[], careerHistory=[];
 
+// Build a player from box scores when they have no season-stat row (so every
+// player who ever played a game is viewable). Aggregates per-season averages;
+// no tdc_grade (box scores don't carry one), so the grade/progression is omitted.
+async function buildFromBoxScores(espn, name, season){
+  try{
+    const bx=await fetch(`${SB}/rest/v1/box_scores?espn_id=eq.${espn}&select=*&order=date.asc&limit=400`,{headers:H}).then(r=>r.json());
+    if(!Array.isArray(bx)||!bx.length) return null;
+    const S={};
+    bx.forEach(b=>{ const k=b.season_year; const s=S[k]||(S[k]={team:b.team,g:new Set(),sum:{}}); s.team=b.team; s.g.add(b.game_id);
+      ['min','pts','reb','oreb','dreb','ast','stl','blk','tov','pf','fgm','fga','tpm','tpa','ftm','fta'].forEach(x=>{s.sum[x]=(s.sum[x]||0)+(b[x]||0);}); });
+    const rows=Object.keys(S).sort().map(yr=>{ const s=S[yr],g=s.g.size||1, pg=x=>Math.round(s.sum[x]/g*10)/10, pct=(m,a)=>s.sum[a]?Math.round(1000*s.sum[m]/s.sum[a])/10:null;
+      return {name:name||bx[0].player, team:s.team, season_year:+yr, gp:g, mpg:pg('min'), ppg:pg('pts'), rpg:pg('reb'),
+        oreb:pg('oreb'), dreb:pg('dreb'), apg:pg('ast'), stl:pg('stl'), blk:pg('blk'), tovs:pg('tov'),
+        fg_pct:pct('fgm','fga'), tp_pct:pct('tpm','tpa'), ft_pct:pct('ftm','fta'), espn_id:+espn}; });
+    window._boxCareer=rows;
+    return (season&&rows.find(r=>String(r.season_year)===String(season)))||rows[rows.length-1];
+  }catch(e){ return null; }
+}
+
 // Neutralize corrupt rows: a per-game stat physically impossible for the
 // player's minutes (e.g. Sin'Cere Jones — 6.4 APG at 0.3 MPG) is capped to the
 // most it could plausibly be. Only sub-8-MPG samples are touched and the
@@ -1510,6 +1529,8 @@ async function init(){
     let url;
     if(pid){
       url=`${SB}/rest/v1/players?id=eq.${pid}&select=*&limit=1`;
+    } else if(pespn){
+      url=`${SB}/rest/v1/players?espn_id=eq.${pespn}&select=*&limit=1`;
     } else if(pteam){
       url=`${SB}/rest/v1/players?name=eq.${sbEncode(pname)}&team=eq.${sbEncode(pteam)}&select=*&limit=1`;
     } else {
@@ -1520,31 +1541,9 @@ async function init(){
       fetch(`${SB}/rest/v1/players?select=ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs&ppg=not.is.null&limit=5000`,{headers:H}).then(r=>r.json()),
     ]);
     let playerRow=Array.isArray(pr)?pr[0]:null;
-    // Fallback 1: try name-only if team match failed
-    if(!playerRow&&pname&&pteam){
-      const fb=await fetch(`${SB}/rest/v1/players?name=eq.${sbEncode(pname)}&select=*&limit=1`,{headers:H});
-      const fbRows=await fb.json();
-      playerRow=Array.isArray(fbRows)?fbRows[0]:null;
-    }
-    // Fallback 2: fetch all players for this team and find by name client-side
-    // handles special chars that break URL encoding (Jr., +, *, etc.)
-    if(!playerRow&&pname){
-      const teamParam=pteam?`&team=eq.${sbEncode(pteam)}`:'';
-      const fb2=await fetch(`${SB}/rest/v1/players?select=*${teamParam}&limit=500`,{headers:H});
-      const fb2Rows=await fb2.json();
-      if(Array.isArray(fb2Rows)){
-        const nameLower=pname.toLowerCase().trim();
-        playerRow=fb2Rows.find(r=>r.name&&r.name.toLowerCase().trim()===nameLower);
-        // Fuzzy: if exact still fails, try contains
-        if(!playerRow) playerRow=fb2Rows.find(r=>r.name&&r.name.toLowerCase().includes(nameLower.slice(0,8)));
-      }
-    }
-    // Fallback by ESPN id (from box-score links) — resolves the EXACT person,
-    // not just someone who shares the name. Try the current roster first, then
-    // build from their player_history.
-    if(!playerRow&&pespn){
-      const cr=await fetch(`${SB}/rest/v1/players?espn_id=eq.${pespn}&select=*&limit=1`,{headers:H}).then(r=>r.json()).catch(()=>[]);
-      playerRow=Array.isArray(cr)?cr[0]:null;
+    if(pespn){
+      // ESPN id is authoritative — NEVER fall back to a name match (which merges
+      // different people who share a name). Roster -> player_history -> box scores.
       if(!playerRow){
         const hrows=await fetch(`${SB}/rest/v1/player_history?espn_id=eq.${pespn}&select=*&order=season_year.desc&limit=40`,{headers:H}).then(r=>r.json()).catch(()=>[]);
         if(Array.isArray(hrows)&&hrows.length){
@@ -1552,19 +1551,40 @@ async function init(){
           window._historicalView=true;
         }
       }
-    }
-    // Fallback 3: historical-only player (not on a current roster) — build
-    // the page from their player_history record so any ranked player is viewable
-    if(!playerRow&&pname){
-      let hq=`${SB}/rest/v1/player_history?name=eq.${sbEncode(pname)}&select=*&order=season_year.desc&limit=40`;
-      let hrows=await fetch(hq,{headers:H}).then(r=>r.json()).catch(()=>[]);
-      if(Array.isArray(hrows)&&hrows.length){
-        let row=null;
-        if(pseason) row=hrows.find(r=>String(r.season_year)===String(pseason)&&(!pteam||r.team===pteam))||hrows.find(r=>String(r.season_year)===String(pseason));
-        if(!row&&pteam) row=hrows.find(r=>r.team===pteam);
-        row=row||hrows[0];
-        playerRow=row;
-        window._historicalView=true;
+      if(!playerRow){
+        // box-score-only player (no season-stat row) — build a page from box scores
+        playerRow=await buildFromBoxScores(pespn, pname, pseason);
+        if(playerRow) window._historicalView=true;
+      }
+    } else {
+      const _stripSuffix=s=>s.replace(/\s+(jr\.?|sr\.?|ii|iii|iv|v)$/i,'').trim();
+      // Fallback 1: name-only if team match failed
+      if(!playerRow&&pname&&pteam){
+        const fb=await fetch(`${SB}/rest/v1/players?name=eq.${sbEncode(pname)}&select=*&limit=1`,{headers:H});
+        const fbRows=await fb.json();
+        playerRow=Array.isArray(fbRows)?fbRows[0]:null;
+      }
+      // Fallback 2: client-side EXACT name match (handles special chars / suffixes)
+      if(!playerRow&&pname){
+        const teamParam=pteam?`&team=eq.${sbEncode(pteam)}`:'';
+        const fb2=await fetch(`${SB}/rest/v1/players?select=*${teamParam}&limit=500`,{headers:H});
+        const fb2Rows=await fb2.json();
+        if(Array.isArray(fb2Rows)){
+          const nl=pname.toLowerCase().trim(), nls=_stripSuffix(nl);
+          playerRow=fb2Rows.find(r=>r.name&&r.name.toLowerCase().trim()===nl)
+                 || fb2Rows.find(r=>r.name&&_stripSuffix(r.name.toLowerCase().trim())===nls);
+        }
+      }
+      // Fallback 3: historical-only player by name (any ranked player is viewable)
+      if(!playerRow&&pname){
+        let hrows=await fetch(`${SB}/rest/v1/player_history?name=eq.${sbEncode(pname)}&select=*&order=season_year.desc&limit=40`,{headers:H}).then(r=>r.json()).catch(()=>[]);
+        if(Array.isArray(hrows)&&hrows.length){
+          let row=null;
+          if(pseason) row=hrows.find(r=>String(r.season_year)===String(pseason)&&(!pteam||r.team===pteam))||hrows.find(r=>String(r.season_year)===String(pseason));
+          if(!row&&pteam) row=hrows.find(r=>r.team===pteam);
+          playerRow=row||hrows[0];
+          window._historicalView=true;
+        }
       }
     }
     if(!playerRow) throw new Error('Player not found — check name spelling or try searching from the roster page.');
@@ -1600,6 +1620,8 @@ async function init(){
       // no ESPN id (e.g. true freshman) → no prior college history; leave empty
       // rather than risk merging a different person who shares the name.
     }catch(e){ console.warn('Career history fetch failed:',e); careerHistory=[]; }
+    // box-score-only player: no season-stat rows, use the per-season aggregates
+    if(!careerHistory.length && window._boxCareer && window._boxCareer.length) careerHistory = window._boxCareer;
 
     // ── BUILD _careerHistoryMap for projectPlayer ─────────────────
     window._careerHistoryMap = {};
