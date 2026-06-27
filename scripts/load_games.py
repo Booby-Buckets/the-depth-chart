@@ -76,6 +76,11 @@ def load_team_seasons():
         t["season_year"] = t.pop("season", None)
         rows.append(t)
     rows = list({(r["season_year"], r["team"]): r for r in rows}.values())
+    # postseason fields are optional per row; fill so every row has the same keys
+    allkeys = set().union(*[r.keys() for r in rows]) if rows else set()
+    for r in rows:
+        for k in allkeys:
+            r.setdefault(k, None)
     print(f"team_seasons: {len(rows)} unique")
     print(f"  loaded {upload('team_seasons', rows, 'season_year,team')}")
 
