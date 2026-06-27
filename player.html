@@ -86,6 +86,17 @@
     .statmode-btn{font-size:11.5px;font-weight:700;letter-spacing:.04em;padding:7px 15px;border:none;border-radius:6px;background:none;color:var(--text3);cursor:pointer;font-family:'Inter',sans-serif;transition:all .18s;}
     .statmode-btn:hover:not(.active){color:var(--text2);}
     .statmode-btn.active{background:var(--accent);color:#fff;}
+    /* Game log */
+    .gl-seasons{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+    .gl-season-btn{font-size:12px;font-weight:700;padding:6px 13px;border:1px solid var(--border);border-radius:7px;background:var(--bg2);color:var(--text3);cursor:pointer;font-family:'Inter',sans-serif;transition:all .16s;}
+    .gl-season-btn:hover:not(.active){color:var(--text);border-color:var(--border2);}
+    .gl-season-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+    .gl-table th,.gl-table td{white-space:nowrap;}
+    .gl-row:hover{background:var(--bg2);}
+    .gl-date{color:var(--text3);font-weight:600;text-align:left;}
+    .gl-opp{text-align:left;font-weight:600;color:var(--text);}
+    .gl-pts{font-weight:800;}
+    .gl-gsc{font-family:'Playfair Display',serif;font-weight:700;}
     /* Rankings tab */
     .rk-top{display:grid;grid-template-columns:170px 1fr;gap:26px;align-items:start;}
     .rk-gradebox{text-align:center;padding:22px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;}
@@ -194,6 +205,11 @@
     .dist-controls .seg button{font-size:11px;font-weight:700;letter-spacing:.03em;color:var(--text3);background:transparent;border:none;cursor:pointer;padding:7px 14px;border-radius:6px;transition:all .15s;white-space:nowrap;}
     .dist-controls .seg button.on{background:var(--accent);color:#fff;}
     [data-theme="dark"] .dist-controls .seg button.on{color:#0a0710;}
+    .dist-slider{display:flex;align-items:center;gap:14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 16px;min-width:300px;}
+    .dist-slider-lbl{font-size:12.5px;font-weight:700;color:var(--text);white-space:nowrap;min-width:108px;}
+    .dist-slider input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;background:var(--border2);outline:none;cursor:pointer;}
+    .dist-slider input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3);}
+    .dist-slider input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;background:var(--accent);cursor:pointer;}
     .dist-cap{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:14px;}
     .dist-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:8px;}
     .dist-card{border:1px solid var(--border);border-radius:11px;padding:15px 17px 12px;background:var(--bg2);}
@@ -1667,6 +1683,7 @@ async function init(){
     // No id — e.g. a true freshman with no college games — means no prior history,
     // which is correct. Fall back to name only when the player genuinely has no id.
     const _espnId = pespn || (playerRow && playerRow.espn_id) || null;
+    window._playerEspn = _espnId;
     try{
       if(_espnId){
         const chR = await fetch(`${SB}/rest/v1/bbref_seasons?espn_id=eq.${_espnId}&select=*&order=season_year.asc&limit=20`,{headers:H});
@@ -1922,14 +1939,34 @@ function _distSvg(arr,val,mean,lo,hi,tc){
 }
 function _segSync(id,idx){var seg=document.getElementById(id);if(!seg)return;var b=seg.querySelectorAll('button');for(var i=0;i<b.length;i++)b[i].classList.toggle('on',i===idx);}
 var _distPool=null;
+function onDistSlide(v){
+  var s=(+v>=2027)?'2627':String(v);
+  var lbl=document.getElementById('distSliderLbl');
+  if(lbl) lbl.textContent=(+v>=2027)?'2026-27 projected':((v-1)+'-'+String(v).slice(2)+' actual');
+  setDistSeason(s);
+}
 async function setDistSeason(s){
   window._distSeason=s;
-  var sel=document.getElementById('distSeasonSel'); if(sel) sel.value=s;
+  var sl=document.getElementById('distSlider'); if(sl) sl.value=(s==='2627')?'2027':s;
+  var lbl=document.getElementById('distSliderLbl'); if(lbl) lbl.textContent=(s==='2627')?'2026-27 projected':((+s-1)+'-'+String(s).slice(2)+' actual');
   var host=document.getElementById('distSection'); if(host&&!_distCache(s)) host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Loading '+(s==='2627'?'2026-27 projected':_pexpSeasonLbl(s))+'…</div>';
   _distPool=(s==='2627')?window._tdcAllPlayers:await loadPexpSeason(s);
   renderDist();
 }
-function _distCache(s){ return s==='2627'||s==='2026'||(_pexpCache&&_pexpCache[s]); }
+function _distCache(s){ return s==='2627'||(_pexpCache&&_pexpCache[s]); }
+// flatten a bbref_seasons row into a flat percentile-pool row (per-game + advanced)
+function _bn2(v){ var n=parseFloat(v); return isNaN(n)?null:n; }
+function _bp2(v){ var n=parseFloat(v); return isNaN(n)?null:n*100; } // ".639" -> 63.9
+function _advFlat(adv){ adv=adv||{}; return {ts:_bp2(adv.ts_pct),per:_bn2(adv.per),usg:_bn2(adv.usg_pct),ws:_bn2(adv.ws),
+  ast_pct:_bn2(adv.ast_pct),orb_pct:_bn2(adv.orb_pct),drb_pct:_bn2(adv.drb_pct),blk_pct:_bn2(adv.blk_pct),stl_pct:_bn2(adv.stl_pct)}; }
+function _bbrefPoolRow(r){
+  var pg=r.pergame||{};
+  return Object.assign({position:r.pos,height:r.height,tdc_grade:r.tdc_grade,
+    mpg:_bn2(pg.mp_per_g),ppg:_bn2(pg.pts_per_g),rpg:_bn2(pg.trb_per_g),apg:_bn2(pg.ast_per_g),
+    stl:_bn2(pg.stl_per_g),blk:_bn2(pg.blk_per_g),tovs:_bn2(pg.tov_per_g),oreb:_bn2(pg.orb_per_g),dreb:_bn2(pg.drb_per_g),
+    fga:_bn2(pg.fga_per_g),fta:_bn2(pg.fta_per_g),fg_pct:_bp2(pg.fg_pct),tp_pct:_bp2(pg.fg3_pct),ft_pct:_bp2(pg.ft_pct)},
+    _advFlat(r.advanced));
+}
 function setDistPop(pp){window._distPop=pp;_segSync('distPopSeg',pp==='all'?0:1);renderDist();}
 // distribution cards — population (all D1 / position group) × season (actual / projected)
 function renderDist(){
@@ -1946,14 +1983,17 @@ function renderDist(){
   // historical year (from career history), else their current actual stats.
   var myLine;
   if(season==='2627') myLine=playerProjLine();
-  else if(season==='2026'||season==='all') myLine=player;
-  else { var yr=+season, rws=(careerHistory||[]).filter(function(s2){return +s2.season_year===yr && s2.ppg!=null;});
+  else { var yr=(season==='all')?2026:+season, rws=(careerHistory||[]).filter(function(s2){return +s2.season_year===yr && s2.ppg!=null;});
     myLine=rws.length?rws.sort(function(a,b){return (+b.gp||0)-(+a.gp||0);})[0]:player; }
+  if(myLine&&myLine._advanced) myLine=Object.assign({},myLine,_advFlat(myLine._advanced));
   var DS=[
     {k:'ppg',l:'Points / Game'},{k:'rpg',l:'Rebounds / Game'},{k:'apg',l:'Assists / Game'},
     {k:'mpg',l:'Minutes / Game'},{k:'fg_pct',l:'Field Goal %',pct:1},{k:'tp_pct',l:'Three-Point %',pct:1},
     {k:'ft_pct',l:'Free Throw %',pct:1},{k:'stl',l:'Steals / Game'},{k:'blk',l:'Blocks / Game'},
-    {k:'tovs',l:'Turnovers / Game',inv:1}
+    {k:'tovs',l:'Turnovers / Game',inv:1},
+    {k:'ts',l:'True Shooting %',pct:1},{k:'per',l:'PER (Efficiency)'},{k:'usg',l:'Usage %',pct:1},
+    {k:'ws',l:'Win Shares'},{k:'ast_pct',l:'Assist %',pct:1},{k:'orb_pct',l:'Off Rebound %',pct:1},
+    {k:'drb_pct',l:'Def Rebound %',pct:1},{k:'blk_pct',l:'Block %',pct:1},{k:'stl_pct',l:'Steal %',pct:1}
   ];
   var cards=DS.map(function(s){
     var arr=lines.map(function(l){return parseFloat(l[s.k])||0;}).filter(function(v){return v>0;}).sort(function(a,b){return a-b;});
@@ -2181,15 +2221,16 @@ function expVal(p,key){
 var _pexpChart=null, _pexpPool=null, _pexpCache={}, _pexpSeason='2026';
 function _pexpSeasonLbl(k){ if(k==='all')return 'all seasons'; var y=+k; return (y-1)+'-'+(''+y).slice(2); }
 async function loadPexpSeason(key){
-  if(key==='2026' && window._tdcAllPlayers && window._tdcAllPlayers.length) return window._tdcAllPlayers; // current rosters (fast)
+  if(key==='2627') return window._tdcAllPlayers||[];  // projected: current rosters (per-game only)
   if(_pexpCache[key]) return _pexpCache[key];
   var nt=document.getElementById('pexpNote'); if(nt) nt.textContent='Loading '+_pexpSeasonLbl(key)+'…';
-  var base=SB+'/rest/v1/player_history?select=name,team,position,height,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,oreb,dreb,fga,fta,tdc_grade&mpg=not.is.null';
+  // pool from BBRef so percentiles cover advanced stats too (per-game + advanced)
+  var base=SB+'/rest/v1/bbref_seasons?select=pos,height,pergame,advanced,tdc_grade';
   var url=key==='all'?base:base+'&season_year=eq.'+key;
   var rows=[],pg=0;
   while(true){
     try{ var r=await fetch(url,{headers:{...H,'Range-Unit':'items','Range':(pg*1000)+'-'+(pg*1000+999)}}); var b=await r.json();
-      if(!Array.isArray(b)||!b.length) break; rows=rows.concat(b); if(b.length<1000) break; pg++; }catch(e){ break; }
+      if(!Array.isArray(b)||!b.length) break; rows=rows.concat(b.map(_bbrefPoolRow)); if(b.length<1000) break; pg++; }catch(e){ break; }
   }
   _pexpCache[key]=rows; return rows;
 }
@@ -2353,10 +2394,12 @@ function renderPage(){
         <button class="statmode-btn active" id="sm-pergame" onclick="setStatMode('pergame')">Per Game</button>
         <button class="statmode-btn" id="sm-per40" onclick="setStatMode('per40')">Per 40 Min</button>
         <button class="statmode-btn" id="sm-advanced" onclick="setStatMode('advanced')">Advanced</button>
+        <button class="statmode-btn" id="sm-gamelog" onclick="setStatMode('gamelog')">Game Log</button>
       </div>
       <div style="overflow-x:auto;" id="sm-body-pergame">${renderStatTable(p, proj)}</div>
       <div style="overflow-x:auto;display:none;" id="sm-body-per40">${renderModeTable('per40')}</div>
       <div style="overflow-x:auto;display:none;" id="sm-body-advanced">${renderModeTable('advanced')}</div>
+      <div style="display:none;" id="sm-body-gamelog"></div>
     </div>
 
     <!-- RANKINGS TAB -->
@@ -2366,25 +2409,10 @@ function renderPage(){
     <div class="tab-panel" id="panel-percentiles">
       <div class="sec-title" style="margin-bottom:14px;">Percentile Distributions</div>
       <div class="dist-controls">
-        <select class="exp-sel" id="distSeasonSel" onchange="setDistSeason(this.value)">
-          <option value="2627">2026-27 Projected</option>
-          <option value="2026" selected>2025-26 Actual</option>
-          <option value="2025">2024-25</option>
-          <option value="2024">2023-24</option>
-          <option value="2023">2022-23</option>
-          <option value="2022">2021-22</option>
-          <option value="2021">2020-21</option>
-          <option value="2020">2019-20</option>
-          <option value="2019">2018-19</option>
-          <option value="2018">2017-18</option>
-          <option value="2017">2016-17</option>
-          <option value="2016">2015-16</option>
-          <option value="2015">2014-15</option>
-          <option value="2014">2013-14</option>
-          <option value="2013">2012-13</option>
-          <option value="2012">2011-12</option>
-          <option value="all">All Seasons</option>
-        </select>
+        <div class="dist-slider">
+          <span class="dist-slider-lbl" id="distSliderLbl">2025-26 actual</span>
+          <input type="range" id="distSlider" min="2007" max="2027" value="2026" step="1" oninput="onDistSlide(this.value)">
+        </div>
         <div class="seg sm" id="distPopSeg"><button class="on" onclick="setDistPop('all')">vs All D1</button><button onclick="setDistPop('grp')">vs ${({G:'Guards',W:'Wings',B:'Bigs'})[_impPgrp(p.position)]}</button></div>
       </div>
       <div id="distSection"><div style="padding:30px;text-align:center;color:var(--text3);">Loading distributions…</div></div>
@@ -2585,10 +2613,61 @@ function renderModeTable(mode){
   return `<table class="stat-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 function setStatMode(m){
-  ['pergame','per40','advanced'].forEach(k=>{
+  ['pergame','per40','advanced','gamelog'].forEach(k=>{
     const b=document.getElementById('sm-body-'+k), t=document.getElementById('sm-'+k);
-    if(b)b.style.display=(k===m)?'':'none'; if(t)t.classList.toggle('active',k===m);
+    if(b)b.style.display=(k===m)?(k==='gamelog'?'block':''):'none'; if(t)t.classList.toggle('active',k===m);
   });
+  if(m==='gamelog' && !window._gamelogLoaded){ window._gamelogLoaded=true; loadGameLog(); }
+}
+
+// ── GAME LOG: every game, every year (from box_scores) ────────────────────────
+let _gameLog={}, _gameLogSeason=null;
+function _gmsc(g){ // Hollinger Game Score
+  return (g.pts||0)+0.4*(g.fgm||0)-0.7*(g.fga||0)-0.4*((g.fta||0)-(g.ftm||0))+0.7*(g.oreb||0)+0.3*(g.dreb||0)
+    +(g.stl||0)+0.7*(g.ast||0)+0.7*(g.blk||0)-0.4*(g.pf||0)-(g.tov||0);
+}
+async function loadGameLog(){
+  const host=document.getElementById('sm-body-gamelog');
+  const espn=window._playerEspn;
+  if(!espn){ host.innerHTML='<div style="padding:30px;color:var(--text3);font-style:italic;">No game log available for this player.</div>'; return; }
+  host.innerHTML='<div style="padding:30px;color:var(--text3);">Loading game log…</div>';
+  try{
+    const bx=await fetch(`${SB}/rest/v1/box_scores?espn_id=eq.${espn}&select=*&order=date.desc&limit=900`,{headers:H}).then(r=>r.json());
+    if(!Array.isArray(bx)||!bx.length){ host.innerHTML='<div style="padding:30px;color:var(--text3);font-style:italic;">No game-by-game data found.</div>'; return; }
+    _gameLog={};
+    bx.forEach(b=>{ const y=b.season_year; (_gameLog[y]||(_gameLog[y]=[])).push(b); });
+    Object.keys(_gameLog).forEach(y=>_gameLog[y].sort((a,b)=>(b.date||'').localeCompare(a.date||'')));
+    const years=Object.keys(_gameLog).map(Number).sort((a,b)=>b-a);
+    _gameLogSeason=years[0];
+    host.innerHTML=`<div class="gl-seasons" id="glSeasons">${years.map(y=>`<button class="gl-season-btn${y===_gameLogSeason?' active':''}" onclick="setGameLogSeason(${y})">${y-1}-${String(y).slice(2)}</button>`).join('')}</div><div id="glTableWrap"></div>`;
+    renderGameLog();
+  }catch(e){ host.innerHTML='<div style="padding:30px;color:var(--text3);">Couldn’t load game log.</div>'; }
+}
+function setGameLogSeason(y){ _gameLogSeason=y;
+  document.querySelectorAll('#glSeasons .gl-season-btn').forEach(b=>b.classList.toggle('active',b.textContent===`${y-1}-${String(y).slice(2)}`));
+  renderGameLog();
+}
+function renderGameLog(){
+  const wrap=document.getElementById('glTableWrap'); if(!wrap) return;
+  const games=_gameLog[_gameLogSeason]||[];
+  const d=v=>{const x=new Date((v||'')+'T12:00:00');return isNaN(x)?'—':x.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
+  const n=v=>(v==null||v==='')?'—':v;
+  const rows=games.map(g=>{
+    const gs=Math.round(_gmsc(g)*10)/10;
+    return `<tr class="gl-row" ${g.game_id?`onclick="location.href='game.html?id=${g.game_id}'" style="cursor:pointer;"`:''}>
+      <td class="gl-date">${d(g.date)}</td>
+      <td class="gl-opp">${g.opp||'—'}</td>
+      <td>${n(g.min)}</td>
+      <td class="gl-pts">${n(g.pts)}</td><td>${n(g.reb)}</td><td>${n(g.ast)}</td>
+      <td>${n(g.fgm)}-${n(g.fga)}</td><td>${n(g.tpm)}-${n(g.tpa)}</td><td>${n(g.ftm)}-${n(g.fta)}</td>
+      <td>${n(g.stl)}</td><td>${n(g.blk)}</td><td>${n(g.tov)}</td>
+      <td class="gl-gsc" style="color:${gs>=20?'#5ab875':gs>=12?'var(--accent)':'var(--text2)'};">${gs.toFixed(1)}</td>
+    </tr>`;
+  }).join('');
+  wrap.innerHTML=`<div style="overflow-x:auto;"><table class="stat-table gl-table"><thead><tr>
+    <th>Date</th><th>Opp</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>FG</th><th>3P</th><th>FT</th><th>STL</th><th>BLK</th><th>TO</th><th>GmSc</th>
+  </tr></thead><tbody>${rows}</tbody></table></div>
+  <div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:10px;">${games.length} games · click a row for the full box score · GmSc = Hollinger Game Score</div>`;
 }
 
 // ── RANKINGS: how the tdc_grade is built ──────────────────────────────────────
