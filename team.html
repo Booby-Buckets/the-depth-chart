@@ -521,6 +521,22 @@
     .sched-rec{font-variant-numeric:tabular-nums;color:var(--text2);white-space:nowrap;}
     .sched-section{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--tc,var(--accent));padding:14px 10px 6px;border-bottom:2px solid color-mix(in srgb,var(--tc,var(--accent)) 40%,transparent);}
     @media(max-width:680px){.sched-loc,.sched-table th.col-loc{display:none;}}
+    /* ── Roster-over-time slider + historic roster ── */
+    .roster-slider-bar{display:flex;align-items:center;gap:14px;padding:12px 2px 18px;}
+    .roster-slider-bar .rs-label{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);}
+    #rosterSlider{flex:1;max-width:520px;accent-color:var(--tc,var(--accent));height:4px;cursor:pointer;}
+    .roster-slider-bar .rs-season{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;color:var(--tc,var(--text));min-width:130px;font-variant-numeric:tabular-nums;}
+    .hr-table{width:100%;border-collapse:collapse;font-size:13px;}
+    .hr-table th{text-align:right;font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);padding:6px 9px;border-bottom:1px solid var(--border);}
+    .hr-table th:nth-child(2){text-align:left;}
+    .hr-table td{text-align:right;padding:8px 9px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;color:var(--text2);}
+    .hr-table td:nth-child(2){text-align:left;}
+    .hr-rk{color:var(--text3);font-weight:700;width:26px;}
+    .hr-name{font-weight:700;color:var(--text);text-decoration:none;}
+    .hr-name:hover{color:var(--accent);text-decoration:underline;}
+    .hr-meta{font-size:11px;color:var(--text3);}
+    .hr-ovr{font-family:'Playfair Display',serif;font-weight:800;color:var(--tc,var(--text));}
+    .hr-table tr:hover td{background:color-mix(in srgb,var(--tc,#888) 7%,transparent);}
 </style>
   <script src="tdc-engine.js"></script>
 </head>
@@ -604,7 +620,12 @@
 <div class="page-body">
   <div class="main-col">
     <div class="panel active" id="panel-depth">
-      <div class="sec-head">Depth Chart <span class="sec-head-sub" style="display:flex;align-items:center;gap:10px;"><span style="display:flex;align-items:center;gap:4px;"><span id="keyStarBadge" style="font-size:9px;font-weight:700;padding:1px 5px;background:rgba(0,0,0,.08);color:#888;">★</span><span>= Starter</span></span><span style="display:flex;align-items:center;gap:4px;"><span id="keyRetBadge" style="font-size:9px;font-weight:700;padding:1px 5px;background:rgba(0,0,0,.08);color:#888;">*</span><span>= Prev. Starter</span></span></span></div>
+      <div class="sec-head" id="depthSecHead">Depth Chart <span class="sec-head-sub" style="display:flex;align-items:center;gap:10px;"><span style="display:flex;align-items:center;gap:4px;"><span id="keyStarBadge" style="font-size:9px;font-weight:700;padding:1px 5px;background:rgba(0,0,0,.08);color:#888;">★</span><span>= Starter</span></span><span style="display:flex;align-items:center;gap:4px;"><span id="keyRetBadge" style="font-size:9px;font-weight:700;padding:1px 5px;background:rgba(0,0,0,.08);color:#888;">*</span><span>= Prev. Starter</span></span></span></div>
+      <div class="roster-slider-bar" id="rosterSliderBar">
+        <span class="rs-label">Roster</span>
+        <input type="range" id="rosterSlider" min="2007" max="2027" value="2027" step="1" oninput="onRosterSlide(this.value)" onchange="onRosterSeason(this.value)"/>
+        <span class="rs-season" id="rosterSeasonLabel">2026-27 · Current</span>
+      </div>
       <div id="depthContent">
         <div class="loading-state"><div class="loading-spinner"></div><div>Loading roster…</div></div>
       </div>
@@ -832,6 +853,10 @@ async function loadTeam(name){
     }
     renderProjections(players, t.conf||t.conference||'', teamColor, teamRgb, globalPercentiles, t);
     renderOutlook(t);
+    // Roster slider — if the page was opened with ?season= (historic team click),
+    // jump straight to that season's roster.
+    const _ps=new URLSearchParams(location.search).get('season');
+    if(_ps && +_ps>=2007 && +_ps<2027){ onRosterSeason(_ps); }
 
   } catch(e){
     document.getElementById('depthContent').innerHTML =
@@ -3632,6 +3657,53 @@ function switchTab(id, btn){
     renderCustomize(teamT, teamPlayers, teamColor_g, teamRgb_g, teamGp);
   }
   if(id==='schedule') initSchedule();
+}
+
+// ── ROSTER OVER TIME (season slider on the Depth Chart tab) ───────────────
+let _rosterSeason = 2027;
+function rosterLbl(yr){ yr=+yr; return yr>=2027 ? '2026-27 · Current' : `${yr-1}–${(''+yr).slice(2)}`; }
+function _teamMascot(){ return (teamT&&teamT.nickname) ? `${teamT.name} ${teamT.nickname}` : (teamT?teamT.name:''); }
+function onRosterSlide(v){ document.getElementById('rosterSeasonLabel').textContent = rosterLbl(v); }
+function onRosterSeason(v){
+  _rosterSeason = +v;
+  const sl=document.getElementById('rosterSlider'); if(sl) sl.value=v;
+  document.getElementById('rosterSeasonLabel').textContent = rosterLbl(v);
+  const sh=document.getElementById('depthSecHead');
+  if(_rosterSeason >= 2027){
+    if(sh) sh.firstChild.textContent='Depth Chart ';
+    if(teamT && teamPlayers) renderDepth(teamT, teamPlayers, teamColor_g, teamRgb_g, teamGp);
+  } else {
+    if(sh) sh.firstChild.textContent=`${rosterLbl(v)} Roster `;
+    loadHistoricRoster(_rosterSeason);
+  }
+}
+async function loadHistoricRoster(yr){
+  const host=document.getElementById('depthContent');
+  host.innerHTML='<div class="loading-state"><div class="loading-spinner"></div><div>Loading '+rosterLbl(yr)+' roster…</div></div>';
+  const short=teamT.name, mascot=_teamMascot();
+  const q=team=>fetch(`${SB_URL}/rest/v1/player_history?season_year=eq.${yr}&team=eq.${encodeURIComponent(team)}&select=*&order=tdc_grade.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  let rows=await q(mascot);
+  if((!rows||!rows.length) && short!==mascot) rows=await q(short);
+  if(!rows||!rows.length) rows=await fetch(`${SB_URL}/rest/v1/player_history?season_year=eq.${yr}&team=ilike.${encodeURIComponent(short+'*')}&select=*&order=tdc_grade.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  renderHistoricRoster(rows, yr);
+}
+function renderHistoricRoster(rows, yr){
+  const host=document.getElementById('depthContent');
+  rows=(rows||[]).filter(r=>r.name && (parseFloat(r.gp)||0)>0);
+  if(!rows.length){ host.innerHTML=`<div style="padding:40px;text-align:center;color:var(--text3);">No roster data for ${rosterLbl(yr)}.</div>`; return; }
+  rows.sort((a,b)=>(parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0) || (parseFloat(b.mpg)||0)-(parseFloat(a.mpg)||0));
+  const num=(v)=>{const n=parseFloat(v);return isNaN(n)?'—':n.toFixed(1);};
+  const pct=(v)=>{const n=parseFloat(v);return isNaN(n)?'—':n.toFixed(1)+'%';};
+  const link=p=> p.espn_id?`player.html?espn=${p.espn_id}&name=${encodeURIComponent(p.name)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}&season=${yr}`;
+  const body=rows.map((p,i)=>`<tr>
+    <td class="hr-rk">${i+1}</td>
+    <td><a class="hr-name" href="${link(p)}">${p.name}</a> <span class="hr-meta">${p.yr||''} ${p.position||''}</span></td>
+    <td>${p.gp||'—'}</td><td>${num(p.mpg)}</td><td>${num(p.ppg)}</td><td>${num(p.rpg)}</td><td>${num(p.apg)}</td>
+    <td>${pct(p.fg_pct)}</td><td>${pct(p.tp_pct)}</td>
+    <td class="hr-ovr">${p.tdc_grade||'—'}</td></tr>`).join('');
+  host.innerHTML=`<table class="hr-table"><thead><tr>
+    <th>#</th><th>Player</th><th>GP</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th><th>FG%</th><th>3P%</th><th>OVR</th>
+  </tr></thead><tbody>${body}</tbody></table>`;
 }
 
 // ── SCHEDULE TAB ──────────────────────────────────────────────────────────
