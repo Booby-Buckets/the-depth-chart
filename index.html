@@ -685,17 +685,20 @@
   .team-row:hover .tr-team-name { color: var(--accent); }
 
   /* Conference badge */
-  .tr-team-conf {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .09em;
-    text-transform: uppercase;
-    color: var(--text3);
-    display: inline-flex;
-    align-items: center;
-    transition: color .15s;
+  .tr-team-conf { display: inline-flex; align-items: center; margin-top: 3px; }
+  .conf-badge {
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    padding: 2px 8px;
+    border-radius: 5px;
+    line-height: 1.45;
+    color: color-mix(in srgb, var(--row-color, var(--text3)) 78%, var(--text));
+    background: color-mix(in srgb, var(--row-color, var(--accent)) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--row-color, var(--border2)) 30%, transparent);
+    transition: background .15s, color .15s;
   }
-  .team-row:hover .tr-team-conf { color: var(--text2); }
+  .team-row:hover .conf-badge { background: color-mix(in srgb, var(--row-color, var(--accent)) 24%, transparent); }
 
   /* Mobile grades */
   .tr-grades-mobile { display:none; }
@@ -1267,6 +1270,27 @@ function tierNum(tier){
 }
 
 const CONF_CODE = {'Atlantic Coast Conference':'ACC','Big Ten Conference':'B10','Big 12 Conference':'B12','Big East Conference':'BE','Southeastern Conference':'SEC','Pac-12 Conference':'P12','Atlantic 10 Conference':'A10','American Athletic Conference':'AAC','American Conference':'AAC'};
+const CONF_ABBR = {
+  'Atlantic Coast Conference':'ACC','Big Ten Conference':'B10','Big 12 Conference':'B12',
+  'Big East Conference':'BE','Southeastern Conference':'SEC','Pac-12 Conference':'P12',
+  'Atlantic 10 Conference':'A10','American Athletic Conference':'AAC','American Conference':'AAC',
+  'Mountain West Conference':'MWC','West Coast Conference':'WCC','Missouri Valley Conference':'MVC',
+  'Conference USA':'CUSA','C-USA':'CUSA','Sun Belt Conference':'SBC','Mid-American Conference':'MAC',
+  'ASUN Conference':'ASUN','Atlantic Sun Conference':'ASUN','Big Sky Conference':'Big Sky',
+  'Big South Conference':'Big South','Big West Conference':'Big West','Colonial Athletic Association':'CAA',
+  'Coastal Athletic Association':'CAA','Horizon League':'Horizon','Ivy League':'Ivy',
+  'Metro Atlantic Athletic Conference':'MAAC','Mid-Eastern Athletic Conference':'MEAC',
+  'Northeast Conference':'NEC','Ohio Valley Conference':'OVC','Patriot League':'Patriot',
+  'Southern Conference':'SoCon','Southland Conference':'Southland','Southwestern Athletic Conference':'SWAC',
+  'Summit League':'Summit','Western Athletic Conference':'WAC','America East Conference':'AE',
+};
+function confAbbr(name){
+  if(!name||name==='—') return '';
+  if(CONF_ABBR[name]) return CONF_ABBR[name];
+  // fallback: drop trailing Conference/League/Association
+  const s=name.replace(/\s+(Conference|League|Association)$/,'').trim();
+  return s.length<=8 ? s : s.split(' ').map(w=>w[0]).join('').toUpperCase();
+}
 let curSeason = 2026, _teamColors = null;
 function seasonLabel(yr){ return `${yr-1}–${(''+yr).slice(2)}`; }
 async function ensureColors(){
@@ -1449,7 +1473,7 @@ function renderRows(data, srt, favTeam, favColor, favBg){
       <div class="tr-color-bar" style="background:${t.color}"></div>
       <div>
         <a class="tr-team-name" href="team.html?team=${encodeURIComponent(t.short)}&season=${curSeason}" style="color:inherit;text-decoration:none;display:inline-block;">${t.name}</a>
-        <div class="tr-team-conf">${t.confName}</div>
+        <div class="tr-team-conf"><span class="conf-badge">${confAbbr(t.confName)}</span></div>
       </div>
       <div class="tr-grades-mobile">
         <div class="mobile-grade"><span class="mobile-grade-lbl">${_useSrs?'NET':'MRG'}</span><span class="mobile-grade-val" style="color:${barC};">${pos?'+':''}${v}</span></div>
