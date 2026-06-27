@@ -31,29 +31,58 @@ def get(url, tries=3):
     return None
 
 
+def _round(note):
+    """Normalize the round across ESPN's two note formats (Title Case w/ ' - '
+    separator in recent years; ALL-CAPS appended in older years)."""
+    n = note.lower()
+    if "national championship" in n: return "National Championship"
+    if "final four" in n: return "Final Four"
+    if "elite eight" in n or "regional final" in n: return "Elite Eight"
+    if "sweet" in n or "regional semifinal" in n: return "Sweet 16"
+    if "2nd round" in n or "second round" in n: return "2nd Round"
+    if "1st round" in n or "first round" in n or "opening round" in n: return "1st Round"
+    if "quarterfinal" in n: return "Quarterfinal"
+    if "semifinal" in n: return "Semifinal"
+    if "championship" in n or "final" in n: return "Final"   # conference final
+    return None
+
+
 def classify(note):
     """note headline -> (tournament, round)."""
     if not note: return (None, None)
-    n = note.strip()
-    rnd = n.split(" - ")[-1].strip() if " - " in n else None
-    low = n.lower()
-    if "men's basketball championship" in low or "ncaa" in low:
+    n = note.lower()
+    rnd = _round(note)
+    if "men's basketball championship" in n or "ncaa" in n:
         tour = "NCAA Tournament"
-    elif "nit" in low or "national invitation" in low:
+    elif "nit" in n or "national invitation" in n:
         tour = "NIT"
-    elif "cbi" in low:
+    elif "cbi" in n or "college basketball invitational" in n:
         tour = "CBI"
-    elif "college basketball invitational" in low:
-        tour = "CBI"
-    elif "cit" in low:
+    elif "cit" in n:
         tour = "CIT"
     else:
-        # conference tournament: strip sponsor prefix/suffix + trailing round
-        t = n.split(" - ")[0]
+        # conference tournament: strip round words + sponsors, then title-case
+        t = re.split(r"\s*[-–]\s*", note)[0]
+        t = re.sub(r"\s+(quarterfinal|semifinal|championship|final|first round|second round|1st round|2nd round|opening round).*$", "", t, flags=re.I)
         t = re.sub(r"\s*(pres\.?\s+by\s+.*|presented\s+by\s+.*)$", "", t, flags=re.I)
         t = re.sub(r"^(phillips 66|dr pepper|t\.?\s*rowe price|continental tire|hercules tires?)\s+", "", t, flags=re.I)
-        tour = t.strip()
+        t = re.sub(r"\s+", " ", t).strip()
+        tour = t.title() if t.isupper() else t
     return (tour, rnd)
+
+
+def reparse():
+    """Re-classify tournament+round from the stored raw notes (no re-scrape)."""
+    rows = []
+    for l in OUT.read_text().splitlines():
+        try: r = json.loads(l)
+        except Exception: continue
+        r["tournament"], r["round"] = classify(r.get("note"))
+        if r["tournament"]:
+            rows.append(r)
+    with open(OUT, "w") as f:
+        for r in rows: f.write(json.dumps(r) + "\n")
+    print(f"reparsed {len(rows)} postseason games")
 
 
 def _seed(c):
@@ -104,4 +133,9 @@ def main(seasons):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--seasons", type=int, nargs="+", default=list(range(2007, 2027)))
-    main(ap.parse_args().seasons)
+    ap.add_argument("--reparse", action="store_true")
+    a = ap.parse_args()
+    if a.reparse:
+        reparse()
+    else:
+        main(a.seasons)

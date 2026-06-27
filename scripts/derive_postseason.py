@@ -76,7 +76,7 @@ def main():
         for t, games in tours.items():
             if is_conf(t):
                 cr = bracket_outcome(games, tid, t)
-                d["conf_tourney"] = f"{t}: {cr}" if cr else t
+                d["conf_tourney"] = cr   # 'Champion','Runner-Up','Semifinal'... (conference field gives context)
                 if cr == "Champion": d["conf_champ"] = True
         # one-line summary (most prestigious)
         if d["ncaa_result"]:
