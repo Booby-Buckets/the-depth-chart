@@ -504,6 +504,23 @@
     .tdc-prem:hover .tv-seal{animation:tvSpin .7s cubic-bezier(.34,1.3,.5,1), tvPulse .7s ease;}
     .tdc-prem:hover .tv-check{animation:tvDraw .5s .18s both;}
     @media (prefers-reduced-motion: reduce){.tdc-prem:hover .tv-seal,.tdc-prem:hover .tv-check{animation:none;}}
+    /* ── Schedule tab ── */
+    .sched-season{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;padding:4px 8px;border:1px solid var(--border2);background:var(--bg);color:var(--text);border-radius:6px;cursor:pointer;}
+    .sched-table{width:100%;border-collapse:collapse;font-size:13px;}
+    .sched-table th{text-align:left;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);padding:6px 10px;border-bottom:1px solid var(--border);}
+    .sched-table td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+    .sched-row.win{background:color-mix(in srgb,#3fa66a 7%,transparent);}
+    .sched-row.loss{background:color-mix(in srgb,#c75d5d 9%,transparent);}
+    .sched-row:hover{background:color-mix(in srgb,var(--tc,#888) 9%,transparent);}
+    .sched-date{color:var(--text2);white-space:nowrap;font-variant-numeric:tabular-nums;}
+    .sched-rk{color:var(--text3);font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;width:30px;}
+    .sched-opp{font-weight:700;color:var(--text);}
+    .sched-res{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;}
+    .sched-res.win{color:#2f9159;} .sched-res.loss{color:#bd4b4b;}
+    .sched-loc{color:var(--text2);font-size:12px;}
+    .sched-rec{font-variant-numeric:tabular-nums;color:var(--text2);white-space:nowrap;}
+    .sched-section{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--tc,var(--accent));padding:14px 10px 6px;border-bottom:2px solid color-mix(in srgb,var(--tc,var(--accent)) 40%,transparent);}
+    @media(max-width:680px){.sched-loc,.sched-table th.col-loc{display:none;}}
 </style>
   <script src="tdc-engine.js"></script>
 </head>
@@ -574,6 +591,7 @@
     <button class="hero-tab active" onclick="switchTab('depth',this)">Depth Chart</button>
     <button class="hero-tab" onclick="switchTab('customize',this)">✦ Customize</button>
     <button class="hero-tab" onclick="switchTab('losses',this)">Losses</button>
+    <button class="hero-tab" onclick="switchTab('schedule',this)">Schedule</button>
     <button class="hero-tab" onclick="switchTab('projections',this)">2026-27 Projections</button>
     <button class="hero-tab" onclick="switchTab('analysis',this)">Analysis</button>
     <button class="hero-tab" onclick="switchTab('comments',this)">Comments</button>
@@ -602,6 +620,15 @@
       <div id="lossesPanel">
         <div class="loading-state"><div class="loading-spinner"></div></div>
       </div>
+    </div>
+    <div class="panel" id="panel-schedule">
+      <div class="sec-head">Schedule
+        <span class="sec-head-sub" style="display:flex;align-items:center;gap:10px;">
+          <select id="schedSeasonSel" onchange="onSchedSeason(this.value)" class="sched-season"></select>
+          <span id="schedSummary" style="font-weight:600;"></span>
+        </span>
+      </div>
+      <div id="schedBody"><div class="loading-state"><div class="loading-spinner"></div></div></div>
     </div>
     <div class="panel" id="panel-projections">
       <div class="sec-head">2026-27 Roster Projections <span style="font-size:10px;font-weight:600;color:var(--text3);margin-left:8px;">Minutes & scoring adjusted for roster cohesion</span></div>
@@ -3603,6 +3630,82 @@ function switchTab(id, btn){
   }
   if(id==='customize' && teamPlayers.length && !Object.keys(customDepth).length){
     renderCustomize(teamT, teamPlayers, teamColor_g, teamRgb_g, teamGp);
+  }
+  if(id==='schedule') initSchedule();
+}
+
+// ── SCHEDULE TAB ──────────────────────────────────────────────────────────
+let _schedSeason = 2026, _schedInit = false;
+const _schedMascotFix = {'NC-State':'NC State Wolfpack'};
+function teamMascot(){
+  if(!teamT) return '';
+  if(_schedMascotFix[teamT.name]) return _schedMascotFix[teamT.name];
+  return teamT.nickname ? `${teamT.name} ${teamT.nickname}` : teamT.name;
+}
+function initSchedule(){
+  if(_schedInit) return;
+  _schedInit = true;
+  const sel = document.getElementById('schedSeasonSel');
+  let o = '';
+  for(let y=2026; y>=2007; y--) o += `<option value="${y}">${y-1}–${(''+y).slice(2)}</option>`;
+  sel.innerHTML = o; sel.value = String(_schedSeason);
+  loadSchedule();
+}
+function onSchedSeason(yr){ _schedSeason = +yr; loadSchedule(); }
+
+async function loadSchedule(){
+  const host = document.getElementById('schedBody');
+  const mascot = teamMascot();
+  if(!mascot){ host.innerHTML = '<div style="padding:30px;color:var(--text3);">No schedule available.</div>'; return; }
+  host.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div></div>';
+  const yr = _schedSeason, enc = encodeURIComponent(mascot);
+  try{
+    const [hg, ag, ranks, post] = await Promise.all([
+      fetch(`${SB_URL}/rest/v1/games?home=eq.${enc}&season_year=eq.${yr}&select=*`,{headers:H}).then(r=>r.json()),
+      fetch(`${SB_URL}/rest/v1/games?away=eq.${enc}&season_year=eq.${yr}&select=*`,{headers:H}).then(r=>r.json()),
+      fetch(`${SB_URL}/rest/v1/team_seasons?season_year=eq.${yr}&srs=not.is.null&select=team,srs,ncaa_seed&order=srs.desc`,{headers:H}).then(r=>r.json()),
+      fetch(`${SB_URL}/rest/v1/postseason_games?or=(home.eq.${enc},away.eq.${enc})&season_year=eq.${yr}&select=id,tournament,round`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+    ]);
+    const games = [...(hg||[]), ...(ag||[])]
+      .filter(g=>g.status==='STATUS_FINAL' && g.home_score!=null && g.away_score!=null)
+      .sort((a,b)=> (a.date||'').localeCompare(b.date||''));
+    if(!games.length){ host.innerHTML = `<div style="padding:30px;color:var(--text3);">No games found for ${yr-1}–${(''+yr).slice(2)}.</div>`; return; }
+    const rankMap = {}; (ranks||[]).forEach((t,i)=>rankMap[t.team]=i+1);
+    const mySeed = (ranks||[]).find(t=>t.team===mascot)?.ncaa_seed;
+    const postMap = {}; (post||[]).forEach(p=>postMap[p.id]={tour:p.tournament,round:p.round});
+
+    let w=0,l=0,cw=0,cl=0,lastTour=null,rows='';
+    const fmtD = d=>{ const x=new Date(d+'T12:00:00'); return x.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); };
+    games.forEach(g=>{
+      const pm = postMap[g.id];
+      let tour = pm ? pm.tour : null;
+      if(tour && tour!==lastTour){
+        const seedTxt = (tour==='NCAA Tournament' && mySeed) ? ` · #${mySeed} seed` : '';
+        rows += `<tr><td colspan="6" class="sched-section">${tour}${seedTxt}</td></tr>`;
+        lastTour = tour;
+      }
+      const homeMe = g.home===mascot;
+      const ms = homeMe?g.home_score:g.away_score, os = homeMe?g.away_score:g.home_score;
+      const won = ms>os; won?w++:l++; if(g.conf_game){won?cw++:cl++;}
+      const opp = homeMe?g.away:g.home;
+      const rk = rankMap[opp];
+      const loc = g.neutral?'Neutral':(homeMe?'Home':'Away');
+      const ot = ''; // (overtime flag not tracked)
+      rows += `<tr class="sched-row ${won?'win':'loss'}">
+        <td class="sched-date">${fmtD(g.date)}</td>
+        <td class="sched-rk">${rk?'<span style="opacity:.6">#</span>'+rk:''}</td>
+        <td class="sched-opp">${opp}</td>
+        <td class="sched-res ${won?'win':'loss'}">${won?'W':'L'}, ${Math.max(ms,os)}–${Math.min(ms,os)}</td>
+        <td class="sched-loc col-loc">${loc}</td>
+        <td class="sched-rec">${w}–${l}${g.conf_game?` <span style="color:var(--text3)">(${cw}–${cl})</span>`:''}</td>
+      </tr>`;
+    });
+    document.getElementById('schedSummary').textContent = `${w}–${l}` + (cw+cl?` · ${cw}–${cl} conf`:'');
+    host.innerHTML = `<table class="sched-table"><thead><tr>
+      <th>Date</th><th>Rk</th><th>Opponent</th><th>Result</th><th class="col-loc">Location</th><th>Record</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+  }catch(e){
+    host.innerHTML = `<div style="padding:30px;color:var(--text3);">Could not load schedule. ${e.message}</div>`;
   }
 }
 
