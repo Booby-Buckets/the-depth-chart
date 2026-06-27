@@ -1499,8 +1499,8 @@ function tdcSane(p){
 async function init(){
   const s=JSON.parse(localStorage.getItem('tdc_session')||'null');
   const params=new URLSearchParams(location.search);
-  const pid=params.get('id'), pname=params.get('name'), pteam=params.get('team'), pseason=params.get('season');
-  if(!pid&&!pname){document.getElementById('heroSection').innerHTML='<div style="padding:80px;text-align:center;color:var(--text3);">No player specified. <a href="roster.html" style="color:var(--accent);">Browse players →</a></div>';return;}
+  const pid=params.get('id'), pname=params.get('name'), pteam=params.get('team'), pseason=params.get('season'), pespn=params.get('espn');
+  if(!pid&&!pname&&!pespn){document.getElementById('heroSection').innerHTML='<div style="padding:80px;text-align:center;color:var(--text3);">No player specified. <a href="roster.html" style="color:var(--accent);">Browse players →</a></div>';return;}
   try{
     if(s?.access_token) updateNav(s);
     // PostgREST eq. filter — special chars like + * Jr. need to be handled
@@ -1539,6 +1539,20 @@ async function init(){
         if(!playerRow) playerRow=fb2Rows.find(r=>r.name&&r.name.toLowerCase().includes(nameLower.slice(0,8)));
       }
     }
+    // Fallback by ESPN id (from box-score links) — resolves the EXACT person,
+    // not just someone who shares the name. Try the current roster first, then
+    // build from their player_history.
+    if(!playerRow&&pespn){
+      const cr=await fetch(`${SB}/rest/v1/players?espn_id=eq.${pespn}&select=*&limit=1`,{headers:H}).then(r=>r.json()).catch(()=>[]);
+      playerRow=Array.isArray(cr)?cr[0]:null;
+      if(!playerRow){
+        const hrows=await fetch(`${SB}/rest/v1/player_history?espn_id=eq.${pespn}&select=*&order=season_year.desc&limit=40`,{headers:H}).then(r=>r.json()).catch(()=>[]);
+        if(Array.isArray(hrows)&&hrows.length){
+          playerRow=(pseason&&hrows.find(r=>String(r.season_year)===String(pseason)))||hrows[0];
+          window._historicalView=true;
+        }
+      }
+    }
     // Fallback 3: historical-only player (not on a current roster) — build
     // the page from their player_history record so any ranked player is viewable
     if(!playerRow&&pname){
@@ -1573,25 +1587,18 @@ async function init(){
 
     // ── FETCH CAREER HISTORY ─────────────────────────────────────
     // Do this FIRST — projection depends on it
+    // Career history is keyed by ESPN id (from box scores), NOT name, so we never
+    // merge different people who share a name (e.g. several "Cameron Williams").
+    // No id — e.g. a true freshman with no college games — means no prior history,
+    // which is correct. Fall back to name only when the player genuinely has no id.
+    const _espnId = pespn || (playerRow && playerRow.espn_id) || null;
     try{
-      const chR = await fetch(`${SB}/rest/v1/player_history?name=eq.${sbEncode(player.name)}&select=*&order=season_year.asc&limit=20`,{headers:H});
-      if(chR.ok){
-        careerHistory = await chR.json();
-        if(!Array.isArray(careerHistory)) careerHistory = [];
+      if(_espnId){
+        const chR = await fetch(`${SB}/rest/v1/player_history?espn_id=eq.${_espnId}&select=*&order=season_year.asc&limit=20`,{headers:H});
+        if(chR.ok){ careerHistory = await chR.json(); if(!Array.isArray(careerHistory)) careerHistory=[]; }
       }
-      // Suffix fallback: "Billy Richmond" ↔ "Billy Richmond III"
-      if(!careerHistory.length){
-        const base = player.name.replace(/\s+(Jr\.?|Sr\.?|II|III|IV|V)$/i,'').trim();
-        const r2 = await fetch(`${SB}/rest/v1/player_history?name=ilike.${sbEncode(base+'*')}&select=*&order=season_year.asc&limit=20`,{headers:H});
-        if(r2.ok){ const d=await r2.json(); if(Array.isArray(d)&&d.length) careerHistory=d; }
-      }
-      if(!careerHistory.length){
-        const stripped = player.name.replace(/\s+(Jr\.?|Sr\.?|II|III|IV|V)$/i,'').trim();
-        if(stripped!==player.name){
-          const r3 = await fetch(`${SB}/rest/v1/player_history?name=eq.${sbEncode(stripped)}&select=*&order=season_year.asc&limit=20`,{headers:H});
-          if(r3.ok){ const d=await r3.json(); if(Array.isArray(d)&&d.length) careerHistory=d; }
-        }
-      }
+      // no ESPN id (e.g. true freshman) → no prior college history; leave empty
+      // rather than risk merging a different person who shares the name.
     }catch(e){ console.warn('Career history fetch failed:',e); careerHistory=[]; }
 
     // ── BUILD _careerHistoryMap for projectPlayer ─────────────────
