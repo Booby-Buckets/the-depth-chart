@@ -2401,12 +2401,12 @@ function renderPage(){
         <button class="statmode-btn active" id="sm-pergame" onclick="setStatMode('pergame')">Per Game</button>
         <button class="statmode-btn" id="sm-per40" onclick="setStatMode('per40')">Per 40 Min</button>
         <button class="statmode-btn" id="sm-advanced" onclick="setStatMode('advanced')">Advanced</button>
-        <button class="statmode-btn" id="sm-gamelog" onclick="setStatMode('gamelog')">Game Log</button>
       </div>
       <div style="overflow-x:auto;" id="sm-body-pergame">${renderStatTable(p, proj)}</div>
       <div style="overflow-x:auto;display:none;" id="sm-body-per40">${renderModeTable('per40')}</div>
       <div style="overflow-x:auto;display:none;" id="sm-body-advanced">${renderModeTable('advanced')}</div>
-      <div style="display:none;" id="sm-body-gamelog"></div>
+      <div class="sec-title" style="margin:34px 0 14px;">Game Log</div>
+      <div id="sm-body-gamelog"></div>
     </div>
 
     <!-- RANKINGS TAB -->
@@ -2620,11 +2620,10 @@ function renderModeTable(mode){
   return `<table class="stat-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 function setStatMode(m){
-  ['pergame','per40','advanced','gamelog'].forEach(k=>{
+  ['pergame','per40','advanced'].forEach(k=>{
     const b=document.getElementById('sm-body-'+k), t=document.getElementById('sm-'+k);
-    if(b)b.style.display=(k===m)?(k==='gamelog'?'block':''):'none'; if(t)t.classList.toggle('active',k===m);
+    if(b)b.style.display=(k===m)?'':'none'; if(t)t.classList.toggle('active',k===m);
   });
-  if(m==='gamelog' && !window._gamelogLoaded){ window._gamelogLoaded=true; loadGameLog(); }
 }
 
 // ── GAME LOG: every game, every year (from box_scores) ────────────────────────
@@ -3033,6 +3032,7 @@ function switchTab(t){
       }
     });
     if(id==='overview')setTimeout(animateRadar,90);
+    if(id==='stats' && !window._gamelogLoaded){ window._gamelogLoaded=true; loadGameLog(); }
     if(id==='rankings')setTimeout(renderRankings,40);
     if(id==='archetype')setTimeout(renderArchetype,60);
     if(id!=='archetype')setTimeout(function(){ growBarsIn(document.getElementById('panel-'+id)); }, 80);
