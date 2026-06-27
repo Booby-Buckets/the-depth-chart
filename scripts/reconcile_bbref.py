@@ -38,13 +38,23 @@ def team_match(a, b):
 
 
 def fetch_all(url):
-    rows, pg = [], 0
+    # Offset tracks rows actually received (resilient to short pages); retry transient errors;
+    # stop only on a genuinely empty page so we never end pagination early.
+    rows = []
     while True:
-        r = requests.get(url, headers={**H, "Range-Unit": "items", "Range": f"{pg*1000}-{pg*1000+999}"}).json()
-        if not isinstance(r, list) or not r: break
-        rows += r
-        if len(r) < 1000: break
-        pg += 1
+        start = len(rows)
+        data = None
+        for _ in range(5):
+            try:
+                d = requests.get(url, headers={**H, "Range-Unit": "items", "Range": f"{start}-{start+999}"}, timeout=60).json()
+            except Exception:
+                d = None
+            if isinstance(d, list):
+                data = d; break
+            time.sleep(2)
+        if not data:
+            break
+        rows += data
     return rows
 
 
@@ -75,12 +85,13 @@ def main(write=False):
 
     # grades from player_history keyed by (espn_id, season)
     grade_by = {}
-    for r in fetch_all(f"{SB}/rest/v1/player_history?select=espn_id,season_year,tdc_grade&espn_id=not.is.null"):
-        if r.get("tdc_grade") is not None:
-            grade_by[(int(r["espn_id"]), int(r["season_year"]))] = r["tdc_grade"]
+    for r in fetch_all(f"{SB}/rest/v1/player_history?select=id,espn_id,season_year,tdc_grade&espn_id=not.is.null&order=id"):
+        try: g = float(r.get("tdc_grade"))
+        except (TypeError, ValueError): continue
+        grade_by[(int(r["espn_id"]), int(r["season_year"]))] = g
     print(f"player_history grades: {len(grade_by):,}")
 
-    bb = fetch_all(f"{SB}/rest/v1/bbref_seasons?select=bbref_id,season_year,school_slug,player,school")
+    bb = fetch_all(f"{SB}/rest/v1/bbref_seasons?select=bbref_id,season_year,school_slug,player,school&order=bbref_id,season_year,school_slug")
     pay, matched, graded = [], 0, 0
     for r in bb:
         cands = by_ns.get((norm(r["player"] or ""), int(r["season_year"])))
@@ -96,15 +107,22 @@ def main(write=False):
 
     if not write:
         print("DRY RUN — pass --write"); return
-    ok = 0
+    ok, fail = 0, 0
     for j in range(0, len(pay), 500):
         b = pay[j:j+500]
-        r = requests.post(f"{SB}/rest/v1/bbref_seasons?on_conflict=bbref_id,season_year,school_slug",
-                          headers={**H, "Prefer": "resolution=merge-duplicates,return=minimal"}, json=b, timeout=90)
-        if r.status_code in (200, 201, 204): ok += len(b)
-        else: print(f"  ERR {r.status_code}: {r.text[:200]}"); break
+        done = False
+        for _ in range(4):                       # retry transient errors, don't abandon later batches
+            try:
+                r = requests.post(f"{SB}/rest/v1/bbref_seasons?on_conflict=bbref_id,season_year,school_slug",
+                                  headers={**H, "Prefer": "resolution=merge-duplicates,return=minimal"}, json=b, timeout=90)
+            except Exception:
+                time.sleep(3); continue
+            if r.status_code in (200, 201, 204): ok += len(b); done = True; break
+            time.sleep(3)
+        if not done:
+            fail += len(b); print(f"  batch {j} failed: {r.status_code} {r.text[:150]}")
         time.sleep(0.04)
-    print(f"  wrote {ok}")
+    print(f"  wrote {ok}  (failed {fail})")
 
 
 if __name__ == "__main__":
