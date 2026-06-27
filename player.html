@@ -96,6 +96,7 @@
     .gl-date{color:var(--text3);font-weight:600;text-align:left;}
     .gl-opp{text-align:left;font-weight:600;color:var(--text);}
     .gl-pts{font-weight:800;}
+    .gl-res{text-align:left;white-space:nowrap;}
     .gl-gsc{font-family:'Playfair Display',serif;font-weight:700;}
     /* Rankings tab */
     .rk-top{display:grid;grid-template-columns:170px 1fr;gap:26px;align-items:start;}
@@ -2639,6 +2640,13 @@ async function loadGameLog(){
     Object.keys(_gameLog).forEach(y=>_gameLog[y].sort((a,b)=>(b.date||'').localeCompare(a.date||'')));
     const years=Object.keys(_gameLog).map(Number).sort((a,b)=>b-a);
     _gameLogSeason=years[0];
+    // game results (W/L + final score) from the games table
+    window._glResults={};
+    const ids=[...new Set(bx.map(b=>b.game_id).filter(Boolean))];
+    for(let i=0;i<ids.length;i+=200){
+      const gm=await fetch(`${SB}/rest/v1/games?id=in.(${ids.slice(i,i+200).join(',')})&select=id,home,away,home_score,away_score`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+      (gm||[]).forEach(g=>{ window._glResults[g.id]=g; });
+    }
     host.innerHTML=`<div class="gl-seasons" id="glSeasons">${years.map(y=>`<button class="gl-season-btn${y===_gameLogSeason?' active':''}" onclick="setGameLogSeason(${y})">${y-1}-${String(y).slice(2)}</button>`).join('')}</div><div id="glTableWrap"></div>`;
     renderGameLog();
   }catch(e){ host.innerHTML='<div style="padding:30px;color:var(--text3);">Couldn’t load game log.</div>'; }
@@ -2652,11 +2660,19 @@ function renderGameLog(){
   const games=_gameLog[_gameLogSeason]||[];
   const d=v=>{const x=new Date((v||'')+'T12:00:00');return isNaN(x)?'—':x.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
   const n=v=>(v==null||v==='')?'—':v;
+  const _tm=s=>(s||'').toLowerCase().trim();
+  const resultCell=g=>{
+    const r=window._glResults&&window._glResults[g.game_id]; if(!r||r.home_score==null||r.away_score==null) return '<td class="gl-res">—</td>';
+    const mine=_tm(g.team), home=_tm(r.home)===mine||(_tm(r.home).startsWith(mine.split(' ')[0])&&mine&&_tm(r.away)!==mine);
+    const ms=home?r.home_score:r.away_score, os=home?r.away_score:r.home_score, w=ms>os;
+    return `<td class="gl-res"><span style="color:${w?'#5ab875':'#d66'};font-weight:800;">${w?'W':'L'}</span> <span style="color:var(--text3);">${ms}-${os}</span></td>`;
+  };
   const rows=games.map(g=>{
     const gs=Math.round(_gmsc(g)*10)/10;
     return `<tr class="gl-row" ${g.game_id?`onclick="location.href='game.html?id=${g.game_id}'" style="cursor:pointer;"`:''}>
       <td class="gl-date">${d(g.date)}</td>
       <td class="gl-opp">${g.opp||'—'}</td>
+      ${resultCell(g)}
       <td>${n(g.min)}</td>
       <td class="gl-pts">${n(g.pts)}</td><td>${n(g.reb)}</td><td>${n(g.ast)}</td>
       <td>${n(g.fgm)}-${n(g.fga)}</td><td>${n(g.tpm)}-${n(g.tpa)}</td><td>${n(g.ftm)}-${n(g.fta)}</td>
@@ -2665,7 +2681,7 @@ function renderGameLog(){
     </tr>`;
   }).join('');
   wrap.innerHTML=`<div style="overflow-x:auto;"><table class="stat-table gl-table"><thead><tr>
-    <th>Date</th><th>Opp</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>FG</th><th>3P</th><th>FT</th><th>STL</th><th>BLK</th><th>TO</th><th>GmSc</th>
+    <th>Date</th><th>Opp</th><th>Result</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>FG</th><th>3P</th><th>FT</th><th>STL</th><th>BLK</th><th>TO</th><th>GmSc</th>
   </tr></thead><tbody>${rows}</tbody></table></div>
   <div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:10px;">${games.length} games · click a row for the full box score · GmSc = Hollinger Game Score</div>`;
 }
