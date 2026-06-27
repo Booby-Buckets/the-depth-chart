@@ -3699,23 +3699,78 @@ async function rosterFromBox(yr, mascot){
     return {name:p.name, espn_id:p.espn_id, gp:g, mpg:pg('min'), ppg:pg('pts'), rpg:pg('reb'), apg:pg('ast'),
       fg_pct:p.s.fga?Math.round(1000*p.s.fgm/p.s.fga)/10:null, tp_pct:p.s.tpa?Math.round(1000*p.s.tpm/p.s.tpa)/10:null, tdc_grade:null}; });
 }
+function _htIn(h){ const m=/(\d+)[-'](\d+)/.exec(h||''); return m?(+m[1]*12 + +m[2]):0; }
+// Bucket a player into G / F (wing) / C from position (+ height for the ambiguous plain "F").
+function histGroup(pos, height){
+  const p=(pos||'').toUpperCase().trim();
+  if(p==='C'||p==='FC') return 'C';
+  if(p==='PF') return 'F';
+  if(p==='SF'||p==='GF') return 'F';
+  if(p==='PG'||p==='SG'||p==='CG'||p==='G') return 'G';
+  if(p==='F') return _htIn(height)>=82 ? 'C' : 'F';   // 6'10"+ plain F → big
+  const h=_htIn(height);                               // unknown position: infer from height
+  if(!h) return 'F';
+  return h<=75 ? 'G' : h>=82 ? 'C' : 'F';
+}
 function renderHistoricRoster(rows, yr){
   const host=document.getElementById('depthContent');
   rows=(rows||[]).filter(r=>r.name && (parseFloat(r.gp)||0)>0);
   if(!rows.length){ host.innerHTML=`<div style="padding:40px;text-align:center;color:var(--text3);">No roster data for ${rosterLbl(yr)}.</div>`; return; }
-  rows.sort((a,b)=>(parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0) || (parseFloat(b.mpg)||0)-(parseFloat(a.mpg)||0));
+  const num=(v)=>{const n=parseFloat(v);return isNaN(n)?'—':n.toFixed(1);};
+  const link=p=> p.espn_id?`player.html?espn=${p.espn_id}&name=${encodeURIComponent(p.name)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}&season=${yr}`;
+
+  // No position data (pre-2012 box-score fallback) → keep the minutes-ranked table only.
+  const hasPos = rows.some(r=>r.position);
+  if(!hasPos){ host.innerHTML = histTable(rows, yr); return; }
+
+  // Slot every player by position, order each slot by PLAYED minutes (mpg).
+  const mpg=p=>parseFloat(p.mpg)||0;
+  const G=[],F=[],C=[];
+  rows.forEach(p=>{ const g=histGroup(p.position,p.height); (g==='G'?G:g==='C'?C:F).push(p); });
+  [G,F,C].forEach(a=>a.sort((x,y)=>mpg(y)-mpg(x)));
+  const evn=a=>a.filter((_,i)=>i%2===0), odd=a=>a.filter((_,i)=>i%2===1);
+  // PG/SG split the guards by minutes; SF/PF split the forwards; C takes the bigs.
+  const cols=[
+    {pos:'PG', list:evn(G)}, {pos:'SG', list:odd(G)},
+    {pos:'SF', list:evn(F)}, {pos:'PF', list:odd(F)},
+    {pos:'C',  list:C},
+  ];
+  const color=teamColor_g, rgb=teamRgb_g;
+  const colHtml=cols.map(c=>{
+    const head=`<div class="starter-col-head" style="border-bottom-color:${color};background:rgba(${rgb},.08);"><span class="starter-pos">${c.pos}</span></div>`;
+    const s=c.list[0];
+    if(!s) return `<div class="starter-col">${head}<div class="starter-col-body" style="min-height:48px;display:flex;align-items:center;padding:10px 12px;"><span style="font-size:12px;color:var(--text3);font-style:italic;">—</span></div></div>`;
+    const body=`<div class="starter-col-body">
+      <div class="starter-name"><a href="${link(s)}" style="color:inherit;text-decoration:none;">${s.name}</a>${s.tdc_grade?`<span class="starter-col-grade ${gc(s.tdc_grade)}" style="margin-left:6px;font-size:13px;">${s.tdc_grade}</span>`:''}</div>
+      <div class="starter-meta-row"><span>${s.yr?s.yr+' · ':''}${num(s.mpg)} mpg</span><span class="starter-tag" style="background:rgba(${rgb},.12);color:${color};">★</span></div>
+    </div>`;
+    const backs=c.list.slice(1);
+    const chain=backs.length?`<div class="backup-chain">${backs.map((b,i)=>`
+      <div class="backup-item">
+        <span class="backup-num">${i+2}</span>
+        <a class="backup-name" href="${link(b)}" style="color:inherit;text-decoration:none;">${b.name}</a>
+        <span class="backup-cls">${num(b.mpg)}m</span>
+        <span class="backup-grade ${gc(b.tdc_grade||'')}">${b.tdc_grade||''}</span>
+      </div>`).join('')}</div>`:'';
+    return `<div class="starter-col">${head}${body}${chain}</div>`;
+  }).join('');
+
+  host.innerHTML = `<div class="starters-grid" style="grid-template-columns:repeat(5,1fr);">${colHtml}</div>${histTable(rows, yr)}`;
+}
+function histTable(rows, yr){
+  const r=[...rows].sort((a,b)=>(parseFloat(b.mpg)||0)-(parseFloat(a.mpg)||0));
   const num=(v)=>{const n=parseFloat(v);return isNaN(n)?'—':n.toFixed(1);};
   const pct=(v)=>{const n=parseFloat(v);return isNaN(n)?'—':n.toFixed(1)+'%';};
   const link=p=> p.espn_id?`player.html?espn=${p.espn_id}&name=${encodeURIComponent(p.name)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}&season=${yr}`;
-  const body=rows.map((p,i)=>`<tr>
+  const body=r.map((p,i)=>`<tr>
     <td class="hr-rk">${i+1}</td>
     <td><a class="hr-name" href="${link(p)}">${p.name}</a> <span class="hr-meta">${p.yr||''} ${p.position||''}</span></td>
     <td>${p.gp||'—'}</td><td>${num(p.mpg)}</td><td>${num(p.ppg)}</td><td>${num(p.rpg)}</td><td>${num(p.apg)}</td>
     <td>${pct(p.fg_pct)}</td><td>${pct(p.tp_pct)}</td>
     <td class="hr-ovr">${p.tdc_grade||'—'}</td></tr>`).join('');
-  host.innerHTML=`<table class="hr-table"><thead><tr>
+  return `<div style="margin-top:22px;"><table class="hr-table"><thead><tr>
     <th>#</th><th>Player</th><th>GP</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th><th>FG%</th><th>3P%</th><th>OVR</th>
-  </tr></thead><tbody>${body}</tbody></table>`;
+  </tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 // ── SCHEDULE TAB ──────────────────────────────────────────────────────────
