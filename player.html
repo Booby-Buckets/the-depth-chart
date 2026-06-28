@@ -135,6 +135,9 @@
     .rk-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:64px;line-height:1;}
     .rk-grade-lbl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-top:8px;}
     .rk-season{font-size:12px;color:var(--text2);margin-top:6px;font-weight:600;}
+    .rk-wa{margin-top:14px;padding-top:13px;border-top:1px solid var(--border);}
+    .rk-wa-num{font-family:'Playfair Display',serif;font-weight:800;font-size:28px;line-height:1;color:#5ab875;}
+    .rk-wa-lbl{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
     .rk-method{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:11px;}
     .rk-method li{font-size:13px;line-height:1.5;color:var(--text2);padding-left:16px;position:relative;}
     .rk-method li::before{content:'';position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:50%;background:var(--accent);}
@@ -1579,9 +1582,15 @@ async function buildFromBoxScores(espn, name, season){
 // per-40 / advanced dicts attached for the Full Stats + Rankings tabs.
 function _bn(v){ const n=parseFloat(v); return isNaN(n)?null:n; }
 function _bp(v){ const n=parseFloat(v); return isNaN(n)?null:Math.round(n*1000)/10; } // ".532" -> 53.2
+function _winsAdded(adv){ // WS minus replacement (0.04 WS/40) = games the team loses without them
+  const ws=parseFloat((adv||{}).ws), mp=parseFloat((adv||{}).mp);
+  if(isNaN(ws)) return null;
+  return Math.round((ws-0.04*((isNaN(mp)?0:mp)/40))*10)/10;
+}
 function bbrefToFlat(rows){
   return (rows||[]).map(r=>{
-    const pg=r.pergame||{}, p4=r.per40||{}, adv=r.advanced||{};
+    const pg=r.pergame||{}, p4=r.per40||{}, adv={...(r.advanced||{})};
+    adv.wa=_winsAdded(adv);
     return {
       season_year:r.season_year, team:r.school, school:r.school, school_slug:r.school_slug,
       position:r.pos, height:r.height, weight:r.weight, hometown:r.hometown,
@@ -1592,7 +1601,7 @@ function bbrefToFlat(rows){
       fgm:_bn(pg.fg_per_g), fga:_bn(pg.fga_per_g), fg_pct:_bp(pg.fg_pct),
       tpm:_bn(pg.fg3_per_g), tpa:_bn(pg.fg3a_per_g), tp_pct:_bp(pg.fg3_pct),
       ftm:_bn(pg.ft_per_g), fta:_bn(pg.fta_per_g), ft_pct:_bp(pg.ft_pct),
-      oreb:_bn(pg.orb_per_g), dreb:_bn(pg.drb_per_g),
+      oreb:_bn(pg.orb_per_g), dreb:_bn(pg.drb_per_g), wa:adv.wa,
       _pergame:pg, _per40:p4, _advanced:adv,
     };
   });
@@ -2654,7 +2663,7 @@ const STAT_MODES={
     ['FG','fg_per_min',_f1],['FGA','fga_per_min',_f1],['FG%','fg_pct',_fp100],['3P','fg3_per_min',_f1],['3PA','fg3a_per_min',_f1],['3P%','fg3_pct',_fp100],
     ['FT','ft_per_min',_f1],['FTA','fta_per_min',_f1],['FT%','ft_pct',_fp100],['ORB','orb_per_min',_f1],['DRB','drb_per_min',_f1],
     ['STL','stl_per_min',_f1],['BLK','blk_per_min',_f1],['TOV','tov_per_min',_f1],['PF','pf_per_min',_f1]]},
-  advanced:{src:'_advanced',cols:[['PER','per',_f1],['TS%','ts_pct',_fp100],['USG%','usg_pct',_fpRaw],
+  advanced:{src:'_advanced',cols:[['WA','wa',_f1],['PER','per',_f1],['TS%','ts_pct',_fp100],['USG%','usg_pct',_fpRaw],
     ['ORB%','orb_pct',_fpRaw],['DRB%','drb_pct',_fpRaw],['TRB%','trb_pct',_fpRaw],['AST%','ast_pct',_fpRaw],
     ['STL%','stl_pct',_fpRaw],['BLK%','blk_pct',_fpRaw],['TOV%','tov_pct',_fpRaw],
     ['OWS','ows',_f1],['DWS','dws',_f1],['WS','ws',_f1],['WS/40','ws_per_40',_f3],
@@ -2802,14 +2811,14 @@ function renderGameLog(){
 
 // ── RANKINGS: how the tdc_grade is built ──────────────────────────────────────
 const GRADE_W=[
-  {k:'ppg', lbl:'Scoring',      stat:'PPG',  w:1.9,  max:28, good:1},
-  {k:'ts',  lbl:'Efficiency',   stat:'TS%',  w:0.7,  max:65, good:1},
-  {k:'rpg', lbl:'Rebounding',   stat:'RPG',  w:0.45, max:12, good:1},
-  {k:'apg', lbl:'Playmaking',   stat:'APG',  w:0.45, max:8,  good:1},
-  {k:'mpg', lbl:'Workload',     stat:'MPG',  w:0.3,  max:36, good:1},
-  {k:'stl', lbl:'Steals',       stat:'STL',  w:0.25, max:2.6,good:1},
-  {k:'blk', lbl:'Rim Protection',stat:'BLK', w:0.25, max:3.2,good:1},
-  {k:'tovs',lbl:'Ball Security',stat:'TOV',  w:0.25, max:3.6,good:0},
+  {k:'wa',  lbl:'Wins Added',   stat:'WA',   w:1.7,  max:9,  good:1},
+  {k:'ppg', lbl:'Scoring',      stat:'PPG',  w:0.95, max:28, good:1},
+  {k:'ts',  lbl:'Efficiency',   stat:'TS%',  w:0.5,  max:65, good:1},
+  {k:'bpm', lbl:'Box Impact',   stat:'BPM',  w:0.6,  max:13, good:1},
+  {k:'rpg', lbl:'Rebounding',   stat:'RPG',  w:0.32, max:12, good:1},
+  {k:'apg', lbl:'Playmaking',   stat:'APG',  w:0.32, max:8,  good:1},
+  {k:'mpg', lbl:'Workload',     stat:'MPG',  w:0.22, max:36, good:1},
+  {k:'tovs',lbl:'Ball Security',stat:'TOV',  w:0.18, max:3.6,good:0},
 ];
 const GRP_LBL={G:'Guards',W:'Wings & Forwards',B:'Bigs'};
 function _tsPct(s){ const t=s._advanced&&s._advanced.ts_pct; if(t!=null&&t!=='') return parseFloat(t)*100;
@@ -2822,7 +2831,7 @@ function renderRankings(){
   const g=parseInt(s.tdc_grade!=null?s.tdc_grade:player.tdc_grade);
   const conf=(teamData&&(teamData.conf||teamData.conference))||'';
   const tsv=_tsPct(s);
-  const val=k=> k==='ts'?tsv : (parseFloat(s[k])||0);
+  const val=k=> k==='ts'?tsv : k==='wa'?(parseFloat(s.wa)||0) : k==='bpm'?(parseFloat(s._advanced&&s._advanced.bpm)||0) : (parseFloat(s[k])||0);
   const rows=GRADE_W.map(d=>{
     const v=val(d.k); const fill=Math.max(0,Math.min(1,(v||0)/d.max));
     const txt= d.k==='ts' ? (v!=null?v.toFixed(1)+'%':'—') : _f1(v);
@@ -2842,13 +2851,14 @@ function renderRankings(){
         <div class="rk-grade" style="color:${gradeC};">${isNaN(g)?'—':g}</div>
         <div class="rk-grade-lbl">Overall Grade</div>
         <div class="rk-season">${_seasonLbl(s.season_year)||''}</div>
+        ${s.wa!=null?`<div class="rk-wa"><div class="rk-wa-num">${(s.wa>=0?'+':'')+Number(s.wa).toFixed(1)}</div><div class="rk-wa-lbl">Wins Added</div></div>`:''}
       </div>
       <div class="rk-explain">
         <div class="sec-title" style="margin-bottom:10px;">How this grade is built</div>
         <ul class="rk-method">
-          <li><b>Position-relative.</b> Measured only against ${GRP_LBL[grp]||'their position'} — the best guard and the best big both top out at 99, so position never inflates or caps the grade.</li>
-          <li><b>Conference-adjusted.</b> Counting stats are scaled by strength of competition${conf?` (${conf})`:''}, so dominating a weaker league counts for less than the same line in a power conference.</li>
-          <li><b>Cross-era.</b> Compared against every ${GRP_LBL[grp]||'player'} season since 2006-07 — only true outliers reach the high 90s (~3 seasons a year hit 99).</li>
+          <li><b>Wins Added drives it.</b> The biggest factor is how many games the team would lose without this player${s.wa!=null?` — about <b>${Number(s.wa).toFixed(1)}</b> here`:''}. It rewards being the engine of a winning team, not padding stats.</li>
+          <li><b>Team success counts.</b> Wins Added can only be high when the team actually won${conf?` (${conf})`:''} — a great line on a losing team adds few wins, and is graded accordingly.</li>
+          <li><b>Position-relative & cross-era.</b> Measured against every ${GRP_LBL[grp]||'player'} season since 2006-07; only the truly dominant reach 99 (~1 a year).</li>
         </ul>
       </div>
     </div>
@@ -2858,7 +2868,7 @@ function renderRankings(){
       <span class="rk-chip"><span class="rk-chip-k">Height</span>${s.height||player.height||'—'}</span>
     </div>
     <div class="sec-title" style="margin:24px 0 4px;">What drives it</div>
-    <div class="rk-sub">Each input's bar shows this player's level; the weight (×) is how heavily the model leans on it. Scoring and efficiency lead; turnovers subtract.</div>
+    <div class="rk-sub">Each input's bar shows this player's level; the weight (×) is how heavily the model leans on it. Wins Added leads by far; turnovers subtract.</div>
     <div class="rk-drivers">${rows}</div>
     <div class="rk-foot">Inputs are tier-adjusted, then z-scored within ${GRP_LBL[grp]||'position'} across all seasons and combined by the weights above into the 40–99 grade.</div>`;
   setTimeout(()=>host.querySelectorAll('.rk-fill').forEach(el=>{el.style.width=el.getAttribute('data-w')+'%';}),60);
