@@ -86,6 +86,15 @@
     .statmode-btn{font-size:11.5px;font-weight:700;letter-spacing:.04em;padding:7px 15px;border:none;border-radius:6px;background:none;color:var(--text3);cursor:pointer;font-family:'Inter',sans-serif;transition:all .18s;}
     .statmode-btn:hover:not(.active){color:var(--text2);}
     .statmode-btn.active{background:var(--accent);color:#fff;}
+    .statmode-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;}
+    .statmode-bar .statmode-row{margin-bottom:0;}
+    .pct-toggle{display:inline-flex;align-items:center;gap:9px;cursor:pointer;user-select:none;}
+    .pct-lbl{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);}
+    .pct-toggle input{position:absolute;opacity:0;width:0;height:0;}
+    .pct-track{position:relative;width:38px;height:21px;border-radius:11px;background:var(--border2);transition:background .2s;flex-shrink:0;}
+    .pct-knob{position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s;}
+    .pct-toggle input:checked + .pct-track{background:rgba(30,82,205,.9);}
+    .pct-toggle input:checked + .pct-track .pct-knob{transform:translateX(17px);}
     /* Game log */
     .gl-seasons{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
     .gl-season-btn{font-size:12px;font-weight:700;padding:6px 13px;border:1px solid var(--border);border-radius:7px;background:var(--bg2);color:var(--text3);cursor:pointer;font-family:'Inter',sans-serif;transition:all .16s;}
@@ -2397,10 +2406,13 @@ function renderPage(){
     </div>
 
     <div class="tab-panel" id="panel-stats">
-      <div class="statmode-row">
-        <button class="statmode-btn active" id="sm-pergame" onclick="setStatMode('pergame')">Per Game</button>
-        <button class="statmode-btn" id="sm-per40" onclick="setStatMode('per40')">Per 40 Min</button>
-        <button class="statmode-btn" id="sm-advanced" onclick="setStatMode('advanced')">Advanced</button>
+      <div class="statmode-bar">
+        <div class="statmode-row">
+          <button class="statmode-btn active" id="sm-pergame" onclick="setStatMode('pergame')">Per Game</button>
+          <button class="statmode-btn" id="sm-per40" onclick="setStatMode('per40')">Per 40 Min</button>
+          <button class="statmode-btn" id="sm-advanced" onclick="setStatMode('advanced')">Advanced</button>
+        </div>
+        <label class="pct-toggle"><span class="pct-lbl">Percentile colors</span><input type="checkbox" id="pctChk" onchange="toggleStatColors(this.checked)"><span class="pct-track"><span class="pct-knob"></span></span></label>
       </div>
       <div style="overflow-x:auto;" id="sm-body-pergame">${renderStatTable(p, proj)}</div>
       <div style="overflow-x:auto;display:none;" id="sm-body-per40">${renderModeTable('per40')}</div>
@@ -2534,16 +2546,17 @@ function renderStatTable(p, projData){
           </td>
         </tr>`;
       } else {
+        const pgd=s._pergame||{};
         rowsHtml += `<tr class="actual">
           <td>${seasonLabel(s.season_year)}${teamSub(s.team)}</td>
           ${ovrCell(s.tdc_grade)}
           <td>${s.gp||'—'}</td>
-          <td>${fmt(s.ppg)}</td><td>${fmt(s.rpg)}</td><td>${fmt(s.apg)}</td><td>${fmt(s.mpg)}</td>
-          <td>${fmt(s.fgm)}</td><td>${fmt(s.fga)}</td><td>${fmtP(s.fg_pct)}</td>
-          <td>${fmt(s.tpm)}</td><td>${fmt(s.tpa)}</td><td>${fmtP(s.tp_pct)}</td>
-          <td>${fmt(s.ftm)}</td><td>${fmt(s.fta)}</td><td>${fmtP(s.ft_pct)}</td>
-          <td>${fmt(s.oreb)}</td><td>${fmt(s.dreb)}</td>
-          <td>${fmt(s.stl)}</td><td>${fmt(s.blk)}</td><td>${fmt(s.tovs)}</td>
+          <td ${_cc(pgd,'pts_per_g')}>${fmt(s.ppg)}</td><td ${_cc(pgd,'trb_per_g')}>${fmt(s.rpg)}</td><td ${_cc(pgd,'ast_per_g')}>${fmt(s.apg)}</td><td ${_cc(pgd,'mp_per_g')}>${fmt(s.mpg)}</td>
+          <td ${_cc(pgd,'fg_per_g')}>${fmt(s.fgm)}</td><td ${_cc(pgd,'fga_per_g')}>${fmt(s.fga)}</td><td ${_cc(pgd,'fg_pct')}>${fmtP(s.fg_pct)}</td>
+          <td ${_cc(pgd,'fg3_per_g')}>${fmt(s.tpm)}</td><td ${_cc(pgd,'fg3a_per_g')}>${fmt(s.tpa)}</td><td ${_cc(pgd,'fg3_pct')}>${fmtP(s.tp_pct)}</td>
+          <td ${_cc(pgd,'ft_per_g')}>${fmt(s.ftm)}</td><td ${_cc(pgd,'fta_per_g')}>${fmt(s.fta)}</td><td ${_cc(pgd,'ft_pct')}>${fmtP(s.ft_pct)}</td>
+          <td ${_cc(pgd,'orb_per_g')}>${fmt(s.oreb)}</td><td ${_cc(pgd,'drb_per_g')}>${fmt(s.dreb)}</td>
+          <td ${_cc(pgd,'stl_per_g')}>${fmt(s.stl)}</td><td ${_cc(pgd,'blk_per_g')}>${fmt(s.blk)}</td><td ${_cc(pgd,'tov_per_g')}>${fmt(s.tovs)}</td>
         </tr>`;
       }
     });
@@ -2598,6 +2611,23 @@ const _fp100=v=>{const n=parseFloat(v);return isNaN(n)?'—':(Math.round(n*1000)
 const _fpRaw=v=>{const n=parseFloat(v);return isNaN(n)?'—':n.toFixed(1)+'%';};                       // 22.2 -> 22.2%
 const _f3=v=>{const n=parseFloat(v);return isNaN(n)?'—':n.toFixed(3);};
 const _fi=v=>{const n=parseFloat(v);return isNaN(n)?'—':String(Math.round(n));};
+// Percentile thresholds (p20/p40/p60/p80) per BBRef stat, from all D1 seasons (mpg>=10).
+const STAT_PCTL={"pts_per_g":[4.0,6.1,8.7,12.0],"trb_per_g":[2.0,2.8,3.7,5.0],"ast_per_g":[0.5,0.9,1.5,2.3],"mp_per_g":[15.0,20.4,25.5,30.1],"fg_per_g":[1.4,2.2,3.1,4.2],"fga_per_g":[3.4,5.0,7.0,9.4],"fg_pct":[0.376,0.414,0.45,0.503],"fg3_per_g":[0.1,0.4,0.8,1.4],"fg3a_per_g":[0.3,1.4,2.5,4.1],"fg3_pct":[0.243,0.308,0.347,0.387],"ft_per_g":[0.6,1.1,1.6,2.4],"fta_per_g":[1.0,1.6,2.3,3.4],"ft_pct":[0.592,0.672,0.734,0.797],"orb_per_g":[0.4,0.7,1.0,1.6],"drb_per_g":[1.5,2.0,2.7,3.6],"stl_per_g":[0.4,0.6,0.8,1.1],"blk_per_g":[0.1,0.2,0.3,0.6],"tov_per_g":[0.8,1.1,1.5,2.0],"pts_per_min":[9.7,12.2,14.5,17.3],"trb_per_min":[3.9,5.1,6.8,8.8],"ast_per_min":[1.2,1.8,2.5,3.7],"fg_per_min":[3.4,4.3,5.1,6.2],"fga_per_min":[8.1,10.0,11.7,13.7],"fg3_per_min":[0.1,0.8,1.5,2.3],"fg3a_per_min":[0.6,2.8,4.6,6.5],"ft_per_min":[1.4,2.1,2.8,3.7],"fta_per_min":[2.2,3.1,4.0,5.3],"orb_per_min":[0.7,1.2,2.0,3.1],"drb_per_min":[3.0,3.8,4.7,5.9],"stl_per_min":[0.8,1.1,1.3,1.7],"blk_per_min":[0.1,0.3,0.6,1.1],"tov_per_min":[1.7,2.2,2.6,3.2],"pf_per_min":[2.6,3.2,3.8,4.8],"per":[9.9,12.7,15.3,18.6],"ts_pct":[0.478,0.516,0.547,0.583],"usg_pct":[15.0,17.8,20.4,23.7],"orb_pct":[1.9,3.3,5.7,8.7],"drb_pct":[8.9,11.4,14.0,17.4],"trb_pct":[5.6,7.5,9.9,12.8],"ast_pct":[6.2,9.2,12.7,18.3],"stl_pct":[1.1,1.5,1.9,2.5],"blk_pct":[0.3,0.8,1.5,3.1],"tov_pct":[12.1,14.7,17.3,21.0],"ows":[0.1,0.5,1.0,1.7],"dws":[0.3,0.6,0.9,1.3],"ws":[0.6,1.2,1.9,2.9],"ws_per_40":[0.052,0.084,0.111,0.144],"obpm":[-3.3,-1.4,0.2,2.1],"dbpm":[-1.6,-0.5,0.5,1.8],"bpm":[-4.1,-1.7,0.5,3.1],"pprod":[106.0,175.0,254.0,358.0]};
+function pctColor(v,key){
+  var t=STAT_PCTL[key]; if(!t) return ''; var x=parseFloat(v); if(isNaN(x)) return '';
+  var inv=key.indexOf('tov')>=0||key.indexOf('pf_per')>=0, lvl;
+  if(inv) lvl=x<=t[0]?4:x<=t[1]?3:x<=t[2]?2:x<=t[3]?1:0;
+  else    lvl=x>=t[3]?4:x>=t[2]?3:x>=t[1]?2:x>=t[0]?1:0;
+  if(!lvl) return '';
+  return 'background:'+['','rgba(60,120,220,.45)','rgba(45,100,210,.60)','rgba(30,82,205,.74)','rgba(18,60,190,.9)'][lvl]+';color:#fff;font-weight:700;';
+}
+function _cc(obj,key){ return window._statColorsOn?('style="'+pctColor((obj||{})[key],key)+'"'):''; }
+function toggleStatColors(on){
+  window._statColorsOn=on;
+  var a=document.getElementById('sm-body-pergame'); if(a) a.innerHTML=renderStatTable(player, proj);
+  var b=document.getElementById('sm-body-per40'); if(b) b.innerHTML=renderModeTable('per40');
+  var c=document.getElementById('sm-body-advanced'); if(c) c.innerHTML=renderModeTable('advanced');
+}
 const STAT_MODES={
   per40:{src:'_per40',cols:[['MP','mp',_fi],['PTS','pts_per_min',_f1],['TRB','trb_per_min',_f1],['AST','ast_per_min',_f1],
     ['FG','fg_per_min',_f1],['FGA','fga_per_min',_f1],['FG%','fg_pct',_fp100],['3P','fg3_per_min',_f1],['3PA','fg3a_per_min',_f1],['3P%','fg3_pct',_fp100],
@@ -2615,7 +2645,7 @@ function renderModeTable(mode){
   const head=`<th>Season</th><th>OVR</th>`+M.cols.map(c=>`<th>${c[0]}</th>`).join('');
   const body=hist.map(s=>{ const d=s[M.src]||{};
     return `<tr class="actual"><td>${_seasonLbl(s.season_year)}${_teamSub(s.team)}</td>${_ovrTd(s.tdc_grade)}`
-      +M.cols.map(c=>`<td>${c[2](d[c[1]])}</td>`).join('')+`</tr>`;
+      +M.cols.map(c=>`<td ${_cc(d,c[1])}>${c[2](d[c[1]])}</td>`).join('')+`</tr>`;
   }).join('');
   return `<table class="stat-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
