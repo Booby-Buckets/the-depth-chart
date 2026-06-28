@@ -1345,7 +1345,7 @@ async function renderShowcase(){
   const yLbl=(curSeason-1)+'–'+(''+curSeason).slice(2);
   const ls=document.getElementById('scTeamSeason'); if(ls) ls.textContent='· '+yLbl;
   document.getElementById('scTeams').innerHTML=allTeams.slice(0,4).map((t,i)=>`
-    <a class="sc-team sc-${i+1}" href="team.html?team=${encodeURIComponent(t.name)}">
+    <a class="sc-team sc-${i+1}" href="team.html?team=${encodeURIComponent(t.short)}&season=${curSeason}">
       <div class="sc-accent" style="background:${t.color}"></div>
       <div class="sc-rk">#${t.rk}</div>
       <div class="sc-tname">${t.name}</div>
@@ -1367,7 +1367,7 @@ async function renderShowcase(){
   if(blk && Array.isArray(ps) && ps.length){
     document.getElementById('scPlayers').innerHTML=ps.map(p=>{
       const g=+p.tdc_grade, cls=g>=99?'sc-g99':g>=96?'sc-g96':'sc-g90';
-      const link=p.espn_id?`player.html?id=${p.espn_id}`:'#';
+      const link=p.espn_id?`player.html?espn=${p.espn_id}`:'#';
       return `<a class="sc-player" href="${link}"><div class="sc-grade ${cls}">${g}</div><div class="sc-pname">${p.player}</div><div class="sc-pteam">${p.school}</div></a>`;
     }).join('');
     blk.style.display='';

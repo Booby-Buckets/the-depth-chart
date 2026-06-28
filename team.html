@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <script src="auth.js"></script>
+  <script src="team-colors.js"></script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Team — The Depth Chart</title>
@@ -821,7 +822,7 @@ async function loadTeam(name){
       const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h);
       return r ? `${parseInt(r[1],16)},${parseInt(r[2],16)},${parseInt(r[3],16)}` : '100,100,100';
     };
-    const teamColor = t.color || t.primary_color || '#888';
+    const teamColor = (window.tdcTeamColorHex&&tdcTeamColorHex(t.name)) || t.color || t.primary_color || '#888';
     const teamRgb   = hex2rgb(teamColor);
 
     renderHero(t, teamColor, teamRgb);

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <script src="auth.js"></script>
+  <script src="team-colors.js"></script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Player — The Depth Chart</title>
@@ -2141,7 +2142,7 @@ function _teamInfo(tn){
   for(var k in m){ var kl=k.toLowerCase().trim(); if(kl===lo||kl.indexOf(lo)===0||lo.indexOf(kl)===0) return m[k]; }
   return null;
 }
-function _teamColor(tn){ var i=_teamInfo(tn); return i&&i.color?i.color:null; }
+function _teamColor(tn){ var c=(window.tdcTeamColorHex&&tdcTeamColorHex(tn)); if(c) return c; var i=_teamInfo(tn); return i&&i.color?i.color:null; }
 function ovrCardsFor(src){
   var ST=[['PPG','ppg'],['RPG','rpg'],['APG','apg'],['MPG','mpg'],['FG%','fg_pct',1],['3P%','tp_pct',1],['FT%','ft_pct',1],['STL','stl'],['BLK','blk'],['TO','tovs']];
   return '<div class="stat-cards" style="margin-bottom:24px;">'+ST.map(function(s){var v=s[2]?fmtP(src[s[1]]):fmt(src[s[1]]);return '<div class="stat-card"><div class="stat-card-val">'+v+'</div><div class="stat-card-label">'+s[0]+'</div></div>';}).join('')+'</div>';
@@ -2370,7 +2371,7 @@ function renderSpectrum(){
 
 function renderPage(){
   const p=player;
-  const color=teamData?.color||'#888';
+  const color=(window.tdcTeamColorHex&&tdcTeamColorHex(p.team))||teamData?.color||'#888';
   const yr=p.yr||p.class_year||'';
   const scout=buildScoutingReport(p,proj,gPct);
 
