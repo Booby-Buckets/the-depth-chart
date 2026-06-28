@@ -20,11 +20,11 @@ def _key():
     return os.environ.get("SUPABASE_SERVICE_KEY") or re.search(r'SB_KEY\s*=\s*"([^"]+)"',(DATA.parent/"load_supabase.py").read_text()).group(1)
 
 BASE,SCALE=77.0,6.3
-SOFT,R99,GHI=90.0,107.5,98.55
+SOFT,R99,GHI=88.0,110.0,98.45
 MIN_MPG=8
 CRED_MP=650.0          # total minutes for full advanced-stat credibility
 ADV_W=0.85             # how much the advanced component counts vs production
-PROD_W={"ppg":1.9,"ts":0.7,"rpg":0.45,"apg":0.45,"stl":0.25,"blk":0.25,"tovs":-0.25,"mpg":0.3}
+PROD_W={"ppg":1.9,"ts":0.7,"rpg":0.45,"apg":0.45,"stl":0.25,"blk":0.25,"tovs":-0.25,"mpg":0.3,"team_srs":1.45}
 ADV_F ={"bpm":1.0,"ws40":0.7,"per":0.45,"usg":0.30,"ast_pct":0.42,"trb_pct":0.42,
         "stl_pct":0.22,"blk_pct":0.22,"tov_pct":-0.22}
 TIER_COUNTS=["ppg","rpg","apg","stl","blk","tovs"]
@@ -65,6 +65,26 @@ def load():
     df["ts"]=df["ts"].fillna((df["ppg"]/(2*(df["fga"].fillna(0)+0.44*df["fta"].fillna(0)).clip(lower=0.1)))*100).clip(20,80)
     df["_cred"]=(df["mp"].fillna(0)/CRED_MP).clip(0,1)
     for c in TIER_COUNTS: df["adj_"+c]=df[c]*df["_tf"]
+    # team success: join each (season, bbref school) to its team_seasons SRS
+    def _ns(s): return re.sub(r"\\s+"," ",re.sub(r"[&.]","",str(s).lower())).strip()
+    K=_key(); HH={"apikey":K,"Authorization":f"Bearer {K}"}
+    ts=[]
+    while True:
+        st=len(ts); d=requests.get(f"{SB}/rest/v1/team_seasons?select=season_year,team,srs&srs=not.is.null",headers={**HH,"Range-Unit":"items","Range":f"{st}-{st+999}"},timeout=60).json()
+        if not isinstance(d,list) or not d: break
+        ts+=d
+    sch_by_yr={}
+    for yr in df.season_year.dropna().unique():
+        sch_by_yr[int(yr)]=sorted({s for s in df[df.season_year==yr].team.dropna().unique()}, key=lambda x:-len(_ns(x)))
+    srs_map={}
+    for r in ts:
+        yr=int(r["season_year"]); en=_ns(r["team"])
+        for sch in sch_by_yr.get(yr,[]):
+            sn=_ns(sch)
+            if sn and (en==sn or en.startswith(sn+" ")):
+                srs_map[(yr,sch)]=r["srs"]; break
+    df["team_srs"]=[srs_map.get((int(y) if y==y else -1, t)) for y,t in zip(df.season_year, df.team)]
+    df["team_srs"]=pd.to_numeric(df["team_srs"],errors="coerce")
     return df
 
 def squash(raw):
@@ -74,7 +94,7 @@ def squash(raw):
 
 def compute(df):
     df["raw"]=np.nan
-    PROD_COL={"ppg":"adj_ppg","ts":"ts","rpg":"adj_rpg","apg":"adj_apg","stl":"adj_stl","blk":"adj_blk","tovs":"adj_tovs","mpg":"mpg"}
+    PROD_COL={"ppg":"adj_ppg","ts":"ts","rpg":"adj_rpg","apg":"adj_apg","stl":"adj_stl","blk":"adj_blk","tovs":"adj_tovs","mpg":"mpg","team_srs":"team_srs"}
     for grp,idx in df.groupby("_grp").groups.items():
         sub=df.loc[idx]; qual=sub[sub["mpg"]>=MIN_MPG]
         if len(qual)<50: continue
