@@ -1115,6 +1115,43 @@
   </div>
 </div>
 
+<!-- ═══ FEATURED SHOWCASE ══════════════════════════════════════ -->
+<style>
+  .showcase{padding:24px 40px 6px;display:flex;flex-direction:column;gap:22px;}
+  .sc-label{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:13px;}
+  .sc-label span{color:var(--accent);}
+  .sc-teams{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;}
+  .sc-team{position:relative;border:1px solid var(--border);border-radius:14px;padding:16px 18px 15px;background:var(--bg2);overflow:hidden;text-decoration:none;color:inherit;transition:transform .18s,box-shadow .18s,border-color .18s;}
+  .sc-team:hover{transform:translateY(-3px);box-shadow:0 12px 32px rgba(80,40,160,.16);border-color:var(--border2);}
+  .sc-team .sc-accent{position:absolute;top:0;left:0;bottom:0;width:5px;}
+  .sc-team.sc-1{background:linear-gradient(135deg,var(--bg3),var(--bg2) 60%);}
+  .sc-rk{font-family:'Playfair Display',serif;font-weight:800;font-size:13px;color:var(--text3);letter-spacing:.02em;}
+  .sc-tname{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;line-height:1.08;margin:5px 0 9px;letter-spacing:-.01em;}
+  .sc-net{font-family:'Playfair Display',serif;font-weight:800;font-size:27px;color:var(--accent);line-height:1;}
+  .sc-netlbl{font-size:9px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--text3);margin-top:1px;}
+  .sc-meta{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;font-weight:700;color:var(--text2);}
+  .sc-players{display:grid;grid-template-columns:repeat(6,1fr);gap:11px;}
+  .sc-player{display:flex;flex-direction:column;align-items:center;border:1px solid var(--border);border-radius:13px;padding:14px 8px;background:var(--bg2);text-decoration:none;color:inherit;transition:transform .18s,box-shadow .18s,border-color .18s;}
+  .sc-player:hover{transform:translateY(-3px);box-shadow:0 10px 26px rgba(80,40,160,.14);border-color:var(--border2);}
+  .sc-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:31px;line-height:1;}
+  .sc-g99{color:#c99a2e;} .sc-g96{color:var(--accent);} .sc-g90{color:var(--blue);}
+  .sc-pname{font-weight:700;font-size:13px;margin-top:7px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sc-pteam{font-size:11px;color:var(--text3);font-weight:600;margin-top:1px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  @media(max-width:980px){.sc-players{grid-template-columns:repeat(3,1fr);}}
+  @media(max-width:760px){.sc-teams{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:600px){.showcase{padding-left:16px;padding-right:16px;}.sc-players{grid-template-columns:repeat(2,1fr);}}
+</style>
+<div class="showcase" id="showcase" style="display:none;">
+  <div>
+    <div class="sc-label">Top of the Rankings <span id="scTeamSeason"></span></div>
+    <div class="sc-teams" id="scTeams"></div>
+  </div>
+  <div id="scPlayersBlock">
+    <div class="sc-label">Top Rated Players <span>· by TDC grade</span></div>
+    <div class="sc-players" id="scPlayers"></div>
+  </div>
+</div>
+
 <!-- ═══ FILTER BAR ════════════════════════════════════════════ -->
 <div class="filter-bar" id="filterBar">
   <button class="filter-btn active" onclick="setConf('',this)">All</button>
@@ -1302,6 +1339,40 @@ function confAbbr(name){
 let curSeason = 2026, _teamColors = null;
 const TIER_LABEL={1:'Elite',2:'Strong',3:'Average',4:'Weak'};
 function tierBadge(tier){ return tier?`<span class="tier-badge tier-${tier}" title="Tier ${tier} — ${TIER_LABEL[tier]} (by SRS)">T${tier}</span>`:''; }
+
+async function renderShowcase(){
+  const sc=document.getElementById('showcase'); if(!sc||!allTeams.length) return;
+  const yLbl=(curSeason-1)+'–'+(''+curSeason).slice(2);
+  const ls=document.getElementById('scTeamSeason'); if(ls) ls.textContent='· '+yLbl;
+  document.getElementById('scTeams').innerHTML=allTeams.slice(0,4).map((t,i)=>`
+    <a class="sc-team sc-${i+1}" href="team.html?team=${encodeURIComponent(t.name)}">
+      <div class="sc-accent" style="background:${t.color}"></div>
+      <div class="sc-rk">#${t.rk}</div>
+      <div class="sc-tname">${t.name}</div>
+      <div class="sc-net">${t.srs!=null?(t.srs>0?'+':'')+t.srs:(t.margin>0?'+':'')+t.margin}</div>
+      <div class="sc-netlbl">Net Rating</div>
+      <div class="sc-meta">${t.wins}–${t.losses}${tierBadge(t.tier)}</div>
+    </a>`).join('');
+  sc.style.display='flex';
+  // top rated players for this season (from bbref_seasons grades) — retry transient failures
+  const blk=document.getElementById('scPlayersBlock');
+  let ps=null;
+  for(let a=0;a<4 && !(Array.isArray(ps)&&ps.length);a++){
+    if(a) await new Promise(r=>setTimeout(r,500));
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${curSeason}&tdc_grade=not.is.null&select=player,school,tdc_grade,espn_id&order=tdc_grade.desc&limit=6`,{headers:HEADERS});
+      ps=r.ok?await r.json():null;
+    }catch(e){ ps=null; }
+  }
+  if(blk && Array.isArray(ps) && ps.length){
+    document.getElementById('scPlayers').innerHTML=ps.map(p=>{
+      const g=+p.tdc_grade, cls=g>=99?'sc-g99':g>=96?'sc-g96':'sc-g90';
+      const link=p.espn_id?`player.html?id=${p.espn_id}`:'#';
+      return `<a class="sc-player" href="${link}"><div class="sc-grade ${cls}">${g}</div><div class="sc-pname">${p.player}</div><div class="sc-pteam">${p.school}</div></a>`;
+    }).join('');
+    blk.style.display='';
+  } else if(blk){ blk.style.display='none'; }
+}
 function seasonLabel(yr){ return `${yr-1}–${(''+yr).slice(2)}`; }
 async function ensureColors(){
   if(_teamColors) return _teamColors;
@@ -1335,6 +1406,7 @@ async function loadSeason(yr){
     window._useSrs = allTeams.some(t=>t.srs!=null);
     allTeams.sort((a,b)=> window._useSrs ? ((b.srs??-999)-(a.srs??-999)) : (b.margin-a.margin));
     allTeams.forEach((t,i)=>t.rk=i+1);
+    renderShowcase();
 
     // Expose team meta + projected stats by name for hover micro-cards
     window._teamMetaByName = {};
