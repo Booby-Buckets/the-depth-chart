@@ -20,11 +20,13 @@ def _key():
     return os.environ.get("SUPABASE_SERVICE_KEY") or re.search(r'SB_KEY\s*=\s*"([^"]+)"',(DATA.parent/"load_supabase.py").read_text()).group(1)
 
 BASE,SCALE=77.0,6.3
-SOFT,R99,GHI=87.0,113.0,95.5
+SOFT,R99,GHI=86.0,113.0,98.0
 MIN_MPG=8
+MIN_GP=13              # game cap: fewer games than this = no season grade (small sample)
 CRED_MP=650.0          # total minutes for full advanced-stat credibility
 ADV_W=0.85             # how much the advanced component counts vs production
-PROD_W={"wa":1.7,"ppg":0.95,"ts":0.5,"rpg":0.32,"apg":0.32,"stl":0.18,"blk":0.18,"tovs":-0.18,"mpg":0.22,"team_srs":0.4}
+PROD_W={"wa":1.7,"ppg":0.9,"ts":0.5,"rpg":0.32,"apg":0.95,"stl":0.18,"blk":0.18,"tovs":-0.18,"mpg":0.22,"team_srs":0.5}
+LO_CLIP={"apg":0.0}    # assists are a pure bonus: reward playmakers (up to +4z), never punish non-passers
 ADV_F ={"bpm":0.6,"per":0.35,"usg":0.25,"ast_pct":0.3,"trb_pct":0.3,
         "stl_pct":0.15,"blk_pct":0.15,"tov_pct":-0.18}
 TIER_COUNTS=["ppg","rpg","apg","stl","blk","tovs"]
@@ -57,7 +59,7 @@ def load():
             "ts":ts*100 if not np.isnan(ts) else np.nan,
             "bpm":f(adv,"bpm"),"ws40":f(adv,"ws_per_40"),"per":f(adv,"per"),"usg":f(adv,"usg_pct"),
             "ast_pct":f(adv,"ast_pct"),"trb_pct":f(adv,"trb_pct"),"stl_pct":f(adv,"stl_pct"),
-            "blk_pct":f(adv,"blk_pct"),"tov_pct":f(adv,"tov_pct"),"ws":f(adv,"ws"),"mp":f(adv,"mp") if not np.isnan(f(adv,"mp")) else f(p4,"mp")})
+            "blk_pct":f(adv,"blk_pct"),"tov_pct":f(adv,"tov_pct"),"ws":f(adv,"ws"),"games":f(pg,"games"),"mp":f(adv,"mp") if not np.isnan(f(adv,"mp")) else f(p4,"mp")})
     df=pd.DataFrame(rows)
     df["_ht"]=df["height"].map(ht_in); df["_grp"]=[posgrp(p,h) for p,h in zip(df["pos"],df["_ht"])]
     df["_tier"]=df["team"].map(gc.tier).fillna(gc.DEFAULT_TIER).astype(int)
@@ -102,7 +104,8 @@ def compute(df):
         prod=pd.Series(0.0,index=sub.index)
         for k,w in PROD_W.items():
             col=PROD_COL[k]; mu,sd=qual[col].mean(),(qual[col].std() or 1)
-            prod+=w*((sub[col]-mu)/sd).clip(-4,4).fillna(0)
+            lo=LO_CLIP.get(k,-4.0)                                 # assists: big upside, small downside
+            prod+=w*((sub[col]-mu)/sd).clip(lo,4).fillna(0)
         adv=pd.Series(0.0,index=sub.index)
         for k,w in ADV_F.items():
             mu,sd=qual[k].mean(),(qual[k].std() or 1)
@@ -111,21 +114,23 @@ def compute(df):
         comp=(prod+ADV_W*adv)*sub["_tf"]            # blend, then discount weak competition
         cq=comp.loc[qual.index]; cm,cs=cq.mean(),(cq.std() or 1)
         df.loc[idx,"raw"]=BASE+SCALE*((comp-cm)/cs)
-    df["grade"]=squash(df["raw"]); return df
+    df["grade"]=squash(df["raw"])
+    df.loc[pd.to_numeric(df["games"],errors="coerce").fillna(0)<MIN_GP,"grade"]=np.nan  # game cap
+    return df
 
 def main(write=False):
     df=compute(load()); g=df[df.grade.notna()]; q=g[g.mpg>=10]
     print(f"graded {len(g):,} | n99={int((q.grade>=99).sum())} (~{(q.grade>=99).sum()/20:.1f}/yr) max={q.grade.max():.0f}")
     print("=== anchors ===")
-    for nm,yr in [("Zach Edey",2024),("Cooper Flagg",2025),("Zion Williamson",2019),("Trae Young",2018),
-                  ("Kevin Durant",2007),("Stephen Curry",2009),("Anthony Davis",2012),("Blake Griffin",2009)]:
+    for nm,yr in [("Zach Edey",2024),("Cameron Boozer",2026),("Cooper Flagg",2025),("Zion Williamson",2019),
+                  ("Bennett Stirtz",2025),("Trae Young",2018),("Gary Clark",2018),("Jae Crowder",2012)]:
         for _,x in g[(g.name==nm)&(g.season_year==yr)].iterrows():
             print(f"  {nm} {yr}: {int(x.grade)} (bpm{x.bpm} ws40{x.ws40} {x.ppg}/{x.rpg}/{x.apg} {x._grp} T{x._tier})")
     print("=== top 18 ===")
     for _,x in g.sort_values('grade',ascending=False).drop_duplicates(['name','season_year']).head(18).iterrows():
         print(f"  {int(x.grade)} {str(x['name'])[:19]:19} {x.season_year} {x._grp} T{x._tier} bpm{x.bpm} mp{x.mp} {x.ppg}/{x.rpg}/{x.apg} {str(x.team)[:13]}")
     if write:
-        w=g[g.mpg>=1]; pay=[{"bbref_id":b,"season_year":int(s),"school_slug":ss,"tdc_grade":int(gr)} for b,s,ss,gr in zip(w.bbref_id,w.season_year,w.school_slug,w.grade)]
+        w=df[df.mpg>=1]; pay=[{"bbref_id":b,"season_year":int(s),"school_slug":ss,"tdc_grade":(int(gr) if pd.notna(gr) else None)} for b,s,ss,gr in zip(w.bbref_id,w.season_year,w.school_slug,w.grade)]
         K=_key(); H={"apikey":K,"Authorization":f"Bearer {K}","Content-Type":"application/json"}; print(f"writing {len(pay):,}...")
         ok=0
         for j in range(0,len(pay),500):

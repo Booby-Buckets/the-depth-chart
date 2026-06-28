@@ -46,10 +46,11 @@ def patch(tbl,pay):
     print(f"  {tbl}: updated {ok}")
 def main(write=False):
     g_by={}; latest={}
-    for yr in range(2007,2027):
-        for r in fetch_season("bbref_seasons",yr,"select=espn_id,tdc_grade&espn_id=not.is.null&tdc_grade=not.is.null"):
-            eid=int(r["espn_id"]); gr=int(r["tdc_grade"]); g_by[(eid,yr)]=gr
-            if eid not in latest or yr>latest[eid][0]: latest[eid]=(yr,gr)
+    for yr in range(2007,2027):  # include null grades (game-capped) so player_history gets cleared too
+        for r in fetch_season("bbref_seasons",yr,"select=espn_id,tdc_grade&espn_id=not.is.null"):
+            eid=int(r["espn_id"]); gr=r["tdc_grade"]; gr=int(gr) if gr is not None else None
+            g_by[(eid,yr)]=gr
+            if gr is not None and (eid not in latest or yr>latest[eid][0]): latest[eid]=(yr,gr)
     print(f"bbref grades: {len(g_by):,} player-seasons, {len(latest):,} players")
     pl=GET("/rest/v1/players?select=id,espn_id&espn_id=not.is.null&order=id&limit=2000")
     pp=[{"id":int(p["id"]),"tdc_grade":str(latest[int(p["espn_id"])][1])} for p in pl if int(p["espn_id"]) in latest]
@@ -57,7 +58,7 @@ def main(write=False):
     for yr in range(2012,2027):
         for h in fetch_season("player_history",yr,"select=id,espn_id&espn_id=not.is.null"):
             k=(int(h["espn_id"]),yr)
-            if k in g_by: hh.append({"id":int(h["id"]),"tdc_grade":str(g_by[k])})
+            if k in g_by: hh.append({"id":int(h["id"]),"tdc_grade":(str(g_by[k]) if g_by[k] is not None else None)})
     print(f"players: {len(pp)}/{len(pl)} matched | player_history: {len(hh)} matched")
     if not write: print("DRY RUN — pass --write"); return
     patch("players",pp); patch("player_history",hh)
