@@ -500,7 +500,7 @@
 
   .table-header {
     display: grid;
-    grid-template-columns: 48px 12px 1fr 160px 20px 72px 72px 72px 72px 72px;
+    grid-template-columns: 48px 10px 1fr 150px 16px 58px 56px 56px 56px 54px 54px 58px 58px;
     gap: 0;
     padding: 10px 0;
     border-bottom: 2px solid var(--border2);
@@ -557,7 +557,7 @@
   /* ---- Team rows ---- */
   .team-row {
     display: grid;
-    grid-template-columns: 48px 12px 1fr 160px 20px 72px 72px 72px 72px 72px;
+    grid-template-columns: 48px 10px 1fr 150px 16px 58px 56px 56px 56px 54px 54px 58px 58px;
     gap: 0;
     padding: 14px 0;
     border-bottom: 1px solid var(--border);
@@ -688,26 +688,18 @@
   /* Conference badge */
   .tr-team-conf { display: inline-flex; align-items: center; margin-left: 10px; vertical-align: middle; }
   .conf-badge {
-    font-size: 9.5px;
-    font-weight: 800;
-    letter-spacing: .04em;
-    padding: 2px 8px;
-    border-radius: 5px;
-    line-height: 1.45;
-    color: color-mix(in srgb, var(--row-color, var(--text3)) 78%, var(--text));
-    background: color-mix(in srgb, var(--row-color, var(--accent)) 15%, transparent);
-    border: 1px solid color-mix(in srgb, var(--row-color, var(--border2)) 30%, transparent);
-    transition: background .15s, color .15s;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--text3);
   }
-  .team-row:hover .conf-badge { background: color-mix(in srgb, var(--row-color, var(--accent)) 24%, transparent); }
   .tier-badge {
-    display:inline-block; margin-left:6px; font-size:9px; font-weight:800; letter-spacing:.05em;
-    padding:2px 6px; border-radius:5px; line-height:1.45; color:#fff; vertical-align:middle;
+    display:inline-block; margin-left:9px; font-size:9px; font-weight:700; letter-spacing:.04em;
+    padding:1px 5px; border-radius:4px; line-height:1.55; vertical-align:middle;
+    color:var(--text3); border:1px solid var(--border2); background:none;
   }
-  .tier-badge.tier-1 { background:#c99a2e; }
-  .tier-badge.tier-2 { background:#3d8f6b; }
-  .tier-badge.tier-3 { background:#64748b; }
-  .tier-badge.tier-4 { background:#9aa3b2; }
+  .tier-badge.tier-1,.tier-badge.tier-2,.tier-badge.tier-3,.tier-badge.tier-4 { background:none; }
 
   /* Mobile grades */
   .tr-grades-mobile { display:none; }
@@ -768,7 +760,7 @@
   }
   .skeleton-row {
     display: grid;
-    grid-template-columns: 48px 12px 1fr 160px 20px 72px 72px 72px 72px 72px;
+    grid-template-columns: 48px 10px 1fr 150px 16px 58px 56px 56px 56px 54px 54px 58px 58px;
     gap: 0;
     padding: 14px 0;
     border-bottom: 1px solid var(--border);
@@ -1142,16 +1134,7 @@
   @media(max-width:760px){.sc-teams{grid-template-columns:repeat(2,1fr);}}
   @media(max-width:600px){.showcase{padding-left:16px;padding-right:16px;}.sc-players{grid-template-columns:repeat(2,1fr);}}
 </style>
-<div class="showcase" id="showcase" style="display:none;">
-  <div>
-    <div class="sc-label">Top of the Rankings <span id="scTeamSeason"></span></div>
-    <div class="sc-teams" id="scTeams"></div>
-  </div>
-  <div id="scPlayersBlock">
-    <div class="sc-label">Top Rated Players <span>· by TDC grade</span></div>
-    <div class="sc-players" id="scPlayers"></div>
-  </div>
-</div>
+<div class="showcase" id="showcase" style="display:none;"></div>
 
 <!-- ═══ FILTER BAR ════════════════════════════════════════════ -->
 <div class="filter-bar" id="filterBar">
@@ -1188,7 +1171,10 @@
     <div class="th"></div>
     <div class="th center">W-L</div>
     <div class="th center">Win%</div>
-    <div class="th center">Conf</div>
+    <div class="th center">FG%</div>
+    <div class="th center">3P%</div>
+    <div class="th center">RPG</div>
+    <div class="th center">APG</div>
     <div class="th center">PPG</div>
     <div class="th center">OPP</div>
   </div>
@@ -1402,12 +1388,12 @@ async function loadSeason(yr){
         conf:CONF_CODE[t.conference]||'', confName:t.conference||'—',
         wins:w, losses:l, gp, winpct:gp?w/gp:0, cw:+t.conf_wins||0, cl:+t.conf_losses||0,
         ppg:+t.ppg||0, oppg:+t.oppg||0, margin:Math.round(((+t.ppg||0)-(+t.oppg||0))*10)/10,
+        fg:+t.fg_pct||0, tp:+t.tp_pct||0, rpg:+t.rpg||0, apg:+t.apg||0, topg:+t.topg||0,
         srs:(t.srs!=null?Math.round(+t.srs*10)/10:null), tier:t.tier||null };
     }).filter(t=>t.gp>=5);
     window._useSrs = allTeams.some(t=>t.srs!=null);
     allTeams.sort((a,b)=> window._useSrs ? ((b.srs??-999)-(a.srs??-999)) : (b.margin-a.margin));
     allTeams.forEach((t,i)=>t.rk=i+1);
-    renderShowcase();
 
     // Expose team meta + projected stats by name for hover micro-cards
     window._teamMetaByName = {};
@@ -1569,7 +1555,10 @@ function renderRows(data, srt, favTeam, favColor, favBg){
       <div></div>
       <div class="tr-stat"><b>${t.wins}–${t.losses}</b><span>W-L</span></div>
       <div class="tr-stat"><b>${Math.round(t.winpct*100)}%</b><span>Win</span></div>
-      <div class="tr-stat"><b>${t.cw}–${t.cl}</b><span>Conf</span></div>
+      <div class="tr-stat"><b>${t.fg?t.fg.toFixed(1):'—'}</b><span>FG%</span></div>
+      <div class="tr-stat"><b>${t.tp?t.tp.toFixed(1):'—'}</b><span>3P%</span></div>
+      <div class="tr-stat"><b>${t.rpg?t.rpg.toFixed(1):'—'}</b><span>RPG</span></div>
+      <div class="tr-stat"><b>${t.apg?t.apg.toFixed(1):'—'}</b><span>APG</span></div>
       <div class="tr-stat"><b>${t.ppg.toFixed(1)}</b><span>PPG</span></div>
       <div class="tr-stat"><b>${t.oppg.toFixed(1)}</b><span>OPP</span></div>
     </div>`;
