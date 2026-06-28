@@ -20,13 +20,13 @@ def _key():
     return os.environ.get("SUPABASE_SERVICE_KEY") or re.search(r'SB_KEY\s*=\s*"([^"]+)"',(DATA.parent/"load_supabase.py").read_text()).group(1)
 
 BASE,SCALE=77.0,6.3
-SOFT,R99,GHI=88.0,113.5,97.0
+SOFT,R99,GHI=87.0,113.0,95.5
 MIN_MPG=8
 CRED_MP=650.0          # total minutes for full advanced-stat credibility
 ADV_W=0.85             # how much the advanced component counts vs production
-PROD_W={"ppg":1.9,"ts":0.7,"rpg":0.45,"apg":0.45,"stl":0.25,"blk":0.25,"tovs":-0.25,"mpg":0.3,"team_srs":0.7}
-ADV_F ={"bpm":1.0,"ws40":0.7,"per":0.45,"usg":0.30,"ast_pct":0.42,"trb_pct":0.42,
-        "stl_pct":0.22,"blk_pct":0.22,"tov_pct":-0.22}
+PROD_W={"wa":1.7,"ppg":0.95,"ts":0.5,"rpg":0.32,"apg":0.32,"stl":0.18,"blk":0.18,"tovs":-0.18,"mpg":0.22,"team_srs":0.4}
+ADV_F ={"bpm":0.6,"per":0.35,"usg":0.25,"ast_pct":0.3,"trb_pct":0.3,
+        "stl_pct":0.15,"blk_pct":0.15,"tov_pct":-0.18}
 TIER_COUNTS=["ppg","rpg","apg","stl","blk","tovs"]
 
 def f(d,k):
@@ -57,13 +57,14 @@ def load():
             "ts":ts*100 if not np.isnan(ts) else np.nan,
             "bpm":f(adv,"bpm"),"ws40":f(adv,"ws_per_40"),"per":f(adv,"per"),"usg":f(adv,"usg_pct"),
             "ast_pct":f(adv,"ast_pct"),"trb_pct":f(adv,"trb_pct"),"stl_pct":f(adv,"stl_pct"),
-            "blk_pct":f(adv,"blk_pct"),"tov_pct":f(adv,"tov_pct"),"mp":f(adv,"mp") if not np.isnan(f(adv,"mp")) else f(p4,"mp")})
+            "blk_pct":f(adv,"blk_pct"),"tov_pct":f(adv,"tov_pct"),"ws":f(adv,"ws"),"mp":f(adv,"mp") if not np.isnan(f(adv,"mp")) else f(p4,"mp")})
     df=pd.DataFrame(rows)
     df["_ht"]=df["height"].map(ht_in); df["_grp"]=[posgrp(p,h) for p,h in zip(df["pos"],df["_ht"])]
     df["_tier"]=df["team"].map(gc.tier).fillna(gc.DEFAULT_TIER).astype(int)
     df["_tf"]=df["_tier"].map(gc.TIER_TO_T1).astype(float)
     df["ts"]=df["ts"].fillna((df["ppg"]/(2*(df["fga"].fillna(0)+0.44*df["fta"].fillna(0)).clip(lower=0.1)))*100).clip(20,80)
     df["_cred"]=(df["mp"].fillna(0)/CRED_MP).clip(0,1)
+    df["wa"]=pd.to_numeric(df["ws"],errors="coerce")-0.04*(pd.to_numeric(df["mp"],errors="coerce").fillna(0)/40)
     for c in TIER_COUNTS: df["adj_"+c]=df[c]*df["_tf"]
     # team success: join each (season, bbref school) to its team_seasons SRS
     def _ns(s): return re.sub(r"\\s+"," ",re.sub(r"[&.]","",str(s).lower())).strip()
@@ -94,7 +95,7 @@ def squash(raw):
 
 def compute(df):
     df["raw"]=np.nan
-    PROD_COL={"ppg":"adj_ppg","ts":"ts","rpg":"adj_rpg","apg":"adj_apg","stl":"adj_stl","blk":"adj_blk","tovs":"adj_tovs","mpg":"mpg","team_srs":"team_srs"}
+    PROD_COL={"ppg":"adj_ppg","ts":"ts","rpg":"adj_rpg","apg":"adj_apg","stl":"adj_stl","blk":"adj_blk","tovs":"adj_tovs","mpg":"mpg","team_srs":"team_srs","wa":"wa"}
     for grp,idx in df.groupby("_grp").groups.items():
         sub=df.loc[idx]; qual=sub[sub["mpg"]>=MIN_MPG]
         if len(qual)<50: continue
