@@ -699,6 +699,14 @@
     transition: background .15s, color .15s;
   }
   .team-row:hover .conf-badge { background: color-mix(in srgb, var(--row-color, var(--accent)) 24%, transparent); }
+  .tier-badge {
+    display:inline-block; margin-left:6px; font-size:9px; font-weight:800; letter-spacing:.05em;
+    padding:2px 6px; border-radius:5px; line-height:1.45; color:#fff; vertical-align:middle;
+  }
+  .tier-badge.tier-1 { background:#c99a2e; }
+  .tier-badge.tier-2 { background:#3d8f6b; }
+  .tier-badge.tier-3 { background:#64748b; }
+  .tier-badge.tier-4 { background:#9aa3b2; }
 
   /* Mobile grades */
   .tr-grades-mobile { display:none; }
@@ -1292,6 +1300,8 @@ function confAbbr(name){
   return s.length<=8 ? s : s.split(' ').map(w=>w[0]).join('').toUpperCase();
 }
 let curSeason = 2026, _teamColors = null;
+const TIER_LABEL={1:'Elite',2:'Strong',3:'Average',4:'Weak'};
+function tierBadge(tier){ return tier?`<span class="tier-badge tier-${tier}" title="Tier ${tier} — ${TIER_LABEL[tier]} (by SRS)">T${tier}</span>`:''; }
 function seasonLabel(yr){ return `${yr-1}–${(''+yr).slice(2)}`; }
 async function ensureColors(){
   if(_teamColors) return _teamColors;
@@ -1320,7 +1330,7 @@ async function loadSeason(yr){
         conf:CONF_CODE[t.conference]||'', confName:t.conference||'—',
         wins:w, losses:l, gp, winpct:gp?w/gp:0, cw:+t.conf_wins||0, cl:+t.conf_losses||0,
         ppg:+t.ppg||0, oppg:+t.oppg||0, margin:Math.round(((+t.ppg||0)-(+t.oppg||0))*10)/10,
-        srs:(t.srs!=null?Math.round(+t.srs*10)/10:null) };
+        srs:(t.srs!=null?Math.round(+t.srs*10)/10:null), tier:t.tier||null };
     }).filter(t=>t.gp>=5);
     window._useSrs = allTeams.some(t=>t.srs!=null);
     allTeams.sort((a,b)=> window._useSrs ? ((b.srs??-999)-(a.srs??-999)) : (b.margin-a.margin));
@@ -1473,7 +1483,7 @@ function renderRows(data, srt, favTeam, favColor, favBg){
       <div class="tr-color-bar" style="background:${t.color}"></div>
       <div>
         <a class="tr-team-name" href="team.html?team=${encodeURIComponent(t.short)}&season=${curSeason}" style="color:inherit;text-decoration:none;display:inline-block;">${t.name}</a>
-        <div class="tr-team-conf"><span class="conf-badge">${confAbbr(t.confName)}</span></div>
+        <div class="tr-team-conf"><span class="conf-badge">${confAbbr(t.confName)}</span>${tierBadge(t.tier)}</div>
       </div>
       <div class="tr-grades-mobile">
         <div class="mobile-grade"><span class="mobile-grade-lbl">${_useSrs?'NET':'MRG'}</span><span class="mobile-grade-val" style="color:${barC};">${pos?'+':''}${v}</span></div>
