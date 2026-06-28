@@ -1524,18 +1524,18 @@ function scoutRangeBar(f,pj,c){
 
 
 // ── SKILL BREAKDOWN ─────────────────────────────────────
-function buildSkillBreakdown(p){
+function buildSkillBreakdown(srcRow, projectedFlag, label){
   // blue gradient by percentile — deeper blue = higher (matches the database)
   function barColor(pct){
     return pct>=80?'rgb(18,60,185)':pct>=60?'rgb(30,82,200)':pct>=40?'rgb(45,100,210)':pct>=20?'rgb(70,135,225)':'rgb(110,160,230)';
   }
-  // grade vs the PROJECTED line where available (graduated → their last actual)
-  var src=(proj&&!proj._frosh)?proj:p;
-  var projected=(proj&&!proj._frosh);
+  // render the chosen season (or projection) vs the national pool
+  var src=srcRow||((proj&&!proj._frosh)?proj:player);
+  var projected=(projectedFlag!=null)?!!projectedFlag:(proj&&!proj._frosh);
   var hist=(typeof careerHistory!=='undefined'&&careerHistory.length)?careerHistory[careerHistory.length-1]:null;
-  var adv=src._advanced||p._advanced||(hist&&hist._advanced)||{};
-  var p40=src._per40||p._per40||(hist&&hist._per40)||{};
-  var pgs=src._pergame||p._pergame||(hist&&hist._pergame)||{};
+  var adv=src._advanced||(projected&&hist&&hist._advanced)||{};
+  var p40=src._per40||(projected&&hist&&hist._per40)||{};
+  var pgs=src._pergame||(projected&&hist&&hist._pergame)||{};
   var f1=function(x){return (x==null||x==='')?'—':(+x).toFixed(1);};
   var f3=function(x){return (x==null||x==='')?'—':(+x).toFixed(3).replace(/^(-?)0\./,'$1.');};
   var fpc=function(x){return (x==null||x==='')?'—':(+x).toFixed(1)+'%';};      // already a percent
@@ -1589,7 +1589,7 @@ function buildSkillBreakdown(p){
       +'</div>';
   }).filter(Boolean);
   var half=Math.ceil(rows.length/2);
-  return '<div class="skill-section-title">Skill Breakdown \u2014 '+(projected?'Projected ':'')+'vs Every Player (National)</div>'
+  return '<div class="skill-section-title">Skill Breakdown \u2014 '+(projected?'Projected ':(label?label+' ':''))+'vs Every Player (National)</div>'
     +'<div class="skill-grid"><div>'+rows.slice(0,half).join('')+'</div>'
     +'<div>'+rows.slice(half).join('')+'</div></div>';
 }
@@ -2217,8 +2217,16 @@ function _updateHeroSeason(team, gp){
     ht.innerHTML='<div class="team-dot" style="background:'+(col||'#888')+';"></div>'+team+' <span style="font-size:10px;color:var(--text3);margin-left:2px;">'+((info&&(info.conf||info.conference))||'')+'</span>'; }
   var g=document.getElementById('heroGp'); if(g){ g.innerHTML=gp?('🎮 <strong>'+gp+'</strong> GP'):''; g.style.display=gp?'':'none'; }
 }
+function _skillSrcFor(val){
+  var useProj=(proj && !proj._frosh && !proj._injured);
+  if(val==null){ if(useProj) return {src:proj,projected:true}; var ss=_ovrSeasons(); return ss.length?{src:ss[0],projected:false,label:_seasonLbl2(ss[0].season_year)}:{src:player,projected:false}; }
+  if(val==='proj') return {src:proj,projected:true};
+  var s=_ovrSeasonRow(val); return s?{src:s,projected:false,label:_seasonLbl2(val)}:{src:player,projected:false};
+}
+function renderSkill(val){ var h=document.getElementById('skillHost'); if(!h) return; var x=_skillSrcFor(val); h.innerHTML=buildSkillBreakdown(x.src,x.projected,x.label); }
 function setOvrSeason(val){
   var host=document.getElementById('ovrCards'); if(!host) return;
+  renderSkill(val);
   if(val==='proj'){ host.innerHTML=buildOverviewCards(player, proj); _updateHeroSeason(player.team, player.gp); return; }
   var s=_ovrSeasonRow(val); if(!s) return;
   host.innerHTML=ovrCardsFor(s);
@@ -2475,7 +2483,7 @@ function renderPage(){
       <div class="sec-title" style="margin-bottom:16px;">Skill Profile</div>
       <div class="radar-wrap"><canvas id="radarChart" width="600" height="600"></canvas></div>
       <div class="radar-legend" id="radarLegend"></div>
-      ${buildSkillBreakdown(p)}
+      <div id="skillHost">${(function(){var x=_skillSrcFor();return buildSkillBreakdown(x.src,x.projected,x.label);})()}</div>
     </div>
 
     <div class="tab-panel" id="panel-stats">
