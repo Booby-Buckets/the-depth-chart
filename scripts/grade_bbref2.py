@@ -20,11 +20,11 @@ def _key():
     return os.environ.get("SUPABASE_SERVICE_KEY") or re.search(r'SB_KEY\s*=\s*"([^"]+)"',(DATA.parent/"load_supabase.py").read_text()).group(1)
 
 BASE,SCALE=77.0,6.3
-SOFT,R99,GHI=88.0,110.0,98.45
+SOFT,R99,GHI=88.0,113.5,97.0
 MIN_MPG=8
 CRED_MP=650.0          # total minutes for full advanced-stat credibility
 ADV_W=0.85             # how much the advanced component counts vs production
-PROD_W={"ppg":1.9,"ts":0.7,"rpg":0.45,"apg":0.45,"stl":0.25,"blk":0.25,"tovs":-0.25,"mpg":0.3,"team_srs":1.45}
+PROD_W={"ppg":1.9,"ts":0.7,"rpg":0.45,"apg":0.45,"stl":0.25,"blk":0.25,"tovs":-0.25,"mpg":0.3,"team_srs":0.7}
 ADV_F ={"bpm":1.0,"ws40":0.7,"per":0.45,"usg":0.30,"ast_pct":0.42,"trb_pct":0.42,
         "stl_pct":0.22,"blk_pct":0.22,"tov_pct":-0.22}
 TIER_COUNTS=["ppg","rpg","apg","stl","blk","tovs"]
