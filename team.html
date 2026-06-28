@@ -3,6 +3,18 @@
 <head>
   <script src="auth.js"></script>
   <script src="team-colors.js"></script>
+  <script src="tdc-nil.js"></script>
+  <style>
+    .nil-card{border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:132px;background:var(--bg2);}
+    .nil-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
+    .nil-big{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1;}
+    .nil-sub{font-size:10px;font-weight:600;color:var(--text3);margin-top:3px;}
+    .nil-table{width:100%;border-collapse:collapse;font-size:12px;max-width:700px;}
+    .nil-table th{text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);padding:8px;border-bottom:1px solid var(--border2);}
+    .nil-table th.left,.nil-table td.left{text-align:left;}
+    .nil-table td{text-align:right;padding:8px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;}
+    .nil-table tbody tr:hover{background:var(--bg2);}
+  </style>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Team — The Depth Chart</title>
@@ -632,6 +644,7 @@
     <button class="hero-tab" onclick="switchTab('losses',this)">Losses</button>
     <button class="hero-tab" onclick="switchTab('schedule',this)">Schedule</button>
     <button class="hero-tab" onclick="switchTab('projections',this)">2026-27 Projections</button>
+    <button class="hero-tab" onclick="switchTab('nil',this)">NIL Value</button>
     <button class="hero-tab" onclick="switchTab('analysis',this)">Analysis</button>
     <button class="hero-tab" onclick="switchTab('comments',this)">Comments</button>
     <button class="hero-tab" id="followTeamBtn" onclick="toggleTeamFollow()" style="margin-left:auto;padding:6px 16px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:none;border:1px solid var(--border2);color:var(--text3);cursor:pointer;font-family:'Inter',sans-serif;border-radius:0;display:flex;align-items:center;gap:6px;">Follow Team</button>
@@ -679,6 +692,10 @@
       <div id="projectionsContent">
         <div class="loading-state"><div class="loading-spinner"></div></div>
       </div>
+    </div>
+    <div class="panel" id="panel-nil">
+      <div class="sec-head">NIL Roster Valuation <span style="font-size:10px;font-weight:600;color:var(--text3);margin-left:8px;">2026-27 projected · value = on-court production × market rate</span></div>
+      <div id="nilContent"><div class="loading-state"><div class="loading-spinner"></div></div></div>
     </div>
     <div class="panel" id="panel-analysis">
       <div class="sec-head">Team Outlook</div>
@@ -3684,6 +3701,38 @@ function switchTab(id, btn){
     renderCustomize(teamT, teamPlayers, teamColor_g, teamRgb_g, teamGp);
   }
   if(id==='schedule') initSchedule();
+  if(id==='nil') renderNil();
+}
+
+let _nilData=null;
+async function renderNil(){
+  const host=document.getElementById('nilContent'); const tT=(typeof teamT!=='undefined')?teamT:null; if(!host||!tT) return;
+  if(!_nilData){ try{ _nilData=await fetch('nil-data.json').then(r=>r.json()); }catch(e){ host.innerHTML='<div style="padding:40px;color:var(--text3);">NIL data unavailable.</div>'; return; } }
+  const d=_nilData.teams[tT.name];
+  if(!d){ host.innerHTML='<div style="padding:40px;color:var(--text3);">No NIL valuation for this team yet — needs a NIL tier and roster.</div>'; return; }
+  const col=((typeof teamColor_g!=='undefined')?teamColor_g:null)||'#888', mkt=_nilData.market_rate_per_pt;
+  const fmt=m=>m>=1?('$'+(+m).toFixed(1)+'M'):('$'+Math.round(m*1000)+'K');
+  const deal=d.verdict==='deal', maxv=Math.max(d.value,d.budget)||1;
+  const valPct=Math.round(d.value/maxv*100), budPct=Math.round(d.budget/maxv*100);
+  let html=`<div style="display:flex;flex-wrap:wrap;gap:13px;margin-bottom:20px;">
+    <div class="nil-card"><div class="nil-lbl">NIL Budget · Tier ${d.tier}</div><div class="nil-big">${fmt(d.budget)}</div></div>
+    <div class="nil-card"><div class="nil-lbl">Roster Value</div><div class="nil-big" style="color:${col}">${fmt(d.value)}</div></div>
+    <div class="nil-card" style="border-color:${deal?'var(--green)':'var(--red)'}"><div class="nil-lbl">Verdict</div><div class="nil-big" style="color:${deal?'var(--green)':'var(--red)'}">${deal?'DEAL':'EXPENSIVE'}</div><div class="nil-sub">${fmt(Math.abs(d.diff))} ${deal?'under budget':'overpay'}</div></div>
+    <div class="nil-card"><div class="nil-lbl">Cost / Net Point</div><div class="nil-big">$${Math.round(d.implied_rate*1000)}K</div><div class="nil-sub">market $${Math.round(mkt*1000)}K</div></div>
+  </div>
+  <div style="margin:4px 0 26px;max-width:700px;">
+    <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--text3);margin-bottom:5px;"><span>Roster value ${fmt(d.value)}</span><span>Budget ${fmt(d.budget)}</span></div>
+    <div style="position:relative;height:16px;background:var(--bg3);border-radius:8px;overflow:hidden;">
+      <div style="position:absolute;top:0;bottom:0;left:0;width:${valPct}%;background:${deal?'var(--green)':col};"></div>
+      <div style="position:absolute;top:-4px;bottom:-4px;left:${budPct}%;width:2px;background:var(--text);"></div>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-top:4px;">Green bar = roster value · vertical line = budget</div>
+  </div>
+  <table class="nil-table"><thead><tr><th class="left">Player</th><th>Proj BPM</th><th>MPG</th><th>NIL Value</th></tr></thead><tbody>`;
+  d.players.forEach(p=>{ html+=`<tr><td class="left">${p.name}</td><td>${p.bpm>0?'+':''}${(+p.bpm).toFixed(1)}</td><td>${Math.round(p.mpg)}</td><td style="font-weight:700;color:${col}">${fmt(p.value)}</td></tr>`; });
+  html+=`</tbody></table>
+  <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:14px;max-width:780px;">Each value = <b>(projected BPM − replacement) × (minutes ÷ 40) × $${Math.round(mkt*1000)}K per net-rating point</b>. 2026-27 BPM blends last season's actual with a TDC-grade projection. Budget is the midpoint of the team's NIL tier. Roster value above budget = a <b>deal</b>; below = <b>paying a premium</b> for unproven/incoming talent.</div>`;
+  host.innerHTML=html;
 }
 
 // ── ROSTER OVER TIME (season slider on the Depth Chart tab) ───────────────
