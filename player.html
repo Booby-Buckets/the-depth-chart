@@ -2689,7 +2689,7 @@ function _gmsc(g){ // Hollinger Game Score
 function _gameRating(g){ return Math.max(2.0, Math.min(10.0, Math.round((5.0+0.135*_gmsc(g))*10)/10)); }
 const _TIER_LBL={1:'Elite',2:'Strong',3:'Average',4:'Weak'};
 function glTierBadge(t){ return t?` <span class="gl-tier gl-tier-${t}" title="Tier ${t} opponent — ${_TIER_LBL[t]}">T${t}</span>`:''; }
-function gameOppTier(g){ return g.opp_tier!=null?g.opp_tier:((window._oppTier&&window._oppTier[g.season_year+'|'+g.opp])||null); }
+function gameOppTier(g){ const live=window._oppTier&&window._oppTier[g.season_year+'|'+g.opp]; return live!=null?live:(g.opp_tier!=null?g.opp_tier:null); }
 function _allGames(){ return Object.values(_gameLog).flat(); }
 let _glTierFilter=null;
 function renderTierSummary(){
