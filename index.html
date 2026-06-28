@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <script src="auth.js"></script>
+  <script src="team-colors.js"></script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>The Depth Chart — College Basketball Roster Rankings</title>
@@ -1397,7 +1398,7 @@ async function loadSeason(yr){
 
     allTeams = rows.map(t => {
       const w=+t.wins||0,l=+t.losses||0,gp=w+l,mc=matchColor(t.team,colors);
-      return { name:t.team, short:mc.short, color:mc.color||'#7c7c8a',
+      return { name:t.team, short:mc.short, color:(window.tdcTeamColorHex&&tdcTeamColorHex(t.team))||mc.color||'#7c7c8a',
         conf:CONF_CODE[t.conference]||'', confName:t.conference||'—',
         wins:w, losses:l, gp, winpct:gp?w/gp:0, cw:+t.conf_wins||0, cl:+t.conf_losses||0,
         ppg:+t.ppg||0, oppg:+t.oppg||0, margin:Math.round(((+t.ppg||0)-(+t.oppg||0))*10)/10,
