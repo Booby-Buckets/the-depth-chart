@@ -6,11 +6,12 @@
    value = max(0, impact-replacement) * min(MPG/40,1) * market $/point * premium.
    Calibrated by scripts/compute_nil.py (re-run to refresh constants + nil-data.json). */
 window.TDC_NIL = {
-  MARKET_RATE: 0.2635,                                            // $M per net-rating point (median budget / premium-weighted production)
+  MARKET_RATE: 0.263,                                             // $M per net-rating point — fixed from real salary data (Tennessee anchors)
   REPL: -1.0,
   FLOOR_PTS: 1.6,                                                 // rotation-body floor: a player who plays is worth >= this many net pts (×minutes×premium)
   WALKON_THR: -6.0,                                               // impact below this = walk-on / non-rotation: nominal value
   WALKON_VALUE: 0.01,                                             // $M nominal ($10K) for walk-ons
+  BASE_INTERCEPT: {P:1.00, M:0.45, L:0.18},                       // $M roster-spot base a rotation player commands before production (×minutes), by conf level
   TIER_BUDGET: {1:22.5,2:18,3:13.5,4:10,5:7.5,6:5,7:3,8:1.25,9:0.25},
   IMPACT: {
     w:    {bpm:0.40, grade:0.30, ws40:0.20, per:0.10},
@@ -46,7 +47,8 @@ window.TDC_NIL = {
     return 'L'; };
   N.confMult  = function(cls){ return P.conf[cls] || 1; };
   N.marketPremium = function(htIn,ppg,confCode){ return N.sizeMult(htIn)*N.scoreMult(ppg)*N.confMult(N.confClass(confCode)); };
-  N.marketValue   = function(imp,mpg,htIn,ppg,confCode){ return N.isWalkon(imp) ? N.WALKON_VALUE : N.value(imp,mpg) * N.marketPremium(htIn,ppg,confCode); }; // $M
+  N.baseIntercept = function(mpg,confCode){ var ms=Math.min(Math.max(+mpg,0)/40,1); return (N.BASE_INTERCEPT[N.confClass(confCode)]||0) * ms; }; // $M roster-spot base
+  N.marketValue   = function(imp,mpg,htIn,ppg,confCode){ return N.isWalkon(imp) ? N.WALKON_VALUE : N.value(imp,mpg)*N.marketPremium(htIn,ppg,confCode) + N.baseIntercept(mpg,confCode); }; // $M
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };
 })();

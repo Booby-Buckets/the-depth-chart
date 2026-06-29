@@ -3195,7 +3195,8 @@ function renderNilPlayer(){
   const projPrem=N.marketPremium(projHt,projPpg,conf);
   const aboveRepl=Math.max(projImp-N.REPL, N.FLOOR_PTS), minShare=Math.min(projMpg/40,1), contrib=aboveRepl*minShare, floored=(projImp-N.REPL)<N.FLOOR_PTS;
   const isWalkon=N.isWalkon(projImp);
-  const analyticalVal=N.value(projImp,projMpg), projVal=N.marketValue(projImp,projMpg,projHt,projPpg,conf);
+  const analyticalVal=N.value(projImp,projMpg), prodVal=analyticalVal*projPrem, baseVal=N.baseIntercept(projMpg,conf);
+  const projVal=N.marketValue(projImp,projMpg,projHt,projPpg,conf);
   const pSize=N.sizeMult(projHt), pScore=N.scoreMult(projPpg), pConf=N.confMult(N.confClass(conf));
   let html=`<div style="display:flex;flex-wrap:wrap;gap:13px;margin-bottom:20px;">
     <div class="nil-card"><div class="nil-lbl">2026-27 Projected Value</div><div class="nil-big" style="color:${col}">${fmt(projVal)}</div></div>
@@ -3206,8 +3207,8 @@ function renderNilPlayer(){
   ${isWalkon?`<div class="nil-step nil-step-final" style="border-color:${col};max-width:560px;"><span class="nil-step-n" style="background:${col}">i</span><b>Walk-on / non-rotation</b> — projected impact ${projImp.toFixed(1)} is well below replacement, so this player isn't part of NIL roster spend. Listed at a nominal <b style="color:${col}">${fmt(projVal)}</b>.</div>`:`<div class="nil-steps">
     <div class="nil-step"><span class="nil-step-n">1</span>Impact above replacement${floored?' (rotation floor)':''}<br><b>${floored?('floor '+N.FLOOR_PTS+' = '+aboveRepl.toFixed(1)):(projImp.toFixed(1)+' − ('+N.REPL+') = '+aboveRepl.toFixed(1))}</b> / 100</div>
     <div class="nil-step"><span class="nil-step-n">2</span>× minutes share<br><b>${aboveRepl.toFixed(1)} × ${minShare.toFixed(2)} = ${contrib.toFixed(2)}</b> net pts</div>
-    <div class="nil-step"><span class="nil-step-n">3</span>× rate = analytical<br><b>${contrib.toFixed(2)} × $${Math.round(N.MARKET_RATE*1000)}K = ${fmt(analyticalVal)}</b></div>
-    <div class="nil-step"><span class="nil-step-n">4</span>× market premium<br><b>${fmt(analyticalVal)} × ${projPrem.toFixed(2)}</b> (size/scoring/conf)</div>
+    <div class="nil-step"><span class="nil-step-n">3</span>× rate × premium<br><b>${contrib.toFixed(2)} × $${Math.round(N.MARKET_RATE*1000)}K × ${projPrem.toFixed(2)} = ${fmt(prodVal)}</b></div>
+    <div class="nil-step"><span class="nil-step-n">4</span>+ roster-spot base<br><b>${fmt(prodVal)} + ${fmt(baseVal)}</b> (${N.confClass(conf)}-conf × minutes)</div>
     <div class="nil-step nil-step-final" style="border-color:${col}"><span class="nil-step-n" style="background:${col}">=</span>NIL value<br><b style="color:${col};font-size:18px">${fmt(projVal)}</b></div>
   </div>`}`;
   if(seasons.length){

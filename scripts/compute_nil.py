@@ -24,6 +24,7 @@ W={"bpm":0.40,"grade":0.30,"ws40":0.20,"per":0.10}
 SIZE_BASE,SIZE_TOP,SIZE_MAX=75.0,85.0,0.40   # 6'3"=1.0 ... 7'1"+ = +40% (big-man market is hot)
 SCORE_BASE,SCORE_TOP,SCORE_MAX=12.0,27.0,0.18
 CONF_MULT={"P":1.12,"M":1.00,"L":0.90}
+BASE_INTERCEPT={"P":1.00,"M":0.45,"L":0.18}   # $M roster-spot base a rotation player commands before production (×minutes), by conf level
 def gnum(x):
     try: return float(x)
     except: return None
@@ -101,34 +102,40 @@ rows=[]
 for name,info in tinfo.items():
     budget=TIER_MID.get(tier_num(info["nil_tier"]))
     if not budget: continue
-    cls=conf_class(info.get("conference")); prod=0; pls=[]
+    cls=conf_class(info.get("conference")); prod=0; icpt=0; pls=[]
     for p in ros.get(name,[]):
         imp,mp,prem=evalp(p,cls)
         if imp is None: imp=REPL
+        ms=min(max(mp,0)/40.0,1.0)
         if imp<WALKON_THR:                     # walk-on: nominal, not part of roster spend
-            pls.append((p["name"],imp,mp,prem,0.0,True)); continue
-        eff=max(imp-REPL, FLOOR_PTS)           # floor: a rotation body is worth >= FLOOR_PTS
-        c=eff*min(max(mp,0)/40.0,1.0)*prem
-        prod+=c; pls.append((p["name"],imp,mp,prem,c,False))
-    if prod<=0.5: continue
-    rows.append({"name":name,"tier":tier_num(info["nil_tier"]),"budget":budget,"prod":prod,
-                 "implied":budget/prod,"srs":team_srs(name),"cls":cls,"pls":pls})
-MKT=statistics.median(r["implied"] for r in rows)
+            pls.append((p["name"],imp,mp,prem,0.0,0.0,True)); continue
+        eff=max(imp-REPL, FLOOR_PTS)           # production: rotation body worth >= FLOOR_PTS
+        c=eff*ms*prem
+        ic=BASE_INTERCEPT[cls]*ms              # base: roster-spot $ (conf + minutes scaled)
+        prod+=c; icpt+=ic; pls.append((p["name"],imp,mp,prem,c,ic,False))
+    if prod<=0.1: continue
+    rows.append({"name":name,"tier":tier_num(info["nil_tier"]),"budget":budget,"prod":prod,"icpt":icpt,
+                 "srs":team_srs(name),"cls":cls,"pls":pls})
+# rate is fixed from real salary data (Tennessee anchors: Harris $5M, Lundblade $1.5M, etc.),
+# not budget-derived — the article's point is the market is its own thing, distinct from budgets.
+MKT=0.263
+_budgetImplied=statistics.median([(r["budget"]-r["icpt"])/r["prod"] for r in rows if r["prod"]>0 and r["budget"]>r["icpt"]])
 out={"market_rate_per_pt":round(MKT,4),"replacement":REPL,"floor_pts":FLOOR_PTS,"walkon_thr":WALKON_THR,"walkon_value":WALKON_VALUE,"tier_budget_m":TIER_MID,
      "impact":{"w":W,"mean":{k:round(M[k][0],4) for k in M},"std":{k:round(M[k][1],4) for k in M},
                "cz_mean":round(CZM,5),"cz_std":round(CZS,5)},
      "premium":{"size":[SIZE_BASE,SIZE_TOP,SIZE_MAX],"score":[SCORE_BASE,SCORE_TOP,SCORE_MAX],"conf":CONF_MULT},
+     "base_intercept":BASE_INTERCEPT,
      "teams":{}}
 for r in rows:
-    val=r["prod"]*MKT
-    pls=sorted([{"name":n,"impact":round(imp,1),"mpg":round(mp,1),"prem":round(prem,2),"value":(WALKON_VALUE if wo else round(c*MKT,3)),"walkon":wo} for n,imp,mp,prem,c,wo in r["pls"]],key=lambda x:-x["value"])
+    val=r["prod"]*MKT + r["icpt"]
+    pls=sorted([{"name":n,"impact":round(imp,1),"mpg":round(mp,1),"prem":round(prem,2),"value":(WALKON_VALUE if wo else round(c*MKT+ic,3)),"walkon":wo} for n,imp,mp,prem,c,ic,wo in r["pls"]],key=lambda x:-x["value"])
     out["teams"][r["name"]]={"tier":r["tier"],"budget":r["budget"],"value":round(val,2),"production":round(r["prod"],2),
-        "implied_rate":round(r["implied"],4),"srs":r["srs"],"verdict":"deal" if val>r["budget"] else "expensive",
+        "implied_rate":round(r["budget"]/(r["prod"] or 1),4),"srs":r["srs"],"verdict":"deal" if val>r["budget"] else "expensive",
         "diff":round(val-r["budget"],2),"players":pls}
 json.dump(out,open(os.path.join(os.path.dirname(__file__),"..","nil-data.json"),"w"),separators=(',',':'))
 deals=sum(1 for r in rows if r["prod"]*MKT>r["budget"])
 print(f"teams: {len(rows)} | DEALS {deals}/{len(rows)} | MARKET=${MKT*1000:.0f}K/pt")
 print("\n--- tdc-nil.js constants ---")
-print(f"MARKET_RATE:{round(MKT,4)}, FLOOR_PTS:{FLOOR_PTS},")
+print(f"MARKET_RATE:{round(MKT,4)}, FLOOR_PTS:{FLOOR_PTS}, BASE_INTERCEPT:{json.dumps(BASE_INTERCEPT)},")
 print(f"IMPACT:{json.dumps(out['impact'])},")
 print(f"PREMIUM:{json.dumps(out['premium'])}")
