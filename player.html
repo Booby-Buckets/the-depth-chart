@@ -1959,7 +1959,7 @@ function _impScore(c){
   var peak=0.62*arr[0]+0.38*arr[1];
   return 0.5*base+0.5*peak;
 }
-function renderImpact(){
+function renderImpact(srcRow, projectedFlag){
   var host=document.getElementById('impactSection'); if(!host||!player) return;
   var pool=window._tdcAllPlayers; if(!pool||!pool.length) return;
   // project the whole pool, qualify by projected minutes
@@ -1972,12 +1972,14 @@ function renderImpact(){
   ['ppg','rpg','apg','stl','blk'].forEach(function(k){
     D[k+'40']=lines.map(function(l){return _imp40(l,k);}).filter(function(v){return v>0;}).sort(function(a,b){return a-b;});});
   D.astto=lines.map(function(l){return (+l.apg||0)/Math.max(0.7,(+l.tovs||0));}).filter(function(v){return !isNaN(v);}).sort(function(a,b){return a-b;});
-  var myLine=playerProjLine();
+  var myLine=(srcRow&&projectedFlag===false)?srcRow:playerProjLine();
   var c=_impComponents(myLine,D);
   function ord(n){var s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
-  // ── Wins Added: actual (most-recent season with Win Shares), ranked vs the WHOLE database ──
+  // ── Wins Added: the VIEWED season if it's an actual one (so it changes as you flip
+  //    through years); otherwise the most-recent played season. Ranked vs the WHOLE database ──
   var adv=null, advSeason=null;
-  if(player._advanced && player._advanced.ws!=null && player._advanced.ws!=='') { adv=player._advanced; advSeason=player.season_year; }
+  if(srcRow && projectedFlag===false && srcRow._advanced && srcRow._advanced.ws!=null && srcRow._advanced.ws!=='') { adv=srcRow._advanced; advSeason=srcRow.season_year; }
+  if(!adv && player._advanced && player._advanced.ws!=null && player._advanced.ws!=='') { adv=player._advanced; advSeason=player.season_year; }
   if(!adv && typeof careerHistory!=='undefined'){ for(var _i=careerHistory.length-1;_i>=0;_i--){ var _a=careerHistory[_i]&&careerHistory[_i]._advanced; if(_a&&_a.ws!=null&&_a.ws!==''){adv=_a;advSeason=careerHistory[_i].season_year;break;} } }
   var wa=adv?_winsAdded(adv):null;
   var comps=[
@@ -2245,6 +2247,7 @@ function _setHeroGrade(g){ var hg=document.getElementById('heroGrade'); if(hg &&
 function setOvrSeason(val){
   var host=document.getElementById('ovrCards'); if(!host) return;
   renderSkill(val);
+  try{ var _xi=_skillSrcFor(val); renderImpact(_xi.src,_xi.projected); }catch(e){}
   if(val==='proj'){ host.innerHTML=buildOverviewCards(player, proj); _updateHeroSeason(player.team, player.gp); _setHeroGrade(player.tdc_grade); return; }
   var s=_ovrSeasonRow(val); if(!s) return;
   host.innerHTML=ovrCardsFor(s);
