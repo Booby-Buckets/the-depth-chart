@@ -3181,10 +3181,11 @@ function renderNilPlayer(){
   const N=window.TDC_NIL; if(!N){ host.innerHTML='<div style="padding:40px;color:var(--text3)">NIL model not loaded.</div>'; return; }
   const col=((typeof teamColor_g!=='undefined')?teamColor_g:null)||'#888', fmt=N.fmt;
   const conf=((typeof teamData!=='undefined'&&teamData&&(teamData.conf||teamData.conference)))||(player&&(player.conf||player.conference))||'';
+  const nilTier=((typeof teamData!=='undefined'&&teamData&&(teamData.nil_tier||teamData.team_tier||teamData.tier)))||5;
   const seasons=(careerHistory||[]).filter(s=>s._advanced&&s.mpg).map(s=>{
     const a=s._advanced, imp=N.impact(a.bpm,a.ws_per_40,a.per,s.tdc_grade);
     const ht=N.htIn(s.height), ppg=+s.ppg||0, prem=N.marketPremium(ht,ppg,conf);
-    return {yr:s.season_year, team:s.team, imp:imp, mpg:+s.mpg, grade:+s.tdc_grade||null, ht:ht, ppg:ppg, prem:prem, value:(imp!=null?N.marketValue(imp,+s.mpg,ht,ppg,conf):null)};
+    return {yr:s.season_year, team:s.team, imp:imp, mpg:+s.mpg, grade:+s.tdc_grade||null, ht:ht, ppg:ppg, prem:prem, value:(imp!=null?N.marketValue(imp,+s.mpg,ht,ppg,conf,nilTier):null)};
   }).filter(s=>s.imp!=null).sort((a,b)=>a.yr-b.yr);
   const last=seasons.length?seasons[seasons.length-1]:null;
   const projGrade=(player&&player.tdc_grade)||(last&&last.grade)||78;
@@ -3195,8 +3196,8 @@ function renderNilPlayer(){
   const projPrem=N.marketPremium(projHt,projPpg,conf);
   const aboveRepl=Math.max(projImp-N.REPL, N.FLOOR_PTS), minShare=Math.min(projMpg/40,1), contrib=aboveRepl*minShare, floored=(projImp-N.REPL)<N.FLOOR_PTS;
   const isWalkon=N.isWalkon(projImp);
-  const analyticalVal=N.value(projImp,projMpg), prodVal=analyticalVal*projPrem, baseVal=N.baseIntercept(projMpg,conf);
-  const projVal=N.marketValue(projImp,projMpg,projHt,projPpg,conf);
+  const analyticalVal=N.value(projImp,projMpg,nilTier), prodVal=analyticalVal*projPrem, baseVal=N.baseIntercept(projMpg,nilTier);
+  const projVal=N.marketValue(projImp,projMpg,projHt,projPpg,conf,nilTier);
   const pSize=N.sizeMult(projHt), pScore=N.scoreMult(projPpg), pConf=N.confMult(N.confClass(conf));
   let html=`<div style="display:flex;flex-wrap:wrap;gap:13px;margin-bottom:20px;">
     <div class="nil-card"><div class="nil-lbl">2026-27 Projected Value</div><div class="nil-big" style="color:${col}">${fmt(projVal)}</div></div>

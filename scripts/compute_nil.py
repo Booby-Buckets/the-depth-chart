@@ -24,7 +24,10 @@ W={"bpm":0.40,"grade":0.30,"ws40":0.20,"per":0.10}
 SIZE_BASE,SIZE_TOP,SIZE_MAX=75.0,85.0,0.40   # 6'3"=1.0 ... 7'1"+ = +40% (big-man market is hot)
 SCORE_BASE,SCORE_TOP,SCORE_MAX=12.0,27.0,0.18
 CONF_MULT={"P":1.12,"M":1.00,"L":0.90}
-BASE_INTERCEPT={"P":1.00,"M":0.45,"L":0.18}   # $M roster-spot base a rotation player commands before production (×minutes), by conf level
+# roster-spot base + rate scale with the team's SPENDING TIER (not conference) — a low-budget
+# power-conf program (e.g. Notre Dame, ACC but Tier 7) pays like its tier, not its league.
+BASE_BY_TIER={1:0.90,2:0.80,3:0.55,4:0.40,5:0.27,6:0.18,7:0.10,8:0.04,9:0.015}  # $M base (×minutes)
+RATE_BY_TIER={1:1.0,2:1.0,3:0.92,4:0.84,5:0.74,6:0.64,7:0.55,8:0.42,9:0.32}      # rate multiplier by tier
 def gnum(x):
     try: return float(x)
     except: return None
@@ -102,7 +105,9 @@ rows=[]
 for name,info in tinfo.items():
     budget=TIER_MID.get(tier_num(info["nil_tier"]))
     if not budget: continue
-    cls=conf_class(info.get("conference")); prod=0; icpt=0; pls=[]
+    tn=tier_num(info["nil_tier"]); cls=conf_class(info.get("conference"))
+    tbase=BASE_BY_TIER.get(tn,0.1); trate=RATE_BY_TIER.get(tn,0.6)
+    prod=0; icpt=0; pls=[]
     for p in ros.get(name,[]):
         imp,mp,prem=evalp(p,cls)
         if imp is None: imp=REPL
@@ -110,21 +115,17 @@ for name,info in tinfo.items():
         if imp<WALKON_THR:                     # walk-on: nominal, not part of roster spend
             pls.append((p["name"],imp,mp,prem,0.0,0.0,True)); continue
         eff=max(imp-REPL, FLOOR_PTS)           # production: rotation body worth >= FLOOR_PTS
-        c=eff*ms*prem
-        ic=BASE_INTERCEPT[cls]*ms              # base: roster-spot $ (conf + minutes scaled)
+        c=eff*ms*prem*trate                    # production $ scaled by the team's spending tier
+        ic=tbase*ms                            # base: roster-spot $ (tier + minutes scaled)
         prod+=c; icpt+=ic; pls.append((p["name"],imp,mp,prem,c,ic,False))
-    if prod<=0.1: continue
-    rows.append({"name":name,"tier":tier_num(info["nil_tier"]),"budget":budget,"prod":prod,"icpt":icpt,
-                 "srs":team_srs(name),"cls":cls,"pls":pls})
-# rate is fixed from real salary data (Tennessee anchors: Harris $5M, Lundblade $1.5M, etc.),
-# not budget-derived — the article's point is the market is its own thing, distinct from budgets.
-MKT=0.263
-_budgetImplied=statistics.median([(r["budget"]-r["icpt"])/r["prod"] for r in rows if r["prod"]>0 and r["budget"]>r["icpt"]])
+    if prod<=0.05 and icpt<=0.05: continue
+    rows.append({"name":name,"tier":tn,"budget":budget,"prod":prod,"icpt":icpt,"srs":team_srs(name),"cls":cls,"pls":pls})
+MKT=0.263   # base rate from real salary data (Tennessee anchors); RATE_BY_TIER scales it per team
 out={"market_rate_per_pt":round(MKT,4),"replacement":REPL,"floor_pts":FLOOR_PTS,"walkon_thr":WALKON_THR,"walkon_value":WALKON_VALUE,"tier_budget_m":TIER_MID,
      "impact":{"w":W,"mean":{k:round(M[k][0],4) for k in M},"std":{k:round(M[k][1],4) for k in M},
                "cz_mean":round(CZM,5),"cz_std":round(CZS,5)},
      "premium":{"size":[SIZE_BASE,SIZE_TOP,SIZE_MAX],"score":[SCORE_BASE,SCORE_TOP,SCORE_MAX],"conf":CONF_MULT},
-     "base_intercept":BASE_INTERCEPT,
+     "base_by_tier":BASE_BY_TIER,"rate_by_tier":RATE_BY_TIER,
      "teams":{}}
 for r in rows:
     val=r["prod"]*MKT + r["icpt"]
@@ -136,6 +137,6 @@ json.dump(out,open(os.path.join(os.path.dirname(__file__),"..","nil-data.json"),
 deals=sum(1 for r in rows if r["prod"]*MKT>r["budget"])
 print(f"teams: {len(rows)} | DEALS {deals}/{len(rows)} | MARKET=${MKT*1000:.0f}K/pt")
 print("\n--- tdc-nil.js constants ---")
-print(f"MARKET_RATE:{round(MKT,4)}, FLOOR_PTS:{FLOOR_PTS}, BASE_INTERCEPT:{json.dumps(BASE_INTERCEPT)},")
-print(f"IMPACT:{json.dumps(out['impact'])},")
-print(f"PREMIUM:{json.dumps(out['premium'])}")
+print(f"MARKET_RATE:{round(MKT,4)}, FLOOR_PTS:{FLOOR_PTS},")
+print(f"BASE_BY_TIER:{json.dumps(BASE_BY_TIER)}, RATE_BY_TIER:{json.dumps(RATE_BY_TIER)},")
+print(f"IMPACT:{json.dumps(out['impact'])}, PREMIUM:{json.dumps(out['premium'])}")
