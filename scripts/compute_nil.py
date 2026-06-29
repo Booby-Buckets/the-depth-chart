@@ -21,7 +21,8 @@ WALKON_VALUE=0.01  # $M nominal ($10K) for walk-ons
 TIER_MID={1:22.5,2:18,3:13.5,4:10,5:7.5,6:5,7:3,8:1.25,9:0.25}
 W={"bpm":0.40,"grade":0.30,"ws40":0.20,"per":0.10}
 # market-premium knobs
-SIZE_BASE,SIZE_TOP,SIZE_MAX=75.0,85.0,0.40   # 6'3"=1.0 ... 7'1"+ = +40% (big-man market is hot)
+SIZE_BASE,SIZE_TOP,SIZE_UP=75.0,85.0,0.40    # 6'3"=1.0 ... 7'1"+ = +40% (big-man market is hot)
+SIZE_BOT,SIZE_DOWN=69.0,0.40                 # ... and a penalty going down: 5'9" = -40% (small guards discounted)
 SCORE_BASE,SCORE_TOP,SCORE_MAX=12.0,27.0,0.18
 CONF_MULT={"P":1.12,"M":1.00,"L":0.90}
 # roster-spot base + rate scale with the team's SPENDING TIER (not conference) — a low-budget
@@ -50,7 +51,10 @@ def conf_class(c):
     if any(k in c for k in ["big ten","big 12","southeastern","big east","atlantic coast"]) or c in("acc","sec","b10","b12","be"): return "P"
     if any(k in c for k in ["american","atlantic 10","mountain west","west coast","conference usa","sun belt","mid-american","missouri valley"]) or c in("aac","a10","mwc","wcc"): return "M"
     return "L"
-def size_mult(h):  return 1.0 if not h   else 1+min(max((h-SIZE_BASE)/(SIZE_TOP-SIZE_BASE),0),1)*SIZE_MAX
+def size_mult(h):
+    if not h: return 1.0
+    if h>=SIZE_BASE: return 1+min((h-SIZE_BASE)/(SIZE_TOP-SIZE_BASE),1)*SIZE_UP          # bigs: premium
+    return 1-min((SIZE_BASE-h)/(SIZE_BASE-SIZE_BOT),1)*SIZE_DOWN                          # smalls: discount
 def score_mult(p): return 1.0 if not p   else 1+min(max((p-SCORE_BASE)/(SCORE_TOP-SCORE_BASE),0),1)*SCORE_MAX
 def premium(h,ppg,cls): return size_mult(h)*score_mult(ppg)*CONF_MULT.get(cls,1.0)
 
@@ -124,7 +128,7 @@ MKT=0.263   # base rate from real salary data (Tennessee anchors); RATE_BY_TIER 
 out={"market_rate_per_pt":round(MKT,4),"replacement":REPL,"floor_pts":FLOOR_PTS,"walkon_thr":WALKON_THR,"walkon_value":WALKON_VALUE,"tier_budget_m":TIER_MID,
      "impact":{"w":W,"mean":{k:round(M[k][0],4) for k in M},"std":{k:round(M[k][1],4) for k in M},
                "cz_mean":round(CZM,5),"cz_std":round(CZS,5)},
-     "premium":{"size":[SIZE_BASE,SIZE_TOP,SIZE_MAX],"score":[SCORE_BASE,SCORE_TOP,SCORE_MAX],"conf":CONF_MULT},
+     "premium":{"size":[SIZE_BASE,SIZE_TOP,SIZE_UP,SIZE_BOT,SIZE_DOWN],"score":[SCORE_BASE,SCORE_TOP,SCORE_MAX],"conf":CONF_MULT},
      "base_by_tier":BASE_BY_TIER,"rate_by_tier":RATE_BY_TIER,
      "teams":{}}
 for r in rows:

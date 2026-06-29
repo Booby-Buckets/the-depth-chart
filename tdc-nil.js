@@ -20,7 +20,7 @@ window.TDC_NIL = {
     std:  {bpm:4.3192,  ws40:0.0567, per:5.3637, grade:5.3126},
     cz_mean:-0.00419, cz_std:0.9239
   },
-  PREMIUM: { size:[75,85,0.40], score:[12,27,0.18], conf:{P:1.12, M:1.00, L:0.90} }
+  PREMIUM: { size:[75,85,0.40,69,0.40], score:[12,27,0.18], conf:{P:1.12, M:1.00, L:0.90} } // size: [base,top,up, bot,down] — premium for bigs, discount for smalls
 };
 (function(){
   var N = window.TDC_NIL, I = N.IMPACT, P = N.PREMIUM;
@@ -41,7 +41,9 @@ window.TDC_NIL = {
   N.value       = function(imp,mpg,tier){ var tn=N.tierNum(tier); return N.isWalkon(imp) ? N.WALKON_VALUE : N.contribution(imp,mpg) * N.MARKET_RATE * (N.RATE_BY_TIER[tn]||0.6); };   // production $M (no premium), tier-scaled
   // ── market premium: size (height), scoring (PPG), conference ──
   N.htIn = function(h){ if(!h) return null; var m=(''+h).match(/(\d+)\s*[-’']\s*(\d+)/); return m?(+m[1]*12+ +m[2]):null; };
-  N.sizeMult  = function(htIn){ if(!htIn) return 1; var a=P.size;  return 1+Math.min(Math.max((htIn-a[0])/(a[1]-a[0]),0),1)*a[2]; };
+  N.sizeMult  = function(htIn){ if(!htIn) return 1; var a=P.size;
+    if(htIn>=a[0]) return 1+Math.min((htIn-a[0])/(a[1]-a[0]),1)*a[2];                 // bigs: premium
+    return 1-Math.min((a[0]-htIn)/(a[0]-a[3]),1)*a[4]; };                              // smalls: discount
   N.scoreMult = function(ppg){  if(!ppg)  return 1; var a=P.score; return 1+Math.min(Math.max((ppg-a[0])/(a[1]-a[0]),0),1)*a[2]; };
   N.confClass = function(c){ c=(''+(c||'')).toLowerCase();
     if(/big ten|big 12|southeastern|big east|atlantic coast/.test(c) || ['acc','sec','b10','b12','be','big-east'].indexOf(c)>=0) return 'P';
