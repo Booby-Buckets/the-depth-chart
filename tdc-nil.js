@@ -6,9 +6,11 @@
    value = max(0, impact-replacement) * min(MPG/40,1) * market $/point * premium.
    Calibrated by scripts/compute_nil.py (re-run to refresh constants + nil-data.json). */
 window.TDC_NIL = {
-  MARKET_RATE: 0.2597,                                            // $M per net-rating point (median budget / premium-weighted production)
+  MARKET_RATE: 0.2635,                                            // $M per net-rating point (median budget / premium-weighted production)
   REPL: -1.0,
   FLOOR_PTS: 1.6,                                                 // rotation-body floor: a player who plays is worth >= this many net pts (×minutes×premium)
+  WALKON_THR: -6.0,                                               // impact below this = walk-on / non-rotation: nominal value
+  WALKON_VALUE: 0.01,                                             // $M nominal ($10K) for walk-ons
   TIER_BUDGET: {1:22.5,2:18,3:13.5,4:10,5:7.5,6:5,7:3,8:1.25,9:0.25},
   IMPACT: {
     w:    {bpm:0.40, grade:0.30, ws40:0.20, per:0.10},
@@ -32,7 +34,8 @@ window.TDC_NIL = {
   N.blendImpact = function(provenImp, grade){ var pj=N.gradeImpact(grade);
     if(provenImp==null) return pj; if(pj==null) return provenImp; return (provenImp+pj)/2; };
   N.contribution= function(imp,mpg){ var eff=Math.max((+imp)-N.REPL, N.FLOOR_PTS); return eff * Math.min(Math.max(+mpg,0)/40,1); };
-  N.value       = function(imp,mpg){ return N.contribution(imp,mpg) * N.MARKET_RATE; };   // analytical $M (no premium)
+  N.isWalkon    = function(imp){ return (+imp) < N.WALKON_THR; };
+  N.value       = function(imp,mpg){ return N.isWalkon(imp) ? N.WALKON_VALUE : N.contribution(imp,mpg) * N.MARKET_RATE; };   // analytical $M (no premium)
   // ── market premium: size (height), scoring (PPG), conference ──
   N.htIn = function(h){ if(!h) return null; var m=(''+h).match(/(\d+)\s*[-’']\s*(\d+)/); return m?(+m[1]*12+ +m[2]):null; };
   N.sizeMult  = function(htIn){ if(!htIn) return 1; var a=P.size;  return 1+Math.min(Math.max((htIn-a[0])/(a[1]-a[0]),0),1)*a[2]; };
@@ -43,7 +46,7 @@ window.TDC_NIL = {
     return 'L'; };
   N.confMult  = function(cls){ return P.conf[cls] || 1; };
   N.marketPremium = function(htIn,ppg,confCode){ return N.sizeMult(htIn)*N.scoreMult(ppg)*N.confMult(N.confClass(confCode)); };
-  N.marketValue   = function(imp,mpg,htIn,ppg,confCode){ return N.value(imp,mpg) * N.marketPremium(htIn,ppg,confCode); }; // $M
+  N.marketValue   = function(imp,mpg,htIn,ppg,confCode){ return N.isWalkon(imp) ? N.WALKON_VALUE : N.value(imp,mpg) * N.marketPremium(htIn,ppg,confCode); }; // $M
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };
 })();
