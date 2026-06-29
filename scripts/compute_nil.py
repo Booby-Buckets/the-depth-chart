@@ -125,16 +125,24 @@ for name,info in tinfo.items():
     if prod<=0.05 and icpt<=0.05: continue
     rows.append({"name":name,"tier":tn,"budget":budget,"prod":prod,"icpt":icpt,"srs":team_srs(name),"cls":cls,"pls":pls})
 MKT=0.263   # base rate from real salary data (Tennessee anchors); RATE_BY_TIER scales it per team
+# manual overrides (injury risk, versatility, hyped recruits, non-D1 transfers) — things the model can't see
+OVR={}
+_ovp=os.path.join(os.path.dirname(__file__),"..","nil-overrides.json")
+if os.path.exists(_ovp):
+    try: OVR={k:v["value"] for k,v in (json.load(open(_ovp)).get("by_name") or {}).items() if isinstance(v,dict) and "value" in v}
+    except Exception: OVR={}
+def pval(n,c,ic,wo): return OVR[n] if n in OVR else (WALKON_VALUE if wo else round(c*MKT+ic,3))
 out={"market_rate_per_pt":round(MKT,4),"replacement":REPL,"floor_pts":FLOOR_PTS,"walkon_thr":WALKON_THR,"walkon_value":WALKON_VALUE,"tier_budget_m":TIER_MID,
      "impact":{"w":W,"mean":{k:round(M[k][0],4) for k in M},"std":{k:round(M[k][1],4) for k in M},
                "cz_mean":round(CZM,5),"cz_std":round(CZS,5)},
      "premium":{"size":[SIZE_BASE,SIZE_TOP,SIZE_UP,SIZE_BOT,SIZE_DOWN],"score":[SCORE_BASE,SCORE_TOP,SCORE_MAX],"conf":CONF_MULT},
      "base_by_tier":BASE_BY_TIER,"rate_by_tier":RATE_BY_TIER,
      "teams":{}}
+out["overrides"]=OVR
 for r in rows:
-    val=r["prod"]*MKT + r["icpt"]
-    pls=sorted([{"name":n,"impact":round(imp,1),"mpg":round(mp,1),"prem":round(prem,2),"value":(WALKON_VALUE if wo else round(c*MKT+ic,3)),"walkon":wo} for n,imp,mp,prem,c,ic,wo in r["pls"]],key=lambda x:-x["value"])
-    out["teams"][r["name"]]={"tier":r["tier"],"budget":r["budget"],"value":round(val,2),"production":round(r["prod"],2),
+    pls=sorted([{"name":n,"impact":round(imp,1),"mpg":round(mp,1),"prem":round(prem,2),"value":pval(n,c,ic,wo),"walkon":wo,"override":(n in OVR)} for n,imp,mp,prem,c,ic,wo in r["pls"]],key=lambda x:-x["value"])
+    val=round(sum(p["value"] for p in pls),2)   # team value = sum of player values (reflects overrides)
+    out["teams"][r["name"]]={"tier":r["tier"],"budget":r["budget"],"value":val,"production":round(r["prod"],2),
         "implied_rate":round(r["budget"]/(r["prod"] or 1),4),"srs":r["srs"],"verdict":"deal" if val>r["budget"] else "expensive",
         "diff":round(val-r["budget"],2),"players":pls}
 json.dump(out,open(os.path.join(os.path.dirname(__file__),"..","nil-data.json"),"w"),separators=(',',':'))
