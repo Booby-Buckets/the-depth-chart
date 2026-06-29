@@ -6,8 +6,9 @@
    value = max(0, impact-replacement) * min(MPG/40,1) * market $/point * premium.
    Calibrated by scripts/compute_nil.py (re-run to refresh constants + nil-data.json). */
 window.TDC_NIL = {
-  MARKET_RATE: 0.2915,                                            // $M per net-rating point (median budget / premium-weighted production)
+  MARKET_RATE: 0.2597,                                            // $M per net-rating point (median budget / premium-weighted production)
   REPL: -1.0,
+  FLOOR_PTS: 1.6,                                                 // rotation-body floor: a player who plays is worth >= this many net pts (×minutes×premium)
   TIER_BUDGET: {1:22.5,2:18,3:13.5,4:10,5:7.5,6:5,7:3,8:1.25,9:0.25},
   IMPACT: {
     w:    {bpm:0.40, grade:0.30, ws40:0.20, per:0.10},
@@ -30,7 +31,7 @@ window.TDC_NIL = {
   N.gradeImpact = function(grade){ return N.impact(null,null,null,grade); };
   N.blendImpact = function(provenImp, grade){ var pj=N.gradeImpact(grade);
     if(provenImp==null) return pj; if(pj==null) return provenImp; return (provenImp+pj)/2; };
-  N.contribution= function(imp,mpg){ return Math.max(0,(+imp)-N.REPL) * Math.min(Math.max(+mpg,0)/40,1); };
+  N.contribution= function(imp,mpg){ var eff=Math.max((+imp)-N.REPL, N.FLOOR_PTS); return eff * Math.min(Math.max(+mpg,0)/40,1); };
   N.value       = function(imp,mpg){ return N.contribution(imp,mpg) * N.MARKET_RATE; };   // analytical $M (no premium)
   // ── market premium: size (height), scoring (PPG), conference ──
   N.htIn = function(h){ if(!h) return null; var m=(''+h).match(/(\d+)\s*[-’']\s*(\d+)/); return m?(+m[1]*12+ +m[2]):null; };

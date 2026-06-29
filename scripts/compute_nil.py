@@ -15,6 +15,7 @@ SB="https://izlqhnxowdhtdofkwrho.supabase.co"
 key=re.search(r'SB_KEY\s*=\s*"(sb_secret_[^"]+)"',open("load_supabase.py").read()).group(1)
 H={"apikey":key,"Authorization":f"Bearer {key}"}
 REPL=-1.0
+FLOOR_PTS=1.6   # rotation-body floor: even a below-replacement player who plays is worth >= this many net pts (×minutes×premium)
 TIER_MID={1:22.5,2:18,3:13.5,4:10,5:7.5,6:5,7:3,8:1.25,9:0.25}
 W={"bpm":0.40,"grade":0.30,"ws40":0.20,"per":0.10}
 # market-premium knobs
@@ -102,13 +103,14 @@ for name,info in tinfo.items():
     for p in ros.get(name,[]):
         imp,mp,prem=evalp(p,cls)
         if imp is None: imp=REPL
-        c=max(0.0,(imp-REPL))*min(max(mp,0)/40.0,1.0)*prem
+        eff=max(imp-REPL, FLOOR_PTS)           # floor: a rotation body is worth >= FLOOR_PTS
+        c=eff*min(max(mp,0)/40.0,1.0)*prem
         prod+=c; pls.append((p["name"],imp,mp,prem,c))
     if prod<=0.5: continue
     rows.append({"name":name,"tier":tier_num(info["nil_tier"]),"budget":budget,"prod":prod,
                  "implied":budget/prod,"srs":team_srs(name),"cls":cls,"pls":pls})
 MKT=statistics.median(r["implied"] for r in rows)
-out={"market_rate_per_pt":round(MKT,4),"replacement":REPL,"tier_budget_m":TIER_MID,
+out={"market_rate_per_pt":round(MKT,4),"replacement":REPL,"floor_pts":FLOOR_PTS,"tier_budget_m":TIER_MID,
      "impact":{"w":W,"mean":{k:round(M[k][0],4) for k in M},"std":{k:round(M[k][1],4) for k in M},
                "cz_mean":round(CZM,5),"cz_std":round(CZS,5)},
      "premium":{"size":[SIZE_BASE,SIZE_TOP,SIZE_MAX],"score":[SCORE_BASE,SCORE_TOP,SCORE_MAX],"conf":CONF_MULT},
@@ -123,6 +125,6 @@ json.dump(out,open(os.path.join(os.path.dirname(__file__),"..","nil-data.json"),
 deals=sum(1 for r in rows if r["prod"]*MKT>r["budget"])
 print(f"teams: {len(rows)} | DEALS {deals}/{len(rows)} | MARKET=${MKT*1000:.0f}K/pt")
 print("\n--- tdc-nil.js constants ---")
-print(f"MARKET_RATE:{round(MKT,4)},")
+print(f"MARKET_RATE:{round(MKT,4)}, FLOOR_PTS:{FLOOR_PTS},")
 print(f"IMPACT:{json.dumps(out['impact'])},")
 print(f"PREMIUM:{json.dumps(out['premium'])}")
