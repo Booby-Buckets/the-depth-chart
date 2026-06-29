@@ -18,7 +18,7 @@ REPL=-1.0
 TIER_MID={1:22.5,2:18,3:13.5,4:10,5:7.5,6:5,7:3,8:1.25,9:0.25}
 W={"bpm":0.40,"grade":0.30,"ws40":0.20,"per":0.10}
 # market-premium knobs
-SIZE_BASE,SIZE_TOP,SIZE_MAX=76.0,88.0,0.20   # 6'4"=1.0 ... 7'4"+ = +20%
+SIZE_BASE,SIZE_TOP,SIZE_MAX=75.0,85.0,0.40   # 6'3"=1.0 ... 7'1"+ = +40% (big-man market is hot)
 SCORE_BASE,SCORE_TOP,SCORE_MAX=12.0,27.0,0.18
 CONF_MULT={"P":1.12,"M":1.00,"L":0.90}
 def gnum(x):

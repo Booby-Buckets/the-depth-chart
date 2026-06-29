@@ -6,7 +6,7 @@
    value = max(0, impact-replacement) * min(MPG/40,1) * market $/point * premium.
    Calibrated by scripts/compute_nil.py (re-run to refresh constants + nil-data.json). */
 window.TDC_NIL = {
-  MARKET_RATE: 0.3158,                                            // $M per net-rating point (median budget / premium-weighted production)
+  MARKET_RATE: 0.2915,                                            // $M per net-rating point (median budget / premium-weighted production)
   REPL: -1.0,
   TIER_BUDGET: {1:22.5,2:18,3:13.5,4:10,5:7.5,6:5,7:3,8:1.25,9:0.25},
   IMPACT: {
@@ -15,7 +15,7 @@ window.TDC_NIL = {
     std:  {bpm:4.3192,  ws40:0.0567, per:5.3637, grade:5.3126},
     cz_mean:-0.00419, cz_std:0.9239
   },
-  PREMIUM: { size:[76,88,0.20], score:[12,27,0.18], conf:{P:1.12, M:1.00, L:0.90} }
+  PREMIUM: { size:[75,85,0.40], score:[12,27,0.18], conf:{P:1.12, M:1.00, L:0.90} }
 };
 (function(){
   var N = window.TDC_NIL, I = N.IMPACT, P = N.PREMIUM;
