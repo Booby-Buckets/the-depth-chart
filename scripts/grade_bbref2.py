@@ -25,9 +25,9 @@ MIN_MPG=8
 MIN_GP=13              # game cap: fewer games than this = no season grade (small sample)
 CRED_MP=650.0          # total minutes for full advanced-stat credibility
 ADV_W=0.85             # how much the advanced component counts vs production
-PROD_W={"wa":1.7,"ppg":0.9,"ts":0.5,"rpg":0.32,"apg":0.95,"stl":0.18,"blk":0.18,"tovs":-0.18,"mpg":0.22,"team_srs":0.5}
+PROD_W={"wa":1.7,"ppg":1.45,"ts":0.5,"rpg":0.32,"apg":0.55,"stl":0.18,"blk":0.18,"tovs":-0.18,"mpg":0.22,"team_srs":0.5,"usg":0.85}
 LO_CLIP={"apg":0.0}    # assists are a pure bonus: reward playmakers (up to +4z), never punish non-passers
-ADV_F ={"bpm":0.6,"per":0.35,"usg":0.25,"ast_pct":0.3,"trb_pct":0.3,
+ADV_F ={"bpm":0.6,"per":0.35,"usg":0.2,"ast_pct":0.3,"trb_pct":0.3,
         "stl_pct":0.15,"blk_pct":0.15,"tov_pct":-0.18}
 TIER_COUNTS=["ppg","rpg","apg","stl","blk","tovs"]
 
@@ -97,7 +97,7 @@ def squash(raw):
 
 def compute(df):
     df["raw"]=np.nan
-    PROD_COL={"ppg":"adj_ppg","ts":"ts","rpg":"adj_rpg","apg":"adj_apg","stl":"adj_stl","blk":"adj_blk","tovs":"adj_tovs","mpg":"mpg","team_srs":"team_srs","wa":"wa"}
+    PROD_COL={"ppg":"adj_ppg","ts":"ts","rpg":"adj_rpg","apg":"adj_apg","stl":"adj_stl","blk":"adj_blk","tovs":"adj_tovs","mpg":"mpg","team_srs":"team_srs","wa":"wa","usg":"usg"}
     for grp,idx in df.groupby("_grp").groups.items():
         sub=df.loc[idx]; qual=sub[sub["mpg"]>=MIN_MPG]
         if len(qual)<50: continue
