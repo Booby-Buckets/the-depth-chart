@@ -2248,7 +2248,7 @@ function setOvrSeason(val){
   var host=document.getElementById('ovrCards'); if(!host) return;
   renderSkill(val);
   try{ var _xi=_skillSrcFor(val); renderImpact(_xi.src,_xi.projected); }catch(e){}
-  if(val==='proj'){ host.innerHTML=buildOverviewCards(player, proj); _updateHeroSeason(player.team, player.gp); _setHeroGrade(player.tdc_grade); return; }
+  if(val==='proj'){ host.innerHTML=buildOverviewCards(player, proj); _updateHeroSeason(player.team, player.gp); _setHeroGrade(_projectedGrade()||player.tdc_grade); return; }
   var s=_ovrSeasonRow(val); if(!s) return;
   host.innerHTML=ovrCardsFor(s);
   _updateHeroSeason(s.team, s.gp);
@@ -2953,6 +2953,25 @@ function renderRankings(){
   setTimeout(()=>host.querySelectorAll('.rk-fill').forEach(el=>{el.style.width=el.getAttribute('data-w')+'%';}),60);
 }
 
+// ── Projected 2026-27 grade ───────────────────────────────────────────────
+// The grade for the projection should MOVE with the projected line — a bigger
+// role/production raises it, a reduced role or efficiency drop lowers it — instead
+// of statically carrying forward last year's grade. Anchored on the real grade, so
+// it stays calibrated per-player; nudged by the change in box-score value.
+function _effAdj(s){ var fg=parseFloat(s.fg_pct)||0, ppg=parseFloat(s.ppg)||0; return fg?(fg/100-0.47)*ppg*1.1:0; } // reward efficient scoring, penalize inefficient volume
+function _prodVal(s){ if(!s) return 0;
+  return 1.0*(parseFloat(s.ppg)||0)+0.7*(parseFloat(s.apg)||0)+0.65*(parseFloat(s.rpg)||0)
+        +1.5*(parseFloat(s.stl)||0)+0.9*(parseFloat(s.blk)||0)-1.2*(parseFloat(s.tovs)||0)
+        +_effAdj(s)+0.04*(parseFloat(s.mpg)||0); }
+function _projectedGrade(){
+  var pl=playerProjLine(); if(!pl || pl._frosh || pl._noStatEst) return null;   // no real projection to grade
+  if(!((parseFloat(player.ppg)||0)>0 || (parseFloat(player.mpg)||0)>=2)) return null; // need a real prior line to delta from
+  var anchor=parseInt(player.tdc_grade); if(isNaN(anchor)) return null;
+  var delta=(_prodVal(pl)-_prodVal(player))*0.45;                  // box-value change -> grade points
+  var g=Math.round(anchor+delta);
+  return Math.max(anchor-8, Math.min(anchor+8, Math.min(99,g)));   // clamp swings; stay anchored
+}
+
 // Overall progression chart — player's TDC grade across seasons, over a faint
 // "normal progression" (Fr→Grad) reference ramp.
 function buildProgression(p){
@@ -2967,7 +2986,7 @@ function buildProgression(p){
   // Only project a 2026-27 point if the player is actually on a current roster
   // (proj is set). Graduated/departed players — loaded from history, proj=null —
   // end at the last season they played.
-  var pg=parseInt(p.tdc_grade);
+  var pg=_projectedGrade(); if(pg==null||isNaN(pg)) pg=parseInt(p.tdc_grade);
   if(proj && !isNaN(pg)) pts.push({yr:2027,grade:pg,proj:true,cls:p.yr||p.class_year});
   if(!pts.length) return '';
 
