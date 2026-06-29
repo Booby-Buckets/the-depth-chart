@@ -1888,6 +1888,11 @@ function getPctNat(val,key){
 }
 function _seasonLbl(y){ y=parseInt(y); return isNaN(y)?y:((y-1)+'-'+(''+y).slice(2)); }
 
+// Wins Added distribution over EVERY qualified player-season in the database
+// (69,569 seasons, mpg>=8). WA = Win Shares - 0.04*(MP/40) replacement baseline.
+NAT_PCT["wa"]=[-3.5,-0.58,-0.39,-0.28,-0.21,-0.15,-0.1,-0.05,-0.01,0.03,0.07,0.1,0.14,0.18,0.23,0.27,0.31,0.35,0.39,0.44,0.49,0.53,0.58,0.64,0.69,0.75,0.81,0.86,0.93,0.99,1.06,1.13,1.2,1.27,1.35,1.44,1.53,1.62,1.73,1.84,1.96,2.08,2.22,2.37,2.54,2.73,2.96,3.25,3.63,4.24,10.14];
+var WA_POOL_N=69569;
+
 // ── IMPACT SCORE (PREDICTIVE — 2026-27 projected) ─────────
 // A box-score impact index (0-100) blending scoring, creation, rebounding,
 // defense and efficiency — computed on PROJECTED stats and ranked against a
@@ -1967,12 +1972,14 @@ function renderImpact(){
   ['ppg','rpg','apg','stl','blk'].forEach(function(k){
     D[k+'40']=lines.map(function(l){return _imp40(l,k);}).filter(function(v){return v>0;}).sort(function(a,b){return a-b;});});
   D.astto=lines.map(function(l){return (+l.apg||0)/Math.max(0.7,(+l.tovs||0));}).filter(function(v){return !isNaN(v);}).sort(function(a,b){return a-b;});
-  var scores=lines.map(function(l){return _impScore(_impComponents(l,D));});
   var myLine=playerProjLine();
-  var c=_impComponents(myLine,D), my=_impScore(c), score=Math.round(my);
-  var M=scores.length, better=scores.filter(function(v){return v>my+0.0001;}).length, rank=better+1;
-  var pctl=Math.max(1,Math.round((1-(rank-1)/Math.max(1,M))*100));
+  var c=_impComponents(myLine,D);
   function ord(n){var s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
+  // ── Wins Added: actual (most-recent season with Win Shares), ranked vs the WHOLE database ──
+  var adv=null, advSeason=null;
+  if(player._advanced && player._advanced.ws!=null && player._advanced.ws!=='') { adv=player._advanced; advSeason=player.season_year; }
+  if(!adv && typeof careerHistory!=='undefined'){ for(var _i=careerHistory.length-1;_i>=0;_i--){ var _a=careerHistory[_i]&&careerHistory[_i]._advanced; if(_a&&_a.ws!=null&&_a.ws!==''){adv=_a;advSeason=careerHistory[_i].season_year;break;} } }
+  var wa=adv?_winsAdded(adv):null;
   var comps=[
     {l:'Scoring',v:Math.round(c.scoring)},{l:'Creation',v:Math.round(c.creation)},
     {l:'Rebounding',v:Math.round(c.rebounding)},{l:'Defense',v:Math.round(c.defense)},
@@ -1983,15 +1990,24 @@ function renderImpact(){
       '<div class="imp-card-v">'+g.v+'</div>'+
       '<div class="imp-card-bar"><i class="impact-fill" style="width:'+Math.max(g.v,2)+'%;background:var(--tc);"></i></div></div>';
   }).join('');
-  var _impSeason=(window._historicalView&&player.season_year)?((player.season_year-1)+'-'+(''+player.season_year).slice(2)):'2026-27 PROJ';
-  host.innerHTML='<div class="sec-title" style="margin-bottom:14px;">Impact Score <span style="font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--accent);background:rgba(139,105,20,.12);padding:2px 6px;border-radius:4px;vertical-align:middle;">'+_impSeason+'</span></div>'+
+  var headHtml, barPct=2;
+  if(wa==null){
+    headHtml='<div class="impact-num" style="font-size:34px;">—</div>'+
+      '<div class="impact-meta"><div class="impact-rank">Awaiting college data</div>'+
+      '<div class="impact-pctl">Wins Added needs a played season</div></div>';
+  } else {
+    var pctl=getPctNat(wa,'wa'); barPct=pctl;
+    var rank=Math.max(1,Math.round((1-pctl/100)*WA_POOL_N));
+    var top=Math.max(1,101-pctl);
+    headHtml='<div class="impact-num">'+(wa>0?'+':'')+wa.toFixed(1)+'<span> wins</span></div>'+
+      '<div class="impact-meta"><div class="impact-rank">'+ord(rank)+' of '+WA_POOL_N.toLocaleString()+' all-time</div>'+
+      '<div class="impact-pctl">Top '+(top<=1?'1':top)+'% &middot; wins added</div></div>';
+  }
+  var badge=advSeason?((advSeason-1)+'-'+(''+advSeason).slice(2)):'';
+  host.innerHTML='<div class="sec-title" style="margin-bottom:14px;">Wins Added'+(badge?' <span style="font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--accent);background:rgba(139,105,20,.12);padding:2px 6px;border-radius:4px;vertical-align:middle;">'+badge+'</span>':'')+'</div>'+
     '<div class="impact-wrap">'+
-      '<div class="impact-head">'+
-        '<div class="impact-num">'+score+'<span>/100</span></div>'+
-        '<div class="impact-meta"><div class="impact-rank">'+ord(rank)+' of '+M+' nationally</div>'+
-        '<div class="impact-pctl">Top '+(101-pctl<=1?'1':(101-pctl))+'% &middot; projected impact</div></div>'+
-      '</div>'+
-      '<div class="impact-bar"><i class="impact-fill" style="width:'+Math.max(score,2)+'%;"></i></div>'+
+      '<div class="impact-head">'+headHtml+'</div>'+
+      '<div class="impact-bar"><i class="impact-fill" style="width:'+Math.max(barPct,2)+'%;"></i></div>'+
       '<div class="impact-grid">'+cards+'</div>'+
     '</div>';
   growBarsIn(host);
