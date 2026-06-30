@@ -1185,7 +1185,7 @@
 </style>
 <div class="showcase" id="showcase" style="display:none;">
   <div id="scPlayersBlock">
-    <div class="sc-label">Top Players <span id="scTeamSeason"></span></div>
+    <div class="sc-label" id="scLabel">Top Players <span id="scTeamSeason"></span></div>
     <div class="sc-players" id="scPlayers"></div>
   </div>
 </div>
@@ -1416,23 +1416,35 @@ async function renderShowcase(){
       <div class="sc-meta">${t.wins}–${t.losses}${tierBadge(t.tier)}</div>
     </a>`).join('');
   sc.style.display='flex';
-  // top rated players for this season (from bbref_seasons grades) — retry transient failures
+  // ── Top players — scoped to the active conference when one is selected ──
   const blk=document.getElementById('scPlayersBlock');
-  let ps=null;
-  for(let a=0;a<4 && !(Array.isArray(ps)&&ps.length);a++){
-    if(a) await new Promise(r=>setTimeout(r,500));
-    try{
-      // Pull a wider top-grade slice, then keep only players with real playing time
-      // (≥5 games, ≥10 mpg) so a low-minute fluke grade can't headline the page.
-      const r=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${curSeason}&tdc_grade=not.is.null&select=player,school,tdc_grade,espn_id,pergame&order=tdc_grade.desc&limit=60`,{headers:HEADERS});
-      const raw=r.ok?await r.json():null;
-      if(Array.isArray(raw)){
-        const qual=raw.filter(p=>{ const pg=p.pergame||{}; return (parseFloat(pg.games)||0)>=5 && (parseFloat(pg.mp_per_g)||0)>=10; });
-        ps=(qual.length>=6?qual:raw).slice(0,6);
-      }
-    }catch(e){ ps=null; }
+  const lbl=document.getElementById('scLabel');
+  const confName=(confFilter && typeof CONF_META!=='undefined' && CONF_META[confFilter]) ? CONF_META[confFilter].name : '';
+  if(lbl) lbl.innerHTML=`Top ${confName?confName+' ':''}Players <span id="scTeamSeason">· ${yLbl}</span>`;
+  // A generous top-grade pool for the season, cached so conference switches don't refetch.
+  window._scPoolCache = window._scPoolCache || {};
+  let pool = window._scPoolCache[curSeason];
+  if(!pool){
+    for(let a=0;a<4 && !pool;a++){
+      if(a) await new Promise(r=>setTimeout(r,500));
+      try{
+        const r=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${curSeason}&tdc_grade=not.is.null&select=player,school,tdc_grade,espn_id,pergame&order=tdc_grade.desc&limit=800`,{headers:HEADERS});
+        if(r.ok){ const raw=await r.json(); if(Array.isArray(raw)&&raw.length) pool=raw; }
+      }catch(e){}
+    }
+    if(pool) window._scPoolCache[curSeason]=pool;
   }
-  if(blk && Array.isArray(ps) && ps.length){
+  if(blk && Array.isArray(pool) && pool.length){
+    // require real playing time so a low-minute fluke grade can't headline
+    const qual = pool.filter(p=>{ const pg=p.pergame||{}; return (parseFloat(pg.games)||0)>=5 && (parseFloat(pg.mp_per_g)||0)>=10; });
+    const base = qual.length>=6 ? qual : pool;
+    let ps;
+    if(confFilter){
+      ps = base.filter(p=>schoolConf(p.school)===confFilter).slice(0,6);
+      if(!ps.length) ps = base.slice(0,6);   // fallback if conf couldn't be resolved
+    } else {
+      ps = base.slice(0,6);
+    }
     document.getElementById('scPlayers').innerHTML=ps.map(p=>{
       const g=+p.tdc_grade, cls=g>=99?'sc-g99':g>=96?'sc-g96':'sc-g90';
       const link=p.espn_id?`player.html?espn=${p.espn_id}`:'#';
@@ -1440,6 +1452,20 @@ async function renderShowcase(){
     }).join('');
     blk.style.display='';
   } else if(blk){ blk.style.display='none'; }
+}
+// Resolve a bbref "school" to its conference code via the loaded teams. Picks the
+// shortest matching team name so "Texas"→Longhorns (B12), "Texas A&M"→Aggies (SEC).
+let _schoolConfCache=null;
+function schoolConf(school){
+  const s=(school||'').toLowerCase().trim(); if(!s) return null;
+  if(!_schoolConfCache) _schoolConfCache={};
+  if(s in _schoolConfCache) return _schoolConfCache[s];
+  let best=null;
+  allTeams.forEach(t=>{
+    const n=(t.name||'').toLowerCase();
+    if((n===s || n.startsWith(s+' ')) && (!best || n.length<best.len)) best={conf:t.conf,len:n.length};
+  });
+  return (_schoolConfCache[s] = best?best.conf:null);
 }
 function seasonLabel(yr){ return `${yr-1}–${(''+yr).slice(2)}`; }
 async function ensureColors(){
@@ -1477,6 +1503,7 @@ async function loadSeason(yr){
     window._useSrs = allTeams.some(t=>t.srs!=null);
     allTeams.sort((a,b)=> window._useSrs ? ((b.srs??-999)-(a.srs??-999)) : (b.margin-a.margin));
     allTeams.forEach((t,i)=>t.rk=i+1);
+    _schoolConfCache=null;   // conference assignments can change by season (realignment)
 
     // Expose team meta + projected stats by name for hover micro-cards
     window._teamMetaByName = {};
@@ -1562,6 +1589,7 @@ function setConf(conf,btn){
   document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   applyFilters(true); // animated on user click
+  renderShowcase();   // re-scope Top Players to the selected conference
 }
 
 // Unified sort state — driven by both the dropdown and clickable column headers.
