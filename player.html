@@ -2814,6 +2814,42 @@ function _ratingChartSvg(games){
   return '<div class="gl-chart"><div class="gl-chart-head"><span>Game Rating · Over Time</span><span class="gl-chart-avg">avg <b>'+avg.toFixed(2)+'</b></span></div>'+
     '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block;overflow:visible;"><path d="'+area+'" fill="'+tc+'" opacity="0.07"/><polyline points="'+poly+'" fill="none" stroke="'+tc+'" stroke-width="2" stroke-linejoin="round"/>'+grid+dots+'</svg></div>';
 }
+// numeric season grade (the overall the trend line is anchored to)
+function _seasonGrade(yr){
+  var s=(careerHistory||[]).filter(function(x){return +x.season_year===+yr && x.tdc_grade!=null && x.tdc_grade!=='';});
+  if(s.length){ var g=parseInt(s.sort(function(a,b){return (+b.gp||0)-(+a.gp||0);})[0].tdc_grade); if(!isNaN(g)) return g; }
+  var pg=parseInt(player&&player.tdc_grade); return isNaN(pg)?72:pg;
+}
+// "Overall Trend" — a form-weighted running overall: each game maps to a game-level
+// overall (its rating vs the player's season average, scaled onto the grade), and the
+// line is an EWMA of those, anchored at the season grade. A couple strong games lift it
+// ~1-2; a cold stretch drags it down. Purely a momentum read, not the stored grade.
+function _overallTrackSvg(games, yr){
+  var G=_seasonGrade(yr);
+  var gs=games.slice().sort(function(a,b){return (a.date||'').localeCompare(b.date||'');}); // chronological
+  if(gs.length<3) return '';
+  var rs=gs.map(_gameRating);
+  var Ravg=rs.reduce(function(a,b){return a+b;},0)/rs.length || 6.3;
+  var alpha=0.16, k=3.6, cap=12, O=G, pts=[];
+  rs.forEach(function(r){ var go=G+Math.max(-cap,Math.min(cap,k*(r-Ravg))); O+=alpha*(go-O); O=Math.max(G-9,Math.min(G+9,O)); pts.push(O); });
+  var W=760,H=200,pl=34,pr=14,ptp=16,pb=22;
+  var lo=Math.min(G,Math.min.apply(null,pts)), hi=Math.max(G,Math.max.apply(null,pts));
+  var pad=Math.max(2.5,(hi-lo)*0.3), ymin=Math.floor(lo-pad), ymax=Math.ceil(hi+pad);
+  var x=function(i){return pl+(W-pl-pr)*(i/(gs.length-1));};
+  var y=function(v){return ptp+(H-ptp-pb)*(1-(Math.max(ymin,Math.min(ymax,v))-ymin)/(ymax-ymin));};
+  var tc=(teamData&&teamData.color)||'var(--accent)';
+  var grid='';
+  [ymin, Math.round((ymin+ymax)/2), ymax].forEach(function(v){var yy=y(v);grid+='<line x1="'+pl+'" y1="'+yy.toFixed(1)+'" x2="'+(W-pr)+'" y2="'+yy.toFixed(1)+'" stroke="var(--border)" stroke-width="1"/><text x="'+(pl-5)+'" y="'+(yy+3).toFixed(1)+'" text-anchor="end" font-size="9" fill="var(--text3)">'+v+'</text>';});
+  var gy=y(G); grid+='<line x1="'+pl+'" y1="'+gy.toFixed(1)+'" x2="'+(W-pr)+'" y2="'+gy.toFixed(1)+'" stroke="'+tc+'" stroke-width="1" stroke-dasharray="4 3" opacity="0.55"/><text x="'+(W-pr)+'" y="'+(gy-4).toFixed(1)+'" text-anchor="end" font-size="9" fill="'+tc+'" opacity="0.85">season '+G+'</text>';
+  var poly=pts.map(function(v,i){return x(i).toFixed(1)+','+y(v).toFixed(1);}).join(' ');
+  var area='M'+x(0).toFixed(1)+','+(H-pb)+' L'+poly.split(' ').join(' L')+' L'+x(gs.length-1).toFixed(1)+','+(H-pb)+' Z';
+  var dots=pts.map(function(v,i){var prev=i?pts[i-1]:v;var dir=v>prev+0.05?'#1f9d57':v<prev-0.05?'#cf5a4e':'#8a8a99';return '<circle cx="'+x(i).toFixed(1)+'" cy="'+y(v).toFixed(1)+'" r="3" fill="'+dir+'" stroke="var(--bg)" stroke-width="1"><title>'+((gs[i].opp||'')+': '+Math.round(v)+' ovr — game rating '+rs[i].toFixed(1))+'</title></circle>';}).join('');
+  var start=Math.round(pts[0]), end=Math.round(pts[pts.length-1]), peak=Math.round(Math.max.apply(null,pts)), trough=Math.round(Math.min.apply(null,pts));
+  var delta=end-start, dColor=delta>0?'#1f9d57':delta<0?'#cf5a4e':'var(--text3)';
+  return '<div class="gl-chart"><div class="gl-chart-head"><span>Overall Trend · how each game moved his ranking</span><span class="gl-chart-avg">'+start+' → <b>'+end+'</b> <span style="color:'+dColor+';font-weight:700;">('+(delta>=0?'+':'')+delta+')</span></span></div>'+
+    '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block;overflow:visible;"><path d="'+area+'" fill="'+tc+'" opacity="0.07"/>'+grid+'<polyline points="'+poly+'" fill="none" stroke="'+tc+'" stroke-width="2.4" stroke-linejoin="round"/>'+dots+'</svg>'+
+    '<div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:8px;">Peak '+peak+' · Low '+trough+' · a form-weighted read on how the season’s games nudged his overall around his '+G+' season grade (green = a game that raised it, red = lowered it).</div></div>';
+}
 async function loadGameLog(){
   const host=document.getElementById('sm-body-gamelog');
   const espn=window._playerEspn;
@@ -2882,7 +2918,7 @@ function renderGameLog(){
       <td>${n(g.stl)}</td><td>${n(g.blk)}</td><td>${n(g.tov)}</td>
     </tr>`;
   }).join('');
-  wrap.innerHTML=`${_ratingChartSvg(games)}<div style="overflow-x:auto;"><table class="stat-table gl-table"><thead><tr>
+  wrap.innerHTML=`${filtered?'':_overallTrackSvg(games,_gameLogSeason)}${_ratingChartSvg(games)}<div style="overflow-x:auto;"><table class="stat-table gl-table"><thead><tr>
     <th>Date</th><th>Opp</th><th>Result</th><th>Rating</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>FG</th><th>3P</th><th>FT</th><th>STL</th><th>BLK</th><th>TO</th>
   </tr></thead><tbody>${rows}</tbody></table></div>
   <div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:10px;">${games.length} games${filtered?` vs Tier ${_glTierFilter} (career)`:''} · click a row for the full box score · Rating is a 0–10 performance score per game</div>`;
