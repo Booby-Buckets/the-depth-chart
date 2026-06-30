@@ -290,7 +290,7 @@
     .prog-legend i{display:inline-block;width:18px;height:0;vertical-align:middle;margin-right:6px;}
     .prog-legend .pl-line{border-top:2.5px solid var(--accent);}
     .prog-legend .pl-base{border-top:2px dashed var(--text3);opacity:.6;}
-    .radar-wrap canvas{width:100%;max-width:740px;height:auto;}
+    .radar-wrap canvas{width:100%;max-width:460px;height:auto;}
     .radar-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:12px;}
     .radar-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--text3);cursor:pointer;user-select:none;padding:3px 7px;border-radius:6px;transition:background .12s,opacity .12s;}
     .radar-legend-item:hover{background:var(--bg2);color:var(--text2);}
@@ -3371,43 +3371,91 @@ function buildArchFit(src,grp,pctFn){
   var best=0; axes.forEach(function(a,i){if(a.val>axes[best].val)best=i;});
   return {axes:axes,best:best};
 }
+// percentile of a projected-line stat vs the projected peer pool (built in renderArchetype)
+function getPctProj(val,key){var arr=_gPctProj&&_gPctProj[key];if(!arr||!arr.length||val==null)return 0;var v=parseFloat(val);if(isNaN(v)||v===0)return 0;var lo=0,hi=arr.length;while(lo<hi){var m=(lo+hi)>>1;if(arr[m]<v)lo=m+1;else hi=m;}return Math.round(lo/arr.length*100);}
+// the stat line + percentile basis for an archetype-fit season ('proj' or a year)
+function _archFitBasis(val){
+  var grp=_norm3(player.position);
+  if(val==null||val==='proj'){ return {line:playerProjLine(),pf:getPctProj,basis:'projected',grp:grp}; }
+  var s=_ovrSeasonRow(val);
+  return s?{line:s,pf:getPctNat,basis:_seasonLbl2(val)+' actual',grp:grp}
+          :{line:playerProjLine(),pf:getPctProj,basis:'projected',grp:grp};
+}
+// dropdown to flip the radar between the projected line and each played season
+function _archSeasonSelect(){
+  var seasons=_ovrSeasons(), useProj=(proj && !proj._frosh && !proj._injured);
+  if((useProj?1:0)+seasons.length<2) return '';
+  var opts=(useProj?'<option value="proj">2026-27 Projected</option>':'');
+  seasons.forEach(function(s){ opts+='<option value="'+s.season_year+'">'+_seasonLbl2(s.season_year)+'</option>'; });
+  return '<select class="exp-sel" id="archSeasonSel" onchange="setArchSeason(this.value)" style="padding:6px 9px;font-size:12px;">'+opts+'</select>';
+}
+function setArchSeason(val){
+  var x=_archFitBasis(val), grp=x.grp;
+  var fit=buildArchFit(x.line,grp,x.pf);
+  _archFitAxes=fit.axes; _archFitBest=fit.best;
+  var bestDef=(ARCH_FIT[grp]||ARCH_FIT.W)[fit.best]||{name:'',desc:''};
+  var nm=document.querySelector('#panel-archetype .arch-name'); if(nm) nm.textContent=bestDef.name;
+  var ds=document.querySelector('#panel-archetype .arch-desc'); if(ds) ds.textContent=bestDef.desc;
+  var note=document.getElementById('archFitNote');
+  if(note) note.innerHTML='How closely '+player.name+'&rsquo;s '+x.basis+' profile matches each '+({G:'guard',W:'wing',B:'big'}[grp])+' archetype — strongest fit highlighted.';
+  animateArchFit();
+}
 function drawArchFit(progress){
   var prog=(typeof progress==='number')?progress:1;
   var canvas=document.getElementById('archRadar'); if(!canvas||!_archFitAxes) return;
-  var ctx=canvas.getContext('2d'), W=canvas.width, H=canvas.height;
-  ctx.clearRect(0,0,W,H);
+  // crisp on retina: size the backing store to the displayed box × DPR
+  var dpr=Math.min(window.devicePixelRatio||1, 2);
+  var box=canvas.getBoundingClientRect();
+  var disp=Math.max(280, Math.min(Math.round(box.width)||440, 460));
+  if(canvas.width!==Math.round(disp*dpr)){ canvas.width=Math.round(disp*dpr); canvas.height=Math.round(disp*dpr); }
+  var ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  var W=disp, H=disp; ctx.clearRect(0,0,W,H);
   var isDark=document.documentElement.getAttribute('data-theme')==='dark';
-  var textCol=isDark?'#a8a1c4':'#6d6589', gridCol=isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.07)';
+  var textCol=isDark?'#a8a1c4':'#6d6589', gridCol=isDark?'rgba(255,255,255,.10)':'rgba(0,0,0,.08)',
+      ringFill=isDark?'rgba(255,255,255,.022)':'rgba(0,0,0,.018)';
   var color=_archFitColor||'#B16BFF';
-  var axes=_archFitAxes, n=axes.length, cx=W/2, cy=H/2, r=Math.min(W,H)/2-46;
-  // concentric circular rings
+  var axes=_archFitAxes, n=axes.length, cx=W/2, cy=H/2, r=W/2-52;
+  var ringPath=function(lvl){ ctx.beginPath(); for(var i=0;i<n;i++){var a=Math.PI*2*i/n-Math.PI/2,x=cx+Math.cos(a)*r*lvl,y=cy+Math.sin(a)*r*lvl; i?ctx.lineTo(x,y):ctx.moveTo(x,y);} ctx.closePath(); };
+  // soft inner glow
+  var bg=ctx.createRadialGradient(cx,cy,0,cx,cy,r); bg.addColorStop(0,_rgbaOf(color,isDark?0.07:0.05)); bg.addColorStop(1,'rgba(0,0,0,0)');
+  ringPath(1); ctx.fillStyle=bg; ctx.fill();
+  // concentric polygon rings (radar web) with faint banding + ring % labels
   for(var ring=4;ring>=1;ring--){
-    ctx.beginPath(); ctx.arc(cx,cy,r*ring/4,0,Math.PI*2); ctx.strokeStyle=gridCol; ctx.lineWidth=1; ctx.stroke();
+    ringPath(ring/4); ctx.fillStyle=ringFill; ctx.fill();
+    ringPath(ring/4); ctx.strokeStyle=gridCol; ctx.lineWidth=1; ctx.stroke();
   }
+  // axis spokes
   axes.forEach(function(ax,i){
     var a=Math.PI*2*i/n-Math.PI/2, x=cx+Math.cos(a)*r, y=cy+Math.sin(a)*r;
     ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(x,y); ctx.strokeStyle=gridCol; ctx.lineWidth=1; ctx.stroke();
-    var lx=cx+Math.cos(a)*(r+22), ly=cy+Math.sin(a)*(r+22), isBest=i===_archFitBest;
-    ctx.fillStyle=isBest?color:textCol; ctx.font=(isBest?'bold ':'600 ')+'11px Inter,sans-serif';
-    ctx.textAlign='center'; ctx.textBaseline='middle';
+  });
+  // ring scale labels (25 / 50 / 75 / 100) up the top spoke
+  ctx.font='600 8.5px Inter,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  for(var rl=1;rl<=4;rl++){ ctx.fillStyle=isDark?'rgba(168,161,196,.5)':'rgba(109,101,137,.5)'; ctx.fillText((rl*25)+'', cx, cy-r*rl/4); }
+  // axis labels (best fit highlighted)
+  axes.forEach(function(ax,i){
+    var a=Math.PI*2*i/n-Math.PI/2, isBest=i===_archFitBest;
+    var lx=cx+Math.cos(a)*(r+24), ly=cy+Math.sin(a)*(r+22);
+    ctx.fillStyle=isBest?color:textCol; ctx.font=(isBest?'700 ':'600 ')+'11px Inter,sans-serif';
+    ctx.textAlign=Math.abs(Math.cos(a))<0.3?'center':(Math.cos(a)>0?'left':'right'); ctx.textBaseline='middle';
     ctx.fillText(ax.label,lx,ly);
   });
   // smooth player-fit shape (grows from center with prog)
   var pts=axes.map(function(ax,i){var a=Math.PI*2*i/n-Math.PI/2;var v=ax.val/100*prog;return {x:cx+Math.cos(a)*r*v,y:cy+Math.sin(a)*r*v};});
   ctx.beginPath(); _radarSmooth(ctx,pts);
   var grad=ctx.createRadialGradient(cx,cy,0,cx,cy,r);
-  grad.addColorStop(0,_rgbaOf(color,0.40)); grad.addColorStop(1,_rgbaOf(color,0.08));
+  grad.addColorStop(0,_rgbaOf(color,0.42)); grad.addColorStop(1,_rgbaOf(color,0.10));
   ctx.fillStyle=grad; ctx.fill();
   ctx.save(); ctx.beginPath(); _radarSmooth(ctx,pts);
-  ctx.shadowColor=_rgbaOf(color,0.55); ctx.shadowBlur=12;
+  ctx.shadowColor=_rgbaOf(color,0.55); ctx.shadowBlur=14;
   ctx.lineJoin='round'; ctx.lineCap='round'; ctx.strokeStyle=color; ctx.lineWidth=2.4; ctx.stroke(); ctx.restore();
   // vertices + value labels (labels fade in near the end)
   axes.forEach(function(ax,i){
-    var a=Math.PI*2*i/n-Math.PI/2, v=ax.val/100*prog, x=cx+Math.cos(a)*r*v, y=cy+Math.sin(a)*r*v;
-    ctx.beginPath(); ctx.arc(x,y,i===_archFitBest?3.8:2.6,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
-    ctx.beginPath(); ctx.arc(x,y,i===_archFitBest?3.8:2.6,0,Math.PI*2); ctx.lineWidth=1.4; ctx.strokeStyle=isDark?'#0b0a12':'#fff'; ctx.stroke();
-    if(ax.val>=14&&prog>=0.6){var lp=(prog-0.6)/0.4,tv=ax.val/100,tx=cx+Math.cos(a)*(r*tv+ (i===_archFitBest?13:11)), ty=cy+Math.sin(a)*(r*tv+ (i===_archFitBest?13:11));
-      ctx.globalAlpha=lp; ctx.fillStyle=i===_archFitBest?color:textCol; ctx.font=(i===_archFitBest?'bold ':'600 ')+'10px Inter,sans-serif';
+    var a=Math.PI*2*i/n-Math.PI/2, v=ax.val/100*prog, x=cx+Math.cos(a)*r*v, y=cy+Math.sin(a)*r*v, isBest=i===_archFitBest;
+    ctx.beginPath(); ctx.arc(x,y,isBest?4.2:2.8,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
+    ctx.beginPath(); ctx.arc(x,y,isBest?4.2:2.8,0,Math.PI*2); ctx.lineWidth=1.6; ctx.strokeStyle=isDark?'#0b0a12':'#fff'; ctx.stroke();
+    if(ax.val>=14&&prog>=0.6){var lp=(prog-0.6)/0.4,tv=ax.val/100,tx=cx+Math.cos(a)*(r*tv+ (isBest?14:12)), ty=cy+Math.sin(a)*(r*tv+ (isBest?14:12));
+      ctx.globalAlpha=lp; ctx.fillStyle=isBest?color:textCol; ctx.font=(isBest?'bold ':'600 ')+'10px Inter,sans-serif';
       ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(ax.val+'%',tx,ty); ctx.globalAlpha=1;}
   });
 }
@@ -3462,7 +3510,7 @@ async function renderArchetype(){
       _gPctProj[k]=plines.map(function(l){return +l[k]||0;}).filter(function(v){return v>0;}).sort(function(a,b){return a-b;});
     });
   }
-  function getPctProj(val,key){var arr=_gPctProj[key];if(!arr||!arr.length||val==null)return 0;var v=parseFloat(val);if(isNaN(v)||v===0)return 0;var lo=0,hi=arr.length;while(lo<hi){var m=(lo+hi)>>1;if(arr[m]<v)lo=m+1;else hi=m;}return Math.round(lo/arr.length*100);}
+  // getPctProj is a global (defined near buildArchFit) so the season switcher can reuse it
 
   // archetype-fit radar — player's real projected 2026-27 line vs projected peers
   var projP=playerProjLine();
@@ -3533,8 +3581,8 @@ async function renderArchetype(){
     '<div class="arch-hero"><div class="arch-hero-l"><div class="arch-eyebrow">Player Archetype</div>'+
     '<div class="arch-name">'+info.name+'</div><div class="arch-desc">'+info.desc+'</div>'+
     '<span class="arch-grp-pill">Compared within: '+({G:'Guards',W:'Wings',B:'Bigs'}[grp])+' · '+peerPool.length+' players</span></div></div>'+
-    '<div class="arch-sec-h">Archetype Fit</div>'+
-    '<div class="arch-note" style="margin-top:-4px;margin-bottom:8px;">How closely '+player.name+'&rsquo;s '+fitBasis+' profile matches each '+({G:'guard',W:'wing',B:'big'}[grp])+' archetype — strongest fit highlighted.</div>'+
+    '<div class="arch-sec-h" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;"><span>Archetype Fit</span>'+_archSeasonSelect()+'</div>'+
+    '<div class="arch-note" id="archFitNote" style="margin-top:-4px;margin-bottom:8px;">How closely '+player.name+'&rsquo;s '+fitBasis+' profile matches each '+({G:'guard',W:'wing',B:'big'}[grp])+' archetype — strongest fit highlighted.</div>'+
     '<div class="radar-wrap" style="margin-bottom:8px;"><canvas id="archRadar" width="440" height="440"></canvas></div>'+
     '<div class="arch-sec-h">Projected Percentile — vs National &amp; Archetype</div>'+
     '<div class="arch-legend"><span><i style="background:var(--accent)"></i>vs All D1</span><span><i style="background:#5b9d8f"></i>vs '+({G:'Guards',W:'Wings',B:'Bigs'}[grp])+'</span></div>'+
