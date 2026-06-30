@@ -500,9 +500,29 @@
   ============================================================ */
   .table-section { padding: 0 40px 64px; }
 
+  /* Horizontal scroll for the wide analytics table; team name + rank stay pinned */
+  .table-scroll { overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+  @media (min-width:901px){
+    .table-scroll .table-header,
+    .table-scroll .team-row,
+    .table-scroll .skeleton-row { width: max-content; min-width: 100%; }
+    .table-header > .th:nth-child(1),
+    .team-row > .tr-rank-wrap,
+    .skeleton-row > .skel-rank { position: sticky; left: 0; z-index: 4; background: var(--bg); }
+    .table-header > .th:nth-child(2),
+    .team-row > .tr-color-bar,
+    .skeleton-row > .skel-bar { position: sticky; left: 48px; z-index: 4; background: var(--bg); }
+    .table-header > .th:nth-child(3),
+    .team-row > .tr-team-cell,
+    .skeleton-row > .skel-name { position: sticky; left: 58px; z-index: 4; background: var(--bg); box-shadow: 10px 0 12px -10px rgba(0,0,0,.18); }
+    .team-row:hover > .tr-rank-wrap,
+    .team-row:hover > .tr-color-bar,
+    .team-row:hover > .tr-team-cell { background: var(--bg2); }
+  }
+
   .table-header {
     display: grid;
-    grid-template-columns: 48px 10px 1fr 150px 16px 58px 56px 56px 56px 54px 54px 58px 58px;
+    grid-template-columns: 48px 10px 200px 140px 16px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
     gap: 0;
     padding: 10px 0;
     border-bottom: 2px solid var(--border2);
@@ -559,7 +579,7 @@
   /* ---- Team rows ---- */
   .team-row {
     display: grid;
-    grid-template-columns: 48px 10px 1fr 150px 16px 58px 56px 56px 56px 54px 54px 58px 58px;
+    grid-template-columns: 48px 10px 200px 140px 16px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
     gap: 0;
     padding: 14px 0;
     border-bottom: 1px solid var(--border);
@@ -573,7 +593,7 @@
   }
   .team-row.revealed {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
   /* ── Rank numbers — bold Playfair, no box ───────────────── */
   .tr-rank-wrap {
@@ -761,7 +781,7 @@
   }
   .skeleton-row {
     display: grid;
-    grid-template-columns: 48px 10px 1fr 150px 16px 58px 56px 56px 56px 54px 54px 58px 58px;
+    grid-template-columns: 48px 10px 200px 140px 16px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
     gap: 0;
     padding: 14px 0;
     border-bottom: 1px solid var(--border);
@@ -1171,6 +1191,15 @@
       <option value="wins">Sort: Wins</option>
       <option value="ppg">Sort: Points / Game</option>
       <option value="oppg">Sort: Opp Points / Game</option>
+      <option value="fg">Sort: FG%</option>
+      <option value="tp">Sort: 3P%</option>
+      <option value="ft">Sort: FT%</option>
+      <option value="drpg">Sort: Def Rebounds</option>
+      <option value="apg">Sort: Assists / Game</option>
+      <option value="ato">Sort: Assist / TO Ratio</option>
+      <option value="spg">Sort: Steals / Game</option>
+      <option value="bpg">Sort: Blocks / Game</option>
+      <option value="topg">Sort: Fewest Turnovers</option>
     </select>
     <input class="nav-search" id="searchInput" type="text" placeholder="Search teams…" oninput="applyFilters()"/>
     <div class="filter-count" id="filterCount"></div>
@@ -1179,6 +1208,7 @@
 
 <!-- ═══ TABLE ═════════════════════════════════════════════════ -->
 <div class="table-section">
+  <div class="table-scroll">
   <div class="table-header">
     <div class="th">Rk</div>
     <div class="th"></div>
@@ -1187,12 +1217,18 @@
     <div class="th"></div>
     <div class="th center">W-L</div>
     <div class="th center">Win%</div>
-    <div class="th center">FG%</div>
-    <div class="th center">3P%</div>
-    <div class="th center">RPG</div>
-    <div class="th center">APG</div>
     <div class="th center">PPG</div>
     <div class="th center">OPP</div>
+    <div class="th center">FG%</div>
+    <div class="th center">3P%</div>
+    <div class="th center">FT%</div>
+    <div class="th center">OReb</div>
+    <div class="th center">DReb</div>
+    <div class="th center">APG</div>
+    <div class="th center">A/TO</div>
+    <div class="th center">SPG</div>
+    <div class="th center">BPG</div>
+    <div class="th center">TOV</div>
   </div>
   <div id="rankingsList">
     <!-- Branded skeleton loader -->
@@ -1286,6 +1322,7 @@
         <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
       </div>
     </div>
+  </div>
   </div>
 </div>
 
@@ -1404,7 +1441,9 @@ async function loadSeason(yr){
         conf:CONF_CODE[t.conference]||'', confName:t.conference||'—',
         wins:w, losses:l, gp, winpct:gp?w/gp:0, cw:+t.conf_wins||0, cl:+t.conf_losses||0,
         ppg:+t.ppg||0, oppg:+t.oppg||0, margin:Math.round(((+t.ppg||0)-(+t.oppg||0))*10)/10,
-        fg:+t.fg_pct||0, tp:+t.tp_pct||0, rpg:+t.rpg||0, apg:+t.apg||0, topg:+t.topg||0,
+        fg:+t.fg_pct||0, tp:+t.tp_pct||0, ft:+t.ft_pct||0, rpg:+t.rpg||0, apg:+t.apg||0, topg:+t.topg||0,
+        spg:+t.spg||0, bpg:+t.bpg||0, orpg:+t.orpg||0, drpg:+t.drpg||0,
+        ato:(+t.topg>0?Math.round((+t.apg||0)/(+t.topg)*10)/10:0),
         srs:(t.srs!=null?Math.round(+t.srs*10)/10:null), tier:t.tier||null };
     }).filter(t=>t.gp>=5);
     window._useSrs = allTeams.some(t=>t.srs!=null);
@@ -1520,6 +1559,12 @@ function applyFilters(animated){
     if(srt==='wins')   return b.wins-a.wins || (b.srs??b.margin)-(a.srs??a.margin);
     if(srt==='ppg')    return b.ppg-a.ppg;
     if(srt==='oppg')   return a.oppg-b.oppg;
+    // generic per-game / pct stat sort (turnovers: lower is better)
+    const STAT_KEYS=['fg','tp','ft','rpg','orpg','drpg','apg','ato','spg','bpg','topg'];
+    if(STAT_KEYS.includes(srt)){
+      const inv = srt==='topg';
+      return (inv ? (a[srt]||0)-(b[srt]||0) : (b[srt]||0)-(a[srt]||0)) || (b.srs??b.margin)-(a.srs??a.margin);
+    }
     return (b.srs??-999)-(a.srs??-999) || b.margin-a.margin;
   });
 
@@ -1572,12 +1617,18 @@ function renderRows(data, srt, favTeam, favColor, favBg){
       <div class="tr-spacer"></div>
       <div class="tr-stat"><b>${t.wins}–${t.losses}</b><span>W-L</span></div>
       <div class="tr-stat"><b>${Math.round(t.winpct*100)}%</b><span>Win</span></div>
-      <div class="tr-stat"><b>${t.fg?t.fg.toFixed(1):'—'}</b><span>FG%</span></div>
-      <div class="tr-stat"><b>${t.tp?t.tp.toFixed(1):'—'}</b><span>3P%</span></div>
-      <div class="tr-stat"><b>${t.rpg?t.rpg.toFixed(1):'—'}</b><span>RPG</span></div>
-      <div class="tr-stat"><b>${t.apg?t.apg.toFixed(1):'—'}</b><span>APG</span></div>
       <div class="tr-stat"><b>${t.ppg.toFixed(1)}</b><span>PPG</span></div>
       <div class="tr-stat"><b>${t.oppg.toFixed(1)}</b><span>OPP</span></div>
+      <div class="tr-stat"><b>${t.fg?t.fg.toFixed(1):'—'}</b><span>FG%</span></div>
+      <div class="tr-stat"><b>${t.tp?t.tp.toFixed(1):'—'}</b><span>3P%</span></div>
+      <div class="tr-stat"><b>${t.ft?t.ft.toFixed(1):'—'}</b><span>FT%</span></div>
+      <div class="tr-stat"><b>${t.orpg?t.orpg.toFixed(1):'—'}</b><span>OReb</span></div>
+      <div class="tr-stat"><b>${t.drpg?t.drpg.toFixed(1):'—'}</b><span>DReb</span></div>
+      <div class="tr-stat"><b>${t.apg?t.apg.toFixed(1):'—'}</b><span>APG</span></div>
+      <div class="tr-stat"><b>${t.ato?t.ato.toFixed(1):'—'}</b><span>A/TO</span></div>
+      <div class="tr-stat"><b>${t.spg?t.spg.toFixed(1):'—'}</b><span>SPG</span></div>
+      <div class="tr-stat"><b>${t.bpg?t.bpg.toFixed(1):'—'}</b><span>BPG</span></div>
+      <div class="tr-stat"><b>${t.topg?t.topg.toFixed(1):'—'}</b><span>TOV</span></div>
     </div>`;
   });
   document.getElementById('rankingsList').innerHTML = html;
