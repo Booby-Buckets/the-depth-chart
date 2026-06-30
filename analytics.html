@@ -213,6 +213,10 @@ body{background:transparent!important;}
   <div class="exp-controls">
     <label class="exp-lab">X axis <select class="exp-sel" id="expX" onchange="renderExplorer()"></select></label>
     <label class="exp-lab">Y axis <select class="exp-sel" id="expY" onchange="renderExplorer()"></select></label>
+    <label class="exp-lab">View <select class="exp-sel" id="expMode" onchange="renderExplorer()">
+      <option value="scatter">Scatter</option>
+      <option value="density">Density (grouped)</option>
+    </select></label>
   </div>
   <div class="exp-legend"><span><i style="background:#B16BFF"></i>Guards</span><span><i style="background:#38BDF8"></i>Wings</span><span><i style="background:#FF4D9D"></i>Bigs</span></div>
   <div class="exp-chart-card"><div class="exp-chart"><canvas id="expChart"></canvas></div></div>
@@ -439,23 +443,59 @@ function fillAxisSelectors(){
 function renderExplorer(){
   var xs=document.getElementById('expX').value, ys=document.getElementById('expY').value;
   var sx=SMAP[xs], sy=SMAP[ys];
+  var mode=(document.getElementById('expMode')||{}).value||'scatter';
   var pts=FILT.filter(r=>r[xs]!=null&&isFinite(r[xs])&&r[ys]!=null&&isFinite(r[ys]));
   var CAP=6000, capped=false;
   if(pts.length>CAP){ pts=pts.slice().sort((a,b)=>(b.mptot||0)-(a.mptot||0)).slice(0,CAP); capped=true; }
-  var by={G:[],W:[],B:[]};
-  pts.forEach(r=>{ by[r.posg].push({x:r[xs],y:r[ys],r:r}); });
-  var ds=['G','W','B'].map(g=>({label:({G:'Guards',W:'Wings',B:'Bigs'})[g],data:by[g],backgroundColor:POS_COLOR[g],pointRadius:pts.length>2500?2:3,pointHoverRadius:6}));
   if(expChart) expChart.destroy();
   var dark=document.documentElement.getAttribute('data-theme')==='dark';
   var grid=dark?'rgba(255,255,255,.08)':'rgba(0,0,0,.07)', tick=dark?'#A8A1C4':'#847B9C';
+  var legendEl=document.querySelector('.exp-legend');
+  var scales={
+    x:{title:{display:true,text:sx.l,color:tick,font:{weight:700}},grid:{color:grid},ticks:{color:tick}},
+    y:{title:{display:true,text:sy.l,color:tick,font:{weight:700}},grid:{color:grid},ticks:{color:tick}}
+  };
+
+  if(mode==='density'){
+    if(legendEl) legendEl.style.visibility='hidden';
+    var NX=30, NY=20;
+    var xv=pts.map(p=>p[xs]), yv=pts.map(p=>p[ys]);
+    var xmin=Math.min.apply(null,xv), xmax=Math.max.apply(null,xv);
+    var ymin=Math.min.apply(null,yv), ymax=Math.max.apply(null,yv);
+    var xw=(xmax-xmin)||1, yw=(ymax-ymin)||1;
+    var bins={};
+    pts.forEach(p=>{
+      var ix=Math.min(NX-1,Math.floor((p[xs]-xmin)/xw*NX));
+      var iy=Math.min(NY-1,Math.floor((p[ys]-ymin)/yw*NY));
+      var k=ix+'_'+iy, b=bins[k]||(bins[k]={c:0,sx:0,sy:0,top:null,topMp:-1});
+      b.c++; b.sx+=p[xs]; b.sy+=p[ys];
+      if((p.mptot||0)>b.topMp){ b.topMp=p.mptot||0; b.top=p; }
+    });
+    var arr=Object.keys(bins).map(k=>bins[k]);
+    var maxC=Math.max.apply(null,arr.map(b=>b.c));
+    var data=arr.map(b=>({x:b.sx/b.c,y:b.sy/b.c,r:b}));
+    var radii=arr.map(b=>3+13*Math.sqrt(b.c/maxC));
+    var colors=arr.map(b=>'rgba(177,107,255,'+(0.18+0.72*(b.c/maxC)).toFixed(2)+')');
+    expChart=new Chart(document.getElementById('expChart'),{
+      type:'scatter',
+      data:{datasets:[{label:'Density',data:data,backgroundColor:colors,pointRadius:radii,pointHoverRadius:radii.map(r=>r+2),borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){var b=c.raw.r,t=b.top; var who=t?(t.name||'—')+' ('+(t.school||'—')+')':''; return b.c+' player'+(b.c>1?'s':'')+' here · '+sx.l+' '+fmt(c.raw.x,sx)+', '+sy.l+' '+fmt(c.raw.y,sy)+(who?' · top: '+who:''); }}}},
+        scales:scales}
+    });
+    document.getElementById('expNote').innerHTML='Density view — <b>'+pts.length.toLocaleString()+'</b> player-seasons grouped into <b>'+arr.length.toLocaleString()+'</b> cells (bubble size &amp; shade = how many players land there) · '+seasonLbl(CUR_SEASON)+(capped?' · capped to '+CAP.toLocaleString()+' highest-minute seasons':'')+'. Hover a bubble for the count.';
+    return;
+  }
+
+  if(legendEl) legendEl.style.visibility='visible';
+  var by={G:[],W:[],B:[]};
+  pts.forEach(r=>{ by[r.posg].push({x:r[xs],y:r[ys],r:r}); });
+  var ds=['G','W','B'].map(g=>({label:({G:'Guards',W:'Wings',B:'Bigs'})[g],data:by[g],backgroundColor:POS_COLOR[g],pointRadius:pts.length>2500?2:3,pointHoverRadius:6}));
   expChart=new Chart(document.getElementById('expChart'),{
     type:'scatter', data:{datasets:ds},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){var r=c.raw.r; return r.name+' ('+r.school+(CUR_SEASON==='all'?' '+seasonLbl(''+r.season):'')+') · '+sx.l+' '+fmt(r[xs],sx)+', '+sy.l+' '+fmt(r[ys],sy);}}}},
-      scales:{
-        x:{title:{display:true,text:sx.l,color:tick,font:{weight:700}},grid:{color:grid},ticks:{color:tick}},
-        y:{title:{display:true,text:sy.l,color:tick,font:{weight:700}},grid:{color:grid},ticks:{color:tick}}
-      }}
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){var r=c.raw.r,nm=r.name||'Unknown',sc=r.school||'—'; return nm+' ('+sc+(CUR_SEASON==='all'?' '+seasonLbl(''+r.season):'')+') · '+sx.l+' '+fmt(r[xs],sx)+', '+sy.l+' '+fmt(r[ys],sy);}}}},
+      scales:scales}
   });
   document.getElementById('expNote').innerHTML='Plotting <b>'+sy.l+'</b> vs <b>'+sx.l+'</b> for <b>'+pts.length.toLocaleString()+'</b> player-seasons · '+seasonLbl(CUR_SEASON)+(capped?' · capped to the '+CAP.toLocaleString()+' highest-minute seasons for performance':'')+'. Hover a point for the player.';
 }
