@@ -332,27 +332,25 @@
     /* Season awards (historic sidebar) */
     .awards-head{border-left-color:var(--accent)!important;color:var(--accent)!important;}
     #awardsBody{padding:12px 12px 14px;}
-    .award-item{position:relative;display:flex;align-items:flex-start;gap:10px;padding:10px 12px 10px 14px;margin-bottom:8px;
-      border-radius:11px;text-decoration:none;overflow:hidden;
-      background:linear-gradient(118deg, color-mix(in srgb,var(--ac) 12%, var(--bg2)) 0%, var(--bg2) 70%);
-      border:1px solid color-mix(in srgb,var(--ac) 22%, var(--border));
-      transition:transform .18s cubic-bezier(.22,1,.36,1), box-shadow .2s, border-color .2s;}
+    .award-item{position:relative;display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:11px;padding:11px 14px 11px 17px;margin-bottom:7px;
+      border-radius:12px;text-decoration:none;overflow:hidden;
+      background:var(--bg2);border:1px solid var(--border);
+      transition:transform .18s cubic-bezier(.22,1,.36,1), box-shadow .2s, border-color .2s, background .2s;}
     .award-item:last-child{margin-bottom:0;}
-    .award-item::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--ac);}
-    .award-item:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--ac) 48%,transparent);
-      box-shadow:0 12px 28px -14px color-mix(in srgb,var(--ac) 80%,transparent);}
-    .award-medal{width:32px;height:32px;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--ac);margin-top:1px;
-      background:radial-gradient(circle at 32% 28%, color-mix(in srgb,var(--ac) 32%,transparent), color-mix(in srgb,var(--ac) 8%,transparent));
-      border:1px solid color-mix(in srgb,var(--ac) 34%,transparent);
-      box-shadow:inset 0 1px 3px color-mix(in srgb,var(--ac) 22%,transparent), 0 3px 7px -3px color-mix(in srgb,var(--ac) 45%,transparent);}
-    .award-medal svg{width:16px;height:16px;}
-    .award-body{flex:1;min-width:0;}
-    .award-toprow{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
-    .award-title{font-size:8.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ac);line-height:1.25;min-width:0;}
-    .award-name{font-size:14px;font-weight:700;color:var(--text);line-height:1.2;margin-top:1px;
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .award-detail{font-size:10px;color:var(--text3);font-weight:600;margin-top:3px;line-height:1.4;}
-    .award-chip{flex-shrink:0;font-family:'Playfair Display',serif;font-weight:700;font-size:17px;color:var(--ac);line-height:1;}
+    .award-item::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--ac);box-shadow:0 0 14px 0 color-mix(in srgb,var(--ac) 70%,transparent);}
+    .award-item:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--ac) 45%,transparent);
+      background:color-mix(in srgb,var(--ac) 7%, var(--bg2));
+      box-shadow:0 14px 30px -16px color-mix(in srgb,var(--ac) 85%,transparent);}
+    .award-medal{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--ac);
+      background:color-mix(in srgb,var(--ac) 15%, transparent);border:1px solid color-mix(in srgb,var(--ac) 32%,transparent);}
+    .award-medal svg{width:17px;height:17px;}
+    .award-body{min-width:0;}
+    .award-title{font-size:8px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--ac);line-height:1.2;}
+    .award-name{font-size:14px;font-weight:800;color:var(--text);line-height:1.16;margin-top:2px;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+    .award-detail{font-size:9.5px;color:var(--text3);font-weight:600;margin-top:3px;line-height:1.4;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+    .award-chip{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;color:var(--ac);line-height:.9;text-align:right;padding-left:2px;}
 
     /* OUTLOOK */
     .outlook-text{font-family:'Source Serif 4',serif;font-size:14px;line-height:1.8;color:var(--text2);}
@@ -3854,10 +3852,11 @@ async function computeSeasonAwards(rows, yr){
     <a class="award-item" style="--ac:${ac}" href="${link(p)}">
       <div class="award-medal">${ico(icon)}</div>
       <div class="award-body">
-        <div class="award-toprow"><span class="award-title">${title}</span>${chip!=null?`<span class="award-chip">${chip}</span>`:''}</div>
+        <div class="award-title">${title}</div>
         <div class="award-name">${p.name}</div>
         <div class="award-detail">${detail}</div>
       </div>
+      ${chip!=null?`<div class="award-chip">${chip}</div>`:''}
     </a>` : '';
 
   let html='';
