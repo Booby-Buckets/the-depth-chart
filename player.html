@@ -2064,11 +2064,11 @@ function _distCache(s){ return s==='2627'||(_pexpCache&&_pexpCache[s]); }
 // flatten a bbref_seasons row into a flat percentile-pool row (per-game + advanced)
 function _bn2(v){ var n=parseFloat(v); return isNaN(n)?null:n; }
 function _bp2(v){ var n=parseFloat(v); return isNaN(n)?null:n*100; } // ".639" -> 63.9
-function _advFlat(adv){ adv=adv||{}; return {ts:_bp2(adv.ts_pct),per:_bn2(adv.per),usg:_bn2(adv.usg_pct),ws:_bn2(adv.ws),
+function _advFlat(adv){ adv=adv||{}; return {ts:_bp2(adv.ts_pct),per:_bn2(adv.per),usg:_bn2(adv.usg_pct),ws:_bn2(adv.ws),mp:_bn2(adv.mp),
   ast_pct:_bn2(adv.ast_pct),orb_pct:_bn2(adv.orb_pct),drb_pct:_bn2(adv.drb_pct),blk_pct:_bn2(adv.blk_pct),stl_pct:_bn2(adv.stl_pct)}; }
 function _bbrefPoolRow(r){
   var pg=r.pergame||{};
-  return Object.assign({position:r.pos,height:r.height,tdc_grade:r.tdc_grade,
+  return Object.assign({name:r.player,team:r.school,position:r.pos,height:r.height,tdc_grade:r.tdc_grade,
     mpg:_bn2(pg.mp_per_g),ppg:_bn2(pg.pts_per_g),rpg:_bn2(pg.trb_per_g),apg:_bn2(pg.ast_per_g),
     stl:_bn2(pg.stl_per_g),blk:_bn2(pg.blk_per_g),tovs:_bn2(pg.tov_per_g),oreb:_bn2(pg.orb_per_g),dreb:_bn2(pg.drb_per_g),
     fga:_bn2(pg.fga_per_g),fta:_bn2(pg.fta_per_g),fg_pct:_bp2(pg.fg_pct),tp_pct:_bp2(pg.fg3_pct),ft_pct:_bp2(pg.ft_pct)},
@@ -2318,7 +2318,7 @@ var EXP_STATS=[
   {k:'mpg',l:'Minutes / G'},{k:'fg_pct',l:'FG%'},{k:'tp_pct',l:'3P%'},{k:'ft_pct',l:'FT%'},
   {k:'stl',l:'Steals / G'},{k:'blk',l:'Blocks / G'},{k:'tovs',l:'Turnovers / G'},
   {k:'oreb',l:'Off Reb / G'},{k:'dreb',l:'Def Reb / G'},
-  {k:'_ht',l:'Height (in)'},{k:'tdc_grade',l:'TDC Grade'},
+  {k:'_ht',l:'Height (in)'},{k:'tdc_grade',l:'TDC Grade'},{k:'_wa',l:'Wins Added'},
   {k:'_p40',l:'Points / 40'},{k:'_a40',l:'Assists / 40'},{k:'_r40',l:'Rebounds / 40'},{k:'_ts',l:'True Shooting %'}
 ];
 function expHtIn(h){if(!h)return 0;var m=(''+h).match(/(\d+)\s*[-']\s*(\d+)/);return m?(+m[1])*12+(+m[2]):0;}
@@ -2334,6 +2334,11 @@ function expVal(p,key){
   if(key==='_a40')return mpg>=RATE_MIN?+(apg*40/mpg).toFixed(1):null;
   if(key==='_r40')return mpg>=RATE_MIN?+(rpg*40/mpg).toFixed(1):null;
   if(key==='_ts'){if(mpg<RATE_MIN)return null;var fga=parseFloat(p.fga)||0,fta=parseFloat(p.fta)||0,d=2*(fga+0.44*fta);return d>0?+(ppg/d*100).toFixed(1):null;}
+  if(key==='_wa'){
+    var ws=p.ws!=null?parseFloat(p.ws):(p._advanced?parseFloat(p._advanced.ws):NaN);
+    var mp=p.mp!=null?parseFloat(p.mp):(p._advanced?parseFloat(p._advanced.mp):NaN);
+    return (isFinite(ws)&&isFinite(mp))?+(ws-0.04*(mp/40)).toFixed(1):null;
+  }
   var v=parseFloat(p[key]); return isNaN(v)?null:v;
 }
 var _pexpChart=null, _pexpPool=null, _pexpCache={}, _pexpSeason='2026';
@@ -2343,7 +2348,7 @@ async function loadPexpSeason(key){
   if(_pexpCache[key]) return _pexpCache[key];
   var nt=document.getElementById('pexpNote'); if(nt) nt.textContent='Loading '+_pexpSeasonLbl(key)+'…';
   // pool from BBRef so percentiles cover advanced stats too (per-game + advanced)
-  var base=SB+'/rest/v1/bbref_seasons?select=pos,height,pergame,advanced,tdc_grade';
+  var base=SB+'/rest/v1/bbref_seasons?select=player,school,pos,height,pergame,advanced,tdc_grade';
   var url=key==='all'?base:base+'&season_year=eq.'+key;
   var rows=[],pg=0;
   while(true){
@@ -2436,7 +2441,7 @@ function renderSpectrum(){
     }}],
     options:{
       responsive:true,maintainAspectRatio:false,animation:{duration:400},
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){var d=c.raw;return d.nm+' ('+d.pos+', '+d.tm+') — '+xl+': '+d.x+', '+yl+': '+d.y;}}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){var d=c.raw;return (d.nm||'Unknown')+' ('+d.pos+(d.tm?', '+d.tm:'')+') — '+xl+': '+d.x+', '+yl+': '+d.y;}}}},
       scales:{
         x:{title:{display:true,text:xl,color:tickc,font:{weight:'700',size:12}},grid:{color:grid},ticks:{color:tickc}},
         y:{title:{display:true,text:yl,color:tickc,font:{weight:'700',size:12}},grid:{color:grid},ticks:{color:tickc}}
