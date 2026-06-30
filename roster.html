@@ -280,6 +280,14 @@ body{background:transparent!important;}
     <option value="50">50–59 (Below Avg)</option>
     <option value="0">Under 50</option>
   </select>
+  <select class="filter-select" id="waFilter" onchange="applyFilters()" title="Wins Added (played seasons only)">
+    <option value="">All Wins Added</option>
+    <option value="5">5+ WA (star)</option>
+    <option value="3">3+ WA</option>
+    <option value="2">2+ WA</option>
+    <option value="1">1+ WA</option>
+    <option value="0">0+ WA</option>
+  </select>
   <input class="filter-input" type="text" id="searchInput" placeholder="Search player..." oninput="applyFilters()"/>
   <button class="clear-btn" onclick="clearFilters()">Clear</button>
   <span class="filter-count" id="countEl"></span>
@@ -404,11 +412,38 @@ function resolveTeam(name){
   return {teamData:{}, conf:''};
 }
 
+// Wins Added per player-season, joined from bbref_seasons by espn_id.
+// WA = Win Shares − 0.04·(minutes/40), same formula as the analytics page.
+const waCache={};
+async function loadWA(yr){
+  if(waCache[yr]) return waCache[yr];
+  const m=new Map();
+  const base=`${SB}/rest/v1/bbref_seasons?select=espn_id,season_year,advanced&espn_id=not.is.null`;
+  const url = yr==='all' ? base : `${base}&season_year=eq.${yr}`;
+  let page=0; const PG=1000;
+  try{
+    while(true){
+      const from=page*PG, to=from+PG-1;
+      const r=await fetch(url,{headers:{...H,'Range-Unit':'items','Range':`${from}-${to}`}});
+      const b=await r.json();
+      if(!Array.isArray(b)||!b.length) break;
+      b.forEach(row=>{
+        const a=row.advanced||{}, ws=parseFloat(a.ws), mp=parseFloat(a.mp);
+        if(!isFinite(ws)||!isFinite(mp)) return;
+        const wa=Math.round((ws-0.04*(mp/40))*10)/10;
+        m.set(yr==='all'?(row.espn_id+'|'+row.season_year):String(row.espn_id), wa);
+      });
+      if(b.length<PG) break; page++;
+    }
+  }catch(e){/* WA is best-effort; leave column blank on failure */}
+  waCache[yr]=m; return m;
+}
+
 async function loadSeason(yr){
   if(seasonCache[yr]) return seasonCache[yr];
   document.getElementById('tableContainer').innerHTML =
     `<div class="empty-state">Loading ${yr==='all'?'all seasons':seasonLabel(yr)}…</div>`;
-  const base=`${SB}/rest/v1/player_history?select=id,name,team,position,height,yr,tdc_grade,ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,oreb,dreb,stl,blk,tovs,gp,season_year&tdc_grade=not.is.null&order=id`;
+  const base=`${SB}/rest/v1/player_history?select=id,name,team,position,height,yr,tdc_grade,ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,oreb,dreb,stl,blk,tovs,gp,season_year,espn_id&tdc_grade=not.is.null&order=id`;
   const url = yr==='all' ? base : `${base}&season_year=eq.${yr}`;
   let rows=[], page=0; const PG=1000;
   while(true){
@@ -423,8 +458,11 @@ async function loadSeason(yr){
   const byKey={};
   rows.forEach(p=>{ const k=p.name+'|'+p.team+'|'+p.season_year, gp=+p.gp||0;
     if(!byKey[k]||gp>(byKey[k]._gp||0)){ p._gp=gp; byKey[k]=p; } });
+  const waMap = await loadWA(yr);
   const mapped=Object.values(byKey).map(p=>{ const rt=resolveTeam(p.team);
-    return {...p, class_year:p.yr, _hist:true, teamData:rt.teamData, conf:rt.conf}; });
+    const waKey = yr==='all' ? (p.espn_id+'|'+p.season_year) : String(p.espn_id);
+    const wa = p.espn_id!=null && waMap.has(waKey) ? waMap.get(waKey) : null;
+    return {...p, class_year:p.yr, _hist:true, teamData:rt.teamData, conf:rt.conf, wa}; });
   const data = yr==='all' ? allPlayers.concat(mapped) : mapped;
   seasonCache[yr]=data;
   return data;
@@ -513,9 +551,11 @@ function applyFilters(){
   const yr     = document.getElementById('yrFilter').value;
   const ht     = document.getElementById('htFilter').value;
   const grade  = document.getElementById('gradeFilter').value;
+  const waMin  = document.getElementById('waFilter').value;
   const search = document.getElementById('searchInput').value.toLowerCase().trim();
 
   let filtered = activeData.filter(p => {
+    if(waMin!=='' && (p.wa==null || p.wa < parseFloat(waMin))) return false;
     if(conf   && p.conf !== conf) return false;
     if(team   && p.team !== team && !((p.team||'').toLowerCase().startsWith(team.toLowerCase()+' '))) return false;
     if(pos    && p.position !== pos) return false;
@@ -534,7 +574,7 @@ function applyFilters(){
   // Sort
   filtered.sort((a,b) => {
     let av, bv;
-    const numCols = ['ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs','gp','season_year'];
+    const numCols = ['wa','ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs','gp','season_year'];
     if(numCols.includes(sortCol)){
       av = parseFloat(a[sortCol]??-999)||0; bv = parseFloat(b[sortCol]??-999)||0;
       return (bv-av)*sortDir;
@@ -598,6 +638,7 @@ function renderTable(players){
           ${col('position','Pos')}
           ${col('height','Ht')}
           ${col('class_year','Yr')}
+          ${col('wa','WA','right')}
           ${col('gp','GP','right')}
           ${col('ppg','PPG','right')}
           ${col('rpg','RPG','right')}
@@ -661,6 +702,7 @@ function _rowHTML(p){
             <td><span class="td-pos">${p.position||'—'}</span></td>
             <td class="td-ht">${safeHt(p.height)}</td>
             <td>${yr}</td>
+            <td class="td-stat right" style="${p.wa!=null?'color:var(--accent);font-weight:800;':''}">${p.wa!=null?(p.wa>=0?'+':'')+Number(p.wa).toFixed(1):'—'}</td>
             <td class="td-stat right" style="${sc(p.gp,'gp')}">${p.gp||'—'}</td>
             <td class="td-stat right" style="${sc(p.ppg,'ppg')}">${fmt(p.ppg)}</td>
             <td class="td-stat right" style="${sc(p.rpg,'rpg')}">${fmt(p.rpg)}</td>
@@ -703,7 +745,7 @@ function setSort(col){
 }
 
 function clearFilters(){
-  ['confFilter','teamFilter','posFilter','yrFilter','htFilter','gradeFilter']
+  ['confFilter','teamFilter','posFilter','yrFilter','htFilter','gradeFilter','waFilter']
     .forEach(id=>document.getElementById(id).value='');
   document.getElementById('searchInput').value='';
   applyFilters();
