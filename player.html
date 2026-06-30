@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <script src="auth.js"></script>
+  <script src="tdc-pos.js"></script>
   <script src="team-colors.js"></script>
   <script src="tdc-nil.js"></script>
   <meta charset="UTF-8"/>
@@ -1902,9 +1903,7 @@ var FROSH_BASE={
   W:{ppg:8,rpg:3.8,apg:1.5,mpg:20,stl:0.8,blk:0.5,tovs:1.3,fga:6.8,fta:2.4,fgm:3,tpm:0.8,tpa:2.4,oreb:1.2,dreb:2.6,fg_pct:44,tp_pct:33,ft_pct:70},
   B:{ppg:7.5,rpg:5,apg:0.8,mpg:18,stl:0.5,blk:1.1,tovs:1.4,fga:6,fta:2.6,fgm:3,tpm:0.2,tpa:0.6,oreb:2,dreb:3.4,fg_pct:50,tp_pct:28,ft_pct:66}
 };
-function _impPgrp(pos){pos=((pos||'')+'').toUpperCase().split(/[\/,\s]/)[0];
-  if(pos==='PG'||pos==='SG'||pos==='G'||pos==='CG')return 'G';
-  if(pos==='SF'||pos==='F')return 'W'; if(pos==='PF'||pos==='C')return 'B'; return 'W';}
+function _impPgrp(pos){ return tdcPosGroup(pos); }   // shared canonical (tdc-pos.js)
 // light, frosh-aware projected stat line (consistent across the whole pool)
 function projLine(p){
   var yr=((p.class_year||p.yr||'')+'').toLowerCase();
@@ -2322,10 +2321,7 @@ var EXP_STATS=[
   {k:'_p40',l:'Points / 40'},{k:'_a40',l:'Assists / 40'},{k:'_r40',l:'Rebounds / 40'},{k:'_ts',l:'True Shooting %'}
 ];
 function expHtIn(h){if(!h)return 0;var m=(''+h).match(/(\d+)\s*[-']\s*(\d+)/);return m?(+m[1])*12+(+m[2]):0;}
-function expPosGrp(pos){pos=((pos||'')+'').toUpperCase().split(/[\/,\s]/)[0];
-  if(pos==='PG'||pos==='SG'||pos==='G'||pos==='CG')return 'G';
-  if(pos==='SF'||pos==='F')return 'W';
-  if(pos==='PF'||pos==='C')return 'B'; return 'W';}
+function expPosGrp(pos){ return tdcPosGroup(pos); }   // shared canonical (tdc-pos.js)
 function expVal(p,key){
   var ppg=parseFloat(p.ppg)||0,mpg=parseFloat(p.mpg)||0,apg=parseFloat(p.apg)||0,rpg=parseFloat(p.rpg)||0;
   if(key==='_ht'){var _hh=expHtIn(p.height);return _hh>0?_hh:null;}

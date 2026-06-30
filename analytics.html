@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <script src="auth.js"></script>
+  <script src="tdc-pos.js"></script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Analytics — The Depth Chart</title>
@@ -293,7 +294,7 @@ const _cache = {};       // season -> flattened rows
 // ── Helpers ─────────────────────────────────────────────────────
 function num(x){ if(x===null||x===undefined||x==='') return null; var v=parseFloat(x); return isFinite(v)?v:null; }
 function htIn(h){ if(!h) return null; var m=(''+h).split('-'); return m.length===2?(+m[0]*12 + +m[1]):null; }
-function posGroup(pos,ht){ var p=(pos||'').toUpperCase(); if(p.indexOf('C')>=0) return 'B'; if(ht&&ht>=80) return 'B'; if(p.indexOf('G')>=0||(ht&&ht<74)) return 'G'; return 'W'; }
+function posGroup(pos,ht){ return tdcPosGroup(pos,ht); }   // shared canonical (tdc-pos.js)
 function seasonLbl(y){ if(y==='all') return 'All seasons (2007–26)'; var n=+y; return (n-1)+'–'+(''+n).slice(2); }
 
 function flatten(r){
