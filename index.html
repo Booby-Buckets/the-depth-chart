@@ -508,16 +508,26 @@
     .table-scroll .skeleton-row { width: max-content; min-width: 100%; }
     .table-header > .th:nth-child(1),
     .team-row > .tr-rank-wrap,
-    .skeleton-row > .skel-rank { position: sticky; left: 0; z-index: 4; background: var(--bg); }
+    .skeleton-row > .skel-rank { position: sticky; left: 0; z-index: 4; }
     .table-header > .th:nth-child(2),
     .team-row > .tr-color-bar,
-    .skeleton-row > .skel-bar { position: sticky; left: 48px; z-index: 4; background: var(--bg); }
+    .skeleton-row > .skel-bar { position: sticky; left: 48px; z-index: 4; }
     .table-header > .th:nth-child(3),
     .team-row > .tr-team-cell,
-    .skeleton-row > .skel-name { position: sticky; left: 58px; z-index: 4; background: var(--bg); box-shadow: 10px 0 12px -10px rgba(0,0,0,.18); }
-    .team-row:hover > .tr-rank-wrap,
-    .team-row:hover > .tr-color-bar,
-    .team-row:hover > .tr-team-cell { background: var(--bg2); }
+    .skeleton-row > .skel-name { position: sticky; left: 58px; z-index: 4; }
+    /* Background + shadow only appear once the stats are actually scrolled,
+       so wide screens (no scroll) show no boxy backgrounds. */
+    .table-scroll.scrolled .table-header > .th:nth-child(1),
+    .table-scroll.scrolled .team-row > .tr-rank-wrap,
+    .table-scroll.scrolled .skeleton-row > .skel-rank,
+    .table-scroll.scrolled .table-header > .th:nth-child(3),
+    .table-scroll.scrolled .team-row > .tr-team-cell,
+    .table-scroll.scrolled .skeleton-row > .skel-name { background: var(--bg); }
+    .table-scroll.scrolled .table-header > .th:nth-child(3),
+    .table-scroll.scrolled .team-row > .tr-team-cell,
+    .table-scroll.scrolled .skeleton-row > .skel-name { box-shadow: 10px 0 12px -10px rgba(0,0,0,.22); }
+    .table-scroll.scrolled .team-row:hover > .tr-rank-wrap,
+    .table-scroll.scrolled .team-row:hover > .tr-team-cell { background: var(--bg2); }
   }
 
   .table-header {
@@ -736,7 +746,9 @@
   /* Analytical stat cells + margin bar */
   .tr-stat { text-align:center; display:flex; flex-direction:column; gap:2px; align-items:center; justify-content:center; }
   .tr-stat b { font-size:14px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
-  .tr-stat span { font-size:9px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--text3); }
+  /* Per-cell stat labels are redundant with the column header on desktop — hide them
+     (the wide table has its own header row; mobile hides .tr-stat entirely). */
+  .tr-stat span { display:none; }
   .tr-margin { display:flex; align-items:center; gap:9px; padding-right:6px; }
   .mbar-track { flex:1; height:7px; border-radius:5px; background:color-mix(in srgb, var(--text3) 20%, transparent); overflow:hidden; }
   .mbar-fill { height:100%; border-radius:5px; width:0; transition:width .65s cubic-bezier(.22,1,.36,1); }
@@ -1167,7 +1179,12 @@
   @media(max-width:760px){.sc-teams{grid-template-columns:repeat(2,1fr);}}
   @media(max-width:600px){.showcase{padding-left:16px;padding-right:16px;}.sc-players{grid-template-columns:repeat(2,1fr);}}
 </style>
-<div class="showcase" id="showcase" style="display:none;"></div>
+<div class="showcase" id="showcase" style="display:none;">
+  <div id="scPlayersBlock">
+    <div class="sc-label">Top Players <span id="scTeamSeason"></span></div>
+    <div class="sc-players" id="scPlayers"></div>
+  </div>
+</div>
 
 <!-- ═══ FILTER BAR ════════════════════════════════════════════ -->
 <div class="filter-bar" id="filterBar">
@@ -1384,7 +1401,8 @@ async function renderShowcase(){
   const sc=document.getElementById('showcase'); if(!sc||!allTeams.length) return;
   const yLbl=(curSeason-1)+'–'+(''+curSeason).slice(2);
   const ls=document.getElementById('scTeamSeason'); if(ls) ls.textContent='· '+yLbl;
-  document.getElementById('scTeams').innerHTML=allTeams.slice(0,4).map((t,i)=>`
+  const teamsEl=document.getElementById('scTeams');
+  if(teamsEl) teamsEl.innerHTML=allTeams.slice(0,4).map((t,i)=>`
     <a class="sc-team sc-${i+1}" href="team.html?team=${encodeURIComponent(t.short)}&season=${curSeason}">
       <div class="sc-accent" style="background:${t.color}"></div>
       <div class="sc-rk">#${t.rk}</div>
@@ -1487,6 +1505,7 @@ async function loadSeason(yr){
     var h1=document.getElementById('heroStat1Num'); if(h1) h1.textContent=allTeams.length;
     var h4=document.getElementById('heroStat4Num'); if(h4) h4.textContent=seasonLabel(yr);
     applyFilters(false);
+    renderShowcase();   // top players for the selected season, at the top of the page
   } catch(e) {
     document.getElementById('rankingsList').innerHTML = `
       <div class="error-state">
@@ -1645,6 +1664,9 @@ function renderRows(data, srt, favTeam, favColor, favBg){
 (function bootRankings(){
   const sel=document.getElementById('seasonSel');
   if(sel){ let o=''; for(let y=2026;y>=2007;y--) o+=`<option value="${y}">${y-1}–${(''+y).slice(2)}</option>`; sel.innerHTML=o; sel.value='2026'; }
+  // Pin the team-name column only once the stats are actually scrolled sideways
+  const tsc=document.querySelector('.table-scroll');
+  if(tsc){ tsc.addEventListener('scroll',()=>{ tsc.classList.toggle('scrolled', tsc.scrollLeft>2); },{passive:true}); }
   loadSeason(2026);
 })();
 </script>
