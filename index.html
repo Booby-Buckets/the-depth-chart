@@ -546,6 +546,10 @@
     color: var(--text3);
   }
   .th.center { text-align: center; }
+  .th.sortable { cursor: pointer; user-select: none; white-space: nowrap; transition: color .15s; }
+  .th.sortable:hover { color: var(--text); }
+  .th.sorted { color: var(--accent); }
+  .th-arrow { font-size: 8px; margin-left: 2px; }
 
   /* Tier / group label with animated glow */
   .grade-group-label {
@@ -1201,7 +1205,7 @@
   </div>
   <div class="filter-controls">
     <select class="filter-select" id="seasonSel" onchange="onSeason(this.value)"></select>
-    <select class="filter-select" id="sortSel" onchange="applyFilters(true)">
+    <select class="filter-select" id="sortSel" onchange="setSort(this.value,false)">
       <option value="srs">Sort: Net Rating</option>
       <option value="margin">Sort: Scoring Margin</option>
       <option value="winpct">Sort: Win %</option>
@@ -1230,22 +1234,22 @@
     <div class="th">Rk</div>
     <div class="th"></div>
     <div class="th">Team</div>
-    <div class="th">Net Rating</div>
+    <div class="th sortable" data-sort="srs">Net Rating<span class="th-arrow"></span></div>
     <div class="th"></div>
-    <div class="th center">W-L</div>
-    <div class="th center">Win%</div>
-    <div class="th center">PPG</div>
-    <div class="th center">OPP</div>
-    <div class="th center">FG%</div>
-    <div class="th center">3P%</div>
-    <div class="th center">FT%</div>
-    <div class="th center">OReb</div>
-    <div class="th center">DReb</div>
-    <div class="th center">APG</div>
-    <div class="th center">A/TO</div>
-    <div class="th center">SPG</div>
-    <div class="th center">BPG</div>
-    <div class="th center">TOV</div>
+    <div class="th center sortable" data-sort="wins">W-L<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-sort="winpct">Win%<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-sort="ppg">PPG<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-sort="oppg">OPP<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-sort="fg">FG%<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-sort="tp">3P%<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-sort="ft">FT%<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-sort="orpg">OReb<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-sort="drpg">DReb<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-sort="apg">APG<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-sort="ato">A/TO<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-sort="spg">SPG<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-sort="bpg">BPG<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-sort="topg">TOV<span class="th-arrow"></span></div>
   </div>
   <div id="rankingsList">
     <!-- Branded skeleton loader -->
@@ -1418,8 +1422,14 @@ async function renderShowcase(){
   for(let a=0;a<4 && !(Array.isArray(ps)&&ps.length);a++){
     if(a) await new Promise(r=>setTimeout(r,500));
     try{
-      const r=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${curSeason}&tdc_grade=not.is.null&select=player,school,tdc_grade,espn_id&order=tdc_grade.desc&limit=6`,{headers:HEADERS});
-      ps=r.ok?await r.json():null;
+      // Pull a wider top-grade slice, then keep only players with real playing time
+      // (≥5 games, ≥10 mpg) so a low-minute fluke grade can't headline the page.
+      const r=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${curSeason}&tdc_grade=not.is.null&select=player,school,tdc_grade,espn_id,pergame&order=tdc_grade.desc&limit=60`,{headers:HEADERS});
+      const raw=r.ok?await r.json():null;
+      if(Array.isArray(raw)){
+        const qual=raw.filter(p=>{ const pg=p.pergame||{}; return (parseFloat(pg.games)||0)>=5 && (parseFloat(pg.mp_per_g)||0)>=10; });
+        ps=(qual.length>=6?qual:raw).slice(0,6);
+      }
     }catch(e){ ps=null; }
   }
   if(blk && Array.isArray(ps) && ps.length){
@@ -1554,9 +1564,36 @@ function setConf(conf,btn){
   applyFilters(true); // animated on user click
 }
 
+// Unified sort state — driven by both the dropdown and clickable column headers.
+let curSort = 'srs', curSortDir = -1;           // dir: -1 = high→low (default), +1 = low→high
+const SORT_DEFAULT_ASC = new Set(['oppg','topg']); // these read better low→high
+function statVal(t, key){
+  if(key==='srs')    return t.srs ?? t.margin ?? -999;
+  if(key==='margin') return t.margin ?? -999;
+  if(key==='wins')   return t.wins ?? 0;
+  if(key==='winpct') return t.winpct ?? 0;
+  const v = t[key]; return (v==null || isNaN(v)) ? -999 : v;
+}
+function setSort(key, fromHeader){
+  if(!key) return;
+  if(fromHeader && curSort===key) curSortDir = -curSortDir;          // toggle on repeat click
+  else { curSort = key; curSortDir = SORT_DEFAULT_ASC.has(key) ? 1 : -1; }
+  const sel = document.getElementById('sortSel');
+  if(sel && [...sel.options].some(o=>o.value===key)) sel.value = key; // keep dropdown in sync
+  updateSortHeaders();
+  applyFilters(true);
+}
+function updateSortHeaders(){
+  document.querySelectorAll('.table-header [data-sort]').forEach(th=>{
+    const on = th.dataset.sort===curSort;
+    th.classList.toggle('sorted', on);
+    const a = th.querySelector('.th-arrow');
+    if(a) a.textContent = on ? (curSortDir<0 ? '▼' : '▲') : '';
+  });
+}
 function applyFilters(animated){
   const search  = document.getElementById('searchInput').value.toLowerCase().trim();
-  const srt     = document.getElementById('sortSel').value;
+  const srt     = curSort;
   const favTeam = localStorage.getItem('tdc_fav') || '';
   const favData = favTeam ? allTeams.find(t=>t.name===favTeam) : null;
   const favColor= favData?.color || null;
@@ -1572,20 +1609,9 @@ function applyFilters(animated){
     return true;
   });
 
-  data.sort((a,b)=>{
-    if(srt==='margin') return b.margin-a.margin;
-    if(srt==='winpct') return b.winpct-a.winpct || (b.srs??b.margin)-(a.srs??a.margin);
-    if(srt==='wins')   return b.wins-a.wins || (b.srs??b.margin)-(a.srs??a.margin);
-    if(srt==='ppg')    return b.ppg-a.ppg;
-    if(srt==='oppg')   return a.oppg-b.oppg;
-    // generic per-game / pct stat sort (turnovers: lower is better)
-    const STAT_KEYS=['fg','tp','ft','rpg','orpg','drpg','apg','ato','spg','bpg','topg'];
-    if(STAT_KEYS.includes(srt)){
-      const inv = srt==='topg';
-      return (inv ? (a[srt]||0)-(b[srt]||0) : (b[srt]||0)-(a[srt]||0)) || (b.srs??b.margin)-(a.srs??a.margin);
-    }
-    return (b.srs??-999)-(a.srs??-999) || b.margin-a.margin;
-  });
+  data.sort((a,b)=>
+    (statVal(a,srt)-statVal(b,srt))*curSortDir || ((b.srs??b.margin)-(a.srs??a.margin))
+  );
 
   document.getElementById('filterCount').innerHTML =
     `<strong>${data.length}</strong> of ${allTeams.length} teams`;
@@ -1667,6 +1693,10 @@ function renderRows(data, srt, favTeam, favColor, favBg){
   // Pin the team-name column only once the stats are actually scrolled sideways
   const tsc=document.querySelector('.table-scroll');
   if(tsc){ tsc.addEventListener('scroll',()=>{ tsc.classList.toggle('scrolled', tsc.scrollLeft>2); },{passive:true}); }
+  // Click-to-sort column headers
+  const thead=document.querySelector('.table-header');
+  if(thead){ thead.addEventListener('click',e=>{ const th=e.target.closest('[data-sort]'); if(th) setSort(th.dataset.sort,true); }); }
+  updateSortHeaders();
   loadSeason(2026);
 })();
 </script>
