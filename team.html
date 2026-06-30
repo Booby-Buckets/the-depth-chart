@@ -125,19 +125,23 @@
     .hero-color-line{position:absolute;top:0;left:0;right:0;height:3px;background:var(--tc);box-shadow:0 0 20px rgba(var(--tc-rgb),.5);}
     .hero-content-wrap{position:relative;z-index:1;}
     .hero-top{display:flex;align-items:flex-end;justify-content:space-between;gap:32px;flex-wrap:wrap;margin-bottom:28px;}
-    .hero-conf{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--tc);margin-bottom:10px;display:flex;align-items:center;gap:10px;animation:fadeUp .45s .05s cubic-bezier(.22,1,.36,1) both;}
-    .hero-conf::before{content:'';width:18px;height:1px;background:var(--tc);opacity:.7;flex-shrink:0;}
+    /* team-color accent brightened for contrast on the dark hero (readable in both themes) */
+    :root{--tc-readable:var(--tc);}
+    [data-theme="dark"]{--tc-readable:color-mix(in srgb,var(--tc) 45%,#fff);}
+    .hero-conf{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--tc-readable);margin-bottom:10px;display:flex;align-items:center;gap:10px;animation:fadeUp .45s .05s cubic-bezier(.22,1,.36,1) both;}
+    .hero-conf::before{content:'';width:18px;height:1px;background:var(--tc-readable);opacity:.7;flex-shrink:0;}
     .hero-name{font-family:'Playfair Display',serif;font-weight:800;font-size:56px;line-height:.95;letter-spacing:-.02em;color:var(--text);margin-bottom:6px;animation:fadeUp .5s .12s cubic-bezier(.22,1,.36,1) both;}
     .hero-nickname{font-family:'Source Serif 4',serif;font-style:italic;font-size:20px;color:var(--text3);margin-bottom:14px;animation:fadeUp .5s .18s cubic-bezier(.22,1,.36,1) both;}
     .hero-meta{display:flex;align-items:center;gap:16px;flex-wrap:wrap;animation:fadeUp .5s .22s cubic-bezier(.22,1,.36,1) both;}
     .hero-record{font-family:'Share Tech Mono',monospace;font-size:14px;color:var(--text2);}
     .hero-coach{font-size:12px;color:var(--text3);font-style:italic;}
-    .hero-rank{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border:1px solid var(--tc);color:var(--tc);transition:background .2s,color .2s;}
+    .hero-rank{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border:1px solid var(--tc-readable);color:var(--tc-readable);transition:background .2s,color .2s;}
     .hero-rank:hover{background:var(--tc);color:#fff;}
 
     /* Grade boxes — stagger reveal */
     @keyframes gradeReveal{from{opacity:0;transform:translateY(10px) scale(.96);}to{opacity:1;transform:translateY(0) scale(1);}}
     .hero-grades{display:flex;gap:1px;background:var(--border);flex-shrink:0;animation:fadeUp .5s .28s cubic-bezier(.22,1,.36,1) both;}
+    .hero-grades.hist-hidden{display:none!important;}
     .hero-grade{background:var(--bg2);padding:16px 24px;text-align:center;min-width:88px;opacity:0;animation:gradeReveal .4s cubic-bezier(.22,1,.36,1) both;transition:background .2s;}
     .hero-grade:hover{background:rgba(var(--tc-rgb),.08);}
     .hero-grade:nth-child(1){animation-delay:.3s;}
@@ -178,13 +182,16 @@
     .starter-col-body{padding:10px 12px;}
     .starter-name{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;line-height:1.2;color:var(--text);margin-bottom:3px;}
     .starter-meta-row{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3);margin-bottom:5px;flex-wrap:wrap;}
-    .starter-tag{font-size:8px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:1px 5px;background:rgba(var(--tc-rgb),.15);color:var(--tc);}
+    .starter-bio{font-size:10.5px;font-weight:600;color:var(--text2);margin-bottom:5px;letter-spacing:.01em;}
+    .starter-tag{font-size:8px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:1px 5px;background:rgba(var(--tc-rgb),.15);color:var(--tc-readable);}
     .backup-chain{border-top:1px solid var(--border);padding:6px 12px;display:flex;flex-direction:column;}
     .backup-item{display:flex;align-items:center;gap:7px;padding:6px 0;border-bottom:1px solid var(--border);}
     .backup-item:last-child{border-bottom:none;}
     .backup-num{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text3);width:12px;flex-shrink:0;}
-    .backup-name{font-size:12px;font-weight:600;color:var(--text2);flex:1;}
-    .backup-cls{font-size:10px;color:var(--text3);}
+    .backup-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
+    .backup-name{font-size:12px;font-weight:600;color:var(--text2);}
+    .backup-bio{font-size:9.5px;font-weight:500;color:var(--text3);}
+    .backup-cls{font-size:10px;color:var(--text3);white-space:nowrap;}
     .backup-grade{font-family:'Playfair Display',serif;font-weight:700;font-size:13px;}
 
     /* ANALYTICS BAR */
@@ -325,25 +332,27 @@
     /* Season awards (historic sidebar) */
     .awards-head{border-left-color:var(--accent)!important;color:var(--accent)!important;}
     #awardsBody{padding:12px 12px 14px;}
-    .award-item{position:relative;display:flex;align-items:center;gap:12px;padding:11px 14px 11px 15px;margin-bottom:8px;
-      border-radius:12px;text-decoration:none;overflow:hidden;
-      background:linear-gradient(118deg, color-mix(in srgb,var(--ac) 13%, var(--bg2)) 0%, var(--bg2) 64%);
+    .award-item{position:relative;display:flex;align-items:flex-start;gap:10px;padding:10px 12px 10px 14px;margin-bottom:8px;
+      border-radius:11px;text-decoration:none;overflow:hidden;
+      background:linear-gradient(118deg, color-mix(in srgb,var(--ac) 12%, var(--bg2)) 0%, var(--bg2) 70%);
       border:1px solid color-mix(in srgb,var(--ac) 22%, var(--border));
       transition:transform .18s cubic-bezier(.22,1,.36,1), box-shadow .2s, border-color .2s;}
     .award-item:last-child{margin-bottom:0;}
     .award-item::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--ac);}
     .award-item:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--ac) 48%,transparent);
       box-shadow:0 12px 28px -14px color-mix(in srgb,var(--ac) 80%,transparent);}
-    .award-medal{width:38px;height:38px;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--ac);
+    .award-medal{width:32px;height:32px;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--ac);margin-top:1px;
       background:radial-gradient(circle at 32% 28%, color-mix(in srgb,var(--ac) 32%,transparent), color-mix(in srgb,var(--ac) 8%,transparent));
       border:1px solid color-mix(in srgb,var(--ac) 34%,transparent);
       box-shadow:inset 0 1px 3px color-mix(in srgb,var(--ac) 22%,transparent), 0 3px 7px -3px color-mix(in srgb,var(--ac) 45%,transparent);}
+    .award-medal svg{width:16px;height:16px;}
     .award-body{flex:1;min-width:0;}
-    .award-title{font-size:8.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ac);line-height:1.3;}
-    .award-name{font-size:14.5px;font-weight:700;color:var(--text);line-height:1.16;margin-top:1px;
-      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-    .award-detail{font-size:10px;color:var(--text3);font-style:italic;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .award-chip{flex-shrink:0;font-family:'Playfair Display',serif;font-weight:700;font-size:20px;color:var(--ac);min-width:24px;text-align:center;line-height:1;}
+    .award-toprow{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+    .award-title{font-size:8.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ac);line-height:1.25;min-width:0;}
+    .award-name{font-size:14px;font-weight:700;color:var(--text);line-height:1.2;margin-top:1px;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .award-detail{font-size:10px;color:var(--text3);font-weight:600;margin-top:3px;line-height:1.4;}
+    .award-chip{flex-shrink:0;font-family:'Playfair Display',serif;font-weight:700;font-size:17px;color:var(--ac);line-height:1;}
 
     /* OUTLOOK */
     .outlook-text{font-family:'Source Serif 4',serif;font-size:14px;line-height:1.8;color:var(--text2);}
@@ -560,7 +569,7 @@
     .roster-slider-bar{display:flex;align-items:center;gap:14px;padding:12px 2px 18px;}
     .roster-slider-bar .rs-label{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);}
     #rosterSlider{flex:1;max-width:520px;accent-color:var(--tc,var(--accent));height:4px;cursor:pointer;}
-    .roster-slider-bar .rs-season{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;color:var(--tc,var(--text));min-width:130px;font-variant-numeric:tabular-nums;}
+    .roster-slider-bar .rs-season{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;color:var(--text);min-width:130px;font-variant-numeric:tabular-nums;}
     .hr-table{width:100%;border-collapse:collapse;font-size:13px;}
     .hr-table th{text-align:right;font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);padding:6px 9px;border-bottom:1px solid var(--border);}
     .hr-table th:nth-child(2){text-align:left;}
@@ -938,14 +947,12 @@ function renderHero(t, color, rgb){
   document.getElementById('bcTeam').textContent = t.name;
   document.getElementById('heroLine').style.background = color;
   document.getElementById('heroConf').textContent = t.conference || '';
-  document.getElementById('heroConf').style.color = color;
+  // conf/rank colors come from CSS (--tc-readable) so they stay legible on the dark hero
   document.getElementById('heroName').textContent = t.name;
   document.getElementById('heroNick').textContent = t.nickname || '';
   document.getElementById('heroRecord').textContent = t.record || '';
   document.getElementById('heroCoach').textContent = t.coach || t.head_coach ? `HC: ${t.coach||t.head_coach}` : '';
   document.getElementById('heroRank').textContent = t.tdc_rank ? `#${t.tdc_rank} TDC` : '';
-  document.getElementById('heroRank').style.borderColor = color;
-  document.getElementById('heroRank').style.color = color;
   document.getElementById('gradeCardHead').style.color = color;
   document.getElementById('gradeCardHead').style.borderLeftColor = color;
   document.querySelectorAll('.side-card-head').forEach(el => {
@@ -954,8 +961,8 @@ function renderHero(t, color, rgb){
   // Color the key badges
   const starBadge = document.getElementById('keyStarBadge');
   const retBadge  = document.getElementById('keyRetBadge');
-  if(starBadge){ starBadge.style.background = `rgba(${rgb},.15)`; starBadge.style.color = color; }
-  if(retBadge){  retBadge.style.background  = `rgba(${rgb},.15)`; retBadge.style.color  = color; }
+  if(starBadge){ starBadge.style.background = `rgba(${rgb},.15)`; starBadge.style.color = 'var(--tc-readable)'; }
+  if(retBadge){  retBadge.style.background  = `rgba(${rgb},.15)`; retBadge.style.color  = 'var(--tc-readable)'; }
 
   document.getElementById('heroGrades').innerHTML = [
     {val: t.coach_grade  || '—', lbl:'Coach'},
@@ -1385,8 +1392,8 @@ function renderDepth(t, players, color, rgb, gp={}){
         <div class="starter-name" data-pcard="${(p.name||'').replace(/"/g,'&quot;')}">${p.name}${p.tdc_grade?`<span class="starter-col-grade ${gc(p.tdc_grade)}" style="margin-left:6px;font-size:13px;">${p.tdc_grade}</span>`:''}</div>
         <div class="starter-meta-row">
           <span>${p.class_year||p.yr||''}</span>
-          <span class="starter-tag" style="background:rgba(${rgb},.12);color:${color};">★</span>
-          ${p.starter?`<span class="starter-tag" style="background:rgba(${rgb},.12);color:${color};">*</span>`:''}
+          <span class="starter-tag" style="background:rgba(${rgb},.12);">★</span>
+          ${p.starter?`<span class="starter-tag" style="background:rgba(${rgb},.12);">*</span>`:''}
         </div>
       </div>
       ${backupHtml}
@@ -3746,14 +3753,19 @@ function onRosterSeason(v){
   document.getElementById('rosterSeasonLabel').textContent = rosterLbl(v);
   const sh=document.getElementById('depthSecHead');
   const live=document.querySelectorAll('.live-side'), awardsCard=document.getElementById('awardsCard');
+  // The Coach/Depth/Recruit/NIL/Tier grades only describe the 2026-27 projection,
+  // so hide them when viewing a past season.
+  const heroGrades=document.getElementById('heroGrades');
   if(_rosterSeason >= 2027){
     if(sh) sh.firstChild.textContent='Depth Chart ';
     live.forEach(c=>c.style.display='');
     if(awardsCard) awardsCard.style.display='none';
+    if(heroGrades) heroGrades.classList.remove('hist-hidden');
     if(teamT && teamPlayers) renderDepth(teamT, teamPlayers, teamColor_g, teamRgb_g, teamGp);
   } else {
     if(sh) sh.firstChild.textContent=`${rosterLbl(v)} Roster `;
     live.forEach(c=>c.style.display='none');
+    if(heroGrades) heroGrades.classList.add('hist-hidden');
     if(awardsCard){ awardsCard.style.display=''; document.getElementById('awardsBody').innerHTML='<div class="empty-note">Loading…</div>'; }
     loadHistoricRoster(_rosterSeason);
   }
@@ -3768,8 +3780,22 @@ async function loadHistoricRoster(yr){
   if(!rows||!rows.length) rows=await fetch(`${SB_URL}/rest/v1/player_history?season_year=eq.${yr}&team=ilike.${encodeURIComponent(short+'*')}&select=*&order=tdc_grade.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
   // pre-2012 (no season-stat rows) — build the roster from box scores instead
   if(!rows||!rows.length) rows=await rosterFromBox(yr, mascot);
+  // player_history.yr is empty for older seasons — backfill class year from bbref_seasons
+  await _fillClassYears(rows, yr);
   renderHistoricRoster(rows, yr);
   computeSeasonAwards(rows, yr);
+}
+// Merge class year (FR/SO/JR/SR) from bbref_seasons into rows that lack `yr`, matched by espn_id
+async function _fillClassYears(rows, yr){
+  if(!rows||!rows.length || rows.every(r=>r.yr)) return;
+  const ids=[...new Set(rows.map(r=>r.espn_id).filter(Boolean))];
+  if(!ids.length) return;
+  const CL={FR:'Fr.',SO:'So.',JR:'Jr.',SR:'Sr.',GR:'Gr.','5':'Sr.'};
+  try{
+    const bb=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${yr}&espn_id=in.(${ids.join(',')})&select=espn_id,class`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const m={}; bb.forEach(b=>{ if(b.espn_id!=null) m[b.espn_id]=CL[(b.class||'').toUpperCase()]||b.class||''; });
+    rows.forEach(r=>{ if(!r.yr && r.espn_id!=null && m[r.espn_id]) r.yr=m[r.espn_id]; });
+  }catch(e){}
 }
 async function computeSeasonAwards(rows, yr){
   const body=document.getElementById('awardsBody'), head=document.getElementById('awardsHead');
@@ -3828,11 +3854,10 @@ async function computeSeasonAwards(rows, yr){
     <a class="award-item" style="--ac:${ac}" href="${link(p)}">
       <div class="award-medal">${ico(icon)}</div>
       <div class="award-body">
-        <div class="award-title">${title}</div>
+        <div class="award-toprow"><span class="award-title">${title}</span>${chip!=null?`<span class="award-chip">${chip}</span>`:''}</div>
         <div class="award-name">${p.name}</div>
         <div class="award-detail">${detail}</div>
       </div>
-      ${chip!=null?`<div class="award-chip">${chip}</div>`:''}
     </a>` : '';
 
   let html='';
@@ -3882,68 +3907,64 @@ function renderHistoricRoster(rows, yr){
   const hasPos = rows.some(r=>r.position);
   if(!hasPos){ host.innerHTML = histTable(rows, yr); return; }
 
-  // Source data is only coarse G / F / C, so refine into the five slots by role:
-  // guards split by ASSISTS (the floor general runs the point), forwards by HEIGHT
-  // (the bigger forward is the 4), centers by minutes. Each column shows its
-  // highest-minutes member as the starter.
+  // Build the depth chart from actual playing time. The source only has coarse G/F/C,
+  // so fill the five STARTER slots by positional need — both bigs start, the lead guard
+  // (most assists) runs the point, and a surplus guard slides to the 3 rather than a
+  // benchwarmer — then stack each column's backups by minutes.
   const mpg=p=>parseFloat(p.mpg)||0, apg=p=>parseFloat(p.apg)||0,
-        rpg=p=>parseFloat(p.rpg)||0, ht=p=>_htIn(p.height);
+        rpg=p=>parseFloat(p.rpg)||0, ht=p=>_htIn(p.height), big=p=>ht(p)*2+rpg(p);
+  const byMin=a=>[...a].sort((x,y)=>mpg(y)-mpg(x));
   const median=(arr,f)=>{const s=arr.map(f).sort((a,b)=>a-b);return s.length?s[Math.floor((s.length-1)/2)]:0;};
-  const G=[],F=[],C=[];
-  rows.forEach(p=>{ const g=histGroup(p.position,p.height); (g==='G'?G:g==='C'?C:F).push(p); });
+  const gB=[],fB=[],cB=[];
+  rows.forEach(p=>{ const g=histGroup(p.position,p.height); (g==='G'?gB:g==='C'?cB:fB).push(p); });
 
-  // The two starters of each pair are the two highest-MINUTES players, so a deep-bench
-  // guy never anchors a slot; the role tag (PG vs SG, PF vs SF) is then decided by skill.
+  const used=new Set();
+  const pick=arr=>{ for(const p of byMin(arr)){ if(!used.has(p)){ used.add(p); return p; } } return null; };
+  const pickPasser=arr=>{ let b=null; for(const p of arr){ if(used.has(p))continue; if(!b||apg(p)>apg(b))b=p; } if(b)used.add(b); return b; };
+  const topUnused=arr=>{ for(const p of byMin(arr)){ if(!used.has(p))return p; } return null; };
 
-  // Guards → PG / SG: of the two top-minute guards, the better passer runs the point.
-  // Remaining guards fall to PG/SG by whether their assists beat the guard-pool median.
-  let PG=[], SG=[];
-  if(G.length===1){ PG=[G[0]]; }
-  else if(G.length>1){
-    const byMpg=[...G].sort((a,b)=>mpg(b)-mpg(a));
-    const pgStarter = apg(byMpg[0])>=apg(byMpg[1]) ? byMpg[0] : byMpg[1];
-    const sgStarter = pgStarter===byMpg[0] ? byMpg[1] : byMpg[0];
-    const bench=G.filter(p=>p!==pgStarter && p!==sgStarter);
-    const med=median(G,apg);
-    PG=[pgStarter, ...bench.filter(p=>apg(p)>=med).sort((a,b)=>mpg(b)-mpg(a))];
-    SG=[sgStarter, ...bench.filter(p=>apg(p)< med).sort((a,b)=>mpg(b)-mpg(a))];
-  }
+  // starters in fill order: center → power forward → point → off guard → small forward
+  const st={};
+  st.C  = pick(cB) || pick(fB);
+  st.PF = pick(cB) || pick(fB);
+  st.PG = pickPasser(gB);
+  st.SG = pick(gB);
+  { const g0=topUnused(gB), f0=topUnused(fB);                 // the 3: surplus guard or a wing
+    st.SF = (g0&&f0) ? (mpg(g0)>=mpg(f0)?g0:f0) : (g0||f0);
+    if(st.SF) used.add(st.SF); }
+  // tiny roster: fill any still-empty slot by minutes (tall → C/PF, short → guard slots)
+  ['C','PF','SF','SG','PG'].forEach(slot=>{ if(st[slot])return;
+    const pool=[...gB,...fB,...cB].filter(p=>!used.has(p)); if(!pool.length)return;
+    const tall=slot==='C'||slot==='PF'; let best=pool[0];
+    pool.forEach(p=>{ if(tall? ht(p)>ht(best) : ht(p)<ht(best)) best=p; });
+    st[slot]=best; used.add(best); });
 
-  // Forwards → SF / PF: of the two top-minute forwards, the bigger/better rebounder is
-  // the 4. Remaining forwards fall to PF/SF by whether their size beats the median.
-  const big=p=>ht(p)*2+rpg(p);
-  let SF=[], PF=[];
-  if(F.length===1){ SF=[F[0]]; }
-  else if(F.length>1){
-    const byMpg=[...F].sort((a,b)=>mpg(b)-mpg(a));
-    const pfStarter = big(byMpg[0])>=big(byMpg[1]) ? byMpg[0] : byMpg[1];
-    const sfStarter = pfStarter===byMpg[0] ? byMpg[1] : byMpg[0];
-    const bench=F.filter(p=>p!==pfStarter && p!==sfStarter);
-    const med=median(F,big);
-    PF=[pfStarter, ...bench.filter(p=>big(p)>=med).sort((a,b)=>mpg(b)-mpg(a))];
-    SF=[sfStarter, ...bench.filter(p=>big(p)< med).sort((a,b)=>mpg(b)-mpg(a))];
-  }
-
-  C.sort((a,b)=>mpg(b)-mpg(a));
+  // backups: leftover guards → PG/SG by assists, forwards → SF/PF by size, bigs → C
+  const gMed=median(gB,apg), fMed=median(fB,big);
+  const bg=byMin(gB.filter(p=>!used.has(p))), bf=byMin(fB.filter(p=>!used.has(p))), bb=byMin(cB.filter(p=>!used.has(p)));
   const cols=[
-    {pos:'PG', list:PG}, {pos:'SG', list:SG},
-    {pos:'SF', list:SF}, {pos:'PF', list:PF},
-    {pos:'C',  list:C},
+    {pos:'PG', list:[st.PG, ...bg.filter(p=>apg(p)>=gMed)].filter(Boolean)},
+    {pos:'SG', list:[st.SG, ...bg.filter(p=>apg(p)< gMed)].filter(Boolean)},
+    {pos:'SF', list:[st.SF, ...bf.filter(p=>big(p)< fMed)].filter(Boolean)},
+    {pos:'PF', list:[st.PF, ...bf.filter(p=>big(p)>=fMed)].filter(Boolean)},
+    {pos:'C',  list:[st.C, ...bb].filter(Boolean)},
   ];
   const color=teamColor_g, rgb=teamRgb_g;
   const colHtml=cols.map(c=>{
     const head=`<div class="starter-col-head" style="border-bottom-color:${color};background:rgba(${rgb},.08);"><span class="starter-pos">${c.pos}</span></div>`;
     const s=c.list[0];
     if(!s) return `<div class="starter-col">${head}<div class="starter-col-body" style="min-height:48px;display:flex;align-items:center;padding:10px 12px;"><span style="font-size:12px;color:var(--text3);font-style:italic;">—</span></div></div>`;
+    const bio=[s.yr, s.height, s.weight?s.weight+' lb':''].filter(Boolean).join(' · ');
     const body=`<div class="starter-col-body">
       <div class="starter-name"><a href="${link(s)}" style="color:inherit;text-decoration:none;">${s.name}</a>${s.tdc_grade?`<span class="starter-col-grade ${gc(s.tdc_grade)}" style="margin-left:6px;font-size:13px;">${s.tdc_grade}</span>`:''}</div>
-      <div class="starter-meta-row"><span>${s.yr?s.yr+' · ':''}${num(s.mpg)} mpg</span><span class="starter-tag" style="background:rgba(${rgb},.12);color:${color};">★</span></div>
+      <div class="starter-bio">${bio||'&nbsp;'}</div>
+      <div class="starter-meta-row" style="margin-bottom:0;"><span>${num(s.mpg)} mpg</span><span class="starter-tag" style="background:rgba(${rgb},.12);">★</span></div>
     </div>`;
     const backs=c.list.slice(1);
     const chain=backs.length?`<div class="backup-chain">${backs.map((b,i)=>`
       <div class="backup-item">
         <span class="backup-num">${i+2}</span>
-        <a class="backup-name" href="${link(b)}" style="color:inherit;text-decoration:none;">${b.name}</a>
+        <div class="backup-main"><a class="backup-name" href="${link(b)}" style="color:inherit;text-decoration:none;">${b.name}</a><span class="backup-bio">${[b.yr,b.height].filter(Boolean).join(' · ')}</span></div>
         <span class="backup-cls">${num(b.mpg)}m</span>
         <span class="backup-grade ${gc(b.tdc_grade||'')}">${b.tdc_grade||''}</span>
       </div>`).join('')}</div>`:'';
@@ -3959,12 +3980,13 @@ function histTable(rows, yr){
   const link=p=> p.espn_id?`player.html?espn=${p.espn_id}&name=${encodeURIComponent(p.name)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}&season=${yr}`;
   const body=r.map((p,i)=>`<tr>
     <td class="hr-rk">${i+1}</td>
-    <td><a class="hr-name" href="${link(p)}">${p.name}</a> <span class="hr-meta">${p.yr||''} ${p.position||''}</span></td>
+    <td><a class="hr-name" href="${link(p)}">${p.name}</a> <span class="hr-meta">${[p.yr,p.position,p.height].filter(Boolean).join(' · ')}</span></td>
     <td>${p.gp||'—'}</td><td>${num(p.mpg)}</td><td>${num(p.ppg)}</td><td>${num(p.rpg)}</td><td>${num(p.apg)}</td>
-    <td>${pct(p.fg_pct)}</td><td>${pct(p.tp_pct)}</td>
+    <td>${num(p.stl)}</td><td>${num(p.blk)}</td><td>${num(p.tovs)}</td>
+    <td>${pct(p.fg_pct)}</td><td>${pct(p.tp_pct)}</td><td>${pct(p.ft_pct)}</td>
     <td class="hr-ovr">${p.tdc_grade||'—'}</td></tr>`).join('');
-  return `<div style="margin-top:22px;"><table class="hr-table"><thead><tr>
-    <th>#</th><th>Player</th><th>GP</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th><th>FG%</th><th>3P%</th><th>OVR</th>
+  return `<div style="margin-top:22px;overflow-x:auto;"><table class="hr-table"><thead><tr>
+    <th>#</th><th>Player</th><th>GP</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th><th>STL</th><th>BLK</th><th>TO</th><th>FG%</th><th>3P%</th><th>FT%</th><th>OVR</th>
   </tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
