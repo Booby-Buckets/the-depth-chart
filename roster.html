@@ -497,7 +497,7 @@ async function loadData(){
       const from = page * PAGE_SIZE;
       const to   = from + PAGE_SIZE - 1;
       const pr = await fetch(
-        `${SB}/rest/v1/players?select=id,name,team,position,height,class_year,yr,starter,is_addition,is_injured,is_international,tdc_grade,ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,oreb,dreb,stl,blk,tovs,gp,depth_order&order=name.asc`,
+        `${SB}/rest/v1/players?select=id,name,team,position,height,class_year,yr,starter,is_addition,is_injured,is_international,tdc_grade,ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,oreb,dreb,stl,blk,tovs,gp,depth_order,espn_id&order=name.asc`,
         {headers:{...H, 'Range-Unit':'items', 'Range':`${from}-${to}`}}
       );
       const batch = await pr.json();
@@ -523,12 +523,19 @@ async function loadData(){
     const teamMap = {};
     allTeams.forEach(t => teamMap[t.name] = t);
 
-    allPlayers = allRaw.filter(p => p.name && p.name !== '—').map(p => ({
-      ...p,
-      season_year: 2027, _hist: false,
-      teamData: teamMap[p.team] || {},
-      conf: (teamMap[p.team]||{}).conf || (teamMap[p.team]||{}).conference || '',
-    }));
+    // Carry forward each returning player's most recent actual Wins Added (2025-26)
+    // so the projected roster isn't blank in the WA column.
+    const carryWA = await loadWA(2026);
+    allPlayers = allRaw.filter(p => p.name && p.name !== '—').map(p => {
+      const cw = (p.espn_id!=null && carryWA.has(String(p.espn_id))) ? carryWA.get(String(p.espn_id)) : null;
+      return {
+        ...p,
+        season_year: 2027, _hist: false,
+        teamData: teamMap[p.team] || {},
+        conf: (teamMap[p.team]||{}).conf || (teamMap[p.team]||{}).conference || '',
+        wa: cw, _waCarried: cw!=null,
+      };
+    });
 
     // index team base-names (mascot-stripped) for resolving historical teams
     teamBaseIdx = allTeams.map(t => [ (t.name||'').toLowerCase(), t ])
@@ -626,6 +633,7 @@ function renderTable(players){
         <span class="toggle-slider"></span>
       </label>
       <span class="color-key" style="font-size:11px;color:var(--text3);display:inline-flex;align-items:center;gap:7px;">National percentile<span class="ckey-grad"></span>deeper blue = higher</span>
+      ${(document.getElementById('seasonFilter')||{}).value==='2027' ? '<span style="font-size:11px;color:var(--text3);margin-left:auto;"><b style="color:var(--text2);">WA*</b> = 2025-26 Wins Added, carried forward</span>' : ''}
     </div>
     <table class="roster-table">
       <thead>
@@ -702,7 +710,7 @@ function _rowHTML(p){
             <td><span class="td-pos">${p.position||'—'}</span></td>
             <td class="td-ht">${safeHt(p.height)}</td>
             <td>${yr}</td>
-            <td class="td-stat right" style="${p.wa!=null?'color:var(--accent);font-weight:800;':''}">${p.wa!=null?(p.wa>=0?'+':'')+Number(p.wa).toFixed(1):'—'}</td>
+            <td class="td-stat right" style="${p.wa!=null?(p._waCarried?'color:var(--text3);font-weight:700;':'color:var(--accent);font-weight:800;'):''}"${p._waCarried?' title="2025-26 Wins Added (carried forward)"':''}>${p.wa!=null?(p.wa>=0?'+':'')+Number(p.wa).toFixed(1)+(p._waCarried?'*':''):'—'}</td>
             <td class="td-stat right" style="${sc(p.gp,'gp')}">${p.gp||'—'}</td>
             <td class="td-stat right" style="${sc(p.ppg,'ppg')}">${fmt(p.ppg)}</td>
             <td class="td-stat right" style="${sc(p.rpg,'rpg')}">${fmt(p.rpg)}</td>
