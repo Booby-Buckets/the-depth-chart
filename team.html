@@ -3882,16 +3882,52 @@ function renderHistoricRoster(rows, yr){
   const hasPos = rows.some(r=>r.position);
   if(!hasPos){ host.innerHTML = histTable(rows, yr); return; }
 
-  // Slot every player by position, order each slot by PLAYED minutes (mpg).
-  const mpg=p=>parseFloat(p.mpg)||0;
+  // Source data is only coarse G / F / C, so refine into the five slots by role:
+  // guards split by ASSISTS (the floor general runs the point), forwards by HEIGHT
+  // (the bigger forward is the 4), centers by minutes. Each column shows its
+  // highest-minutes member as the starter.
+  const mpg=p=>parseFloat(p.mpg)||0, apg=p=>parseFloat(p.apg)||0,
+        rpg=p=>parseFloat(p.rpg)||0, ht=p=>_htIn(p.height);
+  const median=(arr,f)=>{const s=arr.map(f).sort((a,b)=>a-b);return s.length?s[Math.floor((s.length-1)/2)]:0;};
   const G=[],F=[],C=[];
   rows.forEach(p=>{ const g=histGroup(p.position,p.height); (g==='G'?G:g==='C'?C:F).push(p); });
-  [G,F,C].forEach(a=>a.sort((x,y)=>mpg(y)-mpg(x)));
-  const evn=a=>a.filter((_,i)=>i%2===0), odd=a=>a.filter((_,i)=>i%2===1);
-  // PG/SG split the guards by minutes; SF/PF split the forwards; C takes the bigs.
+
+  // The two starters of each pair are the two highest-MINUTES players, so a deep-bench
+  // guy never anchors a slot; the role tag (PG vs SG, PF vs SF) is then decided by skill.
+
+  // Guards → PG / SG: of the two top-minute guards, the better passer runs the point.
+  // Remaining guards fall to PG/SG by whether their assists beat the guard-pool median.
+  let PG=[], SG=[];
+  if(G.length===1){ PG=[G[0]]; }
+  else if(G.length>1){
+    const byMpg=[...G].sort((a,b)=>mpg(b)-mpg(a));
+    const pgStarter = apg(byMpg[0])>=apg(byMpg[1]) ? byMpg[0] : byMpg[1];
+    const sgStarter = pgStarter===byMpg[0] ? byMpg[1] : byMpg[0];
+    const bench=G.filter(p=>p!==pgStarter && p!==sgStarter);
+    const med=median(G,apg);
+    PG=[pgStarter, ...bench.filter(p=>apg(p)>=med).sort((a,b)=>mpg(b)-mpg(a))];
+    SG=[sgStarter, ...bench.filter(p=>apg(p)< med).sort((a,b)=>mpg(b)-mpg(a))];
+  }
+
+  // Forwards → SF / PF: of the two top-minute forwards, the bigger/better rebounder is
+  // the 4. Remaining forwards fall to PF/SF by whether their size beats the median.
+  const big=p=>ht(p)*2+rpg(p);
+  let SF=[], PF=[];
+  if(F.length===1){ SF=[F[0]]; }
+  else if(F.length>1){
+    const byMpg=[...F].sort((a,b)=>mpg(b)-mpg(a));
+    const pfStarter = big(byMpg[0])>=big(byMpg[1]) ? byMpg[0] : byMpg[1];
+    const sfStarter = pfStarter===byMpg[0] ? byMpg[1] : byMpg[0];
+    const bench=F.filter(p=>p!==pfStarter && p!==sfStarter);
+    const med=median(F,big);
+    PF=[pfStarter, ...bench.filter(p=>big(p)>=med).sort((a,b)=>mpg(b)-mpg(a))];
+    SF=[sfStarter, ...bench.filter(p=>big(p)< med).sort((a,b)=>mpg(b)-mpg(a))];
+  }
+
+  C.sort((a,b)=>mpg(b)-mpg(a));
   const cols=[
-    {pos:'PG', list:evn(G)}, {pos:'SG', list:odd(G)},
-    {pos:'SF', list:evn(F)}, {pos:'PF', list:odd(F)},
+    {pos:'PG', list:PG}, {pos:'SG', list:SG},
+    {pos:'SF', list:SF}, {pos:'PF', list:PF},
     {pos:'C',  list:C},
   ];
   const color=teamColor_g, rgb=teamRgb_g;
