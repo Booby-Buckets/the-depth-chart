@@ -18,7 +18,7 @@ CONFIG = {
     "mode": "value",            # 'value' | 'upside'
     "standardize": "all",       # 'all' | 'position'
     "logistic": {"k": 1.6, "center": 0.0, "floor": 25, "span": 74},
-    "reliability": {"fullGames": 28, "floor": 0.70, "minMpgForRates": 10},
+    "reliability": {"fullGames": 28, "floor": 0.82, "minMpgForRates": 10},
     "size": {"weight": 0.15},
 }
 PILLAR_WEIGHTS = {
@@ -141,31 +141,53 @@ def pos_grp(pos):
     if p in ("C","PF","FC"): return "B"
     return "W"
 
-def load(season, min_mpg=8, min_g=5):
-    rows=[]
-    for line in (DATA/"bbref.jsonl").read_text().splitlines():
-        if not line.strip(): continue
-        try: b=json.loads(line)
-        except Exception: continue
-        if b.get("season")!=season: continue
-        pg=b.get("pergame") or {}; adv=b.get("advanced") or {}; p4=b.get("per40") or {}
-        mpg=f(pg.get("mp_per_g")); games=f(pg.get("games"))
-        if mpg is None or mpg<min_mpg or (games is not None and games<min_g): continue
-        ws=f(adv.get("ws")); mp=f(adv.get("mp"))
-        rows.append({
-            "name":b.get("player"),"team":b.get("school"),"pos":b.get("pos"),"_grp":pos_grp(b.get("pos")),
-            "gamesPlayed":games,"mpg":mpg,"height":ht_in(b.get("height")),
-            "ppg":f(pg.get("pts_per_g")),"fta":f(pg.get("fta_per_g")),"ppg40":f(p4.get("pts_per_min")),
-            "obpm":f(adv.get("obpm")),"ows":f(adv.get("ows")),
-            "tsPct":f(adv.get("ts_pct")),"tpPct":f(pg.get("fg3_pct")),"fgPct":f(pg.get("fg_pct")),"ftPct":f(pg.get("ft_pct")),
-            "ast":f(pg.get("ast_per_g")),"astPct":f(adv.get("ast_pct")),"pprod":f(adv.get("pprod")),"orb":f(pg.get("orb_per_g")),
-            "to":f(pg.get("tov_per_g")),"tovPct":f(adv.get("tov_pct")),
-            "usgPct":f(adv.get("usg_pct")),"per":f(adv.get("per")),"apg40":f(p4.get("ast_per_min")),
-            "wa": round(ws-0.04*((mp or 0)/40),3) if ws is not None else None,"ws":ws,"bpm":f(adv.get("bpm")),
-            "glsT1":None,"glsT2":None,"glsT3":None,"glsT4":None,
-            "stl":f(pg.get("stl_per_g")),"blk":f(pg.get("blk_per_g")),"drb":f(pg.get("drb_per_g")),"pf":f(pg.get("pf_per_g")),
-            "fga40":f(p4.get("fga_per_min")),"fta40":f(p4.get("fta_per_min")),"pf40":f(p4.get("pf_per_min")),"to40":f(p4.get("tov_per_min")),
-        })
+# conference-translation scale targets: volume/counting + advanced composites that
+# inflate in weaker conferences (applied per-row before z-scoring)
+_SCALE_STATS = ("ppg","ppg40","fta","fta40","ast","apg40","orb","stl","blk","drb","pprod","fga40",
+                "wa","ws","ows","bpm","obpm","per")
+
+def _build_row(b, min_mpg, min_g):
+    pg=b.get("pergame") or {}; adv=b.get("advanced") or {}; p4=b.get("per40") or {}
+    mpg=f(pg.get("mp_per_g")); games=f(pg.get("games"))
+    if mpg is None or mpg<min_mpg or (games is not None and games<min_g): return None
+    ws=f(adv.get("ws")); mp=f(adv.get("mp"))
+    return {
+        "bbref_id":b.get("bbref_id"),"school_slug":b.get("school_slug"),"season_year":b.get("season"),
+        "name":b.get("player"),"team":b.get("school"),"pos":b.get("pos"),"_grp":pos_grp(b.get("pos")),
+        "gamesPlayed":games,"mpg":mpg,"height":ht_in(b.get("height")),
+        "ppg":f(pg.get("pts_per_g")),"fta":f(pg.get("fta_per_g")),"ppg40":f(p4.get("pts_per_min")),
+        "obpm":f(adv.get("obpm")),"ows":f(adv.get("ows")),
+        "tsPct":f(adv.get("ts_pct")),"tpPct":f(pg.get("fg3_pct")),"fgPct":f(pg.get("fg_pct")),"ftPct":f(pg.get("ft_pct")),
+        "ast":f(pg.get("ast_per_g")),"astPct":f(adv.get("ast_pct")),"pprod":f(adv.get("pprod")),"orb":f(pg.get("orb_per_g")),
+        "to":f(pg.get("tov_per_g")),"tovPct":f(adv.get("tov_pct")),
+        "usgPct":f(adv.get("usg_pct")),"per":f(adv.get("per")),"apg40":f(p4.get("ast_per_min")),
+        "wa": round(ws-0.04*((mp or 0)/40),3) if ws is not None else None,"ws":ws,"bpm":f(adv.get("bpm")),
+        "glsT1":None,"glsT2":None,"glsT3":None,"glsT4":None,
+        "stl":f(pg.get("stl_per_g")),"blk":f(pg.get("blk_per_g")),"drb":f(pg.get("drb_per_g")),"pf":f(pg.get("pf_per_g")),
+        "fga40":f(p4.get("fga_per_min")),"fta40":f(p4.get("fta_per_min")),"pf40":f(p4.get("pf_per_min")),"to40":f(p4.get("tov_per_min")),
+    }
+
+def _postprocess(rows):
+    """Per-game normalization, conference translation, heightVsPos — all within this pool."""
+    # Season-total stats → per-game so short seasons (e.g. injury) aren't double-penalized
+    # (reliability formula already handles sample uncertainty)
+    for r in rows:
+        g = r.get("gamesPlayed") or 1
+        for k in ("pprod", "wa", "ws", "ows"):
+            if r.get(k) is not None:
+                r[k] = round(r[k] / g, 5)
+    # Conference translation: scale volume stats to tier-1 equivalent before z-scoring
+    try:
+        import grade_conf as _gc
+        for r in rows:
+            tf = _gc.TIER_TO_T1.get(_gc.tier(r.get("team") or ""), 1.0)
+            r["_conf_factor"] = tf
+            if tf < 1.0:
+                for k in _SCALE_STATS:
+                    if r.get(k) is not None:
+                        r[k] = round(r[k] * tf, 5)
+    except ImportError:
+        pass
     # heightVsPos = height - mean height of position group
     gm={}; gc={}
     for r in rows:
@@ -173,6 +195,29 @@ def load(season, min_mpg=8, min_g=5):
     for k in gm: gm[k]/=gc[k]
     for r in rows: r["heightVsPos"]=(r["height"]-gm[r["_grp"]]) if (r["height"] is not None and r["_grp"] in gm) else None
     return rows
+
+def load(season, min_mpg=8, min_g=5):
+    rows=[]
+    for line in (DATA/"bbref.jsonl").read_text().splitlines():
+        if not line.strip(): continue
+        try: b=json.loads(line)
+        except Exception: continue
+        if b.get("season")!=season: continue
+        r=_build_row(b,min_mpg,min_g)
+        if r is not None: rows.append(r)
+    return _postprocess(rows)
+
+def load_all(min_mpg=8, min_g=5):
+    """Single pass over the jsonl, bucketed by season, each pool post-processed independently."""
+    buckets={}
+    for line in (DATA/"bbref.jsonl").read_text().splitlines():
+        if not line.strip(): continue
+        try: b=json.loads(line)
+        except Exception: continue
+        r=_build_row(b,min_mpg,min_g)
+        if r is None: continue
+        buckets.setdefault(b.get("season"),[]).append(r)
+    return {s:_postprocess(rows) for s,rows in buckets.items() if s}
 
 TARGET={'Chance Mallory':83,'Jurian Dixon':79,'Sam Lewis':82,'Thijs De Ridder':92,'Johann Grunloh':83,
         'Jan Vide':78,'Christian Harmon':77,'Kalu Anya':71,'Elijah Gertrude':70,'Martin Carrere':69,
