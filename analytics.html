@@ -355,6 +355,11 @@ async function changeSeason(key){
   document.getElementById('explorerView').style.display='none';
   RAW=await loadSeason(key);
   document.getElementById('loadingEl').style.display='none';
+  // Restore whichever view is active BEFORE rendering — otherwise the explorer
+  // chart is built into a hidden, zero-size container and comes out blank until
+  // you toggle views.
+  document.getElementById('leadersView').style.display  = view==='explorer'?'none':'block';
+  document.getElementById('explorerView').style.display = view==='explorer'?'block':'none';
   refresh();
 }
 
