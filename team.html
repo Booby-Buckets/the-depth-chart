@@ -878,8 +878,8 @@ async function loadTeam(name){
     // Expose actual stats + team color by name for hover micro-cards
     window._actualByName={}; players.forEach(pl=>{ window._actualByName[(pl.name||'').toLowerCase().trim()]=pl; });
     window._hoverTeamColor=teamColor;
-    renderDepth(t, players, teamColor, teamRgb, globalPercentiles);
-    _appendDepthLosses(2027);
+    renderHistoricRoster(players, 2027, true);   // 2026-27 depth chart uses the clean historical layout
+    renderSeasonLosses(players, 2027);
     renderCustomize(t, players, teamColor, teamRgb, globalPercentiles);
     renderSidebar(t, players, losses, teamColor);
     renderLosses(losses, globalPercentiles);
@@ -3784,7 +3784,7 @@ function onRosterSeason(v){
     if(awardsCard) awardsCard.style.display='none';
     if(statsCard) statsCard.style.display='none';
     if(heroGrades) heroGrades.classList.remove('hist-hidden');
-    if(teamT && teamPlayers){ renderDepth(teamT, teamPlayers, teamColor_g, teamRgb_g, teamGp); _appendDepthLosses(_rosterSeason); }
+    if(teamT && teamPlayers){ renderHistoricRoster(teamPlayers, 2027, true); renderSeasonLosses(teamPlayers, 2027); }
   } else {
     if(sh) sh.firstChild.textContent=`${rosterLbl(v)} Roster `;
     live.forEach(c=>c.style.display='none');
@@ -3978,9 +3978,11 @@ function histGroup(pos, height){
   if(!h) return 'F';
   return h<=75 ? 'G' : h>=82 ? 'C' : 'F';
 }
-function renderHistoricRoster(rows, yr){
+function renderHistoricRoster(rows, yr, projected){
   const host=document.getElementById('depthContent');
-  rows=(rows||[]).filter(r=>r.name && (parseFloat(r.gp)||0)>0);
+  // Historical rosters drop players who logged no games; the projected roster keeps
+  // everyone (freshmen/newcomers have no college stats yet).
+  rows=(rows||[]).filter(r=>r.name && (projected || (parseFloat(r.gp)||0)>0));
   if(!rows.length){ host.innerHTML=`<div style="padding:40px;text-align:center;color:var(--text3);">No roster data for ${rosterLbl(yr)}.</div>`; return; }
   const num=(v)=>{const n=parseFloat(v);return isNaN(n)?'—':n.toFixed(1);};
   const link=p=> p.espn_id?`player.html?espn=${p.espn_id}&name=${encodeURIComponent(p.name)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}&season=${yr}`;
@@ -3989,6 +3991,23 @@ function renderHistoricRoster(rows, yr){
   const hasPos = rows.some(r=>r.position);
   if(!hasPos){ host.innerHTML = histTable(rows, yr); return; }
 
+  let cols;
+  if(projected){
+    // Projected roster: the players already carry their real position + depth_order,
+    // so build each column directly (starter = lowest depth_order at that position).
+    const dOrd=p=>parseFloat(p.depth_order)||999, gr=p=>parseFloat(p.tdc_grade)||0;
+    const slot=p=>{ const x=(p.position||'').toUpperCase().trim();
+      if(x==='PG') return 'PG';
+      if(x==='SG'||x==='CG'||x==='G') return 'SG';
+      if(x==='SF'||x==='GF') return 'SF';
+      if(x==='PF'||x==='F') return 'PF';
+      if(x==='C') return 'C';
+      const h=_htIn(p.height); return h&&h<=74?'PG':h&&h<=77?'SG':h&&h<=80?'SF':h&&h<=83?'PF':'C'; };
+    const bk={PG:[],SG:[],SF:[],PF:[],C:[]};
+    rows.forEach(p=>bk[slot(p)].push(p));
+    Object.keys(bk).forEach(k=>bk[k].sort((a,b)=>dOrd(a)-dOrd(b) || gr(b)-gr(a)));
+    cols=['PG','SG','SF','PF','C'].map(pos=>({pos, list:bk[pos]}));
+  } else {
   // Build the depth chart from actual playing time. The source only has coarse G/F/C,
   // so fill the five STARTER slots by positional need — both bigs start, the lead guard
   // (most assists) runs the point, and a surplus guard slides to the 3 rather than a
@@ -4024,13 +4043,14 @@ function renderHistoricRoster(rows, yr){
   // backups: leftover guards → PG/SG by assists, forwards → SF/PF by size, bigs → C
   const gMed=median(gB,apg), fMed=median(fB,big);
   const bg=byMin(gB.filter(p=>!used.has(p))), bf=byMin(fB.filter(p=>!used.has(p))), bb=byMin(cB.filter(p=>!used.has(p)));
-  const cols=[
+  cols=[
     {pos:'PG', list:[st.PG, ...bg.filter(p=>apg(p)>=gMed)].filter(Boolean)},
     {pos:'SG', list:[st.SG, ...bg.filter(p=>apg(p)< gMed)].filter(Boolean)},
     {pos:'SF', list:[st.SF, ...bf.filter(p=>big(p)< fMed)].filter(Boolean)},
     {pos:'PF', list:[st.PF, ...bf.filter(p=>big(p)>=fMed)].filter(Boolean)},
     {pos:'C',  list:[st.C, ...bb].filter(Boolean)},
   ];
+  }
   const color=teamColor_g, rgb=teamRgb_g;
   const colHtml=cols.map(c=>{
     const head=`<div class="starter-col-head" style="border-bottom-color:${color};background:rgba(${rgb},.08);"><span class="starter-pos">${c.pos}</span></div>`;
@@ -4053,7 +4073,7 @@ function renderHistoricRoster(rows, yr){
     return `<div class="starter-col">${head}${body}${chain}</div>`;
   }).join('');
 
-  host.innerHTML = `<div class="starters-grid" style="grid-template-columns:repeat(5,1fr);">${colHtml}</div>${histTable(rows, yr)}<div id="seasonLossesWrap"></div>`;
+  host.innerHTML = `<div class="starters-grid" style="grid-template-columns:repeat(5,1fr);">${colHtml}</div>${histTable(rows, yr, projected)}<div id="seasonLossesWrap"></div>`;
 }
 // Departures: players on the PRIOR season's roster who aren't on this season's, and
 // who don't reappear in a later season for this team. Shown under the roster table.
@@ -4089,8 +4109,10 @@ function _appendDepthLosses(yr){
   if(!document.getElementById('seasonLossesWrap')) dc.insertAdjacentHTML('beforeend','<div id="seasonLossesWrap"></div>');
   renderSeasonLosses(teamPlayers||[], yr);
 }
-function histTable(rows, yr){
-  const r=[...rows].sort((a,b)=>(parseFloat(b.mpg)||0)-(parseFloat(a.mpg)||0));
+function histTable(rows, yr, projected){
+  const r=projected
+    ? [...rows].sort((a,b)=>(parseFloat(a.depth_order)||999)-(parseFloat(b.depth_order)||999) || (parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0))
+    : [...rows].sort((a,b)=>(parseFloat(b.mpg)||0)-(parseFloat(a.mpg)||0));
   const num=(v)=>{const n=parseFloat(v);return isNaN(n)?'—':n.toFixed(1);};
   const pct=(v)=>{const n=parseFloat(v);return isNaN(n)?'—':n.toFixed(1)+'%';};
   const link=p=> p.espn_id?`player.html?espn=${p.espn_id}&name=${encodeURIComponent(p.name)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}&season=${yr}`;
