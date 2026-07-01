@@ -773,8 +773,18 @@ async function loadTeam(name){
       { headers: H }
     );
     const teams = await tr.json();
-    if(!teams.length) throw new Error('Team not found');
-    const t = teams[0];
+    let t;
+    if(teams.length){
+      t = teams[0];
+    } else {
+      // Many mid-major teams aren't in the curated `teams` table — resolve basic
+      // info from team_seasons (which covers all of D1) so the page and its
+      // historical rosters still work instead of hard-erroring.
+      const ts = await fetch(`${SB_URL}/rest/v1/team_seasons?team=eq.${encodeURIComponent(name)}&select=team,conference,wins,losses,ppg,oppg,srs,tier&order=season_year.desc&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+      const b = ts[0];
+      if(!b) throw new Error('Team not found');
+      t = { name:name, nickname:'', conference:b.conference||'', conf:b.conference||'', color:'#7c7c8a', color2:'#111', wins:b.wins, losses:b.losses, srs:b.srs, tier:b.tier, _minimal:true };
+    }
 
     // Fetch players for this team
     const pr = await fetch(
@@ -3771,11 +3781,19 @@ function onRosterSeason(v){
 async function loadHistoricRoster(yr){
   const host=document.getElementById('depthContent');
   host.innerHTML='<div class="loading-state"><div class="loading-spinner"></div><div>Loading '+rosterLbl(yr)+' roster…</div></div>';
-  const short=teamT.name, mascot=_teamMascot();
+  const full=(teamT.name||''), mascot=_teamMascot();
   const q=team=>fetch(`${SB_URL}/rest/v1/player_history?season_year=eq.${yr}&team=eq.${encodeURIComponent(team)}&select=*&order=tdc_grade.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-  let rows=await q(mascot);
-  if((!rows||!rows.length) && short!==mascot) rows=await q(short);
-  if(!rows||!rows.length) rows=await fetch(`${SB_URL}/rest/v1/player_history?season_year=eq.${yr}&team=ilike.${encodeURIComponent(short+'*')}&select=*&order=tdc_grade.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  // player_history stores short ESPN school names ("Oral Roberts"), while the page name
+  // may include the mascot ("Oral Roberts Golden Eagles"). Try the mascot form, then the
+  // full name, then progressively shorter word-prefixes (longest first) until one hits.
+  const words=full.split(/\s+/).filter(Boolean);
+  const cands=[];
+  if(mascot) cands.push(mascot);
+  if(full && full!==mascot) cands.push(full);
+  for(let take=words.length-1; take>=1; take--){ const c=words.slice(0,take).join(' '); if(!cands.includes(c)) cands.push(c); }
+  let rows=[];
+  for(const c of cands){ rows=await q(c); if(rows&&rows.length) break; }
+  if(!rows||!rows.length) rows=await fetch(`${SB_URL}/rest/v1/player_history?season_year=eq.${yr}&team=ilike.${encodeURIComponent((words[0]||full)+'*')}&select=*&order=tdc_grade.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
   // pre-2012 (no season-stat rows) — build the roster from box scores instead
   if(!rows||!rows.length) rows=await rosterFromBox(yr, mascot);
   // player_history.yr is empty for older seasons — backfill class year from bbref_seasons
