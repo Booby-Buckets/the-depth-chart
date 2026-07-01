@@ -3833,12 +3833,33 @@ async function loadHistoricRoster(yr){
   if(!rows||!rows.length) rows=await fetch(`${SB_URL}/rest/v1/player_history?season_year=eq.${yr}&team=ilike.${encodeURIComponent((words[0]||full)+'*')}&select=*&order=tdc_grade.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
   // pre-2012 (no season-stat rows) — build the roster from box scores instead
   if(!rows||!rows.length) rows=await rosterFromBox(yr, mascot);
+  // player_history has some duplicate rows (e.g. a transfer's old season wrongly
+  // attributed to their new team). Drop players whose authoritative bbref school
+  // for this season doesn't match the rest of the roster.
+  rows=await _dedupeRosterByBbref(rows, yr);
   // player_history.yr is empty for older seasons — backfill class year from bbref_seasons
   await _fillClassYears(rows, yr);
   renderHistoricRoster(rows, yr);
   renderSeasonLosses(rows, yr);
   computeSeasonAwards(rows, yr);
   renderSeasonStats(yr);
+}
+// Drop roster rows that don't belong: use bbref_seasons (authoritative) to find each
+// player's real school this season, take the roster's majority school as canonical, and
+// remove players whose bbref school is a different program (fixes transfer-duplicate rows).
+async function _dedupeRosterByBbref(rows, yr){
+  if(!rows || rows.length<3) return rows;
+  const ids=[...new Set(rows.map(r=>r.espn_id).filter(x=>x!=null))];
+  if(ids.length<3) return rows;
+  let bb=[];
+  try{ bb=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${yr}&espn_id=in.(${ids.join(',')})&select=espn_id,school`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){ return rows; }
+  if(!Array.isArray(bb) || bb.length<3) return rows;   // can't verify → leave as-is
+  const school={}, counts={};
+  bb.forEach(b=>{ if(b.espn_id!=null && b.school){ const s=(''+b.school).toLowerCase().trim(); school[b.espn_id]=s; counts[s]=(counts[s]||0)+1; } });
+  let canon=null, cmax=0;
+  Object.keys(counts).forEach(s=>{ if(counts[s]>cmax){ cmax=counts[s]; canon=s; } });
+  if(!canon || cmax<2) return rows;   // no clear team consensus → don't risk filtering
+  return rows.filter(r=>{ const s=r.espn_id!=null?school[r.espn_id]:null; return !s || s===canon; });
 }
 // Merge class year (FR/SO/JR/SR) from bbref_seasons into rows that lack `yr`, matched by espn_id
 async function _fillClassYears(rows, yr){
