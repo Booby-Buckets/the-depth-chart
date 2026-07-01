@@ -161,9 +161,11 @@
     .hero-tab.active{color:var(--text);border-top-color:var(--tc);}
 
     /* LAYOUT */
-    .page-body{display:grid;grid-template-columns:1fr 320px;}
-    .main-col{padding:32px 40px 64px;border-right:1px solid var(--border);}
-    .side-col{padding:32px 32px 64px;}
+    .page-body{display:grid;grid-template-columns:minmax(0,1fr) 320px;}
+    /* min-width:0 lets the 1fr column shrink below its content so the page reflows
+       to fit the window instead of overflowing horizontally. */
+    .main-col{padding:32px 40px 64px;border-right:1px solid var(--border);min-width:0;}
+    .side-col{padding:32px 32px 64px;min-width:0;}
     .panel{display:none;}.panel.active{display:block;width:100%;box-sizing:border-box;animation:panelIn .28s cubic-bezier(.22,1,.36,1) forwards;}
     @keyframes panelIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
     #customizeContent{width:100%;max-width:100%;overflow-x:hidden;box-sizing:border-box;}
@@ -175,12 +177,12 @@
 
     /* STARTERS GRID */
     .starters-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:28px;}
-    .starter-col{background:var(--bg2);}
+    .starter-col{background:var(--bg2);min-width:0;}
     .starter-col-head{padding:8px 12px;background:rgba(var(--tc-rgb),.08);border-bottom:2px solid var(--tc);display:flex;align-items:center;justify-content:space-between;}
     .starter-pos{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text);}
-    .starter-col-grade{font-family:'Playfair Display',serif;font-weight:700;font-size:15px;}
-    .starter-col-body{padding:10px 12px;}
-    .starter-name{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;line-height:1.2;color:var(--text);margin-bottom:3px;}
+    .starter-col-grade{font-family:'Playfair Display',serif;font-weight:700;font-size:15px;flex-shrink:0;}
+    .starter-col-body{padding:10px 12px;min-width:0;}
+    .starter-name{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;line-height:1.2;color:var(--text);margin-bottom:3px;overflow-wrap:anywhere;}
     .starter-meta-row{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3);margin-bottom:5px;flex-wrap:wrap;}
     .starter-bio{font-size:10.5px;font-weight:600;color:var(--text2);margin-bottom:5px;letter-spacing:.01em;}
     .starter-tag{font-size:8px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:1px 5px;background:rgba(var(--tc-rgb),.15);color:var(--tc-readable);}
@@ -189,7 +191,7 @@
     .backup-item:last-child{border-bottom:none;}
     .backup-num{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text3);width:12px;flex-shrink:0;}
     .backup-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
-    .backup-name{font-size:12px;font-weight:600;color:var(--text2);}
+    .backup-name{font-size:12px;font-weight:600;color:var(--text2);overflow-wrap:anywhere;}
     .backup-bio{font-size:9.5px;font-weight:500;color:var(--text3);}
     .backup-cls{font-size:10px;color:var(--text3);white-space:nowrap;}
     .backup-grade{font-family:'Playfair Display',serif;font-weight:700;font-size:13px;}
@@ -1519,7 +1521,7 @@ function renderDepth(t, players, color, rgb, gp={}){
     </div>`;
 
   document.getElementById('depthContent').innerHTML =
-    `<div class="starters-grid" style="grid-template-columns:repeat(5,1fr);">${startersHtml}</div>${fullListHtml}`;
+    `<div class="starters-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));">${startersHtml}</div>${fullListHtml}`;
 }
 
 function calcP80(players, key){
@@ -4092,7 +4094,7 @@ function renderHistoricRoster(rows, yr, projected){
     return `<div class="starter-col">${head}${body}${chain}</div>`;
   }).join('');
 
-  host.innerHTML = `<div class="starters-grid" style="grid-template-columns:repeat(5,1fr);">${colHtml}</div>${histTable(rows, yr, projected)}<div id="seasonLossesWrap"></div>`;
+  host.innerHTML = `<div class="starters-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));">${colHtml}</div>${histTable(rows, yr, projected)}<div id="seasonLossesWrap"></div>`;
 }
 // Departures: players on the PRIOR season's roster who aren't on this season's, and
 // who don't reappear in a later season for this team. Shown under the roster table.
