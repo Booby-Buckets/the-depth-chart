@@ -336,14 +336,47 @@ async function loadSeason(key){
   if(_cache[key]) return _cache[key];
   var L=document.getElementById('loadingMsg'), P=document.getElementById('progressFill');
   var base=SB+'/rest/v1/bbref_seasons?select=player,school,pos,height,season_year,tdc_grade,espn_id,pergame,per40,advanced';
-  var url = key==='all' ? base+'&order=season_year,bbref_id' : base+'&season_year=eq.'+key+'&order=bbref_id';
+
+  if(key==='all'){
+    // The full table is ~97k rows and deep offset pagination on it times out
+    // server-side (no index to sort the whole thing). Season-filtered queries stay
+    // fast, so pull the top graded player-seasons from each season — plenty for the
+    // all-time leaderboard, the 300-row table and the 6,000-point explorer without
+    // dragging ~150MB into the browser.
+    // Free-tier Supabase rejects more than ~3 concurrent heavy sorts (instant 500),
+    // so fetch with a small concurrency pool + retry.
+    var PER=400, yrs=[]; for(var y=2007;y<=2026;y++) yrs.push(y);
+    var done=0;
+    async function fetchYear(yr){
+      var u=base+'&season_year=eq.'+yr+'&tdc_grade=not.is.null&order=tdc_grade.desc.nullslast&limit='+PER;
+      for(var a=0;a<4;a++){
+        try{ var r=await fetch(u,{headers:H}); if(r.ok){ var b=await r.json(); if(Array.isArray(b)){
+          done++; if(P) P.style.width=Math.min(95,done/yrs.length*100)+'%';
+          if(L) L.textContent='Loading all seasons — '+done+'/'+yrs.length+'…';
+          return b;
+        } } }catch(e){}
+        await new Promise(function(res){ setTimeout(res, 400*(a+1)); });   // backoff before retry
+      }
+      done++; return [];
+    }
+    var LIMIT=2, results=new Array(yrs.length), qi=0;
+    async function worker(){ while(qi<yrs.length){ var i=qi++; results[i]=await fetchYear(yrs[i]); } }
+    var ws=[]; for(var k=0;k<LIMIT;k++) ws.push(worker());
+    await Promise.all(ws);
+    var rows=[];
+    results.forEach(function(arr){ if(Array.isArray(arr)) for(var i=0;i<arr.length;i++) rows.push(flatten(arr[i])); });
+    if(P) P.style.width='95%';
+    _cache[key]=rows; return rows;
+  }
+
+  var url = base+'&season_year=eq.'+key+'&order=bbref_id';
   var rows=[],pg=0;
   while(true){
     if(L) L.textContent='Loading '+seasonLbl(key)+' — '+rows.length.toLocaleString()+' rows…';
     var r=await fetch(url,{headers:{...H,'Range-Unit':'items','Range':(pg*1000)+'-'+(pg*1000+999)}});
     var b=await r.json(); if(!Array.isArray(b)||!b.length) break;
     for(var i=0;i<b.length;i++) rows.push(flatten(b[i]));
-    if(P) P.style.width=Math.min(95,(key==='all'?rows.length/95000:rows.length/6000)*100)+'%';
+    if(P) P.style.width=Math.min(95,rows.length/6000*100)+'%';
     if(b.length<1000) break; pg++;
   }
   _cache[key]=rows; return rows;
