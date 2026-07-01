@@ -654,7 +654,7 @@
   <div class="hero-tabs">
     <button class="hero-tab active" onclick="switchTab('depth',this)">Depth Chart</button>
     <button class="hero-tab" onclick="switchTab('customize',this)">✦ Customize</button>
-    <button class="hero-tab" onclick="switchTab('losses',this)">Losses</button>
+    <button class="hero-tab" onclick="switchTab('losses',this)" style="display:none;">Losses</button>
     <button class="hero-tab" onclick="switchTab('schedule',this)">Schedule</button>
     <button class="hero-tab" onclick="switchTab('projections',this)">2026-27 Projections</button>
     <button class="hero-tab" onclick="switchTab('nil',this)">NIL Value</button>
@@ -876,6 +876,7 @@ async function loadTeam(name){
     window._actualByName={}; players.forEach(pl=>{ window._actualByName[(pl.name||'').toLowerCase().trim()]=pl; });
     window._hoverTeamColor=teamColor;
     renderDepth(t, players, teamColor, teamRgb, globalPercentiles);
+    _appendDepthLosses(2027);
     renderCustomize(t, players, teamColor, teamRgb, globalPercentiles);
     renderSidebar(t, players, losses, teamColor);
     renderLosses(losses, globalPercentiles);
@@ -3780,7 +3781,7 @@ function onRosterSeason(v){
     if(awardsCard) awardsCard.style.display='none';
     if(statsCard) statsCard.style.display='none';
     if(heroGrades) heroGrades.classList.remove('hist-hidden');
-    if(teamT && teamPlayers) renderDepth(teamT, teamPlayers, teamColor_g, teamRgb_g, teamGp);
+    if(teamT && teamPlayers){ renderDepth(teamT, teamPlayers, teamColor_g, teamRgb_g, teamGp); _appendDepthLosses(_rosterSeason); }
   } else {
     if(sh) sh.firstChild.textContent=`${rosterLbl(v)} Roster `;
     live.forEach(c=>c.style.display='none');
@@ -3811,6 +3812,7 @@ async function loadHistoricRoster(yr){
   // player_history.yr is empty for older seasons — backfill class year from bbref_seasons
   await _fillClassYears(rows, yr);
   renderHistoricRoster(rows, yr);
+  renderSeasonLosses(rows, yr);
   computeSeasonAwards(rows, yr);
   renderSeasonStats(yr);
 }
@@ -4048,7 +4050,41 @@ function renderHistoricRoster(rows, yr){
     return `<div class="starter-col">${head}${body}${chain}</div>`;
   }).join('');
 
-  host.innerHTML = `<div class="starters-grid" style="grid-template-columns:repeat(5,1fr);">${colHtml}</div>${histTable(rows, yr)}`;
+  host.innerHTML = `<div class="starters-grid" style="grid-template-columns:repeat(5,1fr);">${colHtml}</div>${histTable(rows, yr)}<div id="seasonLossesWrap"></div>`;
+}
+// Departures: players on the PRIOR season's roster who aren't on this season's, and
+// who don't reappear in a later season for this team. Shown under the roster table.
+async function renderSeasonLosses(rows, yr){
+  const host=document.getElementById('seasonLossesWrap');
+  if(!host) return;
+  const yl=`${yr-2}–${(''+(yr-1)).slice(2)}`;
+  const headHtml=extra=>`<div class="sec-head" style="margin-top:28px;">Departures${extra||''}</div>`;
+  host.innerHTML=headHtml()+'<div class="empty-note" style="padding:8px 2px;">Loading…</div>';
+  const q=(team,filter,sel)=>fetch(`${SB_URL}/rest/v1/player_history?team=eq.${encodeURIComponent(team)}&${filter}&select=${sel}&order=tdc_grade.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  // Resolve the player_history team key (short ESPN school name) — prefer the current
+  // rows' own team value, otherwise match against the page name like the roster does.
+  const cands=[];
+  if(rows&&rows[0]&&rows[0].team) cands.push(rows[0].team);
+  const full=(teamT.name||''), mascot=_teamMascot(), words=full.split(/\s+/).filter(Boolean);
+  if(mascot&&!cands.includes(mascot)) cands.push(mascot);
+  if(full&&!cands.includes(full)) cands.push(full);
+  for(let take=words.length-1;take>=1;take--){ const c=words.slice(0,take).join(' '); if(!cands.includes(c)) cands.push(c); }
+  let teamKey=null, prior=[];
+  for(const c of cands){ prior=await q(c, `season_year=eq.${yr-1}`, '*'); if(prior&&prior.length){ teamKey=c; break; } }
+  if(!teamKey){ host.innerHTML=headHtml()+`<div class="empty-note" style="padding:8px 2px;">No roster on file for ${yl}.</div>`; return; }
+  const future=await q(teamKey, `season_year=gt.${yr}`, 'espn_id,name');
+  const idOf=p=>p.espn_id!=null?('#'+p.espn_id):('n:'+(p.name||'').toLowerCase().trim());
+  const cur=new Set((rows||[]).map(idOf)), fut=new Set(future.map(idOf));
+  const losses=prior.filter(p=>!cur.has(idOf(p))&&!fut.has(idOf(p)));
+  if(!losses.length){ host.innerHTML=headHtml()+`<div class="empty-note" style="padding:8px 2px;">No departures after ${yl}.</div>`; return; }
+  await _fillClassYears(losses, yr-1);
+  host.innerHTML=headHtml(` <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· last played ${yl} · ${losses.length}</span>`)+histTable(losses, yr-1);
+}
+// Append the departures section under the projected (2026-27) depth chart too.
+function _appendDepthLosses(yr){
+  const dc=document.getElementById('depthContent'); if(!dc) return;
+  if(!document.getElementById('seasonLossesWrap')) dc.insertAdjacentHTML('beforeend','<div id="seasonLossesWrap"></div>');
+  renderSeasonLosses(teamPlayers||[], yr);
 }
 function histTable(rows, yr){
   const r=[...rows].sort((a,b)=>(parseFloat(b.mpg)||0)-(parseFloat(a.mpg)||0));
