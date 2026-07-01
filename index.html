@@ -503,9 +503,12 @@
   /* Horizontal scroll for the wide analytics table; team name + rank stay pinned */
   .table-scroll { overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
   @media (min-width:901px){
+    /* width:100% (not max-content) so the team column's 1fr is computed from the
+       same available space for the header and every row — they stay column-aligned
+       whether the table fills a wide screen or overflows into a horizontal scroll. */
     .table-scroll .table-header,
     .table-scroll .team-row,
-    .table-scroll .skeleton-row { width: max-content; min-width: 100%; }
+    .table-scroll .skeleton-row { width: 100%; }
     .table-header > .th:nth-child(1),
     .team-row > .tr-rank-wrap,
     .skeleton-row > .skel-rank { position: sticky; left: 0; z-index: 4; }
@@ -532,7 +535,7 @@
 
   .table-header {
     display: grid;
-    grid-template-columns: 48px 10px 200px 140px 16px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
+    grid-template-columns: 48px 10px minmax(200px,1fr) 140px 16px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
     gap: 0;
     padding: 10px 0;
     border-bottom: 2px solid var(--border2);
@@ -593,7 +596,7 @@
   /* ---- Team rows ---- */
   .team-row {
     display: grid;
-    grid-template-columns: 48px 10px 200px 140px 16px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
+    grid-template-columns: 48px 10px minmax(200px,1fr) 140px 16px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
     gap: 0;
     padding: 14px 0;
     border-bottom: 1px solid var(--border);
@@ -797,7 +800,7 @@
   }
   .skeleton-row {
     display: grid;
-    grid-template-columns: 48px 10px 200px 140px 16px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
+    grid-template-columns: 48px 10px minmax(200px,1fr) 140px 16px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
     gap: 0;
     padding: 14px 0;
     border-bottom: 1px solid var(--border);
