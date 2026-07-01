@@ -4050,48 +4050,53 @@ function renderHistoricRoster(rows, yr, projected){
     Object.keys(bk).forEach(k=>bk[k].sort((a,b)=>dOrd(a)-dOrd(b) || gr(b)-gr(a)));
     cols=['PG','SG','SF','PF','C'].map(pos=>({pos, list:bk[pos]}));
   } else {
-  // Build the depth chart from actual playing time. The source only has coarse G/F/C,
-  // so fill the five STARTER slots by positional need — both bigs start, the lead guard
-  // (most assists) runs the point, and a surplus guard slides to the 3 rather than a
-  // benchwarmer — then stack each column's backups by minutes.
-  const mpg=p=>parseFloat(p.mpg)||0, apg=p=>parseFloat(p.apg)||0,
-        rpg=p=>parseFloat(p.rpg)||0, ht=p=>_htIn(p.height), big=p=>ht(p)*2+rpg(p);
+  // Historical rosters only carry coarse G/F/C, so infer the five lineup spots from each
+  // player's statistical profile instead of height alone: assists → PG, scoring/shooting
+  // → SG/SF, rebounding + shot-blocking + interior finishing → PF/C. A stretch big who
+  // lives beyond the arc slots at PF; the rim-runner (few threes, high FG%) is the C.
+  // Height only nudges ties.
+  const S=(p,k)=>parseFloat(p[k])||0, H=p=>_htIn(p.height)||78, mpg=p=>S(p,'mpg');
+  // Each position has a plausible height range; being outside it is penalized hard, so a
+  // 6-9 point-forward can't be slotted at PG no matter how many assists he racks up.
+  const gate=(h,lo,hi)=> h<lo ? (lo-h) : h>hi ? (h-hi) : 0;
+  const fit={
+    PG:p=> 3.0*S(p,'apg') + 1.4*S(p,'stl') + 0.14*S(p,'ppg') - 2.4*gate(H(p),72,76),
+    SG:p=> 0.42*S(p,'ppg') + 0.05*S(p,'tp_pct') + 0.9*S(p,'apg') - 2.2*gate(H(p),74,78),
+    SF:p=> 0.38*S(p,'ppg') + 0.30*S(p,'rpg') + 0.03*S(p,'tp_pct') - 1.8*gate(H(p),77,81),
+    PF:p=> 0.55*S(p,'rpg') + 1.6*S(p,'blk') + 0.05*S(p,'tp_pct') - 1.6*gate(H(p),79,83),
+    C :p=> 0.55*S(p,'rpg') + 2.6*S(p,'blk') + 0.06*S(p,'fg_pct') - 0.12*S(p,'tp_pct') - 1.6*gate(H(p),81,90),
+  };
+  const POS=['PG','SG','SF','PF','C'];
   const byMin=a=>[...a].sort((x,y)=>mpg(y)-mpg(x));
-  const median=(arr,f)=>{const s=arr.map(f).sort((a,b)=>a-b);return s.length?s[Math.floor((s.length-1)/2)]:0;};
-  const gB=[],fB=[],cB=[];
-  rows.forEach(p=>{ const g=histGroup(p.position,p.height); (g==='G'?gB:g==='C'?cB:fB).push(p); });
-
-  const used=new Set();
-  const pick=arr=>{ for(const p of byMin(arr)){ if(!used.has(p)){ used.add(p); return p; } } return null; };
-  const pickPasser=arr=>{ let b=null; for(const p of arr){ if(used.has(p))continue; if(!b||apg(p)>apg(b))b=p; } if(b)used.add(b); return b; };
-  const topUnused=arr=>{ for(const p of byMin(arr)){ if(!used.has(p))return p; } return null; };
-
-  // starters in fill order: center → power forward → point → off guard → small forward
-  const st={};
-  st.C  = pick(cB) || pick(fB);
-  st.PF = pick(cB) || pick(fB);
-  st.PG = pickPasser(gB);
-  st.SG = pick(gB);
-  { const g0=topUnused(gB), f0=topUnused(fB);                 // the 3: surplus guard or a wing
-    st.SF = (g0&&f0) ? (mpg(g0)>=mpg(f0)?g0:f0) : (g0||f0);
-    if(st.SF) used.add(st.SF); }
-  // tiny roster: fill any still-empty slot by minutes (tall → C/PF, short → guard slots)
-  ['C','PF','SF','SG','PG'].forEach(slot=>{ if(st[slot])return;
-    const pool=[...gB,...fB,...cB].filter(p=>!used.has(p)); if(!pool.length)return;
-    const tall=slot==='C'||slot==='PF'; let best=pool[0];
-    pool.forEach(p=>{ if(tall? ht(p)>ht(best) : ht(p)<ht(best)) best=p; });
-    st[slot]=best; used.add(best); });
-
-  // backups: leftover guards → PG/SG by assists, forwards → SF/PF by size, bigs → C
-  const gMed=median(gB,apg), fMed=median(fB,big);
-  const bg=byMin(gB.filter(p=>!used.has(p))), bf=byMin(fB.filter(p=>!used.has(p))), bb=byMin(cB.filter(p=>!used.has(p)));
-  cols=[
-    {pos:'PG', list:[st.PG, ...bg.filter(p=>apg(p)>=gMed)].filter(Boolean)},
-    {pos:'SG', list:[st.SG, ...bg.filter(p=>apg(p)< gMed)].filter(Boolean)},
-    {pos:'SF', list:[st.SF, ...bf.filter(p=>big(p)< fMed)].filter(Boolean)},
-    {pos:'PF', list:[st.PF, ...bf.filter(p=>big(p)>=fMed)].filter(Boolean)},
-    {pos:'C',  list:[st.C, ...bb].filter(Boolean)},
-  ];
+  const interior=p=> 0.55*S(p,'rpg') + 2.6*S(p,'blk') + 0.06*S(p,'fg_pct') - 0.14*S(p,'tp_pct'); // higher = more of a true center
+  // Frontcourt = centers, or forwards who play like bigs. Heights in the data are noisy
+  // (undersized 6-6 listings for real 6-8 forwards), so distinguish a wing from a forward
+  // by playmaking: a "forward" who leads the team in assists is really a perimeter wing.
+  const isFront=p=>{ const g=histGroup(p.position,p.height); return g==='C' || (g==='F' && S(p,'apg')<3.2); };
+  const guards=[], bigs=[];
+  rows.forEach(p=>{ (isFront(p)?bigs:guards).push(p); });
+  // Starters follow the standard 3-out / 2-in shape: the three highest-minute perimeter
+  // players plus the two highest-minute frontcourt players (backfilling from the other
+  // group if a team is short). This keeps the actual rotation starters in the lineup.
+  let starters=[...byMin(guards).slice(0,3), ...byMin(bigs).slice(0,2)];
+  if(starters.length<5) starters=starters.concat(byMin(rows.filter(p=>!starters.includes(p))).slice(0,5-starters.length));
+  const st={}, isBig=p=>bigs.includes(p);
+  // Frontcourt starters → C (most interior) then PF.
+  const fc=[...starters.filter(isBig)].sort((a,b)=>interior(b)-interior(a));
+  if(fc[0]) st.C=fc[0]; if(fc[1]) st.PF=fc[1];
+  // Perimeter starters → PG/SG/SF, each taken by its best-fitting player.
+  { const pool=starters.filter(p=>!isBig(p)), open=new Set(['PG','SG','SF']);
+    while(open.size && pool.length){ let best=null;
+      pool.forEach(p=>open.forEach(pos=>{ const f=fit[pos](p); if(!best||f>best.f) best={p,pos,f}; }));
+      st[best.pos]=best.p; pool.splice(pool.indexOf(best.p),1); open.delete(best.pos); } }
+  // Any still-empty slot (short/lopsided roster) → best leftover starter by fit.
+  POS.forEach(pos=>{ if(st[pos])return; const cand=starters.filter(p=>!Object.values(st).includes(p)); if(cand.length){ let b=cand[0],bf=fit[pos](b); cand.forEach(p=>{const f=fit[pos](p); if(f>bf){bf=f;b=p;}}); st[pos]=b; } });
+  // Backups: guards fill PG/SG/SF, bigs fill C/PF — each to its best-fit column, by minutes.
+  const colByPos={}; cols=POS.map(pos=>{ const c={pos, list:st[pos]?[st[pos]]:[]}; colByPos[pos]=c; return c; });
+  byMin(rows.filter(p=>!Object.values(st).includes(p))).forEach(p=>{
+    const opts=isBig(p)?['C','PF']:['PG','SG','SF'];
+    let bp=opts[0],bf=-1e9; opts.forEach(pos=>{ const f=fit[pos](p); if(f>bf){bf=f;bp=pos;} }); colByPos[bp].list.push(p);
+  });
   }
   const color=teamColor_g, rgb=teamRgb_g;
   const colHtml=cols.map(c=>{
