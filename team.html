@@ -353,7 +353,7 @@
     .tstat:hover{background:rgba(var(--tc-rgb),.06);}
     .tstat b{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text);line-height:1;font-variant-numeric:tabular-nums;}
     .tstat span{font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
-    .tstat-rk{font-size:9px;font-weight:600;font-style:normal;color:var(--tc,#8b8b96);font-variant-numeric:tabular-nums;margin-top:1px;}
+    .tstat-rk{font-size:9px;font-weight:600;font-style:normal;color:var(--tc-readable,var(--text3));font-variant-numeric:tabular-nums;margin-top:1px;}
 
     /* OUTLOOK */
     .outlook-text{font-family:'Source Serif 4',serif;font-size:14px;line-height:1.8;color:var(--text2);}
@@ -571,10 +571,13 @@
     .roster-slider-bar .rs-label{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);}
     #rosterSlider{flex:1;max-width:520px;accent-color:var(--tc,var(--accent));height:4px;cursor:pointer;}
     .roster-slider-bar .rs-season{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;color:var(--text);min-width:130px;font-variant-numeric:tabular-nums;}
+    /* Solid backdrop so the team-colored ambient glow behind the page can't wash
+       out the numbers on the right-hand columns. */
+    .hr-wrap{margin-top:22px;overflow-x:auto;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:4px 16px;}
     .hr-table{width:100%;border-collapse:collapse;font-size:13px;}
     .hr-table th{text-align:right;font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);padding:6px 9px;border-bottom:1px solid var(--border);}
     .hr-table th:nth-child(2){text-align:left;}
-    .hr-table td{text-align:right;padding:8px 9px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;color:var(--text2);}
+    .hr-table td{text-align:right;padding:8px 9px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;color:var(--text);}
     .hr-table td:nth-child(2){text-align:left;}
     .hr-rk{color:var(--text3);font-weight:700;width:26px;}
     .hr-name{font-weight:700;color:var(--text);text-decoration:none;}
@@ -4059,7 +4062,7 @@ function histTable(rows, yr){
     <td>${num(p.stl)}</td><td>${num(p.blk)}</td><td>${num(p.tovs)}</td>
     <td>${pct(p.fg_pct)}</td><td>${pct(p.tp_pct)}</td><td>${pct(p.ft_pct)}</td>
     <td class="hr-ovr">${p.tdc_grade||'—'}</td></tr>`).join('');
-  return `<div style="margin-top:22px;overflow-x:auto;"><table class="hr-table"><thead><tr>
+  return `<div class="hr-wrap"><table class="hr-table"><thead><tr>
     <th>#</th><th>Player</th><th>GP</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th><th>STL</th><th>BLK</th><th>TO</th><th>FG%</th><th>3P%</th><th>FT%</th><th>OVR</th>
   </tr></thead><tbody>${body}</tbody></table></div>`;
 }
