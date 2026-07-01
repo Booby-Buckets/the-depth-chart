@@ -335,8 +335,8 @@
     .award-item{position:relative;display:grid;grid-template-columns:26px minmax(0,1fr) auto;align-items:center;gap:11px;
       padding:11px 0;text-decoration:none;border-bottom:1px solid var(--border);transition:background .15s;}
     .award-item:last-child{border-bottom:none;}
-    .award-item:hover{background:color-mix(in srgb,var(--ac) 6%, transparent);}
-    .award-medal{width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:var(--ac);}
+    .award-item:hover{background:rgba(var(--tc-rgb),.06);}
+    .award-medal{width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:var(--text3);}
     .award-medal svg{width:18px;height:18px;}
     .award-body{min-width:0;}
     .award-title{font-size:8.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--text3);line-height:1.2;}
@@ -344,7 +344,7 @@
       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
     .award-detail{font-size:9.5px;color:var(--text3);font-weight:600;margin-top:3px;line-height:1.4;
       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-    .award-chip{font-family:'Playfair Display',serif;font-weight:700;font-size:19px;color:var(--ac);line-height:.9;text-align:right;transition:transform .2s cubic-bezier(.22,1,.36,1);}
+    .award-chip{font-family:'Playfair Display',serif;font-weight:700;font-size:19px;color:var(--text2);line-height:.9;text-align:right;transition:transform .2s cubic-bezier(.22,1,.36,1);}
     .award-item:hover .award-chip{transform:scale(1.1);}
     /* Historic team stats grid */
     #seasonStatsBody{padding:14px 16px;}
@@ -353,6 +353,7 @@
     .tstat:hover{background:rgba(var(--tc-rgb),.06);}
     .tstat b{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text);line-height:1;font-variant-numeric:tabular-nums;}
     .tstat span{font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .tstat-rk{font-size:9px;font-weight:600;font-style:normal;color:var(--tc,#8b8b96);font-variant-numeric:tabular-nums;margin-top:1px;}
 
     /* OUTLOOK */
     .outlook-text{font-family:'Source Serif 4',serif;font-size:14px;line-height:1.8;color:var(--text2);}
@@ -3908,30 +3909,42 @@ async function renderSeasonStats(yr){
   const name=teamT.name||'';
   const sel='select=team,wins,losses,conf_wins,conf_losses,ppg,oppg,srs,rpg,apg,spg,bpg,topg,fg_pct,tp_pct,ft_pct';
   const url=extra=>`${SB_URL}/rest/v1/team_seasons?season_year=eq.${yr}&${extra}&${sel}&limit=1`;
-  // team_seasons stores full names; teamT.name may be short (majors) or full (mid-majors)
+  // Fetch this team's row (full-name for mid-majors, ilike fallback for majors' short
+  // names) AND every D1 team this season so we can rank each stat nationally.
+  const allP=fetch(`${SB_URL}/rest/v1/team_seasons?season_year=eq.${yr}&${sel}&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
   let rows=await fetch(url(`team=eq.${encodeURIComponent(name)}`),{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
   if(!rows.length) rows=await fetch(url(`team=ilike.${encodeURIComponent(name+'*')}`),{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
   const t=rows[0];
   if(!t){ body.innerHTML='<div class="empty-note">No team stats for this season.</div>'; return; }
+  const all=await allP;
   const n1=v=>(v==null||v==='')?'—':(Math.round(parseFloat(v)*10)/10).toFixed(1);
+  const ord=n=>{const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);};
+  const INV=new Set(['oppg','topg']);   // lower is better
+  const rankOf=key=>{
+    const v=parseFloat(t[key]); if(isNaN(v)||!all.length) return null;
+    const inv=INV.has(key); let better=0,n=0;
+    all.forEach(r=>{ const x=parseFloat(r[key]); if(isNaN(x)) return; n++; if(inv? x<v : x>v) better++; });
+    return n?{rank:better+1,n}:null;
+  };
+  const rkTxt=key=>{ const r=rankOf(key); return r?`${ord(r.rank)} of ${r.n}`:''; };
   const srs=(t.srs!=null&&t.srs!=='')?Math.round(parseFloat(t.srs)*10)/10:null;
   const srsStr=srs!=null?((srs>0?'+':'')+srs):'—';
   const srsCol=srs!=null?(srs>=0?'#3fa66a':'#c75d5d'):'var(--text)';
   const confRec=(t.conf_wins!=null&&t.conf_losses!=null)?`${t.conf_wins}–${t.conf_losses} conf`:'';
-  const cell=(label,val,col)=>`<div class="tstat"><b style="color:${col||'var(--text)'}">${val}</b><span>${label}</span></div>`;
+  const cell=(label,val,key,col)=>`<div class="tstat"><b style="color:${col||'var(--text)'}">${val}</b><span>${label}</span>${key&&rkTxt(key)?`<i class="tstat-rk">${rkTxt(key)}</i>`:''}</div>`;
   body.innerHTML=`<div class="tstat-grid">
-    ${cell('Net Rating',srsStr,srsCol)}
-    ${cell('Record',`${t.wins}–${t.losses}`)}
-    ${cell('PPG',n1(t.ppg))}
-    ${cell('Opp PPG',n1(t.oppg))}
-    ${cell('FG%',n1(t.fg_pct))}
-    ${cell('3P%',n1(t.tp_pct))}
-    ${cell('FT%',n1(t.ft_pct))}
-    ${cell('RPG',n1(t.rpg))}
-    ${cell('APG',n1(t.apg))}
-    ${cell('TOV',n1(t.topg))}
-    ${cell('SPG',n1(t.spg))}
-    ${cell('BPG',n1(t.bpg))}
+    ${cell('Net Rating',srsStr,'srs',srsCol)}
+    ${cell('Record',`${t.wins}–${t.losses}`,null)}
+    ${cell('PPG',n1(t.ppg),'ppg')}
+    ${cell('Opp PPG',n1(t.oppg),'oppg')}
+    ${cell('FG%',n1(t.fg_pct),'fg_pct')}
+    ${cell('3P%',n1(t.tp_pct),'tp_pct')}
+    ${cell('FT%',n1(t.ft_pct),'ft_pct')}
+    ${cell('RPG',n1(t.rpg),'rpg')}
+    ${cell('APG',n1(t.apg),'apg')}
+    ${cell('TOV',n1(t.topg),'topg')}
+    ${cell('SPG',n1(t.spg),'spg')}
+    ${cell('BPG',n1(t.bpg),'bpg')}
   </div>${confRec?`<div class="empty-note" style="padding:8px 2px 0;text-align:center;">${t.wins}–${t.losses} overall · ${confRec}</div>`:''}`;
 }
 async function rosterFromBox(yr, mascot){
