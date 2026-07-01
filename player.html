@@ -1750,13 +1750,19 @@ async function init(){
       // e.g. Trey Wertz, who exists solely in bbref_seasons. Resolve by full name.
       if(!playerRow&&pname){
         const raw=await fetch(`${SB}/rest/v1/bbref_seasons?player=eq.${sbEncode(pname)}&select=*&order=season_year.desc&limit=40`,{headers:H}).then(r=>r.json()).catch(()=>[]);
-        const brows=bbrefToFlat(Array.isArray(raw)?raw:[]);
+        const rawArr=Array.isArray(raw)?raw:[];
+        const brows=bbrefToFlat(rawArr);
         if(brows.length){
           const tl=(pteam||'').toLowerCase().trim();
-          let row=null;
-          if(pseason) row=brows.find(r=>String(r.season_year)===String(pseason)&&(!tl||(r.school||'').toLowerCase().trim()===tl))||brows.find(r=>String(r.season_year)===String(pseason));
-          if(!row&&tl) row=brows.find(r=>(r.school||'').toLowerCase().trim()===tl);
-          playerRow=row||brows[0];
+          let idx=-1;
+          if(pseason) idx=brows.findIndex(r=>String(r.season_year)===String(pseason)&&(!tl||(r.school||'').toLowerCase().trim()===tl));
+          if(idx<0&&pseason) idx=brows.findIndex(r=>String(r.season_year)===String(pseason));
+          if(idx<0&&tl) idx=brows.findIndex(r=>(r.school||'').toLowerCase().trim()===tl);
+          if(idx<0) idx=0;
+          playerRow=brows[idx];
+          // Remember the bbref_id so career history loads this exact person's
+          // seasons (stable per-player key) instead of a namesake collision.
+          window._bbrefId=(rawArr[idx]&&rawArr[idx].bbref_id)||null;
           window._historicalView=true;
         }
       }
@@ -1790,6 +1796,12 @@ async function init(){
     try{
       if(_espnId){
         const chR = await fetch(`${SB}/rest/v1/bbref_seasons?espn_id=eq.${_espnId}&select=*&order=season_year.asc&limit=20`,{headers:H});
+        if(chR.ok){ const raw=await chR.json(); careerHistory = bbrefToFlat(Array.isArray(raw)?raw:[]); }
+      } else if(window._bbrefId){
+        // bbref-only player (no espn_id) — load every season for this exact
+        // bbref_id (stable per-player key, indexed) so the season selector and
+        // Full Stats span the whole career, not just the resolved row.
+        const chR = await fetch(`${SB}/rest/v1/bbref_seasons?bbref_id=eq.${sbEncode(window._bbrefId)}&select=*&order=season_year.asc&limit=20`,{headers:H});
         if(chR.ok){ const raw=await chR.json(); careerHistory = bbrefToFlat(Array.isArray(raw)?raw:[]); }
       }
       // no ESPN id (e.g. true freshman) → no prior college history; leave empty
