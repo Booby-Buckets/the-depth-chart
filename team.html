@@ -3836,7 +3836,7 @@ async function loadHistoricRoster(yr){
   // player_history has some duplicate rows (e.g. a transfer's old season wrongly
   // attributed to their new team). Drop players whose authoritative bbref school
   // for this season doesn't match the rest of the roster.
-  rows=await _dedupeRosterByBbref(rows, yr);
+  rows=await _reconcileRosterWithBbref(rows, yr);
   // player_history.yr is empty for older seasons — backfill class year from bbref_seasons
   await _fillClassYears(rows, yr);
   renderHistoricRoster(rows, yr);
@@ -3844,22 +3844,43 @@ async function loadHistoricRoster(yr){
   computeSeasonAwards(rows, yr);
   renderSeasonStats(yr);
 }
-// Drop roster rows that don't belong: use bbref_seasons (authoritative) to find each
-// player's real school this season, take the roster's majority school as canonical, and
-// remove players whose bbref school is a different program (fixes transfer-duplicate rows).
-async function _dedupeRosterByBbref(rows, yr){
-  if(!rows || rows.length<3) return rows;
+// Reconcile the player_history roster with authoritative bbref_seasons: (1) drop players
+// whose bbref school this season is a different program (transfer-duplicate rows), and
+// (2) add players bbref has but player_history is missing (e.g. no ESPN id, like Trey
+// Wertz on Notre Dame 2022-23). Uses the roster's majority school for both.
+const _pnorm=s=>(''+s).toLowerCase().replace(/[.']/g,'').replace(/\s+(jr|sr|ii|iii|iv)\b/g,'').trim();
+async function _reconcileRosterWithBbref(rows, yr){
+  rows=rows||[];
   const ids=[...new Set(rows.map(r=>r.espn_id).filter(x=>x!=null))];
-  if(ids.length<3) return rows;
-  let bb=[];
-  try{ bb=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${yr}&espn_id=in.(${ids.join(',')})&select=espn_id,school`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){ return rows; }
-  if(!Array.isArray(bb) || bb.length<3) return rows;   // can't verify → leave as-is
-  const school={}, counts={};
-  bb.forEach(b=>{ if(b.espn_id!=null && b.school){ const s=(''+b.school).toLowerCase().trim(); school[b.espn_id]=s; counts[s]=(counts[s]||0)+1; } });
-  let canon=null, cmax=0;
-  Object.keys(counts).forEach(s=>{ if(counts[s]>cmax){ cmax=counts[s]; canon=s; } });
-  if(!canon || cmax<2) return rows;   // no clear team consensus → don't risk filtering
-  return rows.filter(r=>{ const s=r.espn_id!=null?school[r.espn_id]:null; return !s || s===canon; });
+  let byId=[];
+  if(ids.length){ try{ byId=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${yr}&espn_id=in.(${ids.join(',')})&select=espn_id,school,school_slug`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){} }
+  const schoolById={}, schoolCount={}, slugCount={};
+  (byId||[]).forEach(b=>{ if(b.espn_id!=null && b.school){ schoolById[b.espn_id]=(''+b.school).toLowerCase().trim(); schoolCount[b.school]=(schoolCount[b.school]||0)+1; if(b.school_slug) slugCount[b.school_slug]=(slugCount[b.school_slug]||0)+1; } });
+  let canonSchool=null,cmax=0; Object.keys(schoolCount).forEach(s=>{ if(schoolCount[s]>cmax){cmax=schoolCount[s];canonSchool=s;} });
+  let canonSlug=null,smax=0; Object.keys(slugCount).forEach(s=>{ if(slugCount[s]>smax){smax=slugCount[s];canonSlug=s;} });
+  // (1) dedup — only when there's a clear team consensus
+  let out = (cmax>=2 && canonSchool) ? rows.filter(r=>{ const s=r.espn_id!=null?schoolById[r.espn_id]:null; return !s || s===canonSchool.toLowerCase(); }) : rows.slice();
+  // (2) supplement missing players from the full bbref roster (school_slug is indexed)
+  if(canonSlug){
+    let bb=[];
+    try{ bb=await fetch(`${SB_URL}/rest/v1/bbref_seasons?school_slug=eq.${encodeURIComponent(canonSlug)}&season_year=eq.${yr}&select=player,pos,height,class,tdc_grade,espn_id,pergame`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+    const haveName=new Set(out.map(r=>_pnorm(r.name))), haveId=new Set(out.map(r=>r.espn_id).filter(x=>x!=null));
+    (bb||[]).forEach(b=>{ const nm=_pnorm(b.player);
+      if(!nm || haveName.has(nm) || (b.espn_id!=null && haveId.has(b.espn_id))) return;
+      out.push(_bbrefToHistRow(b, canonSchool||(rows[0]&&rows[0].team)||'')); haveName.add(nm);
+    });
+  }
+  return out;
+}
+function _bbrefToHistRow(b, school){
+  const pg=b.pergame||{}, num=v=>{ const n=parseFloat(v); return isFinite(n)?n:null; };
+  const pct=v=>{ const n=parseFloat(v); return isFinite(n)?+((n<=1?n*100:n).toFixed(1)):null; };  // bbref stores pcts as decimals
+  const CL={FR:'Fr.',SO:'So.',JR:'Jr.',SR:'Sr.',GR:'Gr.','5':'Sr.'};
+  return { name:b.player, team:school, position:b.pos, height:b.height,
+    yr:CL[(''+(b.class||'')).toUpperCase()]||b.class||'', tdc_grade:b.tdc_grade, espn_id:b.espn_id,
+    gp:num(pg.games), mpg:num(pg.mp_per_g), ppg:num(pg.pts_per_g), rpg:num(pg.trb_per_g), apg:num(pg.ast_per_g),
+    stl:num(pg.stl_per_g), blk:num(pg.blk_per_g), tovs:num(pg.tov_per_g), oreb:num(pg.orb_per_g), dreb:num(pg.drb_per_g),
+    fg_pct:pct(pg.fg_pct), tp_pct:pct(pg.fg3_pct), ft_pct:pct(pg.ft_pct), _fromBbref:true };
 }
 // Merge class year (FR/SO/JR/SR) from bbref_seasons into rows that lack `yr`, matched by espn_id
 async function _fillClassYears(rows, yr){
