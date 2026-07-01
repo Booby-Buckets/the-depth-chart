@@ -346,6 +346,13 @@
       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
     .award-chip{font-family:'Playfair Display',serif;font-weight:700;font-size:19px;color:var(--ac);line-height:.9;text-align:right;transition:transform .2s cubic-bezier(.22,1,.36,1);}
     .award-item:hover .award-chip{transform:scale(1.1);}
+    /* Historic team stats grid */
+    #seasonStatsBody{padding:14px 16px;}
+    .tstat-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);}
+    .tstat{background:var(--bg2);padding:9px 11px;display:flex;flex-direction:column;gap:2px;transition:background .15s;}
+    .tstat:hover{background:rgba(var(--tc-rgb),.06);}
+    .tstat b{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text);line-height:1;font-variant-numeric:tabular-nums;}
+    .tstat span{font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
 
     /* OUTLOOK */
     .outlook-text{font-family:'Source Serif 4',serif;font-size:14px;line-height:1.8;color:var(--text2);}
@@ -726,6 +733,10 @@
     <div class="side-card" id="awardsCard" style="display:none;">
       <div class="side-card-head awards-head" id="awardsHead">Season Awards</div>
       <div class="side-card-body" id="awardsBody"></div>
+    </div>
+    <div class="side-card" id="seasonStatsCard" style="display:none;">
+      <div class="side-card-head awards-head" id="seasonStatsHead">Team Stats</div>
+      <div class="side-card-body" id="seasonStatsBody"></div>
     </div>
   </div>
 </div>
@@ -3755,7 +3766,7 @@ function onRosterSeason(v){
   const sl=document.getElementById('rosterSlider'); if(sl) sl.value=v;
   document.getElementById('rosterSeasonLabel').textContent = rosterLbl(v);
   const sh=document.getElementById('depthSecHead');
-  const live=document.querySelectorAll('.live-side'), awardsCard=document.getElementById('awardsCard');
+  const live=document.querySelectorAll('.live-side'), awardsCard=document.getElementById('awardsCard'), statsCard=document.getElementById('seasonStatsCard');
   // The Coach/Depth/Recruit/NIL/Tier grades only describe the 2026-27 projection,
   // so hide them when viewing a past season.
   const heroGrades=document.getElementById('heroGrades');
@@ -3763,6 +3774,7 @@ function onRosterSeason(v){
     if(sh) sh.firstChild.textContent='Depth Chart ';
     live.forEach(c=>c.style.display='');
     if(awardsCard) awardsCard.style.display='none';
+    if(statsCard) statsCard.style.display='none';
     if(heroGrades) heroGrades.classList.remove('hist-hidden');
     if(teamT && teamPlayers) renderDepth(teamT, teamPlayers, teamColor_g, teamRgb_g, teamGp);
   } else {
@@ -3770,6 +3782,7 @@ function onRosterSeason(v){
     live.forEach(c=>c.style.display='none');
     if(heroGrades) heroGrades.classList.add('hist-hidden');
     if(awardsCard){ awardsCard.style.display=''; document.getElementById('awardsBody').innerHTML='<div class="empty-note">Loading…</div>'; }
+    if(statsCard){ statsCard.style.display=''; document.getElementById('seasonStatsBody').innerHTML='<div class="empty-note">Loading…</div>'; }
     loadHistoricRoster(_rosterSeason);
   }
 }
@@ -3795,6 +3808,7 @@ async function loadHistoricRoster(yr){
   await _fillClassYears(rows, yr);
   renderHistoricRoster(rows, yr);
   computeSeasonAwards(rows, yr);
+  renderSeasonStats(yr);
 }
 // Merge class year (FR/SO/JR/SR) from bbref_seasons into rows that lack `yr`, matched by espn_id
 async function _fillClassYears(rows, yr){
@@ -3884,6 +3898,41 @@ async function computeSeasonAwards(rows, yr){
   html+=card('#8b5cf6','gem','Best Draft Prospect', prospect, prospect?`${prospect.yr||''}${prospect.yr?' · ':''}${prospect.position||''} · proj.`:'', prospect?grade(prospect):null);
 
   body.innerHTML = html || '<div class="empty-note">No awards.</div>';
+}
+// Historic team analytical stats for the viewed season (from team_seasons).
+async function renderSeasonStats(yr){
+  const card=document.getElementById('seasonStatsCard'), body=document.getElementById('seasonStatsBody'), head=document.getElementById('seasonStatsHead');
+  if(!card||!body) return;
+  if(head) head.textContent=`${yr-1}–${(''+yr).slice(2)} Team Stats`;
+  body.innerHTML='<div class="empty-note">Loading…</div>';
+  const name=teamT.name||'';
+  const sel='select=team,wins,losses,conf_wins,conf_losses,ppg,oppg,srs,rpg,apg,spg,bpg,topg,fg_pct,tp_pct,ft_pct';
+  const url=extra=>`${SB_URL}/rest/v1/team_seasons?season_year=eq.${yr}&${extra}&${sel}&limit=1`;
+  // team_seasons stores full names; teamT.name may be short (majors) or full (mid-majors)
+  let rows=await fetch(url(`team=eq.${encodeURIComponent(name)}`),{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  if(!rows.length) rows=await fetch(url(`team=ilike.${encodeURIComponent(name+'*')}`),{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  const t=rows[0];
+  if(!t){ body.innerHTML='<div class="empty-note">No team stats for this season.</div>'; return; }
+  const n1=v=>(v==null||v==='')?'—':(Math.round(parseFloat(v)*10)/10).toFixed(1);
+  const srs=(t.srs!=null&&t.srs!=='')?Math.round(parseFloat(t.srs)*10)/10:null;
+  const srsStr=srs!=null?((srs>0?'+':'')+srs):'—';
+  const srsCol=srs!=null?(srs>=0?'#3fa66a':'#c75d5d'):'var(--text)';
+  const confRec=(t.conf_wins!=null&&t.conf_losses!=null)?`${t.conf_wins}–${t.conf_losses} conf`:'';
+  const cell=(label,val,col)=>`<div class="tstat"><b style="color:${col||'var(--text)'}">${val}</b><span>${label}</span></div>`;
+  body.innerHTML=`<div class="tstat-grid">
+    ${cell('Net Rating',srsStr,srsCol)}
+    ${cell('Record',`${t.wins}–${t.losses}`)}
+    ${cell('PPG',n1(t.ppg))}
+    ${cell('Opp PPG',n1(t.oppg))}
+    ${cell('FG%',n1(t.fg_pct))}
+    ${cell('3P%',n1(t.tp_pct))}
+    ${cell('FT%',n1(t.ft_pct))}
+    ${cell('RPG',n1(t.rpg))}
+    ${cell('APG',n1(t.apg))}
+    ${cell('TOV',n1(t.topg))}
+    ${cell('SPG',n1(t.spg))}
+    ${cell('BPG',n1(t.bpg))}
+  </div>${confRec?`<div class="empty-note" style="padding:8px 2px 0;text-align:center;">${t.wins}–${t.losses} overall · ${confRec}</div>`:''}`;
 }
 async function rosterFromBox(yr, mascot){
   const bx=await fetch(`${SB_URL}/rest/v1/box_scores?team=eq.${encodeURIComponent(mascot)}&season_year=eq.${yr}&select=espn_id,player,game_id,min,pts,reb,ast,fgm,fga,tpm,tpa`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
