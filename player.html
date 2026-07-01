@@ -1746,6 +1746,20 @@ async function init(){
           window._historicalView=true;
         }
       }
+      // Fallback 4: bbref-only player (no espn_id, absent from player_history) —
+      // e.g. Trey Wertz, who exists solely in bbref_seasons. Resolve by full name.
+      if(!playerRow&&pname){
+        const raw=await fetch(`${SB}/rest/v1/bbref_seasons?player=eq.${sbEncode(pname)}&select=*&order=season_year.desc&limit=40`,{headers:H}).then(r=>r.json()).catch(()=>[]);
+        const brows=bbrefToFlat(Array.isArray(raw)?raw:[]);
+        if(brows.length){
+          const tl=(pteam||'').toLowerCase().trim();
+          let row=null;
+          if(pseason) row=brows.find(r=>String(r.season_year)===String(pseason)&&(!tl||(r.school||'').toLowerCase().trim()===tl))||brows.find(r=>String(r.season_year)===String(pseason));
+          if(!row&&tl) row=brows.find(r=>(r.school||'').toLowerCase().trim()===tl);
+          playerRow=row||brows[0];
+          window._historicalView=true;
+        }
+      }
     }
     if(!playerRow) throw new Error('Player not found — check name spelling or try searching from the roster page.');
     player=tdcSane(playerRow); allPlayers=(Array.isArray(apr)?apr:[]).map(tdcSane);
