@@ -423,11 +423,54 @@ async function onSearch(slot, query){
       }catch(e){}
     },280);
   } else {
-    const matches=teams.filter(t=>(t.name||'').toLowerCase().includes(q)||(t.conf||t.conference||'').toLowerCase().includes(q)).slice(0,12);
-    dd.innerHTML=matches.map(t=>`<div class="dropdown-item" onclick="pick(${slot},'t','${(t.name+'').replace(/'/g,'\\\\\'')}')"><span>${t.name}</span><span class="dropdown-team">${t.conf||t.conference||''}</span></div>`).join('');
-    if(!matches.length){ dd.classList.remove('show'); return; }
-    dd.classList.add('show');
+    const matches=teams.filter(t=>(t.name||'').toLowerCase().includes(q)||(t.conf||t.conference||'').toLowerCase().includes(q)).slice(0,10);
+    _renderTeamDropdown(slot, matches, _teamHistResults[slot]||[], dd);
+    clearTimeout(_tHistTimer);
+    _tHistTimer=setTimeout(async()=>{
+      try{
+        const r=await fetch(`${SB}/rest/v1/team_seasons?team=ilike.*${encodeURIComponent(query)}*&select=team,season_year,conference,wins,losses,conf_wins,conf_losses,ppg,oppg,srs,ncaa_seed,ncaa_result,postseason,rpg,apg,spg,bpg,topg,orpg,drpg,fg_pct,tp_pct,ft_pct,tier&order=season_year.desc&limit=80`,{headers:H});
+        if(!r.ok) return;
+        const data=await r.json();
+        const seen=new Set(), hist=[];
+        (data||[]).forEach(h=>{ const k=h.team+'|'+h.season_year; if(seen.has(k))return; seen.add(k); hist.push({...h,name:h.team,conf:h.conference,_isHistory:true}); });
+        hist.sort((a,b)=>(a.team||'').localeCompare(b.team||'')||b.season_year-a.season_year);
+        _teamHistResults[slot]=hist.slice(0,18);
+        _renderTeamDropdown(slot, matches, _teamHistResults[slot], dd);
+      }catch(e){}
+    },280);
   }
+}
+let _teamHistResults={}, _tHistTimer=null;
+function _tsLbl(yr){ return `${yr-1}-${(''+yr).slice(2)}`; }
+function _renderTeamDropdown(slot, cur, hist, dd){
+  const curHTML=cur.map(t=>`<div class="dropdown-item" onclick="pick(${slot},'t','${(t.name+'').replace(/'/g,'\\\\\'')}')"><span>${t.name}</span><span class="dropdown-team">${t.conf||t.conference||''} · 2026-27</span></div>`).join('');
+  const histHTML=hist.map((h,i)=>`<div class="dropdown-item" onclick="pickTeamHist(${slot},${i})"><span>${h.team}</span><span class="dropdown-team" style="color:#5b9d8f;">${_tsLbl(h.season_year)} · ${h.wins||0}-${h.losses||0}${h.postseason?' · '+h.postseason:''}</span></div>`).join('');
+  if(!curHTML&&!histHTML){ dd.classList.remove('show'); return; }
+  dd.innerHTML=curHTML+(hist.length?`<div style="padding:3px 12px;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);border-top:1px solid var(--border);margin-top:3px;">Historical Seasons</div>`+histHTML:``);
+  dd.classList.add('show');
+}
+function pickTeamHist(slot, idx){
+  const item=(_teamHistResults[slot]||[])[idx]; if(!item) return;
+  sel.teams[slot-1]=item;
+  document.getElementById('dropdown'+slot).classList.remove('show');
+  document.getElementById('si'+slot).value=item.team;
+  const selEl=document.getElementById('selected'+slot);
+  const color=readableCol(teamColorFor(item.team)||'#5b9d8f');
+  selEl.style.display='block';
+  selEl.innerHTML=`<div style="border-left:3px solid ${color};padding-left:10px;margin-top:8px;">
+    <div class="sel-name">${item.team}</div>
+    <div class="sel-meta"><span style="color:#5b9d8f;font-weight:700;">${_tsLbl(item.season_year)} · </span><strong style="color:${color};">${item.wins||0}-${item.losses||0}</strong> · ${item.conference||'—'}${item.postseason?' · '+item.postseason:''}</div>
+  </div><button class="clear-btn" onclick="clearPick(${slot})">✕ Clear</button>`;
+  maybeRender();
+}
+// color lookup that survives full names — teams keys are short ("Duke"),
+// team_seasons names are full ("Duke Blue Devils"): longest matching prefix wins
+function teamColorFor(name){
+  if(!name) return null;
+  if(teamColors[name]) return teamColors[name];
+  let best=null;
+  for(const k in teamColors){ if(name.indexOf(k)===0 && (!best||k.length>best.length)) best=k; }
+  return best?teamColors[best]:null;
 }
 function _renderDropdown(slot, cur, hist, dd){
   const curHTML=cur.map(p=>`<div class="dropdown-item" onclick="pick(${slot},'p','${(p.id+'').replace(/'/g,'')}')"><span>${p.name}</span><span class="dropdown-team">${p.team||''} · ${p.position||''}</span></div>`).join('');
@@ -1073,6 +1116,80 @@ function projRow(label,a,b){
     <div class="compare-cell right ${wB}" style="color:var(--accent);">${hasB?(isPct?fmtP(b):fmt(b)):'—'}</div></div>`;
 }
 
+// ── TEAM SEASON MACHINERY (multi-year comparisons) ──
+const TS_SEL='team,season_year,conference,wins,losses,conf_wins,conf_losses,ppg,oppg,srs,ncaa_seed,ncaa_result,postseason,rpg,apg,spg,bpg,topg,orpg,drpg,fg_pct,tp_pct,ft_pct,tier';
+const _tsYearCache={};
+async function tsYear(yr){
+  if(_tsYearCache[yr]) return _tsYearCache[yr];
+  const rows=await fetch(`${SB}/rest/v1/team_seasons?season_year=eq.${yr}&select=${TS_SEL}&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  _tsYearCache[yr]=rows||[]; return _tsYearCache[yr];
+}
+function tsPctOf(rows,key,val,inv){
+  const v=parseFloat(val); if(isNaN(v)||!rows||!rows.length) return null;
+  let below=0,n=0;
+  rows.forEach(r=>{ const x=parseFloat(r[key]); if(isNaN(x)) return; n++; if(inv? x>v : x<v) below++; });
+  return n?Math.round(below/n*100):null;
+}
+// Normalize a pick (current teams-table row OR historical season) to a
+// team_seasons row. Current picks resolve to their most recent season —
+// candidates enumerated by prefix, fewest-words name wins ("Florida Gators",
+// never Florida State), same rule as the team page.
+async function _seasonRowFor(pick){
+  if(pick._isHistory) return pick;
+  if(pick._tsRow!==undefined) return pick._tsRow;
+  let row=null;
+  try{
+    let cands=await fetch(`${SB}/rest/v1/team_seasons?team=ilike.${encodeURIComponent(pick.name+'*')}&season_year=eq.2026&select=${TS_SEL}&limit=50`,{headers:H}).then(r=>r.ok?r.json():[]);
+    if(cands&&cands.length){
+      cands.sort((a,b)=>(a.team.split(/\s+/).length-b.team.split(/\s+/).length)||(a.team.length-b.team.length));
+      row={...cands[0],name:cands[0].team,conf:cands[0].conference};
+    }
+  }catch(e){}
+  pick._tsRow=row; return row;
+}
+// season-percentile axes — each team is measured against its OWN season's D1
+// field, so a 2015 team and a 2026 team compare on equal footing
+const TSP_AXES=[
+  {l:'Scoring',k:'ppg'},{l:'Defense',k:'oppg',inv:true},{l:'Rebounding',k:'rpg'},
+  {l:'Playmaking',k:'apg'},{l:'Stocks',f:(rows,s)=>avg(tsPctOf(rows,'spg',s.spg),tsPctOf(rows,'bpg',s.bpg))},
+  {l:'Ball Care',k:'topg',inv:true},{l:'FG%',k:'fg_pct'},{l:'3P%',k:'tp_pct'},
+];
+function tspVals(rows,s){ return TSP_AXES.map(a=>a.f?a.f(rows,s):(tsPctOf(rows,a.k,s[a.k],a.inv)??0)); }
+// program SRS trajectory (line chart across all seasons, picks highlighted)
+function trajChart(canvasId, seriesList){
+  const ctx=document.getElementById(canvasId); if(!ctx) return;
+  const grid=cssVar('--border'), tick=cssVar('--text3');
+  const years=[]; for(let y=2007;y<=2026;y++) years.push(y);
+  const dsets=seriesList.map(s=>({
+    label:s.name,
+    data:years.map(y=>s.byYear[y]!=null?s.byYear[y]:null),
+    borderColor:s.color, backgroundColor:hexA(s.color,.14), borderWidth:2, spanGaps:true,
+    pointRadius:years.map(y=>y===s.markYear?6:2),
+    pointBackgroundColor:years.map(y=>y===s.markYear?s.color:hexA(s.color,.55)),
+    pointBorderColor:years.map(y=>y===s.markYear?'#fff':'transparent'),
+    pointBorderWidth:years.map(y=>y===s.markYear?1.5:0),
+  }));
+  const c=new Chart(ctx,{type:'line',data:{labels:years.map(y=>_tsLbl(y)),datasets:dsets},options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>i.dataset.label+': '+(i.parsed.y==null?'—':i.parsed.y.toFixed(1))+' SRS'}}},
+    scales:{y:{title:{display:true,text:'SRS',color:tick,font:{size:10,weight:'600'}},grid:{color:grid},ticks:{color:tick,font:{size:9}}},
+      x:{grid:{display:false},ticks:{color:tick,font:{size:8},maxRotation:60,minRotation:60}}}
+  }}); charts.push(c);
+}
+// offense vs defense scatter — D1 cloud(s) with both teams highlighted
+function scatterOffDef(canvasId, cloud, picks){
+  const ctx=document.getElementById(canvasId); if(!ctx) return;
+  const grid=cssVar('--border'), tick=cssVar('--text3');
+  const dsets=[{label:'D1', data:cloud, backgroundColor:hexA(cssVar('--text3')||'#6d6589',.28), pointRadius:2, pointHoverRadius:3, order:3}];
+  picks.forEach(p=>{ if(p.pt) dsets.push({label:p.name, data:[p.pt], backgroundColor:p.color, borderColor:'#fff', borderWidth:1.5, pointRadius:7, pointHoverRadius:8, order:1}); });
+  const c=new Chart(ctx,{type:'scatter',data:{datasets:dsets},options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>(i.dataset.label==='D1'?'':i.dataset.label+' · ')+`${i.parsed.x.toFixed(1)} PPG, ${i.parsed.y.toFixed(1)} OPP PPG`}}},
+    scales:{x:{title:{display:true,text:'Offense · PPG',color:tick,font:{size:10,weight:'600'}},grid:{color:grid},ticks:{color:tick,font:{size:9}}},
+      y:{reverse:true,title:{display:true,text:'Defense · OPP PPG (lower = better)',color:tick,font:{size:10,weight:'600'}},grid:{color:grid},ticks:{color:tick,font:{size:9}}}}
+  }}); charts.push(c);
+}
+
 // ── TEAM COMPARISON ──
 const T_AXES=[
   {l:'Scoring', k:'ppg'},{l:'3PT', k:'tp_pct'},{l:'Efficiency', k:'fg_pct'},
@@ -1087,25 +1204,97 @@ const SW_DEFS=[
 
 function teamAxis(t,a){ return a.f?a.f(t):tPct(t,a.k,a.inv); }
 
-function renderTeams(){
+async function renderTeams(){
   destroyCharts();
   const [t1,t2]=sel.teams;
-  const pj1=teamProj[t1.name], pj2=teamProj[t2.name];
-  let c1=teamColors[t1.name]||'#B16BFF', c2=teamColors[t2.name]||cssVar('--teal');
+  const bothCurrent=!t1._isHistory&&!t2._isHistory;
+  const pj1=bothCurrent?teamProj[t1.name]:null, pj2=bothCurrent?teamProj[t2.name]:null;
+  let c1=teamColorFor(t1.name)||'#B16BFF', c2=teamColorFor(t2.name)||cssVar('--teal');
   if(c2.toLowerCase()===c1.toLowerCase()) c2=cssVar('--teal')||'#3f8d7d';
   c1=readableCol(c1); c2=readableCol(c2);
   const sec=document.getElementById('compareSection'); sec.classList.add('show');
-  const head=(t,c,right)=>`<div class="cmp-head${right?' right':''}" style="border-color:${c};${right?'border-right':'border-left'}:3px solid ${c};">
+  // normalize both picks to team_seasons rows + their season's national field
+  const [s1,s2]=await Promise.all([_seasonRowFor(t1),_seasonRowFor(t2)]);
+  const y1=s1?s1.season_year:2026, y2=s2?s2.season_year:2026;
+  const [f1,f2]=await Promise.all([tsYear(y1), y2===y1?tsYear(y1):tsYear(y2)]);
+  const yl1=_tsLbl(y1), yl2=_tsLbl(y2);
+  const srsRank=(rows,v)=>{ const x=parseFloat(v); if(isNaN(x)||!rows.length) return null;
+    return rows.filter(r=>parseFloat(r.srs)>x).length+1; };
+  const net=s=>s&&isFinite(parseFloat(s.ppg))&&isFinite(parseFloat(s.oppg))?+(parseFloat(s.ppg)-parseFloat(s.oppg)).toFixed(1):null;
+  const head=(t,s,rows,c,right)=>{
+    const hist=t._isHistory, rk=s?srsRank(rows,s.srs):null;
+    return `<div class="cmp-head${right?' right':''}" style="border-color:${c};${right?'border-right':'border-left'}:3px solid ${c};">
       <div class="ch-name"><a href="team.html?team=${encodeURIComponent(t.name)}">${t.name}</a></div>
-      <div class="ch-sub">${t.conf||t.conference||'—'} · ${t.tdc_rank_num?'#'+t.tdc_rank_num+' nationally':''}</div>
-      <div class="ch-tags"><span class="ch-tag gold">${t.team_tier||'—'}</span><span class="ch-tag">Coach ${t.coach_grade||'—'}</span><span class="ch-tag">Depth ${t.depth_grade||'—'}</span></div>
+      <div class="ch-sub">${hist?`<span style="color:#5b9d8f;font-weight:700;">${_tsLbl(s.season_year)} · </span>`:''}${t.conf||t.conference||'—'}${s?` · ${s.wins||0}-${s.losses||0}`:''}${!hist&&t.tdc_rank_num?` · #${t.tdc_rank_num} nationally`:''}</div>
+      <div class="ch-tags">
+        ${s&&s.ncaa_seed?`<span class="ch-tag gold">#${s.ncaa_seed} seed</span>`:''}
+        ${s&&s.postseason?`<span class="ch-tag">${s.postseason}</span>`:(!hist?`<span class="ch-tag gold">${t.team_tier||'—'}</span>`:'')}
+        ${rk?`<span class="ch-tag">#${rk} SRS</span>`:''}
+        ${!hist?`<span class="ch-tag">Coach ${t.coach_grade||'—'}</span>`:''}
+      </div>
     </div>`;
-  const hasProj=pj1&&pj2;
+  };
+  const resume=(s,c,right)=>{
+    if(!s) return `<div class="ol-card ${right?'right':''}"><div class="ol-sub">No season data</div></div>`;
+    const n=net(s);
+    return `<div class="ol-card ${right?'right':''}">
+      <div class="nil-big" style="color:${c}">${s.wins||0}-${s.losses||0}</div>
+      <div class="nil-sub2">${s.conf_wins!=null?`${s.conf_wins}-${s.conf_losses} conf · `:''}SRS ${s.srs!=null?(+s.srs).toFixed(1):'—'} · Net ${n!=null?(n>0?'+':'')+n:'—'}${s.postseason?` · ${s.postseason}`:''}</div>
+    </div>`;
+  };
+  const sameYear=y1===y2;
+  const statHead=sameYear?`${yl1} Team Stats`:`Team Stats · ${yl1} vs ${yl2}`;
+  const infoRow=(label,a,b)=>`<div class="compare-row"><div class="compare-cell">${a??'—'}</div><div class="compare-label">${label}</div><div class="compare-cell right">${b??'—'}</div></div>`;
+  const g=(s,k)=>s?s[k]:null;
   sec.innerHTML=`
-    <div class="cmp-heads">${head(t1,c1,false)}<div class="cmp-vs">VS</div>${head(t2,c2,true)}</div>
-    ${hasProj?`
+    <div class="cmp-heads">${head(t1,s1,f1,c1,false)}<div class="cmp-vs">VS</div>${head(t2,s2,f2,c2,true)}</div>
+
+    <div class="compare-section-head" style="border-radius:8px;">Season Résumé${sameYear?` — ${yl1}`:''}</div>
+    <div class="ol-grid">${resume(s1,c1,false)}${resume(s2,c2,true)}</div>
+
+    ${(s1||s2)?`
     <div class="chart-grid">
-      <div class="chart-card"><div class="chart-title">Team Profile · Percentile vs all D1 teams</div>
+      <div class="chart-card"><div class="chart-title">Season Profile · Percentile vs own season's D1</div>
+        <div class="chart-box"><canvas id="tsRadar"></canvas></div>
+        <div class="chart-legend"><span><i style="background:${c1}"></i>${t1.name}${sameYear?'':' · '+yl1}</span><span><i style="background:${c2}"></i>${t2.name}${sameYear?'':' · '+yl2}</span></div>
+      </div>
+      <div class="chart-card"><div class="chart-title">Offense vs Defense · vs D1${sameYear?` (${yl1})`:''}</div>
+        <div class="chart-box"><canvas id="tsScatter"></canvas></div>
+        <div class="chart-legend"><span><i style="background:${c1}"></i>${t1.name}</span><span><i style="background:${c2}"></i>${t2.name}</span><span><i style="background:var(--text3)"></i>D1 field</span></div>
+      </div>
+    </div>
+    <div class="chart-card full" style="margin-bottom:26px;"><div class="chart-title">Program Trajectory · SRS by season (picked seasons highlighted)</div>
+      <div class="chart-box short"><canvas id="tsTraj"></canvas></div>
+      <div class="chart-legend"><span><i style="background:${c1}"></i>${s1?s1.team:t1.name}</span><span><i style="background:${c2}"></i>${s2?s2.team:t2.name}</span></div>
+    </div>
+
+    <div class="compare-section-head">${statHead}</div>
+    ${infoRow('Record',s1?`${s1.wins||0}-${s1.losses||0}`:null,s2?`${s2.wins||0}-${s2.losses||0}`:null)}
+    ${infoRow('Conf Record',s1&&s1.conf_wins!=null?`${s1.conf_wins}-${s1.conf_losses}`:null,s2&&s2.conf_wins!=null?`${s2.conf_wins}-${s2.conf_losses}`:null)}
+    ${cmpRow('SRS',g(s1,'srs'),g(s2,'srs'),v=>v.toFixed(1))}
+    ${cmpRow('Net Rating',net(s1),net(s2),v=>(v>0?'+':'')+v.toFixed(1))}
+    ${cmpRow('PPG',g(s1,'ppg'),g(s2,'ppg'),v=>v.toFixed(1))}
+    ${cmpRow('OPP PPG',g(s1,'oppg'),g(s2,'oppg'),v=>v.toFixed(1),false)}
+    ${cmpRow('FG%',g(s1,'fg_pct'),g(s2,'fg_pct'),v=>v.toFixed(1)+'%')}
+    ${cmpRow('3P%',g(s1,'tp_pct'),g(s2,'tp_pct'),v=>v.toFixed(1)+'%')}
+    ${cmpRow('FT%',g(s1,'ft_pct'),g(s2,'ft_pct'),v=>v.toFixed(1)+'%')}
+    ${cmpRow('RPG',g(s1,'rpg'),g(s2,'rpg'),v=>v.toFixed(1))}
+    ${cmpRow('OREB',g(s1,'orpg'),g(s2,'orpg'),v=>v.toFixed(1))}
+    ${cmpRow('DREB',g(s1,'drpg'),g(s2,'drpg'),v=>v.toFixed(1))}
+    ${cmpRow('APG',g(s1,'apg'),g(s2,'apg'),v=>v.toFixed(1))}
+    ${cmpRow('SPG',g(s1,'spg'),g(s2,'spg'),v=>v.toFixed(1))}
+    ${cmpRow('BPG',g(s1,'bpg'),g(s2,'bpg'),v=>v.toFixed(1))}
+    ${cmpRow('TOPG',g(s1,'topg'),g(s2,'topg'),v=>v.toFixed(1),false)}
+    ${cmpRow('NCAA Seed',g(s1,'ncaa_seed'),g(s2,'ncaa_seed'),v=>'#'+Math.round(v),false)}
+    `:''}
+
+    <div class="compare-section-head" style="margin-top:26px;">Head-to-Head · All Meetings on File</div>
+    <div id="h2hWrap" class="chart-card full" style="margin-bottom:26px;"><div style="color:var(--text3);font-size:12px;padding:6px 2px;">Loading meetings…</div></div>
+
+    ${bothCurrent?`
+    ${pj1&&pj2?`
+    <div class="chart-grid">
+      <div class="chart-card"><div class="chart-title">2026-27 Projected Profile · Percentiles</div>
         <div class="chart-box"><canvas id="tRadar"></canvas></div>
         <div class="chart-legend"><span><i style="background:${c1}"></i>${t1.name}</span><span><i style="background:${c2}"></i>${t2.name}</span></div>
       </div>
@@ -1122,7 +1311,7 @@ function renderTeams(){
     ${statRow('FG%',pj1.fg_pct,pj2.fg_pct)}${statRow('3P%',pj1.tp_pct,pj2.tp_pct)}${statRow('FT%',pj1.ft_pct,pj2.ft_pct)}
     ${statRow('OREB',pj1.oreb,pj2.oreb)}${statRow('DREB',pj1.dreb,pj2.dreb)}
     ${statRow('STL',pj1.stl,pj2.stl)}${statRow('BLK',pj1.blk,pj2.blk)}${statRow('TOV',pj1.tov,pj2.tov,false)}
-    `:`<div class="empty-hint">Projections aren't available for one of these teams yet. Open their team page once to generate them.</div>`}
+    `:''}
     <div class="compare-section-head">Grades</div>
     ${gradeRow('Coach',t1.coach_grade,t2.coach_grade)}${gradeRow('Bench Depth',t1.depth_grade,t2.depth_grade)}
     ${gradeRow('Recruiting',t1.recruit_grade,t2.recruit_grade)}${gradeRow('NIL',t1.nil_grade,t2.nil_grade)}
@@ -1130,15 +1319,71 @@ function renderTeams(){
     ${rosterStrip(t1,t2)}
     <div class="roster-grid">${rosterCard(t1,c1)}${rosterCard(t2,c2)}</div>
     <div style="margin-top:26px;">${posDepthTable(t1,t2,c1,c2)}</div>
+    `:''}
   `;
-  if(hasProj){
-    const labels=T_AXES.map(a=>a.l);
-    const d1=T_AXES.map(a=>teamAxis(pj1,a)), d2=T_AXES.map(a=>teamAxis(pj2,a));
-    setTimeout(()=>{
+  setTimeout(async()=>{
+    if(s1||s2){
+      // percentile radar vs each pick's own season
+      const labels=TSP_AXES.map(a=>a.l);
+      const d1=s1?tspVals(f1,s1):labels.map(()=>0), d2=s2?tspVals(f2,s2):labels.map(()=>0);
+      radarChart('tsRadar',labels,[ds(t1.name,d1,c1),ds(t2.name,d2,c2)]);
+      // offense/defense scatter: cloud = union of both seasons' fields
+      const cloudRows=sameYear?f1:[...f1,...f2];
+      const cloud=cloudRows.map(r=>({x:parseFloat(r.ppg),y:parseFloat(r.oppg)})).filter(p=>isFinite(p.x)&&isFinite(p.y));
+      const pt=s=>s&&isFinite(parseFloat(s.ppg))?{x:parseFloat(s.ppg),y:parseFloat(s.oppg)}:null;
+      scatterOffDef('tsScatter',cloud,[{name:t1.name,pt:pt(s1),color:c1},{name:t2.name,pt:pt(s2),color:c2}]);
+      // program SRS trajectory (fetch both programs' full history)
+      const traj=async(s,t,c,markYear)=>{
+        const nm=s?s.team:t.name;
+        const rows=await fetch(`${SB}/rest/v1/team_seasons?team=eq.${encodeURIComponent(nm)}&select=season_year,srs&order=season_year.asc&limit=30`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+        const byYear={}; (rows||[]).forEach(r=>{ const v=parseFloat(r.srs); if(isFinite(v)) byYear[r.season_year]=v; });
+        return {name:nm,color:c,byYear,markYear};
+      };
+      const [tr1,tr2]=await Promise.all([traj(s1,t1,c1,y1),traj(s2,t2,c2,y2)]);
+      trajChart('tsTraj',[tr1,tr2]);
+      // head-to-head record + recent meetings
+      _fillH2H(s1?s1.team:t1.name, s2?s2.team:t2.name, c1, c2);
+    } else {
+      const el=document.getElementById('h2hWrap'); if(el) el.innerHTML='<div style="color:var(--text3);font-size:12px;">No season data.</div>';
+    }
+    if(pj1&&pj2){
+      const labels=T_AXES.map(a=>a.l);
+      const d1=T_AXES.map(a=>teamAxis(pj1,a)), d2=T_AXES.map(a=>teamAxis(pj2,a));
       radarChart('tRadar',labels,[ds(t1.name,d1,c1),ds(t2.name,d2,c2)]);
       barChart('tBar',labels,[ds(t1.name,d1,c1,true),ds(t2.name,d2,c2,true)]);
-    },0);
-  }
+    }
+  },0);
+}
+// head-to-head: every meeting in the games table between the two programs
+async function _fillH2H(n1,n2,c1,c2){
+  const el=document.getElementById('h2hWrap'); if(!el) return;
+  if(n1===n2){ el.innerHTML='<div style="color:var(--text3);font-size:12px;">Same program — no head-to-head.</div>'; return; }
+  try{
+    const e1=encodeURIComponent(n1), e2=encodeURIComponent(n2);
+    const rows=await fetch(`${SB}/rest/v1/games?or=(and(home.eq.${e1},away.eq.${e2}),and(home.eq.${e2},away.eq.${e1}))&select=date,season_year,home,away,home_score,away_score,status&order=date.desc&limit=200`,{headers:H}).then(r=>r.ok?r.json():[]);
+    const played=(rows||[]).filter(g=>g.status==='STATUS_FINAL'&&g.home_score!=null&&g.away_score!=null);
+    if(!played.length){ el.innerHTML='<div style="color:var(--text3);font-size:12px;">No meetings on file (2006-26).</div>'; return; }
+    let w1=0,w2=0;
+    played.forEach(g=>{ const homeIs1=g.home===n1; const hw=g.home_score>g.away_score; ((homeIs1&&hw)||(!homeIs1&&!hw))?w1++:w2++; });
+    const short=n=>n.split(/\s+/).slice(0,2).join(' ');
+    const recent=played.slice(0,6).map(g=>{
+      const homeIs1=g.home===n1, hw=g.home_score>g.away_score, oneWon=(homeIs1&&hw)||(!homeIs1&&!hw);
+      const col=oneWon?c1:c2, winner=oneWon?n1:n2;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid var(--border);font-size:12px;">
+        <span style="color:var(--text3);min-width:64px;">${_tsLbl(g.season_year)}</span>
+        <span style="flex:1;">${short(g.away)} at ${short(g.home)}</span>
+        <span style="font-weight:700;color:${col};">${short(winner)} ${Math.max(g.home_score,g.away_score)}–${Math.min(g.home_score,g.away_score)}</span>
+      </div>`;
+    }).join('');
+    el.innerHTML=`
+      <div style="display:flex;align-items:center;justify-content:center;gap:26px;padding:8px 0 14px;">
+        <span style="font-family:'Playfair Display',serif;font-size:30px;font-weight:800;color:${c1};">${w1}</span>
+        <span style="font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--text3);">ALL-TIME (ON FILE)</span>
+        <span style="font-family:'Playfair Display',serif;font-size:30px;font-weight:800;color:${c2};">${w2}</span>
+      </div>
+      ${recent}
+      ${played.length>6?`<div style="font-size:10px;color:var(--text3);margin-top:6px;">Showing last 6 of ${played.length} meetings</div>`:''}`;
+  }catch(e){ el.innerHTML='<div style="color:var(--text3);font-size:12px;">Meetings unavailable.</div>'; }
 }
 function gradeRow(label,g1,g2){
   const o1=gradeOrder(g1),o2=gradeOrder(g2);
