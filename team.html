@@ -747,8 +747,8 @@
       <div class="side-card-body" id="additionsBody"><div class="empty-note">Loading…</div></div>
     </div>
     <div class="side-card live-side">
-      <div class="side-card-head" style="color:var(--red);">Key Losses</div>
-      <div class="side-card-body" id="lossesBody"><div class="empty-note">Loading…</div></div>
+      <div class="side-card-head" style="color:var(--accent);">Roster Turnover</div>
+      <div class="side-card-body" id="turnoverBody"><div class="empty-note">Loading…</div></div>
     </div>
     <div class="side-card" id="awardsCard" style="display:none;">
       <div class="side-card-head awards-head" id="awardsHead">Season Awards</div>
@@ -1680,37 +1680,9 @@ function renderSidebar(t, players, losses, color){
       </div>`).join('')
     : '<div class="empty-note">None listed</div>';
 
-  // Losses from losses table
-  document.getElementById('lossesBody').innerHTML = losses.length
-    ? `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;min-width:700px;">
-        <thead><tr style="border-bottom:2px solid var(--border2);">
-          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;text-align:left;">Pos</th>
-          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;text-align:left;">Name</th>
-          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">Yr</th>
-          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">Ht</th>
-          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">PPG</th>
-          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">RPG</th>
-          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">APG</th>
-          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">FG%</th>
-          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">3P%</th>
-          <th style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:6px 8px;">GP</th>
-        </tr></thead>
-        <tbody>${losses.map(l=>`
-          <tr style="border-bottom:1px solid var(--border);">
-            <td style="padding:7px 8px;font-size:11px;font-weight:700;color:var(--text3);">${l.pos||'—'}</td>
-            <td style="padding:7px 8px;font-size:13px;font-weight:700;color:var(--text);">${l.name}</td>
-            <td style="padding:7px 8px;font-size:12px;color:var(--text3);text-align:center;">${l.yr||'—'}</td>
-            <td style="padding:7px 8px;font-size:12px;color:var(--text2);text-align:center;">${l.height||'—'}</td>
-            <td style="padding:7px 8px;font-size:12px;font-weight:700;color:var(--text2);text-align:right;">${l.ppg!=null?Number(l.ppg).toFixed(1):'—'}</td>
-            <td style="padding:7px 8px;font-size:12px;color:var(--text2);text-align:right;">${l.rpg!=null?Number(l.rpg).toFixed(1):'—'}</td>
-            <td style="padding:7px 8px;font-size:12px;color:var(--text2);text-align:right;">${l.apg!=null?Number(l.apg).toFixed(1):'—'}</td>
-            <td style="padding:7px 8px;font-size:12px;color:var(--text2);text-align:right;">${l.fg_pct!=null?Number(l.fg_pct).toFixed(1):'—'}</td>
-            <td style="padding:7px 8px;font-size:12px;color:var(--text2);text-align:right;">${l.tp_pct!=null?Number(l.tp_pct).toFixed(1):'—'}</td>
-            <td style="padding:7px 8px;font-size:12px;color:var(--text2);text-align:right;">${l.gp||'—'}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table></div>`
-    : '<div class="empty-note">None listed</div>';
+  // Key Losses side card removed — full Departures table lives under the depth
+  // chart, and the Roster Turnover card (filled by renderSeasonLosses from the
+  // same live data) summarizes what left vs what returns.
 }
 
 function renderOutlook(t){
@@ -4347,12 +4319,43 @@ async function renderSeasonLosses(rows, yr){
   for(const c of cands){ prior=await q(c, `season_year=eq.${yr-1}`, '*'); if(prior&&prior.length){ teamKey=c; break; } }
   if(!teamKey){ host.innerHTML=headHtml()+`<div class="empty-note" style="padding:8px 2px;">No roster on file for ${yl}.</div>`; return; }
   const future=await q(teamKey, `season_year=gt.${yr}`, 'espn_id,name');
-  const idOf=p=>p.espn_id!=null?('#'+p.espn_id):('n:'+(p.name||'').toLowerCase().trim());
-  const cur=new Set((rows||[]).map(idOf)), fut=new Set(future.map(idOf));
-  const losses=prior.filter(p=>!cur.has(idOf(p))&&!fut.has(idOf(p)));
+  // A prior-year player is a departure only if he matches the current roster by
+  // NONE of: espn id, normalized name, or consonant skeleton. The skeleton
+  // survives vowel spelling drift between sources ("Mosley" vs "Moseley").
+  const _skel=s=>_pnorm(s).replace(/[aeiou]/g,'');
+  const mkSets=list=>({
+    ids:  new Set(list.filter(p=>p.espn_id!=null).map(p=>''+p.espn_id)),
+    names:new Set(list.map(p=>_pnorm(p.name))),
+    skels:new Set(list.map(p=>_skel(p.name))),
+  });
+  const cur=mkSets(rows||[]), fut=mkSets(future||[]);
+  const onList=(p,s)=> (p.espn_id!=null&&s.ids.has(''+p.espn_id)) || s.names.has(_pnorm(p.name)) || s.skels.has(_skel(p.name));
+  const losses=prior.filter(p=>!onList(p,cur)&&!onList(p,fut));
+  if(yr===2027) _fillTurnoverCard(prior, losses, rows||[]);
   if(!losses.length){ host.innerHTML=headHtml()+`<div class="empty-note" style="padding:8px 2px;">No departures after ${yl}.</div>`; return; }
   await _fillClassYears(losses, yr-1);
   host.innerHTML=headHtml(` <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· last played ${yl} · ${losses.length}</span>`)+histTable(losses, yr-1);
+}
+// Roster Turnover side card — how much of last season walks vs returns,
+// computed from the same live data as the Departures table (no stale DB list).
+function _fillTurnoverCard(prior, losses, roster){
+  const el=document.getElementById('turnoverBody'); if(!el) return;
+  const S=(list,k)=>list.reduce((s,p)=>s+(parseFloat(p[k])||0),0);
+  const priorPpg=S(prior,'ppg'), priorMpg=S(prior,'mpg');
+  const lostPpg=S(losses,'ppg'), lostMpg=S(losses,'mpg');
+  const retPpg=priorPpg>0?Math.round((priorPpg-lostPpg)/priorPpg*100):null;
+  const retMpg=priorMpg>0?Math.round((priorMpg-lostMpg)/priorMpg*100):null;
+  const isFr=p=>((p.yr||p.class_year||'')+'').toLowerCase().includes('fr');
+  const adds=roster.filter(p=>p.is_addition);
+  const frosh=adds.filter(isFr).length, transfers=adds.length-frosh;
+  const retCol=v=>v==null?'var(--text3)':v>=60?'var(--green)':v>=35?'var(--text)':'var(--red)';
+  const row=(label,val,col)=>`<div class="grade-row"><span class="grade-row-label">${label}</span><span class="grade-row-val" style="color:${col||'var(--text)'};">${val}</span></div>`;
+  el.innerHTML=
+    row('Returning Production', retPpg==null?'—':retPpg+'%', retCol(retPpg))
+   +row('Returning Minutes',    retMpg==null?'—':retMpg+'%', retCol(retMpg))
+   +row('Departures',           losses.length, losses.length>=8?'var(--red)':'var(--text)')
+   +row('Transfers In',         transfers)
+   +row('Freshmen',             frosh);
 }
 // Append the departures section under the projected (2026-27) depth chart too.
 function _appendDepthLosses(yr){
