@@ -312,6 +312,21 @@ function fmtP(v){ return (v!==null&&v!==undefined&&v!==''&&!isNaN(v))? Number(v)
 function gc(g){ return {'A+':'gAp','A':'gA','A-':'gAm','B+':'gBp','B':'gB','B-':'gBm','C+':'gCp','C':'gC','C-':'gCm','D+':'gDp','D':'gD','D-':'gDm','F':'gF'}[g]||''; }
 function gradeOrder(g){ const i=['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','D-','F'].indexOf(g); return i<0?99:i; }
 function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+// Lighten a team brand color so it stays legible on the near-black dark theme.
+// Dark navies (Notre Dame, etc.) vanish otherwise. Mix toward white in
+// proportion to how dark the color is; already-bright colors barely move.
+function readableCol(hex){
+  if((document.documentElement.getAttribute('data-theme')||'')!=='dark') return hex||'#888';
+  const m=(hex||'').replace('#','');
+  if(m.length!==6) return hex||'#888';
+  let r=parseInt(m.slice(0,2),16), g=parseInt(m.slice(2,4),16), b=parseInt(m.slice(4,6),16);
+  if(isNaN(r)||isNaN(g)||isNaN(b)) return hex;
+  const lum=0.2126*r+0.7152*g+0.0722*b, MIN=150;
+  if(lum>=MIN) return hex;
+  const t=Math.min(0.72,(MIN-lum)/MIN);
+  const h=v=>Math.round(v).toString(16).padStart(2,'0');
+  return '#'+h(r+(255-r)*t)+h(g+(255-g)*t)+h(b+(255-b)*t);
+}
 
 // ── archetype + role ──
 function archetypeOf(p){
@@ -414,7 +429,7 @@ function pickHist(slot, idx){
   document.getElementById('dropdown'+slot).classList.remove('show');
   document.getElementById('si'+slot).value=item.name;
   const selEl=document.getElementById('selected'+slot);
-  const color=teamColors[item.team]||'#5b9d8f';
+  const color=readableCol(teamColors[item.team]||'#5b9d8f');
   const yr=_seasonLabel(item);
   selEl.style.display='block';
   selEl.innerHTML=`<div style="border-left:3px solid ${color};padding-left:10px;margin-top:8px;">
@@ -432,7 +447,7 @@ function pick(slot, type, key){
   document.getElementById('dropdown'+slot).classList.remove('show');
   document.getElementById('si'+slot).value=item.name;
   const selEl=document.getElementById('selected'+slot);
-  const color=teamColors[mode==='players'?item.team:item.name]||'#888';
+  const color=readableCol(teamColors[mode==='players'?item.team:item.name]||'#888');
   selEl.style.display='block';
   if(mode==='players'){
     selEl.innerHTML=`<div style="border-left:3px solid ${color};padding-left:10px;margin-top:8px;">
@@ -566,7 +581,9 @@ var BENCH_AXES=[
 function renderPlayers(){
   destroyCharts();
   const [p1,p2]=sel.players;
-  const c1=teamColors[p1.team]||'#B16BFF', c2=teamColors[p2.team]||cssVar('--teal');
+  let c1=teamColors[p1.team]||'#B16BFF', c2=teamColors[p2.team]||cssVar('--teal');
+  if(c2.toLowerCase()===c1.toLowerCase()) c2=cssVar('--teal')||'#3f8d7d'; // same team → keep the two players distinct
+  c1=readableCol(c1); c2=readableCol(c2);
   const sec=document.getElementById('compareSection'); sec.classList.add('show');
   const sl1=_seasonLabel(p1), sl2=_seasonLabel(p2);
   const head=(p,c,right,sl)=>`<div class="cmp-head${right?' right':''}" style="border-color:${c};${right?'border-right':'border-left'}:3px solid ${c};">
@@ -675,7 +692,9 @@ function renderTeams(){
   destroyCharts();
   const [t1,t2]=sel.teams;
   const pj1=teamProj[t1.name], pj2=teamProj[t2.name];
-  const c1=teamColors[t1.name]||'#B16BFF', c2=teamColors[t2.name]||cssVar('--teal');
+  let c1=teamColors[t1.name]||'#B16BFF', c2=teamColors[t2.name]||cssVar('--teal');
+  if(c2.toLowerCase()===c1.toLowerCase()) c2=cssVar('--teal')||'#3f8d7d';
+  c1=readableCol(c1); c2=readableCol(c2);
   const sec=document.getElementById('compareSection'); sec.classList.add('show');
   const head=(t,c,right)=>`<div class="cmp-head${right?' right':''}" style="border-color:${c};${right?'border-right':'border-left'}:3px solid ${c};">
       <div class="ch-name"><a href="team.html?team=${encodeURIComponent(t.name)}">${t.name}</a></div>
