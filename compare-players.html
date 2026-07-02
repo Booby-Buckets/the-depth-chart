@@ -1147,6 +1147,77 @@ async function _seasonRowFor(pick){
   }catch(e){}
   pick._tsRow=row; return row;
 }
+// exact count over team_seasons (Prefer: count=exact + zero-row range)
+async function _countTS(filter){
+  try{
+    const r=await fetch(`${SB}/rest/v1/team_seasons?${filter}&select=season_year`,{headers:{...H,'Prefer':'count=exact','Range-Unit':'items','Range':'0-0'}});
+    const cr=r.headers.get('content-range')||'';
+    const n=parseInt(cr.split('/')[1]); return isNaN(n)?null:n;
+  }catch(e){ return null; }
+}
+// player_history team key for a FULL team_seasons name ("Duke Blue Devils" →
+// "Duke"; "St. John's Red Storm" → "St. John's (NY)"): exact word-prefixes
+// longest-first, then a longest-prefix wildcard. Cached per name.
+const _phKeyCache={};
+async function _phKeyFor(fullName){
+  if(_phKeyCache[fullName]!==undefined) return _phKeyCache[fullName];
+  const words=(fullName||'').split(/\s+/).filter(Boolean);
+  const probe=async f=>{
+    const r=await fetch(`${SB}/rest/v1/player_history?${f}&select=team&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    return r&&r[0]&&r[0].team||null;
+  };
+  let key=null;
+  for(let take=words.length; take>=1 && !key; take--) key=await probe(`team=eq.${encodeURIComponent(words.slice(0,take).join(' '))}`);
+  for(let take=words.length; take>=2 && !key; take--) key=await probe(`team=ilike.${encodeURIComponent(words.slice(0,take).join(' ')+'*')}`);
+  _phKeyCache[fullName]=key; return key;
+}
+// season roster for a program: player_history first, bbref (indexed slug) when
+// that season was never scraped — same fallback chain as the team page.
+async function _rosterFor(fullName, yr){
+  const key=await _phKeyFor(fullName);
+  let rows=[];
+  if(key) rows=await fetch(`${SB}/rest/v1/player_history?team=eq.${encodeURIComponent(key)}&season_year=eq.${yr}&select=name,position,height,yr,ppg,rpg,apg,mpg,gp,tdc_grade,espn_id&order=mpg.desc.nullslast&limit=15`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  if((!rows||!rows.length)&&key){
+    const slug=key.toLowerCase().replace(/[.'()&]/g,'').trim().replace(/\s+/g,'-');
+    const bb=await fetch(`${SB}/rest/v1/bbref_seasons?school_slug=eq.${encodeURIComponent(slug)}&season_year=eq.${yr}&select=player,pos,height,class,tdc_grade,espn_id,pergame&limit=20`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    rows=(bb||[]).map(b=>{ const pg=b.pergame||{}; return { name:b.player, position:b.pos, height:b.height, yr:b.class,
+      ppg:parseFloat(pg.pts_per_g), rpg:parseFloat(pg.trb_per_g), apg:parseFloat(pg.ast_per_g), mpg:parseFloat(pg.mp_per_g),
+      gp:parseFloat(pg.games), tdc_grade:b.tdc_grade, espn_id:b.espn_id }; })
+      .sort((a,b)=>(b.mpg||0)-(a.mpg||0));
+  }
+  return {key, rows:rows||[]};
+}
+// best player seasons in program history (deduped to each player's best year)
+async function _legendsFor(key){
+  if(!key) return [];
+  const rows=await fetch(`${SB}/rest/v1/player_history?team=eq.${encodeURIComponent(key)}&tdc_grade=gte.88&select=name,season_year,ppg,rpg,apg,tdc_grade,espn_id&order=tdc_grade.desc.nullslast&limit=60`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  const seen=new Set(), out=[];
+  (rows||[]).forEach(r=>{ const k=(r.name||'').toLowerCase(); if(seen.has(k)) return; seen.add(k); out.push(r); });
+  return out.slice(0,5);
+}
+function _seasonBadge(g){
+  const n=parseFloat(g); if(isNaN(n)) return '';
+  if(n>=95) return '<span class="sim-pct" style="background:rgba(200,160,32,.18);color:#C8A020;">ALL-TIME · '+n+'</span>';
+  if(n>=92) return '<span class="sim-pct">ELITE · '+n+'</span>';
+  return '<span class="sim-pct" style="background:var(--bg3);color:var(--text2);">'+n+'</span>';
+}
+function _plink(p,yr){ return p.espn_id?`player.html?espn=${p.espn_id}&name=${encodeURIComponent(p.name)}&season=${yr||''}`:`player.html?name=${encodeURIComponent(p.name)}&season=${yr||''}`; }
+function _rosterRows(rows, yr){
+  if(!rows.length) return '<div class="sim-row" style="color:var(--text3);">No roster on file</div>';
+  return rows.slice(0,10).map((p,i)=>`<div class="sim-row"><span class="sim-rank">${i+1}</span>
+    <span class="sim-name"><a href="${_plink(p,yr)}">${p.name}</a></span>
+    <span class="sim-meta">${[p.yr,p.position,p.height].filter(Boolean).join(' · ')}</span>
+    <span class="sim-stat">${fmt(p.ppg)}p ${fmt(p.rpg)}r ${fmt(p.apg)}a</span>
+    ${_seasonBadge(p.tdc_grade)}</div>`).join('');
+}
+function _legendRows(rows){
+  if(!rows.length) return '<div class="sim-row" style="color:var(--text3);">No graded seasons ≥88 on file</div>';
+  return rows.map((p,i)=>`<div class="sim-row"><span class="sim-rank">${i+1}</span>
+    <span class="sim-name"><a href="${_plink(p,p.season_year)}">${p.name}</a></span>
+    <span class="sim-meta">${_tsLbl(p.season_year)}</span>
+    <span class="sim-stat">${fmt(p.ppg)}p ${fmt(p.rpg)}r ${fmt(p.apg)}a</span>
+    ${_seasonBadge(p.tdc_grade)}</div>`).join('');
+}
 // season-percentile axes — each team is measured against its OWN season's D1
 // field, so a 2015 team and a 2026 team compare on equal footing
 const TSP_AXES=[
@@ -1252,6 +1323,12 @@ async function renderTeams(){
     <div class="compare-section-head" style="border-radius:8px;">Season Résumé${sameYear?` — ${yl1}`:''}</div>
     <div class="ol-grid">${resume(s1,c1,false)}${resume(s2,c2,true)}</div>
 
+    <div class="compare-section-head">Program Context — How Good, Historically?</div>
+    <div class="sim-grid">
+      <div class="sim-card" id="progCtx1" style="border-top:2px solid ${c1};"><div class="sim-row" style="color:var(--text3);">Computing…</div></div>
+      <div class="sim-card" id="progCtx2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Computing…</div></div>
+    </div>
+
     ${(s1||s2)?`
     <div class="chart-grid">
       <div class="chart-card"><div class="chart-title">Season Profile · Percentile vs own season's D1</div>
@@ -1287,6 +1364,18 @@ async function renderTeams(){
     ${cmpRow('TOPG',g(s1,'topg'),g(s2,'topg'),v=>v.toFixed(1),false)}
     ${cmpRow('NCAA Seed',g(s1,'ncaa_seed'),g(s2,'ncaa_seed'),v=>'#'+Math.round(v),false)}
     `:''}
+
+    <div class="compare-section-head" style="margin-top:26px;">Rosters${sameYear?` — ${yl1}`:` — ${yl1} vs ${yl2}`}</div>
+    <div class="sim-grid">
+      <div class="sim-card" id="tRost1" style="border-top:2px solid ${c1};"><div class="sim-row" style="color:var(--text3);">Loading roster…</div></div>
+      <div class="sim-card" id="tRost2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Loading roster…</div></div>
+    </div>
+
+    <div class="compare-section-head">Best Player Seasons in Program History</div>
+    <div class="sim-grid">
+      <div class="sim-card" id="tLegend1" style="border-top:2px solid ${c1};"><div class="sim-row" style="color:var(--text3);">Loading…</div></div>
+      <div class="sim-card" id="tLegend2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Loading…</div></div>
+    </div>
 
     <div class="compare-section-head" style="margin-top:26px;">Head-to-Head · All Meetings on File</div>
     <div id="h2hWrap" class="chart-card full" style="margin-bottom:26px;"><div style="color:var(--text3);font-size:12px;padding:6px 2px;">Loading meetings…</div></div>
@@ -1332,17 +1421,29 @@ async function renderTeams(){
       const cloud=cloudRows.map(r=>({x:parseFloat(r.ppg),y:parseFloat(r.oppg)})).filter(p=>isFinite(p.x)&&isFinite(p.y));
       const pt=s=>s&&isFinite(parseFloat(s.ppg))?{x:parseFloat(s.ppg),y:parseFloat(s.oppg)}:null;
       scatterOffDef('tsScatter',cloud,[{name:t1.name,pt:pt(s1),color:c1},{name:t2.name,pt:pt(s2),color:c2}]);
-      // program SRS trajectory (fetch both programs' full history)
+      // program history (one fetch each): feeds the SRS trajectory AND the
+      // "how good historically" context cards
       const traj=async(s,t,c,markYear)=>{
         const nm=s?s.team:t.name;
-        const rows=await fetch(`${SB}/rest/v1/team_seasons?team=eq.${encodeURIComponent(nm)}&select=season_year,srs&order=season_year.asc&limit=30`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+        const rows=await fetch(`${SB}/rest/v1/team_seasons?team=eq.${encodeURIComponent(nm)}&select=season_year,srs,wins,losses,ncaa_seed,ncaa_result&order=season_year.asc&limit=30`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
         const byYear={}; (rows||[]).forEach(r=>{ const v=parseFloat(r.srs); if(isFinite(v)) byYear[r.season_year]=v; });
-        return {name:nm,color:c,byYear,markYear};
+        return {name:nm,color:c,byYear,markYear,rows:rows||[]};
       };
       const [tr1,tr2]=await Promise.all([traj(s1,t1,c1,y1),traj(s2,t2,c2,y2)]);
       trajChart('tsTraj',[tr1,tr2]);
-      // head-to-head record + recent meetings
-      _fillH2H(s1?s1.team:t1.name, s2?s2.team:t2.name, c1, c2);
+      _fillProgramContext('progCtx1', tr1, s1);
+      _fillProgramContext('progCtx2', tr2, s2);
+      // rosters + best player seasons in program history
+      const side=async(fullName, yr, rostId, legId)=>{
+        const {key, rows}=await _rosterFor(fullName, yr);
+        const rEl=document.getElementById(rostId); if(rEl) rEl.innerHTML=_rosterRows(rows, yr);
+        const lEl=document.getElementById(legId);  if(lEl) lEl.innerHTML=_legendRows(await _legendsFor(key));
+      };
+      side(s1?s1.team:t1.name, y1, 'tRost1', 'tLegend1');
+      side(s2?s2.team:t2.name, y2, 'tRost2', 'tLegend2');
+      // head-to-head record + recent meetings (+ the direct meeting when both
+      // picks are the same season)
+      _fillH2H(s1?s1.team:t1.name, s2?s2.team:t2.name, c1, c2, sameYear?y1:null);
     } else {
       const el=document.getElementById('h2hWrap'); if(el) el.innerHTML='<div style="color:var(--text3);font-size:12px;">No season data.</div>';
     }
@@ -1354,8 +1455,34 @@ async function renderTeams(){
     }
   },0);
 }
-// head-to-head: every meeting in the games table between the two programs
-async function _fillH2H(n1,n2,c1,c2){
+// program context: this season's place in program history + all-time D1 history
+async function _fillProgramContext(elId, tr, s){
+  const el=document.getElementById(elId); if(!el) return;
+  const rows=tr.rows||[];
+  if(!rows.length){ el.innerHTML='<div class="sim-row" style="color:var(--text3);">No program history on file</div>'; return; }
+  const W=rows.reduce((a,r)=>a+(parseFloat(r.wins)||0),0), L=rows.reduce((a,r)=>a+(parseFloat(r.losses)||0),0);
+  const trips=rows.filter(r=>r.ncaa_seed!=null).length;
+  const titles=rows.filter(r=>/champion/i.test(r.ncaa_result||'')&&!/vice|runner/i.test(r.ncaa_result||'')).length;
+  const srsAvg=(()=>{ const v=rows.map(r=>parseFloat(r.srs)).filter(isFinite); return v.length?(v.reduce((a,b)=>a+b,0)/v.length):null; })();
+  const line=(l,v)=>`<div class="sim-row"><span class="sim-meta">${l}</span><span class="sim-stat" style="font-weight:700;color:var(--text);">${v}</span></div>`;
+  let html=line('Program on file · '+rows.length+' seasons', `${W}-${L}`)
+    +line('NCAA tournaments · titles', `${trips} · ${titles}`)
+    +line('Avg SRS (program)', srsAvg!=null?srsAvg.toFixed(1):'—');
+  if(s&&isFinite(parseFloat(s.srs))){
+    const v=parseFloat(s.srs);
+    const progRank=rows.filter(r=>parseFloat(r.srs)>v).length+1;
+    html+=line(`This season in program history`, progRank===1?'Best on file':`#${progRank} of ${rows.length}`);
+    const [better,total]=await Promise.all([_countTS(`srs=gt.${v}`),_countTS('srs=not.is.null')]);
+    if(better!=null&&total){
+      const topPct=Math.max(0.1,Math.round((better+1)/total*1000)/10);
+      html+=line('Among ALL D1 team-seasons (2006-26)', `#${better+1} of ${total.toLocaleString()} · top ${topPct}%`);
+    }
+  }
+  el.innerHTML=html;
+}
+// head-to-head: every meeting in the games table between the two programs;
+// when both picks are the same season, their direct meetings lead the card
+async function _fillH2H(n1,n2,c1,c2,meetYear){
   const el=document.getElementById('h2hWrap'); if(!el) return;
   if(n1===n2){ el.innerHTML='<div style="color:var(--text3);font-size:12px;">Same program — no head-to-head.</div>'; return; }
   try{
@@ -1366,7 +1493,7 @@ async function _fillH2H(n1,n2,c1,c2){
     let w1=0,w2=0;
     played.forEach(g=>{ const homeIs1=g.home===n1; const hw=g.home_score>g.away_score; ((homeIs1&&hw)||(!homeIs1&&!hw))?w1++:w2++; });
     const short=n=>n.split(/\s+/).slice(0,2).join(' ');
-    const recent=played.slice(0,6).map(g=>{
+    const row=g=>{
       const homeIs1=g.home===n1, hw=g.home_score>g.away_score, oneWon=(homeIs1&&hw)||(!homeIs1&&!hw);
       const col=oneWon?c1:c2, winner=oneWon?n1:n2;
       return `<div style="display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid var(--border);font-size:12px;">
@@ -1374,8 +1501,18 @@ async function _fillH2H(n1,n2,c1,c2){
         <span style="flex:1;">${short(g.away)} at ${short(g.home)}</span>
         <span style="font-weight:700;color:${col};">${short(winner)} ${Math.max(g.home_score,g.away_score)}–${Math.min(g.home_score,g.away_score)}</span>
       </div>`;
-    }).join('');
+    };
+    // direct meetings between the two PICKED seasons
+    let meetHtml='';
+    if(meetYear){
+      const met=played.filter(g=>+g.season_year===+meetYear);
+      meetHtml=met.length
+        ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:4px;">These teams met ${met.length}× in ${_tsLbl(meetYear)}</div>${met.map(row).join('')}<div style="height:12px;"></div>`
+        : `<div style="font-size:11px;color:var(--text3);margin-bottom:10px;">These teams did not meet in ${_tsLbl(meetYear)}.</div>`;
+    }
+    const recent=played.slice(0,6).map(row).join('');
     el.innerHTML=`
+      ${meetHtml}
       <div style="display:flex;align-items:center;justify-content:center;gap:26px;padding:8px 0 14px;">
         <span style="font-family:'Playfair Display',serif;font-size:30px;font-weight:800;color:${c1};">${w1}</span>
         <span style="font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--text3);">ALL-TIME (ON FILE)</span>
