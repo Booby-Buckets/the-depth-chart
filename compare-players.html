@@ -678,12 +678,48 @@ function cmpRow(label,av,bv,fmtFn,higher){
     +'<div class="compare-label">'+label+'</div>'
     +'<div class="compare-cell right '+wB+'">'+(hasB?fmtFn(b):'—')+'</div></div>';
 }
-// ── most similar players: weighted z-distance over the current D1 pool ──
+// ── most similar players: weighted z-distance over an ALL-TIME pool ──
+// The full bbref_seasons table can't be scanned in one query (statement
+// timeout), so pull the top-300 graded seasons per year (indexed, fast) at
+// concurrency 2 — same pattern as the analytics all-seasons loader — and
+// cache the slimmed pool in localStorage so later visits are instant.
 var SIM_KEYS=[['ppg',1.2],['rpg',1.1],['apg',1.2],['mpg',0.6],['stl',0.8],['blk',1.0],['tovs',0.6],['fg_pct',0.9],['tp_pct',1.0],['ft_pct',0.5]];
-function _simZ(){
-  if(window._simZCache) return window._simZCache;
-  var pool=allPlayers.filter(function(p){return (parseFloat(p.mpg)||0)>=8;});
-  var z={pool:pool,mean:{},std:{}};
+var AT_KEY='tdc_atpool_v1', AT_TTL=7*864e5, AT_FROM=2007, AT_TO=2026;
+var _atPool=null, _atLoading=null;
+function allTimePool(onProgress){
+  if(_atPool) return Promise.resolve(_atPool);
+  try{
+    var c=JSON.parse(localStorage.getItem(AT_KEY)||'null');
+    if(c&&c.t&&(Date.now()-c.t)<AT_TTL&&Array.isArray(c.rows)&&c.rows.length>3000){ _atPool=c.rows; return Promise.resolve(_atPool); }
+  }catch(e){}
+  if(_atLoading) return _atLoading;
+  _atLoading=(function(){
+    var years=[]; for(var y=AT_FROM;y<=AT_TO;y++) years.push(y);
+    var rows=[], done=0, i=0;
+    var SEL='select=player,school,season_year,pos,height,tdc_grade,'
+      +'ppg:pergame-%3E%3Epts_per_g,rpg:pergame-%3E%3Etrb_per_g,apg:pergame-%3E%3East_per_g,mpg:pergame-%3E%3Emp_per_g,'
+      +'stl:pergame-%3E%3Estl_per_g,blk:pergame-%3E%3Eblk_per_g,tovs:pergame-%3E%3Etov_per_g,'
+      +'fg_pct:pergame-%3E%3Efg_pct,tp_pct:pergame-%3E%3Efg3_pct,ft_pct:pergame-%3E%3Eft_pct';
+    function one(y,attempt){
+      return fetch(SB+'/rest/v1/bbref_seasons?season_year=eq.'+y+'&tdc_grade=not.is.null&'+SEL+'&order=tdc_grade.desc&limit=300',{headers:H})
+        .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+        .then(function(d){ (d||[]).forEach(function(x){
+            ['fg_pct','tp_pct','ft_pct'].forEach(function(k){ var v=parseFloat(x[k]); x[k]=isFinite(v)?(v<=1?Math.round(v*1000)/10:v):null; }); // bbref decimals → 53.2-style
+            rows.push(x); }); })
+        .catch(function(){ if((attempt||0)<2) return one(y,(attempt||0)+1); })
+        .then(function(){ done++; if(onProgress) onProgress(done,years.length); });
+    }
+    function worker(){ if(i>=years.length) return Promise.resolve(); var y=years[i++]; return one(y).then(worker); }
+    return Promise.all([worker(),worker()]).then(function(){   // concurrency 2 — the free-tier pooler 500s above that
+      _atPool=rows;
+      try{ localStorage.setItem(AT_KEY,JSON.stringify({t:Date.now(),rows:rows})); }catch(e){}
+      return rows;
+    });
+  })();
+  return _atLoading;
+}
+function _zOver(pool){
+  var z={mean:{},std:{}};
   SIM_KEYS.forEach(function(kw){ var k=kw[0];
     var vs=pool.map(function(p){return parseFloat(p[k])||0;});
     var m=vs.reduce(function(a,b){return a+b;},0)/(vs.length||1);
@@ -693,14 +729,14 @@ function _simZ(){
   var hs=pool.map(htInOf).filter(function(v){return v;});
   var hm=hs.reduce(function(a,b){return a+b;},0)/(hs.length||1);
   z.hMean=hm; z.hStd=Math.sqrt(hs.reduce(function(a,b){return a+(b-hm)*(b-hm);},0)/(hs.length||1))||1;
-  window._simZCache=z; return z;
+  return z;
 }
-function similarPlayers(p,n){
+function similarAllTime(p,pool,z,n){
   n=n||5;
-  var z=_simZ(), g=posGroupOf(p), ph=htInOf(p), nl=(p.name||'').toLowerCase().trim();
+  var g=posGroupOf(p), ph=htInOf(p), nl=(p.name||'').toLowerCase().trim();
   var out=[];
-  z.pool.forEach(function(c){
-    if((c.name||'').toLowerCase().trim()===nl) return;
+  pool.forEach(function(c){
+    if((c.player||'').toLowerCase().trim()===nl) return;   // never match a player to himself
     var s=0,w=0;
     SIM_KEYS.forEach(function(kw){ var k=kw[0],wt=kw[1];
       var a=((parseFloat(p[k])||0)-z.mean[k])/z.std[k], b=((parseFloat(c[k])||0)-z.mean[k])/z.std[k];
@@ -709,22 +745,43 @@ function similarPlayers(p,n){
     var ch=htInOf(c);
     if(ph&&ch){ var a2=(ph-z.hMean)/z.hStd, b2=(ch-z.hMean)/z.hStd; s+=1.1*(a2-b2)*(a2-b2); w+=1.1; }
     var d=Math.sqrt(s/w);
-    if(posGroupOf(c)!==g) d+=0.55;                 // different position group → soft penalty
+    if(posGroupOf({position:c.pos,height:c.height})!==g) d+=0.55;   // different position group → soft penalty
     out.push({p:c,d:d});
   });
   out.sort(function(a,b){return a.d-b.d;});
-  return out.slice(0,n).map(function(x){ return {p:x.p, sim:Math.max(1,Math.round(100*Math.exp(-(x.d*x.d)/2)))}; });
+  var seen={}, top=[];   // one entry per player — keep only his closest season
+  for(var j=0;j<out.length&&top.length<n;j++){
+    var key=(out[j].p.player||'').toLowerCase().trim();
+    if(seen[key]) continue; seen[key]=1;
+    top.push({p:out[j].p, sim:Math.max(1,Math.round(100*Math.exp(-(out[j].d*out[j].d)/2)))});
+  }
+  return top;
 }
-function simCard(p,color){
-  var rows=similarPlayers(p,5).map(function(x,i){
-    var c=x.p;
+function _simRows(p,pool,z){
+  return similarAllTime(p,pool,z,5).map(function(x,i){
+    var c=x.p, yr=c.season_year, sl=(yr-1)+'-'+((''+yr).slice(2));
     return '<div class="sim-row"><span class="sim-rank">'+(i+1)+'</span>'
-      +'<span class="sim-name"><a href="player.html?name='+encodeURIComponent(c.name)+'&team='+encodeURIComponent(c.team||'')+'">'+c.name+'</a></span>'
-      +'<span class="sim-meta">'+(c.team||'—')+' · '+(c.position||'—')+' · '+(c.height||'—')+'</span>'
+      +'<span class="sim-name"><a href="player.html?name='+encodeURIComponent(c.player)+'&team='+encodeURIComponent(c.school||'')+'&season='+yr+'">'+c.player+'</a></span>'
+      +'<span class="sim-meta">'+sl+' · '+(c.school||'—')+' · '+(c.pos||'—')+' · '+(c.height||'—')+'</span>'
       +'<span class="sim-stat">'+fmt(c.ppg)+'p '+fmt(c.rpg)+'r '+fmt(c.apg)+'a</span>'
       +'<span class="sim-pct">'+x.sim+'%</span></div>';
-  }).join('');
-  return '<div class="sim-card" style="border-top:2px solid '+color+';">'+(rows||'<div class="sim-row" style="color:var(--text3);">No matches</div>')+'</div>';
+  }).join('')||'<div class="sim-row" style="color:var(--text3);">No matches</div>';
+}
+// async fill: render placeholders immediately, populate when the pool is ready
+function fillSimCards(p1,p2){
+  var e1=document.getElementById('simc1'), e2=document.getElementById('simc2');
+  if(!e1||!e2) return;
+  var prog=function(d,t){
+    var msg='<div class="sim-row" style="color:var(--text3);">Building all-time pool… '+d+'/'+t+' seasons</div>';
+    if(e1.innerHTML.indexOf('sim-rank')<0) e1.innerHTML=msg;
+    if(e2.innerHTML.indexOf('sim-rank')<0) e2.innerHTML=msg;
+  };
+  allTimePool(prog).then(function(pool){
+    if(!pool||!pool.length){ e1.innerHTML=e2.innerHTML='<div class="sim-row" style="color:var(--text3);">Pool unavailable</div>'; return; }
+    var z=_zOver(pool);
+    e1.innerHTML=_simRows(p1,pool,z);
+    e2.innerHTML=_simRows(p2,pool,z);
+  });
 }
 function adv(p){
   var fga=parseFloat(p.fga)||0, fta=parseFloat(p.fta)||0, fgm=parseFloat(p.fgm)||0, tpm=parseFloat(p.tpm)||0;
@@ -948,9 +1005,13 @@ function renderPlayers(){
     ${statRow('FG%',p1.fg_pct,p2.fg_pct)}${statRow('3P%',p1.tp_pct,p2.tp_pct)}${statRow('FT%',p1.ft_pct,p2.ft_pct)}
     ${statRow('STL',p1.stl,p2.stl)}${statRow('BLK',p1.blk,p2.blk)}${statRow('TO',p1.tovs,p2.tovs,false)}
 
-    <div class="compare-section-head" style="margin-top:26px;">Most Similar Players · Current D1</div>
-    <div class="sim-grid">${simCard(p1,c1)}${simCard(p2,c2)}</div>
+    <div class="compare-section-head" style="margin-top:26px;">Most Similar Players · All-Time (2006-26)</div>
+    <div class="sim-grid">
+      <div class="sim-card" id="simc1" style="border-top:2px solid ${c1};"><div class="sim-row" style="color:var(--text3);">Building all-time pool…</div></div>
+      <div class="sim-card" id="simc2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Building all-time pool…</div></div>
+    </div>
   `;
+  fillSimCards(p1,p2);
   const labels=P_AXES.map(a=>a.l);
   const d1=P_AXES.map(a=>a.f(p1)), d2=P_AXES.map(a=>a.f(p2));
   // each player benchmarks against All-Americans at HIS position group
