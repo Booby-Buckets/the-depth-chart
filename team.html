@@ -523,7 +523,7 @@
     min-width:900px!important;
   }
   .stat-header,.rotation-row{min-width:900px!important;}
-  .pstat-header,.protation-row{min-width:1080px!important;}
+  .pstat-header,.protation-row{min-width:1440px!important;}
   .cstat-header,.crotation-row{min-width:960px!important;}
 
   /* Sticky pos+number+name columns while scrolling right */
@@ -2816,8 +2816,8 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
       <div style="font-size:11px;color:var(--text3);"><span style="background:rgba(139,105,20,.12);color:var(--accent);padding:2px 5px;font-weight:700;">EST</span> = Freshman estimate &nbsp; <span style="background:rgba(26,95,191,.1);color:#1a5fbf;padding:2px 5px;font-weight:700;">×</span> = Transfer factor &nbsp; <span style="background:rgba(180,50,0,.1);color:#cc3300;padding:2px 5px;font-weight:700;">FINAL</span> = Last season &nbsp; <span style="color:var(--text3);font-style:italic;">USG/TS/BPM/WA = projected advanced</span></div>
     </div>
     <div class="rot-table-card">
-    <div style="min-width:1080px;">
-      <div class="pstat-header" style="min-width:1080px;">
+    <div style="min-width:1440px;">
+      <div class="pstat-header" style="min-width:1440px;">
         <div class="stat-header-cell"></div>
         <div class="stat-header-cell left">Pos</div>
         <div class="stat-header-cell left">Name</div>
@@ -2849,7 +2849,7 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
       </div>
       ${projected.map((p,i)=>{
         if(p._injured||p._dnp){
-          return `<div class="protation-row" style="min-width:1080px;opacity:.7;border-left:2px solid #ef4444;padding-left:6px;">
+          return `<div class="protation-row" style="min-width:1440px;opacity:.7;border-left:2px solid #ef4444;padding-left:6px;">
             <div class="rot-num" style="color:#ef4444;">—</div>
             <div class="rot-pos" style="color:var(--text3);">${p._deployedPos||p.position||''}</div>
             <div class="rot-name">
@@ -2871,9 +2871,9 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
         const projMpg=parseFloat(p.mpg)||0, prevMpg=parseFloat(p._rawMpg)||projMpg;
         const roleBadge=(!p._isFrosh&&!p._isSr&&projMpg>prevMpg*1.25)?`<span style="font-size:8px;font-weight:700;padding:1px 3px;background:rgba(26,140,58,.12);color:#1a8c3a;margin-left:3px;">↑ ROLE</span>`:'';
         const A=p._projAdv||{};
-        const advCell=(v,suffix)=>`<div class="rot-stat" style="${A._est?'color:var(--text3);font-style:italic;':''}">${v!=null&&isFinite(v)?v+(suffix||''):'—'}</div>`;
+        const advCell=(v,suffix)=>`<div class="rot-stat" style="${A._est?'color:var(--text3);font-style:italic;':''}">${v!=null&&isFinite(v)?Number(v).toFixed(1)+(suffix||''):'—'}</div>`;
         return `
-        <div class="protation-row" style="min-width:1080px;${isStarter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
+        <div class="protation-row" style="min-width:1440px;${isStarter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
           <div class="rot-num" style="${isStarter?`color:${color};font-weight:700;`:''}">${i+1}</div>
           <div class="rot-pos" style="${isStarter?`color:${color};`:''}">${(()=>{const dp=p._deployedPos||p.position||'';const oop=dp&&p.position&&dp!==p.position;return oop?dp+`<span title="Primary: ${p.position}" style="font-size:8px;color:var(--text3);margin-left:2px;vertical-align:super;">&#x21D5;</span>`:dp;})()}</div>
           <div class="rot-name">
