@@ -4,6 +4,7 @@
   <script src="auth.js"></script>
   <script src="team-colors.js"></script>
   <script src="tdc-nil.js"></script>
+  <script src="tdc-pos.js"></script>
   <style>
     .nil-card{border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:132px;background:var(--bg2);}
     .nil-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
@@ -306,6 +307,10 @@
     .cstat-header{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 48px 48px 48px 48px 48px 52px 52px 46px 46px 46px 46px 46px 46px 46px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:6px 0;border-bottom:2px solid var(--border2);}
     .crotation-row{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 48px 48px 48px 48px 48px 52px 52px 46px 46px 46px 46px 46px 46px 46px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);}
     .rotation-row{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 36px 48px 48px 48px 48px 52px 52px 46px 46px 46px 46px 46px 46px 46px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;}
+    /* Projections table — same look, 4 extra advanced columns (USG/TS/BPM/WA) */
+    .pstat-header{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 36px 48px 48px 48px 48px 52px 52px 46px 46px 46px 46px 46px 46px 46px 40px 40px 40px 40px 40px 44px 44px 42px 42px 44px;align-items:center;gap:4px;padding:6px 0;border-bottom:2px solid var(--border2);}
+    .protation-row{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 36px 48px 48px 48px 48px 52px 52px 46px 46px 46px 46px 46px 46px 46px 40px 40px 40px 40px 40px 44px 44px 42px 42px 44px;align-items:center;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;}
+    .protation-row:hover{background:rgba(128,128,128,.05);}
     .stat-header-cell{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);text-align:right;}
     .stat-header-cell.left{text-align:left;}
     /* Solid backdrop so the team-colored ambient glow can't wash out the projection
@@ -518,6 +523,7 @@
     min-width:900px!important;
   }
   .stat-header,.rotation-row{min-width:900px!important;}
+  .pstat-header,.protation-row{min-width:1080px!important;}
   .cstat-header,.crotation-row{min-width:960px!important;}
 
   /* Sticky pos+number+name columns while scrolling right */
@@ -1950,6 +1956,96 @@ function getDeployedPos(p, roster) {
   return (pos1Ahead >= 1 && pos2Ahead === 0) ? pos2 : pos1;
 }
 
+// ── DATA-DERIVED PROJECTION TRENDS ───────────────────────────────────────────
+// Mined from 36,070 consecutive-season pairs in bbref_seasons (2007-2026) by
+// scripts/projection_trends.py. Three ingredients:
+//   growth — median per-40 rate ratio (next/current) by class × position group.
+//            Blocks REGRESS for guards/wings; assists grow most for forwards.
+//   lag1   — regression to the mean: next = m + b·(current − m). 3P% is the
+//            noisiest stat in the sport (b=.22); rebounds the stickiest (b=.88).
+//   eff / advDelta — average efficiency + advanced-stat movement by class.
+const PROJ_TRENDS={
+  growth:{ // per-40 medians, keyed class → posGroup(G/W/B) → stat
+    FR:{G:{ppg:1.105,rpg:1.023,apg:1.071,stl:1.013,blk:0.745,tovs:0.973,fga:1.070},
+        W:{ppg:1.111,rpg:1.019,apg:1.167,stl:1.003,blk:0.892,tovs:1.022,fga:1.081},
+        B:{ppg:1.116,rpg:1.027,apg:1.116,stl:0.989,blk:0.978,tovs:1.007,fga:1.083}},
+    SO:{G:{ppg:1.060,rpg:1.008,apg:1.031,stl:1.002,blk:0.785,tovs:0.978,fga:1.043},
+        W:{ppg:1.053,rpg:1.005,apg:1.076,stl:0.989,blk:0.878,tovs:0.994,fga:1.044},
+        B:{ppg:1.063,rpg:1.018,apg:1.091,stl:0.996,blk:0.942,tovs:1.000,fga:1.054}},
+    JR:{G:{ppg:1.028,rpg:0.998,apg:1.025,stl:1.005,blk:0.786,tovs:0.969,fga:1.028},
+        W:{ppg:1.040,rpg:0.988,apg:1.070,stl:0.986,blk:0.895,tovs:0.986,fga:1.031},
+        B:{ppg:1.036,rpg:1.009,apg:1.074,stl:0.971,blk:0.943,tovs:0.980,fga:1.023}},
+    SR:{G:{},W:{},B:{}}, // seniors: flat (multiplier defaults to 1)
+  },
+  lag1:{ // next = m + b·(cur − m), per-40 scale (pcts in pct points)
+    p40:{b:0.758,m:13.30}, r40:{b:0.882,m:6.39}, a40:{b:0.849,m:2.46},
+    s40:{b:0.635,m:1.27},  b40:{b:0.838,m:0.71}, t40:{b:0.579,m:2.49},
+    fg_pct:{b:0.623,m:44.2}, tp_pct:{b:0.220,m:31.4}, ft_pct:{b:0.498,m:68.5},
+    usg:{b:0.755,m:19.1}, bpm:{b:0.785,m:-0.45}, per:{b:0.679,m:14.2},
+    ws40:{b:0.622,m:0.098}, ts:{b:0.398,m:52.9},
+  },
+  eff:{ FR:{fg:+0.96,tp:-0.01,ft:+2.68,ts:+1.45}, SO:{fg:+0.33,tp:-0.44,ft:+1.41,ts:+0.64},
+        JR:{fg:-0.02,tp:-0.53,ft:+1.12,ts:+0.37}, SR:{fg:0,tp:0,ft:0,ts:0} },
+  advDelta:{ FR:{bpm:1.21,per:1.79,ws40:0.017,usg:1.08}, SO:{bpm:0.72,per:1.02,ws40:0.010,usg:0.68},
+             JR:{bpm:0.54,per:0.58,ws40:0.006,usg:0.37}, SR:{bpm:0,per:0,ws40:0,usg:0} },
+};
+function _projCls(yr){
+  const y=(yr||'').toLowerCase();
+  if(y.includes('fr')) return 'FR';
+  if(y.includes('so')) return 'SO';
+  if(y.includes('jr')) return 'JR';
+  return 'SR';
+}
+function _projGroup(pos,height){
+  const g=window.tdcPosGroup?tdcPosGroup(pos,(window.TDC_NIL&&TDC_NIL.htIn(height))||null):'W';
+  return g==='G'?'G':g==='B'?'B':'W';
+}
+// per-40 projection: class/pos growth applied to the deviation-preserved rate,
+// then shrunk toward the D1 mean by the stat's measured year-to-year stability
+function _projRate40(k40,statK,v40,cls,grp){
+  const L=PROJ_TRENDS.lag1[k40]; if(!L) return v40;
+  const g=(PROJ_TRENDS.growth[cls]&&PROJ_TRENDS.growth[cls][grp]&&PROJ_TRENDS.growth[cls][grp][statK])||1.0;
+  return Math.max(0, L.m + L.b*(v40*g - L.m));
+}
+// shooting % projection: shrink toward the D1 mean (3P% hardest — but stability
+// scales with attempt volume, so high-volume shooters keep more of their number),
+// plus the measured class-transition delta.
+function _projPct(k,cur,cls,attemptsPerG){
+  const L=PROJ_TRENDS.lag1[k]; if(!L||!isFinite(cur)||cur<=0) return cur;
+  let b=L.b;
+  if(k==='tp_pct') b=Math.min(0.78, L.b + Math.min(0.5,(attemptsPerG||0)/6*0.5)); // binomial: more attempts → more signal
+  if(k==='ft_pct') b=Math.min(0.80, L.b + Math.min(0.3,(attemptsPerG||0)/5*0.3));
+  const d=(PROJ_TRENDS.eff[cls]||{})[k==='fg_pct'?'fg':k==='tp_pct'?'tp':'ft']||0;
+  return L.m + b*(cur - L.m) + d;
+}
+// advanced-stat projection from current bbref advanced (lag model + class delta)
+function projectAdvanced(adv, cls, projMpg){
+  if(!adv) return null;
+  const L=PROJ_TRENDS.lag1, D=PROJ_TRENDS.advDelta[cls]||PROJ_TRENDS.advDelta.SR;
+  const pf=v=>{const n=parseFloat(v);return isNaN(n)?null:n;};
+  const sh=(k,v,d)=>v==null?null:L[k].m + L[k].b*(v-L[k].m) + (d||0);
+  const usg=sh('usg',pf(adv.usg_pct),D.usg), bpm=sh('bpm',pf(adv.bpm),D.bpm);
+  const per=sh('per',pf(adv.per),D.per),    ws40=sh('ws40',pf(adv.ws_per_40),D.ws40);
+  const tsRaw=pf(adv.ts_pct); const ts=tsRaw==null?null:L.ts.m + L.ts.b*(tsRaw*100-L.ts.m) + ((PROJ_TRENDS.eff[cls]||{}).ts||0);
+  // Wins Added from projected WS/40 over projected minutes (≈31-game season)
+  const mp=(projMpg||0)*31;
+  const wa=ws40==null?null:Math.round((ws40-0.04)*mp/40*10)/10;
+  const r1=v=>v==null?null:Math.round(v*10)/10;
+  return {usg:r1(usg), bpm:r1(bpm), per:r1(per), ws40:ws40==null?null:Math.round(ws40*1000)/1000, ts:r1(ts), wa:wa};
+}
+// grade-based advanced estimate for freshmen / no-data players (labeled EST)
+function estimateAdvanced(grade, projMpg, fgaPerG){
+  const N=window.TDC_NIL;
+  const bpm=N?N.gradeImpact(grade):((grade-77)/5*2.2-0.6);
+  const per=14.2+(grade-77)*0.35;
+  const usg=Math.min(30,14+(fgaPerG||6)*0.9);
+  const ws40=Math.max(0,0.098+(grade-77)*0.004);
+  const ts=52.9+(grade-80)*0.15;
+  const mp=(projMpg||0)*31, wa=Math.round((ws40-0.04)*mp/40*10)/10;
+  const r1=v=>Math.round(v*10)/10;
+  return {usg:r1(usg), bpm:r1(bpm), per:r1(per), ws40:Math.round(ws40*1000)/1000, ts:r1(ts), wa:wa, _est:true};
+}
+
 function buildTeamProjections(players, conf){
   const roster = players
     .filter(p => p.name && p.name !== '—')
@@ -2076,15 +2172,15 @@ function buildTeamProjections(players, conf){
 
     const isTransferIn = !!(p.hometown && p.hometown.trim());
     const isReturnee   = !isTransferIn;
-    // Year progression is grade-sensitive for seniors:
-    // Elite Sr (87+): still developing ceiling, e.g. projected NBA picks → modest bump
-    // Good Sr (80-86): minimal progression — mostly established
-    // Role Sr (<80): plateaued — project at per-minute rate only
-    const srYr       = grade>=87 ? 1.02 : grade>=80 ? 1.01 : 1.0;
-    const srReturn   = isReturnee ? (grade>=85 ? 1.01 : 1.0) : 1.0;
-    const returnBoost  = isReturnee ? (isSr ? srReturn : isJr?1.02 : isSo?1.04 : 1.02) : 1.0;
+    // Class-transition growth now comes from PROJ_TRENDS (measured per-stat, per
+    // position group, from 36k real season pairs) — applied below via _projRate40.
+    // What remains here is TDC-specific context the data can't see:
+    // returning-in-system familiarity, transfer adjustment, elite-senior ceiling.
+    const srYr       = grade>=87 ? 1.02 : 1.0;
+    const returnBoost  = isReturnee ? (isSr ? (grade>=85?1.01:1.0) : 1.02) : 1.0;
     const transferTrim = isTransferIn ? 0.96 : 1.0;
-    const yrMult = (isSo?1.06 : isJr?1.03 : isSr?srYr : 1.04) * returnBoost * transferTrim;
+    const ctxMult = (isSr?srYr:1.0) * returnBoost * transferTrim;
+    const projCls = _projCls(yr), projGrp = _projGroup(pos, p.height);
 
     const gradeExpPpg = grade>=90?19:grade>=85?16:grade>=80?13:grade>=75?10:grade>=70?8:6;
     const statsPer32  = pm.ppg*32;
@@ -2100,7 +2196,10 @@ function buildTeamProjections(players, conf){
                   : isJr ? 1.0+(gapMultRaw-1)*0.40
                   : gapMultRaw;
 
-    const rateGrowth = yrMult * gapMult * trendMult;
+    const rateGrowth = ctxMult * gapMult * trendMult;
+    // data-derived per-40 projection for a stat: class/pos growth + shrinkage,
+    // then TDC context multipliers layered on top
+    const d40=(k40,statK,perMin)=>_projRate40(k40,statK,perMin*40,projCls,projGrp)/40 * rateGrowth;
 
     let transferFactor = 1.0;
     if(p.hometown && p.hometown.trim()){
@@ -2153,7 +2252,6 @@ function buildTeamProjections(players, conf){
     const newFgaE    = oldFga*(newMpg/baseMpg);
     const volChange  = (baseMpg>=12) ? (newFgaE/oldFga-1) : 0;
     const volPenalty = volChange*3.5;
-    const yearEff    = isSo?1.2:isJr?0.6:isSr?0.0:1.8;
 
     // Role-reduction efficiency boost: returning players in reduced shot volume
     // take only their best shots → FG% rises. High-assist PGs also benefit
@@ -2164,21 +2262,26 @@ function buildTeamProjections(players, conf){
     const pgSystemBoost = (pos==='PG' && parseFloat(p.apg||0)>=4 && isReturnee && !isTransferIn && !isFr)
       ? 1.0 : 0;
 
-    const fgProj = r1(clamp(fgSmoothed + yearEff - volPenalty + transPctAdj + roleEffBoost + pgSystemBoost, 30, 65));
+    // Shooting %s: shrink toward the D1 mean by measured year-to-year stability
+    // (3P% b=.22 + attempt-volume bonus; FG% b=.62; FT% b=.50), plus the measured
+    // class delta, then the TDC context adjustments (volume, transfer, role).
+    const fgDataProj = _projPct('fg_pct', fgSmoothed, projCls, oldFga);
+    const fgProj = r1(clamp(fgDataProj - volPenalty + transPctAdj + roleEffBoost + pgSystemBoost, 30, 65));
 
     const careerTpa  = meaningful.length
       ? meaningful.reduce((s,h)=>s+parseFloat(h.tpa||0),0)/meaningful.length
       : parseFloat(base.tpa||0);
     const is3Shooter = careerTpa >= 0.5;
     const tpProj = is3Shooter
-      ? r1(clamp(tpBase+(isSo?0.8:isJr?0.4:isSr?0:1.5)-(volChange*2)+transPctAdj*0.6, 20, 50))
+      ? r1(clamp(_projPct('tp_pct', tpBase, projCls, careerTpa) - (volChange*2) + transPctAdj*0.6, 20, 50))
       : tpBase;
-    const ftProj = r1(clamp(ftSmoothed+(isSo?1.0:isJr?0.5:isSr?0:1.5), 45, 97));
+    const ftProj = r1(clamp(_projPct('ft_pct', ftSmoothed, projCls, parseFloat(base.fta||0)), 45, 97));
 
-    // Shot volume scales with minutes only — rateGrowth should not inflate attempts/min.
-    // Year progression means better efficiency on the same shots, not more shots per minute.
-    const newFga = r1(pm.fga*newMpg);
-    const newTpa = r1(pm.tpa*newMpg);
+    // Shot volume: minutes-driven, with the measured class/pos per-minute FGA
+    // growth (Fr→So +7-8%, So→Jr +4-5%, flat for seniors) on top.
+    const fgaGrow = (PROJ_TRENDS.growth[projCls][projGrp]||{}).fga||1.0;
+    const newFga = r1(pm.fga*fgaGrow*newMpg);
+    const newTpa = r1(pm.tpa*fgaGrow*newMpg);
 
     const pf     = posFitMult;
     // Derive all stats from components so PPG is always consistent with FGA.
@@ -2192,7 +2295,7 @@ function buildTeamProjections(players, conf){
     // PPG floor: per-minute scoring rate × new minutes × rateGrowth.
     // Catches cases where player_history FTA is incomplete (under-projects free throws).
     const ppgFloorMult = grade>=90?0.95:grade>=83?0.91:0.88;
-    const ppg_floor = pm.ppg * rateGrowth * newMpg * pf * ppgFloorMult;
+    const ppg_floor = d40('p40','ppg',pm.ppg) * newMpg * pf * ppgFloorMult;
 
     // Transfer scoring volume penalty for big conference jumps.
     // transPctAdj hits FG% but per-minute scoring also drops in stronger competition.
@@ -2203,8 +2306,12 @@ function buildTeamProjections(players, conf){
 
     const ppg_v  = r1(Math.max(ppg_comp, ppg_floor) * scoringTransMult);
 
-    const rawRpg = r1(pm.rpg*rateGrowth*newMpg*pf);
-    const rawApg = r1(pm.apg*rateGrowth*newMpg*pf);
+    // Rebounds/assists/stocks: measured class-growth + stability shrinkage per stat.
+    // Blocks regress hard for perimeter players; rebounds are the stickiest skill.
+    const rpgRate = d40('r40','rpg',pm.rpg);
+    const rebScale = pm.rpg>0 ? rpgRate/pm.rpg : 1;   // preserve OR/DR split
+    const rawRpg = r1(rpgRate*newMpg*pf);
+    const rawApg = r1(d40('a40','apg',pm.apg)*newMpg*pf);
 
     return {...p,
       ppg:  ppg_v,
@@ -2214,17 +2321,17 @@ function buildTeamProjections(players, conf){
       fgm:  fgm_v, fga: r1(newFga*pf), fg_pct:fgProj,
       tpm:  tpm_v,  tpa: r1(newTpa*pf), tp_pct:tpProj,
       ftm:  ftm_v,  fta: fta_v,         ft_pct:ftProj,
-      oreb: r1(pm.oreb*rateGrowth*newMpg*pf),
-      dreb: r1(pm.dreb*rateGrowth*newMpg*pf),
-      stl:  r1(pm.stl *rateGrowth*newMpg*pf),
-      blk:  r1(pm.blk *rateGrowth*newMpg*pf),
+      oreb: r1(pm.oreb*rebScale*newMpg*pf),
+      dreb: r1(pm.dreb*rebScale*newMpg*pf),
+      stl:  r1(d40('s40','stl',pm.stl)*newMpg*pf),
+      blk:  r1(d40('b40','blk',pm.blk)*newMpg*pf),
       // Turnovers: don't use rateGrowth — experience improves ball security.
       // Expanded roles get a proportional increase; same/reduced roles get a slight cut.
       // baseMpg already defined above from the career/current base season.
       tovs: r1((()=>{
         const roleRatio = baseMpg > 0 ? newMpg/baseMpg : 1;
         // Returning players in same/smaller role: veteran experience = fewer TOs
-        const tovBase = pm.tovs * newMpg * pf;
+        const tovBase = d40('t40','tovs',pm.tovs) * newMpg * pf;
         if(isTransferIn){
           // Transfers adjusting to new system: modest bump
           return tovBase * (roleRatio > 1.15 ? 1.05 : 1.0);
@@ -2540,13 +2647,72 @@ function applyPredictionWalls(projected){
   });
 }
 
-function renderProjections(players, conf, color, rgb, gp, teamRow){
+// ── PROJECTED AWARDS ─────────────────────────────────────────────────────────
+// Award candidacies from the projected season: grade + projected BPM set the
+// caliber tiers; stocks, bench scoring and class flag the specialty awards.
+function renderProjAwards(projected){
+  const act=projected.filter(p=>!p._injured&&!p._dnp&&parseFloat(p.mpg)>0);
+  const chips=[];
+  const add=(p,t,d)=>chips.push({n:p.name,team:p.team,t:t,d:d});
+  act.forEach(p=>{
+    const g=parseFloat(p.tdc_grade)||0, a=p._projAdv||{}, bpm=a.bpm!=null?a.bpm:-9;
+    const frosh=p._frosh||p._isFrosh, est=a._est?' (est.)':'';
+    if(g>=93||bpm>=8.5)      add(p,'All-American Candidate',`proj ${fmt1(a.bpm)} BPM · ${fmt1(a.wa)} WA${est}`);
+    else if(g>=89||bpm>=6.5) add(p,'All-Conference · 1st Team',`proj ${fmt1(a.bpm)} BPM · ${fmt1(a.wa)} WA${est}`);
+    else if(g>=86||bpm>=5.0) add(p,'All-Conference Candidate',`proj ${fmt1(a.bpm)} BPM · ${fmt1(a.wa)} WA${est}`);
+    if(frosh&&g>=85)         add(p,'All-Freshman Candidate',`grade ${g} recruit`);
+  });
+  const withMin=act.filter(p=>parseFloat(p.mpg)>=22);
+  if(withMin.length){
+    const dbest=[...withMin].sort((x,y)=>((parseFloat(y.stl)||0)+(parseFloat(y.blk)||0))-((parseFloat(x.stl)||0)+(parseFloat(x.blk)||0)))[0];
+    const stk=(parseFloat(dbest?.stl)||0)+(parseFloat(dbest?.blk)||0);
+    if(dbest&&stk>=2.2) add(dbest,'All-Defense Candidate',`proj ${fmt1(stk)} stocks/gm`);
+  }
+  const bench=act.slice(5).filter(p=>parseFloat(p.mpg)>=15);
+  if(bench.length){
+    const six=[...bench].sort((x,y)=>(parseFloat(y.ppg)||0)-(parseFloat(x.ppg)||0))[0];
+    if(six&&parseFloat(six.ppg)>=9) add(six,'Sixth Man Candidate',`proj ${fmt1(six.ppg)} PPG off the bench`);
+  }
+  if(!chips.length) return '';
+  return `<div style="margin-bottom:20px;">
+    <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;">Projected Awards — 2026-27</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;">
+      ${chips.map(c=>`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;display:flex;flex-direction:column;gap:3px;">
+        <div style="font-family:'Playfair Display',serif;font-weight:700;font-size:15px;color:var(--text);line-height:1.1;">${c.n}</div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);">${c.t}</div>
+        <div style="font-size:10px;color:var(--text3);">${c.d}</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+function fmt1(v){ const n=parseFloat(v); return isNaN(n)?'—':n.toFixed(1); }
+
+async function renderProjections(players, conf, color, rgb, gp, teamRow){
   const _teamRow = teamRow || teamT || {conf};
   const el=document.getElementById('projectionsContent');
   if(!el) return;
 
   const _rawProjected=buildTeamProjections(players, _teamRow?.conf||conf);
   const projected=applyPredictionWalls(_rawProjected);
+
+  // Authoritative current-season advanced stats (bbref) — the projection's
+  // advanced layer (USG/TS/BPM/PER/WS40 → WA) starts from these.
+  let advByEspn={};
+  try{
+    const ids=players.map(p=>p.espn_id).filter(Boolean);
+    if(ids.length){
+      const rows=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.2026&espn_id=in.(${ids.join(',')})&select=espn_id,advanced`,{headers:H}).then(r=>r.ok?r.json():[]);
+      (rows||[]).forEach(r=>{ if(r.espn_id&&r.advanced) advByEspn[r.espn_id]=r.advanced; });
+    }
+  }catch(e){}
+  projected.forEach(pp=>{
+    if(pp._injured||pp._dnp) return;
+    const cls=_projCls(pp.yr||pp.class_year||'');
+    const adv=pp.espn_id?advByEspn[pp.espn_id]:null;
+    pp._projAdv = adv ? projectAdvanced(adv, cls, parseFloat(pp.mpg)||0)
+                      : estimateAdvanced(parseFloat(pp.tdc_grade)||70, parseFloat(pp.mpg)||0, parseFloat(pp.fga)||0);
+  });
+
   // Expose projected stats by name for hover micro-cards
   window._projByName={};
   projected.forEach(pp=>{ window._projByName[(pp.name||'').toLowerCase().trim()]=pp; });
@@ -2633,8 +2799,12 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;">
       <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;">${label}</div>
       <div style="font-size:22px;font-weight:800;font-family:'Playfair Display',serif;color:var(--text);line-height:1;margin-bottom:2px;">${val}</div>
-      ${pctBar(pct)}
+      ${pct!=null?pctBar(pct):'<div style="font-size:9px;color:var(--text3);margin-top:10px;">Model projection</div>'}
     </div>`;
+
+  // Team-level advanced: possession-weighted TS% + total projected Wins Added
+  const teamTs = (tFga+0.44*tFta)>0 ? r1s(fPpg/(2*(tFga+0.44*tFta))*100) : null;
+  const teamWa = r1s(active.reduce((s,p)=>s+((p._projAdv&&isFinite(p._projAdv.wa))?p._projAdv.wa:0),0));
 
   const summaryCards=`<div style="margin-bottom:20px;">
     <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;">2026-27 Team Projection — National Comparison</div>
@@ -2650,6 +2820,8 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
       ${statCard('BLK',fBlk,blkPct)}
       ${statCard('OREB',fOreb,orebPct)}
       ${statCard('DREB',fDreb,drebPct)}
+      ${teamTs!=null?statCard('TS%',teamTs+'%',null):''}
+      ${statCard('WINS ADDED',teamWa,null)}
     </div>
   </div>`;
   const sc=(v,k)=>{
@@ -2667,12 +2839,13 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
 
   el.innerHTML=`
     ${summaryCards}
+    ${renderProjAwards(projected)}
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px;padding:4px 0;">
-      <div style="font-size:11px;color:var(--text3);"><span style="background:rgba(139,105,20,.12);color:var(--accent);padding:2px 5px;font-weight:700;">EST</span> = Freshman estimate &nbsp; <span style="background:rgba(26,95,191,.1);color:#1a5fbf;padding:2px 5px;font-weight:700;">×</span> = Transfer factor &nbsp; <span style="background:rgba(180,50,0,.1);color:#cc3300;padding:2px 5px;font-weight:700;">FINAL</span> = Last season</div>
+      <div style="font-size:11px;color:var(--text3);"><span style="background:rgba(139,105,20,.12);color:var(--accent);padding:2px 5px;font-weight:700;">EST</span> = Freshman estimate &nbsp; <span style="background:rgba(26,95,191,.1);color:#1a5fbf;padding:2px 5px;font-weight:700;">×</span> = Transfer factor &nbsp; <span style="background:rgba(180,50,0,.1);color:#cc3300;padding:2px 5px;font-weight:700;">FINAL</span> = Last season &nbsp; <span style="color:var(--text3);font-style:italic;">USG/TS/BPM/WA = projected advanced</span></div>
     </div>
-    <div style="overflow-x:auto;">
-    <div style="min-width:900px;">
-      <div class="stat-header" style="min-width:900px;">
+    <div class="rot-table-card">
+    <div style="min-width:1080px;">
+      <div class="pstat-header" style="min-width:1080px;">
         <div class="stat-header-cell"></div>
         <div class="stat-header-cell left">Pos</div>
         <div class="stat-header-cell left">Name</div>
@@ -2696,11 +2869,15 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
         <div class="stat-header-cell">STL</div>
         <div class="stat-header-cell">BLK</div>
         <div class="stat-header-cell">TO</div>
+        <div class="stat-header-cell">USG%</div>
+        <div class="stat-header-cell">TS%</div>
+        <div class="stat-header-cell">BPM</div>
+        <div class="stat-header-cell">WA</div>
         <div class="stat-header-cell">Gr</div>
       </div>
       ${projected.map((p,i)=>{
         if(p._injured||p._dnp){
-          return `<div class="rotation-row" style="min-width:900px;opacity:.7;border-left:2px solid #ef4444;padding-left:6px;">
+          return `<div class="protation-row" style="min-width:1080px;opacity:.7;border-left:2px solid #ef4444;padding-left:6px;">
             <div class="rot-num" style="color:#ef4444;">—</div>
             <div class="rot-pos" style="color:var(--text3);">${p._deployedPos||p.position||''}</div>
             <div class="rot-name">
@@ -2709,7 +2886,7 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
             </div>
             <div class="rot-cls" style="color:var(--accent);font-size:11px;">${p.yr||p.class_year||'—'}</div>
             <div class="rot-stat" style="font-size:11px;color:var(--text3);">${p.height||'—'}</div>
-            <div class="rot-stat" style="color:var(--text3);font-style:italic;" colspan="20">Projected DNP — minutes redistributed</div>
+            <div class="rot-stat" style="color:var(--text3);font-style:italic;" colspan="24">Projected DNP — minutes redistributed</div>
           </div>`;
         }
         const isStarter=i<5;
@@ -2721,8 +2898,10 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
         const froshBadge=p._isFrosh?`<span style="font-size:8px;font-weight:700;padding:1px 3px;background:rgba(139,105,20,.12);color:var(--accent);margin-left:3px;">EST</span>`:'';
         const projMpg=parseFloat(p.mpg)||0, prevMpg=parseFloat(p._rawMpg)||projMpg;
         const roleBadge=(!p._isFrosh&&!p._isSr&&projMpg>prevMpg*1.25)?`<span style="font-size:8px;font-weight:700;padding:1px 3px;background:rgba(26,140,58,.12);color:#1a8c3a;margin-left:3px;">↑ ROLE</span>`:'';
+        const A=p._projAdv||{};
+        const advCell=(v,suffix)=>`<div class="rot-stat" style="${A._est?'color:var(--text3);font-style:italic;':''}">${v!=null&&isFinite(v)?v+(suffix||''):'—'}</div>`;
         return `
-        <div class="rotation-row" style="min-width:900px;${isStarter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
+        <div class="protation-row" style="min-width:1080px;${isStarter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
           <div class="rot-num" style="${isStarter?`color:${color};font-weight:700;`:''}">${i+1}</div>
           <div class="rot-pos" style="${isStarter?`color:${color};`:''}">${(()=>{const dp=p._deployedPos||p.position||'';const oop=dp&&p.position&&dp!==p.position;return oop?dp+`<span title="Primary: ${p.position}" style="font-size:8px;color:var(--text3);margin-left:2px;vertical-align:super;">&#x21D5;</span>`:dp;})()}</div>
           <div class="rot-name">
@@ -2749,6 +2928,10 @@ function renderProjections(players, conf, color, rgb, gp, teamRow){
           <div class="rot-stat" style="${sc(p.stl,'stl')}">${fmt(p.stl)}</div>
           <div class="rot-stat" style="${sc(p.blk,'blk')}">${fmt(p.blk)}</div>
           <div class="rot-stat" style="${sc(p.tovs,'tovs')}">${fmt(p.tovs)}</div>
+          ${advCell(A.usg,'%')}
+          ${advCell(A.ts,'%')}
+          ${advCell(A.bpm)}
+          ${advCell(A.wa)}
           <div class="rot-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||''}</div>
         </div>`;
       }).join('')}
@@ -4530,10 +4713,10 @@ function renderProjNatlChart(projected, color, rgb){
   };
 
   const teamVals=[
-    pct(fPpg,'ppg'), pct(fRpg,'rpg'), pct(fApg,'apg'),
-    pct(fFgPct,'fg_pct'), pct(fTpPct,'tp_pct'), pct(fFtPct,'ft_pct'),
-    pct(fTovs,'tovs'), pct(fStl,'stl'), pct(fBlk,'blk'),
-    pct(fOreb,'oreb'), pct(fDreb,'dreb')
+    pct(tPpg,'ppg'), pct(tRpg,'rpg'), pct(tApg,'apg'),
+    pct(tFgPct,'fg_pct'), pct(tTpPct,'tp_pct'), pct(tFtPct,'ft_pct'),
+    pct(tTovs,'tovs'), pct(tStl,'stl'), pct(tBlk,'blk'),
+    pct(tOreb,'oreb'), pct(tDreb,'dreb')
   ];
 
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
