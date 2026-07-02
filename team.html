@@ -817,7 +817,15 @@ async function loadTeam(name){
       `${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(name)}&select=*&order=depth_order.asc&limit=500`,
       { headers: H }
     );
+    // Sheet convention: "Injured" written in the From column marks a player as
+    // out for the season. Honor it here (and don't render a "via Injured"
+    // transfer origin) so the flag survives roster resyncs without a DB column edit.
+    const _markInjured = list => (list||[]).forEach(p => {
+      const hs=(p.hometown||'').trim().toLowerCase();
+      if(hs==='injured'||hs==='out'||p.is_injured){ p.is_injured=true; if(hs==='injured'||hs==='out') p.hometown=''; }
+    });
     const players = await pr.json();
+    _markInjured(players);
 
      // Fetch career history — query by team name, simpler and more reliable
      // player_history has ESPN team names which may differ, so also try current roster names
@@ -2019,15 +2027,16 @@ function estimateAdvanced(grade, projMpg, fgaPerG){
 }
 
 function buildTeamProjections(players, conf){
-  const roster = players
-    .filter(p => p.name && p.name !== '—')
-    .sort((a,b) => (a.depth_order||99)-(b.depth_order||99));
-
-  // Injured players: zero stats, excluded from minute distribution
-  const injuredDnp = roster
-    .filter(p => p.is_injured)
+  // Injured players (out for the season): zero stats, excluded from the roster
+  // BEFORE projection so they take no minutes/shots and aren't double-listed.
+  const injuredDnp = players
+    .filter(p => p.name && p.name !== '—' && p.is_injured)
     .map(p => ({...p, ppg:0, rpg:0, apg:0, mpg:0, fgm:0, fga:0, tpm:0, tpa:0,
       ftm:0, fta:0, oreb:0, dreb:0, stl:0, blk:0, tovs:0, _dnp:true, _injured:true}));
+
+  const roster = players
+    .filter(p => p.name && p.name !== '—' && !p.is_injured)
+    .sort((a,b) => (a.depth_order||99)-(b.depth_order||99));
 
   if(!roster.length) return [];
 
@@ -3920,7 +3929,11 @@ async function renderNil(){
     <div style="font-size:10px;color:var(--text3);margin-top:4px;">Green bar = roster value · vertical line = budget</div>
   </div>
   <table class="nil-table"><thead><tr><th class="left">Player</th><th>Impact</th><th>MPG</th><th>Prem</th><th>NIL Value</th></tr></thead><tbody>`;
-  d.players.forEach(p=>{ const im=(p.impact!=null?+p.impact:+p.bpm); html+=`<tr><td class="left">${p.name}</td><td>${im>0?'+':''}${im.toFixed(1)}</td><td>${Math.round(p.mpg)}</td><td>×${(+p.prem||1).toFixed(2)}</td><td style="font-weight:700;color:${col}">${fmt(p.value)}</td></tr>`; });
+  const _injSet=new Set((typeof teamPlayers!=='undefined'&&teamPlayers||[]).filter(p=>p.is_injured).map(p=>(p.name||'').toLowerCase().trim()));
+  d.players.forEach(p=>{ const im=(p.impact!=null?+p.impact:+p.bpm);
+    const inj=_injSet.has((p.name||'').toLowerCase().trim());
+    const injTag=inj?` <span style="font-size:8px;font-weight:700;padding:1px 4px;background:rgba(220,38,38,.12);color:#ef4444;border:1px solid rgba(220,38,38,.3);border-radius:3px;">OUT 2026-27</span>`:'';
+    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="left">${p.name}${injTag}</td><td>${im>0?'+':''}${im.toFixed(1)}</td><td>${Math.round(p.mpg)}</td><td>×${(+p.prem||1).toFixed(2)}</td><td style="font-weight:700;color:${col}${inj?';text-decoration:line-through;':''}">${fmt(p.value)}</td></tr>`; });
   html+=`</tbody></table>
   <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:14px;max-width:860px;"><b>Impact / 100</b> is a composite — BPM, Win Shares, PER and the player's TDC grade (usage, TS%, rates, Wins Added, team success), on the net-rating scale. Value = (impact − replacement) × (minutes ÷ 40) × $${Math.round(mkt*1000)}K/point, then a <b>market premium (Prem)</b> for what the NIL market over-pays for — <b>size, scoring and conference</b>. 2026-27 blends last season's impact with a grade projection. A <b>rotation floor</b> keeps any player who logs real minutes above $0 (value from minutes, size and production). Budget is the team's NIL-tier midpoint — roster value above budget = a <b>deal</b>, below = <b>paying a premium</b>.</div>`;
   host.innerHTML=html;
@@ -4201,7 +4214,11 @@ function renderHistoricRoster(rows, yr, projected){
   // Historical rosters drop players who logged no games; the projected roster keeps
   // everyone (freshmen/newcomers have no college stats yet).
   rows=(rows||[]).filter(r=>r.name && (projected || (parseFloat(r.gp)||0)>0));
-  if(!rows.length){ host.innerHTML=`<div style="padding:40px;text-align:center;color:var(--text3);">No roster data for ${rosterLbl(yr)}.</div>`; return; }
+  // Players out for the projected season sit in their own section — no lineup
+  // slot, no rotation row. Their table shows the last season they played.
+  const injured = projected ? rows.filter(r=>r.is_injured) : [];
+  if(projected) rows=rows.filter(r=>!r.is_injured);
+  if(!rows.length && !injured.length){ host.innerHTML=`<div style="padding:40px;text-align:center;color:var(--text3);">No roster data for ${rosterLbl(yr)}.</div>`; return; }
   const num=(v)=>{const n=parseFloat(v);return isNaN(n)?'—':n.toFixed(1);};
   const link=p=> p.espn_id?`player.html?espn=${p.espn_id}&name=${encodeURIComponent(p.name)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}&season=${yr}`;
 
@@ -4296,7 +4313,11 @@ function renderHistoricRoster(rows, yr, projected){
     return `<div class="starter-col">${head}${body}${chain}</div>`;
   }).join('');
 
-  host.innerHTML = `<div class="starters-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));">${colHtml}</div>${histTable(rows, yr, projected)}<div id="seasonLossesWrap"></div>`;
+  const injHtml = injured.length
+    ? `<div class="sec-head" style="margin-top:28px;color:#ef4444;">Injured — Out for ${rosterLbl(yr)} <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· stats from last season played · minutes redistributed in projections</span></div>`
+      + histTable(injured, yr-1)
+    : '';
+  host.innerHTML = `<div class="starters-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));">${colHtml}</div>${histTable(rows, yr, projected)}${injHtml}<div id="seasonLossesWrap"></div>`;
 }
 // Departures: players on the PRIOR season's roster who aren't on this season's, and
 // who don't reappear in a later season for this team. Shown under the roster table.
