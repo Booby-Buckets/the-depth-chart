@@ -517,6 +517,70 @@ function barChart(canvasId, labels, dsets){
       x:{grid:{display:false},ticks:{color:tick,font:{size:10,weight:'600'}}}}
   }}); charts.push(c);
 }
+// Advanced radar: 0-100 normalized shape, but the tooltip shows the real value.
+function advRadarChart(canvasId, labels, dsets, raws, rawFmt){
+  const ctx=document.getElementById(canvasId); if(!ctx) return;
+  const grid=cssVar('--border2'), tick=cssVar('--text3');
+  const c=new Chart(ctx,{type:'radar',data:{labels,datasets:dsets},options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:(i)=>{
+      const rv=raws&&raws[i.datasetIndex]?raws[i.datasetIndex][i.dataIndex]:null;
+      return i.dataset.label+': '+(rv==null||isNaN(rv)?'—':rawFmt(rv,i.dataIndex));
+    }}}},
+    scales:{r:{min:0,max:100,ticks:{stepSize:25,display:false},grid:{color:grid},angleLines:{color:grid},
+      pointLabels:{color:tick,font:{size:10,weight:'600'}}}}
+  }}); charts.push(c);
+}
+// Grouped bars on a raw (auto) scale, not the 0-100 percentile scale.
+function rawBarChart(canvasId, labels, dsets, unit){
+  const ctx=document.getElementById(canvasId); if(!ctx) return;
+  const grid=cssVar('--border'), tick=cssVar('--text3');
+  const c=new Chart(ctx,{type:'bar',data:{labels,datasets:dsets},options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:(i)=>i.dataset.label+': '+i.formattedValue+(unit||'')}}},
+    scales:{y:{beginAtZero:true,grid:{color:grid},ticks:{color:tick,font:{size:10}}},
+      x:{grid:{display:false},ticks:{color:tick,font:{size:10,weight:'600'}}}}
+  }}); charts.push(c);
+}
+// Usage-vs-efficiency scatter: a faint D1 cloud with the two players highlighted.
+function scatterUsgTs(canvasId, cloud, players){
+  const ctx=document.getElementById(canvasId); if(!ctx) return;
+  const grid=cssVar('--border'), tick=cssVar('--text3');
+  const dsets=[{label:'D1', data:cloud, backgroundColor:hexA(cssVar('--text3')||'#6d6589',.30), pointRadius:2, pointHoverRadius:3, order:3}];
+  players.forEach(p=>{ if(p.pt) dsets.push({label:p.name, data:[p.pt], backgroundColor:p.color, borderColor:'#fff', borderWidth:1.5, pointRadius:7, pointHoverRadius:8, order:1}); });
+  const c=new Chart(ctx,{type:'scatter',data:{datasets:dsets},options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:(i)=>(i.dataset.label==='D1'?'':i.dataset.label+' · ')+`USG ${i.parsed.x.toFixed(1)}%, TS ${i.parsed.y.toFixed(1)}%`}}},
+    scales:{x:{title:{display:true,text:'Usage %',color:tick,font:{size:10,weight:'600'}},grid:{color:grid},ticks:{color:tick,font:{size:9}}},
+      y:{title:{display:true,text:'True Shooting %',color:tick,font:{size:10,weight:'600'}},grid:{color:grid},ticks:{color:tick,font:{size:9}}}}
+  }}); charts.push(c);
+}
+// Fixed-range normalization for the advanced radar (no advanced population is
+// loaded client-side, so map each metric onto a sensible D1 min→max band).
+const ADV_RADAR=[
+  {l:'PER',   get:a=>parseFloat(a.per),                           lo:2,  hi:30},
+  {l:'BPM',   get:a=>parseFloat(a.bpm),                           lo:-6, hi:13},
+  {l:'WS/40', get:a=>parseFloat(a.ws_per_40),                     lo:0,  hi:.25},
+  {l:'USG%',  get:a=>parseFloat(a.usg_pct),                       lo:8,  hi:35},
+  {l:'TS%',   get:a=>parseFloat(a.ts_pct)*100,                    lo:44, hi:66},
+  {l:'REB%',  get:a=>parseFloat(a.trb_pct),                       lo:3,  hi:24},
+  {l:'AST%',  get:a=>parseFloat(a.ast_pct),                       lo:2,  hi:35},
+  {l:'STK%',  get:a=>parseFloat(a.stl_pct)+parseFloat(a.blk_pct), lo:1,  hi:11},
+];
+function advRadarFmt(v,i){ const t=ADV_RADAR[i]; return t.l==='WS/40'?v.toFixed(3):(t.l.indexOf('%')>=0?v.toFixed(1)+'%':v.toFixed(1)); }
+// League USG%/TS% cloud (most recent full season), fetched once and cached.
+let _advCloudCache=null;
+async function advCloud(){
+  if(_advCloudCache) return _advCloudCache;
+  try{
+    const raw=await fetch(`${SB}/rest/v1/bbref_seasons?season_year=eq.2026&tdc_grade=not.is.null&select=advanced&order=tdc_grade.desc&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]);
+    const pts=[];
+    (raw||[]).forEach(r=>{ const a=r.advanced; if(!a) return; const u=parseFloat(a.usg_pct), t=parseFloat(a.ts_pct), mp=parseFloat(a.mp)||0;
+      if(!isNaN(u)&&!isNaN(t)&&mp>=400) pts.push({x:u,y:t*100}); });
+    _advCloudCache=pts;
+  }catch(e){ _advCloudCache=[]; }
+  return _advCloudCache;
+}
 
 // ── PLAYER COMPARISON ──
 const P_AXES=[
@@ -715,6 +779,25 @@ function renderPlayers(){
     <div class="chart-card full" style="margin-bottom:26px;"><div class="chart-title">Per-Game Percentile Ranks</div>
       <div class="chart-box short"><canvas id="pBar"></canvas></div></div>
 
+    ${(p1._advanced||p2._advanced)?`
+    <div class="chart-grid">
+      <div class="chart-card"><div class="chart-title">Advanced Impact · Normalized</div>
+        <div class="chart-box"><canvas id="pAdvRadar"></canvas></div>
+        <div class="chart-legend"><span><i style="background:${c1}"></i>${p1.name}</span><span><i style="background:${c2}"></i>${p2.name}</span></div></div>
+      <div class="chart-card"><div class="chart-title">Per-40 Production</div>
+        <div class="chart-box"><canvas id="pP40Bar"></canvas></div>
+        <div class="chart-legend"><span><i style="background:${c1}"></i>${p1.name}</span><span><i style="background:${c2}"></i>${p2.name}</span></div></div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-card"><div class="chart-title">Shooting Profile · Diet &amp; Efficiency</div>
+        <div class="chart-box"><canvas id="pShoot"></canvas></div>
+        <div class="chart-legend"><span><i style="background:${c1}"></i>${p1.name}</span><span><i style="background:${c2}"></i>${p2.name}</span></div></div>
+      <div class="chart-card"><div class="chart-title">Usage vs Efficiency · vs D1</div>
+        <div class="chart-box"><canvas id="pScatter"></canvas></div>
+        <div class="chart-legend"><span><i style="background:${c1}"></i>${p1.name}</span><span><i style="background:${c2}"></i>${p2.name}</span><span><i style="background:var(--text3)"></i>D1 (2025-26)</span></div></div>
+    </div>
+    `:''}
+
     ${bothCurrent?`<div class="compare-section-head">2026-27 Projected · Model Estimate</div>
     ${projRow('PPG',pr1.ppg,pr2.ppg)}${projRow('RPG',pr1.rpg,pr2.rpg)}${projRow('APG',pr1.apg,pr2.apg)}
     ${projRow('FG%',pr1.fg_pct,pr2.fg_pct)}${projRow('3P%',pr1.tp_pct,pr2.tp_pct)}${projRow('FT%',pr1.ft_pct,pr2.ft_pct)}`:''}
@@ -747,6 +830,28 @@ function renderPlayers(){
     radarChart('pRadar',labels,[ds(p1.name,d1,c1),ds(p2.name,d2,c2)]);
     radarChart('pBench',blabels,[ds(p1.name,bp1,c1),ds(p2.name,bp2,c2),ds('All-American',baa,'#C8A020')]);
     barChart('pBar',labels,[ds(p1.name,d1,c1,true),ds(p2.name,d2,c2,true)]);
+
+    const A1=p1._advanced, A2=p2._advanced, F1=p1._per40, F2=p2._per40;
+    if(A1||A2){
+      // 1 — advanced impact radar (fixed-range normalized, raw values in tooltip)
+      const rlabels=ADV_RADAR.map(a=>a.l);
+      const rawR=A=>ADV_RADAR.map(a=>{ const v=A?a.get(A):null; return (v==null||isNaN(v))?null:v; });
+      const normR=A=>ADV_RADAR.map(a=>{ const v=A?a.get(A):null; return (v==null||isNaN(v))?0:Math.max(0,Math.min(100,Math.round((v-a.lo)/(a.hi-a.lo)*100))); });
+      advRadarChart('pAdvRadar',rlabels,[ds(p1.name,normR(A1),c1),ds(p2.name,normR(A2),c2)],[rawR(A1),rawR(A2)],advRadarFmt);
+      // 2 — per-40 production bars (raw scale)
+      const p40L=['PTS','REB','AST','STL','BLK','TOV'], p40K=['pts_per_min','trb_per_min','ast_per_min','stl_per_min','blk_per_min','tov_per_min'];
+      const p40v=F=>p40K.map(k=>F?(parseFloat(F[k])||0):0);
+      rawBarChart('pP40Bar',p40L,[ds(p1.name,p40v(F1),c1,true),ds(p2.name,p40v(F2),c2,true)]);
+      // 3 — shooting profile: shot diet + efficiency, all as % (×100)
+      const shL=['3PAr','FTr','2P%','3P%','FT%','eFG%','TS%'];
+      const shv=(A,F)=>[ A?parseFloat(A.fg3a_per_fga_pct)*100:null, A?parseFloat(A.fta_per_fga_pct)*100:null,
+        F?parseFloat(F.fg2_pct)*100:null, F?parseFloat(F.fg3_pct)*100:null, F?parseFloat(F.ft_pct)*100:null,
+        F?parseFloat(F.efg_pct)*100:null, A?parseFloat(A.ts_pct)*100:null ].map(v=>(v==null||isNaN(v))?0:Math.round(v*10)/10);
+      rawBarChart('pShoot',shL,[ds(p1.name,shv(A1,F1),c1,true),ds(p2.name,shv(A2,F2),c2,true)],'%');
+      // 4 — usage vs efficiency scatter against the D1 cloud
+      const usgPt=A=>{ if(!A) return null; const u=parseFloat(A.usg_pct), t=parseFloat(A.ts_pct); return (isNaN(u)||isNaN(t))?null:{x:u,y:t*100}; };
+      advCloud().then(cloud=>scatterUsgTs('pScatter',cloud,[{name:p1.name,pt:usgPt(A1),color:c1},{name:p2.name,pt:usgPt(A2),color:c2}]));
+    }
   },0);
 }
 function ds(label,data,color,bar){
