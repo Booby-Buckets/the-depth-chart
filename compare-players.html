@@ -471,9 +471,13 @@ function clearPick(slot){
   destroyCharts();
 }
 function destroyCharts(){ charts.forEach(c=>{try{c.destroy();}catch(e){}}); charts=[]; }
-function maybeRender(){
+async function maybeRender(){
   const arr=sel[mode==='players'?'players':'teams'];
-  if(arr[0]&&arr[1]){ document.getElementById('emptyHint').style.display='none'; mode==='players'?renderPlayers():renderTeams(); }
+  if(arr[0]&&arr[1]){
+    document.getElementById('emptyHint').style.display='none';
+    if(mode==='players'){ await Promise.all([attachBbref(arr[0]),attachBbref(arr[1])]); renderPlayers(); }
+    else renderTeams();
+  }
 }
 
 function setMode(m){
@@ -558,6 +562,94 @@ function adv(p){
     r40: mpg>0 ? reb*40/mpg : 0
   };
 }
+// ── FULL ADVANCED + PER-40 (authoritative, from bbref_seasons) ──
+// bbref stores everything as strings; shooting %s as decimals (".515"), rate
+// %s already in points ("26.5"), ratios as decimals (".197"). Format per type.
+const ADV_DEFS=[
+  {l:'PER',k:'per',src:'adv',t:'num',hi:true},
+  {l:'BPM',k:'bpm',src:'adv',t:'num',hi:true},
+  {l:'OBPM',k:'obpm',src:'adv',t:'num',hi:true},
+  {l:'DBPM',k:'dbpm',src:'adv',t:'num',hi:true},
+  {l:'Win Shares',k:'ws',src:'adv',t:'num',hi:true},
+  {l:'OWS',k:'ows',src:'adv',t:'num',hi:true},
+  {l:'DWS',k:'dws',src:'adv',t:'num',hi:true},
+  {l:'WS/40',k:'ws_per_40',src:'adv',t:'ratio3',hi:true},
+  {l:'TS%',k:'ts_pct',src:'adv',t:'pct',hi:true},
+  {l:'eFG%',k:'efg_pct',src:'p40',t:'pct',hi:true},
+  {l:'USG%',k:'usg_pct',src:'adv',t:'rate',hi:true},
+  {l:'AST%',k:'ast_pct',src:'adv',t:'rate',hi:true},
+  {l:'TOV%',k:'tov_pct',src:'adv',t:'rate',hi:false},
+  {l:'ORB%',k:'orb_pct',src:'adv',t:'rate',hi:true},
+  {l:'DRB%',k:'drb_pct',src:'adv',t:'rate',hi:true},
+  {l:'TRB%',k:'trb_pct',src:'adv',t:'rate',hi:true},
+  {l:'STL%',k:'stl_pct',src:'adv',t:'rate',hi:true},
+  {l:'BLK%',k:'blk_pct',src:'adv',t:'rate',hi:true},
+  {l:'3PAr',k:'fg3a_per_fga_pct',src:'adv',t:'ratio3',hi:true},
+  {l:'FTr',k:'fta_per_fga_pct',src:'adv',t:'ratio3',hi:true},
+  {l:'Pts Produced',k:'pprod',src:'adv',t:'int',hi:true},
+];
+const P40_DEFS=[
+  {l:'PTS/40',k:'pts_per_min',t:'num',hi:true},
+  {l:'REB/40',k:'trb_per_min',t:'num',hi:true},
+  {l:'ORB/40',k:'orb_per_min',t:'num',hi:true},
+  {l:'DRB/40',k:'drb_per_min',t:'num',hi:true},
+  {l:'AST/40',k:'ast_per_min',t:'num',hi:true},
+  {l:'STL/40',k:'stl_per_min',t:'num',hi:true},
+  {l:'BLK/40',k:'blk_per_min',t:'num',hi:true},
+  {l:'TOV/40',k:'tov_per_min',t:'num',hi:false},
+  {l:'PF/40',k:'pf_per_min',t:'num',hi:false},
+  {l:'FG/40',k:'fg_per_min',t:'num',hi:true},
+  {l:'FGA/40',k:'fga_per_min',t:'num',hi:true},
+  {l:'2P/40',k:'fg2_per_min',t:'num',hi:true},
+  {l:'2PA/40',k:'fg2a_per_min',t:'num',hi:true},
+  {l:'3P/40',k:'fg3_per_min',t:'num',hi:true},
+  {l:'3PA/40',k:'fg3a_per_min',t:'num',hi:true},
+  {l:'FT/40',k:'ft_per_min',t:'num',hi:true},
+  {l:'FTA/40',k:'fta_per_min',t:'num',hi:true},
+].map(d=>({...d,src:'p40'}));
+function advFmt(v,t){
+  var n=parseFloat(v); if(isNaN(n)) return '—';
+  if(t==='pct')    return (n*100).toFixed(1)+'%';   // decimal → percent
+  if(t==='rate')   return n.toFixed(1)+'%';          // already percentage points
+  if(t==='ratio3') return n.toFixed(3);
+  if(t==='int')    return Math.round(n).toString();
+  return n.toFixed(1);
+}
+function _advSrc(p,src){ return src==='p40' ? (p&&p._per40) : (p&&p._advanced); }
+function advRow(def,p1,p2){
+  var sa=_advSrc(p1,def.src), sb=_advSrc(p2,def.src);
+  var ra=sa?sa[def.k]:null, rb=sb?sb[def.k]:null;
+  var av=parseFloat(ra), bv=parseFloat(rb), hasA=!isNaN(av), hasB=!isNaN(bv);
+  var wA='',wB=''; if(hasA&&hasB&&av!==bv){ var aw=def.hi?av>bv:av<bv; wA=aw?'winner':'loser'; wB=aw?'loser':'winner'; }
+  return `<div class="compare-row"><div class="compare-cell ${wA}">${hasA?advFmt(ra,def.t):'—'}</div>`
+    +`<div class="compare-label">${def.l}</div>`
+    +`<div class="compare-cell right ${wB}">${hasB?advFmt(rb,def.t):'—'}</div></div>`;
+}
+// Attach authoritative bbref advanced + per-40 JSON to a picked player. Keyed by
+// espn_id + season (indexed, fast); falls back to full name for espn-less players
+// (e.g. Trey Wertz). Cached on the object; null when bbref has no matching row.
+async function attachBbref(p){
+  if(!p || p._advanced!==undefined) return p;
+  const yr = p._isHistory ? p.season_year : 2026; // current roster → 2025-26 actual
+  let rows=null;
+  try{
+    if(p.espn_id){
+      rows=await fetch(`${SB}/rest/v1/bbref_seasons?espn_id=eq.${p.espn_id}&season_year=eq.${yr}&select=advanced,per40,school&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]);
+    }
+    if((!rows||!rows.length) && p.name){
+      rows=await fetch(`${SB}/rest/v1/bbref_seasons?player=eq.${encodeURIComponent(p.name)}&season_year=eq.${yr}&select=advanced,per40,school&limit=8`,{headers:H}).then(r=>r.ok?r.json():[]);
+      if(rows&&rows.length>1 && p.team){
+        const tl=(p.team||'').toLowerCase().trim();
+        const m=rows.find(r=>(r.school||'').toLowerCase().trim()===tl);
+        rows=m?[m]:[rows[0]];
+      }
+    }
+  }catch(e){ rows=null; }
+  const row=(rows&&rows.length)?rows[0]:null;
+  p._advanced = row&&row.advanced ? row.advanced : null;
+  p._per40    = row&&row.per40    ? row.per40    : null;
+  return p;
+}
 function outlook(proj, conf){
   var co=cohorts(), cp=confProfile(conf);
   var keys=['ppg','rpg','apg','fg_pct','tp_pct'];
@@ -627,9 +719,18 @@ function renderPlayers(){
     ${projRow('PPG',pr1.ppg,pr2.ppg)}${projRow('RPG',pr1.rpg,pr2.rpg)}${projRow('APG',pr1.apg,pr2.apg)}
     ${projRow('FG%',pr1.fg_pct,pr2.fg_pct)}${projRow('3P%',pr1.tp_pct,pr2.tp_pct)}${projRow('FT%',pr1.ft_pct,pr2.ft_pct)}`:''}
 
+    ${(p1._advanced||p2._advanced)?`
+    <div class="compare-section-head">${advLabel}</div>
+    ${ADV_DEFS.map(d=>advRow(d,p1,p2)).join('')}
+    ${statRow('AST/TO',a1.astto,a2.astto)}
+
+    <div class="compare-section-head">Per-40 Minutes${(p1._isHistory||p2._isHistory)&&sl1===sl2?` · ${sl1}`:''}</div>
+    ${P40_DEFS.map(d=>advRow(d,p1,p2)).join('')}
+    `:`
     <div class="compare-section-head">${advLabel}</div>
     ${statRow('TS%',a1.ts,a2.ts)}${statRow('eFG%',a1.efg,a2.efg)}${statRow('AST/TO',a1.astto,a2.astto)}
     ${statRow('PTS/40',a1.p40,a2.p40)}${statRow('REB/40',a1.r40,a2.r40)}
+    `}
 
     <div class="compare-section-head">${statLabel}</div>
     ${statRow('PPG',p1.ppg,p2.ppg)}${statRow('RPG',p1.rpg,p2.rpg)}${statRow('APG',p1.apg,p2.apg)}
