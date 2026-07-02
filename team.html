@@ -4176,7 +4176,12 @@ async function renderSeasonStats(yr){
   // names) AND every D1 team this season so we can rank each stat nationally.
   const allP=fetch(`${SB_URL}/rest/v1/team_seasons?season_year=eq.${yr}&${sel}&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
   let rows=await fetch(url(`team=eq.${encodeURIComponent(name)}`),{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-  if(!rows.length) rows=await fetch(url(`team=ilike.${encodeURIComponent(name+'*')}`),{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  if(!rows.length){
+    // resolve the full stored name unambiguously ("Florida" → "Florida Gators",
+    // never Florida A&M/State) — games and team_seasons share the same naming
+    const gk=await _resolveGamesKey();
+    if(gk) rows=await fetch(url(`team=eq.${encodeURIComponent(gk)}`),{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  }
   const t=rows[0];
   if(!t){ body.innerHTML='<div class="empty-note">No team stats for this season.</div>'; return; }
   const all=await allP;
@@ -4443,11 +4448,22 @@ async function _resolveGamesKey(){
   let t=await probe(`eq.${encodeURIComponent(teamMascot())}`);
   if(!t && teamT.name && teamT.name!==teamMascot()) t=await probe(`eq.${encodeURIComponent(teamT.name)}`);
   if(!t){
+    // Wildcard is ambiguous — "Florida*" matches Gators, Florida State, FAU, FGCU…
+    // team_seasons lists every program ONCE per season under the same full naming
+    // as games, so it enumerates all candidates cheaply. Keep the one with the
+    // FEWEST words (then shortest): the bare program name plus its own mascot
+    // always beats a sibling program whose name extends ours.
     const words=(teamT.name||'').split(/\s+/).filter(Boolean);
     for(let take=words.length; take>=1; take--){
       if(take===1 && words.length>1) break;
-      t=await probe(`ilike.${encodeURIComponent(words.slice(0,take).join(' ')+'*')}`);
-      if(t) break;
+      const pat=encodeURIComponent(words.slice(0,take).join(' ')+'*');
+      let cands=await fetch(`${SB_URL}/rest/v1/team_seasons?team=ilike.${pat}&season_year=eq.2026&select=team&limit=50`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+      if(!cands||!cands.length) cands=await fetch(`${SB_URL}/rest/v1/team_seasons?team=ilike.${pat}&select=team&limit=200`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+      const uniq=[...new Set((cands||[]).map(r=>r.team).filter(Boolean))];
+      if(uniq.length){
+        uniq.sort((a,b)=>(a.split(/\s+/).length-b.split(/\s+/).length)||(a.length-b.length));
+        t=uniq[0]; break;
+      }
     }
   }
   teamT._gamesKey=t||null;
