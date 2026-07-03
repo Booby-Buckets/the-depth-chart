@@ -428,13 +428,25 @@ async function onSearch(slot, query){
     clearTimeout(_tHistTimer);
     _tHistTimer=setTimeout(async()=>{
       try{
-        const r=await fetch(`${SB}/rest/v1/team_seasons?team=ilike.*${encodeURIComponent(query)}*&select=team,season_year,conference,wins,losses,conf_wins,conf_losses,ppg,oppg,srs,ncaa_seed,ncaa_result,postseason,rpg,apg,spg,bpg,topg,orpg,drpg,fg_pct,tp_pct,ft_pct,tier&order=season_year.desc&limit=80`,{headers:H});
+        // "duke 2015" / "duke 14-15" narrows to that season (end year)
+        const ym=query.match(/((?:19|20)\d{2})(?:\s*[-\u2013]\s*(\d{2}))?|\b(\d{2})\s*[-\u2013]\s*(\d{2})\b/);
+        let qname=query, seasonFilter='';
+        if(ym){
+          let y=null;
+          if(ym[1]) y=ym[2]?+('20'+ym[2]):(+ym[1]+ (query.includes(ym[1]+'-')?1:0));
+          else if(ym[3]&&ym[4]) y=+('20'+ym[4]);
+          if(y&&y>=2007&&y<=2026){ seasonFilter=`&season_year=eq.${y}`; qname=query.replace(ym[0],'').trim(); }
+        }
+        const r=await fetch(`${SB}/rest/v1/team_seasons?team=ilike.*${encodeURIComponent(qname||query)}*${seasonFilter}&select=team,season_year,conference,wins,losses,conf_wins,conf_losses,ppg,oppg,srs,ncaa_seed,ncaa_result,postseason,rpg,apg,spg,bpg,topg,orpg,drpg,fg_pct,tp_pct,ft_pct,tier&order=season_year.desc&limit=80`,{headers:H});
         if(!r.ok) return;
         const data=await r.json();
-        const seen=new Set(), hist=[];
+        const seen=new Set(), hist=[], perTeam={};
         (data||[]).forEach(h=>{ const k=h.team+'|'+h.season_year; if(seen.has(k))return; seen.add(k); hist.push({...h,name:h.team,conf:h.conference,_isHistory:true}); });
         hist.sort((a,b)=>(a.team||'').localeCompare(b.team||'')||b.season_year-a.season_year);
-        _teamHistResults[slot]=hist.slice(0,18);
+        // cap seasons per program so one team can't swallow the list — type a
+        // year ("Arizona 2018") or keep typing to narrow within a program
+        const capped=seasonFilter?hist:hist.filter(h=>{ perTeam[h.team]=(perTeam[h.team]||0)+1; return perTeam[h.team]<=6; });
+        _teamHistResults[slot]=capped.slice(0,18);
         _renderTeamDropdown(slot, matches, _teamHistResults[slot], dd);
       }catch(e){}
     },280);
@@ -950,8 +962,8 @@ function renderPlayers(){
   destroyCharts();
   const [p1,p2]=sel.players;
   let c1=teamColors[p1.team]||'#B16BFF', c2=teamColors[p2.team]||cssVar('--teal');
-  if(c2.toLowerCase()===c1.toLowerCase()) c2=cssVar('--teal')||'#3f8d7d'; // same team → keep the two players distinct
   c1=readableCol(c1); c2=readableCol(c2);
+  c2=distinctPair(c1,c2); // same team / lookalike brands → keep the two sides distinct
   const sec=document.getElementById('compareSection'); sec.classList.add('show');
   const sl1=_seasonLabel(p1), sl2=_seasonLabel(p2);
   const head=(p,c,right,sl)=>`<div class="cmp-head${right?' right':''}" style="border-color:${c};${right?'border-right':'border-left'}:3px solid ${c};">
@@ -1048,7 +1060,7 @@ function renderPlayers(){
     ${statRow('FG%',p1.fg_pct,p2.fg_pct)}${statRow('3P%',p1.tp_pct,p2.tp_pct)}${statRow('FT%',p1.ft_pct,p2.ft_pct)}
     ${statRow('STL',p1.stl,p2.stl)}${statRow('BLK',p1.blk,p2.blk)}${statRow('TO',p1.tovs,p2.tovs,false)}
 
-    <div class="compare-section-head" style="margin-top:26px;">Most Similar Players · All-Time (2006-26)</div>
+    <div class="compare-section-head" style="margin-top:26px;">Most Similar Players · Since 2006</div>
     <div class="sim-grid">
       <div class="sim-card" id="simc1" style="border-top:2px solid ${c1};"><div class="sim-row" style="color:var(--text3);">Building all-time pool…</div></div>
       <div class="sim-card" id="simc2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Building all-time pool…</div></div>
@@ -1099,6 +1111,19 @@ function hexA(hex,a){
   hex=(hex||'').replace('#',''); if(hex.length===3) hex=hex.split('').map(x=>x+x).join('');
   const n=parseInt(hex,16); if(isNaN(n)) return 'rgba(177,107,255,'+a+')';
   return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')';
+}
+// Two brand colors can be near-identical after the readability pass (Arizona
+// vs Arizona State both land on pale red). When too close to tell apart, push
+// side 2 to teal — and if side 1 is already teal-ish, to violet.
+function _cDist(a,b){
+  const p=h=>{ h=(h||'').replace('#',''); if(h.length===3) h=h.split('').map(x=>x+x).join(''); const n=parseInt(h,16); return isNaN(n)?[128,128,128]:[n>>16&255,n>>8&255,n&255]; };
+  const [r1,g1,b1]=p(a),[r2,g2,b2]=p(b);
+  return Math.sqrt((r1-r2)*(r1-r2)+(g1-g2)*(g1-g2)+(b1-b2)*(b1-b2));
+}
+function distinctPair(c1,c2){
+  if(_cDist(c1,c2)>=70) return c2;
+  const teal=readableCol(cssVar('--teal')||'#3f8d7d');
+  return _cDist(c1,teal)>=70 ? teal : readableCol('#B16BFF');
 }
 function statRow(label,a,b,higher=true){
   const av=parseFloat(a),bv=parseFloat(b),hasA=!isNaN(av),hasB=!isNaN(bv);
@@ -1361,8 +1386,8 @@ async function renderTeams(){
   const bothCurrent=!t1._isHistory&&!t2._isHistory;
   const pj1=bothCurrent?teamProj[t1.name]:null, pj2=bothCurrent?teamProj[t2.name]:null;
   let c1=teamColorFor(t1.name)||'#B16BFF', c2=teamColorFor(t2.name)||cssVar('--teal');
-  if(c2.toLowerCase()===c1.toLowerCase()) c2=cssVar('--teal')||'#3f8d7d';
   c1=readableCol(c1); c2=readableCol(c2);
+  c2=distinctPair(c1,c2); // lookalike brand colors (Arizona/ASU) → separate
   const sec=document.getElementById('compareSection'); sec.classList.add('show');
   // normalize both picks to team_seasons rows + their season's national field
   const [s1,s2]=await Promise.all([_seasonRowFor(t1),_seasonRowFor(t2)]);
@@ -1405,7 +1430,7 @@ async function renderTeams(){
 
     ${(s1&&s2&&(s1.team!==s2.team||y1!==y2))?_matchupCard(s1,s2,f1,f2,t1.name,t2.name,c1,c2):''}
 
-    <div class="compare-section-head">Program Context — How Good, Historically?</div>
+    <div class="compare-section-head">Program Context — Last 20 Seasons (2006-26)</div>
     <div class="sim-grid">
       <div class="sim-card" id="progCtx1" style="border-top:2px solid ${c1};"><div class="sim-row" style="color:var(--text3);">Computing…</div></div>
       <div class="sim-card" id="progCtx2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Computing…</div></div>
@@ -1453,13 +1478,13 @@ async function renderTeams(){
       <div class="sim-card" id="tRost2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Loading roster…</div></div>
     </div>
 
-    <div class="compare-section-head">Best Player Seasons in Program History</div>
+    <div class="compare-section-head">Best Player Seasons on File · Since 2006</div>
     <div class="sim-grid">
       <div class="sim-card" id="tLegend1" style="border-top:2px solid ${c1};"><div class="sim-row" style="color:var(--text3);">Loading…</div></div>
       <div class="sim-card" id="tLegend2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Loading…</div></div>
     </div>
 
-    <div class="compare-section-head" style="margin-top:26px;">Head-to-Head · All Meetings on File</div>
+    <div class="compare-section-head" style="margin-top:26px;">Head-to-Head · Meetings on File (2006-26)</div>
     <div id="h2hWrap" class="chart-card full" style="margin-bottom:26px;"><div style="color:var(--text3);font-size:12px;padding:6px 2px;">Loading meetings…</div></div>
 
     ${bothCurrent?`
@@ -1540,23 +1565,32 @@ async function renderTeams(){
 async function _fillProgramContext(elId, tr, s){
   const el=document.getElementById(elId); if(!el) return;
   const rows=tr.rows||[];
-  if(!rows.length){ el.innerHTML='<div class="sim-row" style="color:var(--text3);">No program history on file</div>'; return; }
+  if(!rows.length){ el.innerHTML='<div class="sim-row" style="color:var(--text3);">No seasons on file</div>'; return; }
   const W=rows.reduce((a,r)=>a+(parseFloat(r.wins)||0),0), L=rows.reduce((a,r)=>a+(parseFloat(r.losses)||0),0);
   const trips=rows.filter(r=>r.ncaa_seed!=null).length;
-  const titles=rows.filter(r=>/champion/i.test(r.ncaa_result||'')&&!/vice|runner/i.test(r.ncaa_result||'')).length;
   const srsAvg=(()=>{ const v=rows.map(r=>parseFloat(r.srs)).filter(isFinite); return v.length?(v.reduce((a,b)=>a+b,0)/v.length):null; })();
+  // NCAA Tournament game record from postseason results (winner column)
+  let ncaaRec=trips?`${trips} trips, no games on file`:'No trips on file';
+  try{
+    const nm=encodeURIComponent(tr.name);
+    const pg=await fetch(`${SB}/rest/v1/postseason_games?tournament=eq.NCAA%20Tournament&or=(home.eq.${nm},away.eq.${nm})&select=winner&limit=200`,{headers:H}).then(r=>r.ok?r.json():[]);
+    if(pg&&pg.length){
+      const w=pg.filter(g=>g.winner===tr.name).length;
+      ncaaRec=`${w}-${pg.length-w} · ${trips} trips`;
+    }
+  }catch(e){}
   const line=(l,v)=>`<div class="sim-row"><span class="sim-meta">${l}</span><span class="sim-stat" style="font-weight:700;color:var(--text);">${v}</span></div>`;
-  let html=line('Program on file · '+rows.length+' seasons', `${W}-${L}`)
-    +line('NCAA tournaments · titles', `${trips} · ${titles}`)
-    +line('Avg SRS (program)', srsAvg!=null?srsAvg.toFixed(1):'—');
+  let html=line(`Record · last ${rows.length} seasons`, `${W}-${L}`)
+    +line('NCAA Tournament record', ncaaRec)
+    +line(`Avg SRS · last ${rows.length} seasons`, srsAvg!=null?srsAvg.toFixed(1):'—');
   if(s&&isFinite(parseFloat(s.srs))){
     const v=parseFloat(s.srs);
     const progRank=rows.filter(r=>parseFloat(r.srs)>v).length+1;
-    html+=line(`This season in program history`, progRank===1?'Best on file':`#${progRank} of ${rows.length}`);
+    html+=line(`This season among the program's ${rows.length} on file`, progRank===1?'Best on file':`#${progRank} of ${rows.length}`);
     const [better,total]=await Promise.all([_countTS(`srs=gt.${v}`),_countTS('srs=not.is.null')]);
     if(better!=null&&total){
       const topPct=Math.max(0.1,Math.round((better+1)/total*1000)/10);
-      html+=line('Among ALL D1 team-seasons (2006-26)', `#${better+1} of ${total.toLocaleString()} · top ${topPct}%`);
+      html+=line('Among all D1 team-seasons on file (2006-26)', `#${better+1} of ${total.toLocaleString()} · top ${topPct}%`);
     }
   }
   el.innerHTML=html;
@@ -1586,7 +1620,7 @@ async function _fillH2H(n1,n2,c1,c2){
     el.innerHTML=`
       <div style="display:flex;align-items:center;justify-content:center;gap:26px;padding:8px 0 14px;">
         <span style="font-family:'Playfair Display',serif;font-size:30px;font-weight:800;color:${c1};">${w1}</span>
-        <span style="font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--text3);">ALL-TIME (ON FILE)</span>
+        <span style="font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--text3);">SINCE 2006-07</span>
         <span style="font-family:'Playfair Display',serif;font-size:30px;font-weight:800;color:${c2};">${w2}</span>
       </div>
       ${recent}
