@@ -1487,6 +1487,9 @@ async function renderTeams(){
     <div class="compare-section-head" style="margin-top:26px;">Head-to-Head · Meetings on File (2006-26)</div>
     <div id="h2hWrap" class="chart-card full" style="margin-bottom:26px;"><div style="color:var(--text3);font-size:12px;padding:6px 2px;">Loading meetings…</div></div>
 
+    <div class="compare-section-head">Scouting Report — Roster &amp; Style Breakdown</div>
+    <div id="scoutWrap" class="chart-card full" style="margin-bottom:26px;"><div style="color:var(--text3);font-size:12px;padding:6px 2px;">Writing the scout…</div></div>
+
     ${bothCurrent?`
     ${pj1&&pj2?`
     <div class="chart-grid">
@@ -1540,14 +1543,19 @@ async function renderTeams(){
       trajChart('tsTraj',[tr1,tr2]);
       _fillProgramContext('progCtx1', tr1, s1);
       _fillProgramContext('progCtx2', tr2, s2);
-      // rosters + best player seasons in program history
+      // rosters + best player seasons on file — then the written scout, which
+      // needs both rosters' physical profiles
       const side=async(fullName, yr, rostId, legId)=>{
         const {key, rows}=await _rosterFor(fullName, yr);
         const rEl=document.getElementById(rostId); if(rEl) rEl.innerHTML=_rosterRows(rows, yr);
         const lEl=document.getElementById(legId);  if(lEl) lEl.innerHTML=_legendRows(await _legendsFor(key));
+        return {key, rows};
       };
-      side(s1?s1.team:t1.name, y1, 'tRost1', 'tLegend1');
-      side(s2?s2.team:t2.name, y2, 'tRost2', 'tLegend2');
+      Promise.all([
+        side(s1?s1.team:t1.name, y1, 'tRost1', 'tLegend1'),
+        side(s2?s2.team:t2.name, y2, 'tRost2', 'tLegend2'),
+      ]).then(([r1,r2])=>_fillScout(r1,r2,s1,s2,f1,f2,t1.name,t2.name,c1,c2))
+        .catch(()=>{ const el=document.getElementById('scoutWrap'); if(el) el.innerHTML='<div style="color:var(--text3);font-size:12px;">Scout unavailable.</div>'; });
       // head-to-head record + recent meetings
       _fillH2H(s1?s1.team:t1.name, s2?s2.team:t2.name, c1, c2);
     } else {
@@ -1594,6 +1602,118 @@ async function _fillProgramContext(elId, tr, s){
     }
   }
   el.innerHTML=html;
+}
+// ── AUTOMATED SCOUTING REPORT ────────────────────────────────────────────────
+// Writes the matchup like a scout would: roster physicals (minutes-weighted
+// size + experience, depth, star power, scoring balance) and season style
+// percentiles, turned into edge chips + prose via thresholded templates.
+function _rosterProfile(rows){
+  const mw=get=>{ let s=0,w=0; rows.forEach(p=>{ const v=get(p), m=parseFloat(p.mpg)||1; if(v!=null&&isFinite(v)){ s+=v*m; w+=m; } }); return w?s/w:null; };
+  const htIn=h=>{ const m=(''+(h||'')).match(/(\d+)-(\d+)/); return m?+m[1]*12+ +m[2]:null; };
+  const clsNum=y=>{ y=(''+(y||'')).toLowerCase(); return y.includes('fr')?1:y.includes('so')?2:y.includes('jr')?3:(y.includes('sr')||y.includes('gr'))?4:null; };
+  const graded=rows.filter(p=>isFinite(parseFloat(p.tdc_grade)));
+  const star=graded.length?[...graded].sort((a,b)=>parseFloat(b.tdc_grade)-parseFloat(a.tdc_grade))[0]:null;
+  const scorers=[...rows].sort((a,b)=>(parseFloat(b.ppg)||0)-(parseFloat(a.ppg)||0));
+  const totPts=rows.reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
+  const top3=scorers.slice(0,3).reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
+  return {
+    n:rows.length,
+    ht:mw(p=>htIn(p.height)),
+    exp:mw(clsNum),
+    depth:rows.filter(p=>(parseFloat(p.mpg)||0)>=15).length,
+    star, top3Share:totPts>0?Math.round(top3/totPts*100):null,
+  };
+}
+function _inFt(v){ if(v==null) return '—'; const f=Math.floor(v/12), i=v-f*12; return `${f}-${i.toFixed(1).replace(/\.0$/,'')}`; }
+function _fillScout(r1,r2,s1,s2,f1,f2,n1,n2,c1,c2){
+  const el=document.getElementById('scoutWrap'); if(!el) return;
+  if(!s1||!s2){ el.innerHTML='<div style="color:var(--text3);font-size:12px;">Not enough season data for a written scout.</div>'; return; }
+  const P1=_rosterProfile(r1.rows||[]), P2=_rosterProfile(r2.rows||[]);
+  const pctArr=(f,get,val,inv)=>{ const vs=f.map(get).filter(isFinite); const v=val; if(!isFinite(v)||!vs.length) return null;
+    let below=0; vs.forEach(x=>{ if(inv? x>v : x<v) below++; }); return Math.round(below/vs.length*100); };
+  const style=(s,f)=>({
+    tempo:pctArr(f,r=>parseFloat(r.ppg)+parseFloat(r.oppg),parseFloat(s.ppg)+parseFloat(s.oppg)),
+    off:tsPctOf(f,'ppg',s.ppg), def:tsPctOf(f,'oppg',s.oppg,true),
+    fg:tsPctOf(f,'fg_pct',s.fg_pct), tp:tsPctOf(f,'tp_pct',s.tp_pct), ft:tsPctOf(f,'ft_pct',s.ft_pct),
+    oreb:tsPctOf(f,'orpg',s.orpg), ast:tsPctOf(f,'apg',s.apg),
+    havoc:avg(tsPctOf(f,'spg',s.spg),tsPctOf(f,'bpg',s.bpg)), tov:tsPctOf(f,'topg',s.topg,true),
+  });
+  const S1=style(s1,f1), S2=style(s2,f2);
+  const edges1=[], edges2=[];
+  const edge=(who,txt)=>{ (who===1?edges1:edges2).push(txt); };
+  // roster edges
+  if(P1.ht!=null&&P2.ht!=null&&Math.abs(P1.ht-P2.ht)>=0.8)
+    edge(P1.ht>P2.ht?1:2, `Size · +${Math.abs(P1.ht-P2.ht).toFixed(1)}" per rotation minute`);
+  if(P1.exp!=null&&P2.exp!=null&&Math.abs(P1.exp-P2.exp)>=0.6)
+    edge(P1.exp>P2.exp?1:2, `Experience · +${Math.abs(P1.exp-P2.exp).toFixed(1)} yrs per minute`);
+  if(P1.depth&&P2.depth&&Math.abs(P1.depth-P2.depth)>=2)
+    edge(P1.depth>P2.depth?1:2, `Depth · ${Math.max(P1.depth,P2.depth)} vs ${Math.min(P1.depth,P2.depth)} players ≥15 MPG`);
+  if(P1.star&&P2.star&&Math.abs(parseFloat(P1.star.tdc_grade)-parseFloat(P2.star.tdc_grade))>=3){
+    const w=parseFloat(P1.star.tdc_grade)>parseFloat(P2.star.tdc_grade)?1:2;
+    const s=w===1?P1.star:P2.star;
+    edge(w, `Star power · ${s.name} (${s.tdc_grade})`);
+  }
+  // style edges (own-season percentile gaps)
+  [['off','Offense'],['def','Defense'],['fg','Shooting'],['tp','3-point shooting'],['ft','FT shooting'],
+   ['oreb','Offensive glass'],['ast','Ball movement'],['havoc','Havoc (stl+blk)'],['tov','Ball security']]
+  .forEach(([k,lbl])=>{
+    const a=S1[k], b=S2[k]; if(a==null||b==null) return;
+    if(Math.abs(a-b)>=18) edge(a>b?1:2, `${lbl} · ${_ord(Math.max(a,b))} vs ${_ord(Math.min(a,b))} pct`);
+  });
+  const chips=arr=>arr.length?arr.map(t=>`<span class="sw-tag s">${t}</span>`).join(''):'<span class="sw-none">No clear edges</span>';
+  // ── prose ──
+  const margin=parseFloat(s1.srs)-parseFloat(s2.srs);
+  const favN=margin>=0?n1:n2, dogN=margin>=0?n2:n1;
+  const paras=[];
+  // roster paragraph
+  const ros=[];
+  if(P1.ht!=null&&P2.ht!=null){
+    const big=P1.ht>P2.ht?n1:n2, gap=Math.abs(P1.ht-P2.ht);
+    ros.push(gap>=1.2?`${big} plays much bigger — a minutes-weighted ${_inFt(Math.max(P1.ht,P2.ht))} across the rotation vs ${_inFt(Math.min(P1.ht,P2.ht))}, a gap that shows up on the glass and at the rim`
+      : gap>=0.5?`${big} has the modest size edge (${_inFt(Math.max(P1.ht,P2.ht))} vs ${_inFt(Math.min(P1.ht,P2.ht))} weighted by minutes)`
+      : `The two rotations are nearly identical in size (${_inFt(P1.ht)} vs ${_inFt(P2.ht)})`);
+  }
+  if(P1.exp!=null&&P2.exp!=null&&Math.abs(P1.exp-P2.exp)>=0.6){
+    const old=P1.exp>P2.exp?n1:n2, yng=P1.exp>P2.exp?n2:n1;
+    const yv=Math.min(P1.exp,P2.exp);
+    ros.push(`${old} is the older team by ${Math.abs(P1.exp-P2.exp).toFixed(1)} class-years per rotation minute${yv<=1.8?` — ${yng} leans heavily on underclassmen, which travels poorly in high-pressure spots`:''}`);
+  }
+  if(P1.star&&P2.star){
+    const oneBest=parseFloat(P1.star.tdc_grade)>=parseFloat(P2.star.tdc_grade);
+    ros.push(`The best player on the floor is ${(oneBest?P1:P2).star.name} (${(oneBest?P1:P2).star.tdc_grade}), opposite ${(oneBest?P2:P1).star.name} (${(oneBest?P2:P1).star.tdc_grade})`);
+  }
+  if(P1.top3Share&&P2.top3Share&&Math.abs(P1.top3Share-P2.top3Share)>=10){
+    const heavy=P1.top3Share>P2.top3Share?n1:n2, share=Math.max(P1.top3Share,P2.top3Share);
+    ros.push(`${heavy} is the more top-heavy offense (its top three carry ${share}% of the scoring), so foul trouble or a cold night from the stars swings this more than usual`);
+  }
+  if(ros.length) paras.push(ros.join('. ')+'.');
+  // style paragraph
+  const sty=[];
+  if(S1.tempo!=null&&S2.tempo!=null){
+    const d=S1.tempo-S2.tempo;
+    if(Math.abs(d)>=25) sty.push(`Styles clash on tempo: ${d>0?n1:n2} wants a track meet (${_ord(Math.max(S1.tempo,S2.tempo))} percentile in combined scoring) while ${d>0?n2:n1} grinds games down (${_ord(Math.min(S1.tempo,S2.tempo))}) — whoever sets the pace tilts the floor`);
+    else if(Math.min(S1.tempo,S2.tempo)>=70) sty.push(`Both sides play with pace, so expect possessions to pile up`);
+    else if(Math.max(S1.tempo,S2.tempo)<=35) sty.push(`Both sides grind — every possession will be expensive`);
+  }
+  const lever=(k,tpl)=>{ const a=S1[k],b=S2[k]; if(a==null||b==null) return;
+    if(Math.abs(a-b)>=20) sty.push(tpl(a>b?n1:n2,_ord(Math.max(a,b)),_ord(Math.min(a,b)))); };
+  lever('oreb',(w,hp,lp)=>`${w} attacks the offensive glass (${hp} percentile vs ${lp}) — second chances are a real lever here`);
+  lever('tov',(w,hp,lp)=>`${w} protects the ball far better (${hp} vs ${lp} in ball security), and live-ball giveaways feed easy points the other way`);
+  lever('tp',(w,hp,lp)=>`${w} owns the arc (${hp} vs ${lp} percentile from three) — variance from deep is their fastest path to blowing this open`);
+  lever('havoc',(w,hp,lp)=>`${w} creates chaos with pressure and rim protection (${hp} vs ${lp} in steals+blocks)`);
+  if(sty.length) paras.push(sty.join('. ')+'.');
+  // verdict paragraph
+  const spread=Math.abs(margin);
+  const dogEdges=(margin>=0?edges2:edges1);
+  const poss=n=>/s$/i.test(n)?n+"’":n+"’s";
+  paras.push(`${spread<1?`This projects as a coin flip`:`The model makes ${favN} a ${spread.toFixed(1)}-point favorite on a neutral floor`}. ${dogEdges.length?`${poss(dogN)} path runs through ${dogEdges.length>1?'its clearest edges — '+dogEdges.slice(0,2).map(e=>e.split(' · ')[0].toLowerCase()).join(' and '):'its edge in '+dogEdges[0].split(' · ')[0].toLowerCase()} — and keeping the game in its preferred rhythm.`:`${dogN} doesn't hold a single categorical edge, so it needs shot-making variance to steal this one.`}`);
+  el.innerHTML=`
+    <div class="sw-grid" style="margin-bottom:14px;">
+      <div class="sw-card"><div class="sw-team" style="color:${c1};">${n1} — Edges</div><div class="sw-tags">${chips(edges1)}</div></div>
+      <div class="sw-card"><div class="sw-team" style="color:${c2};">${n2} — Edges</div><div class="sw-tags">${chips(edges2)}</div></div>
+    </div>
+    ${paras.map(p=>`<p style="font-size:13px;line-height:1.65;color:var(--text2);margin:0 0 10px;">${p}</p>`).join('')}
+    <div style="font-size:10px;color:var(--text3);margin-top:6px;">Auto-generated from rotation size and experience (minutes-weighted), depth, scoring balance, and season percentiles vs each team's own D1 field.</div>`;
 }
 // head-to-head: every meeting in the games table between the two programs
 async function _fillH2H(n1,n2,c1,c2){
