@@ -5,6 +5,7 @@
   <script src="team-colors.js"></script>
   <script src="tdc-nil.js"></script>
   <script src="tdc-pos.js"></script>
+  <script src="tdc-awards.js"></script>
   <style>
     .nil-card{border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:132px;background:var(--bg2);}
     .nil-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
@@ -1497,8 +1498,8 @@ function renderDepth(t, players, color, rgb, gp={}){
         const isStarter = sorted.indexOf(p) < 5;
         return `
       <div class="rotation-row" style="min-width:900px;${isStarter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
-        <div class="rot-num" style="${isStarter?`color:${color};font-weight:700;`:''}">${i+1}</div>
-        <div class="rot-pos" style="${isStarter?`color:${color};`:''}">${p.position||''}</div>
+        <div class="rot-num" style="${isStarter?`color:var(--tc-readable,${color});font-weight:700;`:''}">${i+1}</div>
+        <div class="rot-pos" style="${isStarter?`color:var(--tc-readable,${color});`:''}">${p.position||''}</div>
         <div class="rot-name" style="${isStarter?'color:var(--text);font-weight:700;':''}">
           <a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team)}" style="color:inherit;text-decoration:none;">${p.name}</a>
           ${p.is_injured?'🏥':''}
@@ -2629,41 +2630,43 @@ function applyPredictionWalls(projected){
 }
 
 // ── PROJECTED AWARDS ─────────────────────────────────────────────────────────
-// Award candidacies from the projected season: grade + projected BPM set the
-// caliber tiers; stocks, bench scoring and class flag the specialty awards.
-function renderProjAwards(projected){
-  const act=projected.filter(p=>!p._injured&&!p._dnp&&parseFloat(p.mpg)>0);
+// Selections come from the GLOBAL slot-limited awards engine (tdc-awards.js):
+// one national ballot, so a conference can never show 29 "1st team" players —
+// exactly five per team, three All-Conference + two All-Defensive + two
+// All-Freshman teams per conference, three All-America teams nationally.
+async function _fillProjAwards(projected){
+  const host=document.getElementById('projAwardsWrap'); if(!host) return;
+  if(!window.TDC_AWARDS) { host.innerHTML=''; return; }
+  host.innerHTML='<div style="font-size:11px;color:var(--text3);margin-bottom:20px;">Loading projected awards…</div>';
+  let AW=null;
+  try{ AW=await TDC_AWARDS.get(); }catch(e){}
+  if(!AW){ host.innerHTML=''; return; }
+  const ORD=['1st Team','2nd Team','3rd Team'];
+  const act=projected.filter(p=>!p._injured&&!p._dnp);
   const chips=[];
-  const add=(p,t,d)=>chips.push({n:p.name,team:p.team,t:t,d:d});
   act.forEach(p=>{
-    const g=parseFloat(p.tdc_grade)||0, a=p._projAdv||{}, bpm=a.bpm!=null?a.bpm:-9;
-    const frosh=p._frosh||p._isFrosh, est=a._est?' (est.)':'';
-    if(g>=93||bpm>=8.5)      add(p,'All-American Candidate',`proj ${fmt1(a.bpm)} BPM · ${fmt1(a.wa)} WA${est}`);
-    else if(g>=89||bpm>=6.5) add(p,'All-Conference · 1st Team',`proj ${fmt1(a.bpm)} BPM · ${fmt1(a.wa)} WA${est}`);
-    else if(g>=86||bpm>=5.0) add(p,'All-Conference Candidate',`proj ${fmt1(a.bpm)} BPM · ${fmt1(a.wa)} WA${est}`);
-    if(frosh&&g>=85)         add(p,'All-Freshman Candidate',`grade ${g} recruit`);
+    TDC_AWARDS.lookup(AW, p.name, p.team).forEach(h=>{
+      const a=p._projAdv||{};
+      const label=h.award==='All-America' ? `All-America · ${ORD[h.team-1]}`
+        : h.award==='All-Conference' ? `All-${h.conf} · ${ORD[h.team-1]}`
+        : h.award==='All-Defense' ? `${h.conf} All-Defensive · ${ORD[h.team-1]}`
+        : `${h.conf} All-Freshman · ${ORD[h.team-1]}`;
+      chips.push({n:p.name, t:label, gold:h.award==='All-America'||h.team===1,
+        d:(a.bpm!=null&&isFinite(a.bpm))?`proj ${fmt1(a.bpm)} BPM · ${fmt1(a.wa)} WA${a._est?' (est.)':''}`:`grade ${p.tdc_grade||'—'}`});
+    });
   });
-  const withMin=act.filter(p=>parseFloat(p.mpg)>=22);
-  if(withMin.length){
-    const dbest=[...withMin].sort((x,y)=>((parseFloat(y.stl)||0)+(parseFloat(y.blk)||0))-((parseFloat(x.stl)||0)+(parseFloat(x.blk)||0)))[0];
-    const stk=(parseFloat(dbest?.stl)||0)+(parseFloat(dbest?.blk)||0);
-    if(dbest&&stk>=2.2) add(dbest,'All-Defense Candidate',`proj ${fmt1(stk)} stocks/gm`);
-  }
-  const bench=act.slice(5).filter(p=>parseFloat(p.mpg)>=15);
-  if(bench.length){
-    const six=[...bench].sort((x,y)=>(parseFloat(y.ppg)||0)-(parseFloat(x.ppg)||0))[0];
-    if(six&&parseFloat(six.ppg)>=9) add(six,'Sixth Man Candidate',`proj ${fmt1(six.ppg)} PPG off the bench`);
-  }
-  if(!chips.length) return '';
-  return `<div style="margin-bottom:20px;">
-    <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;">Projected Awards — 2026-27</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;">
-      ${chips.map(c=>`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;display:flex;flex-direction:column;gap:3px;">
-        <div style="font-family:'Playfair Display',serif;font-weight:700;font-size:15px;color:var(--text);line-height:1.1;">${c.n}</div>
-        <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);">${c.t}</div>
-        <div style="font-size:10px;color:var(--text3);">${c.d}</div>
-      </div>`).join('')}
+  host.innerHTML=`<div style="margin-bottom:20px;">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">Projected Awards — 2026-27</div>
+      <a href="awards.html" style="font-size:11px;font-weight:700;color:var(--accent);text-decoration:none;">Full award projections →</a>
     </div>
+    ${chips.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;">
+      ${chips.map(c=>`<div style="background:var(--bg2);border:1px solid ${c.gold?'rgba(200,160,32,.5)':'var(--border)'};border-radius:8px;padding:11px 14px;display:flex;flex-direction:column;gap:3px;">
+        <div style="font-family:'Playfair Display',serif;font-weight:700;font-size:15px;color:var(--text);line-height:1.1;">${c.n}</div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:${c.gold?'#C8A020':'var(--text2)'};">${c.t}</div>
+        <div style="font-size:10px;color:var(--text3);">${c.d}</div>
+      </div>`).join('')}</div>`
+    :`<div style="font-size:12px;color:var(--text3);">No projected award selections on this roster.</div>`}
   </div>`;
 }
 function fmt1(v){ const n=parseFloat(v); return isNaN(n)?'—':n.toFixed(1); }
@@ -2820,7 +2823,7 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
 
   el.innerHTML=`
     ${summaryCards}
-    ${renderProjAwards(projected)}
+    <div id="projAwardsWrap"></div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px;padding:4px 0;">
       <div style="font-size:11px;color:var(--text3);"><span style="background:rgba(139,105,20,.12);color:var(--accent);padding:2px 5px;font-weight:700;">EST</span> = Freshman estimate &nbsp; <span style="background:rgba(26,95,191,.1);color:#1a5fbf;padding:2px 5px;font-weight:700;">×</span> = Transfer factor &nbsp; <span style="background:rgba(180,50,0,.1);color:#cc3300;padding:2px 5px;font-weight:700;">FINAL</span> = Last season &nbsp; <span style="color:var(--text3);font-style:italic;">USG/TS/BPM/WA = projected advanced</span></div>
     </div>
@@ -2883,8 +2886,8 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
         const advCell=(v,suffix)=>`<div class="rot-stat" style="${A._est?'color:var(--text3);font-style:italic;':''}">${v!=null&&isFinite(v)?Number(v).toFixed(1)+(suffix||''):'—'}</div>`;
         return `
         <div class="protation-row" style="min-width:1440px;${isStarter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
-          <div class="rot-num" style="${isStarter?`color:${color};font-weight:700;`:''}">${i+1}</div>
-          <div class="rot-pos" style="${isStarter?`color:${color};`:''}">${(()=>{const dp=p._deployedPos||p.position||'';const oop=dp&&p.position&&dp!==p.position;return oop?dp+`<span title="Primary: ${p.position}" style="font-size:8px;color:var(--text3);margin-left:2px;vertical-align:super;">&#x21D5;</span>`:dp;})()}</div>
+          <div class="rot-num" style="${isStarter?`color:var(--tc-readable,${color});font-weight:700;`:''}">${i+1}</div>
+          <div class="rot-pos" style="${isStarter?`color:var(--tc-readable,${color});`:''}">${(()=>{const dp=p._deployedPos||p.position||'';const oop=dp&&p.position&&dp!==p.position;return oop?dp+`<span title="Primary: ${p.position}" style="font-size:8px;color:var(--text3);margin-left:2px;vertical-align:super;">&#x21D5;</span>`:dp;})()}</div>
           <div class="rot-name">
             <a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team)}" style="color:inherit;text-decoration:none;font-weight:${isStarter?700:500};">${p.name}</a>
             ${froshBadge}${transBadge}${srBadge}${roleBadge}
@@ -2927,6 +2930,7 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
     </div>`;
   // Render chart after HTML is set
   setTimeout(()=>renderProjNatlChart(projected, color, rgb), 0);
+  _fillProjAwards(projected);
 }
 
 // ── CUSTOMIZE LINEUP ENGINE ──────────────────────────────
@@ -3613,8 +3617,8 @@ function renderCustomProjectionsTable(){
     const curMpg = customMpg[p.name]!==undefined ? customMpg[p.name] : parseFloat(p.mpg||0).toFixed(1);
     return `
     <div class="crotation-row" style="min-width:960px;${isStarter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
-      <div class="rot-num" style="${isStarter?`color:${color};font-weight:700;`:''}">${i+1}</div>
-      <div class="rot-pos" style="${isStarter?`color:${color};`:''}">${p.position||''}</div>
+      <div class="rot-num" style="${isStarter?`color:var(--tc-readable,${color});font-weight:700;`:''}">${i+1}</div>
+      <div class="rot-pos" style="${isStarter?`color:var(--tc-readable,${color});`:''}">${p.position||''}</div>
       <div class="rot-name" style="min-width:120px;">
         <a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}" style="color:inherit;text-decoration:none;font-weight:${isStarter?700:500};">${p.name}</a>
         ${p._frosh?'<span style="font-size:8px;padding:1px 3px;background:rgba(139,105,20,.12);color:var(--accent);margin-left:3px;">EST</span>':''}
