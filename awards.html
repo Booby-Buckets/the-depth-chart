@@ -49,9 +49,10 @@
   </div>
   <div class="page">
     <h1>Projected Awards</h1>
-    <div class="sub">2026-27 season · one national selection, slot-limited: three All-America teams, and per conference three All-Conference, two All-Defensive and two All-Freshman teams (five players each).</div>
+    <div class="pills" id="seasonPills" style="margin-bottom:6px;"></div>
+    <div class="sub" id="subLine">2026-27 season · one national selection, slot-limited: three All-America teams, and per conference three All-Conference, two All-Defensive and two All-Freshman teams (five players each).</div>
     <div id="content"><div class="loading">Building projections…</div></div>
-    <div class="note"><b>How selections are made:</b> every rostered D1 player is scored with the same deterministic model — projected BPM (last season's Box Plus/Minus run through the measured year-over-year lag model, with class-progression bumps), TDC grade, and projected production. Players marked out for the season are excluded. The top five in each pool make the 1st team, the next five the 2nd, and so on — so a conference can never have more than five players on any one team.</div>
+    <div class="note" id="methodNote"><b>How selections are made:</b> every rostered D1 player is scored with the same deterministic model — projected BPM (last season's Box Plus/Minus run through the measured year-over-year lag model, with class-progression bumps), TDC grade, and projected production. Players marked out for the season are excluded. The top five in each pool make the 1st team, the next five the 2nd, and so on — so a conference can never have more than five players on any one team.</div>
   </div>
 <script>
 function toggleTheme(){
@@ -63,9 +64,64 @@ function toggleTheme(){
 }
 (function(){ if(localStorage.getItem('tdc_theme')==='dark'){ document.documentElement.setAttribute('data-theme','dark'); window.addEventListener('DOMContentLoaded',()=>{document.getElementById('themeBtn').textContent='☀️';}); } })();
 
-let AW=null, curConf=null;
+const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const HH={apikey:KEY,Authorization:'Bearer '+KEY};
+let AW=null, curConf=null, curSeason=2027, HIST=null;
 const ORD=['1st Team','2nd Team','3rd Team'];
-function plink(p){ return `player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}`; }
+function plink(p,yr){ return `player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}${yr&&yr<2027?`&season=${yr}`:''}`; }
+function seasonLbl(y){ return y===2027?'2026-27 · Projected':`${y-1}-${(''+y).slice(2)}`; }
+function renderSeasonPills(){
+  let html='';
+  for(let y=2027;y>=2007;y--) html+=`<button class="pill ${y===curSeason?'on':''}" onclick="setSeason(${y})">${y===2027?'2026-27 ✦':`${(''+(y-1)).slice(2)}-${(''+y).slice(2)}`}</button>`;
+  document.getElementById('seasonPills').innerHTML=html;
+}
+function setSeason(y){
+  curSeason=y; curConf=null; renderSeasonPills();
+  document.getElementById('subLine').textContent = y===2027
+    ? '2026-27 season · projected: one national slot-limited selection — three All-America teams, and per conference three All-Conference, two All-Defensive and two All-Freshman teams.'
+    : seasonLbl(y)+' · real award selections (consensus All-America + conference honors), scraped from the historical record.';
+  document.getElementById('methodNote').style.display = y===2027?'':'none';
+  if(y===2027){ if(AW) render(); else document.getElementById('content').innerHTML='<div class="loading">Building projections…</div>'; }
+  else loadHistory(y);
+}
+async function loadHistory(y){
+  document.getElementById('content').innerHTML='<div class="loading">Loading '+seasonLbl(y)+' awards…</div>';
+  try{
+    const rows=await fetch(`${SB}/rest/v1/awards?season_year=eq.${y}&select=player,team,category,detail&limit=500`,{headers:HH}).then(r=>r.json());
+    if(!Array.isArray(rows)||!rows.length){ document.getElementById('content').innerHTML='<div class="loading">No award history on file for '+seasonLbl(y)+' yet.</div>'; return; }
+    HIST=rows; renderHistory(y);
+  }catch(e){ document.getElementById('content').innerHTML='<div class="loading">Could not load award history.</div>'; }
+}
+function histCard(title,list,first,yr){
+  return `<div class="tcard ${first?'first':''}"><div class="tcard-h">${title}</div>
+    ${list.map((p,i)=>`<div class="prow"><span class="rk">${i+1}</span>
+      <a href="${plink(p,yr)}">${p.name||p.player}</a>
+      <span class="meta">${p.team||''}</span></div>`).join('')||'<div class="prow" style="color:var(--text3);">—</div>'}
+  </div>`;
+}
+function renderHistory(y){
+  const rows=HIST;
+  const aa1=rows.filter(r=>r.category==='Consensus All-America · 1st Team');
+  const aa2=rows.filter(r=>r.category==='Consensus All-America · 2nd Team');
+  const confs=[...new Set(rows.filter(r=>r.detail&&r.detail!=='National').map(r=>r.detail))].sort();
+  if(!curConf) curConf=confs[0]||null;
+  const cf=curConf;
+  const cRows=rows.filter(r=>r.detail===cf);
+  const winners=cRows.filter(r=>!r.category.startsWith('All-Conference'));
+  const t=n=>cRows.filter(r=>r.category==='All-Conference · '+n+' Team');
+  document.getElementById('content').innerHTML=`
+    ${(aa1.length||aa2.length)?`<div class="sec">Consensus All-America</div>
+    <div class="teams-grid">${histCard('1st Team',aa1.map(r=>({name:r.player,team:r.team})),true,y)}${histCard('2nd Team',aa2.map(r=>({name:r.player,team:r.team})),false,y)}</div>`:''}
+    <div class="sec" style="border-bottom:none;margin-bottom:2px;">Conference Awards</div>
+    <div class="pills">${confs.map(c=>`<button class="pill ${c===cf?'on':''}" onclick="curConf='${c.replace(/'/g,"\\'")}';renderHistory(${y});">${c}</button>`).join('')}</div>
+    ${cf?`
+    ${winners.length?`<div class="sec">${cf} — Award Winners</div>
+    <div class="teams-grid"><div class="tcard first">${winners.map(r=>`<div class="prow"><a href="${plink({name:r.player,team:r.team},y)}">${r.player}</a><span class="meta">${r.team}</span><span class="gr" style="background:var(--bg3);color:var(--text2);">${r.category}</span></div>`).join('')}</div></div>`:''}
+    <div class="sec">${cf} — All-Conference</div>
+    <div class="teams-grid">${histCard('1st Team',t('1st').map(r=>({name:r.player,team:r.team})),true,y)}${histCard('2nd Team',t('2nd').map(r=>({name:r.player,team:r.team})),false,y)}${t('3rd').length?histCard('3rd Team',t('3rd').map(r=>({name:r.player,team:r.team})),false,y):''}</div>
+    `:''}`;
+}
 function teamCard(title, list, first){
   return `<div class="tcard ${first?'first':''}"><div class="tcard-h">${title}</div>
     ${list.map((p,i)=>`<div class="prow"><span class="rk">${i+1}</span>
@@ -94,8 +150,9 @@ function render(){
     <div class="pills">${confs.map(cf=>`<button class="pill ${cf===curConf?'on':''}" onclick="curConf='${cf.replace(/'/g,"\\'")}';render();">${cf}</button>`).join('')}</div>
     ${curConf?confSection(curConf):''}`;
 }
-TDC_AWARDS.get().then(a=>{ AW=a; render(); })
-  .catch(e=>{ document.getElementById('content').innerHTML='<div class="loading">Could not build award projections.</div>'; });
+renderSeasonPills();
+TDC_AWARDS.get().then(a=>{ AW=a; if(curSeason===2027) render(); })
+  .catch(e=>{ if(curSeason===2027) document.getElementById('content').innerHTML='<div class="loading">Could not build award projections.</div>'; });
 </script>
 </body>
 </html>

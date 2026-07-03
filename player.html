@@ -1791,7 +1791,21 @@ async function init(){
     // merge different people who share a name (e.g. several "Cameron Williams").
     // No id — e.g. a true freshman with no college games — means no prior history,
     // which is correct. Fall back to name only when the player genuinely has no id.
-    const _espnId = pespn || (playerRow && playerRow.espn_id) || null;
+    let _espnId = pespn || (playerRow && playerRow.espn_id) || null;
+    // Resyncs can drop players.espn_id — recover it from player_history when
+    // the name maps to exactly ONE id (same-team match breaks ties). Namesakes
+    // with different ids stay ambiguous and are skipped, never merged.
+    if(!_espnId && playerRow && playerRow.name){
+      try{
+        const nh=await fetch(`${SB}/rest/v1/player_history?name=eq.${sbEncode(playerRow.name)}&select=espn_id,team&limit=60`,{headers:H}).then(r=>r.ok?r.json():[]);
+        const ids=[...new Set((nh||[]).map(r=>r.espn_id).filter(x=>x!=null))];
+        if(ids.length===1) _espnId=ids[0];
+        else if(ids.length>1 && playerRow.team){
+          const tids=[...new Set((nh||[]).filter(r=>r.team===playerRow.team).map(r=>r.espn_id).filter(x=>x!=null))];
+          if(tids.length===1) _espnId=tids[0];
+        }
+      }catch(e){}
+    }
     window._playerEspn = _espnId;
     try{
       if(_espnId){
