@@ -1201,13 +1201,14 @@ async function _phKeyFor(fullName){
 async function _rosterFor(fullName, yr){
   const key=await _phKeyFor(fullName);
   let rows=[];
-  if(key) rows=await fetch(`${SB}/rest/v1/player_history?team=eq.${encodeURIComponent(key)}&season_year=eq.${yr}&select=name,position,height,yr,ppg,rpg,apg,mpg,gp,tdc_grade,espn_id&order=mpg.desc.nullslast&limit=15`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  if(key) rows=await fetch(`${SB}/rest/v1/player_history?team=eq.${encodeURIComponent(key)}&season_year=eq.${yr}&select=name,position,height,yr,ppg,rpg,apg,mpg,gp,tdc_grade,espn_id,fga,tpa,fta&order=mpg.desc.nullslast&limit=15`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
   if((!rows||!rows.length)&&key){
     const slug=key.toLowerCase().replace(/[.'()&]/g,'').trim().replace(/\s+/g,'-');
     const bb=await fetch(`${SB}/rest/v1/bbref_seasons?school_slug=eq.${encodeURIComponent(slug)}&season_year=eq.${yr}&select=player,pos,height,class,tdc_grade,espn_id,pergame&limit=20`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
     rows=(bb||[]).map(b=>{ const pg=b.pergame||{}; return { name:b.player, position:b.pos, height:b.height, yr:b.class,
       ppg:parseFloat(pg.pts_per_g), rpg:parseFloat(pg.trb_per_g), apg:parseFloat(pg.ast_per_g), mpg:parseFloat(pg.mp_per_g),
-      gp:parseFloat(pg.games), tdc_grade:b.tdc_grade, espn_id:b.espn_id }; })
+      gp:parseFloat(pg.games), tdc_grade:b.tdc_grade, espn_id:b.espn_id,
+      fga:parseFloat(pg.fga_per_g), tpa:parseFloat(pg.fg3a_per_g), fta:parseFloat(pg.fta_per_g) }; })
       .sort((a,b)=>(b.mpg||0)-(a.mpg||0));
   }
   return {key, rows:rows||[]};
@@ -1616,19 +1617,60 @@ function _rosterProfile(rows){
   const scorers=[...rows].sort((a,b)=>(parseFloat(b.ppg)||0)-(parseFloat(a.ppg)||0));
   const totPts=rows.reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
   const top3=scorers.slice(0,3).reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
+  // position groups (shared tdc-pos grouping): backcourt = guards, frontcourt = bigs
+  const grp=p=>window.tdcPosGroup?tdcPosGroup(p.position,htIn(p.height)):'W';
+  const gRows=rows.filter(p=>grp(p)==='G'), bRows=rows.filter(p=>grp(p)==='B');
+  const mwOf=(list,get)=>{ let s=0,w=0; list.forEach(p=>{ const v=get(p), m=parseFloat(p.mpg)||1; if(v!=null&&isFinite(v)){ s+=v*m; w+=m; } }); return w?s/w:null; };
+  const sum=(list,k)=>list.reduce((s,p)=>s+(parseFloat(p[k])||0),0);
+  const gPts=sum(gRows,'ppg');
+  const byMin=[...rows].sort((a,b)=>(parseFloat(b.mpg)||0)-(parseFloat(a.mpg)||0));
+  const benchPts=byMin.slice(5).reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
+  const fgaT=sum(rows,'fga');
   return {
     n:rows.length,
     ht:mw(p=>htIn(p.height)),
+    htG:mwOf(gRows,p=>htIn(p.height)),
+    htB:mwOf(bRows,p=>htIn(p.height)),
     exp:mw(clsNum),
     depth:rows.filter(p=>(parseFloat(p.mpg)||0)>=15).length,
     star, top3Share:totPts>0?Math.round(top3/totPts*100):null,
+    guardShare:totPts>0?Math.round(gPts/totPts*100):null,
+    benchShare:totPts>0?Math.round(benchPts/totPts*100):null,
+    tpaRate:fgaT>0?Math.round(sum(rows,'tpa')/fgaT*100):null,
+    ftaRate:fgaT>0?Math.round(sum(rows,'fta')/fgaT*100):null,
   };
 }
 function _inFt(v){ if(v==null) return '—'; const f=Math.floor(v/12), i=v-f*12; return `${f}-${i.toFixed(1).replace(/\.0$/,'')}`; }
-function _fillScout(r1,r2,s1,s2,f1,f2,n1,n2,c1,c2){
+async function _fillScout(r1,r2,s1,s2,f1,f2,n1,n2,c1,c2){
   const el=document.getElementById('scoutWrap'); if(!el) return;
   if(!s1||!s2){ el.innerHTML='<div style="color:var(--text3);font-size:12px;">Not enough season data for a written scout.</div>'; return; }
   const P1=_rosterProfile(r1.rows||[]), P2=_rosterProfile(r2.rows||[]);
+  // advanced layer (bbref rotation BPM, efficiency hub) + roster continuity
+  const slugOf=k=>k?k.toLowerCase().replace(/[.'()&]/g,'').trim().replace(/\s+/g,'-'):null;
+  const advOf=async(key,yr)=>{
+    const slug=slugOf(key); if(!slug) return null;
+    const rows=await fetch(`${SB}/rest/v1/bbref_seasons?school_slug=eq.${encodeURIComponent(slug)}&season_year=eq.${yr}&select=player,advanced&limit=20`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    let mpSum=0,bpmSum=0,best=null,hub=null;
+    (rows||[]).forEach(r=>{ const a=r.advanced||{}; const mp=parseFloat(a.mp)||0,bpm=parseFloat(a.bpm),usg=parseFloat(a.usg_pct),ts=parseFloat(a.ts_pct);
+      if(mp>=200&&isFinite(bpm)){ mpSum+=mp; bpmSum+=bpm*mp; if(!best||bpm>best.bpm) best={name:r.player,bpm:bpm}; }
+      if(mp>=200&&isFinite(usg)&&usg>=20&&isFinite(ts)){ if(!hub||ts>hub.ts) hub={name:r.player,usg:usg,ts:ts}; } });
+    return mpSum?{mwBpm:bpmSum/mpSum,best,hub}:null;
+  };
+  const contOf=async(key,yr,rows)=>{
+    if(!key||!rows.length) return null;
+    const prior=await fetch(`${SB}/rest/v1/player_history?team=eq.${encodeURIComponent(key)}&season_year=eq.${yr-1}&select=name,espn_id&limit=30`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    if(!prior||!prior.length) return null;
+    const ids=new Set(prior.filter(p=>p.espn_id!=null).map(p=>''+p.espn_id));
+    const nms=new Set(prior.map(p=>(p.name||'').toLowerCase().trim()));
+    let tot=0,ret=0;
+    rows.forEach(p=>{ const m=parseFloat(p.mpg)||0; tot+=m;
+      if((p.espn_id!=null&&ids.has(''+p.espn_id))||nms.has((p.name||'').toLowerCase().trim())) ret+=m; });
+    return tot?Math.round(ret/tot*100):null;
+  };
+  const [A1,A2,K1,K2]=await Promise.all([
+    advOf(r1.key,s1.season_year), advOf(r2.key,s2.season_year),
+    contOf(r1.key,s1.season_year,r1.rows||[]), contOf(r2.key,s2.season_year,r2.rows||[])
+  ]);
   const pctArr=(f,get,val,inv)=>{ const vs=f.map(get).filter(isFinite); const v=val; if(!isFinite(v)||!vs.length) return null;
     let below=0; vs.forEach(x=>{ if(inv? x>v : x<v) below++; }); return Math.round(below/vs.length*100); };
   const style=(s,f)=>({
@@ -1653,6 +1695,20 @@ function _fillScout(r1,r2,s1,s2,f1,f2,n1,n2,c1,c2){
     const s=w===1?P1.star:P2.star;
     edge(w, `Star power · ${s.name} (${s.tdc_grade})`);
   }
+  if(P1.htG!=null&&P2.htG!=null&&Math.abs(P1.htG-P2.htG)>=1.3)
+    edge(P1.htG>P2.htG?1:2, `Backcourt size · +${Math.abs(P1.htG-P2.htG).toFixed(1)}"`);
+  if(P1.htB!=null&&P2.htB!=null&&Math.abs(P1.htB-P2.htB)>=1.3)
+    edge(P1.htB>P2.htB?1:2, `Frontcourt size · +${Math.abs(P1.htB-P2.htB).toFixed(1)}"`);
+  if(P1.tpaRate!=null&&P2.tpaRate!=null&&Math.abs(P1.tpaRate-P2.tpaRate)>=7)
+    edge(P1.tpaRate>P2.tpaRate?1:2, `3-point volume · ${Math.max(P1.tpaRate,P2.tpaRate)}% vs ${Math.min(P1.tpaRate,P2.tpaRate)}% of FGA`);
+  if(P1.ftaRate!=null&&P2.ftaRate!=null&&Math.abs(P1.ftaRate-P2.ftaRate)>=5)
+    edge(P1.ftaRate>P2.ftaRate?1:2, `Gets to the line · ${Math.max(P1.ftaRate,P2.ftaRate)}% vs ${Math.min(P1.ftaRate,P2.ftaRate)}% FTA rate`);
+  if(P1.benchShare!=null&&P2.benchShare!=null&&Math.abs(P1.benchShare-P2.benchShare)>=8)
+    edge(P1.benchShare>P2.benchShare?1:2, `Bench scoring · ${Math.max(P1.benchShare,P2.benchShare)}% vs ${Math.min(P1.benchShare,P2.benchShare)}%`);
+  if(K1!=null&&K2!=null&&Math.abs(K1-K2)>=20)
+    edge(K1>K2?1:2, `Continuity · ${Math.max(K1,K2)}% vs ${Math.min(K1,K2)}% returning minutes`);
+  if(A1&&A2&&Math.abs(A1.mwBpm-A2.mwBpm)>=1.5)
+    edge(A1.mwBpm>A2.mwBpm?1:2, `Rotation impact · +${Math.max(A1.mwBpm,A2.mwBpm).toFixed(1)} vs +${Math.min(A1.mwBpm,A2.mwBpm).toFixed(1)} m.w. BPM`);
   // style edges (own-season percentile gaps)
   [['off','Offense'],['def','Defense'],['fg','Shooting'],['tp','3-point shooting'],['ft','FT shooting'],
    ['oreb','Offensive glass'],['ast','Ball movement'],['havoc','Havoc (stl+blk)'],['tov','Ball security']]
@@ -1662,6 +1718,7 @@ function _fillScout(r1,r2,s1,s2,f1,f2,n1,n2,c1,c2){
   });
   const chips=arr=>arr.length?arr.map(t=>`<span class="sw-tag s">${t}</span>`).join(''):'<span class="sw-none">No clear edges</span>';
   // ── prose ──
+  const poss=n=>/s$/i.test(n)?n+"’":n+"’s";
   const margin=parseFloat(s1.srs)-parseFloat(s2.srs);
   const favN=margin>=0?n1:n2, dogN=margin>=0?n2:n1;
   const paras=[];
@@ -1673,6 +1730,12 @@ function _fillScout(r1,r2,s1,s2,f1,f2,n1,n2,c1,c2){
       : gap>=0.5?`${big} has the modest size edge (${_inFt(Math.max(P1.ht,P2.ht))} vs ${_inFt(Math.min(P1.ht,P2.ht))} weighted by minutes)`
       : `The two rotations are nearly identical in size (${_inFt(P1.ht)} vs ${_inFt(P2.ht)})`);
   }
+  const posBits=[];
+  if(P1.htG!=null&&P2.htG!=null&&Math.abs(P1.htG-P2.htG)>=1.3)
+    posBits.push(`${poss(P1.htG>P2.htG?n1:n2)} guards run +${Math.abs(P1.htG-P2.htG).toFixed(1)}" taller`);
+  if(P1.htB!=null&&P2.htB!=null&&Math.abs(P1.htB-P2.htB)>=1.3)
+    posBits.push(`${P1.htB>P2.htB?n1:n2} holds +${Math.abs(P1.htB-P2.htB).toFixed(1)}" up front`);
+  if(posBits.length) ros.push(`Positionally, ${posBits.join(' and ')}`);
   if(P1.exp!=null&&P2.exp!=null&&Math.abs(P1.exp-P2.exp)>=0.6){
     const old=P1.exp>P2.exp?n1:n2, yng=P1.exp>P2.exp?n2:n1;
     const yv=Math.min(P1.exp,P2.exp);
@@ -1685,6 +1748,14 @@ function _fillScout(r1,r2,s1,s2,f1,f2,n1,n2,c1,c2){
   if(P1.top3Share&&P2.top3Share&&Math.abs(P1.top3Share-P2.top3Share)>=10){
     const heavy=P1.top3Share>P2.top3Share?n1:n2, share=Math.max(P1.top3Share,P2.top3Share);
     ros.push(`${heavy} is the more top-heavy offense (its top three carry ${share}% of the scoring), so foul trouble or a cold night from the stars swings this more than usual`);
+  }
+  if(P1.benchShare!=null&&P2.benchShare!=null&&Math.abs(P1.benchShare-P2.benchShare)>=8){
+    const deep=P1.benchShare>P2.benchShare?n1:n2;
+    ros.push(`${poss(deep)} bench carries ${Math.max(P1.benchShare,P2.benchShare)}% of the scoring against ${Math.min(P1.benchShare,P2.benchShare)}% — the longer rotation travels better through foul trouble and fatigue`);
+  }
+  if(K1!=null&&K2!=null&&Math.abs(K1-K2)>=20){
+    const cont=K1>K2?n1:n2;
+    ros.push(`${cont} brought back ${Math.max(K1,K2)}% of its minutes from the season before (vs ${Math.min(K1,K2)}%), and that kind of cohesion tends to show late in close games`);
   }
   if(ros.length) paras.push(ros.join('. ')+'.');
   // style paragraph
@@ -1701,11 +1772,26 @@ function _fillScout(r1,r2,s1,s2,f1,f2,n1,n2,c1,c2){
   lever('tov',(w,hp,lp)=>`${w} protects the ball far better (${hp} vs ${lp} in ball security), and live-ball giveaways feed easy points the other way`);
   lever('tp',(w,hp,lp)=>`${w} owns the arc (${hp} vs ${lp} percentile from three) — variance from deep is their fastest path to blowing this open`);
   lever('havoc',(w,hp,lp)=>`${w} creates chaos with pressure and rim protection (${hp} vs ${lp} in steals+blocks)`);
+  if(P1.tpaRate!=null&&P2.tpaRate!=null&&Math.abs(P1.tpaRate-P2.tpaRate)>=7)
+    sty.push(`${P1.tpaRate>P2.tpaRate?n1:n2} hunts threes (${Math.max(P1.tpaRate,P2.tpaRate)}% of its attempts vs ${Math.min(P1.tpaRate,P2.tpaRate)}%), so the shot-diet contrast sets the game's variance`);
+  if(P1.ftaRate!=null&&P2.ftaRate!=null&&Math.abs(P1.ftaRate-P2.ftaRate)>=5)
+    sty.push(`${P1.ftaRate>P2.ftaRate?n1:n2} manufactures free throws (${Math.max(P1.ftaRate,P2.ftaRate)}% vs ${Math.min(P1.ftaRate,P2.ftaRate)}% FTA rate) — the whistle matters here`);
   if(sty.length) paras.push(sty.join('. ')+'.');
+  // advanced (under-the-hood) paragraph
+  if(A1&&A2){
+    const fb=v=>(v>=0?'+':'')+v.toFixed(1);
+    const adv=[`Under the hood, ${poss(A1.mwBpm>=A2.mwBpm?n1:n2)} rotation grades stronger — a minutes-weighted ${fb(Math.max(A1.mwBpm,A2.mwBpm))} BPM against ${fb(Math.min(A1.mwBpm,A2.mwBpm))}`];
+    if(A1.best&&A2.best){
+      const bb=A1.best.bpm>=A2.best.bpm?A1.best:A2.best;
+      adv.push(`the highest-impact player on the floor is ${bb.name} (${fb(bb.bpm)} BPM)`);
+    }
+    if(A1.hub&&A2.hub)
+      adv.push(`the efficiency hubs: ${A1.hub.name} (${Math.round(A1.hub.ts*100)}% TS on ${Math.round(A1.hub.usg)}% usage) opposite ${A2.hub.name} (${Math.round(A2.hub.ts*100)}% TS on ${Math.round(A2.hub.usg)}% usage)`);
+    paras.push(adv.join('; ')+'.');
+  }
   // verdict paragraph
   const spread=Math.abs(margin);
   const dogEdges=(margin>=0?edges2:edges1);
-  const poss=n=>/s$/i.test(n)?n+"’":n+"’s";
   paras.push(`${spread<1?`This projects as a coin flip`:`The model makes ${favN} a ${spread.toFixed(1)}-point favorite on a neutral floor`}. ${dogEdges.length?`${poss(dogN)} path runs through ${dogEdges.length>1?'its clearest edges — '+dogEdges.slice(0,2).map(e=>e.split(' · ')[0].toLowerCase()).join(' and '):'its edge in '+dogEdges[0].split(' · ')[0].toLowerCase()} — and keeping the game in its preferred rhythm.`:`${dogN} doesn't hold a single categorical edge, so it needs shot-making variance to steal this one.`}`);
   el.innerHTML=`
     <div class="sw-grid" style="margin-bottom:14px;">
