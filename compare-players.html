@@ -1218,6 +1218,86 @@ function _legendRows(rows){
     <span class="sim-stat">${fmt(p.ppg)}p ${fmt(p.rpg)}r ${fmt(p.apg)}a</span>
     ${_seasonBadge(p.tdc_grade)}</div>`).join('');
 }
+// ── PROJECTED MATCHUP — "who wins if they played?" ──
+// Neutral-court model: SRS is points-above-an-average-D1-team within its own
+// season, so the SRS gap IS the projected spread (cross-era: each team carries
+// the dominance it showed against its own field). Win probability maps the
+// spread through a normal CDF with σ≈11 (the historical sd of CBB outcomes).
+// The score centers on each offense vs the other defense relative to league
+// average, then splits by the spread.
+function _phi(x){ const t=1/(1+0.2316419*Math.abs(x)), d=0.3989423*Math.exp(-x*x/2);
+  const p=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));
+  return x>0?1-p:p; }
+function _ord(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+const _TOT_KEYS=[
+  {l:'Shooting',      k:'fg_pct', why:n=>`${n} shoots it better`},
+  {l:'3-Point',       k:'tp_pct', why:n=>`${n} has the 3-point edge`},
+  {l:'Rebounding',    k:'rpg',    why:n=>`${n} should own the glass`},
+  {l:'Ball Security', k:'topg', inv:true, why:n=>`${n} takes better care of the ball`},
+  {l:'Defense',       k:'oppg', inv:true, why:n=>`${n} brings the tougher defense`},
+  {l:'Havoc',         f:(rows,s)=>avg(tsPctOf(rows,'spg',s.spg),tsPctOf(rows,'bpg',s.bpg)), why:n=>`${n} forces more chaos (steals + blocks)`},
+];
+function _matchupCard(s1,s2,f1,f2,n1,n2,c1,c2){
+  const srs1=parseFloat(s1.srs), srs2=parseFloat(s2.srs);
+  if(!isFinite(srs1)||!isFinite(srs2)) return '';
+  const margin=srs1-srs2;
+  const p1=Math.round(_phi(margin/11)*100), p2=100-p1;
+  const fav=margin>=0?n1:n2, favC=margin>=0?c1:c2;
+  const spread=Math.abs(margin);
+  // projected score: offense vs opposing defense, both relative to own league
+  const lavg=(rows,k)=>{ const v=rows.map(r=>parseFloat(r[k])).filter(isFinite); return v.length?v.reduce((a,b)=>a+b,0)/v.length:70; };
+  const L1=lavg(f1,'ppg'), L2=lavg(f2,'ppg'), LL=(L1+L2)/2;
+  const e1=LL+(parseFloat(s1.ppg)-L1)+(parseFloat(s2.oppg)-L2);
+  const e2=LL+(parseFloat(s2.ppg)-L2)+(parseFloat(s1.oppg)-L1);
+  const total=(isFinite(e1)&&isFinite(e2))?e1+e2:2*LL;
+  const sc1=Math.round(total/2+margin/2), sc2=Math.round(total/2-margin/2);
+  // tale of the tape: percentile vs own season's field per category
+  const rows=_TOT_KEYS.map(d=>{
+    const a=d.f?d.f(f1,s1):tsPctOf(f1,d.k,s1[d.k],d.inv);
+    const b=d.f?d.f(f2,s2):tsPctOf(f2,d.k,s2[d.k],d.inv);
+    return {l:d.l, a:a??0, b:b??0, edge:(a??0)-(b??0), why:d.why};
+  });
+  const tot=rows.map(r=>`
+    <div style="display:grid;grid-template-columns:1fr 96px 1fr;align-items:center;gap:8px;padding:4px 0;">
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;">
+        <span style="font-size:10px;font-weight:700;color:${r.edge>0?c1:'var(--text3)'};">${_ord(r.a)}</span>
+        <div style="height:8px;width:${Math.max(2,r.a)*0.9}px;background:${hexA(c1,r.edge>0?0.95:0.45)};border-radius:4px;"></div>
+      </div>
+      <div style="text-align:center;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">${r.l}</div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div style="height:8px;width:${Math.max(2,r.b)*0.9}px;background:${hexA(c2,r.edge<0?0.95:0.45)};border-radius:4px;"></div>
+        <span style="font-size:10px;font-weight:700;color:${r.edge<0?c2:'var(--text3)'};">${_ord(r.b)}</span>
+      </div>
+    </div>`).join('');
+  // keys to the game: the three widest percentile gaps
+  const keys=[...rows].sort((x,y)=>Math.abs(y.edge)-Math.abs(x.edge)).slice(0,3)
+    .filter(r=>Math.abs(r.edge)>=8)
+    .map(r=>`<li style="margin:3px 0;">${r.why(r.edge>0?n1:n2)} <span style="color:var(--text3);">(${_ord(Math.max(r.a,r.b))} vs ${_ord(Math.min(r.a,r.b))} percentile)</span></li>`).join('');
+  return `
+    <div class="compare-section-head">Projected Matchup — If They Played</div>
+    <div class="chart-card full" style="margin-bottom:26px;">
+      <div style="display:flex;align-items:center;justify-content:center;gap:30px;padding:6px 0 2px;">
+        <div style="text-align:center;">
+          <div style="font-family:'Playfair Display',serif;font-size:34px;font-weight:800;color:${c1};">${p1}%</div>
+          <div style="font-size:10px;font-weight:700;color:var(--text3);">${n1}</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.08em;">PROJECTED FINAL</div>
+          <div style="font-family:'Playfair Display',serif;font-size:26px;font-weight:800;color:var(--text);">${sc1} – ${sc2}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px;">${spread<1?'Pick’em':`<b style="color:${favC};">${fav}</b> by ${spread.toFixed(1)}`} · neutral court</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-family:'Playfair Display',serif;font-size:34px;font-weight:800;color:${c2};">${p2}%</div>
+          <div style="font-size:10px;font-weight:700;color:var(--text3);">${n2}</div>
+        </div>
+      </div>
+      <div style="max-width:640px;margin:14px auto 0;">${tot}</div>
+      ${keys?`<div style="max-width:640px;margin:14px auto 0;border-top:1px solid var(--border);padding-top:10px;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;">Keys to the game</div>
+        <ul style="margin:0;padding-left:18px;font-size:12px;color:var(--text2);">${keys}</ul></div>`:''}
+      <div style="font-size:10px;color:var(--text3);margin-top:12px;text-align:center;">Model: SRS gap = neutral-court spread (each team's dominance vs its own era's field) · win odds via σ=11 outcome spread · score from each offense vs the opposing defense, league-adjusted.</div>
+    </div>`;
+}
 // season-percentile axes — each team is measured against its OWN season's D1
 // field, so a 2015 team and a 2026 team compare on equal footing
 const TSP_AXES=[
@@ -1322,6 +1402,8 @@ async function renderTeams(){
 
     <div class="compare-section-head" style="border-radius:8px;">Season Résumé${sameYear?` — ${yl1}`:''}</div>
     <div class="ol-grid">${resume(s1,c1,false)}${resume(s2,c2,true)}</div>
+
+    ${(s1&&s2&&(s1.team!==s2.team||y1!==y2))?_matchupCard(s1,s2,f1,f2,t1.name,t2.name,c1,c2):''}
 
     <div class="compare-section-head">Program Context — How Good, Historically?</div>
     <div class="sim-grid">
@@ -1441,9 +1523,8 @@ async function renderTeams(){
       };
       side(s1?s1.team:t1.name, y1, 'tRost1', 'tLegend1');
       side(s2?s2.team:t2.name, y2, 'tRost2', 'tLegend2');
-      // head-to-head record + recent meetings (+ the direct meeting when both
-      // picks are the same season)
-      _fillH2H(s1?s1.team:t1.name, s2?s2.team:t2.name, c1, c2, sameYear?y1:null);
+      // head-to-head record + recent meetings
+      _fillH2H(s1?s1.team:t1.name, s2?s2.team:t2.name, c1, c2);
     } else {
       const el=document.getElementById('h2hWrap'); if(el) el.innerHTML='<div style="color:var(--text3);font-size:12px;">No season data.</div>';
     }
@@ -1480,9 +1561,8 @@ async function _fillProgramContext(elId, tr, s){
   }
   el.innerHTML=html;
 }
-// head-to-head: every meeting in the games table between the two programs;
-// when both picks are the same season, their direct meetings lead the card
-async function _fillH2H(n1,n2,c1,c2,meetYear){
+// head-to-head: every meeting in the games table between the two programs
+async function _fillH2H(n1,n2,c1,c2){
   const el=document.getElementById('h2hWrap'); if(!el) return;
   if(n1===n2){ el.innerHTML='<div style="color:var(--text3);font-size:12px;">Same program — no head-to-head.</div>'; return; }
   try{
@@ -1502,17 +1582,8 @@ async function _fillH2H(n1,n2,c1,c2,meetYear){
         <span style="font-weight:700;color:${col};">${short(winner)} ${Math.max(g.home_score,g.away_score)}–${Math.min(g.home_score,g.away_score)}</span>
       </div>`;
     };
-    // direct meetings between the two PICKED seasons
-    let meetHtml='';
-    if(meetYear){
-      const met=played.filter(g=>+g.season_year===+meetYear);
-      meetHtml=met.length
-        ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:4px;">These teams met ${met.length}× in ${_tsLbl(meetYear)}</div>${met.map(row).join('')}<div style="height:12px;"></div>`
-        : `<div style="font-size:11px;color:var(--text3);margin-bottom:10px;">These teams did not meet in ${_tsLbl(meetYear)}.</div>`;
-    }
     const recent=played.slice(0,6).map(row).join('');
     el.innerHTML=`
-      ${meetHtml}
       <div style="display:flex;align-items:center;justify-content:center;gap:26px;padding:8px 0 14px;">
         <span style="font-family:'Playfair Display',serif;font-size:30px;font-weight:800;color:${c1};">${w1}</span>
         <span style="font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--text3);">ALL-TIME (ON FILE)</span>
