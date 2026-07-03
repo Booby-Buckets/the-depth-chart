@@ -146,8 +146,8 @@ const PROJ_SCHOOL_CONF=(function(){
     // ── TIER 2 ──
     [['Butler','Connecticut','Creighton','DePaul','Georgetown','Marquette','Providence','Seton Hall',"St. John's",'Villanova','Xavier'],'Big-East'],
     [['Dayton','Davidson','Duquesne','Fordham','George Mason','George Washington','La Salle','Loyola Chicago','Rhode Island','Richmond',"Saint Joseph's",'Saint Louis','St. Bonaventure','VCU','Massachusetts','Saint Louis','Fordham'],'A10'],
-    [['Gonzaga','BYU','Pacific','Pepperdine','Portland','Saint Mary\'s','San Diego','San Francisco','Santa Clara','Loyola Marymount'],'WCC'],
-    [['Oregon State','Washington State','San Diego State','Colorado State','Boise State','Utah State','Nevada','New Mexico','Fresno State','Air Force','Wyoming','UNLV','San Jose State','Hawaii'],'PAC-12'],
+    [['Gonzaga','Pacific','Pepperdine','Portland','Saint Mary\'s','San Diego','San Francisco','Santa Clara','Loyola Marymount','Washington State','Oregon State'],'WCC'],
+    [['San Diego State','Colorado State','Boise State','Utah State','Nevada','New Mexico','Fresno State','Air Force','Wyoming','UNLV','San Jose State','Hawaii'],'PAC-12'],
     // ── TIER 3 ──
     [['Charlotte','East Carolina','Florida Atlantic','Memphis','North Texas','Rice','South Florida','Temple','Tulane','Tulsa','UAB','UTSA','Wichita State'],'AAC'],
     [['Colorado State','San Diego State','Boise State','Utah State','Nevada','New Mexico','Fresno State','Air Force','Wyoming','UNLV','San Jose State','Hawaii'],'MWC'],
@@ -622,10 +622,16 @@ function buildTeamProjections(players, conf){
     // then TDC context multipliers layered on top
     const d40=(k40,statK,perMin)=>_projRate40(k40,statK,perMin*40,projCls,projGrp)/40 * rateGrowth;
 
-    let transferFactor = 1.0;
+    let transferFactor = 1.0, volTrans = 1.0;
     if(p.hometown && p.hometown.trim()){
       const originConf = getProjSchoolConf(p.hometown)||getSchoolConfFallback(p.hometown);
-      if(originConf && conf) transferFactor = getProjTransFactor(originConf, conf, grade);
+      if(originConf && conf){
+        transferFactor = getProjTransFactor(originConf, conf, grade);
+        // Per-minute SHOT VOLUME also translates by conference strength: an
+        // 18-shot night in the WCC is not an 18-shot night in the SEC. Moving
+        // down (or lateral) never boosts volume.
+        volTrans = Math.min(1, (PROJ_CONF_MULT[originConf]||0.85)/(PROJ_CONF_MULT[conf]||0.85));
+      }
     }
 
     // Percentage adjustment from conference difficulty
@@ -677,10 +683,10 @@ function buildTeamProjections(players, conf){
     let vacMult = 1 + _vac*0.55*Math.min(1,(oldFga/Math.max(6,_retFga))*3);
     if(isFinite(_usgNow) && _usgNow>=28) vacMult=Math.min(vacMult,1.10);
     if(isFinite(_tsNow)  && _tsNow<0.50) vacMult=Math.min(vacMult,1.06);
-    if(isTransferIn) vacMult=Math.min(vacMult,1.12);
+    if(isTransferIn) vacMult=Math.min(vacMult,1.0);   // vacancy belongs to returners
     vacMult=Math.min(vacMult,1.30);
     const fgaGrow=(PROJ_TRENDS.growth[projCls][projGrp]||{}).fga||1.0;
-    const newFgaE    = oldFga*(newMpg/baseMpg)*fgaGrow*vacMult;
+    const newFgaE    = oldFga*(newMpg/baseMpg)*fgaGrow*vacMult*(typeof volTrans!=='undefined'?volTrans:1);
     const volChange  = (baseMpg>=12) ? (newFgaE/oldFga-1) : 0;
     // efficiency cost of added volume, tempered by proven efficiency (TS%)
     let volPenalty = volChange*3.5;
@@ -712,28 +718,28 @@ function buildTeamProjections(players, conf){
 
     // Shot volume: minutes-driven, with measured class/pos FGA growth and the
     // team's usage vacancy on top.
-    const newFga = r1(pm.fga*fgaGrow*newMpg*vacMult);
-    const newTpa = r1(pm.tpa*fgaGrow*newMpg*vacMult);
+    const newFga = r1(pm.fga*fgaGrow*newMpg*vacMult*volTrans);
+    const newTpa = r1(pm.tpa*fgaGrow*newMpg*vacMult*volTrans);
 
     const pf     = posFitMult;
     // Derive all stats from components so PPG is always consistent with FGA.
     // Year progression shows through efficiency (fgProj) not shot-volume inflation.
     const fgm_v  = r1(newFga*(fgProj/100)*pf);
     const tpm_v  = r1(newTpa*(tpProj/100)*pf);
-    const fta_v  = r1(pm.fta*newMpg*pf*vacMult);
+    const fta_v  = r1(pm.fta*newMpg*pf*vacMult*volTrans);
     const ftm_v  = r1(fta_v*(ftProj/100));
     // PPG from components: 2×FGM + bonus point per 3PM + FTM
     const ppg_comp = fgm_v*2 + tpm_v + ftm_v;
     // PPG floor: per-minute scoring rate × new minutes × rateGrowth.
     // Catches cases where player_history FTA is incomplete (under-projects free throws).
     const ppgFloorMult = grade>=90?0.95:grade>=83?0.91:0.88;
-    const ppg_floor = d40('p40','ppg',pm.ppg) * newMpg * pf * ppgFloorMult * (1+(vacMult-1)*0.7);
+    const ppg_floor = d40('p40','ppg',pm.ppg) * newMpg * pf * ppgFloorMult * (1+(vacMult-1)*0.7) * volTrans;
 
     // Transfer scoring volume penalty for big conference jumps.
     // transPctAdj hits FG% but per-minute scoring also drops in stronger competition.
     // e.g. Winthrop → ACC: grade 84 player who scored 18 PPG won't replicate that rate.
-    const scoringTransMult = (isTransferIn && transferFactor < 0.90)
-      ? Math.max(0.78, 0.50 + transferFactor * 0.60)
+    const scoringTransMult = (isTransferIn && transferFactor < 0.95)
+      ? Math.max(0.78, 0.52 + transferFactor * 0.48)
       : 1.0;
 
     const ppg_v  = r1(Math.max(ppg_comp, ppg_floor) * scoringTransMult);
