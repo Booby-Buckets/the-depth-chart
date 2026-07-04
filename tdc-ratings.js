@@ -34,14 +34,29 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v7_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v8_'+SEASON, TTL=24*3600*1000;
   const CAL_A=11.75, CAL_B=2.355;          // calibrated BPM→SRS (see header)
   const BLEND_ROSTER=0.90, ANCHOR=0.70;    // roster weight; prior-SRS regression
   const CARRY=0.70;                        // rosterless teams: regressed SRS'26 carryover
-  // home court measured from our 20yr game history (scripts/calibrate_hca.py):
-  // mean home margin beyond the SRS gap, recent-5-season anchor; per-venue
-  // shrunk offsets ride on each team row (r.hca), this is only the fallback
-  const HOME_ADV=4.7, SIGMA=11;
+  // home court measured from our 20yr game history, controlled for opponent
+  // strength (scripts/calibrate_hca.py): a baseline curve by opponent rating
+  // (~+3.7 vs decent visitors, larger vs weak ones) + a shrunk per-venue
+  // offset (r.hcaOff). HOME_ADV is only the no-data fallback.
+  const HOME_ADV=3.7, SIGMA=11;
+  let _hcaCurve=null;                      // {base:[[srs,edge],...], capMin}
+  function baseHca(oppRating){
+    if(!_hcaCurve||!_hcaCurve.base||!_hcaCurve.base.length) return HOME_ADV;
+    const pts=_hcaCurve.base;
+    const x=Math.max(_hcaCurve.capMin!=null?_hcaCurve.capMin:-10, Math.min(pts[pts.length-1][0], oppRating));
+    if(x<=pts[0][0]) return pts[0][1];
+    for(let i=1;i<pts.length;i++){
+      if(x<=pts[i][0]){
+        const [x0,y0]=pts[i-1],[x1,y1]=pts[i];
+        return y0+(y1-y0)*(x-x0)/(x1-x0);
+      }
+    }
+    return pts[pts.length-1][1];
+  }
 
   function phi(x){ const t=1/(1+0.2316419*Math.abs(x)), d=0.3989423*Math.exp(-x*x/2);
     const p=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));
@@ -134,7 +149,7 @@
                                 :rosterRating;
       rows.push({team:short, full, conf:confOf[short]||'', rating:+rating.toFixed(2),
         roster:+rosterRating.toFixed(2), prior:prior!=null?+prior.toFixed(1):null, projected:true,
-        hca:hcaOf[full]!=null?hcaOf[full]:null});
+        hcaOff:hcaOf[full]!=null?hcaOf[full]:0});
     });
     // non-rostered D1 teams: regressed carryover of last season's SRS
     const covered=new Set(rows.map(r=>r.full));
@@ -144,7 +159,7 @@
       if(covered.has(t.team)||t.srs==null||!t.conference) return;
       rows.push({team:t.team, full:t.team, conf:t.conference||'', rating:+(CARRY*parseFloat(t.srs)).toFixed(2),
         roster:null, prior:+parseFloat(t.srs).toFixed(1), projected:false,
-        hca:hcaOf[t.team]!=null?hcaOf[t.team]:null});
+        hcaOff:hcaOf[t.team]!=null?hcaOf[t.team]:0});
     });
     rows.sort((a,b)=>b.rating-a.rating);
     // All-Play %: average win probability against the whole field
@@ -152,7 +167,8 @@
       r.allPlay=+(s/(rows.length-1)*100).toFixed(1); });
     rows.forEach((r,i)=>r.rank=i+1);
     return {season:SEASON, generated:new Date().toISOString(),
-      model:{calA:CAL_A,calB:CAL_B,blendRoster:BLEND_ROSTER,anchor:ANCHOR,homeAdv:HOME_ADV,sigma:SIGMA},
+      model:{calA:CAL_A,calB:CAL_B,blendRoster:BLEND_ROSTER,anchor:ANCHOR,homeAdv:HOME_ADV,sigma:SIGMA,
+        hcaBase:hcaData?{base:hcaData.base,capMin:hcaData.capMin}:null},
       teams:rows};
   }
 
@@ -178,15 +194,16 @@
   function get(){
     if(_mem) return Promise.resolve(_mem);
     if(_loading) return _loading;
+    const adopt=data=>{ if(data&&data.model&&data.model.hcaBase) _hcaCurve=data.model.hcaBase; _mem=data; return data; };
     _loading=(async()=>{
       const db=await readDb();
-      if(db){ _mem=db; return db; }
+      if(db) return adopt(db);
       try{
         const c=JSON.parse(localStorage.getItem(LS_KEY)||'null');
-        if(c&&c.t&&Date.now()-c.t<TTL&&c.data){ _mem=c.data; return c.data; }
+        if(c&&c.t&&Date.now()-c.t<TTL&&c.data) return adopt(c.data);
       }catch(e){}
       const data=await compute();
-      _mem=data;
+      adopt(data);
       try{ localStorage.setItem(LS_KEY,JSON.stringify({t:Date.now(),data})); }catch(e){}
       writeDb(data);
       return data;
@@ -195,10 +212,11 @@
   }
 
   // game line between two rating rows. venue: 'neutral' | 'home' (A hosts) | 'away'
-  // the HOST's own measured home-court number is used when we have it
+  // home edge = opponent-strength baseline (bigger vs weak visitors) + the
+  // HOST venue's own measured offset
   function lineFor(a,b,venue,totals){
-    const hc=venue==='home'?(a.hca!=null?a.hca:HOME_ADV)
-            :venue==='away'?-(b.hca!=null?b.hca:HOME_ADV):0;
+    const hc=venue==='home'?  baseHca(b.rating)+(a.hcaOff||0)
+            :venue==='away'?-(baseHca(a.rating)+(b.hcaOff||0)):0;
     const margin=a.rating-b.rating+hc;
     const pA=phi(margin/SIGMA);
     const total=(totals&&isFinite(totals))?totals:145.5;   // league-ish default
