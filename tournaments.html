@@ -57,6 +57,33 @@
     .box .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);text-decoration:none;}
     .box .nm:hover{color:var(--accent);}
     .box .sc{font-weight:700;font-variant-numeric:tabular-nums;color:var(--text2);min-width:22px;text-align:right;}
+    .box{cursor:pointer;}
+    .box:hover{border-color:var(--accent);}
+    .upset{position:absolute;top:-8px;right:6px;font-size:7.5px;font-weight:800;letter-spacing:.06em;color:#fff;background:var(--red);border-radius:6px;padding:1px 5px;z-index:2;}
+    /* game detail modal */
+    .gmodal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:34px 16px;}
+    .gmodal.on{display:flex;}
+    .gcard{background:var(--bg);border:1px solid var(--border2);border-radius:14px;width:760px;max-width:100%;overflow:hidden;}
+    .ghead{padding:16px 20px;border-bottom:1px solid var(--border);position:relative;}
+    .gclose{position:absolute;top:12px;right:14px;background:none;border:none;font-size:20px;color:var(--text3);cursor:pointer;line-height:1;}
+    .gmatch{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-top:4px;}
+    .gteam{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;}
+    .gteam .gsub{font-family:'Inter',sans-serif;font-size:10px;font-weight:600;color:var(--text3);margin-top:2px;}
+    .gscore{font-family:'Playfair Display',serif;font-weight:800;font-size:30px;font-variant-numeric:tabular-nums;}
+    .gwin{color:var(--accent);}
+    .grate{font-size:10px;font-weight:800;margin-top:3px;}
+    .gupset{margin:10px 20px 0;padding:8px 12px;border:1px solid var(--red);border-radius:8px;background:rgba(204,34,0,.08);font-size:12px;font-weight:700;color:var(--red);}
+    .gpog{margin:12px 20px 0;font-size:12px;color:var(--text2);}
+    .gpog b{color:var(--text);}
+    .gbody{padding:12px 16px 20px;}
+    .gbx{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:6px;}
+    .gbx th{font-size:8.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);text-align:right;padding:5px 6px;border-bottom:1px solid var(--border2);}
+    .gbx th.l{text-align:left;}
+    .gbx td{text-align:right;padding:5px 6px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;}
+    .gbx td.l{text-align:left;}
+    .gbx td.l a{color:var(--text);text-decoration:none;font-weight:600;}
+    .gbx tr.pog td{background:rgba(139,63,224,.07);}
+    .gbxh{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;margin:16px 6px 2px;}
     /* column fallback for non-bracket events (conf w/ byes, place games) */
     .rounds{display:flex;gap:16px;overflow-x:auto;padding-bottom:12px;align-items:flex-start;}
     .rcol{min-width:200px;flex:0 0 auto;}
@@ -101,6 +128,10 @@
     <div id="bracketView" style="display:none;"></div>
   </div>
 
+  <div class="gmodal" id="gmodal" onclick="if(event.target===this)closeGame()">
+    <div class="gcard" id="gcard"></div>
+  </div>
+
 <script>
 function toggleTheme(){
   const cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
@@ -138,14 +169,50 @@ async function fetchPaged(url){
   }
   return out;
 }
+let SRS={};   // team -> season SRS, for performance ratings + upset detection
 async function loadSeason(){
   curSeason=+document.getElementById('seasonSel').value;
   document.getElementById('bracketView').style.display='none';
   document.getElementById('listView').style.display='';
   document.getElementById('tlist').innerHTML='<div class="loading">Loading '+seasonLbl(curSeason)+' tournaments…</div>';
-  GAMES=await fetchPaged(`${SB}/rest/v1/tournament_games?season=eq.${curSeason}&select=*&order=round_order.asc,date.asc`);
+  const [games, srsRows]=await Promise.all([
+    fetchPaged(`${SB}/rest/v1/tournament_games?season=eq.${curSeason}&select=*&order=round_order.asc,date.asc`),
+    fetchPaged(`${SB}/rest/v1/team_seasons?season_year=eq.${curSeason}&srs=not.is.null&select=team,srs`),
+  ]);
+  GAMES=games; SRS={}; (srsRows||[]).forEach(r=>{ SRS[r.team]=parseFloat(r.srs); });
   renderList();
 }
+
+// per-game team performance rating + upset detection.
+// perf = how a team played vs its SRS-implied expectation (tournaments are ~neutral):
+//   expected margin (winner) = SRS_winner - SRS_loser ; residual = actual - expected.
+// a win as expected grades ~solid; overachieving (bigger win, or a close loss vs a
+// much better team) grades higher. Upset = the winner was an underdog (by seed for
+// NCAA, else by SRS).
+function gameRating(g){
+  if(g.winner_id==null||g.home_score==null||g.away_score==null) return null;
+  const hw=g.winner_id===g.home_id;
+  const win=hw?{nm:g.home,sc:g.home_score,seed:g.home_seed}:{nm:g.away,sc:g.away_score,seed:g.away_seed};
+  const los=hw?{nm:g.away,sc:g.away_score,seed:g.away_seed}:{nm:g.home,sc:g.home_score,seed:g.home_seed};
+  const margin=win.sc-los.sc;
+  const sW=SRS[win.nm], sL=SRS[los.nm];
+  const exp=(sW!=null&&sL!=null)?(sW-sL):null;               // expected winner margin (neutral)
+  const grade=perf=>Math.max(15,Math.min(99,Math.round(60+perf*2.0)));
+  let wGrade=null,lGrade=null;
+  if(exp!=null){ const res=margin-exp; wGrade=grade(res); lGrade=grade(-res); }
+  // upset: seeds are the accepted measure when present (NCAA/NIT), else use SRS
+  // with a meaningful gap so only genuine underdog wins get flagged
+  let upset=null;
+  if(win.seed&&los.seed){
+    if(win.seed>los.seed+1) upset={type:'seed',mag:win.seed-los.seed,label:`#${win.seed} over #${los.seed}`};
+  } else if(exp!=null&&exp<-4.5){
+    const short=win.nm.split(' ').slice(0,-1).join(' ')||win.nm;
+    upset={type:'srs',mag:Math.round(-exp),label:`${short} won as a ${Math.round(-exp)}-pt underdog`};
+  }
+  return {win,los,margin,exp:exp!=null?Math.round(exp*10)/10:null,wGrade,lGrade,upset};
+}
+const gradeWord=g=>g==null?'':g>=90?'Dominant':g>=80?'Great':g>=68?'Strong':g>=55?'Solid':g>=42?'Shaky':'Poor';
+const gradeCol=g=>g==null?'var(--text3)':g>=80?'var(--green)':g>=55?'var(--gold)':'var(--red)';
 function setCat(c){ curCat=c; document.querySelectorAll('#catPills .pill').forEach(p=>p.classList.toggle('on',p.dataset.cat===c)); renderList(); }
 function toggleNotable(){ notableOnly=!notableOnly; document.getElementById('notablePill').classList.toggle('on',notableOnly);
   document.getElementById('notablePill').textContent=notableOnly?'★ Notable only':'Show all'; renderList(); }
@@ -188,8 +255,9 @@ const BW=150, BH=42, GAPX=46, ROW=52, HEADY=26;
 const seedKey=g=>Math.min(g.home_seed||99, g.away_seed||99);
 function boxHtml(g,x,y){
   const hw=g.winner_id===g.home_id, aw=g.winner_id===g.away_id;
-  const row=(nm,sc,sd,win)=>`<div class="r ${win?'w':''}"><span class="sd">${sd?sd:''}</span><a class="nm" href="${teamLink(nm)}">${nm||'—'}</a><span class="sc">${sc==null?'':sc}</span></div>`;
-  return `<div class="box" style="left:${x}px;top:${y}px;">${row(g.home,g.home_score,g.home_seed,hw)}${row(g.away,g.away_score,g.away_seed,aw)}</div>`;
+  const row=(nm,sc,sd,win)=>`<div class="r ${win?'w':''}"><span class="sd">${sd?sd:''}</span><a class="nm" href="${teamLink(nm)}" onclick="event.stopPropagation()">${nm||'—'}</a><span class="sc">${sc==null?'':sc}</span></div>`;
+  const r=gameRating(g), up=r&&r.upset?`<div class="upset" title="${r.upset.label}">▲ UPSET</div>`:'';
+  return `<div class="box" style="left:${x}px;top:${y}px;" onclick="openGame(${g.id})">${up}${row(g.home,g.home_score,g.home_seed,hw)}${row(g.away,g.away_score,g.away_seed,aw)}</div>`;
 }
 // build a single-elimination tree from a set of games (link children by winner),
 // lay it out flowing dir=1 (rounds left->right, final on right) or dir=-1 (mirror)
@@ -337,8 +405,9 @@ function placeGames(gs){
 }
 function gameHtmlCol(g){
   const hw=g.winner_id===g.home_id, aw=g.winner_id===g.away_id;
-  const row=(nm,sc,sd,win)=>`<div class="grow ${win?'win':''}"><span class="seed">${sd?('#'+sd):''}</span><a class="gt" href="${teamLink(nm)}">${nm}</a><span class="gs">${sc==null?'':sc}</span></div>`;
-  return `<div class="game">${row(g.away,g.away_score,g.away_seed,aw)}${row(g.home,g.home_score,g.home_seed,hw)}</div>`;
+  const row=(nm,sc,sd,win)=>`<div class="grow ${win?'win':''}"><span class="seed">${sd?('#'+sd):''}</span><a class="gt" href="${teamLink(nm)}" onclick="event.stopPropagation()">${nm}</a><span class="gs">${sc==null?'':sc}</span></div>`;
+  const r=gameRating(g), up=r&&r.upset?`<div class="upset" style="position:static;margin:4px 9px 0;display:inline-block;">▲ UPSET</div>`:'';
+  return `<div class="game" style="cursor:pointer;" onclick="openGame(${g.id})">${row(g.away,g.away_score,g.away_seed,aw)}${row(g.home,g.home_score,g.home_seed,hw)}${up}</div>`;
 }
 function columnFallback(gs){
   const divs={}; gs.forEach(g=>{ (divs[g.division||'']=divs[g.division||'']||[]).push(g); });
@@ -355,6 +424,60 @@ function columnFallback(gs){
   return html;
 }
 function backToList(){ document.getElementById('bracketView').style.display='none'; document.getElementById('listView').style.display=''; }
+
+// ── game detail: box scores + performance ratings + upset ──
+// Hollinger-style game score = single-number performance for player-of-the-game
+function gameScore(p){
+  return (p.pts||0)+0.4*(p.fgm||0)-0.7*(p.fga||0)-0.4*((p.fta||0)-(p.ftm||0))
+    +0.7*(p.oreb||0)+0.3*(p.dreb||0)+(p.stl||0)+0.7*(p.ast||0)+0.7*(p.blk||0)-0.4*(p.pf||0)-(p.tov||0);
+}
+function closeGame(){ document.getElementById('gmodal').classList.remove('on'); }
+async function openGame(id){
+  const g=GAMES.find(x=>x.id===id); if(!g) return;
+  const m=document.getElementById('gmodal'), c=document.getElementById('gcard');
+  m.classList.add('on');
+  c.innerHTML='<div class="loading">Loading box score…</div>';
+  const bx=await fetch(`${SB}/rest/v1/box_scores?game_id=eq.${id}&select=player,espn_id,team,starter,min,pts,reb,oreb,dreb,ast,stl,blk,tov,pf,fgm,fga,tpm,tpa,ftm,fta`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  const r=gameRating(g);
+  const hw=g.winner_id===g.home_id;
+  const teamHtml=(nm,sc,seed,winSide,grade)=>`<div style="text-align:${winSide==='l'?'left':'right'};">
+      <div class="gteam ${(hw===(winSide==='l'))?'gwin':''}">${seed?`<span style="font-size:11px;color:var(--text3);">#${seed}</span> `:''}${nm}</div>
+      ${grade!=null?`<div class="grate" style="color:${gradeCol(grade)}">${grade} · ${gradeWord(grade)}</div>`:''}
+    </div>`;
+  const homeSide=teamHtml(g.home,g.home_score,g.home_seed,'l', r?(hw?r.wGrade:r.lGrade):null);
+  const awaySide=teamHtml(g.away,g.away_score,g.away_seed,'r', r?(hw?r.lGrade:r.wGrade):null);
+  const dateStr=g.date?new Date(g.date+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}):'';
+  let html=`<div class="ghead"><button class="gclose" onclick="closeGame()">✕</button>
+    <div style="font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">${g.tournament} · ${g.round||''}</div>
+    <div class="gmatch">${homeSide}
+      <div style="text-align:center;"><span class="gscore ${hw?'gwin':''}">${g.home_score}</span><span style="color:var(--text3);margin:0 6px;">–</span><span class="gscore ${!hw?'gwin':''}">${g.away_score}</span>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px;">${dateStr}</div></div>
+      ${awaySide}</div></div>`;
+  if(r&&r.upset) html+=`<div class="gupset">🚨 UPSET — ${r.upset.label}${r.exp!=null?` · expected ${r.win.nm.split(' ').slice(-1)} by ${Math.abs(r.exp)}`:''}</div>`;
+  if(r&&r.exp!=null) html+=`<div class="gpog" style="color:var(--text3);">Result vs expectation: winner projected by <b>${r.exp>=0?r.exp:'−'+Math.abs(r.exp)}</b>, won by <b>${r.margin}</b>.</div>`;
+
+  if(bx&&bx.length){
+    const pog=bx.slice().sort((a,b)=>gameScore(b)-gameScore(a))[0];
+    if(pog) html+=`<div class="gpog">⭐ Player of the game: <b>${pog.player}</b> (${pog.team.split(' ').slice(-1)}) — ${pog.pts} pts, ${pog.reb} reb, ${pog.ast} ast</div>`;
+    html+='<div class="gbody">';
+    [g.home,g.away].forEach(tn=>{
+      const rows=bx.filter(p=>p.team===tn).sort((a,b)=>(b.starter-a.starter)||(b.min-a.min));
+      if(!rows.length) return;
+      html+=`<div class="gbxh">${tn}</div><table class="gbx"><thead><tr>
+        <th class="l">Player</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>FG</th><th>3P</th><th>FT</th><th>TO</th></tr></thead><tbody>`;
+      rows.forEach(p=>{ html+=`<tr class="${p===pog?'pog':''}">
+        <td class="l"><a href="${p.espn_id?`player.html?espn=${p.espn_id}`:teamLink(tn)}">${p.player}${p.starter?'':' <span style="color:var(--text3);font-size:9px;">(b)</span>'}</a></td>
+        <td>${p.min??''}</td><td><b>${p.pts??0}</b></td><td>${p.reb??0}</td><td>${p.ast??0}</td><td>${p.stl??0}</td><td>${p.blk??0}</td>
+        <td>${p.fgm}-${p.fga}</td><td>${p.tpm}-${p.tpa}</td><td>${p.ftm}-${p.fta}</td><td>${p.tov??0}</td></tr>`; });
+      html+='</tbody></table>';
+    });
+    html+='</div>';
+  } else {
+    html+='<div class="gbody"><div class="loading" style="padding:30px;">No box score on file for this game.</div></div>';
+  }
+  c.innerHTML=html;
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape')closeGame(); });
 </script>
 </body>
 </html>
