@@ -1166,6 +1166,10 @@ async function _seasonRowFor(pick){
   try{
     let cands=await fetch(`${SB}/rest/v1/team_seasons?team=ilike.${encodeURIComponent(pick.name+'*')}&season_year=eq.2026&select=${TS_SEL}&limit=50`,{headers:H}).then(r=>r.ok?r.json():[]);
     if(cands&&cands.length){
+      // conference breaks name collisions (Illinois vs Illinois State)
+      const CONF_FRAG={'B10':'Big Ten','SEC':'Southeastern','ACC':'Atlantic Coast','BIG-12':'Big 12','Big-East':'Big East'};
+      const frag=CONF_FRAG[pick.conf||pick.conference];
+      if(frag){ const inConf=cands.filter(r=>(r.conference||'').indexOf(frag)>=0); if(inConf.length) cands=inConf; }
       cands.sort((a,b)=>(a.team.split(/\s+/).length-b.team.split(/\s+/).length)||(a.team.length-b.team.length));
       row={...cands[0],name:cands[0].team,conf:cands[0].conference};
     }

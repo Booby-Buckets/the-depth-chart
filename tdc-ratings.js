@@ -34,7 +34,7 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v2_'+SEASON, TTL=24*3600*1000;
   const CAL_A=11.75, CAL_B=2.355;          // calibrated BPM→SRS (see header)
   const BLEND_ROSTER=0.78, ANCHOR=0.70;    // roster weight; prior-SRS regression
   const HOME_ADV=3.2, SIGMA=11;
@@ -59,14 +59,22 @@
     }
     return out;
   }
-  // short roster name ("Duke") → full team_seasons name ("Duke Blue Devils"):
-  // exact/word-prefix, fewest words wins; parenthesised campuses respected.
-  function matchFull(short, fullNames){
-    const cands=fullNames.filter(t=>t===short||t.indexOf(short+' ')===0);
+  // short roster name ("Duke") → full team_seasons name ("Duke Blue Devils").
+  // Word-prefix candidates disambiguated by CONFERENCE first — "Illinois"
+  // matches both the Fighting Illini and Illinois State, and only the league
+  // tells them apart — then fewest words / shortest.
+  const CONF_FRAG={'B10':'Big Ten','SEC':'Southeastern','ACC':'Atlantic Coast','BIG-12':'Big 12','Big-East':'Big East'};
+  function matchFull(short, tsRows, confCode){
+    let cands=tsRows.filter(t=>t.team===short||t.team.indexOf(short+' ')===0);
     if(!cands.length) return null;
-    const nopar=cands.filter(t=>t.indexOf('(')<0);
+    const frag=CONF_FRAG[confCode];
+    if(frag){
+      const inConf=cands.filter(t=>(t.conference||'').indexOf(frag)>=0);
+      if(inConf.length) cands=inConf;
+    }
+    const nopar=cands.filter(t=>t.team.indexOf('(')<0);
     const pool=(short.indexOf('(')<0&&nopar.length)?nopar:cands;
-    return pool.sort((a,b)=>(a.split(/\s+/).length-b.split(/\s+/).length)||(a.length-b.length))[0];
+    return pool.sort((a,b)=>(a.team.split(/\s+/).length-b.team.split(/\s+/).length)||(a.team.length-b.team.length))[0].team;
   }
 
   async function compute(){
@@ -78,7 +86,7 @@
     ]);
     const confOf={}; (teams||[]).forEach(t=>{ confOf[t.name]=t.conf||t.conference||''; });
     const advById={}; (bb||[]).forEach(r=>{ if(r.espn_id!=null&&r.advanced) advById[r.espn_id]=r.advanced; });
-    const fullNames=(ts||[]).map(t=>t.team);
+    const tsRows=(ts||[]);
     const srsOf={}; (ts||[]).forEach(t=>{ if(t.srs!=null) srsOf[t.team]=parseFloat(t.srs); });
 
     // group rostered players by team
@@ -110,7 +118,7 @@
       const minSum=entries.reduce((s,e)=>s+e.min,0)||1;
       const mw=entries.reduce((s,e)=>s+e.projBpm*(e.min/minSum),0);
       const rosterRating=CAL_A+CAL_B*mw;
-      const full=matchFull(short, fullNames)||short;
+      const full=matchFull(short, tsRows, confOf[short])||short;
       const prior=srsOf[full];
       const rating=(prior!=null)?(BLEND_ROSTER*rosterRating+(1-BLEND_ROSTER)*(ANCHOR*prior))
                                 :rosterRating;
