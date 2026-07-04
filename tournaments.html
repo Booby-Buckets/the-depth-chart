@@ -477,8 +477,12 @@ async function openGame(id){
       <div style="text-align:center;"><span class="gscore ${hw?'gwin':''}">${g.home_score}</span><span style="color:var(--text3);margin:0 6px;">–</span><span class="gscore ${!hw?'gwin':''}">${g.away_score}</span>
         <div style="font-size:10px;color:var(--text3);margin-top:2px;">${dateStr}</div></div>
       ${awaySide}</div></div>`;
-  if(r&&r.upset) html+=`<div class="gupset">🚨 UPSET — ${r.upset.label}${r.exp!=null?` · expected ${r.win.nm.split(' ').slice(-1)} by ${Math.abs(r.exp)}`:''}</div>`;
-  if(r&&r.exp!=null) html+=`<div class="gpog" style="color:var(--text3);">Result vs expectation: winner projected by <b>${r.exp>=0?r.exp:'−'+Math.abs(r.exp)}</b>, won by <b>${r.margin}</b>.</div>`;
+  // the favorite is whoever the model projected to win: the winner if exp>=0
+  // (they were favored and won), else the loser (they were favored but lost = upset)
+  const fav = r&&r.exp!=null ? (r.exp>=0?r.win:r.los) : null;
+  const favShort = fav ? (fav.nm.split(' ').slice(0,-1).join(' ')||fav.nm) : '';
+  if(r&&r.upset) html+=`<div class="gupset">🚨 UPSET — ${r.upset.label}${fav?` · ${favShort} favored by ${Math.abs(r.exp)}`:''}</div>`;
+  if(r&&r.exp!=null) html+=`<div class="gpog" style="color:var(--text3);">Model favored <b>${favShort}</b> by <b>${Math.abs(r.exp)}</b> — ${r.win.nm.split(' ').slice(0,-1).join(' ')||r.win.nm} won by <b>${r.margin}</b>.</div>`;
 
   if(bx&&bx.length){
     const pog=bx.slice().sort((a,b)=>gameScore(b)-gameScore(a))[0];
