@@ -1712,43 +1712,37 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
 
 
   // ── NATIONAL PERCENTILE CALC ─────────────────────────────
-  const tmap={};
-  (window._allPlayersGlobal||[]).forEach(p=>{
-    if(!p.team||!p.ppg) return;
-    if(!tmap[p.team]) tmap[p.team]={ppg:0,rpg:0,apg:0,fgm:0,fga:0,tpm:0,tpa:0,ftm:0,fta:0,oreb:0,dreb:0,stl:0,blk:0,tovs:0};
-    const t=tmap[p.team];
-    ['ppg','rpg','apg','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','stl','blk','tovs'].forEach(k=>{ t[k]+=(parseFloat(p[k])||0); });
-  });
-  Object.values(tmap).forEach(t=>{
-    t.fg_pct=t.fga>0?t.fgm/t.fga*100:0;
-    t.tp_pct=t.tpa>0?t.tpm/t.tpa*100:0;
-    t.ft_pct=t.fta>0?t.ftm/t.fta*100:0;
-  });
-  const natTeams=Object.values(tmap).filter(t=>t.ppg>0);
-
+  // Compare against ALL 365 D1 teams' real season stats (team_seasons), not a
+  // pool summed from the rostered power conferences — 74% FT is a bad P5 mark
+  // but a perfectly average national one.
+  let natRows=[];
+  try{ natRows=await fetch(`${SB_URL}/rest/v1/team_seasons?season_year=eq.2026&select=ppg,rpg,apg,spg,bpg,topg,orpg,drpg,fg_pct,tp_pct,ft_pct&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  window._natRows2026=natRows;
   const teamPct=(val,key,invert=false)=>{
-    const vals=natTeams.map(t=>parseFloat(t[key]||0)).sort((a,b)=>a-b);
-    if(!vals.length) return 50;
-    const rank=vals.filter(v=>v<=val).length;
-    const p=Math.round((rank/vals.length)*100);
-    return invert?100-p:p;
+    const vals=(natRows||[]).map(t=>parseFloat(t[key])).filter(isFinite).sort((a,b)=>a-b);
+    if(!vals.length) return null;
+    const below=vals.filter(v=>invert? v>val : v<val).length;
+    return Math.round(below/vals.length*100);
   };
 
-  const ppgPct=teamPct(fPpg,'ppg'),rpgPct=teamPct(fRpg,'rpg'),apgPct=teamPct(fApg,'apg');
+  const ppgPct=teamPct(fPpg,'ppg'),rpgPct=teamPct(fRpg+2.5,'rpg'),apgPct=teamPct(fApg,'apg');
   const fgPct2=teamPct(fFgPct,'fg_pct'),tpPct2=teamPct(fTpPct,'tp_pct'),ftPct2=teamPct(fFtPct,'ft_pct');
-  const tovPct=teamPct(tTovs,'tovs'),stlPct=teamPct(tStl,'stl'),blkPct=teamPct(tBlk,'blk');
-  const orebPct=teamPct(fOreb,'oreb'),drebPct=teamPct(fDreb,'dreb');
+  const tovPct=teamPct(tTovs,'topg',true),stlPct=teamPct(tStl,'spg'),blkPct=teamPct(tBlk,'bpg');
+  // official team rebounding includes ~2.5 team rebounds/game that player sums
+  // can't credit — add them back so the ranking is like-for-like
+  const orebPct=teamPct(fOreb+0.8,'orpg'),drebPct=teamPct(fDreb+1.7,'drpg');
 
+  const _pOrd=n=>{const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);};
   const pctBar=(pct)=>{
-    const c=pct>=75?color:pct>=50?'#B16BFF':pct>=25?'#e07020':'#cc2200';
-    const barW=Math.max(2,pct); // minimum 2% so 0th is still visible
+    if(pct==null) return '<div style="font-size:9px;color:var(--text3);margin-top:10px;">Model projection</div>';
+    const barW=Math.max(2,pct);
     return `<div style="display:flex;align-items:center;gap:5px;margin-top:8px;">
       <div style="flex:1;height:4px;background:rgba(128,128,128,0.25);border-radius:2px;overflow:hidden;">
-        <div style="width:${barW}%;height:100%;background:${c};border-radius:2px;"></div>
+        <div style="width:${barW}%;height:100%;background:var(--accent);border-radius:2px;"></div>
       </div>
-      <span style="font-size:9px;font-weight:700;color:${c};min-width:28px;text-align:right;">${pct}th</span>
+      <span style="font-size:9px;font-weight:700;color:var(--accent);min-width:28px;text-align:right;">${_pOrd(pct)}</span>
     </div>
-    <div style="font-size:9px;color:var(--text3);margin-top:2px;">Natl. percentile</div>`;
+    <div style="font-size:9px;color:var(--text3);margin-top:2px;">vs all D1 · 2025-26</div>`;
   };
 
   const statCard=(label,val,pct)=>`
@@ -3747,34 +3741,25 @@ function renderProjNatlChart(projected, color, rgb){
   const tStl=r1(tot('stl')), tBlk=r1(tot('blk')), tTovs=r1(tot('tovs'));
   const tOreb=r1(tot('oreb')), tDreb=r1(tot('dreb'));
 
-  // Build national team totals from global allPlayers
-  const tmap={};
-  (window._allPlayersGlobal||[]).forEach(p=>{
-    if(!p.team||!p.ppg) return;
-    if(!tmap[p.team]) tmap[p.team]={ppg:0,rpg:0,apg:0,fgm:0,fga:0,tpm:0,tpa:0,ftm:0,fta:0,oreb:0,dreb:0,stl:0,blk:0,tovs:0};
-    const t=tmap[p.team];
-    ['ppg','rpg','apg','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','stl','blk','tovs'].forEach(k=>{ t[k]+=(parseFloat(p[k])||0); });
-  });
-  Object.values(tmap).forEach(t=>{
-    t.fg_pct=t.fga>0?t.fgm/t.fga*100:0;
-    t.tp_pct=t.tpa>0?t.tpm/t.tpa*100:0;
-    t.ft_pct=t.fta>0?t.ftm/t.fta*100:0;
-  });
-  const teams=Object.values(tmap).filter(t=>t.ppg>0);
+  // National field = ALL 365 D1 teams' official season stats (fetched by
+  // renderProjections); player-summed pools skew power-conference.
+  const teams=(window._natRows2026||[]).map(r=>({
+    ppg:+r.ppg, rpg:+r.rpg, apg:+r.apg, fg_pct:+r.fg_pct, tp_pct:+r.tp_pct, ft_pct:+r.ft_pct,
+    tovs:+r.topg, stl:+r.spg, blk:+r.bpg, oreb:+r.orpg, dreb:+r.drpg,
+  })).filter(t=>isFinite(t.ppg));
 
   const pct=(val,key,invert)=>{
-    const vals=teams.map(t=>parseFloat(t[key]||0)).sort((a,b)=>a-b);
+    const vals=teams.map(t=>parseFloat(t[key])).filter(isFinite).sort((a,b)=>a-b);
     if(!vals.length) return 50;
-    const rank=vals.filter(v=>v<=val).length;
-    const p=Math.round((rank/vals.length)*100);
-    return invert?100-p:p;
+    const below=vals.filter(v=>invert? v>val : v<val).length;
+    return Math.round(below/vals.length*100);
   };
 
   const teamVals=[
-    pct(tPpg,'ppg'), pct(tRpg,'rpg'), pct(tApg,'apg'),
+    pct(tPpg,'ppg'), pct(tRpg+2.5,'rpg'), pct(tApg,'apg'),
     pct(tFgPct,'fg_pct'), pct(tTpPct,'tp_pct'), pct(tFtPct,'ft_pct'),
-    pct(tTovs,'tovs'), pct(tStl,'stl'), pct(tBlk,'blk'),
-    pct(tOreb,'oreb'), pct(tDreb,'dreb')
+    pct(tTovs,'tovs',true), pct(tStl,'stl'), pct(tBlk,'blk'),
+    pct(tOreb+0.8,'oreb'), pct(tDreb+1.7,'dreb')
   ];
 
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
