@@ -3242,7 +3242,7 @@ async function renderNil(){
   const valPct=Math.round(d.value/maxv*100), budPct=Math.round(d.budget/maxv*100);
   let html=`<div style="display:flex;flex-wrap:wrap;gap:13px;margin-bottom:20px;">
     <div class="nil-card"><div class="nil-lbl">NIL Budget · Tier ${d.tier}</div><div class="nil-big">${fmt(d.budget)}</div></div>
-    <div class="nil-card"><div class="nil-lbl">Roster Value</div><div class="nil-big" style="color:${col}">${fmt(d.value)}</div></div>
+    <div class="nil-card"><div class="nil-lbl">Roster Value</div><div class="nil-big" style="color:var(--tc-readable,${col})">${fmt(d.value)}</div></div>
     <div class="nil-card" style="border-color:${deal?'var(--green)':'var(--red)'}"><div class="nil-lbl">Verdict</div><div class="nil-big" style="color:${deal?'var(--green)':'var(--red)'}">${deal?'DEAL':'EXPENSIVE'}</div><div class="nil-sub">${fmt(Math.abs(d.diff))} ${deal?'under budget':'overpay'}</div></div>
     <div class="nil-card"><div class="nil-lbl">Cost / Net Point</div><div class="nil-big">$${Math.round(d.implied_rate*1000)}K</div><div class="nil-sub">market $${Math.round(mkt*1000)}K</div></div>
   </div>
@@ -3259,7 +3259,7 @@ async function renderNil(){
   d.players.forEach(p=>{ const im=(p.impact!=null?+p.impact:+p.bpm);
     const inj=_injSet.has((p.name||'').toLowerCase().trim());
     const injTag=inj?` <span style="font-size:8px;font-weight:700;padding:1px 4px;background:rgba(220,38,38,.12);color:#ef4444;border:1px solid rgba(220,38,38,.3);border-radius:3px;">OUT 2026-27</span>`:'';
-    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="left">${p.name}${injTag}</td><td>${im>0?'+':''}${im.toFixed(1)}</td><td>${Math.round(p.mpg)}</td><td>×${(+p.prem||1).toFixed(2)}</td><td style="font-weight:700;color:${col}${inj?';text-decoration:line-through;':''}">${fmt(p.value)}</td></tr>`; });
+    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="left">${p.name}${injTag}</td><td>${im>0?'+':''}${im.toFixed(1)}</td><td>${Math.round(p.mpg)}</td><td>×${(+p.prem||1).toFixed(2)}</td><td style="font-weight:700;color:var(--tc-readable,${col})${inj?';text-decoration:line-through;':''}">${fmt(p.value)}</td></tr>`; });
   html+=`</tbody></table>
   <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:14px;max-width:860px;"><b>Impact / 100</b> is a composite — BPM, Win Shares, PER and the player's TDC grade (usage, TS%, rates, Wins Added, team success), on the net-rating scale. Value = (impact − replacement) × (minutes ÷ 40) × $${Math.round(mkt*1000)}K/point, then a <b>market premium (Prem)</b> for what the NIL market over-pays for — <b>size, scoring and conference</b>. 2026-27 blends last season's impact with a grade projection. A <b>rotation floor</b> keeps any player who logs real minutes above $0 (value from minutes, size and production). Budget is the team's NIL-tier midpoint — roster value above budget = a <b>deal</b>, below = <b>paying a premium</b>.</div>`;
   host.innerHTML=html;
