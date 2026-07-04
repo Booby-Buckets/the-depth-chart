@@ -228,6 +228,7 @@
     .imp-delta{font-size:10.5px;font-weight:800;margin:1px 0 2px;}
     .imp-up{color:#1a8c3a;} .imp-down{color:#cc2200;} .imp-flat{color:var(--text3);opacity:.5;}
     .imp-sub{font-size:9px;color:var(--text3);}
+    .imp-rank{font-size:8.5px;font-weight:800;color:var(--tc-readable,var(--accent));margin-bottom:1px;}
     /* WEAKNESS SCOUT */
     .weak-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:10px;margin-bottom:18px;}
     .weak-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:13px 14px;display:flex;flex-direction:column;gap:8px;}
@@ -2928,13 +2929,23 @@ function confirmSwap(playerKey){
 // ── TEAM ADVANCED STATS (live deltas) ─────────────────────
 // team-level advanced line from a set of projected per-player rows: everything
 // the lab edits (minutes, swaps, roles, positions) flows through here.
-function calcTeamAdvanced(proj){
+function calcTeamAdvanced(proj, skipCal){
   const rot=(proj||[]).filter(p=>(parseFloat(p.mpg)||0)>0).sort((a,b)=>(parseFloat(b.mpg)||0)-(parseFloat(a.mpg)||0)).slice(0,10);
   if(!rot.length) return null;
   const S=k=>rot.reduce((s,p)=>s+(parseFloat(p[k])||0),0);
-  const pts=S('ppg'), fgm=S('fgm'), fga=S('fga'), tpm=S('tpm'), tpa=S('tpa'),
-        ftm=S('ftm'), fta=S('fta'), or_=S('oreb'), dr=S('dreb'),
-        ast=S('apg'), tov=S('tovs'), stl=S('stl'), blk=S('blk');
+  let pts=S('ppg'), fgm=S('fgm'), fga=S('fga'), tpm=S('tpm'), tpa=S('tpa'),
+      ftm=S('ftm'), fta=S('fta'), or_=S('oreb'), dr=S('dreb'),
+      ast=S('apg'), tov=S('tovs'), stl=S('stl'), blk=S('blk');
+  // calibration to the team's real projected totals (see ensureNatField):
+  // summed player lines undercount team-level stats (team rebounds, deadball,
+  // conservative per-player projections) — factors anchor the baseline to
+  // team_projections and apply identically to every custom lineup
+  if(_labCal&&!skipCal){
+    const c=_labCal;
+    pts*=c.ppg; fgm*=c.fga; fga*=c.fga; tpm*=c.tpa; tpa*=c.tpa;
+    ftm*=c.ppg; fta*=c.ppg; or_*=c.oreb; dr*=c.dreb;
+    ast*=c.apg; tov*=c.tov; stl*=c.stl; blk*=c.blk;
+  }
   const poss=Math.max(1,fga+0.44*fta-or_+tov);
   const r1=v=>Math.round(v*10)/10;
   return {
@@ -2948,10 +2959,57 @@ function calcTeamAdvanced(proj){
     tovPct:r1(tov/Math.max(1,fga+0.44*fta+tov)*100),
     reb:r1(or_+dr), oreb:r1(or_), orbPct:r1(or_/Math.max(1,or_+dr)*100),
     stl:r1(stl), blk:r1(blk), stocks:r1(stl+blk),
+    _fga:r1(fga), _tpa:r1(tpa), _tov:r1(tov),
   };
 }
 let _baseAdvanced=null;
+// real national field (last season's 365 teams) — grounds every projected
+// number in an actual national rank instead of a floating value
+let _natField=null,_natLoading=false,_labCal=null;
+function ensureNatField(){
+  if(_natField||_natLoading) return;
+  _natLoading=true;
+  const refresh=()=>{
+    _baseAdvanced=null;   // recompute the baseline on the calibrated scale
+    const imp=document.getElementById('impactPanel');
+    if(imp){ const t=document.createElement('div'); t.innerHTML=renderImpactPanel(); imp.replaceWith(t.firstElementChild); }
+    const wk=document.getElementById('weakPanel');
+    if(wk){ const tw=document.createElement('div'); tw.innerHTML=renderWeaknessPanel(); wk.replaceWith(tw.firstElementChild); }
+  };
+  Promise.all([
+    fetch(`${SB_URL}/rest/v1/team_seasons?season_year=eq.2026&conference=not.is.null&select=ppg,rpg,apg,spg,bpg,topg,tp_pct,ft_pct&limit=1000`,{headers:H})
+      .then(r=>r.ok?r.json():[]).catch(()=>[]),
+    fetch(`${SB_URL}/rest/v1/team_projections?team=eq.${encodeURIComponent(teamT?.name||'')}&select=*&limit=1`,{headers:H})
+      .then(r=>r.ok?r.json():[]).catch(()=>[]),
+  ]).then(([rows,projRow])=>{
+    const col=fn=>rows.map(fn).filter(v=>isFinite(v)).sort((a,b)=>a-b);
+    _natField={
+      ppg:col(r=>+r.ppg), reb:col(r=>+r.rpg), tpPct:col(r=>+r.tp_pct), ftPct:col(r=>+r.ft_pct),
+      astTo:col(r=>+r.topg>0?+r.apg/+r.topg:NaN), stocks:col(r=>(+r.spg||0)+(+r.bpg||0)), apg:col(r=>+r.apg),
+    };
+    // calibration factors: this team's real projected totals / raw baseline sums
+    const tp=projRow&&projRow[0];
+    const raw=calcTeamAdvanced(_baseCustomProj.length?_baseCustomProj:buildCustomProjections(), true);
+    if(tp&&raw){
+      const f=(num,den)=>{ num=+num; den=+den; return (isFinite(num)&&num>0&&isFinite(den)&&den>0)?Math.max(0.85,Math.min(1.45,num/den)):1; };
+      _labCal={
+        ppg:f(tp.ppg,raw.ppg), fga:f(tp.fga,raw._fga), tpa:f(tp.tpa,raw._tpa),
+        oreb:f(tp.oreb,raw.oreb), dreb:f(tp.dreb,raw.reb-raw.oreb),
+        apg:f(tp.apg,raw.apg), tov:f(tp.tov,raw._tov), stl:f(tp.stl,raw.stl), blk:f(tp.blk,raw.blk),
+      };
+    }
+    refresh();
+  }).catch(()=>{ _natLoading=false; });
+}
+function natRank(key,v){
+  const a=_natField&&_natField[key];
+  if(!a||!a.length||!isFinite(v)) return null;
+  let lo=0,hi=a.length;
+  while(lo<hi){ const m=(lo+hi)>>1; if(a[m]<v) lo=m+1; else hi=m; }
+  return {rank:a.length-lo+1, n:a.length, pct:Math.round(lo/a.length*100)};
+}
 function renderImpactPanel(){
+  ensureNatField();
   const proj=buildCustomProjections();
   const adv=calcTeamAdvanced(proj);
   if(!adv) return '<div id="impactPanel"></div>';
@@ -2962,16 +3020,18 @@ function renderImpactPanel(){
     const v=adv[key], b=base[key], d=Math.round((v-b)*10)/10;
     const moved=Math.abs(d)>=0.1;
     const up=inv?d<0:d>0;
+    const nr=natRank(key,v);
     return `<div class="imp-cell">
       <div class="imp-label">${label}</div>
       <div class="imp-val">${v}${pctSign?'%':''}</div>
       <div class="imp-delta ${moved?(up?'imp-up':'imp-down'):'imp-flat'}">${moved?(d>0?'+':'')+d+(pctSign?'%':''):'—'}</div>
+      ${nr?`<div class="imp-rank">#${nr.rank} of ${nr.n} nationally</div>`:''}
       <div class="imp-sub">${sub}</div>
     </div>`;
   };
   return `<div id="impactPanel">
     <div class="imp-head">
-      <span>Team Impact <em>· live — every change re-projects these</em></span>
+      <span>Team Impact <em>· live — ranks vs last season's real national field</em></span>
       <span class="imp-quality">Lineup quality <b>${a.avgGrade??'—'}</b>${baseAnalytics&&a.avgGrade!=null?(()=>{const d=Math.round((a.avgGrade-baseAnalytics.avgGrade)*10)/10;return Math.abs(d)>=0.1?` <i class="${d>0?'imp-up':'imp-down'}">${d>0?'+':''}${d}</i>`:'';})():''}</span>
     </div>
     <div class="imp-grid">
