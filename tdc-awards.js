@@ -25,7 +25,7 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_awards_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_awards_v2_'+SEASON, TTL=24*3600*1000;
 
   function cls(yr){ yr=((yr||'')+'').toLowerCase();
     if(yr.includes('fr')) return 'FR';
@@ -166,5 +166,14 @@
     return hits;
   }
 
-  g.TDC_AWARDS={get, lookup, SEASON};
+  // force a recompute + DB overwrite — run from the console after player grades
+  // change upstream, so the shared award_projections row reflects the new grades
+  async function refresh(){
+    const awards=await compute();
+    _mem=awards;
+    try{ localStorage.setItem(LS_KEY,JSON.stringify({t:Date.now(),awards})); }catch(e){}
+    await writeDb(awards);
+    return awards;
+  }
+  g.TDC_AWARDS={get, refresh, lookup, SEASON};
 })(window);
