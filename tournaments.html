@@ -42,14 +42,17 @@
     .bchamp{font-size:13px;color:var(--text2);margin-bottom:18px;}
     .bchamp b{color:var(--gold);}
     .region{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);margin:22px 0 10px;padding-bottom:5px;border-bottom:2px solid var(--border2);}
-    /* real bracket: absolutely-positioned boxes + SVG connector lines */
-    .bktscroll{overflow-x:auto;padding-bottom:20px;}
+    /* real bracket: absolutely-positioned boxes + SVG connector lines.
+       full-bleed the scroll container so a wide bracket uses the whole screen */
+    .bktscroll{overflow-x:auto;padding:8px 28px 20px;width:100vw;position:relative;left:50%;margin-left:-50vw;}
     .bktcanvas{position:relative;}
     .bktsvg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;}
     .bktlabel{position:absolute;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:center;}
     .bktregion{position:absolute;font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:var(--text2);opacity:.5;}
-    .box{position:absolute;width:150px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+    .box{position:absolute;width:150px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.06);}
     .box .r{display:flex;align-items:center;gap:5px;height:21px;padding:0 7px;font-size:11.5px;}
+    .box .r:first-child{border-radius:6px 6px 0 0;}
+    .box .r:last-child{border-radius:0 0 6px 6px;}
     .box .r+.r{border-top:1px solid var(--border);}
     .box .r.w{background:linear-gradient(90deg,rgba(139,63,224,.14),transparent);}
     .box .r.w .nm{font-weight:800;}
@@ -59,7 +62,11 @@
     .box .sc{font-weight:700;font-variant-numeric:tabular-nums;color:var(--text2);min-width:22px;text-align:right;}
     .box{cursor:pointer;}
     .box:hover{border-color:var(--accent);}
-    .upset{position:absolute;top:-8px;right:6px;font-size:7.5px;font-weight:800;letter-spacing:.06em;color:#fff;background:var(--red);border-radius:6px;padding:1px 5px;z-index:2;}
+    .upset{position:absolute;top:-9px;right:5px;font-size:8px;font-weight:800;letter-spacing:.05em;color:#fff;background:var(--red);border-radius:7px;padding:1px 6px;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.3);white-space:nowrap;}
+    .ffstrip{margin:8px 0 14px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;display:inline-block;}
+    .ffhead{font-size:9px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+    .ffgames{display:flex;gap:12px;flex-wrap:wrap;}
+    .ffgames .game{min-width:190px;margin:0;}
     /* game detail modal */
     .gmodal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:34px 16px;}
     .gmodal.on{display:flex;}
@@ -269,7 +276,9 @@ function boxHtml(g,x,y){
 // build a single-elimination tree from a set of games (link children by winner),
 // lay it out flowing dir=1 (rounds left->right, final on right) or dir=-1 (mirror)
 function layoutTree(games, dir, ox, slotBase){
-  const main=games.filter(g=>!/place|consolation|3rd|5th|7th/i.test(g.round||''));
+  // First Four / play-in games are pre-round appendages — kept out of the main
+  // tree so the 8-team region stays a clean bracket (rendered in their own strip)
+  const main=games.filter(g=>!/place|consolation|3rd|5th|7th|first four|play-?in/i.test(g.round||''));
   if(!main.length) return null;
   // link each game to its feeders by RESULTS, not round names: a game's child on
   // each side is the most recent earlier game that team won to get here. Immune to
@@ -324,6 +333,13 @@ function bracketBlock(inner, w, h){
 }
 function labelHtml(x,name){ return `<div class="bktlabel" style="left:${x}px;top:2px;width:${BW}px;">${name}</div>`; }
 
+// First Four / play-in games shown as a compact strip above the bracket
+function firstFourStrip(gs){
+  const ff=gs.filter(g=>/first four|play-?in/i.test(g.round||''));
+  if(!ff.length) return '';
+  return `<div class="ffstrip"><div class="ffhead">First Four</div><div class="ffgames">${ff.sort((a,b)=>a.date<b.date?-1:1).map(gameHtmlCol).join('')}</div></div>`;
+}
+
 function openBracket(name){
   const gs=GAMES.filter(g=>g.tournament===name);
   if(!gs.length) return;
@@ -332,6 +348,7 @@ function openBracket(name){
   let html=`<div class="bcrumb"><a onclick="backToList()">← ${seasonLbl(curSeason)} tournaments</a></div>
     <div class="bhead"><h2>${name}</h2><span style="font-size:12px;color:var(--text3);">${CAT_LABEL[cat]||cat} · ${seasonLbl(curSeason)}</span></div>
     ${champGame&&champGame.winner?`<div class="bchamp">Champion: <b>🏆 ${champGame.winner}</b></div>`:''}`;
+  html+=firstFourStrip(gs);
 
   const divs={}; gs.forEach(g=>{ (divs[g.division||'']=divs[g.division||'']||[]).push(g); });
   const regionDivs=Object.keys(divs).filter(d=>d).sort();
