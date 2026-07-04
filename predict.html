@@ -63,6 +63,9 @@
         <select id="selB"></select>
       </div>
       <div class="line-grid" id="lineOut"></div>
+      <div style="text-align:right;margin-top:8px;">
+        <button id="histBtn" onclick="toggleHist()" style="background:none;border:none;cursor:pointer;font-size:10.5px;color:var(--text3);font-family:'Inter',sans-serif;padding:0;">+ include every team since 2007</button>
+      </div>
     </div>
 
     <div style="margin-top:26px;">
@@ -102,8 +105,39 @@ const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const HH={apikey:KEY,Authorization:'Bearer '+KEY};
 let D=null, curConf='All', venues=['neutral','home','away'], vi=0;
+let HIST=null, histOn=false, LINE_POOL={};   // key -> rating row (line maker only)
 
 function teamRow(t){ return D.teams.find(x=>x.full===t||x.team===t); }
+function poolRow(key){ return LINE_POOL[key]; }
+
+// every team-season since 2007, on the same point-spread scale (actual SRS).
+// current venue offsets apply when the program still exists; sweep stays 2026-27.
+async function loadHist(){
+  const out=[]; let off=0;
+  while(true){
+    const r=await fetch(`${SB}/rest/v1/team_seasons?srs=not.is.null&select=team,srs,season_year&order=team.asc,season_year.desc`,
+      {headers:{...HH,'Range-Unit':'items','Range':off+'-'+(off+999)}});
+    if(!r.ok) break;
+    const batch=await r.json();
+    if(!Array.isArray(batch)||!batch.length) break;
+    out.push(...batch);
+    if(batch.length<1000) break;
+    off+=1000;
+  }
+  const offOf={}; D.teams.forEach(t=>{ offOf[t.full]=t.hcaOff||0; });
+  return out.map(t=>{
+    const lbl=`${t.season_year-1}-${(''+t.season_year).slice(2)}`;
+    return { team:`'${(''+t.season_year).slice(2)} ${t.team}`, full:t.team, season:lbl,
+      rating:+parseFloat(t.srs).toFixed(2), hcaOff:offOf[t.team]||0, rank:null };
+  });
+}
+async function toggleHist(){
+  const btn=document.getElementById('histBtn');
+  if(histOn){ histOn=false; btn.textContent='+ include every team since 2007'; fillSelects(); renderLine(); return; }
+  if(!HIST){ btn.textContent='loading 20 seasons…'; try{ HIST=await loadHist(); }catch(e){ btn.textContent='could not load history'; return; } }
+  histOn=true; btn.textContent='− showing every team season since 2007 (actual SRS)';
+  fillSelects(); renderLine();
+}
 function renderTable(){
   const q=(document.getElementById('q').value||'').toLowerCase();
   const rows=D.teams.filter(r=>(curConf==='All'||r.conf===curConf)&&(!q||r.full.toLowerCase().includes(q)||r.team.toLowerCase().includes(q)));
@@ -122,25 +156,41 @@ function renderPills(){
   document.getElementById('confPills').innerHTML=confs.map(c=>`<button class="pill ${c===curConf?'on':''}" onclick="curConf='${c}';renderPills();renderTable();">${c}</button>`).join('');
 }
 function fillSelects(){
-  const opts=D.teams.map(r=>`<option value="${r.full.replace(/"/g,'&quot;')}">${r.full} (${r.rating>=0?'+':''}${r.rating.toFixed(1)})</option>`).join('');
-  ['selA','selB','schedSel'].forEach(id=>document.getElementById(id).innerHTML=opts);
-  document.getElementById('selA').selectedIndex=0;
-  document.getElementById('selB').selectedIndex=1;
-  document.getElementById('selA').onchange=document.getElementById('selB').onchange=renderLine;
+  const selA=document.getElementById('selA'), selB=document.getElementById('selB');
+  const keep=[selA.value,selB.value];
+  LINE_POOL={};
+  const fmt=r=>`${r.rating>=0?'+':''}${r.rating.toFixed(1)}`;
+  const cur=D.teams.map((r,i)=>{ LINE_POOL['c'+i]=r;
+    return `<option value="c${i}">${r.full} (${fmt(r)})</option>`; }).join('');
+  let html=`<optgroup label="2026-27 · Projected">${cur}</optgroup>`;
+  if(histOn&&HIST){
+    const hist=HIST.map((r,i)=>{ LINE_POOL['h'+i]=r;
+      return `<option value="h${i}">${r.full} ${r.season} (${fmt(r)})</option>`; }).join('');
+    html+=`<optgroup label="Past seasons · actual SRS">${hist}</optgroup>`;
+  }
+  selA.innerHTML=selB.innerHTML=html;
+  selA.value=LINE_POOL[keep[0]]?keep[0]:'c0';
+  selB.value=(LINE_POOL[keep[1]]&&keep[1]!==selA.value)?keep[1]:(selA.value==='c1'?'c0':'c1');
+  // schedule sweep stays on the 2026-27 field
+  document.getElementById('schedSel').innerHTML=D.teams.map(r=>`<option value="${r.full.replace(/"/g,'&quot;')}">${r.full} (${fmt(r)})</option>`).join('');
+  selA.onchange=selB.onchange=renderLine;
 }
 function cycleVenue(){ vi=(vi+1)%3;
   document.getElementById('venueBtn').textContent=vi===0?'Neutral court':vi===1?'Team A at home':'Team B at home';
   renderLine();
 }
 function renderLine(){
-  const a=teamRow(document.getElementById('selA').value), b=teamRow(document.getElementById('selB').value);
+  const a=poolRow(document.getElementById('selA').value), b=poolRow(document.getElementById('selB').value);
   if(!a||!b) return;
   const L=TDC_RATINGS.lineFor(a,b,venues[vi]);
+  const sub=t=>t.season?`${t.season} team · actual SRS ${t.rating>=0?'+':''}${t.rating.toFixed(1)}`
+                       :`rating ${t.rating>=0?'+':''}${t.rating.toFixed(1)} · #${t.rank}`;
+  const nm=t=>t.season?`${t.full} <span style="opacity:.6;">·${t.season}</span>`:t.full;
   document.getElementById('lineOut').innerHTML=`
     <div style="text-align:center;">
       <div class="big" style="color:var(--accent);">${Math.round(L.probA)}%</div>
-      <div style="font-size:11px;font-weight:700;color:var(--text3);">${a.full}</div>
-      <div style="font-size:10px;color:var(--text3);">rating ${a.rating>=0?'+':''}${a.rating.toFixed(1)} · #${a.rank}</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);">${nm(a)}</div>
+      <div style="font-size:10px;color:var(--text3);">${sub(a)}</div>
     </div>
     <div style="text-align:center;">
       <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--text3);">LINE</div>
@@ -149,8 +199,8 @@ function renderLine(){
     </div>
     <div style="text-align:center;">
       <div class="big" style="color:var(--text2);">${100-Math.round(L.probA)}%</div>
-      <div style="font-size:11px;font-weight:700;color:var(--text3);">${b.full}</div>
-      <div style="font-size:10px;color:var(--text3);">rating ${b.rating>=0?'+':''}${b.rating.toFixed(1)} · #${b.rank}</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);">${nm(b)}</div>
+      <div style="font-size:10px;color:var(--text3);">${sub(b)}</div>
     </div>`;
 }
 async function runSweep(){
