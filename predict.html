@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Predictive Ratings — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="tdc-ratings.js"></script>
+  <style>
+    :root{--bg:#FBFAFF;--bg2:#F2EFFB;--bg3:#E9E4F7;--border:#E1DBF2;--border2:#C9BFE6;--text:#14101F;--text2:#463D5E;--text3:#847B9C;--accent:#8B3FE0;--gold:#C8A020;--green:#1a8c3a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#07060C;--bg2:#100D1A;--bg3:#181426;--border:#241F36;--border2:#382F54;--text:#F2EFFB;--text2:#A8A1C4;--text3:#6D6589;--accent:#B16BFF;--gold:#C8A020;--green:#5ab875;--red:#e07070;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);}
+    .nav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);}
+    .logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;}
+    .logo span{color:var(--accent);}
+    .nav a.back{font-size:12px;font-weight:700;color:var(--text3);text-decoration:none;}
+    .page{max-width:1180px;margin:0 auto;padding:34px 28px 80px;}
+    h1{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;margin-bottom:4px;}
+    .sub{font-size:13px;color:var(--text3);margin-bottom:24px;max-width:860px;line-height:1.6;}
+    .sec{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:30px 0 12px;padding-bottom:6px;border-bottom:2px solid var(--border2);}
+    .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;}
+    .pills{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px;}
+    .pill{font-size:12px;font-weight:700;padding:6px 14px;border:1px solid var(--border2);border-radius:16px;background:none;color:var(--text3);cursor:pointer;}
+    .pill.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+    table{width:100%;border-collapse:collapse;font-size:13px;}
+    th{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);text-align:right;padding:8px;border-bottom:2px solid var(--border2);}
+    th.l{text-align:left;}
+    td{padding:8px;border-bottom:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums;}
+    td.l{text-align:left;}
+    td a{color:var(--text);text-decoration:none;font-weight:700;}
+    td a:hover{color:var(--accent);}
+    .chip{font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;background:var(--bg3);color:var(--text3);margin-left:6px;}
+    .search{width:260px;padding:9px 13px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;}
+    select,button.venue{padding:9px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;}
+    .line-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:center;margin-top:14px;}
+    .big{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;}
+    .loading{padding:60px;text-align:center;color:var(--text3);}
+    .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:30px;max-width:860px;}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;border-radius:6px;}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+    @media(max-width:820px){.two{grid-template-columns:1fr;}}
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <a class="logo" href="index.html">The Depth <span>Chart</span></a>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <a class="back" href="awards.html">Projected Awards</a>
+      <a class="back" href="index.html">← Rankings</a>
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+    </div>
+  </div>
+  <div class="page">
+    <h1>Predictive Ratings — 2026-27</h1>
+    <div class="sub">Every team rated on the point-spread scale from its <b>projected roster</b> — each player's projected BPM (lag model + class progression) weighted by projected minutes, mapped to SRS via a two-season calibration (r = 0.97), and blended with a regressed program anchor. Teams without synced rosters carry a regressed 2025-26 rating and are marked.</div>
+
+    <div class="sec">Game Line Maker</div>
+    <div class="card">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+        <select id="selA"></select>
+        <button class="venue" id="venueBtn" onclick="cycleVenue()">Neutral court</button>
+        <select id="selB"></select>
+      </div>
+      <div class="line-grid" id="lineOut"></div>
+    </div>
+
+    <div class="two" style="margin-top:26px;">
+      <div>
+        <div class="sec" style="margin-top:4px;">Schedule Sweep</div>
+        <div class="card">
+          <div style="display:flex;gap:10px;align-items:center;">
+            <select id="schedSel"></select>
+            <button class="venue" onclick="runSweep()">Project season</button>
+          </div>
+          <div id="sweepOut" style="margin-top:12px;font-size:12px;color:var(--text3);">Pick a team — every 2026-27 game gets a line and a win probability, summing to a projected record. (Activates automatically once 2026-27 schedules are synced.)</div>
+        </div>
+      </div>
+      <div>
+        <div class="sec" style="margin-top:4px;">Model</div>
+        <div class="card" style="font-size:12px;color:var(--text2);line-height:1.7;">
+          <b>Rating</b> = 0.78 × roster projection + 0.22 × (0.70 × last-season SRS)<br>
+          <b>Roster projection</b> = 11.75 + 2.355 × minutes-weighted projected BPM<br>
+          <b>Spread</b> = rating gap ± 3.2 home court · <b>Win %</b> = Φ(spread / 11)<br>
+          <b>All-Play %</b> = average win probability against all 367 D1 teams
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">National Rankings</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;">
+      <input class="search" id="q" placeholder="Search team…" oninput="renderTable()">
+      <div class="pills" id="confPills" style="margin:0;"></div>
+    </div>
+    <div class="card" style="padding:4px 14px;">
+      <table>
+        <thead><tr><th>#</th><th class="l">Team</th><th class="l">Conf</th><th>Rating</th><th>Roster Proj</th><th>’25-26 SRS</th><th>All-Play %</th></tr></thead>
+        <tbody id="tbody"><tr><td colspan="7" class="loading">Building ratings…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="note"><b>Reading it:</b> Rating is points better than an average D1 team on a neutral floor — a +25 team is a 10-point favorite over a +15 team. All-Play % answers "if this team played everyone, how often does it win?" Ratings are built from 2026-27 projections, not last season's stats; the ’25-26 SRS column is shown only as the anchor.</div>
+  </div>
+<script>
+function toggleTheme(){
+  const cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  if(cur==='dark') document.documentElement.setAttribute('data-theme','dark'); else document.documentElement.removeAttribute('data-theme');
+  localStorage.setItem('tdc_theme',cur);
+  document.getElementById('themeBtn').textContent=cur==='dark'?'☀️':'🌙';
+}
+(function(){ if(localStorage.getItem('tdc_theme')==='dark'){ document.documentElement.setAttribute('data-theme','dark'); window.addEventListener('DOMContentLoaded',()=>{document.getElementById('themeBtn').textContent='☀️';}); } })();
+
+const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const HH={apikey:KEY,Authorization:'Bearer '+KEY};
+let D=null, curConf='All', venues=['neutral','home','away'], vi=0;
+
+function teamRow(t){ return D.teams.find(x=>x.full===t||x.team===t); }
+function renderTable(){
+  const q=(document.getElementById('q').value||'').toLowerCase();
+  const rows=D.teams.filter(r=>(curConf==='All'||r.conf===curConf)&&(!q||r.full.toLowerCase().includes(q)||r.team.toLowerCase().includes(q)));
+  document.getElementById('tbody').innerHTML=rows.slice(0,400).map(r=>`
+    <tr><td>${r.rank}</td>
+      <td class="l"><a href="team.html?team=${encodeURIComponent(r.team)}">${r.full}</a>${r.projected?'':'<span class="chip">carryover</span>'}</td>
+      <td class="l" style="color:var(--text3);">${r.conf||'—'}</td>
+      <td style="font-weight:800;">${r.rating>=0?'+':''}${r.rating.toFixed(1)}</td>
+      <td style="color:var(--text2);">${r.roster!=null?(r.roster>=0?'+':'')+r.roster.toFixed(1):'—'}</td>
+      <td style="color:var(--text3);">${r.prior!=null?(r.prior>=0?'+':'')+r.prior.toFixed(1):'—'}</td>
+      <td>${r.allPlay.toFixed(1)}%</td></tr>`).join('')
+    ||'<tr><td colspan="7" class="loading">No teams match</td></tr>';
+}
+function renderPills(){
+  const confs=['All',...new Set(D.teams.filter(r=>r.projected).map(r=>r.conf).filter(Boolean))];
+  document.getElementById('confPills').innerHTML=confs.map(c=>`<button class="pill ${c===curConf?'on':''}" onclick="curConf='${c}';renderPills();renderTable();">${c}</button>`).join('');
+}
+function fillSelects(){
+  const opts=D.teams.map(r=>`<option value="${r.full.replace(/"/g,'&quot;')}">${r.full} (${r.rating>=0?'+':''}${r.rating.toFixed(1)})</option>`).join('');
+  ['selA','selB','schedSel'].forEach(id=>document.getElementById(id).innerHTML=opts);
+  document.getElementById('selA').selectedIndex=0;
+  document.getElementById('selB').selectedIndex=1;
+  document.getElementById('selA').onchange=document.getElementById('selB').onchange=renderLine;
+}
+function cycleVenue(){ vi=(vi+1)%3;
+  document.getElementById('venueBtn').textContent=vi===0?'Neutral court':vi===1?'Team A at home':'Team B at home';
+  renderLine();
+}
+function renderLine(){
+  const a=teamRow(document.getElementById('selA').value), b=teamRow(document.getElementById('selB').value);
+  if(!a||!b) return;
+  const L=TDC_RATINGS.lineFor(a,b,venues[vi]);
+  document.getElementById('lineOut').innerHTML=`
+    <div style="text-align:center;">
+      <div class="big" style="color:var(--accent);">${Math.round(L.probA)}%</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);">${a.full}</div>
+      <div style="font-size:10px;color:var(--text3);">rating ${a.rating>=0?'+':''}${a.rating.toFixed(1)} · #${a.rank}</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--text3);">LINE</div>
+      <div class="big">${L.spread}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px;">Projected: ${L.scoreA} – ${L.scoreB}</div>
+    </div>
+    <div style="text-align:center;">
+      <div class="big" style="color:var(--text2);">${100-Math.round(L.probA)}%</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);">${b.full}</div>
+      <div style="font-size:10px;color:var(--text3);">rating ${b.rating>=0?'+':''}${b.rating.toFixed(1)} · #${b.rank}</div>
+    </div>`;
+}
+async function runSweep(){
+  const name=document.getElementById('schedSel').value;
+  const me=teamRow(name); if(!me) return;
+  const out=document.getElementById('sweepOut');
+  out.innerHTML='<span style="color:var(--text3);">Loading schedule…</span>';
+  const enc=encodeURIComponent(me.full);
+  const games=await fetch(`${SB}/rest/v1/games?or=(home.eq.${enc},away.eq.${enc})&season_year=eq.2027&select=date,home,away,status&order=date.asc&limit=60`,{headers:HH}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  if(!games||!games.length){ out.innerHTML='<span style="color:var(--text3);">No 2026-27 schedule on file yet for '+me.full+' — this will populate automatically once schedules sync.</span>'; return; }
+  let w=0,l=0;
+  const rows=games.map(g=>{
+    const homeMe=g.home===me.full;
+    const opp=teamRow(homeMe?g.away:g.home);
+    if(!opp) return '';
+    const L=TDC_RATINGS.lineFor(me,opp,homeMe?'home':'away');
+    const p=L.probA; p>=50?w++:l++;
+    return `<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;">
+      <span style="color:var(--text3);min-width:70px;">${g.date||''}</span>
+      <span style="flex:1;">${homeMe?'vs':'at'} ${(homeMe?g.away:g.home)}</span>
+      <span style="font-weight:700;color:${p>=50?'var(--green)':'var(--red)'};">${p.toFixed(0)}%</span>
+      <span style="color:var(--text3);min-width:88px;text-align:right;">${L.spread}</span>
+    </div>`;
+  }).join('');
+  out.innerHTML=`<div style="font-size:13px;font-weight:800;margin-bottom:8px;color:var(--text);">Projected record: ${w}-${l}</div>${rows}`;
+}
+TDC_RATINGS.get().then(d=>{ D=d; renderPills(); renderTable(); fillSelects(); renderLine(); })
+  .catch(e=>{ document.getElementById('tbody').innerHTML='<tr><td colspan="7" class="loading">Could not build ratings.</td></tr>'; });
+</script>
+</body>
+</html>
