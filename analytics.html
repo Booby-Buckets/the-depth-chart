@@ -5,7 +5,7 @@
   <script src="tdc-pos.js"></script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Analytics — The Depth Chart</title>
+  <title>Stats — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <style>
@@ -164,7 +164,7 @@ body{background:transparent!important;}
     <a href="roster.html">Players</a>
     <a href="compare-players.html">Compare</a>
     <a href="draft.html">Draft</a>
-    <a href="analytics.html" class="active">Analytics</a>
+    <a href="analytics.html" class="active">Stats</a>
     <a href="community.html">Community</a>
     <a href="about.html">About</a>
     <a href="pricing.html">Pricing</a>
@@ -172,7 +172,7 @@ body{background:transparent!important;}
 </div>
 
 <div class="page-header">
-  <div class="page-eyebrow">Analytics · Advanced Stats</div>
+  <div class="page-eyebrow">Stats · Players &amp; Teams</div>
   <h1 class="page-h1" id="pageTitle">Player Advanced Stats</h1>
   <p class="page-sub" id="pageSub">Every player-season since 2007 — BPM, Win Shares, Wins Added, PER, TS%, usage, and per-possession rates. Sort, filter, and plot any two metrics.</p>
 </div>
@@ -180,6 +180,7 @@ body{background:transparent!important;}
 <div class="view-tabs">
   <button class="vtab on" id="vtLeaders" onclick="setView('leaders')">Leaderboard</button>
   <button class="vtab" id="vtExplorer" onclick="setView('explorer')">Stat Explorer</button>
+  <button class="vtab" id="vtTeams" onclick="setView('teams')">Team History</button>
 </div>
 
 <div class="controls">
@@ -225,6 +226,12 @@ body{background:transparent!important;}
   <div class="exp-legend"><span><i style="background:#B16BFF"></i>Guards</span><span><i style="background:#38BDF8"></i>Wings</span><span><i style="background:#FF4D9D"></i>Bigs</span></div>
   <div class="exp-chart-card"><div class="exp-chart"><canvas id="expChart"></canvas></div></div>
   <div class="exp-note" id="expNote"></div>
+</div>
+
+<!-- TEAM HISTORY VIEW -->
+<div id="teamsView" style="display:none;">
+  <div class="table-wrap"><table id="teamsTable"><thead id="teamsThead"></thead><tbody id="teamsTbody"></tbody></table></div>
+  <div style="padding:0 40px 40px;font-size:10.5px;color:var(--text3);">Per-game averages across every season a program appears in the database (2006-07 → 2025-26). Click any column to sort; search filters by team or conference.</div>
 </div>
 
 <footer>
@@ -401,6 +408,7 @@ async function changeSeason(key){
 
 // ── Filter + render ─────────────────────────────────────────────
 function refresh(){
+  if(view==='teams'){ renderTeams(); return; }
   var pos=document.getElementById('posSel').value;
   var min=+document.getElementById('minGp').value;
   var q=document.getElementById('searchBox').value.trim().toLowerCase();
@@ -547,9 +555,100 @@ function setView(v){
   view=v;
   document.getElementById('vtLeaders').classList.toggle('on',v==='leaders');
   document.getElementById('vtExplorer').classList.toggle('on',v==='explorer');
+  document.getElementById('vtTeams').classList.toggle('on',v==='teams');
   document.getElementById('leadersView').style.display=v==='leaders'?'block':'none';
   document.getElementById('explorerView').style.display=v==='explorer'?'block':'none';
-  if(v==='leaders'){ renderLeaders(); renderTable(); } else renderExplorer();
+  document.getElementById('teamsView').style.display=v==='teams'?'block':'none';
+  // player filters don't apply to team history — search stays (filters teams)
+  ['seasonSel','posSel','minGp'].forEach(id=>{ document.getElementById(id).style.display=v==='teams'?'none':''; });
+  document.getElementById('searchBox').placeholder=v==='teams'?'Search team or conference…':'Search player or school…';
+  if(v==='leaders'){ renderLeaders(); renderTable(); }
+  else if(v==='explorer') renderExplorer();
+  else renderTeams();
+}
+
+// ── TEAM HISTORY — 20-year per-game averages for every program ──
+let TEAM_AGG=null, teamSort='srs', teamDir=-1;
+const TEAM_COLS=[
+  {k:'team',   lbl:'Team',    left:true},
+  {k:'conf',   lbl:'Conf',    left:true},
+  {k:'seasons',lbl:'Szns',    d:0},
+  {k:'winpct', lbl:'Win%',    d:1, pct:true},
+  {k:'srs',    lbl:'SRS',     d:1, signed:true},
+  {k:'ppg',    lbl:'PPG',     d:1},
+  {k:'oppg',   lbl:'OPP',     d:1, inv:true},
+  {k:'rpg',    lbl:'RPG',     d:1},
+  {k:'apg',    lbl:'APG',     d:1},
+  {k:'spg',    lbl:'SPG',     d:1},
+  {k:'bpg',    lbl:'BPG',     d:1},
+  {k:'topg',   lbl:'TOV',     d:1, inv:true},
+  {k:'fg_pct', lbl:'FG%',     d:1},
+  {k:'tp_pct', lbl:'3P%',     d:1},
+  {k:'ft_pct', lbl:'FT%',     d:1},
+];
+async function loadTeamHistory(){
+  if(TEAM_AGG) return TEAM_AGG;
+  const L=document.getElementById('loadingMsg');
+  document.getElementById('loadingEl').style.display='block';
+  document.getElementById('teamsView').style.display='none';
+  if(L) L.textContent='Loading 20 seasons of team stats…';
+  const sel='select=team,conference,season_year,wins,losses,srs,ppg,oppg,rpg,apg,spg,bpg,topg,fg_pct,tp_pct,ft_pct';
+  const rows=[]; let off=0;
+  while(true){
+    const r=await fetch(`${SB}/rest/v1/team_seasons?${sel}&order=team.asc`,
+      {headers:{...H,'Range-Unit':'items','Range':off+'-'+(off+999)}});
+    if(!r.ok) break;
+    const b=await r.json();
+    if(!Array.isArray(b)||!b.length) break;
+    rows.push(...b);
+    if(b.length<1000) break;
+    off+=1000;
+  }
+  const by={};
+  const KEYS=['srs','ppg','oppg','rpg','apg','spg','bpg','topg','fg_pct','tp_pct','ft_pct'];
+  rows.forEach(r=>{
+    const t=by[r.team]=by[r.team]||{team:r.team,conf:'',confYr:0,seasons:0,w:0,l:0,sums:{},ns:{}};
+    t.seasons++;
+    t.w+=(+r.wins||0); t.l+=(+r.losses||0);
+    if(r.season_year>t.confYr&&r.conference){ t.conf=r.conference; t.confYr=r.season_year; }
+    KEYS.forEach(k=>{ const v=parseFloat(r[k]); if(isFinite(v)){ t.sums[k]=(t.sums[k]||0)+v; t.ns[k]=(t.ns[k]||0)+1; } });
+  });
+  const CONF_AB={'Atlantic Coast':'ACC','Southeastern':'SEC','Big Ten':'Big Ten','Pacific-12':'Pac-12','Pacific-10':'Pac-10','American Athletic':'AAC','Atlantic 10':'A-10','Mountain West':'MWC','Missouri Valley':'MVC','West Coast':'WCC','Conference USA':'C-USA','Western Athletic':'WAC','Mid-American':'MAC','Colonial Athletic':'CAA','Metro Atlantic Athletic':'MAAC','Mid-Eastern Athletic':'MEAC','Southwestern Athletic':'SWAC','Ohio Valley':'OVC','America East':'AE','Atlantic Sun':'ASUN','Big Sky':'Big Sky','Big South':'Big South','Big West':'Big West','Coastal Athletic':'CAA','Northeast':'NEC','Southern':'SoCon','Sun Belt':'Sun Belt','Horizon League':'Horizon'};
+  const confAb=n=>{ if(!n)return ''; const s=n.replace(/\s+(Conference|League|Association)$/,'').trim(); return CONF_AB[s]||(s.length<=9?s:s.split(' ').map(w=>w[0]).join('').toUpperCase()); };
+  TEAM_AGG=Object.values(by).map(t=>{
+    const o={team:t.team, conf:confAb(t.conf), seasons:t.seasons,
+      winpct:(t.w+t.l)?t.w/(t.w+t.l)*100:null};
+    KEYS.forEach(k=>{ o[k]=t.ns[k]?t.sums[k]/t.ns[k]:null; });
+    return o;
+  });
+  document.getElementById('loadingEl').style.display='none';
+  document.getElementById('teamsView').style.display=view==='teams'?'block':'none';
+  return TEAM_AGG;
+}
+function sortTeams(k){
+  if(teamSort===k) teamDir=-teamDir;
+  else { teamSort=k; const c=TEAM_COLS.find(c=>c.k===k); teamDir=(c&&c.inv)?1:(k==='team'||k==='conf')?1:-1; }
+  renderTeams();
+}
+async function renderTeams(){
+  const data=await loadTeamHistory();
+  if(view!=='teams') return;
+  const q=(document.getElementById('searchBox').value||'').trim().toLowerCase();
+  let rows=data.filter(t=>!q||t.team.toLowerCase().includes(q)||t.conf.toLowerCase().includes(q));
+  rows.sort((a,b)=>{
+    const va=a[teamSort], vb=b[teamSort];
+    if(typeof va==='string'||typeof vb==='string') return (''+va).localeCompare(''+vb)*teamDir;
+    return (((va==null)?-1e9:va)-((vb==null)?-1e9:vb))*teamDir;
+  });
+  document.getElementById('countEl').innerHTML='<strong>'+rows.length.toLocaleString()+'</strong> programs';
+  document.getElementById('teamsThead').innerHTML='<tr>'+TEAM_COLS.map(c=>
+    `<th style="cursor:pointer;white-space:nowrap;${c.left?'text-align:left;':''}" onclick="sortTeams('${c.k}')">${c.lbl}${teamSort===c.k?(teamDir<0?' ▼':' ▲'):''}</th>`).join('')+'</tr>';
+  const f=(v,c)=>v==null?'—':(c.d===0?Math.round(v):(c.signed&&v>0?'+':'')+v.toFixed(c.d??1));
+  document.getElementById('teamsTbody').innerHTML=rows.map(t=>'<tr>'+TEAM_COLS.map(c=>{
+    if(c.k==='team') return `<td style="text-align:left;font-weight:700;white-space:nowrap;"><a href="team.html?team=${encodeURIComponent(t.team.split(' ').slice(0,-1).join(' ')||t.team)}" style="color:inherit;text-decoration:none;">${t.team}</a></td>`;
+    if(c.k==='conf') return `<td style="text-align:left;color:var(--text3);">${t.conf||'—'}</td>`;
+    return `<td>${f(t[c.k],c)}</td>`;
+  }).join('')+'</tr>').join('');
 }
 
 // ── Init ────────────────────────────────────────────────────────
