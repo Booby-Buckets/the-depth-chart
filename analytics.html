@@ -572,22 +572,22 @@ function setView(v){
 // ── TEAM HISTORY — every team-season since 2007, plus program averages ──
 let TEAM_AGG=null, TEAM_RAW=null, teamSort='srs', teamDir=-1;
 const TEAM_STAT_COLS=[
-  {k:'srs',    lbl:'SRS',     d:1, signed:true},
-  {k:'ppg',    lbl:'PPG',     d:1},
-  {k:'oppg',   lbl:'OPP',     d:1, inv:true},
-  {k:'rpg',    lbl:'RPG',     d:1},
-  {k:'apg',    lbl:'APG',     d:1},
-  {k:'spg',    lbl:'SPG',     d:1},
-  {k:'bpg',    lbl:'BPG',     d:1},
-  {k:'topg',   lbl:'TOV',     d:1, inv:true},
-  {k:'fg_pct', lbl:'FG%',     d:1},
-  {k:'tp_pct', lbl:'3P%',     d:1},
-  {k:'ft_pct', lbl:'FT%',     d:1},
+  {k:'srs',    lbl:'SRS',     d:1, signed:true, tip:'Simple Rating System — points better (or worse) than an average D1 team on a neutral court. Scoring margin adjusted for strength of schedule, so it doubles as a point spread: a +25 team is a 10-point favorite over a +15 team.'},
+  {k:'ppg',    lbl:'PPG',     d:1, tip:'Points scored per game'},
+  {k:'oppg',   lbl:'OPP',     d:1, inv:true, tip:'Opponent points allowed per game — lower is better'},
+  {k:'rpg',    lbl:'RPG',     d:1, tip:'Total rebounds per game'},
+  {k:'apg',    lbl:'APG',     d:1, tip:'Assists per game'},
+  {k:'spg',    lbl:'SPG',     d:1, tip:'Steals per game'},
+  {k:'bpg',    lbl:'BPG',     d:1, tip:'Blocks per game'},
+  {k:'topg',   lbl:'TOV',     d:1, inv:true, tip:'Turnovers per game — lower is better'},
+  {k:'fg_pct', lbl:'FG%',     d:1, tip:'Field-goal percentage'},
+  {k:'tp_pct', lbl:'3P%',     d:1, tip:'Three-point percentage'},
+  {k:'ft_pct', lbl:'FT%',     d:1, tip:'Free-throw percentage'},
 ];
 function teamCols(mode){
   return mode==='avg'
-    ? [{k:'team',lbl:'Team',left:true},{k:'conf',lbl:'Conf',left:true},{k:'seasons',lbl:'Szns',d:0},{k:'winpct',lbl:'Win%',d:1},...TEAM_STAT_COLS]
-    : [{k:'season',lbl:'Season',left:true},{k:'team',lbl:'Team',left:true},{k:'conf',lbl:'Conf',left:true},{k:'rec',lbl:'W-L',left:true},...TEAM_STAT_COLS];
+    ? [{k:'team',lbl:'Team',left:true},{k:'conf',lbl:'Conf',left:true},{k:'seasons',lbl:'Szns',d:0,tip:'Seasons in the database (max 20)'},{k:'winpct',lbl:'Win%',d:1,tip:'Career win percentage across all seasons'},...TEAM_STAT_COLS]
+    : [{k:'season',lbl:'Season',left:true},{k:'team',lbl:'Team',left:true},{k:'conf',lbl:'Conf',left:true},{k:'rec',lbl:'W-L',left:true,tip:'Season record'},...TEAM_STAT_COLS];
 }
 async function loadTeamHistory(){
   if(TEAM_AGG) return TEAM_AGG;
@@ -668,7 +668,7 @@ async function renderTeams(){
   const shown=rows.slice(0,CAP);
   document.getElementById('countEl').innerHTML='<strong>'+total.toLocaleString()+'</strong> '+(mode==='avg'?'programs':'team-seasons')+(total>CAP?' · showing top '+CAP:'');
   document.getElementById('teamsThead').innerHTML='<tr>'+cols.map(c=>
-    `<th style="cursor:pointer;white-space:nowrap;${c.left?'text-align:left;':''}" onclick="sortTeams('${c.k}')">${c.lbl}${teamSort===c.k?(teamDir<0?' ▼':' ▲'):''}</th>`).join('')+'</tr>';
+    `<th style="cursor:pointer;white-space:nowrap;${c.left?'text-align:left;':''}${c.tip?'text-decoration:underline dotted;text-underline-offset:3px;':''}" ${c.tip?`title="${c.tip.replace(/"/g,'&quot;')}"`:''} onclick="sortTeams('${c.k}')">${c.lbl}${teamSort===c.k?(teamDir<0?' ▼':' ▲'):''}</th>`).join('')+'</tr>';
   const f=(v,c)=>v==null?'—':(c.d===0?Math.round(v):(c.signed&&v>0?'+':'')+v.toFixed(c.d??1));
   document.getElementById('teamsTbody').innerHTML=shown.map(t=>'<tr>'+cols.map(c=>{
     if(c.k==='team') return `<td style="text-align:left;font-weight:700;white-space:nowrap;"><a href="team.html?team=${encodeURIComponent(t.team.split(' ').slice(0,-1).join(' ')||t.team)}${t.seasonYr?'&season='+t.seasonYr:''}" style="color:inherit;text-decoration:none;">${t.team}</a></td>`;
