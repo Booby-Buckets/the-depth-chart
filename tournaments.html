@@ -71,7 +71,9 @@
     .gteam .gsub{font-family:'Inter',sans-serif;font-size:10px;font-weight:600;color:var(--text3);margin-top:2px;}
     .gscore{font-family:'Playfair Display',serif;font-weight:800;font-size:30px;font-variant-numeric:tabular-nums;}
     .gwin{color:var(--accent);}
-    .grate{font-size:10px;font-weight:800;margin-top:3px;}
+    .grate{font-size:11px;font-weight:800;margin-top:4px;}
+    .ratepill{display:inline-block;color:#fff;font-weight:800;font-variant-numeric:tabular-nums;border-radius:5px;padding:1px 6px;font-size:12px;}
+    .ratepill.sm{padding:0 5px;font-size:10.5px;}
     .gupset{margin:10px 20px 0;padding:8px 12px;border:1px solid var(--red);border-radius:8px;background:rgba(204,34,0,.08);font-size:12px;font-weight:700;color:var(--red);}
     .gpog{margin:12px 20px 0;font-size:12px;color:var(--text2);}
     .gpog b{color:var(--text);}
@@ -183,12 +185,21 @@ async function loadSeason(){
   renderList();
 }
 
-// per-game team performance rating + upset detection.
-// perf = how a team played vs its SRS-implied expectation (tournaments are ~neutral):
-//   expected margin (winner) = SRS_winner - SRS_loser ; residual = actual - expected.
-// a win as expected grades ~solid; overachieving (bigger win, or a close loss vs a
-// much better team) grades higher. Upset = the winner was an underdog (by seed for
-// NCAA, else by SRS).
+// per-player game rating on the SAME 0-10 scale the player pages use (Hollinger
+// Game Score -> soccer-style match rating; ~6.3 = average rotation game, 10 = elite)
+function _gmsc(g){
+  const reb=(g.oreb!=null||g.dreb!=null)?0.7*(g.oreb||0)+0.3*(g.dreb||0):0.4*(g.reb||0);
+  return (g.pts||0)+0.4*(g.fgm||0)-0.7*(g.fga||0)-0.4*((g.fta||0)-(g.ftm||0))+reb
+    +(g.stl||0)+0.7*(g.ast||0)+0.7*(g.blk||0)-0.4*(g.pf||0)-(g.tov||0);
+}
+function playerRating(g){ return Math.max(2.0,Math.min(10.0,Math.round((5.0+0.135*_gmsc(g))*10)/10)); }
+function ratingColor(r){ return r==null?'var(--text3)':r>=8?'#1f9d57':r>=6.5?'#3d8f6b':r>=5.5?'#c2912f':'#cf5a4e'; }
+function ratingWord(r){ return r==null?'':r>=8.5?'Dominant':r>=7.5?'Great':r>=6.5?'Strong':r>=5.5?'Solid':r>=4.5?'Shaky':'Poor'; }
+
+// per-game TEAM rating on the same 0-10 scale, so it reads like the player scores.
+// based on performance vs SRS-implied expectation (neutral-court margin); an
+// as-expected game sits ~6.3, over/under-achieving moves it. Upset = underdog win
+// (by seed for NCAA/NIT, else by SRS).
 function gameRating(g){
   if(g.winner_id==null||g.home_score==null||g.away_score==null) return null;
   const hw=g.winner_id===g.home_id;
@@ -197,11 +208,9 @@ function gameRating(g){
   const margin=win.sc-los.sc;
   const sW=SRS[win.nm], sL=SRS[los.nm];
   const exp=(sW!=null&&sL!=null)?(sW-sL):null;               // expected winner margin (neutral)
-  const grade=perf=>Math.max(15,Math.min(99,Math.round(60+perf*2.0)));
-  let wGrade=null,lGrade=null;
-  if(exp!=null){ const res=margin-exp; wGrade=grade(res); lGrade=grade(-res); }
-  // upset: seeds are the accepted measure when present (NCAA/NIT), else use SRS
-  // with a meaningful gap so only genuine underdog wins get flagged
+  const rate=perf=>Math.max(2.0,Math.min(10.0,Math.round((6.3+perf*0.22)*10)/10));
+  let wRating=null,lRating=null;
+  if(exp!=null){ const res=margin-exp; wRating=rate(res); lRating=rate(-res); }
   let upset=null;
   if(win.seed&&los.seed){
     if(win.seed>los.seed+1) upset={type:'seed',mag:win.seed-los.seed,label:`#${win.seed} over #${los.seed}`};
@@ -209,10 +218,8 @@ function gameRating(g){
     const short=win.nm.split(' ').slice(0,-1).join(' ')||win.nm;
     upset={type:'srs',mag:Math.round(-exp),label:`${short} won as a ${Math.round(-exp)}-pt underdog`};
   }
-  return {win,los,margin,exp:exp!=null?Math.round(exp*10)/10:null,wGrade,lGrade,upset};
+  return {win,los,margin,exp:exp!=null?Math.round(exp*10)/10:null,wRating,lRating,upset};
 }
-const gradeWord=g=>g==null?'':g>=90?'Dominant':g>=80?'Great':g>=68?'Strong':g>=55?'Solid':g>=42?'Shaky':'Poor';
-const gradeCol=g=>g==null?'var(--text3)':g>=80?'var(--green)':g>=55?'var(--gold)':'var(--red)';
 function setCat(c){ curCat=c; document.querySelectorAll('#catPills .pill').forEach(p=>p.classList.toggle('on',p.dataset.cat===c)); renderList(); }
 function toggleNotable(){ notableOnly=!notableOnly; document.getElementById('notablePill').classList.toggle('on',notableOnly);
   document.getElementById('notablePill').textContent=notableOnly?'★ Notable only':'Show all'; renderList(); }
@@ -440,12 +447,12 @@ async function openGame(id){
   const bx=await fetch(`${SB}/rest/v1/box_scores?game_id=eq.${id}&select=player,espn_id,team,starter,min,pts,reb,oreb,dreb,ast,stl,blk,tov,pf,fgm,fga,tpm,tpa,ftm,fta`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
   const r=gameRating(g);
   const hw=g.winner_id===g.home_id;
-  const teamHtml=(nm,sc,seed,winSide,grade)=>`<div style="text-align:${winSide==='l'?'left':'right'};">
+  const teamHtml=(nm,sc,seed,winSide,rating)=>`<div style="text-align:${winSide==='l'?'left':'right'};">
       <div class="gteam ${(hw===(winSide==='l'))?'gwin':''}">${seed?`<span style="font-size:11px;color:var(--text3);">#${seed}</span> `:''}${nm}</div>
-      ${grade!=null?`<div class="grate" style="color:${gradeCol(grade)}">${grade} · ${gradeWord(grade)}</div>`:''}
+      ${rating!=null?`<div class="grate"><span class="ratepill" style="background:${ratingColor(rating)};">${rating.toFixed(1)}</span> <span style="color:${ratingColor(rating)};">${ratingWord(rating)}</span></div>`:''}
     </div>`;
-  const homeSide=teamHtml(g.home,g.home_score,g.home_seed,'l', r?(hw?r.wGrade:r.lGrade):null);
-  const awaySide=teamHtml(g.away,g.away_score,g.away_seed,'r', r?(hw?r.lGrade:r.wGrade):null);
+  const homeSide=teamHtml(g.home,g.home_score,g.home_seed,'l', r?(hw?r.wRating:r.lRating):null);
+  const awaySide=teamHtml(g.away,g.away_score,g.away_seed,'r', r?(hw?r.lRating:r.wRating):null);
   const dateStr=g.date?new Date(g.date+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}):'';
   let html=`<div class="ghead"><button class="gclose" onclick="closeGame()">✕</button>
     <div style="font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">${g.tournament} · ${g.round||''}</div>
@@ -464,9 +471,11 @@ async function openGame(id){
       const rows=bx.filter(p=>p.team===tn).sort((a,b)=>(b.starter-a.starter)||(b.min-a.min));
       if(!rows.length) return;
       html+=`<div class="gbxh">${tn}</div><table class="gbx"><thead><tr>
-        <th class="l">Player</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>FG</th><th>3P</th><th>FT</th><th>TO</th></tr></thead><tbody>`;
-      rows.forEach(p=>{ html+=`<tr class="${p===pog?'pog':''}">
+        <th class="l">Player</th><th title="0-10 game rating, same scale as the player pages">RTG</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>FG</th><th>3P</th><th>FT</th><th>TO</th></tr></thead><tbody>`;
+      rows.forEach(p=>{ const pr=(p.min||0)>0?playerRating(p):null;
+        html+=`<tr class="${p===pog?'pog':''}">
         <td class="l"><a href="${p.espn_id?`player.html?espn=${p.espn_id}`:teamLink(tn)}">${p.player}${p.starter?'':' <span style="color:var(--text3);font-size:9px;">(b)</span>'}</a></td>
+        <td>${pr!=null?`<span class="ratepill sm" style="background:${ratingColor(pr)};">${pr.toFixed(1)}</span>`:''}</td>
         <td>${p.min??''}</td><td><b>${p.pts??0}</b></td><td>${p.reb??0}</td><td>${p.ast??0}</td><td>${p.stl??0}</td><td>${p.blk??0}</td>
         <td>${p.fgm}-${p.fga}</td><td>${p.tpm}-${p.tpa}</td><td>${p.ftm}-${p.fta}</td><td>${p.tov??0}</td></tr>`; });
       html+='</tbody></table>';
