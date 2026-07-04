@@ -3,6 +3,7 @@
 <head>
   <script src="auth.js"></script>
   <script src="team-colors.js"></script>
+  <script src="tdc-ratings.js"></script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>The Depth Chart — College Basketball Roster Rankings</title>
@@ -1134,6 +1135,7 @@
     <a href="compare-players.html">Compare</a>
     <a href="draft.html">Draft</a>
     <a href="analytics.html">Analytics</a>
+    <a href="predict.html">Predict</a>
     <a href="community.html">Community</a>
     <a href="team.html">Teams</a>
     <a href="pricing.html">Pricing</a>
@@ -1221,6 +1223,13 @@
     <div class="filter-count" id="filterCount"></div>
   </div>
 </div>
+
+<!-- Projected-season banner: shown only when 2026-27 · Projected is selected -->
+<a id="projBanner" href="predict.html" style="display:none;align-items:center;gap:14px;margin:14px auto 0;max-width:1280px;padding:13px 20px;border:1px solid var(--border2,#C9BFE6);border-radius:12px;text-decoration:none;color:inherit;background:linear-gradient(90deg,rgba(139,63,224,.10),transparent 60%);">
+  <span style="font-size:18px;">🎯</span>
+  <span style="font-size:13px;line-height:1.5;"><b>Game Line Maker &amp; Schedule Sweep</b> — spreads, win probabilities and projected scores for any 2026-27 matchup, built from these projected rosters. Schedule lines activate automatically once 2026-27 schedules are inputted.</span>
+  <span style="margin-left:auto;font-size:12px;font-weight:700;white-space:nowrap;color:var(--accent,#8B3FE0);">Open →</span>
+</a>
 
 <!-- ═══ TABLE ═════════════════════════════════════════════════ -->
 <div class="table-section">
@@ -1421,13 +1430,13 @@ async function renderShowcase(){
   const ls=document.getElementById('scTeamSeason'); if(ls) ls.textContent='· '+yLbl;
   const teamsEl=document.getElementById('scTeams');
   if(teamsEl) teamsEl.innerHTML=allTeams.slice(0,4).map((t,i)=>`
-    <a class="sc-team sc-${i+1}" href="team.html?team=${encodeURIComponent(t.short)}&season=${curSeason}">
+    <a class="sc-team sc-${i+1}" href="team.html?team=${encodeURIComponent(t.short)}${curSeason===2027?'':'&season='+curSeason}">
       <div class="sc-accent" style="background:${t.color}"></div>
       <div class="sc-rk">#${t.rk}</div>
       <div class="sc-tname">${t.name}</div>
       <div class="sc-net">${t.srs!=null?(t.srs>0?'+':'')+t.srs:(t.margin>0?'+':'')+t.margin}</div>
-      <div class="sc-netlbl">Net Rating</div>
-      <div class="sc-meta">${t.wins}–${t.losses}${tierBadge(t.tier)}</div>
+      <div class="sc-netlbl">${curSeason===2027?'Proj Rating':'Net Rating'}</div>
+      <div class="sc-meta">${t.gp?`${t.wins}–${t.losses}`:(t.allPlay!=null?`All-Play ${t.allPlay.toFixed(0)}%`:'Projected')}${tierBadge(t.tier)}</div>
     </a>`).join('');
   sc.style.display='flex';
   // ── Top players — scoped to the active conference when one is selected ──
@@ -1442,8 +1451,15 @@ async function renderShowcase(){
     for(let a=0;a<4 && !pool;a++){
       if(a) await new Promise(r=>setTimeout(r,500));
       try{
-        const r=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${curSeason}&tdc_grade=not.is.null&select=player,school,tdc_grade,espn_id,pergame&order=tdc_grade.desc&limit=800`,{headers:HEADERS});
-        if(r.ok){ const raw=await r.json(); if(Array.isArray(raw)&&raw.length) pool=raw; }
+        if(curSeason===2027){
+          // Projected season: no bbref rows yet — rank the current 2026-27 rosters by grade
+          const r=await fetch(`${SB_URL}/rest/v1/players?name=neq.%E2%80%94&tdc_grade=not.is.null&is_injured=not.is.true&select=name,team,tdc_grade,espn_id,mpg&order=tdc_grade.desc&limit=800`,{headers:HEADERS});
+          if(r.ok){ const raw=await r.json();
+            if(Array.isArray(raw)&&raw.length) pool=raw.map(p=>({player:p.name,school:p.team,tdc_grade:p.tdc_grade,espn_id:p.espn_id,pergame:{games:99,mp_per_g:p.mpg||99}})); }
+        } else {
+          const r=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${curSeason}&tdc_grade=not.is.null&select=player,school,tdc_grade,espn_id,pergame&order=tdc_grade.desc&limit=800`,{headers:HEADERS});
+          if(r.ok){ const raw=await r.json(); if(Array.isArray(raw)&&raw.length) pool=raw; }
+        }
       }catch(e){}
     }
     if(pool) window._scPoolCache[curSeason]=pool;
@@ -1495,8 +1511,65 @@ function matchColor(mascot, colors){
   return best?{short:mascot.slice(0,best.length),color:colors[best]}:{short:mascot,color:null};
 }
 function onSeason(yr){ loadSeason(yr); }
+
+// ── 2026-27 · Projected: predictive ratings (tdc-ratings.js) + projected team stats ──
+async function loadProjectedSeason(){
+  curSeason=2027;
+  const banner=document.getElementById('projBanner'); if(banner) banner.style.display='flex';
+  try {
+    const colors = await ensureColors();
+    const [D, projRows] = await Promise.all([
+      TDC_RATINGS.get(),
+      fetch(`${SB_URL}/rest/v1/team_projections?select=*`, { headers: HEADERS })
+        .then(r=>r.ok?r.json():[]).catch(()=>[]),
+    ]);
+    const projBy={}; (projRows||[]).forEach(p=>{ projBy[(p.team||'').toLowerCase().trim()]=p; });
+    window._teamProjByName = projBy;
+    const CODE_FIX={'BIG-12':'B12','Big-East':'BE','BIG-EAST':'BE'};
+    allTeams = D.teams.map(r=>{
+      const mc=matchColor(r.full,colors);
+      const proj=projBy[(r.team||'').toLowerCase().trim()];
+      const num=k=>proj?(+proj[k]||0):0;
+      const code=r.projected?(CODE_FIX[r.conf]||r.conf||''):confAbbr(r.conf);
+      return {
+        name:r.full, short:r.team,
+        color:(window.tdcTeamColorHex&&tdcTeamColorHex(r.full))||mc.color||'#7c7c8a',
+        conf:code, confName:r.projected?code:(r.conf||'—'),
+        wins:0, losses:0, gp:0, winpct:(r.allPlay||0)/100, cw:0, cl:0,
+        ppg:num('ppg'), oppg:0, margin:r.roster!=null?r.roster:r.rating,
+        fg:num('fg_pct'), tp:num('tp_pct'), ft:num('ft_pct'),
+        rpg:num('rpg'), apg:num('apg'), topg:num('tov'),
+        spg:num('stl'), bpg:num('blk'), orpg:num('oreb'), drpg:num('dreb'),
+        ato:(num('tov')>0?Math.round(num('apg')/num('tov')*10)/10:0),
+        srs:+r.rating.toFixed(1), tier:null, rk:r.rank,
+        projected:r.projected, allPlay:r.allPlay,
+      };
+    });
+    window._useSrs = true;
+    _schoolConfCache=null;
+    if(confFilter && !allTeams.some(t=>t.conf===confFilter)) confFilter='';
+    renderConfPills();
+    window._teamMetaByName = {};
+    allTeams.forEach(t => { window._teamMetaByName[t.name.toLowerCase().trim()] = t; });
+    document.getElementById('lastUpdated').textContent = '2026–27 · projected from rosters';
+    document.getElementById('teamCount').textContent = `${allTeams.length} teams`;
+    var h1=document.getElementById('heroStat1Num'); if(h1) h1.textContent=allTeams.length;
+    var h4=document.getElementById('heroStat4Num'); if(h4) h4.textContent='2026–27';
+    applyFilters(false);
+    renderShowcase();
+  } catch(e) {
+    document.getElementById('rankingsList').innerHTML = `
+      <div class="error-state">
+        <h3>Could not build projections</h3>
+        <p>${e.message}</p>
+      </div>`;
+  }
+}
+
 async function loadSeason(yr){
+  if(+yr===2027) return loadProjectedSeason();
   curSeason=+yr;
+  const _pb=document.getElementById('projBanner'); if(_pb) _pb.style.display='none';
   try {
     const colors = await ensureColors();
     const r = await fetch(`${SB_URL}/rest/v1/team_seasons?select=*&season_year=eq.${yr}`, { headers: HEADERS });
@@ -1693,9 +1766,9 @@ function renderRows(data, srt, favTeam, favColor, favBg){
       <div class="tr-rank-wrap"><div class="tr-rank${t.rk===1?' rank-1':t.rk===2?' rank-2':t.rk===3?' rank-3':''}">${t.rk}</div></div>
       <div class="tr-color-bar" style="background:${t.color}"></div>
       <div class="tr-team-cell">
-        <a class="tr-team-name" href="team.html?team=${encodeURIComponent(t.short)}&season=${curSeason}" style="color:inherit;text-decoration:none;">${t.name}</a>
-        <div class="tr-team-conf"><span class="conf-badge">${confAbbr(t.confName)}</span>${tierBadge(t.tier)}</div>
-        <div class="tr-meta-mobile"><b>${t.wins}–${t.losses}</b><i>·</i><b>${Math.round(t.winpct*100)}%</b> Win<i>·</i><b>${t.ppg.toFixed(1)}</b> PPG</div>
+        <a class="tr-team-name" href="team.html?team=${encodeURIComponent(t.short)}${curSeason===2027?'':'&season='+curSeason}" style="color:inherit;text-decoration:none;">${t.name}</a>
+        <div class="tr-team-conf"><span class="conf-badge">${confAbbr(t.confName)}</span>${tierBadge(t.tier)}${t.projected===false?'<span class="conf-badge" title="No synced roster yet — regressed carryover of the 2025-26 rating" style="opacity:.65;">carry</span>':''}</div>
+        <div class="tr-meta-mobile">${t.gp?`<b>${t.wins}–${t.losses}</b><i>·</i>`:''}<b>${Math.round(t.winpct*100)}%</b> ${t.gp?'Win':'All-Play'}<i>·</i><b>${t.ppg?t.ppg.toFixed(1):'—'}</b> PPG</div>
       </div>
       <div class="tr-grades-mobile">
         <span class="mg-val" style="color:${barC};">${pos?'+':''}${v}</span>
@@ -1706,10 +1779,10 @@ function renderRows(data, srt, favTeam, favColor, favBg){
         <span class="mbar-val" style="color:${barC};">${pos?'+':''}${v}</span>
       </div>
       <div class="tr-spacer"></div>
-      <div class="tr-stat"><b>${t.wins}–${t.losses}</b><span>W-L</span></div>
-      <div class="tr-stat"><b>${Math.round(t.winpct*100)}%</b><span>Win</span></div>
-      <div class="tr-stat"><b>${t.ppg.toFixed(1)}</b><span>PPG</span></div>
-      <div class="tr-stat"><b>${t.oppg.toFixed(1)}</b><span>OPP</span></div>
+      <div class="tr-stat"><b>${t.gp?`${t.wins}–${t.losses}`:'—'}</b><span>W-L</span></div>
+      <div class="tr-stat"><b>${Math.round(t.winpct*100)}%</b><span>${t.gp?'Win':'A-Play'}</span></div>
+      <div class="tr-stat"><b>${t.ppg?t.ppg.toFixed(1):'—'}</b><span>PPG</span></div>
+      <div class="tr-stat"><b>${t.oppg?t.oppg.toFixed(1):'—'}</b><span>OPP</span></div>
       <div class="tr-stat"><b>${t.fg?t.fg.toFixed(1):'—'}</b><span>FG%</span></div>
       <div class="tr-stat"><b>${t.tp?t.tp.toFixed(1):'—'}</b><span>3P%</span></div>
       <div class="tr-stat"><b>${t.ft?t.ft.toFixed(1):'—'}</b><span>FT%</span></div>
@@ -1735,7 +1808,7 @@ function renderRows(data, srt, favTeam, favColor, favBg){
 
 (function bootRankings(){
   const sel=document.getElementById('seasonSel');
-  if(sel){ let o=''; for(let y=2026;y>=2007;y--) o+=`<option value="${y}">${y-1}–${(''+y).slice(2)}</option>`; sel.innerHTML=o; sel.value='2026'; }
+  if(sel){ let o='<option value="2027">2026–27 · Projected</option>'; for(let y=2026;y>=2007;y--) o+=`<option value="${y}">${y-1}–${(''+y).slice(2)}</option>`; sel.innerHTML=o; sel.value='2026'; }
   // Pin the team-name column only once the stats are actually scrolled sideways
   const tsc=document.querySelector('.table-scroll');
   if(tsc){ tsc.addEventListener('scroll',()=>{ tsc.classList.toggle('scrolled', tsc.scrollLeft>2); },{passive:true}); }
