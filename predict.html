@@ -63,8 +63,8 @@
         <select id="selB"></select>
       </div>
       <div class="line-grid" id="lineOut"></div>
-      <div style="text-align:right;margin-top:8px;">
-        <button id="histBtn" onclick="toggleHist()" style="background:none;border:none;cursor:pointer;font-size:10.5px;color:var(--text3);font-family:'Inter',sans-serif;padding:0;">+ include every team since 2007</button>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+        <button id="histBtn" class="pill" onclick="toggleHist()">🕰️ Include every team since 2007</button>
       </div>
     </div>
 
@@ -133,9 +133,9 @@ async function loadHist(){
 }
 async function toggleHist(){
   const btn=document.getElementById('histBtn');
-  if(histOn){ histOn=false; btn.textContent='+ include every team since 2007'; fillSelects(); renderLine(); return; }
-  if(!HIST){ btn.textContent='loading 20 seasons…'; try{ HIST=await loadHist(); }catch(e){ btn.textContent='could not load history'; return; } }
-  histOn=true; btn.textContent='− showing every team season since 2007 (actual SRS)';
+  if(histOn){ histOn=false; btn.classList.remove('on'); btn.textContent='🕰️ Include every team since 2007'; fillSelects(); renderLine(); return; }
+  if(!HIST){ btn.textContent='Loading 20 seasons…'; try{ HIST=await loadHist(); }catch(e){ btn.textContent='Could not load history'; return; } }
+  histOn=true; btn.classList.add('on'); btn.textContent='🕰️ Showing every team since 2007 · actual SRS';
   fillSelects(); renderLine();
 }
 function renderTable(){
