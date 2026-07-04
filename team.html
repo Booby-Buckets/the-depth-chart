@@ -3240,11 +3240,18 @@ async function renderNil(){
   const fmt=m=>m>=1?('$'+(+m).toFixed(1)+'M'):('$'+Math.round(m*1000)+'K');
   const deal=d.verdict==='deal', maxv=Math.max(d.value,d.budget)||1;
   const valPct=Math.round(d.value/maxv*100), budPct=Math.round(d.budget/maxv*100);
+  // projected_spend = the model's own production estimate for the WHOLE roster,
+  // ignoring any known-deal overrides — only worth a card when overrides move the
+  // needle (otherwise it's identical to Roster Value and just clutters the row)
+  const hasOverrides=d.players.some(p=>p.override);
+  const spendGap=hasOverrides?round1(d.value-d.projected_spend):0;
+  function round1(v){ return Math.round(v*1000)/1000; }
   let html=`<div style="display:flex;flex-wrap:wrap;gap:13px;margin-bottom:20px;">
     <div class="nil-card"><div class="nil-lbl">NIL Budget · Tier ${d.tier}</div><div class="nil-big">${fmt(d.budget)}</div></div>
     <div class="nil-card"><div class="nil-lbl">Roster Value</div><div class="nil-big" style="color:var(--tc-readable,${col})">${fmt(d.value)}</div></div>
     <div class="nil-card" style="border-color:${deal?'var(--green)':'var(--red)'}"><div class="nil-lbl">Verdict</div><div class="nil-big" style="color:${deal?'var(--green)':'var(--red)'}">${deal?'DEAL':'EXPENSIVE'}</div><div class="nil-sub">${fmt(Math.abs(d.diff))} ${deal?'under budget':'overpay'}</div></div>
     <div class="nil-card"><div class="nil-lbl">Cost / Net Point</div><div class="nil-big">$${Math.round(d.implied_rate*1000)}K</div><div class="nil-sub">market $${Math.round(mkt*1000)}K</div></div>
+    ${hasOverrides?`<div class="nil-card"><div class="nil-lbl">Projected Spend</div><div class="nil-big">${fmt(d.projected_spend)}</div><div class="nil-sub" style="color:${spendGap>0?'var(--red)':'var(--green)'};font-weight:700;">${spendGap>0?'+':''}${fmt(Math.abs(spendGap))} ${spendGap>0?'above model':'below model'}</div></div>`:''}
   </div>
   <div style="margin:4px 0 26px;max-width:700px;">
     <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--text3);margin-bottom:5px;"><span>Roster value ${fmt(d.value)}</span><span>Budget ${fmt(d.budget)}</span></div>
@@ -3254,7 +3261,8 @@ async function renderNil(){
     </div>
     <div style="font-size:10px;color:var(--text3);margin-top:4px;">Green bar = roster value · vertical line = budget</div>
   </div>
-  <table class="nil-table"><thead><tr><th class="left">Player</th><th>Impact</th><th>MPG</th><th>Prem</th><th>NIL Value</th></tr></thead><tbody>`;
+  <div style="overflow-x:auto;">
+  <table class="nil-table"><thead><tr><th class="left">Player</th><th>Impact</th><th>MPG</th><th>Prem</th><th title="What the production model alone says this player is worth">Model Value</th><th>NIL Value</th><th title="NIL Value minus Model Value — positive means paid above what production justifies, negative means below">Over / Under</th></tr></thead><tbody>`;
   const _rosterList=(typeof teamPlayers!=='undefined'&&teamPlayers||[]);
   const _injSet=new Set(_rosterList.filter(p=>p.is_injured).map(p=>(p.name||'').toLowerCase().trim()));
   const _byName={}; _rosterList.forEach(p=>{ _byName[(p.name||'').toLowerCase().trim()]=p; });
@@ -3265,9 +3273,14 @@ async function renderNil(){
     const rp=_byName[key];
     const href=rp&&rp.espn_id?`player.html?espn=${rp.espn_id}&name=${encodeURIComponent(p.name)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(tT.name||'')}`;
     const nameCell=`<a href="${href}" style="color:inherit;text-decoration:none;">${p.name}</a>`;
-    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="left">${nameCell}${injTag}</td><td>${im>0?'+':''}${im.toFixed(1)}</td><td>${Math.round(p.mpg)}</td><td>×${(+p.prem||1).toFixed(2)}</td><td style="font-weight:700;color:var(--tc-readable,${col})${inj?';text-decoration:line-through;':''}">${fmt(p.value)}</td></tr>`; });
+    const proj=p.proj!=null?p.proj:p.value;
+    const diff=p.payDiff!=null?p.payDiff:0;
+    const diffCell=Math.abs(diff)<0.005?`<span style="color:var(--text3);">—</span>`
+      :`<span style="font-weight:700;color:${diff>0?'var(--red)':'var(--green)'};">${diff>0?'+':'−'}${fmt(Math.abs(diff))}</span>`;
+    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="left">${nameCell}${injTag}</td><td>${im>0?'+':''}${im.toFixed(1)}</td><td>${Math.round(p.mpg)}</td><td>×${(+p.prem||1).toFixed(2)}</td><td style="color:var(--text3);">${fmt(proj)}</td><td style="font-weight:700;color:var(--tc-readable,${col})${inj?';text-decoration:line-through;':''}">${fmt(p.value)}</td><td>${diffCell}</td></tr>`; });
   html+=`</tbody></table>
-  <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:14px;max-width:860px;"><b>Impact / 100</b> is a composite — BPM, Win Shares, PER and the player's TDC grade (usage, TS%, rates, Wins Added, team success), on the net-rating scale. Value = (impact − replacement) × (minutes ÷ 40) × $${Math.round(mkt*1000)}K/point, then a <b>market premium (Prem)</b> for what the NIL market over-pays for — <b>size, scoring and conference</b>. 2026-27 blends last season's impact with a grade projection. A <b>rotation floor</b> keeps any player who logs real minutes above $0 (value from minutes, size and production). Budget is the team's NIL-tier midpoint — roster value above budget = a <b>deal</b>, below = <b>paying a premium</b>.</div>`;
+  </div>
+  <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:14px;max-width:860px;"><b>Impact / 100</b> is a composite — BPM, Win Shares, PER and the player's TDC grade (usage, TS%, rates, Wins Added, team success), on the net-rating scale. <b>Model Value</b> = (impact − replacement) × (minutes ÷ 40) × $${Math.round(mkt*1000)}K/point, then a <b>market premium (Prem)</b> for what the NIL market over-pays for — <b>size, scoring and conference</b>. <b>NIL Value</b> matches Model Value unless a known real deal is on file, in which case <b>Over / Under</b> shows the gap — red means paid above what production justifies, green means below (a market bargain). 2026-27 blends last season's impact with a grade projection. A <b>rotation floor</b> keeps any player who logs real minutes above $0. Budget is the team's NIL-tier midpoint — roster value above budget = a <b>deal</b>, below = <b>paying a premium</b>.</div>`;
   host.innerHTML=html;
 }
 

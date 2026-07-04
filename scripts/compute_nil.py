@@ -131,7 +131,11 @@ _ovp=os.path.join(os.path.dirname(__file__),"..","nil-overrides.json")
 if os.path.exists(_ovp):
     try: OVR={k:v["value"] for k,v in (json.load(open(_ovp)).get("by_name") or {}).items() if isinstance(v,dict) and "value" in v}
     except Exception: OVR={}
-def pval(n,c,ic,wo): return OVR[n] if n in OVR else (WALKON_VALUE if wo else round(c*MKT+ic,3))
+# proj = the model's own production-based estimate, ALWAYS (ignores overrides) —
+# lets the frontend compare "what the model says this player is worth" against
+# "value" (the override when we have a known real deal) to surface over/underpays.
+def proj_only(c,ic,wo): return WALKON_VALUE if wo else round(c*MKT+ic,3)
+def pval(n,proj): return OVR[n] if n in OVR else proj
 out={"market_rate_per_pt":round(MKT,4),"replacement":REPL,"floor_pts":FLOOR_PTS,"walkon_thr":WALKON_THR,"walkon_value":WALKON_VALUE,"tier_budget_m":TIER_MID,
      "impact":{"w":W,"mean":{k:round(M[k][0],4) for k in M},"std":{k:round(M[k][1],4) for k in M},
                "cz_mean":round(CZM,5),"cz_std":round(CZS,5)},
@@ -140,9 +144,16 @@ out={"market_rate_per_pt":round(MKT,4),"replacement":REPL,"floor_pts":FLOOR_PTS,
      "teams":{}}
 out["overrides"]=OVR
 for r in rows:
-    pls=sorted([{"name":n,"impact":round(imp,1),"mpg":round(mp,1),"prem":round(prem,2),"value":pval(n,c,ic,wo),"walkon":wo,"override":(n in OVR)} for n,imp,mp,prem,c,ic,wo in r["pls"]],key=lambda x:-x["value"])
-    val=round(sum(p["value"] for p in pls),2)   # team value = sum of player values (reflects overrides)
-    out["teams"][r["name"]]={"tier":r["tier"],"budget":r["budget"],"value":val,"production":round(r["prod"],2),
+    pls=[]
+    for n,imp,mp,prem,c,ic,wo in r["pls"]:
+        proj=proj_only(c,ic,wo); val=pval(n,proj)
+        pls.append({"name":n,"impact":round(imp,1),"mpg":round(mp,1),"prem":round(prem,2),
+            "proj":proj,"value":val,"payDiff":round(val-proj,3),"walkon":wo,"override":(n in OVR)})
+    pls.sort(key=lambda x:-x["value"])
+    val=round(sum(p["value"] for p in pls),2)      # team value = sum of player values (reflects overrides)
+    projSpend=round(sum(p["proj"] for p in pls),2) # team's own model estimate, ignoring known real deals
+    out["teams"][r["name"]]={"tier":r["tier"],"budget":r["budget"],"value":val,"projected_spend":projSpend,
+        "production":round(r["prod"],2),
         "implied_rate":round(r["budget"]/(r["prod"] or 1),4),"srs":r["srs"],"verdict":"deal" if val>r["budget"] else "expensive",
         "diff":round(val-r["budget"],2),"players":pls}
 json.dump(out,open(os.path.join(os.path.dirname(__file__),"..","nil-data.json"),"w"),separators=(',',':'))
