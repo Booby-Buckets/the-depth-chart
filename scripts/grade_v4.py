@@ -20,6 +20,9 @@ CONFIG = {
     "logistic": {"k": 1.6, "center": 0.0, "floor": 25, "span": 74},
     "reliability": {"fullGames": 28, "floor": 0.82, "minMpgForRates": 10},
     "size": {"weight": 0.15},
+    "qualMpg": 8,               # norms (mean/sd) computed from rotation players (mpg>=this)
+                                # only; sub-rotation players are still SCORED against those
+                                # fixed norms, so they land low instead of being dropped.
 }
 PILLAR_WEIGHTS = {
     "value":  {"impact":0.23,"offense":0.19,"efficiency":0.15,"defense":0.15,"creation":0.11,"usage":0.09,"scalability":0.08},
@@ -65,13 +68,16 @@ def compute_stat_norms(players):
     for p in players: groups.setdefault(group_key(p),[]).append(p)
     norms={}
     for g,pool in groups.items():
+        # norms come from rotation players only; fall back to whole pool if too few
+        qual=[p for p in pool if p.get("_qual",True)]
+        npool=qual if len(qual)>=30 else pool
         norms[g]={}
         for stats in PILLARS.values():
             for stat in stats:
                 if stat["key"] in norms[g]: continue
-                norms[g][stat["key"]]=mean_sd([effective_stat(p,stat) for p in pool])
+                norms[g][stat["key"]]=mean_sd([effective_stat(p,stat) for p in npool])
         for k in SIZE.values():
-            norms[g][k]=mean_sd([num(p.get(k)) for p in pool])
+            norms[g][k]=mean_sd([num(p.get(k)) for p in npool])
     return norms
 
 def raw_pillar_score(p,pillar_stats,stat_norms):
@@ -104,25 +110,39 @@ def to_score(C):
 def grade_players(players):
     if not players: return []
     weights=PILLAR_WEIGHTS[CONFIG["mode"]]; pkeys=list(weights.keys())
+    # mark rotation players; all standardization (stat/pillar/composite norms) uses
+    # only them, but EVERY player is scored against those norms (bench lands low).
+    qmpg=CONFIG.get("qualMpg",8)
+    for p in players: p["_qual"]=(num(p.get("mpg")) or 0)>=qmpg
+    if sum(1 for p in players if p["_qual"])<30:
+        for p in players: p["_qual"]=True   # tiny pool: don't split, use everyone
     norms_by_group=compute_stat_norms(players)
     raw_pillars=[]
     for p in players:
         ng=norms_by_group[group_key(p)]
         raw_pillars.append({k:raw_pillar_score(p,PILLARS[k],ng) for k in pkeys})
-    pillar_norms={k:mean_sd([rp[k] for rp in raw_pillars]) for k in pkeys}
+    pillar_norms={k:mean_sd([raw_pillars[i][k] for i in range(len(players)) if players[i]["_qual"]]) for k in pkeys}
     composites=[]
     for rp in raw_pillars:
         C=0.0; std={}
         for k in pkeys:
             std[k]=z(rp[k],pillar_norms[k]); C+=std[k]*weights[k]
         composites.append({"C":C,"std":std})
-    comp_norm=mean_sd([c["C"] for c in composites])
+    comp_norm=mean_sd([composites[i]["C"] for i in range(len(players)) if players[i]["_qual"]])
+    cred_min=CONFIG["reliability"].get("credMin",200)
     out=[]
     for i,p in enumerate(players):
         ng=norms_by_group[group_key(p)]
         C=z(composites[i]["C"],comp_norm)
         rel=reliability(p); size=size_nudge(p,ng)
-        C=C*rel+size
+        C=C*rel
+        # tiny-sample upside damp: a sub-rotation player with very few total minutes
+        # can't post a high grade off a fluky line (their good stats aren't credible).
+        # genuinely-low bench (C<0) is left alone, so they still land low.
+        if not p["_qual"] and C>0:
+            tm=(num(p.get("mpg")) or 0)*(num(p.get("gamesPlayed")) or 0)
+            C*=min(tm/cred_min,1.0)
+        C=C+size
         q=dict(p); q["grade"]=to_score(C)
         q["_debug"]={"compositeStd":C,"reliability":rel,"sizeNudge":size,"pillars":composites[i]["std"]}
         out.append(q)

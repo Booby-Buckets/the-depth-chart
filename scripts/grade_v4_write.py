@@ -23,7 +23,10 @@ def _key():
     import os
     return os.environ.get("SUPABASE_SERVICE_KEY") or re.search(r'SB_KEY\s*=\s*"([^"]+)"',(DATA.parent/"load_supabase.py").read_text()).group(1)
 
-def grade_all(min_mpg=8, min_g=5):
+def grade_all(min_mpg=1, min_g=5):
+    # min_mpg=1 includes non-rotation players; grade_v4 standardizes on the mpg>=8
+    # rotation pool (CONFIG.qualMpg) and scores the bench against it, so deep-bench
+    # players land low rather than being dropped (matches the prior engine's coverage).
     G.CONFIG["logistic"].update(LOGI)
     buckets=G.load_all(min_mpg=min_mpg, min_g=min_g)
     out=[]
