@@ -25,7 +25,17 @@ window.TDC_NIL = {
   // (undersized for the 5) are opposite stories; a flat height curve paid them
   // the same. norms are rough position-average heights in inches.
   POS_HT_NORM: {PG:74, CG:75, SG:76, SF:78.5, PF:80.5, C:82.5, G:75, F:79},
-  SIZE_FALLBACK: 75, SIZE_UP_SPAN:10, SIZE_UP:0.40, SIZE_DOWN_SPAN:6, SIZE_DOWN:0.40
+  SIZE_FALLBACK: 75, SIZE_UP_SPAN:10, SIZE_UP:0.40, SIZE_DOWN_SPAN:6, SIZE_DOWN:0.40,
+  // pillar-driven hype (scripts/grade_v4.py's 7-pillar z-scores, read from
+  // bbref_seasons.grade_pillars when present) — Offense replaces raw-PPG
+  // scoring hype with the same efficiency-aware pillar the grade engine uses;
+  // Usage adds a ball's-in-his-hands premium (upside only); Defense applies a
+  // mild discount (downside only) since the real market underpays defense
+  // relative to what BPM/WS already credit it. Falls back to scoreMult(ppg)
+  // when a player has no grade_pillars (freshmen, no prior D1 season).
+  OFF_SPAN:2.5, OFF_UP:0.22, OFF_DOWN_SPAN:2.5, OFF_DOWN:0.15,
+  USG_SPAN:2.5, USG_UP:0.15,
+  DEF_SPAN:2.5, DEF_DOWN:0.10
 };
 (function(){
   var N = window.TDC_NIL, I = N.IMPACT, P = N.PREMIUM;
@@ -51,14 +61,24 @@ window.TDC_NIL = {
     if(d>=0) return 1+Math.min(d/N.SIZE_UP_SPAN,1)*N.SIZE_UP;                        // tall for the position: premium
     return 1-Math.min((-d)/N.SIZE_DOWN_SPAN,1)*N.SIZE_DOWN; };                        // short for the position: discount
   N.scoreMult = function(ppg){  if(!ppg)  return 1; var a=P.score; return 1+Math.min(Math.max((ppg-a[0])/(a[1]-a[0]),0),1)*a[2]; };
+  // ── pillar-driven hype: offense (replaces scoreMult when available), usage, defense ──
+  N.offenseMult = function(z){ if(z==null) return null;
+    return z>=0 ? 1+Math.min(z/N.OFF_SPAN,1)*N.OFF_UP : 1+Math.max(z/N.OFF_DOWN_SPAN,-1)*N.OFF_DOWN; };
+  N.usageMult   = function(z){ if(z==null) return 1; return 1+Math.min(Math.max(z/N.USG_SPAN,0),1)*N.USG_UP; };
+  N.defenseMult = function(z){ if(z==null) return 1; return 1-Math.min(Math.max(z/N.DEF_SPAN,0),1)*N.DEF_DOWN; };
   N.confClass = function(c){ c=(''+(c||'')).toLowerCase();
     if(/big ten|big 12|southeastern|big east|atlantic coast/.test(c) || ['acc','sec','b10','b12','be','big-east'].indexOf(c)>=0) return 'P';
     if(/american|atlantic 10|mountain west|west coast|conference usa|sun belt|mid-american|missouri valley/.test(c) || ['aac','a10','a-10','mwc','wcc'].indexOf(c)>=0) return 'M';
     return 'L'; };
   N.confMult  = function(cls){ return P.conf[cls] || 1; };
-  N.marketPremium = function(htIn,ppg,confCode,pos){ return N.sizeMult(htIn,pos)*N.scoreMult(ppg)*N.confMult(N.confClass(confCode)); };
+  // pillars: {offense,usage,defense,...} z-scores from bbref_seasons.grade_pillars, or null/undefined
+  N.marketPremium = function(htIn,ppg,confCode,pos,pillars){
+    pillars=pillars||{};
+    var off=N.offenseMult(pillars.offense), hype=(off!=null?off:N.scoreMult(ppg));
+    hype *= N.usageMult(pillars.usage) * N.defenseMult(pillars.defense);
+    return N.sizeMult(htIn,pos)*hype*N.confMult(N.confClass(confCode)); };
   N.baseIntercept = function(mpg,tier){ var ms=Math.min(Math.max(+mpg,0)/40,1); return (N.BASE_BY_TIER[N.tierNum(tier)]||0.1) * ms; }; // $M roster-spot base (tier-scaled)
-  N.marketValue   = function(imp,mpg,htIn,ppg,confCode,tier,pos){ return N.isWalkon(imp) ? N.WALKON_VALUE : N.value(imp,mpg,tier)*N.marketPremium(htIn,ppg,confCode,pos) + N.baseIntercept(mpg,tier); }; // $M
+  N.marketValue   = function(imp,mpg,htIn,ppg,confCode,tier,pos,pillars){ return N.isWalkon(imp) ? N.WALKON_VALUE : N.value(imp,mpg,tier)*N.marketPremium(htIn,ppg,confCode,pos,pillars) + N.baseIntercept(mpg,tier); }; // $M
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };
 })();

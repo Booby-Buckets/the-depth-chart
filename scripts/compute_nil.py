@@ -4,8 +4,14 @@
  analytical = max(0, impact - replacement) * (MPG/40) * market $/point
    impact = composite of BPM + WS/40 + PER + TDC grade (grade encodes usage, TS%,
    rates, Wins Added, team success), z-scored over the pool, mapped to the BPM scale.
- market premium = size(height) * scoring(PPG) * conference  -- the things the NIL
-   market over-pays for beyond pure on-court impact.
+ market premium = size(height, relative to POSITION) * hype * conference -- the things
+   the NIL market over/under-pays for beyond pure on-court impact.
+   hype = Offense-pillar z-score (efficiency-aware, replaces raw PPG when a player
+   has a grade_pillars row) * Usage-pillar z-score (ball's-in-his-hands premium,
+   upside only) * Defense-pillar z-score (mild DISCOUNT — the real market chronically
+   underpays defense relative to what BPM/WS already credit it; downside only).
+   Falls back to raw-PPG scoring when a player has no bbref match (freshmen, no
+   prior D1 season) — see score_mult().
  value = analytical * premium ; market $/point = median(budget / premium-weighted production).
 
 Run to refresh nil-data.json + print constants for tdc-nil.js."""
@@ -29,8 +35,18 @@ POS_HT_NORM={"PG":74.0,"CG":75.0,"SG":76.0,"SF":78.5,"PF":80.5,"C":82.5,"G":75.0
 SIZE_FALLBACK=75.0
 SIZE_UP_SPAN,SIZE_UP=10.0,0.40      # +10in above your position's norm = full +40% (big-man/unicorn premium)
 SIZE_DOWN_SPAN,SIZE_DOWN=6.0,0.40   # -6in below your position's norm = full -40% (undersized discount)
-SCORE_BASE,SCORE_TOP,SCORE_MAX=12.0,27.0,0.18
+SCORE_BASE,SCORE_TOP,SCORE_MAX=12.0,27.0,0.18   # fallback ONLY for players with no grade_pillars (no bbref match)
 CONF_MULT={"P":1.12,"M":1.00,"L":0.90}
+# pillar-driven premium (scripts/grade_v4.py's 7-pillar z-scores, persisted to
+# bbref_seasons.grade_pillars) — replaces raw-PPG hype with the same
+# efficiency-aware Offense pillar the grade engine uses; adds a Usage-based
+# "ball's in his hands" hype premium; and a Defense-based discount, because
+# the real NIL market chronically underpays defense relative to what
+# production models (BPM/WS) already credit it. Each is a clamped-linear
+# function of the pillar's z-score, capped so extreme outliers don't run away.
+OFF_SPAN,OFF_UP,OFF_DOWN_SPAN,OFF_DOWN=2.5,0.22,2.5,0.15   # asymmetric: great box score helps more than a bad one hurts
+USG_SPAN,USG_UP=2.5,0.15                                    # upside only — low usage isn't further penalized (already reflected in production)
+DEF_SPAN,DEF_DOWN=2.5,0.10                                  # downside only — no bonus for good D, capped modest discount
 # roster-spot base + rate scale with the team's SPENDING TIER (not conference) — a low-budget
 # power-conf program (e.g. Notre Dame, ACC but Tier 7) pays like its tier, not its league.
 BASE_BY_TIER={1:0.90,2:0.80,3:0.55,4:0.40,5:0.27,6:0.18,7:0.10,8:0.04,9:0.015}  # $M base (×minutes)
@@ -64,7 +80,20 @@ def size_mult(h,pos=None):
     if d>=0: return 1+min(d/SIZE_UP_SPAN,1)*SIZE_UP              # tall for the position: premium
     return 1-min((-d)/SIZE_DOWN_SPAN,1)*SIZE_DOWN                # short for the position: discount
 def score_mult(p): return 1.0 if not p   else 1+min(max((p-SCORE_BASE)/(SCORE_TOP-SCORE_BASE),0),1)*SCORE_MAX
-def premium(h,ppg,cls,pos=None): return size_mult(h,pos)*score_mult(ppg)*CONF_MULT.get(cls,1.0)
+def offense_mult(z):
+    if z is None: return None
+    return 1+min(z/OFF_SPAN,1)*OFF_UP if z>=0 else 1+max(z/OFF_DOWN_SPAN,-1)*OFF_DOWN
+def usage_mult(z):
+    if z is None: return 1.0
+    return 1+min(max(z/USG_SPAN,0),1)*USG_UP
+def defense_mult(z):
+    if z is None: return 1.0
+    return 1-min(max(z/DEF_SPAN,0),1)*DEF_DOWN
+def premium(h,ppg,cls,pos=None,pillars=None):
+    off=offense_mult((pillars or {}).get("offense"))
+    hype = off if off is not None else score_mult(ppg)   # fall back to raw-PPG when no pillar data
+    hype *= usage_mult((pillars or {}).get("usage")) * defense_mult((pillars or {}).get("defense"))
+    return size_mult(h,pos)*hype*CONF_MULT.get(cls,1.0)
 
 # ── 1) composite-impact pool stats (mpg>=8) ──
 pool=[]
@@ -87,10 +116,11 @@ print(f"pool: {len(pool):,} seasons")
 
 # ── 2) current rosters ──
 bb={}
-for r in fetch("bbref_seasons?select=espn_id,advanced,pergame,tdc_grade,height&season_year=eq.2026&espn_id=not.is.null"):
+for r in fetch("bbref_seasons?select=espn_id,advanced,pergame,tdc_grade,height,grade_pillars&season_year=eq.2026&espn_id=not.is.null"):
     a=r.get("advanced") or {}; pg=r.get("pergame") or {}
     bb[int(r["espn_id"])]=(gnum(a.get("bpm")),gnum(a.get("ws_per_40")),gnum(a.get("per")),
-        gnum(r.get("tdc_grade")),gnum(pg.get("mp_per_g")),ht_in(r.get("height")),gnum(pg.get("pts_per_g")))
+        gnum(r.get("tdc_grade")),gnum(pg.get("mp_per_g")),ht_in(r.get("height")),gnum(pg.get("pts_per_g")),
+        r.get("grade_pillars") or {})
 teams=fetch("teams?select=name,nil_tier,conference"); tinfo={t["name"]:t for t in teams if t.get("nil_tier")}
 srs={}
 for r in fetch("team_seasons?select=team,srs&season_year=eq.2026&srs=not.is.null"): srs[r["team"]]=gnum(r["srs"])
@@ -109,12 +139,12 @@ def evalp(p,cls):
     pos=p.get("position")
     eid=p.get("espn_id"); g=gnum(p.get("tdc_grade")); proj=impact(None,None,None,g)
     if eid and int(eid) in bb:
-        bp,ws,pr,ga,mp,ht,ppg=bb[int(eid)]
+        bp,ws,pr,ga,mp,ht,ppg,pillars=bb[int(eid)]
         proven=impact(bp,ws,pr,ga)
         imp=((proven+proj)/2.0) if (proven is not None and proj is not None) else (proven or proj)
-        return imp,(mp if mp else gnum(p.get("mpg")) or 0),premium(ht,ppg,cls,pos)
+        return imp,(mp if mp else gnum(p.get("mpg")) or 0),premium(ht,ppg,cls,pos,pillars)
     mp=gnum(p.get("mpg")) or (26 if str(p.get("starter")).lower() in("true","yes","1") else 14)
-    return proj,mp,premium(ht_in(p.get("height")),gnum(p.get("ppg")),cls,pos)
+    return proj,mp,premium(ht_in(p.get("height")),gnum(p.get("ppg")),cls,pos)   # no bbref match: no pillars, falls back to raw-PPG hype
 
 rows=[]
 for name,info in tinfo.items():
@@ -150,7 +180,9 @@ def pval(n,proj): return OVR[n] if n in OVR else proj
 out={"market_rate_per_pt":round(MKT,4),"replacement":REPL,"floor_pts":FLOOR_PTS,"walkon_thr":WALKON_THR,"walkon_value":WALKON_VALUE,"tier_budget_m":TIER_MID,
      "impact":{"w":W,"mean":{k:round(M[k][0],4) for k in M},"std":{k:round(M[k][1],4) for k in M},
                "cz_mean":round(CZM,5),"cz_std":round(CZS,5)},
-     "premium":{"pos_ht_norm":POS_HT_NORM,"size_fallback":SIZE_FALLBACK,"size_up":[SIZE_UP_SPAN,SIZE_UP],"size_down":[SIZE_DOWN_SPAN,SIZE_DOWN],"score":[SCORE_BASE,SCORE_TOP,SCORE_MAX],"conf":CONF_MULT},
+     "premium":{"pos_ht_norm":POS_HT_NORM,"size_fallback":SIZE_FALLBACK,"size_up":[SIZE_UP_SPAN,SIZE_UP],"size_down":[SIZE_DOWN_SPAN,SIZE_DOWN],
+                "score":[SCORE_BASE,SCORE_TOP,SCORE_MAX],"conf":CONF_MULT,
+                "offense":[OFF_SPAN,OFF_UP,OFF_DOWN_SPAN,OFF_DOWN],"usage":[USG_SPAN,USG_UP],"defense":[DEF_SPAN,DEF_DOWN]},
      "base_by_tier":BASE_BY_TIER,"rate_by_tier":RATE_BY_TIER,
      "teams":{}}
 out["overrides"]=OVR

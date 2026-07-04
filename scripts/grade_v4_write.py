@@ -70,10 +70,16 @@ def main(write=False):
         print("\nDRY RUN — pass --write to upsert into bbref_seasons.tdc_grade")
         return
 
-    # upsert keyed by (bbref_id, season_year, school_slug) — same key grade_bbref2 uses
+    # upsert keyed by (bbref_id, season_year, school_slug) — same key grade_bbref2 uses.
+    # grade_pillars persists the 7 per-pillar z-scores (offense/efficiency/defense/
+    # creation/usage/scalability/impact) that the engine computes but previously
+    # discarded — downstream consumers (NIL valuation) read them individually
+    # instead of only the single blended grade.
     import requests
     pay=[{"bbref_id":p["bbref_id"],"season_year":int(p["season_year"]),"school_slug":p["school_slug"],
-          "tdc_grade":int(p["grade"])} for p in graded if p.get("bbref_id") and p.get("school_slug")]
+          "tdc_grade":int(p["grade"]),
+          "grade_pillars":{k:round(v,3) for k,v in p["_debug"]["pillars"].items()}}
+         for p in graded if p.get("bbref_id") and p.get("school_slug")]
     K=_key(); H={"apikey":K,"Authorization":f"Bearer {K}","Content-Type":"application/json"}
     print(f"\nwriting {len(pay):,} grades to bbref_seasons...")
     ok=0

@@ -721,9 +721,9 @@ function nilOf(p){
     lbl='2026-27 projected value';
   }
   if(imp==null) return null;
-  var pos=p.position;
-  return { val:N.marketValue(imp,mpg,ht,ppg,conf,tier,pos), imp:imp,
-    prem:N.marketPremium(ht,ppg,conf,pos), tier:N.tierNum(tier), lbl:lbl, fmt:N.fmt };
+  var pos=p.position, pillars=p._pillars;
+  return { val:N.marketValue(imp,mpg,ht,ppg,conf,tier,pos,pillars), imp:imp,
+    prem:N.marketPremium(ht,ppg,conf,pos,pillars), tier:N.tierNum(tier), lbl:lbl, fmt:N.fmt };
 }
 // generic comparison row with custom formatter (NIL numbers aren't stat-shaped)
 function cmpRow(label,av,bv,fmtFn,higher){
@@ -922,10 +922,10 @@ async function attachBbref(p){
   let rows=null;
   try{
     if(p.espn_id){
-      rows=await fetch(`${SB}/rest/v1/bbref_seasons?espn_id=eq.${p.espn_id}&season_year=eq.${yr}&select=advanced,per40,school&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]);
+      rows=await fetch(`${SB}/rest/v1/bbref_seasons?espn_id=eq.${p.espn_id}&season_year=eq.${yr}&select=advanced,per40,school,grade_pillars&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]);
     }
     if((!rows||!rows.length) && p.name){
-      rows=await fetch(`${SB}/rest/v1/bbref_seasons?player=eq.${encodeURIComponent(p.name)}&season_year=eq.${yr}&select=advanced,per40,school&limit=8`,{headers:H}).then(r=>r.ok?r.json():[]);
+      rows=await fetch(`${SB}/rest/v1/bbref_seasons?player=eq.${encodeURIComponent(p.name)}&season_year=eq.${yr}&select=advanced,per40,school,grade_pillars&limit=8`,{headers:H}).then(r=>r.ok?r.json():[]);
       if(rows&&rows.length>1 && p.team){
         const tl=(p.team||'').toLowerCase().trim();
         const m=rows.find(r=>(r.school||'').toLowerCase().trim()===tl);
@@ -936,6 +936,7 @@ async function attachBbref(p){
   const row=(rows&&rows.length)?rows[0]:null;
   p._advanced = row&&row.advanced ? row.advanced : null;
   p._per40    = row&&row.per40    ? row.per40    : null;
+  p._pillars  = row&&row.grade_pillars ? row.grade_pillars : null;
   return p;
 }
 function outlook(proj, conf, group){

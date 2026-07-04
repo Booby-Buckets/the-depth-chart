@@ -943,7 +943,7 @@ function bbrefToFlat(rows){
       tpm:_bn(pg.fg3_per_g), tpa:_bn(pg.fg3a_per_g), tp_pct:_bp(pg.fg3_pct),
       ftm:_bn(pg.ft_per_g), fta:_bn(pg.fta_per_g), ft_pct:_bp(pg.ft_pct),
       oreb:_bn(pg.orb_per_g), dreb:_bn(pg.drb_per_g), wa:adv.wa,
-      _pergame:pg, _per40:p4, _advanced:adv,
+      _pergame:pg, _per40:p4, _advanced:adv, _pillars:r.grade_pillars||null,
     };
   });
 }
@@ -2608,8 +2608,8 @@ function renderNilPlayer(){
     const a=s._advanced, imp=N.impact(a.bpm,a.ws_per_40,a.per,s.tdc_grade);
     // bbref's own pos (coarse G/F/C) for that season if present, else the roster's finer position
     const pos=s.position||playerPos;
-    const ht=N.htIn(s.height), ppg=+s.ppg||0, prem=N.marketPremium(ht,ppg,conf,pos);
-    return {yr:s.season_year, team:s.team, imp:imp, mpg:+s.mpg, grade:+s.tdc_grade||null, ht:ht, ppg:ppg, prem:prem, value:(imp!=null?N.marketValue(imp,+s.mpg,ht,ppg,conf,nilTier,pos):null)};
+    const ht=N.htIn(s.height), ppg=+s.ppg||0, prem=N.marketPremium(ht,ppg,conf,pos,s._pillars);
+    return {yr:s.season_year, team:s.team, imp:imp, mpg:+s.mpg, grade:+s.tdc_grade||null, ht:ht, ppg:ppg, prem:prem, pillars:s._pillars, value:(imp!=null?N.marketValue(imp,+s.mpg,ht,ppg,conf,nilTier,pos,s._pillars):null)};
   }).filter(s=>s.imp!=null).sort((a,b)=>a.yr-b.yr);
   const last=seasons.length?seasons[seasons.length-1]:null;
   const projGrade=(player&&player.tdc_grade)||(last&&last.grade)||78;
@@ -2617,18 +2617,24 @@ function renderNilPlayer(){
   const projMpg=last?last.mpg:((player&&+player.mpg)||26);
   const projHt=last?last.ht:N.htIn(player&&player.height);
   const projPpg=last?last.ppg:(+(player&&player.ppg)||0);
-  const projPrem=N.marketPremium(projHt,projPpg,conf,playerPos);
+  const projPillars=last?last.pillars:null;
+  const projPrem=N.marketPremium(projHt,projPpg,conf,playerPos,projPillars);
   const aboveRepl=Math.max(projImp-N.REPL, N.FLOOR_PTS), minShare=Math.min(projMpg/40,1), contrib=aboveRepl*minShare, floored=(projImp-N.REPL)<N.FLOOR_PTS;
   const isWalkon=N.isWalkon(projImp);
   const analyticalVal=N.value(projImp,projMpg,nilTier), prodVal=analyticalVal*projPrem, baseVal=N.baseIntercept(projMpg,nilTier);
-  const projVal=N.marketValue(projImp,projMpg,projHt,projPpg,conf,nilTier,playerPos);
+  const projVal=N.marketValue(projImp,projMpg,projHt,projPpg,conf,nilTier,playerPos,projPillars);
   const finalVal=(_ovr&&_ovr.value!=null)?+_ovr.value:projVal;
-  const pSize=N.sizeMult(projHt,playerPos), pScore=N.scoreMult(projPpg), pConf=N.confMult(N.confClass(conf));
+  const pSize=N.sizeMult(projHt,playerPos), pConf=N.confMult(N.confClass(conf));
+  // hype: Offense pillar when we have one (efficiency-aware, from grade_v4.py),
+  // else raw-PPG scoring — same fallback the value calc itself uses
+  const pOff=N.offenseMult(projPillars&&projPillars.offense), offMode=pOff!=null;
+  const pHype=offMode?pOff:N.scoreMult(projPpg);
+  const pUsage=N.usageMult(projPillars&&projPillars.usage), pDef=N.defenseMult(projPillars&&projPillars.defense);
   let html=`<div style="display:flex;flex-wrap:wrap;gap:13px;margin-bottom:20px;">
     <div class="nil-card"><div class="nil-lbl">2026-27 ${_ovr?'NIL Value · override':'Projected Value'}</div><div class="nil-big" style="color:${col}">${fmt(finalVal)}</div>${_ovr?`<div class="nil-sub" style="font-size:10px;color:var(--text3);margin-top:3px;">manual · model ${fmt(projVal)}</div>`:''}</div>
     <div class="nil-card"><div class="nil-lbl">Impact / 100 · blend</div><div class="nil-big">${projImp>0?'+':''}${projImp.toFixed(1)}</div></div>
     <div class="nil-card"><div class="nil-lbl">Minutes Share</div><div class="nil-big">${Math.round(minShare*100)}%</div></div>
-    <div class="nil-card"><div class="nil-lbl">Market Premium</div><div class="nil-big">×${projPrem.toFixed(2)}</div><div class="nil-sub" style="font-size:10px;color:var(--text3);margin-top:3px;">size ×${pSize.toFixed(2)} · scoring ×${pScore.toFixed(2)} · conf ×${pConf.toFixed(2)}</div></div>
+    <div class="nil-card"><div class="nil-lbl">Market Premium</div><div class="nil-big">×${projPrem.toFixed(2)}</div><div class="nil-sub" style="font-size:10px;color:var(--text3);margin-top:3px;">size ×${pSize.toFixed(2)} · ${offMode?'offense':'scoring'} ×${pHype.toFixed(2)} · usage ×${pUsage.toFixed(2)} · defense ×${pDef.toFixed(2)} · conf ×${pConf.toFixed(2)}</div></div>
   </div>
   ${_ovr?`<div class="nil-step nil-step-final" style="border-color:${col};max-width:660px;margin-bottom:16px;"><span class="nil-step-n" style="background:${col}">✎</span><b>Manual override — ${fmt(finalVal)}</b>${_ovr.note?(' · '+_ovr.note):''}. Set because the model can't see this (injury, versatility, recruiting hype, non-D1). The model's own estimate is <b>${fmt(projVal)}</b>, shown below.</div>`:''}
   ${isWalkon?`<div class="nil-step nil-step-final" style="border-color:${col};max-width:560px;"><span class="nil-step-n" style="background:${col}">i</span><b>Walk-on / non-rotation</b> — projected impact ${projImp.toFixed(1)} is well below replacement, so this player isn't part of NIL roster spend. Listed at a nominal <b style="color:${col}">${fmt(projVal)}</b>.</div>`:`<div class="nil-steps">
