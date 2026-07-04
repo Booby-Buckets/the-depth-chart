@@ -2937,6 +2937,7 @@ function onRosterSeason(v){
   // The Coach/Depth/Recruit/NIL/Tier grades only describe the 2026-27 projection,
   // so hide them when viewing a past season.
   const heroGrades=document.getElementById('heroGrades');
+  updateHeroRank(_rosterSeason);
   if(_rosterSeason >= 2027){
     if(sh) sh.firstChild.textContent='Depth Chart ';
     live.forEach(c=>c.style.display='');
@@ -3134,6 +3135,26 @@ async function computeSeasonAwards(rows, yr){
   body.innerHTML = html || '<div class="empty-note">No awards.</div>';
 }
 // Historic team analytical stats for the viewed season (from team_seasons).
+// Hero "#N TDC" badge follows the selected season: the current tdc_rank for
+// 2026-27, otherwise that season's national rank (same order as the Rankings
+// page: gp ≥ 5, SRS high→low). Cached per year.
+const _histRankCache={};
+async function updateHeroRank(yr){
+  const el=document.getElementById('heroRank'); if(!el||!teamT) return;
+  if(yr>=2027){ el.textContent = teamT.tdc_rank ? `#${teamT.tdc_rank} TDC` : ''; return; }
+  if(_histRankCache[yr]!==undefined){ el.textContent=_histRankCache[yr]||''; return; }
+  try{
+    const all=await fetch(`${SB_URL}/rest/v1/team_seasons?season_year=eq.${yr}&select=team,srs,wins,losses&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]);
+    const field=all.filter(r=>((+r.wins||0)+(+r.losses||0))>=5 && r.srs!=null)
+                   .sort((a,b)=>parseFloat(b.srs)-parseFloat(a.srs));
+    const name=(teamT.name||'').toLowerCase();
+    let i=field.findIndex(r=>r.team.toLowerCase()===name);
+    if(i<0){ const gk=await _resolveGamesKey(); if(gk){ const g=gk.toLowerCase(); i=field.findIndex(r=>r.team.toLowerCase()===g); } }
+    _histRankCache[yr]=i>=0?`#${i+1} TDC`:null;
+  }catch(e){ _histRankCache[yr]=null; }
+  // only write if the user is still on this season (fetch may race a quick switch)
+  if(_rosterSeason===yr) el.textContent=_histRankCache[yr]||'';
+}
 async function renderSeasonStats(yr){
   const card=document.getElementById('seasonStatsCard'), body=document.getElementById('seasonStatsBody'), head=document.getElementById('seasonStatsHead');
   if(!card||!body) return;
