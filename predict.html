@@ -38,6 +38,13 @@
     .loading{padding:60px;text-align:center;color:var(--text3);}
     .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:30px;max-width:860px;}
     .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;border-radius:6px;}
+    .combo{position:relative;}
+    .combo-list{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:30;width:320px;max-height:320px;overflow-y:auto;background:var(--bg);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);}
+    .combo-group{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:8px 12px 3px;}
+    .combo-item{padding:7px 12px;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;gap:10px;}
+    .combo-item:hover,.combo-item.hot{background:var(--bg3);}
+    .combo-item .cr{color:var(--text3);font-variant-numeric:tabular-nums;}
+    .combo-empty{padding:12px;font-size:12px;color:var(--text3);}
     .two{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
     @media(max-width:820px){.two{grid-template-columns:1fr;}}
   </style>
@@ -58,9 +65,9 @@
     <div class="sec">Game Line Maker</div>
     <div class="card">
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
-        <select id="selA"></select>
+        <div class="combo"><input id="selA" class="search" placeholder="Search team…" autocomplete="off"><div class="combo-list" id="listA"></div></div>
         <button class="venue" id="venueBtn" onclick="cycleVenue()">Neutral court</button>
-        <select id="selB"></select>
+        <div class="combo"><input id="selB" class="search" placeholder="Search team…" autocomplete="off"><div class="combo-list" id="listB"></div></div>
       </div>
       <div class="line-grid" id="lineOut"></div>
       <div style="display:flex;justify-content:flex-end;margin-top:12px;">
@@ -155,32 +162,70 @@ function renderPills(){
   const confs=['All',...new Set(D.teams.filter(r=>r.projected).map(r=>r.conf).filter(Boolean))];
   document.getElementById('confPills').innerHTML=confs.map(c=>`<button class="pill ${c===curConf?'on':''}" onclick="curConf='${c}';renderPills();renderTable();">${c}</button>`).join('');
 }
+const selKey={A:'c0',B:'c1'};
+const fmtR=r=>`${r.rating>=0?'+':''}${r.rating.toFixed(1)}`;
+const labelOf=r=>!r?'':(r.season?`${r.full} ${r.season}`:r.full);
+
 function fillSelects(){
-  const selA=document.getElementById('selA'), selB=document.getElementById('selB');
-  const keep=[selA.value,selB.value];
   LINE_POOL={};
-  const fmt=r=>`${r.rating>=0?'+':''}${r.rating.toFixed(1)}`;
-  const cur=D.teams.map((r,i)=>{ LINE_POOL['c'+i]=r;
-    return `<option value="c${i}">${r.full} (${fmt(r)})</option>`; }).join('');
-  let html=`<optgroup label="2026-27 · Projected">${cur}</optgroup>`;
-  if(histOn&&HIST){
-    const hist=HIST.map((r,i)=>{ LINE_POOL['h'+i]=r;
-      return `<option value="h${i}">${r.full} ${r.season} (${fmt(r)})</option>`; }).join('');
-    html+=`<optgroup label="Past seasons · actual SRS">${hist}</optgroup>`;
-  }
-  selA.innerHTML=selB.innerHTML=html;
-  selA.value=LINE_POOL[keep[0]]?keep[0]:'c0';
-  selB.value=(LINE_POOL[keep[1]]&&keep[1]!==selA.value)?keep[1]:(selA.value==='c1'?'c0':'c1');
+  D.teams.forEach((r,i)=>{ LINE_POOL['c'+i]=r; });
+  if(histOn&&HIST) HIST.forEach((r,i)=>{ LINE_POOL['h'+i]=r; });
+  if(!LINE_POOL[selKey.A]) selKey.A='c0';
+  if(!LINE_POOL[selKey.B]||selKey.B===selKey.A) selKey.B=(selKey.A==='c1'?'c0':'c1');
+  ['A','B'].forEach(x=>{ document.getElementById('sel'+x).value=labelOf(LINE_POOL[selKey[x]]); });
   // schedule sweep stays on the 2026-27 field
-  document.getElementById('schedSel').innerHTML=D.teams.map(r=>`<option value="${r.full.replace(/"/g,'&quot;')}">${r.full} (${fmt(r)})</option>`).join('');
-  selA.onchange=selB.onchange=renderLine;
+  document.getElementById('schedSel').innerHTML=D.teams.map(r=>`<option value="${r.full.replace(/"/g,'&quot;')}">${r.full} (${fmtR(r)})</option>`).join('');
 }
+
+// searchable combobox over the line pool (type to filter 7k+ team seasons)
+function comboMatches(q){
+  const toks=(q||'').toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const ok=s=>{ s=s.toLowerCase(); return toks.every(t=>s.includes(t)); };
+  const cur=[],hist=[];
+  D.teams.forEach((r,i)=>{ if(!toks.length||ok(r.full+' '+r.team)) cur.push({key:'c'+i,r}); });
+  if(histOn&&HIST) HIST.forEach((r,i)=>{ if(!toks.length||ok(r.full+' '+r.season+' '+(r.season.split('-')[0]))) hist.push({key:'h'+i,r}); });
+  // teams whose name starts with the query outrank mid-name matches
+  // ("kentucky" -> Kentucky Wildcats above Eastern Kentucky)
+  if(toks.length){
+    const pre=e=>e.r.full.toLowerCase().startsWith(toks[0])?0:1;
+    cur.sort((a,b)=>pre(a)-pre(b)); hist.sort((a,b)=>pre(a)-pre(b));
+  }
+  return {cur:cur.slice(0,25), hist:hist.slice(0,40)};
+}
+function renderList(x){
+  const list=document.getElementById('list'+x), q=document.getElementById('sel'+x).value;
+  const m=comboMatches(q);
+  const item=e=>`<div class="combo-item" data-key="${e.key}" data-x="${x}"><span>${labelOf(e.r)}</span><span class="cr">${fmtR(e.r)}</span></div>`;
+  let html='';
+  if(m.cur.length) html+=`<div class="combo-group">2026-27 · Projected</div>`+m.cur.map(item).join('');
+  if(m.hist.length) html+=`<div class="combo-group">Past seasons · actual SRS</div>`+m.hist.map(item).join('');
+  list.innerHTML=html||'<div class="combo-empty">No teams match</div>';
+  list.style.display='block';
+}
+function pick(x,key){
+  selKey[x]=key;
+  document.getElementById('sel'+x).value=labelOf(LINE_POOL[key]);
+  document.getElementById('list'+x).style.display='none';
+  renderLine();
+}
+function wireCombo(x){
+  const inp=document.getElementById('sel'+x), list=document.getElementById('list'+x);
+  inp.addEventListener('focus',()=>{ inp.select(); renderList(x); });
+  inp.addEventListener('input',()=>renderList(x));
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){ const f=list.querySelector('.combo-item'); if(f) pick(x,f.dataset.key); inp.blur(); }
+    if(e.key==='Escape'){ list.style.display='none'; inp.value=labelOf(LINE_POOL[selKey[x]]); inp.blur(); }
+  });
+  inp.addEventListener('blur',()=>setTimeout(()=>{ list.style.display='none'; inp.value=labelOf(LINE_POOL[selKey[x]]); },150));
+  list.addEventListener('mousedown',e=>{ const it=e.target.closest('.combo-item'); if(it){ e.preventDefault(); pick(x,it.dataset.key); } });
+}
+wireCombo('A'); wireCombo('B');
 function cycleVenue(){ vi=(vi+1)%3;
   document.getElementById('venueBtn').textContent=vi===0?'Neutral court':vi===1?'Team A at home':'Team B at home';
   renderLine();
 }
 function renderLine(){
-  const a=poolRow(document.getElementById('selA').value), b=poolRow(document.getElementById('selB').value);
+  const a=poolRow(selKey.A), b=poolRow(selKey.B);
   if(!a||!b) return;
   const L=TDC_RATINGS.lineFor(a,b,venues[vi]);
   const sub=t=>t.season?`${t.season} team · actual SRS ${t.rating>=0?'+':''}${t.rating.toFixed(1)}`
