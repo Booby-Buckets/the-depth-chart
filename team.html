@@ -2246,32 +2246,35 @@ function renderAnalyticsBar(analytics, base){
   </div>`;
 }
 
-// Max minutes per game: 5 starters × 40 min = 200 total available
-// But realistically a player can't play more than 40, and the 5-man unit shares 200 mins
-const MAX_TEAM_MINS = 235;
+// A real game is 5 on the floor × 40 minutes = 200 player-minutes. Sliders are
+// intent — the projection engine normalizes every rotation to exactly 200, so
+// the budget bar measures how far your sliders are from a clean game.
+const MAX_TEAM_MINS = 200;
 
 function calcStarterMins(){
-  // Count ALL players — unified 235 min budget
-  let total=0;
+  // rotation = top 10 minute-getters; those are the 200 real minutes
+  const mins=[];
   POS_KEYS.forEach(pos=>{
     (customDepth[pos]||[]).forEach(p=>{
       const base=parseFloat(p.mpg)||20;
-      total+=(customMpg[p.name]!==undefined?customMpg[p.name]:base);
+      mins.push(customMpg[p.name]!==undefined?customMpg[p.name]:base);
     });
   });
-  return total;
+  return mins.sort((a,b)=>b-a).slice(0,10).reduce((s,v)=>s+v,0);
 }
 
 function renderMinsBudget(){
   const total=calcStarterMins();
   const pct=Math.min(100,(total/MAX_TEAM_MINS)*100);
-  const over=total>MAX_TEAM_MINS;
-  const barColor=over?'#cc2200':total>220?'#b07000':total>195?'var(--tc)':'#1a8c3a';
+  const f=total>0?MAX_TEAM_MINS/total:1;
+  const scalePct=Math.round(Math.abs(1-f)*100);
+  const far=scalePct>30, off=scalePct>12;
+  const barColor=far?'#cc2200':off?'#b07000':'#1a8c3a';
   return `<div class="mins-budget" id="minsBudget">
-    <span class="mins-budget-label">Minutes Budget</span>
+    <span class="mins-budget-label">Rotation Minutes</span>
     <div class="mins-budget-bar"><div class="mins-budget-fill" style="width:${pct}%;background:${barColor};"></div></div>
-    <span class="mins-budget-val" style="color:${over?'#cc2200':'var(--text2)'};">${Math.round(total)} / ${MAX_TEAM_MINS}</span>
-    ${over?`<span class="mins-over">⚠ ${Math.round(total-MAX_TEAM_MINS)} min over budget</span>`:''}
+    <span class="mins-budget-val" style="color:${far?'#cc2200':'var(--text2)'};">${Math.round(total)} / ${MAX_TEAM_MINS}</span>
+    <span class="mins-over" style="color:${far?'#cc2200':'var(--text3)'};">${scalePct<=1?'✓ clean 200-minute game':`auto-balanced: rotation scales ${f<1?'down':'up'} ${scalePct}% to a real game`}</span>
   </div>`;
 }
 // ── LINEUP LAB — deeper analytics ─────────────────────────
@@ -2432,7 +2435,7 @@ function rebuildCustomizeUI(){
           <span class="dc-row-drag" title="Drag within position">⠿</span>
         </div>
         <div class="dc-row-meta">
-          <span class="dc-row-yr">${p.class_year||p.yr||''}</span>
+          <span class="dc-row-yr">${p.class_year||p.yr||''}${p.height?` · ${p.height}`:''}</span>
           <span class="fit-badge ${fit.fitClass}"${fitTooltip}>${fit.fitLabel}</span>
         </div>
         <div class="dc-row-actions">
@@ -2567,7 +2570,7 @@ function buildCustomProjections(){
   });
 
   const baseProj = buildTeamProjections(readyPlayers, conf);
-  return baseProj.map(p=>{
+  const projRows = baseProj.map(p=>{
     const roleKey=p._role||customRole[p.name]||'none';
     let result={...p};
     if(p._customMpg!=null){
@@ -2588,6 +2591,24 @@ function buildCustomProjections(){
     }
     return applyRoleToProjection(result,roleKey,p.tdc_grade,p._naturalPos||p.position,p._assignedPos||p.position);
   });
+  // Normalize to a REAL game: 5 on the floor × 40 minutes = 200 player-minutes.
+  // Season MPG sums run over 200 (overtimes, players missing games), so raw
+  // slider totals never balance — scale every rotation to exactly 200 so this
+  // team's totals are consistent with every other team's.
+  // the 200 minutes belong to the actual rotation — normalize on the top 10
+  // by minutes so deep-bench filler doesn't deflate the real players
+  const sumM=projRows.map(p=>parseFloat(p.mpg)||0).sort((a,b)=>b-a).slice(0,10).reduce((s,v)=>s+v,0);
+  if(sumM>0&&Math.abs(sumM-200)>0.5){
+    const f=200/sumM;
+    const CNT=['ppg','rpg','apg','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','stl','blk','tovs'];
+    projRows.forEach(p=>{
+      const m=parseFloat(p.mpg)||0; if(!m) return;
+      const nm=Math.min(40,m*f), r=nm/m;
+      p.mpg=r1t(nm);
+      CNT.forEach(k=>{ if(p[k]!=null) p[k]=r1t(parseFloat(p[k])*r); });
+    });
+  }
+  return projRows;
 }
 
 // ── CUSTOM PROJECTIONS TABLE ────────────────────────────
@@ -2655,7 +2676,7 @@ function renderCustomProjectionsTable(){
 
   const teamPpg = projected.slice(0,8).reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
   const totalMins = projected.reduce((s,p)=>s+(parseFloat(p.mpg)||0),0);
-  const budgetCol = totalMins>235?'#cc2200':totalMins>220?'#b07000':'#1a8c3a';
+  const budgetCol = '#1a8c3a';
 
   return `<div id="customProjTable" style="margin-top:20px;">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
@@ -2665,7 +2686,7 @@ function renderCustomProjectionsTable(){
       </div>
       <div style="display:flex;gap:16px;align-items:center;">
         <span style="font-size:12px;color:var(--text3);">Est. Team PPG: <strong style="color:var(--text);">${Math.round(teamPpg)}</strong></span>
-        <span style="font-size:12px;font-weight:700;color:${budgetCol};">⏱ ${Math.round(totalMins)} / 235 min</span>
+        <span style="font-size:12px;font-weight:700;color:${budgetCol};">⏱ ${Math.round(totalMins)} min · normalized 200-min game</span>
       </div>
     </div>
     <div style="overflow-x:auto;">
@@ -2779,12 +2800,11 @@ function stepMpg(playerName, pKey, delta){
 }
 
 function onMpgChange(playerName, pKey, val){
-  const newVal=parseInt(val);
-  // Enforce 235 total cap
-  const currentTotal=calcStarterMins()-(customMpg[playerName]||parseFloat((()=>{let r=0;POS_KEYS.forEach(pos=>{(customDepth[pos]||[]).forEach(p=>{if(p.name===playerName)r=parseFloat(p.mpg)||20;});});return r;})())||20);
-  const allowed=Math.min(newVal, Math.max(0, 235-currentTotal));
-  customMpg[playerName]=allowed;
-  val=allowed;
+  // free 0-40 per player — the projection engine normalizes the team to a
+  // real 200-minute game, so no hard total cap is needed
+  const newVal=Math.max(0,Math.min(40,parseInt(val)||0));
+  customMpg[playerName]=newVal;
+  val=newVal;
 
   // Update triggering label
   const lbl=document.getElementById('mpgVal-'+pKey)||document.getElementById(pKey);
@@ -2884,7 +2904,7 @@ async function filterSwapList(hintPos){
       <span class="swap-player-pos">${p.position||'—'}</span>
       <div style="flex:1;">
         <div class="swap-player-name">${p.name}${p._hist?'<span class="hist-chip">'+(p._histSeason-1)+'-'+((''+p._histSeason).slice(2))+'</span>':''}</div>
-        <div class="swap-player-team">${p.team||''} · ${p.class_year||p.yr||''}${fxStat}</div>
+        <div class="swap-player-team">${p.team||''} · ${p.class_year||p.yr||''}${p.height?' · '+p.height:''}${fxStat}</div>
       </div>
       <span class="swap-fit-preview ${fit.fitClass}">${fit.fitLabel}</span>
       <span class="swap-player-grade ${gc(p.tdc_grade||'')}" style="margin-left:6px;">${p.tdc_grade||'—'}</span>
