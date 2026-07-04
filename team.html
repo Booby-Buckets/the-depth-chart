@@ -3255,11 +3255,17 @@ async function renderNil(){
     <div style="font-size:10px;color:var(--text3);margin-top:4px;">Green bar = roster value · vertical line = budget</div>
   </div>
   <table class="nil-table"><thead><tr><th class="left">Player</th><th>Impact</th><th>MPG</th><th>Prem</th><th>NIL Value</th></tr></thead><tbody>`;
-  const _injSet=new Set((typeof teamPlayers!=='undefined'&&teamPlayers||[]).filter(p=>p.is_injured).map(p=>(p.name||'').toLowerCase().trim()));
+  const _rosterList=(typeof teamPlayers!=='undefined'&&teamPlayers||[]);
+  const _injSet=new Set(_rosterList.filter(p=>p.is_injured).map(p=>(p.name||'').toLowerCase().trim()));
+  const _byName={}; _rosterList.forEach(p=>{ _byName[(p.name||'').toLowerCase().trim()]=p; });
   d.players.forEach(p=>{ const im=(p.impact!=null?+p.impact:+p.bpm);
-    const inj=_injSet.has((p.name||'').toLowerCase().trim());
+    const key=(p.name||'').toLowerCase().trim();
+    const inj=_injSet.has(key);
     const injTag=inj?` <span style="font-size:8px;font-weight:700;padding:1px 4px;background:rgba(220,38,38,.12);color:#ef4444;border:1px solid rgba(220,38,38,.3);border-radius:3px;">OUT 2026-27</span>`:'';
-    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="left">${p.name}${injTag}</td><td>${im>0?'+':''}${im.toFixed(1)}</td><td>${Math.round(p.mpg)}</td><td>×${(+p.prem||1).toFixed(2)}</td><td style="font-weight:700;color:var(--tc-readable,${col})${inj?';text-decoration:line-through;':''}">${fmt(p.value)}</td></tr>`; });
+    const rp=_byName[key];
+    const href=rp&&rp.espn_id?`player.html?espn=${rp.espn_id}&name=${encodeURIComponent(p.name)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(tT.name||'')}`;
+    const nameCell=`<a href="${href}" style="color:inherit;text-decoration:none;">${p.name}</a>`;
+    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="left">${nameCell}${injTag}</td><td>${im>0?'+':''}${im.toFixed(1)}</td><td>${Math.round(p.mpg)}</td><td>×${(+p.prem||1).toFixed(2)}</td><td style="font-weight:700;color:var(--tc-readable,${col})${inj?';text-decoration:line-through;':''}">${fmt(p.value)}</td></tr>`; });
   html+=`</tbody></table>
   <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:14px;max-width:860px;"><b>Impact / 100</b> is a composite — BPM, Win Shares, PER and the player's TDC grade (usage, TS%, rates, Wins Added, team success), on the net-rating scale. Value = (impact − replacement) × (minutes ÷ 40) × $${Math.round(mkt*1000)}K/point, then a <b>market premium (Prem)</b> for what the NIL market over-pays for — <b>size, scoring and conference</b>. 2026-27 blends last season's impact with a grade projection. A <b>rotation floor</b> keeps any player who logs real minutes above $0 (value from minutes, size and production). Budget is the team's NIL-tier midpoint — roster value above budget = a <b>deal</b>, below = <b>paying a premium</b>.</div>`;
   host.innerHTML=html;
