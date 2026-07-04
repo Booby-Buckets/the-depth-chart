@@ -34,11 +34,14 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v6_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v7_'+SEASON, TTL=24*3600*1000;
   const CAL_A=11.75, CAL_B=2.355;          // calibrated BPM→SRS (see header)
   const BLEND_ROSTER=0.90, ANCHOR=0.70;    // roster weight; prior-SRS regression
   const CARRY=0.70;                        // rosterless teams: regressed SRS'26 carryover
-  const HOME_ADV=3.2, SIGMA=11;
+  // home court measured from our 20yr game history (scripts/calibrate_hca.py):
+  // mean home margin beyond the SRS gap, recent-5-season anchor; per-venue
+  // shrunk offsets ride on each team row (r.hca), this is only the fallback
+  const HOME_ADV=4.7, SIGMA=11;
 
   function phi(x){ const t=1/(1+0.2316419*Math.abs(x)), d=0.3989423*Math.exp(-x*x/2);
     const p=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));
@@ -83,12 +86,14 @@
   }
 
   async function compute(){
-    const [teams, players, bb, ts]=await Promise.all([
+    const [teams, players, bb, ts, hcaData]=await Promise.all([
       fetch(SB+'/rest/v1/teams?select=name,conf,conference&limit=500',{headers:H}).then(r=>r.json()),
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,is_injured,hometown&order=id.asc'),
       fetchPaged(SB+'/rest/v1/bbref_seasons?season_year=eq.2026&espn_id=not.is.null&select=espn_id,advanced&order=bbref_id.asc'),
       fetch(SB+'/rest/v1/team_seasons?season_year=eq.2026&select=team,conference,srs,tier&limit=1000',{headers:H}).then(r=>r.json()),
+      fetch('scripts/data/team_hca.json').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
+    const hcaOf=(hcaData&&hcaData.teams)||{};
     const confOf={}; (teams||[]).forEach(t=>{ confOf[t.name]=t.conf||t.conference||''; });
     const advById={}; (bb||[]).forEach(r=>{ if(r.espn_id!=null&&r.advanced) advById[r.espn_id]=r.advanced; });
     const tsRows=(ts||[]);
@@ -128,7 +133,8 @@
       const rating=(prior!=null)?(BLEND_ROSTER*rosterRating+(1-BLEND_ROSTER)*(ANCHOR*prior))
                                 :rosterRating;
       rows.push({team:short, full, conf:confOf[short]||'', rating:+rating.toFixed(2),
-        roster:+rosterRating.toFixed(2), prior:prior!=null?+prior.toFixed(1):null, projected:true});
+        roster:+rosterRating.toFixed(2), prior:prior!=null?+prior.toFixed(1):null, projected:true,
+        hca:hcaOf[full]!=null?hcaOf[full]:null});
     });
     // non-rostered D1 teams: regressed carryover of last season's SRS
     const covered=new Set(rows.map(r=>r.full));
@@ -137,7 +143,8 @@
       // because a D1 opponent's result created a row) — keep them out of the field
       if(covered.has(t.team)||t.srs==null||!t.conference) return;
       rows.push({team:t.team, full:t.team, conf:t.conference||'', rating:+(CARRY*parseFloat(t.srs)).toFixed(2),
-        roster:null, prior:+parseFloat(t.srs).toFixed(1), projected:false});
+        roster:null, prior:+parseFloat(t.srs).toFixed(1), projected:false,
+        hca:hcaOf[t.team]!=null?hcaOf[t.team]:null});
     });
     rows.sort((a,b)=>b.rating-a.rating);
     // All-Play %: average win probability against the whole field
@@ -188,8 +195,10 @@
   }
 
   // game line between two rating rows. venue: 'neutral' | 'home' (A hosts) | 'away'
+  // the HOST's own measured home-court number is used when we have it
   function lineFor(a,b,venue,totals){
-    const hc=venue==='home'?HOME_ADV:venue==='away'?-HOME_ADV:0;
+    const hc=venue==='home'?(a.hca!=null?a.hca:HOME_ADV)
+            :venue==='away'?-(b.hca!=null?b.hca:HOME_ADV):0;
     const margin=a.rating-b.rating+hc;
     const pA=phi(margin/SIGMA);
     const total=(totals&&isFinite(totals))?totals:145.5;   // league-ish default
