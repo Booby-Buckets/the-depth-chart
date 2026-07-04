@@ -34,7 +34,7 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v2_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v3_'+SEASON, TTL=24*3600*1000;
   const CAL_A=11.75, CAL_B=2.355;          // calibrated BPM→SRS (see header)
   const BLEND_ROSTER=0.78, ANCHOR=0.70;    // roster weight; prior-SRS regression
   const HOME_ADV=3.2, SIGMA=11;
@@ -66,6 +66,10 @@
   const CONF_FRAG={'B10':'Big Ten','SEC':'Southeastern','ACC':'Atlantic Coast','BIG-12':'Big 12','Big-East':'Big East'};
   function matchFull(short, tsRows, confCode){
     let cands=tsRows.filter(t=>t.team===short||t.team.indexOf(short+' ')===0);
+    if(!cands.length&&short.indexOf('-')>=0){   // "NC-State" → "NC State Wolfpack"
+      const sp=short.replace(/-/g,' ');
+      cands=tsRows.filter(t=>t.team===sp||t.team.indexOf(sp+' ')===0);
+    }
     if(!cands.length) return null;
     const frag=CONF_FRAG[confCode];
     if(frag){
@@ -128,7 +132,9 @@
     // non-rostered D1 teams: regressed carryover of last season's SRS
     const covered=new Set(rows.map(r=>r.full));
     (ts||[]).forEach(t=>{
-      if(covered.has(t.team)||t.srs==null) return;
+      // no conference = not a D1 program (e.g. Centenary, in team_seasons only
+      // because a D1 opponent's result created a row) — keep them out of the field
+      if(covered.has(t.team)||t.srs==null||!t.conference) return;
       rows.push({team:t.team, full:t.team, conf:t.conference||'', rating:+(ANCHOR*parseFloat(t.srs)).toFixed(2),
         roster:null, prior:+parseFloat(t.srs).toFixed(1), projected:false});
     });
