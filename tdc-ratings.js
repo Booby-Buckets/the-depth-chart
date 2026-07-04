@@ -34,7 +34,13 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v8_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v9_'+SEASON, TTL=24*3600*1000;
+  // in-season form: once 2026-27 games are played, each team's rating drifts
+  // toward how it's ACTUALLY performing vs our own lines. surprise = actual
+  // margin - expected margin; form = sum(surprise)/(n + FORM_PRIOR) capped at
+  // ±FORM_CAP — a hot team gains up to +3, a cold one loses up to -3, and it
+  // takes a sustained run (not two lucky games) to move much.
+  const FORM_PRIOR=10, FORM_CAP=3;
   const CAL_A=11.75, CAL_B=2.355;          // calibrated BPM→SRS (see header)
   const BLEND_ROSTER=0.90, ANCHOR=0.70;    // roster weight; prior-SRS regression
   const CARRY=0.70;                        // rosterless teams: regressed SRS'26 carryover
@@ -100,6 +106,28 @@
     return pool.sort((a,b)=>(a.team.split(/\s+/).length-b.team.split(/\s+/).length)||(a.team.length-b.team.length))[0].team;
   }
 
+  // nudge ratings by how each team is performing vs our own expectations.
+  // games: [{home, away, home_score, away_score, neutral}] (finals only).
+  // mutates rows: r.form (±FORM_CAP), r.formGp, and folds form into r.rating.
+  function applyForm(rows, games){
+    const byFull={}; rows.forEach(r=>{ byFull[r.full]=r; });
+    const acc={};
+    (games||[]).forEach(g=>{
+      const h=byFull[g.home], a=byFull[g.away];
+      if(!h||!a||g.home_score==null||g.away_score==null) return;
+      const hc=g.neutral?0:baseHca(a.rating)+(h.hcaOff||0);
+      const surprise=(g.home_score-g.away_score)-(h.rating-a.rating+hc);
+      (acc[g.home]=acc[g.home]||{s:0,n:0}); acc[g.home].s+=surprise; acc[g.home].n++;
+      (acc[g.away]=acc[g.away]||{s:0,n:0}); acc[g.away].s-=surprise; acc[g.away].n++;
+    });
+    rows.forEach(r=>{
+      const f=acc[r.full];
+      r.formGp=f?f.n:0;
+      r.form=f?+Math.max(-FORM_CAP,Math.min(FORM_CAP,f.s/(f.n+FORM_PRIOR))).toFixed(2):0;
+      if(r.form) r.rating=+(r.rating+r.form).toFixed(2);
+    });
+  }
+
   async function compute(){
     const [teams, players, bb, ts, hcaData]=await Promise.all([
       fetch(SB+'/rest/v1/teams?select=name,conf,conference&limit=500',{headers:H}).then(r=>r.json()),
@@ -161,6 +189,10 @@
         roster:null, prior:+parseFloat(t.srs).toFixed(1), projected:false,
         hcaOff:hcaOf[t.team]!=null?hcaOf[t.team]:0});
     });
+    // in-season form adjustment from this season's played games (no-op until
+    // 2026-27 results exist)
+    const played=await fetchPaged(SB+'/rest/v1/games?season_year=eq.'+SEASON+'&status=eq.STATUS_FINAL&select=home,away,home_score,away_score,neutral&order=id.asc');
+    applyForm(rows, played||[]);
     rows.sort((a,b)=>b.rating-a.rating);
     // All-Play %: average win probability against the whole field
     rows.forEach(r=>{ let s=0; rows.forEach(o=>{ if(o!==r) s+=phi((r.rating-o.rating)/SIGMA); });
@@ -225,5 +257,5 @@
       spread:(margin>=0?`${a.team} -${margin.toFixed(1)}`:`${b.team} -${(-margin).toFixed(1)}`) };
   }
 
-  g.TDC_RATINGS={get, lineFor, phi, SEASON, HOME_ADV, SIGMA};
+  g.TDC_RATINGS={get, lineFor, phi, applyForm, baseHca, SEASON, HOME_ADV, SIGMA};
 })(window);

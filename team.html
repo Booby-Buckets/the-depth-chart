@@ -7,6 +7,7 @@
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js"></script>
   <script src="tdc-proj.js"></script>
+  <script src="tdc-ratings.js"></script>
   <style>
     .nil-card{border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:132px;background:var(--bg2);}
     .nil-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
@@ -3490,10 +3491,41 @@ async function loadSchedule(){
       fetch(`${SB_URL}/rest/v1/team_seasons?season_year=eq.${yr}&srs=not.is.null&select=team,srs,ncaa_seed&order=srs.desc`,{headers:H}).then(r=>r.json()),
       fetch(`${SB_URL}/rest/v1/postseason_games?or=(home.eq.${enc},away.eq.${enc})&season_year=eq.${yr}&select=id,tournament,round`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]),
     ]);
-    const games = [...(hg||[]), ...(ag||[])]
+    const all = [...(hg||[]), ...(ag||[])];
+    const games = all
       .filter(g=>g.status==='STATUS_FINAL' && g.home_score!=null && g.away_score!=null)
       .sort((a,b)=> (a.date||'').localeCompare(b.date||''));
-    if(!games.length){ host.innerHTML = `<div style="padding:30px;color:var(--text3);">No games found for ${yr-1}–${(''+yr).slice(2)}.</div>`; return; }
+    const upcoming = all
+      .filter(g=>g.status!=='STATUS_FINAL')
+      .sort((a,b)=> (a.date||'').localeCompare(b.date||''));
+    // future games get a projected line + win prob (predictive ratings, with
+    // opponent-adjusted home court) — this is the whole schedule until games
+    // are played, then it trails the results
+    let upRows='';
+    if(upcoming.length && window.TDC_RATINGS){
+      try{
+        const D=await TDC_RATINGS.get();
+        const rowOf=n=>D.teams.find(t=>t.full===n);
+        const fmtU=d=>{ const x=new Date(d+'T12:00:00'); return x.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); };
+        upcoming.forEach(g=>{
+          const homeMe=g.home===mascot;
+          const me=rowOf(mascot), opp=rowOf(homeMe?g.away:g.home);
+          if(!me||!opp) return;
+          const L=TDC_RATINGS.lineFor(me,opp,g.neutral?'neutral':(homeMe?'home':'away'));
+          const p=L.probA;
+          upRows+=`<tr class="sched-row">
+            <td class="sched-date">${g.date?fmtU(g.date):''}</td>
+            <td class="sched-rk">${opp.rank?'<span style="opacity:.6">#</span>'+opp.rank:''}</td>
+            <td class="sched-opp">${homeMe?'':'at '}${homeMe?g.away:g.home}</td>
+            <td class="sched-res" style="color:${p>=50?'var(--green,#3fa66a)':'var(--red,#c75d5d)'};font-weight:700;">${p.toFixed(0)}%</td>
+            <td class="sched-loc col-loc">${L.spread}</td>
+            <td class="sched-rec" style="color:var(--text3);">${L.scoreA}–${L.scoreB}</td>
+          </tr>`;
+        });
+        if(upRows) upRows=`<tr><td colspan="6" class="sched-section">Upcoming · projected</td></tr>`+upRows;
+      }catch(e){}
+    }
+    if(!games.length && !upRows){ host.innerHTML = `<div style="padding:30px;color:var(--text3);">No games found for ${yr-1}–${(''+yr).slice(2)}.</div>`; return; }
     const rankMap = {}; (ranks||[]).forEach((t,i)=>rankMap[t.team]=i+1);
     const mySeed = (ranks||[]).find(t=>t.team===mascot)?.ncaa_seed;
     const postMap = {}; (post||[]).forEach(p=>postMap[p.id]={tour:p.tournament,round:p.round});
@@ -3524,10 +3556,11 @@ async function loadSchedule(){
         <td class="sched-rec">${w}–${l}${g.conf_game?` <span style="color:var(--text3)">(${cw}–${cl})</span>`:''}</td>
       </tr>`;
     });
-    document.getElementById('schedSummary').textContent = `${w}–${l}` + (cw+cl?` · ${cw}–${cl} conf`:'');
+    document.getElementById('schedSummary').textContent = games.length ? `${w}–${l}` + (cw+cl?` · ${cw}–${cl} conf`:'') : 'projected';
+    const upHead = !games.length && upRows;   // schedule not started: label the columns for lines
     host.innerHTML = `<table class="sched-table"><thead><tr>
-      <th>Date</th><th>Rk</th><th>Opponent</th><th>Result</th><th class="col-loc">Location</th><th>Record</th>
-    </tr></thead><tbody>${rows}</tbody></table>`;
+      <th>Date</th><th>Rk</th><th>Opponent</th><th>${upHead?'Win %':'Result'}</th><th class="col-loc">${upHead?'Line':'Location'}</th><th>${upHead?'Proj Score':'Record'}</th>
+    </tr></thead><tbody>${rows}${upRows}</tbody></table>`;
   }catch(e){
     host.innerHTML = `<div style="padding:30px;color:var(--text3);">Could not load schedule. ${e.message}</div>`;
   }
