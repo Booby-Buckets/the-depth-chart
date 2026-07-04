@@ -11,7 +11,7 @@
         BPM→SRS mapping calibrated on 2024-25 AND 2025-26 actuals
         (r = 0.97, rmse ≈ 2.0 pts both years, scripts/calibrate_ratings.py),
         so ratings live on the SRS/point-spread scale.
-     4. Final rating blends a program anchor: 0.78·roster + 0.22·(0.70·SRS'26)
+     4. Final rating blends a program anchor: 0.90·roster + 0.10·(0.70·SRS'26)
         (coaching/system carryover, regressed). Teams without rosters carry
         0.70·SRS'26 and are flagged.
      5. All-Play % (Haslametrics-inspired): the chance of beating a random D1
@@ -34,9 +34,10 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v3_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v5_'+SEASON, TTL=24*3600*1000;
   const CAL_A=11.75, CAL_B=2.355;          // calibrated BPM→SRS (see header)
-  const BLEND_ROSTER=0.78, ANCHOR=0.70;    // roster weight; prior-SRS regression
+  const BLEND_ROSTER=0.90, ANCHOR=0.70;    // roster weight; prior-SRS regression
+  const CARRY=0.70;                        // rosterless teams: regressed SRS'26 carryover
   const HOME_ADV=3.2, SIGMA=11;
 
   function phi(x){ const t=1/(1+0.2316419*Math.abs(x)), d=0.3989423*Math.exp(-x*x/2);
@@ -135,7 +136,7 @@
       // no conference = not a D1 program (e.g. Centenary, in team_seasons only
       // because a D1 opponent's result created a row) — keep them out of the field
       if(covered.has(t.team)||t.srs==null||!t.conference) return;
-      rows.push({team:t.team, full:t.team, conf:t.conference||'', rating:+(ANCHOR*parseFloat(t.srs)).toFixed(2),
+      rows.push({team:t.team, full:t.team, conf:t.conference||'', rating:+(CARRY*parseFloat(t.srs)).toFixed(2),
         roster:null, prior:+parseFloat(t.srs).toFixed(1), projected:false});
     });
     rows.sort((a,b)=>b.rating-a.rating);
