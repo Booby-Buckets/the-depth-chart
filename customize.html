@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Customize — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#FBFAFF;--bg2:#F2EFFB;--bg3:#E9E4F7;--border:#E1DBF2;--border2:#C9BFE6;--text:#14101F;--text2:#463D5E;--text3:#847B9C;--accent:#8B3FE0;}
+    [data-theme="dark"]{--bg:#07060C;--bg2:#100D1A;--bg3:#181426;--border:#241F36;--border2:#382F54;--text:#F2EFFB;--text2:#A8A1C4;--text3:#6D6589;--accent:#B16BFF;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);}
+    .nav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);}
+    .logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;}
+    .logo span{color:var(--accent);}
+    .nav a.back{font-size:12px;font-weight:700;color:var(--text3);text-decoration:none;}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;border-radius:6px;}
+    .hero{max-width:1180px;margin:0 auto;padding:52px 28px 8px;text-align:center;}
+    .hero-eyebrow{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:12px;}
+    h1{font-family:'Playfair Display',serif;font-size:46px;font-weight:800;line-height:1.1;}
+    h1 em{font-style:italic;color:var(--accent);}
+    .hero-sub{font-size:14px;color:var(--text2);line-height:1.7;max-width:640px;margin:16px auto 0;}
+    .hero-feats{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:22px;}
+    .feat{font-size:11px;font-weight:700;padding:7px 14px;border:1px solid var(--border2);border-radius:16px;color:var(--text2);background:var(--bg2);}
+    .page{max-width:1180px;margin:0 auto;padding:30px 28px 90px;}
+    .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;margin-bottom:24px;}
+    .search{width:320px;max-width:90vw;padding:12px 16px;border:1px solid var(--border2);border-radius:10px;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;outline:none;}
+    .search:focus{border-color:var(--accent);}
+    .pill{font-size:12px;font-weight:700;padding:7px 14px;border:1px solid var(--border2);border-radius:16px;background:none;color:var(--text3);cursor:pointer;font-family:'Inter',sans-serif;}
+    .pill.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;}
+    .tcard{position:relative;display:block;text-decoration:none;color:inherit;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px 16px 16px;overflow:hidden;transition:transform .16s,box-shadow .16s,border-color .16s;}
+    .tcard:hover{transform:translateY(-3px);box-shadow:0 10px 26px rgba(0,0,0,.14);border-color:var(--border2);}
+    .tcard .bar{position:absolute;top:0;left:0;right:0;height:4px;}
+    .tcard .rk{position:absolute;top:12px;right:14px;font-family:'Playfair Display',serif;font-size:15px;font-weight:800;color:var(--text3);}
+    .tcard .nm{font-family:'Playfair Display',serif;font-size:19px;font-weight:800;margin-top:4px;}
+    .tcard .meta{font-size:11px;color:var(--text3);margin-top:4px;}
+    .tcard .cta{display:inline-block;margin-top:12px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);}
+    .loading{padding:70px;text-align:center;color:var(--text3);}
+    @media(max-width:640px){h1{font-size:32px;}}
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <a class="logo" href="index.html">The Depth <span>Chart</span></a>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <a class="back" href="predict.html">Predictive Ratings</a>
+      <a class="back" href="index.html">← Rankings</a>
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+    </div>
+  </div>
+
+  <div class="hero">
+    <div class="hero-eyebrow">✦ The Lineup Lab</div>
+    <h1>Customize <em>any</em> team</h1>
+    <div class="hero-sub">Take control of a 2026-27 roster: drag the depth chart, swap players between positions, hand out minutes, assign roles — and watch the projections, analytics and season outlook rebuild live around your decisions.</div>
+    <div class="hero-feats">
+      <span class="feat">⠿ Drag-and-drop depth chart</span>
+      <span class="feat">⇄ Position swaps</span>
+      <span class="feat">▸ Minute sliders</span>
+      <span class="feat">✦ Role assignments</span>
+      <span class="feat">↻ Live re-projections</span>
+    </div>
+  </div>
+
+  <div class="page">
+    <div class="controls">
+      <input class="search" id="q" placeholder="Find your team…" oninput="render()">
+      <div id="confPills" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;"></div>
+    </div>
+    <div class="grid" id="grid"><div class="loading">Loading teams…</div></div>
+  </div>
+
+<script>
+function toggleTheme(){
+  const cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  if(cur==='dark') document.documentElement.setAttribute('data-theme','dark'); else document.documentElement.removeAttribute('data-theme');
+  localStorage.setItem('tdc_theme',cur);
+  document.getElementById('themeBtn').textContent=cur==='dark'?'☀️':'🌙';
+}
+(function(){ if(localStorage.getItem('tdc_theme')==='dark'){ document.documentElement.setAttribute('data-theme','dark'); window.addEventListener('DOMContentLoaded',()=>{document.getElementById('themeBtn').textContent='☀️';}); } })();
+
+const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+let TEAMS=[], conf='All';
+
+async function load(){
+  try{
+    const r=await fetch(`${SB}/rest/v1/teams?select=name,conf,conference,color,tdc_rank,head_coach,coach&order=tdc_rank.asc.nullslast&limit=500`,
+      {headers:{apikey:KEY,Authorization:'Bearer '+KEY}});
+    TEAMS=await r.json();
+    const confs=['All',...new Set(TEAMS.map(t=>t.conf||t.conference).filter(Boolean))];
+    document.getElementById('confPills').innerHTML=confs.map(c=>
+      `<button class="pill ${c===conf?'on':''}" onclick="setConf('${c}')">${c}</button>`).join('');
+    render();
+  }catch(e){
+    document.getElementById('grid').innerHTML='<div class="loading">Could not load teams.</div>';
+  }
+}
+function setConf(c){ conf=c;
+  document.querySelectorAll('#confPills .pill').forEach(b=>b.classList.toggle('on',b.textContent===c));
+  render();
+}
+function render(){
+  const q=(document.getElementById('q').value||'').toLowerCase().trim();
+  const rows=TEAMS.filter(t=>
+    (conf==='All'||(t.conf||t.conference)===conf) &&
+    (!q||t.name.toLowerCase().includes(q)));
+  document.getElementById('grid').innerHTML=rows.map(t=>`
+    <a class="tcard" href="team.html?team=${encodeURIComponent(t.name)}&tab=customize">
+      <div class="bar" style="background:${t.color||'#8B3FE0'};"></div>
+      ${t.tdc_rank?`<div class="rk">#${t.tdc_rank}</div>`:''}
+      <div class="nm">${t.name}</div>
+      <div class="meta">${t.conf||t.conference||''}${(t.coach||t.head_coach)?' · '+(t.coach||t.head_coach):''}</div>
+      <span class="cta">Open lineup lab →</span>
+    </a>`).join('')||'<div class="loading">No teams match.</div>';
+}
+load();
+</script>
+</body>
+</html>
