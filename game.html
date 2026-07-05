@@ -30,6 +30,9 @@
     .gh-team.lose{opacity:.55;}
     .gh-at{color:var(--text3);font-size:13px;font-weight:700;}
     .gh-win-tag{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--green);border:1px solid var(--green);border-radius:4px;padding:1px 5px;}
+    .gh-rate{display:inline-block;font-size:13px;font-weight:800;color:#fff;border-radius:5px;padding:2px 8px;font-variant-numeric:tabular-nums;}
+    .gh-team.lose .gh-rate{opacity:.9;}
+    .rtg{display:inline-block;min-width:32px;text-align:center;font-weight:800;font-size:11px;color:#fff;border-radius:4px;padding:1px 6px;font-variant-numeric:tabular-nums;}
     /* box tables */
     .bs{margin-top:26px;}
     .bs-team{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;margin-bottom:8px;}
@@ -88,6 +91,22 @@ function gameScore(p){
   return N(p.pts)+0.4*N(p.fgm)-0.7*N(p.fga)-0.4*(N(p.fta)-N(p.ftm))+0.7*N(p.oreb)+0.3*N(p.dreb)
     +N(p.stl)+0.7*N(p.ast)+0.7*N(p.blk)-0.4*N(p.pf)-N(p.tov);
 }
+// per-player 0-10 game rating — same scale as the player pages & tournament box scores
+function playerRating(p){ return Math.max(2.0,Math.min(10.0,Math.round((5.0+0.135*gameScore(p))*10)/10)); }
+function ratingColor(r){ return r==null?'var(--text3)':r>=8?'#1f9d57':r>=6.5?'#3d8f6b':r>=5.5?'#c2912f':'#cf5a4e'; }
+function ratingWord(r){ return r==null?'':r>=8.5?'Dominant':r>=7.5?'Great':r>=6.5?'Strong':r>=5.5?'Solid':r>=4.5?'Shaky':'Poor'; }
+// team game rating (0-10) vs SRS-implied expectation — same formula as the tournament view
+function teamRatings(g,SRS){
+  if(!g||g.home_score==null||g.away_score==null) return null;
+  const hw=N(g.home_score)>N(g.away_score);              // winner from the score
+  const winNm=hw?g.home:g.away, losNm=hw?g.away:g.home;
+  const margin=Math.abs(N(g.home_score)-N(g.away_score));
+  const sW=SRS[winNm], sL=SRS[losNm];
+  if(sW==null||sL==null) return null;
+  const res=margin-(sW-sL);
+  const rate=perf=>Math.max(2.0,Math.min(10.0,Math.round((6.3+perf*0.22)*10)/10));
+  return {home:hw?rate(res):rate(-res), away:hw?rate(-res):rate(res)};
+}
 function plink(p){ return `<a class="bs-name" href="player.html?espn=${p.espn_id}&name=${encodeURIComponent(p.player)}">${p.player}</a>`; }
 function statline(p){
   const bits=[`${N(p.pts)} PTS`,`${N(p.reb)} REB`,`${N(p.ast)} AST`];
@@ -95,29 +114,31 @@ function statline(p){
   if(N(p.blk)>=2) bits.push(`${N(p.blk)} BLK`);
   return bits.join(' · ');
 }
-function row(p,tot,isPotg){
+function row(p,tot,isPotg,rating){
   const fg=`${N(p.fgm)}-${N(p.fga)}`, tp=`${N(p.tpm)}-${N(p.tpa)}`, ft=`${N(p.ftm)}-${N(p.fta)}`;
   const cls=[tot?'totals':'',(!tot&&p.starter)?'starter':'',isPotg?'potg':''].filter(Boolean).join(' ');
   const nameCell=tot?'Team':`${isPotg?'<span class="potg-badge">★ POTG</span>':''}${plink(p)}`;
+  const rtgCell=rating!=null?`<span class="rtg" style="background:${ratingColor(rating)};" title="0-10 game rating${tot?' (team)':''}">${rating.toFixed(1)}</span>`:'';
   return `<tr class="${cls}">
     <td>${nameCell}</td>
+    <td>${rtgCell}</td>
     <td>${tot?'':N(p.min)}</td>
     <td class="h">${fg}</td><td class="h">${tp}</td><td class="h">${ft}</td>
     <td>${N(p.reb)}</td><td>${N(p.ast)}</td>
     <td class="h">${N(p.stl)}</td><td class="h">${N(p.blk)}</td><td class="h">${N(p.tov)}</td><td class="h">${N(p.pf)}</td>
     <td class="pts">${N(p.pts)}</td></tr>`;
 }
-function tableFor(team,players,potgId){
+function tableFor(team,players,potgId,teamRating){
   const sorted=[...players].sort((a,b)=> (b.starter?1:0)-(a.starter?1:0) || N(b.min)-N(a.min));
   const tot={}; ['min','fgm','fga','tpm','tpa','ftm','fta','reb','ast','stl','blk','tov','pf','pts'].forEach(k=>tot[k]=players.reduce((s,p)=>s+N(p[k]),0));
   return `<div class="bs">
     <div class="bs-team">${team}</div>
     <table><thead><tr>
-      <th>Player</th><th>Min</th><th class="h">FG</th><th class="h">3PT</th><th class="h">FT</th>
+      <th>Player</th><th title="0-10 game rating, same scale as the player pages">RTG</th><th>Min</th><th class="h">FG</th><th class="h">3PT</th><th class="h">FT</th>
       <th>Reb</th><th>Ast</th><th class="h">Stl</th><th class="h">Blk</th><th class="h">TO</th><th class="h">PF</th><th>Pts</th>
     </tr></thead><tbody>
-      ${sorted.map(p=>row(p,false,p.espn_id===potgId)).join('')}
-      ${row(tot,true)}
+      ${sorted.map(p=>row(p,false,p.espn_id===potgId,N(p.min)>0?playerRating(p):null)).join('')}
+      ${row(tot,true,false,teamRating!=null?teamRating:null)}
     </tbody></table></div>`;
 }
 
@@ -142,12 +163,20 @@ async function load(){
     }
     const homeWin=N(hs)>N(as_);
     document.title=`${away} at ${home} — Box Score`;
+    // season SRS map → team game ratings (0-10), same scale as the player scores
+    let SRS={};
+    if(g && g.season_year!=null){
+      try{ const sr=await fetch(`${SB}/rest/v1/team_seasons?season_year=eq.${g.season_year}&srs=not.is.null&select=team,srs`,{headers:H}).then(r=>r.ok?r.json():[]);
+        (sr||[]).forEach(x=>{ SRS[x.team]=parseFloat(x.srs); }); }catch(e){}
+    }
+    const tr=teamRatings(g,SRS);
+    const ratePill=v=>v!=null?`<span class="gh-rate" style="background:${ratingColor(v)};" title="Team game rating (0-10): ${ratingWord(v)}">${v.toFixed(1)}</span>`:'';
     const header=`<div class="gh">
       <div class="gh-meta">${fmtD(date)}${loc?' · '+loc:''}${g&&g.conf_game?' · Conference':''}</div>
       <div class="gh-score">
-        <div class="gh-team ${homeWin?'lose':'win'}"><span class="nm">${away}</span><span class="pts">${N(as_)}</span>${!homeWin?'<span class="gh-win-tag">Win</span>':''}</div>
+        <div class="gh-team ${homeWin?'lose':'win'}"><span class="nm">${away}</span><span class="pts">${N(as_)}</span>${tr?ratePill(tr.away):''}${!homeWin?'<span class="gh-win-tag">Win</span>':''}</div>
         <span class="gh-at">@</span>
-        <div class="gh-team ${homeWin?'win':'lose'}"><span class="nm">${home}</span><span class="pts">${N(hs)}</span>${homeWin?'<span class="gh-win-tag">Win</span>':''}</div>
+        <div class="gh-team ${homeWin?'win':'lose'}"><span class="nm">${home}</span><span class="pts">${N(hs)}</span>${tr?ratePill(tr.home):''}${homeWin?'<span class="gh-win-tag">Win</span>':''}</div>
       </div></div>`;
     // player of the game = highest Game Score across both teams
     let potg=null,bestGs=-1e9;
@@ -161,7 +190,8 @@ async function load(){
     // away team first, then home
     const order=[away,home].filter(t=>byTeam[t]);
     Object.keys(byTeam).forEach(t=>{ if(!order.includes(t)) order.push(t); });
-    c.innerHTML=header+callout+order.map(t=>tableFor(t,byTeam[t],potgId)).join('');
+    const trFor=t=>tr?(t===home?tr.home:t===away?tr.away:null):null;
+    c.innerHTML=header+callout+order.map(t=>tableFor(t,byTeam[t],potgId,trFor(t))).join('');
   }catch(e){ c.innerHTML='<div class="err">Could not load box score. '+e.message+'</div>'; }
 }
 load();
