@@ -25,6 +25,17 @@
     var rs=y.indexOf('r-')>=0||y.indexOf('rs')>=0;
     var lvl=y.indexOf('fr')>=0?0:y.indexOf('so')>=0?1:y.indexOf('jr')>=0?2:(y.indexOf('sr')>=0||y.indexOf('gr')>=0)?3:1;
     return {lvl:lvl,rs:rs};}
+  // estimated age (override wins) — class year + redshirt as a proxy when no
+  // birthdate; 'Unk.' defaults to a junior-ish 21.
+  function ageEst(p,ageOvr){
+    if(ageOvr && ageOvr[(p.name||'').trim()]!=null) return +ageOvr[(p.name||'').trim()];
+    var y=((p.class_year||p.yr||'')+'').toLowerCase();
+    var rs=y.indexOf('r-')>=0||y.indexOf('rs')>=0;
+    var base=y.indexOf('fr')>=0?19:y.indexOf('so')>=0?20:y.indexOf('jr')>=0?21:y.indexOf('gr')>=0?23:y.indexOf('sr')>=0?22:21;
+    return base+(rs?1:0);
+  }
+  // a returning pro (G-League / NBA / overseas pro) has used his draft eligibility
+  function isReturningPro(p){ return /g-?league|\bnba\b|professional/.test(((p.hometown||'')+'').toLowerCase()); }
   function classKey(p){var y=((p.class_year||p.yr||'')+'').toLowerCase();
     return y.indexOf('fr')>=0?'fr':y.indexOf('so')>=0?'so':y.indexOf('jr')>=0?'jr':(y.indexOf('sr')>=0||y.indexOf('gr')>=0)?'sr':'';}
   function clamp(x){return Math.round(Math.max(0,Math.min(100,x)));}
@@ -67,7 +78,7 @@
     var lo=0,hi=arr.length;while(lo<hi){var m=(lo+hi)>>1;if(arr[m]<v)lo=m+1;else hi=m;}
     var p=Math.round(lo/arr.length*100);return inv?100-p:p;}
 
-  function scoreProspect(p,dist,teamMap){
+  function scoreProspect(p,dist,teamMap,ageOvr){
     var s=p._s, grp=pgrp(p.position), ht=htIn(p.height), ci=classInfo(p);
     var g=parseFloat(p.tdc_grade), hasG=isFinite(g);
     var ppgP=pctOf(dist,'ppg',s.ppg),apgP=pctOf(dist,'apg',s.apg),rpgP=pctOf(dist,'rpg',s.rpg),
@@ -108,11 +119,21 @@
       draft=clamp(.42*gradeNorm+.18*ppgP+.22*trans+.12*compLevel(p.team,teamMap)+.06*sizeScore);
     }
     var lensScore=clamp(.36*trans+.30*pot+.20*ready+.14*draft);
-    var classBoost=[7,3,0,-4][ci.lvl]-(ci.rs?2.5:0);
-    var blended=.55*gradeNorm+.45*lensScore+classBoost;
-    return {trans:trans,ready:ready,pot:pot,draft:draft,overall:clamp(blended),blended:blended,grp:grp,sizeScore:sizeScore,gradeNorm:gradeNorm,noSample:noSample};
+    // DRAFT AGE CURVE: NBA drafts on runway, so value slides with age. An elite
+    // young player stays top-of-board while an equally good 23-24yo caps out
+    // mid-board (they can still rise, just not to the top). When a real age is
+    // known, derive the class boost from it (class year may be Unk. or misleading).
+    var age=ageEst(p,ageOvr);
+    var hasAgeOvr=!!(ageOvr && ageOvr[(p.name||'').trim()]!=null);
+    var effLvl=hasAgeOvr?(age<=19?0:age<=20?1:age<=21?2:3):ci.lvl;
+    var classBoost=[6,3,0,-3][effLvl];   // redshirt age already handled via ageEst → agePen
+    var agePen=Math.max(0,age-21)*1.05;   // 22→1.0, 23→2.1, 24→3.2 (older good players land mid-board, not buried)
+    var blended=.55*gradeNorm+.45*lensScore+classBoost-agePen;
+    return {trans:trans,ready:ready,pot:pot,draft:draft,overall:clamp(blended),blended:blended,grp:grp,sizeScore:sizeScore,gradeNorm:gradeNorm,noSample:noSample,age:age};
   }
-  function eligible(p){
+  function eligible(p,ineligible){
+    if(ineligible && ineligible[(p.name||'').trim()]) return false;   // manual ineligible list
+    if(isReturningPro(p)) return false;                               // ex-pro, eligibility used
     var g=parseFloat(p.tdc_grade);
     var hasStats=num(p.mpg)>=8 && p.ppg!=null;
     return isFinite(g)||hasStats;
@@ -121,10 +142,12 @@
   function compute(players,teamMap,opts){
     opts=opts||{};
     var season=opts.season||'2526', projById=opts.projById||{}, projReady=!!opts.projReady;
-    var pool=(players||[]).filter(eligible);
+    var ov=opts.overrides||{}, ineligible={}, ageOvr=ov.age||{};
+    (ov.ineligible||[]).forEach(function(n){ ineligible[(''+n).trim()]=1; });
+    var pool=(players||[]).filter(function(p){return eligible(p,ineligible);});
     pool.forEach(function(p){p._s=basisOf(p,season,projById,projReady);});
     var dist=buildDist(pool);
-    pool.forEach(function(p){p._sc=scoreProspect(p,dist,teamMap);});
+    pool.forEach(function(p){p._sc=scoreProspect(p,dist,teamMap,ageOvr);});
     pool.sort(function(a,b){return b._sc.blended-a._sc.blended || (parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0);});
     var hi=pool.length?pool[0]._sc.blended:100;
     var loIdx=Math.min(pool.length-1,59);

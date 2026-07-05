@@ -281,7 +281,7 @@ body{background:transparent!important;}
 </footer>
 
 <script src="projection-engine.js"></script>
-<script src="bigboard-engine.js"></script>
+<script src="bigboard-engine.js?v=3"></script>
 <script>
 const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -289,6 +289,7 @@ const H   = {'apikey':KEY,'Authorization':`Bearer ${KEY}`};
 
 let allPlayers=[], teamMap={}, teamColors={};
 let season='2627', view='board';   // Draft Room is 2026-27 only
+let draftOverrides={};              // eligibility + age overrides (draft-overrides.json)
 let prospects=[];           // scored + ranked for current season
 let prospectById={};
 let projById={}, projReady=false;   // real per-player 2026-27 projections (engine)
@@ -412,7 +413,7 @@ function eligible(p){
 function buildBoard(){
   // Delegate scoring to the shared engine so player.html's prospect sticker
   // ranks identically. (Local scoreProspect/buildDist/etc. remain for reference.)
-  var res=TDC_BIGBOARD.compute(allPlayers, teamMap, {season:season, projById:projById, projReady:projReady});
+  var res=TDC_BIGBOARD.compute(allPlayers, teamMap, {season:season, projById:projById, projReady:projReady, overrides:draftOverrides});
   prospects=res.prospects;
   prospectById=res.byId;
 }
@@ -553,6 +554,7 @@ function setSeason(s){
 // ── boot ──
 async function load(){
   try{
+    try{ draftOverrides=await fetch('draft-overrides.json').then(function(r){return r.ok?r.json():{};}); }catch(e){ draftOverrides={}; }
     var tr=await fetch(SB+'/rest/v1/teams?select=*',{headers:H});
     (await tr.json()).forEach(function(t){teamMap[t.name]=t;teamColors[t.name]=t.color||'#888';});
     var page=0,PAGE=1000;
