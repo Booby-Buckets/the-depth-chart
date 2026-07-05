@@ -2112,34 +2112,6 @@ function renderPage(){
     <!-- SCOUTING REPORT TAB -->
     <div class="tab-panel" id="panel-scout">
       ${buildProspectCard(p, proj, scout)}
-      <div class="scout-header">
-        <div>
-          <div class="scout-archetype-label">Player Archetype</div>
-          <div class="scout-archetype-name">${scout.archetype}</div>
-          <div class="scout-archetype-desc">${scout.archetypeDesc}</div>
-          <div style="margin-top:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-            <span class="scout-tag gold">${scout.role}</span>
-            ${scout.draftOutlook ? '<span class="scout-tag pos">' + scout.draftOutlook + '</span>' : ''}
-          </div>
-          <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:9px;">Report based on ${scout.basedOn} stats</div>
-        </div>
-        <div class="scout-ratings">
-          <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">Scouting Profile</div>
-          ${(function(){
-            var items=[
-              {l:'Overall', v:scout.scoutScore},
-              {l:'Offense', v:scout.off},
-              {l:'Defense', v:scout.def},
-              {l:'Rebnd',   v:scout.reb},
-              {l:'Effcncy', v:scout.eff}
-            ];
-            return items.map(function(r){
-              var v=Math.max(0,Math.min(100,r.v));
-              return '<div class="scout-rating-row"><div class="scout-rating-label">'+r.l+'</div><div class="scout-rating-bar"><div class="scout-rating-fill" style="width:'+v+'%"></div></div><div class="scout-rating-val">'+v+'</div></div>';
-            }).join('');
-          })()}
-        </div>
-      </div>
       <div class="scout-fc-grid">
         <div class="scout-fc-card"><div class="scout-fc-label">Team Role</div><div class="scout-fc-val">${scout.role}</div><div class="scout-fc-desc">${scout.roleDesc}</div></div>
         <div class="scout-fc-card"><div class="scout-fc-label">Projected Outlook</div><div class="scout-fc-val" style="color:${scout.jumpDir==='up'?'#5ab875':scout.jumpDir==='down'?'#e07070':'var(--accent)'};">${({up:'Projected Leap',down:'Reduced Role','new':'Unproven',transfer:'New Level',flat:'Steady'})[scout.jumpDir]||'Steady'}</div><div class="scout-fc-desc">${scout.jumpText}</div></div>
@@ -2994,9 +2966,6 @@ function setArchSeason(val){
   var x=_archFitBasis(val), grp=x.grp;
   var fit=buildArchFit(x.line,grp,x.pf);
   _archFitAxes=fit.axes; _archFitBest=fit.best;
-  var bestDef=(ARCH_FIT[grp]||ARCH_FIT.W)[fit.best]||{name:'',desc:''};
-  var nm=document.querySelector('#panel-scout .arch-name'); if(nm) nm.textContent=bestDef.name;
-  var ds=document.querySelector('#panel-scout .arch-desc'); if(ds) ds.textContent=bestDef.desc;
   var note=document.getElementById('archFitNote');
   if(note) note.innerHTML='How closely '+player.name+'&rsquo;s '+x.basis+' profile matches each '+({G:'guard',W:'wing',B:'big'}[grp])+' archetype — strongest fit highlighted.';
   animateArchFit();
@@ -3179,11 +3148,8 @@ async function renderArchetype(){
   }
 
   el.innerHTML=
-    '<div class="arch-hero"><div class="arch-hero-l"><div class="arch-eyebrow">Player Archetype</div>'+
-    '<div class="arch-name">'+info.name+'</div><div class="arch-desc">'+info.desc+'</div>'+
-    '<span class="arch-grp-pill">Compared within: '+({G:'Guards',W:'Wings',B:'Bigs'}[grp])+' · '+peerPool.length+' players</span></div></div>'+
-    '<div class="arch-sec-h" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;"><span>Archetype Fit</span>'+_archSeasonSelect()+'</div>'+
-    '<div class="arch-note" id="archFitNote" style="margin-top:-4px;margin-bottom:8px;">How closely '+player.name+'&rsquo;s '+fitBasis+' profile matches each '+({G:'guard',W:'wing',B:'big'}[grp])+' archetype — strongest fit highlighted.</div>'+
+    '<div class="arch-sec-h" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:8px;"><span>Archetype Fit &amp; Comparisons</span>'+_archSeasonSelect()+'</div>'+
+    '<div class="arch-note" id="archFitNote" style="margin-top:-4px;margin-bottom:10px;">How closely '+player.name+'&rsquo;s '+fitBasis+' profile matches each '+({G:'guard',W:'wing',B:'big'}[grp])+' archetype — strongest fit highlighted. Compared within '+({G:'guards',W:'wings',B:'bigs'}[grp])+' ('+peerPool.length+' players).</div>'+
     '<div class="radar-wrap" style="margin-bottom:8px;"><canvas id="archRadar" width="440" height="440"></canvas></div>'+
     '<div class="arch-sec-h">Projected Percentile — vs National &amp; Archetype</div>'+
     '<div class="arch-legend"><span><i style="background:var(--accent)"></i>vs All D1</span><span><i style="background:#5b9d8f"></i>vs '+({G:'Guards',W:'Wings',B:'Bigs'}[grp])+'</span></div>'+
