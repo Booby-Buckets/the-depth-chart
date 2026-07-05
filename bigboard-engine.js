@@ -36,6 +36,13 @@
   }
   // a returning pro (G-League / NBA / overseas pro) has used his draft eligibility
   function isReturningPro(p){ return /g-?league|\bnba\b|professional/.test(((p.hometown||'')+'').toLowerCase()); }
+  // out for the season (injury) — won't play, so won't be drafted this cycle;
+  // he returns to the pool next season. Same flags the projection engine uses.
+  function isOutForSeason(p){
+    if(p.is_injured===true) return true;
+    var h=((p.hometown||'')+'').toLowerCase().trim();
+    return h==='injured'||h==='out';
+  }
   function classKey(p){var y=((p.class_year||p.yr||'')+'').toLowerCase();
     return y.indexOf('fr')>=0?'fr':y.indexOf('so')>=0?'so':y.indexOf('jr')>=0?'jr':(y.indexOf('sr')>=0||y.indexOf('gr')>=0)?'sr':'';}
   function clamp(x){return Math.round(Math.max(0,Math.min(100,x)));}
@@ -134,6 +141,7 @@
   function eligible(p,ineligible){
     if(ineligible && ineligible[(p.name||'').trim()]) return false;   // manual ineligible list
     if(isReturningPro(p)) return false;                               // ex-pro, eligibility used
+    if(isOutForSeason(p)) return false;                               // injured — out this season
     var g=parseFloat(p.tdc_grade);
     var hasStats=num(p.mpg)>=8 && p.ppg!=null;
     return isFinite(g)||hasStats;
