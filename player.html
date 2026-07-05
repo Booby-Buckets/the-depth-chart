@@ -2058,9 +2058,7 @@ function renderPage(){
       <button class="tab-btn" id="tab-stats" onclick="switchTab('stats')">Full Stats</button>
       <button class="tab-btn" id="tab-rankings" onclick="switchTab('rankings')">Rankings</button>
       <button class="tab-btn" id="tab-percentiles" onclick="switchTab('percentiles')">Percentiles</button>
-      <button class="tab-btn" id="tab-archetype" onclick="switchTab('archetype')">Archetype</button>
       <button class="tab-btn" id="tab-scout" onclick="switchTab('scout')">Scouting</button>
-      <button class="tab-btn" id="tab-nil" onclick="switchTab('nil')">NIL Value</button>
     </div>
     </div>
 
@@ -2074,6 +2072,8 @@ function renderPage(){
       <div class="radar-wrap"><canvas id="radarChart" width="600" height="600"></canvas></div>
       <div class="radar-legend" id="radarLegend"></div>
       <div id="skillHost">${(function(){var x=_skillSrcFor();return buildSkillBreakdown(x.src,x.projected,x.label);})()}</div>
+      <div class="sec-title" style="margin:38px 0 16px;">NIL Valuation</div>
+      <div id="nilContent"></div>
     </div>
 
     <div class="tab-panel" id="panel-stats">
@@ -2094,7 +2094,6 @@ function renderPage(){
 
     <!-- RANKINGS TAB -->
     <div class="tab-panel" id="panel-rankings"><div id="rankingsContent"></div></div>
-    <div class="tab-panel" id="panel-nil"><div id="nilContent"></div></div>
 
     <!-- PERCENTILES TAB -->
     <div class="tab-panel" id="panel-percentiles">
@@ -2111,7 +2110,6 @@ function renderPage(){
     </div>
 
     <!-- SCOUTING REPORT TAB -->
-    <div class="tab-panel" id="panel-archetype"><div id="archetypeContent"></div></div>
     <div class="tab-panel" id="panel-scout">
       ${buildProspectCard(p, proj, scout)}
       <div class="scout-header">
@@ -2164,12 +2162,14 @@ function renderPage(){
         <div class="scout-card-title">Statistical Summary</div>
         <div class="scout-card-body">${buildStatNarrative(p)}</div>
       </div>
+      <div id="archetypeContent" style="margin-top:36px;"></div>
     </div>`;
 
   // Draw radar after DOM is ready
   setTimeout(animateRadar, 120);
   setTimeout(function(){ growBarsIn(document.getElementById('panel-overview')); }, 130);
   setTimeout(_tabScrollHint, 150);
+  setTimeout(renderNilPlayer, 60);   // NIL now lives in the Overview tab
 }
 
 function renderStatTable(p, projData){
@@ -2866,7 +2866,7 @@ function renderNilPlayer(){
   host.innerHTML=html;
 }
 function switchTab(t){
-  const tabs=['overview','stats','rankings','percentiles','archetype','scout','nil'];
+  const tabs=['overview','stats','rankings','percentiles','scout'];
   const cur=tabs.map(x=>document.getElementById('panel-'+x)).find(el=>el&&el.classList.contains('active'));
   function activate(id){
     tabs.forEach(x=>{
@@ -2882,9 +2882,8 @@ function switchTab(t){
     if(id==='overview')setTimeout(animateRadar,90);
     if(id==='stats' && !window._gamelogLoaded){ window._gamelogLoaded=true; loadGameLog(); }
     if(id==='rankings')setTimeout(renderRankings,40);
-    if(id==='nil')setTimeout(renderNilPlayer,40);
-    if(id==='archetype')setTimeout(renderArchetype,60);
-    if(id!=='archetype')setTimeout(function(){ growBarsIn(document.getElementById('panel-'+id)); }, 80);
+    if(id==='scout')setTimeout(renderArchetype,60);
+    setTimeout(function(){ growBarsIn(document.getElementById('panel-'+id)); }, 80);
   }
   if(cur&&!cur.id.endsWith(t)){cur.classList.add('leaving');setTimeout(function(){activate(t);},150);}
   else activate(t);
@@ -2996,8 +2995,8 @@ function setArchSeason(val){
   var fit=buildArchFit(x.line,grp,x.pf);
   _archFitAxes=fit.axes; _archFitBest=fit.best;
   var bestDef=(ARCH_FIT[grp]||ARCH_FIT.W)[fit.best]||{name:'',desc:''};
-  var nm=document.querySelector('#panel-archetype .arch-name'); if(nm) nm.textContent=bestDef.name;
-  var ds=document.querySelector('#panel-archetype .arch-desc'); if(ds) ds.textContent=bestDef.desc;
+  var nm=document.querySelector('#panel-scout .arch-name'); if(nm) nm.textContent=bestDef.name;
+  var ds=document.querySelector('#panel-scout .arch-desc'); if(ds) ds.textContent=bestDef.desc;
   var note=document.getElementById('archFitNote');
   if(note) note.innerHTML='How closely '+player.name+'&rsquo;s '+x.basis+' profile matches each '+({G:'guard',W:'wing',B:'big'}[grp])+' archetype — strongest fit highlighted.';
   animateArchFit();
@@ -3193,7 +3192,7 @@ async function renderArchetype(){
     '<div class="comp-grid">'+(topComps.length?topComps.map(compCard).join(''):'<div class="arch-note">No close matches found.</div>')+'</div>'+
     '<div class="arch-note">Similarity blends stats, efficiency, shooting profile, role (minutes), archetype, and build. Comps draw from real played seasons (2011-12 through 2025-26).</div>';
   setTimeout(animateArchFit,40);
-  setTimeout(function(){ growBarsIn(document.getElementById('panel-archetype')); }, 60);
+  setTimeout(function(){ growBarsIn(document.getElementById('panel-scout')); }, 60);
 }
 function teamColorFor(name){ return (window._pcColors&&window._pcColors[name])||'#888'; }
 
