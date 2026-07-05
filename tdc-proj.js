@@ -391,22 +391,34 @@ function _projGroup(pos,height){
   const g=window.tdcPosGroup?tdcPosGroup(pos,(window.TDC_NIL&&TDC_NIL.htIn(height))||null):'W';
   return g==='G'?'G':g==='B'?'B':'W';
 }
+// Proven-player retention: the population lag model regresses everyone toward the
+// D1 mean, which unrealistically flattens/declines elite returners (a 93-grade
+// scorer is NOT going to shrink to the average). Scale the stability coefficient
+// up with grade so stars keep — and, via the class-growth curve, build on — their
+// production, while average/role players still regress normally.
+function _gradeHold(grade, maxB){
+  const g=parseFloat(grade)||77;
+  return Math.max(-0.04, Math.min(maxB, (g-77)/15*maxB));
+}
 // per-40 projection: class/pos growth applied to the deviation-preserved rate,
 // then shrunk toward the D1 mean by the stat's measured year-to-year stability
-function _projRate40(k40,statK,v40,cls,grp){
+function _projRate40(k40,statK,v40,cls,grp,grade){
   const L=PROJ_TRENDS.lag1[k40]; if(!L) return v40;
   const g=(PROJ_TRENDS.growth[cls]&&PROJ_TRENDS.growth[cls][grp]&&PROJ_TRENDS.growth[cls][grp][statK])||1.0;
-  return Math.max(0, L.m + L.b*(v40*g - L.m));
+  const b=Math.min(0.97, L.b + _gradeHold(grade, 0.22));
+  return Math.max(0, L.m + b*(v40*g - L.m));
 }
 // shooting % projection: shrink toward the D1 mean (3P% hardest — but stability
-// scales with attempt volume, so high-volume shooters keep more of their number),
-// plus the measured class-transition delta.
-function _projPct(k,cur,cls,attemptsPerG){
+// scales with attempt volume AND grade, so proven high-volume shooters keep their
+// number), plus the measured class-transition delta.
+function _projPct(k,cur,cls,attemptsPerG,grade){
   const L=PROJ_TRENDS.lag1[k]; if(!L||!isFinite(cur)||cur<=0) return cur;
   let b=L.b;
   if(k==='tp_pct') b=Math.min(0.78, L.b + Math.min(0.5,(attemptsPerG||0)/6*0.5)); // binomial: more attempts → more signal
   if(k==='ft_pct') b=Math.min(0.80, L.b + Math.min(0.3,(attemptsPerG||0)/5*0.3));
-  const d=(PROJ_TRENDS.eff[cls]||{})[k==='fg_pct'?'fg':k==='tp_pct'?'tp':'ft']||0;
+  b=Math.min(0.96, b + _gradeHold(grade, 0.34));   // proven shooters barely regress
+  // the small age-based shooting drift also shouldn't apply to proven shooters
+  const d=((PROJ_TRENDS.eff[cls]||{})[k==='fg_pct'?'fg':k==='tp_pct'?'tp':'ft']||0)*(1-_gradeHold(grade,0.8));
   return L.m + b*(cur - L.m) + d;
 }
 // advanced-stat projection from current bbref advanced (lag model + class delta)
@@ -598,7 +610,9 @@ function buildTeamProjections(players, conf){
     // What remains here is TDC-specific context the data can't see:
     // returning-in-system familiarity, transfer adjustment, elite-senior ceiling.
     const srYr       = grade>=87 ? 1.02 : 1.0;
-    const returnBoost  = isReturnee ? (isSr ? (grade>=85?1.01:1.0) : 1.02) : 1.0;
+    // proven returners develop — give high-grade returning starters a real volume
+    // bump (a 90+ returner isn't projected flat), tapered for seniors at their peak
+    const returnBoost  = isReturnee ? (1.0 + (isSr?0.01:0.025) + Math.max(0,grade-80)/15*0.03) : 1.0;
     const transferTrim = isTransferIn ? 0.96 : 1.0;
     const ctxMult = (isSr?srYr:1.0) * returnBoost * transferTrim;
     const projCls = _projCls(yr), projGrp = _projGroup(pos, p.height);
@@ -620,7 +634,7 @@ function buildTeamProjections(players, conf){
     const rateGrowth = ctxMult * gapMult * trendMult;
     // data-derived per-40 projection for a stat: class/pos growth + shrinkage,
     // then TDC context multipliers layered on top
-    const d40=(k40,statK,perMin)=>_projRate40(k40,statK,perMin*40,projCls,projGrp)/40 * rateGrowth;
+    const d40=(k40,statK,perMin)=>_projRate40(k40,statK,perMin*40,projCls,projGrp,grade)/40 * rateGrowth;
 
     let transferFactor = 1.0, volTrans = 1.0;
     if(p.hometown && p.hometown.trim()){
@@ -661,18 +675,31 @@ function buildTeamProjections(players, conf){
       const restAvg=arr.slice(1).reduce((s,h)=>s+parseFloat(h[key]||0),0)/arr.slice(1).length;
       return arr.length===2?latest*0.70+restAvg*0.30:latest*0.60+restAvg*0.40;
     };
+    // shooting-% base weighted by ATTEMPT VOLUME × recency: a 36.8% year on 4.5
+    // threes is real, a 26.6% freshman year on 1.9 is noise — the reliable, recent
+    // season should dominate so a proven shooter's number isn't dragged down.
+    const shootBase=(arr,key,volKey)=>{
+      if(!arr.length) return 0;
+      if(arr.length===1) return parseFloat(arr[0][key]||0);
+      let sw=0,sv=0;
+      arr.forEach((h,i)=>{ const val=parseFloat(h[key]||0); if(!(val>0)) return;
+        const vol=Math.max(0.3,parseFloat(h[volKey]||0));
+        const rec=i===0?2.0:i===1?1.0:0.6;
+        const w=vol*rec; sw+=w; sv+=w*val; });
+      return sw>0?sv/sw:parseFloat(arr[0][key]||0);
+    };
 
     // FG%: recency-weighted career smooth, lean heavily on most recent season
     const fgBase      = parseFloat(base.fg_pct||0)||44;
-    const careerFgPct = meaningful.length>=2 ? recencyAvg(meaningful,'fg_pct') : fgBase;
-    const fgSmoothed  = fgBase*0.65 + careerFgPct*0.35;
+    const careerFgPct = meaningful.length>=2 ? shootBase(meaningful,'fg_pct','fga') : fgBase;
+    const fgSmoothed  = fgBase*0.55 + careerFgPct*0.45;
 
     const tpBase = meaningful.length
-      ? (meaningful.length>=2 ? recencyAvg(meaningful,'tp_pct') : parseFloat(meaningful[0].tp_pct||0))
+      ? (meaningful.length>=2 ? shootBase(meaningful,'tp_pct','tpa') : parseFloat(meaningful[0].tp_pct||0))
       : (parseFloat(base.tp_pct||0)||parseFloat(p.tp_pct||0)||33);
 
     const ftBase      = parseFloat(base.ft_pct||0)||70;
-    const careerFtPct = meaningful.length>=2 ? recencyAvg(meaningful,'ft_pct') : ftBase;
+    const careerFtPct = meaningful.length>=2 ? shootBase(meaningful,'ft_pct','fta') : ftBase;
     const ftSmoothed  = ftBase*0.70 + careerFtPct*0.30;
 
     const oldFga     = parseFloat(base.fga||0)||1;
@@ -704,17 +731,20 @@ function buildTeamProjections(players, conf){
     // Shooting %s: shrink toward the D1 mean by measured year-to-year stability
     // (3P% b=.22 + attempt-volume bonus; FG% b=.62; FT% b=.50), plus the measured
     // class delta, then the TDC context adjustments (volume, transfer, role).
-    const fgDataProj = _projPct('fg_pct', fgSmoothed, projCls, oldFga);
+    const fgDataProj = _projPct('fg_pct', fgSmoothed, projCls, oldFga, grade);
     const fgProj = r1(clamp(fgDataProj - volPenalty + transPctAdj + roleEffBoost + pgSystemBoost, 30, 65));
 
     const careerTpa  = meaningful.length
       ? meaningful.reduce((s,h)=>s+parseFloat(h.tpa||0),0)/meaningful.length
       : parseFloat(base.tpa||0);
     const is3Shooter = careerTpa >= 0.5;
+    // added-volume cost on 3P%, tempered for proven shooters (a 90+ marksman
+    // doesn't lose his stroke taking a few more attempts) — mirrors the FG% temper
+    const tpVolPen = (volChange>0?volChange*2:volChange) * (grade>=88?0.35:grade>=82?0.6:1);
     const tpProj = is3Shooter
-      ? r1(clamp(_projPct('tp_pct', tpBase, projCls, careerTpa) - (volChange*2) + transPctAdj*0.6, 20, 50))
+      ? r1(clamp(_projPct('tp_pct', tpBase, projCls, careerTpa, grade) - tpVolPen + transPctAdj*0.6, 20, 50))
       : tpBase;
-    const ftProj = r1(clamp(_projPct('ft_pct', ftSmoothed, projCls, parseFloat(base.fta||0)), 45, 97));
+    const ftProj = r1(clamp(_projPct('ft_pct', ftSmoothed, projCls, parseFloat(base.fta||0), grade), 45, 97));
 
     // Shot volume: minutes-driven, with measured class/pos FGA growth and the
     // team's usage vacancy on top.
