@@ -2243,14 +2243,13 @@ function renderPage(){
     <!-- OVERVIEW TAB -->
     <div class="tab-panel active" id="panel-overview">
       ${buildOvrSeasonControl(p, proj)}
-      <div class="prog-section">${buildProgression(p)}</div>
+      ${buildBadgesSection(p, proj, badgeData)}
       <div id="impactSection"></div>
-      <div id="spectrumSection"></div>
+      <div class="prog-section">${buildProgression(p)}</div>
       <div class="sec-title" style="margin-bottom:16px;">Skill Profile</div>
       <div class="radar-wrap"><canvas id="radarChart" width="600" height="600"></canvas></div>
       <div class="radar-legend" id="radarLegend"></div>
       <div id="skillHost">${(function(){var x=_skillSrcFor();return buildSkillBreakdown(x.src,x.projected,x.label);})()}</div>
-      ${buildBadgesSection(p, proj, badgeData)}
       <div class="sec-title" style="margin:38px 0 16px;">NIL Valuation</div>
       <div id="nilContent"></div>
     </div>
@@ -2314,6 +2313,7 @@ function renderPage(){
         <div class="scout-card-body">${buildStatNarrative(p)}</div>
       </div>
       <div id="archetypeContent" style="margin-top:36px;"></div>
+      <div id="spectrumSection" style="margin-top:36px;"></div>
     </div>`;
 
   // Draw radar after DOM is ready
@@ -3033,7 +3033,15 @@ function switchTab(t){
     if(id==='overview')setTimeout(animateRadar,90);
     if(id==='stats' && !window._gamelogLoaded){ window._gamelogLoaded=true; loadGameLog(); }
     if(id==='rankings')setTimeout(renderRankings,40);
-    if(id==='scout')setTimeout(renderArchetype,60);
+    if(id==='scout'){
+      setTimeout(renderArchetype,60);
+      // Stat Explorer was drawn in a hidden panel (0-size canvas) — redraw once
+      // the container actually has width, retrying briefly to beat layout timing.
+      var _rsTries=0, _rsGo=function(){ var w=document.querySelector('#panel-scout .exp-chart');
+        if(w&&w.getBoundingClientRect().width>0){ try{renderSpectrum();}catch(e){} }
+        else if(_rsTries++<12){ setTimeout(_rsGo,80); } };
+      setTimeout(_rsGo,140);
+    }
     setTimeout(function(){ growBarsIn(document.getElementById('panel-'+id)); }, 80);
   }
   if(cur&&!cur.id.endsWith(t)){cur.classList.add('leaving');setTimeout(function(){activate(t);},150);}
