@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="auth.js"></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Games — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#FBFAFF;--bg2:#F2EFFB;--bg3:#E9E4F7;--border:#E1DBF2;--border2:#C9BFE6;--text:#14101F;--text2:#463D5E;--text3:#847B9C;--accent:#8B3FE0;}
+    [data-theme="dark"]{--bg:#07060C;--bg2:#100D1A;--bg3:#181426;--border:#241F36;--border2:#382F54;--text:#F2EFFB;--text2:#A8A1C4;--text3:#6D6589;--accent:#B16BFF;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html{background:var(--bg);}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
+    a{color:inherit;text-decoration:none;}
+    .nav-wrap{border-bottom:1px solid var(--border);background:rgba(251,250,255,.66);backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);position:sticky;top:0;z-index:200;}
+    [data-theme="dark"] .nav-wrap{background:rgba(6,18,14,.84);border-bottom-color:rgba(26,43,68,.9);}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);letter-spacing:-.01em;}
+    .nav-logo span{color:var(--accent);}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .theme-toggle:hover{border-color:var(--accent);color:var(--text);}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
+    .nav-sub::-webkit-scrollbar{display:none;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:0 14px;height:100%;display:flex;align-items:center;position:relative;white-space:nowrap;flex-shrink:0;transition:color .2s;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a::after{content:'';position:absolute;bottom:0;left:14px;right:14px;height:2px;background:var(--accent);transform:scaleX(0);transform-origin:left center;transition:transform .22s;}
+    .nav-sub a:first-child::after{left:0;}
+    .nav-sub a:hover{color:var(--text);} .nav-sub a:hover::after{transform:scaleX(1);}
+    .nav-sub a.active{color:var(--text);} .nav-sub a.active::after{transform:scaleX(1);}
+    .wrap{max-width:1000px;margin:0 auto;padding:40px 22px 90px;}
+    .hd{text-align:center;margin-bottom:34px;}
+    .hd h1{font-family:'Playfair Display',serif;font-weight:800;font-size:44px;letter-spacing:-.02em;}
+    .hd p{font-size:15px;color:var(--text3);margin-top:8px;}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;}
+    .card{position:relative;border:1px solid var(--border);border-radius:16px;background:var(--bg2);padding:22px 20px 20px;overflow:hidden;transition:transform .18s,border-color .2s,box-shadow .2s;display:block;}
+    .card.live:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 14px 34px rgba(80,40,150,.16);}
+    .card.soon{opacity:.72;cursor:default;}
+    .card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 82% -10%, var(--gl,rgba(139,63,224,.14)), transparent 60%);pointer-events:none;}
+    .card .emoji{font-size:34px;line-height:1;margin-bottom:14px;}
+    .card .badge{position:absolute;top:16px;right:16px;font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:20px;}
+    .card .badge.live{background:rgba(31,157,87,.15);color:#1f9d57;}
+    .card .badge.daily{background:rgba(139,63,224,.14);color:var(--accent);}
+    .card .badge.soon{background:var(--bg3);color:var(--text3);}
+    .card h3{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;margin-bottom:6px;}
+    .card p{font-size:13px;color:var(--text2);line-height:1.55;}
+    .card .cta{margin-top:14px;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);display:inline-flex;align-items:center;gap:5px;}
+    .card.soon .cta{color:var(--text3);}
+    @media(max-width:520px){.nav-top,.nav-sub{padding-left:16px;padding-right:16px;}.hd h1{font-size:32px;}}
+  </style>
+</head>
+<body>
+  <div class="nav-wrap">
+    <div class="nav-top">
+      <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">🌙</button>
+    </div>
+    <div class="nav-sub">
+      <a href="index.html">Rankings</a>
+      <a href="roster.html">Players</a>
+      <a href="compare-players.html">Compare</a>
+      <a href="draft.html">Draft</a>
+      <a href="analytics.html">Stats</a>
+      <a href="tournaments.html">Tournaments</a>
+      <a href="games.html" class="active">Games</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="hd">
+      <h1>Games</h1>
+      <p>College hoops guessing games, powered by The Depth Chart's player database.</p>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+<script>
+function toggleTheme(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');document.getElementById('themeBtn').textContent=d?'🌙':'☀️';try{localStorage.setItem('tdc_theme',d?'light':'dark');}catch(e){}}
+(function(){try{var s=localStorage.getItem('tdc_theme');if(s){document.documentElement.setAttribute('data-theme',s);var b=document.getElementById('themeBtn');if(b)b.textContent=s==='dark'?'☀️':'🌙';}}catch(e){}})();
+
+const GAMES=[
+  {e:'🎯',t:'Guess the Player',d:'A new mystery player every day. Guess and get feedback on school, conference, class, position, height and grade — wrong guesses narrow it down.',badge:'Daily',cls:'daily',href:'game-guess.html',live:true},
+  {e:'⚖️',t:'Higher or Lower',d:'Two players, one stat. Pick who ranks higher and chain them together for a streak. Grade, points, assists or boards.',badge:'Live',cls:'live',href:'game-higher.html',live:true},
+  {e:'📊',t:'Stat Line Guess',d:'An anonymized season stat line appears — name the player. Stars are easy; obscure role players are hard mode.',badge:'Soon',cls:'soon',live:false},
+  {e:'🔢',t:"Rank 'Em",d:'Four or five players — drag them into the right order by a stat or by their TDC grade.',badge:'Soon',cls:'soon',live:false},
+  {e:'🧭',t:'Career Path',d:'Schools, class progression and milestones revealed with the name hidden. A transfer-portal-era guessing game.',badge:'Soon',cls:'soon',live:false},
+  {e:'🎓',t:'Grade Guess',d:"See a player and guess the grade our algorithm assigned — how close can you get?",badge:'Soon',cls:'soon',live:false},
+  {e:'▦',t:'Hoop Grid',d:'A 3×3 immaculate-grid — find a player matching each row and column of teams, conferences and accolades. Rarer picks score better.',badge:'Soon',cls:'soon',live:false}
+];
+document.getElementById('grid').innerHTML=GAMES.map(function(g){
+  var inner='<div class="emoji">'+g.e+'</div><span class="badge '+g.cls+'">'+g.badge+'</span>'+
+    '<h3>'+g.t+'</h3><p>'+g.d+'</p>'+
+    '<span class="cta">'+(g.live?'Play now →':'Coming soon')+'</span>';
+  return g.live
+    ? '<a class="card live" href="'+g.href+'">'+inner+'</a>'
+    : '<div class="card soon">'+inner+'</div>';
+}).join('');
+</script>
+</body>
+</html>
