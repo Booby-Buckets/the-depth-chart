@@ -75,8 +75,15 @@
         fgP=pctOf(dist,'fg_pct',s.fg_pct),tpP=pctOf(dist,'tp_pct',s.tp_pct),ftP=pctOf(dist,'ft_pct',s.ft_pct),
         tsP=pctOf(dist,'ts',tsOf(s)),p36=pctOf(dist,'per36',num(s.mpg)>0?num(s.ppg)*36/num(s.mpg):0),
         tovP=pctOf(dist,'tovs',s.tovs,true);
-    var posBase={G:74,W:78,B:81}[grp];
-    var sizeScore=ht>0?clamp(50+(ht-posBase)*6.5):44;
+    // height judged against the SPECIFIC position's NBA norm, not a coarse G/W/B
+    // base — a 6'6" PG is a rare, valuable archetype; a 6'8" center is undersized.
+    var pl0=posLabel(p.position);
+    var norm=({PG:74,SG:77,SF:79,PF:81,C:83}[pl0])||({G:75,W:79,B:82}[grp])||78;
+    var htDev=ht>0?ht-norm:0;
+    // asymmetric: tall-for-position is a real draft premium; undersized is a bigger
+    // translatability red flag (docked harder). Length + youth = extra upside equity.
+    var sizeScore=ht>0?clamp(58+(htDev>=0?htDev*7.5:htDev*9)):44;
+    var sizeUpside=ht>0?clamp(52+htDev*6.5+(ci.lvl<=1?9:ci.lvl===2?4:0)):44;
     var dW=grp==='G'?{s:.72,b:.28}:grp==='B'?{s:.30,b:.70}:{s:.5,b:.5};
     var defTools=clamp(dW.s*stlP+dW.b*blkP);
     var shooting=clamp(.6*tpP+.4*ftP);
@@ -90,15 +97,15 @@
     var noSample=num(s.mpg)<3 && num(s.ppg)<1;
     var trans,ready,pot,draft;
     if(noSample){
-      trans=clamp(.50*gradeNorm+.35*sizeScore+.15*youth);
+      trans=clamp(.46*gradeNorm+.39*sizeScore+.15*youth);
       ready=clamp(.45*expS+.35*gradeNorm+.20*38);
-      pot=clamp(.46*youth+.34*gradeNorm+.20*sizeScore);
-      draft=clamp(.58*gradeNorm+.26*youth+.16*sizeScore);
+      pot=clamp(.42*youth+.32*gradeNorm+.26*sizeUpside);
+      draft=clamp(.55*gradeNorm+.24*youth+.21*sizeScore);
     }else{
-      trans=clamp(.30*sizeScore+.28*shooting+.18*defTools+.16*eff+.08*ballSec);
+      trans=clamp(.34*sizeScore+.26*shooting+.18*defTools+.14*eff+.08*ballSec);
       ready=clamp(.40*production+.22*tsP+.24*expS+.14*(.5*ftP+.5*ballSec));
-      pot=clamp(.34*youth+.26*(.55*sizeScore+.45*defTools)+.22*gradeNorm+.18*flashes);
-      draft=clamp(.45*gradeNorm+.20*ppgP+.20*trans+.15*compLevel(p.team,teamMap));
+      pot=clamp(.30*youth+.30*(.62*sizeUpside+.38*defTools)+.22*gradeNorm+.18*flashes);
+      draft=clamp(.42*gradeNorm+.18*ppgP+.22*trans+.12*compLevel(p.team,teamMap)+.06*sizeScore);
     }
     var lensScore=clamp(.36*trans+.30*pot+.20*ready+.14*draft);
     var classBoost=[7,3,0,-4][ci.lvl]-(ci.rs?2.5:0);
