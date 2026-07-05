@@ -35,6 +35,10 @@
     .g-head{text-align:center;margin-bottom:8px;}
     .g-title{font-family:'Playfair Display',serif;font-weight:800;font-size:34px;letter-spacing:-.01em;}
     .g-sub{font-size:13px;color:var(--text3);margin-top:4px;}
+    .g-controls{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:6px 0 6px;}
+    .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:3px;gap:3px;}
+    .seg button{font-size:12px;font-weight:700;letter-spacing:.02em;padding:6px 13px;border:none;border-radius:6px;background:none;color:var(--text3);cursor:pointer;transition:background .12s,color .12s;}
+    .seg button.on{background:var(--accent);color:#fff;}
     .g-meta{display:flex;align-items:center;justify-content:center;gap:14px;margin:14px 0 20px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);}
     .g-meta b{color:var(--accent);}
     /* search */
@@ -101,7 +105,7 @@
   <div class="wrap">
     <div class="g-head">
       <div class="g-title">Guess the Player</div>
-      <div class="g-sub">A new mystery player every day. You have 8 guesses.</div>
+      <div class="g-sub">Crack the mystery player in 8 guesses. Play the daily, go unlimited, and pick this year or all-time.</div>
     </div>
     <div id="content"><div class="loading">Loading today's player…</div></div>
   </div>
@@ -114,7 +118,10 @@ function toggleTheme(){const d=document.documentElement.getAttribute('data-theme
 (function(){try{var s=localStorage.getItem('tdc_theme');if(s){document.documentElement.setAttribute('data-theme',s);var b=document.getElementById('themeBtn');if(b)b.textContent=s==='dark'?'☀️':'🌙';}}catch(e){}})();
 
 const MAX=8;
-let POOL=[], CONF={}, TARGET=null, DAY=0, state={guesses:[],done:false,won:false};
+let scope='year', mode='daily';                 // 'year'|'all', 'daily'|'unlimited'
+let POOL_YEAR=null, POOL_ALL=null, CONF={}, TARGET=null, DAY=0, state={guesses:[],done:false,won:false};
+function currentPool(){ return scope==='year'?POOL_YEAR:POOL_ALL; }
+function seasonLbl(y){ y=+y; return isNaN(y)?'':((y-1)+'-'+(''+y).slice(2)); }
 
 // ── daily index (America/New_York day, same for everyone) ──
 function todayIndex(){
@@ -192,7 +199,19 @@ function render(){
       '<input class="g-input" id="gi" type="text" autocomplete="off" placeholder="Guess a player…" oninput="onInput(this.value)" onkeydown="onKey(event)">'+
       '<div class="g-drop" id="gd"></div>'+
     '</div>');
+  var controls=
+    '<div class="g-controls">'+
+      '<div class="seg">'+
+        '<button class="'+(scope==='year'?'on':'')+'" onclick="setScope(\'year\')">This Year</button>'+
+        '<button class="'+(scope==='all'?'on':'')+'" onclick="setScope(\'all\')">All-Time</button>'+
+      '</div>'+
+      '<div class="seg">'+
+        '<button class="'+(mode==='daily'?'on':'')+'" onclick="setMode(\'daily\')">Daily</button>'+
+        '<button class="'+(mode==='unlimited'?'on':'')+'" onclick="setMode(\'unlimited\')">Unlimited</button>'+
+      '</div>'+
+    '</div>';
   host.innerHTML=
+    controls+
     '<div class="g-meta"><span>Guess <b>'+used+'</b> / '+MAX+'</span><span>'+left+' left</span></div>'+
     search+
     '<div class="g-board-scroll"><div class="g-board">'+head+rows+'</div></div>'+
@@ -201,7 +220,7 @@ function render(){
   if(state.done) showResult();
   var gi=document.getElementById('gi'); if(gi) gi.focus();
 }
-function byName(nm){return POOL.find(function(p){return p.name===nm;});}
+function byName(nm){return (currentPool()||[]).find(function(p){return p.name===nm;});}
 
 // ── autocomplete ──
 let _sel=-1, _matches=[];
@@ -209,10 +228,10 @@ function onInput(v){
   var d=document.getElementById('gd'); v=(v||'').toLowerCase().trim();
   if(!v){d.classList.remove('on');_matches=[];return;}
   var guessed={}; state.guesses.forEach(function(n){guessed[n]=1;});
-  _matches=POOL.filter(function(p){return p.name.toLowerCase().indexOf(v)>=0 && !guessed[p.name];}).slice(0,8);
+  _matches=(currentPool()||[]).filter(function(p){return p.name.toLowerCase().indexOf(v)>=0 && !guessed[p.name];}).slice(0,8);
   if(!_matches.length){d.classList.remove('on');return;}
   _sel=-1;
-  d.innerHTML=_matches.map(function(p,i){return '<div class="g-opt" data-i="'+i+'" onclick="pick('+i+')"><span class="nm">'+p.name+'</span><span class="tm">'+p.team+'</span></div>';}).join('');
+  d.innerHTML=_matches.map(function(p,i){var sub=(scope==='all'&&p.season_year)?(seasonLbl(p.season_year)+' · '+p.team):p.team;return '<div class="g-opt" data-i="'+i+'" onclick="pick('+i+')"><span class="nm">'+p.name+'</span><span class="tm">'+sub+'</span></div>';}).join('');
   d.classList.add('on');
 }
 function onKey(e){
@@ -237,13 +256,20 @@ function showResult(){
   var el=document.getElementById('gr'); if(!el)return;
   var t=TARGET, photo=t.espn_id?'https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+t.espn_id+'.png':'';
   var img=photo?'<img class="rz-photo" src="'+photo+'" onerror="this.outerHTML=\'<div class=&quot;rz-photo&quot;>'+(t.name||'?')[0]+'</div>\'">':'<div class="rz-photo">'+(t.name||'?')[0]+'</div>';
+  var seasonBit=(scope==='all'&&t.season_year)?(seasonLbl(t.season_year)+' · '):'';
+  var next=(mode==='unlimited')
+    ? '<button class="g-btn" onclick="nextGame()">New player →</button><button class="g-btn ghost" onclick="shareResult()">Share</button>'
+    : '<button class="g-btn" onclick="shareResult()">Share result</button>';
+  var footer=(mode==='unlimited')
+    ? 'Keep going, or switch to <b>Daily</b> for today\'s puzzle.'
+    : 'New player tomorrow. Try <a href="game-higher.html" style="color:var(--accent);font-weight:700;">Higher or Lower</a> next.';
   el.innerHTML=img+
     '<div class="rz-verdict '+(state.won?'win':'lose')+'">'+(state.won?'Solved in '+state.guesses.length+' / '+MAX:'Out of guesses')+'</div>'+
     '<div class="rz-name">'+t.name+'</div>'+
-    '<div class="rz-line">'+(t.position||'')+' · '+classInfo(t.class_year||t.yr).lbl+' · '+t.team+' ('+confOf(t.team)+') · '+(t.height||'')+' · Grade '+(t.tdc_grade||'')+'</div>'+
-    '<div style="margin-top:16px;"><button class="g-btn" onclick="shareResult()">Share result</button>'+
+    '<div class="rz-line">'+(t.position||'')+' · '+classInfo(t.class_year||t.yr).lbl+' · '+seasonBit+t.team+' ('+confOf(t.team)+') · '+(t.height||'')+' · Grade '+(t.tdc_grade||'')+'</div>'+
+    '<div style="margin-top:16px;">'+next+
     '<a class="g-btn ghost" href="player.html?name='+encodeURIComponent(t.name)+'&team='+encodeURIComponent(t.team||'')+'">View player →</a></div>'+
-    '<div style="margin-top:14px;font-size:12px;color:var(--text3);">New player tomorrow. Try <a href="game-higher.html" style="color:var(--accent);font-weight:700;">Higher or Lower</a> next.</div>';
+    '<div style="margin-top:14px;font-size:12px;color:var(--text3);">'+footer+'</div>';
   el.classList.add('on');
 }
 function shareResult(){
@@ -268,26 +294,56 @@ function markHt(g){var a=htIn(g.height),b=htIn(TARGET.height);if(a==null||b==nul
 function markGr(g){var a=grNum(g.tdc_grade),b=grNum(TARGET.tdc_grade);if(a==null||b==null)return'⬛';if(a===b)return'🟩';return Math.abs(a-b)<=3?'🟨':'⬛';}
 function toast(msg){var t=document.createElement('div');t.textContent=msg;t.style.cssText='position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.3);';document.body.appendChild(t);setTimeout(function(){t.remove();},2200);}
 
-// ── persistence ──
-function save(){try{localStorage.setItem('tdc_guess_'+DAY,JSON.stringify({guesses:state.guesses,done:state.done,won:state.won}));}catch(e){}}
-function load(){try{var s=localStorage.getItem('tdc_guess_'+DAY);if(s){var o=JSON.parse(s);state.guesses=o.guesses||[];state.done=!!o.done;state.won=!!o.won;}}catch(e){}}
+// ── persistence (daily only; keyed by scope + day) ──
+function dayKey(){ return 'tdc_guess_'+scope+'_'+DAY; }
+function save(){ if(mode!=='daily')return; try{localStorage.setItem(dayKey(),JSON.stringify({guesses:state.guesses,done:state.done,won:state.won}));}catch(e){} }
+function load(){ try{var s=localStorage.getItem(dayKey());if(s){var o=JSON.parse(s);state.guesses=o.guesses||[];state.done=!!o.done;state.won=!!o.won;}}catch(e){} }
+
+// ── pools ──
+async function loadYearPool(){
+  var pl=await fetch(SB+'/rest/v1/players?select=name,team,position,class_year,yr,height,tdc_grade,espn_id&tdc_grade=gte.80&gp=gte.15&order=name.asc',{headers:H}).then(r=>r.json()).catch(function(){return[];});
+  var seen={},out=[]; (Array.isArray(pl)?pl:[]).forEach(function(p){ if(p&&p.name&&!seen[p.name]){seen[p.name]=1;out.push(p);} });
+  return out;
+}
+async function loadAllPool(){
+  const base=SB+'/rest/v1/player_history?select=name,team,season_year,position,yr,height,tdc_grade,espn_id&tdc_grade=gte.82&gp=gte.18&mpg=gte.20';
+  const cr=await fetch(base+'&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact','Range':'0-0','Range-Unit':'items'})});
+  const total=parseInt((cr.headers.get('content-range')||'/0').split('/')[1]||0)||5000;
+  const PG=1000, pages=Math.ceil(total/PG), jobs=[];
+  for(let i=0;i<pages;i++) jobs.push(fetch(base,{headers:Object.assign({},H,{'Range-Unit':'items','Range':(i*PG)+'-'+(i*PG+PG-1)})}).then(r=>r.ok?r.json():[]));
+  const parts=await Promise.all(jobs);
+  // one row per player = their peak (highest-grade) season
+  var best={};
+  parts.reduce(function(a,b){return a.concat(b);},[]).forEach(function(p){ if(!p||!p.name)return; var g=grNum(p.tdc_grade)||0; if(!best[p.name]||g>best[p.name]._g){ p._g=g; best[p.name]=p; } });
+  return Object.keys(best).map(function(k){return best[k];});
+}
+async function ensurePool(){
+  if(scope==='year'){ if(!POOL_YEAR) POOL_YEAR=await loadYearPool(); }
+  else { if(!POOL_ALL){ document.getElementById('content').innerHTML='<div class="loading">Loading 20 years of players…</div>'; POOL_ALL=await loadAllPool(); } }
+}
+
+// ── target + flow ──
+function pickTarget(){
+  var pool=currentPool(); if(!pool||!pool.length){TARGET=null;return;}
+  if(mode==='daily'){
+    var stable=pool.slice().sort(function(a,b){return (a.name<b.name)?-1:(a.name>b.name)?1:0;});
+    TARGET=stable[pickIndex(DAY+(scope==='all'?424242:0), stable.length)];
+  } else { TARGET=pool[Math.floor(Math.random()*pool.length)]; }
+}
+function startPuzzle(){ pickTarget(); state={guesses:[],done:false,won:false}; if(mode==='daily') load(); render(); }
+function nextGame(){ if(mode!=='unlimited')return; pickTarget(); state={guesses:[],done:false,won:false}; render(); }
+async function setScope(s){ if(s===scope)return; scope=s; await ensurePool(); startPuzzle(); }
+async function setMode(m){ if(m===mode)return; mode=m; startPuzzle(); }
 
 // ── init ──
 async function init(){
   DAY=todayIndex();
   try{
-    const [pl, tm]=await Promise.all([
-      fetch(SB+'/rest/v1/players?select=name,team,position,class_year,yr,height,tdc_grade,espn_id&tdc_grade=gte.80&gp=gte.15&order=name.asc',{headers:H}).then(r=>r.json()),
-      fetch(SB+'/rest/v1/teams?select=name,conf',{headers:H}).then(r=>r.json())
-    ]);
-    if(!Array.isArray(pl)||!pl.length){document.getElementById('content').innerHTML='<div class="loading">Could not load the player pool.</div>';return;}
-    // de-dupe by name (keep first), stable order by espn_id for a consistent daily pick
-    var seen={}; POOL=pl.filter(function(p){if(seen[p.name])return false;seen[p.name]=1;return true;});
+    var tm=await fetch(SB+'/rest/v1/teams?select=name,conf',{headers:H}).then(r=>r.json()).catch(function(){return[];});
     (Array.isArray(tm)?tm:[]).forEach(function(t){CONF[t.name]=t.conf||'—';});
-    var stable=POOL.slice().sort(function(a,b){return (a.espn_id||0)-(b.espn_id||0);});
-    TARGET=stable[pickIndex(DAY,stable.length)];
-    load();
-    render();
+    await ensurePool();
+    if(!currentPool()||!currentPool().length){document.getElementById('content').innerHTML='<div class="loading">Could not load the player pool.</div>';return;}
+    startPuzzle();
   }catch(e){ document.getElementById('content').innerHTML='<div class="loading">Error: '+e.message+'</div>'; }
 }
 document.addEventListener('click',function(e){var d=document.getElementById('gd');if(d&&!e.target.closest('.g-search'))d.classList.remove('on');});
