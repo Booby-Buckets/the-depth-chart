@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Tournaments — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="tdc-ratings.js"></script>
   <style>
     :root{--bg:#FBFAFF;--bg2:#F2EFFB;--bg3:#E9E4F7;--border:#E1DBF2;--border2:#C9BFE6;--text:#14101F;--text2:#463D5E;--text3:#847B9C;--accent:#8B3FE0;--gold:#C8A020;--green:#1a8c3a;--red:#cc2200;}
     [data-theme="dark"]{--bg:#07060C;--bg2:#100D1A;--bg3:#181426;--border:#241F36;--border2:#382F54;--text:#F2EFFB;--text2:#A8A1C4;--text3:#6D6589;--accent:#B16BFF;--gold:#C8A020;--green:#5ab875;--red:#e07070;}
@@ -160,7 +161,7 @@ let GAMES=[], curSeason=2025, curCat='', notableOnly=true;
 function seasonLbl(y){ return `${y-1}–${(''+y).slice(2)}`; }
 
 (function initSeasons(){
-  const s=document.getElementById('seasonSel'); let o='';
+  const s=document.getElementById('seasonSel'); let o='<option value="2027">2026–27 · Projected</option>';
   for(let y=2026;y>=2007;y--) o+=`<option value="${y}">${seasonLbl(y)}</option>`;
   s.innerHTML=o; s.value='2025'; curSeason=2025;
   document.getElementById('catPills').innerHTML=CATS.map(([lbl,v])=>
@@ -183,6 +184,7 @@ async function loadSeason(){
   curSeason=+document.getElementById('seasonSel').value;
   document.getElementById('bracketView').style.display='none';
   document.getElementById('listView').style.display='';
+  if(curSeason===2027){ return loadProjected(); }   // client-side projection, no DB
   document.getElementById('tlist').innerHTML='<div class="loading">Loading '+seasonLbl(curSeason)+' tournaments…</div>';
   const [games, srsRows]=await Promise.all([
     fetchPaged(`${SB}/rest/v1/tournament_games?season=eq.${curSeason}&select=*&order=round_order.asc,date.asc`),
@@ -190,6 +192,73 @@ async function loadSeason(){
   ]);
   GAMES=games; SRS={}; (srsRows||[]).forEach(r=>{ SRS[r.team]=parseFloat(r.srs); });
   renderList();
+}
+
+// ── 2026-27 projected NCAA Tournament (new 76-team format) ──
+// Field: 1 projected AQ per conference (top-rated) + best at-large to 76. The 24
+// lowest (12 AQs, 12 at-large) play the new 12-game opening round, no crossover.
+// Field of 64 seeded by rating into 4 regions (S-curve); every game projected to
+// the higher-rated team. Uses tdc-ratings.js (projected rosters on the SRS scale).
+const PROJ_REGIONS=['South Region','West Region','East Region','Midwest Region'];
+const PROJ_DATE={open:'2027-03-16',r1:'2027-03-18',r2:'2027-03-20',s16:'2027-03-25',e8:'2027-03-27',ff:'2027-04-03',nc:'2027-04-05'};
+let _projBuilt=null;
+async function buildProjectedNCAA(){
+  if(_projBuilt) return _projBuilt;
+  const D=await TDC_RATINGS.get();
+  const teams=D.teams.filter(t=>t.rating!=null&&t.conf).map(t=>({full:t.full,team:t.team,conf:t.conf,rating:t.rating,rank:t.rank}));
+  const rt={}; teams.forEach(t=>{ rt[t.full]=t.rating; });
+  // AQ = top-rated team per conference (projected conference-tournament champ)
+  const byConf={}; teams.forEach(t=>{ if(!byConf[t.conf]||t.rating>byConf[t.conf].rating) byConf[t.conf]=t; });
+  const aqs=Object.values(byConf).sort((a,b)=>b.rating-a.rating);
+  const aqN=new Set(aqs.map(t=>t.full));
+  const atlarge=teams.filter(t=>!aqN.has(t.full)).sort((a,b)=>b.rating-a.rating).slice(0,76-aqs.length);
+  let gid=920000000; const games=[];
+  const proj=(a,b)=> a.rating>=b.rating?a:b;
+  const mk=(a,b,round,rord,region,date)=>{ const w=proj(a,b);
+    return {id:gid++, season:2027, date, category:'NCAA', tournament:'NCAA Tournament (Projected)',
+      round, round_order:rord, division:region, neutral:true, _proj:true, notable:true,
+      home:a.full, home_id:a.full, home_score:null, home_seed:a._seed, _hr:a.rating,
+      away:b.full, away_id:b.full, away_score:null, away_seed:b._seed, _ar:b.rating,
+      winner:w.full, winner_id:w.full}; };
+  // opening round: pair adjacent by rating within each seed band
+  const openWinners=[];
+  const openBand=(pool,seed)=>{ for(let i=0;i+1<pool.length;i+=2){ pool[i]._seed=seed; pool[i+1]._seed=seed;
+    games.push(mk(pool[i],pool[i+1],'Opening Round',0,null,PROJ_DATE.open));
+    const w=proj(pool[i],pool[i+1]); openWinners.push(w); } };
+  const aqPlay=aqs.slice(-12), aqDirect=aqs.slice(0,aqs.length-12);
+  const alPlay=atlarge.slice(-12), alDirect=atlarge.slice(0,atlarge.length-12);
+  openBand(aqPlay.slice(0,4),15); openBand(aqPlay.slice(4),16);   // AQs contest 15/16 lines
+  openBand(alPlay.slice(0,4),11); openBand(alPlay.slice(4),12);   // at-large contest 11/12 lines
+  // field of 64: direct entries + opening-round winners, seeded 1-16 by rating
+  const field=[...aqDirect,...alDirect,...openWinners].sort((a,b)=>b.rating-a.rating).slice(0,64);
+  const regionTeams=[[],[],[],[]];
+  field.forEach((t,i)=>{ t._seed=Math.floor(i/4)+1; const pos=i%4; regionTeams[(t._seed%2===1)?pos:3-pos].push(t); });
+  const SO=[1,16,8,9,5,12,4,13,6,11,3,14,7,10,2,15];
+  const regionWinners=[];
+  regionTeams.forEach((rteams,ri)=>{
+    const bySeed={}; rteams.forEach(t=>{ bySeed[t._seed]=t; });
+    const region=PROJ_REGIONS[ri];
+    let cur=[]; for(let i=0;i<16;i+=2){ const a=bySeed[SO[i]],b=bySeed[SO[i+1]]; if(!a||!b) continue;
+      games.push(mk(a,b,'1st Round',1,region,PROJ_DATE.r1)); cur.push(proj(a,b)); }
+    const nextR=(arr,round,rord,date)=>{ const nx=[]; for(let i=0;i+1<arr.length;i+=2){ games.push(mk(arr[i],arr[i+1],round,rord,region,date)); nx.push(proj(arr[i],arr[i+1])); } return nx; };
+    let r2=nextR(cur,'2nd Round',2,PROJ_DATE.r2);
+    let s16=nextR(r2,'Sweet 16',3,PROJ_DATE.s16);
+    nextR(s16,'Elite Eight',4,PROJ_DATE.e8);
+    regionWinners.push(proj(s16[0],s16[1]));
+  });
+  games.push(mk(regionWinners[0],regionWinners[1],'Final Four',5,null,PROJ_DATE.ff));
+  games.push(mk(regionWinners[2],regionWinners[3],'Final Four',5,null,PROJ_DATE.ff));
+  const f1=proj(regionWinners[0],regionWinners[1]), f2=proj(regionWinners[2],regionWinners[3]);
+  games.push(mk(f1,f2,'National Championship',6,null,PROJ_DATE.nc));
+  _projBuilt={games, srs:rt};
+  return _projBuilt;
+}
+async function loadProjected(){
+  document.getElementById('tlist').innerHTML='<div class="loading">Projecting the 2026-27 field from roster ratings…</div>';
+  try{
+    const {games,srs}=await buildProjectedNCAA();
+    GAMES=games; SRS=srs; renderList();
+  }catch(e){ document.getElementById('tlist').innerHTML='<div class="loading">Could not build projection.</div>'; }
 }
 
 // per-player game rating on the SAME 0-10 scale the player pages use (Hollinger
@@ -208,24 +277,25 @@ function ratingWord(r){ return r==null?'':r>=8.5?'Dominant':r>=7.5?'Great':r>=6.
 // as-expected game sits ~6.3, over/under-achieving moves it. Upset = underdog win
 // (by seed for NCAA/NIT, else by SRS).
 function gameRating(g){
-  if(g.winner_id==null||g.home_score==null||g.away_score==null) return null;
+  if(g.winner_id==null) return null;
   const hw=g.winner_id===g.home_id;
   const win=hw?{nm:g.home,sc:g.home_score,seed:g.home_seed}:{nm:g.away,sc:g.away_score,seed:g.away_seed};
   const los=hw?{nm:g.away,sc:g.away_score,seed:g.away_seed}:{nm:g.home,sc:g.home_score,seed:g.home_seed};
-  const margin=win.sc-los.sc;
+  const played=g.home_score!=null&&g.away_score!=null;
+  const margin=played?win.sc-los.sc:null;
   const sW=SRS[win.nm], sL=SRS[los.nm];
   const exp=(sW!=null&&sL!=null)?(sW-sL):null;               // expected winner margin (neutral)
   const rate=perf=>Math.max(2.0,Math.min(10.0,Math.round((6.3+perf*0.22)*10)/10));
   let wRating=null,lRating=null;
-  if(exp!=null){ const res=margin-exp; wRating=rate(res); lRating=rate(-res); }
+  if(exp!=null&&margin!=null){ const res=margin-exp; wRating=rate(res); lRating=rate(-res); }
   let upset=null;
   if(win.seed&&los.seed){
     if(win.seed>los.seed+1) upset={type:'seed',mag:win.seed-los.seed,label:`#${win.seed} over #${los.seed}`};
   } else if(exp!=null&&exp<-4.5){
     const short=win.nm.split(' ').slice(0,-1).join(' ')||win.nm;
-    upset={type:'srs',mag:Math.round(-exp),label:`${short} won as a ${Math.round(-exp)}-pt underdog`};
+    upset={type:'srs',mag:Math.round(-exp),label:`${short}${played?' won':' projected'} as a ${Math.round(-exp)}-pt underdog`};
   }
-  return {win,los,margin,exp:exp!=null?Math.round(exp*10)/10:null,wRating,lRating,upset};
+  return {win,los,margin,exp:exp!=null?Math.round(exp*10)/10:null,wRating,lRating,upset,played};
 }
 function setCat(c){ curCat=c; document.querySelectorAll('#catPills .pill').forEach(p=>p.classList.toggle('on',p.dataset.cat===c)); renderList(); }
 function toggleNotable(){ notableOnly=!notableOnly; document.getElementById('notablePill').classList.toggle('on',notableOnly);
@@ -271,7 +341,7 @@ function teamLink(name){ return `team.html?team=${encodeURIComponent(name)}`; }
 function championOf(games){
   const rec={};
   games.forEach(g=>{
-    if(g.winner_id==null||g.home_score==null) return;
+    if(g.winner_id==null) return;   // unplayed real game (projected games have a winner, no score)
     const w=g.winner, l=g.winner_id===g.home_id?g.away:g.home;
     (rec[w]=rec[w]||{w:0,l:0,last:null}); (rec[l]=rec[l]||{w:0,l:0,last:null});
     rec[w].w++; if(!rec[w].last||g.date>=rec[w].last.date) rec[w].last=g;
@@ -297,7 +367,7 @@ function boxHtml(g,x,y){
 function layoutTree(games, dir, ox, slotBase){
   // First Four / play-in games are pre-round appendages — kept out of the main
   // tree so the 8-team region stays a clean bracket (rendered in their own strip)
-  const main=games.filter(g=>!/place|consolation|3rd|5th|7th|first four|play-?in/i.test(g.round||''));
+  const main=games.filter(g=>!/place|consolation|3rd|5th|7th|first four|opening round|play-?in/i.test(g.round||''));
   if(!main.length) return null;
   // link each game to its feeders by RESULTS, not round names: a game's child on
   // each side is the most recent earlier game that team won to get here. Immune to
@@ -357,11 +427,12 @@ function bracketBlock(inner, w, h){
 }
 function labelHtml(x,name){ return `<div class="bktlabel" style="left:${x}px;top:2px;width:${BW}px;">${name}</div>`; }
 
-// First Four / play-in games shown as a compact strip above the bracket
+// First Four / opening-round / play-in games shown as a compact strip above the bracket
 function firstFourStrip(gs){
-  const ff=gs.filter(g=>/first four|play-?in/i.test(g.round||''));
+  const ff=gs.filter(g=>/first four|opening round|play-?in/i.test(g.round||''));
   if(!ff.length) return '';
-  return `<div class="ffstrip"><div class="ffhead">First Four</div><div class="ffgames">${ff.sort((a,b)=>a.date<b.date?-1:1).map(gameHtmlCol).join('')}</div></div>`;
+  const lbl=ff[0].round&&/opening/i.test(ff[0].round)?'Opening Round · 12 games':'First Four';
+  return `<div class="ffstrip"><div class="ffhead">${lbl}</div><div class="ffgames">${ff.sort((a,b)=>a.date<b.date?-1:1).map(gameHtmlCol).join('')}</div></div>`;
 }
 
 function openBracket(name){
@@ -483,10 +554,33 @@ function gameScore(p){
     +0.7*(p.oreb||0)+0.3*(p.dreb||0)+(p.stl||0)+0.7*(p.ast||0)+0.7*(p.blk||0)-0.4*(p.pf||0)-(p.tov||0);
 }
 function closeGame(){ document.getElementById('gmodal').classList.remove('on'); }
+// projected game: no box score — show the model's win probability + spread
+function renderProjGame(g,c){
+  const hw=g.winner_id===g.home_id;
+  const N=window.TDC_RATINGS, sig=(N&&N.SIGMA)||11;
+  const pHome=N?N.phi((g._hr-g._ar)/sig)*100:(g._hr>=g._ar?60:40);
+  const spread=Math.abs(g._hr-g._ar), favNm=g._hr>=g._ar?g.home:g.away;
+  const favShort=favNm.split(' ').slice(0,-1).join(' ')||favNm;
+  const side=(nm,seed,rating,pct,win,align)=>`<div style="text-align:${align};">
+      <div class="gteam ${win?'gwin':''}">${seed?`<span style="font-size:11px;color:var(--text3);">#${seed}</span> `:''}${nm}</div>
+      <div class="grate"><span class="ratepill" style="background:${pct>=50?'#1f9d57':'#cf5a4e'};">${Math.round(pct)}%</span> <span style="color:var(--text3);">to advance</span></div></div>`;
+  const r=gameRating(g);
+  let html=`<div class="ghead"><button class="gclose" onclick="closeGame()">✕</button>
+    <div style="font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">${g.tournament} · ${g.round||''}</div>
+    <div class="gmatch">${side(g.home,g.home_seed,g._hr,pHome,hw,'left')}
+      <div style="text-align:center;"><div style="font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:var(--text3);">PROJECTED</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:3px;">${favShort} −${spread.toFixed(1)}</div></div>
+      ${side(g.away,g.away_seed,g._ar,100-pHome,!hw,'right')}</div></div>`;
+  if(r&&r.upset) html+=`<div class="gupset">🔮 PROJECTED UPSET — ${r.upset.label}</div>`;
+  html+=`<div class="gpog" style="color:var(--text3);">Model rating: <b>${g.home.split(' ').slice(0,-1).join(' ')||g.home}</b> ${g._hr>=0?'+':''}${g._hr.toFixed(1)} · <b>${g.away.split(' ').slice(0,-1).join(' ')||g.away}</b> ${g._ar>=0?'+':''}${g._ar.toFixed(1)}. ${favShort} projected to win by ${spread.toFixed(1)} (${Math.round(Math.max(pHome,100-pHome))}%).</div>
+    <div class="gbody"><div style="font-size:11px;color:var(--text3);padding:8px 4px;">Projected from 2026-27 roster ratings — every game advances the higher-rated team. Box scores appear once games are played.</div></div>`;
+  c.innerHTML=html;
+}
 async function openGame(id){
   const g=GAMES.find(x=>x.id===id); if(!g) return;
   const m=document.getElementById('gmodal'), c=document.getElementById('gcard');
   m.classList.add('on');
+  if(g._proj){ renderProjGame(g,c); return; }
   c.innerHTML='<div class="loading">Loading box score…</div>';
   const bx=await fetch(`${SB}/rest/v1/box_scores?game_id=eq.${id}&select=player,espn_id,team,starter,min,pts,reb,oreb,dreb,ast,stl,blk,tov,pf,fgm,fga,tpm,tpa,ftm,fta`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
   const r=gameRating(g);
