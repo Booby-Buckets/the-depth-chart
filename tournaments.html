@@ -241,9 +241,8 @@ function tournaments(){
     (by[g.tournament]=by[g.tournament]||[]).push(g);
   });
   let list=Object.entries(by).map(([name,gs])=>{
-    // champion = winner of the highest round_order game (latest date tiebreak)
-    const fin=gs.slice().sort((a,b)=>(b.round_order-a.round_order)||(a.date<b.date?1:-1))[0];
-    return {name, games:gs, cat:gs[0].category, champ:fin&&fin.winner, n:gs.length,
+    const champ=championOf(gs);   // undefeated team, robust for MTE placement formats
+    return {name, games:gs, cat:gs[0].category, champ:champ&&champ.name, n:gs.length,
       order:(gs[0].category==='NCAA'?0:gs[0].category==='NIT'?1:gs[0].category==='MTE'?2:gs[0].category==='CONF'?3:4)};
   });
   if(q) list=list.filter(t=>t.name.toLowerCase().includes(q)||t.games.some(g=>(g.home+g.away).toLowerCase().includes(q)));
@@ -263,6 +262,26 @@ function renderList(){
 }
 
 function teamLink(name){ return `team.html?team=${encodeURIComponent(name)}`; }
+
+// Champion + its final game, by RECORD within the set — the team with the fewest
+// losses (then most wins, then latest win). Works for single-elim (the undefeated
+// winner) AND 8-team MTE "everyone plays 3" formats where the championship,
+// 3rd/5th/7th-place games all share a round name and can't be told apart by
+// round/date alone (Maui, Battle 4 Atlantis, etc.).
+function championOf(games){
+  const rec={};
+  games.forEach(g=>{
+    if(g.winner_id==null||g.home_score==null) return;
+    const w=g.winner, l=g.winner_id===g.home_id?g.away:g.home;
+    (rec[w]=rec[w]||{w:0,l:0,last:null}); (rec[l]=rec[l]||{w:0,l:0,last:null});
+    rec[w].w++; if(!rec[w].last||g.date>=rec[w].last.date) rec[w].last=g;
+    rec[l].l++;
+  });
+  const teams=Object.entries(rec).map(([nm,r])=>({nm,...r}));
+  if(!teams.length) return null;
+  teams.sort((a,b)=> a.l-b.l || b.w-a.w || ((a.last&&b.last)?(a.last.date<b.last.date?1:-1):0));
+  return {name:teams[0].nm, finalGame:teams[0].last};
+}
 
 // ── bracket geometry ──
 const BW=150, BH=42, GAPX=46, ROW=52, HEADY=26;
@@ -289,7 +308,11 @@ function layoutTree(games, dir, ox, slotBase){
   main.forEach(g=>{ g._kids=[]; const ch=feeder(g.home_id,g.date), ca=feeder(g.away_id,g.date);
     if(ch) g._kids.push(ch); if(ca&&ca!==ch) g._kids.push(ca); });
   // root = the final (latest date, highest round_order)
-  const root=main.slice().sort((a,b)=>(b.round_order-a.round_order)||(a.date<b.date?1:-1))[0];
+  // root = the champion's final win (the true title game), so MTE placement games
+  // that share a round name don't get mistaken for the final. Unreachable games
+  // (the losers-bracket / placement side) fall out of the tree and are skipped.
+  const champ=championOf(main);
+  const root=(champ&&champ.finalGame)||main.slice().sort((a,b)=>(b.round_order-a.round_order)||(a.date<b.date?1:-1))[0];
   // COLUMN = depth from the final (root), so bracket depth is correct even when
   // round names collide (e.g. SEC has both "2nd Round" and "Quarterfinal");
   // SLOT = vertical position, leaves stacked, parents centered on their children
@@ -324,7 +347,8 @@ function layoutTree(games, dir, ox, slotBase){
   }
   const width=ox + nCols*(BW+GAPX);
   const height=HEADY + slot*ROW;
-  return {boxes, lines, width, height, slots:slot, labels, nCols, colX};
+  const renderedIds=new Set(main.filter(g=>g._px).map(g=>g.id));
+  return {boxes, lines, width, height, slots:slot, labels, nCols, colX, renderedIds};
 }
 function bracketBlock(inner, w, h){
   return `<div class="bktscroll"><div class="bktcanvas" style="width:${w}px;height:${h}px;">
@@ -344,10 +368,10 @@ function openBracket(name){
   const gs=GAMES.filter(g=>g.tournament===name);
   if(!gs.length) return;
   const cat=gs[0].category;
-  const champGame=gs.slice().sort((a,b)=>(b.round_order-a.round_order)||(a.date<b.date?1:-1))[0];
+  const champ=championOf(gs);
   let html=`<div class="bcrumb"><a onclick="backToList()">← ${seasonLbl(curSeason)} tournaments</a></div>
     <div class="bhead"><h2>${name}</h2><span style="font-size:12px;color:var(--text3);">${CAT_LABEL[cat]||cat} · ${seasonLbl(curSeason)}</span></div>
-    ${champGame&&champGame.winner?`<div class="bchamp">Champion: <b>🏆 ${champGame.winner}</b></div>`:''}`;
+    ${champ?`<div class="bchamp">Champion: <b>🏆 ${champ.name}</b></div>`:''}`;
   html+=firstFourStrip(gs);
 
   const divs={}; gs.forEach(g=>{ (divs[g.division||'']=divs[g.division||'']||[]).push(g); });
@@ -361,7 +385,10 @@ function openBracket(name){
     const L=layoutTree(gs, 1, 0, 0);
     let labels=L.labels.map(l=>labelHtml(l.x,l.name)).join('');
     html+=bracketBlock({lines:L.lines, labels, boxes:L.boxes}, L.width, L.height);
-    html+=placeGames(gs);
+    // any games outside the championship bracket (MTE placement/consolation games)
+    const extra=gs.filter(g=>!L.renderedIds.has(g.id)&&!/first four|play-?in/i.test(g.round||''));
+    if(extra.length) html+=`<div class="region">Placement &amp; consolation</div><div class="rounds">${
+      extra.sort((a,b)=>a.date<b.date?-1:1).map(g=>`<div class="rcol">${gameHtmlCol(g)}</div>`).join('')}</div>`;
   } else {
     html+=columnFallback(gs);   // conf w/ byes, messy events
   }
