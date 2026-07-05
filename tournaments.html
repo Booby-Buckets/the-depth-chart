@@ -229,10 +229,30 @@ async function buildProjectedNCAA(){
   const alPlay=atlarge.slice(-12), alDirect=atlarge.slice(0,atlarge.length-12);
   openBand(aqPlay.slice(0,4),15); openBand(aqPlay.slice(4),16);   // AQs contest 15/16 lines
   openBand(alPlay.slice(0,4),11); openBand(alPlay.slice(4),12);   // at-large contest 11/12 lines
-  // field of 64: direct entries + opening-round winners, seeded 1-16 by rating
+  // field of 64: direct entries + opening-round winners, ranked 1-64 (the S-curve)
   const field=[...aqDirect,...alDirect,...openWinners].sort((a,b)=>b.rating-a.rating).slice(0,64);
-  const regionTeams=[[],[],[],[]];
-  field.forEach((t,i)=>{ t._seed=Math.floor(i/4)+1; const pos=i%4; regionTeams[(t._seed%2===1)?pos:3-pos].push(t); });
+  // seed line by line into 4 regions, each region taking exactly one team per line
+  // (so every region's true-seed sum is equal). CONFERENCE PROTECTION: for each
+  // line, try all 24 team->region permutations and pick the one that adds the
+  // fewest same-conference collisions (so a league's top teams land in different
+  // regions and can't meet before the Elite Eight), S-curve preference as tiebreak.
+  const permute=a=>a.length<=1?[a]:a.flatMap((v,i)=>permute(a.slice(0,i).concat(a.slice(i+1))).map(p=>[v,...p]));
+  const PERMS=permute([0,1,2,3]);
+  const regionTeams=[[],[],[],[]], regConf=[{},{},{},{}];
+  for(let s=1;s<=16;s++){
+    const line=field.slice((s-1)*4, s*4);
+    line.forEach(t=>{ t._seed=s; });
+    const pref=(s%2===1)?[0,1,2,3]:[3,2,1,0];   // S-curve slot per team index
+    let best=PERMS[0], bestCost=Infinity;
+    PERMS.forEach(perm=>{
+      let cost=0;
+      line.forEach((t,li)=>{ const rg=perm[li];
+        cost += (regConf[rg][t.conf]||0)*100 + Math.abs(pref.indexOf(rg)-li); });
+      if(cost<bestCost){ bestCost=cost; best=perm; }
+    });
+    line.forEach((t,li)=>{ const rg=best[li];
+      regionTeams[rg].push(t); regConf[rg][t.conf]=(regConf[rg][t.conf]||0)+1; });
+  }
   const SO=[1,16,8,9,5,12,4,13,6,11,3,14,7,10,2,15];
   const regionWinners=[];
   regionTeams.forEach((rteams,ri)=>{
