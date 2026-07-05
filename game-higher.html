@@ -81,7 +81,7 @@
   <div class="wrap">
     <div class="g-head">
       <div class="g-title">Higher or Lower</div>
-      <div class="g-sub">Does the mystery player rank higher or lower? Chain them for a streak.</div>
+      <div class="g-sub">Two player-seasons from 20 years of college hoops — does the mystery one rank higher or lower? Chain them for a streak.</div>
     </div>
     <div id="content"><div class="loading">Loading players…</div></div>
   </div>
@@ -93,27 +93,37 @@ const H={apikey:KEY,Authorization:'Bearer '+KEY};
 function toggleTheme(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');document.getElementById('themeBtn').textContent=d?'🌙':'☀️';try{localStorage.setItem('tdc_theme',d?'light':'dark');}catch(e){}}
 (function(){try{var s=localStorage.getItem('tdc_theme');if(s){document.documentElement.setAttribute('data-theme',s);var b=document.getElementById('themeBtn');if(b)b.textContent=s==='dark'?'☀️':'🌙';}}catch(e){}})();
 
+// makes/attempts are swapped in the data for 3P & FT, so % stats gate volume
+// on max(made,att) as an attempts proxy, and we never show raw makes.
 const STATS=[
-  {k:'tdc_grade',l:'TDC Grade',fmt:function(v){return Math.round(v);}},
-  {k:'ppg',l:'Points / G',fmt:function(v){return v.toFixed(1);}},
-  {k:'apg',l:'Assists / G',fmt:function(v){return v.toFixed(1);}},
-  {k:'rpg',l:'Rebounds / G',fmt:function(v){return v.toFixed(1);}}
+  {k:'tdc_grade',l:'Grade',   fmt:function(v){return Math.round(v);}},
+  {k:'ppg',l:'Points',        fmt:function(v){return v.toFixed(1);}},
+  {k:'rpg',l:'Rebounds',      fmt:function(v){return v.toFixed(1);}},
+  {k:'apg',l:'Assists',       fmt:function(v){return v.toFixed(1);}},
+  {k:'stl',l:'Steals',        fmt:function(v){return v.toFixed(1);}},
+  {k:'blk',l:'Blocks',        fmt:function(v){return v.toFixed(1);}},
+  {k:'mpg',l:'Minutes',       fmt:function(v){return v.toFixed(1);}},
+  {k:'fg_pct',l:'FG%',        fmt:function(v){return v.toFixed(1)+'%';}, vol:function(p){return (+p.fga||0)>=5;}},
+  {k:'tp_pct',l:'3P%',        fmt:function(v){return v.toFixed(1)+'%';}, vol:function(p){return Math.max(+p.tpm||0,+p.tpa||0)>=2;}},
+  {k:'ft_pct',l:'FT%',        fmt:function(v){return v.toFixed(1)+'%';}, vol:function(p){return Math.max(+p.ftm||0,+p.fta||0)>=1.5;}}
 ];
-let POOL=[], stat=STATS[0], left=null, right=null, streak=0, best=0, over=false, busy=false;
+let POOL=[], ACTIVE=[], stat=STATS[0], left=null, right=null, streak=0, best=0, over=false, busy=false;
 
 function val(p){return parseFloat(p[stat.k])||0;}
-function photoOf(p){return p.espn_id?'https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+p.espn_id+'.png':'';}
+function photoOf(p){return p.photo_url||(p.espn_id?'https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+p.espn_id+'.png':'');}
+function seasonLbl(y){y=+y;return (y-1)+'-'+(''+y).slice(2);}
 function bestKey(){return 'tdc_hilo_best_'+stat.k;}
 function loadBest(){try{best=parseInt(localStorage.getItem(bestKey()))||0;}catch(e){best=0;}}
 function saveBest(){try{if(streak>best){best=streak;localStorage.setItem(bestKey(),best);}}catch(e){}}
+function refreshActive(){ ACTIVE = stat.vol ? POOL.filter(stat.vol) : POOL; }
 
 function randPlayer(exclude){
-  var p, tries=0;
-  do{ p=POOL[Math.floor(Math.random()*POOL.length)]; tries++; }
-  while(tries<40 && exclude && (p.name===exclude.name || Math.abs(val(p)-val(exclude))<0.05));
+  var arr=ACTIVE.length?ACTIVE:POOL, p, tries=0;
+  do{ p=arr[Math.floor(Math.random()*arr.length)]; tries++; }
+  while(tries<50 && exclude && (p.id===exclude.id || p.name===exclude.name || Math.abs(val(p)-val(exclude))<0.05));
   return p;
 }
-function newGame(){ streak=0; over=false; busy=false; loadBest(); left=randPlayer(null); right=randPlayer(left); render(); }
+function newGame(){ streak=0; over=false; busy=false; loadBest(); refreshActive(); left=randPlayer(null); right=randPlayer(left); render(); }
 function setStat(i){ stat=STATS[i]; newGame(); }
 
 function cardHtml(p, side, revealed){
@@ -125,7 +135,7 @@ function cardHtml(p, side, revealed){
   var btns=(side==='right'&&!revealed&&!over)
     ? '<div class="btns"><button class="hi" onclick="answer(true)">▲ Higher</button><button class="lo" onclick="answer(false)">▼ Lower</button></div>'
     : '';
-  return '<div class="card" id="card-'+side+'">'+img+'<div class="nm">'+p.name+'</div><div class="tm">'+p.team+'</div>'+valHtml+btns+'</div>';
+  return '<div class="card" id="card-'+side+'">'+img+'<div class="nm">'+p.name+'</div><div class="tm">'+seasonLbl(p.season_year)+' · '+p.team+'</div>'+valHtml+btns+'</div>';
 }
 function render(){
   document.getElementById('content').innerHTML=
@@ -138,7 +148,6 @@ function answer(higher){
   if(busy||over)return; busy=true;
   var lv=val(left), rv=val(right);
   var correct=(rv>lv&&higher)||(rv<lv&&!higher)||(rv===lv); // tie counts as correct
-  // reveal right value
   document.getElementById('rightWrap').innerHTML=cardHtml(right,'right',true);
   var rc=document.getElementById('card-right'); if(rc)rc.classList.add(correct?'correct':'wrong');
   if(correct){
@@ -161,9 +170,14 @@ function answer(higher){
 }
 async function init(){
   try{
-    var r=await fetch(SB+'/rest/v1/players?select=name,team,tdc_grade,ppg,rpg,apg,espn_id&tdc_grade=gte.74&gp=gte.12&order=name.asc',{headers:H}).then(x=>x.json());
-    if(!Array.isArray(r)||!r.length){document.getElementById('content').innerHTML='<div class="loading">Could not load players.</div>';return;}
-    var seen={}; POOL=r.filter(function(p){if(seen[p.name])return false;seen[p.name]=1;return (parseFloat(p.ppg)||0)>0;});
+    const base=SB+'/rest/v1/player_history?select=id,name,team,season_year,position,tdc_grade,ppg,rpg,apg,stl,blk,mpg,fg_pct,tp_pct,ft_pct,fga,tpm,tpa,ftm,fta,espn_id,photo_url&tdc_grade=gte.82&gp=gte.18&mpg=gte.20';
+    const cr=await fetch(base+'&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact','Range':'0-0','Range-Unit':'items'})});
+    const total=parseInt((cr.headers.get('content-range')||'/0').split('/')[1]||0)||5000;
+    const PG=1000, pages=Math.ceil(total/PG), jobs=[];
+    for(let i=0;i<pages;i++) jobs.push(fetch(base,{headers:Object.assign({},H,{'Range-Unit':'items','Range':(i*PG)+'-'+(i*PG+PG-1)})}).then(r=>r.ok?r.json():[]));
+    const parts=await Promise.all(jobs);
+    POOL=parts.reduce((a,b)=>a.concat(b),[]).filter(p=>p&&p.name&&(parseFloat(p.mpg)||0)>0);
+    if(!POOL.length){document.getElementById('content').innerHTML='<div class="loading">Could not load players.</div>';return;}
     newGame();
   }catch(e){document.getElementById('content').innerHTML='<div class="loading">Error: '+e.message+'</div>';}
 }
