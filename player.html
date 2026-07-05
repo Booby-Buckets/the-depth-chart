@@ -1341,6 +1341,17 @@ async function init(){
     // box-score-only player: no season-stat rows, use the per-season aggregates
     if(!careerHistory.length && window._boxCareer && window._boxCareer.length) careerHistory = window._boxCareer;
 
+    // Geographic hometown fallback: if the espn_id path didn't surface a place
+    // (e.g. players.espn_id doesn't line up with bbref), look it up by name.
+    // Only accept an UNAMBIGUOUS single place so we never inherit a namesake's town.
+    if(!careerHistory.some(r=>r&&r.hometown) && player && player.name){
+      try{
+        const hr=await fetch(`${SB}/rest/v1/bbref_seasons?player=eq.${sbEncode(player.name)}&hometown=not.is.null&select=hometown&order=season_year.desc&limit=8`,{headers:H}).then(r=>r.ok?r.json():[]);
+        const places=[...new Set((hr||[]).map(x=>String(x.hometown||'').trim()).filter(Boolean))];
+        if(places.length===1) player._birthplace=places[0];
+      }catch(e){}
+    }
+
     // ── BUILD _careerHistoryMap for projectPlayer ─────────────────
     window._careerHistoryMap = {};
     if(careerHistory.length){
@@ -2018,6 +2029,14 @@ function renderPage(){
   const color=(window.tdcTeamColorHex&&tdcTeamColorHex(p.team))||teamData?.color||'#888';
   const yr=p.yr||p.class_year||'';
   const scout=buildScoutingReport(p,proj,gPct);
+  // Geographic hometown (city, state/country) lives in bbref_seasons.hometown —
+  // carried through careerHistory. players.hometown is the TRANSFER origin (a
+  // school), shown separately as "Via …". Take the most recent known place.
+  const geoHome=(function(){
+    const rows=(typeof careerHistory!=='undefined'&&careerHistory)||[];
+    for(let i=rows.length-1;i>=0;i--){ const ht=rows[i]&&rows[i].hometown; if(ht&&String(ht).trim()) return String(ht).trim(); }
+    return (p._birthplace&&String(p._birthplace).trim())||null;
+  })();
 
   document.title=`${p.name} — The Depth Chart`;
 
@@ -2042,7 +2061,8 @@ function renderPage(){
           ${p.team||'—'} <span style="font-size:10px;color:var(--text3);margin-left:2px;">${teamData?.conf||''}</span>
         </a>
         <div class="hero-meta">
-          ${p.hometown?`<div class="hero-meta-item">📍 Via <strong>${p.hometown}</strong></div>`:''}
+          ${geoHome?`<div class="hero-meta-item">📍 <strong>${geoHome}</strong></div>`:''}
+          ${p.hometown?`<div class="hero-meta-item">↪ Via <strong>${p.hometown}</strong></div>`:''}
           <div class="hero-meta-item" id="heroGp"${p.gp?'':' style="display:none;"'}>${p.gp?`🎮 <strong>${p.gp}</strong> GP`:''}</div>
           ${p.starter?`<div class="hero-meta-item">⭐ <strong>Returning Starter</strong></div>`:''}
           ${proj&&proj._origin?`<div class="hero-meta-item">🔄 Transfer mult: <strong style="color:var(--accent);">×${r1(proj._factor)}</strong></div>`:''}
