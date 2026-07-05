@@ -342,11 +342,15 @@
     .badge-nm{font-size:12.5px;font-weight:700;color:var(--text);flex:1;line-height:1.2;}
     .badge-tl{font-size:8.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;flex-shrink:0;}
     .badge-empty{font-size:11px;color:var(--text3);font-style:italic;padding:6px 2px;}
-    .hero-badges{text-decoration:none;display:inline-flex;align-items:center;gap:7px;}
-    .hero-badges:hover{color:var(--accent);}
-    .hero-badge-ts{display:inline-flex;align-items:center;gap:8px;margin-left:2px;}
-    .hero-badge-t{display:inline-flex;align-items:center;gap:3px;font-weight:800;font-size:12px;}
-    .hero-badge-dot{width:6px;height:6px;border-radius:50%;display:inline-block;}
+    .hero-right{display:flex;align-items:center;gap:24px;flex-shrink:0;}
+    .hero-badge-wrap{display:flex;flex-direction:column;align-items:center;gap:5px;text-decoration:none;flex-shrink:0;}
+    .hero-badge-shield{width:82px;filter:drop-shadow(0 7px 16px rgba(80,40,150,.42));transition:transform .16s cubic-bezier(.34,1.46,.64,1);}
+    .hero-badge-wrap:hover .hero-badge-shield{transform:translateY(-2px) scale(1.04);}
+    .hero-badge-shield svg{width:100%;height:auto;display:block;}
+    .hbs-dots{display:flex;gap:9px;}
+    .hbs-dot{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:800;color:var(--text2);}
+    .hbs-dot i{width:6px;height:6px;border-radius:50%;display:inline-block;}
+    @media(max-width:520px){.hero-badge-shield{width:66px;}.hero-right{gap:14px;}}
     @media(max-width:820px){.badge-grid{grid-template-columns:repeat(2,1fr);}}
     @media(max-width:480px){.badge-grid{grid-template-columns:1fr;}}
     /* PROSPECT SCOUTING CARD */
@@ -1137,15 +1141,31 @@ function computeBadges(p, proj){
   var total=out.FIN.length+out.SHO.length+out.PLY.length+out.DEF.length;
   return {cats:CAT, badges:out, total:total, basis:useProj?'2026-27 projected':'2025-26 actual'};
 }
-// compact hero summary: total earned + per-tier counts, colored by tier
-function buildBadgeSummary(B){
+// graphic badge shield for the hero — total earned inside a shield, tier
+// breakdown underneath. The shield tint is driven by the player's TOP tier.
+function buildBadgeShield(B){
   if(!B||!B.total) return '';
   var counts={};
   ['FIN','SHO','PLY','DEF'].forEach(function(c){ B.badges[c].forEach(function(b){ counts[b.tier.name]=(counts[b.tier.name]||0)+1; }); });
-  var parts=BADGE_TIERS.filter(function(t){return counts[t.name];}).map(function(t){
-    return '<span class="hero-badge-t" style="color:'+t.color+';" title="'+counts[t.name]+' '+t.name+'"><span class="hero-badge-dot" style="background:'+t.color+';"></span>'+counts[t.name]+'</span>';
+  var dots=BADGE_TIERS.filter(function(t){return counts[t.name];}).map(function(t){
+    return '<span class="hbs-dot" title="'+counts[t.name]+' '+t.name+'"><i style="background:'+t.color+';"></i>'+counts[t.name]+'</span>';
   }).join('');
-  return '<a class="hero-meta-item hero-badges" href="#" onclick="switchTab(\'overview\');var g=document.querySelector(\'.badge-grid\');if(g)g.scrollIntoView({behavior:\'smooth\',block:\'center\'});return false;" title="Earned badges by tier — click to view">🏅 <strong>'+B.total+'</strong> Badge'+(B.total!==1?'s':'')+'<span class="hero-badge-ts">'+parts+'</span></a>';
+  var top=BADGE_TIERS.find(function(t){return counts[t.name];})||BADGE_TIERS[BADGE_TIERS.length-1]; // highest tier present
+  var g=({'All-American':['#d3b3ff','#7c3fd6'],'Star':['#f2d67a','#c08a12'],'Starter':['#d6dbe4','#8b93a1'],'Prospect':['#e0b184','#a9743f']})[top.name]||['#d3b3ff','#7c3fd6'];
+  var n=B.total, fs=n>=100?30:n>=10?42:52;
+  return '<a class="hero-badge-wrap" href="#" onclick="switchTab(\'overview\');var el=document.querySelector(\'.badge-grid\');if(el)el.scrollIntoView({behavior:\'smooth\',block:\'center\'});return false;" title="'+n+' badges earned — click to view">'+
+    '<div class="hero-badge-shield">'+
+      '<svg viewBox="0 0 100 118" aria-hidden="true">'+
+        '<defs><linearGradient id="bgSh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+g[0]+'"/><stop offset="1" stop-color="'+g[1]+'"/></linearGradient></defs>'+
+        '<path d="M50 3 L91 19 V56 Q91 86 50 114 Q9 86 9 56 V19 Z" fill="url(#bgSh)" stroke="#fff" stroke-width="3" stroke-opacity=".85"/>'+
+        '<ellipse cx="50" cy="33" rx="30" ry="15" fill="#fff" opacity=".16"/>'+
+        '<path d="M50 12 L82 24 V55 Q82 79 50 101 Q18 79 18 55 V24 Z" fill="none" stroke="#fff" stroke-width="1.4" stroke-opacity=".4"/>'+
+        '<text x="50" y="60" text-anchor="middle" dominant-baseline="middle" font-family="Playfair Display, serif" font-weight="800" font-size="'+fs+'" fill="#fff">'+n+'</text>'+
+      '</svg>'+
+    '</div>'+
+    '<div class="hero-grade-lbl">Badges</div>'+
+    (dots?'<div class="hbs-dots">'+dots+'</div>':'')+
+  '</a>';
 }
 function buildBadgesSection(p, proj, B){
   B=B||computeBadges(p, proj);
@@ -2196,7 +2216,6 @@ function renderPage(){
           ${p.team||'—'} <span style="font-size:10px;color:var(--text3);margin-left:2px;">${teamData?.conf||''}</span>
         </a>
         <div class="hero-meta">
-          ${buildBadgeSummary(badgeData)}
           ${geoHome?`<div class="hero-meta-item">📍 <strong>${geoHome}</strong></div>`:''}
           ${p.hometown?`<div class="hero-meta-item">↪ Via <strong>${p.hometown}</strong></div>`:''}
           <div class="hero-meta-item" id="heroGp"${p.gp?'':' style="display:none;"'}>${p.gp?`🎮 <strong>${p.gp}</strong> GP`:''}</div>
@@ -2205,7 +2224,10 @@ function renderPage(){
         </div>
         <div id="draftSticker"></div>
       </div>
-      ${p.tdc_grade?`<div class="hero-grade-wrap"><div class="hero-grade" id="heroGrade">${p.tdc_grade}</div><div class="hero-grade-lbl">TDC Grade</div></div>`:''}
+      <div class="hero-right">
+        ${buildBadgeShield(badgeData)}
+        ${p.tdc_grade?`<div class="hero-grade-wrap"><div class="hero-grade" id="heroGrade">${p.tdc_grade}</div><div class="hero-grade-lbl">TDC Grade</div></div>`:''}
+      </div>
     </div>
 
     <div class="tab-row-wrap">
