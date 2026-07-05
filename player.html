@@ -329,6 +329,52 @@
     .scout-tag.neu{background:var(--bg2);color:var(--text3);border:1px solid var(--border);}
     .scout-tag.gold{background:rgba(177,107,255,.1);color:var(--accent);border:1px solid rgba(177,107,255,.25);}
     .archetype-badge{display:none;}
+    /* PROSPECT SCOUTING CARD */
+    .pcard{border:1px solid var(--border);background:var(--bg);margin-bottom:20px;overflow:hidden;}
+    .pcard-band{background:var(--accent);color:#fff;text-align:center;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:6px 10px;font-size:11px;}
+    .pcard-name{font-family:'Playfair Display',serif;font-size:27px;font-weight:800;text-align:center;padding:12px 10px 2px;line-height:1.05;}
+    .pcard-sub{text-align:center;color:var(--text3);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding-bottom:12px;}
+    .pcard-meas{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--border);}
+    .pcard-meas>div{padding:10px 8px;text-align:center;border-right:1px solid var(--border);}
+    .pcard-meas>div:last-child{border-right:none;}
+    .pcard-meas .l{font-size:8.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;}
+    .pcard-meas .v{font-size:15px;font-weight:800;color:var(--text);font-family:'Playfair Display',serif;}
+    .pcard-stats{display:grid;grid-template-columns:repeat(11,1fr);border-top:1px solid var(--border);}
+    .pcard-stats>div{padding:9px 4px;text-align:center;border-right:1px solid var(--border);}
+    .pcard-stats>div:last-child{border-right:none;}
+    .pcard-stats .l{font-size:8px;font-weight:700;letter-spacing:.04em;color:var(--text3);margin-bottom:3px;}
+    .pcard-stats .v{font-size:13px;font-weight:800;color:var(--text2);}
+    .pcard-sw{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border);}
+    .pcard-sw>div{padding:14px 16px;}
+    .pcard-sw>div:first-child{border-right:1px solid var(--border);}
+    .pcard-sw .h{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:4px 8px;margin-bottom:10px;display:inline-block;}
+    .pcard-sw ul{margin:0;padding:0;list-style:none;}
+    .pcard-sw li{font-size:12.5px;line-height:1.55;color:var(--text2);margin-bottom:8px;padding-left:15px;position:relative;}
+    .pcard-sw li::before{position:absolute;left:0;top:0;font-weight:800;}
+    .pcard-sw .pos li::before{content:'+';color:#1a8c3a;}
+    .pcard-sw .neg li::before{content:'–';color:#cc2200;}
+    .pcard-arch{display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--border);}
+    .pcard-arch>div{padding:12px 10px;text-align:center;border-right:1px solid var(--border);}
+    .pcard-arch>div:last-child{border-right:none;}
+    .pcard-arch .l{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
+    .pcard-arch .v{font-size:14px;font-weight:800;color:var(--text);}
+    .pcard-summary{display:grid;grid-template-columns:minmax(220px,1fr) 1.3fr;border-top:1px solid var(--border);}
+    .pcard-summary .grades{border-right:1px solid var(--border);}
+    .pgrade-row{display:grid;grid-template-columns:1fr 46px;align-items:center;border-bottom:1px solid var(--border);}
+    .pgrade-row:last-child{border-bottom:none;}
+    .pgrade-row .gl{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text2);padding:0 10px;}
+    .pgrade-row.ovr .gl{color:var(--text);font-weight:800;}
+    .pgrade-cell{text-align:center;font-weight:800;font-size:13px;color:#fff;padding:6px 0;}
+    .pcard-prose{padding:16px 18px;font-size:13px;line-height:1.7;color:var(--text2);}
+    .pcard-prose p{margin:0 0 12px;}
+    .pcard-prose p:last-child{margin-bottom:0;}
+    @media(max-width:640px){
+      .pcard-stats{grid-template-columns:repeat(6,1fr);}
+      .pcard-meas{grid-template-columns:repeat(3,1fr);}
+      .pcard-summary{grid-template-columns:1fr;}
+      .pcard-summary .grades{border-right:none;border-bottom:1px solid var(--border);}
+      .pcard-arch{grid-template-columns:1fr;}
+    }
     /* SKILL BREAKDOWN */
     .skill-section-title{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:14px;padding-bottom:8px;display:flex;align-items:center;gap:12px;}
     .skill-section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(177,107,255,.4),transparent);}
@@ -813,6 +859,184 @@ function scoutRangeBar(f,pj,c){
   return '<div style="margin-top:8px;"><div style="position:relative;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--bg3),var(--accent));">'+
     '<div style="position:absolute;top:-3px;left:'+pos+'%;width:3px;height:14px;background:var(--text);border-radius:2px;transform:translateX(-50%);"></div></div>'+
     '<div style="display:flex;justify-content:space-between;font-size:10px;font-weight:700;color:var(--text3);margin-top:6px;"><span>Floor '+f+'</span><span style="color:var(--accent);">Proj '+pj+'</span><span>Ceiling '+c+'</span></div></div>';
+}
+
+// ── PROSPECT SCOUTING CARD ─────────────────────────────────
+// A clean, printable-style scouting report: measurements, stat strip,
+// prose strengths/weaknesses, archetype + comp + outlook, and a letter-grade
+// summary. Skill grades are derived from national percentiles (getPct) plus
+// the player's grade pillars where available; nothing is fabricated — the
+// measurements shown are only the ones we actually carry.
+function _htToIn(h){ if(h==null)return null; var m=String(h).match(/(\d+)\s*[-'’]\s*(\d+)/); if(m)return (+m[1])*12+(+m[2]); var f=parseFloat(h); return isNaN(f)?null:(f>30?f:f*12); }
+function letterGrade(sc){
+  // 0-100 → letter + color. Green = A/B (strong), amber = C (average),
+  // orange = D (below), red = F. Percentiles are national, so a rotation
+  // starter typically lands B/C — calibrated so 50≈C+, 70≈B, 88≈A.
+  sc=Math.max(0,Math.min(100,sc||0));
+  var g,c;
+  if(sc>=95){g='A+';}else if(sc>=88){g='A';}else if(sc>=82){g='A-';}
+  else if(sc>=75){g='B+';}else if(sc>=67){g='B';}else if(sc>=59){g='B-';}
+  else if(sc>=51){g='C+';}else if(sc>=43){g='C';}else if(sc>=35){g='C-';}
+  else if(sc>=27){g='D+';}else if(sc>=19){g='D';}else{g='F';}
+  var t=g.charAt(0);
+  if(t==='A')c='#1a8c3a';               // strong green
+  else if(t==='B')c='#4a9d54';          // muted green
+  else if(t==='C')c='#c99a1e';          // amber
+  else if(t==='D')c='#d07a2a';          // orange
+  else c='#cc2200';                     // red
+  return {g:g,c:c};
+}
+// Map a TDC grade (≈58-99) to a 0-100 scouting score whose letter aligns with
+// the grade tiers the site already uses (85+ elite, 78 starter, 70 rotation).
+function gradeScore(grade){
+  grade=parseFloat(grade); if(isNaN(grade))grade=70;
+  var a=[[58,22],[62,31],[66,39],[70,47],[74,55],[78,63],[81,71],[84,78],[87,85],[90,91],[93,96],[100,100]];
+  if(grade<=a[0][0])return a[0][1];
+  for(var i=1;i<a.length;i++){ if(grade<=a[i][0]){ var d=(a[i][0]-a[i-1][0])||1; return Math.round(a[i-1][1]+(grade-a[i-1][0])/d*(a[i][1]-a[i-1][1])); } }
+  return 100;
+}
+function buildProspectCard(p, proj, scout){
+  function _n(o,k){var v=parseFloat(o&&o[k]);return isNaN(v)?0:v;}
+  var useProj=!!(proj&&!proj._injured&&!proj._dnp&&(_n(proj,'ppg')>0||proj._frosh||proj._noStatEst));
+  var s=useProj?proj:p;
+  var ppg=_n(s,'ppg'),rpg=_n(s,'rpg'),apg=_n(s,'apg'),mpg=_n(s,'mpg');
+  var fg=_n(s,'fg_pct'),tp=_n(s,'tp_pct'),ft=_n(s,'ft_pct');
+  var stl=_n(s,'stl'),blk=_n(s,'blk'),tovs=_n(s,'tovs');
+  var oreb=_n(s,'oreb'),tpm=_n(s,'tpm'),fta=_n(s,'fta');
+  var pos=p.position||'G', grade=parseFloat(p.tdc_grade)||70;
+  var yr=(p.yr||p.class_year||'').toString().toLowerCase();
+  var isFr=yr.includes('fr'), isSo=yr.includes('so'), isJr=yr.includes('jr'), isSr=yr.includes('sr')||yr.includes('gr');
+  var clamp=function(x){return Math.round(Math.max(0,Math.min(100,x)));};
+  var g100=gradeScore(grade);                     // TDC grade → tier-aligned 0-100
+  var pil=(s&&s._pillars)||p._pillars||null;       // 7-pillar z-scores (may be null)
+  var pz=function(k){ if(!pil||pil[k]==null)return null; return clamp(50+parseFloat(pil[k])*20); };
+  var isGuardP=pos==='PG'||pos==='SG'||pos==='CG'||pos==='G';
+  var isBigP=pos==='C'||pos==='PF'||pos==='FC';
+
+  // Position-aware threshold scales (0-100) from raw per-game production —
+  // the national percentile tables only cover 10 keys and aren't position-
+  // relative, so guards would bottom out on blocks/rebounds. These D1 curves
+  // grade each skill against realistic expectations for the player's position.
+  var _scale=function(v,pts){ v=parseFloat(v)||0; for(var i=0;i<pts.length;i++){ if(v>=pts[i][0]) return pts[i][1]; } return pts[pts.length-1][1]; };
+  var threePct = tp>0 ? _scale(tp,[[40,94],[37,82],[35,70],[33,58],[31,46],[28,34],[0,20]]) : 12;
+  var threeVol = _scale(tpm,[[3,94],[2.3,82],[1.7,70],[1.2,58],[0.7,45],[0.3,30],[0,15]]);
+  var fgScale  = _scale(fg,[[58,92],[54,82],[50,72],[47,60],[44,50],[41,40],[38,30],[0,18]]);
+  var ftScale  = ft>0 ? _scale(ft,[[88,92],[82,80],[77,68],[72,56],[66,44],[60,32],[0,20]]) : 40;
+  var scoreVol = _scale(ppg,[[20,95],[16,85],[13,73],[10,61],[7,49],[5,39],[3,29],[0,18]]);
+  var ftaScale = _scale(fta,[[6,92],[4.5,82],[3.3,70],[2.3,58],[1.5,46],[0.9,34],[0,20]]);
+  var orebScale= _scale(oreb,[[3,92],[2.2,82],[1.6,70],[1.1,58],[0.7,46],[0.4,34],[0,20]]);
+  var astScale = isGuardP ? _scale(apg,[[6,94],[4.5,82],[3.3,70],[2.3,58],[1.5,46],[0.9,34],[0,20]])
+                          : _scale(apg,[[4,94],[3,82],[2.2,72],[1.5,60],[1,48],[0.6,36],[0,22]]);
+  var rebScale = isBigP  ? _scale(rpg,[[10,94],[8,84],[6.5,72],[5,60],[4,48],[3,36],[0,22]])
+               : isGuardP? _scale(rpg,[[5,92],[4,82],[3.2,72],[2.5,60],[1.9,48],[1.4,36],[0,22]])
+                         : _scale(rpg,[[7,92],[5.5,82],[4.5,72],[3.5,60],[2.7,48],[2,36],[0,22]]);
+  var stlScale = _scale(stl,[[2,94],[1.5,82],[1.1,70],[0.8,58],[0.6,46],[0.4,34],[0,22]]);
+  var blkScale = isBigP  ? _scale(blk,[[2.2,94],[1.6,84],[1.1,72],[0.8,60],[0.5,48],[0.3,34],[0,20]])
+                         : _scale(blk,[[1,92],[0.6,80],[0.4,66],[0.25,52],[0.15,40],[0,26]]);
+
+  // Position-relative size (height vs positional norm)
+  var POS_HT={PG:74,G:75,CG:76,SG:77,GF:78,SF:79,F:80,PF:81,FC:82,C:83};
+  var posNorm=POS_HT[pos]||78, htin=_htToIn(p.height);
+  var sizeScore=htin==null?null:clamp(50+(htin-posNorm)*8);
+
+  // Blend a scale-derived score with the matching pillar when we have one.
+  var mix=function(base,pilKey,w){ var z=pilKey?pz(pilKey):null; return z==null?clamp(base):clamp(base*(1-w)+z*w); };
+  var toRatio    = apg/Math.max(0.5,tovs);
+
+  var cPerimScore= clamp(0.55*threePct + 0.45*threeVol);
+  var cIntScore  = clamp(0.42*fgScale + 0.32*ftaScale + 0.26*orebScale);
+  var cPassing   = mix(clamp(0.82*astScale + 0.18*clamp(50+(toRatio-1.3)*22)), 'creation', .3);
+  var cReb       = clamp(rebScale);
+  var cPerimDef  = mix(stlScale, null, 0);
+  var cIntDef    = clamp(blkScale);
+  var cEff       = mix(clamp(0.5*fgScale + 0.3*ftScale + 0.2*threePct), 'efficiency', .3);
+  var cScoring   = mix(scoreVol, 'offense', .3);
+  var classAdj   = isFr?10:isSo?5:isJr?0:isSr?-8:0;
+  var cPotential = clamp(g100 + classAdj);
+  var expAdj     = isSr?8:isJr?4:isFr?-6:0;
+  var cReady     = clamp(0.44*g100 + 0.24*cEff + 0.16*cPerimScore + 0.10*(sizeScore==null?50:sizeScore) + 0.06*cScoring + expAdj);
+  var cOverall   = g100;
+
+  var rows=[
+    {l:'Size', v:sizeScore},
+    {l:'Perimeter Scoring', v:cPerimScore},
+    {l:'Interior Scoring', v:cIntScore},
+    {l:'Perimeter Defense', v:cPerimDef},
+    {l:'Interior Defense', v:cIntDef},
+    {l:'Passing', v:cPassing},
+    {l:'Rebounding', v:cReb},
+    {l:'Efficiency', v:cEff},
+    {l:'NBA Readiness', v:cReady},
+    {l:'Potential', v:cPotential}
+  ];
+  var gradesHtml=rows.map(function(r){
+    if(r.v==null) return '<div class="pgrade-row"><div class="gl">'+r.l+'</div><div class="pgrade-cell" style="background:var(--bg3);color:var(--text3);">—</div></div>';
+    var lg=letterGrade(r.v);
+    return '<div class="pgrade-row"><div class="gl">'+r.l+'</div><div class="pgrade-cell" style="background:'+lg.c+';">'+lg.g+'</div></div>';
+  }).join('');
+  var ovr=letterGrade(cOverall);
+  gradesHtml+='<div class="pgrade-row ovr"><div class="gl">Overall</div><div class="pgrade-cell" style="background:'+ovr.c+';">'+ovr.g+'</div></div>';
+
+  // ── Measurements (only what we actually have) ──
+  var posLong={PG:'Point Guard',SG:'Shooting Guard',CG:'Combo Guard',G:'Guard',SF:'Small Forward',GF:'Wing',F:'Forward',PF:'Power Forward',FC:'Forward/Center',C:'Center'}[pos]||pos;
+  var clsTxt=(p.class_year||p.yr||'—');
+  var meas=[
+    {l:'Class', v:clsTxt},
+    {l:'Position', v:pos},
+    {l:'Height', v:(p.height||'—')},
+    {l:'Size vs Pos', v:(sizeScore==null?'—':letterGrade(sizeScore).g)},
+    {l:'TDC Grade', v:grade}
+  ];
+  var measHtml=meas.map(function(m){return '<div><div class="l">'+m.l+'</div><div class="v">'+m.v+'</div></div>';}).join('');
+
+  // ── Stat strip ──
+  var f1=function(v){return (v||v===0)?(Math.round(v*10)/10).toFixed(1):'—';};
+  var fp=function(v){return v?Math.round(v*10)/10+'%':'—';};
+  var statCells=[
+    {l:'GP',v:(useProj?'proj':(p.gp||'—'))},{l:'MPG',v:f1(mpg)},{l:'PPG',v:f1(ppg)},{l:'RPG',v:f1(rpg)},{l:'APG',v:f1(apg)},
+    {l:'FG%',v:fp(fg)},{l:'3P%',v:fp(tp)},{l:'FT%',v:fp(ft)},{l:'STL',v:f1(stl)},{l:'BLK',v:f1(blk)},{l:'TOV',v:f1(tovs)}
+  ];
+  var statHtml=statCells.map(function(c){return '<div><div class="l">'+c.l+'</div><div class="v">'+c.v+'</div></div>';}).join('');
+
+  // ── Strengths / weaknesses (prose bullets) ──
+  var strList=(scout.strengths&&scout.strengths.length)?scout.strengths.slice(0,5):['Insufficient data for a strengths profile.'];
+  var weakList=(scout.weaknesses&&scout.weaknesses.length)?scout.weaknesses.slice(0,5):['No glaring statistical weaknesses.'];
+  var swHtml='<div><div class="h" style="background:rgba(26,140,58,.12);color:#1a8c3a;">Strengths</div><ul class="pos">'+
+    strList.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul></div>'+
+    '<div><div class="h" style="background:rgba(204,34,0,.1);color:#cc2200;">Areas to Improve</div><ul class="neg">'+
+    weakList.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul></div>';
+
+  // ── Archetype / comparison / draft range ──
+  var draftRange=scout.draftOutlook||((grade>=88)?'Pro Radar':(grade>=80)?'All-Conference Track':(grade>=72)?'Rotation Contributor':'Development');
+  var archHtml='<div><div class="l">Archetype</div><div class="v" style="color:var(--accent);">'+scout.archetype+'</div></div>'+
+    '<div><div class="l">Style Comparison</div><div class="v">'+(scout.comparable||scout.archetype)+'</div></div>'+
+    '<div><div class="l">Outlook</div><div class="v">'+draftRange+'</div></div>';
+
+  // ── Prose summary ──
+  var nm=p.name||'This player';
+  var _art=function(w){return /^[aeiou]/i.test(w||'')?'an':'a';};
+  var topWk=(scout.weaknesses&&scout.weaknesses[0])?scout.weaknesses[0].toLowerCase():'';
+  var pr1=nm+' projects as '+_art(scout.archetype)+' '+scout.archetype.toLowerCase()+' at the '+posLong.toLowerCase()+' spot, carrying a '+grade+' TDC grade'+(useProj?' on his 2026-27 projection.':' off last season.');
+  var pr2=(scout.strengths&&scout.strengths.length)?('His calling cards: '+scout.strengths.slice(0,3).map(function(x){return x.toLowerCase();}).join(', ')+'.'):'';
+  var pr3=topWk?(' Chief concern to sharpen: '+topWk+'.'):'';
+  var ceilTxt=scout.ceiling, floorTxt=String(scout.floor).replace(/\s*floor$/i,'');
+  var pr4='His realistic ceiling is '+_art(ceilTxt)+' '+ceilTxt.toLowerCase()+', with a floor around '+_art(floorTxt)+' '+floorTxt.toLowerCase()+'.';
+  var proseHtml='<p>'+pr1+'</p>'+(pr2||pr3?'<p>'+pr2+pr3+'</p>':'')+'<p>'+pr4+'</p>';
+
+  return ''+
+  '<div class="pcard">'+
+    '<div class="pcard-band">Scouting Report</div>'+
+    '<div class="pcard-name">'+nm+'</div>'+
+    '<div class="pcard-sub">'+scout.archetype+' · '+(p.team||'')+'</div>'+
+    '<div class="pcard-band" style="background:var(--bg2);color:var(--text3);">Measurements</div>'+
+    '<div class="pcard-meas">'+measHtml+'</div>'+
+    '<div class="pcard-band" style="background:var(--bg2);color:var(--text3);">'+(useProj?'2026-27 Projected Statistics':'2025-26 Statistics (per game)')+'</div>'+
+    '<div class="pcard-stats">'+statHtml+'</div>'+
+    '<div class="pcard-sw">'+swHtml+'</div>'+
+    '<div class="pcard-arch">'+archHtml+'</div>'+
+    '<div class="pcard-band" style="background:var(--bg2);color:var(--text3);">Summary</div>'+
+    '<div class="pcard-summary"><div class="grades">'+gradesHtml+'</div><div class="pcard-prose">'+proseHtml+'</div></div>'+
+  '</div>';
 }
 
 
@@ -1889,6 +2113,7 @@ function renderPage(){
     <!-- SCOUTING REPORT TAB -->
     <div class="tab-panel" id="panel-archetype"><div id="archetypeContent"></div></div>
     <div class="tab-panel" id="panel-scout">
+      ${buildProspectCard(p, proj, scout)}
       <div class="scout-header">
         <div>
           <div class="scout-archetype-label">Player Archetype</div>
@@ -1926,18 +2151,6 @@ function renderPage(){
         ${scout.draftOutlook ? '<div class="scout-fc-card" style="grid-column:1/-1"><div class="scout-fc-label">Draft Outlook</div><div class="scout-fc-val">' + scout.draftOutlook + '</div><div class="scout-fc-desc">' + scout.draftNote + '</div></div>' : ''}
       </div>
       <div class="scout-grid">
-        <div class="scout-card">
-          <div class="scout-card-title">Strengths</div>
-          <div class="scout-card-body">
-            ${scout.strengths.length?scout.strengths.map(s=>`<span class="scout-tag pos">✓ ${s}</span>`).join(' '):'<span style="color:var(--text3);font-size:12px;">Insufficient data</span>'}
-          </div>
-        </div>
-        <div class="scout-card">
-          <div class="scout-card-title">Areas to Improve</div>
-          <div class="scout-card-body">
-            ${scout.weaknesses.length?scout.weaknesses.map(s=>`<span class="scout-tag neg">✗ ${s}</span>`).join(' '):'<span style="color:var(--text3);font-size:12px;">No notable concerns</span>'}
-          </div>
-        </div>
         <div class="scout-card">
           <div class="scout-card-title">Playing Style</div>
           <div class="scout-card-body">${scout.tags.map(t=>`<span class="scout-tag ${t.c}">${t.t}</span>`).join(' ')||'—'}</div>
