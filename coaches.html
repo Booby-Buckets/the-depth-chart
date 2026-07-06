@@ -137,6 +137,8 @@ function lastSchool(p){ var s=(SEASONS[p.coach_slug]||[]); return s.length?s[s.l
 
 // ── leaderboards ──
 const LBS=[
+  {k:'dev_delta',t:'⭐ Gets the Most From Players',s:'grade gain above expected / yr',fmt:v=>(v>=0?'+':'')+v.toFixed(1),desc:true,qual:true},
+  {k:'dev_delta',t:'Toughest to Develop In',s:'grade change below expected / yr',fmt:v=>(v>=0?'+':'')+v.toFixed(1),desc:false,qual:true},
   {k:'poss_pg',t:'Fastest Pace',s:'possessions / game',fmt:v=>v.toFixed(1),desc:true},
   {k:'rotation_size',t:'Deepest Bench',s:'players 10+ min / game',fmt:v=>v.toFixed(1),desc:true},
   {k:'three_pa_rate',t:'Most Three-Happy',s:'% of shots from 3',fmt:v=>v.toFixed(0)+'%',desc:true},
@@ -145,9 +147,9 @@ const LBS=[
   {k:'ast_rate',t:'Best Ball Movement',s:'assists / made FG',fmt:v=>v.toFixed(0)+'%',desc:true},
 ];
 function leaderboardsHtml(){
-  var pool=PROF.filter(p=>p.seasons>=4);
   return '<div class="lb-grid">'+LBS.map(function(L){
-    var top=pool.slice().sort((a,b)=>(b[L.k]||0)-(a[L.k]||0)).slice(0,5);
+    var pool=PROF.filter(p=> L.qual ? (p.dev_pctl!=null) : (p.seasons>=4 && p[L.k]!=null));
+    var top=pool.slice().sort((a,b)=>L.desc!==false?((b[L.k]||0)-(a[L.k]||0)):((a[L.k]||0)-(b[L.k]||0))).slice(0,5);
     return '<div class="lb"><h3>'+L.t+'</h3><div class="sub">'+L.s+'</div>'+
       top.map(function(p,i){return '<div class="lb-row" onclick="openCoach(\''+p.coach_slug+'\')">'+
         '<span class="lb-rk">'+(i+1)+'</span><span class="lb-nm">'+p.coach+'<small>'+lastSchool(p)+'</small></span>'+
@@ -226,6 +228,7 @@ function openCoach(slug){
         '<div class="mstat"><div class="n">'+(p.win_pct*100).toFixed(1)+'%</div><div class="l">Win %</div></div>'+
         '<div class="mstat"><div class="n">'+p.seasons+'</div><div class="l">Seasons</div></div>'+
         '<div class="mstat"><div class="n">'+(p.avg_srs>=0?'+':'')+(p.avg_srs!=null?p.avg_srs.toFixed(1):'—')+'</div><div class="l">Avg SRS</div></div>'+
+        (p.dev_delta!=null?'<div class="mstat"><div class="n" style="color:'+(p.dev_delta>=0?'#1f9d57':'#cf5a4e')+'">'+(p.dev_delta>=0?'+':'')+p.dev_delta.toFixed(1)+'</div><div class="l" title="Avg TDC-grade gain of returning players vs the league-average class-jump — the part the coach adds. Percentile '+(p.dev_pctl!=null?p.dev_pctl:'—')+'.">Player Dev'+(p.dev_pctl!=null?' · '+p.dev_pctl+'%ile':'')+'</div></div>':'')+
       '</div>'+
       '<div class="mcols"><div class="radar-wrap">'+radar(p,260)+
         '<div class="tags">'+(p.tags||'').split(', ').filter(Boolean).map(t=>'<span class="tag">'+t+'</span>').join('')+'</div>'+
