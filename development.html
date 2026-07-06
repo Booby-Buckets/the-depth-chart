@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="auth.js"></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Player Development — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#FBFAFF;--bg2:#F2EFFB;--bg3:#E9E4F7;--border:#E1DBF2;--border2:#C9BFE6;--text:#14101F;--text2:#463D5E;--text3:#847B9C;--accent:#8B3FE0;--green:#1f9d57;--red:#cf5a4e;}
+    [data-theme="dark"]{--bg:#07060C;--bg2:#100D1A;--bg3:#181426;--border:#241F36;--border2:#382F54;--text:#F2EFFB;--text2:#A8A1C4;--text3:#6D6589;--accent:#B16BFF;--green:#3aba7a;--red:#e07070;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html{background:var(--bg);}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
+    a{color:inherit;text-decoration:none;}
+    .nav-wrap{border-bottom:1px solid var(--border);background:rgba(251,250,255,.66);backdrop-filter:blur(18px) saturate(180%);position:sticky;top:0;z-index:200;}
+    [data-theme="dark"] .nav-wrap{background:rgba(6,18,14,.84);border-bottom-color:rgba(26,43,68,.9);}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);letter-spacing:-.01em;}
+    .nav-logo span{color:var(--accent);}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .theme-toggle:hover{border-color:var(--accent);color:var(--text);}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
+    .nav-sub::-webkit-scrollbar{display:none;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:0 14px;height:100%;display:flex;align-items:center;position:relative;white-space:nowrap;flex-shrink:0;transition:color .2s;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a::after{content:'';position:absolute;bottom:0;left:14px;right:14px;height:2px;background:var(--accent);transform:scaleX(0);transform-origin:left center;transition:transform .22s;}
+    .nav-sub a:first-child::after{left:0;}
+    .nav-sub a:hover{color:var(--text);} .nav-sub a:hover::after{transform:scaleX(1);}
+    .nav-sub a.active{color:var(--text);} .nav-sub a.active::after{transform:scaleX(1);}
+    .wrap{max-width:1080px;margin:0 auto;padding:34px 22px 90px;}
+    .hd .ey{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);}
+    .hd h1{font-family:'Playfair Display',serif;font-weight:800;font-size:42px;letter-spacing:-.02em;}
+    .hd p{font-size:14px;color:var(--text3);margin-top:6px;max-width:660px;}
+    .sec-t{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:32px 0 14px;display:flex;align-items:center;gap:12px;}
+    .sec-t::after{content:'';flex:1;height:1px;background:var(--border);}
+    /* curve */
+    .curve-card{border:1px solid var(--border);border-radius:16px;background:var(--bg2);padding:22px;}
+    .curve-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:8px;}
+    .curve-top .lg{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;font-weight:700;}
+    .curve-top .lg span{display:inline-flex;align-items:center;gap:6px;color:var(--text2);cursor:pointer;opacity:.5;}
+    .curve-top .lg span.on{opacity:1;}
+    .curve-top .lg i{width:14px;height:3px;border-radius:2px;display:inline-block;}
+    .curve-svg{width:100%;height:auto;display:block;}
+    .curve-note{font-size:12px;color:var(--text3);margin-top:8px;}
+    /* leaderboard columns */
+    .cols{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+    @media(max-width:760px){.cols{grid-template-columns:1fr;}}
+    .lb{border:1px solid var(--border);border-radius:14px;background:var(--bg2);overflow:hidden;}
+    .lb h3{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);padding:14px 16px 4px;}
+    .lb .sub{font-size:10.5px;color:var(--text3);padding:0 16px 10px;}
+    .dv-row{display:flex;align-items:center;gap:11px;padding:9px 16px;border-top:1px solid var(--border);transition:background .12s;}
+    .dv-row:hover{background:var(--bg3);}
+    .dv-rk{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;color:var(--text3);width:18px;flex-shrink:0;text-align:center;}
+    .dv-nm{flex:1;line-height:1.2;}
+    .dv-nm .n{font-size:13.5px;font-weight:700;}
+    .dv-nm .s{font-size:10.5px;color:var(--text3);}
+    .dv-arc{display:flex;align-items:center;gap:6px;flex-shrink:0;font-variant-numeric:tabular-nums;}
+    .dv-arc .g0{font-size:13px;font-weight:700;color:var(--text3);}
+    .dv-arc .ar{color:var(--text3);font-size:12px;}
+    .dv-arc .g1{font-family:'Playfair Display',serif;font-size:17px;font-weight:800;}
+    .dv-arc .d{font-size:11px;font-weight:800;padding:2px 6px;border-radius:5px;margin-left:4px;}
+    .up{color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent);}
+    .down{color:var(--red);background:color-mix(in srgb,var(--red) 14%,transparent);}
+    .loading{padding:70px;text-align:center;color:var(--text3);}
+    @media(max-width:680px){.nav-top,.nav-sub{padding-left:16px;padding-right:16px;}.hd h1{font-size:32px;}}
+  </style>
+</head>
+<body>
+  <div class="nav-wrap">
+    <div class="nav-top">
+      <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">🌙</button>
+    </div>
+    <div class="nav-sub">
+      <a href="index.html">Rankings</a>
+      <a href="roster.html">Players</a>
+      <a href="draft.html">Draft</a>
+      <a href="analytics.html">Stats</a>
+      <a href="coaches.html">Coaches</a>
+      <a href="development.html" class="active">Development</a>
+      <a href="games.html">Games</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="hd">
+      <div class="ey">College Basketball · Development</div>
+      <h1>Player Development</h1>
+      <p>How college careers arc — the typical Fr→Sr grade path across 20 years, plus the biggest career risers and breakout seasons the sport has produced.</p>
+    </div>
+    <div id="content"><div class="loading">Loading development data…</div></div>
+  </div>
+
+<script>
+function toggleTheme(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');document.getElementById('themeBtn').textContent=d?'🌙':'☀️';try{localStorage.setItem('tdc_theme',d?'light':'dark');}catch(e){}}
+(function(){try{var s=localStorage.getItem('tdc_theme');if(s){document.documentElement.setAttribute('data-theme',s);var b=document.getElementById('themeBtn');if(b)b.textContent=s==='dark'?'☀️':'🌙';}}catch(e){}})();
+
+let DATA=null;
+const SERIES=[
+  {k:'overall',l:'Overall',c:'#8B3FE0',on:true},
+  {k:'G',l:'Guards',c:'#38BDF8',on:false},
+  {k:'F',l:'Wings',c:'#1f9d57',on:false},
+  {k:'B',l:'Bigs',c:'#FF4D9D',on:false},
+];
+const XL=['Fr','So','Jr','Sr'];
+function plink(p){ return p.espn_id?('player.html?espn='+p.espn_id):('player.html?name='+encodeURIComponent(p.player)); }
+
+function curveSvg(){
+  var W=760,H=280,pl=44,pr=20,pt=18,pb=34, iw=W-pl-pr, ih=H-pt-pb;
+  // y-range across shown series
+  var vals=[]; SERIES.forEach(s=>{ if(s.on&&DATA.curve[s.k]) vals=vals.concat(DATA.curve[s.k]); });
+  var ymin=Math.floor(Math.min(...vals)-0.5), ymax=Math.ceil(Math.max(...vals)+0.5);
+  function X(i){return pl+iw*i/3;} function Y(v){return pt+ih*(1-(v-ymin)/(ymax-ymin));}
+  var g='';
+  // gridlines + y labels
+  for(var gy=ymin;gy<=ymax;gy++){ var y=Y(gy); g+='<line x1="'+pl+'" y1="'+y+'" x2="'+(W-pr)+'" y2="'+y+'" stroke="var(--border)" stroke-width="1"/>'+
+    '<text x="'+(pl-8)+'" y="'+(y+3)+'" text-anchor="end" font-size="10" fill="var(--text3)">'+gy+'</text>'; }
+  XL.forEach((lb,i)=>{ g+='<text x="'+X(i)+'" y="'+(H-12)+'" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">'+lb+'</text>'; });
+  SERIES.forEach(function(s){
+    if(!s.on||!DATA.curve[s.k])return; var d=DATA.curve[s.k];
+    var pts=d.map((v,i)=>X(i)+','+Y(v)).join(' ');
+    g+='<polyline points="'+pts+'" fill="none" stroke="'+s.c+'" stroke-width="3" stroke-linejoin="round"/>';
+    d.forEach((v,i)=>{ g+='<circle cx="'+X(i)+'" cy="'+Y(v)+'" r="4" fill="'+s.c+'"/>'+
+      '<text x="'+X(i)+'" y="'+(Y(v)-10)+'" text-anchor="middle" font-size="10.5" font-weight="800" fill="'+s.c+'">'+v.toFixed(1)+'</text>'; });
+  });
+  return '<svg class="curve-svg" viewBox="0 0 '+W+' '+H+'">'+g+'</svg>';
+}
+function toggleSeries(k){ var s=SERIES.find(x=>x.k===k); if(s){ s.on=!s.on; if(!SERIES.some(x=>x.on)) s.on=true; render(); } }
+
+function riserRow(r,i){
+  var d=r.gain;
+  return '<a class="dv-row" href="'+plink(r)+'"><span class="dv-rk">'+(i+1)+'</span>'+
+    '<span class="dv-nm"><div class="n">'+r.player+'</div><div class="s">'+r.from_school+(r.peak_school!==r.from_school?' → '+r.peak_school:'')+' · '+r.seasons+' seasons</div></span>'+
+    '<span class="dv-arc"><span class="g0">'+r.from+'</span><span class="ar">→</span><span class="g1">'+r.peak+'</span><span class="d up">+'+d+'</span></span></a>';
+}
+function jumpRow(j,i){
+  return '<a class="dv-row" href="'+plink(j)+'"><span class="dv-rk">'+(i+1)+'</span>'+
+    '<span class="dv-nm"><div class="n">'+j.player+'</div><div class="s">'+j.school+' · '+((j.year-1)+'-'+(''+j.year).slice(2))+'</div></span>'+
+    '<span class="dv-arc"><span class="g0">'+j.from+'</span><span class="ar">→</span><span class="g1">'+j.to+'</span><span class="d up">+'+j.jump+'</span></span></a>';
+}
+
+function render(){
+  var el=document.getElementById('content');
+  var legend=SERIES.map(s=>'<span class="'+(s.on?'on':'')+'" onclick="toggleSeries(\''+s.k+'\')"><i style="background:'+s.c+'"></i>'+s.l+'</span>').join('');
+  el.innerHTML=
+    '<div class="sec-t">The Development Curve <span style="color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;">avg TDC grade by class · '+DATA.total_seasons.toLocaleString()+' player-seasons</span></div>'+
+    '<div class="curve-card"><div class="curve-top"><div style="font-size:13px;font-weight:700;color:var(--text2);">Grade by class year</div><div class="lg">'+legend+'</div></div>'+
+      curveSvg()+
+      '<div class="curve-note">The typical player gains ~3 grade points across a career, with the biggest jump from freshman to sophomore. Bigs develop more slowly than guards and wings. Toggle the lines above.</div></div>'+
+    '<div class="sec-t">Biggest Risers <span style="color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;">first season → career peak</span></div>'+
+    '<div class="cols"><div class="lb"><h3>Career Risers</h3><div class="sub">largest climb from first graded season to peak</div>'+
+      DATA.risers.slice(0,12).map(riserRow).join('')+'</div>'+
+    '<div class="lb"><h3>Breakout Seasons</h3><div class="sub">biggest single-season grade jump</div>'+
+      DATA.jumps.slice(0,12).map(jumpRow).join('')+'</div></div>';
+}
+
+async function init(){
+  try{ DATA=await fetch('scripts/data/development.json').then(r=>r.json()); render(); }
+  catch(e){ document.getElementById('content').innerHTML='<div class="loading">Could not load development data. '+e.message+'</div>'; }
+}
+init();
+</script>
+</body>
+</html>
