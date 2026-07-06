@@ -6,6 +6,8 @@
   <title>Tournaments — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="tdc-ratings.js"></script>
+  <script src="team-colors.js"></script>
+  <script src="tdc-charts.js?v=2"></script>
   <style>
     :root{--bg:#FBFAFF;--bg2:#F2EFFB;--bg3:#E9E4F7;--border:#E1DBF2;--border2:#C9BFE6;--text:#14101F;--text2:#463D5E;--text3:#847B9C;--accent:#8B3FE0;--gold:#C8A020;--green:#1a8c3a;--red:#cc2200;}
     [data-theme="dark"]{--bg:#07060C;--bg2:#100D1A;--bg3:#181426;--border:#241F36;--border2:#382F54;--text:#F2EFFB;--text2:#A8A1C4;--text3:#6D6589;--accent:#B16BFF;--gold:#C8A020;--green:#5ab875;--red:#e07070;}
@@ -124,6 +126,25 @@
     <div class="sub">Every tournament of the last 20 seasons — the NCAA Tournament, NIT, CBI &amp; The Basketball Classic, every conference tournament, and the early-season events from Maui and Battle 4 Atlantis to the Players Era Festival. Full brackets, seeds and results.</div>
 
     <div id="listView">
+      <style>
+        .march-insights{margin:0 0 30px;padding:22px;background:var(--bg2);border:1px solid var(--border);border-radius:18px;}
+        .mi-sec{margin-bottom:26px;} .mi-sec:last-child{margin-bottom:0;}
+        .mi-h2{font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:800;margin:0 0 4px;color:var(--text);}
+        .mi-sub{font-size:12.5px;color:var(--text3);max-width:620px;margin:0 0 14px;line-height:1.5;}
+        @media(max-width:640px){.march-insights{padding:14px;}}
+      </style>
+      <div id="marchInsights" class="march-insights">
+        <div class="mi-sec">
+          <h2 class="mi-h2">The March Drop-off</h2>
+          <p class="mi-sub">Every year, the tournament teams score less in March than they did all season — tighter defense, slower tempo, higher stakes. Here's the gap across every tournament we have.</p>
+          <div id="miMarch"><div class="loading">Loading…</div></div>
+        </div>
+        <div class="mi-sec">
+          <h2 class="mi-h2">Whose Offense Held Up</h2>
+          <p class="mi-sub">This year's deepest tournament teams, offensive rating in the regular season vs the tournament. Green rose to the moment; red got tightened up.</p>
+          <div id="miDropoff"><div class="loading">Loading…</div></div>
+        </div>
+      </div>
       <div class="controls">
         <select id="seasonSel" onchange="loadSeason()"></select>
         <input class="search" id="q" placeholder="Search tournament or team…" oninput="renderList()">
@@ -167,6 +188,19 @@ function seasonLbl(y){ return `${y-1}–${(''+y).slice(2)}`; }
   document.getElementById('catPills').innerHTML=CATS.map(([lbl,v])=>
     `<button class="pill ${v===curCat?'on':''}" data-cat="${v}" onclick="setCat('${v}')">${lbl}</button>`).join('');
   loadSeason();
+})();
+
+// ── March insight charts (precomputed) ──
+(async function loadMarchInsights(){
+  if(!window.TDC_CHARTS) return;
+  try{
+    const [m,d]=await Promise.all([
+      fetch('scripts/data/chart_march.json').then(r=>r.json()),
+      fetch('scripts/data/chart_dropoff.json').then(r=>r.json())
+    ]);
+    TDC_CHARTS.march(document.getElementById('miMarch'), m);
+    TDC_CHARTS.dropoff(document.getElementById('miDropoff'), d);
+  }catch(e){ document.getElementById('marchInsights').style.display='none'; }
 })();
 
 async function fetchPaged(url){

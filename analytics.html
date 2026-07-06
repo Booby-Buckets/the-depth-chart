@@ -3,6 +3,8 @@
 <head>
   <script src="auth.js"></script>
   <script src="tdc-pos.js"></script>
+  <script src="team-colors.js"></script>
+  <script src="tdc-charts.js?v=2"></script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Stats — The Depth Chart</title>
@@ -182,6 +184,7 @@ body{background:transparent!important;}
   <button class="vtab on" id="vtLeaders" onclick="setView('leaders')">Leaderboard</button>
   <button class="vtab" id="vtExplorer" onclick="setView('explorer')">Stat Explorer</button>
   <button class="vtab" id="vtTeams" onclick="setView('teams')">Team History</button>
+  <button class="vtab" id="vtLandscape" onclick="setView('landscape')">League Landscape</button>
 </div>
 
 <div class="controls">
@@ -236,9 +239,28 @@ body{background:transparent!important;}
   <div style="padding:0 40px 40px;font-size:10.5px;color:var(--text3);">Every team-season since 2006-07 — pick a year, browse all seasons, or switch to Program averages for 20-year numbers. Click any column to sort; search filters by team or conference (sorting by Team groups a program's seasons together, newest first).</div>
 </div>
 
+<style>
+.ls-sec{margin:8px 0 40px;}
+.ls-h2{font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:800;margin:0 0 4px;}
+.ls-sub{font-size:13px;color:var(--text3);max-width:640px;margin:0 0 16px;line-height:1.5;}
+.ls-sub em{font-style:italic;color:var(--text2);}
+</style>
+<div id="landscapeView" style="display:none;padding:0 40px 40px;">
+  <div class="ls-sec">
+    <h2 class="ls-h2">The Contender Quadrant</h2>
+    <p class="ls-sub">Every D-1 team plotted by offensive vs defensive efficiency (points per 100 possessions) this season. Top-right — score well and defend — is where champions live. Hover any dot.</p>
+    <div id="lsQuadrant"><div class="loading" style="padding:40px;">Loading…</div></div>
+  </div>
+  <div class="ls-sec">
+    <h2 class="ls-h2">Volume vs Efficiency</h2>
+    <p class="ls-sub">This season's top scorers. Bubble size = total points, color = True Shooting% (pink = cold, green = hot). Big volume <em>and</em> green is the rare combination.</p>
+    <div id="lsBubbles"><div class="loading" style="padding:40px;">Loading…</div></div>
+  </div>
+</div>
+
 <footer>
   <div class="footer-logo">The Depth <span>Chart</span></div>
-  <div style="font-size:11px;font-weight:600;color:var(--text3);">Advanced metrics via Basketball Reference · grades by The Depth Chart model</div>
+  <div style="font-size:11px;font-weight:600;color:var(--text3);">Advanced metrics via Basketball Reference · grades by The Depth Chart model · efficiency from our own box-score data</div>
 </footer>
 
 <script>
@@ -558,16 +580,34 @@ function setView(v){
   document.getElementById('vtLeaders').classList.toggle('on',v==='leaders');
   document.getElementById('vtExplorer').classList.toggle('on',v==='explorer');
   document.getElementById('vtTeams').classList.toggle('on',v==='teams');
+  document.getElementById('vtLandscape').classList.toggle('on',v==='landscape');
   document.getElementById('leadersView').style.display=v==='leaders'?'block':'none';
   document.getElementById('explorerView').style.display=v==='explorer'?'block':'none';
   document.getElementById('teamsView').style.display=v==='teams'?'block':'none';
+  document.getElementById('landscapeView').style.display=v==='landscape'?'block':'none';
+  // the whole filter/search bar is player/team-table specific — hide for the landscape
+  document.querySelector('.controls').style.display=v==='landscape'?'none':'';
   // player filters don't apply to team history — search stays (filters teams)
   ['seasonSel','posSel','minGp'].forEach(id=>{ document.getElementById(id).style.display=v==='teams'?'none':''; });
   document.getElementById('teamSeasonSel').style.display=v==='teams'?'':'none';
   document.getElementById('searchBox').placeholder=v==='teams'?'Search team or conference…':'Search player or school…';
   if(v==='leaders'){ renderLeaders(); renderTable(); }
   else if(v==='explorer') renderExplorer();
+  else if(v==='landscape') loadLandscape();
   else renderTeams();
+}
+// ── LEAGUE LANDSCAPE (precomputed charts) ──
+let _lsLoaded=false;
+async function loadLandscape(){
+  if(_lsLoaded || !window.TDC_CHARTS) return; _lsLoaded=true;
+  try{
+    const [q,b]=await Promise.all([
+      fetch('scripts/data/chart_quadrant.json').then(r=>r.json()),
+      fetch('scripts/data/chart_bubbles.json').then(r=>r.json())
+    ]);
+    TDC_CHARTS.quadrant(document.getElementById('lsQuadrant'), q);
+    TDC_CHARTS.bubbles(document.getElementById('lsBubbles'), b);
+  }catch(e){ _lsLoaded=false; document.getElementById('lsQuadrant').innerHTML='<div style="padding:30px;color:var(--text3);">Could not load landscape data.</div>'; }
 }
 
 // ── TEAM HISTORY — every team-season since 2007, plus program averages ──
