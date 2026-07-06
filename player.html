@@ -1495,6 +1495,22 @@ async function init(){
     // box-score-only player: no season-stat rows, use the per-season aggregates
     if(!careerHistory.length && window._boxCareer && window._boxCareer.length) careerHistory = window._boxCareer;
 
+    // Career-by-name fallback: a current-roster player (e.g. a returning pro like
+    // RJ Luis) can have players.espn_id null and no player_history, so the id path
+    // finds nothing even though bbref has their whole career. Recover it by name —
+    // but only if every matched row shares ONE identity, so we never merge namesakes.
+    if(!careerHistory.length && player && player.name){
+      try{
+        const nr=await fetch(`${SB}/rest/v1/bbref_seasons?player=eq.${sbEncode(player.name)}&select=*&order=season_year.asc&limit=20`,{headers:H}).then(r=>r.ok?r.json():[]);
+        const rows=Array.isArray(nr)?nr:[];
+        const ids=[...new Set(rows.map(r=>r.espn_id!=null?('e'+r.espn_id):('b'+(r.bbref_id||''))).filter(x=>x&&x!=='b'))];
+        if(rows.length && ids.length===1){
+          careerHistory = bbrefToFlat(rows);
+          if(!_espnId && rows[0].espn_id){ _espnId=rows[0].espn_id; window._playerEspn=_espnId; }
+        }
+      }catch(e){}
+    }
+
     // Geographic hometown fallback: if the espn_id path didn't surface a place
     // (e.g. players.espn_id doesn't line up with bbref), look it up by name.
     // Only accept an UNAMBIGUOUS single place so we never inherit a namesake's town.
