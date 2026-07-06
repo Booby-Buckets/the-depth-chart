@@ -3,6 +3,7 @@
 <head>
   <script src="auth.js"></script>
   <script src="team-colors.js"></script>
+  <script src="tdc-shotchart.js?v=3"></script>
   <script src="tdc-nil.js"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js"></script>
@@ -764,6 +765,11 @@
     <div class="panel" id="panel-analysis">
       <div class="sec-head">Team Outlook</div>
       <div class="outlook-text" id="outlookText"></div>
+      <div class="sec-head" style="margin-top:34px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <span>Team Shot Chart</span>
+        <select id="teamShotSeason" style="padding:6px 9px;font-size:12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);color:var(--text);" onchange="loadTeamShotChart(this.value)"></select>
+      </div>
+      <div id="teamShotHost"></div>
     </div>
     <div class="panel" id="panel-comments">
       <div class="sec-head">Comments</div>
@@ -3201,11 +3207,41 @@ async function fetchAllTime(q){
 
 // ── END PROJECTION ENGINE ─────────────────────────────────
 
+// ── TEAM SHOT CHART (from the `shots` table) ──
+async function _teamEspnId(){
+  if(window._teamShotTid!==undefined) return window._teamShotTid;
+  window._teamShotTid=null;
+  var nm=(teamT&&teamT.name)||''; if(!nm) return null;
+  try{
+    var rows=await fetch(SB_URL+'/rest/v1/team_seasons?select=team,team_id&team=ilike.'+encodeURIComponent(nm)+'*&limit=25',{headers:H}).then(r=>r.ok?r.json():[]);
+    var tn=nm.toLowerCase().trim();
+    // strip the mascot (1-3 words) — fewest-words match wins so "Michigan" != "Michigan State"
+    for(var k=1;k<=3;k++){ for(var i=0;i<rows.length;i++){ var w=rows[i].team.split(' '); if(w.length>k && w.slice(0,w.length-k).join(' ').toLowerCase()===tn){ window._teamShotTid=rows[i].team_id; return window._teamShotTid; } } }
+  }catch(e){}
+  return window._teamShotTid;
+}
+function _initTeamShot(){
+  var sel=document.getElementById('teamShotSeason'); if(!sel) return;
+  sel.innerHTML=[2026,2025,2024,2023,2022].map(function(y){return '<option value="'+y+'">'+((y-1)+'-'+(''+y).slice(2))+'</option>';}).join('');
+  loadTeamShotChart(2026);
+}
+async function loadTeamShotChart(season){
+  var host=document.getElementById('teamShotHost'); if(!host||!window.TDC_SHOTCHART) return;
+  host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Loading team shot chart…</div>';
+  var tid=await _teamEspnId();
+  if(!tid){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Team shot data unavailable.</div>'; return; }
+  try{
+    var rows=await fetch(SB_URL+'/rest/v1/shots?team_id=eq.'+tid+'&season_year=eq.'+season+'&select=x,y,made,sv,dist&limit=6000',{headers:H}).then(r=>r.ok?r.json():[]);
+    TDC_SHOTCHART.render(host, Array.isArray(rows)?rows:[], {subtitle:(teamT&&teamT.name)||'this team', mode:'hex'});
+  }catch(e){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Could not load shot chart.</div>'; }
+}
+
 function switchTab(id, btn){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.hero-tab').forEach(b=>b.classList.remove('active'));
   document.getElementById('panel-'+id).classList.add('active');
   btn.classList.add('active');
+  if(id==='analysis' && !window._teamShotInit){ window._teamShotInit=true; _initTeamShot(); }
   // Hide sidebar on customize — it takes the full width
   const sideCol = document.querySelector('.side-col');
   const mainCol = document.querySelector('.main-col');
