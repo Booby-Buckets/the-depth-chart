@@ -153,8 +153,8 @@ function buildCriteria(){
   var confs=Object.keys(confCount).filter(function(c){return confCount[c]>=25;})
     .map(function(c){return {type:'conf',label:c,test:(function(cf){return function(p){return p.confs.has(cf);};})(c)};});
   var acc=[
-    {type:'acc',label:'20+ PPG Season',test:function(p){return p.maxPpg>=20;}},
-    {type:'acc',label:'15+ PPG Season',test:function(p){return p.maxPpg>=15;}},
+    {type:'acc',fam:'ppg',label:'20+ PPG Season',test:function(p){return p.maxPpg>=20;}},
+    {type:'acc',fam:'ppg',label:'15+ PPG Season',test:function(p){return p.maxPpg>=15;}},
     {type:'acc',label:'8+ RPG Season',test:function(p){return p.maxRpg>=8;}},
     {type:'acc',label:'5+ APG Season',test:function(p){return p.maxApg>=5;}},
     {type:'acc',label:'2+ SPG Season',test:function(p){return p.maxStl>=2;}},
@@ -170,13 +170,24 @@ function buildCriteria(){
 }
 function inter(a,b){var small=a.size<b.size?a:b,big=a.size<b.size?b:a,n=0;small.forEach(function(x){if(big.has(x))n++;});return n;}
 
-// ── construct a solvable grid: rows = teams/confs, cols = accolades/confs ──
+// ── construct a solvable grid ──
+// Columns are always accolades so a conference can never sit above its own
+// schools (which would make that cell a freebie). Rows are a mix of teams/
+// conferences PLUS one accolade row — that accolade row × the accolade columns
+// gives genuine stat×stat squares. Every cell is (team|conf|stat) × stat, so
+// no impossible team×team and no trivial conf×team cells.
 function buildGrid(cat, rng){
-  var rowPool=shuffle(cat.teams.concat(cat.confs), rng);
-  var colPool=shuffle(cat.acc.concat(cat.confs), rng);
-  for(var attempt=0; attempt<600; attempt++){
-    var rows=shuffle(rowPool,rng).slice(0,3);
-    var cols=shuffle(colPool,rng).slice(0,3);
+  var teamConf=cat.teams.concat(cat.confs);
+  for(var attempt=0; attempt<900; attempt++){
+    var tc=shuffle(teamConf,rng).slice(0,2);        // 2 team/conference rows
+    var accs=shuffle(cat.acc,rng);
+    var rowAcc=accs[0];                              // 1 accolade row → stat×stat cells
+    var cols=accs.slice(1,4);                        // 3 accolade columns (distinct)
+    if(!tc[0]||!tc[1]||!rowAcc||cols.length<3) continue;
+    // no two accolades of the same stat family across axes (e.g. 15+ PPG × 20+ PPG)
+    var fams={}, famClash=false; [rowAcc].concat(cols).forEach(function(a){ if(a.fam){ if(fams[a.fam])famClash=true; fams[a.fam]=1; } });
+    if(famClash) continue;
+    var rows=shuffle([tc[0],tc[1],rowAcc],rng);      // accolade row lands anywhere
     var labels={}, dup=false;
     rows.concat(cols).forEach(function(c){if(labels[c.label])dup=true;labels[c.label]=1;});
     if(dup) continue;
