@@ -25,16 +25,28 @@ KEY="sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
 HDR={"apikey":KEY,"Authorization":"Bearer "+KEY}
 D=os.path.join(os.path.dirname(__file__),"data")
 
-# bbref school -> ESPN team name aliases where a prefix match won't work
+# bbref school name -> ESPN team name, where a prefix match won't work
 ALIAS={
- "connecticut":"UConn Huskies","st-johns-ny":"St. John's Red Storm",
- "pittsburgh":"Pitt Panthers","southern-california":"USC Trojans",
- "louisiana-state":"LSU Tigers","north-carolina-state":"NC State Wolfpack",
- "brigham-young":"BYU Cougars","central-florida":"UCF Knights",
- "nevada-las-vegas":"UNLV Rebels","texas-christian":"TCU Horned Frogs",
- "virginia-commonwealth":"VCU Rams","massachusetts":"UMass Minutemen",
- "miami-fl":"Miami Hurricanes","miami-oh":"Miami (OH) RedHawks",
- "california":"California Golden Bears","southern-methodist":"SMU Mustangs",
+ "Connecticut":"UConn Huskies","St. John's (NY)":"St. John's Red Storm",
+ "Pittsburgh":"Pitt Panthers","Southern California":"USC Trojans",
+ "Louisiana State":"LSU Tigers","North Carolina State":"NC State Wolfpack",
+ "Brigham Young":"BYU Cougars","Central Florida":"UCF Knights",
+ "Texas Christian":"TCU Horned Frogs","Virginia Commonwealth":"VCU Rams",
+ "Massachusetts":"UMass Minutemen","Miami (FL)":"Miami Hurricanes",
+ "Miami (OH)":"Miami (OH) RedHawks","Southern Methodist":"SMU Mustangs",
+ # mid/low-majors with divergent ESPN names
+ "Albany (NY)":"UAlbany Great Danes","Appalachian State":"App State Mountaineers",
+ "Central Connecticut State":"Central Connecticut Blue Devils",
+ "College of Charleston":"Charleston Cougars","FDU":"Fairleigh Dickinson Knights",
+ "IU Indy":"IU Indianapolis Jaguars","Illinois-Chicago":"UIC Flames",
+ "Louisiana-Monroe":"UL Monroe Warhawks","Loyola (IL)":"Loyola Chicago Ramblers",
+ "Loyola (MD)":"Loyola Maryland Greyhounds","Maryland-Baltimore County":"UMBC Retrievers",
+ "Maryland-Eastern Shore":"Maryland Eastern Shore Hawks","Massachusetts-Lowell":"UMass Lowell River Hawks",
+ "Nevada-Las Vegas":"UNLV Rebels","Nicholls State":"Nicholls Colonels",
+ "Queens (NC)":"Queens University Royals","Saint Francis (PA)":"Saint Francis Red Wolves",
+ "San Jose State":"San José State Spartans","Southeastern Louisiana":"Southeastern Louisiana Lions",
+ "Southern Mississippi":"Southern Miss Golden Eagles","St. Francis (NY)":"St. Francis Brooklyn Terriers",
+ "Texas-Rio Grande Valley":"UT Rio Grande Valley Vaqueros",
 }
 
 def _norm(s): return re.sub(r"[^a-z0-9 ]","",(s or "").lower()).strip()
@@ -57,8 +69,7 @@ def build_crosswalk(schools, espn_names):
     espn=list(espn_names)
     xw={}
     for school in schools:
-        slug=re.sub(r"[^a-z0-9]+","-",_norm(school)).strip("-")
-        if slug in ALIAS and ALIAS[slug] in espn_names: xw[school]=ALIAS[slug]; continue
+        if school in ALIAS and ALIAS[school] in espn_names: xw[school]=ALIAS[school]; continue
         ns=_norm(school)
         # exact-prefix: ESPN "Duke Blue Devils" startswith "Duke "
         cand=[e for e in espn if _norm(e)==ns or _norm(e).startswith(ns+" ")]
