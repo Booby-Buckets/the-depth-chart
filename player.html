@@ -4,6 +4,7 @@
   <script src="auth.js"></script>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js"></script>
+  <script src="tdc-shotchart.js"></script>
   <script src="tdc-nil.js"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-proj.js"></script>
@@ -2296,6 +2297,11 @@ function renderPage(){
       <div style="overflow-x:auto;" id="sm-body-pergame">${renderStatTable(p, proj)}</div>
       <div style="overflow-x:auto;display:none;" id="sm-body-per40">${renderModeTable('per40')}</div>
       <div style="overflow-x:auto;display:none;" id="sm-body-advanced">${renderModeTable('advanced')}</div>
+      <div class="sec-title" style="margin:34px 0 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <span>Shot Chart</span>
+        <select id="scSeasonSel" class="exp-sel" style="padding:6px 9px;font-size:12px;" onchange="loadShotChart(this.value)"></select>
+      </div>
+      <div id="shotChartHost"></div>
       <div class="sec-title" style="margin:34px 0 14px;">Game Log</div>
       <div id="sm-body-gamelog"></div>
     </div>
@@ -2737,6 +2743,24 @@ function _prodVal(s){ if(!s) return 0;
   return 1.0*(parseFloat(s.ppg)||0)+0.7*(parseFloat(s.apg)||0)+0.65*(parseFloat(s.rpg)||0)
         +1.5*(parseFloat(s.stl)||0)+0.9*(parseFloat(s.blk)||0)-1.2*(parseFloat(s.tovs)||0)
         +_effAdj(s)+0.04*(parseFloat(s.mpg)||0); }
+// ── SHOT CHART (from ESPN shot-location data in the `shots` table) ──
+async function loadShotChart(season){
+  var host=document.getElementById('shotChartHost'); if(!host||!window.TDC_SHOTCHART) return;
+  var espn=window._playerEspn;
+  if(!espn){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">No shot data — this player has no ESPN id.</div>'; return; }
+  host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Loading shot chart…</div>';
+  try{
+    var rows=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.'+season+'&select=x,y,made,sv,dist&limit=1500',{headers:H}).then(r=>r.ok?r.json():[]);
+    TDC_SHOTCHART.render(host, Array.isArray(rows)?rows:[], {subtitle:(player&&player.name)||'this player'});
+  }catch(e){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Could not load shot chart.</div>'; }
+}
+function _initShotSeasons(){
+  var sel=document.getElementById('scSeasonSel'); if(!sel) return;
+  var yrs=[...new Set((careerHistory||[]).map(function(s){return +s.season_year;}).filter(Boolean))].sort(function(a,b){return b-a;});
+  if(!yrs.length) yrs=[2026];
+  sel.innerHTML=yrs.map(function(y){return '<option value="'+y+'">'+((y-1)+'-'+(''+y).slice(2))+'</option>';}).join('');
+  loadShotChart(yrs[0]);
+}
 function _projectedGrade(){
   var pl=playerProjLine(); if(!pl || pl._frosh || pl._noStatEst) return null;   // no real projection to grade
   if(!((parseFloat(player.ppg)||0)>0 || (parseFloat(player.mpg)||0)>=2)) return null; // need a real prior line to delta from
@@ -3062,6 +3086,7 @@ function switchTab(t){
     });
     if(id==='overview')setTimeout(animateRadar,90);
     if(id==='stats' && !window._gamelogLoaded){ window._gamelogLoaded=true; loadGameLog(); }
+    if(id==='stats' && !window._shotChartLoaded){ window._shotChartLoaded=true; _initShotSeasons(); }
     if(id==='rankings')setTimeout(renderRankings,40);
     if(id==='scout'){
       setTimeout(renderArchetype,60);
