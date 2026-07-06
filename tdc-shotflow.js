@@ -83,7 +83,7 @@
       pps=Math.min(pps, avail/t);
     });
     // x positions
-    var innerL=120, innerR=W-72, span=innerR-innerL;
+    var innerL=120, innerR=W-98, span=innerR-innerL;
     colX=cols.map(function(_,i){ return innerL + span*i/(cols.length-1); });
 
     // assign node y (center each column stack); small nodes get a min height so

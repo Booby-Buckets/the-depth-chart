@@ -5,7 +5,7 @@
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js"></script>
   <script src="tdc-shotchart.js?v=6"></script>
-  <script src="tdc-shotflow.js?v=1"></script>
+  <script src="tdc-shotflow.js?v=3"></script>
   <script src="tdc-nil.js"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-proj.js"></script>
@@ -2765,9 +2765,12 @@ async function loadShotFlow(season){
   if(!espn){ host.innerHTML=''; return; }
   host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Loading shot flow…</div>';
   try{
-    var res=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.'+season+'&select=x,y,made,sv,stype,ast_name&limit=2000',{headers:H});
+    // only pull enriched rows (type/assist present) — during the backfill a
+    // player can have a mix of enriched + location-only rows; the location-only
+    // ones have no type/assist and would pollute the flow
+    var res=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.'+season+'&stype=not.is.null&select=x,y,made,sv,stype,ast_name&limit=2000',{headers:H});
     var rows=res.ok?await res.json():[];
-    if(!Array.isArray(rows) || !rows.some(function(r){return r.stype;})){
+    if(!Array.isArray(rows) || rows.length<8){
       host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Shot-flow data for this season is still being processed.</div>'; return;
     }
     TDC_SHOTFLOW.render(host, rows, {subtitle:(player&&player.name)||'this player'});
