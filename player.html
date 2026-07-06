@@ -1074,10 +1074,13 @@ var BADGE_TIERS=[
   {min:45,name:'Prospect',    color:'#a9743f',bg:'rgba(169,116,63,.15)', pips:1}
 ];
 function _badgeTier(score){ for(var i=0;i<BADGE_TIERS.length;i++){ if(score>=BADGE_TIERS[i].min) return BADGE_TIERS[i]; } return null; }
-function computeBadges(p, proj){
+// computeBadges(p, src, meta): grade the stat line `src` (a projected line or a
+// specific season row) using the player's position. meta={projected,label}
+// controls the basis caption, so badges recompute per viewed season.
+function computeBadges(p, src, meta){
+  meta=meta||{};
   function _n(o,k){var v=parseFloat(o&&o[k]);return isNaN(v)?0:v;}
-  var useProj=!!(proj&&!proj._injured&&!proj._dnp&&(_n(proj,'ppg')>0||proj._frosh||proj._noStatEst));
-  var s=useProj?proj:p;
+  var s=src||p;
   var ppg=_n(s,'ppg'),rpg=_n(s,'rpg'),apg=_n(s,'apg'),mpg=_n(s,'mpg');
   var fg=_n(s,'fg_pct'),tp=_n(s,'tp_pct'),ft=_n(s,'ft_pct');
   var stl=_n(s,'stl'),blk=_n(s,'blk'),tovs=_n(s,'tovs');
@@ -1139,7 +1142,15 @@ function computeBadges(p, proj){
   });
   Object.keys(out).forEach(function(k){ out[k].sort(function(a,b){return b.score-a.score;}); });
   var total=out.FIN.length+out.SHO.length+out.PLY.length+out.DEF.length;
-  return {cats:CAT, badges:out, total:total, basis:useProj?'2026-27 projected':'2025-26 actual'};
+  var basis = meta.projected ? '2026-27 projected' : (meta.label ? meta.label+' actual' : 'current');
+  return {cats:CAT, badges:out, total:total, basis:basis};
+}
+// badges for a given Overview season selection (null=default, 'proj', or a year)
+function badgesForSeason(val){ var x=_skillSrcFor(val); return computeBadges(player, x.src, {projected:x.projected, label:x.label}); }
+function renderBadges(val){
+  var B=badgesForSeason(val);
+  var bs=document.getElementById('badgesSection'); if(bs) bs.innerHTML=buildBadgesSection(player, B);
+  var hs=document.getElementById('heroBadgeSlot'); if(hs) hs.innerHTML=buildBadgeShield(B);
 }
 // graphic badge shield for the hero — total earned inside a shield, tier
 // breakdown underneath. The shield tint is driven by the player's TOP tier.
@@ -1167,8 +1178,8 @@ function buildBadgeShield(B){
     (dots?'<div class="hbs-dots">'+dots+'</div>':'')+
   '</a>';
 }
-function buildBadgesSection(p, proj, B){
-  B=B||computeBadges(p, proj);
+function buildBadgesSection(p, B){
+  B=B||computeBadges(p, null, {});
   var order=['FIN','SHO','PLY','DEF'];
   var accent={FIN:'#4a86d8',SHO:'#3fa06a',PLY:'#d99a3c',DEF:'#cf5a6a'};
   var pip=function(t){ var s=''; for(var i=0;i<4;i++){ s+='<span class="badge-pip" style="background:'+(i<t.pips?t.color:'var(--border2)')+';"></span>'; } return s; };
@@ -1994,6 +2005,7 @@ function _setHeroGrade(g){ var hg=document.getElementById('heroGrade'); if(hg &&
 function setOvrSeason(val){
   var host=document.getElementById('ovrCards'); if(!host) return;
   renderSkill(val);
+  try{ renderBadges(val); }catch(e){}
   try{ var _xi=_skillSrcFor(val); renderImpact(_xi.src,_xi.projected); }catch(e){}
   if(val==='proj'){ host.innerHTML=buildOverviewCards(player, proj); _updateHeroSeason(player.team, player.gp); _setHeroGrade(_projectedGrade()||player.tdc_grade); return; }
   var s=_ovrSeasonRow(val); if(!s) return;
@@ -2199,7 +2211,8 @@ function renderPage(){
   const color=(window.tdcTeamColorHex&&tdcTeamColorHex(p.team))||teamData?.color||'#888';
   const yr=p.yr||p.class_year||'';
   const scout=buildScoutingReport(p,proj,gPct);
-  const badgeData=computeBadges(p,proj);
+  const _bsx=_skillSrcFor();
+  const badgeData=computeBadges(p, _bsx.src, {projected:_bsx.projected, label:_bsx.label});
   // Geographic hometown (city, state/country) lives in bbref_seasons.hometown —
   // carried through careerHistory. players.hometown is the TRANSFER origin (a
   // school), shown separately as "Via …". Take the most recent known place.
@@ -2241,7 +2254,7 @@ function renderPage(){
         <div id="draftSticker"></div>
       </div>
       <div class="hero-right">
-        ${buildBadgeShield(badgeData)}
+        <span id="heroBadgeSlot">${buildBadgeShield(badgeData)}</span>
         ${p.tdc_grade?`<div class="hero-grade-wrap"><div class="hero-grade" id="heroGrade">${p.tdc_grade}</div><div class="hero-grade-lbl">TDC Grade</div></div>`:''}
       </div>
     </div>
@@ -2259,7 +2272,8 @@ function renderPage(){
     <!-- OVERVIEW TAB -->
     <div class="tab-panel active" id="panel-overview">
       ${buildOvrSeasonControl(p, proj)}
-      ${buildBadgesSection(p, proj, badgeData)}
+      <div id="badgesSection">${buildBadgesSection(p, badgeData)}</div>
+      <div style="height:30px;"></div>
       <div id="impactSection"></div>
       <div class="prog-section">${buildProgression(p)}</div>
       <div class="sec-title" style="margin-bottom:16px;">Skill Profile</div>
