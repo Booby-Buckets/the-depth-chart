@@ -41,7 +41,12 @@ def games_for(seasons, team_id=None):
         frm=0
         while True:
             req=urllib.request.Request(SB+"/rest/v1/"+q,headers={**HDR,"Range-Unit":"items","Range":"%d-%d"%(frm,frm+999)})
-            b=json.load(urllib.request.urlopen(req,timeout=40)); out+=b
+            b=None
+            for a in range(5):
+                try: b=json.load(urllib.request.urlopen(req,timeout=45)); break
+                except Exception: time.sleep(3*(a+1))
+            if b is None: b=[]
+            out+=b
             if len(b)<1000: break
             frm+=1000
     return out
@@ -87,8 +92,12 @@ def upload(rows):
         req=urllib.request.Request(SB+"/rest/v1/shots?on_conflict=id",
             data=json.dumps(chunk).encode(),method="POST",
             headers={**HDR,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"})
-        try: urllib.request.urlopen(req,timeout=60).read()
-        except urllib.error.HTTPError as e: print("  upload err",e.code,e.read()[:150]); return False
+        ok=False
+        for a in range(5):
+            try: urllib.request.urlopen(req,timeout=90).read(); ok=True; break
+            except urllib.error.HTTPError as e: print("  upload http err",e.code,e.read()[:150]); return False
+            except Exception as e: print("  upload retry (%s)"%type(e).__name__); time.sleep(3*(a+1))
+        if not ok: return False
     return True
 
 def main():
@@ -119,17 +128,21 @@ def main():
     if os.path.exists(DONE):
         try: done=set(json.load(open(DONE)))
         except Exception: done=set()
-    buf=[]; n_shots=0; t0=time.time()
+    buf=[]; pending=[]; n_shots=0; t0=time.time()
     todo=[g for g in games if g["id"] not in done]
     print("remaining: %d (already done: %d)" % (len(todo),len(done)))
     for i,g in enumerate(todo):
         data=fetch(SUMMARY % g["id"])
         if data: buf+=parse_shots(data,g["id"],g["season_year"])
-        done.add(g["id"]); time.sleep(DELAY)
+        pending.append(g["id"]); time.sleep(DELAY)
         if len(buf)>=1500 or i==len(todo)-1:
-            if buf and upload(buf): n_shots+=len(buf)
-            buf=[]
-            json.dump(list(done),open(DONE,"w"))
+            # only mark games done + clear the buffer if the upload actually succeeds
+            if not buf or upload(buf):
+                n_shots+=len(buf); buf=[]
+                for gid in pending: done.add(gid)
+                pending=[]
+                json.dump(list(done),open(DONE,"w"))
+            # else: keep buf + pending, retry on the next flush (no data/checkpoint loss)
         if (i+1)%200==0:
             el=time.time()-t0; print("  %d/%d games  %d shots  %.0fs  (~%.1f games/s)"%(i+1,len(todo),n_shots,el,(i+1)/max(1,el)))
     print("DONE: %d shots uploaded across %d games"%(n_shots,len(todo)))
