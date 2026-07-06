@@ -176,8 +176,14 @@
         '<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+court('rgba(130,123,156,.55)')+dots+'</svg><div class="sc-tip"></div></div>';
     }
     el.innerHTML=head+body+zoneStrip(shots);
+    el.classList.remove('sc-settled');
     if(mode==='heat') drawHeat(el, shots);
     wire(el);
+    // settle-guard: entrance animations are done by ~1.3s; force the final state
+    // shortly after so environments that freeze/skip the animation clock (some
+    // webviews, screenshotters) never leave the chart stuck invisible.
+    clearTimeout(el._scSettle);
+    el._scSettle=setTimeout(function(){ el.classList.add('sc-settled'); },1600);
   }
 
   // hover tooltips + zone-card isolation
@@ -244,7 +250,7 @@
       '.sc-zv{font-family:\'Playfair Display\',serif;font-weight:800;font-size:19px;}'+
       '.sc-zl{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:2px;}'+
       '.sc-zs{font-size:9px;color:var(--text3);margin-top:1px;}'+
-      '@media(prefers-reduced-motion:reduce){.sc-mark,.sc-cl,.sc-z,.sc-court-wrap,.sc-title,.sc-legend,.sc-heat,.sc-heat-legend,.sc-eff-legend{animation:none!important;}}';
+      '.sc-settled .sc-mark,.sc-settled .sc-cl,.sc-settled .sc-z,.sc-settled .sc-court-wrap,.sc-settled .sc-title,.sc-settled .sc-legend,.sc-settled .sc-heat,.sc-settled .sc-heat-legend,.sc-settled .sc-eff-legend{animation:none!important;}';
     document.head.appendChild(st);
   }
   window.TDC_SHOTCHART={render:render,_m:_m};
