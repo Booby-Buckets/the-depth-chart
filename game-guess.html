@@ -42,6 +42,10 @@
     .g-meta{display:flex;align-items:center;justify-content:center;gap:14px;margin:14px 0 20px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);}
     .g-meta b{color:var(--accent);}
     /* search */
+    .g-hint-btn{display:block;margin:0 auto 16px;font-size:12.5px;font-weight:700;padding:8px 16px;border-radius:9px;border:1px solid var(--border2);background:var(--bg2);color:var(--accent);cursor:pointer;transition:border-color .15s;}
+    .g-hint-btn:hover{border-color:var(--accent);}
+    .g-hint{max-width:440px;margin:0 auto 16px;padding:10px 14px;border-radius:9px;background:rgba(139,63,224,.08);border:1px solid rgba(139,63,224,.28);font-size:13px;color:var(--text2);text-align:center;}
+    .g-hint b{color:var(--accent);font-weight:800;}
     .g-search{position:relative;max-width:440px;margin:0 auto 18px;}
     .g-input{width:100%;padding:13px 16px;font-size:15px;font-family:'Inter',sans-serif;font-weight:600;color:var(--text);background:var(--bg2);border:1.5px solid var(--border2);border-radius:10px;outline:none;transition:border-color .15s;}
     .g-input:focus{border-color:var(--accent);}
@@ -105,7 +109,7 @@
   <div class="wrap">
     <div class="g-head">
       <div class="g-title">Guess the Player</div>
-      <div class="g-sub">Crack the mystery player in 8 guesses. Play the daily, go unlimited, and pick this year or all-time.</div>
+      <div class="g-sub">Crack the mystery player in 10 guesses. Play the daily, go unlimited, and pick this year or all-time.</div>
     </div>
     <div id="content"><div class="loading">Loading today's player…</div></div>
   </div>
@@ -117,9 +121,9 @@ const H={apikey:KEY,Authorization:'Bearer '+KEY};
 function toggleTheme(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');document.getElementById('themeBtn').textContent=d?'🌙':'☀️';try{localStorage.setItem('tdc_theme',d?'light':'dark');}catch(e){}}
 (function(){try{var s=localStorage.getItem('tdc_theme');if(s){document.documentElement.setAttribute('data-theme',s);var b=document.getElementById('themeBtn');if(b)b.textContent=s==='dark'?'☀️':'🌙';}}catch(e){}})();
 
-const MAX=8;
+const MAX=10;
 let scope='year', mode='daily';                 // 'year'|'all', 'daily'|'unlimited'
-let POOL_YEAR=null, POOL_ALL=null, CONF={}, TARGET=null, DAY=0, state={guesses:[],done:false,won:false};
+let POOL_YEAR=null, POOL_ALL=null, CONF={}, TARGET=null, DAY=0, state={guesses:[],done:false,won:false,hint:false};
 function currentPool(){ return scope==='year'?POOL_YEAR:POOL_ALL; }
 function seasonLbl(y){ y=+y; return isNaN(y)?'':((y-1)+'-'+(''+y).slice(2)); }
 
@@ -157,8 +161,7 @@ function cmp(label, gv, tv, kind, guess, target){
   }
   else if(kind==='class'){
     var a=classInfo(guess.class_year||guess.yr), b=classInfo(target.class_year||target.yr);
-    if(a.ord===b.ord)cls='hit';
-    else if(a.ord&&b.ord){ cls='miss'; arrow=b.ord>a.ord?'↑':'↓'; }
+    if(a.ord&&b.ord){ if(a.ord===b.ord)cls='hit'; else{ cls='miss'; arrow=b.ord>a.ord?'↑':'↓'; } }
   }
   else if(kind==='height'){
     var ga=htIn(guess.height), tb=htIn(target.height);
@@ -172,7 +175,26 @@ function cmp(label, gv, tv, kind, guess, target){
   return {html:'<div class="cell '+cls+'">'+(arrow?'<span class="arrow">'+arrow+'</span>':'')+'<span>'+gv+'</span>'+(sub?'<span class="sub">'+sub+'</span>':'')+'</div>', mark:mark};
 }
 
+// column layout depends on scope — All-Time adds a Year column
+function colConfig(){
+  return scope==='all'
+    ? {tmpl:'1.3fr 1fr .85fr .9fr .7fr .72fr .72fr .82fr', heads:['','School','Conf','Class','Pos','Ht','Year','Grade'], min:660}
+    : {tmpl:'1.5fr 1.15fr 1fr .8fr .8fr .9fr .9fr', heads:['','School','Conf','Class','Pos','Ht','Grade'], min:560};
+}
+function cmpYear(g){
+  var gy=+g.season_year||0, ty=+TARGET.season_year||0, lbl=gy?(''+gy):'—';
+  if(!gy||!ty) return {html:'<div class="cell miss"><span>'+lbl+'</span></div>', mark:'⬛'};
+  if(gy===ty) return {html:'<div class="cell hit"><span>'+lbl+'</span></div>', mark:'🟩'};
+  var arrow=ty>gy?'↑':'↓', cls=Math.abs(ty-gy)<=2?'warm':'miss';
+  return {html:'<div class="cell '+cls+'"><span class="arrow">'+arrow+'</span><span>'+lbl+'</span></div>', mark:cls==='warm'?'🟨':'⬛'};
+}
+function hintText(){
+  var pos=TARGET.position||'?', conf=confOf(TARGET.team);
+  var era=(scope==='all'&&TARGET.season_year)?(' · '+(Math.floor(TARGET.season_year/10)*10)+'s'):'';
+  return 'A <b>'+pos+'</b>'+(conf&&conf!=='—'?' from the <b>'+conf+'</b>':'')+era;
+}
 function guessRow(g){
+  var cfg=colConfig();
   var gv=confOf(g.team), tv=confOf(TARGET.team);
   var confCls=(gv===tv&&gv!=='—')?'hit':'miss';
   var cells=[
@@ -181,17 +203,19 @@ function guessRow(g){
     '<div class="cell '+confCls+'"><span>'+gv+'</span></div>',
     cmp('Class', classInfo(g.class_year||g.yr).lbl, classInfo(TARGET.class_year||TARGET.yr).lbl, 'class', g, TARGET).html,
     cmp('Pos', (g.position||'—'), (TARGET.position||'—'), 'pos', g, TARGET).html,
-    cmp('Ht', (g.height||'—'), (TARGET.height||'—'), 'height', g, TARGET).html,
-    cmp('Grade', (g.tdc_grade||'—'), (TARGET.tdc_grade||'—'), 'grade', g, TARGET).html
+    cmp('Ht', (g.height||'—'), (TARGET.height||'—'), 'height', g, TARGET).html
   ];
-  return '<div class="g-row">'+cells.join('')+'</div>';
+  if(scope==='all') cells.push(cmpYear(g).html);
+  cells.push(cmp('Grade', (g.tdc_grade||'—'), (TARGET.tdc_grade||'—'), 'grade', g, TARGET).html);
+  return '<div class="g-row" style="grid-template-columns:'+cfg.tmpl+';">'+cells.join('')+'</div>';
 }
 
 // ── render ──
 function render(){
   var host=document.getElementById('content');
-  var head='<div class="g-row head">'+
-    ['','School','Conf','Class','Pos','Ht','Grade'].map(function(h){return '<div class="cell">'+h+'</div>';}).join('')+'</div>';
+  var cfg=colConfig();
+  var head='<div class="g-row head" style="grid-template-columns:'+cfg.tmpl+';">'+
+    cfg.heads.map(function(h){return '<div class="cell">'+h+'</div>';}).join('')+'</div>';
   var rows=state.guesses.map(function(nm){var g=byName(nm);return g?guessRow(g):'';}).join('');
   var used=state.guesses.length, left=MAX-used;
   var search=state.done?'':(
@@ -210,11 +234,14 @@ function render(){
         '<button class="'+(mode==='unlimited'?'on':'')+'" onclick="setMode(\'unlimited\')">Unlimited</button>'+
       '</div>'+
     '</div>';
+  var hint=state.hint
+    ? '<div class="g-hint">💡 <b>Hint:</b> '+hintText()+'</div>'
+    : (state.done?'':'<button class="g-hint-btn" onclick="useHint()">💡 Reveal a hint (1)</button>');
   host.innerHTML=
     controls+
     '<div class="g-meta"><span>Guess <b>'+used+'</b> / '+MAX+'</span><span>'+left+' left</span></div>'+
-    search+
-    '<div class="g-board-scroll"><div class="g-board">'+head+rows+'</div></div>'+
+    search+hint+
+    '<div class="g-board-scroll"><div class="g-board" style="min-width:'+cfg.min+'px;">'+head+rows+'</div></div>'+
     '<div class="g-legend"><span><i style="background:#1f9d57"></i>Exact</span><span><i style="background:#d19a25"></i>Close</span><span><i style="background:var(--bg3)"></i>Off · ↑ higher ↓ lower</span></div>'+
     '<div class="g-result" id="gr"></div>';
   if(state.done) showResult();
@@ -276,11 +303,9 @@ function shareResult(){
   var lines=state.guesses.map(function(nm){
     var g=byName(nm); if(!g)return '';
     var confM=(confOf(g.team)===confOf(TARGET.team)&&confOf(g.team)!=='—')?'🟩':'⬛';
-    var m=[
-      g.team===TARGET.team?'🟩':'⬛',
-      confM,
-      markClass(g), markPos(g), markHt(g), markGr(g)
-    ];
+    var m=[ g.team===TARGET.team?'🟩':'⬛', confM, markClass(g), markPos(g), markHt(g) ];
+    if(scope==='all') m.push(markYear(g));
+    m.push(markGr(g));
     return m.join('');
   }).join('\n');
   var head='The Depth Chart — Guess the Player #'+(DAY%100000)+'  '+(state.won?state.guesses.length:'X')+'/'+MAX;
@@ -288,16 +313,18 @@ function shareResult(){
   if(navigator.clipboard){navigator.clipboard.writeText(txt).then(function(){toast('Copied to clipboard!');},function(){toast('Copy failed');});}
   else toast(txt);
 }
-function markClass(g){var a=classInfo(g.class_year||g.yr),b=classInfo(TARGET.class_year||TARGET.yr);return a.ord===b.ord?'🟩':'⬛';}
+function markClass(g){var a=classInfo(g.class_year||g.yr),b=classInfo(TARGET.class_year||TARGET.yr);return (a.ord&&b.ord&&a.ord===b.ord)?'🟩':'⬛';}
 function markPos(g){if((g.position||'')===(TARGET.position||''))return'🟩';return posGroup(g.position)===posGroup(TARGET.position)?'🟨':'⬛';}
 function markHt(g){var a=htIn(g.height),b=htIn(TARGET.height);if(a==null||b==null)return'⬛';if(a===b)return'🟩';return Math.abs(a-b)<=2?'🟨':'⬛';}
 function markGr(g){var a=grNum(g.tdc_grade),b=grNum(TARGET.tdc_grade);if(a==null||b==null)return'⬛';if(a===b)return'🟩';return Math.abs(a-b)<=3?'🟨':'⬛';}
+function markYear(g){var a=+g.season_year||0,b=+TARGET.season_year||0;if(!a||!b)return'⬛';if(a===b)return'🟩';return Math.abs(a-b)<=2?'🟨':'⬛';}
 function toast(msg){var t=document.createElement('div');t.textContent=msg;t.style.cssText='position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.3);';document.body.appendChild(t);setTimeout(function(){t.remove();},2200);}
 
 // ── persistence (daily only; keyed by scope + day) ──
 function dayKey(){ return 'tdc_guess_'+scope+'_'+DAY; }
-function save(){ if(mode!=='daily')return; try{localStorage.setItem(dayKey(),JSON.stringify({guesses:state.guesses,done:state.done,won:state.won}));}catch(e){} }
-function load(){ try{var s=localStorage.getItem(dayKey());if(s){var o=JSON.parse(s);state.guesses=o.guesses||[];state.done=!!o.done;state.won=!!o.won;}}catch(e){} }
+function save(){ if(mode!=='daily')return; try{localStorage.setItem(dayKey(),JSON.stringify({guesses:state.guesses,done:state.done,won:state.won,hint:state.hint}));}catch(e){} }
+function load(){ try{var s=localStorage.getItem(dayKey());if(s){var o=JSON.parse(s);state.guesses=o.guesses||[];state.done=!!o.done;state.won=!!o.won;state.hint=!!o.hint;}}catch(e){} }
+function useHint(){ if(state.hint||state.done||!TARGET)return; state.hint=true; save(); render(); }
 
 // ── pools ──
 async function loadYearPool(){
@@ -330,8 +357,8 @@ function pickTarget(){
     TARGET=stable[pickIndex(DAY+(scope==='all'?424242:0), stable.length)];
   } else { TARGET=pool[Math.floor(Math.random()*pool.length)]; }
 }
-function startPuzzle(){ pickTarget(); state={guesses:[],done:false,won:false}; if(mode==='daily') load(); render(); }
-function nextGame(){ if(mode!=='unlimited')return; pickTarget(); state={guesses:[],done:false,won:false}; render(); }
+function startPuzzle(){ pickTarget(); state={guesses:[],done:false,won:false,hint:false}; if(mode==='daily') load(); render(); }
+function nextGame(){ if(mode!=='unlimited')return; pickTarget(); state={guesses:[],done:false,won:false,hint:false}; render(); }
 async function setScope(s){ if(s===scope)return; scope=s; await ensurePool(); startPuzzle(); }
 async function setMode(m){ if(m===mode)return; mode=m; startPuzzle(); }
 
