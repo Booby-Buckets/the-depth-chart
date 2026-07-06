@@ -5,6 +5,7 @@
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js"></script>
   <script src="tdc-shotchart.js?v=6"></script>
+  <script src="tdc-shotflow.js?v=1"></script>
   <script src="tdc-nil.js"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-proj.js"></script>
@@ -2302,6 +2303,8 @@ function renderPage(){
         <select id="scSeasonSel" class="exp-sel" style="padding:6px 9px;font-size:12px;" onchange="loadShotChart(this.value)"></select>
       </div>
       <div id="shotChartHost"></div>
+      <div class="sec-title" style="margin:34px 0 14px;">Shot Flow</div>
+      <div id="shotFlowHost"></div>
       <div class="sec-title" style="margin:34px 0 14px;">Game Log</div>
       <div id="sm-body-gamelog"></div>
     </div>
@@ -2753,6 +2756,22 @@ async function loadShotChart(season){
     var rows=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.'+season+'&select=x,y,made,sv,dist&limit=1500',{headers:H}).then(r=>r.ok?r.json():[]);
     TDC_SHOTCHART.render(host, Array.isArray(rows)?rows:[], {subtitle:(player&&player.name)||'this player'});
   }catch(e){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Could not load shot chart.</div>'; }
+  loadShotFlow(season);
+}
+// ── SHOT FLOW (Sankey: zone -> type -> outcome -> assist; needs enriched columns) ──
+async function loadShotFlow(season){
+  var host=document.getElementById('shotFlowHost'); if(!host||!window.TDC_SHOTFLOW) return;
+  var espn=window._playerEspn;
+  if(!espn){ host.innerHTML=''; return; }
+  host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Loading shot flow…</div>';
+  try{
+    var res=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.'+season+'&select=x,y,made,sv,stype,ast_name&limit=2000',{headers:H});
+    var rows=res.ok?await res.json():[];
+    if(!Array.isArray(rows) || !rows.some(function(r){return r.stype;})){
+      host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Shot-flow data for this season is still being processed.</div>'; return;
+    }
+    TDC_SHOTFLOW.render(host, rows, {subtitle:(player&&player.name)||'this player'});
+  }catch(e){ host.innerHTML=''; }
 }
 function _initShotSeasons(){
   var sel=document.getElementById('scSeasonSel'); if(!sel) return;

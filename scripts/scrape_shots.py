@@ -28,6 +28,22 @@ DONE=os.path.join(D,"shots_done.json")
 DELAY=0.35
 FT_RE=re.compile(r"free throw",re.I)
 DIST_RE=re.compile(r"(\d+)[- ]foot")
+AST_RE=re.compile(r"\(([^)]+?)\s+assists?\)",re.I)
+
+def shot_type(txt):
+    """Normalize ESPN PBP text to a shot-type bucket. Order matters: the
+    specific qualifiers ('floating', 'tip in', 'pullup') must be checked
+    before the generic 'jump shot' / 'layup' they contain."""
+    t=txt.lower()
+    if "tip"      in t: return "tip"
+    if "dunk"     in t: return "dunk"
+    if "floating" in t or "floater" in t: return "floater"
+    if "hook"     in t: return "hook"
+    if "pullup"   in t or "pull up" in t or "pull-up" in t: return "pullup"
+    if "step back" in t or "stepback" in t or "step-back" in t: return "stepback"
+    if "fadeaway" in t or "fade away" in t: return "fadeaway"
+    if "layup"    in t or "lay up" in t or "lay-up" in t or "layin" in t or "lay in" in t: return "layup"
+    return "jumper"
 
 def sb_get(path):
     req=urllib.request.Request(SB+"/rest/v1/"+path,headers=HDR)
@@ -79,11 +95,21 @@ def parse_shots(data, game_id, season_year):
             except Exception: return None
         try: pid=int(p["id"])
         except Exception: continue
+        made=bool(p.get("scoringPlay"))
+        ast_id=None; ast_name=None
+        if made:
+            am=AST_RE.search(txt)
+            if am:
+                ast_name=am.group(1).strip()
+                parts=p.get("participants") or []
+                if len(parts)>1:
+                    ast_id=i((parts[1].get("athlete") or {}).get("id"))
         out.append({"id":pid,"game_id":game_id,"season_year":season_year,
             "espn_id":i(ath.get("id")),"team_id":i((p.get("team") or {}).get("id")),
-            "x":c.get("x"),"y":c.get("y"),"made":bool(p.get("scoringPlay")),
+            "x":c.get("x"),"y":c.get("y"),"made":made,
             "sv":i(sv),"dist":i(dm.group(1)) if dm else None,
-            "period":i((p.get("period") or {}).get("number"))})
+            "period":i((p.get("period") or {}).get("number")),
+            "stype":shot_type(txt),"ast_id":ast_id,"ast_name":ast_name})
     return out
 
 def upload(rows):
