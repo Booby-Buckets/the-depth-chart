@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="auth.js"></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Coaching Lab — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#FBFAFF;--bg2:#F2EFFB;--bg3:#E9E4F7;--border:#E1DBF2;--border2:#C9BFE6;--text:#14101F;--text2:#463D5E;--text3:#847B9C;--accent:#8B3FE0;}
+    [data-theme="dark"]{--bg:#07060C;--bg2:#100D1A;--bg3:#181426;--border:#241F36;--border2:#382F54;--text:#F2EFFB;--text2:#A8A1C4;--text3:#6D6589;--accent:#B16BFF;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html{background:var(--bg);}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
+    a{color:inherit;text-decoration:none;}
+    .nav-wrap{border-bottom:1px solid var(--border);background:rgba(251,250,255,.66);backdrop-filter:blur(18px) saturate(180%);position:sticky;top:0;z-index:200;}
+    [data-theme="dark"] .nav-wrap{background:rgba(6,18,14,.84);border-bottom-color:rgba(26,43,68,.9);}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);letter-spacing:-.01em;}
+    .nav-logo span{color:var(--accent);}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .theme-toggle:hover{border-color:var(--accent);color:var(--text);}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
+    .nav-sub::-webkit-scrollbar{display:none;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:0 14px;height:100%;display:flex;align-items:center;position:relative;white-space:nowrap;flex-shrink:0;transition:color .2s;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a::after{content:'';position:absolute;bottom:0;left:14px;right:14px;height:2px;background:var(--accent);transform:scaleX(0);transform-origin:left center;transition:transform .22s;}
+    .nav-sub a:first-child::after{left:0;}
+    .nav-sub a:hover{color:var(--text);} .nav-sub a:hover::after{transform:scaleX(1);}
+    .nav-sub a.active{color:var(--text);} .nav-sub a.active::after{transform:scaleX(1);}
+    .wrap{max-width:1180px;margin:0 auto;padding:34px 22px 90px;}
+    .hd{margin-bottom:8px;}
+    .hd .ey{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);}
+    .hd h1{font-family:'Playfair Display',serif;font-weight:800;font-size:42px;letter-spacing:-.02em;}
+    .hd p{font-size:14px;color:var(--text3);margin-top:6px;max-width:640px;}
+    .sec-t{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:30px 0 12px;display:flex;align-items:center;gap:12px;}
+    .sec-t::after{content:'';flex:1;height:1px;background:var(--border);}
+    /* leaderboards */
+    .lb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;}
+    .lb{border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:15px 16px;}
+    .lb h3{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);margin-bottom:2px;}
+    .lb .sub{font-size:10.5px;color:var(--text3);margin-bottom:10px;}
+    .lb-row{display:flex;align-items:center;gap:9px;padding:5px 0;cursor:pointer;border-radius:6px;}
+    .lb-row:hover{background:var(--bg3);}
+    .lb-rk{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;color:var(--text3);width:18px;flex-shrink:0;text-align:center;}
+    .lb-nm{font-size:13px;font-weight:700;flex:1;line-height:1.15;}
+    .lb-nm small{display:block;font-size:10px;color:var(--text3);font-weight:500;}
+    .lb-v{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:var(--text);flex-shrink:0;}
+    /* filter + grid */
+    .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;}
+    .pill{font-size:11.5px;font-weight:700;padding:6px 12px;border-radius:20px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;white-space:nowrap;}
+    .pill.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+    .csearch{margin-left:auto;padding:8px 12px;font-size:13px;font-weight:600;color:var(--text);background:var(--bg2);border:1px solid var(--border2);border-radius:8px;outline:none;min-width:200px;}
+    .csearch:focus{border-color:var(--accent);}
+    .cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
+    .ccard{border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:16px;cursor:pointer;transition:transform .15s,border-color .2s,box-shadow .2s;}
+    .ccard:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:0 12px 30px rgba(80,40,150,.14);}
+    .ccard .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;}
+    .ccard .nm{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;line-height:1.05;}
+    .ccard .school{font-size:11.5px;color:var(--text3);margin-top:2px;}
+    .ccard .arch{font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);background:rgba(139,63,224,.1);padding:3px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0;}
+    .ccard .rec{font-size:12px;color:var(--text2);font-weight:600;margin-bottom:10px;}
+    .ccard .rec b{color:var(--text);}
+    .bars{display:flex;flex-direction:column;gap:5px;}
+    .bar-row{display:flex;align-items:center;gap:8px;font-size:9.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
+    .bar-row .bl{width:64px;flex-shrink:0;text-align:right;}
+    .bar-track{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+    .bar-fill{height:100%;border-radius:3px;background:var(--accent);}
+    .bar-row .bv{width:22px;flex-shrink:0;text-align:right;color:var(--text2);}
+    /* modal */
+    .modal{position:fixed;inset:0;background:rgba(10,6,20,.6);display:none;align-items:flex-start;justify-content:center;z-index:300;padding:5vh 16px;overflow-y:auto;}
+    .modal.on{display:flex;}
+    .msheet{width:100%;max-width:720px;background:var(--bg);border:1px solid var(--border2);border-radius:16px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.4);}
+    .mhead{padding:20px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:16px;background:var(--bg2);}
+    .mhead .nm{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;line-height:1.05;}
+    .mhead .meta{font-size:12px;color:var(--text3);margin-top:4px;}
+    .mhead .arch{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:var(--accent);padding:5px 11px;border-radius:20px;display:inline-block;margin-top:8px;}
+    .mclose{border:none;background:none;color:var(--text3);font-size:20px;cursor:pointer;flex-shrink:0;}
+    .mbody{padding:20px 22px;}
+    .mstats{display:flex;gap:22px;flex-wrap:wrap;margin-bottom:18px;}
+    .mstat .n{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;}
+    .mstat .l{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .mcols{display:grid;grid-template-columns:280px 1fr;gap:22px;}
+    .radar-wrap{text-align:center;}
+    .tags{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px;}
+    .tag{font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);background:rgba(139,63,224,.1);border:1px solid rgba(139,63,224,.25);padding:3px 8px;border-radius:20px;}
+    .tl{margin-top:6px;}
+    .tl-h{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+    .tl-row{display:grid;grid-template-columns:54px 1fr auto auto;gap:10px;align-items:center;font-size:12.5px;padding:4px 0;border-bottom:1px solid var(--border);}
+    .tl-row .yr{font-weight:700;color:var(--text3);font-size:11px;}
+    .tl-row .sc{font-weight:700;color:var(--text);}
+    .tl-row .wl{color:var(--text2);font-variant-numeric:tabular-nums;}
+    .tl-row .srs{font-weight:700;font-variant-numeric:tabular-nums;font-size:11px;}
+    .loading{padding:70px;text-align:center;color:var(--text3);}
+    @media(max-width:680px){.nav-top,.nav-sub{padding-left:16px;padding-right:16px;}.hd h1{font-size:32px;}.mcols{grid-template-columns:1fr;}.csearch{margin-left:0;width:100%;}}
+  </style>
+</head>
+<body>
+  <div class="nav-wrap">
+    <div class="nav-top">
+      <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">🌙</button>
+    </div>
+    <div class="nav-sub">
+      <a href="index.html">Rankings</a>
+      <a href="roster.html">Players</a>
+      <a href="draft.html">Draft</a>
+      <a href="analytics.html">Stats</a>
+      <a href="tournaments.html">Tournaments</a>
+      <a href="coaches.html" class="active">Coaches</a>
+      <a href="games.html">Games</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="hd">
+      <div class="ey">College Basketball · Coaching Lab</div>
+      <h1>Coaching Lab</h1>
+      <p>Twenty years of every coach's tendencies — pace, how deep they run their bench, shot diet, ball movement, defensive pressure and star reliance — turned into style archetypes.</p>
+    </div>
+    <div id="content"><div class="loading">Loading coach profiles…</div></div>
+  </div>
+
+  <div class="modal" id="modal"><div class="msheet" id="msheet"></div></div>
+
+<script>
+function toggleTheme(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');document.getElementById('themeBtn').textContent=d?'🌙':'☀️';try{localStorage.setItem('tdc_theme',d?'light':'dark');}catch(e){}}
+(function(){try{var s=localStorage.getItem('tdc_theme');if(s){document.documentElement.setAttribute('data-theme',s);var b=document.getElementById('themeBtn');if(b)b.textContent=s==='dark'?'☀️':'🌙';}}catch(e){}})();
+
+let PROF=[], BYSLUG={}, SEASONS={}, curArch='All', curQ='';
+// radar axes: [label, pctl-key, invert?]
+const AXES=[['Pace','poss_pg'],['Bench','rotation_size'],['3PT Vol','three_pa_rate'],['Ball Move','ast_rate'],['TO Force','opp_tov_pg'],['Star Use','top_scorer_share']];
+const BARS=[['Pace','poss_pg'],['Bench','rotation_size'],['3PT','three_pa_rate'],['Ball Mv','ast_rate'],['Defense','opp_tov_pg'],['Star Use','top_scorer_share']];
+
+function seasonLbl(y){y=+y;return (y-1)+'-'+(''+y).slice(2);}
+function lastSchool(p){ var s=(SEASONS[p.coach_slug]||[]); return s.length?s[s.length-1].school:(p.schools||'').split(',')[0]; }
+
+// ── leaderboards ──
+const LBS=[
+  {k:'poss_pg',t:'Fastest Pace',s:'possessions / game',fmt:v=>v.toFixed(1),desc:true},
+  {k:'rotation_size',t:'Deepest Bench',s:'players 10+ min / game',fmt:v=>v.toFixed(1),desc:true},
+  {k:'three_pa_rate',t:'Most Three-Happy',s:'% of shots from 3',fmt:v=>v.toFixed(0)+'%',desc:true},
+  {k:'top_scorer_share',t:'Most Star-Reliant',s:'top scorer share',fmt:v=>v.toFixed(0)+'%',desc:true},
+  {k:'opp_tov_pg',t:'Turnover Hawks',s:'turnovers forced / game',fmt:v=>v.toFixed(1),desc:true},
+  {k:'ast_rate',t:'Best Ball Movement',s:'assists / made FG',fmt:v=>v.toFixed(0)+'%',desc:true},
+];
+function leaderboardsHtml(){
+  var pool=PROF.filter(p=>p.seasons>=4);
+  return '<div class="lb-grid">'+LBS.map(function(L){
+    var top=pool.slice().sort((a,b)=>(b[L.k]||0)-(a[L.k]||0)).slice(0,5);
+    return '<div class="lb"><h3>'+L.t+'</h3><div class="sub">'+L.s+'</div>'+
+      top.map(function(p,i){return '<div class="lb-row" onclick="openCoach(\''+p.coach_slug+'\')">'+
+        '<span class="lb-rk">'+(i+1)+'</span><span class="lb-nm">'+p.coach+'<small>'+lastSchool(p)+'</small></span>'+
+        '<span class="lb-v">'+L.fmt(p[L.k]||0)+'</span></div>';}).join('')+'</div>';
+  }).join('')+'</div>';
+}
+
+// ── coach cards ──
+function cardBars(p){
+  return '<div class="bars">'+BARS.map(function(b){
+    var v=(p.pctl&&p.pctl[b[1]])||0;
+    return '<div class="bar-row"><span class="bl">'+b[0]+'</span><span class="bar-track"><span class="bar-fill" style="width:'+v+'%"></span></span><span class="bv">'+v+'</span></div>';
+  }).join('')+'</div>';
+}
+function coachCard(p){
+  return '<div class="ccard" onclick="openCoach(\''+p.coach_slug+'\')">'+
+    '<div class="top"><div><div class="nm">'+p.coach+'</div><div class="school">'+lastSchool(p)+' · '+p.seasons+' seasons</div></div>'+
+    '<span class="arch">'+p.archetype+'</span></div>'+
+    '<div class="rec"><b>'+p.wins+'-'+p.losses+'</b> ('+(p.win_pct*100).toFixed(0)+'%)'+(p.avg_srs!=null?' · SRS '+(p.avg_srs>=0?'+':'')+p.avg_srs.toFixed(1):'')+'</div>'+
+    cardBars(p)+'</div>';
+}
+function render(){
+  var arches=['All'].concat([...new Set(PROF.map(p=>p.archetype))].sort());
+  var filtered=PROF.filter(p=>p.seasons>=3)
+    .filter(p=>curArch==='All'||p.archetype===curArch)
+    .filter(p=>!curQ||p.coach.toLowerCase().includes(curQ)||(lastSchool(p)||'').toLowerCase().includes(curQ))
+    .sort((a,b)=>b.wins-a.wins);
+  document.getElementById('content').innerHTML=
+    '<div class="sec-t">Style Leaderboards <span style="color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;">20-year careers, 4+ seasons</span></div>'+
+    leaderboardsHtml()+
+    '<div class="sec-t">Every Coach <span style="color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;">'+filtered.length+' shown</span></div>'+
+    '<div class="filters">'+arches.map(a=>'<span class="pill '+(a===curArch?'on':'')+'" onclick="setArch(\''+a+'\')">'+a+'</span>').join('')+
+    '<input class="csearch" placeholder="Search coach or school…" oninput="setQ(this.value)" value="'+curQ.replace(/"/g,'&quot;')+'"></div>'+
+    '<div class="cgrid">'+filtered.map(coachCard).join('')+'</div>';
+  var s=document.querySelector('.csearch'); if(s&&curQ){s.focus();s.setSelectionRange(curQ.length,curQ.length);}
+}
+function setArch(a){curArch=a;render();}
+function setQ(v){curQ=(v||'').toLowerCase().trim();render();}
+
+// ── radar (hexagon) ──
+function radar(p, size){
+  var cx=size/2, cy=size/2, R=size/2-34, n=AXES.length;
+  function pt(i,r){var ang=-Math.PI/2+i*2*Math.PI/n;return [cx+Math.cos(ang)*r, cy+Math.sin(ang)*r];}
+  var rings='';
+  [0.25,0.5,0.75,1].forEach(function(f){
+    var pts=AXES.map((_,i)=>pt(i,R*f).join(',')).join(' ');
+    rings+='<polygon points="'+pts+'" fill="none" stroke="var(--border)" stroke-width="1"/>';
+  });
+  var spokes='',labels='';
+  AXES.forEach(function(a,i){
+    var e=pt(i,R); spokes+='<line x1="'+cx+'" y1="'+cy+'" x2="'+e[0]+'" y2="'+e[1]+'" stroke="var(--border)" stroke-width="1"/>';
+    var l=pt(i,R+20); var v=(p.pctl&&p.pctl[a[1]])||0;
+    labels+='<text x="'+l[0]+'" y="'+l[1]+'" text-anchor="middle" dominant-baseline="middle" font-size="10" font-weight="700" fill="var(--text3)">'+a[0]+'</text>';
+    labels+='<text x="'+l[0]+'" y="'+(l[1]+11)+'" text-anchor="middle" font-size="9" font-weight="800" fill="var(--accent)">'+v+'</text>';
+  });
+  var poly=AXES.map(function(a,i){var v=(p.pctl&&p.pctl[a[1]])||0;return pt(i,R*v/100).join(',');}).join(' ');
+  return '<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'">'+rings+spokes+
+    '<polygon points="'+poly+'" fill="var(--accent)" fill-opacity="0.22" stroke="var(--accent)" stroke-width="2"/>'+labels+'</svg>';
+}
+
+// ── detail modal ──
+function openCoach(slug){
+  var p=BYSLUG[slug]; if(!p) return;
+  var ss=(SEASONS[slug]||[]).slice().sort((a,b)=>b.season_year-a.season_year);
+  var tl=ss.map(function(s){return '<div class="tl-row"><span class="yr">'+seasonLbl(s.season_year)+'</span>'+
+    '<span class="sc">'+s.school+'</span><span class="wl">'+(s.wins!=null?s.wins+'-'+s.losses:'—')+'</span>'+
+    '<span class="srs" style="color:'+(s.srs>=0?'#1f9d57':'#cf5a4e')+'">'+(s.srs!=null?(s.srs>=0?'+':'')+s.srs.toFixed(1):'')+'</span></div>';}).join('');
+  document.getElementById('msheet').innerHTML=
+    '<div class="mhead"><div><div class="nm">'+p.coach+'</div>'+
+      '<div class="meta">'+p.schools+' · '+seasonLbl(p.first_year)+' to '+seasonLbl(p.last_year)+'</div>'+
+      '<span class="arch">'+p.archetype+'</span></div>'+
+      '<button class="mclose" onclick="closeModal()">✕</button></div>'+
+    '<div class="mbody">'+
+      '<div class="mstats">'+
+        '<div class="mstat"><div class="n">'+p.wins+'-'+p.losses+'</div><div class="l">Record</div></div>'+
+        '<div class="mstat"><div class="n">'+(p.win_pct*100).toFixed(1)+'%</div><div class="l">Win %</div></div>'+
+        '<div class="mstat"><div class="n">'+p.seasons+'</div><div class="l">Seasons</div></div>'+
+        '<div class="mstat"><div class="n">'+(p.avg_srs>=0?'+':'')+(p.avg_srs!=null?p.avg_srs.toFixed(1):'—')+'</div><div class="l">Avg SRS</div></div>'+
+      '</div>'+
+      '<div class="mcols"><div class="radar-wrap">'+radar(p,260)+
+        '<div class="tags">'+(p.tags||'').split(', ').filter(Boolean).map(t=>'<span class="tag">'+t+'</span>').join('')+'</div>'+
+        '<div style="font-size:10.5px;color:var(--text3);margin-top:6px;">Percentiles vs all '+PROF.length+' coaches</div></div>'+
+      '<div class="tl"><div class="tl-h">Career Timeline</div>'+tl+'</div></div>'+
+    '</div>';
+  document.getElementById('modal').classList.add('on');
+}
+function closeModal(){document.getElementById('modal').classList.remove('on');}
+document.getElementById('modal').addEventListener('click',function(e){if(e.target.id==='modal')closeModal();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+async function init(){
+  try{
+    const [prof, seas]=await Promise.all([
+      fetch('scripts/data/coach_profiles.json').then(r=>r.json()),
+      fetch('scripts/data/coach_seasons.json').then(r=>r.json()).catch(()=>[])
+    ]);
+    PROF=prof; PROF.forEach(p=>BYSLUG[p.coach_slug]=p);
+    (seas||[]).forEach(function(s){ if(!s.coach_slug)return; (SEASONS[s.coach_slug]=SEASONS[s.coach_slug]||[]).push(s); });
+    Object.values(SEASONS).forEach(a=>a.sort((x,y)=>x.season_year-y.season_year));
+    render();
+  }catch(e){ document.getElementById('content').innerHTML='<div class="loading">Could not load coach data. '+e.message+'</div>'; }
+}
+init();
+</script>
+</body>
+</html>
