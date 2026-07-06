@@ -438,7 +438,7 @@ function renderLeaders(){
     var best=null;
     for(var i=0;i<FILT.length;i++){ var v=FILT[i][k]; if(v===null||!isFinite(v)) continue; if(!best || (st.inv? v<best[k] : v>best[k])) best=FILT[i]; }
     if(!best) return;
-    var link=best.espn_id?('player.html?espn='+best.espn_id):'#';
+    var link=best.espn_id?('player.html?espn='+best.espn_id):('player.html?name='+encodeURIComponent(best.name)+'&team='+encodeURIComponent(best.school||''));
     html+='<div class="leader-card"><div class="leader-label">'+st.l+' Leader</div>'+
       '<div class="leader-stat">'+fmt(best[k],st)+'</div>'+
       '<div class="leader-team"><a href="'+link+'">'+best.name+'</a></div>'+
@@ -464,7 +464,7 @@ function renderTable(){
   // body
   var body='';
   shown.forEach((r,i)=>{
-    var link=r.espn_id?('player.html?espn='+r.espn_id):'#';
+    var link=r.espn_id?('player.html?espn='+r.espn_id):('player.html?name='+encodeURIComponent(r.name)+'&team='+encodeURIComponent(r.school||''));
     body+='<tr><td>'+(i+1)+'</td>'+
       '<td class="team-cell"><a class="pl-name" href="'+link+'">'+r.name+'</a><div class="pl-school">'+r.school+'</div></td>'+
       (allSeasons?'<td style="text-align:left;font-weight:600;color:var(--text3)">'+seasonLbl(''+r.season)+'</td>':'')+
