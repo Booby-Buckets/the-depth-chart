@@ -52,8 +52,23 @@
     return {cols:cols, vals:vals, made:shots.map(function(s){return s.made;})};
   }
 
-  var W=900, H=500, PADT=20, PADB=36, NW=13, GAP=13, MINH=5;
+  var W=900, H=500, PADT=20, PADB=36, NW=13, GAP=15, MINH=15; // MINH+GAP >= label-box height (26) so labels never overlap
   var colX=[]; // computed
+  // find px-per-shot for one column so its nodes (each >= MINH tall) + gaps
+  // exactly fill usableH; small nodes get pinned at MINH and the rest scale
+  function fitPps(totals, usableH){
+    var n=totals.length; if(!n) return Infinity;
+    var avail=usableH-(n-1)*GAP, pinned={};
+    for(var it=0;it<=n;it++){
+      var freeSum=0, pinH=0;
+      totals.forEach(function(t,i){ if(pinned[i]) pinH+=MINH; else freeSum+=t; });
+      var pps=freeSum>0 ? (avail-pinH)/freeSum : 0;
+      var changed=false;
+      totals.forEach(function(t,i){ if(!pinned[i] && t*pps<MINH){ pinned[i]=1; changed=true; } });
+      if(!changed) return pps;
+    }
+    return avail/Math.max(1,totals.reduce(function(s,t){return s+t;},0));
+  }
   function shortName(n){
     if(n==='Unassisted'||n==='Other') return n;
     var p=n.trim().split(/\s+/); return p.length>1 ? p[p.length-1] : n;
@@ -74,13 +89,12 @@
       return order.map(function(k){return {col:ci,name:k,tot:tot[k]};});
     });
 
-    // vertical scale: pick pxPerShot so the binding column exactly fits
+    // vertical scale: the most-constrained column (most nodes / most pinned at
+    // MINH) sets pxPerShot; every column then fits usableH with no overlap
     var usableH=H-PADT-PADB, pps=Infinity;
     nodes.forEach(function(list){
-      var t=0; list.forEach(function(n){t+=n.tot;});
-      if(!t) return;
-      var avail=usableH-(list.length-1)*GAP;
-      pps=Math.min(pps, avail/t);
+      if(!list.length) return;
+      pps=Math.min(pps, fitPps(list.map(function(n){return n.tot;}), usableH));
     });
     // x positions
     var innerL=120, innerR=W-98, span=innerR-innerL;
@@ -200,7 +214,7 @@
       '.sf-g{width:16px;height:9px;border-radius:2px;background:rgba(56,150,100,.75);display:inline-block;}'+
       '.sf-t{width:16px;height:9px;border-radius:2px;background:rgba(198,168,112,.85);display:inline-block;}'+
       '.sf-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}'+
-      '.sf-wrap{position:relative;min-width:660px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:8px 6px;}'+
+      '.sf-wrap{position:relative;min-width:660px;max-width:900px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:8px 6px;}'+
       '.sf-svg{width:100%;height:auto;display:block;overflow:visible;}'+
       '.sf-rib{animation:sfRib .5s ease backwards;transition:fill-opacity .15s,opacity .15s;cursor:pointer;}'+
       '.sf-rib:hover{fill-opacity:.9!important;}'+
