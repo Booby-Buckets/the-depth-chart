@@ -5,7 +5,7 @@
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js"></script>
   <script src="tdc-shotchart.js?v=6"></script>
-  <script src="tdc-shotflow.js?v=6"></script>
+  <script src="tdc-shotflow.js?v=7"></script>
   <script src="tdc-nil.js"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-proj.js"></script>
@@ -102,6 +102,9 @@
     .tab-btn.active::after{transform:scaleX(1);}
     .tab-btn:hover:not(.active){color:var(--text2);}
     .tab-panel{display:none;padding:28px 40px 60px;}
+    .shot-analytics{display:grid;grid-template-columns:1fr;gap:34px;margin:34px 0;}
+    .sa-col{min-width:0;}
+    @media(min-width:1360px){.shot-analytics{grid-template-columns:minmax(420px,540px) minmax(0,1fr);gap:44px;align-items:start;}}
     .tab-panel.active{display:block;}
     /* Full Stats sub-modes */
     .statmode-row{display:inline-flex;gap:4px;padding:4px;background:var(--bg2);border:1px solid var(--border);border-radius:9px;margin-bottom:16px;}
@@ -2298,13 +2301,19 @@ function renderPage(){
       <div style="overflow-x:auto;" id="sm-body-pergame">${renderStatTable(p, proj)}</div>
       <div style="overflow-x:auto;display:none;" id="sm-body-per40">${renderModeTable('per40')}</div>
       <div style="overflow-x:auto;display:none;" id="sm-body-advanced">${renderModeTable('advanced')}</div>
-      <div class="sec-title" style="margin:34px 0 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-        <span>Shot Chart</span>
-        <select id="scSeasonSel" class="exp-sel" style="padding:6px 9px;font-size:12px;" onchange="loadShotChart(this.value)"></select>
+      <div class="shot-analytics">
+        <div class="sa-col">
+          <div class="sec-title" style="margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <span>Shot Chart</span>
+            <select id="scSeasonSel" class="exp-sel" style="padding:6px 9px;font-size:12px;" onchange="loadShotChart(this.value)"></select>
+          </div>
+          <div id="shotChartHost"></div>
+        </div>
+        <div class="sa-col">
+          <div class="sec-title" style="margin:0 0 14px;">Shot Flow</div>
+          <div id="shotFlowHost"></div>
+        </div>
       </div>
-      <div id="shotChartHost"></div>
-      <div class="sec-title" style="margin:34px 0 14px;">Shot Flow</div>
-      <div id="shotFlowHost"></div>
       <div class="sec-title" style="margin:34px 0 14px;">Game Log</div>
       <div id="sm-body-gamelog"></div>
     </div>

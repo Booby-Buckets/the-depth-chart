@@ -260,7 +260,7 @@
       '.sf-legend span{display:inline-flex;align-items:center;gap:6px;}'+
       '.sf-legend i{width:16px;height:9px;border-radius:2px;display:inline-block;}'+
       '.sf-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}'+
-      '.sf-wrap{position:relative;min-width:660px;max-width:900px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:8px 6px;}'+
+      '.sf-wrap{position:relative;min-width:660px;max-width:1200px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:8px 6px;}'+
       '.sf-svg{width:100%;height:auto;display:block;overflow:visible;}'+
       // entrance: the reveal clip grows left->right so ribbons flow through the columns
       '.sf-revrect{transform-box:fill-box;transform-origin:left center;animation:sfReveal 1.25s cubic-bezier(.45,.05,.25,1) both;}'+
