@@ -12,6 +12,12 @@
   function px(fx){return fx*FT;}
   function py(fy){return H-fy*FT;}        // baseline at the bottom, y grows up
   function clampx(v){return Math.max(0,Math.min(50,v));}
+  // ESPN coords aren't 1 unit = 1 foot: x is ~1.02 ft/unit but the y (baseline)
+  // axis is compressed at ~1.27 ft/unit. Convert raw x/y to true court-feet so
+  // shots land on the drawn lines (fitted from reported shot distances).
+  var SX=1.022, SY=1.266;
+  function fxf(x){ return HOOP_X + ((x==null?HOOP_X:x)-HOOP_X)*SX; }
+  function fyf(y){ return HOOP_Y + ((y==null?HOOP_Y:y)-HOOP_Y)*SY; }
   function edist(s){
     if(s.dist!=null && s.dist>=0) return s.dist;
     var dx=(s.x||0)-HOOP_X, dy=(s.y||0)-HOOP_Y; return Math.sqrt(dx*dx+dy*dy);
@@ -69,7 +75,7 @@
   function hexbinSvg(shots){
     var bins={};
     shots.forEach(function(s){
-      var k=axial(clampx(s.x), Math.max(-2,s.y));
+      var k=axial(clampx(fxf(s.x)), Math.max(-2,fyf(s.y)));
       var b=bins[k]||(bins[k]={att:0,mk:0,three:0});
       b.att++; if(s.made)b.mk++; if(s.sv===3)b.three++;
     });
@@ -107,7 +113,7 @@
     var GW=90, GH=76, grid=new Float32Array(GW*GH);
     function gx(fx){ return Math.max(0,Math.min(GW-1, Math.round(clampx(fx)/50*(GW-1)))); }
     function gy(fy){ fy=Math.max(-2,Math.min(42,fy)); return Math.max(0,Math.min(GH-1, Math.round((1-fy/42)*(GH-1)))); }
-    shots.forEach(function(s){ grid[gy(s.y)*GW+gx(s.x)]+=1; });
+    shots.forEach(function(s){ grid[gy(fyf(s.y))*GW+gx(fxf(s.x))]+=1; });
     blur(grid,GW,GH,2); blur(grid,GW,GH,2); blur(grid,GW,GH,2);
     // normalize to a high percentile (not the absolute max) so the ultra-dense
     // rim doesn't crush the visibility of the three-point band
@@ -163,7 +169,7 @@
         '<div class="sc-heat-legend"><span>Shot frequency</span><i class="sc-grad"></i><span style="color:var(--text3)">low → high</span></div>';
     } else {
       var dots=shots.map(function(s,i){
-        var cx=px(clampx(s.x)), cy=py(Math.max(-2,s.y));
+        var cx=px(clampx(fxf(s.x))), cy=py(Math.max(-2,fyf(s.y)));
         var zc={rim:'sc-zr',mid:'sc-zm',three:'sc-zt'}[zoneOf(s)];
         var tip=(s.made?'Made':'Missed')+' '+(s.sv===3?'3PT':'2PT')+' · '+Math.round(edist(s))+' ft';
         var dl='style="animation-delay:'+Math.min(i*2,750)+'ms"';
@@ -175,7 +181,7 @@
         '<span style="margin-left:auto;color:var(--text3);font-size:10px;">hover a shot · hover a zone card to isolate it</span></div>'+
         '<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+court('rgba(130,123,156,.55)')+dots+'</svg><div class="sc-tip"></div></div>';
     }
-    el.innerHTML=head+body+zoneStrip(shots);
+    el.innerHTML=head+'<div class="sc-main"><div class="sc-court-col">'+body+'</div>'+zoneStrip(shots)+'</div>';
     el.classList.remove('sc-settled');
     if(mode==='heat') drawHeat(el, shots);
     wire(el);
@@ -226,7 +232,9 @@
       '.sc-mk-legend span{display:inline-flex;align-items:center;gap:6px;}'+
       '.sc-made{width:11px;height:11px;border-radius:50%;background:#1f9d57;display:inline-block;}'+
       '.sc-miss{width:9px;height:9px;border:1.6px solid #cf5a4e;display:inline-block;transform:rotate(45deg);}'+
-      '.sc-court-wrap{position:relative;max-width:580px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:10px;animation:scFade .5s ease backwards;}'+
+      '.sc-main{display:flex;gap:12px;align-items:stretch;}'+
+      '.sc-court-col{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;}'+
+      '.sc-court-wrap{position:relative;min-width:0;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:10px;animation:scFade .5s ease backwards;}'+
       '.sc-heat-wrap{background:#07060c;border-color:#1a1626;}'+
       '.sc-svg{width:100%;height:auto;display:block;}'+
       '.sc-cl{stroke-dasharray:1;stroke-dashoffset:0;animation:scDraw 1s ease .1s backwards;}'+
@@ -243,8 +251,9 @@
       '.sc-grad{width:150px;height:10px;border-radius:5px;display:inline-block;background:linear-gradient(90deg,#000004,#280b54,#65156e,#9f2a63,#d44842,#f57d15,#fac127,#fcffa4);}'+
       '.sc-eff-legend{max-width:580px;margin:10px auto 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;font-size:11px;font-weight:700;color:var(--text2);animation:scUp .5s ease .3s backwards;}'+
       '.sc-effgrad{width:160px;height:10px;border-radius:5px;display:inline-block;background:linear-gradient(90deg,#3e74cc,#eeeef2,#c4362e);}'+
-      '.sc-zones{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:16px;max-width:600px;margin-left:auto;margin-right:auto;}'+
-      '.sc-z{text-align:center;border:1px solid var(--border);border-radius:11px;padding:11px 4px;background:var(--bg2);animation:scUp .45s ease backwards;transition:transform .15s,border-color .15s,box-shadow .15s;}'+
+      '.sc-zones{display:flex;flex-direction:column;gap:10px;flex:0 0 132px;}'+
+      '.sc-z{flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center;border:1px solid var(--border);border-radius:11px;padding:10px 6px;background:var(--bg2);animation:scUp .45s ease backwards;transition:transform .15s,border-color .15s,box-shadow .15s;}'+
+      '@media(max-width:600px){.sc-main{flex-direction:column;}.sc-zones{flex-direction:row;flex:0 0 auto;}.sc-z{flex:1;}}'+
       '.sc-z[data-zone]{cursor:pointer;}'+
       '.sc-z[data-zone]:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:0 8px 20px rgba(80,40,150,.15);}'+
       '.sc-zv{font-family:\'Playfair Display\',serif;font-weight:800;font-size:19px;}'+
