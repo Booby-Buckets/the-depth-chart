@@ -28,7 +28,9 @@ DONE=os.path.join(D,"shots_done.json")
 DELAY=0.35
 FT_RE=re.compile(r"free throw",re.I)
 DIST_RE=re.compile(r"(\d+)[- ]foot")
-AST_RE=re.compile(r"\(([^)]+?)\s+assists?\)",re.I)
+# ESPN uses TWO assist text formats depending on the data feed:
+#   "...makes layup (Markus Burton assists)"   and   "...made Layup. Assisted by Markus Burton."
+AST_RE=re.compile(r"\(([^)]+?)\s+assists?\)|assisted by\s+([^.,;()]+)",re.I)
 
 def shot_type(txt):
     """Normalize ESPN PBP text to a shot-type bucket. Order matters: the
@@ -100,7 +102,7 @@ def parse_shots(data, game_id, season_year):
         if made:
             am=AST_RE.search(txt)
             if am:
-                ast_name=am.group(1).strip()
+                ast_name=(am.group(1) or am.group(2)).strip().rstrip(".")
                 parts=p.get("participants") or []
                 if len(parts)>1:
                     ast_id=i((parts[1].get("athlete") or {}).get("id"))
