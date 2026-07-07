@@ -47,11 +47,24 @@
     .radar-wrap{text-align:center;}
     .tags{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:12px 0 2px;}
     .tag{font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);background:rgba(139,63,224,.1);border:1px solid rgba(139,63,224,.25);padding:3px 8px;border-radius:20px;}
-    .tl-row{display:grid;grid-template-columns:64px 1fr auto auto;gap:12px;align-items:center;font-size:13px;padding:7px 0;border-bottom:1px solid var(--border);}
+    .tl-row{display:grid;grid-template-columns:64px 1fr auto 78px 52px;gap:12px;align-items:center;font-size:13px;padding:7px 0;border-bottom:1px solid var(--border);}
     .tl-row .yr{font-weight:700;color:var(--text3);font-size:11.5px;}
     .tl-row .sc{font-weight:700;}
     .tl-row .wl{color:var(--text2);font-variant-numeric:tabular-nums;}
-    .tl-row .srs{font-weight:800;font-variant-numeric:tabular-nums;font-size:11.5px;}
+    .tl-row .ppg{color:var(--text2);font-variant-numeric:tabular-nums;text-align:right;font-size:12px;}
+    .tl-row .ppg small{font-size:8.5px;color:var(--text3);font-weight:700;letter-spacing:.03em;}
+    .tl-row .srs{font-weight:800;font-variant-numeric:tabular-nums;font-size:11.5px;text-align:right;}
+    /* style trends */
+    .sc-legend{display:flex;gap:16px;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px;}
+    .sc-legend span{display:inline-flex;align-items:center;gap:6px;} .sc-legend i{width:12px;height:3px;border-radius:2px;}
+    .sc-chart{width:100%;height:auto;display:block;overflow:visible;}
+    .trend-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:12px;margin-top:14px;}
+    .tcard{border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:12px 13px;}
+    .tc-top{display:flex;justify-content:space-between;align-items:baseline;}
+    .tc-l{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);}
+    .tc-v{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;}
+    .tc-spark{margin:8px 0 6px;height:30px;} .tc-spark svg{width:100%;height:30px;}
+    .tc-d{font-size:9.5px;font-weight:700;}
     /* best team */
     .bt-card{border:1px solid var(--border);border-radius:14px;background:linear-gradient(150deg,color-mix(in srgb,var(--accent) 8%,var(--bg2)),var(--bg2));padding:20px;}
     .bt-top{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:4px;}
@@ -126,10 +139,48 @@ function radar(p, size){
 
 function num(v,d){ return v==null?'—':(typeof v==='number'?v.toFixed(d==null?1:d):v); }
 
+// mini trend line
+function spark(vals,color,w,h){
+  var v=vals.filter(x=>x!=null); if(v.length<2) return '';
+  var mn=Math.min(...v),mx=Math.max(...v),rng=(mx-mn)||1;
+  var pts=vals.map((x,i)=> x==null?null:((i/(vals.length-1)*w).toFixed(1)+','+(h-(x-mn)/rng*h).toFixed(1))).filter(Boolean).join(' ');
+  var lastI=vals.length-1; while(lastI>=0&&vals[lastI]==null)lastI--;
+  var cx=lastI/(vals.length-1)*w, cy=vals[lastI]==null?h:(h-(vals[lastI]-mn)/rng*h);
+  return '<svg viewBox="0 0 '+w+' '+h+'" width="'+w+'" height="'+h+'" preserveAspectRatio="none">'+
+    '<polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'+
+    '<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="2.4" fill="'+color+'"/></svg>';
+}
+function trendCard(trend,label,key,color,dec){
+  var vals=trend.map(t=>t[key]); var v=vals.filter(x=>x!=null); if(v.length<2) return '';
+  var first=v[0],last=v[v.length-1],d=last-first;
+  return '<div class="tcard"><div class="tc-top"><span class="tc-l">'+label+'</span><span class="tc-v">'+last.toFixed(dec||1)+'</span></div>'+
+    '<div class="tc-spark">'+spark(vals,color,120,30)+'</div>'+
+    '<div class="tc-d" style="color:'+(d>=0?'var(--green)':'var(--red)')+'">'+(d>=0?'▲ +':'▼ −')+Math.abs(d).toFixed(1)+' since '+seasonLbl(trend[0].yr)+'</div></div>';
+}
+// points scored vs allowed over the career
+function scoringChart(trend){
+  var t=trend.filter(x=>x.ppg!=null||x.oppg!=null); if(t.length<2) return '';
+  var W=720,H=210,pl=38,pr=78,pt=16,pb=30,iw=W-pl-pr,ih=H-pt-pb;
+  var all=[]; t.forEach(x=>{if(x.ppg!=null)all.push(x.ppg);if(x.oppg!=null)all.push(x.oppg);});
+  var mn=Math.floor(Math.min(...all)-2),mx=Math.ceil(Math.max(...all)+2);
+  var X=i=>pl+iw*i/(t.length-1), Y=v=>pt+ih*(1-(v-mn)/(mx-mn));
+  var g='';
+  for(var v=Math.ceil(mn/5)*5;v<=mx;v+=5){ var y=Y(v); g+='<line x1="'+pl+'" y1="'+y+'" x2="'+(W-pr)+'" y2="'+y+'" stroke="var(--border)"/><text x="'+(pl-7)+'" y="'+(y+3)+'" text-anchor="end" font-size="9.5" fill="var(--text3)">'+v+'</text>'; }
+  t.forEach((x,i)=>{ if(i%Math.ceil(t.length/8)===0||i===t.length-1) g+='<text x="'+X(i)+'" y="'+(H-10)+'" text-anchor="middle" font-size="9.5" fill="var(--text3)">\''+(''+x.yr).slice(2)+'</text>'; });
+  function ln(key,col){ var pts=t.map((x,i)=>x[key]==null?null:(X(i)+','+Y(x[key]))).filter(Boolean).join(' ');
+    var li=t.length-1; return '<polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="2.5" stroke-linejoin="round"/>'+
+      '<circle cx="'+X(li)+'" cy="'+Y(t[li][key])+'" r="3.5" fill="'+col+'"/><text x="'+(X(li)+8)+'" y="'+(Y(t[li][key])+3)+'" font-size="11" font-weight="800" fill="'+col+'">'+t[li][key].toFixed(1)+'</text>'; }
+  g+=ln('ppg','var(--green)')+ln('oppg','var(--red)');
+  return '<div class="sc-legend"><span><i style="background:var(--green)"></i>Points scored</span><span><i style="background:var(--red)"></i>Points allowed</span></div>'+
+    '<svg viewBox="0 0 '+W+' '+H+'" class="sc-chart">'+g+'</svg>';
+}
+
 function render(p, ss, pg){
   ss=ss.slice().sort((a,b)=>b.season_year-a.season_year);
+  var ppgBy={}; if(pg&&pg.trend) pg.trend.forEach(t=>{ if(t.ppg!=null) ppgBy[t.yr]=t.ppg; });
   var tl=ss.map(s=>'<div class="tl-row"><span class="yr">'+seasonLbl(s.season_year)+'</span><span class="sc">'+s.school+'</span>'+
     '<span class="wl">'+(s.wins!=null?s.wins+'-'+s.losses:'—')+'</span>'+
+    '<span class="ppg">'+(ppgBy[s.season_year]!=null?ppgBy[s.season_year].toFixed(1)+' <small>PPG</small>':'')+'</span>'+
     '<span class="srs" style="color:'+(s.srs>=0?'var(--green)':'var(--red)')+'">'+(s.srs!=null?(s.srs>=0?'+':'')+s.srs.toFixed(1):'')+'</span></div>').join('');
 
   var stat=(n,l)=>'<div class="cstat"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>';
@@ -151,6 +202,20 @@ function render(p, ss, pg){
     '<div class="card"><div class="tl-h" style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">Career Timeline</div>'+tl+'</div></div>';
 
   if(pg){
+    var tr=(pg.trend||[]).slice().sort((a,b)=>a.yr-b.yr);
+    if(tr.length>=2){
+      var cards=[
+        trendCard(tr,'Pace','poss_pg','#8B3FE0',1),
+        trendCard(tr,'3PT Rate','three_pa_rate','#38BDF8',1),
+        trendCard(tr,'Bench Min%','bench_min_pct','#1f9d57',1),
+        trendCard(tr,'Ball Move','ast_rate','#F59E0B',1),
+        trendCard(tr,'TO Force','opp_tov_pg','#FF4D9D',1),
+        trendCard(tr,'Star Use','top_scorer_share','#EF4444',1)
+      ].filter(Boolean).join('');
+      html+='<div class="sec-t">Style Trends & Scoring <span>how his system evolved</span></div>'+
+        '<div class="card">'+scoringChart(tr)+'</div>'+
+        '<div class="trend-grid">'+cards+'</div>';
+    }
     // best ever team
     var bt=pg.best_team;
     if(bt){

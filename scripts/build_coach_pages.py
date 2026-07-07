@@ -63,6 +63,14 @@ def main():
                 key=(k,g["season_year"]); tny[key][0]=1
                 if won: tny[key][1]+=1
 
+    # per-season style (team_style.json) + scoring (team_seasons) for trend lines
+    print("indexing per-season style + scoring…")
+    style_idx={}; score_idx={}
+    for r in json.load(open(os.path.join(D,"team_style.json"))):
+        for k in keys(r["team"]): style_idx[(k,r["season_year"])]=r
+    for r in get_all("team_seasons?select=team,season_year,ppg,oppg"):
+        for k in keys(r["team"]): score_idx[(k,r["season_year"])]=r
+
     seasons=json.load(open(os.path.join(D,"coach_seasons.json")))
     by_coach=defaultdict(list)
     for s in seasons:
@@ -111,8 +119,19 @@ def main():
                    "srs":bt.get("srs"),"conf":bt.get("conf"),
                    "roster":[{"player":r["player"],"espn_id":r["espn_id"],"grade":int(r["tdc_grade"]),"pos":r["pos"]} for r in bt_roster]}
 
+        # season-by-season style + scoring trend
+        trend=[]
+        for s in ss:
+            nk=norm(s["school"]); st=style_idx.get((nk,s["season_year"])); sc=score_idx.get((nk,s["season_year"]))
+            row={"yr":s["season_year"]}
+            if st:
+                for f in ("poss_pg","three_pa_rate","bench_min_pct","ast_rate","opp_tov_pg","top_scorer_share"):
+                    row[f]=st.get(f)
+            if sc: row["ppg"]=sc.get("ppg"); row["oppg"]=sc.get("oppg")
+            trend.append(row)
+
         out[slug]={"best_team":best_team,"best_players":best_players,"dev_players":dev_players,
-                   "players_coached":len(pl),"tny_apps":tny_app,"tny_wins":tny_wins}
+                   "players_coached":len(pl),"tny_apps":tny_app,"tny_wins":tny_wins,"trend":trend}
 
     json.dump(out,open(os.path.join(D,"coach_pages.json"),"w"))
     print("wrote coach_pages.json for %d coaches"%len(out))
