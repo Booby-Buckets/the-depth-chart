@@ -71,7 +71,7 @@
     .hero-meta-item{font-size:11.5px;font-weight:600;color:var(--text2);background:color-mix(in srgb, var(--tc) 8%, var(--bg2));border:1px solid var(--border);border-radius:30px;padding:5px 12px;display:inline-flex;align-items:center;gap:5px;}
     .hero-meta-item strong{color:var(--text);font-weight:800;}
     .hero-grade-wrap{display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;padding-left:6px;}
-    .hero-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:92px;line-height:.9;background:linear-gradient(155deg, color-mix(in srgb, var(--tc) 70%, #fff), var(--tc));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;filter:drop-shadow(0 3px 16px color-mix(in srgb, var(--tc) 55%, transparent));}
+    .hero-grade{font-family:'Inter','Helvetica Neue',system-ui,sans-serif;font-weight:800;font-size:88px;line-height:.9;letter-spacing:-.02em;font-variant-numeric:tabular-nums;background:linear-gradient(155deg, color-mix(in srgb, var(--tc) 70%, #fff), var(--tc));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;filter:drop-shadow(0 3px 16px color-mix(in srgb, var(--tc) 55%, transparent));}
     [data-theme="dark"] .hero-grade{background:linear-gradient(155deg, #ffffff, color-mix(in srgb, var(--tc) 38%, #fff));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 2px 18px color-mix(in srgb, var(--tc) 72%, transparent));}
     .hero-grade-lbl{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text3);}
     /* NBA Draft prospect sticker */
@@ -2795,12 +2795,10 @@ function _initShotSeasons(){
   loadShotChart(yrs[0]);
 }
 function _projectedGrade(){
-  var pl=playerProjLine(); if(!pl || pl._frosh || pl._noStatEst) return null;   // no real projection to grade
-  if(!((parseFloat(player.ppg)||0)>0 || (parseFloat(player.mpg)||0)>=2)) return null; // need a real prior line to delta from
-  var anchor=parseInt(player.tdc_grade); if(isNaN(anchor)) return null;
-  var delta=(_prodVal(pl)-_prodVal(player))*0.45;                  // box-value change -> grade points
-  var g=Math.round(anchor+delta);
-  return Math.max(anchor-8, Math.min(anchor+8, Math.min(99,g)));   // clamp swings; stay anchored
+  // players.tdc_grade IS the 2026-27 projected grade (same value the Full Stats
+  // projected row shows). Return it directly — do NOT re-project it, or the hero
+  // and progression chart end up double-projecting (e.g. a 92 became a 95).
+  var g=parseInt(player.tdc_grade); return isNaN(g)?null:g;
 }
 
 // Overall progression chart — player's TDC grade across seasons, over a faint
