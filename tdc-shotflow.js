@@ -1,13 +1,43 @@
 /* tdc-shotflow.js — Sankey "shot flow" for a player (or team).
    TDC_SHOTFLOW.render(el, shots, opts)
      shots: [{x,y,made,sv,stype,ast_name}]
-     opts:  {title, subtitle}
+     opts:  {title, subtitle, team}   // team name -> brand colors for the ribbons
    Flows every field-goal attempt through ZONE -> TYPE -> OUTCOME -> ASSIST.
-   Ribbons are threaded by outcome (green = made, tan = missed) so you can trace
-   how a player's shot diet converts. Missed shots terminate at OUTCOME (no
-   assist); made shots continue to who set them up. */
+   Made ribbons take the team's primary color; missed ribbons a ghosted version
+   (falls back to green/tan if the team is unknown). On open the ribbons flow in
+   left->right and a light band sweeps through every path; re-renders on resize. */
 (function(){
   var GREEN='rgba(56,150,100,', TAN='rgba(198,168,112,';
+  // ── team-brand colors: made = team primary, missed = a ghosted (desaturated)
+  //    version of the same hue, so the chart is on-brand yet made/miss stay clear ──
+  function hexRgb(h){ h=(h||'').replace('#',''); if(h.length===3) h=h.split('').map(function(c){return c+c;}).join(''); var n=parseInt(h,16); return isNaN(n)?null:[(n>>16)&255,(n>>8)&255,n&255]; }
+  function lum(c){ return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2]; }
+  function mix(c,g,f){ return [c[0]+(g-c[0])*f|0,c[1]+(g-c[1])*f|0,c[2]+(g-c[2])*f|0]; }
+  function rgba(c,a){ return 'rgba('+c[0]+','+c[1]+','+c[2]+','+a+')'; }
+  function cdist(a,b){ var dr=a[0]-b[0],dg=a[1]-b[1],db=a[2]-b[2]; return Math.sqrt(dr*dr+dg*dg+db*db); }
+  function usable(c){ return c && lum(c)>=26 && lum(c)<=228; }
+  function teamColors(name){
+    var CO=window.TDC_TEAM_COLORS||{}, t=CO[(name||'').toLowerCase()];
+    if(!t) return null;
+    var c1=hexRgb(t.c1), c2=hexRgb(t.c2); if(!c1) return null;
+    // if the primary is near-white/near-black, swap in the secondary as "made"
+    if(!usable(c1) && usable(c2)){ var tmp=c1; c1=c2; c2=tmp; }
+    // missed = the secondary brand color when it's usable & clearly different from
+    // the primary (so two-color teams show both logo colors); else a ghosted primary
+    var miss=(usable(c2) && cdist(c1,c2)>70) ? c2 : mix(c1,150,0.62);
+    return { made:c1, miss:miss };
+  }
+
+  var UID=0, HOSTS=[], _rzT=null;
+  // re-render every live chart on resize so the Sankey re-lays-out (and replays
+  // its flow animation) instead of just stretching
+  window.addEventListener('resize',function(){
+    clearTimeout(_rzT);
+    _rzT=setTimeout(function(){
+      HOSTS=HOSTS.filter(function(h){return h.el && document.body.contains(h.el);});
+      HOSTS.forEach(function(h){ if(h.el._sfShots) render(h.el, h.el._sfShots, h.el._sfOpts); });
+    },220);
+  });
 
   // ── stage extractors ──
   function zoneOf(s){
@@ -132,18 +162,34 @@
       var id=(l.col+1)+':'+l.tgt, off=to[id]||0; l.ty0=l.tn.y0+off; l.ty1=l.ty0+l.w*pps; to[id]=off+l.w*pps;
     });
 
+    // ── colors: team brand if we know the team, else green/tan ──
+    var tc=teamColors(opts.team);
+    var madeFill=tc?rgba(tc.made,0.66):(GREEN+'.62)'), missFill=tc?rgba(tc.miss,0.6):(TAN+'.62)');
+
     // ── SVG ──
+    var uid=++UID, revId='sfrev'+uid, uniId='sfuni'+uid, grdId='sfgrd'+uid;
     var svg='<svg class="sf-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet">';
-    // ribbons
+    // build ribbon paths once; reuse for both the drawn ribbons and the union clip
+    var ribsHtml='', clipHtml='';
     L.sort(function(a,b){return b.w-a.w;}).forEach(function(l,i){
       var x0=colX[l.col]+NW, x1=colX[l.col+1], xm=(x0+x1)/2;
-      var col=(l.made?GREEN:TAN);
       var d='M '+x0+' '+l.sy0.toFixed(1)+' C '+xm+' '+l.sy0.toFixed(1)+' '+xm+' '+l.ty0.toFixed(1)+' '+x1+' '+l.ty0.toFixed(1)+
             ' L '+x1+' '+l.ty1.toFixed(1)+' C '+xm+' '+l.ty1.toFixed(1)+' '+xm+' '+l.sy1.toFixed(1)+' '+x0+' '+l.sy1.toFixed(1)+' Z';
-      var made=Math.round(l.w/(l.made?1:1)); // weight
       var tip=l.src+' → '+l.tgt+' · '+l.w+' shot'+(l.w>1?'s':'')+' ('+(l.made?'made':'missed')+')';
-      svg+='<path class="sf-rib" data-t="'+tip+'" data-src="'+l.col+':'+l.src+'" data-tgt="'+(l.col+1)+':'+l.tgt+'" d="'+d+'" fill="'+col+'.62)" style="animation-delay:'+Math.min(i*10,600)+'ms"/>';
+      ribsHtml+='<path class="sf-rib" data-t="'+tip+'" data-src="'+l.col+':'+l.src+'" data-tgt="'+(l.col+1)+':'+l.tgt+'" d="'+d+'" fill="'+(l.made?madeFill:missFill)+'"/>';
+      clipHtml+='<path d="'+d+'"/>';
     });
+    // defs: a left→right reveal clip (entrance) + a union-of-ribbons clip and a
+    // bright band gradient (the continuous "flow through every path" shimmer)
+    svg+='<defs>'+
+      '<clipPath id="'+revId+'" clipPathUnits="userSpaceOnUse"><rect class="sf-revrect" x="0" y="0" width="'+W+'" height="'+H+'"/></clipPath>'+
+      '<clipPath id="'+uniId+'" clipPathUnits="userSpaceOnUse">'+clipHtml+'</clipPath>'+
+      '<linearGradient id="'+grdId+'" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>'+
+      '</defs>';
+    // ribbons revealed flowing in from the left, then a repeating light sweep
+    svg+='<g clip-path="url(#'+revId+')">'+ribsHtml+
+         '<g clip-path="url(#'+uniId+')"><rect class="sf-sweep" x="-220" y="0" width="200" height="'+H+'" fill="url(#'+grdId+')"/></g>'+
+         '</g>';
     // nodes + labels (with a readable background box; first & last columns label
     // to the OUTSIDE, middle columns to the right of their bar)
     var lastCol=cols.length-1;
@@ -170,11 +216,12 @@
     var made=shots.filter(function(s){return s.made;}).length;
     var asst=shots.filter(function(s){return s.made&&s.ast_name;}).length;
     var head=(opts.title?'<div class="sf-title">'+opts.title+'</div>':'')+
-      '<div class="sf-legend"><span><i class="sf-g"></i>Made</span><span><i class="sf-t"></i>Missed</span>'+
+      '<div class="sf-legend"><span><i style="background:'+madeFill+'"></i>Made</span><span><i style="background:'+missFill+'"></i>Missed</span>'+
       '<span style="margin-left:auto;color:var(--text3);">'+N+' FGA · '+Math.round(made/N*100)+'% made · '+Math.round(asst/Math.max(1,made)*100)+'% of makes assisted</span></div>';
     el.innerHTML=head+'<div class="sf-scroll"><div class="sf-wrap">'+svg+'<div class="sf-tip"></div></div></div>';
     wire(el);
-    clearTimeout(el._sfSettle); el._sfSettle=setTimeout(function(){el.classList.add('sf-settled');},1200);
+    if(!HOSTS.some(function(h){return h.el===el;})) HOSTS.push({el:el});
+    clearTimeout(el._sfSettle); el._sfSettle=setTimeout(function(){el.classList.add('sf-settled');},1500);
   }
 
   function wire(el){
@@ -206,18 +253,21 @@
   if(!document.getElementById('sf-styles')){
     var st=document.createElement('style'); st.id='sf-styles';
     st.textContent=
-      '@keyframes sfRib{from{opacity:0;}to{opacity:1;}}'+
-      '@keyframes sfUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}'+
+      '@keyframes sfReveal{from{transform:scaleX(0);}to{transform:scaleX(1);}}'+
+      '@keyframes sfSweep{from{transform:translateX(0);}to{transform:translateX(1140px);}}'+
       '.sf-title{font-size:13px;font-weight:700;color:var(--text2);margin-bottom:8px;}'+
       '.sf-legend{display:flex;align-items:center;gap:14px;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:10px;flex-wrap:wrap;}'+
       '.sf-legend span{display:inline-flex;align-items:center;gap:6px;}'+
-      '.sf-g{width:16px;height:9px;border-radius:2px;background:rgba(56,150,100,.75);display:inline-block;}'+
-      '.sf-t{width:16px;height:9px;border-radius:2px;background:rgba(198,168,112,.85);display:inline-block;}'+
+      '.sf-legend i{width:16px;height:9px;border-radius:2px;display:inline-block;}'+
       '.sf-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}'+
       '.sf-wrap{position:relative;min-width:660px;max-width:900px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:8px 6px;}'+
       '.sf-svg{width:100%;height:auto;display:block;overflow:visible;}'+
-      '.sf-rib{animation:sfRib .5s ease backwards;transition:fill-opacity .15s,opacity .15s;cursor:pointer;}'+
-      '.sf-rib:hover{fill-opacity:.9!important;}'+
+      // entrance: the reveal clip grows left->right so ribbons flow through the columns
+      '.sf-revrect{transform-box:fill-box;transform-origin:left center;animation:sfReveal 1.25s cubic-bezier(.45,.05,.25,1) both;}'+
+      // continuous flow: a light band sweeps through the ribbon union, on a loop
+      '.sf-sweep{pointer-events:none;animation:sfSweep 2.6s linear 1.1s 3;mix-blend-mode:screen;}'+
+      '.sf-rib{transition:fill-opacity .15s,opacity .15s;cursor:pointer;}'+
+      '.sf-rib:hover{fill-opacity:.95!important;}'+
       '.sf-host.sf-focus .sf-rib{opacity:.12;}'+
       '.sf-host.sf-focus .sf-rib.sf-on{opacity:1;}'+
       '.sf-node{fill:var(--text);opacity:.9;cursor:pointer;transition:opacity .15s;}'+
@@ -228,7 +278,9 @@
       '.sf-hdr{font-size:11px;font-weight:800;letter-spacing:.12em;fill:var(--text3);}'+
       '.sf-tip{position:absolute;pointer-events:none;background:var(--text);color:var(--bg);font-size:11px;font-weight:700;padding:5px 9px;border-radius:7px;transform:translate(-50%,-100%);opacity:0;transition:opacity .12s;white-space:nowrap;z-index:20;box-shadow:0 6px 18px rgba(0,0,0,.3);}'+
       '.sf-tip.on{opacity:1;}'+
-      '.sf-settled .sf-rib{animation:none!important;}';
+      // settle-guard: if the animation clock is frozen, force the reveal fully open
+      '.sf-settled .sf-revrect{animation:none!important;transform:scaleX(1)!important;}'+
+      '.sf-settled .sf-sweep{animation:none!important;}';
     document.head.appendChild(st);
   }
   window.TDC_SHOTFLOW={render:render};

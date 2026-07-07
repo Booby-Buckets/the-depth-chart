@@ -5,7 +5,7 @@
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js"></script>
   <script src="tdc-shotchart.js?v=6"></script>
-  <script src="tdc-shotflow.js?v=4"></script>
+  <script src="tdc-shotflow.js?v=6"></script>
   <script src="tdc-nil.js"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-proj.js"></script>
@@ -2773,7 +2773,9 @@ async function loadShotFlow(season){
     if(!Array.isArray(rows) || rows.length<8){
       host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Shot-flow data for this season is still being processed.</div>'; return;
     }
-    TDC_SHOTFLOW.render(host, rows, {subtitle:(player&&player.name)||'this player'});
+    var ch=(careerHistory||[]).find(function(s){return +s.season_year===+season;});
+    var team=(ch&&(ch.team||ch.school))||(player&&(player.team||player.school))||'';
+    TDC_SHOTFLOW.render(host, rows, {subtitle:(player&&player.name)||'this player', team:team});
   }catch(e){ host.innerHTML=''; }
 }
 function _initShotSeasons(){
