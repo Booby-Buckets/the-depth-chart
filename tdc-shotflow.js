@@ -5,7 +5,9 @@
    Flows every field-goal attempt through ZONE -> TYPE -> OUTCOME -> ASSIST.
    Made ribbons take the team's primary color; missed ribbons a ghosted version
    (falls back to green/tan if the team is unknown). On open the ribbons flow in
-   left->right and a light band sweeps through every path; re-renders on resize. */
+   left->right and a light band sweeps through every path; re-renders on resize.
+   Hovering an ASSIST node traces that assister's exact shots (their sub-flow)
+   back through zone->type->outcome, dimming everything else. */
 (function(){
   var GREEN='rgba(56,150,100,', TAN='rgba(198,168,112,';
   // ── team-brand colors: made = team primary, missed = a ghosted (desaturated)
@@ -82,6 +84,11 @@
     return {cols:cols, vals:vals, made:shots.map(function(s){return s.made;})};
   }
 
+  function ribbonPath(x0,x1,sy0,sy1,ty0,ty1){
+    var xm=(x0+x1)/2;
+    return 'M '+x0+' '+sy0.toFixed(1)+' C '+xm+' '+sy0.toFixed(1)+' '+xm+' '+ty0.toFixed(1)+' '+x1+' '+ty0.toFixed(1)+
+      ' L '+x1+' '+ty1.toFixed(1)+' C '+xm+' '+ty1.toFixed(1)+' '+xm+' '+sy1.toFixed(1)+' '+x0+' '+sy1.toFixed(1)+' Z';
+  }
   var W=900, H=500, PADT=20, PADB=36, NW=13, GAP=15, MINH=15; // MINH+GAP >= label-box height (26) so labels never overlap
   var colX=[]; // computed
   // find px-per-shot for one column so its nodes (each >= MINH tall) + gaps
@@ -139,19 +146,30 @@
       list.forEach(function(n){ n.h=Math.max(MINH,n.tot*pps); n.y0=y; n.y1=y+n.h; y+=n.h+GAP; nodeMap[ci+':'+n.name]=n; });
     });
 
-    // links between consecutive columns, keyed by (src,tgt,made) for outcome color
+    // links between consecutive columns, keyed by (src,tgt,made) for outcome color.
+    // also record, per link, how its shots break down by ASSIST value (last stage)
+    // so we can trace one assister's shots through the whole chart on hover.
+    var lastIdx=cols.length-1;
     var links={};
     B.vals.forEach(function(v,si){
-      var made=B.made[si];
+      var made=B.made[si], ast=v[lastIdx]==null?'__none':v[lastIdx];
       for(var c=0;c<cols.length-1;c++){
         var a=v[c], b=v[c+1]; if(a==null||b==null) continue;
         var key=c+'|'+a+'|'+b+'|'+(made?1:0);
-        (links[key]||(links[key]={col:c,src:a,tgt:b,made:made,w:0})).w++;
+        var lk=links[key]||(links[key]={col:c,src:a,tgt:b,made:made,w:0,byAst:{}});
+        lk.w++; lk.byAst[ast]=(lk.byAst[ast]||0)+1;
       }
     });
     var L=Object.keys(links).map(function(k){return links[k];});
     L.forEach(function(l){ l.sn=nodeMap[l.col+':'+l.src]; l.tn=nodeMap[(l.col+1)+':'+l.tgt]; });
     L=L.filter(function(l){return l.sn&&l.tn;});
+    // consistent assist-slice order within every ribbon band (so one assister's
+    // slices form parallel, non-crossing threads)
+    var astSlots=cols[lastIdx].order.concat(['__none']);
+    L.forEach(function(l){
+      var cum=0; l.slices={};
+      astSlots.forEach(function(av){ var c=l.byAst[av]||0; if(!c) return; l.slices[av]=[cum/l.w,(cum+c)/l.w]; cum+=c; });
+    });
 
     // stack link bands on source right edges (ordered by target y) and target left edges (by source y)
     var so={}, to={};
@@ -172,9 +190,8 @@
     // build ribbon paths once; reuse for both the drawn ribbons and the union clip
     var ribsHtml='', clipHtml='';
     L.sort(function(a,b){return b.w-a.w;}).forEach(function(l,i){
-      var x0=colX[l.col]+NW, x1=colX[l.col+1], xm=(x0+x1)/2;
-      var d='M '+x0+' '+l.sy0.toFixed(1)+' C '+xm+' '+l.sy0.toFixed(1)+' '+xm+' '+l.ty0.toFixed(1)+' '+x1+' '+l.ty0.toFixed(1)+
-            ' L '+x1+' '+l.ty1.toFixed(1)+' C '+xm+' '+l.ty1.toFixed(1)+' '+xm+' '+l.sy1.toFixed(1)+' '+x0+' '+l.sy1.toFixed(1)+' Z';
+      var x0=colX[l.col]+NW, x1=colX[l.col+1];
+      var d=ribbonPath(x0,x1,l.sy0,l.sy1,l.ty0,l.ty1);
       var tip=l.src+' → '+l.tgt+' · '+l.w+' shot'+(l.w>1?'s':'')+' ('+(l.made?'made':'missed')+')';
       ribsHtml+='<path class="sf-rib" data-t="'+tip+'" data-src="'+l.col+':'+l.src+'" data-tgt="'+(l.col+1)+':'+l.tgt+'" d="'+d+'" fill="'+(l.made?madeFill:missFill)+'"/>';
       clipHtml+='<path d="'+d+'"/>';
@@ -190,6 +207,10 @@
     svg+='<g clip-path="url(#'+revId+')">'+ribsHtml+
          '<g clip-path="url(#'+uniId+')"><rect class="sf-sweep" x="-220" y="0" width="200" height="'+H+'" fill="url(#'+grdId+')"/></g>'+
          '</g>';
+    // overlay layer for the assist-trace (populated on hover)
+    svg+='<g class="sf-trace"></g>';
+    // stash link geometry so the hover handler can draw an assister's sub-flow
+    el._sfTrace={ L:L, colX:colX.slice(), NW:NW, lastCol:lastIdx, made:tc?rgba(tc.made,0.95):'rgba(56,150,100,.92)' };
     // nodes + labels (with a readable background box; first & last columns label
     // to the OUTSIDE, middle columns to the right of their bar)
     var lastCol=cols.length-1;
@@ -236,17 +257,35 @@
       tip.classList.add('on');
     });
     wrap.addEventListener('mouseleave',function(){ tip.classList.remove('on'); el.classList.remove('sf-focus'); });
-    // node hover -> highlight only ribbons touching it
+    var traceG=el.querySelector('.sf-trace');
+    function clearTrace(){ if(traceG) traceG.innerHTML=''; el.classList.remove('sf-tracing'); }
+    // draw one assist value's shots as a bright sub-flow threaded through the chart
+    function drawTrace(av){
+      var T=el._sfTrace; if(!T||!traceG) return;
+      var html='';
+      T.L.forEach(function(l){
+        var sl=l.slices&&l.slices[av]; if(!sl) return;
+        var x0=T.colX[l.col]+T.NW, x1=T.colX[l.col+1];
+        var sh=l.sy1-l.sy0, th=l.ty1-l.ty0;
+        html+='<path d="'+ribbonPath(x0,x1, l.sy0+sl[0]*sh, l.sy0+sl[1]*sh, l.ty0+sl[0]*th, l.ty0+sl[1]*th)+'" fill="'+T.made+'"/>';
+      });
+      traceG.innerHTML=html; el.classList.add('sf-tracing');
+    }
     el.querySelectorAll('.sf-node').forEach(function(nd){
-      var id=nd.getAttribute('data-node');
+      var id=nd.getAttribute('data-node'), ci=+id.split(':')[0], name=id.slice(id.indexOf(':')+1);
+      var isAssist=el._sfTrace && ci===el._sfTrace.lastCol;
       nd.addEventListener('mouseenter',function(){
+        if(isAssist){ drawTrace(name); return; }   // trace this assister's full sub-flow
         el.classList.add('sf-focus');
         el.querySelectorAll('.sf-rib').forEach(function(r){
           var on=r.getAttribute('data-src')===id||r.getAttribute('data-tgt')===id;
           r.classList.toggle('sf-on',on);
         });
       });
-      nd.addEventListener('mouseleave',function(){ el.classList.remove('sf-focus'); el.querySelectorAll('.sf-rib.sf-on').forEach(function(r){r.classList.remove('sf-on');}); });
+      nd.addEventListener('mouseleave',function(){
+        clearTrace();
+        el.classList.remove('sf-focus'); el.querySelectorAll('.sf-rib.sf-on').forEach(function(r){r.classList.remove('sf-on');});
+      });
     });
   }
 
@@ -270,6 +309,10 @@
       '.sf-rib:hover{fill-opacity:.95!important;}'+
       '.sf-host.sf-focus .sf-rib{opacity:.12;}'+
       '.sf-host.sf-focus .sf-rib.sf-on{opacity:1;}'+
+      // assist trace: dim the whole chart, light up just that assister\'s sub-flow
+      '.sf-host.sf-tracing .sf-rib{opacity:.08;}'+
+      '.sf-trace{pointer-events:none;}'+
+      '.sf-trace path{stroke:rgba(255,255,255,.45);stroke-width:.6;filter:drop-shadow(0 0 3px rgba(0,0,0,.25));}'+
       '.sf-node{fill:var(--text);opacity:.9;cursor:pointer;transition:opacity .15s;}'+
       '.sf-node:hover{opacity:1;}'+
       '.sf-lbg{fill:var(--bg2);opacity:.72;pointer-events:none;}'+
