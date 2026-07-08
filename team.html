@@ -4,6 +4,7 @@
   <script src="auth.js"></script>
   <script src="team-colors.js"></script>
   <script src="tdc-shotchart.js?v=8"></script>
+  <script src="tdc-shotflow.js?v=8"></script>
   <script src="tdc-nil.js"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js"></script>
@@ -735,6 +736,13 @@
       <div class="sec-head">Customize Lineup <span class="sec-head-sub">Drag to reorder · Swap players · Adjust minutes</span></div>
       <div id="customizeContent">
         <div class="loading-state"><div class="loading-spinner"></div><div>Loading lineup builder…</div></div>
+      </div>
+      <div class="sec-head" style="margin-top:32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <span>Lineup Shot Profile <span class="sec-head-sub">Where your rotation scores from — combined &amp; minutes-weighted</span></span>
+        <button id="lspBtn" onclick="loadLineupShotProfile()" style="font-size:12px;font-weight:700;color:#fff;background:var(--tc,#8B3FE0);border:none;border-radius:9px;padding:8px 14px;cursor:pointer;">↻ Build for current lineup</button>
+      </div>
+      <div id="lineupShotWrap">
+        <div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Build a lineup above, then generate its combined shot chart &amp; shot flow.</div>
       </div>
     </div>
     <div class="panel" id="panel-losses">
@@ -3264,6 +3272,54 @@ function switchTab(id, btn){
   }
   if(id==='schedule') initSchedule();
   if(id==='nil') renderNil();
+  if(id==='customize' && !window._lspAuto){ window._lspAuto=true; _lspAutoBuild(0); }
+}
+// wait for the roster/lineup to populate before the first auto-build (else it
+// would flash "no players"); leaves the placeholder if data never arrives
+function _lspAutoBuild(tries){
+  if(typeof _lineupRotation==='function' && _lineupRotation().length){ loadLineupShotProfile(); return; }
+  if((tries||0)<12) setTimeout(function(){_lspAutoBuild((tries||0)+1);}, 500);
+}
+
+// ── LINEUP SHOT PROFILE — the current rotation's combined, minutes-weighted
+//    shot chart + shot flow (uses the shots we backfilled, keyed by espn_id) ──
+function _lineupRotation(){
+  var out=[];
+  (POS_KEYS||[]).forEach(function(pos){
+    (customDepth[pos]||[]).forEach(function(p,i){
+      if(!p||!p.name||p.name==='—'||!p.espn_id) return;
+      var m=(customMpg[p.name]!=null)?+customMpg[p.name]:(parseFloat(p.mpg)||(i===0?26:12));
+      if(m>0) out.push({name:p.name, espn:p.espn_id, mpg:m});
+    });
+  });
+  return out;
+}
+async function loadLineupShotProfile(){
+  var wrap=document.getElementById('lineupShotWrap'); if(!wrap||!window.TDC_SHOTCHART) return;
+  var rot=_lineupRotation();
+  if(!rot.length){ wrap.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">No rotation players with shot data. Add players and assign minutes above.</div>'; return; }
+  wrap.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Building lineup shot profile…</div>';
+  try{
+    var ids=[...new Set(rot.map(p=>p.espn))];
+    var rows=await fetch(SB_URL+'/rest/v1/shots?espn_id=in.('+ids.join(',')+')&season_year=eq.2026&select=espn_id,x,y,made,sv,dist,stype,ast_name&limit=12000',{headers:H}).then(r=>r.ok?r.json():[]);
+    var byP={}; (rows||[]).forEach(function(r){ (byP[r.espn_id]=byP[r.espn_id]||[]).push(r); });
+    var maxMin=Math.max.apply(0, rot.map(p=>p.mpg))||1;
+    var combined=[], used=0, missing=[];
+    rot.forEach(function(p){
+      var s=byP[p.espn];
+      if(!s||!s.length){ missing.push(p.name); return; }
+      var keep=Math.max(1, Math.round(s.length*(p.mpg/maxMin)));   // more minutes -> more of their shots
+      combined=combined.concat(s.slice(0,keep)); used++;
+    });
+    if(!combined.length){ wrap.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">None of this lineup has shot-location data yet (mostly incoming freshmen).</div>'; return; }
+    wrap.innerHTML='<div id="lspChart"></div>'+
+      '<div class="sec-head" style="margin-top:26px;"><span>Lineup Shot Flow <span class="sec-head-sub">'+used+' player'+(used>1?'s':'')+' · minutes-weighted</span></span></div><div id="lspFlow"></div>'+
+      (missing.length?'<div style="font-size:11px;color:var(--text3);margin-top:12px;">No shot data yet (excluded): '+missing.join(', ')+'</div>':'');
+    TDC_SHOTCHART.render(document.getElementById('lspChart'), combined, {subtitle:(teamT&&teamT.name)||'lineup'});
+    var enriched=combined.filter(function(r){return r.stype;});
+    if(enriched.length>=8 && window.TDC_SHOTFLOW) TDC_SHOTFLOW.render(document.getElementById('lspFlow'), enriched, {subtitle:(teamT&&teamT.name)||'lineup', team:(teamT&&teamT.name)});
+    else document.getElementById('lspFlow').innerHTML='<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">Shot-flow (type/assist) data for this lineup is still being processed.</div>';
+  }catch(e){ wrap.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Could not build shot profile.</div>'; }
 }
 
 let _nilData=null;
