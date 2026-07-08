@@ -133,6 +133,34 @@ function filtMatch(r){
   if(r.year<FILT.ymin||r.year>FILT.ymax) return false;
   return true;
 }
+function confName(ci){ return ci>=0&&DATA.conferences[ci]?DATA.conferences[ci].name:null; }
+function confLvl(ci){ return ci>=0&&DATA.conferences[ci]?DATA.conferences[ci].level:null; }
+function schoolName(si){ return si>=0&&DATA.schools[si]?DATA.schools[si]:''; }
+// recompute risers + breakouts for the ACTIVE filter from per-player careers, so
+// every slice shows its own true top-N (not a slice of a global pool)
+function computeLists(){
+  var risers=[], jumps=[];
+  (DATA.players||[]).forEach(function(p){
+    var eid=p[0], nm=p[1], ss=p[2];              // season = [year, grade, confIdx, schoolIdx], sorted
+    var first=ss[0], peak=ss[0];
+    for(var i=1;i<ss.length;i++){ if(ss[i][1]>peak[1]) peak=ss[i]; }
+    if(peak[1]>first[1]){
+      var e={player:nm,espn_id:eid,from_school:schoolName(first[3]),peak_school:schoolName(peak[3]),
+        from:first[1],peak:peak[1],gain:peak[1]-first[1],seasons:ss.length,
+        conf:confName(peak[2]),lvl:confLvl(peak[2]),year:peak[0]};
+      if(filtMatch(e)) risers.push(e);
+    }
+    for(var i=1;i<ss.length;i++){
+      if(ss[i][0]!==ss[i-1][0]+1 || ss[i][1]<=ss[i-1][1]) continue;   // consecutive-year gains only
+      var j={player:nm,espn_id:eid,school:schoolName(ss[i][3]),year:ss[i][0],
+        from:ss[i-1][1],to:ss[i][1],jump:ss[i][1]-ss[i-1][1],conf:confName(ss[i][2]),lvl:confLvl(ss[i][2])};
+      if(filtMatch(j)) jumps.push(j);
+    }
+  });
+  risers.sort((a,b)=>b.gain-a.gain||b.peak-a.peak);
+  jumps.sort((a,b)=>b.jump-a.jump||b.to-a.to);
+  return {risers:risers, jumps:jumps};
+}
 
 function curveSvg(){
   var W=760,H=280,pl=44,pr=20,pt=18,pb=34, iw=W-pl-pr, ih=H-pt-pb;
@@ -204,8 +232,9 @@ function render(){
   computeCurve();
   var el=document.getElementById('content');
   var legend=SERIES.map(s=>'<span class="'+(s.on?'on':'')+'" onclick="toggleSeries(\''+s.k+'\')"><i style="background:'+s.c+'"></i>'+s.l+'</span>').join('');
-  var risers=DATA.risers.filter(filtMatch).slice(0,12);
-  var jumps=DATA.jumps.filter(filtMatch).slice(0,12);
+  var lists=computeLists();
+  var risers=lists.risers.slice(0,12);
+  var jumps=lists.jumps.slice(0,12);
   var emptyR='<div class="dv-empty">No qualifying players in this filter.</div>';
   el.innerHTML=
     filterBar()+

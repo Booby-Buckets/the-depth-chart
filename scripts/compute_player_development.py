@@ -124,46 +124,40 @@ def main():
         b=agg[(r["season_year"],r["_conf"],o,s)]; b[0]+=g; b[1]+=1
     buckets=[[y,c,o,s,v[0],v[1]] for (y,c,o,s),v in agg.items()]
 
-    # per-player arcs
+    # ship a compact per-player career dataset so the risers/breakouts can be
+    # recomputed client-side for ANY filter (always the true top-N of the slice,
+    # not a slice of a global top-400 pool). schools + conferences are interned.
+    confs=sorted({r["_conf"] for r in rows if r["_conf"]}, key=lambda c:({"high":0,"mid":1,"low":2}[CONF_LVL(c)],c))
+    confidx={c:i for i,c in enumerate(confs)}
+    schools=sorted({r["school"] for r in rows if r.get("school")})
+    schidx={s:i for i,s in enumerate(schools)}
+    years=sorted({r["season_year"] for r in rows})
+
     byp=defaultdict(list)
     for r in rows:
-        try: byp[r["espn_id"]].append((int(r["season_year"]),r["player"],r["school"],int(r["tdc_grade"]),r["_conf"],r["_lvl"]))
+        try: byp[r["espn_id"]].append((int(r["season_year"]),r["player"],r["school"],int(r["tdc_grade"]),r["_conf"]))
         except Exception: pass
-    risers=[]; jumps=[]; busts=[]
+    players=[]
     for pid,ss in byp.items():
         ss.sort()
         if len(ss)<2: continue
-        first=ss[0]; peak=max(ss,key=lambda x:x[3]); last=ss[-1]; nm=ss[-1][1]
-        if first[3]<=93:
-            risers.append({"espn_id":pid,"player":nm,"from_school":first[2],"peak_school":peak[2],
-                "from_year":first[0],"peak_year":peak[0],"from":first[3],"peak":peak[3],"gain":peak[3]-first[3],
-                "seasons":len(ss),"conf":peak[4],"lvl":peak[5],"year":peak[0]})
-        for i in range(1,len(ss)):
-            # a "single-season" jump must be truly consecutive years — never span a
-            # gap (missing/ungraded season) or a duplicate same-year row
-            if ss[i][0]!=ss[i-1][0]+1: continue
-            jumps.append({"espn_id":pid,"player":nm,"school":ss[i][2],"year":ss[i][0],
-                "from":ss[i-1][3],"to":ss[i][3],"jump":ss[i][3]-ss[i-1][3],"conf":ss[i][4],"lvl":ss[i][5]})
-        busts.append({"espn_id":pid,"player":nm,"school":last[2],"from":first[3],"to":last[3],
-            "drop":last[3]-first[3],"seasons":len(ss),"conf":peak[4],"lvl":peak[5],"year":last[0]})
+        grades=[x[3] for x in ss]
+        maxj=max((ss[i][3]-ss[i-1][3] for i in range(1,len(ss)) if ss[i][0]==ss[i-1][0]+1), default=0)
+        if (max(grades)-grades[0])<3 and maxj<3: continue   # drop flat careers (never top a list)
+        # season = [year, grade, confIdx, schoolIdx]
+        seasons=[[x[0],x[3],confidx.get(x[4],-1),schidx.get(x[2],-1)] for x in ss]
+        players.append([pid, ss[-1][1], seasons])
 
-    # keep a generous pool so filtered views still have depth
-    risers=sorted(risers,key=lambda x:-x["gain"])[:400]
-    jumps=sorted(jumps,key=lambda x:-x["jump"])[:400]
-    busts=sorted(busts,key=lambda x:x["drop"])[:200]
-
-    confs=sorted({r["_conf"] for r in rows if r["_conf"]}, key=lambda c:({"high":0,"mid":1,"low":2}[CONF_LVL(c)],c))
-    years=sorted({r["season_year"] for r in rows})
     out={"buckets":buckets,
          "conferences":[{"name":c,"level":CONF_LVL(c)} for c in confs],
+         "schools":schools,
          "years":[years[0],years[-1]],
-         "risers":risers,"jumps":jumps,"busts":busts,
+         "players":players,
          "total_seasons":len(rows),"matched_seasons":matched}
     json.dump(out,open(OUT,"w"))
     print("seasons:%d  conf-matched:%d (%.0f%%)  buckets:%d  confs:%d"%(
         len(rows),matched,100*matched/len(rows),len(buckets),len(confs)))
-    print("years:",years[0],"-",years[-1])
-    print("top risers:",[ "%s +%d"%(r["player"],r["gain"]) for r in risers[:4]])
+    print("years:",years[0],"-",years[-1]," players(>=2 seasons, non-flat):",len(players)," schools:",len(schools))
 
 # level lookup by short conf name
 _LVL={v[0]:v[1] for v in CONF.values()}
