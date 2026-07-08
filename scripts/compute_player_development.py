@@ -44,10 +44,16 @@ CONF={
 }
 
 def get_all(path):
+    import time
     rows,frm=[],0
     while True:
         req=urllib.request.Request(SB+"/rest/v1/"+path,headers={**HDR,"Range-Unit":"items","Range":"%d-%d"%(frm,frm+999)})
-        b=json.load(urllib.request.urlopen(req,timeout=60)); rows+=b
+        b=None
+        for a in range(5):
+            try: b=json.load(urllib.request.urlopen(req,timeout=90)); break
+            except Exception: time.sleep(2*(a+1))
+        if b is None: raise RuntimeError("fetch failed: "+path)
+        rows+=b
         if len(b)<1000: break
         frm+=1000
     return rows
@@ -98,7 +104,9 @@ SER={"G":0,"F":1,"B":2}
 
 def main():
     byyear,glob=build_school_conf()
-    rows=get_all("bbref_seasons?select=espn_id,player,school,season_year,class,pos,tdc_grade&tdc_grade=not.is.null&espn_id=not.is.null")
+    rows=[]  # fetch per year so pagination stays shallow (deep offsets 500)
+    for yr in range(2007,2027):
+        rows+=get_all("bbref_seasons?select=espn_id,player,school,season_year,class,pos,tdc_grade&tdc_grade=not.is.null&espn_id=not.is.null&season_year=eq.%d"%yr)
 
     # tag every season with conference + level
     matched=0
@@ -131,6 +139,9 @@ def main():
                 "from_year":first[0],"peak_year":peak[0],"from":first[3],"peak":peak[3],"gain":peak[3]-first[3],
                 "seasons":len(ss),"conf":peak[4],"lvl":peak[5],"year":peak[0]})
         for i in range(1,len(ss)):
+            # a "single-season" jump must be truly consecutive years — never span a
+            # gap (missing/ungraded season) or a duplicate same-year row
+            if ss[i][0]!=ss[i-1][0]+1: continue
             jumps.append({"espn_id":pid,"player":nm,"school":ss[i][2],"year":ss[i][0],
                 "from":ss[i-1][3],"to":ss[i][3],"jump":ss[i][3]-ss[i-1][3],"conf":ss[i][4],"lvl":ss[i][5]})
         busts.append({"espn_id":pid,"player":nm,"school":last[2],"from":first[3],"to":last[3],
