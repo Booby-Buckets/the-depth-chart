@@ -139,7 +139,7 @@ function schoolName(si){ return si>=0&&DATA.schools[si]?DATA.schools[si]:''; }
 // recompute risers + breakouts for the ACTIVE filter from per-player careers, so
 // every slice shows its own true top-N (not a slice of a global pool)
 function computeLists(){
-  var risers=[], jumps=[];
+  var risers=[], jumps=[], fallers=[], transfers=[];
   (DATA.players||[]).forEach(function(p){
     var eid=p[0], nm=p[1], ss=p[2];              // season = [year, grade, confIdx, schoolIdx], sorted
     var first=ss[0], peak=ss[0];
@@ -151,15 +151,32 @@ function computeLists(){
       if(filtMatch(e)) risers.push(e);
     }
     for(var i=1;i<ss.length;i++){
-      if(ss[i][0]!==ss[i-1][0]+1 || ss[i][1]<=ss[i-1][1]) continue;   // consecutive-year gains only
-      var j={player:nm,espn_id:eid,school:schoolName(ss[i][3]),year:ss[i][0],
-        from:ss[i-1][1],to:ss[i][1],jump:ss[i][1]-ss[i-1][1],conf:confName(ss[i][2]),lvl:confLvl(ss[i][2])};
-      if(filtMatch(j)) jumps.push(j);
+      var a=ss[i-1], b=ss[i];
+      // single-season jump / fall — consecutive years only
+      if(b[0]===a[0]+1){
+        if(b[1]>a[1]){
+          var j={player:nm,espn_id:eid,school:schoolName(b[3]),year:b[0],from:a[1],to:b[1],jump:b[1]-a[1],conf:confName(b[2]),lvl:confLvl(b[2])};
+          if(filtMatch(j)) jumps.push(j);
+        } else if(b[1]<a[1]){
+          var f={player:nm,espn_id:eid,school:schoolName(b[3]),year:b[0],from:a[1],to:b[1],drop:b[1]-a[1],conf:confName(b[2]),lvl:confLvl(b[2])};
+          if(filtMatch(f)) fallers.push(f);
+        }
+      }
+      // transfer — school changed between adjacent seasons (allow a redshirt gap)
+      if(b[3]!==a[3] && b[3]>=0 && a[3]>=0 && b[0]-a[0]<=2){
+        var t={player:nm,espn_id:eid,from_school:schoolName(a[3]),to_school:schoolName(b[3]),year:b[0],
+          from:a[1],to:b[1],delta:b[1]-a[1],conf:confName(b[2]),lvl:confLvl(b[2])};
+        if(filtMatch(t)) transfers.push(t);
+      }
     }
   });
   risers.sort((a,b)=>b.gain-a.gain||b.peak-a.peak);
   jumps.sort((a,b)=>b.jump-a.jump||b.to-a.to);
-  return {risers:risers, jumps:jumps};
+  fallers.sort((a,b)=>a.drop-b.drop||a.to-b.to);            // most negative first
+  transfers.sort((a,b)=>b.delta-a.delta||b.to-a.to);        // biggest improvement first
+  // one entry per player per list (keep their best/worst after sorting)
+  var byP=arr=>{var s={},o=[];arr.forEach(e=>{if(!s[e.espn_id]){s[e.espn_id]=1;o.push(e);}});return o;};
+  return {risers:byP(risers), jumps:byP(jumps), fallers:byP(fallers), transfers:byP(transfers)};
 }
 
 function curveSvg(){
@@ -220,6 +237,17 @@ function jumpRow(j,i){
     '<span class="dv-nm"><div class="n">'+j.player+'</div><div class="s">'+j.school+' · '+((j.year-1)+'-'+(''+j.year).slice(2))+'</div></span>'+
     '<span class="dv-arc"><span class="g0">'+j.from+'</span><span class="ar">→</span><span class="g1">'+j.to+'</span><span class="d up">+'+j.jump+'</span></span></a>';
 }
+function fallerRow(f,i){
+  return '<a class="dv-row" href="'+plink(f)+'"><span class="dv-rk">'+(i+1)+'</span>'+
+    '<span class="dv-nm"><div class="n">'+f.player+'</div><div class="s">'+f.school+' · '+((f.year-1)+'-'+(''+f.year).slice(2))+'</div></span>'+
+    '<span class="dv-arc"><span class="g0">'+f.from+'</span><span class="ar">→</span><span class="g1">'+f.to+'</span><span class="d down">'+f.drop+'</span></span></a>';
+}
+function transferRow(t,i){
+  var d=t.delta;
+  return '<a class="dv-row" href="'+plink(t)+'"><span class="dv-rk">'+(i+1)+'</span>'+
+    '<span class="dv-nm"><div class="n">'+t.player+'</div><div class="s">'+t.from_school+' → '+t.to_school+' · '+((t.year-1)+'-'+(''+t.year).slice(2))+'</div></span>'+
+    '<span class="dv-arc"><span class="g0">'+t.from+'</span><span class="ar">→</span><span class="g1">'+t.to+'</span><span class="d '+(d>=0?'up':'down')+'">'+(d>=0?'+':'')+d+'</span></span></a>';
+}
 
 function scopeLabel(){
   var parts=[];
@@ -235,18 +263,26 @@ function render(){
   var lists=computeLists();
   var risers=lists.risers.slice(0,12);
   var jumps=lists.jumps.slice(0,12);
+  var fallers=lists.fallers.slice(0,12);
+  var transfers=lists.transfers.slice(0,12);
   var emptyR='<div class="dv-empty">No qualifying players in this filter.</div>';
+  var sub='style="color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;"';
   el.innerHTML=
     filterBar()+
-    '<div class="sec-t">The Development Curve <span style="color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;">avg TDC grade by class · '+CURVE._total.toLocaleString()+' player-seasons · '+scopeLabel()+'</span></div>'+
+    '<div class="sec-t">The Development Curve <span '+sub+'>avg TDC grade by class · '+CURVE._total.toLocaleString()+' player-seasons · '+scopeLabel()+'</span></div>'+
     '<div class="curve-card"><div class="curve-top"><div style="font-size:13px;font-weight:700;color:var(--text2);">Grade by class year</div><div class="lg">'+legend+'</div></div>'+
       curveSvg()+
       '<div class="curve-note">Average TDC grade at each class year for the selected scope. Toggle the position lines, or filter by level, conference and season above.</div></div>'+
-    '<div class="sec-t">Biggest Risers <span style="color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;">first season → career peak</span></div>'+
+    '<div class="sec-t">Biggest Risers <span '+sub+'>first season → career peak</span></div>'+
     '<div class="cols"><div class="lb"><h3>Career Risers</h3><div class="sub">largest climb from first graded season to peak</div>'+
       (risers.length?risers.map(riserRow).join(''):emptyR)+'</div>'+
     '<div class="lb"><h3>Breakout Seasons</h3><div class="sub">biggest single-season grade jump</div>'+
-      (jumps.length?jumps.map(jumpRow).join(''):emptyR)+'</div></div>';
+      (jumps.length?jumps.map(jumpRow).join(''):emptyR)+'</div></div>'+
+    '<div class="sec-t">The Other Direction <span '+sub+'>declines &amp; the biggest transfer swings</span></div>'+
+    '<div class="cols"><div class="lb"><h3>Season Fallers</h3><div class="sub">biggest single-season grade drop</div>'+
+      (fallers.length?fallers.map(fallerRow).join(''):emptyR)+'</div>'+
+    '<div class="lb"><h3>Best Transfers</h3><div class="sub">biggest grade jump after changing schools</div>'+
+      (transfers.length?transfers.map(transferRow).join(''):emptyR)+'</div></div>';
 }
 
 async function init(){
