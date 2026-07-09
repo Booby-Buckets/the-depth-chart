@@ -205,6 +205,27 @@
     .backup-cls{font-size:10px;color:var(--text3);white-space:nowrap;}
     .backup-grade{font-family:'Playfair Display',serif;font-weight:700;font-size:13px;}
 
+    /* ── Depth chart — uniform position cards (every player is one clean row) ── */
+    .dc-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:28px;}
+    .dc-col{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;}
+    .dc-head{padding:9px 14px;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text);border-bottom:2px solid var(--tc,var(--accent));background:rgba(var(--tc-rgb,168,132,60),.07);}
+    .dc-row{display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 13px;border-top:1px solid var(--border);transition:background .12s;}
+    .dc-row:first-of-type{border-top:none;}
+    .dc-row:hover{background:var(--bg3);}
+    .dc-starter{background:rgba(var(--tc-rgb,168,132,60),.05);}
+    .dc-rk{font-family:'Share Tech Mono',monospace;font-size:11px;font-weight:700;color:var(--text3);text-align:center;}
+    .dc-starter .dc-rk{color:var(--tc-readable,var(--accent));font-size:12px;}
+    .dc-info{min-width:0;}
+    .dc-name{display:block;font-size:13.5px;font-weight:700;color:var(--text);text-decoration:none;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .dc-starter .dc-name{font-weight:800;}
+    .dc-name:hover{color:var(--tc-readable,var(--accent));}
+    .dc-bio{display:block;font-size:10px;font-weight:500;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.01em;margin-top:1px;}
+    .dc-mpg{font-size:10.5px;font-weight:600;color:var(--text2);font-variant-numeric:tabular-nums;white-space:nowrap;}
+    .dc-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:var(--text);min-width:22px;text-align:right;}
+    .dc-empty{padding:16px 14px;font-size:12px;color:var(--text3);font-style:italic;}
+    @media(max-width:1000px){.dc-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+    @media(max-width:640px){.dc-grid{grid-template-columns:1fr;gap:10px;}}
+
     /* ANALYTICS BAR */
     .lineup-analytics{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:20px;}
     .analytics-cell{background:var(--bg2);padding:12px 14px;text-align:center;}
@@ -3928,31 +3949,26 @@ function renderHistoricRoster(rows, yr, projected){
   }
   const color=teamColor_g, rgb=teamRgb_g;
   const colHtml=cols.map(c=>{
-    const head=`<div class="starter-col-head" style="border-bottom-color:${color};background:rgba(${rgb},.08);"><span class="starter-pos">${c.pos}</span></div>`;
-    const s=c.list[0];
-    if(!s) return `<div class="starter-col">${head}<div class="starter-col-body" style="min-height:48px;display:flex;align-items:center;padding:10px 12px;"><span style="font-size:12px;color:var(--text3);font-style:italic;">—</span></div></div>`;
-    const bio=[s.yr, s.height, s.weight?s.weight+' lb':''].filter(Boolean).join(' · ');
-    const body=`<div class="starter-col-body">
-      <div class="starter-name"><a href="${link(s)}" style="color:inherit;text-decoration:none;">${s.name}</a>${s.tdc_grade?`<span class="starter-col-grade ${gc(s.tdc_grade)}" style="margin-left:6px;font-size:13px;">${s.tdc_grade}</span>`:''}</div>
-      <div class="starter-bio">${bio||'&nbsp;'}</div>
-      <div class="starter-meta-row" style="margin-bottom:0;"><span>${num(s.mpg)} mpg</span><span class="starter-tag" style="background:rgba(${rgb},.12);">★</span></div>
-    </div>`;
-    const backs=c.list.slice(1);
-    const chain=backs.length?`<div class="backup-chain">${backs.map((b,i)=>`
-      <div class="backup-item">
-        <span class="backup-num">${i+2}</span>
-        <div class="backup-main"><a class="backup-name" href="${link(b)}" style="color:inherit;text-decoration:none;">${b.name}</a><span class="backup-bio">${[b.yr,b.height].filter(Boolean).join(' · ')}</span></div>
-        <span class="backup-cls">${num(b.mpg)}m</span>
-        <span class="backup-grade ${gc(b.tdc_grade||'')}">${b.tdc_grade||''}</span>
-      </div>`).join('')}</div>`:'';
-    return `<div class="starter-col">${head}${body}${chain}</div>`;
+    const head=`<div class="dc-head" style="border-bottom-color:${color};background:rgba(${rgb},.07);">${c.pos}</div>`;
+    if(!c.list.length) return `<div class="dc-col">${head}<div class="dc-empty">—</div></div>`;
+    const rows=c.list.map((p,i)=>{
+      const mpg=(p.mpg!=null&&p.mpg!==''&&!isNaN(parseFloat(p.mpg)))?num(p.mpg)+'m':'';
+      const bio=[p.yr, p.height, mpg].filter(Boolean).join(' · ');
+      const g=(p.tdc_grade!=null&&p.tdc_grade!=='')?p.tdc_grade:'';
+      return `<div class="dc-row${i===0?' dc-starter':''}">
+        <span class="dc-rk">${i===0?'★':(i+1)}</span>
+        <span class="dc-info"><a class="dc-name" href="${link(p)}">${p.name}</a><span class="dc-bio">${bio||'&nbsp;'}</span></span>
+        <span class="dc-grade">${g}</span>
+      </div>`;
+    }).join('');
+    return `<div class="dc-col">${head}${rows}</div>`;
   }).join('');
 
   const injHtml = injured.length
     ? `<div class="sec-head" style="margin-top:28px;color:#ef4444;">Injured — Out for ${rosterLbl(yr)} <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· stats from last season played · minutes redistributed in projections</span></div>`
       + histTable(injured, yr-1)
     : '';
-  host.innerHTML = `<div class="starters-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));">${colHtml}</div>${histTable(rows, yr, projected)}${injHtml}<div id="seasonLossesWrap"></div>`;
+  host.innerHTML = `<div class="dc-grid">${colHtml}</div>${histTable(rows, yr, projected)}${injHtml}<div id="seasonLossesWrap"></div>`;
 }
 // Departures: players on the PRIOR season's roster who aren't on this season's, and
 // who don't reappear in a later season for this team. Shown under the roster table.
@@ -4879,7 +4895,7 @@ function renderProjNatlChart(projected, color, rgb){
   window.__spotlightDefault=pickSpotlightDefault;
   document.addEventListener('mouseover',function(e){
     var host=document.getElementById('depthContent'); if(!host||!host.contains(e.target)) return;
-    var t=e.target.closest('.starter-col-body,.backup-item,tr,.protation-row,.rotation-row,.crotation-row'); if(!t||!host.contains(t)) return;
+    var t=e.target.closest('.dc-row,.starter-col-body,.backup-item,tr,.protation-row,.rotation-row,.crotation-row'); if(!t||!host.contains(t)) return;
     var name=null, a=t.querySelector('a[href*="player.html"]');
     if(a){var mm=a.getAttribute('href').match(/[?&]name=([^&]+)/); if(mm){try{name=decodeURIComponent(mm[1]);}catch(_){name=mm[1];}}}
     if(!name){var dp=t.querySelector('[data-pcard]'); if(dp)name=dp.getAttribute('data-pcard');}
