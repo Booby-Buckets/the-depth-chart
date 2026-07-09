@@ -5,6 +5,7 @@
   <script src="team-colors.js"></script>
   <script src="tdc-shotchart.js?v=8"></script>
   <script src="tdc-shotflow.js?v=8"></script>
+  <script src="tdc-moneyball.js?v=1"></script>
   <script src="tdc-nil.js"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js"></script>
@@ -743,6 +744,10 @@
       </div>
       <div id="lineupShotWrap">
         <div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Build a lineup above, then generate its combined shot chart &amp; shot flow.</div>
+      </div>
+      <div class="sec-head" style="margin-top:32px;">Moneyball <span class="sec-head-sub">NIL value vs on-court impact — bargains, spend efficiency &amp; value lineups</span></div>
+      <div id="moneyballWrap">
+        <div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Loading value model…</div>
       </div>
     </div>
     <div class="panel" id="panel-losses">
@@ -3273,6 +3278,18 @@ function switchTab(id, btn){
   if(id==='schedule') initSchedule();
   if(id==='nil') renderNil();
   if(id==='customize' && !window._lspAuto){ window._lspAuto=true; _lspAutoBuild(0); }
+  if(id==='customize' && !window._mbAuto){ window._mbAuto=true; renderMoneyball(); }
+}
+
+// ── MONEYBALL — NIL value vs impact (uses nil-data.json + the value module) ──
+async function renderMoneyball(){
+  var host=document.getElementById('moneyballWrap'); if(!host||!window.TDC_MONEYBALL) return;
+  try{
+    if(!window._nilData){ window._nilData=await fetch('nil-data.json').then(r=>r.json()); }
+    var posBy={}; (typeof _allDbPlayers!=='undefined'?_allDbPlayers:[]).forEach(function(p){ if(p.name&&p.position&&!posBy[p.name]) posBy[p.name]=p.position; });
+    var lineup=(typeof _lineupRotation==='function')?_lineupRotation():[];
+    TDC_MONEYBALL.render(host, {nilData:window._nilData, teamName:(teamT&&teamT.name)||'', posByName:posBy, lineup:lineup});
+  }catch(e){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Could not load the value model.</div>'; }
 }
 // wait for the roster/lineup to populate before the first auto-build (else it
 // would flash "no players"); leaves the placeholder if data never arrives
