@@ -753,6 +753,16 @@
     font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:.95;font-variant-numeric:tabular-nums;
     box-shadow:0 5px 14px rgba(0,0,0,.45);}
   .pspot-badge-l{font-family:'Inter',sans-serif;font-size:7px;font-weight:800;letter-spacing:.14em;color:var(--text3);margin-top:1px;}
+  /* Badges shield */
+  .pspot-badges{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:7px;padding:0 8px;border-left:1px solid var(--border);align-self:stretch;justify-content:center;}
+  .pspot-shield{position:relative;width:72px;height:84px;filter:drop-shadow(0 6px 11px rgba(0,0,0,.4));}
+  .pspot-shield svg{width:100%;height:100%;display:block;}
+  .pspot-shield-n{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding-bottom:9px;font-family:'Playfair Display',serif;font-weight:800;font-size:27px;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.4);}
+  .pspot-badges-l{font-size:9px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text3);}
+  .pspot-badges-tiers{display:flex;gap:11px;font-size:11px;font-weight:800;color:var(--text2);font-variant-numeric:tabular-nums;}
+  .pspot-badges-tiers span{display:inline-flex;align-items:center;gap:4px;}
+  .pspot-badges-tiers i{width:7px;height:7px;border-radius:50%;display:inline-block;}
+  .t-gold{background:#e8b23a;}.t-silver{background:#c7ccd4;}.t-bronze{background:#c8894e;}
   .pspot-name a{color:inherit;text-decoration:none;}
   .pspot-name a:hover{color:var(--tc-readable,var(--accent));}
   .pspot-bio{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:11px;}
@@ -768,6 +778,7 @@
     .pspot-photo{width:110px;height:110px;}
     .pspot-mid{flex:1 1 150px;min-width:0;}
     .pspot-name{font-size:23px;}
+    .pspot-badges{border-left:none;align-self:auto;flex-basis:100%;padding:12px 0 2px;}
     .pspot-stats{flex-basis:100%;width:100%;grid-template-columns:repeat(6,1fr);gap:10px;padding-top:12px;border-top:1px solid var(--border);}
   }
 </style>
@@ -4746,6 +4757,19 @@ function renderProjNatlChart(projected, color, rgb){
   var SPOT_SKILLS=[{k:'ppg',l:'Scoring'},{k:'tp_pct',l:'3PT Shooting'},{k:'apg',l:'Playmaking'},
     {k:'rpg',l:'Rebounding'},{k:'blk',l:'Rim Protection'},{k:'stl',l:'Perimeter D'},
     {k:'fg_pct',l:'Finishing'},{k:'ft_pct',l:'Free Throws'}];
+  // Badges: an accolade per skill the player rates well in nationally, tiered like
+  // 2K (gold / silver / bronze). Derived from percentiles — no separate data.
+  var BADGE_SKILLS=[{k:'ppg'},{k:'tp_pct'},{k:'ft_pct'},{k:'fg_pct'},{k:'apg'},{k:'rpg'},
+    {k:'oreb'},{k:'dreb'},{k:'stl'},{k:'blk'},{k:'tovs',inv:1},{k:'mpg'}];
+  function spotBadges(s){
+    var pool=poolFor('natl'), g=0,si=0,b=0;
+    BADGE_SKILLS.forEach(function(d){
+      var v=parseFloat(s[d.k]); if(isNaN(v)) return;
+      var pct=pctRank(distFor(pool,'natl',d.k), v, d.inv?1:0); if(pct==null) return;
+      if(pct>=85) g++; else if(pct>=70) si++; else if(pct>=55) b++;
+    });
+    return {gold:g,silver:si,bronze:b,total:g+si+b};
+  }
   function spotInitials(n){return (n||'').trim().split(/\s+/).slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase();}
   function spotData(name){var lc=(name||'').toLowerCase().trim();
     return (window._depthRosterByName||{})[lc]||(window._actualByName||{})[lc]||(window._projByName||{})[lc]||null;}
@@ -4773,11 +4797,29 @@ function renderProjNatlChart(projected, color, rgb){
     var img=espn?'<img src="https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+espn+'.png" alt="" onerror="this.remove()"/>':'';
     var link='player.html?'+(espn?'espn='+espn+'&':'')+'name='+encodeURIComponent(nm);
     var badge=hasG?'<div class="pspot-badge" style="color:'+gcol+';border-color:'+gcol+'">'+Math.round(grade)+'<span class="pspot-badge-l">OVR</span></div>':'';
+    // Badges shield (team-colored), with gold/silver/bronze tier counts
+    var bdg=spotBadges(s);
+    var rgb=(typeof teamRgb_g!=='undefined'&&teamRgb_g)?teamRgb_g:'168,132,60';
+    var uid=(window.__shieldUid=(window.__shieldUid||0)+1);
+    var badgesHtml=bdg.total?'<div class="pspot-badges">'+
+      '<div class="pspot-shield"><svg viewBox="0 0 92 108" xmlns="http://www.w3.org/2000/svg">'+
+        '<defs><linearGradient id="shg'+uid+'" x1="0" y1="0" x2="0" y2="1">'+
+          '<stop offset="0" stop-color="rgba('+rgb+',.98)"/><stop offset="1" stop-color="rgba('+rgb+',.6)"/></linearGradient></defs>'+
+        '<path d="M46 3 L85 17 L85 56 C85 83 67 98 46 105 C25 98 7 83 7 56 L7 17 Z" fill="url(#shg'+uid+')" stroke="rgba(255,255,255,.55)" stroke-width="2.5"/>'+
+        '<path d="M46 12 L76 23 L76 55 C76 76 63 89 46 95 C29 89 16 76 16 55 L16 23 Z" fill="rgba(255,255,255,.12)"/>'+
+      '</svg><span class="pspot-shield-n">'+bdg.total+'</span></div>'+
+      '<div class="pspot-badges-l">Badges</div>'+
+      '<div class="pspot-badges-tiers">'+
+        (bdg.gold?'<span><i class="t-gold"></i>'+bdg.gold+'</span>':'')+
+        (bdg.silver?'<span><i class="t-silver"></i>'+bdg.silver+'</span>':'')+
+        (bdg.bronze?'<span><i class="t-bronze"></i>'+bdg.bronze+'</span>':'')+
+      '</div></div>':'';
     host.innerHTML='<div class="pspot">'+
       '<div class="pspot-photo">'+ring+'<div class="pspot-av">'+img+'<span class="pspot-init">'+spotInitials(nm)+'</span></div>'+badge+'</div>'+
       '<div class="pspot-mid"><div class="pspot-poswrap">'+(pos?'<span class="pspot-pos">'+pos+'</span>':'')+'<span class="pspot-arch">'+arch+'</span></div>'+
         '<div class="pspot-name"><a href="'+link+'">'+nm+'</a></div>'+
         '<div class="pspot-bio">'+(bio||'&nbsp;')+'</div>'+skillsHtml+'</div>'+
+      badgesHtml+
       '<div class="pspot-stats">'+statHtml+'</div></div>';
     host.style.display='';
     window.__spotCur=name;
