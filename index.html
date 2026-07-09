@@ -514,20 +514,17 @@
     .team-row > .tr-rank-wrap,
     .skeleton-row > .skel-rank { position: sticky; left: 0; z-index: 4; }
     .table-header > .th:nth-child(2),
-    .team-row > .tr-color-bar,
-    .skeleton-row > .skel-bar { position: sticky; left: 48px; z-index: 4; }
-    .table-header > .th:nth-child(3),
     .team-row > .tr-team-cell,
-    .skeleton-row > .skel-name { position: sticky; left: 58px; z-index: 4; }
+    .skeleton-row > .skel-name { position: sticky; left: 48px; z-index: 4; }
     /* Background + shadow only appear once the stats are actually scrolled,
        so wide screens (no scroll) show no boxy backgrounds. */
     .table-scroll.scrolled .table-header > .th:nth-child(1),
     .table-scroll.scrolled .team-row > .tr-rank-wrap,
     .table-scroll.scrolled .skeleton-row > .skel-rank,
-    .table-scroll.scrolled .table-header > .th:nth-child(3),
+    .table-scroll.scrolled .table-header > .th:nth-child(2),
     .table-scroll.scrolled .team-row > .tr-team-cell,
     .table-scroll.scrolled .skeleton-row > .skel-name { background: var(--bg); }
-    .table-scroll.scrolled .table-header > .th:nth-child(3),
+    .table-scroll.scrolled .table-header > .th:nth-child(2),
     .table-scroll.scrolled .team-row > .tr-team-cell,
     .table-scroll.scrolled .skeleton-row > .skel-name { box-shadow: 10px 0 12px -10px rgba(0,0,0,.22); }
     .table-scroll.scrolled .team-row:hover > .tr-rank-wrap,
@@ -536,7 +533,7 @@
 
   .table-header {
     display: grid;
-    grid-template-columns: 48px 10px minmax(200px,1fr) 140px 16px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
+    grid-template-columns: 48px minmax(200px,1fr) 140px 16px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
     gap: 0;
     padding: 10px 0;
     border-bottom: 2px solid var(--border2);
@@ -597,7 +594,7 @@
   /* ---- Team rows ---- */
   .team-row {
     display: grid;
-    grid-template-columns: 48px 10px minmax(200px,1fr) 140px 16px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
+    grid-template-columns: 48px minmax(200px,1fr) 140px 16px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
     gap: 0;
     padding: 14px 0;
     border-bottom: 1px solid var(--border);
@@ -704,14 +701,6 @@
   [data-theme="dark"] .rank-up   { color:#5ab875; }
   [data-theme="dark"] .rank-down { color:#e07070; }
 
-  /* Color bar */
-  .tr-color-bar {
-    width: 4px; height: 100%;
-    border-radius: 2px;
-    align-self: stretch;
-    transition: opacity .15s, transform .15s;
-  }
-  .team-row:hover .tr-color-bar { opacity:.75; }
 
   /* Team name */
   .tr-team-name {
@@ -801,14 +790,13 @@
   }
   .skeleton-row {
     display: grid;
-    grid-template-columns: 48px 10px minmax(200px,1fr) 140px 16px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
+    grid-template-columns: 48px minmax(200px,1fr) 140px 16px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
     gap: 0;
     padding: 14px 0;
     border-bottom: 1px solid var(--border);
     align-items: center;
   }
   .skel-rank  { width:36px; height:24px; margin:0 auto; }
-  .skel-bar   { width:4px;  height:34px; }
   .skel-name  { display:flex; flex-direction:column; gap:7px; }
   .skel-n1    { width:58%; height:14px; }
   .skel-n2    { width:33%; height:9px; }
@@ -891,9 +879,8 @@
 
     /* ---- Team rows become compact cards ---- */
     .table-header { display:none; }
-    .team-row,.skeleton-row { grid-template-columns:26px 3px 1fr auto; column-gap:11px; padding:11px 2px; align-items:center; }
+    .team-row,.skeleton-row { grid-template-columns:26px 1fr auto; column-gap:11px; padding:11px 2px; align-items:center; }
     .th,.tr-grade,.tr-sparkline,.tr-margin,.tr-stat,.tr-spacer { display:none; }
-    .tr-color-bar { height:38px; }
     .tr-team-cell { min-width:0; overflow:hidden; }
     .tr-team-name { display:block; font-size:14.5px; margin-bottom:3px; padding-left:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
     .tr-team-conf { display:inline-flex; margin-left:0; font-size:9px; }
@@ -1237,7 +1224,6 @@
   <div class="table-scroll">
   <div class="table-header">
     <div class="th">Rk</div>
-    <div class="th"></div>
     <div class="th">Team</div>
     <div class="th sortable" data-sort="srs" title="Net rating (SRS) — points better than an average D1 team on a neutral court, adjusted for strength of schedule. Doubles as a point spread: a +25 team is a 10-point favorite over a +15 team." style="text-decoration:underline dotted;text-underline-offset:3px;">Net Rating<span class="th-arrow"></span></div>
     <div class="th"></div>
@@ -1260,7 +1246,7 @@
     <!-- Branded skeleton loader -->
     <div id="skeletonLoader">
       <div class="skeleton-row">
-        <div class="skel skel-rank"></div><div class="skel skel-bar"></div>
+        <div class="skel skel-rank"></div>
         <div class="skel-name"><div class="skel skel-n1"></div><div class="skel skel-n2"></div></div>
         <div class="skel-spark"><div class="skel skel-s skel-s1"></div><div class="skel skel-s skel-s2"></div><div class="skel skel-s skel-s3"></div><div class="skel skel-s skel-s4"></div></div>
         <div></div>
@@ -1271,7 +1257,7 @@
         <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
       </div>
       <div class="skeleton-row">
-        <div class="skel skel-rank"></div><div class="skel skel-bar"></div>
+        <div class="skel skel-rank"></div>
         <div class="skel-name"><div class="skel skel-n1"></div><div class="skel skel-n2"></div></div>
         <div class="skel-spark"><div class="skel skel-s skel-s1"></div><div class="skel skel-s skel-s2"></div><div class="skel skel-s skel-s3"></div><div class="skel skel-s skel-s4"></div></div>
         <div></div>
@@ -1282,7 +1268,7 @@
         <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
       </div>
       <div class="skeleton-row">
-        <div class="skel skel-rank"></div><div class="skel skel-bar"></div>
+        <div class="skel skel-rank"></div>
         <div class="skel-name"><div class="skel skel-n1"></div><div class="skel skel-n2"></div></div>
         <div class="skel-spark"><div class="skel skel-s skel-s1"></div><div class="skel skel-s skel-s2"></div><div class="skel skel-s skel-s3"></div><div class="skel skel-s skel-s4"></div></div>
         <div></div>
@@ -1293,7 +1279,7 @@
         <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
       </div>
       <div class="skeleton-row">
-        <div class="skel skel-rank"></div><div class="skel skel-bar"></div>
+        <div class="skel skel-rank"></div>
         <div class="skel-name"><div class="skel skel-n1"></div><div class="skel skel-n2"></div></div>
         <div class="skel-spark"><div class="skel skel-s skel-s1"></div><div class="skel skel-s skel-s2"></div><div class="skel skel-s skel-s3"></div><div class="skel skel-s skel-s4"></div></div>
         <div></div>
@@ -1304,7 +1290,7 @@
         <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
       </div>
       <div class="skeleton-row">
-        <div class="skel skel-rank"></div><div class="skel skel-bar"></div>
+        <div class="skel skel-rank"></div>
         <div class="skel-name"><div class="skel skel-n1"></div><div class="skel skel-n2"></div></div>
         <div class="skel-spark"><div class="skel skel-s skel-s1"></div><div class="skel skel-s skel-s2"></div><div class="skel skel-s skel-s3"></div><div class="skel skel-s skel-s4"></div></div>
         <div></div>
@@ -1315,7 +1301,7 @@
         <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
       </div>
       <div class="skeleton-row">
-        <div class="skel skel-rank"></div><div class="skel skel-bar"></div>
+        <div class="skel skel-rank"></div>
         <div class="skel-name"><div class="skel skel-n1"></div><div class="skel skel-n2"></div></div>
         <div class="skel-spark"><div class="skel skel-s skel-s1"></div><div class="skel skel-s skel-s2"></div><div class="skel skel-s skel-s3"></div><div class="skel skel-s skel-s4"></div></div>
         <div></div>
@@ -1326,7 +1312,7 @@
         <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
       </div>
       <div class="skeleton-row">
-        <div class="skel skel-rank"></div><div class="skel skel-bar"></div>
+        <div class="skel skel-rank"></div>
         <div class="skel-name"><div class="skel skel-n1"></div><div class="skel skel-n2"></div></div>
         <div class="skel-spark"><div class="skel skel-s skel-s1"></div><div class="skel skel-s skel-s2"></div><div class="skel skel-s skel-s3"></div><div class="skel skel-s skel-s4"></div></div>
         <div></div>
@@ -1337,7 +1323,7 @@
         <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
       </div>
       <div class="skeleton-row">
-        <div class="skel skel-rank"></div><div class="skel skel-bar"></div>
+        <div class="skel skel-rank"></div>
         <div class="skel-name"><div class="skel skel-n1"></div><div class="skel skel-n2"></div></div>
         <div class="skel-spark"><div class="skel skel-s skel-s1"></div><div class="skel skel-s skel-s2"></div><div class="skel skel-s skel-s3"></div><div class="skel skel-s skel-s4"></div></div>
         <div></div>
@@ -1769,7 +1755,6 @@ function renderRows(data, srt, favTeam, favColor, favBg){
     html+=`
     <div class="team-row${isFav?' fav-row':''}" style="--row-color:${t.color};${isFav&&favColor?`border-left:3px solid ${favColor};background:${favBg};`:''}">
       <div class="tr-rank-wrap"><div class="tr-rank${t.rk===1?' rank-1':t.rk===2?' rank-2':t.rk===3?' rank-3':''}">${t.rk}</div></div>
-      <div class="tr-color-bar" style="background:${t.color}"></div>
       <div class="tr-team-cell">
         <a class="tr-team-name" href="team.html?team=${encodeURIComponent(t.short)}${curSeason===2027?'':'&season='+curSeason}" style="color:inherit;text-decoration:none;">${t.name}</a>
         <div class="tr-team-conf"><span class="conf-badge">${confAbbr(t.confName)}</span>${tierBadge(t.tier)}${t.projected===false?'<span class="conf-badge" title="No synced roster yet — regressed carryover of the 2025-26 rating" style="opacity:.65;">carry</span>':''}</div>
