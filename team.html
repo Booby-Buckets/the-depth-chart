@@ -142,6 +142,8 @@
     .hero-meta{display:flex;align-items:center;gap:16px;flex-wrap:wrap;animation:fadeUp .5s .22s cubic-bezier(.22,1,.36,1) both;}
     .hero-record{font-family:'Share Tech Mono',monospace;font-size:14px;color:var(--text2);}
     .hero-coach{font-size:12px;color:var(--text3);font-style:italic;}
+    .hero-coach-link{color:var(--tc-readable,var(--accent));font-style:normal;font-weight:700;border-bottom:1px solid transparent;transition:border-color .15s;}
+    .hero-coach-link:hover{border-bottom-color:currentColor;}
     .hero-rank{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border:1px solid var(--tc-readable);color:var(--tc-readable);transition:background .2s,color .2s;}
     .hero-rank:hover{background:var(--tc);color:#fff;}
 
@@ -1122,6 +1124,47 @@ function applyTeamTheme(color){
   rs.setProperty('--bgm3',_rgbaHex(team,.12)); rs.setProperty('--bgm4',_rgbaHex(g1,.10));
 }
 
+// ── Head-coach link, accurate to the selected season ──────────────────────
+// coach_seasons.json maps (school, season_year) → the coach who ran the program
+// that year, so the hero shows the right coach when you scrub back through years
+// (e.g. Kentucky 2015-16 → Calipari, 2026-27 → Pope) and links to their page.
+function _coachNorm(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+async function loadCoachIdx(){
+  if(window._coachIdx) return window._coachIdx;
+  if(window._coachIdxPromise) return window._coachIdxPromise;
+  window._coachIdxPromise = (async()=>{
+    try{
+      const rows = await fetch('scripts/data/coach_seasons.json').then(r=>r.ok?r.json():[]);
+      const idx = {};
+      (Array.isArray(rows)?rows:[]).forEach(r=>{
+        [ _coachNorm(r.school), _coachNorm(r.school_slug) ].forEach(k=>{
+          if(!k) return; (idx[k] = idx[k] || {})[r.season_year] = { coach:r.coach, slug:r.coach_slug };
+        });
+      });
+      window._coachIdx = idx; return idx;
+    }catch(e){ console.warn('coach index load failed', e); return (window._coachIdx={}); }
+  })();
+  return window._coachIdxPromise;
+}
+function coachForYear(idx, school, year){
+  const m = idx[_coachNorm(school)]; if(!m) return null;
+  const yrs = Object.keys(m).map(Number).sort((a,b)=>a-b); if(!yrs.length) return null;
+  const target = year>=2027 ? yrs[yrs.length-1] : year;   // projected season → latest coach
+  if(m[target]) return m[target];
+  const le = yrs.filter(y=>y<=target);                    // else the most recent coach on/before that year
+  return m[le.length ? le[le.length-1] : yrs[yrs.length-1]];
+}
+async function updateHeroCoach(school, year){
+  const el = document.getElementById('heroCoach'); if(!el || !school) return;
+  const idx = await loadCoachIdx();
+  const c = coachForYear(idx, school, year);
+  if(c && c.slug){
+    el.innerHTML = 'HC: <a class="hero-coach-link" href="coach.html?slug='+encodeURIComponent(c.slug)+'">'+c.coach+'</a>';
+  } else if(c){
+    el.textContent = 'HC: '+c.coach;
+  }
+}
+
 function renderHero(t, color, rgb){
   const color2 = t.color2 || t.secondary_color || '#111';
   setColor(color, rgb);
@@ -1136,6 +1179,7 @@ function renderHero(t, color, rgb){
   document.getElementById('heroNick').textContent = t.nickname || '';
   document.getElementById('heroRecord').textContent = t.record || '';
   document.getElementById('heroCoach').textContent = t.coach || t.head_coach ? `HC: ${t.coach||t.head_coach}` : '';
+  updateHeroCoach(t.name, (typeof _rosterSeason!=='undefined'&&_rosterSeason)||2027);
   document.getElementById('heroRank').textContent = t.tdc_rank ? `#${t.tdc_rank} TDC` : '';
   document.getElementById('gradeCardHead').style.color = color;
   document.getElementById('gradeCardHead').style.borderLeftColor = color;
@@ -3497,6 +3541,7 @@ function _setActiveYearPill(v){
 function onRosterSeason(v){
   _rosterSeason = +v;
   _setActiveYearPill(v);
+  if(teamT) updateHeroCoach(teamT.name, +v);
   const sh=document.getElementById('depthSecHead');
   const live=document.querySelectorAll('.live-side'), awardsCard=document.getElementById('awardsCard'), statsCard=document.getElementById('seasonStatsCard');
   // The Coach/Depth/Recruit/NIL/Tier grades only describe the 2026-27 projection,
