@@ -30,15 +30,22 @@
     .back{font-size:12px;font-weight:700;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;display:inline-block;margin-bottom:16px;}
     .back:hover{color:var(--accent);}
     /* hero */
-    .chero{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;padding-bottom:20px;border-bottom:1px solid var(--border);}
+    .chero{display:flex;align-items:center;gap:24px;padding:26px 28px;border-radius:18px;border:1px solid var(--border);
+      background:radial-gradient(130% 170% at 0% 0%,color-mix(in srgb,var(--accent) 16%,var(--bg2)),var(--bg2));}
+    .chero-mono{width:86px;height:86px;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;
+      font-family:'Playfair Display',serif;font-weight:800;font-size:33px;color:var(--accent);letter-spacing:-.01em;
+      background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 30%,var(--bg3)),var(--bg3));
+      border:2px solid color-mix(in srgb,var(--accent) 38%,var(--border2));}
     .chero .ey{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);}
-    .chero h1{font-family:'Playfair Display',serif;font-weight:800;font-size:46px;letter-spacing:-.02em;line-height:1;margin:4px 0 8px;}
-    .chero .meta{font-size:13.5px;color:var(--text3);font-weight:600;}
+    .chero h1{font-family:'Playfair Display',serif;font-weight:800;font-size:44px;letter-spacing:-.02em;line-height:1;margin:5px 0 8px;}
+    .chero .meta{font-size:13.5px;color:var(--text2);font-weight:600;}
     .chero .arch{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#221c08;background:var(--accent);padding:6px 13px;border-radius:20px;display:inline-block;margin-top:12px;}
-    /* stat row */
-    .cstats{display:flex;gap:30px;flex-wrap:wrap;margin:22px 0 8px;}
-    .cstat .n{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;line-height:1;}
-    .cstat .l{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
+    /* stat strip */
+    .cstrip{display:flex;flex-wrap:wrap;margin:16px 0 8px;border:1px solid var(--border);border-radius:14px;background:var(--bg2);overflow:hidden;}
+    .cstat{flex:1 1 0;min-width:120px;padding:15px 18px;border-left:1px solid var(--border);}
+    .cstat:first-child{border-left:none;}
+    .cstat .n{font-family:'Playfair Display',serif;font-weight:800;font-size:25px;line-height:1;}
+    .cstat .l{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:5px;}
     .sec-t{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:34px 0 14px;display:flex;align-items:center;gap:12px;}
     .sec-t::after{content:'';flex:1;height:1px;background:var(--border);}
     .sec-t span{color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;}
@@ -47,13 +54,10 @@
     .radar-wrap{text-align:center;}
     .tags{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:12px 0 2px;}
     .tag{font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);background:rgba(168,132,60,.1);border:1px solid rgba(168,132,60,.25);padding:3px 8px;border-radius:20px;}
-    .tl-row{display:grid;grid-template-columns:64px 1fr auto 78px 52px;gap:12px;align-items:center;font-size:13px;padding:7px 0;border-bottom:1px solid var(--border);}
-    .tl-row .yr{font-weight:700;color:var(--text3);font-size:11.5px;}
-    .tl-row .sc{font-weight:700;}
-    .tl-row .wl{color:var(--text2);font-variant-numeric:tabular-nums;}
-    .tl-row .ppg{color:var(--text2);font-variant-numeric:tabular-nums;text-align:right;font-size:12px;}
-    .tl-row .ppg small{font-size:8.5px;color:var(--text3);font-weight:700;letter-spacing:.03em;}
-    .tl-row .srs{font-weight:800;font-variant-numeric:tabular-nums;font-size:11.5px;text-align:right;}
+    .tl-h{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;}
+    .wchart{width:100%;height:auto;display:block;overflow:visible;}
+    .wchart .wbar{transition:opacity .15s;cursor:default;}
+    .wchart .wbar:hover{opacity:1!important;}
     /* style trends */
     .sc-legend{display:flex;gap:16px;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px;}
     .sc-legend span{display:inline-flex;align-items:center;gap:6px;} .sc-legend i{width:12px;height:3px;border-radius:2px;}
@@ -175,48 +179,85 @@ function scoringChart(trend){
     '<svg viewBox="0 0 '+W+' '+H+'" class="sc-chart">'+g+'</svg>';
 }
 
-function render(p, ss, pg){
-  ss=ss.slice().sort((a,b)=>b.season_year-a.season_year);
-  var ppgBy={}; if(pg&&pg.trend) pg.trend.forEach(t=>{ if(t.ppg!=null) ppgBy[t.yr]=t.ppg; });
-  var tl=ss.map(s=>'<div class="tl-row"><span class="yr">'+seasonLbl(s.season_year)+'</span><span class="sc">'+s.school+'</span>'+
-    '<span class="wl">'+(s.wins!=null?s.wins+'-'+s.losses:'—')+'</span>'+
-    '<span class="ppg">'+(ppgBy[s.season_year]!=null?ppgBy[s.season_year].toFixed(1)+' <small>PPG</small>':'')+'</span>'+
-    '<span class="srs" style="color:'+(s.srs>=0?'var(--green)':'var(--red)')+'">'+(s.srs!=null?(s.srs>=0?'+':'')+s.srs.toFixed(1):'')+'</span></div>').join('');
+// Career wins by season — bar chart (replaces the long timeline table)
+function winsChart(ss){
+  var s=(ss||[]).filter(Boolean).slice().sort((a,b)=>a.season_year-b.season_year);
+  if(!s.length) return '';
+  var W=760,H=196, pl=6,pr=6,pt=22,pb=38, iw=W-pl-pr, ih=H-pt-pb;
+  var maxW=Math.max.apply(null,s.map(x=>x.wins||0).concat([1]));
+  var n=s.length, gap=n>15?5:8, bw=Math.min(48,(iw-gap*(n-1))/n);
+  var span=bw*n+gap*(n-1), x0=pl+(iw-span)/2;
+  var bestI=0; s.forEach((x,i)=>{ if((x.wins||0)>(s[bestI].wins||0)) bestI=i; });
+  var g='<line x1="'+pl+'" y1="'+(pt+ih)+'" x2="'+(W-pr)+'" y2="'+(pt+ih)+'" stroke="var(--border2)" stroke-width="1"/>';
+  s.forEach(function(x,i){
+    var xx=x0+i*(bw+gap), has=x.wins!=null;
+    var bh=has?Math.max(2,ih*((x.wins||0)/maxW)):0, yy=pt+ih-bh, best=i===bestI&&has;
+    var tip=seasonLbl(x.season_year)+' · '+x.school+(has?' · '+x.wins+'-'+x.losses:'')+(x.srs!=null?' · '+(x.srs>=0?'+':'')+x.srs.toFixed(1)+' SRS':'');
+    if(has){
+      g+='<rect class="wbar" x="'+xx.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+bh.toFixed(1)+'" rx="3" fill="var(--accent)" fill-opacity="'+(best?'1':'.5')+'"><title>'+tip+'</title></rect>'+
+        '<text x="'+(xx+bw/2).toFixed(1)+'" y="'+(yy-5).toFixed(1)+'" text-anchor="middle" font-size="10.5" font-weight="800" fill="var(--text2)">'+x.wins+'</text>';
+    } else {
+      g+='<text x="'+(xx+bw/2).toFixed(1)+'" y="'+(pt+ih-4)+'" text-anchor="middle" font-size="10" fill="var(--text3)">—</text>';
+    }
+    if(n<=16 || i%2===0 || i===n-1) g+='<text x="'+(xx+bw/2).toFixed(1)+'" y="'+(pt+ih+15)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text3)">'+(''+x.season_year).slice(2)+'</text>';
+  });
+  // school-run labels + dividers when the coach spans multiple schools
+  if([...new Set(s.map(x=>x.school))].length>1){
+    var rs=0;
+    for(var i=1;i<=n;i++){
+      if(i===n || s[i].school!==s[rs].school){
+        var mx=x0+((rs+i-1)/2)*(bw+gap)+bw/2;
+        g+='<text x="'+mx.toFixed(1)+'" y="'+(pt-9)+'" text-anchor="middle" font-size="9" font-weight="800" letter-spacing=".05em" fill="var(--text3)">'+s[rs].school.toUpperCase()+'</text>';
+        if(i<n){ var dx=x0+(i-0.5)*(bw+gap)-gap/2; g+='<line x1="'+dx.toFixed(1)+'" y1="'+pt+'" x2="'+dx.toFixed(1)+'" y2="'+(pt+ih)+'" stroke="var(--border)" stroke-dasharray="2 3"/>'; }
+        rs=i;
+      }
+    }
+  }
+  return '<svg viewBox="0 0 '+W+' '+H+'" class="wchart">'+g+'</svg>';
+}
 
-  var stat=(n,l)=>'<div class="cstat"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>';
-  var devN=p.dev_delta!=null?('<div class="cstat"><div class="n" style="color:'+(p.dev_delta>=0?'var(--green)':'var(--red)')+'">'+(p.dev_delta>=0?'+':'')+p.dev_delta.toFixed(1)+'</div><div class="l">Player Dev'+(p.dev_pctl!=null?' · '+p.dev_pctl+'%ile':'')+'</div></div>'):'';
+function render(p, ss, pg){
+  var stat=(n,l,c)=>'<div class="cstat"><div class="n"'+(c?' style="color:'+c+'"':'')+'>'+n+'</div><div class="l">'+l+'</div></div>';
+  var initials=(p.coach||'').trim().split(/\s+/).slice(0,2).map(w=>(w[0]||'')).join('').toUpperCase();
+  var devCell=p.dev_delta!=null?stat((p.dev_delta>=0?'+':'')+p.dev_delta.toFixed(1),'Player Dev'+(p.dev_pctl!=null?' · '+p.dev_pctl+'%ile':''),(p.dev_delta>=0?'var(--green)':'var(--red)')):'';
 
   var html='<a class="back" href="coaches.html">← Coaching Lab</a>'+
-    '<div class="chero"><div><div class="ey">Head Coach</div><h1>'+p.coach+'</h1>'+
+    '<div class="chero"><div class="chero-mono">'+initials+'</div>'+
+      '<div class="chero-body"><div class="ey">Head Coach</div><h1>'+p.coach+'</h1>'+
       '<div class="meta">'+p.schools+' · '+seasonLbl(p.first_year)+' – '+seasonLbl(p.last_year)+'</div>'+
       '<span class="arch">'+p.archetype+'</span></div></div>'+
-    '<div class="cstats">'+stat(p.wins+'-'+p.losses,'Record')+stat((p.win_pct*100).toFixed(1)+'%','Win %')+
+    '<div class="cstrip">'+stat(p.wins+'-'+p.losses,'Record')+stat((p.win_pct*100).toFixed(1)+'%','Win %')+
       stat(p.seasons,'Seasons')+stat((p.avg_srs>=0?'+':'')+num(p.avg_srs),'Avg SRS')+
       (pg?stat(pg.tny_apps+' / '+pg.tny_wins,'NCAA Apps / Wins'):'')+
-      (pg?stat(pg.players_coached,'Players Coached'):'')+devN+'</div>';
+      (pg?stat(pg.players_coached,'Players Coached'):'')+devCell+'</div>';
 
-  // style + timeline
-  html+='<div class="grid2"><div class="card radar-wrap">'+radar(p,300)+
-    '<div class="tags">'+(p.tags||'').split(', ').filter(Boolean).map(t=>'<span class="tag">'+t+'</span>').join('')+'</div>'+
-    '<div style="font-size:10.5px;color:var(--text3);margin-top:8px;">Percentiles vs all 952 coaches</div></div>'+
-    '<div class="card"><div class="tl-h" style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">Career Timeline</div>'+tl+'</div></div>';
+  // Career by season — bar chart (replaces the long timeline table)
+  if(ss&&ss.length){
+    html+='<div class="sec-t">Career by Season <span>wins per year · best season highlighted</span></div>'+
+      '<div class="card">'+winsChart(ss)+'</div>';
+  }
+
+  // Coaching style — radar paired with the scoring chart so neither column is a void
+  var tr=(pg&&pg.trend)?pg.trend.slice().sort((a,b)=>a.yr-b.yr):[];
+  var scoring=tr.length>=2?scoringChart(tr):'';
+  var tagsHtml='<div class="tags">'+(p.tags||'').split(', ').filter(Boolean).map(t=>'<span class="tag">'+t+'</span>').join('')+'</div>'+
+    '<div style="font-size:10px;color:var(--text3);margin-top:8px;">Percentiles vs all 952 coaches</div>';
+  html+='<div class="sec-t">Coaching Style <span>his tendencies &amp; scoring identity</span></div>';
+  if(scoring){
+    html+='<div class="grid2"><div class="card radar-wrap">'+radar(p,300)+tagsHtml+'</div>'+
+      '<div class="card"><div class="tl-h">Points Scored vs Allowed</div>'+scoring+'</div></div>';
+  } else {
+    html+='<div class="card radar-wrap" style="max-width:440px;margin:0 auto;">'+radar(p,300)+tagsHtml+'</div>';
+  }
+
+  // style trend mini-cards
+  if(tr.length>=2){
+    var AC='var(--accent)';
+    var cards=[trendCard(tr,'Pace','poss_pg',AC,1),trendCard(tr,'3PT Rate','three_pa_rate',AC,1),trendCard(tr,'Bench Min%','bench_min_pct',AC,1),trendCard(tr,'Ball Move','ast_rate',AC,1),trendCard(tr,'TO Force','opp_tov_pg',AC,1),trendCard(tr,'Star Use','top_scorer_share',AC,1)].filter(Boolean).join('');
+    if(cards) html+='<div class="trend-grid">'+cards+'</div>';
+  }
 
   if(pg){
-    var tr=(pg.trend||[]).slice().sort((a,b)=>a.yr-b.yr);
-    if(tr.length>=2){
-      var AC='var(--accent)';
-      var cards=[
-        trendCard(tr,'Pace','poss_pg',AC,1),
-        trendCard(tr,'3PT Rate','three_pa_rate',AC,1),
-        trendCard(tr,'Bench Min%','bench_min_pct',AC,1),
-        trendCard(tr,'Ball Move','ast_rate',AC,1),
-        trendCard(tr,'TO Force','opp_tov_pg',AC,1),
-        trendCard(tr,'Star Use','top_scorer_share',AC,1)
-      ].filter(Boolean).join('');
-      html+='<div class="sec-t">Style Trends & Scoring <span>how his system evolved</span></div>'+
-        '<div class="card">'+scoringChart(tr)+'</div>'+
-        '<div class="trend-grid">'+cards+'</div>';
-    }
     // best ever team
     var bt=pg.best_team;
     if(bt){
