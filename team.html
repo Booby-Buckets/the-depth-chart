@@ -858,9 +858,26 @@ async function loadTeam(name){
       `${SB_URL}/rest/v1/teams?name=eq.${encodeURIComponent(name)}&select=*&limit=1`,
       { headers: H }
     );
-    const teams = await tr.json();
+    let teams = await tr.json();
+    // Pages built from games / tournament / team_seasons data link here with the
+    // full ESPN name ("Kentucky Wildcats"), but the teams + players tables key on
+    // the plain school name ("Kentucky"). If the exact name misses, map full→plain
+    // by longest-prefix match against the team list and retry, so the roster
+    // resolves instead of showing "No roster data".
+    if(!Array.isArray(teams) || !teams.length){
+      try{
+        const all = await fetch(`${SB_URL}/rest/v1/teams?select=name`,{headers:H}).then(r=>r.ok?r.json():[]);
+        const plain = (Array.isArray(all)?all:[]).map(x=>x.name).filter(Boolean)
+          .sort((a,b)=>b.length-a.length)          // prefer "North Carolina A&T" over "North Carolina"
+          .find(n=> name===n || name.startsWith(n+' '));
+        if(plain && plain!==name){
+          name = plain;
+          teams = await fetch(`${SB_URL}/rest/v1/teams?name=eq.${encodeURIComponent(name)}&select=*&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]);
+        }
+      }catch(e){ console.warn('full→plain team resolve failed', e); }
+    }
     let t;
-    if(teams.length){
+    if(Array.isArray(teams) && teams.length){
       t = teams[0];
     } else {
       // Many mid-major teams aren't in the curated `teams` table — resolve basic
