@@ -733,8 +733,15 @@
   .pspot-ring{position:absolute;inset:0;}
   .pspot-av{position:absolute;inset:8px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;
     background:linear-gradient(160deg,rgba(var(--tc-rgb,168,132,60),.45),var(--bg3));}
-  .pspot-av img{width:100%;height:100%;object-fit:cover;object-position:top center;}
+  /* ESPN "full" headshots are 600×436 with transparent padding around the player,
+     so cover alone leaves the head floating small. Zoom in and anchor toward the
+     face so the head+shoulders fill the circle like a 2K portrait. */
+  .pspot-av img{width:100%;height:100%;object-fit:cover;object-position:center top;transform:scale(1.5);transform-origin:center 34%;}
   .pspot-init{font-family:'Playfair Display',serif;font-weight:800;font-size:30px;color:var(--text);letter-spacing:-.02em;}
+  /* Hide the initials once a headshot is present (the ESPN PNG is transparent, so
+     the letter would otherwise show through beside the face). onerror removes the
+     <img>, which brings the initials back for players with no photo. */
+  .pspot-av:has(img) .pspot-init{display:none;}
   .pspot-ovr{position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);background:var(--bg);border:2px solid var(--bg2);
     border-radius:20px;min-width:26px;text-align:center;padding:1px 8px;font-family:'Playfair Display',serif;font-weight:800;font-size:16px;line-height:1.35;box-shadow:0 3px 9px rgba(0,0,0,.35);}
   .pspot-mid{flex:1;min-width:0;}
