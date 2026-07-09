@@ -1182,12 +1182,15 @@
   .sc-net{font-family:'Playfair Display',serif;font-weight:800;font-size:27px;color:var(--accent);line-height:1;}
   .sc-netlbl{font-size:9px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--text3);margin-top:1px;}
   .sc-meta{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;font-weight:700;color:var(--text2);}
-  .sc-players{display:grid;grid-template-columns:repeat(6,1fr);gap:11px;}
-  .sc-player{display:flex;flex-direction:column;align-items:center;border:1px solid var(--border);border-radius:13px;padding:14px 8px;background:var(--bg2);text-decoration:none;color:inherit;transition:transform .18s,box-shadow .18s,border-color .18s;}
-  .sc-player:hover{transform:translateY(-3px);box-shadow:0 10px 26px rgba(80,40,160,.14);border-color:var(--border2);}
-  .sc-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:31px;line-height:1;}
-  .sc-g99{color:#c99a2e;} .sc-g96{color:var(--accent);} .sc-g90{color:var(--blue);}
-  .sc-pname{font-weight:700;font-size:13px;margin-top:7px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sc-players{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;}
+  .sc-player{display:flex;flex-direction:column;align-items:center;border:1px solid var(--border);border-radius:16px;padding:18px 10px 14px;background:var(--bg2);text-decoration:none;color:inherit;box-shadow:0 1px 2px rgba(20,16,31,.05);transition:transform .2s cubic-bezier(.34,1.4,.64,1),box-shadow .22s,border-color .2s;}
+  .sc-player:hover{transform:translateY(-4px);box-shadow:0 16px 34px rgba(80,40,160,.18);border-color:var(--accent);}
+  .sc-ph{position:relative;width:66px;height:66px;border-radius:50%;background:linear-gradient(155deg,color-mix(in srgb,var(--accent) 26%,var(--bg2)),color-mix(in srgb,var(--accent) 12%,var(--bg2)));display:flex;align-items:center;justify-content:center;margin-bottom:12px;box-shadow:0 4px 14px rgba(20,16,31,.12);}
+  .sc-ph-init{font-family:'Playfair Display',serif;font-weight:800;font-size:23px;color:color-mix(in srgb,var(--accent) 70%,var(--text));}
+  .sc-ph-img{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:top center;background:var(--bg3);}
+  .sc-badge{position:absolute;bottom:-5px;right:-7px;font-weight:800;font-size:13px;font-variant-numeric:tabular-nums;letter-spacing:-.01em;color:#fff;background:var(--accent);padding:2px 8px;border-radius:9px;border:2.5px solid var(--bg2);box-shadow:0 2px 7px rgba(80,40,160,.3);}
+  .sc-badge.sc-g99{background:linear-gradient(135deg,#e6bf58,#c99a2e);color:#3a2a06;}
+  .sc-pname{font-weight:700;font-size:13.5px;margin-top:2px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .sc-pteam{font-size:11px;color:var(--text3);font-weight:600;margin-top:1px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   @media(max-width:980px){.sc-players{grid-template-columns:repeat(3,1fr);}}
   @media(max-width:760px){.sc-teams{grid-template-columns:repeat(2,1fr);}}
@@ -1481,9 +1484,13 @@ async function renderShowcase(){
       ps = base.slice(0,6);
     }
     document.getElementById('scPlayers').innerHTML=ps.map(p=>{
-      const g=+p.tdc_grade, cls=g>=99?'sc-g99':g>=96?'sc-g96':'sc-g90';
+      const g=+p.tdc_grade, cls=g>=99?'sc-g99':'';
       const link=p.espn_id?`player.html?espn=${p.espn_id}`:`player.html?name=${encodeURIComponent(p.player)}&team=${encodeURIComponent(p.school||'')}`;
-      return `<a class="sc-player" href="${link}"><div class="sc-grade ${cls}">${g}</div><div class="sc-pname">${p.player}</div><div class="sc-pteam">${p.school}</div></a>`;
+      const init=(p.player||'?').split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+      const img=p.espn_id?`<img class="sc-ph-img" src="https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/${p.espn_id}.png" alt="" loading="lazy" onerror="this.remove()"/>`:'';
+      return `<a class="sc-player" href="${link}">
+        <div class="sc-ph"><span class="sc-ph-init">${init}</span>${img}<span class="sc-badge ${cls}">${g}</span></div>
+        <div class="sc-pname">${p.player}</div><div class="sc-pteam">${p.school}</div></a>`;
     }).join('');
     blk.style.display='';
   } else if(blk){ blk.style.display='none'; }
