@@ -226,6 +226,57 @@
     @media(max-width:1000px){.dc-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
     @media(max-width:640px){.dc-grid{grid-template-columns:1fr;gap:10px;}}
 
+    /* ── FIFA-style squad view (court + bench + player info) ── */
+    .sq-wrap{display:grid;grid-template-columns:1fr 330px;gap:20px;margin-bottom:26px;align-items:start;}
+    .sq-left{min-width:0;}
+    .sq-court{position:relative;width:100%;max-width:680px;margin:0 auto;aspect-ratio:3/2;border-radius:16px;overflow:hidden;border:1px solid var(--border);
+      background:radial-gradient(120% 90% at 50% 0%,rgba(var(--tc-rgb,168,132,60),.22),transparent 60%),linear-gradient(180deg,var(--bg3),var(--bg2));}
+    .sq-court-lines{position:absolute;inset:0;width:100%;height:100%;}
+    .sq-player{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;width:80px;text-align:center;cursor:pointer;transition:transform .12s;}
+    .sq-player:hover{transform:translate(-50%,-50%) scale(1.07);z-index:3;}
+    .sq-player.sel{z-index:4;}
+    .sq-ava{position:relative;width:54px;height:54px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;
+      background:linear-gradient(160deg,rgba(var(--tc-rgb,168,132,60),.5),var(--bg3));border:2px solid var(--border2);box-shadow:0 4px 12px rgba(0,0,0,.45);}
+    .sq-player.sel .sq-ava{border-color:var(--tc-readable,var(--accent));box-shadow:0 0 0 3px rgba(var(--tc-rgb,168,132,60),.4),0 4px 12px rgba(0,0,0,.5);}
+    .sq-ava img{width:100%;height:100%;object-fit:cover;object-position:center top;transform:scale(1.32);transform-origin:center 20%;}
+    .sq-ava:has(img) .sq-init{display:none;}
+    .sq-init{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;color:var(--text);}
+    .sq-delta{position:absolute;top:-3px;right:-7px;font-size:9px;font-weight:800;padding:1px 4px;border-radius:8px;background:var(--bg);border:1px solid var(--border2);}
+    .sq-delta.up{color:#5ab875;} .sq-delta.dn{color:#e07070;}
+    .sq-tag{display:inline-flex;align-items:center;gap:5px;margin-top:6px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:2px 9px;}
+    .sq-ovr{font-family:'Playfair Display',serif;font-weight:800;font-size:13px;line-height:1;}
+    .sq-pos{font-size:8.5px;font-weight:800;letter-spacing:.06em;color:var(--text3);}
+    .sq-name{font-size:11px;font-weight:700;color:#fff;margin-top:3px;text-shadow:0 1px 4px rgba(0,0,0,.8);white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis;}
+    .sq-empty{opacity:.45;pointer-events:none;} .sq-empty .sq-ava{border-style:dashed;background:transparent;box-shadow:none;}
+    .sq-bench{margin-top:16px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 15px;}
+    .sq-bench-h{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;}
+    .sq-bench-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+    .sq-bench-p{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:11px;padding:8px 10px;cursor:pointer;transition:border-color .12s,transform .12s;}
+    .sq-bench-p:hover{border-color:var(--tc-readable,var(--accent));transform:translateY(-1px);}
+    .sq-bench-p.sel{border-color:var(--tc-readable,var(--accent));box-shadow:0 0 0 1px var(--tc-readable,var(--accent));}
+    .sq-ba{width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,rgba(var(--tc-rgb,168,132,60),.45),var(--bg3));}
+    .sq-ba img{width:100%;height:100%;object-fit:cover;object-position:center top;transform:scale(1.3);transform-origin:center 20%;}
+    .sq-ba:has(img) .sq-binit{display:none;}
+    .sq-binit{font-family:'Playfair Display',serif;font-weight:800;font-size:13px;color:var(--text);}
+    .sq-bp-main{min-width:0;flex:1;} .sq-bp-name{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .sq-bp-sub{font-size:9.5px;color:var(--text3);font-weight:600;}
+    .sq-bp-ovr{font-family:'Playfair Display',serif;font-weight:800;font-size:16px;flex-shrink:0;}
+    .sq-bench-empty{color:var(--text3);font-size:12px;font-style:italic;}
+    .sq-info{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:18px;position:sticky;top:12px;}
+    .sq-info-empty{color:var(--text3);text-align:center;padding:40px 14px;font-size:13px;}
+    .sq-info-top{display:flex;align-items:center;gap:14px;padding-bottom:14px;border-bottom:1px solid var(--border);margin-bottom:6px;}
+    .sq-info-ava{width:70px;height:70px;border-radius:16px;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,rgba(var(--tc-rgb,168,132,60),.5),var(--bg3));border:1px solid var(--border2);}
+    .sq-info-ava img{width:100%;height:100%;object-fit:cover;object-position:center top;transform:scale(1.28);transform-origin:center 18%;}
+    .sq-info-ava:has(img) .sq-info-init{display:none;}
+    .sq-info-init{font-family:'Playfair Display',serif;font-weight:800;font-size:27px;color:var(--text);}
+    .sq-info-ovr{font-family:'Playfair Display',serif;font-weight:800;font-size:36px;line-height:1;}
+    .sq-info-pos{font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--tc-readable,var(--accent));margin-top:3px;text-transform:uppercase;}
+    .sq-info-name{font-family:'Inter',sans-serif;font-style:italic;font-weight:800;font-size:21px;letter-spacing:-.01em;margin:12px 0 6px;overflow-wrap:anywhere;}
+    .sq-attrs{display:grid;grid-template-columns:1fr 1fr;gap:0 20px;}
+    .sq-attr{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;}
+    .sq-attr-l{color:var(--text3);font-weight:600;} .sq-attr-v{font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);}
+    @media(max-width:900px){.sq-wrap{grid-template-columns:1fr;}.sq-info{position:static;}}
+
     /* ANALYTICS BAR */
     .lineup-analytics{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:20px;}
     .analytics-cell{background:var(--bg2);padding:12px 14px;text-align:center;}
@@ -2551,6 +2602,91 @@ function renderCustomize(t, players, color, rgb, gp){
   rebuildCustomizeUI();
 }
 
+// ── FIFA-style squad view (court + bench + player info) ───────────────────
+let _squadSel = null;
+function _sqAttr(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function _sqInit(n){ return (n||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase(); }
+function _sqHead(eid){ return eid?`<img src="https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/${eid}.png" alt="" onerror="this.remove()"/>`:''; }
+function _sqCol(g){ g=parseFloat(g); const dk=document.documentElement.getAttribute('data-theme')==='dark'; if(isNaN(g))return 'var(--text3)'; if(g>=88)return dk?'#5ab875':'#1a8c3a'; if(g>=80)return dk?'#e6d5a8':'#a06000'; if(g>=72)return 'var(--text)'; return 'var(--text2)'; }
+const _COURT_XY={ C:{x:58,y:19}, PF:{x:31,y:28}, SF:{x:19,y:57}, SG:{x:81,y:57}, PG:{x:50,y:77} };
+function _squadData(){
+  const starters=POS_KEYS.map(pos=>({pos,p:(customDepth[pos]||[])[0]||null}));
+  const bench=[]; POS_KEYS.forEach(pos=>{ (customDepth[pos]||[]).slice(1).forEach(p=>{ if(p&&p.name) bench.push({pos,p}); }); });
+  bench.sort((a,b)=>(parseFloat(b.p.tdc_grade)||0)-(parseFloat(a.p.tdc_grade)||0));
+  return {starters,bench};
+}
+function _findSquadPlayer(name){ for(const pos of POS_KEYS){ const f=(customDepth[pos]||[]).find(p=>p&&p.name===name); if(f) return {p:f,pos}; } return null; }
+function _courtSvg(){ const s='rgba(255,255,255,.14)';
+  return `<svg class="sq-court-lines" viewBox="0 0 120 80" preserveAspectRatio="none">
+    <rect x="1" y="1" width="118" height="78" fill="none" stroke="${s}" stroke-width=".4"/>
+    <rect x="48" y="1" width="24" height="30" fill="none" stroke="${s}" stroke-width=".4"/>
+    <circle cx="60" cy="31" r="8" fill="none" stroke="${s}" stroke-width=".4"/>
+    <line x1="53" y1="4.5" x2="67" y2="4.5" stroke="${s}" stroke-width=".7"/>
+    <circle cx="60" cy="7" r="1.6" fill="none" stroke="${s}" stroke-width=".4"/>
+    <path d="M14,1 L14,12 A46,33 0 0 0 106,12 L106,1" fill="none" stroke="${s}" stroke-width=".4"/>
+    <path d="M43,79 A17,12 0 0 1 77,79" fill="none" stroke="${s}" stroke-width=".4"/>
+  </svg>`;
+}
+function _courtTile(p,pos){
+  const xy=_COURT_XY[pos], g=p.tdc_grade||'';
+  const fit=calcPositionFit(p, customPos[p.name]||pos);
+  const delta=fit.adjGrade?`<span class="sq-delta ${fit.adjGrade>0?'up':'dn'}">${fit.adjGrade>0?'+':''}${fit.adjGrade}</span>`:'';
+  return `<div class="sq-player${p.name===_squadSel?' sel':''}" style="left:${xy.x}%;top:${xy.y}%;" data-n="${_sqAttr(p.name)}" onclick="selectSquadPlayer(this.dataset.n)">
+    <div class="sq-ava">${_sqHead(p.espn_id)}<span class="sq-init">${_sqInit(p.name)}</span>${delta}</div>
+    <div class="sq-tag"><span class="sq-ovr" style="color:${_sqCol(g)}">${g||'—'}</span><span class="sq-pos">${pos}</span></div>
+    <div class="sq-name">${p.name}</div>
+  </div>`;
+}
+function _emptyTile(pos){ const xy=_COURT_XY[pos];
+  return `<div class="sq-player sq-empty" style="left:${xy.x}%;top:${xy.y}%;"><div class="sq-ava"><span class="sq-init">+</span></div><div class="sq-tag"><span class="sq-pos">${pos}</span></div></div>`;
+}
+function _benchTile(p,pos){ const g=p.tdc_grade||'';
+  return `<div class="sq-bench-p${p.name===_squadSel?' sel':''}" data-n="${_sqAttr(p.name)}" onclick="selectSquadPlayer(this.dataset.n)">
+    <div class="sq-ba">${_sqHead(p.espn_id)}<span class="sq-binit">${_sqInit(p.name)}</span></div>
+    <div class="sq-bp-main"><div class="sq-bp-name">${p.name}</div><div class="sq-bp-sub">${pos} · ${p.class_year||p.yr||''}</div></div>
+    <div class="sq-bp-ovr" style="color:${_sqCol(g)}">${g||'—'}</div>
+  </div>`;
+}
+function _squadInfo(sel){
+  if(!sel||!sel.p) return '<div class="sq-info sq-info-empty">Select a player to see their details.</div>';
+  const p=sel.p, pos=(p.position||'').toUpperCase(), g=p.tdc_grade||'';
+  const fit=calcPositionFit(p, customPos[p.name]||sel.pos);
+  const mpg=customMpg[p.name]!==undefined?(''+customMpg[p.name]):(p.mpg!=null&&p.mpg!==''?parseFloat(p.mpg).toFixed(1):'—');
+  const f1=v=>(v!=null&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v).toFixed(1):'—';
+  const fp=v=>(v!=null&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v).toFixed(1)+'%':'—';
+  const L=[['Class',p.class_year||p.yr||'—'],['Height',p.height||'—'],['Weight',p.weight?p.weight+' lb':'—'],['Assigned',customPos[p.name]||sel.pos],['Minutes',mpg+' mpg'],['Fit',fit.fitLabel]];
+  const R=[['PPG',f1(p.ppg)],['RPG',f1(p.rpg)],['APG',f1(p.apg)],['FG%',fp(p.fg_pct)],['3P%',fp(p.tp_pct)],['FT%',fp(p.ft_pct)]];
+  const row=a=>`<div class="sq-attr"><span class="sq-attr-l">${a[0]}</span><span class="sq-attr-v">${a[1]}</span></div>`;
+  let cols=''; for(let i=0;i<L.length;i++){ cols+=row(L[i])+row(R[i]); }
+  return `<div class="sq-info">
+    <div class="sq-info-top">
+      <div class="sq-info-ava">${_sqHead(p.espn_id)}<span class="sq-info-init">${_sqInit(p.name)}</span></div>
+      <div><div class="sq-info-ovr" style="color:${_sqCol(g)}">${g||'—'}</div><div class="sq-info-pos">${(pos||sel.pos)}${pos&&pos!==sel.pos?' · plays '+sel.pos:''}</div></div>
+    </div>
+    <div class="sq-info-name">${p.name}</div>
+    <div class="sq-attrs">${cols}</div>
+  </div>`;
+}
+function _squadInner(){
+  const {starters,bench}=_squadData();
+  const present=[...starters.filter(s=>s.p).map(s=>s.p.name), ...bench.map(b=>b.p.name)];
+  if(!_squadSel || present.indexOf(_squadSel)<0){
+    let best=null; starters.forEach(s=>{ if(s.p){ const gr=parseFloat(s.p.tdc_grade)||0; if(!best||gr>(parseFloat(best.tdc_grade)||0)) best=s.p; } });
+    _squadSel = best?best.name:(present[0]||null);
+  }
+  const tiles=starters.map(s=> s.p?_courtTile(s.p,s.pos):_emptyTile(s.pos)).join('');
+  const benchHtml=bench.map(b=>_benchTile(b.p,b.pos)).join('');
+  return `<div class="sq-wrap">
+    <div class="sq-left">
+      <div class="sq-court">${_courtSvg()}${tiles}</div>
+      <div class="sq-bench"><div class="sq-bench-h">Bench · ${bench.length}</div><div class="sq-bench-grid">${benchHtml||'<div class="sq-bench-empty">No bench players.</div>'}</div></div>
+    </div>
+    <div class="sq-right">${_squadInfo(_findSquadPlayer(_squadSel))}</div>
+  </div>`;
+}
+function renderSquadView(){ return '<div id="squadView">'+_squadInner()+'</div>'; }
+function selectSquadPlayer(name){ _squadSel=name; const v=document.getElementById('squadView'); if(v) v.innerHTML=_squadInner(); }
+
 // ── RENDER ────────────────────────────────────────────────
 function rebuildCustomizeUI(){
   const el=document.getElementById('customizeContent');
@@ -2644,6 +2780,8 @@ function rebuildCustomizeUI(){
   }).join('');
 
   el.innerHTML=`
+    <div class="sec-head" style="margin-bottom:16px;">Squad <span class="sec-head-sub">Starting five on the floor · tap a player for their card</span></div>
+    ${renderSquadView()}
     ${renderImpactPanel()}
     ${renderWeaknessPanel()}
     ${renderMinsBudget()}
