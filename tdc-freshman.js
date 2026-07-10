@@ -34,7 +34,9 @@
     'Post Scorer':{ppg:1.25,fg_pct:3,rpg:1.1,tp_pct:-8,blk:0.9}, 'Glass Cleaner':{rpg:1.35,oreb:1.5,dreb:1.25,ppg:0.9,blk:1.1},
     'Interior Big':{rpg:1.1,fg_pct:3,blk:1.1,tp_pct:-10}
   };
-  var FR_SLIDERS=[['scoring','Scoring volume'],['three','3PT shooting'],['mid','Mid-range'],['paint','Paint / finishing'],['ft','Free throw'],['playmaking','Playmaking'],['athleticism','Athleticism'],['defense','Defense'],['rebounding','Rebounding'],['ready','Ready to play']];
+  var FR_SLIDERS=[['scoring','Scoring volume'],['three','3PT shooting'],['mid','Mid-range'],['paint','Paint / finishing'],['ft','Free throw'],['playmaking','Playmaking'],['athleticism','Athleticism'],['steals','Steals / perimeter D'],['blocks','Blocks / rim protection'],['rebounding','Rebounding'],['ready','Ready to play']];
+  // Migrate older saved profiles: the single "defense" slider became steals+blocks.
+  function migrateSliders(sl){ if(sl&&sl.defense!=null){ if(sl.steals==null)sl.steals=sl.defense; if(sl.blocks==null)sl.blocks=sl.defense; } return sl; }
 
   var FR_BASE_FALLBACK={ '75-84':{SG:{ppg:7.5,rpg:2.2,apg:1.25,fg_pct:42,tp_pct:35.5,ft_pct:74.5,stl:0.7,blk:0.2,oreb:0.5,dreb:1.7,tovs:1.25}} };
   function FRB(){ return (typeof FR_BASE!=='undefined'&&FR_BASE)?FR_BASE:FR_BASE_FALLBACK; }
@@ -73,7 +75,9 @@
     line.ft_pct+=a('ft',10);                                        // free throw %
     line.apg*=m('playmaking',0.34); line.tovs*=m('playmaking',0.18);
     line.oreb*=m('athleticism',0.4); line.blk*=m('athleticism',0.35); line.stl*=m('athleticism',0.2); line.ppg*=m('athleticism',0.06); line.dreb*=m('athleticism',0.12);
-    line.stl*=m('defense',0.5); line.blk*=m('defense',0.5);
+    var stlS=(sl&&sl.steals!=null)?sl.steals:((sl&&sl.defense!=null)?sl.defense:50);   // steals slider (fallback: old "defense")
+    var blkS=(sl&&sl.blocks!=null)?sl.blocks:((sl&&sl.defense!=null)?sl.defense:50);   // blocks slider (fallback: old "defense")
+    line.stl*=1+((stlS-50)/50)*0.55; line.blk*=1+((blkS-50)/50)*0.55;
     line.rpg*=m('rebounding',0.38); line.oreb*=m('rebounding',0.35); line.dreb*=m('rebounding',0.35);
     // Ready to play — how much of his ceiling shows up as a freshman. Low = high
     // potential but raw (size/intangibles); scales production & efficiency down,
@@ -196,7 +200,7 @@
     _p=p; _onSaved=opts.onSaved||null; _transform=opts.transform||null;
     var g=Math.round(parseFloat(p.tdc_grade)||75);
     _d=profileFor(p)||{ archetype:archetypeOf(p), role:(g>=90?'star':g>=82?'starter':g>=74?'rotation':'bench'), sliders:{} };
-    _d.sliders=_d.sliders||{}; FR_SLIDERS.forEach(function(kv){ if(_d.sliders[kv[0]]==null) _d.sliders[kv[0]]=50; });
+    _d.sliders=migrateSliders(_d.sliders||{}); FR_SLIDERS.forEach(function(kv){ if(_d.sliders[kv[0]]==null) _d.sliders[kv[0]]=50; });
     if(_d.ovr==null) _d.ovr=g;
     render();
   }
