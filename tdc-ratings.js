@@ -128,6 +128,9 @@
     });
   }
 
+  // Owner's freshman OVR overrides, applied to player grades during a rebuild()
+  // so freshman projections move the canonical projected rankings.
+  let _ovr=null;
   async function compute(){
     const [teams, players, bb, ts, hcaData]=await Promise.all([
       fetch(SB+'/rest/v1/teams?select=name,conf,conference&limit=500',{headers:H}).then(r=>r.json()),
@@ -154,7 +157,10 @@
     Object.keys(byTeam).forEach(short=>{
       const roster=byTeam[short];
       let entries=roster.map(p=>{
-        const grade=parseFloat(p.tdc_grade)||70;
+        let grade=parseFloat(p.tdc_grade)||70;
+        if(_ovr){ const ov=(p.espn_id!=null&&_ovr.byEspn&&_ovr.byEspn[p.espn_id]!=null)?_ovr.byEspn[p.espn_id]
+                    :(_ovr.byNameTeam&&_ovr.byNameTeam[((p.team||'')+'|'+(p.name||'')).toLowerCase()]);
+          if(ov!=null&&!isNaN(parseFloat(ov))) grade=parseFloat(ov); }
         const c=cls(p.yr||p.class_year);
         const adv=p.espn_id!=null?advById[p.espn_id]:null;
         const bpm=adv?parseFloat(adv.bpm):NaN;
@@ -243,6 +249,20 @@
     return _loading;
   }
 
+  // Recompute the projected ratings with freshman OVR overrides applied and
+  // republish them as the shared source of truth (predictive_ratings). Called by
+  // the freshman editor on save so a freshman's projection moves the rankings.
+  // overrides = { byEspn:{[espn_id]:ovr}, byNameTeam:{['team|name'(lowercase)]:ovr} }.
+  async function rebuild(overrides){
+    _ovr=overrides||null;
+    let data;
+    try{ data=await compute(); } finally { _ovr=null; }
+    _mem=data;
+    try{ localStorage.setItem(LS_KEY,JSON.stringify({t:Date.now(),data})); }catch(e){}
+    await writeDb(data);
+    return data;
+  }
+
   // game line between two rating rows. venue: 'neutral' | 'home' (A hosts) | 'away'
   // home edge = opponent-strength baseline (bigger vs weak visitors) + the
   // HOST venue's own measured offset
@@ -257,5 +277,5 @@
       spread:(margin>=0?`${a.team} -${margin.toFixed(1)}`:`${b.team} -${(-margin).toFixed(1)}`) };
   }
 
-  g.TDC_RATINGS={get, lineFor, phi, applyForm, baseHca, SEASON, HOME_ADV, SIGMA};
+  g.TDC_RATINGS={get, rebuild, lineFor, phi, applyForm, baseHca, SEASON, HOME_ADV, SIGMA};
 })(window);

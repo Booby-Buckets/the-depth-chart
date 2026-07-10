@@ -214,8 +214,18 @@
     render();
   }
 
+  // Collect the owner's saved freshman OVRs as a grade-override map for the
+  // projected-ratings rebuild (keyed off the stored blob "tdc_fr:<team>:<name>").
+  function gradeOverrides(){ var out={byEspn:{},byNameTeam:{}};
+    if(_blob&&typeof _blob==='object') Object.keys(_blob).forEach(function(k){
+      var pr=_blob[k]; if(!pr||pr.ovr==null||pr.ovr==='') return;
+      var rest=k.replace(/^tdc_fr:/,''), i=rest.indexOf(':'); if(i<0) return;
+      out.byNameTeam[(rest.slice(0,i)+'|'+rest.slice(i+1)).toLowerCase()]=parseFloat(pr.ovr);
+    });
+    return out; }
+
   window.TDCFresh={
-    isOwner:isOwner, isFreshman:isFreshman, load:load, profileFor:profileFor, line:line, archetypeOf:archetypeOf, openEditor:openEditor,
+    isOwner:isOwner, isFreshman:isFreshman, load:load, profileFor:profileFor, line:line, archetypeOf:archetypeOf, openEditor:openEditor, gradeOverrides:gradeOverrides,
     _set:function(k,v){ if(k==='archetype')_d.archetype=v; else if(k==='role')_d.role=v; render(); },
     _setSlider:function(k,v){ _d.sliders[k]=+v; preview(); },
     _setOvr:function(v){ _d.ovr=+v; preview(); },
@@ -227,7 +237,13 @@
       saveProfile(p,_d).then(function(res){
         if(msg){ msg.textContent=(res&&res.ok)?'✓ Saved to your account':'✓ Saved (offline — will sync)'; msg.classList.add('show'); }
         if(cb) cb();
-        setTimeout(close, 750);
+        // Canonical: rebuild the shared projected rankings with the freshman OVRs baked in.
+        if(window.TDC_RATINGS && isOwner() && res && res.ok){
+          if(msg) msg.textContent='✓ Saved · updating rankings…';
+          TDC_RATINGS.rebuild(gradeOverrides()).then(function(){
+            if(msg) msg.textContent='✓ Saved · rankings updated'; setTimeout(close, 700);
+          }).catch(function(){ if(msg) msg.textContent='✓ Saved (rankings will update on next load)'; setTimeout(close, 900); });
+        } else { setTimeout(close, 750); }
       });
     }
   };
