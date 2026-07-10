@@ -2938,7 +2938,7 @@ const FR_ARCH = {
   'Post Scorer':{ppg:1.25,fg_pct:3,rpg:1.1,tp_pct:-8,blk:0.9}, 'Glass Cleaner':{rpg:1.35,oreb:1.5,dreb:1.25,ppg:0.9,blk:1.1},
   'Interior Big':{rpg:1.1,fg_pct:3,blk:1.1,tp_pct:-10}
 };
-const FR_SLIDERS=[['scoring','Scoring'],['shooting','Shooting'],['playmaking','Playmaking'],['interior','Interior'],['defense','Defense'],['rebounding','Rebounding']];
+const FR_SLIDERS=[['scoring','Scoring'],['shooting','Shooting'],['playmaking','Playmaking'],['interior','Interior'],['athleticism','Athleticism'],['defense','Defense'],['rebounding','Rebounding']];
 const TDC_OWNER_EMAIL='blee4824@gmail.com';   // freshman projections are the owner's personal preferences
 function _isOwner(){ try{ const s=JSON.parse(localStorage.getItem('tdc_session')||'null'); return !!(s&&s.user&&(s.user.email||'').toLowerCase()===TDC_OWNER_EMAIL); }catch(e){ return false; } }
 function _frKey(p){ return 'tdc_fr:'+((teamT&&teamT.name)||'')+':'+((p&&p.name)||''); }
@@ -2982,7 +2982,8 @@ function _frApply(line,mods){ Object.keys(mods||{}).forEach(k=>{ const v=mods[k]
 function _frSliders(line,sl){ const s=k=>((sl&&sl[k]!=null)?sl[k]:50), m=(k,r)=>1+((s(k)-50)/50)*r, a=(k,r)=>((s(k)-50)/50)*r;
   line.ppg*=m('scoring',0.32); line.tp_pct+=a('shooting',8); line.ft_pct+=a('shooting',5);
   line.apg*=m('playmaking',0.5); line.tovs*=m('playmaking',0.18); line.fg_pct+=a('interior',5); line.oreb*=m('interior',0.35); line.ppg*=m('interior',0.10);
-  line.stl*=m('defense',0.5); line.blk*=m('defense',0.5); line.rpg*=m('rebounding',0.38); line.oreb*=m('rebounding',0.35); line.dreb*=m('rebounding',0.35); }
+  line.stl*=m('defense',0.5); line.blk*=m('defense',0.5); line.rpg*=m('rebounding',0.38); line.oreb*=m('rebounding',0.35); line.dreb*=m('rebounding',0.35);
+  line.fg_pct+=a('athleticism',5); line.oreb*=m('athleticism',0.4); line.blk*=m('athleticism',0.35); line.stl*=m('athleticism',0.2); line.ppg*=m('athleticism',0.06); }
 function _freshmanLine(p,profile){
   const ovrOverride=(profile&&profile.ovr!=null&&profile.ovr!=='')?parseFloat(profile.ovr):null;
   const grade=(ovrOverride!=null?ovrOverride:parseFloat(p.tdc_grade))||70;
@@ -3007,8 +3008,9 @@ let _frDraft=null, _frEditP=null;
 function _openFreshmanEditor(name){
   const f=_findSquadPlayer(name); if(!f) return; _frEditP=f.p;
   const g=parseFloat(f.p.tdc_grade)||70;
-  _frDraft=_loadFreshmanProfile(f.p)||{ archetype:_sqArchetype(f.p), role:(g>=90?'star':g>=82?'starter':g>=74?'rotation':'bench'), sliders:{scoring:50,shooting:50,playmaking:50,interior:50,defense:50,rebounding:50} };
-  if(!_frDraft.sliders) _frDraft.sliders={scoring:50,shooting:50,playmaking:50,interior:50,defense:50,rebounding:50};
+  _frDraft=_loadFreshmanProfile(f.p)||{ archetype:_sqArchetype(f.p), role:(g>=90?'star':g>=82?'starter':g>=74?'rotation':'bench'), sliders:{} };
+  _frDraft.sliders=_frDraft.sliders||{};
+  FR_SLIDERS.forEach(([k])=>{ if(_frDraft.sliders[k]==null) _frDraft.sliders[k]=50; });
   if(_frDraft.ovr==null) _frDraft.ovr=Math.round(parseFloat(f.p.tdc_grade)||75);
   _renderFrModal();
 }
