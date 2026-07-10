@@ -10,6 +10,7 @@
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js"></script>
   <script src="tdc-proj.js"></script>
+  <script src="tdc-freshman.js"></script>
   <script src="tdc-ratings.js"></script>
   <style>
     .nil-card{border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:132px;background:var(--bg2);}
@@ -2640,7 +2641,9 @@ function labCell(label,val,sub,color){
 function renderCustomize(t, players, color, rgb, gp){
   const el=document.getElementById('customizeContent');
   if(!el) return;
-  _frInit();   // pull the owner's freshman projections from Supabase (once), then re-render
+  // pull the owner's freshman projections (shared module) once, then re-render
+  if(window.TDCFresh) TDCFresh.load(function(){ if(document.querySelector('#customizeContent .sq-wrap')) rebuildCustomizeUI(); });
+  else _frInit();
   const sorted=[...players].sort((a,b)=>(a.depth_order||0)-(b.depth_order||0))
     .filter(p=>p.name&&p.name!=='—')
     .map(p=>({...p, _naturalPos: p.position||'G'}));
@@ -3214,8 +3217,10 @@ function buildCustomProjections(){
   const readyPlayers = allCustomPlayers.map(p => {
     const hasStats = p.ppg && parseFloat(p.ppg) > 0;
     if(hasStats) return p;
-    const _frp = _loadFreshmanProfile(p);            // user-defined freshman playstyle overrides the generic estimate
-    if(_frp) return _freshmanLine(p, _frp);
+    // user-defined freshman playstyle overrides the generic estimate — the shared
+    // TDCFresh module is the single source of truth (falls back to the inline copy)
+    const _frp = (window.TDCFresh?TDCFresh.profileFor(p):_loadFreshmanProfile(p));
+    if(_frp) return (window.TDCFresh?TDCFresh.line(p,_frp):_freshmanLine(p, _frp));
     const grade = parseFloat(p.tdc_grade)||70;
     const posNorm = ['PG','SG','SF','PF','C'].includes(p.position)?p.position:p.position==='CG'?'SG':'SG';
     const tier = grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';

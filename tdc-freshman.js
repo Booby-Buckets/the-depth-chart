@@ -34,7 +34,7 @@
     'Post Scorer':{ppg:1.25,fg_pct:3,rpg:1.1,tp_pct:-8,blk:0.9}, 'Glass Cleaner':{rpg:1.35,oreb:1.5,dreb:1.25,ppg:0.9,blk:1.1},
     'Interior Big':{rpg:1.1,fg_pct:3,blk:1.1,tp_pct:-10}
   };
-  var FR_SLIDERS=[['scoring','Scoring'],['shooting','Shooting'],['playmaking','Playmaking'],['interior','Interior'],['athleticism','Athleticism'],['defense','Defense'],['rebounding','Rebounding']];
+  var FR_SLIDERS=[['scoring','Scoring volume'],['three','3PT shooting'],['mid','Mid-range'],['paint','Paint / finishing'],['ft','Free throw'],['playmaking','Playmaking'],['athleticism','Athleticism'],['defense','Defense'],['rebounding','Rebounding'],['ready','Ready to play']];
 
   var FR_BASE_FALLBACK={ '75-84':{SG:{ppg:7.5,rpg:2.2,apg:1.25,fg_pct:42,tp_pct:35.5,ft_pct:74.5,stl:0.7,blk:0.2,oreb:0.5,dreb:1.7,tovs:1.25}} };
   function FRB(){ return (typeof FR_BASE!=='undefined'&&FR_BASE)?FR_BASE:FR_BASE_FALLBACK; }
@@ -66,10 +66,22 @@
   function apply(line,mods){ for(var k in mods){ if(!mods.hasOwnProperty(k))continue; var v=mods[k];
     if(/_pct$/.test(k)) line[k]=(parseFloat(line[k])||0)+v; else line[k]=(parseFloat(line[k])||0)*v; } }
   function applySliders(line,sl){ var s=function(k){return (sl&&sl[k]!=null)?sl[k]:50;}, m=function(k,r){return 1+((s(k)-50)/50)*r;}, a=function(k,r){return ((s(k)-50)/50)*r;};
-    line.ppg*=m('scoring',0.32); line.tp_pct+=a('shooting',8); line.ft_pct+=a('shooting',5);
-    line.apg*=m('playmaking',0.5); line.tovs*=m('playmaking',0.18); line.fg_pct+=a('interior',5); line.oreb*=m('interior',0.35); line.ppg*=m('interior',0.10);
-    line.stl*=m('defense',0.5); line.blk*=m('defense',0.5); line.rpg*=m('rebounding',0.38); line.oreb*=m('rebounding',0.35); line.dreb*=m('rebounding',0.35);
-    line.fg_pct+=a('athleticism',5); line.oreb*=m('athleticism',0.4); line.blk*=m('athleticism',0.35); line.stl*=m('athleticism',0.2); line.ppg*=m('athleticism',0.06); }
+    line.ppg*=m('scoring',0.30);                                    // overall shot volume / usage
+    line.tp_pct+=a('three',9);                                      // 3-point %
+    line.fg_pct+=a('mid',3)+a('paint',5);                           // mid-range jumper + rim finishing both lift 2pt FG%
+    line.oreb*=m('paint',0.3); line.ppg*=m('paint',0.08);           // paint = putbacks + rim scoring
+    line.ft_pct+=a('ft',10);                                        // free throw %
+    line.apg*=m('playmaking',0.5); line.tovs*=m('playmaking',0.18);
+    line.oreb*=m('athleticism',0.4); line.blk*=m('athleticism',0.35); line.stl*=m('athleticism',0.2); line.ppg*=m('athleticism',0.06); line.dreb*=m('athleticism',0.12);
+    line.stl*=m('defense',0.5); line.blk*=m('defense',0.5);
+    line.rpg*=m('rebounding',0.38); line.oreb*=m('rebounding',0.35); line.dreb*=m('rebounding',0.35);
+    // Ready to play — how much of his ceiling shows up as a freshman. Low = high
+    // potential but raw (size/intangibles); scales production & efficiency down,
+    // and raises turnovers. 50 = the standard OVR-implied line.
+    var rd=(sl&&sl.ready!=null)?sl.ready:50, pm=1+((rd-50)/50)*0.22;
+    ['ppg','rpg','apg','stl','blk','oreb','dreb'].forEach(function(k){ line[k]*=pm; });
+    line.fg_pct+=((rd-50)/50)*4; line.tp_pct+=((rd-50)/50)*3; line.ft_pct+=((rd-50)/50)*2; line.tovs*=1-((rd-50)/50)*0.20;
+  }
   function line(p,profile){
     var B=FRB();
     var ovr=(profile&&profile.ovr!=null&&profile.ovr!=='')?parseFloat(profile.ovr):null;
