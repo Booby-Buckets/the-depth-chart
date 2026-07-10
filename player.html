@@ -2217,15 +2217,41 @@ function renderSpectrum(){
   });
 }
 
+// Run a raw player line through the team engine so the editor preview shows the
+// SAME number that appears in the lineup (team pace + the real rotation minutes).
+function _projectWithLine(customLine){
+  try{
+    if(typeof buildTeamProjections!=='function' || !teamPlayers || !teamPlayers.length) return customLine;
+    var conf=(teamData&&(teamData.conf||teamData.conference))||'';
+    var lower=(player.name||'').toLowerCase().trim();
+    // Give every unproven teammate an estimated line too, so total minutes ~= 200 and
+    // the normalization isn't inflated (mirrors the team page's readyPlayers step).
+    var roster=teamPlayers.map(function(pp){
+      if((pp.name||'').toLowerCase().trim()===lower) return Object.assign({},pp,customLine);
+      if(window.TDCFresh && TDCFresh.isFreshman(pp)) return TDCFresh.line(pp, TDCFresh.profileFor(pp));
+      return pp;
+    });
+    var out=buildTeamProjections(roster,conf);
+    if(typeof applyPredictionWalls==='function') out=applyPredictionWalls(out);
+    // mirror the team page's final step: normalize the top-10 rotation to 200 minutes
+    var sumM=out.map(function(p){return parseFloat(p.mpg)||0;}).sort(function(a,b){return b-a;}).slice(0,10).reduce(function(s,v){return s+v;},0);
+    if(sumM>0 && Math.abs(sumM-200)>0.5){
+      var f=200/sumM, CNT=['ppg','rpg','apg','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','stl','blk','tovs'];
+      out.forEach(function(p){ var m=parseFloat(p.mpg)||0; if(!m) return; var nm=Math.min(40,m*f), r=nm/m; p.mpg=Math.round(nm*10)/10; CNT.forEach(function(k){ if(p[k]!=null) p[k]=Math.round(parseFloat(p[k])*r*10)/10; }); });
+    }
+    var mine=out.find(function(pp){ return (pp.name||'').toLowerCase().trim()===lower; });
+    return mine?Object.assign({},customLine,mine):customLine;
+  }catch(e){ return customLine; }
+}
 // Owner's custom freshman projection overrides the model line on this page
 function _applyFreshProfile(){
   if(!window.TDCFresh || !player || !TDCFresh.isFreshman(player)) return;
   var prof = TDCFresh.profileFor(player);
-  if(prof){ proj = Object.assign({}, proj||{}, TDCFresh.line(player, prof)); }
+  if(prof){ proj = Object.assign({}, proj||{}, _projectWithLine(TDCFresh.line(player, prof))); }
 }
 function _openFreshEditor(){
   if(!window.TDCFresh || !player) return;
-  TDCFresh.openEditor(player, function(){ _applyFreshProfile(); renderPage(); });
+  TDCFresh.openEditor(player, { transform:_projectWithLine, onSaved:function(){ _applyFreshProfile(); renderPage(); } });
 }
 function renderPage(){
   const p=player;

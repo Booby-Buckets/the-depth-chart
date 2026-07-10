@@ -139,7 +139,7 @@
   }
 
   // ── editor modal ──
-  var _p=null,_d=null,_onSaved=null;
+  var _p=null,_d=null,_onSaved=null,_transform=null;
   function injectCSS(){ if(document.getElementById('frCss')) return; var st=document.createElement('style'); st.id='frCss';
     st.textContent=[
     '.fr-overlay{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.62);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px;}',
@@ -171,9 +171,14 @@
   function el(){ var m=document.getElementById('frModal'); if(!m){ injectCSS(); m=document.createElement('div'); m.id='frModal'; m.className='fr-overlay';
     m.onclick=function(e){ if(e.target===m) close(); }; document.body.appendChild(m); } return m; }
   function close(){ var m=document.getElementById('frModal'); if(m) m.remove(); _p=null; _d=null; _onSaved=null; }
-  function preview(){ var host=document.getElementById('frPrev'); if(!host||!_p) return; var L=line(_p,_d);
+  var _pvTimer=null;
+  function paintPrev(L){ var host=document.getElementById('frPrev'); if(!host) return;
     var cells=[['PPG',L.ppg],['RPG',L.rpg],['APG',L.apg],['MPG',L.mpg],['FG%',L.fg_pct+'%'],['3P%',L.tp_pct+'%'],['STL',L.stl],['BLK',L.blk]];
     host.innerHTML=cells.map(function(c){return '<div class="fr-pv"><div class="fr-pv-v">'+c[1]+'</div><div class="fr-pv-l">'+c[0]+'</div></div>';}).join(''); }
+  function preview(){ if(!_p) return; var raw=line(_p,_d);
+    if(!_transform){ paintPrev(raw); return; }
+    paintPrev(raw);                              // instant raw line, then swap in the team-adjusted line
+    clearTimeout(_pvTimer); _pvTimer=setTimeout(function(){ try{ var adj=_transform(raw); paintPrev(adj||raw); }catch(e){ paintPrev(raw); } }, 90); }
   function render(){ var m=el(), p=_p, d=_d;
     var archOpts=Object.keys(FR_ARCH).map(function(a){return '<option value="'+a+'"'+(a===d.archetype?' selected':'')+'>'+a+'</option>';}).join('');
     var roleBtns=Object.keys(FR_ROLE).map(function(r){return '<button class="fr-role'+(r===d.role?' on':'')+'" onclick="TDCFresh._set(\''+'role\',\''+r+'\')">'+FR_ROLE[r].label+'</button>';}).join('');
@@ -189,8 +194,9 @@
       '<div class="fr-foot"><span class="fr-msg" id="frMsg"></span><button class="fr-btn ghost" onclick="TDCFresh._reset()">Reset to model</button><button class="fr-btn primary" id="frSaveBtn" onclick="TDCFresh._save()">Save to my account</button></div></div>';
     preview();
   }
-  function openEditor(p, onSaved){
-    _p=p; _onSaved=onSaved||null;
+  function openEditor(p, opts){
+    opts=opts||{}; if(typeof opts==='function') opts={onSaved:opts};
+    _p=p; _onSaved=opts.onSaved||null; _transform=opts.transform||null;
     var g=Math.round(parseFloat(p.tdc_grade)||75);
     _d=profileFor(p)||{ archetype:archetypeOf(p), role:(g>=90?'star':g>=82?'starter':g>=74?'rotation':'bench'), sliders:{} };
     _d.sliders=_d.sliders||{}; FR_SLIDERS.forEach(function(kv){ if(_d.sliders[kv[0]]==null) _d.sliders[kv[0]]=50; });
