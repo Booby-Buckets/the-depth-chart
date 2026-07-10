@@ -22,12 +22,12 @@
 
   var FR_ROLE={ star:{mpg:30,usg:1.16,label:'Star'}, starter:{mpg:24,usg:1.0,label:'Starter'}, rotation:{mpg:15,usg:0.85,label:'Rotation'}, bench:{mpg:9,usg:0.72,label:'Bench'} };
   var FR_ARCH={
-    'Lead Guard':{apg:1.5,ppg:1.05,tovs:1.1}, 'Floor General':{apg:1.7,ppg:0.85,tovs:1.15,tp_pct:2,stl:1.15},
-    'Combo Guard':{ppg:1.05,apg:1.05}, 'Scoring Guard':{ppg:1.22,apg:0.8,tp_pct:2},
+    'Lead Guard':{apg:1.22,ppg:1.05,tovs:1.1}, 'Floor General':{apg:1.32,ppg:0.85,tovs:1.15,tp_pct:2,stl:1.15},
+    'Combo Guard':{ppg:1.05,apg:1.02}, 'Scoring Guard':{ppg:1.22,apg:0.82,tp_pct:2},
     'Sharpshooter':{ppg:1.05,tp_pct:6,ft_pct:4,apg:0.75,rpg:0.85,blk:0.5}, '3&D Guard':{tp_pct:5,stl:1.4,ppg:0.9,apg:0.9},
-    'On-Ball Stopper':{stl:1.5,ppg:0.85,apg:1.05}, 'Point Forward':{apg:1.6,ppg:1.0,rpg:1.1},
-    '3&D Wing':{tp_pct:5,stl:1.35,ppg:0.95,rpg:1.05}, 'Movement Shooter':{ppg:1.1,tp_pct:6,ft_pct:4,apg:0.7},
-    'Wing Scorer':{ppg:1.25,tp_pct:1,apg:0.85}, 'Wing Stopper':{stl:1.4,blk:1.2,ppg:0.85},
+    'On-Ball Stopper':{stl:1.5,ppg:0.85,apg:1.05}, 'Point Forward':{apg:1.3,ppg:1.0,rpg:1.1},
+    '3&D Wing':{tp_pct:5,stl:1.35,ppg:0.95,rpg:1.05}, 'Movement Shooter':{ppg:1.1,tp_pct:6,ft_pct:4,apg:0.75},
+    'Wing Scorer':{ppg:1.25,tp_pct:1,apg:0.88}, 'Wing Stopper':{stl:1.4,blk:1.2,ppg:0.85},
     'Slasher':{ppg:1.15,fg_pct:2,tp_pct:-3,apg:0.9,oreb:1.15}, 'Connector Wing':{apg:1.15,tp_pct:2,ppg:0.95},
     'Rim Runner':{fg_pct:6,ppg:0.95,blk:1.3,oreb:1.5,dreb:1.1,tp_pct:-15,apg:0.6}, 'Stretch Big':{tp_pct:9,ppg:1.05,blk:0.85,oreb:0.8},
     'Rim Protector':{blk:1.9,rpg:1.2,dreb:1.15,ppg:0.85,fg_pct:3}, 'Two-Way Big':{blk:1.5,fg_pct:4,rpg:1.15,ppg:0.95},
@@ -71,7 +71,7 @@
     line.fg_pct+=a('mid',3)+a('paint',5);                           // mid-range jumper + rim finishing both lift 2pt FG%
     line.oreb*=m('paint',0.3); line.ppg*=m('paint',0.08);           // paint = putbacks + rim scoring
     line.ft_pct+=a('ft',10);                                        // free throw %
-    line.apg*=m('playmaking',0.5); line.tovs*=m('playmaking',0.18);
+    line.apg*=m('playmaking',0.34); line.tovs*=m('playmaking',0.18);
     line.oreb*=m('athleticism',0.4); line.blk*=m('athleticism',0.35); line.stl*=m('athleticism',0.2); line.ppg*=m('athleticism',0.06); line.dreb*=m('athleticism',0.12);
     line.stl*=m('defense',0.5); line.blk*=m('defense',0.5);
     line.rpg*=m('rebounding',0.38); line.oreb*=m('rebounding',0.35); line.dreb*=m('rebounding',0.35);
@@ -94,6 +94,11 @@
     base.fg_pct=Math.max(30,Math.min(70,base.fg_pct)); base.tp_pct=Math.max(0,Math.min(48,base.tp_pct)); base.ft_pct=Math.max(45,Math.min(95,base.ft_pct));
     var role=(profile&&profile.role)||(grade>=90?'star':grade>=82?'starter':grade>=74?'rotation':'bench');
     var R=FR_ROLE[role]||FR_ROLE.starter, mpg=R.mpg, scale=mpg/32, usg=R.usg, fga=Math.max(2,mpg*0.30*usg);
+    // Realistic freshman ceilings — even an elite recruit on star minutes won't post
+    // huge counting stats his first year, so cap each category to a believable max.
+    var cap=function(v,mx){ return Math.min(v, mx); };
+    base.apg=cap(base.apg*scale, 6.0)/scale; base.ppg=cap(base.ppg*scale*usg, 22)/(scale*usg);
+    base.rpg=cap(base.rpg*scale, 11)/scale; base.stl=cap(base.stl*scale, 2.3)/scale; base.blk=cap(base.blk*scale, 3.0)/scale;
     return Object.assign({}, p, { mpg:r1(mpg), ppg:r1(base.ppg*scale*usg), rpg:r1(base.rpg*scale), apg:r1(base.apg*scale),
       fg_pct:r1(base.fg_pct), tp_pct:r1(base.tp_pct), ft_pct:r1(base.ft_pct),
       fga:r1(fga), fgm:r1(fga*base.fg_pct/100), tpa:r1(fga*0.42), tpm:r1(fga*0.42*base.tp_pct/100),
