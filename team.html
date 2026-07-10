@@ -2636,8 +2636,13 @@ function _sqHead(eid){ return eid?`<img src="https://a.espncdn.com/i/headshots/m
 function _sqCol(g){ g=parseFloat(g); const dk=document.documentElement.getAttribute('data-theme')==='dark'; if(isNaN(g))return 'var(--text3)'; if(g>=88)return dk?'#5ab875':'#1a8c3a'; if(g>=80)return dk?'#e6d5a8':'#a06000'; if(g>=72)return 'var(--text)'; return 'var(--text2)'; }
 const _COURT_XY={ C:{x:58,y:19}, PF:{x:31,y:28}, SF:{x:19,y:57}, SG:{x:81,y:57}, PG:{x:50,y:77} };
 function _squadData(){
-  const starters=POS_KEYS.map(pos=>({pos,p:(customDepth[pos]||[])[0]||null}));
-  const bench=[]; POS_KEYS.forEach(pos=>{ (customDepth[pos]||[]).slice(1).forEach(p=>{ if(p&&p.name) bench.push({pos,p}); }); });
+  // Use the SAME projected 2026-27 stats as the Team Impact panel (freshmen get
+  // grade-based estimates via buildCustomProjections) so the identity/synergy
+  // numbers don't undercount young players who barely played.
+  let proj={}; try{ (buildCustomProjections()||[]).forEach(p=>{ if(p&&p.name) proj[p.name.toLowerCase().trim()]=p; }); }catch(e){}
+  const enrich=p=>{ if(!p) return p; const pr=proj[(p.name||'').toLowerCase().trim()]; return pr?Object.assign({},p,pr,{tdc_grade:p.tdc_grade}):p; };
+  const starters=POS_KEYS.map(pos=>({pos,p:enrich((customDepth[pos]||[])[0]||null)}));
+  const bench=[]; POS_KEYS.forEach(pos=>{ (customDepth[pos]||[]).slice(1).forEach(p=>{ if(p&&p.name) bench.push({pos,p:enrich(p)}); }); });
   bench.sort((a,b)=>(parseFloat(b.p.tdc_grade)||0)-(parseFloat(a.p.tdc_grade)||0));
   return {starters,bench};
 }
@@ -2704,12 +2709,13 @@ function _squadInner(){
   const tiles=starters.map(s=> s.p?_courtTile(s.p,s.pos):_emptyTile(s.pos)).join('');
   const benchHtml=bench.map(b=>_benchTile(b.p,b.pos)).join('');
   const analysis=_lineupAnalysis(starters);
+  const selEntry=[...starters.filter(s=>s.p), ...bench].find(x=>x.p.name===_squadSel)||null;
   return `<div class="sq-wrap">
     ${_playstylePanel(analysis)}
     <div class="sq-court-col">
       <div class="sq-court">${_courtSvg()}${_synergyLines(starters)}${tiles}</div>
     </div>
-    <div class="sq-right">${_squadInfo(_findSquadPlayer(_squadSel))}</div>
+    <div class="sq-right">${_squadInfo(selEntry)}</div>
     <div class="sq-bench"><div class="sq-bench-h">Bench · ${bench.length}</div><div class="sq-bench-grid">${benchHtml||'<div class="sq-bench-empty">No bench players.</div>'}</div></div>
   </div>`;
 }
