@@ -2760,9 +2760,13 @@ function _lineupAnalysis(starters){
   // Floor-spacers = players who actually take & make threes (bigs' 0% shouldn't drag the average)
   const spacers=ps.filter(p=>{const tp=parseFloat(p.tp_pct)||0,tpa=parseFloat(p.tpa)||0;return tp>=32&&tpa>=2.5;}).length;
   const elite=ps.filter(p=>{const tp=parseFloat(p.tp_pct)||0,tpa=parseFloat(p.tpa)||0;return tp>=38&&tpa>=4;}).length;
+  // Rim protection is anchor-driven — one real shot-blocker protects the rim, so
+  // weight the best blocker(s) heavily instead of diluting them across 5 starters.
+  const blks=ps.map(p=>parseFloat(p.blk)||0).sort((a,b)=>b-a);
+  const anchor=blks[0]||0, second=blks[1]||0;
   const dims={ Scoring:norm(S('ppg'),45,85), Spacing:norm(spacers*19+elite*9,8,78),
     Playmaking:norm(S('apg'),7,19), Rebounding:norm(S('rpg'),20,42),
-    'Perimeter D':norm(S('stl'),2,7), 'Rim Protect':norm(S('blk'),1.4,6.5) };
+    'Perimeter D':norm(S('stl'),2,7), 'Rim Protect':norm(anchor*22+second*11+S('blk')*2,10,68) };
   const grades=ps.map(p=>parseFloat(p.tdc_grade)).filter(g=>!isNaN(g));
   const rating=grades.length?Math.round(grades.reduce((a,b)=>a+b,0)/grades.length):null;
   return {overall,dims,rating,shooters:spacers,count:ps.length};
