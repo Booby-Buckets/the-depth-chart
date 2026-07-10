@@ -345,6 +345,8 @@
     .delta-pos{color:#1a8c3a;}.delta-neg{color:#cc2200;}.delta-neu{color:var(--text3);}
     /* Minutes budget bar */
     .mins-budget{padding:8px 12px;background:var(--bg2);border:1px solid var(--border);margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+    .rot-select{padding:5px 8px;border:1px solid var(--border2);background:var(--bg);color:var(--text);border-radius:7px;font-size:12px;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;}
+    .rot-coach{font-size:10.5px;font-weight:600;color:var(--text3);}
     .mins-budget-label{font-size:11px;font-weight:600;color:var(--text3);}
     .mins-budget-val{font-family:'Share Tech Mono',monospace;font-weight:700;font-size:13px;}
     .mins-budget-bar{flex:1;min-width:100px;height:6px;background:var(--border2);border-radius:3px;overflow:hidden;}
@@ -1285,6 +1287,26 @@ function coachForYear(idx, school, year){
   const le = yrs.filter(y=>y<=target);                    // else the most recent coach on/before that year
   return m[le.length ? le[le.length-1] : yrs[yrs.length-1]];
 }
+// The current team's coach profile (rotation_size, pace, tags…) from coach history.
+async function teamCoachProfile(){
+  if(window._teamCoachProfCache!==undefined) return window._teamCoachProfCache;
+  try{
+    const idx=await loadCoachIdx();
+    const c=coachForYear(idx, teamT&&teamT.name, (typeof _rosterSeason!=='undefined'&&_rosterSeason)||2027);
+    if(!c||!c.slug) return (window._teamCoachProfCache=null);
+    const profs=await fetch('scripts/data/coach_profiles.json').then(r=>r.ok?r.json():[]);
+    return (window._teamCoachProfCache=(Array.isArray(profs)?profs:[]).find(x=>x.coach_slug===c.slug)||null);
+  }catch(e){ return (window._teamCoachProfCache=null); }
+}
+// Default the rotation to how the coach normally plays his teams (historical avg).
+async function applyCoachRotationDefault(){
+  const prof=await teamCoachProfile();
+  if(prof&&prof.rotation_size){ _coachRotationSize=Math.max(6,Math.min(15,Math.round(prof.rotation_size)));
+    if(!_rotationUserSet){ _rotationSize=_coachRotationSize; _baseCustomProj=buildCustomProjections();
+      if(document.querySelector('#customizeContent .sq-wrap')) rebuildCustomizeUI(); } }
+}
+function onRotationChange(v){ _rotationSize=Math.max(6,Math.min(15,parseInt(v)||10)); _rotationUserSet=true;
+  _baseCustomProj=buildCustomProjections(); rebuildCustomizeUI(); }
 async function updateHeroCoach(school, year){
   const el = document.getElementById('heroCoach'); if(!el || !school) return;
   const idx = await loadCoachIdx();
@@ -2222,6 +2244,9 @@ let customDepth = {};
 let customMpg   = {};
 let customPos   = {};
 let customRole  = {};
+let _rotationSize = 10;        // how many players get real minutes (rest get garbage time)
+let _rotationUserSet = false;  // true once the user overrides the coach's default
+let _coachRotationSize = null; // the current coach's historical norm (for the label)
 let _baseCustomProj = [];
 let baseAnalytics = null;
 let baseDepthSnapshot = {};
@@ -2546,11 +2571,14 @@ function renderMinsBudget(){
   const scalePct=Math.round(Math.abs(1-f)*100);
   const far=scalePct>30, off=scalePct>12;
   const barColor=far?'#cc2200':off?'#b07000':'#1a8c3a';
+  const rotOpts=[];for(let n=6;n<=15;n++)rotOpts.push(`<option value="${n}"${n===_rotationSize?' selected':''}>${n}-man</option>`);
   return `<div class="mins-budget" id="minsBudget">
-    <span class="mins-budget-label">Rotation Minutes</span>
+    <span class="mins-budget-label">Rotation</span>
+    <select class="rot-select" onchange="onRotationChange(this.value)" title="How many players get real minutes — the rest get garbage-time (blowout) minutes">${rotOpts.join('')}</select>
+    ${_coachRotationSize?`<span class="rot-coach" title="How this coach normally plays his teams">coach norm ${_coachRotationSize}${_rotationUserSet&&_rotationSize!==_coachRotationSize?` <a onclick="_rotationUserSet=false;applyCoachRotationDefault();" style="color:var(--tc-readable,var(--accent));cursor:pointer;">reset</a>`:''}</span>`:''}
+    <span class="mins-budget-label" style="margin-left:auto;">Minutes</span>
     <div class="mins-budget-bar"><div class="mins-budget-fill" style="width:${pct}%;background:${barColor};"></div></div>
     <span class="mins-budget-val" style="color:${far?'#cc2200':'var(--text2)'};">${Math.round(total)} / ${MAX_TEAM_MINS}</span>
-    <span class="mins-over" style="color:${far?'#cc2200':'var(--text3)'};">${scalePct<=1?'✓ clean 200-minute game':`auto-balanced: rotation scales ${f<1?'down':'up'} ${scalePct}% to a real game`}</span>
   </div>`;
 }
 // ── LINEUP LAB — deeper analytics ─────────────────────────
@@ -2644,6 +2672,7 @@ function renderCustomize(t, players, color, rgb, gp){
   // pull the owner's freshman projections (shared module) once, then re-render
   if(window.TDCFresh) TDCFresh.load(function(){ if(document.querySelector('#customizeContent .sq-wrap')) rebuildCustomizeUI(); });
   else _frInit();
+  applyCoachRotationDefault();   // default the rotation to how the coach normally plays
   const sorted=[...players].sort((a,b)=>(a.depth_order||0)-(b.depth_order||0))
     .filter(p=>p.name&&p.name!=='—')
     .map(p=>({...p, _naturalPos: p.position||'G'}));
@@ -3269,17 +3298,21 @@ function buildCustomProjections(){
   // team's totals are consistent with every other team's.
   // the 200 minutes belong to the actual rotation — normalize on the top 10
   // by minutes so deep-bench filler doesn't deflate the real players
-  const sumM=projRows.map(p=>parseFloat(p.mpg)||0).sort((a,b)=>b-a).slice(0,10).reduce((s,v)=>s+v,0);
-  if(sumM>0&&Math.abs(sumM-200)>0.5){
-    const f=200/sumM;
-    const CNT=['ppg','rpg','apg','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','stl','blk','tovs'];
-    projRows.forEach(p=>{
-      const m=parseFloat(p.mpg)||0; if(!m) return;
-      const nm=Math.min(40,m*f), r=nm/m;
-      p.mpg=r1t(nm);
-      CNT.forEach(k=>{ if(p[k]!=null) p[k]=r1t(parseFloat(p[k])*r); });
-    });
-  }
+  // Rotation: only the top ROT players (by minutes) share real minutes; everyone
+  // past the coach's rotation gets garbage-time minutes (blowouts) with
+  // correspondingly low stats. Rotation still normalizes to a 200-minute game.
+  const ROT=Math.max(6,Math.min(15,_rotationSize||10)), GARB=3.2;
+  const CNT=['ppg','rpg','apg','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','stl','blk','tovs'];
+  const ranked=projRows.map(p=>({p,m:parseFloat(p.mpg)||0})).filter(x=>x.m>0).sort((a,b)=>b.m-a.m);
+  const benchN=Math.max(0,ranked.length-ROT);
+  const rotTarget=Math.max(120,200-benchN*GARB);
+  const rotSum=ranked.slice(0,ROT).reduce((s,x)=>s+x.m,0);
+  ranked.forEach((x,i)=>{
+    const p=x.p, m=x.m; if(!m) return;
+    const nm=(i<ROT)?Math.min(40,m*(rotSum>0?rotTarget/rotSum:1)):GARB, r=nm/m;
+    p.mpg=r1t(nm);
+    CNT.forEach(k=>{ if(p[k]!=null) p[k]=r1t(parseFloat(p[k])*r); });
+  });
   return projRows;
 }
 
