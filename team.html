@@ -2725,7 +2725,7 @@ function _squadInfo(sel){
     </div>
     <div class="sq-info-name">${p.name}</div>
     <div class="sq-info-arch">${_sqArchetype(p)}${p._frProfiled?' · <span style="color:#5ab875;">custom</span>':''}</div>
-    ${p._noStatEst?`<button class="fr-edit-btn" data-n="${_sqAttr(p.name)}" onclick="_openFreshmanEditor(this.dataset.n)">⚙ ${p._frProfiled?'Edit':'Project'} his playstyle</button>`:''}
+    ${(p._noStatEst&&_isOwner())?`<button class="fr-edit-btn" data-n="${_sqAttr(p.name)}" onclick="_openFreshmanEditor(this.dataset.n)">⚙ ${p._frProfiled?'Edit':'Project'} his playstyle</button>`:''}
     <div class="sq-attrs">${cols}</div>
   </div>`;
 }
@@ -2935,6 +2935,8 @@ const FR_ARCH = {
   'Interior Big':{rpg:1.1,fg_pct:3,blk:1.1,tp_pct:-10}
 };
 const FR_SLIDERS=[['scoring','Scoring'],['shooting','Shooting'],['playmaking','Playmaking'],['interior','Interior'],['defense','Defense'],['rebounding','Rebounding']];
+const TDC_OWNER_EMAIL='blee4824@gmail.com';   // freshman projections are the owner's personal preferences
+function _isOwner(){ try{ const s=JSON.parse(localStorage.getItem('tdc_session')||'null'); return !!(s&&s.user&&(s.user.email||'').toLowerCase()===TDC_OWNER_EMAIL); }catch(e){ return false; } }
 function _frKey(p){ return 'tdc_fr:'+((teamT&&teamT.name)||'')+':'+((p&&p.name)||''); }
 function _loadFreshmanProfile(p){ try{ const s=localStorage.getItem(_frKey(p)); return s?JSON.parse(s):null; }catch(e){ return null; } }
 function _saveFreshmanProfile(p,prof){ try{ if(prof) localStorage.setItem(_frKey(p),JSON.stringify(prof)); else localStorage.removeItem(_frKey(p)); }catch(e){} }
