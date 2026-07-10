@@ -237,7 +237,9 @@
     .sq-syn line.hit{pointer-events:stroke;cursor:help;}
     .sq-tip{position:fixed;z-index:9999;max-width:264px;background:var(--bg);border:1px solid var(--border2);border-radius:11px;padding:10px 12px;box-shadow:0 12px 30px rgba(0,0,0,.55);font-size:11.5px;pointer-events:none;display:none;}
     .sq-tip .st-h{display:flex;justify-content:space-between;gap:12px;align-items:center;font-weight:800;font-size:12.5px;}
-    .sq-tip .st-verdict{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding-bottom:7px;margin-bottom:7px;border-bottom:1px solid var(--border);}
+    .sq-tip .st-arch{font-size:10.5px;font-weight:700;color:var(--text2);margin-top:2px;}
+    .sq-tip .st-arch i{color:var(--text3);font-style:normal;margin:0 3px;}
+    .sq-tip .st-verdict{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding-bottom:7px;margin-bottom:7px;border-bottom:1px solid var(--border);margin-top:5px;}
     .sq-tip .st-rows{display:flex;flex-direction:column;gap:5px;}
     .sq-tip .st-row{display:flex;gap:9px;align-items:flex-start;line-height:1.35;color:var(--text2);font-weight:600;}
     .sq-tip .st-d{font-family:'Share Tech Mono',monospace;font-weight:800;flex-shrink:0;width:24px;text-align:right;}
@@ -294,7 +296,8 @@
     .sq-info-init{font-family:'Playfair Display',serif;font-weight:800;font-size:27px;color:var(--text);}
     .sq-info-ovr{font-family:'Playfair Display',serif;font-weight:800;font-size:36px;line-height:1;}
     .sq-info-pos{font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--tc-readable,var(--accent));margin-top:3px;text-transform:uppercase;}
-    .sq-info-name{font-family:'Inter',sans-serif;font-style:italic;font-weight:800;font-size:21px;letter-spacing:-.01em;margin:12px 0 6px;overflow-wrap:anywhere;}
+    .sq-info-name{font-family:'Inter',sans-serif;font-style:italic;font-weight:800;font-size:21px;letter-spacing:-.01em;margin:12px 0 2px;overflow-wrap:anywhere;}
+    .sq-info-arch{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--tc-readable,var(--accent));background:rgba(var(--tc-rgb,168,132,60),.12);border:1px solid rgba(var(--tc-rgb,168,132,60),.28);padding:3px 9px;border-radius:20px;margin-bottom:10px;}
     .sq-attrs{display:grid;grid-template-columns:1fr 1fr;gap:0 20px;}
     .sq-attr{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;}
     .sq-attr-l{color:var(--text3);font-weight:600;} .sq-attr-v{font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);}
@@ -2687,6 +2690,7 @@ function _squadInfo(sel){
       <div><div class="sq-info-ovr" style="color:${_sqCol(g)}">${g||'—'}</div><div class="sq-info-pos">${(pos||sel.pos)}${pos&&pos!==sel.pos?' · plays '+sel.pos:''}</div></div>
     </div>
     <div class="sq-info-name">${p.name}</div>
+    <div class="sq-info-arch">${_sqArchetype(p)}</div>
     <div class="sq-attrs">${cols}</div>
   </div>`;
 }
@@ -2735,28 +2739,67 @@ function _sqProfile(p){
     scorer: _sq01((ppg-6)/16)
   };
 }
+// Specific basketball archetype from position + trait profile
+function _sqArchetype(p){
+  const P=_sqProfile(p), pos=(p.position||'').toUpperCase();
+  const guard=pos==='PG'||pos==='SG'||pos==='CG'||pos==='G';
+  const big=pos==='C'||pos==='PF'||(pos===''&&P.size>0.7);   // trust listed position; size only breaks ties when unknown
+  if(big){
+    if(P.shooter>0.42) return 'Stretch Big';
+    if(P.rimProtect>0.5 && P.finisher>0.35) return 'Two-Way Big';
+    if(P.rimProtect>0.52) return 'Rim Protector';
+    if(P.scorer>0.6 && P.finisher>0.42) return 'Post Scorer';
+    if(P.finisher>0.48) return 'Rim Runner';
+    if(P.rebounder>0.62) return 'Glass Cleaner';
+    return 'Interior Big';
+  }
+  if(guard){
+    if(P.creator>0.62 && P.ballDom>0.48) return 'Lead Guard';
+    if(P.creator>0.5) return 'Floor General';
+    if(P.shooter>0.5 && P.perimD>0.42) return '3&D Guard';
+    if(P.shooter>0.54) return 'Sharpshooter';
+    if(P.scorer>0.62) return 'Scoring Guard';
+    if(P.perimD>0.55) return 'On-Ball Stopper';
+    return 'Combo Guard';
+  }
+  if(P.creator>0.5) return 'Point Forward';
+  if(P.shooter>0.5 && P.perimD>0.42) return '3&D Wing';
+  if(P.shooter>0.52) return 'Movement Shooter';
+  if(P.scorer>0.62) return 'Wing Scorer';
+  if(P.perimD>0.55) return 'Wing Stopper';
+  if(P.finisher>0.5) return 'Slasher';
+  return 'Connector Wing';
+}
 function _pairSynergy(a,b){
-  const A=_sqProfile(a), B=_sqProfile(b); let s=55; const R=[];
+  const A=_sqProfile(a), B=_sqProfile(b), aA=_sqArchetype(a), aB=_sqArchetype(b);
+  let s=55; const R=[];
   const add=(d,t)=>{ s+=d; if(Math.abs(d)>=2) R.push({d:Math.round(d),t}); };
-  const shootMax=Math.max(A.shooter,B.shooter), shootMin=Math.min(A.shooter,B.shooter);
-  const interior=Math.max(A.finisher*A.size, B.finisher*B.size);
-  add(18*shootMax*Math.max(interior,0.4), 'Shooter spaces the floor for a rim threat');
-  add(7*shootMin, 'Both can shoot from outside');
-  if(shootMax<0.28 && interior>0.5) add(-13, 'Non-shooter clogs the paint around the big');
+  // spacing — a shooter next to a rim threat
+  const shootMax=Math.max(A.shooter,B.shooter);
+  const iA=A.finisher*A.size, iB=B.finisher*B.size, interior=Math.max(iA,iB);
+  const shArch=A.shooter>=B.shooter?aA:aB, inArch=iA>=iB?aA:aB;
+  add(18*shootMax*Math.max(interior,0.4), `${shArch} spacing opens driving lanes for the ${inArch}`);
+  add(7*Math.min(A.shooter,B.shooter), `Two floor-spacers (${aA} & ${aB}) stretch the D`);
+  if(shootMax<0.28 && interior>0.5){ const clog=(iA>=iB)?aB:aA; add(-13, `${clog} gives no spacing next to the ${inArch}`); }
+  // creation — a playmaker feeding a finisher/shooter
   const creator=Math.max(A.creator,B.creator);
+  const crArch=A.creator>=B.creator?aA:aB, tgArch=A.creator>=B.creator?aB:aA;
   const tgt=(A.creator>B.creator)?(B.finisher*0.6+B.shooter*0.6+B.scorer*0.3):(A.finisher*0.6+A.shooter*0.6+A.scorer*0.3);
-  add(16*creator*Math.min(1,tgt), 'A playmaker sets up a finisher/shooter');
-  if(A.creator>0.6 && B.creator>0.6) add(-9, 'Two lead ball-handlers compete for usage');
-  else if(A.ballDom>0.7 && B.ballDom>0.7) add(-7, 'Overlapping ball-dominance');
-  add(13*Math.max(A.rimProtect*B.perimD, B.rimProtect*A.perimD), 'Rim protector behind a perimeter stopper');
-  add(5*Math.min(A.perimD+B.perimD,2)/2, 'Combined perimeter defense');
-  if(A.rimProtect<0.2 && B.rimProtect<0.2) add(-5, 'Neither one protects the rim');
-  if(A.size>0.6 && B.size>0.6 && A.shooter<0.3 && B.shooter<0.3) add(-10, 'Two non-shooting bigs cramp the floor');
+  add(16*creator*Math.min(1,tgt), `${crArch} creates open looks for the ${tgArch}`);
+  if(A.creator>0.6 && B.creator>0.6) add(-9, `${aA} & ${aB} both need the ball in their hands`);
+  else if(A.ballDom>0.7 && B.ballDom>0.7) add(-7, `Overlapping ball-dominance — ${aA} & ${aB}`);
+  // defense — rim protector behind a perimeter stopper
+  const rimArch=A.rimProtect>=B.rimProtect?aA:aB, perArch=A.rimProtect>=B.rimProtect?aB:aA;
+  add(13*Math.max(A.rimProtect*B.perimD, B.rimProtect*A.perimD), `${rimArch} anchors behind the ${perArch} on defense`);
+  add(5*Math.min(A.perimD+B.perimD,2)/2, `Both hound the ball on the perimeter`);
+  if(A.rimProtect<0.2 && B.rimProtect<0.2) add(-5, `Neither the ${aA} nor ${aB} protects the rim`);
+  if(A.size>0.6 && B.size>0.6 && A.shooter<0.3 && B.shooter<0.3) add(-10, `${aA} + ${aB} — two non-shooting bigs clog the paint`);
+  // redundancy
   const keys=['shooter','creator','finisher','rimProtect','rebounder','perimD'];
   let sim=0; keys.forEach(k=>sim+=1-Math.abs(A[k]-B[k])); sim/=keys.length;
-  if(sim>0.76) add(-13*(sim-0.74), 'Similar skill sets — redundant roles');
+  if(sim>0.76) add(-13*(sim-0.74), aA===aB?`Two ${aA}s — redundant roles`:`${aA} & ${aB} overlap — redundant`);
   R.sort((x,y)=>Math.abs(y.d)-Math.abs(x.d));
-  return { score: Math.max(22, Math.min(99, Math.round(s))), reasons:R };
+  return { score: Math.max(22, Math.min(99, Math.round(s))), reasons:R, archA:aA, archB:aB };
 }
 function _synCol(v){ return v>=63?'#5ab875':v>=52?'#d4a24a':'#e07070'; }
 function _lineupAnalysis(starters){
@@ -2789,7 +2832,7 @@ function _synergyLines(starters){
     const op=sy>=63?0.88:sy>=52?0.44:0.6, w=sy>=63?0.72:0.5;
     const x1=slots[i].xy.x,y1=slots[i].xy.y,x2=slots[j].xy.x,y2=slots[j].xy.y;
     const rd=_sqAttr(d.reasons.map(r=>(r.d>0?'+':'')+r.d+' '+r.t).join('||'));
-    lines+=`<line class="hit" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="transparent" stroke-width="3.4" data-a="${_sqAttr(slots[i].p.name)}" data-b="${_sqAttr(slots[j].p.name)}" data-sy="${sy}" data-r="${rd}"/>`;
+    lines+=`<line class="hit" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="transparent" stroke-width="3.4" data-a="${_sqAttr(slots[i].p.name)}" data-b="${_sqAttr(slots[j].p.name)}" data-aa="${_sqAttr(d.archA)}" data-ab="${_sqAttr(d.archB)}" data-sy="${sy}" data-r="${rd}"/>`;
     lines+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${w}" stroke-opacity="${op}" stroke-linecap="round"/>`;
   }
   return `<svg class="sq-syn" viewBox="0 0 100 100" preserveAspectRatio="none">${lines}</svg>`;
@@ -2801,9 +2844,11 @@ function _posSynTip(e){ const t=_synTip(),r=t.getBoundingClientRect(),pad=12; le
   t.style.left=Math.max(pad,x)+'px'; t.style.top=Math.max(pad,y)+'px'; }
 function _showSynTip(l,e){ const t=_synTip();
   const a=l.getAttribute('data-a'),b=l.getAttribute('data-b'),sy=l.getAttribute('data-sy');
+  const aa=l.getAttribute('data-aa')||'',ab=l.getAttribute('data-ab')||'';
   const rs=(l.getAttribute('data-r')||'').split('||').filter(Boolean), col=_synCol(+sy);
   const verdict=sy>=63?'Good fit':sy>=52?'Workable':'Poor fit';
   t.innerHTML='<div class="st-h"><span>'+a+' &harr; '+b+'</span><b style="color:'+col+'">'+sy+'</b></div>'+
+    '<div class="st-arch">'+aa+' <i>×</i> '+ab+'</div>'+
     '<div class="st-verdict" style="color:'+col+'">'+verdict+'</div>'+
     (rs.length?('<div class="st-rows">'+rs.map(r=>{ const m=r.match(/^([+-]?\d+)\s+([\s\S]*)$/); const d=m?m[1]:'',tx=m?m[2]:r; const up=d.charAt(0)==='+';
       return '<div class="st-row"><span class="st-d" style="color:'+(up?'#5ab875':'#e07070')+'">'+d+'</span><span>'+tx+'</span></div>'; }).join('')+'</div>')
