@@ -9,6 +9,7 @@
   <script src="tdc-nil.js"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-proj.js"></script>
+  <script src="tdc-freshman.js"></script>
   <meta charset="UTF-8"/>
   <style>
     .nil-card{border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:130px;background:var(--bg2);}
@@ -1617,6 +1618,9 @@ async function init(){
       proj = null;
     }
 
+    // Owner's custom freshman projection (from Supabase) overrides the model line
+    try{ if(window.TDCFresh){ await TDCFresh.load(); _applyFreshProfile(); } }catch(e){}
+
     renderPage();
     loadDraftSticker();
   }catch(e){
@@ -2213,6 +2217,16 @@ function renderSpectrum(){
   });
 }
 
+// Owner's custom freshman projection overrides the model line on this page
+function _applyFreshProfile(){
+  if(!window.TDCFresh || !player || !TDCFresh.isFreshman(player)) return;
+  var prof = TDCFresh.profileFor(player);
+  if(prof){ proj = Object.assign({}, proj||{}, TDCFresh.line(player, prof)); }
+}
+function _openFreshEditor(){
+  if(!window.TDCFresh || !player) return;
+  TDCFresh.openEditor(player, function(){ _applyFreshProfile(); renderPage(); });
+}
 function renderPage(){
   const p=player;
   const color=(window.tdcTeamColorHex&&tdcTeamColorHex(p.team))||teamData?.color||'#888';
@@ -2257,6 +2271,7 @@ function renderPage(){
           <div class="hero-meta-item" id="heroGp"${p.gp?'':' style="display:none;"'}>${p.gp?`🎮 <strong>${p.gp}</strong> GP`:''}</div>
           ${p.starter?`<div class="hero-meta-item">⭐ <strong>Returning Starter</strong></div>`:''}
           ${proj&&proj._origin?`<div class="hero-meta-item">🔄 Transfer mult: <strong style="color:var(--accent);">×${r1(proj._factor)}</strong></div>`:''}
+          ${(window.TDCFresh&&TDCFresh.isOwner()&&TDCFresh.isFreshman(p))?`<button class="hero-meta-item" onclick="_openFreshEditor()" style="cursor:pointer;border-color:var(--tc-readable,var(--accent));color:var(--tc-readable,var(--accent));font-weight:800;">⚙ ${TDCFresh.profileFor(p)?'Edit':'Project'} playstyle${TDCFresh.profileFor(p)?' · custom':''}</button>`:''}
         </div>
         <div id="draftSticker"></div>
       </div>
