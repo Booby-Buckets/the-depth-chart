@@ -210,9 +210,12 @@
     .dc-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:28px;}
     .dc-col{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;}
     .dc-head{padding:9px 14px;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text);border-bottom:2px solid var(--tc,var(--accent));background:rgba(var(--tc-rgb,168,132,60),.07);}
-    .dc-row{display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 13px;border-top:1px solid var(--border);transition:background .12s;}
+    .dc-row{display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 13px;border-top:1px solid var(--border);transition:background .12s,box-shadow .12s;cursor:pointer;}
     .dc-row:first-of-type{border-top:none;}
     .dc-row:hover{background:var(--bg3);}
+    /* spotlighted (clicked) player — subtle team-color rail */
+    .spot-selected{background:rgba(var(--tc-rgb,168,132,60),.10)!important;box-shadow:inset 3px 0 0 var(--tc,var(--accent));}
+    .starter-col-body,.backup-item{cursor:pointer;}
     .dc-starter{background:rgba(var(--tc-rgb,168,132,60),.05);}
     .dc-rk{font-family:'Share Tech Mono',monospace;font-size:11px;font-weight:700;color:var(--text3);text-align:center;}
     .dc-starter .dc-rk{color:var(--tc-readable,var(--accent));font-size:12px;}
@@ -5432,13 +5435,20 @@ function renderProjNatlChart(projected, color, rgb){
   }
   window.__renderSpotlight=renderSpotlight;
   window.__spotlightDefault=pickSpotlightDefault;
-  document.addEventListener('mouseover',function(e){
+  // Spotlight updates on CLICK (not hover — hover was spamming). Clicking the
+  // player's name hyperlink navigates to their page as usual; clicking anywhere
+  // else on their row loads them into the spotlight header.
+  document.addEventListener('click',function(e){
     var host=document.getElementById('depthContent'); if(!host||!host.contains(e.target)) return;
+    if(e.target.closest('a[href],button,input,select,textarea,.dc-row-drag')) return;  // let real links/controls act
     var t=e.target.closest('.dc-row,.starter-col-body,.backup-item,tr,.protation-row,.rotation-row,.crotation-row'); if(!t||!host.contains(t)) return;
     var name=null, a=t.querySelector('a[href*="player.html"]');
     if(a){var mm=a.getAttribute('href').match(/[?&]name=([^&]+)/); if(mm){try{name=decodeURIComponent(mm[1]);}catch(_){name=mm[1];}}}
     if(!name){var dp=t.querySelector('[data-pcard]'); if(dp)name=dp.getAttribute('data-pcard');}
-    if(!name||name===window.__spotCur) return;
+    if(!name) return;
+    host.querySelectorAll('.spot-selected').forEach(function(el){el.classList.remove('spot-selected');});
+    t.classList.add('spot-selected');
+    if(name===window.__spotCur) return;
     renderSpotlight(name);
   });
 })();

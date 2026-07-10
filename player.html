@@ -2247,11 +2247,12 @@ function _projectWithLine(customLine){
 function _applyFreshProfile(){
   if(!window.TDCFresh || !player || !TDCFresh.isFreshman(player)) return;
   var prof = TDCFresh.profileFor(player);
-  if(prof){ proj = Object.assign({}, proj||{}, _projectWithLine(TDCFresh.line(player, prof))); }
+  // Use the direct line so this page's stat boxes match the editor preview exactly.
+  if(prof){ proj = Object.assign({}, proj||{}, TDCFresh.line(player, prof)); }
 }
 function _openFreshEditor(){
   if(!window.TDCFresh || !player) return;
-  TDCFresh.openEditor(player, { transform:_projectWithLine, onSaved:function(){ _applyFreshProfile(); renderPage(); } });
+  TDCFresh.openEditor(player, { onSaved:function(){ _applyFreshProfile(); renderPage(); } });
 }
 function renderPage(){
   const p=player;

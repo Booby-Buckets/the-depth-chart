@@ -175,10 +175,7 @@
   function paintPrev(L){ var host=document.getElementById('frPrev'); if(!host) return;
     var cells=[['PPG',L.ppg],['RPG',L.rpg],['APG',L.apg],['MPG',L.mpg],['FG%',L.fg_pct+'%'],['3P%',L.tp_pct+'%'],['STL',L.stl],['BLK',L.blk]];
     host.innerHTML=cells.map(function(c){return '<div class="fr-pv"><div class="fr-pv-v">'+c[1]+'</div><div class="fr-pv-l">'+c[0]+'</div></div>';}).join(''); }
-  function preview(){ if(!_p) return; var raw=line(_p,_d);
-    if(!_transform){ paintPrev(raw); return; }
-    paintPrev(raw);                              // instant raw line, then swap in the team-adjusted line
-    clearTimeout(_pvTimer); _pvTimer=setTimeout(function(){ try{ var adj=_transform(raw); paintPrev(adj||raw); }catch(e){ paintPrev(raw); } }, 90); }
+  function preview(){ if(!_p) return; paintPrev(line(_p,_d)); }   // direct, fully-responsive line (every slider shows immediately)
   function render(){ var m=el(), p=_p, d=_d;
     var archOpts=Object.keys(FR_ARCH).map(function(a){return '<option value="'+a+'"'+(a===d.archetype?' selected':'')+'>'+a+'</option>';}).join('');
     var roleBtns=Object.keys(FR_ROLE).map(function(r){return '<button class="fr-role'+(r===d.role?' on':'')+'" onclick="TDCFresh._set(\''+'role\',\''+r+'\')">'+FR_ROLE[r].label+'</button>';}).join('');
