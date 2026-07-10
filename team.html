@@ -316,6 +316,9 @@
     .fr-roles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
     .fr-role{padding:8px 4px;border:1px solid var(--border);background:var(--bg);color:var(--text2);font-family:'Inter',sans-serif;font-size:11px;font-weight:700;border-radius:8px;cursor:pointer;transition:all .12s;}
     .fr-role.on{background:var(--tc-readable,var(--accent));color:#221c08;border-color:var(--tc-readable,var(--accent));}
+    .fr-ovr-row{display:flex;align-items:center;gap:14px;}
+    .fr-ovr-v{font-family:'Playfair Display',serif;font-weight:800;font-size:34px;line-height:1;color:var(--tc-readable,var(--accent));min-width:52px;text-align:center;}
+    .fr-ovr-row input[type=range]{flex:1;}
     .fr-sliders{display:flex;flex-direction:column;gap:12px;}
     .fr-sl-top{display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-bottom:4px;}
     .fr-sl-top b{font-family:'Share Tech Mono',monospace;color:var(--tc-readable,var(--accent));}
@@ -2670,7 +2673,7 @@ function _squadData(){
   // grade-based estimates via buildCustomProjections) so the identity/synergy
   // numbers don't undercount young players who barely played.
   let proj={}; try{ (buildCustomProjections()||[]).forEach(p=>{ if(p&&p.name) proj[p.name.toLowerCase().trim()]=p; }); }catch(e){}
-  const enrich=p=>{ if(!p) return p; const pr=proj[(p.name||'').toLowerCase().trim()]; return pr?Object.assign({},p,pr,{tdc_grade:p.tdc_grade}):p; };
+  const enrich=p=>{ if(!p) return p; const pr=proj[(p.name||'').toLowerCase().trim()]; return pr?Object.assign({},p,pr,{tdc_grade:(pr._frOvr?pr.tdc_grade:p.tdc_grade)}):p; };
   const starters=POS_KEYS.map(pos=>({pos,p:enrich((customDepth[pos]||[])[0]||null)}));
   const bench=[]; POS_KEYS.forEach(pos=>{ (customDepth[pos]||[]).slice(1).forEach(p=>{ if(p&&p.name) bench.push({pos,p:enrich(p)}); }); });
   bench.sort((a,b)=>(parseFloat(b.p.tdc_grade)||0)-(parseFloat(a.p.tdc_grade)||0));
@@ -2981,7 +2984,8 @@ function _frSliders(line,sl){ const s=k=>((sl&&sl[k]!=null)?sl[k]:50), m=(k,r)=>
   line.apg*=m('playmaking',0.5); line.tovs*=m('playmaking',0.18); line.fg_pct+=a('interior',5); line.oreb*=m('interior',0.35); line.ppg*=m('interior',0.10);
   line.stl*=m('defense',0.5); line.blk*=m('defense',0.5); line.rpg*=m('rebounding',0.38); line.oreb*=m('rebounding',0.35); line.dreb*=m('rebounding',0.35); }
 function _freshmanLine(p,profile){
-  const grade=parseFloat(p.tdc_grade)||70;
+  const ovrOverride=(profile&&profile.ovr!=null&&profile.ovr!=='')?parseFloat(profile.ovr):null;
+  const grade=(ovrOverride!=null?ovrOverride:parseFloat(p.tdc_grade))||70;
   const posNorm=['PG','SG','SF','PF','C'].includes(p.position)?p.position:(p.position==='CG'?'SG':'SG');
   const tier=grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
   const base=Object.assign({}, (FR_BASE[tier]&&FR_BASE[tier][posNorm])||FR_BASE['75-84']['SG']);
@@ -2995,6 +2999,7 @@ function _freshmanLine(p,profile){
     fga:r1t(fga), fgm:r1t(fga*base.fg_pct/100), tpa:r1t(fga*0.42), tpm:r1t(fga*0.42*base.tp_pct/100),
     fta:r1t(mpg*0.09*usg), ftm:r1t(mpg*0.09*usg*base.ft_pct/100),
     oreb:r1t(base.oreb*scale), dreb:r1t(base.dreb*scale), stl:r1t(base.stl*scale), blk:r1t(base.blk*scale), tovs:r1t(base.tovs*scale),
+    tdc_grade:(ovrOverride!=null?''+Math.round(ovrOverride):p.tdc_grade), _frOvr:ovrOverride!=null,
     _noStatEst:true, _frProfiled:!!profile };
 }
 // modal editor
@@ -3004,12 +3009,14 @@ function _openFreshmanEditor(name){
   const g=parseFloat(f.p.tdc_grade)||70;
   _frDraft=_loadFreshmanProfile(f.p)||{ archetype:_sqArchetype(f.p), role:(g>=90?'star':g>=82?'starter':g>=74?'rotation':'bench'), sliders:{scoring:50,shooting:50,playmaking:50,interior:50,defense:50,rebounding:50} };
   if(!_frDraft.sliders) _frDraft.sliders={scoring:50,shooting:50,playmaking:50,interior:50,defense:50,rebounding:50};
+  if(_frDraft.ovr==null) _frDraft.ovr=Math.round(parseFloat(f.p.tdc_grade)||75);
   _renderFrModal();
 }
 function _frModalEl(){ let m=document.getElementById('frModal'); if(!m){ m=document.createElement('div'); m.id='frModal'; m.className='fr-overlay'; m.onclick=e=>{ if(e.target===m) _closeFrModal(); }; document.body.appendChild(m); } return m; }
 function _closeFrModal(){ const m=document.getElementById('frModal'); if(m) m.remove(); _frEditP=null; _frDraft=null; }
 function _frSet(k,v){ if(k==='archetype')_frDraft.archetype=v; else if(k==='role')_frDraft.role=v; _frPreview(); if(k!=='slider')_renderFrModal(); }
 function _frSetSlider(k,v){ _frDraft.sliders[k]=+v; _frPreview(); }
+function _frSetOvr(v){ _frDraft.ovr=+v; _frPreview(); }
 function _frPreview(){
   const line=_freshmanLine(_frEditP,_frDraft), host=document.getElementById('frPrev'); if(!host) return;
   const cells=[['PPG',line.ppg],['RPG',line.rpg],['APG',line.apg],['MPG',line.mpg],['FG%',line.fg_pct+'%'],['3P%',line.tp_pct+'%'],['STL',line.stl],['BLK',line.blk]];
@@ -3024,6 +3031,9 @@ function _renderFrModal(){
   m.innerHTML=`<div class="fr-modal">
     <div class="fr-head"><div><div class="fr-eyebrow">Freshman Projection</div><div class="fr-name">${p.name}</div><div class="fr-sub">${p.position||''} · ${p.class_year||p.yr||'Fr.'} · grade ${p.tdc_grade||'—'}</div></div><button class="fr-x" onclick="_closeFrModal()">×</button></div>
     <div class="fr-body">
+      <div class="fr-field"><label>Overall (OVR) — how good you think he is</label>
+        <div class="fr-ovr-row"><b class="fr-ovr-v" id="frOvrV">${d.ovr}</b><input type="range" min="55" max="99" step="1" value="${d.ovr}" class="mpg-range" oninput="document.getElementById('frOvrV').textContent=this.value;_frSetOvr(this.value)"/></div>
+      </div>
       <div class="fr-field"><label>Archetype — how he plays</label><select class="pos-change-select" style="width:100%;" onchange="_frSet('archetype',this.value)">${archOpts}</select></div>
       <div class="fr-field"><label>Role — how big a part he is</label><div class="fr-roles">${roleBtns}</div></div>
       <div class="fr-field"><label>Playstyle — fine-tune his tendencies</label><div class="fr-sliders">${sliders}</div></div>
