@@ -67,18 +67,27 @@
   }
   function apply(line,mods){ for(var k in mods){ if(!mods.hasOwnProperty(k))continue; var v=mods[k];
     if(/_pct$/.test(k)) line[k]=(parseFloat(line[k])||0)+v; else line[k]=(parseFloat(line[k])||0)*v; } }
-  function applySliders(line,sl){ var s=function(k){return (sl&&sl[k]!=null)?sl[k]:50;}, m=function(k,r){return 1+((s(k)-50)/50)*r;}, a=function(k,r){return ((s(k)-50)/50)*r;};
-    line.ppg*=m('scoring',0.30);                                    // overall shot volume / usage
-    line.tp_pct+=a('three',9);                                      // 3-point %
-    line.fg_pct+=a('mid',3)+a('paint',5);                           // mid-range jumper + rim finishing both lift 2pt FG%
-    line.oreb*=m('paint',0.3); line.ppg*=m('paint',0.08);           // paint = putbacks + rim scoring
-    line.ft_pct+=a('ft',10);                                        // free throw %
-    line.apg*=m('playmaking',0.34); line.tovs*=m('playmaking',0.18);
-    line.oreb*=m('athleticism',0.4); line.blk*=m('athleticism',0.35); line.stl*=m('athleticism',0.2); line.ppg*=m('athleticism',0.06); line.dreb*=m('athleticism',0.12);
+  function applySliders(line,sl,ctx){ ctx=ctx||{}; var size=(ctx.size!=null?ctx.size:0.4), guard=ctx.guard?1:0;
+    var s=function(k){return (sl&&sl[k]!=null)?sl[k]:50;}, m=function(k,r){return 1+((s(k)-50)/50)*r;}, a=function(k,r){return ((s(k)-50)/50)*r;};
+    // Counting stats sit on small bases (apg~1.3, stl~0.7, blk~0.2), so a pure
+    // multiplier barely moves them. Each gets a raw additive term too, so 50→100
+    // is a real swing. line() still caps every category to a believable ceiling.
+    line.ppg*=m('scoring',0.45);                                    // overall shot volume / usage
+    line.tp_pct+=a('three',11);                                     // 3-point %
+    line.fg_pct+=a('mid',4)+a('paint',6);                          // mid-range jumper + rim finishing both lift 2pt FG%
+    line.oreb*=m('paint',0.35); line.ppg*=m('paint',0.10);         // paint = putbacks + rim scoring
+    line.ft_pct+=a('ft',12);                                        // free throw %
+    // Playmaking — the biggest lever: strong multiplier + raw assists, weighted
+    // toward guards (a big who "passes well" still won't rack up 5 dimes).
+    line.apg=Math.max(0.1, line.apg*m('playmaking',0.7) + a('playmaking', 2.2+1.4*guard));
+    line.tovs*=m('playmaking',0.20);
+    line.oreb*=m('athleticism',0.45); line.blk*=m('athleticism',0.4); line.stl*=m('athleticism',0.25); line.ppg*=m('athleticism',0.07); line.dreb*=m('athleticism',0.14);
     var stlS=(sl&&sl.steals!=null)?sl.steals:((sl&&sl.defense!=null)?sl.defense:50);   // steals slider (fallback: old "defense")
     var blkS=(sl&&sl.blocks!=null)?sl.blocks:((sl&&sl.defense!=null)?sl.defense:50);   // blocks slider (fallback: old "defense")
-    line.stl*=1+((stlS-50)/50)*0.55; line.blk*=1+((blkS-50)/50)*0.55;
-    line.rpg*=m('rebounding',0.38); line.oreb*=m('rebounding',0.35); line.dreb*=m('rebounding',0.35);
+    line.stl=Math.max(0.05, line.stl*(1+((stlS-50)/50)*0.6) + ((stlS-50)/50)*0.9);                  // perimeter D
+    line.blk=Math.max(0.02, line.blk*(1+((blkS-50)/50)*0.6) + ((blkS-50)/50)*(0.5+1.4*size));       // rim protection — leans on size
+    line.rpg=Math.max(0.3, line.rpg*m('rebounding',0.5) + a('rebounding', 1.2+2.0*size));           // boards — leans on size
+    line.oreb*=m('rebounding',0.4); line.dreb*=m('rebounding',0.4);
     // Ready to play — how much of his ceiling shows up as a freshman. Low = high
     // potential but raw (size/intangibles); scales production & efficiency down,
     // and raises turnovers. 50 = the standard OVR-implied line.
@@ -94,7 +103,7 @@
     var tier=grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
     var base=Object.assign({}, (B[tier]&&B[tier][pos])||(B['75-84']&&B['75-84']['SG'])||FR_BASE_FALLBACK['75-84']['SG']);
     if(profile&&profile.archetype&&FR_ARCH[profile.archetype]) apply(base,FR_ARCH[profile.archetype]);
-    if(profile&&profile.sliders) applySliders(base,profile.sliders);
+    if(profile&&profile.sliders) applySliders(base,profile.sliders,{guard:(pos==='PG'||pos==='SG'),size:c01((ht(p.height)-72)/12)});
     base.fg_pct=Math.max(30,Math.min(70,base.fg_pct)); base.tp_pct=Math.max(0,Math.min(48,base.tp_pct)); base.ft_pct=Math.max(45,Math.min(95,base.ft_pct));
     var role=(profile&&profile.role)||(grade>=90?'star':grade>=82?'starter':grade>=74?'rotation':'bench');
     var R=FR_ROLE[role]||FR_ROLE.starter, mpg=R.mpg, scale=mpg/32, usg=R.usg, fga=Math.max(2,mpg*0.30*usg);
