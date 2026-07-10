@@ -2637,6 +2637,7 @@ function labCell(label,val,sub,color){
 function renderCustomize(t, players, color, rgb, gp){
   const el=document.getElementById('customizeContent');
   if(!el) return;
+  _frInit();   // pull the owner's freshman projections from Supabase (once), then re-render
   const sorted=[...players].sort((a,b)=>(a.depth_order||0)-(b.depth_order||0))
     .filter(p=>p.name&&p.name!=='—')
     .map(p=>({...p, _naturalPos: p.position||'G'}));
@@ -2938,8 +2939,42 @@ const FR_SLIDERS=[['scoring','Scoring'],['shooting','Shooting'],['playmaking','P
 const TDC_OWNER_EMAIL='blee4824@gmail.com';   // freshman projections are the owner's personal preferences
 function _isOwner(){ try{ const s=JSON.parse(localStorage.getItem('tdc_session')||'null'); return !!(s&&s.user&&(s.user.email||'').toLowerCase()===TDC_OWNER_EMAIL); }catch(e){ return false; } }
 function _frKey(p){ return 'tdc_fr:'+((teamT&&teamT.name)||'')+':'+((p&&p.name)||''); }
-function _loadFreshmanProfile(p){ try{ const s=localStorage.getItem(_frKey(p)); return s?JSON.parse(s):null; }catch(e){ return null; } }
-function _saveFreshmanProfile(p,prof){ try{ if(prof) localStorage.setItem(_frKey(p),JSON.stringify(prof)); else localStorage.removeItem(_frKey(p)); }catch(e){} }
+function _frSession(){ try{ return JSON.parse(localStorage.getItem('tdc_session')||'null'); }catch(e){ return null; } }
+// Profiles live on the owner's Supabase profile (freshman_projections jsonb) so they
+// sync across devices. Kept in an in-memory map for the synchronous projection code,
+// mirrored to localStorage as an instant/offline cache.
+function _loadFreshmanProfile(p){
+  const k=_frKey(p);
+  if(window._frProfiles && typeof window._frProfiles==='object') return window._frProfiles[k]||null;
+  try{ const s=localStorage.getItem(k); return s?JSON.parse(s):null; }catch(e){ return null; }   // cache fallback until the cloud blob loads
+}
+function _saveFreshmanProfile(p,prof){
+  const k=_frKey(p); window._frProfiles=window._frProfiles||{};
+  if(prof){ window._frProfiles[k]=prof; try{localStorage.setItem(k,JSON.stringify(prof));}catch(e){} }
+  else { delete window._frProfiles[k]; try{localStorage.removeItem(k);}catch(e){} }
+  _frPushBlob();
+}
+async function _frPushBlob(){
+  const s=_frSession(); if(!_isOwner()||!s||!s.access_token||!s.user||!s.user.id) return;
+  try{ await fetch(SB_URL+'/rest/v1/profiles?id=eq.'+s.user.id,{method:'PATCH',
+    headers:{apikey:SB_KEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json',Prefer:'return=minimal'},
+    body:JSON.stringify({freshman_projections:window._frProfiles||{}})}); }catch(e){ console.warn('freshman sync failed',e); }
+}
+async function _frInit(){
+  if(window._frInited) return; window._frInited=true;
+  const s=_frSession();
+  if(!_isOwner()||!s||!s.access_token||!s.user||!s.user.id){ window._frProfiles=window._frProfiles||{}; return; }
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/profiles?id=eq.'+s.user.id+'&select=freshman_projections',{headers:{apikey:SB_KEY,Authorization:'Bearer '+s.access_token}});
+    const rows=await r.json(); const blob=(rows&&rows[0]&&rows[0].freshman_projections)||{};
+    // one-time migration: fold any local tdc_fr: entries into the cloud blob
+    let migrated=false;
+    for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.indexOf('tdc_fr:')===0&&!blob[k]){ try{ blob[k]=JSON.parse(localStorage.getItem(k)); migrated=true; }catch(e){} } }
+    window._frProfiles=blob;
+    if(migrated) _frPushBlob();
+    if(document.querySelector('#customizeContent .sq-wrap')) rebuildCustomizeUI();
+  }catch(e){ window._frProfiles=window._frProfiles||{}; console.warn('freshman load failed',e); }
+}
 function _frApply(line,mods){ Object.keys(mods||{}).forEach(k=>{ const v=mods[k]; if(/_pct$/.test(k)) line[k]=(parseFloat(line[k])||0)+v; else line[k]=(parseFloat(line[k])||0)*v; }); }
 function _frSliders(line,sl){ const s=k=>((sl&&sl[k]!=null)?sl[k]:50), m=(k,r)=>1+((s(k)-50)/50)*r, a=(k,r)=>((s(k)-50)/50)*r;
   line.ppg*=m('scoring',0.32); line.tp_pct+=a('shooting',8); line.ft_pct+=a('shooting',5);
