@@ -298,6 +298,35 @@
     .sq-info-pos{font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--tc-readable,var(--accent));margin-top:3px;text-transform:uppercase;}
     .sq-info-name{font-family:'Inter',sans-serif;font-style:italic;font-weight:800;font-size:21px;letter-spacing:-.01em;margin:12px 0 2px;overflow-wrap:anywhere;}
     .sq-info-arch{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--tc-readable,var(--accent));background:rgba(var(--tc-rgb,168,132,60),.12);border:1px solid rgba(var(--tc-rgb,168,132,60),.28);padding:3px 9px;border-radius:20px;margin-bottom:10px;}
+    .fr-edit-btn{display:block;width:100%;margin:0 0 12px;padding:9px;border:1px dashed var(--border2);background:var(--bg3);color:var(--text);font-family:'Inter',sans-serif;font-size:11.5px;font-weight:800;letter-spacing:.03em;border-radius:9px;cursor:pointer;transition:border-color .15s,background .15s;}
+    .fr-edit-btn:hover{border-color:var(--tc-readable,var(--accent));background:rgba(var(--tc-rgb,168,132,60),.1);}
+    /* freshman editor modal */
+    .fr-overlay{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.62);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px;animation:frFade .2s ease;}
+    @keyframes frFade{from{opacity:0;}to{opacity:1;}}
+    .fr-modal{width:100%;max-width:440px;max-height:92vh;overflow-y:auto;background:var(--bg2);border:1px solid var(--border2);border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,.6);}
+    .fr-head{display:flex;justify-content:space-between;align-items:flex-start;padding:18px 20px 14px;border-bottom:1px solid var(--border);}
+    .fr-eyebrow{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--tc-readable,var(--accent));}
+    .fr-name{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1.1;margin-top:3px;}
+    .fr-sub{font-size:11px;color:var(--text3);font-weight:600;margin-top:2px;}
+    .fr-x{background:none;border:none;color:var(--text3);font-size:26px;line-height:1;cursor:pointer;padding:0 2px;}
+    .fr-x:hover{color:var(--text);}
+    .fr-body{padding:16px 20px;}
+    .fr-field{margin-bottom:18px;}
+    .fr-field>label{display:block;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+    .fr-roles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+    .fr-role{padding:8px 4px;border:1px solid var(--border);background:var(--bg);color:var(--text2);font-family:'Inter',sans-serif;font-size:11px;font-weight:700;border-radius:8px;cursor:pointer;transition:all .12s;}
+    .fr-role.on{background:var(--tc-readable,var(--accent));color:#221c08;border-color:var(--tc-readable,var(--accent));}
+    .fr-sliders{display:flex;flex-direction:column;gap:12px;}
+    .fr-sl-top{display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-bottom:4px;}
+    .fr-sl-top b{font-family:'Share Tech Mono',monospace;color:var(--tc-readable,var(--accent));}
+    .fr-prev{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;}
+    .fr-pv{text-align:center;} .fr-pv-v{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;line-height:1;} .fr-pv-l{font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
+    .fr-foot{display:flex;gap:10px;padding:14px 20px 18px;border-top:1px solid var(--border);}
+    .fr-btn{flex:1;padding:11px;border-radius:10px;font-family:'Inter',sans-serif;font-size:13px;font-weight:800;cursor:pointer;border:1px solid var(--border2);}
+    .fr-btn.ghost{background:var(--bg);color:var(--text2);}
+    .fr-btn.ghost:hover{color:var(--text);border-color:var(--text3);}
+    .fr-btn.primary{background:var(--tc-readable,var(--accent));color:#221c08;border-color:var(--tc-readable,var(--accent));}
+    .fr-btn.primary:hover{filter:brightness(1.06);}
     .sq-attrs{display:grid;grid-template-columns:1fr 1fr;gap:0 20px;}
     .sq-attr{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;}
     .sq-attr-l{color:var(--text3);font-weight:600;} .sq-attr-v{font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);}
@@ -2695,7 +2724,8 @@ function _squadInfo(sel){
       <div><div class="sq-info-ovr" style="color:${_sqCol(g)}">${g||'—'}</div><div class="sq-info-pos">${(pos||sel.pos)}${pos&&pos!==sel.pos?' · plays '+sel.pos:''}</div></div>
     </div>
     <div class="sq-info-name">${p.name}</div>
-    <div class="sq-info-arch">${_sqArchetype(p)}</div>
+    <div class="sq-info-arch">${_sqArchetype(p)}${p._frProfiled?' · <span style="color:#5ab875;">custom</span>':''}</div>
+    ${p._noStatEst?`<button class="fr-edit-btn" data-n="${_sqAttr(p.name)}" onclick="_openFreshmanEditor(this.dataset.n)">⚙ ${p._frProfiled?'Edit':'Project'} his playstyle</button>`:''}
     <div class="sq-attrs">${cols}</div>
   </div>`;
 }
@@ -2886,6 +2916,89 @@ function _playstylePanel(an){
   </div>`;
 }
 
+// ── Freshman projection editor ────────────────────────────────────────────
+// Shape an unproven player's projected line by archetype + role + playstyle
+// sliders (saved per team in localStorage). Feeds buildCustomProjections so the
+// whole squad view + Team Impact update from how YOU think the freshman plays.
+const FR_ROLE = { star:{mpg:30,usg:1.16,label:'Star'}, starter:{mpg:24,usg:1.0,label:'Starter'}, rotation:{mpg:15,usg:0.85,label:'Rotation'}, bench:{mpg:9,usg:0.72,label:'Bench'} };
+const FR_ARCH = {
+  'Lead Guard':{apg:1.5,ppg:1.05,tovs:1.1}, 'Floor General':{apg:1.7,ppg:0.85,tovs:1.15,tp_pct:2,stl:1.15},
+  'Combo Guard':{ppg:1.05,apg:1.05}, 'Scoring Guard':{ppg:1.22,apg:0.8,tp_pct:2},
+  'Sharpshooter':{ppg:1.05,tp_pct:6,ft_pct:4,apg:0.75,rpg:0.85,blk:0.5}, '3&D Guard':{tp_pct:5,stl:1.4,ppg:0.9,apg:0.9},
+  'On-Ball Stopper':{stl:1.5,ppg:0.85,apg:1.05}, 'Point Forward':{apg:1.6,ppg:1.0,rpg:1.1},
+  '3&D Wing':{tp_pct:5,stl:1.35,ppg:0.95,rpg:1.05}, 'Movement Shooter':{ppg:1.1,tp_pct:6,ft_pct:4,apg:0.7},
+  'Wing Scorer':{ppg:1.25,tp_pct:1,apg:0.85}, 'Wing Stopper':{stl:1.4,blk:1.2,ppg:0.85},
+  'Slasher':{ppg:1.15,fg_pct:2,tp_pct:-3,apg:0.9,oreb:1.15}, 'Connector Wing':{apg:1.15,tp_pct:2,ppg:0.95},
+  'Rim Runner':{fg_pct:6,ppg:0.95,blk:1.3,oreb:1.5,dreb:1.1,tp_pct:-15,apg:0.6}, 'Stretch Big':{tp_pct:9,ppg:1.05,blk:0.85,oreb:0.8},
+  'Rim Protector':{blk:1.9,rpg:1.2,dreb:1.15,ppg:0.85,fg_pct:3}, 'Two-Way Big':{blk:1.5,fg_pct:4,rpg:1.15,ppg:0.95},
+  'Post Scorer':{ppg:1.25,fg_pct:3,rpg:1.1,tp_pct:-8,blk:0.9}, 'Glass Cleaner':{rpg:1.35,oreb:1.5,dreb:1.25,ppg:0.9,blk:1.1},
+  'Interior Big':{rpg:1.1,fg_pct:3,blk:1.1,tp_pct:-10}
+};
+const FR_SLIDERS=[['scoring','Scoring'],['shooting','Shooting'],['playmaking','Playmaking'],['interior','Interior'],['defense','Defense'],['rebounding','Rebounding']];
+function _frKey(p){ return 'tdc_fr:'+((teamT&&teamT.name)||'')+':'+((p&&p.name)||''); }
+function _loadFreshmanProfile(p){ try{ const s=localStorage.getItem(_frKey(p)); return s?JSON.parse(s):null; }catch(e){ return null; } }
+function _saveFreshmanProfile(p,prof){ try{ if(prof) localStorage.setItem(_frKey(p),JSON.stringify(prof)); else localStorage.removeItem(_frKey(p)); }catch(e){} }
+function _frApply(line,mods){ Object.keys(mods||{}).forEach(k=>{ const v=mods[k]; if(/_pct$/.test(k)) line[k]=(parseFloat(line[k])||0)+v; else line[k]=(parseFloat(line[k])||0)*v; }); }
+function _frSliders(line,sl){ const s=k=>((sl&&sl[k]!=null)?sl[k]:50), m=(k,r)=>1+((s(k)-50)/50)*r, a=(k,r)=>((s(k)-50)/50)*r;
+  line.ppg*=m('scoring',0.32); line.tp_pct+=a('shooting',8); line.ft_pct+=a('shooting',5);
+  line.apg*=m('playmaking',0.5); line.tovs*=m('playmaking',0.18); line.fg_pct+=a('interior',5); line.oreb*=m('interior',0.35); line.ppg*=m('interior',0.10);
+  line.stl*=m('defense',0.5); line.blk*=m('defense',0.5); line.rpg*=m('rebounding',0.38); line.oreb*=m('rebounding',0.35); line.dreb*=m('rebounding',0.35); }
+function _freshmanLine(p,profile){
+  const grade=parseFloat(p.tdc_grade)||70;
+  const posNorm=['PG','SG','SF','PF','C'].includes(p.position)?p.position:(p.position==='CG'?'SG':'SG');
+  const tier=grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
+  const base=Object.assign({}, (FR_BASE[tier]&&FR_BASE[tier][posNorm])||FR_BASE['75-84']['SG']);
+  if(profile&&profile.archetype&&FR_ARCH[profile.archetype]) _frApply(base,FR_ARCH[profile.archetype]);
+  if(profile&&profile.sliders) _frSliders(base,profile.sliders);
+  base.fg_pct=Math.max(30,Math.min(70,base.fg_pct)); base.tp_pct=Math.max(0,Math.min(48,base.tp_pct)); base.ft_pct=Math.max(45,Math.min(95,base.ft_pct));
+  const role=(profile&&profile.role)||(grade>=90?'star':grade>=82?'starter':grade>=74?'rotation':'bench');
+  const R=FR_ROLE[role]||FR_ROLE.starter, mpg=R.mpg, scale=mpg/32, usg=R.usg, fga=Math.max(2,mpg*0.30*usg);
+  return {...p, mpg:r1t(mpg), ppg:r1t(base.ppg*scale*usg), rpg:r1t(base.rpg*scale), apg:r1t(base.apg*scale),
+    fg_pct:r1t(base.fg_pct), tp_pct:r1t(base.tp_pct), ft_pct:r1t(base.ft_pct),
+    fga:r1t(fga), fgm:r1t(fga*base.fg_pct/100), tpa:r1t(fga*0.42), tpm:r1t(fga*0.42*base.tp_pct/100),
+    fta:r1t(mpg*0.09*usg), ftm:r1t(mpg*0.09*usg*base.ft_pct/100),
+    oreb:r1t(base.oreb*scale), dreb:r1t(base.dreb*scale), stl:r1t(base.stl*scale), blk:r1t(base.blk*scale), tovs:r1t(base.tovs*scale),
+    _noStatEst:true, _frProfiled:!!profile };
+}
+// modal editor
+let _frDraft=null, _frEditP=null;
+function _openFreshmanEditor(name){
+  const f=_findSquadPlayer(name); if(!f) return; _frEditP=f.p;
+  const g=parseFloat(f.p.tdc_grade)||70;
+  _frDraft=_loadFreshmanProfile(f.p)||{ archetype:_sqArchetype(f.p), role:(g>=90?'star':g>=82?'starter':g>=74?'rotation':'bench'), sliders:{scoring:50,shooting:50,playmaking:50,interior:50,defense:50,rebounding:50} };
+  if(!_frDraft.sliders) _frDraft.sliders={scoring:50,shooting:50,playmaking:50,interior:50,defense:50,rebounding:50};
+  _renderFrModal();
+}
+function _frModalEl(){ let m=document.getElementById('frModal'); if(!m){ m=document.createElement('div'); m.id='frModal'; m.className='fr-overlay'; m.onclick=e=>{ if(e.target===m) _closeFrModal(); }; document.body.appendChild(m); } return m; }
+function _closeFrModal(){ const m=document.getElementById('frModal'); if(m) m.remove(); _frEditP=null; _frDraft=null; }
+function _frSet(k,v){ if(k==='archetype')_frDraft.archetype=v; else if(k==='role')_frDraft.role=v; _frPreview(); if(k!=='slider')_renderFrModal(); }
+function _frSetSlider(k,v){ _frDraft.sliders[k]=+v; _frPreview(); }
+function _frPreview(){
+  const line=_freshmanLine(_frEditP,_frDraft), host=document.getElementById('frPrev'); if(!host) return;
+  const cells=[['PPG',line.ppg],['RPG',line.rpg],['APG',line.apg],['MPG',line.mpg],['FG%',line.fg_pct+'%'],['3P%',line.tp_pct+'%'],['STL',line.stl],['BLK',line.blk]];
+  host.innerHTML=cells.map(c=>`<div class="fr-pv"><div class="fr-pv-v">${c[1]}</div><div class="fr-pv-l">${c[0]}</div></div>`).join('');
+}
+function _renderFrModal(){
+  const m=_frModalEl(), p=_frEditP, d=_frDraft;
+  const archOpts=Object.keys(FR_ARCH).map(a=>`<option value="${a}"${a===d.archetype?' selected':''}>${a}</option>`).join('');
+  const roleBtns=Object.keys(FR_ROLE).map(r=>`<button class="fr-role${r===d.role?' on':''}" onclick="_frSet('role','${r}')">${FR_ROLE[r].label}</button>`).join('');
+  const sliders=FR_SLIDERS.map(([k,lbl])=>`<div class="fr-sl"><div class="fr-sl-top"><span>${lbl}</span><b id="frv-${k}">${d.sliders[k]}</b></div>
+    <input type="range" min="0" max="100" step="5" value="${d.sliders[k]}" class="mpg-range" oninput="document.getElementById('frv-${k}').textContent=this.value;_frSetSlider('${k}',this.value)"/></div>`).join('');
+  m.innerHTML=`<div class="fr-modal">
+    <div class="fr-head"><div><div class="fr-eyebrow">Freshman Projection</div><div class="fr-name">${p.name}</div><div class="fr-sub">${p.position||''} · ${p.class_year||p.yr||'Fr.'} · grade ${p.tdc_grade||'—'}</div></div><button class="fr-x" onclick="_closeFrModal()">×</button></div>
+    <div class="fr-body">
+      <div class="fr-field"><label>Archetype — how he plays</label><select class="pos-change-select" style="width:100%;" onchange="_frSet('archetype',this.value)">${archOpts}</select></div>
+      <div class="fr-field"><label>Role — how big a part he is</label><div class="fr-roles">${roleBtns}</div></div>
+      <div class="fr-field"><label>Playstyle — fine-tune his tendencies</label><div class="fr-sliders">${sliders}</div></div>
+      <div class="fr-field"><label>Projected line</label><div class="fr-prev" id="frPrev"></div></div>
+    </div>
+    <div class="fr-foot"><button class="fr-btn ghost" onclick="_frReset()">Reset to model</button><button class="fr-btn primary" onclick="_frSave()">Save projection</button></div>
+  </div>`;
+  _frPreview();
+}
+function _frSave(){ _saveFreshmanProfile(_frEditP,_frDraft); _closeFrModal(); if(typeof rebuildCustomizeUI==='function') rebuildCustomizeUI(); }
+function _frReset(){ _saveFreshmanProfile(_frEditP,null); _closeFrModal(); if(typeof rebuildCustomizeUI==='function') rebuildCustomizeUI(); }
+
 // ── RENDER ────────────────────────────────────────────────
 function rebuildCustomizeUI(){
   const el=document.getElementById('customizeContent');
@@ -3052,6 +3165,8 @@ function buildCustomProjections(){
   const readyPlayers = allCustomPlayers.map(p => {
     const hasStats = p.ppg && parseFloat(p.ppg) > 0;
     if(hasStats) return p;
+    const _frp = _loadFreshmanProfile(p);            // user-defined freshman playstyle overrides the generic estimate
+    if(_frp) return _freshmanLine(p, _frp);
     const grade = parseFloat(p.tdc_grade)||70;
     const posNorm = ['PG','SG','SF','PF','C'].includes(p.position)?p.position:p.position==='CG'?'SG':'SG';
     const tier = grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
