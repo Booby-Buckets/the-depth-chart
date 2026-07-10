@@ -232,7 +232,15 @@
     .sq-court{position:relative;width:100%;aspect-ratio:3/2;border-radius:16px;overflow:hidden;border:1px solid var(--border);
       background:radial-gradient(120% 90% at 50% 0%,rgba(var(--tc-rgb,168,132,60),.22),transparent 60%),linear-gradient(180deg,var(--bg3),var(--bg2));}
     .sq-court-lines{position:absolute;inset:0;width:100%;height:100%;}
-    .sq-syn{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;}
+    .sq-syn{position:absolute;inset:0;width:100%;height:100%;z-index:1;}
+    .sq-syn line{pointer-events:none;}
+    .sq-syn line.hit{pointer-events:stroke;cursor:help;}
+    .sq-tip{position:fixed;z-index:9999;max-width:264px;background:var(--bg);border:1px solid var(--border2);border-radius:11px;padding:10px 12px;box-shadow:0 12px 30px rgba(0,0,0,.55);font-size:11.5px;pointer-events:none;display:none;}
+    .sq-tip .st-h{display:flex;justify-content:space-between;gap:12px;align-items:center;font-weight:800;font-size:12.5px;}
+    .sq-tip .st-verdict{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding-bottom:7px;margin-bottom:7px;border-bottom:1px solid var(--border);}
+    .sq-tip .st-rows{display:flex;flex-direction:column;gap:5px;}
+    .sq-tip .st-row{display:flex;gap:9px;align-items:flex-start;line-height:1.35;color:var(--text2);font-weight:600;}
+    .sq-tip .st-d{font-family:'Share Tech Mono',monospace;font-weight:800;flex-shrink:0;width:24px;text-align:right;}
     .sq-player{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;width:96px;text-align:center;cursor:pointer;transition:transform .12s;z-index:2;}
     .sq-player:hover{transform:translate(-50%,-50%) scale(1.06);z-index:5;}
     .sq-player.sel{z-index:6;}
@@ -2728,31 +2736,33 @@ function _sqProfile(p){
   };
 }
 function _pairSynergy(a,b){
-  const A=_sqProfile(a), B=_sqProfile(b); let s=55;
+  const A=_sqProfile(a), B=_sqProfile(b); let s=55; const R=[];
+  const add=(d,t)=>{ s+=d; if(Math.abs(d)>=2) R.push({d:Math.round(d),t}); };
   const shootMax=Math.max(A.shooter,B.shooter), shootMin=Math.min(A.shooter,B.shooter);
   const interior=Math.max(A.finisher*A.size, B.finisher*B.size);
-  s += 16*shootMax*Math.max(interior,0.4);            // spacer next to a rim threat
-  s += 6*shootMin;                                     // both can shoot
-  if(shootMax<0.28 && interior>0.5) s -= 12;           // no spacing around the big
+  add(18*shootMax*Math.max(interior,0.4), 'Shooter spaces the floor for a rim threat');
+  add(7*shootMin, 'Both can shoot from outside');
+  if(shootMax<0.28 && interior>0.5) add(-13, 'Non-shooter clogs the paint around the big');
   const creator=Math.max(A.creator,B.creator);
   const tgt=(A.creator>B.creator)?(B.finisher*0.6+B.shooter*0.6+B.scorer*0.3):(A.finisher*0.6+A.shooter*0.6+A.scorer*0.3);
-  s += 14*creator*Math.min(1,tgt);                     // creator feeding finishers/shooters
-  if(A.creator>0.6 && B.creator>0.6) s -= 8;           // two lead creators clash
-  if(A.ballDom>0.7 && B.ballDom>0.7) s -= 7;           // ball-dominance overlap
-  s += 10*Math.max(A.rimProtect*B.perimD, B.rimProtect*A.perimD);  // rim + perimeter D
-  s += 5*Math.min(A.perimD+B.perimD,2)/2;
-  if(A.rimProtect<0.2 && B.rimProtect<0.2) s -= 5;     // no rim protection
-  if(A.size>0.6 && B.size>0.6 && A.shooter<0.3 && B.shooter<0.3) s -= 9; // twin non-shooting bigs
+  add(16*creator*Math.min(1,tgt), 'A playmaker sets up a finisher/shooter');
+  if(A.creator>0.6 && B.creator>0.6) add(-9, 'Two lead ball-handlers compete for usage');
+  else if(A.ballDom>0.7 && B.ballDom>0.7) add(-7, 'Overlapping ball-dominance');
+  add(13*Math.max(A.rimProtect*B.perimD, B.rimProtect*A.perimD), 'Rim protector behind a perimeter stopper');
+  add(5*Math.min(A.perimD+B.perimD,2)/2, 'Combined perimeter defense');
+  if(A.rimProtect<0.2 && B.rimProtect<0.2) add(-5, 'Neither one protects the rim');
+  if(A.size>0.6 && B.size>0.6 && A.shooter<0.3 && B.shooter<0.3) add(-10, 'Two non-shooting bigs cramp the floor');
   const keys=['shooter','creator','finisher','rimProtect','rebounder','perimD'];
   let sim=0; keys.forEach(k=>sim+=1-Math.abs(A[k]-B[k])); sim/=keys.length;
-  s -= 12*Math.max(0, sim-0.74);                       // near-identical profiles
-  return Math.max(22, Math.min(99, Math.round(s)));
+  if(sim>0.76) add(-13*(sim-0.74), 'Similar skill sets — redundant roles');
+  R.sort((x,y)=>Math.abs(y.d)-Math.abs(x.d));
+  return { score: Math.max(22, Math.min(99, Math.round(s))), reasons:R };
 }
-function _synCol(v){ return v>=70?'#5ab875':v>=55?'#d4a24a':'#e07070'; }
+function _synCol(v){ return v>=63?'#5ab875':v>=52?'#d4a24a':'#e07070'; }
 function _lineupAnalysis(starters){
   const ps=starters.filter(s=>s.p).map(s=>s.p);
   if(ps.length<2) return null;
-  let sum=0,cnt=0; for(let i=0;i<ps.length;i++) for(let j=i+1;j<ps.length;j++){ sum+=_pairSynergy(ps[i],ps[j]); cnt++; }
+  let sum=0,cnt=0; for(let i=0;i<ps.length;i++) for(let j=i+1;j<ps.length;j++){ sum+=_pairSynergy(ps[i],ps[j]).score; cnt++; }
   const overall=Math.round(sum/cnt);
   const S=k=>ps.reduce((t,p)=>t+(parseFloat(p[k])||0),0);
   const A=k=>S(k)/ps.length;
@@ -2775,11 +2785,36 @@ function _synergyLines(starters){
   const slots=starters.map(s=>({p:s.p,xy:_COURT_XY[s.pos]})).filter(s=>s.p);
   let lines='';
   for(let i=0;i<slots.length;i++) for(let j=i+1;j<slots.length;j++){
-    const sy=_pairSynergy(slots[i].p,slots[j].p), col=_synCol(sy);
-    const op=sy>=70?0.8:sy>=55?0.42:0.62, w=sy>=70?0.65:0.45;
-    lines+=`<line x1="${slots[i].xy.x}" y1="${slots[i].xy.y}" x2="${slots[j].xy.x}" y2="${slots[j].xy.y}" stroke="${col}" stroke-width="${w}" stroke-opacity="${op}" stroke-linecap="round"/>`;
+    const d=_pairSynergy(slots[i].p,slots[j].p), sy=d.score, col=_synCol(sy);
+    const op=sy>=63?0.88:sy>=52?0.44:0.6, w=sy>=63?0.72:0.5;
+    const x1=slots[i].xy.x,y1=slots[i].xy.y,x2=slots[j].xy.x,y2=slots[j].xy.y;
+    const rd=_sqAttr(d.reasons.map(r=>(r.d>0?'+':'')+r.d+' '+r.t).join('||'));
+    lines+=`<line class="hit" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="transparent" stroke-width="3.4" data-a="${_sqAttr(slots[i].p.name)}" data-b="${_sqAttr(slots[j].p.name)}" data-sy="${sy}" data-r="${rd}"/>`;
+    lines+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${w}" stroke-opacity="${op}" stroke-linecap="round"/>`;
   }
   return `<svg class="sq-syn" viewBox="0 0 100 100" preserveAspectRatio="none">${lines}</svg>`;
+}
+// Hover tooltip explaining a pair's synergy
+function _synTip(){ let t=document.getElementById('sqSynTip'); if(!t){ t=document.createElement('div'); t.id='sqSynTip'; t.className='sq-tip'; document.body.appendChild(t); } return t; }
+function _posSynTip(e){ const t=_synTip(),r=t.getBoundingClientRect(),pad=12; let x=e.clientX+16,y=e.clientY+16;
+  if(x+r.width>innerWidth-pad) x=e.clientX-r.width-16; if(y+r.height>innerHeight-pad) y=e.clientY-r.height-16;
+  t.style.left=Math.max(pad,x)+'px'; t.style.top=Math.max(pad,y)+'px'; }
+function _showSynTip(l,e){ const t=_synTip();
+  const a=l.getAttribute('data-a'),b=l.getAttribute('data-b'),sy=l.getAttribute('data-sy');
+  const rs=(l.getAttribute('data-r')||'').split('||').filter(Boolean), col=_synCol(+sy);
+  const verdict=sy>=63?'Good fit':sy>=52?'Workable':'Poor fit';
+  t.innerHTML='<div class="st-h"><span>'+a+' &harr; '+b+'</span><b style="color:'+col+'">'+sy+'</b></div>'+
+    '<div class="st-verdict" style="color:'+col+'">'+verdict+'</div>'+
+    (rs.length?('<div class="st-rows">'+rs.map(r=>{ const m=r.match(/^([+-]?\d+)\s+([\s\S]*)$/); const d=m?m[1]:'',tx=m?m[2]:r; const up=d.charAt(0)==='+';
+      return '<div class="st-row"><span class="st-d" style="color:'+(up?'#5ab875':'#e07070')+'">'+d+'</span><span>'+tx+'</span></div>'; }).join('')+'</div>')
+      :'<div class="st-row" style="color:var(--text3);">Balanced — no strong push or pull.</div>');
+  t.style.display='block'; _posSynTip(e);
+}
+function _hideSynTip(){ const t=document.getElementById('sqSynTip'); if(t) t.style.display='none'; }
+if(!window.__synTipWired){ window.__synTipWired=1;
+  document.addEventListener('mouseover',function(e){ const l=e.target.closest&&e.target.closest('.sq-syn line.hit'); if(l) _showSynTip(l,e); });
+  document.addEventListener('mousemove',function(e){ const t=document.getElementById('sqSynTip'); if(t&&t.style.display==='block') _posSynTip(e); });
+  document.addEventListener('mouseout',function(e){ const l=e.target.closest&&e.target.closest('.sq-syn line.hit'); if(l) _hideSynTip(); });
 }
 function _playstylePanel(an){
   if(!an) return '<div class="sq-style"><div class="sq-style-h">Lineup Identity</div><div style="color:var(--text3);font-size:12px;">Set a starting five to analyze.</div></div>';
