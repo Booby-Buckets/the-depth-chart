@@ -4060,8 +4060,38 @@ function _dnaCSS(){ if(document.getElementById('dna-css')) return;
   .dna-tierm{font-size:12.5px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:8px;}
   .dna-tierm span{font-weight:600;color:var(--text3);font-size:10px;}
   .dna-tierm.pos{color:#5ab875;} .dna-tierm.neg{color:#e07070;}
+  /* Season trend */
+  .dna-trend{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:6px;}
+  .dna-trend-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:6px;}
+  .dna-trend-toggle{display:flex;gap:4px;background:var(--bg3);border-radius:8px;padding:3px;}
+  .dna-trend-btn{border:none;background:transparent;color:var(--text3);font-size:11px;font-weight:700;padding:5px 11px;border-radius:6px;cursor:pointer;font-family:inherit;}
+  .dna-trend-btn.on{background:var(--tc,var(--accent));color:#fff;}
+  .dna-trend-note{font-size:12px;color:var(--text2);font-weight:600;}
+  .dna-trend-note b.pos{color:#5ab875;} .dna-trend-note b.neg{color:#e07070;}
   `;
   document.head.appendChild(c);
+}
+// Per-game efficiency series across a season (ORtg/DRtg/net/eFG), for the season-trend chart
+async function _dnaGameSeries(key, season){
+  const yr=parseInt(season,10); if(!yr) return null;
+  window._dnaSeriesCache=window._dnaSeriesCache||{}; const ck=key+'|'+yr;
+  if(window._dnaSeriesCache[ck]!==undefined) return window._dnaSeriesCache[ck];
+  const enc=encodeURIComponent(key);
+  let mine=[],opp=[];
+  try{
+    mine=await fetch(`${SB_URL}/rest/v1/box_scores?team=eq.${enc}&season_year=eq.${yr}&select=game_id,date,pts,fga,fgm,tpm,fta,oreb,tov&limit=3000`,{headers:H}).then(r=>r.ok?r.json():[]);
+    opp =await fetch(`${SB_URL}/rest/v1/box_scores?opp=eq.${enc}&season_year=eq.${yr}&select=game_id,pts,fga,fta,oreb,tov&limit=3000`,{headers:H}).then(r=>r.ok?r.json():[]);
+  }catch(e){ window._dnaSeriesCache[ck]=null; return null; }
+  if(!mine.length){ window._dnaSeriesCache[ck]=null; return null; }
+  const T={},O={};
+  mine.forEach(r=>{ const g=T[r.game_id]||(T[r.game_id]={date:r.date,pts:0,fga:0,fgm:0,tpm:0,fta:0,oreb:0,tov:0}); ['pts','fga','fgm','tpm','fta','oreb','tov'].forEach(k=>g[k]+=(r[k]||0)); });
+  opp.forEach(r=>{ const g=O[r.game_id]||(O[r.game_id]={pts:0,fga:0,fta:0,oreb:0,tov:0}); ['pts','fga','fta','oreb','tov'].forEach(k=>g[k]+=(r[k]||0)); });
+  const poss=g=>Math.max(1,g.fga-g.oreb+g.tov+0.44*g.fta);
+  const games=Object.keys(T).filter(id=>O[id]).map(id=>{ const t=T[id],o=O[id],tp=poss(t),op=poss(o),pp=(tp+op)/2;
+    return {date:t.date, ortg:100*t.pts/pp, drtg:100*o.pts/pp, net:100*(t.pts-o.pts)/pp, efg:(t.fgm+0.5*t.tpm)/Math.max(1,t.fga)*100, win:t.pts>o.pts}; });
+  games.sort((a,b)=> a.date<b.date?-1:(a.date>b.date?1:0));
+  window._dnaSeriesCache[ck]=games.length>=6?games:null;
+  return window._dnaSeriesCache[ck];
 }
 // Record + avg margin vs each opponent tier (1=best … 4=weakest), from games + team_seasons.tier
 async function _dnaTierSplits(key, season){
@@ -4166,6 +4196,51 @@ async function renderTeamDNA(){
         (g?`<div class="dna-tierm ${avg>=0?'pos':'neg'}">${avg>=0?'+':''}${avg.toFixed(1)} <span>per game</span></div>`:'')+`</div>`;
     }).join('')}</div>
     <div class="dna-imp-cap" style="text-align:left;margin-top:9px;">Tier 1 = the 35 best teams in the country, Tier 4 = the weakest ~200. Records are their wins–losses vs each tier; the number below is average scoring margin per game. Beating Tier 1–2 teams is what separates real contenders from record-padders.</div>` : '';
+  // ── Season trend: rolling efficiency across the season (actual seasons only) ──
+  const series = PROJ ? null : await _dnaGameSeries(key, season);
+  let trendHtml='';
+  if(series && series.length>=6){
+    const MT={net:{k:'net',lbl:'Net rating',better:'hi',fmt:v=>(v>=0?'+':'')+v.toFixed(1)},
+      off:{k:'ortg',lbl:'Offense',better:'hi',fmt:v=>v.toFixed(1)},
+      def:{k:'drtg',lbl:'Defense',better:'lo',fmt:v=>v.toFixed(1)},
+      shot:{k:'efg',lbl:'Shooting %',better:'hi',fmt:v=>v.toFixed(1)+'%'}};
+    const mk=window._dnaTrendMetric&&MT[window._dnaTrendMetric]?window._dnaTrendMetric:'net';
+    const M=MT[mk], vals=series.map(g=>g[M.k]);
+    const win=Math.min(5,Math.max(3,Math.round(series.length/6)));  // rolling window
+    const roll=vals.map((_,i)=>{ const a=vals.slice(Math.max(0,i-win+1),i+1); return a.reduce((s,x)=>s+x,0)/a.length; });
+    const W=920,Ht=210,pl=44,pr=16,pt=16,pb=26, iw=W-pl-pr, ih=Ht-pt-pb;
+    // scale to the rolling line (the trend) so early blowouts don't compress it; dots clamp to the edges
+    let lo=Math.min(...roll),hi=Math.max(...roll); if(M.k==='net'){lo=Math.min(lo,0);hi=Math.max(hi,0);} const pad=(hi-lo)*0.22||1; lo-=pad; hi+=pad;
+    const X=i=>pl+iw*(series.length<2?0.5:i/(series.length-1)), Y=v=>pt+ih*(1-(v-lo)/(hi-lo||1));
+    const Yc=v=>pt+ih*(1-(Math.max(lo,Math.min(hi,v))-lo)/(hi-lo||1));
+    const zeroY = (M.k==='net' && lo<0 && hi>0) ? Y(0) : null;
+    const linePath=roll.map((v,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)).join(' ');
+    const areaPath=`${linePath} L ${X(series.length-1).toFixed(1)} ${(pt+ih).toFixed(1)} L ${X(0).toFixed(1)} ${(pt+ih).toFixed(1)} Z`;
+    const dots=series.map((g,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Yc(vals[i]).toFixed(1)}" r="2.6" fill="${g.win?'#5ab875':'#e07070'}" opacity=".65"/>`).join('');
+    // gridlines/labels (min, mid, max)
+    const gl=[lo,(lo+hi)/2,hi].map(v=>`<line x1="${pl}" y1="${Y(v).toFixed(1)}" x2="${W-pr}" y2="${Y(v).toFixed(1)}" stroke="var(--border)" opacity=".4"/><text x="${pl-6}" y="${(Y(v)+3).toFixed(1)}" font-size="9" fill="var(--text3)" text-anchor="end">${M.fmt(v)}</text>`).join('');
+    const zeroLine = zeroY!=null?`<line x1="${pl}" y1="${zeroY.toFixed(1)}" x2="${W-pr}" y2="${zeroY.toFixed(1)}" stroke="var(--text3)" stroke-dasharray="3 3" opacity=".55"/>`:'';
+    const svg=`<svg viewBox="0 0 ${W} ${Ht}" style="width:100%;" preserveAspectRatio="none">
+      ${gl}${zeroLine}
+      <path d="${areaPath}" fill="var(--tc,var(--accent))" opacity=".10"/>
+      <path d="${linePath}" fill="none" stroke="var(--tc,var(--accent))" stroke-width="2.4" stroke-linejoin="round"/>
+      ${dots}
+      <text x="${pl}" y="${Ht-8}" font-size="9" fill="var(--text3)">Season opener</text>
+      <text x="${W-pr}" y="${Ht-8}" font-size="9" fill="var(--text3)" text-anchor="end">Final game</text>
+    </svg>`;
+    const n10=Math.min(10,Math.floor(series.length/2));
+    const early=vals.slice(0,n10).reduce((s,x)=>s+x,0)/n10, late=vals.slice(-n10).reduce((s,x)=>s+x,0)/n10;
+    const dlt=late-early, improved=(M.better==='hi')?dlt>0:dlt<0;
+    const noteVal=Math.abs(dlt);
+    const note=`First ${n10} games <b>${M.fmt(early)}</b> → last ${n10} <b>${M.fmt(late)}</b> — <b class="${improved?'pos':'neg'}">${improved?'trended up':'trended down'}</b>`;
+    const btns=[['net','Net'],['off','Offense'],['def','Defense'],['shot','Shooting']].map(([k,l])=>`<button class="dna-trend-btn${mk===k?' on':''}" onclick="window._dnaTrendMetric='${k}';renderTeamDNA();">${l}</button>`).join('');
+    trendHtml=`<div class="dna-sec">Season trend — how ${M.lbl.toLowerCase()} moved game-by-game (${win}-game rolling average)</div>
+      <div class="dna-trend">
+        <div class="dna-trend-top"><div class="dna-trend-note">${note}</div><div class="dna-trend-toggle">${btns}</div></div>
+        ${svg}
+        <div class="dna-imp-cap" style="text-align:left;margin-top:4px;">Each dot is one game (green win, red loss); the line is the ${win}-game rolling average. Switch the metric to see whether the offense, defense, or shooting was what changed.</div>
+      </div>`;
+  }
   const bottomHtml = PROJ ? `
     <div class="dna-grid" style="grid-template-columns:1fr;">
       <div>
@@ -4215,6 +4290,7 @@ async function renderTeamDNA(){
       <div><div class="dna-sec">Defense — four factors</div>${defFF}</div>
       <div><div class="dna-sec">Strength Radar</div><div style="display:flex;justify-content:center;">${radar}</div></div>
     </div>
+    ${trendHtml?`<div style="margin-top:26px;">${trendHtml}</div>`:''}
     ${bottomHtml}
     <div class="dna-foot" style="border-top:1px solid var(--border);padding-top:12px;">${PROJ?`Projected DNA — the roster→team model is calibrated on 20 seasons (offense R²≈0.9, defense ≈0.6). Win-path weights use the national win model: +5% eFG ≈ <b>${wm.oeFG}</b> pts, turnovers <b>${Math.abs(wm.oTOV)}</b>, off. rebounds <b>${wm.oORB}</b>.`:`National win model (${_dnaSeasonLbl(season)}, R²=${S.meta.r2}): a +5% swing is worth about <b>${wm.oeFG}</b> pts (eFG), <b>${Math.abs(wm.oTOV)}</b> (turnovers), <b>${wm.oORB}</b> (off. rebounds), <b>${wm.oFTr}</b> (FT rate) — measured against all ${N} D1 teams that season.`}</div>`;
 }
