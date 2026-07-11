@@ -4439,9 +4439,11 @@ function renderHistoricRoster(rows, yr, projected){
 
   let cols;
   if(projected){
-    // Projected roster: the players already carry their real position + depth_order,
-    // so build each column directly (starter = lowest depth_order at that position).
-    const dOrd=p=>parseFloat(p.depth_order)||999, gr=p=>parseFloat(p.tdc_grade)||0;
+    // Smart auto-fill: build a gap-free five-man depth chart from the roster with the
+    // BEST players (by grade) starting, and surplus players sliding to the nearest
+    // open spot (so a 4th guard fills an empty SF instead of leaving a hole). Ignores
+    // the sheet depth_order, which the roster push keeps clobbering.
+    const gr=p=>parseFloat(p.tdc_grade)||0;
     const slot=p=>{ const x=(p.position||'').toUpperCase().trim();
       if(x==='PG') return 'PG';
       if(x==='SG'||x==='CG'||x==='G') return 'SG';
@@ -4449,10 +4451,22 @@ function renderHistoricRoster(rows, yr, projected){
       if(x==='PF'||x==='F') return 'PF';
       if(x==='C') return 'C';
       const h=_htIn(p.height); return h&&h<=74?'PG':h&&h<=77?'SG':h&&h<=80?'SF':h&&h<=83?'PF':'C'; };
-    const bk={PG:[],SG:[],SF:[],PF:[],C:[]};
-    rows.forEach(p=>bk[slot(p)].push(p));
-    Object.keys(bk).forEach(k=>bk[k].sort((a,b)=>dOrd(a)-dOrd(b) || gr(b)-gr(a)));
-    cols=['PG','SG','SF','PF','C'].map(pos=>({pos, list:bk[pos]}));
+    const POS=['PG','SG','SF','PF','C'], IDX={PG:0,SG:1,SF:2,PF:3,C:4};
+    // Value of playing p at pos = his grade, boosted at his natural slot and penalized
+    // for each position away from it — adjacent moves are cheap (a guard can fill a wing
+    // gap) but a guard at center is effectively forbidden.
+    const value=(p,pos)=>{ const d=Math.abs(IDX[slot(p)]-IDX[pos]); return gr(p)+(d===0?10:0)-d*d*5; };
+    // Starters: greedily take the best (player, open-position) pair until all five fill.
+    const st={}, used=new Set(), open=new Set(POS);
+    while(open.size){ let best=null;
+      rows.forEach(p=>{ if(used.has(p))return; open.forEach(pos=>{ const v=value(p,pos); if(!best||v>best.v)best={p,pos,v}; }); });
+      if(!best) break; st[best.pos]=best.p; used.add(best.p); open.delete(best.pos);
+    }
+    // Backups: everyone else to their nearest-fit column, ordered by grade.
+    const colByPos={}; cols=POS.map(pos=>{ const c={pos, list:st[pos]?[st[pos]]:[]}; colByPos[pos]=c; return c; });
+    [...rows].filter(p=>!used.has(p)).sort((a,b)=>gr(b)-gr(a)).forEach(p=>{
+      let bp=POS[0], bv=-1e9; POS.forEach(pos=>{ const v=value(p,pos); if(v>bv){bv=v;bp=pos;} }); colByPos[bp].list.push(p);
+    });
   } else {
   // Historical rosters only carry coarse G/F/C, so infer the five lineup spots from each
   // player's statistical profile instead of height alone: assists → PG, scoring/shooting
