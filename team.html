@@ -4171,10 +4171,13 @@ function _dnaMatchup(oppKey){
   const teamKey=window._dnaMatchTeam, t=S.teams[teamKey], o=S.teams[oppKey];
   if(!o||!t){ el.innerHTML=''; return; }
   const teams=Object.values(S.teams);
-  const avg=m=>{ const a=teams.filter(x=>x[m]!=null).map(x=>x[m]); return a.length?a.reduce((s,x)=>s+x,0)/a.length:100; };
-  const avgD=avg('DRtg');
-  const teamExpO=t.ORtg+(o.DRtg-avgD);      // our offense vs their defense
-  const oppExpO =o.ORtg+(t.DRtg-avgD);      // their offense vs our defense
+  // Use opponent-adjusted efficiency when available (actual seasons) so a mid-major's
+  // schedule-inflated raw rating doesn't overstate the matchup; fall back to raw for
+  // projected 2026-27 rosters (no games to adjust).
+  const O=x=>x.adjO!=null?x.adjO:x.ORtg, D=x=>x.adjD!=null?x.adjD:x.DRtg;
+  const avgD=(()=>{ const a=teams.map(D).filter(v=>v!=null); return a.length?a.reduce((s,x)=>s+x,0)/a.length:100; })();
+  const teamExpO=O(t)+(D(o)-avgD);          // our offense vs their (adjusted) defense
+  const oppExpO =O(o)+(D(t)-avgD);          // their offense vs our (adjusted) defense
   const poss=((t.tempo||68)+(o.tempo||68))/2;
   const margin=(teamExpO-oppExpO)*poss/100;
   const wpMe=Math.max(1,Math.min(99,Math.round(100*(0.5*(1+_erf(margin/(11*Math.SQRT2)))))));
@@ -4213,14 +4216,18 @@ async function renderTeamDNA(){
   const rank=(m,hi=true)=>{ const v=teams.map(x=>x[m]).sort((a,b)=>hi?b-a:a-b); return v.indexOf(t[m])+1; };
   const ord=r=>{const s=['th','st','nd','rd'],v=r%100;return r+(s[(v-20)%10]||s[v]||s[0]);};
   const tier=p=> p>=90?'Elite':p>=75?'Strong':p>=55?'Above avg':p>=35?'Average':p>=18?'Below avg':'Poor';
+  // Opponent-adjusted efficiency when present (actual seasons) so schedule strength is
+  // corrected — a mid-major blowing out a weak league no longer ranks like a high-major.
+  const ADJ = t.adjNet!=null;
+  const oK=ADJ?'adjO':'ORtg', dK=ADJ?'adjD':'DRtg', nK=ADJ?'adjNet':'net';
   // efficiency cards
-  const eff=[['ORtg',t.ORtg,rank('ORtg'),1],['DRtg',t.DRtg,rank('DRtg',false),0],['NET',(t.net>0?'+':'')+t.net,rank('net'),1],['Tempo',t.tempo,rank('tempo'),1]];
+  const eff=[['ORtg',t[oK],rank(oK),1],['DRtg',t[dK],rank(dK,false),0],['NET',(t[nK]>0?'+':'')+t[nK],rank(nK),1],['Tempo',t.tempo,rank('tempo'),1]];
   const effHtml=eff.map(([l,v,r,hi])=>`<div class="dna-effc"><div class="dna-effv">${v}</div><div class="dna-effl">${l}</div><div class="dna-effr">${ord(r)} of ${N}</div></div>`).join('');
   // identity chips
   const chips=[];
   const tp=pct('tempo'); chips.push(`<span class="dna-chip">${tp>=80?'Up-tempo':tp>=62?'Fast pace':tp<=15?'Slow / grind':tp<=40?'Methodical':'Balanced pace'}</span>`);
-  chips.push(`<span class="dna-chip">${tier(pct('ORtg'))} offense</span>`);
-  chips.push(`<span class="dna-chip">${tier(pct('DRtg',false))} defense</span>`);
+  chips.push(`<span class="dna-chip">${tier(pct(oK))} offense</span>`);
+  chips.push(`<span class="dna-chip">${tier(pct(dK,false))} defense</span>`);
   if(pct('oORB')>=70) chips.push('<span class="dna-chip">Crashes the glass</span>');
   if(pct('dTOV')>=70) chips.push('<span class="dna-chip">Ball-hawking defense</span>');
   if(pct('oTOV',false)>=70) chips.push('<span class="dna-chip">Takes care of the ball</span>');
@@ -4231,7 +4238,7 @@ async function renderTeamDNA(){
   const offFF=bar('eFG%',t.oeFG,pct('oeFG'))+bar('Turnover%',t.oTOV,pct('oTOV',false))+bar('Off Reb%',t.oORB,pct('oORB'))+bar('FT rate',t.oFTr,pct('oFTr'));
   const defFF=bar('eFG% allowed',t.deFG,pct('deFG',false))+bar('Forced TOV%',t.dTOV,pct('dTOV'))+bar('Def Reb%',t.dDRB,pct('dDRB'))+bar('FT rate allowed',t.dFTr,pct('dFTr',false));
   // strength radar (8 axes of percentile)
-  const ax=[['Offense',pct('ORtg')],['Shooting',pct('oeFG')],['Ball Sec.',pct('oTOV',false)],['Off Reb',pct('oORB')],['Defense',pct('DRtg',false)],['Force TO',pct('dTOV')],['Def Reb',pct('dDRB')],['Steady',pct('margin_sd',false)]];
+  const ax=[['Offense',pct(oK)],['Shooting',pct('oeFG')],['Ball Sec.',pct('oTOV',false)],['Off Reb',pct('oORB')],['Defense',pct(dK,false)],['Force TO',pct('dTOV')],['Def Reb',pct('dDRB')],['Steady',pct('margin_sd',false)]];
   const R=110,cx=140,cy=130,n=ax.length; let rings='',spokes='',poly='',labs='';
   for(let r=1;r<=4;r++){let p='';for(let i=0;i<n;i++){const a=Math.PI*2*i/n-Math.PI/2;p+=(i?'L':'M')+(cx+Math.cos(a)*R*r/4).toFixed(1)+' '+(cy+Math.sin(a)*R*r/4).toFixed(1);}rings+=`<path d="${p}Z" fill="none" stroke="var(--border)" opacity=".5"/>`;}
   ax.forEach(([l,v],i)=>{const a=Math.PI*2*i/n-Math.PI/2,x=cx+Math.cos(a)*R,y=cy+Math.sin(a)*R;
@@ -4247,7 +4254,8 @@ async function renderTeamDNA(){
   const wm=S.meta&&S.meta.win_model||{};
   const wp=t.win_path||{strengths:[],weaknesses:[],summary:''};
   const pj=(!PROJ && window._teamDNAproj && window._teamDNAproj[season])?window._teamDNAproj[season][key]:null;
-  const projDelta=pj?(t.net-pj.net):null;
+  const actNet=t[nK];  // opponent-adjusted actual net (same spread as the raw projected net)
+  const projDelta=pj?(actNet-pj.net):null;
   // ── Winning impact: each factor as POINTS/GAME vs an average team, weighted by
   // the national win model — the digestible "what wins & loses them games" ──
   const IMPLAB={oeFG:'Shooting',oTOV:'Ball security',oORB:'Offensive rebounding',oFTr:'Getting to the line',
@@ -4319,11 +4327,22 @@ async function renderTeamDNA(){
   const styleHtml = styleSplits ? `<div class="dna-sec">Team types — how they did against different styles of opponent</div>
     <div class="dna-styles">${styleSplits.map(s=>`<div class="dna-stylec"><div><div class="dna-stylel">${s.lbl}</div><div class="dna-styln">${s.n} games</div></div><div class="dna-styver"><div class="dna-stylrec">${s.w}-${s.l}</div><div class="dna-stylm ${s.avg>=0?'pos':'neg'}">${s.avg>=0?'+':''}${s.avg.toFixed(1)}/gm</div></div></div>`).join('')}</div>
     <div class="dna-imp-cap" style="text-align:left;margin-top:9px;">Styles come from each opponent's own Team DNA (top-quartile offense, defense, pace, rebounding); a game can fall in more than one. This is where real strengths and soft spots surface — e.g. a good offense that still can't score against elite defenses.</div>` : '';
-  const oppKeys=Object.keys(S.teams).filter(k=>k!==key).sort((a,b)=>(S.teams[b].net!=null?S.teams[b].net:-99)-(S.teams[a].net!=null?S.teams[a].net:-99));
-  const oppOpts=oppKeys.map(k=>`<option value="${k.replace(/"/g,'&quot;')}">${k}${S.teams[k].net!=null?' ('+(S.teams[k].net>=0?'+':'')+S.teams[k].net+')':''}</option>`).join('');
+  // Opponent list ordered by opponent STRENGTH (schedule-adjusted net), and each option
+  // shows the projected per-game margin FOR THIS TEAM — so the number in the dropdown is
+  // the actual head-to-head "line", not a raw rating that reads in different units.
+  const _adjN=x=>x.adjNet!=null?x.adjNet:x.net;
+  const _mO=x=>x.adjO!=null?x.adjO:x.ORtg, _mD=x=>x.adjD!=null?x.adjD:x.DRtg;
+  const _oppKeysAll=Object.keys(S.teams).filter(k=>k!==key);
+  const oppKeys=_oppKeysAll.sort((a,b)=>(_adjN(S.teams[b])!=null?_adjN(S.teams[b]):-99)-(_adjN(S.teams[a])!=null?_adjN(S.teams[a]):-99));
+  const _projMargin=o=>{ if(_mO(o)==null||_mO(t)==null) return null;
+    const poss=((t.tempo||68)+(o.tempo||68))/2; return ((_mO(t)-_mD(t))-(_mO(o)-_mD(o)))*poss/100; };
+  const oppOpts=oppKeys.map(k=>{ const m=_projMargin(S.teams[k]);
+    const lbl=m==null?'':' ('+(m>=0?'+':'')+m.toFixed(1)+')';
+    return `<option value="${k.replace(/"/g,'&quot;')}">${k}${lbl}</option>`; }).join('');
   const matchupHtml = oppKeys.length? `<div class="dna-sec">Matchup projector — project ${teamT.name} against any team${PROJ?' (2026-27 projected)':' ('+_dnaSeasonLbl(season)+')'}</div>
     <div class="dna-mu">
       <div class="dna-mu-pick"><label>Opponent:</label><select class="dna-mu-sel" onchange="_dnaMatchup(this.value)"><option value="">Select a team…</option>${oppOpts}</select></div>
+      <div class="dna-mu-sub" style="margin-top:8px;">Teams are ordered strongest → weakest by <b>schedule-adjusted</b> net rating. The number in parentheses is ${teamT.name}'s <b>projected margin per game</b> vs that team on a neutral floor (+ favors ${teamT.name}).</div>
       <div id="dnaMatchupOut"></div>
     </div>` : '';
   const bottomHtml = PROJ ? `
@@ -4344,10 +4363,10 @@ async function renderTeamDNA(){
         <div class="dna-pvr">
           <div class="dna-pvr-card"><div class="dna-pvr-lbl">Preseason projection</div><div class="dna-pvr-net">${pj.net>0?'+':''}${pj.net}</div><div class="dna-pvr-tier">${netTier(pj.net)}</div></div>
           <div class="dna-pvr-arrow">→</div>
-          <div class="dna-pvr-card"><div class="dna-pvr-lbl">How it went</div><div class="dna-pvr-net">${t.net>0?'+':''}${t.net}</div><div class="dna-pvr-tier">${netTier(t.net)}</div></div>
+          <div class="dna-pvr-card"><div class="dna-pvr-lbl">How it went</div><div class="dna-pvr-net">${actNet>0?'+':''}${actNet}</div><div class="dna-pvr-tier">${netTier(actNet)}</div></div>
           <div class="dna-pvr-delta ${projDelta>=0?'pos':'neg'}">${(projDelta>=0?'+':'')+projDelta.toFixed(1)}<span>${projDelta>=0?'over-achieved':'under-achieved'}</span></div>
         </div>
-        <div class="dna-foot" style="margin-top:10px;">Their roster projected as <b>${netTier(pj.net)}</b>; they played like <b>${netTier(t.net)}</b>${Math.abs(projDelta)>=12?` — one of the season's biggest ${projDelta>=0?'surprises':'disappointments'}`:''}. (${t.w} wins vs ${t.exp_wins} expected on efficiency → ${(t.luck>=0?'+':'')+t.luck} ${t.luck>=0?'lucky':'unlucky'} in close games.)</div>
+        <div class="dna-foot" style="margin-top:10px;">Their roster projected as <b>${netTier(pj.net)}</b>; they played like <b>${netTier(actNet)}</b>${Math.abs(projDelta)>=12?` — one of the season's biggest ${projDelta>=0?'surprises':'disappointments'}`:''}. (${t.w} wins vs ${t.exp_wins} expected on efficiency → ${(t.luck>=0?'+':'')+t.luck} ${t.luck>=0?'lucky':'unlucky'} in close games.)</div>
       </div>
     </div>
     ${tierHtml?`<div style="margin-top:26px;">${tierHtml}</div>`:''}` : `
@@ -4368,6 +4387,7 @@ async function renderTeamDNA(){
       <select class="dna-sel" onchange="window._dnaSeason=this.value;renderTeamDNA();">${selOpts}</select>
     </div>
     <div class="dna-eff">${effHtml}</div>
+    ${ADJ?`<div class="dna-imp-cap" style="text-align:left;margin:-8px 0 4px;">Efficiency &amp; net rating are <b>opponent-adjusted</b> (points per 100 possessions vs an average D1 team, corrected for schedule strength) — so a mid-major that feasts on a weak league doesn't rank like a high-major.</div>`:''}
     <div class="dna-chips">${chips.join('')}</div>
     ${impactHtml}
     <div class="dna-grid3">
