@@ -684,6 +684,34 @@ function r1t(v){return v!=null?Math.round(v*10)/10:null;}
 
 
 
+// Owner-picked freshman archetype metadata: drives the scouting report's archetype
+// name/description, style comparison, the signature playing-style tag, and an
+// emphasis map that reshapes the skill grades to match how the player actually plays.
+var FR_ARCH_META={
+ 'Lead Guard':{comp:'Primary ball-handler prototype',tag:{t:'Lead Guard',c:'pos'},emph:{passing:12,perimScore:4,scoring:6},desc:'A primary ball-handler who runs the offense and creates off the dribble, with the ball in his hands when it matters most.'},
+ 'Floor General':{comp:'Pass-first PG prototype',tag:{t:'Floor General',c:'pos'},emph:{passing:16,perimDef:4,perimScore:-4},desc:'A true point guard who orchestrates the offense and sets up teammates over hunting his own shot, keeping the group organized.'},
+ 'Combo Guard':{comp:'Combo guard prototype',tag:{t:'Combo Guard',c:'neu'},emph:{perimScore:6,passing:4},desc:'A flexible guard who can run the point or play off the ball, scoring and creating in roughly equal measure.'},
+ 'Scoring Guard':{comp:'Off-guard scoring specialist',tag:{t:'Bucket Getter',c:'pos'},emph:{perimScore:12,passing:-6},desc:'A shot-hunting guard who looks to score first, generating his own offense off the dribble and off screens.'},
+ 'Sharpshooter':{comp:'Movement-shooting specialist',tag:{t:'Elite Shooter',c:'pos'},emph:{perimScore:14,eff:8,perimDef:-6,intDef:-6},desc:'A knockdown shooter whose range and quick release bend defenses; the gravity opens the floor for everyone else.'},
+ '3&D Guard':{comp:'Modern 3-and-D guard',tag:{t:'3-and-D',c:'pos'},emph:{perimDef:14,perimScore:8},desc:'A low-usage guard who spaces the floor with catch-and-shoot threes and defends the point of attack.'},
+ 'On-Ball Stopper':{comp:'Point-of-attack defender',tag:{t:'On-Ball Stopper',c:'pos'},emph:{perimDef:20,perimScore:-6},desc:'A defensive specialist who smothers ball-handlers and takes the toughest perimeter assignment every night.'},
+ 'Point Forward':{comp:'Point-forward prototype',tag:{t:'Point Forward',c:'pos'},emph:{passing:16,perimScore:2,reb:4},desc:'An oversized playmaker who initiates offense from the forward spot, seeing over the defense to set up teammates.'},
+ '3&D Wing':{comp:'Modern 3-and-D wing',tag:{t:'3-and-D',c:'pos'},emph:{perimDef:14,perimScore:8},desc:'A connective wing who knocks down open threes and guards multiple positions — the archetype every contender covets.'},
+ 'Movement Shooter':{comp:'Off-movement shooter',tag:{t:'Movement Shooter',c:'pos'},emph:{perimScore:14,eff:6,perimDef:-4},desc:'A shooter who scores coming off screens and relocations, never standing still and always a threat to fire.'},
+ 'Wing Scorer':{comp:'Shot-creating wing',tag:{t:'Shot Creator',c:'pos'},emph:{perimScore:12,intScore:4,perimDef:-4},desc:'A three-level scorer from the wing who can get a bucket in isolation or off movement as a primary option.'},
+ 'Wing Stopper':{comp:'Multi-positional wing defender',tag:{t:'Perimeter Stopper',c:'pos'},emph:{perimDef:18,intDef:8,perimScore:-6},desc:'A defensive-minded wing who guards multiple positions, disrupts passing lanes, and takes on the opponent’s best scorer — value that lives on the defensive end.'},
+ 'Slasher':{comp:'Downhill slashing wing',tag:{t:'Downhill Slasher',c:'pos'},emph:{intScore:12,eff:4,perimScore:-8},desc:'A straight-line driver who attacks the rim and finishes through contact, generating offense by getting downhill rather than spacing the floor.'},
+ 'Connector Wing':{comp:'Connector / glue wing',tag:{t:'Connector',c:'neu'},emph:{passing:8,perimScore:4},desc:'A do-the-little-things wing who keeps the ball moving and fills gaps without needing plays run for him.'},
+ 'Rim Runner':{comp:'Vertical-spacing rim runner',tag:{t:'Rim Runner',c:'pos'},emph:{intScore:12,intDef:8,reb:8,perimScore:-14},desc:'A vertical threat who runs the floor, finishes lobs, and protects the rim — a play-finisher, not a shot-creator.'},
+ 'Stretch Big':{comp:'Modern 4/5 stretch big',tag:{t:'Floor Spacer',c:'pos'},emph:{perimScore:14,eff:4,intDef:-4,reb:-4},desc:'A big who spaces the floor with perimeter shooting, pulling opposing centers away from the rim to open driving lanes.'},
+ 'Rim Protector':{comp:'Drop-coverage rim protector',tag:{t:'Rim Protector',c:'pos'},emph:{intDef:20,reb:10,perimScore:-8},desc:'An anchor big who guards the rim, deters drives, and cleans the defensive glass — the last line of the defense.'},
+ 'Two-Way Big':{comp:'Two-way interior big',tag:{t:'Two-Way Big',c:'pos'},emph:{intDef:12,intScore:6,reb:6},desc:'A big who impacts both ends — scores efficiently inside while protecting the rim and rebounding at a high level.'},
+ 'Post Scorer':{comp:'Back-to-the-basket scorer',tag:{t:'Post Scorer',c:'pos'},emph:{intScore:16,reb:6,perimScore:-10},desc:'A back-to-the-basket big who scores on the block with footwork and touch, punishing smaller defenders inside.'},
+ 'Glass Cleaner':{comp:'Rebounding specialist',tag:{t:'Glass Cleaner',c:'pos'},emph:{reb:18,intDef:6,perimScore:-8},desc:'A relentless rebounder on both ends whose motor and positioning generate extra possessions every night.'},
+ 'Interior Big':{comp:'Traditional interior big',tag:{t:'Interior Big',c:'neu'},emph:{reb:10,intDef:8,intScore:4,perimScore:-10},desc:'A traditional big who operates around the rim on both ends — scoring inside, rebounding, and defending the paint.'}
+};
+function _freshArch(p){ try{ if(window.TDCFresh && TDCFresh.isFreshman && TDCFresh.isFreshman(p) && TDCFresh.profileFor){ var pr=TDCFresh.profileFor(p); if(pr && pr.archetype && FR_ARCH_META[pr.archetype]) return pr.archetype; } }catch(e){} return null; }
+
 function buildScoutingReport(p, proj, globalPct){
   // Scouting report runs off PROJECTED stats when available, else last-season actual
   function _n(o,k){var v=parseFloat(o&&o[k]);return isNaN(v)?0:v;}
@@ -694,7 +722,10 @@ function buildScoutingReport(p, proj, globalPct){
   var stl=_n(s,'stl'),blk=_n(s,'blk');
   var oreb=_n(s,'oreb'),dreb=_n(s,'dreb');
   var tovs=_n(s,'tovs'),mpg=_n(s,'mpg');
-  var pos=p.position||'G', grade=parseFloat(p.tdc_grade)||70;
+  // Effective grade = the owner's edited projection OVR for a profiled freshman,
+  // else the players-table grade — so the report's overall tracks editor changes.
+  var pos=p.position||'G', grade=parseFloat((useProj&&proj&&proj.tdc_grade!=null)?proj.tdc_grade:p.tdc_grade)||70;
+  var customArch=_freshArch(p);
   var yr=(p.yr||p.class_year||'').toLowerCase();
   var isFr=yr.includes('fr.')||yr.includes('r-fr');
   var isSo=yr.includes('so.')||yr.includes('r-so');
@@ -741,6 +772,8 @@ function buildScoutingReport(p, proj, globalPct){
     else if(ppg>=16){archetype='Wing Scorer';archetypeDesc='An offensive engine from the wing who can create in isolation and off movement. A top scoring option who needs the right supporting cast to thrive.';}
     else{archetype='Role Wing';archetypeDesc='A contributor whose value is situational. Offers specific skills but lacks the all-around impact to be a rotation anchor without ideal lineup fits.';}
   }
+  // Owner-picked archetype (from the freshman editor) wins over the stat-derived one.
+  if(customArch){ archetype=customArch; archetypeDesc=FR_ARCH_META[customArch].desc; }
 
   var strengths=[];
   if(ppg>=18)strengths.push('Elite scorer');else if(ppg>=14)strengths.push('Consistent scorer');else if(ppg>=10)strengths.push('Reliable contributor');
@@ -756,26 +789,43 @@ function buildScoutingReport(p, proj, globalPct){
 
   var weaknesses=[];
   if(fg<40&&(parseFloat(p.fga)||0)>4)weaknesses.push('Field goal efficiency concerns');
-  if(tp<31&&(parseFloat(p.tpa)||0)>3)weaknesses.push('Below-average from three');
-  if(ft<62)weaknesses.push('Significant foul line liability');else if(ft<70)weaknesses.push('Inconsistent at free throws');
+  // Floor spacing — a real limitation even at low 3PA (defenses simply sag off him).
+  // Guards/wings/stretch types are expected to shoot, so poor range hurts more.
+  var expectShoot = isGuard || pos==='SF'||pos==='GF'||pos==='F' || /Stretch|Sharp|3&D|Movement|Wing/.test(archetype);
+  if(tp>0 && tp<32){
+    if(tp<29) weaknesses.push('Limited floor spacing — a defense can sag off him');
+    else weaknesses.push('Inconsistent from three'+(expectShoot?' for his role':''));
+  } else if(tp===0 && expectShoot && !isBig){
+    weaknesses.push('No proven perimeter shot');
+  }
+  if(ft<62)weaknesses.push('Significant foul line liability');else if(ft<70)weaknesses.push('Inconsistent at the free-throw line');
   if(tovs>3.2)weaknesses.push('Ball security issues');else if(tovs>2.5)weaknesses.push('Turnover-prone');
-  if(apg<1.5&&isGuard&&ppg>8)weaknesses.push('Limited playmaking');
+  if(apg<1.2&&(ppg>9||mpg>=24)&&!isBig)weaknesses.push('Limited playmaking / self-creation');
   if(rpg<3.5&&isBig)weaknesses.push('Below-average rebounding for position');
   if(blk<0.4&&isBig)weaknesses.push('Limited shot-blocking');
+  if(ppg<8&&mpg>=20)weaknesses.push('Modest scoring output');
   if(mpg<16&&ppg>0)weaknesses.push('Limited role');
 
   var tags=[];
-  if((parseFloat(p.tpa)||0)/Math.max(1,parseFloat(p.fga)||1)>0.38)tags.push({t:'Three-Point Heavy',c:'neu'});
-  if(fg>=50)tags.push({t:'Efficient',c:'pos'});
+  // Signature playing-style tag from the owner-picked archetype leads the row.
+  if(customArch&&FR_ARCH_META[customArch].tag)tags.push(FR_ARCH_META[customArch].tag);
+  var poorShot = tp>0 && tp<31;                    // takes threes but misses them
+  // "Efficient" should mean real shooting efficiency, not just finishing at the rim.
+  if(fg>=54&&isBig&&!poorShot)tags.push({t:'Efficient Finisher',c:'pos'});
+  else if(fg>=50&&!poorShot&&(tp>=33||(parseFloat(p.tpa)||0)<1.5))tags.push({t:'Efficient',c:'pos'});
+  if(poorShot||(isBig&&tp>0&&tp<30))tags.push({t:'Limited Range',c:'neg'});
+  if((parseFloat(p.tpa)||0)/Math.max(1,parseFloat(p.fga)||1)>0.38&&tp>=33)tags.push({t:'Three-Point Heavy',c:'neu'});
   if((parseFloat(p.fta)||0)/Math.max(1,parseFloat(p.fga)||1)>0.42)tags.push({t:'Draws Fouls',c:'pos'});
   if(tovs>3.2)tags.push({t:'Ball Security Risk',c:'neg'});else if(tovs<1.5&&ppg>8)tags.push({t:'Low-Turnover',c:'pos'});
-  if(stl+blk>2.8)tags.push({t:'Defensive Disruptor',c:'pos'});
+  if(stl+blk>2.8)tags.push({t:'Defensive Disruptor',c:'pos'});else if(blk>=1.2&&!customArch)tags.push({t:'Rim Protector',c:'pos'});
   if(oreb>2.2)tags.push({t:'Offensive Glass',c:'pos'});
   if(tp>=38)tags.push({t:'Shooting Threat',c:'pos'});
   if(apg>4.5)tags.push({t:'Shot Creator',c:'pos'});
   if(grade>=90)tags.push({t:'Top-100 Grade',c:'gold'});
   if(p.starter)tags.push({t:'Returning Starter',c:'neu'});
   if(p.hometown)tags.push({t:'Transfer',c:'neu'});
+  // de-dupe by label (archetype tag can collide with a stat tag)
+  (function(){var seen={};tags=tags.filter(function(t){if(seen[t.t])return false;seen[t.t]=1;return true;});})();
 
   var R1=function(x){return Math.round(x*10)/10;};
   // ── TEAM ROLE (depth chart + projected minutes) ──
@@ -840,6 +890,7 @@ function buildScoutingReport(p, proj, globalPct){
   else if(archetype==='3-and-D Wing')comparable='Modern role-player archetype';
   else if(archetype==='Stretch Big')comparable='Modern 4/5 hybrid prototype';
   else comparable=archetype;
+  if(customArch&&FR_ARCH_META[customArch].comp)comparable=FR_ARCH_META[customArch].comp;
 
   var projNote='';
   if(proj){
@@ -934,7 +985,8 @@ function buildProspectCard(p, proj, scout){
   var fg=_n(s,'fg_pct'),tp=_n(s,'tp_pct'),ft=_n(s,'ft_pct');
   var stl=_n(s,'stl'),blk=_n(s,'blk'),tovs=_n(s,'tovs');
   var oreb=_n(s,'oreb'),tpm=_n(s,'tpm'),fta=_n(s,'fta');
-  var pos=p.position||'G', grade=parseFloat(p.tdc_grade)||70;
+  var pos=p.position||'G', grade=parseFloat((useProj&&proj&&proj.tdc_grade!=null)?proj.tdc_grade:p.tdc_grade)||70;
+  var _emph=(function(){ var a=_freshArch(p); return (a&&FR_ARCH_META[a].emph)||{}; })();
   var yr=(p.yr||p.class_year||'').toString().toLowerCase();
   var isFr=yr.includes('fr'), isSo=yr.includes('so'), isJr=yr.includes('jr'), isSr=yr.includes('sr')||yr.includes('gr');
   var clamp=function(x){return Math.round(Math.max(0,Math.min(100,x)));};
@@ -982,6 +1034,12 @@ function buildProspectCard(p, proj, scout){
   var cIntDef    = clamp(blkScale);
   var cEff       = mix(clamp(0.5*fgScale + 0.3*ftScale + 0.2*threePct), 'efficiency', .3);
   var cScoring   = mix(scoreVol, 'offense', .3);
+  // Owner-picked archetype reshapes the skill profile — a Wing Stopper grades up on
+  // defense, a Stretch Big up on perimeter scoring, etc. (Overall stays the TDC grade.)
+  cPerimScore=clamp(cPerimScore+(_emph.perimScore||0)); cIntScore=clamp(cIntScore+(_emph.intScore||0));
+  cPerimDef=clamp(cPerimDef+(_emph.perimDef||0));       cIntDef=clamp(cIntDef+(_emph.intDef||0));
+  cPassing=clamp(cPassing+(_emph.passing||0));           cReb=clamp(cReb+(_emph.reb||0));
+  cEff=clamp(cEff+(_emph.eff||0));                       cScoring=clamp(cScoring+(_emph.scoring||0));
   var classAdj   = isFr?10:isSo?5:isJr?0:isSr?-8:0;
   var cPotential = clamp(g100 + classAdj);
   var expAdj     = isSr?8:isJr?4:isFr?-6:0;
@@ -2408,7 +2466,7 @@ function renderPage(){
       </div>
       <div class="scout-card" style="margin-top:0;">
         <div class="scout-card-title">Statistical Summary</div>
-        <div class="scout-card-body">${buildStatNarrative(p)}</div>
+        <div class="scout-card-body">${buildStatNarrative(p, proj, scout)}</div>
       </div>
       <div id="archetypeContent" style="margin-top:36px;"></div>
       <div id="spectrumSection" style="margin-top:36px;"></div>
@@ -2928,27 +2986,56 @@ function buildProgression(p){
     +'</svg></div>';
 }
 
-function buildStatNarrative(p){
-  const ppg=parseFloat(p.ppg)||0, rpg=parseFloat(p.rpg)||0, apg=parseFloat(p.apg)||0;
-  const fg=parseFloat(p.fg_pct)||0, tp=parseFloat(p.tp_pct)||0, ft=parseFloat(p.ft_pct)||0;
-  const stl=parseFloat(p.stl)||0, blk=parseFloat(p.blk)||0;
-  const pos=p.position||'G'; const name=p.name.split(' ')[0];
-  const yr=(p.yr||p.class_year||'');
+function buildStatNarrative(p, proj, scout){
+  function _n(o,k){var v=parseFloat(o&&o[k]);return isNaN(v)?0:v;}
+  const useProj=!!(proj&&!proj._injured&&!proj._dnp&&(_n(proj,'ppg')>0||proj._frosh||proj._noStatEst));
+  const s=useProj?proj:p;
+  const ppg=_n(s,'ppg'),rpg=_n(s,'rpg'),apg=_n(s,'apg'),mpg=_n(s,'mpg');
+  const fg=_n(s,'fg_pct'),tp=_n(s,'tp_pct'),ft=_n(s,'ft_pct'),tpa=_n(s,'tpa');
+  const stl=_n(s,'stl'),blk=_n(s,'blk'),oreb=_n(s,'oreb');
+  const pos=p.position||'G'; const name=(p.name||'This player').split(' ')[0];
+  const yr=(p.yr||p.class_year||'').toString();
+  const isBig=pos==='C'||pos==='PF'||pos==='FC';
+  const arch=(scout&&scout.archetype)||'';
+  const basis=useProj?'projects to':'averaged';
+  const when=useProj?'in his 2026-27 projection':'this past season';
+  const A=/^[aeiou]/i.test(arch)?'an':'a';
 
   let parts=[];
-  if(ppg>0) parts.push(`${name} averaged ${ppg.toFixed(1)} points, ${rpg.toFixed(1)} rebounds, and ${apg.toFixed(1)} assists per game in 2026-27.`);
+  // 1) Archetype + core line
+  if(ppg>0||rpg>0||apg>0){
+    const line=`${ppg.toFixed(1)} points, ${rpg.toFixed(1)} rebounds, and ${apg.toFixed(1)} assists`;
+    parts.push(arch
+      ? `${name} ${basis} ${A} ${arch.toLowerCase()} ${when}, putting up ${line}${mpg?` across ${Math.round(mpg)} minutes`:''}.`
+      : `${name} ${basis} ${line} per game ${when}.`);
+  }
+  // 2) Scoring efficiency — honest about interior vs perimeter
   if(fg>0){
-    const fgDesc=fg>=52?'highly efficient':fg>=46?'efficient':fg>=42?'average':'below-average';
-    parts.push(`Shot ${fg.toFixed(1)}% from the field — ${fgDesc} for the position.`);
+    const fgDesc=fg>=54?'a highly efficient':fg>=48?'an efficient':fg>=43?'an average':'a below-average';
+    let shootTail='';
+    if(tp>0&&tp<31) shootTail=`, but he offers little floor spacing — just ${tp.toFixed(1)}% from three, a mark defenses can sag off`;
+    else if(tp>=37&&tpa>=1.5) shootTail=`, and he stretches the floor at ${tp.toFixed(1)}% from deep`;
+    else if(tp>0&&tpa>=2) shootTail=`, with ${tp.toFixed(1)}% three-point shooting`;
+    parts.push(`He finishes as ${fgDesc} ${isBig?'interior':''} scorer at ${fg.toFixed(1)}% from the field${shootTail}.`);
   }
-  if(tp>0&&(parseFloat(p.tpa)||0)>2){
-    const tpDesc=tp>=40?'elite':tp>=36?'solid':tp>=32?'adequate':'concerning';
-    parts.push(`Connected at ${tp.toFixed(1)}% from three — ${tpDesc} efficiency on ${(parseFloat(p.tpa)||0).toFixed(1)} attempts.`);
+  // 3) Defense / secondary skill
+  if(stl+blk>=1.4){
+    parts.push(`His calling card is defense: ${stl.toFixed(1)} steals and ${blk.toFixed(1)} blocks per game${blk>=1&&isBig?' anchor the rim':stl>=1.2?' pressure the perimeter':''}.`);
+  } else if(oreb>=2||rpg>=7){
+    parts.push(`He earns his minutes on the glass (${rpg.toFixed(1)} rebounds, ${oreb.toFixed(1)} offensive).`);
+  } else if(apg>=4){
+    parts.push(`He creates for others at ${apg.toFixed(1)} assists per game, keeping the offense flowing.`);
   }
-  if(stl+blk>1.5) parts.push(`Provides defensive value with ${stl.toFixed(1)} steals and ${blk.toFixed(1)} blocks per game.`);
-  if(yr) parts.push(`As a ${yr} ${pos}, ${name} will be an important piece of the program going forward.`);
+  // 4) Ceiling / floor framing
+  if(scout&&scout.ceiling){
+    const c=scout.ceiling.toLowerCase(), f=String(scout.floor||'').replace(/\s*floor$/i,'').toLowerCase();
+    parts.push(`The projection reads ${A} ${(scout.role||'rotation').toLowerCase()} role now, with a ${c} ceiling${f?` and ${f} floor`:''}.`);
+  }
+  // 5) Context / variance
+  if(proj&&(proj._frosh||proj._noStatEst)) parts.push(`As an unproven ${yr} ${pos}, expect real variance — this is a grade-and-baseline projection, not a track record.`);
+  else if(yr) parts.push(`At ${yr}, ${name} profiles as a piece the staff can build a role around.`);
 
-  return parts.join(' ')||'Insufficient stats for narrative.';
+  return parts.join(' ')||'Insufficient stats for a narrative.';
 }
 
 // ── RADAR CHART ─────────────────────────────────────────
