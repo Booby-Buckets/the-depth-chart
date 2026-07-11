@@ -3295,6 +3295,7 @@ function _norm3(pos){pos=((pos||'')+'').toUpperCase().split(/[\/,\s]/)[0];
 function archetypeInfo(p){
   var pos=((p.position||'')+'').toUpperCase().split(/[\/,\s]/)[0];
   var ppg=+p.ppg||0,rpg=+p.rpg||0,apg=+p.apg||0,tp=+p.tp_pct||0,stl=+p.stl||0,blk=+p.blk||0,fg=+p.fg_pct||0,tpm=+p.tpm||0,oreb=+p.oreb||0;
+  var fga=+p.fga||0,tpa=+p.tpa||0,tpar=fga>0?tpa/fga:0;   // 3PA rate — shooting identity
   var g=(pos==='PG'||pos==='SG'||pos==='CG'||pos==='G'), w=(pos==='SF'||pos==='F');
   if(g){
     if(apg>=5&&ppg<14) return {name:'Pass-First Guard',group:'G',desc:'A facilitator who makes the offense run — prioritizes creating easy looks for others over hunting his own shot.'};
@@ -3310,20 +3311,38 @@ function archetypeInfo(p){
     if(ppg>=15) return {name:'Wing Scorer',group:'W',desc:'A primary perimeter scorer who creates in isolation and off movement at all three levels.'};
     return {name:'Role Wing',group:'W',desc:'A connective wing whose value comes from spacing, defense, and effort plays.'};
   }
+  // Stretch / playmaking bigs are defined by shooting SHAPE and passing, not raw makes.
+  if(tpar>=0.30&&(tp>=30||tpm>=0.8)) return {name:'Stretch Big',group:'B',desc:'A modern big who spaces the floor with perimeter shooting and pulls defenders out of the paint.'};
+  if(apg>=2.2&&blk<1.2) return {name:'Playmaking Big',group:'B',desc:'A skilled, pass-first big who initiates offense from the elbow and high post — a connector, not a back-to-basket scorer.'};
   if(blk>=1.5&&oreb>=2) return {name:'Interior Anchor',group:'B',desc:'A rim-protecting, glass-cleaning presence who reshapes the defense around the paint.'};
-  if(tpm>=1&&fg>=44) return {name:'Stretch Big',group:'B',desc:'A modern big who spaces the floor with perimeter shooting and pulls defenders out of the paint.'};
   if(ppg>=14&&rpg>=7) return {name:'Two-Way Big',group:'B',desc:'A complete interior force on both ends — scores, controls the glass, and protects the rim.'};
   if(ppg>=12) return {name:'Scoring Big',group:'B',desc:'An interior scorer who punishes mismatches in the post and as a roll man.'};
   return {name:'Energy Big',group:'B',desc:'A motor big who wins with rebounding, screens, and rim runs rather than volume scoring.'};
 }
-var SIM_KEYS=['ppg','rpg','apg','stl','blk','tpm','mpg','fg_pct','tp_pct','ft_pct','ts'];
-var SIM_W={ppg:1.3,rpg:1.1,apg:1.1,stl:.7,blk:.7,tpm:.8,mpg:.9,fg_pct:.8,tp_pct:.8,ft_pct:.5,ts:1.0};
-function _feat(p){var fga=+p.fga||0,fta=+p.fta||0,pts=+p.ppg||0;
-  var o={ppg:+p.ppg||0,rpg:+p.rpg||0,apg:+p.apg||0,stl:+p.stl||0,blk:+p.blk||0,tpm:+p.tpm||0,mpg:+p.mpg||0,fg_pct:+p.fg_pct||0,tp_pct:+p.tp_pct||0,ft_pct:+p.ft_pct||0};
-  o.ts=(fga+0.44*fta)>0?pts/(2*(fga+0.44*fta))*100:0; return o;}
+// Similarity features: STYLE + shape (not just raw counting stats). Per-36 rates make
+// a bench role and a starter comparable on production-in-role; 3PA rate, FT rate and a
+// usage proxy capture HOW a player plays (a stretch 4 vs a back-to-basket 5), which is
+// what makes two players actually "similar" beyond their box-score totals.
+var SIM_KEYS=['ppg','pts36','reb36','ast36','stl36','blk36','tpar','ftr','usg','fg_pct','tp_pct','ft_pct','ts'];
+var SIM_W={ppg:0.6,pts36:0.9,reb36:1.0,ast36:1.3,stl36:0.6,blk36:1.1,tpar:1.7,ftr:0.7,usg:0.9,fg_pct:0.6,tp_pct:1.0,ft_pct:0.4,ts:0.8};
+function _feat(p){
+  var fga=+p.fga||0,fta=+p.fta||0,pts=+p.ppg||0,tpa=+p.tpa||0,tovs=+p.tovs||0;
+  var mp=Math.max(12,+p.mpg||0), per36=function(v){return (+v||0)*36/mp;};
+  var o={
+    ppg:+p.ppg||0,                                 // scoring level (lightly weighted)
+    pts36:per36(p.ppg), reb36:per36(p.rpg), ast36:per36(p.apg),
+    stl36:per36(p.stl), blk36:per36(p.blk),
+    tpar: fga>0?tpa/fga*100:0,                      // 3-point attempt rate (floor spacing)
+    ftr:  fga>0?fta/fga*100:0,                       // free-throw rate (rim pressure)
+    usg:  per36(fga+0.44*fta+tovs),                  // usage proxy (possessions used / 36)
+    fg_pct:+p.fg_pct||0, tp_pct:+p.tp_pct||0, ft_pct:+p.ft_pct||0
+  };
+  o.ts=(fga+0.44*fta)>0?pts/(2*(fga+0.44*fta))*100:0;
+  return o;
+}
 function _normStats(feats){var s={};SIM_KEYS.forEach(function(k){var v=feats.map(function(f){return f[k];});var m=v.reduce(function(a,b){return a+b;},0)/v.length;var sd=Math.sqrt(v.reduce(function(a,b){return a+(b-m)*(b-m);},0)/v.length)||1;s[k]={m:m,sd:sd};});return s;}
 function _dist(a,b,s,ha,hb,ta,tb){var d=0;SIM_KEYS.forEach(function(k){var za=(a[k]-s[k].m)/s[k].sd,zb=(b[k]-s[k].m)/s[k].sd;d+=(SIM_W[k]||1)*(za-zb)*(za-zb);});
-  if(ha&&hb){var dh=(ha-hb)/2.5;d+=0.6*dh*dh;}
+  if(ha&&hb){var dh=(ha-hb)/2.5;d+=0.95*dh*dh;}
   if(ta&&tb){var dt=Math.abs(ta-tb);d+=dt*dt*1.0;}
   return Math.sqrt(d);}
 function _confTier(teamName){var c=(window._teamConf||{})[teamName]||'';return CONF_TIERS[c]||CONF_TIERS[c.replace(/\s/g,'-')]||4;}
@@ -3473,7 +3492,7 @@ async function renderArchetype(){
         {method:'HEAD',headers:{...H,'Prefer':'count=exact'}});
       var _total=parseInt((_hd.headers.get('content-range')||'/0').split('/')[1]||0);
       var _pages=Math.ceil(_total/_PG);
-      var _url=SB+'/rest/v1/player_history?select=name,season_year,team,position,ppg,rpg,apg,stl,blk,tpm,mpg,fg_pct,tp_pct,ft_pct,fga,fta&mpg=gte.10';
+      var _url=SB+'/rest/v1/player_history?select=name,season_year,team,position,height,ppg,rpg,apg,stl,blk,tpm,tpa,tovs,mpg,fg_pct,tp_pct,ft_pct,fga,fta&mpg=gte.10';
       var _fetches=Array.from({length:_pages},function(_,pg){
         return fetch(_url,{headers:{...H,'Range-Unit':'items','Range':pg*_PG+'-'+(pg*_PG+_PG-1)}}).then(function(r){return r.ok?r.json():[]; });
       });
@@ -3537,19 +3556,25 @@ async function renderArchetype(){
   // Excludes 2026-27 projections from _allCurrent.
   var allPool=[];
   (_allHistory||[]).filter(function(q){return q.name&&q.name!==player.name&&(parseFloat(q.mpg)||0)>=10&&_norm3(q.position)===grp;})
-    .forEach(function(q){allPool.push({p:q,isCur:false,ht:0});});
+    .forEach(function(q){allPool.push({p:q,isCur:false,ht:_htIn(q.height)});});
 
   // Normalize z-scores across the pool
   var nAll=_normStats(allPool.map(function(c){return _feat(c.p);}).concat([pf]));
 
-  // Score each candidate — apply archetype bonus and conference tier penalty
-  var playerArchName=info.name;
+  // Score each candidate — style distance, then reward a same-archetype match strongly
+  // and penalize opposite big styles (a stretch/playmaking big shouldn't comp to a
+  // rim-running anchor). Player uses the SAME archetypeInfo scheme as candidates so
+  // the match actually fires (previously it compared two different naming schemes).
+  var playerArchName=archetypeInfo(Object.assign({position:player.position}, projP)).name;
+  var _bigOpposite={ 'Stretch Big':'Interior Anchor','Interior Anchor':'Stretch Big',
+    'Playmaking Big':'Interior Anchor','Interior Anchor ':'Playmaking Big' };
   var pTier=_confTier(player.team);
   var scored=allPool.map(function(c){
     var bArch=archetypeInfo(c.p).name;
     var cTier=_confTier(c.p.team);
     var d=_dist(pf,_feat(c.p),nAll,ph,c.ht,pTier,cTier);
-    if(bArch===playerArchName) d=Math.max(0,d-0.5);
+    if(bArch===playerArchName) d*=0.70;                       // same style → much closer
+    else if(_bigOpposite[playerArchName]===bArch) d*=1.25;    // opposite big style → push away
     return {p:c.p,d:d};
   }).sort(function(a,b){return a.d-b.d;});
 
