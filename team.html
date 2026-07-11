@@ -4026,6 +4026,28 @@ function _dnaCSS(){ if(document.getElementById('dna-css')) return;
   .dna-foot{font-size:11px;color:var(--text3);margin-top:8px;line-height:1.5;}
   .dna-luck{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;}
   .dna-luckn{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;}
+  /* Winning impact — diverging points-per-game bars */
+  .dna-imp{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:26px;}
+  .dna-imp-row{display:grid;grid-template-columns:180px 1fr 58px;align-items:center;gap:14px;padding:5px 0;}
+  .dna-imp-lbl{font-size:12.5px;font-weight:700;color:var(--text2);text-align:right;overflow-wrap:anywhere;}
+  .dna-imp-track{position:relative;height:15px;background:var(--bg3);border-radius:8px;}
+  .dna-imp-track::before{content:'';position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--border2);}
+  .dna-imp-bar{position:absolute;top:0;height:100%;border-radius:8px;transition:width .5s cubic-bezier(.22,1,.36,1);}
+  .dna-imp-bar.pos{background:#5ab875;} .dna-imp-bar.neg{background:#e07070;}
+  .dna-imp-val{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;text-align:left;}
+  .dna-imp-val.pos{color:#5ab875;} .dna-imp-val.neg{color:#e07070;}
+  .dna-imp-cap{font-size:11px;color:var(--text3);margin-top:10px;text-align:center;}
+  /* Projection vs Reality — plain-English comparison */
+  .dna-pvr{display:grid;grid-template-columns:1fr auto 1fr auto;align-items:center;gap:16px;}
+  @media(max-width:640px){.dna-pvr{grid-template-columns:1fr;} .dna-pvr-arrow{display:none;}}
+  .dna-pvr-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 18px;text-align:center;}
+  .dna-pvr-lbl{font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
+  .dna-pvr-net{font-family:'Playfair Display',serif;font-weight:800;font-size:30px;line-height:1.1;margin:2px 0;}
+  .dna-pvr-tier{font-size:12px;font-weight:700;color:var(--text2);}
+  .dna-pvr-arrow{font-size:22px;color:var(--text3);}
+  .dna-pvr-delta{text-align:center;font-family:'Playfair Display',serif;font-weight:800;font-size:24px;}
+  .dna-pvr-delta span{display:block;font-family:'Inter',sans-serif;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;}
+  .dna-pvr-delta.pos{color:#5ab875;} .dna-pvr-delta.neg{color:#e07070;}
   `;
   document.head.appendChild(c);
 }
@@ -4091,6 +4113,16 @@ async function renderTeamDNA(){
   const wp=t.win_path||{strengths:[],weaknesses:[],summary:''};
   const pj=(!PROJ && window._teamDNAproj && window._teamDNAproj[season])?window._teamDNAproj[season][key]:null;
   const projDelta=pj?(t.net-pj.net):null;
+  // ── Winning impact: each factor as POINTS/GAME vs an average team, weighted by
+  // the national win model — the digestible "what wins & loses them games" ──
+  const IMPLAB={oeFG:'Shooting',oTOV:'Ball security',oORB:'Offensive rebounding',oFTr:'Getting to the line',
+    deFG:'Shot defense',dTOV:'Forcing turnovers',dDRB:'Defensive rebounding',dFTr:'Fouling discipline'};
+  const _mean={}; ['oeFG','oTOV','oORB','oFTr','deFG','dTOV','dDRB','dFTr'].forEach(m=>{const v=teams.filter(x=>x[m]!=null).map(x=>x[m]);_mean[m]=v.length?v.reduce((a,b)=>a+b,0)/v.length:0;});
+  const impacts=Object.keys(IMPLAB).filter(m=>t[m]!=null&&wm[m]!=null).map(m=>[IMPLAB[m],(t[m]-_mean[m])*(wm[m]/5)]).filter(x=>Math.abs(x[1])>=0.2).sort((a,b)=>b[1]-a[1]);
+  const impMax=Math.max(2,...impacts.map(x=>Math.abs(x[1])));
+  const impactHtml=impacts.length?`<div class="dna-sec">What wins &amp; loses them games — points per game vs an average team</div>
+    <div class="dna-imp">${impacts.map(([lbl,v])=>`<div class="dna-imp-row"><div class="dna-imp-lbl">${lbl}</div><div class="dna-imp-track"><div class="dna-imp-bar ${v>=0?'pos':'neg'}" style="${v>=0?'left:50%':'right:50%'};width:${(Math.abs(v)/impMax*48).toFixed(1)}%"></div></div><div class="dna-imp-val ${v>=0?'pos':'neg'}">${v>=0?'+':''}${v.toFixed(1)}</div></div>`).join('')}<div class="dna-imp-cap">Green wins them games, red costs them — these add up to roughly their net rating.</div></div>`:'';
+  const netTier=nn=> nn>=24?'a national title contender':nn>=17?'a top-10 team':nn>=11?'a top-25 team':nn>=6?'a tournament team':nn>=1?'a bubble team':nn>=-4?'a middle-of-the-pack team':nn>=-10?'a losing team':nn>=-16?'a bottom-100 team':'one of the worst teams in the country';
   const bottomHtml = PROJ ? `
     <div class="dna-grid" style="grid-template-columns:1fr;">
       <div>
@@ -4102,22 +4134,30 @@ async function renderTeamDNA(){
           <div class="dna-foot" style="margin-top:8px;">Projected from the 2026-27 roster's Player DNA (offense projects well, defense is a rougher estimate) plus the coach's pace. Ranks are vs the ${N} teams with entered rosters so far.</div>
         </div>
       </div>
+    </div>` : (pj ? `
+    <div class="dna-grid" style="grid-template-columns:1fr;">
+      <div>
+        <div class="dna-sec">Projection vs Reality</div>
+        <div class="dna-pvr">
+          <div class="dna-pvr-card"><div class="dna-pvr-lbl">Preseason projection</div><div class="dna-pvr-net">${pj.net>0?'+':''}${pj.net}</div><div class="dna-pvr-tier">${netTier(pj.net)}</div></div>
+          <div class="dna-pvr-arrow">→</div>
+          <div class="dna-pvr-card"><div class="dna-pvr-lbl">How it went</div><div class="dna-pvr-net">${t.net>0?'+':''}${t.net}</div><div class="dna-pvr-tier">${netTier(t.net)}</div></div>
+          <div class="dna-pvr-delta ${projDelta>=0?'pos':'neg'}">${(projDelta>=0?'+':'')+projDelta.toFixed(1)}<span>${projDelta>=0?'over-achieved':'under-achieved'}</span></div>
+        </div>
+        <div class="dna-foot" style="margin-top:10px;">Their roster projected as <b>${netTier(pj.net)}</b>; they played like <b>${netTier(t.net)}</b>${Math.abs(projDelta)>=12?` — one of the season's biggest ${projDelta>=0?'surprises':'disappointments'}`:''}. (${t.w} wins vs ${t.exp_wins} expected on efficiency → ${(t.luck>=0?'+':'')+t.luck} ${t.luck>=0?'lucky':'unlucky'} in close games.)</div>
+      </div>
+      <div><div class="dna-sec">Season Evolution</div><div class="dna-evo">${evc('Non-conf',ev.nonconf)}${evc('Conference',ev.conf)}${evc('Last 10',ev.last10)}</div></div>
     </div>` : `
     <div class="dna-grid">
       <div>
-        <div class="dna-sec">${pj?'Projection vs Reality':'Expected vs Actual'}</div>
+        <div class="dna-sec">Expected vs Actual</div>
         <div class="dna-luck">
-          ${pj?`<div class="dna-luckn">Projected ${pj.net>0?'+':''}${pj.net} <span style="font-size:14px;color:var(--text3);font-family:Inter,sans-serif;">→ actual ${t.net>0?'+':''}${t.net} net</span></div>
-          <div class="dna-foot">Preseason roster projection (from the prior year's Player DNA) pegged them at <b>${pj.net>0?'+':''}${pj.net}</b> net; they finished <b>${t.net>0?'+':''}${t.net}</b> → <b style="color:${projDelta>=0?'#5ab875':'#e07070'}">${(projDelta>=0?'+':'')+projDelta.toFixed(1)} ${projDelta>=0?'over':'under'}-achieved</b> their roster.</div>`
-          :`<div class="dna-luckn">${t.w} wins <span style="font-size:14px;color:var(--text3);font-family:Inter,sans-serif;">vs ${t.exp_wins} expected</span></div>`}
-          <div class="dna-foot" style="margin-top:6px;">${t.w} wins vs <b>${t.exp_wins}</b> expected (Pythagorean) → <b style="color:${t.luck>=0?'#5ab875':'#e07070'}">${(t.luck>=0?'+':'')+t.luck} ${t.luck>=0?'lucky':'unlucky'}</b> in close games.</div>
+          <div class="dna-luckn">${t.w} wins <span style="font-size:14px;color:var(--text3);font-family:Inter,sans-serif;">vs ${t.exp_wins} expected</span></div>
+          <div class="dna-foot">Efficiency implies a <b>${t.exp_wins}-win</b> team; they went <b>${t.w}</b> → <b style="color:${t.luck>=0?'#5ab875':'#e07070'}">${(t.luck>=0?'+':'')+t.luck} ${t.luck>=0?'lucky':'unlucky'}</b> in close games (Pythagorean).</div>
         </div>
       </div>
-      <div>
-        <div class="dna-sec">Season Evolution</div>
-        <div class="dna-evo">${evc('Non-conf',ev.nonconf)}${evc('Conference',ev.conf)}${evc('Last 10',ev.last10)}</div>
-      </div>
-    </div>`;
+      <div><div class="dna-sec">Season Evolution</div><div class="dna-evo">${evc('Non-conf',ev.nonconf)}${evc('Conference',ev.conf)}${evc('Last 10',ev.last10)}</div></div>
+    </div>`);
   const selOpts=seasons.filter(s=>findKey(DNA[s])).map(s=>`<option value="${s}"${s===season?' selected':''}>${slbl(s)}</option>`).join('');
   host.innerHTML=`
     <div class="dna-top">
@@ -4126,6 +4166,7 @@ async function renderTeamDNA(){
     </div>
     <div class="dna-eff">${effHtml}</div>
     <div class="dna-chips">${chips.join('')}</div>
+    ${impactHtml}
     <div class="dna-grid3">
       <div><div class="dna-sec">Offense — four factors</div>${offFF}</div>
       <div><div class="dna-sec">Defense — four factors</div>${defFF}</div>
