@@ -2005,7 +2005,9 @@ function _updateHeroSeason(team, gp){
   var g=document.getElementById('heroGp'); if(g){ g.innerHTML=gp?('🎮 <strong>'+gp+'</strong> GP'):''; g.style.display=gp?'':'none'; }
 }
 function _skillSrcFor(val){
-  var useProj=(proj && !proj._frosh && !proj._injured);
+  // Use the projected line for freshmen too (badges / skill / radar reflect the
+  // projection we're making), matching the overview's useProj logic.
+  var useProj=(proj && !proj._injured && !proj._dnp && (parseFloat(proj.ppg)>0 || proj._frosh || proj._noStatEst));
   if(val==null){ if(useProj) return {src:proj,projected:true}; var ss=_ovrSeasons(); return ss.length?{src:ss[0],projected:false,label:_seasonLbl2(ss[0].season_year)}:{src:player,projected:false}; }
   if(val==='proj') return {src:proj,projected:true};
   var s=_ovrSeasonRow(val); return s?{src:s,projected:false,label:_seasonLbl2(val)}:{src:player,projected:false};
@@ -3035,14 +3037,17 @@ function drawRadar(progress){
   var byYear={};
   (careerHistory||[]).forEach(function(s){ if(s.ppg==null) return; var yr=+s.season_year, gp=+s.gp||0; if(!byYear[yr]||gp>(byYear[yr].gp||0)) byYear[yr]=s; });
   var seasons=Object.keys(byYear).map(function(k){return byYear[k];}).sort(function(a,b){return a.season_year-b.season_year;});
-  if(!seasons.length) seasons=[p];
+  // Freshmen have no played season — show the projected polygon (from the stats
+  // we're projecting) instead of an empty "Actual" fallback.
+  var hasProj=(proj && !proj._injured && (parseFloat(proj.ppg)>0 || proj._frosh || proj._noStatEst));
+  if(!seasons.length && !hasProj) seasons=[p];
   var PAL=['#6d6589','#74aedd','#e0a35a','#cf7d72','#5ab875','#c98bd4','#5b9d8f'];
   var series=seasons.map(function(s,i){
     var isLast=(i===seasons.length-1);
     return {lbl:_seasonLbl(s.season_year)||'Actual', col:(isLast?color:PAL[i%PAL.length]),
             vals:axesOf(s), alpha:1, fill:(isLast?0.16:0), proj:false};
   });
-  if(proj && !proj._frosh) series.push({lbl:_seasonLbl(2027)+' Proj', col:accent, vals:axesOf(proj), alpha:0.95, fill:0.14, proj:true});
+  if(hasProj) series.push({lbl:_seasonLbl(2027)+' Proj', col:accent, vals:axesOf(proj), alpha:0.95, fill:0.14, proj:true});
 
   var vis=window._radarVis=window._radarVis||{};
   // projected behind, then seasons oldest→newest (most recent on top)
