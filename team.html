@@ -4046,7 +4046,7 @@ async function renderTeamDNA(){
   if(!season){ host.innerHTML='<div style="padding:24px;color:var(--text3);">No completed-season DNA for this team yet — it appears once they\'ve played a full season.</div>'; return; }
   window._dnaSeason=season;
   const S=DNA[season], key=findKey(S), t=S.teams[key], teams=Object.values(S.teams), N=teams.length;
-  const pct=(m,hi=true)=>{ const below=teams.filter(x=>x[m]<t[m]).length; const p=100*below/N; return Math.round(hi?p:100-p); };
+  const pct=(m,hi=true)=>{ if(t[m]==null) return 50; const below=teams.filter(x=>x[m]!=null&&x[m]<t[m]).length; const d=teams.filter(x=>x[m]!=null).length||1; const p=100*below/d; return Math.round(hi?p:100-p); };
   const rank=(m,hi=true)=>{ const v=teams.map(x=>x[m]).sort((a,b)=>hi?b-a:a-b); return v.indexOf(t[m])+1; };
   const ord=r=>{const s=['th','st','nd','rd'],v=r%100;return r+(s[(v-20)%10]||s[v]||s[0]);};
   const tier=p=> p>=90?'Elite':p>=75?'Strong':p>=55?'Above avg':p>=35?'Average':p>=18?'Below avg':'Poor';
@@ -4064,7 +4064,7 @@ async function renderTeamDNA(){
   if(pct('oeFG')>=80) chips.push('<span class="dna-chip">Efficient shooting</span>');
   if(pct('dDRB')>=75) chips.push('<span class="dna-chip">Locks the defensive glass</span>');
   // four factors bars
-  const bar=(lbl,val,p)=>`<div class="dna-row"><div class="dna-rl"><span>${lbl}</span><span>${val} · ${ord(p)}</span></div><div class="dna-bar"><div class="dna-fill" style="width:${p}%"></div></div></div>`;
+  const bar=(lbl,val,p)=> (val==null||isNaN(p))?'':`<div class="dna-row"><div class="dna-rl"><span>${lbl}</span><span>${val} · ${ord(p)}</span></div><div class="dna-bar"><div class="dna-fill" style="width:${p}%"></div></div></div>`;
   const offFF=bar('eFG%',t.oeFG,pct('oeFG'))+bar('Turnover%',t.oTOV,pct('oTOV',false))+bar('Off Reb%',t.oORB,pct('oORB'))+bar('FT rate',t.oFTr,pct('oFTr'));
   const defFF=bar('eFG% allowed',t.deFG,pct('deFG',false))+bar('Forced TOV%',t.dTOV,pct('dTOV'))+bar('Def Reb%',t.dDRB,pct('dDRB'))+bar('FT rate allowed',t.dFTr,pct('dFTr',false));
   // strength radar (8 axes of percentile)
@@ -4078,12 +4078,40 @@ async function renderTeamDNA(){
     labs+=`<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="9" font-weight="700" fill="var(--text3)" text-anchor="middle" dominant-baseline="middle">${l}</text>`;});
   const radar=`<svg viewBox="0 0 280 260" style="width:100%;max-width:320px;">${rings}${spokes}<path d="${poly}Z" fill="rgba(var(--tc-rgb,168,132,60),.22)" stroke="var(--tc,var(--accent))" stroke-width="2"/>${labs}</svg>`;
   // luck + evolution
+  const PROJ=!!t.projected;
+  const slbl=s=> s==='2027'?'2026-27 · Projected':_dnaSeasonLbl(s);
   const ev=t.evolution||{}; const evc=(l,s)=> s?`<div class="dna-evoc"><div class="dna-evol">${l}</div><div class="dna-evov">${(s.net>0?'+':'')+s.net}</div><div class="dna-evom">${s.w}-${s.l} · net rating</div></div>`:'';
   const wm=S.meta&&S.meta.win_model||{};
-  const selOpts=seasons.filter(s=>findKey(DNA[s])).map(s=>`<option value="${s}"${s===season?' selected':''}>${_dnaSeasonLbl(s)}</option>`).join('');
+  const wp=t.win_path||{strengths:[],weaknesses:[],summary:''};
+  const bottomHtml = PROJ ? `
+    <div class="dna-grid" style="grid-template-columns:1fr;">
+      <div>
+        <div class="dna-sec">How They'll Need to Win</div>
+        <div class="dna-luck">
+          <div style="font-size:15px;font-weight:700;margin-bottom:10px;">${wp.summary||'Balanced profile.'}</div>
+          ${wp.strengths.length?`<div class="dna-foot"><b style="color:#5ab875;">Edges:</b> ${wp.strengths.join(' · ')}</div>`:''}
+          ${wp.weaknesses.length?`<div class="dna-foot"><b style="color:#e07070;">Must overcome:</b> ${wp.weaknesses.join(' · ')}</div>`:''}
+          <div class="dna-foot" style="margin-top:8px;">Projected from the 2026-27 roster's Player DNA (offense projects well, defense is a rougher estimate) plus the coach's pace. Ranks are vs the ${N} teams with entered rosters so far.</div>
+        </div>
+      </div>
+    </div>` : `
+    <div class="dna-grid">
+      <div>
+        <div class="dna-sec">Expected vs Actual</div>
+        <div class="dna-luck">
+          <div class="dna-luckn">${t.w} wins <span style="font-size:14px;color:var(--text3);font-family:Inter,sans-serif;">vs ${t.exp_wins} expected</span></div>
+          <div class="dna-foot">Efficiency implies a <b>${t.exp_wins}-win</b> team; they went <b>${t.w}</b> → <b style="color:${t.luck>=0?'#5ab875':'#e07070'}">${(t.luck>=0?'+':'')+t.luck} ${t.luck>=0?'lucky':'unlucky'}</b> in close games (Pythagorean).</div>
+        </div>
+      </div>
+      <div>
+        <div class="dna-sec">Season Evolution</div>
+        <div class="dna-evo">${evc('Non-conf',ev.nonconf)}${evc('Conference',ev.conf)}${evc('Last 10',ev.last10)}</div>
+      </div>
+    </div>`;
+  const selOpts=seasons.filter(s=>findKey(DNA[s])).map(s=>`<option value="${s}"${s===season?' selected':''}>${slbl(s)}</option>`).join('');
   host.innerHTML=`
     <div class="dna-top">
-      <div><div class="dna-title">Team DNA</div><div class="dna-sub">${teamT.name} · ${_dnaSeasonLbl(season)} · ${t.w}-${t.l}</div></div>
+      <div><div class="dna-title">Team DNA</div><div class="dna-sub">${teamT.name} · ${PROJ?'2026-27 · Projected':(_dnaSeasonLbl(season)+' · '+t.w+'-'+t.l)}</div></div>
       <select class="dna-sel" onchange="window._dnaSeason=this.value;renderTeamDNA();">${selOpts}</select>
     </div>
     <div class="dna-eff">${effHtml}</div>
@@ -4101,20 +4129,8 @@ async function renderTeamDNA(){
         <div style="display:flex;justify-content:center;">${radar}</div>
       </div>
     </div>
-    <div class="dna-grid">
-      <div>
-        <div class="dna-sec">Expected vs Actual</div>
-        <div class="dna-luck">
-          <div class="dna-luckn">${t.w} wins <span style="font-size:14px;color:var(--text3);font-family:Inter,sans-serif;">vs ${t.exp_wins} expected</span></div>
-          <div class="dna-foot">Efficiency implies a <b>${t.exp_wins}-win</b> team; they went <b>${t.w}</b> → <b style="color:${t.luck>=0?'#5ab875':'#e07070'}">${(t.luck>=0?'+':'')+t.luck} ${t.luck>=0?'lucky':'unlucky'}</b> in close games (Pythagorean).</div>
-        </div>
-      </div>
-      <div>
-        <div class="dna-sec">Season Evolution</div>
-        <div class="dna-evo">${evc('Non-conf',ev.nonconf)}${evc('Conference',ev.conf)}${evc('Last 10',ev.last10)}</div>
-      </div>
-    </div>
-    <div class="dna-foot" style="border-top:1px solid var(--border);padding-top:12px;">National win model (${_dnaSeasonLbl(season)}, R²=${S.meta.r2}): a +5% swing is worth about <b>${wm.oeFG}</b> pts (eFG), <b>${Math.abs(wm.oTOV)}</b> (turnovers), <b>${wm.oORB}</b> (off. rebounds), <b>${wm.oFTr}</b> (FT rate) — every metric here is measured against all ${N} D1 teams that season.</div>`;
+    ${bottomHtml}
+    <div class="dna-foot" style="border-top:1px solid var(--border);padding-top:12px;">${PROJ?`Projected DNA — the roster→team model is calibrated on 20 seasons (offense R²≈0.9, defense ≈0.6). Win-path weights use the national win model: +5% eFG ≈ <b>${wm.oeFG}</b> pts, turnovers <b>${Math.abs(wm.oTOV)}</b>, off. rebounds <b>${wm.oORB}</b>.`:`National win model (${_dnaSeasonLbl(season)}, R²=${S.meta.r2}): a +5% swing is worth about <b>${wm.oeFG}</b> pts (eFG), <b>${Math.abs(wm.oTOV)}</b> (turnovers), <b>${wm.oORB}</b> (off. rebounds), <b>${wm.oFTr}</b> (FT rate) — measured against all ${N} D1 teams that season.`}</div>`;
 }
 
 // ── MONEYBALL — NIL value vs impact (uses nil-data.json + the value module) ──
