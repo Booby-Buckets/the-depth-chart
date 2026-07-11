@@ -1998,8 +1998,21 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
   }catch(e){}
   window._advByEspn=advByEspn;
 
+  // Freshman projections (owner's editor) are the single source of truth — load
+  // them before projecting so a projected freshman shows the EXACT editor line +
+  // OVR here, matching the player page and editor (not a separate estimate).
+  if(window.TDCFresh){ try{ await TDCFresh.load(); }catch(e){} }
+  const _freshNames = new Set((players||[]).filter(p=>window.TDCFresh&&TDCFresh.isFreshman(p)&&TDCFresh.profileFor(p)).map(p=>(p.name||'').toLowerCase().trim()));
+  const _origByName = {}; (players||[]).forEach(p=>{ _origByName[(p.name||'').toLowerCase().trim()]=p; });
   const _rawProjected=buildTeamProjections(players, _teamRow?.conf||conf);
-  const projected=applyPredictionWalls(_rawProjected);
+  let projected=applyPredictionWalls(_rawProjected);
+  if(_freshNames.size){
+    projected=projected.map(pp=>{
+      const key=(pp.name||'').toLowerCase().trim();
+      if(_freshNames.has(key)){ const orig=_origByName[key]||pp; return Object.assign({}, pp, TDCFresh.line(orig, TDCFresh.profileFor(orig))); }
+      return pp;
+    });
+  }
   projected.forEach(pp=>{
     if(pp._injured||pp._dnp) return;
     const cls=_projCls(pp.yr||pp.class_year||'');

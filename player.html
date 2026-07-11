@@ -2842,6 +2842,10 @@ function _initShotSeasons(){
   loadShotChart(yrs[0]);
 }
 function _projectedGrade(){
+  // A projected freshman's OVR is the editor profile's OVR (single source of truth).
+  if(window.TDCFresh && TDCFresh.isFreshman(player) && TDCFresh.profileFor(player) && proj && proj.tdc_grade!=null){
+    var fg=parseInt(proj.tdc_grade); if(!isNaN(fg)) return fg;
+  }
   // players.tdc_grade IS the 2026-27 projected grade (same value the Full Stats
   // projected row shows). Return it directly — do NOT re-project it, or the hero
   // and progression chart end up double-projecting (e.g. a 92 became a 95).
