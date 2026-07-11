@@ -231,12 +231,15 @@ function resolveDNA(plain){ if(!teamDNA) return null;
   return null; }
 function _erf(x){ const t=1/(1+0.3275911*Math.abs(x)); const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x); return x>=0?y:-y; }
 function dnaSeasonLbl(s){ return s==='2027'?'2026-27 projected':((+s-1)+'-'+String(+s).slice(2)); }
+// opponent-adjusted efficiency when available (actual seasons); raw for projected
+function _dO(x){return x.adjO!=null?x.adjO:x.ORtg;} function _dD(x){return x.adjD!=null?x.adjD:x.DRtg;}
+function _dN(x){return x.adjNet!=null?x.adjNet:x.net;}
 function dnaMatchup(d1,d2,n1,n2){ // both must share a season for a fair efficiency comparison
   if(d1.season!==d2.season) return '';
   const teams=Object.values(d1.S.teams);
-  const avgD=(()=>{const a=teams.filter(x=>x.DRtg!=null).map(x=>x.DRtg);return a.length?a.reduce((s,x)=>s+x,0)/a.length:100;})();
-  const t=d1.t,o=d2.t; if(t.ORtg==null||o.ORtg==null) return '';
-  const t1O=t.ORtg+(o.DRtg-avgD), t2O=o.ORtg+(t.DRtg-avgD);
+  const avgD=(()=>{const a=teams.map(_dD).filter(v=>v!=null);return a.length?a.reduce((s,x)=>s+x,0)/a.length:100;})();
+  const t=d1.t,o=d2.t; if(_dO(t)==null||_dO(o)==null) return '';
+  const t1O=_dO(t)+(_dD(o)-avgD), t2O=_dO(o)+(_dD(t)-avgD);
   const poss=((t.tempo||68)+(o.tempo||68))/2;
   const margin=(t1O-t2O)*poss/100;
   const wp1=Math.max(1,Math.min(99,Math.round(100*(0.5*(1+_erf(margin/(11*Math.SQRT2)))))));
@@ -257,9 +260,9 @@ function dnaStatSection(d1,d2,n1,n2){
     return `<div class="compare-row"><div class="compare-cell ${w1}">${av!=null?(av>0?'+':'')+av.toFixed(1):'—'}</div><div class="compare-label">${l}</div><div class="compare-cell right ${w2}">${bv!=null?(bv>0?'+':'')+bv.toFixed(1):'—'}</div></div>`; };
   return `<div class="compare-section-head">Team DNA${lbl?` <span style="font-weight:500;color:var(--text3);font-size:11px;">${lbl}</span>`:''}</div>
     ${(d1&&d2)?dnaMatchup(d1,d2,n1,n2):''}
-    ${netRow('Net rating', a.net, b.net)}
-    ${statRow('Offense (ORtg)', a.ORtg, b.ORtg, true)}
-    ${statRow('Defense (DRtg)', a.DRtg, b.DRtg, false)}
+    ${netRow('Net rating'+((a.adjNet!=null||b.adjNet!=null)?' (adj)':''), d1?_dN(a):null, d2?_dN(b):null)}
+    ${statRow('Offense (ORtg)', d1?_dO(a):null, d2?_dO(b):null, true)}
+    ${statRow('Defense (DRtg)', d1?_dD(a):null, d2?_dD(b):null, false)}
     ${statRow('Tempo (poss/game)', a.tempo, b.tempo, true)}
     <div class="compare-section-head" style="font-size:12px;opacity:.85;">Four Factors — Offense</div>
     ${statRow('eFG%', a.oeFG, b.oeFG, true)}
