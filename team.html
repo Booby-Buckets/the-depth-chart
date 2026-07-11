@@ -4035,6 +4035,9 @@ async function renderTeamDNA(){
   if(!window._teamDNA){
     try{ window._teamDNA=await fetch('scripts/data/team_dna.json').then(r=>r.ok?r.json():null); }catch(e){ window._teamDNA=null; }
   }
+  if(window._teamDNAproj===undefined){
+    try{ window._teamDNAproj=await fetch('scripts/data/team_dna_proj.json').then(r=>r.ok?r.json():{}); }catch(e){ window._teamDNAproj={}; }
+  }
   const DNA=window._teamDNA;
   if(!DNA){ host.innerHTML='<div style="padding:24px;color:var(--text3);">Team DNA data unavailable.</div>'; return; }
   const seasons=Object.keys(DNA).sort((a,b)=>b-a);
@@ -4086,6 +4089,8 @@ async function renderTeamDNA(){
   const ev=t.evolution||{}; const evc=(l,s)=> s?`<div class="dna-evoc"><div class="dna-evol">${l}</div><div class="dna-evov">${(s.net>0?'+':'')+s.net}</div><div class="dna-evom">${s.w}-${s.l} · net rating</div></div>`:'';
   const wm=S.meta&&S.meta.win_model||{};
   const wp=t.win_path||{strengths:[],weaknesses:[],summary:''};
+  const pj=(!PROJ && window._teamDNAproj && window._teamDNAproj[season])?window._teamDNAproj[season][key]:null;
+  const projDelta=pj?(t.net-pj.net):null;
   const bottomHtml = PROJ ? `
     <div class="dna-grid" style="grid-template-columns:1fr;">
       <div>
@@ -4100,10 +4105,12 @@ async function renderTeamDNA(){
     </div>` : `
     <div class="dna-grid">
       <div>
-        <div class="dna-sec">Expected vs Actual</div>
+        <div class="dna-sec">${pj?'Projection vs Reality':'Expected vs Actual'}</div>
         <div class="dna-luck">
-          <div class="dna-luckn">${t.w} wins <span style="font-size:14px;color:var(--text3);font-family:Inter,sans-serif;">vs ${t.exp_wins} expected</span></div>
-          <div class="dna-foot">Efficiency implies a <b>${t.exp_wins}-win</b> team; they went <b>${t.w}</b> → <b style="color:${t.luck>=0?'#5ab875':'#e07070'}">${(t.luck>=0?'+':'')+t.luck} ${t.luck>=0?'lucky':'unlucky'}</b> in close games (Pythagorean).</div>
+          ${pj?`<div class="dna-luckn">Projected ${pj.net>0?'+':''}${pj.net} <span style="font-size:14px;color:var(--text3);font-family:Inter,sans-serif;">→ actual ${t.net>0?'+':''}${t.net} net</span></div>
+          <div class="dna-foot">Preseason roster projection (from the prior year's Player DNA) pegged them at <b>${pj.net>0?'+':''}${pj.net}</b> net; they finished <b>${t.net>0?'+':''}${t.net}</b> → <b style="color:${projDelta>=0?'#5ab875':'#e07070'}">${(projDelta>=0?'+':'')+projDelta.toFixed(1)} ${projDelta>=0?'over':'under'}-achieved</b> their roster.</div>`
+          :`<div class="dna-luckn">${t.w} wins <span style="font-size:14px;color:var(--text3);font-family:Inter,sans-serif;">vs ${t.exp_wins} expected</span></div>`}
+          <div class="dna-foot" style="margin-top:6px;">${t.w} wins vs <b>${t.exp_wins}</b> expected (Pythagorean) → <b style="color:${t.luck>=0?'#5ab875':'#e07070'}">${(t.luck>=0?'+':'')+t.luck} ${t.luck>=0?'lucky':'unlucky'}</b> in close games.</div>
         </div>
       </div>
       <div>
