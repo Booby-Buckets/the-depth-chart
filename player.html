@@ -2275,10 +2275,12 @@ function renderPage(){
 
   applyTeamTheme(color);
 
+  // headshot: prefer photo_url, else derive the ESPN headshot from espn_id
+  const _headshot = p.photo_url || (p.espn_id ? `https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/${p.espn_id}.png` : '');
   document.getElementById('heroSection').innerHTML=`
     <div class="player-hero" style="--tc:${color};">
-      <div class="hero-avatar">${p.photo_url
-        ? `<img src="${p.photo_url}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" onerror="this.parentNode.textContent='${(p.name||'?')[0].toUpperCase()}'">`
+      <div class="hero-avatar">${_headshot
+        ? `<img src="${_headshot}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" onerror="this.parentNode.textContent='${(p.name||'?')[0].toUpperCase()}'">`
         : (p.name||'?')[0].toUpperCase()}</div>
       <div class="hero-info">
         <div class="hero-eyebrow">
