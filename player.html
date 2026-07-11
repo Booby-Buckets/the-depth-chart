@@ -341,7 +341,7 @@
     .badge-leg{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
     .badge-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
     .badge-col{display:flex;flex-direction:column;gap:7px;}
-    .badge-cat{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding-bottom:6px;margin-bottom:2px;border-bottom:1px solid var(--border);}
+    .badge-cat{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding-bottom:6px;margin-bottom:2px;border-bottom:1px solid var(--border);color:var(--text2);}
     .badge-chip{display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;transition:transform .12s;}
     .badge-chip:hover{transform:translateY(-1px);}
     .badge-pips{display:inline-flex;gap:2px;flex-shrink:0;}
@@ -1188,10 +1188,9 @@ function buildBadgeShield(B){
 function buildBadgesSection(p, B){
   B=B||computeBadges(p, null, {});
   var order=['FIN','SHO','PLY','DEF'];
-  var accent={FIN:'#4a86d8',SHO:'#3fa06a',PLY:'#d99a3c',DEF:'#cf5a6a'};
   var pip=function(t){ var s=''; for(var i=0;i<4;i++){ s+='<span class="badge-pip" style="background:'+(i<t.pips?t.color:'var(--border2)')+';"></span>'; } return s; };
   var chip=function(b){
-    return '<span class="badge-chip" title="'+b.desc+' — '+b.tier.name+' tier" style="background:'+b.tier.bg+';border-color:'+b.tier.color+'55;">'+
+    return '<span class="badge-chip" title="'+b.desc+' — '+b.tier.name+' tier">'+
       '<span class="badge-pips">'+pip(b.tier)+'</span>'+
       '<span class="badge-nm">'+b.name+'</span>'+
       '<span class="badge-tl" style="color:'+b.tier.color+';">'+b.tier.name+'</span></span>';
@@ -1199,7 +1198,7 @@ function buildBadgesSection(p, B){
   var cols=order.map(function(c){
     var list=B.badges[c];
     return '<div class="badge-col">'+
-      '<div class="badge-cat" style="color:'+accent[c]+';border-color:'+accent[c]+'44;">'+B.cats[c]+' <span style="color:var(--text3);font-weight:600;">'+list.length+'</span></div>'+
+      '<div class="badge-cat">'+B.cats[c]+' <span style="color:var(--text3);font-weight:600;">'+list.length+'</span></div>'+
       (list.length?list.map(chip).join(''):'<div class="badge-empty">No badges yet</div>')+
     '</div>';
   }).join('');
@@ -1218,7 +1217,9 @@ function buildBadgesSection(p, B){
 function buildSkillBreakdown(srcRow, projectedFlag, label){
   // blue gradient by percentile — deeper blue = higher (matches the database)
   function barColor(pct){
-    return pct>=80?'rgb(18,60,185)':pct>=60?'rgb(30,82,200)':pct>=40?'rgb(45,100,210)':pct>=20?'rgb(70,135,225)':'rgb(110,160,230)';
+    // team-color intensity by percentile (unified accent instead of a clashing blue)
+    var m = pct>=80?85 : pct>=60?66 : pct>=40?50 : pct>=20?37 : 26;
+    return 'color-mix(in srgb, var(--tc) '+m+'%, var(--text3))';
   }
   // render the chosen season (or projection) vs the national pool
   var src=srcRow||((proj&&!proj._frosh)?proj:player);
@@ -1290,7 +1291,7 @@ function buildSkillBreakdown(srcRow, projectedFlag, label){
 function r1(v){return v!=null?Math.round(v*10)/10:null;}
 function fmt(v){return v!=null&&v!==''?Number(v).toFixed(1):'—';}
 function fmtP(v){return v!=null&&v!==''?Number(v).toFixed(1)+'%':'—';}
-function pctCol(p){return p>=80?'rgb(18,60,185)':p>=60?'rgb(30,82,200)':p>=40?'rgb(45,100,210)':p>=20?'rgb(60,120,220)':'var(--text3)';}
+function pctCol(p){var m=p>=80?88:p>=60?68:p>=40?52:p>=20?38:0;return m?('color-mix(in srgb, var(--tc) '+m+'%, var(--text2))'):'var(--text3)';}
 function gradeClass(g){const n=parseFloat(g);if(!isNaN(n)){if(n>=90)return 'gA';if(n>=80)return 'gB';if(n>=70)return 'gC';if(n>=60)return 'gD';return 'gF';}if(!g)return '';if(g[0]==='A')return 'gA';if(g[0]==='B')return 'gB';if(g[0]==='C')return 'gC';if(g[0]==='D')return 'gD';return 'gF';}
 
 let player=null, teamData=null, allPlayers=[], gPct={}, proj=null, teamPlayers=[], careerHistory=[];
@@ -3041,7 +3042,9 @@ function drawRadar(progress){
   // we're projecting) instead of an empty "Actual" fallback.
   var hasProj=(proj && !proj._injured && (parseFloat(proj.ppg)>0 || proj._frosh || proj._noStatEst));
   if(!seasons.length && !hasProj) seasons=[p];
-  var PAL=['#6d6589','#74aedd','#e0a35a','#cf7d72','#5ab875','#c98bd4','#5b9d8f'];
+  // older seasons: neutral grays (distinguished by shade, not clashing hues); the
+  // most-recent/projected series uses the team color.
+  var PAL=['#8b8b93','#6f6f77','#a6a6ad','#5c5c64','#bcbcc3','#7a7a82','#9a9aa1'];
   var series=seasons.map(function(s,i){
     var isLast=(i===seasons.length-1);
     return {lbl:_seasonLbl(s.season_year)||'Actual', col:(isLast?color:PAL[i%PAL.length]),
