@@ -4048,8 +4048,41 @@ function _dnaCSS(){ if(document.getElementById('dna-css')) return;
   .dna-pvr-delta{text-align:center;font-family:'Playfair Display',serif;font-weight:800;font-size:24px;}
   .dna-pvr-delta span{display:block;font-family:'Inter',sans-serif;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;}
   .dna-pvr-delta.pos{color:#5ab875;} .dna-pvr-delta.neg{color:#e07070;}
+  /* Record by opponent tier */
+  .dna-tiers{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:6px;}
+  @media(max-width:640px){.dna-tiers{grid-template-columns:repeat(2,1fr);}}
+  .dna-tierc{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:15px 14px;text-align:center;}
+  .dna-tierc.empty{opacity:.5;}
+  .dna-tierl{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--tc,var(--accent));}
+  .dna-tierd{font-size:10px;color:var(--text3);margin-top:1px;min-height:13px;}
+  .dna-tierrec{font-family:'Playfair Display',serif;font-weight:800;font-size:30px;line-height:1.1;margin-top:8px;}
+  .dna-tierlbl2{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-top:1px;}
+  .dna-tierm{font-size:12.5px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:8px;}
+  .dna-tierm span{font-weight:600;color:var(--text3);font-size:10px;}
+  .dna-tierm.pos{color:#5ab875;} .dna-tierm.neg{color:#e07070;}
   `;
   document.head.appendChild(c);
+}
+// Record + avg margin vs each opponent tier (1=best … 4=weakest), from games + team_seasons.tier
+async function _dnaTierSplits(key, season){
+  const yr=parseInt(season,10); if(!yr) return null;
+  window._tierMap=window._tierMap||{};
+  if(!window._tierMap[yr]){
+    try{ const rows=await fetch(`${SB_URL}/rest/v1/team_seasons?season_year=eq.${yr}&select=team,tier&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]);
+      const m={}; rows.forEach(r=>{ if(r.tier!=null) m[r.team]=r.tier; }); window._tierMap[yr]=m;
+    }catch(e){ window._tierMap[yr]={}; }
+  }
+  const tmap=window._tierMap[yr]; const enc=encodeURIComponent(key);
+  let games=[];
+  try{ games=await fetch(`${SB_URL}/rest/v1/games?or=(home.eq.${enc},away.eq.${enc})&season_year=eq.${yr}&status=eq.STATUS_FINAL&select=home,away,home_score,away_score&limit=120`,{headers:H}).then(r=>r.ok?r.json():[]); }
+  catch(e){ return null; }
+  if(!games.length) return null;
+  const T={1:{w:0,l:0,m:0},2:{w:0,l:0,m:0},3:{w:0,l:0,m:0},4:{w:0,l:0,m:0}};
+  games.forEach(g=>{ const home=g.home===key; const opp=home?g.away:g.home;
+    const my=home?g.home_score:g.away_score, th=home?g.away_score:g.home_score;
+    if(my==null||th==null) return; const tr=tmap[opp]; if(!T[tr]) return;
+    const b=T[tr]; if(my>th) b.w++; else b.l++; b.m+=(my-th); });
+  return T;
 }
 async function renderTeamDNA(){
   _dnaCSS();
@@ -4123,6 +4156,16 @@ async function renderTeamDNA(){
   const impactHtml=impacts.length?`<div class="dna-sec">What wins &amp; loses them games — points per game vs an average team</div>
     <div class="dna-imp">${impacts.map(([lbl,v])=>`<div class="dna-imp-row"><div class="dna-imp-lbl">${lbl}</div><div class="dna-imp-track"><div class="dna-imp-bar ${v>=0?'pos':'neg'}" style="${v>=0?'left:50%':'right:50%'};width:${(Math.abs(v)/impMax*48).toFixed(1)}%"></div></div><div class="dna-imp-val ${v>=0?'pos':'neg'}">${v>=0?'+':''}${v.toFixed(1)}</div></div>`).join('')}<div class="dna-imp-cap">Green wins them games, red costs them — these add up to roughly their net rating.</div></div>`:'';
   const netTier=nn=> nn>=24?'a national title contender':nn>=17?'a top-10 team':nn>=11?'a top-25 team':nn>=6?'a tournament team':nn>=1?'a bubble team':nn>=-4?'a middle-of-the-pack team':nn>=-10?'a losing team':nn>=-16?'a bottom-100 team':'one of the worst teams in the country';
+  // ── Record vs opponent tier (actual seasons only) ──
+  const tierSplits = PROJ ? null : await _dnaTierSplits(key, season);
+  const TSUB={1:'Elite · top 35',2:'Solid · top 75',3:'Mid-major',4:'Weakest'};
+  const tierHtml = tierSplits ? `<div class="dna-sec">Record by opponent tier — how they fared against each level of competition</div>
+    <div class="dna-tiers">${[1,2,3,4].map(tn=>{ const b=tierSplits[tn], g=b.w+b.l, avg=g?b.m/g:0;
+      return `<div class="dna-tierc${g?'':' empty'}"><div class="dna-tierl">Tier ${tn}</div><div class="dna-tierd">${TSUB[tn]}</div>`+
+        `<div class="dna-tierrec">${g?`${b.w}-${b.l}`:'—'}</div><div class="dna-tierlbl2">${g?'record':'no games'}</div>`+
+        (g?`<div class="dna-tierm ${avg>=0?'pos':'neg'}">${avg>=0?'+':''}${avg.toFixed(1)} <span>per game</span></div>`:'')+`</div>`;
+    }).join('')}</div>
+    <div class="dna-imp-cap" style="text-align:left;margin-top:9px;">Tier 1 = the 35 best teams in the country, Tier 4 = the weakest ~200. Records are their wins–losses vs each tier; the number below is average scoring margin per game. Beating Tier 1–2 teams is what separates real contenders from record-padders.</div>` : '';
   const bottomHtml = PROJ ? `
     <div class="dna-grid" style="grid-template-columns:1fr;">
       <div>
@@ -4146,9 +4189,9 @@ async function renderTeamDNA(){
         </div>
         <div class="dna-foot" style="margin-top:10px;">Their roster projected as <b>${netTier(pj.net)}</b>; they played like <b>${netTier(t.net)}</b>${Math.abs(projDelta)>=12?` — one of the season's biggest ${projDelta>=0?'surprises':'disappointments'}`:''}. (${t.w} wins vs ${t.exp_wins} expected on efficiency → ${(t.luck>=0?'+':'')+t.luck} ${t.luck>=0?'lucky':'unlucky'} in close games.)</div>
       </div>
-      <div><div class="dna-sec">Season Evolution</div><div class="dna-evo">${evc('Non-conf',ev.nonconf)}${evc('Conference',ev.conf)}${evc('Last 10',ev.last10)}</div></div>
-    </div>` : `
-    <div class="dna-grid">
+    </div>
+    ${tierHtml?`<div style="margin-top:26px;">${tierHtml}</div>`:''}` : `
+    <div class="dna-grid" style="grid-template-columns:1fr;">
       <div>
         <div class="dna-sec">Expected vs Actual</div>
         <div class="dna-luck">
@@ -4156,8 +4199,8 @@ async function renderTeamDNA(){
           <div class="dna-foot">Efficiency implies a <b>${t.exp_wins}-win</b> team; they went <b>${t.w}</b> → <b style="color:${t.luck>=0?'#5ab875':'#e07070'}">${(t.luck>=0?'+':'')+t.luck} ${t.luck>=0?'lucky':'unlucky'}</b> in close games (Pythagorean).</div>
         </div>
       </div>
-      <div><div class="dna-sec">Season Evolution</div><div class="dna-evo">${evc('Non-conf',ev.nonconf)}${evc('Conference',ev.conf)}${evc('Last 10',ev.last10)}</div></div>
-    </div>`);
+    </div>
+    ${tierHtml?`<div style="margin-top:26px;">${tierHtml}</div>`:''}`);
   const selOpts=seasons.filter(s=>findKey(DNA[s])).map(s=>`<option value="${s}"${s===season?' selected':''}>${slbl(s)}</option>`).join('');
   host.innerHTML=`
     <div class="dna-top">
