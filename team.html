@@ -4068,6 +4068,27 @@ function _dnaCSS(){ if(document.getElementById('dna-css')) return;
   .dna-trend-btn.on{background:var(--tc,var(--accent));color:#fff;}
   .dna-trend-note{font-size:12px;color:var(--text2);font-weight:600;}
   .dna-trend-note b.pos{color:#5ab875;} .dna-trend-note b.neg{color:#e07070;}
+  /* Style splits — record vs opponent types */
+  .dna-styles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:6px;}
+  @media(max-width:760px){.dna-styles{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:460px){.dna-styles{grid-template-columns:1fr;}}
+  .dna-stylec{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .dna-stylel{font-size:12.5px;font-weight:700;color:var(--text2);}
+  .dna-styln{font-size:10px;color:var(--text3);margin-top:1px;}
+  .dna-styver{text-align:right;}
+  .dna-stylrec{font-family:'Playfair Display',serif;font-weight:800;font-size:21px;line-height:1;}
+  .dna-stylm{font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:2px;}
+  .dna-stylm.pos{color:#5ab875;} .dna-stylm.neg{color:#e07070;}
+  /* Matchup projector */
+  .dna-mu{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:6px;}
+  .dna-mu-pick{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .dna-mu-pick label{font-size:12.5px;font-weight:700;color:var(--text2);}
+  .dna-mu-sel{background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;padding:7px 11px;font-family:inherit;min-width:220px;}
+  .dna-mu-res{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
+  .dna-mu-line{font-size:16px;font-weight:600;} .dna-mu-line b{font-family:'Playfair Display',serif;font-size:20px;}
+  .dna-mu-line b.pos{color:#5ab875;} .dna-mu-line b.neg{color:#e07070;}
+  .dna-mu-wp{font-size:13px;font-weight:700;color:var(--tc,var(--accent));margin-top:3px;}
+  .dna-mu-sub{font-size:11px;color:var(--text3);margin-top:8px;line-height:1.5;}
   `;
   document.head.appendChild(c);
 }
@@ -4079,9 +4100,9 @@ async function _dnaGameSeries(key, season){
   const enc=encodeURIComponent(key);
   let mine=[],opp=[];
   try{
-    mine=await fetch(`${SB_URL}/rest/v1/box_scores?team=eq.${enc}&season_year=eq.${yr}&select=game_id,date,pts,fga,fgm,tpm,fta,oreb,tov&limit=3000`,{headers:H}).then(r=>r.ok?r.json():[]);
-    opp =await fetch(`${SB_URL}/rest/v1/box_scores?opp=eq.${enc}&season_year=eq.${yr}&select=game_id,pts,fga,fta,oreb,tov&limit=3000`,{headers:H}).then(r=>r.ok?r.json():[]);
-  }catch(e){ window._dnaSeriesCache[ck]=null; return null; }
+    let r=await fetch(`${SB_URL}/rest/v1/box_scores?team=eq.${enc}&season_year=eq.${yr}&select=game_id,date,pts,fga,fgm,tpm,fta,oreb,tov&limit=3000`,{headers:H}); if(!r.ok) throw 0; mine=await r.json();
+    r=await fetch(`${SB_URL}/rest/v1/box_scores?opp=eq.${enc}&season_year=eq.${yr}&select=game_id,pts,fga,fta,oreb,tov&limit=3000`,{headers:H}); if(!r.ok) throw 0; opp=await r.json();
+  }catch(e){ return null; }  // transient failure — don't cache, retry next render
   if(!mine.length){ window._dnaSeriesCache[ck]=null; return null; }
   const T={},O={};
   mine.forEach(r=>{ const g=T[r.game_id]||(T[r.game_id]={date:r.date,pts:0,fga:0,fgm:0,tpm:0,fta:0,oreb:0,tov:0}); ['pts','fga','fgm','tpm','fta','oreb','tov'].forEach(k=>g[k]+=(r[k]||0)); });
@@ -4093,27 +4114,78 @@ async function _dnaGameSeries(key, season){
   window._dnaSeriesCache[ck]=games.length>=6?games:null;
   return window._dnaSeriesCache[ck];
 }
-// Record + avg margin vs each opponent tier (1=best … 4=weakest), from games + team_seasons.tier
+// Shared per-game list for a team-season: [{opp, margin, win}] (cached)
+async function _dnaGamesList(key, season){
+  const yr=parseInt(season,10); if(!yr) return null;
+  window._dnaGL=window._dnaGL||{}; const ck=key+'|'+yr;
+  if(window._dnaGL[ck]!==undefined) return window._dnaGL[ck];
+  const enc=encodeURIComponent(key); let g=[];
+  try{ const r=await fetch(`${SB_URL}/rest/v1/games?or=(home.eq.${enc},away.eq.${enc})&season_year=eq.${yr}&status=eq.STATUS_FINAL&select=home,away,home_score,away_score&limit=120`,{headers:H}); if(!r.ok) throw 0; g=await r.json(); }
+  catch(e){ return null; }  // transient failure — don't cache, retry next render
+  const out=g.map(x=>{ const home=x.home===key; const opp=home?x.away:x.home;
+    const my=home?x.home_score:x.away_score, th=home?x.away_score:x.home_score;
+    return (my==null||th==null)?null:{opp, margin:my-th, win:my>th}; }).filter(Boolean);
+  window._dnaGL[ck]=out.length?out:null; return window._dnaGL[ck];
+}
+// Record + avg margin vs each opponent tier (1=best … 4=weakest)
 async function _dnaTierSplits(key, season){
   const yr=parseInt(season,10); if(!yr) return null;
   window._tierMap=window._tierMap||{};
-  if(!window._tierMap[yr]){
+  if(!window._tierMap[yr] || !Object.keys(window._tierMap[yr]).length){  // don't cache an empty/failed fetch
     try{ const rows=await fetch(`${SB_URL}/rest/v1/team_seasons?season_year=eq.${yr}&select=team,tier&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]);
-      const m={}; rows.forEach(r=>{ if(r.tier!=null) m[r.team]=r.tier; }); window._tierMap[yr]=m;
-    }catch(e){ window._tierMap[yr]={}; }
+      if(rows.length){ const m={}; rows.forEach(r=>{ if(r.tier!=null) m[r.team]=r.tier; }); window._tierMap[yr]=m; }
+    }catch(e){}
   }
-  const tmap=window._tierMap[yr]; const enc=encodeURIComponent(key);
-  let games=[];
-  try{ games=await fetch(`${SB_URL}/rest/v1/games?or=(home.eq.${enc},away.eq.${enc})&season_year=eq.${yr}&status=eq.STATUS_FINAL&select=home,away,home_score,away_score&limit=120`,{headers:H}).then(r=>r.ok?r.json():[]); }
-  catch(e){ return null; }
-  if(!games.length) return null;
+  const tmap=window._tierMap[yr]; if(!tmap||!Object.keys(tmap).length) return null;
+  const games=await _dnaGamesList(key, season); if(!games) return null;
   const T={1:{w:0,l:0,m:0},2:{w:0,l:0,m:0},3:{w:0,l:0,m:0},4:{w:0,l:0,m:0}};
-  games.forEach(g=>{ const home=g.home===key; const opp=home?g.away:g.home;
-    const my=home?g.home_score:g.away_score, th=home?g.away_score:g.home_score;
-    if(my==null||th==null) return; const tr=tmap[opp]; if(!T[tr]) return;
-    const b=T[tr]; if(my>th) b.w++; else b.l++; b.m+=(my-th); });
+  games.forEach(g=>{ const tr=tmap[g.opp]; if(!T[tr]) return;
+    const b=T[tr]; if(g.win) b.w++; else b.l++; b.m+=g.margin; });
   return T;
 }
+// Record + avg margin vs each opponent STYLE (uses opponents' Team DNA percentiles)
+async function _dnaStyleSplits(key, season, S, teams){
+  const games=await _dnaGamesList(key, season); if(!games) return null;
+  const vals=m=>teams.filter(x=>x[m]!=null).map(x=>x[m]);
+  const pctOf=(v,m,hi=true)=>{ if(v==null) return null; const a=vals(m); if(!a.length) return null;
+    const below=a.filter(x=>x<v).length; const p=100*below/a.length; return hi?p:100-p; };
+  const BUCKETS=[
+    ['Top-25 teams',       o=>pctOf(o.net,'net')>=93],
+    ['Elite offenses',     o=>pctOf(o.ORtg,'ORtg')>=80],
+    ['Elite defenses',     o=>pctOf(o.DRtg,'DRtg',false)>=80],
+    ['Fast-paced teams',   o=>pctOf(o.tempo,'tempo')>=72],
+    ['Slow, grind-it-out', o=>pctOf(o.tempo,'tempo')<=28],
+    ['Elite rebounding',   o=>pctOf(o.oORB,'oORB')>=78],
+  ];
+  const res=BUCKETS.map(([lbl,test])=>{ let w=0,l=0,m=0,n=0;
+    games.forEach(g=>{ const o=S.teams[g.opp]; if(!o) return; let hit=false; try{hit=test(o);}catch(e){} if(!hit) return;
+      n++; if(g.win) w++; else l++; m+=g.margin; });
+    return {lbl, w, l, n, avg:n?m/n:0}; }).filter(x=>x.n>=2);
+  return res.length?res:null;
+}
+// Matchup projector — expected margin & win% from two teams' efficiency (log5-style)
+function _dnaMatchup(oppKey){
+  const S=window._teamDNA&&window._teamDNA[window._dnaSeason]; if(!S) return;
+  const el=document.getElementById('dnaMatchupOut'); if(!el) return;
+  const myName=window._dnaMatchName||'This team';
+  const teamKey=window._dnaMatchTeam, t=S.teams[teamKey], o=S.teams[oppKey];
+  if(!o||!t){ el.innerHTML=''; return; }
+  const teams=Object.values(S.teams);
+  const avg=m=>{ const a=teams.filter(x=>x[m]!=null).map(x=>x[m]); return a.length?a.reduce((s,x)=>s+x,0)/a.length:100; };
+  const avgD=avg('DRtg');
+  const teamExpO=t.ORtg+(o.DRtg-avgD);      // our offense vs their defense
+  const oppExpO =o.ORtg+(t.DRtg-avgD);      // their offense vs our defense
+  const poss=((t.tempo||68)+(o.tempo||68))/2;
+  const margin=(teamExpO-oppExpO)*poss/100;
+  const wpMe=Math.max(1,Math.min(99,Math.round(100*(0.5*(1+_erf(margin/(11*Math.SQRT2)))))));
+  const fav=margin>=0;
+  el.innerHTML=`<div class="dna-mu-res">
+      <div class="dna-mu-line">Projected: <b class="${fav?'pos':'neg'}">${fav?myName:oppKey}</b> by <b>${Math.abs(margin).toFixed(1)}</b></div>
+      <div class="dna-mu-wp">${wpMe}% win probability for ${myName}</div>
+      <div class="dna-mu-sub">${myName}'s offense projects to <b>${teamExpO.toFixed(0)}</b>/100 possessions vs their defense; the opponent's to <b>${oppExpO.toFixed(0)}</b>/100 vs yours. Expected pace ≈ <b>${poss.toFixed(0)}</b> possessions. Neutral floor, efficiency-based — doesn't account for injuries or individual player matchups.</div>
+    </div>`;
+}
+function _erf(x){ const t=1/(1+0.3275911*Math.abs(x)); const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x); return x>=0?y:-y; }
 async function renderTeamDNA(){
   _dnaCSS();
   const host=document.getElementById('teamDnaHost'); if(!host) return;
@@ -4241,6 +4313,19 @@ async function renderTeamDNA(){
         <div class="dna-imp-cap" style="text-align:left;margin-top:4px;">Each dot is one game (green win, red loss); the line is the ${win}-game rolling average. Switch the metric to see whether the offense, defense, or shooting was what changed.</div>
       </div>`;
   }
+  // ── Team types (style splits) + matchup projector ──
+  window._dnaMatchTeam=key; window._dnaMatchName=teamT.name;
+  const styleSplits = PROJ ? null : await _dnaStyleSplits(key, season, S, teams);
+  const styleHtml = styleSplits ? `<div class="dna-sec">Team types — how they did against different styles of opponent</div>
+    <div class="dna-styles">${styleSplits.map(s=>`<div class="dna-stylec"><div><div class="dna-stylel">${s.lbl}</div><div class="dna-styln">${s.n} games</div></div><div class="dna-styver"><div class="dna-stylrec">${s.w}-${s.l}</div><div class="dna-stylm ${s.avg>=0?'pos':'neg'}">${s.avg>=0?'+':''}${s.avg.toFixed(1)}/gm</div></div></div>`).join('')}</div>
+    <div class="dna-imp-cap" style="text-align:left;margin-top:9px;">Styles come from each opponent's own Team DNA (top-quartile offense, defense, pace, rebounding); a game can fall in more than one. This is where real strengths and soft spots surface — e.g. a good offense that still can't score against elite defenses.</div>` : '';
+  const oppKeys=Object.keys(S.teams).filter(k=>k!==key).sort((a,b)=>(S.teams[b].net!=null?S.teams[b].net:-99)-(S.teams[a].net!=null?S.teams[a].net:-99));
+  const oppOpts=oppKeys.map(k=>`<option value="${k.replace(/"/g,'&quot;')}">${k}${S.teams[k].net!=null?' ('+(S.teams[k].net>=0?'+':'')+S.teams[k].net+')':''}</option>`).join('');
+  const matchupHtml = oppKeys.length? `<div class="dna-sec">Matchup projector — project ${teamT.name} against any team${PROJ?' (2026-27 projected)':' ('+_dnaSeasonLbl(season)+')'}</div>
+    <div class="dna-mu">
+      <div class="dna-mu-pick"><label>Opponent:</label><select class="dna-mu-sel" onchange="_dnaMatchup(this.value)"><option value="">Select a team…</option>${oppOpts}</select></div>
+      <div id="dnaMatchupOut"></div>
+    </div>` : '';
   const bottomHtml = PROJ ? `
     <div class="dna-grid" style="grid-template-columns:1fr;">
       <div>
@@ -4291,7 +4376,9 @@ async function renderTeamDNA(){
       <div><div class="dna-sec">Strength Radar</div><div style="display:flex;justify-content:center;">${radar}</div></div>
     </div>
     ${trendHtml?`<div style="margin-top:26px;">${trendHtml}</div>`:''}
+    ${styleHtml?`<div style="margin-top:26px;">${styleHtml}</div>`:''}
     ${bottomHtml}
+    ${matchupHtml?`<div style="margin-top:26px;">${matchupHtml}</div>`:''}
     <div class="dna-foot" style="border-top:1px solid var(--border);padding-top:12px;">${PROJ?`Projected DNA — the roster→team model is calibrated on 20 seasons (offense R²≈0.9, defense ≈0.6). Win-path weights use the national win model: +5% eFG ≈ <b>${wm.oeFG}</b> pts, turnovers <b>${Math.abs(wm.oTOV)}</b>, off. rebounds <b>${wm.oORB}</b>.`:`National win model (${_dnaSeasonLbl(season)}, R²=${S.meta.r2}): a +5% swing is worth about <b>${wm.oeFG}</b> pts (eFG), <b>${Math.abs(wm.oTOV)}</b> (turnovers), <b>${wm.oORB}</b> (off. rebounds), <b>${wm.oFTr}</b> (FT rate) — measured against all ${N} D1 teams that season.`}</div>`;
 }
 
