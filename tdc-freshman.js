@@ -214,18 +214,35 @@
     render();
   }
 
-  // Collect the owner's saved freshman OVRs as a grade-override map for the
-  // projected-ratings rebuild (keyed off the stored blob "tdc_fr:<team>:<name>").
-  function gradeOverrides(){ var out={byEspn:{},byNameTeam:{}};
+  // Estimated Box Plus/Minus from a projected box-score line — so a freshman is
+  // valued by his PROJECTED STATS on the same scale as returners (whose real BPM
+  // drives the rankings). Coefficients fit to 20 yrs of bbref (bpm ~ per-36 box +
+  // TS% + usage), R²≈0.59. See scripts/fit_bpm notes.
+  function estBPM(L){
+    var mpg=Math.max(8, parseFloat(L.mpg)||20), k=36/mpg;
+    var pts=parseFloat(L.ppg)||0, trb=parseFloat(L.rpg)||0, ast=parseFloat(L.apg)||0,
+        stl=parseFloat(L.stl)||0, blk=parseFloat(L.blk)||0, tov=parseFloat(L.tovs)||0,
+        fga=parseFloat(L.fga)||Math.max(2,mpg*0.30), fta=parseFloat(L.fta)||0;
+    var tsa=fga+0.44*fta, ts=tsa>0?pts/(2*tsa):0.53;
+    var poss=fga+0.44*fta+tov, teamPoss=(mpg/40)*68, usg=teamPoss>0?100*poss/teamPoss:20;
+    return -3.9475 + 0.1852*pts*k + 0.2810*trb*k + 1.1877*ast*k + 1.7021*stl*k
+           + 1.1577*blk*k - 2.6101*tov*k + 0.2469*(ts-0.53)*100 + 0.1772*(usg-20);
+  }
+  // Collect the owner's saved freshman projections as a {bpm, min} override map
+  // for the projected-ratings rebuild (keyed off the stored blob). Each profile
+  // stores _bpm/_min computed from its projected line at save time.
+  function ratingOverrides(){ var out={byEspn:{},byNameTeam:{}};
     if(_blob&&typeof _blob==='object') Object.keys(_blob).forEach(function(k){
-      var pr=_blob[k]; if(!pr||pr.ovr==null||pr.ovr==='') return;
+      var pr=_blob[k]; if(!pr||pr._bpm==null) return;
+      var val={bpm:pr._bpm, min:pr._min};
       var rest=k.replace(/^tdc_fr:/,''), i=rest.indexOf(':'); if(i<0) return;
-      out.byNameTeam[(rest.slice(0,i)+'|'+rest.slice(i+1)).toLowerCase()]=parseFloat(pr.ovr);
+      out.byNameTeam[(rest.slice(0,i)+'|'+rest.slice(i+1)).toLowerCase()]=val;
+      if(pr._espn) out.byEspn[pr._espn]=val;
     });
     return out; }
 
   window.TDCFresh={
-    isOwner:isOwner, isFreshman:isFreshman, load:load, profileFor:profileFor, line:line, archetypeOf:archetypeOf, openEditor:openEditor, gradeOverrides:gradeOverrides,
+    isOwner:isOwner, isFreshman:isFreshman, load:load, profileFor:profileFor, line:line, archetypeOf:archetypeOf, openEditor:openEditor, estBPM:estBPM, ratingOverrides:ratingOverrides,
     _set:function(k,v){ if(k==='archetype')_d.archetype=v; else if(k==='role')_d.role=v; render(); },
     _setSlider:function(k,v){ _d.sliders[k]=+v; preview(); },
     _setOvr:function(v){ _d.ovr=+v; preview(); },
@@ -234,13 +251,16 @@
     _save:function(){
       var p=_p, cb=_onSaved, btn=document.getElementById('frSaveBtn'), msg=document.getElementById('frMsg');
       if(btn){ btn.textContent='Saving…'; btn.disabled=true; }
+      // Store the projected line's stat-derived BPM + minutes so the rankings value
+      // him by his projected STATS (not his OVR), same currency as returners.
+      try{ var L=line(p,_d); _d._bpm=Math.round(estBPM(L)*100)/100; _d._min=parseFloat(L.mpg)||null; if(p.espn_id!=null&&p.espn_id!=='') _d._espn=p.espn_id; }catch(e){}
       saveProfile(p,_d).then(function(res){
         if(msg){ msg.textContent=(res&&res.ok)?'✓ Saved to your account':'✓ Saved (offline — will sync)'; msg.classList.add('show'); }
         if(cb) cb();
-        // Canonical: rebuild the shared projected rankings with the freshman OVRs baked in.
+        // Canonical: rebuild the shared projected rankings from the freshman's projected stats.
         if(window.TDC_RATINGS && isOwner() && res && res.ok){
           if(msg) msg.textContent='✓ Saved · updating rankings…';
-          TDC_RATINGS.rebuild(gradeOverrides()).then(function(){
+          TDC_RATINGS.rebuild(ratingOverrides()).then(function(){
             if(msg) msg.textContent='✓ Saved · rankings updated'; setTimeout(close, 700);
           }).catch(function(){ if(msg) msg.textContent='✓ Saved (rankings will update on next load)'; setTimeout(close, 900); });
         } else { setTimeout(close, 750); }

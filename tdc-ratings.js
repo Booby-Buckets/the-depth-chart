@@ -128,8 +128,9 @@
     });
   }
 
-  // Owner's freshman OVR overrides, applied to player grades during a rebuild()
-  // so freshman projections move the canonical projected rankings.
+  // Owner's freshman projection overrides {byEspn/byNameTeam: {bpm, min}}, applied
+  // during a rebuild() so a freshman's PROJECTED STATS (not his OVR) move the
+  // canonical projected rankings — same stat-derived currency as returners.
   let _ovr=null;
   async function compute(){
     const [teams, players, bb, ts, hcaData]=await Promise.all([
@@ -157,18 +158,22 @@
     Object.keys(byTeam).forEach(short=>{
       const roster=byTeam[short];
       let entries=roster.map(p=>{
-        let grade=parseFloat(p.tdc_grade)||70;
-        if(_ovr){ const ov=(p.espn_id!=null&&_ovr.byEspn&&_ovr.byEspn[p.espn_id]!=null)?_ovr.byEspn[p.espn_id]
-                    :(_ovr.byNameTeam&&_ovr.byNameTeam[((p.team||'')+'|'+(p.name||'')).toLowerCase()]);
-          if(ov!=null&&!isNaN(parseFloat(ov))) grade=parseFloat(ov); }
+        const grade=parseFloat(p.tdc_grade)||70;
         const c=cls(p.yr||p.class_year);
         const adv=p.espn_id!=null?advById[p.espn_id]:null;
         const bpm=adv?parseFloat(adv.bpm):NaN;
-        const projBpm=isFinite(bpm)?(0.635+0.785*bpm+(CLS_BUMP[c]||0)):((grade-77)*0.55-0.6);
+        let projBpm=isFinite(bpm)?(0.635+0.785*bpm+(CLS_BUMP[c]||0)):((grade-77)*0.55-0.6);
         const isTr=!!(p.hometown&&(''+p.hometown).trim());
         const hasStats=(parseFloat(p.ppg)||0)>0;
-        const min=hasStats?Math.max(4,(parseFloat(p.mpg)||8)*(isTr?0.95:1))
+        let min=hasStats?Math.max(4,(parseFloat(p.mpg)||8)*(isTr?0.95:1))
                           :(grade>=92?26:grade>=88?22:grade>=82?15:grade>=78?10:6);
+        // Owner's freshman projection: value him by his PROJECTED STATS (a BPM
+        // computed from the projected box score) and projected minutes — the same
+        // currency as returners — rather than the grade/OVR fallback.
+        if(_ovr){ const ov=(p.espn_id!=null&&_ovr.byEspn&&_ovr.byEspn[p.espn_id])?_ovr.byEspn[p.espn_id]
+                    :(_ovr.byNameTeam&&_ovr.byNameTeam[((p.team||'')+'|'+(p.name||'')).toLowerCase()]);
+          if(ov){ if(ov.bpm!=null&&!isNaN(+ov.bpm)) projBpm=+ov.bpm;
+                  if(ov.min!=null&&!isNaN(+ov.min)) min=Math.max(4,+ov.min); } }
         return {projBpm,min};
       });
       // rotation reality: 200 minutes, best players first — cap at 9 rotation spots
@@ -249,10 +254,10 @@
     return _loading;
   }
 
-  // Recompute the projected ratings with freshman OVR overrides applied and
+  // Recompute the projected ratings with freshman projection overrides applied and
   // republish them as the shared source of truth (predictive_ratings). Called by
-  // the freshman editor on save so a freshman's projection moves the rankings.
-  // overrides = { byEspn:{[espn_id]:ovr}, byNameTeam:{['team|name'(lowercase)]:ovr} }.
+  // the freshman editor on save so a freshman's PROJECTED STATS move the rankings.
+  // overrides = { byEspn:{[espn_id]:{bpm,min}}, byNameTeam:{['team|name']:{bpm,min}} }.
   async function rebuild(overrides){
     _ovr=overrides||null;
     let data;
