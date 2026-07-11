@@ -2747,7 +2747,11 @@ function _tsPct(s){ const t=s._advanced&&s._advanced.ts_pct; if(t!=null&&t!=='')
 function renderRankings(){
   const host=document.getElementById('rankingsContent'); if(!host) return;
   const hist=_dedupHist();
-  const s=hist.length?hist[hist.length-1]:player;        // grade the latest actual season
+  // Projected freshman (no played season): grade from the projection — profile OVR
+  // + projected stats — so the Overall Grade matches the editor OVR, not the empty
+  // actual line (which showed the stale players.tdc_grade and all-zero bars).
+  const _fr = !hist.length && window.TDCFresh && TDCFresh.isFreshman(player) && proj && (parseFloat(proj.ppg)>0 || proj._noStatEst || proj._frosh);
+  const s = _fr ? proj : (hist.length?hist[hist.length-1]:player);   // grade the latest actual season (or the projection)
   const grp=_norm3(s.position||player.position);
   const g=parseInt(s.tdc_grade!=null?s.tdc_grade:player.tdc_grade);
   const conf=(teamData&&(teamData.conf||teamData.conference))||'';
@@ -2771,7 +2775,7 @@ function renderRankings(){
       <div class="rk-gradebox">
         <div class="rk-grade" style="color:${gradeC};">${isNaN(g)?'—':g}</div>
         <div class="rk-grade-lbl">Overall Grade</div>
-        <div class="rk-season">${_seasonLbl(s.season_year)||''}</div>
+        <div class="rk-season">${_fr?'2026-27 Projected':(_seasonLbl(s.season_year)||'')}</div>
         ${s.wa!=null?`<div class="rk-wa"><div class="rk-wa-num">${(s.wa>=0?'+':'')+Number(s.wa).toFixed(1)}</div><div class="rk-wa-lbl">Wins Added</div></div>`:''}
       </div>
       <div class="rk-explain">
