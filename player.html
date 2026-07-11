@@ -3493,7 +3493,10 @@ async function renderArchetype(){
     try{ var rt=await fetch(SB+'/rest/v1/teams?select=name,conf',{headers:H}); window._teamConf={}; (rt.ok?await rt.json():[]).forEach(function(t){window._teamConf[t.name]=t.conf||'';}); }catch(e){ window._teamConf={}; }
   }
   var grp=_norm3(player.position);
-  var pf=_feat(player), ph=_htIn(player.height);
+  // Match on the player's PROJECTED line (identical to the radar/Impact basis), not the
+  // raw players-table row — otherwise freshmen (ppg=null → 0) comp to other zero-stat
+  // players instead of real seasons that resemble their predicted production.
+  var pf=_feat(playerProjLine()), ph=_htIn(player.height);
 
   // projected (2026-27) percentile pool — every player's predicted line, so the
   // archetype ranks predicted production against predicted peers (same basis as Impact)
