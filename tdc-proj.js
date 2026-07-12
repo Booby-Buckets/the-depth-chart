@@ -184,12 +184,29 @@ const PROJ_SCHOOL_CONF=(function(){
 
 function getSchoolConfFallback(school){ return getProjSchoolConf(school); }
 
+// Abbreviations / divergent names that a substring match gets WRONG. Most critical:
+// "Penn" (Univ. of Pennsylvania, Ivy) was matching "Penn State" (B10) → no transfer
+// translation, so an Ivy scorer projected like a high-major. Explicit wins.
+const PROJ_CONF_ALIAS={
+  'penn':'Ivy','pitt':'ACC','uconn':'Big-East','ole miss':'SEC','st johns':'Big-East',
+  "st. john's":'Big-East','usc':'B10','ucla':'B10','byu':'BIG-12','tcu':'BIG-12','smu':'ACC',
+  'vcu':'A10','umass':'A10','unlv':'MWC','uab':'AAC','app state':'Sun Belt','fau':'AAC',
+  'fgcu':'ASUN','etsu':'SoCon','vmi':'SoCon','uic':'MVC','umkc':'Summit','ccsu':'NEC',
+  'liu':'NEC','fdu':'NEC','umbc':'AEC','nc state':'ACC','unc':'ACC','uc davis':'Big West',
+  'saint marys':'WCC',"saint mary's":'WCC','ucf':'BIG-12','lsu':'SEC','miami (fl)':'ACC',
+  'miami (oh)':'MAC'
+};
 function getProjSchoolConf(school){
   if(!school) return null;
   const lo=school.toLowerCase().trim();
-  if(PROJ_SCHOOL_CONF[lo]) return PROJ_SCHOOL_CONF[lo];
-  // Fuzzy match
+  if(PROJ_CONF_ALIAS[lo]) return PROJ_CONF_ALIAS[lo];      // abbreviations first
+  if(PROJ_SCHOOL_CONF[lo]) return PROJ_SCHOOL_CONF[lo];     // exact
+  // word-boundary match either direction (so "penn" never grabs "penn state")
   for(const k of Object.keys(PROJ_SCHOOL_CONF)){
+    if(k===lo || k.startsWith(lo+' ') || lo.startsWith(k+' ')) return PROJ_SCHOOL_CONF[k];
+  }
+  // loose substring only when the query is long enough to be unambiguous
+  if(lo.length>=6) for(const k of Object.keys(PROJ_SCHOOL_CONF)){
     if(lo.includes(k)||k.includes(lo)) return PROJ_SCHOOL_CONF[k];
   }
   return null;
