@@ -10,7 +10,13 @@ from collections import defaultdict
 SB="https://izlqhnxowdhtdofkwrho.supabase.co"; K="sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
 H={"apikey":K,"Authorization":"Bearer "+K}
 OUT=pathlib.Path(__file__).parent/"data"/"player_dna.json"
-def GET(p,to=90): return json.load(urllib.request.urlopen(urllib.request.Request(SB+"/rest/v1/"+p,headers=H),timeout=to))
+import time
+def GET(p,to=90):
+    for a in range(4):
+        try: return json.load(urllib.request.urlopen(urllib.request.Request(SB+"/rest/v1/"+p,headers=H),timeout=to))
+        except Exception as e:
+            if a==3: raise
+            time.sleep(2*(a+1))
 def f(d,k):
     try:
         v=d.get(k); return float(v) if v not in (None,"") else None
@@ -19,11 +25,11 @@ def htin(h):
     import re; m=re.match(r"(\d+)-(\d+)",str(h or "")); return int(m[1])*12+int(m[2]) if m else None
 
 def sweep(S):
-    rows=[];off=0
+    rows=[];last=""
     while True:
-        b=GET(f"bbref_seasons?season_year=eq.{S}&espn_id=not.is.null&select=espn_id,player,school,pos,height,pergame,advanced,tdc_grade&order=bbref_id.asc&limit=1000&offset={off}")
+        b=GET(f"bbref_seasons?season_year=eq.{S}&espn_id=not.is.null&bbref_id=gt.{last}&select=bbref_id,espn_id,player,school,pos,height,pergame,advanced,tdc_grade&order=bbref_id.asc&limit=1000")
         if not b: break
-        rows+=b; off+=1000
+        rows+=b; last=b[-1]["bbref_id"]
         if len(b)<1000: break
     print(f"[{S}] {len(rows)} bbref player-seasons",flush=True)
     P={}
@@ -77,5 +83,5 @@ def sweep(S):
 data=json.loads(OUT.read_text()) if OUT.exists() else {}
 for s in [int(x) for x in sys.argv[1:]] or [2026]:
     data[str(s)]=sweep(s); print(f"[{s}] {len(data[str(s)]['players'])} players, {data[str(s)]['n_rotation']} rotation.",flush=True)
-OUT.write_text(json.dumps(data,separators=(',',':')))
+    OUT.write_text(json.dumps(data,separators=(',',':')))
 print("wrote",OUT,flush=True)

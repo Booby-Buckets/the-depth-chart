@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script src="auth.js"></script>
+  <script src="auth.js?v=photos1"></script>
   <script src="team-colors.js"></script>
   <script src="tdc-shotchart.js?v=9"></script>
   <script src="tdc-shotflow.js?v=8"></script>
@@ -2719,7 +2719,7 @@ function renderCustomize(t, players, color, rgb, gp){
 let _squadSel = null;
 function _sqAttr(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function _sqInit(n){ return (n||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase(); }
-function _sqHead(eid){ return eid?`<img src="https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/${eid}.png" alt="" onerror="this.remove()"/>`:''; }
+function _sqHead(eid){ return (eid&&window.tdcShowPhotos&&window.tdcShowPhotos())?`<img src="https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/${eid}.png" alt="" onerror="this.remove()"/>`:''; }
 function _sqCol(g){ g=parseFloat(g); const dk=document.documentElement.getAttribute('data-theme')==='dark'; if(isNaN(g))return 'var(--text3)'; if(g>=88)return dk?'#5ab875':'#1a8c3a'; if(g>=80)return dk?'#e6d5a8':'#a06000'; if(g>=72)return 'var(--text)'; return 'var(--text2)'; }
 const _COURT_XY={ C:{x:58,y:19}, PF:{x:31,y:28}, SF:{x:19,y:57}, SG:{x:81,y:57}, PG:{x:50,y:77} };
 function _squadData(){
@@ -5853,7 +5853,7 @@ function renderProjNatlChart(projected, color, rgb){
     var C=2*Math.PI*44, frac=hasG?Math.max(0,Math.min(1,grade/99)):0, off=C*(1-frac);
     var ring='<svg class="pspot-ring" viewBox="0 0 96 96" width="96" height="96"><circle cx="48" cy="48" r="44" fill="none" stroke="var(--border2)" stroke-width="4"/>'+
       (hasG?'<circle cx="48" cy="48" r="44" fill="none" stroke="'+gcol+'" stroke-width="4" stroke-linecap="round" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'" transform="rotate(-90 48 48)"/>':'')+'</svg>';
-    var img=espn?'<img src="https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+espn+'.png" alt="" onerror="this.remove()"/>':'';
+    var img=(espn&&window.tdcShowPhotos&&window.tdcShowPhotos())?'<img src="https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+espn+'.png" alt="" onerror="this.remove()"/>':'';
     var link='player.html?'+(espn?'espn='+espn+'&':'')+'name='+encodeURIComponent(nm);
     var badge=hasG?'<div class="pspot-badge" style="color:'+gcol+';border-color:'+gcol+'">'+Math.round(grade)+'<span class="pspot-badge-l">OVR</span></div>':'';
     // Badges shield (team-colored), with gold/silver/bronze tier counts

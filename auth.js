@@ -64,4 +64,14 @@
   } catch (e) {}
 
   window.tdcRefreshIfNeeded = refreshIfNeeded;
+
+  // Owner-only photo gate: real player headshots (hotlinked ESPN images / photo_url)
+  // render ONLY when the OWNER is signed in, so they aren't exposed to the public.
+  // Everyone else (signed out or other accounts) gets the initial/placeholder.
+  // Every page gates its player <img> tags on window.tdcShowPhotos().
+  var OWNER = 'blee4824@gmail.com';
+  window.tdcShowPhotos = function () {
+    try { var s = get(); return !!(s && s.user && ('' + (s.user.email || '')).toLowerCase() === OWNER); }
+    catch (e) { return false; }
+  };
 })();

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script src="auth.js"></script>
+  <script src="auth.js?v=photos1"></script>
   <script src="team-colors.js"></script>
   <script src="tdc-ratings.js"></script>
   <script src="tdc-freshman.js"></script>
@@ -1480,7 +1480,7 @@ async function renderShowcase(){
       const g=+p.tdc_grade, cls=g>=99?'sc-g99':'';
       const link=p.espn_id?`player.html?espn=${p.espn_id}`:`player.html?name=${encodeURIComponent(p.player)}&team=${encodeURIComponent(p.school||'')}`;
       const init=(p.player||'?').split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
-      const img=p.espn_id?`<img class="sc-ph-img" src="https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/${p.espn_id}.png" alt="" loading="lazy" onerror="this.remove()"/>`:'';
+      const img=(p.espn_id&&window.tdcShowPhotos&&window.tdcShowPhotos())?`<img class="sc-ph-img" src="https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/${p.espn_id}.png" alt="" loading="lazy" onerror="this.remove()"/>`:'';
       return `<a class="sc-player" href="${link}">
         <div class="sc-ph"><span class="sc-ph-init">${init}</span>${img}<span class="sc-badge ${cls}">${g}</span></div>
         <div class="sc-pname">${p.player}</div><div class="sc-pteam">${p.school}</div></a>`;
