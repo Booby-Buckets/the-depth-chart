@@ -6,7 +6,7 @@
   <script src="team-colors.js"></script>
   <script src="tdc-shotchart.js?v=9"></script>
   <script src="tdc-shotflow.js?v=8"></script>
-  <script src="tdc-nil.js"></script>
+  <script src="tdc-nil.js?v=grade1"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-proj.js?v=coach1"></script>
   <script src="tdc-freshman.js"></script>
@@ -3196,62 +3196,48 @@ function _tabScrollHint(){
 }
 window.addEventListener('resize',_tabScrollHint);
 
-function renderNilPlayer(){
+async function renderNilPlayer(){
   const host=document.getElementById('nilContent'); if(!host) return;
   const N=window.TDC_NIL; if(!N){ host.innerHTML='<div style="padding:40px;color:var(--text3)">NIL model not loaded.</div>'; return; }
   const col=((typeof teamColor_g!=='undefined')?teamColor_g:null)||'#888', fmt=N.fmt;
-  // manual overrides (injury, versatility, hyped recruits, non-D1 transfers) — load once, then re-render
-  if(window._nilOverrides===undefined){ window._nilOverrides=null; fetch('nil-overrides.json').then(r=>r.json()).then(d=>{window._nilOverrides=(d&&d.by_name)||{}; renderNilPlayer();}).catch(()=>{window._nilOverrides={};}); }
-  const _ovr=(window._nilOverrides&&player&&window._nilOverrides[(player.name||'').trim()])||null;
+  const team=(player&&player.team)||'';
   const conf=((typeof teamData!=='undefined'&&teamData&&(teamData.conf||teamData.conference)))||(player&&(player.conf||player.conference))||'';
-  const nilTier=((typeof teamData!=='undefined'&&teamData&&(teamData.nil_tier||teamData.team_tier||teamData.tier)))||5;
-  const playerPos=(player&&player.position)||'';
-  const seasons=(careerHistory||[]).filter(s=>s._advanced&&s.mpg).map(s=>{
-    const a=s._advanced, imp=N.impact(a.bpm,a.ws_per_40,a.per,s.tdc_grade);
-    // bbref's own pos (coarse G/F/C) for that season if present, else the roster's finer position
-    const pos=s.position||playerPos;
-    const ht=N.htIn(s.height), ppg=+s.ppg||0, prem=N.marketPremium(ht,ppg,conf,pos,s._pillars);
-    return {yr:s.season_year, team:s.team, imp:imp, mpg:+s.mpg, grade:+s.tdc_grade||null, ht:ht, ppg:ppg, prem:prem, pillars:s._pillars, value:(imp!=null?N.marketValue(imp,+s.mpg,ht,ppg,conf,nilTier,pos,s._pillars):null)};
-  }).filter(s=>s.imp!=null).sort((a,b)=>a.yr-b.yr);
-  const last=seasons.length?seasons[seasons.length-1]:null;
-  const projGrade=(player&&player.tdc_grade)||(last&&last.grade)||78;
-  const projImp=N.blendImpact(last?last.imp:null, projGrade);
-  const projMpg=last?last.mpg:((player&&+player.mpg)||26);
-  const projHt=last?last.ht:N.htIn(player&&player.height);
-  const projPpg=last?last.ppg:(+(player&&player.ppg)||0);
-  const projPillars=last?last.pillars:null;
-  const projPrem=N.marketPremium(projHt,projPpg,conf,playerPos,projPillars);
-  const aboveRepl=Math.max(projImp-N.REPL, N.FLOOR_PTS), minShare=Math.min(projMpg/40,1), contrib=aboveRepl*minShare, floored=(projImp-N.REPL)<N.FLOOR_PTS;
-  const isWalkon=N.isWalkon(projImp);
-  const analyticalVal=N.value(projImp,projMpg,nilTier), prodVal=analyticalVal*projPrem, baseVal=N.baseIntercept(projMpg,nilTier);
-  const projVal=N.marketValue(projImp,projMpg,projHt,projPpg,conf,nilTier,playerPos,projPillars);
-  const finalVal=(_ovr&&_ovr.value!=null)?+_ovr.value:projVal;
-  const pSize=N.sizeMult(projHt,playerPos), pConf=N.confMult(N.confClass(conf));
-  // hype: Offense pillar when we have one (efficiency-aware, from grade_v4.py),
-  // else raw-PPG scoring — same fallback the value calc itself uses
-  const pOff=N.offenseMult(projPillars&&projPillars.offense), offMode=pOff!=null;
-  const pHype=offMode?pOff:N.scoreMult(projPpg);
-  const pUsage=N.usageMult(projPillars&&projPillars.usage), pDef=N.defenseMult(projPillars&&projPillars.defense);
-  let html=`<div style="display:flex;flex-wrap:wrap;gap:13px;margin-bottom:20px;">
-    <div class="nil-card"><div class="nil-lbl">2026-27 ${_ovr?'NIL Value · override':'Projected Value'}</div><div class="nil-big" style="color:${col}">${fmt(finalVal)}</div>${_ovr?`<div class="nil-sub" style="font-size:10px;color:var(--text3);margin-top:3px;">manual · model ${fmt(projVal)}</div>`:''}</div>
-    <div class="nil-card"><div class="nil-lbl">Impact / 100 · blend</div><div class="nil-big">${projImp>0?'+':''}${projImp.toFixed(1)}</div></div>
-    <div class="nil-card"><div class="nil-lbl">Minutes Share</div><div class="nil-big">${Math.round(minShare*100)}%</div></div>
-    <div class="nil-card"><div class="nil-lbl">Market Premium</div><div class="nil-big">×${projPrem.toFixed(2)}</div><div class="nil-sub" style="font-size:10px;color:var(--text3);margin-top:3px;">size ×${pSize.toFixed(2)} · ${offMode?'offense':'scoring'} ×${pHype.toFixed(2)} · usage ×${pUsage.toFixed(2)} · defense ×${pDef.toFixed(2)} · conf ×${pConf.toFixed(2)}</div></div>
-  </div>
-  ${_ovr?`<div class="nil-step nil-step-final" style="border-color:${col};max-width:660px;margin-bottom:16px;"><span class="nil-step-n" style="background:${col}">✎</span><b>Manual override — ${fmt(finalVal)}</b>${_ovr.note?(' · '+_ovr.note):''}. Set because the model can't see this (injury, versatility, recruiting hype, non-D1). The model's own estimate is <b>${fmt(projVal)}</b>, shown below.</div>`:''}
-  ${isWalkon?`<div class="nil-step nil-step-final" style="border-color:${col};max-width:560px;"><span class="nil-step-n" style="background:${col}">i</span><b>Walk-on / non-rotation</b> — projected impact ${projImp.toFixed(1)} is well below replacement, so this player isn't part of NIL roster spend. Listed at a nominal <b style="color:${col}">${fmt(projVal)}</b>.</div>`:`<div class="nil-steps">
-    <div class="nil-step"><span class="nil-step-n">1</span>Impact above replacement${floored?' (rotation floor)':''}<br><b>${floored?('floor '+N.FLOOR_PTS+' = '+aboveRepl.toFixed(1)):(projImp.toFixed(1)+' − ('+N.REPL+') = '+aboveRepl.toFixed(1))}</b> / 100</div>
-    <div class="nil-step"><span class="nil-step-n">2</span>× minutes share<br><b>${aboveRepl.toFixed(1)} × ${minShare.toFixed(2)} = ${contrib.toFixed(2)}</b> net pts</div>
-    <div class="nil-step"><span class="nil-step-n">3</span>× rate × premium<br><b>${contrib.toFixed(2)} × $${Math.round(N.MARKET_RATE*1000)}K × ${projPrem.toFixed(2)} = ${fmt(prodVal)}</b></div>
-    <div class="nil-step"><span class="nil-step-n">4</span>+ roster-spot base<br><b>${fmt(prodVal)} + ${fmt(baseVal)}</b> (${N.confClass(conf)}-conf × minutes)</div>
-    <div class="nil-step nil-step-final" style="border-color:${col}"><span class="nil-step-n" style="background:${col}">=</span>NIL value<br><b style="color:${col};font-size:18px">${fmt(projVal)}</b></div>
-  </div>`}`;
-  if(seasons.length){
-    html+=`<div style="font-size:13px;font-weight:700;margin:24px 0 8px;">NIL value by season</div><table class="nil-table"><thead><tr><th class="left">Season</th><th class="left">Team</th><th>Impact</th><th>MPG</th><th>Prem</th><th>NIL Value</th></tr></thead><tbody>`;
-    seasons.forEach(s=>{ const lbl=(s.yr-1)+'-'+(''+s.yr).slice(2); html+=`<tr><td class="left">${lbl}</td><td class="left">${s.team}</td><td>${s.imp>0?'+':''}${s.imp.toFixed(1)}</td><td>${Math.round(s.mpg)}</td><td>×${s.prem.toFixed(2)}</td><td style="font-weight:700;color:${col}">${fmt(s.value)}</td></tr>`; });
-    html+=`<tr style="border-top:2px solid var(--border2)"><td class="left"><b>2026-27</b></td><td class="left" style="color:var(--text3)">projected</td><td>${projImp>0?'+':''}${projImp.toFixed(1)}</td><td>${Math.round(projMpg)}</td><td>×${projPrem.toFixed(2)}</td><td style="font-weight:800;color:${col}">${fmt(projVal)}</td></tr></tbody></table>`;
+  const pos=(player&&player.position)||'', cls=(player&&(player.class_year||player.yr))||'';
+  // Read the SAME precomputed roster value as the team page so the two always agree.
+  if(window._nilData===undefined){ window._nilData=null;
+    try{ window._nilData=await fetch('nil-data.json?v=grade1').then(r=>r.ok?r.json():null); }catch(e){} }
+  const nd=window._nilData, teamNil=nd&&nd.teams&&nd.teams[team];
+  const nk=(player&&player.name||'').toLowerCase().trim();
+  const row=teamNil?teamNil.players.find(p=>(p.name||'').toLowerCase().trim()===nk):null;
+  const nilTier=(teamNil&&teamNil.tier)||N.tierNum((teamData&&(teamData.nil_tier||teamData.team_tier))||5);
+  let grade,mpg,prem,value,override,walkon;
+  if(row){ grade=row.grade; mpg=row.mpg; prem=row.prem; value=row.value; override=!!row.override; walkon=!!row.walkon; }
+  else {  // team not tiered / player not on roster — compute live from the same model
+    grade=parseFloat(player&&player.tdc_grade)||null;
+    mpg=(player&&+player.mpg>0?+player.mpg:(grade>=88?28:grade>=82?24:grade>=76?20:15));
+    prem=N.marketPremium(N.htIn(player&&player.height),+(player&&player.ppg)||0,conf,pos,null);
+    walkon=(grade!=null&&N.gradeBase(grade)<=0.003);
+    value=(grade==null)?null:N.gradeValue(grade,mpg,nilTier,prem,cls);
   }
-  html+=`<div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:14px;max-width:820px;"><b>Impact / 100</b> is a composite — BPM, Win Shares, PER and the TDC grade (usage, TS%, rates, Wins Added, team success), on the net-rating scale. Analytical value = (Impact − replacement) × (MPG ÷ 40) × $${Math.round(N.MARKET_RATE*1000)}K/point. The <b>market premium</b> then adjusts for what the NIL market actually pays up for — <b>size</b> (height), <b>scoring</b> (PPG) and <b>conference</b> (power vs mid/low). A <b>rotation floor</b> keeps any player who logs real minutes above $0 — even below-replacement bodies have market value from their minutes, size and production. 2026-27 blends last season's impact with a grade projection.</div>`;
+  if(value==null){ host.innerHTML='<div style="padding:40px;color:var(--text3);">No NIL valuation — needs a graded roster on an NIL-tiered team.</div>'; return; }
+  const base=N.gradeBase(grade), tm=N.MODEL.tier_mult[N.tierNum(nilTier)]||0.2, mf=N.minFactor(mpg), ym=N.youthMult(cls);
+  const modelVal=N.gradeValue(grade,mpg,nilTier,prem,cls);   // pre-override estimate
+  // premium sub-components (for the readout)
+  const pSize=N.sizeMult(N.htIn(player&&player.height),pos), pConf=N.confMult(N.confClass(conf));
+  let html=`<div style="display:flex;flex-wrap:wrap;gap:13px;margin-bottom:20px;">
+    <div class="nil-card"><div class="nil-lbl">2026-27 ${override?'NIL Value · override':'Projected Value'}</div><div class="nil-big" style="color:${col}">${fmt(value)}</div>${override?`<div class="nil-sub" style="font-size:10px;color:var(--text3);margin-top:3px;">manual deal · model ${fmt(modelVal)}</div>`:''}</div>
+    <div class="nil-card"><div class="nil-lbl">TDC Grade</div><div class="nil-big">${grade!=null?grade:'—'}</div></div>
+    <div class="nil-card"><div class="nil-lbl">Proj. Minutes</div><div class="nil-big">${Math.round(mpg)}<span style="font-size:12px;color:var(--text3);"> mpg</span></div></div>
+    <div class="nil-card"><div class="nil-lbl">Market Premium</div><div class="nil-big">×${(+prem||1).toFixed(2)}</div><div class="nil-sub" style="font-size:10px;color:var(--text3);margin-top:3px;">size ×${pSize.toFixed(2)} · conf ×${pConf.toFixed(2)}</div></div>
+  </div>
+  ${override?`<div class="nil-step nil-step-final" style="border-color:${col};max-width:680px;margin-bottom:16px;"><span class="nil-step-n" style="background:${col}">✎</span><b>Manual deal on file — ${fmt(value)}</b>. This overrides the model estimate of <b>${fmt(modelVal)}</b> (broken out below) with a known real number.</div>`:''}
+  ${walkon?`<div class="nil-step nil-step-final" style="border-color:${col};max-width:560px;"><span class="nil-step-n" style="background:${col}">i</span><b>Walk-on / non-rotation</b> — nominal value; not part of NIL roster spend.</div>`:`<div class="nil-steps">
+    <div class="nil-step"><span class="nil-step-n">1</span>Grade on the value curve<br><b>${grade} → ${(base*100).toFixed(0)}%</b> of the top</div>
+    <div class="nil-step"><span class="nil-step-n">2</span>× team spending (Tier ${N.tierNum(nilTier)})<br><b>×${tm.toFixed(2)}</b> of a blue-blood's pool</div>
+    <div class="nil-step"><span class="nil-step-n">3</span>× minutes × premium × youth<br><b>×${mf.toFixed(2)} · ×${(+prem||1).toFixed(2)} · ×${ym.toFixed(2)}</b></div>
+    <div class="nil-step nil-step-final" style="border-color:${col}"><span class="nil-step-n" style="background:${col}">=</span>Projected NIL value<br><b style="color:${col};font-size:18px">${fmt(modelVal)}</b></div>
+  </div>`}
+  <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:16px;max-width:820px;">A realistic-market estimate: the player's <b>TDC grade</b> (talent, usage, efficiency, and recruiting hype for freshmen) on a <b>convex curve</b> — stars are worth exponentially more — times <b>projected minutes</b> (role), the team's <b>NIL spending tier</b>, a <b>market premium</b> for size / scoring / conference, and a <b>youth bump</b> (the market pays for upside). Calibrated to real NIL deals; a manual override replaces it when a known deal is on file. Matches this team's NIL Value tab.</div>`;
   host.innerHTML=html;
 }
 function switchTab(t){
