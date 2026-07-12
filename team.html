@@ -4267,7 +4267,12 @@ async function renderTeamDNA(){
   const impMax=Math.max(2,...impacts.map(x=>Math.abs(x[1])));
   const impactHtml=impacts.length?`<div class="dna-sec">What wins &amp; loses them games — points per game vs an average team</div>
     <div class="dna-imp">${impacts.map(([lbl,v])=>`<div class="dna-imp-row"><div class="dna-imp-lbl">${lbl}</div><div class="dna-imp-track"><div class="dna-imp-bar ${v>=0?'pos':'neg'}" style="${v>=0?'left:50%':'right:50%'};width:${(Math.abs(v)/impMax*48).toFixed(1)}%"></div></div><div class="dna-imp-val ${v>=0?'pos':'neg'}">${v>=0?'+':''}${v.toFixed(1)}</div></div>`).join('')}<div class="dna-imp-cap">Green wins them games, red costs them — these add up to roughly their net rating.</div></div>`:'';
-  const netTier=nn=> nn>=24?'a national title contender':nn>=17?'a top-10 team':nn>=11?'a top-25 team':nn>=6?'a tournament team':nn>=1?'a bubble team':nn>=-4?'a middle-of-the-pack team':nn>=-10?'a losing team':nn>=-16?'a bottom-100 team':'one of the worst teams in the country';
+  // Tier by NATIONAL RANK, not a fixed net value — a fixed +4.3 lands ~107th (nowhere
+  // near the bubble), so map the net to where it actually ranks among D1 this season.
+  const _tierVals=teams.map(x=>x.adjNet!=null?x.adjNet:x.net).filter(v=>v!=null).sort((a,b)=>b-a);
+  const netTier=nn=>{ if(nn==null) return 'unrated';
+    const rk=_tierVals.filter(v=>v>nn).length+1;
+    return rk<=6?'a national title contender':rk<=16?'a top-15 team':rk<=32?'a top-25 team':rk<=52?'a tournament team':rk<=72?'a bubble team':rk<=125?'an NIT-caliber team':rk<=200?'a middle-of-the-pack team':rk<=290?'a below-average team':'one of the worst teams in the country'; };
   // ── Record vs opponent tier (actual seasons only) ──
   const tierSplits = PROJ ? null : await _dnaTierSplits(key, season);
   const TSUB={1:'Elite · top 35',2:'Solid · top 75',3:'Mid-major',4:'Weakest'};

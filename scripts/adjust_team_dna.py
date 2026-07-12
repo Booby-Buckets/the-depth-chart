@@ -27,13 +27,39 @@ def get(url):
 def fetch_games(year):
     out=[]; page=0
     while True:
-        url=(f"{SB}/rest/v1/games?select=home,away&season_year=eq.{year}"
+        url=(f"{SB}/rest/v1/games?select=home,away,home_score,away_score&season_year=eq.{year}"
              f"&status=eq.STATUS_FINAL&limit=1000&offset={page*1000}")
         rows=get(url)
         out+=rows
         if len(rows)<1000: break
         page+=1
     return out
+
+def fix_records(teams, games):
+    """Recount W/L from the authoritative `games` table (the swept W/L is counted
+    from box-score point sums, which are wrong for ~half of teams when box data is
+    incomplete). Also recompute exp_wins (Pythagorean over the true game count) and
+    luck = actual W - exp_wins. Returns count of corrected teams."""
+    rec={}
+    for g in games:
+        for side,my,op in [(g.get("home"),g.get("home_score"),g.get("away_score")),
+                           (g.get("away"),g.get("away_score"),g.get("home_score"))]:
+            if side is None or my is None or op is None: continue
+            r=rec.setdefault(side,[0,0])
+            if my>op: r[0]+=1
+            else: r[1]+=1
+    fixed=0
+    for name,t in teams.items():
+        if name not in rec: continue
+        w,l=rec[name]; g=w+l
+        if g<1: continue
+        oR=t.get("ORtg"); dR=t.get("DRtg")
+        if oR and dR:
+            pyth=oR**11.5/(oR**11.5+dR**11.5)
+            t["exp_wins"]=round(pyth*g,1); t["luck"]=round(w-pyth*g,1)
+        if t.get("w")!=w or t.get("l")!=l: fixed+=1
+        t["w"]=w; t["l"]=l
+    return fixed
 
 def adjust(teams, games, iters=60):
     """Opponent-adjusted efficiency. Single-rating SRS on net efficiency margin
@@ -81,13 +107,14 @@ def main():
         if s not in dna: print(f"  {s}: not in team_dna"); continue
         teams=dna[s]["teams"]
         games=fetch_games(int(s))
+        rfixed=fix_records(teams,games)
         res=adjust(teams,games)
         if not res: print(f"  {s}: no adjustable teams"); continue
         for t,(ao,ad) in res.items():
             teams[t]["adjO"]=ao; teams[t]["adjD"]=ad; teams[t]["adjNet"]=round(ao-ad,1)
         json.dump(dna,open(PATH,"w"),separators=(",",":"))
         top=sorted(res.items(),key=lambda kv:kv[1][0]-kv[1][1],reverse=True)[:8]
-        print(f"  {s}: adjusted {len(res)} teams from {len(games)} games")
+        print(f"  {s}: adjusted {len(res)} teams, fixed {rfixed} records, from {len(games)} games")
         for t,(ao,ad) in top:
             raw=dna[s]['teams'][t].get('net')
             print(f"      {t:30} adjNet {ao-ad:+6.1f}  (raw net {raw:+6.1f})")
