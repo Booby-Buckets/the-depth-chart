@@ -4053,7 +4053,7 @@ function _dnaCSS(){ if(document.getElementById('dna-css')) return;
   @media(max-width:640px){.dna-tiers{grid-template-columns:repeat(2,1fr);}}
   .dna-tierc{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:15px 14px;text-align:center;}
   .dna-tierc.empty{opacity:.5;}
-  .dna-tierl{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--tc,var(--accent));}
+  .dna-tierl{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--tc-readable,var(--accent));}
   .dna-tierd{font-size:10px;color:var(--text3);margin-top:1px;min-height:13px;}
   .dna-tierrec{font-family:'Playfair Display',serif;font-weight:800;font-size:30px;line-height:1.1;margin-top:8px;}
   .dna-tierlbl2{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-top:1px;}
@@ -4087,7 +4087,7 @@ function _dnaCSS(){ if(document.getElementById('dna-css')) return;
   .dna-mu-res{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
   .dna-mu-line{font-size:16px;font-weight:600;} .dna-mu-line b{font-family:'Playfair Display',serif;font-size:20px;}
   .dna-mu-line b.pos{color:#5ab875;} .dna-mu-line b.neg{color:#e07070;}
-  .dna-mu-wp{font-size:13px;font-weight:700;color:var(--tc,var(--accent));margin-top:3px;}
+  .dna-mu-wp{font-size:13px;font-weight:700;color:var(--tc-readable,var(--accent));margin-top:3px;}
   .dna-mu-sub{font-size:11px;color:var(--text3);margin-top:8px;line-height:1.5;}
   `;
   document.head.appendChild(c);
@@ -4283,7 +4283,7 @@ async function renderTeamDNA(){
     const MT={net:{k:'net',lbl:'Net rating',better:'hi',fmt:v=>(v>=0?'+':'')+v.toFixed(1)},
       off:{k:'ortg',lbl:'Offense',better:'hi',fmt:v=>v.toFixed(1)},
       def:{k:'drtg',lbl:'Defense',better:'lo',fmt:v=>v.toFixed(1)},
-      shot:{k:'efg',lbl:'Shooting %',better:'hi',fmt:v=>v.toFixed(1)+'%'}};
+      shot:{k:'efg',lbl:'Effective FG%',better:'hi',fmt:v=>v.toFixed(1)+'%'}};
     const mk=window._dnaTrendMetric&&MT[window._dnaTrendMetric]?window._dnaTrendMetric:'net';
     const M=MT[mk], vals=series.map(g=>g[M.k]);
     const win=Math.min(5,Math.max(3,Math.round(series.length/6)));  // rolling window
@@ -4313,12 +4313,12 @@ async function renderTeamDNA(){
     const dlt=late-early, improved=(M.better==='hi')?dlt>0:dlt<0;
     const noteVal=Math.abs(dlt);
     const note=`First ${n10} games <b>${M.fmt(early)}</b> → last ${n10} <b>${M.fmt(late)}</b> — <b class="${improved?'pos':'neg'}">${improved?'trended up':'trended down'}</b>`;
-    const btns=[['net','Net'],['off','Offense'],['def','Defense'],['shot','Shooting']].map(([k,l])=>`<button class="dna-trend-btn${mk===k?' on':''}" onclick="window._dnaTrendMetric='${k}';renderTeamDNA();">${l}</button>`).join('');
+    const btns=[['net','Net'],['off','Offense'],['def','Defense'],['shot','eFG%']].map(([k,l])=>`<button class="dna-trend-btn${mk===k?' on':''}" onclick="window._dnaTrendMetric='${k}';renderTeamDNA();">${l}</button>`).join('');
     trendHtml=`<div class="dna-sec">Season trend — how ${M.lbl.toLowerCase()} moved game-by-game (${win}-game rolling average)</div>
       <div class="dna-trend">
         <div class="dna-trend-top"><div class="dna-trend-note">${note}</div><div class="dna-trend-toggle">${btns}</div></div>
         ${svg}
-        <div class="dna-imp-cap" style="text-align:left;margin-top:4px;">Each dot is one game (green win, red loss); the line is the ${win}-game rolling average. Switch the metric to see whether the offense, defense, or shooting was what changed.</div>
+        <div class="dna-imp-cap" style="text-align:left;margin-top:4px;">Each dot is one game (green win, red loss); the line is the ${win}-game rolling average. Switch the metric to see what changed — <b>Offense/Defense</b> are points per 100 possessions, <b>eFG%</b> is effective field-goal % (counts a made three as 1.5 makes).</div>
       </div>`;
   }
   // ── Team types (style splits) + matchup projector ──
