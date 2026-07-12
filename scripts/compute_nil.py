@@ -124,26 +124,41 @@ for p in players:
 # grade (stars are worth exponentially more), times projected minutes (role), times
 # the team's spending tier, times a market premium (size/scoring/conf) and a youth
 # bump (the market pays for upside). Calibrated to real NIL anchors.
-GRADE_FLOOR,GRADE_SPAN,CURVE = 58.0, 40.0, 2.35
-TOP_M = 4.35                                    # $M for a grade-98, tier-1, full-min, avg-premium player
+GRADE_FLOOR,GRADE_SPAN,CURVE = 58.0, 42.0, 1.75
+TOP_M = 4.9                                     # $M for a grade-100, tier-1, full-min, avg-premium player
 TIER_MULT = {1:1.00,2:0.74,3:0.54,4:0.40,5:0.29,6:0.20,7:0.13,8:0.07,9:0.03}
 def grade_base(g):
     if g is None: return 0.0
     x=max(0.0,min(1.0,(g-GRADE_FLOOR)/GRADE_SPAN)); return x**CURVE
 def min_factor(mp):
-    return max(0.30,(min(max(mp,0),34)/34.0)**0.55)   # rotation floor 0.30, full at 34 mpg
+    return max(0.40,(min(max(mp,0),30)/30.0)**0.5)    # rotation floor 0.40, full at 30 mpg
 def est_mpg(p):
-    mp=gnum(p.get("mpg"))
-    if mp and mp>0: return mp
-    g=gnum(p.get("tdc_grade")) or 72; st=str(p.get("starter")).lower() in("true","yes","1")
-    base=28 if g>=88 else 24 if g>=82 else 20 if g>=76 else 15
-    return base if (st or g>=82) else max(12,base-4)
-def youth_mult(cls):
+    # projected role: a grade-implied minutes FLOOR, so a returner who played few
+    # minutes as a freshman (breakout candidate) isn't valued on last year's bench role.
+    mp=gnum(p.get("mpg")) or 0; g=gnum(p.get("tdc_grade")) or 72
+    ge=28 if g>=90 else 25 if g>=82 else 21 if g>=76 else 17 if g>=70 else 12
+    return max(mp,ge)
+def youth_mult(cls):        # the market pays for upside: sophomores (proven + room to grow) most
     c=(cls or "").lower()
-    if "fr" in c: return 1.10
-    if "so" in c: return 1.05
-    if "sr" in c or "gr" in c: return 0.97
+    if "so" in c: return 1.22
+    if "fr" in c: return 1.05
+    if "jr" in c: return 1.02
+    if "sr" in c or "gr" in c: return 0.90
     return 1.0
+def big_mult(pos,g):        # CENTER MARKET — good bigs are scarce, the market pays up for size.
+    # Strongest for ROLE/MID bigs (a competent rotation center is rare); DECAYS for
+    # stars, whose grade + the prospect premium already capture their value (so a
+    # grade-89 center doesn't double-dip and land at $4.6M).
+    p=(pos or "").upper().split("/")[0].strip(); g=g if g is not None else 76
+    if p=="C":  return max(1.12, min(1.68, 1.68-0.05*(g-76)))
+    if p in("PF","FC"): return max(1.02, min(1.12, 1.12-0.02*(g-80)))
+    return 1.0
+def prospect_mult(g,cls):   # NBA-DRAFT prospect — YOUNG + elite grade spikes value (one-and-dones).
+    # Onset at grade 87 so only genuine lottery-caliber freshmen spike, not every
+    # 5-star — otherwise a blue-blood's whole freshman class inflates the roster total.
+    c=(cls or "").lower()
+    if not("fr" in c or "so" in c) or g is None: return 1.0
+    return 1 + max(0.0,min(1.0,(g-87)/9.0))*(1.35 if "fr" in c else 0.55)
 
 rows=[]
 for name,info in tinfo.items():
@@ -161,7 +176,7 @@ for name,info in tinfo.items():
         base=grade_base(g)
         if base<=0.003 or g is None:            # sub-rotation / very low grade: nominal only
             pls.append((p["name"],g,mp,prem,0.0,True)); continue
-        val=base*TOP_M*tmult*min_factor(mp)*prem*youth_mult(p.get("class_year"))
+        val=base*TOP_M*tmult*min_factor(mp)*prem*youth_mult(p.get("class_year"))*big_mult(pos,g)*prospect_mult(g,p.get("class_year"))
         prod+=val; pls.append((p["name"],g,mp,prem,round(val,3),False))
     if prod<=0.05: continue
     rows.append({"name":name,"tier":tn,"budget":budget,"prod":prod,"srs":team_srs(name),"cls":cls,"pls":pls})
@@ -174,7 +189,9 @@ if os.path.exists(_ovp):
     except Exception: OVR={}
 def pval(n,proj): return OVR[n] if n in OVR else proj
 out={"market_rate_per_pt":round(MKT,4),"walkon_value":WALKON_VALUE,"tier_budget_m":TIER_MID,
-     "model":{"grade_floor":GRADE_FLOOR,"grade_span":GRADE_SPAN,"curve":CURVE,"top_m":TOP_M,"tier_mult":TIER_MULT},
+     "model":{"grade_floor":GRADE_FLOOR,"grade_span":GRADE_SPAN,"curve":CURVE,"top_m":TOP_M,"tier_mult":TIER_MULT,
+              "big":{"C":1.64,"PF":1.10,"FC":1.10},"prospect_up":{"fr":1.25,"so":0.60},
+              "youth":{"so":1.22,"fr":1.05,"jr":1.02,"sr":0.90}},
      "premium":{"pos_ht_norm":POS_HT_NORM,"size_fallback":SIZE_FALLBACK,"size_up":[SIZE_UP_SPAN,SIZE_UP],"size_down":[SIZE_DOWN_SPAN,SIZE_DOWN],
                 "score":[SCORE_BASE,SCORE_TOP,SCORE_MAX],"conf":CONF_MULT,
                 "offense":[OFF_SPAN,OFF_UP,OFF_DOWN_SPAN,OFF_DOWN],"usage":[USG_SPAN,USG_UP],"defense":[DEF_SPAN,DEF_DOWN]},

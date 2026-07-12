@@ -7,7 +7,7 @@
    Calibrated by scripts/compute_nil.py (re-run to refresh constants + nil-data.json). */
 window.TDC_NIL = {
   // ── grade-centric realistic-market model (mirrors scripts/compute_nil.py) ──
-  MODEL: { grade_floor:58, grade_span:40, curve:2.35, top_m:4.35,
+  MODEL: { grade_floor:58, grade_span:42, curve:1.75, top_m:4.9,
            tier_mult:{1:1.00,2:0.74,3:0.54,4:0.40,5:0.29,6:0.20,7:0.13,8:0.07,9:0.03} },
   MARKET_RATE: 0.263,                                             // (legacy) $M per net-rating point
   REPL: -1.0,
@@ -83,11 +83,19 @@ window.TDC_NIL = {
   N.baseIntercept = function(mpg,tier){ var ms=Math.min(Math.max(+mpg,0)/40,1); return (N.BASE_BY_TIER[N.tierNum(tier)]||0.1) * ms; }; // $M roster-spot base (tier-scaled)
   // ── grade-centric realistic-market value (the live model, matches compute_nil.py) ──
   N.gradeBase = function(g){ if(g==null||!isFinite(+g)) return 0; var x=Math.max(0,Math.min(1,(+g-N.MODEL.grade_floor)/N.MODEL.grade_span)); return Math.pow(x,N.MODEL.curve); };
-  N.minFactor = function(mp){ mp=+mp||0; return Math.max(0.30, Math.pow(Math.min(Math.max(mp,0),34)/34,0.55)); };
-  N.youthMult = function(cls){ var c=(''+(cls||'')).toLowerCase(); if(c.indexOf('fr')>=0)return 1.10; if(c.indexOf('so')>=0)return 1.05; if(c.indexOf('sr')>=0||c.indexOf('gr')>=0)return 0.97; return 1.0; };
-  // grade -> $M NIL value. prem = N.marketPremium(...); cls = class_year string.
-  N.gradeValue = function(grade,mpg,tier,prem,cls){ var b=N.gradeBase(grade); if(b<=0.003) return N.WALKON_VALUE;
-    var tm=N.MODEL.tier_mult[N.tierNum(tier)]||0.2; return b*N.MODEL.top_m*tm*N.minFactor(mpg)*(prem||1)*N.youthMult(cls); };
+  N.minFactor = function(mp){ mp=+mp||0; return Math.max(0.40, Math.pow(Math.min(Math.max(mp,0),30)/30,0.5)); };
+  // projected role: a grade-implied minutes FLOOR so a breakout returner isn't valued on last year's bench minutes
+  N.estMpg    = function(mpg,grade){ var mp=+mpg||0, g=+grade||72; var ge=g>=90?28:g>=82?25:g>=76?21:g>=70?17:12; return Math.max(mp,ge); };
+  N.youthMult = function(cls){ var c=(''+(cls||'')).toLowerCase(); if(c.indexOf('so')>=0)return 1.22; if(c.indexOf('fr')>=0)return 1.05; if(c.indexOf('jr')>=0)return 1.02; if(c.indexOf('sr')>=0||c.indexOf('gr')>=0)return 0.90; return 1.0; };
+  N.bigMult   = function(pos,g){ var p=(''+(pos||'')).toUpperCase().split('/')[0].trim(); g=(g==null?76:+g);
+    if(p==='C') return Math.max(1.12,Math.min(1.68,1.68-0.05*(g-76)));
+    if(p==='PF'||p==='FC') return Math.max(1.02,Math.min(1.12,1.12-0.02*(g-80))); return 1.0; };
+  N.prospectMult = function(g,cls){ var c=(''+(cls||'')).toLowerCase(); if(!(c.indexOf('fr')>=0||c.indexOf('so')>=0)||g==null)return 1.0;
+    return 1 + Math.max(0,Math.min(1,(+g-87)/9))*(c.indexOf('fr')>=0?1.35:0.55); };
+  // grade -> $M NIL value. prem = N.marketPremium(...); cls = class_year; pos = PG/…/C.
+  N.gradeValue = function(grade,mpg,tier,prem,cls,pos){ var b=N.gradeBase(grade); if(b<=0.003) return N.WALKON_VALUE;
+    var tm=N.MODEL.tier_mult[N.tierNum(tier)]||0.2;
+    return b*N.MODEL.top_m*tm*N.minFactor(N.estMpg(mpg,grade))*(prem||1)*N.youthMult(cls)*N.bigMult(pos,grade)*N.prospectMult(grade,cls); };
   N.marketValue   = function(imp,mpg,htIn,ppg,confCode,tier,pos,pillars){ return N.isWalkon(imp) ? N.WALKON_VALUE : N.value(imp,mpg,tier)*N.marketPremium(htIn,ppg,confCode,pos,pillars) + N.baseIntercept(mpg,tier); }; // $M
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };
