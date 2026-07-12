@@ -4415,7 +4415,7 @@ async function renderTeamDNA(){
 async function renderMoneyball(){
   var host=document.getElementById('moneyballWrap'); if(!host||!window.TDC_MONEYBALL) return;
   try{
-    if(!window._nilData){ window._nilData=await fetch('nil-data.json').then(r=>r.json()); }
+    if(!window._nilData){ window._nilData=await fetch('nil-data.json?v=grade1').then(r=>r.json()); }
     var posBy={}; (typeof _allDbPlayers!=='undefined'?_allDbPlayers:[]).forEach(function(p){ if(p.name&&p.position&&!posBy[p.name]) posBy[p.name]=p.position; });
     var lineup=(typeof _lineupRotation==='function')?_lineupRotation():[];
     TDC_MONEYBALL.render(host, {nilData:window._nilData, teamName:(teamT&&teamT.name)||'', posByName:posBy, lineup:lineup});
@@ -4472,7 +4472,7 @@ async function loadLineupShotProfile(){
 let _nilData=null;
 async function renderNil(){
   const host=document.getElementById('nilContent'); const tT=(typeof teamT!=='undefined')?teamT:null; if(!host||!tT) return;
-  if(!_nilData){ try{ _nilData=await fetch('nil-data.json').then(r=>r.json()); }catch(e){ host.innerHTML='<div style="padding:40px;color:var(--text3);">NIL data unavailable.</div>'; return; } }
+  if(!_nilData){ try{ _nilData=await fetch('nil-data.json?v=grade1').then(r=>r.json()); }catch(e){ host.innerHTML='<div style="padding:40px;color:var(--text3);">NIL data unavailable.</div>'; return; } }
   const d=_nilData.teams[tT.name];
   if(!d){ host.innerHTML='<div style="padding:40px;color:var(--text3);">No NIL valuation for this team yet — needs a NIL tier and roster.</div>'; return; }
   const col=((typeof teamColor_g!=='undefined')?teamColor_g:null)||'#888', mkt=_nilData.market_rate_per_pt;
@@ -4501,11 +4501,11 @@ async function renderNil(){
     <div style="font-size:10px;color:var(--text3);margin-top:4px;">Green bar = roster value · vertical line = budget</div>
   </div>
   <div style="overflow-x:auto;">
-  <table class="nil-table"><thead><tr><th class="left">Player</th><th>Impact</th><th>MPG</th><th>Prem</th><th title="What the production model alone says this player is worth">Model Value</th><th>NIL Value</th><th title="NIL Value minus Model Value — positive means paid above what production justifies, negative means below">Over / Under</th></tr></thead><tbody>`;
+  <table class="nil-table"><thead><tr><th class="left">Player</th><th>Grade</th><th>MPG</th><th>Prem</th><th title="What the production model alone says this player is worth">Model Value</th><th>NIL Value</th><th title="NIL Value minus Model Value — positive means paid above what production justifies, negative means below">Over / Under</th></tr></thead><tbody>`;
   const _rosterList=(typeof teamPlayers!=='undefined'&&teamPlayers||[]);
   const _injSet=new Set(_rosterList.filter(p=>p.is_injured).map(p=>(p.name||'').toLowerCase().trim()));
   const _byName={}; _rosterList.forEach(p=>{ _byName[(p.name||'').toLowerCase().trim()]=p; });
-  d.players.forEach(p=>{ const im=(p.impact!=null?+p.impact:+p.bpm);
+  d.players.forEach(p=>{ const gr=(p.grade!=null?p.grade:'—');
     const key=(p.name||'').toLowerCase().trim();
     const inj=_injSet.has(key);
     const injTag=inj?` <span style="font-size:8px;font-weight:700;padding:1px 4px;background:rgba(220,38,38,.12);color:#ef4444;border:1px solid rgba(220,38,38,.3);border-radius:3px;">OUT 2026-27</span>`:'';
@@ -4516,10 +4516,10 @@ async function renderNil(){
     const diff=p.payDiff!=null?p.payDiff:0;
     const diffCell=Math.abs(diff)<0.005?`<span style="color:var(--text3);">—</span>`
       :`<span style="font-weight:700;color:${diff>0?'var(--red)':'var(--green)'};">${diff>0?'+':'−'}${fmt(Math.abs(diff))}</span>`;
-    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="left">${nameCell}${injTag}</td><td>${im>0?'+':''}${im.toFixed(1)}</td><td>${Math.round(p.mpg)}</td><td>×${(+p.prem||1).toFixed(2)}</td><td style="color:var(--text3);">${fmt(proj)}</td><td style="font-weight:700;color:var(--tc-readable,${col})${inj?';text-decoration:line-through;':''}">${fmt(p.value)}</td><td>${diffCell}</td></tr>`; });
+    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="left">${nameCell}${injTag}</td><td>${gr}</td><td>${Math.round(p.mpg)}</td><td>×${(+p.prem||1).toFixed(2)}</td><td style="color:var(--text3);">${fmt(proj)}</td><td style="font-weight:700;color:var(--tc-readable,${col})${inj?';text-decoration:line-through;':''}">${fmt(p.value)}</td><td>${diffCell}</td></tr>`; });
   html+=`</tbody></table>
   </div>
-  <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:14px;max-width:860px;"><b>Impact / 100</b> is a composite — BPM, Win Shares, PER and the player's TDC grade (usage, TS%, rates, Wins Added, team success), on the net-rating scale. <b>Model Value</b> = (impact − replacement) × (minutes ÷ 40) × $${Math.round(mkt*1000)}K/point, then a <b>market premium (Prem)</b> for what the NIL market over-pays for — <b>size, scoring and conference</b>. <b>NIL Value</b> matches Model Value unless a known real deal is on file, in which case <b>Over / Under</b> shows the gap — red means paid above what production justifies, green means below (a market bargain). 2026-27 blends last season's impact with a grade projection. A <b>rotation floor</b> keeps any player who logs real minutes above $0. Budget is the team's NIL-tier midpoint — roster value above budget = a <b>deal</b>, below = <b>paying a premium</b>.</div>`;
+  <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:14px;max-width:860px;"><b>NIL Value</b> is a realistic-market estimate: the player's <b>TDC grade</b> (talent, usage, efficiency, and recruiting hype for freshmen) on a <b>convex curve</b> — stars are worth exponentially more — times <b>projected minutes</b> (role), the team's <b>spending tier</b>, a <b>market premium (Prem)</b> for size / scoring / conference, and a <b>youth bump</b> (the market pays for upside). Calibrated to real NIL deals. <b>Model Value</b> is the estimate before any override; <b>NIL Value</b> matches it unless a known real deal is on file, when <b>Over / Under</b> shows the gap. Budget is the team's NIL-tier midpoint — roster value within budget = a <b>deal</b>, over = <b>stretched</b>.</div>`;
   host.innerHTML=html;
 }
 
