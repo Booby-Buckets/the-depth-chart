@@ -2008,6 +2008,8 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
   if(window.TDCFresh){ try{ await TDCFresh.load(); }catch(e){} }
   const _freshNames = new Set((players||[]).filter(p=>window.TDCFresh&&TDCFresh.isFreshman(p)&&TDCFresh.profileFor(p)).map(p=>(p.name||'').toLowerCase().trim()));
   const _origByName = {}; (players||[]).forEach(p=>{ _origByName[(p.name||'').toLowerCase().trim()]=p; });
+  // Fold in this team's current coach tendencies (pace) — sets window._projCoach
+  try{ if(typeof loadProjCoachStyle==='function') await loadProjCoachStyle((teamT&&teamT.name)||(players[0]&&players[0].team)); }catch(e){}
   const _rawProjected=buildTeamProjections(players, _teamRow?.conf||conf);
   let projected=applyPredictionWalls(_rawProjected);
   if(_freshNames.size){

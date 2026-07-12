@@ -466,6 +466,70 @@ function estimateAdvanced(grade, projMpg, fgaPerG){
   return {usg:r1(usg), bpm:r1(bpm), per:r1(per), ws40:Math.round(ws40*1000)/1000, ts:r1(ts), wa:wa, _est:true};
 }
 
+// ── COACHING CONTEXT ─────────────────────────────────────────────────────────
+// Fold the team's CURRENT coach tendencies into the projection. Pages call
+// loadProjCoachStyle(team) (which sets window._projCoach) before projecting, and
+// buildTeamProjections applies applyCoachContext() as a bounded, no-op-safe final
+// step. v1 = PACE: normalize the projected team's tempo to the coach's career
+// possessions/game. Self-correcting — a returner-heavy roster under the same coach
+// already plays near his pace, so paceScale ≈ 1; transfers/freshmen (whose prior
+// context differs) get pulled to the coach's system. Keeps shooting %s intact
+// (makes + attempts scale together).
+async function loadProjCoachStyle(team){
+  window._projCoach=null;
+  if(!team) return;
+  try{
+    if(!window._projCoachCache){
+      const [prof,seas]=await Promise.all([
+        fetch('scripts/data/coach_profiles.json').then(r=>r.ok?r.json():[]).catch(()=>[]),
+        fetch('scripts/data/coach_seasons.json').then(r=>r.ok?r.json():[]).catch(()=>[])
+      ]);
+      const bySlug={}; prof.forEach(p=>bySlug[p.coach_slug]=p);
+      const byTeam={};  // school -> most recent {y, slug}
+      seas.forEach(s=>{ if(!s.school||!s.coach_slug)return; const c=byTeam[s.school];
+        if(!c||s.season_year>c.y) byTeam[s.school]={y:s.season_year,slug:s.coach_slug}; });
+      // league-median pace (coaches with >=3 seasons) — the reference tempo so the
+      // adjustment is CENTERED (half of coaches faster, half slower), not biased.
+      const paces=prof.filter(p=>(p.seasons||0)>=3&&p.poss_pg).map(p=>p.poss_pg).sort((a,b)=>a-b);
+      const lgPace=paces.length?paces[Math.floor(paces.length/2)]:68;
+      window._projCoachCache={bySlug,byTeam,lgPace};
+    }
+    const {bySlug,byTeam,lgPace}=window._projCoachCache;
+    let entry=byTeam[team];
+    if(!entry){ const lo=team.toLowerCase();
+      const k=Object.keys(byTeam).find(s=>{const sl=s.toLowerCase();
+        return sl===lo||sl.startsWith(lo+' ')||lo.startsWith(sl+' ')||(lo.length>=6&&(sl.includes(lo)||lo.includes(sl)));});
+      if(k) entry=byTeam[k]; }
+    if(entry){ const p=bySlug[entry.slug];
+      if(p) window._projCoach={poss_pg:p.poss_pg, lgPace:lgPace||68,
+        three_pa_pctl:(p.pctl&&p.pctl.three_pa_rate)||null,
+        star_pctl:(p.pctl&&p.pctl.top_scorer_share)||null,
+        archetype:p.archetype, coach:p.coach}; }
+  }catch(e){}
+}
+// Apply the coach's TEMPO to newcomers only. A returner's prior stats already reflect
+// this coach's pace, so scaling them would double-count; but a TRANSFER (prior stats
+// at his old team's tempo) and a FRESHMAN (a league-average baseline) get pulled to the
+// coach's system. Scale is the coach's pace vs the league-median pace, bounded ±10-12%.
+function applyCoachContext(roster){
+  const C=window._projCoach; if(!C||!C.poss_pg) return roster;
+  const lg=C.lgPace||68;
+  const teamScale=Math.max(0.90,Math.min(1.12, C.poss_pg/lg));
+  if(Math.abs(teamScale-1)<0.008) return roster;         // ~average-tempo coach → no-op
+  const r1=v=>v==null?null:Math.round(v*10)/10;
+  const VOL=['ppg','rpg','apg','stl','blk','tovs','oreb','dreb','fgm','fga','tpm','tpa','ftm','fta'];
+  return roster.map(p=>{
+    if(p._dnp||p._injured) return p;
+    const isTransfer=!!(p.hometown&&(''+p.hometown).trim());
+    const isFrosh=!!(p._frosh||p._noStatEst||p._isFrosh);
+    if(!isTransfer && !isFrosh) return p;                 // returners already at this pace
+    if(!parseFloat(p.ppg||0)&&!p._noStatEst) return p;
+    const sp={...p};
+    VOL.forEach(k=>{ if(sp[k]!=null) sp[k]=r1(parseFloat(sp[k]||0)*teamScale); });
+    sp._coachPace=Math.round(C.poss_pg*10)/10; sp._paceScale=Math.round(teamScale*1000)/1000;
+    return sp;
+  });
+}
 function buildTeamProjections(players, conf){
   // Injured players (out for the season): zero stats, excluded from the roster
   // BEFORE projection so they take no minutes/shots and aren't double-listed.
@@ -1060,7 +1124,11 @@ function projectSinglePlayer(p, conf){
 // ── PREDICTION WALL SCALING ──────────────────────────────────────────────────
 // Scales player stats proportionally so team totals stay within realistic bounds.
 // Preserves each player's relative contribution — best rebounders still rebound most.
-function applyPredictionWalls(projected){
+// Wrapper applies the COACHING context (pace) as the FINAL step — after the walls,
+// so a genuinely fast-paced coach's team keeps its higher totals instead of being
+// clamped back to a league-average tempo. Both pages finalize through here.
+function applyPredictionWalls(projected){ return applyCoachContext(_applyPredictionWallsRaw(projected)); }
+function _applyPredictionWallsRaw(projected){
   const active = projected.filter(p=>!p._dnp&&!p._injured&&(parseFloat(p.ppg||0)>0||p._noStatEst));
   if(!active.length) return projected;
 
