@@ -11,6 +11,7 @@
   <script src="tdc-proj.js?v=coach1"></script>
   <script src="tdc-freshman.js"></script>
   <script src="tdc-ratings.js"></script>
+  <script src="tdc-projgrade.js?v=1"></script>
   <meta charset="UTF-8"/>
   <style>
     .nil-card{border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:130px;background:var(--bg2);}
@@ -2806,14 +2807,72 @@ const GRADE_W=[
 const GRP_LBL={G:'Guards',W:'Wings & Forwards',B:'Bigs'};
 function _tsPct(s){ const t=s._advanced&&s._advanced.ts_pct; if(t!=null&&t!=='') return parseFloat(t)*100;
   const fga=parseFloat(s.fga)||0, fta=parseFloat(s.fta)||0, den=2*(fga+0.44*fta); return den>0?(parseFloat(s.ppg)||0)/den*100:null; }
+
+// ── Projected grade for RETURNERS ─────────────────────────────────────────────
+// tdc_grade is DEMONSTRATED — what a player proved. For the 2026-27 outlook we want
+// the grade to reflect his PROJECTED role: a bench freshman projected to start should
+// grade like a starter. We anchor on the demonstrated grade (inheriting the real
+// backend model's calibration) and move it only by the projected CHANGE in the grade's
+// drivers — role/minutes (→ Wins Added), scoring, efficiency. No circularity: the
+// projection is built FROM the demonstrated grade; this grades that projection's OUTPUT.
+const _CLS_BUMP={FR:0.5,SO:0.2,JR:0.1,SR:0,GR:0};
+function _clsCode(y){ y=(''+(y||'')).toUpperCase();
+  return y.indexOf('FR')===0?'FR':y.indexOf('SO')===0?'SO':y.indexOf('JR')===0?'JR':y.indexOf('SR')===0?'SR':y.indexOf('GR')===0?'GR':(y==='RS'?'SO':''); }
+function _projDrivers(lastAct, projLine){
+  const aM=parseFloat(lastAct.mpg)||0, pM=parseFloat(projLine.mpg)||0;
+  const aWA=parseFloat(lastAct.wa)||0;
+  const aBpm=parseFloat(lastAct._advanced&&lastAct._advanced.bpm)||0;
+  const cls=_clsCode(player.yr||player.class_year||projLine.yr);
+  // projected Wins Added: same per-minute value, scaled by the projected minute load
+  const pWA = aM>0 ? aWA*Math.min(2.2, pM/aM) : aWA;
+  // projected BPM: regress toward mean + class-development bump (matches tdc-ratings.js)
+  const pBpm = 0.635 + 0.785*aBpm + (_CLS_BUMP[cls]||0);
+  const aTs=_tsPct(lastAct), pTsRaw=_tsPct(projLine);
+  return {aM,pM,aWA,pWA,aBpm,pBpm,aTs:(aTs!=null?aTs:55), pTs:(pTsRaw!=null?pTsRaw:(aTs!=null?aTs:55))};
+}
+function _rankComposite(L){
+  return GRADE_W.reduce((sum,d)=>{
+    const v = d.k==='ts' ? (L.ts||0) : d.k==='bpm' ? (L.bpm||0) : (parseFloat(L[d.k])||0);
+    return sum + d.w*Math.max(0,Math.min(1,v/d.max))*(d.good?1:-1);
+  },0);
+}
+function _projReturnerGrade(lastAct, projLine){
+  // Single source of truth: the shared row-based model (tdc-projgrade.js) so the
+  // player page, team page and every list show an IDENTICAL projected OVR.
+  if(window.TDCProjGrade){ const _g=TDCProjGrade.grade(player); if(_g!=null&&!isNaN(_g)) return _g; }
+  const demo=parseInt(lastAct&&lastAct.tdc_grade!=null?lastAct.tdc_grade:player.tdc_grade);
+  if(isNaN(demo)||!projLine||!lastAct) return null;
+  const D=_projDrivers(lastAct, projLine);
+  if(D.aM<=0||D.pM<=0) return demo;
+  const A={wa:D.aWA, ppg:lastAct.ppg, ts:D.aTs, bpm:D.aBpm, rpg:lastAct.rpg, apg:lastAct.apg, mpg:D.aM, tovs:lastAct.tovs};
+  const P={wa:D.pWA, ppg:projLine.ppg, ts:D.pTs, bpm:D.pBpm, rpg:projLine.rpg, apg:projLine.apg, mpg:D.pM, tovs:projLine.tovs};
+  let pg = demo + 10*(_rankComposite(P)-_rankComposite(A));
+  pg = Math.max(demo-6, Math.min(demo+9, pg));          // cap how far the projection can move it
+  return Math.max(40, Math.min(99, Math.round(pg)));
+}
+// A projected-2026-27 line the Rankings drivers can read directly (projected advanced baked in).
+function _buildProjRankLine(lastAct, projLine){
+  const D=_projDrivers(lastAct, projLine);
+  const pg=_projReturnerGrade(lastAct, projLine);
+  return Object.assign({}, projLine, {
+    wa: Math.round(D.pWA*10)/10,
+    _advanced:{ bpm: Math.round(D.pBpm*10)/10, ts_pct: D.pTs/100 },
+    tdc_grade: pg,
+    height: lastAct.height||projLine.height||player.height
+  });
+}
 function renderRankings(){
   const host=document.getElementById('rankingsContent'); if(!host) return;
   const hist=_dedupHist();
   // Projected freshman (no played season): grade from the projection — profile OVR
   // + projected stats — so the Overall Grade matches the editor OVR, not the empty
   // actual line (which showed the stale players.tdc_grade and all-zero bars).
+  const _lastAct = hist.length?hist[hist.length-1]:null;
   const _fr = !hist.length && window.TDCFresh && TDCFresh.isFreshman(player) && proj && (parseFloat(proj.ppg)>0 || proj._noStatEst || proj._frosh);
-  const s = _fr ? proj : (hist.length?hist[hist.length-1]:player);   // grade the latest actual season (or the projection)
+  // Returner on a current roster: grade his PROJECTED 2026-27 role, not last season.
+  const _projRet = !_fr && _lastAct && proj && (parseFloat(proj.ppg)>0 || parseFloat(proj.mpg)>0) && _lastAct.tdc_grade!=null;
+  const _projMode = _fr || _projRet;
+  const s = _fr ? proj : (_projRet ? _buildProjRankLine(_lastAct, proj) : (_lastAct||player));   // projected line for freshmen & returners; else latest actual
   const grp=_norm3(s.position||player.position);
   const g=parseInt(s.tdc_grade!=null?s.tdc_grade:player.tdc_grade);
   const conf=(teamData&&(teamData.conf||teamData.conference))||'';
@@ -2837,14 +2896,15 @@ function renderRankings(){
       <div class="rk-gradebox">
         <div class="rk-grade" style="color:${gradeC};">${isNaN(g)?'—':g}</div>
         <div class="rk-grade-lbl">Overall Grade</div>
-        <div class="rk-season">${_fr?'2026-27 Projected':(_seasonLbl(s.season_year)||'')}</div>
-        ${s.wa!=null?`<div class="rk-wa"><div class="rk-wa-num">${(s.wa>=0?'+':'')+Number(s.wa).toFixed(1)}</div><div class="rk-wa-lbl">Wins Added</div></div>`:''}
+        <div class="rk-season">${_projMode?'2026-27 Projected':(_seasonLbl(s.season_year)||'')}</div>
+        ${s.wa!=null?`<div class="rk-wa"><div class="rk-wa-num">${(s.wa>=0?'+':'')+Number(s.wa).toFixed(1)}</div><div class="rk-wa-lbl">${_projMode?'Proj. Wins Added':'Wins Added'}</div></div>`:''}
       </div>
       <div class="rk-explain">
-        <div class="sec-title" style="margin-bottom:10px;">How this grade is built</div>
+        <div class="sec-title" style="margin-bottom:10px;">${_projMode?'How this grade is projected':'How this grade is built'}</div>
         <ul class="rk-method">
-          <li><b>Wins Added drives it.</b> The biggest factor is how many games the team would lose without this player${s.wa!=null?` — about <b>${Number(s.wa).toFixed(1)}</b> here`:''}. It rewards being the engine of a winning team, not padding stats.</li>
-          <li><b>Team success counts.</b> Wins Added can only be high when the team actually won${conf?` (${conf})`:''} — a great line on a losing team adds few wins, and is graded accordingly.</li>
+          ${_projRet?`<li><b>It's forward-looking.</b> His demonstrated grade last season was <b>${parseInt(_lastAct.tdc_grade)}</b> on ${_f1(_lastAct.mpg)} MPG. Projected into a ${_f1(s.mpg)}-MPG role for 2026-27, the same per-minute impact produces more, so the grade rises to <b>${isNaN(g)?'—':g}</b>.</li>`:''}
+          <li><b>Wins Added drives it.</b> The biggest factor is how many games the team would lose without this player${s.wa!=null?` — about <b>${Number(s.wa).toFixed(1)}</b> ${_projMode?'projected':'here'}`:''}. It rewards being the engine of a winning team, not padding stats.</li>
+          ${_projRet?'':`<li><b>Team success counts.</b> Wins Added can only be high when the team actually won${conf?` (${conf})`:''} — a great line on a losing team adds few wins, and is graded accordingly.</li>`}
           <li><b>Position-relative & cross-era.</b> Measured against every ${GRP_LBL[grp]||'player'} season since 2006-07; only the truly dominant reach 99 (~1 a year).</li>
         </ul>
       </div>
@@ -2915,9 +2975,14 @@ function _projectedGrade(){
   if(window.TDCFresh && TDCFresh.isFreshman(player) && TDCFresh.profileFor(player) && proj && proj.tdc_grade!=null){
     var fg=parseInt(proj.tdc_grade); if(!isNaN(fg)) return fg;
   }
-  // players.tdc_grade IS the 2026-27 projected grade (same value the Full Stats
-  // projected row shows). Return it directly — do NOT re-project it, or the hero
-  // and progression chart end up double-projecting (e.g. a 92 became a 95).
+  // Returner on a current roster: project the demonstrated grade forward to his
+  // 2026-27 role so the hero, progression chart and Rankings tab all agree.
+  try{
+    var _h=(typeof _dedupHist==='function')?_dedupHist():[]; var _la=_h.length?_h[_h.length-1]:null;
+    if(_la && proj && (parseFloat(proj.ppg)>0||parseFloat(proj.mpg)>0) && _la.tdc_grade!=null){
+      var rg=_projReturnerGrade(_la, proj); if(rg!=null&&!isNaN(rg)) return rg;
+    }
+  }catch(e){}
   var g=parseInt(player.tdc_grade); return isNaN(g)?null:g;
 }
 

@@ -12,6 +12,7 @@
   <script src="tdc-proj.js?v=coach1"></script>
   <script src="tdc-freshman.js"></script>
   <script src="tdc-ratings.js"></script>
+  <script src="tdc-projgrade.js?v=1"></script>
   <style>
     .nil-card{border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:132px;background:var(--bg2);}
     .nil-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
@@ -1049,6 +1050,10 @@ const SB_KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` };
 
 function gc(g){return {"A+":"gAp","A":"gA","A-":"gAm","B+":"gBp","B":"gB","B-":"gBm","C+":"gCp","C":"gC","C-":"gCm","D+":"gDp","D":"gD","D-":"gDm","F":"gF"}[g]||"";}
+// Displayed OVR: forward-looking projected grade for returners (stamped as p._projGrade
+// from the shared tdc-projgrade.js model), else the demonstrated/enriched grade
+// (freshmen keep their editor OVR). Same number the player page shows.
+function _gdisp(p){ if(!p) return ''; return (p._projGrade!=null&&!isNaN(p._projGrade))?p._projGrade:(p.tdc_grade!=null?p.tdc_grade:''); }
 
 function setColor(color, rgb){
   document.documentElement.style.setProperty('--tc', color);
@@ -1165,6 +1170,16 @@ async function loadTeam(name){
     );
     allDbPlayers = (await allDbR.json()).filter(p=>p.name&&p.name!=='—');
     window._allDbPlayers = allDbPlayers; // pool for archetype/national percentiles
+
+    // Forward-looking projected OVR — stamp each raw roster/DB row with its projected
+    // grade (shared tdc-projgrade.js model) so the depth chart, roster table and swap
+    // modal show the SAME number as the player page. Freshmen keep their editor OVR
+    // (handled by enrich/_frOvr), so skip them here. Computed from raw last-season
+    // stats + depth_order BEFORE any projection enrichment mutates the line.
+    if(window.TDCProjGrade){
+      const _stampPG=p=>{ try{ if(p && !(window.TDCFresh&&TDCFresh.isFreshman&&TDCFresh.isFreshman(p))){ const g=TDCProjGrade.grade(p); if(g!=null&&!isNaN(g)) p._projGrade=g; } }catch(e){} };
+      players.forEach(_stampPG); allDbPlayers.forEach(_stampPG);
+    }
 
     // Compute color/rgb once and pass to all render functions
     const hex2rgb = h => {
@@ -1665,7 +1680,7 @@ function renderDepth(t, players, color, rgb, gp={}){
           <span class="backup-num">${i+2}</span>
           <span class="backup-name" data-pcard="${(b.name||'').replace(/"/g,'&quot;')}">${b.name}</span>
           <span class="backup-cls">${b.class_year||b.yr||''}</span>
-          <span class="backup-grade ${gc(b.tdc_grade||'')}">${b.tdc_grade||''}</span>
+          <span class="backup-grade ${gc(b.tdc_grade||'')}">${_gdisp(b)}</span>
         </div>`).join('')}
       </div>` : '';
 
@@ -1674,7 +1689,7 @@ function renderDepth(t, players, color, rgb, gp={}){
         <span class="starter-pos">${p.position||''}</span>
       </div>
       <div class="starter-col-body">
-        <div class="starter-name" data-pcard="${(p.name||'').replace(/"/g,'&quot;')}">${p.name}${p.tdc_grade?`<span class="starter-col-grade ${gc(p.tdc_grade)}" style="margin-left:6px;font-size:13px;">${p.tdc_grade}</span>`:''}</div>
+        <div class="starter-name" data-pcard="${(p.name||'').replace(/"/g,'&quot;')}">${p.name}${p.tdc_grade?`<span class="starter-col-grade ${gc(p.tdc_grade)}" style="margin-left:6px;font-size:13px;">${_gdisp(p)}</span>`:''}</div>
         <div class="starter-meta-row">
           <span>${p.class_year||p.yr||''}</span>
           <span class="starter-tag" style="background:rgba(${rgb},.12);">★</span>
@@ -1771,7 +1786,7 @@ function renderDepth(t, players, color, rgb, gp={}){
         <div class="rot-stat" style="${statColor(p.stl,'stl',p80g)}">${fmt(p.stl)}</div>
         <div class="rot-stat" style="${statColor(p.blk,'blk',p80g)}">${fmt(p.blk)}</div>
         <div class="rot-stat" style="${statColor(p.tovs,'tovs',p80g)}">${fmt(p.tovs)}</div>
-        <div class="rot-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||''}</div>
+        <div class="rot-grade ${gc(p.tdc_grade||'')}">${_gdisp(p)}</div>
       </div>`;}).join('')}
       </div>
     </div>`;
@@ -1807,7 +1822,7 @@ function sortableTableHtml(players, p80, gp){
         const v = p[c.key];
         return `<td style="${statColor(v,c.key,scaler)}">${fmt(v)}</td>`;
       }).join('')}
-      <td>${p.tdc_grade||'—'}</td>
+      <td>${_gdisp(p)||'—'}</td>
     </tr>`).join('');
 
   return `
@@ -2240,7 +2255,7 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
           ${advCell(A.ts,'%')}
           ${advCell(A.bpm)}
           ${advCell(A.wa)}
-          <div class="rot-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||''}</div>
+          <div class="rot-grade ${gc(p.tdc_grade||'')}">${_gdisp(p)}</div>
         </div>`;
       }).join('')}
     </div>
@@ -2746,7 +2761,7 @@ function _courtSvg(){ const s='rgba(255,255,255,.14)';
   </svg>`;
 }
 function _courtTile(p,pos){
-  const xy=_COURT_XY[pos], g=p.tdc_grade||'';
+  const xy=_COURT_XY[pos], g=_gdisp(p);
   const fit=calcPositionFit(p, customPos[p.name]||pos);
   const delta=fit.adjGrade?`<span class="sq-delta ${fit.adjGrade>0?'up':'dn'}">${fit.adjGrade>0?'+':''}${fit.adjGrade}</span>`:'';
   return `<div class="sq-player${p.name===_squadSel?' sel':''}" style="left:${xy.x}%;top:${xy.y}%;" data-n="${_sqAttr(p.name)}" onclick="selectSquadPlayer(this.dataset.n)">
@@ -2758,7 +2773,7 @@ function _courtTile(p,pos){
 function _emptyTile(pos){ const xy=_COURT_XY[pos];
   return `<div class="sq-player sq-empty" style="left:${xy.x}%;top:${xy.y}%;"><div class="sq-ava"><span class="sq-init">+</span></div><div class="sq-tag"><span class="sq-pos">${pos}</span></div></div>`;
 }
-function _benchTile(p,pos){ const g=p.tdc_grade||'';
+function _benchTile(p,pos){ const g=_gdisp(p);
   return `<div class="sq-bench-p${p.name===_squadSel?' sel':''}" data-n="${_sqAttr(p.name)}" onclick="selectSquadPlayer(this.dataset.n)">
     <div class="sq-ba">${_sqHead(p.espn_id)}<span class="sq-binit">${_sqInit(p.name)}</span></div>
     <div class="sq-bp-main"><div class="sq-bp-name">${p.name}</div><div class="sq-bp-sub">${pos} · ${p.class_year||p.yr||''}</div></div>
@@ -2767,7 +2782,7 @@ function _benchTile(p,pos){ const g=p.tdc_grade||'';
 }
 function _squadInfo(sel){
   if(!sel||!sel.p) return '<div class="sq-info sq-info-empty">Select a player to see their details.</div>';
-  const p=sel.p, pos=(p.position||'').toUpperCase(), g=p.tdc_grade||'';
+  const p=sel.p, pos=(p.position||'').toUpperCase(), g=_gdisp(p);
   const fit=calcPositionFit(p, customPos[p.name]||sel.pos);
   const mpg=customMpg[p.name]!==undefined?(''+customMpg[p.name]):(p.mpg!=null&&p.mpg!==''?parseFloat(p.mpg).toFixed(1):'—');
   const f1=v=>(v!=null&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v).toFixed(1):'—';
@@ -3397,7 +3412,7 @@ function renderCustomProjectionsTable(){
       <div class="rot-stat" style="${statColor(p.stl,'stl',teamGp)}">${fmt(p.stl)}</div>
       <div class="rot-stat" style="${statColor(p.blk,'blk',teamGp)}">${fmt(p.blk)}</div>
       <div class="rot-stat" style="${statColor(p.tovs,'tovs',teamGp)}">${fmt(p.tovs)}</div>
-      <div class="rot-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||''}</div>
+      <div class="rot-grade ${gc(p.tdc_grade||'')}">${_gdisp(p)}</div>
     </div>`;
   }).join('');
 
@@ -3634,7 +3649,7 @@ async function filterSwapList(hintPos){
         <div class="swap-player-team">${p.team||''} · ${p.class_year||p.yr||''}${p.height?' · '+p.height:''}${fxStat}</div>
       </div>
       <span class="swap-fit-preview ${fit.fitClass}">${fit.fitLabel}</span>
-      <span class="swap-player-grade ${gc(p.tdc_grade||'')}" style="margin-left:6px;">${p.tdc_grade||'—'}</span>
+      <span class="swap-player-grade ${gc(p.tdc_grade||'')}" style="margin-left:6px;">${_gdisp(p)||'—'}</span>
     </div>`;
   }).join('')||'<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;">No players found'+(fx?' that fix '+WEAK_DIMS[swapFixDim].label.toLowerCase()+' — try another source tab':'')+'</div>';
 }
@@ -5041,7 +5056,7 @@ function histTable(rows, yr, projected){
     <td>${p.gp||'—'}</td><td>${num(p.mpg)}</td><td>${num(p.ppg)}</td><td>${num(p.rpg)}</td><td>${num(p.apg)}</td>
     <td>${num(p.stl)}</td><td>${num(p.blk)}</td><td>${num(p.tovs)}</td>
     <td>${pct(p.fg_pct)}</td><td>${pct(p.tp_pct)}</td><td>${pct(p.ft_pct)}</td>
-    <td class="hr-ovr">${p.tdc_grade||'—'}</td></tr>`).join('');
+    <td class="hr-ovr">${projected?(_gdisp(p)||'—'):(p.tdc_grade||'—')}</td></tr>`).join('');
   return `<div class="hr-wrap"><table class="hr-table"><thead><tr>
     <th>#</th><th>Player</th><th>GP</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th><th>STL</th><th>BLK</th><th>TO</th><th>FG%</th><th>3P%</th><th>FT%</th><th>OVR</th>
   </tr></thead><tbody>${body}</tbody></table></div>`;

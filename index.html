@@ -5,6 +5,7 @@
   <script src="team-colors.js"></script>
   <script src="tdc-ratings.js"></script>
   <script src="tdc-freshman.js"></script>
+  <script src="tdc-projgrade.js?v=1"></script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>The Depth Chart — College Basketball Roster Rankings</title>
@@ -1446,9 +1447,9 @@ async function renderShowcase(){
       try{
         if(curSeason===2027){
           // Projected season: no bbref rows yet — rank the current 2026-27 rosters by grade
-          const r=await fetch(`${SB_URL}/rest/v1/players?name=neq.%E2%80%94&tdc_grade=not.is.null&is_injured=not.is.true&select=name,team,tdc_grade,espn_id,mpg&order=tdc_grade.desc&limit=800`,{headers:HEADERS});
+          const r=await fetch(`${SB_URL}/rest/v1/players?name=neq.%E2%80%94&tdc_grade=not.is.null&is_injured=not.is.true&select=name,team,tdc_grade,espn_id,mpg,depth_order,ppg,rpg,apg,tovs&order=tdc_grade.desc&limit=800`,{headers:HEADERS});
           if(r.ok){ const raw=await r.json();
-            if(Array.isArray(raw)&&raw.length) pool=raw.map(p=>({player:p.name,school:p.team,tdc_grade:p.tdc_grade,espn_id:p.espn_id,pergame:{games:99,mp_per_g:p.mpg||99}})); }
+            if(Array.isArray(raw)&&raw.length) pool=raw.map(p=>({player:p.name,school:p.team,tdc_grade:p.tdc_grade,espn_id:p.espn_id,pergame:{games:99,mp_per_g:p.mpg||99},mpg:p.mpg,depth_order:p.depth_order,ppg:p.ppg,rpg:p.rpg,apg:p.apg,tovs:p.tovs})); }
         } else {
           const r=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${curSeason}&tdc_grade=not.is.null&select=player,school,tdc_grade,espn_id,pergame&order=tdc_grade.desc&limit=800`,{headers:HEADERS});
           if(r.ok){ const raw=await r.json(); if(Array.isArray(raw)&&raw.length) pool=raw; }
@@ -1462,8 +1463,16 @@ async function renderShowcase(){
   if(curSeason===2027 && window.TDCFresh && Array.isArray(pool) && pool.length){
     try{ await TDCFresh.load(); }catch(e){}
     let _ov=false;
-    pool.forEach(p=>{ const fp=TDCFresh.profileFor({team:p.school,name:p.player}); if(fp&&fp.ovr!=null){ p.tdc_grade=''+Math.round(fp.ovr); _ov=true; } });
+    pool.forEach(p=>{ const fp=TDCFresh.profileFor({team:p.school,name:p.player}); if(fp&&fp.ovr!=null){ p.tdc_grade=''+Math.round(fp.ovr); p._fr=true; _ov=true; } });
     if(_ov) pool.sort((a,b)=>(parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0));
+  }
+  // Forward-looking projected OVR for RETURNERS (shared tdc-projgrade.js model) — so
+  // the national strip ranks by 2026-27 projection, same number the player/team pages
+  // show. Freshmen already carry their editor OVR above and are skipped.
+  if(curSeason===2027 && window.TDCProjGrade && Array.isArray(pool) && pool.length){
+    let _pv=false;
+    pool.forEach(p=>{ if(p._fr) return; const g=TDCProjGrade.grade(p); if(g!=null&&!isNaN(g)&&g!=+p.tdc_grade){ p.tdc_grade=''+g; _pv=true; } });
+    if(_pv) pool.sort((a,b)=>(parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0));
   }
   if(blk && Array.isArray(pool) && pool.length){
     // require real playing time so a low-minute fluke grade can't headline
