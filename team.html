@@ -4182,10 +4182,12 @@ function _dnaMatchup(oppKey){
   const margin=(teamExpO-oppExpO)*poss/100;
   const wpMe=Math.max(1,Math.min(99,Math.round(100*(0.5*(1+_erf(margin/(11*Math.SQRT2)))))));
   const fav=margin>=0;
+  const per100=Math.abs(teamExpO-oppExpO);   // efficiency margin per 100 possessions
   el.innerHTML=`<div class="dna-mu-res">
-      <div class="dna-mu-line">Projected: <b class="${fav?'pos':'neg'}">${fav?myName:oppKey}</b> by <b>${Math.abs(margin).toFixed(1)}</b></div>
+      <div class="dna-mu-lbl" style="font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:2px;">Projected final margin · neutral court</div>
+      <div class="dna-mu-line">Projected: <b class="${fav?'pos':'neg'}">${fav?myName:oppKey}</b> by <b>${Math.abs(margin).toFixed(1)}</b> points</div>
       <div class="dna-mu-wp">${wpMe}% win probability for ${myName}</div>
-      <div class="dna-mu-sub">${myName}'s offense projects to <b>${teamExpO.toFixed(0)}</b>/100 possessions vs their defense; the opponent's to <b>${oppExpO.toFixed(0)}</b>/100 vs yours. Expected pace ≈ <b>${poss.toFixed(0)}</b> possessions. Neutral floor, efficiency-based — doesn't account for injuries or individual player matchups.</div>
+      <div class="dna-mu-sub"><b>${Math.abs(margin).toFixed(1)}</b> is the projected final-score margin — the game spread at an expected <b>${poss.toFixed(0)}</b> possessions. It comes from a <b>${per100.toFixed(1)}</b>-point-per-100-possessions efficiency edge (${myName}'s offense projects to <b>${teamExpO.toFixed(0)}</b> per 100 vs their defense, the opponent's to <b>${oppExpO.toFixed(0)}</b> vs yours), scaled down to game length. Neutral floor, efficiency-based — no injuries or individual player matchups.</div>
     </div>`;
 }
 function _erf(x){ const t=1/(1+0.3275911*Math.abs(x)); const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x); return x>=0?y:-y; }
