@@ -96,6 +96,16 @@
     .parc .g1{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;}
     .parc .d{font-size:11px;font-weight:800;color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent);padding:2px 7px;border-radius:6px;}
     .grade-badge{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;flex-shrink:0;}
+    .chero-grade{margin-left:auto;text-align:center;flex-shrink:0;}
+    .chero-grade .cg-num{font-family:'Playfair Display',serif;font-weight:800;font-size:56px;line-height:1;color:var(--accent);}
+    .chero-grade .cg-lbl{font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
+    .chero-grade .cg-rk{font-size:12px;font-weight:800;color:var(--text2);margin-top:3px;}
+    .gparts{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:4px 0 20px;}
+    .gpart{background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:12px 14px;}
+    .gp-v{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;}
+    .gp-l{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin:1px 0 7px;}
+    .gp-bar{height:5px;border-radius:3px;background:var(--bg3);overflow:hidden;} .gp-fill{height:100%;border-radius:3px;background:var(--accent);}
+    @media(max-width:680px){.gparts{grid-template-columns:repeat(2,1fr);}}
     .loading{padding:80px;text-align:center;color:var(--text3);}
     @media(max-width:820px){.grid2{grid-template-columns:1fr;}.cols{grid-template-columns:1fr;}}
     @media(max-width:680px){.nav-top,.nav-sub{padding-left:16px;padding-right:16px;}.chero h1{font-size:34px;}}
@@ -120,6 +130,7 @@ function toggleTheme(){const d=document.documentElement.getAttribute('data-theme
 (function(){try{var s=localStorage.getItem('tdc_theme');if(s){document.documentElement.setAttribute('data-theme',s);var b=document.getElementById('themeBtn');if(b)b.textContent=s==='dark'?'☀️':'🌙';}}catch(e){}})();
 
 const AXES=[['Pace','poss_pg'],['Bench','rotation_size'],['3PT Vol','three_pa_rate'],['Ball Move','ast_rate'],['TO Force','opp_tov_pg'],['Star Use','top_scorer_share']];
+var TOTAL=952;
 function seasonLbl(y){y=+y;return (y-1)+'-'+(''+y).slice(2);}
 function plink(eid,nm){ return eid?('player.html?espn='+eid):('player.html?name='+encodeURIComponent(nm||'')); }
 function gradeColor(g){ g=+g; return g>=90?'#5ab875':g>=82?'var(--accent)':g>=74?'var(--text)':'var(--text2)'; }
@@ -221,14 +232,22 @@ function render(p, ss, pg){
   var initials=(p.coach||'').trim().split(/\s+/).slice(0,2).map(w=>(w[0]||'')).join('').toUpperCase();
   var devCell=p.dev_delta!=null?stat((p.dev_delta>=0?'+':'')+p.dev_delta.toFixed(1),'Player Dev'+(p.dev_pctl!=null?' · '+p.dev_pctl+'%ile':''),(p.dev_delta>=0?'var(--green)':'var(--red)')):'';
 
+  var tr=p.tourney||{};
+  var gradeBadge=p.grade!=null?'<div class="chero-grade"><div class="cg-num">'+p.grade+'</div><div class="cg-lbl">TDC Coach Grade</div><div class="cg-rk">#'+p.rank+' of '+TOTAL+'</div></div>':'';
+  var gp=p.grade_parts;
+  var partsHtml=gp?'<div class="gparts">'+[['Winning &amp; Quality','winning'],['Tournament / Peak','tournament'],['Player Development','development'],['Consistency','consistency']].map(function(x){
+    return '<div class="gpart"><div class="gp-v">'+gp[x[1]]+'</div><div class="gp-l">'+x[0]+'</div><div class="gp-bar"><div class="gp-fill" style="width:'+gp[x[1]]+'%"></div></div></div>';}).join('')+'</div>':'';
+
   var html='<a class="back" href="coaches.html">← Coaching Lab</a>'+
     '<div class="chero"><div class="chero-mono">'+initials+'</div>'+
       '<div class="chero-body"><div class="ey">Head Coach</div><h1>'+p.coach+'</h1>'+
       '<div class="meta">'+p.schools+' · '+seasonLbl(p.first_year)+' – '+seasonLbl(p.last_year)+'</div>'+
-      '<span class="arch">'+p.archetype+'</span></div></div>'+
+      '<span class="arch">'+p.archetype+'</span></div>'+gradeBadge+'</div>'+
+    partsHtml+
     '<div class="cstrip">'+stat(p.wins+'-'+p.losses,'Record')+stat((p.win_pct*100).toFixed(1)+'%','Win %')+
       stat(p.seasons,'Seasons')+stat((p.avg_srs>=0?'+':'')+num(p.avg_srs),'Avg SRS')+
-      (pg?stat(pg.tny_apps+' / '+pg.tny_wins,'NCAA Apps / Wins'):'')+
+      (tr.titles?stat(tr.titles,'National Titles'):'')+(tr.final_fours?stat(tr.final_fours,'Final Fours'):'')+
+      (tr.apps?stat(tr.apps,'NCAA Apps'):'')+
       (pg?stat(pg.players_coached,'Players Coached'):'')+devCell+'</div>';
 
   // Career by season — bar chart (replaces the long timeline table)
@@ -291,6 +310,7 @@ async function init(){
     ]);
     var p=prof.find(x=>x.coach_slug===slug);
     if(!p){ document.getElementById('content').innerHTML='<div class="loading">Coach not found. <a href="coaches.html" style="color:var(--accent)">Back to the Coaching Lab</a>.</div>'; return; }
+    TOTAL=prof.length;
     var ss=(seas||[]).filter(s=>s.coach_slug===slug);
     document.title=p.coach+' — The Depth Chart';
     render(p, ss, pages[slug]);

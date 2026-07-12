@@ -61,6 +61,18 @@
     .ccard .arch{font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);background:rgba(168,132,60,.1);padding:3px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0;}
     .ccard .rec{font-size:12px;color:var(--text2);font-weight:600;margin-bottom:10px;}
     .ccard .rec b{color:var(--text);}
+    .cgrade{display:flex;flex-direction:column;align-items:center;flex-shrink:0;line-height:1;}
+    .cgrade .cg-n{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;color:var(--accent);}
+    .cgrade .cg-r{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
+    .ccard .archline{font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);margin-bottom:9px;}
+    /* headline coach ranking */
+    .crank{border:1px solid var(--border);border-radius:13px;background:var(--bg2);overflow:hidden;margin-bottom:8px;}
+    .crank-row{display:grid;grid-template-columns:40px 1fr auto;gap:14px;align-items:center;padding:11px 16px;cursor:pointer;border-bottom:1px solid var(--border);}
+    .crank-row:last-child{border-bottom:none;} .crank-row:hover{background:var(--bg3);}
+    .crank-rk{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;color:var(--text3);text-align:center;}
+    .crank-nm{font-size:15px;font-weight:800;line-height:1.15;} .crank-nm small{font-weight:600;color:var(--text3);font-size:11.5px;margin-left:6px;}
+    .crank-meta{font-size:11px;color:var(--text3);margin-top:1px;}
+    .crank-g{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;color:var(--accent);text-align:right;}
     .bars{display:flex;flex-direction:column;gap:5px;}
     .bar-row{display:flex;align-items:center;gap:8px;font-size:9.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
     .bar-row .bl{width:64px;flex-shrink:0;text-align:right;}
@@ -135,6 +147,24 @@ const BARS=[['Pace','poss_pg'],['Bench','rotation_size'],['3PT','three_pa_rate']
 function seasonLbl(y){y=+y;return (y-1)+'-'+(''+y).slice(2);}
 function lastSchool(p){ var s=(SEASONS[p.coach_slug]||[]); return s.length?s[s.length-1].school:(p.schools||'').split(',')[0]; }
 
+// tournament resume as a short phrase
+function resumeStr(p){ var t=p.tourney||{}, r=[];
+  if(t.titles) r.push(t.titles+'× National Champion');
+  if(t.final_fours) r.push(t.final_fours+' Final Four'+(t.final_fours>1?'s':''));
+  if(t.apps) r.push(t.apps+' NCAA app'+(t.apps>1?'s':''));
+  return r.join(' · '); }
+// ── headline coach ranking (by TDC Coach Grade) ──
+function gradeRankHtml(){
+  var top=PROF.filter(p=>p.grade!=null).slice().sort((a,b)=>a.rank-b.rank).slice(0,25);
+  return '<div class="crank">'+top.map(function(p){
+    var res=resumeStr(p)||(p.seasons+' seasons · '+(p.win_pct*100).toFixed(0)+'% · SRS '+(p.avg_srs>=0?'+':'')+(p.avg_srs!=null?p.avg_srs.toFixed(1):'—'));
+    return '<div class="crank-row" onclick="openCoach(\''+p.coach_slug+'\')">'+
+      '<div class="crank-rk">'+p.rank+'</div>'+
+      '<div><div class="crank-nm">'+p.coach+' <small>'+lastSchool(p)+' · '+p.archetype+'</small></div>'+
+      '<div class="crank-meta">'+p.wins+'-'+p.losses+' ('+(p.win_pct*100).toFixed(0)+'%) · '+res+'</div></div>'+
+      '<div class="crank-g">'+p.grade+'</div></div>';
+  }).join('')+'</div>';
+}
 // ── leaderboards ──
 const LBS=[
   {k:'dev_delta',t:'⭐ Gets the Most From Players',s:'grade gain above expected / yr',fmt:v=>(v>=0?'+':'')+v.toFixed(1),desc:true,qual:true},
@@ -165,10 +195,12 @@ function cardBars(p){
   }).join('')+'</div>';
 }
 function coachCard(p){
+  var res=resumeStr(p);
   return '<div class="ccard" onclick="openCoach(\''+p.coach_slug+'\')">'+
     '<div class="top"><div><div class="nm">'+p.coach+'</div><div class="school">'+lastSchool(p)+' · '+p.seasons+' seasons</div></div>'+
-    '<span class="arch">'+p.archetype+'</span></div>'+
-    '<div class="rec"><b>'+p.wins+'-'+p.losses+'</b> ('+(p.win_pct*100).toFixed(0)+'%)'+(p.avg_srs!=null?' · SRS '+(p.avg_srs>=0?'+':'')+p.avg_srs.toFixed(1):'')+'</div>'+
+    (p.grade!=null?'<div class="cgrade" title="TDC Coach Grade"><span class="cg-n">'+p.grade+'</span><span class="cg-r">#'+p.rank+'</span></div>':'<span class="arch">'+p.archetype+'</span>')+'</div>'+
+    (p.grade!=null?'<div class="archline">'+p.archetype+'</div>':'')+
+    '<div class="rec"><b>'+p.wins+'-'+p.losses+'</b> ('+(p.win_pct*100).toFixed(0)+'%)'+(p.avg_srs!=null?' · SRS '+(p.avg_srs>=0?'+':'')+p.avg_srs.toFixed(1):'')+(res?' · '+res:'')+'</div>'+
     cardBars(p)+'</div>';
 }
 function render(){
@@ -176,8 +208,10 @@ function render(){
   var filtered=PROF.filter(p=>p.seasons>=3)
     .filter(p=>curArch==='All'||p.archetype===curArch)
     .filter(p=>!curQ||p.coach.toLowerCase().includes(curQ)||(lastSchool(p)||'').toLowerCase().includes(curQ))
-    .sort((a,b)=>b.wins-a.wins);
+    .sort((a,b)=>(a.rank||9999)-(b.rank||9999));
   document.getElementById('content').innerHTML=
+    '<div class="sec-t">Coach Rankings <span style="color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;">TDC Coach Grade — winning &amp; team quality, tournament resume, player development, and consistency over 20 years</span></div>'+
+    gradeRankHtml()+
     '<div class="sec-t">Style Leaderboards <span style="color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;">20-year careers, 4+ seasons</span></div>'+
     leaderboardsHtml()+
     '<div class="sec-t">Every Coach <span style="color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;">'+filtered.length+' shown</span></div>'+
