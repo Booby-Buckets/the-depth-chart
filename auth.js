@@ -1,3 +1,13 @@
+/* ┌──────────────────────────────────────────────────────────────────────┐
+   │  PAYWALL MASTER SWITCH                                                  │
+   │  false = all premium gates OPEN (everyone gets in) — DEV / pre-launch.  │
+   │  true  = paywall enforced (roster/compare/community/forum redirect      │
+   │          non-premium users to pricing.html).                            │
+   │  To re-enable the paywall before launch: set this to true AND bump the  │
+   │  auth.js?v= query on every page (grep auth.js?v=).                       │
+   └──────────────────────────────────────────────────────────────────────┘ */
+window.TDC_PAYWALL_ENABLED = false;
+
 /* Shared auth bootstrap — keeps users signed in by refreshing the Supabase JWT.
  *
  * The app stores the full Supabase session in localStorage.tdc_session, but the
