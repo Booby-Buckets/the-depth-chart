@@ -135,17 +135,28 @@
     if(prof){ _blob[k]=prof; try{localStorage.setItem(k,JSON.stringify(prof));}catch(e){} }
     else { delete _blob[k]; try{localStorage.removeItem(k);}catch(e){} }
     return pushBlob(); }
+  // The OWNER publishes the shared OVR overrides into their own profile's
+  // freshman_projections blob. Everyone else PUBLIC-reads that same blob (profiles
+  // are anon-SELECT via RLS) so signed-out visitors see the exact OVRs the owner set
+  // — not the raw DB grades. (id = boobyjmiles; stable, not secret.)
+  var OWNER_ID='c5784cf4-dd77-4429-b0e6-578a0c1c5c8f';
   function load(onReady){
     if(_loaded){ onReady&&onReady(); return Promise.resolve(); }
     if(_loading){ if(onReady)_loading.then(onReady); return _loading; }
     var s=session();
-    if(!isOwner()||!s||!s.access_token||!s.user||!s.user.id){ _blob=_blob||{}; _loaded=true; onReady&&onReady(); return Promise.resolve(); }
-    _loading=fetch(SB+'/rest/v1/profiles?id=eq.'+s.user.id+'&select=freshman_projections',{headers:{apikey:KEY,Authorization:'Bearer '+s.access_token}})
-      .then(function(r){return r.json();}).then(function(rows){
+    var owner=!!(isOwner()&&s&&s.access_token&&s.user&&s.user.id);
+    var url = owner
+      ? SB+'/rest/v1/profiles?id=eq.'+s.user.id+'&select=freshman_projections'
+      : SB+'/rest/v1/profiles?id=eq.'+OWNER_ID+'&select=freshman_projections';
+    var hdr = owner ? {apikey:KEY,Authorization:'Bearer '+s.access_token} : {apikey:KEY};
+    _loading=fetch(url,{headers:hdr})
+      .then(function(r){return r.ok?r.json():[];}).then(function(rows){
         _blob=(rows&&rows[0]&&rows[0].freshman_projections)||{};
-        var migrated=false;
-        for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(k&&k.indexOf('tdc_fr:')===0&&!_blob[k]){ try{_blob[k]=JSON.parse(localStorage.getItem(k)); migrated=true;}catch(e){} } }
-        if(migrated) pushBlob();
+        if(owner){  // migrate any legacy localStorage entries into the owner's blob
+          var migrated=false;
+          for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(k&&k.indexOf('tdc_fr:')===0&&!_blob[k]){ try{_blob[k]=JSON.parse(localStorage.getItem(k)); migrated=true;}catch(e){} } }
+          if(migrated) pushBlob();
+        }
         _loaded=true;
       }).catch(function(e){ _blob=_blob||{}; _loaded=true; }).then(function(){ onReady&&onReady(); });
     return _loading;
