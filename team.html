@@ -197,6 +197,40 @@
     .cz-subtab:hover{color:var(--text2);}
     .cz-subtab.active{color:var(--text);border-bottom-color:var(--tc,var(--accent));}
     .cz-subpanel{display:none;}
+    /* Rotation builder */
+    .rb-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+    .rb-auto{background:var(--tc,var(--accent));color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:800;letter-spacing:.03em;cursor:pointer;font-family:inherit;}
+    .rb-auto:hover{filter:brightness(1.1);}
+    .rb-rot{font-size:12px;font-weight:700;color:var(--text3);display:inline-flex;align-items:center;}
+    .rb-rot select{padding:6px 8px;border:1px solid var(--border2);background:var(--bg);color:var(--text);border-radius:7px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;}
+    .rb-coachnorm{font-size:11px;color:var(--text3);font-weight:600;}
+    .rb-team-total{margin-left:auto;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;padding:5px 12px;border-radius:8px;}
+    .rb-team-total.ok{color:var(--green);background:color-mix(in srgb,var(--green) 12%,transparent);}
+    .rb-team-total.under{color:#c98a1a;background:color-mix(in srgb,#c98a1a 12%,transparent);}
+    .rb-team-total.over{color:var(--red);background:color-mix(in srgb,var(--red) 14%,transparent);}
+    .rb-note{font-size:11px;color:var(--text3);line-height:1.55;margin-bottom:16px;}
+    .rb-note b{color:var(--text2);}
+    .rb-grid{display:flex;flex-direction:column;gap:12px;}
+    .rb-pos{border:1px solid var(--border);border-radius:11px;background:var(--bg2);padding:12px 14px;}
+    .rb-pos-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+    .rb-pos-name{font-size:12px;font-weight:800;letter-spacing:.1em;color:var(--text2);}
+    .rb-pos-total{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;}
+    .rb-pos-total span{font-size:10px;color:var(--text3);font-weight:600;}
+    .rb-pos-total.ok{color:var(--green);} .rb-pos-total.under{color:#c98a1a;} .rb-pos-total.over{color:var(--red);}
+    .rb-bar{display:flex;height:22px;border-radius:6px;overflow:hidden;background:var(--bg3);margin-bottom:10px;gap:1px;}
+    .rb-seg{display:flex;align-items:center;justify-content:center;min-width:0;transition:width .3s;overflow:hidden;}
+    .rb-seg span{font-size:10px;font-weight:800;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.45);}
+    .rb-empty{width:100%;}
+    .rb-players{display:flex;flex-wrap:wrap;gap:6px;}
+    .rb-prow{display:flex;align-items:center;gap:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:5px 9px;}
+    .rb-prow.rb-dnp{opacity:.5;}
+    .rb-p-name{font-size:12px;font-weight:700;}
+    .rb-fit{font-size:8.5px;font-weight:800;text-transform:uppercase;color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent);padding:1px 5px;border-radius:5px;margin-left:5px;}
+    .rb-p-eff{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;}
+    .rb-p-step{display:inline-flex;align-items:center;gap:5px;}
+    .rb-p-step button{width:20px;height:20px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:13px;font-weight:700;cursor:pointer;border-radius:5px;line-height:1;display:flex;align-items:center;justify-content:center;}
+    .rb-p-step button:hover{border-color:var(--tc,var(--accent));}
+    .rb-p-step b{font-size:12px;font-weight:800;min-width:20px;text-align:center;font-variant-numeric:tabular-nums;}
     /* Coach ↔ roster synergy panel */
     .coach-panel{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:16px 18px;margin-bottom:18px;}
     .cp-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
@@ -2684,6 +2718,101 @@ function renderMinsBudget(){
     <span class="mins-budget-val" style="color:${far?'#cc2200':'var(--text2)'};">${Math.round(total)} / ${MAX_TEAM_MINS}</span>
   </div>`;
 }
+
+// ── ROTATION BUILDER ──────────────────────────────────────────────────────
+// A REAL rotation: each position covers 40 on-court minutes, so the five
+// columns sum to a 200-minute game. Auto-build distributes minutes from each
+// player's EFFECTIVE grade (talent + position fit) and the coach's rotation
+// depth; then the user fine-tunes per player.
+function _effGrade(p, pos){
+  // numeric projected OVR for returners (_gdisp), falling back to the raw grade —
+  // NOT gradeToNum(), which only maps letter grades and would flatten everyone to 70
+  const g=parseFloat(_gdisp(p))||parseFloat(p.tdc_grade)||70;
+  const fit=calcPositionFit(p, customPos[p.name]||pos);
+  return Math.max(40, Math.min(99, g + (fit.adjGrade||0)));
+}
+function _rbMpg(p, isStarter){
+  return customMpg[p.name]!==undefined ? Math.round(customMpg[p.name]) : Math.round(parseFloat(p.mpg)|| (isStarter?26:12));
+}
+function _rbSegColor(i){ return ['var(--tc,#2c6ef2)','#5ab875','#d4a24a','#a06cc9','#7a8aa0','#c97a5a'][i%6]; }
+function autoBuildRotation(){
+  const N=_rotationSize||9;
+  const cols=POS_KEYS.map(pos=>({pos, players:(customDepth[pos]||[]).filter(p=>p&&p.name).map(p=>({p, eff:_effGrade(p,pos)}))})).filter(c=>c.players.length);
+  // who fits where: the best-fit player at each spot starts (reorder the depth
+  // column so the squad court + depth grid reflect it), then minutes follow
+  cols.forEach(c=>{ c.players.sort((a,b)=>b.eff-a.eff); customDepth[c.pos]=c.players.map(x=>x.p); });
+  // rotation bench = the top (N−5) backups by effective grade, across all positions
+  const backups=[]; cols.forEach(c=>c.players.slice(1).forEach(b=>backups.push(b)));
+  backups.sort((a,b)=>b.eff-a.eff);
+  const inRot=new Set(backups.slice(0,Math.max(0,N-5)).map(b=>b.p.name));
+  const mpg={};
+  cols.forEach(c=>{
+    const st=c.players[0];
+    const rot=c.players.filter((pl,i)=> i===0 || inRot.has(pl.p.name));
+    if(c.players.length===1){ mpg[st.p.name]=40; }   // genuinely the only body at the spot
+    else{
+      const isBig=(c.pos==='PF'||c.pos==='C'), cap=isBig?34:38;   // bigs capped for foul trouble
+      const depthAdj=(N-9)*-0.8;                                  // deeper rotation → starters rest more
+      const sMin=Math.round(Math.max(22,Math.min(cap, 28 + (st.eff-78)*0.4 + depthAdj)));
+      // rotation backups at this spot; if none made the rotation, the next-best
+      // player still spells the starter so nobody logs a full 40
+      let bks=rot.slice(1); if(!bks.length) bks=[c.players[1]];
+      const rem=40-sMin, wsum=bks.reduce((s,b)=>s+Math.max(1,b.eff-52),0)||1;
+      let used=0;
+      bks.forEach(b=>{ const m=Math.max(3,Math.round(rem*Math.max(1,b.eff-52)/wsum)); mpg[b.p.name]=m; used+=m; });
+      mpg[st.p.name]=40-used;                        // starter absorbs the remainder → column = 40
+    }
+    c.players.forEach(pl=>{ if(mpg[pl.p.name]===undefined) mpg[pl.p.name]=0; });   // out of rotation
+  });
+  customMpg=mpg; _rotationUserSet=true;
+  _baseCustomProj=buildCustomProjections();
+  rebuildCustomizeUI();
+}
+function rbStep(name, delta){
+  let cur=customMpg[name];
+  if(cur===undefined){ cur=12; POS_KEYS.forEach(pos=>{(customDepth[pos]||[]).forEach((p,i)=>{ if(p.name===name) cur=Math.round(parseFloat(p.mpg)|| (i===0?26:12)); });}); }
+  customMpg[name]=Math.max(0,Math.min(40,Math.round(cur)+delta));
+  _baseCustomProj=buildCustomProjections();
+  const sq=document.getElementById('squadView'); if(sq) sq.innerHTML=_squadInner();
+  const host=document.getElementById('rotationBuilder'); if(host) host.innerHTML=renderRotationBuilder();
+}
+function renderRotationBuilder(){
+  const cols=POS_KEYS.map(pos=>{
+    const players=(customDepth[pos]||[]).filter(p=>p&&p.name);
+    const rows=players.map((p,i)=>({p,i,isStarter:i===0,eff:_effGrade(p,pos),mpg:_rbMpg(p,i===0),fit:calcPositionFit(p,customPos[p.name]||pos)}));
+    return {pos, rows, total:rows.reduce((s,r)=>s+r.mpg,0)};
+  }).filter(c=>c.rows.length);
+  if(!cols.length) return '<div style="padding:24px;color:var(--text3);">Add players to build a rotation.</div>';
+  const teamTotal=cols.reduce((s,c)=>s+c.total,0);
+  const rotOpts=[];for(let n=6;n<=15;n++)rotOpts.push(`<option value="${n}"${n===_rotationSize?' selected':''}>${n}-man</option>`);
+  const posHtml=cols.map(c=>{
+    const segs=c.rows.filter(r=>r.mpg>0).map((r,idx)=>`<div class="rb-seg" style="width:${Math.min(100,r.mpg/40*100)}%;background:${_rbSegColor(idx)};" title="${_sqAttr(r.p.name)}: ${r.mpg} min">${r.mpg>=7?`<span>${_sqInit(r.p.name)} ${r.mpg}</span>`:''}</div>`).join('');
+    const cls=c.total>40?'over':c.total<40?'under':'ok';
+    const prows=c.rows.map(r=>{
+      const pKey=`rb-${c.pos}-${r.i}`;
+      const bad=(r.fit.adjGrade<=-8)?`<span class="rb-fit" title="${(r.fit.reason||'').replace(/"/g,'&quot;')}">poor fit</span>`:'';
+      return `<div class="rb-prow${r.mpg===0?' rb-dnp':''}">
+        <span class="rb-p-name">${r.isStarter?'★ ':''}${r.p.name}${bad}</span>
+        <span class="rb-p-eff" style="color:${_sqCol(r.eff)};" title="talent + position fit">${Math.round(r.eff)}</span>
+        <span class="rb-p-step"><button onclick="rbStep('${_sqAttr(r.p.name)}',-2)">−</button><b id="mpgVal-${pKey}">${r.mpg}</b><button onclick="rbStep('${_sqAttr(r.p.name)}',2)">+</button></span>
+      </div>`;
+    }).join('');
+    return `<div class="rb-pos">
+      <div class="rb-pos-head"><span class="rb-pos-name">${c.pos}</span><span class="rb-pos-total ${cls}">${c.total}<span>/40</span></span></div>
+      <div class="rb-bar">${segs||'<div class="rb-empty"></div>'}</div>
+      <div class="rb-players">${prows}</div>
+    </div>`;
+  }).join('');
+  const ttCls=teamTotal===200?'ok':Math.abs(teamTotal-200)<=8?'under':'over';
+  return `<div class="rb-controls">
+      <button class="rb-auto" onclick="autoBuildRotation()">✦ Auto-build rotation</button>
+      <label class="rb-rot">Depth&nbsp;<select onchange="onRotationChange(this.value)">${rotOpts.join('')}</select></label>
+      ${_coachRotationSize?`<span class="rb-coachnorm">coach norm ${_coachRotationSize}-man</span>`:''}
+      <span class="rb-team-total ${ttCls}">${teamTotal} / 200 min</span>
+    </div>
+    <div class="rb-note">Each position covers <b>40 on-court minutes</b> — the five columns make a real <b>200-minute game</b>. Auto-build sets minutes from talent, position fit &amp; the coach's rotation depth; then fine-tune per player. The number by each name is his <b>effective grade</b> (talent adjusted for how well he fits the spot).</div>
+    <div class="rb-grid">${posHtml}</div>`;
+}
 // ── LINEUP LAB — deeper analytics ─────────────────────────
 function renderLineupLab(analytics){
   if(!analytics) return '';
@@ -3485,6 +3614,7 @@ function rebuildCustomizeUI(){
     ${renderSquadView()}
     <div class="cz-subtabs">
       <button class="cz-subtab" data-sub="lineup" onclick="switchCustomizeSubtab('lineup')">Lineup</button>
+      <button class="cz-subtab" data-sub="rotation" onclick="switchCustomizeSubtab('rotation')">Rotation</button>
       <button class="cz-subtab" data-sub="analytics" onclick="switchCustomizeSubtab('analytics')">Team Analytics</button>
       <button class="cz-subtab" data-sub="coach" onclick="switchCustomizeSubtab('coach')">Coach</button>
       <button class="cz-subtab" data-sub="proj" onclick="switchCustomizeSubtab('proj')">Projections</button>
@@ -3500,6 +3630,9 @@ function rebuildCustomizeUI(){
         A 6'1" player at C loses ~18 pts. A 6'8" player at PG gains pts if assists ≥5 and TOV &lt;1.5, but loses pts if their numbers don't back it up.
         <strong style="color:var(--text2);">Lineup Quality</strong> = minutes-weighted effective grade of your 5 starters. Wear/foul risk rises at 35+ MPG.
       </div>
+    </div>
+    <div class="cz-subpanel" data-sub="rotation">
+      <div id="rotationBuilder">${renderRotationBuilder()}</div>
     </div>
     <div class="cz-subpanel" data-sub="analytics">
       ${renderImpactPanel()}
