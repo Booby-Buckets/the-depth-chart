@@ -1178,12 +1178,23 @@ async function loadTeam(name){
     window._allDbPlayers = allDbPlayers; // pool for archetype/national percentiles
     const globalPercentiles = calcGlobalPercentiles(allPlayers);
 
-    // Forward-looking projected OVR — stamp each raw roster/DB row with its projected
-    // grade (shared tdc-projgrade.js model) so the depth chart, roster table and swap
-    // modal show the SAME number as the player page. Freshmen keep their editor OVR
-    // (handled by enrich/_frOvr), so skip them here.
-    if(window.TDCProjGrade){
-      const _stampPG=p=>{ try{ if(p && !(window.TDCFresh&&TDCFresh.isFreshman&&TDCFresh.isFreshman(p))){ const g=TDCProjGrade.grade(p); if(g!=null&&!isNaN(g)) p._projGrade=g; } }catch(e){} };
+    // Displayed OVR — stamp each raw roster/DB row. Priority (same as roster.html +
+    // the homepage strip): (1) the owner's freshman-editor OVR if the player is
+    // profiled — the single source of truth, so a profiled freshman/returner shows
+    // exactly what the editor set; (2) otherwise the forward-looking projected grade
+    // for returners (tdc-projgrade.js). Profiles must be loaded FIRST (they were
+    // loaded later, so the depth chart missed editor OVRs — e.g. a freshman showed
+    // his DB grade instead of the editor OVR).
+    if(window.TDCFresh && TDCFresh.load){ try{ await TDCFresh.load(); }catch(e){} }
+    if(window.TDCProjGrade || window.TDCFresh){
+      const _stampPG=p=>{ try{
+        if(!p) return;
+        const fp = (window.TDCFresh && TDCFresh.profileFor) ? TDCFresh.profileFor({team:p.team, name:p.name}) : null;
+        if(fp && fp.ovr!=null){ p._projGrade = Math.round(parseFloat(fp.ovr)); return; }   // editor OVR wins
+        if(window.TDCProjGrade && !(window.TDCFresh&&TDCFresh.isFreshman&&TDCFresh.isFreshman(p))){
+          const g=TDCProjGrade.grade(p); if(g!=null&&!isNaN(g)) p._projGrade=g;
+        }
+      }catch(e){} };
       players.forEach(_stampPG); allDbPlayers.forEach(_stampPG);
     }
     // Store globally for projection slider
