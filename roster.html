@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <script src="auth.js?v=photos1"></script>
+  <script src="tdc-freshman.js"></script>
   <script src="tdc-projgrade.js?v=1"></script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -481,6 +482,9 @@ async function onSeasonChange(){
 
 async function loadData(){
   try {
+    // Owner's freshman-editor OVRs (localStorage) are the single source of truth for
+    // freshmen — load them so the ranking shows the editor OVR, same as the strip.
+    if(window.TDCFresh && TDCFresh.load){ try{ await TDCFresh.load(); }catch(e){} }
     // Load teams for team filter + conference lookup
     const tr = await fetch(`${SB}/rest/v1/teams?select=name,conference,conf,color&order=name.asc`, {headers:H});
     allTeams = await tr.json();
@@ -532,16 +536,20 @@ async function loadData(){
     const carryWA = await loadWA(2026);
     allPlayers = allRaw.filter(p => p.name && p.name !== '—').map(p => {
       const cw = (p.espn_id!=null && carryWA.has(String(p.espn_id))) ? carryWA.get(String(p.espn_id)) : null;
-      // forward-looking projected OVR (shared tdc-projgrade.js model) — same number
-      // the player & team pages show. Freshmen (no played minutes) pass through as-is.
-      const pg = window.TDCProjGrade ? TDCProjGrade.grade(p) : null;
+      // Displayed OVR override: a freshman's editor OVR (single source of truth) if the
+      // owner profiled him, otherwise the forward-looking projected grade for returners
+      // (shared tdc-projgrade.js model). Same numbers the player/team pages & strip show.
+      let ovr = null;
+      const fp = (window.TDCFresh && TDCFresh.profileFor) ? TDCFresh.profileFor({team:p.team, name:p.name}) : null;
+      if(fp && fp.ovr!=null){ ovr = Math.round(parseFloat(fp.ovr)); }
+      else if(window.TDCProjGrade){ const g = TDCProjGrade.grade(p); if(g!=null && !isNaN(g)) ovr = g; }
       return {
         ...p,
         season_year: 2027, _hist: false,
         teamData: teamMap[p.team] || {},
         conf: (teamMap[p.team]||{}).conf || (teamMap[p.team]||{}).conference || '',
         wa: cw, _waCarried: cw!=null,
-        _projGrade: (pg!=null && !isNaN(pg)) ? pg : null,
+        _projGrade: (ovr!=null && !isNaN(ovr)) ? ovr : null,
       };
     });
 
