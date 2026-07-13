@@ -281,6 +281,10 @@
     /* ── FIFA-style squad view (court + bench + player info) ── */
     .sq-wrap{display:grid;grid-template-columns:224px 1fr 300px;gap:18px;margin-bottom:26px;align-items:start;}
     .sq-court-col{min-width:0;}
+    .sq-court-tools{display:flex;justify-content:flex-end;margin-bottom:8px;}
+    .sq-toggle{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);cursor:pointer;user-select:none;}
+    .sq-toggle input{cursor:pointer;accent-color:var(--tc,var(--accent));width:14px;height:14px;}
+    .sq-toggle:hover{color:var(--text2);}
     .sq-court{position:relative;width:100%;aspect-ratio:3/2;border-radius:16px;overflow:hidden;border:1px solid var(--border);
       background:radial-gradient(120% 90% at 50% 0%,rgba(var(--tc-rgb,168,132,60),.22),transparent 60%),linear-gradient(180deg,var(--bg3),var(--bg2));}
     .sq-court-lines{position:absolute;inset:0;width:100%;height:100%;}
@@ -313,7 +317,7 @@
     .sq-empty{opacity:.45;pointer-events:none;} .sq-empty .sq-ava{border-style:dashed;background:transparent;box-shadow:none;}
     /* coach node on the court */
     .sq-coach{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;z-index:2;pointer-events:none;}
-    .sq-coach-ava{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#221c08;background:var(--accent);border:2px solid color-mix(in srgb,var(--accent) 55%,#000);box-shadow:0 3px 10px rgba(0,0,0,.45);}
+    .sq-coach-ava{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#221c08;background:var(--accent);border:2px solid color-mix(in srgb,var(--accent) 55%,#000);box-shadow:0 3px 10px rgba(0,0,0,.45);}
     .sq-coach-lbl{font-size:8.5px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-top:3px;white-space:nowrap;background:var(--bg2);padding:1px 6px;border-radius:8px;border:1px solid var(--border);}
     .sq-bench{grid-column:1/-1;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 15px;}
     /* lineup playstyle panel */
@@ -2798,7 +2802,7 @@ function _sqAttr(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')
 function _sqInit(n){ return (n||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase(); }
 function _sqHead(eid){ return (eid&&window.tdcShowPhotos&&window.tdcShowPhotos())?`<img src="https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/${eid}.png" alt="" onerror="this.remove()"/>`:''; }
 function _sqCol(g){ g=parseFloat(g); const dk=document.documentElement.getAttribute('data-theme')==='dark'; if(isNaN(g))return 'var(--text3)'; if(g>=88)return dk?'#5ab875':'#1a8c3a'; if(g>=80)return dk?'#e6d5a8':'#a06000'; if(g>=72)return 'var(--text)'; return 'var(--text2)'; }
-const _COURT_XY={ C:{x:58,y:19}, PF:{x:31,y:28}, SF:{x:19,y:57}, SG:{x:81,y:57}, PG:{x:50,y:77} };
+const _COURT_XY={ C:{x:58,y:19}, PF:{x:31,y:28}, SF:{x:19,y:57}, SG:{x:81,y:57}, PG:{x:50,y:61} };
 // On-court position adjusted for PLAYING STYLE, not just the depth-chart slot:
 // a stretch big drifts out toward the wing/arc instead of sitting on the block,
 // a non-shooting rim-runner crashes closer to the rim. Basket is at the TOP
@@ -2891,6 +2895,7 @@ function _squadInner(){
   return `<div class="sq-wrap">
     ${_playstylePanel(analysis)}
     <div class="sq-court-col">
+      <div class="sq-court-tools"><label class="sq-toggle"><input type="checkbox"${window._showSynergy!==false?' checked':''} onchange="toggleSynergyLines()"><span>Synergy lines</span></label></div>
       <div class="sq-court">${_courtSvg()}${_synergyLines(starters, _activeCoachProf&&_activeCoachProf())}${_coachCourtNode(_activeCoachProf&&_activeCoachProf())}${tiles}</div>
     </div>
     <div class="sq-right">${_squadInfo(selEntry)}</div>
@@ -2899,6 +2904,9 @@ function _squadInner(){
 }
 function renderSquadView(){ return '<div id="squadView">'+_squadInner()+'</div>'; }
 function selectSquadPlayer(name){ _squadSel=name; const v=document.getElementById('squadView'); if(v) v.innerHTML=_squadInner(); }
+// Toggle the player↔player synergy web on the court (coach-fit lines stay).
+window._showSynergy = (window._showSynergy!==false);
+function toggleSynergyLines(){ window._showSynergy=!window._showSynergy; const v=document.getElementById('squadView'); if(v) v.innerHTML=_squadInner(); }
 
 // ── Synergy engine ────────────────────────────────────────────────────────
 // Each player gets a continuous trait profile; pair synergy rewards
@@ -3031,14 +3039,14 @@ function _coachPlayerFit(prof, p){
 function _coachCourtNode(prof){
   if(!prof) return '';
   const init=((prof.coach||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('')).toUpperCase();
-  return `<div class="sq-coach" style="left:50%;top:97%;">
+  return `<div class="sq-coach" style="left:50%;top:91%;">
     <div class="sq-coach-ava">${init||'HC'}</div>
     <div class="sq-coach-lbl">${prof.coach}${prof.archetype?' · '+prof.archetype:''}</div>
   </div>`;
 }
 function _coachLines(starters, prof){
   if(!prof||!prof.pctl) return '';
-  const cx=50, cy=97; let out='';
+  const cx=50, cy=91; let out='';
   starters.filter(s=>s.p).forEach(s=>{
     const xy=_courtPos(s.p,s.pos), f=_coachPlayerFit(prof,s.p), col=_synCol(f.fit);
     const op=f.fit>=63?0.72:f.fit>=52?0.4:0.5, w=f.fit>=63?0.5:0.4;
@@ -3051,7 +3059,7 @@ function _coachLines(starters, prof){
 function _synergyLines(starters, coachProf){
   const slots=starters.map(s=>({p:s.p,xy:_courtPos(s.p,s.pos)})).filter(s=>s.p);
   let lines='';
-  for(let i=0;i<slots.length;i++) for(let j=i+1;j<slots.length;j++){
+  if(window._showSynergy!==false) for(let i=0;i<slots.length;i++) for(let j=i+1;j<slots.length;j++){
     const d=_pairSynergy(slots[i].p,slots[j].p), sy=d.score, col=_synCol(sy);
     const op=sy>=63?0.88:sy>=52?0.44:0.6, w=sy>=63?0.72:0.5;
     const x1=slots[i].xy.x,y1=slots[i].xy.y,x2=slots[j].xy.x,y2=slots[j].xy.y;
