@@ -190,6 +190,36 @@
     .panel{display:none;}.panel.active{display:block;width:100%;box-sizing:border-box;animation:panelIn .28s cubic-bezier(.22,1,.36,1) forwards;}
     @keyframes panelIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
     #customizeContent{width:100%;max-width:100%;overflow-x:hidden;box-sizing:border-box;}
+    /* Coach ↔ roster synergy panel */
+    .coach-panel{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:16px 18px;margin-bottom:18px;}
+    .cp-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+    .cp-mono{width:50px;height:50px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:800;font-size:18px;color:var(--tc-readable,var(--accent));background:var(--bg3);border:2px solid color-mix(in srgb,var(--tc,var(--accent)) 38%,var(--border2));}
+    .cp-id{min-width:0;}
+    .cp-name{font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .cp-name a{color:inherit;text-decoration:none;border-bottom:1px solid transparent;}
+    .cp-name a:hover{border-bottom-color:currentColor;}
+    .cp-arch{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#221c08;background:var(--accent);padding:2px 8px;border-radius:12px;}
+    .cp-tags{font-size:11px;color:var(--text3);font-weight:600;margin-top:4px;}
+    .cp-grade{margin-left:auto;text-align:center;flex-shrink:0;}
+    .cp-grade .v{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;line-height:1;color:var(--tc-readable,var(--accent));}
+    .cp-grade .l{font-size:8px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
+    .cp-swap{margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .cp-swap label{font-size:10.5px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;}
+    .cp-swap select{flex:1;min-width:200px;max-width:380px;padding:8px 10px;border:1px solid var(--border2);background:var(--bg);color:var(--text);border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;}
+    .cp-reset{font-size:11px;font-weight:800;color:var(--tc-readable,var(--accent));cursor:pointer;white-space:nowrap;}
+    .cp-syn{margin-top:16px;display:grid;grid-template-columns:118px 1fr;gap:18px;align-items:center;}
+    @media(max-width:600px){.cp-syn{grid-template-columns:1fr;gap:12px;}}
+    .cp-syn-score{text-align:center;border-radius:12px;padding:13px 8px;border:1px solid var(--border);}
+    .cp-syn-v{font-family:'Playfair Display',serif;font-weight:800;font-size:38px;line-height:1;}
+    .cp-syn-l{font-size:8.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
+    .cp-factors{display:flex;flex-direction:column;gap:8px;}
+    .cp-factor{display:grid;grid-template-columns:104px 1fr 30px;gap:10px;align-items:center;}
+    .cp-fl{font-size:11px;font-weight:700;color:var(--text2);}
+    .cp-ftrack{height:7px;border-radius:4px;background:var(--bg3);overflow:hidden;}
+    .cp-ffill{height:100%;border-radius:4px;transition:width .4s cubic-bezier(.22,1,.36,1);}
+    .cp-fv{font-size:11px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums;color:var(--text2);}
+    .cp-read{font-size:12px;color:var(--text2);line-height:1.55;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);}
+    .cp-read b{color:var(--text);}
     #customProjTable{width:100%;max-width:100%;overflow-x:auto;box-sizing:border-box;}
 
     /* SECTION HEADS */
@@ -3139,6 +3169,139 @@ function _frSave(){ _saveFreshmanProfile(_frEditP,_frDraft); _closeFrModal(); if
 function _frReset(){ _saveFreshmanProfile(_frEditP,null); _closeFrModal(); if(typeof rebuildCustomizeUI==='function') rebuildCustomizeUI(); }
 
 // ── RENDER ────────────────────────────────────────────────
+// ── COACH ↔ ROSTER SYNERGY (Customize tab) ───────────────────────────────
+// Shows the team's coach, lets you swap in any coach, and grades how that
+// coach's style fits THIS roster's personnel. Swapping also re-points the
+// projection engine's coach layer (window._projCoach) so the numbers shift.
+window._customCoachSlug = window._customCoachSlug || null;   // null = the team's real coach
+function _ensureCoachProfs(cb){
+  if(window._allCoachProfs){ cb&&cb(); return; }
+  fetch('scripts/data/coach_profiles.json').then(r=>r.ok?r.json():[]).then(list=>{
+    window._allCoachProfs = Array.isArray(list)?list:[];
+    window._coachProfBySlug = {}; window._allCoachProfs.forEach(p=>{ if(p.coach_slug) window._coachProfBySlug[p.coach_slug]=p; });
+    cb&&cb();
+  }).catch(()=>{ window._allCoachProfs=[]; window._coachProfBySlug={}; cb&&cb(); });
+}
+function _teamDefCoachSlug(){
+  if(window.__teamDefCoach) return window.__teamDefCoach.slug;
+  var slug=null;
+  try{ var c=coachForYear(window._coachIdx||{}, teamT&&teamT.name, 2027); if(c&&c.slug) slug=c.slug; }catch(e){}
+  if(!slug && window._teamCoachProfCache) slug=window._teamCoachProfCache.coach_slug;
+  if(slug!=null || window._coachIdx) window.__teamDefCoach={slug:slug};   // cache once the idx exists
+  return slug;
+}
+function _activeCoachProf(){
+  var byS=window._coachProfBySlug||{};
+  if(window._customCoachSlug && byS[window._customCoachSlug]) return byS[window._customCoachSlug];
+  var ds=_teamDefCoachSlug();
+  return (ds&&byS[ds])||window._teamCoachProfCache||null;
+}
+// Roster "supply" — what personnel this lineup actually offers, 0-100 per trait.
+function _rosterSupply(){
+  var proj=[]; try{ proj=buildCustomProjections()||[]; }catch(e){}
+  var ps=proj.filter(p=>p&&p.name).slice(0,10);   // rotation
+  if(!ps.length) return null;
+  var g=p=>parseFloat(p.tdc_grade)||0, ht=p=>(_htIn(p.height)||78), num=(p,k)=>parseFloat(p[k])||0;
+  var byG=[...ps].sort((a,b)=>g(b)-g(a)), top8=byG.slice(0,8);
+  // tempo: guard/wing share of the top 8 (shorter, quicker = up-tempo friendly)
+  var gw=top8.filter(p=>{var h=ht(p),pos=(p.position||'').toUpperCase();return pos==='PG'||pos==='SG'||pos==='SF'||h<=79;}).length;
+  var tempo=Math.round(gw/top8.length*100);
+  // spacing: volume-weighted 3P% (so non-shooting bigs don't drag it down) blended
+  // with the count of real high-volume shooters
+  var tpaSum=top8.reduce((s,p)=>s+num(p,'tpa'),0);
+  var wavg3=tpaSum>0?top8.reduce((s,p)=>s+num(p,'tp_pct')*num(p,'tpa'),0)/tpaSum:0;
+  var shooters=top8.filter(p=>num(p,'tp_pct')>=35 && num(p,'tpa')>=2.5 && g(p)>=68).length;
+  var spacing=Math.round(Math.max(0,Math.min(100,(wavg3-30)/9*65 + shooters/3*35)));
+  // depth: rotation-quality bodies beyond the top 5
+  var depthN=byG.slice(5).filter(p=>g(p)>=74).length;
+  var depth=Math.round(Math.min(100,depthN/4*100));
+  // ball movement: real playmakers in the top 8 + the lead guard's assist rate
+  var pm=top8.filter(p=>num(p,'apg')>=3.5).length, maxApg=Math.max.apply(0,top8.map(p=>num(p,'apg')));
+  var ball=Math.round(Math.min(100,pm/2*60 + Math.min(1,maxApg/5)*40));
+  // star concentration: gap between the alpha and the next tier
+  var gr=byG.map(g).slice(0,5), next=gr.slice(1,5), gap=gr.length?gr[0]-(next.reduce((s,x)=>s+x,0)/(next.length||1)):0;
+  var star=Math.round(Math.max(0,Math.min(100,gap/8*100)));
+  return {tempo:tempo,spacing:spacing,depth:depth,ball:ball,star:star};
+}
+// Compare a coach's demand (style percentiles) to the roster's supply.
+function _coachSynergy(prof, sup){
+  var d=(prof&&prof.pctl)||{}, D=(k,dv)=>d[k]!=null?d[k]:dv;
+  var pace=D('poss_pg',50), spac=D('three_pa_rate',50), dep=D('bench_min_pct',50), bm=D('ast_rate',50), st=D('top_scorer_share',50);
+  var clamp=v=>Math.max(0,Math.min(100,Math.round(v)));
+  var sym=(dem,s)=>clamp(100-Math.abs(dem-s));        // pace & star: want two-way alignment
+  var asym=(dem,s)=>clamp(100-Math.max(0,dem-s));     // spacing/depth/ball: only penalize a shortfall
+  var f={
+    tempo:{lbl:'Tempo',fit:sym(pace,sup.tempo)},
+    spacing:{lbl:'Spacing',fit:asym(spac,sup.spacing)},
+    depth:{lbl:'Depth',fit:asym(dep,sup.depth)},
+    ball:{lbl:'Ball Movement',fit:asym(bm,sup.ball)},
+    star:{lbl:'Star Fit',fit:sym(st,sup.star)},
+  };
+  var W={tempo:.22,spacing:.24,depth:.18,ball:.18,star:.18};
+  var overall=Math.round(Object.keys(W).reduce((s,k)=>s+f[k].fit*W[k],0));
+  return {factors:f,overall:overall};
+}
+function _synColor(v){ return v>=75?'var(--green)':v>=55?'#c98a1a':'var(--red)'; }
+function _synergyRead(syn){
+  var arr=Object.keys(syn.factors).map(k=>({k:k,fit:syn.factors[k].fit}));
+  arr.sort((a,b)=>a.fit-b.fit);
+  var worst=arr[0], best=arr[arr.length-1];
+  var verdict=syn.overall>=80?'Excellent fit':syn.overall>=68?'Good fit':syn.overall>=54?'Workable fit':'Stylistic mismatch';
+  var hi={tempo:'the roster’s tempo suits his pace',spacing:'the shooting fits his spacing',depth:'the depth suits his rotation',ball:'the playmaking fits his ball movement',star:'the star structure matches his usage'};
+  var lo={tempo:'his tempo doesn’t match this roster’s athletic profile',spacing:'he wants more shooting than this roster provides',depth:'he leans on a deeper bench than this roster has',ball:'his offense needs more playmaking than this roster offers',star:'his usage pattern doesn’t match this roster’s star structure'};
+  var s='<b>'+verdict+'.</b> Strength: '+hi[best.k]+'.';
+  if(worst && worst.fit<70) s+=' Watch-out: '+lo[worst.k]+'.';
+  return s;
+}
+function onCoachSwap(slug){
+  window._customCoachSlug = slug || null;
+  var prof=(window._coachProfBySlug||{})[slug];
+  if(prof){ var lg=(window._projCoachCache&&window._projCoachCache.lgPace)||68;
+    window._projCoach={poss_pg:prof.poss_pg, lgPace:lg, archetype:prof.archetype, coach:prof.coach}; }
+  try{ _baseCustomProj=buildCustomProjections(); }catch(e){}
+  rebuildCustomizeUI();
+}
+function resetCoachSwap(){ onCoachSwap(_teamDefCoachSlug()); window._customCoachSlug=null; rebuildCustomizeUI(); }
+function renderCoachPanel(){
+  if(!window._allCoachProfs){
+    _ensureCoachProfs(function(){ if(document.querySelector('#customizeContent .coach-panel')) rebuildCustomizeUI(); });
+    return '<div class="coach-panel"><div class="cp-tags">Loading coach…</div></div>';
+  }
+  var prof=_activeCoachProf();
+  if(!prof) return '';   // no coach on file for this team — skip the panel
+  var swapped=!!window._customCoachSlug && window._customCoachSlug!==_teamDefCoachSlug();
+  var initials=((prof.coach||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('')).toUpperCase();
+  var tags=prof.tags?(''+prof.tags).split(',').map(t=>t.trim()).filter(Boolean).slice(0,4).join(' · '):'';
+  var opts=(window._allCoachProfs||[]).slice().sort((a,b)=>(b.grade||0)-(a.grade||0)).map(function(c){
+    return '<option value="'+c.coach_slug+'"'+(c.coach_slug===prof.coach_slug?' selected':'')+'>'+
+      c.coach+(c.grade!=null?(' · '+c.grade):'')+(c.archetype?(' · '+c.archetype):'')+'</option>';
+  }).join('');
+  var sup=_rosterSupply(), syn=(sup?_coachSynergy(prof,sup):null);
+  var synHtml='';
+  if(syn){
+    var facs=['tempo','spacing','depth','ball','star'].map(function(k){var F=syn.factors[k];
+      return '<div class="cp-factor"><span class="cp-fl">'+F.lbl+'</span>'+
+        '<span class="cp-ftrack"><span class="cp-ffill" style="width:'+F.fit+'%;background:'+_synColor(F.fit)+';"></span></span>'+
+        '<span class="cp-fv">'+F.fit+'</span></div>';}).join('');
+    synHtml='<div class="cp-syn">'+
+      '<div class="cp-syn-score" style="background:color-mix(in srgb,'+_synColor(syn.overall)+' 12%,transparent);border-color:color-mix(in srgb,'+_synColor(syn.overall)+' 35%,transparent);">'+
+        '<div class="cp-syn-v" style="color:'+_synColor(syn.overall)+';">'+syn.overall+'</div><div class="cp-syn-l">Roster Fit</div></div>'+
+      '<div class="cp-factors">'+facs+'</div></div>'+
+      '<div class="cp-read">'+_synergyRead(syn)+'</div>';
+  }
+  return '<div class="coach-panel">'+
+    '<div class="cp-top"><div class="cp-mono">'+(initials||'—')+'</div>'+
+      '<div class="cp-id"><div class="cp-name"><a href="coach.html?slug='+prof.coach_slug+'">'+prof.coach+'</a>'+
+        (prof.archetype?'<span class="cp-arch">'+prof.archetype+'</span>':'')+
+        (swapped?' <span style="font-size:10px;font-weight:800;color:var(--tc-readable,var(--accent));text-transform:uppercase;letter-spacing:.04em;">· hypothetical</span>':'')+'</div>'+
+        (tags?'<div class="cp-tags">'+tags+'</div>':'')+'</div>'+
+      (prof.grade!=null?'<div class="cp-grade"><div class="v">'+prof.grade+'</div><div class="l">Coach Grade</div></div>':'')+'</div>'+
+    '<div class="cp-swap"><label>Swap coach</label>'+
+      '<select onchange="onCoachSwap(this.value)">'+opts+'</select>'+
+      (swapped?'<span class="cp-reset" onclick="resetCoachSwap()">↺ back to real coach</span>':'')+'</div>'+
+    synHtml+'</div>';
+}
+
 function rebuildCustomizeUI(){
   const el=document.getElementById('customizeContent');
   if(!el) return;
@@ -3233,6 +3396,8 @@ function rebuildCustomizeUI(){
   el.innerHTML=`
     <div class="sec-head" style="margin-bottom:16px;">Squad <span class="sec-head-sub">Starting five on the floor · tap a player for their card</span></div>
     ${renderSquadView()}
+    <div class="sec-head" style="margin:22px 0 14px;">Coach <span class="sec-head-sub">how this coach's system fits your roster · swap to compare</span></div>
+    ${renderCoachPanel()}
     ${renderImpactPanel()}
     ${renderWeaknessPanel()}
     ${renderMinsBudget()}
