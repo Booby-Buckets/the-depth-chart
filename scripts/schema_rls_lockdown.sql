@@ -1,172 +1,174 @@
 -- ============================================================================
--- RLS LOCKDOWN — The Depth Chart
+-- RLS LOCKDOWN — The Depth Chart   (v2 — resilient / idempotent)
 -- ============================================================================
--- WHY: the site talks to Supabase from the browser with the PUBLIC anon key
--- (it's in every page's HTML). That key is only safe if Row-Level Security
--- blocks writes. Today it does NOT: an anonymous visitor can UPDATE/DELETE
--- `players`, `teams`, `posts`, and overwrite the shared ranking caches. This
--- file closes that.
+-- WHY: the browser talks to Supabase with the PUBLIC anon key (in every page).
+-- Safe ONLY if RLS blocks writes. It does not today: anon can UPDATE/DELETE
+-- `players`/`teams` and overwrite the shared caches. This closes that.
 --
--- MODEL:
---   • anon (public) role  → SELECT only, everywhere.
---   • service_role (your Python scripts, load_supabase.py) → BYPASSES RLS,
---     so all your batch data loads keep working with no changes.
---   • owner (blee4824@gmail.com, signed in) → may publish the shared caches
---     (the client now sends the owner JWT for those writes; see auth.js
---     window.tdcOwnerToken + tdc-ratings.js/tdc-awards.js/team.html).
---   • authenticated users → may write their OWN community rows only.
+-- v2 CHANGES (the v1 you ran silently rolled back):
+--   • Every table is wrapped in its OWN block with EXCEPTION handling, so one
+--     bad table can't abort the whole script. Watch the "NOTICE" lines in the
+--     output — they tell you which tables were skipped and why.
+--   • DROPS ALL existing policies on each table first, then creates ours — so a
+--     pre-existing permissive policy (e.g. predictive_ratings "public insert")
+--     can't keep writes open.
+--   • Guards every table/column with information_schema existence checks.
 --
--- HOW TO APPLY: Supabase Dashboard → SQL Editor → paste a tier → Run.
--- Apply TIER 1 first (zero breakage risk, stops the worst). Then TIER 2.
--- TIER 3 is delicate (community) — apply it, then click through follow/post/
--- reply/verify on the live site and confirm each still works.
+-- MODEL: anon -> SELECT only. service_role (your Python load_supabase.py) ->
+--   bypasses RLS, unaffected. owner (blee4824@gmail.com JWT) -> publishes the
+--   shared caches. authenticated users -> write only their own community rows.
 --
--- ⚠️ REVIEW BEFORE RUNNING. Table/column names below are inferred from the
--- client code; adjust any that differ. After applying, run the Supabase
--- advisor "RLS Disabled in Public" to catch any table this file missed.
--- Nothing here is reversible-proof — you can re-enable a table's old behavior
--- with `alter table X disable row level security;` if something breaks.
+-- HOW TO RUN: Supabase Dashboard -> SQL Editor -> paste ALL of this -> Run.
+-- Then tell me and I'll re-probe to confirm writes are blocked + reads work.
+-- Re-runnable safely (idempotent). Reversible per table:
+--   alter table public.<t> disable row level security;
 -- ============================================================================
 
+-- Helper note: this whole file is DO blocks; nothing here fails the transaction.
 
--- ============================================================================
--- TIER 1 — READ-ONLY DATA TABLES  (safe, critical, zero breakage risk)
--- These are written ONLY by your service-key scripts, never by the browser,
--- so making them anon-SELECT-only cannot break any user-facing feature. It
--- stops the roster/grade/ranking vandalism outright.
--- ============================================================================
+-- ---------------------------------------------------------------------------
+-- TIER 1 + TIER 2 — data tables (SELECT-only) and caches (SELECT + owner write)
+-- ---------------------------------------------------------------------------
 do $$
-declare t text;
-begin
-  foreach t in array array[
+declare
+  t text;
+  pol record;
+  readonly text[] := array[
     'players','teams','player_history','losses','shots',
     'coach_seasons','coach_profiles','team_style',
     'bbref_seasons','games','box_scores','team_seasons',
     'postseason_games','awards','promo_codes'
-  ]
-  loop
-    if exists (select 1 from information_schema.tables
-               where table_schema='public' and table_name=t) then
-      execute format('alter table public.%I enable row level security;', t);
-      execute format('drop policy if exists "tdc anon read" on public.%I;', t);
-      execute format(
-        'create policy "tdc anon read" on public.%I for select to anon, authenticated using (true);', t);
-      -- NOTE: no insert/update/delete policy => anon & authenticated are DENIED
-      -- writes. service_role bypasses RLS, so your Python loaders keep working.
-    end if;
-  end loop;
-end $$;
-
-
--- ============================================================================
--- TIER 2 — SHARED CACHES  (anon SELECT; OWNER-only writes)
--- The client now sends the owner JWT for these (auth.js window.tdcOwnerToken).
--- Everyone else reads the owner-published cache.
--- ============================================================================
-do $$
-declare t text;
+  ];
+  caches text[] := array[
+    'predictive_ratings','team_projections','award_projections','tournament_games'
+  ];
 begin
-  foreach t in array array['predictive_ratings','team_projections','award_projections','tournament_games'] loop
-    if exists (select 1 from information_schema.tables
-               where table_schema='public' and table_name=t) then
-      execute format('alter table public.%I enable row level security;', t);
-      execute format('drop policy if exists "tdc anon read" on public.%I;', t);
-      execute format('drop policy if exists "tdc owner write" on public.%I;', t);
-      execute format(
-        'create policy "tdc anon read" on public.%I for select to anon, authenticated using (true);', t);
-      execute format($p$
-        create policy "tdc owner write" on public.%I for all to authenticated
-        using ((auth.jwt() ->> 'email') = 'blee4824@gmail.com')
-        with check ((auth.jwt() ->> 'email') = 'blee4824@gmail.com');
-      $p$, t);
-    end if;
+  -- TIER 1: read-only data
+  foreach t in array readonly loop
+    begin
+      if exists (select 1 from information_schema.tables where table_schema='public' and table_name=t) then
+        for pol in select policyname from pg_policies where schemaname='public' and tablename=t loop
+          execute format('drop policy if exists %I on public.%I', pol.policyname, t);
+        end loop;
+        execute format('alter table public.%I enable row level security', t);
+        execute format('create policy "tdc_anon_read" on public.%I for select to anon, authenticated using (true)', t);
+        raise notice 'TIER1 locked (SELECT-only): %', t;
+      else
+        raise notice 'TIER1 skipped (no such table): %', t;
+      end if;
+    exception when others then raise notice 'TIER1 ERROR on % -> %', t, sqlerrm;
+    end;
+  end loop;
+
+  -- TIER 2: shared caches (SELECT for all; writes only for the owner JWT)
+  foreach t in array caches loop
+    begin
+      if exists (select 1 from information_schema.tables where table_schema='public' and table_name=t) then
+        for pol in select policyname from pg_policies where schemaname='public' and tablename=t loop
+          execute format('drop policy if exists %I on public.%I', pol.policyname, t);
+        end loop;
+        execute format('alter table public.%I enable row level security', t);
+        execute format('create policy "tdc_anon_read" on public.%I for select to anon, authenticated using (true)', t);
+        execute format($f$create policy "tdc_owner_write" on public.%I for all to authenticated
+          using ((auth.jwt() ->> 'email') = 'blee4824@gmail.com')
+          with check ((auth.jwt() ->> 'email') = 'blee4824@gmail.com')$f$, t);
+        raise notice 'TIER2 locked (owner-write): %', t;
+      else
+        raise notice 'TIER2 skipped (no such table): %', t;
+      end if;
+    exception when others then raise notice 'TIER2 ERROR on % -> %', t, sqlerrm;
+    end;
   end loop;
 end $$;
 
 
--- ============================================================================
--- TIER 3 — COMMUNITY TABLES  (delicate — TEST each feature after applying)
--- Signed-in users read everything and write only their OWN rows. The owner
--- keeps full control (moderation) via the email check.
---
--- ⚠️ Two things to verify on the live site right after applying:
---   (a) follow/unfollow, new topic, reply, and the community feed still work;
---   (b) the follower_count denormalization (community.html PATCHes ANOTHER
---       user's profiles.follower_count on follow) will now be BLOCKED by the
---       own-row policy. That's a pre-existing design smell — the correct fix
---       is a SECURITY DEFINER function/trigger that recomputes follower_count
---       server-side. Until that exists, either keep follower_count updates in
---       such a function, or accept that the number won't live-update. It does
---       NOT block following itself (the follows row insert is the owner's).
--- ============================================================================
+-- ---------------------------------------------------------------------------
+-- TIER 3 — community tables (own-row writes + owner moderation)
+-- Each table is independent. Adjust the owner-column names if yours differ
+-- (the NOTICE output will tell you if a column doesn't exist).
+-- ---------------------------------------------------------------------------
 
--- profiles: anyone reads; a user updates only their own row; NEVER let a user
--- set their own plan/verified (that's the paywall + trust badge). We allow the
--- row update but revoke column privileges on the sensitive columns.
-alter table public.profiles enable row level security;
-drop policy if exists "tdc read profiles"   on public.profiles;
-drop policy if exists "tdc update own"       on public.profiles;
-drop policy if exists "tdc insert own"       on public.profiles;
-drop policy if exists "tdc owner all profiles" on public.profiles;
-create policy "tdc read profiles" on public.profiles for select to anon, authenticated using (true);
-create policy "tdc insert own"    on public.profiles for insert to authenticated with check (auth.uid() = id);
-create policy "tdc update own"    on public.profiles for update to authenticated
-  using (auth.uid() = id) with check (auth.uid() = id);
-create policy "tdc owner all profiles" on public.profiles for all to authenticated
-  using ((auth.jwt() ->> 'email') = 'blee4824@gmail.com')
-  with check ((auth.jwt() ->> 'email') = 'blee4824@gmail.com');
--- Column lockdown so a user can't escalate plan/verified even on their own row:
-revoke update on public.profiles from authenticated;
-grant  update (username, avatar_url, bio, favorite_team) on public.profiles to authenticated;
--- (plan, verified, follower_count intentionally excluded — service_role / owner only.)
-
--- posts: public read; only the OWNER writes/pins/deletes (it's an editorial feed).
-alter table public.posts enable row level security;
-drop policy if exists "tdc read posts"  on public.posts;
-drop policy if exists "tdc owner posts" on public.posts;
-create policy "tdc read posts"  on public.posts for select to anon, authenticated using (true);
-create policy "tdc owner posts" on public.posts for all to authenticated
-  using ((auth.jwt() ->> 'email') = 'blee4824@gmail.com')
-  with check ((auth.jwt() ->> 'email') = 'blee4824@gmail.com');
-
--- follows / team_follows: a user manages only their own follow rows.
+-- profiles: read all; user writes only their OWN row; plan/verified NOT user-writable.
 do $$
-declare t text; owncol text;
+declare pol record; c text;
 begin
-  for t, owncol in select * from (values ('follows','follower_id'), ('team_follows','user_id')) as v(t,c) loop
-    if exists (select 1 from information_schema.tables where table_schema='public' and table_name=t) then
-      execute format('alter table public.%I enable row level security;', t);
-      execute format('drop policy if exists "tdc read %1$s" on public.%1$I;', t);
-      execute format('drop policy if exists "tdc own %1$s"  on public.%1$I;', t);
-      execute format('create policy "tdc read %1$s" on public.%1$I for select to anon, authenticated using (true);', t);
-      execute format('create policy "tdc own %1$s" on public.%1$I for all to authenticated using (auth.uid() = %2$I) with check (auth.uid() = %2$I);', t, owncol);
-    end if;
-  end loop;
+  if exists (select 1 from information_schema.tables where table_schema='public' and table_name='profiles') then
+    for pol in select policyname from pg_policies where schemaname='public' and tablename='profiles' loop
+      execute format('drop policy if exists %I on public.profiles', pol.policyname);
+    end loop;
+    alter table public.profiles enable row level security;
+    create policy "tdc_read_profiles" on public.profiles for select to anon, authenticated using (true);
+    create policy "tdc_insert_own"    on public.profiles for insert to authenticated with check (auth.uid() = id);
+    create policy "tdc_update_own"    on public.profiles for update to authenticated using (auth.uid() = id) with check (auth.uid() = id);
+    create policy "tdc_owner_profiles" on public.profiles for all to authenticated
+      using ((auth.jwt() ->> 'email') = 'blee4824@gmail.com') with check ((auth.jwt() ->> 'email') = 'blee4824@gmail.com');
+    -- column lockdown: a user can't escalate plan/verified even on their own row
+    revoke update on public.profiles from authenticated;
+    foreach c in array array['username','avatar_url','bio','favorite_team','display_name'] loop
+      if exists (select 1 from information_schema.columns where table_schema='public' and table_name='profiles' and column_name=c) then
+        execute format('grant update (%I) on public.profiles to authenticated', c);
+      end if;
+    end loop;
+    raise notice 'TIER3 locked: profiles';
+  else raise notice 'TIER3 skipped (no such table): profiles'; end if;
+exception when others then raise notice 'TIER3 ERROR on profiles -> %', sqlerrm;
 end $$;
 
--- forum topics/replies + team_comments: public read; author writes own; owner moderates.
+-- posts: public read; only the OWNER writes/pins/deletes (editorial feed).
 do $$
-declare t text; owncol text;
+declare pol record;
 begin
-  for t, owncol in select * from (values
-      ('forum_topics','author_id'), ('forum_replies','author_id'), ('team_comments','author_id')
-    ) as v(t,c) loop
-    if exists (select 1 from information_schema.tables where table_schema='public' and table_name=t) then
-      execute format('alter table public.%I enable row level security;', t);
-      execute format('drop policy if exists "tdc read %1$s"  on public.%1$I;', t);
-      execute format('drop policy if exists "tdc author %1$s" on public.%1$I;', t);
-      execute format('drop policy if exists "tdc owner %1$s"  on public.%1$I;', t);
-      execute format('create policy "tdc read %1$s" on public.%1$I for select to anon, authenticated using (true);', t);
-      execute format('create policy "tdc author %1$s" on public.%1$I for all to authenticated using (auth.uid() = %2$I) with check (auth.uid() = %2$I);', t, owncol);
-      execute format('create policy "tdc owner %1$s" on public.%1$I for all to authenticated using ((auth.jwt() ->> ''email'') = ''blee4824@gmail.com'') with check ((auth.jwt() ->> ''email'') = ''blee4824@gmail.com'');', t);
-    end if;
+  if exists (select 1 from information_schema.tables where table_schema='public' and table_name='posts') then
+    for pol in select policyname from pg_policies where schemaname='public' and tablename='posts' loop
+      execute format('drop policy if exists %I on public.posts', pol.policyname);
+    end loop;
+    alter table public.posts enable row level security;
+    create policy "tdc_read_posts"  on public.posts for select to anon, authenticated using (true);
+    create policy "tdc_owner_posts" on public.posts for all to authenticated
+      using ((auth.jwt() ->> 'email') = 'blee4824@gmail.com') with check ((auth.jwt() ->> 'email') = 'blee4824@gmail.com');
+    raise notice 'TIER3 locked: posts';
+  else raise notice 'TIER3 skipped (no such table): posts'; end if;
+exception when others then raise notice 'TIER3 ERROR on posts -> %', sqlerrm;
+end $$;
+
+-- own-row tables: read all; a user writes only rows where <owner col> = their uid.
+do $$
+declare pol record; t text; oc text; pairs text[][] := array[
+    array['follows','follower_id'],
+    array['team_follows','user_id'],
+    array['forum_topics','author_id'],
+    array['forum_replies','author_id'],
+    array['team_comments','author_id']
+  ];
+  i int;
+begin
+  for i in 1 .. array_length(pairs,1) loop
+    t := pairs[i][1]; oc := pairs[i][2];
+    begin
+      if exists (select 1 from information_schema.tables where table_schema='public' and table_name=t) then
+        if exists (select 1 from information_schema.columns where table_schema='public' and table_name=t and column_name=oc) then
+          for pol in select policyname from pg_policies where schemaname='public' and tablename=t loop
+            execute format('drop policy if exists %I on public.%I', pol.policyname, t);
+          end loop;
+          execute format('alter table public.%I enable row level security', t);
+          execute format('create policy "tdc_read" on public.%I for select to anon, authenticated using (true)', t);
+          execute format('create policy "tdc_own" on public.%I for all to authenticated using (auth.uid() = %I) with check (auth.uid() = %I)', t, oc, oc);
+          execute format($f$create policy "tdc_owner_mod" on public.%I for all to authenticated
+            using ((auth.jwt() ->> 'email') = 'blee4824@gmail.com') with check ((auth.jwt() ->> 'email') = 'blee4824@gmail.com')$f$, t);
+          raise notice 'TIER3 locked: % (own col %)', t, oc;
+        else raise notice 'TIER3 skipped (% has no column %)', t, oc; end if;
+      else raise notice 'TIER3 skipped (no such table): %', t; end if;
+    exception when others then raise notice 'TIER3 ERROR on % -> %', t, sqlerrm;
+    end;
   end loop;
 end $$;
 
--- ============================================================================
--- VERIFY AFTER APPLYING:
+-- ---------------------------------------------------------------------------
+-- VERIFY (run separately after the above; every public table should read `t`):
 --   select relname, relrowsecurity from pg_class
---   where relnamespace = 'public'::regnamespace and relkind = 'r'
---   order by relrowsecurity, relname;   -- every public table should be `t`
--- Then re-run the "Security Advisor" in the dashboard.
+--   where relnamespace='public'::regnamespace and relkind='r' order by 2,1;
+-- Then re-run the Dashboard "Security Advisor". Known follow-up: community.html
+-- updates ANOTHER user's profiles.follower_count on follow — now blocked by the
+-- own-row policy; move that to a SECURITY DEFINER function or accept no live
+-- follower-count update. Following itself still works (the follows insert is theirs).
 -- ============================================================================
