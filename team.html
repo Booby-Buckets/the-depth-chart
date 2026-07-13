@@ -190,6 +190,13 @@
     .panel{display:none;}.panel.active{display:block;width:100%;box-sizing:border-box;animation:panelIn .28s cubic-bezier(.22,1,.36,1) forwards;}
     @keyframes panelIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
     #customizeContent{width:100%;max-width:100%;overflow-x:hidden;box-sizing:border-box;}
+    /* Customize sub-tabs (keep the lower charts from all showing at once) */
+    .cz-subtabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin:24px 0 18px;overflow-x:auto;scrollbar-width:none;}
+    .cz-subtabs::-webkit-scrollbar{display:none;}
+    .cz-subtab{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:10px 16px;border:none;background:none;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;font-family:'Inter',sans-serif;white-space:nowrap;transition:color .15s;}
+    .cz-subtab:hover{color:var(--text2);}
+    .cz-subtab.active{color:var(--text);border-bottom-color:var(--tc,var(--accent));}
+    .cz-subpanel{display:none;}
     /* Coach ↔ roster synergy panel */
     .coach-panel{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:16px 18px;margin-bottom:18px;}
     .cp-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
@@ -304,6 +311,10 @@
     .sq-pos{font-size:8.5px;font-weight:800;letter-spacing:.06em;color:var(--text3);}
     .sq-name{font-size:11px;font-weight:700;color:#fff;margin-top:3px;text-shadow:0 1px 4px rgba(0,0,0,.8);white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis;}
     .sq-empty{opacity:.45;pointer-events:none;} .sq-empty .sq-ava{border-style:dashed;background:transparent;box-shadow:none;}
+    /* coach node on the court */
+    .sq-coach{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;z-index:2;pointer-events:none;}
+    .sq-coach-ava{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#221c08;background:var(--accent);border:2px solid color-mix(in srgb,var(--accent) 55%,#000);box-shadow:0 3px 10px rgba(0,0,0,.45);}
+    .sq-coach-lbl{font-size:8.5px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-top:3px;white-space:nowrap;background:var(--bg2);padding:1px 6px;border-radius:8px;border:1px solid var(--border);}
     .sq-bench{grid-column:1/-1;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 15px;}
     /* lineup playstyle panel */
     .sq-style{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:16px;position:sticky;top:12px;}
@@ -2788,6 +2799,19 @@ function _sqInit(n){ return (n||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||
 function _sqHead(eid){ return (eid&&window.tdcShowPhotos&&window.tdcShowPhotos())?`<img src="https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/${eid}.png" alt="" onerror="this.remove()"/>`:''; }
 function _sqCol(g){ g=parseFloat(g); const dk=document.documentElement.getAttribute('data-theme')==='dark'; if(isNaN(g))return 'var(--text3)'; if(g>=88)return dk?'#5ab875':'#1a8c3a'; if(g>=80)return dk?'#e6d5a8':'#a06000'; if(g>=72)return 'var(--text)'; return 'var(--text2)'; }
 const _COURT_XY={ C:{x:58,y:19}, PF:{x:31,y:28}, SF:{x:19,y:57}, SG:{x:81,y:57}, PG:{x:50,y:77} };
+// On-court position adjusted for PLAYING STYLE, not just the depth-chart slot:
+// a stretch big drifts out toward the wing/arc instead of sitting on the block,
+// a non-shooting rim-runner crashes closer to the rim. Basket is at the TOP
+// (y≈7); y grows toward half-court, so "stepping out" = larger y.
+function _courtPos(p,pos){
+  const b=_COURT_XY[pos]||{x:50,y:50}; if(!p) return b;
+  const P=_sqProfile(p), isBig=(pos==='C'||pos==='PF');
+  let x=b.x, y=b.y;
+  y += P.shooter*(isBig?26:9);                     // shooters step out toward the arc
+  y -= P.finisher*(1-P.shooter)*(isBig?6:14);      // non-shooting slashers crash the rim
+  if(isBig && P.shooter>0.4) x += (x<50?-1:1)*P.shooter*8;   // stretch bigs slide to the near wing
+  return { x:Math.max(10,Math.min(90,Math.round(x*10)/10)), y:Math.max(12,Math.min(86,Math.round(y*10)/10)) };
+}
 function _squadData(){
   // Use the SAME projected 2026-27 stats as the Team Impact panel (freshmen get
   // grade-based estimates via buildCustomProjections) so the identity/synergy
@@ -2812,7 +2836,7 @@ function _courtSvg(){ const s='rgba(255,255,255,.14)';
   </svg>`;
 }
 function _courtTile(p,pos){
-  const xy=_COURT_XY[pos], g=_gdisp(p);
+  const xy=_courtPos(p,pos), g=_gdisp(p);
   const fit=calcPositionFit(p, customPos[p.name]||pos);
   const delta=fit.adjGrade?`<span class="sq-delta ${fit.adjGrade>0?'up':'dn'}">${fit.adjGrade>0?'+':''}${fit.adjGrade}</span>`:'';
   return `<div class="sq-player${p.name===_squadSel?' sel':''}" style="left:${xy.x}%;top:${xy.y}%;" data-n="${_sqAttr(p.name)}" onclick="selectSquadPlayer(this.dataset.n)">
@@ -2867,7 +2891,7 @@ function _squadInner(){
   return `<div class="sq-wrap">
     ${_playstylePanel(analysis)}
     <div class="sq-court-col">
-      <div class="sq-court">${_courtSvg()}${_synergyLines(starters)}${tiles}</div>
+      <div class="sq-court">${_courtSvg()}${_synergyLines(starters, _activeCoachProf&&_activeCoachProf())}${_coachCourtNode(_activeCoachProf&&_activeCoachProf())}${tiles}</div>
     </div>
     <div class="sq-right">${_squadInfo(selEntry)}</div>
     <div class="sq-bench"><div class="sq-bench-h">Bench · ${bench.length}</div><div class="sq-bench-grid">${benchHtml||'<div class="sq-bench-empty">No bench players.</div>'}</div></div>
@@ -2984,8 +3008,48 @@ function _lineupAnalysis(starters){
   const rating=grades.length?Math.round(grades.reduce((a,b)=>a+b,0)/grades.length):null;
   return {overall,dims,rating,shooters:spacers,count:ps.length};
 }
-function _synergyLines(starters){
-  const slots=starters.map(s=>({p:s.p,xy:_COURT_XY[s.pos]})).filter(s=>s.p);
+// How well ONE player fits the coach's system — compares the coach's style
+// percentiles (demand) to the player's trait profile (supply). Used to draw
+// coach→player lines on the court.
+function _coachPlayerFit(prof, p){
+  if(!prof||!prof.pctl||!p) return {fit:60, reasons:[]};
+  const d=prof.pctl, P=_sqProfile(p), D=(k)=>d[k]!=null?d[k]/100:.5;
+  let s=58; const R=[]; const add=(delta,t)=>{ s+=delta; if(Math.abs(delta)>=3&&t) R.push({d:Math.round(delta),t}); };
+  const pace=D('poss_pg'), three=D('three_pa_rate'), star=D('top_scorer_share'), ast=D('ast_rate');
+  // pace: an up-tempo coach rewards quick guards/wings, exposes plodding bigs
+  const runner=_sq01(P.perimD*0.5 + (1-P.size)*0.6 + P.creator*0.3);
+  add((pace-0.5)*(runner-0.5)*60, pace>0.5?(runner>0.5?'thrives in his up-tempo system':'may struggle to keep his pace'):(runner>0.5?'his controlled tempo underuses this player’s speed':'fits his half-court tempo'));
+  // spacing: a three-heavy coach needs shooters, punishes non-shooters
+  add((three-0.5)*(P.shooter-0.45)*72, three>0.5?(P.shooter>0.45?'his shooting fits the spread system':'no shooting hurts the coach’s spacing'):'');
+  // usage: a star-centric coach features a scorer; an egalitarian one shares it
+  add((star-0.5)*(P.scorer-0.5)*46, star>0.5?(P.scorer>0.5?'gets featured in the star-centric offense':''):(P.scorer>0.5?'the egalitarian system caps this scorer':'fits the share-the-ball offense'));
+  // ball movement: a motion coach rewards passers/creators
+  add((ast-0.5)*(P.creator-0.4)*36, (ast>0.5&&P.creator>0.4)?'his passing suits the coach’s ball movement':'');
+  R.sort((a,b)=>Math.abs(b.d)-Math.abs(a.d));
+  return { fit: Math.max(25, Math.min(98, Math.round(s))), reasons:R.slice(0,3) };
+}
+function _coachCourtNode(prof){
+  if(!prof) return '';
+  const init=((prof.coach||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('')).toUpperCase();
+  return `<div class="sq-coach" style="left:50%;top:97%;">
+    <div class="sq-coach-ava">${init||'HC'}</div>
+    <div class="sq-coach-lbl">${prof.coach}${prof.archetype?' · '+prof.archetype:''}</div>
+  </div>`;
+}
+function _coachLines(starters, prof){
+  if(!prof||!prof.pctl) return '';
+  const cx=50, cy=97; let out='';
+  starters.filter(s=>s.p).forEach(s=>{
+    const xy=_courtPos(s.p,s.pos), f=_coachPlayerFit(prof,s.p), col=_synCol(f.fit);
+    const op=f.fit>=63?0.72:f.fit>=52?0.4:0.5, w=f.fit>=63?0.5:0.4;
+    const rd=_sqAttr(f.reasons.map(r=>(r.d>0?'+':'')+r.d+' '+r.t).join('||'));
+    out+=`<line class="chit" x1="${cx}" y1="${cy}" x2="${xy.x}" y2="${xy.y}" stroke="transparent" stroke-width="3" data-cp="${_sqAttr(s.p.name)}" data-cn="${_sqAttr(prof.coach)}" data-cf="${f.fit}" data-r="${rd}"/>`;
+    out+=`<line x1="${cx}" y1="${cy}" x2="${xy.x}" y2="${xy.y}" stroke="${col}" stroke-width="${w}" stroke-opacity="${op}" stroke-dasharray="2.2 1.6" stroke-linecap="round"/>`;
+  });
+  return out;
+}
+function _synergyLines(starters, coachProf){
+  const slots=starters.map(s=>({p:s.p,xy:_courtPos(s.p,s.pos)})).filter(s=>s.p);
   let lines='';
   for(let i=0;i<slots.length;i++) for(let j=i+1;j<slots.length;j++){
     const d=_pairSynergy(slots[i].p,slots[j].p), sy=d.score, col=_synCol(sy);
@@ -2995,7 +3059,8 @@ function _synergyLines(starters){
     lines+=`<line class="hit" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="transparent" stroke-width="3.4" data-a="${_sqAttr(slots[i].p.name)}" data-b="${_sqAttr(slots[j].p.name)}" data-aa="${_sqAttr(d.archA)}" data-ab="${_sqAttr(d.archB)}" data-sy="${sy}" data-r="${rd}"/>`;
     lines+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${w}" stroke-opacity="${op}" stroke-linecap="round"/>`;
   }
-  return `<svg class="sq-syn" viewBox="0 0 100 100" preserveAspectRatio="none">${lines}</svg>`;
+  const coachL = coachProf ? _coachLines(starters, coachProf) : '';
+  return `<svg class="sq-syn" viewBox="0 0 100 100" preserveAspectRatio="none">${coachL}${lines}</svg>`;
 }
 // Hover tooltip explaining a pair's synergy
 function _synTip(){ let t=document.getElementById('sqSynTip'); if(!t){ t=document.createElement('div'); t.id='sqSynTip'; t.className='sq-tip'; document.body.appendChild(t); } return t; }
@@ -3016,10 +3081,24 @@ function _showSynTip(l,e){ const t=_synTip();
   t.style.display='block'; _posSynTip(e);
 }
 function _hideSynTip(){ const t=document.getElementById('sqSynTip'); if(t) t.style.display='none'; }
+// Coach→player line tooltip (how a player fits the coach's system)
+function _showCoachTip(l,e){ const t=_synTip();
+  const cp=l.getAttribute('data-cp'),cn=l.getAttribute('data-cn'),cf=+l.getAttribute('data-cf');
+  const rs=(l.getAttribute('data-r')||'').split('||').filter(Boolean), col=_synCol(cf);
+  const verdict=cf>=63?'Strong fit':cf>=52?'Workable':'Poor fit';
+  t.innerHTML='<div class="st-h"><span>'+cn+' &harr; '+cp+'</span><b style="color:'+col+'">'+cf+'</b></div>'+
+    '<div class="st-verdict" style="color:'+col+'">Coach fit · '+verdict+'</div>'+
+    (rs.length?('<div class="st-rows">'+rs.map(r=>{ const m=r.match(/^([+-]?\d+)\s+([\s\S]*)$/); const d=m?m[1]:'',tx=m?m[2]:r; const up=d.charAt(0)==='+';
+      return '<div class="st-row"><span class="st-d" style="color:'+(up?'#5ab875':'#e07070')+'">'+d+'</span><span>'+tx+'</span></div>'; }).join('')+'</div>')
+      :'<div class="st-row" style="color:var(--text3);">Neutral — no strong push or pull.</div>');
+  t.style.display='block'; _posSynTip(e);
+}
 if(!window.__synTipWired){ window.__synTipWired=1;
-  document.addEventListener('mouseover',function(e){ const l=e.target.closest&&e.target.closest('.sq-syn line.hit'); if(l) _showSynTip(l,e); });
+  document.addEventListener('mouseover',function(e){ if(!e.target.closest) return;
+    const c=e.target.closest('.sq-syn line.chit'); if(c){ _showCoachTip(c,e); return; }
+    const l=e.target.closest('.sq-syn line.hit'); if(l) _showSynTip(l,e); });
   document.addEventListener('mousemove',function(e){ const t=document.getElementById('sqSynTip'); if(t&&t.style.display==='block') _posSynTip(e); });
-  document.addEventListener('mouseout',function(e){ const l=e.target.closest&&e.target.closest('.sq-syn line.hit'); if(l) _hideSynTip(); });
+  document.addEventListener('mouseout',function(e){ const l=e.target.closest&&(e.target.closest('.sq-syn line.hit')||e.target.closest('.sq-syn line.chit')); if(l) _hideSynTip(); });
 }
 function _playstylePanel(an){
   if(!an) return '<div class="sq-style"><div class="sq-style-h">Lineup Identity</div><div style="color:var(--text3);font-size:12px;">Set a starting five to analyze.</div></div>';
@@ -3394,24 +3473,48 @@ function rebuildCustomizeUI(){
   }).join('');
 
   el.innerHTML=`
-    <div class="sec-head" style="margin-bottom:16px;">Squad <span class="sec-head-sub">Starting five on the floor · tap a player for their card</span></div>
+    <div class="sec-head" style="margin-bottom:16px;">Squad <span class="sec-head-sub">Starting five on the floor · dashed lines = coach fit · tap a player for their card</span></div>
     ${renderSquadView()}
-    <div class="sec-head" style="margin:22px 0 14px;">Coach <span class="sec-head-sub">how this coach's system fits your roster · swap to compare</span></div>
-    ${renderCoachPanel()}
-    ${renderImpactPanel()}
-    ${renderWeaknessPanel()}
-    ${renderMinsBudget()}
-    <div class="customize-bar">
-      <span class="customize-label">Drag ⠿ to reorder depth · position selector moves columns · ⇄ swap or add from any era · sliders = minutes</span>
-      <button class="reset-btn" onclick="resetCustomLineup()">↺ Reset</button>
+    <div class="cz-subtabs">
+      <button class="cz-subtab" data-sub="lineup" onclick="switchCustomizeSubtab('lineup')">Lineup</button>
+      <button class="cz-subtab" data-sub="analytics" onclick="switchCustomizeSubtab('analytics')">Team Analytics</button>
+      <button class="cz-subtab" data-sub="coach" onclick="switchCustomizeSubtab('coach')">Coach</button>
+      <button class="cz-subtab" data-sub="proj" onclick="switchCustomizeSubtab('proj')">Projections</button>
     </div>
-    <div class="pos-depth-grid">${colsHtml}</div>
-    <div style="margin-top:8px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);font-size:11px;color:var(--text3);line-height:1.7;">
-      <strong style="color:var(--text2);">Position fit</strong> adjusts each player's effective grade based on height, playmaking, rebounding, and distance from their natural position.
-      A 6'1" player at C loses ~18 pts. A 6'8" player at PG gains pts if assists ≥5 and TOV &lt;1.5, but loses pts if their numbers don't back it up.
-      <strong style="color:var(--text2);">Lineup Quality</strong> = minutes-weighted effective grade of your 5 starters. Wear/foul risk rises at 35+ MPG.
+    <div class="cz-subpanel" data-sub="lineup">
+      <div class="customize-bar">
+        <span class="customize-label">Drag ⠿ to reorder depth · position selector moves columns · ⇄ swap or add from any era · sliders = minutes</span>
+        <button class="reset-btn" onclick="resetCustomLineup()">↺ Reset</button>
+      </div>
+      <div class="pos-depth-grid">${colsHtml}</div>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);font-size:11px;color:var(--text3);line-height:1.7;">
+        <strong style="color:var(--text2);">Position fit</strong> adjusts each player's effective grade based on height, playmaking, rebounding, and distance from their natural position.
+        A 6'1" player at C loses ~18 pts. A 6'8" player at PG gains pts if assists ≥5 and TOV &lt;1.5, but loses pts if their numbers don't back it up.
+        <strong style="color:var(--text2);">Lineup Quality</strong> = minutes-weighted effective grade of your 5 starters. Wear/foul risk rises at 35+ MPG.
+      </div>
     </div>
-    ${renderCustomProjectionsTable()}`;
+    <div class="cz-subpanel" data-sub="analytics">
+      ${renderImpactPanel()}
+      ${renderWeaknessPanel()}
+      ${renderMinsBudget()}
+    </div>
+    <div class="cz-subpanel" data-sub="coach">
+      <div class="sec-head" style="margin:2px 0 14px;">Coach <span class="sec-head-sub">how this coach's system fits your roster · swap to compare</span></div>
+      ${renderCoachPanel()}
+    </div>
+    <div class="cz-subpanel" data-sub="proj">
+      ${renderCustomProjectionsTable()}
+    </div>`;
+  switchCustomizeSubtab(window._custSub||'lineup');
+}
+// Sub-tabs keep the busy Customize tab from dumping every chart at once. The
+// squad court stays pinned above; everything else lives behind these tabs.
+window._custSub = window._custSub || 'lineup';
+function switchCustomizeSubtab(name){
+  window._custSub=name;
+  const root=document.getElementById('customizeContent'); if(!root) return;
+  root.querySelectorAll('.cz-subtab').forEach(b=>b.classList.toggle('active', b.dataset.sub===name));
+  root.querySelectorAll('.cz-subpanel').forEach(p=>{ p.style.display=(p.dataset.sub===name)?'block':'none'; });
 }
 
 // ── ROLE CHANGE HANDLER ──────────────────────────────────
