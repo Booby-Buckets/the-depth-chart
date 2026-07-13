@@ -74,4 +74,13 @@
     try { var s = get(); return !!(s && s.user && ('' + (s.user.email || '')).toLowerCase() === OWNER); }
     catch (e) { return false; }
   };
+
+  // Owner's live access token, but ONLY when the signed-in user is the owner — else null.
+  // Shared caches (predictive_ratings, team_projections, award_projections) use this so
+  // their writes carry the owner's JWT and pass owner-only RLS. Non-owners get null and
+  // must not write (they read the owner-published cache). Pairs with the RLS lockdown.
+  window.tdcOwnerToken = function () {
+    try { var s = get(); return (s && s.user && ('' + (s.user.email || '')).toLowerCase() === OWNER && s.access_token) ? s.access_token : null; }
+    catch (e) { return null; }
+  };
 })();

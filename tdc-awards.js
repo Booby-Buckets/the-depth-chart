@@ -120,9 +120,12 @@
   }
   async function writeDb(awards){
     try{
+      // Only the OWNER publishes this shared cache (owner JWT passes owner-only RLS).
+      var tok = (typeof window!=='undefined' && window.tdcOwnerToken) ? window.tdcOwnerToken() : null;
+      if(!tok) return;
       await fetch(SB+'/rest/v1/award_projections?on_conflict=season',{
         method:'POST',
-        headers:{...H,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+        headers:{...H,'Authorization':'Bearer '+tok,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
         body:JSON.stringify({season:SEASON,data:awards,updated_at:new Date().toISOString()}),
       });
     }catch(e){}

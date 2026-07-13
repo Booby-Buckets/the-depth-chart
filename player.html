@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script src="auth.js?v=photos1"></script>
+  <script src="auth.js?v=owner2"></script>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js"></script>
   <script src="tdc-shotchart.js?v=9"></script>
@@ -1447,7 +1447,7 @@ async function init(){
     }
     const [pr,apr]=await Promise.all([
       fetch(url,{headers:H}).then(r=>r.json()),
-      fetch(`${SB}/rest/v1/players?select=ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs&ppg=not.is.null&limit=5000`,{headers:H}).then(r=>r.json()),
+      fetch(`${SB}/rest/v1/players?select=ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs&ppg=not.is.null&name=neq.%E2%80%94&limit=5000`,{headers:H}).then(r=>r.json()),
     ]);
     let playerRow=Array.isArray(pr)?pr[0]:null;
     if(pespn){
@@ -3561,7 +3561,7 @@ async function renderArchetype(){
     }catch(e){ _allHistory=[]; }
   }
   if(!_allCurrent){
-    try{ var rc=await fetch(SB+'/rest/v1/players?select=name,team,position,height,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,fgm,fga,tpm,tpa,ftm,fta,stl,blk,tovs,tdc_grade&ppg=not.is.null&limit=5000',{headers:H}); _allCurrent=rc.ok?await rc.json():[]; }catch(e){ _allCurrent=[]; }
+    try{ var rc=await fetch(SB+'/rest/v1/players?select=name,team,position,height,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,fgm,fga,tpm,tpa,ftm,fta,stl,blk,tovs,tdc_grade&ppg=not.is.null&name=neq.%E2%80%94&limit=5000',{headers:H}); _allCurrent=rc.ok?await rc.json():[]; }catch(e){ _allCurrent=[]; }
   }
   if(!window._teamConf){
     try{ var rt=await fetch(SB+'/rest/v1/teams?select=name,conf',{headers:H}); window._teamConf={}; (rt.ok?await rt.json():[]).forEach(function(t){window._teamConf[t.name]=t.conf||'';}); }catch(e){ window._teamConf={}; }

@@ -225,9 +225,13 @@
   }
   async function writeDb(data){
     try{
+      // Only the OWNER publishes this shared cache (their JWT passes owner-only RLS).
+      // Everyone else reads it — no anon writes. Pairs with the RLS lockdown.
+      var tok = (typeof window!=='undefined' && window.tdcOwnerToken) ? window.tdcOwnerToken() : null;
+      if(!tok) return;
       await fetch(SB+'/rest/v1/predictive_ratings?on_conflict=season',{
         method:'POST',
-        headers:{...H,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+        headers:{...H,'Authorization':'Bearer '+tok,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
         body:JSON.stringify({season:SEASON,data,updated_at:new Date().toISOString()}),
       });
     }catch(e){}

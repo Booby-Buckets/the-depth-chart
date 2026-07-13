@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script src="auth.js?v=photos1"></script>
+  <script src="auth.js?v=owner2"></script>
   <script src="team-colors.js"></script>
   <script src="tdc-shotchart.js?v=9"></script>
   <script src="tdc-shotflow.js?v=8"></script>
@@ -1138,7 +1138,6 @@ async function loadTeam(name){
            }
          }
          const total = Object.values(window._careerHistoryMap).reduce((s,a)=>s+a.length,0);
-         console.log(`[Career] ${total} rows for ${Object.keys(window._careerHistoryMap).length}/${names.length} players. Map keys:`, Object.keys(window._careerHistoryMap).slice(0,3));
        }
      }catch(e){ console.warn('Career history error:',e); }
 
@@ -1154,7 +1153,7 @@ async function loadTeam(name){
     let allPlayers = [];
     try{
       const gpr = await fetch(
-        `${SB_URL}/rest/v1/players?select=team,ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,oreb,dreb,stl,blk,tovs,gp&ppg=not.is.null&limit=5000`,
+        `${SB_URL}/rest/v1/players?select=team,ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,oreb,dreb,stl,blk,tovs,gp&ppg=not.is.null&name=neq.%E2%80%94&limit=5000`,
         { headers: H }
       );
       const gprData = await gpr.json();
@@ -2074,9 +2073,10 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
   // Save to team_projections so analytics page reads exact same numbers
   const _tn=teamRow?.name||players[0]?.team;
   const _tc=teamRow?.conf||teamRow?.conference||conf;
-  if(_tn) fetch(`${SB_URL}/rest/v1/team_projections?on_conflict=team`,{
+  const _ownTok = (window.tdcOwnerToken && window.tdcOwnerToken()) || null;  // owner-only publish (RLS)
+  if(_tn && _ownTok) fetch(`${SB_URL}/rest/v1/team_projections?on_conflict=team`,{
     method:'POST',
-    headers:{...H,'Content-Type':'application/json','Prefer':'return=minimal'},
+    headers:{...H,'Authorization':'Bearer '+_ownTok,'Content-Type':'application/json','Prefer':'return=minimal'},
     body:JSON.stringify({team:_tn,conf:_tc,
       ppg:fPpg,rpg:fRpg,apg:fApg,fg_pct:fFgPct,tp_pct:fTpPct,ft_pct:fFtPct,
       fga:fFga,tpa:fTpa,tov:fTovs,stl:fStl,blk:fBlk,oreb:fOreb,dreb:fDreb,
