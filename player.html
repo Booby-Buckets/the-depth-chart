@@ -13,6 +13,7 @@
   <script src="tdc-freshman.js"></script>
   <script src="tdc-ratings.js"></script>
   <script src="tdc-projgrade.js?v=1"></script>
+  <script src="tdc-pool.js?v=1"></script>
   <meta charset="UTF-8"/>
   <style>
     .nil-card{border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:130px;background:var(--bg2);}
@@ -1454,10 +1455,11 @@ async function init(){
     } else {
       url=`${SB}/rest/v1/players?name=eq.${sbEncode(pname)}&select=*&limit=1`;
     }
-    const [pr,apr]=await Promise.all([
+    const [pr,_poolA]=await Promise.all([
       fetch(url,{headers:H}).then(r=>r.json()),
-      fetch(`${SB}/rest/v1/players?select=ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs&ppg=not.is.null&name=neq.%E2%80%94&limit=5000`,{headers:H}).then(r=>r.json()),
+      (window.TDCPool?TDCPool.get():Promise.resolve([])),   // shared session-cached players pool
     ]);
+    const apr=_poolA.filter(p=>p.ppg!=null);
     let playerRow=Array.isArray(pr)?pr[0]:null;
     if(pespn){
       // ESPN id is authoritative — NEVER fall back to a name match (which merges
@@ -2124,15 +2126,8 @@ async function loadDraftSticker(){
   try{
     if(!player) return;
     var teamMap=window._tdcTeamMap||{};
-    var players=[], page=0, PAGE=1000;
-    while(true){
-      var from=page*PAGE, to=from+PAGE-1;
-      var r=await fetch(SB+'/rest/v1/players?select=id,name,team,position,height,class_year,yr,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,fga,fta,fgm,tpm,tpa,oreb,dreb,stl,blk,tovs,gp,tdc_grade&name=neq.'+encodeURIComponent('—')+'&order=name.asc',{headers:Object.assign({},H,{'Range-Unit':'items','Range':from+'-'+to})});
-      var batch=await r.json();
-      if(!Array.isArray(batch)||!batch.length) break;
-      players=players.concat(batch);
-      if(batch.length<PAGE) break; page++;
-    }
+    // shared session-cached pool (was a full paginated re-fetch of the players table)
+    var players=(window.TDCPool?await TDCPool.get():[]);
     if(!players.length) return;
     window._tdcAllPlayers=players.map(tdcSane);
     // draft sticker (top-100 of the shared Big Board)
@@ -3570,7 +3565,7 @@ async function renderArchetype(){
     }catch(e){ _allHistory=[]; }
   }
   if(!_allCurrent){
-    try{ var rc=await fetch(SB+'/rest/v1/players?select=name,team,position,height,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,fgm,fga,tpm,tpa,ftm,fta,stl,blk,tovs,tdc_grade&ppg=not.is.null&name=neq.%E2%80%94&limit=5000',{headers:H}); _allCurrent=rc.ok?await rc.json():[]; }catch(e){ _allCurrent=[]; }
+    try{ _allCurrent=(window.TDCPool?await TDCPool.get():[]).filter(p=>p.ppg!=null); }catch(e){ _allCurrent=[]; }
   }
   if(!window._teamConf){
     try{ var rt=await fetch(SB+'/rest/v1/teams?select=name,conf',{headers:H}); window._teamConf={}; (rt.ok?await rt.json():[]).forEach(function(t){window._teamConf[t.name]=t.conf||'';}); }catch(e){ window._teamConf={}; }

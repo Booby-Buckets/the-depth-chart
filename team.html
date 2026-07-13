@@ -14,6 +14,7 @@
   <script src="tdc-freshman.js"></script>
   <script src="tdc-ratings.js"></script>
   <script src="tdc-projgrade.js?v=1"></script>
+  <script src="tdc-pool.js?v=1"></script>
   <style>
     .nil-card{border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:132px;background:var(--bg2);}
     .nil-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
@@ -1157,47 +1158,34 @@ async function loadTeam(name){
     );
     const losses = await lr.json();
 
-    // Fetch global percentiles for color scaling
-    // Get all players with stats to calculate global p20/p50/p80
-    let allPlayers = [];
-    try{
-      const gpr = await fetch(
-        `${SB_URL}/rest/v1/players?select=team,ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,oreb,dreb,stl,blk,tovs,gp&ppg=not.is.null&name=neq.%E2%80%94&limit=5000`,
-        { headers: H }
-      );
-      const gprData = await gpr.json();
-      allPlayers = Array.isArray(gprData) ? gprData : [];
-    }catch(e){ console.warn('Global percentiles fetch failed:',e); }
-    window._allPlayersGlobal = allPlayers;
-    const globalPercentiles = calcGlobalPercentiles(allPlayers);
-
-    // Fetch all players in DB for swap modal (name, team, position, grade)
-    const allDbR = await fetch(
-      `${SB_URL}/rest/v1/players?select=id,name,team,position,tdc_grade,class_year,yr,depth_order,height,ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,oreb,dreb,stl,blk,tovs,gp&order=tdc_grade.desc&limit=5000`,
-      { headers: H }
-    );
-    allDbPlayers = (await allDbR.json()).filter(p=>p.name&&p.name!=='—');
-    window._allDbPlayers = allDbPlayers; // pool for archetype/national percentiles
-
-    // Forward-looking projected OVR — stamp each raw roster/DB row with its projected
-    // grade (shared tdc-projgrade.js model) so the depth chart, roster table and swap
-    // modal show the SAME number as the player page. Freshmen keep their editor OVR
-    // (handled by enrich/_frOvr), so skip them here. Computed from raw last-season
-    // stats + depth_order BEFORE any projection enrichment mutates the line.
-    if(window.TDCProjGrade){
-      const _stampPG=p=>{ try{ if(p && !(window.TDCFresh&&TDCFresh.isFreshman&&TDCFresh.isFreshman(p))){ const g=TDCProjGrade.grade(p); if(g!=null&&!isNaN(g)) p._projGrade=g; } }catch(e){} };
-      players.forEach(_stampPG); allDbPlayers.forEach(_stampPG);
-    }
-
-    // Compute color/rgb once and pass to all render functions
+    // Compute team color + paint the HERO immediately — it needs only the team row
+    // and roster we already have, so don't block first paint on the players pool.
     const hex2rgb = h => {
       const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h);
       return r ? `${parseInt(r[1],16)},${parseInt(r[2],16)},${parseInt(r[3],16)}` : '100,100,100';
     };
     const teamColor = (window.tdcTeamColorHex&&tdcTeamColorHex(t.name)) || t.color || t.primary_color || '#888';
     const teamRgb   = hex2rgb(teamColor);
-
     renderHero(t, teamColor, teamRgb);
+
+    // One shared, session-cached fetch of the players pool (was two serial 5000-row
+    // scans that blocked first paint). allDbPlayers = full pool (grade-sorted for the
+    // swap modal); allPlayers = the stat-bearing subset for percentile color scaling.
+    const _pool = (window.TDCPool ? await TDCPool.get() : []);
+    allDbPlayers = _pool.slice().sort((a,b)=>(parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0));
+    let allPlayers = _pool.filter(p=>p.ppg!=null);
+    window._allPlayersGlobal = allPlayers;
+    window._allDbPlayers = allDbPlayers; // pool for archetype/national percentiles
+    const globalPercentiles = calcGlobalPercentiles(allPlayers);
+
+    // Forward-looking projected OVR — stamp each raw roster/DB row with its projected
+    // grade (shared tdc-projgrade.js model) so the depth chart, roster table and swap
+    // modal show the SAME number as the player page. Freshmen keep their editor OVR
+    // (handled by enrich/_frOvr), so skip them here.
+    if(window.TDCProjGrade){
+      const _stampPG=p=>{ try{ if(p && !(window.TDCFresh&&TDCFresh.isFreshman&&TDCFresh.isFreshman(p))){ const g=TDCProjGrade.grade(p); if(g!=null&&!isNaN(g)) p._projGrade=g; } }catch(e){} };
+      players.forEach(_stampPG); allDbPlayers.forEach(_stampPG);
+    }
     // Store globally for projection slider
     teamPlayers=[...players]; teamConf=t.conf||t.conference||''; teamGp=globalPercentiles; teamColor_g=teamColor; teamRgb_g=teamRgb; teamT=t;
     // Expose actual stats + team color by name for hover micro-cards
