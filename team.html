@@ -2735,8 +2735,16 @@ function _rbMpg(p, isStarter){
   return customMpg[p.name]!==undefined ? Math.round(customMpg[p.name]) : Math.round(parseFloat(p.mpg)|| (isStarter?26:12));
 }
 function _rbSegColor(i){ return ['var(--tc,#2c6ef2)','#5ab875','#d4a24a','#a06cc9','#7a8aa0','#c97a5a'][i%6]; }
+// Minutes are SEASON AVERAGES (MPG). A single game is 200 player-minutes, but a
+// roster's summed MPG runs higher (~205-235) because injuries, foul trouble and
+// blowouts spread minutes deeper than a perfect healthy game would. So we do NOT
+// clamp to 200 — we target ~44 season-minutes per position (only filled with
+// quality backups) and let the team total land where it realistically does.
 function autoBuildRotation(){
   const N=_rotationSize||9;
+  // deeper rotations spread minutes across more bodies → the summed season MPG
+  // runs higher (a tight 7-man ≈205, a deep 13-man ≈235)
+  const RB_POS_TARGET = Math.round(41 + Math.max(0,(N-7))*0.7);
   const cols=POS_KEYS.map(pos=>({pos, players:(customDepth[pos]||[]).filter(p=>p&&p.name).map(p=>({p, eff:_effGrade(p,pos)}))})).filter(c=>c.players.length);
   // who fits where: the best-fit player at each spot starts (reorder the depth
   // column so the squad court + depth grid reflect it), then minutes follow
@@ -2745,23 +2753,26 @@ function autoBuildRotation(){
   const backups=[]; cols.forEach(c=>c.players.slice(1).forEach(b=>backups.push(b)));
   backups.sort((a,b)=>b.eff-a.eff);
   const inRot=new Set(backups.slice(0,Math.max(0,N-5)).map(b=>b.p.name));
+  const depthAdj=(N-9)*-0.8;   // deeper rotation → starters rest a little more
   const mpg={};
   cols.forEach(c=>{
-    const st=c.players[0];
-    const rot=c.players.filter((pl,i)=> i===0 || inRot.has(pl.p.name));
-    if(c.players.length===1){ mpg[st.p.name]=40; }   // genuinely the only body at the spot
-    else{
-      const isBig=(c.pos==='PF'||c.pos==='C'), cap=isBig?34:38;   // bigs capped for foul trouble
-      const depthAdj=(N-9)*-0.8;                                  // deeper rotation → starters rest more
-      const sMin=Math.round(Math.max(22,Math.min(cap, 28 + (st.eff-78)*0.4 + depthAdj)));
-      // rotation backups at this spot; if none made the rotation, the next-best
-      // player still spells the starter so nobody logs a full 40
-      let bks=rot.slice(1); if(!bks.length) bks=[c.players[1]];
-      const rem=40-sMin, wsum=bks.reduce((s,b)=>s+Math.max(1,b.eff-52),0)||1;
-      let used=0;
-      bks.forEach(b=>{ const m=Math.max(3,Math.round(rem*Math.max(1,b.eff-52)/wsum)); mpg[b.p.name]=m; used+=m; });
-      mpg[st.p.name]=40-used;                        // starter absorbs the remainder → column = 40
-    }
+    const st=c.players[0], isBig=(c.pos==='PF'||c.pos==='C'), cap=isBig?34:38;   // bigs capped for foul trouble
+    let sMin=Math.round(Math.max(24,Math.min(cap, 28 + (st.eff-78)*0.4 + depthAdj)));
+    let rem=RB_POS_TARGET - sMin;
+    c.players.slice(1).forEach((b,bi)=>{
+      const rotB=inRot.has(b.p.name);
+      // only the TOP backup spells a starter who has no rotation-caliber backup;
+      // deeper non-rotation players don't get filler minutes just to hit a target
+      if((!rotB && bi>0) || (!rotB && rem<=0)){ mpg[b.p.name]=0; return; }
+      const bMax=rotB ? Math.max(8,Math.min(22,Math.round(9+(b.eff-70)*0.5)))
+                      : Math.max(3,Math.min(9,Math.round(6+(b.eff-64)*0.4)));
+      const bMin=Math.min(bMax, Math.max(0,rem));
+      mpg[b.p.name]=bMin; rem-=bMin;
+    });
+    // couldn't reach the target with quality backups → bump the starter toward his
+    // cap; any leftover stays "uncovered" so a thin position reads as thin
+    if(rem>0){ const bump=Math.min(rem, cap-sMin); sMin+=bump; }
+    mpg[st.p.name]=sMin;
     c.players.forEach(pl=>{ if(mpg[pl.p.name]===undefined) mpg[pl.p.name]=0; });   // out of rotation
   });
   customMpg=mpg; _rotationUserSet=true;
@@ -2786,8 +2797,8 @@ function renderRotationBuilder(){
   const teamTotal=cols.reduce((s,c)=>s+c.total,0);
   const rotOpts=[];for(let n=6;n<=15;n++)rotOpts.push(`<option value="${n}"${n===_rotationSize?' selected':''}>${n}-man</option>`);
   const posHtml=cols.map(c=>{
-    const segs=c.rows.filter(r=>r.mpg>0).map((r,idx)=>`<div class="rb-seg" style="width:${Math.min(100,r.mpg/40*100)}%;background:${_rbSegColor(idx)};" title="${_sqAttr(r.p.name)}: ${r.mpg} min">${r.mpg>=7?`<span>${_sqInit(r.p.name)} ${r.mpg}</span>`:''}</div>`).join('');
-    const cls=c.total>40?'over':c.total<40?'under':'ok';
+    const segs=c.rows.filter(r=>r.mpg>0).map((r,idx)=>`<div class="rb-seg" style="width:${Math.min(100,r.mpg/48*100)}%;background:${_rbSegColor(idx)};" title="${_sqAttr(r.p.name)}: ${r.mpg} mpg">${r.mpg>=7?`<span>${_sqInit(r.p.name)} ${r.mpg}</span>`:''}</div>`).join('');
+    const cls=(c.total>=40&&c.total<=48)?'ok':(c.total>=34&&c.total<=54)?'under':'over';
     const prows=c.rows.map(r=>{
       const pKey=`rb-${c.pos}-${r.i}`;
       const bad=(r.fit.adjGrade<=-8)?`<span class="rb-fit" title="${(r.fit.reason||'').replace(/"/g,'&quot;')}">poor fit</span>`:'';
@@ -2798,19 +2809,19 @@ function renderRotationBuilder(){
       </div>`;
     }).join('');
     return `<div class="rb-pos">
-      <div class="rb-pos-head"><span class="rb-pos-name">${c.pos}</span><span class="rb-pos-total ${cls}">${c.total}<span>/40</span></span></div>
+      <div class="rb-pos-head"><span class="rb-pos-name">${c.pos}</span><span class="rb-pos-total ${cls}">${c.total}<span> mpg</span></span></div>
       <div class="rb-bar">${segs||'<div class="rb-empty"></div>'}</div>
       <div class="rb-players">${prows}</div>
     </div>`;
   }).join('');
-  const ttCls=teamTotal===200?'ok':Math.abs(teamTotal-200)<=8?'under':'over';
+  const ttCls=(teamTotal>=205&&teamTotal<=235)?'ok':(teamTotal>=195&&teamTotal<=250)?'under':'over';
   return `<div class="rb-controls">
       <button class="rb-auto" onclick="autoBuildRotation()">✦ Auto-build rotation</button>
       <label class="rb-rot">Depth&nbsp;<select onchange="onRotationChange(this.value)">${rotOpts.join('')}</select></label>
       ${_coachRotationSize?`<span class="rb-coachnorm">coach norm ${_coachRotationSize}-man</span>`:''}
-      <span class="rb-team-total ${ttCls}">${teamTotal} / 200 min</span>
+      <span class="rb-team-total ${ttCls}" title="Summed season MPG — a single game is 200, but a roster averages higher across a year">≈ ${teamTotal} min/gm</span>
     </div>
-    <div class="rb-note">Each position covers <b>40 on-court minutes</b> — the five columns make a real <b>200-minute game</b>. Auto-build sets minutes from talent, position fit &amp; the coach's rotation depth; then fine-tune per player. The number by each name is his <b>effective grade</b> (talent adjusted for how well he fits the spot).</div>
+    <div class="rb-note">Minutes are <b>season averages</b> (MPG). A single game is 200 player-minutes, but a roster's summed MPG runs <b>~205–235</b> — injuries, foul trouble &amp; blowouts spread minutes deeper than a perfect healthy game. Auto-build sets realistic minutes from talent, position fit &amp; the coach's rotation depth; the number by each name is his <b>effective grade</b> (talent adjusted for fit).</div>
     <div class="rb-grid">${posHtml}</div>`;
 }
 // ── LINEUP LAB — deeper analytics ─────────────────────────
@@ -3637,7 +3648,6 @@ function rebuildCustomizeUI(){
     <div class="cz-subpanel" data-sub="analytics">
       ${renderImpactPanel()}
       ${renderWeaknessPanel()}
-      ${renderMinsBudget()}
     </div>
     <div class="cz-subpanel" data-sub="coach">
       <div class="sec-head" style="margin:2px 0 14px;">Coach <span class="sec-head-sub">how this coach's system fits your roster · swap to compare</span></div>
