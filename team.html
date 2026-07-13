@@ -4908,7 +4908,7 @@ function renderHistoricRoster(rows, yr, projected){
     // BEST players (by grade) starting, and surplus players sliding to the nearest
     // open spot (so a 4th guard fills an empty SF instead of leaving a hole). Ignores
     // the sheet depth_order, which the roster push keeps clobbering.
-    const gr=p=>parseFloat(p.tdc_grade)||0;
+    const gr=p=>parseFloat(_gdisp(p))||0;   // forward-looking projected OVR for returners (matches player page / roster table)
     const slot=p=>{ const x=(p.position||'').toUpperCase().trim();
       if(x==='PG') return 'PG';
       if(x==='SG'||x==='CG'||x==='G') return 'SG';
@@ -4988,7 +4988,7 @@ function renderHistoricRoster(rows, yr, projected){
     const rows=c.list.map((p,i)=>{
       const mpg=(p.mpg!=null&&p.mpg!==''&&!isNaN(parseFloat(p.mpg)))?num(p.mpg)+'m':'';
       const bio=[p.yr, p.height, mpg].filter(Boolean).join(' · ');
-      const g=(p.tdc_grade!=null&&p.tdc_grade!=='')?p.tdc_grade:'';
+      const g=_gdisp(p);   // projected OVR for returners (falls back to demonstrated grade for historic seasons)
       return `<div class="dc-row${i===0?' dc-starter':''}">
         <span class="dc-rk">${i===0?'★':(i+1)}</span>
         <span class="dc-info"><a class="dc-name" href="${link(p)}">${p.name}</a><span class="dc-bio">${bio||'&nbsp;'}</span></span>
