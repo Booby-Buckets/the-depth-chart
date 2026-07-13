@@ -27,6 +27,18 @@ per-coach archetypes — the foundation for coach-aware player projections.
    ```
    → `data/coach_profiles.json` + Supabase `coach_profiles`.
 
+5. **Coach detail pages** (for `coach.html`):
+   ```
+   python3 scripts/build_coach_pages.py       # best team / best players / developers / trend
+   python3 scripts/build_coach_rundowns.py    # per-coach season-by-season "Team Rundown"
+   ```
+   → `data/coach_pages.json` (one file) + `data/coach_rundowns/<slug>.json` (one per
+   coach, fetched on demand so the 3.5MB pages file isn't bloated further).
+   The rundown = every season's style, top-7 roster, strengths/weaknesses, and
+   over/under-performance (talent→expected SRS & wins, actual − expected = coaching
+   lift). It resolves same-name collisions (Alabama vs Alabama State both strip to
+   "alabama") by the **SRS fingerprint** from coach_seasons, not by name alone.
+
 ## What each style signal means
 
 | field | reads as |

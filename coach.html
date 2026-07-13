@@ -107,6 +107,30 @@
     .gp-l{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin:1px 0 7px;}
     .gp-bar{height:5px;border-radius:3px;background:var(--bg3);overflow:hidden;} .gp-fill{height:100%;border-radius:3px;background:var(--accent);}
     @media(max-width:680px){.gparts{grid-template-columns:repeat(2,1fr);}}
+    /* season-by-season rundown */
+    .rundown-list{display:flex;flex-direction:column;gap:13px;}
+    .rs-card{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:16px 18px;}
+    .rs-head{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;}
+    .rs-yr{font-family:'Playfair Display',serif;font-weight:800;font-size:23px;line-height:1;}
+    .rs-school{font-size:14.5px;font-weight:800;}
+    .rs-conf{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;}
+    .rs-rec{font-size:13px;font-weight:700;color:var(--text2);font-variant-numeric:tabular-nums;}
+    .rs-srs{font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;}
+    .rs-ncaa{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);background:rgba(168,132,60,.12);border:1px solid rgba(168,132,60,.28);padding:3px 9px;border-radius:20px;}
+    .rs-lifts{display:flex;gap:7px;margin-left:auto;}
+    .rs-lift{padding:4px 11px;border-radius:9px;display:flex;flex-direction:column;align-items:center;line-height:1.15;min-width:62px;}
+    .rs-lift .lv{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;}
+    .rs-lift .ll{font-size:8px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;opacity:.85;margin-top:1px;}
+    .rs-lift.pos{background:color-mix(in srgb,var(--green) 15%,transparent);color:var(--green);}
+    .rs-lift.neg{background:color-mix(in srgb,var(--red) 15%,transparent);color:var(--red);}
+    .rs-ident{font-size:12px;font-weight:600;color:var(--text2);margin:11px 0 0;}
+    .rs-ident b{color:var(--text);font-weight:800;}
+    .rs-sw{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 12px;}
+    .rs-chip{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:.02em;}
+    .rs-chip b{font-weight:800;opacity:.75;margin-left:3px;}
+    .rs-chip.s{color:var(--green);background:color-mix(in srgb,var(--green) 12%,transparent);border:1px solid color-mix(in srgb,var(--green) 32%,transparent);}
+    .rs-chip.w{color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent);border:1px solid color-mix(in srgb,var(--red) 32%,transparent);}
+    .rs-roster{display:flex;flex-wrap:wrap;gap:7px;}
     .loading{padding:80px;text-align:center;color:var(--text3);}
     @media(max-width:820px){.grid2{grid-template-columns:1fr;}.cols{grid-template-columns:1fr;}}
     @media(max-width:680px){.nav-top,.nav-sub{padding-left:16px;padding-right:16px;}.chero h1{font-size:34px;}}
@@ -297,7 +321,41 @@ function render(p, ss, pg){
       '<div class="cols"><div class="plist"><h3>Best Players Coached</h3><div class="sub">by peak TDC grade under this coach</div>'+(pr||'<div class="sub" style="padding:14px 18px;">No graded players.</div>')+'</div>'+
       '<div class="plist"><h3>Top Developers</h3><div class="sub">biggest grade climb while under him</div>'+(dv||'<div class="sub" style="padding:14px 18px;">Not enough multi-season players.</div>')+'</div></div>';
   }
+  html+='<div id="rundown"></div>';   // season-by-season rundown (lazily fetched per-coach)
   document.getElementById('content').innerHTML=html;
+}
+
+// ── SEASON-BY-SEASON RUNDOWN — every team the coach led, with style, roster,
+//    and over/under-performance (fetched per-coach so coach_pages.json stays lean) ──
+function seasonCard(s){
+  var lift=function(v,label){ if(v==null) return '';
+    var pos=v>=0; return '<div class="rs-lift '+(pos?'pos':'neg')+'"><span class="lv">'+(pos?'+':'')+v+'</span><span class="ll">'+label+'</span></div>'; };
+  var ident=[s.pace,s.shot,s.star].filter(Boolean);
+  var identHtml=ident.length?'<div class="rs-ident"><b>'+ident[0]+'</b>'+(ident.length>1?' · '+ident.slice(1).join(' · '):'')+'</div>':'';
+  var chips=(s.strengths||[]).map(x=>'<span class="rs-chip s">'+x.l+'<b>'+x.p+'</b></span>').join('')
+           +(s.weaknesses||[]).map(x=>'<span class="rs-chip w">'+x.l+'<b>'+x.p+'</b></span>').join('');
+  var roster=(s.roster||[]).map(r=>'<a class="bt-p" href="'+plink(r.espn_id,r.player)+'"><span class="g" style="color:'+gradeColor(r.grade)+'">'+r.grade+'</span><span><div class="pn">'+r.player+'</div><div class="pp">'+(r.pos||'')+'</div></span></a>').join('');
+  var srsHtml=s.srs!=null?'<span class="rs-srs" style="color:'+(s.srs>=0?'var(--green)':'var(--red)')+'">'+(s.srs>=0?'+':'')+s.srs+' SRS</span>':'';
+  return '<div class="rs-card"><div class="rs-head">'
+    +'<span class="rs-yr">'+seasonLbl(s.yr)+'</span>'
+    +'<span class="rs-school">'+s.school+'</span>'
+    +(s.conf?'<span class="rs-conf">'+s.conf+'</span>':'')
+    +'<span class="rs-rec">'+s.wins+'-'+s.losses+'</span>'+srsHtml
+    +(s.ncaa?'<span class="rs-ncaa">'+s.ncaa+(s.seed?' · #'+s.seed:'')+'</span>':'')
+    +'<div class="rs-lifts">'+lift(s.srs_lift,'SRS lift')+lift(s.win_lift,'Win lift')+'</div>'
+    +'</div>'+identHtml
+    +(chips?'<div class="rs-sw">'+chips+'</div>':'<div style="height:10px;"></div>')
+    +'<div class="rs-roster">'+roster+'</div></div>';
+}
+async function renderRundown(slug){
+  var host=document.getElementById('rundown'); if(!host) return;
+  var d=null;
+  try{ d=await fetch('scripts/data/coach_rundowns/'+encodeURIComponent(slug)+'.json').then(r=>r.ok?r.json():null); }catch(e){}
+  if(!d||!d.seasons||!d.seasons.length) return;
+  var html='<div class="sec-t">Season-by-Season <span>every team he led — style, roster &amp; how much he got out of it</span></div>'
+    +'<div class="rundown-list">'+d.seasons.map(seasonCard).join('')+'</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-top:12px;line-height:1.55;"><b>Lift</b> = how the team did vs. what its roster’s talent predicted (talent → expected SRS &amp; wins, fit across all ~6,800 team-seasons). A positive lift means the coach got <b>more</b> out of the roster than its raw talent implied; negative means less. Strengths/weaknesses are that season’s style percentiles vs. every team-season.</div>';
+  host.innerHTML=html;
 }
 
 async function init(){
@@ -315,6 +373,7 @@ async function init(){
     var ss=(seas||[]).filter(s=>s.coach_slug===slug);
     document.title=p.coach+' — The Depth Chart';
     render(p, ss, pages[slug]);
+    renderRundown(slug);
   }catch(e){ document.getElementById('content').innerHTML='<div class="loading">Could not load coach data. '+e.message+'</div>'; }
 }
 init();
