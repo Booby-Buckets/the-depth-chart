@@ -64,6 +64,27 @@
     return {fit:clamp(Math.round(s),25,98), reasons:R.slice(0,2)};
   }
 
+  // Project the player's individual stat line IF he played at this team — scale
+  // his current per-minute production to the minutes/role he'd get, then nudge by
+  // the coach's pace (more possessions) and how featured he'd be (usage room).
+  function projLine(player, ctx){
+    var mpgNow=n(player,'mpg')||26;
+    var per=function(k){ var v=n(player,k)||n(player,ctx.alt&&ctx.alt[k])||0; return mpgNow>0? v/mpgNow : 0; };
+    var mpg = ctx.role==='Day-1 starter'?31 : (ctx.role.indexOf('Rotation')>=0?22:12);
+    var paceMult = 1 + (ctx.coachPace-50)/100*0.12;
+    var usageMult = clamp(0.85 + (ctx.usageRoom-50)/100*0.30 + (ctx.coachStar-50)/100*0.18, 0.8, 1.3);
+    var r1=function(v){ return Math.round(v*10)/10; };
+    var pmin=function(k){ var v=n(player,k); return mpgNow>0?v/mpgNow:0; };
+    return {
+      mpg: mpg,
+      ppg: r1(pmin('ppg')*mpg*usageMult*paceMult),
+      rpg: r1(pmin('rpg')*mpg),
+      apg: r1(pmin('apg')*mpg*paceMult),
+      spg: r1((pmin('stl')||pmin('spg'))*mpg),
+      tp_pct: Math.round((n(player,'tp_pct')||n(player,'three_pct'))*10)/10
+    };
+  }
+
   var DEF_W={need:0.20, team:0.30, player:0.25, coach:0.25};
   // Score one player against one team (team = a team_needs entry; prof = its coach profile or null).
   function scoreTeam(player, team, prof, weights){
@@ -99,6 +120,8 @@
 
     // role/opportunity label
     var role=upgrade>=2?'Day-1 starter':upgrade>-6?'Rotation / pushes for time':'Depth piece';
+    var coachStar=(prof&&prof.pctl&&prof.pctl.top_scorer_share!=null)?prof.pctl.top_scorer_share:50;
+    var proj=projLine(player, {role:role, coachPace:pace, coachStar:coachStar, usageRoom:usageRoom});
     // one-line why (top contributing factors)
     var bits=[];
     if(upgrade>=3&&rank<=40) bits.push('upgrades a top-'+(rank<=25?'25':'40')+' team at a needy '+pp);
@@ -113,7 +136,7 @@
       coach:team.coach, coach_slug:team.coach_slug, archetype:team.archetype,
       playerPos:pp, posBest:Math.round(posBest*10)/10, starter:slotD.starter, slid:slid, upgrade:Math.round(upgrade*10)/10,
       need:Math.round(need), teamSuccess:Math.round(teamSuccess), playerSuccess:Math.round(playerSuccess),
-      coachFit:cf.fit, overall:overall, role:role, why:why};
+      coachFit:cf.fit, overall:overall, role:role, why:why, proj:proj};
   }
 
   // Rank all teams for a player. opts: {weights, sortBy, filter:{maxRank,confs,minRating}}
@@ -131,6 +154,26 @@
     return rows;
   }
 
+  // Reverse view: for ONE team, rank a pool of candidate players by fit.
+  function rankTargets(team, prof, players, opts){
+    opts=opts||{}; var f=opts.filter||{};
+    var rows=players.map(function(pl){
+      var s=scoreTeam(pl, team, prof, opts.weights);
+      s.player=pl.name; s.playerTeam=pl.team; s.height=pl.height; s.espn_id=pl.espn_id;
+      s.playerGrade=Math.round(parseFloat(pl.tdc_grade)||0); s.playerArch=archetype(pl);
+      return s;
+    });
+    rows=rows.filter(function(r){
+      if(f.pos && r.playerPos!==f.pos) return false;
+      if(f.minGrade && r.playerGrade<f.minGrade) return false;
+      if(f.excludeTeam && r.playerTeam===team.team) return false;   // already on this team
+      return true;
+    });
+    var key=opts.sortBy||'overall';
+    rows.sort(function(a,b){ return (b[key]||0)-(a[key]||0)||(b.overall-a.overall); });
+    return rows;
+  }
+
   window.TDCPortalFit={ profile:profile, archetype:archetype, pos:pos, coachFit:coachFit,
-    scoreTeam:scoreTeam, rank:rank, DEFAULT_WEIGHTS:DEF_W };
+    scoreTeam:scoreTeam, rank:rank, rankTargets:rankTargets, DEFAULT_WEIGHTS:DEF_W };
 })();

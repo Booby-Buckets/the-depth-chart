@@ -30,6 +30,14 @@
     .drop div{padding:10px 14px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);}
     .drop div:hover{background:var(--bg3);}
     .drop small{color:var(--text3);}
+    #pickTeam select{padding:11px 12px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);border-radius:10px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;}
+    #pickTeam select:focus{outline:none;border-color:var(--accent);}
+    /* team-needs summary (reverse mode) */
+    .tneeds{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+    .tn-pos{border:1px solid var(--border);border-radius:9px;background:var(--bg3);padding:7px 11px;text-align:center;min-width:66px;}
+    .tn-pos .p{font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--text3);}
+    .tn-pos .g{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;margin-top:2px;}
+    .tn-pos.weak{border-color:color-mix(in srgb,var(--red) 45%,transparent);background:color-mix(in srgb,var(--red) 10%,var(--bg3));}
     /* player hero */
     .phero{display:flex;align-items:center;gap:18px;padding:18px 20px;border:1px solid var(--border);border-radius:14px;background:radial-gradient(120% 160% at 0 0,color-mix(in srgb,var(--accent) 12%,var(--bg2)),var(--bg2));margin-bottom:22px;flex-wrap:wrap;}
     .pmono{width:60px;height:60px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:800;font-size:22px;color:var(--accent);background:var(--bg3);border:2px solid color-mix(in srgb,var(--accent) 40%,var(--border2));}
@@ -57,6 +65,8 @@
     .rteam .tr{font-size:11px;color:var(--text3);font-weight:600;margin-top:2px;}
     .rwhy{font-size:11.5px;color:var(--text2);margin-top:5px;line-height:1.4;}
     .rrole{font-size:9.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);margin-top:4px;}
+    .rproj{font-size:11px;color:var(--text3);margin-top:4px;font-variant-numeric:tabular-nums;}
+    .rproj b{color:var(--text2);font-weight:700;}
     .bars{display:flex;flex-direction:column;gap:4px;}
     .bar{display:grid;grid-template-columns:64px 1fr 22px;gap:6px;align-items:center;}
     .bar .bl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;color:var(--text3);}
@@ -78,10 +88,18 @@
   <div class="wrap">
     <div class="eyebrow">Transfer Portal</div>
     <h1>Portal <em>Fit</em></h1>
-    <div class="sub">Where should a player go? Rank teams by how well he fits — need, team success, his own production, and the coach's system.</div>
-    <div class="pick">
+    <div class="sub">Fit works both ways — find where a <b>player</b> should go, or which <b>portal targets</b> a team should chase. Scored on need, team success, the player's own production, and the coach's system.</div>
+    <div style="margin-bottom:16px;"><div class="seg" id="modeSeg">
+      <button data-m="p2t" class="on">Player → Teams</button>
+      <button data-m="t2p">Team → Targets</button>
+    </div></div>
+    <div class="pick" id="pickPlayer">
       <input id="search" type="text" placeholder="Search a player… (e.g. LJ Cason)" autocomplete="off"/>
       <div id="drop" class="drop" style="display:none;"></div>
+    </div>
+    <div id="pickTeam" style="display:none;gap:10px;margin-bottom:22px;flex-wrap:wrap;">
+      <select id="teamSel" style="min-width:240px;"></select>
+      <select id="posSel"><option value="">Any position of need</option><option>PG</option><option>SG</option><option>SF</option><option>PF</option><option>C</option></select>
     </div>
     <div id="hero"></div>
     <div id="controls" style="display:none;">
@@ -94,6 +112,7 @@
           <button data-k="coachFit">Coach fit</button>
           <button data-k="need">Need</button>
         </div>
+        <span id="teamFilters">
         <span class="ctrl-lbl" style="margin-left:8px;">Teams</span>
         <select id="fRank">
           <option value="0">All ranked</option>
@@ -102,6 +121,7 @@
           <option value="100">Top 100</option>
         </select>
         <select id="fConf"><option value="">All conferences</option></select>
+        </span>
       </div>
       <div class="rank-note" id="rankNote"></div>
     </div>
@@ -113,7 +133,7 @@ const SB_URL='https://izlqhnxowdhtdofkwrho.supabase.co';
 const ANON='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H={apikey:ANON, Authorization:'Bearer '+ANON};
 const PSEL='name,team,position,class_year,height,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,three_pct,tpa,fga,blk,bpg,stl,spg,usage_pct,espn_id';
-let TEAMS=[], PROFS={}, PLAYER=null, sortBy='overall';
+let TEAMS=[], PROFS={}, PLAYER=null, sortBy='overall', mode='p2t', TEAM=null, POOL=null;
 const $=id=>document.getElementById(id);
 const initials=n=>(n||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
 const barCol=v=>v>=72?'var(--green)':v>=52?'var(--amber)':'var(--red)';
@@ -128,6 +148,7 @@ async function boot(){
   // conference filter options
   const confs=[...new Set(TEAMS.map(t=>t.conf).filter(Boolean))].sort();
   $('fConf').innerHTML='<option value="">All conferences</option>'+confs.map(c=>`<option value="${c}">${c}</option>`).join('');
+  $('teamSel').innerHTML=TEAMS.map(t=>`<option value="${t.team}">${t.rank?'#'+t.rank+' ':''}${t.full||t.team}</option>`).join('');
   // default player from URL or LJ Cason
   const u=new URLSearchParams(location.search);
   const espn=u.get('espn'), name=u.get('name')||'LJ Cason';
@@ -150,7 +171,59 @@ function renderHero(){
     <div class="pgrade"><div class="v">${Math.round(parseFloat(p.tdc_grade)||0)||'—'}</div><div class="l">TDC Grade</div></div>
   </div>`;
 }
-function render(){
+function render(){ if(mode==='t2p') renderTeam(); else renderPlayerFits(); }
+function switchMode(m){
+  mode=m;
+  [...$('modeSeg').children].forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  $('pickPlayer').style.display=m==='p2t'?'block':'none';
+  $('pickTeam').style.display=m==='t2p'?'flex':'none';
+  $('teamFilters').style.display=m==='p2t'?'inline':'none';
+  render();
+}
+async function ensurePool(){
+  if(POOL) return POOL;
+  POOL=await fetch(`${SB_URL}/rest/v1/players?tdc_grade=not.is.null&select=${PSEL}&order=tdc_grade.desc.nullslast&limit=1500`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  return POOL;
+}
+function teamHeaderHtml(t){
+  const POSK=['PG','SG','SF','PF','C'];
+  const cells=POSK.map(p=>{ const b=t.pos&&t.pos[p]&&t.pos[p].best; const weak=(b==null)||b<76;
+    return `<div class="tn-pos${weak?' weak':''}"><div class="p">${p}</div><div class="g">${b!=null?b:'—'}</div></div>`; }).join('');
+  return `<div class="phero" style="align-items:flex-start;">
+    <div class="pmono">${initials(t.full||t.team)}</div>
+    <div style="flex:1;min-width:0;"><div class="pname">${t.full||t.team}</div>
+      <div class="pmeta">${t.conf||''}${t.rank?' · #'+t.rank+' projected':''}${t.coach?' · '+t.coach+(t.archetype?' ('+t.archetype+')':''):''}</div>
+      <div class="tneeds">${cells}</div>
+      <div style="font-size:10.5px;color:var(--text3);margin-top:6px;">Best grade at each spot · red = a hole to fill</div></div>
+    <a href="team.html?team=${encodeURIComponent(t.team)}" style="font-size:12px;font-weight:800;color:var(--accent);white-space:nowrap;">Team page →</a>
+  </div>`;
+}
+async function renderTeam(){
+  const teamName=$('teamSel').value; TEAM=TEAMS.find(t=>t.team===teamName)||TEAMS[0];
+  if(!TEAM) return;
+  $('controls').style.display='block';
+  $('hero').innerHTML=teamHeaderHtml(TEAM);
+  $('results').innerHTML='<div class="loading">Loading portal targets…</div>';
+  const pool=await ensurePool();
+  const posF=$('posSel').value;
+  const rows=TDCPortalFit.rankTargets(TEAM, TEAM.coach_slug?PROFS[TEAM.coach_slug]:null, pool,
+    {sortBy, filter:{pos:posF||undefined, excludeTeam:true}}).slice(0,40);
+  $('rankNote').textContent=`${rows.length} candidates · ranked by ${({overall:'overall fit',teamSuccess:'team success',playerSuccess:'their production',coachFit:'coach fit',need:'positional need'})[sortBy]}${posF?` · ${posF} only`:''}`;
+  const bar=(lbl,v)=>`<div class="bar"><span class="bl">${lbl}</span><span class="bt"><span class="bf" style="width:${v}%;background:${barCol(v)};"></span></span><span class="bv">${v}</span></div>`;
+  $('results').innerHTML=rows.map((r,i)=>`<div class="rrow">
+    <div class="rrk">${i+1}</div>
+    <div>
+      <div class="rteam"><a href="player.html?espn=${r.espn_id||''}&name=${encodeURIComponent(r.player)}">${r.player}</a> <span style="font-size:11px;color:var(--text3);font-weight:600;">${r.playerPos} · ${r.playerGrade} · ${r.playerTeam||''}</span></div>
+      <div class="tr">${r.playerArch||''} · fills ${r.playerPos}: now ${r.slid?'covered by others':(r.starter||'—')} (${r.posBest})${r.upgrade>0?` · <span style="color:var(--green);">+${r.upgrade} upgrade</span>`:''}</div>
+      <div class="rrole">${r.role}</div>
+      ${r.why?`<div class="rwhy">${r.why}</div>`:''}
+      ${r.proj?`<div class="rproj">Projects here <b>${r.proj.mpg} mpg · ${r.proj.ppg} ppg · ${r.proj.rpg} rpg · ${r.proj.apg} apg${r.proj.tp_pct?` · ${r.proj.tp_pct}% 3P`:''}</b></div>`:''}
+    </div>
+    <div class="bars">${bar('Need',r.need)}${bar('Team',r.teamSuccess)}${bar('Prod',r.playerSuccess)}${bar('Coach',r.coachFit)}</div>
+    <div class="rovr"><div class="v" style="color:${barCol(r.overall)};">${r.overall}</div><div class="l">Fit</div></div>
+  </div>`).join('')||'<div class="loading">No candidates match.</div>';
+}
+function renderPlayerFits(){
   if(!PLAYER) return;
   const maxRank=+$('fRank').value||0, conf=$('fConf').value;
   const filter={}; if(maxRank) filter.maxRank=maxRank; if(conf) filter.confs=[conf];
@@ -165,6 +238,7 @@ function render(){
       <div class="tr">${r.coach?`${r.coach}${r.archetype?' · '+r.archetype:''}`:'coach n/a'} · ${ppos} now: ${r.slid?'covered by others':(r.starter||'—')} (${r.posBest})${r.upgrade>0?` · <span style="color:var(--green);">+${r.upgrade} upgrade</span>`:''}</div>
       <div class="rrole">${r.role}</div>
       ${r.why?`<div class="rwhy">${r.why}</div>`:''}
+      ${r.proj?`<div class="rproj">Projects <b>${r.proj.mpg} mpg · ${r.proj.ppg} ppg · ${r.proj.rpg} rpg · ${r.proj.apg} apg${r.proj.tp_pct?` · ${r.proj.tp_pct}% 3P`:''}</b></div>`:''}
     </div>
     <div class="bars">
       ${bar('Need',r.need)}${bar('Team',r.teamSuccess)}${bar('Prod',r.playerSuccess)}${bar('Coach',r.coachFit)}
@@ -177,6 +251,9 @@ $('sortSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); i
   sortBy=b.dataset.k; [...$('sortSeg').children].forEach(x=>x.classList.toggle('on',x===b)); render(); });
 $('fRank').addEventListener('change',render);
 $('fConf').addEventListener('change',render);
+$('modeSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(b) switchMode(b.dataset.m); });
+$('teamSel').addEventListener('change',render);
+$('posSel').addEventListener('change',render);
 // search
 let _t;
 $('search').addEventListener('input',e=>{ clearTimeout(_t); const q=e.target.value.trim();
