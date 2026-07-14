@@ -73,6 +73,7 @@
     .rteam a:hover{color:var(--accent);}
     .rteam .tr{font-size:11px;color:var(--text3);font-weight:600;margin-top:2px;}
     .rwhy{font-size:11.5px;color:var(--text2);margin-top:5px;line-height:1.4;}
+    .posflex{font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);background:rgba(200,160,60,.14);padding:1px 5px;border-radius:5px;}
     .rrole{font-size:9.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);margin-top:4px;}
     .rproj{font-size:11px;color:var(--text3);margin-top:5px;font-variant-numeric:tabular-nums;display:flex;flex-wrap:wrap;align-items:center;gap:7px;}
     .rproj b{color:var(--text2);font-weight:700;}
@@ -255,7 +256,7 @@ async function renderTeam(){
     <div class="rrk">${i+1}</div>
     <div>
       <div class="rteam"><a href="player.html?espn=${r.espn_id||''}&name=${encodeURIComponent(r.player)}">${r.player}</a> <span style="font-size:11px;color:var(--text3);font-weight:600;">${r.playerPos} · ${r.playerGrade} · ${r.playerTeam||''}</span></div>
-      <div class="tr">${r.playerArch||''} · fills ${r.playerPos}: now ${r.slid?'covered by others':(r.starter||'—')} (${r.posBest})${r.upgrade>0?` · <span style="color:var(--green);">+${r.upgrade} upgrade</span>`:''}</div>
+      <div class="tr">${r.playerArch||''} · fills ${r.playerPos}${r.offNatural?` <span class="posflex">from ${r.naturalPos}</span>`:''}: now ${r.slid?'covered by others':(r.starter||'—')} (${r.posBest})${r.upgrade>0?` · <span style="color:var(--green);">+${r.upgrade} upgrade</span>`:''}</div>
       <div class="rrole">${r.role}</div>
       ${r.why?`<div class="rwhy">${r.why}</div>`:''}
       ${projCompare(r.cur, r.playerTeam, r.proj, (TEAM.full||TEAM.team))}
@@ -276,7 +277,7 @@ function renderPlayerFits(){
     <div class="rrk">${i+1}</div>
     <div>
       <div class="rteam"><a href="team.html?team=${encodeURIComponent(r.team)}">${r.full||r.team}</a> <span style="font-size:11px;color:var(--text3);font-weight:600;">${r.conf||''}${r.rank?' · #'+r.rank:''}</span></div>
-      <div class="tr">${r.coach?`${r.coach}${r.archetype?' · '+r.archetype:''}`:'coach n/a'} · ${ppos} now: ${r.slid?'covered by others':(r.starter||'—')} (${r.posBest})${r.upgrade>0?` · <span style="color:var(--green);">+${r.upgrade} upgrade</span>`:''}</div>
+      <div class="tr">${r.coach?`${r.coach}${r.archetype?' · '+r.archetype:''}`:'coach n/a'} · plays ${r.playerPos}${r.offNatural?` <span class="posflex">from ${r.naturalPos}</span>`:''}: now ${r.slid?'covered by others':(r.starter||'—')} (${r.posBest})${r.upgrade>0?` · <span style="color:var(--green);">+${r.upgrade} upgrade</span>`:''}</div>
       <div class="rrole">${r.role}</div>
       ${r.why?`<div class="rwhy">${r.why}</div>`:''}
       ${projCompare({ppg:PLAYER.ppg,rpg:PLAYER.rpg,apg:PLAYER.apg,tp_pct:(PLAYER.tp_pct||PLAYER.three_pct)}, PLAYER.team, r.proj, (r.full||r.team))}

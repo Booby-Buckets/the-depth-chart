@@ -120,11 +120,63 @@
   }
 
   var DEF_W={need:0.20, team:0.30, player:0.25, coach:0.25};
-  // Score one player against one team (team = a team_needs entry; prof = its coach profile or null).
-  function scoreTeam(player, team, prof, weights){
-    var W=weights||DEF_W;
-    var pg=parseFloat(player.tdc_grade)||70;
-    var pp=pos(player);
+  // ── POSITION FLEXIBILITY ──────────────────────────────────────────────────
+  // A player isn't locked to his listed spot. From size + skills he can slide to
+  // an adjacent position with a penalty; the coach's scheme (small-ball vs plays
+  // big) softens or hardens it. Ideal height windows per spot (inches):
+  var HT={PG:[72,76], SG:[75,79], SF:[77,81], PF:[79,84], C:[82,92]};
+  function htIn(h){ var m=/(\d+)[\-'’](\d+)/.exec(h||''); return m?(+m[1]*12 + +m[2]):0; }
+  // how POORLY a player suits a position (0 = great, higher = worse) from height + role skills
+  function posSuit(player, tp){
+    var P=profile(player), h=htIn(player.height)||78, r=HT[tp];
+    var overF=(tp==='PG'||tp==='SG')?1.3:(tp==='SF')?0.7:0.3;        // tall guards penalized; tall bigs are fine
+    var htPen = h<r[0] ? (r[0]-h)*1.3 : h>r[1] ? (h-r[1])*overF : 0; // undersized always hurts
+    var sk;
+    if(tp==='PG') sk=Math.max(0, 3.2-(n(player,'apg')||0))*1.2;                             // must create
+    else if(tp==='SG'||tp==='SF') sk=Math.max(0,0.42-P.shooter)*7 + Math.max(0,0.5-P.scorer)*3; // must space/score
+    else sk=Math.max(0,0.42-P.rebounder)*7 + Math.max(0,0.45-P.size)*6;                     // must have size
+    return htPen+sk;
+  }
+  // positions he can play = natural (0 penalty) + adjacent spots he isn't badly miscast at
+  function positionsFor(player){
+    var ORD=['PG','SG','SF','PF','C'], natural=pos(player), ni=ORD.indexOf(natural);
+    if(ni<0){ ni=1; natural='SG'; }
+    var natSuit=posSuit(player, natural), out=[{pos:natural, pen:0}];
+    [ni-1, ni+1].forEach(function(i){ if(i<0||i>4) return;
+      var p=ORD[i], pen=-(posSuit(player,p)-natSuit);   // extra unsuitability vs his natural spot
+      if(pen>=-9) out.push({pos:p, pen:clamp(pen,-9,0)});
+    });
+    return out;
+  }
+  // coach scheme: 0 = plays big (punishes undersized), 100 = small-ball / guard-heavy (hides size)
+  function coachSmallBall(prof){
+    if(!prof||!prof.pctl) return 50;
+    var d=prof.pctl, three=d.three_pa_rate!=null?d.three_pa_rate:50,
+        pace=d.poss_pg!=null?d.poss_pg:50, oreb=d.oreb_pg!=null?d.oreb_pg:50;
+    var s=three*0.5 + pace*0.2 + (100-oreb)*0.3, a=prof.archetype||'';
+    if(/Bigs|Grind/i.test(a)) s-=16;
+    if(/Shooter|Motion|Up-Tempo/i.test(a)) s+=12;
+    return clamp(s,0,100);
+  }
+
+  // Score a player at a team, trying every position he can realistically play and
+  // keeping his best-fitting spot. forcePos locks it to one position (reverse-view
+  // position filter); returns null if he can't play that spot.
+  function scoreTeam(player, team, prof, weights, forcePos){
+    var W=weights||DEF_W, pg=parseFloat(player.tdc_grade)||70;
+    var elig=positionsFor(player), sb=coachSmallBall(prof), natural=elig[0].pos;
+    var cands=forcePos?elig.filter(function(e){return e.pos===forcePos;}):elig;
+    if(!cands.length) return null;
+    var best=null;
+    cands.forEach(function(e){
+      var pen=clamp(e.pen*(1-(sb-50)/50*0.5), -12, 0);   // small-ball softens, big hardens
+      var s=_scoreAtPos(player, pg, pg+pen, team, prof, e.pos, W, e.pos===natural, pen);
+      if(!best || s.overall>best.overall) best=s;
+    });
+    if(best) best.naturalPos=natural;
+    return best;
+  }
+  function _scoreAtPos(player, pg, eff, team, prof, pp, W, isNatural, posPen){
     var rank=team.rank||120;
     var slotD=(team.pos&&team.pos[pp])||{best:null};
     // No player listed at this exact spot doesn't mean it's empty — an adjacent
@@ -137,7 +189,7 @@
       posBest = b || (rank<=25?72:rank<=60?68:64);   // floor scaled to team quality
       slid=true;
     }
-    var upgrade=pg-posBest;                                   // + = he's better than their current best
+    var upgrade=eff-posBest;                                  // + = his (position-adjusted) grade beats their best there
     // team's overall top talent (alpha) — for usage room
     var topGrade=56; if(team.pos) POS.forEach(function(k){ var b=team.pos[k]&&team.pos[k].best; if(b!=null&&b>topGrade) topGrade=b; });
 
@@ -199,7 +251,8 @@
 
     return {team:team.team, full:team.full, conf:team.conf, rank:team.rank, rating:team.rating,
       coach:team.coach, coach_slug:team.coach_slug, archetype:team.archetype,
-      playerPos:pp, posBest:Math.round(posBest*10)/10, starter:slotD.starter, slid:slid, upgrade:Math.round(upgrade*10)/10,
+      playerPos:pp, offNatural:!isNatural, posPen:Math.round(posPen*10)/10,
+      posBest:Math.round(posBest*10)/10, starter:slotD.starter, slid:slid, upgrade:Math.round(upgrade*10)/10,
       need:Math.round(need), teamSuccess:Math.round(teamSuccess), playerSuccess:Math.round(playerSuccess),
       coachFit:cf.fit, overall:overall, role:role, why:why, proj:proj};
   }
@@ -223,14 +276,14 @@
   function rankTargets(team, prof, players, opts){
     opts=opts||{}; var f=opts.filter||{};
     var rows=players.map(function(pl){
-      var s=scoreTeam(pl, team, prof, opts.weights);
+      var s=scoreTeam(pl, team, prof, opts.weights, f.pos||null);   // forcePos -> only players who can play it
+      if(!s) return null;
       s.player=pl.name; s.playerTeam=pl.team; s.height=pl.height; s.espn_id=pl.espn_id;
       s.playerGrade=Math.round(parseFloat(pl.tdc_grade)||0); s.playerArch=archetype(pl);
       s.cur={ppg:n(pl,'ppg'), rpg:n(pl,'rpg'), apg:n(pl,'apg'), tp_pct:n(pl,'tp_pct')||n(pl,'three_pct')};
       return s;
-    });
+    }).filter(Boolean);
     rows=rows.filter(function(r){
-      if(f.pos && r.playerPos!==f.pos) return false;
       if(f.minGrade && r.playerGrade<f.minGrade) return false;
       if(f.excludeTeam && r.playerTeam===team.team) return false;   // already on this team
       return true;
