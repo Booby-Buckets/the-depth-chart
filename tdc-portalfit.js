@@ -64,24 +64,41 @@
     return {fit:clamp(Math.round(s),25,98), reasons:R.slice(0,2)};
   }
 
-  // Project the player's individual stat line IF he played at this team — scale
-  // his current per-minute production to the minutes/role he'd get, then nudge by
-  // the coach's pace (more possessions) and how featured he'd be (usage room).
+  // Project the player's individual stat line IF he played at this team. The
+  // system doesn't just SCALE his current line — it RESHAPES it. A pass-first PG
+  // dropped into a star-centric, alpha-vacant offense becomes a scorer (more
+  // points, fewer assists); the same PG in a ball-movement system stays a
+  // distributor. So on top of minutes+pace (volume), we apply a score<->pass
+  // "tilt" from the coach's system + who's already on the roster.
   function projLine(player, ctx){
     var mpgNow=n(player,'mpg')||26;
-    var per=function(k){ var v=n(player,k)||n(player,ctx.alt&&ctx.alt[k])||0; return mpgNow>0? v/mpgNow : 0; };
+    var pmin=function(k){ var v=n(player,k); return mpgNow>0? v/mpgNow : 0; };
+    var r1=function(v){ return Math.round(Math.max(0,v)*10)/10; };
     var mpg = ctx.role==='Day-1 starter'?31 : (ctx.role.indexOf('Rotation')>=0?22:12);
-    var paceMult = 1 + (ctx.coachPace-50)/100*0.12;
-    var usageMult = clamp(0.85 + (ctx.usageRoom-50)/100*0.30 + (ctx.coachStar-50)/100*0.18, 0.8, 1.3);
-    var r1=function(v){ return Math.round(v*10)/10; };
-    var pmin=function(k){ var v=n(player,k); return mpgNow>0?v/mpgNow:0; };
+
+    // system context, each centered to roughly -1..+1
+    var pace=((ctx.coachPace||50)-50)/50;   // + up-tempo -> more possessions
+    var star=((ctx.coachStar||50)-50)/50;   // + star-centric -> concentrate scoring
+    var mov =((ctx.coachAst ||50)-50)/50;   // + ball-movement -> spread the assists
+    var room=((ctx.usageRoom||50)-50)/50;   // + he's the alpha (no one above him)
+
+    var paceMult=1+0.15*pace;
+    var role=clamp(1+0.11*room, 0.87, 1.16);        // featured-ness: mild total bump
+    // the reshaper: star-centric + alpha room push him to SCORE; ball-movement
+    // pushes him to PASS. Points rise / assists fall as tilt goes positive.
+    var tilt=clamp(0.44*star + 0.30*room - 0.40*mov, -0.78, 0.82);
+
+    var base=function(k){ return pmin(k)*mpg*paceMult*role; };
+    var ppg=base('ppg')*(1+0.44*tilt);
+    var apg=base('apg')*(1-0.52*tilt);
+    var tp =(n(player,'tp_pct')||n(player,'three_pct'))*(1-0.05*Math.max(0,tilt)); // heavier creation dents efficiency a touch
     return {
       mpg: mpg,
-      ppg: r1(pmin('ppg')*mpg*usageMult*paceMult),
-      rpg: r1(pmin('rpg')*mpg),
-      apg: r1(pmin('apg')*mpg*paceMult),
+      ppg: r1(Math.min(ppg,28)),
+      rpg: r1(pmin('rpg')*mpg*(1+0.05*pace)),
+      apg: r1(Math.min(apg,11.5)),
       spg: r1((pmin('stl')||pmin('spg'))*mpg),
-      tp_pct: Math.round((n(player,'tp_pct')||n(player,'three_pct'))*10)/10
+      tp_pct: Math.round(tp*10)/10
     };
   }
 
@@ -121,7 +138,8 @@
     // role/opportunity label
     var role=upgrade>=2?'Day-1 starter':upgrade>-6?'Rotation / pushes for time':'Depth piece';
     var coachStar=(prof&&prof.pctl&&prof.pctl.top_scorer_share!=null)?prof.pctl.top_scorer_share:50;
-    var proj=projLine(player, {role:role, coachPace:pace, coachStar:coachStar, usageRoom:usageRoom});
+    var coachAst=(prof&&prof.pctl&&prof.pctl.ast_rate!=null)?prof.pctl.ast_rate:50;
+    var proj=projLine(player, {role:role, coachPace:pace, coachStar:coachStar, coachAst:coachAst, usageRoom:usageRoom});
     // one-line why (top contributing factors)
     var bits=[];
     if(upgrade>=3&&rank<=40) bits.push('upgrades a top-'+(rank<=25?'25':'40')+' team at a needy '+pp);
