@@ -161,6 +161,7 @@
       var s=scoreTeam(pl, team, prof, opts.weights);
       s.player=pl.name; s.playerTeam=pl.team; s.height=pl.height; s.espn_id=pl.espn_id;
       s.playerGrade=Math.round(parseFloat(pl.tdc_grade)||0); s.playerArch=archetype(pl);
+      s.cur={ppg:n(pl,'ppg'), rpg:n(pl,'rpg'), apg:n(pl,'apg'), tp_pct:n(pl,'tp_pct')||n(pl,'three_pct')};
       return s;
     });
     rows=rows.filter(function(r){
