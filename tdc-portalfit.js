@@ -74,7 +74,21 @@
     var mpgNow=n(player,'mpg')||26;
     var pmin=function(k){ var v=n(player,k); return mpgNow>0? v/mpgNow : 0; };
     var r1=function(v){ return Math.round(Math.max(0,v)*10)/10; };
-    var mpg = ctx.role==='Day-1 starter'?31 : (ctx.role.indexOf('Rotation')>=0?22:12);
+    // Projected MINUTES vary by team: the coach's rotation depth (a tight 6-7 man
+    // rotation runs starters 37-38; a deep bench ~29) and how firmly he takes the
+    // job (a clear upgrade locks heavy minutes; a near-parity incumbent = a
+    // timeshare ~28).
+    var rot=ctx.rotationSize||9, up=(ctx.upgrade==null?3:ctx.upgrade), mpg;
+    if(ctx.role==='Day-1 starter'){
+      mpg=clamp(37-(rot-7)*1.6, 29, 38);   // rotation depth sets the baseline
+      if(up<5) mpg-=(5-up)*0.9;            // a solid incumbent means splitting time
+      if(up>=10) mpg+=1.5;                 // a clear alpha soaks up minutes
+      mpg=clamp(Math.round(mpg), 26, 38);
+    } else if(ctx.role.indexOf('Rotation')>=0){
+      mpg=clamp(Math.round(22+up*0.8), 14, 27);
+    } else {
+      mpg=clamp(Math.round(12+up*0.4), 6, 14);
+    }
 
     // system context, each centered to roughly -1..+1
     var pace=((ctx.coachPace||50)-50)/50;   // + up-tempo -> more possessions
@@ -139,7 +153,9 @@
     var role=upgrade>=2?'Day-1 starter':upgrade>-6?'Rotation / pushes for time':'Depth piece';
     var coachStar=(prof&&prof.pctl&&prof.pctl.top_scorer_share!=null)?prof.pctl.top_scorer_share:50;
     var coachAst=(prof&&prof.pctl&&prof.pctl.ast_rate!=null)?prof.pctl.ast_rate:50;
-    var proj=projLine(player, {role:role, coachPace:pace, coachStar:coachStar, coachAst:coachAst, usageRoom:usageRoom});
+    var rotSize=(prof&&prof.rotation_size!=null)?prof.rotation_size:9;
+    var proj=projLine(player, {role:role, coachPace:pace, coachStar:coachStar, coachAst:coachAst,
+      usageRoom:usageRoom, rotationSize:rotSize, upgrade:upgrade});
     // one-line why (top contributing factors)
     var bits=[];
     if(upgrade>=3&&rank<=40) bits.push('upgrades a top-'+(rank<=25?'25':'40')+' team at a needy '+pp);
