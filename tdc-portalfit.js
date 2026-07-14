@@ -159,14 +159,42 @@
     var rotSize=(prof&&prof.rotation_size!=null)?prof.rotation_size:9;
     var proj=projLine(player, {role:role, coachPace:pace, coachStar:coachStar, coachAst:coachAst,
       usageRoom:usageRoom, rotationSize:rotSize, upgrade:upgrade});
-    // one-line why (top contributing factors)
-    var bits=[];
-    if(upgrade>=3&&rank<=40) bits.push('upgrades a top-'+(rank<=25?'25':'40')+' team at a needy '+pp);
-    else if(upgrade>=3) bits.push('clear upgrade at '+pp);
-    else if(need>=70) bits.push('fills a thin '+pp+' spot');
-    if(cf.reasons[0]) bits.push(cf.reasons[0].t);
-    if(playerSuccess>=72 && bits.length<2) bits.push('room to produce (minutes + usage)');
-    var why=bits.slice(0,2).join('; ');
+    // one-line why — explain the DOMINANT drivers of the (weighted) overall, so a
+    // low fit reads as an actual weakness, not a stray positive. Each factor has a
+    // high-side and low-side phrase; we pick by weighted impact vs the midpoint.
+    var cap=function(s){ return s?s.charAt(0).toUpperCase()+s.slice(1):s; };
+    var cPos=cf.reasons.filter(function(r){return r.d>0;}), cNeg=cf.reasons.filter(function(r){return r.d<0;});
+    // why his production upside is capped: the lowest of opportunity / tempo / usage room
+    var pLo = (opp<=pace && opp<=usageRoom) ? 'he’d have to beat out a capable starter for the role'
+            : (pace<=usageRoom)             ? 'a grind-it-out tempo would cap his counting stats'
+            :                                 'an established alpha is ahead of him for touches';
+    var facs=[
+      {w:W.need, v:need,
+        hi:'fills a thin '+pp+' spot',
+        lo:'they’re already set at '+pp+(posBest!=null?' ('+Math.round(posBest)+')':'')},
+      {w:W.team, v:teamSuccess,
+        hi:(rank<=25?'a genuine top-25 contender':rank<=45?'a solid, winning program':'would lift a middling team'),
+        lo:(rank>=70?'a rebuilding team (#'+rank+') that won’t contend soon':'limited team upside — not a contender yet')},
+      {w:W.player, v:playerSuccess,
+        hi:'a clear path to big minutes and touches',
+        lo:pLo},
+      {w:W.coach, v:cf.fit,
+        hi:(cPos[0]&&cPos[0].t)||'fits the coach’s system',
+        lo:(cNeg[0]&&cNeg[0].t)||'a stylistic mismatch with the coach’s system'}
+    ];
+    // only factors that actually carry weight can drive the explanation (so a
+    // 0%-weight lens never gets pulled into a contradictory "but" clause)
+    var active=facs.filter(function(f){return (f.w||0)>=0.08;});
+    active.forEach(function(f){ f.impact=(f.v-50)*f.w; f.phrase=(f.v>=50?f.hi:f.lo); });
+    active.sort(function(a,b){return Math.abs(b.impact)-Math.abs(a.impact);});
+    var p1=active[0], p2=active[1], why;
+    if(!p1){ why='a middling fit'; }
+    else if(p2 && Math.abs(p2.impact)>=Math.abs(p1.impact)*0.5){
+      if((p1.impact>=0)!==(p2.impact>=0)){                 // one plus, one minus -> contrast
+        var posF=p1.impact>=0?p1:p2, negF=p1.impact>=0?p2:p1;
+        why=cap(posF.hi)+', but '+negF.lo;
+      } else { why=cap(p1.phrase)+'; '+p2.phrase; }        // same sign -> list both
+    } else { why=cap(p1.phrase); }                          // one dominant driver
     why=why?(why.charAt(0).toUpperCase()+why.slice(1)+'.'):'';
 
     return {team:team.team, full:team.full, conf:team.conf, rank:team.rank, rating:team.rating,
