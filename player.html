@@ -130,6 +130,7 @@
     .news-time{color:var(--text3);}
     .news-head{font-size:14.5px;font-weight:700;line-height:1.35;color:var(--text);}
     .news-dek{font-size:12.5px;color:var(--text3);line-height:1.45;margin-top:5px;}
+    .buzz-empty{font-size:12.5px;color:var(--text3);line-height:1.5;padding:18px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;}
     .tweet-card{padding:14px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;}
     .tw-top{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
     .tw-av{width:38px;height:38px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;font-family:'Inter',sans-serif;}
@@ -2903,52 +2904,45 @@ function _buildProjRankLine(lastAct, projLine){
 // pipeline (news/RSS now, tweets later) is wired. Real version will fetch from
 // Supabase tables player_news / player_tweets (keyed by espn_id), populated by a
 // scheduled Python fetcher. See the roadmap note in the preview banner below.
-function renderBuzz(){
+async function renderBuzz(){
   const host=document.getElementById('buzzContent'); if(!host) return;
   const p=player||{}; const name=p.name||'This player';
-  const parts=(''+name).trim().split(/\s+/); const first=parts[0]||name; const last=parts.length>1?parts[parts.length-1]:name;
-  const team=p.team||'the team';
-  const handle=('@'+team.replace(/[^A-Za-z0-9]/g,'')+'MBB').slice(0,16);
   const esc=s=>(''+s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
-  const AV=['#c0392b','#2c6ef2','#1a8c3a','#8e44ad','#d4a020','#0e7c86'];
-  const avatar=(txt,i)=>`<div class="tw-av" style="background:${AV[i%AV.length]};">${esc((''+txt).slice(0,2).toUpperCase())}</div>`;
+  host.innerHTML='<div style="padding:44px;text-align:center;color:var(--text3);">Loading headlines…</div>';
+  // Real per-player headlines from the news pipeline (build_player_news.py),
+  // fetched once and cached. Keyed by espn_id, then name.
+  if(window._playerNews===undefined){
+    try{ window._playerNews=await fetch('scripts/data/player_news.json').then(r=>r.ok?r.json():null); }
+    catch(e){ window._playerNews=null; }
+  }
+  const db=window._playerNews;
+  let entry=null;
+  if(db&&db.players){
+    if(p.espn_id!=null && db.players[''+p.espn_id]) entry=db.players[''+p.espn_id];
+    else entry=db.players['n:'+name.toLowerCase().trim()]||null;
+  }
+  const items=(entry&&entry.items)?entry.items:[];
+  const timeAgo=d=>{ if(!d) return ''; const t=Date.parse(d); if(isNaN(t)) return '';
+    const s=(Date.now()-t)/1000; if(s<3600) return Math.max(1,Math.round(s/60))+'m';
+    if(s<86400) return Math.round(s/3600)+'h'; if(s<86400*30) return Math.round(s/86400)+'d'; return Math.round(s/2592000)+'mo'; };
+  const upd = (db&&db.generated_utc)?`Updated ${new Date(db.generated_utc).toLocaleDateString()}`:'';
 
-  // --- SAMPLE headlines (generic outlets, no fabricated real bylines) ---
-  const news=[
-    {src:'Team Beat',    time:'3h',  head:`${name} stands out in ${team}'s first exhibition`, dek:`Coaches highlighted his two-way impact and improved decision-making off the bounce.`},
-    {src:'Recruiting Desk',time:'1d',head:`Scouting ${name}: role and fit for ${team} in 2026-27`, dek:`Where he slots in the rotation and what the projection model expects from his jump.`},
-    {src:'Conf. Wire',   time:'2d', head:`${team} coach on ${first}'s offseason: "He's earned a bigger role"`, dek:``},
-    {src:'Local Sports', time:'4d', head:`${last} named to preseason watch list`, dek:`One of several ${team} names drawing early attention ahead of the season.`},
-  ];
-  // --- SAMPLE tweets (generic handles/labels) ---
-  const tweets=[
-    {name:`${team} Basketball`, handle:handle, v:true,  time:'5h', text:`Bucket after bucket for ${first} tonight. 🔥 Big minutes coming his way this year.`, rt:214, lk:1900},
-    {name:'CBB Film Room',      handle:'@CBBFilmRoom', v:false, time:'1d', text:`${name} is a name to watch in ${team}'s rotation — flashes real shot-making and defensive versatility. Projection stock trending up.`, rt:88, lk:640},
-    {name:'Beat Writer',        handle:'@'+team.replace(/[^A-Za-z0-9]/g,'').slice(0,10)+'Beat', v:true, time:'2d', text:`${first} looked comfortable running the second unit in today's scrimmage. Coaches love the maturity.`, rt:41, lk:310},
-  ];
-
-  const newsHtml=news.map(n=>`<a class="news-card" href="#" onclick="return false;">
-      <div class="news-meta"><span class="news-src">${esc(n.src)}</span><span class="news-dot">·</span><span class="news-time">${esc(n.time)}</span></div>
-      <div class="news-head">${esc(n.head)}</div>${n.dek?`<div class="news-dek">${esc(n.dek)}</div>`:''}
-    </a>`).join('');
-  const tweetsHtml=tweets.map((t,i)=>`<div class="tweet-card">
-      <div class="tw-top">${avatar(t.name,i)}
-        <div class="tw-id"><span class="tw-name">${esc(t.name)}${t.v?'<span class="tw-check">✔</span>':''}</span><span class="tw-handle">${esc(t.handle)}</span></div>
-        <span class="tw-time">${esc(t.time)}</span></div>
-      <div class="tw-text">${esc(t.text)}</div>
-      <div class="tw-stats"><span><b>${t.rt}</b> Reposts</span><span><b>${t.lk.toLocaleString()}</b> Likes</span></div>
-    </div>`).join('');
+  const newsHtml=items.length ? items.map(n=>`<a class="news-card" href="${esc(n.url||'#')}" target="_blank" rel="noopener nofollow">
+      <div class="news-meta"><span class="news-src">${esc(n.source||'News')}</span>${n.date&&timeAgo(n.date)?`<span class="news-dot">·</span><span class="news-time">${esc(timeAgo(n.date))}</span>`:''}</div>
+      <div class="news-head">${esc(n.title)}</div>
+    </a>`).join('')
+    : `<div class="buzz-empty">No recent headlines for ${esc(name)} yet. Bigger names and breaking news — commitments, injuries, standout games — surface here.</div>`;
 
   host.innerHTML=`
-    <div class="buzz-note"><b>Preview · sample data.</b> This is a layout prototype — the headlines and tweets below are placeholders. The live version will pull real news (RSS/news feeds) first, then tweets, filtered to this player and refreshed on a schedule. Down the line, this feed also becomes a <b>Buzz Index</b> signal that can feed freshman projections.</div>
+    <div class="buzz-note">Recent <b>headlines</b> for ${esc(name)} from around the web (news search) — tap any to read the full story.${upd?` <span style="color:var(--text3);">${upd}.</span>`:''} <span style="color:var(--text3);">Social buzz comes in a later update — headlines first.</span></div>
     <div class="buzz-cols">
       <div>
-        <div class="sec-title" style="margin:0 0 16px;">Headlines</div>
+        <div class="sec-title" style="margin:0 0 16px;">Headlines${items.length?` <span style="font-size:12px;color:var(--text3);font-weight:600;">· ${items.length}</span>`:''}</div>
         <div class="buzz-list">${newsHtml}</div>
       </div>
       <div>
         <div class="sec-title" style="margin:0 0 16px;">On X / Twitter</div>
-        <div class="buzz-list">${tweetsHtml}</div>
+        <div class="buzz-list"><div class="buzz-empty">Tweets are coming in a later update. For now, Buzz is headlines only.</div></div>
       </div>
     </div>`;
 }
