@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Portal Fit — The Depth Chart</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="tdc-portalfit.js"></script>
+  <style>
+    :root{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--amber:#d4a24a;--red:#e07070;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
+    a{color:inherit;text-decoration:none;}
+    .nav{border-bottom:1px solid var(--border);padding:0 30px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:rgba(20,20,22,.86);backdrop-filter:blur(16px);z-index:50;}
+    .logo{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;}
+    .logo span{color:var(--accent);}
+    .nav a{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-left:18px;}
+    .nav a:hover{color:var(--text);}
+    .wrap{max-width:1120px;margin:0 auto;padding:24px 22px 90px;}
+    .eyebrow{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);}
+    h1{font-family:'Playfair Display',serif;font-weight:800;font-size:38px;letter-spacing:-.02em;margin:6px 0 4px;}
+    h1 em{font-style:italic;color:var(--accent);}
+    .sub{font-size:13.5px;color:var(--text3);font-weight:600;margin-bottom:20px;}
+    /* player picker */
+    .pick{position:relative;max-width:440px;margin-bottom:22px;}
+    .pick input{width:100%;padding:12px 14px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);border-radius:10px;font-size:14px;font-family:inherit;font-weight:600;}
+    .pick input:focus{outline:none;border-color:var(--accent);}
+    .drop{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;overflow:hidden;z-index:20;box-shadow:0 12px 30px rgba(0,0,0,.5);}
+    .drop div{padding:10px 14px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);}
+    .drop div:hover{background:var(--bg3);}
+    .drop small{color:var(--text3);}
+    /* player hero */
+    .phero{display:flex;align-items:center;gap:18px;padding:18px 20px;border:1px solid var(--border);border-radius:14px;background:radial-gradient(120% 160% at 0 0,color-mix(in srgb,var(--accent) 12%,var(--bg2)),var(--bg2));margin-bottom:22px;flex-wrap:wrap;}
+    .pmono{width:60px;height:60px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:800;font-size:22px;color:var(--accent);background:var(--bg3);border:2px solid color-mix(in srgb,var(--accent) 40%,var(--border2));}
+    .pname{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;line-height:1;}
+    .pmeta{font-size:13px;color:var(--text2);font-weight:600;margin-top:5px;}
+    .parch{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#221c08;background:var(--accent);padding:3px 9px;border-radius:12px;display:inline-block;margin-top:8px;}
+    .pgrade{margin-left:auto;text-align:center;}
+    .pgrade .v{font-family:'Playfair Display',serif;font-weight:800;font-size:40px;line-height:1;color:var(--accent);}
+    .pgrade .l{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    /* controls */
+    .ctrls{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:8px;}
+    .seg{display:inline-flex;border:1px solid var(--border2);border-radius:9px;overflow:hidden;}
+    .seg button{background:none;border:none;color:var(--text3);font-family:inherit;font-size:11.5px;font-weight:800;letter-spacing:.03em;padding:8px 13px;cursor:pointer;border-right:1px solid var(--border2);}
+    .seg button:last-child{border-right:none;}
+    .seg button.on{background:var(--accent);color:#221c08;}
+    .ctrl-lbl{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);}
+    .ctrls select{padding:8px 10px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);border-radius:8px;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;}
+    .rank-note{font-size:11px;color:var(--text3);margin:6px 0 18px;}
+    /* results */
+    .rrow{display:grid;grid-template-columns:34px 1fr 240px 62px;gap:14px;align-items:center;padding:13px 16px;border:1px solid var(--border);border-radius:12px;background:var(--bg2);margin-bottom:9px;transition:border-color .15s,transform .15s;}
+    .rrow:hover{border-color:var(--accent);transform:translateY(-1px);}
+    .rrk{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text3);text-align:center;}
+    .rteam{font-size:15px;font-weight:800;}
+    .rteam a:hover{color:var(--accent);}
+    .rteam .tr{font-size:11px;color:var(--text3);font-weight:600;margin-top:2px;}
+    .rwhy{font-size:11.5px;color:var(--text2);margin-top:5px;line-height:1.4;}
+    .rrole{font-size:9.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);margin-top:4px;}
+    .bars{display:flex;flex-direction:column;gap:4px;}
+    .bar{display:grid;grid-template-columns:64px 1fr 22px;gap:6px;align-items:center;}
+    .bar .bl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;color:var(--text3);}
+    .bar .bt{height:5px;border-radius:3px;background:var(--bg3);overflow:hidden;}
+    .bar .bf{height:100%;border-radius:3px;}
+    .bar .bv{font-size:9.5px;font-weight:800;text-align:right;color:var(--text2);font-variant-numeric:tabular-nums;}
+    .rovr{text-align:center;}
+    .rovr .v{font-family:'Playfair Display',serif;font-weight:800;font-size:28px;line-height:1;}
+    .rovr .l{font-size:8px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:1px;}
+    .loading{padding:70px;text-align:center;color:var(--text3);}
+    @media(max-width:760px){.rrow{grid-template-columns:28px 1fr 60px;}.bars{display:none;}}
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <a class="logo" href="index.html">The Depth <span>Chart</span></a>
+    <div><a href="index.html">Rankings</a><a href="roster.html">Players</a><a href="coaches.html">Coaches</a><a href="portal.html" style="color:var(--text);">Portal Fit</a></div>
+  </div>
+  <div class="wrap">
+    <div class="eyebrow">Transfer Portal</div>
+    <h1>Portal <em>Fit</em></h1>
+    <div class="sub">Where should a player go? Rank teams by how well he fits — need, team success, his own production, and the coach's system.</div>
+    <div class="pick">
+      <input id="search" type="text" placeholder="Search a player… (e.g. LJ Cason)" autocomplete="off"/>
+      <div id="drop" class="drop" style="display:none;"></div>
+    </div>
+    <div id="hero"></div>
+    <div id="controls" style="display:none;">
+      <div class="ctrls">
+        <span class="ctrl-lbl">Rank by</span>
+        <div class="seg" id="sortSeg">
+          <button data-k="overall" class="on">Overall</button>
+          <button data-k="teamSuccess">Team success</button>
+          <button data-k="playerSuccess">His production</button>
+          <button data-k="coachFit">Coach fit</button>
+          <button data-k="need">Need</button>
+        </div>
+        <span class="ctrl-lbl" style="margin-left:8px;">Teams</span>
+        <select id="fRank">
+          <option value="0">All ranked</option>
+          <option value="25">Top 25</option>
+          <option value="50">Top 50</option>
+          <option value="100">Top 100</option>
+        </select>
+        <select id="fConf"><option value="">All conferences</option></select>
+      </div>
+      <div class="rank-note" id="rankNote"></div>
+    </div>
+    <div id="results"><div class="loading" id="load" style="display:none;">Loading portal fits…</div></div>
+  </div>
+
+<script>
+const SB_URL='https://izlqhnxowdhtdofkwrho.supabase.co';
+const ANON='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H={apikey:ANON, Authorization:'Bearer '+ANON};
+const PSEL='name,team,position,class_year,height,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,three_pct,tpa,fga,blk,bpg,stl,spg,usage_pct,espn_id';
+let TEAMS=[], PROFS={}, PLAYER=null, sortBy='overall';
+const $=id=>document.getElementById(id);
+const initials=n=>(n||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
+const barCol=v=>v>=72?'var(--green)':v>=52?'var(--amber)':'var(--red)';
+
+async function boot(){
+  const [tn,cp]=await Promise.all([
+    fetch('scripts/data/team_needs.json').then(r=>r.json()),
+    fetch('scripts/data/coach_profiles.json').then(r=>r.ok?r.json():[])
+  ]);
+  TEAMS=tn.teams||[];
+  (Array.isArray(cp)?cp:[]).forEach(p=>{ if(p.coach_slug) PROFS[p.coach_slug]=p; });
+  // conference filter options
+  const confs=[...new Set(TEAMS.map(t=>t.conf).filter(Boolean))].sort();
+  $('fConf').innerHTML='<option value="">All conferences</option>'+confs.map(c=>`<option value="${c}">${c}</option>`).join('');
+  // default player from URL or LJ Cason
+  const u=new URLSearchParams(location.search);
+  const espn=u.get('espn'), name=u.get('name')||'LJ Cason';
+  let q=espn?`espn_id=eq.${espn}`:`name=eq.${encodeURIComponent(name)}`;
+  let rows=await fetch(`${SB_URL}/rest/v1/players?${q}&select=${PSEL}&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  if(rows&&rows[0]) setPlayer(rows[0]);
+}
+function setPlayer(p){
+  PLAYER=p; $('drop').style.display='none'; $('search').value='';
+  history.replaceState(null,'',`portal.html?espn=${p.espn_id||''}&name=${encodeURIComponent(p.name)}`);
+  renderHero(); $('controls').style.display='block'; render();
+}
+function renderHero(){
+  const p=PLAYER, arch=TDCPortalFit.archetype(p), ppos=TDCPortalFit.pos(p);
+  $('hero').innerHTML=`<div class="phero">
+    <div class="pmono">${initials(p.name)}</div>
+    <div><div class="pname">${p.name}</div>
+      <div class="pmeta">${ppos} · ${p.class_year||p.yr||''} ${p.height?'· '+p.height:''} · ${p.team||''}${p.ppg!=null?` · ${(+p.ppg).toFixed(1)} ppg`:''}${(p.tp_pct||p.three_pct)?` · ${(+(p.tp_pct||p.three_pct)).toFixed(1)}% 3P`:''}</div>
+      <div class="parch">${arch}</div></div>
+    <div class="pgrade"><div class="v">${Math.round(parseFloat(p.tdc_grade)||0)||'—'}</div><div class="l">TDC Grade</div></div>
+  </div>`;
+}
+function render(){
+  if(!PLAYER) return;
+  const maxRank=+$('fRank').value||0, conf=$('fConf').value;
+  const filter={}; if(maxRank) filter.maxRank=maxRank; if(conf) filter.confs=[conf];
+  const rows=TDCPortalFit.rank(PLAYER, TEAMS, PROFS, {sortBy, filter});
+  const ppos=TDCPortalFit.pos(PLAYER);
+  $('rankNote').textContent=`${rows.length} teams · ranked by ${({overall:'overall fit',teamSuccess:'team success',playerSuccess:'his production',coachFit:'coach fit',need:'positional need'})[sortBy]} · showing his fit at ${ppos}`;
+  const bar=(lbl,v)=>`<div class="bar"><span class="bl">${lbl}</span><span class="bt"><span class="bf" style="width:${v}%;background:${barCol(v)};"></span></span><span class="bv">${v}</span></div>`;
+  $('results').innerHTML=rows.map((r,i)=>`<div class="rrow">
+    <div class="rrk">${i+1}</div>
+    <div>
+      <div class="rteam"><a href="team.html?team=${encodeURIComponent(r.team)}">${r.full||r.team}</a> <span style="font-size:11px;color:var(--text3);font-weight:600;">${r.conf||''}${r.rank?' · #'+r.rank:''}</span></div>
+      <div class="tr">${r.coach?`${r.coach}${r.archetype?' · '+r.archetype:''}`:'coach n/a'} · ${ppos} now: ${r.slid?'covered by others':(r.starter||'—')} (${r.posBest})${r.upgrade>0?` · <span style="color:var(--green);">+${r.upgrade} upgrade</span>`:''}</div>
+      <div class="rrole">${r.role}</div>
+      ${r.why?`<div class="rwhy">${r.why}</div>`:''}
+    </div>
+    <div class="bars">
+      ${bar('Need',r.need)}${bar('Team',r.teamSuccess)}${bar('Prod',r.playerSuccess)}${bar('Coach',r.coachFit)}
+    </div>
+    <div class="rovr"><div class="v" style="color:${barCol(r.overall)};">${r.overall}</div><div class="l">Fit</div></div>
+  </div>`).join('')||'<div class="loading">No teams match these filters.</div>';
+}
+// sort segment
+$('sortSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return;
+  sortBy=b.dataset.k; [...$('sortSeg').children].forEach(x=>x.classList.toggle('on',x===b)); render(); });
+$('fRank').addEventListener('change',render);
+$('fConf').addEventListener('change',render);
+// search
+let _t;
+$('search').addEventListener('input',e=>{ clearTimeout(_t); const q=e.target.value.trim();
+  if(q.length<2){ $('drop').style.display='none'; return; }
+  _t=setTimeout(async()=>{
+    const rows=await fetch(`${SB_URL}/rest/v1/players?name=ilike.*${encodeURIComponent(q)}*&select=${PSEL}&order=tdc_grade.desc.nullslast&limit=8`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    if(!rows.length){ $('drop').style.display='none'; return; }
+    $('drop').innerHTML=rows.map((p,i)=>`<div data-i="${i}">${p.name} <small>· ${p.team||''} · ${p.position||''} · ${Math.round(parseFloat(p.tdc_grade)||0)||'—'}</small></div>`).join('');
+    $('drop').style.display='block';
+    [...$('drop').children].forEach((el,i)=>el.onclick=()=>setPlayer(rows[i]));
+  },220);
+});
+document.addEventListener('click',e=>{ if(!e.target.closest('.pick')) $('drop').style.display='none'; });
+boot();
+</script>
+</body>
+</html>
