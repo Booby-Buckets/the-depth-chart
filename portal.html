@@ -30,6 +30,15 @@
     .drop div{padding:10px 14px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);}
     .drop div:hover{background:var(--bg3);}
     .drop small{color:var(--text3);}
+    .wctrl{display:flex;align-items:flex-start;gap:14px;margin-top:16px;flex-wrap:wrap;}
+    .wgrid{display:grid;grid-template-columns:repeat(4,minmax(118px,1fr));gap:16px;flex:1;min-width:0;}
+    @media(max-width:720px){.wgrid{grid-template-columns:repeat(2,1fr);}}
+    .wslider{min-width:0;}
+    .wtop{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px;}
+    .wslider label{font-size:11px;font-weight:700;color:var(--text2);}
+    .wval{font-size:11px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;}
+    .wslider input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;height:4px;}
+    .wreset{font-size:11px;font-weight:800;color:var(--accent);cursor:pointer;white-space:nowrap;padding-top:2px;}
     #pickTeam select{padding:11px 12px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);border-radius:10px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;}
     #pickTeam select:focus{outline:none;border-color:var(--accent);}
     /* team-needs summary (reverse mode) */
@@ -123,6 +132,16 @@
         <select id="fConf"><option value="">All conferences</option></select>
         </span>
       </div>
+      <div class="wctrl">
+        <span class="ctrl-lbl">Weight fit by</span>
+        <div class="wgrid" id="wgrid">
+          <div class="wslider" data-k="need"><div class="wtop"><label>Need</label><span class="wval">20%</span></div><input type="range" min="0" max="100" value="20"></div>
+          <div class="wslider" data-k="team"><div class="wtop"><label>Team success</label><span class="wval">30%</span></div><input type="range" min="0" max="100" value="30"></div>
+          <div class="wslider" data-k="player"><div class="wtop"><label>Production</label><span class="wval">25%</span></div><input type="range" min="0" max="100" value="25"></div>
+          <div class="wslider" data-k="coach"><div class="wtop"><label>Coach fit</label><span class="wval">25%</span></div><input type="range" min="0" max="100" value="25"></div>
+        </div>
+        <a class="wreset" id="wreset">reset</a>
+      </div>
       <div class="rank-note" id="rankNote"></div>
     </div>
     <div id="results"><div class="loading" id="load" style="display:none;">Loading portal fits…</div></div>
@@ -134,6 +153,13 @@ const ANON='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H={apikey:ANON, Authorization:'Bearer '+ANON};
 const PSEL='name,team,position,class_year,height,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,three_pct,tpa,fga,blk,bpg,stl,spg,usage_pct,espn_id';
 let TEAMS=[], PROFS={}, PLAYER=null, sortBy='overall', mode='p2t', TEAM=null, POOL=null;
+// re-weightable fit blend (raw importances; normalized to sum 1 for the engine)
+const DEFW={need:20, team:30, player:25, coach:25};
+let WEIGHTS={...DEFW};
+function normW(){ const s=(WEIGHTS.need+WEIGHTS.team+WEIGHTS.player+WEIGHTS.coach)||1;
+  return {need:WEIGHTS.need/s, team:WEIGHTS.team/s, player:WEIGHTS.player/s, coach:WEIGHTS.coach/s}; }
+function updateWvals(){ const nw=normW();
+  document.querySelectorAll('#wgrid .wslider').forEach(el=>{ el.querySelector('.wval').textContent=Math.round(nw[el.dataset.k]*100)+'%'; }); }
 const $=id=>document.getElementById(id);
 const initials=n=>(n||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
 const barCol=v=>v>=72?'var(--green)':v>=52?'var(--amber)':'var(--red)';
@@ -207,7 +233,7 @@ async function renderTeam(){
   const pool=await ensurePool();
   const posF=$('posSel').value;
   const rows=TDCPortalFit.rankTargets(TEAM, TEAM.coach_slug?PROFS[TEAM.coach_slug]:null, pool,
-    {sortBy, filter:{pos:posF||undefined, excludeTeam:true}}).slice(0,40);
+    {sortBy, weights:normW(), filter:{pos:posF||undefined, excludeTeam:true}}).slice(0,40);
   $('rankNote').textContent=`${rows.length} candidates · ranked by ${({overall:'overall fit',teamSuccess:'team success',playerSuccess:'their production',coachFit:'coach fit',need:'positional need'})[sortBy]}${posF?` · ${posF} only`:''}`;
   const bar=(lbl,v)=>`<div class="bar"><span class="bl">${lbl}</span><span class="bt"><span class="bf" style="width:${v}%;background:${barCol(v)};"></span></span><span class="bv">${v}</span></div>`;
   $('results').innerHTML=rows.map((r,i)=>`<div class="rrow">
@@ -227,7 +253,7 @@ function renderPlayerFits(){
   if(!PLAYER) return;
   const maxRank=+$('fRank').value||0, conf=$('fConf').value;
   const filter={}; if(maxRank) filter.maxRank=maxRank; if(conf) filter.confs=[conf];
-  const rows=TDCPortalFit.rank(PLAYER, TEAMS, PROFS, {sortBy, filter});
+  const rows=TDCPortalFit.rank(PLAYER, TEAMS, PROFS, {sortBy, weights:normW(), filter});
   const ppos=TDCPortalFit.pos(PLAYER);
   $('rankNote').textContent=`${rows.length} teams · ranked by ${({overall:'overall fit',teamSuccess:'team success',playerSuccess:'his production',coachFit:'coach fit',need:'positional need'})[sortBy]} · showing his fit at ${ppos}`;
   const bar=(lbl,v)=>`<div class="bar"><span class="bl">${lbl}</span><span class="bt"><span class="bf" style="width:${v}%;background:${barCol(v)};"></span></span><span class="bv">${v}</span></div>`;
@@ -251,6 +277,11 @@ $('sortSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); i
   sortBy=b.dataset.k; [...$('sortSeg').children].forEach(x=>x.classList.toggle('on',x===b)); render(); });
 $('fRank').addEventListener('change',render);
 $('fConf').addEventListener('change',render);
+$('wgrid').addEventListener('input',e=>{ const el=e.target.closest('.wslider'); if(!el)return;
+  WEIGHTS[el.dataset.k]=+e.target.value; updateWvals(); render(); });
+$('wreset').addEventListener('click',()=>{ WEIGHTS={...DEFW};
+  document.querySelectorAll('#wgrid .wslider').forEach(el=>{ el.querySelector('input').value=DEFW[el.dataset.k]; });
+  updateWvals(); render(); });
 $('modeSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(b) switchMode(b.dataset.m); });
 $('teamSel').addEventListener('change',render);
 $('posSel').addEventListener('change',render);
