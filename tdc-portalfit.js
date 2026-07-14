@@ -80,10 +80,13 @@
     // timeshare ~28).
     var rot=ctx.rotationSize||9, up=(ctx.upgrade==null?3:ctx.upgrade), mpg;
     if(ctx.role==='Day-1 starter'){
-      mpg=clamp(37-(rot-7)*1.6, 29, 38);   // rotation depth sets the baseline
-      if(up<5) mpg-=(5-up)*0.9;            // a solid incumbent means splitting time
-      if(up>=10) mpg+=1.5;                 // a clear alpha soaks up minutes
-      mpg=clamp(Math.round(mpg), 26, 38);
+      // rotation depth sets the baseline: avg ~33, deep bench ~29, and only a
+      // genuinely tight 6-7 man rotation reaches the mid-30s
+      var base=clamp(33-(rot-8)*1.2, 29, 36);
+      if(up>=12) base+=2;                  // clear-cut alpha at a needy spot (rare) -> 36-38
+      else if(up>=6) base+=0.5;            // firm starter -> low/mid 30s
+      else base-=(5-up)*1.6;               // thin margin over the incumbent -> timeshare 27-30
+      mpg=clamp(Math.round(base), 27, 38);
     } else if(ctx.role.indexOf('Rotation')>=0){
       mpg=clamp(Math.round(22+up*0.8), 14, 27);
     } else {
