@@ -1,0 +1,43 @@
+name: Refresh player news
+
+# Pulls fresh per-player headlines once a day and commits the updated JSON, which
+# triggers a Vercel deploy. The fetcher is merge-safe: a throttled/failed run
+# keeps the last-known headlines instead of wiping them.
+
+on:
+  schedule:
+    - cron: '0 10 * * *'   # ~06:00 ET daily
+  workflow_dispatch: {}     # allow manual runs from the Actions tab
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-news
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch headlines (all graded players)
+        run: python3 scripts/build_player_news.py 0 1200
+
+      - name: Commit if changed
+        run: |
+          git config user.name "tdc-news-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/data/player_news.json
+          if git diff --cached --quiet; then
+            echo "No news changes."
+          else
+            git commit -m "Auto: refresh player news [skip ci]"
+            git push
+          fi

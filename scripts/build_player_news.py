@@ -49,12 +49,20 @@ def clean_title(t, source):
     if source and t.endswith(" - "+source): t=t[:-(len(source)+3)].strip()
     return re.sub(r"\s*-\s*[^-]+$","",t) if t.endswith(" - "+ (source or "")) else t
 
-def fetch_news(name, team):
+def fetch_news(name, team, tries=2):
     q='"%s" %s basketball'%(name, school(team))
     url="https://news.google.com/rss/search?"+urllib.parse.urlencode(
         {"q":q,"hl":"en-US","gl":"US","ceid":"US:en"})
-    req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0"})
-    xml=urllib.request.urlopen(req,timeout=20).read().decode("utf-8","ignore")
+    last=None
+    for _ in range(tries):
+        try:
+            req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0 (news-aggregator)"})
+            xml=urllib.request.urlopen(req,timeout=25).read().decode("utf-8","ignore")
+            break
+        except Exception as e:
+            last=e; time.sleep(1.5)
+    else:
+        raise last   # all attempts failed -> caller keeps last-known headlines
     items=re.findall(r"<item>(.*?)</item>",xml,re.S)[:PER_PLAYER]
     out=[]
     for it in items:
@@ -75,26 +83,37 @@ def fetch_news(name, team):
 
 def main():
     players=get_players()
+    # merge-safety: load existing so a throttled/failed run keeps last-known
+    # headlines instead of wiping the file
+    old={}
+    if os.path.exists(OUT):
+        try: old=json.load(open(OUT)).get("players",{})
+        except Exception: old={}
     print("fetching news for %d players (grade >= %d)…"%(len(players),MIN_GRADE))
-    news={}; got=0
+    news={}; got=0; kept=0
     for i,p in enumerate(players):
         name=p.get("name")
         if not name: continue
+        key=str(p["espn_id"]) if p.get("espn_id") else "n:"+name.lower().strip()
+        failed=False
         try:
             items=fetch_news(name, p.get("team") or "")
-        except Exception as e:
-            items=[]
+        except Exception:
+            failed=True; items=[]
         if items:
-            key=str(p["espn_id"]) if p.get("espn_id") else "n:"+name.lower().strip()
-            news[key]={"name":name,"team":p.get("team"),"items":items}
-            got+=1
-        if (i+1)%25==0:
-            print("  %d/%d  (%d with news)"%(i+1,len(players),got))
-        time.sleep(0.25)   # be polite to the feed
+            news[key]={"name":name,"team":p.get("team"),"items":items}; got+=1
+        elif failed and key in old:
+            news[key]=old[key]; kept+=1        # fetch failed → preserve prior headlines
+        # a valid-empty result (no news) simply gets no entry
+        if (i+1)%50==0:
+            print("  %d/%d  (%d fresh, %d kept)"%(i+1,len(players),got,kept))
+        time.sleep(0.3)   # be polite to the feed
     payload={"generated_utc":time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime()),
-             "min_grade":MIN_GRADE,"count":got,"players":news}
-    json.dump(payload,open(OUT,"w"))
-    print("wrote %d players with headlines -> %s"%(got,OUT))
+             "min_grade":MIN_GRADE,"count":len(news),"fresh":got,"kept":kept,"players":news}
+    # stable, indented output so the nightly auto-commit diffs only the players
+    # whose headlines actually changed (not the whole 2MB file)
+    json.dump(payload,open(OUT,"w"),indent=1,sort_keys=True)
+    print("wrote %d players (%d fresh, %d kept) -> %s"%(len(news),got,kept,OUT))
     # sample
     for k in list(news)[:3]:
         print("\n%s (%s):"%(news[k]["name"],news[k]["team"]))
