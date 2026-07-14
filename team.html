@@ -5336,20 +5336,37 @@ function renderHistoricRoster(rows, yr, projected){
       if(x==='C') return 'C';
       const h=_htIn(p.height); return h&&h<=74?'PG':h&&h<=77?'SG':h&&h<=80?'SF':h&&h<=83?'PF':'C'; };
     const POS=['PG','SG','SF','PF','C'], IDX={PG:0,SG:1,SF:2,PF:3,C:4};
-    // Value of playing p at pos = his grade, boosted at his natural slot and penalized
-    // for each position away from it — adjacent moves are cheap (a guard can fill a wing
-    // gap) but a guard at center is effectively forbidden.
-    const value=(p,pos)=>{ const d=Math.abs(IDX[slot(p)]-IDX[pos]); return gr(p)+(d===0?10:0)-d*d*5; };
-    // Starters: greedily take the best (player, open-position) pair until all five fill.
-    const st={}, used=new Set(), open=new Set(POS);
-    while(open.size){ let best=null;
-      rows.forEach(p=>{ if(used.has(p))return; open.forEach(pos=>{ const v=value(p,pos); if(!best||v>best.v)best={p,pos,v}; }); });
-      if(!best) break; st[best.pos]=best.p; used.add(best.p); open.delete(best.pos);
-    }
-    // Backups: everyone else to their nearest-fit column, ordered by grade.
+    // Height windows per spot (inches) + a size-misfit penalty: undersized hurts most,
+    // an oversized guard/wing is penalized, an oversized big is fine.
+    const HW={PG:[72,76], SG:[75,79], SF:[77,81], PF:[79,84], C:[80,95]};
+    const htFit=(p,pos)=>{ const h=_htIn(p.height)||78, r=HW[pos];
+      const over=(pos==='PG'||pos==='SG')?1.3:(pos==='SF')?0.7:0.35;
+      return h<r[0]?(r[0]-h)*1.3 : h>r[1]?(h-r[1])*over : 0; };
+    // Value of playing p at pos = grade − size misfit − a MODERATE cost for leaving his
+    // listed spot (respects real roles on close calls, e.g. keeps a listed C at the 5,
+    // but still yields when a clearly better player should slide in — a big to the 5 over
+    // a 70). A tie-break puts the taller of two bigs at the 5; a guard at the 5 is blocked.
+    const value=(p,pos)=>{ const d=Math.abs(IDX[slot(p)]-IDX[pos]);
+      return gr(p) - htFit(p,pos) - d*2 - (d>=3?12:0) + (pos==='C'?Math.max(0,(_htIn(p.height)-80))*0.15:0); };
+    // Starters: OPTIMAL five-man assignment (maximize total value), not a greedy pick.
+    // Greedy grabs the single best (player,spot) first and strands weak players in the
+    // gaps — a 70 at the 5 while an 86 sits at the 4. The search jointly finds that
+    // moving the big up to the 5 and sliding the next forward to the 4 scores higher.
+    const poolS=[...rows].sort((a,b)=>gr(b)-gr(a)).slice(0, Math.min(rows.length,9));
+    let bestAsg={tot:-1e9, map:null};
+    (function rec(i, usedI, map, tot){
+      if(i===POS.length){ if(tot>bestAsg.tot) bestAsg={tot, map:Object.assign({},map)}; return; }
+      const pos=POS[i]; let any=false;
+      poolS.forEach((p,idx)=>{ if(usedI.has(idx)) return; any=true;
+        usedI.add(idx); map[pos]=p; rec(i+1, usedI, map, tot+value(p,pos)); usedI.delete(idx); delete map[pos]; });
+      if(!any) rec(i+1, usedI, map, tot);   // short roster -> leave this spot open
+    })(0, new Set(), {}, 0);
+    const st=bestAsg.map||{}, used=new Set(POS.map(pos=>st[pos]).filter(Boolean));
+    // Backups: everyone else to their best-fit column, with a depth penalty so they
+    // spread across positions (bigs back up bigs) instead of stacking one spot deep.
     const colByPos={}; cols=POS.map(pos=>{ const c={pos, list:st[pos]?[st[pos]]:[]}; colByPos[pos]=c; return c; });
     [...rows].filter(p=>!used.has(p)).sort((a,b)=>gr(b)-gr(a)).forEach(p=>{
-      let bp=POS[0], bv=-1e9; POS.forEach(pos=>{ const v=value(p,pos); if(v>bv){bv=v;bp=pos;} }); colByPos[bp].list.push(p);
+      let bp=POS[0], bv=-1e9; POS.forEach(pos=>{ const v=value(p,pos)-colByPos[pos].list.length*4; if(v>bv){bv=v;bp=pos;} }); colByPos[bp].list.push(p);
     });
   } else {
   // Historical rosters only carry coarse G/F/C, so infer the five lineup spots from each
