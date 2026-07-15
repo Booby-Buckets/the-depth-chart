@@ -1212,7 +1212,13 @@ async function loadTeam(name){
       const hs=(p.hometown||'').trim().toLowerCase();
       if(hs==='injured'||hs==='out'||p.is_injured){ p.is_injured=true; if(hs==='injured'||hs==='out') p.hometown=''; }
     });
-    const players = await pr.json();
+    let players = await pr.json();
+    // Dedupe the roster at the source — the players table occasionally carries a
+    // player twice (e.g. a freshman entered at two depth slots). One row each keeps
+    // him off two columns on the depth chart / customize tab and out of double-counts.
+    { const _s=new Set(); players=(players||[]).filter(p=>{ if(!p||!p.name) return true;
+      const k=(p.espn_id!=null&&p.espn_id!=='')?('e:'+p.espn_id):('n:'+(''+p.name).toLowerCase().trim()+'|'+(p.height||''));
+      if(_s.has(k)) return false; _s.add(k); return true; }); }
     _markInjured(players);
 
      // Fetch career history — query by team name, simpler and more reliable
@@ -5304,6 +5310,10 @@ function renderHistoricRoster(rows, yr, projected){
   // Historical rosters drop players who logged no games; the projected roster keeps
   // everyone (freshmen/newcomers have no college stats yet).
   rows=(rows||[]).filter(r=>r.name && (projected || (parseFloat(r.gp)||0)>0));
+  // Dedupe: the players table can carry a player twice (e.g. a freshman entered at
+  // two depth slots) — keep one row each so nobody appears in two position columns.
+  const _seenR=new Set();
+  rows=rows.filter(r=>{ const k=(r.espn_id!=null&&r.espn_id!=='')?('e:'+r.espn_id):('n:'+(r.name||'').toLowerCase().trim()+'|'+(r.height||'')); if(_seenR.has(k)) return false; _seenR.add(k); return true; });
   // Players out for the projected season sit in their own section — no lineup
   // slot, no rotation row. Their table shows the last season they played.
   const injured = projected ? rows.filter(r=>r.is_injured) : [];
