@@ -82,12 +82,18 @@ def compute_stat_norms(players):
 
 def raw_pillar_score(p,pillar_stats,stat_norms):
     w_sum=0.0; acc=0.0
+    # Box +/- (BPM/OBPM) inflates for efficient LOW-USAGE role players (huge per-
+    # possession value on few touches). Shrink it toward the mean by how much usage
+    # backs it up (a 20%-usage 6.8 BPM counts ~0.75; a 28%-usage one ~1.0).
+    usg=num(p.get("usgPct"))
+    bfac=1.0 if usg is None else max(0.62, min(1.05, 0.35+usg/50.0))
     for stat in pillar_stats:
         v=effective_stat(p,stat)
         if v is None: continue
         w=stat.get("w",1)
         zi=z(v,stat_norms[stat["key"]])
         if stat.get("neg"): zi=-zi
+        if stat["key"] in ("bpm","obpm"): zi*=bfac
         acc+=zi*w; w_sum+=w
     return 0.0 if w_sum==0 else acc/w_sum
 
@@ -123,10 +129,19 @@ def grade_players(players):
         raw_pillars.append({k:raw_pillar_score(p,PILLARS[k],ng) for k in pkeys})
     pillar_norms={k:mean_sd([raw_pillars[i][k] for i in range(len(players)) if players[i]["_qual"]]) for k in pkeys}
     composites=[]
-    for rp in raw_pillars:
+    for i,rp in enumerate(raw_pillars):
+        usg=num(players[i].get("usgPct"))
+        # "Empty efficiency" guard: efficiency (easy to post on few shots) and
+        # scalability (low usage -> low fga/fta/to RATES trivially) reward a passive
+        # role player just for not using possessions. Shrink ONLY their positive
+        # contribution by how much real usage backs it up, so a 20%-usage guy can't
+        # grade like a high-usage star on clean stats. Defense/creation untouched.
+        emptyFac=1.0 if usg is None else max(0.45, min(1.0, 0.45+(usg-16)/14.0*0.55))
         C=0.0; std={}
         for k in pkeys:
-            std[k]=z(rp[k],pillar_norms[k]); C+=std[k]*weights[k]
+            zk=z(rp[k],pillar_norms[k])
+            if emptyFac<1.0 and zk>0 and k in ("efficiency","scalability"): zk*=emptyFac
+            std[k]=zk; C+=zk*weights[k]
         composites.append({"C":C,"std":std})
     comp_norm=mean_sd([composites[i]["C"] for i in range(len(players)) if players[i]["_qual"]])
     cred_min=CONFIG["reliability"].get("credMin",200)
