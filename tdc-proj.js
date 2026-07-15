@@ -10,7 +10,10 @@ function r1t(v){ return v!=null ? Math.round((v+Number.EPSILON)*10)/10 : null; }
 // Used by player page; team page uses targetMpg directly from buildTeamProjections
 function computePlayerMpg(p, teamRoster){
   const roster=(Array.isArray(teamRoster)?teamRoster:[]).filter(r=>r.name&&r.name!=='—')
-    .sort((a,b)=>(a.depth_order||99)-(b.depth_order||99));
+    // Rank by GRADE, not depth_order — the roster push scrambles depth_order (a 93 star
+    // can sit at slot 9), so slotting by it hands starter minutes to worse players. Grade
+    // rank keeps minutes consistent with the OVR and the depth chart.
+    .sort((a,b)=>((parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0))||((a.depth_order||99)-(b.depth_order||99)));
   if(!roster.length){const d=p.depth_order||8;return d<=1?32:d<=2?30:d<=3?27:d<=4?25:d<=5?23:d===6?20:d===7?17:d===8?14:d===9?11:d===10?8:5;}
   const grades=roster.map(r=>parseFloat(r.tdc_grade)||70);
   const teamGradeAvg=grades.reduce((a,b)=>a+b,0)/grades.length;
@@ -543,7 +546,9 @@ function buildTeamProjections(players, conf){
 
   const roster = players
     .filter(p => p.name && p.name !== '—' && !_isOut(p))
-    .sort((a,b) => (a.depth_order||99)-(b.depth_order||99));
+    // Rank by GRADE, not the scrambled depth_order (see computePlayerMpg) so minutes /
+    // usage track quality and stay consistent with the OVR and depth chart.
+    .sort((a,b) => ((parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0))||((a.depth_order||99)-(b.depth_order||99)));
 
   // ── USAGE VACANCY ─────────────────────────────────────────────────────────
   // Departures leave shots behind. Compare the roster's returning last-season
