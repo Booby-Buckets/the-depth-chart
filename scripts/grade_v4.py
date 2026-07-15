@@ -211,16 +211,37 @@ def _postprocess(rows):
         for k in ("pprod", "wa", "ws", "ows"):
             if r.get(k) is not None:
                 r[k] = round(r[k] / g, 5)
-    # Conference translation: scale volume stats to tier-1 equivalent before z-scoring
+    # Conference translation: scale volume stats toward tier-1 before z-scoring.
+    # NON-LINEAR within a tier — a player who DOMINATES his weak league (high
+    # production vs his tier peers) translates up well, so he recovers most of the
+    # tier haircut; the ordinary / lower mid-major producer keeps the full discount
+    # (their box scores don't translate). Tier-1 and tiny pools stay flat.
     try:
         import grade_conf as _gc
-        for r in rows:
-            tf = _gc.TIER_TO_T1.get(_gc.tier(r.get("team") or ""), 1.0)
-            r["_conf_factor"] = tf
-            if tf < 1.0:
+        DOM_KEYS=("bpm","ppg40","ows"); DOM_SCALE=2.8; MAX_REC=0.5
+        by_tier={}
+        for r in rows: by_tier.setdefault(_gc.tier(r.get("team") or ""), []).append(r)
+        for t,tr in by_tier.items():
+            base=_gc.TIER_TO_T1.get(t,1.0)
+            if base>=1.0 or len(tr)<15:
+                for r in tr:
+                    r["_conf_factor"]=base
+                    if base<1.0:
+                        for k in _SCALE_STATS:
+                            if r.get(k) is not None: r[k]=round(r[k]*base,5)
+                continue
+            norm={k:mean_sd([r.get(k) for r in tr]) for k in DOM_KEYS}   # raw, pre-scale
+            # a stronger mid-major (higher base) lets its stars recover more; a truly
+            # weak league recovers less even for its best player (they don't translate).
+            base_wt=0.35+0.65*base
+            for r in tr:
+                zs=[(r[k]-norm[k]["mean"])/norm[k]["sd"] for k in DOM_KEYS if r.get(k) is not None and norm[k]["sd"]>0]
+                dom=sum(zs)/len(zs) if zs else 0.0                        # dominance within his tier
+                rec=max(0.0,min(1.0,dom/DOM_SCALE))*MAX_REC*base_wt       # elite recovers the haircut
+                tf=base+(1-base)*rec
+                r["_conf_factor"]=round(tf,4)
                 for k in _SCALE_STATS:
-                    if r.get(k) is not None:
-                        r[k] = round(r[k] * tf, 5)
+                    if r.get(k) is not None: r[k]=round(r[k]*tf,5)
     except ImportError:
         pass
     # heightVsPos = height - mean height of position group
