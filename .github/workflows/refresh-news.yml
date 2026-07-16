@@ -1,8 +1,10 @@
 name: Refresh player news
 
-# Pulls fresh per-player headlines once a day and commits the updated JSON, which
-# triggers a Vercel deploy. The fetcher is merge-safe: a throttled/failed run
-# keeps the last-known headlines instead of wiping them.
+# Pulls fresh per-player headlines (Google News) + fan buzz (Reddit) once a day and
+# commits the updated JSON, which triggers a Vercel deploy. Both fetchers are
+# merge-safe: a throttled/failed run keeps the last-known data instead of wiping it.
+# Reddit needs OAuth (it blocks unauth calls from CI IPs) — set repo secrets
+# REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET (free app at reddit.com/prefs/apps).
 
 on:
   schedule:
@@ -30,14 +32,27 @@ jobs:
       - name: Fetch headlines (all graded players)
         run: python3 scripts/build_player_news.py 0 1200
 
+      - name: Fetch fan buzz (Reddit)
+        continue-on-error: true    # buzz is a bonus — never fail the news refresh over it
+        env:
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_UA: "the-depth-chart-cbb/0.1 (buzz aggregator)"
+        run: |
+          if [ -z "$REDDIT_CLIENT_ID" ]; then
+            echo "No REDDIT_CLIENT_ID secret set — skipping buzz."
+          else
+            python3 scripts/build_player_buzz.py 80 500
+          fi
+
       - name: Commit if changed
         run: |
           git config user.name "tdc-news-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/data/player_news.json
+          git add scripts/data/player_news.json scripts/data/player_buzz.json
           if git diff --cached --quiet; then
-            echo "No news changes."
+            echo "No news/buzz changes."
           else
-            git commit -m "Auto: refresh player news [skip ci]"
+            git commit -m "Auto: refresh player news + buzz [skip ci]"
             git push
           fi

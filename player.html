@@ -2915,34 +2915,50 @@ async function renderBuzz(){
     try{ window._playerNews=await fetch('scripts/data/player_news.json').then(r=>r.ok?r.json():null); }
     catch(e){ window._playerNews=null; }
   }
-  const db=window._playerNews;
-  let entry=null;
-  if(db&&db.players){
-    if(p.espn_id!=null && db.players[''+p.espn_id]) entry=db.players[''+p.espn_id];
-    else entry=db.players['n:'+name.toLowerCase().trim()]||null;
+  // Social buzz (Reddit r/CollegeBasketball) from build_player_buzz.py — separate
+  // file so either source can fail without wiping the other.
+  if(window._playerBuzz===undefined){
+    try{ window._playerBuzz=await fetch('scripts/data/player_buzz.json').then(r=>r.ok?r.json():null); }
+    catch(e){ window._playerBuzz=null; }
   }
+  const db=window._playerNews;
+  const pick=(src)=>{ if(!(src&&src.players)) return null;
+    if(p.espn_id!=null && src.players[''+p.espn_id]) return src.players[''+p.espn_id];
+    return src.players['n:'+name.toLowerCase().trim()]||null; };
+  const entry=pick(db);
+  const buzzEntry=pick(window._playerBuzz);
   const items=(entry&&entry.items)?entry.items:[];
+  const buzz=(buzzEntry&&buzzEntry.items)?buzzEntry.items:[];
   const timeAgo=d=>{ if(!d) return ''; const t=Date.parse(d); if(isNaN(t)) return '';
     const s=(Date.now()-t)/1000; if(s<3600) return Math.max(1,Math.round(s/60))+'m';
     if(s<86400) return Math.round(s/3600)+'h'; if(s<86400*30) return Math.round(s/86400)+'d'; return Math.round(s/2592000)+'mo'; };
   const upd = (db&&db.generated_utc)?`Updated ${new Date(db.generated_utc).toLocaleDateString()}`:'';
 
+  const unixAgo=u=>{ if(!u) return ''; const s=Date.now()/1000-u;
+    if(s<3600) return Math.max(1,Math.round(s/60))+'m'; if(s<86400) return Math.round(s/3600)+'h';
+    if(s<86400*30) return Math.round(s/86400)+'d'; return Math.round(s/2592000)+'mo'; };
   const newsHtml=items.length ? items.map(n=>`<a class="news-card" href="${esc(n.url||'#')}" target="_blank" rel="noopener nofollow">
       <div class="news-meta"><span class="news-src">${esc(n.source||'News')}</span>${n.date&&timeAgo(n.date)?`<span class="news-dot">·</span><span class="news-time">${esc(timeAgo(n.date))}</span>`:''}</div>
       <div class="news-head">${esc(n.title)}</div>
     </a>`).join('')
     : `<div class="buzz-empty">No recent headlines for ${esc(name)} yet. Bigger names and breaking news — commitments, injuries, standout games — surface here.</div>`;
 
+  const buzzHtml=buzz.length ? buzz.map(b=>`<a class="news-card" href="${esc(b.url||'#')}" target="_blank" rel="noopener nofollow">
+      <div class="news-meta"><span class="news-src">r/${esc(b.sub||'CollegeBasketball')}</span><span class="news-dot">·</span><span class="news-time">▲ ${esc(''+(b.score||0))} · ${esc(''+(b.comments||0))} comments${b.created&&unixAgo(b.created)?' · '+esc(unixAgo(b.created)):''}</span></div>
+      <div class="news-head">${esc(b.title)}</div>
+    </a>`).join('')
+    : `<div class="buzz-empty">No recent Reddit chatter for ${esc(name)} yet. Fan discussion — game threads, portal moves, hot takes — shows up here as it happens.</div>`;
+
   host.innerHTML=`
-    <div class="buzz-note">Recent <b>headlines</b> for ${esc(name)} from around the web (news search) — tap any to read the full story.${upd?` <span style="color:var(--text3);">${upd}.</span>`:''} <span style="color:var(--text3);">Social buzz comes in a later update — headlines first.</span></div>
+    <div class="buzz-note">Recent <b>headlines</b> (news search) and <b>fan buzz</b> (r/CollegeBasketball) for ${esc(name)} — tap any card to open the source.${upd?` <span style="color:var(--text3);">${upd}.</span>`:''}</div>
     <div class="buzz-cols">
       <div>
         <div class="sec-title" style="margin:0 0 16px;">Headlines${items.length?` <span style="font-size:12px;color:var(--text3);font-weight:600;">· ${items.length}</span>`:''}</div>
         <div class="buzz-list">${newsHtml}</div>
       </div>
       <div>
-        <div class="sec-title" style="margin:0 0 16px;">On X / Twitter</div>
-        <div class="buzz-list"><div class="buzz-empty">Tweets are coming in a later update. For now, Buzz is headlines only.</div></div>
+        <div class="sec-title" style="margin:0 0 16px;">Fan Buzz${buzz.length?` <span style="font-size:12px;color:var(--text3);font-weight:600;">· ${buzz.length}</span>`:''}</div>
+        <div class="buzz-list">${buzzHtml}</div>
       </div>
     </div>`;
 }
