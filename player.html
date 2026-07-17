@@ -2974,7 +2974,7 @@ async function renderPortalFit(){
   host.innerHTML='<div style="padding:44px;text-align:center;color:var(--text3);">Loading portal fits…</div>';
   try{
     if(!window._pfTeamNeeds) window._pfTeamNeeds=await fetch('scripts/data/team_needs.json').then(r=>r.json());
-    if(!window._pfCoachProfs){ const cp=await fetch('scripts/data/coach_profiles.json').then(r=>r.ok?r.json():[]);
+    if(!window._pfCoachProfs){ const cp=await fetch('scripts/data/coach_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
       window._pfCoachProfs={}; (Array.isArray(cp)?cp:[]).forEach(p=>{ if(p.coach_slug) window._pfCoachProfs[p.coach_slug]=p; }); }
   }catch(e){ host.innerHTML='<div style="padding:44px;text-align:center;color:var(--text3);">Portal fit data unavailable.</div>'; return; }
   const teams=window._pfTeamNeeds.teams||[];

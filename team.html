@@ -1423,7 +1423,7 @@ async function teamCoachProfile(){
     const idx=await loadCoachIdx();
     const c=coachForYear(idx, teamT&&teamT.name, (typeof _rosterSeason!=='undefined'&&_rosterSeason)||2027);
     if(!c||!c.slug) return (window._teamCoachProfCache=null);
-    const profs=await fetch('scripts/data/coach_profiles.json').then(r=>r.ok?r.json():[]);
+    const profs=await fetch('scripts/data/coach_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
     return (window._teamCoachProfCache=(Array.isArray(profs)?profs:[]).find(x=>x.coach_slug===c.slug)||null);
   }catch(e){ return (window._teamCoachProfCache=null); }
 }
@@ -3530,7 +3530,7 @@ function _frReset(){ _saveFreshmanProfile(_frEditP,null); _closeFrModal(); if(ty
 window._customCoachSlug = window._customCoachSlug || null;   // null = the team's real coach
 function _ensureCoachProfs(cb){
   if(window._allCoachProfs){ cb&&cb(); return; }
-  fetch('scripts/data/coach_profiles.json').then(r=>r.ok?r.json():[]).then(list=>{
+  fetch('scripts/data/coach_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]).then(list=>{
     window._allCoachProfs = Array.isArray(list)?list:[];
     window._coachProfBySlug = {}; window._allCoachProfs.forEach(p=>{ if(p.coach_slug) window._coachProfBySlug[p.coach_slug]=p; });
     cb&&cb();

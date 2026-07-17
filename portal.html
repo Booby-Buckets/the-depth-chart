@@ -183,7 +183,7 @@ function projCompare(cur, curTeam, proj, destName){
 async function boot(){
   const [tn,cp]=await Promise.all([
     fetch('scripts/data/team_needs.json').then(r=>r.json()),
-    fetch('scripts/data/coach_profiles.json').then(r=>r.ok?r.json():[])
+    fetch('scripts/data/coach_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[])
   ]);
   TEAMS=tn.teams||[];
   (Array.isArray(cp)?cp:[]).forEach(p=>{ if(p.coach_slug) PROFS[p.coach_slug]=p; });
