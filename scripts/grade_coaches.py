@@ -138,12 +138,21 @@ def main():
         P["_posfrac"]=round(pos_frac,3); P["_seasons"]=P.get("seasons",len(rows))
         P["_downside"]=round(downside,3) if downside is not None else None
         P["_wpsd"]=round(wpsd,4) if wpsd is not None else None
+        # over/under-performance vs ROSTER TALENT (career avg SRS lift from the
+        # precomputed rundowns): a coach who wins less than his talent predicts —
+        # Stackhouse's NBA-laden rosters going 9-23 — is docked on Winning & Quality.
+        try:
+            rd=json.load(open(os.path.join(D,"coach_rundowns",P["coach_slug"]+".json")))
+            lifts=[s.get("srs_lift") for s in rd.get("seasons",[]) if s.get("srs_lift") is not None]
+            P["_overperf"]=round(sum(lifts)/len(lifts),3) if lifts else None
+        except Exception:
+            P["_overperf"]=None
         P["tourney"]={"apps":apps,"titles":titles,"final_fours":f4,"best":best,"conf_titles":conf_titles}
         # (per-season timeline is redundant with coach_seasons.json / coach_pages.json — not stored)
 
     # ── percentile each raw input across the coach pool ──
     fp={k:pctl([P[k] for P in profiles if P.get(k) is not None])
-        for k in ["_srs","_wp","_tourpts","_peak","_posfrac","_seasons","_downside","_wpsd"]}
+        for k in ["_srs","_wp","_tourpts","_peak","_posfrac","_seasons","_downside","_wpsd","_overperf"]}
     # 65% of coaches never made the NCAA tournament, so a raw percentile of 0 tourney
     # points lands ~65th (everyone's tied at 0). Instead: never-made-it → the floor,
     # and rank ONLY the coaches who actually made it into the top band.
@@ -153,7 +162,7 @@ def main():
         return 30 + 0.70*_pos_tp(v)              # made it → 30..100 by how deep he went
     for P in profiles:
         cred=P["_seasons"]/(P["_seasons"]+2.0)              # small-sample shrink
-        quality  = 0.70*fp["_srs"](P["_srs"]) + 0.30*fp["_wp"](P["_wp"])
+        quality  = 0.50*fp["_srs"](P["_srs"]) + 0.20*fp["_wp"](P["_wp"]) + 0.30*fp["_overperf"](P["_overperf"])
         tourney  = 0.62*_tp_score(P["_tourpts"]) + 0.38*fp["_peak"](P["_peak"])
         develop  = P.get("dev_pctl") if P.get("dev_pctl") is not None else 50
         # Consistency = mostly season-to-season STABILITY (low SRS variance), with a
@@ -177,7 +186,7 @@ def main():
     for i,P in enumerate(ranked): P["rank"]=i+1
     # drop temp fields
     for P in profiles:
-        for k in ["_srs","_wp","_tourpts","_peak","_posfrac","_seasons","_downside","_wpsd","_comp","timeline"]: P.pop(k,None)
+        for k in ["_srs","_wp","_tourpts","_peak","_posfrac","_seasons","_downside","_wpsd","_overperf","_comp","timeline"]: P.pop(k,None)
 
     json.dump(profiles,open(os.path.join(D,"coach_profiles.json"),"w"))
     print(f"graded {len(profiles)} coaches")
