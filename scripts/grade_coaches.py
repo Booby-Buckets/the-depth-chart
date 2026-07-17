@@ -144,10 +144,17 @@ def main():
     # ── percentile each raw input across the coach pool ──
     fp={k:pctl([P[k] for P in profiles if P.get(k) is not None])
         for k in ["_srs","_wp","_tourpts","_peak","_posfrac","_seasons","_downside","_wpsd"]}
+    # 65% of coaches never made the NCAA tournament, so a raw percentile of 0 tourney
+    # points lands ~65th (everyone's tied at 0). Instead: never-made-it → the floor,
+    # and rank ONLY the coaches who actually made it into the top band.
+    _pos_tp=pctl([P["_tourpts"] for P in profiles if P.get("_tourpts") and P["_tourpts"]>0])
+    def _tp_score(v):
+        if not v or v<=0: return 8               # never reached the NCAA tournament
+        return 30 + 0.70*_pos_tp(v)              # made it → 30..100 by how deep he went
     for P in profiles:
         cred=P["_seasons"]/(P["_seasons"]+2.0)              # small-sample shrink
         quality  = 0.70*fp["_srs"](P["_srs"]) + 0.30*fp["_wp"](P["_wp"])
-        tourney  = 0.62*fp["_tourpts"](P["_tourpts"]) + 0.38*fp["_peak"](P["_peak"])
+        tourney  = 0.62*_tp_score(P["_tourpts"]) + 0.38*fp["_peak"](P["_peak"])
         develop  = P.get("dev_pctl") if P.get("dev_pctl") is not None else 50
         # Consistency = mostly season-to-season STABILITY (low SRS variance), with a
         # smaller reward for being reliably above-average and for tenure. Short tenures
