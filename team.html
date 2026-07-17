@@ -2997,6 +2997,38 @@ function labCell(label,val,sub,color){
   </div>`;
 }
 
+// Historical rosters carry only coarse positions (G/F/C); infer the five lineup
+// spots from height + role stats so the customize court slots them sensibly.
+function _inferPos(p){
+  const x=(p.position||'').toUpperCase().trim();
+  if(['PG','SG','SF','PF','C'].includes(x)) return x;
+  const h=_htIn(p.height)||78, apg=parseFloat(p.apg)||0, rpg=parseFloat(p.rpg)||0,
+        blk=parseFloat(p.blk)||0;
+  if(x==='G'||x==='CG') return (apg>=3.5||h<=73)?'PG':'SG';
+  if(x==='F'||x==='GF') return (h>=81||rpg>=6||blk>=1)?'PF':'SF';
+  if(x==='C') return 'C';
+  return h<=73?'PG':h<=76?'SG':h<=79?'SF':h<=82?'PF':'C';
+}
+// Rebuild the Customize tab for the currently selected roster season, so it shows
+// THAT year's roster (not always the 2026-27 projection). Historical rows use
+// demonstrated grades (no _projGrade stamped) and the season's coach.
+function customizeForSeason(){
+  const el=document.getElementById('customizeContent'); if(!el) return;
+  const hist=(typeof _rosterSeason!=='undefined')&&_rosterSeason<2027;
+  let roster = hist
+    ? (window._histRosterForCustomize||[]).filter(p=>p&&p.name&&p.name!=='—').map(p=>({...p, position:_inferPos(p)}))
+    : teamPlayers;
+  // reset customize state so renderCustomize rebuilds the columns from this roster
+  customDepth={}; baseDepthSnapshot={}; customMpg={}; customPos={}; customRole={};
+  _rotationUserSet=false; _baseCustomProj=[]; _baseAdvanced=null; _custSeasonHist=hist;
+  window.__teamDefCoach=undefined; window._teamCoachProfCache=undefined;   // recompute coach for this season
+  if(!roster||!roster.length){
+    el.innerHTML='<div style="padding:44px;text-align:center;color:var(--text3);">No roster data for '+rosterLbl(_rosterSeason)+'.</div>';
+    return;
+  }
+  renderCustomize(teamT, roster, teamColor_g, teamRgb_g, teamGp);
+}
+let _custSeasonHist=false;
 function renderCustomize(t, players, color, rgb, gp){
   const el=document.getElementById('customizeContent');
   if(!el) return;
@@ -3505,11 +3537,12 @@ function _ensureCoachProfs(cb){
   }).catch(()=>{ window._allCoachProfs=[]; window._coachProfBySlug={}; cb&&cb(); });
 }
 function _teamDefCoachSlug(){
-  if(window.__teamDefCoach) return window.__teamDefCoach.slug;
+  var yr=(typeof _rosterSeason!=='undefined'&&_rosterSeason)||2027;
+  if(window.__teamDefCoach && window.__teamDefCoach.yr===yr) return window.__teamDefCoach.slug;
   var slug=null;
-  try{ var c=coachForYear(window._coachIdx||{}, teamT&&teamT.name, 2027); if(c&&c.slug) slug=c.slug; }catch(e){}
+  try{ var c=coachForYear(window._coachIdx||{}, teamT&&teamT.name, yr); if(c&&c.slug) slug=c.slug; }catch(e){}
   if(!slug && window._teamCoachProfCache) slug=window._teamCoachProfCache.coach_slug;
-  if(slug!=null || window._coachIdx) window.__teamDefCoach={slug:slug};   // cache once the idx exists
+  if(slug!=null || window._coachIdx) window.__teamDefCoach={slug:slug, yr:yr};   // cache per season
   return slug;
 }
 function _activeCoachProf(){
@@ -5113,6 +5146,7 @@ function onRosterSeason(v){
     if(statsCard) statsCard.style.display='none';
     if(heroGrades) heroGrades.classList.remove('hist-hidden');
     if(teamT && teamPlayers){ renderHistoricRoster(teamPlayers, 2027, true); renderSeasonLosses(teamPlayers, 2027); }
+    window._histRosterForCustomize=null; customizeForSeason();   // Customize back to the current roster
   } else {
     if(sh) sh.firstChild.textContent=`${rosterLbl(v)} Roster `;
     live.forEach(c=>c.style.display='none');
@@ -5172,6 +5206,8 @@ async function loadHistoricRoster(yr){
   renderSeasonLosses(rows, yr);
   computeSeasonAwards(rows, yr);
   renderSeasonStats(yr);
+  window._histRosterForCustomize = rows;   // Customize tab shows THIS season's roster too
+  customizeForSeason();
 }
 // Reconcile the player_history roster with authoritative bbref_seasons: (1) drop players
 // whose bbref school this season is a different program (transfer-duplicate rows), and
