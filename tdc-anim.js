@@ -12,10 +12,11 @@
   'use strict';
   var mm = window.matchMedia;
   var force = /[?&]anim=force/.test(location.search);
-  if(!force && mm && mm('(prefers-reduced-motion: reduce)').matches){
-    window.TDCAnim = { scan:function(){}, revealAll:function(){} }; return;
-  }
+  // gentle mode under reduced-motion: still fade content in (accessible), but no
+  // movement / count-up / bar-fill.
+  var gentle = !force && mm && mm('(prefers-reduced-motion: reduce)').matches;
   document.documentElement.classList.add('tdc-anim-ready');
+  if(gentle) document.documentElement.classList.add('tdc-anim-gentle');
   var hasIO = 'IntersectionObserver' in window;
 
   function raf2(fn){ requestAnimationFrame(function(){ requestAnimationFrame(fn); }); }
@@ -53,7 +54,7 @@
       if(!io || inView(el)) raf2(function(){ reveal(el); });   // in view now → animate over the next frames
       else io.observe(el);
     });
-    node.querySelectorAll('[data-countup]:not([data-cu])').forEach(function(el){
+    if(!gentle) node.querySelectorAll('[data-countup]:not([data-cu])').forEach(function(el){
       el.setAttribute('data-cu','1');
       var dec=parseInt(el.getAttribute('data-countup-dec')||'0',10);
       el.textContent=(el.getAttribute('data-countup-prefix')||'')+(0).toFixed(dec)+(el.getAttribute('data-countup-suffix')||'');

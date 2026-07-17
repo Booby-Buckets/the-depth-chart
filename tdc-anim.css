@@ -1,34 +1,42 @@
-/* tdc-anim.css — shared subtle-premium motion, companion to tdc-anim.js.
-   The hidden/pre-animation state applies ONLY once tdc-anim.js has added
-   `.tdc-anim-ready` to <html> (which it does synchronously, and skips entirely
-   under prefers-reduced-motion) — so if the script never runs, or the user
-   prefers reduced motion, content is simply fully visible with no animation and
-   nothing ever disappears. */
+/* tdc-anim.css — shared motion, companion to tdc-anim.js.
+   Two modes, both gated on `.tdc-anim-ready` (added by the JS, so content is never
+   hidden if the script fails):
+     • full   — fade + slide + count-up + bar-fill (default)
+     • gentle — .tdc-anim-gentle, added under prefers-reduced-motion: opacity
+                crossfade ONLY (no movement/fill/count-up), which is accessible while
+                still giving reduced-motion users a soft entrance instead of nothing. */
 
-/* ── scroll-reveal (opt in with data-anim) ─────────────────────────────────── */
-.tdc-anim-ready [data-anim]{
+/* ── full motion ──────────────────────────────────────────────────────────── */
+.tdc-anim-ready:not(.tdc-anim-gentle) [data-anim]{
   opacity:0 !important; transform:translateY(18px);
   transition:opacity .55s ease, transform .6s cubic-bezier(.22,.68,.32,1);
   will-change:opacity,transform;
 }
-.tdc-anim-ready [data-anim="fade"]{ transform:none; }
-.tdc-anim-ready [data-anim="scale"]{ transform:scale(.975); }
-.tdc-anim-ready [data-anim].in-view{ opacity:1 !important; transform:none; }
+.tdc-anim-ready:not(.tdc-anim-gentle) [data-anim="fade"]{ transform:none; }
+.tdc-anim-ready:not(.tdc-anim-gentle) [data-anim="scale"]{ transform:scale(.975); }
+.tdc-anim-ready:not(.tdc-anim-gentle) [data-anim].in-view{ opacity:1 !important; transform:none; }
 
-/* ── staggered children (data-stagger on the container) ────────────────────── */
-.tdc-anim-ready [data-stagger]>*{
+.tdc-anim-ready:not(.tdc-anim-gentle) [data-stagger]>*{
   opacity:0 !important; transform:translateY(16px);
   transition:opacity .5s ease, transform .55s cubic-bezier(.22,.68,.32,1);
   will-change:opacity,transform;
 }
-.tdc-anim-ready [data-stagger].in-view>*{ opacity:1 !important; transform:none; }
+.tdc-anim-ready:not(.tdc-anim-gentle) [data-stagger].in-view>*{ opacity:1 !important; transform:none; }
 
-/* ── subtle hover lift (opt in with .anim-lift; only on real hover devices) ── */
+/* bar fill — the element keeps its real inline width by default (graceful if no JS);
+   full mode collapses it to 0 then fills to the captured --fill-w on reveal. */
+.tdc-anim-ready:not(.tdc-anim-gentle) [data-fill]{ width:0 !important; transition:width .85s cubic-bezier(.22,.68,.32,1); }
+.tdc-anim-ready:not(.tdc-anim-gentle) [data-fill].in-view{ width:var(--fill-w) !important; }
+
+/* ── gentle (reduced-motion): opacity crossfade only ──────────────────────── */
+.tdc-anim-gentle [data-anim]{ opacity:0 !important; transition:opacity .5s ease; }
+.tdc-anim-gentle [data-anim].in-view{ opacity:1 !important; }
+.tdc-anim-gentle [data-stagger]>*{ opacity:0 !important; transition:opacity .45s ease; }
+.tdc-anim-gentle [data-stagger].in-view>*{ opacity:1 !important; }
+/* [data-fill] + [data-countup] are left alone in gentle mode (real width / final number). */
+
+/* ── subtle hover lift (opt in with .anim-lift; real hover devices only) ────── */
 @media (hover:hover) and (pointer:fine){
   .anim-lift{ transition:transform .2s ease, box-shadow .25s ease; }
   .anim-lift:hover{ transform:translateY(-3px); }
 }
-
-/* ── bar fill: start at 0 width, animate to the real width on reveal ────────── */
-.tdc-anim-ready [data-fill]{ width:0 !important; transition:width .85s cubic-bezier(.22,.68,.32,1); }
-.tdc-anim-ready [data-fill].in-view{ width:var(--fill-w) !important; }
