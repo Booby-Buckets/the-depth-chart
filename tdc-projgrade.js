@@ -50,17 +50,49 @@
          + 0.22 * _clamp01(mpg / 34)            // workload
          - 0.18 * _clamp01(tovs / 3.4);         // ball security (subtracts)
   }
-  // The projected grade. Returns the demonstrated grade unchanged when there is no
-  // played season to project from (freshmen) or no role signal.
+  // Development runway by class: younger players have more projectable upside left.
+  function _runway(row){
+    var y = (row && (row.yr || row.class_year) || '').toString().toLowerCase();
+    if(/fr/.test(y)) return 1.0;
+    if(/so/.test(y)) return 0.85;
+    if(/jr/.test(y)) return 0.50;
+    if(/sr|gr/.test(y)) return 0.25;
+    return 0.6;                                 // unknown class → moderate
+  }
+  // Young-player UPSIDE (added on top of the role adjustment). Right now the one
+  // signal the row can carry cleanly: SHOOTING POSITIVE REGRESSION. Free-throw %
+  // is the best predictor of future 3P%, so a young high-volume shooter whose 3P%
+  // sits BELOW what his FT stroke implies is very likely to shoot better next year
+  // (a Braylon Mullins: 88.9 FT but 33.5% on 6.5 3PA). Bounded and self-zeroing —
+  // a player already shooting up to his FT-implied expectation gets nothing.
+  function _upside(row){
+    var youth = _runway(row);
+    if(youth <= 0) return 0;
+    if(_num(row.mpg) < 10) return 0;            // needs a real role/sample
+    var ft = _num(row.ft_pct), tp = _num(row.tp_pct), tpa = _num(row.tpa);
+    if(ft <= 0 || tpa < 1) return 0;
+    var expTP  = 0.55 * ft - 10;                // FT-implied 3P%: FT88.9→~38.9, FT80→34
+    var room   = _clamp01((expTP - tp) / 8);    // how far 3P sits below expectation (0 if at/above)
+    var ftGate = _clamp01((ft - 72) / 12);      // must be a genuine FT shooter
+    var vol    = _clamp01((tpa - 2) / 4);       // enough 3PA that the % gain moves scoring
+    return youth * (ftGate * room * vol) * 7;   // up to ~+6 for a young max-signal shooter
+  }
+  // The projected grade. Anchors on the demonstrated grade, moves it by projected
+  // ROLE change, then adds bounded young-player UPSIDE. Freshmen with no played
+  // season fall back to the demonstrated grade (handled by editor OVR elsewhere).
   function grade(row){
     if(!row) return null;
     var g = parseInt(row.tdc_grade, 10);
     if(!isFinite(g)) return null;
+    var up = _upside(row);                      // young-player upside, role-independent
+    // clamp helper: upside stacks on top of the (already role-bounded) grade, with
+    // an overall +9 ceiling vs the demonstrated grade so nothing runs away.
+    function out(pg){ return Math.max(40, Math.min(99, Math.round(Math.min(g + 9, pg + up)))); }
     var lm = _num(row.mpg);
-    if(lm <= 0) return g;                       // no played minutes → demonstrated grade
+    if(lm <= 0) return out(g);                  // no played minutes → demonstrated (+upside≈0)
     var pm = projMin(row);
-    if(pm <= 0) return g;
-    if(Math.abs(pm / lm - 1) < 0.15) return g;  // role essentially unchanged → demonstrated grade stands
+    if(pm <= 0) return out(g);
+    if(Math.abs(pm / lm - 1) < 0.15) return out(g);  // role unchanged → demonstrated + upside
     var sc = Math.max(0.5, Math.min(2.2, pm / lm));
     var cA = _comp(g, lm, _num(row.ppg), _num(row.rpg), _num(row.apg), _num(row.tovs));
     // counting stats scale with minutes; damp slightly for usage saturation
@@ -71,7 +103,7 @@
                                                 // a smaller projected role barely moves it
     var pg = g + K * delta;
     pg = Math.max(g - 3, Math.min(g + 7, pg));  // asymmetric: reward breakouts, don't tank role-blocked talent
-    return Math.max(40, Math.min(99, Math.round(pg)));
+    return out(pg);
   }
   // Convenience: the value to DISPLAY as the OVR (projected if we can, else demonstrated).
   function ovr(row){ var p = grade(row); return (p != null && !isNaN(p)) ? p : parseInt(row && row.tdc_grade, 10); }
