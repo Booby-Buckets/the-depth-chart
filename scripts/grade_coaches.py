@@ -3,7 +3,8 @@
 grade_coaches.py — a 0-100 TDC Coach Grade + national rank, layered onto the
 existing coach_profiles.json. Blends four dimensions the user asked for:
 
-  1. Winning & team quality  — career avg SRS (opponent-adjusted) + win%
+  1. Winning & team quality  — SRS (opponent-adjusted) + win% + over/under-performance
+                                vs roster talent (did he win as much as his talent should?)
   2. Tournament / peak        — NCAA resume (deep runs, Final Fours, titles) + peak SRS
   3. Player development       — the existing dev metric (how much players improve)
   4. Consistency             — season-to-season stability: win% floor (worst seasons)
