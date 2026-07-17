@@ -2098,10 +2098,15 @@ function buildOvrSeasonControl(p, proj){
     +'<select class="exp-sel" id="ovrSeasonSel" onchange="setOvrSeason(this.value)">'+opts+'</select></div>'
     +'<div id="ovrCards">'+initial+'</div>';
 }
-function _updateHeroSeason(team, gp){
+function _updateHeroSeason(team, gp, seasonYr){
   var col=_teamColor(team); if(col) applyTeamTheme(col);
   var info=_teamInfo(team), ht=document.getElementById('heroTeam');
-  if(ht && team){ ht.href='team.html?team='+encodeURIComponent(team);
+  if(ht && team){
+    // carry the viewed season through to the team page so it opens that year's
+    // roster (a 2022-23 player → the 2022-23 team). Projected/current view = no param.
+    var href='team.html?team='+encodeURIComponent(team);
+    if(seasonYr && /^\d{4}$/.test(''+seasonYr) && +seasonYr<2027) href+='&season='+seasonYr;
+    ht.href=href;
     ht.innerHTML='<div class="team-dot" style="background:'+(col||'#888')+';"></div>'+team+' <span style="font-size:10px;color:var(--text3);margin-left:2px;">'+((info&&(info.conf||info.conference))||'')+'</span>'; }
   var g=document.getElementById('heroGp'); if(g){ g.innerHTML=gp?('🎮 <strong>'+gp+'</strong> GP'):''; g.style.display=gp?'':'none'; }
 }
@@ -2123,7 +2128,7 @@ function setOvrSeason(val){
   if(val==='proj'){ host.innerHTML=buildOverviewCards(player, proj); _updateHeroSeason(player.team, player.gp); _setHeroGrade(_projectedGrade()||player.tdc_grade); return; }
   var s=_ovrSeasonRow(val); if(!s) return;
   host.innerHTML=ovrCardsFor(s);
-  _updateHeroSeason(s.team, s.gp);
+  _updateHeroSeason(s.team, s.gp, s.season_year);
   _setHeroGrade(s.tdc_grade);
 }
 
