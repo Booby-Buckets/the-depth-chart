@@ -45,8 +45,24 @@
     ents.forEach(function(e){ if(e.isIntersecting){ countUp(e.target); obs.unobserve(e.target); } }); },
     {threshold:0.4}) : null;
 
+  // Auto mode: pages with <body data-anim-auto> get their content sections faded in
+  // with zero per-element markup. Opacity-only (no layout risk); nav/tiny elements
+  // skipped; nested sections skipped so a card inside a panel doesn't double-animate.
+  var AUTO_SEL='.card,.sec-t,.sec-head,.cstrip,.grid2,.cols,[class*=hero],[class*=panel],[class*=board],section';
+  function autoTag(node){
+    var body=document.body;
+    if(!body || !body.hasAttribute('data-anim-auto')) return;
+    var sel=body.getAttribute('data-anim-auto')||AUTO_SEL;
+    (node||document).querySelectorAll(sel).forEach(function(el){
+      if(el.hasAttribute('data-anim')||el.hasAttribute('data-stagger')) return;
+      if(el.closest('nav,header,.nav-wrap,.nav-sub,[data-anim],[data-stagger]')) return;
+      if(el.getBoundingClientRect().height<8) return;
+      el.setAttribute('data-anim','fade');
+    });
+  }
   function scan(node){
     node=node||document; if(!node.querySelectorAll) return;
+    autoTag(node);
     node.querySelectorAll('[data-anim]:not(.in-view),[data-stagger]:not(.in-view),[data-fill]:not(.in-view)').forEach(function(el){
       if(el.hasAttribute('data-stagger')) staggerDelays(el);
       if(el.hasAttribute('data-fill') && !el.style.getPropertyValue('--fill-w'))
