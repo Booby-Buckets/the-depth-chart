@@ -9,9 +9,48 @@ bbref data and calibrates against the hand-ranked Virginia roster.
 The port preserves the engine exactly: 7 pillars -> weighted z-blend, re-standardized,
 composite -> standardize -> (reliability x, size +) -> logistic map to 25-99.
 """
-import json, math, sys
+import json, math, sys, re
 from pathlib import Path
 DATA = Path(__file__).parent / "data"
+
+# ── team success (for the minutes-credibility recovery in grade_players) ──────
+# A star who plays limited minutes on a STRONG team earned a real role on a good
+# team (Cousins/Noah/Holmgren all logged ~24 MPG on elite teams); a role player
+# who plays limited minutes on a losing team (a 22-15 non-tourney squad) didn't.
+# teamStr in [0,1] from the team's SRS (absolute thresholds — percentile-across-
+# all-D1 inflates power schools past hundreds of low-majors). Only strong teams
+# recover the low-minute penalty; average/weak teams don't.
+_TEAM_STR = None
+def _norm_school(s): return re.sub(r"[^a-z0-9 ]", "", (s or "").lower()).strip()
+def _team_str_map():
+    global _TEAM_STR
+    if _TEAM_STR is not None: return _TEAM_STR
+    m = {}
+    try:
+        rows = [json.loads(l) for l in (DATA/"team_seasons.jsonl").read_text().splitlines() if l.strip()]
+    except Exception:
+        rows = []
+    tmp = {}
+    for r in rows:
+        yr = r.get("season"); srs = r.get("srs")
+        if yr is None or srs is None: continue
+        full = _norm_school(r.get("team")); w = full.split()
+        # mascot-stripped candidates so "Vanderbilt Commodores" matches bbref "Vanderbilt"
+        cands = {full}
+        for i in (1, 2):
+            if len(w) > i: cands.add(" ".join(w[:-i]))
+        for k in cands:
+            tmp.setdefault((k, yr), []).append(r)
+    for (k, yr), lst in tmp.items():
+        # collision (alabama -> Crimson Tide AND Alabama State): the real program is
+        # the shortest full team name.
+        r = min(lst, key=lambda x: len(x.get("team") or ""))
+        srs = r.get("srs")
+        m[(k, yr)] = max(0.0, min(1.0, (srs - 12.0) / 16.0))   # SRS 12->0, 28->1
+    _TEAM_STR = m
+    return m
+def team_strength(school, year):
+    return _team_str_map().get((_norm_school(school), year))
 
 # ============================================================ CONFIG (verbatim)
 CONFIG = {
@@ -39,6 +78,13 @@ PILLARS = {
     "scalability":[{"key":"fga40","rate":True},{"key":"fta40","rate":True},{"key":"pf40","rate":True,"neg":True},{"key":"to40","rate":True,"neg":True}],
 }
 SIZE = {"heightVsPos":"heightVsPos","height":"height"}
+
+# per-40 / per-possession rates that INFLATE when a productive player logs limited
+# minutes — a 23-MPG stretch-5 posts elite per-40 scoring + PER/BPM that a 32-MPG
+# starter can't. (Win shares, wins-added and per-GAME counting stats are already
+# minutes-aware, so they're left alone.) Their positive contribution is scaled
+# toward the mean until a player earns real starter minutes; see raw_pillar_score.
+RATE_INFLATED = {"ppg40","obpm","bpm","per","fga40","fta40","apg40"}
 
 # ============================================================ engine
 def num(v):
@@ -87,6 +133,11 @@ def raw_pillar_score(p,pillar_stats,stat_norms):
     # backs it up (a 20%-usage 6.8 BPM counts ~0.75; a 28%-usage one ~1.0).
     usg=num(p.get("usgPct"))
     bfac=1.0 if usg is None else max(0.62, min(1.05, 0.35+usg/50.0))
+    # minutes credibility: a productive player who only stays on the floor ~23 MPG
+    # hasn't earned an elite grade off inflated per-40/per-possession rates. Scale
+    # those rates' POSITIVE contribution up to full credit at ~30 MPG.
+    mpg=num(p.get("mpg"))
+    mfac=1.0 if mpg is None else max(0.60, min(1.0, 0.60+(mpg-20.0)/10.0*0.40))
     for stat in pillar_stats:
         v=effective_stat(p,stat)
         if v is None: continue
@@ -94,6 +145,7 @@ def raw_pillar_score(p,pillar_stats,stat_norms):
         zi=z(v,stat_norms[stat["key"]])
         if stat.get("neg"): zi=-zi
         if stat["key"] in ("bpm","obpm"): zi*=bfac
+        if zi>0 and stat["key"] in RATE_INFLATED: zi*=mfac   # low-minute rate inflation
         acc+=zi*w; w_sum+=w
     return 0.0 if w_sum==0 else acc/w_sum
 
@@ -151,6 +203,19 @@ def grade_players(players):
         C=z(composites[i]["C"],comp_norm)
         rel=reliability(p); size=size_nudge(p,ng)
         C=C*rel
+        # minutes credibility, team-adjusted: minutes played is a value signal
+        # (durability, coach trust, role), but a stud who plays ~24 MPG on an ELITE
+        # team (Cousins/Noah/Holmgren, foul-prone bigs) earned that role and keeps
+        # his grade, while a role player at ~23 MPG on a 22-15 non-tourney squad does
+        # not. Penalty ramps in below 28 MPG and is recovered by team strength. Only
+        # the upside (C>0) is scaled — genuine bench players already land low.
+        mpg=num(p.get("mpg"))
+        if mpg is not None and C>0:
+            ts=p.get("teamStr"); ts=0.5 if ts is None else ts   # unmatched -> neutral
+            penFrac=max(0.0, min(1.0, (28.0-mpg)/8.0))          # 0 at 28+, 1 at <=20
+            # gentle: a modest nudge, floored so no grade is gutted (max ~22% shave,
+            # and only for a limited-minutes player on a weak team).
+            C*=max(0.78, 1.0 - 0.45*penFrac*(1.0-ts*0.66))
         # tiny-sample upside damp: a sub-rotation player with very few total minutes
         # can't post a high grade off a fluky line (their good stats aren't credible).
         # genuinely-low bench (C<0) is left alone, so they still land low.
@@ -244,6 +309,9 @@ def _postprocess(rows):
                     if r.get(k) is not None: r[k]=round(r[k]*tf,5)
     except ImportError:
         pass
+    # team success for the minutes-credibility recovery (grade_players)
+    for r in rows:
+        r["teamStr"]=team_strength(r.get("team"), r.get("season_year"))
     # heightVsPos = height - mean height of position group
     gm={}; gc={}
     for r in rows:

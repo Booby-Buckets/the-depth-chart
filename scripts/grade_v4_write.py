@@ -49,7 +49,9 @@ def main(write=False):
     print("\n=== STAR ANCHORS (do the elite still grade elite?) ===")
     anchors=[("Zach Edey",2024),("Cameron Boozer",2026),("Cooper Flagg",2025),("Zion Williamson",2019),
              ("Bennett Stirtz",2025),("Trae Young",2018),("Gary Clark",2018),("Jae Crowder",2012),
-             ("Damarion Dennis",2026),("Cruz Davis",2026),("Dra Gibbs-Lawhorn",2026),("JT Toppin",2026)]
+             ("Damarion Dennis",2026),("Cruz Davis",2026),("Dra Gibbs-Lawhorn",2026),("JT Toppin",2026),
+             ("Liam Robbins",2023),("DeMarcus Cousins",2010),("Joakim Noah",2007),
+             ("Chet Holmgren",2022),("Walker Kessler",2022)]
     by={}
     for p in graded: by[(p["name"],p["season_year"])]=p
     for nm,yr in anchors:
