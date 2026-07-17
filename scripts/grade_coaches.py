@@ -6,7 +6,8 @@ existing coach_profiles.json. Blends four dimensions the user asked for:
   1. Winning & team quality  — career avg SRS (opponent-adjusted) + win%
   2. Tournament / peak        — NCAA resume (deep runs, Final Fours, titles) + peak SRS
   3. Player development       — the existing dev metric (how much players improve)
-  4. Consistency & longevity  — seasons coached + share of above-average (SRS>0) seasons
+  4. Consistency             — season-to-season stability: win% floor (worst seasons)
+                                + win% volatility (swings) + a small tenure factor
 
 Sample-sensitive components (quality, tournament) are regressed toward the mean for
 short tenures so a one-year wonder can't top the list. Also attaches a per-season
