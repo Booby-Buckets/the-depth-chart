@@ -7,6 +7,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Coach — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="tdc-anim.css?v=2"/>
+  <script src="tdc-anim.js?v=1"></script>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1f9d57;--red:#cf5a4e;}
     [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;}
@@ -258,10 +260,10 @@ function render(p, ss, pg){
   var devCell=p.dev_delta!=null?stat((p.dev_delta>=0?'+':'')+p.dev_delta.toFixed(1),'Player Dev'+(p.dev_pctl!=null?' · '+p.dev_pctl+'%ile':''),(p.dev_delta>=0?'var(--green)':'var(--red)')):'';
 
   var tr=p.tourney||{};
-  var gradeBadge=p.grade!=null?'<div class="chero-grade"><div class="cg-num">'+p.grade+'</div><div class="cg-lbl">TDC Coach Grade</div><div class="cg-rk">#'+p.rank+' of '+TOTAL+'</div></div>':'';
+  var gradeBadge=p.grade!=null?'<div class="chero-grade"><div class="cg-num" data-countup="'+p.grade+'">'+p.grade+'</div><div class="cg-lbl">TDC Coach Grade</div><div class="cg-rk">#'+p.rank+' of '+TOTAL+'</div></div>':'';
   var gp=p.grade_parts;
-  var partsHtml=gp?'<div class="gparts">'+[['Winning &amp; Quality','winning'],['Tournament / Peak','tournament'],['Player Development','development'],['Consistency','consistency']].map(function(x){
-    return '<div class="gpart"><div class="gp-v">'+gp[x[1]]+'</div><div class="gp-l">'+x[0]+'</div><div class="gp-bar"><div class="gp-fill" style="width:'+gp[x[1]]+'%"></div></div></div>';}).join('')+'</div>':'';
+  var partsHtml=gp?'<div class="gparts" data-stagger="70">'+[['Winning &amp; Quality','winning'],['Tournament / Peak','tournament'],['Player Development','development'],['Consistency','consistency']].map(function(x){
+    return '<div class="gpart"><div class="gp-v" data-countup="'+gp[x[1]]+'">'+gp[x[1]]+'</div><div class="gp-l">'+x[0]+'</div><div class="gp-bar"><div class="gp-fill" data-fill style="--fill-w:'+gp[x[1]]+'%"></div></div></div>';}).join('')+'</div>':'';
 
   var html='<a class="back" href="coaches.html">← Coaching Lab</a>'+
     '<div class="chero"><div class="chero-mono">'+initials+'</div>'+
@@ -269,7 +271,7 @@ function render(p, ss, pg){
       '<div class="meta">'+p.schools+' · '+seasonLbl(p.first_year)+' – '+seasonLbl(p.last_year)+'</div>'+
       '<span class="arch">'+p.archetype+'</span></div>'+gradeBadge+'</div>'+
     partsHtml+
-    '<div class="cstrip">'+stat(p.wins+'-'+p.losses,'Record')+stat((p.win_pct*100).toFixed(1)+'%','Win %')+
+    '<div class="cstrip" data-stagger="45">'+stat(p.wins+'-'+p.losses,'Record')+stat((p.win_pct*100).toFixed(1)+'%','Win %')+
       stat(p.seasons,'Seasons')+stat((p.avg_srs>=0?'+':'')+num(p.avg_srs),'Avg SRS')+
       (tr.titles?stat(tr.titles,'National Titles'):'')+(tr.final_fours?stat(tr.final_fours,'Final Fours'):'')+
       (tr.apps?stat(tr.apps,'NCAA Apps'):'')+
@@ -278,7 +280,7 @@ function render(p, ss, pg){
   // Career by season — bar chart (replaces the long timeline table)
   if(ss&&ss.length){
     html+='<div class="sec-t">Career by Season <span>wins per year · best season highlighted</span></div>'+
-      '<div class="card">'+winsChart(ss)+'</div>';
+      '<div class="card" data-anim>'+winsChart(ss)+'</div>';
   }
 
   // Coaching style — radar paired with the scoring chart so neither column is a void
@@ -288,17 +290,17 @@ function render(p, ss, pg){
     '<div style="font-size:10px;color:var(--text3);margin-top:8px;">Percentiles vs all 952 coaches</div>';
   html+='<div class="sec-t">Coaching Style <span>his tendencies &amp; scoring identity</span></div>';
   if(scoring){
-    html+='<div class="grid2"><div class="card radar-wrap">'+radar(p,300)+tagsHtml+'</div>'+
+    html+='<div class="grid2" data-anim><div class="card radar-wrap">'+radar(p,300)+tagsHtml+'</div>'+
       '<div class="card"><div class="tl-h">Points Scored vs Allowed</div>'+scoring+'</div></div>';
   } else {
-    html+='<div class="card radar-wrap" style="max-width:440px;margin:0 auto;">'+radar(p,300)+tagsHtml+'</div>';
+    html+='<div class="card radar-wrap" data-anim style="max-width:440px;margin:0 auto;">'+radar(p,300)+tagsHtml+'</div>';
   }
 
   // style trend mini-cards
   if(tr.length>=2){
     var AC='var(--accent)';
     var cards=[trendCard(tr,'Pace','poss_pg',AC,1),trendCard(tr,'3PT Rate','three_pa_rate',AC,1),trendCard(tr,'Bench Min%','bench_min_pct',AC,1),trendCard(tr,'Ball Move','ast_rate',AC,1),trendCard(tr,'TO Force','opp_tov_pg',AC,1),trendCard(tr,'Star Use','top_scorer_share',AC,1)].filter(Boolean).join('');
-    if(cards) html+='<div class="trend-grid">'+cards+'</div>';
+    if(cards) html+='<div class="trend-grid" data-stagger="50">'+cards+'</div>';
   }
 
   if(pg){
@@ -306,7 +308,7 @@ function render(p, ss, pg){
     var bt=pg.best_team;
     if(bt){
       html+='<div class="sec-t">Best Team <span>peak season by SRS</span></div>'+
-        '<div class="bt-card"><div class="bt-top"><span class="bt-year">'+seasonLbl(bt.year)+'</span><span class="bt-school">'+bt.school+'</span></div>'+
+        '<div class="bt-card" data-anim><div class="bt-top"><span class="bt-year">'+seasonLbl(bt.year)+'</span><span class="bt-school">'+bt.school+'</span></div>'+
         '<div class="bt-line"><b>'+bt.wins+'-'+bt.losses+'</b>'+(bt.conf?' · '+bt.conf:'')+(bt.srs!=null?' · <span class="bt-srs">'+(bt.srs>=0?'+':'')+bt.srs.toFixed(1)+' SRS</span>':'')+'</div>'+
         '<div class="bt-roster">'+(bt.roster||[]).map(r=>'<a class="bt-p" href="'+plink(r.espn_id,r.player)+'"><span class="g" style="color:'+gradeColor(r.grade)+'">'+r.grade+'</span><span><div class="pn">'+r.player+'</div><div class="pp">'+(r.pos||'')+'</div></span></a>').join('')+'</div></div>';
     }
@@ -318,7 +320,7 @@ function render(p, ss, pg){
       '<span class="pnm"><div class="n">'+r.player+'</div><div class="s">'+seasonLbl(r.from_year)+' → '+seasonLbl(r.to_year)+'</div></span>'+
       '<span class="parc"><span class="g0">'+r.from+'</span><span class="ar">→</span><span class="g1" style="color:'+gradeColor(r.to)+'">'+r.to+'</span><span class="d">+'+r.gain+'</span></span></a>').join('');
     html+='<div class="sec-t">The Talent <span>who he coached & who grew most</span></div>'+
-      '<div class="cols"><div class="plist"><h3>Best Players Coached</h3><div class="sub">by peak TDC grade under this coach</div>'+(pr||'<div class="sub" style="padding:14px 18px;">No graded players.</div>')+'</div>'+
+      '<div class="cols" data-anim><div class="plist"><h3>Best Players Coached</h3><div class="sub">by peak TDC grade under this coach</div>'+(pr||'<div class="sub" style="padding:14px 18px;">No graded players.</div>')+'</div>'+
       '<div class="plist"><h3>Top Developers</h3><div class="sub">biggest grade climb while under him</div>'+(dv||'<div class="sub" style="padding:14px 18px;">Not enough multi-season players.</div>')+'</div></div>';
   }
   html+='<div id="rundown"></div>';   // season-by-season rundown (lazily fetched per-coach)

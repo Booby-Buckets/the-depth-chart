@@ -1,0 +1,34 @@
+/* tdc-anim.css — shared subtle-premium motion, companion to tdc-anim.js.
+   The hidden/pre-animation state applies ONLY once tdc-anim.js has added
+   `.tdc-anim-ready` to <html> (which it does synchronously, and skips entirely
+   under prefers-reduced-motion) — so if the script never runs, or the user
+   prefers reduced motion, content is simply fully visible with no animation and
+   nothing ever disappears. */
+
+/* ── scroll-reveal (opt in with data-anim) ─────────────────────────────────── */
+.tdc-anim-ready [data-anim]{
+  opacity:0 !important; transform:translateY(18px);
+  transition:opacity .55s ease, transform .6s cubic-bezier(.22,.68,.32,1);
+  will-change:opacity,transform;
+}
+.tdc-anim-ready [data-anim="fade"]{ transform:none; }
+.tdc-anim-ready [data-anim="scale"]{ transform:scale(.975); }
+.tdc-anim-ready [data-anim].in-view{ opacity:1 !important; transform:none; }
+
+/* ── staggered children (data-stagger on the container) ────────────────────── */
+.tdc-anim-ready [data-stagger]>*{
+  opacity:0 !important; transform:translateY(16px);
+  transition:opacity .5s ease, transform .55s cubic-bezier(.22,.68,.32,1);
+  will-change:opacity,transform;
+}
+.tdc-anim-ready [data-stagger].in-view>*{ opacity:1 !important; transform:none; }
+
+/* ── subtle hover lift (opt in with .anim-lift; only on real hover devices) ── */
+@media (hover:hover) and (pointer:fine){
+  .anim-lift{ transition:transform .2s ease, box-shadow .25s ease; }
+  .anim-lift:hover{ transform:translateY(-3px); }
+}
+
+/* ── bar fill: start at 0 width, animate to the real width on reveal ────────── */
+.tdc-anim-ready [data-fill]{ width:0 !important; transition:width .85s cubic-bezier(.22,.68,.32,1); }
+.tdc-anim-ready [data-fill].in-view{ width:var(--fill-w) !important; }
