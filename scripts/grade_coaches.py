@@ -119,21 +119,40 @@ def main():
                 **({k:st.get(k) for k in STYLE} if st else {})})
         peak=sum(sorted(srs,reverse=True)[:3])/min(3,len(srs)) if srs else None
         pos_frac=(sum(1 for s in srs if s>0)/len(srs)) if srs else 0.0
+        # season-to-season CONSISTENCY signals (tenure-robust, unlike a raw SD which
+        # a short tenure deflates):
+        #  - downside: WIN% of his WORST ~40% of seasons. A low floor = boom/bust. Uses
+        #    win% (what a fan sees) not SRS, which a tough-schedule league props up even
+        #    in bad win years.
+        #  - volatility: SD of per-season win% — the swings a fan sees (9 wins → 22 → 9).
+        wps=[r["wins"]/(r["wins"]+r["losses"]) for r in rows
+             if r.get("wins") is not None and r.get("losses") is not None and (r["wins"]+r["losses"])>0]
+        _wm=(sum(wps)/len(wps)) if wps else 0.0
+        wpsd=((sum((x-_wm)**2 for x in wps)/len(wps))**0.5) if len(wps)>=3 else None
+        wps_sorted=sorted(wps)
+        _kd=max(1,int(round(len(wps)*0.4))) if wps else 0
+        downside=(sum(wps_sorted[:_kd])/_kd) if _kd else None
         P["_srs"]=P.get("avg_srs"); P["_wp"]=P.get("win_pct")
         P["_tourpts"]=round(tourpts,1); P["_peak"]=round(peak,2) if peak is not None else None
         P["_posfrac"]=round(pos_frac,3); P["_seasons"]=P.get("seasons",len(rows))
+        P["_downside"]=round(downside,3) if downside is not None else None
+        P["_wpsd"]=round(wpsd,4) if wpsd is not None else None
         P["tourney"]={"apps":apps,"titles":titles,"final_fours":f4,"best":best,"conf_titles":conf_titles}
         # (per-season timeline is redundant with coach_seasons.json / coach_pages.json — not stored)
 
     # ── percentile each raw input across the coach pool ──
     fp={k:pctl([P[k] for P in profiles if P.get(k) is not None])
-        for k in ["_srs","_wp","_tourpts","_peak","_posfrac","_seasons"]}
+        for k in ["_srs","_wp","_tourpts","_peak","_posfrac","_seasons","_downside","_wpsd"]}
     for P in profiles:
         cred=P["_seasons"]/(P["_seasons"]+2.0)              # small-sample shrink
         quality  = 0.70*fp["_srs"](P["_srs"]) + 0.30*fp["_wp"](P["_wp"])
         tourney  = 0.62*fp["_tourpts"](P["_tourpts"]) + 0.38*fp["_peak"](P["_peak"])
         develop  = P.get("dev_pctl") if P.get("dev_pctl") is not None else 50
-        consist  = 0.55*fp["_posfrac"](P["_posfrac"]) + 0.45*fp["_seasons"](P["_seasons"])
+        # Consistency = mostly season-to-season STABILITY (low SRS variance), with a
+        # smaller reward for being reliably above-average and for tenure. Short tenures
+        # (<3 seasons, _srssd None) get a neutral 50 stability rather than a free high score.
+        volatility = 100 - fp["_wpsd"](P["_wpsd"])    # small win% swings → more consistent (None→50)
+        consist  = 0.55*fp["_downside"](P["_downside"]) + 0.30*volatility + 0.15*fp["_seasons"](P["_seasons"])
         quality  = 50 + cred*(quality-50)                   # regress sample-sensitive ones
         tourney  = 50 + cred*(tourney-50)
         comp = 0.36*quality + 0.30*tourney + 0.18*develop + 0.16*consist
@@ -150,7 +169,7 @@ def main():
     for i,P in enumerate(ranked): P["rank"]=i+1
     # drop temp fields
     for P in profiles:
-        for k in ["_srs","_wp","_tourpts","_peak","_posfrac","_seasons","_comp","timeline"]: P.pop(k,None)
+        for k in ["_srs","_wp","_tourpts","_peak","_posfrac","_seasons","_downside","_wpsd","_comp","timeline"]: P.pop(k,None)
 
     json.dump(profiles,open(os.path.join(D,"coach_profiles.json"),"w"))
     print(f"graded {len(profiles)} coaches")
