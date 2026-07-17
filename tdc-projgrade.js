@@ -59,23 +59,45 @@
     if(/sr|gr/.test(y)) return 0.25;
     return 0.6;                                 // unknown class → moderate
   }
-  // Young-player UPSIDE (added on top of the role adjustment). Right now the one
-  // signal the row can carry cleanly: SHOOTING POSITIVE REGRESSION. Free-throw %
-  // is the best predictor of future 3P%, so a young high-volume shooter whose 3P%
-  // sits BELOW what his FT stroke implies is very likely to shoot better next year
-  // (a Braylon Mullins: 88.9 FT but 33.5% on 6.5 3PA). Bounded and self-zeroing —
-  // a player already shooting up to his FT-implied expectation gets nothing.
+  // Recruiting pedigree coefficients (0..1 per espn_id), set once per page from the
+  // derived recruit_pedigree.json. NOT 247's rankings — a private model input; the
+  // raw ranks are never shipped, only this coefficient influences the grade.
+  var PED = {};
+  function setPedigree(map){ PED = map || {}; }
+
+  // Young-player UPSIDE (added on top of the role adjustment). Two bounded signals:
+  //   (a) SHOOTING POSITIVE REGRESSION — FT% is the best predictor of future 3P%, so
+  //       a young high-volume shooter whose 3P% sits below his FT-implied expectation
+  //       is a buy (Braylon Mullins: 88.9 FT but 33.5% on 6.5 3PA). Self-zeroing.
+  //   (b) RECRUITING PEDIGREE — a highly-touted young recruit whose PRODUCTION grade
+  //       undersells his pedigree has projectable upside (tools/role tend to catch
+  //       up). Tapers to 0 once his grade already reflects the pedigree, and by class
+  //       (a senior former 5★ still low has had his chance). Lifts an Alijah Arenas.
+  // Combined upside is bounded so neither signal runs away.
   function _upside(row){
     var youth = _runway(row);
     if(youth <= 0) return 0;
     if(_num(row.mpg) < 10) return 0;            // needs a real role/sample
+    var g = parseInt(row.tdc_grade, 10) || 0;
+    // (a) shooting positive regression
+    var shootUp = 0;
     var ft = _num(row.ft_pct), tp = _num(row.tp_pct), tpa = _num(row.tpa);
-    if(ft <= 0 || tpa < 1) return 0;
-    var expTP  = 0.55 * ft - 10;                // FT-implied 3P%: FT88.9→~38.9, FT80→34
-    var room   = _clamp01((expTP - tp) / 8);    // how far 3P sits below expectation (0 if at/above)
-    var ftGate = _clamp01((ft - 72) / 12);      // must be a genuine FT shooter
-    var vol    = _clamp01((tpa - 2) / 4);       // enough 3PA that the % gain moves scoring
-    return youth * (ftGate * room * vol) * 7;   // up to ~+6 for a young max-signal shooter
+    if(ft > 0 && tpa >= 1){
+      var expTP  = 0.55 * ft - 10;              // FT-implied 3P%: FT88.9→~38.9
+      var room   = _clamp01((expTP - tp) / 8);  // 3P below expectation (0 if at/above)
+      var ftGate = _clamp01((ft - 72) / 12);    // must be a genuine FT shooter
+      var vol    = _clamp01((tpa - 2) / 4);     // enough 3PA that the % gain moves scoring
+      shootUp = youth * (ftGate * room * vol) * 7;
+    }
+    // (b) recruiting pedigree
+    var ped = PED[row.espn_id]; if(ped == null) ped = _num(row.recruit_ped);
+    var pedUp = 0;
+    if(ped > 0){
+      var target = 80 + ped * 10;               // 5★(1.0)→90, high-4★(.85)→88.5
+      var gap = _clamp01((target - g) / 12);    // how far production sits below pedigree
+      pedUp = youth * ped * gap * 7;            // up to ~+6 for a young elite recruit underproducing
+    }
+    return Math.min(7, shootUp + pedUp);        // combined upside bounded
   }
   // The projected grade. Anchors on the demonstrated grade, moves it by projected
   // ROLE change, then adds bounded young-player UPSIDE. Freshmen with no played
@@ -108,5 +130,15 @@
   // Convenience: the value to DISPLAY as the OVR (projected if we can, else demonstrated).
   function ovr(row){ var p = grade(row); return (p != null && !isNaN(p)) ? p : parseInt(row && row.tdc_grade, 10); }
 
-  window.TDCProjGrade = { projMin: projMin, grade: grade, ovr: ovr, K: K };
+  window.TDCProjGrade = { projMin: projMin, grade: grade, ovr: ovr, K: K, setPedigree: setPedigree };
+
+  // Self-load the derived pedigree coefficients (tiny, local file) so every page
+  // picks them up with no per-page wiring. This resolves well before the slower
+  // Supabase roster fetch that precedes any grade render, so grades include it.
+  try{
+    fetch('scripts/data/recruit_pedigree.json')
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){ if(j && j.players) setPedigree(j.players); })
+      .catch(function(){});
+  }catch(e){}
 })();
