@@ -350,7 +350,7 @@ function seasonCard(s){
 async function renderRundown(slug){
   var host=document.getElementById('rundown'); if(!host) return;
   var d=null;
-  try{ d=await fetch('scripts/data/coach_rundowns/'+encodeURIComponent(slug)+'.json').then(r=>r.ok?r.json():null); }catch(e){}
+  try{ d=await fetch('scripts/data/coach_rundowns/'+encodeURIComponent(slug)+'.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null); }catch(e){}
   if(!d||!d.seasons||!d.seasons.length) return;
   var html='<div class="sec-t">Season-by-Season <span>every team he led — style, roster &amp; how much he got out of it</span></div>'
     +'<div class="rundown-list">'+d.seasons.map(seasonCard).join('')+'</div>'
@@ -365,7 +365,7 @@ async function init(){
     const [prof, seas, pages]=await Promise.all([
       fetch('scripts/data/coach_profiles.json',{cache:'no-cache'}).then(r=>r.json()),
       fetch('scripts/data/coach_seasons.json').then(r=>r.json()).catch(()=>[]),
-      fetch('scripts/data/coach_pages.json').then(r=>r.json()).catch(()=>({}))
+      fetch('scripts/data/coach_pages.json',{cache:'no-cache'}).then(r=>r.json()).catch(()=>({}))
     ]);
     var p=prof.find(x=>x.coach_slug===slug);
     if(!p){ document.getElementById('content').innerHTML='<div class="loading">Coach not found. <a href="coaches.html" style="color:var(--accent)">Back to the Coaching Lab</a>.</div>'; return; }
