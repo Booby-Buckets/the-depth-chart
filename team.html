@@ -3223,8 +3223,13 @@ function _pairSynergy(a,b){
 }
 function _synCol(v){ return v>=63?'#5ab875':v>=52?'#d4a24a':'#e07070'; }
 function _lineupAnalysis(starters){
-  const ps=starters.filter(s=>s.p).map(s=>s.p);
-  if(ps.length<2) return null;
+  const ps0=starters.filter(s=>s.p).map(s=>s.p);
+  if(ps0.length<2) return null;
+  // Use PROJECTED stat lines (buildCustomProjections) rather than raw last-season
+  // box scores — otherwise a freshman with no college stats (null ppg) or a bench
+  // player stepping into a starting role drags Scoring/Rebounding to the floor.
+  const projByName={}; (_baseCustomProj||[]).forEach(r=>{ if(r&&r.name) projByName[r.name]=r; });
+  const ps=ps0.map(p=>projByName[p.name]||p);
   let sum=0,cnt=0; for(let i=0;i<ps.length;i++) for(let j=i+1;j<ps.length;j++){ sum+=_pairSynergy(ps[i],ps[j]).score; cnt++; }
   const overall=Math.round(sum/cnt);
   const S=k=>ps.reduce((t,p)=>t+(parseFloat(p[k])||0),0);
@@ -3237,8 +3242,10 @@ function _lineupAnalysis(starters){
   // weight the best blocker(s) heavily instead of diluting them across 5 starters.
   const blks=ps.map(p=>parseFloat(p.blk)||0).sort((a,b)=>b-a);
   const anchor=blks[0]||0, second=blks[1]||0;
-  const dims={ Scoring:norm(S('ppg'),45,85), Spacing:norm(spacers*19+elite*9,8,78),
-    Playmaking:norm(S('apg'),7,19), Rebounding:norm(S('rpg'),20,42),
+  // bounds calibrated to 5-starter SUMS: ~55 ppg / ~25 rpg is an average high-major
+  // lineup, so the low end sits well below that (a realistic lineup never floors).
+  const dims={ Scoring:norm(S('ppg'),38,78), Spacing:norm(spacers*19+elite*9,8,78),
+    Playmaking:norm(S('apg'),7,19), Rebounding:norm(S('rpg'),15,38),
     'Perimeter D':norm(S('stl'),2,7), 'Rim Protect':norm(anchor*22+second*11+S('blk')*2,10,68) };
   const grades=ps.map(p=>parseFloat(p.tdc_grade)).filter(g=>!isNaN(g));
   const rating=grades.length?Math.round(grades.reduce((a,b)=>a+b,0)/grades.length):null;
