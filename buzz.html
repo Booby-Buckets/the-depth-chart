@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>The Wire — Buzz &amp; News — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="tdc-anim.css?v=4"/>
+  <script src="tdc-anim.js?v=5"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--red:#e07070;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+    .nav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);}
+    .logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;}
+    .logo span{color:var(--accent);}
+    .nav-r{display:flex;align-items:center;gap:14px;}
+    .nav-r a{font-size:12px;font-weight:700;color:var(--text3);text-decoration:none;}
+    .nav-r a:hover{color:var(--accent);}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;border-radius:6px;}
+    .page{max-width:840px;margin:0 auto;padding:30px 22px 90px;}
+    h1{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;letter-spacing:-.01em;margin-bottom:4px;}
+    .sub{font-size:13px;color:var(--text3);margin-bottom:20px;max-width:720px;line-height:1.6;}
+    .search{width:100%;padding:12px 15px;border:1px solid var(--border2);border-radius:11px;background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:14px;}
+    .search:focus{border-color:var(--accent);}
+    .trend{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:20px;}
+    .tchip{font-size:12px;font-weight:700;padding:6px 12px;border:1px solid var(--border2);border-radius:16px;background:var(--bg2);color:var(--text2);cursor:pointer;transition:all .12s;}
+    .tchip:hover{border-color:var(--accent);color:var(--text);}
+    .tchip.on{background:var(--accent);color:#221c08;border-color:var(--accent);}
+    .tchip .c{color:var(--text3);font-weight:600;margin-left:5px;}
+    .tchip.on .c{color:#221c08;opacity:.7;}
+    .feed{display:flex;flex-direction:column;gap:10px;}
+    .item{display:block;border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:14px 16px;text-decoration:none;color:inherit;transition:border-color .12s,transform .12s;}
+    .item:hover{border-color:var(--accent);transform:translateY(-1px);}
+    .item .meta{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text3);margin-bottom:6px;flex-wrap:wrap;}
+    .item .src{font-weight:800;color:var(--accent);letter-spacing:.02em;}
+    .item .dot{opacity:.5;}
+    .item .head{font-size:15px;font-weight:700;line-height:1.35;color:var(--text);}
+    .item .who{font-size:12px;color:var(--text3);margin-top:7px;}
+    .item .who b{color:var(--text2);font-weight:700;}
+    .more{display:block;width:100%;margin-top:18px;padding:13px;border:1px solid var(--border2);border-radius:11px;background:var(--bg2);color:var(--text2);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;}
+    .more:hover{border-color:var(--accent);color:var(--text);}
+    .empty,.loading{padding:50px;text-align:center;color:var(--text3);font-size:13px;}
+    .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:26px;max-width:720px;}
+    .buzznote{font-size:12px;color:var(--text3);background:var(--bg2);border:1px dashed var(--border);border-radius:10px;padding:10px 14px;margin-bottom:18px;line-height:1.5;}
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <a class="logo" href="index.html">The Depth <span>Chart</span></a>
+    <div class="nav-r">
+      <a href="matchup.html">Matchup</a>
+      <a href="bracket.html">Bracket</a>
+      <a href="index.html">← Rankings</a>
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">☾</button>
+    </div>
+  </div>
+  <div class="page">
+    <h1 data-anim>The Wire</h1>
+    <div class="sub" data-anim>Every headline across college hoops in one feed — commitments, transfers, breakout games and buzz, pulled from around the web and attributed to the player. Tap any card to read the full story.</div>
+    <div class="buzznote" data-anim>📰 Headlines are live. <b>Fan buzz (r/CollegeBasketball)</b> joins the feed once the Reddit source is connected.</div>
+
+    <input id="q" class="search" placeholder="Search a player, team, or keyword…" autocomplete="off"/>
+    <div class="trend" id="trend"></div>
+    <div id="feed" class="feed"><div class="loading">Loading the wire…</div></div>
+    <div class="note" data-anim>News is aggregated via public syndication feeds (title, source and outbound link only) and refreshed daily. Coverage skews toward higher-profile players and breaking news — commitments, injuries, standout performances.</div>
+  </div>
+
+<script>
+function toggleTheme(){ const d=document.documentElement; const dark=d.getAttribute('data-theme')==='dark';
+  d.setAttribute('data-theme',dark?'light':'dark'); document.getElementById('themeBtn').textContent=dark?'☾':'☀';
+  try{ localStorage.setItem('tdc-theme',dark?'light':'dark'); }catch(e){} }
+(function(){ let t='light'; try{ t=localStorage.getItem('tdc-theme')||'light'; }catch(e){}
+  if(t==='dark'){ document.documentElement.setAttribute('data-theme','dark'); document.getElementById('themeBtn').textContent='☀'; } })();
+
+const el=id=>document.getElementById(id);
+let ALL=[], filtered=[], shown=0, PAGE=40, activeChip=null;
+const esc=s=>(''+s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+function timeAgo(d){ const t=Date.parse(d); if(isNaN(t)) return ''; const s=(Date.now()-t)/1000;
+  if(s<3600) return Math.max(1,Math.round(s/60))+'m ago'; if(s<86400) return Math.round(s/3600)+'h ago';
+  if(s<86400*30) return Math.round(s/86400)+'d ago'; return Math.round(s/2592000)+'mo ago'; }
+function plink(key,name){ return /^\d+$/.test(''+key) ? 'player.html?espn='+key : 'player.html?name='+encodeURIComponent(name); }
+
+function render(reset){
+  if(reset){ shown=0; el('feed').innerHTML=''; }
+  const slice=filtered.slice(shown, shown+PAGE);
+  if(!filtered.length){ el('feed').innerHTML='<div class="empty">No headlines match.</div>'; return; }
+  const html=slice.map(it=>`<a class="item" href="${esc(it.url||'#')}" target="_blank" rel="noopener nofollow">
+      <div class="meta"><span class="src">${esc(it.source||'News')}</span>${it.date&&timeAgo(it.date)?`<span class="dot">·</span><span>${esc(timeAgo(it.date))}</span>`:''}</div>
+      <div class="head">${esc(it.title)}</div>
+      <div class="who"><b>${esc(it.name)}</b>${it.team?` · ${esc(it.team)}`:''}</div>
+    </a>`).join('');
+  const wrap=document.createElement('div'); wrap.innerHTML=html;
+  // make the who-line a real link to the player
+  [...wrap.children].forEach((a,i)=>{ const it=slice[i]; const who=a.querySelector('.who');
+    who.style.cursor='pointer'; who.onclick=e=>{ e.preventDefault(); e.stopPropagation(); location.href=plink(it.key,it.name); }; });
+  if(shown===0) el('feed').innerHTML='';
+  [...wrap.children].forEach(c=>el('feed').appendChild(c));
+  shown+=slice.length;
+  let more=el('moreBtn'); if(more) more.remove();
+  if(shown<filtered.length){ const b=document.createElement('button'); b.id='moreBtn'; b.className='more';
+    b.textContent=`Show more (${filtered.length-shown} left)`; b.onclick=()=>render(false); el('feed').after(b); }
+}
+function applyFilter(q){
+  q=(q||'').toLowerCase().trim();
+  filtered = !q ? ALL : ALL.filter(it=>(it.name+' '+(it.team||'')+' '+it.title).toLowerCase().includes(q));
+  render(true);
+}
+function renderTrend(){
+  // most-covered players (by headline count) as quick filters
+  const by={}; ALL.forEach(it=>{ (by[it.name]=by[it.name]||{n:it.name,c:0}); by[it.name].c++; });
+  const top=Object.values(by).sort((a,b)=>b.c-a.c).slice(0,12);
+  el('trend').innerHTML=top.map(t=>`<button class="tchip" data-n="${esc(t.n)}">${esc(t.n)}<span class="c">${t.c}</span></button>`).join('');
+  el('trend').querySelectorAll('.tchip').forEach(ch=>ch.onclick=()=>{
+    const n=ch.dataset.n;
+    if(activeChip===ch){ activeChip=null; ch.classList.remove('on'); el('q').value=''; applyFilter(''); }
+    else{ el('trend').querySelectorAll('.tchip').forEach(x=>x.classList.remove('on')); ch.classList.add('on'); activeChip=ch; el('q').value=n; applyFilter(n); }
+  });
+}
+
+(async function(){
+  let db=null;
+  try{ db=await fetch('scripts/data/player_news.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null); }catch(e){}
+  if(!db||!db.players){ el('feed').innerHTML='<div class="empty">News feed unavailable.</div>'; return; }
+  Object.entries(db.players).forEach(([key,p])=>{
+    (p.items||[]).forEach(it=>ALL.push({key, name:p.name, team:p.team, title:it.title, source:it.source, url:it.url, date:it.date, t:Date.parse(it.date)||0}));
+  });
+  ALL.sort((a,b)=>b.t-a.t);
+  filtered=ALL;
+  renderTrend();
+  render(true);
+  el('q').addEventListener('input', e=>{ if(activeChip){ activeChip.classList.remove('on'); activeChip=null; } applyFilter(e.target.value); });
+})();
+</script>
+</body>
+</html>
