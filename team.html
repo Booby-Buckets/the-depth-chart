@@ -5163,6 +5163,28 @@ function onRosterSeason(v){
 // Try mascot/full/word-prefixes as EXACT matches, then wildcards LONGEST-first —
 // "St. John's*" must hit "St. John's (NY)" before a bare "St.*" could grab
 // St. Thomas / St. Bonaventure. Single-word wildcards only for single-word names.
+// Modern abbreviation → formal school name used by player_history / bbref_seasons.
+// Each formal value was verified to exist in player_history. Keyed by lowercased
+// team name or mascot; used only as a fallback candidate in _resolvePhTeamKey.
+const PH_FORMAL_NAME={
+  'byu':'Brigham Young',
+  'uconn':'Connecticut',
+  'smu':'Southern Methodist',
+  'vcu':'Virginia Commonwealth',
+  'ole miss':'Mississippi',
+  'pitt':'Pittsburgh',
+  'usc':'Southern California',
+  'umass':'Massachusetts',
+  'unlv':'Nevada-Las Vegas',
+  'lsu':'Louisiana State',
+  'loyola chicago':'Loyola (IL)',
+  'detroit':'Detroit Mercy',
+  'detroit mercy':'Detroit Mercy'
+};
+function _phFormalName(full, mascot){
+  const a=(full||'').toLowerCase().trim(), b=(mascot||'').toLowerCase().trim();
+  return PH_FORMAL_NAME[a] || PH_FORMAL_NAME[b] || null;
+}
 async function _resolvePhTeamKey(){
   if(teamT._phKey!==undefined) return teamT._phKey;
   const full=(teamT.name||''), mascot=_teamMascot(), words=full.split(/\s+/).filter(Boolean);
@@ -5170,6 +5192,13 @@ async function _resolvePhTeamKey(){
   if(mascot) cands.push(mascot);
   if(full && !cands.includes(full)) cands.push(full);
   for(let take=words.length-1; take>=1; take--){ const c=words.slice(0,take).join(' '); if(!cands.includes(c)) cands.push(c); }
+  // Historical tables (player_history / bbref_seasons) key some programs by their
+  // formal school name while the site uses the modern abbreviation, so exact/ilike
+  // probes miss (e.g. "BYU" → "Brigham Young"). Add the formal name as a fallback
+  // candidate — only reached if the normal probes above return nothing, so it can't
+  // break teams that already resolve correctly.
+  const _phAlias=_phFormalName(full, mascot);
+  if(_phAlias && !cands.includes(_phAlias)) cands.push(_phAlias);
   const probe=async filter=>{
     const r=await fetch(`${SB_URL}/rest/v1/player_history?${filter}&select=team&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
     return r&&r[0]&&r[0].team||null;
