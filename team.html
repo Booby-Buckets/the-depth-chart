@@ -5166,25 +5166,50 @@ function onRosterSeason(v){
 // Modern abbreviation → formal school name used by player_history / bbref_seasons.
 // Each formal value was verified to exist in player_history. Keyed by lowercased
 // team name or mascot; used only as a fallback candidate in _resolvePhTeamKey.
+// Keyed by the lowercased site team name (== teamT.name). Every value was
+// verified to exist in player_history. Discovered via a full 365-team sweep of
+// which programs _resolvePhTeamKey() could not resolve.
 const PH_FORMAL_NAME={
   'byu':'Brigham Young',
   'uconn':'Connecticut',
-  'smu':'Southern Methodist',
-  'vcu':'Virginia Commonwealth',
-  'ole miss':'Mississippi',
-  'pitt':'Pittsburgh',
-  'usc':'Southern California',
-  'umass':'Massachusetts',
-  'unlv':'Nevada-Las Vegas',
   'lsu':'Louisiana State',
-  'loyola chicago':'Loyola (IL)',
-  'detroit':'Detroit Mercy',
-  'detroit mercy':'Detroit Mercy'
+  'usc':'Southern California',
+  'smu':'Southern Methodist',
+  'ole miss':'Mississippi',
+  'tcu':'Texas Christian',
+  'nc-state':'NC State',
+  'vcu rams':'Virginia Commonwealth',
+  'unlv rebels':'Nevada-Las Vegas',
+  "hawai'i rainbow warriors":'Hawaii',
+  'st. thomas-minnesota tommies':'St. Thomas',
+  'uic flames':'Illinois-Chicago',
+  'ut rio grande valley vaqueros':'Texas-Rio Grande Valley',
+  'charleston cougars':'College of Charleston',
+  'queens university royals':'Queens (NC)',
+  'umbc retrievers':'Maryland-Baltimore County',
+  'san josé state spartans':'San Jose State',
+  'app state mountaineers':'Appalachian State',
+  'ut martin skyhawks':'Tennessee-Martin',
+  'loyola chicago ramblers':'Loyola (IL)',
+  'nicholls colonels':'Nicholls State',
+  'se louisiana lions':'Southeastern Louisiana',
+  'umass lowell river hawks':'Massachusetts-Lowell',
+  'loyola maryland greyhounds':'Loyola (MD)',
+  'ualbany great danes':'Albany (NY)',
+  'fairleigh dickinson knights':'FDU',
+  'ul monroe warhawks':'Louisiana-Monroe'
 };
 function _phFormalName(full, mascot){
   const a=(full||'').toLowerCase().trim(), b=(mascot||'').toLowerCase().trim();
   return PH_FORMAL_NAME[a] || PH_FORMAL_NAME[b] || null;
 }
+// Programs with no player_history rows at all but that DO exist in bbref_seasons
+// under a slug that isn't derivable from the site name (e.g. IU Indianapolis,
+// formerly IUPUI, is stored as school "IU Indy" / slug "iupui"). Lets the bbref
+// fallback in loadHistoricRoster resolve them even when _resolvePhTeamKey is null.
+const PH_FORMAL_SLUG={
+  'iu indianapolis jaguars':'iupui'
+};
 async function _resolvePhTeamKey(){
   if(teamT._phKey!==undefined) return teamT._phKey;
   const full=(teamT.name||''), mascot=_teamMascot(), words=full.split(/\s+/).filter(Boolean);
@@ -5220,10 +5245,15 @@ async function loadHistoricRoster(yr){
   // player_history has season gaps (e.g. St. John's 2025-26 never scraped) —
   // build the roster straight from authoritative bbref_seasons via the indexed
   // slug, derived from the resolved name ("St. John's (NY)" → "st-johns-ny").
-  if((!rows||!rows.length) && key){
-    const slug=key.toLowerCase().replace(/[.'()&]/g,'').trim().replace(/\s+/g,'-');
-    const bb=await fetch(`${SB_URL}/rest/v1/bbref_seasons?school_slug=eq.${encodeURIComponent(slug)}&season_year=eq.${yr}&select=player,pos,height,class,tdc_grade,espn_id,pergame`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    if(bb&&bb.length) rows=bb.map(b=>_bbrefToHistRow(b, key));
+  if(!rows||!rows.length){
+    // slug from the resolved player_history key, or a direct name→slug alias for
+    // bbref-only programs that have no player_history rows to resolve against.
+    const slug = key ? key.toLowerCase().replace(/[.'()&]/g,'').trim().replace(/\s+/g,'-')
+                     : (PH_FORMAL_SLUG[(teamT.name||'').toLowerCase().trim()] || null);
+    if(slug){
+      const bb=await fetch(`${SB_URL}/rest/v1/bbref_seasons?school_slug=eq.${encodeURIComponent(slug)}&season_year=eq.${yr}&select=player,pos,height,class,tdc_grade,espn_id,pergame`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+      if(bb&&bb.length) rows=bb.map(b=>_bbrefToHistRow(b, key||teamT.name||''));
+    }
   }
   // pre-2012 (no season-stat rows) — build the roster from box scores instead
   if(!rows||!rows.length) rows=await rosterFromBox(yr, mascot);
