@@ -89,15 +89,18 @@
       var vol    = _clamp01((tpa - 2) / 4);     // enough 3PA that the % gain moves scoring
       shootUp = youth * (ftGate * room * vol) * 7;
     }
-    // (b) recruiting pedigree
+    // (b) recruiting pedigree — a modest benefit-of-the-doubt for a young, highly
+    // touted recruit whose production trails his pedigree. Deliberately small: the
+    // grade should be driven by projected PRODUCTION/ROLE, not by recruiting rank.
+    // (Was up to ~+6, which over-inflated former 5★s who never produced.)
     var ped = PED[row.espn_id]; if(ped == null) ped = _num(row.recruit_ped);
     var pedUp = 0;
     if(ped > 0){
-      var target = 80 + ped * 10;               // 5★(1.0)→90, high-4★(.85)→88.5
+      var target = 80 + ped * 8;                // 5★(1.0)→88, high-4★(.85)→86.8
       var gap = _clamp01((target - g) / 12);    // how far production sits below pedigree
-      pedUp = youth * ped * gap * 7;            // up to ~+6 for a young elite recruit underproducing
+      pedUp = youth * ped * gap * 3.5;          // up to ~+3 for a young elite recruit underproducing
     }
-    return Math.min(7, shootUp + pedUp);        // combined upside bounded
+    return Math.min(4, shootUp + pedUp);        // combined upside bounded (was 7)
   }
   // The projected grade. Anchors on the demonstrated grade, moves it by projected
   // ROLE change, then adds bounded young-player UPSIDE. Freshmen with no played
