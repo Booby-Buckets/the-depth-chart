@@ -281,38 +281,44 @@
     });
   }
 
-  function run(){ addLogos(); applyHeat(); addTrend(); wireExpand(); }
+  function run(){ addLogos(); applyHeat(); addTrend(); wireExpand(); buildRail(); }
 
-  /* ---- right rail: model meta · movers · coin flips · conference strength ---- */
-  var CABBR={'Mountain West Conference':'MWC','Atlantic 10 Conference':'A-10','American Conference':'AAC','West Coast Conference':'WCC','Missouri Valley Conference':'MVC','Coastal Athletic Association':'CAA','Big Sky Conference':'BSky','Southern Conference':'SoCon','Sun Belt Conference':'SBC','Conference USA':'CUSA','Ohio Valley Conference':'OVC','Big-East':'BE','BIG-12':'B12'};
+  /* ---- right rail: rebuilds to match the selected season ---- */
+  var CABBR={
+    // full names (team_seasons)
+    'Southeastern Conference':'SEC','Atlantic Coast Conference':'ACC','Big Ten Conference':'B10','Big 12 Conference':'B12','Big East Conference':'BE',
+    'Mountain West Conference':'MWC','American Athletic Conference':'AAC','American Conference':'AAC','West Coast Conference':'WCC','Atlantic 10 Conference':'A-10',
+    'Missouri Valley Conference':'MVC','Coastal Athletic Association':'CAA','Colonial Athletic Association':'CAA','Big Sky Conference':'BSky','Southern Conference':'SoCon',
+    'Sun Belt Conference':'SBC','Conference USA':'CUSA','Ohio Valley Conference':'OVC','Horizon League':'Horz','Ivy League':'Ivy','Metro Atlantic Athletic Conference':'MAAC',
+    'Mid-American Conference':'MAC','Mid-Eastern Athletic Conference':'MEAC','Northeast Conference':'NEC','Patriot League':'Pat','Southland Conference':'SLC',
+    'Southwestern Athletic Conference':'SWAC','Summit League':'Summit','America East Conference':'AE','Big West Conference':'BW','Big South Conference':'BSth',
+    'Atlantic Sun Conference':'ASUN','United Athletic Conference':'UAC','Western Athletic Conference':'WAC','Pac-12 Conference':'Pac12','Pacific-12 Conference':'Pac12',
+    // short forms (projection TDC_RATINGS)
+    'BIG-12':'B12','Big-East':'BE'
+  };
   function shortConf(c){ return CABBR[c]||c; }
-  function buildRail(){
-    var sec=document.querySelector('.table-section'); if(!sec||sec.dataset.rail) return;
-    if(!window.TDC_RATINGS) return;
+  function card(head,sub,body){ return '<div class="rl-card"><div class="rl-h">'+head+' <span>'+sub+'</span></div>'+body+'</div>'; }
+  function confBars(pairs){ var mx=Math.max.apply(null,pairs.map(function(x){return x.avg;}))||1;
+    return pairs.map(function(x){ return '<div class="rl-conf"><span class="rl-cl">'+shortConf(x.c)+'</span><span class="rl-bar"><i style="width:'+Math.max(6,x.avg/mx*100)+'%"></i></span><span class="rl-mono">'+x.avg.toFixed(1)+'</span></div>'; }).join(''); }
+  function moverRows(movers){ return movers.length?movers.map(function(m){ var up=m.delta>0; return '<div class="rl-row"><span>'+m.team+'</span><span class="rl-badge '+(up?'up':'dn')+'">'+(up?'▲ +':'▼ ')+m.delta+'</span></div>'; }).join(''):'<div class="rl-empty">—</div>'; }
+
+  function buildProjectionRail(finish){
+    if(!window.TDC_RATINGS){ finish(null); return; }
     window.TDC_RATINGS.get().then(function(d){
-      if(!d||!d.teams||sec.dataset.rail) return; sec.dataset.rail='1';
+      if(!d||!d.teams){ finish(null); return; }
       var teams=d.teams.slice().sort(function(a,b){return a.rank-b.rank;}), model=d.model||{};
-      // movers by prior-rank (prior is a prior rating; rank it)
       var byPrior=d.teams.slice().filter(function(t){return t.prior!=null;}).sort(function(a,b){return b.prior-a.prior;});
       var pr={}; byPrior.forEach(function(t,i){ pr[t.team]=i+1; });
       var movers=teams.filter(function(t){return t.rank<=140&&pr[t.team];}).map(function(t){return {team:t.team,delta:pr[t.team]-t.rank};})
         .sort(function(a,b){return Math.abs(b.delta)-Math.abs(a.delta);}).slice(0,5);
-      // coin flips among top teams
       var flips=[];
       try{ for(var i=0;i<26&&i+1<teams.length;i++){ var f=window.TDC_RATINGS.lineFor(teams[i],teams[i+1],'neutral');
         if(f&&Math.abs(f.probA-50)<=3.5) flips.push({a:teams[i].team,b:teams[i+1].team,p:f.probA.toFixed(1)}); }
         flips.sort(function(a,b){return Math.abs(a.p-50)-Math.abs(b.p-50);}); flips=flips.slice(0,4);
       }catch(e){}
-      // conference strength
       var bc={}; d.teams.forEach(function(t){ if(t.rating!=null){ (bc[t.conf]=bc[t.conf]||[]).push(t.rating); } });
-      var conf=Object.keys(bc).map(function(c){ return {c:c,avg:bc[c].reduce(function(a,b){return a+b;},0)/bc[c].length}; })
-        .sort(function(a,b){return b.avg-a.avg;}).slice(0,6);
-      var cmax=Math.max.apply(null,conf.map(function(x){return x.avg;}));
-
-      var moversH=movers.map(function(m){ var up=m.delta>0; return '<div class="rl-row"><span>'+m.team+'</span><span class="rl-badge '+(up?'up':'dn')+'">'+(up?'▲ +':'▼ ')+m.delta+'</span></div>'; }).join('');
-      var flipsH=flips.length?flips.map(function(f){ return '<div class="rl-row"><span>'+f.a+' / '+f.b+'</span><span class="rl-mono acc">'+f.p+'%</span></div>'; }).join('') : '<div class="rl-empty">—</div>';
-      var confH=conf.map(function(x){ return '<div class="rl-conf"><span class="rl-cl">'+shortConf(x.c)+'</span><span class="rl-bar"><i style="width:'+Math.max(6,x.avg/cmax*100)+'%"></i></span><span class="rl-mono">'+x.avg.toFixed(1)+'</span></div>'; }).join('');
-
+      var conf=Object.keys(bc).map(function(c){ return {c:c,avg:bc[c].reduce(function(a,b){return a+b;},0)/bc[c].length}; }).sort(function(a,b){return b.avg-a.avg;}).slice(0,6);
+      var flipsH=flips.length?flips.map(function(f){ return '<div class="rl-row"><span>'+f.a+' / '+f.b+'</span><span class="rl-mono acc">'+f.p+'%</span></div>'; }).join(''):'<div class="rl-empty">—</div>';
       var rail=document.createElement('aside'); rail.className='tdc-rail';
       rail.innerHTML=
         '<div class="rl-card rl-kstrip">'
@@ -321,16 +327,63 @@
           +'<div class="rl-k"><div class="rl-kl">Teams</div><div class="rl-kv">'+teams.length+'</div></div>'
           +'<div class="rl-k"><div class="rl-kl">Roster wt</div><div class="rl-kv">'+Math.round((model.blendRoster||.9)*100)+'%</div></div>'
         +'</div>'
-        +'<div class="rl-card"><div class="rl-h">Biggest movers <span>preseason → now</span></div>'+moversH+'</div>'
-        +'<div class="rl-card"><div class="rl-h">Coin flips <span>neutral · win %</span></div>'+flipsH+'</div>'
-        +'<div class="rl-card"><div class="rl-h">Conference strength <span>avg net</span></div>'+confH+'</div>';
-      sec.appendChild(rail);
-    }).catch(function(){});
+        +card('Biggest movers','preseason → now', moverRows(movers))
+        +card('Coin flips','neutral · win %', flipsH)
+        +card('Conference strength','avg net', confBars(conf));
+      finish(rail);
+    }).catch(function(){ finish(null); });
+  }
+
+  function buildSeasonRail(cs, finish){
+    function q(y){ return fetch(SB+'team_seasons?season_year=eq.'+y+'&select=team,conference,srs,ppg&order=srs.desc.nullslast',{headers:HD}).then(function(r){return r.ok?r.json():[];}).catch(function(){return[];}); }
+    Promise.all([q(cs), q(cs-1)]).then(function(res){
+      var cur=(res[0]||[]).filter(function(t){return t.srs!=null;});
+      if(!cur.length){ finish(null); return; }
+      cur.sort(function(a,b){return b.srs-a.srs;});
+      var currRank={}; cur.forEach(function(t,i){ currRank[t.team]=i+1; });
+      var prev=(res[1]||[]).filter(function(t){return t.srs!=null;}).sort(function(a,b){return b.srs-a.srs;});
+      var prevRank={}; prev.forEach(function(t,i){ prevRank[t.team]=i+1; });
+      var movers=cur.filter(function(t){return currRank[t.team]<=140 && prevRank[t.team];}).map(function(t){return {team:t.team, delta:prevRank[t.team]-currRank[t.team]};})
+        .sort(function(a,b){return Math.abs(b.delta)-Math.abs(a.delta);}).slice(0,5);
+      var bc={}; cur.forEach(function(t){ if(t.conference){ (bc[t.conference]=bc[t.conference]||[]).push(t.srs); } });
+      var conf=Object.keys(bc).map(function(c){ return {c:c,avg:bc[c].reduce(function(a,b){return a+b;},0)/bc[c].length}; }).sort(function(a,b){return b.avg-a.avg;}).slice(0,6);
+      var scorers=cur.filter(function(t){return t.ppg!=null;}).slice().sort(function(a,b){return b.ppg-a.ppg;}).slice(0,4);
+      var top=cur[0], t25=cur.slice(0,25), avg25=t25.reduce(function(s,t){return s+t.srs;},0)/t25.length, spread=cur[0].srs-cur[cur.length-1].srs;
+      var priorLbl=(cs-2)+'–'+(''+(cs-1)).slice(2);
+      var scorersH=scorers.length?scorers.map(function(t){ return '<div class="rl-row"><span>'+t.team+'</span><span class="rl-mono acc">'+t.ppg.toFixed(1)+'</span></div>'; }).join(''):'<div class="rl-empty">—</div>';
+      var rail=document.createElement('aside'); rail.className='tdc-rail';
+      rail.innerHTML=
+        '<div class="rl-card rl-kstrip">'
+          +'<div class="rl-k"><div class="rl-kl">Teams</div><div class="rl-kv">'+cur.length+'</div></div>'
+          +'<div class="rl-k"><div class="rl-kl">Top NET</div><div class="rl-kv">+'+top.srs.toFixed(1)+'</div></div>'
+          +'<div class="rl-k"><div class="rl-kl">T25 avg</div><div class="rl-kv">+'+avg25.toFixed(1)+'</div></div>'
+          +'<div class="rl-k"><div class="rl-kl">Spread</div><div class="rl-kv">'+spread.toFixed(0)+'</div></div>'
+        +'</div>'
+        +card('Biggest movers','vs '+priorLbl, moverRows(movers))
+        +card('Points per game','top 4', scorersH)
+        +card('Conference strength','avg net', confBars(conf));
+      finish(rail);
+    }).catch(function(){ finish(null); });
+  }
+
+  function buildRail(){
+    var sec=document.querySelector('.table-section'); if(!sec) return;
+    var cs=curSeason();
+    if(sec.dataset.railSeason===String(cs) || sec.dataset.railBuilding===String(cs)) return;
+    sec.dataset.railBuilding=String(cs);
+    var finish=function(rail){
+      sec.dataset.railBuilding='';
+      if(curSeason()!==cs){ buildRail(); return; }              // season changed mid-build → rebuild
+      var old=sec.querySelector('.tdc-rail'); if(old) old.remove();
+      if(rail && rail.children.length) sec.appendChild(rail);
+      sec.dataset.railSeason=String(cs);
+    };
+    if(cs>=2027) buildProjectionRail(finish);
+    else buildSeasonRail(cs, finish);
   }
 
   function boot(){
     run();
-    buildRail();
     var list=document.getElementById('rankingsList');
     if(list){
       var t=null;
