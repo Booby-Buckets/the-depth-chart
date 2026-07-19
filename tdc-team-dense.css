@@ -23,45 +23,41 @@
 }
 .hero-content-wrap{ padding:14px 22px 0 !important; max-width:1280px; margin:0 auto; }
 
-/* top row: logo · identity · inline metrics · grade tiles */
-.hero-top{ display:flex !important; align-items:center !important; gap:16px !important; flex-wrap:wrap !important; justify-content:flex-start !important; margin-bottom:0 !important; padding-bottom:14px; }
-.hero-dlogo{ width:56px; height:56px; object-fit:contain; flex:0 0 auto; filter:drop-shadow(0 3px 8px rgba(0,0,0,.4)); }
-.hero-id{ flex:0 1 auto; min-width:0; }
+/* top row: logo · identity · grade tiles (metrics moved to the ribbon) */
+.hero-top{ display:flex !important; align-items:center !important; gap:18px !important; flex-wrap:wrap !important; justify-content:flex-start !important; margin-bottom:0 !important; padding:18px 0 16px; }
+.hero-dlogo{ width:60px; height:60px; object-fit:contain; flex:0 0 auto; filter:drop-shadow(0 3px 8px rgba(0,0,0,.4)); }
+.hero-id{ flex:1 1 auto; min-width:0; }   /* push grade tiles to the far right */
 
 /* hero identity */
 .hero-conf{ font-size:11px !important; font-weight:700 !important; color:var(--tc-readable) !important; letter-spacing:.04em; margin-bottom:2px !important; }
 .hero-conf::before{ display:none !important; }
-.hero-name{ font-family:'Sora',sans-serif !important; font-weight:800 !important; font-size:30px !important; line-height:1.02 !important; letter-spacing:-.02em !important; margin:0 0 3px !important; }
+.hero-name{ font-family:'Sora',sans-serif !important; font-weight:800 !important; font-size:38px !important; line-height:1.0 !important; letter-spacing:-.02em !important; margin:1px 0 4px !important; }
 .hero-nickname{ font-size:12px !important; color:var(--text3) !important; margin-bottom:3px !important; }
 .hero-meta{ font-size:12px !important; color:var(--text2) !important; gap:10px !important; }
 .hero-meta a{ color:var(--mint) !important; }
 .hero-rank{ color:var(--tc-readable) !important; font-weight:700; }
 
-/* inline metric cluster (NET / Rank / Seed) — the "command bar" piece */
-.hero-metrics{ display:flex; align-items:center; gap:18px; margin-left:20px; padding-left:20px; border-left:1px solid var(--border); flex:0 0 auto; }
-.hero-metrics:empty{ display:none; }
-.hm{ text-align:left; }
-.hm-v{ font-family:'Sora',sans-serif; font-weight:800; font-size:21px; line-height:1; font-variant-numeric:tabular-nums; }
-.hm-v.pos{ color:var(--mint); } .hm-v.neg{ color:var(--red); }
-.hm-l{ font-size:9px; color:var(--text3); font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-top:4px; }
-.hm.seed .hm-v{ display:flex; align-items:center; gap:8px; }
-.hm.seed .hm-l{ color:var(--mint); }
-.hm-seedbadge{ width:27px; height:27px; border-radius:8px; background:linear-gradient(135deg,var(--mint),var(--blue)); color:#04120d; display:flex; align-items:center; justify-content:center; font-family:'Sora',sans-serif; font-weight:800; font-size:13px; flex:0 0 auto; }
-.hm-seedbadge.bubble{ background:linear-gradient(135deg,var(--amber),#e08a1e); }
-.hm-seedbadge.out{ background:rgba(130,150,200,.16); color:var(--text3); }
+/* metrics now live in the full-width ribbon below, not inline by the name */
+.hero-metrics{ display:none !important; }
 
-/* slim secondary stat ribbon */
-.hero-ribbon{ display:flex; flex-wrap:wrap; border-top:1px solid var(--border); background:rgba(9,12,20,.28); margin:0 -22px; padding:0 22px; }
+/* full-width stat ribbon — evenly-spread cells; NET + seed carry the headline
+   numbers (seed cell highlighted), followed by context. Season-aware via JS. */
+.hero-ribbon{ display:flex; border-top:1px solid var(--border); background:rgba(9,12,20,.34); margin:0 -22px; padding:0; }
 .hero-ribbon:empty{ display:none; }
-.hrb{ padding:9px 22px 9px 0; margin-right:22px; border-right:1px solid var(--border); }
-.hrb:last-child{ border-right:none; margin-right:0; }
-.hrb-v{ font-family:var(--mono) !important; font-weight:700; font-size:14px; }
-.hrb-l{ font-size:9px; color:var(--text3); font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-top:2px; }
+.hrb{ flex:1 1 0; min-width:0; padding:13px 22px; border-right:1px solid var(--border); }
+.hrb:last-child{ border-right:none; }
+.hrb-v{ font-family:'Sora',sans-serif !important; font-weight:800; font-size:21px; line-height:1; font-variant-numeric:tabular-nums; display:flex; align-items:center; gap:9px; white-space:nowrap; }
+.hrb-l{ font-size:10px; color:var(--text3); font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-top:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hrb.net .hrb-v{ color:var(--mint); }
+.hrb.seed{ background:linear-gradient(180deg,rgba(45,224,166,.10),transparent); }
+.hrb.seed .hrb-l{ color:var(--mint); }
+.hrb-seedbadge{ width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,var(--mint),var(--blue)); color:#04120d; display:flex; align-items:center; justify-content:center; font-family:'Sora',sans-serif; font-weight:800; font-size:14px; flex:0 0 auto; }
+.hrb-seedbadge.bubble{ background:linear-gradient(135deg,var(--amber),#e08a1e); }
 
 /* grade strip → modern grade tiles (colored by grade + accent bar; year-aware via JS) */
-.hero-grades{ display:flex !important; gap:8px !important; background:var(--bg2) !important; border:1px solid var(--border) !important; border-radius:14px !important; padding:8px !important; overflow:visible !important; }
-.hero-grade{ width:86px; display:flex !important; flex-direction:column; padding:8px 11px 11px !important; border-radius:10px !important; background:rgba(130,150,200,.05) !important; position:relative; overflow:hidden; text-align:left !important; }
-.hero-grade-val{ font-family:'Sora',sans-serif !important; font-weight:800 !important; font-size:22px !important; line-height:1.05 !important; font-variant-numeric:tabular-nums; }
+.hero-grades{ display:flex !important; gap:9px !important; background:var(--bg2) !important; border:1px solid var(--border) !important; border-radius:14px !important; padding:9px !important; overflow:visible !important; flex:0 0 auto; }
+.hero-grade{ width:90px; display:flex !important; flex-direction:column; padding:9px 13px 12px !important; border-radius:10px !important; background:rgba(130,150,200,.05) !important; position:relative; overflow:hidden; text-align:left !important; }
+.hero-grade-val{ font-family:'Sora',sans-serif !important; font-weight:800 !important; font-size:23px !important; line-height:1.05 !important; font-variant-numeric:tabular-nums; }
 .hero-grade-label{ font-size:9.5px !important; font-weight:700 !important; letter-spacing:.06em; text-transform:uppercase; color:var(--text3) !important; margin-top:3px !important; }
 .hero-grade::after{ content:''; position:absolute; left:0; bottom:0; height:3px; border-radius:0 2px 2px 0; width:var(--hgf,60%); background:var(--hgc,var(--mint)); transition:width .3s; }
 
@@ -140,10 +136,10 @@
   .hero-dlogo{ width:44px; height:44px; }
   .hero-id{ flex:1 1 auto; }
   .hero-name{ font-size:25px !important; }
-  .hero-metrics{ flex:1 1 100%; order:5; margin-left:0; padding-left:0; border-left:none; gap:22px; justify-content:flex-start; }
   .hero-grades{ flex:1 1 100%; order:6; margin-left:0 !important; flex-wrap:nowrap !important; overflow-x:auto; padding:7px !important; }
   .hero-grades::-webkit-scrollbar{ display:none; }
   .hero-grade{ flex:0 0 auto !important; width:78px !important; }
-  .hero-ribbon{ margin:0 -14px; padding:0 14px; }
-  .hrb{ padding:8px 14px 8px 0; margin-right:14px; }
+  .hero-ribbon{ flex-wrap:wrap; margin:0 -14px; }
+  .hrb{ flex:1 1 40%; padding:10px 14px; }
+  .hrb-v{ font-size:18px; }
 }

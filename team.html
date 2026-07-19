@@ -876,7 +876,7 @@
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index cover -->
   <script>try{document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
   <link rel="stylesheet" href="tdc-dense.css?v=7"/>
-  <link rel="stylesheet" href="tdc-team-dense.css?v=7"/>
+  <link rel="stylesheet" href="tdc-team-dense.css?v=8"/>
 </head>
 <body data-anim-auto>
 <div class="tdc-bg" aria-hidden="true">
@@ -1554,9 +1554,10 @@ async function _ratingsRow(t){
     return D.teams.find(r=>(r.team||'').toLowerCase()===nm || (r.full||'').toLowerCase()===nm || (gk&&(r.full||'').toLowerCase()===gk)) || null;
   }catch(e){ return null; }
 }
-function _metricHTML(v,cls,lbl){ return `<div class="hm"><div class="hm-v ${cls||''}">${v}</div><div class="hm-l">${lbl}</div></div>`; }
-function _seedHTML(badge,cls,val,lbl){ return `<div class="hm seed"><div class="hm-v"><span class="hm-seedbadge ${cls||''}">${badge}</span>${val}</div><div class="hm-l">${lbl}</div></div>`; }
-function _ribHTML(cells){ return cells.filter(c=>c&&c.v!=null&&c.v!==''&&c.v!=='—').map(c=>`<div class="hrb"><div class="hrb-v" ${c.col?`style="color:${c.col}"`:''}>${c.v}</div><div class="hrb-l">${c.l}</div></div>`).join(''); }
+// ribbon cell: {v,l,col?,cls?,badge?,badgeCls?} — badge renders the gradient seed chip
+function _ribHTML(cells){ return cells.filter(c=>c&&c.v!=null&&c.v!==''&&c.v!=='—').map(c=>
+  `<div class="hrb ${c.cls||''}"><div class="hrb-v" ${c.col?`style="color:${c.col}"`:''}>${c.badge?`<span class="hrb-seedbadge ${c.badgeCls||''}">${c.badge}</span>`:''}${c.v}</div><div class="hrb-l">${c.l}</div></div>`
+).join(''); }
 
 let _heroBarGen=0;
 async function renderHeroBar(yr, teamObj){
@@ -1573,15 +1574,7 @@ async function renderHeroBar(yr, teamObj){
     if(stale()||_rosterSeason<2027) return;   // user switched away mid-fetch
     const rank=(rr&&rr.rank)||t.tdc_rank||null;
     const net=rr?_fmtNet(rr.rating):{s:'—',cls:''};
-    let seedNum='';
-    if(rank && rank<=64){ const s=_seedFromRank(rank); seedNum=_seedHTML(String(s),'', 'No. '+s,'Proj seed'); }
-    else if(rank && rank<=76){ seedNum=_seedHTML('B','bubble','Bubble','Proj seed'); }
-    mEl.innerHTML = _metricHTML(net.s,net.cls,'Proj NET')
-      + (rank?_metricHTML('#'+rank,'','Proj rank'):'')
-      + seedNum;
-    // ribbon: conference + last completed season reference (record + result + tier)
-    const _tn=t.team_tier!=null?parseInt((''+t.team_tier).replace(/\D/g,'')):null;
-    const tierTxt=_tn?('Tier '+_tn):'';
+    // last completed season reference (record + result) fills out the ribbon
     let last=_heroBarCache.last;
     if(last===undefined){
       try{ const gk=await _resolveGamesKey().catch(()=>null); const nm=gk||t.name;
@@ -1590,17 +1583,23 @@ async function renderHeroBar(yr, teamObj){
       }catch(e){ last=_heroBarCache.last=null; }
     }
     if(stale()||_rosterSeason<2027) return;
+    // everything lives in the wide ribbon now: NET · seed · rank · conf · last-season · last result
+    let seedCell=null;
+    if(rank && rank<=64){ const s=_seedFromRank(rank); seedCell={v:'No. '+s,l:'Projected seed',cls:'seed',badge:String(s)}; }
+    else if(rank && rank<=76){ seedCell={v:'Bubble',l:'Projected seed',cls:'seed',badge:'B',badgeCls:'bubble'}; }
     rEl.innerHTML=_ribHTML([
+      {v:net.s,l:'Net rating',col:net.cls==='pos'?'var(--mint)':(net.cls==='neg'?'var(--red)':'')},
+      seedCell,
+      rank?{v:'#'+rank,l:'Proj rank'}:null,
       {v:t.conf||t.conference,l:'Conference'},
       last?{v:`${last.wins}–${last.losses}`,l:`${last.season_year-1}–${(''+last.season_year).slice(2)}`}:null,
       last&&last.ncaa_result?{v:last.ncaa_result,l:'Last result',col:'var(--amber)'}:null,
-      tierTxt?{v:tierTxt,l:'Program tier'}:null,
     ]);
     if(gEl){ gEl.classList.remove('hist-hidden'); gEl.innerHTML=heroGradesProjectedHTML(t); syncCoachGrade(); }
     return;
   }
   // ── Past season ──
-  mEl.innerHTML='<div class="hm"><div class="hm-v">…</div></div>'; rEl.innerHTML='';
+  rEl.innerHTML='';
   let data=_heroBarCache[tok];
   if(!data){
     try{
@@ -1613,27 +1612,22 @@ async function renderHeroBar(yr, teamObj){
   }
   if(stale()||_rosterSeason!==yr) return;   // switched away
   const row=data.row, field=data.field||[];
-  if(!row){ mEl.innerHTML=''; rEl.innerHTML=''; if(gEl) gEl.classList.add('hist-hidden'); return; }
+  if(!row){ rEl.innerHTML=''; if(gEl) gEl.classList.add('hist-hidden'); return; }
   // national percentile for a stat (higher better unless inverted)
   const pctOf=(key,inv)=>{ const v=parseFloat(row[key]); if(isNaN(v)||!field.length) return null; let better=0,n=0;
     field.forEach(r=>{ const x=parseFloat(r[key]); if(isNaN(x)) return; n++; if(inv?x<v:x>v) better++; }); return n?(1-better/n):null; };
   const rank=(function(){ const f=field.filter(r=>r.srs!=null).sort((a,b)=>parseFloat(b.srs)-parseFloat(a.srs));
     const i=f.findIndex(r=>(r.team||'')===row.team); return i>=0?i+1:null; })();
   const net=_fmtNet(row.srs);
-  // metrics: NET / final rank / NCAA seed
-  let seedCell='';
-  if(row.ncaa_seed) seedCell=_seedHTML(String(row.ncaa_seed),'', 'No. '+row.ncaa_seed,'NCAA seed');
-  mEl.innerHTML=_metricHTML(net.s,net.cls,'NET')
-    + (rank?_metricHTML('#'+rank,'','Final rank'):'')
-    + seedCell;
-  // ribbon: record / conf / result / ppg / opp
+  // wide ribbon: NET · NCAA seed · final rank · record · conf · result
   const confRec=(row.conf_wins!=null&&row.conf_losses!=null)?`${row.conf_wins}–${row.conf_losses}`:'';
   rEl.innerHTML=_ribHTML([
+    {v:net.s,l:'Net rating',col:net.cls==='pos'?'var(--mint)':(net.cls==='neg'?'var(--red)':'')},
+    row.ncaa_seed?{v:'No. '+row.ncaa_seed,l:'NCAA seed',cls:'seed',badge:String(row.ncaa_seed)}:null,
+    rank?{v:'#'+rank,l:'Final rank'}:null,
     {v:`${row.wins}–${row.losses}`,l:'Record'},
     confRec?{v:confRec,l:(teamT.conf||teamT.conference||'Conf')}:null,
     row.ncaa_result?{v:row.ncaa_result,l:'Result',col:'var(--amber)'}:null,
-    {v:row.ppg!=null?(Math.round(row.ppg*10)/10).toFixed(1):null,l:'PPG'},
-    {v:row.oppg!=null?(Math.round(row.oppg*10)/10).toFixed(1):null,l:'Opp PPG'},
   ]);
   // past-season grade tiles: Overall / NET / Offense / Defense from percentiles
   if(gEl){
