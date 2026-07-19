@@ -8,26 +8,40 @@
 function r1t(v){ return v!=null ? Math.round((v+Number.EPSILON)*10)/10 : null; }
 // computePlayerMpg — mirrors buildTeamProjections MPG steps exactly
 // Used by player page; team page uses targetMpg directly from buildTeamProjections
+// Forward-looking grade that DRIVES the minute allocation — the SAME projected OVR
+// shown on the depth chart / player card / stats (role + pedigree adjusted), NOT the
+// demonstrated tdc_grade. Ranking by the demonstrated grade buried projected-up
+// starters: a former 5★ soph whose grade jumps 80→88 as the projected PG1 sorted ~7th
+// by his old 80 and got bench minutes, contradicting his OVR and the depth chart.
+// Priority: stamped editor/projected grade → computed projgrade → demonstrated grade.
+function _projGradeOf(r){
+  if(!r) return 70;
+  var v = (r._projGrade!=null && !isNaN(r._projGrade)) ? parseFloat(r._projGrade)
+        : (window.TDCProjGrade ? window.TDCProjGrade.ovr(r) : NaN);
+  if(!isFinite(v)) v = parseFloat(r.tdc_grade);
+  return isFinite(v) ? v : 70;
+}
 function computePlayerMpg(p, teamRoster){
+  const pg = _projGradeOf;
   const roster=(Array.isArray(teamRoster)?teamRoster:[]).filter(r=>r.name&&r.name!=='—')
-    // Rank by GRADE, not depth_order — the roster push scrambles depth_order (a 93 star
-    // can sit at slot 9), so slotting by it hands starter minutes to worse players. Grade
-    // rank keeps minutes consistent with the OVR and the depth chart.
-    .sort((a,b)=>((parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0))||((a.depth_order||99)-(b.depth_order||99)));
+    // Rank by the PROJECTED grade (the OVR actually displayed), not depth_order (which the
+    // roster push can scramble) nor the demonstrated grade (which buries projected-up
+    // starters). This keeps minutes consistent with the OVR and the depth chart.
+    .sort((a,b)=>((pg(b))-(pg(a)))||((a.depth_order||99)-(b.depth_order||99)));
   if(!roster.length){const d=p.depth_order||8;return d<=1?32:d<=2?30:d<=3?27:d<=4?25:d<=5?23:d===6?20:d===7?17:d===8?14:d===9?11:d===10?8:5;}
-  const grades=roster.map(r=>parseFloat(r.tdc_grade)||70);
+  const grades=roster.map(r=>pg(r));
   const teamGradeAvg=grades.reduce((a,b)=>a+b,0)/grades.length;
   const rosterSize=roster.length;
   let rotDepth=rosterSize;
   for(let i=2;i<roster.length-1;i++){
-    const g1=parseFloat(roster[i-1].tdc_grade)||70,g2=parseFloat(roster[i].tdc_grade)||70;
+    const g1=pg(roster[i-1]),g2=pg(roster[i]);
     if((g1-g2)>=9&&g2<=68){rotDepth=i;break;}
     if(g2<63&&i>=6){rotDepth=i;break;}
   }
   rotDepth=Math.max(7,Math.min(12,rotDepth));
   const mpgMap={};
   roster.forEach((r,i)=>{
-    const g=parseFloat(r.tdc_grade)||70,slot=i+1;
+    const g=pg(r),slot=i+1;
     let base;
     if(slot<=5){const gn=Math.max(-1,Math.min(1,(g-teamGradeAvg)/15));base=30.5+gn*3.5;}
     else if(slot===6)base=18;else if(slot===7)base=13;else if(slot===8)base=10;
@@ -55,7 +69,7 @@ function computePlayerMpg(p, teamRoster){
   for(let i=0;i<Math.min(roster.length-1,9);i++){
     const r1=roster[i],r2=roster[i+1];
     if(r1._pk2!==r2._pk2)continue;
-    const g1=parseFloat(r1.tdc_grade)||70,g2=parseFloat(r2.tdc_grade)||70,diff=g1-g2;
+    const g1=pg(r1),g2=pg(r2),diff=g1-g2;
     if(diff<=3){const c=mpgMap[r1.name]+mpgMap[r2.name];mpgMap[r1.name]=c*0.53;mpgMap[r2.name]=c*0.47;}
     else if(diff<=6){const c=mpgMap[r1.name]+mpgMap[r2.name];mpgMap[r1.name]=c*0.65;mpgMap[r2.name]=c*0.35;}
   }
@@ -67,7 +81,7 @@ function computePlayerMpg(p, teamRoster){
   for(let i=1;i<roster.length;i++){
     if(i <= 6) continue; // slots 1-7: each gets independent grade-based minutes
     const prev=roster[i-1], cur=roster[i];
-    const gPrev=parseFloat(prev.tdc_grade)||70, gCur=parseFloat(cur.tdc_grade)||70;
+    const gPrev=pg(prev), gCur=pg(cur);
     if(gCur - gPrev >= 6) continue;
     if(mpgMap[cur.name] > mpgMap[prev.name]) mpgMap[cur.name]=mpgMap[prev.name]*0.95;
   }
@@ -103,7 +117,7 @@ function computePlayerMpg(p, teamRoster){
     const rYr=(r.yr||r.class_year||'').toLowerCase();
     if(rYr.includes('fr.')||rYr.includes('r-fr')) return;
     if(r.hometown&&r.hometown.trim()) return;
-    const gradeFloor=parseFloat(r.tdc_grade)||70;
+    const gradeFloor=pg(r);
     const floorPct=gradeFloor>=90?0.95:gradeFloor>=83?0.91:0.88;
     const floor=rAMpg*floorPct;
     if((mpgMap[r.name]||0)<floor) mpgMap[r.name]=floor;

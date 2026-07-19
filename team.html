@@ -10,7 +10,7 @@
   <script src="tdc-nil.js?v=grade2"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js"></script>
-  <script src="tdc-proj.js?v=gradeslot"></script>
+  <script src="tdc-proj.js?v=projgrade1"></script>
   <script src="tdc-freshman.js?v=pub1"></script>
   <script src="tdc-ratings.js"></script>
   <script src="tdc-projgrade.js?v=3"></script>
@@ -6659,7 +6659,7 @@ function renderProjNatlChart(projected, color, rgb){
   function renderSpotlight(name){
     var host=document.getElementById('playerSpotlight'); if(!host) return;
     var s=spotData(name); if(!s) return;
-    var nm=s.name||name, grade=parseFloat(s.tdc_grade), hasG=isFinite(grade), espn=s.espn_id;
+    var nm=s.name||name, grade=parseFloat(_gdisp(s)), hasG=isFinite(grade), espn=s.espn_id;   // projected OVR (matches depth chart/table/player page), not raw tdc_grade
     var pos=(s.position||s.position2||'').toUpperCase(), arch=archetypeOf(s);
     var mpgTxt=(s.mpg!=null&&s.mpg!==''&&!isNaN(s.mpg))?f1(s.mpg)+' mpg':'';
     var bio=[(s.class_year||s.yr||''),s.height||'',(s.weight?s.weight+' lb':''),mpgTxt].filter(Boolean).join(' · ');
@@ -6709,7 +6709,7 @@ function renderProjNatlChart(projected, color, rgb){
   }
   function pickSpotlightDefault(){
     var m=window._depthRosterByName||{}, best=null, bg=-1;
-    Object.keys(m).forEach(function(k){var g=parseFloat(m[k].tdc_grade); if(isFinite(g)&&g>bg){bg=g;best=m[k];}});
+    Object.keys(m).forEach(function(k){var g=parseFloat(_gdisp(m[k])); if(isFinite(g)&&g>bg){bg=g;best=m[k];}});
     if(best){ window.__spotCur=null; renderSpotlight(best.name); }
     else { var host=document.getElementById('playerSpotlight'); if(host){host.style.display='none';host.innerHTML='';} }
   }
