@@ -188,7 +188,7 @@
     var box=document.createElement('div'); box.className='td-roster';
     box.innerHTML='<div class="td-title">Starting 5 <span class="td-hint">· sixth man</span></div><div class="td-players"><div class="td-loading">Loading roster…</div></div>';
     var url = season>=2027
-      ? 'players?team=eq.'+encodeURIComponent(short)+'&select=name,position,tdc_grade,height&order=depth_order.asc&limit=6'
+      ? 'players?team=eq.'+encodeURIComponent(short)+'&select=*&order=depth_order.asc&limit=6'   // full row so TDCProjGrade can compute the projected OVR
       : 'player_history?team=eq.'+encodeURIComponent(short)+'&season_year=eq.'+season+'&select=name,position,tdc_grade,mpg,height&order=mpg.desc.nullslast&limit=8';
     fetch(SB+url,{headers:HD}).then(function(r){return r.ok?r.json():[];}).then(function(rows){
       var el=box.querySelector('.td-players');
@@ -220,7 +220,9 @@
       }
       var ordered=starters.concat(sixth);
       el.innerHTML=ordered.map(function(p,i){
-        var g=p.tdc_grade||'—', six=(i===5), pos=six?sixthLbl:(labels[i]||'—');
+        // returners show the site-wide PROJECTED grade (TDCProjGrade), matching the team/player pages
+        var g=(season>=2027 && window.TDCProjGrade && window.TDCProjGrade.ovr) ? (window.TDCProjGrade.ovr(p)||p.tdc_grade||'—') : (p.tdc_grade||'—');
+        var six=(i===5), pos=six?sixthLbl:(labels[i]||'—');
         return '<div class="td-p"><span class="td-slot'+(six?' six':'')+'">'+(six?'6':(i+1))+'</span>'
           +'<span class="td-pos">'+pos+'</span>'
           +'<span class="td-name">'+p.name+'</span>'
