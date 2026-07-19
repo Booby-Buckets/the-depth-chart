@@ -873,6 +873,10 @@
   <script src="tdc-engine.js"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
+  <!-- Dense "spreadsheet" reskin (dark-first) — matches the index cover -->
+  <script>try{document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+  <link rel="stylesheet" href="tdc-dense.css?v=7"/>
+  <link rel="stylesheet" href="tdc-team-dense.css?v=7"/>
 </head>
 <body data-anim-auto>
 <div class="tdc-bg" aria-hidden="true">
@@ -926,7 +930,7 @@
   <div class="hero-color-line" id="heroLine"></div>
   <div class="hero-content-wrap">
   <div class="hero-top">
-    <div>
+    <div class="hero-id">
       <div class="hero-conf" id="heroConf"></div>
       <div class="hero-name" id="heroName">Loading…</div>
       <div class="hero-nickname" id="heroNick"></div>
@@ -936,8 +940,10 @@
         <span class="hero-rank" id="heroRank"></span>
       </div>
     </div>
+    <div class="hero-metrics" id="heroMetrics"></div>
     <div class="hero-grades" id="heroGrades"></div>
   </div>
+  <div class="hero-ribbon" id="heroRibbon"></div>
   <div class="hero-tabs">
     <button class="hero-tab active" onclick="switchTab('depth',this)">Depth Chart</button>
     <button class="hero-tab" onclick="switchTab('dna',this)">Team DNA</button>
@@ -1503,7 +1509,14 @@ function renderHero(t, color, rgb){
   if(starBadge){ starBadge.style.background = `rgba(${rgb},.15)`; starBadge.style.color = 'var(--tc-readable)'; }
   if(retBadge){  retBadge.style.background  = `rgba(${rgb},.15)`; retBadge.style.color  = 'var(--tc-readable)'; }
 
-  document.getElementById('heroGrades').innerHTML = [
+  renderHeroGrades(t);
+  renderHeroBar((typeof _rosterSeason!=='undefined'&&_rosterSeason)||2027, t);
+  syncCoachGrade();
+}
+
+// Projected-season grade tiles (Coach / Depth / Recruit / NIL / Tier).
+function heroGradesProjectedHTML(t){
+  return [
     {val: t.coach_grade  || '—', lbl:'Coach'},
     {val: t.depth_grade   || '—', lbl:'Depth'},
     {val: t.recruit_grade || '—', lbl:'Recruit'},
@@ -1514,7 +1527,123 @@ function renderHero(t, color, rgb){
       <div class="hero-grade-val ${gc(g.val)}">${g.val}</div>
       <div class="hero-grade-label">${g.lbl}</div>
     </div>`).join('');
-  syncCoachGrade();
+}
+
+// Renders the correct hero grade set for the viewed season into #heroGrades.
+// Projected (2027): Coach/Depth/Recruit/NIL/Tier. Past: Overall/NET/Off/Def
+// derived from that season's national percentile ranks (populated by renderHeroBar).
+function renderHeroGrades(t){
+  const host=document.getElementById('heroGrades'); if(!host) return;
+  const yr=(typeof _rosterSeason!=='undefined'&&_rosterSeason)||2027;
+  if(yr>=2027){ host.classList.remove('hist-hidden'); host.innerHTML=heroGradesProjectedHTML(t); }
+  // past-season tiles are written by renderHeroBar once its data resolves
+}
+
+// ── Hybrid hero bar: inline NET / Rank / Seed metrics + slim stat ribbon ──
+// Season-aware. 2027 uses projected rating/rank (TDC_RATINGS); past seasons use
+// that year's team_seasons row (srs, record, seed, result). Cached per season.
+const _heroBarCache={};
+function _fmtNet(v){ if(v==null||isNaN(v)) return {s:'—',cls:''}; const n=Math.round(parseFloat(v)*10)/10; return {s:(n>0?'+':'')+n.toFixed(1),cls:n>=0?'pos':'neg'}; }
+function _pctLetter(p){ // p in 0..1, higher = better
+  return p>=.97?'A+':p>=.90?'A':p>=.82?'A-':p>=.72?'B+':p>=.60?'B':p>=.45?'B-':p>=.30?'C+':p>=.18?'C':p>=.08?'C-':'D';
+}
+function _seedFromRank(rank){ return Math.max(1,Math.min(16,Math.ceil(rank/4))); }
+async function _ratingsRow(t){
+  try{ if(!window.TDC_RATINGS) return null; const D=await TDC_RATINGS.get(); if(!D||!D.teams) return null;
+    const nm=(t.name||'').toLowerCase(); const gk=(await _resolveGamesKey().catch(()=>null)||'').toLowerCase();
+    return D.teams.find(r=>(r.team||'').toLowerCase()===nm || (r.full||'').toLowerCase()===nm || (gk&&(r.full||'').toLowerCase()===gk)) || null;
+  }catch(e){ return null; }
+}
+function _metricHTML(v,cls,lbl){ return `<div class="hm"><div class="hm-v ${cls||''}">${v}</div><div class="hm-l">${lbl}</div></div>`; }
+function _seedHTML(badge,cls,val,lbl){ return `<div class="hm seed"><div class="hm-v"><span class="hm-seedbadge ${cls||''}">${badge}</span>${val}</div><div class="hm-l">${lbl}</div></div>`; }
+function _ribHTML(cells){ return cells.filter(c=>c&&c.v!=null&&c.v!==''&&c.v!=='—').map(c=>`<div class="hrb"><div class="hrb-v" ${c.col?`style="color:${c.col}"`:''}>${c.v}</div><div class="hrb-l">${c.l}</div></div>`).join(''); }
+
+let _heroBarGen=0;
+async function renderHeroBar(yr, teamObj){
+  const mEl=document.getElementById('heroMetrics'), rEl=document.getElementById('heroRibbon'), gEl=document.getElementById('heroGrades');
+  const t=teamObj||teamT;
+  if(!mEl||!rEl||!t||!t.name) return;
+  const tok='y'+yr;
+  const gen=++_heroBarGen;                 // newest call wins; stale async writes bail
+  const stale=()=>gen!==_heroBarGen;
+  if(yr>=2027){
+    // Projected: NET + rank from ratings model, seed from projected rank
+    mEl.innerHTML=''; rEl.innerHTML='';
+    const rr=await _ratingsRow(t);
+    if(stale()||_rosterSeason<2027) return;   // user switched away mid-fetch
+    const rank=(rr&&rr.rank)||t.tdc_rank||null;
+    const net=rr?_fmtNet(rr.rating):{s:'—',cls:''};
+    let seedNum='';
+    if(rank && rank<=64){ const s=_seedFromRank(rank); seedNum=_seedHTML(String(s),'', 'No. '+s,'Proj seed'); }
+    else if(rank && rank<=76){ seedNum=_seedHTML('B','bubble','Bubble','Proj seed'); }
+    mEl.innerHTML = _metricHTML(net.s,net.cls,'Proj NET')
+      + (rank?_metricHTML('#'+rank,'','Proj rank'):'')
+      + seedNum;
+    // ribbon: conference + last completed season reference (record + result + tier)
+    const _tn=t.team_tier!=null?parseInt((''+t.team_tier).replace(/\D/g,'')):null;
+    const tierTxt=_tn?('Tier '+_tn):'';
+    let last=_heroBarCache.last;
+    if(last===undefined){
+      try{ const gk=await _resolveGamesKey().catch(()=>null); const nm=gk||t.name;
+        const rows=await fetch(`${SB_URL}/rest/v1/team_seasons?team=eq.${encodeURIComponent(nm)}&select=season_year,wins,losses,ncaa_result&order=season_year.desc&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+        last=_heroBarCache.last=rows[0]||null;
+      }catch(e){ last=_heroBarCache.last=null; }
+    }
+    if(stale()||_rosterSeason<2027) return;
+    rEl.innerHTML=_ribHTML([
+      {v:t.conf||t.conference,l:'Conference'},
+      last?{v:`${last.wins}–${last.losses}`,l:`${last.season_year-1}–${(''+last.season_year).slice(2)}`}:null,
+      last&&last.ncaa_result?{v:last.ncaa_result,l:'Last result',col:'var(--amber)'}:null,
+      tierTxt?{v:tierTxt,l:'Program tier'}:null,
+    ]);
+    if(gEl){ gEl.classList.remove('hist-hidden'); gEl.innerHTML=heroGradesProjectedHTML(t); syncCoachGrade(); }
+    return;
+  }
+  // ── Past season ──
+  mEl.innerHTML='<div class="hm"><div class="hm-v">…</div></div>'; rEl.innerHTML='';
+  let data=_heroBarCache[tok];
+  if(!data){
+    try{
+      const sel='select=team,srs,wins,losses,conf_wins,conf_losses,ppg,oppg,ncaa_seed,ncaa_result';
+      const gk=await _resolveGamesKey().catch(()=>null); const nm=gk||teamT.name;
+      const row=await fetch(`${SB_URL}/rest/v1/team_seasons?season_year=eq.${yr}&team=eq.${encodeURIComponent(nm)}&${sel}&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+      const field=await fetch(`${SB_URL}/rest/v1/team_seasons?season_year=eq.${yr}&${sel}&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+      data=_heroBarCache[tok]={row:row[0]||null,field:field||[]};
+    }catch(e){ data=_heroBarCache[tok]={row:null,field:[]}; }
+  }
+  if(stale()||_rosterSeason!==yr) return;   // switched away
+  const row=data.row, field=data.field||[];
+  if(!row){ mEl.innerHTML=''; rEl.innerHTML=''; if(gEl) gEl.classList.add('hist-hidden'); return; }
+  // national percentile for a stat (higher better unless inverted)
+  const pctOf=(key,inv)=>{ const v=parseFloat(row[key]); if(isNaN(v)||!field.length) return null; let better=0,n=0;
+    field.forEach(r=>{ const x=parseFloat(r[key]); if(isNaN(x)) return; n++; if(inv?x<v:x>v) better++; }); return n?(1-better/n):null; };
+  const rank=(function(){ const f=field.filter(r=>r.srs!=null).sort((a,b)=>parseFloat(b.srs)-parseFloat(a.srs));
+    const i=f.findIndex(r=>(r.team||'')===row.team); return i>=0?i+1:null; })();
+  const net=_fmtNet(row.srs);
+  // metrics: NET / final rank / NCAA seed
+  let seedCell='';
+  if(row.ncaa_seed) seedCell=_seedHTML(String(row.ncaa_seed),'', 'No. '+row.ncaa_seed,'NCAA seed');
+  mEl.innerHTML=_metricHTML(net.s,net.cls,'NET')
+    + (rank?_metricHTML('#'+rank,'','Final rank'):'')
+    + seedCell;
+  // ribbon: record / conf / result / ppg / opp
+  const confRec=(row.conf_wins!=null&&row.conf_losses!=null)?`${row.conf_wins}–${row.conf_losses}`:'';
+  rEl.innerHTML=_ribHTML([
+    {v:`${row.wins}–${row.losses}`,l:'Record'},
+    confRec?{v:confRec,l:(teamT.conf||teamT.conference||'Conf')}:null,
+    row.ncaa_result?{v:row.ncaa_result,l:'Result',col:'var(--amber)'}:null,
+    {v:row.ppg!=null?(Math.round(row.ppg*10)/10).toFixed(1):null,l:'PPG'},
+    {v:row.oppg!=null?(Math.round(row.oppg*10)/10).toFixed(1):null,l:'Opp PPG'},
+  ]);
+  // past-season grade tiles: Overall / NET / Offense / Defense from percentiles
+  if(gEl){
+    const pNet=pctOf('srs'), pOff=pctOf('ppg'), pDef=pctOf('oppg',true);
+    const pOverall=pNet;
+    const tile=(lbl,p)=>{ if(p==null) return ''; const g=_pctLetter(p); return `<div class="hero-grade"><div class="hero-grade-val ${gc(g)}">${g}</div><div class="hero-grade-label">${lbl}</div></div>`; };
+    const html=[tile('Overall',pOverall),tile('NET',pNet),tile('Offense',pOff),tile('Defense',pDef)].join('');
+    if(html){ gEl.classList.remove('hist-hidden'); gEl.innerHTML=html; }
+    else gEl.classList.add('hist-hidden');
+  }
 }
 
 function calcGlobalPercentiles(players){
@@ -5167,22 +5296,20 @@ function onRosterSeason(v){
   window._teamCoachProfCache=undefined; syncCoachGrade();   // re-sync computed coach grade for this season's coach
   const sh=document.getElementById('depthSecHead');
   const live=document.querySelectorAll('.live-side'), awardsCard=document.getElementById('awardsCard'), statsCard=document.getElementById('seasonStatsCard');
-  // The Coach/Depth/Recruit/NIL/Tier grades only describe the 2026-27 projection,
-  // so hide them when viewing a past season.
-  const heroGrades=document.getElementById('heroGrades');
+  // The hero metrics/ribbon/grade tiles are season-aware (renderHeroBar owns them:
+  // projected tiles for 2027, NET/Off/Def tiles derived from that season otherwise).
   updateHeroRank(_rosterSeason);
+  renderHeroBar(_rosterSeason);
   if(_rosterSeason >= 2027){
     if(sh) sh.firstChild.textContent='Depth Chart ';
     live.forEach(c=>c.style.display='');
     if(awardsCard) awardsCard.style.display='none';
     if(statsCard) statsCard.style.display='none';
-    if(heroGrades) heroGrades.classList.remove('hist-hidden');
     if(teamT && teamPlayers){ renderHistoricRoster(teamPlayers, 2027, true); renderSeasonLosses(teamPlayers, 2027); }
     window._histRosterForCustomize=null; customizeForSeason();   // Customize back to the current roster
   } else {
     if(sh) sh.firstChild.textContent=`${rosterLbl(v)} Roster `;
     live.forEach(c=>c.style.display='none');
-    if(heroGrades) heroGrades.classList.add('hist-hidden');
     if(awardsCard){ awardsCard.style.display=''; document.getElementById('awardsBody').innerHTML='<div class="empty-note">Loading…</div>'; }
     if(statsCard){ statsCard.style.display=''; document.getElementById('seasonStatsBody').innerHTML='<div class="empty-note">Loading…</div>'; }
     loadHistoricRoster(_rosterSeason);
@@ -6643,5 +6770,6 @@ function renderProjNatlChart(projected, color, rgb){
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 })();
 </script>
+<script src="tdc-team-dense.js?v=3"></script>
 </body>
 </html>

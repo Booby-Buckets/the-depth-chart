@@ -1,0 +1,149 @@
+/* ============================================================
+   TDC TEAM DENSE — reskins the existing team page into the tight
+   dark "spreadsheet" style. Same layout & content, denser chrome.
+   Loaded after tdc-dense.css (base dark tokens/bg/nav/fonts).
+============================================================ */
+
+/* accent vars this overlay relies on (tdc-dense.css only defines --accent) */
+:root{ --mint:#2DE0A6; --blue:#5B8DEF; --violet:#8B7CFF; --amber:#FBBF24; --red:#F87171; }
+
+/* ============================================================
+   HYBRID HERO — team-color banner (idea 1) × inline analytics
+   command bar (idea 2). Full-bleed wash, identity + inline
+   NET/Rank/Seed metrics + grade tiles up top, slim stat ribbon
+   underneath, segmented pill tabs below. Season-aware via JS.
+============================================================ */
+.hero-orbs,.hero-color-line,.hero-orb-tc{ display:none !important; }
+.team-hero{
+  padding:0 !important; overflow:visible !important;
+  border-bottom:1px solid var(--border) !important;
+  background:
+    radial-gradient(130% 220% at 0% 0%, rgba(var(--tc-rgb),.30), transparent 55%),
+    linear-gradient(100deg, rgba(var(--tc-rgb),.16), var(--bg2) 70%) !important;
+}
+.hero-content-wrap{ padding:14px 22px 0 !important; max-width:1280px; margin:0 auto; }
+
+/* top row: logo · identity · inline metrics · grade tiles */
+.hero-top{ display:flex !important; align-items:center !important; gap:16px !important; flex-wrap:wrap !important; justify-content:flex-start !important; margin-bottom:0 !important; padding-bottom:14px; }
+.hero-dlogo{ width:56px; height:56px; object-fit:contain; flex:0 0 auto; filter:drop-shadow(0 3px 8px rgba(0,0,0,.4)); }
+.hero-id{ flex:0 1 auto; min-width:0; }
+
+/* hero identity */
+.hero-conf{ font-size:11px !important; font-weight:700 !important; color:var(--tc-readable) !important; letter-spacing:.04em; margin-bottom:2px !important; }
+.hero-conf::before{ display:none !important; }
+.hero-name{ font-family:'Sora',sans-serif !important; font-weight:800 !important; font-size:30px !important; line-height:1.02 !important; letter-spacing:-.02em !important; margin:0 0 3px !important; }
+.hero-nickname{ font-size:12px !important; color:var(--text3) !important; margin-bottom:3px !important; }
+.hero-meta{ font-size:12px !important; color:var(--text2) !important; gap:10px !important; }
+.hero-meta a{ color:var(--mint) !important; }
+.hero-rank{ color:var(--tc-readable) !important; font-weight:700; }
+
+/* inline metric cluster (NET / Rank / Seed) — the "command bar" piece */
+.hero-metrics{ display:flex; align-items:center; gap:18px; margin-left:20px; padding-left:20px; border-left:1px solid var(--border); flex:0 0 auto; }
+.hero-metrics:empty{ display:none; }
+.hm{ text-align:left; }
+.hm-v{ font-family:'Sora',sans-serif; font-weight:800; font-size:21px; line-height:1; font-variant-numeric:tabular-nums; }
+.hm-v.pos{ color:var(--mint); } .hm-v.neg{ color:var(--red); }
+.hm-l{ font-size:9px; color:var(--text3); font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-top:4px; }
+.hm.seed .hm-v{ display:flex; align-items:center; gap:8px; }
+.hm.seed .hm-l{ color:var(--mint); }
+.hm-seedbadge{ width:27px; height:27px; border-radius:8px; background:linear-gradient(135deg,var(--mint),var(--blue)); color:#04120d; display:flex; align-items:center; justify-content:center; font-family:'Sora',sans-serif; font-weight:800; font-size:13px; flex:0 0 auto; }
+.hm-seedbadge.bubble{ background:linear-gradient(135deg,var(--amber),#e08a1e); }
+.hm-seedbadge.out{ background:rgba(130,150,200,.16); color:var(--text3); }
+
+/* slim secondary stat ribbon */
+.hero-ribbon{ display:flex; flex-wrap:wrap; border-top:1px solid var(--border); background:rgba(9,12,20,.28); margin:0 -22px; padding:0 22px; }
+.hero-ribbon:empty{ display:none; }
+.hrb{ padding:9px 22px 9px 0; margin-right:22px; border-right:1px solid var(--border); }
+.hrb:last-child{ border-right:none; margin-right:0; }
+.hrb-v{ font-family:var(--mono) !important; font-weight:700; font-size:14px; }
+.hrb-l{ font-size:9px; color:var(--text3); font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-top:2px; }
+
+/* grade strip → modern grade tiles (colored by grade + accent bar; year-aware via JS) */
+.hero-grades{ display:flex !important; gap:8px !important; background:var(--bg2) !important; border:1px solid var(--border) !important; border-radius:14px !important; padding:8px !important; overflow:visible !important; }
+.hero-grade{ width:86px; display:flex !important; flex-direction:column; padding:8px 11px 11px !important; border-radius:10px !important; background:rgba(130,150,200,.05) !important; position:relative; overflow:hidden; text-align:left !important; }
+.hero-grade-val{ font-family:'Sora',sans-serif !important; font-weight:800 !important; font-size:22px !important; line-height:1.05 !important; font-variant-numeric:tabular-nums; }
+.hero-grade-label{ font-size:9.5px !important; font-weight:700 !important; letter-spacing:.06em; text-transform:uppercase; color:var(--text3) !important; margin-top:3px !important; }
+.hero-grade::after{ content:''; position:absolute; left:0; bottom:0; height:3px; border-radius:0 2px 2px 0; width:var(--hgf,60%); background:var(--hgc,var(--mint)); transition:width .3s; }
+
+/* tabs → modern segmented pills */
+.hero-tabs{ display:flex !important; gap:3px !important; background:var(--bg2) !important; border:1px solid var(--border) !important; border-radius:12px !important; padding:4px !important; border-top:none !important; margin-top:14px !important; }
+.hero-tab{ border:none !important; border-top:none !important; border-radius:9px !important; padding:8px 14px !important; font-size:12.5px !important; letter-spacing:0 !important; text-transform:none !important; color:var(--text2) !important; margin-top:0 !important; }
+.hero-tab:hover{ color:var(--text) !important; background:rgba(130,150,200,.06) !important; }
+.hero-tab.active{ background:linear-gradient(100deg,var(--mint),var(--blue)) !important; color:#04120d !important; border-top:none !important; }
+#followTeamBtn{ margin-left:auto !important; border:1px solid rgba(45,224,166,.4) !important; color:var(--mint) !important; background:rgba(45,224,166,.08) !important; border-radius:9px !important; }
+
+/* content width + tighten */
+.team-body,.content-wrap,main,#depthContent{ }
+/* featured player card — shrunk */
+.pspot{ padding:12px 16px !important; gap:14px !important; border-radius:14px !important; background:var(--bg2) !important; border:1px solid var(--border) !important; border-left:3px solid var(--mint) !important; box-shadow:0 12px 30px rgba(0,0,0,.38) !important; }
+.pspot-photo{ width:64px !important; height:64px !important; }
+.pspot-init{ font-family:'Sora',sans-serif !important; font-size:22px !important; }
+.pspot-badge{ background:var(--bg) !important; border-color:var(--border2) !important; font-family:var(--mono) !important; font-size:15px !important; bottom:-6px !important; padding:2px 9px !important; }
+.pspot-poswrap{ margin-bottom:3px !important; }
+.pspot-name{ font-family:'Sora',sans-serif !important; font-style:normal !important; font-size:19px !important; margin-bottom:4px !important; }
+.pspot-bio{ font-size:11.5px !important; }
+.pspot-skills{ gap:6px !important; } .pspot-skill{ font-size:11px !important; }
+.pspot-shield{ width:46px !important; height:54px !important; }
+.pspot-shield-n{ font-size:17px !important; padding-bottom:5px !important; }
+.pspot-badges{ padding:0 6px !important; gap:5px !important; } .pspot-badges-l{ font-size:8px !important; }
+.pspot-stats{ gap:7px 16px !important; }
+.pspot-stat-v{ font-family:var(--mono) !important; font-size:15px !important; }
+.pspot-stat-l{ font-size:8px !important; }
+
+/* section heads */
+.sec-head,.dc-section-head,[class*="section-head"]{ font-family:'Sora',sans-serif !important; }
+
+/* position columns → dense */
+.pos-col{ background:var(--bg2) !important; border:1px solid var(--border) !important; border-radius:10px !important; overflow:hidden; }
+.pos-col-head{ background:rgba(130,150,200,.06) !important; border-bottom:1px solid var(--border) !important; }
+.pos-col-label{ font-size:10px !important; letter-spacing:.08em; color:var(--text3) !important; }
+.dc-row,.dc-player-row{ border-bottom:1px solid rgba(130,150,200,.07) !important; }
+.dc-row-name{ font-size:12.5px !important; }
+.dc-row-grade,.dc-grade{ font-family:'Sora',sans-serif !important; font-weight:800 !important; }
+/* depth-column names: wrap to a 2nd line instead of truncating to "Ca…" when columns get narrow */
+.dc-info{ min-width:0 !important; }
+.dc-name{ white-space:normal !important; overflow:visible !important; text-overflow:clip !important; overflow-wrap:anywhere; font-size:12px !important; line-height:1.16 !important; }
+.dc-grade{ min-width:20px !important; }
+
+/* ROSTER TABLE → google-sheets grid */
+.hr-wrap{ border:1px solid var(--border); border-radius:10px; overflow:hidden; overflow-x:auto; background:rgba(16,21,34,.4); }
+.hr-table{ border-collapse:collapse !important; width:100%; }
+.hr-table th{ position:sticky; top:0; z-index:2; background:#0d1220 !important; font-size:10px !important; letter-spacing:.04em; text-transform:uppercase; color:var(--text3) !important; font-weight:700 !important; padding:8px 8px !important; border-bottom:1px solid var(--border) !important; white-space:nowrap; text-align:right; }
+.hr-table th:nth-child(1),.hr-table th:nth-child(2){ text-align:left; }
+.hr-table td{ padding:0 8px !important; height:32px !important; text-align:right; border-bottom:1px solid rgba(130,150,200,.07) !important; border-right:1px solid rgba(130,150,200,.05) !important; font-family:var(--mono) !important; font-size:12.5px !important; font-variant-numeric:tabular-nums; }
+.hr-table td:nth-child(1){ color:var(--text3); font-family:var(--mono); }
+.hr-table td:nth-child(2){ text-align:left; font-family:'Space Grotesk',sans-serif !important; font-weight:600; }
+.hr-table td:last-child{ font-family:'Sora',sans-serif !important; font-weight:800; color:var(--mint); }
+.hr-table tr:hover td{ background:rgba(91,141,239,.06) !important; }
+.hr-table .heat{ }   /* JS may add per-cell bg */
+
+/* other tables (schedule / stats / nil) get the same grid treatment */
+.sched-table,.sortable-table,.nil-table{ border-collapse:collapse !important; }
+.sched-table td,.sortable-table td,.nil-table td{ border-bottom:1px solid rgba(130,150,200,.07) !important; font-family:var(--mono); }
+.sched-table th,.sortable-table th,.nil-table th{ background:#0d1220 !important; color:var(--text3) !important; font-size:10px !important; text-transform:uppercase; }
+
+/* sidebar cards → dense */
+.side-card{ background:var(--bg2) !important; border:1px solid var(--border) !important; border-radius:12px !important; margin-bottom:12px !important; overflow:hidden; }
+.side-card-head{ font-family:'Sora',sans-serif !important; font-size:12px !important; letter-spacing:.04em; color:var(--mint) !important; padding:11px 14px !important; border-bottom:1px solid var(--border); background:rgba(130,150,200,.04); }
+.side-card-body{ font-size:12.5px; }
+.side-card-body b,.side-card-body .g-val{ font-family:var(--mono); }
+
+/* season pills */
+.ryr-btn{ border-radius:8px !important; }
+.ryr-btn.active{ background:linear-gradient(100deg,var(--mint),var(--blue)) !important; color:#04120d !important; border:none !important; }
+
+/* ── hybrid hero on phones: logo+name inline, metrics + scrollable grade
+      tiles on their own full-width rows, ribbon wraps ── */
+@media(max-width:768px){
+  .hero-content-wrap{ padding:12px 14px 0 !important; }
+  .hero-top{ flex-direction:row !important; flex-wrap:wrap !important; align-items:center !important; gap:6px 12px !important; padding-bottom:12px; margin-bottom:0 !important; }
+  .hero-dlogo{ width:44px; height:44px; }
+  .hero-id{ flex:1 1 auto; }
+  .hero-name{ font-size:25px !important; }
+  .hero-metrics{ flex:1 1 100%; order:5; margin-left:0; padding-left:0; border-left:none; gap:22px; justify-content:flex-start; }
+  .hero-grades{ flex:1 1 100%; order:6; margin-left:0 !important; flex-wrap:nowrap !important; overflow-x:auto; padding:7px !important; }
+  .hero-grades::-webkit-scrollbar{ display:none; }
+  .hero-grade{ flex:0 0 auto !important; width:78px !important; }
+  .hero-ribbon{ margin:0 -14px; padding:0 14px; }
+  .hrb{ padding:8px 14px 8px 0; margin-right:14px; }
+}
