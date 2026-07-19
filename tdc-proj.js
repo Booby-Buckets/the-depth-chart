@@ -23,11 +23,19 @@ function _projGradeOf(r){
 }
 function computePlayerMpg(p, teamRoster){
   const pg = _projGradeOf;
-  const roster=(Array.isArray(teamRoster)?teamRoster:[]).filter(r=>r.name&&r.name!=='—')
-    // Rank by the PROJECTED grade (the OVR actually displayed), not depth_order (which the
-    // roster push can scramble) nor the demonstrated grade (which buries projected-up
-    // starters). This keeps minutes consistent with the OVR and the depth chart.
-    .sort((a,b)=>((pg(b))-(pg(a)))||((a.depth_order||99)-(b.depth_order||99)));
+  const base=(Array.isArray(teamRoster)?teamRoster:[]).filter(r=>r.name&&r.name!=='—');
+  // Order by the AUTHORED depth chart (depth_order) so projected minutes match the depth
+  // chart the user maintains: a backup listed ahead of a higher-graded teammate stays
+  // ahead (e.g. a proven Jr. ordered over a higher-rated Fr.). The projected grade still
+  // sets HOW MANY minutes each slot gets — depth_order only sets the ORDER.
+  // RESCUE: a genuine star mis-slotted deep (a roster-push can park a 94 at slot 9) is
+  // pulled toward the front — but only from bench slots (>=6) and only for grades well
+  // above the roster, so the authored top-of-rotation order is never reshuffled.
+  const _avg = base.length ? base.reduce((s,r)=>s+pg(r),0)/base.length : 75;
+  const _thr = _avg + 7;
+  const rankKey = r => { const d = r.depth_order||99;
+    return d - (d>=6 ? Math.max(0, pg(r)-_thr)*1.3 : 0); };
+  const roster=base.sort((a,b)=>(rankKey(a)-rankKey(b))||((pg(b))-(pg(a))));
   if(!roster.length){const d=p.depth_order||8;return d<=1?32:d<=2?30:d<=3?27:d<=4?25:d<=5?23:d===6?20:d===7?17:d===8?14:d===9?11:d===10?8:5;}
   const grades=roster.map(r=>pg(r));
   const teamGradeAvg=grades.reduce((a,b)=>a+b,0)/grades.length;
