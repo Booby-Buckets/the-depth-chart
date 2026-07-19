@@ -61,13 +61,20 @@
   /* ---- trend sparkline: cumulative scoring margin over every game of the season ---- */
   var SB='https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/';
   var HD={apikey:'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye',Authorization:'Bearer sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye'};
-  var GAMES={};                 // season -> { fullName: [ margin per game, in date order ] }
+  var GAMES={};                 // season -> { fullName: [ game objects, each with opponent-adjusted rating ] }
+  var SRS={};                   // season -> { fullName: srs }  (opponent quality)
   var LOADING={};               // season -> true while fetching
   function curSeason(){ var s=document.getElementById('seasonSel'); return s?(+s.value||2027):2027; }
   function ensureGames(season){
     if(GAMES[season]||LOADING[season]||season>=2027) return;   // 2027 = projection, no games
     LOADING[season]=true;
     var all=[];
+    // season NET (SRS) for every team → opponent quality
+    var srsP = SRS[season] ? Promise.resolve(SRS[season]) :
+      fetch(SB+'team_seasons?season_year=eq.'+season+'&select=team,srs',{headers:HD})
+        .then(function(r){return r.ok?r.json():[];})
+        .then(function(rows){ var m={}; (rows||[]).forEach(function(r){ if(r.srs!=null) m[r.team]=+r.srs; }); SRS[season]=m; return m; })
+        .catch(function(){ SRS[season]={}; return {}; });
     function page(off){
       fetch(SB+'games?season_year=eq.'+season+'&status=eq.STATUS_FINAL&select=home,away,home_score,away_score,date&order=date.asc&limit=1000&offset='+off,{headers:HD})
         .then(function(r){return r.ok?r.json():[];})
@@ -78,29 +85,34 @@
         }).catch(build);
     }
     function build(){
-      var m={};
-      all.forEach(function(g){
-        if(g.home_score==null||g.away_score==null) return;
-        (m[g.home]=m[g.home]||[]).push({opp:g.away, ts:g.home_score, os:g.away_score, home:true, date:g.date});
-        (m[g.away]=m[g.away]||[]).push({opp:g.home, ts:g.away_score, os:g.home_score, home:false, date:g.date});
+      srsP.then(function(srs){
+        var m={};
+        all.forEach(function(g){
+          if(g.home_score==null||g.away_score==null) return;
+          var mg=g.home_score-g.away_score;
+          // adj = game margin + opponent's season NET  → an opponent-adjusted "how good was this performance"
+          // (beat a +25 team by 5 → performed like +30; lose to a +25 team by 5 → still +20, above average)
+          (m[g.home]=m[g.home]||[]).push({opp:g.away, ts:g.home_score, os:g.away_score, home:true,  date:g.date, adj:mg+(srs[g.away]||0)});
+          (m[g.away]=m[g.away]||[]).push({opp:g.home, ts:g.away_score, os:g.home_score, home:false, date:g.date, adj:(-mg)+(srs[g.home]||0)});
+        });
+        GAMES[season]=m; LOADING[season]=false; addTrend();
       });
-      GAMES[season]=m; LOADING[season]=false; addTrend();
     }
     page(0);
   }
-  function gameTrendSvg(margins){
-    var n=margins.length; if(n<2) return '';
-    var cum=[],s=0; for(var i=0;i<n;i++){ s+=margins[i]; cum.push(s); }
-    var mn=Math.min(0,Math.min.apply(null,cum)), mx=Math.max(0,Math.max.apply(null,cum)), rng=(mx-mn)||1;
+  // running (season-to-date) NET: expanding average of the opponent-adjusted game ratings.
+  // Converges toward the team's season NET; a great loss nudges it up, a bad win nudges it down.
+  function netTraj(glog){ var out=[],s=0; for(var i=0;i<glog.length;i++){ s+=glog[i].adj; out.push(s/(i+1)); } return out; }
+  function sparkLine(vals){
+    var n=vals.length; if(n<2) return '';
+    var mn=Math.min.apply(null,vals), mx=Math.max.apply(null,vals), rng=(mx-mn)||1;
     var W=60,H=20, X=function(i){return i*(W/(n-1));}, Y=function(v){return H-2-((v-mn)/rng)*(H-4);};
-    var d='M'+X(0).toFixed(1)+','+Y(cum[0]).toFixed(1);
-    for(var j=1;j<n;j++) d+='L'+X(j).toFixed(1)+','+Y(cum[j]).toFixed(1);
-    var up=cum[n-1]>=0, col=up?'#2DE0A6':'#F87171';
-    var zeroY=Y(0).toFixed(1);
+    var d='M'+X(0).toFixed(1)+','+Y(vals[0]).toFixed(1);
+    for(var j=1;j<n;j++) d+='L'+X(j).toFixed(1)+','+Y(vals[j]).toFixed(1);
+    var end=vals[n-1], col=(end>=0)?'#2DE0A6':'#F87171';   // green = above-average NET, red = below
     return '<svg class="tr-trend-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">'
-      +'<line x1="0" y1="'+zeroY+'" x2="'+W+'" y2="'+zeroY+'" stroke="rgba(130,150,200,.18)" stroke-width="1"/>'
       +'<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'
-      +'<circle cx="'+X(n-1).toFixed(1)+'" cy="'+Y(cum[n-1]).toFixed(1)+'" r="1.9" fill="'+col+'"/></svg>';
+      +'<circle cx="'+X(n-1).toFixed(1)+'" cy="'+Y(end).toFixed(1)+'" r="1.9" fill="'+col+'"/></svg>';
   }
   function addTrend(){
     var cs=curSeason();
@@ -114,8 +126,8 @@
       var a=row.querySelector('.tr-team-name'); if(!a) return;
       sp.dataset.tr=''+cs;
       var glog=map[a.textContent.trim()];
-      var margins=glog&&glog.map(function(x){return x.ts-x.os;});
-      sp.innerHTML=(margins&&margins.length>=2)?gameTrendSvg(margins):'';
+      var traj=(glog&&glog.length>=2)?netTraj(glog):null;
+      sp.innerHTML=traj?sparkLine(traj):'';
     });
   }
 
@@ -124,16 +136,18 @@
   function dropChart(glog){
     var wrap=document.createElement('div'); wrap.className='td-plot';
     if(!glog||glog.length<2){ wrap.innerHTML='<div class="td-empty">No game log yet — this is a projection.</div>'; return wrap; }
-    var n=glog.length, cum=[], s=0; for(var i=0;i<n;i++){ s+=glog[i].ts-glog[i].os; cum.push(s); }
-    var mn=Math.min(0,Math.min.apply(null,cum)), mx=Math.max(0,Math.max.apply(null,cum)), rng=(mx-mn)||1;
+    var n=glog.length, traj=netTraj(glog);
+    var mn=Math.min.apply(null,traj), mx=Math.max.apply(null,traj), pad=(mx-mn)*0.12||1; mn-=pad; mx+=pad;
+    var rng=(mx-mn)||1;
     var W=430,H=96,pT=8,pB=8, X=function(i){return i*(W/(n-1));}, Y=function(v){return pT+(1-(v-mn)/rng)*(H-pT-pB);};
-    var d='M'+X(0).toFixed(1)+','+Y(cum[0]).toFixed(1);
-    for(var j=1;j<n;j++) d+='L'+X(j).toFixed(1)+','+Y(cum[j]).toFixed(1);
-    var area=d+'L'+X(n-1).toFixed(1)+','+Y(mn).toFixed(1)+'L0,'+Y(mn).toFixed(1)+'Z';
-    var up=cum[n-1]>=0, col=up?'#2DE0A6':'#F87171', z=Y(0).toFixed(1);
+    var d='M'+X(0).toFixed(1)+','+Y(traj[0]).toFixed(1);
+    for(var j=1;j<n;j++) d+='L'+X(j).toFixed(1)+','+Y(traj[j]).toFixed(1);
+    var area=d+'L'+X(n-1).toFixed(1)+','+(H-pB)+'L0,'+(H-pB)+'Z';
+    var col=(traj[n-1]>=0)?'#2DE0A6':'#F87171';
+    var zeroLine=(mn<0&&mx>0)?'<line x1="0" y1="'+Y(0).toFixed(1)+'" x2="'+W+'" y2="'+Y(0).toFixed(1)+'" stroke="rgba(130,150,200,.2)" stroke-dasharray="3 4"/>':'';
     wrap.innerHTML='<svg class="td-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">'
       +'<defs><linearGradient id="tdga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+col+'" stop-opacity=".22"/><stop offset="1" stop-color="'+col+'" stop-opacity="0"/></linearGradient></defs>'
-      +'<line x1="0" y1="'+z+'" x2="'+W+'" y2="'+z+'" stroke="rgba(130,150,200,.2)" stroke-dasharray="3 4"/>'
+      +zeroLine
       +'<path d="'+area+'" fill="url(#tdga)"/><path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="2" stroke-linejoin="round"/>'
       +'<line class="tdc-cross" x1="0" y1="'+pT+'" x2="0" y2="'+(H-pB)+'" stroke="'+col+'" stroke-width="1" stroke-dasharray="2 3" opacity="0"/>'
       +'<circle class="tdc-dot" r="3.5" fill="#0A0E17" stroke="'+col+'" stroke-width="2" opacity="0"/>'
@@ -143,14 +157,15 @@
         cross=wrap.querySelector('.tdc-cross'), dot=wrap.querySelector('.tdc-dot'), tip=wrap.querySelector('.tdc-tip');
     function fmtDate(s){ if(!s) return ''; var p=(''+s).split('-'); return p.length===3?(+p[1])+'/'+(+p[2]):''; }
     function show(i){
-      var g=glog[i], w=(g.ts>g.os);
+      var g=glog[i], w=(g.ts>g.os), net=traj[i];
       cross.setAttribute('x1',X(i)); cross.setAttribute('x2',X(i)); cross.setAttribute('opacity','1');
-      dot.setAttribute('cx',X(i)); dot.setAttribute('cy',Y(cum[i])); dot.setAttribute('opacity','1');
+      dot.setAttribute('cx',X(i)); dot.setAttribute('cy',Y(net)); dot.setAttribute('opacity','1');
       var rect=svg.getBoundingClientRect(); if(!rect.width) return;
       tip.style.left=(X(i)*(rect.width/W))+'px';
-      tip.style.top=(Y(cum[i])*(rect.height/H))+'px';
+      tip.style.top=(Y(net)*(rect.height/H))+'px';
       tip.innerHTML='<b>Game '+(i+1)+'</b> <span class="tdc-dt">'+fmtDate(g.date)+'</span><br>'
-        +(g.home?'vs ':'@ ')+g.opp+' <span class="tdc-res '+(w?'w':'l')+'">'+(w?'W':'L')+' '+g.ts+'–'+g.os+'</span>';
+        +(g.home?'vs ':'@ ')+g.opp+' <span class="tdc-res '+(w?'w':'l')+'">'+(w?'W':'L')+' '+g.ts+'–'+g.os+'</span>'
+        +' <span class="tdc-dt">· NET '+(net>=0?'+':'')+net.toFixed(1)+'</span>';
       tip.classList.add('on');
     }
     function idxFromEvent(e){ var rect=svg.getBoundingClientRect(); var mx2=(e.clientX-rect.left)*(W/rect.width); var i=Math.round(mx2/(W/(n-1))); return Math.max(0,Math.min(n-1,i)); }
@@ -220,7 +235,7 @@
     var d=document.createElement('div'); d.className='tr-drop';
     var inner=document.createElement('div'); inner.className='tr-drop-inner';
     var chart=document.createElement('div'); chart.className='td-chart';
-    chart.innerHTML='<div class="td-title">'+name+' · season margin <span class="td-hint">— hover / tap a game</span></div>';
+    chart.innerHTML='<div class="td-title">'+name+' · NET through the season <span class="td-hint">— hover / tap a game</span></div>';
     chart.appendChild(dropChart(glog));
     var link=document.createElement('a'); link.className='td-link'; link.href=href; link.textContent='Open full page →';
     inner.appendChild(chart);
