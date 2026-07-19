@@ -161,11 +161,14 @@
       cross.setAttribute('x1',X(i)); cross.setAttribute('x2',X(i)); cross.setAttribute('opacity','1');
       dot.setAttribute('cx',X(i)); dot.setAttribute('cy',Y(net)); dot.setAttribute('opacity','1');
       var rect=svg.getBoundingClientRect(); if(!rect.width) return;
-      tip.style.left=(X(i)*(rect.width/W))+'px';
-      tip.style.top=(Y(net)*(rect.height/H))+'px';
       tip.innerHTML='<b>Game '+(i+1)+'</b> <span class="tdc-dt">'+fmtDate(g.date)+'</span><br>'
         +(g.home?'vs ':'@ ')+g.opp+' <span class="tdc-res '+(w?'w':'l')+'">'+(w?'W':'L')+' '+g.ts+'–'+g.os+'</span>'
         +' <span class="tdc-dt">· NET '+(net>=0?'+':'')+net.toFixed(1)+'</span>';
+      // keep the whole popup inside the panel: clamp x, and flip below when the point sits high
+      var lx=X(i)*(rect.width/W), half=tip.offsetWidth/2, contW=wrap.clientWidth||rect.width;
+      tip.style.left=Math.max(half+4, Math.min(contW-half-4, lx))+'px';
+      tip.style.top=(Y(net)*(rect.height/H))+'px';
+      tip.classList.toggle('below', Y(net) < H*0.42);
       tip.classList.add('on');
     }
     function idxFromEvent(e){ var rect=svg.getBoundingClientRect(); var mx2=(e.clientX-rect.left)*(W/rect.width); var i=Math.round(mx2/(W/(n-1))); return Math.max(0,Math.min(n-1,i)); }
