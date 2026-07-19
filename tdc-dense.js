@@ -273,7 +273,8 @@
     var list=document.getElementById('rankingsList'); if(!list||list.dataset.exp) return;
     list.dataset.exp='1';
     list.addEventListener('click',function(e){
-      if(e.target.closest('.tr-drop')) return;        // let panel links/buttons work
+      if(e.target.closest('.tr-drop')) return;         // let panel links/buttons work
+      if(e.target.closest('.tr-team-name')) return;    // team name is a hyperlink → let it navigate
       var row=e.target.closest('.team-row'); if(!row) return;
       e.preventDefault();
       toggleDrop(row);
