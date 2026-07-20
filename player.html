@@ -605,7 +605,7 @@ body{background:transparent!important;}
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index + team page -->
   <script>try{document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
   <link rel="stylesheet" href="tdc-dense.css?v=7"/>
-  <link rel="stylesheet" href="tdc-player-dense.css?v=5"/>
+  <link rel="stylesheet" href="tdc-player-dense.css?v=6"/>
 </head>
 <body data-anim-auto>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
@@ -1880,6 +1880,9 @@ function renderImpact(srcRow, projectedFlag){
       '<div class="impact-meta"><div class="impact-rank">'+ord(rank)+' of '+WA_POOL_N.toLocaleString()+' all-time</div>'+
       '<div class="impact-pctl">Top '+(top<=1?'1':top)+'% &middot; wins added</div></div>';
   }
+  // mirror wins-added + all-time percentile into the header 2×2 grid
+  var _hgWA=document.getElementById('heroWA'); if(_hgWA) _hgWA.textContent=(wa==null)?'—':((wa>0?'+':'')+wa.toFixed(1));
+  var _hgRk=document.getElementById('heroRank'); if(_hgRk) _hgRk.textContent=(wa==null)?'—':('Top '+(top<=1?'1':top)+'%');
   var badge=advSeason?((advSeason-1)+'-'+(''+advSeason).slice(2)):'';
   host.innerHTML='<div class="sec-title" style="margin-bottom:14px;">Wins Added'+(badge?' <span style="font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--accent);background:rgba(139,105,20,.12);padding:2px 6px;border-radius:4px;vertical-align:middle;">'+badge+'</span>':'')+'</div>'+
     '<div class="impact-wrap">'+
@@ -2384,8 +2387,15 @@ function renderPage(){
   // headshot: prefer photo_url, else derive the ESPN headshot from espn_id — but
   // ONLY for the owner (window.tdcShowPhotos); the public sees the initial placeholder.
   const _headshot = (window.tdcShowPhotos&&window.tdcShowPhotos()) ? (p.photo_url || (p.espn_id ? `https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/${p.espn_id}.png` : '')) : '';
+  // header 2x2 summary grid values (rank fills in from the impact calc)
+  const _hGrade=(function(){var g=_projectedGrade();return (g!=null&&!isNaN(g))?g:(p.tdc_grade||'—');})();
+  const _hBadges=(badgeData&&badgeData.total)||0;
+  const _hWA=(function(){var a=player&&player._advanced;
+    if(a&&a.ws!=null&&a.ws!==''&&typeof _winsAdded==='function'){var w=_winsAdded(a);return (w>0?'+':'')+w.toFixed(1);}
+    return '—';})();
   document.getElementById('heroSection').innerHTML=`
     <div class="player-hero" style="--tc:${color};">
+     <div class="hero-idwrap">
       <div class="hero-avatar">${_headshot
         ? `<img src="${_headshot}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" onerror="this.parentNode.textContent='${(p.name||'?')[0].toUpperCase()}'">`
         : (p.name||'?')[0].toUpperCase()}</div>
@@ -2407,9 +2417,12 @@ function renderPage(){
         </div>`:''}
         <div id="draftSticker"></div>
       </div>
-      <div class="hero-right">
-        <span id="heroBadgeSlot">${buildBadgeShield(badgeData)}</span>
-        ${p.tdc_grade?`<div class="hero-grade-wrap"><div class="hero-grade" id="heroGrade">${(function(){var g=_projectedGrade();return (g!=null&&!isNaN(g))?g:p.tdc_grade;})()}</div><div class="hero-grade-lbl">TDC Grade</div></div>`:''}
+     </div><!-- /hero-idwrap -->
+      <div class="hero-grid">
+        <div class="hg"><div class="hg-v grade" id="heroGrade">${_hGrade}</div><div class="hg-l">TDC Grade</div></div>
+        <div class="hg"><div class="hg-v wa" id="heroWA">${_hWA}</div><div class="hg-l">Wins Added</div></div>
+        <div class="hg"><div class="hg-v" id="heroBadges">${_hBadges}</div><div class="hg-l">Badges</div></div>
+        <div class="hg"><div class="hg-v" id="heroRank">—</div><div class="hg-l">All-Time</div></div>
       </div>
     </div>
 
