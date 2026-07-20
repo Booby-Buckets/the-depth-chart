@@ -27,7 +27,7 @@ WALKON_VALUE=0.01  # $M nominal ($10K) for walk-ons
 # team spending budgets, scaled up for the 2025 market: high tiers (power-conf-heavy)
 # ~×1.73, low tiers (mid/low) ~×1.44 — so the deal/over-budget verdicts stay calibrated
 # now that player values rose 44–73%.
-TIER_MID={1:38.9,2:30.5,3:22.4,4:16.2,5:11.9,6:7.7,7:4.5,8:1.85,9:0.36}
+TIER_MID={1:26.1,2:21.5,3:12.7,4:9.3,5:5.0,6:3.6,7:1.8,8:0.9,9:0.3}
 W={"bpm":0.40,"grade":0.30,"ws40":0.20,"per":0.10}
 # market-premium knobs
 # size is judged RELATIVE TO POSITION, not on one flat curve — a 6'6" PG (rare,
@@ -129,9 +129,9 @@ for p in players:
 # grade (stars are worth exponentially more), times projected minutes (role), times
 # the team's spending tier, times a market premium (size/scoring/conf) and a youth
 # bump (the market pays for upside). Calibrated to real NIL anchors.
-GRADE_FLOOR,GRADE_SPAN,CURVE = 58.0, 42.0, 1.75
-TOP_M = 7.056                                   # $M for a grade-100, tier-1, full-min, avg-premium player
-                                                # (4.9 base × 1.44 for the 2025 +44% mid/low market jump)
+GRADE_FLOOR,GRADE_SPAN,CURVE = 58.0, 42.0, 2.127
+TOP_M = 6.735                                   # $M for a grade-100, tier-1, full-min, avg-premium player
+                                                # calibrated to real 2025 deals (blend of paid + market, 30-player anchor set)
 TIER_MULT = {1:1.00,2:0.74,3:0.54,4:0.40,5:0.29,6:0.20,7:0.13,8:0.07,9:0.03}
 def grade_base(g):
     if g is None: return 0.0
@@ -151,7 +151,7 @@ def youth_mult(cls):        # the market pays for upside: sophomores (proven + r
     if "jr" in c: return 1.02
     if "sr" in c or "gr" in c: return 0.90
     return 1.0
-POS_MULT={"PG":0.81,"CG":0.85,"SG":0.90,"G":0.85,"SF":1.00,"GF":0.97,"F":1.07,"PF":1.15,"FC":1.22,"C":1.30}
+POS_MULT={"PG":1.00,"CG":1.00,"SG":1.00,"G":1.00,"SF":1.00,"GF":1.00,"F":1.03,"PF":1.06,"FC":1.07,"C":1.08}
 def pos_mult(pos):          # POSITIONAL MARKET PRICING — cost to acquire equal talent by position.
     # The market overpays for centers (~1.30 = +30%, most overpaid) and underpays for
     # point guards (~0.81, the biggest bargain); a center costs ~61% more NIL than an
@@ -160,9 +160,7 @@ def pos_mult(pos):          # POSITIONAL MARKET PRICING — cost to acquire equa
 def prospect_mult(g,cls):   # NBA-DRAFT prospect — YOUNG + elite grade spikes value (one-and-dones).
     # Onset at grade 87 so only genuine lottery-caliber freshmen spike, not every
     # 5-star — otherwise a blue-blood's whole freshman class inflates the roster total.
-    c=(cls or "").lower()
-    if not("fr" in c or "so" in c) or g is None: return 1.0
-    return 1 + max(0.0,min(1.0,(g-87)/9.0))*(1.35 if "fr" in c else 0.55)
+    return 1.0   # prospect bump removed: real deals show elite freshmen are NOT paid a premium
 
 rows=[]
 for name,info in tinfo.items():

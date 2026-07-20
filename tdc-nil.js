@@ -7,9 +7,9 @@
    Calibrated by scripts/compute_nil.py (re-run to refresh constants + nil-data.json). */
 window.TDC_NIL = {
   // ── grade-centric realistic-market model (mirrors scripts/compute_nil.py) ──
-  MODEL: { grade_floor:58, grade_span:42, curve:1.75, top_m:7.056,  // 4.9 × 1.44 (2025 +44% mid/low market jump)
+  MODEL: { grade_floor:58, grade_span:42, curve:2.127, top_m:6.735,  // calibrated to real 2025 deals (blend paid+market, 30-player anchor set)
            tier_mult:{1:1.00,2:0.74,3:0.54,4:0.40,5:0.29,6:0.20,7:0.13,8:0.07,9:0.03},
-           pos_mult:{PG:0.81,CG:0.85,SG:0.90,G:0.85,SF:1.00,GF:0.97,F:1.07,PF:1.15,FC:1.22,C:1.30} },
+           pos_mult:{PG:1.00,CG:1.00,SG:1.00,G:1.00,SF:1.00,GF:1.00,F:1.03,PF:1.06,FC:1.07,C:1.08} },  // grades are position-relative, so only a mild big premium
   MARKET_RATE: 0.263,                                             // (legacy) $M per net-rating point
   REPL: -1.0,
   FLOOR_PTS: 1.6,                                                 // rotation-body floor: a player who plays is worth >= this many net pts (×minutes×premium)
@@ -17,7 +17,7 @@ window.TDC_NIL = {
   WALKON_VALUE: 0.01,                                             // $M nominal ($10K) for walk-ons
   BASE_BY_TIER: {1:0.90,2:0.80,3:0.55,4:0.40,5:0.27,6:0.18,7:0.10,8:0.04,9:0.015}, // $M roster-spot base (×minutes), by team spending tier
   RATE_BY_TIER: {1:1.0,2:1.0,3:0.92,4:0.84,5:0.74,6:0.64,7:0.55,8:0.42,9:0.32},      // rate multiplier by team spending tier
-  TIER_BUDGET: {1:38.9,2:30.5,3:22.4,4:16.2,5:11.9,6:7.7,7:4.5,8:1.85,9:0.36},  // scaled for 2025 market (high tiers ×1.73, low ×1.44)
+  TIER_BUDGET: {1:26.1,2:21.5,3:12.7,4:9.3,5:5.0,6:3.6,7:1.8,8:0.9,9:0.3},  // calibrated to the 2025 team-spend distribution (~median per tier)
   IMPACT: {
     w:    {bpm:0.40, grade:0.30, ws40:0.20, per:0.10},
     mean: {bpm:-0.6268, ws40:0.0969, per:14.043, grade:76.7932},
@@ -88,12 +88,11 @@ window.TDC_NIL = {
   // projected role: a grade-implied minutes FLOOR so a breakout returner isn't valued on last year's bench minutes
   N.estMpg    = function(mpg,grade){ var mp=+mpg||0, g=+grade||72; var ge=g>=90?28:g>=82?25:g>=76?21:g>=70?17:12; return Math.max(mp,ge); };
   N.youthMult = function(cls){ var c=(''+(cls||'')).toLowerCase(); if(c.indexOf('so')>=0)return 1.22; if(c.indexOf('fr')>=0)return 1.05; if(c.indexOf('jr')>=0)return 1.02; if(c.indexOf('sr')>=0||c.indexOf('gr')>=0)return 0.90; return 1.0; };
-  // positional market pricing: centers overpaid (~+30%), point guards the bargain
-  // (~0.81); a center costs ~61% more NIL than an equal-caliber PG. (2025 positional table)
+  // positional pricing: our grades are already position-relative, so real deals show no
+  // center premium in grade-space — only a whisper of a big bump (PF 1.06 / C 1.08).
   N.posMult   = function(pos){ return N.MODEL.pos_mult[(''+(pos||'')).toUpperCase().split('/')[0].trim()] || 1.0; };
   N.bigMult   = N.posMult;   // back-compat alias
-  N.prospectMult = function(g,cls){ var c=(''+(cls||'')).toLowerCase(); if(!(c.indexOf('fr')>=0||c.indexOf('so')>=0)||g==null)return 1.0;
-    return 1 + Math.max(0,Math.min(1,(+g-87)/9))*(c.indexOf('fr')>=0?1.35:0.55); };
+  N.prospectMult = function(g,cls){ return 1.0; };   // removed: real deals show elite freshmen aren't paid a premium
   // grade -> $M NIL value. prem = N.marketPremium(...); cls = class_year; pos = PG/…/C.
   N.gradeValue = function(grade,mpg,tier,prem,cls,pos){ var b=N.gradeBase(grade); if(b<=0.003) return N.WALKON_VALUE;
     var tm=N.MODEL.tier_mult[N.tierNum(tier)]||0.2;

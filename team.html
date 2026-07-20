@@ -7,7 +7,7 @@
   <script src="tdc-shotchart.js?v=9"></script>
   <script src="tdc-shotflow.js?v=8"></script>
   <script src="tdc-moneyball.js?v=1"></script>
-  <script src="tdc-nil.js?v=mkt25"></script>
+  <script src="tdc-nil.js?v=cal1"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js"></script>
   <script src="tdc-proj.js?v=depthorder1"></script>
@@ -5157,7 +5157,7 @@ async function renderTeamDNA(){
 async function renderMoneyball(){
   var host=document.getElementById('moneyballWrap'); if(!host||!window.TDC_MONEYBALL) return;
   try{
-    if(!window._nilData){ window._nilData=await fetch('nil-data.json?v=mkt25').then(r=>r.json()); }
+    if(!window._nilData){ window._nilData=await fetch('nil-data.json?v=cal1').then(r=>r.json()); }
     var posBy={}; (typeof _allDbPlayers!=='undefined'?_allDbPlayers:[]).forEach(function(p){ if(p.name&&p.position&&!posBy[p.name]) posBy[p.name]=p.position; });
     var lineup=(typeof _lineupRotation==='function')?_lineupRotation():[];
     TDC_MONEYBALL.render(host, {nilData:window._nilData, teamName:(teamT&&teamT.name)||'', posByName:posBy, lineup:lineup});
@@ -5214,7 +5214,7 @@ async function loadLineupShotProfile(){
 let _nilData=null;
 async function renderNil(){
   const host=document.getElementById('nilContent'); const tT=(typeof teamT!=='undefined')?teamT:null; if(!host||!tT) return;
-  if(!_nilData){ try{ _nilData=await fetch('nil-data.json?v=mkt25').then(r=>r.json()); }catch(e){ host.innerHTML='<div style="padding:40px;color:var(--text3);">NIL data unavailable.</div>'; return; } }
+  if(!_nilData){ try{ _nilData=await fetch('nil-data.json?v=cal1').then(r=>r.json()); }catch(e){ host.innerHTML='<div style="padding:40px;color:var(--text3);">NIL data unavailable.</div>'; return; } }
   const d=_nilData.teams[tT.name];
   if(!d){ host.innerHTML='<div style="padding:40px;color:var(--text3);">No NIL valuation for this team yet — needs a NIL tier and roster.</div>'; return; }
   const col=((typeof teamColor_g!=='undefined')?teamColor_g:null)||'#888', mkt=_nilData.market_rate_per_pt;
