@@ -605,7 +605,7 @@ body{background:transparent!important;}
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index + team page -->
   <script>try{document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
   <link rel="stylesheet" href="tdc-dense.css?v=7"/>
-  <link rel="stylesheet" href="tdc-player-dense.css?v=3"/>
+  <link rel="stylesheet" href="tdc-player-dense.css?v=4"/>
 </head>
 <body data-anim-auto>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
@@ -2113,8 +2113,8 @@ function _updateHeroSeason(team, gp, seasonYr){
     var href='team.html?team='+encodeURIComponent(team);
     if(seasonYr && /^\d{4}$/.test(''+seasonYr) && +seasonYr<2027) href+='&season='+seasonYr;
     ht.href=href;
-    ht.innerHTML='<div class="team-dot" style="background:'+(col||'#888')+';"></div>'+team+' <span style="font-size:10px;color:var(--text3);margin-left:2px;">'+((info&&(info.conf||info.conference))||'')+'</span>'; }
-  var g=document.getElementById('heroGp'); if(g){ g.innerHTML=gp?('🎮 <strong>'+gp+'</strong> GP'):''; g.style.display=gp?'':'none'; }
+    ht.innerHTML='<span class="team-dot" style="background:'+(col||'#888')+';"></span>'+team+'<span class="hsub-conf">'+((info&&(info.conf||info.conference))||'')+'</span>'; }
+  var g=document.getElementById('heroGp'); if(g){ g.innerHTML=gp?(gp+' GP'):''; g.style.display=gp?'':'none'; }
 }
 function _skillSrcFor(val){
   // Use the projected line for freshmen too (badges / skill / radar reflect the
@@ -2391,26 +2391,21 @@ function renderPage(){
         ? `<img src="${_headshot}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" onerror="this.parentNode.textContent='${(p.name||'?')[0].toUpperCase()}'">`
         : (p.name||'?')[0].toUpperCase()}</div>
       <div class="hero-info">
-        <div class="hero-eyebrow">
-          ${p.position2
-            ? `${p.position||'—'}<span style="color:var(--text3);font-weight:400;margin:0 3px;">/</span><span style="color:var(--text3);">${p.position2}</span>`
-            : (p.position||'—')
-          } &nbsp;·&nbsp;${yr} · ${p.height||'—'}${p.weight?` · ${p.weight} lb`:''}${p.is_injured?' 🏥':''}${p.is_international?' 🌍':''}
-        </div>
-
         <h1 class="hero-name">${p.name}</h1>
-        <a class="hero-team" id="heroTeam" href="team.html?team=${encodeURIComponent(p.team||'')}">
-          <div class="team-dot" style="background:${color};"></div>
-          ${p.team||'—'} <span style="font-size:10px;color:var(--text3);margin-left:2px;">${teamData?.conf||''}</span>
-        </a>
-        <div class="hero-meta">
-          ${geoHome?`<div class="hero-meta-item">📍 <strong>${geoHome}</strong></div>`:''}
-          ${p.hometown?`<div class="hero-meta-item">↪ Via <strong>${p.hometown}</strong></div>`:''}
-          <div class="hero-meta-item" id="heroGp"${p.gp?'':' style="display:none;"'}>${p.gp?`🎮 <strong>${p.gp}</strong> GP`:''}</div>
-          ${p.starter?`<div class="hero-meta-item">⭐ <strong>Returning Starter</strong></div>`:''}
-          ${proj&&proj._origin?`<div class="hero-meta-item">🔄 Transfer mult: <strong style="color:var(--accent);">×${r1(proj._factor)}</strong></div>`:''}
-          ${(window.TDCFresh&&TDCFresh.isOwner()&&TDCFresh.isFreshman(p))?`<button class="hero-meta-item" onclick="_openFreshEditor()" style="cursor:pointer;border-color:var(--tc-readable,var(--accent));color:var(--tc-readable,var(--accent));font-weight:800;">⚙ ${TDCFresh.profileFor(p)?'Edit':'Project'} playstyle${TDCFresh.profileFor(p)?' · custom':''}</button>`:''}
+        <div class="hero-sub">
+          <a class="hero-team" id="heroTeam" href="team.html?team=${encodeURIComponent(p.team||'')}"><span class="team-dot" style="background:${color};"></span>${p.team||'—'}<span class="hsub-conf">${teamData?.conf||''}</span></a>
+          <span>${p.position2 ? `${p.position||'—'} / ${p.position2}` : (p.position||'—')}</span>
+          <span>${yr}</span>
+          ${p.height?`<span>${p.height}${p.weight?`, ${p.weight} lb`:''}</span>`:''}
+          ${(geoHome||p.hometown)?`<span>${geoHome||p.hometown}</span>`:''}
+          <span id="heroGp"${p.gp?'':' style="display:none;"'}>${p.gp?`${p.gp} GP`:''}</span>
+          ${p.is_injured?`<span class="hsub-warn">Injured</span>`:''}${p.is_international?`<span>Intl</span>`:''}
         </div>
+        ${(p.starter || (proj&&proj._origin) || (window.TDCFresh&&TDCFresh.isOwner()&&TDCFresh.isFreshman(p)))?`<div class="hero-tags">
+          ${p.starter?`<span class="hero-tag">Returning Starter</span>`:''}
+          ${proj&&proj._origin?`<span class="hero-tag">Transfer · ×${r1(proj._factor)}</span>`:''}
+          ${(window.TDCFresh&&TDCFresh.isOwner()&&TDCFresh.isFreshman(p))?`<button class="hero-tag edit" onclick="_openFreshEditor()">⚙ ${TDCFresh.profileFor(p)?'Edit':'Project'} playstyle${TDCFresh.profileFor(p)?' · custom':''}</button>`:''}
+        </div>`:''}
         <div id="draftSticker"></div>
       </div>
       <div class="hero-right">
