@@ -952,7 +952,7 @@
     <button class="hero-tab" onclick="switchTab('customize',this)">✦ Customize</button>
     <button class="hero-tab" onclick="switchTab('losses',this)" style="display:none;">Losses</button>
     <button class="hero-tab" onclick="switchTab('schedule',this)">Schedule</button>
-    <button class="hero-tab" onclick="switchTab('projections',this)">2026-27 Projections</button>
+    <button class="hero-tab" id="projTabBtn" onclick="switchTab('projections',this)">2026-27 Projections</button>
     <button class="hero-tab" onclick="switchTab('nil',this)">NIL Value</button>
     <button class="hero-tab" onclick="switchTab('analysis',this)">Analysis</button>
     <button class="hero-tab" onclick="switchTab('comments',this)">Comments</button>
@@ -5296,6 +5296,16 @@ function onRosterSeason(v){
   // projected tiles for 2027, NET/Off/Def tiles derived from that season otherwise).
   updateHeroRank(_rosterSeason);
   renderHeroBar(_rosterSeason);
+  // The "2026-27 Projections" tab only applies to the current projected season —
+  // hide it on any past season to keep those views uncluttered.
+  const projTab=document.getElementById('projTabBtn');
+  if(projTab){
+    const showProj=_rosterSeason>=2027;
+    projTab.style.display=showProj?'':'none';
+    if(!showProj && projTab.classList.contains('active')){
+      switchTab('depth', document.querySelector('.hero-tabs .hero-tab'));
+    }
+  }
   if(_rosterSeason >= 2027){
     if(sh) sh.firstChild.textContent='Depth Chart ';
     live.forEach(c=>c.style.display='');
