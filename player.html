@@ -2133,11 +2133,52 @@ function setOvrSeason(val){
   renderSkill(val);
   try{ renderBadges(val); }catch(e){}
   try{ var _xi=_skillSrcFor(val); renderImpact(_xi.src,_xi.projected); }catch(e){}
-  if(val==='proj'){ host.innerHTML=buildOverviewCards(player, proj); _updateHeroSeason(player.team, player.gp); _setHeroGrade(_projectedGrade()||player.tdc_grade); return; }
-  var s=_ovrSeasonRow(val); if(!s) return;
-  host.innerHTML=ovrCardsFor(s);
-  _updateHeroSeason(s.team, s.gp, s.season_year);
-  _setHeroGrade(s.tdc_grade);
+  if(val==='proj'){ host.innerHTML=buildOverviewCards(player, proj); _updateHeroSeason(player.team, player.gp); }
+  else { var s=_ovrSeasonRow(val); if(!s) return; host.innerHTML=ovrCardsFor(s); _updateHeroSeason(s.team, s.gp, s.season_year); }
+  _updateHeroGridForSeason(val);   // grade + WA + ranks + all-time all follow the season
+}
+// The header 2×3 stat grid follows the season dropdown. Everything but the current-year
+// national/position rank comes straight off the season row (grade, wa, advanced); those
+// two ranks use the Big Board for the projected view and a grade-rank for past seasons.
+function _norm5(pos){ var p=((pos||'')+'').toUpperCase().split(/[\/,\s]/)[0];
+  return ({PG:'PG',SG:'SG',CG:'SG',G:'SG',SF:'SF',GF:'SF',F:'PF',PF:'PF',FC:'C',C:'C'})[p]||'SF'; }
+function _curSeasonWA(){
+  var a=player&&player._advanced;
+  if(a&&a.ws!=null&&a.ws!==''&&typeof _winsAdded==='function') return _winsAdded(a);
+  var ss=_ovrSeasons(); for(var i=0;i<ss.length;i++){ if(ss[i].wa!=null&&ss[i].wa!=='') return parseFloat(ss[i].wa); }
+  return null;
+}
+function _updateHeroGridForSeason(val){
+  var isProj=(val==='proj'||val==null||+val>=2027);
+  var row=isProj?null:_ovrSeasonRow(val);
+  // grade
+  _setHeroGrade(isProj?(_projectedGrade()||player.tdc_grade):(row&&row.tdc_grade));
+  var g=parseFloat(isProj?(_projectedGrade()||player.tdc_grade):(row&&row.tdc_grade));
+  // wins added
+  var wa=isProj?_curSeasonWA():(row?(row.wa!=null&&row.wa!==''?parseFloat(row.wa):(row._advanced?_winsAdded(row._advanced):null)):null);
+  var eWA=document.getElementById('heroWA'); if(eWA) eWA.textContent=(wa==null||isNaN(wa))?'—':((wa>0?'+':'')+(+wa).toFixed(1));
+  // all-time wins-added rank
+  var eAll=document.getElementById('heroRank');
+  if(eAll){ if(wa==null||isNaN(wa)){ eAll.textContent='—'; } else { var pctl=getPctNat(wa,'wa'); eAll.textContent='#'+Math.max(1,Math.round((1-pctl/100)*WA_POOL_N)).toLocaleString(); } }
+  // national + position rank
+  var eN=document.getElementById('heroNatRank'), eP=document.getElementById('heroPosRank'),
+      eNL=document.getElementById('heroNatRankL'), ePL=document.getElementById('heroPosRankL');
+  if(eNL) eNL.textContent="Nat'l Rank "+(isProj?'’26':('’'+(''+row.season_year).slice(2)));
+  if(isProj && window._bbNat!=null){
+    if(eN) eN.textContent='#'+window._bbNat;
+    if(eP) eP.textContent='#'+window._bbPos;
+    if(ePL) ePL.textContent=(window._bbPosLbl||'Pos')+' Rank';
+  } else if(!isNaN(g)){
+    var pool=window._tdcAllPlayers||[];
+    if(pool.length){
+      var pos=_norm5((row&&row.position)||player.position), natR=1, posR=1;
+      for(var i=0;i<pool.length;i++){ var pgr=parseFloat(pool[i].tdc_grade); if(isNaN(pgr))continue;
+        if(pgr>g) natR++; if(pgr>g && _norm5(pool[i].position)===pos) posR++; }
+      if(eN) eN.textContent='#'+natR.toLocaleString();
+      if(eP) eP.textContent='#'+posR.toLocaleString();
+      if(ePL) ePL.textContent=pos+' Rank';
+    }
+  }
 }
 
 // ── team-colored background ──────────────────────────────────
@@ -2176,9 +2217,13 @@ async function loadDraftSticker(){
       var me=res.byId[player.id];
       // header 2×2 grid — this-year national + position rank from the Big Board
       if(me){
-        var _hnr=document.getElementById('heroNatRank'); if(_hnr && me.rank) _hnr.textContent='#'+me.rank;
-        var _hpr=document.getElementById('heroPosRank'); if(_hpr && me.posRank) _hpr.textContent='#'+me.posRank;
-        var _hprL=document.getElementById('heroPosRankL'); if(_hprL && me.posLabel) _hprL.textContent=me.posLabel+' Rank';
+        window._bbNat=me.rank; window._bbPos=me.posRank; window._bbPosLbl=me.posLabel;  // saved for the projected view
+        var _oss=document.getElementById('ovrSeasonSel');
+        if(!_oss || _oss.value==='proj'){  // only paint Big Board ranks if a past season isn't selected
+          var _hnr=document.getElementById('heroNatRank'); if(_hnr && me.rank) _hnr.textContent='#'+me.rank;
+          var _hpr=document.getElementById('heroPosRank'); if(_hpr && me.posRank) _hpr.textContent='#'+me.posRank;
+          var _hprL=document.getElementById('heroPosRankL'); if(_hprL && me.posLabel) _hprL.textContent=me.posLabel+' Rank';
+        }
       }
       var el=document.getElementById('draftSticker');
       if(el && me && me.rank<=100){
@@ -2428,7 +2473,7 @@ function renderPage(){
         <div class="hg"><div class="hg-v grade" id="heroGrade">${_hGrade}</div><div class="hg-l">TDC Grade</div></div>
         <div class="hg"><div class="hg-v wa" id="heroWA">${_hWA}</div><div class="hg-l">Wins Added</div></div>
         <div class="hg"><div class="hg-v" id="heroBadges">${_hBadges}</div><div class="hg-l">Badges</div></div>
-        <div class="hg"><div class="hg-v" id="heroNatRank">—</div><div class="hg-l">Nat'l Rank ’26</div></div>
+        <div class="hg"><div class="hg-v" id="heroNatRank">—</div><div class="hg-l" id="heroNatRankL">Nat'l Rank ’26</div></div>
         <div class="hg"><div class="hg-v" id="heroPosRank">—</div><div class="hg-l" id="heroPosRankL">Pos Rank</div></div>
         <div class="hg"><div class="hg-v" id="heroRank">—</div><div class="hg-l">All-Time</div></div>
       </div>
