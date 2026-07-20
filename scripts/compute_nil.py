@@ -24,7 +24,10 @@ REPL=-1.0
 FLOOR_PTS=1.6      # rotation-body floor: a player who plays is worth >= this many net pts (×minutes×premium)
 WALKON_THR=-6.0    # impact below this = walk-on / non-rotation: nominal value, excluded from roster spend
 WALKON_VALUE=0.01  # $M nominal ($10K) for walk-ons
-TIER_MID={1:22.5,2:18,3:13.5,4:10,5:7.5,6:5,7:3,8:1.25,9:0.25}
+# team spending budgets, scaled up for the 2025 market: high tiers (power-conf-heavy)
+# ~×1.73, low tiers (mid/low) ~×1.44 — so the deal/over-budget verdicts stay calibrated
+# now that player values rose 44–73%.
+TIER_MID={1:38.9,2:30.5,3:22.4,4:16.2,5:11.9,6:7.7,7:4.5,8:1.85,9:0.36}
 W={"bpm":0.40,"grade":0.30,"ws40":0.20,"per":0.10}
 # market-premium knobs
 # size is judged RELATIVE TO POSITION, not on one flat curve — a 6'6" PG (rare,
@@ -36,7 +39,9 @@ SIZE_FALLBACK=75.0
 SIZE_UP_SPAN,SIZE_UP=10.0,0.40      # +10in above your position's norm = full +40% (big-man/unicorn premium)
 SIZE_DOWN_SPAN,SIZE_DOWN=6.0,0.40   # -6in below your position's norm = full -40% (undersized discount)
 SCORE_BASE,SCORE_TOP,SCORE_MAX=12.0,27.0,0.18   # fallback ONLY for players with no grade_pillars (no bbref match)
-CONF_MULT={"P":1.12,"M":1.00,"L":0.90}
+# 2025 offseason market: +73% high-major, +44% mid/low YoY. The +44% floor everyone
+# gets is applied via TOP_M below; power-conf gets the extra here (1.12*1.73/1.44=1.345).
+CONF_MULT={"P":1.345,"M":1.00,"L":0.90}
 # pillar-driven premium (scripts/grade_v4.py's 7-pillar z-scores, persisted to
 # bbref_seasons.grade_pillars) — replaces raw-PPG hype with the same
 # efficiency-aware Offense pillar the grade engine uses; adds a Usage-based
@@ -125,7 +130,8 @@ for p in players:
 # the team's spending tier, times a market premium (size/scoring/conf) and a youth
 # bump (the market pays for upside). Calibrated to real NIL anchors.
 GRADE_FLOOR,GRADE_SPAN,CURVE = 58.0, 42.0, 1.75
-TOP_M = 4.9                                     # $M for a grade-100, tier-1, full-min, avg-premium player
+TOP_M = 7.056                                   # $M for a grade-100, tier-1, full-min, avg-premium player
+                                                # (4.9 base × 1.44 for the 2025 +44% mid/low market jump)
 TIER_MULT = {1:1.00,2:0.74,3:0.54,4:0.40,5:0.29,6:0.20,7:0.13,8:0.07,9:0.03}
 def grade_base(g):
     if g is None: return 0.0
@@ -145,14 +151,12 @@ def youth_mult(cls):        # the market pays for upside: sophomores (proven + r
     if "jr" in c: return 1.02
     if "sr" in c or "gr" in c: return 0.90
     return 1.0
-def big_mult(pos,g):        # CENTER MARKET — good bigs are scarce, the market pays up for size.
-    # Strongest for ROLE/MID bigs (a competent rotation center is rare); DECAYS for
-    # stars, whose grade + the prospect premium already capture their value (so a
-    # grade-89 center doesn't double-dip and land at $4.6M).
-    p=(pos or "").upper().split("/")[0].strip(); g=g if g is not None else 76
-    if p=="C":  return max(1.12, min(1.68, 1.68-0.05*(g-76)))
-    if p in("PF","FC"): return max(1.02, min(1.12, 1.12-0.02*(g-80)))
-    return 1.0
+POS_MULT={"PG":0.81,"CG":0.85,"SG":0.90,"G":0.85,"SF":1.00,"GF":0.97,"F":1.07,"PF":1.15,"FC":1.22,"C":1.30}
+def pos_mult(pos):          # POSITIONAL MARKET PRICING — cost to acquire equal talent by position.
+    # The market overpays for centers (~1.30 = +30%, most overpaid) and underpays for
+    # point guards (~0.81, the biggest bargain); a center costs ~61% more NIL than an
+    # equal-caliber PG. SG/SF/PF interpolate between. (EvanMiya 2025 positional table.)
+    return POS_MULT.get((pos or "").upper().split("/")[0].strip(), 1.00)
 def prospect_mult(g,cls):   # NBA-DRAFT prospect — YOUNG + elite grade spikes value (one-and-dones).
     # Onset at grade 87 so only genuine lottery-caliber freshmen spike, not every
     # 5-star — otherwise a blue-blood's whole freshman class inflates the roster total.
@@ -176,7 +180,7 @@ for name,info in tinfo.items():
         base=grade_base(g)
         if base<=0.003 or g is None:            # sub-rotation / very low grade: nominal only
             pls.append((p["name"],g,mp,prem,0.0,True)); continue
-        val=base*TOP_M*tmult*min_factor(mp)*prem*youth_mult(p.get("class_year"))*big_mult(pos,g)*prospect_mult(g,p.get("class_year"))
+        val=base*TOP_M*tmult*min_factor(mp)*prem*youth_mult(p.get("class_year"))*pos_mult(pos)*prospect_mult(g,p.get("class_year"))
         prod+=val; pls.append((p["name"],g,mp,prem,round(val,3),False))
     if prod<=0.05: continue
     rows.append({"name":name,"tier":tn,"budget":budget,"prod":prod,"srs":team_srs(name),"cls":cls,"pls":pls})
@@ -190,7 +194,7 @@ if os.path.exists(_ovp):
 def pval(n,proj): return OVR[n] if n in OVR else proj
 out={"market_rate_per_pt":round(MKT,4),"walkon_value":WALKON_VALUE,"tier_budget_m":TIER_MID,
      "model":{"grade_floor":GRADE_FLOOR,"grade_span":GRADE_SPAN,"curve":CURVE,"top_m":TOP_M,"tier_mult":TIER_MULT,
-              "big":{"C":1.64,"PF":1.10,"FC":1.10},"prospect_up":{"fr":1.25,"so":0.60},
+              "pos_mult":POS_MULT,"prospect_up":{"fr":1.25,"so":0.60},
               "youth":{"so":1.22,"fr":1.05,"jr":1.02,"sr":0.90}},
      "premium":{"pos_ht_norm":POS_HT_NORM,"size_fallback":SIZE_FALLBACK,"size_up":[SIZE_UP_SPAN,SIZE_UP],"size_down":[SIZE_DOWN_SPAN,SIZE_DOWN],
                 "score":[SCORE_BASE,SCORE_TOP,SCORE_MAX],"conf":CONF_MULT,

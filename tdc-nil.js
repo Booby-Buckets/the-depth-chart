@@ -7,8 +7,9 @@
    Calibrated by scripts/compute_nil.py (re-run to refresh constants + nil-data.json). */
 window.TDC_NIL = {
   // ── grade-centric realistic-market model (mirrors scripts/compute_nil.py) ──
-  MODEL: { grade_floor:58, grade_span:42, curve:1.75, top_m:4.9,
-           tier_mult:{1:1.00,2:0.74,3:0.54,4:0.40,5:0.29,6:0.20,7:0.13,8:0.07,9:0.03} },
+  MODEL: { grade_floor:58, grade_span:42, curve:1.75, top_m:7.056,  // 4.9 × 1.44 (2025 +44% mid/low market jump)
+           tier_mult:{1:1.00,2:0.74,3:0.54,4:0.40,5:0.29,6:0.20,7:0.13,8:0.07,9:0.03},
+           pos_mult:{PG:0.81,CG:0.85,SG:0.90,G:0.85,SF:1.00,GF:0.97,F:1.07,PF:1.15,FC:1.22,C:1.30} },
   MARKET_RATE: 0.263,                                             // (legacy) $M per net-rating point
   REPL: -1.0,
   FLOOR_PTS: 1.6,                                                 // rotation-body floor: a player who plays is worth >= this many net pts (×minutes×premium)
@@ -16,14 +17,14 @@ window.TDC_NIL = {
   WALKON_VALUE: 0.01,                                             // $M nominal ($10K) for walk-ons
   BASE_BY_TIER: {1:0.90,2:0.80,3:0.55,4:0.40,5:0.27,6:0.18,7:0.10,8:0.04,9:0.015}, // $M roster-spot base (×minutes), by team spending tier
   RATE_BY_TIER: {1:1.0,2:1.0,3:0.92,4:0.84,5:0.74,6:0.64,7:0.55,8:0.42,9:0.32},      // rate multiplier by team spending tier
-  TIER_BUDGET: {1:22.5,2:18,3:13.5,4:10,5:7.5,6:5,7:3,8:1.25,9:0.25},
+  TIER_BUDGET: {1:38.9,2:30.5,3:22.4,4:16.2,5:11.9,6:7.7,7:4.5,8:1.85,9:0.36},  // scaled for 2025 market (high tiers ×1.73, low ×1.44)
   IMPACT: {
     w:    {bpm:0.40, grade:0.30, ws40:0.20, per:0.10},
     mean: {bpm:-0.6268, ws40:0.0969, per:14.043, grade:76.7932},
     std:  {bpm:4.3192,  ws40:0.0567, per:5.3637, grade:5.3126},
     cz_mean:-0.00419, cz_std:0.9239
   },
-  PREMIUM: { score:[12,27,0.18], conf:{P:1.12, M:1.00, L:0.90} },
+  PREMIUM: { score:[12,27,0.18], conf:{P:1.345, M:1.00, L:0.90} },  // power-conf +73% vs mid/low +44% (2025 market)
   // size is judged RELATIVE TO POSITION — a 6'6" PG (rare, hyped) and a 6'6" C
   // (undersized for the 5) are opposite stories; a flat height curve paid them
   // the same. norms are rough position-average heights in inches.
@@ -87,9 +88,10 @@ window.TDC_NIL = {
   // projected role: a grade-implied minutes FLOOR so a breakout returner isn't valued on last year's bench minutes
   N.estMpg    = function(mpg,grade){ var mp=+mpg||0, g=+grade||72; var ge=g>=90?28:g>=82?25:g>=76?21:g>=70?17:12; return Math.max(mp,ge); };
   N.youthMult = function(cls){ var c=(''+(cls||'')).toLowerCase(); if(c.indexOf('so')>=0)return 1.22; if(c.indexOf('fr')>=0)return 1.05; if(c.indexOf('jr')>=0)return 1.02; if(c.indexOf('sr')>=0||c.indexOf('gr')>=0)return 0.90; return 1.0; };
-  N.bigMult   = function(pos,g){ var p=(''+(pos||'')).toUpperCase().split('/')[0].trim(); g=(g==null?76:+g);
-    if(p==='C') return Math.max(1.12,Math.min(1.68,1.68-0.05*(g-76)));
-    if(p==='PF'||p==='FC') return Math.max(1.02,Math.min(1.12,1.12-0.02*(g-80))); return 1.0; };
+  // positional market pricing: centers overpaid (~+30%), point guards the bargain
+  // (~0.81); a center costs ~61% more NIL than an equal-caliber PG. (2025 positional table)
+  N.posMult   = function(pos){ return N.MODEL.pos_mult[(''+(pos||'')).toUpperCase().split('/')[0].trim()] || 1.0; };
+  N.bigMult   = N.posMult;   // back-compat alias
   N.prospectMult = function(g,cls){ var c=(''+(cls||'')).toLowerCase(); if(!(c.indexOf('fr')>=0||c.indexOf('so')>=0)||g==null)return 1.0;
     return 1 + Math.max(0,Math.min(1,(+g-87)/9))*(c.indexOf('fr')>=0?1.35:0.55); };
   // grade -> $M NIL value. prem = N.marketPremium(...); cls = class_year; pos = PG/…/C.

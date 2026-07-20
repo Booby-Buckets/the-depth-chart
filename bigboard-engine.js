@@ -70,12 +70,17 @@
   function buildDist(pool){
     var dist={}, keys=['ppg','rpg','apg','stl','blk','mpg','fg_pct','tp_pct','ft_pct','ts','per36','tovs'];
     keys.forEach(function(k){dist[k]=[];});
+    // turnovers, additionally bucketed by position group (G/W/B) — ball security is
+    // judged within position so guards (ball-dominant, naturally more TOs) aren't
+    // over-taxed vs bigs, which was inflating post players at the top of the board.
+    ['G','W','B'].forEach(function(gp){ dist['tovs_'+gp]=[]; });
     pool.forEach(function(pr){
       var s=pr._s;
       dist.ppg.push(num(s.ppg));dist.rpg.push(num(s.rpg));dist.apg.push(num(s.apg));
       dist.stl.push(num(s.stl));dist.blk.push(num(s.blk));dist.mpg.push(num(s.mpg));
       dist.fg_pct.push(num(s.fg_pct));dist.tp_pct.push(num(s.tp_pct));dist.ft_pct.push(num(s.ft_pct));
       dist.ts.push(tsOf(s));dist.per36.push(num(s.mpg)>0?num(s.ppg)*36/num(s.mpg):0);dist.tovs.push(num(s.tovs));
+      var _gp=pgrp(pr.position); if(dist['tovs_'+_gp]) dist['tovs_'+_gp].push(num(s.tovs));
     });
     Object.keys(dist).forEach(function(k){dist[k]=dist[k].filter(function(v){return v>0;}).sort(function(a,b){return a-b;});});
     return dist;
@@ -91,8 +96,13 @@
     var ppgP=pctOf(dist,'ppg',s.ppg),apgP=pctOf(dist,'apg',s.apg),rpgP=pctOf(dist,'rpg',s.rpg),
         stlP=pctOf(dist,'stl',s.stl),blkP=pctOf(dist,'blk',s.blk),mpgP=pctOf(dist,'mpg',s.mpg),
         fgP=pctOf(dist,'fg_pct',s.fg_pct),tpP=pctOf(dist,'tp_pct',s.tp_pct),ftP=pctOf(dist,'ft_pct',s.ft_pct),
-        tsP=pctOf(dist,'ts',tsOf(s)),p36=pctOf(dist,'per36',num(s.mpg)>0?num(s.ppg)*36/num(s.mpg):0),
-        tovP=pctOf(dist,'tovs',s.tovs,true);
+        tsP=pctOf(dist,'ts',tsOf(s)),p36=pctOf(dist,'per36',num(s.mpg)>0?num(s.ppg)*36/num(s.mpg):0);
+    // ball security judged within position group (falls back to the whole pool when a
+    // group is thin), blended 65/35 toward position so it's a light nudge, not a swing.
+    var _tovG=dist['tovs_'+grp];
+    var tovP=(_tovG&&_tovG.length>=25)
+      ? Math.round(0.65*pctOf(dist,'tovs_'+grp,s.tovs,true)+0.35*pctOf(dist,'tovs',s.tovs,true))
+      : pctOf(dist,'tovs',s.tovs,true);
     // height judged against the SPECIFIC position's NBA norm, not a coarse G/W/B
     // base — a 6'6" PG is a rare, valuable archetype; a 6'8" center is undersized.
     var pl0=posLabel(p.position);
