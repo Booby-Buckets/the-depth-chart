@@ -432,10 +432,15 @@
     .ovc-jr{display:grid;grid-template-columns:44px 1fr 1fr 48px;align-items:center;gap:8px;font-size:12.5px;padding:1.5px 0;}
     .ovc-jr.head{font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text4,#3d485f);}
     .ovc-jr .jk{font-weight:700;color:var(--text2);} .ovc-jr .ja{font-family:var(--mono);color:var(--text3);text-align:center;} .ovc-jr .jb{font-family:var(--mono);font-weight:700;text-align:center;} .ovc-jr .jd{font-family:var(--mono);font-size:10.5px;font-weight:700;text-align:right;}
-    .ovc-sh{display:grid;grid-template-columns:46px 1fr 52px;align-items:center;gap:10px;margin:7px 0;}
-    .ovc-sh .shl{font-size:11px;font-weight:600;color:var(--text2);} .ovc-sh .shtk{height:6px;border-radius:3px;background:var(--bg3);overflow:hidden;} .ovc-sh .shfl{height:100%;border-radius:3px;} .ovc-sh .shr{font-family:var(--mono);font-size:11px;font-weight:700;text-align:right;}
+    .ovc-sh{display:grid;grid-template-columns:80px 1fr 92px;align-items:center;gap:10px;margin:8px 0;}
+    .ovc-sh .shl{font-size:11px;font-weight:600;color:var(--text2);} .ovc-sh .shtk{height:6px;border-radius:3px;background:var(--bg3);overflow:hidden;} .ovc-sh .shfl{height:100%;border-radius:3px;} .ovc-sh .shr{font-family:var(--mono);font-size:11px;font-weight:700;text-align:right;white-space:nowrap;}
+    .ovc-sh .shl{white-space:nowrap;}
     .ovc-trend{display:flex;align-items:center;gap:13px;} .ovc-trend .ti{font-size:11.5px;color:var(--text2);line-height:1.5;} .ovc-trend .ti b{color:var(--accent);} .ovc-trend .now{font-family:'Helvetica Neue',sans-serif;font-weight:800;font-size:18px;color:var(--text);}
     .ovc-phys{display:flex;gap:9px;flex-wrap:wrap;} .ovc-ph{flex:1;min-width:80px;background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:9px 8px;text-align:center;} .ovc-ph .v{font-weight:800;font-size:16px;} .ovc-ph .k{font-size:8px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
+    .ovc-formgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
+    .ovc-fc{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px 4px;text-align:center;}
+    .ovc-fc .v{font-weight:800;font-size:14px;font-variant-numeric:tabular-nums;}
+    .ovc-fc .k{font-size:7.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
     .ovc-bottom{background:linear-gradient(120deg,rgba(45,224,166,.05),var(--bg2));border-color:rgba(45,224,166,.2);} .ovc-bottom p{font-size:12.5px;color:var(--text);line-height:1.55;} .ovc-bottom p b{color:var(--accent);font-weight:700;}
     .ovc-cp{display:flex;align-items:center;gap:9px;padding:6px 0;} .ovc-cp + .ovc-cp{border-top:1px solid var(--border);}
     .ovc-cp .cav{width:28px;height:28px;border-radius:8px;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:var(--text2);flex:0 0 auto;}
@@ -652,7 +657,7 @@ body{background:transparent!important;}
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index + team page -->
   <script>try{document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
   <link rel="stylesheet" href="tdc-dense.css?v=7"/>
-  <link rel="stylesheet" href="tdc-player-dense.css?v=11"/>
+  <link rel="stylesheet" href="tdc-player-dense.css?v=13"/>
 </head>
 <body data-anim-auto>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
@@ -2292,12 +2297,27 @@ function renderOvcExtras(val){
       jEl.innerHTML=h;
     }
   }
-  // ---- Shot profile ----
+  // ---- Shot profile (split by shot method, derived from makes/attempts) ----
   var shEl=document.getElementById('ovcShot');
   if(shEl){
-    var SH=[['FG',s.fg_pct],['3PT',s.tp_pct],['FT',s.ft_pct]];
-    shEl.innerHTML=SH.map(function(z){ var v=+z[1]; if(!isFinite(v)) return ''; var c=v>=70?'var(--accent)':v>=40?'var(--blue,#5B8DEF)':'var(--red,#E06A7A)';
-      return '<div class="ovc-sh"><span class="shl">'+z[0]+'</span><span class="shtk"><span class="shfl" style="width:'+Math.min(100,v)+'%;background:'+c+'"></span></span><span class="shr" style="color:'+c+'">'+f1(v)+'%</span></div>'; }).join('')||'<div class="ovc-muted">—</div>';
+    var fgm=+s.fgm, fga=+s.fga, tpm=+s.tpm, tpa=+s.tpa, ftm=+s.ftm, fta=+s.fta;
+    var twoM=fgm-tpm, twoA=fga-tpa;
+    var pct=function(m,a){ return (isFinite(m)&&isFinite(a)&&a>0)?(m/a*100):null; };
+    var efg=(isFinite(fgm)&&isFinite(tpm)&&isFinite(fga)&&fga>0)?((fgm+0.5*tpm)/fga*100):null;
+    var ts=(adv.ts_pct!=null&&adv.ts_pct!=='')?(parseFloat(adv.ts_pct)*100):null;
+    var SH=[
+      ['Rim / 2PT', pct(twoM,twoA)!=null?pct(twoM,twoA):null, (isFinite(twoA)&&twoA>0)?(f1(twoM)+'/'+f1(twoA)):''],
+      ['3-Point',   (s.tp_pct!=null&&s.tp_pct!=='')?+s.tp_pct:pct(tpm,tpa), (isFinite(tpa)&&tpa>0)?(f1(tpm)+'/'+f1(tpa)):''],
+      ['Free Throw',(s.ft_pct!=null&&s.ft_pct!=='')?+s.ft_pct:pct(ftm,fta), (isFinite(fta)&&fta>0)?(f1(ftm)+'/'+f1(fta)):''],
+      ['Field Goal',(s.fg_pct!=null&&s.fg_pct!=='')?+s.fg_pct:pct(fgm,fga), (isFinite(fga)&&fga>0)?(f1(fgm)+'/'+f1(fga)):''],
+      ['eFG%',      efg, ''],
+      ['True Shooting', ts, '']
+    ];
+    var rows=SH.map(function(z){ var v=z[1]; if(v==null||!isFinite(v)) return '';
+      var c=v>=60?'var(--accent)':v>=45?'var(--blue,#5B8DEF)':v>=33?'var(--slate,#6B7893)':'var(--red,#E06A7A)';
+      return '<div class="ovc-sh"><span class="shl">'+z[0]+'</span><span class="shtk"><span class="shfl" style="width:'+Math.max(0,Math.min(100,v))+'%;background:'+c+'"></span></span>'+
+        '<span class="shr" style="color:'+c+'">'+f1(v)+'%'+(z[2]?'<span style="color:var(--text3);font-weight:600"> '+z[2]+'</span>':'')+'</span></div>'; }).join('');
+    shEl.innerHTML=rows||'<div class="ovc-muted">—</div>';
   }
   // ---- Grade trend ----
   var tEl=document.getElementById('ovcTrend');
@@ -2358,11 +2378,22 @@ function fillOvcComps(){
     return '<div class="ovc-cp"><div class="cav">'+ini+'</div><div><div class="cn">'+x.name+'</div><div class="cs">'+(x.team||'')+' · '+_seasonLbl2(x.season)+'</div></div><div class="cm">'+x.m+'%</div></div>';
   }).join('');
 }
-function loadOvcCompsNow(){
+function loadOvcCompsNow(retry){
   var el=document.getElementById('ovcComps');
   if(window._ovcComps&&window._ovcComps.length){ fillOvcComps(); return; }
   if(el) el.innerHTML='<div class="ovc-muted">Finding similar players…</div>';
-  try{ if(typeof renderArchetype==='function') renderArchetype(); }catch(e){ if(el) el.innerHTML='<div class="ovc-muted">Comps unavailable.</div>'; }
+  if(typeof renderArchetype!=='function'){ if(el) el.innerHTML='<div class="ovc-muted">Comps unavailable.</div>'; return; }
+  Promise.resolve(renderArchetype()).then(function(){
+    var got=(window._ovcComps||[]).length;
+    // An empty comp pool almost always means the history fetch failed, not that
+    // the player genuinely has no match — retry once before giving up.
+    if(!got && !retry && !(_allHistory&&_allHistory.length)){
+      _archDone=false; _allHistory=null; return loadOvcCompsNow(true);
+    }
+    if(!got && el) el.innerHTML='<div class="ovc-muted">No close historical comps. <button class="ovc-complink" style="margin-left:6px;padding:3px 9px" onclick="_archDone=false;_allHistory=null;window._ovcComps=undefined;loadOvcCompsNow()">Retry</button></div>';
+  }).catch(function(){
+    if(el) el.innerHTML='<div class="ovc-muted">Comps unavailable. <button class="ovc-complink" style="margin-left:6px;padding:3px 9px" onclick="_archDone=false;_allHistory=null;window._ovcComps=undefined;loadOvcCompsNow()">Retry</button></div>';
+  });
 }
 // Team fit box: logo + conf + role + minute share + usage (+ national rank if fetched)
 function renderOvcTeamFit(x){
@@ -2404,18 +2435,25 @@ function _ovcSetupCompsObserver(){
 function loadOvcForm(){
   var el=document.getElementById('ovcForm'); if(!el) return;
   var espn=window._playerEspn||player.espn_id; if(!espn){ el.innerHTML='<div class="ovc-muted">No game logs.</div>'; return; }
-  fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&select=date,opp,pts,reb,ast,min&order=date.desc&limit=5',{headers:H})
+  fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&select=date,opp,pts,reb,ast,stl,blk,tov,min,fgm,fga,tpm,tpa&order=date.desc&limit=5',{headers:H})
     .then(function(r){return r.json();}).then(function(g){
       if(!g||!g.length){ el.innerHTML='<div class="ovc-muted">No recent games.</div>'; return; }
-      var pts=g.map(function(x){return +x.pts||0;}), apg=g.map(function(x){return +x.ast||0;});
-      var avgP=(pts.reduce(function(a,b){return a+b;},0)/g.length), avgA=(apg.reduce(function(a,b){return a+b;},0)/g.length);
-      var mx=Math.max.apply(null,pts.concat([1])), W=110,H=42,pad=4,bw=(W-2*pad)/g.length*0.6;
-      var rev=g.slice().reverse();
-      var sv='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'">';
-      rev.forEach(function(x,i){ var v=+x.pts||0, bx=pad+(W-2*pad)*(i+0.5)/g.length, by=pad+(H-2*pad-6)*(1-v/mx)+6;
-        sv+='<rect x="'+(bx-bw/2)+'" y="'+by+'" width="'+bw+'" height="'+((H-3)-by)+'" rx="1.5" fill="var(--accent)" opacity="'+(0.55+0.08*i)+'"/>'; });
+      var n=g.length, sum=function(k){ return g.reduce(function(a,x){ return a+(+x[k]||0); },0); };
+      var avg=function(k){ return sum(k)/n; }, r1=function(v){ return (Math.round(v*10)/10).toFixed(1); };
+      var fgp=sum('fga')>0?(sum('fgm')/sum('fga')*100):null;
+      var tpp=sum('tpa')>0?(sum('tpm')/sum('tpa')*100):null;
+      var pts=g.map(function(x){return +x.pts||0;}), mx=Math.max.apply(null,pts.concat([1]));
+      var W=104,Hh=38,pad=4,bw=(W-2*pad)/n*0.6, rev=g.slice().reverse();
+      var sv='<svg width="'+W+'" height="'+Hh+'" viewBox="0 0 '+W+' '+Hh+'">';
+      rev.forEach(function(x,i){ var v=+x.pts||0, bx=pad+(W-2*pad)*(i+0.5)/n, by=pad+(Hh-2*pad-6)*(1-v/mx)+6;
+        sv+='<rect x="'+(bx-bw/2)+'" y="'+by+'" width="'+bw+'" height="'+((Hh-3)-by)+'" rx="1.5" fill="var(--accent)" opacity="'+(0.55+0.08*i)+'"/>'; });
       sv+='</svg>';
-      el.innerHTML='<div class="ovc-trend">'+sv+'<div class="ti"><span class="now">'+(Math.round(avgP*10)/10)+'</span> ppg &nbsp;<b>'+(Math.round(avgA*10)/10)+' apg</b><br>last '+g.length+' games</div></div>';
+      var cells=[['PTS',r1(avg('pts'))],['REB',r1(avg('reb'))],['AST',r1(avg('ast'))],['MIN',r1(avg('min'))],
+                 ['FG%',fgp==null?'—':r1(fgp)],['3P%',tpp==null?'—':r1(tpp)],['STL',r1(avg('stl'))],['TO',r1(avg('tov'))]];
+      el.innerHTML='<div class="ovc-trend" style="margin-bottom:10px">'+sv+
+          '<div class="ti"><span class="now">'+r1(avg('pts'))+'</span> ppg &middot; <b>'+r1(avg('reb'))+' reb &middot; '+r1(avg('ast'))+' ast</b><br>averages over the last '+n+' games</div></div>'+
+        '<div class="ovc-formgrid">'+cells.map(function(c){
+          return '<div class="ovc-fc"><div class="v">'+c[1]+'</div><div class="k">'+c[0]+'</div></div>'; }).join('')+'</div>';
     }).catch(function(){ el.innerHTML='<div class="ovc-muted">Game logs unavailable.</div>'; });
 }
 // The header 2×3 stat grid follows the season dropdown. Everything but the current-year
@@ -2822,7 +2860,7 @@ function renderPage(){
       <div class="ovc-accent"></div>
       <div class="ovc">
         <div class="ovc-box full"><div class="ovc-sl">Stats <span class="sub" id="ovcStatLbl"></span></div><div id="ovrCards">${_ovcInitialStats()}</div></div>
-        <div class="ovc-box ovc-read"><div class="ovc-sl">The read <span class="sub">vs everyone</span></div><div id="ovcRead"></div></div>
+        <div class="ovc-box"><div class="ovc-sl">Team fit</div><div id="ovcFit"></div></div>
         <div class="ovc-box"><div class="ovc-sl">Skill profile <span class="sub">percentile</span></div><div class="radar-wrap"><canvas id="radarChart" width="600" height="600"></canvas></div><div class="radar-legend" id="radarLegend"></div></div>
         <div class="ovc-box"><div class="ovc-sl">The jump <span class="sub" id="ovcJumpLbl"></span></div><div id="ovcJump"></div></div>
         <div class="ovc-box"><div class="ovc-sl">Shot profile <span class="sub">make %</span></div><div id="ovcShot"></div></div>
@@ -2830,9 +2868,8 @@ function renderPage(){
         <div class="ovc-box ovc-comps"><div class="ovc-sl">Plays like</div><div id="ovcComps"><button class="ovc-complink" onclick="loadOvcCompsNow()">Find similar players →</button></div></div>
         <div class="ovc-box"><div class="ovc-sl">Grade trend</div><div class="ovc-trend" id="ovcTrend"></div></div>
         <div class="ovc-box"><div class="ovc-sl">Wins added</div><div id="impactSection"></div></div>
-        <div class="ovc-box"><div class="ovc-sl">Team fit</div><div id="ovcFit"></div></div>
+        <div class="ovc-box ovc-read"><div class="ovc-sl">The read <span class="sub">vs everyone</span></div><div id="ovcRead"></div></div>
         <div class="ovc-box full"><div class="ovc-sl">Badges <span class="sub" id="ovcBadgeLbl"></span></div><div id="badgesSection">${buildBadgesSection(p, badgeData)}</div></div>
-        <div class="ovc-box full"><div class="ovc-sl">Physical &amp; identity</div><div class="ovc-phys" id="ovcPhys"></div></div>
         <div class="ovc-box full ovc-bottom"><div class="ovc-sl">Bottom line</div><div id="ovcBottom"></div></div>
       </div>
       <div class="ovc-foot" id="ovcFoot"></div>
@@ -4133,7 +4170,7 @@ async function renderArchetype(){
         _res.forEach(function(b){ _allRows=_allRows.concat(b); });
       }
       _allHistory=_allRows;
-    }catch(e){ _allHistory=[]; }
+    }catch(e){ _allHistory=null; _archDone=false; }   // don't cache a failed fetch — let comps retry
   }
   if(!_allCurrent){
     try{ _allCurrent=(window.TDCPool?await TDCPool.get():[]).filter(p=>p.ppg!=null); }catch(e){ _allCurrent=[]; }
