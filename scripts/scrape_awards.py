@@ -3,18 +3,22 @@
 
 Coverage (seasons 2007-2026):
   - Consensus All-America 1st/2nd teams (decade pages)
-  - Per conference (ACC, B10, BIG-12, Big-East, SEC):
+  - Per conference (all 32 in team_seasons -- see CONFS):
       * award winners (POY, DPOY, ROY, 6MOY, MIP, Tournament MVP)
       * All-Conference 1st/2nd/3rd teams
+    Coverage varies by league: SR has no All-Conference teams for several
+    mid-majors before ~2015, so those seasons store award winners only.
 
 Row shape (public.awards): season_year, player, team, category, detail
-  detail = 'National' for All-America, else the conference code used by the
-  site's teams table (ACC / B10 / BIG-12 / Big-East / SEC).
+  detail = 'National' for All-America, else the short conference code from
+  CONFS (ACC / B10 / WCC / MVC / ...). conference.html maps league names to
+  these; awards.html uses them directly as its pill labels.
 
 Re-runnable: deletes the scope it rewrites (per season+detail) before insert.
 Polite to sports-reference: ~3.2s between requests, browser UA, 429 backoff.
 """
 import json, re, time, urllib.request, urllib.parse, sys
+import html as html_mod
 
 SB_URL = "https://izlqhnxowdhtdofkwrho.supabase.co"
 import os
@@ -75,9 +79,11 @@ def get(url, tries=4):
     return None
 
 def cells(row_html):
+    # entities must be decoded or schools like "Texas A&M" get stored as "Texas A&amp;M",
+    # which then fails every downstream name/logo lookup
     out = []
     for m in re.findall(r"<t[hd][^>]*>(.*?)</t[hd]>", row_html, re.S):
-        out.append(re.sub(r"<[^>]+>", "", m).replace("&nbsp;", " ").strip())
+        out.append(html_mod.unescape(re.sub(r"<[^>]+>", "", m)).replace("\xa0", " ").strip())
     return out
 
 def table_rows(html, table_id):

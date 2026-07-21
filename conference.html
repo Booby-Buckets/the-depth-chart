@@ -354,7 +354,15 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
   function depth(r){ return ['Round of 64','Round of 32','Sweet 16','Elite Eight','Final Four',
     'Championship Game','Champion'].indexOf(r||''); }
 
-  function tInfo(name){ try{ return window.tdcTeamColor?window.tdcTeamColor(name):null; }catch(e){ return null; } }
+  // sports-reference abbreviates a few schools in its award tables
+  var TALIAS={'UNC':'North Carolina','Pitt':'Pittsburgh','UConn':'Connecticut',
+    'Ole Miss':'Mississippi','USC':'Southern California','LSU':'Louisiana State'};
+  function tInfo(name){
+    try{
+      if(!window.tdcTeamColor) return null;
+      return window.tdcTeamColor(name) || (TALIAS[name]?window.tdcTeamColor(TALIAS[name]):null);
+    }catch(e){ return null; }
+  }
   function tLogo(name,cls){
     var i=tInfo(name);
     return (i&&i.logo)?'<img class="'+(cls||'awlogo')+'" src="'+i.logo+'" alt="" loading="lazy" onerror="this.remove()">':'';
