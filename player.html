@@ -2252,6 +2252,19 @@ function buildOvrSeasonControl(p, proj){
 }
 function _updateHeroSeason(team, gp, seasonYr){
   var col=_teamColor(team); if(col) applyTeamTheme(col);
+  // the avatar crest and the big background watermark are the team he played for
+  // THAT season, not whoever he suits up for now (transfers were showing the wrong crest)
+  try{
+    var _lg=((window.tdcTeamColor&&window.tdcTeamColor(team))||{}).logo||'';
+    var wm=document.querySelector('.hero-wm'), cr=document.querySelector('.hero-crest');
+    if(_lg){
+      if(wm) wm.src=_lg;
+      if(cr){ cr.src=_lg; cr.alt=(team||'')+' logo'; }
+      else { var av=document.querySelector('.hero-avatar');
+        if(av){ var i=document.createElement('img'); i.className='hero-crest'; i.src=_lg;
+          i.alt=(team||'')+' logo'; i.onerror=function(){this.remove();}; av.appendChild(i); } }
+    } else { if(wm) wm.remove(); if(cr) cr.remove(); }
+  }catch(e){}
   var info=_teamInfo(team), ht=document.getElementById('heroTeam');
   if(ht && team){
     // carry the viewed season through to the team page so it opens that year's
@@ -2299,6 +2312,7 @@ function setOvrSeason(val){
   else { var s=_ovrSeasonRow(val); if(!s){ try{ renderOvcExtras(val); }catch(e){} return; } host.innerHTML=ovrCardsFor(s); _updateHeroSeason(s.team, s.gp, s.season_year); }
   _updateHeroGridForSeason(val);   // grade + WA + ranks + all-time all follow the season
   try{ renderOvcExtras(val); }catch(e){}
+  try{ if(document.getElementById('radarChart')) drawRadar(1); }catch(e){}
 }
 // ===== boxed overview card: season options + the new insight boxes =====
 function _ovcSeasonOpts(){
@@ -2419,8 +2433,9 @@ function renderOvcExtras(val){
   renderOvcFooter();
   // ---- comps (fill if already computed via Scouting) ----
   try{ fillOvcComps(); }catch(e){}
-  // ---- async fills (once) ----
-  if(!window._ovcFormLoaded){ window._ovcFormLoaded=true; try{ loadOvcForm(); }catch(e){} }
+  // ---- season-scoped fills ----
+  try{ loadOvcForm(val==='proj'?null:val); }catch(e){}
+  try{ _ovcSyncComps(val,x); }catch(e){}
   if(!window._ovcAuxLoaded){ window._ovcAuxLoaded=true; try{ _ovcLoadNil(); _ovcSetupCompsObserver(); }catch(e){} }
 }
 function renderOvcFooter(){
@@ -2433,6 +2448,51 @@ function renderOvcFooter(){
   f.innerHTML=parts;
 }
 // Plays-like comps (on demand — the pipeline fetches the full history pool)
+// Score the comp pool against an ARBITRARY stat line, so the Overview's
+// "Plays like" can follow the season dropdown instead of being locked to the
+// projected line. Reuses the same helpers (and cached pool) as the Scouting tab.
+function _ovcCompsFor(line, teamName){
+  if(!line || !(typeof _allHistory!=='undefined' && _allHistory && _allHistory.length)) return null;
+  var grp=_norm3(player.position);
+  var pool=(_allHistory||[]).filter(function(q){
+    return q.name && q.name!==player.name && (parseFloat(q.mpg)||0)>=10 && _norm3(q.position)===grp;
+  }).map(function(q){ return {p:q, ht:_htIn(q.height)}; });
+  if(!pool.length) return [];
+  var pf=_feat(line), ph=_htIn(player.height);
+  var nAll=_normStats(pool.map(function(c){return _feat(c.p);}).concat([pf]));
+  var archName=archetypeInfo(Object.assign({position:player.position}, line)).name;
+  var bigOpp={'Stretch Big':'Interior Anchor','Interior Anchor':'Stretch Big','Playmaking Big':'Interior Anchor'};
+  var pTier=_confTier(teamName||player.team);
+  var scored=pool.map(function(c){
+    var bArch=archetypeInfo(c.p).name;
+    var d=_dist(pf,_feat(c.p),nAll,ph,c.ht,pTier,_confTier(c.p.team));
+    if(bArch===archName) d*=0.70;
+    else if(bigOpp[archName]===bArch) d*=1.25;
+    return {p:c.p,d:d};
+  }).sort(function(a,b){return a.d-b.d;});
+  var seenN={},seenY={},out=[];
+  for(var i=0;i<scored.length&&out.length<6;i++){
+    var q=scored[i].p, yr=q.season_year||0;
+    if(seenN[q.name]) continue;
+    if((seenY[yr]||0)>=2) continue;
+    seenN[q.name]=true; seenY[yr]=(seenY[yr]||0)+1;
+    out.push({name:q.name, season:yr, team:q.team, pos:q.position, m:_sim(scored[i].d)});
+  }
+  return out;
+}
+function _ovcSyncComps(val,x){
+  var el=document.getElementById('ovcComps'); if(!el) return;
+  var lbl=document.getElementById('ovcCompLbl');
+  var isProj=(val==='proj')||(x&&x.projected);
+  if(lbl) lbl.textContent=isProj?'':(val&&/^\d{4}$/.test(''+val)?_seasonLbl2(val):'');
+  var key=isProj?'proj':(val==null?'cur':val);
+  window._ovcCompCache=window._ovcCompCache||{};
+  if(window._ovcCompCache[key]){ window._ovcComps=window._ovcCompCache[key]; fillOvcComps(); return; }
+  if(!(typeof _allHistory!=='undefined' && _allHistory && _allHistory.length)) return;  // pool not fetched yet
+  var line=isProj?playerProjLine():((x&&x.src)||player);
+  var c=_ovcCompsFor(line,(x&&x.src&&x.src.team)||player.team);
+  if(c && c.length){ window._ovcCompCache[key]=c; window._ovcComps=c; fillOvcComps(); }
+}
 function fillOvcComps(){
   var el=document.getElementById('ovcComps'); if(!el) return;
   var c=window._ovcComps; if(c===undefined) return;      // not computed yet
@@ -2448,6 +2508,9 @@ function loadOvcCompsNow(retry){
   if(el) el.innerHTML='<div class="ovc-muted">Finding similar players…</div>';
   if(typeof renderArchetype!=='function'){ if(el) el.innerHTML='<div class="ovc-muted">Comps unavailable.</div>'; return; }
   Promise.resolve(renderArchetype()).then(function(){
+    // renderArchetype() scores the PROJECTED line; re-score for the selected season
+    try{ var _sv=(document.getElementById('ovrSeasonSel')||{}).value;
+         _ovcSyncComps(_sv,_skillSrcFor(_sv==='proj'?'proj':_sv)); }catch(e){}
     var got=(window._ovcComps||[]).length;
     // An empty comp pool almost always means the history fetch failed, not that
     // the player genuinely has no match — retry once before giving up.
@@ -2463,17 +2526,24 @@ function loadOvcCompsNow(retry){
 function renderOvcTeamFit(x){
   var el=document.getElementById('ovcFit'); if(!el) return;
   var s=(x&&x.src)||player, adv=_ovcAdv(s,x&&x.projected);
-  var tc=(window.tdcTeamColor&&window.tdcTeamColor(player.team))||null; var logo=tc&&tc.logo;
-  var conf=(teamData&&(teamData.conf||teamData.conference))||player.conf||player.conference||'';
+  // fit is about the team he actually played for that season
+  var isCur=(x&&x.projected)||!(s&&s.team);
+  var tname=(!isCur&&s.team)||player.team;
+  var tc=(window.tdcTeamColor&&window.tdcTeamColor(tname))||null; var logo=tc&&tc.logo;
+  var ti=_teamInfo(tname);
+  var conf=(isCur?((teamData&&(teamData.conf||teamData.conference))||player.conf||player.conference):'')
+           ||(ti&&(ti.conf||ti.conference))||'';
   var mpg=parseFloat(s.mpg); var minShare=isFinite(mpg)?Math.round(mpg/40*100):null;
   var usg=parseFloat(adv.usg_pct); var role=(window._ovcScout&&window._ovcScout.role)||'';
-  var rk=teamData&&(parseInt(teamData.tdc_rank_num,10)||parseInt(teamData.tdc_rank,10));
+  // the stored team rank is this year's — meaningless against a past season's team
+  var sameTeam=(tname===player.team);
+  var rk=sameTeam&&teamData&&(parseInt(teamData.tdc_rank_num,10)||parseInt(teamData.tdc_rank,10));
   var cells='';
   if(rk&&isFinite(rk)&&rk>0) cells+='<div class="ovc-fitc"><div class="v tcr">#'+rk+'</div><div class="k">Team Rank</div></div>';
   if(minShare!=null) cells+='<div class="ovc-fitc"><div class="v">'+minShare+'%</div><div class="k">Min Share</div></div>';
   if(isFinite(usg)) cells+='<div class="ovc-fitc"><div class="v">'+usg.toFixed(1)+'%</div><div class="k">Usage</div></div>';
   el.innerHTML='<div class="ovc-fit">'+(logo?'<img class="flogo" src="'+logo+'" alt="" onerror="this.style.display=\'none\'">':'')+
-      '<div class="fmeta"><div class="fteam">'+(player.team||'')+'</div><div class="fconf">'+conf+(role?' · '+role:'')+'</div></div></div>'+
+      '<div class="fmeta"><div class="fteam">'+(tname||'')+'</div><div class="fconf">'+conf+(role&&sameTeam?' \u00b7 '+role:'')+'</div></div></div>'+
     (cells?'<div class="ovc-fitrow">'+cells+'</div>':'');
 }
 async function _ovcLoadNil(){
@@ -2496,12 +2566,24 @@ function _ovcSetupCompsObserver(){
   obs.observe(box);
 }
 // last-5 game logs -> recent form box
-function loadOvcForm(){
+function loadOvcForm(seasonYr){
   var el=document.getElementById('ovcForm'); if(!el) return;
   var espn=window._playerEspn||player.espn_id; if(!espn){ el.innerHTML='<div class="ovc-muted">No game logs.</div>'; return; }
-  fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&select=date,opp,pts,reb,ast,stl,blk,tov,min,fgm,fga,tpm,tpa&order=date.desc&limit=5',{headers:H})
+  // last 5 OF THE SELECTED SEASON — paging back used to keep showing this year's games
+  var yr=(seasonYr&&/^\d{4}$/.test(''+seasonYr))?+seasonYr:null;
+  var key=yr||'latest';
+  window._ovcFormCache=window._ovcFormCache||{};
+  var lbl=document.getElementById('ovcFormLbl');
+  if(lbl) lbl.textContent=yr?('last 5 \u00b7 '+_seasonLbl2(yr)):'last 5';
+  if(window._ovcFormCache[key]!==undefined){ el.innerHTML=window._ovcFormCache[key]; return; }
+  window._ovcFormReq=key;
+  el.innerHTML='<div class="ovc-muted">Loading&hellip;</div>';
+  fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+(yr?('&season_year=eq.'+yr):'')+
+        '&select=date,opp,pts,reb,ast,stl,blk,tov,min,fgm,fga,tpm,tpa&order=date.desc&limit=5',{headers:H})
     .then(function(r){return r.json();}).then(function(g){
-      if(!g||!g.length){ el.innerHTML='<div class="ovc-muted">No recent games.</div>'; return; }
+      if(window._ovcFormReq!==key) return;                 // a newer season won the race
+      if(!g||!g.length){ var m='<div class="ovc-muted">No game logs for this season.</div>';
+        window._ovcFormCache[key]=m; el.innerHTML=m; return; }
       var n=g.length, sum=function(k){ return g.reduce(function(a,x){ return a+(+x[k]||0); },0); };
       var avg=function(k){ return sum(k)/n; }, r1=function(v){ return (Math.round(v*10)/10).toFixed(1); };
       var fgp=sum('fga')>0?(sum('fgm')/sum('fga')*100):null;
@@ -2518,6 +2600,7 @@ function loadOvcForm(){
           '<div class="ti"><span class="now">'+r1(avg('pts'))+'</span> ppg &middot; <b>'+r1(avg('reb'))+' reb &middot; '+r1(avg('ast'))+' ast</b><br>averages over the last '+n+' games</div></div>'+
         '<div class="ovc-formgrid">'+cells.map(function(c){
           return '<div class="ovc-fc"><div class="v">'+c[1]+'</div><div class="k">'+c[0]+'</div></div>'; }).join('')+'</div>';
+      window._ovcFormCache[key]=el.innerHTML;
     }).catch(function(){ el.innerHTML='<div class="ovc-muted">Game logs unavailable.</div>'; });
 }
 // The header 2×3 stat grid follows the season dropdown. Everything but the current-year
@@ -2929,8 +3012,8 @@ function renderPage(){
         <div class="ovc-box"><div class="ovc-sl">Skill profile <span class="sub">percentile</span></div><div class="radar-wrap"><canvas id="radarChart" width="600" height="600"></canvas></div><div class="radar-legend" id="radarLegend"></div></div>
         <div class="ovc-box"><div class="ovc-sl">The jump <span class="sub" id="ovcJumpLbl"></span></div><div id="ovcJump"></div></div>
         <div class="ovc-box"><div class="ovc-sl">Shot profile <span class="sub">make %</span></div><div id="ovcShot"></div></div>
-        <div class="ovc-box"><div class="ovc-sl">Recent form <span class="sub">last 5</span></div><div id="ovcForm"><div class="ovc-muted">Loading…</div></div></div>
-        <div class="ovc-box ovc-comps"><div class="ovc-sl">Plays like</div><div id="ovcComps"><button class="ovc-complink" onclick="loadOvcCompsNow()">Find similar players →</button></div></div>
+        <div class="ovc-box"><div class="ovc-sl">Recent form <span class="sub" id="ovcFormLbl">last 5</span></div><div id="ovcForm"><div class="ovc-muted">Loading…</div></div></div>
+        <div class="ovc-box ovc-comps"><div class="ovc-sl">Plays like <span class="sub" id="ovcCompLbl"></span></div><div id="ovcComps"><button class="ovc-complink" onclick="loadOvcCompsNow()">Find similar players →</button></div></div>
         <div class="ovc-box"><div class="ovc-sl">Grade trend</div><div class="ovc-trend" id="ovcTrend"></div></div>
         <div class="ovc-box"><div class="ovc-sl">Wins added</div><div id="impactSection"></div></div>
         <div class="ovc-box ovc-read"><div class="ovc-sl">The read <span class="sub">vs everyone</span></div><div id="ovcRead"></div></div>
@@ -3780,7 +3863,12 @@ function drawRadar(progress){
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
   const textCol=isDark?'#a0a0a0':'#888';
   const gridCol=isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.06)';
-  const color=teamData?.color||'#8B6914';
+  // colourise by the team he played for in the SELECTED season (transfers were
+  // falling back to the generic gold because teamData is always the current team)
+  var _selV=(document.getElementById('ovrSeasonSel')||{}).value;
+  var _selT=player.team;
+  try{ if(_selV&&_selV!=='proj'){ var _r=_ovrSeasonRow(_selV); if(_r&&_r.team) _selT=_r.team; } }catch(e){}
+  const color=_teamColor(_selT)||(teamData&&teamData.color)||'#8B6914';
 
   // 8 skill axes — percentile vs EVERY player in the database
   const AXLAB=['Scoring','Efficiency','3-Point','Playmaking','Rebounding','Defense','Usage','Ball Care'];
