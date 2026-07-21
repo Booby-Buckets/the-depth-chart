@@ -1206,10 +1206,16 @@ async function loadTeam(name){
       // Many mid-major teams aren't in the curated `teams` table — resolve basic
       // info from team_seasons (which covers all of D1) so the page and its
       // historical rosters still work instead of hard-erroring.
-      const ts = await fetch(`${SB_URL}/rest/v1/team_seasons?team=eq.${encodeURIComponent(name)}&select=team,conference,wins,losses,ppg,oppg,srs,tier&order=season_year.desc&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+      let ts = await fetch(`${SB_URL}/rest/v1/team_seasons?team=eq.${encodeURIComponent(name)}&select=team,conference,wins,losses,ppg,oppg,srs,tier&order=season_year.desc&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+      // team_seasons keys the full ESPN name ("Colgate Raiders"); a plain-name page
+      // ("Colgate") misses on exact match, so fall back to a prefix match.
+      if(!ts.length){ ts = await fetch(`${SB_URL}/rest/v1/team_seasons?team=ilike.${encodeURIComponent(name)}*&select=team,conference,wins,losses,ppg,oppg,srs,tier&order=season_year.desc&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]); }
       const b = ts[0];
-      if(!b) throw new Error('Team not found');
-      t = { name:name, nickname:'', conference:b.conference||'', conf:b.conference||'', color:'#7c7c8a', color2:'#111', wins:b.wins, losses:b.losses, srs:b.srs, tier:b.tier, _minimal:true };
+      // Never hard-error: if the team still isn't found, build a name-only minimal team
+      // so the page loads and its historical rosters (from player_history) still resolve.
+      t = b
+        ? { name:name, nickname:'', conference:b.conference||'', conf:b.conference||'', color:'#7c7c8a', color2:'#111', wins:b.wins, losses:b.losses, srs:b.srs, tier:b.tier, _minimal:true }
+        : { name:name, nickname:'', conference:'', conf:'', color:'#7c7c8a', color2:'#111', _minimal:true };
     }
 
     // Fetch players for this team
