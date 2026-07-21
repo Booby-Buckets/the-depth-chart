@@ -149,6 +149,8 @@
     [data-theme="dark"]{--tc-readable:color-mix(in srgb,var(--tc) 45%,#fff);}
     .hero-conf{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--tc-readable);margin-bottom:10px;display:flex;align-items:center;gap:10px;animation:fadeUp .45s .05s cubic-bezier(.22,1,.36,1) both;}
     .hero-conf::before{content:'';width:18px;height:1px;background:var(--tc-readable);opacity:.7;flex-shrink:0;}
+    .conf-link{color:inherit;text-decoration:none;border-bottom:1px dotted currentColor;padding-bottom:1px;transition:opacity .15s;}
+    .conf-link:hover{opacity:.72;}
     .hero-name{font-family:'Playfair Display',serif;font-weight:800;font-size:56px;line-height:.95;letter-spacing:-.02em;color:var(--text);margin-bottom:6px;animation:fadeUp .5s .12s cubic-bezier(.22,1,.36,1) both;}
     .hero-nickname{font-family:'Source Serif 4',serif;font-style:italic;font-size:20px;color:var(--text3);margin-bottom:14px;animation:fadeUp .5s .18s cubic-bezier(.22,1,.36,1) both;}
     .hero-meta{display:flex;align-items:center;gap:16px;flex-wrap:wrap;animation:fadeUp .5s .22s cubic-bezier(.22,1,.36,1) both;}
@@ -1498,7 +1500,14 @@ function renderHero(t, color, rgb){
   document.title = `${t.name} — The Depth Chart`;
   document.getElementById('bcTeam').textContent = t.name;
   document.getElementById('heroLine').style.background = color;
-  document.getElementById('heroConf').textContent = t.conference || '';
+  (function(){
+    var _ce=document.getElementById('heroConf'), _cf=t.conference||'';
+    if(!_cf){ _ce.textContent=''; return; }
+    var _cu='conference.html?team='+encodeURIComponent(t.name||teamName);
+    var _cs=new URLSearchParams(location.search).get('season');
+    if(_cs && +_cs>=2007 && +_cs<2027) _cu+='&season='+_cs;
+    _ce.innerHTML='<a class="conf-link" href="'+_cu+'">'+_cf+'</a>';
+  })();
   // conf/rank colors come from CSS (--tc-readable) so they stay legible on the dark hero
   document.getElementById('heroName').textContent = t.name;
   document.getElementById('heroNick').textContent = t.nickname || '';

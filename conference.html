@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="auth.js?v=paywall3"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <script src="team-colors.js"></script>
+  <script src="conf-logos.js?v=1"></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Conference &mdash; The Depth Chart</title>
+  <meta name="description" content="Conference standings, awards, coach rankings and inter-conference records for every season on The Depth Chart."/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:site_name" content="The Depth Chart"/>
+  <meta property="og:title" content="Conference Page &mdash; The Depth Chart"/>
+  <meta property="og:description" content="Standings, awards, coach rankings and how the league stacked up &mdash; The Depth Chart."/>
+  <meta name="twitter:card" content="summary_large_image"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,600;1,700&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Inter:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html{background:var(--bg);}
+    body{background:transparent;color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;opacity:0;animation:fadeIn .3s ease forwards;}
+    @keyframes fadeIn{to{opacity:1;}}
+    :root{--bg: #FAF9F6;--bg2: #F1EFEA;--bg3: #E6E3DB;--border: #DEDACF;--border2: #C6C0B2;--text: #1A1814;--text2: #4A463C;--text3: #8A867A;--accent: #A8843C;--accent-on:#221c08;--tc:#003087;--tc-rgb:0,48,135;--green:#1a8c3a;--red:#cc2200;}
+
+    [data-theme="dark"]{--bg: #141416;--bg2: #1D1D20;--bg3: #28282C;--border: #2E2E34;--border2: #45454D;--text: #F1EFEA;--text2: #B4B0A8;--text3: #807C74;--accent: #E6D5A8;--accent-on:#221c08;}
+    [data-theme="dark"] .nav-signin{color:var(--bg);background:var(--text);}
+    [data-theme="dark"] .filter-btn{background:var(--bg2);}
+    [data-theme="dark"] .filter-select{background:var(--bg2);}
+    [data-theme="dark"] .plan{background:var(--bg2);}
+    [data-theme="dark"] .account-card{background:var(--bg2);}
+    [data-theme="dark"] .form-input{background:var(--bg2);color:var(--text);}
+    [data-theme="dark"] .form-select{background:var(--bg2);color:var(--text);}
+    [data-theme="dark"] .form-textarea{background:var(--bg2);color:var(--text);}
+    [data-theme="dark"] .side-card{background:var(--bg2);}
+    [data-theme="dark"] .what-card{background:var(--bg2);}
+    [data-theme="dark"] .gAp,[data-theme="dark"] .gA,[data-theme="dark"] .gAm{color:#f0c040;}
+    [data-theme="dark"] .gBp,[data-theme="dark"] .gB,[data-theme="dark"] .gBm{color:#d4a020;}
+    [data-theme="dark"] .gCp,[data-theme="dark"] .gC,[data-theme="dark"] .gCm{color:#b07818;}
+    [data-theme="dark"] .gDp,[data-theme="dark"] .gD,[data-theme="dark"] .gDm,[data-theme="dark"] .gF{color:#785010;}
+    [data-theme="dark"] .dc-row-grade .gAp,[data-theme="dark"] .dc-row-grade .gA,[data-theme="dark"] .dc-row-grade .gAm,
+    [data-theme="dark"] .swap-player-grade.gAp,[data-theme="dark"] .swap-player-grade.gA,[data-theme="dark"] .swap-player-grade.gAm{color:#f0c040;}
+    [data-theme="dark"] .dc-row-grade .gBp,[data-theme="dark"] .dc-row-grade .gB,[data-theme="dark"] .dc-row-grade .gBm,
+    [data-theme="dark"] .swap-player-grade.gBp,[data-theme="dark"] .swap-player-grade.gB,[data-theme="dark"] .swap-player-grade.gBm{color:#d4a020;}
+    [data-theme="dark"] .dc-row-grade .gCp,[data-theme="dark"] .dc-row-grade .gC,[data-theme="dark"] .dc-row-grade .gCm,
+    [data-theme="dark"] .swap-player-grade.gCp,[data-theme="dark"] .swap-player-grade.gC,[data-theme="dark"] .swap-player-grade.gCm{color:#b07818;}
+    [data-theme="dark"] .dc-row-grade .gDp,[data-theme="dark"] .dc-row-grade .gD,[data-theme="dark"] .dc-row-grade .gF,
+    [data-theme="dark"] .swap-player-grade.gDp,[data-theme="dark"] .swap-player-grade.gD,[data-theme="dark"] .swap-player-grade.gF{color:#785010;}
+    [data-theme="dark"] .form-btn{background:var(--text);color:var(--bg);}
+    [data-theme="dark"] .plan-btn.paid{background:var(--text);color:var(--bg);}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;}
+    .theme-toggle:hover{border-color:var(--text3);color:var(--text);}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html{background:var(--bg);}
+    body{background:transparent;color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;opacity:0;animation:fadeIn .3s ease forwards;}
+    @keyframes fadeIn{to{opacity:1;}}
+    :root{--bgc1:#9a9aa8;--bgc2:#7c7c8c;--bgc3:#adadbd;--bgm1:rgba(158,158,174,.30);--bgm2:rgba(128,128,146,.28);--bgm3:rgba(176,176,192,.32);--bgm4:rgba(116,116,134,.22);}
+    .tdc-bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:var(--bg);}
+    .tdc-mesh{position:absolute;inset:-25%;background:radial-gradient(38% 48% at 22% 26%, var(--bgm1), transparent 62%),radial-gradient(44% 52% at 80% 28%, var(--bgm2), transparent 62%),radial-gradient(50% 50% at 62% 80%, var(--bgm3), transparent 62%),radial-gradient(40% 44% at 14% 82%, var(--bgm4), transparent 62%);filter:blur(46px);animation:tdcMesh 28s ease-in-out infinite alternate;transition:background 1.1s ease;}
+    [data-theme="dark"] .tdc-mesh{opacity:.5;} :root:not([data-theme="dark"]) .tdc-mesh{opacity:.3;}
+    @keyframes tdcMesh{0%{transform:translate(0,0) scale(1) rotate(0deg);}50%{transform:translate(2%,-2.5%) scale(1.08) rotate(2deg);}100%{transform:translate(-2%,2%) scale(1.03) rotate(-2deg);}}
+    .tdc-blob{position:absolute;border-radius:50%;filter:blur(72px);opacity:.35;mix-blend-mode:screen;transition:background 1.1s ease;}
+    :root:not([data-theme="dark"]) .tdc-blob{opacity:.2;mix-blend-mode:multiply;}
+    .tdc-blob.b1{width:520px;height:520px;background:radial-gradient(circle,var(--bgc1),transparent 70%);top:-130px;left:-90px;animation:tdcB1 24s ease-in-out infinite alternate;}
+    .tdc-blob.b2{width:620px;height:620px;background:radial-gradient(circle,var(--bgc2),transparent 70%);bottom:-180px;right:-130px;animation:tdcB2 30s ease-in-out infinite alternate;}
+    .tdc-blob.b3{width:460px;height:460px;background:radial-gradient(circle,var(--bgc3),transparent 70%);top:38%;left:54%;animation:tdcB3 22s ease-in-out infinite alternate;}
+    @keyframes tdcB1{to{transform:translate(130px,90px) scale(1.18);}}
+    @keyframes tdcB2{to{transform:translate(-110px,-100px) scale(1.12);}}
+    @keyframes tdcB3{to{transform:translate(-90px,70px) scale(1.22);}}
+    .tdc-grain{position:absolute;inset:0;opacity:.4;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:170px 170px;}
+    
+
+    /* NAV — frosted glass */
+    .nav-wrap{border-bottom:1px solid var(--border);background:rgba(250,249,246,.66);backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);position:sticky;top:0;z-index:200;}
+    [data-theme="dark"] .nav-wrap{background:rgba(12,10,22,.62);border-bottom-color:rgba(26,43,68,.9);}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;min-width:0;}
+    @keyframes logoReveal{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:translateX(0);}}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;letter-spacing:-.01em;white-space:nowrap;animation:logoReveal .55s cubic-bezier(.22,1,.36,1) both;}
+    .nav-logo span{color:var(--accent);}
+    .nav-actions{display:flex;align-items:center;gap:24px;}
+    .nav-actions a{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;transition:color .15s;}
+    .nav-actions a:hover{color:var(--text);}
+    .nav-signin{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--text);border:none;padding:6px 16px;cursor:pointer;text-decoration:none;display:inline-block;transition:opacity .15s;}
+    .nav-signin:hover{opacity:.85;}
+    [data-theme="dark"] .nav-signin{background:var(--text);color:var(--bg);}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+    .nav-sub::-webkit-scrollbar{display:none;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;position:relative;white-space:nowrap;flex-shrink:0;transition:color .2s;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a::after{content:'';position:absolute;bottom:0;left:14px;right:14px;height:2px;background:var(--accent);transform:scaleX(0);transform-origin:left center;transition:transform .22s cubic-bezier(.22,1,.36,1);border-radius:1px 1px 0 0;}
+    .nav-sub a:first-child::after{left:0;}
+    .nav-sub a:hover{color:var(--text);}
+    .nav-sub a:hover::after,.nav-sub a.active::after{transform:scaleX(1);}
+    .nav-sub a.active{color:var(--text);}
+    .breadcrumb{padding:10px 40px;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);position:relative;z-index:1;}
+    .breadcrumb a{color:var(--text3);text-decoration:none;transition:color .15s;}
+    .breadcrumb a:hover{color:var(--text);}
+
+    /* AMBIENT LAYER */
+    .ambient-layer{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;}
+    .ambient-blob{position:absolute;border-radius:50%;will-change:transform;}
+    .amb-1{width:800px;height:800px;background:radial-gradient(circle at center,rgba(var(--tc-rgb),.04) 0%,transparent 65%);filter:blur(60px);top:-280px;right:-200px;animation:ambA 22s ease-in-out infinite alternate;}
+    .amb-2{width:700px;height:700px;background:radial-gradient(circle at center,rgba(140,140,148,.05) 0%,transparent 65%);filter:blur(70px);bottom:-240px;left:-180px;animation:ambB 28s ease-in-out infinite alternate;}
+    .amb-3{width:400px;height:400px;background:radial-gradient(circle at center,rgba(var(--tc-rgb),.03) 0%,transparent 65%);filter:blur(50px);top:40%;left:35%;animation:ambC 16s ease-in-out infinite alternate;}
+    [data-theme="dark"] .amb-1{background:radial-gradient(circle at center,rgba(var(--tc-rgb),.10) 0%,transparent 65%);}
+    [data-theme="dark"] .amb-2{background:radial-gradient(circle at center,rgba(150,150,158,.06) 0%,transparent 65%);}
+    @keyframes ambA{0%{transform:translate(0,0) scale(1);}33%{transform:translate(-45px,30px) scale(1.06);}100%{transform:translate(38px,18px) scale(1.04);}}
+    @keyframes ambB{0%{transform:translate(0,0) scale(1);}50%{transform:translate(50px,-30px) scale(1.08);}100%{transform:translate(-32px,16px) scale(1.05);}}
+    @keyframes ambC{0%{transform:translate(0,0) scale(1);}100%{transform:translate(-20px,14px) scale(.90);}}
+    #particleCanvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;}
+    .nav-wrap,.breadcrumb,.team-hero,.page-body,footer{position:relative;z-index:1;}
+    .nav-wrap{z-index:200;}
+    footer{border-top:1px solid var(--border);padding:28px 40px;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1;}
+    .footer-logo{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text3);}
+    .footer-logo span{color:var(--accent);}
+    .footer-meta{font-size:11px;font-weight:600;color:var(--text3);}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;}
+    .theme-toggle:hover{border-color:var(--text3);color:var(--text);}
+
+    /* ---------- conference page ---------- */
+    :root{--cmono:ui-monospace,'SF Mono','SFMono-Regular',Menlo,Consolas,monospace;}
+    .cwrap{max-width:1180px;margin:0 auto;padding:18px 40px 60px;position:relative;z-index:1;}
+    .chead{position:relative;display:flex;align-items:center;gap:18px;flex-wrap:wrap;border:1px solid var(--border);
+      border-left:3px solid var(--accent);border-radius:16px;padding:18px 22px;overflow:hidden;background:var(--bg2);}
+    .cmark{width:60px;height:60px;object-fit:contain;flex:0 0 auto;}
+    .cname{font-family:'Playfair Display',serif;font-size:28px;font-weight:800;letter-spacing:-.02em;line-height:1.05;}
+    .csub{font-size:12.5px;color:var(--text2);margin-top:5px;}
+    .csub b{color:var(--text);}
+    .seasonsel{margin-left:auto;display:flex;align-items:center;gap:9px;}
+    .seasonsel .lb{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
+    .seasonsel select{background:var(--bg);color:var(--text);border:1px solid var(--border2);border-radius:9px;padding:7px 11px;font-size:13px;font-family:inherit;cursor:pointer;}
+    .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;margin-top:14px;}
+    .tile{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
+    .tile .v{font-weight:800;font-size:21px;font-variant-numeric:tabular-nums;line-height:1.15;}
+    .tile .k{font-size:8.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
+    .tile .s{font-size:10px;color:var(--text3);margin-top:2px;}
+    .cols{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;margin-top:16px;align-items:start;}
+    @media(max-width:920px){.cols{grid-template-columns:1fr;}}
+    .box{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 16px 16px;}
+    .box.full{margin-top:16px;}
+    .sl{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-bottom:11px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+    .sl .sub{color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;font-size:10px;opacity:.85;}
+    /* standings */
+    .ctab{width:100%;border-collapse:collapse;}
+    .ctab th{font-size:8.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);text-align:right;padding:0 0 8px;}
+    .ctab th.l{text-align:left;}
+    .ctab td{padding:7px 0;border-top:1px solid var(--border);font-size:12.5px;text-align:right;font-variant-numeric:tabular-nums;}
+    .ctab td.l{text-align:left;}
+    .ctab tbody tr:hover td{background:rgba(128,128,128,.06);}
+    .rk{color:var(--text3);font-family:var(--cmono);font-size:11px;width:24px;}
+    .tm{display:flex;align-items:center;gap:8px;}
+    .tlogo{width:22px;height:22px;object-fit:contain;flex:0 0 auto;}
+    .tnm{font-weight:700;color:var(--text);text-decoration:none;}
+    .tnm:hover{color:var(--accent);}
+    .cbadge{font-family:var(--cmono);font-size:8px;font-weight:800;padding:1px 5px;border-radius:4px;margin-left:6px;letter-spacing:.04em;white-space:nowrap;}
+    .ctab .seedc{font-family:var(--cmono);font-size:10.5px;color:var(--text3);padding-left:14px;}
+    .ctab .res{font-size:11px;color:var(--text2);padding-left:16px;}
+    /* awards */
+    .aw{display:flex;align-items:center;gap:10px;padding:8px 0;}
+    .aw + .aw{border-top:1px solid var(--border);}
+    .awi{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+    .awi svg{width:15px;height:15px;}
+    .awk{font-size:8.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .awp{font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;}
+    .awp a{color:var(--text);text-decoration:none;} .awp a:hover{color:var(--accent);}
+    .awt{font-size:10.5px;color:var(--text3);display:inline-flex;align-items:center;gap:7px;text-align:right;}
+    .awlogo{width:20px;height:20px;object-fit:contain;flex:0 0 auto;}
+    /* all-conference */
+    .actm{margin-bottom:13px;} .actm:last-child{margin-bottom:0;}
+    .acth{font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;margin-bottom:7px;}
+    .acps{display:flex;flex-wrap:wrap;gap:6px;}
+    .acp{font-size:11.5px;font-weight:600;background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:4px 11px;display:inline-flex;align-items:center;gap:6px;}
+    .acp img{width:16px;height:16px;object-fit:contain;}
+    .acp span{color:var(--text3);font-size:10px;}
+    /* inter-conference */
+    .cmp{display:flex;flex-direction:column;gap:8px;}
+    .crow{display:grid;grid-template-columns:190px 1fr 186px;align-items:center;gap:12px;}
+    @media(max-width:700px){.crow{grid-template-columns:120px 1fr;}.crow .cnum{grid-column:2;text-align:left;}}
+    .cl{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--text2);min-width:0;}
+    .cl span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .crow.me .cl{color:var(--accent);}
+    .clogo{width:19px;height:19px;object-fit:contain;flex:0 0 auto;}
+    .cbar{position:relative;height:11px;border-radius:6px;background:var(--bg3);}
+    .cfill{position:absolute;inset:0 auto 0 0;border-radius:6px;}
+    .cnum{font-family:var(--cmono);font-size:11px;color:var(--text3);text-align:right;white-space:nowrap;}
+    .cnum b{color:var(--text);font-size:12px;}
+    /* coach rankings */
+    .seg{display:inline-flex;background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:2px;}
+    .seg button{background:none;border:0;color:var(--text3);font:inherit;font-size:10.5px;font-weight:700;padding:4px 12px;border-radius:7px;cursor:pointer;}
+    .seg button.on{background:var(--bg2);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.18);}
+    .cohint{font-size:10.5px;color:var(--text3);margin:-4px 0 10px;}
+    .cohint b{color:var(--text2);}
+    .coy{display:grid;grid-template-columns:26px 1fr 62px 60px 108px 78px;align-items:center;gap:11px;padding:8px 0;}
+    .co{display:grid;grid-template-columns:26px 1fr 62px 92px 68px;align-items:center;gap:11px;padding:8px 0;}
+    .coy + .coy,.co + .co{border-top:1px solid var(--border);}
+    @media(max-width:760px){.coy,.co{grid-template-columns:22px 1fr 68px;}.coy .coar,.coy .arrow,.co .coar{display:none;}}
+    .cork{font-family:var(--cmono);font-size:11px;color:var(--text3);text-align:right;}
+    .conm{display:flex;align-items:center;gap:9px;min-width:0;}
+    .conm .n{font-size:12.5px;font-weight:700;}
+    .conm .s{font-size:10px;color:var(--text3);}
+    .coar{font-size:10.5px;color:var(--text2);text-align:right;}
+    .cog{font-family:var(--cmono);font-weight:800;font-size:14px;text-align:right;}
+    .conr{font-family:var(--cmono);font-size:10px;color:var(--text3);text-align:right;}
+    .lift{font-family:var(--cmono);font-weight:800;font-size:14px;text-align:right;}
+    .liftk{font-size:8px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);text-align:right;}
+    .arrow{font-family:var(--cmono);font-size:10.5px;color:var(--text3);text-align:right;}
+    .note{font-size:11.5px;color:var(--text3);margin-top:12px;padding:10px 13px;border-left:2px solid var(--border2);background:var(--bg);border-radius:0 8px 8px 0;}
+    .note b{color:var(--text2);}
+    .empty{color:var(--text3);font-size:12px;padding:6px 0;}
+    .cload{color:var(--text3);font-size:12px;padding:10px 0;}
+    @media(max-width:960px){
+      .cwrap{padding:16px 16px 50px;}
+      .nav-top{height:44px;} .nav-logo{font-size:17px;}
+      .nav-signin{padding:5px 10px;font-size:10px;}
+      .nav-actions{gap:10px;} .nav-actions a{font-size:10px;}
+      .nav-sub a{white-space:nowrap;padding:0 12px;font-size:10px;}
+      .cname{font-size:22px;}
+      .seasonsel{margin-left:0;width:100%;}
+    }
+  </style>
+</head>
+<body>
+<div class="tdc-bg" aria-hidden="true">
+  <div class="tdc-mesh"></div>
+  <div class="tdc-blob b1"></div>
+  <div class="tdc-blob b2"></div>
+  <div class="tdc-blob b3"></div>
+  <div class="tdc-grain"></div>
+</div>
+
+<div class="nav-wrap">
+  <div class="nav-top">
+    <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+    <div class="nav-actions" id="navActions">
+      <a href="pricing.html">Pricing</a>
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">&#127769;</button>
+      <a href="pricing.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;margin-right:4px;">Sign In</a>
+      <a href="pricing.html" class="nav-signin" style="text-decoration:none;">Subscribe</a>
+    </div>
+  </div>
+  <div class="nav-sub">
+    <a href="index.html">Rankings</a>
+    <a href="roster.html">Players</a>
+    <a href="compare-players.html">Compare</a>
+    <a href="draft.html">Draft</a>
+    <a href="analytics.html">Stats</a>
+    <a href="community.html">Community</a>
+    <a href="team.html">Teams</a>
+    <a href="customize.html">&#10022; Customize</a>
+    <a href="pricing.html">Pricing</a>
+  </div>
+</div>
+
+<div class="breadcrumb">
+  <a href="index.html">Rankings</a> &rsaquo; <span id="bcConf">Conference</span>
+</div>
+
+<div class="cwrap">
+  <div class="chead">
+    <img class="cmark" id="cmark" alt="" style="display:none">
+    <div>
+      <div class="cname" id="cname">Loading&hellip;</div>
+      <div class="csub" id="csub"></div>
+    </div>
+    <div class="seasonsel"><span class="lb">Season</span><select id="yrsel"></select></div>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="cols">
+    <div class="box">
+      <div class="sl"><span>Standings</span><span class="sub">conference record &middot; SRS &middot; NCAA result</span></div>
+      <table class="ctab" id="stand"><tbody><tr><td class="cload">Loading&hellip;</td></tr></tbody></table>
+    </div>
+    <div>
+      <div class="box" id="awbox">
+        <div class="sl"><span>Conference awards</span><span class="sub" id="awyr"></span></div>
+        <div id="awards"></div>
+      </div>
+      <div class="box" style="margin-top:16px">
+        <div class="sl"><span>Team honours</span></div>
+        <div id="honours"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="box full">
+    <div class="sl"><span id="cmptitle">How the league stacked up</span><span class="sub">non-conference record vs every other league</span></div>
+    <div class="cmp" id="cmp"><div class="cload">Loading&hellip;</div></div>
+    <div class="note" id="cmpnote"></div>
+  </div>
+
+  <div class="box full">
+    <div class="sl"><span>Coach rankings</span>
+      <span class="seg" id="coseg"><button class="on" data-m="year">This year</button><button data-m="career">Career</button></span></div>
+    <div class="cohint" id="cohint"></div>
+    <div id="coaches"><div class="cload">Loading&hellip;</div></div>
+    <div class="note"><b>From the coaching pipeline:</b> 6,817 coach-seasons (2007&ndash;2026, 975 coaches), graded on career record, SRS and player-development lift. <b>Career</b> uses the career-to-date coach grade; <b>This year</b> uses that season&rsquo;s actual SRS minus the SRS the roster&rsquo;s talent predicted.</div>
+  </div>
+
+  <div class="box full" id="acbox">
+    <div class="sl"><span>All-Conference teams</span><span class="sub">as voted</span></div>
+    <div id="allconf"></div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-logo">The Depth <span>Chart</span></div>
+  <div class="footer-meta">College Basketball Roster Analysis &middot; 2026&ndash;27</div>
+</footer>
+
+<script>
+const SB_URL = 'https://izlqhnxowdhtdofkwrho.supabase.co';
+const SB_KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` };
+
+function toggleTheme(){
+  var cur=document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';
+  var next=cur==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',next);
+  try{localStorage.setItem('tdc_theme',next);}catch(e){}
+  syncThemeBtn(next);
+}
+function syncThemeBtn(t){ var b=document.getElementById('themeBtn'); if(b) b.textContent=(t==='dark'?'\u2600':'\u{1F319}'); }
+try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.setAttribute('data-theme',_s);}catch(e){}
+
+(function(){
+  var MINY=2007, MAXY=2026;
+  var P=new URLSearchParams(location.search);
+  var YEAR=parseInt(P.get('season'),10); if(!(YEAR>=MINY&&YEAR<=MAXY)) YEAR=MAXY;
+  var QCONF=P.get('conf')||'', QTEAM=P.get('team')||'';
+
+  // awards are only scraped for the leagues below; `detail` holds the code
+  var AWCODE={'Atlantic Coast Conference':'ACC','Big Ten Conference':'B10',
+    'Big 12 Conference':'BIG-12','Southeastern Conference':'SEC','Big East Conference':'Big-East'};
+
+  function label(y){ return (y-1)+'\u2013'+String(y).slice(2); }
+  function ord(n){ var s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+  function f1(v){ return (v==null||!isFinite(v))?'\u2014':(+v).toFixed(1); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function depth(r){ return ['Round of 64','Round of 32','Sweet 16','Elite Eight','Final Four',
+    'Championship Game','Champion'].indexOf(r||''); }
+
+  function tInfo(name){ try{ return window.tdcTeamColor?window.tdcTeamColor(name):null; }catch(e){ return null; } }
+  function tLogo(name,cls){
+    var i=tInfo(name);
+    return (i&&i.logo)?'<img class="'+(cls||'awlogo')+'" src="'+i.logo+'" alt="" loading="lazy" onerror="this.remove()">':'';
+  }
+  function cInfo(name){ try{ return window.tdcConf?window.tdcConf(name):null; }catch(e){ return null; } }
+  function teamHref(t){ return 'team.html?team='+encodeURIComponent(t)+'&season='+YEAR; }
+
+  function sel(id){ return document.getElementById(id); }
+
+  // ---- season selector ----
+  var ys=[]; for(var y=MAXY;y>=MINY;y--) ys.push(y);
+  sel('yrsel').innerHTML=ys.map(function(y){
+    return '<option value="'+y+'"'+(y===YEAR?' selected':'')+'>'+label(y)+'</option>'; }).join('');
+  sel('yrsel').addEventListener('change',function(){
+    var u=new URL(location.href); u.searchParams.set('season',this.value);
+    if(CONF) u.searchParams.set('conf',CONF); u.searchParams.delete('team');
+    location.href=u.toString();
+  });
+
+  var CONF=null, ROWS=[], TEAMCONF={};
+
+  function get(path){
+    return fetch(SB_URL+'/rest/v1/'+path,{headers:H}).then(function(r){
+      if(!r.ok) throw new Error(path+' '+r.status); return r.json(); });
+  }
+
+  // ---- 1. every team_seasons row for the year: standings + the team->conference map ----
+  get('team_seasons?select=team,conference,wins,losses,conf_wins,conf_losses,srs,ncaa_seed,ncaa_result&season_year=eq.'+YEAR+'&limit=1000')
+  .then(function(all){
+    all.forEach(function(r){ TEAMCONF[r.team]=r.conference; });
+    CONF=resolveConf(all);
+    if(!CONF){ notFound(all); return; }
+    ROWS=all.filter(function(r){ return r.conference===CONF; });
+    ROWS.sort(function(a,b){
+      var d=(b.conf_wins-b.conf_losses)-(a.conf_wins-a.conf_losses);
+      if(d) return d; return (b.srs||-99)-(a.srs||-99);
+    });
+    renderHead(); renderStandings();
+    loadAwards(); loadCoaches(); loadCompare(all);
+  }).catch(function(e){
+    sel('cname').textContent='Could not load conference data';
+    sel('csub').textContent=String(e.message||e);
+  });
+
+  // The `teams` table (which drives the team/player pages) stores SHORT names
+  // ("Alabama") and SHORT conference codes ("ACC"), while team_seasons stores full
+  // ESPN names ("Alabama Crimson Tide") and full league names. Accept either.
+  var CODE2CONF={'ACC':'Atlantic Coast Conference','B10':'Big Ten Conference',
+    'BIG-12':'Big 12 Conference','Big-East':'Big East Conference','SEC':'Southeastern Conference',
+    'Big East':'Big East Conference','Big Ten':'Big Ten Conference','Big 12':'Big 12 Conference',
+    'Pac-12':'Pac-12 Conference','A-10':'Atlantic 10 Conference','American':'American Conference'};
+  function nn(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
+
+  function resolveConf(all){
+    var names={}; all.forEach(function(r){ names[r.conference]=1; });
+    if(QCONF){
+      if(names[QCONF]) return QCONF;
+      if(CODE2CONF[QCONF]&&names[CODE2CONF[QCONF]]) return CODE2CONF[QCONF];
+      var q=nn(QCONF);
+      var hit=Object.keys(names).filter(function(c){
+        var i=cInfo(c)||{};
+        return nn(c)===q || nn(i.short)===q || nn(i.abbr)===q || nn(c).indexOf(q+' ')===0;
+      });
+      if(hit.length) return hit[0];
+    }
+    if(QTEAM){
+      if(TEAMCONF[QTEAM]) return TEAMCONF[QTEAM];
+      var t=nn(QTEAM), keys=Object.keys(TEAMCONF);
+      var ex=keys.filter(function(k){ return nn(k)===t; });
+      if(ex.length) return TEAMCONF[ex[0]];
+      // A bare prefix is ambiguous ("Alabama" also prefixes Alabama A&M and Alabama
+      // State), so identify the school by its ESPN logo, which is unique per program.
+      var qi=tInfo(QTEAM);
+      if(qi&&qi.logo){
+        // compare against EXACT color-table keys only: tdcTeamColor() falls back to
+        // stripping trailing words, which would make "Alabama A&M" answer to Alabama's logo
+        var M=window.TDC_TEAM_COLORS||{};
+        var byLogo=keys.filter(function(k){ var e=M[nn(k)]; return e&&e.logo===qi.logo; });
+        if(byLogo.length) return TEAMCONF[byLogo[0]];
+      }
+      var pre=keys.filter(function(k){ return nn(k).indexOf(t+' ')===0; });
+      if(pre.length){ pre.sort(function(a,b){ return a.length-b.length; }); return TEAMCONF[pre[0]]; }
+    }
+    return null;
+  }
+
+  // Nothing matched — say so, and offer every league that season rather than
+  // silently showing the wrong conference.
+  function notFound(all){
+    var names=[]; all.forEach(function(r){ if(names.indexOf(r.conference)<0) names.push(r.conference); });
+    names.sort();
+    sel('cname').textContent='Conference not found';
+    sel('csub').innerHTML='Could not match <b>'+esc(QTEAM||QCONF||'(nothing given)')+
+      '</b> to a league in '+label(YEAR)+'. Pick one:';
+    sel('tiles').innerHTML='';
+    document.querySelectorAll('.cols,.box.full').forEach(function(n){ n.style.display='none'; });
+    var box=document.createElement('div');
+    box.className='box full'; box.style.display='';
+    box.innerHTML='<div class="sl"><span>'+names.length+' conferences &middot; '+label(YEAR)+'</span></div>'+
+      '<div class="acps">'+names.map(function(c){
+        var i=cInfo(c)||{};
+        return '<a class="acp" style="text-decoration:none;color:var(--text)" href="conference.html?conf='+
+          encodeURIComponent(c)+'&season='+YEAR+'">'+
+          (i.logo?'<img src="'+i.logo+'" alt="" loading="lazy">':'')+esc(i.short||c)+'</a>';
+      }).join('')+'</div>';
+    document.querySelector('.cwrap').appendChild(box);
+  }
+
+  function renderHead(){
+    var info=cInfo(CONF)||{};
+    document.title=(info.short||CONF)+' '+label(YEAR)+' \u2014 The Depth Chart';
+    sel('bcConf').textContent=(info.short||CONF)+' '+label(YEAR);
+    sel('cname').textContent=CONF;
+    if(info.logo){ var m=sel('cmark'); m.src=info.logo; m.alt=CONF; m.style.display='';
+      m.onerror=function(){ this.style.display='none'; }; }
+    var bids=ROWS.filter(function(r){ return r.ncaa_seed!=null; }).length;
+    var champ=ROWS[0]||{team:'\u2014'};
+    sel('csub').innerHTML='<b>'+ROWS.length+'</b> teams &middot; <b>'+bids+'</b> NCAA bid'+(bids===1?'':'s')+
+      ' &middot; regular-season champion <b>'+esc(champ.team)+'</b>';
+    sel('cmptitle').textContent='How the '+(info.short||CONF)+' stacked up';
+    sel('awyr').textContent=label(YEAR);
+  }
+
+  function renderStandings(){
+    var champ=ROWS[0];
+    var body=ROWS.map(function(r,i){
+      var mark=(r===champ)?'<span class="cbadge" style="color:#C9962F;background:rgba(201,150,47,.16)">REG CHAMP</span>':'';
+      var srsCol=r.srs>25?'#1f9d6b':r.srs>18?'#3f74c9':'var(--text2)';
+      return '<tr><td class="l rk">'+(i+1)+'</td>'+
+        '<td class="l"><span class="tm">'+tLogo(r.team,'tlogo')+
+          '<a class="tnm" href="'+teamHref(r.team)+'">'+esc(r.team)+'</a>'+mark+'</span></td>'+
+        '<td>'+r.conf_wins+'-'+r.conf_losses+'</td>'+
+        '<td style="color:var(--text2)">'+r.wins+'-'+r.losses+'</td>'+
+        '<td style="font-weight:700;color:'+srsCol+'">'+f1(r.srs)+'</td>'+
+        '<td class="seedc">'+(r.ncaa_seed?('#'+r.ncaa_seed):'\u2014')+'</td>'+
+        '<td class="l res">'+esc(r.ncaa_result||'\u2014')+'</td></tr>';
+    }).join('');
+    sel('stand').innerHTML='<thead><tr><th class="l"></th><th class="l">Team</th><th>Conf</th>'+
+      '<th>Overall</th><th>SRS</th><th class="seedc">Seed</th><th class="l res">NCAA</th></tr></thead><tbody>'+body+'</tbody>';
+
+    // team honours
+    var best=ROWS.slice().sort(function(a,b){ return (b.srs||-99)-(a.srs||-99); })[0];
+    var deep=ROWS.slice().sort(function(a,b){ return depth(b.ncaa_result)-depth(a.ncaa_result); })[0];
+    var out='';
+    out+=hon('Regular-season champion',champ.team,champ.conf_wins+'-'+champ.conf_losses,'#C9962F','trophy');
+    out+=hon('Best rating',best.team,'SRS '+f1(best.srs),'#1f9d6b','star');
+    if(deep&&depth(deep.ncaa_result)>=0) out+=hon('Deepest NCAA run',deep.team,deep.ncaa_result,'#3f74c9','shield');
+    sel('honours').innerHTML=out;
+  }
+
+  var ICONS={
+    trophy:'<path d="M7 4h10v4a5 5 0 0 1-10 0z" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 13v5m-4 3h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+    shield:'<path d="M12 3l7 3v5c0 4.4-3 8-7 10-4-2-7-5.6-7-10V6z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/>',
+    star:'<path d="M12 3l2.6 5.7 6.4.7-4.7 4.3 1.3 6.3L12 17l-5.6 3 1.3-6.3L3 9.4l6.4-.7z" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linejoin="round"/>'};
+  function hon(k,team,val,col,icon){
+    return '<div class="aw"><span class="awi" style="background:'+col+'22;color:'+col+'">'+
+      '<svg viewBox="0 0 24 24">'+ICONS[icon]+'</svg></span>'+
+      '<span style="flex:1;min-width:0"><div class="awk">'+k+'</div>'+
+      '<div class="awp">'+tLogo(team)+'<a href="'+teamHref(team)+'">'+esc(team)+'</a></div></span>'+
+      '<span class="awt">'+esc(val)+'</span></div>';
+  }
+
+  // ---- 2. awards ----
+  function loadAwards(){
+    var code=AWCODE[CONF];
+    if(!code){
+      sel('awbox').style.display='none'; sel('acbox').style.display='none';
+      return;
+    }
+    get('awards?select=category,team,player,espn_id&season_year=eq.'+YEAR+'&detail=eq.'+encodeURIComponent(code))
+    .then(function(A){
+      var ORDER=[['Player of the Year','#C9962F','trophy'],['Defensive Player of the Year','#3f74c9','shield'],
+        ['Rookie of the Year','#1f9d6b','star'],['Sixth Man of the Year','#7a5cd6','star'],
+        ['Most Improved Player','#C9962F','star'],['Tournament MVP','#C9962F','trophy']];
+      var html=ORDER.map(function(o){
+        var a=A.filter(function(x){ return x.category===o[0]; })[0]; if(!a) return '';
+        var nm=esc(a.player);
+        if(a.espn_id) nm='<a href="player.html?espn='+a.espn_id+'">'+nm+'</a>';
+        return '<div class="aw"><span class="awi" style="background:'+o[1]+'22;color:'+o[1]+'">'+
+          '<svg viewBox="0 0 24 24">'+ICONS[o[2]]+'</svg></span>'+
+          '<span style="flex:1;min-width:0"><div class="awk">'+o[0]+'</div><div class="awp">'+nm+'</div></span>'+
+          '<span class="awt">'+tLogo(a.team)+esc(a.team)+'</span></div>';
+      }).join('');
+      sel('awards').innerHTML=html||'<div class="empty">No individual awards recorded for this season.</div>';
+
+      var TEAMS=[['All-Conference \u00b7 1st Team','#C9962F'],['All-Conference \u00b7 2nd Team','var(--text2)'],
+                 ['All-Conference \u00b7 3rd Team','#A97142']];
+      var ac=TEAMS.map(function(t){
+        var list=A.filter(function(x){ return x.category===t[0]; });
+        if(!list.length) return '';
+        return '<div class="actm"><div class="acth" style="color:'+t[1]+'">'+t[0].replace('\u00b7','&middot;')+'</div><div class="acps">'+
+          list.map(function(a){
+            var nm=esc(a.player);
+            if(a.espn_id) nm='<a href="player.html?espn='+a.espn_id+'" style="color:inherit;text-decoration:none">'+nm+'</a>';
+            return '<span class="acp">'+tLogo(a.team,'')+'<b>'+nm+'</b><span>'+esc(a.team)+'</span></span>';
+          }).join('')+'</div></div>';
+      }).join('');
+      if(ac) sel('allconf').innerHTML=ac; else sel('acbox').style.display='none';
+    }).catch(function(){ sel('awards').innerHTML='<div class="empty">Awards unavailable.</div>'; });
+  }
+
+  // ---- 3. inter-conference record, computed from that season's non-conference games ----
+  function loadCompare(all){
+    var pages=[], PAGE=1000;
+    function page(off){
+      return get('games?select=home,away,home_score,away_score&season_year=eq.'+YEAR+
+                 '&conf_game=eq.false&status=eq.STATUS_FINAL&order=id&limit='+PAGE+'&offset='+off)
+      .then(function(rows){
+        pages=pages.concat(rows);
+        return rows.length===PAGE ? page(off+PAGE) : pages;
+      });
+    }
+    page(0).then(function(games){
+      var rec={}, n=0;
+      games.forEach(function(g){
+        var hc=TEAMCONF[g.home], ac=TEAMCONF[g.away];
+        if(!hc||!ac||hc===ac) return;           // needs two D-I teams in different leagues
+        if(g.home_score==null||g.away_score==null) return;
+        n++;
+        var hw=g.home_score>g.away_score;
+        rec[hc]=rec[hc]||[0,0]; rec[ac]=rec[ac]||[0,0];
+        rec[hc][hw?0:1]++; rec[ac][hw?1:0]++;
+      });
+      var srsBy={};
+      all.forEach(function(r){ (srsBy[r.conference]=srsBy[r.conference]||[]).push(r.srs||0); });
+      var L=Object.keys(rec).map(function(c){
+        var w=rec[c][0], l=rec[c][1], s=srsBy[c]||[0];
+        return {conf:c,w:w,l:l,pct:w+l?Math.round(w/(w+l)*1000)/10:0,
+                avgSrs:Math.round(s.reduce(function(a,b){return a+b;},0)/s.length*10)/10};
+      }).sort(function(a,b){ return b.pct-a.pct; });
+
+      var mine=L.filter(function(c){ return c.conf===CONF; })[0];
+      var myRank=L.findIndex(function(c){ return c.conf===CONF; })+1;
+      var mx=Math.max.apply(null,L.map(function(c){ return c.pct; }))||1;
+      sel('cmp').innerHTML=L.map(function(c){
+        var me=c.conf===CONF;
+        var col=me?'var(--accent)':c.pct>=70?'#1f9d6b':c.pct>=55?'#3f74c9':'var(--text3)';
+        var ci=cInfo(c.conf)||{};
+        var lg=ci.logo?'<img class="clogo" src="'+ci.logo+'" alt="" loading="lazy" onerror="this.remove()">':'';
+        var href='conference.html?conf='+encodeURIComponent(c.conf)+'&season='+YEAR;
+        return '<div class="crow'+(me?' me':'')+'"><a class="cl" href="'+href+'" style="text-decoration:none">'+lg+
+          '<span>'+esc(ci.short||c.conf.replace(' Conference',''))+'</span></a>'+
+          '<span class="cbar"><span class="cfill" style="width:'+(c.pct/mx*100)+'%;background:'+col+'"></span></span>'+
+          '<span class="cnum"><b>'+c.pct+'%</b> '+c.w+'-'+c.l+' &middot; SRS '+c.avgSrs+'</span></div>';
+      }).join('');
+      sel('cmpnote').innerHTML='<b>Computed, not estimated:</b> every non-conference game that season ('+
+        n.toLocaleString()+' between two D-I teams), using each team&rsquo;s conference <b>for that year</b>, so realignment is handled correctly.';
+      renderTiles(mine,myRank,L.length);
+    }).catch(function(){
+      sel('cmp').innerHTML='<div class="empty">Non-conference records unavailable for this season.</div>';
+      sel('cmpnote').style.display='none';
+      renderTiles(null,0,0);
+    });
+  }
+
+  function renderTiles(mine,myRank,nConf){
+    var bids=ROWS.filter(function(r){ return r.ncaa_seed!=null; }).length;
+    var best=ROWS.slice().sort(function(a,b){ return (b.srs||-99)-(a.srs||-99); })[0]||{};
+    var deepR=ROWS.map(function(r){ return r.ncaa_result; }).filter(Boolean)
+                  .sort(function(a,b){ return depth(b)-depth(a); })[0];
+    var t=[['Teams',ROWS.length,''],
+           ['NCAA bids',bids,'of '+ROWS.length+' teams']];
+    if(mine) t.push(['Non-conf record',mine.w+'-'+mine.l,mine.pct+'% &middot; '+ord(myRank)+' of '+nConf]);
+    if(mine) t.push(['Avg SRS',mine.avgSrs,'league strength']);
+    t.push(['Best team',esc((best.team||'\u2014').split(' ')[0]),best.srs!=null?('SRS '+f1(best.srs)):'']);
+    t.push(['Deepest run',esc(deepR||'\u2014'),'']);
+    sel('tiles').innerHTML=t.map(function(x){
+      return '<div class="tile"><div class="v">'+x[1]+'</div><div class="k">'+x[0]+'</div>'+
+             (x[2]?'<div class="s">'+x[2]+'</div>':'')+'</div>'; }).join('');
+  }
+
+  // ---- 4. coach rankings: year (lift) + career (grade) ----
+  var CO=[], CAREER={};
+  function loadCoaches(){
+    Promise.all([
+      fetch('data/coach-'+YEAR+'.json').then(function(r){ return r.ok?r.json():[]; }),
+      fetch('data/coach-careers.json').then(function(r){ return r.ok?r.json():{}; })
+    ]).then(function(res){
+      CAREER=res[1]||{};
+      CO=(res[0]||[]).filter(function(c){ return c.cf===CONF; });
+      if(!CO.length){ sel('coaches').innerHTML='<div class="empty">No coach data for this league in '+label(YEAR)+'.</div>';
+        sel('cohint').style.display='none'; return; }
+      coachRows('year');
+    }).catch(function(){
+      sel('coaches').innerHTML='<div class="empty">Coach rankings unavailable.</div>';
+      sel('cohint').style.display='none';
+    });
+  }
+  function coachRows(mode){
+    var host=sel('coaches'), hint=sel('cohint'), html;
+    if(mode==='career'){
+      hint.innerHTML='Ranked by <b>career coach grade</b> \u2014 every season on record, not just this one.';
+      var L=CO.filter(function(c){ return CAREER[c.c]&&CAREER[c.c].g!=null; })
+              .sort(function(a,b){ return CAREER[b.c].g-CAREER[a.c].g; });
+      html=L.map(function(c,i){
+        var k=CAREER[c.c], g=k.g;
+        var col=g>=90?'#1f9d6b':g>=84?'#3f74c9':g>=78?'var(--text2)':'var(--text3)';
+        return '<div class="co"><span class="cork">'+(i+1)+'</span>'+
+          '<span class="conm">'+tLogo(c.tm)+'<span><div class="n">'+esc(c.n)+'</div>'+
+            '<div class="s">'+esc(c.tm)+' &middot; '+k.s+' season'+(k.s===1?'':'s')+'</div></span></span>'+
+          '<span class="coar">'+c.w+'-'+c.l+'</span>'+
+          '<span class="coar">'+esc(k.a||'')+'</span>'+
+          '<span><div class="cog" style="color:'+col+'">'+g+'</div>'+
+            '<div class="conr">#'+k.r+' nat\u2019l</div></span></div>';
+      }).join('');
+    } else {
+      hint.innerHTML='Ranked by <b>SRS lift</b> \u2014 how far the team beat the rating its roster talent predicted. '+
+        'Isolates the coaching from the roster.';
+      var L2=CO.filter(function(c){ return c.lf!=null; })
+               .sort(function(a,b){ return b.lf-a.lf; });
+      if(!L2.length){ host.innerHTML='<div class="empty">No lift data for this season.</div>'; return; }
+      html=L2.map(function(c,i){
+        var v=c.lf, col=v>=6?'#1f9d6b':v>=1?'#3f74c9':v>=-2?'var(--text2)':'#c0455a';
+        var wl=(c.wl!=null)?((c.wl>=0?'+':'')+c.wl.toFixed(1)+' wins'):'';
+        return '<div class="coy"><span class="cork">'+(i+1)+'</span>'+
+          '<span class="conm">'+tLogo(c.tm)+'<span><div class="n">'+esc(c.n)+'</div>'+
+            '<div class="s">'+esc(c.tm)+(c.nc?' &middot; '+esc(c.nc):'')+'</div></span></span>'+
+          '<span class="coar">'+c.w+'-'+c.l+'</span>'+
+          '<span class="coar">'+f1(c.tal)+'<div class="liftk">talent</div></span>'+
+          '<span class="arrow">'+f1(c.exp)+' \u2192 <b style="color:var(--text)">'+f1(c.srs)+'</b>'+
+            '<div class="liftk">exp \u2192 actual SRS</div></span>'+
+          '<span><div class="lift" style="color:'+col+'">'+(v>=0?'+':'')+v.toFixed(1)+'</div>'+
+            '<div class="liftk">'+(wl||'SRS lift')+'</div></span></div>';
+      }).join('');
+    }
+    host.innerHTML=html;
+    [].forEach.call(document.querySelectorAll('#coseg button'),function(b){
+      b.classList.toggle('on',b.getAttribute('data-m')===mode); });
+  }
+  [].forEach.call(document.querySelectorAll('#coseg button'),function(b){
+    b.addEventListener('click',function(){ coachRows(b.getAttribute('data-m')); }); });
+
+  syncThemeBtn(document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light');
+})();
+</script>
+</body>
+</html>

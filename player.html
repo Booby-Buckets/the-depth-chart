@@ -686,7 +686,7 @@ body{background:transparent!important;}
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index + team page -->
   <script>try{document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
   <link rel="stylesheet" href="tdc-dense.css?v=7"/>
-  <link rel="stylesheet" href="tdc-player-dense.css?v=17"/>
+  <link rel="stylesheet" href="tdc-player-dense.css?v=18"/>
 </head>
 <body data-anim-auto>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
@@ -2259,10 +2259,27 @@ function _updateHeroSeason(team, gp, seasonYr){
     var href='team.html?team='+encodeURIComponent(team);
     if(seasonYr && /^\d{4}$/.test(''+seasonYr) && +seasonYr<2027) href+='&season='+seasonYr;
     ht.href=href;
-    ht.innerHTML='<span class="team-dot" style="background:'+(col||'#888')+';"></span>'+team+'<span class="hsub-conf">'+((info&&(info.conf||info.conference))||'')+'</span>'; }
+    var _cf=(info&&(info.conf||info.conference))||'';
+    ht.innerHTML='<span class="team-dot" style="background:'+(col||'#888')+';"></span>'+team+_confChip(_cf,team,seasonYr); }
   var g=document.getElementById('heroGp'); if(g){ g.textContent=gp?(''+gp):''; }
   var gpP=document.getElementById('heroGpPill'); if(gpP){ gpP.style.display=gp?'':'none'; }
 }
+// The conference label is a link to that league's page for the season being viewed.
+// It sits inside the team anchor, so nesting an <a> is invalid -> render a span and
+// intercept the click in the capture phase before the team link takes it.
+function _confChip(conf, team, seasonYr){
+  if(!conf) return '';
+  var u='conference.html?team='+encodeURIComponent(team||'');
+  if(seasonYr && /^\d{4}$/.test(''+seasonYr) && +seasonYr<2027) u+='&season='+seasonYr;
+  return '<span class="hsub-conf tdc-conflink" data-href="'+u+'" title="'+conf+' \u00b7 conference page">'+conf+'</span>';
+}
+document.addEventListener('click', function(e){
+  var el = e.target && e.target.closest ? e.target.closest('.tdc-conflink') : null;
+  if(!el) return;
+  e.preventDefault(); e.stopPropagation();
+  location.href = el.getAttribute('data-href');
+}, true);
+
 function _skillSrcFor(val){
   // Use the projected line for freshmen too (badges / skill / radar reflect the
   // projection we're making), matching the overview's useProj logic.
@@ -2859,7 +2876,7 @@ function renderPage(){
       <div class="hero-info">
         <h1 class="hero-name">${p.name}</h1>
         <div class="hero-teamline">
-          <a class="hero-team" id="heroTeam" href="team.html?team=${encodeURIComponent(p.team||'')}"><span class="team-dot" style="background:${color};"></span>${p.team||'—'}<span class="hsub-conf">${teamData?.conf||''}</span></a>
+          <a class="hero-team" id="heroTeam" href="team.html?team=${encodeURIComponent(p.team||'')}"><span class="team-dot" style="background:${color};"></span>${p.team||'—'}${_confChip(teamData?.conf||'', p.team||'', null)}</a>
           ${(geoHome||p.hometown)?`<span class="hero-home">${geoHome||p.hometown}</span>`:''}
         </div>
         <div class="hero-pills">
