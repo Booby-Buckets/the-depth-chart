@@ -437,6 +437,21 @@
     .ovc-sh .shl{white-space:nowrap;}
     .ovc-trend{display:flex;align-items:center;gap:13px;} .ovc-trend .ti{font-size:11.5px;color:var(--text2);line-height:1.5;} .ovc-trend .ti b{color:var(--accent);} .ovc-trend .now{font-family:'Helvetica Neue',sans-serif;font-weight:800;font-size:18px;color:var(--text);}
     .ovc-phys{display:flex;gap:9px;flex-wrap:wrap;} .ovc-ph{flex:1;min-width:80px;background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:9px 8px;text-align:center;} .ovc-ph .v{font-weight:800;font-size:16px;} .ovc-ph .k{font-size:8px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
+    /* shot profile */
+    .ovc-shot2{display:flex;flex-direction:column;gap:13px;}
+    .ovc-srow .top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;}
+    .ovc-srow .lab{font-size:12px;font-weight:700;color:var(--text);}
+    .ovc-srow .pct{font-family:var(--mono);font-size:13.5px;font-weight:800;font-variant-numeric:tabular-nums;}
+    .ovc-srow .bot{display:flex;align-items:center;gap:10px;}
+    .ovc-sbar{position:relative;flex:1;height:10px;border-radius:6px;background:var(--bg3);box-shadow:inset 0 1px 2px rgba(0,0,0,.35);}
+    .ovc-sfill{position:absolute;top:0;bottom:0;left:0;border-radius:6px;}
+    .ovc-savg{position:absolute;top:-4px;bottom:-4px;width:2px;border-radius:1px;background:var(--text3);opacity:.7;}
+    .ovc-svol{font-family:var(--mono);font-size:10px;color:var(--text3);white-space:nowrap;min-width:64px;text-align:right;}
+    .ovc-efftitle{font-size:8.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text4,#3d485f);margin:15px 0 8px;padding-top:13px;border-top:1px solid var(--border);}
+    .ovc-effrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+    .ovc-eff{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;}
+    .ovc-eff .v{font-weight:800;font-size:17px;font-variant-numeric:tabular-nums;}
+    .ovc-eff .k{font-size:7.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:3px;}
     .ovc-formgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
     .ovc-fc{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px 4px;text-align:center;}
     .ovc-fc .v{font-weight:800;font-size:14px;font-variant-numeric:tabular-nums;}
@@ -657,7 +672,7 @@ body{background:transparent!important;}
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index + team page -->
   <script>try{document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
   <link rel="stylesheet" href="tdc-dense.css?v=7"/>
-  <link rel="stylesheet" href="tdc-player-dense.css?v=13"/>
+  <link rel="stylesheet" href="tdc-player-dense.css?v=14"/>
 </head>
 <body data-anim-auto>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
@@ -2297,27 +2312,38 @@ function renderOvcExtras(val){
       jEl.innerHTML=h;
     }
   }
-  // ---- Shot profile (split by shot method, derived from makes/attempts) ----
+  // ---- Shot profile: shot-type bars (vs D-I average) + efficiency tiles ----
   var shEl=document.getElementById('ovcShot');
   if(shEl){
     var fgm=+s.fgm, fga=+s.fga, tpm=+s.tpm, tpa=+s.tpa, ftm=+s.ftm, fta=+s.fta;
     var twoM=fgm-tpm, twoA=fga-tpa;
     var pct=function(m,a){ return (isFinite(m)&&isFinite(a)&&a>0)?(m/a*100):null; };
+    var num=function(v){ return (v!=null&&v!==''&&isFinite(+v))?+v:null; };
     var efg=(isFinite(fgm)&&isFinite(tpm)&&isFinite(fga)&&fga>0)?((fgm+0.5*tpm)/fga*100):null;
     var ts=(adv.ts_pct!=null&&adv.ts_pct!=='')?(parseFloat(adv.ts_pct)*100):null;
-    var SH=[
-      ['Rim / 2PT', pct(twoM,twoA)!=null?pct(twoM,twoA):null, (isFinite(twoA)&&twoA>0)?(f1(twoM)+'/'+f1(twoA)):''],
-      ['3-Point',   (s.tp_pct!=null&&s.tp_pct!=='')?+s.tp_pct:pct(tpm,tpa), (isFinite(tpa)&&tpa>0)?(f1(tpm)+'/'+f1(tpa)):''],
-      ['Free Throw',(s.ft_pct!=null&&s.ft_pct!=='')?+s.ft_pct:pct(ftm,fta), (isFinite(fta)&&fta>0)?(f1(ftm)+'/'+f1(fta)):''],
-      ['Field Goal',(s.fg_pct!=null&&s.fg_pct!=='')?+s.fg_pct:pct(fgm,fga), (isFinite(fga)&&fga>0)?(f1(fgm)+'/'+f1(fga)):''],
-      ['eFG%',      efg, ''],
-      ['True Shooting', ts, '']
+    // D-I averages for the reference tick
+    var TYPES=[
+      {l:'Rim / 2PT',  v:pct(twoM,twoA),                     m:twoM, a:twoA, avg:50.5},
+      {l:'3-Point',    v:num(s.tp_pct)!=null?num(s.tp_pct):pct(tpm,tpa), m:tpm, a:tpa, avg:34.0},
+      {l:'Free Throw', v:num(s.ft_pct)!=null?num(s.ft_pct):pct(ftm,fta), m:ftm, a:fta, avg:71.5}
     ];
-    var rows=SH.map(function(z){ var v=z[1]; if(v==null||!isFinite(v)) return '';
-      var c=v>=60?'var(--accent)':v>=45?'var(--blue,#5B8DEF)':v>=33?'var(--slate,#6B7893)':'var(--red,#E06A7A)';
-      return '<div class="ovc-sh"><span class="shl">'+z[0]+'</span><span class="shtk"><span class="shfl" style="width:'+Math.max(0,Math.min(100,v))+'%;background:'+c+'"></span></span>'+
-        '<span class="shr" style="color:'+c+'">'+f1(v)+'%'+(z[2]?'<span style="color:var(--text3);font-weight:600"> '+z[2]+'</span>':'')+'</span></div>'; }).join('');
-    shEl.innerHTML=rows||'<div class="ovc-muted">—</div>';
+    var col=function(v,avg){ var d=v-avg;
+      return d>=6?'var(--accent)':d>=-1?'var(--blue,#5B8DEF)':d>=-7?'var(--slate,#6B7893)':'var(--red,#E06A7A)'; };
+    var rows=TYPES.map(function(t){ if(t.v==null||!isFinite(t.v)) return '';
+      var c=col(t.v,t.avg), w=Math.max(2,Math.min(100,t.v));
+      var vol=(isFinite(t.a)&&t.a>0)?(f1(t.m)+' / '+f1(t.a)):'';
+      return '<div class="ovc-srow">'+
+          '<div class="top"><span class="lab">'+t.l+'</span><span class="pct" style="color:'+c+'">'+f1(t.v)+'%</span></div>'+
+          '<div class="bot"><span class="ovc-sbar">'+
+            '<span class="ovc-sfill" style="width:'+w+'%;background:linear-gradient(90deg,'+c+',color-mix(in srgb,'+c+' 62%, transparent))"></span>'+
+            '<span class="ovc-savg" style="left:'+Math.min(99,t.avg)+'%" title="D-I average '+t.avg+'%"></span>'+
+          '</span><span class="ovc-svol">'+vol+'</span></div>'+
+        '</div>'; }).join('');
+    var EFF=[['Field Goal',num(s.fg_pct)!=null?num(s.fg_pct):pct(fgm,fga),45],['eFG%',efg,50],['True Shooting',ts,55]];
+    var tiles=EFF.map(function(e){ var v=e[1]; if(v==null||!isFinite(v)) return '';
+      var c=v>=e[2]+8?'var(--accent)':v>=e[2]?'var(--blue,#5B8DEF)':v>=e[2]-7?'var(--slate,#6B7893)':'var(--red,#E06A7A)';
+      return '<div class="ovc-eff"><div class="v" style="color:'+c+'">'+f1(v)+'%</div><div class="k">'+e[0]+'</div></div>'; }).join('');
+    shEl.innerHTML=rows?('<div class="ovc-shot2">'+rows+'</div>'+(tiles?'<div class="ovc-efftitle">Overall efficiency</div><div class="ovc-effrow">'+tiles+'</div>':'')):'<div class="ovc-muted">—</div>';
   }
   // ---- Grade trend ----
   var tEl=document.getElementById('ovcTrend');
