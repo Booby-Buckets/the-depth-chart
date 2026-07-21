@@ -47,11 +47,11 @@ CONFS = [
     ("ACC","acc"), ("B10","big-ten"), ("BIG-12","big-12"), ("Big-East","big-east"), ("SEC","sec"),
     ("A-10","atlantic-10"), ("A-Sun","atlantic-sun"), ("Am. East","america-east"),
     ("American","american"), ("Big Sky","big-sky"), ("Big South","big-south"),
-    ("Big West","big-west"), ("CAA","coastal"), ("CUSA","cusa"), ("Horizon","horizon"),
+    ("Big West","big-west"), ("CAA",["colonial","coastal"]),   # renamed Colonial -> Coastal for 2024 ("CUSA","cusa"), ("Horizon","horizon"),
     ("Ivy","ivy"), ("MAAC","maac"), ("MAC","mac"), ("MEAC","meac"), ("MVC","mvc"),
-    ("MWC","mwc"), ("NEC","nec"), ("OVC","ovc"), ("Pac-12","pac-12"),
+    ("MWC","mwc"), ("NEC","nec"), ("OVC","ovc"), ("Pac-12",["pac-12","pac-10"]),  # Pac-10 through 2011
     ("Patriot","patriot"), ("SoCon","southern"), ("Southland","southland"),
-    ("SWAC","swac"), ("Summit","summit"), ("Sun Belt","sun-belt"), ("UAC","uac"),
+    ("SWAC","swac"), ("Summit","summit"), ("Sun Belt","sun-belt"), ("UAC","wac"),        # team_seasons labels the WAC's members "United Athletic Conference"
     ("WCC","wcc"),
 ]
 AWARD_MAP = {  # conf-awards rows worth keeping (player awards only — no coaches)
@@ -60,23 +60,32 @@ AWARD_MAP = {  # conf-awards rows worth keeping (player awards only — no coach
     "MIP": "Most Improved Player", "Tourney MVP": "Tournament MVP",
 }
 
-def get(url, tries=4):
+class FetchFailed(Exception):
+    """Exhausted retries. NOT the same as a 404 -- a silent skip here used to wipe
+    a whole conference to zero rows while the log just said 'no page'."""
+
+DELAY = float(os.environ.get("SR_DELAY", "5.0"))   # seconds between requests
+
+def get(url, tries=6):
+    last = None
     for i in range(tries):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": UA})
             with urllib.request.urlopen(req, timeout=45) as r:
                 html = r.read().decode("utf-8", "replace")
-            time.sleep(3.2)
+            time.sleep(DELAY)
             return html.replace("<!--", "").replace("-->", "")   # SR hides tables in comments
         except urllib.error.HTTPError as e:
-            if e.code == 404: return None
-            if e.code == 429: print("  429 — backing off 60s", flush=True); time.sleep(60); continue
-            if i == tries-1: raise
-            time.sleep(8)
-        except Exception:
-            if i == tries-1: raise
-            time.sleep(8)
-    return None
+            last = "HTTP %s" % e.code
+            if e.code == 404: return None                        # genuinely not there
+            if e.code == 429:
+                back = 60 * (i + 1)
+                print("    429 - backing off %ds" % back, flush=True); time.sleep(back); continue
+            time.sleep(10)
+        except Exception as e:
+            last = type(e).__name__
+            time.sleep(10)
+    raise FetchFailed(last or "unknown")
 
 def cells(row_html):
     # entities must be decoded or schools like "Texas A&M" get stored as "Texas A&amp;M",
@@ -126,11 +135,25 @@ def scrape_all_america():
         print(f"  {yr}: {len(rows)} All-Americans", flush=True)
 
 def scrape_conf(code, slug):
-    print(f"— {code} —", flush=True)
+    """slug may be a list: leagues that were renamed live under two slugs on SR
+    (the CAA is `colonial` through 2023 and `coastal` from 2024)."""
+    slugs = slug if isinstance(slug, (list, tuple)) else [slug]
+    print(f"- {code} -", flush=True)
+    missing, failed, wrote = 0, 0, 0
     for yr in YEARS:
-        html = get(f"https://www.sports-reference.com/cbb/conferences/{slug}/men/{yr}.html")
+        html, hard = None, False
+        for sl in slugs:
+            try:
+                html = get(f"https://www.sports-reference.com/cbb/conferences/{sl}/men/{yr}.html")
+            except FetchFailed as e:
+                hard = True
+                print(f"  {yr}: FETCH FAILED ({e}) - left untouched", flush=True); break
+            if html: break
+        if hard:
+            failed += 1; continue
         if not html:
-            print(f"  {yr}: no page", flush=True); continue
+            missing += 1
+            print(f"  {yr}: no page (404)", flush=True); continue
         rows = []
         # award winners
         for row in table_rows(html, "conf-awards"):
@@ -150,21 +173,58 @@ def scrape_conf(code, slug):
                 rows.append({"season_year": yr, "player": c[0], "team": c[1],
                              "category": f"All-Conference · {current}", "detail": code})
         replace_rows(yr, code, rows)
+        wrote += len(rows)
         print(f"  {yr}: {len(rows)} rows", flush=True)
+    flag = "  <-- CHECK THE SLUG" if wrote == 0 else ""
+    print(f"  = {code}: {wrote} rows, {missing} absent, {failed} fetch failures{flag}", flush=True)
+    return failed
 
 ORIGINAL = {"acc", "big-ten", "big-12", "big-east", "sec"}   # scraped before mid-majors were added
 
+
+def have_seasons(code):
+    """Seasons already stored for this conference code."""
+    url = (SB_URL + "/rest/v1/awards?select=season_year&detail=eq."
+           + urllib.parse.quote(code))
+    req = urllib.request.Request(url, headers=H)
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return {row["season_year"] for row in json.load(r)}
+
+
+def fill():
+    """Re-fetch only what's missing. The first full run logged throttled fetches as
+    'no page', so whole leagues came back empty; this tops them up without
+    re-requesting the ~7,000 pages that already landed."""
+    global YEARS
+    todo = []
+    for code, slug in CONFS:
+        have = have_seasons(code)
+        miss = [y for y in range(2007, 2027) if y not in have]
+        if miss: todo.append((code, slug, miss))
+    print("gaps: " + ", ".join("%s(%d)" % (c, len(m)) for c, s_, m in todo) or "none", flush=True)
+    total = sum(len(m) for _, _, m in todo)
+    print("%d conference-seasons to fetch" % total, flush=True)
+    saved = YEARS
+    for code, slug, miss in todo:
+        YEARS = miss
+        scrape_conf(code, slug)
+    YEARS = saved
+
 if __name__ == "__main__":
     only = sys.argv[1] if len(sys.argv) > 1 else None
+    if only == "fill":
+        fill(); print("done"); raise SystemExit
     if only == "new":            # only the conferences not covered by the first run
+        bad = 0
         for code, slug in CONFS:
             if slug in ORIGINAL: continue
-            scrape_conf(code, slug)
-        print("done"); raise SystemExit
+            bad += scrape_conf(code, slug) or 0
+        print(f"done ({bad} fetch failures)"); raise SystemExit
     if not only or only == "aa":
         scrape_all_america()
     for code, slug in CONFS:
-        if only and only not in ("aa", None) and only.lower() != slug: continue
+        _sl = slug if isinstance(slug, (list, tuple)) else [slug]
+        if only and only not in ("aa", None) and only.lower() not in _sl and only.upper() != code: continue
         if only == "aa": continue
         scrape_conf(code, slug)
     print("done")
