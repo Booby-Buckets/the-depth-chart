@@ -47,11 +47,16 @@ CONFS = [
     ("ACC","acc"), ("B10","big-ten"), ("BIG-12","big-12"), ("Big-East","big-east"), ("SEC","sec"),
     ("A-10","atlantic-10"), ("A-Sun","atlantic-sun"), ("Am. East","america-east"),
     ("American","american"), ("Big Sky","big-sky"), ("Big South","big-south"),
-    ("Big West","big-west"), ("CAA",["colonial","coastal"]),   # renamed Colonial -> Coastal for 2024 ("CUSA","cusa"), ("Horizon","horizon"),
+    ("Big West","big-west"),
+    # renamed leagues live under two slugs on SR — try each in turn
+    ("CAA",["colonial","coastal"]),        # Colonial through 2023, Coastal from 2024
+    ("CUSA","cusa"), ("Horizon","horizon"),
     ("Ivy","ivy"), ("MAAC","maac"), ("MAC","mac"), ("MEAC","meac"), ("MVC","mvc"),
-    ("MWC","mwc"), ("NEC","nec"), ("OVC","ovc"), ("Pac-12",["pac-12","pac-10"]),  # Pac-10 through 2011
+    ("MWC","mwc"), ("NEC","nec"), ("OVC","ovc"),
+    ("Pac-12",["pac-12","pac-10"]),        # Pac-10 through 2011
     ("Patriot","patriot"), ("SoCon","southern"), ("Southland","southland"),
-    ("SWAC","swac"), ("Summit","summit"), ("Sun Belt","sun-belt"), ("UAC","wac"),        # team_seasons labels the WAC's members "United Athletic Conference"
+    ("SWAC","swac"), ("Summit","summit"), ("Sun Belt","sun-belt"),
+    ("UAC","wac"),                         # team_seasons calls the WAC's members "United Athletic"
     ("WCC","wcc"),
 ]
 AWARD_MAP = {  # conf-awards rows worth keeping (player awards only — no coaches)
