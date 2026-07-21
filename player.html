@@ -1824,6 +1824,18 @@ var WA_RANK_G=[[10.1,0],[9.7,1],[9.3,2],[9.1,3],[8.8,5],[8.6,6],[8.5,7],[8.3,9],
 // Exact all-time Wins Added rank from the real distribution (95,320 scored
 // player-seasons). The old estimate derived rank from a 51-point percentile
 // array, which saturated at the 99th -> every elite season floored at ~#696.
+var GRADE_POOL_N=88696;
+var GRADE_RANK_G=[[98,0],[97,2],[96,9],[95,25],[94,54],[93,143],[92,264],[91,447],[90,663],[89,941],[88,1334],[87,1795],[86,2362],[85,3037],[84,3775],[83,4589],[82,5488],[81,6565],[80,7805],[79,9181],[78,10782],[77,12748],[76,15158],[75,18183],[74,22125],[73,27080],[72,33070],[71,40222],[70,48268],[69,57462],[68,66641],[67,74788],[66,80735],[65,84334],[64,86337],[63,87387],[62,88124],[61,88516],[60,88661],[59,88693]];
+// Exact all-time rank by TDC grade (88,696 graded player-seasons). The hero's
+// "all-time" cell reflects how good the SEASON was (grade), not Wins Added —
+// WA is a volume stat, so an injured 9-game season like Bol Bol's 2018-19
+// graded 95 but ranked ~#19,000 by WA, which read as nonsense next to the 95.
+function _gradeAllTimeRank(g){
+  if(g==null||isNaN(g)) return null;
+  var v=Math.round(g);
+  for(var i=0;i<GRADE_RANK_G.length;i++){ if(GRADE_RANK_G[i][0]<=v) return GRADE_RANK_G[i][1]+1; }
+  return GRADE_POOL_N;
+}
 function _waAllTimeRank(wa){
   if(wa==null||isNaN(wa)) return null;
   var w=Math.round(wa*10)/10;
@@ -1943,7 +1955,7 @@ function renderImpact(srcRow, projectedFlag){
   }
   // mirror wins-added + all-time percentile into the header 2×2 grid
   var _hgWA=document.getElementById('heroWA'); if(_hgWA) _hgWA.textContent=(wa==null)?'—':((wa>0?'+':'')+wa.toFixed(1));
-  var _hgRk=document.getElementById('heroRank'); if(_hgRk){ _hgRk.textContent=(wa==null)?'—':('#'+rank.toLocaleString()); var _hgRkL=_hgRk.parentNode&&_hgRk.parentNode.querySelector('.hg-l'); if(_hgRkL&&wa!=null) _hgRkL.textContent='of '+(WA_POOL_N>=1000?(Math.round(WA_POOL_N/1000)+'K'):WA_POOL_N)+' all-time'; }
+  // (the hero's all-time cell is grade-based; owned by _updateHeroGridForSeason)
   var badge=advSeason?((advSeason-1)+'-'+(''+advSeason).slice(2)):'';
   host.innerHTML='<div class="sec-title" style="margin-bottom:14px;">Wins Added'+(badge?' <span style="font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--accent);background:rgba(139,105,20,.12);padding:2px 6px;border-radius:4px;vertical-align:middle;">'+badge+'</span>':'')+'</div>'+
     '<div class="impact-wrap">'+
@@ -2398,6 +2410,23 @@ function _curSeasonWA(){
   var ss=_ovrSeasons(); for(var i=0;i<ss.length;i++){ if(ss[i].wa!=null&&ss[i].wa!=='') return parseFloat(ss[i].wa); }
   return null;
 }
+
+// Season-scoped grade ranks via filtered counts against bbref_seasons.
+function _seasonRanks(year, g, posRaw, eN, eP, ePL){
+  if(!year||isNaN(g)) return;
+  var pos=(''+posRaw).trim().toUpperCase().charAt(0);           // bbref pos is coarse: G/F/C
+  if('GFC'.indexOf(pos)<0) pos='';
+  if(ePL) ePL.textContent=(pos||'Pos')+' Rank';
+  var base=SB+'/rest/v1/bbref_seasons?season_year=eq.'+year+'&tdc_grade=gt.'+g+'&select=bbref_id&limit=1';
+  function count(url,cb){
+    fetch(url,{headers:Object.assign({},H,{Prefer:'count=exact'})}).then(function(r){
+      var cr=r.headers.get('content-range')||''; var n=parseInt((cr.split('/')[1]||''),10);
+      cb(isNaN(n)?null:n);
+    }).catch(function(){ cb(null); });
+  }
+  count(base,function(n){ if(n!=null&&eN) eN.textContent='#'+(n+1).toLocaleString(); });
+  if(pos) count(base+'&pos=eq.'+pos,function(n){ if(n!=null&&eP) eP.textContent='#'+(n+1).toLocaleString(); });
+}
 function _updateHeroGridForSeason(val){
   var isProj=(val==='proj'||val==null||+val>=2027);
   var row=isProj?null:_ovrSeasonRow(val);
@@ -2409,7 +2438,12 @@ function _updateHeroGridForSeason(val){
   var eWA=document.getElementById('heroWA'); if(eWA) eWA.textContent=(wa==null||isNaN(wa))?'—':((wa>0?'+':'')+(+wa).toFixed(1));
   // all-time wins-added rank
   var eAll=document.getElementById('heroRank');
-  if(eAll){ if(wa==null||isNaN(wa)){ eAll.textContent='—'; } else { eAll.textContent='#'+(_waAllTimeRank(wa)||1).toLocaleString(); } }
+  if(eAll){
+    var gr=_gradeAllTimeRank(g);
+    eAll.textContent=(gr==null)?'—':('#'+gr.toLocaleString());
+    var eAllL=eAll.parentNode&&eAll.parentNode.querySelector('.hg-l');
+    if(eAllL) eAllL.textContent='of '+Math.round(GRADE_POOL_N/1000)+'K all-time';
+  }
   // national + position rank
   var eN=document.getElementById('heroNatRank'), eP=document.getElementById('heroPosRank'),
       eNL=document.getElementById('heroNatRankL'), ePL=document.getElementById('heroPosRankL');
@@ -2418,16 +2452,10 @@ function _updateHeroGridForSeason(val){
     if(eN) eN.textContent='#'+window._bbNat;
     if(eP) eP.textContent='#'+window._bbPos;
     if(ePL) ePL.textContent=(window._bbPosLbl||'Pos')+' Rank';
-  } else if(!isNaN(g)){
-    var pool=window._tdcAllPlayers||[];
-    if(pool.length){
-      var pos=_norm5((row&&row.position)||player.position), natR=1, posR=1;
-      for(var i=0;i<pool.length;i++){ var pgr=parseFloat(pool[i].tdc_grade); if(isNaN(pgr))continue;
-        if(pgr>g) natR++; if(pgr>g && _norm5(pool[i].position)===pos) posR++; }
-      if(eN) eN.textContent='#'+natR.toLocaleString();
-      if(eP) eP.textContent='#'+posR.toLocaleString();
-      if(ePL) ePL.textContent=pos+' Rank';
-    }
+  } else if(!isNaN(g) && row){
+    // Rank within THAT SEASON. (This used to compare a past season's grade to
+    // the CURRENT player pool, so any old elite season came back #1.)
+    _seasonRanks(row.season_year, g, (row.position||player.position||''), eN, eP, ePL);
   }
 }
 
