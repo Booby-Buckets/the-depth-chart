@@ -329,9 +329,22 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
   var YEAR=parseInt(P.get('season'),10); if(!(YEAR>=MINY&&YEAR<=MAXY)) YEAR=MAXY;
   var QCONF=P.get('conf')||'', QTEAM=P.get('team')||'';
 
-  // awards are only scraped for the leagues below; `detail` holds the code
+  // awards.detail holds a short conference code (see scripts/scrape_awards.py)
   var AWCODE={'Atlantic Coast Conference':'ACC','Big Ten Conference':'B10',
-    'Big 12 Conference':'BIG-12','Southeastern Conference':'SEC','Big East Conference':'Big-East'};
+    'Big 12 Conference':'BIG-12','Southeastern Conference':'SEC','Big East Conference':'Big-East',
+    'Atlantic 10 Conference':'A-10','Atlantic Sun Conference':'A-Sun',
+    'America East Conference':'Am. East','American Conference':'American',
+    'Big Sky Conference':'Big Sky','Big South Conference':'Big South',
+    'Big West Conference':'Big West','Coastal Athletic Association':'CAA',
+    'Conference USA':'CUSA','Horizon League':'Horizon','Ivy League':'Ivy',
+    'Metro Atlantic Athletic Conference':'MAAC','Mid-American Conference':'MAC',
+    'Mid-Eastern Athletic Conference':'MEAC','Missouri Valley Conference':'MVC',
+    'Mountain West Conference':'MWC','Northeast Conference':'NEC',
+    'Ohio Valley Conference':'OVC','Pac-12 Conference':'Pac-12','Patriot League':'Patriot',
+    'Southern Conference':'SoCon','Southland Conference':'Southland',
+    'Southwestern Athletic Conference':'SWAC','Summit League':'Summit',
+    'Sun Belt Conference':'Sun Belt','United Athletic Conference':'UAC',
+    'West Coast Conference':'WCC'};
 
   function label(y){ return (y-1)+'\u2013'+String(y).slice(2); }
   function ord(n){ var s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
@@ -513,6 +526,7 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
     }
     get('awards?select=category,team,player,espn_id&season_year=eq.'+YEAR+'&detail=eq.'+encodeURIComponent(code))
     .then(function(A){
+      if(!A.length){ sel('awbox').style.display='none'; sel('acbox').style.display='none'; return; }
       var ORDER=[['Player of the Year','#C9962F','trophy'],['Defensive Player of the Year','#3f74c9','shield'],
         ['Rookie of the Year','#1f9d6b','star'],['Sixth Man of the Year','#7a5cd6','star'],
         ['Most Improved Player','#C9962F','star'],['Tournament MVP','#C9962F','trophy']];

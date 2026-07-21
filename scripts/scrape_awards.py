@@ -35,7 +35,21 @@ H = {"apikey": SB_KEY, "Authorization": f"Bearer {SB_KEY}", "Content-Type": "app
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 
 YEARS = range(2007, 2027)
-CONFS = [("ACC","acc"), ("B10","big-ten"), ("BIG-12","big-12"), ("Big-East","big-east"), ("SEC","sec")]
+# (detail code, sports-reference slug) for every conference in team_seasons.
+# The code is what `awards.detail` stores and what awards.html shows as its pill
+# label; the first five keep their original values so existing rows stay valid.
+# conference.html maps team_seasons.conference -> these codes (AWCODE).
+CONFS = [
+    ("ACC","acc"), ("B10","big-ten"), ("BIG-12","big-12"), ("Big-East","big-east"), ("SEC","sec"),
+    ("A-10","atlantic-10"), ("A-Sun","atlantic-sun"), ("Am. East","america-east"),
+    ("American","american"), ("Big Sky","big-sky"), ("Big South","big-south"),
+    ("Big West","big-west"), ("CAA","coastal"), ("CUSA","cusa"), ("Horizon","horizon"),
+    ("Ivy","ivy"), ("MAAC","maac"), ("MAC","mac"), ("MEAC","meac"), ("MVC","mvc"),
+    ("MWC","mwc"), ("NEC","nec"), ("OVC","ovc"), ("Pac-12","pac-12"),
+    ("Patriot","patriot"), ("SoCon","southern"), ("Southland","southland"),
+    ("SWAC","swac"), ("Summit","summit"), ("Sun Belt","sun-belt"), ("UAC","uac"),
+    ("WCC","wcc"),
+]
 AWARD_MAP = {  # conf-awards rows worth keeping (player awards only — no coaches)
     "POY": "Player of the Year", "DPOY": "Defensive Player of the Year",
     "ROY": "Rookie of the Year", "6MOY": "Sixth Man of the Year",
@@ -132,8 +146,15 @@ def scrape_conf(code, slug):
         replace_rows(yr, code, rows)
         print(f"  {yr}: {len(rows)} rows", flush=True)
 
+ORIGINAL = {"acc", "big-ten", "big-12", "big-east", "sec"}   # scraped before mid-majors were added
+
 if __name__ == "__main__":
     only = sys.argv[1] if len(sys.argv) > 1 else None
+    if only == "new":            # only the conferences not covered by the first run
+        for code, slug in CONFS:
+            if slug in ORIGINAL: continue
+            scrape_conf(code, slug)
+        print("done"); raise SystemExit
     if not only or only == "aa":
         scrape_all_america()
     for code, slug in CONFS:
