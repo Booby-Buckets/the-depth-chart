@@ -412,7 +412,7 @@
     /* ===== boxed overview card ===== */
     .ovc-seasonbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
     .ovc-seasonbar .osl{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
-    .ovc-accent{height:4px;border-radius:3px;margin-bottom:14px;background:linear-gradient(90deg,var(--tc) 0%,var(--tcr) 55%,rgba(var(--tc-rgb),.35) 100%);}
+    .ovc-accent{height:5px;border-radius:3px;margin-bottom:14px;background:linear-gradient(90deg,var(--tcr) 0%,rgba(var(--tcr-rgb,45,224,166),.55) 45%,rgba(var(--tcr-rgb,45,224,166),.10) 100%);}
     .ovc-fit{display:flex;align-items:center;gap:12px;} .ovc-fit .flogo{width:44px;height:44px;object-fit:contain;flex:0 0 auto;} .ovc-fit .fmeta{min-width:0;}
     .ovc-fit .fteam{font-size:14px;font-weight:800;color:var(--tcr);} .ovc-fit .fconf{font-size:11px;color:var(--text3);}
     .ovc-fitrow{display:flex;gap:9px;margin-top:11px;} .ovc-fitc{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:8px 6px;text-align:center;} .ovc-fitc .v{font-weight:800;font-size:15px;} .ovc-fitc .v.tcr{color:var(--tcr);} .ovc-fitc .k{font-size:7.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
@@ -575,7 +575,7 @@
 html{background:var(--bg);}
 body{background:transparent!important;}
 /* bg palette — neon by default; team pages override --bgc/--bgm via JS */
-:root{--tc:var(--accent);--tcr:var(--accent);--tc-rgb:45,224,166;--bgc1:#9a9aa8;--bgc2:#7c7c8c;--bgc3:#adadbd;--bgm1:rgba(158,158,174,.30);--bgm2:rgba(128,128,146,.28);--bgm3:rgba(176,176,192,.32);--bgm4:rgba(116,116,134,.22);}
+:root{--tc:var(--accent);--tcr:var(--accent);--tc-rgb:45,224,166;--tcr-rgb:45,224,166;--bgc1:#9a9aa8;--bgc2:#7c7c8c;--bgc3:#adadbd;--bgm1:rgba(158,158,174,.30);--bgm2:rgba(128,128,146,.28);--bgm3:rgba(176,176,192,.32);--bgm4:rgba(116,116,134,.22);}
 .tdc-bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:var(--bg);}
 .tdc-mesh{position:absolute;inset:-25%;background:radial-gradient(38% 48% at 22% 26%, var(--bgm1), transparent 62%),radial-gradient(44% 52% at 80% 28%, var(--bgm2), transparent 62%),radial-gradient(50% 50% at 62% 80%, var(--bgm3), transparent 62%),radial-gradient(40% 44% at 14% 82%, var(--bgm4), transparent 62%);filter:blur(46px);animation:tdcMesh 28s ease-in-out infinite alternate;transition:background 1.1s ease;}
 [data-theme="dark"] .tdc-mesh{opacity:.42;} :root:not([data-theme="dark"]) .tdc-mesh{opacity:.28;}
@@ -652,7 +652,7 @@ body{background:transparent!important;}
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index + team page -->
   <script>try{document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
   <link rel="stylesheet" href="tdc-dense.css?v=7"/>
-  <link rel="stylesheet" href="tdc-player-dense.css?v=10"/>
+  <link rel="stylesheet" href="tdc-player-dense.css?v=11"/>
 </head>
 <body data-anim-auto>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
@@ -2426,6 +2426,7 @@ function applyTeamTheme(color){
   rs.setProperty('--tc',color);
   rs.setProperty('--tcr',team);   // readable team color for text/accents on dark
   rs.setProperty('--tc-rgb',rgb.r+','+rgb.g+','+rgb.b);
+  var vr=_hexToRgb(team); if(vr) rs.setProperty('--tcr-rgb',vr.r+','+vr.g+','+vr.b); // vivid rgb for visible washes
   rs.setProperty('--bgc1',team); rs.setProperty('--bgc2',g2); rs.setProperty('--bgc3',g1);
   rs.setProperty('--bgm1',_rgba(team,.14)); rs.setProperty('--bgm2',_rgba(g2,.10));
   rs.setProperty('--bgm3',_rgba(team,.10)); rs.setProperty('--bgm4',_rgba(g1,.08));
@@ -2660,6 +2661,7 @@ function renderPage(){
     return (p._birthplace&&String(p._birthplace).trim())||null;
   })();
   window._ovcHome=geoHome||p.hometown||null;
+  const _teamLogo=((window.tdcTeamColor&&window.tdcTeamColor(p.team))||{}).logo||'';
 
   document.title=`${p.name} — The Depth Chart`;
 
@@ -2676,10 +2678,11 @@ function renderPage(){
     return '—';})();
   document.getElementById('heroSection').innerHTML=`
     <div class="player-hero" style="--tc:${color};">
+     ${_teamLogo?`<img class="hero-wm" src="${_teamLogo}" alt="" aria-hidden="true" onerror="this.remove()">`:''}
      <div class="hero-idwrap">
       <div class="hero-avatar">${_headshot
         ? `<img src="${_headshot}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" onerror="this.parentNode.textContent='${(p.name||'?')[0].toUpperCase()}'">`
-        : (p.name||'?')[0].toUpperCase()}</div>
+        : (p.name||'?')[0].toUpperCase()}${_teamLogo?`<img class="hero-crest" src="${_teamLogo}" alt="${p.team||''} logo" onerror="this.remove()">`:''}</div>
       <div class="hero-info">
         <h1 class="hero-name">${p.name}</h1>
         <div class="hero-teamline">
