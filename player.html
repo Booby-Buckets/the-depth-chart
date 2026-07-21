@@ -3377,21 +3377,27 @@ function drawRadar(progress){
     ctx.fillText(lab,lx,ly);
   });
 
-  function drawShape(vals, baseCol, fillA, alpha){
+  // Growth-overlay style: STRAIGHT polygon edges (no smoothing), the current/
+  // projected series filled + dotted, the prior season a dashed ghost outline.
+  function drawShape(vals, baseCol, fillA, alpha, opts){
+    opts=opts||{};
     ctx.save(); ctx.globalAlpha=(alpha==null?1:alpha);
     const pts=vals.map((v,i)=>{const angle=Math.PI*2*i/n-Math.PI/2;const val=v/100*prog;return {x:cx+Math.cos(angle)*r*val, y:cy+Math.sin(angle)*r*val};});
+    function trace(){ ctx.beginPath(); pts.forEach((pt,i)=>{ i?ctx.lineTo(pt.x,pt.y):ctx.moveTo(pt.x,pt.y); }); ctx.closePath(); }
     if(fillA>0){
-      ctx.beginPath(); _radarSmooth(ctx,pts);
+      trace();
       const grad=ctx.createRadialGradient(cx,cy,0,cx,cy,r);
       grad.addColorStop(0,_rgbaOf(baseCol,Math.min(0.5,fillA*1.7)));
       grad.addColorStop(1,_rgbaOf(baseCol,fillA*0.4));
       ctx.fillStyle=grad; ctx.fill();
     }
-    ctx.beginPath(); _radarSmooth(ctx,pts);
-    ctx.shadowColor=_rgbaOf(baseCol,0.45); ctx.shadowBlur=10;
+    trace();
+    if(opts.dash){ ctx.setLineDash([5,4]); }
+    else { ctx.shadowColor=_rgbaOf(baseCol,0.4); ctx.shadowBlur=9; }
     ctx.lineJoin='round'; ctx.lineCap='round';
-    ctx.strokeStyle=baseCol; ctx.lineWidth=2.2; ctx.stroke(); ctx.shadowBlur=0;
-    if(prog>0.82){
+    ctx.strokeStyle=baseCol; ctx.lineWidth=opts.dash?1.6:2.2; ctx.stroke();
+    ctx.shadowBlur=0; ctx.setLineDash([]);
+    if(prog>0.82 && !opts.noDots){
       pts.forEach(pt=>{
         ctx.beginPath(); ctx.arc(pt.x,pt.y,3,0,Math.PI*2); ctx.fillStyle=baseCol; ctx.fill();
         ctx.beginPath(); ctx.arc(pt.x,pt.y,3,0,Math.PI*2); ctx.lineWidth=1.5; ctx.strokeStyle=isDark?'#0b0a12':'#fff'; ctx.stroke();
@@ -3419,10 +3425,20 @@ function drawRadar(progress){
   if(hasProj) series.push({lbl:_seasonLbl(2027)+' Proj', col:accent, vals:axesOf(proj), alpha:0.95, fill:0.14, proj:true});
 
   var vis=window._radarVis=window._radarVis||{};
-  // projected behind, then seasons oldest→newest (most recent on top)
-  var pj=series.filter(function(s){return s.proj;})[0];
-  if(pj && vis[pj.lbl]!==false) drawShape(pj.vals, pj.col, pj.fill, pj.alpha);
-  series.filter(function(s){return !s.proj;}).forEach(function(sv){ if(vis[sv.lbl]!==false) drawShape(sv.vals, sv.col, sv.fill, sv.alpha); });
+  // Growth overlay: current/projected (last) on top filled; prior season a dashed
+  // ghost; older seasons hidden by default but still toggleable via the legend.
+  var topIdx=series.length-1, priorIdx=series.length-2;
+  series.forEach(function(sv,i){ if(vis[sv.lbl]===undefined) vis[sv.lbl]=(i>=priorIdx); });
+  // ghosts first (behind), then the current series on top. Force the prior
+  // season's ghost to a readable slate (a team color like MSU's dark green
+  // is invisible on the navy ground); older toggled-on seasons keep their gray.
+  series.forEach(function(sv,i){
+    if(vis[sv.lbl]===false || i===topIdx) return;
+    var gcol=(i===priorIdx)?'#94a1ba':sv.col;
+    drawShape(sv.vals, gcol, 0, 0.95, {dash:true, noDots:true});
+  });
+  var top=series[topIdx];
+  if(top && vis[top.lbl]!==false) drawShape(top.vals, top.col, top.fill||0.16, 1);
 
   // toggleable legend
   const legendEl=document.getElementById('radarLegend');
