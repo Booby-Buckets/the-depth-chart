@@ -2891,6 +2891,7 @@ function renderPage(){
     <div class="tab-row" id="tabRow" onscroll="_tabScrollHint()">
       <button class="tab-btn active" id="tab-overview" onclick="switchTab('overview')">Overview</button>
       <button class="tab-btn" id="tab-stats" onclick="switchTab('stats')">Full Stats</button>
+      <button class="tab-btn" id="tab-shotcharts" onclick="switchTab('shotcharts')">Shot Charts</button>
       <button class="tab-btn" id="tab-rankings" onclick="switchTab('rankings')">Rankings</button>
       <button class="tab-btn" id="tab-percentiles" onclick="switchTab('percentiles')">Percentiles</button>
       <button class="tab-btn" id="tab-scout" onclick="switchTab('scout')">Scouting</button>
@@ -2934,6 +2935,12 @@ function renderPage(){
       <div style="overflow-x:auto;" id="sm-body-pergame">${renderStatTable(p, proj)}</div>
       <div style="overflow-x:auto;display:none;" id="sm-body-per40">${renderModeTable('per40')}</div>
       <div style="overflow-x:auto;display:none;" id="sm-body-advanced">${renderModeTable('advanced')}</div>
+      <div class="sec-title" style="margin:34px 0 14px;">Game Log</div>
+      <div id="sm-body-gamelog"></div>
+    </div>
+
+    <!-- SHOT CHARTS TAB -->
+    <div class="tab-panel" id="panel-shotcharts">
       <div class="shot-analytics">
         <div class="sa-col">
           <div class="sec-title" style="margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
@@ -2947,8 +2954,6 @@ function renderPage(){
           <div id="shotFlowHost"></div>
         </div>
       </div>
-      <div class="sec-title" style="margin:34px 0 14px;">Game Log</div>
-      <div id="sm-body-gamelog"></div>
     </div>
 
     <!-- RANKINGS TAB -->
@@ -3964,7 +3969,7 @@ async function renderNilPlayer(){
   host.innerHTML=html;
 }
 function switchTab(t){
-  const tabs=['overview','stats','rankings','percentiles','scout','nil','buzz','portalfit'];
+  const tabs=['overview','stats','shotcharts','rankings','percentiles','scout','nil','buzz','portalfit'];
   const cur=tabs.map(x=>document.getElementById('panel-'+x)).find(el=>el&&el.classList.contains('active'));
   function activate(id){
     tabs.forEach(x=>{
@@ -3979,7 +3984,7 @@ function switchTab(t){
     });
     if(id==='overview')setTimeout(animateRadar,90);
     if(id==='stats' && !window._gamelogLoaded){ window._gamelogLoaded=true; loadGameLog(); }
-    if(id==='stats' && !window._shotChartLoaded){ window._shotChartLoaded=true; _initShotSeasons(); }
+    if(id==='shotcharts' && !window._shotChartLoaded){ window._shotChartLoaded=true; _initShotSeasons(); }
     if(id==='rankings')setTimeout(renderRankings,40);
     if(id==='nil' && !window._nilLoaded){ window._nilLoaded=true; setTimeout(renderNilPlayer,40); }
     if(id==='buzz' && !window._buzzLoaded){ window._buzzLoaded=true; setTimeout(renderBuzz,40); }
