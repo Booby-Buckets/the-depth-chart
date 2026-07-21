@@ -452,6 +452,11 @@
     .skill-bar-label{font-size:11px;font-weight:600;color:var(--text3);width:48px;flex-shrink:0;text-align:right;}
     .skill-bar-track{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
     .skill-bar-fill{height:100%;border-radius:3px;transition:width .7s cubic-bezier(.22,1,.36,1);}
+    /* lollipop-vs-field: dot placed on the full 0-100 percentile track, median tick at 50 */
+    .skill-lolli{flex:1;position:relative;height:13px;}
+    .skill-lolli::before{content:'';position:absolute;left:0;right:0;top:50%;height:2px;transform:translateY(-50%);background:var(--border2);border-radius:2px;}
+    .skill-lolli-med{position:absolute;left:50%;top:50%;width:1px;height:9px;transform:translate(-50%,-50%);background:var(--text3);opacity:.5;}
+    .skill-lolli-dot{position:absolute;top:50%;width:10px;height:10px;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 2.5px var(--bg2);transition:left .7s cubic-bezier(.22,1,.36,1);}
     .skill-bar-val{font-family:'Playfair Display',serif;font-weight:700;font-size:12px;width:34px;text-align:right;flex-shrink:0;}
     .skill-bar-pct{font-size:10px;font-weight:700;color:var(--text2);width:32px;text-align:right;flex-shrink:0;}
 
@@ -1318,11 +1323,9 @@ function buildBadgesSection(p, B){
 
 // ── SKILL BREAKDOWN ─────────────────────────────────────
 function buildSkillBreakdown(srcRow, projectedFlag, label){
-  // blue gradient by percentile — deeper blue = higher (matches the database)
-  function barColor(pct){
-    // team-color intensity by percentile (unified accent instead of a clashing blue)
-    var m = pct>=80?85 : pct>=60?66 : pct>=40?50 : pct>=20?37 : 26;
-    return 'color-mix(in srgb, var(--tc) '+m+'%, var(--text3))';
+  // lollipop dot colored by tier (elite gold -> good mint -> avg blue -> slate -> red)
+  function tierCol(pct){
+    return pct>=90?'#E0B24A' : pct>=75?'#2DE0A6' : pct>=50?'#5B8DEF' : pct>=30?'#6B7893' : '#E06A7A';
   }
   // render the chosen season (or projection) vs the national pool
   var src=srcRow||((proj&&!proj._frosh)?proj:player);
@@ -1375,12 +1378,13 @@ function buildSkillBreakdown(srcRow, projectedFlag, label){
     var display=m.f(m.v);
     if(display==='--'||display==='—')return '';
     var pct=getPctNat(m.v,m.k);   // vs every player in the database
-    var col=barColor(pct);
+    var col=tierCol(pct);
     return '<div class="skill-bar-row">'
       +'<div class="skill-bar-label">'+m.l+'</div>'
-      +'<div class="skill-bar-track"><div class="skill-bar-fill" style="width:'+pct+'%;background:'+col+';"></div></div>'
+      +'<div class="skill-lolli"><div class="skill-lolli-med"></div>'
+        +'<div class="skill-lolli-dot" style="left:'+pct+'%;background:'+col+';"></div></div>'
       +'<div class="skill-bar-val" style="color:var(--text);">'+display+'</div>'
-      +'<div class="skill-bar-pct">'+pct+'th</div>'
+      +'<div class="skill-bar-pct" style="color:'+col+';">'+_ord(pct)+'</div>'
       +'</div>';
   }).filter(Boolean);
   var half=Math.ceil(rows.length/2);
