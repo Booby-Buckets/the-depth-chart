@@ -399,6 +399,17 @@
     @media(max-width:820px){.badge-grid{grid-template-columns:repeat(2,1fr);}}
     @media(max-width:480px){.badge-grid{grid-template-columns:1fr;}}
     /* badge tier ladder — grouped by tier, pills colored by category */
+    /* badge emblem tiles: hex crest (tier-tinted) + category icon + tier ribbon */
+    .badge-grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:10px;margin-top:12px;}
+    .badge-tile{position:relative;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:13px 9px 9px;text-align:center;overflow:hidden;}
+    .bt-glow{position:absolute;left:-30%;right:-30%;top:-42%;height:110px;filter:blur(26px);opacity:.45;pointer-events:none;}
+    .bt-em{position:relative;width:42px;height:42px;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;}
+    .bt-hex{position:absolute;inset:0;clip-path:polygon(50% 0,93% 25%,93% 75%,50% 100%,7% 75%,7% 25%);}
+    .bt-hex.bt-in{inset:2px;background:var(--bg2);}
+    .bt-em svg{position:relative;z-index:1;width:20px;height:20px;}
+    .bt-nm{position:relative;display:block;font-size:11.5px;font-weight:700;line-height:1.25;min-height:29px;}
+    .bt-tier{position:relative;display:block;margin-top:7px;font-family:var(--mono);font-size:7.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;padding:3px 0;border-radius:5px;}
+    @media(max-width:520px){.badge-grid2{grid-template-columns:repeat(auto-fill,minmax(108px,1fr));}}
     .badge-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
     .badge-count{font-size:12px;font-weight:700;color:var(--text2);}
     .badge-ladder{display:flex;flex-direction:column;gap:11px;}
@@ -674,7 +685,7 @@ body{background:transparent!important;}
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index + team page -->
   <script>try{document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
   <link rel="stylesheet" href="tdc-dense.css?v=7"/>
-  <link rel="stylesheet" href="tdc-player-dense.css?v=15"/>
+  <link rel="stylesheet" href="tdc-player-dense.css?v=16"/>
 </head>
 <body data-anim-auto>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
@@ -1363,28 +1374,34 @@ function buildBadgesSection(p, B){
   var order=['FIN','SHO','PLY','DEF'];
   var CATCOL={FIN:'#2DE0A6',SHO:'#5B8DEF',PLY:'#8B7CFF',DEF:'#F5B942'};
   var CATLBL={FIN:'Finishing',SHO:'Shooting',PLY:'Playmaking',DEF:'Defense'};
-  // flatten every earned badge, tagged with its category
+  var ICON={
+    FIN:'<path d="M12 2v13m0 0l-4.5-4.5M12 15l4.5-4.5" stroke="currentColor" stroke-width="2.1" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>',
+    SHO:'<circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="12" r="3.6" stroke="currentColor" stroke-width="2" fill="none"/>',
+    PLY:'<circle cx="5.5" cy="6.5" r="2.6" fill="currentColor"/><circle cx="18.5" cy="6.5" r="2.6" fill="currentColor"/><circle cx="12" cy="18" r="2.6" fill="currentColor"/><path d="M7.6 8.2L11 15.6M16.4 8.2L13 15.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>',
+    DEF:'<path d="M12 2.8l7.4 3.1v5.4c0 4.7-3.1 8.5-7.4 10.6C7.7 19.8 4.6 16 4.6 11.3V5.9z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/>'
+  };
+  // flatten every earned badge, strongest tier first so the best crests lead
   var all=[];
   order.forEach(function(c){ (B.badges[c]||[]).forEach(function(b){ all.push({b:b,cat:c}); }); });
-  // one rung per tier, highest first (BADGE_TIERS is descending); skip empty tiers
-  var rungs=BADGE_TIERS.map(function(t){
-    var items=all.filter(function(x){ return x.b.tier && x.b.tier.name===t.name; });
-    if(!items.length) return '';
-    var pills=items.map(function(x){
-      return '<span class="tl-pill" title="'+x.b.desc+' — '+CATLBL[x.cat]+'">'+
-        '<span class="tl-cd" style="background:'+CATCOL[x.cat]+';"></span>'+x.b.name+'</span>';
-    }).join('');
-    return '<div class="tl-rung">'+
-      '<div class="tl-rl"><span class="tl-tier" style="color:'+t.color+';">'+t.name+'</span>'+
-        '<span class="tl-ct">'+items.length+'</span></div>'+
-      '<div class="tl-pills">'+pills+'</div></div>';
-  }).filter(Boolean).join('');
+  all.sort(function(x,y){ return ((y.b.tier&&y.b.tier.pips)||0)-((x.b.tier&&x.b.tier.pips)||0); });
+  var tiles=all.map(function(x){
+    var t=x.b.tier||{name:'',color:'var(--text3)',bg:'transparent'}, cc=CATCOL[x.cat]||'var(--text2)';
+    return '<div class="badge-tile" title="'+(x.b.desc||'').replace(/"/g,'&quot;')+' \u2014 '+t.name+'">'+
+      '<span class="bt-glow" style="background:radial-gradient(circle,'+t.color+',transparent 70%)"></span>'+
+      '<span class="bt-em">'+
+        '<span class="bt-hex" style="background:linear-gradient(160deg,'+t.color+'59,'+t.color+'1a)"></span>'+
+        '<span class="bt-hex bt-in"></span>'+
+        '<svg viewBox="0 0 24 24" style="color:'+cc+'">'+ICON[x.cat]+'</svg>'+
+      '</span>'+
+      '<span class="bt-nm">'+x.b.name+'</span>'+
+      '<span class="bt-tier" style="color:'+t.color+';background:'+t.bg+'">'+t.name+'</span></div>';
+  }).join('');
   var catleg=order.map(function(c){ return '<span class="badge-leg"><span class="badge-pip" style="background:'+CATCOL[c]+';"></span>'+CATLBL[c]+'</span>'; }).join('');
   return '<div class="badge-head">'+
       '<span class="badge-count">'+B.total+' earned</span>'+
       '<span class="badge-legend">'+catleg+'</span></div>'+
-    '<div style="font-size:11px;color:var(--text3);margin-bottom:14px;">Earned skills from '+B.basis+' production — grouped by tier, colored by category.</div>'+
-    '<div class="badge-ladder">'+(rungs||'<div class="badge-empty">No badges yet</div>')+'</div>';
+    '<div style="font-size:11px;color:var(--text3);">Earned skills from '+B.basis+' production \u2014 crest colour is the tier, icon is the category.</div>'+
+    '<div class="badge-grid2">'+(tiles||'<div class="badge-empty">No badges yet</div>')+'</div>';
 }
 
 
