@@ -1817,7 +1817,17 @@ function _seasonLbl(y){ y=parseInt(y); return isNaN(y)?y:((y-1)+'-'+(''+y).slice
 // Wins Added distribution over EVERY qualified player-season in the database
 // (69,569 seasons, mpg>=8). WA = Win Shares - 0.04*(MP/40) replacement baseline.
 NAT_PCT["wa"]=[-3.5,-0.58,-0.39,-0.28,-0.21,-0.15,-0.1,-0.05,-0.01,0.03,0.07,0.1,0.14,0.18,0.23,0.27,0.31,0.35,0.39,0.44,0.49,0.53,0.58,0.64,0.69,0.75,0.81,0.86,0.93,0.99,1.06,1.13,1.2,1.27,1.35,1.44,1.53,1.62,1.73,1.84,1.96,2.08,2.22,2.37,2.54,2.73,2.96,3.25,3.63,4.24,10.14];
-var WA_POOL_N=69569;
+var WA_POOL_N=95320;
+var WA_RANK_G=[[10.1,0],[9.7,1],[9.3,2],[9.1,3],[8.8,5],[8.6,6],[8.5,7],[8.3,9],[8.2,10],[7.8,12],[7.7,13],[7.6,15],[7.5,16],[7.4,19],[7.3,22],[7.2,29],[7.1,36],[7,39],[6.9,43],[6.8,48],[6.7,54],[6.6,60],[6.5,69],[6.4,82],[6.3,94],[6.2,109],[6.1,124],[6,150],[5.9,168],[5.8,199],[5.7,225],[5.6,262],[5.5,295],[5.4,332],[5.3,380],[5.2,417],[5.1,462],[5,521],[4.9,587],[4.8,654],[4.7,745],[4.6,858],[4.5,975],[4.4,1093],[4.3,1234],[4.2,1371],[4.1,1530],[4,1724],[3.9,1948],[3.8,2178],[3.7,2447],[3.6,2722],[3.5,3051],[3.4,3385],[3.3,3754],[3.2,4166],[3.1,4608],[3,5082],[2.9,5641],[2.8,6234],[2.7,6841],[2.6,7505],[2.5,8247],[2.4,9065],[2.3,9897],[2.2,10838],[2.1,11817],[2,12852],[1.9,13988],[1.8,15187],[1.7,16421],[1.6,17768],[1.5,19176],[1.4,20670],[1.3,22308],[1.2,24073],[1.1,25989],[1,27974],[0.9,30061],[0.8,32370],[0.7,34819],[0.6,37347],[0.5,40105],[0.4,43247],[0.3,46711],[0.2,50734],[0.1,55758],[-0,63907],[-0.1,79955],[-0.2,86733],[-0.3,89998],[-0.4,91856],[-0.5,92969],[-0.6,93778],[-0.7,94275],[-0.8,94606],[-0.9,94823],[-1,94961],[-1.1,95081],[-1.2,95159],[-1.3,95204],[-1.4,95239],[-1.5,95260],[-1.6,95275],[-1.7,95284],[-1.8,95296],[-1.9,95300],[-2,95306],[-2.1,95311],[-2.2,95314],[-2.3,95316],[-2.9,95317],[-3.2,95318],[-3.5,95319]];
+// Exact all-time Wins Added rank from the real distribution (95,320 scored
+// player-seasons). The old estimate derived rank from a 51-point percentile
+// array, which saturated at the 99th -> every elite season floored at ~#696.
+function _waAllTimeRank(wa){
+  if(wa==null||isNaN(wa)) return null;
+  var w=Math.round(wa*10)/10;
+  for(var i=0;i<WA_RANK_G.length;i++){ if(WA_RANK_G[i][0]<=w) return WA_RANK_G[i][1]+1; }
+  return WA_POOL_N;
+}
 
 // ── IMPACT SCORE (PREDICTIVE — 2026-27 projected) ─────────
 // A box-score impact index (0-100) blending scoring, creation, rebounding,
@@ -1923,7 +1933,7 @@ function renderImpact(srcRow, projectedFlag){
       '<div class="impact-pctl">Wins Added needs a played season</div></div>';
   } else {
     var pctl=getPctNat(wa,'wa'); barPct=pctl;
-    var rank=Math.max(1,Math.round((1-pctl/100)*WA_POOL_N));
+    var rank=_waAllTimeRank(wa)||1;
     var top=Math.max(1,101-pctl);
     headHtml='<div class="impact-num">'+(wa>0?'+':'')+wa.toFixed(1)+'<span> wins</span></div>'+
       '<div class="impact-meta"><div class="impact-rank">'+ord(rank)+' of '+WA_POOL_N.toLocaleString()+' all-time</div>'+
@@ -2133,7 +2143,18 @@ function _teamInfo(tn){
   for(var k in m){ var kl=k.toLowerCase().trim(); if(kl===lo||kl.indexOf(lo)===0||lo.indexOf(kl)===0) return m[k]; }
   return null;
 }
-function _teamColor(tn){ var c=(window.tdcTeamColorHex&&tdcTeamColorHex(tn)); if(c) return c; var i=_teamInfo(tn); return i&&i.color?i.color:null; }
+function _teamColor(tn){ var c=_teamAccent(tn); if(c) return c; var i=_teamInfo(tn); return i&&i.color?i.color:null; }
+// Best usable accent for a team: the primary, unless it's greyscale or nearly
+// black (Iowa's #231f20, Army black, etc) — those wash out to nothing on the
+// dark ground, so fall back to the secondary (Iowa's gold).
+function _usableHue(hex){ var r=_hexToRgb(hex); if(!r) return false; var h=_rgbToHsl(r.r,r.g,r.b); return h.s>=0.18 && h.l>=0.16 && h.l<=0.92; }
+function _teamAccent(tn){
+  var e=(window.tdcTeamColor&&window.tdcTeamColor(tn))||null;
+  if(!e) return (window.tdcTeamColorHex&&tdcTeamColorHex(tn))||null;
+  if(e.c1&&_usableHue(e.c1)) return e.c1;
+  if(e.c2&&_usableHue(e.c2)) return e.c2;
+  return e.c1||e.c2||null;
+}
 function ovrCardsFor(src){
   var ST=[['PPG','ppg'],['RPG','rpg'],['APG','apg'],['MPG','mpg'],['FG%','fg_pct',1],['3P%','tp_pct',1],['FT%','ft_pct',1],['STL','stl'],['BLK','blk'],['TO','tovs']];
   return '<div class="stat-cards" style="margin-bottom:24px;">'+ST.map(function(s){var v=s[2]?fmtP(src[s[1]]):fmt(src[s[1]]);return '<div class="stat-card"><div class="stat-card-val">'+v+'</div><div class="stat-card-label">'+s[0]+'</div></div>';}).join('')+'</div>';
@@ -2386,7 +2407,7 @@ function _updateHeroGridForSeason(val){
   var eWA=document.getElementById('heroWA'); if(eWA) eWA.textContent=(wa==null||isNaN(wa))?'—':((wa>0?'+':'')+(+wa).toFixed(1));
   // all-time wins-added rank
   var eAll=document.getElementById('heroRank');
-  if(eAll){ if(wa==null||isNaN(wa)){ eAll.textContent='—'; } else { var pctl=getPctNat(wa,'wa'); eAll.textContent='#'+Math.max(1,Math.round((1-pctl/100)*WA_POOL_N)).toLocaleString(); } }
+  if(eAll){ if(wa==null||isNaN(wa)){ eAll.textContent='—'; } else { eAll.textContent='#'+(_waAllTimeRank(wa)||1).toLocaleString(); } }
   // national + position rank
   var eN=document.getElementById('heroNatRank'), eP=document.getElementById('heroPosRank'),
       eNL=document.getElementById('heroNatRankL'), ePL=document.getElementById('heroPosRankL');
@@ -2646,7 +2667,7 @@ function _openFreshEditor(){
 }
 function renderPage(){
   const p=player;
-  const color=(window.tdcTeamColorHex&&tdcTeamColorHex(p.team))||teamData?.color||'#888';
+  const color=_teamAccent(p.team)||teamData?.color||'#888';
   const yr=p.yr||p.class_year||'';
   const scout=buildScoutingReport(p,proj,gPct);
   window._ovcScout=scout;
