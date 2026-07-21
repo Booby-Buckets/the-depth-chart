@@ -2370,8 +2370,14 @@ function renderOvcExtras(val){
   var tEl=document.getElementById('ovcTrend');
   if(tEl){
     var gs=seasons.slice().reverse().map(function(r){ return +r.tdc_grade; }).filter(function(g){return isFinite(g);});
-    var pg=parseFloat(_projectedGrade&&_projectedGrade()||player.tdc_grade); if(isFinite(pg)) gs.push(pg);
-    if(gs.length>=2){
+    // Only count a projected season when one actually exists. Appending it
+    // unconditionally duplicated the last grade for one-and-done players, so a
+    // single season read as "+0 over 2 seasons".
+    var _hasProj=false; try{ _hasProj=!!_ovcSeasonOpts().useProj; }catch(e){}
+    if(_hasProj){ var pg=parseFloat(_projectedGrade&&_projectedGrade()||player.tdc_grade); if(isFinite(pg)) gs.push(pg); }
+    if(gs.length===1){
+      tEl.innerHTML='<div class="ti"><span class="now">'+Math.round(gs[0])+'</span> &nbsp;<b>single season</b><br>no prior year to trend against</div>';
+    } else if(gs.length>=2){
       var min=Math.min.apply(null,gs)-3, max=Math.max.apply(null,gs)+2, W=110,H=42,pad=6;
       var sp='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'"><defs><linearGradient id="ovcsg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".3"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>';
       var X=function(i){return pad+(W-2*pad)*i/(gs.length-1);}, Y=function(v){return pad+(H-2*pad)*(1-(v-min)/(max-min));};
@@ -2379,8 +2385,8 @@ function renderOvcExtras(val){
       sp+='<polyline points="'+gs.map(function(v,i){return X(i)+','+Y(v);}).join(' ')+'" fill="none" stroke="var(--accent)" stroke-width="2"/><circle cx="'+X(gs.length-1)+'" cy="'+Y(gs[gs.length-1])+'" r="3" fill="var(--accent)"/></svg>';
       var d0=gs[0], d1=gs[gs.length-1], dd=Math.round(d1-d0);
       var dir=dd>4?'&#9650; rising':dd<-4?'&#9660; sliding':'&#9644; steady';
-      tEl.innerHTML=sp+'<div class="ti"><span class="now">'+Math.round(d1)+'</span> &nbsp;<b>'+dir+'</b><br>'+(dd>=0?'+':'')+dd+' over '+gs.length+' seasons</div>';
-    } else { tEl.innerHTML='<div class="ovc-muted">Not enough grade history.</div>'; }
+      tEl.innerHTML=sp+'<div class="ti"><span class="now">'+Math.round(d1)+'</span> &nbsp;<b>'+dir+'</b><br>'+(dd>=0?'+':'')+dd+' over '+gs.length+' season'+(gs.length===1?'':'s')+'</div>';
+    } else { tEl.innerHTML='<div class="ovc-muted">No grade history.</div>'; }
   }
   // ---- Bottom line ----
   var bEl=document.getElementById('ovcBottom'); var sc=window._ovcScout;
