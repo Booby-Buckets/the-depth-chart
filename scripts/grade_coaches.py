@@ -165,7 +165,17 @@ def main():
         cred=P["_seasons"]/(P["_seasons"]+2.0)              # small-sample shrink
         quality  = 0.50*fp["_srs"](P["_srs"]) + 0.20*fp["_wp"](P["_wp"]) + 0.30*fp["_overperf"](P["_overperf"])
         tourney  = 0.62*_tp_score(P["_tourpts"]) + 0.38*fp["_peak"](P["_peak"])
-        develop  = P.get("dev_pctl") if P.get("dev_pctl") is not None else 50
+        # Development is regressed toward neutral by SAMPLE SIZE, the same way quality
+        # and tourney are regressed by tenure. It used to be applied raw, so a coach
+        # with 14 returner-transitions carried the same weight as one with 98 -- and
+        # because compute_coach_development only earns a percentile at MIN_N=8, the
+        # result was a cliff: 7 observations -> a neutral 50, 8 -> a raw extreme.
+        # Dusty May (1 title, 2 Final Fours) sat at the 3rd percentile on 14 returners,
+        # which alone cost him ~8.5 composite points and ~45 rank places. Portal-built
+        # rosters and mid-season school moves both starve this metric of returners.
+        _dv = P.get("dev_pctl") if P.get("dev_pctl") is not None else 50
+        _dn = P.get("dev_n") or 0
+        develop  = 50 + (_dn/(_dn+12.0))*(_dv-50)
         # Consistency = mostly season-to-season STABILITY (low SRS variance), with a
         # smaller reward for being reliably above-average and for tenure. Short tenures
         # (<3 seasons, _srssd None) get a neutral 50 stability rather than a free high score.
