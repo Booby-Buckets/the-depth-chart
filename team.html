@@ -310,6 +310,10 @@
     .dc-starter .dc-name{font-weight:800;}
     .dc-name:hover{color:var(--tc-readable,var(--accent));}
     .dc-bio{display:block;font-size:10px;font-weight:500;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.01em;margin-top:1px;}
+    /* injury-shortened season — the mpg above it is real but came off a partial sample.
+       Sits OUTSIDE .dc-bio: that span is nowrap+ellipsis, so an inline chip got clipped. */
+    .dc-inj{display:inline-block;margin-top:3px;padding:0 4px;border-radius:3px;font-size:9px;font-weight:700;
+      color:#ef4444;background:rgba(239,68,68,.13);border:1px solid rgba(239,68,68,.3);letter-spacing:.02em;}
     .dc-mpg{font-size:10.5px;font-weight:600;color:var(--text2);font-variant-numeric:tabular-nums;white-space:nowrap;}
     .dc-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:var(--text);min-width:22px;text-align:right;}
     .dc-empty{padding:16px 14px;font-size:12px;color:var(--text3);font-style:italic;}
@@ -5698,6 +5702,15 @@ function renderHistoricRoster(rows, yr, projected){
   const hasPos = rows.some(r=>r.position);
   if(!hasPos){ host.innerHTML = histTable(rows, yr); return; }
 
+  // Availability: a rotation player who missed a big chunk of the season still ranks by
+  // MINUTES PER GAME, so he can anchor a starting slot off a handful of games. Rodney
+  // Rice started USC's first six games at 33.8 mpg, got hurt, and never played again --
+  // he topped the SG column on a 6-of-32 sample with nothing saying so. He genuinely was
+  // the starter, so he keeps the slot; the chip supplies the missing context.
+  const _teamGp = rows.reduce((m,p)=>Math.max(m, parseFloat(p.gp)||0), 0);
+  const _ltd = p => { const gp=parseFloat(p.gp)||0, mp=parseFloat(p.mpg)||0;
+    return !projected && _teamGp>=15 && gp>0 && mp>=8 && (_teamGp-gp)>=10; };
+
   let cols;
   if(projected){
     // Smart auto-fill: build a gap-free five-man depth chart from the roster with the
@@ -5794,9 +5807,10 @@ function renderHistoricRoster(rows, yr, projected){
       const mpg=(p.mpg!=null&&p.mpg!==''&&!isNaN(parseFloat(p.mpg)))?num(p.mpg)+'m':'';
       const bio=[p.yr, p.height, mpg].filter(Boolean).join(' · ');
       const g=_gdisp(p);   // projected OVR for returners (falls back to demonstrated grade for historic seasons)
+      const inj=_ltd(p) ? `<span class="dc-inj" title="Played ${parseFloat(p.gp)||0} of ${_teamGp} games — injury-shortened season">${parseFloat(p.gp)||0}/${_teamGp} GP</span>` : '';
       return `<div class="dc-row${i===0?' dc-starter':''}">
         <span class="dc-rk">${i===0?'★':(i+1)}</span>
-        <span class="dc-info"><a class="dc-name" href="${link(p)}">${p.name}</a><span class="dc-bio">${bio||'&nbsp;'}</span></span>
+        <span class="dc-info"><a class="dc-name" href="${link(p)}">${p.name}</a><span class="dc-bio">${bio||'&nbsp;'}</span>${inj}</span>
         <span class="dc-grade">${g}</span>
       </div>`;
     }).join('');
