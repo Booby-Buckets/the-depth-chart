@@ -14,7 +14,7 @@
   // Crop to where shots actually are. The old frame ran to 42 ft while nothing
   // is taken past ~34, so a fifth of the panel was dead space; YMIN goes behind
   // the baseline because attempts are logged there and used to get clipped off.
-  var YMIN=-0.4, YMAX=36.5;
+  var YMIN=1.8, YMAX=36.5;
   var W=50*FT, H=(YMAX-YMIN)*FT;
   function px(fx){return fx*FT;}
   function py(fy){return (YMAX-fy)*FT;}   // baseline near the bottom, y grows up
@@ -70,7 +70,9 @@
     g+='<rect '+CL+' x="1" y="1" width="'+(W-2)+'" height="'+(H-2)+'" fill="none" stroke="'+line+'" stroke-width="2"/>';
     g+='<rect '+CL+' x="'+px(19)+'" y="'+py(19)+'" width="'+px(12)+'" height="'+(py(0)-py(19))+'" fill="none" stroke="'+line+'" stroke-width="1.5"/>';
     g+='<circle '+CL+' cx="'+px(25)+'" cy="'+py(19)+'" r="'+px(6)+'" fill="none" stroke="'+line+'" stroke-width="1.5"/>';
-    g+='<path '+CL+' d="M '+(hx-px(4))+' '+hy+' A '+px(4)+' '+px(4)+' 0 0 0 '+(hx+px(4))+' '+hy+'" fill="none" stroke="'+line+'" stroke-width="1.5"/>';
+    // sweep flag 1: the restricted arc curves INTO the paint. With flag 0 it bowed
+    // back toward the baseline, inventing court behind the rim that isn't there.
+    g+='<path '+CL+' d="M '+(hx-px(4))+' '+hy+' A '+px(4)+' '+px(4)+' 0 0 1 '+(hx+px(4))+' '+hy+'" fill="none" stroke="'+line+'" stroke-width="1.5"/>';
     g+='<line '+CL+' x1="'+(px(25)-px(3))+'" y1="'+py(4)+'" x2="'+(px(25)+px(3))+'" y2="'+py(4)+'" stroke="'+line+'" stroke-width="2"/>';
     g+='<circle '+CL+' cx="'+hx+'" cy="'+hy+'" r="'+px(0.75)+'" fill="none" stroke="'+line+'" stroke-width="2"/>';
     var cornerX=250-216.5, cornerYtop=hy-46.8;
