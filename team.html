@@ -1419,16 +1419,36 @@ async function loadCoachIdx(){
   window._coachIdxPromise = (async()=>{
     try{
       const rows = await fetch('scripts/data/coach_seasons.json').then(r=>r.ok?r.json():[]);
-      const idx = {};
+      const idx = {}, byName = {};
       (Array.isArray(rows)?rows:[]).forEach(r=>{
+        if(r.coach && r.coach_slug) byName[_coachNorm(r.coach)] = r.coach_slug;
         [ _coachNorm(r.school), _coachNorm(r.school_slug) ].forEach(k=>{
           if(!k) return; (idx[k] = idx[k] || {})[r.season_year] = { coach:r.coach, slug:r.coach_slug };
         });
       });
+      window._coachByName = byName;        // name -> slug, for coaches hired since the last scrape
       window._coachIdx = idx; return idx;
     }catch(e){ console.warn('coach index load failed', e); return (window._coachIdx={}); }
   })();
   return window._coachIdxPromise;
+}
+// The coach index is built from the Sports-Reference scrape, so it ends at the last
+// COMPLETED season — an offseason hire still shows the coach who was fired. The
+// `teams` table is maintained from the roster sheet, so for the projected season it
+// wins. Providence showed "HC: Kim English" (and, worse, English's 59 coach grade)
+// long after the sheet had Bryan Hodgson.
+function sheetCoach(teamObj){
+  const nm=((teamObj&&(teamObj.head_coach||teamObj.coach))||'').trim();
+  if(!nm) return null;
+  return { coach:nm, slug:(window._coachByName||{})[_coachNorm(nm)]||null };
+}
+// Who to show/grade for a given season: the sheet for 2026-27, the scrape for history.
+function coachFor(idx, teamObj, school, year){
+  if(year>=2027){
+    const s=sheetCoach(teamObj);
+    if(s) return s;
+  }
+  return coachForYear(idx, school, year);
 }
 function coachForYear(idx, school, year){
   const m = idx[_coachNorm(school)]; if(!m) return null;
@@ -1443,7 +1463,7 @@ async function teamCoachProfile(){
   if(window._teamCoachProfCache!==undefined) return window._teamCoachProfCache;
   try{
     const idx=await loadCoachIdx();
-    const c=coachForYear(idx, teamT&&teamT.name, (typeof _rosterSeason!=='undefined'&&_rosterSeason)||2027);
+    const c=coachFor(idx, teamT, teamT&&teamT.name, (typeof _rosterSeason!=='undefined'&&_rosterSeason)||2027);
     if(!c||!c.slug) return (window._teamCoachProfCache=null);
     const profs=await fetch('scripts/data/coach_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
     return (window._teamCoachProfCache=(Array.isArray(profs)?profs:[]).find(x=>x.coach_slug===c.slug)||null);
@@ -1485,10 +1505,12 @@ async function applyCoachRotationDefault(){
 }
 function onRotationChange(v){ _rotationSize=Math.max(6,Math.min(15,parseInt(v)||10)); _rotationUserSet=true;
   _baseCustomProj=buildCustomProjections(); rebuildCustomizeUI(); }
-async function updateHeroCoach(school, year){
+async function updateHeroCoach(teamObj, school, year){
   const el = document.getElementById('heroCoach'); if(!el || !school) return;
   const idx = await loadCoachIdx();
-  const c = coachForYear(idx, school, year);
+  // teamObj is passed in: renderHero runs BEFORE the global teamT is assigned, so
+  // reading the global here saw an empty object and always fell back to the scrape.
+  const c = coachFor(idx, teamObj||teamT, school, year);
   if(c && c.slug){
     el.innerHTML = 'HC: <a class="hero-coach-link" href="coach.html?slug='+encodeURIComponent(c.slug)+'">'+c.coach+'</a>';
   } else if(c){
@@ -1517,8 +1539,8 @@ function renderHero(t, color, rgb){
   document.getElementById('heroNick').textContent = t.nickname || '';
   document.getElementById('heroRecord').textContent = t.record || '';
   document.getElementById('heroCoach').textContent = t.coach || t.head_coach ? `HC: ${t.coach||t.head_coach}` : '';
-  updateHeroCoach(t.name, (typeof _rosterSeason!=='undefined'&&_rosterSeason)||2027);
-  document.getElementById('heroRank').textContent = t.tdc_rank ? `#${t.tdc_rank} TDC` : '';
+  updateHeroCoach(t, t.name, (typeof _rosterSeason!=='undefined'&&_rosterSeason)||2027);
+  updateHeroRank((typeof _rosterSeason!=='undefined'&&_rosterSeason)||2027, t);   // async; owns the badge
   document.getElementById('gradeCardHead').style.color = color;
   document.getElementById('gradeCardHead').style.borderLeftColor = color;
   document.querySelectorAll('.side-card-head').forEach(el => {
@@ -3715,7 +3737,7 @@ function _teamDefCoachSlug(){
   var yr=(typeof _rosterSeason!=='undefined'&&_rosterSeason)||2027;
   if(window.__teamDefCoach && window.__teamDefCoach.yr===yr) return window.__teamDefCoach.slug;
   var slug=null;
-  try{ var c=coachForYear(window._coachIdx||{}, teamT&&teamT.name, yr); if(c&&c.slug) slug=c.slug; }catch(e){}
+  try{ var c=coachFor(window._coachIdx||{}, teamT, teamT&&teamT.name, yr); if(c&&c.slug) slug=c.slug; }catch(e){}
   if(!slug && window._teamCoachProfCache) slug=window._teamCoachProfCache.coach_slug;
   if(slug!=null || window._coachIdx) window.__teamDefCoach={slug:slug, yr:yr};   // cache per season
   return slug;
@@ -5307,7 +5329,7 @@ function _setActiveYearPill(v){
 function onRosterSeason(v){
   _rosterSeason = +v;
   _setActiveYearPill(v);
-  if(teamT) updateHeroCoach(teamT.name, +v);
+  if(teamT) updateHeroCoach(teamT, teamT.name, +v);
   window._teamCoachProfCache=undefined; syncCoachGrade();   // re-sync computed coach grade for this season's coach
   const sh=document.getElementById('depthSecHead');
   const live=document.querySelectorAll('.live-side'), awardsCard=document.getElementById('awardsCard'), statsCard=document.getElementById('seasonStatsCard');
@@ -5586,9 +5608,22 @@ async function computeSeasonAwards(rows, yr){
 // 2026-27, otherwise that season's national rank (same order as the Rankings
 // page: gp ≥ 5, SRS high→low). Cached per year.
 const _histRankCache={};
-async function updateHeroRank(yr){
-  const el=document.getElementById('heroRank'); if(!el||!teamT) return;
-  if(yr>=2027){ el.textContent = teamT.tdc_rank ? `#${teamT.tdc_rank} TDC` : ''; return; }
+async function updateHeroRank(yr, teamObj){
+  const t=teamObj||teamT;
+  const el=document.getElementById('heroRank'); if(!el||!t||!t.name) return;
+  // 2026-27 reads the ratings model — the SAME source the Rankings index uses.
+  // It used to print `teams.tdc_rank`, a hand-maintained column that goes stale the
+  // moment the projections rebuild: Providence sat at #29 in the hero while the index
+  // and the "Proj rank" tile two inches away both said #48.
+  if(yr>=2027){
+    let rank=null;
+    try{ const rr=await _ratingsRow(t); rank=(rr&&rr.rank)||null; }catch(e){}
+    if(rank==null) rank=t.tdc_rank||null;                   // fallback if ratings miss the team
+    // _rosterSeason is still undefined on the very first paint, so an equality guard
+    // against it would drop the write entirely — only bail once it's actually set.
+    if(_rosterSeason==null || _rosterSeason===yr) el.textContent = rank ? `#${rank} TDC` : '';
+    return;
+  }
   if(_histRankCache[yr]!==undefined){ el.textContent=_histRankCache[yr]||''; return; }
   try{
     const all=await fetch(`${SB_URL}/rest/v1/team_seasons?season_year=eq.${yr}&select=team,srs,wins,losses&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]);
