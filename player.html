@@ -3332,7 +3332,9 @@ let _glTierFilter=null;
 function renderTierSummary(){
   const host=document.getElementById('glTierSummary'); if(!host) return;
   const by={1:[],2:[],3:[],4:[]};
-  _allGames().forEach(g=>{ const t=gameOppTier(g); if(t&&by[t]) by[t].push(g); });
+  // season-scoped: this used to read _allGames(), which flattens every season, so the
+  // tier cards never changed when you switched the season pill underneath them.
+  (_gameLog[_gameLogSeason]||[]).forEach(g=>{ const t=gameOppTier(g); if(t&&by[t]) by[t].push(g); });
   const avg=(gs,f)=>gs.reduce((a,b)=>a+f(b),0)/gs.length;
   const cards=[1,2,3,4].map(t=>{
     const gs=by[t], on=_glTierFilter===t;
@@ -3441,10 +3443,11 @@ function setGameLogSeason(y){ _gameLogSeason=y; _glTierFilter=null; renderTierSu
 function renderGameLog(){
   const wrap=document.getElementById('glTableWrap'); if(!wrap) return;
   const filtered=!!_glTierFilter;
+  const seasonGames=_gameLog[_gameLogSeason]||[];
   const games=filtered
-    ? _allGames().filter(g=>gameOppTier(g)===_glTierFilter).sort((a,b)=>(b.date||'').localeCompare(a.date||''))
-    : (_gameLog[_gameLogSeason]||[]);
-  document.querySelectorAll('#glSeasons .gl-season-btn').forEach(b=>b.classList.toggle('dim',filtered));
+    ? seasonGames.filter(g=>gameOppTier(g)===_glTierFilter).sort((a,b)=>(b.date||'').localeCompare(a.date||''))
+    : seasonGames;
+
   const d=v=>{const x=new Date((v||'')+'T12:00:00');if(isNaN(x))return '—';return x.toLocaleDateString('en-US',filtered?{month:'short',day:'numeric',year:'2-digit'}:{month:'short',day:'numeric'});};
   const n=v=>(v==null||v==='')?'—':v;
   const _tm=s=>(s||'').toLowerCase().trim();
@@ -3467,7 +3470,7 @@ function renderGameLog(){
       <td>${n(g.stl)}</td><td>${n(g.blk)}</td><td>${n(g.tov)}</td>
     </tr>`;
   }).join('');
-  wrap.innerHTML=`${filtered?'':_overallTrackSvg(games,_gameLogSeason)}${_ratingChartSvg(games)}<div style="overflow-x:auto;"><table class="stat-table gl-table"><thead><tr>
+  wrap.innerHTML=`${_ratingChartSvg(games)}<div style="overflow-x:auto;"><table class="stat-table gl-table"><thead><tr>
     <th>Date</th><th>Opp</th><th>Result</th><th>Rating</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>FG</th><th>3P</th><th>FT</th><th>STL</th><th>BLK</th><th>TO</th>
   </tr></thead><tbody>${rows}</tbody></table></div>
   <div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:10px;">${games.length} games${filtered?` vs Tier ${_glTierFilter} (career)`:''} · click a row for the full box score · Rating is a 0–10 performance score per game</div>`;
