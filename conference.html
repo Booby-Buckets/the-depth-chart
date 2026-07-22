@@ -5,6 +5,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js"></script>
   <script src="conf-logos.js?v=1"></script>
+  <script src="tdc-awards.js"></script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Conference &mdash; The Depth Chart</title>
@@ -324,9 +325,11 @@ function syncThemeBtn(t){ var b=document.getElementById('themeBtn'); if(b) b.tex
 try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.setAttribute('data-theme',_s);}catch(e){}
 
 (function(){
-  var MINY=2007, MAXY=2026;
+  var MINY=2007, MAXY=2026, PROJ=2027;      // 2027 = the 2026-27 projection
   var P=new URLSearchParams(location.search);
-  var YEAR=parseInt(P.get('season'),10); if(!(YEAR>=MINY&&YEAR<=MAXY)) YEAR=MAXY;
+  var YEAR=parseInt(P.get('season'),10);
+  if(!((YEAR>=MINY&&YEAR<=MAXY)||YEAR===PROJ)) YEAR=MAXY;
+  var isProj=(YEAR===PROJ);
   var QCONF=P.get('conf')||'', QTEAM=P.get('team')||'';
 
   // awards.detail holds a short conference code (see scripts/scrape_awards.py)
@@ -373,9 +376,10 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
   function sel(id){ return document.getElementById(id); }
 
   // ---- season selector ----
-  var ys=[]; for(var y=MAXY;y>=MINY;y--) ys.push(y);
+  var ys=[PROJ]; for(var y=MAXY;y>=MINY;y--) ys.push(y);
   sel('yrsel').innerHTML=ys.map(function(y){
-    return '<option value="'+y+'"'+(y===YEAR?' selected':'')+'>'+label(y)+'</option>'; }).join('');
+    return '<option value="'+y+'"'+(y===YEAR?' selected':'')+'>'+
+      (y===PROJ?(label(y)+' \u00b7 Projected'):label(y))+'</option>'; }).join('');
   sel('yrsel').addEventListener('change',function(){
     var u=new URL(location.href); u.searchParams.set('season',this.value);
     if(CONF) u.searchParams.set('conf',CONF); u.searchParams.delete('team');
@@ -389,6 +393,8 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
       if(!r.ok) throw new Error(path+' '+r.status); return r.json(); });
   }
 
+  if(isProj){ loadProjected(); }
+  else
   // ---- 1. every team_seasons row for the year: standings + the team->conference map ----
   get('team_seasons?select=team,conference,wins,losses,conf_wins,conf_losses,srs,ncaa_seed,ncaa_result&season_year=eq.'+YEAR+'&limit=1000')
   .then(function(all){
@@ -469,6 +475,120 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
           (i.logo?'<img src="'+i.logo+'" alt="" loading="lazy">':'')+esc(i.short||c)+'</a>';
       }).join('')+'</div>';
     document.querySelector('.cwrap').appendChild(box);
+  }
+
+  // ── 2026-27 PROJECTION ───────────────────────────────────────────────────
+  // Standings come from predictive_ratings, which carries a projected rating and
+  // national rank for all 365 teams, so every conference has a table.
+  // The all-league teams come from TDC_AWARDS, and those only exist where we hold
+  // a projected ROSTER -- the players table covers the 79 power-conference schools
+  // and nothing else. Mid-major pages say so rather than showing an empty box.
+  function loadProjected(){
+    Promise.all([
+      get('predictive_ratings?season=eq.'+PROJ+'&select=data&limit=1'),
+      (window.TDC_AWARDS? TDC_AWARDS.get().catch(function(){return null;}) : Promise.resolve(null))
+    ]).then(function(res){
+      var pr=res[0]&&res[0][0]&&res[0][0].data;
+      var teams=(pr&&pr.teams)||[];
+      if(!teams.length) throw new Error('no projection on file');
+      // predictive_ratings uses short codes for the power leagues and full names
+      // elsewhere -- exactly the two forms resolveConf already understands.
+      teams.forEach(function(t){ if(t.full&&t.conf) TEAMCONF[t.full]=CONF_FULL(t.conf); });
+      CONF=resolveConf(teams.map(function(t){ return {team:t.full, conference:CONF_FULL(t.conf)}; }));
+      if(!CONF){ notFound(teams.map(function(t){ return {conference:CONF_FULL(t.conf)}; })); return; }
+      ROWS=teams.filter(function(t){ return CONF_FULL(t.conf)===CONF; })
+                .sort(function(a,b){ return (a.rank||999)-(b.rank||999); });
+      renderProjHead(); renderProjStandings();
+      renderProjAwards(res[1]);
+      loadCoaches();
+      sel('cmptitle').parentNode.parentNode.style.display='none';   // no games played yet
+    }).catch(function(e){
+      sel('cname').textContent='No projection available';
+      sel('csub').textContent=String(e.message||e);
+    });
+  }
+  // predictive_ratings stores 'ACC'/'B10'/'SEC'/'BIG-12'/'Big-East' but full names
+  // for everyone else; normalise to the full name the rest of the page uses.
+  var CODE_FULL={ACC:'Atlantic Coast Conference','B10':'Big Ten Conference',
+    'BIG-12':'Big 12 Conference','Big-East':'Big East Conference','SEC':'Southeastern Conference'};
+  function CONF_FULL(c){ return CODE_FULL[c]||c||''; }
+
+  function renderProjHead(){
+    var info=cInfo(CONF)||{};
+    document.title=(info.short||CONF)+' '+label(PROJ)+' projection \u2014 The Depth Chart';
+    sel('bcConf').textContent=(info.short||CONF)+' '+label(PROJ);
+    sel('cname').textContent=CONF;
+    if(info.logo){ var m=sel('cmark'); m.src=info.logo; m.alt=CONF; m.style.display='';
+      m.onerror=function(){ this.style.display='none'; }; }
+    var best=ROWS[0]||{};
+    sel('csub').innerHTML='<b>'+ROWS.length+'</b> teams &middot; projected from returning rosters, '+
+      'transfers and incoming freshmen &middot; favourite <b>'+esc(best.full||'\u2014')+'</b>';
+    sel('awyr').textContent=label(PROJ)+' projected';
+    var top25=ROWS.filter(function(t){ return (t.rank||999)<=25; }).length;
+    var avg=ROWS.reduce(function(a,t){ return a+(+t.rating||0); },0)/Math.max(1,ROWS.length);
+    sel('tiles').innerHTML=[
+      ['Teams',ROWS.length,''],
+      ['Top 25',top25,'nationally projected'],
+      ['Avg rating',(Math.round(avg*10)/10),'league strength'],
+      ['Favourite',esc((best.full||'\u2014').split(' ')[0]),'#'+(best.rank||'\u2014')+" nat'l"]
+    ].map(function(x){
+      return '<div class="tile"><div class="v">'+x[1]+'</div><div class="k">'+x[0]+'</div>'+
+             (x[2]?'<div class="s">'+x[2]+'</div>':'')+'</div>'; }).join('');
+  }
+
+  function renderProjStandings(){
+    // `rating` is the projection; `prior` is LAST season's SRS that feeds the model.
+    // Showing prior here labelled "projected" put Purdue's 31.4 above UCLA's 25.9
+    // while ranking Purdue 30th and UCLA 13th.
+    var body=ROWS.map(function(t,i){
+      var r=+t.rating||0, ap=+t.allPlay;
+      var col=r>20?'#1f9d6b':r>12?'#3f74c9':'var(--text2)';
+      return '<tr><td class="l rk">'+(i+1)+'</td>'+
+        '<td class="l"><span class="tm">'+tLogo(t.full,'tlogo')+
+          '<a class="tnm" href="'+teamHref(t.full)+'">'+esc(t.full)+'</a></span></td>'+
+        '<td style="font-weight:700;color:'+col+'">'+f1(r)+'</td>'+
+        '<td style="color:var(--text2)">'+(isFinite(ap)?f1(ap)+'%':'\u2014')+'</td>'+
+        '<td class="seedc">#'+(t.rank||'\u2014')+'</td></tr>';
+    }).join('');
+    sel('stand').innerHTML='<thead><tr><th class="l"></th><th class="l">Team</th>'+
+      '<th>Proj rating</th><th>All-play</th><th class="seedc">Nat&rsquo;l</th></tr></thead><tbody>'+body+'</tbody>';
+    document.querySelector('#stand').closest('.box').querySelector('.sub').innerHTML=
+      'projected rating &middot; all-play win% &middot; national rank';
+    // team honours make no sense before a ball is thrown up
+    var hon=sel('honours'); if(hon) hon.closest('.box').style.display='none';
+  }
+
+  function renderProjAwards(aw){
+    var host=sel('awards'), acHost=sel('allconf');
+    var code=AWCODE[CONF];
+    var c=aw&&aw.conferences&&code?aw.conferences[code]:null;
+    if(!c){
+      sel('awbox').style.display='none';
+      acHost.innerHTML='<div class="empty">No projected all-league teams for this conference.<br>'+
+        '<span style="color:var(--text3)">Projections need a 2026-27 roster on file, and those currently '+
+        'cover the ACC, Big Ten, Big 12, Big East and SEC only.</span></div>';
+      return;
+    }
+    sel('awbox').style.display='none';       // no individual winners projected yet
+    var GROUPS=[
+      ['All-Conference', c.allConf||[], ['#C9962F','var(--text2)','#A97142']],
+      ['All-Defensive',  c.defense||[], ['#3f74c9','var(--text2)']],
+      ['All-Rookie',     c.rookies||[], ['#1f9d6b','var(--text2)']]
+    ];
+    var ORD=['1st','2nd','3rd'];
+    acHost.innerHTML=GROUPS.map(function(gp){
+      if(!gp[1].length) return '';
+      return gp[1].map(function(team,i){
+        if(!team||!team.length) return '';
+        return '<div class="actm"><div class="acth" style="color:'+(gp[2][i]||'var(--text2)')+'">'+
+          gp[0]+' &middot; '+ORD[i]+' Team</div><div class="acps">'+
+          team.map(function(p){
+            return '<span class="acp">'+tLogo(p.team,'')+'<b>'+esc(p.name)+'</b>'+
+              '<span>'+esc(p.team)+(p.grade?' \u00b7 '+p.grade:'')+'</span></span>';
+          }).join('')+'</div></div>';
+      }).join('');
+    }).join('');
+    acHost.closest('.box').querySelector('.sub').innerHTML='projected from 2026-27 rosters';
   }
 
   function renderHead(){
@@ -638,15 +758,25 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
   // ---- 4. coach rankings: year (lift) + career (grade) ----
   var CO=[], CAREER={};
   function loadCoaches(){
+    // the projected season has no coach-season file of its own -- carry last season's
+    // staff forward and show CAREER grades, since there is no year to measure lift on
+    var src=isProj?MAXY:YEAR;
     Promise.all([
-      fetch('data/coach-'+YEAR+'.json').then(function(r){ return r.ok?r.json():[]; }),
+      fetch('data/coach-'+src+'.json').then(function(r){ return r.ok?r.json():[]; }),
       fetch('data/coach-careers.json').then(function(r){ return r.ok?r.json():{}; })
     ]).then(function(res){
       CAREER=res[1]||{};
       CO=(res[0]||[]).filter(function(c){ return c.cf===CONF; });
       if(!CO.length){ sel('coaches').innerHTML='<div class="empty">No coach data for this league in '+label(YEAR)+'.</div>';
         sel('cohint').style.display='none'; return; }
-      coachRows('year');
+      if(isProj){
+        var seg=document.getElementById('coseg'); if(seg) seg.style.display='none';   // no season lift to show
+        var hint=sel('cohint');
+        if(hint) hint.innerHTML='Career coach grade. '+label(MAXY)+' staff carried forward &mdash; '+
+          'a season that has not been played has no lift to measure.';
+        coachRows('career');
+        if(hint) hint.style.display='';
+      } else coachRows('year');
     }).catch(function(){
       sel('coaches').innerHTML='<div class="empty">Coach rankings unavailable.</div>';
       sel('cohint').style.display='none';
