@@ -1222,7 +1222,28 @@ async function _rosterFor(fullName, yr){
       fga:parseFloat(pg.fga_per_g), tpa:parseFloat(pg.fg3a_per_g), fta:parseFloat(pg.fta_per_g) }; })
       .sort((a,b)=>(b.mpg||0)-(a.mpg||0));
   }
+  rows=await _dropTransferGhosts(rows, yr);
   return {key, rows:rows||[]};
+}
+// player_history carries a second row for every transfer, stamped with the team they
+// later moved TO but holding their OLD team's stats (1,365 of 5,310 players in
+// 2024-25). Filtering by team therefore returns players who never suited up -- Iowa
+// 2024-25 came back with Bennett Stirtz, Alvaro Folgueiras and Brendan Hausen.
+// bbref_seasons is authoritative for which school a player actually played for, so
+// take the roster's majority school and drop anyone who disagrees. Same approach as
+// team.html's _reconcileRosterWithBbref.
+async function _dropTransferGhosts(rows, yr){
+  rows=rows||[];
+  const ids=[...new Set(rows.map(r=>r.espn_id).filter(x=>x!=null))];
+  if(ids.length<2) return rows;
+  let bb=[];
+  try{ bb=await fetch(`${SB}/rest/v1/bbref_seasons?season_year=eq.${yr}&espn_id=in.(${ids.join(',')})&select=espn_id,school`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){ return rows; }
+  const schoolById={}, count={};
+  (bb||[]).forEach(b=>{ if(b.espn_id!=null&&b.school){ const s=(''+b.school).toLowerCase().trim();
+    schoolById[b.espn_id]=s; count[s]=(count[s]||0)+1; } });
+  let canon=null,max=0; Object.keys(count).forEach(s=>{ if(count[s]>max){max=count[s];canon=s;} });
+  if(!canon||max<2) return rows;                      // no clear consensus: leave it alone
+  return rows.filter(r=>{ const s=r.espn_id!=null?schoolById[r.espn_id]:null; return !s||s===canon; });
 }
 // best player seasons in program history (deduped to each player's best year)
 async function _legendsFor(key){
