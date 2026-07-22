@@ -192,13 +192,61 @@
     return m[k]!=null?m[k]:5.5;
   }
   /* starting 5 + sixth man for the viewed season */
-  function dropRoster(short, season){
+  // Past-season rosters come from box_scores, not player_history.
+  // player_history cannot be filtered by team for a past season: ~26% of players in
+  // 2024-25 carry a SECOND row stamped with the team they later transferred TO, so
+  // `team=eq.Iowa&season_year=eq.2025` returned Bennett Stirtz (Drake), Alvaro
+  // Folgueiras (Robert Morris) and Brendan Hausen (Kansas State) as Iowa starters.
+  // box_scores is per-game truth, so it can only contain players who actually suited
+  // up; player_history is then joined on espn_id purely for grade/position/height.
+  function seasonRoster(full, season){
+    return fetch(SB+'box_scores?team=eq.'+encodeURIComponent(full)+'&season_year=eq.'+season
+        +'&select=player,espn_id,min&limit=1500',{headers:HD})
+      .then(function(r){return r.ok?r.json():[];})
+      .then(function(bs){
+        if(!bs||!bs.length) return [];
+        var agg={};
+        bs.forEach(function(r){
+          var k=r.espn_id||('n:'+r.player);
+          var a=agg[k]||(agg[k]={name:r.player, espn_id:r.espn_id, min:0, gp:0});
+          a.min+=(+r.min||0); a.gp++;
+        });
+        var list=Object.keys(agg).map(function(k){return agg[k];});
+        list.forEach(function(p){ p.mpg=p.gp?Math.round(p.min/p.gp*10)/10:0; });
+        // Rank by MINUTES PER GAME, not total: an injured starter should not be
+        // demoted for missing games (Owen Freeman played 26.4 mpg in only 19 of
+        // Iowa's 33 games). Require a quarter of the team's games so a 2-game
+        // cameo can't top the list.
+        var maxGp=list.reduce(function(m,p){ return Math.max(m,p.gp); },0);
+        var elig=list.filter(function(p){ return p.gp>=Math.max(3,maxGp*0.25); });
+        var top=(elig.length>=6?elig:list).sort(function(a,b){ return b.mpg-a.mpg; }).slice(0,8);
+        var ids=top.map(function(p){return p.espn_id;}).filter(function(x){return x;});
+        if(!ids.length) return top;
+        return fetch(SB+'player_history?season_year=eq.'+season+'&espn_id=in.('+ids.join(',')
+            +')&select=espn_id,position,tdc_grade,height',{headers:HD})
+          .then(function(r){return r.ok?r.json():[];})
+          .then(function(ph){
+            var by={}; (ph||[]).forEach(function(r){ if(!by[r.espn_id]) by[r.espn_id]=r; });
+            top.forEach(function(p){ var m=by[p.espn_id];
+              if(m){ p.position=m.position; p.tdc_grade=m.tdc_grade; p.height=m.height; } });
+            return top;
+          }).catch(function(){ return top; });
+      });
+  }
+  function dropRoster(short, season, full){
     var box=document.createElement('div'); box.className='td-roster';
     box.innerHTML='<div class="td-title">Starting 5 <span class="td-hint">· sixth man</span></div><div class="td-players"><div class="td-loading">Loading roster…</div></div>';
-    var url = season>=2027
-      ? 'players?team=eq.'+encodeURIComponent(short)+'&select=*&order=depth_order.asc&limit=6'   // full row so TDCProjGrade can compute the projected OVR
-      : 'player_history?team=eq.'+encodeURIComponent(short)+'&season_year=eq.'+season+'&select=name,position,tdc_grade,mpg,height&order=mpg.desc.nullslast&limit=8';
-    fetch(SB+url,{headers:HD}).then(function(r){return r.ok?r.json():[];}).then(function(rows){
+    var P = season>=2027
+      ? fetch(SB+'players?team=eq.'+encodeURIComponent(short)+'&select=*&order=depth_order.asc&limit=6',{headers:HD})
+          .then(function(r){return r.ok?r.json():[];})   // full row so TDCProjGrade can compute the projected OVR
+      : seasonRoster(full||short, season).then(function(rows){
+          // older seasons predate box_scores; fall back rather than showing nothing
+          if(rows&&rows.length) return rows;
+          return fetch(SB+'player_history?team=eq.'+encodeURIComponent(short)+'&season_year=eq.'+season
+              +'&select=name,position,tdc_grade,mpg,height&order=mpg.desc.nullslast&limit=8',{headers:HD})
+            .then(function(r){return r.ok?r.json():[];});
+        });
+    P.then(function(rows){
       var el=box.querySelector('.td-players');
       if(!rows||!rows.length){ el.innerHTML='<div class="td-empty" style="width:auto;padding:6px 0">No roster on file.</div>'; return; }
       function ht(h){ if(!h) return 0; var m=(''+h).split('-'); return m.length===2?(+m[0]*12 + (+m[1]||0)):0; }
@@ -212,18 +260,20 @@
         sixth=rows.slice(5,6);
         sixthLbl=sixth[0]?(((sixth[0].position||'')+'').toUpperCase()||'—'):'';
       } else {
-        // generic G/F/C → build a balanced PG..C lineup by best height-fit so a real big
-        // is pulled in (avoids "5 guards"); minutes only breaks ties.
-        var pool=rows.slice(), ideal={C:84,PF:81,SF:79,SG:76,PG:73}, picks={};
-        ['C','PF','SF','SG','PG'].forEach(function(slot){
-          var best=-1, bs=1e9;
-          pool.forEach(function(p,idx){ if(p._u) return; var h=ht(p.height)||76; var sc=Math.abs(h-ideal[slot])-idx*0.12; if(sc<bs){ bs=sc; best=idx; } });
-          if(best>=0){ pool[best]._u=true; picks[slot]=pool[best]; }
-        });
-        starters=['PG','SG','SF','PF','C'].map(function(s){ return picks[s]; }).filter(Boolean);
-        labels=starters.map(function(p){ for(var s in picks){ if(picks[s]===p) return s; } return '—'; });
-        var rest=pool.filter(function(p){ return !p._u; });
-        sixth=rest.slice(0,1);
+        // generic G/F/C: the five who actually played the most ARE the starting five.
+        // Height only decides which slot each of them fills. Picking by height-fit
+        // across the whole roster used to relegate the minutes leader to sixth man
+        // (Iowa 2024-25 put Payton Sandfort, 1,053 minutes, on the bench).
+        var five=rows.slice(0,5);
+        var bySize=five.slice().sort(function(a,b){ return (ht(b.height)||76)-(ht(a.height)||76); });
+        var slotFor={}, order=['C','PF','SF','SG','PG'];
+        bySize.forEach(function(p,i){ slotFor[p.name]=order[i]||'—'; });
+        starters=['PG','SG','SF','PF','C'].map(function(sl){
+          for(var i=0;i<five.length;i++) if(slotFor[five[i].name]===sl) return five[i];
+          return null;
+        }).filter(Boolean);
+        labels=starters.map(function(p){ return slotFor[p.name]||'—'; });
+        sixth=rows.slice(5,6);
         sixthLbl=sixth[0]?htPos(sixth[0].height):'';
       }
       var ordered=starters.concat(sixth);
@@ -252,7 +302,7 @@
     chart.appendChild(dropChart(glog));
     var link=document.createElement('a'); link.className='td-link'; link.href=href; link.textContent='Open full page →';
     inner.appendChild(chart);
-    inner.appendChild(dropRoster(short, cs));
+    inner.appendChild(dropRoster(short, cs, name));
     inner.appendChild(link);
     d.appendChild(inner);
     return d;
