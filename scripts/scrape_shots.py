@@ -132,17 +132,29 @@ def parse_shots(data, game_id, season_year):
             "stype":shot_type(txt),"ast_id":ast_id,"ast_name":ast_name})
     return out
 
+# Transient 5xx (Supabase sits behind Cloudflare; 520/524 show up under load) used to
+# abort the whole upload immediately. Because main() only clears the buffer on success,
+# the buffer then grew without bound and every later game retried an ever-larger POST --
+# the run ground to a halt with no forward progress. Retry those, keep chunks small, and
+# only give up on a genuine client error like 401/403.
+RETRY_CODES={408,425,429,500,502,503,504,520,521,522,523,524}
+
 def upload(rows):
-    for i in range(0,len(rows),500):
-        chunk=rows[i:i+500]
-        req=urllib.request.Request(SB+"/rest/v1/shots?on_conflict=id",
-            data=json.dumps(chunk).encode(),method="POST",
-            headers={**HDR,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"})
+    for i in range(0,len(rows),300):
+        chunk=rows[i:i+300]
         ok=False
-        for a in range(5):
-            try: urllib.request.urlopen(req,timeout=90).read(); ok=True; break
-            except urllib.error.HTTPError as e: print("  upload http err",e.code,e.read()[:150]); return False
-            except Exception as e: print("  upload retry (%s)"%type(e).__name__); time.sleep(3*(a+1))
+        for a in range(7):
+            try:
+                req=urllib.request.Request(SB+"/rest/v1/shots?on_conflict=id",
+                    data=json.dumps(chunk).encode(),method="POST",
+                    headers={**HDR,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"})
+                urllib.request.urlopen(req,timeout=120).read(); ok=True; break
+            except urllib.error.HTTPError as e:
+                if e.code in RETRY_CODES:
+                    print("  upload %d, backoff %ds"%(e.code,8*(a+1)),flush=True); time.sleep(8*(a+1)); continue
+                print("  upload http err",e.code,e.read()[:150],flush=True); return False
+            except Exception as e:
+                print("  upload retry (%s)"%type(e).__name__,flush=True); time.sleep(6*(a+1))
         if not ok: return False
     return True
 
@@ -181,7 +193,7 @@ def main():
         data=fetch(SUMMARY % g["id"])
         if data: buf+=parse_shots(data,g["id"],g["season_year"])
         pending.append(g["id"]); time.sleep(DELAY)
-        if len(buf)>=1500 or i==len(todo)-1:
+        if len(buf)>=800 or i==len(todo)-1:
             # only mark games done + clear the buffer if the upload actually succeeds
             if not buf or upload(buf):
                 n_shots+=len(buf); buf=[]
