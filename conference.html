@@ -6,6 +6,7 @@
   <script src="team-colors.js"></script>
   <script src="conf-logos.js?v=1"></script>
   <script src="tdc-awards.js"></script>
+  <script src="tdc-glossary.js?v=1"></script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Conference &mdash; The Depth Chart</title>
@@ -269,7 +270,7 @@
 
   <div class="cols">
     <div class="box">
-      <div class="sl"><span>Standings</span><span class="sub">conference record &middot; SRS &middot; NCAA result</span></div>
+      <div class="sl"><span>Standings</span><span class="sub">conference record &middot; Power Rating &middot; NCAA result</span></div>
       <table class="ctab" id="stand"><tbody><tr><td class="cload">Loading&hellip;</td></tr></tbody></table>
     </div>
     <div>
@@ -295,7 +296,7 @@
       <span class="seg" id="coseg"><button class="on" data-m="year">This year</button><button data-m="career">Career</button></span></div>
     <div class="cohint" id="cohint"></div>
     <div id="coaches"><div class="cload">Loading&hellip;</div></div>
-    <div class="note"><b>From the coaching pipeline:</b> 6,817 coach-seasons (2007&ndash;2026, 975 coaches), graded on career record, SRS and player-development lift. <b>Career</b> uses the career-to-date coach grade; <b>This year</b> uses that season&rsquo;s actual SRS minus the SRS the roster&rsquo;s talent predicted.</div>
+    <div class="note"><b>From the coaching pipeline:</b> 6,817 coach-seasons (2007&ndash;2026, 975 coaches), graded on career record, Power Rating and player-development lift. <b>Career</b> uses the career-to-date coach grade; <b>This year</b> uses that season&rsquo;s actual Power Rating minus the Power Rating the roster&rsquo;s talent predicted.</div>
   </div>
 
   <div class="box full" id="acbox">
@@ -551,7 +552,7 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
         '<td class="seedc">#'+(t.rank||'\u2014')+'</td></tr>';
     }).join('');
     sel('stand').innerHTML='<thead><tr><th class="l"></th><th class="l">Team</th>'+
-      '<th>Proj rating</th><th>All-play</th><th class="seedc">Nat&rsquo;l</th></tr></thead><tbody>'+body+'</tbody>';
+      '<th'+(window.tipAttr?tipAttr('projrating'):'')+' style="cursor:help;text-decoration:underline dotted;text-underline-offset:2px;">Proj Power</th><th>All-play</th><th class="seedc">Nat&rsquo;l</th></tr></thead><tbody>'+body+'</tbody>';
     document.querySelector('#stand').closest('.box').querySelector('.sub').innerHTML=
       'projected rating &middot; all-play win% &middot; national rank';
     // team honours make no sense before a ball is thrown up
@@ -621,14 +622,14 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
         '<td class="l res">'+esc(r.ncaa_result||'\u2014')+'</td></tr>';
     }).join('');
     sel('stand').innerHTML='<thead><tr><th class="l"></th><th class="l">Team</th><th>Conf</th>'+
-      '<th>Overall</th><th>SRS</th><th class="seedc">Seed</th><th class="l res">NCAA</th></tr></thead><tbody>'+body+'</tbody>';
+      '<th>Overall</th><th'+(window.tipAttr?tipAttr('power'):'')+' style="cursor:help;text-decoration:underline dotted;text-underline-offset:2px;">Power Rtg</th><th class="seedc">Seed</th><th class="l res">NCAA</th></tr></thead><tbody>'+body+'</tbody>';
 
     // team honours
     var best=ROWS.slice().sort(function(a,b){ return (b.srs||-99)-(a.srs||-99); })[0];
     var deep=ROWS.slice().sort(function(a,b){ return depth(b.ncaa_result)-depth(a.ncaa_result); })[0];
     var out='';
     out+=hon('Regular-season champion',champ.team,champ.conf_wins+'-'+champ.conf_losses,'#C9962F','trophy');
-    out+=hon('Best rating',best.team,'SRS '+f1(best.srs),'#1f9d6b','star');
+    out+=hon('Best rating',best.team,'Power '+f1(best.srs),'#1f9d6b','star');
     if(deep&&depth(deep.ncaa_result)>=0) out+=hon('Deepest NCAA run',deep.team,deep.ncaa_result,'#3f74c9','shield');
     sel('honours').innerHTML=out;
   }
@@ -727,7 +728,7 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
         return '<div class="crow'+(me?' me':'')+'"><a class="cl" href="'+href+'" style="text-decoration:none">'+lg+
           '<span>'+esc(ci.short||c.conf.replace(' Conference',''))+'</span></a>'+
           '<span class="cbar"><span class="cfill" style="width:'+(c.pct/mx*100)+'%;background:'+col+'"></span></span>'+
-          '<span class="cnum"><b>'+c.pct+'%</b> '+c.w+'-'+c.l+' &middot; SRS '+c.avgSrs+'</span></div>';
+          '<span class="cnum"><b>'+c.pct+'%</b> '+c.w+'-'+c.l+' &middot; Power '+c.avgSrs+'</span></div>';
       }).join('');
       sel('cmpnote').innerHTML='<b>Computed, not estimated:</b> every non-conference game that season ('+
         n.toLocaleString()+' between two D-I teams), using each team&rsquo;s conference <b>for that year</b>, so realignment is handled correctly.';
@@ -747,8 +748,8 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
     var t=[['Teams',ROWS.length,''],
            ['NCAA bids',bids,'of '+ROWS.length+' teams']];
     if(mine) t.push(['Non-conf record',mine.w+'-'+mine.l,mine.pct+'% &middot; '+ord(myRank)+' of '+nConf]);
-    if(mine) t.push(['Avg SRS',mine.avgSrs,'league strength']);
-    t.push(['Best team',esc((best.team||'\u2014').split(' ')[0]),best.srs!=null?('SRS '+f1(best.srs)):'']);
+    if(mine) t.push(['Avg Power Rating',mine.avgSrs,'league strength']);
+    t.push(['Best team',esc((best.team||'\u2014').split(' ')[0]),best.srs!=null?('Power '+f1(best.srs)):'']);
     t.push(['Deepest run',esc(deepR||'\u2014'),'']);
     sel('tiles').innerHTML=t.map(function(x){
       return '<div class="tile"><div class="v">'+x[1]+'</div><div class="k">'+x[0]+'</div>'+
@@ -800,7 +801,7 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
             '<div class="conr">#'+k.r+' nat\u2019l</div></span></div>';
       }).join('');
     } else {
-      hint.innerHTML='Ranked by <b>SRS lift</b> \u2014 how far the team beat the rating its roster talent predicted. '+
+      hint.innerHTML='Ranked by <b>Rating lift</b> \u2014 how far the team beat the Power Rating its roster talent predicted. '+
         'Isolates the coaching from the roster.';
       var L2=CO.filter(function(c){ return c.lf!=null; })
                .sort(function(a,b){ return b.lf-a.lf; });
@@ -814,9 +815,9 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
           '<span class="coar">'+c.w+'-'+c.l+'</span>'+
           '<span class="coar">'+f1(c.tal)+'<div class="liftk">talent</div></span>'+
           '<span class="arrow">'+f1(c.exp)+' \u2192 <b style="color:var(--text)">'+f1(c.srs)+'</b>'+
-            '<div class="liftk">exp \u2192 actual SRS</div></span>'+
+            '<div class="liftk">exp \u2192 actual rating</div></span>'+
           '<span><div class="lift" style="color:'+col+'">'+(v>=0?'+':'')+v.toFixed(1)+'</div>'+
-            '<div class="liftk">'+(wl||'SRS lift')+'</div></span></div>';
+            '<div class="liftk">'+(wl||'rating lift')+'</div></span></div>';
       }).join('');
     }
     host.innerHTML=html;

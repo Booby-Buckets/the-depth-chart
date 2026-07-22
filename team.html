@@ -15,6 +15,7 @@
   <script src="tdc-ratings.js"></script>
   <script src="tdc-projgrade.js?v=4"></script>
   <script src="tdc-pool.js?v=1"></script>
+  <script src="tdc-glossary.js?v=1"></script>
   <style>
     .nil-card{border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:132px;background:var(--bg2);}
     .nil-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
@@ -636,6 +637,13 @@
     .tstat:hover{background:rgba(var(--tc-rgb),.06);}
     .tstat b{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text);line-height:1;font-variant-numeric:tabular-nums;}
     .tstat span{font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    /* a stat whose label carries a hover descriptor: dotted underline + help cursor */
+    .tstat.has-tip{cursor:help;}
+    .tstat.has-tip span{text-decoration:underline dotted var(--text3);text-underline-offset:2px;}
+    .hrb.has-tip{cursor:help;}
+    .hrb.has-tip .hrb-l{text-decoration:underline dotted currentColor;text-underline-offset:2px;}
+    .hero-grade.has-tip{cursor:help;}
+    .hero-grade.has-tip .hero-grade-label{text-decoration:underline dotted var(--text3);text-underline-offset:2px;}
     .tstat-rk{font-size:9px;font-weight:600;font-style:normal;color:var(--tc-readable,var(--text3));font-variant-numeric:tabular-nums;margin-top:1px;}
 
     /* OUTLOOK */
@@ -1560,16 +1568,16 @@ function renderHero(t, color, rgb){
 // Projected-season grade tiles (Coach / Depth / Recruit / NIL / Tier).
 function heroGradesProjectedHTML(t){
   return [
-    {val: t.coach_grade  || '—', lbl:'Coach'},
-    {val: t.depth_grade   || '—', lbl:'Depth'},
-    {val: t.recruit_grade || '—', lbl:'Recruit'},
-    {val: t.nil_grade   || '—', lbl:'NIL Eval'},
-    {val: t.nil_tier    || '—', lbl: (({'Tier 1':'$20M+','Tier 2':'$16-20M','Tier 3':'$11-16M','Tier 4':'$9-11M','Tier 5':'$6-9M','Tier 6':'$4-6M','Tier 7':'$2-4M','Tier 8':'$500K-2M','Tier 9':'$0-500K'})[t.nil_tier]||'NIL Tier')},
-  ].map(g=>`
-    <div class="hero-grade">
+    {val: t.coach_grade  || '—', lbl:'Coach', tip:'coach'},
+    {val: t.depth_grade   || '—', lbl:'Depth', tip:'depth'},
+    {val: t.recruit_grade || '—', lbl:'Recruit', tip:'recruit'},
+    {val: t.nil_grade   || '—', lbl:'NIL Eval', tip:'nilteam'},
+    {val: t.nil_tier    || '—', lbl: (({'Tier 1':'$20M+','Tier 2':'$16-20M','Tier 3':'$11-16M','Tier 4':'$9-11M','Tier 5':'$6-9M','Tier 6':'$4-6M','Tier 7':'$2-4M','Tier 8':'$500K-2M','Tier 9':'$0-500K'})[t.nil_tier]||'NIL Tier'), tip:'nilteam'},
+  ].map(g=>{ const tt=(g.tip&&window.statTip)?statTip(g.tip):''; return `
+    <div class="hero-grade${tt?' has-tip':''}"${tt?` title="${tt.replace(/"/g,'&quot;')}"`:''}>
       <div class="hero-grade-val ${gc(g.val)}">${g.val}</div>
       <div class="hero-grade-label">${g.lbl}</div>
-    </div>`).join('');
+    </div>`; }).join('');
 }
 
 // Renders the correct hero grade set for the viewed season into #heroGrades.
@@ -1598,9 +1606,10 @@ async function _ratingsRow(t){
   }catch(e){ return null; }
 }
 // ribbon cell: {v,l,col?,cls?,badge?,badgeCls?} — badge renders the gradient seed chip
-function _ribHTML(cells){ return cells.filter(c=>c&&c.v!=null&&c.v!==''&&c.v!=='—').map(c=>
-  `<div class="hrb ${c.cls||''}"><div class="hrb-v" ${c.col?`style="color:${c.col}"`:''}>${c.badge?`<span class="hrb-seedbadge ${c.badgeCls||''}">${c.badge}</span>`:''}${c.v}</div><div class="hrb-l">${c.l}</div></div>`
-).join(''); }
+function _ribHTML(cells){ return cells.filter(c=>c&&c.v!=null&&c.v!==''&&c.v!=='—').map(c=>{
+  var tip=c.tip?(window.statTip?statTip(c.tip):''):'';
+  return `<div class="hrb ${c.cls||''}${tip?' has-tip':''}"${tip?` title="${tip.replace(/"/g,'&quot;')}"`:''}><div class="hrb-v" ${c.col?`style="color:${c.col}"`:''}>${c.badge?`<span class="hrb-seedbadge ${c.badgeCls||''}">${c.badge}</span>`:''}${c.v}</div><div class="hrb-l">${c.l}</div></div>`;
+}).join(''); }
 
 let _heroBarGen=0;
 async function renderHeroBar(yr, teamObj){
@@ -1630,10 +1639,11 @@ async function renderHeroBar(yr, teamObj){
     let seedCell=null;
     if(rank && rank<=64){ const s=_seedFromRank(rank); seedCell={v:'No. '+s,l:'Projected seed',cls:'seed',badge:String(s)}; }
     else if(rank && rank<=76){ seedCell={v:'Bubble',l:'Projected seed',cls:'seed',badge:'B',badgeCls:'bubble'}; }
+    if(seedCell) seedCell.tip='projseed';
     rEl.innerHTML=_ribHTML([
-      {v:net.s,l:'Net rating',col:net.cls==='pos'?'var(--mint)':(net.cls==='neg'?'var(--red)':'')},
+      {v:net.s,l:'Power Rating',tip:'projrating',col:net.cls==='pos'?'var(--mint)':(net.cls==='neg'?'var(--red)':'')},
       seedCell,
-      rank?{v:'#'+rank,l:'Proj rank'}:null,
+      rank?{v:'#'+rank,l:'Proj rank',tip:'projrank'}:null,
       {v:t.conf||t.conference,l:'Conference'},
       last?{v:`${last.wins}–${last.losses}`,l:`${last.season_year-1}–${(''+last.season_year).slice(2)}`}:null,
       last&&last.ncaa_result?{v:last.ncaa_result,l:'Last result',col:'var(--amber)'}:null,
@@ -1665,9 +1675,9 @@ async function renderHeroBar(yr, teamObj){
   // wide ribbon: NET · NCAA seed · final rank · record · conf · result
   const confRec=(row.conf_wins!=null&&row.conf_losses!=null)?`${row.conf_wins}–${row.conf_losses}`:'';
   rEl.innerHTML=_ribHTML([
-    {v:net.s,l:'Net rating',col:net.cls==='pos'?'var(--mint)':(net.cls==='neg'?'var(--red)':'')},
-    row.ncaa_seed?{v:'No. '+row.ncaa_seed,l:'NCAA seed',cls:'seed',badge:String(row.ncaa_seed)}:null,
-    rank?{v:'#'+rank,l:'Final rank'}:null,
+    {v:net.s,l:'Power Rating',tip:'power',col:net.cls==='pos'?'var(--mint)':(net.cls==='neg'?'var(--red)':'')},
+    row.ncaa_seed?{v:'No. '+row.ncaa_seed,l:'NCAA seed',cls:'seed',badge:String(row.ncaa_seed),tip:'ncaaseed'}:null,
+    rank?{v:'#'+rank,l:'Final rank',tip:'natrank'}:null,
     {v:`${row.wins}–${row.losses}`,l:'Record'},
     confRec?{v:confRec,l:(teamT.conf||teamT.conference||'Conf')}:null,
     row.ncaa_result?{v:row.ncaa_result,l:'Result',col:'var(--amber)'}:null,
@@ -1676,8 +1686,8 @@ async function renderHeroBar(yr, teamObj){
   if(gEl){
     const pNet=pctOf('srs'), pOff=pctOf('ppg'), pDef=pctOf('oppg',true);
     const pOverall=pNet;
-    const tile=(lbl,p)=>{ if(p==null) return ''; const g=_pctLetter(p); return `<div class="hero-grade"><div class="hero-grade-val ${gc(g)}">${g}</div><div class="hero-grade-label">${lbl}</div></div>`; };
-    const html=[tile('Overall',pOverall),tile('NET',pNet),tile('Offense',pOff),tile('Defense',pDef)].join('');
+    const tile=(lbl,p,tip)=>{ if(p==null) return ''; const g=_pctLetter(p); const tt=(tip&&window.statTip)?statTip(tip):''; return `<div class="hero-grade${tt?' has-tip':''}"${tt?` title="${tt.replace(/"/g,'&quot;')}"`:''}><div class="hero-grade-val ${gc(g)}">${g}</div><div class="hero-grade-label">${lbl}</div></div>`; };
+    const html=[tile('Overall',pOverall,'gradeoverall'),tile('Power',pNet,'gradepower'),tile('Offense',pOff,'gradeoff'),tile('Defense',pDef,'gradedef')].join('');
     if(html){ gEl.classList.remove('hist-hidden'); gEl.innerHTML=html; }
     else gEl.classList.add('hist-hidden');
   }
@@ -4788,6 +4798,8 @@ function _dnaCSS(){ if(document.getElementById('dna-css')) return;
   .dna-effc{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
   .dna-effv{font-family:'Playfair Display',serif;font-weight:800;font-size:30px;line-height:1;}
   .dna-effl{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-top:5px;}
+  .dna-effc.has-tip{cursor:help;}
+  .dna-effc.has-tip .dna-effl{text-decoration:underline dotted var(--text3);text-underline-offset:2px;}
   .dna-effr{font-size:11px;font-weight:700;color:var(--tc-readable,var(--accent));margin-top:3px;}
   .dna-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:26px;}
   .dna-chip{font-size:11px;font-weight:700;letter-spacing:.02em;padding:5px 12px;border-radius:20px;background:rgba(var(--tc-rgb,168,132,60),.13);color:var(--tc-readable,var(--text));border:1px solid rgba(var(--tc-rgb,168,132,60),.28);}
@@ -5008,8 +5020,8 @@ async function renderTeamDNA(){
   const ADJ = t.adjNet!=null;
   const oK=ADJ?'adjO':'ORtg', dK=ADJ?'adjD':'DRtg', nK=ADJ?'adjNet':'net';
   // efficiency cards
-  const eff=[['ORtg',t[oK],rank(oK),1],['DRtg',t[dK],rank(dK,false),0],['NET',(t[nK]>0?'+':'')+t[nK],rank(nK),1],['Tempo',t.tempo,rank('tempo'),1]];
-  const effHtml=eff.map(([l,v,r,hi])=>`<div class="dna-effc"><div class="dna-effv">${v}</div><div class="dna-effl">${l}</div><div class="dna-effr">${ord(r)} of ${N}</div></div>`).join('');
+  const eff=[['ORtg',t[oK],rank(oK),1,'ortg'],['DRtg',t[dK],rank(dK,false),0,'drtg'],['Net eff.',(t[nK]>0?'+':'')+t[nK],rank(nK),1,'neteff'],['Tempo',t.tempo,rank('tempo'),1,'tempo']];
+  const effHtml=eff.map(([l,v,r,hi,tip])=>{ const tt=(tip&&window.statTip)?statTip(tip):''; return `<div class="dna-effc${tt?' has-tip':''}"${tt?` title="${tt.replace(/"/g,'&quot;')}"`:''}><div class="dna-effv">${v}</div><div class="dna-effl">${l}</div><div class="dna-effr">${ord(r)} of ${N}</div></div>`; }).join('');
   // identity chips
   const chips=[];
   const tp=pct('tempo'); chips.push(`<span class="dna-chip">${tp>=80?'Up-tempo':tp>=62?'Fast pace':tp<=15?'Slow / grind':tp<=40?'Methodical':'Balanced pace'}</span>`);
@@ -5037,7 +5049,7 @@ async function renderTeamDNA(){
   // luck + evolution
   const PROJ=!!t.projected;
   const slbl=s=> s==='2027'?'2026-27 · Projected':_dnaSeasonLbl(s);
-  const ev=t.evolution||{}; const evc=(l,s)=> s?`<div class="dna-evoc"><div class="dna-evol">${l}</div><div class="dna-evov">${(s.net>0?'+':'')+s.net}</div><div class="dna-evom">${s.w}-${s.l} · net rating</div></div>`:'';
+  const ev=t.evolution||{}; const evc=(l,s)=> s?`<div class="dna-evoc"><div class="dna-evol">${l}</div><div class="dna-evov">${(s.net>0?'+':'')+s.net}</div><div class="dna-evom">${s.w}-${s.l} · net efficiency</div></div>`:'';
   const wm=S.meta&&S.meta.win_model||{};
   const wp=t.win_path||{strengths:[],weaknesses:[],summary:''};
   const pj=(!PROJ && window._teamDNAproj && window._teamDNAproj[season])?window._teamDNAproj[season][key]:null;
@@ -5051,7 +5063,7 @@ async function renderTeamDNA(){
   const impacts=Object.keys(IMPLAB).filter(m=>t[m]!=null&&wm[m]!=null).map(m=>[IMPLAB[m],(t[m]-_mean[m])*(wm[m]/5)]).filter(x=>Math.abs(x[1])>=0.2).sort((a,b)=>b[1]-a[1]);
   const impMax=Math.max(2,...impacts.map(x=>Math.abs(x[1])));
   const impactHtml=impacts.length?`<div class="dna-sec">What wins &amp; loses them games — points per game vs an average team</div>
-    <div class="dna-imp">${impacts.map(([lbl,v])=>`<div class="dna-imp-row"><div class="dna-imp-lbl">${lbl}</div><div class="dna-imp-track"><div class="dna-imp-bar ${v>=0?'pos':'neg'}" style="${v>=0?'left:50%':'right:50%'};width:${(Math.abs(v)/impMax*48).toFixed(1)}%"></div></div><div class="dna-imp-val ${v>=0?'pos':'neg'}">${v>=0?'+':''}${v.toFixed(1)}</div></div>`).join('')}<div class="dna-imp-cap">Green wins them games, red costs them — these add up to roughly their net rating.</div></div>`:'';
+    <div class="dna-imp">${impacts.map(([lbl,v])=>`<div class="dna-imp-row"><div class="dna-imp-lbl">${lbl}</div><div class="dna-imp-track"><div class="dna-imp-bar ${v>=0?'pos':'neg'}" style="${v>=0?'left:50%':'right:50%'};width:${(Math.abs(v)/impMax*48).toFixed(1)}%"></div></div><div class="dna-imp-val ${v>=0?'pos':'neg'}">${v>=0?'+':''}${v.toFixed(1)}</div></div>`).join('')}<div class="dna-imp-cap">Green wins them games, red costs them — these add up to roughly their net efficiency.</div></div>`:'';
   // Tier by NATIONAL RANK, not a fixed net value — a fixed +4.3 lands ~107th (nowhere
   // near the bubble), so map the net to where it actually ranks among D1 this season.
   const _tierVals=teams.map(x=>x.adjNet!=null?x.adjNet:x.net).filter(v=>v!=null).sort((a,b)=>b-a);
@@ -5072,10 +5084,12 @@ async function renderTeamDNA(){
   const series = PROJ ? null : await _dnaGameSeries(key, season);
   let trendHtml='';
   if(series && series.length>=6){
-    const MT={net:{k:'net',lbl:'Net rating',better:'hi',fmt:v=>(v>=0?'+':'')+v.toFixed(1)},
-      off:{k:'ortg',lbl:'Offense',better:'hi',fmt:v=>v.toFixed(1)},
-      def:{k:'drtg',lbl:'Defense',better:'lo',fmt:v=>v.toFixed(1)},
-      shot:{k:'efg',lbl:'Effective FG%',better:'hi',fmt:v=>v.toFixed(1)+'%'}};
+    // "Net efficiency" (per-100 margin), deliberately NOT called "Power Rating" — that
+    // is the point-margin/SRS number on the hero. Different scale, different meaning.
+    const MT={net:{k:'net',lbl:'Net efficiency',tip:'neteff',better:'hi',fmt:v=>(v>=0?'+':'')+v.toFixed(1)},
+      off:{k:'ortg',lbl:'Offense',tip:'ortg',better:'hi',fmt:v=>v.toFixed(1)},
+      def:{k:'drtg',lbl:'Defense',tip:'drtg',better:'lo',fmt:v=>v.toFixed(1)},
+      shot:{k:'efg',lbl:'Effective FG%',tip:'efg',better:'hi',fmt:v=>v.toFixed(1)+'%'}};
     const mk=window._dnaTrendMetric&&MT[window._dnaTrendMetric]?window._dnaTrendMetric:'net';
     const M=MT[mk], vals=series.map(g=>g[M.k]);
     const win=Math.min(5,Math.max(3,Math.round(series.length/6)));  // rolling window
@@ -5105,7 +5119,7 @@ async function renderTeamDNA(){
     const dlt=late-early, improved=(M.better==='hi')?dlt>0:dlt<0;
     const noteVal=Math.abs(dlt);
     const note=`First ${n10} games <b>${M.fmt(early)}</b> → last ${n10} <b>${M.fmt(late)}</b> — <b class="${improved?'pos':'neg'}">${improved?'trended up':'trended down'}</b>`;
-    const btns=[['net','Net'],['off','Offense'],['def','Defense'],['shot','eFG%']].map(([k,l])=>`<button class="dna-trend-btn${mk===k?' on':''}" onclick="window._dnaTrendMetric='${k}';renderTeamDNA();">${l}</button>`).join('');
+    const btns=[['net','Net'],['off','Offense'],['def','Defense'],['shot','eFG%']].map(([k,l])=>`<button class="dna-trend-btn${mk===k?' on':''}"${window.tipAttr?tipAttr(MT[k].tip):''} onclick="window._dnaTrendMetric='${k}';renderTeamDNA();">${l}</button>`).join('');
     trendHtml=`<div class="dna-sec">Season trend — how ${M.lbl.toLowerCase()} moved game-by-game (${win}-game rolling average)</div>
       <div class="dna-trend">
         <div class="dna-trend-top"><div class="dna-trend-note">${note}</div><div class="dna-trend-toggle">${btns}</div></div>
@@ -5134,7 +5148,7 @@ async function renderTeamDNA(){
   const matchupHtml = oppKeys.length? `<div class="dna-sec">Matchup projector — project ${teamT.name} against any team${PROJ?' (2026-27 projected)':' ('+_dnaSeasonLbl(season)+')'}</div>
     <div class="dna-mu">
       <div class="dna-mu-pick"><label>Opponent:</label><select class="dna-mu-sel" onchange="_dnaMatchup(this.value)"><option value="">Select a team…</option>${oppOpts}</select></div>
-      <div class="dna-mu-sub" style="margin-top:8px;">Teams are ordered strongest → weakest by <b>schedule-adjusted</b> net rating. The number in parentheses is ${teamT.name}'s <b>projected margin per game</b> vs that team on a neutral floor (+ favors ${teamT.name}).</div>
+      <div class="dna-mu-sub" style="margin-top:8px;">Teams are ordered strongest → weakest by <b>schedule-adjusted</b> net efficiency. The number in parentheses is ${teamT.name}'s <b>projected margin per game</b> vs that team on a neutral floor (+ favors ${teamT.name}).</div>
       <div id="dnaMatchupOut"></div>
     </div>` : '';
   const bottomHtml = PROJ ? `
@@ -5179,7 +5193,7 @@ async function renderTeamDNA(){
       <select class="dna-sel" onchange="window._dnaSeason=this.value;renderTeamDNA();">${selOpts}</select>
     </div>
     <div class="dna-eff">${effHtml}</div>
-    ${ADJ?`<div class="dna-imp-cap" style="text-align:left;margin:-8px 0 4px;">Efficiency &amp; net rating are <b>opponent-adjusted</b> (points per 100 possessions vs an average D1 team, corrected for schedule strength) — so a mid-major that feasts on a weak league doesn't rank like a high-major.</div>`:''}
+    ${ADJ?`<div class="dna-imp-cap" style="text-align:left;margin:-8px 0 4px;">These efficiency numbers are <b>opponent-adjusted</b> (points per 100 possessions vs an average D1 team, corrected for schedule strength) — so a mid-major that feasts on a weak league doesn't rank like a high-major.</div>`:''}
     <div class="dna-chips">${chips.join('')}</div>
     ${impactHtml}
     <div class="dna-grid3">
@@ -5687,20 +5701,24 @@ async function renderSeasonStats(yr){
   const srsStr=srs!=null?((srs>0?'+':'')+srs):'—';
   const srsCol=srs!=null?(srs>=0?'#3fa66a':'#c75d5d'):'var(--text)';
   const confRec=(t.conf_wins!=null&&t.conf_losses!=null)?`${t.conf_wins}–${t.conf_losses} conf`:'';
-  const cell=(label,val,key,col)=>`<div class="tstat"><b style="color:${col||'var(--text)'}">${val}</b><span>${label}</span>${key&&rkTxt(key)?`<i class="tstat-rk">${rkTxt(key)}</i>`:''}</div>`;
+  // 4th arg = glossary id for the hover descriptor (what the number MEANS)
+  const cell=(label,val,key,col,tipId)=>{
+    const tip=(tipId&&window.statTip)?statTip(tipId):'';
+    return `<div class="tstat${tip?' has-tip':''}"${tip?` title="${tip.replace(/"/g,'&quot;')}"`:''}><b style="color:${col||'var(--text)'}">${val}</b><span>${label}</span>${key&&rkTxt(key)?`<i class="tstat-rk">${rkTxt(key)}</i>`:''}</div>`;
+  };
   body.innerHTML=`<div class="tstat-grid">
-    ${cell('Net Rating',srsStr,'srs',srsCol)}
-    ${cell('Record',`${t.wins}–${t.losses}`,null)}
-    ${cell('PPG',n1(t.ppg),'ppg')}
-    ${cell('Opp PPG',n1(t.oppg),'oppg')}
-    ${cell('FG%',n1(t.fg_pct),'fg_pct')}
-    ${cell('3P%',n1(t.tp_pct),'tp_pct')}
-    ${cell('FT%',n1(t.ft_pct),'ft_pct')}
-    ${cell('RPG',n1(t.rpg),'rpg')}
-    ${cell('APG',n1(t.apg),'apg')}
-    ${cell('TOV',n1(t.topg),'topg')}
-    ${cell('SPG',n1(t.spg),'spg')}
-    ${cell('BPG',n1(t.bpg),'bpg')}
+    ${cell('Power Rating',srsStr,'srs',srsCol,'power')}
+    ${cell('Record',`${t.wins}–${t.losses}`,null,null,'record')}
+    ${cell('PPG',n1(t.ppg),'ppg',null,'ppg')}
+    ${cell('Opp PPG',n1(t.oppg),'oppg',null,'oppg')}
+    ${cell('FG%',n1(t.fg_pct),'fg_pct',null,'fg_pct')}
+    ${cell('3P%',n1(t.tp_pct),'tp_pct',null,'tp_pct')}
+    ${cell('FT%',n1(t.ft_pct),'ft_pct',null,'ft_pct')}
+    ${cell('RPG',n1(t.rpg),'rpg',null,'rpg')}
+    ${cell('APG',n1(t.apg),'apg',null,'apg')}
+    ${cell('TOV',n1(t.topg),'topg',null,'topg')}
+    ${cell('SPG',n1(t.spg),'spg',null,'spg')}
+    ${cell('BPG',n1(t.bpg),'bpg',null,'bpg')}
   </div>${confRec?`<div class="empty-note" style="padding:8px 2px 0;text-align:center;">${t.wins}–${t.losses} overall · ${confRec}</div>`:''}`;
 }
 async function rosterFromBox(yr, mascot){

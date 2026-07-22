@@ -5,6 +5,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js"></script>
   <script src="tdc-ratings.js"></script>
+  <script src="tdc-glossary.js?v=1"></script>
   <script src="tdc-freshman.js?v=pub1"></script>
   <script src="tdc-projgrade.js?v=4"></script>
   <meta charset="UTF-8"/>
@@ -1170,7 +1171,7 @@
     <div class="page-header-eyebrow" id="heroEyebrow">College Basketball · Team Analytics</div>
     <h1 id="heroTitle">Team <em>Analytics</em></h1>
     <div class="page-header-meta">
-      <span id="heroConfSpan">Ranked by net rating (SRS) · all of Division I</span>
+      <span id="heroConfSpan">Ranked by Power Rating · all of Division I</span>
       <span class="meta-dot"></span>
       <span id="lastUpdated">Loading…</span>
       <span class="meta-dot"></span>
@@ -1223,7 +1224,7 @@
   <div class="filter-controls">
     <select class="filter-select" id="seasonSel" onchange="onSeason(this.value)"></select>
     <select class="filter-select" id="sortSel" onchange="setSort(this.value,false)">
-      <option value="srs">Sort: Net Rating</option>
+      <option value="srs">Sort: Power Rating</option>
       <option value="margin">Sort: Scoring Margin</option>
       <option value="winpct">Sort: Win %</option>
       <option value="wins">Sort: Wins</option>
@@ -1250,7 +1251,7 @@
   <div class="table-header">
     <div class="th">Rk</div>
     <div class="th">Team</div>
-    <div class="th sortable" data-sort="srs" title="Net rating (SRS) — points better than an average D1 team on a neutral court, adjusted for strength of schedule. Doubles as a point spread: a +25 team is a 10-point favorite over a +15 team." style="text-decoration:underline dotted;text-underline-offset:3px;">Net Rating<span class="th-arrow"></span></div>
+    <div class="th sortable" data-sort="srs" title="Power Rating — how many points better than an average Division I team this team is, on a neutral court and adjusted for who they played. A +18 team would beat an average team by about 18. The gap between two teams' Power Ratings is the projected point spread." style="text-decoration:underline dotted;text-underline-offset:3px;">Power Rating<span class="th-arrow"></span></div>
     <div class="th"></div>
     <div class="th center sortable" data-sort="wins">W-L<span class="th-arrow"></span></div>
     <div class="th center sortable" data-sort="winpct">Win%<span class="th-arrow"></span></div>
@@ -1434,7 +1435,7 @@ function renderConfPills(){
 }
 let curSeason = 2026, _teamColors = null;
 const TIER_LABEL={1:'Elite',2:'Strong',3:'Average',4:'Weak'};
-function tierBadge(tier){ return tier?`<span class="tier-badge tier-${tier}" title="Tier ${tier} — ${TIER_LABEL[tier]} (by SRS)">T${tier}</span>`:''; }
+function tierBadge(tier){ return tier?`<span class="tier-badge tier-${tier}" title="Tier ${tier} — ${TIER_LABEL[tier]} (by Power Rating)">T${tier}</span>`:''; }
 
 async function renderShowcase(){
   const sc=document.getElementById('showcase'); if(!sc||!allTeams.length) return;
@@ -1447,7 +1448,7 @@ async function renderShowcase(){
       <div class="sc-rk">#${t.rk}</div>
       <div class="sc-tname">${t.name}</div>
       <div class="sc-net">${t.srs!=null?(t.srs>0?'+':'')+t.srs:(t.margin>0?'+':'')+t.margin}</div>
-      <div class="sc-netlbl">${curSeason===2027?'Proj Rating':'Net Rating'}</div>
+      <div class="sc-netlbl">${curSeason===2027?'Proj Power Rating':'Power Rating'}</div>
       <div class="sc-meta">${t.gp?`${t.wins}–${t.losses}`:(t.allPlay!=null?`All-Play ${t.allPlay.toFixed(0)}%`:'Projected')}${tierBadge(t.tier)}</div>
     </a>`).join('');
   sc.style.display='flex';
@@ -1803,7 +1804,7 @@ function renderRows(data, srt, favTeam, favColor, favBg){
       </div>
       <div class="tr-grades-mobile">
         <span class="mg-val" style="color:${barC};">${pos?'+':''}${v}</span>
-        <span class="mg-lbl">${_useSrs?'NET':'MRG'}</span>
+        <span class="mg-lbl">${_useSrs?'PWR':'MRG'}</span>
       </div>
       <div class="tr-margin">
         <div class="mbar-track"><div class="mbar-fill" style="width:0;background:${barC};" data-w="${pct}"></div></div>
@@ -1920,7 +1921,7 @@ function updateHeroForConf(conf, teams){
     eyebrow.style.color = '';
     titleEl.classList.add('swapping');
     setTimeout(() => { titleEl.innerHTML = 'Team <em>Analytics</em>'; titleEl.classList.remove('swapping'); }, 230);
-    confSpan.textContent = 'Ranked by net rating (SRS) · all of Division I';
+    confSpan.textContent = 'Ranked by Power Rating · all of Division I';
     swapStat('heroStat1', teams.length, 'Teams', true);
     swapStat('heroStat2', '118,780',    'Games', false);
     swapStat('heroStat3', 20,           'Seasons', true);
