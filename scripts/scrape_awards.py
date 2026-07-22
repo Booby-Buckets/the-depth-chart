@@ -46,13 +46,16 @@ YEARS = range(2007, 2027)
 CONFS = [
     ("ACC","acc"), ("B10","big-ten"), ("BIG-12","big-12"), ("Big-East","big-east"), ("SEC","sec"),
     ("A-10","atlantic-10"), ("A-Sun","atlantic-sun"), ("Am. East","america-east"),
-    ("American","american"), ("Big Sky","big-sky"), ("Big South","big-south"),
+    ("American",["american","aac"]),       # AAC 2014-2025, "American Conference" from 2026
+    ("Big Sky","big-sky"), ("Big South","big-south"),
     ("Big West","big-west"),
     # renamed leagues live under two slugs on SR — try each in turn
     ("CAA",["colonial","coastal"]),        # Colonial through 2023, Coastal from 2024
     ("CUSA","cusa"), ("Horizon","horizon"),
     ("Ivy","ivy"), ("MAAC","maac"), ("MAC","mac"), ("MEAC","meac"), ("MVC","mvc"),
-    ("MWC","mwc"), ("NEC","nec"), ("OVC","ovc"),
+    ("MWC","mwc"),
+    ("NEC",["nec","northeast"]),           # SR files older NEC seasons under "northeast"
+    ("OVC","ovc"),
     ("Pac-12",["pac-12","pac-10"]),        # Pac-10 through 2011
     ("Patriot","patriot"), ("SoCon","southern"), ("Southland","southland"),
     ("SWAC","swac"), ("Summit","summit"), ("Sun Belt","sun-belt"),
