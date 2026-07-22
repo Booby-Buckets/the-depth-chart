@@ -19,7 +19,23 @@ import json, os, re, sys, time, urllib.request
 from collections import defaultdict
 
 SB="https://izlqhnxowdhtdofkwrho.supabase.co"
-KEY="sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
+
+def _key():
+    """RLS is locked down now, so the public anon key can read `shots` but not write
+    to it -- every upload came back 42501. Use the service key (env var first, else
+    the untracked local pipeline config), same as scrape_awards.py."""
+    k = os.environ.get("SUPABASE_SERVICE_KEY")
+    if k: return k
+    try:
+        import importlib.util, pathlib
+        pth = pathlib.Path(__file__).parent / "load_supabase.py"
+        spec = importlib.util.spec_from_file_location("_ls", pth)
+        m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+        return m.SB_KEY
+    except Exception:
+        raise SystemExit("Set SUPABASE_SERVICE_KEY (service key) to run this script.")
+
+KEY=_key()
 HDR={"apikey":KEY,"Authorization":"Bearer "+KEY}
 UA="Mozilla/5.0"
 SUMMARY="https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/summary?event=%s"
@@ -54,7 +70,9 @@ def sb_get(path):
 def games_for(seasons, team_id=None):
     out=[]
     for y in seasons:
-        q="games?select=id,season_year,home_id,away_id&home_score=not.is.null&season_year=eq.%d"%y
+        # order=id matters: Range paging without a stable sort lets PostgREST return
+        # a different row order per page, which silently skips and repeats games
+        q="games?select=id,season_year,home_id,away_id&home_score=not.is.null&order=id&season_year=eq.%d"%y
         if team_id: q+="&or=(home_id.eq.%d,away_id.eq.%d)"%(team_id,team_id)
         frm=0
         while True:
