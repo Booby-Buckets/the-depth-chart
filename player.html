@@ -5,7 +5,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js"></script>
-  <script src="tdc-shotchart.js?v=11"></script>
+  <script src="tdc-shotchart.js?v=12"></script>
   <script src="tdc-shotflow.js?v=8"></script>
   <script src="tdc-nil.js?v=cal1"></script>
   <script src="tdc-pos.js"></script>
@@ -3704,7 +3704,14 @@ async function loadShotChart(season){
   host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Loading shot chart…</div>';
   try{
     var rows=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.'+season+'&select=x,y,made,sv,dist&limit=1500',{headers:H}).then(r=>r.ok?r.json():[]);
-    TDC_SHOTCHART.render(host, Array.isArray(rows)?rows:[], {subtitle:(player&&player.name)||'this player'});
+    // how many attempts he ACTUALLY took that season, so the chart can flag partial
+    // coverage instead of presenting a third of the shots as the whole story
+    var exp=null;
+    try{ var sr=_ovrSeasonRow(season);
+      if(sr){ var fga=parseFloat(sr.fga), gp=parseFloat(sr.gp);
+        if(isFinite(fga)&&isFinite(gp)&&gp>0) exp=fga*gp; } }catch(e){}
+    TDC_SHOTCHART.render(host, Array.isArray(rows)?rows:[],
+      {subtitle:(player&&player.name)||'this player', expected:exp});
   }catch(e){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Could not load shot chart.</div>'; }
   loadShotFlow(season);
 }

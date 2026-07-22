@@ -295,11 +295,31 @@
       statBox('Mid',pct(z.mid)+'%',z.mid[1]+' att','mid',3)+statBox('Three',pct(z.three)+'%',z.three[1]+' att','three',4)+'</div>';
   }
 
+  // ESPN only ever published shot coordinates for a subset of games, so a season can
+  // easily hold a third of the real attempts. Say so rather than drawing a confident
+  // chart off partial data. opts.expected = the player's true FGA for that season.
+  function coverageNote(shots, opts){
+    var exp=parseFloat(opts&&opts.expected);
+    if(!isFinite(exp) || exp<=0) return '';
+    var pct=shots.length/exp;
+    if(pct>=0.9) return '';
+    return '<div class="sc-cov"><b>'+shots.length+' of about '+Math.round(exp)+' attempts'+
+      ' ('+Math.round(pct*100)+'%)</b> \u2014 ESPN published shot locations for only some '+
+      'games this season, so this chart is a partial picture.</div>';
+  }
+
   function render(el, shots, opts){
     opts=opts||{}; if(!el) return;
     shots=(shots||[]).filter(function(s){return s.x!=null&&s.y!=null;});
     el.setAttribute('data-sc-host','1'); el.classList.add('sc-host'); el._shots=shots; el._opts=opts;
-    if(!shots.length){ el.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3);font-size:13px;">No shot-location data'+(opts.subtitle?' for '+opts.subtitle:'')+' yet.</div>'; return; }
+    if(!shots.length){
+      var exp0=parseFloat(opts.expected);
+      el.innerHTML='<div style="padding:34px 24px;text-align:center;color:var(--text3);font-size:13px;line-height:1.6;">'+
+        '<b style="color:var(--text2)">No shot-location data for this season.</b><br>'+
+        (isFinite(exp0)&&exp0>0?('ESPN never published coordinates for these games'+
+          (opts.subtitle?' ('+opts.subtitle+' took about '+Math.round(exp0)+' shots)':'')+'.'):
+          'ESPN never published coordinates for these games.')+
+        '</div>'; return; }
     var mode=opts.mode||'spots';
     var toggle='<div class="sc-modes">'+
       '<button class="'+(mode==='spots'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'spots\')">Signature spots</button>'+
@@ -338,7 +358,7 @@
         '<span style="margin-left:auto;color:var(--text3);font-size:10px;">hover a shot · hover a zone card to isolate it</span></div>'+
         '<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+court('rgba(130,123,156,.55)')+dots+'</svg><div class="sc-tip"></div></div>';
     }
-    el.innerHTML=head+'<div class="sc-main"><div class="sc-court-col">'+body+'</div>'+zoneStrip(shots)+'</div>';
+    el.innerHTML=head+coverageNote(shots,opts)+'<div class="sc-main"><div class="sc-court-col">'+body+'</div>'+zoneStrip(shots)+'</div>';
     el.classList.remove('sc-settled');
     if(mode==='heat') drawHeat(el, shots);
     wire(el);
@@ -388,6 +408,9 @@
       '.sc-mk-legend{display:flex;align-items:center;gap:16px;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:8px;}'+
       '.sc-mk-legend span{display:inline-flex;align-items:center;gap:6px;}'+
       '.sc-made{width:11px;height:11px;border-radius:50%;background:#1f9d57;display:inline-block;}'+
+      '.sc-cov{font-size:11.5px;color:var(--text2);background:var(--bg2);border:1px solid var(--border2);'+
+        'border-left:2px solid #E0A030;border-radius:0 8px 8px 0;padding:8px 12px;margin-bottom:10px;}'+
+      '.sc-cov b{color:var(--text);}'+
       '.sc-hot{width:11px;height:11px;border-radius:50%;background:#F2622E;display:inline-block;}'+
       '.sc-cold{width:11px;height:11px;border-radius:50%;background:#3E7BD9;display:inline-block;}'+
       '.sc-spot-off{fill:var(--text3);opacity:.20;}'+
