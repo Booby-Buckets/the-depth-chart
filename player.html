@@ -2436,7 +2436,8 @@ function renderOvcExtras(val){
   // ---- season-scoped fills ----
   try{ loadOvcForm(val==='proj'?null:val); }catch(e){}
   try{ _ovcSyncComps(val,x); }catch(e){}
-  if(!window._ovcAuxLoaded){ window._ovcAuxLoaded=true; try{ _ovcLoadNil(); _ovcSetupCompsObserver(); }catch(e){} }
+  try{ _ovcSetupCompsObserver(); }catch(e){}   // cheap + idempotent: attaches as soon as the box exists
+  if(!window._ovcAuxLoaded){ window._ovcAuxLoaded=true; try{ _ovcLoadNil(); }catch(e){} }
 }
 function renderOvcFooter(){
   var f=document.getElementById('ovcFoot'); if(!f) return; var sc=window._ovcScout;
@@ -2451,13 +2452,17 @@ function renderOvcFooter(){
 // Score the comp pool against an ARBITRARY stat line, so the Overview's
 // "Plays like" can follow the season dropdown instead of being locked to the
 // projected line. Reuses the same helpers (and cached pool) as the Scouting tab.
-function _ovcCompsFor(line, teamName){
+function _ovcCompsFor(line, teamName, wide){
   if(!line || !(typeof _allHistory!=='undefined' && _allHistory && _allHistory.length)) return null;
   var grp=_norm3(player.position);
   var pool=(_allHistory||[]).filter(function(q){
-    return q.name && q.name!==player.name && (parseFloat(q.mpg)||0)>=10 && _norm3(q.position)===grp;
+    return q.name && q.name!==player.name && (parseFloat(q.mpg)||0)>=10
+        && (wide || _norm3(q.position)===grp);
   }).map(function(q){ return {p:q, ht:_htIn(q.height)}; });
-  if(!pool.length) return [];
+  // With ~50k seasons on file an empty result means the position filter was too
+  // narrow (or the position is blank), not that nobody compares — so widen once
+  // rather than telling the reader there are no comps.
+  if(!pool.length) return wide ? [] : _ovcCompsFor(line, teamName, true);
   var pf=_feat(line), ph=_htIn(player.height);
   var nAll=_normStats(pool.map(function(c){return _feat(c.p);}).concat([pf]));
   var archName=archetypeInfo(Object.assign({position:player.position}, line)).name;
@@ -2490,7 +2495,9 @@ function _ovcSyncComps(val,x){
   if(window._ovcCompCache[key]){ window._ovcComps=window._ovcCompCache[key]; fillOvcComps(); return; }
   if(!(typeof _allHistory!=='undefined' && _allHistory && _allHistory.length)) return;  // pool not fetched yet
   var line=isProj?playerProjLine():((x&&x.src)||player);
-  var c=_ovcCompsFor(line,(x&&x.src&&x.src.team)||player.team);
+  var tn=(x&&x.src&&x.src.team)||player.team;
+  var c=_ovcCompsFor(line,tn);
+  if(c && !c.length) c=_ovcCompsFor(line,tn,true);      // last resort: ignore position
   if(c && c.length){ window._ovcCompCache[key]=c; window._ovcComps=c; fillOvcComps(); }
 }
 function fillOvcComps(){
@@ -2517,9 +2524,14 @@ function loadOvcCompsNow(retry){
     if(!got && !retry && !(_allHistory&&_allHistory.length)){
       _archDone=false; _allHistory=null; return loadOvcCompsNow(true);
     }
-    if(!got && el) el.innerHTML='<div class="ovc-muted">No close historical comps. <button class="ovc-complink" style="margin-left:6px;padding:3px 9px" onclick="_archDone=false;_allHistory=null;window._ovcComps=undefined;loadOvcCompsNow()">Retry</button></div>';
+    if(!got && el){
+      var poolOk=(typeof _allHistory!=='undefined' && _allHistory && _allHistory.length);
+      el.innerHTML='<div class="ovc-muted">'+
+        (poolOk?'No close historical comps.':'Could not load the comparison pool.')+
+        ' <button class="ovc-complink" style="margin-left:6px;padding:3px 9px" onclick="_archDone=false;_allHistory=null;window._ovcComps=undefined;window._ovcCompCache={};loadOvcCompsNow()">Retry</button></div>';
+    }
   }).catch(function(){
-    if(el) el.innerHTML='<div class="ovc-muted">Comps unavailable. <button class="ovc-complink" style="margin-left:6px;padding:3px 9px" onclick="_archDone=false;_allHistory=null;window._ovcComps=undefined;loadOvcCompsNow()">Retry</button></div>';
+    if(el) el.innerHTML='<div class="ovc-muted">Comps unavailable. <button class="ovc-complink" style="margin-left:6px;padding:3px 9px" onclick="_archDone=false;_allHistory=null;window._ovcComps=undefined;window._ovcCompCache={};loadOvcCompsNow()">Retry</button></div>';
   });
 }
 // Team fit box: logo + conf + role + minute share + usage (+ national rank if fetched)
@@ -2560,10 +2572,33 @@ async function _ovcLoadTeamRank(){
     if(rk){ window._ovcTeamRank=rk; var sel=document.getElementById('ovrSeasonSel'); renderOvcTeamFit(_skillSrcFor(sel?sel.value:null)); }
   }catch(e){}
 }
+// Arm the comps load. Idempotent, and deliberately triggered three ways.
+// It used to be IntersectionObserver-only, set up once behind the _ovcAuxLoaded
+// flag -- and the flag was set BEFORE the call, so the first renderOvcExtras (which
+// can run before the overview markup exists) burned it on a null element and nothing
+// was ever observed. Even once that's fixed, IO can silently never fire in embedded
+// and webview contexts, so scroll and an idle timer back it up: this box is the whole
+// point of the card and it should not depend on one API behaving.
 function _ovcSetupCompsObserver(){
-  var box=document.getElementById('ovcComps'); if(!box||!('IntersectionObserver' in window)) return;
-  var obs=new IntersectionObserver(function(entries){ entries.forEach(function(e){ if(e.isIntersecting){ obs.disconnect(); try{ loadOvcCompsNow(); }catch(x){} } }); },{rootMargin:'150px'});
-  obs.observe(box);
+  var box=document.getElementById('ovcComps');
+  if(!box) return false;
+  if(window._ovcCompsArmed) return true;
+  window._ovcCompsArmed=true;
+  var fired=false;
+  function go(){
+    if(fired) return; fired=true;
+    window.removeEventListener('scroll', go);
+    try{ loadOvcCompsNow(); }catch(x){}
+  }
+  if('IntersectionObserver' in window){
+    var obs=new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if(e.isIntersecting){ obs.disconnect(); go(); } });
+    },{rootMargin:'200px'});
+    obs.observe(box);
+  }
+  window.addEventListener('scroll', go, {passive:true});
+  setTimeout(go, 3000);
+  return true;
 }
 // last-5 game logs -> recent form box
 function loadOvcForm(seasonYr){
@@ -4304,30 +4339,63 @@ function animateArchFit(){
   setTimeout(function(){ if(!done) drawArchFit(1); }, dur+260);
 }
 
+// Comp pool: every player-season with real minutes, ~50k rows.
+// Three things went wrong with the old loader and each one produced a silent
+// "no close historical comps" on a page that has plenty of data:
+//   1. it paged with Range headers and NO order by -- PostgREST is free to return
+//      rows in a different order per request, so pages overlapped and dropped rows
+//   2. a page that failed became [] instead of retrying, leaving a short pool with
+//      no signal that anything was missing
+//   3. if the HEAD count failed, _total was 0 -> zero pages -> _allHistory=[] , and
+//      because [] is truthy it was cached and never refetched
+async function _fetchHistoryPool(){
+  var PG=1000;
+  var cols='id,name,season_year,team,position,height,ppg,rpg,apg,stl,blk,tpm,tpa,tovs,'
+          +'mpg,fg_pct,tp_pct,ft_pct,fga,fta';
+  var base=SB+'/rest/v1/player_history?select='+cols+'&mpg=gte.10&order=id';
+  var total=0;
+  try{
+    var hd=await fetch(SB+'/rest/v1/player_history?select=id&mpg=gte.10',
+      {method:'HEAD',headers:{...H,'Prefer':'count=exact'}});
+    total=parseInt((hd.headers.get('content-range')||'/0').split('/')[1]||0,10)||0;
+  }catch(e){}                                   // no count is fine, we page until short
+  async function page(pg){
+    for(var a=0;a<3;a++){
+      try{
+        var r=await fetch(base+'&limit='+PG+'&offset='+(pg*PG),{headers:H});
+        if(r.ok) return await r.json();
+      }catch(e){}
+      await new Promise(function(z){ setTimeout(z, 400*(a+1)); });
+    }
+    throw new Error('history page '+pg+' failed');
+  }
+  var rows=[];
+  if(total){
+    var pages=Math.ceil(total/PG);
+    for(var j=0;j<pages;j+=6){                  // 6 at a time: browser connection cap
+      var batch=[];
+      for(var k=j;k<Math.min(j+6,pages);k++) batch.push(page(k));
+      (await Promise.all(batch)).forEach(function(b){ rows=rows.concat(b); });
+    }
+  } else {
+    for(var pg=0; pg<120; pg++){
+      var b=await page(pg); rows=rows.concat(b);
+      if(b.length<PG) break;
+    }
+  }
+  if(!rows.length) throw new Error('empty comp pool');
+  if(total && rows.length < total*0.9) throw new Error('short comp pool '+rows.length+'/'+total);
+  return rows;
+}
+
 async function renderArchetype(){
   var el=document.getElementById('archetypeContent'); if(!el||!player) return;
   if(_archDone) return; _archDone=true;
   el.innerHTML='<div style="padding:50px;text-align:center;color:var(--text3);">Analyzing archetype & finding comps…</div>';
-  if(!_allHistory){
-    try{
-      // Get total row count first, then fetch all pages concurrently in batches
-      var _PG=1000;
-      var _hd=await fetch(SB+'/rest/v1/player_history?select=name&mpg=gte.10',
-        {method:'HEAD',headers:{...H,'Prefer':'count=exact'}});
-      var _total=parseInt((_hd.headers.get('content-range')||'/0').split('/')[1]||0);
-      var _pages=Math.ceil(_total/_PG);
-      var _url=SB+'/rest/v1/player_history?select=name,season_year,team,position,height,ppg,rpg,apg,stl,blk,tpm,tpa,tovs,mpg,fg_pct,tp_pct,ft_pct,fga,fta&mpg=gte.10';
-      var _fetches=Array.from({length:_pages},function(_,pg){
-        return fetch(_url,{headers:{...H,'Range-Unit':'items','Range':pg*_PG+'-'+(pg*_PG+_PG-1)}}).then(function(r){return r.ok?r.json():[]; });
-      });
-      // Process concurrently in batches of 8 to stay within browser connection limits
-      var _allRows=[];
-      for(var _j=0;_j<_fetches.length;_j+=8){
-        var _res=await Promise.all(_fetches.slice(_j,_j+8));
-        _res.forEach(function(b){ _allRows=_allRows.concat(b); });
-      }
-      _allHistory=_allRows;
-    }catch(e){ _allHistory=null; _archDone=false; }   // don't cache a failed fetch — let comps retry
+  // an empty array is truthy, so the old `if(!_allHistory)` cached a failed fetch forever
+  if(!_allHistory || !_allHistory.length){
+    try{ _allHistory=await _fetchHistoryPool(); }
+    catch(e){ _allHistory=null; _archDone=false; }   // don't cache a failed fetch — let comps retry
   }
   if(!_allCurrent){
     try{ _allCurrent=(window.TDCPool?await TDCPool.get():[]).filter(p=>p.ppg!=null); }catch(e){ _allCurrent=[]; }
