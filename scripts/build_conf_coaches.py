@@ -152,10 +152,19 @@ def main():
 
     careers = {}
     for slug, p in prof.items():
+        # Career coaching lift: mean (actual SRS - the SRS his roster's talent
+        # predicted), i.e. points of SRS this coach adds on top of who he has.
+        # tdc-ratings.js uses it so a coaching CHANGE moves a team's projection --
+        # the model's only coach signal used to be the program's own last-season SRS,
+        # which carries the departed staff's results and knows nothing about the hire.
+        lifts = [s.get('srs_lift') for s in (rund.get(slug) or {}).values()
+                 if s.get('srs_lift') is not None]
         careers[slug] = {
             'n': p.get('coach'), 'g': p.get('grade'), 'r': p.get('rank'),
             'a': p.get('archetype'), 's': p.get('seasons'),
             'w': p.get('wins'), 'l': p.get('losses'), 't': p.get('tourney'),
+            'lf': round(sum(lifts) / len(lifts), 3) if lifts else None,
+            'ln': len(lifts),
         }
     json.dump(careers, open(os.path.join(OUT, 'coach-careers.json'), 'w'),
               separators=(',', ':'))

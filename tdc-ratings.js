@@ -34,7 +34,7 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v12_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v13_'+SEASON, TTL=24*3600*1000;
   // in-season form: once 2026-27 games are played, each team's rating drifts
   // toward how it's ACTUALLY performing vs our own lines. surprise = actual
   // margin - expected margin; form = sum(surprise)/(n + FORM_PRIOR) capped at
@@ -44,6 +44,14 @@
   const CAL_A=11.75, CAL_B=2.355;          // calibrated BPM→SRS (see header)
   const BLEND_ROSTER=0.90, ANCHOR=0.70;    // roster weight; prior-SRS regression
   const CARRY=0.70;                        // rosterless teams: regressed SRS'26 carryover
+  // Coach effect. rosterRating is pure TALENT (a BPM→SRS mapping), so it cannot see
+  // coaching at all, and the only coach signal in the blend was the program's own
+  // last-season SRS — which carries the DEPARTED staff's results and knows nothing
+  // about the hire. COACH_LIFT is the coach's career mean srs_lift (actual SRS minus
+  // what his roster's talent predicted), shrunk by how many seasons back it and capped
+  // so a 2-year sample can't swing a projection. Applied only to rostered teams:
+  // carryover teams are rated off their own actual SRS, which already embeds coaching.
+  const COACH_W=0.60, COACH_K=5, COACH_CAP=3.0;
   // home court measured from our 20yr game history, controlled for opponent
   // strength (scripts/calibrate_hca.py): a baseline curve by opponent rating
   // (~+3.7 vs decent visitors, larger vs weak ones) + a shrunk per-venue
@@ -133,15 +141,29 @@
   // canonical projected rankings — same stat-derived currency as returners.
   let _ovr=null;
   async function compute(){
-    const [teams, players, bb, ts, hcaData]=await Promise.all([
-      fetch(SB+'/rest/v1/teams?select=name,conf,conference&limit=500',{headers:H}).then(r=>r.json()),
+    const [teams, players, bb, ts, hcaData, coachData]=await Promise.all([
+      fetch(SB+'/rest/v1/teams?select=name,conf,conference,head_coach,coach&limit=500',{headers:H}).then(r=>r.json()),
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,is_injured,hometown&order=id.asc'),
       fetchPaged(SB+'/rest/v1/bbref_seasons?season_year=eq.2026&espn_id=not.is.null&select=espn_id,advanced&order=bbref_id.asc'),
       fetch(SB+'/rest/v1/team_seasons?season_year=eq.2026&select=team,conference,srs,tier&limit=1000',{headers:H}).then(r=>r.json()),
       fetch('scripts/data/team_hca.json').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('data/coach-careers.json').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
     const hcaOf=(hcaData&&hcaData.teams)||{};
     const confOf={}; (teams||[]).forEach(t=>{ confOf[t.name]=t.conf||t.conference||''; });
+    // teams.head_coach is maintained from the roster sheet, so it reflects offseason
+    // hires the Sports-Reference scrape hasn't seen yet — that's the whole point here.
+    const cn=s=>(''+(s||'')).toLowerCase().replace(/[.'`]/g,'').replace(/\s+/g,' ').trim();
+    const liftByCoach={};
+    Object.keys(coachData||{}).forEach(k=>{ const c=coachData[k];
+      if(c&&c.n&&c.lf!=null) liftByCoach[cn(c.n)]={lf:+c.lf, n:+c.ln||0}; });
+    const coachAdjOf={};
+    (teams||[]).forEach(t=>{
+      const rec=liftByCoach[cn(t.head_coach||t.coach)];
+      if(!rec||!rec.n) return;
+      const shrunk=rec.lf*(rec.n/(rec.n+COACH_K));          // 3 seasons counts ~3/8
+      coachAdjOf[t.name]=+Math.max(-COACH_CAP,Math.min(COACH_CAP,COACH_W*shrunk)).toFixed(2);
+    });
     const advById={}; (bb||[]).forEach(r=>{ if(r.espn_id!=null&&r.advanced) advById[r.espn_id]=r.advanced; });
     const tsRows=(ts||[]);
     const srsOf={}; (ts||[]).forEach(t=>{ if(t.srs!=null) srsOf[t.team]=parseFloat(t.srs); });
@@ -184,9 +206,10 @@
       const rosterRating=CAL_A+CAL_B*mw;
       const full=matchFull(short, tsRows, confOf[short])||short;
       const prior=srsOf[full];
-      const rating=(prior!=null)?(BLEND_ROSTER*rosterRating+(1-BLEND_ROSTER)*(ANCHOR*prior))
-                                :rosterRating;
-      rows.push({team:short, full, conf:confOf[short]||'', rating:+rating.toFixed(2),
+      const cAdj=coachAdjOf[short]||0;
+      const rating=((prior!=null)?(BLEND_ROSTER*rosterRating+(1-BLEND_ROSTER)*(ANCHOR*prior))
+                                 :rosterRating) + cAdj;
+      rows.push({team:short, full, conf:confOf[short]||'', rating:+rating.toFixed(2), coachAdj:cAdj,
         roster:+rosterRating.toFixed(2), prior:prior!=null?+prior.toFixed(1):null, projected:true,
         hcaOff:hcaOf[full]!=null?hcaOf[full]:0});
     });
@@ -211,6 +234,7 @@
     rows.forEach((r,i)=>r.rank=i+1);
     return {season:SEASON, generated:new Date().toISOString(),
       model:{calA:CAL_A,calB:CAL_B,blendRoster:BLEND_ROSTER,anchor:ANCHOR,homeAdv:HOME_ADV,sigma:SIGMA,
+        coachW:COACH_W,coachK:COACH_K,coachCap:COACH_CAP,
         hcaBase:hcaData?{base:hcaData.base,capMin:hcaData.capMin}:null},
       teams:rows};
   }
