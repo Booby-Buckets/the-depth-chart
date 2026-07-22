@@ -66,7 +66,7 @@
   var LOADING={};               // season -> true while fetching
   function curSeason(){ var s=document.getElementById('seasonSel'); return s?(+s.value||2027):2027; }
   function ensureGames(season){
-    if(GAMES[season]||LOADING[season]||season>=2027) return;   // 2027 = projection, no games
+    if(GAMES[season]||LOADING[season]||season>=2027) return;   // 2027 = projection, no games of its own
     LOADING[season]=true;
     var all=[];
     // season NET (SRS) for every team → opponent quality
@@ -116,15 +116,23 @@
   }
   function addTrend(){
     var cs=curSeason();
+    // The projected season has no games of its own, which left the TREND column
+    // permanently empty on the default view. Show the last COMPLETED season's
+    // trajectory instead, and say so in the header so it can't be misread as
+    // this season's form.
+    var src=(cs>=2027)?(cs-1):cs, borrowed=(src!==cs);
     var hd=document.querySelector('.table-header');
-    if(hd){ var cells=hd.querySelectorAll('.th'); if(cells[3]&&!cells[3].dataset.trh){ cells[3].dataset.trh='1'; cells[3].textContent='TREND'; cells[3].classList.add('trendh'); } }
-    if(cs>=2027) return;               // projected season: no game trend
-    if(!GAMES[cs]){ ensureGames(cs); return; }
-    var map=GAMES[cs];
+    if(hd){ var cells=hd.querySelectorAll('.th');
+      var want=borrowed?('TREND \u2019'+String(src%100).padStart(2,'0')):'TREND';
+      if(cells[3]&&cells[3].dataset.trh!==want){ cells[3].dataset.trh=want;
+        cells[3].textContent=want; cells[3].classList.add('trendh');
+        cells[3].title=borrowed?('Last completed season ('+(src-1)+'-'+String(src%100).padStart(2,'0')+')'):''; } }
+    if(!GAMES[src]){ ensureGames(src); return; }
+    var map=GAMES[src];
     document.querySelectorAll('#rankingsList .team-row').forEach(function(row){
-      var sp=row.querySelector('.tr-spacer'); if(!sp||sp.dataset.tr===''+cs) return;
+      var sp=row.querySelector('.tr-spacer'); if(!sp||sp.dataset.tr===''+src) return;
       var a=row.querySelector('.tr-team-name'); if(!a) return;
-      sp.dataset.tr=''+cs;
+      sp.dataset.tr=''+src;
       var glog=map[a.textContent.trim()];
       var traj=(glog&&glog.length>=2)?netTraj(glog):null;
       sp.innerHTML=traj?sparkLine(traj):'';
