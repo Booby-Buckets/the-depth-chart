@@ -157,14 +157,24 @@ def main():
     # 65% of coaches never made the NCAA tournament, so a raw percentile of 0 tourney
     # points lands ~65th (everyone's tied at 0). Instead: never-made-it → the floor,
     # and rank ONLY the coaches who actually made it into the top band.
-    _pos_tp=pctl([P["_tourpts"] for P in profiles if P.get("_tourpts") and P["_tourpts"]>0])
+    # Scored on an ABSOLUTE curve, not a percentile. Percentile rank threw away
+    # magnitude: among the third of coaches who ever reached the field, a dozen
+    # early exits and a pair of national titles both landed in the top few
+    # percentiles, so Sean Miller (0 Final Fours) scored the same 98 as Dan
+    # Hurley (2 titles, 3 Final Fours). RESVAL already prices a title at 24x a
+    # Round-of-64 trip; the percentile was flattening that back out.
+    _tp_all=sorted([P["_tourpts"] for P in profiles if P.get("_tourpts")], reverse=True)
+    _TP_REF=_tp_all[2] if len(_tp_all)>2 else (_tp_all[0] if _tp_all else 1.0)
     def _tp_score(v):
         if not v or v<=0: return 8               # never reached the NCAA tournament
-        return 30 + 0.70*_pos_tp(v)              # made it → 30..100 by how deep he went
+        return 30 + 70*min(1.0, (v/_TP_REF)**0.60)   # made it → 30..100 by how deep he went
     for P in profiles:
         cred=P["_seasons"]/(P["_seasons"]+2.0)              # small-sample shrink
         quality  = 0.50*fp["_srs"](P["_srs"]) + 0.20*fp["_wp"](P["_wp"]) + 0.30*fp["_overperf"](P["_overperf"])
-        tourney  = 0.62*_tp_score(P["_tourpts"]) + 0.38*fp["_peak"](P["_peak"])
+        # peak SRS is regular-season strength, which `quality` already pays for —
+        # at 38% it was letting teams that were great in February but went home in
+        # March score like teams that actually won in March.
+        tourney  = 0.80*_tp_score(P["_tourpts"]) + 0.20*fp["_peak"](P["_peak"])
         # Development is regressed toward neutral by SAMPLE SIZE, the same way quality
         # and tourney are regressed by tenure. It used to be applied raw, so a coach
         # with 14 returner-transitions carried the same weight as one with 98 -- and
@@ -181,9 +191,20 @@ def main():
         # (<3 seasons, _srssd None) get a neutral 50 stability rather than a free high score.
         volatility = 100 - fp["_wpsd"](P["_wpsd"])    # small win% swings → more consistent (None→50)
         consist  = 0.55*fp["_downside"](P["_downside"]) + 0.30*volatility + 0.15*fp["_seasons"](P["_seasons"])
-        quality  = 50 + cred*(quality-50)                   # regress sample-sensitive ones
-        tourney  = 50 + cred*(tourney-50)
-        comp = 0.36*quality + 0.30*tourney + 0.18*develop + 0.16*consist
+        # Only regress the RATE estimates. quality is built from SRS/win%/overperformance
+        # — averages, where a short sample really is an unreliable read on true skill.
+        # tourney is a CUMULATIVE achievement count: a short career already shows up as
+        # fewer tournament points, so shrinking it by tenure on top of that penalises the
+        # same thing twice. A Final Four happened; it is not an estimate of a Final Four.
+        quality  = 50 + cred*(quality-50)
+        # Success carries more of the grade than it did: a body of work with deep runs
+        # should outrank a long tenure that never got out of the first weekend.
+        # Tournament results carry the most weight: this grade is meant to reward what
+        # a coach actually achieved, not how rarely he had a bad year. Consistency is
+        # deliberately light — it scores a high floor and low variance, which flatters
+        # steady mediocrity and punishes anyone who built up from a low-major job
+        # (Dan Hurley scores 58 on it because he started at Wagner).
+        comp = 0.30*quality + 0.46*tourney + 0.10*develop + 0.14*consist
         P["_comp"]=comp
         P["grade_parts"]={"winning":round(quality),"tournament":round(tourney),
                           "development":round(develop),"consistency":round(consist)}
