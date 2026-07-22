@@ -2514,7 +2514,20 @@ function loadOvcCompsNow(retry){
   if(window._ovcComps&&window._ovcComps.length){ fillOvcComps(); return; }
   if(el) el.innerHTML='<div class="ovc-muted">Finding similar players…</div>';
   if(typeof renderArchetype!=='function'){ if(el) el.innerHTML='<div class="ovc-muted">Comps unavailable.</div>'; return; }
+  // Backstop: renderArchetype awaits several things, and if any never settles the box
+  // would sit on "Finding similar players" forever, as it did during the 22 Jul outage.
+  var _settled=false;
+  setTimeout(function(){
+    if(_settled) return;
+    var b=document.getElementById('ovcComps');
+    if(b && /Finding similar/.test(b.innerText||'')){
+      b.innerHTML='<div class="ovc-muted">Could not load the comparison pool. '+
+        '<button class="ovc-complink" style="margin-left:6px;padding:3px 9px" '+
+        'onclick="_archDone=false;_allHistory=null;window._ovcComps=undefined;window._ovcCompCache={};loadOvcCompsNow()">Retry</button></div>';
+    }
+  }, 50000);
   Promise.resolve(renderArchetype()).then(function(){
+    _settled=true;
     // renderArchetype() scores the PROJECTED line; re-score for the selected season
     try{ var _sv=(document.getElementById('ovrSeasonSel')||{}).value;
          _ovcSyncComps(_sv,_skillSrcFor(_sv==='proj'?'proj':_sv)); }catch(e){}
@@ -2531,6 +2544,7 @@ function loadOvcCompsNow(retry){
         ' <button class="ovc-complink" style="margin-left:6px;padding:3px 9px" onclick="_archDone=false;_allHistory=null;window._ovcComps=undefined;window._ovcCompCache={};loadOvcCompsNow()">Retry</button></div>';
     }
   }).catch(function(){
+    _settled=true;
     if(el) el.innerHTML='<div class="ovc-muted">Comps unavailable. <button class="ovc-complink" style="margin-left:6px;padding:3px 9px" onclick="_archDone=false;_allHistory=null;window._ovcComps=undefined;window._ovcCompCache={};loadOvcCompsNow()">Retry</button></div>';
   });
 }
@@ -4362,14 +4376,28 @@ async function _fetchHistoryPool(){
   var base=SB+'/rest/v1/player_history?select='+cols+'&mpg=gte.10&order=id';
   var total=0;
   try{
+    var _ac=(typeof AbortController!=='undefined')?new AbortController():null;
+    var _t=setTimeout(function(){ if(_ac) _ac.abort(); },8000);
     var hd=await fetch(SB+'/rest/v1/player_history?select=id&mpg=gte.10',
-      {method:'HEAD',headers:{...H,'Prefer':'count=exact'}});
+      {method:'HEAD',headers:{...H,'Prefer':'count=exact'},signal:_ac?_ac.signal:undefined});
+    clearTimeout(_t);
     total=parseInt((hd.headers.get('content-range')||'/0').split('/')[1]||0,10)||0;
   }catch(e){}                                   // no count is fine, we page until short
+  // Hard deadlines. During the outage on 2026-07-22 these requests simply never
+  // settled, so ~50 of them piled up and locked the tab. A comps box is not worth
+  // freezing the page over: give up and let the caller show "unavailable".
+  var DEADLINE=Date.now()+45000;
+  function timedFetch(url,ms){
+    var ac=(typeof AbortController!=='undefined')?new AbortController():null;
+    var t=setTimeout(function(){ if(ac) ac.abort(); }, ms);
+    return fetch(url,{headers:H, signal:ac?ac.signal:undefined})
+      .finally(function(){ clearTimeout(t); });
+  }
   async function page(pg){
     for(var a=0;a<3;a++){
+      if(Date.now()>DEADLINE) throw new Error('comp pool timed out');
       try{
-        var r=await fetch(base+'&limit='+PG+'&offset='+(pg*PG),{headers:H});
+        var r=await timedFetch(base+'&limit='+PG+'&offset='+(pg*PG), 12000);
         if(r.ok) return await r.json();
       }catch(e){}
       await new Promise(function(z){ setTimeout(z, 400*(a+1)); });
