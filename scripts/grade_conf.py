@@ -80,6 +80,35 @@ EXTRA = {
     "Brigham Young": "BIG-12",           # BYU (WCC -> Big 12 in 2023-24)
     "Nevada-Las Vegas": "MWC",           # UNLV
     "Southern Mississippi": "Sun Belt",  # also caught by the "Southern" -> SWAC match
+
+    # Schools that matched NO key and silently took DEFAULT_TIER 6. Harmless for a
+    # genuine low-major, wrong for anyone whose league outranks it -- the whole WCC
+    # was being discounted x0.43 when the conference is tier 2 (x0.88), so Saint
+    # Mary's players were graded at roughly half credit for two decades.
+    "Saint Mary's": "WCC", "Saint Mary's (CA)": "WCC", "San Diego": "WCC",
+    "San Francisco": "WCC", "Santa Clara": "WCC", "Pepperdine": "WCC", "Portland": "WCC",
+    "Loyola (IL)": "A10",                 # bbref spelling of the existing Loyola Chicago key
+    "San Jose State": "MWC",
+    "Hawaii": "Big West",
+    "Middle Tennessee": "CUSA", "Western Kentucky": "CUSA", "Louisiana Tech": "CUSA",
+    "UTEP": "CUSA", "Sam Houston": "CUSA",
+    "UT Arlington": "WAC",
+    "James Madison": "Sun Belt", "Appalachian State": "Sun Belt", "Marshall": "Sun Belt",
+    "Old Dominion": "Sun Belt", "Troy": "Sun Belt", "Louisiana": "Sun Belt",
+    "Louisiana-Monroe": "Sun Belt",
+    "College of Charleston": "CAA", "Delaware": "CAA", "Drexel": "CAA", "Elon": "CAA",
+    "Hofstra": "CAA", "Northeastern": "CAA", "Towson": "CAA", "UNC Wilmington": "CAA",
+    "William & Mary": "CAA", "Monmouth": "CAA", "Stony Brook": "CAA",
+    "Cleveland State": "Horizon", "IU Indy": "Horizon", "Illinois-Chicago": "Horizon",
+    "Robert Morris": "Horizon",
+    "UNC Greensboro": "SoCon", "East Tennessee State": "SoCon",
+    "Pennsylvania": "Ivy",
+    # the reverse error -- these were sitting ABOVE their league on the default
+    "Saint Francis (PA)": "NEC", "St. Francis (NY)": "NEC", "FDU": "NEC",
+    "Merrimack": "NEC", "New Haven": "NEC",
+    # VCU is A-10, but "Virginia Commonwealth" prefix-matched "Virginia" and was
+    # being graded as an ACC team -- the USC bug pointing the other way.
+    "Virginia Commonwealth": "A10",
 }
 TIERS.setdefault("Summit", 6)
 TIERS.setdefault("Southland", 6)
