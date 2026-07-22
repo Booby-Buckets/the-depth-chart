@@ -66,6 +66,20 @@ EXTRA = {
     "VMI": "SoCon", "The Citadel": "SoCon", "Mercer": "SoCon", "Wofford": "SoCon",
     "Samford": "SoCon", "Furman": "SoCon", "Chattanooga": "SoCon", "ETSU": "SoCon",
     "Western Carolina": "SoCon",
+    # Basketball-Reference uses each school's FORMAL name, and player_history is
+    # loaded from it -- so these arrive as "Southern California", not "USC". None of
+    # them matched a key, so greedy prefix matching took over and graded six power
+    # programs as low-majors. "Southern California" and "Southern Methodist" both
+    # matched "Southern" (Southern University, SWAC) and were scored at tier 7 x0.35
+    # -- the harshest discount in the table -- so every USC and SMU player had his
+    # production translated as if he had put it up in the SWAC.
+    "Southern California": "B10",        # USC (Pac-12 -> Big Ten in 2024-25)
+    "Southern Methodist": "ACC",         # SMU (AAC -> ACC in 2024-25)
+    "Mississippi": "SEC",                # Ole Miss -- prefix-matched nothing, fell to default
+    "Louisiana State": "SEC",            # LSU
+    "Brigham Young": "BIG-12",           # BYU (WCC -> Big 12 in 2023-24)
+    "Nevada-Las Vegas": "MWC",           # UNLV
+    "Southern Mississippi": "Sun Belt",  # also caught by the "Southern" -> SWAC match
 }
 TIERS.setdefault("Summit", 6)
 TIERS.setdefault("Southland", 6)
