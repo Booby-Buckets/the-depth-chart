@@ -190,6 +190,20 @@ def main():
     # ── stretch composite to a readable 0-100 grade (top coach ~99) + national rank ──
     comps=sorted(P["_comp"] for P in profiles)
     lo,hi=comps[len(comps)//50], comps[-1]                  # clip bottom 2% to avoid a squashed top
+    # A national title is a floor, not just another input. The career-average model
+    # otherwise buries a champion with a short tenure: Dusty May (title + a mid-major
+    # Final Four, 8 seasons) came out 77/#126 because his 8-year sample regresses every
+    # component toward the mean. Raising the COMPOSITE — rather than only the printed
+    # grade — keeps the national rank consistent with the number shown.
+    # 13 coaches have a title; this lifts the 5 who were under 90.
+    if hi>lo:
+        need90 = lo + ((90-40)/59.0)*(hi-lo)
+        for P in profiles:
+            tr = P.get("tourney") or {}
+            if tr.get("titles"):
+                # tiny resume-scaled nudge so the floored coaches don't all tie
+                P["_comp"] = max(P["_comp"],
+                                 need90 + 0.02*tr.get("titles",0) + 0.01*tr.get("final_fours",0))
     for P in profiles:
         g=(P["_comp"]-lo)/(hi-lo) if hi>lo else 0.5
         P["grade"]=max(40,min(99,round(40+g*59)))
