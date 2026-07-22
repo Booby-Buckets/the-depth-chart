@@ -216,15 +216,22 @@ def main():
     # Final Four, 8 seasons) came out 77/#126 because his 8-year sample regresses every
     # component toward the mean. Raising the COMPOSITE — rather than only the printed
     # grade — keeps the national rank consistent with the number shown.
-    # 13 coaches have a title; this lifts the 5 who were under 90.
+    # 13 coaches have a title; this lifts the ones who were under 90.
+    #
+    # The floor is a BAND, not a single value. A flat 90 for every champion stacked
+    # ranks 12-19 on the identical number and broke the tie on hundredths, so a coach
+    # with two titles and three Final Fours printed the same grade as one with a single
+    # title and one Final Four. Depth of resume sets which rung of the band you land on,
+    # and your own composite spreads you within that rung so nobody exactly ties.
     if hi>lo:
-        need90 = lo + ((90-40)/59.0)*(hi-lo)
+        per_grade = (hi-lo)/59.0                          # composite units per grade point
+        def _to_comp(gr): return lo + (gr-40.0)*per_grade
         for P in profiles:
             tr = P.get("tourney") or {}
-            if tr.get("titles"):
-                # tiny resume-scaled nudge so the floored coaches don't all tie
-                P["_comp"] = max(P["_comp"],
-                                 need90 + 0.02*tr.get("titles",0) + 0.01*tr.get("final_fours",0))
+            if not tr.get("titles"): continue
+            rung = 90.0 + 3.5*(tr["titles"]-1) + 1.2*min(tr.get("final_fours",0), 4)
+            own  = (P["_comp"]-lo)/(hi-lo)                 # 0-1 merit, breaks within-rung ties
+            P["_comp"] = max(P["_comp"], _to_comp(min(96.0, rung) + 0.7*own))
     for P in profiles:
         g=(P["_comp"]-lo)/(hi-lo) if hi>lo else 0.5
         P["grade"]=max(40,min(99,round(40+g*59)))
