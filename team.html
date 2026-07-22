@@ -5445,10 +5445,26 @@ async function loadHistoricRoster(yr){
   host.innerHTML='<div class="loading-state"><div class="loading-spinner"></div><div>Loading '+rosterLbl(yr)+' roster…</div></div>';
   const mascot=_teamMascot();
   const key=await _resolvePhTeamKey();
-  let rows=key?await fetch(`${SB_URL}/rest/v1/player_history?season_year=eq.${yr}&team=eq.${encodeURIComponent(key)}&select=*&order=tdc_grade.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]):[];
-  // player_history has season gaps (e.g. St. John's 2025-26 never scraped) —
-  // build the roster straight from authoritative bbref_seasons via the indexed
-  // slug, derived from the resolved name ("St. John's (NY)" → "st-johns-ny").
+  // bbref_seasons is the AUTHORITATIVE roster — one row per player per school-season,
+  // so it can only contain players who actually suited up there. player_history cannot
+  // be filtered by team for a past season: every transfer carries a SECOND row stamped
+  // with the team they later moved TO, holding their old team's stats. Providence
+  // 2025-26 came back with 28 players, 14 of them St. John's.
+  //
+  // Cleaning that up after the fact used to be the job of _reconcileRosterWithBbref,
+  // which keeps the roster's MAJORITY bbref school. Providence tied it 14-14, and the
+  // tie broke on JS object key order over a PostgREST result with no ORDER BY — a coin
+  // flip between the right roster and St. John's. Reading the authoritative table first
+  // removes the guess entirely. Matching on `school` (not the slug) because the slug
+  // rule mis-derives 30 of 319 schools (IU Indy → iupui, UAB → alabama-birmingham).
+  let rows=[], _fromBbref=false;
+  if(key){
+    const bb=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${yr}&school=eq.${encodeURIComponent(key)}&select=player,pos,height,class,tdc_grade,espn_id,pergame`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    if(bb&&bb.length){ rows=bb.map(b=>_bbrefToHistRow(b, key)); _fromBbref=true; }
+  }
+  // bbref misses a season → fall back to the ESPN scrape (then reconciled below)
+  if(!rows.length && key) rows=await fetch(`${SB_URL}/rest/v1/player_history?season_year=eq.${yr}&team=eq.${encodeURIComponent(key)}&select=*&order=tdc_grade.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  // no player_history key at all (bbref-only programs) — resolve by slug alias
   if(!rows||!rows.length){
     // slug from the resolved player_history key, or a direct name→slug alias for
     // bbref-only programs that have no player_history rows to resolve against.
@@ -5456,15 +5472,14 @@ async function loadHistoricRoster(yr){
                      : (PH_FORMAL_SLUG[(teamT.name||'').toLowerCase().trim()] || null);
     if(slug){
       const bb=await fetch(`${SB_URL}/rest/v1/bbref_seasons?school_slug=eq.${encodeURIComponent(slug)}&season_year=eq.${yr}&select=player,pos,height,class,tdc_grade,espn_id,pergame`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-      if(bb&&bb.length) rows=bb.map(b=>_bbrefToHistRow(b, key||teamT.name||''));
+      if(bb&&bb.length){ rows=bb.map(b=>_bbrefToHistRow(b, key||teamT.name||'')); _fromBbref=true; }
     }
   }
   // pre-2012 (no season-stat rows) — build the roster from box scores instead
   if(!rows||!rows.length) rows=await rosterFromBox(yr, mascot);
-  // player_history has some duplicate rows (e.g. a transfer's old season wrongly
-  // attributed to their new team). Drop players whose authoritative bbref school
-  // for this season doesn't match the rest of the roster.
-  rows=await _reconcileRosterWithBbref(rows, yr);
+  // Only the player_history / box-score fallbacks can carry transfer-duplicate rows;
+  // a bbref roster is already authoritative, so don't put it through the majority vote.
+  if(!_fromBbref) rows=await _reconcileRosterWithBbref(rows, yr);
   // player_history.yr is empty for older seasons — backfill class year from bbref_seasons
   await _fillClassYears(rows, yr);
   renderHistoricRoster(rows, yr);
