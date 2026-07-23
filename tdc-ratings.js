@@ -339,9 +339,10 @@
     const margin=a.rating-b.rating+hc;
     const pA=phi(margin/SIGMA);
     const total=(totals&&isFinite(totals))?totals:145.5;   // league-ish default
+    const _sn=window.tdcShortSchool||(x=>x);   // trim carry-team mascots when the map is loaded
     return { margin:+margin.toFixed(1), probA:+(pA*100).toFixed(1), probB:+((1-pA)*100).toFixed(1),
       scoreA:Math.round(total/2+margin/2), scoreB:Math.round(total/2-margin/2),
-      spread:(margin>=0?`${a.team} -${margin.toFixed(1)}`:`${b.team} -${(-margin).toFixed(1)}`) };
+      spread:(margin>=0?`${_sn(a.team)} -${margin.toFixed(1)}`:`${_sn(b.team)} -${(-margin).toFixed(1)}`) };
   }
 
   g.TDC_RATINGS={get, rebuild, lineFor, phi, applyForm, baseHca, SEASON, HOME_ADV, SIGMA};

@@ -6,7 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Matchup Predictor — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <script src="tdc-ratings.js"></script>
+  <script src="team-colors.js?v=1"></script>
+  <script src="tdc-ratings.js?v=1"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -116,6 +117,8 @@ function teamColor(row){
   return c;
 }
 function labelOf(r){ return r? r.full : ''; }
+// short school name for inline labels — trims a carry team's mascot ("Saint Louis Billikens" -> "Saint Louis")
+const sn=t=>(window.tdcShortSchool?window.tdcShortSchool(t):t);
 function fmtR(r){ return (r.rating>=0?'+':'')+r.rating.toFixed(1); }
 function poolRow(k){ return k!=null?D.teams[k]:null; }
 
@@ -145,7 +148,7 @@ function wireCombo(x){
   list.addEventListener('mousedown',e=>{ const it=e.target.closest('.combo-item'); if(it){ e.preventDefault(); pick(x,it.dataset.key); } });
 }
 function cycleVenue(){ vi=(vi+1)%3; const a=poolRow(selKey.A), b=poolRow(selKey.B);
-  el('venueBtn').textContent = vi===0?'Neutral court' : vi===1?`${a?a.team:'Team A'} at home` : `${b?b.team:'Team B'} at home`;
+  el('venueBtn').textContent = vi===0?'Neutral court' : vi===1?`${a?sn(a.team):'Team A'} at home` : `${b?sn(b.team):'Team B'} at home`;
   renderLine(); }
 
 function renderLine(){
@@ -153,12 +156,12 @@ function renderLine(){
   const L=TDC_RATINGS.lineFor(a,b,venues[vi]);
   const cA=teamColor(a), cB=teamColor(b);
   const favA=L.margin>=0, edge=Math.abs(a.rating-b.rating).toFixed(1);
-  const hcTxt = vi===0?'Neutral court' : vi===1?`${a.team} hosts` : `${b.team} hosts`;
+  const hcTxt = vi===0?'Neutral court' : vi===1?`${sn(a.team)} hosts` : `${sn(b.team)} hosts`;
   const fav = favA?a:b, dog = favA?b:a, favP = Math.max(L.probA,L.probB);
   const conf = favP>=80?'a clear favorite':favP>=66?'favored':favP>=57?'a slight edge':'essentially a toss-up';
   const takeaway = favP<55
     ? `<b>${a.full}</b> and <b>${b.full}</b> project as a near coin-flip on a ${hcTxt.toLowerCase()} — a rating gap of just <b>${edge}</b>. Expect it to come down to the wire.`
-    : `<b>${fav.full}</b> is ${conf} over <b>${dog.full}</b>${vi===0?' on a neutral floor':', '+hcTxt.toLowerCase()} — a <b>${edge}-point</b> rating edge translating to a <b>${fav.team} ${Math.abs(L.margin).toFixed(1)}</b> line and a projected <b>${favA?L.scoreA:L.scoreB}–${favA?L.scoreB:L.scoreA}</b>.`;
+    : `<b>${fav.full}</b> is ${conf} over <b>${dog.full}</b>${vi===0?' on a neutral floor':', '+hcTxt.toLowerCase()} — a <b>${edge}-point</b> rating edge translating to a <b>${sn(fav.team)} ${Math.abs(L.margin).toFixed(1)}</b> line and a projected <b>${favA?L.scoreA:L.scoreB}–${favA?L.scoreB:L.scoreA}</b>.`;
   const wa=Math.round(L.probA), wb=100-wa;
   el('out').innerHTML=`
     <div class="board" style="--cA:${cA};--cB:${cB};">
@@ -181,13 +184,13 @@ function renderLine(){
           <div class="twp" style="color:${cB}"><span data-countup="${wb}">${wb}</span>% win</div>
         </div>
       </div>
-      <div class="wplab"><span>${a.team} ${wa}%</span><span>${wb}% ${b.team}</span></div>
+      <div class="wplab"><span>${sn(a.team)} ${wa}%</span><span>${wb}% ${sn(b.team)}</span></div>
       <div class="wpbar"><div class="wa" data-fill style="width:${wa}%"></div><div class="wb" data-fill style="width:${wb}%"></div></div>
     </div>
     <div class="keys">
       <div class="key"><div class="kl">Point Spread</div><div class="kv">${L.spread}</div><div class="ks">${hcTxt}</div></div>
       <div class="key"><div class="kl">Projected Score</div><div class="kv">${L.scoreA} – ${L.scoreB}</div><div class="ks">~${L.scoreA+L.scoreB} total points</div></div>
-      <div class="key"><div class="kl">Rating Edge</div><div class="kv">${favA?a.team:b.team} +${edge}</div><div class="ks">${fav.full} the stronger roster</div></div>
+      <div class="key"><div class="kl">Rating Edge</div><div class="kv">${favA?sn(a.team):sn(b.team)} +${edge}</div><div class="ks">${fav.full} the stronger roster</div></div>
     </div>
     <div class="takeaway">${takeaway}</div>`;
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));

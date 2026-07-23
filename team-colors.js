@@ -5,4 +5,14 @@ window.TDC_TEAM_COLORS={"abilene christian wildcats":{"c1":"#592d82","c2":"#b1b3
   function nstrip(s){return norm((''+(s||'')).replace(/\s*\([^)]*\)/g,''));}
   window.tdcTeamColor=function(name){var M=window.TDC_TEAM_COLORS;return M[norm(name)]||M[nstrip(name)]||null;};
   window.tdcTeamColorHex=function(name){var r=window.tdcTeamColor(name);return r?r.c1:null;};
+  // Trim a trailing mascot back to the school ("Saint Louis Billikens" -> "Saint Louis"),
+  // but ONLY when a shorter prefix maps to the SAME team (identical logo) — so "Michigan
+  // State" / "Texas Tech" are left intact (their one-word prefix is a different team).
+  window.tdcShortSchool=function(name){
+    var M=window.TDC_TEAM_COLORS; if(!M||!name) return name||'';
+    var full=(''+name).trim(), rec=M[norm(full)]||M[nstrip(full)]; if(!rec) return full;
+    var w=full.split(/\s+/);
+    for(var n=w.length-1;n>=1;n--){ var cand=w.slice(0,n).join(' '), r2=M[norm(cand)]; if(r2&&r2.logo===rec.logo) return cand; }
+    return full;
+  };
 })();

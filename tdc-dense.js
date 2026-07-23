@@ -366,6 +366,7 @@
   // shorter prefix maps to the SAME team (identical logo) — so "Michigan State"
   // is left intact (its "Michigan" prefix is a different team).
   function shortSchool(name){
+    if(window.tdcShortSchool) return window.tdcShortSchool(name);   // shared impl in team-colors.js
     var M=window.TDC_TEAM_COLORS; if(!M||!name) return name||'';
     var norm=function(s){ return s.toLowerCase().replace(/&/g,' ').replace(/[^\w\s]/g,'').replace(/\s+/g,' ').trim(); };
     var full=(''+name).trim(), rec=M[norm(full)]; if(!rec) return full;
