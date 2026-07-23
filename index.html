@@ -1197,6 +1197,7 @@
   .sc-netlbl{font-size:9px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--text3);margin-top:1px;}
   .sc-meta{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;font-weight:700;color:var(--text2);}
   .sc-players{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;}
+  .sc-empty{grid-column:1/-1;padding:26px 22px;text-align:center;color:var(--text3);font-size:13px;line-height:1.5;border:1px dashed var(--border);border-radius:16px;background:var(--bg2);}
   .sc-player{display:flex;flex-direction:column;align-items:center;border:1px solid var(--border);border-radius:16px;padding:18px 10px 14px;background:var(--bg2);text-decoration:none;color:inherit;box-shadow:0 1px 2px rgba(20,16,31,.05);transition:transform .2s cubic-bezier(.34,1.4,.64,1),box-shadow .22s,border-color .2s;}
   .sc-player:hover{transform:translateY(-4px);box-shadow:0 16px 34px rgba(24,20,14,.18);border-color:var(--accent);}
   .sc-ph{position:relative;width:66px;height:66px;border-radius:50%;background:linear-gradient(155deg,color-mix(in srgb,var(--accent) 26%,var(--bg2)),color-mix(in srgb,var(--accent) 12%,var(--bg2)));display:flex;align-items:center;justify-content:center;margin-bottom:12px;box-shadow:0 4px 14px rgba(20,16,31,.12);}
@@ -1502,12 +1503,23 @@ async function renderShowcase(){
     // require real playing time so a low-minute fluke grade can't headline
     const qual = pool.filter(p=>{ const pg=p.pergame||{}; return (parseFloat(pg.games)||0)>=5 && (parseFloat(pg.mp_per_g)||0)>=10; });
     const base = qual.length>=6 ? qual : pool;
-    let ps;
+    let ps=[], emptyMsg='';
     if(confFilter){
       ps = base.filter(p=>schoolConf(p.school)===confFilter).slice(0,6);
-      if(!ps.length) ps = base.slice(0,6);   // fallback if conf couldn't be resolved
+      if(!ps.length){
+        // No players resolve to this conference — show an honest empty-state rather than
+        // silently headlining top-overall players from other leagues (the old MVC bug).
+        emptyMsg = curSeason===2027
+          ? `Projected ${confName||'this conference'} rosters aren't loaded yet — most mid-major lineups fill in closer to the season.`
+          : `No ${confName||'conference'} players in the top-grade pool for ${yLbl}.`;
+      }
     } else {
       ps = base.slice(0,6);
+    }
+    if(emptyMsg){
+      document.getElementById('scPlayers').innerHTML=`<div class="sc-empty">${emptyMsg}</div>`;
+      blk.style.display='';
+      return;
     }
     document.getElementById('scPlayers').innerHTML=ps.map(p=>{
       const g=+p.tdc_grade, cls=g>=99?'sc-g99':'';
