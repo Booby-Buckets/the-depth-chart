@@ -1855,6 +1855,16 @@ function renderRows(data, srt, favTeam, favColor, favBg){
   requestAnimationFrame(() => requestAnimationFrame(animateBars));
   // Update hero for current conf
   updateHeroForConf(confFilter, data);
+  // Freeze the Rk/Team columns with an opaque background once the stats scroll
+  // sideways — otherwise the heat-mapped cells slide visibly behind them.
+  wireStickyScroll();
+}
+function wireStickyScroll(){
+  const sc=document.querySelector('.table-scroll'); if(!sc||sc._stickyWired) return;
+  sc._stickyWired=true;
+  const upd=()=>sc.classList.toggle('scrolled', sc.scrollLeft>0);
+  sc.addEventListener('scroll', upd, {passive:true});
+  upd();
 }
 
 (function bootRankings(){
