@@ -173,6 +173,14 @@
     .sgs-bar{height:5px;border-radius:3px;background:rgba(130,150,200,.14);overflow:hidden;}
     .sgs-bar i{display:block;height:100%;border-radius:3px;}
     .sgs-pct{font-size:10.5px;font-weight:700;margin-top:5px;}
+    /* player Heat Index mini-meter */
+    .heat-mini{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-bottom:16px;max-width:520px;}
+    .heat-mini-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;}
+    .heat-mini-lbl{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .heat-mini-track{height:7px;border-radius:5px;background:linear-gradient(90deg,rgba(79,159,224,.25),rgba(130,150,200,.14),rgba(224,145,58,.28));overflow:hidden;}
+    .heat-mini-fill{height:100%;border-radius:5px;opacity:.85;}
+    .heat-mini-scale{display:flex;justify-content:space-between;font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
+    .heat-mini-foot{font-size:11.5px;color:var(--text2);margin-top:8px;line-height:1.45;}
     .sg-link{font-size:11.5px;font-weight:700;color:var(--accent);text-decoration:none;}
     .sg-link:hover{text-decoration:underline;}
     .tab-panel.active{display:block;}
@@ -3116,6 +3124,7 @@ function renderPage(){
       <div style="overflow-x:auto;display:none;" id="sm-body-per40">${renderModeTable('per40')}</div>
       <div style="display:none;" id="sm-body-advanced"><div style="overflow-x:auto;">${renderModeTable('advanced')}</div><div class="sg-adv" id="sgAdvStrip"></div></div>
       <div class="sec-title" style="margin:34px 0 14px;">Game Log</div>
+      <div id="heatIdxHost"></div>
       <div id="sm-body-gamelog"></div>
     </div>
 
@@ -3437,6 +3446,7 @@ function _overallTrackSvg(games, yr){
 async function loadGameLog(){
   const host=document.getElementById('sm-body-gamelog');
   const espn=window._playerEspn;
+  fillHeatIndex();   // scoring-consistency meter above the log
   if(!espn){ host.innerHTML='<div style="padding:30px;color:var(--text3);font-style:italic;">No game log available for this player.</div>'; return; }
   host.innerHTML='<div style="padding:30px;color:var(--text3);">Loading game log…</div>';
   try{
@@ -3800,6 +3810,26 @@ function _sgType(S,C){                     // S,C = percentiles (may be null)
   if(S!=null) return S>=80?'Elite Shot-Maker':S>=60?'Shot-Maker':'Role Scorer';
   if(C!=null) return C>=80?'Elite Creator':C>=60?'Creator':'Secondary Passer';
   return null;
+}
+// ── Player Heat Index: game-to-game scoring consistency (near the game log) ──
+async function fillHeatIndex(){
+  var host=document.getElementById('heatIdxHost'); if(!host) return;
+  if(!window._heatIdx){
+    try{ window._heatIdx=await fetch('data/heat_index_players.json').then(r=>r.ok?r.json():{}); }catch(e){ window._heatIdx={}; }
+  }
+  var espn=window._playerEspn;
+  var h=espn?(window._heatIdx[espn]||window._heatIdx[''+espn]):null;
+  if(!h){ host.innerHTML=''; return; }
+  var p=h.pct;
+  var lbl=p>=82?'Streaky scorer':p>=62?'Somewhat streaky':p>=34?'Fairly steady':'Steady scorer';
+  var col=p>=62?'#e0913a':p<=34?'#4f9fe0':'var(--text2)';
+  var read=p>=62?'Big swings night to night — a boom-or-bust scorer.':p<=34?'A rock — you get the same production every night.':'About average scoring variance.';
+  host.innerHTML='<div class="heat-mini">'
+    +'<div class="heat-mini-top"><span class="heat-mini-lbl">Heat Index</span><span style="font-weight:800;color:'+col+';font-size:13px;">'+p+' · '+lbl+'</span></div>'
+    +'<div class="heat-mini-track"><div class="heat-mini-fill" style="width:'+p+'%;background:'+col+';"></div></div>'
+    +'<div class="heat-mini-scale"><span>Steady</span><span>Streaky</span></div>'
+    +'<div class="heat-mini-foot">'+read+' This season he ranged from <b>'+h.lo+'</b> to <b>'+h.hi+'</b> points ('+h.ppg+' ppg, '+_ord(p)+' nationally).</div>'
+    +'</div>';
 }
 async function ensureSgPlayers(){
   if(window._sgPlayers) return window._sgPlayers;
