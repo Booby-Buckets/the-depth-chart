@@ -4821,6 +4821,12 @@ function _dnaCSS(){ if(document.getElementById('dna-css')) return;
   .sgt-pct{font-size:10.5px;font-weight:700;margin-top:5px;}
   .dna-effr{font-size:11px;font-weight:700;color:var(--tc-readable,var(--accent));margin-top:3px;}
   .dna-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:26px;}
+  /* Heat Index meter */
+  .dna-heat{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:-10px 0 26px;}
+  .dna-heat-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px;}
+  .dna-heat-track{height:8px;border-radius:5px;background:linear-gradient(90deg,rgba(79,159,224,.25),rgba(130,150,200,.14),rgba(224,145,58,.28));overflow:hidden;position:relative;}
+  .dna-heat-fill{height:100%;border-radius:5px;opacity:.85;}
+  .dna-heat-scale{display:flex;justify-content:space-between;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:5px;}
   .dna-chip{font-size:11px;font-weight:700;letter-spacing:.02em;padding:5px 12px;border-radius:20px;background:rgba(var(--tc-rgb,168,132,60),.13);color:var(--tc-readable,var(--text));border:1px solid rgba(var(--tc-rgb,168,132,60),.28);}
   .dna-chip.dim{background:var(--bg3);color:var(--text3);border-color:var(--border);}
   .dna-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:26px;margin-bottom:26px;}
@@ -5059,6 +5065,19 @@ async function renderTeamDNA(){
   if(pct('oTOV',false)>=70) chips.push('<span class="dna-chip">Takes care of the ball</span>');
   if(pct('oeFG')>=80) chips.push('<span class="dna-chip">Efficient shooting</span>');
   if(pct('dDRB')>=75) chips.push('<span class="dna-chip">Locks the defensive glass</span>');
+  // Heat Index — game-to-game consistency (high margin_sd = boom-or-bust)
+  const heatP=pct('margin_sd',true), msd=t.margin_sd;
+  const heatLbl=heatP>=85?'Boom-or-bust':heatP>=66?'Streaky':heatP>=34?'Fairly steady':'Metronome';
+  const heatCol=heatP>=66?'#e0913a':heatP<=34?'#4f9fe0':'var(--text2)';
+  if(heatP>=82) chips.push('<span class="dna-chip">Boom-or-bust</span>');
+  else if(heatP<=18) chips.push('<span class="dna-chip">Metronome</span>');
+  const heatHtml = (msd!=null) ? `
+    <div class="dna-heat">
+      <div class="dna-heat-top"><span class="dna-sec" style="margin:0;border:none;padding:0;">Heat Index</span><span style="font-size:13px;font-weight:700;color:${heatCol};">${heatP} · ${heatLbl}</span></div>
+      <div class="dna-heat-track"><div class="dna-heat-fill" style="width:${heatP}%;background:${heatCol};"></div></div>
+      <div class="dna-heat-scale"><span>Metronome</span><span>Boom-or-bust</span></div>
+      <div class="dna-foot" style="margin-top:8px;">How much their scoring margin swings game to game (±${msd.toFixed(0)} pts, ${ord(heatP)} nationally). ${heatP>=66?'A live upset threat on a hot night — and beatable on a cold one.':heatP<=34?'A metronome — you know what you get every night.':'About average night-to-night variance.'}</div>
+    </div>` : '';
   // four factors bars
   const bar=(lbl,val,p)=> (val==null||isNaN(p))?'':`<div class="dna-row"><div class="dna-rl"><span>${lbl}</span><span>${val} · ${ord(p)}</span></div><div class="dna-bar"><div class="dna-fill" style="width:${p}%"></div></div></div>`;
   const offFF=bar('eFG%',t.oeFG,pct('oeFG'))+bar('Turnover%',t.oTOV,pct('oTOV',false))+bar('Off Reb%',t.oORB,pct('oORB'))+bar('FT rate',t.oFTr,pct('oFTr'));
@@ -5293,6 +5312,7 @@ async function renderTeamDNA(){
     <div class="dna-eff">${effHtml}</div>
     ${ADJ?`<div class="dna-imp-cap" style="text-align:left;margin:-8px 0 4px;">These efficiency numbers are <b>opponent-adjusted</b> (points per 100 possessions vs an average D1 team, corrected for schedule strength) — so a mid-major that feasts on a weak league doesn't rank like a high-major.</div>`:''}
     <div class="dna-chips">${chips.join('')}</div>
+    ${heatHtml}
     ${impactHtml}
     <div class="dna-grid3">
       <div><div class="dna-sec">Offense — four factors</div>${offFF}</div>
