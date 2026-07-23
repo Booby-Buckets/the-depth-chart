@@ -163,6 +163,16 @@
     .sg-pctl{font-size:11px;font-weight:700;}
     .sg-desc{font-size:11.5px;color:var(--text2);margin-top:7px;line-height:1.45;}
     .sg-empty{color:var(--text3);font-size:13px;padding:8px 0 4px;}
+    /* compact Shot Genome strip (Full Stats -> Advanced) */
+    .sg-adv{margin-top:30px;}
+    .sgs-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+    @media(max-width:640px){.sgs-row{grid-template-columns:repeat(2,1fr);}}
+    .sgs-chip{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;}
+    .sgs-lbl{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .sgs-val{font-family:'Share Tech Mono',monospace;font-weight:700;font-size:20px;margin:5px 0 8px;color:var(--text);}
+    .sgs-bar{height:5px;border-radius:3px;background:rgba(130,150,200,.14);overflow:hidden;}
+    .sgs-bar i{display:block;height:100%;border-radius:3px;}
+    .sgs-pct{font-size:10.5px;font-weight:700;margin-top:5px;}
     .sg-link{font-size:11.5px;font-weight:700;color:var(--accent);text-decoration:none;}
     .sg-link:hover{text-decoration:underline;}
     .tab-panel.active{display:block;}
@@ -3104,7 +3114,7 @@ function renderPage(){
       </div>
       <div style="overflow-x:auto;" id="sm-body-pergame">${renderStatTable(p, proj)}</div>
       <div style="overflow-x:auto;display:none;" id="sm-body-per40">${renderModeTable('per40')}</div>
-      <div style="overflow-x:auto;display:none;" id="sm-body-advanced">${renderModeTable('advanced')}</div>
+      <div style="display:none;" id="sm-body-advanced"><div style="overflow-x:auto;">${renderModeTable('advanced')}</div><div class="sg-adv" id="sgAdvStrip"></div></div>
       <div class="sec-title" style="margin:34px 0 14px;">Game Log</div>
       <div id="sm-body-gamelog"></div>
     </div>
@@ -3306,7 +3316,7 @@ function toggleStatColors(on){
   window._statColorsOn=on;
   var a=document.getElementById('sm-body-pergame'); if(a) a.innerHTML=renderStatTable(player, proj);
   var b=document.getElementById('sm-body-per40'); if(b) b.innerHTML=renderModeTable('per40');
-  var c=document.getElementById('sm-body-advanced'); if(c) c.innerHTML=renderModeTable('advanced');
+  var c=document.getElementById('sm-body-advanced'); if(c){ c.innerHTML='<div style="overflow-x:auto;">'+renderModeTable('advanced')+'</div><div class="sg-adv" id="sgAdvStrip"></div>'; fillSgAdvStrip(); }
 }
 const STAT_MODES={
   per40:{src:'_per40',cols:[['MP','mp',_fi],['PTS','pts_per_min',_f1],['TRB','trb_per_min',_f1],['AST','ast_per_min',_f1],
@@ -3334,6 +3344,7 @@ function setStatMode(m){
     const b=document.getElementById('sm-body-'+k), t=document.getElementById('sm-'+k);
     if(b)b.style.display=(k===m)?'':'none'; if(t)t.classList.toggle('active',k===m);
   });
+  if(m==='advanced') fillSgAdvStrip();
 }
 
 // ── GAME LOG: every game, every year (from box_scores) ────────────────────────
@@ -3790,15 +3801,37 @@ function _sgType(S,C){                     // S,C = percentiles (may be null)
   if(C!=null) return C>=80?'Elite Creator':C>=60?'Creator':'Secondary Passer';
   return null;
 }
+async function ensureSgPlayers(){
+  if(window._sgPlayers) return window._sgPlayers;
+  try{ var d=await fetch('scripts/data/shot_genome_players.json').then(r=>r.ok?r.json():null);
+    window._sgPlayers={}; ((d&&d.players)||[]).forEach(function(p){ if(p.espn_id!=null) window._sgPlayers[p.espn_id]=p; });
+  }catch(e){ window._sgPlayers={}; }
+  return window._sgPlayers;
+}
+// Compact strip for the Full Stats -> Advanced tab (short labels, no prose).
+async function fillSgAdvStrip(){
+  var host=document.getElementById('sgAdvStrip'); if(!host) return;
+  var pl=await ensureSgPlayers(); var p=window._playerEspn?pl[window._playerEspn]:null;
+  if(!p || (p.smPct==null && p.crPct==null && p.selfPctl==null)){ host.innerHTML=''; return; }
+  function chip(lbl,val,pct){
+    var bar = pct!=null ? '<div class="sgs-bar"><i style="width:'+pct+'%;background:'+_sgBarColor(pct)+'"></i></div>'
+                          +'<div class="sgs-pct" style="color:'+_sgBarColor(pct)+'">'+_ord(pct)+'</div>' : '<div class="sgs-pct" style="visibility:hidden">–</div>';
+    return '<div class="sgs-chip"><div class="sgs-lbl">'+lbl+'</div><div class="sgs-val">'+val+'</div>'+bar+'</div>';
+  }
+  var chips=[];
+  if(p.smAdj!=null) chips.push(chip('Sh-Make',(p.smAdj>=0?'+':'')+p.smAdj.toFixed(1),p.smPct));
+  if(p.crAdj!=null) chips.push(chip('Create',Math.round(p.crAdj),p.crPct));
+  if(p.lq!=null)    chips.push(chip('LookQ',p.lq.toFixed(1),null));
+  if(p.selfPct!=null) chips.push(chip('Self-Cr',p.selfPct.toFixed(0)+'%',p.selfPctl));
+  host.innerHTML='<div class="sec-title" style="margin:0 0 12px;">Shot Genome <span style="color:var(--text3);font-weight:600;">· 2025-26</span> '
+    +'<a href="shot-genome.html" style="float:right;font-size:10px;font-weight:700;color:var(--accent);text-decoration:none;letter-spacing:.04em;">SHOWCASE →</a></div>'
+    +'<div class="sgs-row">'+chips.join('')+'</div>';
+}
 async function loadShotGenome(){
   var host=document.getElementById('shotGenomeHost'); if(!host) return;
   var espn=window._playerEspn;
-  if(!window._sgPlayers){
-    try{ var d=await fetch('scripts/data/shot_genome_players.json').then(r=>r.ok?r.json():null);
-      window._sgPlayers={}; ((d&&d.players)||[]).forEach(function(p){ if(p.espn_id!=null) window._sgPlayers[p.espn_id]=p; });
-    }catch(e){ window._sgPlayers={}; }
-  }
-  var p=espn?window._sgPlayers[espn]:null;
+  var pl=await ensureSgPlayers();
+  var p=espn?pl[espn]:null;
   if(!p || (p.smPct==null && p.crPct==null)){
     host.innerHTML='<div class="sg-card"><div class="sg-head"><div class="sg-title">Shot Genome <small>2025-26</small></div></div>'
       +'<div class="sg-empty">Not enough tracked 2025-26 shot data for a Shot Genome (needs ~150 shots or ~40 assists). '
