@@ -1069,13 +1069,6 @@
       <div id="customizeContent">
         <div class="loading-state"><div class="loading-spinner"></div><div>Loading lineup builder…</div></div>
       </div>
-      <div class="sec-head" style="margin-top:32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-        <span>Lineup Shot Profile <span class="sec-head-sub">Where your rotation scores from — combined &amp; minutes-weighted</span></span>
-        <button id="lspBtn" onclick="loadLineupShotProfile()" style="font-size:12px;font-weight:700;color:#fff;background:var(--tc,#8B3FE0);border:none;border-radius:9px;padding:8px 14px;cursor:pointer;">↻ Build for current lineup</button>
-      </div>
-      <div id="lineupShotWrap">
-        <div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Build a lineup above, then generate its combined shot chart &amp; shot flow.</div>
-      </div>
       <div class="sec-head" style="margin-top:32px;">Moneyball <span class="sec-head-sub">NIL value vs on-court impact — bargains, spend efficiency &amp; value lineups</span></div>
       <div id="moneyballWrap">
         <div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Loading value model…</div>
@@ -3994,7 +3987,6 @@ function rebuildCustomizeUI(){
     <div class="cz-subpanel" data-sub="analytics">
       <div class="sec-head" style="margin:2px 0 14px;">Team Analytics <span class="sec-head-sub">lineup impact &amp; where this roster is exposed</span></div>
       ${renderImpactPanel()}
-      ${renderWeaknessPanel()}
     </div>
     <div class="cz-subpanel" data-sub="coach">
       <div class="sec-head" style="margin:2px 0 14px;">Coach <span class="sec-head-sub">how this coach's system fits your roster · swap to compare</span></div>
@@ -4363,8 +4355,6 @@ function onMpgChange(playerName, pKey, val){
   requestAnimationFrame(()=>{
     const imp=document.getElementById('impactPanel');
     if(imp){ const ti=document.createElement('div'); ti.innerHTML=renderImpactPanel(); imp.replaceWith(ti.firstElementChild); }
-    const wk=document.getElementById('weakPanel');
-    if(wk){ const tw=document.createElement('div'); tw.innerHTML=renderWeaknessPanel(); wk.replaceWith(tw.firstElementChild); }
     const projTable=document.getElementById('customProjTable');
     if(projTable){ const t4=document.createElement('div'); t4.innerHTML=renderCustomProjectionsTable(); projTable.replaceWith(t4.firstElementChild); }
   });
@@ -4475,6 +4465,18 @@ function calcTeamAdvanced(proj, skipCal){
     ftm*=c.ppg; fta*=c.ppg; or_*=c.oreb; dr*=c.dreb;
     ast*=c.apg; tov*=c.tov; stl*=c.stl; blk*=c.blk;
   }
+  // Degeneracy guard: some projected lines carry points but missing/near-zero
+  // shooting splits. Left alone, the summed shot volume collapses and the
+  // possession-based ratios (Off rtg, TS%, AST%, TOV%) explode into the thousands
+  // (the "10315.2 / 1850%" bug). When the splits are clearly broken relative to
+  // scoring, reconstruct team shot volume from points at typical D1 rates so the
+  // panel stays sane. Only fires on genuinely degenerate input — healthy rosters
+  // clear these thresholds and keep their real numbers.
+  if(pts>0 && (fga < pts*0.4 || fgm < pts*0.2)){
+    fga=pts*0.72; fgm=pts*0.34; tpa=pts*0.26; tpm=pts*0.09; fta=pts*0.24; ftm=pts*0.17;
+    if(!(tov>pts*0.05)) tov=pts*0.16;
+    if(!(or_>pts*0.03)) or_=pts*0.12;
+  }
   const poss=Math.max(1,fga+0.44*fta-or_+tov);
   const r1=v=>Math.round(v*10)/10;
   return {
@@ -4502,8 +4504,6 @@ function ensureNatField(){
     _baseAdvanced=null;   // recompute the baseline on the calibrated scale
     const imp=document.getElementById('impactPanel');
     if(imp){ const t=document.createElement('div'); t.innerHTML=renderImpactPanel(); imp.replaceWith(t.firstElementChild); }
-    const wk=document.getElementById('weakPanel');
-    if(wk){ const tw=document.createElement('div'); tw.innerHTML=renderWeaknessPanel(); wk.replaceWith(tw.firstElementChild); }
   };
   Promise.all([
     fetch(`${SB_URL}/rest/v1/team_seasons?season_year=eq.2026&conference=not.is.null&select=ppg,rpg,apg,spg,bpg,topg,tp_pct,ft_pct&limit=1000`,{headers:H})
@@ -4535,7 +4535,9 @@ function natRank(key,v){
   if(!a||!a.length||!isFinite(v)) return null;
   let lo=0,hi=a.length;
   while(lo<hi){ const m=(lo+hi)>>1; if(a[m]<v) lo=m+1; else hi=m; }
-  return {rank:a.length-lo+1, n:a.length, pct:Math.round(lo/a.length*100)};
+  // rank is 1..n (best..worst); a value below the whole field must read "#n of n",
+  // never "#n+1 of n"
+  return {rank:Math.min(a.length, a.length-lo+1), n:a.length, pct:Math.round(lo/a.length*100)};
 }
 function renderImpactPanel(){
   ensureNatField();
@@ -4789,7 +4791,6 @@ function switchTab(id, btn){
   }
   if(id==='schedule') initSchedule();
   if(id==='nil') renderNil();
-  if(id==='customize' && !window._lspAuto){ window._lspAuto=true; _lspAutoBuild(0); }
   if(id==='customize' && !window._mbAuto){ window._mbAuto=true; renderMoneyball(); }
 }
 
