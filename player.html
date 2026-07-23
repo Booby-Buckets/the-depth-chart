@@ -145,6 +145,26 @@
     .shot-analytics{display:grid;grid-template-columns:1fr;gap:34px;margin:34px auto;max-width:1720px;}
     .sa-col{min-width:0;}
     @media(min-width:1360px){.shot-analytics{grid-template-columns:660px minmax(0,1fr);gap:40px;align-items:start;}}
+    /* ── Shot Genome card ── */
+    .sg-card{max-width:1720px;margin:8px auto 0;background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:20px 22px;}
+    .sg-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
+    .sg-title{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;letter-spacing:-.01em;}
+    .sg-title small{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-left:8px;}
+    .sg-type{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--bg);background:var(--accent);border-radius:6px;padding:4px 10px;}
+    .sg-verdict{font-size:13px;color:var(--text2);line-height:1.5;margin:2px 0 16px;max-width:720px;}
+    .sg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+    @media(max-width:680px){.sg-grid{grid-template-columns:1fr;}}
+    .sg-metric{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px 15px;}
+    .sg-mlbl{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);cursor:help;text-decoration:underline dotted var(--text3);text-underline-offset:2px;}
+    .sg-mval{font-family:'Playfair Display',serif;font-weight:800;font-size:28px;line-height:1;margin:8px 0 3px;}
+    .sg-msub{font-size:11px;color:var(--text3);}
+    .sg-bar{height:6px;border-radius:4px;background:var(--bg3,rgba(130,150,200,.14));overflow:hidden;margin:11px 0 6px;}
+    .sg-bar i{display:block;height:100%;border-radius:4px;}
+    .sg-pctl{font-size:11px;font-weight:700;}
+    .sg-desc{font-size:11.5px;color:var(--text2);margin-top:7px;line-height:1.45;}
+    .sg-empty{color:var(--text3);font-size:13px;padding:8px 0 4px;}
+    .sg-link{font-size:11.5px;font-weight:700;color:var(--accent);text-decoration:none;}
+    .sg-link:hover{text-decoration:underline;}
     .tab-panel.active{display:block;}
     /* Full Stats sub-modes */
     .statmode-row{display:inline-flex;gap:4px;padding:4px;background:var(--bg2);border:1px solid var(--border);border-radius:9px;margin-bottom:16px;}
@@ -3091,6 +3111,7 @@ function renderPage(){
 
     <!-- SHOT CHARTS TAB -->
     <div class="tab-panel" id="panel-shotcharts">
+      <div id="shotGenomeHost"></div>
       <div class="shot-analytics">
         <div class="sa-col">
           <div class="sec-title" style="margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
@@ -3753,6 +3774,76 @@ async function loadShotFlow(season){
     TDC_SHOTFLOW.render(host, rows, {subtitle:(player&&player.name)||'this player', team:team});
   }catch(e){ host.innerHTML=''; }
 }
+// ── SHOT GENOME (2025-26): Look Quality / Shot-Making / Creation for this player ──
+function _sgBarColor(p){ return p>=66?'#3fa66a':p>=33?'#c9962f':'#c75d5d'; }
+function _sgType(S,C){                     // S,C = percentiles (may be null)
+  if(S!=null&&C!=null){
+    if(S>=80&&C>=80) return 'Two-Way Star';
+    if(S>=75&&C<45)  return 'Pure Scorer';
+    if(C>=75&&S<45)  return 'Floor General';
+    if(S>=62&&C>=62) return 'Two-Way Threat';
+    if(S>=70) return 'Shot-Maker';
+    if(C>=70) return 'Creator';
+    return 'Role Player';
+  }
+  if(S!=null) return S>=80?'Elite Shot-Maker':S>=60?'Shot-Maker':'Role Scorer';
+  if(C!=null) return C>=80?'Elite Creator':C>=60?'Creator':'Secondary Passer';
+  return null;
+}
+async function loadShotGenome(){
+  var host=document.getElementById('shotGenomeHost'); if(!host) return;
+  var espn=window._playerEspn;
+  if(!window._sgPlayers){
+    try{ var d=await fetch('scripts/data/shot_genome_players.json').then(r=>r.ok?r.json():null);
+      window._sgPlayers={}; ((d&&d.players)||[]).forEach(function(p){ if(p.espn_id!=null) window._sgPlayers[p.espn_id]=p; });
+    }catch(e){ window._sgPlayers={}; }
+  }
+  var p=espn?window._sgPlayers[espn]:null;
+  if(!p || (p.smPct==null && p.crPct==null)){
+    host.innerHTML='<div class="sg-card"><div class="sg-head"><div class="sg-title">Shot Genome <small>2025-26</small></div></div>'
+      +'<div class="sg-empty">Not enough tracked 2025-26 shot data for a Shot Genome (needs ~150 shots or ~40 assists). '
+      +'<a class="sg-link" href="shot-genome.html">See the league leaders →</a></div></div>';
+    return;
+  }
+  var S=p.smPct, C=p.crPct;
+  var type=_sgType(S,C);
+  // verdict sentence
+  var bits=[];
+  if(S!=null) bits.push(S>=80?'makes shots well above the quality of his looks ('+_ord(S)+' nationally)':S>=55?'finishes at about the level his shot diet predicts':'has finished below the quality of his looks');
+  if(C!=null) bits.push(C>=80?'and sets up elite looks for teammates ('+_ord(C)+')':C>=55?'and is a capable passer ('+_ord(C)+' in creation)':'and creates little for others');
+  var verdict=(player&&player.name?player.name.split(' ').slice(-1)[0]:'He')+' '+bits.join(' ')+'.';
+
+  // tiles
+  function tile(lbl,tip,val,sub,pct,desc){
+    var bar = pct!=null ? '<div class="sg-bar"><i style="width:'+pct+'%;background:'+_sgBarColor(pct)+'"></i></div><div class="sg-pctl" style="color:'+_sgBarColor(pct)+'">'+_ord(pct)+' percentile</div>' : '';
+    return '<div class="sg-metric"><div class="sg-mlbl" title="'+tip.replace(/"/g,'&quot;')+'">'+lbl+'</div>'
+      +'<div class="sg-mval">'+val+'</div><div class="sg-msub">'+sub+'</div>'+bar
+      +(desc?'<div class="sg-desc">'+desc+'</div>':'')+'</div>';
+  }
+  var tiles=[];
+  // Look Quality (no national pctl in the data — show value + his actual eFG)
+  if(p.lq!=null) tiles.push(tile('Look Quality',
+    'The eFG% a league-average shooter would post on this player\'s shot diet — how good his LOOKS are, before he even shoots.',
+    p.lq.toFixed(1)+'%', 'expected eFG on his shot diet', null,
+    (p.efg!=null?('He actually shoots <b>'+p.efg.toFixed(1)+'%</b> — a '+((p.efg-p.lq)>=0?'+':'')+(p.efg-p.lq).toFixed(1)+' gap from shot-making.'):'')));
+  // Shot-Making
+  if(p.smAdj!=null) tiles.push(tile('Shot-Making',
+    'Points added over an average shooter given his shot diet, per 100 shots (competition-adjusted). Pure finishing skill.',
+    (p.smAdj>=0?'+':'')+p.smAdj.toFixed(1), 'pts / 100 shots vs expected', S,
+    'How much better he finishes than the difficulty of his shots would predict.'));
+  // Creation
+  if(p.crAdj!=null) tiles.push(tile('Creation',
+    'Expected points his passing creates for teammates — each assist valued by the quality of the look it sets up (a corner-3 dime beats a long-two).',
+    Math.round(p.crAdj), 'xPts created ('+(p.ast||0)+' assists)', C,
+    'Values his '+(p.ast||0)+' assists by the quality of the shots they created.'));
+
+  host.innerHTML='<div class="sg-card"><div class="sg-head">'
+    +'<div class="sg-title">Shot Genome <small>2025-26</small></div>'
+    +(type?'<span class="sg-type">'+type+'</span>':'')+'</div>'
+    +'<div class="sg-verdict">'+verdict+'</div>'
+    +'<div class="sg-grid">'+tiles.join('')+'</div>'
+    +'<div style="margin-top:14px;"><a class="sg-link" href="shot-genome.html">Compare every player on the Maker vs Creator chart →</a></div></div>';
+}
 function _initShotSeasons(){
   var sel=document.getElementById('scSeasonSel'); if(!sel) return;
   var yrs=[...new Set((careerHistory||[]).map(function(s){return +s.season_year;}).filter(Boolean))].sort(function(a,b){return b-a;});
@@ -4149,7 +4240,7 @@ function switchTab(t){
     });
     if(id==='overview')setTimeout(animateRadar,90);
     if(id==='stats' && !window._gamelogLoaded){ window._gamelogLoaded=true; loadGameLog(); }
-    if(id==='shotcharts' && !window._shotChartLoaded){ window._shotChartLoaded=true; _initShotSeasons(); }
+    if(id==='shotcharts' && !window._shotChartLoaded){ window._shotChartLoaded=true; _initShotSeasons(); loadShotGenome(); }
     if(id==='rankings')setTimeout(renderRankings,40);
     if(id==='nil' && !window._nilLoaded){ window._nilLoaded=true; setTimeout(renderNilPlayer,40); }
     if(id==='buzz' && !window._buzzLoaded){ window._buzzLoaded=true; setTimeout(renderBuzz,40); }
