@@ -71,7 +71,11 @@
     shotluck: "How far this team's returning players shot ABOVE (or below) the quality of " +
              "their looks last season, in eFG points. Shooting over your shot quality is " +
              "only partly repeatable, so the projection regresses a hot number back down " +
-             "(and bumps a cold one up) — a positive value is a regression caution."
+             "(and bumps a cold one up) — a positive value is a regression caution.",
+    continuity: "The share of last season's minutes that return on this year's roster. " +
+             "High-continuity teams tend to over-perform their raw talent (chemistry and " +
+             "system familiarity), so the projection gives them a small bump; heavily " +
+             "rebuilt rosters get a small dock."
   };
   TIP.srs = TIP.power;         // legacy alias
   TIP.netrating = TIP.power;
