@@ -34,7 +34,7 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v14_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v15_'+SEASON, TTL=24*3600*1000;
   // in-season form: once 2026-27 games are played, each team's rating drifts
   // toward how it's ACTUALLY performing vs our own lines. surprise = actual
   // margin - expected margin; form = sum(surprise)/(n + FORM_PRIOR) capped at
@@ -61,6 +61,10 @@
   const SHOT_REGRESS=0.55;  // fraction of shot-making-over-expectation that's transient
   const SHOT_CAP=1.2;       // max BPM shaved/added per player
   const SHOT_MINFGA=120;    // need a real shot sample
+  // Continuity. A high share of returning minutes tends to over-perform raw talent
+  // (chemistry/system familiarity) — a standard early-season signal. Small bounded
+  // nudge on the final rating, centered on a typical returning-minutes share.
+  const CONT_BASE=35, CONT_K=0.03, CONT_CAP=1.5;
   // home court measured from our 20yr game history, controlled for opponent
   // strength (scripts/calibrate_hca.py): a baseline curve by opponent rating
   // (~+3.7 vs decent visitors, larger vs weak ones) + a shrunk per-venue
@@ -150,7 +154,7 @@
   // canonical projected rankings — same stat-derived currency as returners.
   let _ovr=null;
   async function compute(){
-    const [teams, players, bb, ts, hcaData, coachData, sgData]=await Promise.all([
+    const [teams, players, bb, ts, hcaData, coachData, sgData, contData]=await Promise.all([
       fetch(SB+'/rest/v1/teams?select=name,conf,conference,head_coach,coach&limit=500',{headers:H}).then(r=>r.json()),
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,is_injured,hometown&order=id.asc'),
       fetchPaged(SB+'/rest/v1/bbref_seasons?season_year=eq.2026&espn_id=not.is.null&select=espn_id,advanced&order=bbref_id.asc'),
@@ -158,6 +162,7 @@
       fetch('scripts/data/team_hca.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('data/coach-careers.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/shot_genome_players.json').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('data/continuity.json').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
     const hcaOf=(hcaData&&hcaData.teams)||{};
     const confOf={}; (teams||[]).forEach(t=>{ confOf[t.name]=t.conf||t.conference||''; });
@@ -233,9 +238,12 @@
       const full=matchFull(short, tsRows, confOf[short])||short;
       const prior=srsOf[full];
       const cAdj=coachAdjOf[short]||0;
+      const cont=(contData&&contData[short])?contData[short].continuity:null;
+      const contAdj=cont!=null?+Math.max(-CONT_CAP,Math.min(CONT_CAP,CONT_K*(cont-CONT_BASE))).toFixed(2):0;
       const rating=((prior!=null)?(BLEND_ROSTER*rosterRating+(1-BLEND_ROSTER)*(ANCHOR*prior))
-                                 :rosterRating) + cAdj;
+                                 :rosterRating) + cAdj + contAdj;
       rows.push({team:short, full, conf:confOf[short]||'', rating:+rating.toFixed(2), coachAdj:cAdj,
+        contAdj:contAdj, continuity:cont,
         roster:+rosterRating.toFixed(2), prior:prior!=null?+prior.toFixed(1):null, projected:true,
         shotLuck:shotLuck, hcaOff:hcaOf[full]!=null?hcaOf[full]:0});
     });
@@ -260,7 +268,7 @@
     rows.forEach((r,i)=>r.rank=i+1);
     return {season:SEASON, generated:new Date().toISOString(),
       model:{calA:CAL_A,calB:CAL_B,blendRoster:BLEND_ROSTER,anchor:ANCHOR,homeAdv:HOME_ADV,sigma:SIGMA,
-        coachW:COACH_W,coachK:COACH_K,coachCap:COACH_CAP,shotK:SHOT_K,shotRegress:SHOT_REGRESS,shotCap:SHOT_CAP,
+        coachW:COACH_W,coachK:COACH_K,coachCap:COACH_CAP,shotK:SHOT_K,shotRegress:SHOT_REGRESS,shotCap:SHOT_CAP,contBase:CONT_BASE,contK:CONT_K,contCap:CONT_CAP,
         hcaBase:hcaData?{base:hcaData.base,capMin:hcaData.capMin}:null},
       teams:rows};
   }
