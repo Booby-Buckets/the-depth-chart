@@ -546,7 +546,7 @@
 
   .table-header {
     display: grid;
-    grid-template-columns: 48px minmax(200px,1fr) 140px 16px 56px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
+    grid-template-columns: 48px minmax(200px,1fr) 140px 16px 56px 54px 54px 60px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
     gap: 0;
     padding: 10px 0;
     border-bottom: 2px solid var(--border2);
@@ -607,7 +607,7 @@
   /* ---- Team rows ---- */
   .team-row {
     display: grid;
-    grid-template-columns: 48px minmax(200px,1fr) 140px 16px 56px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
+    grid-template-columns: 48px minmax(200px,1fr) 140px 16px 56px 54px 54px 60px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
     gap: 0;
     padding: 14px 0;
     border-bottom: 1px solid var(--border);
@@ -808,7 +808,7 @@
   }
   .skeleton-row {
     display: grid;
-    grid-template-columns: 48px minmax(200px,1fr) 140px 16px 56px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
+    grid-template-columns: 48px minmax(200px,1fr) 140px 16px 56px 54px 54px 60px 58px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
     gap: 0;
     padding: 14px 0;
     border-bottom: 1px solid var(--border);
@@ -1109,7 +1109,7 @@
 </style>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
-  <link rel="stylesheet" href="tdc-dense.css?v=11"/>
+  <link rel="stylesheet" href="tdc-dense.css?v=12"/>
 </head>
 <body data-anim-auto>
 <div class="tdc-bg" aria-hidden="true">
@@ -1255,6 +1255,9 @@
     <div class="th sortable" data-sort="srs" title="Power Rating — how many points better than an average Division I team this team is, on a neutral court and adjusted for who they played. A +18 team would beat an average team by about 18. The gap between two teams' Power Ratings is the projected point spread." style="text-decoration:underline dotted;text-underline-offset:3px;">Power Rating<span class="th-arrow"></span></div>
     <div class="th"></div>
     <div class="th center sortable" data-sort="shotluck" title="Shot Luck (2026-27) — how far this team's returning players shot ABOVE (or below) the quality of their looks last season, in eFG points. Over-shooting your looks is only partly repeatable, so the projection regresses a hot number down (a positive value is a regression caution) and bumps a cold one up." style="text-decoration:underline dotted;text-underline-offset:3px;">Luck<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-sort="sglq" title="Look Quality (2025-26) — the eFG% a league-average shooter would post on this team's shot diet. How good the LOOKS this team generates are, independent of whether they made them." style="text-decoration:underline dotted;text-underline-offset:3px;">LookQ<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-sort="sgsm" title="Shot-Making (2025-26) — points this team added over an average shooter given its shot diet, per 100 shots, adjusted for competition. Pure finishing skill." style="text-decoration:underline dotted;text-underline-offset:3px;">Make<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-sort="sgcr" title="Creation (2025-26) — expected points this team's passing generates per game, each assist valued by the quality of the look it created. A corner-3 dime beats a long-two dime." style="text-decoration:underline dotted;text-underline-offset:3px;">Create<span class="th-arrow"></span></div>
     <div class="th center sortable" data-sort="wins">W-L<span class="th-arrow"></span></div>
     <div class="th center sortable" data-sort="winpct">Win%<span class="th-arrow"></span></div>
     <div class="th center sortable" data-sort="ppg">PPG<span class="th-arrow"></span></div>
@@ -1553,11 +1556,14 @@ async function loadProjectedSeason(){
   const banner=document.getElementById('projBanner'); if(banner) banner.style.display='flex';
   try {
     const colors = await ensureColors();
-    const [D, projRows] = await Promise.all([
+    const [D, projRows, sgTeams] = await Promise.all([
       TDC_RATINGS.get(),
       fetch(`${SB_URL}/rest/v1/team_projections?select=*`, { headers: HEADERS })
         .then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch('scripts/data/shot_genome_teams.json').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
+    // Shot Genome team numbers (2025-26): Look Quality / Shot-Making / Creation, by full name
+    const sgBy={}; ((sgTeams&&sgTeams.teams)||[]).forEach(t=>{ sgBy[(t.team||'').toLowerCase().trim()]=t; });
     const projBy={}; (projRows||[]).forEach(p=>{ projBy[(p.team||'').toLowerCase().trim()]=p; });
     window._teamProjByName = projBy;
     const CODE_FIX={'BIG-12':'B12','Big-East':'BE','BIG-EAST':'BE'};
@@ -1579,6 +1585,9 @@ async function loadProjectedSeason(){
         srs:+r.rating.toFixed(1), tier:null, rk:r.rank,
         projected:r.projected, allPlay:r.allPlay,
         shotluck:(r.shotLuck!=null?r.shotLuck:null),   // returners' shot-making luck (2026-27 only)
+        ...(function(){ const sg=sgBy[(r.full||'').toLowerCase().trim()];
+          return sg?{ sglq:(sg.off?sg.off.lq:null), sgsm:(sg.off?sg.off.smAdj:null), sgcr:(sg.crAdjPg!=null?sg.crAdjPg:null) }
+                  :{ sglq:null, sgsm:null, sgcr:null }; })(),
       };
     });
     window._useSrs = true;
@@ -1765,8 +1774,9 @@ function applyFilters(animated){
   });
 
   data.sort((a,b)=>{
-    // teams with no shot-luck value (carryover / non-2027) always sink, either direction
-    if(srt==='shotluck'){ const an=a.shotluck==null, bn=b.shotluck==null; if(an!==bn) return an?1:-1; }
+    // teams with no shot-data value (carryover / non-2027) always sink, either direction
+    if(srt==='shotluck'||srt==='sglq'||srt==='sgsm'||srt==='sgcr'){
+      const an=a[srt]==null, bn=b[srt]==null; if(an!==bn) return an?1:-1; }
     return (statVal(a,srt)-statVal(b,srt))*curSortDir || ((b.srs??b.margin)-(a.srs??a.margin));
   });
 
@@ -1817,6 +1827,9 @@ function renderRows(data, srt, favTeam, favColor, favBg){
       </div>
       <div class="tr-spacer"></div>
       <div class="tr-stat">${t.shotluck!=null?`<b style="color:${t.shotluck>0?'#c78a2f':'#3fa66a'}">${t.shotluck>0?'+':''}${t.shotluck}</b>`:'<b>—</b>'}<span>Luck</span></div>
+      <div class="tr-stat"><b>${t.sglq!=null?t.sglq.toFixed(1):'—'}</b><span>LookQ</span></div>
+      <div class="tr-stat">${t.sgsm!=null?`<b style="color:${t.sgsm>0?'#3fa66a':'#c75d5d'}">${t.sgsm>0?'+':''}${t.sgsm.toFixed(1)}</b>`:'<b>—</b>'}<span>Make</span></div>
+      <div class="tr-stat"><b>${t.sgcr!=null?t.sgcr.toFixed(1):'—'}</b><span>Create</span></div>
       <div class="tr-stat"><b>${t.gp?`${t.wins}–${t.losses}`:'—'}</b><span>W-L</span></div>
       <div class="tr-stat"><b>${Math.round(t.winpct*100)}%</b><span>${t.gp?'Win':'A-Play'}</span></div>
       <div class="tr-stat"><b>${t.ppg?t.ppg.toFixed(1):'—'}</b><span>PPG</span></div>
