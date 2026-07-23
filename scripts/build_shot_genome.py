@@ -35,6 +35,7 @@ SEASON = int(sys.argv[1]) if len(sys.argv) > 1 else 2026
 # player-level noise floors
 MIN_FGA = 150   # SM+ needs a real shot sample
 MIN_AST = 40    # CR needs a real passing sample
+MIN_MAKES = 60  # Self-Creation needs a real sample of made shots
 
 
 def get(path, tries=5):
@@ -220,11 +221,33 @@ def main():
         p["crAdj"] = round(c["xpts"] * tf, 1)
         players[eid] = p
 
+    # ── Self-Creation: of a player's MADE field goals, what share were UNASSISTED
+    #    (ESPN logs an assister only on makes, so an unassisted make = no ast_id).
+    #    High = a self-creating engine; low = a catch-and-shoot beneficiary. ──
+    for eid, shots in pshots.items():
+        makes = [s for s in shots if s.get("made")]
+        if len(makes) < MIN_MAKES: continue
+        unassisted = sum(1 for s in makes if not s.get("ast_id"))
+        p = players.get(eid)
+        if p is None:
+            p = {"espn_id": eid, "name": name_of.get(eid, "Unknown"),
+                 "team_id": pteam.get(eid), "team": (teams.get(pteam.get(eid)) or {}).get("team")}
+            players[eid] = p
+        p["makes"] = len(makes)
+        p["selfPct"] = round(100 * unassisted / len(makes), 1)
+    # team self-creation = team's unassisted-make share (ball-movement vs iso identity)
+    for tid, r in trows.items():
+        makes = [s for s in by_team.get(tid, []) if s.get("made")]
+        if makes:
+            r["selfPct"] = round(100 * sum(1 for s in makes if not s.get("ast_id")) / len(makes), 1)
+
     smf = pctl([p["smAdj"] for p in players.values() if "smAdj" in p])
     crf2 = pctl([p["crAdj"] for p in players.values() if "crAdj" in p])
+    scf = pctl([p["selfPct"] for p in players.values() if "selfPct" in p])
     for p in players.values():
         if "smAdj" in p: p["smPct"] = smf(p["smAdj"])
         if "crAdj" in p: p["crPct"] = crf2(p["crAdj"])
+        if "selfPct" in p: p["selfPctl"] = scf(p["selfPct"])
 
     os.makedirs(D, exist_ok=True)
     meta = {"season": SEASON, "n_shots": len(ALL), "n_teams": len(trows),
@@ -251,6 +274,7 @@ def main():
     pl = list(players.values())
     top([p for p in pl if "smAdj" in p], "smAdj", "PLAYER Shot-Making (adj SM+ /100)")
     top([p for p in pl if "crAdj" in p], "crAdj", "PLAYER Creation (adj xPts created)", fmt="%.1f")
+    top([p for p in pl if "selfPct" in p], "selfPct", "PLAYER Self-Creation (% of makes unassisted)", fmt="%.0f%%")
 
 
 if __name__ == "__main__":
