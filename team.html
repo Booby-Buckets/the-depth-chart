@@ -5021,6 +5021,9 @@ async function renderTeamDNA(){
       window._sgTeams={}; ((sgd&&sgd.teams)||[]).forEach(x=>{ window._sgTeams[x.team]=x; });
     }catch(e){ window._sgTeams={}; }
   }
+  if(window._passNet===undefined){   // Passing Network (2025-26), keyed by full team name
+    try{ window._passNet=await fetch('data/passing_network.json').then(r=>r.ok?r.json():{}); }catch(e){ window._passNet={}; }
+  }
   const DNA=window._teamDNA;
   if(!DNA){ host.innerHTML='<div style="padding:24px;color:var(--text3);">Team DNA data unavailable.</div>'; return; }
   const seasons=Object.keys(DNA).sort((a,b)=>b-a);
@@ -5209,6 +5212,43 @@ async function renderTeamDNA(){
         ${card('Contest', suppress!=null?((suppress>=0?'+':'')+suppress.toFixed(1)):'—', dpc.smAdj, 'How far opponents shoot BELOW what their looks predict, per 100 shots. High = the defense contests good looks into misses.')}
       </div>`;
   }
+  // ── Passing Network (2025-26): who-feeds-whom graph + Connectivity ──
+  let pnHtml='';
+  const pn=((+season===2026 || +season>=2027) && window._passNet)?window._passNet[key]:null;
+  if(pn && pn.nodes && pn.nodes.length>=3){
+    const nodes=pn.nodes, N=nodes.length, idx={}; nodes.forEach((n,i)=>idx[n.espn]=i);
+    const W=560,Hs=430,cx=280,cy=200,R=142;
+    const ang=i=>-Math.PI/2 + 2*Math.PI*i/N;
+    const px=i=>cx+R*Math.cos(ang(i)), py=i=>cy+R*Math.sin(ang(i));
+    const maxInv=Math.max(...nodes.map(n=>n.cr+n.rc))||1, maxN=Math.max(...pn.edges.map(e=>e.n))||1;
+    const last=s=>((s||'').split(' ').slice(-1)[0]||s||'');
+    const acc=teamColor_g||'#5ab875';
+    let svg=`<svg viewBox="0 0 ${W} ${Hs}" width="100%" style="max-width:600px;display:block;margin:0 auto;">`;
+    // edges first (behind nodes)
+    pn.edges.forEach(e=>{ const a=idx[e.f], b=idx[e.t]; if(a==null||b==null||a===b) return;
+      const x1=px(a),y1=py(a),x2=px(b),y2=py(b);
+      const mx=(x1+x2)/2, my=(y1+y2)/2, qx=cx+(mx-cx)*0.35, qy=cy+(my-cy)*0.35;  // curve toward center
+      const w=(0.8+3.4*e.n/maxN).toFixed(1), op=(0.14+0.5*e.n/maxN).toFixed(2);
+      svg+=`<path d="M${x1.toFixed(1)} ${y1.toFixed(1)} Q${qx.toFixed(1)} ${qy.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}" fill="none" stroke="${acc}" stroke-width="${w}" stroke-opacity="${op}" stroke-linecap="round"/>`;
+    });
+    // nodes
+    nodes.forEach((n,i)=>{ const x=px(i),y=py(i), r=(6+9*(n.cr+n.rc)/maxInv).toFixed(1);
+      const creatorHeavy=n.cr>=n.rc;
+      svg+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${creatorHeavy?acc:'var(--bg3,#28282c)'}" stroke="${acc}" stroke-width="1.4" fill-opacity="${creatorHeavy?0.9:0.35}"/>`;
+      const lx=cx+(R+22)*Math.cos(ang(i)), ly=cy+(R+22)*Math.sin(ang(i));
+      const anchor=Math.cos(ang(i))>0.25?'start':Math.cos(ang(i))<-0.25?'end':'middle';
+      svg+=`<text x="${lx.toFixed(1)}" y="${(ly+3).toFixed(1)}" text-anchor="${anchor}" font-size="11" font-weight="700" fill="var(--text2)">${last(n.name)}</text>`;
+    });
+    svg+=`</svg>`;
+    const connLbl=pn.connectivity>=88?'Egalitarian — creation spread across the roster':pn.connectivity>=78?'Balanced ball movement':pn.connectivity>=70?'Lead-guard driven':'Star-hub — one player sets up most looks';
+    const hub=nodes.slice().sort((a,b)=>b.cr-a.cr)[0];
+    pnHtml=`
+      <div class="dna-sec" style="margin-top:26px;">Passing Network <span style="color:var(--text3);font-weight:600;">· 2025-26</span></div>
+      <div class="dna-imp-cap" style="text-align:left;margin:-6px 0 6px;"><b>Connectivity ${pn.connectivity}</b> (${ord(pn.connPct)} pctile) — ${connLbl}. ${pn.assistedPct}% of makes assisted${hub?`; top creator <b>${last(hub.name)}</b> (${hub.cr} assists)`:''}.</div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 8px;">${svg}
+        <div style="text-align:center;font-size:10.5px;color:var(--text3);margin-top:2px;">Lines = passing lanes (thicker = more assists). Filled dots create more than they receive; hollow dots finish more than they create.</div>
+      </div>`;
+  }
   const bottomHtml = PROJ ? `
     <div class="dna-grid" style="grid-template-columns:1fr;">
       <div>
@@ -5260,6 +5300,7 @@ async function renderTeamDNA(){
       <div><div class="dna-sec">Strength Radar</div><div style="display:flex;justify-content:center;">${radar}</div></div>
     </div>
     ${sgHtml}
+    ${pnHtml}
     ${trendHtml?`<div style="margin-top:26px;">${trendHtml}</div>`:''}
     ${styleHtml?`<div style="margin-top:26px;">${styleHtml}</div>`:''}
     ${bottomHtml}
