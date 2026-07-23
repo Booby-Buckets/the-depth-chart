@@ -1580,8 +1580,10 @@ function heroGradesProjectedHTML(t){
 function renderHeroGrades(t){
   const host=document.getElementById('heroGrades'); if(!host) return;
   const yr=(typeof _rosterSeason!=='undefined'&&_rosterSeason)||2027;
-  if(yr>=2027){ host.classList.remove('hist-hidden'); host.innerHTML=heroGradesProjectedHTML(t); }
-  // past-season tiles are written by renderHeroBar once its data resolves
+  // Overall/Power/Offense/Defense tiles are computed async by renderHeroBar for
+  // every season (projected included) — just keep the row visible here.
+  if(yr>=2027) host.classList.remove('hist-hidden');
+  // tiles are written by renderHeroBar once its data resolves
 }
 
 // ── Hybrid hero bar: inline NET / Rank / Seed metrics + slim stat ribbon ──
@@ -1591,6 +1593,62 @@ const _heroBarCache={};
 function _fmtNet(v){ if(v==null||isNaN(v)) return {s:'—',cls:''}; const n=Math.round(parseFloat(v)*10)/10; return {s:(n>0?'+':'')+n.toFixed(1),cls:n>=0?'pos':'neg'}; }
 function _pctLetter(p){ // p in 0..1, higher = better
   return p>=.97?'A+':p>=.90?'A':p>=.82?'A-':p>=.72?'B+':p>=.60?'B':p>=.45?'B-':p>=.30?'C+':p>=.18?'C':p>=.08?'C-':'D';
+}
+// Projected (2026-27) hero grades — Overall / Power / Offense / Defense, so the
+// header reads the same on every season. Power/Overall come from the projected
+// Power Rating percentile; Offense from projected PPG; Defense is IMPLIED (the
+// projection models overall + offense directly, so defense = overall minus offense).
+async function _projGradeTiles(rr){
+  if(!rr||!window.TDC_RATINGS) return null;
+  try{
+    const D=await TDC_RATINGS.get(); if(!D||!D.teams) return null;
+    const pctIn=(arr,v)=>{ if(v==null||!isFinite(v)||!arr.length) return null; let b=0; for(const x of arr) if(x<v) b++; return b/arr.length; };
+    const ratings=D.teams.map(x=>+x.rating).filter(isFinite);
+    const pPow=pctIn(ratings,+rr.rating);
+    // projected OFFENSIVE EFFICIENCY field (points per 100 possessions) — pace-neutral,
+    // so it's a fair Offense grade AND lives on the same scale as the net rating.
+    // poss ≈ (FGA − OREB + TOV)/0.92 (the /0.92 folds in the ~8% of possessions that
+    // end at the FT line, without needing an FTA column). Cached.
+    if(window._projOff===undefined){
+      window._projOff=null;
+      try{ const rows=await fetch(`${SB_URL}/rest/v1/team_projections?select=team,ppg,fga,oreb,tov`,{headers:H}).then(r=>r.ok?r.json():[]);
+        const by={}; rows.forEach(r=>{ const ppg=+r.ppg, poss=((+r.fga||0)-(+r.oreb||0)+(+r.tov||0))/0.92;
+          if(isFinite(ppg)&&poss>20) by[(r.team||'').toLowerCase().trim()]=ppg/poss*100; });
+        window._projOff={by,arr:Object.values(by).filter(isFinite)};
+      }catch(e){ window._projOff=null; }
+    }
+    let pOff=null,pDef=null; const PP=window._projOff;
+    if(PP&&PP.arr.length){
+      const nm=(rr.team||'').toLowerCase().trim(), fn=(rr.full||'').toLowerCase().trim();
+      const shortK=window.tdcShortSchool?tdcShortSchool(rr.full||rr.team||'').toLowerCase().trim():null;
+      const myOff=PP.by[nm]??PP.by[fn]??(shortK?PP.by[shortK]:undefined);
+      pOff=pctIn(PP.arr,myOff);
+      // implied defense = overall MINUS offense. Standardize both to z-scores first
+      // (rating and offensive efficiency have different spreads): def_z = rating_z −
+      // offense_z, then take its empirical percentile across the field.
+      const mean=a=>a.reduce((s,x)=>s+x,0)/a.length, sd=(a,m)=>Math.sqrt(a.reduce((s,x)=>s+(x-m)*(x-m),0)/a.length)||1;
+      const mR=mean(ratings), sdR=sd(ratings,mR), mP=mean(PP.arr), sdP=sd(PP.arr,mP);
+      const rateBy={}; D.teams.forEach(x=>{ if(x.rating!=null){ rateBy[(x.team||'').toLowerCase().trim()]=+x.rating; if(x.full) rateBy[(x.full||'').toLowerCase().trim()]=+x.rating; } });
+      const defArr=[]; let myDef=null;
+      Object.keys(PP.by).forEach(k=>{ const r=rateBy[k]; if(r==null) return; const d=((r-mR)/sdR)-((PP.by[k]-mP)/sdP); defArr.push(d); if(k===nm||k===fn) myDef=d; });
+      if(myDef==null&&myOff!=null&&rr.rating!=null) myDef=((+rr.rating-mR)/sdR)-((myOff-mP)/sdP);
+      const pResid=pctIn(defArr,myDef);
+      // The pure residual (overall − offense) overshoots for offense-dominant teams
+      // (an elite team reads as a bottom-tier defense). With no direct defensive
+      // projection, shrink it halfway toward the team's overall level — a team this
+      // strong isn't actually a terrible defense, just offense-tilted.
+      pDef=(pResid!=null&&pPow!=null)?(0.5*pPow+0.5*pResid):(pResid!=null?pResid:pPow);
+    }
+    const tile=(lbl,p,tip)=>{ if(p==null) return ''; const g=_pctLetter(p); const tt=(tip||'').replace(/"/g,'&quot;');
+      return `<div class="hero-grade${tt?' has-tip':''}"${tt?` title="${tt}"`:''}><div class="hero-grade-val ${gc(g)}">${g}</div><div class="hero-grade-label">${lbl}</div></div>`; };
+    const html=[
+      tile('Overall',pPow,'Projected overall quality — where this roster\'s projected Power Rating ranks among all Division I teams.'),
+      tile('Power',pPow,'Projected Power Rating percentile — points better than an average D1 team, from the roster.'),
+      tile('Offense',pOff,'Projected offense — where the roster\'s projected scoring efficiency (points per possession, pace-adjusted) ranks nationally.'),
+      tile('Defense',pDef,'Projected defense is IMPLIED — there\'s no direct defensive projection, so it\'s estimated from overall strength minus offense (a team that outrates its offense is carrying it on defense), shrunk toward the overall grade. A rougher estimate than the offense grade.'),
+    ].join('');
+    return html||null;
+  }catch(e){ return null; }
 }
 function _seedFromRank(rank){ return Math.max(1,Math.min(16,Math.ceil(rank/4))); }
 async function _ratingsRow(t){
@@ -1651,7 +1709,12 @@ async function renderHeroBar(yr, teamObj){
         ? {v:Math.round(rr.continuity)+'%', l:'Continuity', tip:'continuity',
            col:rr.continuity>=50?'var(--mint)':rr.continuity<=20?'var(--amber)':''} : null,
     ]);
-    if(gEl){ gEl.classList.remove('hist-hidden'); gEl.innerHTML=heroGradesProjectedHTML(t); syncCoachGrade(); }
+    if(gEl){
+      const gh=await _projGradeTiles(rr);
+      if(stale()||_rosterSeason<2027) return;
+      gEl.classList.remove('hist-hidden');
+      gEl.innerHTML = gh || heroGradesProjectedHTML(t);   // fall back to Coach/Depth tiles if projected grades can't be built
+    }
     return;
   }
   // ── Past season ──
