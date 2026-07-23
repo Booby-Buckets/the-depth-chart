@@ -359,13 +359,25 @@
   function shortConf(c){ return CABBR[c]||c; }
   function card(head,sub,body){ return '<div class="rl-card"><div class="rl-h">'+head+' <span>'+sub+'</span></div>'+body+'</div>'; }
   function kk(l,v){ return '<div class="rl-k"><div class="rl-kl">'+l+'</div><div class="rl-kv">'+v+'</div></div>'; }
+  // Some teams carry a mascot in their short name ("Saint Louis Billikens") while
+  // most don't ("Duke"). Trim the mascot back to the school, but ONLY when a
+  // shorter prefix maps to the SAME team (identical logo) — so "Michigan State"
+  // is left intact (its "Michigan" prefix is a different team).
+  function shortSchool(name){
+    var M=window.TDC_TEAM_COLORS; if(!M||!name) return name||'';
+    var norm=function(s){ return s.toLowerCase().replace(/&/g,' ').replace(/[^\w\s]/g,'').replace(/\s+/g,' ').trim(); };
+    var full=(''+name).trim(), rec=M[norm(full)]; if(!rec) return full;
+    var w=full.split(/\s+/);
+    for(var n=w.length-1;n>=1;n--){ var cand=w.slice(0,n).join(' '), r2=M[norm(cand)]; if(r2 && r2.logo===rec.logo) return cand; }
+    return full;
+  }
   function confBars(pairs){ var mx=Math.max.apply(null,pairs.map(function(x){return x.avg;}))||1;
     return pairs.map(function(x){ return '<div class="rl-conf"><span class="rl-cl">'+shortConf(x.c)+'</span><span class="rl-bar"><i style="width:'+Math.max(6,x.avg/mx*100)+'%"></i></span><span class="rl-mono">'+x.avg.toFixed(1)+'</span></div>'; }).join(''); }
-  function moverRows(movers){ return movers.length?movers.map(function(m){ var up=m.delta>0; return '<div class="rl-row"><span>'+m.team+'</span><span class="rl-badge '+(up?'up':'dn')+'">'+(up?'▲ +':'▼ ')+m.delta+'</span></div>'; }).join(''):'<div class="rl-empty">—</div>'; }
+  function moverRows(movers){ return movers.length?movers.map(function(m){ var up=m.delta>0; return '<div class="rl-row"><span>'+shortSchool(m.team)+'</span><span class="rl-badge '+(up?'up':'dn')+'">'+(up?'▲ +':'▼ ')+m.delta+'</span></div>'; }).join(''):'<div class="rl-empty">—</div>'; }
   // generic "team  →  value" leaderboard rows
-  function leaderRows(arr, fmt){ return arr.length?arr.map(function(x){ return '<div class="rl-row"><span>'+x.team+'</span><span class="rl-mono acc">'+fmt(x.v)+'</span></div>'; }).join(''):'<div class="rl-empty">—</div>'; }
+  function leaderRows(arr, fmt){ return arr.length?arr.map(function(x){ return '<div class="rl-row"><span>'+shortSchool(x.team)+'</span><span class="rl-mono acc">'+fmt(x.v)+'</span></div>'; }).join(''):'<div class="rl-empty">—</div>'; }
   // sleepers show the ranking they're beating, as a muted "#NN"
-  function sleeperRows(arr){ return arr.length?arr.map(function(x){ return '<div class="rl-row"><span>'+x.team+'</span><span class="rl-mono">#'+x.v+'</span></div>'; }).join(''):'<div class="rl-empty">—</div>'; }
+  function sleeperRows(arr){ return arr.length?arr.map(function(x){ return '<div class="rl-row"><span>'+shortSchool(x.team)+'</span><span class="rl-mono">#'+x.v+'</span></div>'; }).join(''):'<div class="rl-empty">—</div>'; }
   var _p1=function(v){ return (v>=0?'+':'')+v.toFixed(1); }, _f1=function(v){ return v.toFixed(1); };
   function railToggle(){ return '<button type="button" class="rl-collapse" onclick="window.__tdcRail&&window.__tdcRail(true)" title="Slide the panels off screen">Hide panels ⟩</button>'; }
 
