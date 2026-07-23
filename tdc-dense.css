@@ -85,10 +85,23 @@ html{ background:#0A0E18 !important; }
 ============================================================ */
 @media(min-width:1200px){
   .table-section{ display:flex !important; gap:14px; align-items:flex-start; }
-  .table-scroll{ flex:1 1 auto; min-width:0; }
-  .tdc-rail{ flex:0 0 268px; position:sticky; top:78px; display:flex; flex-direction:column; gap:12px; }
+  .table-scroll{ flex:1 1 auto; min-width:0; transition:flex-basis .28s ease; }
+  .tdc-rail{ flex:0 0 268px; position:sticky; top:78px; display:flex; flex-direction:column; gap:12px;
+    transition:flex-basis .28s ease, opacity .22s ease, transform .28s ease; }
+  .tdc-rail.collapsed{ flex-basis:0 !important; width:0; min-width:0; padding:0; margin:0; border:0;
+    gap:0; opacity:0; transform:translateX(24px); overflow:hidden; pointer-events:none; }
 }
-@media(max-width:1199px){ .tdc-rail{ display:none; } }
+@media(max-width:1199px){ .tdc-rail, .rail-reopen{ display:none !important; } }
+/* slide-off toggle */
+.rl-collapse{ align-self:flex-end; font:600 11px/1 'Sora',sans-serif; letter-spacing:.03em; color:var(--text3);
+  background:rgba(16,21,34,.6); border:1px solid var(--border); border-radius:8px; padding:6px 10px; cursor:pointer;
+  transition:color .15s, border-color .15s; }
+.rl-collapse:hover{ color:var(--accent); border-color:var(--accent); }
+.rail-reopen{ position:fixed; right:0; top:96px; z-index:60; display:none; align-items:center; gap:5px;
+  font:700 11px/1 'Sora',sans-serif; letter-spacing:.04em; color:var(--accent); background:rgba(16,21,34,.94);
+  border:1px solid var(--border); border-right:0; border-radius:10px 0 0 10px; padding:11px 12px; cursor:pointer;
+  box-shadow:-4px 0 16px rgba(0,0,0,.32); transition:background .15s, color .15s; }
+.rail-reopen:hover{ background:var(--accent); color:var(--bg); }
 .rl-card{ background:rgba(16,21,34,.6); border:1px solid var(--border); border-radius:14px; padding:13px 15px; }
 .rl-h{ font-family:'Sora',sans-serif; font-weight:700; font-size:13px; display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
 .rl-h span{ font-size:10px; color:var(--text3); font-weight:600; }
