@@ -1109,7 +1109,7 @@
 </style>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
-  <link rel="stylesheet" href="tdc-dense.css?v=13"/>
+  <link rel="stylesheet" href="tdc-dense.css?v=14"/>
 </head>
 <body data-anim-auto>
 <div class="tdc-bg" aria-hidden="true">
@@ -1528,12 +1528,16 @@ function schoolConf(school){
   const s=(school||'').toLowerCase().trim(); if(!s) return null;
   if(!_schoolConfCache) _schoolConfCache={};
   if(s in _schoolConfCache) return _schoolConfCache[s];
-  let best=null;
+  // Prefer an EXACT match on the full or short name before any prefix match —
+  // otherwise "Illinois" prefix-matches BOTH "Illinois Fighting Illini" (B10) and
+  // "Illinois State Redbirds" (MVC), and shortest-wins picked the wrong one.
+  let exact=null, prefix=null;
   allTeams.forEach(t=>{
-    const n=(t.name||'').toLowerCase();
-    if((n===s || n.startsWith(s+' ')) && (!best || n.length<best.len)) best={conf:t.conf,len:n.length};
+    const n=(t.name||'').toLowerCase(), sh=(t.short||'').toLowerCase();
+    if(n===s || sh===s){ if(!exact) exact=t.conf; }
+    else if(n.startsWith(s+' ') && (!prefix || n.length<prefix.len)) prefix={conf:t.conf,len:n.length};
   });
-  return (_schoolConfCache[s] = best?best.conf:null);
+  return (_schoolConfCache[s] = exact || (prefix?prefix.conf:null));
 }
 function seasonLabel(yr){ return `${yr-1}–${(''+yr).slice(2)}`; }
 async function ensureColors(){
