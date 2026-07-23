@@ -65,7 +65,13 @@
     gradeoff: "A letter grade for the offense, based on how its points-per-game ranked " +
              "among all Division I teams that season.",
     gradedef: "A letter grade for the defense, based on how few points it allowed relative " +
-             "to the rest of Division I that season."
+             "to the rest of Division I that season.",
+
+    // ── projection: shot-luck de-luck ──
+    shotluck: "How far this team's returning players shot ABOVE (or below) the quality of " +
+             "their looks last season, in eFG points. Shooting over your shot quality is " +
+             "only partly repeatable, so the projection regresses a hot number back down " +
+             "(and bumps a cold one up) — a positive value is a regression caution."
   };
   TIP.srs = TIP.power;         // legacy alias
   TIP.netrating = TIP.power;
