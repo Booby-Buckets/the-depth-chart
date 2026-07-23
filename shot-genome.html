@@ -9,7 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--mint:#1a8c3a;--red:#cc2200;--blue:#1a5fbf;}
-    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--mint:#5ab875;--red:#e26d5c;--blue:#74aedd;}
+    /* match the index (tdc-dense.css) dark theme: navy field + mint accent */
+    [data-theme="dark"]{--bg:#090C14;--bg2:#0E1320;--bg3:#141B2C;--border:#1b2437;--border2:#2a3550;--text:#EAF0FA;--text2:#9AA6C0;--text3:#66738E;--accent:#2DE0A6;--mint:#2DE0A6;--red:#e26d5c;--blue:#74aedd;}
     *{margin:0;padding:0;box-sizing:border-box;}
     body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;}
     a{color:inherit;}
@@ -206,15 +207,20 @@ function drawQuad(pts, xlab, ylab){
   s+='<text x="16" y="'+(pt+ih/2)+'" fill="'+txt3+'" font-size="12" font-weight="700" text-anchor="middle" transform="rotate(-90 16 '+(pt+ih/2)+')">'+ylab+'</text>';
   s+='<text x="'+pl+'" y="'+(pt+ih+16)+'" fill="'+txt3+'" font-size="9" text-anchor="start" opacity=".7">'+lo+'</text>';
   s+='<text x="'+(pl+iw)+'" y="'+(pt+ih+16)+'" fill="'+txt3+'" font-size="9" text-anchor="end" opacity=".7">100</text>';
-  // dots (or logos for pinned)
+  // TEAMS mode = always logos; PLAYERS mode = dots, with names once zoomed in.
+  var lastN=function(nm){return (nm||'').split(' ').slice(-1)[0]||nm;};
+  var showNames=(MODE==='players' && shown.length<=70);
   shown.forEach(function(p,i){
-    var cx=X(p.x).toFixed(1), cy=Y(p.y).toFixed(1);
-    if(PINNED[p.id] && p.tid){
-      var sz=(22).toFixed(0), half=(sz/2).toFixed(1);
-      s+='<image class="dot" data-i="'+i+'" x="'+(cx-half)+'" y="'+(cy-half)+'" width="'+sz+'" height="'+sz+'" href="'+logoUrl(p.tid)+'" style="cursor:pointer" preserveAspectRatio="xMidYMid meet"><title>'+p.name+'</title></image>';
+    var cx=X(p.x), cy=Y(p.y);
+    var asLogo=(MODE==='teams' || PINNED[p.id]) && p.tid;
+    if(asLogo){
+      var sz=(MODE==='teams') ? (26+8*Math.min(1,Math.max(0,(p.r-4)/6))) : 30;   // a touch bigger
+      var half=sz/2;
+      s+='<image class="dot" data-i="'+i+'" x="'+(cx-half).toFixed(1)+'" y="'+(cy-half).toFixed(1)+'" width="'+sz.toFixed(0)+'" height="'+sz.toFixed(0)+'" href="'+logoUrl(p.tid)+'" style="cursor:pointer" preserveAspectRatio="xMidYMid meet"><title>'+p.name+'</title></image>';
     } else {
-      var hi=(p.x>=85&&p.y>=85);
-      s+='<circle class="dot" data-i="'+i+'" cx="'+cx+'" cy="'+cy+'" r="'+Math.max(2.5,Math.min(9,p.r)).toFixed(1)+'" fill="'+(hi?accent:mint)+'" fill-opacity="'+(hi?0.9:0.4)+'" stroke="'+(hi?accent:'none')+'" stroke-width="'+(hi?1.2:0)+'" style="cursor:pointer"/>';
+      var hi=(p.x>=85&&p.y>=85), rad=Math.max(2.5,Math.min(9,p.r));
+      s+='<circle class="dot" data-i="'+i+'" cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+rad.toFixed(1)+'" fill="'+(hi?accent:mint)+'" fill-opacity="'+(hi?0.9:0.45)+'" stroke="'+(hi?accent:'none')+'" stroke-width="'+(hi?1.2:0)+'" style="cursor:pointer"/>';
+      if(showNames) s+='<text x="'+cx.toFixed(1)+'" y="'+(cy+rad+11).toFixed(1)+'" text-anchor="middle" font-size="9.5" font-weight="600" fill="'+txt3+'" style="pointer-events:none">'+lastN(p.name)+'</text>';
     }
   });
   var svg=document.getElementById('quad');
