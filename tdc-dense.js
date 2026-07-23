@@ -357,7 +357,9 @@
     'BIG-12':'B12','Big-East':'BE'
   };
   function shortConf(c){ return CABBR[c]||c; }
-  function card(head,sub,body){ return '<div class="rl-card"><div class="rl-h">'+head+' <span>'+sub+'</span></div>'+body+'</div>'; }
+  function card(head,sub,body,tip){ var ta=(tip&&window.tipAttr)?window.tipAttr(tip):'';
+    var cls='rl-ht'+(ta?' rl-htip':'');
+    return '<div class="rl-card"><div class="rl-h"><span class="'+cls+'"'+ta+'>'+head+'</span> <span>'+sub+'</span></div>'+body+'</div>'; }
   function kk(l,v){ return '<div class="rl-k"><div class="rl-kl">'+l+'</div><div class="rl-kv">'+v+'</div></div>'; }
   // Some teams carry a mascot in their short name ("Saint Louis Billikens") while
   // most don't ("Duke"). Trim the mascot back to the school, but ONLY when a
@@ -423,11 +425,11 @@
           +kk('Teams',teams.length)
           +kk('Roster wt',Math.round((model.blendRoster||.9)*100)+'%')
         +'</div>'
-        +card('Title contenders','projected net', leaderRows(contenders,_p1))
+        +card('Title contenders','projected net', leaderRows(contenders,_p1), 'contenders')
         +card('Biggest movers','preseason → now', moverRows(movers))
-        +card('Sleepers','best roster · outside T25', sleeperRows(sleepers))
-        +(smLeaders.length?card('Shot-Making leaders','SM+ / 100', leaderRows(smLeaders,_p1)):'')
-        +(lqLeaders.length?card('Best shot diets','Look Quality', leaderRows(lqLeaders,_f1)):'')
+        +card('Sleepers','best roster · outside T25', sleeperRows(sleepers), 'sleepers')
+        +(smLeaders.length?card('Shot-Making leaders','SM+ / 100', leaderRows(smLeaders,_p1), 'shotmaking'):'')
+        +(lqLeaders.length?card('Best shot diets','Look Quality', leaderRows(lqLeaders,_f1), 'lookq'):'')
         +card('Conference strength','avg net', confBars(conf));
       finish(rail);
     }).catch(function(){ finish(null); });
@@ -467,10 +469,10 @@
           +kk('T25 avg','+'+avg25.toFixed(1))
           +kk('Spread',spread.toFixed(0))
         +'</div>'
-        +card('Title contenders','top net', leaderRows(contenders,_p1))
+        +card('Title contenders','top net', leaderRows(contenders,_p1), 'contenders')
         +card('Biggest movers','vs '+priorLbl, moverRows(movers))
-        +(smLeaders.length?card('Shot-Making leaders','SM+ / 100', leaderRows(smLeaders,_p1)):'')
-        +(lqLeaders.length?card('Best shot diets','Look Quality', leaderRows(lqLeaders,_f1)):'')
+        +(smLeaders.length?card('Shot-Making leaders','SM+ / 100', leaderRows(smLeaders,_p1), 'shotmaking'):'')
+        +(lqLeaders.length?card('Best shot diets','Look Quality', leaderRows(lqLeaders,_f1), 'lookq'):'')
         +card('Points per game','top 4', leaderRows(scorers,_f1))
         +card('Conference strength','avg net', confBars(conf));
       finish(rail);

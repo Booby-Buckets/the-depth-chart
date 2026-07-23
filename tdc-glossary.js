@@ -75,7 +75,27 @@
     continuity: "The share of last season's minutes that return on this year's roster. " +
              "High-continuity teams tend to over-perform their raw talent (chemistry and " +
              "system familiarity), so the projection gives them a small bump; heavily " +
-             "rebuilt rosters get a small dock."
+             "rebuilt rosters get a small dock.",
+
+    // ── Shot Genome (from shot location + type + who assisted, 2025-26) ──
+    lookq: "The quality of the shots taken — the eFG% a league-average shooter would post on " +
+             "this shot diet, before anyone even shoots. High = lots of layups and open threes; " +
+             "low = a diet of tough, contested looks.",
+    shotmaking: "Points added over an average shooter given the difficulty of the shots, per " +
+             "100 shots, adjusted for competition. Pure finishing skill — how much better the " +
+             "ball actually went in than the looks would predict.",
+    creation: "Expected points a player's passing creates for teammates — each assist valued by " +
+             "the quality of the look it set up (a corner-3 dime is worth more than a long-two).",
+    selfcreation: "The share of a player's made baskets that came UNASSISTED — how much of his " +
+             "own offense he generates off the dribble versus off setups from teammates.",
+    consistency: "How steady a scorer is game to game. Low = a metronome who gives you the same " +
+             "line every night; high = a boom-or-bust scorer with a low floor and a high ceiling. " +
+             "Measured as the swing in his game-by-game points, ranked nationally.",
+
+    // ── rankings-page rail panels ──
+    contenders: "The teams projected to be strongest in the country this season, by Power Rating.",
+    sleepers: "Teams with a strong projected roster that are still ranked outside the top 25 — " +
+             "undervalued clubs to keep an eye on."
   };
   TIP.srs = TIP.power;         // legacy alias
   TIP.netrating = TIP.power;
