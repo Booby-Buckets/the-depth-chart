@@ -184,6 +184,13 @@
     .sg-note{font-size:11px;color:var(--text3);line-height:1.55;padding:9px 4px 0;}
     .sg-note b{color:var(--text2);}
     .compare-subhead{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);padding:12px 4px 5px;}
+    .cf-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px;}
+    .cf-coach{font-size:14px;font-weight:800;color:var(--text);}
+    .cf-arch{font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
+    .cf-score{font-family:'Playfair Display',serif;font-weight:800;font-size:30px;line-height:1;margin:2px 0 10px;}
+    .cf-scorel{font-family:'Inter',sans-serif;font-size:11px;font-weight:600;color:var(--text3);margin-left:4px;}
+    .cf-reason{display:flex;align-items:flex-start;gap:7px;font-size:11.5px;color:var(--text2);line-height:1.45;padding:3px 0;}
+    .cf-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px;}
     .sim-card{border:1px solid var(--border);border-radius:10px;padding:8px 14px;}
     .sim-row{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--border);font-size:12px;}
     .sim-row:last-child{border-bottom:none;}
@@ -1050,6 +1057,15 @@ function renderPlayers(){
       <div class="chart-legend"><span><i style="background:${c1}"></i>${p1.name} · ${_psArch(p1)}</span><span><i style="background:${c2}"></i>${p2.name} · ${_psArch(p2)}</span></div>
     </div>`:''}
 
+    ${window.TDCPortalFit?`
+    <div id="cfitSection">
+      <div class="compare-section-head">System &amp; Coach Fit — 2026-27</div>
+      <div class="sim-grid">
+        <div class="sim-card" id="cfit1" style="border-top:2px solid ${c1};"><div class="sim-row" style="color:var(--text3);">Computing fit…</div></div>
+        <div class="sim-card" id="cfit2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Computing fit…</div></div>
+      </div>
+    </div>`:''}
+
     ${(p1.espn_id||p2.espn_id)?`
     <div class="compare-section-head">Shot Charts${(p1._isHistory||p2._isHistory)?'':' · 2025-26'}</div>
     <div class="scc-grid">
@@ -1107,6 +1123,7 @@ function renderPlayers(){
   fillSimCards(p1,p2);
   _renderShotCharts(p1,p2);
   _fillShotGenome(p1,p2);
+  _fillCoachFit(p1,p2,c1,c2);
   const labels=P_AXES.map(a=>a.l);
   const d1=P_AXES.map(a=>a.f(p1)), d2=P_AXES.map(a=>a.f(p2));
   // each player benchmarks against All-Americans at HIS position group
@@ -1158,6 +1175,36 @@ function hexA(hex,a){
   hex=(hex||'').replace('#',''); if(hex.length===3) hex=hex.split('').map(x=>x+x).join('');
   const n=parseInt(hex,16); if(isNaN(n)) return 'rgba(230,213,168,'+a+')';
   return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')';
+}
+// ── System & Coach Fit (Portal Fit engine's coachFit vs the player's own staff) ──
+function _normName(s){ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim(); }
+let _cpPromise=null;
+function _ensureCoachProfiles(){
+  if(window._coachByName) return Promise.resolve(window._coachByName);
+  if(_cpPromise) return _cpPromise;
+  _cpPromise=fetch('scripts/data/coach_profiles.json').then(r=>r.ok?r.json():null).then(arr=>{
+    if(!Array.isArray(arr)) return null; const m={}; arr.forEach(c=>{ if(c.coach) m[_normName(c.coach)]=c; }); window._coachByName=m; return m;
+  }).catch(()=>null);
+  return _cpPromise;
+}
+function _coachOf(player){ const tm=teamMap[player&&player.team]; return tm?((tm.head_coach||tm.coach||'').trim()):''; }
+function _profOf(player){ const cn=_coachOf(player); const m=window._coachByName; return (cn&&m)?(m[_normName(cn)]||null):null; }
+async function _fillCoachFit(p1,p2,c1,c2){
+  const sec=document.getElementById('cfitSection'); if(!sec) return;
+  if(!window.TDCPortalFit||!TDCPortalFit.coachFit){ sec.style.display='none'; return; }
+  await _ensureCoachProfiles();
+  const side=(p,elId)=>{
+    const el=document.getElementById(elId); if(!el) return;
+    const cn=_coachOf(p), prof=_profOf(p);
+    if(!prof){ el.innerHTML=`<div class="sim-row" style="color:var(--text3);">No coach profile for ${p.team||'—'}${cn?` (${cn})`:''}.</div>`; return; }
+    const res=TDCPortalFit.coachFit(prof,p)||{}, fit=Math.round(res.fit||0);
+    const col=fit>=72?'#1a8c3a':fit>=52?'#C8A020':'#cc5533';
+    let rHtml=(res.reasons||[]).slice(0,4).map(r=>`<div class="cf-reason"><span class="cf-dot" style="background:${(r.d>0)?'#1a8c3a':(r.d<0?'#cc5533':'#8a867a')}"></span>${r.t||''}</div>`).join('');
+    if(!rHtml) rHtml=`<div class="cf-reason" style="color:var(--text3);">${fit>=70?'A clean schematic match — no friction points.':fit>=50?'A neutral fit — no strong push or pull from this system.':'Some schematic friction with how this staff plays.'}</div>`;
+    el.innerHTML=`<div class="cf-head"><div class="cf-coach">${cn||prof.coach}</div><div class="cf-arch">${prof.archetype||''}</div></div>`
+      +`<div class="cf-score" style="color:${col};">${fit}<span class="cf-scorel">/100 fit</span></div>${rHtml}`;
+  };
+  side(p1,'cfit1'); side(p2,'cfit2');
 }
 // play-style archetype label (Portal Fit engine; falls back to the local one)
 function _psArch(p){ try{ return (window.TDCPortalFit&&TDCPortalFit.archetype)?TDCPortalFit.archetype(p):archetypeOf(p); }catch(e){ return archetypeOf(p); } }
