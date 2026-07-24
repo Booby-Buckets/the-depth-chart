@@ -11,7 +11,7 @@
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js"></script>
   <script src="tdc-proj.js?v=coach3"></script>
-  <script src="tdc-freshman.js?v=pub1"></script>
+  <script src="tdc-freshman.js?v=pub2"></script>
   <script src="tdc-ratings.js?v=1"></script>
   <script src="tdc-projgrade.js?v=5"></script>
   <script src="tdc-pool.js?v=1"></script>
@@ -3412,7 +3412,7 @@ function _squadInfo(sel){
       <div><div class="sq-info-ovr" style="color:${_sqCol(g)}">${g||'—'}</div><div class="sq-info-pos">${(pos||sel.pos)}${pos&&pos!==sel.pos?' · plays '+sel.pos:''}</div></div>
     </div>
     <div class="sq-info-name">${p.name}</div>
-    <div class="sq-info-arch">${_sqArchetype(p)}${p._frProfiled?' · <span style="color:#5ab875;">custom</span>':''}</div>
+    <div class="sq-info-arch">${_sqArchetype(p)}${(p._frProfiled&&_isOwner())?' · <span style="color:#5ab875;">custom</span>':''}</div>
     ${(p._noStatEst&&_isOwner())?`<a class="fr-edit-btn" href="player.html?${p.espn_id?('espn='+p.espn_id):('name='+encodeURIComponent(p.name))}" style="text-decoration:none;display:block;text-align:center;">⚙ ${p._frProfiled?'Edit':'Project'} his playstyle on his page →</a>`:''}
     <div class="sq-attrs">${cols}</div>
   </div>`;
@@ -3740,8 +3740,10 @@ function _freshmanLine(p,profile){
   const posNorm=['PG','SG','SF','PF','C'].includes(p.position)?p.position:(p.position==='CG'?'SG':'SG');
   const tier=grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
   const base=Object.assign({}, (FR_BASE[tier]&&FR_BASE[tier][posNorm])||FR_BASE['75-84']['SG']);
-  if(profile&&profile.archetype&&FR_ARCH[profile.archetype]) _frApply(base,FR_ARCH[profile.archetype]);
-  if(profile&&profile.sliders) _frSliders(base,profile.sliders);
+  if(_isOwner()){   // custom play-style is owner-only; public sees OVR + a generic line
+    if(profile&&profile.archetype&&FR_ARCH[profile.archetype]) _frApply(base,FR_ARCH[profile.archetype]);
+    if(profile&&profile.sliders) _frSliders(base,profile.sliders);
+  }
   base.fg_pct=Math.max(30,Math.min(70,base.fg_pct)); base.tp_pct=Math.max(0,Math.min(48,base.tp_pct)); base.ft_pct=Math.max(45,Math.min(95,base.ft_pct));
   const role=(profile&&profile.role)||(grade>=90?'star':grade>=82?'starter':grade>=74?'rotation':'bench');
   const R=FR_ROLE[role]||FR_ROLE.starter, mpg=R.mpg, scale=mpg/32, usg=R.usg, fga=Math.max(2,mpg*0.30*usg);

@@ -102,8 +102,12 @@
     var pos=['PG','SG','SF','PF','C'].indexOf(p.position)>=0?p.position:(p.position==='CG'?'SG':'SG');
     var tier=grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
     var base=Object.assign({}, (B[tier]&&B[tier][pos])||(B['75-84']&&B['75-84']['SG'])||FR_BASE_FALLBACK['75-84']['SG']);
-    if(profile&&profile.archetype&&FR_ARCH[profile.archetype]) apply(base,FR_ARCH[profile.archetype]);
-    if(profile&&profile.sliders) applySliders(base,profile.sliders,{guard:(pos==='PG'||pos==='SG'),size:c01((ht(p.height)-72)/12)});
+    // the custom PLAY STYLE (archetype + slider tendencies) is OWNER-ONLY: the public
+    // sees the projected OVR + a generic line, and a stat-derived archetype elsewhere.
+    if(isOwner()){
+      if(profile&&profile.archetype&&FR_ARCH[profile.archetype]) apply(base,FR_ARCH[profile.archetype]);
+      if(profile&&profile.sliders) applySliders(base,profile.sliders,{guard:(pos==='PG'||pos==='SG'),size:c01((ht(p.height)-72)/12)});
+    }
     base.fg_pct=Math.max(30,Math.min(70,base.fg_pct)); base.tp_pct=Math.max(0,Math.min(48,base.tp_pct)); base.ft_pct=Math.max(45,Math.min(95,base.ft_pct));
     var role=(profile&&profile.role)||(grade>=90?'star':grade>=82?'starter':grade>=74?'rotation':'bench');
     var R=FR_ROLE[role]||FR_ROLE.starter, mpg=R.mpg, scale=mpg/32, usg=R.usg, fga=Math.max(2,mpg*0.30*usg);
