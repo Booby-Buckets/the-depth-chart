@@ -5173,6 +5173,49 @@ function _dnaMatchup(oppKey){
     </div>`;
 }
 function _erf(x){ const t=1/(1+0.3275911*Math.abs(x)); const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x); return x>=0?y:-y; }
+// ── Roster Chemistry: how the roster's pieces fit (raw box stats), same read as Compare ──
+function _teamChem(rows){
+  const R=(rows||[]).filter(p=>p&&(parseFloat(p.mpg)||0)>=8).slice(0,9);
+  if(R.length<4) return null;
+  const num=(p,k)=>parseFloat(p[k])||0, reasons=[]; let s=56;
+  const spacers=R.filter(p=>num(p,'tp_pct')>=34 && num(p,'tpa')>=1.0).length;
+  if(spacers>=5){ s+=12; reasons.push({good:true,t:`Elite spacing — ${spacers} rotation shooters stretch the defense thin.`}); }
+  else if(spacers>=3){ s+=5; reasons.push({good:true,t:`Spaced floor — ${spacers} rotation shooters keep the defense honest.`}); }
+  else if(spacers<=1){ s-=13; reasons.push({good:false,t:`Spacing crunch — only ${spacers} real shooter${spacers!==1?'s':''} in the rotation; the paint clogs.`}); }
+  else { s-=3; reasons.push({good:false,t:`Thin spacing — just ${spacers} rotation shooters to stretch defenses.`}); }
+  const maxApg=Math.max.apply(null,R.map(p=>num(p,'apg')));
+  if(maxApg>=4.5){ s+=7; reasons.push({good:true,t:`A clear lead creator (${maxApg.toFixed(1)} APG) to organize the offense.`}); }
+  else if(maxApg<3){ s-=7; reasons.push({good:false,t:`No real lead creator — the half-court can bog down.`}); }
+  const ppgs=R.map(p=>num(p,'ppg')).sort((a,b)=>b-a), tot=ppgs.reduce((x,y)=>x+y,0)||1, top=ppgs[0]/tot;
+  if(top>0.34){ s-=8; reasons.push({good:false,t:`Top-heavy scoring (${Math.round(top*100)}% from one player) — thin if he's covered.`}); }
+  else if(top<0.23){ s+=8; reasons.push({good:true,t:`Balanced scoring — no single player to key on.`}); }
+  const bigs=R.filter(p=>/^(C|PF)/.test((p.position||'').toUpperCase())).length, rimP=R.filter(p=>num(p,'blk')>=1.2).length;
+  if(rimP>=1&&bigs>=2){ s+=6; reasons.push({good:true,t:`Interior presence — shot-blocking and frontcourt depth.`}); }
+  else if(bigs===0){ s-=8; reasons.push({good:false,t:`No true big — vulnerable to being out-sized on the glass.`}); }
+  s=Math.max(22,Math.min(94,Math.round(s)));
+  return {score:s, verdict:(s>=72?'Cohesive roster':s>=60?'Balanced roster':s>=46?'Uneven fit':'Lopsided'), reasons:reasons.slice(0,4)};
+}
+function _teamChemCard(){
+  const chem=_teamChem(teamPlayers); if(!chem) return '';
+  if(!document.getElementById('tchem-css')){ var st=document.createElement('style'); st.id='tchem-css';
+    st.textContent=".tchem-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin:20px 0;}"
+      +".tchem-h{font-family:'Playfair Display',serif;font-weight:800;font-size:16px;margin-bottom:12px;}"
+      +".tchem-sub{font-family:'Inter',sans-serif;font-size:11px;font-weight:600;color:var(--text3);margin-left:6px;}"
+      +".tchem-body{display:grid;grid-template-columns:130px 1fr;gap:20px;align-items:center;}"
+      +".tchem-scorebox{text-align:center;border-right:1px solid var(--border);padding-right:18px;}"
+      +".tchem-num{font-family:'Playfair Display',serif;font-weight:800;font-size:44px;line-height:1;}"
+      +".tchem-den{font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--text3);}"
+      +".tchem-verdict{font-size:12.5px;font-weight:800;margin-top:5px;color:var(--text);}"
+      +".tchem-reasons{display:flex;flex-direction:column;gap:7px;}"
+      +".tchem-r{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--text2);line-height:1.5;}"
+      +".tchem-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;}"
+      +"@media(max-width:600px){.tchem-body{grid-template-columns:1fr;}.tchem-scorebox{border-right:none;border-bottom:1px solid var(--border);padding-right:0;padding-bottom:12px;}}";
+    document.head.appendChild(st); }
+  const col=chem.score>=72?'#2bb673':chem.score>=60?'#7fbf5a':chem.score>=46?'#C8A020':'#e06552';
+  return `<div class="tchem-card"><div class="tchem-h">Roster Chemistry <span class="tchem-sub">how the pieces fit</span></div>`
+    +`<div class="tchem-body"><div class="tchem-scorebox"><div class="tchem-num" style="color:${col};">${chem.score}<span class="tchem-den">/100</span></div><div class="tchem-verdict">${chem.verdict}</div></div>`
+    +`<div class="tchem-reasons">${chem.reasons.map(r=>`<div class="tchem-r"><span class="tchem-dot" style="background:${r.good?'#2bb673':'#e06552'};"></span>${r.t}</div>`).join('')}</div></div></div>`;
+}
 async function renderTeamDNA(){
   _dnaCSS();
   const host=document.getElementById('teamDnaHost'); if(!host) return;
@@ -5484,6 +5527,7 @@ async function renderTeamDNA(){
       <select class="dna-sel" onchange="window._dnaSeason=this.value;renderTeamDNA();">${selOpts}</select>
     </div>
     <div class="dna-eff">${effHtml}</div>
+    ${_teamChemCard()}
     ${ADJ?`<div class="dna-imp-cap" style="text-align:left;margin:-8px 0 4px;">These efficiency numbers are <b>opponent-adjusted</b> (points per 100 possessions vs an average D1 team, corrected for schedule strength) — so a mid-major that feasts on a weak league doesn't rank like a high-major.</div>`:''}
     ${matchupHtml?`<div style="margin-top:20px;">${matchupHtml}</div>`:''}
     <div class="dna-chips">${chips.join('')}</div>
