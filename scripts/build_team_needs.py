@@ -58,15 +58,36 @@ def main():
     for p in players:
         if p.get('team') and not p.get('is_injured'): by_team[p['team']].append(p)
     print("  %d players across %d teams"%(len(players),len(by_team)))
+    cur_keys={norm(t) for t in by_team}
+
+    # fallback rosters: teams WITHOUT an entered 2026-27 roster get their most-recent
+    # (2025-26) roster from player_history so the portal tool covers every rated program,
+    # not just the ~79 with projected rosters. Flagged roster_src='recent' so the UI can note it.
+    print("fetching player_history 2025-26 (fallback rosters)…")
+    hist=get_all("player_history?season_year=eq.2026&tdc_grade=not.is.null&select=name,team,position,height,tdc_grade,ppg,apg,tp_pct,mpg,espn_id")
+    hist_by_team=defaultdict(list)
+    for p in hist:
+        if p.get('team') and norm(p['team']) not in cur_keys: hist_by_team[p['team']].append(p)
+    print("  %d history players across %d fallback teams"%(len(hist),len(hist_by_team)))
 
     print("fetching predictive_ratings (2027)…")
     pr=get_all("predictive_ratings?season=eq.2027&select=data")
-    ratings={}
+    ratings={}   # exact + prefix keys → rating. Non-rostered teams are stored under their
+                 # FULL name ("Gonzaga Bulldogs") while player_history uses the short name
+                 # ("Gonzaga"), so index each rating under its full name AND every leading
+                 # prefix (mascot stripped). Teams are rank-sorted, so a higher-ranked team
+                 # wins an ambiguous prefix ("alabama" → Alabama, not Alabama State).
     if pr and pr[0].get('data',{}).get('teams'):
         for t in pr[0]['data']['teams']:
-            ratings[norm(t.get('team'))]={'rank':t.get('rank'),'rating':t.get('rating'),
-                'conf':t.get('conf'),'full':t.get('full'),'allPlay':t.get('allPlay')}
-    print("  %d teams rated"%len(ratings))
+            r={'rank':t.get('rank'),'rating':t.get('rating'),'conf':t.get('conf'),
+               'full':t.get('full'),'allPlay':t.get('allPlay')}
+            for nm in (t.get('team'), t.get('full')):
+                if not nm: continue
+                w=nm.split()
+                for i in range(len(w),0,-1):
+                    k=norm(' '.join(w[:i]))
+                    if k and k not in ratings: ratings[k]=r   # longest/first (higher-ranked) wins
+    print("  %d rating keys"%len(ratings))
 
     # current coach per team from coach_seasons (latest season)
     coach_seasons=json.load(open(os.path.join(D,"coach_seasons.json")))
@@ -77,10 +98,7 @@ def main():
         if k not in latest or s['season_year']>latest[k]['season_year']: latest[k]=s
     profs={p['coach_slug']:p for p in json.load(open(os.path.join(D,"coach_profiles.json")))}
 
-    out=[]
-    for team, roster in by_team.items():
-        nk=norm(team)
-        # per-position strength
+    def pos_profile(roster):
         cols=defaultdict(list)
         for p in roster:
             g=grade(p)
@@ -97,21 +115,30 @@ def main():
                     'starter':st.get('name'),'starterGrade':round(lst[0][0],1)}
             else:
                 posdata[pos]={'best':None,'second':None,'depth':0,'starter':None,'starterGrade':None}
-        r=ratings.get(nk,{})
-        co=latest.get(nk); cslug=co['coach_slug'] if co else None
+        return posdata
+    def make_team(team, roster, src):
+        nk=norm(team)
+        r=ratings.get(nk,{}); co=latest.get(nk); cslug=co['coach_slug'] if co else None
         prof=profs.get(cslug) if cslug else None
-        out.append({
+        return {
             'team':team, 'full':r.get('full') or team, 'conf':r.get('conf'),
             'rank':r.get('rank'), 'rating':r.get('rating'), 'allPlay':r.get('allPlay'),
             'coach_slug':cslug, 'coach':(co or {}).get('coach'),
             'archetype':(prof or {}).get('archetype'),
-            'pos':posdata,
-        })
+            'pos':pos_profile(roster), 'roster_src':src,
+        }
+    out=[make_team(team, roster, 'current') for team, roster in by_team.items()]
+    seen={norm(t['team']) for t in out}
+    for team, roster in hist_by_team.items():
+        nk=norm(team)
+        if nk in seen or len(roster)<6: continue   # need a real roster; no dupes
+        seen.add(nk); out.append(make_team(team, roster, 'recent'))
     # rank order (rated first, by rank), then unrated alpha
     out.sort(key=lambda t:(t['rank'] is None, t['rank'] if t['rank'] is not None else 9999, t['team']))
     json.dump({'generated_for':2027,'teams':out}, open(os.path.join(D,"team_needs.json"),"w"))
     rated=sum(1 for t in out if t['rank'] is not None); coached=sum(1 for t in out if t['coach_slug'])
-    print("wrote team_needs.json — %d teams (%d ranked, %d with coach)"%(len(out),rated,coached))
+    cur=sum(1 for t in out if t.get('roster_src')=='current'); rec=sum(1 for t in out if t.get('roster_src')=='recent')
+    print("wrote team_needs.json — %d teams (%d current roster, %d recent-roster fallback, %d ranked, %d with coach)"%(len(out),cur,rec,rated,coached))
     # spot-check: which teams most need a PG (weakest best-PG)?
     pgneed=sorted([t for t in out if t['pos']['PG']['best'] is not None and t['rank']],
                   key=lambda t:t['pos']['PG']['best'])[:8]

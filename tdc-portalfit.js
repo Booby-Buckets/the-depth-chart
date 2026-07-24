@@ -194,15 +194,29 @@
     var topGrade=56; if(team.pos) POS.forEach(function(k){ var b=team.pos[k]&&team.pos[k].best; if(b!=null&&b>topGrade) topGrade=b; });
 
     var need=clamp(100-Math.max(0,posBest-58)*2.4, 8, 100);
-    var contender=upgrade>0?(rank<=25?10:rank<=50?4:0):0;
-    var teamSuccess=clamp(55+upgrade*3.2+contender, 0, 100);
+    // Team-Success = winning at a good program with a role to grab. Team QUALITY leads
+    // (a contender scores highest — the whole point of the lens); the upgrade delta is a
+    // modifier, not the driver, so a #300 low-major can't top the board just because you'd
+    // upgrade its weak starter. (Old formula was 55 + upgrade*3.2, which the 79-team pool hid.)
+    var teamQual=rank<=8?100:rank<=20?90:rank<=40?76:rank<=70?60:rank<=110?46:rank<=170?33:20;
+    var teamSuccess=clamp(teamQual*0.62 + clamp(upgrade,-6,15)*2.4, 0, 100);
     var opp=clamp(100-Math.max(0,posBest-58)*2.3, 25, 100);
     var pace=(prof&&prof.pctl&&prof.pctl.poss_pg!=null)?prof.pctl.poss_pg:50;
     var alphaGap=topGrade-pg;
     var usageRoom=clamp(100-Math.max(0,alphaGap)*4, 30, 100);
     var playerSuccess=clamp(opp*0.5+pace*0.25+usageRoom*0.25, 0, 100);
     var cf=coachFit(prof, player);
-    var overall=Math.round(need*W.need + teamSuccess*W.team + playerSuccess*W.player + cf.fit*W.coach);
+    // Level-realism: a player who is drastically OVERQUALIFIED for a team (his grade far
+    // above the team's best returning player) is an unrealistic landing spot — a high-major
+    // starter isn't really choosing a #300 program even though it offers max minutes. Damp
+    // the Overall by how far he outclasses the roster's ceiling (bounded; full pool still
+    // reachable, and dropping ~1 tier is barely touched). Not applied to the sub-scores.
+    // scales with BOTH calibers: a high-major starter (high grade) dropping to a #300
+    // program is unrealistic and gets damped hard; a fringe player (low grade) legitimately
+    // can, so he's barely touched. gradeFac 0 at ~64 → 1 at ~90; teamQual is the program tier.
+    var gradeFac=clamp((pg-64)/26, 0, 1);
+    var realism = 1 - (1 - teamQual/100) * gradeFac * 0.55;
+    var overall=Math.round((need*W.need + teamSuccess*W.team + playerSuccess*W.player + cf.fit*W.coach) * realism);
 
     // role/opportunity label
     var role=upgrade>=2?'Day-1 starter':upgrade>-6?'Rotation / pushes for time':'Depth piece';
