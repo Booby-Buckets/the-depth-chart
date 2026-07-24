@@ -516,10 +516,12 @@
 
   /* Horizontal scroll for the wide analytics table; team name + rank stay pinned */
   .table-scroll { overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
-  @media (min-width:901px){
+  @media (min-width:641px){
     /* width:100% (not max-content) so the team column's 1fr is computed from the
        same available space for the header and every row — they stay column-aligned
-       whether the table fills a wide screen or overflows into a horizontal scroll. */
+       whether the table fills a wide screen or overflows into a horizontal scroll.
+       Applies down to 641px: tablet/narrow widths keep the full labeled table with a
+       pinned rank+team column and horizontal scroll, instead of hiding the header. */
     .table-scroll .table-header,
     .table-scroll .team-row,
     .table-scroll .skeleton-row { width: 100%; }
@@ -895,7 +897,15 @@
     .filter-controls .nav-search { flex:1 1 100%; min-width:0; order:3; }
     .filter-count { flex:1 1 100%; order:4; text-align:right; margin:0; }
 
-    /* ---- Team rows become compact cards ---- */
+    /* the full labeled table (with header) now persists down to 641px via
+       horizontal scroll — it only collapses to compact cards at ≤640px below. */
+    .grade-group-label { font-size:9px; padding:8px 0; }
+    .orb-1 { width:260px; height:260px; }
+    .orb-2 { width:200px; height:200px; }
+    .orb-3 { display:none; }
+  }
+  /* ---- ≤640px: rows become compact cards; the wide table doesn't fit a phone ---- */
+  @media(max-width:640px){
     .table-header { display:none; }
     .team-row,.skeleton-row { grid-template-columns:26px 1fr 54px auto; column-gap:10px; padding:11px 2px; align-items:center; }
     .th,.tr-grade,.tr-sparkline,.tr-margin,.tr-stat { display:none; }
@@ -912,11 +922,7 @@
     .mg-lbl { font-size:8px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); }
     .tr-rank { font-size:14px; min-width:0; }
     .rank-chg { font-size:8px; }
-    .grade-group-label { font-size:9px; padding:8px 0; }
     .skel-spark,.skel-grade { display:none; }
-    .orb-1 { width:260px; height:260px; }
-    .orb-2 { width:200px; height:200px; }
-    .orb-3 { display:none; }
   }
   @media(max-width:600px){
     .page-header h1 { font-size:28px; }
