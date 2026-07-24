@@ -89,7 +89,7 @@
     return 'M '+x0+' '+sy0.toFixed(1)+' C '+xm+' '+sy0.toFixed(1)+' '+xm+' '+ty0.toFixed(1)+' '+x1+' '+ty0.toFixed(1)+
       ' L '+x1+' '+ty1.toFixed(1)+' C '+xm+' '+ty1.toFixed(1)+' '+xm+' '+sy1.toFixed(1)+' '+x0+' '+sy1.toFixed(1)+' Z';
   }
-  var W=900, H=500, PADT=20, PADB=36, NW=13, GAP=15, MINH=15; // MINH+GAP >= label-box height (26) so labels never overlap
+  var W=900, H=500, PADT=20, PADB=36, NW=3, GAP=15, MINH=15; // MINH+GAP >= label-box height (26) so labels never overlap; NW hairline for the ghost look
   var colX=[]; // computed
   // find px-per-shot for one column so its nodes (each >= MINH tall) + gaps
   // exactly fill usableH; small nodes get pinned at MINH and the rest scale
@@ -180,12 +180,15 @@
       var id=(l.col+1)+':'+l.tgt, off=to[id]||0; l.ty0=l.tn.y0+off; l.ty1=l.ty0+l.w*pps; to[id]=off+l.w*pps;
     });
 
-    // ── colors: team brand if we know the team, else green/tan ──
-    var tc=teamColors(opts.team);
-    var madeFill=tc?rgba(tc.made,0.66):(GREEN+'.62)'), missFill=tc?rgba(tc.miss,0.6):(TAN+'.62)');
+    // ── ghost-fade palette: monochrome. Made flows brighter, missed dimmer; each
+    //    ribbon fades to near-transparent at both ends (see the two gradients in
+    //    <defs>) so the chart reads as light passing THROUGH the nodes rather than
+    //    solid Sankey bands. Colors come from CSS vars (--sf-made/--sf-miss/--sf-trace)
+    //    so they adapt to light/dark theme live; team-agnostic on purpose. ──
 
     // ── SVG ──
-    var uid=++UID, revId='sfrev'+uid, uniId='sfuni'+uid, grdId='sfgrd'+uid;
+    var uid=++UID, revId='sfrev'+uid, uniId='sfuni'+uid, grdId='sfgrd'+uid, gmId='sfgm'+uid, gsId='sfgs'+uid;
+    var madeFill='url(#'+gmId+')', missFill='url(#'+gsId+')';
     var svg='<svg class="sf-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet">';
     // build ribbon paths once; reuse for both the drawn ribbons and the union clip
     var ribsHtml='', clipHtml='';
@@ -202,6 +205,10 @@
       '<clipPath id="'+revId+'" clipPathUnits="userSpaceOnUse"><rect class="sf-revrect" x="0" y="0" width="'+W+'" height="'+H+'"/></clipPath>'+
       '<clipPath id="'+uniId+'" clipPathUnits="userSpaceOnUse">'+clipHtml+'</clipPath>'+
       '<linearGradient id="'+grdId+'" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>'+
+      // ghost-fade ribbon fills (per-ribbon, objectBoundingBox): transparent at both
+      // ends, brightest mid-hop, so every band dissolves into its nodes
+      '<linearGradient id="'+gmId+'" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="rgb(var(--sf-made))" stop-opacity="0.06"/><stop offset="0.5" stop-color="rgb(var(--sf-made))" stop-opacity="0.62"/><stop offset="1" stop-color="rgb(var(--sf-made))" stop-opacity="0.06"/></linearGradient>'+
+      '<linearGradient id="'+gsId+'" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="rgb(var(--sf-miss))" stop-opacity="0.05"/><stop offset="0.5" stop-color="rgb(var(--sf-miss))" stop-opacity="0.48"/><stop offset="1" stop-color="rgb(var(--sf-miss))" stop-opacity="0.05"/></linearGradient>'+
       '</defs>';
     // ribbons revealed flowing in from the left, then a repeating light sweep
     svg+='<g clip-path="url(#'+revId+')">'+ribsHtml+
@@ -210,7 +217,7 @@
     // overlay layer for the assist-trace (populated on hover)
     svg+='<g class="sf-trace"></g>';
     // stash link geometry so the hover handler can draw an assister's sub-flow
-    el._sfTrace={ L:L, colX:colX.slice(), NW:NW, lastCol:lastIdx, made:tc?rgba(tc.made,0.95):'rgba(56,150,100,.92)' };
+    el._sfTrace={ L:L, colX:colX.slice(), NW:NW, lastCol:lastIdx, made:'rgb(var(--sf-trace))' };
     // nodes + labels (with a readable background box; first & last columns label
     // to the OUTSIDE, middle columns to the right of their bar)
     var lastCol=cols.length-1;
@@ -237,7 +244,7 @@
     var made=shots.filter(function(s){return s.made;}).length;
     var asst=shots.filter(function(s){return s.made&&s.ast_name;}).length;
     var head=(opts.title?'<div class="sf-title">'+opts.title+'</div>':'')+
-      '<div class="sf-legend"><span><i style="background:'+madeFill+'"></i>Made</span><span><i style="background:'+missFill+'"></i>Missed</span>'+
+      '<div class="sf-legend"><span><i class="sf-sw sf-sw-m"></i>Made</span><span><i class="sf-sw sf-sw-s"></i>Missed</span>'+
       '<span style="margin-left:auto;color:var(--text3);">'+N+' FGA · '+Math.round(made/N*100)+'% made · '+Math.round(asst/Math.max(1,made)*100)+'% of makes assisted</span></div>';
     el.innerHTML=head+'<div class="sf-scroll"><div class="sf-wrap">'+svg+'<div class="sf-tip"></div></div></div>';
     wire(el);
@@ -301,6 +308,12 @@
       '.sf-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}'+
       '.sf-wrap{position:relative;min-width:660px;max-width:1200px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:8px 6px;}'+
       '.sf-svg{width:100%;height:auto;display:block;overflow:visible;}'+
+      // ghost palette, theme-aware (light default = ink slate on cream; dark = cool blue-grays)
+      '.sf-host{--sf-made:74,94,124;--sf-miss:150,146,136;--sf-trace:38,52,78;}'+
+      '[data-theme="dark"] .sf-host{--sf-made:174,191,216;--sf-miss:112,128,155;--sf-trace:210,222,242;}'+
+      '.sf-sw{width:16px;height:9px;border-radius:2px;display:inline-block;}'+
+      '.sf-sw-m{background:rgb(var(--sf-made));opacity:.92;}'+
+      '.sf-sw-s{background:rgb(var(--sf-miss));opacity:.78;}'+
       // entrance: the reveal clip grows left->right so ribbons flow through the columns
       '.sf-revrect{transform-box:fill-box;transform-origin:left center;animation:sfReveal 1.25s cubic-bezier(.45,.05,.25,1) both;}'+
       // continuous flow: a light band sweeps through the ribbon union, on a loop
@@ -312,8 +325,8 @@
       // assist trace: dim the whole chart, light up just that assister\'s sub-flow
       '.sf-host.sf-tracing .sf-rib{opacity:.08;}'+
       '.sf-trace{pointer-events:none;}'+
-      '.sf-trace path{stroke:rgba(255,255,255,.45);stroke-width:.6;filter:drop-shadow(0 0 3px rgba(0,0,0,.25));}'+
-      '.sf-node{fill:var(--text);opacity:.9;cursor:pointer;transition:opacity .15s;}'+
+      '.sf-trace path{stroke:rgb(var(--sf-trace));stroke-opacity:.5;stroke-width:.5;filter:drop-shadow(0 0 3px rgba(0,0,0,.25));}'+
+      '.sf-node{fill:var(--text2);opacity:.62;cursor:pointer;transition:opacity .15s;}'+   // hairline anchor for the ghost ribbons
       '.sf-node:hover{opacity:1;}'+
       '.sf-lbg{fill:var(--bg2);opacity:.72;pointer-events:none;}'+
       '.sf-lbl{font-family:\'Playfair Display\',Georgia,serif;font-weight:700;font-size:12.5px;fill:var(--text);}'+
