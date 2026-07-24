@@ -131,12 +131,31 @@
       var b=bins[k]||(bins[k]={att:0,mk:0,three:0});
       b.att++; if(s.made)b.mk++; if(s.sv===3)b.three++;
     });
-    var maxAtt=0, keys=[]; for(var k in bins){ keys.push(k); if(bins[k].att>maxAtt) maxAtt=bins[k].att; }
-    // draw high-volume hexes first so the small fringe cells layer cleanly on top
-    keys.sort(function(a,b){return bins[b].att-bins[a].att;});
+    var maxAtt=0; for(var k in bins) if(bins[k].att>maxAtt) maxAtt=bins[k].att;
+    // FILL INTERIOR GAPS: any empty cell that sits inside the shot cloud (>=3 of its
+    // six neighbors have shots) gets a synthetic cell so the surface reads as one
+    // continuous field instead of a scatter of tallies. Synthetic cells are colored
+    // from their neighbors, drawn faintly underneath, and carry no tooltip.
+    var real={}; for(var rk in bins) real[rk]=1;
+    var synth={};
+    for(var bk in real){
+      var pa=bk.split(','), pq=+pa[0], pr=+pa[1];
+      HXN.forEach(function(d){
+        var nk=(pq+d[0])+','+(pr+d[1]); if(real[nk]||synth[nk]) return;
+        var na=nk.split(','), nq=+na[0], nr=+na[1], cnt=0;
+        HXN.forEach(function(d2){ if(real[(nq+d2[0])+','+(nr+d2[1])]) cnt++; });
+        if(cnt>=3) synth[nk]=1;
+      });
+    }
+    for(var sk in synth) if(!bins[sk]) bins[sk]={att:0,mk:0,three:0,synth:true};
+
+    var keys=Object.keys(bins);
+    // draw low-volume (incl. synthetic) first, biggest last, so the paint blob and
+    // real high-volume cells sit on top of the continuous background
+    keys.sort(function(a,b){return bins[a].att-bins[b].att;});
     var K=6, g='', idx=0;                                 // K = shrinkage prior strength
     keys.forEach(function(k){
-      var b=bins[k]; if(b.att<1) return;
+      var b=bins[k];
       var a=k.split(','), q=+a[0], r=+a[1];
       var c=hexCenter(k), cx=px(c[0]), cy=py(c[1]);
       var isThree=b.three>b.att/2;
@@ -148,14 +167,20 @@
       var pAtt=b.att, pMk=b.mk;
       HXN.forEach(function(d){ var nb=bins[(q+d[0])+','+(r+d[1])]; if(nb){ pAtt+=nb.att*0.5; pMk+=nb.mk*0.5; } });
       var diff=(pMk + K*base)/(pAtt + K) - base;
-      // SIZE: this cell's own volume, wide dynamic range so the paint reads as a
-      // dense blob and the perimeter as fine stipple
-      var rp=Math.min(px(HS)*1.06, px(HS)*(0.32+0.68*Math.sqrt(b.att/maxAtt)));
       var zc=isThree?'sc-zt':(dh<=4?'sc-zr':'sc-zm');
+      if(b.synth){
+        // full-size, faint, no interaction — pure surface fill
+        g+='<path class="sc-mark sc-hex sc-synth '+zc+'" style="animation-delay:'+Math.min(idx*7,700)+'ms" d="'+hexPath(cx,cy,px(HS)*0.98)+'" fill="'+effColor(diff)+'" stroke="rgba(10,8,20,.22)" stroke-width="0.5"/>';
+        idx++; return;
+      }
+      // SIZE: cells now tessellate (high floor) so they touch and cover the court;
+      // volume only nudges the radius, so the paint bulges into a blob while the
+      // perimeter stays a continuous tiled surface — no more floating tallies.
+      var rp=Math.min(px(HS)*1.16, px(HS)*(0.90+0.30*Math.sqrt(b.att/maxAtt)));
       // tooltip carries the RAW numbers (pipe-delimited; wire() builds the card)
       var rawFg=b.mk/b.att, rawDiff=rawFg-base;
       var tip=(rawFg*100).toFixed(1)+'|'+distLabel(dh,isThree)+'|'+b.mk+'/'+b.att+'|'+(base*100).toFixed(1)+'|'+(rawDiff>=0?'+':'')+(rawDiff*100).toFixed(1)+'|'+(rawDiff>=0?'1':'0');
-      g+='<path class="sc-mark sc-hex '+zc+'" data-tip="'+tip+'" style="animation-delay:'+Math.min(idx*9,700)+'ms" d="'+hexPath(cx,cy,rp)+'" fill="'+effColor(diff)+'" stroke="rgba(10,8,20,.28)" stroke-width="0.5"/>';
+      g+='<path class="sc-mark sc-hex '+zc+'" data-tip="'+tip+'" style="animation-delay:'+Math.min(idx*7,700)+'ms" d="'+hexPath(cx,cy,rp)+'" fill="'+effColor(diff)+'" stroke="rgba(10,8,20,.28)" stroke-width="0.5"/>';
       idx++;
     });
     return g;
