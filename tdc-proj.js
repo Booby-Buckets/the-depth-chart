@@ -536,23 +536,57 @@ async function loadProjCoachStyle(team){
 // this coach's pace, so scaling them would double-count; but a TRANSFER (prior stats
 // at his old team's tempo) and a FRESHMAN (a league-average baseline) get pulled to the
 // coach's system. Scale is the coach's pace vs the league-median pace, bounded ±10-12%.
+// Shift a player's shot diet toward/away from the three, holding total FGA constant
+// (extra 3PA come out of 2PA and vice-versa) and keeping his own 3P%/2P% intact, then
+// re-derive points. leanScale>1 = more threes. Mutates sp in place.
+function _applyThreeLean(sp, leanScale){
+  const fga=parseFloat(sp.fga)||0, tpa=parseFloat(sp.tpa)||0, fgm=parseFloat(sp.fgm)||0, tpm=parseFloat(sp.tpm)||0;
+  if(fga<=0||tpa<=0) return;
+  const newTpa=Math.max(0, Math.min(fga, tpa*leanScale));
+  const threePct=tpm/tpa;                       // hold his own 3P%
+  const twoA=fga-tpa, twoM=fgm-tpm, twoPct=twoA>0?twoM/twoA:0;
+  const newTwoA=fga-newTpa;                      // FGA held constant → 2s and 3s trade off
+  const newTpm=newTpa*threePct, newTwoM=newTwoA*twoPct;
+  const dPts=(3*newTpm+2*newTwoM)-(3*tpm+2*twoM);
+  sp.tpa=newTpa; sp.tpm=newTpm; sp.fgm=newTpm+newTwoM;   // fga unchanged
+  if(sp.ppg!=null) sp.ppg=parseFloat(sp.ppg)+dPts;
+}
+// Coach context v2 — PACE (v1) + 3PA-LEAN + STAR USAGE-CONCENTRATION. Pace and 3PA-lean
+// apply to NEWCOMERS only (a returner's stats already reflect this coach's system, so
+// scaling them double-counts); star concentration nudges whoever is the top scorer, since
+// the coach's system funnels usage there regardless. All bounded and no-op-safe.
 function applyCoachContext(roster){
-  const C=window._projCoach; if(!C||!C.poss_pg) return roster;
+  const C=window._projCoach; if(!C) return roster;
   const lg=C.lgPace||68;
-  const teamScale=Math.max(0.90,Math.min(1.12, C.poss_pg/lg));
-  if(Math.abs(teamScale-1)<0.008) return roster;         // ~average-tempo coach → no-op
+  const paceScale = C.poss_pg ? Math.max(0.90,Math.min(1.12, C.poss_pg/lg)) : 1;
+  const threeLean = C.three_pa_pctl!=null ? Math.max(0.82,Math.min(1.18, 1+0.34*(C.three_pa_pctl-50)/100)) : 1;
+  const starPctl  = (C.star_pctl!=null) ? C.star_pctl : null;
+  const paceOn=Math.abs(paceScale-1)>=0.008, threeOn=Math.abs(threeLean-1)>=0.01, starOn=(starPctl!=null&&starPctl>60);
+  if(!paceOn && !threeOn && !starOn) return roster;       // ~neutral coach → no-op
   const r1=v=>v==null?null:Math.round(v*10)/10;
   const VOL=['ppg','rpg','apg','stl','blk','tovs','oreb','dreb','fgm','fga','tpm','tpa','ftm','fta'];
+  const active=roster.filter(p=>!p._dnp&&!p._injured);
+  const topScorer=active.slice().sort((a,b)=>(parseFloat(b.ppg)||0)-(parseFloat(a.ppg)||0))[0];
+  const starUsg=starOn?Math.max(1,Math.min(1.06, 1+0.06*(starPctl-60)/40)):1;
   return roster.map(p=>{
     if(p._dnp||p._injured) return p;
     const isTransfer=!!(p.hometown&&(''+p.hometown).trim());
     const isFrosh=!!(p._frosh||p._noStatEst||p._isFrosh);
-    if(!isTransfer && !isFrosh) return p;                 // returners already at this pace
-    if(!parseFloat(p.ppg||0)&&!p._noStatEst) return p;
-    const sp={...p};
-    VOL.forEach(k=>{ if(sp[k]!=null) sp[k]=r1(parseFloat(sp[k]||0)*teamScale); });
-    sp._coachPace=Math.round(C.poss_pg*10)/10; sp._paceScale=Math.round(teamScale*1000)/1000;
-    return sp;
+    const newcomer=isTransfer||isFrosh;
+    const hasLine=!!parseFloat(p.ppg||0)||p._noStatEst;
+    let sp=p, changed=false;
+    if(newcomer && hasLine && (paceOn||threeOn)){
+      sp={...p}; changed=true;
+      if(paceOn){ VOL.forEach(k=>{ if(sp[k]!=null) sp[k]=parseFloat(sp[k]||0)*paceScale; }); sp._paceScale=Math.round(paceScale*1000)/1000; }
+      if(threeOn){ _applyThreeLean(sp, threeLean); sp._threeLean=Math.round(threeLean*1000)/1000; }
+    }
+    if(starOn && p===topScorer && starUsg>1.004 && hasLine){
+      if(!changed){ sp={...p}; changed=true; }
+      ['ppg','fgm','fga','tpm','tpa','ftm','fta','apg','tovs'].forEach(k=>{ if(sp[k]!=null) sp[k]=parseFloat(sp[k]||0)*starUsg; });
+      sp._starUsg=Math.round(starUsg*1000)/1000;
+    }
+    if(changed){ VOL.forEach(k=>{ if(sp[k]!=null) sp[k]=r1(sp[k]); }); if(C.poss_pg) sp._coachPace=Math.round(C.poss_pg*10)/10; }
+    return changed?sp:p;
   });
 }
 function buildTeamProjections(players, conf){
