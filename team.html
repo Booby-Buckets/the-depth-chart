@@ -5081,14 +5081,32 @@ function _dnaStyleFit(t, S, oppKeys){
       orb: wm.oORB*(100*n(O.oORB,A.oORB)/(n(O.oORB,A.oORB)+n(D.dDRB,A.dDRB)) - A.oORB),
     });
     const AVG={oeFG:A.oeFG,oTOV:A.oTOV,oORB:A.oORB,deFG:A.deFG,dTOV:A.dTOV,dDRB:A.dDRB};
-    const reason=(d,help)=>({
-      eFGOff: help?'they give up efficient looks':'they defend shots well',
-      eFGDef: help?'our shot defense smothers their scoring':'they can shoot over our defense',
-      orbOff: help?'their soft defensive glass invites our second shots':'their defensive rebounding kills our second chances',
-      orbDef: help?'we clean the glass against them':'they crash the offensive boards on us',
-      tovOff: help?'they rarely force turnovers':'their pressure gets into our ball-handling',
-      tovDef: help?'we can pressure their ball-handling':'they protect the ball against our pressure',
-    }[d]||'');
+    // Reason phrasing — richer + varied so it doesn't read cookie-cutter. Each factor×side
+    // has help/hurt variants (multiple wordings, picked by a per-team hash so a team's
+    // phrasing is stable but differs from its neighbors). PHR = primary clause, PH2 = a
+    // short second-dimension tag from a DIFFERENT factor, so most rows show two ideas.
+    const PHR={
+      eFGoff:[['they give up efficient looks','their defense yields clean shots','we get better looks than usual against them'],
+              ['they contest everything — our looks get tougher','their shot defense makes us grind','we shoot into a wall against them']],
+      eFGdef:[['our shot defense smothers their scoring','we take away their clean looks','they can’t get good looks on us'],
+              ['they can shoot over our defense','they get the looks they want','our shot defense springs leaks against them']],
+      tovoff:[['they rarely force turnovers','their low-pressure defense lets our offense flow','we take care of it against their scheme'],
+              ['their ball pressure gets into our handling','they speed us up into mistakes','our guards get sped up by their pressure']],
+      tovdef:[['we can pressure their ball-handling','we speed them into mistakes','our defense forces them into turnovers'],
+              ['they protect the ball against our pressure','our pressure doesn’t rattle them','they don’t beat themselves against us']],
+      orboff:[['their soft defensive glass gives us second shots','we crash and they can’t clear it','extra possessions on the offensive glass'],
+              ['they lock the defensive glass — one shot and done','no second chances against their rebounding','they end our possessions on the boards']],
+      orbdef:[['we clean the defensive glass against them','we hold them to one shot','no second chances for them'],
+              ['they crash the offensive boards on us','they get extra cracks at our rim','we struggle to end their possessions']],
+    };
+    const PH2={
+      eFGoff:['plus cleaner looks','plus tougher looks'], eFGdef:['plus we defend the shot','plus they shoot over us'],
+      tovoff:['plus we protect the ball','plus they pressure our handle'], tovdef:['plus we force turnovers','plus they’re secure with it'],
+      orboff:['plus we own the offensive glass','plus they own the defensive glass'], orbdef:['plus we control the glass','plus they crash on us'],
+    };
+    const _h=s=>{ let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0; return Math.abs(h); };
+    const _phr=(sub,h)=>{ const a=PHR[sub.stat+sub.side]; if(!a) return ''; const v=a[sub.v>=0?0:1]; return v[h%v.length]; };
+    const _ph2=(sub)=>{ const a=PH2[sub.stat+sub.side]; return a?a[sub.v>=0?0:1]:''; };
     const P=(O,D)=>offParts(O,D);
     const facs=['eFG','tov','orb'];
     const rows=oppKeys.map(k=>{ const O=S.teams[k]; if(!O) return null;
@@ -5099,11 +5117,22 @@ function _dnaStyleFit(t, S, oppKeys){
       let edge=0; const c={};
       facs.forEach(f=>{ const rf=(tO[f]-Ot[f]) - ((tA[f]-At[f]) - (OA[f]-AO[f])); c[f]=rf; edge+=rf; });
       if(!isFinite(edge)) return null;
-      const drvF=facs.slice().sort((a,b)=>Math.abs(c[b])-Math.abs(c[a]))[0];
-      // was the driving edge from OUR offense vs their defense, or OUR defense vs their offense?
-      const offMag=Math.abs(tO[drvF]-tA[drvF]), defMag=Math.abs(Ot[drvF]-OA[drvF]);
-      const rk=drvF+(offMag>=defMag?'Off':'Def'); // eFGOff / eFGDef / tovOff / orbDef ...
-      return { team:k, edge:+edge.toFixed(2), reason:reason(rk, c[drvF]>=0) };
+      // split each factor into its two signed sides (positive = good for us): our offense
+      // vs their defense (tO−tA), and our defense vs their offense (−(Ot−OA)). Six sub-edges.
+      const subs=[];
+      facs.forEach(f=>{ subs.push({stat:f,side:'off',v:tO[f]-tA[f]}); subs.push({stat:f,side:'def',v:-(Ot[f]-OA[f])}); });
+      subs.sort((a,b)=>Math.abs(b.v)-Math.abs(a.v));
+      // the reason must EXPLAIN the verdict, so use the contributions pointing the same way
+      // as the net edge (what makes it favorable, or what makes it tough) — not the single
+      // biggest factor, which can oppose the net.
+      const sgn=edge>=0?1:-1;
+      const aligned=subs.filter(s=>s.v*sgn>0);
+      const prim=aligned[0]||subs[0];
+      // second idea from a DIFFERENT factor, if it's a real contributor — so the reason
+      // pairs two dimensions (e.g. turnovers + shooting) instead of one repeated theme.
+      const sec=aligned.find(s=>s.stat!==prim.stat && Math.abs(s.v)>=0.30*Math.abs(prim.v) && Math.abs(s.v)>=0.05);
+      let rsn=_phr(prim, _h(k)); if(sec) rsn+=', '+_ph2(sec);
+      return { team:k, edge:+edge.toFixed(2), reason:rsn };
     }).filter(Boolean);
     rows.sort((a,b)=>b.edge-a.edge);
     return { favorable:rows.filter(r=>r.edge>0.15).slice(0,4),
