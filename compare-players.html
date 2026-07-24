@@ -15,6 +15,7 @@
   <script src="tdc-shotchart.js?v=14"></script>
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-portalfit.js?v=needs4"></script>
+  <script src="tdc-chemistry.js?v=2"></script>
   <style>
     :root{--bg: #FAF9F6;--bg2: #F1EFEA;--bg3: #E6E3DB;--border: #DEDACF;--border2: #C6C0B2;--text: #1A1814;--text2: #4A463C;--text3: #8A867A;--accent: #A8843C;--teal:#3f8d7d;--green:#1a8c3a;--red:#cc2200;--blue:#1a5fbf;}
     [data-theme="dark"]{--bg: #141416;--bg2: #1D1D20;--bg3: #28282C;--border: #2E2E34;--border2: #45454D;--text: #F1EFEA;--text2: #B4B0A8;--text3: #807C74;--accent: #E6D5A8;--teal:#5b9d8f;--green:#5ab875;--red:#e07070;--blue:#74aedd;}
@@ -1387,8 +1388,13 @@ function _teamChemInner(chem){
 }
 function _fillTeamChem(r1,r2){
   const e1=document.getElementById('tchem1'), e2=document.getElementById('tchem2');
-  if(e1) e1.innerHTML=_teamChemInner(_teamChem(r1&&r1.rows));
-  if(e2) e2.innerHTML=_teamChemInner(_teamChem(r2&&r2.rows));
+  if(window.TDCChem){   // full lineup-identity + synergy court (shared engine)
+    if(e1) TDCChem.render(e1, (r1&&r1.rows)||[]);
+    if(e2) TDCChem.render(e2, (r2&&r2.rows)||[]);
+  } else {              // fallback: the compact card
+    if(e1) e1.innerHTML=_teamChemInner(_teamChem(r1&&r1.rows));
+    if(e2) e2.innerHTML=_teamChemInner(_teamChem(r2&&r2.rows));
+  }
 }
 // ── side-by-side shot charts (reuses tdc-shotchart.js from the player page) ──
 async function _fetchPlayerShots(p){
@@ -1956,11 +1962,11 @@ async function renderTeams(){
       <div class="sim-card" id="tRost2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Loading roster…</div></div>
     </div>
 
-    <div class="compare-section-head">Roster Chemistry — how the pieces fit</div>
-    <div class="sim-grid">
-      <div class="sim-card" id="tchem1" style="border-top:2px solid ${c1};"><div class="sim-row" style="color:var(--text3);">Analyzing fit…</div></div>
-      <div class="sim-card" id="tchem2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Analyzing fit…</div></div>
-    </div>
+    <div class="compare-section-head">Lineup Chemistry — starting five, synergy &amp; fit</div>
+    <div class="scc-lbl" style="color:${c1};border-bottom-color:${c1};">${t1.name}${sameYear?'':' · '+yl1}</div>
+    <div id="tchem1" style="margin-bottom:22px;"><div class="sim-row" style="color:var(--text3);">Analyzing lineup…</div></div>
+    <div class="scc-lbl" style="color:${c2};border-bottom-color:${c2};">${t2.name}${sameYear?'':' · '+yl2}</div>
+    <div id="tchem2" style="margin-bottom:6px;"><div class="sim-row" style="color:var(--text3);">Analyzing lineup…</div></div>
 
     <div class="compare-section-head">Best Player Seasons on File · Since 2006</div>
     <div class="sim-grid">
