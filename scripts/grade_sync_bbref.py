@@ -2,7 +2,7 @@
 """Push canonical bbref_seasons grades onto players roster + player_history so the
 Player Database (roster.html) matches the player pages. Fetches per-season to
 avoid deep-offset pagination timeouts."""
-import os,re,sys,time,requests
+import os,re,sys,time,json,requests
 from pathlib import Path
 from collections import defaultdict
 SB="https://izlqhnxowdhtdofkwrho.supabase.co"
@@ -52,8 +52,23 @@ def main(write=False):
             g_by[(eid,yr)]=gr
             if gr is not None and (eid not in latest or yr>latest[eid][0]): latest[eid]=(yr,gr)
     print(f"bbref grades: {len(g_by):,} player-seasons, {len(latest):,} players")
-    pl=GET("/rest/v1/players?select=id,espn_id&espn_id=not.is.null&order=id&limit=2000")
-    pp=[{"id":int(p["id"]),"tdc_grade":str(latest[int(p["espn_id"])][1])} for p in pl if int(p["espn_id"]) in latest]
+    # manual grade overrides (../grade-overrides.json -> by_name): applied to the players
+    # (current-roster) grade AFTER the model, for players the v4 model can't grade to the
+    # eye without distorting the population (see grade-v4-plan memory). player_history keeps
+    # the model grades — the override is only the player's current overall.
+    import os
+    ov={}
+    try:
+        ov=json.load(open(os.path.join(os.path.dirname(__file__),os.pardir,"grade-overrides.json"))).get("by_name",{})
+    except Exception as e:
+        print(f"  (no grade-overrides.json: {e})")
+    pl=GET("/rest/v1/players?select=id,espn_id,name&espn_id=not.is.null&order=id&limit=2000")
+    pp=[]; n_ov=0
+    for p in pl:
+        eid=int(p["espn_id"]); nm=p.get("name")
+        if nm in ov: pp.append({"id":int(p["id"]),"tdc_grade":str(int(ov[nm]))}); n_ov+=1
+        elif eid in latest: pp.append({"id":int(p["id"]),"tdc_grade":str(latest[eid][1])})
+    if ov: print(f"  applied {n_ov}/{len(ov)} grade overrides: {', '.join(ov.keys())}")
     hh=[]
     for yr in range(2012,2027):
         for h in fetch_season("player_history",yr,"select=id,espn_id&espn_id=not.is.null"):
