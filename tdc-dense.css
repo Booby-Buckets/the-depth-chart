@@ -90,8 +90,22 @@ html{ background:#0A0E18 !important; }
     transition:flex-basis .28s ease, opacity .22s ease, transform .28s ease; }
   .tdc-rail.collapsed{ flex-basis:0 !important; width:0; min-width:0; padding:0; margin:0; border:0;
     gap:0; opacity:0; transform:translateX(24px); overflow:hidden; pointer-events:none; }
+  body.rail-collapsed .rail-reopen{ display:inline-flex; }
 }
-@media(max-width:1199px){ .tdc-rail, .rail-reopen{ display:none !important; } }
+/* Tablet (760–1199px): the rail slides in from the right as an overlay drawer */
+@media(min-width:760px) and (max-width:1199px){
+  .tdc-rail{ position:fixed; top:0; right:0; height:100dvh; width:300px; max-width:86vw; z-index:210;
+    display:flex; flex-direction:column; gap:12px; overflow-y:auto; padding:16px 14px 28px;
+    background:var(--bg2); border-left:1px solid var(--border); box-shadow:-10px 0 34px rgba(0,0,0,.45);
+    transform:translateX(101%); transition:transform .3s ease; }
+  body.rail-drawer-open .tdc-rail{ transform:translateX(0); }
+  body .rail-reopen{ display:inline-flex; top:auto; bottom:26px; }
+  body.rail-drawer-open .rail-reopen{ display:none; }
+  .rail-backdrop{ position:fixed; inset:0; z-index:205; background:rgba(0,0,0,.5); display:none; }
+  body.rail-drawer-open .rail-backdrop{ display:block; }
+}
+/* Phone (<760px): rail stays hidden */
+@media(max-width:759px){ .tdc-rail, .rail-reopen, .rail-backdrop{ display:none !important; } }
 /* slide-off toggle */
 .rl-collapse{ align-self:flex-end; font:600 11px/1 'Sora',sans-serif; letter-spacing:.03em; color:var(--text3);
   background:rgba(16,21,34,.6); border:1px solid var(--border); border-radius:8px; padding:6px 10px; cursor:pointer;

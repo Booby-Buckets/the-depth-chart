@@ -482,17 +482,30 @@
 
   /* ---- collapse / slide-off control ---- */
   function railHidden(){ try{ return localStorage.getItem('tdcRailHidden')==='1'; }catch(e){ return false; } }
+  function isTablet(){ return window.matchMedia('(min-width:760px) and (max-width:1199px)').matches; }
   function ensureHandle(){
-    if(document.getElementById('tdcRailReopen')) return;
-    var b=document.createElement('button'); b.id='tdcRailReopen'; b.type='button'; b.className='rail-reopen';
-    b.innerHTML='⟨ Panels'; b.title='Bring the panels back';
-    b.onclick=function(){ setRail(false); };
-    document.body.appendChild(b);
+    if(!document.getElementById('tdcRailReopen')){
+      var b=document.createElement('button'); b.id='tdcRailReopen'; b.type='button'; b.className='rail-reopen';
+      b.innerHTML='⟨ Panels'; b.title='Show the panels';
+      b.onclick=function(){ setRail(false); };
+      document.body.appendChild(b);
+    }
+    if(!document.getElementById('tdcRailBackdrop')){
+      var bd=document.createElement('div'); bd.id='tdcRailBackdrop'; bd.className='rail-backdrop';
+      bd.onclick=function(){ setRail(true); };
+      document.body.appendChild(bd);
+    }
   }
+  // on=true → hide/close. On tablet the rail is an overlay drawer (body.rail-drawer-open);
+  // on desktop it collapses inline (rail.collapsed + body.rail-collapsed drives the handle).
   function setRail(on){
+    if(isTablet()){
+      document.body.classList.toggle('rail-drawer-open', !on);
+      return;
+    }
     try{ localStorage.setItem('tdcRailHidden', on?'1':'0'); }catch(e){}
+    document.body.classList.toggle('rail-collapsed', on);
     var rail=document.querySelector('.tdc-rail'); if(rail) rail.classList.toggle('collapsed', on);
-    var h=document.getElementById('tdcRailReopen'); if(h) h.style.display=on?'inline-flex':'none';
   }
   window.__tdcRail=setRail;
 
@@ -505,7 +518,10 @@
       sec.dataset.railBuilding='';
       if(curSeason()!==cs){ buildRail(); return; }              // season changed mid-build → rebuild
       var old=sec.querySelector('.tdc-rail'); if(old) old.remove();
-      if(rail && rail.children.length){ sec.appendChild(rail); ensureHandle(); setRail(railHidden()); }
+      if(rail && rail.children.length){ sec.appendChild(rail); ensureHandle();
+        // desktop: honor the saved collapse preference. tablet: drawer defaults closed
+        // (body has no rail-drawer-open class) and a rebuild must NOT slam it shut.
+        if(!isTablet()) setRail(railHidden()); }
       sec.dataset.railSeason=String(cs);
     };
     if(cs>=2027) buildProjectionRail(finish);
@@ -521,6 +537,9 @@
         .observe(list,{childList:true});
     }
     [400,1200,2600].forEach(function(ms){ setTimeout(run,ms); });   // catch async first render
+    // crossing the tablet/desktop line: close the drawer so state doesn't leak across modes
+    var rt=null; window.addEventListener('resize',function(){ if(rt)return; rt=setTimeout(function(){ rt=null;
+      if(!isTablet()) document.body.classList.remove('rail-drawer-open'); },150); });
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
 })();
