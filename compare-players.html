@@ -180,6 +180,9 @@
     .scc-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:26px;}
     .scc-lbl{font-size:12px;font-weight:800;letter-spacing:.03em;padding:2px 2px 8px;border-bottom:2px solid var(--border2);margin-bottom:10px;}
     .scc-host{min-height:120px;}
+    .sg-pct{font-size:9px;color:var(--text3);margin-left:5px;font-weight:600;vertical-align:middle;}
+    .sg-note{font-size:11px;color:var(--text3);line-height:1.55;padding:9px 4px 0;}
+    .sg-note b{color:var(--text2);}
     .sim-card{border:1px solid var(--border);border-radius:10px;padding:8px 14px;}
     .sim-row{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--border);font-size:12px;}
     .sim-row:last-child{border-bottom:none;}
@@ -1046,6 +1049,12 @@ function renderPlayers(){
       <div class="scc-col"><div class="scc-lbl" style="color:${c2};border-bottom-color:${c2};">${p2.name}</div><div id="sc2" class="scc-host"></div></div>
     </div>`:''}
 
+    <div id="sgSection" style="display:none;">
+      <div class="compare-section-head">Shot Genome · 2025-26</div>
+      <div id="sgWrap"></div>
+      <div class="sg-note">Original TDC shot-location metrics (percentile shown where available). <b>Look Quality</b> — the eFG% a league-average shooter would post on his shot diet · <b>SM+</b> — points added over average per 100 shots (pure finishing) · <b>Creation</b> — expected points his passing generates. Higher is better.</div>
+    </div>
+
     <div class="compare-section-head">${bothCurrent?'2026-27 Projected':`Next Season Projection${nextLbl(p1)===nextLbl(p2)?` · ${nextLbl(p1)}`:''}`} · Model Estimate</div>
     ${projRow('PPG',pr1.ppg,pr2.ppg)}${projRow('RPG',pr1.rpg,pr2.rpg)}${projRow('APG',pr1.apg,pr2.apg)}
     ${projRow('MPG',pr1.mpg,pr2.mpg)}${projRow('STL',pr1.stl,pr2.stl)}${projRow('BLK',pr1.blk,pr2.blk)}
@@ -1089,6 +1098,7 @@ function renderPlayers(){
   `;
   fillSimCards(p1,p2);
   _renderShotCharts(p1,p2);
+  _fillShotGenome(p1,p2);
   const labels=P_AXES.map(a=>a.l);
   const d1=P_AXES.map(a=>a.f(p1)), d2=P_AXES.map(a=>a.f(p2));
   // each player benchmarks against All-Americans at HIS position group
@@ -1149,6 +1159,46 @@ async function _renderShotCharts(p1,p2){
   const [s1,s2]=await Promise.all([_fetchPlayerShots(p1),_fetchPlayerShots(p2)]);
   if(h1) TDC_SHOTCHART.render(h1, s1, {subtitle:p1.name, mode:'hex'});
   if(h2) TDC_SHOTCHART.render(h2, s2, {subtitle:p2.name, mode:'hex'});
+}
+// ── Shot Genome (original TDC metrics from scripts/data/shot_genome_players.json) ──
+let _sgPromise=null;
+function _ensureSgPlayers(){
+  if(window._sgByEspn) return Promise.resolve(window._sgByEspn);
+  if(_sgPromise) return _sgPromise;
+  _sgPromise=fetch('scripts/data/shot_genome_players.json').then(r=>r.ok?r.json():null).then(j=>{
+    if(!j||!j.players) return null;
+    const m={}; j.players.forEach(p=>{ if(p.espn_id!=null) m[p.espn_id]=p; });
+    window._sgByEspn=m; return m;
+  }).catch(()=>null);
+  return _sgPromise;
+}
+// one head-to-head row that also shows a national-percentile chip when we have one
+function _sgRow(label, v1, v2, pc1, pc2, fmtFn, higher){
+  higher = higher!==false;
+  const a=parseFloat(v1), b=parseFloat(v2), hasA=!isNaN(a), hasB=!isNaN(b);
+  let wA='',wB=''; if(hasA&&hasB&&a!==b){ const aw=higher?a>b:a<b; wA=aw?'winner':'loser'; wB=aw?'loser':'winner'; }
+  const chip=pc=>{ const n=parseFloat(pc); return isNaN(n)?'':`<span class="sg-pct">${_ord(Math.round(n))}</span>`; };
+  const cell=(has,v,pc)=>has?`${fmtFn(v)}${chip(pc)}`:'—';
+  return `<div class="compare-row"><div class="compare-cell ${wA}">${cell(hasA,a,pc1)}</div>`
+    +`<div class="compare-label">${label}</div>`
+    +`<div class="compare-cell right ${wB}">${cell(hasB,b,pc2)}</div></div>`;
+}
+async function _fillShotGenome(p1,p2){
+  const sec=document.getElementById('sgSection'); if(!sec) return;
+  const map=await _ensureSgPlayers(); if(!map){ sec.style.display='none'; return; }
+  // genome data is 2025-26 only — don't attach it to a historical-season pick
+  const g1=(!p1._isHistory&&p1.espn_id)?map[p1.espn_id]:null;
+  const g2=(!p2._isHistory&&p2.espn_id)?map[p2.espn_id]:null;
+  if(!g1&&!g2){ sec.style.display='none'; return; }
+  const pf=v=>v.toFixed(1)+'%', pn=v=>v.toFixed(1), ps=v=>(v>0?'+':'')+v.toFixed(1);
+  let rows='';
+  rows+=_sgRow('Look Quality (xeFG%)', g1&&g1.lq, g2&&g2.lq, null, null, pf);
+  rows+=_sgRow('Actual eFG%', g1&&g1.efg, g2&&g2.efg, null, null, pf);
+  rows+=_sgRow('Shot-Making (SM+)', g1&&g1.smAdj, g2&&g2.smAdj, g1&&g1.smPct, g2&&g2.smPct, ps);
+  rows+=_sgRow('Creation (xPts)', g1&&g1.crAdj, g2&&g2.crAdj, g1&&g1.crPct, g2&&g2.crPct, pn);
+  rows+=_sgRow('Self-Created Share', g1&&g1.selfPct, g2&&g2.selfPct, g1&&g1.selfPctl, g2&&g2.selfPctl, pf);
+  const w=document.getElementById('sgWrap'); if(w) w.innerHTML=rows;
+  sec.style.display='';
 }
 // Two brand colors can be near-identical after the readability pass (Arizona
 // vs Arizona State both land on pale red). When too close to tell apart, push
