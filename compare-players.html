@@ -201,6 +201,18 @@
     .tchem-l{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--text3);}
     .tchem-verdict{font-size:12.5px;font-weight:800;color:var(--text);}
     #tchem1 .chem-r,#tchem2 .chem-r{font-size:12px;color:var(--text2);padding:3px 0;}
+    .mu-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-bottom:26px;}
+    .mu-bars{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+    .mu-side.right{text-align:right;}
+    .mu-lbl{font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;}
+    .mu-edge{font-family:'Playfair Display',serif;font-weight:800;font-size:34px;line-height:1;}
+    .mu-track{height:7px;border-radius:4px;background:var(--bg3);margin-top:8px;overflow:hidden;}
+    .mu-fill{height:100%;border-radius:4px;}
+    .mu-fill.right{margin-left:auto;}
+    .mu-verdict{text-align:center;font-size:14px;font-weight:800;color:var(--text);margin:16px 0 4px;padding-top:14px;border-top:1px solid var(--border);}
+    .mu-edges{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+    .mu-e{display:flex;align-items:flex-start;gap:9px;font-size:12.5px;color:var(--text2);line-height:1.5;}
+    .mu-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;}
     .cf-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px;}
     .cf-coach{font-size:14px;font-weight:800;color:var(--text);}
     .cf-arch{font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
@@ -1041,6 +1053,7 @@ function renderPlayers(){
     </div>`;
   const bothCurrent=!p1._isHistory&&!p2._isHistory;
   const chem=_playerChem(p1,p2);
+  const matchup=_playerMatchup(p1,p2);
   const pr1=projPlayer(p1), pr2=projPlayer(p2);
   const conf1=confOf(p1), conf2=confOf(p2);
   const g1=posGroupOf(p1), g2=posGroupOf(p2);
@@ -1107,6 +1120,17 @@ function renderPlayers(){
         <div class="sim-card" id="cfit1" style="border-top:2px solid ${c1};"><div class="sim-row" style="color:var(--text3);">Computing fit…</div></div>
         <div class="sim-card" id="cfit2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Computing fit…</div></div>
       </div>
+    </div>`:''}
+
+    ${matchup?`
+    <div class="compare-section-head">Head-to-Head Matchup · If They Guarded Each Other</div>
+    <div class="mu-card">
+      <div class="mu-bars">
+        <div class="mu-side"><div class="mu-lbl">${p1.name} attacking</div><div class="mu-edge" style="color:${c1};">${matchup.p1off}</div><div class="mu-track"><div class="mu-fill" style="width:${matchup.p1off}%;background:${c1};"></div></div></div>
+        <div class="mu-side right"><div class="mu-lbl">${p2.name} attacking</div><div class="mu-edge" style="color:${c2};">${matchup.p2off}</div><div class="mu-track"><div class="mu-fill right" style="width:${matchup.p2off}%;background:${c2};"></div></div></div>
+      </div>
+      <div class="mu-verdict">${matchup.winner?'🏆 ':''}${matchup.verdict}</div>
+      ${matchup.edges.length?`<div class="mu-edges">${matchup.edges.map(e=>`<div class="mu-e"><span class="mu-dot" style="background:${e.who===1?c1:c2};"></span>${e.t}</div>`).join('')}</div>`:''}
     </div>`:''}
 
     ${chem?`
@@ -1294,6 +1318,32 @@ function _playerChem(p1,p2){
   s=Math.max(14,Math.min(97,Math.round(s)));
   const verdict=s>=72?'Seamless fit':s>=58?'Workable fit':s>=44?'Awkward fit':'Poor fit';
   return {score:s, verdict, reasons:R.slice(0,5)};
+}
+// ── PLAYER vs PLAYER MATCHUP: if they guarded each other, who has the edge ──
+function _playerMatchup(p1,p2){
+  if(!window.TDCPortalFit||!TDCPortalFit.profile) return null;
+  const a=TDCPortalFit.profile(p1)||{}, b=TDCPortalFit.profile(p2)||{}, g=(o,k)=>+(o[k]||0);
+  const htIn=h=>{ const m=(''+(h||'')).match(/(\d+)\s*[-']\s*(\d+)/); return m?(+m[1])*12+(+m[2]):0; };
+  const h1=htIn(p1.height), h2=htIn(p2.height), nm1=p1.name, nm2=p2.name;
+  // an attacker's scoring threats vs the defender's relevant resistance
+  const oEdge=(att,def)=> (g(att,'shooter')+g(att,'scorer'))/2 - g(def,'perimD')*0.9
+                        + g(att,'creator')*0.45 + g(att,'finisher')*0.6 - g(def,'rimProtect')*0.7;
+  const norm=e=>Math.max(2,Math.min(98,Math.round(52+e*46)));
+  const p1off=norm(oEdge(a,b)), p2off=norm(oEdge(b,a));
+  const E=[];
+  if(g(a,'shooter')-g(b,'perimD')>0.22) E.push({who:1,t:`${nm1}'s shooting punishes ${nm2}'s perimeter defense.`});
+  if(g(b,'shooter')-g(a,'perimD')>0.22) E.push({who:2,t:`${nm2}'s shooting punishes ${nm1}'s perimeter defense.`});
+  if(g(a,'finisher')-g(b,'rimProtect')>0.2) E.push({who:1,t:`${nm1} gets downhill to the rim on ${nm2}.`});
+  if(g(b,'finisher')-g(a,'rimProtect')>0.2) E.push({who:2,t:`${nm2} gets downhill to the rim on ${nm1}.`});
+  if(Math.abs(h1-h2)>=3){ const tall=h1>h2?nm1:nm2, sm=h1>h2?nm2:nm1; E.push({who:h1>h2?1:2,t:`${tall} has a ${Math.abs(h1-h2)}″ size edge on ${sm} — posts and rebounds over him.`}); }
+  if(g(a,'ballDom')-g(b,'ballDom')>0.32 && g(b,'perimD')<0.42) E.push({who:1,t:`${nm1} can break ${nm2} down off the dribble in space.`});
+  if(g(b,'ballDom')-g(a,'ballDom')>0.32 && g(a,'perimD')<0.42) E.push({who:2,t:`${nm2} can break ${nm1} down off the dribble in space.`});
+  const d1=g(a,'perimD')+g(a,'rimProtect'), d2=g(b,'perimD')+g(b,'rimProtect');
+  if(d1-d2>0.35) E.push({who:1,t:`${nm1} is the tougher individual defender of the two.`});
+  else if(d2-d1>0.35) E.push({who:2,t:`${nm2} is the tougher individual defender of the two.`});
+  const w=p1off>p2off+6?1:p2off>p1off+6?2:0;
+  const verdict=w===1?`${nm1} wins the individual matchup`:w===2?`${nm2} wins the individual matchup`:'A dead-even matchup';
+  return {p1off, p2off, edges:E.slice(0,5), verdict, winner:w};
 }
 // ── TEAM CHEMISTRY: how well a roster's pieces fit together (raw box stats) ──
 function _teamChem(rows){
