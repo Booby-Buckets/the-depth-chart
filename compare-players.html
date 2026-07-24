@@ -183,6 +183,7 @@
     .sg-pct{font-size:9px;color:var(--text3);margin-left:5px;font-weight:600;vertical-align:middle;}
     .sg-note{font-size:11px;color:var(--text3);line-height:1.55;padding:9px 4px 0;}
     .sg-note b{color:var(--text2);}
+    .compare-subhead{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);padding:12px 4px 5px;}
     .sim-card{border:1px solid var(--border);border-radius:10px;padding:8px 14px;}
     .sim-row{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--border);font-size:12px;}
     .sim-row:last-child{border-bottom:none;}
@@ -1246,7 +1247,7 @@ function projRow(label,a,b){
 }
 
 // ── TEAM SEASON MACHINERY (multi-year comparisons) ──
-const TS_SEL='team,season_year,conference,wins,losses,conf_wins,conf_losses,ppg,oppg,srs,ncaa_seed,ncaa_result,postseason,rpg,apg,spg,bpg,topg,orpg,drpg,fg_pct,tp_pct,ft_pct,tier';
+const TS_SEL='team,team_id,season_year,conference,wins,losses,conf_wins,conf_losses,ppg,oppg,srs,ncaa_seed,ncaa_result,postseason,rpg,apg,spg,bpg,topg,orpg,drpg,fg_pct,tp_pct,ft_pct,tier';
 const _tsYearCache={};
 async function tsYear(yr){
   if(_tsYearCache[yr]) return _tsYearCache[yr];
@@ -1510,6 +1511,88 @@ const SW_DEFS=[
 
 function teamAxis(t,a){ return a.f?a.f(t):tPct(t,a.k,a.inv); }
 
+// ── team shot charts (reuses tdc-shotchart.js; team_seasons row carries team_id) ──
+async function _renderTeamShotCharts(s1,s2,y1,y2,t1,t2){
+  const h1=document.getElementById('tsc1'), h2=document.getElementById('tsc2');
+  if((!h1&&!h2)||!window.TDC_SHOTCHART) return;
+  const f=async(s,y)=>{ if(!s||s.team_id==null) return null; try{
+    const r=await fetch(`${SB}/rest/v1/shots?team_id=eq.${s.team_id}&season_year=eq.${y}&select=x,y,made,sv,dist&limit=6000`,{headers:H});
+    return r.ok?await r.json():[]; }catch(e){ return []; } };
+  const [a,b]=await Promise.all([f(s1,y1),f(s2,y2)]);
+  if(h1&&a) TDC_SHOTCHART.render(h1,a,{subtitle:t1.name,mode:'hex'});
+  if(h2&&b) TDC_SHOTCHART.render(h2,b,{subtitle:t2.name,mode:'hex'});
+}
+// ── Team DNA · four factors + efficiency (scripts/data/team_dna.json, keyed by season→full name) ──
+let _dnaPromise=null;
+function _ensureTeamDNA(){
+  if(window._teamDNAall) return Promise.resolve(window._teamDNAall);
+  if(_dnaPromise) return _dnaPromise;
+  _dnaPromise=fetch('scripts/data/team_dna.json').then(r=>r.ok?r.json():null).then(j=>{ window._teamDNAall=j||null; return j; }).catch(()=>null);
+  return _dnaPromise;
+}
+async function _fillTeamDNA(s1,s2,y1,y2){
+  const sec=document.getElementById('tdnaSection'); if(!sec) return;
+  const d=await _ensureTeamDNA(); if(!d){ sec.style.display='none'; return; }
+  const lk=(s,y)=>{ if(!s||!s.team) return null; const node=d[String(y)]; return (node&&node.teams)?node.teams[s.team]:null; };
+  const a=lk(s1,y1), b=lk(s2,y2);
+  if(!a&&!b){ sec.style.display='none'; return; }
+  const g=(o,k)=>o?o[k]:null, f1=v=>v.toFixed(1), fp=v=>v.toFixed(1)+'%', fpm=v=>(v>0?'+':'')+v.toFixed(1);
+  let r='';
+  r+='<div class="compare-subhead">Efficiency (adjusted)</div>';
+  r+=cmpRow('Offense (pts/100)', g(a,'adjO'), g(b,'adjO'), f1, true);
+  r+=cmpRow('Defense (pts/100)', g(a,'adjD'), g(b,'adjD'), f1, false);
+  r+=cmpRow('Net', g(a,'adjNet'), g(b,'adjNet'), fpm, true);
+  r+=cmpRow('Tempo (poss/40)', g(a,'tempo'), g(b,'tempo'), f1, true);
+  r+='<div class="compare-subhead">Offense · Four Factors</div>';
+  r+=cmpRow('eFG%', g(a,'oeFG'), g(b,'oeFG'), fp, true);
+  r+=cmpRow('Turnover %', g(a,'oTOV'), g(b,'oTOV'), fp, false);
+  r+=cmpRow('Off Reb %', g(a,'oORB'), g(b,'oORB'), fp, true);
+  r+=cmpRow('FT Rate', g(a,'oFTr'), g(b,'oFTr'), fp, true);
+  r+='<div class="compare-subhead">Defense · Four Factors</div>';
+  r+=cmpRow('Opp eFG%', g(a,'deFG'), g(b,'deFG'), fp, false);
+  r+=cmpRow('Forced TOV %', g(a,'dTOV'), g(b,'dTOV'), fp, true);
+  r+=cmpRow('Def Reb %', g(a,'dDRB'), g(b,'dDRB'), fp, true);
+  r+=cmpRow('Opp FT Rate', g(a,'dFTr'), g(b,'dFTr'), fp, false);
+  const w=document.getElementById('tdnaWrap'); if(w) w.innerHTML=r;
+  sec.style.display='';
+}
+// ── Team Shot Genome (scripts/data/shot_genome_teams.json list, keyed by team_id) ──
+let _sgtPromise=null;
+function _ensureSgTeams(){
+  if(window._sgtById) return Promise.resolve(window._sgtById);
+  if(_sgtPromise) return _sgtPromise;
+  _sgtPromise=fetch('scripts/data/shot_genome_teams.json').then(r=>r.ok?r.json():null).then(j=>{
+    if(!j||!j.teams) return null; const m={}; j.teams.forEach(t=>{ if(t.team_id!=null) m[t.team_id]=t; }); window._sgtById=m; return m;
+  }).catch(()=>null);
+  return _sgtPromise;
+}
+async function _fillTeamGenome(s1,s2,y1,y2){
+  const sec=document.getElementById('tsgSection'); if(!sec) return;
+  const map=await _ensureSgTeams(); if(!map){ sec.style.display='none'; return; }
+  const a=(y1===2026&&s1&&s1.team_id!=null)?map[s1.team_id]:null;   // genome is 2025-26 only
+  const b=(y2===2026&&s2&&s2.team_id!=null)?map[s2.team_id]:null;
+  if(!a&&!b){ sec.style.display='none'; return; }
+  const off=(o,k)=>o&&o.off?o.off[k]:null, offp=(o,k)=>o&&o.off&&o.off.pct?o.off.pct[k]:null;
+  const def=(o,k)=>o&&o.def?o.def[k]:null, defp=(o,k)=>o&&o.def&&o.def.pct?o.def.pct[k]:null;
+  const top=(o,k)=>o?o[k]:null;
+  const fp=v=>v.toFixed(1)+'%', ps=v=>(v>0?'+':'')+v.toFixed(1), pn=v=>v.toFixed(1);
+  let r='';
+  r+='<div class="compare-subhead">Offense — shots they generate</div>';
+  r+=_sgRow('Look Quality (xeFG%)', off(a,'lq'), off(b,'lq'), offp(a,'lq'), offp(b,'lq'), fp, true);
+  r+=_sgRow('Actual eFG%', off(a,'efg'), off(b,'efg'), offp(a,'efg'), offp(b,'efg'), fp, true);
+  r+=_sgRow('Shot-Making (SM+)', off(a,'smAdj'), off(b,'smAdj'), offp(a,'smAdj'), offp(b,'smAdj'), ps, true);
+  r+=_sgRow('Rim Rate', off(a,'rimRate'), off(b,'rimRate'), null, null, fp, true);
+  r+=_sgRow('3PA Rate', off(a,'threeRate'), off(b,'threeRate'), null, null, fp, true);
+  r+='<div class="compare-subhead">Defense — shots they force</div>';
+  r+=_sgRow('Opp Look Quality', def(a,'lq'), def(b,'lq'), defp(a,'lq'), defp(b,'lq'), fp, false);
+  r+=_sgRow('Opp eFG%', def(a,'efg'), def(b,'efg'), defp(a,'efg'), defp(b,'efg'), fp, false);
+  r+=_sgRow('Opp Shot-Making', def(a,'smAdj'), def(b,'smAdj'), defp(a,'smAdj'), defp(b,'smAdj'), ps, false);
+  r+='<div class="compare-subhead">Passing / Creation</div>';
+  r+=_sgRow('Creation / game (xPts)', top(a,'crAdjPg'), top(b,'crAdjPg'), top(a,'crPct'), top(b,'crPct'), pn, true);
+  r+=_sgRow('Self-Created Share', top(a,'selfPct'), top(b,'selfPct'), null, null, fp, true);
+  const w=document.getElementById('tsgWrap'); if(w) w.innerHTML=r;
+  sec.style.display='';
+}
 async function renderTeams(){
   destroyCharts();
   const [t1,t2]=sel.teams;
@@ -1602,6 +1685,24 @@ async function renderTeams(){
     ${cmpRow('NCAA Seed',g(s1,'ncaa_seed'),g(s2,'ncaa_seed'),v=>'#'+Math.round(v),false)}
     `:''}
 
+    ${(s1&&s1.team_id)||(s2&&s2.team_id)?`
+    <div class="compare-section-head">Team Shot Charts${sameYear?` — ${yl1}`:''}</div>
+    <div class="scc-grid">
+      <div class="scc-col"><div class="scc-lbl" style="color:${c1};border-bottom-color:${c1};">${t1.name}</div><div id="tsc1" class="scc-host"></div></div>
+      <div class="scc-col"><div class="scc-lbl" style="color:${c2};border-bottom-color:${c2};">${t2.name}</div><div id="tsc2" class="scc-host"></div></div>
+    </div>`:''}
+
+    <div id="tdnaSection" style="display:none;">
+      <div class="compare-section-head">Team DNA · Four Factors &amp; Efficiency${sameYear?` — ${yl1}`:''}</div>
+      <div id="tdnaWrap"></div>
+    </div>
+
+    <div id="tsgSection" style="display:none;">
+      <div class="compare-section-head">Team Shot Genome · 2025-26</div>
+      <div id="tsgWrap"></div>
+      <div class="sg-note">Team-level shot-location profile — <b>offense</b> = the looks they generate &amp; make, <b>defense</b> = the looks they force opponents into. Higher Look Quality / SM+ on offense (and lower on defense) is better.</div>
+    </div>
+
     <div class="compare-section-head" style="margin-top:26px;">Rosters${sameYear?` — ${yl1}`:` — ${yl1} vs ${yl2}`}</div>
     <div class="sim-grid">
       <div class="sim-card" id="tRost1" style="border-top:2px solid ${c1};"><div class="sim-row" style="color:var(--text3);">Loading roster…</div></div>
@@ -1651,6 +1752,9 @@ async function renderTeams(){
     `:''}
   `;
   setTimeout(async()=>{
+    _renderTeamShotCharts(s1,s2,y1,y2,t1,t2);
+    _fillTeamDNA(s1,s2,y1,y2);
+    _fillTeamGenome(s1,s2,y1,y2);
     if(s1||s2){
       // percentile radar vs each pick's own season
       const labels=TSP_AXES.map(a=>a.l);
