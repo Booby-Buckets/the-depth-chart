@@ -1488,7 +1488,8 @@ async function renderShowcase(){
   if(curSeason===2027 && window.TDCFresh && Array.isArray(pool) && pool.length){
     try{ await TDCFresh.load(); }catch(e){}
     let _ov=false;
-    pool.forEach(p=>{ const fp=TDCFresh.profileFor({team:p.school,name:p.player}); if(fp&&fp.ovr!=null){ p.tdc_grade=''+Math.round(fp.ovr); p._fr=true; _ov=true; } });
+    pool.forEach(p=>{ if(!TDCFresh.isFreshman(p)) return;   // returners keep their demonstrated grade — a stale freshman-editor profile must NOT override a sophomore who has played
+      const fp=TDCFresh.profileFor({team:p.school,name:p.player}); if(fp&&fp.ovr!=null){ p.tdc_grade=''+Math.round(fp.ovr); p._fr=true; _ov=true; } });
     if(_ov) pool.sort((a,b)=>(parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0));
   }
   // Forward-looking projected OVR for RETURNERS (shared tdc-projgrade.js model) — so
@@ -1496,7 +1497,13 @@ async function renderShowcase(){
   // show. Freshmen already carry their editor OVR above and are skipped.
   if(curSeason===2027 && window.TDCProjGrade && Array.isArray(pool) && pool.length){
     let _pv=false;
-    pool.forEach(p=>{ if(p._fr) return; const g=TDCProjGrade.grade(p); if(g!=null&&!isNaN(g)&&g!=+p.tdc_grade){ p.tdc_grade=''+g; _pv=true; } });
+    // Always project from the ORIGINAL demonstrated grade. The pool is cached, so mutating
+    // p.tdc_grade to the projection and re-projecting on the next render compounds it
+    // (75 → 84 → 91 → 98…). Stash the base once and project from it every time (idempotent).
+    pool.forEach(p=>{ if(p._fr) return;
+      if(p._baseGrade==null) p._baseGrade=p.tdc_grade;
+      const g=TDCProjGrade.grade({...p, tdc_grade:p._baseGrade});
+      if(g!=null&&!isNaN(g)&&g!=+p.tdc_grade){ p.tdc_grade=''+g; _pv=true; } });
     if(_pv) pool.sort((a,b)=>(parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0));
   }
   if(blk && Array.isArray(pool) && pool.length){
