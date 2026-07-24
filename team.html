@@ -4975,6 +4975,17 @@ function _dnaCSS(){ if(document.getElementById('dna-css')) return;
   .dna-mu-line b.pos{color:#5ab875;} .dna-mu-line b.neg{color:#e07070;}
   .dna-mu-wp{font-size:13px;font-weight:700;color:var(--tc-readable,var(--accent));margin-top:3px;}
   .dna-mu-sub{font-size:11px;color:var(--text3);margin-top:8px;line-height:1.5;}
+  .dna-sf{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px;}
+  @media(max-width:640px){.dna-sf{grid-template-columns:1fr;}}
+  .dna-sf-col{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
+  .dna-sf-h{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:9px;}
+  .dna-sf-h.pos{color:#5ab875;} .dna-sf-h.neg{color:#e07070;}
+  .dna-sf-row{display:grid;grid-template-columns:auto auto 1fr;gap:9px;align-items:baseline;padding:6px 0;border-bottom:1px solid rgba(130,150,200,.07);}
+  .dna-sf-row:last-child{border-bottom:none;}
+  .dna-sf-team{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;}
+  .dna-sf-edge{font-family:'Share Tech Mono',ui-monospace,monospace;font-weight:700;font-size:12.5px;}
+  .dna-sf-edge.pos{color:#5ab875;} .dna-sf-edge.neg{color:#e07070;}
+  .dna-sf-why{font-size:11px;color:var(--text3);line-height:1.35;}
   `;
   document.head.appendChild(c);
 }
@@ -5048,6 +5059,56 @@ async function _dnaStyleSplits(key, season, S, teams){
       n++; if(g.win) w++; else l++; m+=g.margin; });
     return {lbl, w, l, n, avg:n?m/n:0}; }).filter(x=>x.n>=2);
   return res.length?res:null;
+}
+// Style fit — which opponents this team matches up BETTER or WORSE with than a
+// generic opponent of the same overall strength. Uses the multiplicative (log5)
+// four-factor battles: e.g. an elite offensive-rebounding team gains extra against
+// a weak defensive-rebounding opponent, beyond the raw rating gap. Returns the
+// residual (matchup margin − strength-implied margin) in points per 100, so ANY
+// team can surface — favorable/tough is about style, not ranking.
+function _dnaStyleFit(t, S, oppKeys){
+  try{
+    const teams=Object.values(S.teams), wm=S.meta&&S.meta.win_model; if(!wm||!t) return null;
+    const avg=k=>{ const a=teams.map(x=>x[k]).filter(v=>v!=null&&isFinite(v)); return a.length?a.reduce((s,x)=>s+x,0)/a.length:0; };
+    const A={oeFG:avg('oeFG'),oTOV:avg('oTOV'),oORB:avg('oORB'),deFG:avg('deFG'),dTOV:avg('dTOV'),dDRB:avg('dDRB')};
+    if(!A.oeFG||!A.dDRB) return null;
+    const eFGavg=(A.oeFG+A.deFG)/2, tovAvg=(A.oTOV+A.dTOV)/2, n=(v,d)=>isFinite(v)?v:d;
+    // offensive efficiency deviation (pts/100 vs avg) for O's offense meeting D's defense, per factor.
+    // FT-rate is dropped — the projected DNA has no FT-rate-allowed column.
+    const offParts=(O,D)=>({
+      eFG: wm.oeFG*(n(O.oeFG,A.oeFG)*n(D.deFG,A.deFG)/eFGavg - A.oeFG),
+      tov: wm.oTOV*(n(O.oTOV,A.oTOV)*n(D.dTOV,A.dTOV)/tovAvg - A.oTOV),
+      orb: wm.oORB*(100*n(O.oORB,A.oORB)/(n(O.oORB,A.oORB)+n(D.dDRB,A.dDRB)) - A.oORB),
+    });
+    const AVG={oeFG:A.oeFG,oTOV:A.oTOV,oORB:A.oORB,deFG:A.deFG,dTOV:A.dTOV,dDRB:A.dDRB};
+    const reason=(d,help)=>({
+      eFGOff: help?'they give up efficient looks':'they defend shots well',
+      eFGDef: help?'our shot defense smothers their scoring':'they can shoot over our defense',
+      orbOff: help?'their soft defensive glass invites our second shots':'their defensive rebounding kills our second chances',
+      orbDef: help?'we clean the glass against them':'they crash the offensive boards on us',
+      tovOff: help?'they rarely force turnovers':'their pressure gets into our ball-handling',
+      tovDef: help?'we can pressure their ball-handling':'they protect the ball against our pressure',
+    }[d]||'');
+    const P=(O,D)=>offParts(O,D);
+    const facs=['eFG','tov','orb'];
+    const rows=oppKeys.map(k=>{ const O=S.teams[k]; if(!O) return null;
+      // per factor, residual = matchup margin − strength-implied margin (both four-factor).
+      // With the multiplicative battles the main effects cancel, leaving only the style
+      // interaction (t's strength in a factor meeting O's weakness in the opposing one).
+      const tO=P(t,O), Ot=P(O,t), tA=P(t,AVG), At=P(AVG,t), OA=P(O,AVG), AO=P(AVG,O);
+      let edge=0; const c={};
+      facs.forEach(f=>{ const rf=(tO[f]-Ot[f]) - ((tA[f]-At[f]) - (OA[f]-AO[f])); c[f]=rf; edge+=rf; });
+      if(!isFinite(edge)) return null;
+      const drvF=facs.slice().sort((a,b)=>Math.abs(c[b])-Math.abs(c[a]))[0];
+      // was the driving edge from OUR offense vs their defense, or OUR defense vs their offense?
+      const offMag=Math.abs(tO[drvF]-tA[drvF]), defMag=Math.abs(Ot[drvF]-OA[drvF]);
+      const rk=drvF+(offMag>=defMag?'Off':'Def'); // eFGOff / eFGDef / tovOff / orbDef ...
+      return { team:k, edge:+edge.toFixed(2), reason:reason(rk, c[drvF]>=0) };
+    }).filter(Boolean);
+    rows.sort((a,b)=>b.edge-a.edge);
+    return { favorable:rows.filter(r=>r.edge>0.15).slice(0,4),
+             tough:rows.filter(r=>r.edge<-0.15).slice(-4).reverse() };
+  }catch(e){ return null; }
 }
 // Matchup projector — expected margin & win% from two teams' efficiency (log5-style)
 function _dnaMatchup(oppKey){
@@ -5255,10 +5316,21 @@ async function renderTeamDNA(){
   const oppOpts=oppKeys.map(k=>{ const m=_projMargin(S.teams[k]);
     const lbl=m==null?'':' ('+(m>=0?'+':'')+m.toFixed(1)+')';
     return `<option value="${k.replace(/"/g,'&quot;')}">${k}${lbl}</option>`; }).join('');
+  // Style-fit: teams this roster matches up better/worse with than its raw strength implies
+  const _sf=_dnaStyleFit(t, S, oppKeys);
+  const _sn=x=>window.tdcShortSchool?tdcShortSchool(x):x;
+  const _sfRow=r=>`<div class="dna-sf-row"><span class="dna-sf-team">${_sn(r.team)}</span><span class="dna-sf-edge ${r.edge>=0?'pos':'neg'}">${r.edge>=0?'+':''}${r.edge.toFixed(1)}</span><span class="dna-sf-why">${r.reason}</span></div>`;
+  const styleFitHtml = (_sf && (_sf.favorable.length||_sf.tough.length)) ? `
+    <div class="dna-sf">
+      <div class="dna-sf-col"><div class="dna-sf-h pos">✅ Favorable style matchups</div>${_sf.favorable.length?_sf.favorable.map(_sfRow).join(''):'<div class="dna-foot" style="margin:2px 0 0;">No standout edges.</div>'}</div>
+      <div class="dna-sf-col"><div class="dna-sf-h neg">⚠️ Tough style matchups</div>${_sf.tough.length?_sf.tough.map(_sfRow).join(''):'<div class="dna-foot" style="margin:2px 0 0;">No standout traps.</div>'}</div>
+    </div>
+    <div class="dna-mu-sub" style="margin-top:8px;">These are <b>style</b> edges — how many points per 100 possessions better (or worse) ${teamT.name} matches up than a <b>generic opponent of the same overall strength</b>, from the four-factor battles (shooting, turnovers, rebounding). It's about fit, not ranking — a tough matchup can be <b>any</b> team, not just a top one. The <b>+/-</b> is on top of the strength-based line below.</div>` : '';
   const matchupHtml = oppKeys.length? `<div class="dna-sec">Matchup projector — project ${teamT.name} against any team${PROJ?' (2026-27 projected)':' ('+_dnaSeasonLbl(season)+')'}</div>
+    ${styleFitHtml}
     <div class="dna-mu">
       <div class="dna-mu-pick"><label>Opponent:</label><select class="dna-mu-sel" onchange="_dnaMatchup(this.value)"><option value="">Select a team…</option>${oppOpts}</select></div>
-      <div class="dna-mu-sub" style="margin-top:8px;">Teams are ordered strongest → weakest by <b>schedule-adjusted</b> net efficiency. The number in parentheses is ${teamT.name}'s <b>projected margin per game</b> vs that team on a neutral floor (+ favors ${teamT.name}).</div>
+      <div class="dna-mu-sub" style="margin-top:8px;">Pick any team for the full projection. Teams are ordered strongest → weakest by <b>schedule-adjusted</b> net efficiency; the number in parentheses is ${teamT.name}'s <b>projected margin per game</b> vs that team on a neutral floor (+ favors ${teamT.name}).</div>
       <div id="dnaMatchupOut"></div>
     </div>` : '';
   // ── Shot Genome (2025-26 only): offense + defense (Contest vs Funnel) ──
@@ -5368,6 +5440,9 @@ async function renderTeamDNA(){
     </div>
     ${tierHtml?`<div style="margin-top:26px;">${tierHtml}</div>`:''}`);
   const selOpts=seasons.filter(s=>findKey(DNA[s])).map(s=>`<option value="${s}"${s===season?' selected':''}>${slbl(s)}</option>`).join('');
+  const calibFoot = PROJ
+    ? `Projected DNA — the roster→team model is calibrated on 20 seasons (offense R²≈0.9, defense ≈0.6). Win-path weights use the national win model: +5% eFG ≈ <b>${wm.oeFG}</b> pts, turnovers <b>${Math.abs(wm.oTOV)}</b>, off. rebounds <b>${wm.oORB}</b>.`
+    : `National win model (${_dnaSeasonLbl(season)}, R²=${S.meta.r2}): a +5% swing is worth about <b>${wm.oeFG}</b> pts (eFG), <b>${Math.abs(wm.oTOV)}</b> (turnovers), <b>${wm.oORB}</b> (off. rebounds), <b>${wm.oFTr}</b> (FT rate) — measured against all ${N} D1 teams that season.`;
   host.innerHTML=`
     <div class="dna-top">
       <div><div class="dna-title">Team DNA</div><div class="dna-sub">${teamT.name} · ${PROJ?'2026-27 · Projected':(_dnaSeasonLbl(season)+' · '+t.w+'-'+t.l)}</div></div>
@@ -5375,6 +5450,7 @@ async function renderTeamDNA(){
     </div>
     <div class="dna-eff">${effHtml}</div>
     ${ADJ?`<div class="dna-imp-cap" style="text-align:left;margin:-8px 0 4px;">These efficiency numbers are <b>opponent-adjusted</b> (points per 100 possessions vs an average D1 team, corrected for schedule strength) — so a mid-major that feasts on a weak league doesn't rank like a high-major.</div>`:''}
+    <div class="dna-imp-cap" style="text-align:left;margin:${ADJ?'2px':'-6px'} 0 6px;">${calibFoot}</div>
     <div class="dna-chips">${chips.join('')}</div>
     ${heatHtml}
     ${impactHtml}
@@ -5388,8 +5464,7 @@ async function renderTeamDNA(){
     ${trendHtml?`<div style="margin-top:26px;">${trendHtml}</div>`:''}
     ${styleHtml?`<div style="margin-top:26px;">${styleHtml}</div>`:''}
     ${bottomHtml}
-    ${matchupHtml?`<div style="margin-top:26px;">${matchupHtml}</div>`:''}
-    <div class="dna-foot" style="border-top:1px solid var(--border);padding-top:12px;">${PROJ?`Projected DNA — the roster→team model is calibrated on 20 seasons (offense R²≈0.9, defense ≈0.6). Win-path weights use the national win model: +5% eFG ≈ <b>${wm.oeFG}</b> pts, turnovers <b>${Math.abs(wm.oTOV)}</b>, off. rebounds <b>${wm.oORB}</b>.`:`National win model (${_dnaSeasonLbl(season)}, R²=${S.meta.r2}): a +5% swing is worth about <b>${wm.oeFG}</b> pts (eFG), <b>${Math.abs(wm.oTOV)}</b> (turnovers), <b>${wm.oORB}</b> (off. rebounds), <b>${wm.oFTr}</b> (FT rate) — measured against all ${N} D1 teams that season.`}</div>`;
+    ${matchupHtml?`<div style="margin-top:26px;">${matchupHtml}</div>`:''}`;
 }
 
 // ── MONEYBALL — NIL value vs impact (uses nil-data.json + the value module) ──
