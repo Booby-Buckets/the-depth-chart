@@ -8,7 +8,10 @@
   try{ document.documentElement.setAttribute('data-theme','dark'); }catch(e){}
 
   /* ---- team logos (from TDC_TEAM_COLORS, loaded site-wide) ---- */
-  function norm(s){ return (s||'').toLowerCase().replace(/&/g,' ').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
+  // strip & . ' (and curly ') the SAME way the TDC_TEAM_COLORS keys were built — else
+  // "St. John's" → "st john s" never matches the "st johns" key (no logo). Only then space
+  // out any remaining punctuation.
+  function norm(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[&.'’]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
   function logoFor(name){
     var C=window.TDC_TEAM_COLORS; if(!C||!name) return null;
     var n=norm(name); if(C[n]&&C[n].logo) return C[n].logo;
