@@ -186,6 +186,16 @@
     .sg-note{font-size:11px;color:var(--text3);line-height:1.55;padding:9px 4px 0;}
     .sg-note b{color:var(--text2);}
     .compare-subhead{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);padding:12px 4px 5px;}
+    .chem-card{display:grid;grid-template-columns:150px 1fr;gap:22px;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-bottom:26px;}
+    .chem-score-wrap{text-align:center;border-right:1px solid var(--border);padding-right:20px;}
+    .chem-score{font-family:'Playfair Display',serif;font-weight:800;font-size:52px;line-height:1;}
+    .chem-score-l{font-family:'Inter',sans-serif;font-size:15px;font-weight:600;color:var(--text3);}
+    .chem-verdict{font-size:13px;font-weight:800;color:var(--text);margin-top:6px;letter-spacing:.01em;}
+    .chem-hint{font-size:10px;color:var(--text3);margin-top:2px;text-transform:uppercase;letter-spacing:.06em;}
+    .chem-reasons{display:flex;flex-direction:column;gap:8px;}
+    .chem-r{display:flex;align-items:flex-start;gap:9px;font-size:12.5px;color:var(--text2);line-height:1.5;}
+    .chem-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+    @media(max-width:600px){.chem-card{grid-template-columns:1fr;gap:14px;}.chem-score-wrap{border-right:none;border-bottom:1px solid var(--border);padding-right:0;padding-bottom:14px;}}
     .cf-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px;}
     .cf-coach{font-size:14px;font-weight:800;color:var(--text);}
     .cf-arch{font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
@@ -1025,6 +1035,7 @@ function renderPlayers(){
       <div class="ch-tags"><span class="ch-tag gold">${archetypeOf(p)}</span>${p._isHistory?'':`<span class="ch-tag">${roleOf(p)}</span>`}</div>
     </div>`;
   const bothCurrent=!p1._isHistory&&!p2._isHistory;
+  const chem=_playerChem(p1,p2);
   const pr1=projPlayer(p1), pr2=projPlayer(p2);
   const conf1=confOf(p1), conf2=confOf(p2);
   const g1=posGroupOf(p1), g2=posGroupOf(p2);
@@ -1091,6 +1102,17 @@ function renderPlayers(){
         <div class="sim-card" id="cfit1" style="border-top:2px solid ${c1};"><div class="sim-row" style="color:var(--text3);">Computing fit…</div></div>
         <div class="sim-card" id="cfit2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Computing fit…</div></div>
       </div>
+    </div>`:''}
+
+    ${chem?`
+    <div class="compare-section-head">Fit Together · Chemistry</div>
+    <div class="chem-card">
+      <div class="chem-score-wrap">
+        <div class="chem-score" style="color:${chem.score>=72?'#2bb673':chem.score>=58?'#7fbf5a':chem.score>=44?'#C8A020':'#e06552'};">${chem.score}<span class="chem-score-l">/100</span></div>
+        <div class="chem-verdict">${chem.verdict}</div>
+        <div class="chem-hint">if they shared a lineup</div>
+      </div>
+      <div class="chem-reasons">${chem.reasons.map(r=>`<div class="chem-r"><span class="chem-dot" style="background:${r.good?'#2bb673':'#e06552'};"></span>${r.t}</div>`).join('')}</div>
     </div>`:''}
 
     ${(p1.espn_id||p2.espn_id)?`
@@ -1235,6 +1257,39 @@ async function _fillCoachFit(p1,p2,c1,c2){
 }
 // play-style archetype label (Portal Fit engine; falls back to the local one)
 function _psArch(p){ try{ return (window.TDCPortalFit&&TDCPortalFit.archetype)?TDCPortalFit.archetype(p):archetypeOf(p); }catch(e){ return archetypeOf(p); } }
+// ── CHEMISTRY: how the two players would fit together on the same team ──
+function _playerChem(p1,p2){
+  if(!window.TDCPortalFit||!TDCPortalFit.profile) return null;
+  const a=TDCPortalFit.profile(p1)||{}, b=TDCPortalFit.profile(p2)||{}, g=(o,k)=>+(o[k]||0);
+  const R=[]; let s=50;
+  const hi=(k)=>g(a,k)>=g(b,k)?p1.name:p2.name, lo=(k)=>g(a,k)>=g(b,k)?p2.name:p1.name;
+  // floor spacing
+  const space=Math.max(g(a,'shooter'),g(b,'shooter'));
+  if(space>=0.5){ s+=11; R.push({good:true,t:`Floor spacing — ${hi('shooter')} stretches the defense so the other has room to operate.`}); }
+  else if(space<0.3){ s-=13; R.push({good:false,t:`Cramped spacing — neither is a real floor-spacer, so driving lanes and post space clog up.`}); }
+  // ball-dominance hierarchy
+  const b1=g(a,'ballDom'),b2=g(b,'ballDom');
+  if(b1>0.55&&b2>0.55){ s-=15; R.push({good:false,t:`Ball-dominance clash — both need the ball in their hands; usage and rhythm would collide.`}); }
+  else if(Math.abs(b1-b2)>0.3){ s+=9; R.push({good:true,t:`Clear hierarchy — ${b1>b2?p1.name:p2.name} initiates while the other thrives off the ball.`}); }
+  // creation feeds finishing/shooting
+  const cf=g(a,'creator')*(g(b,'finisher')+g(b,'shooter'))/2 + g(b,'creator')*(g(a,'finisher')+g(a,'shooter'))/2;
+  if(cf>0.20){ s+=13; R.push({good:true,t:`Creation → scoring — ${hi('creator')}'s passing sets up the other's shot-making.`}); }
+  // defensive coverage
+  const dv=g(a,'perimD')*g(b,'rimProtect')+g(b,'perimD')*g(a,'rimProtect');
+  if(dv>0.26){ s+=9; R.push({good:true,t:`Two-way coverage — one walls off the perimeter, the other protects the rim.`}); }
+  // redundancy via cosine similarity
+  const K=['shooter','creator','finisher','rimProtect','rebounder','perimD','ballDom','scorer'];
+  let dot=0,na=0,nb=0; K.forEach(k=>{ dot+=g(a,k)*g(b,k); na+=g(a,k)*g(a,k); nb+=g(b,k)*g(b,k); });
+  const sim=dot/(Math.sqrt(na*nb)||1);
+  if(sim>0.92){ s-=12; R.push({good:false,t:`Redundant skill sets — they do the same things, so pairing them adds little the other doesn't.`}); }
+  else if(sim<0.62){ s+=6; R.push({good:true,t:`Complementary skill sets — different strengths cover each other's gaps.`}); }
+  // same primary position
+  const p1p=(p1.position||'').toUpperCase().split(/[\/, ]/)[0], p2p=(p2.position||'').toUpperCase().split(/[\/, ]/)[0];
+  if(p1p&&p1p===p2p){ s-=6; R.push({good:false,t:`Same primary position (${p1p}) — overlapping roles competing for the same spot.`}); }
+  s=Math.max(14,Math.min(97,Math.round(s)));
+  const verdict=s>=72?'Seamless fit':s>=58?'Workable fit':s>=44?'Awkward fit':'Poor fit';
+  return {score:s, verdict, reasons:R.slice(0,5)};
+}
 // ── side-by-side shot charts (reuses tdc-shotchart.js from the player page) ──
 async function _fetchPlayerShots(p){
   const espn=p&&p.espn_id; if(!espn) return [];
