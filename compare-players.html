@@ -11,6 +11,10 @@
   <script src="tdc-nil.js"></script>
   <script src="tdc-projgrade.js?v=5"></script>
   <script src="tdc-pos.js"></script>
+  <script src="team-colors.js?v=2"></script>
+  <script src="tdc-shotchart.js?v=14"></script>
+  <script src="tdc-shotflow.js?v=9"></script>
+  <script src="tdc-portalfit.js?v=needs4"></script>
   <style>
     :root{--bg: #FAF9F6;--bg2: #F1EFEA;--bg3: #E6E3DB;--border: #DEDACF;--border2: #C6C0B2;--text: #1A1814;--text2: #4A463C;--text3: #8A867A;--accent: #A8843C;--teal:#3f8d7d;--green:#1a8c3a;--red:#cc2200;--blue:#1a5fbf;}
     [data-theme="dark"]{--bg: #141416;--bg2: #1D1D20;--bg3: #28282C;--border: #2E2E34;--border2: #45454D;--text: #F1EFEA;--text2: #B4B0A8;--text3: #807C74;--accent: #E6D5A8;--teal:#5b9d8f;--green:#5ab875;--red:#e07070;--blue:#74aedd;}
@@ -173,6 +177,9 @@
     .nil-big{font-size:28px;font-weight:800;font-family:'Playfair Display',serif;letter-spacing:-.01em;}
     .nil-sub2{font-size:10px;color:var(--text3);margin-top:4px;font-weight:600;letter-spacing:.04em;}
     .sim-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:26px;}
+    .scc-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:26px;}
+    .scc-lbl{font-size:12px;font-weight:800;letter-spacing:.03em;padding:2px 2px 8px;border-bottom:2px solid var(--border2);margin-bottom:10px;}
+    .scc-host{min-height:120px;}
     .sim-card{border:1px solid var(--border);border-radius:10px;padding:8px 14px;}
     .sim-row{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--border);font-size:12px;}
     .sim-row:last-child{border-bottom:none;}
@@ -185,7 +192,7 @@
     .footer-logo{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text3);}
     .footer-logo span{color:var(--accent);}
     .footer-meta{font-size:11px;font-weight:600;color:var(--text3);}
-    @media(max-width:760px){.pickers,.chart-grid,.sw-grid,.lineup-grid,.sim-grid{grid-template-columns:1fr;}.page{padding:20px;}.cmp-heads,.compare-row{grid-template-columns:1fr 40px 1fr;}.compare-cell{padding:9px 12px;font-size:12px;}.nav-top{padding:0 16px;}.nav-sub{padding:0 16px;}}
+    @media(max-width:760px){.pickers,.chart-grid,.sw-grid,.lineup-grid,.sim-grid,.scc-grid{grid-template-columns:1fr;}.page{padding:20px;}.cmp-heads,.compare-row{grid-template-columns:1fr 40px 1fr;}.compare-cell{padding:9px 12px;font-size:12px;}.nav-top{padding:0 16px;}.nav-sub{padding:0 16px;}}
     @media(max-width:500px){
       .nav-top{padding:0 10px!important;height:44px!important;}
       .nav-logo{font-size:14px!important;}
@@ -1032,6 +1039,13 @@ function renderPlayers(){
     </div>
     `:''}
 
+    ${(p1.espn_id||p2.espn_id)?`
+    <div class="compare-section-head">Shot Charts${(p1._isHistory||p2._isHistory)?'':' · 2025-26'}</div>
+    <div class="scc-grid">
+      <div class="scc-col"><div class="scc-lbl" style="color:${c1};border-bottom-color:${c1};">${p1.name}</div><div id="sc1" class="scc-host"></div></div>
+      <div class="scc-col"><div class="scc-lbl" style="color:${c2};border-bottom-color:${c2};">${p2.name}</div><div id="sc2" class="scc-host"></div></div>
+    </div>`:''}
+
     <div class="compare-section-head">${bothCurrent?'2026-27 Projected':`Next Season Projection${nextLbl(p1)===nextLbl(p2)?` · ${nextLbl(p1)}`:''}`} · Model Estimate</div>
     ${projRow('PPG',pr1.ppg,pr2.ppg)}${projRow('RPG',pr1.rpg,pr2.rpg)}${projRow('APG',pr1.apg,pr2.apg)}
     ${projRow('MPG',pr1.mpg,pr2.mpg)}${projRow('STL',pr1.stl,pr2.stl)}${projRow('BLK',pr1.blk,pr2.blk)}
@@ -1074,6 +1088,7 @@ function renderPlayers(){
     </div>
   `;
   fillSimCards(p1,p2);
+  _renderShotCharts(p1,p2);
   const labels=P_AXES.map(a=>a.l);
   const d1=P_AXES.map(a=>a.f(p1)), d2=P_AXES.map(a=>a.f(p2));
   // each player benchmarks against All-Americans at HIS position group
@@ -1118,6 +1133,22 @@ function hexA(hex,a){
   hex=(hex||'').replace('#',''); if(hex.length===3) hex=hex.split('').map(x=>x+x).join('');
   const n=parseInt(hex,16); if(isNaN(n)) return 'rgba(230,213,168,'+a+')';
   return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')';
+}
+// ── side-by-side shot charts (reuses tdc-shotchart.js from the player page) ──
+async function _fetchPlayerShots(p){
+  const espn=p&&p.espn_id; if(!espn) return [];
+  const season=p.season_year||2026;
+  try{
+    const r=await fetch(`${SB}/rest/v1/shots?espn_id=eq.${espn}&season_year=eq.${season}&select=x,y,made,sv,dist&limit=1500`,{headers:H});
+    return r.ok ? await r.json() : [];
+  }catch(e){ return []; }
+}
+async function _renderShotCharts(p1,p2){
+  const h1=document.getElementById('sc1'), h2=document.getElementById('sc2');
+  if((!h1&&!h2) || !window.TDC_SHOTCHART) return;
+  const [s1,s2]=await Promise.all([_fetchPlayerShots(p1),_fetchPlayerShots(p2)]);
+  if(h1) TDC_SHOTCHART.render(h1, s1, {subtitle:p1.name, mode:'hex'});
+  if(h2) TDC_SHOTCHART.render(h2, s2, {subtitle:p2.name, mode:'hex'});
 }
 // Two brand colors can be near-identical after the readability pass (Arizona
 // vs Arizona State both land on pale red). When too close to tell apart, push
