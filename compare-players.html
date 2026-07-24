@@ -1042,6 +1042,13 @@ function renderPlayers(){
     </div>
     `:''}
 
+    ${window.TDCPortalFit?`
+    <div class="compare-section-head">Play Style · Trait DNA</div>
+    <div class="chart-card full" style="margin-bottom:12px;">
+      <div class="chart-box"><canvas id="psRadar"></canvas></div>
+      <div class="chart-legend"><span><i style="background:${c1}"></i>${p1.name} · ${_psArch(p1)}</span><span><i style="background:${c2}"></i>${p2.name} · ${_psArch(p2)}</span></div>
+    </div>`:''}
+
     ${(p1.espn_id||p2.espn_id)?`
     <div class="compare-section-head">Shot Charts${(p1._isHistory||p2._isHistory)?'':' · 2025-26'}</div>
     <div class="scc-grid">
@@ -1110,6 +1117,13 @@ function renderPlayers(){
     radarChart('pRadar',labels,[ds(p1.name,d1,c1),ds(p2.name,d2,c2)]);
     radarChart('pBench',blabels,[ds(p1.name,bp1,c1),ds(p2.name,bp2,c2),ds('All-American',baa,'#C8A020')]);
     barChart('pBar',labels,[ds(p1.name,d1,c1,true),ds(p2.name,d2,c2,true)]);
+    // play-style trait DNA (Portal Fit engine's continuous trait vector, 0-100)
+    if(window.TDCPortalFit && document.getElementById('psRadar')){
+      const PS=[['shooter','Shooting'],['scorer','Scoring'],['creator','Creation'],['ballDom','Ball Dom.'],['finisher','Finishing'],['rebounder','Rebounding'],['rimProtect','Rim Protect'],['perimD','Perimeter D'],['size','Size']];
+      const pr1=TDCPortalFit.profile(p1)||{}, pr2=TDCPortalFit.profile(p2)||{};
+      const psv=pr=>PS.map(k=>Math.round((pr[k[0]]||0)*100));
+      radarChart('psRadar',PS.map(k=>k[1]),[ds(p1.name,psv(pr1),c1),ds(p2.name,psv(pr2),c2)]);
+    }
 
     const A1=p1._advanced, A2=p2._advanced, F1=p1._per40, F2=p2._per40;
     if(A1||A2){
@@ -1144,6 +1158,8 @@ function hexA(hex,a){
   const n=parseInt(hex,16); if(isNaN(n)) return 'rgba(230,213,168,'+a+')';
   return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')';
 }
+// play-style archetype label (Portal Fit engine; falls back to the local one)
+function _psArch(p){ try{ return (window.TDCPortalFit&&TDCPortalFit.archetype)?TDCPortalFit.archetype(p):archetypeOf(p); }catch(e){ return archetypeOf(p); } }
 // ── side-by-side shot charts (reuses tdc-shotchart.js from the player page) ──
 async function _fetchPlayerShots(p){
   const espn=p&&p.espn_id; if(!espn) return [];
