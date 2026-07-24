@@ -196,6 +196,11 @@
     .chem-r{display:flex;align-items:flex-start;gap:9px;font-size:12.5px;color:var(--text2);line-height:1.5;}
     .chem-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;}
     @media(max-width:600px){.chem-card{grid-template-columns:1fr;gap:14px;}.chem-score-wrap{border-right:none;border-bottom:1px solid var(--border);padding-right:0;padding-bottom:14px;}}
+    .tchem-top{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;padding-bottom:9px;border-bottom:1px solid var(--border);}
+    .tchem-score{font-family:'Playfair Display',serif;font-weight:800;font-size:30px;line-height:1;}
+    .tchem-l{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--text3);}
+    .tchem-verdict{font-size:12.5px;font-weight:800;color:var(--text);}
+    #tchem1 .chem-r,#tchem2 .chem-r{font-size:12px;color:var(--text2);padding:3px 0;}
     .cf-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px;}
     .cf-coach{font-size:14px;font-weight:800;color:var(--text);}
     .cf-arch{font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
@@ -1290,6 +1295,43 @@ function _playerChem(p1,p2){
   const verdict=s>=72?'Seamless fit':s>=58?'Workable fit':s>=44?'Awkward fit':'Poor fit';
   return {score:s, verdict, reasons:R.slice(0,5)};
 }
+// ── TEAM CHEMISTRY: how well a roster's pieces fit together (raw box stats) ──
+function _teamChem(rows){
+  const R=(rows||[]).filter(p=>p&&(parseFloat(p.mpg)||0)>=8).slice(0,9);
+  if(R.length<4) return null;
+  const num=(p,k)=>parseFloat(p[k])||0, reasons=[]; let s=56;
+  // floor spacing — an efficient shooter spaces the floor even on modest volume
+  const spacers=R.filter(p=>num(p,'tp_pct')>=34 && num(p,'tpa')>=1.0).length;
+  if(spacers>=5){ s+=12; reasons.push({good:true,t:`Elite spacing — ${spacers} rotation shooters stretch the defense thin.`}); }
+  else if(spacers>=3){ s+=5; reasons.push({good:true,t:`Spaced floor — ${spacers} rotation shooters keep the defense honest.`}); }
+  else if(spacers<=1){ s-=13; reasons.push({good:false,t:`Spacing crunch — only ${spacers} real shooter${spacers!==1?'s':''} in the rotation; the paint clogs.`}); }
+  else { s-=3; reasons.push({good:false,t:`Thin spacing — just ${spacers} rotation shooters to stretch defenses.`}); }
+  // lead creator
+  const maxApg=Math.max.apply(null,R.map(p=>num(p,'apg')));
+  if(maxApg>=4.5){ s+=7; reasons.push({good:true,t:`A clear lead creator (${maxApg.toFixed(1)} APG) to organize the offense.`}); }
+  else if(maxApg<3){ s-=7; reasons.push({good:false,t:`No real lead creator — the half-court can bog down.`}); }
+  // scoring balance
+  const ppgs=R.map(p=>num(p,'ppg')).sort((a,b)=>b-a), tot=ppgs.reduce((x,y)=>x+y,0)||1, top=ppgs[0]/tot;
+  if(top>0.34){ s-=8; reasons.push({good:false,t:`Top-heavy scoring (${Math.round(top*100)}% from one player) — thin if he's covered.`}); }
+  else if(top<0.23){ s+=8; reasons.push({good:true,t:`Balanced scoring — no single player to key on.`}); }
+  // interior / rim protection
+  const bigs=R.filter(p=>/^(C|PF)/.test((p.position||'').toUpperCase())).length, rimP=R.filter(p=>num(p,'blk')>=1.2).length;
+  if(rimP>=1&&bigs>=2){ s+=6; reasons.push({good:true,t:`Interior presence — shot-blocking and frontcourt depth.`}); }
+  else if(bigs===0){ s-=8; reasons.push({good:false,t:`No true big — vulnerable to being out-sized on the glass.`}); }
+  s=Math.max(22,Math.min(94,Math.round(s)));
+  return {score:s, verdict:(s>=72?'Cohesive roster':s>=60?'Balanced roster':s>=46?'Uneven fit':'Lopsided'), reasons:reasons.slice(0,4)};
+}
+function _teamChemInner(chem){
+  if(!chem) return '<div class="sim-row" style="color:var(--text3);">Not enough roster data for a fit read.</div>';
+  const col=chem.score>=72?'#2bb673':chem.score>=58?'#7fbf5a':chem.score>=44?'#C8A020':'#e06552';
+  return `<div class="tchem-top"><span class="tchem-score" style="color:${col};">${chem.score}<span class="tchem-l">/100</span></span><span class="tchem-verdict">${chem.verdict}</span></div>`
+    + chem.reasons.map(r=>`<div class="chem-r"><span class="chem-dot" style="background:${r.good?'#2bb673':'#e06552'};"></span>${r.t}</div>`).join('');
+}
+function _fillTeamChem(r1,r2){
+  const e1=document.getElementById('tchem1'), e2=document.getElementById('tchem2');
+  if(e1) e1.innerHTML=_teamChemInner(_teamChem(r1&&r1.rows));
+  if(e2) e2.innerHTML=_teamChemInner(_teamChem(r2&&r2.rows));
+}
 // ── side-by-side shot charts (reuses tdc-shotchart.js from the player page) ──
 async function _fetchPlayerShots(p){
   const espn=p&&p.espn_id; if(!espn) return [];
@@ -1439,14 +1481,16 @@ async function _phKeyFor(fullName){
 async function _rosterFor(fullName, yr){
   const key=await _phKeyFor(fullName);
   let rows=[];
-  if(key) rows=await fetch(`${SB}/rest/v1/player_history?team=eq.${encodeURIComponent(key)}&season_year=eq.${yr}&select=name,position,height,yr,ppg,rpg,apg,mpg,gp,tdc_grade,espn_id,fga,tpa,fta&order=mpg.desc.nullslast&limit=15`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  if(key) rows=await fetch(`${SB}/rest/v1/player_history?team=eq.${encodeURIComponent(key)}&season_year=eq.${yr}&select=name,position,height,yr,ppg,rpg,apg,mpg,gp,tdc_grade,espn_id,fga,tpa,fta,tp_pct,fg_pct,ft_pct,stl,blk,tovs,oreb,dreb&order=mpg.desc.nullslast&limit=15`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
   if((!rows||!rows.length)&&key){
     const slug=key.toLowerCase().replace(/[.'()&]/g,'').trim().replace(/\s+/g,'-');
     const bb=await fetch(`${SB}/rest/v1/bbref_seasons?school_slug=eq.${encodeURIComponent(slug)}&season_year=eq.${yr}&select=player,pos,height,class,tdc_grade,espn_id,pergame&limit=20`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
     rows=(bb||[]).map(b=>{ const pg=b.pergame||{}; return { name:b.player, position:b.pos, height:b.height, yr:b.class,
       ppg:parseFloat(pg.pts_per_g), rpg:parseFloat(pg.trb_per_g), apg:parseFloat(pg.ast_per_g), mpg:parseFloat(pg.mp_per_g),
       gp:parseFloat(pg.games), tdc_grade:b.tdc_grade, espn_id:b.espn_id,
-      fga:parseFloat(pg.fga_per_g), tpa:parseFloat(pg.fg3a_per_g), fta:parseFloat(pg.fta_per_g) }; })
+      fga:parseFloat(pg.fga_per_g), tpa:parseFloat(pg.fg3a_per_g), fta:parseFloat(pg.fta_per_g),
+      tp_pct:pg.fg3_pct!=null?parseFloat(pg.fg3_pct)*100:null, fg_pct:pg.fg_pct!=null?parseFloat(pg.fg_pct)*100:null, ft_pct:pg.ft_pct!=null?parseFloat(pg.ft_pct)*100:null,
+      stl:parseFloat(pg.stl_per_g), blk:parseFloat(pg.blk_per_g), tovs:parseFloat(pg.tov_per_g), oreb:parseFloat(pg.orb_per_g), dreb:parseFloat(pg.drb_per_g) }; })
       .sort((a,b)=>(b.mpg||0)-(a.mpg||0));
   }
   rows=await _dropTransferGhosts(rows, yr);
@@ -1840,6 +1884,12 @@ async function renderTeams(){
       <div class="sim-card" id="tRost2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Loading roster…</div></div>
     </div>
 
+    <div class="compare-section-head">Roster Chemistry — how the pieces fit</div>
+    <div class="sim-grid">
+      <div class="sim-card" id="tchem1" style="border-top:2px solid ${c1};"><div class="sim-row" style="color:var(--text3);">Analyzing fit…</div></div>
+      <div class="sim-card" id="tchem2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Analyzing fit…</div></div>
+    </div>
+
     <div class="compare-section-head">Best Player Seasons on File · Since 2006</div>
     <div class="sim-grid">
       <div class="sim-card" id="tLegend1" style="border-top:2px solid ${c1};"><div class="sim-row" style="color:var(--text3);">Loading…</div></div>
@@ -1919,7 +1969,7 @@ async function renderTeams(){
       Promise.all([
         side(s1?s1.team:t1.name, y1, 'tRost1', 'tLegend1'),
         side(s2?s2.team:t2.name, y2, 'tRost2', 'tLegend2'),
-      ]).then(([r1,r2])=>_fillScout(r1,r2,s1,s2,f1,f2,t1.name,t2.name,c1,c2))
+      ]).then(([r1,r2])=>{ _fillTeamChem(r1,r2); return _fillScout(r1,r2,s1,s2,f1,f2,t1.name,t2.name,c1,c2); })
         .catch(()=>{ const el=document.getElementById('scoutWrap'); if(el) el.innerHTML='<div style="color:var(--text3);font-size:12px;">Scout unavailable.</div>'; });
       // head-to-head record + recent meetings
       _fillH2H(s1?s1.team:t1.name, s2?s2.team:t2.name, c1, c2);
