@@ -119,6 +119,15 @@
     /* BUZZ TAB — headlines + social (sample data prototype) */
     .buzz-note{font-size:12px;color:var(--text3);background:var(--bg2);border:1px dashed var(--border);border-radius:8px;padding:10px 14px;margin-bottom:24px;line-height:1.5;}
     .buzz-note b{color:var(--text2);}
+    .buzz-index-card{display:flex;align-items:center;gap:18px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px 20px;margin-bottom:22px;}
+    .buzz-index-card .bi-num{font-family:'Playfair Display',serif;font-weight:800;font-size:46px;line-height:1;flex:0 0 auto;min-width:62px;text-align:center;}
+    .buzz-index-card .bi-body{flex:1;min-width:0;}
+    .buzz-index-card .bi-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px;}
+    .buzz-index-card .bi-label{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);}
+    .buzz-index-card .bi-tier{font-size:14px;font-weight:800;}
+    .buzz-index-card .bi-track{height:8px;border-radius:5px;background:rgba(130,150,200,.14);overflow:hidden;}
+    .buzz-index-card .bi-track i{display:block;height:100%;border-radius:5px;opacity:.9;}
+    .buzz-index-card .bi-foot{font-size:11.5px;color:var(--text2);margin-top:8px;line-height:1.4;}
     .buzz-cols{display:grid;grid-template-columns:1fr 1fr;gap:34px;}
     @media(max-width:820px){.buzz-cols{grid-template-columns:1fr;gap:30px;}}
     .buzz-list{display:flex;flex-direction:column;gap:11px;}
@@ -3597,6 +3606,38 @@ function _buildProjRankLine(lastAct, projLine){
 // pipeline (news/RSS now, tweets later) is wired. Real version will fetch from
 // Supabase tables player_news / player_tweets (keyed by espn_id), populated by a
 // scheduled Python fetcher. See the roadmap note in the preview banner below.
+// ── BUZZ INDEX ── volume × recency × source credibility, percentile-normalized
+// across every tracked player so it reads "vs the field", not raw media-market size.
+function _buzzSourceWeight(src){
+  const s=(src||'').toLowerCase();
+  if(/espn|the athletic|cbs|yahoo|sports illustrated|si\.com|usa today|associated press|\bap\b|fox sports|bleacher/.test(s)) return 1.0;
+  if(/247|on3|rivals|247sports/.test(s)) return 0.92;
+  if(/athletics|university|\.edu|official site/.test(s)) return 0.5;   // team/school PR
+  return 0.68;                                                          // regional / unknown
+}
+function _ensureBuzzIndex(){
+  if(window._buzzIdx) return window._buzzIdx;
+  const news=window._playerNews, red=window._playerBuzz;
+  const nowRef = (news&&news.generated_utc) ? Date.parse(news.generated_utc) : Date.now();
+  const HALF=45*86400*1000;   // 45-day recency half-life
+  const rec=t=>{ const ms=nowRef-t; return isNaN(ms)?0.3:Math.pow(0.5, Math.max(0,ms)/HALF); };
+  const score={};   // key -> raw buzz score
+  const add=(key,v)=>{ score[key]=(score[key]||0)+v; };
+  if(news&&news.players) Object.keys(news.players).forEach(k=>{
+    const its=(news.players[k]&&news.players[k].items)||[]; let s=0;
+    its.forEach(n=>{ s+=_buzzSourceWeight(n.source)*rec(Date.parse(n.date)); });
+    add(k, s);
+  });
+  if(red&&red.players) Object.keys(red.players).forEach(k=>{
+    const its=(red.players[k]&&red.players[k].items)||[]; let s=0;
+    its.forEach(b=>{ s+=0.6*Math.log10(2+(+b.score||0)+(+b.comments||0))*rec((+b.created||0)*1000); });
+    add(k, s);
+  });
+  const vals=Object.values(score).filter(v=>v>0).sort((a,b)=>a-b);
+  const pct=v=>{ if(!vals.length||v<=0) return 0; let lo=0,hi=vals.length; while(lo<hi){const m=(lo+hi)>>1; if(vals[m]<v) lo=m+1; else hi=m;} return Math.round(100*lo/vals.length); };
+  const idx={}; Object.keys(score).forEach(k=>{ idx[k]={score:score[k], index:pct(score[k])}; });
+  return (window._buzzIdx={by:idx, n:vals.length});
+}
 async function renderBuzz(){
   const host=document.getElementById('buzzContent'); if(!host) return;
   const p=player||{}; const name=p.name||'This player';
@@ -3626,6 +3667,16 @@ async function renderBuzz(){
     const s=(Date.now()-t)/1000; if(s<3600) return Math.max(1,Math.round(s/60))+'m';
     if(s<86400) return Math.round(s/3600)+'h'; if(s<86400*30) return Math.round(s/86400)+'d'; return Math.round(s/2592000)+'mo'; };
   const upd = (db&&db.generated_utc)?`Updated ${new Date(db.generated_utc).toLocaleDateString()}`:'';
+  // Buzz Index — this player's media/fan attention vs every tracked player
+  const _bi=_ensureBuzzIndex();
+  const _biKey=(p.espn_id!=null && _bi.by[''+p.espn_id])?(''+p.espn_id):('n:'+name.toLowerCase().trim());
+  const biVal=(_bi.by[_biKey]||{}).index||0;
+  const biT=biVal>=88?['Viral','#e0913a']:biVal>=68?['Buzzing','#5aa9ff']:biVal>=42?['Warm','#5ab875']:biVal>=18?['Quiet','var(--text3)']:['Off the radar','var(--text3)'];
+  const biCard=`<div class="buzz-index-card" title="Volume × recency × source credibility, ranked against every tracked player. Not a talent grade — it's attention.">
+    <div class="bi-num" style="color:${biT[1]};">${biVal}</div>
+    <div class="bi-body"><div class="bi-top"><span class="bi-label">Buzz Index</span><span class="bi-tier" style="color:${biT[1]};">${biT[0]}</span></div>
+      <div class="bi-track"><i style="width:${Math.max(3,biVal)}%;background:${biT[1]};"></i></div>
+      <div class="bi-foot">More attention than <b>${biVal}%</b> of tracked players${items.length?` · ${items.length} headline${items.length!=1?'s':''}`:''}${buzz.length?` · ${buzz.length} Reddit thread${buzz.length!=1?'s':''}`:''}.</div></div></div>`;
 
   const unixAgo=u=>{ if(!u) return ''; const s=Date.now()/1000-u;
     if(s<3600) return Math.max(1,Math.round(s/60))+'m'; if(s<86400) return Math.round(s/3600)+'h';
@@ -3644,6 +3695,7 @@ async function renderBuzz(){
 
   host.innerHTML=`
     <div class="buzz-note">Recent <b>headlines</b> (news search) and <b>fan buzz</b> (r/CollegeBasketball) for ${esc(name)} — tap any card to open the source.${upd?` <span style="color:var(--text3);">${upd}.</span>`:''}</div>
+    ${biCard}
     <div class="buzz-cols">
       <div>
         <div class="sec-title" style="margin:0 0 16px;">Headlines${items.length?` <span style="font-size:12px;color:var(--text3);font-weight:600;">· ${items.length}</span>`:''}</div>
