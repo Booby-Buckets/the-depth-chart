@@ -1472,9 +1472,12 @@ async function renderShowcase(){
       try{
         if(curSeason===2027){
           // Projected season: no bbref rows yet — rank the current 2026-27 rosters by grade
-          const r=await fetch(`${SB_URL}/rest/v1/players?name=neq.%E2%80%94&tdc_grade=not.is.null&is_injured=not.is.true&select=name,team,tdc_grade,espn_id,mpg,depth_order,ppg,rpg,apg,tovs&order=tdc_grade.desc&limit=800`,{headers:HEADERS});
+          // NB: the projection model (tdc-projgrade.js) needs class year (development
+          // curve), starter flag + shooting splits (projMin / upside) — omitting them
+          // made every returner project as a senior and read a grade low on the strip.
+          const r=await fetch(`${SB_URL}/rest/v1/players?name=neq.%E2%80%94&tdc_grade=not.is.null&is_injured=not.is.true&select=name,team,tdc_grade,espn_id,mpg,depth_order,ppg,rpg,apg,tovs,yr,class_year,starter,ft_pct,tp_pct,tpa&order=tdc_grade.desc&limit=800`,{headers:HEADERS});
           if(r.ok){ const raw=await r.json();
-            if(Array.isArray(raw)&&raw.length) pool=raw.map(p=>({player:p.name,school:p.team,tdc_grade:p.tdc_grade,espn_id:p.espn_id,pergame:{games:99,mp_per_g:p.mpg||99},mpg:p.mpg,depth_order:p.depth_order,ppg:p.ppg,rpg:p.rpg,apg:p.apg,tovs:p.tovs})); }
+            if(Array.isArray(raw)&&raw.length) pool=raw.map(p=>({player:p.name,school:p.team,tdc_grade:p.tdc_grade,espn_id:p.espn_id,pergame:{games:99,mp_per_g:p.mpg||99},mpg:p.mpg,depth_order:p.depth_order,ppg:p.ppg,rpg:p.rpg,apg:p.apg,tovs:p.tovs,yr:p.yr,class_year:p.class_year,starter:p.starter,ft_pct:p.ft_pct,tp_pct:p.tp_pct,tpa:p.tpa})); }
         } else {
           const r=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${curSeason}&tdc_grade=not.is.null&select=player,school,tdc_grade,espn_id,pergame&order=tdc_grade.desc&limit=800`,{headers:HEADERS});
           if(r.ok){ const raw=await r.json(); if(Array.isArray(raw)&&raw.length) pool=raw; }
