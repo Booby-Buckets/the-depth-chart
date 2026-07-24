@@ -270,10 +270,27 @@
       // him by his projected STATS (not his OVR), same currency as returners.
       try{ var L=line(p,_d); _d._bpm=Math.round(estBPM(L)*100)/100; _d._min=parseFloat(L.mpg)||null; if(p.espn_id!=null&&p.espn_id!=='') _d._espn=p.espn_id; }catch(e){}
       saveProfile(p,_d).then(function(res){
-        if(msg){ msg.textContent=(res&&res.ok)?'✓ Saved to your account':'✓ Saved (offline — will sync)'; msg.classList.add('show'); }
+        var ok=!!(res&&res.ok);
+        if(!ok){
+          // The DB write failed — almost always an expired/absent sign-in (the JWT
+          // lapses after ~1hr). The edit is held in this tab only; it will NOT persist
+          // or reach other pages. Tell the truth and keep the editor open to retry —
+          // never a fake "✓ Saved" that silently drops the change.
+          if(msg){
+            msg.style.color='#e07070';
+            msg.textContent=isOwner()
+              ? ((res&&res.status===401)?'⚠ Not saved — your sign-in expired. Sign in again, then re-save.'
+                                        :'⚠ Not saved — the server rejected the write'+(res&&res.status?' ('+res.status+')':'')+'. Try again.')
+              : '⚠ Not saved — sign in as the owner to save changes.';
+            msg.classList.add('show');
+          }
+          if(btn){ btn.textContent='Save to my account'; btn.disabled=false; }
+          return;   // do not close; let them re-authenticate and retry
+        }
+        if(msg){ msg.style.color=''; msg.textContent='✓ Saved to your account'; msg.classList.add('show'); }
         if(cb) cb();
         // Canonical: rebuild the shared projected rankings from the freshman's projected stats.
-        if(window.TDC_RATINGS && isOwner() && res && res.ok){
+        if(window.TDC_RATINGS && isOwner()){
           if(msg) msg.textContent='✓ Saved · updating rankings…';
           TDC_RATINGS.rebuild(ratingOverrides()).then(function(){
             if(msg) msg.textContent='✓ Saved · rankings updated'; setTimeout(close, 700);
