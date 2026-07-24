@@ -72,6 +72,8 @@
     .cmp-heads{display:grid;grid-template-columns:1fr 54px 1fr;gap:0;margin-bottom:26px;align-items:stretch;}
     .cmp-head{border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
     .cmp-head.right{text-align:right;}
+    .cmp-head .ch-logo{width:46px;height:46px;object-fit:contain;display:block;margin-bottom:9px;}
+    .cmp-head.right .ch-logo{margin-left:auto;}
     .cmp-head .ch-name{font-family:'Playfair Display',serif;font-weight:800;font-size:21px;line-height:1.1;}
     .cmp-head .ch-name a{color:inherit;text-decoration:none;}
     .cmp-head .ch-sub{font-size:12px;font-weight:600;color:var(--text3);margin-top:4px;}
@@ -479,7 +481,7 @@ async function onSearch(slot, query){
           else if(ym[3]&&ym[4]) y=+('20'+ym[4]);
           if(y&&y>=2007&&y<=2026){ seasonFilter=`&season_year=eq.${y}`; qname=query.replace(ym[0],'').trim(); }
         }
-        const r=await fetch(`${SB}/rest/v1/team_seasons?team=ilike.*${encodeURIComponent(qname||query)}*${seasonFilter}&select=team,season_year,conference,wins,losses,conf_wins,conf_losses,ppg,oppg,srs,ncaa_seed,ncaa_result,postseason,rpg,apg,spg,bpg,topg,orpg,drpg,fg_pct,tp_pct,ft_pct,tier&order=season_year.desc&limit=80`,{headers:H});
+        const r=await fetch(`${SB}/rest/v1/team_seasons?team=ilike.*${encodeURIComponent(qname||query)}*${seasonFilter}&select=team,team_id,season_year,conference,wins,losses,conf_wins,conf_losses,ppg,oppg,srs,ncaa_seed,ncaa_result,postseason,rpg,apg,spg,bpg,topg,orpg,drpg,fg_pct,tp_pct,ft_pct,tier&order=season_year.desc&limit=80`,{headers:H});
         if(!r.ok) return;
         const data=await r.json();
         const seen=new Set(), hist=[], perTeam={};
@@ -517,6 +519,11 @@ function pickTeamHist(slot, idx){
   </div><button class="clear-btn" onclick="clearPick(${slot})">✕ Clear</button>`;
   maybeRender();
 }
+// team logo (ESPN, via team-colors.js) — works for short or full names
+function _lnorm(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[&.'’]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
+function _logoFor(name){ const M=window.TDC_TEAM_COLORS||{}; let t=M[_lnorm(name)]||M[(name||'').toLowerCase()];
+  if(!t){ const n=_lnorm(name); for(const k in M){ if(n.indexOf(k)===0||k.indexOf(n)===0){ t=M[k]; break; } } }
+  return (t&&t.logo)||''; }
 // color lookup that survives full names — teams keys are short ("Duke"),
 // team_seasons names are full ("Duke Blue Devils"): longest matching prefix wins
 function teamColorFor(name){
@@ -1011,6 +1018,7 @@ function renderPlayers(){
   const sec=document.getElementById('compareSection'); sec.classList.add('show');
   const sl1=_seasonLabel(p1), sl2=_seasonLabel(p2);
   const head=(p,c,right,sl)=>`<div class="cmp-head${right?' right':''}" style="border-color:${c};${right?'border-right':'border-left'}:3px solid ${c};">
+      ${(l=>l?`<img class="ch-logo" src="${l}" alt="" loading="lazy">`:'')(_logoFor(p.team))}
       <div class="ch-name">${p._isHistory?p.name:`<a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}">${p.name}</a>`}</div>
       <div class="ch-sub">${p._isHistory?`<span style="color:#5b9d8f;font-weight:700;">${sl} · </span>`:''}${p.team||'—'} · ${p.position||'—'} · ${p.class_year||p.yr||'—'} · ${p.height||'—'}</div>
       <div class="ch-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||'—'}</div>
@@ -1678,7 +1686,9 @@ async function renderTeams(){
   const net=s=>s&&isFinite(parseFloat(s.ppg))&&isFinite(parseFloat(s.oppg))?+(parseFloat(s.ppg)-parseFloat(s.oppg)).toFixed(1):null;
   const head=(t,s,rows,c,right)=>{
     const hist=t._isHistory, rk=s?srsRank(rows,s.srs):null;
+    const lg=_logoFor(t.name);
     return `<div class="cmp-head${right?' right':''}" style="border-color:${c};${right?'border-right':'border-left'}:3px solid ${c};">
+      ${lg?`<img class="ch-logo" src="${lg}" alt="" loading="lazy">`:''}
       <div class="ch-name"><a href="team.html?team=${encodeURIComponent(t.name)}">${t.name}</a></div>
       <div class="ch-sub">${hist?`<span style="color:#5b9d8f;font-weight:700;">${_tsLbl(s.season_year)} · </span>`:''}${t.conf||t.conference||'—'}${s?` · ${s.wins||0}-${s.losses||0}`:''}${!hist&&t.tdc_rank_num?` · #${t.tdc_rank_num} nationally`:''}</div>
       <div class="ch-tags">
