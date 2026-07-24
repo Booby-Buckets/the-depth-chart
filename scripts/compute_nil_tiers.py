@@ -86,7 +86,7 @@ def norm01(x, lo, hi):
 
 def main():
     teams = fetch("teams?select=name,conference,nil_tier,nil_grade")
-    ts = fetch("team_seasons?select=team,season_year,srs,ncaa_result&season_year=gte.2019&srs=not.is.null")
+    ts = fetch("team_seasons?select=team,season_year,srs,ncaa_result&season_year=gte.2016&srs=not.is.null")
     players = fetch("players?select=team,tdc_grade,mpg&tdc_grade=not.is.null")
 
     # roster strength per team (short name): rotation-weighted mean of top grades
@@ -106,7 +106,7 @@ def main():
         seasons[r["team"]].append((int(r["season_year"]), gnum(r["srs"]), tour_score(r.get("ncaa_result"))))
     prestige_full = {}
     for full, rows in seasons.items():
-        rows = sorted(rows, key=lambda x: -x[0])[:6]
+        rows = sorted(rows, key=lambda x: -x[0])[:10]   # program stature over ~10 seasons, recency-decayed
         wsum = tw = tour = 0
         for i, (yr, srs, tp) in enumerate(rows):
             w = 0.85 ** i                       # recency decay
@@ -140,8 +140,8 @@ def main():
         prestige = 0.62 * srs_sc + 0.38 * tour_sc
         conf_sc = conf_weight(t.get("conference"))
         roster_sc = norm01(rs, 66, 88) * 100
-        # spending power: prestige-led, conference, and a roster nudge (Aidan: also weight roster)
-        spend = 0.44 * prestige + 0.30 * conf_sc + 0.26 * roster_sc
+        # spending power: prestige, conference, and the current roster (Aidan: also weight roster)
+        spend = 0.40 * prestige + 0.30 * conf_sc + 0.30 * roster_sc
         rows.append({"name": short, "conf": t.get("conference"), "cur_tier": tier_num(t.get("nil_tier")),
                      "cur_grade": t.get("nil_grade"), "spend": spend, "prestige": prestige,
                      "conf_sc": conf_sc, "roster_sc": roster_sc, "roster_g": rs})
@@ -150,11 +150,17 @@ def main():
     # existing shape roughly (few Tier-1s, fat middle) but data-driven.
     rows.sort(key=lambda r: -r["spend"])
     n = len(rows)
-    # cumulative share cutoffs per tier (calibrated to a realistic top-heavy market)
-    cuts = [0.03, 0.11, 0.22, 0.40, 0.60, 0.74, 0.88, 0.96, 1.01]  # Tier 1..9
+    # cumulative share cutoffs per tier — capped at T7 to match the existing manual scheme
+    cuts = [0.05, 0.15, 0.28, 0.46, 0.66, 0.85, 1.01]  # Tier 1..7
     for i, r in enumerate(rows):
         q = i / n
-        r["tier"] = next(t for t, c in enumerate(cuts, 1) if q < c)
+        raw = next(t for t, c in enumerate(cuts, 1) if q < c)
+        # anchor 30% toward the manual tier so programs with known collectives (Louisville,
+        # Kansas…) don't drift far from where Aidan hand-set them
+        if r["cur_tier"]:
+            r["tier"] = max(1, min(7, round(0.70 * raw + 0.30 * r["cur_tier"])))
+        else:
+            r["tier"] = raw
 
     # ROI / Value grade: roster quality vs what the spending tier "buys". Expected roster
     # score rises with spending; actual minus expected -> letter.
