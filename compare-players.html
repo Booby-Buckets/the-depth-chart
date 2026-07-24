@@ -1151,6 +1151,13 @@ function renderPlayers(){
       <div class="scc-col"><div class="scc-lbl" style="color:${c2};border-bottom-color:${c2};">${p2.name}</div><div id="sc2" class="scc-host"></div></div>
     </div>`:''}
 
+    ${(p1.espn_id||p2.espn_id)?`
+    <div class="compare-section-head">Shot Flow${(p1._isHistory||p2._isHistory)?'':' · 2025-26'}</div>
+    <div class="scc-grid">
+      <div class="scc-col"><div class="scc-lbl" style="color:${c1};border-bottom-color:${c1};">${p1.name}</div><div id="sf1" class="scc-host"></div></div>
+      <div class="scc-col"><div class="scc-lbl" style="color:${c2};border-bottom-color:${c2};">${p2.name}</div><div id="sf2" class="scc-host"></div></div>
+    </div>`:''}
+
     <div id="sgSection" style="display:none;">
       <div class="compare-section-head">Shot Genome · 2025-26</div>
       <div id="sgWrap"></div>
@@ -1200,6 +1207,7 @@ function renderPlayers(){
   `;
   fillSimCards(p1,p2);
   _renderShotCharts(p1,p2);
+  _renderShotFlows(p1,p2);
   _fillShotGenome(p1,p2);
   _fillCoachFit(p1,p2,c1,c2);
   const labels=P_AXES.map(a=>a.l);
@@ -1397,6 +1405,20 @@ async function _renderShotCharts(p1,p2){
   const [s1,s2]=await Promise.all([_fetchPlayerShots(p1),_fetchPlayerShots(p2)]);
   if(h1) TDC_SHOTCHART.render(h1, s1, {subtitle:p1.name, mode:'hex'});
   if(h2) TDC_SHOTCHART.render(h2, s2, {subtitle:p2.name, mode:'hex'});
+}
+// ── side-by-side shot-FLOW Sankey (reuses tdc-shotflow.js) ──
+async function _fetchPlayerShotsFlow(p){
+  const espn=p&&p.espn_id; if(!espn) return [];
+  const season=p.season_year||2026;
+  try{ const r=await fetch(`${SB}/rest/v1/shots?espn_id=eq.${espn}&season_year=eq.${season}&stype=not.is.null&select=x,y,made,sv,stype,ast_name&limit=2000`,{headers:H});
+    return r.ok?await r.json():[]; }catch(e){ return []; }
+}
+async function _renderShotFlows(p1,p2){
+  const h1=document.getElementById('sf1'), h2=document.getElementById('sf2');
+  if((!h1&&!h2) || !window.TDC_SHOTFLOW) return;
+  const [s1,s2]=await Promise.all([_fetchPlayerShotsFlow(p1),_fetchPlayerShotsFlow(p2)]);
+  if(h1) TDC_SHOTFLOW.render(h1, s1, {subtitle:p1.name, team:p1.team});
+  if(h2) TDC_SHOTFLOW.render(h2, s2, {subtitle:p2.name, team:p2.team});
 }
 // ── Shot Genome (original TDC metrics from scripts/data/shot_genome_players.json) ──
 let _sgPromise=null;
