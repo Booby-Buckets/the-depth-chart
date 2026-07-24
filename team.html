@@ -2902,7 +2902,10 @@ function calcCustomAnalytics(){
   starters.forEach(p => {
     const pos = customPos[p.name] || p.position || 'G';
     const fit = calcPositionFit(p, pos);
-    const baseGrade = gradeToNum(p.tdc_grade||'');
+    // base off the forward-looking projected OVR (matches player page / depth chart),
+    // not the demonstrated grade, so the analytics agree with the rest of the site
+    const _pgN = parseFloat(_gdisp(p));
+    const baseGrade = isFinite(_pgN) ? _pgN : gradeToNum(p.tdc_grade||'');
     const effGrade  = Math.max(40, Math.min(99, baseGrade + fit.adjGrade));
     const mpgBase = parseFloat(p.mpg)||22;
     const mpg = customMpg[p.name] !== undefined ? customMpg[p.name] : mpgBase;
@@ -3942,7 +3945,8 @@ function rebuildCustomizeUI(){
       const assignedPos = customPos[p.name]||pos;
       const fit = calcPositionFit(p, assignedPos);
       const rawGrade = p.tdc_grade||'';
-      const baseGrade = (()=>{ const n=parseFloat(rawGrade); if(!isNaN(n)) return n; return gradeToNum(rawGrade)||70; })();
+      // projected OVR as the base (matches the rest of the site), demonstrated fallback
+      const baseGrade = (()=>{ const pg=parseFloat(_gdisp(p)); if(isFinite(pg)) return pg; const n=parseFloat(rawGrade); if(!isNaN(n)) return n; return gradeToNum(rawGrade)||70; })();
       const effGrade  = Math.max(40,Math.min(99,Math.round(baseGrade+fit.adjGrade)));
       const isStarter = rowIdx===0;
       const mpgBase = parseFloat(p.mpg)||( isStarter?26:15 );
