@@ -9,6 +9,8 @@
   <script src="tdc-ratings.js?v=1"></script>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-charts.js?v=3"></script>
+  <script src="tdc-projgrade.js?v=5"></script>
+  <script src="conf-logos.js?v=1"></script>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--gold:#C8A020;--green:#1a8c3a;--red:#cc2200;}
     [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--gold:#C8A020;--green:#5ab875;--red:#e07070;}
@@ -44,6 +46,32 @@
     .bhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px;}
     .bhead h2{font-family:'Playfair Display',serif;font-size:26px;font-weight:800;}
     .bchamp{font-size:13px;color:var(--text2);margin-bottom:18px;}
+    /* ── all-tournament awards ── */
+    .awards-wrap{margin:0 0 22px;}
+    .aw-loading{font-size:12px;color:var(--text3);padding:6px 2px;}
+    .awards{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px 18px;}
+    .aw-head{font-family:'Playfair Display',serif;font-size:17px;font-weight:800;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+    .aw-modeltag{font-family:'Inter',sans-serif;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:2px 7px;}
+    .mvp-card{display:flex;align-items:center;gap:14px;background:linear-gradient(100deg,color-mix(in srgb,var(--accent) 16%,var(--bg2)),var(--bg2));border:1px solid color-mix(in srgb,var(--accent) 40%,var(--border));border-radius:12px;padding:13px 16px;margin-bottom:14px;position:relative;}
+    .mvp-badge{position:absolute;top:10px;right:12px;font-size:9px;font-weight:800;letter-spacing:.12em;color:var(--accent);}
+    .mvp-logo{width:46px;height:46px;object-fit:contain;flex-shrink:0;}
+    .mvp-name{font-family:'Playfair Display',serif;font-size:20px;font-weight:800;color:var(--text);text-decoration:none;}
+    .mvp-name:hover{color:var(--accent);}
+    .mvp-team{font-size:12px;color:var(--text2);font-weight:600;margin:1px 0 3px;}
+    .mvp-stat{font-size:11.5px;color:var(--text3);}
+    .aw-team{margin-top:12px;}
+    .aw-team-h{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;padding-left:2px;}
+    .aw-p{display:flex;align-items:center;gap:11px;padding:7px 8px;border-radius:9px;text-decoration:none;transition:background .13s;}
+    .aw-p:hover{background:var(--bg3,rgba(128,128,128,.08));}
+    .aw-logo{width:26px;height:26px;object-fit:contain;flex-shrink:0;}
+    .aw-logo.ph{background:var(--border);border-radius:50%;}
+    .aw-info{display:flex;flex-direction:column;min-width:0;flex:1;}
+    .aw-name{font-size:13.5px;font-weight:700;color:var(--text);}
+    .aw-line{font-size:10.5px;color:var(--text3);}
+    .aw-rate{font-family:'Playfair Display',serif;font-weight:800;font-size:16px;flex-shrink:0;}
+    .aw-note{font-size:10.5px;color:var(--text3);line-height:1.5;margin-top:12px;border-top:1px solid var(--border);padding-top:9px;}
+    @media(min-width:720px){.awards{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;align-items:start;}
+      .aw-head{grid-column:1/-1;} .mvp-card{grid-column:1/-1;} .aw-note{grid-column:1/-1;}}
     .bchamp b{color:var(--gold);}
     .region{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);margin:22px 0 10px;padding-bottom:5px;border-bottom:2px solid var(--border2);}
     /* real bracket: absolutely-positioned boxes + SVG connector lines.
@@ -499,7 +527,8 @@ function openBracket(name){
   const champ=championOf(gs);
   let html=`<div class="bcrumb"><a onclick="backToList()">← ${seasonLbl(curSeason)} tournaments</a></div>
     <div class="bhead"><h2>${name}</h2><span style="font-size:12px;color:var(--text3);">${CAT_LABEL[cat]||cat} · ${seasonLbl(curSeason)}</span></div>
-    ${champ?`<div class="bchamp">Champion: <b>🏆 ${champ.name}</b></div>`:''}`;
+    ${champ?`<div class="bchamp">Champion: <b>🏆 ${champ.name}</b></div>`:''}
+    <div id="awardsPanel" class="awards-wrap"></div>`;
   html+=firstFourStrip(gs);
 
   const divs={}; gs.forEach(g=>{ (divs[g.division||'']=divs[g.division||'']||[]).push(g); });
@@ -523,6 +552,92 @@ function openBracket(name){
   document.getElementById('listView').style.display='none';
   const bv=document.getElementById('bracketView'); bv.style.display=''; bv.innerHTML=html;
   window.scrollTo(0,0);
+  _fillAwards(gs, cat, champ&&champ.name);
+}
+
+// ── Our-model All-Tournament selection (NOT scraped) ──────────────────────
+// Historical tournaments: aggregate real box scores across the event and rank by
+// summed game rating (× a champion boost), which naturally rewards deep runs.
+// Projected 2026-27: fall back to projected roster grades weighted by advancement.
+function _awNorm(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[&.'’]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
+function _tlogo(name){ const M=window.TDC_TEAM_COLORS||{}; const t=M[_awNorm(name)]||M[(name||'').toLowerCase()]; return (t&&t.logo)||''; }
+async function _computeHistAwards(games, cat, champName){
+  const ids=[...new Set(games.filter(g=>g.winner_id!=null&&g.id!=null&&!g._proj).map(g=>g.id))];
+  if(!ids.length) return null;
+  const rows=await fetchPaged(`${SB}/rest/v1/box_scores?game_id=in.(${ids.join(',')})&select=player,espn_id,team,min,pts,fgm,fga,tpm,tpa,ftm,fta,reb,oreb,dreb,ast,tov,stl,blk,pf`);
+  if(!rows||!rows.length) return null;
+  const agg={};
+  rows.forEach(p=>{ if((p.min||0)<=0||!p.player) return;
+    const k=(p.espn_id!=null?('e'+p.espn_id):(p.player+'|'+p.team));
+    const a=agg[k]||(agg[k]={player:p.player,espn_id:p.espn_id,team:p.team,g:0,score:0,pts:0,reb:0,ast:0});
+    a.g++; a.score+=playerRating(p); a.pts+=(p.pts||0);
+    a.reb+=(p.reb!=null?p.reb:((p.oreb||0)+(p.dreb||0))); a.ast+=(p.ast||0);
+  });
+  let arr=Object.values(agg).filter(a=>a.g>=1);
+  if(!arr.length) return null;
+  arr.forEach(a=>{ a.ppg=a.pts/a.g; a.rpg=a.reb/a.g; a.apg=a.ast/a.g; a.avg=a.score/a.g;
+    a.val=a.score*(a.team===champName?1.12:1.0); });
+  arr.sort((x,y)=>y.val-x.val || y.score-x.score);
+  return {mvp:arr[0], first:arr.slice(0,5), second:arr.slice(5,10), src:'box'};
+}
+// Projected 2026-27: no box scores. Pick from participating rosters by projected
+// grade, weighted by how far the team advanced (so the champion's star headlines).
+async function _computeProjAwards(gs, cat, champName){
+  let D=null; try{ D=await TDC_RATINGS.get(); }catch(e){}
+  const shortByFull={}; if(D&&D.teams) D.teams.forEach(t=>{ shortByFull[t.full]=t.team; });
+  const wins={}; gs.forEach(g=>{ if(g.winner!=null) wins[g.winner]=(wins[g.winner]||0)+1; });
+  const fulls=[...new Set(gs.flatMap(g=>[g.home,g.away]))];
+  const deep=fulls.filter(f=>(wins[f]||0)>=1).sort((a,b)=>(wins[b]||0)-(wins[a]||0)).slice(0,16);
+  const winByShort={}; deep.forEach(f=>{ const s=shortByFull[f]||f; winByShort[s]=wins[f]||0; });
+  const shorts=[...new Set(deep.map(f=>shortByFull[f]||f))].filter(Boolean);
+  if(!shorts.length) return null;
+  const inList=shorts.map(s=>'"'+s.replace(/"/g,'')+'"').join(',');
+  const rows=await fetchPaged(`${SB}/rest/v1/players?team=in.(${inList})&tdc_grade=not.is.null&mpg=gt.10&select=name,team,espn_id,tdc_grade,ppg,rpg,apg,mpg,yr,class_year,depth_order,starter,tovs,ft_pct,tp_pct,tpa`);
+  if(!rows||!rows.length) return null;
+  const PG=window.TDCProjGrade;
+  rows.forEach(p=>{ let g=PG?PG.grade(p):null; if(g==null||isNaN(g)) g=parseFloat(p.tdc_grade)||60;
+    p._g=g; const w=winByShort[p.team]||0;
+    p.val=g*(1+0.05*w); p.ppg=parseFloat(p.ppg)||0; p.rpg=parseFloat(p.rpg)||0; p.apg=parseFloat(p.apg)||0;
+    p.player=p.name; p.avg=null; p.g=w+1; });
+  rows.sort((a,b)=>b.val-a.val);
+  // one player per team on the MVP/first-team feels right, but keep it simple: top by val
+  return {mvp:rows[0], first:rows.slice(0,5), second:rows.slice(5,10), src:'proj'};
+}
+function _mvpCard(a){
+  const logo=_tlogo(a.team);
+  return `<div class="mvp-card">
+    <div class="mvp-badge">MVP</div>
+    ${logo?`<img class="mvp-logo" src="${logo}" alt="" loading="lazy">`:''}
+    <div class="mvp-info">
+      <a class="mvp-name" href="player.html?espn=${a.espn_id||''}">${a.player}</a>
+      <div class="mvp-team">${a.team}</div>
+      <div class="mvp-stat">${a.ppg.toFixed(1)} PPG · ${a.rpg.toFixed(1)} REB · ${a.apg.toFixed(1)} AST${a.avg!=null?` · ${a.avg.toFixed(1)} avg rating`:''} · ${a.g} game${a.g!==1?'s':''}</div>
+    </div>
+  </div>`;
+}
+function _awRow(a){
+  const logo=_tlogo(a.team);
+  return `<a class="aw-p" href="player.html?espn=${a.espn_id||''}">
+    ${logo?`<img class="aw-logo" src="${logo}" alt="" loading="lazy">`:'<span class="aw-logo ph"></span>'}
+    <span class="aw-info"><span class="aw-name">${a.player}</span><span class="aw-line">${a.team} · ${a.ppg.toFixed(1)} PPG · ${a.rpg.toFixed(1)} REB · ${a.apg.toFixed(1)} AST</span></span>
+    ${a.avg!=null?`<span class="aw-rate" style="color:${ratingColor(a.avg)}">${a.avg.toFixed(1)}</span>`:''}
+  </a>`;
+}
+async function _fillAwards(gs, cat, champName){
+  const el=document.getElementById('awardsPanel'); if(!el) return;
+  el.innerHTML='<div class="aw-loading">Selecting the all-tournament team…</div>';
+  let aw=null;
+  try{ aw = gs.some(g=>g._proj) ? await _computeProjAwards(gs, cat, champName) : await _computeHistAwards(gs, cat, champName); }catch(e){}
+  if(!aw||!aw.mvp){ el.innerHTML=''; return; }
+  const full=(cat==='NCAA'||cat==='NIT');
+  let html=`<div class="awards"><div class="aw-head">🏅 ${full?'All-Tournament Team':'Tournament MVP'}<span class="aw-modeltag">TDC model${aw.src==='proj'?' · projected':''}</span></div>`;
+  html+=_mvpCard(aw.mvp);
+  if(full){
+    if(aw.first&&aw.first.length) html+=`<div class="aw-team"><div class="aw-team-h">First Team</div>${aw.first.map(_awRow).join('')}</div>`;
+    if(aw.second&&aw.second.length) html+=`<div class="aw-team"><div class="aw-team-h">Second Team</div>${aw.second.map(_awRow).join('')}</div>`;
+  }
+  html+=`<div class="aw-note">Our model's picks${aw.src==='box'?' from tournament box scores (game rating × advancement)':' from projected roster grades × advancement'} — not an official or scraped selection.</div></div>`;
+  el.innerHTML=html;
 }
 
 // does this set of games form a clean-ish single-elim tree? (most games link to a
