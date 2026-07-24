@@ -103,8 +103,8 @@
     var c = t<0 ? lerp(mid,lo,-t) : lerp(mid,hi,t);
     return 'rgb('+c[0]+','+c[1]+','+c[2]+')';
   }
-  // ── hex grid (pointy-top) ──
-  var HS=1.5;                                            // hex size in feet
+  // ── hex grid (pointy-top) ── smaller cells than before for a denser, smoother map
+  var HS=1.15;                                           // hex size in feet
   function axial(x,y){ var q=(Math.sqrt(3)/3*x - 1/3*y)/HS, r=(2/3*y)/HS; return hexRound(q,r); }
   function hexRound(q,r){
     var s=-q-r, rq=Math.round(q), rr=Math.round(r), rs=Math.round(s);
@@ -115,6 +115,14 @@
   function hexCenter(key){ var a=key.split(','),q=+a[0],r=+a[1];
     return [HS*(Math.sqrt(3)*q + Math.sqrt(3)/2*r), HS*(3/2*r)]; }   // ft
   function hexPath(cx,cy,rp){ var p=''; for(var i=0;i<6;i++){var a=Math.PI/180*(60*i-90); p+=(i?'L':'M')+(cx+rp*Math.cos(a)).toFixed(1)+' '+(cy+rp*Math.sin(a)).toFixed(1);} return p+'Z'; }
+  var HXN=[[1,0],[-1,0],[0,1],[0,-1],[1,-1],[-1,1]];     // axial neighbors (for smoothing)
+  // human-readable location for the tooltip
+  function distLabel(dh,isThree){
+    if(isThree) return Math.round(dh)+' ft · '+(dh>=23.5?'above-the-break':'corner')+' 3';
+    if(dh<=1.6) return 'at the rim';
+    if(dh<=4)   return Math.round(dh)+' ft — layup range';
+    return Math.round(dh)+' ft from rim';
+  }
 
   function hexbinSvg(shots){
     var bins={};
@@ -123,21 +131,45 @@
       var b=bins[k]||(bins[k]={att:0,mk:0,three:0});
       b.att++; if(s.made)b.mk++; if(s.sv===3)b.three++;
     });
-    var maxAtt=0; for(var k in bins) if(bins[k].att>maxAtt) maxAtt=bins[k].att;
-    var g='', idx=0;
-    for(var k in bins){
-      var b=bins[k]; if(b.att<2) continue;
+    var maxAtt=0, keys=[]; for(var k in bins){ keys.push(k); if(bins[k].att>maxAtt) maxAtt=bins[k].att; }
+    // draw high-volume hexes first so the small fringe cells layer cleanly on top
+    keys.sort(function(a,b){return bins[b].att-bins[a].att;});
+    var K=6, g='', idx=0;                                 // K = shrinkage prior strength
+    keys.forEach(function(k){
+      var b=bins[k]; if(b.att<1) return;
+      var a=k.split(','), q=+a[0], r=+a[1];
       var c=hexCenter(k), cx=px(c[0]), cy=py(c[1]);
-      var fg=b.mk/b.att, isThree=b.three>b.att/2;
+      var isThree=b.three>b.att/2;
       var dh=Math.sqrt((c[0]-HOOP_X)*(c[0]-HOOP_X)+(c[1]-HOOP_Y)*(c[1]-HOOP_Y));
-      var diff=fg-d1FG(dh,isThree);
-      var rp=px(HS)*(0.42+0.58*Math.min(1,Math.sqrt(b.att/maxAtt)));   // size by volume
+      var base=d1FG(dh,isThree);
+      // COLOR: pool the cell with its six neighbors (half weight) so the map reads
+      // as a smooth field, then shrink toward the local D-1 baseline so thin-sample
+      // cells settle near neutral instead of screaming 0% or 100%.
+      var pAtt=b.att, pMk=b.mk;
+      HXN.forEach(function(d){ var nb=bins[(q+d[0])+','+(r+d[1])]; if(nb){ pAtt+=nb.att*0.5; pMk+=nb.mk*0.5; } });
+      var diff=(pMk + K*base)/(pAtt + K) - base;
+      // SIZE: this cell's own volume, wide dynamic range so the paint reads as a
+      // dense blob and the perimeter as fine stipple
+      var rp=Math.min(px(HS)*1.06, px(HS)*(0.32+0.68*Math.sqrt(b.att/maxAtt)));
       var zc=isThree?'sc-zt':(dh<=4?'sc-zr':'sc-zm');
-      var tip=b.mk+'/'+b.att+' · '+Math.round(fg*100)+'% FG · '+(diff>=0?'+':'')+Math.round(diff*100)+'% vs D-1';
-      g+='<path class="sc-mark sc-hex '+zc+'" data-t="'+tip+'" style="animation-delay:'+Math.min(idx*12,700)+'ms" d="'+hexPath(cx,cy,rp)+'" fill="'+effColor(diff)+'" stroke="rgba(0,0,0,.25)" stroke-width="0.6"/>';
+      // tooltip carries the RAW numbers (pipe-delimited; wire() builds the card)
+      var rawFg=b.mk/b.att, rawDiff=rawFg-base;
+      var tip=(rawFg*100).toFixed(1)+'|'+distLabel(dh,isThree)+'|'+b.mk+'/'+b.att+'|'+(base*100).toFixed(1)+'|'+(rawDiff>=0?'+':'')+(rawDiff*100).toFixed(1)+'|'+(rawDiff>=0?'1':'0');
+      g+='<path class="sc-mark sc-hex '+zc+'" data-tip="'+tip+'" style="animation-delay:'+Math.min(idx*9,700)+'ms" d="'+hexPath(cx,cy,rp)+'" fill="'+effColor(diff)+'" stroke="rgba(10,8,20,.28)" stroke-width="0.5"/>';
       idx++;
-    }
+    });
     return g;
+  }
+  // compact 2PT / 3PT / All / eFG summary shown beneath the hexbin (matches how the
+  // pro charts caption their maps)
+  function hexSummary(shots){
+    var threes=shots.filter(function(s){return s.sv===3;});
+    var thm=threes.filter(function(s){return s.made;}).length, thN=threes.length;
+    var twoN=shots.length-thN, twom=shots.filter(function(s){return s.made&&s.sv!==3;}).length;
+    var made=twom+thm, N=shots.length;
+    var efg=N?Math.round((made+0.5*thm)/N*100):0;
+    function ln(l,mk,at){ return '<span><b>'+l+'</b> '+mk+'/'+at+' · '+(at?Math.round(mk/at*100):0)+'%</span>'; }
+    return '<div class="sc-hexsum">'+ln('2PT',twom,twoN)+ln('3PT',thm,thN)+ln('All',made,N)+'<span class="sc-hxefg"><b>eFG</b> '+efg+'%</span></div>';
   }
 
   // ── heat colormap (on-brand purple ramp: dark -> accent -> light) ──
@@ -340,8 +372,11 @@
         '<div class="sc-spot-cap">'+spotsCaption(so)+'</div>';
     } else if(mode==='hex'){
       body='<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+court('rgba(130,123,156,.55)')+hexbinSvg(shots)+'</svg><div class="sc-tip"></div></div>'+
-        '<div class="sc-eff-legend"><span>Weak</span><i class="sc-effgrad"></i><span>Strong</span>'+
-        '<span style="width:100%;text-align:center;color:var(--text3);font-weight:600;">Hex size = shot volume · color = FG% vs Division-1 average</span></div>';
+        hexSummary(shots)+
+        '<div class="sc-eff-legend">'+
+          '<div class="sc-effbar"><span>Weak · −10%</span><i class="sc-effgrad"></i><span>+10% · Strong</span></div>'+
+          '<span class="sc-eff-cap">Hex size = shot volume · color = FG% vs Division-1 average · <b>white = league average</b></span>'+
+        '</div>';
     } else if(mode==='heat'){
       body='<div class="sc-court-wrap sc-heat-wrap"><canvas class="sc-heat"></canvas>'+
         '<svg class="sc-svg sc-heat-court" viewBox="0 0 '+W+' '+H+'">'+court('rgba(255,255,255,.38)')+'</svg></div>'+
@@ -376,10 +411,19 @@
     var wrap=el.querySelector('.sc-court-wrap'), tip=el.querySelector('.sc-tip');
     if(wrap&&tip){
       wrap.addEventListener('mousemove',function(e){
-        var t=e.target.closest?e.target.closest('[data-t]'):null;
+        var t=e.target.closest?e.target.closest('[data-tip],[data-t]'):null;
         if(!t){ tip.classList.remove('on'); return; }
         var r=wrap.getBoundingClientRect();
-        tip.textContent=t.getAttribute('data-t');
+        if(t.hasAttribute('data-tip')){
+          var f=t.getAttribute('data-tip').split('|');
+          tip.innerHTML='<b>FG% here: '+f[0]+'%</b>'+
+            '<span class="scq">'+f[1]+' · '+f[2]+' FG</span>'+
+            '<span class="scr">Division-1 here: '+f[3]+'%</span>'+
+            '<span class="scd" style="color:'+(f[5]==='1'?'#2bb673':'#e06552')+'">'+f[4]+'% vs D-1 avg</span>';
+          tip.classList.add('rich');
+        } else {
+          tip.textContent=t.getAttribute('data-t'); tip.classList.remove('rich');
+        }
         tip.style.left=(e.clientX-r.left)+'px';
         tip.style.top=(e.clientY-r.top-14)+'px';
         tip.classList.add('on');
@@ -440,12 +484,25 @@
       '.sc-host.sc-hl-rim .sc-zr,.sc-host.sc-hl-mid .sc-zm,.sc-host.sc-hl-three .sc-zt{opacity:1;}'+
       '.sc-tip{position:absolute;pointer-events:none;background:var(--text);color:var(--bg);font-size:11px;font-weight:700;padding:5px 9px;border-radius:7px;transform:translate(-50%,-100%);opacity:0;transition:opacity .12s;white-space:nowrap;z-index:20;box-shadow:0 6px 18px rgba(0,0,0,.3);}'+
       '.sc-tip.on{opacity:1;}'+
+      // rich multi-line tooltip for hexes
+      '.sc-tip.rich{white-space:normal;text-align:left;max-width:224px;display:flex;flex-direction:column;gap:2px;padding:9px 11px;line-height:1.35;background:var(--bg2);color:var(--text);border:1px solid var(--border2);border-radius:9px;box-shadow:0 12px 32px rgba(0,0,0,.45);}'+
+      '.sc-tip.rich b{font-size:12px;font-weight:800;}'+
+      '.sc-tip .scq{font-size:10px;color:var(--text3);font-weight:600;}'+
+      '.sc-tip .scr{font-size:10.5px;color:var(--text2);font-weight:600;}'+
+      '.sc-tip .scd{font-size:11.5px;font-weight:800;margin-top:1px;}'+
+      // 2PT/3PT/All/eFG summary under the hexbin
+      '.sc-hexsum{display:flex;flex-wrap:wrap;gap:5px 16px;justify-content:center;margin-top:11px;font-size:11.5px;color:var(--text2);font-weight:600;animation:scUp .5s ease .25s backwards;}'+
+      '.sc-hexsum b{color:var(--text3);font-weight:800;font-size:9.5px;letter-spacing:.05em;margin-right:3px;}'+
+      '.sc-hexsum .sc-hxefg{color:var(--text);}.sc-hexsum .sc-hxefg b{color:var(--accent);}'+
       '.sc-heat{width:100%;height:auto;display:block;border-radius:8px;animation:scFade .8s ease both;}'+
       '.sc-heat-court{position:absolute;left:10px;top:10px;width:calc(100% - 20px);}'+
       '.sc-heat-legend{max-width:580px;margin:10px auto 0;display:flex;align-items:center;gap:10px;font-size:11px;font-weight:600;color:var(--text2);justify-content:center;animation:scUp .5s ease .3s backwards;}'+
       '.sc-grad{width:150px;height:10px;border-radius:5px;display:inline-block;background:linear-gradient(90deg,#0a0614,#22104a,#40287c,#6a2eb2,#8b3fe0,#b078ec,#d6b4f8);}'+
-      '.sc-eff-legend{max-width:580px;margin:10px auto 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;font-size:11px;font-weight:700;color:var(--text2);animation:scUp .5s ease .3s backwards;}'+
-      '.sc-effgrad{width:160px;height:10px;border-radius:5px;display:inline-block;background:linear-gradient(90deg,#cf5a4e,#eeeef2,#1f9d57);}'+
+      '.sc-eff-legend{max-width:520px;margin:11px auto 0;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--text2);animation:scUp .5s ease .3s backwards;}'+
+      '.sc-effbar{display:flex;align-items:center;gap:9px;}'+
+      '.sc-effgrad{width:190px;height:11px;border-radius:6px;display:inline-block;background:linear-gradient(90deg,#cf5a4e,#eeeef2,#1f9d57);box-shadow:inset 0 0 0 1px rgba(130,123,156,.25);}'+
+      '.sc-eff-cap{color:var(--text3);font-weight:600;font-size:10.5px;text-align:center;}'+
+      '.sc-eff-cap b{color:var(--text2);font-weight:700;}'+
       '.sc-zones{display:flex;flex-direction:column;gap:10px;flex:0 0 132px;}'+
       '.sc-z{flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center;border:1px solid var(--border);border-radius:11px;padding:10px 6px;background:var(--bg2);animation:scUp .45s ease backwards;transition:transform .15s,border-color .15s,box-shadow .15s;}'+
       '@media(max-width:600px){.sc-main{flex-direction:column;}.sc-zones{flex-direction:row;flex:0 0 auto;}.sc-z{flex:1;}}'+
