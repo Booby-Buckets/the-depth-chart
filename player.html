@@ -2772,7 +2772,10 @@ function _updateHeroGridForSeason(val){
   // national + position rank
   var eN=document.getElementById('heroNatRank'), eP=document.getElementById('heroPosRank'),
       eNL=document.getElementById('heroNatRankL'), ePL=document.getElementById('heroPosRankL');
-  if(eNL) eNL.textContent="Nat'l Rank "+(isProj?'’26':('’'+(''+row.season_year).slice(2)));
+  // proj view shows the 2026 NBA Draft big board (demonstrated production + draft
+  // lens), NOT a projected-season national rank — label it so it doesn't read as one.
+  // Past seasons keep their true within-season national rank.
+  if(eNL) eNL.textContent=isProj ? '’26 Big Board' : ("Nat'l Rank ’"+(''+row.season_year).slice(2));
   if(isProj && window._bbNat!=null){
     if(eN) eN.textContent='#'+window._bbNat;
     if(eP) eP.textContent='#'+window._bbPos;
@@ -2827,6 +2830,7 @@ async function loadDraftSticker(){
         var _oss=document.getElementById('ovrSeasonSel');
         if(!_oss || _oss.value==='proj'){  // only paint Big Board ranks if a past season isn't selected
           var _hnr=document.getElementById('heroNatRank'); if(_hnr && me.rank) _hnr.textContent='#'+me.rank;
+          var _hnrL=document.getElementById('heroNatRankL'); if(_hnrL) _hnrL.textContent='’26 Big Board';
           var _hpr=document.getElementById('heroPosRank'); if(_hpr && me.posRank) _hpr.textContent='#'+me.posRank;
           var _hprL=document.getElementById('heroPosRankL'); if(_hprL && me.posLabel) _hprL.textContent=me.posLabel+' Rank';
         }
@@ -3084,7 +3088,7 @@ function renderPage(){
         <div class="hg"><div class="hg-v grade" id="heroGrade">${_hGrade}</div><div class="hg-l">TDC Grade</div></div>
         <div class="hg"><div class="hg-v wa" id="heroWA">${_hWA}</div><div class="hg-l">Wins Added</div></div>
         <div class="hg"><div class="hg-v" id="heroBadges">${_hBadges}</div><div class="hg-l">Badges</div></div>
-        <div class="hg"><div class="hg-v" id="heroNatRank">—</div><div class="hg-l" id="heroNatRankL">Nat'l Rank ’26</div></div>
+        <div class="hg"><div class="hg-v" id="heroNatRank">—</div><div class="hg-l" id="heroNatRankL">’26 Big Board</div></div>
         <div class="hg"><div class="hg-v" id="heroPosRank">—</div><div class="hg-l" id="heroPosRankL">Pos Rank</div></div>
         <div class="hg"><div class="hg-v" id="heroRank">—</div><div class="hg-l">All-Time</div></div>
       </div>
