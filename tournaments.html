@@ -36,14 +36,21 @@
     .tcard{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;cursor:pointer;transition:transform .14s,box-shadow .14s,border-color .14s;position:relative;overflow:hidden;}
     .tcard:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.12);border-color:var(--border2);}
     .tcard .cat{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);}
-    .tcard .tn{font-family:'Playfair Display',serif;font-weight:800;font-size:16px;margin:3px 0 6px;line-height:1.2;}
+    .tcard-top{display:flex;align-items:center;gap:11px;margin-bottom:7px;}
+    .tcard-txt{flex:1;min-width:0;}
+    .tcard-emblem{flex-shrink:0;border-radius:9px;border:1px solid;display:flex;align-items:center;justify-content:center;font-weight:800;letter-spacing:.01em;}
+    .tcard-emblem-img{flex-shrink:0;object-fit:contain;}
+    .tcard-champlogo{width:34px;height:34px;object-fit:contain;flex-shrink:0;}
+    .tcard .tn{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;margin:2px 0 0;line-height:1.2;}
+    .bhead .tcard-emblem,.bhead .tcard-emblem-img{border-radius:11px;}
+    .bchamp-logo{width:22px;height:22px;object-fit:contain;vertical-align:middle;margin-right:6px;}
     .tcard .champ{font-size:12px;color:var(--text2);}
     .tcard .champ b{color:var(--text);}
     .tcard .meta{font-size:10.5px;color:var(--text3);margin-top:5px;}
     /* bracket */
     .bcrumb{font-size:12px;color:var(--text3);margin-bottom:6px;}
     .bcrumb a{color:var(--accent);text-decoration:none;cursor:pointer;font-weight:700;}
-    .bhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px;}
+    .bhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:4px;}
     .bhead h2{font-family:'Playfair Display',serif;font-size:26px;font-weight:800;}
     .bchamp{font-size:13px;color:var(--text2);margin-bottom:18px;}
     /* ── all-tournament awards ── */
@@ -208,6 +215,24 @@ const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H={apikey:KEY,Authorization:'Bearer '+KEY};
 const CATS=[['All',''],['NCAA','NCAA'],['MTE (Early-season)','MTE'],['NIT','NIT'],['Conference','CONF'],['CBI','CBI'],['CIT / TBC','CIT']];
 const CAT_LABEL={NCAA:'NCAA Tournament',NIT:'NIT',CBI:'CBI',CIT:'CIT',TBC:'The Basketball Classic',CONF:'Conference',MTE:'Early-season'};
+const CAT_COLOR={NCAA:'#E0A030',NIT:'#4a84f4',MTE:'#2bb673',CONF:'#a06cd5',CBI:'#e07a3a',CIT:'#8a867a',TBC:'#8a867a'};
+const CAT_SHORT={NCAA:'NCAA',NIT:'NIT',MTE:'MTE',CONF:'CONF',CBI:'CBI',CIT:'CIT',TBC:'TBC'};
+// a tournament's identity mark: the conference logo for conf tourneys (real), else a
+// clean category emblem. Champion team logos (real, ESPN) anchor each card separately.
+function _emblem(cat,size){ const col=CAT_COLOR[cat]||'#8a867a', sh=CAT_SHORT[cat]||cat, s=size||40;
+  return `<div class="tcard-emblem" style="width:${s}px;height:${s}px;color:${col};border-color:${col}55;background:${col}1e;font-size:${s>44?12:10}px;">${sh}</div>`; }
+function _confLogoFor(name){ const M=window.TDC_CONFS; if(!M||!name) return '';
+  // conf-tournament names are "{Conf} Tournament" — strip the suffix, then match the
+  // remainder exactly against each conference's base name / short / abbr (no fuzzy
+  // substring, so no false positives).
+  const n=name.toLowerCase().replace(/ (conference )?tournament$/,'').replace(/\./g,'').trim();
+  for(const full in M){ const c=M[full];
+    const cands=[full.toLowerCase().replace(/ conference$/,''),(c.short||'').toLowerCase().replace(/\./g,''),(c.abbr||'').toLowerCase()];
+    if(cands.some(x=>x&&x===n)) return c.logo; }
+  return ''; }
+function _tournMark(cat,name,size){ if(cat==='CONF'){ const cl=_confLogoFor(name);
+    if(cl) return `<img class="tcard-emblem-img" src="${cl}" alt="" loading="lazy" style="width:${size||40}px;height:${size||40}px;">`; }
+  return _emblem(cat,size); }
 let GAMES=[], curSeason=2025, curCat='', notableOnly=true;
 
 function seasonLbl(y){ return `${y-1}–${(''+y).slice(2)}`; }
@@ -407,13 +432,17 @@ function tournaments(){
 function renderList(){
   const list=tournaments();
   if(!list.length){ document.getElementById('tlist').innerHTML='<div class="loading">No tournaments match.</div>'; return; }
-  document.getElementById('tlist').innerHTML='<div class="tgrid">'+list.map((t,i)=>`
-    <div class="tcard" onclick="openBracket('${t.name.replace(/'/g,"\\'")}')">
-      <div class="cat">${CAT_LABEL[t.cat]||t.cat}</div>
-      <div class="tn">${t.name}</div>
+  document.getElementById('tlist').innerHTML='<div class="tgrid">'+list.map((t,i)=>{
+    const clogo=_tlogo(t.champ);
+    return `<div class="tcard" onclick="openBracket('${t.name.replace(/'/g,"\\'")}')">
+      <div class="tcard-top">
+        ${_tournMark(t.cat,t.name,40)}
+        <div class="tcard-txt"><div class="cat">${CAT_LABEL[t.cat]||t.cat}</div><div class="tn">${t.name}</div></div>
+        ${clogo?`<img class="tcard-champlogo" src="${clogo}" alt="" loading="lazy" title="Champion: ${t.champ}">`:''}
+      </div>
       ${t.champ?`<div class="champ">🏆 <b>${t.champ}</b></div>`:''}
       <div class="meta">${t.n} game${t.n!==1?'s':''} · ${seasonLbl(curSeason)}</div>
-    </div>`).join('')+'</div>';
+    </div>`;}).join('')+'</div>';
 }
 
 function teamLink(name){ return `team.html?team=${encodeURIComponent(name)}`; }
@@ -525,9 +554,10 @@ function openBracket(name){
   if(!gs.length) return;
   const cat=gs[0].category;
   const champ=championOf(gs);
+  const _cl=champ?_tlogo(champ.name):'';
   let html=`<div class="bcrumb"><a onclick="backToList()">← ${seasonLbl(curSeason)} tournaments</a></div>
-    <div class="bhead"><h2>${name}</h2><span style="font-size:12px;color:var(--text3);">${CAT_LABEL[cat]||cat} · ${seasonLbl(curSeason)}</span></div>
-    ${champ?`<div class="bchamp">Champion: <b>🏆 ${champ.name}</b></div>`:''}
+    <div class="bhead">${_tournMark(cat,name,48)}<h2>${name}</h2><span style="font-size:12px;color:var(--text3);">${CAT_LABEL[cat]||cat} · ${seasonLbl(curSeason)}</span></div>
+    ${champ?`<div class="bchamp">${_cl?`<img class="bchamp-logo" src="${_cl}" alt="" loading="lazy">`:''}Champion: <b>🏆 ${champ.name}</b></div>`:''}
     <div id="awardsPanel" class="awards-wrap"></div>`;
   html+=firstFourStrip(gs);
 
