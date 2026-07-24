@@ -31,8 +31,20 @@
   function _num(v){ var n = parseFloat(v); return isFinite(n) ? n : 0; }
   function projMin(row){
     var d = parseInt(row && row.depth_order, 10);
-    if(!isFinite(d) || d < 1) d = 11;
-    return d < SLOT_MIN.length ? SLOT_MIN[d] : 5;
+    var slot = (isFinite(d) && d >= 1) ? (d < SLOT_MIN.length ? SLOT_MIN[d] : 5) : 0;
+    // depth_order is NOISY in the roster data — proven starters are sometimes tagged
+    // deep (e.g. a 34-mpg, grade-93 star sitting at depth_order 9), which used to
+    // project them down to bench minutes and unfairly ding the grade. A returner's
+    // OWN minutes are the reliable prior: never project him below ~90% of what he
+    // actually played, and honor an explicit starter flag. depth_order can still
+    // push a role UP (a bench freshman projected to start).
+    var last = _num(row && row.mpg);
+    var starter = row && (row.starter === true || row.starter === 'true' || row.starter === 't');
+    var floor = last > 0 ? last * 0.9 : 0;
+    if(starter) floor = Math.max(floor, 28);
+    var pm = Math.max(slot, floor);
+    if(!isFinite(d) && last > 0) pm = last;      // no depth signal at all → hold proven role
+    return pm;
   }
   // grade-implied per-minute quality — a WA/BPM-like scalar the composite leans on
   function _qual(g){ return Math.max(0, (g - 58) / 16); }     // g76→1.13, g90→2.0, g64→0.38
@@ -102,6 +114,32 @@
     }
     return Math.min(4, shootUp + pedUp);        // combined upside bounded (was 7)
   }
+  // Year-over-year DEVELOPMENT for returners. A FORWARD-LOOKING board should price in
+  // the normal growth curve: a productive underclassman who returns projects to take
+  // a step, so his OVR shouldn't sit flat at last year's demonstrated grade. Bounded
+  // and class-tapered (Fr>So>Jr>Sr — younger = more runway), with less room the higher
+  // the grade already is, and scaled by minutes + production so it rewards players who
+  // carried a real load rather than deep-bench projection. Incoming freshmen (no played
+  // season, mpg≈0) are untouched — their editor OVR handles them.
+  var DEV_BASE = { fr:6.5, so:5.0, jr:3.0, sr:0.8 };   // aggressive setting (user pick, 2026-07)
+  var DEV_CEIL = 99, DEV_SPAN = 20;
+  function _devClass(row){
+    var y = (row && (row.yr || row.class_year) || '').toString().toLowerCase();
+    if(/fr/.test(y)) return 'fr';
+    if(/so/.test(y)) return 'so';
+    if(/jr/.test(y)) return 'jr';
+    return 'sr';
+  }
+  function _develop(row, g){
+    var mpg = _num(row.mpg);
+    if(mpg < 10) return 0;                       // needs a real role/sample last year
+    var base = DEV_BASE[_devClass(row)] || 0;
+    if(base <= 0) return 0;
+    var room = _clamp01((DEV_CEIL - g) / DEV_SPAN);
+    var minF = _clamp01(mpg / 22);
+    var prod = _clamp01((_num(row.ppg) + 1.5 * _num(row.apg)) / 28);
+    return base * room * minF * (0.55 + 0.45 * prod);
+  }
   // The projected grade. Anchors on the demonstrated grade, moves it by projected
   // ROLE change, then adds bounded young-player UPSIDE. Freshmen with no played
   // season fall back to the demonstrated grade (handled by editor OVR elsewhere).
@@ -110,9 +148,10 @@
     var g = parseInt(row.tdc_grade, 10);
     if(!isFinite(g)) return null;
     var up = _upside(row);                      // young-player upside, role-independent
-    // clamp helper: upside stacks on top of the (already role-bounded) grade, with
-    // an overall +9 ceiling vs the demonstrated grade so nothing runs away.
-    function out(pg){ return Math.max(40, Math.min(99, Math.round(Math.min(g + 9, pg + up)))); }
+    var dev = _develop(row, g);                 // year-over-year development for returners
+    // clamp helper: upside + development stack on top of the (already role-bounded)
+    // grade, with an overall +9 ceiling vs the demonstrated grade so nothing runs away.
+    function out(pg){ return Math.max(40, Math.min(99, Math.round(Math.min(g + 9, pg + up + dev)))); }
     var lm = _num(row.mpg);
     if(lm <= 0) return out(g);                  // no played minutes → demonstrated (+upside≈0)
     var pm = projMin(row);
