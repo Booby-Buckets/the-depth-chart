@@ -470,6 +470,18 @@ function projPlayer(p){
 // ── search / select ──
 function pool(){ return mode==='players'? allPlayers : teams; }
 function _seasonLabel(p){ const yr=p.season_year||2026; return `${yr-1}-${(''+yr).slice(2)}`; }
+// relevance rank for a name vs the query: exact(0) < prefix(1) < word-start(2) <
+// substring(3). Lets "Michigan" beat "Central Michigan" when you type "michigan".
+function _relScore(name,q){
+  name=(name||'').toLowerCase().trim(); q=(q||'').toLowerCase().trim();
+  if(!q) return 5;
+  if(name===q) return 0;
+  if(name.indexOf(q)===0) return 1;
+  const esc=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  if(new RegExp('\\b'+esc).test(name)) return 2;
+  if(name.indexOf(q)>=0) return 3;
+  return 4;
+}
 
 let _histResults={}, _histTimer=null;
 async function onSearch(slot, query){
@@ -477,7 +489,8 @@ async function onSearch(slot, query){
   if(!query||query.length<2){ dd.classList.remove('show'); return; }
   const q=query.toLowerCase();
   if(mode==='players'){
-    const curMatches=allPlayers.filter(p=>p.name.toLowerCase().includes(q)||(p.team||'').toLowerCase().includes(q)).slice(0,8);
+    const curMatches=allPlayers.filter(p=>p.name.toLowerCase().includes(q)||(p.team||'').toLowerCase().includes(q))
+      .sort((a,b)=>_relScore(a.name,q)-_relScore(b.name,q)||(a.name||'').localeCompare(b.name||'')).slice(0,8);
     _renderDropdown(slot, curMatches, _histResults[slot]||[], dd);
     clearTimeout(_histTimer);
     _histTimer=setTimeout(async()=>{
@@ -489,13 +502,14 @@ async function onSearch(slot, query){
         // don't collapse to the latest, and don't hide current players' past seasons.
         const seen=new Set(), hist=[];
         data.forEach(h=>{ const k=(h.name||'')+'|'+h.season_year+'|'+(h.team||''); if(seen.has(k))return; seen.add(k); hist.push({...h,_isHistory:true}); });
-        hist.sort((a,b)=>(a.name||'').localeCompare(b.name||'')||b.season_year-a.season_year);
+        hist.sort((a,b)=>_relScore(a.name,query)-_relScore(b.name,query)||(a.name||'').localeCompare(b.name||'')||b.season_year-a.season_year);
         _histResults[slot]=hist.slice(0,16);
         _renderDropdown(slot, curMatches, _histResults[slot], dd);
       }catch(e){}
     },280);
   } else {
-    const matches=teams.filter(t=>(t.name||'').toLowerCase().includes(q)||(t.conf||t.conference||'').toLowerCase().includes(q)).slice(0,10);
+    const matches=teams.filter(t=>(t.name||'').toLowerCase().includes(q)||(t.conf||t.conference||'').toLowerCase().includes(q))
+      .sort((a,b)=>_relScore(a.name,q)-_relScore(b.name,q)||(a.name||'').localeCompare(b.name||'')).slice(0,10);
     _renderTeamDropdown(slot, matches, _teamHistResults[slot]||[], dd);
     clearTimeout(_tHistTimer);
     _tHistTimer=setTimeout(async()=>{
@@ -514,7 +528,7 @@ async function onSearch(slot, query){
         const data=await r.json();
         const seen=new Set(), hist=[], perTeam={};
         (data||[]).forEach(h=>{ const k=h.team+'|'+h.season_year; if(seen.has(k))return; seen.add(k); hist.push({...h,name:h.team,conf:h.conference,_isHistory:true}); });
-        hist.sort((a,b)=>(a.team||'').localeCompare(b.team||'')||b.season_year-a.season_year);
+        hist.sort((a,b)=>_relScore(a.team,qname||query)-_relScore(b.team,qname||query)||(a.team||'').localeCompare(b.team||'')||b.season_year-a.season_year);
         // cap seasons per program so one team can't swallow the list — type a
         // year ("Arizona 2018") or keep typing to narrow within a program
         const capped=seasonFilter?hist:hist.filter(h=>{ perTeam[h.team]=(perTeam[h.team]||0)+1; return perTeam[h.team]<=6; });
