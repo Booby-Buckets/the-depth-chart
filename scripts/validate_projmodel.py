@@ -43,49 +43,68 @@ def tier(g):
     return "low" if g < 73 else ("mid" if g < 84 else "high")
 
 
-def proj_min(row):
-    d = row.get("depth_order")
-    try: d = int(d)
-    except Exception: d = None
-    slot = SLOT_MIN[d] if (d and 1 <= d < len(SLOT_MIN)) else (5 if d else None)
-    last = float(row.get("mpg") or 0)
-    is_tr = bool((row.get("hometown") or "").strip())          # transfer signal (best-effort)
-    # a returner on the SAME team keeps ~his minutes; a transfer trusts the new depth slot
-    if slot is None: return last or 12
-    if is_tr: return slot
-    return max(slot, last * 0.85) if last else slot
+MAXMIN = 34.0      # nobody plays more than this
+TOTAL = 200.0      # 5 on the floor x 40 min
+ROT_BAND = 16.0    # a player this far below the 5th-best contributes ~0 minutes
+ROT_POWER = 2.2    # concentrates minutes on the better players
+
+
+def project_minutes(quals):
+    """Rotation/minutes model — NO manual depth chart. Given every player's quality prior
+    (demonstrated grade / freshman OVR), derive projected minutes: quality-weighted, capped
+    at 34, a 7-12 man rotation whose DEPTH emerges from how balanced the roster is."""
+    n = len(quals)
+    order = sorted(range(n), key=lambda i: -quals[i])
+    sq = [quals[i] for i in order]
+    q5 = sq[4] if n >= 5 else sq[-1]
+    base = q5 - ROT_BAND
+    w = [max(0.0, q - base) ** ROT_POWER for q in sq]
+    for i in range(12, n): w[i] = 0.0            # hard cap: at most a 12-man rotation
+    s = sum(w) or 1.0
+    m = [TOTAL * x / s for x in w]
+    for _ in range(8):                            # cap at MAXMIN, push overflow down the rotation
+        over = sum(max(0.0, x - MAXMIN) for x in m)
+        if over < 0.1: break
+        m = [min(x, MAXMIN) for x in m]
+        room = [(MAXMIN - x) if 0 < x < MAXMIN else 0.0 for x in m]
+        rs = sum(room) or 1.0
+        m = [x + over * room[i] / rs for i, x in enumerate(m)]
+    out = [0.0] * n
+    for i, idx in enumerate(order): out[idx] = round(m[i], 1)
+    return out
 
 
 def exp_min(g):
     return max(6.0, min(32.0, 8.0 + (g - 70) * 0.9))
 
 
-def grade_v5(row):
-    try: g = float(row.get("tdc_grade"))
-    except Exception: return None
-    trans = cls_trans(row.get("yr") or row.get("class_year"))
+def grade_v5(g, yr, pm):
+    trans = cls_trans(yr)
     dev_bpm = (DEV.get("bpm_delta", {}).get(trans, {}) or {}).get(tier(g), 0) if trans else 0
     dev_grade = dev_bpm * BR["b"]
-    pm = proj_min(row); em = exp_min(g)
+    em = exp_min(g)
     ratio = pm / em if em else 1
     role = -ROLE_K * (1 - ratio) if ratio < 1 else min(ROLE_UP, ROLE_K * 0.4 * (ratio - 1))
     v = g + dev_grade + role
-    return max(g - FLOOR_GAP, min(g + CEIL, round(v)))
+    return int(round(max(g - FLOOR_GAP, min(g + CEIL, v))))
 
 
 def main():
     import sys
     team = sys.argv[1] if len(sys.argv) > 1 else "Duke"
-    rows = q(f"players?team=eq.{team}&select=name,tdc_grade,mpg,ppg,yr,depth_order,starter,hometown&order=tdc_grade.desc")
-    print(f"=== {team} — projected grade v5 (prototype) ===")
+    rows = q(f"players?team=eq.{team}&select=name,tdc_grade,mpg,ppg,yr&order=tdc_grade.desc")
+    rows = [r for r in rows if r.get("tdc_grade") not in (None, "")]
+    quals = [float(r["tdc_grade"]) for r in rows]
+    mins = project_minutes(quals)                 # model-derived minutes — no depth chart
+    print(f"=== {team} — projected minutes + grade v5 (no manual depth chart) ===")
     print(f"{'player':22} {'yr':4} {'dem':>3} {'proj_min':>8} {'v5':>4}  Δ")
-    for r in rows:
-        v = grade_v5(r)
-        if v is None: continue
-        g = int(float(r["tdc_grade"])); pm = round(proj_min(r), 1)
-        d = v - g
-        flag = '  <-- role-blocked' if d <= -6 else ''
-        print(f"{(r['name'] or '')[:22]:22} {(r.get('yr') or '')[:4]:4} {g:>3} {pm:>8} {v:>4}  {d:+d}{flag}")
+    tot = 0.0
+    for r, g, pm in sorted(zip(rows, quals, mins), key=lambda z: -z[2]):
+        v = grade_v5(g, r.get("yr"), pm); tot += pm
+        d = v - int(g)
+        flag = '  <-- deep bench' if pm < 6 else ''
+        print(f"{(r['name'] or '')[:22]:22} {(r.get('yr') or '')[:4]:4} {int(g):>3} {pm:>8} {v:>4}  {d:+d}{flag}")
+    print(f"{'TOTAL MIN':22} {'':4} {'':>3} {round(tot,1):>8}")
 
 
 if __name__ == "__main__":
