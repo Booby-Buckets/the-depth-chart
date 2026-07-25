@@ -548,7 +548,7 @@
 
   .table-header {
     display: grid;
-    grid-template-columns: 48px minmax(200px,1fr) 140px 16px 58px 56px 54px 54px 60px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
+    grid-template-columns: 48px minmax(200px,1fr) 140px 16px 58px 56px 56px 56px 54px 54px 60px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
     gap: 0;
     padding: 10px 0;
     border-bottom: 2px solid var(--border2);
@@ -609,7 +609,7 @@
   /* ---- Team rows ---- */
   .team-row {
     display: grid;
-    grid-template-columns: 48px minmax(200px,1fr) 140px 16px 58px 56px 54px 54px 60px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
+    grid-template-columns: 48px minmax(200px,1fr) 140px 16px 58px 56px 56px 56px 54px 54px 60px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
     gap: 0;
     padding: 14px 0;
     border-bottom: 1px solid var(--border);
@@ -810,7 +810,7 @@
   }
   .skeleton-row {
     display: grid;
-    grid-template-columns: 48px minmax(200px,1fr) 140px 16px 58px 56px 54px 54px 60px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
+    grid-template-columns: 48px minmax(200px,1fr) 140px 16px 58px 56px 56px 56px 54px 54px 60px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px;
     gap: 0;
     padding: 14px 0;
     border-bottom: 1px solid var(--border);
@@ -1124,7 +1124,7 @@
 </style>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
-  <link rel="stylesheet" href="tdc-dense.css?v=18"/>
+  <link rel="stylesheet" href="tdc-dense.css?v=19"/>
 </head>
 <body data-anim-auto>
 <div class="tdc-bg" aria-hidden="true">
@@ -1243,6 +1243,8 @@
     <select class="filter-select" id="seasonSel" onchange="onSeason(this.value)"></select>
     <select class="filter-select" id="sortSel" onchange="setSort(this.value,false)">
       <option value="srs">Sort: Power Rating</option>
+      <option value="ortg">Sort: Best Offense (ORtg)</option>
+      <option value="drtg">Sort: Best Defense (DRtg)</option>
       <option value="margin">Sort: Scoring Margin</option>
       <option value="winpct">Sort: Win %</option>
       <option value="wins">Sort: Wins</option>
@@ -1272,6 +1274,8 @@
     <div class="th sortable" data-sort="srs" title="Power Rating — how many points better than an average Division I team this team is, on a neutral court and adjusted for who they played. A +18 team would beat an average team by about 18. The gap between two teams' Power Ratings is the projected point spread." style="text-decoration:underline dotted;text-underline-offset:3px;">PRtg<span class="th-arrow"></span></div>
     <div class="th"></div>
     <div class="th center sortable" data-sort="wins">W-L<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-sort="ortg" title="Offensive Rating — points scored per 100 possessions, adjusted for opponent and pace (from the Team DNA engine). Higher = better offense. Sort by this to find the best offenses." style="text-decoration:underline dotted;text-underline-offset:3px;">ORtg<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-sort="drtg" title="Defensive Rating — points allowed per 100 possessions, adjusted for opponent and pace (from the Team DNA engine). LOWER = better defense. Sort by this to find the best defenses." style="text-decoration:underline dotted;text-underline-offset:3px;">DRtg<span class="th-arrow"></span></div>
     <div class="th center sortable" data-sort="shotluck" title="Shot Luck (2026-27) — how far this team's returning players shot ABOVE (or below) the quality of their looks last season, in eFG points. Over-shooting your looks is only partly repeatable, so the projection regresses a hot number down (a positive value is a regression caution) and bumps a cold one up." style="text-decoration:underline dotted;text-underline-offset:3px;">Luck<span class="th-arrow"></span></div>
     <div class="th center sortable" data-sort="sglq" title="Look Quality (2025-26) — the eFG% a league-average shooter would post on this team's shot diet. How good the LOOKS this team generates are, independent of whether they made them." style="text-decoration:underline dotted;text-underline-offset:3px;">LookQ<span class="th-arrow"></span></div>
     <div class="th center sortable" data-sort="sgsm" title="Shot-Making (2025-26) — points this team added over an average shooter given its shot diet, per 100 shots, adjusted for competition. Pure finishing skill." style="text-decoration:underline dotted;text-underline-offset:3px;">Sh-Make<span class="th-arrow"></span></div>
@@ -1585,6 +1589,14 @@ async function ensureColors(){
        (await r.json()||[]).forEach(t=>{_teamColors[(t.name||'').toLowerCase()]=t.color||t.primary_color||null;}); }catch(e){}
   return _teamColors;
 }
+// Offensive/defensive efficiency (per 100 poss) from the Team DNA engine — slim {year:{name:{o,d,net}}}
+let _teamEff=null;
+async function ensureEff(){
+  if(_teamEff) return _teamEff;
+  try{ const r=await fetch('scripts/data/team_eff.json'); _teamEff = r.ok? await r.json() : {}; }catch(e){ _teamEff={}; }
+  return _teamEff;
+}
+function effByLc(eff, yr){ const src=(eff&&eff[yr])||{}, out={}; for(const k in src) out[k.toLowerCase().trim()]=src[k]; return out; }
 function matchColor(mascot, colors){
   const lo=(mascot||'').toLowerCase(); let best=null,bl=0;
   for(const k in colors){ if((lo===k||lo.startsWith(k+' '))&&k.length>bl){best=k;bl=k.length;} }
@@ -1604,6 +1616,8 @@ async function loadProjectedSeason(){
         .then(r=>r.ok?r.json():[]).catch(()=>[]),
       fetch('scripts/data/shot_genome_teams.json').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
+    // Offensive / defensive efficiency (per 100 poss) from the Team DNA engine, projected 2026-27.
+    const effLc = effByLc(await ensureEff(), '2027');
     // Shot Genome team numbers (2025-26): Look Quality / Shot-Making / Creation, by full name
     const sgBy={}; ((sgTeams&&sgTeams.teams)||[]).forEach(t=>{ sgBy[(t.team||'').toLowerCase().trim()]=t; });
     const projBy={}; (projRows||[]).forEach(p=>{ projBy[(p.team||'').toLowerCase().trim()]=p; });
@@ -1627,6 +1641,7 @@ async function loadProjectedSeason(){
         srs:+r.rating.toFixed(1), tier:null, rk:r.rank,
         projected:r.projected, allPlay:r.allPlay,
         shotluck:(r.shotLuck!=null?r.shotLuck:null),   // returners' shot-making luck (2026-27 only)
+        ...(function(){ const e=effLc[(r.full||'').toLowerCase().trim()]; return e?{ortg:e.o,drtg:e.d}:{ortg:null,drtg:null}; })(),
         ...(function(){ const sg=sgBy[(r.full||'').toLowerCase().trim()];
           return sg?{ sglq:(sg.off?sg.off.lq:null), sgsm:(sg.off?sg.off.smAdj:null), sgcr:(sg.crAdjPg!=null?sg.crAdjPg:null) }
                   :{ sglq:null, sgsm:null, sgcr:null }; })(),
@@ -1662,13 +1677,16 @@ async function loadSeason(yr){
     const r = await fetch(`${SB_URL}/rest/v1/team_seasons?select=*&season_year=eq.${yr}`, { headers: HEADERS });
     if(!r.ok) throw new Error(`Supabase error ${r.status}`);
     const rows = await r.json();
+    const effLc = effByLc(await ensureEff(), ''+yr);   // per-100 ORtg/DRtg from Team DNA
 
     allTeams = rows.map(t => {
       const w=+t.wins||0,l=+t.losses||0,gp=w+l,mc=matchColor(t.team,colors);
+      const e=effLc[(t.team||'').toLowerCase().trim()];
       return { name:t.team, short:mc.short, color:(window.tdcTeamColorHex&&tdcTeamColorHex(t.team))||mc.color||'#7c7c8a',
         conf:confAbbr(t.conference), confName:t.conference||'—',
         wins:w, losses:l, gp, winpct:gp?w/gp:0, cw:+t.conf_wins||0, cl:+t.conf_losses||0,
         ppg:+t.ppg||0, oppg:+t.oppg||0, margin:Math.round(((+t.ppg||0)-(+t.oppg||0))*10)/10,
+        ortg:(e?e.o:null), drtg:(e?e.d:null),
         fg:+t.fg_pct||0, tp:+t.tp_pct||0, ft:+t.ft_pct||0, rpg:+t.rpg||0, apg:+t.apg||0, topg:+t.topg||0,
         spg:+t.spg||0, bpg:+t.bpg||0, orpg:+t.orpg||0, drpg:+t.drpg||0,
         ato:(+t.topg>0?Math.round((+t.apg||0)/(+t.topg)*10)/10:0),
@@ -1772,7 +1790,7 @@ function setConf(conf,btn){
 
 // Unified sort state — driven by both the dropdown and clickable column headers.
 let curSort = 'srs', curSortDir = -1;           // dir: -1 = high→low (default), +1 = low→high
-const SORT_DEFAULT_ASC = new Set(['oppg','topg']); // these read better low→high
+const SORT_DEFAULT_ASC = new Set(['oppg','topg','drtg']); // these read better low→high (drtg: best defense first)
 function statVal(t, key){
   if(key==='srs')    return t.srs ?? t.margin ?? -999;
   if(key==='margin') return t.margin ?? -999;
@@ -1816,8 +1834,8 @@ function applyFilters(animated){
   });
 
   data.sort((a,b)=>{
-    // teams with no shot-data value (carryover / non-2027) always sink, either direction
-    if(srt==='shotluck'||srt==='sglq'||srt==='sgsm'||srt==='sgcr'){
+    // teams with no shot-data / efficiency value (carryover / non-2027) always sink, either direction
+    if(srt==='shotluck'||srt==='sglq'||srt==='sgsm'||srt==='sgcr'||srt==='ortg'||srt==='drtg'){
       const an=a[srt]==null, bn=b[srt]==null; if(an!==bn) return an?1:-1; }
     return (statVal(a,srt)-statVal(b,srt))*curSortDir || ((b.srs??b.margin)-(a.srs??a.margin));
   });
@@ -1869,6 +1887,8 @@ function renderRows(data, srt, favTeam, favColor, favBg){
       </div>
       <div class="tr-spacer"></div>
       <div class="tr-stat"><b>${t.gp?`${t.wins}–${t.losses}`:'—'}</b><span>W-L</span></div>
+      <div class="tr-stat"><b>${t.ortg!=null?t.ortg.toFixed(1):'—'}</b><span>ORtg</span></div>
+      <div class="tr-stat"><b>${t.drtg!=null?t.drtg.toFixed(1):'—'}</b><span>DRtg</span></div>
       <div class="tr-stat">${t.shotluck!=null?`<b style="color:${t.shotluck>0?'#c78a2f':'#3fa66a'}">${t.shotluck>0?'+':''}${t.shotluck}</b>`:'<b>—</b>'}<span>Luck</span></div>
       <div class="tr-stat"><b>${t.sglq!=null?t.sglq.toFixed(1):'—'}</b><span>LookQ</span></div>
       <div class="tr-stat">${t.sgsm!=null?`<b style="color:${t.sgsm>0?'#3fa66a':'#c75d5d'}">${t.sgsm>0?'+':''}${t.sgsm.toFixed(1)}</b>`:'<b>—</b>'}<span>Sh-Make</span></div>
@@ -2510,6 +2530,6 @@ function toggleTheme(){
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 })();
 </script>
-  <script src="tdc-dense.js?v=18"></script>
+  <script src="tdc-dense.js?v=19"></script>
 </body>
 </html>

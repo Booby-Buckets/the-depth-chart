@@ -32,7 +32,7 @@
   }
 
   /* ---- per-column heat map ---- */
-  var INVERT={ 'OPP':1, 'TOV':1 };      // lower is better
+  var INVERT={ 'OPP':1, 'TOV':1, 'DRtg':1 };      // lower is better (DRtg: fewer points allowed = better D)
   var SKIP={ 'W-L':1 };                  // not numeric
   function heat(t, invert){
     if(invert) t=1-t;
