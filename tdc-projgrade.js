@@ -176,7 +176,87 @@
   // Convenience: the value to DISPLAY as the OVR (projected if we can, else demonstrated).
   function ovr(row){ var p = grade(row); return (p != null && !isNaN(p)) ? p : parseInt(row && row.tdc_grade, 10); }
 
-  window.TDCProjGrade = { projMin: projMin, grade: grade, ovr: ovr, K: K, setPedigree: setPedigree };
+  // ═══════════════════════════════════════════════════════════════════════
+  //  PROJECTION MODEL v5 — projected line LEADS the ranking.
+  //  gradeRoster(roster) derives each player's projected MINUTES from a rotation
+  //  model (no manual depth chart) driven by level-adjusted quality, then grades
+  //  from that role. Calibrated offline (see scripts/validate_projmodel.py):
+  //   - dev_curves.json     : empirical YoY development by class transition x tier
+  //   - projgrade_bridge.json: grade = a + b*estBPM (b used to convert dev BPM->grade)
+  //   - level_adj.json      : strength-of-competition discount by conference
+  // ═══════════════════════════════════════════════════════════════════════
+  var _DEV = null, _BR = { b: 1.174 }, _LV = null;
+  function setModel(dev, br, lv){ if(dev) _DEV = dev; if(br) _BR = br; if(lv) _LV = lv; }
+  var MAXMIN = 34, TOTMIN = 200, ROT_BAND = 16, ROT_POWER = 2.2;
+  var ROLE_K = 14, ROLE_UP = 3, FLOOR_GAP = 12, CEIL = 7;
+
+  function _clsTrans(yr){ var y = (yr || '').toString().toLowerCase();
+    if(/fr/.test(y)) return 'so'; if(/so/.test(y)) return 'jr'; if(/jr/.test(y)) return 'sr'; return null; }
+  function _qtier(q){ return q < 73 ? 'low' : (q < 84 ? 'mid' : 'high'); }
+  function _expMin(g){ return Math.max(6, Math.min(32, 8 + (g - 70) * 0.9)); }
+  function _confOf(nm){ if(!nm || !_LV || !_LV.team_conf) return null;
+    var s = ('' + nm).toLowerCase().trim(), tc = _LV.team_conf;
+    for(var full in tc){ var f = full.toLowerCase();
+      if(f === s || f.indexOf(s + ' ') === 0 || s.indexOf(f + ' ') === 0) return tc[full]; }
+    return null; }
+  function _levelDisc(conf){ if(!_LV || conf == null) return 0;
+    var st = _LV.conf_strength[conf]; return (st == null) ? 0 : _LV.k * (_LV.top - st); }
+
+  // rotation/minutes model: quality-weighted, cap 34, total 200, 7-12 man rotation
+  function projectMinutes(quals){
+    var n = quals.length;
+    var order = quals.map(function(q, i){ return i; }).sort(function(a, b){ return quals[b] - quals[a]; });
+    var sq = order.map(function(i){ return quals[i]; });
+    var base = (n >= 5 ? sq[4] : sq[n - 1]) - ROT_BAND;
+    var w = sq.map(function(q){ return Math.pow(Math.max(0, q - base), ROT_POWER); });
+    for(var i = 12; i < n; i++) w[i] = 0;
+    var s = w.reduce(function(a, b){ return a + b; }, 0) || 1;
+    var m = w.map(function(x){ return TOTMIN * x / s; });
+    for(var it = 0; it < 8; it++){
+      var over = m.reduce(function(a, x){ return a + Math.max(0, x - MAXMIN); }, 0);
+      if(over < 0.1) break;
+      m = m.map(function(x){ return Math.min(x, MAXMIN); });
+      var room = m.map(function(x){ return (x > 0 && x < MAXMIN) ? (MAXMIN - x) : 0; });
+      var rs = room.reduce(function(a, b){ return a + b; }, 0) || 1;
+      m = m.map(function(x, i){ return x + over * room[i] / rs; });
+    }
+    var out = new Array(n);
+    order.forEach(function(idx, i){ out[idx] = Math.round(m[i] * 10) / 10; });
+    return out;
+  }
+
+  function _gradeV5(qual, yr, pm){
+    var trans = _clsTrans(yr);
+    var devBpm = (trans && _DEV && _DEV.bpm_delta && _DEV.bpm_delta[trans]) ? (_DEV.bpm_delta[trans][_qtier(qual)] || 0) : 0;
+    var em = _expMin(qual), ratio = em ? pm / em : 1;
+    var role = ratio < 1 ? -ROLE_K * (1 - ratio) : Math.min(ROLE_UP, ROLE_K * 0.4 * (ratio - 1));
+    var v = qual + devBpm * (_BR.b || 1.174) + role;
+    return Math.round(Math.max(qual - FLOOR_GAP, Math.min(qual + CEIL, v)));
+  }
+
+  // The public entry point: grade a whole team roster at once.
+  // roster: [{tdc_grade, yr|class_year, team, hometown, name, espn_id, ...}, ...]
+  // returns aligned [{min, grade, qual}] — freshmen with an editor OVR should have that
+  // OVR already in tdc_grade before calling; a freshman with no played role is handled by
+  // the editor elsewhere. Uses hometown as the transfer-origin school for the level discount.
+  function gradeRoster(roster){
+    if(!roster || !roster.length) return [];
+    var quals = roster.map(function(p){
+      var g = parseFloat(p.tdc_grade); if(!isFinite(g)) return null;
+      var conf = _confOf(p.hometown) || _confOf(p.team);
+      return g - _levelDisc(conf);
+    });
+    var q2 = quals.map(function(q){ return q == null ? 45 : q; });
+    var mins = projectMinutes(q2);
+    return roster.map(function(p, i){
+      if(quals[i] == null) return { min: 0, grade: null, qual: null };
+      return { min: mins[i], qual: Math.round(quals[i] * 10) / 10,
+               grade: _gradeV5(quals[i], p.yr || p.class_year, mins[i]) };
+    });
+  }
+
+  window.TDCProjGrade = { projMin: projMin, grade: grade, ovr: ovr, K: K, setPedigree: setPedigree,
+                          gradeRoster: gradeRoster, projectMinutes: projectMinutes, setModel: setModel };
 
   // Self-load the derived pedigree coefficients (tiny, local file) so every page
   // picks them up with no per-page wiring. This resolves well before the slower
@@ -187,4 +267,12 @@
       .then(function(j){ if(j && j.players) setPedigree(j.players); })
       .catch(function(){});
   }catch(e){}
+
+  // Projection model v5 data — dev curves, line->grade bridge, competition ladder.
+  // A single Promise so callers can await readiness (window.TDCProjGrade.ready).
+  window.TDCProjGrade.ready = Promise.all([
+    fetch('scripts/data/dev_curves.json').then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; }),
+    fetch('scripts/data/projgrade_bridge.json').then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; }),
+    fetch('scripts/data/level_adj.json').then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; })
+  ]).then(function(a){ setModel(a[0], a[1], a[2]); return true; });
 })();
