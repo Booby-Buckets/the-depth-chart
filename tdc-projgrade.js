@@ -195,17 +195,21 @@
   function _qtier(q){ return q < 73 ? 'low' : (q < 84 ? 'mid' : 'high'); }
   function _expMin(g){ return Math.max(6, Math.min(32, 8 + (g - 70) * 0.9)); }
   function _confOf(nm){ if(!nm || !_LV || !_LV.team_conf) return null;
-    var s = ('' + nm).toLowerCase().trim(), tc = _LV.team_conf, best = null, bestExtra = 99;
+    var s = ('' + nm).toLowerCase().trim(), tc = _LV.team_conf, best = null, bestExtra = 99, tie = 0;
     for(var full in tc){ var f = full.toLowerCase();
-      if(f === s) return tc[full];                          // exact wins
-      if(f.indexOf(s + ' ') === 0){                          // full = short + nickname; pick the FEWEST
-        var extra = f.slice(s.length).trim().split(/\s+/).length;   // extra words after the short name
-        if(extra < bestExtra){ bestExtra = extra; best = tc[full]; } // "Florida"->"Florida Gators"(1), not "Florida A&M Rattlers"(2)
-      } else if(s.indexOf(f + ' ') === 0){                   // s is longer (e.g. a full name) and starts with a team
+      if(f === s) return tc[full];                          // exact match wins outright
+      if(f.indexOf(s + ' ') === 0){                          // full = short + nickname; prefer the SHORTEST suffix
+        var extra = f.slice(s.length).trim().split(/\s+/).length;   // "Florida Gators"(1) beats "Florida A&M Rattlers"(2)
+        if(extra < bestExtra){ bestExtra = extra; best = tc[full]; tie = 1; }
+        else if(extra === bestExtra){ tie++; }               // count ties at the shortest suffix
+      } else if(s.indexOf(f + ' ') === 0){                   // s is longer (a full name) and starts with a team
         return tc[full];
       }
     }
-    return best; }
+    // Ambiguous short name (e.g. "Alabama" -> Crimson Tide / A&M / State, all 2-word suffixes):
+    // return null so a power flagship gets NO discount rather than a wrong mid-major one.
+    return tie === 1 ? best : null;
+  }
   function _levelDisc(conf){ if(!_LV || conf == null) return 0;
     var st = _LV.conf_strength[conf]; return (st == null) ? 0 : _LV.k * (_LV.top - st); }
   // The conference a player EARNED his grade in: hometown holds the transfer-origin school
