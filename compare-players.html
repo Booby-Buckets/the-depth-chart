@@ -335,7 +335,7 @@ body{background:transparent!important;}
     <div class="picker" id="picker1">
       <div class="picker-label" id="pl1">Player 1</div>
       <div class="search-wrap">
-        <input class="search-input" id="si1" type="text" placeholder="Search player name..." oninput="onSearch(1,this.value)" autocomplete="off"/>
+        <input class="search-input" id="si1" type="text" placeholder="Search player name..." oninput="onSearch(1,this.value)" onkeydown="_searchKey(event,1)" autocomplete="off"/>
         <div class="player-search-dropdown" id="dropdown1"></div>
       </div>
       <div class="selected-player" id="selected1"></div>
@@ -343,7 +343,7 @@ body{background:transparent!important;}
     <div class="picker" id="picker2">
       <div class="picker-label" id="pl2">Player 2</div>
       <div class="search-wrap">
-        <input class="search-input" id="si2" type="text" placeholder="Search player name..." oninput="onSearch(2,this.value)" autocomplete="off"/>
+        <input class="search-input" id="si2" type="text" placeholder="Search player name..." oninput="onSearch(2,this.value)" onkeydown="_searchKey(event,2)" autocomplete="off"/>
         <div class="player-search-dropdown" id="dropdown2"></div>
       </div>
       <div class="selected-player" id="selected2"></div>
@@ -560,6 +560,22 @@ async function _resolveFullName(short){
 }
 function _rankPrograms(progs,q){
   return progs.slice().sort((a,b)=>_relScore(a.name,q)-_relScore(b.name,q)||(a.name||'').localeCompare(b.name||''));
+}
+// Enter = pick the top result fast. Teams: if the season list is open, take the
+// first season (2026-27); otherwise take the top program's current season. This
+// lets you type a team name and hit Enter without clicking through the two steps.
+function _searchKey(ev, slot){
+  if(ev.key!=='Enter') return;
+  const dd=document.getElementById('dropdown'+slot);
+  if(!dd||!dd.classList.contains('show')) return;
+  ev.preventDefault();
+  if(mode==='teams'){
+    if(dd.querySelector('.dd-section')){ const s=dd.querySelector('.dropdown-item'); if(s) s.click(); return; }
+    const prog=(_programList[slot]||[])[0];
+    if(prog){ if(prog.current){ pick(slot,'t',prog.name); } else { showTeamSeasons(slot,0); } }
+  } else {
+    const item=dd.querySelector('.dropdown-item'); if(item) item.click();
+  }
 }
 // STAGE 1 — the list of matching programs. Click one to see its seasons.
 function _renderTeamPrograms(slot, progs, dd){
