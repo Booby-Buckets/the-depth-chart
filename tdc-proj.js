@@ -625,6 +625,56 @@ function buildTeamProjections(players, conf){
 
   if(!roster.length) return [];
 
+  // ── SHOT-BUDGET ALLOCATION (pecking-order redistribution) ─────────────────
+  // The vacancy sum above says how many shots a team LOSES, not who absorbs them.
+  // Six former #1 options arriving via the portal can't each keep 8-12 FGA — one
+  // team only takes ~58. So distribute a fixed team shot budget across the roster
+  // by a blend of demonstrated shot appetite and grade-rank: the best options
+  // command a bigger slice when shots are scarce and inherit the vacancy when it
+  // exists, while a stack of carried-over transfer volumes compresses DOWN to fit
+  // one basketball. A returning star on a gutted roster projects UP as a result.
+  // Feeds `vacMult` below (the shot-volume multiplier threaded through the line).
+  // Projected minutes come from the SAME rotation model as the depth chart and the
+  // grades (tdc-projgrade v5), so the stat line and the depth chart can never
+  // disagree — a 9-minute bench player isn't credited 32 minutes of production, and
+  // a returning starter who moves up the rotation gets his real minutes. Falls back
+  // to the local grade+depth formula if the module isn't loaded on a given page.
+  const _v5min={};
+  if(typeof window!=='undefined' && window.TDCProjGrade && typeof window.TDCProjGrade.gradeRoster==='function'){
+    try{
+      const _gr=window.TDCProjGrade.gradeRoster(roster);
+      roster.forEach((r,i)=>{ if(_gr[i] && isFinite(_gr[i].min)) _v5min[r.name]=_gr[i].min; });
+    }catch(e){}
+  }
+  const _mpgOf = x => (_v5min[x.name]!=null ? _v5min[x.name] : computePlayerMpg(x, roster));
+
+  const _apptRate = x => {
+    const mp=parseFloat(x.mpg||0)||0, fg=parseFloat(x.fga||0)||0;
+    if(mp>=6 && fg>0) return fg/mp;                       // demonstrated shots per minute
+    const g=parseFloat(x.tdc_grade)||70;                 // no stats → grade-based prior
+    return g>=92?0.40:g>=87?0.35:g>=80?0.30:g>=73?0.26:0.22;
+  };
+  const _allocRows = roster.map(x=>{
+    const g=parseFloat(x.tdc_grade)||70;
+    const hw=(x.hometown&&(''+x.hometown).trim())||'';
+    const isTr=!!(hw && hw.indexOf(',')<0);              // portal arrival (school in hometown)
+    const m=_mpgOf(x);
+    const rate=_apptRate(x)*(isTr?0.85:1.0);             // transfers re-earn their role
+    return {name:x.name, m,
+      demand: rate*m,                                     // shots wanted at projected minutes
+      gradeWeight: Math.pow(Math.max(1,g-55),1.7)*m,      // quality × minutes (pecking order)
+      naive: (parseFloat(x.fga||0)||0)*(m/Math.max(1,parseFloat(x.mpg||0)||m)) };
+  });
+  const _sumDemand=_allocRows.reduce((s,r)=>s+r.demand,0)||1;
+  const _sumGW=_allocRows.reduce((s,r)=>s+r.gradeWeight,0)||1;
+  const _budget=Math.max(56, Math.min(64, _sumDemand));   // a team takes ~56-64 FGA/game
+  const W_ROLE=0.40;                                       // how far grade-rank overrides raw appetite
+  const _shotAlloc={};
+  _allocRows.forEach(r=>{
+    const share=(r.demand/_sumDemand)*(1-W_ROLE)+(r.gradeWeight/_sumGW)*W_ROLE;
+    _shotAlloc[r.name]={projFGA:_budget*share, naive:r.naive};
+  });
+
   const r1 = v => v!=null ? Math.round((v+Number.EPSILON)*10)/10 : null;
   const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi, v));
 
@@ -658,7 +708,7 @@ function buildTeamProjections(players, conf){
     // No anchoring to actual previous MPG — a transfer C who played 22 MPG due to
     // foul trouble can project for more; a PG at 35 MPG can project for less
     // if the team added competition. Let the roster context decide.
-    let newMpg      = computePlayerMpg(p, roster);
+    let newMpg      = _mpgOf(p);
     const actualMpg = parseFloat(p.mpg||0)||0;
     // Elite returning starters keep their minutes — the redistribution model
     // shouldn't shave a 93+ returnee who already logged starter minutes here.
@@ -849,11 +899,17 @@ function buildTeamProjections(players, conf){
     const _adv   = (window._advByEspn && p.espn_id!=null) ? window._advByEspn[p.espn_id] : null;
     const _usgNow= _adv?parseFloat(_adv.usg_pct):NaN;
     const _tsNow = _adv?parseFloat(_adv.ts_pct):NaN;
-    let vacMult = 1 + _vac*0.55*Math.min(1,(oldFga/Math.max(6,_retFga))*3);
-    if(isFinite(_usgNow) && _usgNow>=28) vacMult=Math.min(vacMult,1.10);
-    if(isFinite(_tsNow)  && _tsNow<0.50) vacMult=Math.min(vacMult,1.06);
-    if(isTransferIn) vacMult=Math.min(vacMult,1.0);   // vacancy belongs to returners
-    vacMult=Math.min(vacMult,1.30);
+    // vacMult = this player's SHARE of the team shot budget vs a naive minutes-only
+    // projection. >1 = he absorbs vacated/scarce shots (top option on a weak roster);
+    // <1 = his carried-over volume compresses to fit the pecking order.
+    const _alloc    = _shotAlloc[p.name];
+    const _naiveFga = oldFga*(newMpg/baseMpg);
+    let vacMult = (_alloc && _naiveFga>0) ? _alloc.projFGA/_naiveFga : 1;
+    // advanced-stat guardrails: max-usage guys can't balloon much further; inefficient
+    // scorers aren't force-fed extra volume; proven efficiency gets a longer leash.
+    if(isFinite(_usgNow) && _usgNow>=28) vacMult=Math.min(vacMult,1.25);
+    if(isFinite(_tsNow)  && _tsNow<0.50) vacMult=Math.min(vacMult,1.15);
+    vacMult=Math.max(0.55, Math.min(1.85, vacMult));
     const fgaGrow=(PROJ_TRENDS.growth[projCls][projGrp]||{}).fga||1.0;
     const newFgaE    = oldFga*(newMpg/baseMpg)*fgaGrow*vacMult*(typeof volTrans!=='undefined'?volTrans:1);
     const volChange  = (baseMpg>=12) ? (newFgaE/oldFga-1) : 0;
