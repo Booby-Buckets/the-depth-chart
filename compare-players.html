@@ -15,7 +15,7 @@
   <script src="tdc-shotchart.js?v=14"></script>
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-portalfit.js?v=needs4"></script>
-  <script src="tdc-chemistry.js?v=3"></script>
+  <script src="tdc-chemistry.js?v=4"></script>
   <style>
     :root{--bg: #FAF9F6;--bg2: #F1EFEA;--bg3: #E6E3DB;--border: #DEDACF;--border2: #C6C0B2;--text: #1A1814;--text2: #4A463C;--text3: #8A867A;--accent: #A8843C;--teal:#3f8d7d;--green:#1a8c3a;--red:#cc2200;--blue:#1a5fbf;}
     [data-theme="dark"]{--bg: #141416;--bg2: #1D1D20;--bg3: #28282C;--border: #2E2E34;--border2: #45454D;--text: #F1EFEA;--text2: #B4B0A8;--text3: #807C74;--accent: #E6D5A8;--teal:#5b9d8f;--green:#5ab875;--red:#e07070;--blue:#74aedd;}
@@ -1519,6 +1519,9 @@ function _teamChemInner(chem){
     + chem.reasons.map(r=>`<div class="chem-r"><span class="chem-dot" style="background:${r.good?'#2bb673':'#e06552'};"></span>${r.t}</div>`).join('');
 }
 function _coachOpts(t){
+  // Only current teams carry an accurate head_coach. There's no reliable per-season
+  // historical coach source (team_seasons has none; coach profiles span whole careers
+  // across schools), so we omit the coach for past seasons rather than guess wrong.
   const nm=t?((t.head_coach||t.coach||'').trim()):''; if(!nm) return null;
   const m=window._coachByName, cp=(m&&m[_normName(nm)])||null;
   return {name:nm, archetype:cp?cp.archetype:'', pace:cp?cp.poss_pg:0};

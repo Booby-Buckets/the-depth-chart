@@ -79,19 +79,20 @@
     return top.map(function(p,i){ return {pos:slots[i]||'SF', p:p}; });
   }
 
-  // balanced half-court formation (basket at top). x,y are 0-100 percentages.
-  var COURT_XY={ C:{x:57,y:23}, PF:{x:36,y:31}, SF:{x:22,y:57}, SG:{x:78,y:57}, PG:{x:50,y:73} };
+  // natural half-court set (basket at top): C at the rim, PF the left block, SG/SF
+  // on the wings, PG up top with the ball. x,y are 0-100 percentages.
+  var COURT_XY={ C:{x:62,y:27}, PF:{x:33,y:33}, SF:{x:19,y:56}, SG:{x:81,y:56}, PG:{x:50,y:76} };
   function courtPos(p,pos){
     var b=COURT_XY[pos]||{x:50,y:50}; if(!p) return b;
     var P=prof(p), isBig=(pos==='C'||pos==='PF'), x=b.x, y=b.y, sh=+P.shooter||0;
-    if(isBig){ y += sh*24; if(sh>0.45) x += (x<50?-1:1)*sh*7; }  // stretch bigs float out & to a wing
-    else { y += (sh-0.4)*8; }                                    // spot-up guards sit a touch deeper
-    return { x:Math.max(16,Math.min(84,Math.round(x*10)/10)), y:Math.max(15,Math.min(83,Math.round(y*10)/10)) };
+    // only stretch bigs drift out toward a wing; everyone else keeps their natural spot
+    if(isBig && sh>0.42){ y += (sh-0.42)*20; x += (x<50?-1:1)*(sh-0.42)*10; }
+    return { x:Math.max(15,Math.min(85,Math.round(x*10)/10)), y:Math.max(17,Math.min(82,Math.round(y*10)/10)) };
   }
   function initials(n){ var p=(n||'').trim().split(/\s+/); return ((p[0]||'')[0]||'')+((p[p.length-1]||'')[0]||''); }
   function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
-  function panelHtml(an, opts){
+  function panelHtml(an, opts, best){
     opts=opts||{};
     if(!an) return '<div class="chm-panel"><div class="chm-h">Lineup Identity</div><div style="color:var(--text3);font-size:12px;">Not enough roster data.</div></div>';
     var dimBar=function(kv){ var k=kv[0],v=kv[1]; return '<div class="chm-dim"><div class="chm-dim-top"><span>'+k+'</span><b>'+v+'</b></div><div class="chm-dim-bar"><span style="width:'+v+'%;background:'+(v>=70?'#5ab875':v>=45?'var(--accent)':'var(--text3)')+';"></span></div></div>'; };
@@ -105,13 +106,17 @@
         +'<div class="chm-duo"><span class="chm-duo-l" style="color:#e07070;">Weak link</span><span class="chm-duo-n">'+esc(firstLast(an.worst.a.name))+' &amp; '+esc(firstLast(an.worst.b.name))+'</span><span class="chm-duo-s" style="color:#e07070;">'+an.worst.score+'</span></div>'
         +'</div>';
     }
-    var coach='';
-    if(opts.coach&&opts.coach.name){
-      var cp=opts.coach;
-      coach='<div class="chm-coach"><div class="chm-coach-l">Head Coach</div>'
-        +'<div class="chm-coach-n">'+esc(cp.name)+'</div>'
-        +(cp.archetype?'<div class="chm-coach-a">'+esc(cp.archetype)+(cp.pace?' &middot; '+Math.round(cp.pace)+' poss/gm':'')+'</div>':'')
-        +'</div>';
+    var bl='';
+    if(best){
+      var curNames={}; (an.starters||[]).forEach(function(p){curNames[p.name]=1;});
+      var bestSet={}; best.five.forEach(function(p){bestSet[p.name]=1;});
+      var adds=best.five.filter(function(p){return !curNames[p.name];});
+      var drops=(an.starters||[]).filter(function(p){return !bestSet[p.name];});
+      var note = adds.length===0
+        ? 'The starting five is already the best fit on the roster.'
+        : adds.map(function(p,i){ return 'Sub in <b style="color:#5ab875;">'+esc(firstLast(p.name))+'</b>'+(drops[i]?' for '+esc(firstLast(drops[i].name)):'')+''; }).join('; ')+'.';
+      bl='<div class="chm-best"><div class="chm-best-h">Optimal Five <span class="chm-best-tag">syn '+best.syn+' · ovr '+best.rating+'</span></div>'
+        +'<div class="chm-best-note">'+note+'</div></div>';
     }
     return '<div class="chm-panel"><div class="chm-h">Lineup Identity</div>'
       +'<div class="chm-rr"><div class="chm-rc"><div class="chm-big" style="color:'+ovrCol(an.rating)+'">'+(an.rating||'—')+'</div><div class="chm-lbl">Lineup OVR</div></div>'
@@ -120,29 +125,33 @@
       +'<div class="chm-dims">'+ents.map(dimBar).join('')+'</div>'
       +'<div class="chm-note"><b style="color:#5ab875;">Edge:</b> '+top[0]+' &nbsp; <b style="color:#e07070;">Gap:</b> '+low[0]+'</div>'
       +'<div class="chm-note" style="color:var(--text3);">'+an.shooters+' of '+an.count+' starters space the floor.</div>'
-      +duo+coach+'</div>';
+      +duo+bl+'</div>';
   }
 
-  function courtHtml(starters){
+  function courtHtml(starters, opts){
+    opts=opts||{};
     var pts=starters.filter(function(s){return s.p;}).map(function(s){ var xy=courtPos(s.p,s.pos); return {pos:s.pos, p:s.p, x:xy.x, y:xy.y}; });
     var line='rgba(255,255,255,.13)';
-    // synergy lines — nodes & lines now share a 0-100 coordinate space so they align.
+    // synergy lines — nodes & lines share a 0-100 space so they align. Strong pairs
+    // read green, weak red (dashed); middling pairs fade so the web stays clean.
     var lines='';
     for(var i=0;i<pts.length;i++) for(var j=i+1;j<pts.length;j++){
       var syn=pairSynergy(pts[i].p, pts[j].p).score, str=Math.min(1,Math.abs(syn-55)/26);
       var strong=syn>=60, weak=syn<=50;
-      var col=strong?'#5ab875':weak?'#e07070':'rgba(150,170,200,.5)';
-      var op=(strong||weak)?(0.30+str*0.5):0.10;
-      var w=(strong||weak)?(0.55+str*1.25):0.4;
-      lines+='<line x1="'+pts[i].x+'" y1="'+pts[i].y+'" x2="'+pts[j].x+'" y2="'+pts[j].y+'" stroke="'+col+'" stroke-width="'+w.toFixed(2)+'" stroke-opacity="'+op.toFixed(2)+'" stroke-linecap="round"'+(weak?' stroke-dasharray="2 1.6"':'')+'/>';
+      var col=strong?'#5ab875':weak?'#e07070':'rgba(150,170,200,.45)';
+      var op=(strong||weak)?(0.26+str*0.44):0.09;
+      var w=(strong||weak)?(0.5+str*1.0):0.35;
+      lines+='<line x1="'+pts[i].x+'" y1="'+pts[i].y+'" x2="'+pts[j].x+'" y2="'+pts[j].y+'" stroke="'+col+'" stroke-width="'+w.toFixed(2)+'" stroke-opacity="'+op.toFixed(2)+'" stroke-linecap="round"'+(weak?' stroke-dasharray="2 1.8"':'')+'/>';
     }
     var showPhoto=(global.tdcShowPhotos&&global.tdcShowPhotos());
     var nodes=pts.map(function(pt){
       var g=(pt.p.tdc_grade!=null?pt.p.tdc_grade:'')||'', photo=(showPhoto&&pt.p.espn_id)?('https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+pt.p.espn_id+'.png'):'';
+      // with a photo, show ONLY the headshot (no initials bleeding through the cutout)
+      var inner=photo?'<img src="'+photo+'" alt="" loading="lazy" onerror="this.parentNode.classList.add(\'noimg\');this.remove();">':'<span class="chm-init">'+esc(initials(pt.p.name))+'</span>';
       return '<div class="chm-node" style="left:'+pt.x+'%;top:'+pt.y+'%;">'
-        +'<div class="chm-ava">'+(photo?'<img src="'+photo+'" alt="" loading="lazy">':'')+'<span class="chm-init">'+esc(initials(pt.p.name))+'</span></div>'
-        +'<div class="chm-tag"><span class="chm-ovr" style="color:'+ovrCol(g)+'">'+(g||'—')+'</span><span class="chm-pos">'+pt.pos+'</span></div>'
-        +'<div class="chm-nm">'+esc(pt.p.name)+'</div></div>';
+        +'<div class="chm-ava'+(photo?'':' noimg')+'">'+inner+'<span class="chm-pos">'+pt.pos+'</span></div>'
+        +'<div class="chm-nm">'+esc(pt.p.name)+'</div>'
+        +'<div class="chm-ovr" style="color:'+ovrCol(g)+'">'+(g||'—')+'</div></div>';
     }).join('');
     return '<div class="chm-court">'
       +'<svg class="chm-court-bg" viewBox="0 0 120 80" preserveAspectRatio="none">'
@@ -154,6 +163,45 @@
       +'</svg>'
       +'<svg class="chm-lines" viewBox="0 0 100 100" preserveAspectRatio="none">'+lines+'</svg>'
       +nodes+'</div>';
+  }
+  // roster players who aren't in the starting five, by minutes
+  function benchOf(rows, starters){
+    var startSet={}; starters.forEach(function(s){ if(s.p) startSet[s.p.name]=1; });
+    return (rows||[]).filter(function(p){ return p&&p.name&&!startSet[p.name]&&num(p,'mpg')>=1; })
+      .sort(function(a,b){return num(b,'mpg')-num(a,'mpg');}).slice(0,6);
+  }
+  function benchHtml(bench, opts){
+    if(!bench||!bench.length) return '';
+    var showPhoto=(global.tdcShowPhotos&&global.tdcShowPhotos());
+    var chips=bench.map(function(p){
+      var g=(p.tdc_grade!=null?p.tdc_grade:'')||'', photo=(showPhoto&&p.espn_id)?('https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+p.espn_id+'.png'):'';
+      var pos=((p.position||'')+'').toUpperCase().split(/[\/, ]/)[0]||'';
+      return '<div class="chm-bench-chip"><div class="chm-bava'+(photo?'':' noimg')+'">'+(photo?'<img src="'+photo+'" alt="" loading="lazy" onerror="this.parentNode.classList.add(\'noimg\');this.remove();">':'<span>'+esc(initials(p.name))+'</span>')+'</div>'
+        +'<div class="chm-bc-txt"><div class="chm-bc-nm">'+esc(firstLast(p.name))+'</div><div class="chm-bc-sub">'+pos+(pos?' · ':'')+num(p,'mpg').toFixed(0)+' mpg</div></div>'
+        +'<div class="chm-bc-ovr" style="color:'+ovrCol(g)+'">'+(g||'—')+'</div></div>';
+    }).join('');
+    return '<div class="chm-bench"><div class="chm-bench-h">Bench</div><div class="chm-bench-row">'+chips+'</div></div>';
+  }
+  function coachHtml(coach){
+    if(!coach||!coach.name) return '';
+    return '<div class="chm-coachbar"><div class="chm-coachbar-l">Head Coach</div>'
+      +'<div class="chm-coachbar-n">'+esc(coach.name)+'</div>'
+      +(coach.archetype?'<div class="chm-coachbar-a">'+esc(coach.archetype)+(coach.pace?' &middot; '+Math.round(coach.pace)+' poss/gm':'')+'</div>':'')
+      +'</div>';
+  }
+  // the highest-value five the roster can field — talent + fit, from the top rotation
+  function bestLineup(rows){
+    var R=(rows||[]).filter(function(p){ return p&&num(p,'mpg')>=1&&p.name&&!isNaN(parseFloat(p.tdc_grade)); });
+    if(R.length<5) return null;
+    R.sort(function(a,b){return num(b,'mpg')-num(a,'mpg');});
+    var pool=R.slice(0,9), best=null;
+    var pick=function(arr,k,start,cur,cb){ if(cur.length===k){cb(cur);return;} for(var i=start;i<arr.length;i++){cur.push(arr[i]);pick(arr,k,i+1,cur,cb);cur.pop();} };
+    pick(pool,5,0,[],function(five){
+      var sum=0,cnt=0; for(var i=0;i<5;i++)for(var j=i+1;j<5;j++){sum+=pairSynergy(five[i],five[j]).score;cnt++;}
+      var syn=sum/cnt, rating=five.reduce(function(t,p){return t+parseFloat(p.tdc_grade);},0)/5, score=rating*0.6+syn*0.4;
+      if(!best||score>best.score) best={five:five.slice(),syn:Math.round(syn),rating:Math.round(rating),score:score};
+    });
+    return best;
   }
 
   // ── team-vs-team matchup factor ──────────────────────────────────────────────
@@ -253,14 +301,36 @@
       +".chm-coach-a{font-size:10.5px;color:var(--accent);font-weight:600;margin-top:1px;}"
       +".chm-court{position:relative;width:100%;aspect-ratio:3/2;border-radius:14px;overflow:hidden;border:1px solid var(--border);background:radial-gradient(120% 90% at 50% 0%,#14203a 0%,#0c1424 55%,#090e1a 100%);}"
       +".chm-lines,.chm-court-bg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}.chm-court-bg{opacity:.9;}"
-      +".chm-node{position:absolute;transform:translate(-50%,-50%);text-align:center;width:78px;z-index:2;}"
-      +".chm-ava{width:46px;height:46px;border-radius:50%;margin:0 auto;background:var(--bg2);border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;box-shadow:0 2px 8px rgba(0,0,0,.4);}"
-      +".chm-ava img{width:100%;height:100%;object-fit:cover;}"
-      +".chm-init{font-size:15px;font-weight:800;color:var(--text2);}"
-      +".chm-tag{display:inline-flex;align-items:center;gap:4px;background:rgba(8,12,22,.86);border-radius:7px;padding:1px 6px;margin-top:-8px;position:relative;}"
-      +".chm-ovr{font-family:'Playfair Display',serif;font-weight:800;font-size:13px;}"
-      +".chm-pos{font-size:8.5px;font-weight:700;color:var(--text3);}"
-      +".chm-nm{font-size:10.5px;font-weight:700;color:var(--text);margin-top:2px;line-height:1.15;text-shadow:0 1px 3px rgba(0,0,0,.8);}"
+      +".chm-main{min-width:0;}"
+      +".chm-node{position:absolute;transform:translate(-50%,-50%);text-align:center;width:118px;z-index:2;}"
+      +".chm-ava{width:64px;height:64px;border-radius:50%;margin:0 auto;background:linear-gradient(160deg,#1c2b46,#0e1626);border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;position:relative;box-shadow:0 4px 14px rgba(0,0,0,.55);}"
+      +".chm-ava.noimg{background:linear-gradient(160deg,#25355400,#141d30);background:linear-gradient(160deg,#243350,#141d30);}"
+      +".chm-ava img{width:100%;height:100%;object-fit:cover;object-position:top center;border-radius:50%;}"
+      +".chm-init{font-size:20px;font-weight:800;color:var(--text2);}"
+      +".chm-pos{position:absolute;bottom:-4px;right:-2px;font-size:8.5px;font-weight:800;color:#fff;background:rgba(8,12,22,.92);border:1px solid var(--border2);border-radius:6px;padding:1px 5px;}"
+      +".chm-nm{font-size:11.5px;font-weight:700;color:var(--text);margin-top:7px;line-height:1.15;text-shadow:0 1px 4px rgba(0,0,0,.9);}"
+      +".chm-ovr{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;line-height:1;margin-top:1px;text-shadow:0 1px 3px rgba(0,0,0,.85);}"
+      // best-lineup insight (panel)
+      +".chm-best{margin-top:12px;padding-top:11px;border-top:1px solid var(--border);}"
+      +".chm-best-h{font-size:8.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:5px;}"
+      +".chm-best-tag{font-family:'Playfair Display',serif;font-size:11px;font-weight:700;color:var(--text2);letter-spacing:0;text-transform:none;}"
+      +".chm-best-note{font-size:11px;color:var(--text2);line-height:1.4;}"
+      // coach bar under the court
+      +".chm-coachbar{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:12px;padding:11px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;}"
+      +".chm-coachbar-l{font-size:8.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}"
+      +".chm-coachbar-n{font-size:14px;font-weight:800;color:var(--text);}"
+      +".chm-coachbar-a{font-size:11px;color:var(--accent);font-weight:600;}"
+      // bench strip
+      +".chm-bench{margin-top:14px;}"
+      +".chm-bench-h{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}"
+      +".chm-bench-row{display:flex;flex-wrap:wrap;gap:8px;}"
+      +".chm-bench-chip{display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:5px 11px 5px 5px;}"
+      +".chm-bava{width:32px;height:32px;border-radius:50%;overflow:hidden;background:var(--bg3,rgba(128,128,128,.2));border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;flex:0 0 auto;}"
+      +".chm-bava img{width:100%;height:100%;object-fit:cover;object-position:top center;}"
+      +".chm-bava span{font-size:11px;font-weight:800;color:var(--text3);}"
+      +".chm-bc-nm{font-size:12px;font-weight:700;color:var(--text);line-height:1.1;}"
+      +".chm-bc-sub{font-size:9.5px;color:var(--text3);font-weight:600;margin-top:1px;}"
+      +".chm-bc-ovr{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;margin-left:2px;}"
       // matchup card
       +".mu-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:18px 20px;}"
       +".mu-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;margin-bottom:14px;}"
@@ -288,11 +358,13 @@
 
   function render(el, rows, opts){
     if(!el) return null;
-    css();
+    css(); opts=opts||{};
     var starters=assignStarters(rows);
     var an=lineupAnalysis(starters);
     if(!an){ el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px;">Not enough roster data for a chemistry read.</div>'; return null; }
-    el.innerHTML='<div class="chm-wrap">'+panelHtml(an,opts)+courtHtml(starters)+'</div>';
+    var bench=benchOf(rows, starters), best=bestLineup(rows);
+    var main='<div class="chm-main">'+courtHtml(starters,opts)+coachHtml(opts.coach)+benchHtml(bench,opts)+'</div>';
+    el.innerHTML='<div class="chm-wrap">'+panelHtml(an,opts,best)+main+'</div>';
     return an;
   }
 
