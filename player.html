@@ -13,7 +13,7 @@
   <script src="tdc-freshman.js?v=pub4"></script>
   <script src="tdc-ratings.js?v=1"></script>
   <script src="tdc-portalfit.js?v=needs4"></script>
-  <script src="tdc-projgrade.js?v=5"></script>
+  <script src="tdc-projgrade.js?v=6"></script>
   <script src="tdc-pool.js?v=1"></script>
   <meta charset="UTF-8"/>
   <style>
@@ -4014,8 +4014,12 @@ function _projectedGrade(){
   if(window.TDCFresh && TDCFresh.isFreshman(player) && TDCFresh.profileFor(player) && proj && proj.tdc_grade!=null){
     var fg=parseInt(proj.tdc_grade); if(!isNaN(fg)) return fg;
   }
-  // Returner on a current roster: project the demonstrated grade forward to his
-  // 2026-27 role so the hero, progression chart and Rankings tab all agree.
+  // Shared row-based projected grade (tdc-projgrade.js) — the SAME model the team page,
+  // depth chart and rankings use, so the OVR is IDENTICAL everywhere. Comes first because
+  // it works off the roster row alone (no linked history needed), so a transfer with no
+  // espn_id matches the team page instead of falling back to the raw demonstrated grade.
+  if(window.TDCProjGrade){ var _pg=TDCProjGrade.grade(player); if(_pg!=null&&!isNaN(_pg)) return _pg; }
+  // Legacy fallback: history-based projection when the shared model is unavailable.
   try{
     var _h=(typeof _dedupHist==='function')?_dedupHist():[]; var _la=_h.length?_h[_h.length-1]:null;
     if(_la && proj && (parseFloat(proj.ppg)>0||parseFloat(proj.mpg)>0) && _la.tdc_grade!=null){

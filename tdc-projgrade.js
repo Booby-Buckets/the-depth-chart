@@ -41,7 +41,11 @@
     var last = _num(row && row.mpg);
     var starter = row && (row.starter === true || row.starter === 'true' || row.starter === 't');
     var floor = last > 0 ? last * 0.9 : 0;
-    if(starter) floor = Math.max(floor, 28);
+    // Honor an explicit starter flag (floor 28 min) ONLY when depth_order agrees or is
+    // absent. A stale starter=true on a player buried at depth_order 10 — common for a
+    // transfer who started elsewhere but is deep on his new team — must NOT project him
+    // UP to 28 minutes (more than he even played) and fake a role increase.
+    if(starter && (!isFinite(d) || d <= 6)) floor = Math.max(floor, 28);
     var pm = Math.max(slot, floor);
     if(!isFinite(d) && last > 0) pm = last;      // no depth signal at all → hold proven role
     return pm;
