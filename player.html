@@ -1831,6 +1831,24 @@ async function init(){
       teamPlayers = Array.isArray(allRows) ? allRows.filter(r=>r.name&&r.name!=='—') : [];
     }catch(e){ teamPlayers=[]; }
 
+    // Projection model v5: the OVR comes from the whole-roster rotation model (same call as
+    // the team page), so the player page, depth chart and rankings show an IDENTICAL grade.
+    try{
+      if(window.TDCFresh && TDCFresh.load){ try{ await TDCFresh.load(); }catch(e){} }
+      if(window.TDCProjGrade && TDCProjGrade.gradeRoster && teamPlayers.length){
+        await TDCProjGrade.ready;
+        const _fp = p => (window.TDCFresh&&TDCFresh.profileFor)?TDCFresh.profileFor({team:p.team,name:p.name}):null;
+        const rr2 = teamPlayers.map(p=>{ const f=_fp(p); const g=(f&&f.ovr!=null)?Math.round(parseFloat(f.ovr)):parseFloat(p.tdc_grade);
+                                         return Object.assign({},p,{tdc_grade:g}); });
+        const gres = TDCProjGrade.gradeRoster(rr2);
+        teamPlayers.forEach((p,i)=>{ if(!gres[i])return; const f=_fp(p);
+          p._projMin=gres[i].min; p._projGrade=(f&&f.ovr!=null)?Math.round(parseFloat(f.ovr)):gres[i].grade; });
+        const key=(player.name||'').toLowerCase().trim();
+        const me = teamPlayers.find(p=>(p.name||'').toLowerCase().trim()===key);
+        if(me){ player._projGrade=me._projGrade; player._projMin=me._projMin; }
+      }
+    }catch(e){}
+
     // ── PROJECTION ─────────────────────────────────────────────────
     // Project the ENTIRE team using buildTeamProjections (same as team page).
     // This ensures normalization is applied identically and numbers match.
@@ -4014,10 +4032,10 @@ function _projectedGrade(){
   if(window.TDCFresh && TDCFresh.isFreshman(player) && TDCFresh.profileFor(player) && proj && proj.tdc_grade!=null){
     var fg=parseInt(proj.tdc_grade); if(!isNaN(fg)) return fg;
   }
-  // Shared row-based projected grade (tdc-projgrade.js) — the SAME model the team page,
-  // depth chart and rankings use, so the OVR is IDENTICAL everywhere. Comes first because
-  // it works off the roster row alone (no linked history needed), so a transfer with no
-  // espn_id matches the team page instead of falling back to the raw demonstrated grade.
+  // Projection model v5: the whole-roster rotation grade, stamped on `player` at load — the
+  // SAME value the depth chart and rankings show. Identical everywhere by construction.
+  if(player && player._projGrade!=null && !isNaN(player._projGrade)) return player._projGrade;
+  // Fallback (roster not yet stamped): the per-row shared model.
   if(window.TDCProjGrade){ var _pg=TDCProjGrade.grade(player); if(_pg!=null&&!isNaN(_pg)) return _pg; }
   // Legacy fallback: history-based projection when the shared model is unavailable.
   try{
