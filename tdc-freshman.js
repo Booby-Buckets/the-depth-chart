@@ -134,7 +134,10 @@
     try{ var s=localStorage.getItem(k); return s?JSON.parse(s):null; }catch(e){ return null; } }
   function pushBlob(){ var s=session(); if(!isOwner()||!s||!s.access_token||!s.user||!s.user.id) return Promise.resolve({ok:false});
     return fetch(SB+'/rest/v1/profiles?id=eq.'+s.user.id,{method:'PATCH',headers:{apikey:KEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({freshman_projections:_blob||{}})})
-      .then(function(r){return {ok:r.ok,status:r.status};}).catch(function(e){return {ok:false,error:e};}); }
+      .then(function(r){ if(r.ok) return {ok:true,status:r.status};
+        return r.text().then(function(t){ try{var j=JSON.parse(t);t=j.message||j.hint||t;}catch(e){} return {ok:false,status:r.status,error:(t||'').slice(0,160)}; },
+                            function(){ return {ok:false,status:r.status}; }); })
+      .catch(function(e){return {ok:false,error:String(e)};}); }
   function saveProfile(p,prof){ var k=frKey(p); _blob=_blob||{};
     if(prof){ _blob[k]=prof; try{localStorage.setItem(k,JSON.stringify(prof));}catch(e){} }
     else { delete _blob[k]; try{localStorage.removeItem(k);}catch(e){} }
@@ -280,7 +283,7 @@
             msg.style.color='#e07070';
             msg.textContent=isOwner()
               ? ((res&&res.status===401)?'⚠ Not saved — your sign-in expired. Sign in again, then re-save.'
-                                        :'⚠ Not saved — the server rejected the write'+(res&&res.status?' ('+res.status+')':'')+'. Try again.')
+                                        :'⚠ Not saved — the server rejected the write'+(res&&res.status?' ('+res.status+')':'')+(res&&res.error?' — '+res.error:'')+'. Try again.')
               : '⚠ Not saved — sign in as the owner to save changes.';
             msg.classList.add('show');
           }

@@ -102,9 +102,11 @@ begin
     create policy "tdc_update_own"    on public.profiles for update to authenticated using (auth.uid() = id) with check (auth.uid() = id);
     create policy "tdc_owner_profiles" on public.profiles for all to authenticated
       using ((auth.jwt() ->> 'email') = 'blee4824@gmail.com') with check ((auth.jwt() ->> 'email') = 'blee4824@gmail.com');
-    -- column lockdown: a user can't escalate plan/verified even on their own row
+    -- column lockdown: a user can't escalate plan/verified even on their own row, but
+    -- freshman_projections IS owner-writable (the freshman editor saves it via PATCH) —
+    -- leaving it off this list is what 403'd the save. RLS still limits it to one's own row.
     revoke update on public.profiles from authenticated;
-    foreach c in array array['username','avatar_url','bio','favorite_team','display_name'] loop
+    foreach c in array array['username','avatar_url','bio','favorite_team','display_name','freshman_projections'] loop
       if exists (select 1 from information_schema.columns where table_schema='public' and table_name='profiles' and column_name=c) then
         execute format('grant update (%I) on public.profiles to authenticated', c);
       end if;
