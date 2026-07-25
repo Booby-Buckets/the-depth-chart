@@ -16,6 +16,7 @@
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-portalfit.js?v=needs4"></script>
   <script src="tdc-chemistry.js?v=5"></script>
+  <script src="tdc-advstats.js?v=1"></script>
   <style>
     :root{--bg: #FAF9F6;--bg2: #F1EFEA;--bg3: #E6E3DB;--border: #DEDACF;--border2: #C6C0B2;--text: #1A1814;--text2: #4A463C;--text3: #8A867A;--accent: #A8843C;--teal:#3f8d7d;--green:#1a8c3a;--red:#cc2200;--blue:#1a5fbf;}
     [data-theme="dark"]{--bg: #141416;--bg2: #1D1D20;--bg3: #28282C;--border: #2E2E34;--border2: #45454D;--text: #F1EFEA;--text2: #B4B0A8;--text3: #807C74;--accent: #E6D5A8;--teal:#5b9d8f;--green:#5ab875;--red:#e07070;--blue:#74aedd;}
@@ -192,6 +193,16 @@
     .scc-host{min-height:120px;}
     .sg-pct{font-size:9px;color:var(--text3);margin-left:5px;font-weight:600;vertical-align:middle;}
     .sg-note{font-size:11px;color:var(--text3);line-height:1.55;padding:9px 4px 0;}
+    .adv-head{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:4px 0 14px;}
+    @media(max-width:640px){.adv-head{grid-template-columns:1fr;}}
+    .adv-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
+    .adv-card-h{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);margin-bottom:11px;}
+    .adv-card-h span{display:block;font-weight:600;letter-spacing:.02em;text-transform:none;color:var(--text3);font-size:9.5px;margin-top:2px;}
+    .adv-card-body{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .advh-team{text-align:center;}
+    .advh-nm{font-size:11px;font-weight:800;line-height:1.15;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .advh-big{font-family:'Playfair Display',serif;font-weight:800;font-size:28px;line-height:1;}
+    .advh-sub{font-size:10px;color:var(--text3);font-weight:600;margin-top:3px;}
     .sg-note b{color:var(--text2);}
     .compare-subhead{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);padding:12px 4px 5px;}
     .chem-card{display:grid;grid-template-columns:150px 1fr;gap:22px;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-bottom:26px;}
@@ -1630,6 +1641,15 @@ async function _fillShotGenome(p1,p2){
   if(!g1&&!g2){ sec.style.display='none'; return; }
   const pf=v=>v.toFixed(1)+'%', pn=v=>v.toFixed(1), ps=v=>(v>0?'+':'')+v.toFixed(1);
   let rows='';
+  // Shot Value Over Expected headline (points per shot above the shot diet)
+  if(window.TDCAdv){
+    const svA=g1?TDCAdv.svoe(g1.lq,g1.efg):null, svB=g2?TDCAdv.svoe(g2.lq,g2.efg):null;
+    if(svA||svB){
+      const cc1=readableCol(teamColorFor(p1.team)||'#888'), cc2=readableCol(teamColorFor(p2.team)||'#888');
+      const cell=(sv,name,col)=>`<div class="advh-team"><div class="advh-nm" style="color:${col}">${name}</div>`+(sv?`<div class="advh-big" style="color:${sv.svoe>=0?'#2bb673':'#e06552'}">${sv.svoe>=0?'+':''}${sv.svoe.toFixed(2)}</div><div class="advh-sub">${sv.exp.toFixed(2)} exp &rarr; ${sv.act.toFixed(2)} act</div>`:`<div class="advh-big" style="color:var(--text3)">—</div>`)+`</div>`;
+      rows+=`<div class="adv-head" style="grid-template-columns:1fr;margin-top:0;"><div class="adv-card"><div class="adv-card-h">Shot Value Over Expected <span>pts / shot &middot; points added over the shot diet</span></div><div class="adv-card-body">${cell(svA,p1.name,cc1)}${cell(svB,p2.name,cc2)}</div></div></div>`;
+    }
+  }
   rows+=_sgRow('Look Quality (xeFG%)', g1&&g1.lq, g2&&g2.lq, null, null, pf);
   rows+=_sgRow('Actual eFG%', g1&&g1.efg, g2&&g2.efg, null, null, pf);
   rows+=_sgRow('Shot-Making (SM+)', g1&&g1.smAdj, g2&&g2.smAdj, g1&&g1.smPct, g2&&g2.smPct, ps);
@@ -1999,6 +2019,18 @@ function _ensureSgTeams(){
   }).catch(()=>null);
   return _sgtPromise;
 }
+function _advShortNm(n){ return (window.tdcShortSchool&&window.tdcShortSchool(n))||n||'—'; }
+function _advHeadline(svA,svB,ddA,ddB,n1,n2,c1,c2){
+  if(!svA&&!svB&&!ddA&&!ddB) return '';
+  const svCell=(sv,name,col)=> `<div class="advh-team"><div class="advh-nm" style="color:${col}">${_advShortNm(name)}</div>`
+    +(sv?`<div class="advh-big" style="color:${sv.svoe>=0?'#2bb673':'#e06552'}">${sv.svoe>=0?'+':''}${sv.svoe.toFixed(2)}</div><div class="advh-sub">${sv.exp.toFixed(2)} exp &rarr; ${sv.act.toFixed(2)} act</div>`:`<div class="advh-big" style="color:var(--text3)">—</div>`)+`</div>`;
+  const ddCell=(dd,name,col)=> `<div class="advh-team"><div class="advh-nm" style="color:${col}">${_advShortNm(name)}</div>`
+    +(dd?`<div class="advh-big" style="color:${dd.ddi>=62?'#2bb673':dd.ddi>=42?'#C8A020':'#e06552'}">${dd.ddi}</div><div class="advh-sub">${dd.tier}</div>`:`<div class="advh-big" style="color:var(--text3)">—</div>`)+`</div>`;
+  return `<div class="adv-head">
+    <div class="adv-card"><div class="adv-card-h">Shot Value Over Expected <span>pts / shot &middot; baseball-style, offense</span></div><div class="adv-card-body">${svCell(svA,n1,c1)}${svCell(svB,n2,c2)}</div></div>
+    <div class="adv-card"><div class="adv-card-h">Defensive Disruption Index <span>0&ndash;100 &middot; forced bad shots + turnovers</span></div><div class="adv-card-body">${ddCell(ddA,n1,c1)}${ddCell(ddB,n2,c2)}</div></div>
+  </div>`;
+}
 async function _fillTeamGenome(s1,s2,y1,y2){
   const sec=document.getElementById('tsgSection'); if(!sec) return;
   const map=await _ensureSgTeams(); if(!map){ sec.style.display='none'; return; }
@@ -2010,6 +2042,17 @@ async function _fillTeamGenome(s1,s2,y1,y2){
   const top=(o,k)=>o?o[k]:null;
   const fp=v=>v.toFixed(1)+'%', ps=v=>(v>0?'+':'')+v.toFixed(1), pn=v=>v.toFixed(1);
   let r='';
+  // ── original TDC metrics: SVOE (offense) + DDI (defense) headline ──
+  if(window.TDCAdv){
+    const allG=Object.values(map);
+    const dnaAll=await _ensureTeamDNA().catch(()=>null);
+    const dnaNode=(dnaAll&&dnaAll['2026']&&dnaAll['2026'].teams)?dnaAll['2026'].teams:{};
+    const allDna=Object.values(dnaNode);
+    const svA=a?TDCAdv.svoe(a.off.lq,a.off.efg):null, svB=b?TDCAdv.svoe(b.off.lq,b.off.efg):null;
+    const ddA=a?TDCAdv.ddi(a, dnaNode[s1&&s1.team], allG, allDna):null, ddB=b?TDCAdv.ddi(b, dnaNode[s2&&s2.team], allG, allDna):null;
+    const cc1=readableCol(teamColorFor(s1&&s1.team)||'#888'), cc2=readableCol(teamColorFor(s2&&s2.team)||'#888');
+    r+=_advHeadline(svA,svB,ddA,ddB,s1?s1.team:'',s2?s2.team:'',cc1,cc2);
+  }
   r+='<div class="compare-subhead">Offense — shots they generate</div>';
   r+=_sgRow('Look Quality (xeFG%)', off(a,'lq'), off(b,'lq'), offp(a,'lq'), offp(b,'lq'), fp, true);
   r+=_sgRow('Actual eFG%', off(a,'efg'), off(b,'efg'), offp(a,'efg'), offp(b,'efg'), fp, true);
