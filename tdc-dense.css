@@ -139,8 +139,13 @@ html{ background:#0A0E18 !important; }
 .rl-bar i{ display:block; height:100%; border-radius:5px; background:linear-gradient(90deg,var(--accent),#5B8DEF); }
 .rl-conf .rl-mono{ width:34px; text-align:right; }
 
-/* ---- TREND column: repurpose the 16px spacer track into a 74px sparkline cell ---- */
-@media(min-width:821px){
+/* ---- TREND column: repurpose the 16px spacer track into a 74px sparkline cell ----
+   Applies across the whole desktop/labeled-table range (641px+, where the table is a
+   horizontal-scroll grid). Previously this started at 821px, so 641-820px fell back to
+   the base 16px spacer track while the sparkline + "TREND '26" label were still injected
+   -- they overflowed into PRTG and W-L. Matching index.html's own 641px desktop-table
+   breakpoint keeps the trend column a proper 74px at every width the sparkline shows. */
+@media(min-width:641px){
   .table-header,.team-row,.skeleton-row{
     grid-template-columns:48px minmax(210px,1fr) 82px 74px 58px 56px 54px 54px 60px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px !important;
   }
@@ -153,8 +158,8 @@ html{ background:#0A0E18 !important; }
 .mg-val{ font-family:var(--mono) !important; font-weight:700 !important; font-size:16px !important;
          letter-spacing:-.01em !important; font-variant-numeric:tabular-nums; }
 .mg-lbl{ font-family:var(--mono) !important; letter-spacing:.06em !important; }
-@media(max-width:820px){
-  .tr-spacer{ width:54px; }                 /* keep the sparkline from crowding the number */
+@media(max-width:640px){
+  .tr-spacer{ width:54px; }                 /* mobile card layout only; 641px+ uses the 74px grid track */
   .mg-val{ font-size:15px !important; }
 }
 .tr-trend-svg{ width:60px; height:20px; display:block; opacity:.9; }
