@@ -19,7 +19,13 @@ H = {"apikey": KEY, "Authorization": "Bearer " + KEY}
 DATA = os.path.join(os.path.dirname(__file__), "data")
 DEV = json.load(open(os.path.join(DATA, "dev_curves.json")))
 BR = json.load(open(os.path.join(DATA, "projgrade_bridge.json")))
+LV = json.load(open(os.path.join(DATA, "level_adj.json")))
 SLOT_MIN = [0, 31, 30, 29, 27, 25, 19, 16, 12, 9, 7]
+
+
+def level_discount(conf):
+    s = LV["conf_strength"].get(conf)
+    return 0.0 if s is None else LV["k"] * (LV["top"] - s)
 
 ROLE_K = 14.0      # how hard a role loss bites
 ROLE_UP = 3.0      # cap on a role-increase bonus
@@ -89,22 +95,51 @@ def grade_v5(g, yr, pm):
     return int(round(max(g - FLOOR_GAP, min(g + CEIL, v))))
 
 
+# conference lookup that survives the short-vs-full team-name trap (bbref "Belmont" vs
+# team_seasons "Belmont Bruins")
+_TC_NORM = {k.lower().strip(): v for k, v in LV["team_conf"].items()}
+def conf_of(school):
+    if not school: return None
+    s = school.lower().strip()
+    if s in _TC_NORM: return _TC_NORM[s]
+    for full, c in _TC_NORM.items():
+        if full.startswith(s + " ") or s.startswith(full + " "): return c
+    return None
+
+
+def last_conf_map():
+    """name -> conference the player last produced in (2025-26 school), for the level discount."""
+    m = {}
+    for r in q("bbref_seasons?season_year=eq.2026&select=player,school"):
+        c = conf_of(r.get("school"))
+        if r.get("player") and c: m[r["player"].strip().lower()] = c
+    return m
+
+
 def main():
     import sys
     team = sys.argv[1] if len(sys.argv) > 1 else "Duke"
     rows = q(f"players?team=eq.{team}&select=name,tdc_grade,mpg,ppg,yr&order=tdc_grade.desc")
     rows = [r for r in rows if r.get("tdc_grade") not in (None, "")]
-    quals = [float(r["tdc_grade"]) for r in rows]
-    mins = project_minutes(quals)                 # model-derived minutes — no depth chart
-    print(f"=== {team} — projected minutes + grade v5 (no manual depth chart) ===")
-    print(f"{'player':22} {'yr':4} {'dem':>3} {'proj_min':>8} {'v5':>4}  Δ")
+    lcm = last_conf_map()
+    cur_conf = conf_of(team)
+    # quality prior = demonstrated grade minus the level discount for where it was EARNED
+    qual = []
+    for r in rows:
+        g = float(r["tdc_grade"])
+        conf = lcm.get((r["name"] or "").strip().lower()) or cur_conf
+        qual.append(g - level_discount(conf))
+    mins = project_minutes(qual)                   # minutes off the level-adjusted quality
+    print(f"=== {team} — level-adj quality -> minutes -> grade v5 (no manual depth chart) ===")
+    print(f"{'player':22} {'yr':4} {'dem':>3} {'qual':>4} {'proj_min':>8} {'v5':>4}  Δ")
     tot = 0.0
-    for r, g, pm in sorted(zip(rows, quals, mins), key=lambda z: -z[2]):
-        v = grade_v5(g, r.get("yr"), pm); tot += pm
+    for r, ql, pm in sorted(zip(rows, qual, mins), key=lambda z: -z[2]):
+        g = float(r["tdc_grade"])
+        v = grade_v5(ql, r.get("yr"), pm); tot += pm    # grade anchored on level-adj quality
         d = v - int(g)
         flag = '  <-- deep bench' if pm < 6 else ''
-        print(f"{(r['name'] or '')[:22]:22} {(r.get('yr') or '')[:4]:4} {int(g):>3} {pm:>8} {v:>4}  {d:+d}{flag}")
-    print(f"{'TOTAL MIN':22} {'':4} {'':>3} {round(tot,1):>8}")
+        print(f"{(r['name'] or '')[:22]:22} {(r.get('yr') or '')[:4]:4} {int(g):>3} {round(ql,1):>4} {pm:>8} {v:>4}  {d:+d}{flag}")
+    print(f"{'TOTAL MIN':22} {'':4} {'':>3} {'':>4} {round(tot,1):>8}")
 
 
 if __name__ == "__main__":
