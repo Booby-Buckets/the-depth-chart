@@ -1699,19 +1699,29 @@ async function _phKeyFor(fullName){
 async function _rosterFor(fullName, yr){
   const key=await _phKeyFor(fullName);
   let rows=[];
-  if(key) rows=await fetch(`${SB}/rest/v1/player_history?team=eq.${encodeURIComponent(key)}&season_year=eq.${yr}&select=name,position,height,yr,ppg,rpg,apg,mpg,gp,tdc_grade,espn_id,fga,tpa,fta,tp_pct,fg_pct,ft_pct,stl,blk,tovs,oreb,dreb&order=mpg.desc.nullslast&limit=15`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-  if((!rows||!rows.length)&&key){
+  // Prefer bbref_seasons: it's scraped per team-season, so it lists exactly who
+  // played for the team THAT year. player_history stamps each player-season with
+  // their DESTINATION team, which drops players who transferred out and adds
+  // "ghosts" who transferred in — so it's wrong for a historical roster.
+  if(key){
     const slug=key.toLowerCase().replace(/[.'()&]/g,'').trim().replace(/\s+/g,'-');
-    const bb=await fetch(`${SB}/rest/v1/bbref_seasons?school_slug=eq.${encodeURIComponent(slug)}&season_year=eq.${yr}&select=player,pos,height,class,tdc_grade,espn_id,pergame&limit=20`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    rows=(bb||[]).map(b=>{ const pg=b.pergame||{}; return { name:b.player, position:b.pos, height:b.height, yr:b.class,
-      ppg:parseFloat(pg.pts_per_g), rpg:parseFloat(pg.trb_per_g), apg:parseFloat(pg.ast_per_g), mpg:parseFloat(pg.mp_per_g),
-      gp:parseFloat(pg.games), tdc_grade:b.tdc_grade, espn_id:b.espn_id,
-      fga:parseFloat(pg.fga_per_g), tpa:parseFloat(pg.fg3a_per_g), fta:parseFloat(pg.fta_per_g),
-      tp_pct:pg.fg3_pct!=null?parseFloat(pg.fg3_pct)*100:null, fg_pct:pg.fg_pct!=null?parseFloat(pg.fg_pct)*100:null, ft_pct:pg.ft_pct!=null?parseFloat(pg.ft_pct)*100:null,
-      stl:parseFloat(pg.stl_per_g), blk:parseFloat(pg.blk_per_g), tovs:parseFloat(pg.tov_per_g), oreb:parseFloat(pg.orb_per_g), dreb:parseFloat(pg.drb_per_g) }; })
-      .sort((a,b)=>(b.mpg||0)-(a.mpg||0));
+    const bb=await fetch(`${SB}/rest/v1/bbref_seasons?school_slug=eq.${encodeURIComponent(slug)}&season_year=eq.${yr}&select=player,pos,height,class,tdc_grade,espn_id,pergame&limit=25`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    if(bb&&bb.length){
+      rows=(bb||[]).map(b=>{ const pg=b.pergame||{}; return { name:b.player, position:b.pos, height:b.height, yr:b.class,
+        ppg:parseFloat(pg.pts_per_g), rpg:parseFloat(pg.trb_per_g), apg:parseFloat(pg.ast_per_g), mpg:parseFloat(pg.mp_per_g),
+        gp:parseFloat(pg.games), tdc_grade:b.tdc_grade, espn_id:b.espn_id,
+        fga:parseFloat(pg.fga_per_g), tpa:parseFloat(pg.fg3a_per_g), fta:parseFloat(pg.fta_per_g),
+        tp_pct:pg.fg3_pct!=null?parseFloat(pg.fg3_pct)*100:null, fg_pct:pg.fg_pct!=null?parseFloat(pg.fg_pct)*100:null, ft_pct:pg.ft_pct!=null?parseFloat(pg.ft_pct)*100:null,
+        stl:parseFloat(pg.stl_per_g), blk:parseFloat(pg.blk_per_g), tovs:parseFloat(pg.tov_per_g), oreb:parseFloat(pg.orb_per_g), dreb:parseFloat(pg.drb_per_g) }; })
+        .sort((a,b)=>(b.mpg||0)-(a.mpg||0));
+    }
   }
-  rows=await _dropTransferGhosts(rows, yr);
+  // Fall back to player_history for seasons bbref hasn't scraped (e.g. the current
+  // projected year), dropping the inbound transfer ghosts it carries.
+  if((!rows||!rows.length)&&key){
+    rows=await fetch(`${SB}/rest/v1/player_history?team=eq.${encodeURIComponent(key)}&season_year=eq.${yr}&select=name,position,height,yr,ppg,rpg,apg,mpg,gp,tdc_grade,espn_id,fga,tpa,fta,tp_pct,fg_pct,ft_pct,stl,blk,tovs,oreb,dreb&order=mpg.desc.nullslast&limit=15`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    rows=await _dropTransferGhosts(rows, yr);
+  }
   return {key, rows:rows||[]};
 }
 // player_history carries a second row for every transfer, stamped with the team they
