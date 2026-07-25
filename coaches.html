@@ -111,6 +111,7 @@
   <script src="tdc-anim.js?v=5"></script>
   <!-- new-UI theme layer: navy+blue dark palette (matches index/player); light-mode guard keeps the toggle readable -->
   <link rel="stylesheet" href="tdc-dense.css?v=18"/>
+  <script src="team-colors.js?v=2"></script>
   <style>
     :root:not([data-theme="dark"]){background:var(--bg)!important;}
     :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
@@ -168,6 +169,10 @@ const BARS=[['Pace','poss_pg'],['Bench','rotation_size'],['3PT','three_pa_rate']
 
 function seasonLbl(y){y=+y;return (y-1)+'-'+(''+y).slice(2);}
 function lastSchool(p){ var s=(SEASONS[p.coach_slug]||[]); return s.length?s[s.length-1].school:(p.schools||'').split(',')[0]; }
+function _logoFor(school){ var M=window.TDC_TEAM_COLORS||{};
+  var k=(school||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+  var t=M[k]; if(!t&&k){ for(var key in M){ if(k.indexOf(key)===0||key.indexOf(k)===0){t=M[key];break;} } } return (t&&t.logo)||''; }
+function _logoImg(school, sz){ var l=_logoFor(school); return l?'<img src="'+l+'" alt="" style="width:'+sz+'px;height:'+sz+'px;object-fit:contain;flex-shrink:0;" onerror="this.style.display=\'none\'"/>':''; }
 
 // tournament resume as a short phrase
 function resumeStr(p){ var t=p.tourney||{}, r=[];
@@ -182,8 +187,8 @@ function gradeRankHtml(){
     var res=resumeStr(p)||(p.seasons+' seasons · '+(p.win_pct*100).toFixed(0)+'% · SRS '+(p.avg_srs>=0?'+':'')+(p.avg_srs!=null?p.avg_srs.toFixed(1):'—'));
     return '<div class="crank-row" onclick="openCoach(\''+p.coach_slug+'\')">'+
       '<div class="crank-rk">'+p.rank+'</div>'+
-      '<div><div class="crank-nm">'+p.coach+' <small>'+lastSchool(p)+' · '+p.archetype+'</small></div>'+
-      '<div class="crank-meta">'+p.wins+'-'+p.losses+' ('+(p.win_pct*100).toFixed(0)+'%) · '+res+'</div></div>'+
+      '<div style="display:flex;align-items:center;gap:10px;min-width:0;">'+_logoImg(lastSchool(p),24)+'<div style="min-width:0;"><div class="crank-nm">'+p.coach+' <small>'+lastSchool(p)+' · '+p.archetype+'</small></div>'+
+      '<div class="crank-meta">'+p.wins+'-'+p.losses+' ('+(p.win_pct*100).toFixed(0)+'%) · '+res+'</div></div></div>'+
       '<div class="crank-g">'+p.grade+'</div></div>';
   }).join('')+'</div>';
 }
@@ -219,7 +224,7 @@ function cardBars(p){
 function coachCard(p){
   var res=resumeStr(p);
   return '<div class="ccard" onclick="openCoach(\''+p.coach_slug+'\')">'+
-    '<div class="top"><div><div class="nm">'+p.coach+'</div><div class="school">'+lastSchool(p)+' · '+p.seasons+' seasons</div></div>'+
+    '<div class="top"><div style="display:flex;align-items:center;gap:11px;min-width:0;">'+_logoImg(lastSchool(p),30)+'<div style="min-width:0;"><div class="nm">'+p.coach+'</div><div class="school">'+lastSchool(p)+' · '+p.seasons+' seasons</div></div></div>'+
     (p.grade!=null?'<div class="cgrade" title="TDC Coach Grade"><span class="cg-n">'+p.grade+'</span><span class="cg-r">#'+p.rank+'</span></div>':'<span class="arch">'+p.archetype+'</span>')+'</div>'+
     (p.grade!=null?'<div class="archline">'+p.archetype+'</div>':'')+
     '<div class="rec"><b>'+p.wins+'-'+p.losses+'</b> ('+(p.win_pct*100).toFixed(0)+'%)'+(p.avg_srs!=null?' · SRS '+(p.avg_srs>=0?'+':'')+p.avg_srs.toFixed(1):'')+(res?' · '+res:'')+'</div>'+
