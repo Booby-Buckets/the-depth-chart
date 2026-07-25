@@ -598,9 +598,30 @@
     .gDp{color:#88aadd;}.gD{color:#88aadd;}.gDm{color:#a0bfe6;}.gF{color:#b8cee8;}
 
     /* SIDEBAR */
-    .side-card{background:var(--bg2);border:1px solid var(--border);margin-bottom:20px;overflow:hidden;transition:border-color .2s;}
+    .side-card{background:var(--bg2);border:1px solid var(--border);margin-bottom:20px;overflow:hidden;transition:border-color .2s, box-shadow .2s, opacity .2s;}
     .side-card:hover{border-color:var(--border2);}
-    .side-card-head{padding:12px 16px;border-bottom:1px solid var(--border);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);border-left:3px solid transparent;}
+    .side-card.uhide{display:none!important;}
+    .side-card.dragging{opacity:.4;border-color:var(--accent);}
+    .side-card.drop-target{box-shadow:0 -2px 0 var(--accent);}
+    .side-card-head{padding:12px 16px;border-bottom:1px solid var(--border);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);border-left:3px solid transparent;position:relative;}
+    /* panel drag handle + hide control on each side card */
+    .side-card-head .pc-grip{position:absolute;left:5px;top:50%;transform:translateY(-50%);cursor:grab;color:var(--text3);opacity:0;transition:opacity .15s;font-size:11px;letter-spacing:-1px;user-select:none;padding:2px 3px;}
+    .side-card:hover .pc-grip{opacity:.65;}
+    .side-card-head .pc-grip:hover{opacity:1;color:var(--text);}
+    .side-card-head .pc-grip:active{cursor:grabbing;}
+    .side-card-head.has-pc{padding-left:22px;padding-right:30px;}
+    .side-card-head .pc-hide{position:absolute;right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text3);opacity:0;transition:opacity .15s, color .15s;background:none;border:none;font-size:13px;line-height:1;padding:3px 5px;border-radius:5px;}
+    .side-card:hover .pc-hide{opacity:.6;}
+    .side-card-head .pc-hide:hover{opacity:1;color:var(--text);background:var(--border);}
+    /* panel manager bar — restore hidden panels + reorder hint */
+    .panel-bar{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-bottom:16px;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;font-size:11px;}
+    .panel-bar .pb-lbl{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-right:2px;}
+    .panel-bar .pb-hint{color:var(--text3);font-style:italic;}
+    .panel-bar .pb-chip{display:inline-flex;align-items:center;gap:5px;cursor:pointer;background:var(--bg);border:1px dashed var(--border2);color:var(--text2);border-radius:14px;padding:3px 10px;font-weight:600;transition:border-color .15s, color .15s, background .15s;}
+    .panel-bar .pb-chip:hover{border-color:var(--accent);color:var(--text);}
+    .panel-bar .pb-chip::before{content:'+';font-weight:800;color:var(--accent);}
+    .panel-bar .pb-reset{margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 4px;}
+    .panel-bar .pb-reset:hover{color:var(--accent);}
     .side-card-body{padding:14px 16px;}
     .grade-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);}
     .grade-row:last-child{border-bottom:none;}
@@ -1119,23 +1140,24 @@
     </div>
   </div>
   <div class="side-col">
-    <div class="side-card live-side">
+    <div class="panel-bar" id="panelBar" style="display:none;"></div>
+    <div class="side-card live-side" data-pid="coach">
       <div class="side-card-head" id="gradeCardHead" style="color:var(--accent);">Coach Grades</div>
       <div class="side-card-body" id="gradeCardBody"></div>
     </div>
-    <div class="side-card live-side">
+    <div class="side-card live-side" data-pid="additions">
       <div class="side-card-head" style="color:var(--accent);">Offseason Additions</div>
       <div class="side-card-body" id="additionsBody"><div class="empty-note">Loading…</div></div>
     </div>
-    <div class="side-card live-side">
+    <div class="side-card live-side" data-pid="turnover">
       <div class="side-card-head" style="color:var(--accent);">Roster Turnover</div>
       <div class="side-card-body" id="turnoverBody"><div class="empty-note">Loading…</div></div>
     </div>
-    <div class="side-card" id="awardsCard" style="display:none;">
+    <div class="side-card" id="awardsCard" data-pid="awards" style="display:none;">
       <div class="side-card-head awards-head" id="awardsHead">Season Awards</div>
       <div class="side-card-body" id="awardsBody"></div>
     </div>
-    <div class="side-card" id="seasonStatsCard" style="display:none;">
+    <div class="side-card" id="seasonStatsCard" data-pid="stats" style="display:none;">
       <div class="side-card-head awards-head" id="seasonStatsHead">Team Stats</div>
       <div class="side-card-body" id="seasonStatsBody"></div>
     </div>
@@ -5713,7 +5735,58 @@ function onRosterSeason(v){
     if(statsCard){ statsCard.style.display=''; document.getElementById('seasonStatsBody').innerHTML='<div class="empty-note">Loading…</div>'; }
     loadHistoricRoster(_rosterSeason);
   }
+  try{ if(window.TDCPanels) TDCPanels.refresh(); }catch(e){}
 }
+// ── Side-panel manager: drag to reorder, hide/restore; persisted per browser ──
+const TDCPanels=(function(){
+  var KEY='tdc_team_panels';
+  var TITLES={coach:'Coach Grades',additions:'Offseason Additions',turnover:'Roster Turnover',awards:'Season Awards',stats:'Team Stats'};
+  var dragId=null, DEFAULT=null;
+  function load(){ try{ return JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ return {}; } }
+  function save(s){ try{ localStorage.setItem(KEY, JSON.stringify(s)); }catch(e){} }
+  function col(){ return document.querySelector('.side-col'); }
+  function cards(){ return [].slice.call(document.querySelectorAll('.side-col .side-card[data-pid]')); }
+  function available(c){ return c.style.display!=='none'; }   // not app-hidden by the season logic
+  function persist(){ var s=load(); s.order=cards().map(function(c){return c.dataset.pid;});
+    s.hidden={}; cards().forEach(function(c){ if(c.classList.contains('uhide')) s.hidden[c.dataset.pid]=1; }); save(s); }
+  function wireCard(c){
+    var head=c.querySelector('.side-card-head'); if(!head||head.querySelector('.pc-grip')) return;
+    head.classList.add('has-pc');
+    var grip=document.createElement('span'); grip.className='pc-grip'; grip.textContent='⋮⋮'; grip.title='Drag to reorder'; grip.setAttribute('draggable','true');
+    head.insertBefore(grip, head.firstChild);
+    var hide=document.createElement('button'); hide.className='pc-hide'; hide.innerHTML='✕'; hide.title='Hide this panel';
+    hide.onclick=function(e){ e.stopPropagation(); c.classList.add('uhide'); persist(); renderBar(); };
+    head.appendChild(hide);
+    grip.addEventListener('dragstart',function(e){ dragId=c.dataset.pid; c.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; try{e.dataTransfer.setData('text/plain',dragId);}catch(_){} });
+    grip.addEventListener('dragend',function(){ c.classList.remove('dragging'); cards().forEach(function(x){x.classList.remove('drop-target');}); dragId=null; persist(); renderBar(); });
+    c.addEventListener('dragover',function(e){ if(!dragId||c.dataset.pid===dragId) return; e.preventDefault(); c.classList.add('drop-target'); });
+    c.addEventListener('dragleave',function(){ c.classList.remove('drop-target'); });
+    c.addEventListener('drop',function(e){ e.preventDefault(); c.classList.remove('drop-target');
+      var dragged=document.querySelector('.side-col .side-card[data-pid="'+dragId+'"]'); if(dragged&&dragged!==c){ col().insertBefore(dragged, c); } });
+  }
+  function renderBar(){
+    var bar=document.getElementById('panelBar'); if(!bar) return;
+    var avail=cards().filter(available);
+    if(!avail.length){ bar.style.display='none'; return; }
+    var hidden=avail.filter(function(c){ return c.classList.contains('uhide'); });
+    var chips=hidden.map(function(c){ return '<span class="pb-chip" data-pid="'+c.dataset.pid+'">'+(TITLES[c.dataset.pid]||c.dataset.pid)+'</span>'; }).join('');
+    bar.innerHTML='<span class="pb-lbl">Panels</span>'+(chips||'<span class="pb-hint">drag ⋮⋮ to reorder · ✕ to hide</span>')+'<button class="pb-reset" title="Reset to default">reset</button>';
+    bar.style.display='flex';
+    [].forEach.call(bar.querySelectorAll('.pb-chip'),function(ch){ ch.onclick=function(){ var c=document.querySelector('.side-col .side-card[data-pid="'+ch.dataset.pid+'"]'); if(c){ c.classList.remove('uhide'); persist(); renderBar(); } }; });
+    var rb=bar.querySelector('.pb-reset'); if(rb) rb.onclick=function(){ try{localStorage.removeItem(KEY);}catch(e){}
+      if(DEFAULT){ var cc=col(); DEFAULT.forEach(function(pid){ var el=document.querySelector('.side-col .side-card[data-pid="'+pid+'"]'); if(el) cc.appendChild(el); }); }
+      cards().forEach(function(c){c.classList.remove('uhide');}); renderBar(); };
+  }
+  function apply(){
+    var s=load(), c=col(); if(!c) return;
+    if(s.order&&s.order.length){ s.order.forEach(function(pid){ var el=document.querySelector('.side-col .side-card[data-pid="'+pid+'"]'); if(el) c.appendChild(el); }); }
+    cards().forEach(function(cd){ if(s.hidden&&s.hidden[cd.dataset.pid]) cd.classList.add('uhide'); else cd.classList.remove('uhide'); });
+  }
+  function refresh(){ if(!DEFAULT){ DEFAULT=cards().map(function(c){return c.dataset.pid;}); } cards().forEach(wireCard); apply(); renderBar(); }
+  if(document.readyState!=='loading') setTimeout(refresh,0); else document.addEventListener('DOMContentLoaded',refresh);
+  return { refresh:refresh };
+})();
+window.TDCPanels=TDCPanels;
 // Resolve the exact team name player_history uses for this program, once.
 // The page name ("St. John's") can differ from the stored key ("St. John's (NY)").
 // Try mascot/full/word-prefixes as EXACT matches, then wildcards LONGEST-first —
