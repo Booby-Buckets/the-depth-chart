@@ -1518,14 +1518,14 @@ async function renderShowcase(){
   // Forward-looking projected OVR for RETURNERS (shared tdc-projgrade.js model) — so
   // the national strip ranks by 2026-27 projection, same number the player/team pages
   // show. Freshmen already carry their editor OVR above and are skipped.
-  if(curSeason===2027 && window.TDCProjGrade && Array.isArray(pool) && pool.length){
+  if(curSeason===2027 && window.TDCProjGrade && TDCProjGrade.gradeSolo && Array.isArray(pool) && pool.length){
+    if(TDCProjGrade.ready) try{ await TDCProjGrade.ready; }catch(e){}
     let _pv=false;
-    // Always project from the ORIGINAL demonstrated grade. The pool is cached, so mutating
-    // p.tdc_grade to the projection and re-projecting on the next render compounds it
-    // (75 → 84 → 91 → 98…). Stash the base once and project from it every time (idempotent).
+    // v5: level-adjusted quality + development (gradeSolo). Project from the ORIGINAL
+    // demonstrated grade — the pool is cached, so stash the base once and project idempotently.
     pool.forEach(p=>{ if(p._fr) return;
       if(p._baseGrade==null) p._baseGrade=p.tdc_grade;
-      const g=TDCProjGrade.grade({...p, tdc_grade:p._baseGrade});
+      const g=TDCProjGrade.gradeSolo({tdc_grade:p._baseGrade, yr:p.class||p.class_year, team:p.school, hometown:p.hometown});
       if(g!=null&&!isNaN(g)&&g!=+p.tdc_grade){ p.tdc_grade=''+g; _pv=true; } });
     if(_pv) pool.sort((a,b)=>(parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0));
   }

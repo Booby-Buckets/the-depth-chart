@@ -556,6 +556,7 @@ async function loadData(){
     // Attach team info to each player
     const teamMap = {};
     allTeams.forEach(t => teamMap[t.name] = t);
+    if(window.TDCProjGrade && TDCProjGrade.ready){ try{ await TDCProjGrade.ready; }catch(e){} }   // v5 model data (level/dev)
     allPlayers = allRaw.filter(p => p.name && p.name !== '—').map(p => {
       const cw = (p.espn_id!=null && carryWA.has(String(p.espn_id))) ? carryWA.get(String(p.espn_id)) : null;
       // Displayed OVR override: a freshman's editor OVR (single source of truth) if the
@@ -564,7 +565,7 @@ async function loadData(){
       let ovr = null;
       const fp = (window.TDCFresh && TDCFresh.profileFor) ? TDCFresh.profileFor({team:p.team, name:p.name}) : null;
       if(fp && fp.ovr!=null){ ovr = Math.round(parseFloat(fp.ovr)); }
-      else if(window.TDCProjGrade){ const g = TDCProjGrade.grade(p); if(g!=null && !isNaN(g)) ovr = g; }
+      else if(window.TDCProjGrade && TDCProjGrade.gradeSolo){ const g = TDCProjGrade.gradeSolo(p); if(g!=null && !isNaN(g)) ovr = g; }
       return {
         ...p,
         season_year: 2027, _hist: false,
