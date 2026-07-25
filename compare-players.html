@@ -66,6 +66,9 @@
     .sel-name{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;margin-bottom:3px;}
     .sel-meta{font-size:12px;color:var(--text3);}
     .sel-meta strong{color:var(--text2);}
+    .sel-season-lbl{display:inline-flex;align-items:center;gap:7px;margin-top:9px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .sel-season{font-family:inherit;font-size:12px;font-weight:600;color:var(--text);background:var(--bg2);border:1px solid var(--border2);border-radius:7px;padding:5px 26px 5px 9px;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;}
+    .sel-season:hover{border-color:var(--accent);}
     .clear-btn{font-size:11px;font-weight:700;color:var(--text3);background:none;border:none;cursor:pointer;margin-left:8px;}
     .clear-btn:hover{color:var(--red);}
 
@@ -540,7 +543,7 @@ async function onSearch(slot, query){
     },280);
   }
 }
-let _teamHistResults={}, _tHistTimer=null, _teamSeasonList={}, _lastTeamQuery={}, _programList={};
+let _teamHistResults={}, _tHistTimer=null, _teamSeasonList={}, _lastTeamQuery={}, _programList={}, _teamSel={};
 function _tsLbl(yr){ return `${yr-1}-${(''+yr).slice(2)}`; }
 // which current short name "owns" a full historical name — the longest current
 // name that is the full name exactly or a word-prefix of it ("Michigan State"
@@ -570,9 +573,7 @@ function _searchKey(ev, slot){
   if(!dd||!dd.classList.contains('show')) return;
   ev.preventDefault();
   if(mode==='teams'){
-    if(dd.querySelector('.dd-section')){ const s=dd.querySelector('.dropdown-item'); if(s) s.click(); return; }
-    const prog=(_programList[slot]||[])[0];
-    if(prog){ if(prog.current){ pick(slot,'t',prog.name); } else { showTeamSeasons(slot,0); } }
+    if((_programList[slot]||[]).length) showTeamSeasons(slot,0);   // selects the top team (current season)
   } else {
     const item=dd.querySelector('.dropdown-item'); if(item) item.click();
   }
@@ -589,17 +590,17 @@ function _renderTeamPrograms(slot, progs, dd){
   }).join('');
   dd.classList.add('show');
 }
-// STAGE 2 — every season on file for the picked program (2026-27 first, then history).
+// STAGE 2 — clicking a team SELECTS it immediately (current 2026-27 by default),
+// and the selected card gets a season dropdown to switch to any past year.
 async function showTeamSeasons(slot, idx){
   const prog=(_programList[slot]||[])[idx]; if(!prog) return;
-  const dd=document.getElementById('dropdown'+slot), input=document.getElementById('si'+slot);
+  const dd=document.getElementById('dropdown'+slot), input=document.getElementById('si'+slot), selEl=document.getElementById('selected'+slot);
   input.value=prog.name;
-  dd.innerHTML=`<div class="dd-back" onclick="backToTeams(${slot})">‹ All teams</div>`
-    +`<div class="dd-section">${prog.name} · loading seasons…</div>`;
-  dd.classList.add('show');
+  dd.classList.remove('show');
+  selEl.style.display='block';
+  selEl.innerHTML=`<div style="padding:10px 2px;color:var(--text3);font-size:12px;">Loading ${prog.name}…</div>`;
   const cur=prog.current?(teams.find(t=>t.name===prog.name)||null):null;
-  // history keys on the full name ("Michigan Wolverines"); resolve it now if the
-  // async pass hasn't yet (full still equals the short name for a current program)
+  // history keys on the full name ("Michigan Wolverines"); resolve if not yet done
   let full=prog.full;
   if(prog.current && full===prog.name){ full=await _resolveFullName(prog.name); prog.full=full; }
   let hist=[];
@@ -608,16 +609,35 @@ async function showTeamSeasons(slot, idx){
     if(r.ok){ const d=await r.json(); const seen=new Set();
       (d||[]).forEach(h=>{ if(seen.has(h.season_year))return; seen.add(h.season_year); hist.push({...h,name:h.team,conf:h.conference,_isHistory:true}); }); }
   }catch(e){}
-  _teamSeasonList[slot]=hist;
-  const escName=(prog.name+'').replace(/'/g,"\\'");
-  let html=`<div class="dd-back" onclick="backToTeams(${slot})">‹ All teams</div>`
-    +`<div class="dd-section">${prog.name} · pick a season</div>`;
-  if(cur) html+=`<div class="dropdown-item" onclick="pick(${slot},'t','${escName}')"><span>2026-27</span>`
-    +`<span class="dropdown-team" style="color:var(--accent);">Projected · ${cur.conf||cur.conference||'—'}</span></div>`;
-  html+=hist.map((h,i)=>`<div class="dropdown-item" onclick="pickTeamSeason(${slot},${i})"><span>${_tsLbl(h.season_year)}</span>`
-    +`<span class="dropdown-team" style="color:#5b9d8f;">${h.wins||0}-${h.losses||0}${h.postseason?' · '+h.postseason:''}</span></div>`).join('');
-  if(!cur&&!hist.length) html+=`<div class="dropdown-item" style="color:var(--text3);">No seasons on file.</div>`;
-  dd.innerHTML=html;
+  _teamSel[slot]={ name:prog.name, cur:cur, full:full, seasons:hist, picked: cur?'cur':(hist[0]?String(hist[0].season_year):null) };
+  _applyTeamSelection(slot);   // selects the team + renders the card with a season dropdown
+}
+// apply the currently-picked season for a slot and render the selected card
+function _applyTeamSelection(slot){
+  const st=_teamSel[slot]; if(!st) return;
+  if(st.picked==='cur' && st.cur){ sel.teams[slot-1]=st.cur; }
+  else { const h=st.seasons.find(s=>String(s.season_year)===String(st.picked)); if(h) sel.teams[slot-1]=h; }
+  _renderSelectedTeam(slot);
+  maybeRender();
+}
+function _selectTeamSeason(slot, val){ const st=_teamSel[slot]; if(!st) return; st.picked=val; _applyTeamSelection(slot); }
+function _renderSelectedTeam(slot){
+  const st=_teamSel[slot], selEl=document.getElementById('selected'+slot); if(!st||!selEl) return;
+  const color=readableCol(teamColorFor(st.name)||'#5b9d8f');
+  let opts='';
+  if(st.cur) opts+=`<option value="cur"${st.picked==='cur'?' selected':''}>2026-27 · Projected</option>`;
+  opts+=st.seasons.map(h=>`<option value="${h.season_year}"${String(st.picked)===String(h.season_year)?' selected':''}>${_tsLbl(h.season_year)} · ${h.wins||0}-${h.losses||0}${h.postseason?' · '+h.postseason:''}</option>`).join('');
+  let meta;
+  if(st.picked==='cur' && st.cur){ meta=`<span style="color:var(--accent);font-weight:700;">2026-27 Projected</span> · ${st.cur.conf||st.cur.conference||'—'}`; }
+  else { const h=st.seasons.find(s=>String(s.season_year)===String(st.picked));
+    meta=h?`<span style="color:#5b9d8f;font-weight:700;">${_tsLbl(h.season_year)}</span> · <strong style="color:${color};">${h.wins||0}-${h.losses||0}</strong> · ${h.conference||'—'}${h.postseason?' · '+h.postseason:''}`:'—'; }
+  const nOpts=(st.cur?1:0)+st.seasons.length;
+  selEl.style.display='block';
+  selEl.innerHTML=`<div style="border-left:3px solid ${color};padding-left:10px;margin-top:8px;">
+    <div class="sel-name">${st.name}</div>
+    <div class="sel-meta">${meta}</div>
+    ${nOpts>1?`<label class="sel-season-lbl">Season <select class="sel-season" onchange="_selectTeamSeason(${slot},this.value)">${opts}</select></label>`:''}
+  </div><button class="clear-btn" onclick="clearPick(${slot})">✕ Clear</button>`;
 }
 function backToTeams(slot){
   const input=document.getElementById('si'+slot), q=_lastTeamQuery[slot]||input.value;
@@ -720,6 +740,7 @@ function pick(slot, type, key){
 }
 function clearPick(slot){
   sel[mode==='players'?'players':'teams'][slot-1]=null;
+  _teamSel[slot]=null;
   document.getElementById('selected'+slot).style.display='none';
   document.getElementById('si'+slot).value='';
   document.getElementById('compareSection').classList.remove('show');
