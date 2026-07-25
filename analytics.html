@@ -291,6 +291,10 @@ const H   = {apikey:KEY, Authorization:`Bearer ${KEY}`};
 // k=field key, l=label, g=group, d=decimals, pct=stored as fraction(.653)→%, suf=suffix, inv=lower is better
 const STATS = [
   {k:'grade',   l:'TDC',     g:'Impact',      d:0},
+  {k:'svoe',    l:'SVOE',    g:'Signature',   d:2},
+  {k:'lq',      l:'Look Q',  g:'Signature',   d:1, suf:'%'},
+  {k:'smAdj',   l:'SM+',     g:'Signature',   d:1},
+  {k:'selfCr',  l:'Self-Cr', g:'Signature',   d:1, suf:'%'},
   {k:'wa',      l:'WA',      g:'Impact',      d:1},
   {k:'bpm',     l:'BPM',     g:'Impact',      d:1},
   {k:'obpm',    l:'OBPM',    g:'Impact',      d:1},
@@ -330,7 +334,7 @@ const STATS = [
 ];
 const SMAP = {}; STATS.forEach(s=>SMAP[s.k]=s);
 // columns shown in the leaderboard table (in order)
-const TABLE_KEYS = ['gp','mpg','pts','pts40','ts','efg','usg','ast','ast_pct','tov_pct','trb','trb_pct','stl_pct','blk_pct','obpm','dbpm','bpm','ws','wa','per','grade'];
+const TABLE_KEYS = ['grade','svoe','lq','smAdj','selfCr','gp','mpg','pts','pts40','ts','efg','usg','ast','ast_pct','tov_pct','trb','trb_pct','stl_pct','blk_pct','obpm','dbpm','bpm','ws','wa','per'];
 // headline leader cards
 const LEADER_KEYS = ['wa','bpm','ws','per','ts','usg','ast_pct','trb_pct'];
 
@@ -350,9 +354,20 @@ function htIn(h){ if(!h) return null; var m=(''+h).split('-'); return m.length==
 function posGroup(pos,ht){ return tdcPosGroup(pos,ht); }   // shared canonical (tdc-pos.js)
 function seasonLbl(y){ if(y==='all') return 'All seasons (2007–26)'; var n=+y; return (n-1)+'–'+(''+n).slice(2); }
 
+// Shot Genome (Look Quality / SM+ / Self-Created) is a 2025-26-only dataset keyed
+// by espn_id; SVOE is derived from it. Loaded once, merged into that season's rows.
+let _GEN={}, _genLoaded=false;
+async function _ensureGenome(){
+  if(_genLoaded) return _GEN;
+  try{ var j=await fetch('scripts/data/shot_genome_players.json').then(function(r){return r.ok?r.json():null;});
+    if(j&&j.players) j.players.forEach(function(p){ if(p.espn_id!=null) _GEN[p.espn_id]=p; });
+  }catch(e){}
+  _genLoaded=true; return _GEN;
+}
 function flatten(r){
   var pg=r.pergame||{}, p4=r.per40||{}, a=r.advanced||{};
   var ht=htIn(r.height), mp=num(a.mp), ws=num(a.ws);
+  var gen=(String(r.season_year)==='2026' && r.espn_id!=null)?_GEN[r.espn_id]:null;
   return {
     name:r.player, school:r.school, espn_id:r.espn_id, pos:r.pos, ht:r.height,
     posg:posGroup(r.pos,ht), season:r.season_year, grade:num(r.tdc_grade),
@@ -367,6 +382,8 @@ function flatten(r){
     usg:num(a.usg_pct), ts:num(a.ts_pct), ast_pct:num(a.ast_pct), trb_pct:num(a.trb_pct),
     orb_pct:num(a.orb_pct), drb_pct:num(a.drb_pct), stl_pct:num(a.stl_pct), blk_pct:num(a.blk_pct), tov_pct:num(a.tov_pct),
     ftr:num(a.fta_per_fga_pct), tpar:num(a.fg3a_per_fga_pct),
+    lq: gen?num(gen.lq):null, smAdj: gen?num(gen.smAdj):null, selfCr: gen?num(gen.selfPct):null,
+    svoe: (gen&&gen.lq!=null&&gen.efg!=null)? +((2*(gen.efg-gen.lq)/100).toFixed(2)) : null,
     wa:(ws!=null&&mp!=null)?(ws-0.04*(mp/40)):null
   };
 }
@@ -378,6 +395,7 @@ function fmt(v,st){
 // percentile colour class (reuses c1–c4 from the table sheet)
 function lowerBound(arr,v){ var lo=0,hi=arr.length; while(lo<hi){var m=(lo+hi)>>1; if(arr[m]<v) lo=m+1; else hi=m;} return lo; }
 function pctRank(key,v){ var arr=PCT[key]; if(!arr||!arr.length||v===null) return null; var r=lowerBound(arr,v); return arr.length>1 ? r/(arr.length-1) : 1; }
+function _gradeCol(v){ v=+v; return v>=90?'#5ab875':v>=82?'var(--accent)':v>=74?'var(--text)':'var(--text2)'; }
 function colorCls(key,v){
   var st=SMAP[key]; var p=pctRank(key,v); if(p===null) return 'c0';
   if(st.inv) p=1-p;
@@ -387,6 +405,7 @@ function colorCls(key,v){
 // ── Data loading ────────────────────────────────────────────────
 async function loadSeason(key){
   if(_cache[key]) return _cache[key];
+  await _ensureGenome();   // so the 2025-26 Signature stats are merged in during flatten
   var L=document.getElementById('loadingMsg'), P=document.getElementById('progressFill');
   var base=SB+'/rest/v1/bbref_seasons?select=player,school,pos,height,season_year,tdc_grade,espn_id,pergame,per40,advanced';
 
@@ -513,7 +532,7 @@ function renderTable(){
     TABLE_KEYS.forEach(k=>{
       var s=SMAP[k], v=r[k];
       var cls = (k==='grade'||k==='gp') ? 'c0' : colorCls(k,v);
-      var disp = (k==='grade') ? (v!=null?'<span class="grade-pill" style="color:var(--accent)">'+v.toFixed(0)+'</span>':'—') : fmt(v,s);
+      var disp = (k==='grade') ? (v!=null?'<span class="grade-pill" style="color:'+_gradeCol(v)+'">'+v.toFixed(0)+'</span>':'—') : fmt(v,s);
       body+='<td class="'+cls+'">'+disp+'</td>';
     });
     body+='</tr>';
