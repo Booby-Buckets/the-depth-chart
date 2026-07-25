@@ -60,6 +60,8 @@
     th:first-child,th:nth-child(2){text-align:left;padding-left:40px;}
     th:hover{color:var(--text);}
     th.sorted{color:var(--accent);}
+    th.has-tip{text-decoration:underline dotted var(--border2);text-underline-offset:4px;text-decoration-thickness:1px;}
+    th.has-tip:hover{text-decoration-color:var(--accent);}
     th .sort-arrow{display:inline-block;margin-left:3px;opacity:0.4;font-size:9px;}
     th.sorted .sort-arrow{opacity:1;color:var(--accent);}
     tbody tr{border-bottom:1px solid var(--border);}
@@ -290,51 +292,51 @@ const H   = {apikey:KEY, Authorization:`Bearer ${KEY}`};
 // ── Stat catalog ────────────────────────────────────────────────
 // k=field key, l=label, g=group, d=decimals, pct=stored as fraction(.653)→%, suf=suffix, inv=lower is better
 const STATS = [
-  {k:'grade',   l:'TDC',     g:'Impact',      d:0},
-  {k:'svoe',    l:'SVOE',    g:'Signature',   d:2},
-  {k:'lq',      l:'Look Q',  g:'Signature',   d:1, suf:'%'},
-  {k:'smAdj',   l:'SM+',     g:'Signature',   d:1},
-  {k:'selfCr',  l:'Self-Cr', g:'Signature',   d:1, suf:'%'},
-  {k:'wa',      l:'WA',      g:'Impact',      d:1},
-  {k:'bpm',     l:'BPM',     g:'Impact',      d:1},
-  {k:'obpm',    l:'OBPM',    g:'Impact',      d:1},
-  {k:'dbpm',    l:'DBPM',    g:'Impact',      d:1},
-  {k:'ws',      l:'WS',      g:'Impact',      d:1},
-  {k:'ows',     l:'OWS',     g:'Impact',      d:1},
-  {k:'dws',     l:'DWS',     g:'Impact',      d:1},
-  {k:'ws40',    l:'WS/40',   g:'Impact',      d:3},
-  {k:'per',     l:'PER',     g:'Impact',      d:1},
-  {k:'pprod',   l:'Pts Prod',g:'Impact',      d:0},
-  {k:'pts',     l:'PPG',     g:'Scoring',     d:1},
-  {k:'pts40',   l:'PTS/40',  g:'Scoring',     d:1},
-  {k:'ts',      l:'TS%',     g:'Scoring',     d:1, pct:true},
-  {k:'efg',     l:'eFG%',    g:'Scoring',     d:1, pct:true},
-  {k:'fg',      l:'FG%',     g:'Scoring',     d:1, pct:true},
-  {k:'fg3',     l:'3P%',     g:'Scoring',     d:1, pct:true},
-  {k:'ft',      l:'FT%',     g:'Scoring',     d:1, pct:true},
-  {k:'usg',     l:'USG%',    g:'Scoring',     d:1, suf:'%'},
-  {k:'tpar',    l:'3PAr',    g:'Scoring',     d:2},
-  {k:'ftr',     l:'FTr',     g:'Scoring',     d:2},
-  {k:'ast',     l:'APG',     g:'Playmaking',  d:1},
-  {k:'ast40',   l:'AST/40',  g:'Playmaking',  d:1},
-  {k:'ast_pct', l:'AST%',    g:'Playmaking',  d:1, suf:'%'},
-  {k:'tov',     l:'TOV',     g:'Playmaking',  d:1, inv:true},
-  {k:'tov_pct', l:'TOV%',    g:'Playmaking',  d:1, suf:'%', inv:true},
-  {k:'trb',     l:'RPG',     g:'Rebounding',  d:1},
-  {k:'trb40',   l:'TRB/40',  g:'Rebounding',  d:1},
-  {k:'trb_pct', l:'TRB%',    g:'Rebounding',  d:1, suf:'%'},
-  {k:'orb_pct', l:'ORB%',    g:'Rebounding',  d:1, suf:'%'},
-  {k:'drb_pct', l:'DRB%',    g:'Rebounding',  d:1, suf:'%'},
-  {k:'stl',     l:'STL',     g:'Defense',     d:1},
-  {k:'blk',     l:'BLK',     g:'Defense',     d:1},
-  {k:'stl_pct', l:'STL%',    g:'Defense',     d:1, suf:'%'},
-  {k:'blk_pct', l:'BLK%',    g:'Defense',     d:1, suf:'%'},
-  {k:'mpg',     l:'MPG',     g:'Misc',        d:1},
-  {k:'gp',      l:'GP',      g:'Misc',        d:0},
+  {k:'grade',   l:'TDC',     g:'Impact',      d:0, desc:"The Depth Chart overall grade — our model's all-in-one player rating."},
+  {k:'pts',     l:'PPG',     g:'Scoring',     d:1, desc:'Points per game.'},
+  {k:'trb',     l:'RPG',     g:'Rebounding',  d:1, desc:'Total rebounds per game.'},
+  {k:'ast',     l:'APG',     g:'Playmaking',  d:1, desc:'Assists per game.'},
+  {k:'mpg',     l:'MPG',     g:'Misc',        d:1, desc:'Minutes played per game.'},
+  {k:'gp',      l:'GP',      g:'Misc',        d:0, desc:'Games played this season.'},
+  {k:'pts40',   l:'PTS/40',  g:'Scoring',     d:1, desc:'Points per 40 minutes — pace-neutral scoring rate.'},
+  {k:'ts',      l:'TS%',     g:'Scoring',     d:1, pct:true, desc:'True Shooting % — scoring efficiency counting 2s, 3s and free throws.'},
+  {k:'efg',     l:'eFG%',    g:'Scoring',     d:1, pct:true, desc:'Effective FG% — field-goal % that credits 3-pointers for the extra point.'},
+  {k:'fg',      l:'FG%',     g:'Scoring',     d:1, pct:true, desc:'Field-goal percentage.'},
+  {k:'fg3',     l:'3P%',     g:'Scoring',     d:1, pct:true, desc:'Three-point percentage.'},
+  {k:'ft',      l:'FT%',     g:'Scoring',     d:1, pct:true, desc:'Free-throw percentage.'},
+  {k:'usg',     l:'USG%',    g:'Scoring',     d:1, suf:'%', desc:'Usage rate — share of team possessions a player finishes while on the floor.'},
+  {k:'tpar',    l:'3PAr',    g:'Scoring',     d:2, desc:'3-Point Attempt Rate — share of field-goal attempts that are threes.'},
+  {k:'ftr',     l:'FTr',     g:'Scoring',     d:2, desc:'Free-Throw Rate — free-throw attempts per field-goal attempt.'},
+  {k:'ast_pct', l:'AST%',    g:'Playmaking',  d:1, suf:'%', desc:"Assist rate — share of teammates' made field goals a player assisted while on the floor."},
+  {k:'ast40',   l:'AST/40',  g:'Playmaking',  d:1, desc:'Assists per 40 minutes.'},
+  {k:'tov',     l:'TOV',     g:'Playmaking',  d:1, inv:true, desc:'Turnovers per game (lower is better).'},
+  {k:'tov_pct', l:'TOV%',    g:'Playmaking',  d:1, suf:'%', inv:true, desc:'Turnover rate — turnovers per 100 possessions used (lower is better).'},
+  {k:'trb40',   l:'TRB/40',  g:'Rebounding',  d:1, desc:'Rebounds per 40 minutes.'},
+  {k:'trb_pct', l:'TRB%',    g:'Rebounding',  d:1, suf:'%', desc:'Rebound rate — share of available rebounds a player grabs while on the floor.'},
+  {k:'orb_pct', l:'ORB%',    g:'Rebounding',  d:1, suf:'%', desc:'Offensive rebound rate — share of available offensive rebounds grabbed.'},
+  {k:'drb_pct', l:'DRB%',    g:'Rebounding',  d:1, suf:'%', desc:'Defensive rebound rate — share of available defensive rebounds grabbed.'},
+  {k:'stl',     l:'STL',     g:'Defense',     d:1, desc:'Steals per game.'},
+  {k:'blk',     l:'BLK',     g:'Defense',     d:1, desc:'Blocks per game.'},
+  {k:'stl_pct', l:'STL%',    g:'Defense',     d:1, suf:'%', desc:"Steal rate — share of opponent possessions a player ends with a steal."},
+  {k:'blk_pct', l:'BLK%',    g:'Defense',     d:1, suf:'%', desc:"Block rate — share of opponent 2-point shots a player blocks."},
+  {k:'obpm',    l:'OBPM',    g:'Impact',      d:1, desc:'Offensive Box Plus/Minus — offensive points per 100 possessions above an average player.'},
+  {k:'dbpm',    l:'DBPM',    g:'Impact',      d:1, desc:'Defensive Box Plus/Minus — defensive points per 100 possessions above average.'},
+  {k:'bpm',     l:'BPM',     g:'Impact',      d:1, desc:'Box Plus/Minus — total points per 100 possessions a player adds above average.'},
+  {k:'ws',      l:'WS',      g:'Impact',      d:1, desc:'Win Shares — estimated wins a player produced.'},
+  {k:'ows',     l:'OWS',     g:'Impact',      d:1, desc:'Offensive Win Shares — wins produced from offense.'},
+  {k:'dws',     l:'DWS',     g:'Impact',      d:1, desc:'Defensive Win Shares — wins produced from defense.'},
+  {k:'ws40',    l:'WS/40',   g:'Impact',      d:3, desc:'Win Shares per 40 minutes — rate version of Win Shares.'},
+  {k:'wa',      l:'WA',      g:'Impact',      d:1, desc:'Wins Added — wins contributed above a replacement-level player.'},
+  {k:'per',     l:'PER',     g:'Impact',      d:1, desc:'Player Efficiency Rating — per-minute production; league average is 15.'},
+  {k:'pprod',   l:'Pts Prod',g:'Impact',      d:0, desc:'Points Produced — total points a player is estimated to create (scoring + assists).'},
+  {k:'svoe',    l:'SVOE',    g:'Signature',   d:2, desc:'Shot Value Over Expected — points per shot above what the shot diet predicts (actual vs expected eFG). An original TDC stat.'},
+  {k:'lq',      l:'Look Q',  g:'Signature',   d:1, suf:'%', desc:'Look Quality — the eFG% a league-average shooter would post on this player’s exact shot diet. An original TDC stat.'},
+  {k:'smAdj',   l:'SM+',     g:'Signature',   d:1, desc:'Shot-Making (SM+) — points added over an average shooter from the same spots. Pure finishing skill; an original TDC stat.'},
+  {k:'selfCr',  l:'Self-Cr', g:'Signature',   d:1, suf:'%', desc:'Self-Created Share — share of a player’s made shots that were unassisted (created for himself). An original TDC stat.'},
 ];
 const SMAP = {}; STATS.forEach(s=>SMAP[s.k]=s);
 // columns shown in the leaderboard table (in order)
-const TABLE_KEYS = ['grade','svoe','lq','smAdj','selfCr','gp','mpg','pts','pts40','ts','efg','usg','ast','ast_pct','tov_pct','trb','trb_pct','stl_pct','blk_pct','obpm','dbpm','bpm','ws','wa','per'];
+const TABLE_KEYS = ['grade','pts','trb','ast','mpg','gp','pts40','ts','efg','usg','ast_pct','tov_pct','trb_pct','stl_pct','blk_pct','obpm','dbpm','bpm','ws','wa','per','svoe','lq','smAdj','selfCr'];
 // headline leader cards
 const LEADER_KEYS = ['wa','bpm','ws','per','ts','usg','ast_pct','trb_pct'];
 
@@ -518,7 +520,8 @@ function renderTable(){
   // header
   var allSeasons = CUR_SEASON==='all';
   var th='<tr><th>#</th><th>Player</th>'+(allSeasons?'<th style="text-align:left">Yr</th>':'')+'<th style="text-align:left;cursor:default">Pos</th>';
-  TABLE_KEYS.forEach(k=>{ var s=SMAP[k]; th+='<th class="'+(k===sortKey?'sorted':'')+'" onclick="sortBy(\''+k+'\')" title="'+s.g+'">'+s.l+'<span class="sort-arrow">'+(k===sortKey?(sortAsc?'▲':'▼'):'⇅')+'</span></th>'; });
+  TABLE_KEYS.forEach(k=>{ var s=SMAP[k]; var tip=(s.desc||s.g).replace(/"/g,'&quot;');
+    th+='<th class="'+(k===sortKey?'sorted':'')+' has-tip" onclick="sortBy(\''+k+'\')" title="'+tip+'">'+s.l+'<span class="sort-arrow">'+(k===sortKey?(sortAsc?'▲':'▼'):'⇅')+'</span></th>'; });
   th+='</tr>';
   document.getElementById('thead').innerHTML=th;
   // body
