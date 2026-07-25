@@ -906,7 +906,16 @@
   }
   /* ---- ≤640px: rows become compact cards; the wide table doesn't fit a phone ---- */
   @media(max-width:640px){
-    .table-header { display:none; }
+    /* Keep a compact column header on phones (RK / TEAM / PWR / TREND) instead of
+       dropping it entirely — same 4-col grid as the rows so the labels line up. */
+    .table-header { display:grid !important; grid-template-columns:26px 1fr 54px auto !important; column-gap:10px; padding:9px 2px; }
+    .table-header .th { display:none !important; }        /* beat tdc-dense.css .table-header .th{display:flex} */
+    .table-header .th:nth-child(1),
+    .table-header .th:nth-child(2),
+    .table-header .th:nth-child(3),
+    .table-header .th:nth-child(4) { display:flex !important; font-size:9px !important; letter-spacing:.06em; }
+    .table-header .th:nth-child(3) { justify-content:flex-end !important; white-space:nowrap; }
+    .table-header .th:nth-child(4) { justify-content:center !important; white-space:nowrap; overflow:hidden; font-size:8px !important; }
     .team-row,.skeleton-row { grid-template-columns:26px 1fr 54px auto; column-gap:10px; padding:11px 2px; align-items:center; }
     .th,.tr-grade,.tr-sparkline,.tr-margin,.tr-stat { display:none; }
     .tr-team-cell { display:flex; align-items:center; gap:8px; min-width:0; overflow:hidden; }
