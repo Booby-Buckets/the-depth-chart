@@ -101,6 +101,7 @@
     .chart-legend{display:flex;gap:18px;justify-content:center;margin-top:10px;font-size:11px;font-weight:600;color:var(--text3);}
     .chart-legend span{display:inline-flex;align-items:center;gap:6px;}
     .chart-legend i{width:11px;height:11px;border-radius:2px;}
+    .chart-legend .cl-logo{width:18px;height:18px;object-fit:contain;}
     /* PROJECTED OUTLOOK */
     .ol-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0 26px;}
     .ol-card{border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
@@ -412,11 +413,19 @@ function readableCol(hex){
   if(m.length!==6) return hex||'#888';
   let r=parseInt(m.slice(0,2),16), g=parseInt(m.slice(2,4),16), b=parseInt(m.slice(4,6),16);
   if(isNaN(r)||isNaN(g)||isNaN(b)) return hex;
-  const lum=0.2126*r+0.7152*g+0.0722*b, MIN=150;
-  if(lum>=MIN) return hex;
-  const t=Math.min(0.72,(MIN-lum)/MIN);
-  const h=v=>Math.round(v).toString(16).padStart(2,'0');
-  return '#'+h(r+(255-r)*t)+h(g+(255-g)*t)+h(b+(255-b)*t);
+  const lum=0.2126*r+0.7152*g+0.0722*b; if(lum>=150) return hex;
+  // Lighten in HSL (raise lightness, keep hue + saturation) so a dark brand color
+  // becomes a recognizable lighter version of itself — navy → periwinkle, red →
+  // bright red — instead of washing toward a desaturated gray/pink.
+  r/=255; g/=255; b/=255;
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b); let h=0, s=0, l=(mx+mn)/2;
+  if(mx!==mn){ const d=mx-mn; s=l>0.5?d/(2-mx-mn):d/(mx+mn);
+    h = mx===r ? (g-b)/d+(g<b?6:0) : mx===g ? (b-r)/d+2 : (r-g)/d+4; h/=6; }
+  l=Math.max(l,0.64); s=Math.max(s,0.45);
+  const hue2rgb=(p,q,t)=>{ if(t<0)t+=1; if(t>1)t-=1; if(t<1/6)return p+(q-p)*6*t; if(t<1/2)return q; if(t<2/3)return p+(q-p)*(2/3-t)*6; return p; };
+  const q=l<0.5?l*(1+s):l+s-l*s, p=2*l-q;
+  const hx=v=>Math.round(hue2rgb(p,q,v)*255).toString(16).padStart(2,'0');
+  return '#'+hx(h+1/3)+hx(h)+hx(h-1/3);
 }
 
 // ── archetype + role ──
@@ -683,6 +692,11 @@ function _lnorm(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[̀-�
 function _logoFor(name){ const M=window.TDC_TEAM_COLORS||{}; let t=M[_lnorm(name)]||M[(name||'').toLowerCase()];
   if(!t){ const n=_lnorm(name); for(const k in M){ if(n.indexOf(k)===0||k.indexOf(n)===0){ t=M[k]; break; } } }
   return (t&&t.logo)||''; }
+// chart legend entry: team logo (falls back to a color chip) + name in team color
+function _legendChip(name, color, suffix){
+  const logo=_logoFor(name);
+  return '<span>'+(logo?`<img class="cl-logo" src="${logo}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('i'),{style:'background:${color}'}))">`:`<i style="background:${color}"></i>`)+`<b style="color:${color};font-weight:700;">${name}${suffix||''}</b></span>`;
+}
 // color lookup that survives full names — teams keys are short ("Duke"),
 // team_seasons names are full ("Duke Blue Devils"): longest matching prefix wins
 function teamColorFor(name){
@@ -2074,16 +2088,16 @@ async function renderTeams(){
     <div class="chart-grid">
       <div class="chart-card"><div class="chart-title">Season Profile · Percentile vs own season's D1</div>
         <div class="chart-box"><canvas id="tsRadar"></canvas></div>
-        <div class="chart-legend"><span><i style="background:${c1}"></i>${t1.name}${sameYear?'':' · '+yl1}</span><span><i style="background:${c2}"></i>${t2.name}${sameYear?'':' · '+yl2}</span></div>
+        <div class="chart-legend">${_legendChip(t1.name,c1,sameYear?'':' · '+yl1)}${_legendChip(t2.name,c2,sameYear?'':' · '+yl2)}</div>
       </div>
       <div class="chart-card"><div class="chart-title">Offense vs Defense · vs D1${sameYear?` (${yl1})`:''}</div>
         <div class="chart-box"><canvas id="tsScatter"></canvas></div>
-        <div class="chart-legend"><span><i style="background:${c1}"></i>${t1.name}</span><span><i style="background:${c2}"></i>${t2.name}</span><span><i style="background:var(--text3)"></i>D1 field</span></div>
+        <div class="chart-legend">${_legendChip(t1.name,c1)}${_legendChip(t2.name,c2)}<span><i style="background:var(--text3)"></i>D1 field</span></div>
       </div>
     </div>
     <div class="chart-card full" style="margin-bottom:26px;"><div class="chart-title">Program Trajectory · SRS by season (picked seasons highlighted)</div>
       <div class="chart-box short"><canvas id="tsTraj"></canvas></div>
-      <div class="chart-legend"><span><i style="background:${c1}"></i>${s1?s1.team:t1.name}</span><span><i style="background:${c2}"></i>${s2?s2.team:t2.name}</span></div>
+      <div class="chart-legend">${_legendChip(s1?s1.team:t1.name,c1)}${_legendChip(s2?s2.team:t2.name,c2)}</div>
     </div>
 
     <div class="compare-section-head">${statHead}</div>
@@ -2156,11 +2170,11 @@ async function renderTeams(){
     <div class="chart-grid">
       <div class="chart-card"><div class="chart-title">2026-27 Projected Profile · Percentiles</div>
         <div class="chart-box"><canvas id="tRadar"></canvas></div>
-        <div class="chart-legend"><span><i style="background:${c1}"></i>${t1.name}</span><span><i style="background:${c2}"></i>${t2.name}</span></div>
+        <div class="chart-legend">${_legendChip(t1.name,c1)}${_legendChip(t2.name,c2)}</div>
       </div>
       <div class="chart-card"><div class="chart-title">Projected Stat Percentiles</div>
         <div class="chart-box"><canvas id="tBar"></canvas></div>
-        <div class="chart-legend"><span><i style="background:${c1}"></i>${t1.name}</span><span><i style="background:${c2}"></i>${t2.name}</span></div>
+        <div class="chart-legend">${_legendChip(t1.name,c1)}${_legendChip(t2.name,c2)}</div>
       </div>
     </div>
     <div class="chart-card full" style="margin-bottom:26px;"><div class="chart-title">Strengths &amp; Weaknesses · vs all D1 teams</div>
