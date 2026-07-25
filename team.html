@@ -13,7 +13,7 @@
   <script src="tdc-proj.js?v=coach3"></script>
   <script src="tdc-freshman.js?v=pub4"></script>
   <script src="tdc-ratings.js?v=1"></script>
-  <script src="tdc-projgrade.js?v=6"></script>
+  <script src="tdc-projgrade.js?v=7"></script>
   <script src="tdc-pool.js?v=1"></script>
   <script src="tdc-glossary.js?v=4"></script>
   <style>
@@ -1346,16 +1346,29 @@ async function loadTeam(name){
     // loaded later, so the depth chart missed editor OVRs — e.g. a freshman showed
     // his DB grade instead of the editor OVR).
     if(window.TDCFresh && TDCFresh.load){ try{ await TDCFresh.load(); }catch(e){} }
+    // Projection model v5: minutes + OVR come from the whole-roster rotation model (no
+    // manual depth chart). A freshman's editor OVR feeds in as his quality prior; his
+    // displayed OVR stays the owner's editor value, but the model still gives him minutes.
+    const _fpOf = p => (window.TDCFresh && TDCFresh.profileFor) ? TDCFresh.profileFor({team:p.team, name:p.name}) : null;
+    if(window.TDCProjGrade && TDCProjGrade.gradeRoster){
+      try{
+        await TDCProjGrade.ready;
+        const rr = players.map(p=>{ const fp=_fpOf(p); const g=(fp&&fp.ovr!=null)?Math.round(parseFloat(fp.ovr)):parseFloat(p.tdc_grade);
+                                    return Object.assign({}, p, {tdc_grade:g}); });
+        const res = TDCProjGrade.gradeRoster(rr);
+        players.forEach((p,i)=>{ if(!res[i]) return; const fp=_fpOf(p);
+          if(res[i].min!=null) p._projMin = res[i].min;
+          p._projGrade = (fp && fp.ovr!=null) ? Math.round(parseFloat(fp.ovr)) : res[i].grade; });
+      }catch(e){}
+    }
+    // The global pool (swap modal / national percentiles) isn't a single roster, so it keeps
+    // the per-row projected grade — approximate, not the rotation-aware team grade.
     if(window.TDCProjGrade || window.TDCFresh){
-      const _stampPG=p=>{ try{
-        if(!p) return;
-        const fp = (window.TDCFresh && TDCFresh.profileFor) ? TDCFresh.profileFor({team:p.team, name:p.name}) : null;
-        if(fp && fp.ovr!=null){ p._projGrade = Math.round(parseFloat(fp.ovr)); return; }   // editor OVR wins
+      allDbPlayers.forEach(p=>{ try{ if(!p||p._projGrade!=null) return;
+        const fp=_fpOf(p); if(fp&&fp.ovr!=null){ p._projGrade=Math.round(parseFloat(fp.ovr)); return; }
         if(window.TDCProjGrade && !(window.TDCFresh&&TDCFresh.isFreshman&&TDCFresh.isFreshman(p))){
-          const g=TDCProjGrade.grade(p); if(g!=null&&!isNaN(g)) p._projGrade=g;
-        }
-      }catch(e){} };
-      players.forEach(_stampPG); allDbPlayers.forEach(_stampPG);
+          const g=TDCProjGrade.grade(p); if(g!=null&&!isNaN(g)) p._projGrade=g; }
+      }catch(e){} });
     }
     // Store globally for projection slider
     teamPlayers=[...players]; teamConf=t.conf||t.conference||''; teamGp=globalPercentiles; teamColor_g=teamColor; teamRgb_g=teamRgb; teamT=t;
@@ -6310,7 +6323,9 @@ function renderHistoricRoster(rows, yr, projected){
   // an OPTIMAL fit that blends stat profile (assists→PG, blocks/rebounds→C) with a
   // height-order term so the tallest starter takes the 5 and the smallest the point — a
   // stretch-five is no longer mistaken for a power forward. Backups fill by minutes.
-  const S=(p,k)=>parseFloat(p[k])||0, H=p=>_htIn(p.height)||78, mpg=p=>S(p,'mpg');
+  const S=(p,k)=>parseFloat(p[k])||0, H=p=>_htIn(p.height)||78;
+  // slot by PROJECTED minutes (rotation model) not last year's — that's the depth-chart bias we're removing
+  const mpg=p=>(p._projMin!=null?p._projMin:S(p,'mpg'));
   const gate=(h,lo,hi)=> h<lo ? (lo-h) : h>hi ? (h-hi) : 0;
   const fit={
     PG:p=> 3.0*S(p,'apg') + 1.4*S(p,'stl') + 0.14*S(p,'ppg') - 2.4*gate(H(p),72,76),
@@ -6348,7 +6363,8 @@ function renderHistoricRoster(rows, yr, projected){
     const head=`<div class="dc-head" style="border-bottom-color:${color};background:rgba(${rgb},.07);">${c.pos}</div>`;
     if(!c.list.length) return `<div class="dc-col">${head}<div class="dc-empty">—</div></div>`;
     const rows=c.list.map((p,i)=>{
-      const mpg=(p.mpg!=null&&p.mpg!==''&&!isNaN(parseFloat(p.mpg)))?num(p.mpg)+'m':'';
+      const _pm=(p._projMin!=null)?p._projMin:parseFloat(p.mpg);   // model-derived projected minutes (2026-27)
+      const mpg=(_pm!=null&&!isNaN(_pm))?num(_pm)+'m':'';
       const bio=[p.yr, p.height, mpg].filter(Boolean).join(' · ');
       const g=_gdisp(p);   // projected OVR for returners (falls back to demonstrated grade for historic seasons)
       const inj=_ltd(p) ? `<span class="dc-inj" title="Played ${parseFloat(p.gp)||0} of ${_teamGp} games — injury-shortened season">${parseFloat(p.gp)||0}/${_teamGp} GP</span>` : '';
