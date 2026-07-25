@@ -956,6 +956,7 @@
     <a href="draft.html">Draft</a>
     <a href="analytics.html">Stats</a>
     <a href="shot-genome.html">Shot Genome</a>
+      <a href="onoff.html">On/Off</a>
     <a href="community.html">Community</a>
     <a href="#" class="active">Teams</a>
     <a href="customize.html">✦ Customize</a>
@@ -994,6 +995,7 @@
   <div class="hero-tabs">
     <button class="hero-tab active" onclick="switchTab('depth',this)">Depth Chart</button>
     <button class="hero-tab" onclick="switchTab('dna',this)">Team DNA</button>
+    <button class="hero-tab" onclick="switchTab('onoff',this)">On/Off</button>
     <button class="hero-tab" onclick="switchTab('customize',this)">✦ Customize</button>
     <button class="hero-tab" onclick="switchTab('losses',this)" style="display:none;">Losses</button>
     <button class="hero-tab" onclick="switchTab('schedule',this)">Schedule</button>
@@ -1140,6 +1142,9 @@
     </div>
     <div class="panel" id="panel-dna">
       <div id="teamDnaHost"><div style="padding:24px;color:var(--text3);">Loading Team DNA…</div></div>
+    </div>
+    <div class="panel" id="panel-onoff">
+      <div id="onoffHost"><div style="padding:24px;color:var(--text3);">Loading On/Off…</div></div>
     </div>
     <div class="panel" id="panel-comments">
       <div class="sec-head">Comments</div>
@@ -4861,6 +4866,54 @@ async function loadTeamShotChart(season){
   }catch(e){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Could not load shot chart.</div>'; }
 }
 
+// ── On/Off (WOWY) — reads scripts/data/player_onoff.json (game-level lineup on/off) ──
+let _onoffData=null;
+async function renderOnOff(){
+  const host=document.getElementById('onoffHost'); if(!host||host._done) return;
+  try{ if(!_onoffData){ const r=await fetch('scripts/data/player_onoff.json'); _onoffData=r.ok?await r.json():{}; } }
+  catch(e){ _onoffData={}; }
+  const seasons=Object.keys(_onoffData||{}).sort().reverse();
+  const nm=s=>(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
+  const short=nm((typeof teamName!=='undefined'&&teamName)||(teamT&&teamT.name)||'');
+  let season=null, rows=[];
+  for(const s of seasons){
+    const cand=(_onoffData[s]||[]).filter(r=>{ const t=nm(r.team); return t===short||t.startsWith(short+' '); });
+    if(cand.length){ season=s; rows=cand; break; }
+  }
+  if(!rows.length){ host.innerHTML='<div style="padding:24px;color:var(--text3);">No on/off data for this team yet — the lineup pipeline is still building (game-level WOWY from NCAA play-by-play).</div>'; host._done=true; return; }
+  rows.sort((a,b)=>((b.onoff_net??-99)-(a.onoff_net??-99)));
+  const f=(v,d)=>v==null?'—':(+v).toFixed(d==null?1:d);
+  const col=v=>v==null?'':(v>0?'#2bb673':v<0?'#e06552':'');
+  const yl=(+season-1)+'-'+(''+season).slice(2);
+  const showPhoto=(window.tdcShowPhotos&&window.tdcShowPhotos());
+  const body=rows.map((r,i)=>{
+    const photo=(showPhoto&&r.espn_id)?('https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+r.espn_id+'.png'):'';
+    return `<tr>
+      <td style="text-align:left;color:var(--text3);">${i+1}</td>
+      <td style="text-align:left;"><a href="player.html?espn=${r.espn_id}" style="color:var(--text);font-weight:700;text-decoration:none;">${r.name||'—'}</a></td>
+      <td>${f(r.on_poss,0)}</td>
+      <td style="font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:${col(r.onoff_net)};">${f(r.onoff_net)}</td>
+      <td style="color:${col(r.on_net)};">${f(r.on_net)}</td>
+      <td style="color:${col(r.off_net)};">${f(r.off_net)}</td>
+      <td>${f(r.on_o)}</td><td>${f(r.on_d)}</td>
+      <td>${f(r.off_o)}</td><td>${f(r.off_d)}</td>
+    </tr>`;
+  }).join('');
+  host.innerHTML=`
+    <div class="sec-head">On/Off &amp; WOWY <span style="color:var(--text3);font-weight:600;font-size:12px;">· ${yl}</span></div>
+    <p style="color:var(--text3);font-size:12.5px;line-height:1.5;max-width:820px;margin:0 0 14px;">How the team scores and defends with each player <b style="color:var(--text2);">on the court vs off it</b>, reconstructed from NCAA play-by-play lineups. <b style="color:var(--text2);">On/Off</b> is the swing in net efficiency (per 100 possessions). Context, not proof — sample size and role matter.</p>
+    <div style="overflow-x:auto;"><table class="sortable-table" style="min-width:760px;">
+      <thead><tr>
+        <th class="left" style="width:28px;"></th><th class="left">Player</th>
+        <th title="Offensive possessions with the player on the floor">On Poss</th>
+        <th title="On-court net minus off-court net, per 100 possessions">On/Off</th>
+        <th title="Team net efficiency with the player ON">On Net</th>
+        <th title="Team net efficiency with the player OFF">Off Net</th>
+        <th title="Points scored per 100, player on">On ORtg</th><th title="Points allowed per 100, player on">On DRtg</th>
+        <th title="Points scored per 100, player off">Off ORtg</th><th title="Points allowed per 100, player off">Off DRtg</th>
+      </tr></thead><tbody>${body}</tbody></table></div>`;
+  host._done=true;
+}
 function switchTab(id, btn){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.hero-tab').forEach(b=>b.classList.remove('active'));
@@ -4868,6 +4921,7 @@ function switchTab(id, btn){
   btn.classList.add('active');
   if(id==='analysis' && !window._teamShotInit){ window._teamShotInit=true; _initTeamShot(); }
   if(id==='dna'){ renderTeamDNA(); }
+  if(id==='onoff'){ renderOnOff(); }
   // The right sidebar (coach/depth/recruit grades, offseason additions, roster
   // turnover) is 2026-27 depth-chart context — show it only on the Depth Chart tab.
   const sideCol = document.querySelector('.side-col');

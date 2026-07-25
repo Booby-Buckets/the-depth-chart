@@ -1,0 +1,152 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>On/Off & WOWY — The Depth Chart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Playfair+Display:wght@700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tdc-dense.css?v=17">
+<style>
+  :root:not([data-theme="dark"]) body{background:var(--bg);}
+  body{font-family:'Inter',system-ui,sans-serif;color:var(--text);margin:0;}
+  .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+  .nav-top{display:flex;align-items:center;justify-content:space-between;padding:12px 40px;}
+  .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;}
+  .nav-logo span{color:var(--accent);}
+  .theme-toggle{width:32px;height:32px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);cursor:pointer;font-size:15px;}
+  .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
+  .nav-sub::-webkit-scrollbar{display:none;}
+  .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;border-bottom:2px solid transparent;white-space:nowrap;}
+  .nav-sub a:first-child{padding-left:0;}
+  .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
+  .wrap{max-width:1400px;margin:0 auto;padding:26px 40px 80px;}
+  h1{font-family:'Playfair Display',serif;font-weight:800;font-size:38px;margin:0 0 8px;}
+  .eyebrow{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;}
+  .sub{color:var(--text3);font-size:14px;line-height:1.55;max-width:900px;margin:0 0 22px;}
+  .sub b{color:var(--text2);}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px;}
+  .controls select,.controls input{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;padding:8px 11px;font-family:inherit;}
+  .controls .count{margin-left:auto;font-size:12px;color:var(--text3);font-weight:600;}
+  .count b{color:var(--accent);}
+  .tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:1000px;}
+  thead th{position:sticky;top:0;background:var(--bg2);font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:11px 10px;text-align:right;white-space:nowrap;cursor:pointer;border-bottom:2px solid var(--border2);user-select:none;}
+  thead th.l{text-align:left;}
+  thead th.has-tip{text-decoration:underline dotted var(--border2);text-underline-offset:4px;}
+  thead th.sorted{color:var(--accent);}
+  tbody td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;white-space:nowrap;}
+  tbody tr:hover td{background:var(--bg2);}
+  td.l{text-align:left;}
+  td.rk{color:var(--text3);font-weight:700;width:34px;}
+  .pl{display:flex;align-items:center;gap:9px;}
+  .pl img{width:22px;height:22px;object-fit:contain;flex:0 0 auto;}
+  .pl-nm{font-weight:700;color:var(--text);}
+  .pl-tm{font-size:11px;color:var(--text3);}
+  .onoff-big{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;}
+  .c-pos{color:#2bb673;} .c-neg{color:#e06552;}
+  .empty{padding:60px 20px;text-align:center;color:var(--text3);}
+  @media(max-width:820px){.nav-top,.nav-sub,.wrap{padding-left:16px;padding-right:16px;}h1{font-size:28px;}}
+</style>
+</head><body>
+<div class="nav-wrap">
+  <div class="nav-top">
+    <a href="index.html" class="nav-logo">The Depth <span>Chart</span></a>
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+  </div>
+  <div class="nav-sub">
+    <a href="index.html">Rankings</a>
+    <a href="roster.html">Players</a>
+    <a href="compare-players.html">Compare</a>
+    <a href="analytics.html">Stats</a>
+    <a href="shot-genome.html">Shot Genome</a>
+    <a href="onoff.html" class="active">On/Off</a>
+    <a href="tournaments.html">Tournaments</a>
+    <a href="predict.html">Predict</a>
+    <a href="awards.html">Awards</a>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="eyebrow">— Lineups · WOWY</div>
+  <h1>On/Off &amp; WOWY</h1>
+  <p class="sub">How a team scores and defends with each player <b>on the court vs off it</b>, reconstructed from NCAA play-by-play lineups. <b>On/Off Net</b> is the swing in net efficiency (points per 100 possessions) when a player is on the floor versus on the bench. Positive = the team is better with him out there. Sample size and role still matter — read it as context, not proof.</p>
+
+  <div class="controls">
+    <select id="seasonSel"></select>
+    <select id="minPoss">
+      <option value="200">200+ poss</option>
+      <option value="400" selected>400+ poss</option>
+      <option value="800">800+ poss</option>
+      <option value="0">Any</option>
+    </select>
+    <input id="search" type="text" placeholder="Search player or team…" autocomplete="off" style="min-width:220px;">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="tbl-wrap"><table id="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+  <div class="empty" id="empty" style="display:none;"></div>
+</div>
+
+<script src="team-colors.js?v=2"></script>
+<script>
+function toggleTheme(){ var d=document.documentElement; var dark=d.getAttribute('data-theme')==='dark'; d.setAttribute('data-theme',dark?'light':'dark'); try{localStorage.setItem('tdc_theme',dark?'light':'dark');}catch(e){} document.getElementById('themeBtn').textContent=dark?'🌙':'☀️'; }
+(function(){ var t=localStorage.getItem('tdc_theme')||'dark'; document.documentElement.setAttribute('data-theme',t); var b=document.getElementById('themeBtn'); if(b) b.textContent=t==='dark'?'☀️':'🌙'; })();
+
+var DATA={}, ROWS=[], sortKey='onoff_net', sortAsc=false;
+var COLS=[
+  {k:'name', l:'Player', left:true, tip:'Player · team'},
+  {k:'games', l:'GP', tip:'Games with reconstructed lineups'},
+  {k:'on_poss', l:'On Poss', tip:'Offensive possessions with the player on the court'},
+  {k:'onoff_net', l:'On/Off', big:true, tip:'Net rating swing: on-court net minus off-court net (per 100 possessions). Positive = team better with him on.'},
+  {k:'on_net', l:'On Net', tip:'Team net efficiency (per 100) with the player ON the court'},
+  {k:'off_net', l:'Off Net', tip:'Team net efficiency (per 100) with the player OFF the court'},
+  {k:'on_o', l:'On ORtg', tip:'Points scored per 100 possessions with the player on'},
+  {k:'on_d', l:'On DRtg', tip:'Points allowed per 100 possessions with the player on', inv:true},
+  {k:'off_o', l:'Off ORtg', tip:'Points scored per 100 with the player off'},
+  {k:'off_d', l:'Off DRtg', tip:'Points allowed per 100 with the player off', inv:true},
+];
+var _lnorm=s=>(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[&.'’]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+function logoFor(name){ var M=window.TDC_TEAM_COLORS||{}; var t=M[_lnorm(name)]; if(!t){ var n=_lnorm(name); for(var k in M){ if(n.indexOf(k)===0||k.indexOf(n)===0){t=M[k];break;} } } return (t&&t.logo)||''; }
+function fnum(v,d){ return (v===null||v===undefined)?'—':(+v).toFixed(d===undefined?1:d); }
+function cls(v){ if(v===null||v===undefined) return ''; return v>0?'c-pos':v<0?'c-neg':''; }
+
+function head(){
+  var h='<tr>'+'<th class="l rk"></th>';
+  COLS.forEach(function(c){ h+='<th class="'+(c.left?'l ':'')+'has-tip'+(c.k===sortKey?' sorted':'')+'" title="'+c.tip.replace(/"/g,'&quot;')+'" onclick="sortBy(\''+c.k+'\')">'+c.l+(c.k===sortKey?(sortAsc?' ▲':' ▼'):'')+'</th>'; });
+  document.getElementById('thead').innerHTML=h+'</tr>';
+}
+function render(){
+  var minP=+document.getElementById('minPoss').value;
+  var q=_lnorm(document.getElementById('search').value);
+  var rows=ROWS.filter(function(r){ return (r.on_poss||0)>=minP && (!q || _lnorm(r.name).indexOf(q)>=0 || _lnorm(r.team).indexOf(q)>=0); });
+  rows.sort(function(a,b){ var x=a[sortKey], y=b[sortKey]; if(x===null||x===undefined) x=-1e9; if(y===null||y===undefined) y=-1e9; return sortAsc?x-y:y-x; });
+  document.getElementById('count').innerHTML='<b>'+rows.length+'</b> players';
+  var tb=document.getElementById('tbody'), emp=document.getElementById('empty');
+  if(!rows.length){ tb.innerHTML=''; emp.style.display='block'; emp.textContent=ROWS.length?'No players match the filter.':'On/off data is still being built — check back shortly.'; return; }
+  emp.style.display='none';
+  var body=rows.slice(0,400).map(function(r,i){
+    var logo=logoFor(r.team);
+    var td=COLS.map(function(c){
+      if(c.left){ return '<td class="l"><div class="pl">'+(logo?'<img src="'+logo+'" onerror="this.style.display=\'none\'">':'')+'<span><div class="pl-nm">'+(r.name||'—')+'</div><div class="pl-tm">'+(r.team||'')+'</div></span></div></td>'; }
+      var v=r[c.k], d=(c.k==='on_poss'||c.k==='games')?0:1;
+      var color=(c.big||c.k==='on_net'||c.k==='off_net')?cls(c.inv?-v:v):'';
+      return '<td class="'+(c.big?'onoff-big ':'')+color+'">'+fnum(v,d)+'</td>';
+    }).join('');
+    return '<tr><td class="rk">'+(i+1)+'</td>'+td+'</tr>';
+  }).join('');
+  tb.innerHTML=body;
+}
+function sortBy(k){ if(sortKey===k) sortAsc=!sortAsc; else { sortKey=k; sortAsc=false; } head(); render(); }
+function loadSeason(s){ ROWS=(DATA[s]||[]).slice(); head(); render(); }
+
+fetch('scripts/data/player_onoff.json').then(function(r){ return r.ok?r.json():{}; }).then(function(j){
+  DATA=j||{};
+  var seasons=Object.keys(DATA).sort().reverse();
+  var sel=document.getElementById('seasonSel');
+  if(!seasons.length){ sel.innerHTML='<option>—</option>'; head(); render(); return; }
+  sel.innerHTML=seasons.map(function(s){ return '<option value="'+s+'">'+(s-1)+'-'+(''+s).slice(2)+'</option>'; }).join('');
+  sel.onchange=function(){ loadSeason(sel.value); };
+  loadSeason(seasons[0]);
+}).catch(function(){ head(); render(); });
+document.getElementById('minPoss').onchange=render;
+document.getElementById('search').oninput=render;
+</script>
+</body></html>
