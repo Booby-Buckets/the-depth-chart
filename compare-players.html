@@ -15,7 +15,7 @@
   <script src="tdc-shotchart.js?v=14"></script>
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-portalfit.js?v=needs4"></script>
-  <script src="tdc-chemistry.js?v=4"></script>
+  <script src="tdc-chemistry.js?v=5"></script>
   <style>
     :root{--bg: #FAF9F6;--bg2: #F1EFEA;--bg3: #E6E3DB;--border: #DEDACF;--border2: #C6C0B2;--text: #1A1814;--text2: #4A463C;--text3: #8A867A;--accent: #A8843C;--teal:#3f8d7d;--green:#1a8c3a;--red:#cc2200;--blue:#1a5fbf;}
     [data-theme="dark"]{--bg: #141416;--bg2: #1D1D20;--bg3: #28282C;--border: #2E2E34;--border2: #45454D;--text: #F1EFEA;--text2: #B4B0A8;--text3: #807C74;--accent: #E6D5A8;--teal:#5b9d8f;--green:#5ab875;--red:#e07070;--blue:#74aedd;}
@@ -1526,13 +1526,28 @@ function _coachOpts(t){
   const m=window._coachByName, cp=(m&&m[_normName(nm)])||null;
   return {name:nm, archetype:cp?cp.archetype:'', pace:cp?cp.poss_pg:0};
 }
-async function _fillTeamChem(r1,r2,t1,t2,c1,c2){
+// the team's original TDC metrics (Look Quality / SM+ / Creation from the shot
+// genome, Net efficiency from Team DNA) for the Lineup Chemistry stat strip
+async function _chemStats(s, y){
+  if(!s) return null;
+  const out={};
+  const map=await _ensureSgTeams().catch(()=>null);
+  if(map && y===2026 && s.team_id!=null){
+    const g=map[s.team_id];
+    if(g&&g.off){ out.lq=g.off.lq; out.lqPct=g.off.pct?g.off.pct.lq:null; out.sm=g.off.smAdj; out.smPct=g.off.pct?g.off.pct.smAdj:null; out.cr=g.crAdjPg; out.crPct=g.crPct; }
+  }
+  const d=await _ensureTeamDNA().catch(()=>null);
+  if(d){ const node=d[String(y)]; const dd=(node&&node.teams)?node.teams[s.team]:null; if(dd&&dd.adjNet!=null) out.net=dd.adjNet; }
+  return (out.lq!=null||out.net!=null)?out:null;
+}
+async function _fillTeamChem(r1,r2,t1,t2,c1,c2,s1,s2,y1,y2){
   const e1=document.getElementById('tchem1'), e2=document.getElementById('tchem2'), em=document.getElementById('tmatch');
   const rows1=(r1&&r1.rows)||[], rows2=(r2&&r2.rows)||[];
   if(window.TDCChem){   // full lineup-identity + synergy court (shared engine)
     await _ensureCoachProfiles().catch(()=>{});
-    if(e1) TDCChem.render(e1, rows1, {coach:_coachOpts(t1)});
-    if(e2) TDCChem.render(e2, rows2, {coach:_coachOpts(t2)});
+    const [st1,st2]=await Promise.all([_chemStats(s1,y1), _chemStats(s2,y2)]);
+    if(e1) TDCChem.render(e1, rows1, {coach:_coachOpts(t1), stats:st1});
+    if(e2) TDCChem.render(e2, rows2, {coach:_coachOpts(t2), stats:st2});
     if(em) TDCChem.renderMatchup(em, rows1, rows2, {nameA:(t1&&t1.name)||'Team A', nameB:(t2&&t2.name)||'Team B', colorA:c1, colorB:c2});
   } else {              // fallback: the compact card
     if(e1) e1.innerHTML=_teamChemInner(_teamChem(rows1));
@@ -2203,7 +2218,7 @@ async function renderTeams(){
       Promise.all([
         side(s1?s1.team:t1.name, y1, 'tRost1', 'tLegend1'),
         side(s2?s2.team:t2.name, y2, 'tRost2', 'tLegend2'),
-      ]).then(([r1,r2])=>{ _fillTeamChem(r1,r2,t1,t2,c1,c2); return _fillScout(r1,r2,s1,s2,f1,f2,t1.name,t2.name,c1,c2); })
+      ]).then(([r1,r2])=>{ _fillTeamChem(r1,r2,t1,t2,c1,c2,s1,s2,y1,y2); return _fillScout(r1,r2,s1,s2,f1,f2,t1.name,t2.name,c1,c2); })
         .catch(()=>{ const el=document.getElementById('scoutWrap'); if(el) el.innerHTML='<div style="color:var(--text3);font-size:12px;">Scout unavailable.</div>'; });
       // head-to-head record + recent meetings
       _fillH2H(s1?s1.team:t1.name, s2?s2.team:t2.name, c1, c2);

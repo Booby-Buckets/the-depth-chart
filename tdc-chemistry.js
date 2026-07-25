@@ -231,7 +231,7 @@
     return {rows:rows, winsA:winsA, winsB:winsB, spread:spread, favA:favA, factor:factor, edges:edges, verdict:verdict, powerA:powerA, powerB:powerB};
   }
 
-  function matchupHtml(mu, anA, anB, o){
+  function matchupHtml(mu, anA, anB, o, sA, sB){
     if(!mu) return '<div style="color:var(--text3);font-size:12px;padding:8px;">Not enough data for a matchup read.</div>';
     var nA=o.nameA||'Team A', nB=o.nameB||'Team B', cA=o.colorA||'var(--accent)', cB=o.colorB||'#e0864a';
     var favName=mu.favA?nA:nB, favCol=mu.favA?cA:cB, spread=Math.abs(mu.spread);
@@ -268,9 +268,56 @@
         +'<span class="mu-fav" style="left:'+(mu.favA?'8px':'auto')+';right:'+(mu.favA?'auto':'8px')+';">'+aShare+' / '+(100-aShare)+'</span></div>'
       +'<div class="mu-verdict"><b style="color:'+favCol+';">'+esc(favName)+'</b> '+mu.verdict.toLowerCase()+' &mdash; projected <b>'+(spread>0?spread.toFixed(1):'0.0')+'</b> pts. Wins <b>'+(mu.favA?mu.winsA:mu.winsB)+'</b> of 6 lineup battles.</div>'
       +'<div class="mu-dims">'+mu.rows.map(dimRow).join('')+'</div>'
+      +positionSection(sA,sB,nA,nB,cA,cB)
       +'<div class="mu-edges-h">Key mismatches</div>'
       +'<div class="mu-edges">'+(mu.edges.length?mu.edges.map(edgeSent).join(''):'<div class="mu-edge" style="color:var(--text3);">Evenly matched across the board.</div>')+'</div>'
       +'</div>';
+  }
+  function positionSection(sA, sB, nA, nB, cA, cB){
+    if(!sA||!sB) return '';
+    var pm=positionMatchup(sA,sB);
+    var rows=pm.map(function(r){
+      var aWin=r.edge==='A', bWin=r.edge==='B';
+      var an=r.a?firstLast(r.a.name):'—', bn=r.b?firstLast(r.b.name):'—';
+      return '<div class="mu-pos">'
+        +'<div class="mu-pos-side'+(aWin?' win':'')+'" style="text-align:right;">'
+          +'<span class="mu-pos-nm">'+esc(an)+'</span>'
+          +'<span class="mu-pos-g" style="color:'+(aWin?cA:'var(--text3)')+'">'+(r.ga||'—')+'</span></div>'
+        +'<div class="mu-pos-l">'+r.pos+'</div>'
+        +'<div class="mu-pos-side'+(bWin?' win':'')+'">'
+          +'<span class="mu-pos-g" style="color:'+(bWin?cB:'var(--text3)')+'">'+(r.gb||'—')+'</span>'
+          +'<span class="mu-pos-nm">'+esc(bn)+'</span></div>'
+        +'</div>';
+    }).join('');
+    var aw=pm.filter(function(r){return r.edge==='A';}).length, bw=pm.filter(function(r){return r.edge==='B';}).length;
+    var note = aw>bw?('<b style="color:'+cA+';">'+esc(nA)+'</b> wins '+aw+' of 5 individual matchups.')
+      : bw>aw?('<b style="color:'+cB+';">'+esc(nB)+'</b> wins '+bw+' of 5 individual matchups.')
+      : 'The five spots split evenly ('+aw+'–'+bw+').';
+    return '<div class="mu-pos-h">Position Matchups</div><div class="mu-pos-wrap">'+rows+'</div><div class="mu-pos-note">'+note+'</div>';
+  }
+
+  // signature original-TDC metrics strip (Look Quality / SM+ / Creation / Net eff)
+  function statsHtml(s){
+    if(!s) return '';
+    var tile=function(lbl,val,pct,fmt){ if(val==null||isNaN(val)) return '';
+      var bar=pct!=null?'<div class="chm-st-bar"><span style="width:'+Math.max(2,Math.min(100,Math.round(pct)))+'%;background:'+(pct>=66?'#5ab875':pct>=40?'var(--accent)':'var(--text3)')+';"></span></div>':'';
+      return '<div class="chm-st"><div class="chm-st-v">'+fmt(val)+'</div><div class="chm-st-l">'+lbl+'</div>'+bar+(pct!=null?'<div class="chm-st-p">'+Math.round(pct)+'th pctile</div>':'')+'</div>';
+    };
+    var body=[ tile('Look Quality',s.lq,s.lqPct,function(v){return v.toFixed(1)+'%';}),
+      tile('Shot-Making',s.sm,s.smPct,function(v){return (v>0?'+':'')+v.toFixed(1);}),
+      tile('Creation',s.cr,s.crPct,function(v){return v.toFixed(1);}),
+      tile('Net Eff',s.net,null,function(v){return (v>0?'+':'')+v.toFixed(1);}) ].filter(Boolean).join('');
+    if(!body) return '';
+    return '<div class="chm-stats"><div class="chm-stats-h">Signature Metrics <span>· original TDC stats, 2025-26</span></div><div class="chm-stats-row">'+body+'</div></div>';
+  }
+  // position-by-position read for a team-vs-team matchup
+  function positionMatchup(sA, sB){
+    var byPos=function(s,pos){ for(var i=0;i<s.length;i++) if(s[i].pos===pos&&s[i].p) return s[i].p; return null; };
+    return ['PG','SG','SF','PF','C'].map(function(pos){
+      var a=byPos(sA,pos), b=byPos(sB,pos);
+      var ga=a?(parseFloat(a.tdc_grade)||0):0, gb=b?(parseFloat(b.tdc_grade)||0):0, diff=ga-gb;
+      return {pos:pos, a:a, b:b, ga:ga, gb:gb, diff:diff, edge:Math.abs(diff)<2?0:(diff>0?'A':'B'), mag:Math.abs(diff)};
+    });
   }
 
   function css(){
@@ -331,6 +378,28 @@
       +".chm-bc-nm{font-size:12px;font-weight:700;color:var(--text);line-height:1.1;}"
       +".chm-bc-sub{font-size:9.5px;color:var(--text3);font-weight:600;margin-top:1px;}"
       +".chm-bc-ovr{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;margin-left:2px;}"
+      // signature-metrics strip
+      +".chm-stats{margin-top:14px;}"
+      +".chm-stats-h{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}"
+      +".chm-stats-h span{font-weight:600;letter-spacing:.02em;text-transform:none;opacity:.6;}"
+      +".chm-stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}"
+      +"@media(max-width:520px){.chm-stats-row{grid-template-columns:repeat(2,1fr);}}"
+      +".chm-st{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:9px 10px;}"
+      +".chm-st-v{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;line-height:1;}"
+      +".chm-st-l{font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-top:3px;}"
+      +".chm-st-bar{height:4px;border-radius:2px;background:var(--bg3,rgba(128,128,128,.2));overflow:hidden;margin-top:6px;}.chm-st-bar span{display:block;height:100%;border-radius:2px;}"
+      +".chm-st-p{font-size:8.5px;color:var(--text3);font-weight:600;margin-top:3px;}"
+      // position matchups (matchup card)
+      +".mu-pos-h{font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:4px 0 8px;}"
+      +".mu-pos-wrap{display:flex;flex-direction:column;gap:5px;margin-bottom:9px;}"
+      +".mu-pos{display:grid;grid-template-columns:1fr 34px 1fr;align-items:center;gap:8px;}"
+      +".mu-pos-side{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text3);}"
+      +".mu-pos-side:last-child{justify-content:flex-start;}.mu-pos-side:first-child{justify-content:flex-end;}"
+      +".mu-pos-side.win{color:var(--text);}"
+      +".mu-pos-nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}"
+      +".mu-pos-g{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;flex:0 0 auto;}"
+      +".mu-pos-l{font-size:9.5px;font-weight:800;letter-spacing:.04em;color:var(--text3);text-align:center;background:var(--bg3,rgba(128,128,128,.18));border-radius:5px;padding:2px 0;}"
+      +".mu-pos-note{font-size:11.5px;color:var(--text2);text-align:center;margin-bottom:14px;}"
       // matchup card
       +".mu-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:18px 20px;}"
       +".mu-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;margin-bottom:14px;}"
@@ -363,7 +432,7 @@
     var an=lineupAnalysis(starters);
     if(!an){ el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px;">Not enough roster data for a chemistry read.</div>'; return null; }
     var bench=benchOf(rows, starters), best=bestLineup(rows);
-    var main='<div class="chm-main">'+courtHtml(starters,opts)+coachHtml(opts.coach)+benchHtml(bench,opts)+'</div>';
+    var main='<div class="chm-main">'+courtHtml(starters,opts)+statsHtml(opts.stats)+coachHtml(opts.coach)+benchHtml(bench,opts)+'</div>';
     el.innerHTML='<div class="chm-wrap">'+panelHtml(an,opts,best)+main+'</div>';
     return an;
   }
@@ -372,10 +441,11 @@
   function renderMatchup(el, rowsA, rowsB, opts){
     if(!el) return null;
     css(); opts=opts||{};
-    var anA=lineupAnalysis(assignStarters(rowsA)), anB=lineupAnalysis(assignStarters(rowsB));
+    var sA=assignStarters(rowsA), sB=assignStarters(rowsB);
+    var anA=lineupAnalysis(sA), anB=lineupAnalysis(sB);
     if(!anA||!anB){ el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px;">Not enough roster data on both sides for a matchup.</div>'; return null; }
     var mu=matchup(anA,anB);
-    el.innerHTML=matchupHtml(mu,anA,anB,opts);
+    el.innerHTML=matchupHtml(mu,anA,anB,opts,sA,sB);
     return mu;
   }
 
