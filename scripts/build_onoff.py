@@ -50,7 +50,12 @@ def sb_get(path):
 
 # ── scoreboard for a day -> [{nid, home, away}] ─────────────────────────
 def scoreboard(d):
+    # data.ncaa.com's direct casablanca path 404s for the 2025-26 season; the
+    # henrygd proxy serves that season (and matches casablanca for older ones),
+    # so fall back to it whenever the direct path yields nothing.
     j = http(NCAA_SB % (d.year, d.month, d.day))
+    if not (j or {}).get("games"):
+        j = http(PROXY + "/scoreboard/basketball-men/d1/%d/%02d/%02d" % (d.year, d.month, d.day))
     out = []
     for g in (j or {}).get("games", []):
         game = g.get("game", {})
