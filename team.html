@@ -1001,6 +1001,7 @@
     <button class="hero-tab" onclick="switchTab('schedule',this)">Schedule</button>
     <button class="hero-tab" id="projTabBtn" onclick="switchTab('projections',this)">2026-27 Projections</button>
     <button class="hero-tab" onclick="switchTab('nil',this)">NIL Value</button>
+    <button class="hero-tab" onclick="switchTab('report',this)">Roster Report</button>
     <button class="hero-tab" onclick="switchTab('analysis',this)">Analysis</button>
     <button class="hero-tab" onclick="switchTab('comments',this)">Comments</button>
     <button class="hero-tab" id="followTeamBtn" onclick="toggleTeamFollow()" style="margin-left:auto;padding:6px 16px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:none;border:1px solid var(--border2);color:var(--text3);cursor:pointer;font-family:'Inter',sans-serif;border-radius:0;display:flex;align-items:center;gap:6px;">Follow Team</button>
@@ -1130,6 +1131,10 @@
     <div class="panel" id="panel-nil">
       <div class="sec-head">NIL Roster Valuation <span style="font-size:10px;font-weight:600;color:var(--text3);margin-left:8px;">2026-27 projected · value = on-court production × market rate</span></div>
       <div id="nilContent"><div class="loading-state"><div class="loading-spinner"></div></div></div>
+    </div>
+    <div class="panel" id="panel-report">
+      <div class="sec-head">Roster Report <span style="font-size:10px;font-weight:600;color:var(--text3);margin-left:8px;">AI scouting breakdown · starters · bench · second unit · coaching fit</span></div>
+      <div id="reportContent"><div class="loading-state"><div class="loading-spinner"></div></div></div>
     </div>
     <div class="panel" id="panel-analysis">
       <div class="sec-head">Team Outlook</div>
@@ -4959,8 +4964,53 @@ function switchTab(id, btn){
     renderCustomize(teamT, teamPlayers, teamColor_g, teamRgb_g, teamGp);
   }
   if(id==='schedule') initSchedule();
+  if(id==='report') renderRosterReport();
   if(id==='nil') renderNil();
   if(id==='customize' && !window._mbAuto){ window._mbAuto=true; renderMoneyball(); }
+}
+
+// ── ROSTER REPORT — AI scouting breakdown from scripts/data/roster_reports.json ──
+async function renderRosterReport(){
+  const host=document.getElementById('reportContent'); if(!host) return;
+  const team=new URLSearchParams(location.search).get('team')||'';
+  if(window._rosterReports===undefined){
+    host.innerHTML='<div class="loading-state"><div class="loading-spinner"></div></div>';
+    try{ window._rosterReports=await fetch('scripts/data/roster_reports.json').then(r=>r.ok?r.json():null); }
+    catch(e){ window._rosterReports=null; }
+  }
+  const rep=(window._rosterReports&&window._rosterReports.teams&&window._rosterReports.teams[team])||null;
+  if(!rep){
+    host.innerHTML='<div style="padding:40px 20px;text-align:center;color:var(--text3);font-size:13px;line-height:1.7;">'+
+      'The roster report for <b style="color:var(--text2);">'+(team||'this team')+'</b> hasn’t been generated yet.<br>'+
+      'Reports are produced by the scouting-report generator — this team is queued.</div>';
+    return;
+  }
+  const esc=s=>(''+(s||'')).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
+  const item=(x,pos)=>'<div style="margin-bottom:12px;"><div style="font-weight:800;font-size:13px;color:'+(pos?'var(--tc-readable,#5ab875)':'var(--text)')+';margin-bottom:2px;">'+
+    (pos?'▸ ':'▪ ')+esc(x.t)+'</div><div style="font-size:12.5px;color:var(--text2);line-height:1.65;">'+esc(x.b)+'</div></div>';
+  const col=(title,color,inner)=>'<div style="flex:1;min-width:260px;"><div style="font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:'+color+';margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:6px;">'+title+'</div>'+inner+'</div>';
+  const st=rep.starters||{}, bn=rep.bench||{}, su=rep.second_unit||{}, co=rep.coach||{};
+  host.innerHTML=
+    '<div style="font-size:13.5px;line-height:1.7;color:var(--text);background:var(--bg2);border-left:3px solid var(--tc,#888);padding:14px 16px;margin-bottom:22px;">'+esc(rep.essence)+'</div>'+
+    '<div style="font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);margin-bottom:12px;">Starting Five</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:28px;margin-bottom:28px;">'+
+      col('Positives','var(--green,#5ab875)',(st.positives||[]).map(x=>item(x,true)).join(''))+
+      col('Flaws','var(--red,#e07070)',(st.flaws||[]).map(x=>item(x,false)).join(''))+
+    '</div>'+
+    '<div style="font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);margin-bottom:12px;">Bench &amp; Depth</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:28px;margin-bottom:14px;">'+
+      col('Who helps','var(--green,#5ab875)','<div style="font-size:12.5px;color:var(--text2);line-height:1.65;">'+esc(bn.helps)+'</div>')+
+      col('Who hurts','var(--red,#e07070)','<div style="font-size:12.5px;color:var(--text2);line-height:1.65;">'+esc(bn.hurts)+'</div>')+
+    '</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:28px;margin-bottom:28px;">'+
+      col('Second unit — strength','var(--green,#5ab875)','<div style="font-size:12.5px;color:var(--text2);line-height:1.65;">'+esc(su.strength)+'</div>')+
+      col('Second unit — weakness','var(--red,#e07070)','<div style="font-size:12.5px;color:var(--text2);line-height:1.65;">'+esc(su.weakness)+'</div>')+
+    '</div>'+
+    '<div style="font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);margin-bottom:12px;">Coaching Fit</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:28px;">'+
+      col('How the coach MIGHT use it','var(--text3)','<div style="font-size:12.5px;color:var(--text2);line-height:1.65;">'+esc(co.might)+'</div>')+
+      col('How the coach SHOULD use it','var(--tc-readable,var(--accent))','<ul style="margin:0;padding-left:16px;font-size:12.5px;color:var(--text2);line-height:1.65;">'+(co.should||[]).map(s=>'<li style="margin-bottom:6px;">'+esc(s)+'</li>').join('')+'</ul>')+
+    '</div>';
 }
 
 // ── TEAM DNA — advanced-stat identity from scripts/data/team_dna.json ──────────
