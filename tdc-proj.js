@@ -944,33 +944,33 @@ function buildTeamProjections(players, conf){
       : tpBase;
     const ftProj = r1(clamp(_projPct('ft_pct', ftSmoothed, projCls, parseFloat(base.fta||0), grade), 45, 97));
 
-    // Shot volume: minutes-driven, with measured class/pos FGA growth and the
-    // team's usage vacancy on top.
-    const newFga = r1(pm.fga*fgaGrow*newMpg*vacMult*volTrans);
-    const newTpa = r1(pm.tpa*fgaGrow*newMpg*vacMult*volTrans);
+    // Transfer scoring penalty for big conference jumps — applied to SHOT VOLUME (not
+    // PPG alone) so the projected line stays internally consistent (PPG = 2·FGM+3PM+FTM).
+    // Discounting only PPG cratered a transfer's IMPLIED efficiency (fake-low TS%/estBPM),
+    // which then dragged the grade even though his stats looked fine.
+    const scoringTransMult = (isTransferIn && transferFactor < 0.95)
+      ? Math.max(0.78, 0.52 + transferFactor * 0.48) : 1.0;
+    // Shot volume: minutes-driven, with class/pos FGA growth, usage vacancy, conference
+    // translation, and the transfer scoring penalty.
+    const newFga = r1(pm.fga*fgaGrow*newMpg*vacMult*volTrans*scoringTransMult);
+    const newTpa = r1(pm.tpa*fgaGrow*newMpg*vacMult*volTrans*scoringTransMult);
 
     const pf     = posFitMult;
     // Derive all stats from components so PPG is always consistent with FGA.
     // Year progression shows through efficiency (fgProj) not shot-volume inflation.
     const fgm_v  = r1(newFga*(fgProj/100)*pf);
     const tpm_v  = r1(newTpa*(tpProj/100)*pf);
-    const fta_v  = r1(pm.fta*newMpg*pf*vacMult*volTrans);
+    const fta_v  = r1(pm.fta*newMpg*pf*vacMult*volTrans*scoringTransMult);
     const ftm_v  = r1(fta_v*(ftProj/100));
     // PPG from components: 2×FGM + bonus point per 3PM + FTM
     const ppg_comp = fgm_v*2 + tpm_v + ftm_v;
     // PPG floor: per-minute scoring rate × new minutes × rateGrowth.
     // Catches cases where player_history FTA is incomplete (under-projects free throws).
     const ppgFloorMult = grade>=90?0.95:grade>=83?0.91:0.88;
-    const ppg_floor = d40('p40','ppg',pm.ppg) * newMpg * pf * ppgFloorMult * (1+(vacMult-1)*0.7) * volTrans;
+    const ppg_floor = d40('p40','ppg',pm.ppg) * newMpg * pf * ppgFloorMult * (1+(vacMult-1)*0.7) * volTrans * scoringTransMult;
 
-    // Transfer scoring volume penalty for big conference jumps.
-    // transPctAdj hits FG% but per-minute scoring also drops in stronger competition.
-    // e.g. Winthrop → ACC: grade 84 player who scored 18 PPG won't replicate that rate.
-    const scoringTransMult = (isTransferIn && transferFactor < 0.95)
-      ? Math.max(0.78, 0.52 + transferFactor * 0.48)
-      : 1.0;
-
-    const ppg_v  = r1(Math.max(ppg_comp, ppg_floor) * scoringTransMult);
+    // scoringTransMult already applied to the shot line above, so PPG stays consistent.
+    const ppg_v  = r1(Math.max(ppg_comp, ppg_floor));
 
     // Rebounds/assists/stocks: measured class-growth + stability shrinkage per stat.
     // Blocks regress hard for perimeter players; rebounds are the stickiest skill.

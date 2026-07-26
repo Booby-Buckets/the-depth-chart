@@ -9,11 +9,11 @@
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-nil.js?v=cal1"></script>
   <script src="tdc-pos.js"></script>
-  <script src="tdc-proj.js?v=coach4"></script>
+  <script src="tdc-proj.js?v=coach5"></script>
   <script src="tdc-freshman.js?v=pub4"></script>
   <script src="tdc-ratings.js?v=2"></script>
   <script src="tdc-portalfit.js?v=needs4"></script>
-  <script src="tdc-projgrade.js?v=13"></script>
+  <script src="tdc-projgrade.js?v=14"></script>
   <script src="tdc-pool.js?v=1"></script>
   <meta charset="UTF-8"/>
   <style>
@@ -3846,6 +3846,12 @@ function renderRankings(){
     </div>`;
   }).join('');
   const scale=[['99','Generational'],['90','All-American'],['82','All-Conference'],['74','Rotation'],['64','Bench']];
+  // forward-looking blurb — honest about whether the grade RISES, holds, or eases (was hardcoded "rises")
+  const _demoG=parseInt(_lastAct&&_lastAct.tdc_grade), _pMpg=parseFloat(s.mpg), _lMpg=parseFloat(_lastAct&&_lastAct.mpg);
+  const _roleTxt=(!isNaN(_pMpg)&&!isNaN(_lMpg))?(_pMpg>_lMpg+0.5?`a bigger ${_f1(s.mpg)}-MPG role`:_pMpg<_lMpg-0.5?`a reduced ${_f1(s.mpg)}-MPG role`:`a similar ${_f1(s.mpg)}-MPG role`):`his projected 2026-27 role`;
+  const _moveTxt=(isNaN(g)||isNaN(_demoG)||g===_demoG)?`the grade holds at <b>${isNaN(g)?'—':g}</b>`
+                : g>_demoG ? `the same per-minute impact produces more, so the grade rises to <b>${g}</b>`
+                : `his projected production eases the grade to <b>${g}</b>`;
   const gradeC=isNaN(g)?'var(--text3)':(g>=90?'#5ab875':g>=80?'var(--accent)':g>=70?'var(--text)':'var(--text2)');
   host.innerHTML=`
     <div class="rk-top">
@@ -3858,7 +3864,7 @@ function renderRankings(){
       <div class="rk-explain">
         <div class="sec-title" style="margin-bottom:10px;">${_projMode?'How this grade is projected':'How this grade is built'}</div>
         <ul class="rk-method">
-          ${_projRet?`<li><b>It's forward-looking.</b> His demonstrated grade last season was <b>${parseInt(_lastAct.tdc_grade)}</b> on ${_f1(_lastAct.mpg)} MPG. Projected into a ${_f1(s.mpg)}-MPG role for 2026-27, the same per-minute impact produces more, so the grade rises to <b>${isNaN(g)?'—':g}</b>.</li>`:''}
+          ${_projRet?`<li><b>It's forward-looking.</b> His demonstrated grade last season was <b>${_demoG}</b> on ${_f1(_lastAct.mpg)} MPG. Projected into ${_roleTxt} for 2026-27, ${_moveTxt}.</li>`:''}
           <li><b>Wins Added drives it.</b> The biggest factor is how many games the team would lose without this player${s.wa!=null?` — about <b>${Number(s.wa).toFixed(1)}</b> ${_projMode?'projected':'here'}`:''}. It rewards being the engine of a winning team, not padding stats.</li>
           ${_projRet?'':`<li><b>Team success counts.</b> Wins Added can only be high when the team actually won${conf?` (${conf})`:''} — a great line on a losing team adds few wins, and is graded accordingly.</li>`}
           <li><b>Position-relative & cross-era.</b> Measured against every ${GRP_LBL[grp]||'player'} season since 2006-07; only the truly dominant reach 99 (~1 a year).</li>
