@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
   <script src="auth.js?v=paywall3"></script>
+  <!-- canonical grade module: displayed OVRs = the coupled v5 grade shown site-wide -->
+  <script src="tdc-projgrade.js?v=8"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -513,6 +515,7 @@ let teamRgb_g='';
 let teamT={};
 let allDbPlayers=[];
 
+function _ovrOf(p){ if(!p) return ''; if(p._ovr!=null) return p._ovr; if(window._ovrById&&_ovrById[p.id]!=null) return _ovrById[p.id]; return p.tdc_grade; }
 function renderDepth(t, players, color, rgb, gp={}){
 
   // Strict sheet order
@@ -555,7 +558,7 @@ function renderDepth(t, players, color, rgb, gp={}){
           <span class="backup-num">${i+2}</span>
           <span class="backup-name">${b.name}</span>
           <span class="backup-cls">${b.class_year||b.yr||''}</span>
-          <span class="backup-grade ${gc(b.tdc_grade||'')}">${b.tdc_grade||''}</span>
+          <span class="backup-grade ${gc(_ovrOf(b)||'')}">${_ovrOf(b)||''}</span>
         </div>`).join('')}
       </div>` : '';
 
@@ -564,7 +567,7 @@ function renderDepth(t, players, color, rgb, gp={}){
         <span class="starter-pos">${p.position||''}</span>
       </div>
       <div class="starter-col-body">
-        <div class="starter-name">${p.name}${p.tdc_grade?`<span class="starter-col-grade ${gc(p.tdc_grade)}" style="margin-left:6px;font-size:13px;">${p.tdc_grade}</span>`:''}</div>
+        <div class="starter-name">${p.name}${p.tdc_grade?`<span class="starter-col-grade ${gc(_ovrOf(p))}" style="margin-left:6px;font-size:13px;">${_ovrOf(p)}</span>`:''}</div>
         <div class="starter-meta-row">
           <span>${p.class_year||p.yr||''}</span>
           <span class="starter-tag" style="background:rgba(${rgb},.12);color:${color};">★</span>
@@ -661,7 +664,7 @@ function renderDepth(t, players, color, rgb, gp={}){
         <div class="rot-stat" style="${statColor(p.stl,'stl',p80g)}">${fmt(p.stl)}</div>
         <div class="rot-stat" style="${statColor(p.blk,'blk',p80g)}">${fmt(p.blk)}</div>
         <div class="rot-stat" style="${statColor(p.tovs,'tovs',p80g)}">${fmt(p.tovs)}</div>
-        <div class="rot-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||''}</div>
+        <div class="rot-grade ${gc(_ovrOf(p)||'')}">${_ovrOf(p)||''}</div>
       </div>`;}).join('')}
       </div>
     </div>`;
@@ -697,7 +700,7 @@ function sortableTableHtml(players, p80, gp){
         const v = p[c.key];
         return `<td style="${statColor(v,c.key,scaler)}">${fmt(v)}</td>`;
       }).join('')}
-      <td>${p.tdc_grade||'—'}</td>
+      <td>${_ovrOf(p)||'—'}</td>
     </tr>`).join('');
 
   return `
@@ -1436,6 +1439,14 @@ async function load(){
   ]);
   const teams   = await teamRes.json();
   const players = await playerRes.json();
+  // Coupled OVR (v5 grade + projected-line coupling) for DISPLAY only — matches the
+  // rest of the site. tdc_grade stays the projection-math input; _ovr is display-only.
+  window._ovrById={};
+  try{
+    if(window.TDCProjGrade && TDCProjGrade.gradeSolo){
+      players.forEach(p=>{ const g=TDCProjGrade.gradeSolo(p); if(g!=null){ p._ovr=g; window._ovrById[p.id]=g; } });
+    }
+  }catch(e){}
   fill.style.width = '40%';
   msg.textContent = `Running projections for ${teams.length} teams…`;
 
