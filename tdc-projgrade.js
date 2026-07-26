@@ -261,7 +261,13 @@
   // Slots 1-5 are starter-level (the chart is position-structured — a starter per
   // position), 6+ taper down the bench. mQual (grade + production - capped level,
   // freshman ramp) breaks ties and fills a missing depth_order.
-  var DEPTH_SLOT = [0, 31, 30, 30, 29, 28, 19, 14, 10, 7, 5, 3, 2];
+  // Slots 1-5 are starter-level (the chart is position-structured); 6+ taper the bench.
+  // Bases sum to ~213 — a game is 200 player-minutes, but a roster's season-average MPG
+  // sums HIGHER (~205-225, injuries/DNPs mean a starter and his fill-in both post big
+  // per-game averages). Empirically ~214 for a real top-10 rotation, so 200 made every
+  // projected MPG ~7% light.
+  var DEPTH_SLOT = [0, 34, 32, 31, 30, 29, 19, 14, 10, 7, 4, 2, 1];
+  var DEPTH_MAX = 37, TOT_LO = 205, TOT_HI = 226;   // workhorse cap; realistic team-total band
   function projectMinutesByDepth(roster, mq){
     var n = roster.length;
     var q = mq.map(function(x){ return x == null ? 45 : x; });
@@ -274,20 +280,22 @@
     order.forEach(function(idx, s){
       var slot = s + 1;
       var base = slot < DEPTH_SLOT.length ? DEPTH_SLOT[slot] : (slot <= 13 ? 1 : 0);
-      if(base > 0) base += Math.max(-4, Math.min(5, (q[idx] - 76) * 0.5));   // grade/production nudge within the slot
+      if(base > 0) base += Math.max(-6, Math.min(8, (q[idx] - 76) * 0.6));   // wider grade/production spread within the slot
       m[idx] = Math.max(0, base);
     });
-    // scale to 200 team minutes, cap at 34, redistribute any overflow to uncapped players
+    // DON'T force exactly 200 — keep the natural (depth-calibrated) total, only soft-clamped
+    // into the realistic ~205-226 band. Then cap workhorses at 37 and redistribute overflow.
     var sum = m.reduce(function(a, x){ return a + x; }, 0) || 1;
-    for(var i = 0; i < n; i++) m[i] = m[i] * TOTMIN / sum;
+    var target = Math.max(TOT_LO, Math.min(TOT_HI, sum));
+    for(var i = 0; i < n; i++) m[i] = m[i] * target / sum;
     for(var it = 0; it < 6; it++){
       var over = 0;
-      for(var i = 0; i < n; i++){ if(m[i] > MAXMIN){ over += m[i] - MAXMIN; m[i] = MAXMIN; } }
+      for(var i = 0; i < n; i++){ if(m[i] > DEPTH_MAX){ over += m[i] - DEPTH_MAX; m[i] = DEPTH_MAX; } }
       if(over < 0.1) break;
       var room = 0;
-      for(var i = 0; i < n; i++){ if(m[i] > 0 && m[i] < MAXMIN) room += (MAXMIN - m[i]); }
+      for(var i = 0; i < n; i++){ if(m[i] > 0 && m[i] < DEPTH_MAX) room += (DEPTH_MAX - m[i]); }
       if(room <= 0) break;
-      for(var i = 0; i < n; i++){ if(m[i] > 0 && m[i] < MAXMIN) m[i] += over * (MAXMIN - m[i]) / room; }
+      for(var i = 0; i < n; i++){ if(m[i] > 0 && m[i] < DEPTH_MAX) m[i] += over * (DEPTH_MAX - m[i]) / room; }
     }
     for(var i = 0; i < n; i++) m[i] = Math.round(m[i] * 10) / 10;
     return m;
@@ -376,7 +384,7 @@
 
   // Role-aware grade coupling v2 (movers only; resolves before the roster fetch).
   try{
-    fetch('scripts/data/player_coupled_grades.json?v=4')
+    fetch('scripts/data/player_coupled_grades.json?v=5')
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ if(j && j.grades) setCoupled(j.grades); })
       .catch(function(){});
