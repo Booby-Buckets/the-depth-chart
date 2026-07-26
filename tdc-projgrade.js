@@ -322,8 +322,9 @@
     if(!roster || !roster.length) return [];
     var quals = roster.map(function(p){
       var g = parseFloat(p.tdc_grade); if(!isFinite(g)) return null;
-      var conf = _originConf(p);
-      return g - _levelDisc(conf);
+      return g;   // NO conference discount in the grade — the level is ALREADY priced into the
+                  // projected stat LINE this grade is built on (the projection engine discounts a
+                  // transfer's production for the jump). Discounting the grade too double-counts.
     });
     // MINUTES use a distinct "playing-time quality" — coaches allocate minutes on
     // demonstrated role, not pure level-adjusted talent. Three differences from the
@@ -363,7 +364,7 @@
     if(!row) return null;
     if(row.id != null && _COUPLED[row.id] != null) return _COUPLED[row.id];   // projected-line coupling
     var g = parseFloat(row.tdc_grade); if(!isFinite(g)) return null;
-    var qual = g - _levelDisc(_originConf(row));
+    var qual = g;   // no conference discount here — see gradeRoster; the level lives in the projection
     var trans = _clsTrans(row.yr || row.class_year);
     var devBpm = (trans && _DEV && _DEV.bpm_delta && _DEV.bpm_delta[trans]) ? (_DEV.bpm_delta[trans][_qtier(qual)] || 0) : 0;
     return Math.round(qual + devBpm * (_BR.b || 1.174));
@@ -384,7 +385,7 @@
 
   // Role-aware grade coupling v2 (movers only; resolves before the roster fetch).
   try{
-    fetch('scripts/data/player_coupled_grades.json?v=5')
+    fetch('scripts/data/player_coupled_grades.json?v=6')
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ if(j && j.grades) setCoupled(j.grades); })
       .catch(function(){});
