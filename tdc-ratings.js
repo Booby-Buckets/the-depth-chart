@@ -5,8 +5,10 @@
         through the measured lag model (0.635 + 0.785·bpm) with a class bump,
         or a grade proxy when no bbref row exists (freshmen, no-stat players).
         Players marked out for the season are excluded.
-     2. Projected minutes: returners keep last season's MPG (transfers ×0.95),
-        freshmen get grade-based estimates; each roster normalizes to 200.
+     2. Projected minutes come from the SAME depth-chart-calibrated model as the
+        team/player pages (TDCProjGrade.gradeRoster) — each player weighted by his
+        projected ROLE (the coach's chart), not last season's MPG or a top-N-by-BPM
+        re-sort, so a benched transfer stops counting as a starter.
      3. Roster rating = 11.75 + 2.355 × minutes-weighted projected BPM — the
         BPM→SRS mapping calibrated on 2024-25 AND 2025-26 actuals
         (r = 0.97, rmse ≈ 2.0 pts both years, scripts/calibrate_ratings.py),
@@ -34,7 +36,7 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v15_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v16_'+SEASON, TTL=24*3600*1000;
   // in-season form: once 2026-27 games are played, each team's rating drifts
   // toward how it's ACTUALLY performing vs our own lines. surprise = actual
   // margin - expected margin; form = sum(surprise)/(n + FORM_PRIOR) capped at
@@ -156,7 +158,7 @@
   async function compute(){
     const [teams, players, bb, ts, hcaData, coachData, sgData, contData]=await Promise.all([
       fetch(SB+'/rest/v1/teams?select=name,conf,conference,head_coach,coach&limit=500',{headers:H}).then(r=>r.json()),
-      fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,is_injured,hometown&order=id.asc'),
+      fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,rpg,depth_order,is_injured,hometown&order=id.asc'),
       fetchPaged(SB+'/rest/v1/bbref_seasons?season_year=eq.2026&espn_id=not.is.null&select=espn_id,advanced&order=bbref_id.asc'),
       fetch(SB+'/rest/v1/team_seasons?season_year=eq.2026&select=team,conference,srs,tier&limit=1000',{headers:H}).then(r=>r.json()),
       fetch('scripts/data/team_hca.json').then(r=>r.ok?r.json():null).catch(()=>null),
@@ -198,7 +200,15 @@
     const rows=[];
     Object.keys(byTeam).forEach(short=>{
       const roster=byTeam[short];
-      let entries=roster.map(p=>{
+      // PROJECTED minutes from the depth-chart-calibrated model (same one team/player
+      // pages use), so the rating weights each player by his projected ROLE, not last
+      // season's minutes — a benched transfer stops counting as a starter. Falls back to
+      // last-season mpg if the module isn't loaded.
+      let projMin=null;
+      if(window.TDCProjGrade && TDCProjGrade.gradeRoster){
+        try{ const gr=TDCProjGrade.gradeRoster(roster); projMin=roster.map((p,i)=>(gr[i]&&isFinite(gr[i].min))?gr[i].min:null); }catch(e){}
+      }
+      let entries=roster.map((p,i)=>{
         const grade=parseFloat(p.tdc_grade)||70;
         const c=cls(p.yr||p.class_year);
         const adv=p.espn_id!=null?advById[p.espn_id]:null;
@@ -215,8 +225,9 @@
         let projBpm=isFinite(bpm)?(0.635+0.785*bpm+(CLS_BUMP[c]||0)):((grade-77)*0.55-0.6);
         const isTr=!!(p.hometown&&(''+p.hometown).trim());
         const hasStats=(parseFloat(p.ppg)||0)>0;
-        let min=hasStats?Math.max(4,(parseFloat(p.mpg)||8)*(isTr?0.95:1))
-                          :(grade>=92?26:grade>=88?22:grade>=82?15:grade>=78?10:6);
+        let min=(projMin&&projMin[i]!=null)?projMin[i]
+                 :(hasStats?Math.max(4,(parseFloat(p.mpg)||8)*(isTr?0.95:1))
+                          :(grade>=92?26:grade>=88?22:grade>=82?15:grade>=78?10:6));
         // Owner's freshman projection: value him by his PROJECTED STATS (a BPM
         // computed from the projected box score) and projected minutes — the same
         // currency as returners — rather than the grade/OVR fallback.
@@ -226,14 +237,15 @@
                   if(ov.min!=null&&!isNaN(+ov.min)) min=Math.max(4,+ov.min); } }
         return {projBpm,min,luckEfg,hasSg:!!sg};
       });
-      // rotation reality: 200 minutes, best players first — cap at 9 rotation spots
-      entries.sort((a,b)=>b.projBpm-a.projBpm);
-      entries=entries.slice(0,11);
-      const minSum=entries.reduce((s,e)=>s+e.min,0)||1;
-      const mw=entries.reduce((s,e)=>s+e.projBpm*(e.min/minSum),0);
+      // Rotation is now defined by the PROJECTED minutes (the depth chart), not a
+      // top-11-by-BPM re-sort — so a high-BPM player the coach benches is weighted by his
+      // real projected role. Deep bench self-weights to ~0; keep the projected rotation.
+      const rot=entries.filter(e=>e.min>=3);
+      const minSum=rot.reduce((s,e)=>s+e.min,0)||1;
+      const mw=rot.reduce((s,e)=>s+e.projBpm*(e.min/minSum),0);
       const rosterRating=CAL_A+CAL_B*mw;
       // team shot luck: minutes-weighted eFG-over-quality of the rotation's returners
-      const sgEnt=entries.filter(e=>e.hasSg); const sgMin=sgEnt.reduce((s,e)=>s+e.min,0);
+      const sgEnt=rot.filter(e=>e.hasSg); const sgMin=sgEnt.reduce((s,e)=>s+e.min,0);
       const shotLuck=sgMin?+(sgEnt.reduce((s,e)=>s+e.luckEfg*e.min,0)/sgMin).toFixed(1):null;
       const full=matchFull(short, tsRows, confOf[short])||short;
       const prior=srsOf[full];
