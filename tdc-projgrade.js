@@ -314,9 +314,9 @@
       .catch(function(){});
   }catch(e){}
 
-  // Projected-line grade coupling (movers only; resolves before the roster fetch).
+  // Role-aware grade coupling v2 (movers only; resolves before the roster fetch).
   try{
-    fetch('scripts/data/player_coupled_grades.json')
+    fetch('scripts/data/player_coupled_grades.json?v=2')
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ if(j && j.grades) setCoupled(j.grades); })
       .catch(function(){});

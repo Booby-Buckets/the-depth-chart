@@ -13,7 +13,7 @@
   <script src="tdc-freshman.js?v=pub4"></script>
   <script src="tdc-ratings.js?v=1"></script>
   <script src="tdc-portalfit.js?v=needs4"></script>
-  <script src="tdc-projgrade.js?v=8"></script>
+  <script src="tdc-projgrade.js?v=9"></script>
   <script src="tdc-pool.js?v=1"></script>
   <meta charset="UTF-8"/>
   <style>
@@ -3649,9 +3649,11 @@ function _rankComposite(L){
   },0);
 }
 function _projReturnerGrade(lastAct, projLine){
-  // Single source of truth: the shared row-based model (tdc-projgrade.js) so the
-  // player page, team page and every list show an IDENTICAL projected OVR.
-  if(window.TDCProjGrade){ const _g=TDCProjGrade.grade(player); if(_g!=null&&!isNaN(_g)) return _g; }
+  // Single source of truth: the shared coupled OVR (tdc-projgrade.js gradeSolo, which
+  // returns the role-aware coupled grade) so the header, Rankings tab, team page and
+  // every list show an IDENTICAL projected OVR. (Was TDCProjGrade.grade — a stale
+  // pre-v5 engine that disagreed with the header.)
+  if(window.TDCProjGrade && TDCProjGrade.gradeSolo){ const _g=TDCProjGrade.gradeSolo(player); if(_g!=null&&!isNaN(_g)) return _g; }
   const demo=parseInt(lastAct&&lastAct.tdc_grade!=null?lastAct.tdc_grade:player.tdc_grade);
   if(isNaN(demo)||!projLine||!lastAct) return null;
   const D=_projDrivers(lastAct, projLine);
