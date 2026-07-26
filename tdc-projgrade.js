@@ -187,6 +187,16 @@
   // ═══════════════════════════════════════════════════════════════════════
   var _DEV = null, _BR = { b: 1.174 }, _LV = null;
   function setModel(dev, br, lv){ if(dev) _DEV = dev; if(br) _BR = br; if(lv) _LV = lv; }
+
+  // Relative-to-cohort grade coupling: a precomputed {id -> coupled grade} map for
+  // players whose PROJECTED LINE beats or lags what their grade-cohort projects
+  // (e.g. a returner stepping into a featured role rises; a redundant transfer or
+  // an overshooting grade trims). Only "movers" are stored; every other player
+  // keeps the live-computed grade. Bounded to +-4 by construction (K*R). Fetched
+  // like recruit_pedigree below so every surface (which all call gradeRoster/
+  // gradeSolo) shows the identical coupled OVR with no per-page wiring.
+  var _COUPLED = {};
+  function setCoupled(m){ if(m && typeof m === 'object') _COUPLED = m; }
   var MAXMIN = 34, TOTMIN = 200, ROT_BAND = 16, ROT_POWER = 2.2;
   var ROLE_K = 14, ROLE_UP = 3, FLOOR_GAP = 12, CEIL = 7;
 
@@ -271,8 +281,9 @@
     var mins = projectMinutes(q2);
     return roster.map(function(p, i){
       if(quals[i] == null) return { min: 0, grade: null, qual: null };
-      return { min: mins[i], qual: Math.round(quals[i] * 10) / 10,
-               grade: _gradeV5(quals[i], p.yr || p.class_year, mins[i]) };
+      var g = _gradeV5(quals[i], p.yr || p.class_year, mins[i]);
+      if(p.id != null && _COUPLED[p.id] != null) g = _COUPLED[p.id];   // projected-line coupling
+      return { min: mins[i], qual: Math.round(quals[i] * 10) / 10, grade: g };
     });
   }
 
@@ -282,6 +293,7 @@
   // with the player/team pages without needing every team's full roster.
   function gradeSolo(row){
     if(!row) return null;
+    if(row.id != null && _COUPLED[row.id] != null) return _COUPLED[row.id];   // projected-line coupling
     var g = parseFloat(row.tdc_grade); if(!isFinite(g)) return null;
     var qual = g - _levelDisc(_originConf(row));
     var trans = _clsTrans(row.yr || row.class_year);
@@ -290,7 +302,7 @@
   }
 
   window.TDCProjGrade = { projMin: projMin, grade: grade, ovr: ovr, K: K, setPedigree: setPedigree,
-                          gradeRoster: gradeRoster, gradeSolo: gradeSolo, projectMinutes: projectMinutes, setModel: setModel };
+                          gradeRoster: gradeRoster, gradeSolo: gradeSolo, projectMinutes: projectMinutes, setModel: setModel, setCoupled: setCoupled };
 
   // Self-load the derived pedigree coefficients (tiny, local file) so every page
   // picks them up with no per-page wiring. This resolves well before the slower
@@ -299,6 +311,14 @@
     fetch('scripts/data/recruit_pedigree.json')
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ if(j && j.players) setPedigree(j.players); })
+      .catch(function(){});
+  }catch(e){}
+
+  // Projected-line grade coupling (movers only; resolves before the roster fetch).
+  try{
+    fetch('scripts/data/player_coupled_grades.json')
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){ if(j && j.grades) setCoupled(j.grades); })
       .catch(function(){});
   }catch(e){}
 
