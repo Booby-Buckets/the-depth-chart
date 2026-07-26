@@ -738,7 +738,7 @@ body{background:transparent!important;}
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script src="tdc-engine.js"></script>
-  <script src="bigboard-engine.js?v=5"></script>
+  <script src="bigboard-engine.js?v=6"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index + team page -->
@@ -2820,7 +2820,7 @@ function _updateHeroGridForSeason(val){
   // proj view shows the 2026 NBA Draft big board (demonstrated production + draft
   // lens), NOT a projected-season national rank — label it so it doesn't read as one.
   // Past seasons keep their true within-season national rank.
-  if(eNL) eNL.textContent=isProj ? '’26 Big Board' : ("Nat'l Rank ’"+(''+row.season_year).slice(2));
+  if(eNL) eNL.textContent=isProj ? '’27 Big Board' : ("Nat'l Rank ’"+(''+row.season_year).slice(2));
   if(isProj && window._bbNat!=null){
     if(eN) eN.textContent='#'+window._bbNat;
     if(eP) eP.textContent='#'+window._bbPos;
@@ -2865,9 +2865,33 @@ async function loadDraftSticker(){
     var players=(window.TDCPool?await TDCPool.get():[]);
     if(!players.length) return;
     window._tdcAllPlayers=players.map(tdcSane);
-    // draft sticker (top-100 of the shared Big Board)
+    // draft sticker (top-100 of the shared Big Board). Compute the SAME forward-
+    // looking 2026-27 projected board the Draft page shows — project every team
+    // from the pool with the canonical engine so the card's rank matches the board
+    // (a returner who projects into a bigger role rises here too, not just on /draft).
     if(typeof TDC_BIGBOARD!=='undefined'){
-      var res=TDC_BIGBOARD.compute(players, teamMap, {season:'2526'});
+      var _projById={};
+      if(typeof buildTeamProjections==='function'){
+        var _byTeam={};
+        players.forEach(function(p){ if(p.team){ (_byTeam[p.team]=_byTeam[p.team]||[]).push(p); } });
+        Object.keys(_byTeam).forEach(function(tn){
+          var conf=(teamMap[tn]&&(teamMap[tn].conf||teamMap[tn].conference))||'';
+          var roster=_byTeam[tn].map(function(p){return Object.assign({},p);});
+          roster.sort(function(a,b){
+            return ((parseFloat(b.tdc_grade)||55)+0.15*(parseFloat(b.ppg)||0))
+                 - ((parseFloat(a.tdc_grade)||55)+0.15*(parseFloat(a.ppg)||0)); });
+          roster.forEach(function(p,i){p.depth_order=i+1;});
+          try{
+            var raw=buildTeamProjections(roster,conf);
+            var proj=(typeof applyPredictionWalls==='function')?applyPredictionWalls(raw):raw;
+            (proj||[]).forEach(function(pp){ if(pp&&pp.id!=null) _projById[pp.id]=pp; });
+          }catch(e){}
+        });
+      }
+      var _haveProj=Object.keys(_projById).length>0;
+      // same manual eligibility/age overrides the Draft page applies, so the rank matches
+      var _ov={}; try{ _ov=await fetch('draft-overrides.json').then(function(r){return r.ok?r.json():{};}); }catch(e){ _ov={}; }
+      var res=TDC_BIGBOARD.compute(players, teamMap, {season:_haveProj?'2627':'2526', projById:_projById, projReady:_haveProj, overrides:_ov});
       var me=res.byId[player.id];
       // header 2×2 grid — this-year national + position rank from the Big Board
       if(me){
@@ -2875,14 +2899,14 @@ async function loadDraftSticker(){
         var _oss=document.getElementById('ovrSeasonSel');
         if(!_oss || _oss.value==='proj'){  // only paint Big Board ranks if a past season isn't selected
           var _hnr=document.getElementById('heroNatRank'); if(_hnr && me.rank) _hnr.textContent='#'+me.rank;
-          var _hnrL=document.getElementById('heroNatRankL'); if(_hnrL) _hnrL.textContent='’26 Big Board';
+          var _hnrL=document.getElementById('heroNatRankL'); if(_hnrL) _hnrL.textContent=(_haveProj?'’27 Big Board':'’26 Big Board');
           var _hpr=document.getElementById('heroPosRank'); if(_hpr && me.posRank) _hpr.textContent='#'+me.posRank;
           var _hprL=document.getElementById('heroPosRankL'); if(_hprL && me.posLabel) _hprL.textContent=me.posLabel+' Rank';
         }
       }
       var el=document.getElementById('draftSticker');
       if(el && me && me.rank<=100){
-        el.innerHTML='<a class="bb-badge" href="#" title="Ranked #'+me.rank+' on The Depth Chart Big Board — 2026 NBA Draft" onclick="switchTab(\'rankings\');return false;">'+
+        el.innerHTML='<a class="bb-badge" href="#" title="Ranked #'+me.rank+' on The Depth Chart Big Board — '+(_haveProj?'2027 NBA Draft (2026-27 projected)':'2026 NBA Draft')+'" onclick="switchTab(\'rankings\');return false;">'+
           '<span class="bb-num">#'+me.rank+'</span>'+
           '<span class="bb-meta"><span class="bb-t1">Big Board &middot; Top 100</span><span class="bb-t2">#'+me.posRank+' '+me.posLabel+'</span></span>'+
         '</a>';
@@ -3133,7 +3157,7 @@ function renderPage(){
         <div class="hg"><div class="hg-v grade" id="heroGrade">${_hGrade}</div><div class="hg-l">TDC Grade</div></div>
         <div class="hg"><div class="hg-v wa" id="heroWA">${_hWA}</div><div class="hg-l">Wins Added</div></div>
         <div class="hg"><div class="hg-v" id="heroBadges">${_hBadges}</div><div class="hg-l">Badges</div></div>
-        <div class="hg"><div class="hg-v" id="heroNatRank">—</div><div class="hg-l" id="heroNatRankL">’26 Big Board</div></div>
+        <div class="hg"><div class="hg-v" id="heroNatRank">—</div><div class="hg-l" id="heroNatRankL">’27 Big Board</div></div>
         <div class="hg"><div class="hg-v" id="heroPosRank">—</div><div class="hg-l" id="heroPosRankL">Pos Rank</div></div>
         <div class="hg"><div class="hg-v" id="heroRank">—</div><div class="hg-l">All-Time</div></div>
       </div>

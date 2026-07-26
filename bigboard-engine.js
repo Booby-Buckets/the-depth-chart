@@ -92,7 +92,11 @@
 
   function scoreProspect(p,dist,teamMap,ageOvr){
     var s=p._s, grp=pgrp(p.position), ht=htIn(p.height), ci=classInfo(p);
-    var g=parseFloat(p.tdc_grade), hasG=isFinite(g);
+    // Grade anchor: use the canonical v5 projected grade (level-adjusted + dev),
+    // stamped by compute() for the projected season, so the board's grade term
+    // matches the OVR shown everywhere else on the site. Falls back to the raw
+    // scouting grade for historical seasons.
+    var g=isFinite(p._projGrade)?p._projGrade:parseFloat(p.tdc_grade), hasG=isFinite(g);
     var ppgP=pctOf(dist,'ppg',s.ppg),apgP=pctOf(dist,'apg',s.apg),rpgP=pctOf(dist,'rpg',s.rpg),
         stlP=pctOf(dist,'stl',s.stl),blkP=pctOf(dist,'blk',s.blk),mpgP=pctOf(dist,'mpg',s.mpg),
         fgP=pctOf(dist,'fg_pct',s.fg_pct),tpP=pctOf(dist,'tp_pct',s.tp_pct),ftP=pctOf(dist,'ft_pct',s.ft_pct),
@@ -163,6 +167,11 @@
     var ov=opts.overrides||{}, ineligible={}, ageOvr=ov.age||{};
     (ov.ineligible||[]).forEach(function(n){ ineligible[(''+n).trim()]=1; });
     var pool=(players||[]).filter(function(p){return eligible(p,ineligible);});
+    // Stamp the canonical v5 projected grade for the forward-looking board so the
+    // grade anchor matches the OVR shown on player/team/index pages.
+    if(season==='2627' && window.TDCProjGrade && typeof window.TDCProjGrade.gradeSolo==='function'){
+      pool.forEach(function(p){ var gv=window.TDCProjGrade.gradeSolo(p); if(isFinite(gv)) p._projGrade=gv; });
+    }
     pool.forEach(function(p){p._s=basisOf(p,season,projById,projReady);});
     var dist=buildDist(pool);
     pool.forEach(function(p){p._sc=scoreProspect(p,dist,teamMap,ageOvr);});
