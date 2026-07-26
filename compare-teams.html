@@ -179,16 +179,25 @@ const H   = {'apikey':KEY,'Authorization':`Bearer ${KEY}`};
 let allTeams = [];
 let allPlayers = [];
 let teamDNA = null;
+let projRankByName = {};   // live national rank from the shared predictive_ratings cache
 
 async function load(){
-  const [tr, pr, dr] = await Promise.all([
+  const [tr, pr, dr, rr] = await Promise.all([
     fetch(`${SB}/rest/v1/teams?select=*&order=name.asc`,{headers:H}),
     fetch(`${SB}/rest/v1/players?select=*&limit=5000`,{headers:H}),
-    fetch('scripts/data/team_dna.json').then(r=>r.ok?r.json():null).catch(()=>null)
+    fetch('scripts/data/team_dna.json').then(r=>r.ok?r.json():null).catch(()=>null),
+    fetch(`${SB}/rest/v1/predictive_ratings?season=eq.2027&select=data&limit=1`,{headers:H}).then(r=>r.ok?r.json():null).catch(()=>null)
   ]);
   allTeams = await tr.json();
   allPlayers = (await pr.json()).filter(p=>p.name&&p.name!=='—');
   teamDNA = dr;
+
+  // Use the same projected national rank every other team surface reads, so the
+  // "#N TDC" chip stays in sync after an owner republish instead of showing the
+  // frozen teams.tdc_rank column. predictive_ratings carries both `full` ("Duke Blue
+  // Devils") and `team` ("Duke"); the teams table uses the short `team` form for name.
+  const projTeams = (rr && rr[0] && rr[0].data && rr[0].data.teams) || [];
+  projTeams.forEach(t => { if(t.rank){ if(t.team) projRankByName[t.team]=t.rank; if(t.full) projRankByName[t.full]=t.rank; } });
 
   const opts = allTeams.map(t=>`<option value="${t.name}">${t.name} (${t.conf||t.conference||''})</option>`).join('');
   ['team1sel','team2sel'].forEach(id=>{
@@ -324,12 +333,12 @@ function renderComparison(){
     <div class="compare-header">
       <div class="compare-team-name" style="border-left:3px solid ${c1};">
         <span style="color:${c1};">${t1.name}</span>
-        <div class="team-conf">${t1.conference||t1.conf||''} · #${t1.tdc_rank_num||t1.tdc_rank||'NR'} TDC</div>
+        <div class="team-conf">${t1.conference||t1.conf||''} · #${projRankByName[t1.name]||t1.tdc_rank_num||t1.tdc_rank||'NR'} TDC</div>
       </div>
       <div class="compare-vs">VS</div>
       <div class="compare-team-name right" style="border-right:3px solid ${c2};">
         <span style="color:${c2};">${t2.name}</span>
-        <div class="team-conf">${t2.conference||t2.conf||''} · #${t2.tdc_rank_num||t2.tdc_rank||'NR'} TDC</div>
+        <div class="team-conf">${t2.conference||t2.conf||''} · #${projRankByName[t2.name]||t2.tdc_rank_num||t2.tdc_rank||'NR'} TDC</div>
       </div>
     </div>
 

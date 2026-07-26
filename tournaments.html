@@ -667,7 +667,7 @@ async function _computeProjAwards(gs, cat, champName){
   const rows=await fetchPaged(`${SB}/rest/v1/players?team=in.(${inList})&tdc_grade=not.is.null&mpg=gt.10&select=name,team,espn_id,tdc_grade,ppg,rpg,apg,mpg,yr,class_year,depth_order,starter,tovs,ft_pct,tp_pct,tpa`);
   if(!rows||!rows.length) return null;
   const PG=window.TDCProjGrade;
-  rows.forEach(p=>{ let g=PG?PG.grade(p):null; if(g==null||isNaN(g)) g=parseFloat(p.tdc_grade)||60;
+  rows.forEach(p=>{ let g=PG&&PG.gradeSolo?PG.gradeSolo(p):null; if(g==null||isNaN(g)) g=parseFloat(p.tdc_grade)||60;
     p._g=g; const w=winByShort[p.team]||0;
     p.val=g*(1+0.05*w); p.ppg=parseFloat(p.ppg)||0; p.rpg=parseFloat(p.rpg)||0; p.apg=parseFloat(p.apg)||0;
     p.player=p.name; p.avg=null; p.g=w+1; });
