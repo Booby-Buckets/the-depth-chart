@@ -199,6 +199,8 @@
   function setCoupled(m){ if(m && typeof m === 'object') _COUPLED = m; }
   var MAXMIN = 34, TOTMIN = 200, ROT_BAND = 16, ROT_POWER = 2.2;
   var ROLE_K = 14, ROLE_UP = 3, FLOOR_GAP = 12, CEIL = 7;
+  // minutes ("playing-time quality") knobs — see gradeRoster
+  var MIN_LEVEL_CAP = 3, NEWCOMER_PEN = 2.5, PROD_BASE = 11, PROD_K = 0.4;
 
   function _clsTrans(yr){ var y = (yr || '').toString().toLowerCase();
     if(/fr/.test(y)) return 'so'; if(/so/.test(y)) return 'jr'; if(/jr/.test(y)) return 'sr'; return null; }
@@ -277,7 +279,28 @@
       var conf = _originConf(p);
       return g - _levelDisc(conf);
     });
-    var q2 = quals.map(function(q){ return q == null ? 45 : q; });
+    // MINUTES use a distinct "playing-time quality" — coaches allocate minutes on
+    // demonstrated role, not pure level-adjusted talent. Three differences from the
+    // grade quality: (1) the level discount is CAPPED (a coach plays his productive
+    // mid-major/Ivy transfer regardless of where he produced), (2) demonstrated
+    // per-game production earns minutes, and (3) a freshman with no college role
+    // ramps in. Keeps a proven 18/9 vet ahead of an unproven freshman WITHOUT
+    // touching the grade (which still fully reflects level).
+    var mQuals = roster.map(function(p, i){
+      if(quals[i] == null) return null;
+      var g = parseFloat(p.tdc_grade);
+      var base = g - Math.min(_levelDisc(_originConf(p)), MIN_LEVEL_CAP);
+      var mpg = parseFloat(p.mpg) || 0;
+      if(mpg >= 6){
+        var prod = (parseFloat(p.ppg) || 0) + 0.5 * (parseFloat(p.rpg) || 0);   // scoring + half of rebounds
+        base += Math.max(-2.5, Math.min(5, (prod - PROD_BASE) * PROD_K));        // over/under-producers vs a rotation baseline
+      } else {
+        var yr = (p.yr || p.class_year || '').toString().toLowerCase();
+        if(/fr/.test(yr)) base -= NEWCOMER_PEN;                                   // no college role → earns minutes over time
+      }
+      return base;
+    });
+    var q2 = mQuals.map(function(q, i){ return q == null ? 45 : q; });
     var mins = projectMinutes(q2);
     return roster.map(function(p, i){
       if(quals[i] == null) return { min: 0, grade: null, qual: null };
@@ -316,7 +339,7 @@
 
   // Role-aware grade coupling v2 (movers only; resolves before the roster fetch).
   try{
-    fetch('scripts/data/player_coupled_grades.json?v=2')
+    fetch('scripts/data/player_coupled_grades.json?v=3')
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ if(j && j.grades) setCoupled(j.grades); })
       .catch(function(){});
