@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Coach's Tier — The Depth Chart</title>
+  <meta name="description" content="A coaching staff's analytics department in one subscription — opponent scouting, self-scout, player intelligence and game prep."/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="auth.js?v=paywall3"></script>
+  <link rel="stylesheet" href="tdc-anim.css?v=4"/>
+  <script src="tdc-anim.js?v=5"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--amber:#b5872a;--pink:#c0417d;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--amber:#d8b05a;--pink:#ff7db0;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+    a{color:inherit;}
+    .wrap{max-width:1060px;margin:0 auto;padding:0 22px;}
+    /* hero */
+    .hero{padding:64px 0 40px;position:relative;overflow:hidden;}
+    .hero-orbs{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.5;}
+    .horb{position:absolute;border-radius:50%;filter:blur(70px);}
+    .horb.a{width:340px;height:340px;background:color-mix(in srgb,var(--accent) 40%,transparent);top:-120px;left:-40px;}
+    .horb.b{width:300px;height:300px;background:color-mix(in srgb,var(--pink) 24%,transparent);top:-60px;right:-30px;}
+    .hero-in{position:relative;z-index:1;max-width:760px;}
+    .kicker{display:inline-flex;align-items:center;gap:9px;font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+      color:var(--accent);border:1px solid var(--border2);border-radius:30px;padding:6px 14px;margin-bottom:22px;
+      background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 14%,transparent),color-mix(in srgb,var(--pink) 10%,transparent));}
+    h1{font-family:'Playfair Display',serif;font-weight:900;font-size:clamp(38px,6vw,64px);line-height:1.02;letter-spacing:-.02em;text-wrap:balance;margin-bottom:18px;}
+    h1 em{font-style:italic;color:var(--accent);}
+    .lede{font-size:clamp(15px,2vw,18px);line-height:1.6;color:var(--text2);max-width:620px;margin-bottom:28px;}
+    .cta-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+    .btn{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;letter-spacing:.02em;text-decoration:none;padding:12px 22px;border-radius:10px;transition:transform .15s,opacity .15s;}
+    .btn:hover{transform:translateY(-1px);}
+    .btn.primary{background:var(--text);color:var(--bg);}
+    [data-theme="dark"] .btn.primary{background:var(--accent);color:#141416;}
+    .btn.ghost{border:1px solid var(--border2);color:var(--text2);}
+    .btn.ghost:hover{border-color:var(--accent);color:var(--text);}
+    .hero-stats{display:flex;gap:30px;margin-top:34px;flex-wrap:wrap;}
+    .hstat .hn{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;color:var(--text);}
+    .hstat .hl{font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.03em;margin-top:2px;}
+    /* hubs */
+    .hubs-head{margin:54px 0 20px;}
+    .hubs-head .eye{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+    .hubs-head h2{font-family:'Playfair Display',serif;font-weight:800;font-size:28px;letter-spacing:-.01em;}
+    .hubs{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding-bottom:20px;}
+    @media(max-width:760px){.hubs{grid-template-columns:1fr;}}
+    .hub{border:1px solid var(--border);border-radius:18px;background:var(--bg2);padding:26px 26px 20px;position:relative;overflow:hidden;transition:border-color .2s;}
+    .hub:hover{border-color:var(--border2);}
+    .hub::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--hc,var(--accent));opacity:.8;}
+    .hub-ico{font-size:22px;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+      background:color-mix(in srgb,var(--hc,var(--accent)) 14%,var(--bg));margin-bottom:14px;}
+    .hub-name{font-family:'Playfair Display',serif;font-weight:800;font-size:21px;letter-spacing:-.01em;}
+    .hub-tag{font-size:13px;color:var(--text2);line-height:1.55;margin:6px 0 18px;}
+    .feat{display:flex;align-items:center;gap:11px;padding:10px 0;border-top:1px solid var(--border);text-decoration:none;color:inherit;transition:padding-left .15s;}
+    a.feat:hover{padding-left:5px;}
+    .feat .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+    .feat .fname{font-size:13.5px;font-weight:600;color:var(--text);flex:1;}
+    a.feat:hover .fname{color:var(--accent);}
+    .feat .chip{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:20px;white-space:nowrap;}
+    .chip.live{color:var(--green);background:color-mix(in srgb,var(--green) 16%,transparent);}
+    .chip.beta{color:var(--amber);background:color-mix(in srgb,var(--amber) 18%,transparent);}
+    .chip.soon{color:var(--text3);background:var(--bg3);}
+    .feat .arr{font-size:12px;color:var(--text3);opacity:0;transition:opacity .15s;}
+    a.feat:hover .arr{opacity:1;}
+    /* closing cta */
+    .close{border:1px solid var(--border);border-radius:20px;margin:20px 0 70px;padding:40px 30px;text-align:center;
+      background:radial-gradient(120% 140% at 50% 0%,color-mix(in srgb,var(--accent) 9%,var(--bg2)),var(--bg2));}
+    .close h3{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;letter-spacing:-.01em;margin-bottom:8px;}
+    .close p{font-size:14px;color:var(--text2);max-width:520px;margin:0 auto 22px;line-height:1.6;}
+    .close .fine{font-size:11px;color:var(--text3);margin-top:16px;}
+  </style>
+  <link rel="stylesheet" href="tdc-dense.css?v=18"/>
+  <style>
+    :root:not([data-theme="dark"]){background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
+  </style>
+</head>
+<body data-anim-auto>
+<script src="tdc-nav.js?v=2"></script>
+
+<div class="hero">
+  <div class="hero-orbs" aria-hidden="true"><div class="horb a"></div><div class="horb b"></div></div>
+  <div class="wrap hero-in">
+    <div class="kicker" data-anim>⬡ Coach's Tier</div>
+    <h1 data-anim>Your staff's <em>analytics department</em>, in one subscription.</h1>
+    <div class="lede" data-anim>Everything a coaching staff needs to scout an opponent, self-scout their own group, evaluate personnel and build a game plan — powered by the same roster-based engine that projects the national rankings. Four hubs. One war room.</div>
+    <div class="cta-row" data-anim>
+      <a class="btn primary" href="scout.html">Open the Scouting Report →</a>
+      <a class="btn ghost" href="pricing.html">See pricing</a>
+    </div>
+    <div class="hero-stats" data-anim>
+      <div class="hstat"><div class="hn">4</div><div class="hl">Intelligence hubs</div></div>
+      <div class="hstat"><div class="hn">365</div><div class="hl">Teams rated</div></div>
+      <div class="hstat"><div class="hn">Every</div><div class="hl">Shot &amp; possession</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="hubs-head" data-anim>
+    <div class="eye">The war room</div>
+    <h2>Four hubs, one command center</h2>
+  </div>
+
+  <div class="hubs">
+    <!-- SCOUTING -->
+    <div class="hub" style="--hc:#c0417d" data-anim>
+      <div class="hub-ico">🔍</div>
+      <div class="hub-name">Scouting Hub</div>
+      <div class="hub-tag">Walk in knowing the opponent better than they know themselves — reports, matchup edges and shot tendencies.</div>
+      <a class="feat" href="scout.html"><span class="dot" style="background:var(--green)"></span><span class="fname">Opponent Scouting Report</span><span class="chip live">Live</span><span class="arr">→</span></a>
+      <a class="feat" href="matchup.html"><span class="dot" style="background:var(--green)"></span><span class="fname">Matchup Predictor</span><span class="chip live">Live</span><span class="arr">→</span></a>
+      <a class="feat" href="shot-genome.html"><span class="dot" style="background:var(--green)"></span><span class="fname">Shot charts &amp; shot genome</span><span class="chip live">Live</span><span class="arr">→</span></a>
+      <a class="feat" href="compare-teams.html"><span class="dot" style="background:var(--green)"></span><span class="fname">Style &amp; DNA comparison</span><span class="chip live">Live</span><span class="arr">→</span></a>
+    </div>
+
+    <!-- SELF-SCOUT -->
+    <div class="hub" style="--hc:#3b6fd4" data-anim>
+      <div class="hub-ico">🪞</div>
+      <div class="hub-name">Self-Scout Hub</div>
+      <div class="hub-tag">See your own team the way the best analysts do — your winning formula, DNA and lineup data in one place.</div>
+      <a class="feat" href="team.html"><span class="dot" style="background:var(--green)"></span><span class="fname">Team DNA &amp; win formula</span><span class="chip live">Live</span><span class="arr">→</span></a>
+      <a class="feat" href="onoff.html"><span class="dot" style="background:var(--green)"></span><span class="fname">On/Off &amp; lineup analysis</span><span class="chip live">Live</span><span class="arr">→</span></a>
+      <a class="feat" href="predict.html"><span class="dot" style="background:var(--green)"></span><span class="fname">Projected ratings &amp; schedule</span><span class="chip live">Live</span><span class="arr">→</span></a>
+      <div class="feat"><span class="dot" style="background:var(--text3)"></span><span class="fname">Consistency trends</span><span class="chip soon">Soon</span></div>
+    </div>
+
+    <!-- PLAYER INTELLIGENCE -->
+    <div class="hub" style="--hc:#2f9e6f" data-anim>
+      <div class="hub-ico">🧠</div>
+      <div class="hub-name">Player Intelligence</div>
+      <div class="hub-tag">Grade, project and fit every player on your board — from your rotation to the portal.</div>
+      <a class="feat" href="roster.html"><span class="dot" style="background:var(--green)"></span><span class="fname">Role &amp; skill grades</span><span class="chip live">Live</span><span class="arr">→</span></a>
+      <a class="feat" href="portal.html"><span class="dot" style="background:var(--green)"></span><span class="fname">Transfer Portal fit</span><span class="chip live">Live</span><span class="arr">→</span></a>
+      <a class="feat" href="development.html"><span class="dot" style="background:var(--amber)"></span><span class="fname">Development tracking</span><span class="chip beta">Beta</span><span class="arr">→</span></a>
+      <div class="feat"><span class="dot" style="background:var(--text3)"></span><span class="fname">Recruit fit scores</span><span class="chip soon">Soon</span></div>
+    </div>
+
+    <!-- GAME PREP -->
+    <div class="hub" style="--hc:#c8963e" data-anim>
+      <div class="hub-ico">📋</div>
+      <div class="hub-name">Game Prep</div>
+      <div class="hub-tag">Turn the numbers into a plan your staff can run — an automatic game plan, tendencies and checklists.</div>
+      <a class="feat" href="scout.html"><span class="dot" style="background:var(--green)"></span><span class="fname">The Game Plan (auto prep)</span><span class="chip live">Live</span><span class="arr">→</span></a>
+      <a class="feat" href="scout.html"><span class="dot" style="background:var(--green)"></span><span class="fname">Key tendencies &amp; checklist</span><span class="chip live">Live</span><span class="arr">→</span></a>
+      <a class="feat" href="team.html"><span class="dot" style="background:var(--amber)"></span><span class="fname">AI personnel reports</span><span class="chip beta">Beta</span><span class="arr">→</span></a>
+      <div class="feat"><span class="dot" style="background:var(--text3)"></span><span class="fname">Practice-plan export</span><span class="chip soon">Soon</span></div>
+    </div>
+  </div>
+
+  <div class="close" data-anim>
+    <h3>Coach like you have an analytics staff.</h3>
+    <p>The Coach's Tier turns The Depth Chart's projection engine into a preparation workflow — scout, self-scout, evaluate and plan, all from one login.</p>
+    <a class="btn primary" href="scout.html">Start with a scouting report →</a>
+    <div class="fine">Included features are live now. Beta tools are usable and improving; “Soon” items are on the roadmap.</div>
+  </div>
+</div>
+
+<script>
+// Public marketing page — no gate. If the coach product isn't in the plan list yet,
+// the CTAs simply point at the live tools / pricing.
+</script>
+</body>
+</html>

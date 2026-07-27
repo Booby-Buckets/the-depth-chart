@@ -33,6 +33,7 @@
     ['games.html', '🎮 Games'],
     ['community.html', 'Community'],
     ['team.html', 'Teams'],
+    ['coach-tier.html', "⬡ Coach's Tier"],
     ['customize.html', '✦ Customize'],
     ['pricing.html', 'Pricing'],
   ];
