@@ -11,6 +11,7 @@ window.TDC_COACHLINKS = (function () {
     ['game-review.html',  'Game Review',     '📋'],
     ['consistency.html',  'Consistency',     '📊'],
     ['lineups.html',      'Lineups',         '▦'],
+    ['pairings.html',     'Pairings',        '🔗'],
     ['roles.html',        'Roles & Fit',     '🧩'],
     ['player-splits.html','Player Splits',   '🔀'],
     ['roster-dev.html',   'Development',      '📈'],
