@@ -132,12 +132,43 @@ function mgCls(m){ return m>=0.5?'pos':m<=-0.5?'neg':'dim'; }
 function srowH(cx, gs){ if(!gs.length) return ''; const r=rec(gs);
   return `<div class="srow"><div class="cx">${esc(cx)}</div><div class="rec">${r.w}–${r.l}</div><div class="mg ${mgCls(r.mg)}">${r.mg>=0?'+':''}${r.mg.toFixed(1)}</div></div>`; }
 
+async function teamEspnId(row){
+  try{ const rows=await fetch(SB_URL+'/rest/v1/team_seasons?select=team,team_id&team=ilike.'+encodeURIComponent(sn(row.team))+'*&limit=25',{headers:H}).then(r=>r.ok?r.json():[]);
+    const tn=sn(row.team).toLowerCase().trim();
+    for(let k=1;k<=3;k++){ for(const r of rows){ const w=r.team.split(' '); if(w.length>k&&w.slice(0,w.length-k).join(' ').toLowerCase()===tn) return r.team_id; } }
+    if(rows.length) return rows[0].team_id;
+  }catch(e){} return null;
+}
+function halfEfg(shots,h){ const s=shots.filter(x=>(x.period===1?1:x.period===2?2:3)===h);
+  if(s.length<15) return null; const fga=s.length, m2=s.filter(x=>x.made&&x.sv===2).length, m3=s.filter(x=>x.made&&x.sv===3).length;
+  return {fga, efg:(m2+m3+0.5*m3)/fga, pts:2*m2+3*m3}; }
+async function loadHalves(row, games){
+  const host=el('halfSplit'); if(!host) return;
+  const tid=await teamEspnId(row); if(tid==null) return;
+  const ids=(games||[]).map(g=>g.id).filter(x=>x!=null);
+  let off=[], def=[];
+  try{ off=await fetch(`${SB_URL}/rest/v1/shots?team_id=eq.${tid}&season_year=eq.2026&select=period,made,sv&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  if(ids.length){ try{ def=await fetch(`${SB_URL}/rest/v1/shots?game_id=in.(${ids.join(',')})&team_id=neq.${tid}&select=period,made,sv&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){} }
+  const o1=halfEfg(off,1), o2=halfEfg(off,2), d1=halfEfg(def,1), d2=halfEfg(def,2);
+  if(!o1||!o2){ return; }
+  const p=x=>(x*100).toFixed(1), dcls=d=>d>=1?'pos':d<=-1?'neg':'dim';
+  const rowH=(lab,a,b,flip)=>{ if(!a||!b) return ''; const d=(b.efg-a.efg)*100, good=flip?-d:d;
+    return `<div class="srow"><div class="cx">${lab}</div><div class="rec" style="min-width:70px">${p(a.efg)}% → ${p(b.efg)}%</div><div class="mg ${dcls(good)}" style="min-width:52px">${d>=0?'+':''}${d.toFixed(1)}</div></div>`; };
+  // read
+  const oD=(o2.efg-o1.efg)*100, dD=(d1&&d2)?(d2.efg-d1.efg)*100:null; const parts=[];
+  parts.push(Math.abs(oD)<2.5?`shoots about the same before and after the break`:oD>=2.5?`a <b>second-half team</b> — their shooting jumps ${p(o1.efg)}%→${p(o2.efg)}% eFG after halftime`:`<b>starts hot and cools off</b> — ${p(o1.efg)}%→${p(o2.efg)}% eFG after the break`);
+  if(dD!=null) parts.push(Math.abs(dD)<2.5?`and defend both halves evenly`:dD<=-2.5?`and their defense tightens late (allowing ${p(d1.efg)}%→${p(d2.efg)}%)`:`and their defense slips after halftime (allowing ${p(d1.efg)}%→${p(d2.efg)}%)`);
+  host.innerHTML=`<div class="sec-h">First half vs second half <span class="hint" style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px">shooting eFG% by half</span></div>
+    <div class="split" style="max-width:520px">${rowH('Offense',o1,o2,false)}${(d1&&d2)?rowH('Defense allowed',d1,d2,true):''}</div>
+    <div class="read" style="margin-top:12px">${sn(row.full)} ${parts.join(', ')}.</div>`;
+}
+
 async function loadTeam(){
   const row=poolRow(selKey); if(!row) return;
   const tc=teamColor(row), me=row.full;
   el('out').innerHTML='<div class="loading">Reading every result…</div>';
   let games=[];
-  try{ games=await fetch(`${SB_URL}/rest/v1/games?or=(home.eq.${encodeURIComponent(me)},away.eq.${encodeURIComponent(me)})&season_year=eq.2026&home_score=not.is.null&select=home,away,home_score,away_score,neutral,conf_game,date&order=date.asc&limit=60`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  try{ games=await fetch(`${SB_URL}/rest/v1/games?or=(home.eq.${encodeURIComponent(me)},away.eq.${encodeURIComponent(me)})&season_year=eq.2026&home_score=not.is.null&select=id,home,away,home_score,away_score,neutral,conf_game,date&order=date.asc&limit=60`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
   if(games.length<5){ el('out').innerHTML='<div class="muted" style="padding:50px 20px;">Not enough 2025-26 results on file for this team.</div>'; return; }
   // normalize each game to my perspective
   const G=games.map(x=>{ const home=x.home===me, my=home?x.home_score:x.away_score, opp=home?x.away_score:x.home_score, oppName=home?x.away:x.home;
@@ -173,7 +204,9 @@ async function loadTeam(){
     <div class="splits">${venueSplit}${qualSplit}${clutchSplit}${confSplit}</div>
     ${hilite}
     ${read}
+    <div id="halfSplit"></div>
   </div>`;
+  loadHalves(row, games);
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
 }
