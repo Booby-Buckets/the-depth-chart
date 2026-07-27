@@ -95,6 +95,17 @@ while True:
 byteam=defaultdict(list)
 for p in rows: byteam[p["team"]].append(p)
 teams26=TD["2026"]["teams"]
+# Authoritative short->full team-name map from predictive_ratings. The index looks up
+# team_eff by this SAME full name, and espn_key mis-resolved any flagship whose "State"
+# sibling sorted shorter (Illinois -> "Illinois State Redbirds"), so the Fighting Illini
+# got no 2027 DNA. Keying off predictive_ratings guarantees the DNA key matches the site.
+SHORT2FULL={}
+try:
+    _pr=json.load(urllib.request.urlopen(urllib.request.Request(SB+"/rest/v1/predictive_ratings?season=eq.2027&select=data&limit=1",headers=H),timeout=60))
+    for _t in (_pr[0]["data"]["teams"] if _pr else []):
+        if _t.get("team") and _t.get("full"): SHORT2FULL[_t["team"].lower()]=_t["full"]
+except Exception as _e:
+    print("warn: could not load predictive_ratings short->full map (%s); using espn_key only" % _e)
 proj={}
 for team,roster in byteam.items():
     R=[]
@@ -115,7 +126,7 @@ for team,roster in byteam.items():
     for t,(fe,c) in COEF.items(): dna[t]=round(float(c[0]+sum(c[i+1]*F[fe[i]] for i in range(len(fe)))),1)
     dna["tempo"]=round(coachpace.get(team) or 68.0,1)
     dna["projected"]=True
-    proj[(espn_key(team,teams26) or team)]=dna
+    proj[(SHORT2FULL.get(team.lower()) or espn_key(team,teams26) or team)]=dna
 # ---- national percentiles + win-path (weighted by 2026 win model) ----
 allt=list(proj.values()); n=len(allt)
 DIRS={"net":1,"ORtg":1,"DRtg":-1,"oeFG":1,"deFG":-1,"oTOV":-1,"dTOV":1,"oORB":1,"dDRB":1}
