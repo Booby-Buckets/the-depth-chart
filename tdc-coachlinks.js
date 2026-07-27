@@ -13,6 +13,7 @@ window.TDC_COACHLINKS = (function () {
       ['situational.html',     'Situational'],
       ['style-matchups.html',  'Style Matchups'],
       ['scoring-sources.html', 'Scoring Sources'],
+      ['defense.html',         'Defense'],
       ['game-review.html',     'Game Review'],
     ]],
     ['Self-Scout', [

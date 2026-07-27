@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Defensive Profile — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="auth.js?v=paywall3"></script>
+  <script src="team-colors.js?v=2"></script>
+  <script src="tdc-ratings.js?v=2"></script>
+  <link rel="stylesheet" href="tdc-anim.css?v=4"/>
+  <script src="tdc-anim.js?v=5"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--amber:#b5872a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--amber:#d8b05a;--red:#e07070;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+    .page{max-width:920px;margin:0 auto;padding:30px 22px 90px;}
+    .eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+    .eyebrow .lock{font-size:10px;color:var(--text3);border:1px solid var(--border2);border-radius:20px;padding:2px 8px;letter-spacing:.06em;}
+    h1{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;letter-spacing:-.01em;margin-bottom:4px;}
+    .sub{font-size:13px;color:var(--text3);margin-bottom:22px;max-width:760px;line-height:1.6;}
+    .combo{position:relative;max-width:420px;}
+    .search{width:100%;padding:12px 14px;border:1px solid var(--accent);border-radius:10px;background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;font-weight:600;outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent);}
+    .combo-list{display:none;position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:30;max-height:340px;overflow-y:auto;background:var(--bg);border:1px solid var(--border2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.2);}
+    .combo-item{padding:9px 13px;cursor:pointer;font-size:13.5px;display:flex;justify-content:space-between;gap:10px;font-weight:600;}
+    .combo-item:hover{background:var(--bg3);}
+    .combo-item .cr{color:var(--text3);font-weight:500;}
+    .combo-empty{padding:12px;font-size:12px;color:var(--text3);}
+    .loading{padding:70px;text-align:center;color:var(--text3);}
+    .muted{font-size:12.5px;color:var(--text3);line-height:1.7;padding:24px 20px;text-align:center;}
+    .sec-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:26px 0 12px;display:flex;align-items:center;gap:10px;}
+    .sec-h .hint{font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;}
+    .sec-h::after{content:'';flex:1;height:1px;background:var(--border);}
+    /* team identity */
+    .tid{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center;border:1px solid var(--border);border-radius:16px;background:var(--bg2);padding:18px 22px;}
+    @media(max-width:560px){.tid{grid-template-columns:1fr;}}
+    .tid .drtg{text-align:center;}
+    .tid .drtg .v{font-family:'Playfair Display',serif;font-weight:800;font-size:40px;line-height:1;}
+    .tid .drtg .l{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:3px;}
+    .ff{display:flex;flex-direction:column;gap:9px;min-width:0;}
+    .bar .bl{display:flex;justify-content:space-between;font-size:11.5px;font-weight:600;color:var(--text2);margin-bottom:3px;}
+    .bar .bl .bv{font-variant-numeric:tabular-nums;color:var(--text3);font-weight:700;}
+    .bar .bt{height:7px;border-radius:5px;background:var(--bg3);overflow:hidden;}
+    .bar .bf{height:100%;border-radius:5px;}
+    .read{font-size:13px;color:var(--text2);line-height:1.7;margin-top:12px;}
+    .read b{color:var(--text);}
+    /* player rows */
+    .pr{display:grid;grid-template-columns:1.3fr 88px 1fr 118px;gap:14px;align-items:center;border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:12px 16px;margin-bottom:8px;}
+    @media(max-width:640px){.pr{grid-template-columns:1fr auto;gap:8px 12px;}.pr .foot{grid-column:1/-1;}}
+    .pr .nm{font-weight:800;font-size:14px;}
+    .pr .nm .pos{font-size:10px;font-weight:700;color:var(--accent);margin-left:5px;}
+    .pr .dbpm{text-align:center;}
+    .pr .dbpm .v{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;line-height:1;}
+    .pr .dbpm .l{font-size:8.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);}
+    .foot{font-size:11px;color:var(--text3);font-variant-numeric:tabular-nums;display:flex;gap:12px;flex-wrap:wrap;}
+    .foot b{color:var(--text2);}
+    .lab{text-align:right;font-size:11.5px;font-weight:800;}
+    .lg{color:var(--green);} .la{color:var(--amber);} .lr{color:var(--red);}
+    .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:26px;max-width:760px;}
+  </style>
+  <link rel="stylesheet" href="tdc-dense.css?v=18"/>
+  <style>
+    :root:not([data-theme="dark"]){background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
+  </style>
+</head>
+<body data-anim-auto>
+<script>
+(function(){
+  if(window.TDC_PAYWALL_ENABLED===false) return;
+  var REQUIRED_PLANS=['pro','coach'];
+  var s=null; try{ s=JSON.parse(localStorage.getItem('tdc_session')||'null'); }catch(e){}
+  if(!s||!s.access_token){ location.href='pricing.html?gate=coach'; return; }
+  fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user.id+'&select=plan',
+    {headers:{apikey:'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye',Authorization:'Bearer '+s.access_token}})
+    .then(function(r){return r.json();}).then(function(rows){var p=rows&&rows[0];
+      if(!p||REQUIRED_PLANS.indexOf(p.plan)<0) location.href='pricing.html?gate=coach';
+    }).catch(function(){ location.href='pricing.html?gate=coach'; });
+})();
+</script>
+<script src="tdc-nav.js?v=2"></script>
+<script src="tdc-coachlinks.js?v=3"></script>
+<div class="page">
+  <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Scouting Hub</span></div>
+  <h1 data-anim>Defensive Profile</h1>
+  <div class="sub" data-anim>How does a team actually get stops — and who does the work? Pick a team for its defensive identity (contesting shots, forcing turnovers, controlling the glass) and a rundown of every rotation defender: the rim protector, the disruptors, and the one you can attack.</div>
+
+  <div class="combo" data-anim><input id="sel" class="search" placeholder="Search a team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
+
+  <div id="out"><div class="muted" style="padding:60px 20px;">Pick a team above to read its defense.</div></div>
+
+  <div class="note" data-anim>Team identity uses the 2026-27 projected defensive four factors (percentile vs D-I: higher = better). Player footprints are each defender's 2025-26 advanced rates — defensive box plus-minus (DBPM), block %, steal %, defensive-rebound % — so the anchor and the weak link are the real ones from last season.</div>
+</div>
+
+<script>
+const SB_URL='https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
+const el=id=>document.getElementById(id);
+const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
+
+let D=null, COLORMAP={}, selKey=null, DNA=null;
+const poolRow=k=>k!=null?D.teams[k]:null;
+const labelOf=r=>r?r.full:'';
+function _lum(hex){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');if(hex.length<6)return .5;const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return (0.299*r+0.587*g+0.114*b)/255;}
+function teamColor(row){const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#A8843C';const c=COLORMAP[row.team]||COLORMAP[row.full];if(!c)return accent;const dark=document.documentElement.getAttribute('data-theme')==='dark',l=_lum(c);if(!dark&&l>0.72)return accent;if(dark&&l<0.16)return accent;return c;}
+function dnaOf(r){ return (DNA&&DNA['2027']&&DNA['2027'].teams&&DNA['2027'].teams[r.full])||null; }
+
+function comboMatches(q){
+  const toks=(q||'').toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const ok=s=>{s=s.toLowerCase();return toks.every(t=>s.includes(t));};
+  let out=[]; D.teams.forEach((r,i)=>{ if(!toks.length||ok(r.full+' '+r.team)) out.push({key:i,r}); });
+  if(toks.length){ const pre=e=>e.r.full.toLowerCase().startsWith(toks[0])?0:1; out.sort((a,b)=>pre(a)-pre(b)||(a.r.rank||999)-(b.r.rank||999)); }
+  else out.sort((a,b)=>(a.r.rank||999)-(b.r.rank||999));
+  return out.slice(0,30);
+}
+function renderList(){
+  const list=el('list'), m=comboMatches(el('sel').value);
+  list.innerHTML=m.length? m.map(e=>`<div class="combo-item" data-key="${e.key}"><span>${labelOf(e.r)}${e.r.conf?` <span class="cr">${e.r.conf}</span>`:''}</span><span class="cr">#${e.r.rank||'—'}</span></div>`).join('')
+    : '<div class="combo-empty">No teams match</div>';
+  list.style.display='block';
+}
+function pick(key){ selKey=+key; el('sel').value=labelOf(poolRow(+key)); el('list').style.display='none'; loadTeam(); }
+(function wire(){
+  const inp=el('sel'), list=el('list');
+  inp.addEventListener('focus',()=>{ inp.select(); renderList(); });
+  inp.addEventListener('input',()=>renderList());
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const f=list.querySelector('.combo-item'); if(f) pick(f.dataset.key); inp.blur(); }
+    if(e.key==='Escape'){ list.style.display='none'; inp.value=labelOf(poolRow(selKey)); inp.blur(); } });
+  inp.addEventListener('blur',()=>setTimeout(()=>{ list.style.display='none'; inp.value=labelOf(poolRow(selKey)); },160));
+  list.addEventListener('mousedown',e=>{ const it=e.target.closest('.combo-item'); if(it){ e.preventDefault(); pick(it.dataset.key); } });
+})();
+
+const num=v=>{const n=parseFloat(v);return isNaN(n)?0:n;};
+function defRole(a,pos){
+  const dbpm=num(a.dbpm), blk=num(a.blk_pct), stl=num(a.stl_pct), big=/C|PF|F/.test((pos||''));
+  if(blk>=4.5) return ['Rim protector','lg'];
+  if(dbpm>=3.5) return ['Lockdown defender','lg'];
+  if(stl>=3.2&&dbpm>=0.5) return ['Ball-hawk','lg'];
+  if(dbpm>=1.5) return ['Plus defender','lg'];
+  if(dbpm>=-0.5) return ['Solid','la'];
+  return ['Can be attacked','lr'];
+}
+
+async function loadTeam(){
+  const row=poolRow(selKey); if(!row) return;
+  const tc=teamColor(row);
+  el('out').innerHTML='<div class="loading">Reading the defense…</div>';
+  if(!DNA){ try{ DNA=await fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():{}); }catch(e){ DNA={}; } }
+  const dna=dnaOf(row);
+  // roster defensive footprints
+  let roster=[];
+  try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,mpg&order=mpg.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  const withId=roster.filter(p=>p.espn_id!=null);
+  let adv=[];
+  if(withId.length){ const ids=withId.map(p=>p.espn_id).join(',');
+    try{ adv=await fetch(`${SB_URL}/rest/v1/bbref_seasons?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,pos,advanced`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  }
+  const advById={}; adv.forEach(a=>{ if(a.advanced) advById[a.espn_id]={...a.advanced,pos:a.pos}; });
+  let players=roster.map(p=>{ const a=advById[p.espn_id]; if(!a) return null;
+    return {name:p.name,pos:p.position||a.pos,mpg:+p.mpg||0,a,role:defRole(a,p.position||a.pos)}; }).filter(Boolean);
+  players.sort((x,y)=>num(y.a.dbpm)-num(x.a.dbpm));
+
+  // team identity
+  let idHtml='';
+  if(dna&&dna.pct){ const P=dna.pct;
+    const bar=(lab,p)=>{ const v=Math.max(0,Math.min(100,p==null?50:p)), col=v>=50?'var(--green)':'var(--red)';
+      return `<div class="bar"><div class="bl"><span>${lab}</span><span class="bv">${p==null?'—':Math.round(v)+'ᵖᶜ'}</span></div><div class="bt"><div class="bf" style="width:${v}%;background:${col}"></div></div></div>`; };
+    const facs=[['deFG','Contesting shots'],['dTOV','Forcing turnovers'],['dDRB','Defensive rebounding']].map(f=>({k:f[0],lab:f[1],p:P[f[0]]}));
+    const best=[...facs].filter(f=>f.p!=null).sort((a,b)=>b.p-a.p)[0], worst=[...facs].filter(f=>f.p!=null).sort((a,b)=>a.p-b.p)[0];
+    const read = best&&worst&&best!==worst ? `Their defense is built on <b>${best.lab.toLowerCase()}</b> (top-${100-best.p}%)${worst.p<50?`, and is most exposed on <b>${worst.lab.toLowerCase()}</b> (bottom-${worst.p}%)`:''}.` : '';
+    idHtml=`<div class="tid" style="--tc:${tc}"><div class="drtg"><div class="v" style="color:${(P.DRtg||50)>=50?'var(--green)':'var(--red)'}">${P.DRtg!=null?P.DRtg:'—'}<span style="font-size:16px">ᵖᶜ</span></div><div class="l">Defense overall</div></div>
+      <div class="ff">${facs.map(f=>bar(f.lab,f.p)).join('')}</div></div>${read?`<div class="read">${read}</div>`:''}`;
+  }
+
+  // players
+  const prow=p=>{ const [lab,cls]=p.role, dbpm=num(p.a.dbpm);
+    return `<div class="pr" style="--tc:${tc}"><div class="nm">${esc(p.name)}<span class="pos">${esc(p.pos||'')}</span></div>
+      <div class="dbpm"><div class="v" style="color:${dbpm>=1?'var(--green)':dbpm>=-0.5?'var(--text2)':'var(--red)'}">${dbpm>=0?'+':''}${dbpm.toFixed(1)}</div><div class="l">DBPM</div></div>
+      <div class="foot"><span><b>${num(p.a.blk_pct).toFixed(1)}</b>% blk</span><span><b>${num(p.a.stl_pct).toFixed(1)}</b>% stl</span><span><b>${num(p.a.drb_pct).toFixed(0)}</b>% dReb</span></div>
+      <div class="lab ${cls}">${lab}</div></div>`; };
+  const anchor=players[0], weak=[...players].filter(p=>p.mpg>=10).sort((a,b)=>num(a.a.dbpm)-num(b.a.dbpm))[0];
+  const pread = (anchor&&weak&&anchor!==weak) ? `<div class="read"><b>${esc(anchor.name)}</b> anchors the defense; <b>${esc(weak.name)}</b> is the one to hunt — ${weak.role[0]==='Can be attacked'?'the softest matchup on the floor':'the least disruptive of the rotation'}.</div>` : '';
+
+  el('out').innerHTML=`<div style="--tc:${tc}">
+    ${idHtml?`<div class="sec-h">Team defensive identity <span class="hint">projected 2026-27</span></div>${idHtml}`:''}
+    <div class="sec-h">Rotation defenders <span class="hint">2025-26 · sorted by impact (DBPM)</span></div>
+    ${players.length?players.map(prow).join('')+pread:'<div class="muted">No player defensive data on file for this roster yet.</div>'}
+  </div>`;
+  if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
+}
+
+(async function(){
+  try{ const arr=await fetch('scripts/data/team_colors.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
+    (arr||[]).forEach(e=>{ if(e&&e.c1){ if(e.location) COLORMAP[e.location]=e.c1; if(e.display) COLORMAP[e.display]=e.c1; } });
+  }catch(e){}
+  D=await TDC_RATINGS.get();
+  D.teams=(D.teams||[]).filter(t=>t.projected!==false&&t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999));
+  const qs=new URLSearchParams(location.search);
+  const want=(qs.get('team')||'').toLowerCase();
+  if(want){ const i=D.teams.findIndex(t=>t.full.toLowerCase()===want||t.team.toLowerCase()===want); if(i>=0){ selKey=i; el('sel').value=labelOf(poolRow(i)); loadTeam(); } }
+})();
+</script>
+</body>
+</html>
