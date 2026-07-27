@@ -84,6 +84,7 @@
 })();
 </script>
 <script src="tdc-nav.js?v=2"></script>
+<script src="tdc-coachlinks.js?v=1"></script>
 <div class="page">
   <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Game Prep</span></div>
   <h1 data-anim>Automatic Game Review</h1>
@@ -148,7 +149,7 @@ async function loadGames(){
     const win=+my>+opp;
     return `<div class="gitem" data-id="${x.id}"><div class="gd">${fmtDate(x.date)}</div><div class="wl ${win?'w':'l'}">${win?'W':'L'}</div>
       <div class="go"><span class="at">${home?'vs':'@'}</span> ${esc(sn(oppName))}</div><div class="gs">${my}–${opp}</div></div>`; };
-  el('log').innerHTML=`<div class="sec-h">Game log — tap to break down</div><div class="glog">${g.map(rowH).join('')}</div>`;
+  el('log').innerHTML=`<div class="sec-h">Game log — tap to break down</div><div class="glog">${g.map(rowH).join('')}</div>${window.TDC_COACHLINKS?TDC_COACHLINKS.bar(me):''}`;
   el('log').querySelectorAll('.gitem').forEach(it=>it.addEventListener('click',()=>{
     el('log').querySelectorAll('.gitem').forEach(x=>x.classList.remove('on')); it.classList.add('on');
     review(+it.dataset.id, me);

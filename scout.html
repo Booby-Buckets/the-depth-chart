@@ -126,6 +126,7 @@
 })();
 </script>
 <script src="tdc-nav.js?v=2"></script>
+<script src="tdc-coachlinks.js?v=1"></script>
 <div class="page">
   <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Scouting Hub</span></div>
   <h1 data-anim>Opponent Scouting Report</h1>
@@ -375,6 +376,7 @@ function render(){
     ${renderReportBlock(rep)}
   </div>`;
   if(sg&&sg.off) loadShotChart(r);
+  if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(r.full));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
 }
 
@@ -401,7 +403,7 @@ function render(){
   // deep-link support: ?opp=Full Name  &  ?me=Full Name
   const qs=new URLSearchParams(location.search);
   const findByName=n=>{ n=(n||'').toLowerCase(); const i=D.teams.findIndex(t=>t.full.toLowerCase()===n||t.team.toLowerCase()===n); return i>=0?i:null; };
-  selKey.Opp=findByName(qs.get('opp'));
+  selKey.Opp=findByName(qs.get('opp')||qs.get('team'));   // ?team= alias so the cross-tool deep-link lands on the opponent
   selKey.Me=findByName(qs.get('me'));
   if(selKey.Opp!=null) el('selOpp').value=labelOf(poolRow(selKey.Opp));
   if(selKey.Me!=null) el('selMe').value=labelOf(poolRow(selKey.Me));
