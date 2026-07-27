@@ -14,6 +14,7 @@ window.TDC_COACHLINKS = (function () {
     ['pairings.html',     'Pairings',        '🔗'],
     ['roles.html',        'Roles & Fit',     '🧩'],
     ['player-splits.html','Player Splits',   '🔀'],
+    ['creation.html',     'Shot Creation',   '🎯'],
     ['roster-dev.html',   'Development',      '📈'],
   ];
   function ensureCss() {
