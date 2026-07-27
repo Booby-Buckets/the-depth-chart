@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Player Shot Zones — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="auth.js?v=paywall3"></script>
+  <script src="team-colors.js?v=2"></script>
+  <script src="tdc-ratings.js?v=2"></script>
+  <link rel="stylesheet" href="tdc-anim.css?v=4"/>
+  <script src="tdc-anim.js?v=5"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--amber:#b5872a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--amber:#d8b05a;--red:#e07070;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+    .page{max-width:900px;margin:0 auto;padding:30px 22px 90px;}
+    .eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+    .eyebrow .lock{font-size:10px;color:var(--text3);border:1px solid var(--border2);border-radius:20px;padding:2px 8px;letter-spacing:.06em;}
+    h1{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;letter-spacing:-.01em;margin-bottom:4px;}
+    .sub{font-size:13px;color:var(--text3);margin-bottom:22px;max-width:760px;line-height:1.6;}
+    .combo{position:relative;max-width:420px;margin-bottom:14px;}
+    .search{width:100%;padding:12px 14px;border:1px solid var(--accent);border-radius:10px;background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;font-weight:600;outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent);}
+    .combo-list{display:none;position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:30;max-height:340px;overflow-y:auto;background:var(--bg);border:1px solid var(--border2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.2);}
+    .combo-item{padding:9px 13px;cursor:pointer;font-size:13.5px;display:flex;justify-content:space-between;gap:10px;font-weight:600;}
+    .combo-item:hover{background:var(--bg3);}
+    .combo-item .cr{color:var(--text3);font-weight:500;}
+    .combo-empty{padding:12px;font-size:12px;color:var(--text3);}
+    .loading{padding:40px;text-align:center;color:var(--text3);}
+    .muted{font-size:12.5px;color:var(--text3);line-height:1.7;padding:22px 20px;text-align:center;}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;}
+    .chip{border:1px solid var(--border);border-radius:20px;background:var(--bg2);padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:border-color .15s,background .15s;}
+    .chip:hover{border-color:var(--accent);}
+    .chip.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--bg2));color:var(--accent);}
+    .chip .cp{font-size:10px;font-weight:700;color:var(--text3);margin-left:5px;}
+    .sec-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:24px 0 12px;display:flex;align-items:center;gap:10px;}
+    .sec-h::after{content:'';flex:1;height:1px;background:var(--border);}
+    .phead{display:flex;align-items:baseline;justify-content:space-between;gap:14px;flex-wrap:wrap;border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:16px 20px;margin-bottom:6px;}
+    .phead .pn{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;}
+    .phead .pm{font-size:12px;color:var(--text3);font-weight:600;margin-top:2px;}
+    .phead .arch{font-size:12px;font-weight:800;color:var(--tc,var(--accent));text-align:right;}
+    .zt{border:1px solid var(--border);border-radius:14px;background:var(--bg2);overflow:hidden;margin-top:8px;}
+    .zrow{display:grid;grid-template-columns:104px 1fr 92px 104px;gap:14px;align-items:center;padding:13px 16px;border-top:1px solid var(--border);}
+    .zrow:first-child{border-top:none;}
+    @media(max-width:620px){.zrow{grid-template-columns:80px 1fr 62px 84px;gap:8px;}}
+    .zn{font-weight:800;font-size:13.5px;}
+    .zn .zs{font-size:10px;color:var(--text3);font-weight:600;}
+    .zbar{height:8px;border-radius:5px;background:var(--bg3);overflow:hidden;}
+    .zbar .zf{height:100%;border-radius:5px;background:var(--tc,var(--accent));}
+    .zfreq{font-size:10px;color:var(--text3);font-weight:700;margin-top:4px;}
+    .zeff{text-align:right;font-variant-numeric:tabular-nums;}
+    .zeff .ev{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;line-height:1;}
+    .zeff .el{font-size:9px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
+    .zpill{font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;padding:4px 10px;border-radius:20px;display:inline-block;}
+    .dgood{color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent);}
+    .dbad{color:var(--red);background:color-mix(in srgb,var(--red) 14%,transparent);}
+    .dneut{color:var(--text2);background:var(--bg3);}
+    .dsub{font-size:9.5px;color:var(--text3);margin-top:3px;text-align:right;}
+    .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:26px;max-width:760px;}
+  </style>
+  <link rel="stylesheet" href="tdc-dense.css?v=18"/>
+  <style>
+    :root:not([data-theme="dark"]){background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
+  </style>
+</head>
+<body data-anim-auto>
+<script>
+(function(){
+  if(window.TDC_PAYWALL_ENABLED===false) return;
+  var REQUIRED_PLANS=['pro','coach'];
+  var s=null; try{ s=JSON.parse(localStorage.getItem('tdc_session')||'null'); }catch(e){}
+  if(!s||!s.access_token){ location.href='pricing.html?gate=coach'; return; }
+  fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user.id+'&select=plan',
+    {headers:{apikey:'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye',Authorization:'Bearer '+s.access_token}})
+    .then(function(r){return r.json();}).then(function(rows){var p=rows&&rows[0];
+      if(!p||REQUIRED_PLANS.indexOf(p.plan)<0) location.href='pricing.html?gate=coach';
+    }).catch(function(){ location.href='pricing.html?gate=coach'; });
+})();
+</script>
+<script src="tdc-nav.js?v=2"></script>
+<script src="tdc-coachlinks.js?v=2"></script>
+<div class="page">
+  <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Player Intelligence</span></div>
+  <h1 data-anim>Player Shot Zones</h1>
+  <div class="sub" data-anim>Where does a player get his points, and where is he actually dangerous? Pick a team, then a player, for his shot diet by zone — how often he shoots from the rim, mid-range and three, and how well, against the shot each zone is worth.</div>
+
+  <div class="combo" data-anim><input id="sel" class="search" placeholder="Search a team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
+
+  <div id="roster"></div>
+  <div id="out"></div>
+
+  <div class="note" data-anim>Zones are binned from each player's 2025-26 shot log (rim = layups/dunks/tips; mid = two-point jumpers; three = all threes). Efficiency is eFG% (threes ×1.5); "expected" is the D-I average make rate for that zone, so a green figure means he finishes it better than the shot itself is worth.</div>
+</div>
+
+<script>
+const SB_URL='https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
+const el=id=>document.getElementById(id);
+const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
+
+let D=null, COLORMAP={}, selKey=null, EXP={rim:0.5615,mid:0.3848,three:0.341}, ROSTER=[], TC='#888';
+const poolRow=k=>k!=null?D.teams[k]:null;
+const labelOf=r=>r?r.full:'';
+function _lum(hex){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');if(hex.length<6)return .5;const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return (0.299*r+0.587*g+0.114*b)/255;}
+function teamColor(row){const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#A8843C';const c=COLORMAP[row.team]||COLORMAP[row.full];if(!c)return accent;const dark=document.documentElement.getAttribute('data-theme')==='dark',l=_lum(c);if(!dark&&l>0.72)return accent;if(dark&&l<0.16)return accent;return c;}
+
+function comboMatches(q){
+  const toks=(q||'').toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const ok=s=>{s=s.toLowerCase();return toks.every(t=>s.includes(t));};
+  let out=[]; D.teams.forEach((r,i)=>{ if(!toks.length||ok(r.full+' '+r.team)) out.push({key:i,r}); });
+  if(toks.length){ const pre=e=>e.r.full.toLowerCase().startsWith(toks[0])?0:1; out.sort((a,b)=>pre(a)-pre(b)||(a.r.rank||999)-(b.r.rank||999)); }
+  else out.sort((a,b)=>(a.r.rank||999)-(b.r.rank||999));
+  return out.slice(0,30);
+}
+function renderList(){
+  const list=el('list'), m=comboMatches(el('sel').value);
+  list.innerHTML=m.length? m.map(e=>`<div class="combo-item" data-key="${e.key}"><span>${labelOf(e.r)}${e.r.conf?` <span class="cr">${e.r.conf}</span>`:''}</span><span class="cr">#${e.r.rank||'—'}</span></div>`).join('')
+    : '<div class="combo-empty">No teams match</div>';
+  list.style.display='block';
+}
+function pick(key){ selKey=+key; el('sel').value=labelOf(poolRow(+key)); el('list').style.display='none'; loadTeam(); }
+(function wire(){
+  const inp=el('sel'), list=el('list');
+  inp.addEventListener('focus',()=>{ inp.select(); renderList(); });
+  inp.addEventListener('input',()=>renderList());
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const f=list.querySelector('.combo-item'); if(f) pick(f.dataset.key); inp.blur(); }
+    if(e.key==='Escape'){ list.style.display='none'; inp.value=labelOf(poolRow(selKey)); inp.blur(); } });
+  inp.addEventListener('blur',()=>setTimeout(()=>{ list.style.display='none'; inp.value=labelOf(poolRow(selKey)); },160));
+  list.addEventListener('mousedown',e=>{ const it=e.target.closest('.combo-item'); if(it){ e.preventDefault(); pick(it.dataset.key); } });
+})();
+
+const ZL={rim:'At the rim',mid:'Mid-range',three:'Three-point'};
+function zoneOf(s){ if(s.sv===3) return 'three'; const st=(s.stype||'').toLowerCase(); return /layup|dunk|tip|alley|finger|slam/.test(st)?'rim':'mid'; }
+function expEfg(z){ return z==='three'?EXP.three*1.5:EXP[z]; }
+
+async function loadTeam(){
+  const row=poolRow(selKey); if(!row) return;
+  TC=teamColor(row); el('out').innerHTML='';
+  el('roster').innerHTML='<div class="loading">Loading roster…</div>';
+  let roster=[];
+  try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,mpg&order=mpg.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  ROSTER=roster.filter(p=>p.espn_id!=null);
+  if(!ROSTER.length){ el('roster').innerHTML='<div class="muted">No shot logs on file for this roster yet.</div>'; return; }
+  el('roster').innerHTML=`<div class="sec-h">Pick a player</div><div class="chips">${ROSTER.map((p,i)=>`<div class="chip" data-i="${i}">${esc(p.name)}${p.position?`<span class="cp">${esc(p.position)}</span>`:''}</div>`).join('')}</div>`;
+  el('roster').querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{
+    el('roster').querySelectorAll('.chip').forEach(x=>x.classList.remove('on')); c.classList.add('on'); loadPlayer(ROSTER[+c.dataset.i]);
+  }));
+}
+
+function tally(shots){
+  const t={rim:{a:0,m:0},mid:{a:0,m:0},three:{a:0,m:0}}; let tot=0;
+  shots.forEach(s=>{ const z=zoneOf(s); t[z].a++; if(s.made) t[z].m++; tot++; });
+  const out={}; ['rim','mid','three'].forEach(z=>{ const a=t[z].a, fg=a?t[z].m/a:0, efg=z==='three'?fg*1.5:fg;
+    out[z]={a, freq:tot?a/tot:0, fg, efg, exp:expEfg(z), delta:efg-expEfg(z)}; });
+  out._tot=tot; return out;
+}
+function archetype(z){
+  const r=z.rim.freq, m=z.mid.freq, t=z.three.freq;
+  if(t>=0.48) return 'Perimeter-heavy scorer';
+  if(r>=0.6) return 'Rim finisher';
+  if(t>=0.38&&r>=0.28) return 'Inside-out scorer';
+  if(m>=0.34) return 'Mid-range scorer';
+  if(r>=0.42) return 'Rim-attacking scorer';
+  return 'Three-level scorer';
+}
+const pctS=x=>(x*100).toFixed(1);
+
+async function loadPlayer(p){
+  el('out').innerHTML='<div class="loading">Charting his shots…</div>';
+  let shots=[];
+  try{ shots=await fetch(`${SB_URL}/rest/v1/shots?espn_id=eq.${p.espn_id}&season_year=eq.2026&select=sv,stype,made&limit=900`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  if(shots.length<25){ el('out').innerHTML='<div class="muted" style="padding:36px 20px">Not enough shot data on file for '+esc(p.name)+' to map his zones.</div>'; return; }
+  const Z=tally(shots), played=shots.length;
+  const zrow=z=>{ const r=Z[z], fgLbl=z==='three'?'3P%':'FG%', good=r.delta>0, cls=Math.abs(r.delta)<0.02?'dneut':(good?'dgood':'dbad');
+    return `<div class="zrow"><div class="zn">${ZL[z]}<div class="zs">${r.a} FGA</div></div>
+      <div><div class="zbar" style="--tc:${TC}"><div class="zf" style="width:${Math.round(r.freq*100)}%"></div></div><div class="zfreq">${Math.round(r.freq*100)}% of shots</div></div>
+      <div class="zeff"><div class="ev">${pctS(r.fg)}</div><div class="el">${fgLbl}</div></div>
+      <div style="text-align:right"><span class="zpill ${cls}">${r.delta>=0?'+':''}${pctS(r.delta)}</span><div class="dsub">vs ${pctS(r.exp)} exp</div></div></div>`; };
+  el('out').innerHTML=`<div style="--tc:${TC}">
+    <div class="phead"><div><div class="pn">${esc(p.name)}</div><div class="pm">${esc(p.position||'')} · ${played} field-goal attempts</div></div>
+      <div class="arch">${archetype(Z)}</div></div>
+    <div class="zt">${['rim','mid','three'].map(zrow).join('')}</div>
+  </div>`;
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
+}
+
+(async function(){
+  try{ const arr=await fetch('scripts/data/team_colors.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
+    (arr||[]).forEach(e=>{ if(e&&e.c1){ if(e.location) COLORMAP[e.location]=e.c1; if(e.display) COLORMAP[e.display]=e.c1; } });
+  }catch(e){}
+  try{ const sg=await fetch('scripts/data/shot_genome_teams.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null);
+    const zm=sg&&sg.meta&&sg.meta.zone_make; if(zm){ EXP.rim=zm.rim||EXP.rim; EXP.mid=zm.mid||EXP.mid; EXP.three=((zm.atb3||.335)*3+(zm.corner3||.359))/4; }
+  }catch(e){}
+  D=await TDC_RATINGS.get();
+  D.teams=(D.teams||[]).filter(t=>t.projected!==false&&t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999));
+  const qs=new URLSearchParams(location.search);
+  const want=(qs.get('team')||'').toLowerCase();
+  if(want){ const i=D.teams.findIndex(t=>t.full.toLowerCase()===want||t.team.toLowerCase()===want); if(i>=0){ selKey=i; el('sel').value=labelOf(poolRow(i)); loadTeam(); } }
+})();
+</script>
+</body>
+</html>
