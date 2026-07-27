@@ -29,6 +29,7 @@ window.TDC_COACHLINKS = (function () {
       ['roles.html',         'Roles & Fit'],
       ['game-context.html',  'Game Context'],
       ['matchup-advantage.html', 'Matchup Advantage'],
+      ['clutch.html',        'Clutch'],
       ['player-splits.html', 'Player Splits'],
       ['creation.html',      'Shot Creation'],
       ['shot-zones.html',    'Shot Zones'],
