@@ -21,9 +21,9 @@ def grp(pos,h):
 def htin(s):
     import re;m=re.match(r"(\d+)-(\d+)",str(s or ""));return int(m[1])*12+int(m[2]) if m else None
 # ---- fit roster->team models on history + freshman metric~grade per group ----
-def rfeat(R):
+def rfeat(R, minn=6):
     R=[p for p in R if (p.get('mpg') or 0)>=8 and p.get('bpm') is not None]
-    if len(R)<6: return None
+    if len(R)<minn: return None
     def wm(k,shot=False):
         num=den=0
         for p in R:
@@ -117,10 +117,14 @@ for team,roster in byteam.items():
         if fp: fp=dict(fp)
         else: fp=fresh_fp(g,grp_)   # freshman / no D1 history
         mp=p.get("mpg")
-        if mp in (None,""): mp={ True:26}.get(g>=92) or (22 if g>=88 else 15 if g>=82 else 10 if g>=78 else 6)
+        # Graded player with no recorded mpg: default to a minutes estimate from grade.
+        # A mid-grade rotation player (72-77) on a ~12-man roster still plays real minutes,
+        # so floor them above the 8-min bar rather than at 6 (kept teams like Purdue/Texas
+        # Tech, whose returners' mpg is unfilled, from being dropped entirely).
+        if mp in (None,""): mp={ True:26}.get(g>=92) or (22 if g>=88 else 16 if g>=82 else 12 if g>=78 else 9 if g>=72 else 6)
         fp["mpg"]=float(mp)
         R.append(fp)
-    F=rfeat(R)
+    F=rfeat(R, minn=5)   # projection is more permissive than the historical fit (6)
     if not F: continue
     dna={}
     for t,(fe,c) in COEF.items(): dna[t]=round(float(c[0]+sum(c[i+1]*F[fe[i]] for i in range(len(fe)))),1)
