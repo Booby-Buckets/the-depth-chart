@@ -50,7 +50,27 @@
     /* player rows */
     .prow{display:grid;grid-template-columns:1.6fr 120px 1fr 130px;gap:16px;align-items:center;padding:13px 16px;border:1px solid var(--border);border-radius:12px;background:var(--bg2);margin-bottom:9px;}
     @media(max-width:720px){.prow{grid-template-columns:1fr auto;gap:8px 14px;}.prow .pspark,.prow .pstat{grid-column:1/-1;}}
+    /* dashboard card */
+    .prow2{border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:14px 16px;margin-bottom:11px;}
+    .p2-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:13px;}
+    .p2-right{display:flex;align-items:center;gap:14px;}
+    .p2-right .pspark{width:110px;}
+    @media(max-width:560px){.p2-right .pspark{display:none;}}
+    .pdash{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;}
+    @media(max-width:560px){.pdash{grid-template-columns:repeat(2,1fr);}}
+    .ptile{border:1px solid var(--border);border-radius:10px;background:var(--bg);padding:9px 11px;}
+    .ptile .tl{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .ptile .tv{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;line-height:1.05;margin-top:2px;}
+    .ptile .ts{font-size:9.5px;color:var(--text3);margin-top:1px;}
+    .phits{display:flex;flex-wrap:wrap;gap:8px;}
+    .hit{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:20px;background:var(--bg);padding:5px 12px;font-size:11.5px;color:var(--text2);}
+    .hit b{font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;}
+    .hit .hp{font-weight:800;font-variant-numeric:tabular-nums;}
+    .hit.bad{border-style:dashed;}
     .pmain .pn{font-weight:800;font-size:14.5px;}
+    .prow2 .pn{font-weight:800;font-size:15px;}
+    .prow2 .pmeta{font-size:11px;color:var(--text3);font-weight:600;margin-top:2px;}
+    .prow2 .pmeta .pos{color:var(--accent);}
     .pmain .pmeta{font-size:11px;color:var(--text3);font-weight:600;margin-top:2px;}
     .pmain .pmeta .pos{color:var(--accent);}
     .pspark svg{display:block;width:100%;height:38px;overflow:visible;}
@@ -98,7 +118,7 @@
 <div class="page">
   <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Self-Scout Hub</span></div>
   <h1 data-anim>Roster Consistency</h1>
-  <div class="sub" data-anim>How reliable is each player night to night? Pick a team to see every returner's game-to-game scoring last season — their floor, their ceiling, and whether they're a set-your-watch scorer or boom-or-bust. Transfers carry the history from wherever they played.</div>
+  <div class="sub" data-anim>How reliable is each player night to night? Instead of averages, this reads the full distribution — each returner's ceiling, floor, volatility and predictability, plus how often they actually clear key lines (20+ points, double-digit boards) and how often they lay an egg. Transfers carry the history from wherever they played.</div>
 
   <div class="combo" data-anim><input id="sel" class="search" placeholder="Search your team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
 
@@ -153,6 +173,11 @@ function mean(a){ return a.reduce((s,v)=>s+v,0)/a.length; }
 function sd(a){ const m=mean(a); return Math.sqrt(a.reduce((s,v)=>s+(v-m)*(v-m),0)/a.length); }
 function pct(a,p){ const s=[...a].sort((x,y)=>x-y); const i=Math.max(0,Math.min(s.length-1,Math.round((p/100)*(s.length-1)))); return s[i]; }
 function tierOf(cs){ return cs>=62?['Rock Steady','t-steady']:cs>=48?['Reliable','t-reliable']:cs>=32?['Streaky','t-streaky']:['Boom or Bust','t-boom']; }
+function median(a){ const s=[...a].sort((x,y)=>x-y),n=s.length; return n?(n%2?s[(n-1)/2]:(s[n/2-1]+s[n/2])/2):0; }
+function hitRate(a,t){ return a.length?a.filter(v=>v>=t).length/a.length:0; }
+// highest round threshold the player clears at least `min` of the time — an informative, honest line
+function pickThresh(a,cands,min){ let b=cands[0]; for(const c of cands){ if(hitRate(a,c)>=(min||0.4)) b=c; } return b; }
+function volLabel(cv){ return cv<0.35?['Low','var(--green)']:cv<0.55?['Moderate','var(--amber)']:cv<0.78?['High','var(--red)']:['Extreme','var(--red)']; }
 
 function spark(series, color){
   if(series.length<2) return '';
@@ -186,11 +211,24 @@ async function loadTeam(){
     const g=(byId[p.espn_id]||[]);
     const base={name:p.name, pos:p.position, mpg:+p.mpg||0, order:p.depth_order!=null?+p.depth_order:99, gp:g.length};
     if(g.length<4) return {...base, hist:false};
-    const pts=g.map(b=>N(b.pts)), gs=g.map(gameScore);
+    const pts=g.map(b=>N(b.pts)), reb=g.map(b=>N(b.oreb)+N(b.dreb)), gs=g.map(gameScore);
     const series=metric==='gs'?gs:pts;
     const m=mean(series), s=sd(series), cv=m>0?s/m:1;
     const cs=Math.max(1,Math.min(99,Math.round(100*(1-Math.min(cv,1)))));
-    return {...base, hist:true, series, avg:m, cv, cs, floor:pct(series,20), ceil:pct(series,80), ptsAvg:mean(pts)};
+    // ── distribution dashboard (points) ──
+    const pm=mean(pts), pmed=median(pts);
+    const ceil=Math.round(pct(pts,90)), floor=Math.round(pct(pts,10)), band=(pmed*0.30);
+    const predictability=Math.round(100*pts.filter(v=>Math.abs(v-pmed)<=Math.max(3,band)).length/pts.length);
+    const scoreLine=pickThresh(pts,[8,10,12,15,18,20,25,30],0.4);
+    const bigLine=pickThresh(pts,[15,18,20,25,30,35],0.2);
+    const badThresh=Math.max(4,Math.round(pm*0.45));
+    const hits=[['pts',scoreLine,Math.round(100*hitRate(pts,scoreLine))]];
+    if(bigLine>scoreLine) hits.push(['pts',bigLine,Math.round(100*hitRate(pts,bigLine))]);
+    const rm=mean(reb);
+    if(rm>=4){ const rl=pickThresh(reb,[4,6,8,10,12],0.4); hits.push(['reb',rl,Math.round(100*hitRate(reb,rl))]); }
+    const badGame=Math.round(100*pts.filter(v=>v<badThresh).length/pts.length);
+    return {...base, hist:true, series, avg:m, cv, cs, floor:pct(series,20), ceil:pct(series,80), ptsAvg:pm,
+      dCeil:ceil, dFloor:floor, vol:volLabel(cv), predict:predictability, hits, badGame, badThresh};
   });
   players.sort((a,b)=> (a.order-b.order) || (b.mpg-a.mpg));
   lastData={row,tc,players};
@@ -218,11 +256,19 @@ function render(){
   const prow=p=>{
     if(!p.hist) return `<div class="prow"><div class="pmain"><div class="pn">${esc(p.name)}</div><div class="pmeta"><span class="pos">${esc(p.pos||'')}</span>${p.mpg?` · ${p.mpg.toFixed(0)} MPG proj`:''}</div></div><div class="nohist">${p.gp?`only ${p.gp} D-I game${p.gp===1?'':'s'} last year`:'no D-I game history'}</div></div>`;
     const [tlab,tcls]=tierOf(p.cs), col=p.cs>=48?'var(--green)':p.cs>=32?'var(--amber)':'var(--red)';
-    return `<div class="prow">
-      <div class="pmain"><div class="pn">${esc(p.name)}</div><div class="pmeta"><span class="pos">${esc(p.pos||'')}</span> · ${p.gp} g · ${p.mpg?p.mpg.toFixed(0)+' MPG proj':'—'}</div></div>
-      <div class="pspark">${spark(p.series,tc)}</div>
-      <div class="pstat"><b>${p.avg.toFixed(1)}</b> ${metricLbl}/g<br><span class="fc">floor ${p.floor.toFixed(0)} · ceiling ${p.ceil.toFixed(0)}</span></div>
-      <div class="pbadge"><div class="cs" style="color:${col}">${p.cs}</div><div class="tier ${tcls}">${tlab}</div></div>
+    const hitChip=h=>`<span class="hit"><b>${h[1]}+ ${h[0]}</b><span class="hp" style="color:${h[2]>=60?'var(--green)':h[2]>=35?'var(--amber)':'var(--text3)'}">${h[2]}%</span></span>`;
+    return `<div class="prow2">
+      <div class="p2-top">
+        <div><div class="pn">${esc(p.name)}</div><div class="pmeta"><span class="pos">${esc(p.pos||'')}</span> · ${p.gp} g · ${p.mpg?p.mpg.toFixed(0)+' MPG proj':'—'}</div></div>
+        <div class="p2-right"><div class="pspark">${spark(p.series,tc)}</div><div class="pbadge"><div class="cs" style="color:${col}">${p.cs}</div><div class="tier ${tcls}">${tlab}</div></div></div>
+      </div>
+      <div class="pdash">
+        <div class="ptile"><div class="tl">Ceiling</div><div class="tv" style="color:var(--green)">${p.dCeil}</div><div class="ts">top games</div></div>
+        <div class="ptile"><div class="tl">Floor</div><div class="tv" style="color:var(--red)">${p.dFloor}</div><div class="ts">off nights</div></div>
+        <div class="ptile"><div class="tl">Volatility</div><div class="tv" style="color:${p.vol[1]};font-size:17px;">${p.vol[0]}</div><div class="ts">${p.dFloor}–${p.dCeil} pt swing</div></div>
+        <div class="ptile"><div class="tl">Predictability</div><div class="tv">${p.predict}%</div><div class="ts">games near norm</div></div>
+      </div>
+      <div class="phits">${p.hits.map(hitChip).join('')}<span class="hit bad"><b>Bad game</b><span class="hp" style="color:${p.badGame<=12?'var(--green)':p.badGame<=22?'var(--amber)':'var(--red)'}">${p.badGame}%</span></span></div>
     </div>`;
   };
 
