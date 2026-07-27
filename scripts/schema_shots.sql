@@ -12,7 +12,10 @@ create table if not exists shots (
   made        boolean,
   sv          int,                  -- shot value (2 or 3)
   dist        int,                  -- feet, when ESPN provides it
-  period      int
+  period      int,
+  sec_left    int,                  -- seconds remaining in the period (from ESPN clock)
+  home_score  int,                  -- running home score at the shot
+  away_score  int                   -- running away score at the shot
 );
 create index if not exists shots_player_idx on shots (espn_id, season_year);
 create index if not exists shots_team_idx   on shots (team_id, season_year);

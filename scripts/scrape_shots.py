@@ -113,6 +113,12 @@ def parse_shots(data, game_id, season_year):
         def i(v):
             try: return int(v)
             except Exception: return None
+        def clock_secs(cv):
+            # ESPN clock displayValue is "MM:SS" (and "SS.s" in the final minute)
+            try:
+                if ":" in cv: m,s=cv.split(":"); return int(round(int(m)*60+float(s)))
+                return int(round(float(cv)))
+            except Exception: return None
         try: pid=int(p["id"])
         except Exception: continue
         made=bool(p.get("scoringPlay"))
@@ -129,6 +135,8 @@ def parse_shots(data, game_id, season_year):
             "x":c.get("x"),"y":c.get("y"),"made":made,
             "sv":i(sv),"dist":i(dm.group(1)) if dm else None,
             "period":i((p.get("period") or {}).get("number")),
+            "sec_left":clock_secs((p.get("clock") or {}).get("displayValue")),
+            "home_score":i(p.get("homeScore")),"away_score":i(p.get("awayScore")),
             "stype":shot_type(txt),"ast_id":ast_id,"ast_name":ast_name})
     return out
 
