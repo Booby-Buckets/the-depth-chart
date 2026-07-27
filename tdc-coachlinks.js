@@ -14,6 +14,7 @@ window.TDC_COACHLINKS = (function () {
       ['style-matchups.html',  'Style Matchups'],
       ['scoring-sources.html', 'Scoring Sources'],
       ['defense.html',         'Defense'],
+      ['foul-ft.html',         'Foul & FT'],
       ['game-review.html',     'Game Review'],
     ]],
     ['Self-Scout', [
