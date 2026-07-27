@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Automatic Game Review — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="auth.js?v=paywall3"></script>
+  <script src="team-colors.js?v=2"></script>
+  <script src="tdc-ratings.js?v=2"></script>
+  <link rel="stylesheet" href="tdc-anim.css?v=4"/>
+  <script src="tdc-anim.js?v=5"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--amber:#b5872a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--amber:#d8b05a;--red:#e07070;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+    .page{max-width:940px;margin:0 auto;padding:30px 22px 90px;}
+    .eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+    .eyebrow .lock{font-size:10px;color:var(--text3);border:1px solid var(--border2);border-radius:20px;padding:2px 8px;letter-spacing:.06em;}
+    h1{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;letter-spacing:-.01em;margin-bottom:4px;}
+    .sub{font-size:13px;color:var(--text3);margin-bottom:22px;max-width:760px;line-height:1.6;}
+    .combo{position:relative;max-width:420px;margin-bottom:16px;}
+    .search{width:100%;padding:12px 14px;border:1px solid var(--accent);border-radius:10px;background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;font-weight:600;outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent);}
+    .combo-list{display:none;position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:30;max-height:340px;overflow-y:auto;background:var(--bg);border:1px solid var(--border2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.2);}
+    .combo-item{padding:9px 13px;cursor:pointer;font-size:13.5px;display:flex;justify-content:space-between;gap:10px;font-weight:600;}
+    .combo-item:hover{background:var(--bg3);}
+    .combo-item .cr{color:var(--text3);font-weight:500;}
+    .combo-empty{padding:12px;font-size:12px;color:var(--text3);}
+    .loading{padding:40px;text-align:center;color:var(--text3);}
+    .muted{font-size:12.5px;color:var(--text3);line-height:1.7;padding:22px 20px;text-align:center;}
+    /* game log */
+    .glog{display:flex;flex-direction:column;gap:6px;max-height:none;}
+    .gitem{display:grid;grid-template-columns:64px 24px 1fr auto;gap:12px;align-items:center;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);cursor:pointer;transition:border-color .15s;}
+    .gitem:hover{border-color:var(--accent);}
+    .gitem.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 20%,transparent);}
+    .gitem .gd{font-size:11px;color:var(--text3);font-weight:600;}
+    .gitem .wl{font-weight:800;font-size:13px;text-align:center;}
+    .gitem .wl.w{color:var(--green);} .gitem .wl.l{color:var(--red);}
+    .gitem .go{font-size:13.5px;font-weight:700;}
+    .gitem .go .at{color:var(--text3);font-weight:600;font-size:11px;}
+    .gitem .gs{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text2);}
+    .sec-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:26px 0 12px;display:flex;align-items:center;gap:10px;}
+    .sec-h::after{content:'';flex:1;height:1px;background:var(--border);}
+    /* review */
+    .rvhead{border:1px solid var(--border);border-radius:16px;background:var(--bg2);padding:18px 22px;margin-bottom:6px;}
+    .rvscore{display:flex;align-items:center;justify-content:center;gap:16px;font-family:'Playfair Display',serif;font-weight:800;}
+    .rvscore .tm{font-size:19px;} .rvscore .sc{font-size:30px;} .rvscore .dim{opacity:.5;}
+    .rvverdict{font-size:14px;color:var(--text2);line-height:1.65;text-align:center;margin-top:10px;}
+    .rvverdict b{color:var(--text);}
+    .fcard{display:grid;grid-template-columns:34px 1fr auto;gap:14px;align-items:center;border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:13px 16px;margin-bottom:9px;position:relative;overflow:hidden;}
+    .fcard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--fk);}
+    .fnum{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text3);text-align:center;}
+    .ftext .fh{font-weight:800;font-size:14px;margin-bottom:2px;}
+    .ftext .fb{font-size:12.5px;color:var(--text2);line-height:1.55;}
+    .fimp{text-align:right;white-space:nowrap;}
+    .fimp .fv{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;font-variant-numeric:tabular-nums;}
+    .fimp .fl{font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);}
+    .hurt .fv{color:var(--red);} .help .fv{color:var(--green);}
+    .ctx{display:flex;flex-direction:column;gap:8px;}
+    .ctxrow{font-size:12.5px;color:var(--text2);line-height:1.6;border-left:2px solid var(--border2);padding:2px 0 2px 12px;}
+    .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:26px;max-width:760px;}
+  </style>
+  <link rel="stylesheet" href="tdc-dense.css?v=18"/>
+  <style>
+    :root:not([data-theme="dark"]){background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
+  </style>
+</head>
+<body data-anim-auto>
+<script>
+(function(){
+  if(window.TDC_PAYWALL_ENABLED===false) return;
+  var REQUIRED_PLANS=['pro','coach'];
+  var s=null; try{ s=JSON.parse(localStorage.getItem('tdc_session')||'null'); }catch(e){}
+  if(!s||!s.access_token){ location.href='pricing.html?gate=coach'; return; }
+  fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user.id+'&select=plan',
+    {headers:{apikey:'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye',Authorization:'Bearer '+s.access_token}})
+    .then(function(r){return r.json();}).then(function(rows){var p=rows&&rows[0];
+      if(!p||REQUIRED_PLANS.indexOf(p.plan)<0) location.href='pricing.html?gate=coach';
+    }).catch(function(){ location.href='pricing.html?gate=coach'; });
+})();
+</script>
+<script src="tdc-nav.js?v=2"></script>
+<div class="page">
+  <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Game Prep</span></div>
+  <h1 data-anim>Automatic Game Review</h1>
+  <div class="sub" data-anim>Pick a team, pick a game — and get the four-factor autopsy: what actually decided it. Every result in the database is broken down into shooting, turnovers, the glass, the line, three-point variance and shot quality, ranked by how many points each swung.</div>
+
+  <div class="combo" data-anim><input id="sel" class="search" placeholder="Search a team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
+
+  <div id="log"></div>
+  <div id="out"></div>
+
+  <div class="note" data-anim>Reads the box score for the selected game (four factors: effective FG%, turnovers, offensive-rebound %, free-throw rate), plus three-point variance vs the ~34.5% D-I average and — where shot-by-shot data exists — shot quality (expected eFG from where the shots came vs what actually went in). Point impacts are estimates from standard four-factor weighting, ranked to explain the final margin; the underlying box numbers are exact.</div>
+</div>
+
+<script>
+const SB_URL='https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
+const el=id=>document.getElementById(id);
+const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
+const sn=t=>(window.tdcShortSchool?window.tdcShortSchool(t):t);
+
+let D=null, selKey=null, GAMES=[], EXP={rim:0.5615,mid:0.3848,three:0.341};
+const poolRow=k=>k!=null?D.teams[k]:null;
+const labelOf=r=>r?r.full:'';
+
+function comboMatches(q){
+  const toks=(q||'').toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const ok=s=>{s=s.toLowerCase();return toks.every(t=>s.includes(t));};
+  let out=[]; D.teams.forEach((r,i)=>{ if(!toks.length||ok(r.full+' '+r.team)) out.push({key:i,r}); });
+  if(toks.length){ const pre=e=>e.r.full.toLowerCase().startsWith(toks[0])?0:1; out.sort((a,b)=>pre(a)-pre(b)||(a.r.rank||999)-(b.r.rank||999)); }
+  else out.sort((a,b)=>(a.r.rank||999)-(b.r.rank||999));
+  return out.slice(0,30);
+}
+function renderList(){
+  const list=el('list'), m=comboMatches(el('sel').value);
+  list.innerHTML=m.length? m.map(e=>`<div class="combo-item" data-key="${e.key}"><span>${labelOf(e.r)}${e.r.conf?` <span class="cr">${e.r.conf}</span>`:''}</span><span class="cr">#${e.r.rank||'—'}</span></div>`).join('')
+    : '<div class="combo-empty">No teams match</div>';
+  list.style.display='block';
+}
+function pick(key){ selKey=+key; el('sel').value=labelOf(poolRow(+key)); el('list').style.display='none'; loadGames(); }
+(function wire(){
+  const inp=el('sel'), list=el('list');
+  inp.addEventListener('focus',()=>{ inp.select(); renderList(); });
+  inp.addEventListener('input',()=>renderList());
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const f=list.querySelector('.combo-item'); if(f) pick(f.dataset.key); inp.blur(); }
+    if(e.key==='Escape'){ list.style.display='none'; inp.value=labelOf(poolRow(selKey)); inp.blur(); } });
+  inp.addEventListener('blur',()=>setTimeout(()=>{ list.style.display='none'; inp.value=labelOf(poolRow(selKey)); },160));
+  list.addEventListener('mousedown',e=>{ const it=e.target.closest('.combo-item'); if(it){ e.preventDefault(); pick(it.dataset.key); } });
+})();
+
+const fmtDate=d=>{ const p=(d||'').split('-'); return p.length===3?`${+p[1]}/${+p[2]}`:d; };
+
+async function loadGames(){
+  const row=poolRow(selKey); if(!row) return;
+  const me=row.full;
+  el('out').innerHTML=''; el('log').innerHTML='<div class="loading">Loading game log…</div>';
+  let g=[];
+  try{ g=await fetch(`${SB_URL}/rest/v1/games?or=(home.eq.${encodeURIComponent(me)},away.eq.${encodeURIComponent(me)})&season_year=eq.2026&home_score=not.is.null&select=id,home,away,home_score,away_score,date,neutral&order=date.desc&limit=45`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  GAMES=g;
+  if(!g.length){ el('log').innerHTML='<div class="muted">No completed 2025-26 games on file for this team.</div>'; return; }
+  const rowH=x=>{ const home=x.home===me; const my=home?x.home_score:x.away_score, opp=home?x.away_score:x.home_score, oppName=home?x.away:x.home;
+    const win=+my>+opp;
+    return `<div class="gitem" data-id="${x.id}"><div class="gd">${fmtDate(x.date)}</div><div class="wl ${win?'w':'l'}">${win?'W':'L'}</div>
+      <div class="go"><span class="at">${home?'vs':'@'}</span> ${esc(sn(oppName))}</div><div class="gs">${my}–${opp}</div></div>`; };
+  el('log').innerHTML=`<div class="sec-h">Game log — tap to break down</div><div class="glog">${g.map(rowH).join('')}</div>`;
+  el('log').querySelectorAll('.gitem').forEach(it=>it.addEventListener('click',()=>{
+    el('log').querySelectorAll('.gitem').forEach(x=>x.classList.remove('on')); it.classList.add('on');
+    review(+it.dataset.id, me);
+  }));
+}
+
+const N=v=>v==null?0:+v||0;
+function agg(box){ const t={}; box.forEach(b=>{ const s=t[b.team]||(t[b.team]={pts:0,fgm:0,fga:0,tpm:0,tpa:0,ftm:0,fta:0,oreb:0,dreb:0,tov:0});
+  ['pts','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','tov'].forEach(k=>s[k]+=N(b[k])); }); return t; }
+function zoneOf(s){ if(s.sv===3) return 'three'; const st=(s.stype||'').toLowerCase(); return /layup|dunk|tip|alley|finger|slam/.test(st)?'rim':'mid'; }
+function expEfgOf(shots){ if(!shots.length) return null; let exp=0,fga=0; shots.forEach(s=>{ const z=zoneOf(s); const mk=EXP[z]; exp+= z==='three'?mk*1.5:mk; fga++; }); return fga?exp/fga:null; }
+
+async function review(gid, me){
+  el('out').innerHTML='<div class="loading">Breaking down the game…</div>';
+  let box=[], shots=[];
+  try{ box=await fetch(`${SB_URL}/rest/v1/box_scores?game_id=eq.${gid}&select=team,pts,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,tov`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  try{ shots=await fetch(`${SB_URL}/rest/v1/shots?game_id=eq.${gid}&select=team_id,made,sv,stype&limit=800`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  const t=agg(box); const teams=Object.keys(t);
+  if(teams.length!==2){ el('out').innerHTML='<div class="muted">No box score on file for this game.</div>'; return; }
+  const oppName=teams.find(x=>x!==me)||teams.find(x=>x!==teams[0]);
+  const A=t[me]||t[teams[0]], B=t[oppName]||t[teams[1]];
+  const nameA=me in t?me:teams[0], nameB=oppName;
+  const efg=x=>x.fga?(x.fgm+0.5*x.tpm)/x.fga:0;
+  const orebPct=(x,y)=>{ const d=x.oreb+y.dreb; return d?x.oreb/d:0; };
+  const tp=x=>x.tpa?x.tpm/x.tpa:0;
+  const won=A.pts>B.pts;
+
+  // ── the four factors DECOMPOSE the margin (no overlap), ranked by point impact ──
+  const F=[];
+  const eA=efg(A), eB=efg(B), avgFga=(A.fga+B.fga)/2;
+  F.push({imp:(eA-eB)*avgFga*2, h:won?'Shot it better from the field':'Out-shot from the field',
+    b:`${(eA*100).toFixed(1)}% eFG to ${(eB*100).toFixed(1)}% — a ${Math.abs((eA-eB)*100).toFixed(1)}-point efficiency gap per shot.`});
+  const oA=orebPct(A,B), oB=orebPct(B,A);
+  F.push({imp:(oA-oB)*((A.fga-A.fgm)+(B.fga-B.fgm))*0.28, h: oA>=oB?'Owned the offensive glass':'Lost the offensive glass',
+    b:`${(oA*100).toFixed(0)}% of their own misses to ${(oB*100).toFixed(0)}% — ${A.oreb} offensive boards to ${B.oreb}, worth extra possessions.`});
+  F.push({imp:(B.tov-A.tov)*0.95, h: A.tov<=B.tov?'Cleaner with the ball':'Lost the turnover battle',
+    b:`${A.tov} giveaways to ${B.tov} — a ${Math.abs(A.tov-B.tov)}-turnover swing, ~a point apiece.`});
+  F.push({imp:(A.ftm-B.ftm), h: A.ftm>=B.ftm?'Won the free-throw line':'Lost the free-throw line',
+    b:`${A.ftm} made free throws to ${B.ftm} (${A.fta} attempts to ${B.fta}).`});
+
+  // ── context (explanatory, NOT additive): where the shooting gap came from ──
+  const luckA=(tp(A)-EXP.three)*A.tpa*3, luckB=(tp(B)-EXP.three)*B.tpa*3, ctx=[];
+  if(luckB>4) ctx.push(`Opponent ran hot from three — ${(tp(B)*100).toFixed(0)}% on ${B.tpa} attempts vs a ${(EXP.three*100).toFixed(0)}% norm, ~${luckB.toFixed(0)} points of variance in their favor.`);
+  else if(luckA>4) ctx.push(`Caught fire from three — ${(tp(A)*100).toFixed(0)}% on ${A.tpa} attempts vs ${(EXP.three*100).toFixed(0)}% expected, ~${luckA.toFixed(0)} points above par.`);
+  else if(luckA<-4) ctx.push(`Cold from three — ${(tp(A)*100).toFixed(0)}% on ${A.tpa} attempts vs a ${(EXP.three*100).toFixed(0)}% norm, ~${(-luckA).toFixed(0)} points left out there.`);
+  if(shots.length>40){
+    const byId={}; shots.forEach(s=>{ (byId[s.team_id]=byId[s.team_id]||[]).push(s); });
+    const ids=Object.keys(byId);
+    if(ids.length===2){
+      const idA = Math.abs(byId[ids[0]].length-A.fga) <= Math.abs(byId[ids[1]].length-A.fga) ? ids[0]:ids[1];
+      const xqA=expEfgOf(byId[idA]);
+      if(xqA!=null){ const sq=(eA-xqA)*A.fga*2;
+        ctx.push(`Shot quality: their looks profiled at ${(xqA*100).toFixed(0)}% eFG and they shot ${(eA*100).toFixed(0)}% — ${Math.abs(sq)<3?'right on the shot-making their looks deserved.':(sq<0?`~${(-sq).toFixed(0)} points of makeable shots left on the rim (a cold night, not just the defense).`:`~${sq.toFixed(0)} points of shot-making over their looks.`)}`);
+      }
+    }
+  }
+
+  // calibrate the rough four-factor weights so the impacts decompose the ACTUAL margin
+  const margin=A.pts-B.pts;
+  const rawSum=F.reduce((s,f)=>s+f.imp,0);
+  if(Math.abs(rawSum)>2 && (rawSum>0)===(margin>0)){ const sc=margin/rawSum; F.forEach(f=>f.imp*=sc); }
+  // rank by |impact|; frame from A's perspective
+  F.sort((a,b)=>Math.abs(b.imp)-Math.abs(a.imp));
+  const top=F.filter(f=>Math.abs(f.imp)>=1.0).slice(0,5);
+  const decided = won
+    ? `<b>${esc(sn(nameA))}</b> won by <b>${margin}</b>. What decided it, biggest factor first:`
+    : `<b>${esc(sn(nameA))}</b> lost by <b>${-margin}</b>. What lost it, biggest factor first:`;
+  const fcard=(f,i)=>{ const hurt=f.imp<0; const cls=hurt?'hurt':'help'; const col=hurt?'var(--red)':'var(--green)';
+    return `<div class="fcard ${cls}" style="--fk:${col}"><div class="fnum">${i+1}</div>
+      <div class="ftext"><div class="fh">${esc(f.h)}</div><div class="fb">${f.b}</div></div>
+      <div class="fimp"><div class="fv">${f.imp>=0?'+':''}${f.imp.toFixed(0)}</div><div class="fl">~pts</div></div></div>`; };
+
+  el('out').innerHTML=`<div class="sec-h">Game review</div>
+    <div class="rvhead">
+      <div class="rvscore">
+        <span class="tm ${won?'':'dim'}">${esc(sn(nameA))}</span><span class="sc ${won?'':'dim'}">${A.pts}</span>
+        <span class="dim" style="font-size:13px;">—</span>
+        <span class="sc ${won?'dim':''}">${B.pts}</span><span class="tm ${won?'dim':''}">${esc(sn(nameB))}</span>
+      </div>
+      <div class="rvverdict">${decided}</div>
+    </div>
+    ${top.map(fcard).join('')}
+    ${ctx.length?`<div class="sec-h">The story behind it</div><div class="ctx">${ctx.map(c=>`<div class="ctxrow">${esc(c)}</div>`).join('')}</div>`:''}`;
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
+}
+
+(async function(){
+  try{ const sg=await fetch('scripts/data/shot_genome_teams.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null);
+    const zm=sg&&sg.meta&&sg.meta.zone_make; if(zm){ EXP.rim=zm.rim||EXP.rim; EXP.mid=zm.mid||EXP.mid; EXP.three=((zm.atb3||.335)*3+(zm.corner3||.359))/4; }
+  }catch(e){}
+  D=await TDC_RATINGS.get();
+  D.teams=(D.teams||[]).filter(t=>t.projected!==false&&t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999));
+  const qs=new URLSearchParams(location.search);
+  const want=(qs.get('team')||'').toLowerCase();
+  if(want){ const i=D.teams.findIndex(t=>t.full.toLowerCase()===want||t.team.toLowerCase()===want); if(i>=0){ selKey=i; el('sel').value=labelOf(poolRow(i)); loadGames(); } }
+})();
+</script>
+</body>
+</html>
