@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Roster Consistency — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="auth.js?v=paywall3"></script>
+  <script src="team-colors.js?v=2"></script>
+  <script src="tdc-ratings.js?v=2"></script>
+  <link rel="stylesheet" href="tdc-anim.css?v=4"/>
+  <script src="tdc-anim.js?v=5"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--amber:#b5872a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--amber:#d8b05a;--red:#e07070;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+    .page{max-width:960px;margin:0 auto;padding:30px 22px 90px;}
+    .eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+    .eyebrow .lock{font-size:10px;color:var(--text3);border:1px solid var(--border2);border-radius:20px;padding:2px 8px;letter-spacing:.06em;}
+    h1{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;letter-spacing:-.01em;margin-bottom:4px;}
+    .sub{font-size:13px;color:var(--text3);margin-bottom:22px;max-width:760px;line-height:1.6;}
+    .combo{position:relative;max-width:420px;}
+    .search{width:100%;padding:12px 14px;border:1px solid var(--accent);border-radius:10px;background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;font-weight:600;outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent);}
+    .combo-list{display:none;position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:30;max-height:340px;overflow-y:auto;background:var(--bg);border:1px solid var(--border2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.2);}
+    .combo-item{padding:9px 13px;cursor:pointer;font-size:13.5px;display:flex;justify-content:space-between;gap:10px;font-weight:600;}
+    .combo-item:hover{background:var(--bg3);}
+    .combo-item .cr{color:var(--text3);font-variant-numeric:tabular-nums;font-weight:500;}
+    .combo-empty{padding:12px;font-size:12px;color:var(--text3);}
+    .loading{padding:70px;text-align:center;color:var(--text3);}
+    .muted{font-size:12.5px;color:var(--text3);line-height:1.7;padding:24px 20px;text-align:center;}
+    /* summary */
+    .sumwrap{margin-top:20px;display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:stretch;}
+    @media(max-width:640px){.sumwrap{grid-template-columns:1fr;}}
+    .score-card{border:1px solid var(--border);border-radius:16px;padding:20px 26px;text-align:center;min-width:180px;background:
+      radial-gradient(130% 130% at 50% 0%,color-mix(in srgb,var(--tc,#888) 12%,var(--bg2)),var(--bg2));display:flex;flex-direction:column;justify-content:center;}
+    .score-card .lab{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .score-card .val{font-family:'Playfair Display',serif;font-weight:800;font-size:52px;line-height:1;margin:4px 0;color:var(--sc,var(--text));}
+    .score-card .tier{font-size:12px;font-weight:800;color:var(--sc,var(--text2));}
+    .callouts{display:grid;grid-template-rows:1fr 1fr;gap:12px;}
+    .callout{border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:13px 16px;display:flex;align-items:center;gap:12px;}
+    .callout .ci{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:4px 9px;border-radius:20px;white-space:nowrap;}
+    .callout.steady .ci{color:var(--green);background:color-mix(in srgb,var(--green) 16%,transparent);}
+    .callout.volatile .ci{color:var(--red);background:color-mix(in srgb,var(--red) 16%,transparent);}
+    .callout .cn{font-weight:800;font-size:14px;}
+    .callout .cd{font-size:12px;color:var(--text3);margin-top:1px;}
+    .sec-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:30px 0 12px;display:flex;align-items:center;gap:10px;}
+    .sec-h::after{content:'';flex:1;height:1px;background:var(--border);}
+    /* player rows */
+    .prow{display:grid;grid-template-columns:1.6fr 120px 1fr 130px;gap:16px;align-items:center;padding:13px 16px;border:1px solid var(--border);border-radius:12px;background:var(--bg2);margin-bottom:9px;}
+    @media(max-width:720px){.prow{grid-template-columns:1fr auto;gap:8px 14px;}.prow .pspark,.prow .pstat{grid-column:1/-1;}}
+    .pmain .pn{font-weight:800;font-size:14.5px;}
+    .pmain .pmeta{font-size:11px;color:var(--text3);font-weight:600;margin-top:2px;}
+    .pmain .pmeta .pos{color:var(--accent);}
+    .pspark svg{display:block;width:100%;height:38px;overflow:visible;}
+    .pstat{font-size:11.5px;color:var(--text2);line-height:1.5;font-variant-numeric:tabular-nums;}
+    .pstat b{color:var(--text);}
+    .pstat .fc{color:var(--text3);}
+    .pbadge{text-align:right;}
+    .pbadge .cs{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;line-height:1;}
+    .pbadge .tier{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;margin-top:3px;padding:2px 8px;border-radius:20px;display:inline-block;}
+    .t-steady{color:var(--green);background:color-mix(in srgb,var(--green) 15%,transparent);}
+    .t-reliable{color:var(--green);background:color-mix(in srgb,var(--green) 10%,transparent);}
+    .t-streaky{color:var(--amber);background:color-mix(in srgb,var(--amber) 16%,transparent);}
+    .t-boom{color:var(--red);background:color-mix(in srgb,var(--red) 15%,transparent);}
+    .t-none{color:var(--text3);background:var(--bg3);}
+    .nohist{font-size:11.5px;color:var(--text3);font-style:italic;grid-column:2/-1;text-align:right;}
+    .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:28px;max-width:760px;}
+    .metric-toggle{display:inline-flex;border:1px solid var(--border2);border-radius:9px;overflow:hidden;margin-left:auto;}
+    .metric-toggle button{background:none;border:none;color:var(--text3);font-family:inherit;font-size:11px;font-weight:800;letter-spacing:.03em;padding:6px 12px;cursor:pointer;border-right:1px solid var(--border2);}
+    .metric-toggle button:last-child{border-right:none;}
+    .metric-toggle button.on{background:var(--accent);color:#221c08;}
+  </style>
+  <link rel="stylesheet" href="tdc-dense.css?v=18"/>
+  <style>
+    :root:not([data-theme="dark"]){background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
+  </style>
+</head>
+<body data-anim-auto>
+<script>
+// Coach's Tier gate — respects the site-wide dev flag; require a top-tier plan when live.
+(function(){
+  if(window.TDC_PAYWALL_ENABLED===false) return;
+  var REQUIRED_PLANS=['pro','coach'];
+  var s=null; try{ s=JSON.parse(localStorage.getItem('tdc_session')||'null'); }catch(e){}
+  if(!s||!s.access_token){ location.href='pricing.html?gate=coach'; return; }
+  fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user.id+'&select=plan',
+    {headers:{apikey:'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye',Authorization:'Bearer '+s.access_token}})
+    .then(function(r){return r.json();}).then(function(rows){var p=rows&&rows[0];
+      if(!p||REQUIRED_PLANS.indexOf(p.plan)<0) location.href='pricing.html?gate=coach';
+    }).catch(function(){ location.href='pricing.html?gate=coach'; });
+})();
+</script>
+<script src="tdc-nav.js?v=2"></script>
+<div class="page">
+  <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Self-Scout Hub</span></div>
+  <h1 data-anim>Roster Consistency</h1>
+  <div class="sub" data-anim>How reliable is each player night to night? Pick a team to see every returner's game-to-game scoring last season — their floor, their ceiling, and whether they're a set-your-watch scorer or boom-or-bust. Transfers carry the history from wherever they played.</div>
+
+  <div class="combo" data-anim><input id="sel" class="search" placeholder="Search your team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
+
+  <div id="out"><div class="muted" style="padding:60px 20px;">Pick a team above to break down its roster.</div></div>
+
+  <div class="note" data-anim>Consistency is measured from each player's <b>2025-26</b> game log (games with 5+ minutes). The volatility index is the coefficient of variation of their per-game output (spread ÷ average); the consistency score is <b>100 − volatility</b>, so a steady 14-a-night scorer rates higher than a 4-or-24 scorer with the same average. Floor/ceiling are the 20th and 80th percentile games. Roster score is minutes-weighted across players with a D-I game history.</div>
+</div>
+
+<script>
+const SB_URL='https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
+const el=id=>document.getElementById(id);
+const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
+
+let D=null, COLORMAP={}, selKey=null, metric='pts', lastData=null;
+const poolRow=k=>k!=null?D.teams[k]:null;
+const labelOf=r=>r?r.full:'';
+function _lum(hex){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');if(hex.length<6)return .5;const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return (0.299*r+0.587*g+0.114*b)/255;}
+function teamColor(row){const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#A8843C';const c=COLORMAP[row.team]||COLORMAP[row.full];if(!c)return accent;const dark=document.documentElement.getAttribute('data-theme')==='dark',l=_lum(c);if(!dark&&l>0.72)return accent;if(dark&&l<0.16)return accent;return c;}
+
+// ── searchable team combobox ──
+function comboMatches(q){
+  const toks=(q||'').toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const ok=s=>{s=s.toLowerCase();return toks.every(t=>s.includes(t));};
+  let out=[]; D.teams.forEach((r,i)=>{ if(!toks.length||ok(r.full+' '+r.team)) out.push({key:i,r}); });
+  if(toks.length){ const pre=e=>e.r.full.toLowerCase().startsWith(toks[0])?0:1; out.sort((a,b)=>pre(a)-pre(b)||(a.r.rank||999)-(b.r.rank||999)); }
+  else out.sort((a,b)=>(a.r.rank||999)-(b.r.rank||999));
+  return out.slice(0,30);
+}
+function renderList(){
+  const list=el('list'), m=comboMatches(el('sel').value);
+  list.innerHTML=m.length? m.map(e=>`<div class="combo-item" data-key="${e.key}"><span>${labelOf(e.r)}${e.r.conf?` <span class="cr">${e.r.conf}</span>`:''}</span><span class="cr">#${e.r.rank||'—'}</span></div>`).join('')
+    : '<div class="combo-empty">No teams match</div>';
+  list.style.display='block';
+}
+function pick(key){ selKey=+key; el('sel').value=labelOf(poolRow(+key)); el('list').style.display='none'; loadTeam(); }
+(function wire(){
+  const inp=el('sel'), list=el('list');
+  inp.addEventListener('focus',()=>{ inp.select(); renderList(); });
+  inp.addEventListener('input',()=>renderList());
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const f=list.querySelector('.combo-item'); if(f) pick(f.dataset.key); inp.blur(); }
+    if(e.key==='Escape'){ list.style.display='none'; inp.value=labelOf(poolRow(selKey)); inp.blur(); } });
+  inp.addEventListener('blur',()=>setTimeout(()=>{ list.style.display='none'; inp.value=labelOf(poolRow(selKey)); },160));
+  list.addEventListener('mousedown',e=>{ const it=e.target.closest('.combo-item'); if(it){ e.preventDefault(); pick(it.dataset.key); } });
+})();
+
+// ── stats ──
+const N=v=>v==null?0:+v||0;
+function gameScore(b){ return N(b.pts)+0.4*N(b.fgm)-0.7*N(b.fga)-0.4*(N(b.fta)-N(b.ftm))+0.7*N(b.oreb)+0.3*N(b.dreb)+N(b.stl)+0.7*N(b.ast)+0.7*N(b.blk)-0.4*N(b.pf)-N(b.tov); }
+function mean(a){ return a.reduce((s,v)=>s+v,0)/a.length; }
+function sd(a){ const m=mean(a); return Math.sqrt(a.reduce((s,v)=>s+(v-m)*(v-m),0)/a.length); }
+function pct(a,p){ const s=[...a].sort((x,y)=>x-y); const i=Math.max(0,Math.min(s.length-1,Math.round((p/100)*(s.length-1)))); return s[i]; }
+function tierOf(cs){ return cs>=62?['Rock Steady','t-steady']:cs>=48?['Reliable','t-reliable']:cs>=32?['Streaky','t-streaky']:['Boom or Bust','t-boom']; }
+
+function spark(series, color){
+  if(series.length<2) return '';
+  const w=110,h=38,mx=Math.max(...series),mn=Math.min(...series),rng=(mx-mn)||1;
+  const x=i=>i/(series.length-1)*w, y=v=>h-4-((v-mn)/rng)*(h-8);
+  const pts=series.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const avg=mean(series), ay=y(avg);
+  const dots=series.map((v,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="1.5" fill="${color}" opacity="${v>=avg?.9:.5}"/>`).join('');
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <line x1="0" y1="${ay.toFixed(1)}" x2="${w}" y2="${ay.toFixed(1)}" stroke="var(--border2)" stroke-width="1" stroke-dasharray="2 2"/>
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>${dots}</svg>`;
+}
+
+async function loadTeam(){
+  const row=poolRow(selKey); if(!row) return;
+  const tc=teamColor(row);
+  el('out').innerHTML='<div class="loading">Breaking down the roster…</div>';
+  // roster (short team name = row.team)
+  let roster=[];
+  try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,mpg,tdc_grade,depth_order`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  const withId=roster.filter(p=>p.espn_id!=null);
+  let box=[];
+  if(withId.length){
+    const ids=withId.map(p=>p.espn_id).join(',');
+    try{ box=await fetch(`${SB_URL}/rest/v1/box_scores?espn_id=in.(${ids})&season_year=eq.2026&min=gte.5&select=espn_id,pts,min,fgm,fga,tpm,ftm,fta,oreb,dreb,ast,stl,blk,tov,pf,date&order=date.asc&limit=4000`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  }
+  const byId={}; box.forEach(b=>{ (byId[b.espn_id]=byId[b.espn_id]||[]).push(b); });
+
+  // per-player consistency
+  const players=roster.map(p=>{
+    const g=(byId[p.espn_id]||[]);
+    const base={name:p.name, pos:p.position, mpg:+p.mpg||0, order:p.depth_order!=null?+p.depth_order:99, gp:g.length};
+    if(g.length<4) return {...base, hist:false};
+    const pts=g.map(b=>N(b.pts)), gs=g.map(gameScore);
+    const series=metric==='gs'?gs:pts;
+    const m=mean(series), s=sd(series), cv=m>0?s/m:1;
+    const cs=Math.max(1,Math.min(99,Math.round(100*(1-Math.min(cv,1)))));
+    return {...base, hist:true, series, avg:m, cv, cs, floor:pct(series,20), ceil:pct(series,80), ptsAvg:mean(pts)};
+  });
+  players.sort((a,b)=> (a.order-b.order) || (b.mpg-a.mpg));
+  lastData={row,tc,players};
+  render();
+}
+
+function render(){
+  if(!lastData) return;
+  const {row,tc,players}=lastData;
+  const hist=players.filter(p=>p.hist);
+  const rot=hist.filter(p=>p.mpg>=12);
+  const metricLbl=metric==='gs'?'game impact':'points';
+
+  // roster consistency: minutes-weighted, players with history
+  let rosterCS=null, steady=null, vol=null;
+  if(hist.length){
+    let wsum=0,csum=0; hist.forEach(p=>{ const w=Math.max(p.mpg,4); wsum+=w; csum+=w*p.cs; });
+    rosterCS=Math.round(csum/wsum);
+    const pool=(rot.length?rot:hist);
+    steady=[...pool].sort((a,b)=>b.cs-a.cs)[0];
+    vol=[...pool].sort((a,b)=>a.cs-b.cs)[0];
+  }
+  const rTier=rosterCS!=null?tierOf(rosterCS):null;
+
+  const prow=p=>{
+    if(!p.hist) return `<div class="prow"><div class="pmain"><div class="pn">${esc(p.name)}</div><div class="pmeta"><span class="pos">${esc(p.pos||'')}</span>${p.mpg?` · ${p.mpg.toFixed(0)} MPG proj`:''}</div></div><div class="nohist">${p.gp?`only ${p.gp} D-I game${p.gp===1?'':'s'} last year`:'no D-I game history'}</div></div>`;
+    const [tlab,tcls]=tierOf(p.cs), col=p.cs>=48?'var(--green)':p.cs>=32?'var(--amber)':'var(--red)';
+    return `<div class="prow">
+      <div class="pmain"><div class="pn">${esc(p.name)}</div><div class="pmeta"><span class="pos">${esc(p.pos||'')}</span> · ${p.gp} g · ${p.mpg?p.mpg.toFixed(0)+' MPG proj':'—'}</div></div>
+      <div class="pspark">${spark(p.series,tc)}</div>
+      <div class="pstat"><b>${p.avg.toFixed(1)}</b> ${metricLbl}/g<br><span class="fc">floor ${p.floor.toFixed(0)} · ceiling ${p.ceil.toFixed(0)}</span></div>
+      <div class="pbadge"><div class="cs" style="color:${col}">${p.cs}</div><div class="tier ${tcls}">${tlab}</div></div>
+    </div>`;
+  };
+
+  el('out').innerHTML=`<div style="--tc:${tc}">
+    ${rosterCS!=null?`<div class="sumwrap">
+      <div class="score-card" style="--sc:${rosterCS>=48?'var(--green)':rosterCS>=32?'var(--amber)':'var(--red)'}">
+        <div class="lab">Roster consistency</div><div class="val">${rosterCS}</div><div class="tier">${rTier[0]}</div>
+      </div>
+      <div class="callouts">
+        ${steady?`<div class="callout steady"><span class="ci">Set your watch</span><div><div class="cn">${esc(steady.name)}</div><div class="cd">${steady.cs} consistency · ${steady.avg.toFixed(1)} ${metricLbl}/g (${steady.floor.toFixed(0)}–${steady.ceil.toFixed(0)})</div></div></div>`:''}
+        ${vol&&vol!==steady?`<div class="callout volatile"><span class="ci">Boom or bust</span><div><div class="cn">${esc(vol.name)}</div><div class="cd">${vol.cs} consistency · swings ${vol.floor.toFixed(0)} to ${vol.ceil.toFixed(0)} ${metricLbl}</div></div></div>`:''}
+      </div>
+    </div>`:`<div class="muted" style="padding:40px 20px;">No returning player on this roster has a 2025-26 D-I game log yet — likely a heavy freshman/international class. Consistency needs games played.</div>`}
+    <div class="sec-h">Player breakdown
+      <span class="metric-toggle"><button class="${metric==='pts'?'on':''}" onclick="setMetric('pts')">Points</button><button class="${metric==='gs'?'on':''}" onclick="setMetric('gs')">Game impact</button></span>
+    </div>
+    ${players.map(prow).join('')}
+  </div>`;
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
+}
+function setMetric(m){ if(m===metric) return; metric=m; loadTeam(); }
+
+(async function(){
+  try{ const arr=await fetch('scripts/data/team_colors.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
+    (arr||[]).forEach(e=>{ if(e&&e.c1){ if(e.location) COLORMAP[e.location]=e.c1; if(e.display) COLORMAP[e.display]=e.c1; } });
+  }catch(e){}
+  D=await TDC_RATINGS.get();
+  D.teams=(D.teams||[]).filter(t=>t.projected!==false&&t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999));
+  const qs=new URLSearchParams(location.search);
+  const want=(qs.get('team')||'').toLowerCase();
+  if(want){ const i=D.teams.findIndex(t=>t.full.toLowerCase()===want||t.team.toLowerCase()===want); if(i>=0){ selKey=i; el('sel').value=labelOf(poolRow(i)); loadTeam(); } }
+})();
+</script>
+</body>
+</html>
