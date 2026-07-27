@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Opponent Scouting Report — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="auth.js?v=paywall3"></script>
+  <script src="team-colors.js?v=2"></script>
+  <script src="tdc-ratings.js?v=2"></script>
+  <script src="tdc-shotchart.js?v=1"></script>
+  <link rel="stylesheet" href="tdc-anim.css?v=4"/>
+  <script src="tdc-anim.js?v=5"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--red:#e07070;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+    .page{max-width:980px;margin:0 auto;padding:30px 22px 90px;}
+    .eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+    .eyebrow .lock{font-size:10px;color:var(--text3);border:1px solid var(--border2);border-radius:20px;padding:2px 8px;letter-spacing:.06em;}
+    h1{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;letter-spacing:-.01em;margin-bottom:4px;}
+    .sub{font-size:13px;color:var(--text3);margin-bottom:22px;max-width:760px;line-height:1.6;}
+    /* pickers */
+    .picks{display:grid;grid-template-columns:1fr 1.3fr;gap:14px;align-items:end;margin-bottom:8px;}
+    @media(max-width:640px){.picks{grid-template-columns:1fr;}}
+    .picklab{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:0 0 6px 2px;}
+    .combo{position:relative;}
+    .search{width:100%;padding:12px 14px;border:1px solid var(--border2);border-radius:10px;background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;font-weight:600;outline:none;}
+    .search:focus{border-color:var(--accent);}
+    .search.opp{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 14%,transparent);}
+    .combo-list{display:none;position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:30;max-height:320px;overflow-y:auto;background:var(--bg);border:1px solid var(--border2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.2);}
+    .combo-item{padding:9px 13px;cursor:pointer;font-size:13.5px;display:flex;justify-content:space-between;gap:10px;font-weight:600;}
+    .combo-item:hover{background:var(--bg3);}
+    .combo-item .cr{color:var(--text3);font-variant-numeric:tabular-nums;font-weight:500;}
+    .combo-empty{padding:12px;font-size:12px;color:var(--text3);}
+    .loading{padding:70px;text-align:center;color:var(--text3);}
+    /* dossier */
+    .dossier{margin-top:20px;}
+    .oppbar{display:flex;align-items:center;gap:16px;padding:20px 22px;border:1px solid var(--border);border-radius:16px;background:
+      radial-gradient(130% 160% at 0% 0%,color-mix(in srgb,var(--tc,#888) 12%,var(--bg2)),var(--bg2));margin-bottom:8px;}
+    .oppbar .badge{width:52px;height:52px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+      font-family:'Playfair Display',serif;font-weight:800;font-size:22px;color:#fff;background:var(--tc,#888);}
+    .oppbar .onm{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;line-height:1.05;letter-spacing:-.01em;}
+    .oppbar .omet{font-size:12px;color:var(--text3);font-weight:600;margin-top:3px;}
+    .oppbar .omet b{color:var(--text2);}
+    .sec-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:30px 0 12px;display:flex;align-items:center;gap:10px;}
+    .sec-h::after{content:'';flex:1;height:1px;background:var(--border);}
+    .card{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:18px 20px;}
+    /* game plan */
+    .plan{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    @media(max-width:640px){.plan{grid-template-columns:1fr;}}
+    .pcard{border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:14px 16px;position:relative;overflow:hidden;}
+    .pcard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--pk,#888);}
+    .pcard .ptag{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--pk,#888);margin-bottom:5px;}
+    .pcard .ph{font-weight:800;font-size:14px;color:var(--text);margin-bottom:4px;line-height:1.25;}
+    .pcard .pb{font-size:12.5px;color:var(--text2);line-height:1.6;}
+    .planwrap{border:1px solid var(--border);border-radius:16px;background:
+      radial-gradient(120% 120% at 100% 0%,color-mix(in srgb,var(--accent) 7%,var(--bg2)),var(--bg2));padding:16px;}
+    /* matchup mini */
+    .mm{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;padding:18px;border:1px solid var(--border);border-radius:14px;background:var(--bg2);}
+    .mm .s{text-align:center;}
+    .mm .s .n{font-family:'Playfair Display',serif;font-weight:800;font-size:16px;line-height:1.1;}
+    .mm .s .sc{font-family:'Playfair Display',serif;font-weight:800;font-size:40px;line-height:1;margin-top:6px;color:var(--sc,var(--text));}
+    .mm .s .wp{font-size:11px;font-weight:800;color:var(--sc,var(--text3));margin-top:2px;}
+    .mm .m{text-align:center;}
+    .mm .m .sp{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;color:var(--accent);}
+    .mm .m .to{font-size:10px;color:var(--text3);font-weight:600;margin-top:2px;}
+    /* four factors */
+    .ff{display:grid;grid-template-columns:1fr 1fr;gap:22px 34px;}
+    @media(max-width:640px){.ff{grid-template-columns:1fr;}}
+    .ffcol .ffh{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
+    .bar{margin-bottom:11px;}
+    .bar .bl{display:flex;justify-content:space-between;font-size:11.5px;font-weight:600;color:var(--text2);margin-bottom:4px;}
+    .bar .bl .bv{font-variant-numeric:tabular-nums;color:var(--text3);font-weight:700;}
+    .bar .bt{height:7px;border-radius:5px;background:var(--bg3);overflow:hidden;}
+    .bar .bf{height:100%;border-radius:5px;}
+    .winpath{font-size:13px;color:var(--text2);line-height:1.7;background:var(--bg2);border-left:3px solid var(--tc,#888);padding:12px 15px;border-radius:0 8px 8px 0;margin-top:4px;}
+    /* tendencies */
+    .tend{display:grid;grid-template-columns:1.2fr 1fr;gap:22px;align-items:start;}
+    @media(max-width:760px){.tend{grid-template-columns:1fr;}}
+    .diet{display:flex;flex-direction:column;gap:12px;}
+    .dietrow .dl{display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;}
+    .dietrow .dl .dv{color:var(--text3);font-variant-numeric:tabular-nums;}
+    .dietrow .dt{height:9px;border-radius:6px;background:var(--bg3);overflow:hidden;}
+    .dietrow .df{height:100%;border-radius:6px;background:var(--tc,var(--accent));}
+    .gchips{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+    .gchip{border:1px solid var(--border);border-radius:11px;background:var(--bg2);padding:9px 13px;flex:1;min-width:90px;}
+    .gchip .gl{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .gchip .gv{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;margin-top:3px;}
+    .gchip .gs{font-size:10px;color:var(--text3);margin-top:1px;}
+    .muted{font-size:12.5px;color:var(--text3);line-height:1.7;padding:26px 20px;text-align:center;}
+    .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:30px;max-width:760px;}
+    /* roster report reuse */
+    .rr-essence{font-size:13.5px;line-height:1.7;color:var(--text);background:var(--bg2);border-left:3px solid var(--tc,#888);padding:14px 16px;margin-bottom:22px;border-radius:0 8px 8px 0;}
+    .rr-h{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);margin-bottom:12px;}
+    .rr-cols{display:flex;flex-wrap:wrap;gap:28px;margin-bottom:26px;}
+    .rr-col{flex:1;min-width:250px;}
+    .rr-ct{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:6px;}
+  </style>
+  <link rel="stylesheet" href="tdc-dense.css?v=18"/>
+  <style>
+    :root:not([data-theme="dark"]){background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
+  </style>
+</head>
+<body data-anim-auto>
+<script>
+// ── Coach's Tier gate ──────────────────────────────────────────────────────
+// Respects the site-wide dev flag (window.TDC_PAYWALL_ENABLED from auth.js): when
+// paywalls are OPEN, everyone gets in. When live, require a top-tier plan. There's
+// no dedicated "coach" plan yet — gate on the current top tier (pro) and add 'coach'
+// to REQUIRED_PLANS the day that product exists (one-line change).
+(function(){
+  if(window.TDC_PAYWALL_ENABLED===false) return;   // dev / pre-launch: gates open
+  var REQUIRED_PLANS=['pro','coach'];
+  var s=null; try{ s=JSON.parse(localStorage.getItem('tdc_session')||'null'); }catch(e){}
+  if(!s||!s.access_token){ location.href='pricing.html?gate=coach'; return; }
+  fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user.id+'&select=plan',
+    {headers:{apikey:'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye',Authorization:'Bearer '+s.access_token}})
+    .then(function(r){return r.json();}).then(function(rows){var p=rows&&rows[0];
+      if(!p||REQUIRED_PLANS.indexOf(p.plan)<0) location.href='pricing.html?gate=coach';
+    }).catch(function(){ location.href='pricing.html?gate=coach'; });
+})();
+</script>
+<script src="tdc-nav.js?v=1"></script>
+<div class="page">
+  <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Scouting Hub</span></div>
+  <h1 data-anim>Opponent Scouting Report</h1>
+  <div class="sub" data-anim>Pick an opponent for an instant scouting dossier — a projected game plan, their statistical identity, shot tendencies and personnel breakdown, drawn from the same roster-based engine that powers the rankings. Add your own team for the matchup projection.</div>
+
+  <div class="picks" data-anim>
+    <div>
+      <div class="picklab">Your team (optional)</div>
+      <div class="combo"><input id="selMe" class="search" placeholder="Search team…" autocomplete="off"><div class="combo-list" id="listMe"></div></div>
+    </div>
+    <div>
+      <div class="picklab">Opponent to scout</div>
+      <div class="combo"><input id="selOpp" class="search opp" placeholder="Search opponent…" autocomplete="off"><div class="combo-list" id="listOpp"></div></div>
+    </div>
+  </div>
+
+  <div id="out"><div class="loading">Loading scouting engine…</div></div>
+
+  <div class="note" data-anim>Scouting is built from each team's 2026-27 projected profile: Team DNA (four factors + efficiency, per 100 possessions), shot tendencies (Shot Genome), and — where generated — an AI personnel report. The game plan is derived automatically from where the opponent ranks nationally. Matchup line uses the point-spread ratings (win % = Φ(margin / 11)); neutral court.</div>
+</div>
+
+<script>
+const SB_URL='https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
+const el=id=>document.getElementById(id);
+const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
+
+let D=null, DNA=null, SG={}, REPORTS=null, COLORMAP={}, sgMean={};
+let selKey={Me:null,Opp:null};
+
+// ── team-name resolver: one rating row → every engine's key form ──
+const poolRow=k=>k!=null?D.teams[k]:null;
+const labelOf=r=>r?r.full:'';
+const sn=t=>(window.tdcShortSchool?window.tdcShortSchool(t):t);
+function _lum(hex){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');if(hex.length<6)return .5;const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return (0.299*r+0.587*g+0.114*b)/255;}
+function teamColor(row){
+  const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#A8843C';
+  const c=COLORMAP[row.team]||COLORMAP[row.full]; if(!c) return accent;
+  const dark=document.documentElement.getAttribute('data-theme')==='dark', l=_lum(c);
+  if(!dark&&l>0.72) return accent; if(dark&&l<0.16) return accent; return c;
+}
+function dnaOf(r){ return (DNA&&DNA['2027']&&DNA['2027'].teams&&DNA['2027'].teams[r.full])||null; }
+function sgOf(r){ return SG[r.full]||SG[(r.full||'').toLowerCase()]||null; }
+function reportOf(r){
+  if(!REPORTS||!REPORTS.teams) return null;
+  const cand=[r.team, (r.team||'').replace(/ /g,'-'), r.full];
+  for(const k of cand){ if(k&&REPORTS.teams[k]) return REPORTS.teams[k]; }
+  return null;
+}
+
+// ── searchable combobox (shared shape with matchup.html) ──
+function comboMatches(q){
+  const toks=(q||'').toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const ok=s=>{s=s.toLowerCase();return toks.every(t=>s.includes(t));};
+  let out=[]; D.teams.forEach((r,i)=>{ if(!toks.length||ok(r.full+' '+r.team)) out.push({key:i,r}); });
+  if(toks.length){ const pre=e=>e.r.full.toLowerCase().startsWith(toks[0])?0:1; out.sort((a,b)=>pre(a)-pre(b)||(a.r.rank||999)-(b.r.rank||999)); }
+  else out.sort((a,b)=>(a.r.rank||999)-(b.r.rank||999));
+  return out.slice(0,30);
+}
+function fmtR(r){ return (r.rating>=0?'+':'')+r.rating.toFixed(1); }
+function renderList(x){
+  const list=el('list'+x), m=comboMatches(el('sel'+x).value);
+  list.innerHTML=m.length? m.map(e=>`<div class="combo-item" data-key="${e.key}" data-x="${x}"><span>${labelOf(e.r)}${e.r.conf?` <span class="cr">${e.r.conf}</span>`:''}</span><span class="cr">#${e.r.rank||'—'} · ${fmtR(e.r)}</span></div>`).join('')
+    : '<div class="combo-empty">No teams match</div>';
+  list.style.display='block';
+}
+function pick(x,key){ selKey[x]=+key; el('sel'+x).value=labelOf(poolRow(+key)); el('list'+x).style.display='none'; render(); }
+function wireCombo(x){
+  const inp=el('sel'+x), list=el('list'+x);
+  inp.addEventListener('focus',()=>{ inp.select(); renderList(x); });
+  inp.addEventListener('input',()=>renderList(x));
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const f=list.querySelector('.combo-item'); if(f) pick(x,f.dataset.key); inp.blur(); }
+    if(e.key==='Escape'){ list.style.display='none'; inp.value=labelOf(poolRow(selKey[x])); inp.blur(); } });
+  inp.addEventListener('blur',()=>setTimeout(()=>{ list.style.display='none'; inp.value=labelOf(poolRow(selKey[x])); },160));
+  list.addEventListener('mousedown',e=>{ const it=e.target.closest('.combo-item'); if(it){ e.preventDefault(); pick(x,it.dataset.key); } });
+}
+
+// ── GAME PLAN: derive actionable keys from the opponent's national percentiles + shot diet ──
+const P_ATTACK='#5ab875', P_DEFEND='#e07070', P_TEMPO='#c8963e';
+// Every card is scored by how far the opponent sits from the national median (pct 50).
+// A national percentile ABOVE 50 is a strength to neutralize (red); BELOW 50 is a
+// weakness to attack (green). Both directions are covered for all eight four-factor
+// dimensions, so even a balanced opponent yields their most-actionable leans.
+function buildGamePlan(opp, sg){
+  const P=opp.pct||{}, rules=[];
+  const S=(sal,strength,tag,ph,pb)=>rules.push({sal,pk:strength?P_DEFEND:P_ATTACK,tag,ph,pb});
+  const hi=p=>100-p, lo=p=>p;
+  const DIMS={
+    oeFG:[p=>['Take away clean looks','Contest, deny rhythm',`Efficient shooting team (top-${hi(p)}% eFG). Contest every catch-and-shoot and take away rhythm threes.`],
+          p=>['Pack the paint','Make them prove it outside',`Inefficient shooting (bottom-${lo(p)}% eFG). Sag off, wall the paint and dare them to beat you from deep.`]],
+    oTOV:[p=>['A press won’t pay','Guard them in the half court',`Top-${hi(p)}% ball security — pressure rarely turns them over. Make them earn half-court buckets.`],
+          p=>['Speed them up','Extend pressure full court',`Turnover-prone (bottom-${lo(p)}%). Pick them up early and turn their mistakes into offense.`]],
+    oORB:[p=>['Box out to the whistle','No leak-outs',`Elite offensive rebounding (top-${hi(p)}%). Put a body on everyone before you release.`],
+          p=>['Leak out early','Beat them down the floor',`They don’t crash the glass (bottom-${lo(p)}% off. reb). Send a guard out on the catch and run.`]],
+    ORtg:[p=>['Stops in bunches','Chain stops to separate',`Elite offense (top-${hi(p)}%). One stop won’t do it — string them together to pull away.`],
+          p=>['Press your advantage','Their offense stalls',`Sputtering offense (bottom-${lo(p)}%). Get stops and extend — they struggle to answer runs.`]],
+    deFG:[p=>['Earn every look','Hunt high-value shots',`They defend shots well (top-${hi(p)}%). Move it side to side and attack in transition before they set.`],
+          p=>['Move it for clean looks','Swing to the open man',`Beatable shot defense (bottom-${lo(p)}%). Good looks are there with ball and player movement.`]],
+    dTOV:[p=>['Value every possession','Cut live-ball turnovers',`Ball-hawking defense (top-${hi(p)}% at forcing TOs). Be strong with the ball, limit risky passes.`],
+          p=>['Run your offense','Patient — they won’t gamble',`They rarely force turnovers (bottom-${lo(p)}%). Work the clock and execute your sets.`]],
+    dDRB:[p=>['Tough to second-shot','Get back on defense',`Strong defensive rebounding (top-${hi(p)}%). Limit crashers and protect in transition.`],
+          p=>['Crash the offensive glass','Chase second shots',`Weak defensive rebounding (bottom-${lo(p)}%). Hammer the offensive boards — extra possessions are there.`]],
+    DRtg:[p=>['Expect a grind','Win it on defense',`Elite defense overall (top-${hi(p)}%). Points will be at a premium — value every trip.`],
+          p=>['Attack their defense','Get downhill',`Leaky defense (bottom-${lo(p)}%). Push the pace and get to the rim — they give up points.`]],
+  };
+  Object.keys(DIMS).forEach(k=>{ const p=P[k]; if(p==null) return; const d=p-50;
+    const c=(d>=0?DIMS[k][0]:DIMS[k][1])(p); S(Math.abs(d),d>=0,c[0],c[1],c[2]); });
+  // shot-diet identity (their offensive tendency = a strength to neutralize) — z vs D-I
+  if(sg&&sg.off){
+    const tr=sg.off.threeRate, rr=sg.off.rimRate;
+    if(tr!=null&&sgMean.three){ const z=(tr-sgMean.three.m)/sgMean.three.s;
+      if(z>=0.6) rules.push({sal:14+z*8,pk:P_DEFEND,tag:'Take away the three',ph:'Run shooters off the line',pb:`${Math.round(tr)}% of their shots come from deep — ${z>=1.3?'far ':''}above the D-I average. No help off the arc.`}); }
+    if(rr!=null&&sgMean.rim){ const z=(rr-sgMean.rim.m)/sgMean.rim.s;
+      if(z>=0.6) rules.push({sal:14+z*8,pk:P_DEFEND,tag:'Wall off the rim',ph:'Build the wall, force pull-ups',pb:`${Math.round(rr)}% of their attempts come at the rim${z>=1.3?' — a rim-heavy attack':''}. Load to the paint and make them finish over length.`}); }
+    if(sg.off.pct&&sg.off.pct.smAdj>=70) rules.push({sal:sg.off.pct.smAdj-45,pk:P_DEFEND,tag:'Contest everything',ph:'Live with contested twos',pb:`Top-${100-Math.round(sg.off.pct.smAdj)}% shot-makers — they hit tough shots. Contest without fouling.`});
+  }
+  // tempo (pace) — amber, big-picture; at most one
+  const t=opp.tempo;
+  if(t!=null&&t>=72) rules.push({sal:(t-69)*3,pk:P_TEMPO,tag:'Control the pace',ph:'Get back, shorten the game',pb:`Up-tempo (${t.toFixed(0)} poss/g). Limit transition and make them grind it out in the half court.`});
+  else if(t!=null&&t<=64) rules.push({sal:(66-t)*3,pk:P_TEMPO,tag:'Win the possession battle',ph:'Generate easy baskets',pb:`They play slow (${t.toFixed(0)} poss/g). Every trip counts — get to the rim and the line, don’t settle.`});
+
+  rules.sort((a,b)=>b.sal-a.sal);
+  const out=[]; let tempoN=0;
+  for(const r of rules){ if(r.pk===P_TEMPO){ if(tempoN>=1) continue; tempoN++; } if(r.sal<8&&out.length>=3) continue; out.push(r); if(out.length>=6) break; }
+  if(!out.length) out.push({sal:0,pk:P_TEMPO,tag:'A balanced team',ph:'Win the margins',pb:'No glaring strength or weakness — take care of the ball, win the rebounding battle and value every possession.'});
+  return out;
+}
+
+function bar(label,pct,invertGood){
+  const v=Math.max(0,Math.min(100,pct==null?50:pct));
+  // color by how GOOD it is for the opponent (green=strength, red=weakness) — coach reads their profile
+  const good=v>=50; const col=good?'var(--green)':'var(--red)';
+  return `<div class="bar"><div class="bl"><span>${label}</span><span class="bv">${pct==null?'—':Math.round(v)+'ᵖᶜ'}</span></div>
+    <div class="bt"><div class="bf" style="width:${v}%;background:${col};"></div></div></div>`;
+}
+
+function matchupMini(me,opp){
+  if(!me||me.key===opp.key) return '';
+  const a=poolRow(me.key), b=poolRow(opp.key);
+  const L=TDC_RATINGS.lineFor(a,b,'neutral');
+  const cA=teamColor(a), cB=teamColor(b), wa=Math.round(L.probA), wb=100-wa;
+  return `<div class="sec-h">Matchup Projection</div>
+  <div class="mm">
+    <div class="s"><div class="n">${esc(sn(a.team))}</div><div class="sc" style="--sc:${cA}">${L.scoreA}</div><div class="wp" style="--sc:${cA}">${wa}% win</div></div>
+    <div class="m"><div class="sp">${esc(L.spread)}</div><div class="to">proj. total ${L.scoreA+L.scoreB} · neutral</div></div>
+    <div class="s"><div class="n">${esc(sn(b.team))}</div><div class="sc" style="--sc:${cB}">${L.scoreB}</div><div class="wp" style="--sc:${cB}">${wb}% win</div></div>
+  </div>`;
+}
+
+function renderReportBlock(rep){
+  if(!rep) return `<div class="card"><div class="muted">The AI personnel report for this team hasn't been generated yet — it's queued in the scouting-report pipeline. Every other section below is live.</div></div>`;
+  const item=(x,pos)=>`<div style="margin-bottom:12px;"><div style="font-weight:800;font-size:13px;color:${pos?'var(--green)':'var(--red)'};margin-bottom:2px;">${pos?'▸ ':'▪ '}${esc(x.t)}</div><div style="font-size:12.5px;color:var(--text2);line-height:1.65;">${esc(x.b)}</div></div>`;
+  const rrcol=(title,color,inner)=>`<div class="rr-col"><div class="rr-ct" style="color:${color}">${title}</div>${inner}</div>`;
+  const st=rep.starters||{},bn=rep.bench||{},su=rep.second_unit||{},co=rep.coach||{};
+  return `<div class="rr-essence">${esc(rep.essence)}</div>
+    <div class="rr-h">Starting Five</div>
+    <div class="rr-cols">${rrcol('Threats','var(--green)',(st.positives||[]).map(x=>item(x,true)).join(''))}${rrcol('How to exploit','var(--red)',(st.flaws||[]).map(x=>item(x,false)).join(''))}</div>
+    <div class="rr-h">Bench &amp; Depth</div>
+    <div class="rr-cols">${rrcol('Who helps them','var(--green)',`<div style="font-size:12.5px;color:var(--text2);line-height:1.65;">${esc(bn.helps)}</div>`)}${rrcol('Where depth hurts','var(--red)',`<div style="font-size:12.5px;color:var(--text2);line-height:1.65;">${esc(bn.hurts)}</div>`)}</div>
+    <div class="rr-cols">${rrcol('Second unit — strength','var(--green)',`<div style="font-size:12.5px;color:var(--text2);line-height:1.65;">${esc(su.strength)}</div>`)}${rrcol('Second unit — weakness','var(--red)',`<div style="font-size:12.5px;color:var(--text2);line-height:1.65;">${esc(su.weakness)}</div>`)}</div>
+    <div class="rr-h">How Their Coach Plays It</div>
+    <div class="rr-cols">${rrcol('Likely approach','var(--text3)',`<div style="font-size:12.5px;color:var(--text2);line-height:1.65;">${esc(co.might)}</div>`)}${rrcol('Their intended edges','var(--accent)',`<ul style="margin:0;padding-left:16px;font-size:12.5px;color:var(--text2);line-height:1.65;">${(co.should||[]).map(s=>`<li style="margin-bottom:6px;">${esc(s)}</li>`).join('')}</ul>`)}</div>`;
+}
+
+function tendencies(opp,sg){
+  if(!sg||!sg.off) return `<div class="card"><div class="muted">Shot-tendency data isn't on file for this team yet.</div></div>`;
+  const o=sg.off, rim=Math.round(o.rimRate||0), mid=Math.round(o.midRate||0), three=Math.round(o.threeRate||0);
+  const diet=[['At the rim',rim],['Mid-range',mid],['Three',three]];
+  const chip=(l,v,s)=>`<div class="gchip"><div class="gl">${l}</div><div class="gv">${v}</div><div class="gs">${s}</div></div>`;
+  const g=x=>x==null?'—':(x>0?'+':'')+(+x).toFixed(1);
+  return `<div class="tend">
+    <div>
+      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;">Where they shoot</div>
+      <div class="diet">${diet.map(d=>`<div class="dietrow"><div class="dl"><span>${d[0]}</span><span class="dv">${d[1]}%</span></div><div class="dt"><div class="df" style="width:${d[1]}%"></div></div></div>`).join('')}</div>
+      <div class="gchips">
+        ${chip('Look Quality',g(o.lq),'shot difficulty vs avg')}
+        ${chip('Shot-Making',g(o.smAdj),'makes vs expected')}
+        ${chip('Creation',g(sg.crAdjPg),'self-created / game')}
+      </div>
+    </div>
+    <div><div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;">Shot chart</div>
+      <div id="scoutShotHost" style="min-height:240px;"></div></div>
+  </div>`;
+}
+
+async function loadShotChart(row){
+  const host=el('scoutShotHost'); if(!host||!window.TDC_SHOTCHART) return;
+  host.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3);font-size:12px;">Loading shot chart…</div>';
+  // resolve ESPN team_id via team_seasons (same fewest-mascot-words match team.html uses)
+  let tid=null;
+  try{
+    const nm=row.full; const rows=await fetch(SB_URL+'/rest/v1/team_seasons?select=team,team_id&team=ilike.'+encodeURIComponent(sn(row.team))+'*&limit=25',{headers:H}).then(r=>r.ok?r.json():[]);
+    const tn=sn(row.team).toLowerCase().trim();
+    for(let k=1;k<=3&&tid==null;k++){ for(const r of rows){ const w=r.team.split(' '); if(w.length>k&&w.slice(0,w.length-k).join(' ').toLowerCase()===tn){ tid=r.team_id; break; } } }
+    if(tid==null&&rows.length) tid=rows[0].team_id;
+  }catch(e){}
+  if(tid==null){ host.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3);font-size:12px;">Shot-location data unavailable for this team.</div>'; return; }
+  try{
+    const shots=await fetch(SB_URL+'/rest/v1/shots?team_id=eq.'+tid+'&season_year=eq.2026&select=x,y,made,sv,dist&limit=6000',{headers:H}).then(r=>r.ok?r.json():[]);
+    if(!shots.length){ host.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3);font-size:12px;">No shot-location data on file.</div>'; return; }
+    TDC_SHOTCHART.render(host, shots, {subtitle:row.full+' · 2025-26', mode:'hex'});
+  }catch(e){ host.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3);font-size:12px;">Could not load shot chart.</div>'; }
+}
+
+function render(){
+  const opp=selKey.Opp!=null?{key:selKey.Opp,r:poolRow(selKey.Opp)}:null;
+  if(!opp){ el('out').innerHTML='<div class="muted" style="padding:60px 20px;">Pick an opponent above to generate their scouting report.</div>'; return; }
+  const r=opp.r, tc=teamColor(r), dna=dnaOf(r), sg=sgOf(r), rep=reportOf(r);
+  const me=selKey.Me!=null&&selKey.Me!==selKey.Opp?{key:selKey.Me}:null;
+  const initials=(r.full||'').split(' ').map(w=>w[0]).slice(0,2).join('');
+  const rec=`#${r.rank||'—'} nationally · rating ${fmtR(r)}`;
+
+  let plan='';
+  if(dna){
+    const cards=buildGamePlan(dna,sg);
+    plan=`<div class="sec-h">The Game Plan</div>
+      <div class="planwrap"><div class="plan">${cards.map(c=>`<div class="pcard" style="--pk:${c.pk}"><div class="ptag">${c.tag}</div><div class="ph">${esc(c.ph)}</div><div class="pb">${esc(c.pb)}</div></div>`).join('')}</div></div>`;
+  }
+
+  let profile='';
+  if(dna){
+    const P=dna.pct||{};
+    profile=`<div class="sec-h">Statistical Identity</div>
+    <div class="card">
+      <div class="ff">
+        <div class="ffcol"><div class="ffh">Offense (their strengths in green)</div>
+          ${bar('Shooting (eFG%)',P.oeFG)}${bar('Ball security',P.oTOV)}${bar('Off. rebounding',P.oORB)}${bar('Offense overall',P.ORtg)}</div>
+        <div class="ffcol"><div class="ffh">Defense</div>
+          ${bar('Defending shots',P.deFG)}${bar('Forcing turnovers',P.dTOV)}${bar('Def. rebounding',P.dDRB)}${bar('Defense overall',P.DRtg)}</div>
+      </div>
+      ${dna.win_path&&dna.win_path.summary?`<div class="winpath">${esc(dna.win_path.summary)}</div>`:''}
+    </div>`;
+  }
+
+  el('out').innerHTML=`<div class="dossier" style="--tc:${tc}">
+    <div class="oppbar">
+      <div class="badge">${esc(initials)}</div>
+      <div><div class="onm">${esc(r.full)}</div><div class="omet"><b>${esc(r.conf||'')}</b> · ${rec}${dna?` · ${dna.tempo?dna.tempo.toFixed(0)+' poss/g':''}`:''}</div></div>
+    </div>
+    ${me?matchupMini(me,opp):''}
+    ${plan||'<div class="card"><div class="muted">Team DNA isn\'t on file for this opponent yet, so the auto game plan is unavailable.</div></div>'}
+    ${profile}
+    <div class="sec-h">Shot Tendencies</div>
+    ${tendencies(r,sg)}
+    <div class="sec-h">Personnel Report</div>
+    ${renderReportBlock(rep)}
+  </div>`;
+  if(sg&&sg.off) loadShotChart(r);
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
+}
+
+(async function(){
+  try{ const arr=await fetch('scripts/data/team_colors.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
+    (arr||[]).forEach(e=>{ if(e&&e.c1){ if(e.location) COLORMAP[e.location]=e.c1; if(e.display) COLORMAP[e.display]=e.c1; } });
+  }catch(e){}
+  const [d, dna, sg, reps] = await Promise.all([
+    TDC_RATINGS.get(),
+    fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).catch(()=>null),
+    fetch('scripts/data/shot_genome_teams.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).catch(()=>null),
+    fetch('scripts/data/roster_reports.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).catch(()=>null),
+  ]);
+  D=d; DNA=dna; REPORTS=reps;
+  D.teams=(D.teams||[]).filter(t=>t.projected!==false&&t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999));
+  if(sg&&sg.teams){ sg.teams.forEach(x=>{ SG[x.team]=x; SG[(x.team||'').toLowerCase()]=x; });
+    // league mean + SD per shot-diet stat, so the game plan flags a team by how many
+    // standard deviations it sits above the D-I norm (each stat has a different spread).
+    const stat=k=>{ const v=sg.teams.map(t=>t.off&&t.off[k]).filter(x=>x!=null); if(!v.length) return {m:0,s:1};
+      const m=v.reduce((a,b)=>a+b,0)/v.length; const s=Math.sqrt(v.reduce((a,b)=>a+(b-m)*(b-m),0)/v.length)||1; return {m,s}; };
+    sgMean.rim=stat('rimRate'); sgMean.three=stat('threeRate');
+  }
+  wireCombo('Me'); wireCombo('Opp');
+  // deep-link support: ?opp=Full Name  &  ?me=Full Name
+  const qs=new URLSearchParams(location.search);
+  const findByName=n=>{ n=(n||'').toLowerCase(); const i=D.teams.findIndex(t=>t.full.toLowerCase()===n||t.team.toLowerCase()===n); return i>=0?i:null; };
+  selKey.Opp=findByName(qs.get('opp'));
+  selKey.Me=findByName(qs.get('me'));
+  if(selKey.Opp!=null) el('selOpp').value=labelOf(poolRow(selKey.Opp));
+  if(selKey.Me!=null) el('selMe').value=labelOf(poolRow(selKey.Me));
+  render();
+})();
+</script>
+</body>
+</html>
