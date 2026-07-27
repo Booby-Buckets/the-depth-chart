@@ -12,6 +12,7 @@ window.TDC_COACHLINKS = (function () {
     ['consistency.html',  'Consistency',     '📊'],
     ['lineups.html',      'Lineups',         '▦'],
     ['roles.html',        'Roles & Fit',     '🧩'],
+    ['player-splits.html','Player Splits',   '🔀'],
     ['roster-dev.html',   'Development',      '📈'],
   ];
   function ensureCss() {
