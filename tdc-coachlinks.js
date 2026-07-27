@@ -7,6 +7,7 @@ window.TDC_COACHLINKS = (function () {
   var TOOLS = [
     ['scout.html',        'Scouting Report', '🔍'],
     ['shot-profile.html', 'Shot Profile',    '◎'],
+    ['situational.html',  'Situational',     '📅'],
     ['game-review.html',  'Game Review',     '📋'],
     ['consistency.html',  'Consistency',     '📊'],
     ['lineups.html',      'Lineups',         '▦'],
