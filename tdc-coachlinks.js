@@ -25,6 +25,7 @@ window.TDC_COACHLINKS = (function () {
       ['rotation.html',       'Rotation & Bench'],
     ]],
     ['Personnel', [
+      ['predictive-profile.html', 'Predictive Profile'],
       ['roles.html',         'Roles & Fit'],
       ['game-context.html',  'Game Context'],
       ['matchup-advantage.html', 'Matchup Advantage'],
