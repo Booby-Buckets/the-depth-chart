@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lineup Recommender — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="auth.js?v=paywall3"></script>
+  <script src="team-colors.js?v=2"></script>
+  <script src="tdc-ratings.js?v=2"></script>
+  <link rel="stylesheet" href="tdc-anim.css?v=4"/>
+  <script src="tdc-anim.js?v=5"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--amber:#b5872a;--red:#cc2200;--blue:#3b6fd4;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--amber:#d8b05a;--red:#e07070;--blue:#6f9bff;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+    .page{max-width:960px;margin:0 auto;padding:30px 22px 90px;}
+    .eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+    .eyebrow .lock{font-size:10px;color:var(--text3);border:1px solid var(--border2);border-radius:20px;padding:2px 8px;letter-spacing:.06em;}
+    h1{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;letter-spacing:-.01em;margin-bottom:4px;}
+    .sub{font-size:13px;color:var(--text3);margin-bottom:22px;max-width:760px;line-height:1.6;}
+    .combo{position:relative;max-width:420px;}
+    .search{width:100%;padding:12px 14px;border:1px solid var(--accent);border-radius:10px;background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;font-weight:600;outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent);}
+    .combo-list{display:none;position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:30;max-height:340px;overflow-y:auto;background:var(--bg);border:1px solid var(--border2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.2);}
+    .combo-item{padding:9px 13px;cursor:pointer;font-size:13.5px;display:flex;justify-content:space-between;gap:10px;font-weight:600;}
+    .combo-item:hover{background:var(--bg3);}
+    .combo-item .cr{color:var(--text3);font-variant-numeric:tabular-nums;font-weight:500;}
+    .combo-empty{padding:12px;font-size:12px;color:var(--text3);}
+    .loading{padding:70px;text-align:center;color:var(--text3);}
+    .muted{font-size:12.5px;color:var(--text3);line-height:1.7;padding:24px 20px;text-align:center;}
+    .sec-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:28px 0 12px;display:flex;align-items:center;gap:10px;}
+    .sec-h::after{content:'';flex:1;height:1px;background:var(--border);}
+    /* lineup card */
+    .lu{border:1px solid var(--border);border-radius:16px;background:var(--bg2);padding:18px 20px;margin-bottom:14px;position:relative;overflow:hidden;}
+    .lu::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--lc,var(--accent));}
+    .lu-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px;}
+    .lu-name{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;letter-spacing:-.01em;}
+    .lu-desc{font-size:12px;color:var(--text3);margin-top:2px;max-width:440px;line-height:1.5;}
+    .lu-grade{text-align:center;flex-shrink:0;}
+    .lu-grade .g{font-family:'Playfair Display',serif;font-weight:800;font-size:34px;line-height:1;color:var(--lc,var(--accent));}
+    .lu-grade .l{font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
+    .five{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px;}
+    @media(max-width:640px){.five{grid-template-columns:repeat(2,1fr);}}
+    .pl{border:1px solid var(--border);border-radius:11px;background:var(--bg);padding:10px 8px;text-align:center;}
+    .pl .pos{font-size:9px;font-weight:800;letter-spacing:.05em;color:var(--accent);}
+    .pl .nm{font-size:12px;font-weight:700;margin-top:3px;line-height:1.2;min-height:29px;display:flex;align-items:center;justify-content:center;}
+    .pl .gr{font-size:10px;color:var(--text3);font-weight:700;margin-top:2px;}
+    .tags{display:flex;gap:7px;flex-wrap:wrap;}
+    .tag{font-size:10px;font-weight:700;letter-spacing:.02em;padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:5px;}
+    .tag.good{color:var(--green);background:color-mix(in srgb,var(--green) 13%,transparent);}
+    .tag.warn{color:var(--red);background:color-mix(in srgb,var(--red) 13%,transparent);}
+    .tag.neut{color:var(--text2);background:var(--bg3);}
+    .rot{display:flex;flex-wrap:wrap;gap:7px;}
+    .rchip{border:1px solid var(--border);border-radius:9px;background:var(--bg2);padding:7px 11px;font-size:11.5px;}
+    .rchip b{font-weight:700;}
+    .rchip .rr{color:var(--text3);font-weight:600;}
+    .rchip .role{color:var(--accent);font-weight:700;}
+    .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:28px;max-width:760px;}
+  </style>
+  <link rel="stylesheet" href="tdc-dense.css?v=18"/>
+  <style>
+    :root:not([data-theme="dark"]){background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
+  </style>
+</head>
+<body data-anim-auto>
+<script>
+(function(){
+  if(window.TDC_PAYWALL_ENABLED===false) return;
+  var REQUIRED_PLANS=['pro','coach'];
+  var s=null; try{ s=JSON.parse(localStorage.getItem('tdc_session')||'null'); }catch(e){}
+  if(!s||!s.access_token){ location.href='pricing.html?gate=coach'; return; }
+  fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user.id+'&select=plan',
+    {headers:{apikey:'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye',Authorization:'Bearer '+s.access_token}})
+    .then(function(r){return r.json();}).then(function(rows){var p=rows&&rows[0];
+      if(!p||REQUIRED_PLANS.indexOf(p.plan)<0) location.href='pricing.html?gate=coach';
+    }).catch(function(){ location.href='pricing.html?gate=coach'; });
+})();
+</script>
+<script src="tdc-nav.js?v=2"></script>
+<div class="page">
+  <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Self-Scout Hub</span></div>
+  <h1 data-anim>Lineup Recommender</h1>
+  <div class="sub" data-anim>Which five should start — and which combinations fit? Pick a team and the recommender searches your rotation for the best-fitting units: a balanced starting five plus situational looks, scored on talent, spacing, playmaking, and interior presence.</div>
+
+  <div class="combo" data-anim><input id="sel" class="search" placeholder="Search your team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
+
+  <div id="out"><div class="muted" style="padding:60px 20px;">Pick a team above to build its lineups.</div></div>
+
+  <div class="note" data-anim>Recommendations optimize a fit score over your rotation (players ranked by your depth chart, with a projected role). Fit rewards talent (projected grade), floor spacing (3+ shooters), a lead ball-handler, and one–two interior anchors — and penalizes a spacing-clogged or point-guard-less five. Situational looks re-weight the same rotation for pace or size. Shooting/assist signals use last season's rates; unproven newcomers are read from position and grade.</div>
+</div>
+
+<script>
+const SB_URL='https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
+const el=id=>document.getElementById(id);
+const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
+
+let D=null, COLORMAP={}, selKey=null;
+const poolRow=k=>k!=null?D.teams[k]:null;
+const labelOf=r=>r?r.full:'';
+function _lum(hex){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');if(hex.length<6)return .5;const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return (0.299*r+0.587*g+0.114*b)/255;}
+function teamColor(row){const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#A8843C';const c=COLORMAP[row.team]||COLORMAP[row.full];if(!c)return accent;const dark=document.documentElement.getAttribute('data-theme')==='dark',l=_lum(c);if(!dark&&l>0.72)return accent;if(dark&&l<0.16)return accent;return c;}
+
+function comboMatches(q){
+  const toks=(q||'').toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const ok=s=>{s=s.toLowerCase();return toks.every(t=>s.includes(t));};
+  let out=[]; D.teams.forEach((r,i)=>{ if(!toks.length||ok(r.full+' '+r.team)) out.push({key:i,r}); });
+  if(toks.length){ const pre=e=>e.r.full.toLowerCase().startsWith(toks[0])?0:1; out.sort((a,b)=>pre(a)-pre(b)||(a.r.rank||999)-(b.r.rank||999)); }
+  else out.sort((a,b)=>(a.r.rank||999)-(b.r.rank||999));
+  return out.slice(0,30);
+}
+function renderList(){
+  const list=el('list'), m=comboMatches(el('sel').value);
+  list.innerHTML=m.length? m.map(e=>`<div class="combo-item" data-key="${e.key}"><span>${labelOf(e.r)}${e.r.conf?` <span class="cr">${e.r.conf}</span>`:''}</span><span class="cr">#${e.r.rank||'—'}</span></div>`).join('')
+    : '<div class="combo-empty">No teams match</div>';
+  list.style.display='block';
+}
+function pick(key){ selKey=+key; el('sel').value=labelOf(poolRow(+key)); el('list').style.display='none'; loadTeam(); }
+(function wire(){
+  const inp=el('sel'), list=el('list');
+  inp.addEventListener('focus',()=>{ inp.select(); renderList(); });
+  inp.addEventListener('input',()=>renderList());
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const f=list.querySelector('.combo-item'); if(f) pick(f.dataset.key); inp.blur(); }
+    if(e.key==='Escape'){ list.style.display='none'; inp.value=labelOf(poolRow(selKey)); inp.blur(); } });
+  inp.addEventListener('blur',()=>setTimeout(()=>{ list.style.display='none'; inp.value=labelOf(poolRow(selKey)); },160));
+  list.addEventListener('mousedown',e=>{ const it=e.target.closest('.combo-item'); if(it){ e.preventDefault(); pick(it.dataset.key); } });
+})();
+
+// ── player role model ──
+function htIn(s){ const m=/(\d+)-(\d+)/.exec(s||''); return m?(+m[1]*12+ +m[2]):null; }
+function roleOf(p){
+  const pos=(p.position||'').toUpperCase(), ht=htIn(p.height), g=+p.tdc_grade||70;
+  const apg=p.apg!=null?+p.apg:null, tpa=p.tpa!=null?+p.tpa:null, tp=p.tp_pct!=null?+p.tp_pct:null;
+  const isPG = pos==='PG' || (apg!=null&&apg>=4);
+  const isBig = pos==='C' || pos==='PF' || (ht!=null&&ht>=81);
+  const creator = isPG || (apg!=null&&apg>=3.2);
+  const shooter = (tpa!=null&&tpa>=1.5&&tp!=null&&tp>=33.5) || (tpa==null&&(pos==='SG'||pos==='SF')&&g>=80); // newcomer wing w/ grade = tentative shooter
+  const handler = isPG || pos==='SG' || (apg!=null&&apg>=2.2);
+  return {pos, ht:ht||78, g, isPG, isBig, creator, shooter, handler,
+    posGroup: isBig?'B':(pos==='SF'?'W':'G')};
+}
+
+// ── lineup fit scoring ──
+function scoreLineup(five, w){
+  w=w||{};
+  const avgG=five.reduce((s,p)=>s+p._r.g,0)/5;
+  const shooters=five.filter(p=>p._r.shooter).length;
+  const bigs=five.filter(p=>p._r.isBig).length;
+  const pgs=five.filter(p=>p._r.isPG).length;
+  const creators=five.filter(p=>p._r.creator).length;
+  const handlers=five.filter(p=>p._r.handler).length;
+  const posGroups=new Set(five.map(p=>p._r.pos)).size;
+  const avgHt=five.reduce((s,p)=>s+p._r.ht,0)/5;
+
+  let space = shooters>=4?7:shooters===3?5:shooters===2?1:-6;
+  let create = pgs>=1?4:creators>=1?0:-8;
+  let interior = bigs===1?4:bigs===2?5:bigs===0?-5:-6;    // 0 bigs = no rim, 3+ = clogged
+  let handle = handlers>=2?2:-3;
+  let bal = posGroups>=4?3:posGroups===3?1:-2;
+  // situational reweights
+  const pace=(w.pace||0), size=(w.size||0);
+  space += pace*(shooters-2)*1.5 - size*Math.max(0,shooters-3);
+  interior += size*(bigs-1)*3 - pace*Math.max(0,bigs-1)*2;
+  const sizeBonus = size*((avgHt-78)) + pace*((79-avgHt));
+  const fit = avgG + space + create + interior + handle + bal + sizeBonus;
+  return {fit, avgG, shooters, bigs, pgs, creators, handlers, avgHt, posGroups};
+}
+function tagsFor(m){
+  const t=[];
+  if(m.shooters>=4) t.push(['good','◎ Elite spacing']); else if(m.shooters>=3) t.push(['good','◎ Good spacing']);
+  else if(m.shooters<=1) t.push(['warn','△ Spacing concern']);
+  if(m.pgs>=1) t.push(['good','⊹ True point']); else if(m.creators<1) t.push(['warn','△ No lead guard']);
+  if(m.bigs===2) t.push(['good','▚ Two bigs']); else if(m.bigs===0) t.push(['warn','△ No rim protector']);
+  else if(m.bigs>=3) t.push(['warn','△ Frontcourt clog']);
+  if(m.avgHt>=80.8) t.push(['neut','↑ Big lineup']);
+  if(m.handlers>=3&&m.bigs<=1) t.push(['neut','⟲ Guard-heavy']);
+  return t.slice(0,4);
+}
+function grade100(fit){ return Math.max(42,Math.min(99,Math.round(fit-6))); }
+function sameFive(a,b){ if(!a||!b) return false; const s=new Set(a.five.map(p=>p.name)); return b.five.every(p=>s.has(p.name)); }
+
+function combos(arr,k){ const res=[]; (function go(st,cur){ if(cur.length===k){res.push(cur.slice());return;} for(let i=st;i<arr.length;i++){cur.push(arr[i]);go(i+1,cur);cur.pop();} })(0,[]); return res; }
+function best(pool,w,opt){ opt=opt||{};
+  let bp=null,bs=-1e9;
+  for(const c of combos(pool,5)){
+    const bigs=c.filter(p=>p._r.isBig).length;
+    if(opt.maxBig!=null&&bigs>opt.maxBig) continue;
+    if(opt.minBig!=null&&bigs<opt.minBig) continue;
+    const m=scoreLineup(c,w); if(m.fit>bs){bs=m.fit;bp={five:c,m};}
+  }
+  return bp;
+}
+
+function fiveHtml(five, tc){
+  // order G,G,W,B,B-ish by posGroup then grade
+  const ord={G:0,W:1,B:2}; const s=[...five].sort((a,b)=>ord[a._r.posGroup]-ord[b._r.posGroup]||b._r.g-a._r.g);
+  return `<div class="five">${s.map(p=>`<div class="pl"><div class="pos">${esc(p.position||p._r.pos)}</div><div class="nm">${esc(p.name)}</div><div class="gr">${p._r.g} OVR</div></div>`).join('')}</div>`;
+}
+function luCard(title,desc,bp,tc){
+  if(!bp) return '';
+  const m=scoreLineup(bp.five,{});   // neutral scoring so every card is comparable (recommended five stays highest)
+  const g=grade100(m.fit), col=g>=82?'var(--green)':g>=72?'var(--accent)':g>=62?'var(--amber)':'var(--red)';
+  return `<div class="lu" style="--lc:${col}">
+    <div class="lu-top"><div><div class="lu-name">${esc(title)}</div><div class="lu-desc">${esc(desc)}</div></div>
+      <div class="lu-grade"><div class="g">${g}</div><div class="l">Fit</div></div></div>
+    ${fiveHtml(bp.five,tc)}
+    <div class="tags">${tagsFor(m).map(t=>`<span class="tag ${t[0]}">${t[1]}</span>`).join('')}</div>
+  </div>`;
+}
+
+async function loadTeam(){
+  const row=poolRow(selKey); if(!row) return;
+  const tc=teamColor(row);
+  el('out').innerHTML='<div class="loading">Searching lineup combinations…</div>';
+  let roster=[];
+  try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,position,height,tdc_grade,mpg,depth_order,apg,tpa,tp_pct,rpg&order=depth_order.asc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  roster=roster.filter(p=>p.name&&(+p.tdc_grade||0)>0);
+  roster.forEach(p=>p._r=roleOf(p));
+  // rotation pool: by depth chart (fallback grade), top 9
+  roster.sort((a,b)=>((a.depth_order??99)-(b.depth_order??99))||(b._r.g-a._r.g));
+  const pool=roster.slice(0,Math.min(9,roster.length));
+  if(pool.length<5){ el('out').innerHTML='<div class="muted" style="padding:50px 20px;">This roster doesn’t have five graded rotation players on file yet.</div>'; return; }
+
+  const start=best(pool,{});
+  let small=best(pool,{pace:1},{maxBig:1})||best(pool,{pace:1});
+  let jumbo=best(pool,{size:1},{minBig:3})||best(pool,{size:1},{minBig:2});
+  // situational looks only shown when they differ from the recommended five
+  if(sameFive(start,small)) small=null;
+  if(sameFive(start,jumbo)||sameFive(small,jumbo)) jumbo=null;
+
+  // per-player role chips (rotation)
+  const rc=p=>{ const r=p._r; const role=r.isPG?'Lead guard':r.isBig?(r.pos==='C'?'Center':'Forward'):r.shooter?'Shooter':r.handler?'Combo guard':'Wing';
+    return `<div class="rchip"><b>${esc(p.name)}</b> <span class="rr">${esc(p.position||r.pos)} · ${r.g}</span> · <span class="role">${role}</span></div>`; };
+
+  el('out').innerHTML=`<div style="--tc:${tc}">
+    <div class="sec-h">Recommended starting five</div>
+    ${luCard('Best balanced five','The highest-fit combination in your rotation — talent balanced with spacing, a lead guard and an interior anchor.',start,tc)}
+    ${(small||jumbo)?`<div class="sec-h">Situational looks</div>
+    ${luCard('Small-ball / pace','Maximizes floor spacing and ball-handling — go small to speed the game up or chase points.',small,tc)}
+    ${luCard('Jumbo / size','The biggest, most physical five — protect the rim, rebound and grind out a half-court game.',jumbo,tc)}`:''}
+    <div class="sec-h">Rotation &amp; roles</div>
+    <div class="rot">${pool.map(rc).join('')}</div>
+  </div>`;
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
+}
+
+(async function(){
+  try{ const arr=await fetch('scripts/data/team_colors.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
+    (arr||[]).forEach(e=>{ if(e&&e.c1){ if(e.location) COLORMAP[e.location]=e.c1; if(e.display) COLORMAP[e.display]=e.c1; } });
+  }catch(e){}
+  D=await TDC_RATINGS.get();
+  D.teams=(D.teams||[]).filter(t=>t.projected!==false&&t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999));
+  const qs=new URLSearchParams(location.search);
+  const want=(qs.get('team')||'').toLowerCase();
+  if(want){ const i=D.teams.findIndex(t=>t.full.toLowerCase()===want||t.team.toLowerCase()===want); if(i>=0){ selKey=i; el('sel').value=labelOf(poolRow(i)); loadTeam(); } }
+})();
+</script>
+</body>
+</html>
