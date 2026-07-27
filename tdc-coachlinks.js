@@ -8,20 +8,24 @@ window.TDC_COACHLINKS = (function () {
   // [hub label, [[href, name], …]] — grouped so the bar reads cleanly as it grows
   var GROUPS = [
     ['Scouting', [
-      ['scout.html',        'Scouting Report'],
-      ['shot-profile.html', 'Shot Profile'],
-      ['situational.html',  'Situational'],
-      ['game-review.html',  'Game Review'],
+      ['scout.html',           'Scouting Report'],
+      ['shot-profile.html',    'Shot Profile'],
+      ['situational.html',     'Situational'],
+      ['style-matchups.html',  'Style Matchups'],
+      ['scoring-sources.html', 'Scoring Sources'],
+      ['game-review.html',     'Game Review'],
     ]],
     ['Self-Scout', [
-      ['consistency.html',  'Consistency'],
-      ['lineups.html',      'Lineups'],
-      ['pairings.html',     'Pairings'],
+      ['consistency.html',    'Consistency'],
+      ['lineups.html',        'Lineups'],
+      ['pairings.html',       'Pairings'],
+      ['assist-network.html', 'Assist Network'],
     ]],
     ['Personnel', [
       ['roles.html',         'Roles & Fit'],
       ['player-splits.html', 'Player Splits'],
       ['creation.html',      'Shot Creation'],
+      ['shot-zones.html',    'Shot Zones'],
       ['roster-dev.html',    'Development'],
     ]],
   ];

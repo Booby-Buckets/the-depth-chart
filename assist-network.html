@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Scoring Sources — The Depth Chart</title>
+  <title>Assist Network — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="auth.js?v=paywall3"></script>
   <script src="team-colors.js?v=2"></script>
@@ -32,23 +32,19 @@
     .muted{font-size:12.5px;color:var(--text3);line-height:1.7;padding:24px 20px;text-align:center;}
     .read{font-size:13.5px;color:var(--text2);line-height:1.75;background:var(--bg2);border-left:3px solid var(--tc,#888);padding:15px 17px;border-radius:0 8px 8px 0;margin-bottom:6px;}
     .read b{color:var(--text);}
-    .sec-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:26px 0 14px;display:flex;align-items:center;gap:10px;}
+    .ret{color:var(--accent);} .retdot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--accent);vertical-align:middle;margin-left:3px;}
+    .sec-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:26px 0 12px;display:flex;align-items:center;gap:10px;}
+    .sec-h .hint{font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;}
     .sec-h::after{content:'';flex:1;height:1px;background:var(--border);}
-    .m{margin-bottom:16px;}
-    .m-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:6px;}
-    .m-nm{font-weight:800;font-size:14px;}
-    .m-nm .d{font-size:11px;font-weight:600;color:var(--text3);margin-left:6px;}
-    .m-v{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;font-variant-numeric:tabular-nums;}
-    .m-v .tag{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;margin-left:8px;padding:2px 8px;border-radius:20px;vertical-align:middle;}
-    /* diverging bar: league avg at center */
-    .track{position:relative;height:12px;border-radius:7px;background:var(--bg3);}
-    .track .mid{position:absolute;left:50%;top:-3px;bottom:-3px;width:1.5px;background:var(--border2);}
-    .track .fillp{position:absolute;left:50%;top:0;bottom:0;border-radius:0 7px 7px 0;background:var(--tc,var(--accent));}
-    .track .filln{position:absolute;right:50%;top:0;bottom:0;border-radius:7px 0 0 7px;background:var(--border2);}
-    .scale{display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:3px;font-weight:600;}
-    .hi{color:var(--green);background:color-mix(in srgb,var(--green) 15%,transparent);}
-    .lo{color:var(--text3);background:var(--bg3);}
-    .av{color:var(--text2);background:var(--bg3);}
+    .hub{border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:14px 16px;margin-bottom:9px;}
+    .hub-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:9px;}
+    .hub-nm{font-weight:800;font-size:15px;}
+    .hub-v{font-size:11.5px;color:var(--text3);font-weight:700;font-variant-numeric:tabular-nums;}
+    .hub-v b{color:var(--text2);font-size:13px;}
+    .flow{display:flex;flex-wrap:wrap;gap:7px;}
+    .fl{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:20px;background:var(--bg);padding:5px 11px;font-size:12px;font-weight:700;}
+    .fl .ar{color:var(--tc,var(--accent));font-weight:800;}
+    .fl .p{font-size:10.5px;color:var(--text3);font-weight:700;font-variant-numeric:tabular-nums;}
     .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:26px;max-width:760px;}
   </style>
   <link rel="stylesheet" href="tdc-dense.css?v=18"/>
@@ -75,15 +71,15 @@
 <script src="tdc-nav.js?v=2"></script>
 <script src="tdc-coachlinks.js?v=3"></script>
 <div class="page">
-  <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Scouting Hub</span></div>
-  <h1 data-anim>Scoring Sources</h1>
-  <div class="sub" data-anim>Two teams can score the same 78 points in completely different ways. Pick a team to see where its offense actually comes from — transition, points off turnovers, the offensive glass, and playing through contact — measured against the D-I average.</div>
+  <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Self-Scout Hub</span></div>
+  <h1 data-anim>Assist Network</h1>
+  <div class="sub" data-anim>Who runs the offense, and who eats off it? Pick a team to see its passing network — the hubs that create for others, the scorers who get set up, and the connections that drive the points. Cut off the right pass and you cut off the offense.</div>
 
   <div class="combo" data-anim><input id="sel" class="search" placeholder="Search a team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
 
-  <div id="out"><div class="muted" style="padding:60px 20px;">Pick a team above to break down its offense.</div></div>
+  <div id="out"><div class="muted" style="padding:60px 20px;">Pick a team above to open its passing network.</div></div>
 
-  <div class="note" data-anim>From play-by-play tracking (most recent season on file). Transition rate is the share of possessions that came in transition; points off turnovers and second-chance points are per game; and-1s per game measure finishing through contact; biggest run is the largest unanswered scoring streak. Each bar is centered on the D-I average — right of center means the team leans on that source more than most.</div>
+  <div class="note" data-anim>Built from play-by-play assist tracking (most recent season on file per team). Each connection is a passer feeding a scorer, with the points those assisted buckets were worth. Distribution = a player's assists given; finishers = assisted points received. Players still on the 2026-27 roster are marked <span class="ret">in gold<span class="retdot"></span></span>.</div>
 </div>
 
 <script>
@@ -93,7 +89,7 @@ const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
 const el=id=>document.getElementById(id);
 const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
 
-let D=null, COLORMAP={}, selKey=null, PBP=null, LG={};
+let D=null, COLORMAP={}, selKey=null, PBP=null, RET=new Set();
 const poolRow=k=>k!=null?D.teams[k]:null;
 const labelOf=r=>r?r.full:'';
 function _lum(hex){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');if(hex.length<6)return .5;const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return (0.299*r+0.587*g+0.114*b)/255;}
@@ -124,52 +120,51 @@ function pick(key){ selKey=+key; el('sel').value=labelOf(poolRow(+key)); el('lis
   list.addEventListener('mousedown',e=>{ const it=e.target.closest('.combo-item'); if(it){ e.preventDefault(); pick(it.dataset.key); } });
 })();
 
-const METRICS=[
-  ['transition_rate','Transition offense','share of possessions','%',1,'getting out in transition'],
-  ['off_to_pg','Points off turnovers','per game','',1,'scoring off their defense'],
-  ['second_chance_pg','Second-chance points','per game','',1,'winning on the offensive glass'],
-  ['and1_pg','And-1s','per game','',1,'playing through contact'],
-  ['best_run','Biggest run','points','',1,'going on knockout runs'],
-];
-function statOf(season, k){ const vals=Object.values(PBP[season]||{}).filter(t=>t.gp>=10&&t[k]!=null).map(t=>+t[k]);
-  if(!vals.length) return {m:0,s:1}; const m=vals.reduce((a,b)=>a+b,0)/vals.length; const s=Math.sqrt(vals.reduce((a,b)=>a+(b-m)*(b-m),0)/vals.length)||1; return {m,s}; }
+const last=n=>{ const p=(n||'').trim().split(/\s+/); return p.length>1?p[p.length-1]:n; };
+function pname(n){ const r=RET.has(n); return `<span class="${r?'ret':''}">${esc(last(n))}${r?'<span class="retdot"></span>':''}</span>`; }
 
 async function loadTeam(){
   const row=poolRow(selKey); if(!row) return;
   const tc=teamColor(row), me=row.full;
-  el('out').innerHTML='<div class="loading">Reading the play-by-play…</div>';
+  el('out').innerHTML='<div class="loading">Mapping the passing network…</div>';
   if(!PBP){ try{ PBP=await fetch('scripts/data/team_pbp.json',{cache:'no-cache'}).then(r=>r.ok?r.json():{}); }catch(e){ PBP={}; } }
-  let useYr=null, t=null;
-  for(const yr of Object.keys(PBP).sort().reverse()){ const x=(PBP[yr]||{})[me]; if(x&&x.gp>=8){ useYr=yr; t=x; break; } }
-  if(!t){ el('out').innerHTML=`<div class="muted" style="padding:50px 20px;">No play-by-play data on file for ${esc(me)} yet — the sweep hasn't reached this team.</div>`; return; }
+  RET=new Set();
+  try{ const rst=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name`,{headers:H}).then(r=>r.ok?r.json():[]); rst.forEach(p=>RET.add(p.name)); }catch(e){}
+  let useYr=null, pbp=null;
+  for(const yr of Object.keys(PBP).sort().reverse()){ const x=(PBP[yr]||{})[me]; if(x&&x.feeds&&x.feeds.length){ useYr=yr; pbp=x; break; } }
+  if(!pbp){ el('out').innerHTML=`<div class="muted" style="padding:50px 20px;">No passing data on file for ${esc(me)} yet — the play-by-play sweep hasn't reached this team.</div>`; return; }
   const seasLbl=(useYr-1)+'-'+String(useYr%100).padStart(2,'0');
-  if(!LG[useYr]){ LG[useYr]={}; METRICS.forEach(m=>LG[useYr][m[0]]=statOf(useYr,m[0])); }
-  const lg=LG[useYr];
+  const feeds=pbp.feeds;
 
-  const rows=METRICS.map(m=>{ const v=+t[m[0]], st=lg[m[0]], z=(v-st.m)/st.s;
-    return {k:m[0],name:m[1],desc:m[2],suf:m[3],phrase:m[5],v,z,mean:st.m}; });
-  // read: top sources above average
-  const leans=rows.filter(r=>r.z>=0.6).sort((a,b)=>b.z-a.z);
-  const lacks=rows.filter(r=>r.z<=-0.7).sort((a,b)=>a.z-b.z);
-  const nm=a=>a.length===1?a[0]:a.length===2?a[0]+' and '+a[1]:a.slice(0,-1).join(', ')+' and '+a[a.length-1];
+  const byF={}, byT={};
+  feeds.forEach(f=>{ (byF[f.from]=byF[f.from]||{n:0,pts:0,t:[]}); byF[f.from].n+=f.n; byF[f.from].pts+=f.pts; byF[f.from].t.push(f);
+    (byT[f.to]=byT[f.to]||{n:0,pts:0,s:[]}); byT[f.to].n+=f.n; byT[f.to].pts+=f.pts; byT[f.to].s.push(f); });
+  const dist=Object.entries(byF).map(([nm,v])=>({nm,...v})).sort((a,b)=>b.pts-a.pts);
+  const fin=Object.entries(byT).map(([nm,v])=>({nm,...v})).sort((a,b)=>b.pts-a.pts);
+
+  const hubCard=d=>{ const tg=d.t.slice().sort((a,b)=>b.pts-a.pts).slice(0,4);
+    return `<div class="hub" style="--tc:${tc}"><div class="hub-top"><div class="hub-nm">${pname(d.nm)}</div><div class="hub-v"><b>${d.n}</b> assists · <b>${d.pts}</b> pts created</div></div>
+      <div class="flow">${tg.map(f=>`<span class="fl"><span class="ar">→</span>${pname(f.to)}<span class="p">${f.pts}</span></span>`).join('')}</div></div>`; };
+  const finCard=d=>{ const sr=d.s.slice().sort((a,b)=>b.pts-a.pts).slice(0,4);
+    return `<div class="hub" style="--tc:${tc}"><div class="hub-top"><div class="hub-nm">${pname(d.nm)}</div><div class="hub-v"><b>${d.pts}</b> pts off assists</div></div>
+      <div class="flow">${sr.map(f=>`<span class="fl">${pname(f.from)}<span class="ar">→</span><span class="p">${f.pts}</span></span>`).join('')}</div></div>`; };
+
+  // read
+  const h=dist[0], top=h&&h.t.slice().sort((a,b)=>b.pts-a.pts)[0];
+  const nm=a=>a.length===1?a[0]:a.slice(0,-1).join(', ')+' and '+a[a.length-1];
   let read='';
-  if(leans.length){ read=`<b>${esc(me)}</b> generate offense by leaning on ${esc(nm(leans.slice(0,2).map(r=>r.phrase)))}${leans.length>2?', among others':''}.`;
-    if(lacks.length) read+=` They do it <b>without</b> ${esc(lacks[0].phrase)} — ${lacks[0].name.toLowerCase()} runs well below the D-I average.`; }
-  else if(lacks.length) read=`<b>${esc(me)}</b> don't lean on any one source — a balanced, half-court offense that ${esc(lacks[0].phrase)} less than most.`;
-  else read=`<b>${esc(me)}</b> generate offense evenly across the board — no single dominant source.`;
-
-  const mrow=r=>{ const half=50, frac=Math.max(-1,Math.min(1,r.z/2.2)); // ±2.2 sd -> full bar
-    const tag = r.z>=0.8?['Heavy','hi']:r.z>=0.4?['Above avg','av']:r.z<=-0.8?['Rarely','lo']:r.z<=-0.4?['Below avg','lo']:['Average','av'];
-    const val = r.v.toFixed(r.k==='best_run'?0:1)+(r.suf);
-    return `<div class="m" style="--tc:${tc}"><div class="m-top"><div class="m-nm">${esc(r.name)}<span class="d">${esc(r.desc)}</span></div>
-      <div class="m-v">${val}<span class="tag ${tag[1]}">${tag[0]}</span></div></div>
-      <div class="track"><div class="mid"></div>${frac>=0?`<div class="fillp" style="width:${frac*50}%"></div>`:`<div class="filln" style="width:${-frac*50}%"></div>`}</div>
-      <div class="scale"><span>less</span><span>D-I avg (${r.mean.toFixed(r.k==='best_run'?0:1)})</span><span>more</span></div></div>`; };
+  if(h){ const share = fin.length? Math.round(100*h.pts/feeds.reduce((s,f)=>s+f.pts,0)) : 0;
+    const tgs = h.t.slice().sort((a,b)=>b.pts-a.pts).slice(0,2).map(f=>last(f.to));
+    read=`<b>${esc(last(h.nm))}</b> runs the offense — ${h.n} assists worth ${h.pts} points, ${share>=45?'the clear hub':'the primary creator'}, mostly feeding ${esc(nm(tgs))}.`;
+    if(dist[1]&&dist[1].pts>=h.pts*0.6) read+=` <b>${esc(last(dist[1].nm))}</b> is a secondary creator.`;
+  }
 
   el('out').innerHTML=`<div style="--tc:${tc}">
-    <div class="read">${read}</div>
-    <div class="sec-h">Where the offense comes from <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px">${seasLbl}</span></div>
-    ${rows.map(mrow).join('')}
+    ${read?`<div class="read">${read}</div>`:''}
+    <div class="sec-h">Distribution hubs <span class="hint">who creates · ${seasLbl}</span></div>
+    ${dist.slice(0,4).map(hubCard).join('')}
+    <div class="sec-h">Who gets set up <span class="hint">scorers fed by others</span></div>
+    ${fin.slice(0,4).map(finCard).join('')}
   </div>`;
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
