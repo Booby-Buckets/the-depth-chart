@@ -56,6 +56,10 @@
     /* flow chart */
     .flow{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:16px 18px;}
     .flow svg{width:100%;height:150px;display:block;}
+    .flow svg{cursor:crosshair;}
+    .fvtip{position:absolute;top:6px;pointer-events:none;opacity:0;transition:opacity .1s;background:var(--text);color:var(--bg);border-radius:8px;padding:6px 10px;font-size:11.5px;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.22);z-index:5;}
+    .fvtip b{font-family:'Playfair Display',serif;font-weight:800;display:block;font-size:13px;}
+    .fvtip span{font-size:10px;opacity:.8;}
     .flow .fl-meta{display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;padding-top:11px;border-top:1px solid var(--border);}
     .flow .fm{font-size:11.5px;color:var(--text3);}
     .flow .fm b{font-family:'Playfair Display',serif;font-size:15px;color:var(--text);font-weight:800;display:block;}
@@ -197,7 +201,7 @@
   <div id="games"></div>
   <div id="out"></div>
 
-  <div class="note" data-anim>Reconstructed from the 2025-26 shot-by-shot timeline (game clock + running score) plus the box score. The momentum chart plots the margin from the selected team's side over the course of the game; runs are the biggest sustained margin swings; game score is Hollinger's single-number box impact. Free throws move the running score but aren't plotted as shots, so the line tracks the scoreboard, not shot attempts.</div>
+  <div class="note" data-anim>Reconstructed from the 2025-26 shot-by-shot timeline (game clock + running score) plus the box score. The momentum chart plots the margin from the selected team's side over the course of the game; runs are the biggest sustained margin swings; game rating is a 0–10 grade scaled from Hollinger's single-number box impact. Hover the momentum line to read the score at any moment. Free throws move the running score but aren't plotted as shots, so the line tracks the scoreboard, not shot attempts.</div>
 </div>
 
 <script>
@@ -258,6 +262,8 @@ async function loadGames(){
 
 const efg=sh=>{ if(!sh.length) return null; let mw=0; sh.forEach(s=>{ if(s.made) mw+=(s.sv===3?1.5:1); }); return mw/sh.length*100; };
 function gameScore(b){ return R(b.pts)+0.4*R(b.fgm)-0.7*R(b.fga)-0.4*(R(b.fta)-R(b.ftm))+0.7*R(b.oreb)+0.3*R(b.dreb)+R(b.stl)+0.7*R(b.ast)+0.7*R(b.blk)-0.4*R(b.pf)-R(b.tov); }
+// 0.0–10.0 game rating (readable): scales Hollinger game score to a 10-point grade.
+function gameRating(b){ return Math.max(0, Math.min(10, Math.round((gameScore(b)*0.33 + 3.0)*10)/10)); }
 const clk=pt=>{ const p=pt.p, rem=pt.sl, mm=Math.floor(rem/60), ss=Math.round(rem%60); return (p===1?'1st':p===2?'2nd':'OT'+(p>3?(p-2):''))+' '+mm+':'+String(ss).padStart(2,'0'); };
 
 async function loadGame(g, tc){
@@ -274,7 +280,7 @@ async function loadGame(g, tc){
   const oppColor=(function(){ const c=COLORMAP[oppNm]; return c||'var(--text3)'; })();
   const marginMe=s=> home ? (R(s.home_score)-R(s.away_score)) : (R(s.away_score)-R(s.home_score));
   const meShort=(poolRow(selKey)||{}).team||me;
-  const tl=shots.filter(s=>s.sec_left!=null&&s.home_score!=null).map(s=>({t:(s.period-1)*1200+(1200-R(s.sec_left)), m:marginMe(s), p:s.period, sl:R(s.sec_left)})).sort((a,b)=>a.t-b.t);
+  const tl=shots.filter(s=>s.sec_left!=null&&s.home_score!=null).map(s=>({t:(s.period-1)*1200+(1200-R(s.sec_left)), m:marginMe(s), p:s.period, sl:R(s.sec_left), ms:home?R(s.home_score):R(s.away_score), os:home?R(s.away_score):R(s.home_score)})).sort((a,b)=>a.t-b.t);
 
   // scoreline
   const scoreline=`<div class="scoreline">
@@ -283,7 +289,7 @@ async function loadGame(g, tc){
     <div class="tm"><div class="sc" style="margin-right:8px">${oppFin}</div>${logoFor(oppNm)?`<img src="${logoFor(oppNm)}" onerror="this.style.display='none'"/>`:''}<div><div class="tn">${esc(oppNm)}</div><div class="tnsub">opponent</div></div></div>
   </div>`;
 
-  let flowHtml='';
+  let flowHtml='', flowData=null;
   if(tl.length>=10){
     const W=760,Hh=150,mid=Hh/2, maxAbs=Math.max(8,...tl.map(p=>Math.abs(p.m)));
     const x=i=>i/(tl.length-1)*W, y=m=>mid-(m/maxAbs)*(mid-8);
@@ -295,13 +301,17 @@ async function loadGame(g, tc){
     // stats
     const leadChanges=(function(){ let c=0,prev=0; tl.forEach(p=>{ const s=Math.sign(p.m); if(s&&prev&&s!==prev)c++; if(s)prev=s; }); return c; })();
     const maxLead=Math.max(0,...tl.map(p=>p.m)), maxDef=Math.min(0,...tl.map(p=>p.m));
-    flowHtml=`<div class="sec-h">Momentum <span class="hint">margin from ${esc(meShort)}'s side · left→right = tip to final</span></div>
-      <div class="flow"><svg viewBox="0 0 ${W} ${Hh}" preserveAspectRatio="none">
+    flowData={W,Hh,mid,maxAbs,tl,me:meShort,opp:oppNm};
+    flowHtml=`<div class="sec-h">Momentum <span class="hint">margin from ${esc(meShort)}'s side · hover for the score</span></div>
+      <div class="flow" style="position:relative"><svg id="flowSvg" viewBox="0 0 ${W} ${Hh}" preserveAspectRatio="none">
         <line x1="0" y1="${mid}" x2="${W}" y2="${mid}" stroke="var(--border2)" stroke-width="1" stroke-dasharray="3 3"/>
         ${htX?`<line x1="${htX.toFixed(1)}" y1="6" x2="${htX.toFixed(1)}" y2="${Hh-6}" stroke="var(--border2)" stroke-width="1"/>`:''}
         <polygon points="${areaUp}" fill="rgba(${rgb},.14)"/>
         <polyline points="${pts}" fill="none" stroke="var(--tc,${tc})" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+        <line id="fvLine" x1="0" y1="6" x2="0" y2="${Hh-6}" stroke="var(--tc,${tc})" stroke-width="1" opacity="0" vector-effect="non-scaling-stroke"/>
+        <circle id="fvDot" r="6" fill="var(--tc,${tc})" stroke="var(--bg2)" stroke-width="2" opacity="0"/>
       </svg>
+      <div class="fvtip" id="fvTip"></div>
       <div class="fl-meta"><div class="fm"><b>${maxLead>0?'+'+maxLead:0}</b>biggest lead</div><div class="fm"><b>${maxDef<0?maxDef:0}</b>biggest deficit</div><div class="fm"><b>${leadChanges}</b>lead changes</div></div></div>`;
   }
 
@@ -324,8 +334,8 @@ async function loadGame(g, tc){
   const myBox=box.filter(b=>b.team===me), oppBox=box.filter(b=>b.team===oppNm);
   function perfCol(list,name,logo){ const top=[...list].sort((a,b)=>R(b.pts)-R(a.pts)).slice(0,4);
     return `<div class="pcol"><div class="ph">${logo?`<img src="${logo}" onerror="this.style.display='none'"/>`:''}${esc(name)}</div>`
-      + (top.length?top.map(b=>`<div class="prow"><div><div class="pn">${esc(b.player)}</div><div class="pline">${R(b.fgm)}-${R(b.fga)} FG${R(b.tpm)?` · ${R(b.tpm)} 3PM`:''} · ${R(b.reb)||R(b.oreb)+R(b.dreb)} reb · ${R(b.ast)} ast</div></div><div class="ppts">${R(b.pts)}</div><div class="pgs">${gameScore(b).toFixed(0)} GS</div></div>`).join(''):'<div class="muted" style="padding:14px">No box data.</div>')+'</div>'; }
-  const perf=`<div class="sec-h">Who did the damage <span class="hint">points · game score (impact)</span></div>
+      + (top.length?top.map(b=>`<div class="prow"><div><div class="pn">${esc(b.player)}</div><div class="pline">${R(b.fgm)}-${R(b.fga)} FG${R(b.tpm)?` · ${R(b.tpm)} 3PM`:''} · ${R(b.reb)||R(b.oreb)+R(b.dreb)} reb · ${R(b.ast)} ast</div></div><div class="ppts">${R(b.pts)}</div><div class="pgs">${gameRating(b).toFixed(1)}<br><span style="font-size:8px">RATING</span></div></div>`).join(''):'<div class="muted" style="padding:14px">No box data.</div>')+'</div>'; }
+  const perf=`<div class="sec-h">Who did the damage <span class="hint">points · game rating (0–10)</span></div>
     <div class="perf">${perfCol(myBox,me,logoFor(me))}${perfCol(oppBox,oppNm,logoFor(oppNm))}</div>`;
 
   // half splits (offense eFG + FG points)
@@ -393,7 +403,7 @@ async function loadGame(g, tc){
   const pogX=allB.map(x=>({...x,gs:gameScore(x.b)})).sort((a,b)=>b.gs-a.gs)[0];
   let pogHtml='';
   if(pogX){ const b=pogX.b;
-    pogHtml=`<div class="pog"><div class="pgm">${gameScore(b).toFixed(0)}<small>game score</small></div>
+    pogHtml=`<div class="pog"><div class="pgm">${gameRating(b).toFixed(1)}<small>game rating · /10</small></div>
       <div><div class="pgn">${esc(b.player)}</div><div class="pgl"><b style="color:var(--text)">${R(b.pts)} pts</b> · ${R(b.reb)||R(b.oreb)+R(b.dreb)} reb · ${R(b.ast)} ast · ${R(b.fgm)}-${R(b.fga)} FG${R(b.tpm)?` · ${R(b.tpm)} 3PM`:''} — ${esc(pogX.tm)}</div></div></div>`;
   }
 
@@ -463,6 +473,19 @@ async function loadGame(g, tc){
     let sh=_gb[side]; if(eid&&eid!=='all') sh=sh.filter(s=>(''+s.espn_id)===(''+eid));
     TDC_SHOTCHART.render(host, sh, {mode:'shots'}); }
   drawSC('me','all'); drawSC('opp','all');
+  // momentum hover: show the score at the pointer
+  (function(){ if(!flowData) return; const svg=document.getElementById('flowSvg'), line=document.getElementById('fvLine'), dot=document.getElementById('fvDot'), tip=document.getElementById('fvTip'); if(!svg||!tip) return;
+    const {W,Hh,mid,maxAbs,tl,me:mN,opp:oN}=flowData; const X=i=>i/(tl.length-1)*W, Y=m=>mid-(m/maxAbs)*(mid-8);
+    function move(ev){ const r=svg.getBoundingClientRect(); if(!r.width) return; const cx=(ev.touches?ev.touches[0].clientX:ev.clientX)-r.left; const vx=Math.max(0,Math.min(W,cx/r.width*W)); let i=Math.round(vx/W*(tl.length-1)); i=Math.max(0,Math.min(tl.length-1,i)); const p=tl[i];
+      line.setAttribute('x1',X(i)); line.setAttribute('x2',X(i)); line.setAttribute('opacity','.55');
+      dot.setAttribute('cx',X(i)); dot.setAttribute('cy',Y(p.m)); dot.setAttribute('opacity','1');
+      const per=p.p===1?'1st':p.p===2?'2nd':'OT'+(p.p>3?(p.p-2):''), mm=Math.floor(p.sl/60), ss=Math.round(p.sl%60);
+      const lead=p.m>0?`${esc(mN)} +${p.m}`:p.m<0?`${esc(oN.split(' ')[0])} +${-p.m}`:'Tied';
+      tip.innerHTML=`<b>${esc(mN)} ${p.ms} · ${p.os} ${esc(oN.split(' ')[0])}</b><span>${per} ${mm}:${String(ss).padStart(2,'0')} · ${lead}</span>`;
+      const tx=Math.max(4,Math.min(r.width-tip.offsetWidth-4, cx-tip.offsetWidth/2)); tip.style.left=(tx)+'px'; tip.style.opacity='1'; }
+    function leave(){ line.setAttribute('opacity','0'); dot.setAttribute('opacity','0'); tip.style.opacity='0'; }
+    svg.addEventListener('mousemove',move); svg.addEventListener('touchmove',move,{passive:true}); svg.addEventListener('mouseleave',leave); svg.addEventListener('touchend',leave);
+  })();
   ['chipMe','chipOpp'].forEach(cid=>{ const c=document.getElementById(cid); if(!c) return;
     c.addEventListener('click',e=>{ const ch=e.target.closest('.scchip'); if(!ch) return; const side=ch.dataset.side;
       c.querySelectorAll('.scchip').forEach(x=>x.classList.remove('on')); ch.classList.add('on'); drawSC(side, ch.dataset.eid); }); });
