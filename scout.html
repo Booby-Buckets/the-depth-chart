@@ -9,6 +9,8 @@
   <script src="auth.js?v=paywall4"></script>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=2"></script>
+  <script src="tdc-projgrade.js?v=coach5"></script>
+  <script src="tdc-proj.js?v=coach5"></script>
   <script src="tdc-shotchart.js?v=1"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
@@ -47,6 +49,17 @@
     .oppbar .omet b{color:var(--text2);}
     .sec-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:30px 0 12px;display:flex;align-items:center;gap:10px;}
     .sec-h::after{content:'';flex:1;height:1px;background:var(--border);}
+    .pchint{font-size:11.5px;color:var(--text3);margin-bottom:10px;line-height:1.5;}
+    .pcard{border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:12px 15px;margin-bottom:8px;}
+    .pchead{display:flex;align-items:center;gap:13px;}
+    .pcovr{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;color:var(--accent);min-width:34px;text-align:center;flex-shrink:0;line-height:1;}
+    .pcwho{min-width:0;flex:1;}
+    .pcn{font-weight:800;font-size:14px;}
+    .pcn .pcpos{font-size:10px;font-weight:700;color:var(--accent);margin-left:6px;}
+    .pcline{font-size:11.5px;color:var(--text3);margin-top:2px;font-variant-numeric:tabular-nums;}
+    .pcline b{color:var(--text2);}
+    .pcnotes{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+    .pcnote{font-size:11px;font-weight:700;color:var(--text2);background:color-mix(in srgb,var(--accent) 9%,var(--bg));border:1px solid var(--border);border-radius:16px;padding:3px 10px;}
     .card{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:18px 20px;}
     /* game plan */
     .plan{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
@@ -324,41 +337,63 @@ function tendencies(opp,sg){
   </div>`;
 }
 
-// ── opponent scorers: reliability read from their 2025-26 game logs ──
-async function loadScorers(row){
+// ── opponent personnel: PROJECTED line + per-player attack intel ──
+async function loadPersonnel(row){
   const host=el('scoutScorers'); if(!host) return;
+  const _R=v=>{const n=+v;return isNaN(n)?0:n;};
   let roster=[];
-  try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,mpg&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
+  try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,position2,depth_order,hometown,is_injured,class_year,yr,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
   const withId=roster.filter(p=>p.espn_id!=null);
-  if(!withId.length){ host.innerHTML='<div class="muted" style="padding:14px 4px">No game logs on file for their roster yet.</div>'; return; }
-  let box=[];
-  try{ const ids=withId.map(p=>p.espn_id).join(','); box=await fetch(`${SB_URL}/rest/v1/box_scores?espn_id=in.(${ids})&season_year=eq.2026&min=gte.5&select=espn_id,pts&limit=4000`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
-  const byId={}; box.forEach(b=>{ (byId[b.espn_id]=byId[b.espn_id]||[]).push(+b.pts||0); });
-  const mean=a=>a.reduce((s,v)=>s+v,0)/a.length, sd=a=>{const m=mean(a);return Math.sqrt(a.reduce((s,v)=>s+(v-m)*(v-m),0)/a.length);};
-  const pc=(a,p)=>{const s=[...a].sort((x,y)=>x-y);return s[Math.max(0,Math.min(s.length-1,Math.round(p/100*(s.length-1))))];};
-  let players=roster.map(p=>{ const g=byId[p.espn_id]||[]; if(g.length<4) return null; const m=mean(g),s=sd(g),cv=m>0?s/m:1;
-    return {name:p.name,pos:p.position,avg:m,cs:Math.max(1,Math.min(99,Math.round(100*(1-Math.min(cv,1))))),floor:Math.round(pc(g,15)),ceil:Math.round(pc(g,85)),gp:g.length}; }).filter(Boolean);
-  players.sort((a,b)=>b.avg-a.avg);
-  const top=players.slice(0,5);
-  if(!top.length){ host.innerHTML='<div class="muted" style="padding:14px 4px">Not enough game history to scout their scorers — likely a young or heavily-new roster.</div>'; return; }
-  const tag=cs=> cs>=62?['Rock steady','var(--green)']:cs>=48?['Reliable','var(--green)']:cs>=32?['Streaky','var(--amber)']:['Boom or bust','var(--red)'];
-  const scorers=top.filter(p=>p.avg>=8);
-  const key=scorers[0];                                    // their primary scorer (top ppg)
-  const boom=[...scorers].sort((a,b)=>a.cs-b.cs)[0];       // their most volatile scorer
-  const row2=p=>{ const [tl,tcx]=tag(p.cs);
-    return `<div class="scr"><div class="scn">${esc(p.name)}<span class="scp">${esc(p.pos||'')}</span></div>
-      <div class="scavg"><b>${p.avg.toFixed(1)}</b> ppg</div>
-      <div class="scfc">${p.floor}–${p.ceil}</div>
-      <div class="sctag" style="color:${tcx}">${tl}</div></div>`; };
-  let takeaway='';
-  if(key){ const kt=tag(key.cs)[0].toLowerCase();
-    const keyLine = key.cs>=48
-      ? `Their engine is <b style="color:var(--text)">${esc(key.name)}</b> — ${key.avg.toFixed(1)} a night and ${kt}; he'll get his, so make the supporting cast beat you.`
-      : `<b style="color:var(--text)">${esc(key.name)}</b> leads them at ${key.avg.toFixed(1)} but he's ${kt} (${key.floor}–${key.ceil}) — pressure him early and take him out of rhythm and their offense stalls.`;
-    const boomLine = (boom&&boom!==key&&boom.cs<40) ? ` Live with <b style="color:var(--text)">${esc(boom.name)}</b>'s tough shots — ${boom.floor}-to-${boom.ceil} swings make him the one you'd rather beat you.` : '';
-    takeaway=`<div class="card" style="margin-top:10px;font-size:12.5px;line-height:1.6;color:var(--text2)">${keyLine}${boomLine}</div>`;
+  if(!withId.length){ host.innerHTML='<div class="muted" style="padding:14px 4px">No roster on file for this team yet.</div>'; return; }
+  // projected lines from the real engine (same as the player page / rankings)
+  let PJ={};
+  try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready;
+    if(typeof buildTeamProjections==='function'){ const pr=buildTeamProjections(roster.map(x=>Object.assign({},x)), row.conf||''); (pr||[]).forEach(x=>{ if(x&&x.name) PJ[x.name.toLowerCase().trim()]=x; }); }
+  }catch(e){}
+  // DNA tertile thresholds for the situational attack notes
+  const teams=(DNA&&DNA['2026']&&DNA['2026'].teams)||{};
+  const col=k=>Object.values(teams).map(t=>t[k]).filter(x=>x!=null).sort((a,b)=>a-b), qf=(v,f)=>v.length?v[Math.floor(v.length*f)]:0;
+  const T={fast:qf(col('tempo'),2/3),slow:qf(col('tempo'),1/3),havoc:qf(col('dTOV'),2/3),low:qf(col('dTOV'),1/3)};
+  const dnaByOpp=o=>teams[o];
+  // one box + one shots fetch for the whole rotation
+  const ids=withId.map(p=>p.espn_id).join(',');
+  let box=[],shots=[];
+  try{ [box,shots]=await Promise.all([
+    fetch(`${SB_URL}/rest/v1/box_scores?espn_id=in.(${ids})&season_year=eq.2026&min=gte.4&select=espn_id,opp,min,fga,fgm,tpm,fta,ftm,tov,pts,pf`,{headers:H}).then(r=>r.ok?r.json():[]),
+    fetch(`${SB_URL}/rest/v1/shots?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,made,sv,stype&limit=14000`,{headers:H}).then(r=>r.ok?r.json():[])
+  ]); }catch(e){}
+  const boxBy={},shotBy={}; box.forEach(b=>{(boxBy[b.espn_id]=boxBy[b.espn_id]||[]).push(b);}); shots.forEach(s=>{(shotBy[s.espn_id]=shotBy[s.espn_id]||[]).push(s);});
+  const efg=g=>{let fga=0,mw=0;g.forEach(x=>{fga+=_R(x.fga);mw+=_R(x.fgm)+0.5*_R(x.tpm);});return fga?mw/fga*100:null;};
+  const p40=(g,k)=>{let m=0,v=0;g.forEach(x=>{m+=_R(x.min);v+=_R(x[k]);});return m?v/m*40:0;};
+
+  function intel(p){
+    const pj=PJ[(p.name||'').toLowerCase().trim()];
+    const line=(pj&&_R(pj.mpg)>0)?pj:p, ovr=(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):_R(p.tdc_grade);
+    const bx=boxBy[p.espn_id]||[], sh=shotBy[p.espn_id]||[]; const notes=[];
+    if(bx.length>=6){
+      let fta=0,ftm=0,pf=0,mn=0; bx.forEach(x=>{fta+=_R(x.fta);ftm+=_R(x.ftm);pf+=_R(x.pf);mn+=_R(x.min);});
+      const ftp=fta?ftm/fta*100:null, pf40=mn?pf/mn*40:0;
+      if(ftp!=null&&ftp<=64&&fta>=15) notes.push('Foul him late — '+Math.round(ftp)+'% FT');
+      if(pf40>=4.2) notes.push('Attack him — foul-prone ('+pf40.toFixed(1)+'/40)');
+      const fast=bx.filter(x=>{const d=dnaByOpp(x.opp);return d&&d.tempo!=null&&d.tempo>=T.fast;}), slow=bx.filter(x=>{const d=dnaByOpp(x.opp);return d&&d.tempo!=null&&d.tempo<=T.slow;});
+      if(fast.length>=4&&slow.length>=4){ const ef=efg(fast),es=efg(slow); if(ef!=null&&es!=null){ const d=Math.round(ef-es); if(d<=-6) notes.push('Speed him up — eFG '+Math.abs(d)+' lower vs pace'); } }
+      const hav=bx.filter(x=>{const d=dnaByOpp(x.opp);return d&&d.dTOV!=null&&d.dTOV>=T.havoc;}), low=bx.filter(x=>{const d=dnaByOpp(x.opp);return d&&d.dTOV!=null&&d.dTOV<=T.low;});
+      if(hav.length>=4&&low.length>=4){ const d=p40(hav,'tov')-p40(low,'tov'); if(d>=1.5) notes.push('Pressure him — +'+d.toFixed(1)+' TO/40 vs havoc'); }
+    }
+    if(sh.length>=25){ const zt=sh.filter(s=>s.stype).length; const th=sh.filter(s=>s.sv===3).length, rim=sh.filter(s=>s.stype==='layup'||s.stype==='dunk'||s.stype==='tip').length;
+      if(th/zt>=0.55) notes.push('Run him off the line — '+Math.round(th/zt*100)+'% threes');
+      else if(rim/zt>=0.55) notes.push('Wall off the rim — '+Math.round(rim/zt*100)+'% at the rim');
+    }
+    return {line,ovr,notes:notes.slice(0,3)};
   }
-  host.innerHTML=`<div class="scrhead"><span></span><span>Avg</span><span>Range</span><span>Reliability</span></div>${top.map(row2).join('')}${takeaway}`;
+  const rows=withId.map(p=>{ const pj=PJ[(p.name||'').toLowerCase().trim()]; return {p, pm: pj?_R(pj.mpg):_R(p.mpg)}; }).sort((a,b)=>b.pm-a.pm).slice(0,8);
+  const F=(v,d)=>v==null?'—':(+v).toFixed(d==null?1:d);
+  const card=({p})=>{ const it=intel(p), l=it.line;
+    return `<div class="pcard"><div class="pchead">
+        <div class="pcovr">${it.ovr!=null?it.ovr:'—'}</div>
+        <div class="pcwho"><div class="pcn">${esc(p.name)}<span class="pcpos">${esc(p.position||'')}</span></div><div class="pcline"><b>${F(l.ppg)}</b> pts · <b>${F(l.rpg)}</b> reb · <b>${F(l.apg)}</b> ast · ${F(l.mpg,0)} min · ${F(l.fg_pct,0)}/${F(l.tp_pct,0)}/${F(l.ft_pct,0)}</div></div>
+      </div>${it.notes.length?`<div class="pcnotes">${it.notes.map(n=>`<span class="pcnote">${esc(n)}</span>`).join('')}</div>`:''}</div>`; };
+  host.innerHTML=`<div class="pchint">Projected 2026-27 line + how to attack each man — from the same engine that powers the rankings.</div>${rows.map(card).join('')}`;
 }
 
 async function loadShotChart(row){
@@ -418,14 +453,14 @@ function render(){
     ${me?matchupMini(me,opp):''}
     ${plan||'<div class="card"><div class="muted">Team DNA isn\'t on file for this opponent yet, so the auto game plan is unavailable.</div></div>'}
     ${profile}
-    <div class="sec-h">Their scorers — who to game-plan</div>
-    <div id="scoutScorers"><div class="muted" style="padding:16px 4px">Reading their game logs…</div></div>
+    <div class="sec-h">Personnel — projected line &amp; how to attack</div>
+    <div id="scoutScorers"><div class="muted" style="padding:16px 4px">Projecting their rotation &amp; reading their tendencies…</div></div>
     <div class="sec-h">Shot Tendencies</div>
     ${tendencies(r,sg)}
     <div class="sec-h">Personnel Report</div>
     ${renderReportBlock(rep)}
   </div>`;
-  loadScorers(r);
+  loadPersonnel(r);
   if(sg&&sg.off) loadShotChart(r);
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(r.full));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
