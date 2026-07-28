@@ -16,6 +16,7 @@ window.TDC_COACHLINKS = (function () {
       ['defense.html',         'Defense'],
       ['foul-ft.html',         'Foul & FT'],
       ['game-review.html',     'Game Review'],
+      ['game-breakdown.html',  'Game Breakdown'],
     ]],
     ['Self-Scout', [
       ['consistency.html',    'Consistency'],

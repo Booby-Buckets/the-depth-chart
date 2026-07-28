@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Game Breakdown — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="auth.js?v=paywall4"></script>
+  <script src="team-colors.js?v=2"></script>
+  <script src="tdc-ratings.js?v=2"></script>
+  <link rel="stylesheet" href="tdc-anim.css?v=4"/>
+  <script src="tdc-anim.js?v=5"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--amber:#b5872a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--amber:#d8b05a;--red:#e07070;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+    .page{max-width:900px;margin:0 auto;padding:30px 22px 90px;}
+    .eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+    .eyebrow .lock{font-size:10px;color:var(--text3);border:1px solid var(--border2);border-radius:20px;padding:2px 8px;letter-spacing:.06em;}
+    h1{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;letter-spacing:-.01em;margin-bottom:4px;}
+    .sub{font-size:13px;color:var(--text3);margin-bottom:22px;max-width:770px;line-height:1.6;}
+    .combo{position:relative;max-width:420px;margin-bottom:14px;}
+    .search{width:100%;padding:12px 14px;border:1px solid var(--accent);border-radius:10px;background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;font-weight:600;outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent);}
+    .combo-list{display:none;position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:30;max-height:340px;overflow-y:auto;background:var(--bg);border:1px solid var(--border2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.2);}
+    .combo-item{padding:9px 13px;cursor:pointer;font-size:13.5px;display:flex;justify-content:space-between;gap:10px;font-weight:600;}
+    .combo-item:hover{background:var(--bg3);}
+    .combo-item .cr{color:var(--text3);font-weight:500;}
+    .combo-empty{padding:12px;font-size:12px;color:var(--text3);}
+    .loading{padding:40px;text-align:center;color:var(--text3);}
+    .muted{font-size:12.5px;color:var(--text3);line-height:1.7;padding:22px 20px;text-align:center;}
+    .glist{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px;}
+    .gchip{border:1px solid var(--border);border-radius:10px;background:var(--bg2);padding:7px 12px;font-size:12.5px;font-weight:700;cursor:pointer;transition:border-color .15s;display:flex;gap:8px;align-items:center;}
+    .gchip:hover{border-color:var(--accent);}
+    .gchip.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--bg2));}
+    .gchip .res{font-size:10px;font-weight:800;padding:1px 5px;border-radius:3px;}
+    .gchip .res.w{color:var(--green);background:color-mix(in srgb,var(--green) 15%,transparent);}
+    .gchip .res.l{color:var(--red);background:color-mix(in srgb,var(--red) 15%,transparent);}
+    .gchip .gsub{font-size:10px;color:var(--text3);font-weight:600;}
+    .sec-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:24px 0 12px;display:flex;align-items:center;gap:10px;}
+    .sec-h .hint{font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;}
+    .sec-h::after{content:'';flex:1;height:1px;background:var(--border);}
+    /* scoreline */
+    .scoreline{border:1px solid var(--border2);border-radius:16px;background:radial-gradient(120% 130% at 0 0,color-mix(in srgb,var(--accent) 8%,var(--bg2)),var(--bg2));padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+    .scoreline .tm{display:flex;align-items:center;gap:10px;}
+    .scoreline .tm img{width:34px;height:34px;object-fit:contain;}
+    .scoreline .tn{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;}
+    .scoreline .tnsub{font-size:11px;color:var(--text3);font-weight:600;}
+    .scoreline .sc{font-family:'Playfair Display',serif;font-weight:800;font-size:34px;font-variant-numeric:tabular-nums;}
+    .scoreline .mid{text-align:center;}
+    .scoreline .mid .res{font-size:12px;font-weight:800;letter-spacing:.03em;}
+    .scoreline .mid .res.w{color:var(--green);} .scoreline .mid .res.l{color:var(--red);}
+    .scoreline .mid .dt{font-size:11px;color:var(--text3);margin-top:2px;}
+    /* flow chart */
+    .flow{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:16px 18px;}
+    .flow svg{width:100%;height:150px;display:block;}
+    .flow .fl-meta{display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;padding-top:11px;border-top:1px solid var(--border);}
+    .flow .fm{font-size:11.5px;color:var(--text3);}
+    .flow .fm b{font-family:'Playfair Display',serif;font-size:15px;color:var(--text);font-weight:800;display:block;}
+    .read{font-size:13.5px;color:var(--text2);line-height:1.7;margin-top:12px;border:1px solid var(--border);border-radius:12px;background:color-mix(in srgb,var(--accent) 5%,var(--bg2));padding:14px 18px;}
+    .read b{color:var(--text);}
+    .runs{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    @media(max-width:560px){.runs{grid-template-columns:1fr;}}
+    .runcard{border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:13px 16px;}
+    .runcard .rl{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);}
+    .runcard.me .rl{color:var(--green);} .runcard.opp .rl{color:var(--red);}
+    .runcard .rv{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;margin-top:3px;}
+    .runcard .rd{font-size:11.5px;color:var(--text3);margin-top:4px;line-height:1.5;}
+    .perf{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    @media(max-width:560px){.perf{grid-template-columns:1fr;}}
+    .pcol{border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:6px 14px 10px;}
+    .pcol .ph{font-size:11px;font-weight:800;letter-spacing:.03em;padding:10px 2px 8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;}
+    .pcol .ph img{width:18px;height:18px;object-fit:contain;}
+    .prow{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:8px 2px;border-top:1px solid var(--border);}
+    .prow:first-of-type{border-top:none;}
+    .prow .pn{font-size:12.5px;font-weight:700;}
+    .prow .pline{font-size:10.5px;color:var(--text3);font-weight:600;}
+    .prow .ppts{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;text-align:right;}
+    .prow .pgs{font-size:10px;color:var(--text3);text-align:right;min-width:30px;}
+    .halves{border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:4px 16px;}
+    .hrow{display:grid;grid-template-columns:1fr 90px 90px;gap:10px;align-items:center;padding:11px 2px;border-top:1px solid var(--border);}
+    .hrow:first-child{border-top:none;}
+    .hrow .hl{font-size:12px;font-weight:700;color:var(--text2);}
+    .hrow .hv{text-align:center;font-family:'Playfair Display',serif;font-weight:800;font-size:15px;font-variant-numeric:tabular-nums;}
+    .hrow .hh{text-align:center;font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);}
+    .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:26px;max-width:770px;}
+  </style>
+  <link rel="stylesheet" href="tdc-dense.css?v=18"/>
+  <style>
+    :root:not([data-theme="dark"]){background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
+  </style>
+</head>
+<body data-anim-auto>
+<script>
+(function(){
+  if(window.TDC_PAYWALL_ENABLED===false||(window.tdcIsOwner&&window.tdcIsOwner())) return;
+  var REQUIRED_PLANS=['pro','coach'];
+  var s=null; try{ s=JSON.parse(localStorage.getItem('tdc_session')||'null'); }catch(e){}
+  if(!s||!s.access_token){ location.href='pricing.html?gate=coach'; return; }
+  fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user.id+'&select=plan',
+    {headers:{apikey:'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye',Authorization:'Bearer '+s.access_token}})
+    .then(function(r){return r.json();}).then(function(rows){var p=rows&&rows[0];
+      if(!p||REQUIRED_PLANS.indexOf(p.plan)<0) location.href='pricing.html?gate=coach';
+    }).catch(function(){ location.href='pricing.html?gate=coach'; });
+})();
+</script>
+<script src="tdc-nav.js?v=4"></script>
+<script src="tdc-coachlinks.js?v=9"></script>
+<div class="page">
+  <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Game Prep</span></div>
+  <h1 data-anim>Game Breakdown</h1>
+  <div class="sub" data-anim>The full story of a single game. Pick a team, then a game, for how it actually unfolded — the momentum swing chart, the biggest runs, the stretch that decided it, who did the damage on both sides, and the half-by-half read. The film session, in numbers.</div>
+
+  <div class="combo" data-anim><input id="sel" class="search" placeholder="Search a team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
+
+  <div id="games"></div>
+  <div id="out"></div>
+
+  <div class="note" data-anim>Reconstructed from the 2025-26 shot-by-shot timeline (game clock + running score) plus the box score. The momentum chart plots the margin from the selected team's side over the course of the game; runs are the biggest sustained margin swings; game score is Hollinger's single-number box impact. Free throws move the running score but aren't plotted as shots, so the line tracks the scoreboard, not shot attempts.</div>
+</div>
+
+<script>
+const SB_URL='https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
+const el=id=>document.getElementById(id);
+const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
+const R=v=>{const n=+v;return isNaN(n)?0:n;};
+
+let D=null, COLORMAP={}, LOGO={}, selKey=null, me='';
+const poolRow=k=>k!=null?D.teams[k]:null;
+const labelOf=r=>r?r.full:'';
+function _lum(hex){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');if(hex.length<6)return .5;const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return (0.299*r+0.587*g+0.114*b)/255;}
+function teamColor(row){const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#A8843C';const c=COLORMAP[row.team]||COLORMAP[row.full];if(!c)return accent;const dark=document.documentElement.getAttribute('data-theme')==='dark',l=_lum(c);if(!dark&&l>0.72)return accent;if(dark&&l<0.16)return accent;return c;}
+const logoFor=nm=>LOGO[nm]||'';
+
+function comboMatches(q){
+  const toks=(q||'').toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const ok=s=>{s=s.toLowerCase();return toks.every(t=>s.includes(t));};
+  let out=[]; D.teams.forEach((r,i)=>{ if(!toks.length||ok(r.full+' '+r.team)) out.push({key:i,r}); });
+  if(toks.length){ const pre=e=>e.r.full.toLowerCase().startsWith(toks[0])?0:1; out.sort((a,b)=>pre(a)-pre(b)||(a.r.rank||999)-(b.r.rank||999)); }
+  else out.sort((a,b)=>(a.r.rank||999)-(b.r.rank||999));
+  return out.slice(0,30);
+}
+function renderList(){
+  const list=el('list'), m=comboMatches(el('sel').value);
+  list.innerHTML=m.length? m.map(e=>`<div class="combo-item" data-key="${e.key}"><span>${labelOf(e.r)}${e.r.conf?` <span class="cr">${e.r.conf}</span>`:''}</span><span class="cr">#${e.r.rank||'—'}</span></div>`).join('')
+    : '<div class="combo-empty">No teams match</div>';
+  list.style.display='block';
+}
+function pick(key){ selKey=+key; el('sel').value=labelOf(poolRow(+key)); el('list').style.display='none'; loadGames(); }
+(function wire(){
+  const inp=el('sel'), list=el('list');
+  inp.addEventListener('focus',()=>{ inp.select(); renderList(); });
+  inp.addEventListener('input',()=>renderList());
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const f=list.querySelector('.combo-item'); if(f) pick(f.dataset.key); inp.blur(); }
+    if(e.key==='Escape'){ list.style.display='none'; inp.value=labelOf(poolRow(selKey)); inp.blur(); } });
+  inp.addEventListener('blur',()=>setTimeout(()=>{ list.style.display='none'; inp.value=labelOf(poolRow(selKey)); },160));
+  list.addEventListener('mousedown',e=>{ const it=e.target.closest('.combo-item'); if(it){ e.preventDefault(); pick(it.dataset.key); } });
+})();
+
+let GAMES=[];
+async function loadGames(){
+  const row=poolRow(selKey); if(!row) return; me=row.full; el('out').innerHTML='';
+  el('games').innerHTML='<div class="loading">Loading game log…</div>';
+  const nm=encodeURIComponent(me);
+  try{ GAMES=await fetch(`${SB_URL}/rest/v1/games?or=(home.eq.${nm},away.eq.${nm})&season_year=eq.2026&home_score=not.is.null&select=id,home,away,home_id,away_id,home_score,away_score,date,neutral&order=date.desc&limit=45`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){ GAMES=[]; }
+  if(!GAMES.length){ el('games').innerHTML='<div class="muted">No completed 2025-26 games on file for this team.</div>'; return; }
+  el('games').innerHTML=`<div class="sec-h" style="margin-top:14px">${esc(me)} · pick a game</div><div class="glist">`
+    + GAMES.map((g,i)=>{ const home=g.home===me, my=home?g.home_score:g.away_score, opp=home?g.away_score:g.home_score, oppNm=home?g.away:g.home, w=R(my)>R(opp);
+      return `<div class="gchip" data-i="${i}"><span class="res ${w?'w':'l'}">${w?'W':'L'}</span><span>${w?'':''}${home?'vs':'@'} ${esc(oppNm.replace(/ (Blue Devils|Wildcats|Cougars|Tigers|Bulldogs|Cardinals|Huskies|Fighting [A-Za-z]+|[A-Z][a-z]+)$/,''))}</span><span class="gsub">${R(my)}-${R(opp)}</span></div>`; }).join('')+'</div>';
+  el('games').querySelectorAll('.gchip').forEach(c=>c.addEventListener('click',()=>{
+    el('games').querySelectorAll('.gchip').forEach(x=>x.classList.remove('on')); c.classList.add('on');
+    loadGame(GAMES[+c.dataset.i], teamColor(row));
+  }));
+}
+
+const efg=sh=>{ if(!sh.length) return null; let mw=0; sh.forEach(s=>{ if(s.made) mw+=(s.sv===3?1.5:1); }); return mw/sh.length*100; };
+function gameScore(b){ return R(b.pts)+0.4*R(b.fgm)-0.7*R(b.fga)-0.4*(R(b.fta)-R(b.ftm))+0.7*R(b.oreb)+0.3*R(b.dreb)+R(b.stl)+0.7*R(b.ast)+0.7*R(b.blk)-0.4*R(b.pf)-R(b.tov); }
+const clk=pt=>{ const p=pt.p, rem=pt.sl, mm=Math.floor(rem/60), ss=Math.round(rem%60); return (p===1?'1st':p===2?'2nd':'OT'+(p>3?(p-2):''))+' '+mm+':'+String(ss).padStart(2,'0'); };
+
+async function loadGame(g, tc){
+  el('out').innerHTML='<div class="loading">Breaking down the game…</div>';
+  const gid=g.id, home=g.home===me, myId=home?g.home_id:g.away_id, oppNm=home?g.away:g.home, oppId=home?g.away_id:g.home_id;
+  const myFin=home?R(g.home_score):R(g.away_score), oppFin=home?R(g.away_score):R(g.home_score), won=myFin>oppFin;
+  let shots=[], box=[];
+  try{ [shots,box]=await Promise.all([
+    fetch(`${SB_URL}/rest/v1/shots?game_id=eq.${gid}&select=team_id,espn_id,period,sec_left,home_score,away_score,made,sv,stype&limit=1200`,{headers:H}).then(r=>r.ok?r.json():[]),
+    fetch(`${SB_URL}/rest/v1/box_scores?game_id=eq.${gid}&select=team,player,pts,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,ast,stl,blk,tov,pf,min,starter`,{headers:H}).then(r=>r.ok?r.json():[])
+  ]); }catch(e){}
+
+  const oppColor=(function(){ const c=COLORMAP[oppNm]; return c||'var(--text3)'; })();
+  const marginMe=s=> home ? (R(s.home_score)-R(s.away_score)) : (R(s.away_score)-R(s.home_score));
+  const meShort=(poolRow(selKey)||{}).team||me;
+  const tl=shots.filter(s=>s.sec_left!=null&&s.home_score!=null).map(s=>({t:(s.period-1)*1200+(1200-R(s.sec_left)), m:marginMe(s), p:s.period, sl:R(s.sec_left)})).sort((a,b)=>a.t-b.t);
+
+  // scoreline
+  const scoreline=`<div class="scoreline">
+    <div class="tm">${logoFor(me)?`<img src="${logoFor(me)}" onerror="this.style.display='none'"/>`:''}<div><div class="tn">${esc(me)}</div><div class="tnsub">${home?'Home':'Away'}${g.neutral?' · neutral':''}</div></div><div class="sc" style="margin-left:8px;color:${won?'var(--green)':'var(--text)'}">${myFin}</div></div>
+    <div class="mid"><div class="res ${won?'w':'l'}">${won?'WIN':'LOSS'} by ${Math.abs(myFin-oppFin)}</div><div class="dt">${(g.date||'').slice(0,10)}</div></div>
+    <div class="tm"><div class="sc" style="margin-right:8px">${oppFin}</div>${logoFor(oppNm)?`<img src="${logoFor(oppNm)}" onerror="this.style.display='none'"/>`:''}<div><div class="tn">${esc(oppNm)}</div><div class="tnsub">opponent</div></div></div>
+  </div>`;
+
+  let flowHtml='';
+  if(tl.length>=10){
+    const W=760,Hh=150,mid=Hh/2, maxAbs=Math.max(8,...tl.map(p=>Math.abs(p.m)));
+    const x=i=>i/(tl.length-1)*W, y=m=>mid-(m/maxAbs)*(mid-8);
+    const pts=tl.map((p,i)=>`${x(i).toFixed(1)},${y(p.m).toFixed(1)}`).join(' ');
+    const areaUp=`${x(0)},${mid} ${pts} ${x(tl.length-1)},${mid}`;
+    // halftime marker (first index in 2nd half)
+    const htI=tl.findIndex(p=>p.t>=1200); const htX=htI>0?x(htI):null;
+    const rgb=(function(h){h=(COLORMAP[me]||'#888').replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)].join(',');})();
+    // stats
+    const leadChanges=(function(){ let c=0,prev=0; tl.forEach(p=>{ const s=Math.sign(p.m); if(s&&prev&&s!==prev)c++; if(s)prev=s; }); return c; })();
+    const maxLead=Math.max(0,...tl.map(p=>p.m)), maxDef=Math.min(0,...tl.map(p=>p.m));
+    flowHtml=`<div class="sec-h">Momentum <span class="hint">margin from ${esc(meShort)}'s side · left→right = tip to final</span></div>
+      <div class="flow"><svg viewBox="0 0 ${W} ${Hh}" preserveAspectRatio="none">
+        <line x1="0" y1="${mid}" x2="${W}" y2="${mid}" stroke="var(--border2)" stroke-width="1" stroke-dasharray="3 3"/>
+        ${htX?`<line x1="${htX.toFixed(1)}" y1="6" x2="${htX.toFixed(1)}" y2="${Hh-6}" stroke="var(--border2)" stroke-width="1"/>`:''}
+        <polygon points="${areaUp}" fill="rgba(${rgb},.14)"/>
+        <polyline points="${pts}" fill="none" stroke="var(--tc,${tc})" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+      </svg>
+      <div class="fl-meta"><div class="fm"><b>${maxLead>0?'+'+maxLead:0}</b>biggest lead</div><div class="fm"><b>${maxDef<0?maxDef:0}</b>biggest deficit</div><div class="fm"><b>${leadChanges}</b>lead changes</div></div></div>`;
+  }
+
+  // runs (biggest sustained margin swings)
+  function bestSwing(dir){ let best=0,bi=0,bj=0; let ext=tl.length?tl[0].m:0, ei=0;
+    for(let i=0;i<tl.length;i++){ const m=tl[i].m;
+      if(dir>0){ if(m-ext>best){best=m-ext;bi=ei;bj=i;} if(m<ext){ext=m;ei=i;} }
+      else{ if(ext-m>best){best=ext-m;bi=ei;bj=i;} if(m>ext){ext=m;ei=i;} } }
+    return {pts:best, from:tl[bi], to:tl[bj]}; }
+  const myRun=tl.length?bestSwing(1):null, oppRun=tl.length?bestSwing(-1):null;
+  let runsHtml='';
+  if(myRun&&oppRun&&(myRun.pts>=6||oppRun.pts>=6)){
+    runsHtml=`<div class="sec-h">Biggest runs &amp; the stretch that mattered</div><div class="runs">
+      <div class="runcard me"><div class="rl">${esc(meShort)}'s best run</div><div class="rv" style="color:var(--green)">${myRun.pts}-point swing</div><div class="rd">${myRun.from?clk(myRun.from):''} → ${myRun.to?clk(myRun.to):''}</div></div>
+      <div class="runcard opp"><div class="rl">${esc(oppNm)}'s best run</div><div class="rv" style="color:var(--red)">${oppRun.pts}-point swing</div><div class="rd">${oppRun.from?clk(oppRun.from):''} → ${oppRun.to?clk(oppRun.to):''}</div></div>
+    </div>`;
+  }
+
+  // top performers
+  const myBox=box.filter(b=>b.team===me), oppBox=box.filter(b=>b.team===oppNm);
+  function perfCol(list,name,logo){ const top=[...list].sort((a,b)=>R(b.pts)-R(a.pts)).slice(0,4);
+    return `<div class="pcol"><div class="ph">${logo?`<img src="${logo}" onerror="this.style.display='none'"/>`:''}${esc(name)}</div>`
+      + (top.length?top.map(b=>`<div class="prow"><div><div class="pn">${esc(b.player)}</div><div class="pline">${R(b.fgm)}-${R(b.fga)} FG${R(b.tpm)?` · ${R(b.tpm)} 3PM`:''} · ${R(b.reb)||R(b.oreb)+R(b.dreb)} reb · ${R(b.ast)} ast</div></div><div class="ppts">${R(b.pts)}</div><div class="pgs">${gameScore(b).toFixed(0)} GS</div></div>`).join(''):'<div class="muted" style="padding:14px">No box data.</div>')+'</div>'; }
+  const perf=`<div class="sec-h">Who did the damage <span class="hint">points · game score (impact)</span></div>
+    <div class="perf">${perfCol(myBox,me,logoFor(me))}${perfCol(oppBox,oppNm,logoFor(oppNm))}</div>`;
+
+  // half splits (offense eFG + FG points)
+  const myShots=shots.filter(s=>s.team_id===myId), oppShots=shots.filter(s=>s.team_id===oppId);
+  const H1m=myShots.filter(s=>s.period===1), H2m=myShots.filter(s=>s.period>=2);
+  const H1o=oppShots.filter(s=>s.period===1), H2o=oppShots.filter(s=>s.period>=2);
+  const halves=`<div class="sec-h">Half by half <span class="hint">offensive eFG% by team</span></div>
+    <div class="halves">
+      <div class="hrow"><div class="hl" style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3)">Team</div><div class="hh">1st half</div><div class="hh">2nd half</div></div>
+      <div class="hrow"><div class="hl">${esc(meShort)}</div><div class="hv">${efg(H1m)==null?'—':efg(H1m).toFixed(0)}</div><div class="hv">${efg(H2m)==null?'—':efg(H2m).toFixed(0)}</div></div>
+      <div class="hrow"><div class="hl">${esc(oppNm)}</div><div class="hv">${efg(H1o)==null?'—':efg(H1o).toFixed(0)}</div><div class="hv">${efg(H2o)==null?'—':efg(H2o).toFixed(0)}</div></div>
+    </div>`;
+
+  // opponent-framed read
+  const topMe=[...myBox].sort((a,b)=>R(b.pts)-R(a.pts))[0], topOpp=[...oppBox].sort((a,b)=>R(b.pts)-R(a.pts))[0];
+  const decided = won ? (myRun&&myRun.pts>=oppRun.pts ? `${esc(meShort)}'s ${myRun.pts}-point run ${myRun.to?('through '+clk(myRun.to)):''} broke it open` : `it stayed within reach but ${esc(meShort)} closed it out`)
+    : (oppRun ? `${esc(oppNm)}'s ${oppRun.pts}-point run ${oppRun.to?('through '+clk(oppRun.to)):''} was the difference` : `${esc(oppNm)} controlled it throughout`);
+  const read=`<div class="read"><b>${esc(me)} ${won?'beat':'lost to'} ${esc(oppNm)} ${myFin}-${oppFin}.</b> ${decided[0].toUpperCase()+decided.slice(1)}.${topOpp?` For the scout: <b>${esc(topOpp.player)}</b> led ${esc(oppNm)} with <b>${R(topOpp.pts)}</b>${topOpp.tpm?` (${R(topOpp.tpm)} threes)`:''}.`:''}${topMe?` ${esc(topMe.player)} paced ${esc(meShort)} with ${R(topMe.pts)}.`:''}</div>`;
+
+  el('out').innerHTML=`<div style="--tc:${tc}">${scoreline}${flowHtml}${read}${runsHtml}${perf}${halves}</div>`;
+  if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(me));
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
+}
+
+(async function(){
+  try{ const arr=await fetch('scripts/data/team_colors.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
+    (arr||[]).forEach(e=>{ if(e){ if(e.c1){ if(e.location) COLORMAP[e.location]=e.c1; if(e.display) COLORMAP[e.display]=e.c1; } if(e.logo){ if(e.location) LOGO[e.location]=e.logo; if(e.display) LOGO[e.display]=e.logo; } } });
+  }catch(e){}
+  D=await TDC_RATINGS.get();
+  D.teams=(D.teams||[]).filter(t=>t.projected!==false&&t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999));
+  const qs=new URLSearchParams(location.search);
+  const want=(qs.get('team')||'').toLowerCase();
+  if(want){ const i=D.teams.findIndex(t=>t.full.toLowerCase()===want||t.team.toLowerCase()===want); if(i>=0){ selKey=i; el('sel').value=labelOf(poolRow(i)); loadGames(); } }
+})();
+</script>
+</body>
+</html>
