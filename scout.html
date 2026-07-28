@@ -60,6 +60,21 @@
     .pcline b{color:var(--text2);}
     .pcnotes{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
     .pcnote{font-size:11px;font-weight:700;color:var(--text2);background:color-mix(in srgb,var(--accent) 9%,var(--bg));border:1px solid var(--border);border-radius:16px;padding:3px 10px;}
+    .obchips{display:flex;flex-wrap:wrap;gap:7px;}
+    .obchip{font-size:11.5px;color:var(--text2);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 11px;}
+    .obchip b{color:var(--text);}
+    .obsub{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin:14px 0 6px;}
+    .obfeed{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:5px 0;border-top:1px solid var(--border);}
+    .obfeed:first-of-type{border-top:none;}
+    .obfeed b{color:var(--text);} .obfeed .obn{font-size:11px;color:var(--text3);font-weight:600;}
+    .obread{font-size:12.5px;line-height:1.6;color:var(--text2);margin-top:12px;padding-top:11px;border-top:1px solid var(--border);}
+    .obread b{color:var(--text);}
+    .dfbars{display:flex;flex-direction:column;gap:9px;}
+    .dfrow{display:grid;grid-template-columns:130px 1fr 40px;gap:10px;align-items:center;}
+    .dfl{font-size:12px;font-weight:700;color:var(--text2);}
+    .dfbar{height:8px;border-radius:4px;background:var(--bg3);overflow:hidden;}
+    .dfbar .dff{height:100%;border-radius:4px;}
+    .dfp{font-size:12px;font-weight:800;color:var(--text2);text-align:right;font-variant-numeric:tabular-nums;}
     .card{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:18px 20px;}
     /* game plan */
     .plan{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
@@ -179,8 +194,9 @@ const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
 const el=id=>document.getElementById(id);
 const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
 
-let D=null, DNA=null, SG={}, REPORTS=null, COLORMAP={}, sgMean={};
+let D=null, DNA=null, SG={}, REPORTS=null, COLORMAP={}, sgMean={}, PBP=null, PBPNORM={};
 let selKey={Me:null,Opp:null};
+function pbpOf(r){ if(!PBP) return null; const s=PBP['2026']||PBP[Object.keys(PBP).sort().reverse()[0]]||{}; const t=(s&&s.teams)||s; return (t&&(t[r.full]||t[r.team]))||null; }
 
 // ── team-name resolver: one rating row → every engine's key form ──
 const poolRow=k=>k!=null?D.teams[k]:null;
@@ -415,6 +431,47 @@ async function loadShotChart(row){
   }catch(e){ host.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3);font-size:12px;">Could not load shot chart.</div>'; }
 }
 
+// ── their offense: how they generate + who creates + how to disrupt ──
+function offenseBreakdown(r){
+  const p=pbpOf(r); if(!p||!p.gp) return '';
+  const z=k=>{ const n=PBPNORM[k]; return n&&n.sd?(p[k]-n.m)/n.sd:0; };
+  const src=[];
+  if(z('transition_rate')>=0.55) src.push(['Runs in transition',`${p.transition_rate.toFixed(0)}% of possessions`]);
+  if(z('second_chance_pg')>=0.55) src.push(['Second-chance points',`${p.second_chance_pg.toFixed(1)}/g on the o-glass`]);
+  if(z('off_to_pg')>=0.55) src.push(['Points off turnovers',`${p.off_to_pg.toFixed(1)}/g`]);
+  if(z('and1_pg')>=0.7) src.push(['Draws contact',`${p.and1_pg.toFixed(1)} and-1s/g`]);
+  const feeds=(p.feeds||[]).slice(0,3);
+  const hubHtml=feeds.length?`<div class="obsub">Who creates it</div>`+feeds.map(f=>`<div class="obfeed"><span><b>${esc(f.from)}</b> → ${esc(f.to)}</span><span class="obn">${f.n} assists${f.pts?` · ${f.pts} pts`:''}</span></div>`).join(''):'';
+  // disrupt
+  const dis=[];
+  if(z('transition_rate')>=0.55) dis.push('get back in transition and make them play in the half-court');
+  if(z('second_chance_pg')>=0.55) dis.push('gang-rebound — box out their bigs to kill second shots');
+  if(z('off_to_pg')>=0.55) dis.push('value the ball; their offense feeds off live-ball turnovers');
+  if(!dis.length) dis.push('a disciplined half-court team — make them earn each possession against a set defense');
+  const srcHtml=src.length?`<div class="obchips">${src.map(s=>`<span class="obchip"><b>${s[0]}</b> · ${s[1]}</span>`).join('')}</div>`:`<div class="obchips"><span class="obchip">Balanced half-court offense — no single source stands out above the norm</span></div>`;
+  return `<div class="sec-h">Their offense — how they generate <span class="hint">2025-26 play-by-play</span></div>
+    <div class="card">${srcHtml}${hubHtml}<div class="obread"><b>Disrupt it:</b> ${dis.join('; ')}.</div></div>`;
+}
+// ── their defense: identity + where to attack ──
+function defenseBreakdown(r){
+  const dna=dnaOf(r), p=pbpOf(r); if(!dna||!dna.pct) return '';
+  const pct=dna.pct; const F=[
+    {k:'deFG',nm:'contesting shots',lo:'lets you get clean looks',hi:'clamps down on your shot'},
+    {k:'dTOV',nm:'forcing turnovers',lo:'won\'t pressure the ball',hi:'gambles for steals'},
+    {k:'dDRB',nm:'defensive rebounding',lo:'can be beaten on the offensive glass',hi:'ends possessions on the glass'},
+  ].filter(f=>pct[f.k]!=null).map(f=>({...f,p:pct[f.k]}));
+  if(!F.length) return '';
+  const weakest=[...F].sort((a,b)=>a.p-b.p)[0], strongest=[...F].sort((a,b)=>b.p-a.p)[0];
+  const rim=(p&&p.blk_leaders||[]).slice(0,2);
+  const bars=F.map(f=>`<div class="dfrow"><div class="dfl">${f.nm}</div><div class="dfbar"><div class="dff" style="width:${Math.round(f.p)}%;background:${f.p>=50?'var(--green)':'var(--red)'}"></div></div><div class="dfp">${Math.round(f.p)}ᵖᶜ</div></div>`).join('');
+  const rimHtml=rim.length?` Their rim protection runs through <b>${esc(rim[0].name)}</b> (${rim[0].blk} blocks)${rim[1]?` and ${esc(rim[1].name)}`:''} — attack away from him or draw him out.`:'';
+  const attack = weakest.p<45
+    ? `Their defense ${weakest.lo} (${Math.round(weakest.p)}ᵗʰ percentile at ${weakest.nm}) — that's the seam to attack.`
+    : `A stingy defense with no glaring hole; their best trait is ${strongest.nm} (${Math.round(strongest.p)}ᵗʰ). Move them side-to-side and take the first good look.`;
+  return `<div class="sec-h">Their defense — where to attack <span class="hint">2026-27 projected · percentile vs D-I</span></div>
+    <div class="card"><div class="dfbars">${bars}</div><div class="obread"><b>Attack plan:</b> ${attack}${rimHtml}</div></div>`;
+}
+
 function render(){
   const opp=selKey.Opp!=null?{key:selKey.Opp,r:poolRow(selKey.Opp)}:null;
   if(!opp){ el('out').innerHTML='<div class="muted" style="padding:60px 20px;">Pick an opponent above to generate their scouting report.</div>'; return; }
@@ -455,6 +512,8 @@ function render(){
     ${profile}
     <div class="sec-h">Personnel — projected line &amp; how to attack</div>
     <div id="scoutScorers"><div class="muted" style="padding:16px 4px">Projecting their rotation &amp; reading their tendencies…</div></div>
+    ${offenseBreakdown(r)}
+    ${defenseBreakdown(r)}
     <div class="sec-h">Shot Tendencies</div>
     ${tendencies(r,sg)}
     <div class="sec-h">Personnel Report</div>
@@ -470,13 +529,19 @@ function render(){
   try{ const arr=await fetch('scripts/data/team_colors.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
     (arr||[]).forEach(e=>{ if(e&&e.c1){ if(e.location) COLORMAP[e.location]=e.c1; if(e.display) COLORMAP[e.display]=e.c1; } });
   }catch(e){}
-  const [d, dna, sg, reps] = await Promise.all([
+  const [d, dna, sg, reps, pbp] = await Promise.all([
     TDC_RATINGS.get(),
     fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).catch(()=>null),
     fetch('scripts/data/shot_genome_teams.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).catch(()=>null),
     fetch('scripts/data/roster_reports.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).catch(()=>null),
+    fetch('scripts/data/team_pbp.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).catch(()=>null),
   ]);
-  D=d; DNA=dna; REPORTS=reps;
+  D=d; DNA=dna; REPORTS=reps; PBP=pbp;
+  // D-I norms for the scoring-source stats (z-score the opponent's identity)
+  try{ const s=(PBP&&(PBP['2026']||PBP[Object.keys(PBP).sort().reverse()[0]]))||{}; const tt=(s&&s.teams)||s; const arr=Object.values(tt||{}).filter(x=>x&&x.gp);
+    const stat=k=>{ const v=arr.map(t=>t[k]).filter(x=>x!=null); if(!v.length) return {m:0,sd:1}; const m=v.reduce((a,b)=>a+b,0)/v.length; const sd=Math.sqrt(v.reduce((a,b)=>a+(b-m)*(b-m),0)/v.length)||1; return {m,sd}; };
+    ['transition_rate','off_to_pg','second_chance_pg','and1_pg'].forEach(k=>PBPNORM[k]=stat(k));
+  }catch(e){}
   D.teams=(D.teams||[]).filter(t=>t.projected!==false&&t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999));
   if(sg&&sg.teams){ sg.teams.forEach(x=>{ SG[x.team]=x; SG[(x.team||'').toLowerCase()]=x; });
     // league mean + SD per shot-diet stat, so the game plan flags a team by how many
