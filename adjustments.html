@@ -61,6 +61,20 @@
     .read .tag.g{color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent);}
     .read .tag.r{color:var(--red);background:color-mix(in srgb,var(--red) 14%,transparent);}
     .read .tag.n{color:var(--text2);background:var(--bg3);}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px;}
+    .chip{border:1px solid var(--border);border-radius:20px;background:var(--bg2);padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:border-color .15s,background .15s;}
+    .chip:hover{border-color:var(--accent);}
+    .chip.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--bg2));color:var(--accent);}
+    .hero{display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:center;border:1px solid var(--border2);border-radius:16px;background:radial-gradient(120% 130% at 0 0,color-mix(in srgb,var(--accent) 9%,var(--bg2)),var(--bg2));padding:20px 24px;margin:6px 0 4px;}
+    @media(max-width:560px){.hero{grid-template-columns:1fr;}}
+    .hero .big{text-align:center;min-width:118px;}
+    .hero .big .role{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1.08;}
+    .hero .big .role.g{color:var(--green);} .hero .big .role.a{color:var(--amber);} .hero .big .role.r{color:var(--red);} .hero .big .role.n{color:var(--text2);}
+    .hero .big .rl{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:5px;}
+    .hero .txt .pn{font-family:'Playfair Display',serif;font-weight:800;font-size:21px;}
+    .hero .txt .pm{font-size:12px;color:var(--text3);font-weight:600;margin:2px 0 8px;}
+    .hero .txt .rd{font-size:13.5px;color:var(--text2);line-height:1.65;}
+    .hero .txt .rd b{color:var(--text);}
     .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:26px;max-width:770px;}
   </style>
   <link rel="stylesheet" href="tdc-dense.css?v=18"/>
@@ -89,13 +103,13 @@
 <div class="page">
   <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Self-Scout Hub</span></div>
   <h1 data-anim>Adjustment Profile</h1>
-  <div class="sub" data-anim>Does a team adapt when the game turns, or does it ride the tide? Pick a team to see how its offense responds after halftime — the one point where a staff adjusts after a full look at the opponent — and how it holds up right after the other team goes on a run. Resilience and adaptability, from the shot-by-shot timeline.</div>
+  <div class="sub" data-anim>Does a team adapt when the game turns, or does it ride the tide? Pick a team to see how it responds on <b>both ends</b> after halftime — the one point where a staff adjusts after a full look at the opponent — how it holds up right after the other team runs, and whether it keeps its poise when trailing. Pooled across every season with game-clock data, or one year at a time.</div>
 
   <div class="combo" data-anim><input id="sel" class="search" placeholder="Search a team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
 
   <div id="out"><div class="muted" style="padding:60px 20px;">Pick a team above to read its adjustment profile.</div></div>
 
-  <div class="note" data-anim>Built from the team's 2025-26 shot-by-shot timeline (game clock + running score). <b>Halftime Adjustment</b> = 2nd-half offensive eFG% minus 1st-half — do they come out of the break sharper, plus how the shot diet changes. <b>Run Response</b> = eFG% on shots taken right after the opponent swings the margin 6+ against them (from a recent peak, within ~2:30 of game clock), vs the team's season baseline — answering runs vs folding. Run states are rare, so that sample is small and read as a tendency; eFG counts threes at 1.5×.</div>
+  <div class="note" data-anim>Built from the shot-by-shot timeline (game clock + running score) of every season with clock data. <b>Halftime — Offense</b> = 2nd-half team eFG% minus 1st. <b>Halftime — Defense</b> = opponent 2nd-half eFG% minus 1st, from the opponents' shots in the same games (a fall = the defense tightens). <b>Run Response</b> = eFG% right after the opponent swings the margin 6+ against them (from a recent peak, within ~2:30 of game clock), vs the team's baseline. <b>Poise Under Deficit</b> = eFG% while trailing 6+, vs baseline. Run and deficit states are rarer, so those samples are smaller and read as tendencies; pool <b>all seasons</b> for a steadier read. eFG counts threes at 1.5×.</div>
 </div>
 
 <script>
@@ -137,48 +151,92 @@ function pick(key){ selKey=+key; el('sel').value=labelOf(poolRow(+key)); el('lis
   list.addEventListener('mousedown',e=>{ const it=e.target.closest('.combo-item'); if(it){ e.preventDefault(); pick(it.dataset.key); } });
 })();
 
-async function teamEspnId(row){
-  try{ const rows=await fetch(SB_URL+'/rest/v1/team_seasons?select=team,team_id&team=ilike.'+encodeURIComponent(sn(row.team))+'*&limit=25',{headers:H}).then(r=>r.ok?r.json():[]);
-    const tn=sn(row.team).toLowerCase().trim();
-    for(let k=1;k<=3;k++){ for(const r of rows){ const w=r.team.split(' '); if(w.length>k&&w.slice(0,w.length-k).join(' ').toLowerCase()===tn) return r.team_id; } }
-    if(rows.length) return rows[0].team_id;
-  }catch(e){} return null;
-}
-async function allShots(tid){
-  let out=[],off=0;
-  for(let i=0;i<8;i++){
-    let b=[]; try{ b=await fetch(`${SB_URL}/rest/v1/shots?team_id=eq.${tid}&season_year=eq.2026&select=game_id,period,sec_left,home_score,away_score,made,sv,stype&order=id&limit=1000&offset=${off}`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
-    out=out.concat(b); off+=1000; if(b.length<1000) break;
-  }
-  return out;
-}
 const efg=sh=>{ if(!sh.length) return null; let mw=0; sh.forEach(s=>{ if(s.made) mw+=(s.sv===3?1.5:1); }); return mw/sh.length*100; };
 const rate=(sh,pred)=>sh.length?sh.filter(pred).length/sh.length*100:0;
 const is3=s=>s.sv===3, isRim=s=>s.stype==='layup'||s.stype==='dunk'||s.stype==='tip';
 const R=v=>{const n=+v;return isNaN(n)?0:n;};
+const seasonLabel=y=>(y-1)+'-'+String(y).slice(2);
+
+async function fetchAll(path){
+  let out=[], off=0; const page=1000;
+  while(true){
+    let r; try{ r=await fetch(SB_URL+path,{headers:{...H,'Range-Unit':'items','Range':off+'-'+(off+page-1)}}); }catch(e){ break; }
+    if(!r.ok) break; let b; try{ b=await r.json(); }catch(e){ break; }
+    if(!Array.isArray(b)||!b.length) break;
+    out=out.concat(b); if(b.length<page) break; off+=page; if(off>40000) break;
+  }
+  return out;
+}
+
+let STATE=null;
 
 async function loadTeam(){
   const row=poolRow(selKey); if(!row) return; const tc=teamColor(row);
-  el('out').innerHTML='<div class="loading">Replaying every game…</div>';
-  const tid=await teamEspnId(row);
-  if(tid==null){ el('out').innerHTML='<div class="muted">No shot-timeline data on file for this team.</div>'; return; }
-  const shots=await allShots(tid);
-  const clocked=shots.filter(s=>s.sec_left!=null&&s.home_score!=null);
-  if(clocked.length<150){ el('out').innerHTML='<div class="muted">Not enough clock-tagged shot data for this team yet (the 2025-26 timeline may still be scraping).</div>'; return; }
+  el('out').innerHTML='<div class="loading">Replaying every game across every season…</div>';
+  // resolve ESPN team_id via games (home/away name → id)
+  const enc=encodeURIComponent(row.full); let tid=null;
+  try{ let g=await fetch(`${SB_URL}/rest/v1/games?home=eq.${enc}&select=home_id&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]);
+    if(g&&g.length) tid=g[0].home_id;
+    else { g=await fetch(`${SB_URL}/rest/v1/games?away=eq.${enc}&select=away_id&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]); if(g&&g.length) tid=g[0].away_id; }
+  }catch(e){}
+  const done=()=>{ if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full)); if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out')); };
+  if(tid==null){ el('out').innerHTML='<div class="muted">No game data on file for this team yet.</div>'; done(); return; }
 
-  // sides
-  const gids=[...new Set(clocked.map(s=>s.game_id))]; const side={};
-  for(let i=0;i<gids.length;i+=60){ const chunk=gids.slice(i,i+60);
+  const off=await fetchAll(`/rest/v1/shots?team_id=eq.${tid}&sec_left=not.is.null&select=game_id,period,sec_left,home_score,away_score,made,sv,stype,season_year&order=season_year`);
+  const clocked=off.filter(s=>s.home_score!=null);
+  if(clocked.length<150){ el('out').innerHTML='<div class="muted">Not enough clock-tagged shot data for this team yet.</div>'; done(); return; }
+
+  // defense: opponent shots in the same games
+  const gids=[...new Set(off.map(s=>s.game_id).filter(x=>x!=null))];
+  let def=[];
+  for(let i=0;i<gids.length;i+=140){ const chunk=gids.slice(i,i+140);
+    def=def.concat(await fetchAll(`/rest/v1/shots?game_id=in.(${chunk.join(',')})&team_id=neq.${tid}&sec_left=not.is.null&select=game_id,period,made,sv,season_year`));
+  }
+
+  // side (home/away) per game → team margin + game time on each offense shot
+  const side={};
+  for(let i=0;i<gids.length;i+=120){ const chunk=gids.slice(i,i+120);
     try{ const gs=await fetch(`${SB_URL}/rest/v1/games?id=in.(${chunk.join(',')})&select=id,home_id,away_id`,{headers:H}).then(r=>r.ok?r.json():[]);
       gs.forEach(g=>{ side[g.id]=(g.home_id===tid?1:-1); }); }catch(e){}
   }
+  off.forEach(s=>{ if(side[s.game_id]!=null&&s.home_score!=null){ s._t=(s.period-1)*1200+(1200-R(s.sec_left)); s._m=side[s.game_id]*(R(s.home_score)-R(s.away_score)); } });
 
-  // halftime adjustment (offense)
-  const h1=shots.filter(s=>s.period===1), h2=shots.filter(s=>s.period>=2);
-  const base=efg(shots), e1=efg(h1), e2=efg(h2), htD=(e1!=null&&e2!=null)?e2-e1:null;
+  const seasons=[...new Set(off.map(s=>s.season_year))].sort((a,b)=>b-a);
+  STATE={row,tc,off,def,seasons};
 
-  // run response
-  const byGame={}; clocked.forEach(s=>{ if(side[s.game_id]==null) return; s._t=(s.period-1)*1200+(1200-R(s.sec_left)); s._m=side[s.game_id]*(R(s.home_score)-R(s.away_score)); (byGame[s.game_id]=byGame[s.game_id]||[]).push(s); });
+  const scopes=seasons.map(y=>({v:String(y),l:seasonLabel(y)}));
+  if(seasons.length>1) scopes.push({v:'all',l:'All seasons'});
+  const defScope=scopes[scopes.length-1].v;
+
+  el('out').innerHTML=`<div style="--tc:${tc}">
+    <div class="sec-h" style="margin-top:6px">${esc(row.full)} · adjustment profile</div>
+    <div id="adScope" class="chips"></div>
+    <div id="adBody"></div></div>`;
+  const scopeEl=el('adScope');
+  scopeEl.innerHTML=scopes.map(s=>`<div class="chip${s.v===defScope?' on':''}" data-v="${s.v}">${s.l}</div>`).join('');
+  scopeEl.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{
+    scopeEl.querySelectorAll('.chip').forEach(x=>x.classList.remove('on')); c.classList.add('on'); renderScope(c.dataset.v);
+  }));
+  renderScope(defScope);
+  if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
+}
+
+function renderScope(scope){
+  const {off,def,seasons,row}=STATE;
+  const inS=s=> scope==='all' || s.season_year===+scope;
+  const offS=off.filter(inS), defS=def.filter(inS);
+  const games=new Set(offS.map(s=>s.game_id)).size;
+  const scopeLbl = scope==='all' ? `${seasons.length} seasons` : seasonLabel(+scope);
+  const base=efg(offS);
+
+  // halftime — offense & defense
+  const oh1=offS.filter(s=>s.period===1), oh2=offS.filter(s=>s.period>=2);
+  const oe1=efg(oh1), oe2=efg(oh2), htOff=(oe1!=null&&oe2!=null)?oe2-oe1:null;
+  const dh1=defS.filter(s=>s.period===1), dh2=defS.filter(s=>s.period>=2);
+  const de1=efg(dh1), de2=efg(dh2), htDef=(de1!=null&&de2!=null)?de2-de1:null; // negative = D tightens after half
+
+  // run response (offense)
+  const byGame={}; offS.forEach(s=>{ if(s._m==null) return; (byGame[s.game_id]=byGame[s.game_id]||[]).push(s); });
   const afterRun=[];
   Object.values(byGame).forEach(gs=>{ gs.sort((a,b)=>a._t-b._t);
     for(let i=1;i<gs.length;i++){ const s=gs[i]; const prior=gs.slice(0,i).filter(x=>x._t>=s._t-150); if(!prior.length) continue;
@@ -186,49 +244,57 @@ async function loadTeam(){
   });
   const runE=afterRun.length>=12?efg(afterRun):null, runD=(runE!=null&&base!=null)?runE-base:null;
 
-  // scores
-  const htCls=htD==null?'n':htD>=3?'g':htD<=-3?'r':'n', htLab=htD==null?'—':htD>=3?'Sharper':htD<=-3?'Fades':'Steady';
-  const runCls=runD==null?'n':runD>=2?'g':runD<=-3?'r':'n', runLab=runD==null?'Thin sample':runD>=2?'Answers':runD<=-3?'Folds':'Holds';
+  // poise under deficit
+  const behind=offS.filter(s=>s._m!=null&&s._m<=-6);
+  const behindE=behind.length>=15?efg(behind):null, behindD=(behindE!=null&&base!=null)?behindE-base:null;
 
+  // classes/labels
+  const cUp=(d,hi,lo)=>d==null?'n':d>=hi?'g':d<=lo?'r':'n';
+  const htOffCls=cUp(htOff,3,-3), htOffLab=htOff==null?'—':htOff>=3?'Sharper':htOff<=-3?'Fades':'Steady';
+  const htDefCls=htDef==null?'n':htDef<=-3?'g':htDef>=3?'r':'n', htDefLab=htDef==null?'—':htDef<=-3?'Tightens':htDef>=3?'Loosens':'Steady';
+  const runCls=cUp(runD,2,-3), runLab=runD==null?'Thin':runD>=2?'Answers':runD<=-3?'Folds':'Holds';
+  const behCls=cUp(behindD,2,-3), behLab=behindD==null?'Thin':behindD>=2?'Poised':behindD<=-3?'Presses':'Holds';
+
+  const card=(cls,lab,val,valLab,desc,aL,aV,bL,bV)=>`<div class="scard ${cls}"><div class="sl">${lab}</div>
+    <div class="sv"><span class="sbig">${val}</span><span class="slab">${valLab}</span></div>
+    <div class="sd">${desc}</div>
+    <div class="split"><div class="sp"><div class="spl">${aL}</div><div class="spv">${aV}</div></div><div class="sp"><div class="spl">${bL}</div><div class="spv">${bV}</div></div></div></div>`;
+  const sg=(d,dec)=>d==null?'—':(d>0?'+':'')+d.toFixed(dec==null?1:dec);
   const scores=`<div class="scores">
-    <div class="scard ${htCls}"><div class="sl">Halftime Adjustment</div>
-      <div class="sv"><span class="sbig">${htD==null?'—':(htD>0?'+':'')+htD.toFixed(1)}</span><span class="slab">${htLab}</span></div>
-      <div class="sd">2nd-half eFG% vs 1st — do they come out of the break sharper?</div>
-      <div class="split"><div class="sp"><div class="spl">1st half eFG</div><div class="spv">${e1==null?'—':e1.toFixed(1)}</div></div><div class="sp"><div class="spl">2nd half eFG</div><div class="spv">${e2==null?'—':e2.toFixed(1)}</div></div></div>
-    </div>
-    <div class="scard ${runCls}"><div class="sl">Run Response</div>
-      <div class="sv"><span class="sbig">${runD==null?'—':(runD>0?'+':'')+runD.toFixed(1)}</span><span class="slab">${runLab}</span></div>
-      <div class="sd">eFG% right after the opponent runs, vs season baseline.</div>
-      <div class="split"><div class="sp"><div class="spl">After a run</div><div class="spv">${runE==null?'—':runE.toFixed(1)}</div></div><div class="sp"><div class="spl">Baseline · n</div><div class="spv">${base==null?'—':base.toFixed(1)} <span style="font-size:11px;color:var(--text3)">· ${afterRun.length}</span></div></div></div>
-    </div>
+    ${card(htOffCls,'Halftime — Offense',sg(htOff),htOffLab,'2nd-half team eFG% vs 1st — sharper after the break?','1st half',oe1==null?'—':oe1.toFixed(1),'2nd half',oe2==null?'—':oe2.toFixed(1))}
+    ${card(htDefCls,'Halftime — Defense',sg(htDef),htDefLab,'Opponent 2nd-half eFG% vs 1st — does the D tighten?','Opp 1st',de1==null?'—':de1.toFixed(1),'Opp 2nd',de2==null?'—':de2.toFixed(1))}
+    ${card(runCls,'Run Response',sg(runD),runLab,'eFG% right after the opponent runs, vs season baseline.','After run',runE==null?'—':runE.toFixed(1),'Base · n',(base==null?'—':base.toFixed(1))+' · '+afterRun.length)}
+    ${card(behCls,'Poise Under Deficit',sg(behindD),behLab,'eFG% while trailing 6+, vs season baseline.','Trailing 6+',behindE==null?'—':behindE.toFixed(1),'Base · n',(base==null?'—':base.toFixed(1))+' · '+behind.length)}
   </div>`;
 
-  // shot-mix shift
+  // shot-mix shift (offense)
   const mixRow=(lbl,v1,v2)=>{ const d=v2-v1, cls=Math.abs(d)<1.5?'fl':(d>0?'up':'dn');
     return `<div class="mrow"><div class="ml">${lbl}</div><div class="mv">${v1.toFixed(0)}%</div><div class="mv">${v2.toFixed(0)}%</div><div class="md ${cls}">${d>0?'+':''}${d.toFixed(0)}</div></div>`; };
   const mix=`<div class="sec-h">What changes after halftime <span class="hint">shot diet · 1st → 2nd half</span></div>
     <div class="mix"><div class="mrow"><div class="ml" style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);">Shot type</div><div class="mh">1st half</div><div class="mh">2nd half</div><div class="mh" style="text-align:right;">shift</div></div>
-    ${mixRow('Three-point rate',rate(h1,is3),rate(h2,is3))}
-    ${mixRow('Rim rate',rate(h1,isRim),rate(h2,isRim))}
+    ${mixRow('Three-point rate',rate(oh1,is3),rate(oh2,is3))}
+    ${mixRow('Rim rate',rate(oh1,isRim),rate(oh2,isRim))}
     </div>`;
 
-  // synthesized read
-  const htTag = htD==null?['n','Even keel'] : htD>=3?['g','Adjusts at the half'] : htD<=-3?['r','Front-runs'] : ['n','Even keel'];
-  let htSent = htD==null?'' : htD>=3?`comes out of the locker room <b>sharper</b> — its shot climbs <b>${htD.toFixed(1)}</b> eFG points in the second half`
-    : htD<=-3?`is at its <b>best early</b> and cools after the break (eFG <b>${htD.toFixed(1)}</b> in the second half) — a front-runner more than an adjuster`
-    : `holds steady across halves — no big second-half swing either way`;
-  let runSent='';
-  if(runD!=null){ runSent = runD>=2?`, and when the other team goes on a run it <b>answers</b> — shooting <b>${runE.toFixed(0)}%</b> right after, above its ${base.toFixed(0)}% norm`
-    : runD<=-3?`, but when the game turns it tends to <b>fold</b> — eFG drops to <b>${runE.toFixed(0)}%</b> right after an opponent run (${afterRun.length} such shots)`
-    : `, and it <b>steadies</b> after opponent runs rather than snowballing`; }
-  const read=`<div class="read"><span class="tag ${htTag[0]}">${htTag[1]}</span><b>${esc(row.full)}</b> ${htSent}${runSent}.</div>`;
+  // verdict + read
+  const adjOff=htOff!=null&&htOff>=3, adjDef=htDef!=null&&htDef<=-3, frontRun=htOff!=null&&htOff<=-3;
+  let role;
+  if(adjOff&&adjDef) role={lab:'Adjusts on both ends',cls:'g'};
+  else if(adjOff||adjDef) role={lab:'Halftime adjuster',cls:'g'};
+  else if(frontRun) role={lab:'Front-runner',cls:'a'};
+  else role={lab:'Rides the tide',cls:'n'};
+  const parts=[];
+  if(htOff!=null) parts.push(htOff>=3?`its offense comes out of the break <b>sharper</b> (eFG +${htOff.toFixed(1)})`:htOff<=-3?`its offense is <b>best early</b> and cools after the half (eFG ${htOff.toFixed(1)})`:`its offense holds its level across halves`);
+  if(htDef!=null) parts.push(htDef<=-3?`the defense <b>tightens</b> after the break (opp eFG ${htDef.toFixed(1)})`:htDef>=3?`the defense <b>slips</b> late (opp eFG +${htDef.toFixed(1)})`:`the defense holds steady`);
+  if(runD!=null) parts.push(runD>=2?`it <b>answers</b> opponent runs (eFG ${runE.toFixed(0)}% right after, above its ${base.toFixed(0)}% norm)`:runD<=-3?`it tends to <b>fold</b> when the game turns (eFG ${runE.toFixed(0)}% after a run)`:`it steadies after runs rather than snowballing`);
+  const read=`<div class="read"><span class="tag ${role.cls==='a'?'r':role.cls}">${role.lab}</span><b>${esc(row.full)}</b> — ${parts.join(', ')}.</div>`;
 
-  el('out').innerHTML=`<div style="--tc:${tc}">
-    <div class="sec-h">Adjustment scores <span class="hint">2025-26 · ${gids.length} games</span></div>
-    ${scores}${read}${mix}
-  </div>`;
-  if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
-  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
+  el('adBody').innerHTML=`
+    <div class="hero"><div class="big"><div class="role ${role.cls}">${role.lab}</div><div class="rl">Adjustment identity</div></div>
+      <div class="txt"><div class="pn">${esc(row.full)}</div><div class="pm">${games} games · ${offS.length} shots · ${scopeLbl}</div><div class="rd">Two-way look at how this staff responds when the game turns.</div></div></div>
+    <div class="sec-h">Adjustment scores <span class="hint">${scopeLbl} · offense &amp; defense</span></div>
+    ${scores}${read}${mix}`;
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('adBody'));
 }
 
 (async function(){
