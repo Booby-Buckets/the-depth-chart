@@ -25,6 +25,7 @@ window.TDC_COACHLINKS = (function () {
       ['pairings.html',       'Pairings'],
       ['assist-network.html', 'Assist Network'],
       ['rotation.html',       'Rotation & Bench'],
+      ['team-clutch.html',    'Team Clutch'],
       ['adjustments.html',    'Adjustments'],
     ]],
     ['Personnel', [
