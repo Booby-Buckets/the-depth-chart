@@ -75,6 +75,19 @@
     .dfbar{height:8px;border-radius:4px;background:var(--bg3);overflow:hidden;}
     .dfbar .dff{height:100%;border-radius:4px;}
     .dfp{font-size:12px;font-weight:800;color:var(--text2);text-align:right;font-variant-numeric:tabular-nums;}
+    .kmwrap{border:1px solid var(--border);border-radius:12px;background:var(--bg2);overflow:hidden;}
+    .kmhead,.kmrow{display:grid;grid-template-columns:34px 1fr 44px 1fr;gap:8px;align-items:center;padding:9px 14px;}
+    .kmhead{border-bottom:1px solid var(--border);}
+    .kmhead span{font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
+    .kmhead span:nth-child(3),.kmrow .kmvs{text-align:center;}
+    .kmrow{border-top:1px solid var(--border);}
+    .kmpos{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;color:var(--text3);}
+    .kmp{min-width:0;}
+    .kmp.edge{}
+    .kmn{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .kmp.edge .kmn{color:var(--accent);}
+    .kms{font-size:10.5px;color:var(--text3);font-weight:600;}
+    .kmvs{font-family:'Playfair Display',serif;font-weight:800;font-size:13px;color:var(--text3);font-variant-numeric:tabular-nums;}
     .card{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:18px 20px;}
     /* game plan */
     .plan{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
@@ -314,7 +327,31 @@ function matchupMini(me,opp){
     <div class="s"><div class="n">${esc(sn(a.team))}</div><div class="sc" style="--sc:${cA}">${L.scoreA}</div><div class="wp" style="--sc:${cA}">${wa}% win</div></div>
     <div class="m"><div class="sp">${esc(L.spread)}</div><div class="to">proj. total ${L.scoreA+L.scoreB} · neutral</div></div>
     <div class="s"><div class="n">${esc(sn(b.team))}</div><div class="sc" style="--sc:${cB}">${L.scoreB}</div><div class="wp" style="--sc:${cB}">${wb}% win</div></div>
-  </div>`;
+  </div>
+  <div id="keyMatchups"></div>`;
+}
+
+// ── key matchups: project BOTH rotations, cross them position by position ──
+async function projTeamLines(row){
+  let roster=[]; try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,position,position2,depth_order,hometown,is_injured,class_year,yr,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
+  let map={}; try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready; if(typeof buildTeamProjections==='function'){ const pr=buildTeamProjections(roster.map(x=>Object.assign({},x)), row.conf||''); (pr||[]).forEach(x=>{ if(x&&x.name) map[x.name.toLowerCase().trim()]=x; }); } }catch(e){}
+  return roster.filter(p=>p.name).map(p=>{ const pj=map[(p.name||'').toLowerCase().trim()]; const _n=v=>{const n=+v;return isNaN(n)?0:n;};
+    return {name:p.name, pos:((p.position||'').split('/')[0]||'G').replace(/[^A-Z]/g,''), ovr:(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):_n(p.tdc_grade), pts: pj?_n(pj.ppg):_n(p.ppg), mpg: pj?_n(pj.mpg):_n(p.mpg)}; }); }
+async function loadKeyMatchups(meRow, oppRow){
+  const host=el('keyMatchups'); if(!host) return;
+  host.innerHTML='<div class="muted" style="padding:10px 2px;font-size:12px">Crossing the rotations…</div>';
+  const [meP,oppP]=await Promise.all([projTeamLines(meRow),projTeamLines(oppRow)]);
+  if(!meP.length||!oppP.length){ host.innerHTML=''; return; }
+  const POS=['PG','SG','SF','PF','C'], norm=p=>({PG:'PG',SG:'SG',CG:'SG',G:'SG',SF:'SF',F:'SF',PF:'PF',C:'C'}[p]||p);
+  const starter=(list,pos)=>list.map(p=>({...p,pos:norm(p.pos)})).filter(p=>p.pos===pos).sort((a,b)=>b.mpg-a.mpg)[0];
+  const meNm=sn(meRow?poolRow(selKey.Me).team:''), oppNm=sn(oppRow.team);
+  const rows=POS.map(pos=>{ const m=starter(meP,pos), o=starter(oppP,pos); if(!m&&!o) return '';
+    const diff=(m?m.ovr:0)-(o?o.ovr:0); const meEdge=diff>=3, oppEdge=diff<=-3;
+    const side=(pl,edge)=>pl?`<div class="kmp ${edge?'edge':''}"><div class="kmn">${esc(pl.name)}</div><div class="kms">${pl.ovr} OVR · ${pl.pts.toFixed(1)} pts</div></div>`:`<div class="kmp"><div class="kmn" style="color:var(--text3)">—</div></div>`;
+    return `<div class="kmrow"><div class="kmpos">${pos}</div>${side(m,meEdge)}<div class="kmvs">${diff>0?'+'+diff:diff}</div>${side(o,oppEdge)}</div>`;
+  }).filter(Boolean).join('');
+  host.innerHTML=`<div class="sec-h" style="margin-top:22px">Key matchups <span class="hint">projected starter at each spot · OVR edge</span></div>
+    <div class="kmwrap"><div class="kmhead"><span>Pos</span><span>${esc(meNm)}</span><span>edge</span><span>${esc(oppNm)}</span></div>${rows}</div>`;
 }
 
 function renderReportBlock(rep){
@@ -520,6 +557,7 @@ function render(){
     ${renderReportBlock(rep)}
   </div>`;
   loadPersonnel(r);
+  if(me) loadKeyMatchups(poolRow(me.key), r);
   if(sg&&sg.off) loadShotChart(r);
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(r.full));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
