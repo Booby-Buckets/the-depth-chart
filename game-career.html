@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="auth.js?v=paywall4"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Career Path — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--amber:#b5872a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--amber:#d8b05a;--red:#e07070;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html{background:var(--bg);}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
+    a{color:inherit;text-decoration:none;}
+    .nav-wrap{border-bottom:1px solid var(--border);background:rgba(250,249,246,.66);backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);position:sticky;top:0;z-index:200;}
+    [data-theme="dark"] .nav-wrap{background:rgba(20,20,22,.84);}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);letter-spacing:-.01em;}
+    .nav-logo span{color:var(--accent);}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;}
+    .wrap{max-width:560px;margin:0 auto;padding:30px 20px 90px;}
+    .back{font-size:12px;font-weight:700;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;display:inline-flex;gap:6px;margin-bottom:16px;}
+    .back:hover{color:var(--accent);}
+    .hd{text-align:center;margin-bottom:14px;}
+    .hd h1{font-family:'Playfair Display',serif;font-weight:800;font-size:34px;letter-spacing:-.01em;}
+    .hd p{font-size:13px;color:var(--text3);margin-top:6px;line-height:1.5;}
+    .tabs{display:flex;gap:8px;justify-content:center;margin:14px 0 6px;}
+    .tab{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:8px 16px;border:1px solid var(--border2);border-radius:20px;background:var(--bg2);color:var(--text3);cursor:pointer;}
+    .tab.on{background:var(--accent);border-color:var(--accent);color:#221c08;}
+    .scorebar{display:flex;justify-content:center;gap:26px;margin:14px 0 6px;}
+    .sb{text-align:center;} .sb .n{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1;} .sb .l{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
+    .card{border:1px solid var(--border2);border-radius:18px;background:radial-gradient(120% 130% at 0 0,color-mix(in srgb,var(--accent) 8%,var(--bg2)),var(--bg2));padding:22px;margin-top:12px;}
+    .qmark{text-align:center;font-family:'Playfair Display',serif;font-weight:800;font-size:16px;}
+    .qmark span{font-size:12px;color:var(--text3);font-weight:600;display:block;margin-top:3px;}
+    .tl{margin-top:16px;position:relative;padding-left:26px;}
+    .tl::before{content:'';position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:var(--border2);}
+    .step{position:relative;padding:9px 0;}
+    .step::before{content:'';position:absolute;left:-22px;top:15px;width:11px;height:11px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);}
+    .step.hidden{opacity:0;height:0;padding:0;overflow:hidden;}
+    .step .yr{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);}
+    .step .tm{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;margin-top:1px;}
+    .step .ln{font-size:12px;color:var(--text3);font-weight:600;margin-top:1px;}
+    .combo{position:relative;margin-top:16px;}
+    .search{width:100%;padding:13px 15px;border:1px solid var(--accent);border-radius:12px;background:var(--bg);color:var(--text);font-family:inherit;font-size:15px;font-weight:600;outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent);}
+    .search:disabled{opacity:.6;}
+    .clist{display:none;position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:30;max-height:280px;overflow-y:auto;background:var(--bg);border:1px solid var(--border2);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);}
+    .citem{padding:10px 14px;cursor:pointer;font-size:14px;font-weight:600;}
+    .citem:hover,.citem.hl{background:var(--bg3);}
+    .cempty{padding:12px;font-size:12px;color:var(--text3);}
+    .guesses{margin-top:12px;display:flex;flex-direction:column;gap:6px;}
+    .grow{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700;padding:9px 13px;border-radius:10px;background:var(--bg3);color:var(--red);}
+    .grow .x{margin-left:auto;font-weight:800;}
+    .hintbtn{width:100%;margin-top:10px;padding:11px;border:1px solid var(--border2);border-radius:12px;background:var(--bg3);color:var(--text2);font-family:inherit;font-weight:800;font-size:13px;cursor:pointer;}
+    .reveal{margin-top:16px;text-align:center;}
+    .reveal .who{font-family:'Playfair Display',serif;font-weight:800;font-size:23px;}
+    .verdict{font-size:14px;font-weight:800;padding:8px 16px;border-radius:20px;display:inline-block;margin-top:12px;}
+    .verdict.g{background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green);}
+    .verdict.r{background:color-mix(in srgb,var(--red) 16%,transparent);color:var(--red);}
+    .btn{width:100%;margin-top:14px;padding:14px;border:none;border-radius:12px;background:var(--accent);color:#221c08;font-family:inherit;font-weight:800;font-size:15px;cursor:pointer;}
+    .loading{text-align:center;padding:60px;color:var(--text3);}
+    .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:22px;text-align:center;}
+  </style>
+  <link rel="stylesheet" href="tdc-anim.css?v=4"/>
+  <script src="tdc-anim.js?v=5"></script>
+  <link rel="stylesheet" href="tdc-dense.css?v=18"/>
+  <style>:root:not([data-theme="dark"]){background:var(--bg)!important;}:root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}</style>
+</head>
+<body data-anim-auto>
+<script src="tdc-nav.js?v=5"></script>
+  <div class="nav-wrap"><div class="nav-top">
+    <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">🌙</button>
+  </div></div>
+
+  <div class="wrap">
+    <a class="back" href="games.html">← All games</a>
+    <div class="hd">
+      <h1>Career Path</h1>
+      <p>A player's college journey, season by season — schools, class and scoring, name hidden. Guess who. Each miss reveals the next stop.</p>
+    </div>
+    <div class="scorebar">
+      <div class="sb"><div class="n" id="sScore">0</div><div class="l">Score</div></div>
+      <div class="sb"><div class="n" id="sSolved">0</div><div class="l">Solved</div></div>
+      <div class="sb"><div class="n" id="sStreak">0</div><div class="l">Streak</div></div>
+    </div>
+    <div id="content"><div class="loading">Building career paths from 20 years…</div></div>
+    <div class="note">Multi-season players (2+ seasons since 2006-07). Only the first stop shows at first; each miss (or “Reveal next stop”) uncovers another season. Points = 6 on the first stop, down to 1. Transfers show more than one school.</div>
+  </div>
+
+<script>
+function toggleTheme(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');document.getElementById('themeBtn').textContent=d?'🌙':'☀️';try{localStorage.setItem('tdc_theme',d?'light':'dark');}catch(e){}}
+(function(){try{var s=localStorage.getItem('tdc_theme');if(s){document.documentElement.setAttribute('data-theme',s);var b=document.getElementById('themeBtn');if(b)b.textContent=s==='dark'?'☀️':'🌙';}}catch(e){}})();
+
+const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
+const el=id=>document.getElementById(id);
+const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
+const F=(v,d)=>v==null||isNaN(+v)?'—':(+v).toFixed(d==null?1:d);
+const norm=s=>(''+(s||'')).toLowerCase().replace(/[^a-z]/g,'');
+const seasonLbl=y=>y?((y-1)+'-'+String(y).slice(2)):'';
+const classInfo=y=>{const s=(''+(y||'')).toLowerCase();return s.indexOf('fr')>=0?'Freshman':s.indexOf('so')>=0?'Sophomore':s.indexOf('jr')>=0?'Junior':s.indexOf('sr')>=0?'Senior':(y||'');};
+
+let CAREERS=null, NAMES=[], CUR=null, revealed=1, tries=0, locked=false, hlIdx=-1;
+let S={score:0,solved:0,streak:0};
+
+async function loadCareers(){
+  const base=SB+'/rest/v1/player_history?select=name,team,season_year,yr,ppg,rpg,apg,tdc_grade,espn_id&espn_id=not.is.null&tdc_grade=gte.74&gp=gte.12&mpg=gte.14';
+  const cr=await fetch(base+'&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact','Range':'0-0','Range-Unit':'items'})});
+  const total=+(cr.headers.get('content-range')||'0/0').split('/')[1]||0; const PG=1000, pages=Math.min(Math.ceil(total/PG),28), jobs=[];
+  for(let i=0;i<pages;i++) jobs.push(fetch(base,{headers:Object.assign({},H,{'Range-Unit':'items','Range':(i*PG)+'-'+(i*PG+PG-1)})}).then(r=>r.ok?r.json():[]).catch(()=>[]));
+  const rows=(await Promise.all(jobs)).reduce((a,b)=>a.concat(b),[]);
+  const byId={}; rows.forEach(r=>{ if(!r||r.espn_id==null||!r.name) return; (byId[r.espn_id]=byId[r.espn_id]||[]).push(r); });
+  const careers=[];
+  Object.values(byId).forEach(seasons=>{
+    // one row per season_year (keep highest ppg if dupes)
+    const byYr={}; seasons.forEach(s=>{ const y=s.season_year; if(!byYr[y]||(+s.ppg||0)>(+byYr[y].ppg||0)) byYr[y]=s; });
+    const arr=Object.values(byYr).sort((a,b)=>a.season_year-b.season_year);
+    if(arr.length>=2) careers.push(arr);
+  });
+  return careers;
+}
+
+function renderScore(){ el('sScore').textContent=S.score; el('sSolved').textContent=S.solved; el('sStreak').textContent=S.streak; }
+
+function nextRound(){
+  if(!CAREERS||!CAREERS.length){ el('content').innerHTML='<div class="loading">No careers available.</div>'; return; }
+  // weight toward transfers (2+ distinct schools) ~60%
+  let pick;
+  const transfers=CAREERS.filter(c=>new Set(c.map(s=>s.team)).size>=2);
+  if(transfers.length&&Math.random()<0.6) pick=transfers[Math.floor(Math.random()*transfers.length)];
+  else pick=CAREERS[Math.floor(Math.random()*CAREERS.length)];
+  CUR=pick; revealed=1; tries=0; locked=false; hlIdx=-1;
+  const steps=CUR.map((s,i)=>`<div class="step${i<revealed?'':' hidden'}" data-i="${i}"><div class="yr">${seasonLbl(s.season_year)}</div><div class="tm">${esc(s.team)}</div><div class="ln">${classInfo(s.yr)} · ${F(s.ppg)} ppg · ${F(s.rpg)} reb · ${F(s.apg)} ast</div></div>`).join('');
+  el('content').innerHTML=`<div class="card" data-anim>
+    <div class="qmark">Whose career is this?<span>${CUR.length} seasons on file</span></div>
+    <div class="tl" id="tl">${steps}</div>
+    <div class="combo"><input id="sel" class="search" placeholder="Guess the player…" autocomplete="off"><div class="clist" id="clist"></div></div>
+    <button class="hintbtn" id="hint" onclick="revealNext(true)">Reveal next stop ↓</button>
+    <div class="guesses" id="guesses"></div>
+    <div id="rev"></div>
+  </div>`;
+  wireCombo(); if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('content'));
+  setTimeout(()=>{ const i=el('sel'); if(i) i.focus(); },50);
+}
+function showSteps(){ const tl=el('tl'); if(!tl) return; tl.querySelectorAll('.step').forEach((s,i)=>s.classList.toggle('hidden',i>=revealed)); }
+function revealNext(costTry){
+  if(locked) return;
+  if(costTry){ tries++; }
+  revealed=Math.min(revealed+1,CUR.length);
+  showSteps();
+  const hb=el('hint'); if(hb&&revealed>=CUR.length) hb.style.display='none';
+  if(tries>=CUR.length+1){ lose(); }
+}
+
+function matches(q){ const t=norm(q); if(!t) return []; const st=[],inc=[]; for(const n of NAMES){ const nn=norm(n); if(nn.startsWith(t))st.push(n); else if(nn.includes(t))inc.push(n); if(st.length>=8)break; } return st.concat(inc).slice(0,8); }
+function renderMatches(){ const list=el('clist'), m=matches(el('sel').value); hlIdx=-1; list.innerHTML=m.length?m.map((n,i)=>`<div class="citem" data-n="${esc(n)}" data-i="${i}">${esc(n)}</div>`).join(''):'<div class="cempty">No players match</div>'; list.style.display='block'; }
+function wireCombo(){
+  const inp=el('sel'), list=el('clist');
+  inp.addEventListener('input',renderMatches);
+  inp.addEventListener('focus',()=>{ if(inp.value) renderMatches(); });
+  inp.addEventListener('keydown',e=>{ const items=[...list.querySelectorAll('.citem')];
+    if(e.key==='ArrowDown'){e.preventDefault();hlIdx=Math.min(hlIdx+1,items.length-1);items.forEach((x,i)=>x.classList.toggle('hl',i===hlIdx));}
+    else if(e.key==='ArrowUp'){e.preventDefault();hlIdx=Math.max(hlIdx-1,0);items.forEach((x,i)=>x.classList.toggle('hl',i===hlIdx));}
+    else if(e.key==='Enter'){e.preventDefault();const p=hlIdx>=0?items[hlIdx]:items[0];if(p)guess(p.dataset.n);}
+    else if(e.key==='Escape'){list.style.display='none';}
+  });
+  inp.addEventListener('blur',()=>setTimeout(()=>{list.style.display='none';},160));
+  list.addEventListener('mousedown',e=>{const it=e.target.closest('.citem');if(it){e.preventDefault();guess(it.dataset.n);}});
+}
+function targetName(){ return CUR[CUR.length-1].name; }
+function guess(name){
+  if(locked||!name) return; const list=el('clist'); if(list) list.style.display='none';
+  if(norm(name)===norm(targetName())){ win(); return; }
+  el('guesses').insertAdjacentHTML('beforeend',`<div class="grow"><span>${esc(name)}</span><span class="x">✗</span></div>`);
+  el('sel').value='';
+  revealNext(true);
+}
+function win(){ locked=true; const p=Math.max(1,6-tries); S.score+=p; S.solved++; S.streak++; renderScore(); finish('g',`Got it — +${p}`); }
+function lose(){ locked=true; S.streak=0; renderScore(); finish('r','Out of guesses'); }
+function finish(cls,word){
+  revealed=CUR.length; showSteps();
+  const t=CUR[CUR.length-1];
+  el('sel').disabled=true; const hb=el('hint'); if(hb) hb.style.display='none';
+  el('rev').innerHTML=`<div class="reveal" data-anim><div class="who">${esc(t.name)}</div>
+    <div class="verdict ${cls}">${word}</div>
+    <button class="btn" onclick="nextRound()">Next career →</button></div>`;
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('rev'));
+}
+
+(async function(){
+  CAREERS=await loadCareers();
+  NAMES=[...new Set(CAREERS.map(c=>c[c.length-1].name))].sort();
+  renderScore(); nextRound();
+})();
+</script>
+</body>
+</html>

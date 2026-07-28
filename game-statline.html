@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="auth.js?v=paywall4"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stat Line Guess — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--amber:#b5872a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--amber:#d8b05a;--red:#e07070;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html{background:var(--bg);}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
+    a{color:inherit;text-decoration:none;}
+    .nav-wrap{border-bottom:1px solid var(--border);background:rgba(250,249,246,.66);backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);position:sticky;top:0;z-index:200;}
+    [data-theme="dark"] .nav-wrap{background:rgba(20,20,22,.84);}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);letter-spacing:-.01em;}
+    .nav-logo span{color:var(--accent);}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;}
+    .wrap{max-width:560px;margin:0 auto;padding:30px 20px 90px;}
+    .back{font-size:12px;font-weight:700;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;display:inline-flex;gap:6px;margin-bottom:16px;}
+    .back:hover{color:var(--accent);}
+    .hd{text-align:center;margin-bottom:14px;}
+    .hd h1{font-family:'Playfair Display',serif;font-weight:800;font-size:34px;letter-spacing:-.01em;}
+    .hd p{font-size:13px;color:var(--text3);margin-top:6px;line-height:1.5;}
+    .tabs{display:flex;gap:8px;justify-content:center;margin:14px 0 6px;}
+    .tab{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:8px 16px;border:1px solid var(--border2);border-radius:20px;background:var(--bg2);color:var(--text3);cursor:pointer;}
+    .tab.on{background:var(--accent);border-color:var(--accent);color:#221c08;}
+    .scorebar{display:flex;justify-content:center;gap:26px;margin:14px 0 6px;}
+    .sb{text-align:center;} .sb .n{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1;} .sb .l{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
+    .card{border:1px solid var(--border2);border-radius:18px;background:radial-gradient(120% 130% at 0 0,color-mix(in srgb,var(--accent) 8%,var(--bg2)),var(--bg2));padding:22px;margin-top:12px;}
+    .qmark{text-align:center;font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:var(--text3);letter-spacing:.02em;}
+    .qmark b{color:var(--text);}
+    .line{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px;}
+    .st{text-align:center;border:1px solid var(--border);border-radius:11px;background:var(--bg);padding:11px 4px;}
+    .st .v{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;line-height:1;} .st .k{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
+    .clues{margin-top:14px;display:flex;flex-wrap:wrap;gap:7px;justify-content:center;}
+    .clue{font-size:11.5px;font-weight:700;color:var(--text2);background:var(--bg3);border-radius:20px;padding:5px 12px;}
+    .clue.hint{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--amber);}
+    .combo{position:relative;margin-top:16px;}
+    .search{width:100%;padding:13px 15px;border:1px solid var(--accent);border-radius:12px;background:var(--bg);color:var(--text);font-family:inherit;font-size:15px;font-weight:600;outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent);}
+    .search:disabled{opacity:.6;}
+    .clist{display:none;position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:30;max-height:280px;overflow-y:auto;background:var(--bg);border:1px solid var(--border2);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);}
+    .citem{padding:10px 14px;cursor:pointer;font-size:14px;font-weight:600;display:flex;justify-content:space-between;gap:10px;}
+    .citem:hover,.citem.hl{background:var(--bg3);}
+    .citem .tm{color:var(--text3);font-weight:500;font-size:12px;}
+    .cempty{padding:12px;font-size:12px;color:var(--text3);}
+    .guesses{margin-top:12px;display:flex;flex-direction:column;gap:6px;}
+    .grow{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700;padding:9px 13px;border-radius:10px;background:var(--bg3);}
+    .grow.wrong{color:var(--red);} .grow .x{margin-left:auto;font-weight:800;}
+    .reveal{margin-top:16px;text-align:center;}
+    .reveal .who{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;}
+    .reveal .sub{font-size:12.5px;color:var(--text3);font-weight:600;margin-top:3px;}
+    .verdict{font-size:14px;font-weight:800;padding:8px 16px;border-radius:20px;display:inline-block;margin-top:12px;}
+    .verdict.g{background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green);}
+    .verdict.r{background:color-mix(in srgb,var(--red) 16%,transparent);color:var(--red);}
+    .btn{width:100%;margin-top:14px;padding:14px;border:none;border-radius:12px;background:var(--accent);color:#221c08;font-family:inherit;font-weight:800;font-size:15px;cursor:pointer;}
+    .loading{text-align:center;padding:60px;color:var(--text3);}
+    .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:22px;text-align:center;}
+  </style>
+  <link rel="stylesheet" href="tdc-anim.css?v=4"/>
+  <script src="tdc-anim.js?v=5"></script>
+  <link rel="stylesheet" href="tdc-dense.css?v=18"/>
+  <style>:root:not([data-theme="dark"]){background:var(--bg)!important;}:root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}</style>
+</head>
+<body data-anim-auto>
+<script src="tdc-nav.js?v=5"></script>
+  <div class="nav-wrap"><div class="nav-top">
+    <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">🌙</button>
+  </div></div>
+
+  <div class="wrap">
+    <a class="back" href="games.html">← All games</a>
+    <div class="hd">
+      <h1>Stat Line Guess</h1>
+      <p>A season stat line, no name attached. Type your guess — each miss unlocks a clue. Fewer guesses, more points.</p>
+    </div>
+    <div class="tabs">
+      <button class="tab on" id="tYear" onclick="setScope('year')">This year</button>
+      <button class="tab" id="tAll" onclick="setScope('all')">All-time · 20 yrs</button>
+    </div>
+    <div class="scorebar">
+      <div class="sb"><div class="n" id="sScore">0</div><div class="l">Score</div></div>
+      <div class="sb"><div class="n" id="sSolved">0</div><div class="l">Solved</div></div>
+      <div class="sb"><div class="n" id="sStreak">0</div><div class="l">Streak</div></div>
+    </div>
+    <div id="content"><div class="loading">Loading players…</div></div>
+    <div class="note">Up to 5 guesses. Points = 6 for a first-try solve, down to 1 on the fifth. Position, class, height and (all-time) season are free; team letters unlock as you miss. Pool: qualified rotation players.</div>
+  </div>
+
+<script>
+function toggleTheme(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');document.getElementById('themeBtn').textContent=d?'🌙':'☀️';try{localStorage.setItem('tdc_theme',d?'light':'dark');}catch(e){}}
+(function(){try{var s=localStorage.getItem('tdc_theme');if(s){document.documentElement.setAttribute('data-theme',s);var b=document.getElementById('themeBtn');if(b)b.textContent=s==='dark'?'☀️':'🌙';}}catch(e){}})();
+
+const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
+const el=id=>document.getElementById(id);
+const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
+const F=(v,d)=>v==null||isNaN(+v)?'—':(+v).toFixed(d==null?1:d);
+const norm=s=>(''+(s||'')).toLowerCase().replace(/[^a-z]/g,'');
+const seasonLbl=y=>y?((y-1)+'-'+String(y).slice(2)):'';
+const classInfo=y=>{const s=(''+(y||'')).toLowerCase();return s.indexOf('fr')>=0?'Fr':s.indexOf('so')>=0?'So':s.indexOf('jr')>=0?'Jr':s.indexOf('sr')>=0?'Sr':(y||'');};
+const MAX=5;
+
+let scope='year', POOL_YEAR=null, POOL_ALL=null, NAMES=[], TARGET=null, tries=0, locked=false, hlIdx=-1;
+let S={score:0,solved:0,streak:0};
+function curPool(){ return scope==='year'?POOL_YEAR:POOL_ALL; }
+
+async function loadYear(){
+  const r=await fetch(SB+'/rest/v1/players?select=name,team,position,class_year,yr,height,ppg,rpg,apg,stl,blk,fg_pct,tp_pct,ft_pct,mpg,gp&tdc_grade=gte.70&gp=gte.15&mpg=gte.16&ppg=gte.6&order=name.asc',{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  return (r||[]).filter(p=>p.name&&p.ppg!=null);
+}
+async function loadAll(){
+  const base=SB+'/rest/v1/player_history?select=name,team,season_year,position,yr,height,ppg,rpg,apg,stl,blk,fg_pct,tp_pct,ft_pct,mpg,gp&tdc_grade=gte.80&gp=gte.20&mpg=gte.22&ppg=gte.9';
+  const cr=await fetch(base+'&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact','Range':'0-0','Range-Unit':'items'})});
+  const total=+(cr.headers.get('content-range')||'0/0').split('/')[1]||0; const PG=1000, pages=Math.min(Math.ceil(total/PG),22), jobs=[];
+  for(let i=0;i<pages;i++) jobs.push(fetch(base,{headers:Object.assign({},H,{'Range-Unit':'items','Range':(i*PG)+'-'+(i*PG+PG-1)})}).then(r=>r.ok?r.json():[]));
+  const parts=await Promise.all(jobs);
+  return parts.reduce((a,b)=>a.concat(b),[]).filter(p=>p&&p.name&&p.ppg!=null);
+}
+
+async function setScope(s){
+  if(s===scope&&curPool()) return; scope=s;
+  el('tYear').classList.toggle('on',s==='year'); el('tAll').classList.toggle('on',s==='all');
+  S={score:0,solved:0,streak:0}; renderScore();
+  el('content').innerHTML='<div class="loading">'+(s==='all'?'Loading 20 years of players…':'Loading players…')+'</div>';
+  if(s==='year'){ if(!POOL_YEAR) POOL_YEAR=await loadYear(); } else { if(!POOL_ALL) POOL_ALL=await loadAll(); }
+  NAMES=[...new Set(curPool().map(p=>p.name))].sort();
+  nextRound();
+}
+function renderScore(){ el('sScore').textContent=S.score; el('sSolved').textContent=S.solved; el('sStreak').textContent=S.streak; }
+
+function nextRound(){
+  const pool=curPool(); if(!pool||!pool.length){ el('content').innerHTML='<div class="loading">No players available.</div>'; return; }
+  TARGET=pool[Math.floor(Math.random()*pool.length)]; tries=0; locked=false; hlIdx=-1;
+  const t=TARGET;
+  const st=(k,v)=>`<div class="st"><div class="v">${v}</div><div class="k">${k}</div></div>`;
+  const clues=[t.position,classInfo(t.class_year||t.yr),t.height,(scope==='all'&&t.season_year)?seasonLbl(t.season_year):null].filter(Boolean).map(c=>`<span class="clue">${esc(c)}</span>`).join('');
+  el('content').innerHTML=`<div class="card" data-anim>
+    <div class="qmark">Who put up this line in <b>${scope==='all'&&t.season_year?seasonLbl(t.season_year):'2025-26'}</b>?</div>
+    <div class="line">${st('PPG',F(t.ppg))}${st('RPG',F(t.rpg))}${st('APG',F(t.apg))}${st('MPG',F(t.mpg,0))}</div>
+    <div class="line" style="grid-template-columns:repeat(4,1fr);margin-top:8px">${st('FG%',F(t.fg_pct,0))}${st('3P%',F(t.tp_pct,0))}${st('STL',F(t.stl))}${st('BLK',F(t.blk))}</div>
+    <div class="clues" id="clues">${clues}</div>
+    <div class="combo"><input id="sel" class="search" placeholder="Guess the player…" autocomplete="off"><div class="clist" id="clist"></div></div>
+    <div class="guesses" id="guesses"></div>
+    <div id="rev"></div>
+  </div>`;
+  wireCombo(); if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('content'));
+  setTimeout(()=>{ const i=el('sel'); if(i) i.focus(); },50);
+}
+
+function teamClue(){
+  const tm=TARGET.team||''; if(tries<=0) return '';
+  if(tries>=3) return 'Team: '+tm;
+  const shown=Math.min(tries,tm.length);
+  return 'Team: '+tm.slice(0,shown)+tm.slice(shown).replace(/[^ ]/g,'•');
+}
+function refreshClues(){
+  const box=el('clues'); if(!box) return;
+  const tc=teamClue();
+  const base=[TARGET.position,classInfo(TARGET.class_year||TARGET.yr),TARGET.height,(scope==='all'&&TARGET.season_year)?seasonLbl(TARGET.season_year):null].filter(Boolean).map(c=>`<span class="clue">${esc(c)}</span>`).join('');
+  box.innerHTML=base+(tc?`<span class="clue hint">${esc(tc)}</span>`:'');
+}
+
+function matches(q){
+  const t=norm(q); if(!t) return [];
+  const starts=[],incl=[];
+  for(const n of NAMES){ const nn=norm(n); if(nn.startsWith(t)) starts.push(n); else if(nn.includes(t)) incl.push(n); if(starts.length>=8) break; }
+  return starts.concat(incl).slice(0,8);
+}
+function renderMatches(){
+  const list=el('clist'), m=matches(el('sel').value); hlIdx=-1;
+  list.innerHTML=m.length?m.map((n,i)=>`<div class="citem" data-n="${esc(n)}" data-i="${i}">${esc(n)}</div>`).join(''):'<div class="cempty">No players match</div>';
+  list.style.display='block';
+}
+function wireCombo(){
+  const inp=el('sel'), list=el('clist');
+  inp.addEventListener('input',renderMatches);
+  inp.addEventListener('focus',()=>{ if(inp.value) renderMatches(); });
+  inp.addEventListener('keydown',e=>{
+    const items=[...list.querySelectorAll('.citem')];
+    if(e.key==='ArrowDown'){ e.preventDefault(); hlIdx=Math.min(hlIdx+1,items.length-1); items.forEach((x,i)=>x.classList.toggle('hl',i===hlIdx)); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); hlIdx=Math.max(hlIdx-1,0); items.forEach((x,i)=>x.classList.toggle('hl',i===hlIdx)); }
+    else if(e.key==='Enter'){ e.preventDefault(); const pick=hlIdx>=0?items[hlIdx]:items[0]; if(pick) guess(pick.dataset.n); }
+    else if(e.key==='Escape'){ list.style.display='none'; }
+  });
+  inp.addEventListener('blur',()=>setTimeout(()=>{ list.style.display='none'; },160));
+  list.addEventListener('mousedown',e=>{ const it=e.target.closest('.citem'); if(it){ e.preventDefault(); guess(it.dataset.n); } });
+}
+
+function guess(name){
+  if(locked||!name) return;
+  const list=el('clist'); if(list) list.style.display='none';
+  const correct=norm(name)===norm(TARGET.name);
+  if(correct){ win(name); return; }
+  tries++;
+  const g=el('guesses'); g.insertAdjacentHTML('beforeend',`<div class="grow wrong"><span>${esc(name)}</span><span class="x">✗</span></div>`);
+  el('sel').value=''; refreshClues();
+  if(tries>=MAX){ lose(); }
+}
+function win(name){
+  locked=true; const p=Math.max(1,6-tries);
+  S.score+=p; S.solved++; S.streak++; renderScore();
+  finish('g',`Solved in ${tries+1} — +${p}`, name);
+}
+function lose(){ locked=true; S.streak=0; renderScore(); finish('r','Out of guesses'); }
+function finish(cls,word,guessedName){
+  const t=TARGET, sub=[t.position,classInfo(t.class_year||t.yr),(scope==='all'&&t.season_year)?seasonLbl(t.season_year):null,t.team].filter(Boolean).join(' · ');
+  el('sel').disabled=true;
+  el('rev').innerHTML=`<div class="reveal" data-anim><div class="who">${esc(t.name)}</div><div class="sub">${esc(sub)}</div>
+    <div class="verdict ${cls}">${word}</div>
+    <button class="btn" onclick="nextRound()">Next line →</button></div>`;
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('rev'));
+}
+
+setScope('year');
+</script>
+</body>
+</html>
