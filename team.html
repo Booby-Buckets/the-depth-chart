@@ -1274,12 +1274,15 @@ async function loadTeam(name){
       `${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(name)}&select=*&order=depth_order.asc&limit=500`,
       { headers: H }
     );
-    // Sheet convention: "Injured" written in the From column marks a player as
-    // out for the season. Honor it here (and don't render a "via Injured"
-    // transfer origin) so the flag survives roster resyncs without a DB column edit.
+    // Sheet convention: a keyword in the From column flags a player's status
+    // without a DB column edit (survives roster resyncs). "Injured"/"Out" = out
+    // for the season; "Waiver?" = on the roster but not yet granted an eligibility
+    // waiver (availability pending). Honor them here and clear the origin so we
+    // never render a bogus "via Injured" / "via Waiver?" transfer line.
     const _markInjured = list => (list||[]).forEach(p => {
       const hs=(p.hometown||'').trim().toLowerCase();
       if(hs==='injured'||hs==='out'||p.is_injured){ p.is_injured=true; if(hs==='injured'||hs==='out') p.hometown=''; }
+      else if(hs.indexOf('waiver')===0){ p.is_waiver=true; p.hometown=''; }
     });
     let players = await pr.json();
     // Dedupe the roster at the source — the players table occasionally carries a
@@ -2194,6 +2197,7 @@ function renderDepth(t, players, color, rgb, gp={}){
         <div class="rot-name" style="${isStarter?'color:var(--text);font-weight:700;':''}">
           <a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team)}" style="color:inherit;text-decoration:none;">${p.name}</a>
           ${p.is_injured?'🏥':''}
+          ${p.is_waiver?`<span title="On the roster, but has not yet been granted an eligibility waiver — his availability for the season is still pending." style="font-size:9px;font-weight:800;letter-spacing:.04em;padding:1px 5px;border-radius:3px;border:1px solid var(--accent);color:var(--accent);margin-left:5px;cursor:help;">WAIVER?</span>`:''}
           ${p.is_international?'🌍':''}
           ${p._projected?`<span style="font-size:9px;font-weight:700;letter-spacing:.06em;padding:1px 4px;background:rgba(139,105,20,.15);color:var(--accent);margin-left:4px;">EST</span>`:''}
           ${isStarter?`<span style="font-size:9px;font-weight:700;letter-spacing:.08em;padding:1px 5px;background:rgba(${rgb},.15);color:${color};">★</span>`:''}
@@ -6420,9 +6424,10 @@ function renderHistoricRoster(rows, yr, projected){
       const bio=[p.yr, p.height, mpg].filter(Boolean).join(' · ');
       const g=_gdisp(p);   // projected OVR for returners (falls back to demonstrated grade for historic seasons)
       const inj=_ltd(p) ? `<span class="dc-inj" title="Played ${parseFloat(p.gp)||0} of ${_teamGp} games — injury-shortened season">${parseFloat(p.gp)||0}/${_teamGp} GP</span>` : '';
+      const wav=p.is_waiver ? `<span title="On the roster, but has not yet been granted an eligibility waiver — his availability for the season is still pending." style="display:inline-block;font-size:8px;font-weight:800;letter-spacing:.03em;padding:0 4px;border-radius:3px;border:1px solid var(--accent);color:var(--accent);margin-left:6px;cursor:help;line-height:1.6;vertical-align:middle;">WAIVER?</span>` : '';
       return `<div class="dc-row${i===0?' dc-starter':''}">
         <span class="dc-rk">${i===0?'★':(i+1)}</span>
-        <span class="dc-info"><a class="dc-name" href="${link(p)}">${p.name}</a><span class="dc-bio">${bio||'&nbsp;'}</span>${inj}</span>
+        <span class="dc-info"><a class="dc-name" href="${link(p)}">${p.name}</a>${wav}<span class="dc-bio">${bio||'&nbsp;'}</span>${inj}</span>
         <span class="dc-grade">${g}</span>
       </div>`;
     }).join('');
