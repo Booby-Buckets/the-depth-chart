@@ -180,7 +180,7 @@ async function loadPlayer(p, tc, row){
   let log=[], shots=[];
   try{ [log,shots]=await Promise.all([
     fetch(`${SB_URL}/rest/v1/box_scores?espn_id=eq.${p.espn_id}&season_year=eq.2026&select=opp,min,fga,fgm,tpm,fta,tov,pts`,{headers:H}).then(r=>r.ok?r.json():[]),
-    fetch(`${SB_URL}/rest/v1/shots?espn_id=eq.${p.espn_id}&season_year=eq.2026&select=period,made,sv`,{headers:H}).then(r=>r.ok?r.json():[])
+    fetch(`${SB_URL}/rest/v1/shots?espn_id=eq.${p.espn_id}&season_year=eq.2026&select=period,made,sv,sec_left,home_score,away_score,team_id`,{headers:H}).then(r=>r.ok?r.json():[])
   ]); }catch(e){}
   log=log.filter(g=>R(g.min)>0);
   if(log.length<8){ el('out').innerHTML=`<div class="book"><div class="bh"><span class="pn">${esc(p.name)}</span></div><div class="muted">Too few 2025-26 games (${log.length}) to build a predictive profile.</div></div>`;
@@ -201,6 +201,22 @@ async function loadPlayer(p, tc, row){
   function efgShots(arr){ const att=arr.length; if(!att) return null; let mw=0; arr.forEach(s=>{ if(s.made) mw+=(s.sv===3?1.5:1); }); return mw/att*100; }
   const h1=shots.filter(s=>s.period===1), h2=shots.filter(s=>s.period>=2);
   const efg1=efgShots(h1), efg2=efgShots(h2);
+  // real clutch (last 5:00 of 2nd half/OT, margin<=5) — from the game clock + running score
+  const isClutch=s=> s.period!=null&&s.period>=2&&s.sec_left!=null&&s.sec_left<=300&&s.home_score!=null&&s.away_score!=null&&Math.abs(R(s.home_score)-R(s.away_score))<=5;
+  const shClock=shots.filter(s=>s.sec_left!=null);
+  const myClutch=shClock.filter(isClutch), myRest=shClock.filter(s=>!isClutch(s));
+  const efgCl=efgShots(myClutch), efgRe=efgShots(myRest);
+  const effD=(efgCl!=null&&efgRe!=null)?efgCl-efgRe:null;
+  let usageD=null, clutchRole=null;
+  if(myClutch.length>=6){
+    const tid=(shots.find(s=>s.team_id!=null)||{}).team_id;
+    let team=[]; if(tid!=null){ try{ team=await fetch(`${SB_URL}/rest/v1/shots?team_id=eq.${tid}&season_year=eq.2026&select=sec_left,home_score,away_score,period,made,sv&limit=8000`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){} }
+    const tc2=team.filter(s=>s.sec_left!=null), tCl=tc2.filter(isClutch), tRe=tc2.filter(s=>!isClutch(s));
+    const shCl=tCl.length?myClutch.length/tCl.length*100:null, shRe=tRe.length?myRest.length/tRe.length*100:null;
+    if(shCl!=null&&shRe!=null) usageD=shCl-shRe;
+    const up=usageD!=null&&usageD>=6, down=usageD!=null&&usageD<=-6, ed=effD||0;
+    clutchRole = up ? (ed>=-4?{lab:'Closer',cls:'g'}:{lab:'Heat-check',cls:'a'}) : down ? {lab:'Defers late',cls:'n'} : {lab:'Steady hand',cls:'n'};
+  }
 
   // ── tiles ──
   const tiles=[];
@@ -213,7 +229,9 @@ async function loadPlayer(p, tc, row){
   if(buckets.length>=2){ const spread=buckets[0].ts-buckets[buckets.length-1].ts;
     tiles.push({nm:'Matchup Advantage',v:Math.round(spread),l:spread<7?'Steady':spread<14?'Situational':'Swingy',cls:spread<7?'g':spread<14?'a':'r',d:'best-to-worst TS% spread by archetype'});
   }
-  if(efg1!=null&&efg2!=null&&h1.length>=25&&h2.length>=25){ const dr=Math.round(efg2-efg1); const a=Math.abs(dr);
+  if(clutchRole){ const dr=Math.round(effD||0);
+    tiles.push({nm:'Clutch',v:(dr>0?'+':'')+dr,l:clutchRole.lab,cls:clutchRole.cls,d:`eFG shift · ${myClutch.length} clutch shots`});
+  } else if(efg1!=null&&efg2!=null&&h1.length>=25&&h2.length>=25){ const dr=Math.round(efg2-efg1); const a=Math.abs(dr);
     tiles.push({nm:'Closing (2nd half)',v:(dr>0?'+':'')+dr,l:a<3?'Steady':(dr>0?'Closer':'Fader'),cls:a<3?'n':(dr>0?'g':'r'),d:'shot eFG, 2nd half vs 1st'});
   }
 
@@ -233,7 +251,11 @@ async function loadPlayer(p, tc, row){
   if(buckets.length>=2){ const b=buckets[0],w=buckets[buckets.length-1],spread=b.ts-w.ts;
     matchupStr = spread>=10 ? `He <b>feasts</b> on ${b.a.nm} but is neutralized by <b>${w.a.nm}</b> (TS ${w.ts.toFixed(0)}% vs ${b.ts.toFixed(0)}%)`
       : `His efficiency holds up across defensive styles — a hard cover to scheme away`;
-    if(efg1!=null&&efg2!=null&&h1.length>=25&&h2.length>=25){ const dr=Math.round(efg2-efg1);
+    if(clutchRole){ const ed=Math.round(effD||0), ud=usageD!=null?Math.round(usageD):null;
+      const loadTxt = (ud!=null&&ud>=6)?`the ball finds him late (shot share <b>+${ud}</b> pts)`:(ud!=null&&ud<=-6)?`he <b>defers</b> late (shot share ${ud} pts)`:`his role holds late`;
+      const effTxt = ed>=4?`and he's <b>sharper</b> for it (eFG +${ed})`:ed<=-4?`but his efficiency <b>dips</b> (eFG ${ed})`:`and holds his efficiency`;
+      matchupStr += `, and in the clutch ${loadTxt}, ${effTxt} <span style="color:var(--text3)">(${myClutch.length} clutch shots)</span>`;
+    } else if(efg1!=null&&efg2!=null&&h1.length>=25&&h2.length>=25){ const dr=Math.round(efg2-efg1);
       if(dr>=4) matchupStr += `, and he <b>closes</b> — his shot sharpens after halftime (eFG +${dr})`;
       else if(dr<=-4) matchupStr += `, and he <b>fades</b> late — his shot drops off in the second half (eFG ${dr})`;
     }
