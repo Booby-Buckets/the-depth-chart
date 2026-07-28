@@ -85,6 +85,14 @@ window.TDC_PAYWALL_ENABLED = false;
     catch (e) { return false; }
   };
 
+  // True when the signed-in account is the owner. Every paywall gate honors this so
+  // the owner always has full access to every tier, regardless of profiles.plan
+  // (and regardless of whether the paywall is later switched on).
+  window.tdcIsOwner = function () {
+    try { var s = get(); return !!(s && s.user && ('' + (s.user.email || '')).toLowerCase() === OWNER); }
+    catch (e) { return false; }
+  };
+
   // Owner's live access token, but ONLY when the signed-in user is the owner — else null.
   // Shared caches (predictive_ratings, team_projections, award_projections) use this so
   // their writes carry the owner's JWT and pass owner-only RLS. Non-owners get null and
