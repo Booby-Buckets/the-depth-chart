@@ -85,6 +85,41 @@
     .hrow .hv{text-align:center;font-family:'Playfair Display',serif;font-weight:800;font-size:15px;font-variant-numeric:tabular-nums;}
     .hrow .hh{text-align:center;font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);}
     .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:26px;max-width:770px;}
+    /* team comparison */
+    .cmp{border:1px solid var(--border);border-radius:14px;background:var(--bg2);overflow:hidden;}
+    .cmp .crow{display:grid;grid-template-columns:1fr 96px 96px;gap:8px;align-items:center;padding:9px 16px;border-top:1px solid var(--border);}
+    .cmp .crow:first-child{border-top:none;}
+    .cmp .cl{font-size:12px;font-weight:700;color:var(--text2);}
+    .cmp .cl small{display:block;font-size:10px;color:var(--text3);font-weight:600;}
+    .cmp .cv{text-align:center;font-family:'Playfair Display',serif;font-weight:800;font-size:16px;font-variant-numeric:tabular-nums;}
+    .cmp .cv.win{color:var(--green);} .cmp .cv.lose{color:var(--text3);}
+    .cmp .chd{padding:9px 16px 8px;display:grid;grid-template-columns:1fr 96px 96px;gap:8px;border-bottom:1px solid var(--border);}
+    .cmp .chd div{text-align:center;font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
+    .cmp .chd div:first-child{text-align:left;}
+    /* zones */
+    .zg{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    @media(max-width:560px){.zg{grid-template-columns:1fr;}}
+    .zt{border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:6px 14px 10px;}
+    .zt .zth{font-size:11.5px;font-weight:800;padding:9px 2px 8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;}
+    .zt .zth img{width:18px;height:18px;object-fit:contain;}
+    .zt .zr{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:8px 2px;border-top:1px solid var(--border);}
+    .zt .zr:first-of-type{border-top:none;}
+    .zt .zrl{font-size:12px;font-weight:700;color:var(--text2);}
+    .zt .zrl small{color:var(--text3);font-weight:600;font-size:10px;}
+    .zt .zrv{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;text-align:right;}
+    .zt .zrf{font-size:11px;color:var(--text3);text-align:right;min-width:52px;}
+    /* full box */
+    .boxwrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--bg2);}
+    table.box{border-collapse:collapse;width:100%;min-width:560px;font-variant-numeric:tabular-nums;}
+    table.box th{font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);padding:9px 6px;text-align:right;border-bottom:1px solid var(--border);}
+    table.box th:first-child{text-align:left;padding-left:14px;}
+    table.box td{font-size:12px;padding:7px 6px;text-align:right;border-bottom:1px solid var(--border);color:var(--text2);}
+    table.box td:first-child{text-align:left;padding-left:14px;font-weight:700;color:var(--text);}
+    table.box tr.st td:first-child::after{content:' ★';color:var(--accent);font-size:9px;}
+    table.box tr.tot td{font-weight:800;color:var(--text);border-top:2px solid var(--border2);border-bottom:none;}
+    table.box td.pt{font-family:'Playfair Display',serif;font-weight:800;font-size:13px;color:var(--text);}
+    .boxtitle{font-size:11.5px;font-weight:800;padding:10px 14px 4px;display:flex;align-items:center;gap:7px;}
+    .boxtitle img{width:18px;height:18px;object-fit:contain;}
   </style>
   <link rel="stylesheet" href="tdc-dense.css?v=18"/>
   <style>
@@ -266,7 +301,49 @@ async function loadGame(g, tc){
     : (oppRun ? `${esc(oppNm)}'s ${oppRun.pts}-point run ${oppRun.to?('through '+clk(oppRun.to)):''} was the difference` : `${esc(oppNm)} controlled it throughout`);
   const read=`<div class="read"><b>${esc(me)} ${won?'beat':'lost to'} ${esc(oppNm)} ${myFin}-${oppFin}.</b> ${decided[0].toUpperCase()+decided.slice(1)}.${topOpp?` For the scout: <b>${esc(topOpp.player)}</b> led ${esc(oppNm)} with <b>${R(topOpp.pts)}</b>${topOpp.tpm?` (${R(topOpp.tpm)} threes)`:''}.`:''}${topMe?` ${esc(topMe.player)} paced ${esc(meShort)} with ${R(topMe.pts)}.`:''}</div>`;
 
-  el('out').innerHTML=`<div style="--tc:${tc}">${scoreline}${flowHtml}${read}${runsHtml}${perf}${halves}</div>`;
+  // ── team four-factor & shooting comparison ──
+  const tot=bx=>{ const o={pts:0,fgm:0,fga:0,tpm:0,tpa:0,ftm:0,fta:0,oreb:0,dreb:0,reb:0,ast:0,stl:0,blk:0,tov:0,pf:0}; bx.forEach(b=>Object.keys(o).forEach(k=>o[k]+=R(b[k]))); return o; };
+  const mT=tot(myBox), oT=tot(oppBox);
+  const efgT=t=>t.fga?(t.fgm+0.5*t.tpm)/t.fga*100:0, tovT=t=>{const p=t.fga+0.44*t.fta+t.tov;return p?t.tov/p*100:0;}, orbT=(t,o)=>{const d=t.oreb+o.dreb;return d?t.oreb/d*100:0;}, astT=t=>t.fgm?t.ast/t.fgm*100:0;
+  const rimPts=sh=>sh.filter(s=>s.made&&(s.stype==='layup'||s.stype==='dunk'||s.stype==='tip')).length*2;
+  const benchPts=bx=>bx.filter(b=>!b.starter).reduce((s,b)=>s+R(b.pts),0);
+  let cmpHtml='';
+  if(mT.fga>0&&oT.fga>0){
+    const rowsC=[
+      ['eFG%','shooting efficiency',efgT(mT).toFixed(1),efgT(oT).toFixed(1),efgT(mT)>=efgT(oT)],
+      ['Turnovers','TOV% of poss',`${mT.tov} <small style="display:inline">(${tovT(mT).toFixed(0)}%)</small>`,`${oT.tov} <small style="display:inline">(${tovT(oT).toFixed(0)}%)</small>`,tovT(mT)<=tovT(oT)],
+      ['Off. rebound %','2nd chances',orbT(mT,oT).toFixed(0)+'%',orbT(oT,mT).toFixed(0)+'%',orbT(mT,oT)>=orbT(oT,mT)],
+      ['Free throws','made-att',`${mT.ftm}-${mT.fta}`,`${oT.ftm}-${oT.fta}`,mT.ftm>=oT.ftm],
+      ['Two-pointers','made-att',`${mT.fgm-mT.tpm}-${mT.fga-mT.tpa}`,`${oT.fgm-oT.tpm}-${oT.fga-oT.tpa}`,(mT.fgm-mT.tpm)>=(oT.fgm-oT.tpm)],
+      ['Three-pointers','made-att',`${mT.tpm}-${mT.tpa}`,`${oT.tpm}-${oT.tpa}`,mT.tpm>=oT.tpm],
+      ['Assisted %','of made FGs',astT(mT).toFixed(0)+'%',astT(oT).toFixed(0)+'%',astT(mT)>=astT(oT)],
+      ['Points in paint','at the rim',rimPts(myShots),rimPts(oppShots),rimPts(myShots)>=rimPts(oppShots)],
+      ['Bench points','off the bench',benchPts(myBox),benchPts(oppBox),benchPts(myBox)>=benchPts(oppBox)],
+    ];
+    cmpHtml=`<div class="sec-h">The tale of the tape <span class="hint">${esc(meShort)} vs ${esc(oppNm)}</span></div>
+      <div class="cmp"><div class="chd"><div>Metric</div><div>${esc(meShort)}</div><div>${esc(oppNm.split(' ')[0])}</div></div>
+      ${rowsC.map(r=>`<div class="crow"><div class="cl">${r[0]}<small>${r[1]}</small></div><div class="cv ${r[4]?'win':'lose'}">${r[2]}</div><div class="cv ${r[4]?'lose':'win'}">${r[3]}</div></div>`).join('')}</div>`;
+  }
+
+  // ── shot zones (both teams) ──
+  const zt=sh=>{ const Z={rim:{a:0,m:0},mid:{a:0,m:0},three:{a:0,m:0}}; sh.forEach(s=>{ if(!s.stype)return; const z=s.sv===3?'three':(s.stype==='layup'||s.stype==='dunk'||s.stype==='tip')?'rim':'mid'; Z[z].a++; if(s.made)Z[z].m++; }); return Z; };
+  function zoneCol(sh,name,logo){ const Z=zt(sh),tt=sh.filter(s=>s.stype).length; const zr=(k,lab)=>{const z=Z[k];return `<div class="zr"><div class="zrl">${lab}<small>${tt?Math.round(z.a/tt*100):0}% of shots</small></div><div class="zrv">${z.m}/${z.a}</div><div class="zrf">${z.a?Math.round(z.m/z.a*100):0}%</div></div>`;};
+    return `<div class="zt"><div class="zth">${logo?`<img src="${logo}" onerror="this.style.display='none'"/>`:''}${esc(name)}</div>${zr('rim','At the rim')}${zr('mid','Mid-range')}${zr('three','Three')}</div>`; }
+  const zonesHtml=(myShots.length>=15&&oppShots.length>=15)?`<div class="sec-h">Where the shots came from <span class="hint">makes / attempts · FG%</span></div><div class="zg">${zoneCol(myShots,meShort,logoFor(me))}${zoneCol(oppShots,oppNm,logoFor(oppNm))}</div>`:'';
+
+  // ── full box score ──
+  function boxTable(bx,name,logo){ if(!bx.length) return '';
+    const rows=[...bx].filter(b=>R(b.min)>0||R(b.pts)>0).sort((a,b)=>R(b.min)-R(a.min));
+    const t=tot(bx);
+    const cell=(b,tr)=>`<tr class="${tr}">${b?`<td>${esc(b.player)}</td><td>${R(b.min)}</td><td class="pt">${R(b.pts)}</td><td>${R(b.fgm)}-${R(b.fga)}</td><td>${R(b.tpm)}-${R(b.tpa)}</td><td>${R(b.ftm)}-${R(b.fta)}</td><td>${R(b.reb)||R(b.oreb)+R(b.dreb)}</td><td>${R(b.ast)}</td><td>${R(b.stl)}</td><td>${R(b.blk)}</td><td>${R(b.tov)}</td>`
+      :`<td>Team</td><td></td><td class="pt">${t.pts}</td><td>${t.fgm}-${t.fga}</td><td>${t.tpm}-${t.tpa}</td><td>${t.ftm}-${t.fta}</td><td>${t.oreb+t.dreb}</td><td>${t.ast}</td><td>${t.stl}</td><td>${t.blk}</td><td>${t.tov}</td>`}</tr>`;
+    return `<div class="boxtitle">${logo?`<img src="${logo}" onerror="this.style.display='none'"/>`:''}${esc(name)}</div><div class="boxwrap"><table class="box">
+      <thead><tr><th>Player</th><th>MIN</th><th>PTS</th><th>FG</th><th>3P</th><th>FT</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th></tr></thead>
+      <tbody>${rows.map(b=>cell(b,b.starter?'st':'')).join('')}${cell(null,'tot')}</tbody></table></div>`;
+  }
+  const boxHtml=box.length?`<div class="sec-h">Full box score <span class="hint">★ = starter</span></div>${boxTable(myBox,me,logoFor(me))}<div style="height:12px"></div>${boxTable(oppBox,oppNm,logoFor(oppNm))}`:'';
+
+  el('out').innerHTML=`<div style="--tc:${tc}">${scoreline}${flowHtml}${read}${cmpHtml}${runsHtml}${zonesHtml}${perf}${halves}${boxHtml}</div>`;
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(me));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
 }
