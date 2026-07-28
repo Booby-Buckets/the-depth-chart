@@ -23,6 +23,7 @@ window.TDC_COACHLINKS = (function () {
       ['pairings.html',       'Pairings'],
       ['assist-network.html', 'Assist Network'],
       ['rotation.html',       'Rotation & Bench'],
+      ['adjustments.html',    'Adjustments'],
     ]],
     ['Personnel', [
       ['predictive-profile.html', 'Predictive Profile'],
