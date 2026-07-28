@@ -9,6 +9,7 @@
   <script src="auth.js?v=paywall4"></script>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=2"></script>
+  <script src="tdc-shotchart.js?v=14"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -120,6 +121,48 @@
     table.box td.pt{font-family:'Playfair Display',serif;font-weight:800;font-size:13px;color:var(--text);}
     .boxtitle{font-size:11.5px;font-weight:800;padding:10px 14px 4px;display:flex;align-items:center;gap:7px;}
     .boxtitle img{width:18px;height:18px;object-fit:contain;}
+    /* shot charts */
+    .scg{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    @media(max-width:640px){.scg{grid-template-columns:1fr;}}
+    .sccol{border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:10px 12px;}
+    .scch{font-size:11.5px;font-weight:800;display:flex;align-items:center;gap:7px;margin-bottom:6px;}
+    .scch img{width:18px;height:18px;object-fit:contain;}
+    .scchips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;}
+    .scchip{font-size:10.5px;font-weight:700;border:1px solid var(--border);border-radius:14px;padding:3px 9px;cursor:pointer;color:var(--text2);background:var(--bg);transition:border-color .13s,color .13s;}
+    .scchip:hover{border-color:var(--accent);} .scchip.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--bg));}
+    /* clutch + lead */
+    .twocard{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    @media(max-width:560px){.twocard{grid-template-columns:1fr;}}
+    .lcard{border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:14px 16px;}
+    .lcard .lct{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:9px;}
+    .lstat{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;font-size:12.5px;}
+    .lstat .lsl{color:var(--text2);font-weight:600;}
+    .lstat .lsv{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;font-variant-numeric:tabular-nums;}
+    /* season norm */
+    .norm{border:1px solid var(--border);border-radius:13px;background:var(--bg2);overflow:hidden;}
+    .nrow{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px;align-items:center;padding:9px 16px;border-top:1px solid var(--border);}
+    .nrow:first-child{border-top:none;}
+    .nrow .nl{font-size:11.5px;font-weight:700;color:var(--text2);}
+    .nrow .nv{text-align:center;font-family:'Playfair Display',serif;font-weight:800;font-size:15px;font-variant-numeric:tabular-nums;}
+    .nrow .nv small{display:block;font-size:9px;font-weight:700;letter-spacing:.02em;}
+    .nrow .nv .hot{color:var(--green);} .nrow .nv .cold{color:var(--red);} .nrow .nv .flat{color:var(--text3);}
+    .nrow .nhd{text-align:center;font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
+    .nrow .nhd:first-child{text-align:left;}
+    /* assist connections + POG */
+    .pog{display:flex;align-items:center;gap:14px;border:1px solid var(--border2);border-radius:14px;background:radial-gradient(120% 130% at 0 0,color-mix(in srgb,var(--accent) 9%,var(--bg2)),var(--bg2));padding:15px 18px;margin-bottom:12px;}
+    .pog .pgm{font-family:'Playfair Display',serif;font-weight:800;font-size:30px;color:var(--accent);flex-shrink:0;text-align:center;line-height:1;}
+    .pog .pgm small{display:block;font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);}
+    .pog .pgn{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;}
+    .pog .pgl{font-size:12px;color:var(--text2);font-weight:600;margin-top:2px;}
+    .astg{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    @media(max-width:560px){.astg{grid-template-columns:1fr;}}
+    .acol{border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:6px 14px 10px;}
+    .acol .ach{font-size:11px;font-weight:800;padding:9px 2px 8px;border-bottom:1px solid var(--border);}
+    .acol .asub{font-size:10.5px;color:var(--text3);padding:7px 2px 2px;}
+    .arw{display:flex;justify-content:space-between;padding:6px 2px;border-top:1px solid var(--border);font-size:12px;}
+    .arw:first-of-type{border-top:none;}
+    .arw .af{font-weight:700;color:var(--text2);} .arw .af b{color:var(--text);}
+    .arw .an2{font-family:'Playfair Display',serif;font-weight:800;color:var(--text);}
   </style>
   <link rel="stylesheet" href="tdc-dense.css?v=18"/>
   <style>
@@ -165,7 +208,7 @@ const el=id=>document.getElementById(id);
 const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
 const R=v=>{const n=+v;return isNaN(n)?0:n;};
 
-let D=null, COLORMAP={}, LOGO={}, selKey=null, me='';
+let D=null, COLORMAP={}, LOGO={}, selKey=null, me='', DNA=null, _gb={me:[],opp:[],meNm:'',oppNm:'',tcMe:'',tcOpp:''};
 const poolRow=k=>k!=null?D.teams[k]:null;
 const labelOf=r=>r?r.full:'';
 function _lum(hex){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');if(hex.length<6)return .5;const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return (0.299*r+0.587*g+0.114*b)/255;}
@@ -223,9 +266,10 @@ async function loadGame(g, tc){
   const myFin=home?R(g.home_score):R(g.away_score), oppFin=home?R(g.away_score):R(g.home_score), won=myFin>oppFin;
   let shots=[], box=[];
   try{ [shots,box]=await Promise.all([
-    fetch(`${SB_URL}/rest/v1/shots?game_id=eq.${gid}&select=team_id,espn_id,period,sec_left,home_score,away_score,made,sv,stype&limit=1200`,{headers:H}).then(r=>r.ok?r.json():[]),
-    fetch(`${SB_URL}/rest/v1/box_scores?game_id=eq.${gid}&select=team,player,pts,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,ast,stl,blk,tov,pf,min,starter`,{headers:H}).then(r=>r.ok?r.json():[])
+    fetch(`${SB_URL}/rest/v1/shots?game_id=eq.${gid}&select=team_id,espn_id,period,sec_left,home_score,away_score,made,sv,stype,x,y,dist,ast_name&limit=1200`,{headers:H}).then(r=>r.ok?r.json():[]),
+    fetch(`${SB_URL}/rest/v1/box_scores?game_id=eq.${gid}&select=team,player,espn_id,pts,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,reb,ast,stl,blk,tov,pf,min,starter`,{headers:H}).then(r=>r.ok?r.json():[])
   ]); }catch(e){}
+  if(!DNA){ try{ const all=await fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():{}); DNA=(all['2026']&&all['2026'].teams)||{}; }catch(e){ DNA={}; } }
 
   const oppColor=(function(){ const c=COLORMAP[oppNm]; return c||'var(--text3)'; })();
   const marginMe=s=> home ? (R(s.home_score)-R(s.away_score)) : (R(s.away_score)-R(s.home_score));
@@ -343,7 +387,85 @@ async function loadGame(g, tc){
   }
   const boxHtml=box.length?`<div class="sec-h">Full box score <span class="hint">★ = starter</span></div>${boxTable(myBox,me,logoFor(me))}<div style="height:12px"></div>${boxTable(oppBox,oppNm,logoFor(oppNm))}`:'';
 
-  el('out').innerHTML=`<div style="--tc:${tc}">${scoreline}${flowHtml}${read}${cmpHtml}${runsHtml}${zonesHtml}${perf}${halves}${boxHtml}</div>`;
+  // ── player of the game (impact) ──
+  const nameById={}; box.forEach(b=>{ if(b.espn_id!=null) nameById[b.espn_id]=b.player; });
+  const allB=[...myBox.map(b=>({b,tm:meShort})),...oppBox.map(b=>({b,tm:oppNm}))].filter(x=>R(x.b.min)>0);
+  const pogX=allB.map(x=>({...x,gs:gameScore(x.b)})).sort((a,b)=>b.gs-a.gs)[0];
+  let pogHtml='';
+  if(pogX){ const b=pogX.b;
+    pogHtml=`<div class="pog"><div class="pgm">${gameScore(b).toFixed(0)}<small>game score</small></div>
+      <div><div class="pgn">${esc(b.player)}</div><div class="pgl"><b style="color:var(--text)">${R(b.pts)} pts</b> · ${R(b.reb)||R(b.oreb)+R(b.dreb)} reb · ${R(b.ast)} ast · ${R(b.fgm)}-${R(b.fga)} FG${R(b.tpm)?` · ${R(b.tpm)} 3PM`:''} — ${esc(pogX.tm)}</div></div></div>`;
+  }
+
+  // ── vs season norm ──
+  let normHtml='';
+  const dM=DNA&&DNA[me], dO=DNA&&DNA[oppNm];
+  if(dM&&dO&&mT.fga>0){
+    const poss=t=>t.fga+0.44*t.fta-t.oreb+t.tov;
+    const cell=(g,s,inv,dec)=>{ if(s==null) return `<div class="nv">${g.toFixed(dec||0)}</div>`; const d=g-s, big=Math.abs(d)>=(inv?2:2.5); const good=inv?d<0:d>0; const cls=!big?'flat':good?'hot':'cold';
+      return `<div class="nv"><span class="${cls}">${g.toFixed(dec||0)}</span><small class="${cls}">${d>0?'+':''}${d.toFixed(0)} vs ${s.toFixed(0)}</small></div>`; };
+    const rows=[
+      ['eFG%',cell(efgT(mT),dM.oeFG,false),cell(efgT(oT),dO.oeFG,false)],
+      ['Turnover %',cell(tovT(mT),dM.oTOV,true),cell(tovT(oT),dO.oTOV,true)],
+      ['Pace',cell(poss(mT),dM.tempo,false),cell(poss(oT),dO.tempo,false)],
+    ];
+    normHtml=`<div class="sec-h">Hot or cold night <span class="hint">this game vs season average</span></div>
+      <div class="norm"><div class="nrow"><div class="nhd">Metric</div><div class="nhd">${esc(meShort)}</div><div class="nhd">${esc(oppNm.split(' ')[0])}</div></div>
+      ${rows.map(r=>`<div class="nrow"><div class="nl">${r[0]}</div>${r[1]}${r[2]}</div>`).join('')}</div>`;
+  }
+
+  // ── clutch + lead tracking ──
+  const isClutchS=s=>s.period>=2&&s.sec_left!=null&&s.sec_left<=300&&s.home_score!=null&&Math.abs(R(s.home_score)-R(s.away_score))<=5;
+  const mCl=myShots.filter(isClutchS), oCl=oppShots.filter(isClutchS);
+  let ledMe=0,ledOpp=0; for(let i=1;i<tl.length;i++){ const dt=tl[i].t-tl[i-1].t, m=tl[i-1].m; if(m>0)ledMe+=dt; else if(m<0)ledOpp+=dt; }
+  let ties=0; tl.forEach(p=>{ if(p.m===0)ties++; });
+  const winSign=won?1:-1; let putAway=null; for(let i=tl.length-1;i>=1;i--){ if(Math.sign(tl[i].m)===winSign&&Math.sign(tl[i-1].m)!==winSign){ putAway=tl[i]; break; } }
+  const fmtT=sec=>{const m=Math.floor(sec/60),s=Math.round(sec%60);return m+':'+String(s).padStart(2,'0');};
+  const maxLeadMe=Math.max(0,...tl.map(p=>p.m)), maxLeadOpp=Math.max(0,...tl.map(p=>-p.m));
+  const clutchInner = (mCl.length+oCl.length>=5)
+    ? `<div class="lstat"><span class="lsl">${esc(meShort)} eFG</span><span class="lsv">${efg(mCl)==null?'—':efg(mCl).toFixed(0)}</span></div>
+       <div class="lstat"><span class="lsl">${esc(oppNm.split(' ')[0])} eFG</span><span class="lsv">${efg(oCl)==null?'—':efg(oCl).toFixed(0)}</span></div>
+       <div class="lstat"><span class="lsl">Clutch FGA</span><span class="lsv" style="font-size:12px;color:var(--text3)">${mCl.length} · ${oCl.length}</span></div>`
+    : `<div class="muted" style="padding:6px 0;text-align:left">Not a one-possession game down the stretch — no clutch sample.</div>`;
+  const clutchLeadHtml=`<div class="sec-h">Clutch &amp; how it was won <span class="hint">last 5:00 within 5 · lead tracking</span></div>
+    <div class="twocard">
+      <div class="lcard"><div class="lct">Clutch execution</div>${clutchInner}</div>
+      <div class="lcard"><div class="lct">Lead tracking</div>
+        <div class="lstat"><span class="lsl">${esc(meShort)} led</span><span class="lsv">${fmtT(ledMe)}</span></div>
+        <div class="lstat"><span class="lsl">${esc(oppNm.split(' ')[0])} led</span><span class="lsv">${fmtT(ledOpp)}</span></div>
+        <div class="lstat"><span class="lsl">Largest lead</span><span class="lsv" style="font-size:12px">${esc(meShort)} ${maxLeadMe} · ${maxLeadOpp} ${esc(oppNm.split(' ')[0])}</span></div>
+        <div class="lstat"><span class="lsl">Times tied / put away</span><span class="lsv" style="font-size:12px">${ties} · ${putAway?clk(putAway):'wire'}</span></div>
+      </div></div>`;
+
+  // ── assist connections + self-created ──
+  const pairsOf=sh=>{ const p={}; sh.filter(s=>s.made&&s.ast_name&&s.espn_id!=null).forEach(s=>{ const k=s.ast_name+'|'+(nameById[s.espn_id]||'?'); p[k]=(p[k]||0)+1; }); return Object.entries(p).sort((a,b)=>b[1]-a[1]).slice(0,4); };
+  const selfAst=sh=>{ const made=sh.filter(s=>s.made); const a=made.filter(s=>s.ast_name).length; return {a,tot:made.length}; };
+  function astCol(sh,name){ const pr=pairsOf(sh), sa=selfAst(sh); const astPct=sa.tot?Math.round(sa.a/sa.tot*100):0;
+    return `<div class="acol"><div class="ach">${esc(name)}</div><div class="asub">${astPct}% of makes assisted · ${100-astPct}% self-created</div>`
+      +(pr.length?pr.map(x=>{const [f,t]=x[0].split('|');return `<div class="arw"><span class="af"><b>${esc(f)}</b> → ${esc(t)}</span><span class="an2">${x[1]}</span></div>`;}).join(''):'<div class="arw"><span class="af" style="color:var(--text3)">No assist data</span></div>')+'</div>'; }
+  const astHtml=(myShots.filter(s=>s.ast_name).length+oppShots.filter(s=>s.ast_name).length>=6)?`<div class="sec-h">Who created the offense <span class="hint">top assist connections · assisted vs self-created</span></div><div class="astg">${astCol(myShots,meShort)}${astCol(oppShots,oppNm)}</div>`:'';
+
+  // ── shot charts (rendered post-innerHTML via TDC_SHOTCHART) ──
+  const myXY=myShots.filter(s=>s.x!=null&&s.y!=null), oppXY=oppShots.filter(s=>s.x!=null&&s.y!=null);
+  _gb={me:myXY,opp:oppXY,meNm:meShort,oppNm:oppNm};
+  const chipHtml=(xy,side)=>{ const cnt={}; xy.forEach(s=>{ if(s.espn_id!=null)cnt[s.espn_id]=(cnt[s.espn_id]||0)+1; });
+    const ids=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).slice(0,6);
+    return `<span class="scchip on" data-side="${side}" data-eid="all">All</span>`+ids.map(id=>`<span class="scchip" data-side="${side}" data-eid="${id}">${esc((nameById[id]||'?').split(' ').slice(-1)[0])}</span>`).join(''); };
+  const scHtml=(myXY.length>=6||oppXY.length>=6)?`<div class="sec-h">Shot chart <span class="hint">makes &amp; misses · tap a player to isolate</span></div>
+    <div class="scg">
+      <div class="sccol"><div class="scch">${logoFor(me)?`<img src="${logoFor(me)}" onerror="this.style.display='none'">`:''}${esc(meShort)}</div><div id="scMe"></div><div class="scchips" id="chipMe">${chipHtml(myXY,'me')}</div></div>
+      <div class="sccol"><div class="scch">${logoFor(oppNm)?`<img src="${logoFor(oppNm)}" onerror="this.style.display='none'">`:''}${esc(oppNm)}</div><div id="scOpp"></div><div class="scchips" id="chipOpp">${chipHtml(oppXY,'opp')}</div></div>
+    </div>`:'';
+
+  el('out').innerHTML=`<div style="--tc:${tc}">${scoreline}${flowHtml}${read}${pogHtml}${cmpHtml}${normHtml}${scHtml}${zonesHtml}${runsHtml}${clutchLeadHtml}${perf}${astHtml}${halves}${boxHtml}</div>`;
+  // render shot charts + wire per-player filter
+  function drawSC(side, eid){ const host=document.getElementById(side==='me'?'scMe':'scOpp'); if(!host||!window.TDC_SHOTCHART) return;
+    let sh=_gb[side]; if(eid&&eid!=='all') sh=sh.filter(s=>(''+s.espn_id)===(''+eid));
+    TDC_SHOTCHART.render(host, sh, {mode:'shots'}); }
+  drawSC('me','all'); drawSC('opp','all');
+  ['chipMe','chipOpp'].forEach(cid=>{ const c=document.getElementById(cid); if(!c) return;
+    c.addEventListener('click',e=>{ const ch=e.target.closest('.scchip'); if(!ch) return; const side=ch.dataset.side;
+      c.querySelectorAll('.scchip').forEach(x=>x.classList.remove('on')); ch.classList.add('on'); drawSC(side, ch.dataset.eid); }); });
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(me));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
 }
