@@ -8,6 +8,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=2"></script>
+  <script src="tdc-projgrade.js?v=coach5"></script>
+  <script src="tdc-proj.js?v=coach5"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -67,6 +69,34 @@
     .takeaway b{color:var(--text);}
     .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:26px;max-width:720px;}
     .loading{padding:70px;text-align:center;color:var(--text3);}
+    .gph{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:28px 0 12px;display:flex;align-items:center;gap:10px;}
+    .gph span{font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;}
+    .gph::after{content:'';flex:1;height:1px;background:var(--border);}
+    .kmwrap,.tape{border:1px solid var(--border);border-radius:13px;background:var(--bg2);overflow:hidden;}
+    .kmhead,.kmrow{display:grid;grid-template-columns:34px 1fr 46px 1fr;gap:8px;align-items:center;padding:9px 15px;}
+    .kmhead{border-bottom:1px solid var(--border);}
+    .kmhead span{font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
+    .kmhead span:nth-child(3){text-align:center;}
+    .kmrow{border-top:1px solid var(--border);}
+    .kmpos{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;color:var(--text3);}
+    .kmp{min-width:0;} .kmn{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .kmp.edge .kmn{color:var(--accent);}
+    .kms{font-size:10.5px;color:var(--text3);font-weight:600;}
+    .kmvs{font-family:'Playfair Display',serif;font-weight:800;font-size:13px;text-align:center;font-variant-numeric:tabular-nums;}
+    .tphd{display:grid;grid-template-columns:1fr 1.2fr 1fr;padding:9px 16px;border-bottom:1px solid var(--border);}
+    .tphd span{font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;}
+    .tphd span:nth-child(2){text-align:center;} .tphd span:last-child{text-align:right;}
+    .tprow{display:grid;grid-template-columns:1fr 1.2fr 1fr;align-items:center;padding:9px 16px;border-top:1px solid var(--border);}
+    .tprow:first-of-type{border-top:none;}
+    .tpl{text-align:center;font-size:11.5px;font-weight:700;color:var(--text2);}
+    .tpv{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;font-variant-numeric:tabular-nums;color:var(--text3);}
+    .tpv:last-child{text-align:right;}
+    .tpv.w{color:var(--text)!important;}
+    .wpgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    @media(max-width:640px){.wpgrid{grid-template-columns:1fr;}}
+    .wpcard{border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:14px 16px;}
+    .wpt{font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);margin-bottom:7px;}
+    .wpb{font-size:13px;line-height:1.6;color:var(--text2);}
   </style>
   <!-- new-UI theme layer: navy+blue dark palette (matches index/player); light-mode guard keeps the toggle readable -->
   <link rel="stylesheet" href="tdc-dense.css?v=18"/>
@@ -79,8 +109,8 @@
 <body>
   <script src="tdc-nav.js?v=4"></script>
   <div class="page">
-    <h1 data-anim>Matchup Predictor</h1>
-    <div class="sub" data-anim>Pick any two teams and a venue — the model projects the final score, win probability and point spread from each team's <b>2026-27 projected rating</b> (roster-based, on the point-spread scale). Neutral court by default.</div>
+    <h1 data-anim>Projected Game Plan</h1>
+    <div class="sub" data-anim>Pick your two teams and a venue for the full projection: final score & win probability, the position-by-position matchups from both projected rotations, a team-vs-team tale of the tape, and how each side wins the game — all off the same roster-based engine as the rankings. Neutral court by default.</div>
 
     <div class="picks" data-anim>
       <div class="combo"><input id="selA" class="search" placeholder="Search team…" autocomplete="off"><div class="combo-list" id="listA"></div></div>
@@ -100,8 +130,12 @@ function toggleTheme(){ const d=document.documentElement; const dark=d.getAttrib
 (function(){ let t='light'; try{ t=localStorage.getItem('tdc-theme')||'light'; }catch(e){}
   if(t==='dark'){ document.documentElement.setAttribute('data-theme','dark'); document.getElementById('themeBtn').textContent='☀'; } })();
 
-let D=null, COLORMAP={}, venues=['neutral','home','away'], vi=0, selKey={A:null,B:null};
+let D=null, COLORMAP={}, venues=['neutral','home','away'], vi=0, selKey={A:null,B:null}, DNA=null;
 const el=id=>document.getElementById(id);
+const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
+const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
 
 function _lum(hex){ hex=(hex||'').replace('#',''); if(hex.length===3) hex=hex.split('').map(c=>c+c).join('');
   if(hex.length<6) return .5; const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);
@@ -190,8 +224,61 @@ function renderLine(){
       <div class="key"><div class="kl">Projected Score</div><div class="kv">${L.scoreA} – ${L.scoreB}</div><div class="ks">~${L.scoreA+L.scoreB} total points</div></div>
       <div class="key"><div class="kl">Rating Edge</div><div class="kv">${favA?sn(a.team):sn(b.team)} +${edge}</div><div class="ks">${fav.full} the stronger roster</div></div>
     </div>
-    <div class="takeaway">${takeaway}</div>`;
+    <div class="takeaway">${takeaway}</div>
+    <div id="gpPlan"></div>`;
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
+  loadGamePlan(a,b,favA,L);
+}
+
+// ── project a roster into per-player lines (same engine as rankings/dossier) ──
+async function projTeamLines(row){
+  let roster=[]; try{ roster=await fetch(`${SB}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,position,position2,depth_order,hometown,is_injured,class_year,yr,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
+  let map={}; try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready; if(typeof buildTeamProjections==='function'){ const pr=buildTeamProjections(roster.map(x=>Object.assign({},x)), row.conf||''); (pr||[]).forEach(x=>{ if(x&&x.name) map[x.name.toLowerCase().trim()]=x; }); } }catch(e){}
+  const _n=v=>{const n=+v;return isNaN(n)?0:n;};
+  return roster.filter(p=>p.name).map(p=>{ const pj=map[(p.name||'').toLowerCase().trim()]; const l=(pj&&_n(pj.mpg)>0)?pj:p;
+    return {name:p.name, pos:((p.position||'').split('/')[0]||'G').replace(/[^A-Z]/g,''), ovr:(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):_n(p.tdc_grade), ppg:_n(l.ppg), rpg:_n(l.rpg), apg:_n(l.apg), mpg:_n(l.mpg)}; }); }
+
+const _POSN=p=>({PG:'PG',G:'PG',CG:'PG',SG:'SG',SF:'SF',F:'SF',PF:'PF',C:'C'}[p]||p);
+async function loadGamePlan(a,b,favA,L){
+  const host=el('gpPlan'); if(!host) return;
+  host.innerHTML='<div class="loading" style="padding:40px">Projecting both rotations…</div>';
+  if(!DNA){ try{ DNA=await fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():{}); }catch(e){ DNA={}; } }
+  const [pa,pb]=await Promise.all([projTeamLines(a),projTeamLines(b)]);
+  const cA=teamColor(a), cB=teamColor(b), nA=sn(a.team), nB=sn(b.team);
+  // ── key matchups (bucket guards/wings/bigs so PG↔SG mislabels don't leave gaps) ──
+  const bkt=pos=>{ const p=(pos||'').toUpperCase(); if(p==='C'||p==='PF'||p==='FC'||p==='CF') return 'B'; if(p==='SF'||p==='F'||p==='GF'||p==='FG') return 'W'; return 'G'; };
+  const grp=list=>{ const G={G:[],W:[],B:[]}; list.forEach(p=>G[bkt(p.pos)].push(p)); Object.values(G).forEach(a=>a.sort((x,y)=>y.mpg-x.mpg)); return G; };
+  const gA=grp(pa), gB=grp(pb);
+  const slots=[['G',0,'Lead guard'],['G',1,'Guard'],['W',0,'Wing'],['B',0,'Forward'],['B',1,'Center']];
+  const kmRows=slots.map(([bk,ix,lab])=>{ const m=gA[bk][ix], o=gB[bk][ix]; if(!m&&!o) return '';
+    const diff=(m&&o)?(m.ovr-o.ovr):null;
+    const side=(pl,edge)=>pl?`<div class="kmp ${edge?'edge':''}"><div class="kmn">${esc(pl.name)}</div><div class="kms">${pl.ovr} OVR · ${pl.ppg.toFixed(1)}p</div></div>`:`<div class="kmp"><div class="kmn" style="color:var(--text3)">—</div></div>`;
+    const edgeTxt = diff==null?'—':(diff>0?'+'+diff:diff), edgeCol = diff==null?'var(--text3)':(diff>0?cA:diff<0?cB:'var(--text3)');
+    return `<div class="kmrow"><div class="kmpos" style="font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase">${lab}</div>${side(m,diff!=null&&diff>=3)}<div class="kmvs" style="color:${edgeCol}">${edgeTxt}</div>${side(o,diff!=null&&diff<=-3)}</div>`; }).filter(Boolean).join('');
+  // ── tale of the tape (team_dna pct, projected 2027) ──
+  const dz=t=>(DNA&&DNA['2027']&&DNA['2027'].teams&&DNA['2027'].teams[t.full])||null;
+  const da=dz(a), db=dz(b); let tapeHtml='';
+  if(da&&da.pct&&db&&db.pct){ const F=[['net','Overall'],['ORtg','Offense'],['DRtg','Defense'],['oeFG','Shooting'],['oTOV','Ball security',true],['oORB','Off. rebounding']];
+    const rowT=([k,lab,inv])=>{ const va=da.pct[k], vb=db.pct[k]; if(va==null||vb==null) return '';
+      const aBetter=va>=vb; return `<div class="tprow"><div class="tpv ${aBetter?'w':''}" style="${aBetter?`color:${cA}`:''}">${Math.round(va)}ᵖᶜ</div><div class="tpl">${lab}</div><div class="tpv ${!aBetter?'w':''}" style="${!aBetter?`color:${cB}`:''}">${Math.round(vb)}ᵖᶜ</div></div>`; };
+    tapeHtml=`<div class="gph">Tale of the tape <span>national percentile</span></div><div class="tape"><div class="tphd"><span style="color:${cA}">${esc(nA)}</span><span></span><span style="color:${cB}">${esc(nB)}</span></div>${F.map(rowT).join('')}</div>`;
+  }
+  // ── how each team wins ──
+  function winPath(mine,theirs,nm){
+    if(!mine||!mine.pct||!theirs||!theirs.pct) return '';
+    const p=mine.pct, tp=theirs.pct; const bits=[];
+    if(p.ORtg>=66&&tp.DRtg<50) bits.push('lean on the offense — their defense is a soft spot');
+    if(p.DRtg>=66&&tp.ORtg<55) bits.push('win it on the defensive end and make them grind');
+    if(p.oORB>=66&&tp.dDRB<50) bits.push('crash the offensive glass for extra possessions');
+    if((mine.tempo||68)>=71&&(theirs.tempo||68)<=67) bits.push('push the pace into a track meet they don\'t want');
+    if((mine.tempo||68)<=67&&(theirs.tempo||68)>=71) bits.push('slow it down and shorten the game');
+    if(!bits.length) bits.push('control the margins — rebounding and ball security decide a game this even');
+    return `<div class="wpcard"><div class="wpt">${esc(nm)} win the game by…</div><div class="wpb">${bits.slice(0,3).map(x=>x.charAt(0).toUpperCase()+x.slice(1)).join('. ')}.</div></div>`;
+  }
+  const wins=(da&&db)?`<div class="gph">How each team wins</div><div class="wpgrid">${winPath(da,db,nA)}${winPath(db,da,nB)}</div>`:'';
+
+  host.innerHTML=`${kmRows?`<div class="gph">Key matchups <span>projected starter · OVR edge</span></div><div class="kmwrap" style="--cA:${cA};--cB:${cB}"><div class="kmhead"><span>Pos</span><span>${esc(nA)}</span><span>edge</span><span>${esc(nB)}</span></div>${kmRows}</div>`:''}${tapeHtml}${wins}`;
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
 }
 
 (async function(){
