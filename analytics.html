@@ -162,7 +162,7 @@ body{background:transparent!important;}
   </style>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=4"></script>
+<script src="tdc-nav.js?v=5"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 
 <div class="nav-wrap">
@@ -205,7 +205,7 @@ body{background:transparent!important;}
 </div>
 
 <div class="view-tabs">
-  <button class="vtab on" id="vtLeaders" onclick="setView('leaders')">Leaderboard</button>
+  <button class="vtab on" id="vtLeaders" onclick="setView('leaders')">Stats</button>
   <button class="vtab" id="vtExplorer" onclick="setView('explorer')">Stat Explorer</button>
   <button class="vtab" id="vtTeams" onclick="setView('teams')">Team History</button>
   <button class="vtab" id="vtLandscape" onclick="setView('landscape')">League Landscape</button>
@@ -774,6 +774,9 @@ async function load(){
   fillAxisSelectors();
   await changeSeason('2026');
   document.getElementById('leadersView').style.display='block';
+  // deep-link: ?view=explorer|teams|landscape opens that tab directly (nav dropdown)
+  try{ var wv=new URLSearchParams(location.search).get('view');
+    if(wv && ['explorer','teams','landscape'].indexOf(wv)>=0) setView(wv); }catch(e){}
 }
 
 // ── AUTH NAV ──────────────────────────────────────────────────────
