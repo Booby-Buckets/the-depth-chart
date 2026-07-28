@@ -268,8 +268,33 @@ body{background:transparent!important;}
 .ls-h2{font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:800;margin:0 0 4px;}
 .ls-sub{font-size:13px;color:var(--text3);max-width:640px;margin:0 0 16px;line-height:1.5;}
 .ls-sub em{font-style:italic;color:var(--text2);}
+.ct-wrap{display:flex;flex-direction:column;gap:2px;}
+.ct-row{display:grid;grid-template-columns:26px 150px 1fr 190px;align-items:center;gap:12px;padding:7px 8px;border-radius:6px;transition:background .12s;}
+.ct-row:hover{background:var(--bg2);}
+.ct-row.ct-top{background:var(--bg2);}
+.ct-rank{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:var(--text3);text-align:center;}
+.ct-top .ct-rank{color:var(--accent);}
+.ct-name{font-size:13px;font-weight:700;color:var(--text);display:flex;flex-direction:column;line-height:1.2;}
+.ct-n{font-size:9.5px;font-weight:600;color:var(--text3);letter-spacing:.03em;text-transform:uppercase;margin-top:2px;}
+.ct-bar-wrap{display:flex;align-items:center;gap:10px;min-width:0;}
+.ct-bar{height:16px;border-radius:3px;min-width:3px;transition:width .4s cubic-bezier(.4,0,.2,1);}
+.ct-val{font-size:12px;font-weight:800;color:var(--text2);font-variant-numeric:tabular-nums;white-space:nowrap;}
+.ct-best{font-size:11px;font-weight:600;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+@media(max-width:640px){.ct-row{grid-template-columns:22px 96px 1fr;gap:8px;}.ct-best{display:none;}}
 </style>
 <div id="landscapeView" style="display:none;padding:0 40px 40px;">
+  <div class="ls-sec">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;">
+      <div>
+        <h2 class="ls-h2">Conference Talent</h2>
+        <p class="ls-sub" style="margin-bottom:0;">Every conference ranked by the average strength of its teams (Power Rating) in the season you pick. Watch the power shift year to year — realignment, dynasties, and the leagues that faded.</p>
+      </div>
+      <label class="exp-lab" style="min-width:120px;">Season
+        <select id="confYear" class="exp-sel filter-select" onchange="renderConfTalent(+this.value)"></select>
+      </label>
+    </div>
+    <div id="confTalent" style="margin-top:16px;"><div class="loading" style="padding:40px;">Loading…</div></div>
+  </div>
   <div class="ls-sec">
     <h2 class="ls-h2">The Contender Quadrant</h2>
     <p class="ls-sub">Every D-1 team plotted by offensive vs defensive efficiency (points per 100 possessions) this season. Top-right — score well and defend — is where champions live. Hover any dot.</p>
@@ -345,6 +370,8 @@ const LEADER_KEYS = ['wa','bpm','ws','per','ts','usg','ast_pct','trb_pct'];
 
 // ── State ───────────────────────────────────────────────────────
 let CUR_SEASON = '2026';
+const CUR_YEAR = 2026;
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 let RAW = [];            // flattened rows for current season selection
 let FILT = [];           // after pos/min/search filter
 let PCT = {};            // {key: sorted-ascending number array} for percentile coloring
@@ -644,6 +671,7 @@ function setView(v){
 let _lsLoaded=false;
 async function loadLandscape(){
   if(_lsLoaded || !window.TDC_CHARTS) return; _lsLoaded=true;
+  loadConfTalent();
   try{
     const [q,b]=await Promise.all([
       fetch('scripts/data/chart_quadrant.json').then(r=>r.json()),
@@ -651,8 +679,62 @@ async function loadLandscape(){
     ]);
     TDC_CHARTS.quadrant(document.getElementById('lsQuadrant'), q);
     TDC_CHARTS.bubbles(document.getElementById('lsBubbles'), b);
-  }catch(e){ _lsLoaded=false; document.getElementById('lsQuadrant').innerHTML='<div style="padding:30px;color:var(--text3);">Could not load landscape data.</div>'; }
+  }catch(e){ document.getElementById('lsQuadrant').innerHTML='<div style="padding:30px;color:var(--text3);">Could not load landscape data.</div>'; }
 }
+
+// ── Conference Talent (live from team_seasons, any year) ──────────
+const CONF_SHORT={'Southeastern Conference':'SEC','Big Ten Conference':'Big Ten','Big 12 Conference':'Big 12','Big East Conference':'Big East','Atlantic Coast Conference':'ACC','Pac-12 Conference':'Pac-12','Pacific-12 Conference':'Pac-12','Pac-10 Conference':'Pac-10','Mountain West Conference':'Mountain West','American Athletic Conference':'American','West Coast Conference':'WCC','Atlantic 10 Conference':'Atlantic 10','Missouri Valley Conference':'Missouri Valley','Conference USA':'C-USA','Mid-American Conference':'MAC','Sun Belt Conference':'Sun Belt','Western Athletic Conference':'WAC','Big West Conference':'Big West','Colonial Athletic Association':'CAA','Horizon League':'Horizon','Ivy League':'Ivy','Big Sky Conference':'Big Sky','Southern Conference':'SoCon','Metro Atlantic Athletic Conference':'MAAC','Ohio Valley Conference':'OVC','Big South Conference':'Big South','Summit League':'Summit','America East Conference':'America East','Patriot League':'Patriot','Northeast Conference':'NEC','Southland Conference':'Southland','Atlantic Sun Conference':'ASUN','Southwestern Athletic Conference':'SWAC','Mid-Eastern Athletic Conference':'MEAC','Great West Conference':'Great West'};
+const _confCache={}; let _confYearsInit=false;
+async function loadConfTalent(){
+  const sel=document.getElementById('confYear');
+  if(!_confYearsInit){
+    _confYearsInit=true;
+    let opts='';
+    for(let y=CUR_YEAR; y>=2008; y--) opts+='<option value="'+y+'">'+(y-1)+'–'+String(y).slice(2)+'</option>';
+    sel.innerHTML=opts; sel.value=CUR_YEAR;
+  }
+  renderConfTalent(+sel.value);
+}
+async function renderConfTalent(year){
+  const host=document.getElementById('confTalent');
+  host.innerHTML='<div class="loading" style="padding:40px;">Loading '+(year-1)+'–'+String(year).slice(2)+'…</div>';
+  try{
+    let rows=_confCache[year];
+    if(!rows){
+      const r=await fetch(SB+'/rest/v1/team_seasons?season_year=eq.'+year+'&select=team,conference,srs,wins,losses,ncaa_seed,ncaa_result&limit=500',{headers:H});
+      rows=await r.json(); _confCache[year]=rows;
+    }
+    const byc={};
+    rows.forEach(x=>{ if(x.conference && x.srs!=null){ (byc[x.conference]=byc[x.conference]||[]).push(x); }});
+    let list=Object.keys(byc).map(c=>{
+      const ts=byc[c]; const srs=ts.map(t=>t.srs);
+      const avg=srs.reduce((a,b)=>a+b,0)/srs.length;
+      const best=ts.slice().sort((a,b)=>b.srs-a.srs)[0];
+      return {conf:c, short:CONF_SHORT[c]||c.replace(/ Conference$/,''), avg, n:ts.length, best};
+    }).filter(c=>c.n>=4).sort((a,b)=>b.avg-a.avg);
+    if(!list.length){ host.innerHTML='<div style="padding:30px;color:var(--text3);">No conference data for that season.</div>'; return; }
+    const max=list[0].avg, min=Math.min(0, list[list.length-1].avg);
+    const span=max-min || 1;
+    let html='<div class="ct-wrap">';
+    list.forEach((c,i)=>{
+      const w=Math.max(3,((c.avg-min)/span)*100);
+      const strong=i===0, top4=i<4;
+      const col=top4?'var(--accent)':(c.avg>=list[Math.floor(list.length/2)].avg?'var(--blue)':'var(--border2)');
+      const seed=c.best.ncaa_seed?(' · '+ordSeed(c.best.ncaa_seed)+' seed'):'';
+      html+='<div class="ct-row'+(strong?' ct-top':'')+'">'
+        +'<div class="ct-rank">'+(i+1)+'</div>'
+        +'<div class="ct-name">'+esc(c.short)+'<span class="ct-n">'+c.n+' teams</span></div>'
+        +'<div class="ct-bar-wrap"><div class="ct-bar" style="width:'+w.toFixed(1)+'%;background:'+col+';"></div>'
+        +'<span class="ct-val">'+(c.avg>=0?'+':'')+c.avg.toFixed(1)+'</span></div>'
+        +'<div class="ct-best" title="Top team">'+esc(c.best.team)+seed+'</div>'
+        +'</div>';
+    });
+    html+='</div>';
+    html+='<div style="font-size:10.5px;color:var(--text3);margin-top:12px;line-height:1.6;max-width:900px;">Power Rating = point-differential rating adjusted for schedule strength; a conference score is the average across its teams (leagues with fewer than 4 D-1 teams that season are omitted). Gold = top 4 leagues, blue = upper half. Top team shown at right.</div>';
+    host.innerHTML=html;
+  }catch(e){ host.innerHTML='<div style="padding:30px;color:var(--text3);">Could not load conference data.</div>'; }
+}
+function ordSeed(n){ return '#'+n; }
 
 // ── TEAM HISTORY — every team-season since 2007, plus program averages ──
 let TEAM_AGG=null, TEAM_RAW=null, teamSort='srs', teamDir=-1;
