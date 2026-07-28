@@ -60,6 +60,16 @@
     .sec-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:24px 0 12px;display:flex;align-items:center;gap:10px;}
     .sec-h::after{content:'';flex:1;height:1px;background:var(--border);}
     .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:26px;max-width:770px;}
+    .cs-wrap{position:relative;max-width:440px;margin:6px auto 0;}
+    .cs-wrap svg{width:100%;height:auto;display:block;}
+    .cs-mk{cursor:pointer;transition:filter .12s;}
+    .cs-mk:hover{filter:brightness(1.25);}
+    .cstip{position:absolute;pointer-events:none;display:none;background:var(--text);color:var(--bg);font-size:11px;font-weight:700;padding:5px 9px;border-radius:6px;white-space:nowrap;transform:translate(-50%,-145%);z-index:20;box-shadow:0 4px 14px rgba(0,0,0,.28);letter-spacing:.01em;}
+    .cs-legend{display:flex;gap:20px;justify-content:center;margin-top:12px;font-size:11.5px;font-weight:600;color:var(--text3);flex-wrap:wrap;}
+    .cs-legend .lg{display:inline-flex;align-items:center;gap:6px;}
+    .cs-legend .dot{width:11px;height:11px;border-radius:50%;background:var(--green);box-shadow:0 0 0 1px var(--bg);}
+    .cs-legend .xx{color:var(--red);font-weight:900;font-size:14px;line-height:1;}
+    .cs-empty{max-width:440px;margin:10px auto 0;text-align:center;font-size:12.5px;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;padding:26px 18px;}
   </style>
   <link rel="stylesheet" href="tdc-dense.css?v=18"/>
   <style>
@@ -94,7 +104,7 @@
   <div id="roster"></div>
   <div id="out"></div>
 
-  <div class="note" data-anim><b>Clutch</b> = the last 5:00 of the second half or overtime with the score within five. From each shot's game clock and running margin. <b>Shot load</b> is the player's share of his team's field-goal attempts (does the offense run through him late?); efficiency is eFG%. Clutch samples are small by nature — a season yields a few dozen such shots — so read these as tendencies, and the card flags thin samples.</div>
+  <div class="note" data-anim><b>Clutch</b> = the last 5:00 of the second half or overtime with the score within five. From each shot's game clock and running margin. <b>Shot load</b> is the player's share of his team's field-goal attempts (does the offense run through him late?); efficiency is eFG%. Clutch samples are small by nature — a season yields a few dozen such shots — so read these as tendencies, and the card flags thin samples. Use the season toggle to pool <b>all seasons</b> for a bigger, steadier read, or isolate one year. The shot chart plots every clutch attempt where it was taken; hover a marker for the game clock, the margin, and whether it fell.</div>
 </div>
 
 <script>
@@ -104,7 +114,7 @@ const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
 const el=id=>document.getElementById(id);
 const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
 
-let D=null, COLORMAP={}, selKey=null, roster=[], teamShotCache={};
+let D=null, COLORMAP={}, selKey=null, roster=[];
 const poolRow=k=>k!=null?D.teams[k]:null;
 const labelOf=r=>r?r.full:'';
 function _lum(hex){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');if(hex.length<6)return .5;const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return (0.299*r+0.587*g+0.114*b)/255;}
@@ -156,10 +166,60 @@ async function loadTeam(){
   }));
 }
 
-async function teamShots(tid){
-  if(teamShotCache[tid]) return teamShotCache[tid];
-  let s=[]; try{ s=await fetch(`${SB_URL}/rest/v1/shots?team_id=eq.${tid}&season_year=eq.2026&select=espn_id,period,sec_left,home_score,away_score,made,sv&limit=8000`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
-  teamShotCache[tid]=s; return s;
+const teamCountCache={};
+async function teamClutchCounts(tid, yr){
+  const k=tid+'_'+yr;
+  if(teamCountCache[k]) return teamCountCache[k];
+  let s=[]; try{ s=await fetch(`${SB_URL}/rest/v1/shots?team_id=eq.${tid}&season_year=eq.${yr}&sec_left=not.is.null&select=period,sec_left,home_score,away_score&limit=14000`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  let c=0,rr=0; s.forEach(x=>{ if(isClutch(x)) c++; else rr++; });
+  const out={clutch:c,rest:rr}; teamCountCache[k]=out; return out;
+}
+
+// ── clutch shot chart (court geometry mirrors tdc-shotchart.js) ──
+const CFT=10, CHX=25, CHY=5.25, CYMIN=1.8, CYMAX=36.5, CCW=50*CFT, CCH=(CYMAX-CYMIN)*CFT;
+const cpx=fx=>fx*CFT, cpy=fy=>(CYMAX-fy)*CFT, cfx=x=>(x==null?CHX:x), cfy=y=>(y==null?0:y)+CHY;
+function courtLines(line){
+  const hx=cpx(CHX), hy=cpy(CHY); let g='';
+  g+='<rect x="1" y="1" width="'+(CCW-2)+'" height="'+(CCH-2)+'" fill="none" stroke="'+line+'" stroke-width="2"/>';
+  g+='<rect x="'+cpx(19)+'" y="'+cpy(19)+'" width="'+cpx(12)+'" height="'+(cpy(0)-cpy(19))+'" fill="none" stroke="'+line+'" stroke-width="1.5"/>';
+  g+='<circle cx="'+cpx(25)+'" cy="'+cpy(19)+'" r="'+cpx(6)+'" fill="none" stroke="'+line+'" stroke-width="1.5"/>';
+  g+='<path d="M '+(hx-cpx(4))+' '+hy+' A '+cpx(4)+' '+cpx(4)+' 0 0 1 '+(hx+cpx(4))+' '+hy+'" fill="none" stroke="'+line+'" stroke-width="1.5"/>';
+  g+='<line x1="'+(cpx(25)-cpx(3))+'" y1="'+cpy(4)+'" x2="'+(cpx(25)+cpx(3))+'" y2="'+cpy(4)+'" stroke="'+line+'" stroke-width="2"/>';
+  g+='<circle cx="'+hx+'" cy="'+hy+'" r="'+cpx(0.75)+'" fill="none" stroke="'+line+'" stroke-width="2"/>';
+  const cornerX=250-216.5, cornerYtop=hy-46.8;
+  g+='<path d="M '+cornerX+' '+cpy(0)+' L '+cornerX+' '+cornerYtop+' A 221.5 221.5 0 0 1 '+(500-cornerX)+' '+cornerYtop+' L '+(500-cornerX)+' '+cpy(0)+'" fill="none" stroke="'+line+'" stroke-width="1.5"/>';
+  return g;
+}
+const fmtClock=sec=>{ sec=Math.max(0,Math.round(sec)); const m=Math.floor(sec/60), ss=sec%60; return m+':'+(ss<10?'0':'')+ss; };
+const perLabel=p=> p===2?'2nd half' : p===3?'OT' : p>=4?('OT'+(p-2)) : '1st half';
+function shotDist(s){ if(s.dist!=null&&s.dist>=0) return s.dist; const dx=cfx(s.x)-CHX, dy=cfy(s.y)-CHY; return Math.sqrt(dx*dx+dy*dy); }
+function clutchTip(s){
+  const margin=Math.abs(R(s.home_score)-R(s.away_score));
+  return perLabel(s.period)+' '+fmtClock(s.sec_left)+' · within '+margin+' · '+(s.made?'MADE':'MISS')+' '+(s.sv===3?'3PT':'2PT')+' '+Math.round(shotDist(s))+' ft';
+}
+function clutchChart(shots){
+  const line=getComputedStyle(document.documentElement).getPropertyValue('--border2').trim()||'#C6C0B2';
+  const marks=shots.filter(s=>s.x!=null&&s.y!=null).map(s=>{
+    const x=cpx(cfx(s.x)).toFixed(1), y=cpy(cfy(s.y)).toFixed(1), tip=clutchTip(s);
+    if(s.made) return '<circle class="cs-mk" data-tip="'+esc(tip)+'" cx="'+x+'" cy="'+y+'" r="6.5" fill="var(--green)" fill-opacity="0.92" stroke="var(--bg)" stroke-width="1.4"/>';
+    return '<g class="cs-mk" data-tip="'+esc(tip)+'"><line x1="'+(+x-5)+'" y1="'+(+y-5)+'" x2="'+(+x+5)+'" y2="'+(+y+5)+'" stroke="var(--red)" stroke-width="2.4" stroke-linecap="round"/><line x1="'+(+x-5)+'" y1="'+(+y+5)+'" x2="'+(+x+5)+'" y2="'+(+y-5)+'" stroke="var(--red)" stroke-width="2.4" stroke-linecap="round"/></g>';
+  }).join('');
+  const made=shots.filter(s=>s.made).length;
+  return '<div class="cs-wrap"><svg id="csSvg" viewBox="0 0 '+CCW+' '+CCH+'" preserveAspectRatio="xMidYMid meet">'
+    +'<g>'+courtLines(line)+'</g><g>'+marks+'</g></svg><div class="cstip" id="csTip"></div></div>'
+    +'<div class="cs-legend"><span class="lg"><span class="dot"></span>Made ('+made+')</span><span class="lg"><span class="xx">✕</span>Missed ('+(shots.length-made)+')</span><span class="lg" style="color:var(--text3)">Hover a shot for the game clock</span></div>';
+}
+function wireTip(){
+  const svg=el('csSvg'), tip=el('csTip'); if(!svg||!tip) return;
+  const wrap=svg.parentElement;
+  svg.addEventListener('mousemove',e=>{
+    const mk=e.target.closest('.cs-mk');
+    if(!mk){ tip.style.display='none'; return; }
+    tip.textContent=mk.getAttribute('data-tip');
+    const wr=wrap.getBoundingClientRect();
+    tip.style.left=(e.clientX-wr.left)+'px'; tip.style.top=(e.clientY-wr.top)+'px'; tip.style.display='block';
+  });
+  svg.addEventListener('mouseleave',()=>{ tip.style.display='none'; });
 }
 
 function roleOf(usageD,effD,clN){
@@ -170,57 +230,84 @@ function roleOf(usageD,effD,clN){
   return ['Steady hand','n'];
 }
 
+const seasonLabel=y=>(y-1)+'-'+String(y).slice(2);
 async function loadPlayer(p, tc, row){
   el('out').innerHTML='<div class="loading">Reading his late-game shots…</div>';
   let mine=[];
-  try{ mine=await fetch(`${SB_URL}/rest/v1/shots?espn_id=eq.${p.espn_id}&season_year=eq.2026&select=period,sec_left,home_score,away_score,made,sv,team_id`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
-  const head=`<div class="sec-h">${esc(p.name)} <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px">${p.position||''} · 2025-26</span></div>`;
-  const withClock=mine.filter(s=>s.sec_left!=null);
-  if(!mine.length){ el('out').innerHTML=head+`<div class="muted">No shot-location data on file for this player.</div>`;
-    if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full)); return; }
-  if(!withClock.length){ el('out').innerHTML=head+`<div class="banner">⏳ <b>Clutch data is being scraped.</b> This player's ${mine.length} shots don't yet carry the game clock — the re-scrape that adds late-game timing to the shot log is still in progress. This card lights up automatically once his games are reprocessed.</div>`;
+  try{ mine=await fetch(`${SB_URL}/rest/v1/shots?espn_id=eq.${p.espn_id}&sec_left=not.is.null&select=season_year,period,sec_left,home_score,away_score,made,sv,x,y,dist,team_id&limit=6000`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  const head=`<div class="sec-h">${esc(p.name)} <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px">${p.position||''} · clutch profile</span></div>`;
+  if(!mine.length){ el('out').innerHTML=head+`<div class="muted">No game-clock shot data on file yet for this player — clutch needs each shot's last-five-minutes timing, which only the re-scraped seasons carry.</div>`;
     if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full)); return; }
 
-  const tid=(mine[0]||{}).team_id;
-  const team=tid!=null?await teamShots(tid):[];
-  const myClutch=withClock.filter(isClutch), myRest=withClock.filter(s=>!isClutch(s));
-  const tmWithClock=team.filter(s=>s.sec_left!=null);
-  const tmClutch=tmWithClock.filter(isClutch), tmRest=tmWithClock.filter(s=>!isClutch(s));
-  const shareCl = tmClutch.length? myClutch.length/tmClutch.length*100 : null;
-  const shareRe = tmRest.length? myRest.length/tmRest.length*100 : null;
-  const efgCl=efg(myClutch), efgRe=efg(myRest);
-  const usageD = (shareCl!=null&&shareRe!=null)? shareCl-shareRe : 0;
-  const effD = (efgCl!=null&&efgRe!=null)? efgCl-efgRe : 0;
-  const [role,cls]=roleOf(usageD,effD,myClutch.length);
+  // seasons the player has clock shots in, and his team per season (handles transfers)
+  const seasons=[...new Set(mine.map(s=>s.season_year))].sort((a,b)=>b-a);
+  const seasonTeam={}; mine.forEach(s=>{ if(seasonTeam[s.season_year]==null && s.team_id!=null) seasonTeam[s.season_year]=s.team_id; });
+  const teamCounts={};
+  await Promise.all(seasons.map(async yr=>{
+    const tid=seasonTeam[yr]; teamCounts[yr]= tid!=null ? await teamClutchCounts(tid,yr) : {clutch:0,rest:0};
+  }));
 
-  // read
-  let rd;
-  if(myClutch.length<6){ rd=`Only <b>${myClutch.length}</b> clutch shots on file — too few to call his late-game role with confidence yet. Check back as more of his games are processed.`; }
-  else {
-    const up=usageD>=6, down=usageD<=-6;
-    const loadTxt = up?`the offense leans <b>harder</b> on him late — his share of the shots jumps ${usageD.toFixed(0)} points`
-      : down?`he <b>gives it up</b> late — his shot share drops ${Math.abs(usageD).toFixed(0)} points`
-      : `his shot load barely changes late`;
-    const effTxt = effD>=4?`and he's <b>sharper</b> for it (eFG +${effD.toFixed(0)})`
-      : effD<=-4?`but his efficiency <b>dips</b> (eFG ${effD.toFixed(0)})`
-      : `and holds his efficiency`;
-    rd=`In the clutch, ${loadTxt}, ${effTxt}.`;
-  }
-
-  const arrow=(d,inv)=>{ if(Math.abs(d)<0.5) return ''; const good=inv? d<0 : d>0; return `<span class="v ${good?'up':'dn'}" style="font-size:11px"> ${d>0?'+':''}${d.toFixed(0)}</span>`; };
-  const cmp=`<div class="cmp"><div class="ch"><span>Metric</span><span class="r hl">Clutch</span><span class="r">Rest of game</span></div>
-    <div class="crow"><div class="ml">Shot load<span class="ms">% of team FGA</span></div><div class="v">${shareCl==null?'—':shareCl.toFixed(0)+'%'}</div><div class="v" style="color:var(--text3)">${shareRe==null?'—':shareRe.toFixed(0)+'%'}</div></div>
-    <div class="crow"><div class="ml">Efficiency<span class="ms">eFG%</span></div><div class="v">${efgCl==null?'—':efgCl.toFixed(0)}</div><div class="v" style="color:var(--text3)">${efgRe==null?'—':efgRe.toFixed(0)}</div></div>
-    <div class="crow"><div class="ml">Three-point rate<span class="ms">% of his shots</span></div><div class="v" style="font-size:15px">${myClutch.length?tpa(myClutch).toFixed(0)+'%':'—'}</div><div class="v" style="color:var(--text3);font-size:15px">${myRest.length?tpa(myRest).toFixed(0)+'%':'—'}</div></div>
-    <div class="crow"><div class="ml">Shots<span class="ms">attempts</span></div><div class="v" style="font-size:15px">${myClutch.length}</div><div class="v" style="color:var(--text3);font-size:15px">${myRest.length}</div></div>
-  </div>`;
+  // scope toggle: each season + All seasons (when >1)
+  const scopes=seasons.map(y=>({v:String(y),l:seasonLabel(y)}));
+  if(seasons.length>1) scopes.push({v:'all',l:'All seasons'});
+  const defScope=scopes[scopes.length-1].v;   // default to All (or the sole season)
 
   el('out').innerHTML=`<div style="--tc:${tc}">${head}
-    <div class="hero"><div class="big"><div class="role ${cls}">${role}</div><div class="rl">Clutch role</div></div>
-      <div class="txt"><div class="pn">${esc(p.name)}</div><div class="pm">${myClutch.length} clutch shots · ${withClock.length} with clock</div><div class="rd">${rd}</div></div></div>
-    ${cmp}</div>`;
+    <div id="csScope" class="chips" style="margin-bottom:16px"></div>
+    <div id="csBody"></div></div>`;
+  const scopeEl=el('csScope');
+  scopeEl.innerHTML=scopes.map(s=>`<div class="chip${s.v===defScope?' on':''}" data-v="${s.v}">${s.l}</div>`).join('');
+  scopeEl.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{
+    scopeEl.querySelectorAll('.chip').forEach(x=>x.classList.remove('on')); c.classList.add('on');
+    renderScope(c.dataset.v);
+  }));
+
+  function renderScope(scope){
+    const inS=s=> scope==='all' || s.season_year===+scope;
+    const cShots=mine.filter(inS);
+    const myClutch=cShots.filter(isClutch), myRest=cShots.filter(s=>!isClutch(s));
+    let tmC=0,tmR=0; seasons.forEach(yr=>{ if(scope==='all'||yr===+scope){ tmC+=teamCounts[yr].clutch; tmR+=teamCounts[yr].rest; } });
+    const shareCl=tmC? myClutch.length/tmC*100 : null, shareRe=tmR? myRest.length/tmR*100 : null;
+    const efgCl=efg(myClutch), efgRe=efg(myRest);
+    const usageD=(shareCl!=null&&shareRe!=null)? shareCl-shareRe : 0;
+    const effD=(efgCl!=null&&efgRe!=null)? efgCl-efgRe : 0;
+    const [role,cls]=roleOf(usageD,effD,myClutch.length);
+    const scopeLbl = scope==='all' ? `${seasons.length} seasons` : seasonLabel(+scope);
+
+    let rd;
+    if(myClutch.length<6){ rd=`Only <b>${myClutch.length}</b> clutch shots in this window — too few to call his late-game role with confidence.${seasons.length>1&&scope!=='all'?` Try <b>All seasons</b> for a fuller read.`:''}`; }
+    else {
+      const up=usageD>=6, down=usageD<=-6;
+      const loadTxt = up?`the offense leans <b>harder</b> on him late — his share of the shots jumps ${usageD.toFixed(0)} points`
+        : down?`he <b>gives it up</b> late — his shot share drops ${Math.abs(usageD).toFixed(0)} points`
+        : `his shot load barely changes late`;
+      const effTxt = effD>=4?`and he's <b>sharper</b> for it (eFG +${effD.toFixed(0)})`
+        : effD<=-4?`but his efficiency <b>dips</b> (eFG ${effD.toFixed(0)})`
+        : `and holds his efficiency`;
+      rd=`In the clutch, ${loadTxt}, ${effTxt}.`;
+    }
+
+    const cmp=`<div class="cmp"><div class="ch"><span>Metric</span><span class="r hl">Clutch</span><span class="r">Rest of game</span></div>
+      <div class="crow"><div class="ml">Shot load<span class="ms">% of team FGA</span></div><div class="v">${shareCl==null?'—':shareCl.toFixed(0)+'%'}</div><div class="v" style="color:var(--text3)">${shareRe==null?'—':shareRe.toFixed(0)+'%'}</div></div>
+      <div class="crow"><div class="ml">Efficiency<span class="ms">eFG%</span></div><div class="v">${efgCl==null?'—':efgCl.toFixed(0)}</div><div class="v" style="color:var(--text3)">${efgRe==null?'—':efgRe.toFixed(0)}</div></div>
+      <div class="crow"><div class="ml">Three-point rate<span class="ms">% of his shots</span></div><div class="v" style="font-size:15px">${myClutch.length?tpa(myClutch).toFixed(0)+'%':'—'}</div><div class="v" style="color:var(--text3);font-size:15px">${myRest.length?tpa(myRest).toFixed(0)+'%':'—'}</div></div>
+      <div class="crow"><div class="ml">Shots<span class="ms">attempts</span></div><div class="v" style="font-size:15px">${myClutch.length}</div><div class="v" style="color:var(--text3);font-size:15px">${myRest.length}</div></div>
+    </div>`;
+
+    const chart = myClutch.length
+      ? `<div class="sec-h">Every clutch shot · where &amp; when</div>${clutchChart(myClutch)}`
+      : `<div class="sec-h">Every clutch shot · where &amp; when</div><div class="cs-empty">No clutch shots in this window.</div>`;
+
+    el('csBody').innerHTML=`
+      <div class="hero"><div class="big"><div class="role ${cls}">${role}</div><div class="rl">Clutch role</div></div>
+        <div class="txt"><div class="pn">${esc(p.name)}</div><div class="pm">${myClutch.length} clutch shots · ${cShots.length} late-game shots · ${scopeLbl}</div><div class="rd">${rd}</div></div></div>
+      ${cmp}${chart}`;
+    wireTip();
+    if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('csBody'));
+  }
+
+  renderScope(defScope);
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
-  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
 }
 
 (async function(){
