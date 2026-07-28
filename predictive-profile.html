@@ -9,6 +9,8 @@
   <script src="auth.js?v=paywall4"></script>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=2"></script>
+  <script src="tdc-projgrade.js?v=coach5"></script>
+  <script src="tdc-proj.js?v=coach5"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -61,6 +63,41 @@
     .mmc .v span{font-weight:600;color:var(--text3);font-size:12px;}
     .sec-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:22px 0 12px;display:flex;align-items:center;gap:10px;}
     .sec-h::after{content:'';flex:1;height:1px;background:var(--border);}
+    .sec-h .hint{font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;}
+    /* header */
+    .dh{display:flex;align-items:flex-start;gap:18px;border:1px solid var(--border2);border-radius:16px;background:radial-gradient(120% 130% at 0 0,color-mix(in srgb,var(--accent) 8%,var(--bg2)),var(--bg2));padding:20px 22px;flex-wrap:wrap;}
+    .dh .ovr{text-align:center;flex-shrink:0;}
+    .dh .ovr .ov{font-family:'Playfair Display',serif;font-weight:800;font-size:46px;line-height:1;color:var(--accent);}
+    .dh .ovr .ol{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:3px;}
+    .dh .who{flex:1;min-width:220px;}
+    .dh .who .pn{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;}
+    .dh .who .pm{font-size:12.5px;color:var(--text3);font-weight:600;margin:3px 0 10px;}
+    .dh .who .tags{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+    .dh .who .arch{display:inline-block;font-size:11px;font-weight:800;color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);padding:4px 11px;border-radius:20px;}
+    .traj{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:4px 11px;border-radius:20px;letter-spacing:.02em;}
+    .traj.up{color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent);}
+    .traj.dn{color:var(--red);background:color-mix(in srgb,var(--red) 14%,transparent);}
+    .traj.fl{color:var(--text2);background:var(--bg3);}
+    /* projected line */
+    .projline{border:1px solid var(--border);border-radius:14px;background:var(--bg2);overflow:hidden;}
+    .pl-h{display:grid;grid-template-columns:1.1fr repeat(7,1fr);gap:2px;padding:10px 16px 8px;font-size:9.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);text-align:center;}
+    .pl-h span:first-child{text-align:left;}
+    .pl-r{display:grid;grid-template-columns:1.1fr repeat(7,1fr);gap:2px;padding:10px 16px;border-top:1px solid var(--border);align-items:center;text-align:center;}
+    .pl-r .rl{text-align:left;font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
+    .pl-r .v{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;font-variant-numeric:tabular-nums;}
+    .pl-r.proj .v{color:var(--accent);}
+    /* verdict */
+    .verdict{border:1px solid var(--border2);border-left:3px solid var(--accent);border-radius:12px;background:var(--bg2);padding:15px 18px;}
+    .verdict .vl{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+    .verdict .vb{font-size:15px;line-height:1.6;color:var(--text);font-weight:600;}
+    .verdict .vb b{font-weight:800;}
+    /* game plan */
+    .gplan{display:flex;flex-direction:column;gap:8px;}
+    .gp{display:grid;grid-template-columns:auto 1fr;gap:11px;align-items:start;border:1px solid var(--border);border-radius:11px;background:var(--bg2);padding:11px 15px;}
+    .gp .ic{font-size:15px;line-height:1.4;}
+    .gp .gt{font-size:13px;line-height:1.55;color:var(--text2);}
+    .gp .gt b{color:var(--text);font-weight:800;}
+    .gp .gk{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:2px;}
     .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:26px;max-width:770px;}
   </style>
   <link rel="stylesheet" href="tdc-dense.css?v=18"/>
@@ -106,8 +143,18 @@ const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
 const el=id=>document.getElementById(id);
 const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
 
-let D=null, COLORMAP={}, selKey=null, DNA26=null, T=null, roster=[];
+let D=null, COLORMAP={}, selKey=null, DNA26=null, T=null, roster=[], PROJMAP={}, PPGRANK={};
 const poolRow=k=>k!=null?D.teams[k]:null;
+const F=(v,d)=>v==null?'—':(+v).toFixed(d==null?1:d);
+const PCNT=['ppg','rpg','apg','mpg','stl','blk','tovs','fgm','fga','tpm','tpa','ftm','fta'];
+function projLine(p){ const yr=((p.class_year||p.yr||'')+'').toLowerCase(); const has=(R(p.ppg)>0||R(p.mpg)>=2); const o={};
+  if(!has){ o._fresh=true; return o; }
+  const mult=yr.indexOf('fr')>=0?1.12:yr.indexOf('so')>=0?1.10:yr.indexOf('jr')>=0?1.05:0.99;
+  const bump=yr.indexOf('fr')>=0?1.5:yr.indexOf('so')>=0?1.0:yr.indexOf('jr')>=0?0.5:0;
+  PCNT.forEach(k=>o[k]=R(p[k])*mult); ['fg_pct','tp_pct','ft_pct'].forEach(k=>o[k]=R(p[k])+bump); return o;
+}
+function projOvr(p){ try{ if(window.TDCProjGrade){ const g=TDCProjGrade.gradeSolo?TDCProjGrade.gradeSolo(p):TDCProjGrade.ovr(p); if(g!=null&&!isNaN(g)) return Math.round(g); } }catch(e){} return R(p.tdc_grade)||null; }
+const ord=n=>{const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);};
 const labelOf=r=>r?r.full:'';
 function _lum(hex){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');if(hex.length<6)return .5;const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return (0.299*r+0.587*g+0.114*b)/255;}
 function teamColor(row){const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#A8843C';const c=COLORMAP[row.team]||COLORMAP[row.full];if(!c)return accent;const dark=document.documentElement.getAttribute('data-theme')==='dark',l=_lum(c);if(!dark&&l>0.72)return accent;if(dark&&l<0.16)return accent;return c;}
@@ -159,9 +206,18 @@ async function loadTeam(){
   const row=poolRow(selKey); if(!row) return;
   el('roster').innerHTML='<div class="loading">Loading roster…</div>'; el('out').innerHTML='';
   await ensureDna();
-  try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,mpg&order=mpg.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){ roster=[]; }
+  try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,position2,depth_order,class_year,yr,is_injured,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb&order=mpg.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){ roster=[]; }
   roster=roster.filter(p=>p.espn_id!=null);
   if(!roster.length){ el('roster').innerHTML='<div class="muted">No players with D-I game history on this roster yet.</div>'; return; }
+  // Authoritative projection — same whole-roster engine the player page & rankings use
+  PROJMAP={}; PPGRANK={};
+  try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready;
+    if(typeof buildTeamProjections==='function'){ const pr=buildTeamProjections(roster.map(x=>Object.assign({},x)), row.conf||'');
+      (pr||[]).forEach(x=>{ if(x&&x.name) PROJMAP[x.name.toLowerCase().trim()]=x; });
+      const byPpg=(pr||[]).filter(x=>x&&x.name&&R(x.mpg)>0).sort((a,b)=>R(b.ppg)-R(a.ppg));
+      byPpg.forEach((x,i)=>{ PPGRANK[x.name.toLowerCase().trim()]=i+1; });
+    }
+  }catch(e){}
   const tc=teamColor(row);
   el('roster').innerHTML=`<div class="sec-h" style="margin-top:14px">${esc(row.full)} · pick a player</div><div class="chips" style="--tc:${tc}">`
     + roster.map((p,i)=>`<div class="chip" data-i="${i}">${esc(p.name)}${p.position?`<span class="cp">${esc(p.position)}</span>`:''}</div>`).join('')+'</div>';
@@ -183,8 +239,43 @@ async function loadPlayer(p, tc, row){
     fetch(`${SB_URL}/rest/v1/shots?espn_id=eq.${p.espn_id}&season_year=eq.2026&select=period,made,sv,sec_left,home_score,away_score,team_id`,{headers:H}).then(r=>r.ok?r.json():[])
   ]); }catch(e){}
   log=log.filter(g=>R(g.min)>0);
-  if(log.length<8){ el('out').innerHTML=`<div class="book"><div class="bh"><span class="pn">${esc(p.name)}</span></div><div class="muted">Too few 2025-26 games (${log.length}) to build a predictive profile.</div></div>`;
-    if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full)); return; }
+
+  // ── projection (authoritative engine, matches player page) ──
+  const eng=PROJMAP[(p.name||'').toLowerCase().trim()];
+  const pl = (eng && R(eng.mpg)>0) ? {ppg:R(eng.ppg),rpg:R(eng.rpg),apg:R(eng.apg),mpg:R(eng.mpg),fg_pct:R(eng.fg_pct),tp_pct:R(eng.tp_pct),ft_pct:R(eng.ft_pct)} : projLine(p);
+  const ovr = (eng && eng.tdc_grade!=null && !isNaN(+eng.tdc_grade)) ? Math.round(+eng.tdc_grade) : projOvr(p);
+  const lastGrade=R(p.tdc_grade)||null;
+  const gd=(ovr!=null&&lastGrade)?ovr-lastGrade:null, ppgD=pl._fresh?null:R(pl.ppg)-R(p.ppg);
+  let traj=null;
+  if(pl._fresh) traj={cls:'fl',t:'Projected'};
+  else if(gd!=null&&gd>=3) traj={cls:'up',t:`▲ Rising +${gd} OVR`};
+  else if(gd!=null&&gd<=-3) traj={cls:'dn',t:`▼ Slipping ${gd} OVR`};
+  else if(ppgD!=null&&ppgD>=2.5) traj={cls:'up',t:'▲ Expanding role'};
+  else if(ppgD!=null&&ppgD<=-2.5) traj={cls:'dn',t:'▼ Reduced role'};
+  else traj={cls:'fl',t:'▬ Steady'};
+
+  const head=`<div class="dh">
+    <div class="ovr"><div class="ov">${ovr!=null?ovr:'—'}</div><div class="ol">Proj OVR '27</div></div>
+    <div class="who"><div class="pn">${esc(p.name)}</div>
+      <div class="pm">${esc(p.position||'')} · ${esc(p.class_year||p.yr||'')} · ${esc(row.full)}</div>
+      <div class="tags">${lastGrade?`<span class="arch">'25-26 grade ${lastGrade}</span>`:''}${traj?`<span class="traj ${traj.cls}">${traj.t}</span>`:''}</div></div></div>`;
+  let projHtml='';
+  if(!pl._fresh){
+    const prow=(v,d,sz)=>`<div class="v"${sz?` style="font-size:14px;color:var(--text3)"`:''}>${F(v,d)}</div>`;
+    projHtml=`<div class="sec-h">Projected 2026-27 line <span class="hint">last season → projected</span></div>
+      <div class="projline">
+        <div class="pl-h"><span>Per game</span><span>PPG</span><span>RPG</span><span>APG</span><span>MPG</span><span>FG%</span><span>3P%</span><span>FT%</span></div>
+        <div class="pl-r proj"><div class="rl">Projected</div>${prow(pl.ppg)}${prow(pl.rpg)}${prow(pl.apg)}${prow(pl.mpg,0)}${prow(pl.fg_pct,0)}${prow(pl.tp_pct,0)}${prow(pl.ft_pct,0)}</div>
+        <div class="pl-r"><div class="rl" style="color:var(--text3)">Last year</div>${prow(p.ppg,1,1)}${prow(p.rpg,1,1)}${prow(p.apg,1,1)}${prow(p.mpg,0,1)}${prow(p.fg_pct,0,1)}${prow(p.tp_pct,0,1)}${prow(p.ft_pct,0,1)}</div>
+      </div>`;
+  } else {
+    projHtml=`<div class="sec-h">Projected 2026-27 line</div><div class="projline"><div class="muted">Incoming / limited D-I sample — projection carried by grade (OVR ${ovr!=null?ovr:'—'}); the predictive read below needs game history.</div></div>`;
+  }
+
+  if(log.length<8){ el('out').innerHTML=`<div style="--tc:${tc}">${head}${projHtml}
+    <div class="sec-h">Predictive read</div><div class="muted">Only ${log.length} games of 2025-26 history — not enough to break out how he responds to pace, pressure, and matchups yet.</div></div>`;
+    if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
+    if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out')); return; }
   const dnaG=g=>DNA26[g.opp];
   const base=bAgg(log);
   // tempo
@@ -264,16 +355,58 @@ async function loadPlayer(p, tc, row){
   const book=sents.length?sents.join('. ')+'.':'Not enough split coverage to summarize this player yet.';
 
   const tileHtml=tiles.length?`<div class="tiles">`+tiles.map(t=>`<div class="tile ${t.cls}"><div class="tn">${t.nm}</div><div class="tv">${t.v}</div><div class="tl">${t.l}</div><div class="td">${t.d}</div></div>`).join('')+`</div>`:'';
-  let mm='';
-  if(buckets.length>=2){ const b=buckets[0],w=buckets[buckets.length-1];
-    mm=`<div class="mm"><div class="mmc best"><div class="l">Best matchup</div><div class="v">${b.a.nm} <span>· TS ${b.ts.toFixed(0)}%</span></div></div><div class="mmc worst"><div class="l">Toughest matchup</div><div class="v">${w.a.nm} <span>· TS ${w.ts.toFixed(0)}%</span></div></div></div>`;
+
+  // ── the read before tip-off (projection + role + sharpest signal) ──
+  const rk=PPGRANK[(p.name||'').toLowerCase().trim()];
+  const roleStr = pl._fresh ? 'an unproven newcomer'
+    : rk===1 ? "his team's go-to scorer" : rk===2 ? 'a clear second option'
+    : (rk&&rk<=4) ? `a top-${rk} scoring option`
+    : (R(pl.mpg)>=22 ? 'a rotation regular' : 'a bench piece');
+  let headline='';
+  if(buckets.length>=2){ const b=buckets[0],w=buckets[buckets.length-1],spread=b.ts-w.ts;
+    if(spread>=12) headline=`his efficiency swings hard by matchup — he feasts on ${b.a.nm.toLowerCase()} but is neutralized by ${w.a.nm.toLowerCase()}`; }
+  if(!headline&&fast.length>=4&&slow.length>=4){ const dr=Math.round(bAgg(fast).efg-bAgg(slow).efg); if(Math.abs(dr)>=8) headline= dr<0?`tempo is the lever — his shot falls ${Math.abs(dr)} eFG points in a fast game`:`he feeds off pace — ${dr} eFG points sharper when it's fast`; }
+  if(!headline&&hav.length>=4&&lowD.length>=4){ const d=bAgg(hav).to40-bAgg(lowD).to40; if(d>=1.5) headline=`ball pressure is the pressure point — +${d.toFixed(1)} turnovers per 40 against havoc`; }
+  if(!headline&&clutchRole){ headline = clutchRole.lab==='Closer'?`he wants the ball late — a genuine closer`:clutchRole.lab==='Heat-check'?`he'll fire late whether it's falling or not`:clutchRole.lab.indexOf('Defer')>=0?`he defers when the game tightens`:`he holds steady down the stretch`; }
+  if(!headline) headline=`no single lever swings him — a steady, hard-to-scheme profile`;
+  const cy=esc(p.class_year||p.yr||''), posw=esc(p.position||'player');
+  const verdict = pl._fresh
+    ? `An unproven ${cy} ${posw} — the projection is carried by grade (OVR ${ovr!=null?ovr:'—'}); the situational read fills in as he builds a game log.`
+    : `A ${cy} ${posw} projected as <b>${roleStr}</b> (${F(pl.ppg)} ppg, ${F(pl.mpg,0)} min). In the film, ${headline}.`;
+
+  // ── what this predicts (actionable reads) ──
+  const gp=[];
+  if(fast.length>=4&&slow.length>=4){ const dr=Math.round(bAgg(fast).efg-bAgg(slow).efg);
+    if(dr<=-4) gp.push({ic:'⏱',k:'Tempo',t:`His shot <b>drops ${Math.abs(dr)} eFG points</b> in an uptempo game — a faster pace works against him.`});
+    else if(dr>=4) gp.push({ic:'⏱',k:'Tempo',t:`He's <b>${dr} eFG points sharper</b> when the game runs — a controlled pace blunts him.`});
   }
+  if(hav.length>=4&&lowD.length>=4){ const d=bAgg(hav).to40-bAgg(lowD).to40;
+    if(d>=1) gp.push({ic:'🔒',k:'Ball pressure',t:`Havoc defenses pull <b>+${d.toFixed(1)} turnovers per 40</b> out of him.`});
+    else if(d<=-0.5) gp.push({ic:'🔒',k:'Ball pressure',t:`Pressure doesn't rattle him — he protects it just as well against havoc.`});
+  }
+  let mm='';
+  if(buckets.length>=2){ const b=buckets[0],w=buckets[buckets.length-1],spread=b.ts-w.ts;
+    mm=`<div class="mm"><div class="mmc best"><div class="l">Best matchup</div><div class="v">${b.a.nm} <span>· TS ${b.ts.toFixed(0)}%</span></div></div><div class="mmc worst"><div class="l">Toughest matchup</div><div class="v">${w.a.nm} <span>· TS ${w.ts.toFixed(0)}%</span></div></div></div>`;
+    if(spread>=8) gp.push({ic:'🎯',k:'Coverage',t:`He <b>feasts</b> on ${b.a.nm.toLowerCase()} (TS ${b.ts.toFixed(0)}%) and is <b>neutralized</b> by ${w.a.nm.toLowerCase()} (TS ${w.ts.toFixed(0)}%).`});
+  }
+  if(clutchRole){ const ed=Math.round(effD||0);
+    const t = clutchRole.lab==='Closer'?`Expect the ball in his hands late — his load climbs and he stays sharp.`
+      : clutchRole.lab==='Heat-check'?`He'll shoot late whether it's falling or not (clutch eFG ${ed>=0?'+':''}${ed}).`
+      : clutchRole.lab.indexOf('Defer')>=0?`He gives it up late — the closer is somebody else.`
+      : `His late-game role and efficiency hold steady.`;
+    gp.push({ic:'⏳',k:'Late game',t});
+  }
+  const gpHtml=gp.length?`<div class="gplan">`+gp.map(x=>`<div class="gp"><div class="ic">${x.ic}</div><div class="gt"><span class="gk">${x.k}</span>${x.t}</div></div>`).join('')+`</div>`:'';
 
   el('out').innerHTML=`<div style="--tc:${tc}">
-    <div class="book"><div class="bh"><span class="pn">${esc(p.name)}</span><span class="pm">${esc(p.position||'')} · ${log.length} games · 2025-26</span></div>
-      <div class="lede">The book on him</div><div class="body">${book}</div>
-      ${tileHtml}${mm}
-    </div></div>`;
+    ${head}
+    ${projHtml}
+    <div class="sec-h">Bottom line <span class="hint">the read before tip-off</span></div>
+    <div class="verdict"><div class="vl">Scout's-eye summary</div><div class="vb">${verdict}</div></div>
+    ${tileHtml?`<div class="sec-h">Predictive scorecard <span class="hint">how he responds to situations · his 2025-26 splits</span></div>${tileHtml}`:''}
+    ${book&&sents.length?`<div class="sec-h">The book on him</div><div class="book"><div class="lede">Synthesized read</div><div class="body">${book}</div></div>`:''}
+    ${(gpHtml||mm)?`<div class="sec-h">What this predicts <span class="hint">tendencies to plan around — not verdicts</span></div>${mm}${gpHtml}`:''}
+  </div>`;
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
 }
