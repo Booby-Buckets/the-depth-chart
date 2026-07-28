@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Self-Scout Report — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="auth.js?v=paywall4"></script>
+  <script src="team-colors.js?v=2"></script>
+  <script src="tdc-ratings.js?v=2"></script>
+  <script src="tdc-projgrade.js?v=coach5"></script>
+  <script src="tdc-proj.js?v=coach5"></script>
+  <link rel="stylesheet" href="tdc-anim.css?v=4"/>
+  <script src="tdc-anim.js?v=5"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--amber:#b5872a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--amber:#d8b05a;--red:#e07070;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+    .page{max-width:900px;margin:0 auto;padding:30px 22px 90px;}
+    .eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+    .eyebrow .lock{font-size:10px;color:var(--text3);border:1px solid var(--border2);border-radius:20px;padding:2px 8px;letter-spacing:.06em;}
+    h1{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;letter-spacing:-.01em;margin-bottom:4px;}
+    .sub{font-size:13px;color:var(--text3);margin-bottom:22px;max-width:780px;line-height:1.6;}
+    .combo{position:relative;max-width:420px;}
+    .search{width:100%;padding:12px 14px;border:1px solid var(--accent);border-radius:10px;background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;font-weight:600;outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent);}
+    .combo-list{display:none;position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:30;max-height:340px;overflow-y:auto;background:var(--bg);border:1px solid var(--border2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.2);}
+    .combo-item{padding:9px 13px;cursor:pointer;font-size:13.5px;display:flex;justify-content:space-between;gap:10px;font-weight:600;}
+    .combo-item:hover{background:var(--bg3);}
+    .combo-item .cr{color:var(--text3);font-weight:500;}
+    .combo-empty{padding:12px;font-size:12px;color:var(--text3);}
+    .loading{padding:60px;text-align:center;color:var(--text3);}
+    .muted{font-size:12.5px;color:var(--text3);line-height:1.7;padding:22px 20px;text-align:center;}
+    .sec-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:26px 0 12px;display:flex;align-items:center;gap:10px;}
+    .sec-h .hint{font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;}
+    .sec-h::after{content:'';flex:1;height:1px;background:var(--border);}
+    .card{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:16px 18px;}
+    .idbar{display:flex;align-items:center;gap:14px;border:1px solid var(--border2);border-radius:16px;background:radial-gradient(120% 130% at 0 0,color-mix(in srgb,var(--accent) 8%,var(--bg2)),var(--bg2));padding:18px 20px;}
+    .idbar .badge{width:52px;height:52px;border-radius:13px;background:var(--tc,var(--accent));color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:800;font-size:20px;flex-shrink:0;}
+    .idbar .onm{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;}
+    .idbar .omet{font-size:12.5px;color:var(--text3);font-weight:600;margin-top:2px;}
+    .idbar .omet b{color:var(--text2);}
+    /* four factor bars */
+    .ffgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;margin-top:4px;}
+    @media(max-width:560px){.ffgrid{grid-template-columns:1fr;}}
+    .ff{}
+    .ffl{display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;color:var(--text2);margin-bottom:4px;}
+    .ffl .ffv{font-weight:800;}
+    .fft{height:7px;border-radius:4px;background:var(--bg3);overflow:hidden;}
+    .fff{height:100%;border-radius:4px;}
+    .winpath{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:13px;line-height:1.65;color:var(--text2);}
+    .winpath b{color:var(--text);}
+    /* personnel */
+    .pcard{border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:12px 15px;margin-bottom:8px;}
+    .pchead{display:flex;align-items:center;gap:13px;}
+    .pcovr{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;color:var(--accent);min-width:34px;text-align:center;flex-shrink:0;line-height:1;}
+    .pcwho{min-width:0;flex:1;} .pcn{font-weight:800;font-size:14px;} .pcn .pcpos{font-size:10px;font-weight:700;color:var(--accent);margin-left:6px;}
+    .pcline{font-size:11.5px;color:var(--text3);margin-top:2px;font-variant-numeric:tabular-nums;} .pcline b{color:var(--text2);}
+    .pcrole{font-size:11px;font-weight:800;color:var(--text2);background:color-mix(in srgb,var(--accent) 10%,var(--bg));border:1px solid var(--border);border-radius:16px;padding:3px 10px;flex-shrink:0;}
+    .obchips{display:flex;flex-wrap:wrap;gap:7px;}
+    .obchip{font-size:11.5px;color:var(--text2);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 11px;} .obchip b{color:var(--text);}
+    .obsub{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin:14px 0 6px;}
+    .obfeed{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:5px 0;border-top:1px solid var(--border);}
+    .obfeed:first-of-type{border-top:none;} .obfeed b{color:var(--text);} .obfeed .obn{font-size:11px;color:var(--text3);font-weight:600;}
+    .obread{font-size:12.5px;line-height:1.6;color:var(--text2);margin-top:12px;padding-top:11px;border-top:1px solid var(--border);} .obread b{color:var(--text);}
+    .dfbars{display:flex;flex-direction:column;gap:9px;}
+    .dfrow{display:grid;grid-template-columns:150px 1fr 40px;gap:10px;align-items:center;}
+    @media(max-width:560px){.dfrow{grid-template-columns:110px 1fr 38px;}}
+    .dfl{font-size:12px;font-weight:700;color:var(--text2);}
+    .dfbar{height:8px;border-radius:4px;background:var(--bg3);overflow:hidden;} .dfbar .dff{height:100%;border-radius:4px;}
+    .dfp{font-size:12px;font-weight:800;color:var(--text2);text-align:right;font-variant-numeric:tabular-nums;}
+    .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:26px;max-width:780px;}
+  </style>
+  <link rel="stylesheet" href="tdc-dense.css?v=18"/>
+  <style>
+    :root:not([data-theme="dark"]){background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
+  </style>
+</head>
+<body data-anim-auto>
+<script>
+(function(){
+  if(window.TDC_PAYWALL_ENABLED===false||(window.tdcIsOwner&&window.tdcIsOwner())) return;
+  var REQUIRED_PLANS=['pro','coach'];
+  var s=null; try{ s=JSON.parse(localStorage.getItem('tdc_session')||'null'); }catch(e){}
+  if(!s||!s.access_token){ location.href='pricing.html?gate=coach'; return; }
+  fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user.id+'&select=plan',
+    {headers:{apikey:'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye',Authorization:'Bearer '+s.access_token}})
+    .then(function(r){return r.json();}).then(function(rows){var p=rows&&rows[0];
+      if(!p||REQUIRED_PLANS.indexOf(p.plan)<0) location.href='pricing.html?gate=coach';
+    }).catch(function(){ location.href='pricing.html?gate=coach'; });
+})();
+</script>
+<script src="tdc-nav.js?v=4"></script>
+<script src="tdc-coachlinks.js?v=11"></script>
+<div class="page">
+  <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Self-Scout Hub</span></div>
+  <h1 data-anim>Self-Scout Report</h1>
+  <div class="sub" data-anim>Scout your own team the way an opponent will. Pick your program for the full self-audit: your projected identity and win formula, your rotation with each player's role, how you generate offense and how you defend — and, most importantly, where you're exposed and what you must shore up before someone else finds it.</div>
+
+  <div class="combo" data-anim><input id="sel" class="search" placeholder="Search your team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
+
+  <div id="out"><div class="muted" style="padding:60px 20px;">Pick your team above to open its self-scout.</div></div>
+
+  <div class="note" data-anim>Built from your 2026-27 projected profile (Team DNA four factors + the roster projection engine) and your 2025-26 play-by-play. "Where you're exposed" flags your weakest factor — the seam an opponent's scouting report will target. Percentiles are national (vs D-I).</div>
+</div>
+
+<script>
+const SB_URL='https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
+const el=id=>document.getElementById(id);
+const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
+const R=v=>{const n=+v;return isNaN(n)?0:n;};
+const F=(v,d)=>v==null?'—':(+v).toFixed(d==null?1:d);
+
+let D=null, COLORMAP={}, selKey=null, DNA=null, PBP=null, PBPNORM={};
+const poolRow=k=>k!=null?D.teams[k]:null;
+const labelOf=r=>r?r.full:'';
+function _lum(hex){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');if(hex.length<6)return .5;const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return (0.299*r+0.587*g+0.114*b)/255;}
+function teamColor(row){const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#A8843C';const c=COLORMAP[row.team]||COLORMAP[row.full];if(!c)return accent;const dark=document.documentElement.getAttribute('data-theme')==='dark',l=_lum(c);if(!dark&&l>0.72)return accent;if(dark&&l<0.16)return accent;return c;}
+const dnaOf=r=>(DNA&&DNA['2027']&&DNA['2027'].teams&&DNA['2027'].teams[r.full])||null;
+function pbpOf(r){ if(!PBP) return null; const s=PBP['2026']||PBP[Object.keys(PBP).sort().reverse()[0]]||{}; const t=(s&&s.teams)||s; return (t&&(t[r.full]||t[r.team]))||null; }
+
+function comboMatches(q){
+  const toks=(q||'').toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const ok=s=>{s=s.toLowerCase();return toks.every(t=>s.includes(t));};
+  let out=[]; D.teams.forEach((r,i)=>{ if(!toks.length||ok(r.full+' '+r.team)) out.push({key:i,r}); });
+  if(toks.length){ const pre=e=>e.r.full.toLowerCase().startsWith(toks[0])?0:1; out.sort((a,b)=>pre(a)-pre(b)||(a.r.rank||999)-(b.r.rank||999)); }
+  else out.sort((a,b)=>(a.r.rank||999)-(b.r.rank||999));
+  return out.slice(0,30);
+}
+function renderList(){
+  const list=el('list'), m=comboMatches(el('sel').value);
+  list.innerHTML=m.length? m.map(e=>`<div class="combo-item" data-key="${e.key}"><span>${labelOf(e.r)}${e.r.conf?` <span class="cr">${e.r.conf}</span>`:''}</span><span class="cr">#${e.r.rank||'—'}</span></div>`).join('')
+    : '<div class="combo-empty">No teams match</div>';
+  list.style.display='block';
+}
+function pick(key){ selKey=+key; el('sel').value=labelOf(poolRow(+key)); el('list').style.display='none'; loadTeam(); }
+(function wire(){
+  const inp=el('sel'), list=el('list');
+  inp.addEventListener('focus',()=>{ inp.select(); renderList(); });
+  inp.addEventListener('input',()=>renderList());
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const f=list.querySelector('.combo-item'); if(f) pick(f.dataset.key); inp.blur(); }
+    if(e.key==='Escape'){ list.style.display='none'; inp.value=labelOf(poolRow(selKey)); inp.blur(); } });
+  inp.addEventListener('blur',()=>setTimeout(()=>{ list.style.display='none'; inp.value=labelOf(poolRow(selKey)); },160));
+  list.addEventListener('mousedown',e=>{ const it=e.target.closest('.combo-item'); if(it){ e.preventDefault(); pick(it.dataset.key); } });
+})();
+
+async function projTeamLines(row){
+  let roster=[]; try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,position,position2,depth_order,hometown,is_injured,class_year,yr,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
+  let map={}; try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready; if(typeof buildTeamProjections==='function'){ const pr=buildTeamProjections(roster.map(x=>Object.assign({},x)), row.conf||''); (pr||[]).forEach(x=>{ if(x&&x.name) map[x.name.toLowerCase().trim()]=x; }); } }catch(e){}
+  return roster.filter(p=>p.name).map(p=>{ const pj=map[(p.name||'').toLowerCase().trim()]; const l=(pj&&R(pj.mpg)>0)?pj:p;
+    return {name:p.name, pos:(p.position||'G'), ovr:(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):R(p.tdc_grade), ppg:R(l.ppg),rpg:R(l.rpg),apg:R(l.apg),mpg:R(l.mpg),fg_pct:R(l.fg_pct),tp_pct:R(l.tp_pct),ft_pct:R(l.ft_pct),tpa:R(l.tpa),fga:R(l.fga),blk:R(l.blk)}; }); }
+
+function roleOf(p){ const pos=(p.pos||'').split('/')[0]; const big=pos==='C'||pos==='PF', guard=pos==='PG'||pos==='SG'||pos==='G'||pos==='CG';
+  const usg=p.fga>0?p.fga:0, tpr=p.fga>0?p.tpa/p.fga:0;
+  if(guard&&p.apg>=4.5) return 'Lead creator';
+  if(guard&&p.ppg>=14) return 'Scoring guard';
+  if(!big&&tpr>=0.5&&p.tp_pct>=35) return 'Floor spacer';
+  if(big&&p.blk>=1.2) return 'Rim protector';
+  if(big&&tpr>=0.3) return 'Stretch big';
+  if(big) return 'Interior scorer';
+  if(guard) return 'Combo guard';
+  return 'Wing';
+}
+
+async function loadTeam(){
+  const row=poolRow(selKey); if(!row) return; const tc=teamColor(row);
+  el('out').innerHTML='<div class="loading">Auditing your team…</div>';
+  if(!DNA){ try{ DNA=await fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():{}); }catch(e){ DNA={}; } }
+  if(!PBP){ try{ PBP=await fetch('scripts/data/team_pbp.json',{cache:'no-cache'}).then(r=>r.ok?r.json():{}); }catch(e){ PBP={}; }
+    try{ const s=(PBP&&(PBP['2026']||PBP[Object.keys(PBP).sort().reverse()[0]]))||{}; const tt=(s&&s.teams)||s; const arr=Object.values(tt||{}).filter(x=>x&&x.gp);
+      const stat=k=>{ const v=arr.map(t=>t[k]).filter(x=>x!=null); if(!v.length) return {m:0,sd:1}; const m=v.reduce((a,b)=>a+b,0)/v.length; const sd=Math.sqrt(v.reduce((a,b)=>a+(b-m)*(b-m),0)/v.length)||1; return {m,sd}; };
+      ['transition_rate','off_to_pg','second_chance_pg','and1_pg'].forEach(k=>PBPNORM[k]=stat(k)); }catch(e){}
+  }
+  const roster=await projTeamLines(row);
+  const dna=dnaOf(row), p=pbpOf(row), initials=(row.full||'').split(' ').map(w=>w[0]).slice(0,2).join('');
+
+  // ── identity ──
+  let idHtml=`<div class="idbar" style="--tc:${tc}"><div class="badge">${esc(initials)}</div><div><div class="onm">${esc(row.full)}</div><div class="omet"><b>${esc(row.conf||'')}</b> · #${row.rank||'—'} projected${dna&&dna.tempo?` · ${dna.tempo.toFixed(0)} poss/g`:''}</div></div></div>`;
+  if(dna&&dna.pct){ const pc=dna.pct; const FF=[['ORtg','Offense'],['DRtg','Defense'],['oeFG','Shooting'],['oTOV','Ball security',true],['oORB','Off. rebounding'],['dDRB','Def. rebounding']];
+    const ff=FF.filter(f=>pc[f[0]]!=null).map(([k,lab])=>{ const v=pc[k], col=v>=66?'var(--green)':v<=40?'var(--red)':'var(--accent)';
+      return `<div class="ff"><div class="ffl"><span>${lab}</span><span class="ffv" style="color:${col}">${Math.round(v)}ᵖᶜ</span></div><div class="fft"><div class="fff" style="width:${Math.round(v)}%;background:${col}"></div></div></div>`; }).join('');
+    const facs=FF.filter(f=>pc[f[0]]!=null).map(([k,lab])=>({k,lab,v:pc[k]}));
+    const best=[...facs].sort((a,b)=>b.v-a.v)[0], worst=[...facs].sort((a,b)=>a.v-b.v)[0];
+    const wp = dna.win_path&&dna.win_path.summary ? dna.win_path.summary
+      : `Your identity is built on <b>${best.lab.toLowerCase()}</b> (${Math.round(best.v)}ᵗʰ). You win when that carries you; you're most exposed at <b>${worst.lab.toLowerCase()}</b> (${Math.round(worst.v)}ᵗʰ) — shore that up or opponents will live there.`;
+    idHtml+=`<div class="sec-h">Your identity <span class="hint">projected 2026-27 · four factors</span></div><div class="card"><div class="ffgrid">${ff}</div><div class="winpath"><b>Win formula:</b> ${wp}</div></div>`;
+  }
+
+  // ── your rotation (projected + roles) ──
+  const rot=[...roster].filter(p2=>p2.mpg>0).sort((a,b)=>b.mpg-a.mpg).slice(0,9);
+  const rotHtml=`<div class="sec-h">Your rotation <span class="hint">projected 2026-27 line + role</span></div>`
+    + rot.map(pl=>`<div class="pcard"><div class="pchead"><div class="pcovr">${pl.ovr||'—'}</div><div class="pcwho"><div class="pcn">${esc(pl.name)}<span class="pcpos">${esc(pl.pos)}</span></div><div class="pcline"><b>${F(pl.ppg)}</b> pts · <b>${F(pl.rpg)}</b> reb · <b>${F(pl.apg)}</b> ast · ${F(pl.mpg,0)} min · ${F(pl.fg_pct,0)}/${F(pl.tp_pct,0)}/${F(pl.ft_pct,0)}</div></div><div class="pcrole">${roleOf(pl)}</div></div></div>`).join('');
+
+  // ── your offense ──
+  let offHtml='';
+  if(p&&p.gp){ const z=k=>{ const n=PBPNORM[k]; return n&&n.sd?(p[k]-n.m)/n.sd:0; };
+    const src=[]; if(z('transition_rate')>=0.55) src.push(['Transition',`${p.transition_rate.toFixed(0)}% of possessions`]);
+    if(z('second_chance_pg')>=0.55) src.push(['Second chances',`${p.second_chance_pg.toFixed(1)} pts/g`]);
+    if(z('off_to_pg')>=0.55) src.push(['Off turnovers',`${p.off_to_pg.toFixed(1)} pts/g`]);
+    if(z('and1_pg')>=0.7) src.push(['Contact finishes',`${p.and1_pg.toFixed(1)} and-1s/g`]);
+    const feeds=(p.feeds||[]).slice(0,3);
+    const srcHtml=src.length?`<div class="obchips">${src.map(s=>`<span class="obchip"><b>${s[0]}</b> · ${s[1]}</span>`).join('')}</div>`:`<div class="obchips"><span class="obchip">A half-court, balanced offense — no single source carries you above the norm</span></div>`;
+    const hubHtml=feeds.length?`<div class="obsub">Who creates it</div>`+feeds.map(f=>`<div class="obfeed"><span><b>${esc(f.from)}</b> → ${esc(f.to)}</span><span class="obn">${f.n} assists${f.pts?` · ${f.pts} pts`:''}</span></div>`).join(''):'';
+    const dep = feeds.length&&feeds[0].n>=18?` Heavy reliance on <b>${esc(feeds[0].from)}</b> as the hub — if he's off the floor or blitzed, have a secondary creator ready.`:'';
+    offHtml=`<div class="sec-h">Your offense — how you generate <span class="hint">2025-26 play-by-play</span></div><div class="card">${srcHtml}${hubHtml}<div class="obread"><b>Self-check:</b> lean into what works, but a scout will try to take away your top source.${dep}</div></div>`;
+  }
+
+  // ── your defense — where you're exposed ──
+  let defHtml='';
+  if(dna&&dna.pct){ const pct=dna.pct; const facs=[
+    {k:'deFG',nm:'Contesting shots'},{k:'dTOV',nm:'Forcing turnovers'},{k:'dDRB',nm:'Defensive rebounding'},
+  ].filter(f=>pct[f.k]!=null).map(f=>({...f,p:pct[f.k]}));
+    if(facs.length){ const bars=facs.map(f=>`<div class="dfrow"><div class="dfl">${f.nm}</div><div class="dfbar"><div class="dff" style="width:${Math.round(f.p)}%;background:${f.p>=50?'var(--green)':'var(--red)'}"></div></div><div class="dfp">${Math.round(f.p)}ᵖᶜ</div></div>`).join('');
+      const weak=[...facs].sort((a,b)=>a.p-b.p)[0], rim=(p&&p.blk_leaders||[]).slice(0,1);
+      const exposed = weak.p<45?`Your defense is <b>exposed at ${weak.nm.toLowerCase()}</b> (${Math.round(weak.p)}ᵗʰ) — that's the first thing on an opponent's board. Address it in practice before it costs you.`:`A well-rounded defense with no glaring hole — your job is to keep it that way.`;
+      const rimNote=rim.length?` <b>${esc(rim[0].name)}</b> anchors the paint (${rim[0].blk} blocks) — build the scheme around protecting him from foul trouble.`:'';
+      defHtml=`<div class="sec-h">Your defense — where you're exposed <span class="hint">projected · percentile vs D-I</span></div><div class="card"><div class="dfbars">${bars}</div><div class="obread"><b>Shore up:</b> ${exposed}${rimNote}</div></div>`;
+    }
+  }
+
+  el('out').innerHTML=`<div style="--tc:${tc}">${idHtml}${rotHtml}${offHtml}${defHtml}</div>`;
+  if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
+}
+
+(async function(){
+  try{ const arr=await fetch('scripts/data/team_colors.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
+    (arr||[]).forEach(e=>{ if(e&&e.c1){ if(e.location) COLORMAP[e.location]=e.c1; if(e.display) COLORMAP[e.display]=e.c1; } });
+  }catch(e){}
+  D=await TDC_RATINGS.get();
+  D.teams=(D.teams||[]).filter(t=>t.projected!==false&&t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999));
+  const qs=new URLSearchParams(location.search);
+  const want=(qs.get('team')||'').toLowerCase();
+  if(want){ const i=D.teams.findIndex(t=>t.full.toLowerCase()===want||t.team.toLowerCase()===want); if(i>=0){ selKey=i; el('sel').value=labelOf(poolRow(i)); loadTeam(); } }
+})();
+</script>
+</body>
+</html>
