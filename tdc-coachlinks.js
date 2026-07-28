@@ -27,6 +27,7 @@ window.TDC_COACHLINKS = (function () {
       ['adjustments.html',    'Adjustments'],
     ]],
     ['Personnel', [
+      ['dossier.html',        'Player Dossier'],
       ['predictive-profile.html', 'Predictive Profile'],
       ['roles.html',         'Roles & Fit'],
       ['game-context.html',  'Game Context'],
