@@ -9,7 +9,7 @@
   <script src="auth.js?v=paywall4"></script>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=2"></script>
-  <script src="tdc-teamlink.js?v=1"></script>
+  <script src="tdc-teamlink.js?v=2"></script>
   <script src="tdc-projgrade.js?v=coach5"></script>
   <script src="tdc-proj.js?v=coach5"></script>
   <script src="tdc-shotchart.js?v=1"></script>
@@ -244,7 +244,7 @@ function comboMatches(q){
 function fmtR(r){ return (r.rating>=0?'+':'')+r.rating.toFixed(1); }
 function renderList(x){
   const list=el('list'+x), m=comboMatches(el('sel'+x).value);
-  list.innerHTML=m.length? m.map(e=>`<div class="combo-item" data-key="${e.key}" data-x="${x}"><span>${labelOf(e.r)}${e.r.conf?` <span class="cr">${e.r.conf}</span>`:''}</span><span class="cr">#${e.r.rank||'—'} · ${fmtR(e.r)}</span></div>`).join('')
+  list.innerHTML=m.length? m.map(e=>`<div class="combo-item" data-key="${e.key}" data-x="${x}"><span>${(window.TDC_TEAM?TDC_TEAM.logoImg(e.r.full):'')}${labelOf(e.r)}${e.r.conf?` <span class="cr">${e.r.conf}</span>`:''}</span><span class="cr">#${e.r.rank||'—'} · ${fmtR(e.r)}</span></div>`).join('')
     : '<div class="combo-empty">No teams match</div>';
   list.style.display='block';
 }

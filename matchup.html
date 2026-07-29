@@ -8,6 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=2"></script>
+  <script src="tdc-teamlink.js?v=2"></script>
   <script src="tdc-projgrade.js?v=coach5"></script>
   <script src="tdc-proj.js?v=coach5"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
@@ -165,7 +166,7 @@ function comboMatches(q){
 }
 function renderList(x){
   const list=el('list'+x), m=comboMatches(el('sel'+x).value);
-  list.innerHTML=m.length? m.map(e=>`<div class="combo-item" data-key="${e.key}" data-x="${x}"><span>${labelOf(e.r)}${e.r.conf?` <span class="cr">${e.r.conf}</span>`:''}</span><span class="cr">#${e.r.rank||'—'} · ${fmtR(e.r)}</span></div>`).join('')
+  list.innerHTML=m.length? m.map(e=>`<div class="combo-item" data-key="${e.key}" data-x="${x}"><span>${(window.TDC_TEAM?TDC_TEAM.logoImg(e.r.full):'')}${labelOf(e.r)}${e.r.conf?` <span class="cr">${e.r.conf}</span>`:''}</span><span class="cr">#${e.r.rank||'—'} · ${fmtR(e.r)}</span></div>`).join('')
     : '<div class="combo-empty">No teams match</div>';
   list.style.display='block';
 }
@@ -261,7 +262,7 @@ async function loadGamePlan(a,b,favA,L){
   if(da&&da.pct&&db&&db.pct){ const F=[['net','Overall'],['ORtg','Offense'],['DRtg','Defense'],['oeFG','Shooting'],['oTOV','Ball security',true],['oORB','Off. rebounding']];
     const rowT=([k,lab,inv])=>{ const va=da.pct[k], vb=db.pct[k]; if(va==null||vb==null) return '';
       const aBetter=va>=vb; return `<div class="tprow"><div class="tpv ${aBetter?'w':''}" style="${aBetter?`color:${cA}`:''}">${Math.round(va)}ᵖᶜ</div><div class="tpl">${lab}</div><div class="tpv ${!aBetter?'w':''}" style="${!aBetter?`color:${cB}`:''}">${Math.round(vb)}ᵖᶜ</div></div>`; };
-    tapeHtml=`<div class="gph">Tale of the tape <span>ᴾᶜ = national percentile · higher is better</span></div><div class="tape"><div class="tphd"><span style="color:${cA}">${esc(nA)}</span><span></span><span style="color:${cB}">${esc(nB)}</span></div>${F.map(rowT).join('')}</div>`;
+    tapeHtml=`<div class="gph">Tale of the tape <span>ᴾᶜ = national percentile · higher is better</span></div><div class="tape"><div class="tphd"><span style="color:${cA}">${TDC_TEAM.badge(a.full,{label:nA})}</span><span></span><span style="color:${cB}">${TDC_TEAM.badge(b.full,{label:nB})}</span></div>${F.map(rowT).join('')}</div>`;
   }
   // ── how each team wins ──
   function winPath(mine,theirs,nm){
@@ -277,7 +278,7 @@ async function loadGamePlan(a,b,favA,L){
   }
   const wins=(da&&db)?`<div class="gph">How each team wins</div><div class="wpgrid">${winPath(da,db,nA)}${winPath(db,da,nB)}</div>`:'';
 
-  host.innerHTML=`${kmRows?`<div class="gph">Key matchups <span>projected starter · OVR edge</span></div><div class="kmwrap" style="--cA:${cA};--cB:${cB}"><div class="kmhead"><span>Pos</span><span>${esc(nA)}</span><span>edge</span><span>${esc(nB)}</span></div>${kmRows}</div>`:''}${tapeHtml}${wins}`;
+  host.innerHTML=`${kmRows?`<div class="gph">Key matchups <span>projected starter · OVR edge</span></div><div class="kmwrap" style="--cA:${cA};--cB:${cB}"><div class="kmhead"><span>Pos</span><span>${TDC_TEAM.badge(a.full,{label:nA})}</span><span>edge</span><span>${TDC_TEAM.badge(b.full,{label:nB})}</span></div>${kmRows}</div>`:''}${tapeHtml}${wins}`;
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
 }
 
