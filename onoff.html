@@ -84,17 +84,18 @@
 <div class="wrap">
   <div class="eyebrow">— Lineups · WOWY</div>
   <h1>On/Off &amp; WOWY</h1>
-  <p class="sub">How a team scores and defends with each player <b>on the court vs off it</b>, reconstructed from NCAA play-by-play lineups. The headline number is <b>Impact</b> — how many points per 100 possessions the team is better with a player on the floor versus on the bench.</p>
+  <p class="sub">How a team scores and defends with each player <b>on the court vs off it</b>, reconstructed from NCAA play-by-play lineups. The headline <b>Impact</b> is the on/off swing <b>adjusted for sample size</b> — shrunk toward zero when it rests on few bench-unit possessions, then ranked against every qualified player — so the leaderboard reflects real impact, not small-sample noise. The unadjusted <b>Raw</b> number is shown alongside.</p>
 
   <div class="legend open" id="legend">
     <button class="legend-toggle" onclick="document.getElementById('legend').classList.toggle('open')">How to read these numbers <span class="chev">▾</span></button>
     <div class="legend-body">
-      <div class="lg-item"><b>Impact</b> — the one number to start with: how many points per 100 possessions the team is better with this player <b>on the floor vs. on the bench</b>. Bigger is better.
-        <div class="lg-scale"><span style="color:#1f9d57;">+12 Elite</span><span style="color:#2bb673;">+6 Strong</span><span style="color:#6bbf8a;">+2 Positive</span><span style="color:#8a93a3;">±2 Neutral</span><span style="color:#e0885a;">−6 Negative</span><span style="color:#e06552;">Drag</span></div>
+      <div class="lg-item"><b>Impact</b> — the one number to start with: the on/off swing (per 100 possessions) <b>adjusted for sample size</b> and ranked vs the field. Tier comes from the <b>vs Field</b> percentile.
+        <div class="lg-scale"><span style="color:#1f9d57;">90+ Elite</span><span style="color:#2bb673;">70+ Strong</span><span style="color:#8a93a3;">40+ Neutral</span><span style="color:#e0885a;">15+ Below</span><span style="color:#e06552;">Drag</span></div>
       </div>
-      <div class="lg-item"><b>On Net / Off Net</b> — the team's net rating (points scored minus allowed, per 100) with the player <b>On</b> the court and <b>Off</b> it. Impact is simply On Net − Off Net.</div>
+      <div class="lg-item"><b>Raw</b> — the unadjusted swing (On Net − Off Net). A qualifying player needs <b>300+ on and 200+ off possessions</b>; below that, Impact shows “—” because the sample is too thin to trust.</div>
+      <div class="lg-item"><b>On Net / Off Net</b> — the team's net rating (points scored minus allowed, per 100) with the player <b>On</b> the court and <b>Off</b> it. Raw impact is On Net − Off Net.</div>
       <div class="lg-item"><b>On / Off ORtg</b> — points the team <b>scores</b> per 100 possessions. <b>DRtg</b> — points it <b>allows</b> per 100 (lower is better defense).</div>
-      <div class="lg-item lg-note">These are <b>raw</b> on/off — not yet adjusted for opponent or lineup quality, so a player with few bench minutes can show a noisy Off number. Read it as context, not proof.</div>
+      <div class="lg-item lg-note">On/off is measured <b>relative to a player's own teammates</b> and isn't adjusted for opponent — a good player on a weak team can post a big swing. Read it as context, not proof.</div>
     </div>
   </div>
 
@@ -119,12 +120,15 @@
 function toggleTheme(){ var d=document.documentElement; var dark=d.getAttribute('data-theme')==='dark'; d.setAttribute('data-theme',dark?'light':'dark'); try{localStorage.setItem('tdc_theme',dark?'light':'dark');}catch(e){} document.getElementById('themeBtn').textContent=dark?'🌙':'☀️'; }
 (function(){ var t=localStorage.getItem('tdc_theme')||'dark'; document.documentElement.setAttribute('data-theme',t); var b=document.getElementById('themeBtn'); if(b) b.textContent=t==='dark'?'☀️':'🌙'; })();
 
-var DATA={}, ROWS=[], sortKey='onoff_net', sortAsc=false;
+var DATA={}, ROWS=[], sortKey='adj', sortAsc=false;
 var COLS=[
   {k:'name', l:'Player', left:true, tip:'Player · team'},
   {k:'games', l:'GP', tip:'Games with reconstructed lineups'},
   {k:'on_poss', l:'On Poss', tip:'Offensive possessions with the player on the court'},
-  {k:'onoff_net', l:'Impact', big:true, tip:'The headline number — how many points per 100 possessions the team is better with him on the floor vs off it (on-court net minus off-court net). +12 elite · +6 strong · ±2 neutral · −6 drag.'},
+  {k:'off_poss', l:'Off Poss', tip:'Possessions with the player OFF the court — the bench-unit sample the Off numbers rest on. A small number here means a noisy raw impact.'},
+  {k:'adj', l:'Impact', big:true, tip:'Sample-adjusted on/off: the raw swing shrunk toward zero by how few bench-unit possessions it rests on (so a tiny off-court sample can\'t manufacture a huge number), then ranked vs every qualified player. The trustworthy headline — needs 300+ on & 200+ off poss to qualify.'},
+  {k:'pct', l:'vs Field', tip:'Percentile of the adjusted impact among all qualified players this season. 90+ = elite, 50 = league-average.'},
+  {k:'onoff_net', l:'Raw', tip:'The UNadjusted swing: on-court net minus off-court net (per 100). Shown for transparency; the Impact column shrinks this for sample size.'},
   {k:'on_net', l:'On Net', tip:'Team net efficiency (per 100) with the player ON the court'},
   {k:'off_net', l:'Off Net', tip:'Team net efficiency (per 100) with the player OFF the court'},
   {k:'on_o', l:'On ORtg', tip:'Points scored per 100 possessions with the player on'},
@@ -136,13 +140,12 @@ var _lnorm=s=>(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').repl
 function logoFor(name){ var M=window.TDC_TEAM_COLORS||{}; var t=M[_lnorm(name)]; if(!t){ var n=_lnorm(name); for(var k in M){ if(n.indexOf(k)===0||k.indexOf(n)===0){t=M[k];break;} } } return (t&&t.logo)||''; }
 function fnum(v,d){ return (v===null||v===undefined)?'—':(+v).toFixed(d===undefined?1:d); }
 function cls(v){ if(v===null||v===undefined) return ''; return v>0?'c-pos':v<0?'c-neg':''; }
-function impactTier(v){
-  if(v===null||v===undefined) return null;
-  if(v>=12) return {t:'Elite',   c:'#1f9d57'};
-  if(v>=6)  return {t:'Strong',  c:'#2bb673'};
-  if(v>=2)  return {t:'Positive',c:'#6bbf8a'};
-  if(v>-2)  return {t:'Neutral', c:'#8a93a3'};
-  if(v>-6)  return {t:'Negative',c:'#e0885a'};
+function adjTier(pct){
+  if(pct===null||pct===undefined) return null;
+  if(pct>=90) return {t:'Elite',  c:'#1f9d57'};
+  if(pct>=70) return {t:'Strong', c:'#2bb673'};
+  if(pct>=40) return {t:'Neutral',c:'#8a93a3'};
+  if(pct>=15) return {t:'Below',  c:'#e0885a'};
   return {t:'Drag', c:'#e06552'};
 }
 
@@ -164,20 +167,43 @@ function render(){
     var logo=logoFor(r.team);
     var td=COLS.map(function(c){
       if(c.left){ return '<td class="l"><div class="pl">'+(logo?'<img src="'+logo+'" onerror="this.style.display=\'none\'">':'')+'<span><div class="pl-nm">'+(r.name||'—')+'</div><div class="pl-tm">'+(r.team||'')+'</div></span></div></td>'; }
-      var v=r[c.k], d=(c.k==='on_poss'||c.k==='games')?0:1;
-      var color=(c.big||c.k==='on_net'||c.k==='off_net')?cls(c.inv?-v:v):'';
-      if(c.k==='onoff_net'){
-        var tr=impactTier(v);
-        return '<td class="onoff-big '+color+'"><div class="impact-cell"><span>'+(v>0?'+':'')+fnum(v,d)+'</span>'+(tr?'<span class="impact-tier" style="color:'+tr.c+';">'+tr.t+'</span>':'')+'</div></td>';
+      var v=r[c.k], d=(c.k==='on_poss'||c.k==='off_poss'||c.k==='games'||c.k==='pct')?0:1;
+      var signed=(c.big||c.k==='on_net'||c.k==='off_net'||c.k==='onoff_net');
+      var color=signed?cls(c.inv?-v:v):'';
+      if(c.k==='adj'){
+        var tr=adjTier(r.pct);
+        return '<td class="onoff-big '+color+'"><div class="impact-cell"><span>'+((v===null||v===undefined)?'—':(v>0?'+':'')+fnum(v,d))+'</span>'+(tr?'<span class="impact-tier" style="color:'+tr.c+';">'+tr.t+'</span>':'')+'</div></td>';
       }
-      return '<td class="'+(c.big?'onoff-big ':'')+color+'">'+fnum(v,d)+'</td>';
+      var txt=fnum(v,d);
+      if(signed && v!==null && v!==undefined && v>0) txt='+'+txt;
+      return '<td class="'+(c.big?'onoff-big ':'')+color+'">'+txt+'</td>';
     }).join('');
     return '<tr><td class="rk">'+(i+1)+'</td>'+td+'</tr>';
   }).join('');
   tb.innerHTML=body;
 }
 function sortBy(k){ if(sortKey===k) sortAsc=!sortAsc; else { sortKey=k; sortAsc=false; } head(); render(); }
-function loadSeason(s){ ROWS=(DATA[s]||[]).slice(); head(); render(); }
+function loadSeason(s){
+  ROWS=(DATA[s]||[]).map(function(r){ return Object.assign({}, r); });
+  // Sample-adjusted impact: clamp the raw swing, shrink toward 0 by off-court sample
+  // (adj = raw · off/(off+300)), then percentile-rank across this season's qualified
+  // players — so a lone player on a bad team with 150 bench possessions can't top the board.
+  var qual=[];
+  ROWS.forEach(function(r){
+    var on=+r.on_poss||0, off=+r.off_poss||0, raw=r.onoff_net;
+    if(raw!==null && raw!==undefined && on>=300 && off>=200){
+      var c=Math.max(-35,Math.min(35,raw)); r.adj=Math.round(c*off/(off+300)*10)/10; qual.push(r.adj);
+    } else { r.adj=null; }
+  });
+  qual.sort(function(a,b){ return a-b; });
+  var n=qual.length;
+  ROWS.forEach(function(r){
+    if(r.adj===null){ r.pct=null; return; }
+    var lo=0,hi=n; while(lo<hi){ var m=(lo+hi)>>1; if(qual[m]<r.adj) lo=m+1; else hi=m; }
+    r.pct=Math.round(lo/Math.max(1,n-1)*100);
+  });
+  head(); render();
+}
 
 fetch('scripts/data/player_onoff.json').then(function(r){ return r.ok?r.json():{}; }).then(function(j){
   DATA=j||{};
