@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script src="auth.js?v=paywall4"></script>
+  <script src="auth.js?v=coachgate1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=2"></script>
@@ -2069,6 +2069,48 @@ function _impScore(c){
   var peak=0.62*arr[0]+0.38*arr[1];
   return 0.5*base+0.5*peak;
 }
+// ── Lineup Amplifier (Coach's Tier gated) — team on/off swing, precomputed ──────
+// Same data + engine as the predictive-profile card (scripts/build_amplifier.py).
+// The player page is public, so this SECTION is gated: subscribers see the stat,
+// everyone else sees a locked upsell. Players without a qualifying on/off sample
+// (freshmen, low minutes) hide the box entirely.
+function _ampOrd(n){ var s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+function _ampStatHtml(a){
+  var v=a.amp, pv=a.pct;
+  var col = pv>=68?'var(--green)':pv>=40?'var(--text2)':'var(--red)';
+  var tier = pv>=88?'Elite lift':pv>=68?'Lifts':pv>=40?'Neutral':pv>=18?'Slight drag':'Drag';
+  var os=a.off_swing, ds=a.def_swing, parts=[];
+  if(os!=null) parts.push('Offense '+(os>=0?'+':'')+Math.round(os)+'/100');
+  if(ds!=null) parts.push('Defense '+(ds>=0?'allows '+Math.round(ds)+' fewer':'allows '+Math.round(-ds)+' more'));
+  return '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">'
+    +'<span style="font-family:\'Playfair Display\',serif;font-weight:800;font-size:34px;line-height:1;color:'+col+';">'+(v>0?'+':'')+v.toFixed(1)+'</span>'
+    +'<span style="font-weight:800;font-size:13px;color:'+col+';">'+tier+'</span></div>'
+    +'<div style="font-size:11.5px;color:var(--text3);margin-top:4px;">team net efficiency per 100, on vs off · '+_ampOrd(pv)+' percentile</div>'
+    +(parts.length?'<div style="font-size:12px;color:var(--text2);margin-top:8px;font-weight:600;">'+parts.join(' &nbsp;·&nbsp; ')+'</div>':'')
+    +'<div style="font-size:11px;color:var(--text3);margin-top:6px;">'+a.games+'g · '+a.off_poss+' bench-unit poss'+(a.conf==='med'?' · modest off-court sample':'')+'</div>';
+}
+function _ampLockHtml(){
+  return '<div style="display:flex;flex-direction:column;gap:8px;">'
+    +'<div style="font-weight:800;font-size:12.5px;color:var(--accent);letter-spacing:.03em;">🔒 COACH’S TIER</div>'
+    +'<div style="font-size:12.5px;color:var(--text2);line-height:1.55;">How much the team’s net efficiency swings with him on the floor vs off — with the offense-vs-defense split of where he moves the needle.</div>'
+    +'<a href="pricing.html?gate=coach" style="font-size:12px;font-weight:800;color:var(--accent);text-decoration:none;">Unlock lineup impact →</a></div>';
+}
+function renderAmplifier(){
+  var box=document.getElementById('ovcAmplifierBox'), host=document.getElementById('ovcAmplifier');
+  if(!box||!host||!player||window._ampRendered) return;
+  window._ampRendered=true;
+  function look(data){
+    var amp=(data&&data.players&&player.espn_id!=null)?data.players[''+player.espn_id]:null;
+    if(!amp){ box.style.display='none'; return; }
+    (window.tdcHasCoachTier?window.tdcHasCoachTier():Promise.resolve(false)).then(function(ok){
+      host.innerHTML = ok ? _ampStatHtml(amp) : _ampLockHtml();
+    });
+  }
+  if(window._ampData!==undefined){ look(window._ampData); }
+  else { fetch('scripts/data/player_amplifier.json').then(function(r){return r.ok?r.json():null;})
+    .then(function(d){ window._ampData=d; look(d); })
+    .catch(function(){ window._ampData=null; box.style.display='none'; }); }
+}
 function renderImpact(srcRow, projectedFlag){
   var host=document.getElementById('impactSection'); if(!host||!player) return;
   var pool=window._tdcAllPlayers; if(!pool||!pool.length) return;
@@ -3196,6 +3238,7 @@ function renderPage(){
         <div class="ovc-box ovc-comps"><div class="ovc-sl">Plays like <span class="sub" id="ovcCompLbl"></span></div><div id="ovcComps"><button class="ovc-complink" onclick="loadOvcCompsNow()">Find similar players →</button></div></div>
         <div class="ovc-box"><div class="ovc-sl">Grade trend</div><div class="ovc-trend" id="ovcTrend"></div></div>
         <div class="ovc-box"><div class="ovc-sl">Wins added</div><div id="impactSection"></div></div>
+        <div class="ovc-box" id="ovcAmplifierBox"><div class="ovc-sl">Lineup Amplifier <span class="sub">Coach's Tier</span></div><div id="ovcAmplifier"><div class="ovc-muted">Loading…</div></div></div>
         <div class="ovc-box ovc-read"><div class="ovc-sl">The read <span class="sub">vs everyone</span></div><div id="ovcRead"></div></div>
         <div class="ovc-box full"><div class="ovc-sl">Badges <span class="sub" id="ovcBadgeLbl"></span></div><div id="badgesSection">${buildBadgesSection(p, badgeData)}</div></div>
         <div class="ovc-box full ovc-bottom"><div class="ovc-sl">Bottom line</div><div id="ovcBottom"></div></div>
@@ -3294,6 +3337,7 @@ function renderPage(){
   setTimeout(animateRadar, 120);
   setTimeout(function(){ growBarsIn(document.getElementById('panel-overview')); }, 130);
   try{ renderOvcExtras(); }catch(e){ console.warn('ovc extras', e); }
+  try{ renderAmplifier(); }catch(e){ console.warn('amplifier', e); }
   setTimeout(_tabScrollHint, 150);
 }
 

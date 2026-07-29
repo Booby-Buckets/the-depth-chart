@@ -101,4 +101,27 @@ window.TDC_PAYWALL_ENABLED = false;
     try { var s = get(); return (s && s.user && ('' + (s.user.email || '')).toLowerCase() === OWNER && s.access_token) ? s.access_token : null; }
     catch (e) { return null; }
   };
+
+  // Coach's Tier access check: owner OR profiles.plan in {pro, coach}. Returns a
+  // memoized Promise<bool>. This is the SECTION-level gate for a premium widget
+  // embedded on an otherwise-public page (e.g. the player-page Lineup Amplifier) —
+  // as opposed to the whole-page redirect the Coach's Tier PAGES use. Enforced
+  // regardless of TDC_PAYWALL_ENABLED, matching those pages' hard gate.
+  var _coachPromise = null;
+  window.tdcHasCoachTier = function () {
+    if (_coachPromise) return _coachPromise;
+    _coachPromise = new Promise(function (resolve) {
+      try {
+        if (window.tdcIsOwner && window.tdcIsOwner()) return resolve(true);
+        var s = get();
+        if (!s || !s.access_token || !s.user) return resolve(false);
+        fetch(SB + '/rest/v1/profiles?id=eq.' + s.user.id + '&select=plan',
+          { headers: { apikey: KEY, Authorization: 'Bearer ' + s.access_token } })
+          .then(function (r) { return r.ok ? r.json() : []; })
+          .then(function (rows) { var p = rows && rows[0]; resolve(!!(p && ['pro', 'coach'].indexOf(p.plan) >= 0)); })
+          .catch(function () { resolve(false); });
+      } catch (e) { resolve(false); }
+    });
+    return _coachPromise;
+  };
 })();
