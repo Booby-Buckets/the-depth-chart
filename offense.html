@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Defensive Profile — The Depth Chart</title>
+  <title>Offensive Profile — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="auth.js?v=paywall4"></script>
   <script src="team-colors.js?v=2"></script>
@@ -150,14 +150,14 @@
 <script src="tdc-coachlinks.js?v=14"></script>
 <div class="page">
   <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Scouting Hub</span></div>
-  <h1 data-anim>Defensive Profile</h1>
-  <div class="sub" data-anim>How does a team actually get stops — and where does it give them up? Pick a team for the head coach behind the scheme, its projected defensive identity, <b>where opponents score on it</b> (by zone and on the floor, any season or all of them), and a rundown of every rotation defender — the rim protector, the disruptors, and the one you can attack.</div>
+  <h1 data-anim>Offensive Profile</h1>
+  <div class="sub" data-anim>How does a team actually score — and where does its offense live? Pick a team for the head coach behind the scheme, its projected offensive identity, <b>where it scores from</b> (by zone and on the floor, any season or all of them), which player types do the damage, and a rundown of every rotation scorer — the primary option, the creators, and the spacers.</div>
 
   <div class="combo" data-anim><input id="sel" class="search" placeholder="Search a team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
 
-  <div id="out"><div class="muted" style="padding:60px 20px;">Pick a team above to read its defense.</div></div>
+  <div id="out"><div class="muted" style="padding:60px 20px;">Pick a team above to read its offense.</div></div>
 
-  <div class="note" data-anim>Head coach from the program's career profile (archetype, pace, rotation). Team identity uses the 2026-27 projected defensive four factors (ᴾᶜ = percentile vs D-I, higher = better). <b>Where they get scored on</b> is every opponent shot in the team's games (opponents' shots in the same game_ids), classified by zone; opp FG% and eFG vs the D-I baseline reveal the soft spot, and the chart plots each made shot — sortable by season or pooled across every season with shot-location data (2021-22 to 2025-26; older seasons are sparser). Player footprints are each defender's 2025-26 advanced rates — DBPM, block %, steal %, defensive-rebound %.</div>
+  <div class="note" data-anim>Head coach from the program's career profile (archetype, pace, rotation). Team identity uses the 2026-27 projected offensive four factors (ᴾᶜ = percentile vs D-I, higher = better). <b>Where they score</b> is the team's own shots, classified by zone; their FG% and eFG vs the D-I baseline show where the offense is efficient, and the chart plots each made shot — sortable by season or pooled across every season with shot-location data (2021-22 to 2025-26; older seasons are sparser). Player footprints are each scorer's 2025-26 advanced rates — offensive box plus-minus (OBPM), usage %, true-shooting %, assist %.</div>
 </div>
 
 <script>
@@ -200,14 +200,15 @@ function pick(key){ selKey=+key; el('sel').value=labelOf(poolRow(+key)); el('lis
 })();
 
 const num=v=>{const n=parseFloat(v);return isNaN(n)?0:n;};
-function defRole(a,pos){
-  const dbpm=num(a.dbpm), blk=num(a.blk_pct), stl=num(a.stl_pct), big=/C|PF|F/.test((pos||''));
-  if(blk>=4.5) return ['Rim protector','lg'];
-  if(dbpm>=3.5) return ['Lockdown defender','lg'];
-  if(stl>=3.2&&dbpm>=0.5) return ['Ball-hawk','lg'];
-  if(dbpm>=1.5) return ['Plus defender','lg'];
-  if(dbpm>=-0.5) return ['Solid','la'];
-  return ['Can be attacked','lr'];
+function offRole(a,pos){
+  const obpm=num(a.obpm), usg=num(a.usg_pct), ast=num(a.ast_pct), ts=num(a.ts_pct), three=num(a.fg3a_per_fga_pct);
+  if(usg>=27) return ['Primary option','lg'];
+  if(ast>=22&&usg>=17) return ['Lead creator','lg'];
+  if(three>=0.55&&ts>=0.56) return ['Floor spacer','lg'];
+  if(obpm>=3.5) return ['Efficient scorer','lg'];
+  if(usg>=18) return ['Secondary option','la'];
+  if(ts>=0.58) return ['Efficient role','la'];
+  return ['Low-usage','lr'];
 }
 
 const norm=s=>(''+(s||'')).toLowerCase().replace(/[^a-z]/g,'');
@@ -241,10 +242,12 @@ const ZNAME={rim:'At the rim',mid:'Mid-range',three:'Three-point'};
 const ZSHORT={rim:'Rim',mid:'Mid',three:'Three'};
 const ZCOL={rim:'#cc5140',mid:'#c99a3a',three:'#3a7bc9'};
 const ARCHES=['Guard','Wing','Big'];
-function archOf(pos){ if(!pos) return null; const p=(''+pos).toUpperCase().replace(/[^A-Z]/g,'');
-  if(['C','PF','FC','CF'].includes(p)) return 'Big';
-  if(['PG','SG','G','CG','GG'].includes(p)) return 'Guard';
-  if(['SF','GF','F','W','WING','SFPF'].includes(p)) return 'Wing';
+function heightIn(h){ if(h==null) return null; const m=(''+h).match(/(\d+)\s*[-'’]\s*(\d+)/); if(m) return +m[1]*12+ +m[2]; const n=+h; return isNaN(n)?null:n; }
+function archOf(pos,ht){ if(!pos) return null; const p=(''+pos).toUpperCase().replace(/[^A-Z]/g,'');
+  if(p==='C'||p==='PF'||p==='FC'||p==='CF') return 'Big';
+  if(p==='PG'||p==='SG'||p==='G'||p==='CG') return 'Guard';
+  if(p==='SF'||p==='GF') return 'Wing';
+  if(p==='F'||p==='FG') return (ht!=null&&ht>=80)?'Big':'Wing';   // coarse forward: tall = big
   if(p.includes('C')) return 'Big'; if(p.includes('G')&&!p.includes('F')) return 'Guard'; return 'Wing'; }
 // diverging cell color for (fg - baseline): above baseline = they score = red, below = stops = green
 function heatCol(diff){ const t=Math.max(-1,Math.min(1,diff/14));
@@ -259,10 +262,10 @@ function dcChart(shots){
   let plot=made, sampled=false;
   if(made.length>1400){ sampled=true; plot=[]; const step=made.length/1400; for(let i=0;i<made.length;i+=step) plot.push(made[Math.floor(i)]); }
   const marks=plot.map(s=>{ const x=cpx(cfx(s.x)).toFixed(1),y=cpy(cfy(s.y)).toFixed(1),z=zoneOf(s);
-    const tip=(s.sv===3?'3PT':'2PT')+' · '+Math.round(shotDist(s))+' ft · opponent scored';
+    const tip=(s.sv===3?'3PT':'2PT')+' · '+Math.round(shotDist(s))+' ft · made';
     return '<circle class="dc-mk" data-tip="'+esc(tip)+'" cx="'+x+'" cy="'+y+'" r="4" fill="'+ZCOL[z]+'" fill-opacity="0.72"/>'; }).join('');
   return '<div class="dc-wrap"><svg id="dcSvg" viewBox="0 0 '+CCW+' '+CCH+'" preserveAspectRatio="xMidYMid meet"><g>'+courtLines(line)+'</g><g>'+marks+'</g></svg><div class="dctip" id="dcTip"></div></div>'
-    +'<div class="dc-legend"><span class="lg2"><span class="dot" style="background:'+ZCOL.rim+'"></span>Rim</span><span class="lg2"><span class="dot" style="background:'+ZCOL.mid+'"></span>Mid-range</span><span class="lg2"><span class="dot" style="background:'+ZCOL.three+'"></span>Three</span><span class="lg2" style="color:var(--text3)">each dot = a shot an opponent made'+(sampled?' · sampled':'')+'</span></div>';
+    +'<div class="dc-legend"><span class="lg2"><span class="dot" style="background:'+ZCOL.rim+'"></span>Rim</span><span class="lg2"><span class="dot" style="background:'+ZCOL.mid+'"></span>Mid-range</span><span class="lg2"><span class="dot" style="background:'+ZCOL.three+'"></span>Three</span><span class="lg2" style="color:var(--text3)">each dot = a made shot'+(sampled?' · sampled':'')+'</span></div>';
 }
 function wireDcTip(){ const svg=el('dcSvg'),tip=el('dcTip'); if(!svg||!tip) return; const wrap=svg.parentElement;
   svg.addEventListener('mousemove',e=>{ const mk=e.target.closest('.dc-mk'); if(!mk){ tip.style.display='none'; return; } tip.textContent=mk.getAttribute('data-tip'); const wr=wrap.getBoundingClientRect(); tip.style.left=(e.clientX-wr.left)+'px'; tip.style.top=(e.clientY-wr.top)+'px'; tip.style.display='block'; });
@@ -290,7 +293,7 @@ function renderScored(scope){
   const sh=oppShots.filter(inS);
   const scopeLbl = scope==='all' ? `${seasons.length} seasons` : seasonLabel(+scope);
   const host=el('scoredBody'); if(!host) return;
-  if(sh.length<40){ host.innerHTML=`<div class="muted">Not enough opponent shot data in this window.</div>`; return; }
+  if(sh.length<40){ host.innerHTML=`<div class="muted">Not enough shot data in this window.</div>`; return; }
   const tot=sh.length;
   const zwhere=k=> k==='rim'?'at the rim':k==='three'?'from three':'in the mid-range';
 
@@ -299,37 +302,38 @@ function renderScored(scope){
   const zrows=['rim','mid','three'].map(k=>{ const arr=Z[k], a=arr.length, m=arr.filter(s=>s.made).length;
     return {k,a,fg:a?m/a*100:0,efg:efgOf(arr)||0,freq:a?a/tot*100:0,d:(efgOf(arr)||0)-ZBASE[k],fgd:(a?m/a*100:0)-FGBASE[k]}; });
   const overallEfg=efgOf(sh)||0;
-  const weak=zrows.filter(r=>r.a>=15).slice().sort((x,y)=>(y.d*y.freq)-(x.d*x.freq))[0];
-  const best=zrows.filter(r=>r.a>=15).slice().sort((x,y)=>(x.d*x.freq)-(y.d*y.freq))[0];
+  // for OFFENSE, higher-than-baseline = good; "strong" = most efficient zone
+  const strong=zrows.filter(r=>r.a>=15).slice().sort((x,y)=>(y.d*y.freq)-(x.d*x.freq))[0];
+  const cold=zrows.filter(r=>r.a>=15).slice().sort((x,y)=>(x.d*x.freq)-(y.d*y.freq))[0];
 
-  // ── percentages chart: opp FG% by zone vs D-I baseline ──
-  const fgbar=r=>{ const col=r.fgd>=2?'var(--red)':r.fgd<=-2?'var(--green)':'var(--text2)';
+  // ── percentages chart: their FG% by zone vs D-I baseline (above = good = green) ──
+  const fgbar=r=>{ const col=r.fgd>=2?'var(--green)':r.fgd<=-2?'var(--red)':'var(--text2)';
     return `<div class="fr"><div class="fl"><span>${ZNAME[r.k]} <span style="color:var(--text3);font-weight:600">· ${Math.round(r.freq)}% of shots</span></span><span><b>${Math.round(r.fg)}%</b> <span style="color:${col};font-weight:800">${r.fgd>0?'+':''}${Math.round(r.fgd)}</span></span></div>
       <div class="track"><div class="fill" style="width:${Math.round(r.fg)}%;background:${col}"></div><div class="base" style="left:${Math.round(FGBASE[r.k])}%"></div></div></div>`; };
-  const pctPanel=`<div class="panel"><div class="pt">Opponent FG% by zone</div><div class="ps">How well opponents shoot at each spot; the line is the D-I average.</div>
-    <div class="fgb">${zrows.map(fgbar).join('')}</div><div class="cap">bar = opp FG% (3P% for threes) · line = D-I average · red = above, green = below</div></div>`;
+  const pctPanel=`<div class="panel"><div class="pt">Their FG% by zone</div><div class="ps">How well they shoot at each spot; the line is the D-I average.</div>
+    <div class="fgb">${zrows.map(fgbar).join('')}</div><div class="cap">bar = their FG% (3P% for threes) · line = D-I average · green = above, red = below</div></div>`;
 
-  // ── archetype × area: which opponent types score, and where ──
+  // ── archetype × area: which of their player types score, and where ──
   const AG={}; ARCHES.forEach(a=>AG[a]={rim:[],mid:[],three:[]}); let classified=0;
-  sh.forEach(s=>{ const a=archOf(POS[s.espn_id]); if(!a) return; classified++; AG[a][zoneOf(s)].push(s); });
+  sh.forEach(s=>{ const a=POS[s.espn_id]; if(!a) return; classified++; AG[a][zoneOf(s)].push(s); });
   let archPanel;
   if(classified>=40){
     const cell=(arr,zk)=>{ const a=arr.length; if(a<8) return `<div class="ac na"><div class="av">—</div><div class="an">${a}</div></div>`;
       const fg=arr.filter(s=>s.made).length/a*100;
-      return `<div class="ac" style="background:${heatCol(fg-FGBASE[zk])}"><div class="av">${Math.round(fg)}%</div><div class="an">${a}</div></div>`; };
+      return `<div class="ac" style="background:${heatCol(FGBASE[zk]-fg)}"><div class="av">${Math.round(fg)}%</div><div class="an">${a}</div></div>`; };
     const rh=ARCHES.map(a=>`<div class="arl">${a}s</div>${cell(AG[a].rim,'rim')}${cell(AG[a].mid,'mid')}${cell(AG[a].three,'three')}`).join('');
-    archPanel=`<div class="panel"><div class="pt">Who scores on them, by type</div><div class="ps">Opponent shooters by position — FG% at each spot (red = they score, green = you stop them).</div>
+    archPanel=`<div class="panel"><div class="pt">Who does the scoring, by type</div><div class="ps">Their shooters by position — FG% at each spot (green = efficient, red = cold).</div>
       <div class="agrid"><div class="ah rl"></div><div class="ah">Rim</div><div class="ah">Mid</div><div class="ah">Three</div>${rh}</div>
-      <div class="cap">shooter identified on ${Math.round(classified/tot*100)}% of shots faced</div></div>`;
+      <div class="cap">shooter identified on ${Math.round(classified/tot*100)}% of their shots</div></div>`;
   } else {
-    archPanel=`<div class="panel"><div class="pt">Who scores on them, by type</div><div class="ps" style="margin-top:12px">Not enough identifiable opponent shooters in this window to split by archetype — try a single recent season.</div></div>`;
+    archPanel=`<div class="panel"><div class="pt">Who does the scoring, by type</div><div class="ps" style="margin-top:12px">Not enough identifiable shooters in this window to split by archetype — try a single recent season.</div></div>`;
   }
 
-  const zread = weak ? (weak.d>=2
-    ? `Opponents <b>feast ${zwhere(weak.k)}</b> — ${Math.round(weak.fg)}% shooting, <b>+${Math.round(weak.d)}</b> eFG vs the D-I norm on ${Math.round(weak.freq)}% of shots faced.`
-    : `A <b>stingy</b> defense — even their softest spot (${zwhere(weak.k)}) holds near the norm${best&&best!==weak?`, and they clamp down ${zwhere(best.k)} (${Math.round(best.d)} eFG vs norm)`:''}.`) : '';
+  const zread = strong ? (strong.d>=2
+    ? `They're at their <b>best ${zwhere(strong.k)}</b> — ${Math.round(strong.fg)}% shooting, <b>+${Math.round(strong.d)}</b> eFG vs the D-I norm on ${Math.round(strong.freq)}% of their shots${cold&&cold!==strong&&cold.d<=-2?`, and coldest ${zwhere(cold.k)} (${Math.round(cold.d)} eFG vs norm)`:''}.`
+    : `A <b>below-average</b> shot-making offense — even their best spot (${zwhere(strong.k)}) sits near the norm${cold&&cold!==strong?`, and they struggle ${zwhere(cold.k)} (${Math.round(cold.d)} eFG vs norm)`:''}.`) : '';
 
-  // ── how the opponent's pace shifts where they get scored on ──
+  // ── how the game's pace shifts where they score ──
   const T={fast:[],slow:[]}; sh.forEach(s=>{ const b=oppTempoBucket(s.game_id); if(b) T[b].push(s); });
   let tempoPanel='';
   if(T.fast.length>=40&&T.slow.length>=40){
@@ -339,17 +343,17 @@ function renderScored(scope){
     const fRim=T.fast.filter(s=>zoneOf(s)==='rim').length/T.fast.length*100, sRim=T.slow.filter(s=>zoneOf(s)==='rim').length/T.slow.length*100;
     const fThree=T.fast.filter(s=>zoneOf(s)==='three').length/T.fast.length*100, sThree=T.slow.filter(s=>zoneOf(s)==='three').length/T.slow.length*100;
     const dRim=fRim-sRim, dThree=fThree-sThree;
-    const tread = Math.abs(dRim)>=4 ? `Against <b>up-tempo</b> opponents, ${dRim>0?`more of the damage comes <b>at the rim</b> (+${Math.round(dRim)} pts of shot share) — transition leaks show`:`opponents get to the rim <b>less</b> (${Math.round(dRim)} pts) and settle for jumpers`}.`
-      : Math.abs(dThree)>=4 ? `Faster games push opponents to <b>${dThree>0?'more threes (+'+Math.round(dThree)+' pts of share)':'fewer threes ('+Math.round(dThree)+' pts)'}</b>.`
-      : `Tempo doesn't move where opponents score much — the shot map holds fast or slow.`;
-    tempoPanel=`<div class="panel" style="margin-top:14px"><div class="pt">How the opponent's pace shifts where they score</div><div class="ps">Opponent shot mix against this defense, split by how fast the opponent plays (team_dna tempo).</div>
-      <div class="tsp">${tcol(T.fast,'vs up-tempo')}${tcol(T.slow,'vs grind-it-out')}</div><div class="tsp-read">${tread}</div></div>`;
+    const tread = Math.abs(dRim)>=4 ? `In <b>up-tempo</b> games they get to the rim <b>${dRim>0?'more (+'+Math.round(dRim)+' pts of shot share)':'less ('+Math.round(dRim)+' pts)'}</b> — ${dRim>0?'they push in transition':'a faster game pulls them off the rim'}.`
+      : Math.abs(dThree)>=4 ? `Faster games shift them toward <b>${dThree>0?'more threes (+'+Math.round(dThree)+' pts of share)':'fewer threes ('+Math.round(dThree)+' pts)'}</b>.`
+      : `Pace doesn't move their shot diet much — fast or slow, they hunt the same shots.`;
+    tempoPanel=`<div class="panel" style="margin-top:14px"><div class="pt">How the game's pace shifts where they score</div><div class="ps">Their shot mix split by the opponent's tempo (team_dna) — a fast opponent means a faster game.</div>
+      <div class="tsp">${tcol(T.fast,'in fast games')}${tcol(T.slow,'in slow games')}</div><div class="tsp-read">${tread}</div></div>`;
   }
 
   host.innerHTML=`<div class="drow2">${pctPanel}${archPanel}</div>
-    ${zread?`<div class="read" style="margin-top:14px">${zread} <span style="color:var(--text3)">Overall eFG allowed ${Math.round(overallEfg)}% · ${tot.toLocaleString()} shots faced</span></div>`:''}
+    ${zread?`<div class="read" style="margin-top:14px">${zread} <span style="color:var(--text3)">Overall eFG ${Math.round(overallEfg)}% · ${tot.toLocaleString()} shots</span></div>`:''}
     ${tempoPanel}
-    <div class="sec-h" style="margin-top:18px">Where opponents scored <span class="hint">every made shot on the floor · ${scopeLbl}</span></div>
+    <div class="sec-h" style="margin-top:18px">Where they scored <span class="hint">every made shot on the floor · ${scopeLbl}</span></div>
     ${dcChart(sh)}`;
   wireDcTip();
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
@@ -358,7 +362,7 @@ function renderScored(scope){
 async function loadTeam(){
   const row=poolRow(selKey); if(!row) return;
   const tc=teamColor(row);
-  el('out').innerHTML='<div class="loading">Reading the defense across every season…</div>';
+  el('out').innerHTML='<div class="loading">Reading the offense across every season…</div>';
   await Promise.all([ensureCoaches(),ensureTeams()]);
   if(!DNA){ try{ DNA=await fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():{}); }catch(e){ DNA={}; } }
   const dna=dnaOf(row);
@@ -372,31 +376,33 @@ async function loadTeam(){
   }
   const advById={}; adv.forEach(a=>{ if(a.advanced) advById[a.espn_id]={...a.advanced,pos:a.pos}; });
   let players=roster.map(p=>{ const a=advById[p.espn_id]; if(!a) return null;
-    return {name:p.name,pos:p.position||a.pos,mpg:+p.mpg||0,a,role:defRole(a,p.position||a.pos)}; }).filter(Boolean);
-  players.sort((x,y)=>num(y.a.dbpm)-num(x.a.dbpm));
+    if(num(a.mp)<150||num(a.games)<10) return null;   // drop walk-on / garbage-time samples
+    return {name:p.name,pos:p.position||a.pos,mpg:+p.mpg||0,a,role:offRole(a,p.position||a.pos)}; }).filter(Boolean);
+  players.sort((x,y)=>num(y.a.obpm)-num(x.a.obpm));
 
   // team identity
   let idHtml='';
   if(dna&&dna.pct){ const P=dna.pct;
     const bar=(lab,p)=>{ const v=Math.max(0,Math.min(100,p==null?50:p)), col=v>=50?'var(--green)':'var(--red)';
       return `<div class="bar"><div class="bl"><span>${lab}</span><span class="bv">${p==null?'—':Math.round(v)+'ᵖᶜ'}</span></div><div class="bt"><div class="bf" style="width:${v}%;background:${col}"></div></div></div>`; };
-    const facs=[['deFG','Contesting shots'],['dTOV','Forcing turnovers'],['dDRB','Defensive rebounding']].map(f=>({k:f[0],lab:f[1],p:P[f[0]]}));
+    const facs=[['oeFG','Shooting'],['oTOV','Protecting the ball'],['oORB','Offensive rebounding']].map(f=>({k:f[0],lab:f[1],p:P[f[0]]}));
     const best=[...facs].filter(f=>f.p!=null).sort((a,b)=>b.p-a.p)[0], worst=[...facs].filter(f=>f.p!=null).sort((a,b)=>a.p-b.p)[0];
-    const read = best&&worst&&best!==worst ? `Their defense is built on <b>${best.lab.toLowerCase()}</b> (top-${100-best.p}%)${worst.p<50?`, and is most exposed on <b>${worst.lab.toLowerCase()}</b> (bottom-${worst.p}%)`:''}.` : '';
-    idHtml=`<div class="tid" style="--tc:${tc}"><div class="drtg"><div class="v" style="color:${(P.DRtg||50)>=50?'var(--green)':'var(--red)'}">${P.DRtg!=null?P.DRtg:'—'}<span style="font-size:16px">ᵖᶜ</span></div><div class="l">Defense overall</div></div>
+    const read = best&&worst&&best!==worst ? `Their offense's biggest strength is <b>${best.lab.toLowerCase()}</b> (${best.p}ᵗʰ pctile)${best!==worst?`, and it does the least with <b>${worst.lab.toLowerCase()}</b> (${worst.p}ᵗʰ)`:''}.` : '';
+    idHtml=`<div class="tid" style="--tc:${tc}"><div class="drtg"><div class="v" style="color:${(P.ORtg||50)>=50?'var(--green)':'var(--red)'}">${P.ORtg!=null?P.ORtg:'—'}<span style="font-size:16px">ᵖᶜ</span></div><div class="l">Offense overall</div></div>
       <div class="ff">${facs.map(f=>bar(f.lab,f.p)).join('')}</div></div>${read?`<div class="read">${read}</div>`:''}`;
   }
 
   // players
-  const prow=p=>{ const [lab,cls]=p.role, dbpm=num(p.a.dbpm);
+  const prow=p=>{ const [lab,cls]=p.role, obpm=num(p.a.obpm), usg=num(p.a.usg_pct), ts=num(p.a.ts_pct)*100, ast=num(p.a.ast_pct);
     return `<div class="pr" style="--tc:${tc}"><div class="nm">${esc(p.name)}<span class="pos">${esc(p.pos||'')}</span></div>
-      <div class="dbpm"><div class="v" style="color:${dbpm>=1?'var(--green)':dbpm>=-0.5?'var(--text2)':'var(--red)'}">${dbpm>=0?'+':''}${dbpm.toFixed(1)}</div><div class="l">DBPM</div></div>
-      <div class="foot"><span><b>${num(p.a.blk_pct).toFixed(1)}</b>% blk</span><span><b>${num(p.a.stl_pct).toFixed(1)}</b>% stl</span><span><b>${num(p.a.drb_pct).toFixed(0)}</b>% dReb</span></div>
+      <div class="dbpm"><div class="v" style="color:${obpm>=2?'var(--green)':obpm>=-0.5?'var(--text2)':'var(--red)'}">${obpm>=0?'+':''}${obpm.toFixed(1)}</div><div class="l">OBPM</div></div>
+      <div class="foot"><span><b>${usg.toFixed(0)}</b>% usg</span><span><b>${ts.toFixed(0)}</b>% TS</span><span><b>${ast.toFixed(0)}</b>% ast</span></div>
       <div class="lab ${cls}">${lab}</div></div>`; };
-  const anchor=players[0], weak=[...players].filter(p=>p.mpg>=10).sort((a,b)=>num(a.a.dbpm)-num(b.a.dbpm))[0];
-  const pread = (anchor&&weak&&anchor!==weak) ? `<div class="read"><b>${esc(anchor.name)}</b> anchors the defense; <b>${esc(weak.name)}</b> is the one to hunt — ${weak.role[0]==='Can be attacked'?'the softest matchup on the floor':'the least disruptive of the rotation'}.</div>` : '';
+  const engine=players.filter(p=>p.mpg>=12).sort((a,b)=>num(b.a.obpm)-num(a.a.obpm))[0]||players[0];
+  const topUsg=players[0];
+  const pread = engine ? `<div class="read"><b>${esc((topUsg&&topUsg.role[0]==='Primary option')?topUsg.name:engine.name)}</b> is the engine of the offense${engine&&topUsg&&engine!==topUsg&&topUsg.role[0]==='Primary option'?`, and <b>${esc(engine.name)}</b> is its most efficient scorer`:` (${engine.role[0].toLowerCase()})`}.</div>` : '';
 
-  // ── defensive shots: opponents' shots in the team's games, all seasons w/ shot data ──
+  // ── the team's own shots, all seasons w/ shot data (+ opponent name per game for tempo) ──
   const enc=encodeURIComponent(row.full);
   let teamId=null, oppShots=[], gameOpp={};
   try{
@@ -406,20 +412,25 @@ async function loadTeam(){
     ]);
     teamId = hg.length? hg[0].home_id : (ag.length? ag[0].away_id : null);
     hg.forEach(g=>{ gameOpp[g.id]=g.away; }); ag.forEach(g=>{ gameOpp[g.id]=g.home; });
-    const gids=[...new Set(hg.concat(ag).map(g=>g.id))];
-    if(teamId!=null&&gids.length){
-      for(let i=0;i<gids.length;i+=140){ const chunk=gids.slice(i,i+140);
-        oppShots=oppShots.concat(await fetchAll(`/rest/v1/shots?game_id=in.(${chunk.join(',')})&team_id=neq.${teamId}&select=game_id,espn_id,x,y,made,sv,dist,stype,season_year`));
-      }
+    if(teamId!=null){
+      oppShots=await fetchAll(`/rest/v1/shots?team_id=eq.${teamId}&season_year=gte.2022&select=game_id,espn_id,x,y,made,sv,dist,stype,season_year`);
     }
   }catch(e){}
-  // shooter positions (archetype) — players is one row per player, so 200-id chunks stay light
-  const POS={};
+  // shooter positions (archetype) — the team's own shooters are a small set (~65 over 5 yrs),
+  // so pull from player_history for full historical coverage (current roster misses old players)
+  const POS={};   // espn_id -> archetype (Guard/Wing/Big), height-disambiguated
   const oppIds=[...new Set(oppShots.map(s=>s.espn_id).filter(x=>x!=null))];
   if(oppIds.length){ const jobs=[];
-    for(let i=0;i<oppIds.length;i+=200){ const chunk=oppIds.slice(i,i+200);
-      jobs.push(fetch(`${SB_URL}/rest/v1/players?espn_id=in.(${chunk.join(',')})&select=espn_id,position`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[])); }
-    (await Promise.all(jobs)).forEach(rows=>rows.forEach(r=>{ if(r.espn_id!=null&&r.position) POS[r.espn_id]=r.position; }));
+    for(let i=0;i<oppIds.length;i+=40){ const chunk=oppIds.slice(i,i+40);
+      jobs.push(fetch(`${SB_URL}/rest/v1/player_history?espn_id=in.(${chunk.join(',')})&select=espn_id,position,height&limit=600`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[])); }
+    (await Promise.all(jobs)).forEach(rows=>rows.forEach(r=>{ if(r.espn_id!=null&&r.position&&!POS[r.espn_id]){ const a=archOf(r.position,heightIn(r.height)); if(a) POS[r.espn_id]=a; } }));
+    // fall back to current roster (finer positions) for anyone player_history missed
+    const missing=oppIds.filter(id=>!POS[id]);
+    if(missing.length){ const j2=[];
+      for(let i=0;i<missing.length;i+=200){ const chunk=missing.slice(i,i+200);
+        j2.push(fetch(`${SB_URL}/rest/v1/players?espn_id=in.(${chunk.join(',')})&select=espn_id,position,height`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[])); }
+      (await Promise.all(j2)).forEach(rows=>rows.forEach(r=>{ if(r.espn_id!=null&&r.position&&!POS[r.espn_id]){ const a=archOf(r.position,heightIn(r.height)); if(a) POS[r.espn_id]=a; } }));
+    }
   }
   // opponent tempo per game (fast/slow) from team_dna 2026 distribution
   const tempoVals=(DNA&&DNA['2026']&&DNA['2026'].teams)?Object.values(DNA['2026'].teams).map(t=>t&&t.tempo).filter(x=>x!=null).sort((a,b)=>a-b):[];
@@ -434,10 +445,10 @@ async function loadTeam(){
 
   el('out').innerHTML=`<div style="--tc:${tc}">
     ${coachHtml(row)}
-    ${idHtml?`<div class="sec-h">Team defensive identity <span class="hint">projected 2026-27 · <b>ᴾᶜ = percentile vs Division I</b> (higher is better)</span></div>${idHtml}`:''}
-    ${oppShots.length?`<div class="sec-h">Where they get scored on <span class="hint">opponent shots faced · pick a season</span></div>
+    ${idHtml?`<div class="sec-h">Team offensive identity <span class="hint">projected 2026-27 · <b>ᴾᶜ = percentile vs Division I</b> (higher is better)</span></div>${idHtml}`:''}
+    ${oppShots.length?`<div class="sec-h">Where they score <span class="hint">their own shots · pick a season</span></div>
       <div id="scoredScope" class="chips"></div><div id="scoredBody"></div>`:''}
-    <div class="sec-h">Rotation defenders <span class="hint">2025-26 · sorted by impact (DBPM)</span></div>
+    <div class="sec-h">Rotation scorers <span class="hint">2025-26 · sorted by offensive impact (OBPM)</span></div>
     ${players.length?players.map(prow).join('')+pread:'<div class="muted">No player defensive data on file for this roster yet.</div>'}
   </div>`;
   const scopeEl=el('scoredScope');
