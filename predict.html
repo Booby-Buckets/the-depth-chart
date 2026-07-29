@@ -79,7 +79,7 @@
       </div>
     </div>
 
-    <div style="margin-top:26px;">
+    <div id="sweepPanel" style="margin-top:26px;display:none;">
       <div class="sec" style="margin-top:4px;">Schedule Sweep</div>
       <div class="card">
         <div style="display:flex;gap:10px;align-items:center;">
@@ -179,6 +179,11 @@ function fillSelects(){
   ['A','B'].forEach(x=>{ document.getElementById('sel'+x).value=labelOf(LINE_POOL[selKey[x]]); });
   // schedule sweep stays on the 2026-27 field
   document.getElementById('schedSel').innerHTML=D.teams.map(r=>`<option value="${r.full.replace(/"/g,'&quot;')}">${r.full} (${fmtR(r)})</option>`).join('');
+  // Only surface the Schedule Sweep once 2026-27 schedules actually exist — in the
+  // offseason the games table has no 2027 rows, so the panel stays hidden rather than
+  // showing dead controls. Auto-activates when schedules sync (one cheap probe).
+  fetch(`${SB}/rest/v1/games?season_year=eq.2027&select=home&limit=1`,{headers:HH})
+    .then(r=>r.ok?r.json():[]).then(g=>{ if(g&&g.length){ var el=document.getElementById('sweepPanel'); if(el) el.style.display=''; } }).catch(()=>{});
 }
 
 // searchable combobox over the line pool (type to filter 7k+ team seasons)
