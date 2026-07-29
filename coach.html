@@ -109,6 +109,27 @@
     .gp-l{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin:1px 0 7px;}
     .gp-bar{height:5px;border-radius:3px;background:var(--bg3);overflow:hidden;} .gp-fill{height:100%;border-radius:3px;background:var(--accent);}
     @media(max-width:680px){.gparts{grid-template-columns:repeat(2,1fr);}}
+    /* roster fit */
+    .fit-hero{border:1px solid var(--border);border-radius:14px;background:linear-gradient(150deg,color-mix(in srgb,var(--accent) 8%,var(--bg2)),var(--bg2));padding:16px 20px;margin-bottom:14px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
+    .fit-hero .fg{text-align:center;flex-shrink:0;}
+    .fit-hero .fg .v{font-family:'Playfair Display',serif;font-weight:800;font-size:34px;line-height:1;}
+    .fit-hero .fg .l{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:3px;}
+    .fit-hero .ft{font-size:13.5px;color:var(--text2);line-height:1.6;flex:1;min-width:230px;}
+    .fit-hero .ft b{color:var(--text);}
+    .fitgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    @media(max-width:680px){.fitgrid{grid-template-columns:1fr;}}
+    .fitcard{border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:14px 16px;}
+    .fitcard .fh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px;}
+    .fitcard .fn{font-size:12.5px;font-weight:800;}
+    .fitcard .fl2{font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;}
+    .fitcard .fl2.g{color:var(--green);background:color-mix(in srgb,var(--green) 15%,transparent);}
+    .fitcard .fl2.a{color:var(--accent);background:color-mix(in srgb,var(--accent) 15%,transparent);}
+    .fitcard .fl2.r{color:var(--red);background:color-mix(in srgb,var(--red) 15%,transparent);}
+    .fitcard .fl2.n{color:var(--text3);background:var(--bg3);}
+    .fitcard .fr2{font-size:12px;color:var(--text2);line-height:1.55;}
+    .fitcard .fr2 b{color:var(--text);font-weight:800;}
+    .fitcard .fmeter{display:flex;gap:12px;margin-top:9px;font-size:10px;font-weight:700;color:var(--text3);}
+    .fitcard .fmeter .mm{flex:1;} .fitcard .fmeter .mt{height:5px;border-radius:3px;background:var(--bg3);overflow:hidden;margin-top:3px;} .fitcard .fmeter .mf{height:100%;border-radius:3px;}
     /* season-by-season rundown */
     .rundown-list{display:flex;flex-direction:column;gap:13px;}
     .rs-card{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:16px 18px;}
@@ -184,6 +205,8 @@ function toggleTheme(){const d=document.documentElement.getAttribute('data-theme
 
 const AXES=[['Pace','poss_pg'],['Bench','rotation_size'],['3PT Vol','three_pa_rate'],['Ball Move','ast_rate'],['TO Force','opp_tov_pg'],['Star Use','top_scorer_share']];
 var TOTAL=952;
+const SB='https://izlqhnxowdhtdofkwrho.supabase.co', KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye', H={apikey:KEY,Authorization:'Bearer '+KEY};
+const escF=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
 function seasonLbl(y){y=+y;return (y-1)+'-'+(''+y).slice(2);}
 function plink(eid,nm){ return eid?('player.html?espn='+eid):('player.html?name='+encodeURIComponent(nm||'')); }
 function gradeColor(g){ g=+g; return g>=90?'#5ab875':g>=82?'var(--accent)':g>=74?'var(--text)':'var(--text2)'; }
@@ -374,6 +397,7 @@ function render(p, ss, pg){
       '<div class="cols" data-anim><div class="plist"><h3>Best Players Coached</h3><div class="sub">by peak TDC grade under this coach</div>'+(pr||'<div class="sub" style="padding:14px 18px;">No graded players.</div>')+'</div>'+
       '<div class="plist"><h3>Top Developers</h3><div class="sub">biggest grade climb while under him</div>'+(dv||'<div class="sub" style="padding:14px 18px;">Not enough multi-season players.</div>')+'</div></div>';
   }
+  html+='<div id="rosterfit"></div>';  // current-roster fit (fetched per-coach)
   html+='<div id="rundown"></div>';   // season-by-season rundown (lazily fetched per-coach)
   document.getElementById('content').innerHTML=html;
 }
@@ -411,6 +435,53 @@ async function renderRundown(slug){
   host.innerHTML=html;
 }
 
+// ── ROSTER FIT — does the coach's CURRENT roster suit his system? (current HCs only) ──
+async function renderFit(p){
+  const host=document.getElementById('rosterfit'); if(!host) return;
+  let team=null;
+  try{ const t=await fetch(`${SB}/rest/v1/teams?head_coach=eq.${encodeURIComponent(p.coach)}&select=name,location&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]); team=t&&t[0]; }catch(e){}
+  if(!team) return;   // retired / not a current head coach
+  const tname=team.location||team.name;
+  let roster=[];
+  try{ roster=await fetch(`${SB}/rest/v1/players?team=eq.${encodeURIComponent(tname)}&name=neq.%E2%80%94&select=name,position,tdc_grade,mpg,ppg,apg,tp_pct,tpa&order=tdc_grade.desc.nullslast&limit=25`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  roster=roster.filter(x=>x.tdc_grade!=null&&+x.tdc_grade>0);
+  if(roster.length<5) return;
+  const N=v=>{const n=+v;return isNaN(n)?0:n;}, clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const pctl=p.pctl||{}, ord=n=>{const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);};
+
+  const shooters=roster.filter(x=>N(x.tpa)>=1.5&&N(x.tp_pct)>=34), shootSup=clamp(shooters.length/4,0,1);
+  const g1=N(roster[0].tdc_grade), starSup=clamp((g1-78)/12,0,1), topName=roster[0].name;
+  const apgSorted=[...roster].sort((a,b)=>N(b.apg)-N(a.apg)), topApg=N(apgSorted[0].apg), apgName=apgSorted[0].name, moveSup=clamp((topApg-3)/3.5,0,1);
+  const qual=roster.filter(x=>N(x.tdc_grade)>=78).length, depthSup=clamp(qual/8,0,1);
+  const needs={three:pctl.three_pa_rate||0,star:pctl.top_scorer_share||0,move:pctl.ast_rate||0,depth:pctl.rotation_size||0};
+  const lvl=(need,sup)=> need<45?['Not central','n']:sup>=0.6?['Strong fit','g']:sup>=0.38?['Workable','a']:['Tension','r'];
+
+  const dims=[
+    {nm:'Outside shooting',need:needs.three,sup:shootSup,
+     read: needs.three>=45?(shootSup>=0.6?`His volume-three system (${ord(needs.three)} pctile) has the shooters — <b>${escF(shooters.length)}</b> rotation players at 34%+ from deep.`:`His offense leans on threes (${ord(needs.three)} pctile), but the outside shooting is <b>thin</b> — only ${shooters.length} reliable from deep.`):`Not a three-heavy system (${ord(needs.three)} pctile) — shooting depth matters less.`},
+    {nm:'Go-to scorer',need:needs.star,sup:starSup,
+     read: needs.star>=45?(starSup>=0.6?`He funnels usage to a centerpiece (${ord(needs.star)} pctile star reliance) — <b>${escF(topName)}</b> (${g1} OVR) fits that bill.`:`His star-centric approach (${ord(needs.star)} pctile) lacks a clear alpha — the top player grades just <b>${g1}</b>.`):`A share-the-load system (${ord(needs.star)} pctile star reliance) — no single alpha required.`},
+    {nm:'Playmaking',need:needs.move,sup:moveSup,
+     read: needs.move>=45?(moveSup>=0.6?`His ball-movement offense (${ord(needs.move)} pctile) has a distributor — <b>${escF(apgName)}</b> at ${topApg.toFixed(1)} apg.`:`He wants ball movement (${ord(needs.move)} pctile), but there's no true table-setter (top ${topApg.toFixed(1)} apg).`):`An iso-leaning system (${ord(needs.move)} pctile ball movement) — less reliant on a lead distributor.`},
+    {nm:'Rotation depth',need:needs.depth,sup:depthSup,
+     read: needs.depth>=45?(depthSup>=0.6?`He plays a deep bench (${ord(needs.depth)} pctile) and has <b>${qual}</b> rotation-quality bodies.`:`He goes deep (${ord(needs.depth)} pctile), but the roster thins after <b>${qual}</b> quality pieces.`):`A tight-rotation coach (${ord(needs.depth)} pctile bench) — depth is less of a demand.`}
+  ];
+  const demanded=dims.filter(d=>d.need>=45), overallSup=demanded.length?demanded.reduce((s,d)=>s+d.sup,0)/demanded.length:0.5, oScore=Math.round(overallSup*100);
+  const oLab=overallSup>=0.6?['Strong fit','var(--green)']:overallSup>=0.4?['Solid fit','var(--accent)']:['Mixed fit','var(--red)'];
+  const strength=dims.filter(d=>d.need>=45&&d.sup>=0.6).map(d=>d.nm.toLowerCase());
+  const tension=dims.filter(d=>d.need>=45&&d.sup<0.38).map(d=>d.nm.toLowerCase());
+  const last=(p.coach||'').split(' ').slice(-1)[0];
+  const heroRead=`<b>${escF(last)}'s</b> system ${strength.length?`is well-served by this roster's <b>${strength.slice(0,2).join(' and ')}</b>`:'gets a mixed match from this roster'}${tension.length?`, but runs into <b>${tension.slice(0,2).join(' and ')}</b> trouble`:''}.`;
+  const cards=dims.map(d=>{ const [lab,cls]=lvl(d.need,d.sup);
+    return `<div class="fitcard"><div class="fh"><span class="fn">${d.nm}</span><span class="fl2 ${cls}">${lab}</span></div><div class="fr2">${d.read}</div>
+      <div class="fmeter"><div class="mm">System demand<div class="mt"><div class="mf" style="width:${Math.round(d.need)}%;background:var(--text3)"></div></div></div><div class="mm">Roster supply<div class="mt"><div class="mf" style="width:${Math.round(d.sup*100)}%;background:${cls==='g'?'var(--green)':cls==='r'?'var(--red)':'var(--accent)'}"></div></div></div></div></div>`;
+  }).join('');
+  host.innerHTML=`<div class="sec-t">Roster Fit <span>does his ${escF(tname)} roster suit his system?</span></div>
+    <div class="fit-hero"><div class="fg"><div class="v" style="color:${oLab[1]}">${oScore}</div><div class="l">${oLab[0]}</div></div><div class="ft">${heroRead} <span style="color:var(--text3)">System demand = his career percentiles; roster supply = the current ${escF(tname)} roster.</span></div></div>
+    <div class="fitgrid">${cards}</div>`;
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
+}
+
 async function init(){
   var slug=new URLSearchParams(location.search).get('slug');
   if(!slug){ document.getElementById('content').innerHTML='<div class="loading">No coach specified. <a href="coaches.html" style="color:var(--accent)">Back to the Coaching Lab</a>.</div>'; return; }
@@ -426,6 +497,7 @@ async function init(){
     var ss=(seas||[]).filter(s=>s.coach_slug===slug);
     document.title=p.coach+' — The Depth Chart';
     render(p, ss, pages[slug]);
+    renderFit(p);
     renderRundown(slug);
   }catch(e){ document.getElementById('content').innerHTML='<div class="loading">Could not load coach data. '+e.message+'</div>'; }
 }
