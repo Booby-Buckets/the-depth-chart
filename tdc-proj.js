@@ -948,8 +948,18 @@ function buildTeamProjections(players, conf){
     // PPG alone) so the projected line stays internally consistent (PPG = 2·FGM+3PM+FTM).
     // Discounting only PPG cratered a transfer's IMPLIED efficiency (fake-low TS%/estBPM),
     // which then dragged the grade even though his stats looked fine.
-    const scoringTransMult = (isTransferIn && transferFactor < 0.95)
+    let scoringTransMult = (isTransferIn && transferFactor < 0.95)
       ? Math.max(0.78, 0.52 + transferFactor * 0.48) : 1.0;
+    // A proven high-usage scorer stays a focal point at the new school — the offense
+    // still runs through him — so the conference scoring discount on his shot VOLUME
+    // is gentler the higher his demonstrated usage. Efficiency (transPctAdj / FG%)
+    // still translates fully; this preserves his shot appetite, not his percentages.
+    if(isTransferIn && scoringTransMult < 1 && isFinite(_usgNow) && _usgNow >= 22){
+      // a true 30+-usage alpha pays essentially NO extra conference scoring tax on volume;
+      // mid-usage transfers get partial relief. His SHARE (vacMult) still compresses him
+      // behind better teammates, and his FG% still translates down — so he doesn't run away.
+      scoringTransMult = Math.min(1, scoringTransMult + Math.min(0.22, (_usgNow - 22) * 0.028));
+    }
     // Shot volume: minutes-driven, with class/pos FGA growth, usage vacancy, conference
     // translation, and the transfer scoring penalty.
     const newFga = r1(pm.fga*fgaGrow*newMpg*vacMult*volTrans*scoringTransMult);
