@@ -90,7 +90,45 @@
     .grade-pill{font-family:'Playfair Display',serif;font-weight:800;font-size:13px;}
     /* LEADERS */
     .leaders{padding:24px 40px 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:12px;margin-bottom:18px;}
-    .leader-card{border:1px solid var(--border);border-radius:10px;padding:14px 16px;background:var(--bg2);}
+    .leader-card{border:1px solid var(--border);border-radius:10px;padding:14px 16px;background:var(--bg2);cursor:pointer;transition:transform .12s,border-color .15s,box-shadow .15s;position:relative;}
+    .leader-card:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:0 10px 24px rgba(24,20,14,.14);}
+    .leader-card .lc-go{position:absolute;top:12px;right:13px;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);opacity:0;transition:opacity .15s;}
+    .leader-card:hover .lc-go{opacity:1;color:var(--accent);}
+    /* ── Stat Leaders modal ── */
+    .lb-overlay{position:fixed;inset:0;z-index:400;background:rgba(20,18,14,.55);backdrop-filter:blur(4px);display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:34px 16px 60px;}
+    .lb-overlay.on{display:flex;}
+    .lb-panel{background:var(--bg);border:1px solid var(--border2);border-radius:18px;max-width:860px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.4);overflow:hidden;}
+    .lb-head{display:flex;align-items:flex-start;gap:14px;padding:20px 24px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+    .lb-head .lh-l{flex:1;min-width:220px;}
+    .lb-head .lh-t{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;line-height:1.05;}
+    .lb-head .lh-d{font-size:12px;color:var(--text3);margin-top:4px;line-height:1.5;max-width:560px;}
+    .lb-head .lh-sel{font-family:'Inter',sans-serif;font-size:12.5px;font-weight:700;background:var(--bg2);border:1px solid var(--border2);color:var(--text);padding:8px 11px;border-radius:9px;outline:none;cursor:pointer;}
+    .lb-head .lh-x{background:none;border:1px solid var(--border2);color:var(--text3);width:32px;height:32px;border-radius:9px;font-size:16px;cursor:pointer;flex-shrink:0;}
+    .lb-head .lh-x:hover{border-color:var(--accent);color:var(--text);}
+    .lb-body{padding:20px 24px 26px;}
+    .lb-cards{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+    @media(max-width:720px){.lb-cards{grid-template-columns:repeat(3,1fr);}}
+    @media(max-width:460px){.lb-cards{grid-template-columns:repeat(2,1fr);}}
+    .lb-card{position:relative;border-radius:13px;overflow:hidden;aspect-ratio:3/4;display:flex;flex-direction:column;justify-content:flex-end;background:var(--bg3);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);}
+    .lb-card .lb-bg{position:absolute;inset:0;}
+    .lb-card .lb-face{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;}
+    .lb-card .lb-face img{width:100%;height:100%;object-fit:cover;object-position:top center;}
+    .lb-card .lb-logo{width:52%;height:52%;object-fit:contain;opacity:.9;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));}
+    .lb-card .lb-rk{position:absolute;top:7px;left:8px;font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6);z-index:2;}
+    .lb-card .lb-foot{position:relative;z-index:2;padding:22px 9px 9px;background:linear-gradient(to top,rgba(0,0,0,.82),rgba(0,0,0,.5) 60%,transparent);}
+    .lb-card .lb-nm{font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#fff;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.7);}
+    .lb-card .lb-val{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;color:#fff;line-height:1;margin-top:2px;text-shadow:0 1px 3px rgba(0,0,0,.7);}
+    .lb-card .lb-sec{display:inline-block;font-size:10px;font-weight:800;color:#fff;background:rgba(255,255,255,.22);border-radius:5px;padding:2px 7px;margin-top:5px;}
+    .lb-card a{position:absolute;inset:0;z-index:3;}
+    .lb-list{margin-top:16px;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+    .lb-lh{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:10px 16px 6px;}
+    .lb-row{display:grid;grid-template-columns:34px 1fr 78px 52px;gap:10px;align-items:center;padding:9px 16px;border-top:1px solid var(--border);font-size:13px;}
+    .lb-row:hover{background:var(--bg2);}
+    .lb-row .lr-rk{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;color:var(--text3);text-align:center;}
+    .lb-row .lr-nm{min-width:0;} .lb-row .lr-nm a{font-weight:700;color:var(--text);text-decoration:none;} .lb-row .lr-nm a:hover{color:var(--accent);}
+    .lb-row .lr-nm small{display:block;font-size:10.5px;color:var(--text3);font-weight:600;}
+    .lb-row .lr-v{text-align:right;font-family:'Playfair Display',serif;font-weight:800;font-size:15px;font-variant-numeric:tabular-nums;}
+    .lb-row .lr-g{text-align:right;font-size:12px;font-weight:800;color:var(--text3);font-variant-numeric:tabular-nums;}
     .leader-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
     .leader-stat{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;color:var(--accent);margin-bottom:2px;line-height:1;}
     .leader-team{font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -312,6 +350,8 @@ body{background:transparent!important;}
   <div style="font-size:11px;font-weight:600;color:var(--text3);">Advanced metrics via Basketball Reference · grades by The Depth Chart model · efficiency from our own box-score data</div>
 </footer>
 
+<div class="lb-overlay" id="lbOverlay" onclick="if(event.target===this)closeLeaders()"><div class="lb-panel" id="lbPanel"></div></div>
+
 <script>
 const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -531,12 +571,58 @@ function renderLeaders(){
     for(var i=0;i<FILT.length;i++){ var v=FILT[i][k]; if(v===null||!isFinite(v)) continue; if(!best || (st.inv? v<best[k] : v>best[k])) best=FILT[i]; }
     if(!best) return;
     var link=best.espn_id?('player.html?espn='+best.espn_id):('player.html?name='+encodeURIComponent(best.name)+'&team='+encodeURIComponent(best.school||''));
-    html+='<div class="leader-card"><div class="leader-label">'+st.l+' Leader</div>'+
+    html+='<div class="leader-card" onclick="openLeaders(\''+k+'\')" title="See the top 50 in '+st.l+'"><div class="lc-go">Top 50 →</div><div class="leader-label">'+st.l+' Leader</div>'+
       '<div class="leader-stat">'+fmt(best[k],st)+'</div>'+
-      '<div class="leader-team"><a href="'+link+'">'+best.name+'</a></div>'+
+      '<div class="leader-team"><a href="'+link+'" onclick="event.stopPropagation()">'+best.name+'</a></div>'+
       '<div class="leader-sub">'+best.school+(CUR_SEASON==='all'?(' · '+seasonLbl(''+best.season)):'')+'</div></div>';
   });
   el.innerHTML=html;
+}
+
+// ── Stat Leaders modal — graphic top-10 + list to 50 ──
+var LB_COLORS=null, _lbKey=null;
+function _lbNorm(s){ return (''+(s||'')).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
+async function ensureColors(){ if(LB_COLORS) return; LB_COLORS={};
+  try{ var arr=await fetch('scripts/data/team_colors.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
+    (arr||[]).forEach(function(e){ if(!e) return; [e.location,e.display,e.name].forEach(function(kk){ if(kk) LB_COLORS[_lbNorm(kk)]=e; }); });
+  }catch(e){}
+}
+function teamMeta(school){ if(!LB_COLORS) return null; var k=_lbNorm(school); if(LB_COLORS[k]) return LB_COLORS[k];
+  for(var key in LB_COLORS){ if(key&&(k.indexOf(key)===0||key.indexOf(k)===0)) return LB_COLORS[key]; } return null; }
+function _showPhotos(){ try{ return !!(window.tdcShowPhotos&&window.tdcShowPhotos()); }catch(e){ return false; } }
+function _lastName(n){ var p=(''+(n||'')).trim().split(/\s+/); return p.length>1?p.slice(1).join(' '):(p[0]||''); }
+async function openLeaders(k){ _lbKey=k; await ensureColors(); renderLeaderboard(k);
+  document.getElementById('lbOverlay').classList.add('on'); document.body.style.overflow='hidden'; }
+function closeLeaders(){ document.getElementById('lbOverlay').classList.remove('on'); document.body.style.overflow=''; }
+document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeLeaders(); });
+function renderLeaderboard(k){
+  var st=SMAP[k]; if(!st) return; _lbKey=k;
+  var rows=FILT.filter(function(r){ var v=r[k]; return v!==null&&isFinite(v); })
+    .sort(function(a,b){ return st.inv ? a[k]-b[k] : b[k]-a[k]; }).slice(0,50);
+  var seasonNote = CUR_SEASON==='all' ? 'all seasons · 20 yrs' : seasonLbl(CUR_SEASON);
+  var opts=TABLE_KEYS.map(function(kk){ return '<option value="'+kk+'"'+(kk===k?' selected':'')+'>'+SMAP[kk].l+' — '+SMAP[kk].g+'</option>'; }).join('');
+  var cards=rows.slice(0,10).map(function(r,i){
+    var tm=teamMeta(r.school), c1=(tm&&tm.c1)||'#3a3a42', logo=tm&&tm.logo;
+    var link=r.espn_id?('player.html?espn='+r.espn_id):('player.html?name='+encodeURIComponent(r.name)+'&team='+encodeURIComponent(r.school||''));
+    var face=(_showPhotos()&&r.espn_id)?'<img src="https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+r.espn_id+'.png" alt="" onerror="this.style.display=\'none\'">'
+      :(logo?'<img class="lb-logo" src="'+logo+'" alt="">':'');
+    var grade=r.grade!=null&&isFinite(r.grade)?'<span class="lb-sec">OVR '+Math.round(r.grade)+'</span>':'';
+    return '<div class="lb-card"><div class="lb-bg" style="background:linear-gradient(160deg,'+c1+',rgba(0,0,0,.6))"></div>'+
+      '<div class="lb-face">'+face+'</div><div class="lb-rk">'+(i+1)+'</div>'+
+      '<div class="lb-foot"><div class="lb-nm">'+esc(_lastName(r.name)||r.name)+'</div><div class="lb-val">'+fmt(r[k],st)+'</div>'+grade+'</div>'+
+      '<a href="'+link+'" aria-label="'+esc(r.name)+'"></a></div>';
+  }).join('');
+  var list=rows.slice(10).map(function(r,i){
+    var link=r.espn_id?('player.html?espn='+r.espn_id):('player.html?name='+encodeURIComponent(r.name)+'&team='+encodeURIComponent(r.school||''));
+    return '<div class="lb-row"><div class="lr-rk">'+(i+11)+'</div><div class="lr-nm"><a href="'+link+'">'+esc(r.name)+'</a><small>'+esc(r.school)+(CUR_SEASON==='all'?' · '+seasonLbl(''+r.season):'')+'</small></div>'+
+      '<div class="lr-v">'+fmt(r[k],st)+'</div><div class="lr-g">'+(r.grade!=null&&isFinite(r.grade)?Math.round(r.grade):'—')+'</div></div>';
+  }).join('');
+  document.getElementById('lbPanel').innerHTML=
+    '<div class="lb-head"><div class="lh-l"><div class="lh-t">'+st.l+' leaders</div><div class="lh-d">'+(st.desc||'')+' · '+seasonNote+'</div></div>'+
+    '<select class="lh-sel" onchange="renderLeaderboard(this.value)" title="Switch stat">'+opts+'</select>'+
+    '<button class="lh-x" onclick="closeLeaders()" title="Close">✕</button></div>'+
+    '<div class="lb-body"><div class="lb-cards">'+cards+'</div>'+
+    (list?'<div class="lb-list"><div class="lb-lh">Ranks 11 – '+rows.length+'</div>'+list+'</div>':'')+'</div>';
 }
 
 function renderTable(){
