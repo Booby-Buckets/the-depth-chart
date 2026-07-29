@@ -122,7 +122,7 @@
     .tab-btn.active::after{transform:scaleX(1);}
     .tab-btn:hover:not(.active){color:var(--text2);}
     .tab-panel{display:none;padding:28px 40px 60px;}
-    /* BUZZ TAB — headlines + social (sample data prototype) */
+    /* BUZZ TAB — headlines + social (live: player_news.json / player_buzz.json) */
     .buzz-note{font-size:12px;color:var(--text3);background:var(--bg2);border:1px dashed var(--border);border-radius:8px;padding:10px 14px;margin-bottom:24px;line-height:1.5;}
     .buzz-note b{color:var(--text2);}
     .buzz-index-card{display:flex;align-items:center;gap:18px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px 20px;margin-bottom:22px;}
@@ -3681,10 +3681,10 @@ function _buildProjRankLine(lastAct, projLine){
 }
 
 // ── BUZZ TAB — headlines + social feed ────────────────────────────────────
-// PROTOTYPE: renders SAMPLE data so the layout can be reviewed before the real
-// pipeline (news/RSS now, tweets later) is wired. Real version will fetch from
-// Supabase tables player_news / player_tweets (keyed by espn_id), populated by a
-// scheduled Python fetcher. See the roadmap note in the preview banner below.
+// LIVE: real per-player headlines from scripts/data/player_news.json (Google News
+// RSS via scripts/build_player_news.py) + optional fan buzz from player_buzz.json
+// (Reddit r/CollegeBasketball, when REDDIT_* secrets are set). Both refreshed daily
+// by .github/workflows/refresh-news.yml. Keyed by espn_id (name fallback).
 // ── BUZZ INDEX ── volume × recency × source credibility, percentile-normalized
 // across every tracked player so it reads "vs the field", not raw media-market size.
 function _buzzSourceWeight(src){
