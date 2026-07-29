@@ -134,7 +134,7 @@
   <div id="roster"></div>
   <div id="out"></div>
 
-  <div class="note" data-anim>Every identifier is cut from the player's own 2025-26 record: box logs classified by the opponent's tempo and forced-turnover rate (team_dna tertiles) for pace and pressure, opponent archetypes for matchup, and his shot log by half for the closing read. Small-sample buckets (under 4 games / thin shot volume) are marked as such and left out of the summary. These describe tendencies to plan around — not verdicts on a player.</div>
+  <div class="note" data-anim>Every identifier is cut from the player's own 2025-26 record: box logs classified by the opponent's tempo and forced-turnover rate (team_dna tertiles) for pace and pressure, opponent archetypes for matchup, his shot log by half for the closing read, and his team's on/off splits (sample-shrunk, ranked vs the field) for the lineup amplifier. Small-sample buckets (under 4 games / thin shot volume) are marked as such and left out of the summary. These describe tendencies to plan around — not verdicts on a player.</div>
 </div>
 
 <script>
@@ -241,6 +241,15 @@ async function loadPlayer(p, tc, row){
   ]); }catch(e){}
   log=log.filter(g=>R(g.min)>0);
 
+  // Lineup Amplifier — precomputed team on/off swing (scripts/build_amplifier.py),
+  // sample-shrunk + percentile-ranked. Load once, look up this player by espn_id.
+  if(window._ampData===undefined){
+    try{ window._ampData=await fetch('scripts/data/player_amplifier.json').then(r=>r.ok?r.json():null); }
+    catch(e){ window._ampData=null; }
+  }
+  const amp=(window._ampData&&window._ampData.players&&p.espn_id!=null)?window._ampData.players[''+p.espn_id]:null;
+  const ord=n=>{const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);};
+
   // ── projection (authoritative engine, matches player page) ──
   const eng=PROJMAP[(p.name||'').toLowerCase().trim()];
   const pl = (eng && R(eng.mpg)>0) ? {ppg:R(eng.ppg),rpg:R(eng.rpg),apg:R(eng.apg),mpg:R(eng.mpg),fg_pct:R(eng.fg_pct),tp_pct:R(eng.tp_pct),ft_pct:R(eng.ft_pct)} : projLine(p);
@@ -326,6 +335,11 @@ async function loadPlayer(p, tc, row){
   } else if(efg1!=null&&efg2!=null&&h1.length>=25&&h2.length>=25){ const dr=Math.round(efg2-efg1); const a=Math.abs(dr);
     tiles.push({nm:'Closing (2nd half)',v:(dr>0?'+':'')+dr,l:a<3?'Steady':(dr>0?'Closer':'Fader'),cls:a<3?'n':(dr>0?'g':'r'),d:'shot eFG, 2nd half vs 1st'});
   }
+  if(amp){ const v=amp.amp, pv=amp.pct;
+    const l=pv>=88?'Elite lift':pv>=68?'Lifts':pv>=40?'Neutral':pv>=18?'Slight drag':'Drag';
+    const cls=pv>=68?'g':pv>=40?'n':'r';
+    tiles.push({nm:'Lineup Amplifier',v:(v>0?'+':'')+v.toFixed(1),l,cls,d:`team net/100, on vs off · ${ord(pv)} pct`});
+  }
 
   // ── the book (synthesized into clean sentences) ──
   let paceStr='', pressStr='', matchupStr='';
@@ -352,7 +366,13 @@ async function loadPlayer(p, tc, row){
       else if(dr<=-4) matchupStr += `, and he <b>fades</b> late — his shot drops off in the second half (eFG ${dr})`;
     }
   }
-  const sents=[paceStr,pressStr,matchupStr].filter(Boolean);
+  let ampStr='';
+  if(amp){ const v=amp.amp, pv=amp.pct;
+    ampStr = v>=1.5 ? `His lineups are <b>${v.toFixed(1)} points better per 100 possessions</b> with him on the floor — a ${ord(pv)}-percentile on/off lift`
+      : v<=-1.5 ? `The team is <b>${Math.abs(v).toFixed(1)} points worse per 100</b> with him on than off (${ord(pv)} percentile) — a rare on/off drag`
+      : `The team's net efficiency barely moves with him on or off — a neutral on/off footprint`;
+  }
+  const sents=[paceStr,pressStr,matchupStr,ampStr].filter(Boolean);
   const book=sents.length?sents.join('. ')+'.':'Not enough split coverage to summarize this player yet.';
 
   const tileHtml=tiles.length?`<div class="tiles">`+tiles.map(t=>`<div class="tile ${t.cls}"><div class="tn">${t.nm}</div><div class="tv">${t.v}</div><div class="tl">${t.l}</div><div class="td">${t.d}</div></div>`).join('')+`</div>`:'';
@@ -396,6 +416,17 @@ async function loadPlayer(p, tc, row){
       : clutchRole.lab.indexOf('Defer')>=0?`He gives it up late — the closer is somebody else.`
       : `His late-game role and efficiency hold steady.`;
     gp.push({ic:'⏳',k:'Late game',t});
+  }
+  if(amp){ const os=amp.off_swing, ds=amp.def_swing;
+    let where='';
+    if(os!=null&&ds!=null){
+      const offTxt = os>=2?`the offense scores <b>${Math.round(os)} more</b>/100`:os<=-2?`the offense drops <b>${Math.round(-os)}</b>/100`:'';
+      const defTxt = ds>=2?`the defense allows <b>${Math.round(ds)} fewer</b>`:ds<=-2?`the defense allows <b>${Math.round(-ds)} more</b>`:'';
+      where=[offTxt,defTxt].filter(Boolean).join(', and ');
+    }
+    const dir = amp.amp>0?'better':'worse';
+    const t = `With him on, the team is <b>${Math.abs(amp.amp).toFixed(1)} points ${dir} per 100</b> (${ord(amp.pct)} pct)${where?` — ${where}`:''}. <span style="color:var(--text3)">${amp.games}g · ${amp.off_poss} bench-unit poss${amp.conf==='med'?' · modest off-court sample':''}.</span>`;
+    gp.push({ic:'🔀',k:'Lineup impact',t});
   }
   const gpHtml=gp.length?`<div class="gplan">`+gp.map(x=>`<div class="gp"><div class="ic">${x.ic}</div><div class="gt"><span class="gk">${x.k}</span>${x.t}</div></div>`).join('')+`</div>`:'';
 
