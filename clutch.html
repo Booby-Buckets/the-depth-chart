@@ -9,6 +9,7 @@
   <script src="auth.js?v=paywall4"></script>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=2"></script>
+  <script src="tdc-teamlink.js?v=1"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -158,7 +159,7 @@ async function loadTeam(){
   roster=roster.filter(p=>p.espn_id!=null);
   if(!roster.length){ el('roster').innerHTML='<div class="muted">No players with D-I game history on this roster yet.</div>'; return; }
   const tc=teamColor(row);
-  el('roster').innerHTML=`<div class="sec-h" style="margin-top:14px">${esc(row.full)} · pick a player</div><div class="chips" style="--tc:${tc}">`
+  el('roster').innerHTML=`<div class="sec-h" style="margin-top:14px">${TDC_TEAM.badge(row.full)} · pick a player</div><div class="chips" style="--tc:${tc}">`
     + roster.map((p,i)=>`<div class="chip" data-i="${i}">${esc(p.name)}${p.position?`<span class="cp">${esc(p.position)}</span>`:''}</div>`).join('')+'</div>';
   el('roster').querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{
     el('roster').querySelectorAll('.chip').forEach(x=>x.classList.remove('on')); c.classList.add('on');

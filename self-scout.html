@@ -9,6 +9,7 @@
   <script src="auth.js?v=paywall4"></script>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=2"></script>
+  <script src="tdc-teamlink.js?v=1"></script>
   <script src="tdc-projgrade.js?v=coach5"></script>
   <script src="tdc-proj.js?v=coach5"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
@@ -180,7 +181,7 @@ async function loadTeam(){
   const dna=dnaOf(row), p=pbpOf(row), initials=(row.full||'').split(' ').map(w=>w[0]).slice(0,2).join('');
 
   // ── identity ──
-  let idHtml=`<div class="idbar" style="--tc:${tc}"><div class="badge">${esc(initials)}</div><div><div class="onm">${esc(row.full)}</div><div class="omet"><b>${esc(row.conf||'')}</b> · #${row.rank||'—'} projected${dna&&dna.tempo?` · ${dna.tempo.toFixed(0)} poss/g`:''}</div></div></div>`;
+  let idHtml=`<div class="idbar" style="--tc:${tc}">${(window.TDC_TEAM&&TDC_TEAM.logo(row.full))?`<img class="badge" style="object-fit:contain;padding:7px;background:var(--bg3)" src="${TDC_TEAM.logo(row.full)}" alt="" onerror="this.outerHTML='<div class=\\'badge\\'>${esc(initials)}</div>'">`:`<div class="badge">${esc(initials)}</div>`}<div><div class="onm"><a href="${TDC_TEAM.link(row.full)}" style="color:inherit;text-decoration:none">${esc(row.full)}</a></div><div class="omet"><b>${esc(row.conf||'')}</b> · #${row.rank||'—'} projected${dna&&dna.tempo?` · ${dna.tempo.toFixed(0)} poss/g`:''}</div></div></div>`;
   if(dna&&dna.pct){ const pc=dna.pct; const FF=[['ORtg','Offense'],['DRtg','Defense'],['oeFG','Shooting'],['oTOV','Ball security',true],['oORB','Off. rebounding'],['dDRB','Def. rebounding']];
     const ff=FF.filter(f=>pc[f[0]]!=null).map(([k,lab])=>{ const v=pc[k], col=v>=66?'var(--green)':v<=40?'var(--red)':'var(--accent)';
       return `<div class="ff"><div class="ffl"><span>${lab}</span><span class="ffv" style="color:${col}">${Math.round(v)}ᵖᶜ</span></div><div class="fft"><div class="fff" style="width:${Math.round(v)}%;background:${col}"></div></div></div>`; }).join('');

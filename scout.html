@@ -9,6 +9,7 @@
   <script src="auth.js?v=paywall4"></script>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=2"></script>
+  <script src="tdc-teamlink.js?v=1"></script>
   <script src="tdc-projgrade.js?v=coach5"></script>
   <script src="tdc-proj.js?v=coach5"></script>
   <script src="tdc-shotchart.js?v=1"></script>
@@ -541,8 +542,8 @@ function render(){
 
   el('out').innerHTML=`<div class="dossier" style="--tc:${tc}">
     <div class="oppbar">
-      <div class="badge">${esc(initials)}</div>
-      <div><div class="onm">${esc(r.full)}</div><div class="omet"><b>${esc(r.conf||'')}</b> · ${rec}${dna?` · ${dna.tempo?dna.tempo.toFixed(0)+' poss/g':''}`:''}</div></div>
+      ${(window.TDC_TEAM&&TDC_TEAM.logo(r.full))?`<img class="badge" style="object-fit:contain;padding:7px;background:var(--bg3)" src="${TDC_TEAM.logo(r.full)}" alt="" onerror="this.outerHTML='<div class=\\'badge\\'>${esc(initials)}</div>'">`:`<div class="badge">${esc(initials)}</div>`}
+      <div><div class="onm"><a href="${TDC_TEAM.link(r.full)}" style="color:inherit;text-decoration:none">${esc(r.full)}</a></div><div class="omet"><b>${esc(r.conf||'')}</b> · ${rec}${dna?` · ${dna.tempo?dna.tempo.toFixed(0)+' poss/g':''}`:''}</div></div>
     </div>
     ${me?matchupMini(me,opp):''}
     ${plan||'<div class="card"><div class="muted">Team DNA isn\'t on file for this opponent yet, so the auto game plan is unavailable.</div></div>'}
