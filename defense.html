@@ -58,6 +58,39 @@
     .foot b{color:var(--text2);}
     .lab{text-align:right;font-size:11.5px;font-weight:800;}
     .lg{color:var(--green);} .la{color:var(--amber);} .lr{color:var(--red);}
+    /* coach line */
+    .coach{display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:14px 18px;flex-wrap:wrap;}
+    .coach .cbadge{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:var(--accent);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;white-space:nowrap;}
+    .coach .cmain{flex:1;min-width:200px;}
+    .coach .cn{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;}
+    .coach .carch{font-size:12px;font-weight:700;color:var(--text2);margin-top:1px;}
+    .coach .ctags{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;}
+    .coach .ctag{font-size:10.5px;font-weight:700;color:var(--text3);background:var(--bg3);border-radius:20px;padding:3px 10px;}
+    /* season toggle */
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 4px;}
+    .chip{border:1px solid var(--border);border-radius:20px;background:var(--bg2);padding:7px 14px;font-size:12.5px;font-weight:700;cursor:pointer;transition:border-color .15s,background .15s;}
+    .chip:hover{border-color:var(--accent);}
+    .chip.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--bg2));color:var(--accent);}
+    /* zone defense table */
+    .zwrap{border:1px solid var(--border);border-radius:14px;background:var(--bg2);overflow:hidden;}
+    .zrow{display:grid;grid-template-columns:1.15fr 1.5fr 70px 74px;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid var(--border);}
+    .zrow:first-child{border-top:none;}
+    .zrow.zhd{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);padding-top:10px;padding-bottom:8px;}
+    .zrow .zn{font-size:13px;font-weight:800;} .zrow .zn small{display:block;font-size:10px;color:var(--text3);font-weight:600;}
+    .zrow .zmix{display:flex;align-items:center;gap:9px;}
+    .zrow .zbar{flex:1;height:8px;border-radius:5px;background:var(--bg3);overflow:hidden;} .zrow .zbar .zf{height:100%;border-radius:5px;background:var(--tc,var(--accent));}
+    .zrow .zpct{font-size:11px;font-weight:700;color:var(--text3);min-width:30px;text-align:right;}
+    .zrow .zfg{text-align:center;font-family:'Playfair Display',serif;font-weight:800;font-size:16px;font-variant-numeric:tabular-nums;}
+    .zrow .zd{text-align:right;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;}
+    .zd.bad{color:var(--red);} .zd.good{color:var(--green);} .zd.flat{color:var(--text3);}
+    .zhd .zfg,.zhd .zd{text-align:center;} .zhd .zd{text-align:right;}
+    /* defensive shot chart */
+    .dc-wrap{position:relative;max-width:440px;margin:8px auto 0;}
+    .dc-wrap svg{width:100%;height:auto;display:block;}
+    .dc-mk{cursor:pointer;} .dc-mk:hover{filter:brightness(1.2);}
+    .dctip{position:absolute;pointer-events:none;display:none;background:var(--text);color:var(--bg);font-size:11px;font-weight:700;padding:5px 9px;border-radius:6px;white-space:nowrap;transform:translate(-50%,-145%);z-index:20;box-shadow:0 4px 14px rgba(0,0,0,.28);}
+    .dc-legend{display:flex;gap:16px;justify-content:center;margin-top:10px;font-size:11px;font-weight:600;color:var(--text3);flex-wrap:wrap;}
+    .dc-legend .lg2{display:inline-flex;align-items:center;gap:6px;} .dc-legend .dot{width:10px;height:10px;border-radius:50%;}
     .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:26px;max-width:760px;}
   </style>
   <link rel="stylesheet" href="tdc-dense.css?v=18"/>
@@ -86,13 +119,13 @@
 <div class="page">
   <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Scouting Hub</span></div>
   <h1 data-anim>Defensive Profile</h1>
-  <div class="sub" data-anim>How does a team actually get stops — and who does the work? Pick a team for its defensive identity (contesting shots, forcing turnovers, controlling the glass) and a rundown of every rotation defender: the rim protector, the disruptors, and the one you can attack.</div>
+  <div class="sub" data-anim>How does a team actually get stops — and where does it give them up? Pick a team for the head coach behind the scheme, its projected defensive identity, <b>where opponents score on it</b> (by zone and on the floor, any season or all of them), and a rundown of every rotation defender — the rim protector, the disruptors, and the one you can attack.</div>
 
   <div class="combo" data-anim><input id="sel" class="search" placeholder="Search a team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
 
   <div id="out"><div class="muted" style="padding:60px 20px;">Pick a team above to read its defense.</div></div>
 
-  <div class="note" data-anim>Team identity uses the 2026-27 projected defensive four factors (percentile vs D-I: higher = better). Player footprints are each defender's 2025-26 advanced rates — defensive box plus-minus (DBPM), block %, steal %, defensive-rebound % — so the anchor and the weak link are the real ones from last season.</div>
+  <div class="note" data-anim>Head coach from the program's career profile (archetype, pace, rotation). Team identity uses the 2026-27 projected defensive four factors (ᴾᶜ = percentile vs D-I, higher = better). <b>Where they get scored on</b> is every opponent shot in the team's games (opponents' shots in the same game_ids), classified by zone; opp FG% and eFG vs the D-I baseline reveal the soft spot, and the chart plots each made shot — sortable by season or pooled across every season with shot-location data (2021-22 to 2025-26; older seasons are sparser). Player footprints are each defender's 2025-26 advanced rates — DBPM, block %, steal %, defensive-rebound %.</div>
 </div>
 
 <script>
@@ -145,10 +178,114 @@ function defRole(a,pos){
   return ['Can be attacked','lr'];
 }
 
+const norm=s=>(''+(s||'')).toLowerCase().replace(/[^a-z]/g,'');
+const seasonLabel=y=>(y-1)+'-'+String(y).slice(2);
+let COACHES=null, TEAMS=null, STATE=null;
+async function ensureCoaches(){ if(COACHES) return; COACHES={}; try{ const arr=await fetch('scripts/data/coach_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]); (arr||[]).forEach(c=>{ if(c&&c.coach) COACHES[norm(c.coach)]=c; }); }catch(e){} }
+async function ensureTeams(){ if(TEAMS) return; TEAMS={}; try{ const arr=await fetch(`${SB_URL}/rest/v1/teams?select=name,location,nickname,head_coach`,{headers:H}).then(r=>r.ok?r.json():[]); (arr||[]).forEach(t=>{ [t.name,t.location,(t.location&&t.nickname)?t.location+' '+t.nickname:null].forEach(k=>{ if(k) TEAMS[norm(k)]=t; }); }); }catch(e){} }
+function coachFor(row){ if(!TEAMS) return null; const t=TEAMS[norm(row.full)]||TEAMS[norm(row.team)]; return t&&t.head_coach?t.head_coach:null; }
+
+async function fetchAll(path){ let out=[],off=0; const page=1000; while(true){ let r; try{ r=await fetch(SB_URL+path,{headers:{...H,'Range-Unit':'items','Range':off+'-'+(off+page-1)}}); }catch(e){ break; } if(!r.ok) break; let b; try{ b=await r.json(); }catch(e){ break; } if(!Array.isArray(b)||!b.length) break; out=out.concat(b); if(b.length<page) break; off+=page; if(off>50000) break; } return out; }
+
+// ── court geometry (mirrors tdc-shotchart.js) ──
+const CFT=10,CHX=25,CHY=5.25,CYMIN=1.8,CYMAX=36.5,CCW=50*CFT,CCH=(CYMAX-CYMIN)*CFT;
+const cpx=fx=>fx*CFT,cpy=fy=>(CYMAX-fy)*CFT,cfx=x=>(x==null?CHX:x),cfy=y=>(y==null?0:y)+CHY;
+function courtLines(line){
+  const hx=cpx(CHX),hy=cpy(CHY); let g='';
+  g+='<rect x="1" y="1" width="'+(CCW-2)+'" height="'+(CCH-2)+'" fill="none" stroke="'+line+'" stroke-width="2"/>';
+  g+='<rect x="'+cpx(19)+'" y="'+cpy(19)+'" width="'+cpx(12)+'" height="'+(cpy(0)-cpy(19))+'" fill="none" stroke="'+line+'" stroke-width="1.5"/>';
+  g+='<circle cx="'+cpx(25)+'" cy="'+cpy(19)+'" r="'+cpx(6)+'" fill="none" stroke="'+line+'" stroke-width="1.5"/>';
+  g+='<path d="M '+(hx-cpx(4))+' '+hy+' A '+cpx(4)+' '+cpx(4)+' 0 0 1 '+(hx+cpx(4))+' '+hy+'" fill="none" stroke="'+line+'" stroke-width="1.5"/>';
+  g+='<line x1="'+(cpx(25)-cpx(3))+'" y1="'+cpy(4)+'" x2="'+(cpx(25)+cpx(3))+'" y2="'+cpy(4)+'" stroke="'+line+'" stroke-width="2"/>';
+  g+='<circle cx="'+hx+'" cy="'+hy+'" r="'+cpx(0.75)+'" fill="none" stroke="'+line+'" stroke-width="2"/>';
+  const cornerX=250-216.5,cornerYtop=hy-46.8;
+  g+='<path d="M '+cornerX+' '+cpy(0)+' L '+cornerX+' '+cornerYtop+' A 221.5 221.5 0 0 1 '+(500-cornerX)+' '+cornerYtop+' L '+(500-cornerX)+' '+cpy(0)+'" fill="none" stroke="'+line+'" stroke-width="1.5"/>';
+  return g;
+}
+const zoneOf=s=> s.sv===3?'three':((s.stype==='layup'||s.stype==='dunk'||s.stype==='tip'||(s.dist!=null&&s.dist>=0&&s.dist<=4))?'rim':'mid');
+const ZBASE={rim:61,mid:39,three:51};       // D-I baseline eFG% allowed by zone
+const ZNAME={rim:'At the rim',mid:'Mid-range',three:'Three-point'};
+const ZCOL={rim:'#cc5140',mid:'#c99a3a',three:'#3a7bc9'};
+function shotDist(s){ if(s.dist!=null&&s.dist>=0) return s.dist; const dx=cfx(s.x)-CHX,dy=cfy(s.y)-CHY; return Math.sqrt(dx*dx+dy*dy); }
+function dcChart(shots){
+  const line=getComputedStyle(document.documentElement).getPropertyValue('--border2').trim()||'#C6C0B2';
+  const made=shots.filter(s=>s.made&&s.x!=null&&s.y!=null);
+  let plot=made, sampled=false;
+  if(made.length>1400){ sampled=true; plot=[]; const step=made.length/1400; for(let i=0;i<made.length;i+=step) plot.push(made[Math.floor(i)]); }
+  const marks=plot.map(s=>{ const x=cpx(cfx(s.x)).toFixed(1),y=cpy(cfy(s.y)).toFixed(1),z=zoneOf(s);
+    const tip=(s.sv===3?'3PT':'2PT')+' · '+Math.round(shotDist(s))+' ft · opponent scored';
+    return '<circle class="dc-mk" data-tip="'+esc(tip)+'" cx="'+x+'" cy="'+y+'" r="4" fill="'+ZCOL[z]+'" fill-opacity="0.72"/>'; }).join('');
+  return '<div class="dc-wrap"><svg id="dcSvg" viewBox="0 0 '+CCW+' '+CCH+'" preserveAspectRatio="xMidYMid meet"><g>'+courtLines(line)+'</g><g>'+marks+'</g></svg><div class="dctip" id="dcTip"></div></div>'
+    +'<div class="dc-legend"><span class="lg2"><span class="dot" style="background:'+ZCOL.rim+'"></span>Rim</span><span class="lg2"><span class="dot" style="background:'+ZCOL.mid+'"></span>Mid-range</span><span class="lg2"><span class="dot" style="background:'+ZCOL.three+'"></span>Three</span><span class="lg2" style="color:var(--text3)">each dot = a shot an opponent made'+(sampled?' · sampled':'')+'</span></div>';
+}
+function wireDcTip(){ const svg=el('dcSvg'),tip=el('dcTip'); if(!svg||!tip) return; const wrap=svg.parentElement;
+  svg.addEventListener('mousemove',e=>{ const mk=e.target.closest('.dc-mk'); if(!mk){ tip.style.display='none'; return; } tip.textContent=mk.getAttribute('data-tip'); const wr=wrap.getBoundingClientRect(); tip.style.left=(e.clientX-wr.left)+'px'; tip.style.top=(e.clientY-wr.top)+'px'; tip.style.display='block'; });
+  svg.addEventListener('mouseleave',()=>{ tip.style.display='none'; });
+}
+
+function coachHtml(row){
+  const hc=coachFor(row); if(!hc) return '';
+  const cp=COACHES?COACHES[norm(hc)]:null;
+  let tags=[]; if(cp&&cp.tags){ tags=(Array.isArray(cp.tags)?cp.tags:(''+cp.tags).split(/[,;|]/)).map(t=>(''+t).trim()).filter(Boolean).slice(0,4); }
+  const arch=cp&&cp.archetype?cp.archetype:'';
+  const sub=[];
+  if(cp){ const pp=+cp.poss_pg; if(pp) sub.push((pp>=70?'up-tempo':pp<=66?'slow-tempo':'balanced')+' · '+Math.round(pp)+' poss/g'); if(cp.rotation_size) sub.push(Math.round(+cp.rotation_size)+'-man rotation'); if(cp.seasons) sub.push(cp.seasons+' seasons as HC'); }
+  const meta=[arch,sub.join(' · ')].filter(Boolean).join(' · ');
+  return `<div class="sec-h">Head coach <span class="hint">${cp?'career profile':'from roster'}</span></div>
+    <div class="coach" style="--tc:${teamColor(row)}">
+      ${cp&&cp.grade?`<div class="cbadge">${esc(cp.grade)}</div>`:''}
+      <div class="cmain"><div class="cn">${esc(hc)}</div>${meta?`<div class="carch">${esc(meta)}</div>`:''}
+        ${tags.length?`<div class="ctags">${tags.map(t=>`<span class="ctag">${esc(t)}</span>`).join('')}</div>`:''}</div></div>`;
+}
+
+function renderScored(scope){
+  const {oppShots,seasons,tc}=STATE;
+  const inS=s=> scope==='all' || s.season_year===+scope;
+  const sh=oppShots.filter(inS);
+  const scopeLbl = scope==='all' ? `${seasons.length} seasons` : seasonLabel(+scope);
+  const host=el('scoredBody'); if(!host) return;
+  if(sh.length<40){ host.innerHTML=`<div class="muted">Not enough opponent shot data in this window.</div>`; return; }
+  // zones
+  const Z={rim:{a:0,m:0,mw:0},mid:{a:0,m:0,mw:0},three:{a:0,m:0,mw:0}};
+  sh.forEach(s=>{ const z=zoneOf(s), o=Z[z]; o.a++; if(s.made){ o.m++; o.mw+=(s.sv===3?1.5:1); } });
+  const tot=sh.length;
+  const rows=['rim','mid','three'].map(k=>{ const o=Z[k]; const freq=o.a?o.a/tot*100:0, fg=o.a?o.m/o.a*100:0, efg=o.a?o.mw/o.a*100:0, d=efg-ZBASE[k];
+    return {k,freq,fg,efg,d,a:o.a}; });
+  const overallEfg = sh.length? sh.reduce((s,x)=>s+(x.made?(x.sv===3?1.5:1):0),0)/sh.length*100 : 0;
+  // weakest zone = biggest volume-weighted positive delta
+  const weak=rows.filter(r=>r.a>=15).slice().sort((a,b)=>(b.d*b.freq)-(a.d*a.freq))[0];
+  const best=rows.filter(r=>r.a>=15).slice().sort((a,b)=>(a.d*a.freq)-(b.d*b.freq))[0];
+  const zbar=(r)=>{ const cls=r.d>=3?'bad':r.d<=-3?'good':'flat';
+    return `<div class="zrow"><div class="zn">${ZNAME[r.k]}<small>${k3(r)}</small></div>
+      <div class="zmix"><div class="zbar"><div class="zf" style="width:${Math.round(r.freq)}%"></div></div><span class="zpct">${Math.round(r.freq)}%</span></div>
+      <div class="zfg">${Math.round(r.k==='three'?r.fg:r.fg)}%</div>
+      <div class="zd ${cls}">${r.d>0?'+':''}${Math.round(r.d)}</div></div>`; };
+  function k3(r){ return r.k==='three'?'opp 3P%':'opp FG%'; }
+  const zwhere=k=> k==='rim'?'at the rim':k==='three'?'from three':'in the mid-range';
+  let read='';
+  if(weak){ const wfg=Math.round(weak.fg), wd=Math.round(weak.d), bz=best&&best!==weak;
+    if(weak.d>=2){
+      read=`Opponents <b>feast ${zwhere(weak.k)}</b> against them — ${wfg}% shooting there, <b>+${wd}</b> vs the D-I norm on ${Math.round(weak.freq)}% of shots faced${bz&&best.d<=-2?`. They hold up well ${zwhere(best.k)} (${Math.round(best.d)} vs norm)`:''}.`;
+    } else {
+      read=`A <b>stingy</b> defense — even their softest spot, ${zwhere(weak.k)}, stays near the norm (${wfg}%, ${wd>0?'+':''}${wd})${bz?`, and they clamp down ${zwhere(best.k)} (${Math.round(best.d)} vs norm)`:''}.`;
+    }
+  }
+  host.innerHTML=`<div class="zwrap">
+      <div class="zrow zhd"><span>Zone</span><span>Opp shot mix</span><span class="zfg">Opp FG%</span><span class="zd">vs D-I</span></div>
+      ${rows.map(zbar).join('')}
+    </div>
+    ${read?`<div class="read">${read} <span style="color:var(--text3)">Overall eFG allowed ${Math.round(overallEfg)}% · ${tot.toLocaleString()} shots faced</span></div>`:''}
+    <div class="sec-h" style="margin-top:18px">Where opponents scored <span class="hint">made shots on the floor · ${scopeLbl}</span></div>
+    ${dcChart(sh)}`;
+  wireDcTip();
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
+}
+
 async function loadTeam(){
   const row=poolRow(selKey); if(!row) return;
   const tc=teamColor(row);
-  el('out').innerHTML='<div class="loading">Reading the defense…</div>';
+  el('out').innerHTML='<div class="loading">Reading the defense across every season…</div>';
+  await Promise.all([ensureCoaches(),ensureTeams()]);
   if(!DNA){ try{ DNA=await fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():{}); }catch(e){ DNA={}; } }
   const dna=dnaOf(row);
   // roster defensive footprints
@@ -185,11 +322,42 @@ async function loadTeam(){
   const anchor=players[0], weak=[...players].filter(p=>p.mpg>=10).sort((a,b)=>num(a.a.dbpm)-num(b.a.dbpm))[0];
   const pread = (anchor&&weak&&anchor!==weak) ? `<div class="read"><b>${esc(anchor.name)}</b> anchors the defense; <b>${esc(weak.name)}</b> is the one to hunt — ${weak.role[0]==='Can be attacked'?'the softest matchup on the floor':'the least disruptive of the rotation'}.</div>` : '';
 
+  // ── defensive shots: opponents' shots in the team's games, all seasons w/ shot data ──
+  const enc=encodeURIComponent(row.full);
+  let teamId=null, oppShots=[];
+  try{
+    const [hg,ag]=await Promise.all([
+      fetchAll(`/rest/v1/games?home=eq.${enc}&home_score=not.is.null&season_year=gte.2022&select=id,home_id`),
+      fetchAll(`/rest/v1/games?away=eq.${enc}&home_score=not.is.null&season_year=gte.2022&select=id,away_id`)
+    ]);
+    teamId = hg.length? hg[0].home_id : (ag.length? ag[0].away_id : null);
+    const gids=[...new Set(hg.concat(ag).map(g=>g.id))];
+    if(teamId!=null&&gids.length){
+      for(let i=0;i<gids.length;i+=140){ const chunk=gids.slice(i,i+140);
+        oppShots=oppShots.concat(await fetchAll(`/rest/v1/shots?game_id=in.(${chunk.join(',')})&team_id=neq.${teamId}&select=x,y,made,sv,dist,stype,season_year`));
+      }
+    }
+  }catch(e){}
+  const seasons=[...new Set(oppShots.map(s=>s.season_year))].sort((a,b)=>b-a);
+  STATE={row,tc,oppShots,seasons};
+  const scopes=seasons.map(y=>({v:String(y),l:seasonLabel(y)}));
+  if(seasons.length>1) scopes.push({v:'all',l:'All seasons'});
+  const defScope=scopes.length?scopes[scopes.length-1].v:null;
+
   el('out').innerHTML=`<div style="--tc:${tc}">
-    ${idHtml?`<div class="sec-h">Team defensive identity <span class="hint">projected 2026-27 · <b>ᴾᶜ = percentile vs Division I</b> (0–100, higher is better)</span></div>${idHtml}`:''}
+    ${coachHtml(row)}
+    ${idHtml?`<div class="sec-h">Team defensive identity <span class="hint">projected 2026-27 · <b>ᴾᶜ = percentile vs Division I</b> (higher is better)</span></div>${idHtml}`:''}
+    ${oppShots.length?`<div class="sec-h">Where they get scored on <span class="hint">opponent shots faced · pick a season</span></div>
+      <div id="scoredScope" class="chips"></div><div id="scoredBody"></div>`:''}
     <div class="sec-h">Rotation defenders <span class="hint">2025-26 · sorted by impact (DBPM)</span></div>
     ${players.length?players.map(prow).join('')+pread:'<div class="muted">No player defensive data on file for this roster yet.</div>'}
   </div>`;
+  const scopeEl=el('scoredScope');
+  if(scopeEl&&defScope){
+    scopeEl.innerHTML=scopes.map(s=>`<div class="chip${s.v===defScope?' on':''}" data-v="${s.v}">${s.l}</div>`).join('');
+    scopeEl.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{ scopeEl.querySelectorAll('.chip').forEach(x=>x.classList.remove('on')); c.classList.add('on'); renderScored(c.dataset.v); }));
+    renderScored(defScope);
+  }
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
 }
