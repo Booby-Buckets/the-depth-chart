@@ -21,14 +21,17 @@
     ['Rankings', [
       ['index.html',           'Team Rankings'],
       ['team.html',            'Teams'],
+      ['team-stats.html',      'Team Stats'],
       ['compare-teams.html',   'Compare Teams'],
       ['predict.html',         'Projections'],
     ]],
     ['Players', [
       ['roster.html',          'Player Grades'],
+      ['recent-additions.html','Recent Additions'],
       ['compare-players.html', 'Compare Players'],
       ['draft.html',           'Mock Draft'],
       ['development.html',     'Development'],
+      ['gradelist.html',       'Grade List'],
     ]],
     ['Analytics', [
       ['analytics.html',                'Stats'],
