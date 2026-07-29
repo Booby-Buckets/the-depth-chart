@@ -654,12 +654,21 @@ function buildTeamProjections(players, conf){
     const g=parseFloat(x.tdc_grade)||70;                 // no stats → grade-based prior
     return g>=92?0.40:g>=87?0.35:g>=80?0.30:g>=73?0.26:0.22;
   };
+  const _usgOf = x => {
+    const a=(window._advByEspn && x.espn_id!=null) ? window._advByEspn[x.espn_id] : null;
+    return a ? parseFloat(a.usg_pct) : NaN;
+  };
   const _allocRows = roster.map(x=>{
     const g=parseFloat(x.tdc_grade)||70;
     const hw=(x.hometown&&(''+x.hometown).trim())||'';
     const isTr=!!(hw && hw.indexOf(',')<0);              // portal arrival (school in hometown)
     const m=_mpgOf(x);
-    const rate=_apptRate(x)*(isTr?0.85:1.0);             // transfers re-earn their role
+    // transfers re-earn their role (0.85), BUT a proven high-usage scorer keeps more of his
+    // shot appetite — the coach brought him in to be an option, not a bystander — so the
+    // discount eases toward 1.0 with demonstrated usage (a 30+ alpha ~ no appetite haircut).
+    const _u=_usgOf(x);
+    const _trDisc = isTr ? (isFinite(_u)&&_u>=22 ? Math.min(1.0, 0.85+(_u-22)*0.014) : 0.85) : 1.0;
+    const rate=_apptRate(x)*_trDisc;
     return {name:x.name, m,
       demand: rate*m,                                     // shots wanted at projected minutes
       gradeWeight: Math.pow(Math.max(1,g-55),1.7)*m,      // quality × minutes (pecking order)
