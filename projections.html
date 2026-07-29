@@ -201,9 +201,17 @@ body{background:transparent!important;}
 <canvas id="particleCanvas" aria-hidden="true"></canvas>
 
 <script>
+// Premium gate — mirrors roster/compare/draft. Was leaky: it only checked for a
+// token (any logged-in FREE user saw the full premium page) and never `return`ed.
 (function(){
+  if(!window.TDC_PAYWALL_ENABLED) return;   // paywall master switch (auth.js) — off = open
   const s=JSON.parse(localStorage.getItem('tdc_session')||'null');
-  if(!s?.access_token){location.href='pricing.html?gate=1';}
+  if(!s?.access_token){ location.href='pricing.html?gate=1'; return; }
+  fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user?.id+'&select=plan',{
+    headers:{'apikey':'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye','Authorization':'Bearer '+s.access_token}
+  }).then(r=>r.json()).then(([p])=>{
+    if(!(window.tdcIsOwner&&window.tdcIsOwner())&&(!p||p.plan!=='premium')) location.href='pricing.html?gate=1';
+  }).catch(()=>location.href='pricing.html?gate=1');
 })();
 </script>
 
