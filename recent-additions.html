@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <script src="auth.js?v=paywall4"></script>
+  <script src="tdc-projgrade.js?v=16"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -213,6 +214,13 @@ let confFilter='';
 
 function gc(g){
   if(!g||g==='—') return '';
+  // numeric grades (the site standard, e.g. "83") → tier color classes
+  const n=parseFloat(g);
+  if(isFinite(n)&&(''+g).indexOf('.')<0&&!/[A-F]/i.test(''+g)){
+    if(n>=90) return 'gA'; if(n>=87) return 'gBp'; if(n>=83) return 'gB'; if(n>=80) return 'gBm';
+    if(n>=77) return 'gCp'; if(n>=73) return 'gC'; if(n>=70) return 'gCm';
+    if(n>=67) return 'gDp'; if(n>=60) return 'gD'; return 'gF';
+  }
   if(g.startsWith('A+')) return 'gAp';
   if(g.startsWith('A-')) return 'gAm';
   if(g.startsWith('A'))  return 'gA';
@@ -255,7 +263,7 @@ function renderCard(p){
   const typeBadgeClass=type==='transfer'?'type-transfer':type==='freshman'?'type-freshman':'type-grad';
   const typeBadgeText=type==='transfer'?'Transfer':type==='freshman'?'Freshman':'Grad Transfer';
   const hasOrigin=p.hometown&&p.hometown.trim()!=='';
-  const grade=p.tdc_grade||'—';
+  const grade=(p._ovr!=null?p._ovr:p.tdc_grade)||'—';
   const gradeClass=gc(grade);
 
   const transferSection=hasOrigin
@@ -340,7 +348,7 @@ async function loadAdditions(){
   try {
     // Fetch all players marked as additions, sorted by depth_order / tdc_grade
     const r=await fetch(
-      `${SB_URL}/rest/v1/players?select=name,team,position,height,yr,class_year,hometown,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,depth_order,is_addition&is_addition=eq.true&order=tdc_grade.desc.nullslast`,
+      `${SB_URL}/rest/v1/players?select=id,name,team,position,height,yr,class_year,hometown,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,depth_order,is_addition&is_addition=eq.true&order=tdc_grade.desc.nullslast`,
       {headers:H}
     );
     if(!r.ok) throw new Error(`${r.status}`);
@@ -361,6 +369,21 @@ async function loadAdditions(){
     }
     rows=rows.map(p=>({...p, conf:confMap[p.team]||''}));
     rows=rows.filter(p=>p.name&&p.name!=='—');
+
+    // Forward-looking OVR: project returner/transfer grades through the shared engine
+    // (same number the player/team pages show, incl. the coupled override via id);
+    // incoming freshmen keep their editor OVR, which is already a projection.
+    try{
+      if(window.TDCProjGrade && TDCProjGrade.gradeSolo){
+        await TDCProjGrade.ready;
+        rows.forEach(p=>{ p._ovr=p.tdc_grade;
+          if(inferType(p)!=='freshman'){
+            const g=TDCProjGrade.gradeSolo({id:p.id, tdc_grade:p.tdc_grade, yr:p.yr||p.class_year});
+            if(g!=null&&!isNaN(g)) p._ovr=''+g;
+          } });
+        rows.sort((a,b)=>(parseFloat(b._ovr)||0)-(parseFloat(a._ovr)||0));
+      } else { rows.forEach(p=>p._ovr=p.tdc_grade); }
+    }catch(e){ rows.forEach(p=>p._ovr=p.tdc_grade); }
 
     allAdditions=rows;
     document.getElementById('addCount').textContent=rows.length;

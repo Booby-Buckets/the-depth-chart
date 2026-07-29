@@ -168,13 +168,13 @@ function buildList(){
     return true;
   });
 
-  // Sort by grade (best to worst), then alphabetically within same grade
+  // Sort by grade (best to worst), then alphabetically within same grade. Grades are
+  // NUMERIC (e.g. 83) — the old GRADE_ORDER letter table never matched, so the list
+  // silently fell back to pure alphabetical. Compare numerically, descending.
   filtered.sort((a,b) => {
-    const ai = GRADE_ORDER.indexOf(a.tdc_grade||'');
-    const bi = GRADE_ORDER.indexOf(b.tdc_grade||'');
-    const av = ai < 0 ? 99 : ai;
-    const bv = bi < 0 ? 99 : bi;
-    if(av !== bv) return av - bv;
+    const av = parseFloat(a.tdc_grade), bv = parseFloat(b.tdc_grade);
+    const an = isFinite(av)?av:-1, bn = isFinite(bv)?bv:-1;
+    if(an !== bn) return bn - an;
     return (a.name||'').localeCompare(b.name||'');
   });
 
