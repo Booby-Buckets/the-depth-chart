@@ -1968,9 +1968,13 @@ function applyFilters(){
   });
 
   filtered.sort((a,b)=>{
-    const av=parseFloat(a[sortCol])||0, bv=parseFloat(b[sortCol])||0;
+    // Grade column shows the projected OVR (_ovrOf) — sort by that same value, not the
+    // raw tdc_grade, or the ordering won't match the numbers on screen.
+    const _gcol=sortCol==='tdc_grade';
+    const av=_gcol?(parseFloat(_ovrOf(a))||0):(parseFloat(a[sortCol])||0);
+    const bv=_gcol?(parseFloat(_ovrOf(b))||0):(parseFloat(b[sortCol])||0);
     // Push ungraded (0) to bottom regardless of sort direction
-    if(sortCol==='tdc_grade'){
+    if(_gcol){
       if(!av&&bv) return 1;
       if(av&&!bv) return -1;
     }
