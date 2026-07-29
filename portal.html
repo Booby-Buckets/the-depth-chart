@@ -6,6 +6,7 @@
   <title>Portal Fit — The Depth Chart</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="tdc-projgrade.js?v=16"></script>
   <script src="tdc-portalfit.js?v=needs4"></script>
   <style>
     :root{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--amber:#d4a24a;--red:#e07070;}
@@ -161,7 +162,13 @@
 const SB_URL='https://izlqhnxowdhtdofkwrho.supabase.co';
 const ANON='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H={apikey:ANON, Authorization:'Bearer '+ANON};
-const PSEL='name,team,position,class_year,height,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,three_pct,tpa,fga,blk,bpg,stl,spg,usage_pct,espn_id';
+const PSEL='id,name,team,position,class_year,height,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,three_pct,tpa,fga,blk,bpg,stl,spg,usage_pct,espn_id';
+// Forward-looking OVR: project a returner/transfer's grade into tdc_grade (same engine +
+// coupled override the player/team pages & the regenerated team_needs.json use) so the
+// player's shown grade and the upgrade math agree; freshmen (no prior minutes) keep raw.
+function projInto(p){ if(p && window.TDCProjGrade && TDCProjGrade.gradeSolo && parseFloat(p.mpg)>0){
+  const g=TDCProjGrade.gradeSolo({id:p.id, tdc_grade:p.tdc_grade, yr:p.class_year||p.yr});
+  if(g!=null&&!isNaN(g)) p.tdc_grade=''+g; } return p; }
 let TEAMS=[], PROFS={}, PLAYER=null, sortBy='overall', mode='p2t', TEAM=null, POOL=null;
 // re-weightable fit blend (raw importances; normalized to sum 1 for the engine)
 const DEFW={need:20, team:30, player:25, coach:25};
@@ -201,8 +208,9 @@ async function boot(){
   const u=new URLSearchParams(location.search);
   const espn=u.get('espn'), name=u.get('name')||'LJ Cason';
   let q=espn?`espn_id=eq.${espn}`:`name=eq.${encodeURIComponent(name)}`;
+  if(window.TDCProjGrade){ try{ await TDCProjGrade.ready; }catch(e){} }
   let rows=await fetch(`${SB_URL}/rest/v1/players?${q}&select=${PSEL}&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-  if(rows&&rows[0]) setPlayer(rows[0]);
+  if(rows&&rows[0]) setPlayer(projInto(rows[0]));
 }
 function setPlayer(p){
   PLAYER=p; $('drop').style.display='none'; $('search').value='';
@@ -230,7 +238,9 @@ function switchMode(m){
 }
 async function ensurePool(){
   if(POOL) return POOL;
+  if(window.TDCProjGrade){ try{ await TDCProjGrade.ready; }catch(e){} }
   POOL=await fetch(`${SB_URL}/rest/v1/players?tdc_grade=not.is.null&select=${PSEL}&order=tdc_grade.desc.nullslast&limit=1500`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  POOL=POOL.map(projInto);
   return POOL;
 }
 function teamHeaderHtml(t){
@@ -312,7 +322,8 @@ let _t;
 $('search').addEventListener('input',e=>{ clearTimeout(_t); const q=e.target.value.trim();
   if(q.length<2){ $('drop').style.display='none'; return; }
   _t=setTimeout(async()=>{
-    const rows=await fetch(`${SB_URL}/rest/v1/players?name=ilike.*${encodeURIComponent(q)}*&select=${PSEL}&order=tdc_grade.desc.nullslast&limit=8`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    let rows=await fetch(`${SB_URL}/rest/v1/players?name=ilike.*${encodeURIComponent(q)}*&select=${PSEL}&order=tdc_grade.desc.nullslast&limit=8`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    rows=rows.map(projInto);
     if(!rows.length){ $('drop').style.display='none'; return; }
     $('drop').innerHTML=rows.map((p,i)=>`<div data-i="${i}">${p.name} <small>· ${p.team||''} · ${p.position||''} · ${Math.round(parseFloat(p.tdc_grade)||0)||'—'}</small></div>`).join('');
     $('drop').style.display='block';

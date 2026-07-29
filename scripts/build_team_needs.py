@@ -47,13 +47,44 @@ def slot(pos, h):
     h=h or 78
     return 'PG' if h<=73 else 'SG' if h<=77 else 'SF' if h<=80 else 'PF' if h<=83 else 'C'
 
+# ── forward-looking projected grade (mirror of tdc-projgrade.js gradeSolo) ─────────
+# so the portal's "best grade at each spot" / upgrade math uses the SAME OVR the
+# player/team pages show. Coupled override keyed by players.id; else a class-based
+# development bump; incoming freshmen (no prior minutes) keep their editor OVR.
+try:
+    _COUPLED = (json.load(open(os.path.join(D,"player_coupled_grades.json"))) or {}).get("grades",{})
+except Exception: _COUPLED = {}
+try:
+    _DEV = (json.load(open(os.path.join(D,"dev_curves.json"))) or {}).get("bpm_delta",{})
+except Exception: _DEV = {}
+try:
+    _BR = (json.load(open(os.path.join(D,"projgrade_bridge.json"))) or {}).get("b",1.174)
+except Exception: _BR = 1.174
+def _cls_trans(yr):
+    y=(yr or "").lower()
+    if "fr" in y: return "so"
+    if "so" in y: return "jr"
+    if "jr" in y: return "sr"
+    return None
+def _qtier(q): return "low" if q<73 else ("mid" if q<84 else "high")
+
 def grade(p):
-    try: return float(p.get('tdc_grade'))
+    try: g=float(p.get('tdc_grade'))
     except (TypeError,ValueError): return None
+    pid=p.get('id')
+    if pid is not None and str(pid) in _COUPLED:
+        try: return float(_COUPLED[str(pid)])
+        except (TypeError,ValueError): pass
+    try: mpg=float(p.get('mpg') or 0)
+    except (TypeError,ValueError): mpg=0
+    if mpg<=0: return g                      # freshman / no prior role → demonstrated (already a projection)
+    trans=_cls_trans(p.get('class_year') or p.get('yr'))
+    devbpm=(_DEV.get(trans,{}) or {}).get(_qtier(g),0) if trans else 0
+    return round(g + devbpm*_BR)
 
 def main():
     print("fetching players (projected rosters)…")
-    players=get_all("players?select=name,team,position,height,tdc_grade,depth_order,ppg,apg,tp_pct,mpg,usage_pct,is_injured,espn_id")
+    players=get_all("players?select=id,name,team,position,height,class_year,yr,tdc_grade,depth_order,ppg,apg,tp_pct,mpg,usage_pct,is_injured,espn_id")
     by_team=defaultdict(list)
     for p in players:
         if p.get('team') and not p.get('is_injured'): by_team[p['team']].append(p)
