@@ -1497,9 +1497,9 @@ async function renderShowcase(){
           // NB: the projection model (tdc-projgrade.js) needs class year (development
           // curve), starter flag + shooting splits (projMin / upside) — omitting them
           // made every returner project as a senior and read a grade low on the strip.
-          const r=await fetch(`${SB_URL}/rest/v1/players?name=neq.%E2%80%94&tdc_grade=not.is.null&is_injured=not.is.true&select=name,team,tdc_grade,espn_id,mpg,depth_order,ppg,rpg,apg,tovs,yr,class_year,starter,ft_pct,tp_pct,tpa&order=tdc_grade.desc&limit=800`,{headers:HEADERS});
+          const r=await fetch(`${SB_URL}/rest/v1/players?name=neq.%E2%80%94&tdc_grade=not.is.null&is_injured=not.is.true&select=id,name,team,tdc_grade,espn_id,mpg,depth_order,ppg,rpg,apg,tovs,yr,class_year,starter,ft_pct,tp_pct,tpa&order=tdc_grade.desc&limit=800`,{headers:HEADERS});
           if(r.ok){ const raw=await r.json();
-            if(Array.isArray(raw)&&raw.length) pool=raw.map(p=>({player:p.name,school:p.team,tdc_grade:p.tdc_grade,espn_id:p.espn_id,pergame:{games:99,mp_per_g:p.mpg||99},mpg:p.mpg,depth_order:p.depth_order,ppg:p.ppg,rpg:p.rpg,apg:p.apg,tovs:p.tovs,yr:p.yr,class_year:p.class_year,starter:p.starter,ft_pct:p.ft_pct,tp_pct:p.tp_pct,tpa:p.tpa})); }
+            if(Array.isArray(raw)&&raw.length) pool=raw.map(p=>({id:p.id,player:p.name,school:p.team,tdc_grade:p.tdc_grade,espn_id:p.espn_id,pergame:{games:99,mp_per_g:p.mpg||99},mpg:p.mpg,depth_order:p.depth_order,ppg:p.ppg,rpg:p.rpg,apg:p.apg,tovs:p.tovs,yr:p.yr,class_year:p.class_year,starter:p.starter,ft_pct:p.ft_pct,tp_pct:p.tp_pct,tpa:p.tpa})); }
         } else {
           const r=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${curSeason}&tdc_grade=not.is.null&select=player,school,tdc_grade,espn_id,pergame&order=tdc_grade.desc&limit=800`,{headers:HEADERS});
           if(r.ok){ const raw=await r.json(); if(Array.isArray(raw)&&raw.length) pool=raw; }
@@ -1527,7 +1527,7 @@ async function renderShowcase(){
     // demonstrated grade — the pool is cached, so stash the base once and project idempotently.
     pool.forEach(p=>{ if(p._fr) return;
       if(p._baseGrade==null) p._baseGrade=p.tdc_grade;
-      const g=TDCProjGrade.gradeSolo({tdc_grade:p._baseGrade, yr:p.class||p.class_year, team:p.school, hometown:p.hometown});
+      const g=TDCProjGrade.gradeSolo({id:p.id, tdc_grade:p._baseGrade, yr:p.class||p.class_year, team:p.school, hometown:p.hometown});
       if(g!=null&&!isNaN(g)&&g!=+p.tdc_grade){ p.tdc_grade=''+g; _pv=true; } });
     if(_pv) pool.sort((a,b)=>(parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0));
   }

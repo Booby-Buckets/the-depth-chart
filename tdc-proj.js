@@ -21,13 +21,6 @@ function _projGradeOf(r){
   if(!isFinite(v)) v = parseFloat(r.tdc_grade);
   return isFinite(v) ? v : 70;
 }
-// Realistic projected-minutes ceiling by position. 37+ MPG is for very few;
-// centers who log ~32 shouldn't project to 37. Guards/wings cap higher.
-function mpgCap(pos){ var p=(''+(pos||'')).toUpperCase().replace(/[^A-Z]/g,'');
-  if(p==='C'||p==='FC'||p==='CF') return 34;       // centers
-  if(p==='PF'||p==='F'||p==='PFC') return 35;      // power forwards / bigs
-  return 36.5;                                     // guards & wings (PG/SG/CG/SF/G)
-}
 function computePlayerMpg(p, teamRoster){
   const pg = _projGradeOf;
   const base=(Array.isArray(teamRoster)?teamRoster:[]).filter(r=>r.name&&r.name!=='—');
@@ -138,7 +131,7 @@ function computePlayerMpg(p, teamRoster){
     if((mpgMap[r.name]||0)<floor) mpgMap[r.name]=floor;
   });
   const result=mpgMap[p.name];
-  if(result!=null)return Math.max(1,Math.min(mpgCap(p.position||p.pos),result));
+  if(result!=null)return Math.max(1,Math.min(38,result));
   const d=p.depth_order||8;return d<=1?32:d<=2?30:d<=3?27:d<=4?25:d<=5?23:d===6?20:d===7?17:d===8?14:d===9?11:d===10?8:5;
 }
 
@@ -653,7 +646,7 @@ function buildTeamProjections(players, conf){
       roster.forEach((r,i)=>{ if(_gr[i] && isFinite(_gr[i].min)) _v5min[r.name]=_gr[i].min; });
     }catch(e){}
   }
-  const _mpgOf = x => Math.min(mpgCap(x.position||x.pos), (_v5min[x.name]!=null ? _v5min[x.name] : computePlayerMpg(x, roster)));
+  const _mpgOf = x => (_v5min[x.name]!=null ? _v5min[x.name] : computePlayerMpg(x, roster));
 
   const _apptRate = x => {
     const mp=parseFloat(x.mpg||0)||0, fg=parseFloat(x.fga||0)||0;

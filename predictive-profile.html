@@ -207,7 +207,7 @@ async function loadTeam(){
   const row=poolRow(selKey); if(!row) return;
   el('roster').innerHTML='<div class="loading">Loading roster…</div>'; el('out').innerHTML='';
   await ensureDna();
-  try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,position2,depth_order,class_year,yr,is_injured,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb&order=mpg.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){ roster=[]; }
+  try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=id,name,espn_id,position,position2,depth_order,class_year,yr,is_injured,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb&order=mpg.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){ roster=[]; }
   roster=roster.filter(p=>p.espn_id!=null);
   if(!roster.length){ el('roster').innerHTML='<div class="muted">No players with D-I game history on this roster yet.</div>'; return; }
   // Authoritative projection — same whole-roster engine the player page & rankings use
