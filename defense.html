@@ -84,6 +84,38 @@
     .zrow .zd{text-align:right;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;}
     .zd.bad{color:var(--red);} .zd.good{color:var(--green);} .zd.flat{color:var(--text3);}
     .zhd .zfg,.zhd .zd{text-align:center;} .zhd .zd{text-align:right;}
+    /* two-column charts row */
+    .drow2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
+    @media(max-width:680px){.drow2{grid-template-columns:1fr;}}
+    .panel{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:14px 16px;}
+    .panel .pt{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-bottom:2px;}
+    .panel .ps{font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.4;}
+    /* zone FG% bars (percentages chart) */
+    .fgb{display:flex;flex-direction:column;gap:11px;margin-top:4px;}
+    .fgb .fr .fl{display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;}
+    .fgb .fr .fl b{font-variant-numeric:tabular-nums;}
+    .fgb .fr .track{position:relative;height:16px;border-radius:5px;background:var(--bg3);overflow:visible;}
+    .fgb .fr .fill{height:100%;border-radius:5px;}
+    .fgb .fr .base{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text2);opacity:.65;}
+    .fgb .cap{font-size:10px;color:var(--text3);margin-top:8px;text-align:center;}
+    /* archetype × area grid */
+    .agrid{display:grid;grid-template-columns:78px 1fr 1fr 1fr;gap:5px;}
+    .agrid .ah{font-size:9.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);text-align:center;padding-bottom:2px;align-self:end;}
+    .agrid .ah.rl{text-align:left;}
+    .agrid .arl{font-size:12px;font-weight:800;display:flex;align-items:center;}
+    .agrid .ac{border-radius:8px;padding:9px 4px;text-align:center;}
+    .agrid .ac .av{font-family:'Playfair Display',serif;font-weight:800;font-size:16px;line-height:1;}
+    .agrid .ac .an{font-size:8.5px;font-weight:700;color:var(--text3);margin-top:2px;}
+    .agrid .ac.na{background:var(--bg3);} .agrid .ac.na .av{color:var(--text3);font-size:12px;}
+    /* tempo split */
+    .tsp{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .tsp .tcol{border:1px solid var(--border);border-radius:11px;background:var(--bg);padding:11px 12px;}
+    .tsp .tch{font-size:10.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between;}
+    .tsp .tcz{display:flex;flex-direction:column;gap:7px;}
+    .tsp .tz{font-size:11px;}
+    .tsp .tz .tzl{display:flex;justify-content:space-between;color:var(--text2);font-weight:600;margin-bottom:2px;}
+    .tsp .tz .tzt{height:6px;border-radius:4px;background:var(--bg3);overflow:hidden;} .tsp .tz .tzf{height:100%;border-radius:4px;}
+    .tsp-read{font-size:12px;color:var(--text2);line-height:1.6;margin-top:10px;} .tsp-read b{color:var(--text);}
     /* defensive shot chart */
     .dc-wrap{position:relative;max-width:440px;margin:8px auto 0;}
     .dc-wrap svg{width:100%;height:auto;display:block;}
@@ -204,8 +236,22 @@ function courtLines(line){
 }
 const zoneOf=s=> s.sv===3?'three':((s.stype==='layup'||s.stype==='dunk'||s.stype==='tip'||(s.dist!=null&&s.dist>=0&&s.dist<=4))?'rim':'mid');
 const ZBASE={rim:61,mid:39,three:51};       // D-I baseline eFG% allowed by zone
+const FGBASE={rim:61,mid:39,three:34};      // D-I baseline FG% (3P% for three) by zone
 const ZNAME={rim:'At the rim',mid:'Mid-range',three:'Three-point'};
+const ZSHORT={rim:'Rim',mid:'Mid',three:'Three'};
 const ZCOL={rim:'#cc5140',mid:'#c99a3a',three:'#3a7bc9'};
+const ARCHES=['Guard','Wing','Big'];
+function archOf(pos){ if(!pos) return null; const p=(''+pos).toUpperCase().replace(/[^A-Z]/g,'');
+  if(['C','PF','FC','CF'].includes(p)) return 'Big';
+  if(['PG','SG','G','CG','GG'].includes(p)) return 'Guard';
+  if(['SF','GF','F','W','WING','SFPF'].includes(p)) return 'Wing';
+  if(p.includes('C')) return 'Big'; if(p.includes('G')&&!p.includes('F')) return 'Guard'; return 'Wing'; }
+// diverging cell color for (fg - baseline): above baseline = they score = red, below = stops = green
+function heatCol(diff){ const t=Math.max(-1,Math.min(1,diff/14));
+  const lo=[92,184,117], mid=[230,227,220], hi=[204,81,64];
+  const lp=(a,b,f)=>[a[0]+(b[0]-a[0])*f|0,a[1]+(b[1]-a[1])*f|0,a[2]+(b[2]-a[2])*f|0];
+  const c=t<0?lp(mid,lo,-t):lp(mid,hi,t); return 'rgb('+c[0]+','+c[1]+','+c[2]+')'; }
+const efgOf=arr=>{ if(!arr.length) return null; let mw=0; arr.forEach(s=>{ if(s.made) mw+=(s.sv===3?1.5:1); }); return mw/arr.length*100; };
 function shotDist(s){ if(s.dist!=null&&s.dist>=0) return s.dist; const dx=cfx(s.x)-CHX,dy=cfy(s.y)-CHY; return Math.sqrt(dx*dx+dy*dy); }
 function dcChart(shots){
   const line=getComputedStyle(document.documentElement).getPropertyValue('--border2').trim()||'#C6C0B2';
@@ -239,43 +285,71 @@ function coachHtml(row){
 }
 
 function renderScored(scope){
-  const {oppShots,seasons,tc}=STATE;
+  const {oppShots,seasons,POS,oppTempoBucket}=STATE;
   const inS=s=> scope==='all' || s.season_year===+scope;
   const sh=oppShots.filter(inS);
   const scopeLbl = scope==='all' ? `${seasons.length} seasons` : seasonLabel(+scope);
   const host=el('scoredBody'); if(!host) return;
   if(sh.length<40){ host.innerHTML=`<div class="muted">Not enough opponent shot data in this window.</div>`; return; }
-  // zones
-  const Z={rim:{a:0,m:0,mw:0},mid:{a:0,m:0,mw:0},three:{a:0,m:0,mw:0}};
-  sh.forEach(s=>{ const z=zoneOf(s), o=Z[z]; o.a++; if(s.made){ o.m++; o.mw+=(s.sv===3?1.5:1); } });
   const tot=sh.length;
-  const rows=['rim','mid','three'].map(k=>{ const o=Z[k]; const freq=o.a?o.a/tot*100:0, fg=o.a?o.m/o.a*100:0, efg=o.a?o.mw/o.a*100:0, d=efg-ZBASE[k];
-    return {k,freq,fg,efg,d,a:o.a}; });
-  const overallEfg = sh.length? sh.reduce((s,x)=>s+(x.made?(x.sv===3?1.5:1):0),0)/sh.length*100 : 0;
-  // weakest zone = biggest volume-weighted positive delta
-  const weak=rows.filter(r=>r.a>=15).slice().sort((a,b)=>(b.d*b.freq)-(a.d*a.freq))[0];
-  const best=rows.filter(r=>r.a>=15).slice().sort((a,b)=>(a.d*a.freq)-(b.d*b.freq))[0];
-  const zbar=(r)=>{ const cls=r.d>=3?'bad':r.d<=-3?'good':'flat';
-    return `<div class="zrow"><div class="zn">${ZNAME[r.k]}<small>${k3(r)}</small></div>
-      <div class="zmix"><div class="zbar"><div class="zf" style="width:${Math.round(r.freq)}%"></div></div><span class="zpct">${Math.round(r.freq)}%</span></div>
-      <div class="zfg">${Math.round(r.k==='three'?r.fg:r.fg)}%</div>
-      <div class="zd ${cls}">${r.d>0?'+':''}${Math.round(r.d)}</div></div>`; };
-  function k3(r){ return r.k==='three'?'opp 3P%':'opp FG%'; }
   const zwhere=k=> k==='rim'?'at the rim':k==='three'?'from three':'in the mid-range';
-  let read='';
-  if(weak){ const wfg=Math.round(weak.fg), wd=Math.round(weak.d), bz=best&&best!==weak;
-    if(weak.d>=2){
-      read=`Opponents <b>feast ${zwhere(weak.k)}</b> against them — ${wfg}% shooting there, <b>+${wd}</b> vs the D-I norm on ${Math.round(weak.freq)}% of shots faced${bz&&best.d<=-2?`. They hold up well ${zwhere(best.k)} (${Math.round(best.d)} vs norm)`:''}.`;
-    } else {
-      read=`A <b>stingy</b> defense — even their softest spot, ${zwhere(weak.k)}, stays near the norm (${wfg}%, ${wd>0?'+':''}${wd})${bz?`, and they clamp down ${zwhere(best.k)} (${Math.round(best.d)} vs norm)`:''}.`;
-    }
+
+  // zone aggregates
+  const Z={rim:[],mid:[],three:[]}; sh.forEach(s=>{ Z[zoneOf(s)].push(s); });
+  const zrows=['rim','mid','three'].map(k=>{ const arr=Z[k], a=arr.length, m=arr.filter(s=>s.made).length;
+    return {k,a,fg:a?m/a*100:0,efg:efgOf(arr)||0,freq:a?a/tot*100:0,d:(efgOf(arr)||0)-ZBASE[k],fgd:(a?m/a*100:0)-FGBASE[k]}; });
+  const overallEfg=efgOf(sh)||0;
+  const weak=zrows.filter(r=>r.a>=15).slice().sort((x,y)=>(y.d*y.freq)-(x.d*x.freq))[0];
+  const best=zrows.filter(r=>r.a>=15).slice().sort((x,y)=>(x.d*x.freq)-(y.d*y.freq))[0];
+
+  // ── percentages chart: opp FG% by zone vs D-I baseline ──
+  const fgbar=r=>{ const col=r.fgd>=2?'var(--red)':r.fgd<=-2?'var(--green)':'var(--text2)';
+    return `<div class="fr"><div class="fl"><span>${ZNAME[r.k]} <span style="color:var(--text3);font-weight:600">· ${Math.round(r.freq)}% of shots</span></span><span><b>${Math.round(r.fg)}%</b> <span style="color:${col};font-weight:800">${r.fgd>0?'+':''}${Math.round(r.fgd)}</span></span></div>
+      <div class="track"><div class="fill" style="width:${Math.round(r.fg)}%;background:${col}"></div><div class="base" style="left:${Math.round(FGBASE[r.k])}%"></div></div></div>`; };
+  const pctPanel=`<div class="panel"><div class="pt">Opponent FG% by zone</div><div class="ps">How well opponents shoot at each spot; the line is the D-I average.</div>
+    <div class="fgb">${zrows.map(fgbar).join('')}</div><div class="cap">bar = opp FG% (3P% for threes) · line = D-I average · red = above, green = below</div></div>`;
+
+  // ── archetype × area: which opponent types score, and where ──
+  const AG={}; ARCHES.forEach(a=>AG[a]={rim:[],mid:[],three:[]}); let classified=0;
+  sh.forEach(s=>{ const a=archOf(POS[s.espn_id]); if(!a) return; classified++; AG[a][zoneOf(s)].push(s); });
+  let archPanel;
+  if(classified>=40){
+    const cell=(arr,zk)=>{ const a=arr.length; if(a<8) return `<div class="ac na"><div class="av">—</div><div class="an">${a}</div></div>`;
+      const fg=arr.filter(s=>s.made).length/a*100;
+      return `<div class="ac" style="background:${heatCol(fg-FGBASE[zk])}"><div class="av">${Math.round(fg)}%</div><div class="an">${a}</div></div>`; };
+    const rh=ARCHES.map(a=>`<div class="arl">${a}s</div>${cell(AG[a].rim,'rim')}${cell(AG[a].mid,'mid')}${cell(AG[a].three,'three')}`).join('');
+    archPanel=`<div class="panel"><div class="pt">Who scores on them, by type</div><div class="ps">Opponent shooters by position — FG% at each spot (red = they score, green = you stop them).</div>
+      <div class="agrid"><div class="ah rl"></div><div class="ah">Rim</div><div class="ah">Mid</div><div class="ah">Three</div>${rh}</div>
+      <div class="cap">shooter identified on ${Math.round(classified/tot*100)}% of shots faced</div></div>`;
+  } else {
+    archPanel=`<div class="panel"><div class="pt">Who scores on them, by type</div><div class="ps" style="margin-top:12px">Not enough identifiable opponent shooters in this window to split by archetype — try a single recent season.</div></div>`;
   }
-  host.innerHTML=`<div class="zwrap">
-      <div class="zrow zhd"><span>Zone</span><span>Opp shot mix</span><span class="zfg">Opp FG%</span><span class="zd">vs D-I</span></div>
-      ${rows.map(zbar).join('')}
-    </div>
-    ${read?`<div class="read">${read} <span style="color:var(--text3)">Overall eFG allowed ${Math.round(overallEfg)}% · ${tot.toLocaleString()} shots faced</span></div>`:''}
-    <div class="sec-h" style="margin-top:18px">Where opponents scored <span class="hint">made shots on the floor · ${scopeLbl}</span></div>
+
+  const zread = weak ? (weak.d>=2
+    ? `Opponents <b>feast ${zwhere(weak.k)}</b> — ${Math.round(weak.fg)}% shooting, <b>+${Math.round(weak.d)}</b> eFG vs the D-I norm on ${Math.round(weak.freq)}% of shots faced.`
+    : `A <b>stingy</b> defense — even their softest spot (${zwhere(weak.k)}) holds near the norm${best&&best!==weak?`, and they clamp down ${zwhere(best.k)} (${Math.round(best.d)} eFG vs norm)`:''}.`) : '';
+
+  // ── how the opponent's pace shifts where they get scored on ──
+  const T={fast:[],slow:[]}; sh.forEach(s=>{ const b=oppTempoBucket(s.game_id); if(b) T[b].push(s); });
+  let tempoPanel='';
+  if(T.fast.length>=40&&T.slow.length>=40){
+    const tcol=(arr,lab)=>{ const n=arr.length; const zc=['rim','mid','three'].map(k=>({k,freq:arr.filter(s=>zoneOf(s)===k).length/n*100}));
+      const bars=zc.map(z=>`<div class="tz"><div class="tzl"><span>${ZSHORT[z.k]}</span><span>${Math.round(z.freq)}%</span></div><div class="tzt"><div class="tzf" style="width:${Math.round(z.freq)}%;background:${ZCOL[z.k]}"></div></div></div>`).join('');
+      return `<div class="tcol"><div class="tch"><span>${lab}</span><span style="color:var(--text3)">${Math.round(efgOf(arr)||0)}% eFG</span></div><div class="tcz">${bars}</div></div>`; };
+    const fRim=T.fast.filter(s=>zoneOf(s)==='rim').length/T.fast.length*100, sRim=T.slow.filter(s=>zoneOf(s)==='rim').length/T.slow.length*100;
+    const fThree=T.fast.filter(s=>zoneOf(s)==='three').length/T.fast.length*100, sThree=T.slow.filter(s=>zoneOf(s)==='three').length/T.slow.length*100;
+    const dRim=fRim-sRim, dThree=fThree-sThree;
+    const tread = Math.abs(dRim)>=4 ? `Against <b>up-tempo</b> opponents, ${dRim>0?`more of the damage comes <b>at the rim</b> (+${Math.round(dRim)} pts of shot share) — transition leaks show`:`opponents get to the rim <b>less</b> (${Math.round(dRim)} pts) and settle for jumpers`}.`
+      : Math.abs(dThree)>=4 ? `Faster games push opponents to <b>${dThree>0?'more threes (+'+Math.round(dThree)+' pts of share)':'fewer threes ('+Math.round(dThree)+' pts)'}</b>.`
+      : `Tempo doesn't move where opponents score much — the shot map holds fast or slow.`;
+    tempoPanel=`<div class="panel" style="margin-top:14px"><div class="pt">How the opponent's pace shifts where they score</div><div class="ps">Opponent shot mix against this defense, split by how fast the opponent plays (team_dna tempo).</div>
+      <div class="tsp">${tcol(T.fast,'vs up-tempo')}${tcol(T.slow,'vs grind-it-out')}</div><div class="tsp-read">${tread}</div></div>`;
+  }
+
+  host.innerHTML=`<div class="drow2">${pctPanel}${archPanel}</div>
+    ${zread?`<div class="read" style="margin-top:14px">${zread} <span style="color:var(--text3)">Overall eFG allowed ${Math.round(overallEfg)}% · ${tot.toLocaleString()} shots faced</span></div>`:''}
+    ${tempoPanel}
+    <div class="sec-h" style="margin-top:18px">Where opponents scored <span class="hint">every made shot on the floor · ${scopeLbl}</span></div>
     ${dcChart(sh)}`;
   wireDcTip();
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
@@ -324,22 +398,36 @@ async function loadTeam(){
 
   // ── defensive shots: opponents' shots in the team's games, all seasons w/ shot data ──
   const enc=encodeURIComponent(row.full);
-  let teamId=null, oppShots=[];
+  let teamId=null, oppShots=[], gameOpp={};
   try{
     const [hg,ag]=await Promise.all([
-      fetchAll(`/rest/v1/games?home=eq.${enc}&home_score=not.is.null&season_year=gte.2022&select=id,home_id`),
-      fetchAll(`/rest/v1/games?away=eq.${enc}&home_score=not.is.null&season_year=gte.2022&select=id,away_id`)
+      fetchAll(`/rest/v1/games?home=eq.${enc}&home_score=not.is.null&season_year=gte.2022&select=id,home_id,away`),
+      fetchAll(`/rest/v1/games?away=eq.${enc}&home_score=not.is.null&season_year=gte.2022&select=id,away_id,home`)
     ]);
     teamId = hg.length? hg[0].home_id : (ag.length? ag[0].away_id : null);
+    hg.forEach(g=>{ gameOpp[g.id]=g.away; }); ag.forEach(g=>{ gameOpp[g.id]=g.home; });
     const gids=[...new Set(hg.concat(ag).map(g=>g.id))];
     if(teamId!=null&&gids.length){
       for(let i=0;i<gids.length;i+=140){ const chunk=gids.slice(i,i+140);
-        oppShots=oppShots.concat(await fetchAll(`/rest/v1/shots?game_id=in.(${chunk.join(',')})&team_id=neq.${teamId}&select=x,y,made,sv,dist,stype,season_year`));
+        oppShots=oppShots.concat(await fetchAll(`/rest/v1/shots?game_id=in.(${chunk.join(',')})&team_id=neq.${teamId}&select=game_id,espn_id,x,y,made,sv,dist,stype,season_year`));
       }
     }
   }catch(e){}
+  // shooter positions (archetype) — players is one row per player, so 200-id chunks stay light
+  const POS={};
+  const oppIds=[...new Set(oppShots.map(s=>s.espn_id).filter(x=>x!=null))];
+  if(oppIds.length){ const jobs=[];
+    for(let i=0;i<oppIds.length;i+=200){ const chunk=oppIds.slice(i,i+200);
+      jobs.push(fetch(`${SB_URL}/rest/v1/players?espn_id=in.(${chunk.join(',')})&select=espn_id,position`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[])); }
+    (await Promise.all(jobs)).forEach(rows=>rows.forEach(r=>{ if(r.espn_id!=null&&r.position) POS[r.espn_id]=r.position; }));
+  }
+  // opponent tempo per game (fast/slow) from team_dna 2026 distribution
+  const tempoVals=(DNA&&DNA['2026']&&DNA['2026'].teams)?Object.values(DNA['2026'].teams).map(t=>t&&t.tempo).filter(x=>x!=null).sort((a,b)=>a-b):[];
+  const tFast=tempoVals.length?tempoVals[Math.floor(tempoVals.length*0.62)]:null, tSlow=tempoVals.length?tempoVals[Math.floor(tempoVals.length*0.38)]:null;
+  const dnaTeams=(DNA&&DNA['2026']&&DNA['2026'].teams)||{};
+  function oppTempoBucket(gid){ const nm=gameOpp[gid]; if(!nm||tFast==null) return null; const d=dnaTeams[nm]; const tp=d&&d.tempo; if(tp==null) return null; return tp>=tFast?'fast':tp<=tSlow?'slow':null; }
   const seasons=[...new Set(oppShots.map(s=>s.season_year))].sort((a,b)=>b-a);
-  STATE={row,tc,oppShots,seasons};
+  STATE={row,tc,oppShots,seasons,POS,oppTempoBucket};
   const scopes=seasons.map(y=>({v:String(y),l:seasonLabel(y)}));
   if(seasons.length>1) scopes.push({v:'all',l:'All seasons'});
   const defScope=scopes.length?scopes[scopes.length-1].v:null;
