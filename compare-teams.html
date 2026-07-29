@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <script src="auth.js?v=paywall4"></script>
+  <script src="tdc-projgrade.js?v=16"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -192,6 +193,20 @@ async function load(){
   ]);
   allTeams = await tr.json();
   allPlayers = (await pr.json()).filter(p=>p.name&&p.name!=='—');
+  // Forward-looking OVR: project each returner/transfer grade INTO tdc_grade (same
+  // engine + coupled override the player/team pages use) so roster grades and the
+  // grade averages match site-wide; incoming freshmen (no prior minutes) keep their
+  // editor OVR, which is already a projection. Idempotent via _baseGrade.
+  try{
+    if(window.TDCProjGrade && TDCProjGrade.gradeSolo){
+      await TDCProjGrade.ready;
+      allPlayers.forEach(p=>{
+        if(p._baseGrade==null) p._baseGrade=p.tdc_grade;
+        if(parseFloat(p.mpg)>0){ const g=TDCProjGrade.gradeSolo({id:p.id, tdc_grade:p._baseGrade, yr:p.yr||p.class_year});
+          if(g!=null&&!isNaN(g)) p.tdc_grade=''+g; }
+      });
+    }
+  }catch(e){}
   teamDNA = dr;
 
   // Use the same projected national rank every other team surface reads, so the

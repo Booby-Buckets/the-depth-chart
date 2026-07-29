@@ -469,7 +469,10 @@ function renderBoard(){
   document.getElementById('bbCaption').innerHTML='<b>'+list.length+'</b> prospects · '+seasonLbl+(q||fpos||fcl?' · filtered':'');
   document.getElementById('bbList').innerHTML=list.map(function(p){
     var sc=p._sc, cl=(p.class_year||p.yr||'').replace(/\./g,'')||'—';
-    var grdTxt=isFinite(parseFloat(p.tdc_grade))?p.tdc_grade:'—';
+    // Grade column = forward-looking projected OVR (gradeSolo, coupled override via id) to
+    // match the player/team pages; incoming freshmen (no prior minutes) keep their editor OVR.
+    var _pg=(parseFloat(p.mpg)>0&&window.TDCProjGrade&&TDCProjGrade.gradeSolo)?TDCProjGrade.gradeSolo(p):null;
+    var grdTxt=(_pg!=null&&!isNaN(_pg))?_pg:(isFinite(parseFloat(p.tdc_grade))?p.tdc_grade:'—');
     return '<div class="bb-row">'+
       '<div class="bb-rank'+(p.rank<=14?' t1':'')+'">'+p.rank+'</div>'+
       '<div class="bb-id"><div class="nm"><a href="player.html?id='+p.id+'">'+p.name+'</a></div>'+
@@ -551,7 +554,7 @@ function renderMock(){
     var team=st.order[i]||'',need=st.needs[(team||'').trim()]||'Any',lotto=i<14;
     var pid=hasPicks?st.picks[i]:null,pr=pid?prospectById[pid]:null;
     var pick=pr
-      ? '<a class="pk-pick" href="player.html?id='+pr.id+'"><span class="pk-bb">BB'+pr.rank+'</span><span class="pk-nm">'+pr.name+'</span><span class="pk-meta">'+(pr.position||'')+' · '+(pr.team||'')+' · '+(isFinite(parseFloat(pr.tdc_grade))?pr.tdc_grade+' grd':'—')+' · '+pr._sc.overall+' board</span></a>'
+      ? '<a class="pk-pick" href="player.html?id='+pr.id+'"><span class="pk-bb">BB'+pr.rank+'</span><span class="pk-nm">'+pr.name+'</span><span class="pk-meta">'+(pr.position||'')+' · '+(pr.team||'')+' · '+(function(){var _g=(parseFloat(pr.mpg)>0&&window.TDCProjGrade&&TDCProjGrade.gradeSolo)?TDCProjGrade.gradeSolo(pr):null;return (_g!=null&&!isNaN(_g))?_g+' grd':(isFinite(parseFloat(pr.tdc_grade))?pr.tdc_grade+' grd':'—');})()+' · '+pr._sc.overall+' board</span></a>'
       : '<span class="pk-empty">— hit Generate —</span>';
     html+='<div class="mock-pick'+(lotto?' lotto':'')+'">'+
       '<div class="pk-num"><b>'+(i+1)+'</b>'+(lotto?'<small>lotto</small>':'')+'</div>'+

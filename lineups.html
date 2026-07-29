@@ -7,6 +7,7 @@
   <title>Lineup Recommender — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="auth.js?v=paywall4"></script>
+  <script src="tdc-projgrade.js?v=16"></script>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=2"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
@@ -219,8 +220,18 @@ async function loadTeam(){
   const tc=teamColor(row);
   el('out').innerHTML='<div class="loading">Searching lineup combinations…</div>';
   let roster=[];
-  try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,position,height,tdc_grade,mpg,depth_order,apg,tpa,tp_pct,rpg&order=depth_order.asc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=id,name,position,height,class_year,yr,tdc_grade,mpg,depth_order,apg,tpa,tp_pct,rpg&order=depth_order.asc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
   roster=roster.filter(p=>p.name&&(+p.tdc_grade||0)>0);
+  // Forward-looking OVR: project returner/transfer grades into tdc_grade (same engine +
+  // coupled override as player/team pages) so the "OVR" shown here and the fit scoring
+  // match site-wide; incoming freshmen (no prior minutes) keep their editor OVR.
+  try{
+    if(window.TDCProjGrade && TDCProjGrade.gradeSolo){
+      await TDCProjGrade.ready;
+      roster.forEach(p=>{ if(parseFloat(p.mpg)>0){ const g=TDCProjGrade.gradeSolo({id:p.id, tdc_grade:p.tdc_grade, yr:p.yr||p.class_year});
+        if(g!=null&&!isNaN(g)) p.tdc_grade=''+g; } });
+    }
+  }catch(e){}
   roster.forEach(p=>p._r=roleOf(p));
   // rotation pool: by depth chart (fallback grade), top 9
   roster.sort((a,b)=>((a.depth_order??99)-(b.depth_order??99))||(b._r.g-a._r.g));
