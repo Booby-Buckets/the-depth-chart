@@ -268,6 +268,16 @@
   // projected MPG ~7% light.
   var DEPTH_SLOT = [0, 34, 32, 31, 30, 29, 19, 14, 10, 7, 4, 2, 1];
   var DEPTH_MAX = 37, TOT_LO = 205, TOT_HI = 226;   // workhorse cap; realistic team-total band
+  // Demonstrated-minutes anchor (see projectMinutesByDepth): a player with a real prior
+  // role can GROW it, but not leap far above his baseline — and a step UP in league
+  // strength shrinks the allowed jump (a Big-South 24-mpg workhorse doesn't walk into ACC
+  // starter minutes). Foul-proneness needs no separate term: a foul-prone player's low
+  // demonstrated minutes already price it in. Freshmen / low-baseline players are exempt
+  // (they legitimately ramp via the depth model). Younger players get a larger allowance —
+  // a rising sophomore has more role to gain than a graduate on his last go-round.
+  var STEP_K = 0.42, ANCHOR_MIN_MPG = 12, ANCHOR_MIN_GP = 8;
+  function _jumpBase(yr){ var y = ('' + (yr || '')).toLowerCase();
+    if(/fr/.test(y)) return 9; if(/so/.test(y)) return 8; if(/jr/.test(y)) return 7; return 6; }
   function projectMinutesByDepth(roster, mq){
     var n = roster.length;
     var q = mq.map(function(x){ return x == null ? 45 : x; });
@@ -296,6 +306,33 @@
       for(var i = 0; i < n; i++){ if(m[i] > 0 && m[i] < DEPTH_MAX) room += (DEPTH_MAX - m[i]); }
       if(room <= 0) break;
       for(var i = 0; i < n; i++){ if(m[i] > 0 && m[i] < DEPTH_MAX) m[i] += over * (DEPTH_MAX - m[i]) / room; }
+    }
+    // ── DEMONSTRATED-MINUTES ANCHOR ──────────────────────────────────────────
+    // Cap each experienced player at (last-year MPG + role-expansion allowance), where
+    // the allowance shrinks for a step UP in competition. Overflow flows to teammates
+    // who have a slot to absorb it — so freed minutes land on real backups, not vanish.
+    var cap = new Array(n);
+    for(var i = 0; i < n; i++){
+      cap[i] = Infinity;
+      var p = roster[i], demo = parseFloat(p && p.mpg), gp = parseFloat(p && p.gp);
+      if(isFinite(demo) && demo >= ANCHOR_MIN_MPG && (!isFinite(gp) || gp >= ANCHOR_MIN_GP)){
+        var jump = _jumpBase(p.yr || p.class_year);
+        var oc = _originConf(p), dc = _confOf(p.team);   // origin (transfer school) vs destination league
+        if(_LV && _LV.conf_strength && oc && dc){
+          var up = (_LV.conf_strength[dc] || 0) - (_LV.conf_strength[oc] || 0);
+          jump -= STEP_K * up;                            // up>0 (step up) shrinks; up<0 (step down) grows
+        }
+        cap[i] = demo + Math.max(0, Math.min(12, jump));  // never below demonstrated; sane ceiling on growth
+      }
+    }
+    for(var it2 = 0; it2 < 6; it2++){
+      var ov = 0;
+      for(var i = 0; i < n; i++){ var c = Math.min(cap[i], DEPTH_MAX); if(m[i] > c){ ov += m[i] - c; m[i] = c; } }
+      if(ov < 0.1) break;
+      var rm = 0;
+      for(var i = 0; i < n; i++){ var c = Math.min(cap[i], DEPTH_MAX); if(m[i] > 0 && m[i] < c) rm += (c - m[i]); }
+      if(rm <= 0) break;
+      for(var i = 0; i < n; i++){ var c = Math.min(cap[i], DEPTH_MAX); if(m[i] > 0 && m[i] < c) m[i] += ov * (c - m[i]) / rm; }
     }
     for(var i = 0; i < n; i++) m[i] = Math.round(m[i] * 10) / 10;
     return m;
