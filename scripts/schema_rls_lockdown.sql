@@ -37,7 +37,7 @@ declare
     'players','teams','player_history','losses','shots',
     'coach_seasons','coach_profiles','team_style',
     'bbref_seasons','games','box_scores','team_seasons',
-    'postseason_games','awards','promo_codes'
+    'team_actual_stats','postseason_games','awards','promo_codes'
   ];
   caches text[] := array[
     'predictive_ratings','team_projections','award_projections','tournament_games'
@@ -163,6 +163,36 @@ begin
     exception when others then raise notice 'TIER3 ERROR on % -> %', t, sqlerrm;
     end;
   end loop;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- CATCH-ALL — secure any remaining public base table the explicit blocks missed.
+-- Runs LAST, so tables handled above (with their own write policies) are already
+-- RLS-enabled and skipped here. For each table STILL open (relrowsecurity=false)
+-- it enables RLS + an anon/authenticated SELECT policy: this BLOCKS every anon
+-- INSERT/UPDATE/DELETE without changing read exposure (a policy grants no new
+-- table access, so genuinely-private tables with no anon GRANT stay private).
+-- service_role (your Python loaders) bypasses RLS and keeps writing.
+-- Read the NOTICE lines to see exactly which tables this secured.
+-- ---------------------------------------------------------------------------
+do $$
+declare t text;
+begin
+  for t in
+    select c.relname from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname='public' and c.relkind='r' and c.relrowsecurity=false
+    order by c.relname
+  loop
+    begin
+      execute format('alter table public.%I enable row level security', t);
+      execute format('drop policy if exists "tdc_anon_read" on public.%I', t);
+      execute format('create policy "tdc_anon_read" on public.%I for select to anon, authenticated using (true)', t);
+      raise notice 'CATCH-ALL secured (SELECT-only, writes blocked): %', t;
+    exception when others then raise notice 'CATCH-ALL ERROR on % -> %', t, sqlerrm;
+    end;
+  end loop;
+  raise notice '=== lockdown complete — re-run the VERIFY query below ===';
 end $$;
 
 -- ---------------------------------------------------------------------------
