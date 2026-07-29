@@ -56,7 +56,11 @@
     .table-wrap{overflow-x:auto;padding:0 0 40px;}
     table{width:100%;border-collapse:collapse;font-size:12px;}
     thead tr{border-bottom:2px solid var(--border);}
-    th{padding:10px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);white-space:nowrap;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--bg);z-index:2;}
+    th{padding:10px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);white-space:nowrap;cursor:default;user-select:none;position:sticky;top:0;background:var(--bg);z-index:2;}
+    th .lbl{cursor:pointer;text-decoration:underline dotted var(--border2);text-underline-offset:4px;text-decoration-thickness:1px;transition:color .12s,text-decoration-color .12s;}
+    th .lbl:hover{color:var(--accent);text-decoration-color:var(--accent);}
+    th .sort-arrow{cursor:pointer;}
+    th .sort-arrow:hover{opacity:1;color:var(--accent);}
     th:first-child,th:nth-child(2){text-align:left;padding-left:40px;}
     th:hover{color:var(--text);}
     th.sorted{color:var(--accent);}
@@ -277,6 +281,7 @@ body{background:transparent!important;}
 <!-- LEADERBOARD VIEW -->
 <div id="leadersView" style="display:none;">
   <div id="leadersEl" class="leaders"></div>
+  <div style="padding:0 40px 10px;font-size:11.5px;color:var(--text3);">🏆 Click any <b style="color:var(--text2)">stat name</b> in the table for its top-50 leaderboard · click the <span style="color:var(--text2)">⇅</span> to sort.</div>
   <div class="table-wrap"><table id="statsTable"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
 </div>
 
@@ -636,8 +641,9 @@ function renderTable(){
   // header
   var allSeasons = CUR_SEASON==='all';
   var th='<tr><th>#</th><th>Player</th>'+(allSeasons?'<th style="text-align:left">Yr</th>':'')+'<th style="text-align:left;cursor:default">Pos</th>';
-  TABLE_KEYS.forEach(k=>{ var s=SMAP[k]; var tip=(s.desc||s.g).replace(/"/g,'&quot;');
-    th+='<th class="'+(k===sortKey?'sorted':'')+' has-tip" onclick="sortBy(\''+k+'\')" title="'+tip+'">'+s.l+'<span class="sort-arrow">'+(k===sortKey?(sortAsc?'▲':'▼'):'⇅')+'</span></th>'; });
+  TABLE_KEYS.forEach(k=>{ var s=SMAP[k]; var tip=((s.desc||s.g)+' — click for the top 50').replace(/"/g,'&quot;');
+    th+='<th class="'+(k===sortKey?'sorted':'')+'"><span class="lbl" onclick="openLeaders(\''+k+'\')" title="'+tip+'">'+s.l+'</span>'
+      +'<span class="sort-arrow" onclick="sortBy(\''+k+'\')" title="Sort by '+s.l+'">'+(k===sortKey?(sortAsc?'▲':'▼'):'⇅')+'</span></th>'; });
   th+='</tr>';
   document.getElementById('thead').innerHTML=th;
   // body
