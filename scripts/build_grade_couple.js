@@ -40,7 +40,9 @@ function estBPM(L){
   var tsa=fga+0.44*fta, ts=tsa>0?pts/(2*tsa):0.53;
   var poss=fga+0.44*fta+tov, teamPoss=(mpg/40)*68, usg=teamPoss>0?100*poss/teamPoss:20;
   return -3.9475 + 0.1852*pts*k + 0.2810*trb*k + 1.1877*ast*k + 1.7021*stl*k
-         + 1.1577*blk*k - 2.6101*tov*k + 0.2469*(ts-0.53)*100 + 0.1772*(usg-20);
+         + 1.1577*blk*k - 2.6101*tov*k + 0.2469*(ts-0.53)*100 + 0.10*(usg-20);
+         // usage coef trimmed 0.177→0.10: it over-credited high-volume projected lines,
+         // inflating featured scorers' coupling (the mirror of the grade's scoring bias).
 }
 function clamp(v,lo,hi){ return Math.max(lo, Math.min(hi, v)); }
 
@@ -70,6 +72,9 @@ function coupledOf(d){
   var dj = clamp(d.minJump, JUMP_LO, JUMP_HI) - MEANJ;
   var roleTerm = (dj>=0 ? KUP : KDN) * dj * taper;
   var adj = KL*clamp(lineResid, LINE_LO, LINE_HI) + roleTerm;
+  // taper the UPWARD move for already-high anchors — an elite grade isn't being
+  // under-rated by its projected line, so it shouldn't ride the coupling to 98.
+  if(adj > 0) adj *= clamp(1 - Math.max(0, d.anchor-84)/16, 0.3, 1);
   return Math.round(d.anchor + clamp(adj, ADJ_LO, ADJ_HI));
 }
 

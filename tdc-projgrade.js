@@ -436,7 +436,7 @@
 
   // Role-aware grade coupling v2 (movers only; resolves before the roster fetch).
   try{
-    fetch('scripts/data/player_coupled_grades.json?v=8')
+    fetch('scripts/data/player_coupled_grades.json?v=9')
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ if(j && j.grades) setCoupled(j.grades); })
       .catch(function(){});
