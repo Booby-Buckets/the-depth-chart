@@ -5,6 +5,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-shotchart.js?v=14"></script>
+  <script src="tdc-lineups.js?v=2"></script>
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-moneyball.js?v=1"></script>
   <script src="tdc-nil.js?v=cal1"></script>
@@ -4941,7 +4942,12 @@ async function renderOnOff(){
         <th title="Team net efficiency with the player OFF">Off Net</th>
         <th title="Points scored per 100, player on">On ORtg</th><th title="Points allowed per 100, player on">On DRtg</th>
         <th title="Points scored per 100, player off">Off ORtg</th><th title="Points allowed per 100, player off">Off DRtg</th>
-      </tr></thead><tbody>${body}</tbody></table></div>`;
+      </tr></thead><tbody>${body}</tbody></table></div>
+    <div id="teamLineupHost"></div>`;
+  if(window.TDC_LINEUPS){
+    var _tf=(typeof teamT!=='undefined'&&teamT&&(teamT.full||teamT.name))||(typeof teamName!=='undefined'?teamName:'');
+    TDC_LINEUPS.section(_tf, +season||2026).then(function(h){ var lh=document.getElementById('teamLineupHost'); if(lh&&h) lh.innerHTML=h; });
+  }
   host._done=true;
 }
 function switchTab(id, btn){
