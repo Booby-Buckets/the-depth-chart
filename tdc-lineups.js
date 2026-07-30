@@ -40,21 +40,43 @@ window.TDC_LINEUPS = (function () {
     for (var k in t) { var nk = norm(k); if (nk === nf || nk.indexOf(nf) === 0 || nf.indexOf(nk) === 0) return t[k]; }
     return [];
   }
-  function trios(lus) {
+  // full-fidelity combos precomputed by build_pbp_analytics.py (all units, not top-12)
+  var _c = null, _cp = null;
+  function loadCombos() {
+    if (_c) return Promise.resolve(_c);
+    if (_cp) return _cp;
+    _cp = fetch('scripts/data/combos.json').then(function (r) { return r.ok ? r.json() : {}; })
+      .then(function (j) { _c = j || {}; return _c; }).catch(function () { _c = {}; return _c; });
+    return _cp;
+  }
+  function combosLookup(cd, season, full) {
+    var t = (cd && cd[season]) || {}; if (t[full]) return t[full];
+    var nf = norm(full);
+    for (var k in t) { var nk = norm(k); if (nk === nf || nk.indexOf(nf) === 0 || nf.indexOf(nk) === 0) return t[k]; }
+    return null;
+  }
+  // client-side FALLBACK deriver (trios size 3, pairs size 2) from the top-12 lineups —
+  // used only until combos.json exists; combos.json is the exact, full-fidelity version.
+  function combo(lus, size) {
     var agg = {};
+    function add(names, l) { var key = names.join('|');
+      var a = agg[key] || (agg[key] = { players: names, poss: 0, wnet: 0, units: 0 });
+      a.poss += l.poss; a.wnet += l.poss * l.net; a.units++; }
     lus.forEach(function (l) { var ps = l.players.slice().sort();
-      for (var i = 0; i < ps.length; i++) for (var j = i + 1; j < ps.length; j++) for (var k = j + 1; k < ps.length; k++) {
-        var key = ps[i] + '|' + ps[j] + '|' + ps[k];
-        var a = agg[key] || (agg[key] = { names: [ps[i], ps[j], ps[k]], poss: 0, wnet: 0, units: 0 });
-        a.poss += l.poss; a.wnet += l.poss * l.net; a.units++;
-      } });
+      if (size === 2) { for (var i = 0; i < ps.length; i++) for (var j = i + 1; j < ps.length; j++) add([ps[i], ps[j]], l); }
+      else { for (var i = 0; i < ps.length; i++) for (var j = i + 1; j < ps.length; j++) for (var k = j + 1; k < ps.length; k++) add([ps[i], ps[j], ps[k]], l); } });
     var out = []; for (var key in agg) { var a = agg[key];
-      out.push({ names: a.names, poss: Math.round(a.poss), net: Math.round(a.wnet / Math.max(1, a.poss) * 10) / 10, units: a.units }); }
+      out.push({ players: a.players, poss: Math.round(a.poss), net: Math.round(a.wnet / Math.max(1, a.poss) * 10) / 10, units: a.units }); }
     return out.sort(function (a, b) { return b.net - a.net; });
   }
+  function trios(lus) { return combo(lus, 3); }   // back-compat
   function forTeam(full, season) {
-    return load().then(function (d) { var lus = lookup(d, '' + season, full);
-      return { lineups: lus.slice().sort(function (a, b) { return b.poss - a.poss; }), trios: trios(lus) }; });
+    return Promise.all([load(), loadCombos()]).then(function (res) {
+      var lus = lookup(res[0], '' + season, full), cc = combosLookup(res[1], '' + season, full);
+      return { lineups: lus.slice().sort(function (a, b) { return b.poss - a.poss; }),
+               trios: cc && cc.trios ? cc.trios : combo(lus, 3),
+               pairs: cc && cc.pairs ? cc.pairs : combo(lus, 2) };
+    });
   }
   function nchip(v) { var tr = tier(v);
     return '<span style="font-family:\'Playfair Display\',serif;font-weight:800;font-size:15px;color:' + (v > 0 ? '#2bb673' : v < 0 ? '#e06552' : 'var(--text2)') + ';">' + (v > 0 ? '+' : '') + (+v).toFixed(1) + '</span>'
@@ -66,35 +88,41 @@ window.TDC_LINEUPS = (function () {
       + '<div style="font-size:10.5px;color:var(--text3);margin-top:2px;">' + l.poss + ' poss · ' + (+l.off_rtg).toFixed(0) + ' ORtg · ' + (+l.def_rtg).toFixed(0) + ' DRtg</div></div>'
       + '<div style="white-space:nowrap;flex-shrink:0;">' + nchip(l.net) + '</div></div>';
   }
-  function row3(t) {
+  function rowC(t) {   // a trio or pair row (both carry .players)
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--border);">'
-      + '<div style="min-width:0;"><div style="font-weight:700;font-size:12.5px;" title="' + t.names.join(', ').replace(/"/g, '&quot;') + '">' + shortNames(t.names).join(' · ') + '</div>'
-      + '<div style="font-size:10.5px;color:var(--text3);margin-top:2px;">' + t.poss + ' poss together · ' + t.units + ' unit' + (t.units !== 1 ? 's' : '') + '</div></div>'
+      + '<div style="min-width:0;"><div style="font-weight:700;font-size:12.5px;" title="' + t.players.join(', ').replace(/"/g, '&quot;') + '">' + shortNames(t.players).join(' · ') + '</div>'
+      + '<div style="font-size:10.5px;color:var(--text3);margin-top:2px;">' + t.poss + ' poss together' + (t.units != null ? ' · ' + t.units + ' unit' + (t.units !== 1 ? 's' : '') : '') + '</div></div>'
       + '<div style="white-space:nowrap;flex-shrink:0;">' + nchip(t.net) + '</div></div>';
   }
-  // Ready-to-inject section. opt: {minPoss, trioMin, maxLineups, maxTrios, worst}
+  function colHdr(label) { return '<div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:2px;">' + label + '</div>'; }
+  function emptyCol() { return '<div style="font-size:12px;color:var(--text3);padding:12px 0;">Not enough tracked possessions.</div>'; }
+  // Ready-to-inject section (lineups full-width, then trios | pairs). opt: {minPoss,
+  // trioMin, pairMin, maxLineups, maxTrios, maxPairs}
   function section(full, season, opt) {
     opt = opt || {};
-    var minP = opt.minPoss || 40, trioMin = opt.trioMin || 150;
-    var maxL = opt.maxLineups || 8, maxT = opt.maxTrios || 8;
-    return load().then(function (d) {
-      var lus = lookup(d, '' + season, full);
-      if (!lus.length) return '';
+    var minP = opt.minPoss || 40, trioMin = opt.trioMin || 150, pairMin = opt.pairMin || 250;
+    var maxL = opt.maxLineups || 8, maxT = opt.maxTrios || 8, maxP = opt.maxPairs || 8;
+    return Promise.all([load(), loadCombos()]).then(function (res) {
+      var lus = lookup(res[0], '' + season, full), cc = combosLookup(res[1], '' + season, full);
+      var fullFi = !!(cc && ((cc.trios && cc.trios.length) || (cc.pairs && cc.pairs.length)));
+      if (!lus.length && !fullFi) return '';
       var qL = lus.filter(function (l) { return l.poss >= minP; }).sort(function (a, b) { return b.poss - a.poss; });
-      var tri = trios(lus).filter(function (t) { return t.poss >= trioMin; });
+      var triRows = (cc && cc.trios) ? cc.trios : combo(lus, 3).filter(function (t) { return t.poss >= trioMin; });
+      var pairRows = (cc && cc.pairs) ? cc.pairs : combo(lus, 2).filter(function (t) { return t.poss >= pairMin; });
       var yl = (season - 1) + '-' + ('' + season).slice(2);
-      var lineupCol = qL.slice(0, maxL).map(row5).join('') ||
-        '<div style="font-size:12px;color:var(--text3);padding:12px 0;">Not enough tracked possessions.</div>';
-      var trioCol = tri.slice(0, maxT).map(row3).join('') ||
-        '<div style="font-size:12px;color:var(--text3);padding:12px 0;">Not enough tracked possessions.</div>';
+      var src = fullFi ? 'full play-by-play' : 'reconstructed from the tracked lineups';
+      var lineupCol = qL.slice(0, maxL).map(row5).join('') || emptyCol();
+      var trioCol = triRows.slice(0, maxT).map(rowC).join('') || emptyCol();
+      var pairCol = pairRows.slice(0, maxP).map(rowC).join('') || emptyCol();
       return ''
-        + '<div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:26px 0 4px;">Lineups &amp; Trios <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;">· ' + yl + ' · reconstructed from play-by-play</span></div>'
-        + '<div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:10px;max-width:820px;">The five-man units this team actually played and the three-man combinations inside them. <b style="color:var(--text2);">Net</b> = points per 100 the team out-scored opponents with that group on the floor; trios are possession-weighted across the units they share.</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:26px;">'
-        + '<div><div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);">Five-man lineups <span style="color:var(--text3);font-weight:600;">· most-used</span></div>' + lineupCol + '</div>'
-        + '<div><div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);">Top trios</div>' + trioCol + '</div>'
+        + '<div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:26px 0 4px;">Lineups, Trios &amp; Pairs <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;">· ' + yl + ' · ' + src + '</span></div>'
+        + '<div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:12px;max-width:820px;">The five-man units this team played, and the three- and two-man combinations inside them. <b style="color:var(--text2);">Net</b> = points per 100 the team out-scored opponents with that group on the floor.</div>'
+        + colHdr('Five-man lineups · most-used') + lineupCol
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:18px;">'
+        + '<div>' + colHdr('Top trios') + trioCol + '</div>'
+        + '<div>' + colHdr('Top pairs') + pairCol + '</div>'
         + '</div>';
     });
   }
-  return { load: load, forTeam: forTeam, section: section, trios: trios, short: short, tier: tier };
+  return { load: load, forTeam: forTeam, section: section, trios: trios, combo: combo, short: short, tier: tier };
 })();
