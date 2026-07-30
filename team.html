@@ -4905,7 +4905,11 @@ async function renderOnOff(){
     if(cand.length){ season=s; rows=cand; break; }
   }
   if(!rows.length){ host.innerHTML='<div style="padding:24px;color:var(--text3);">No on/off data for this team yet — the lineup pipeline is still building (game-level WOWY from NCAA play-by-play).</div>'; host._done=true; return; }
-  rows.sort((a,b)=>((b.onoff_net??-99)-(a.onoff_net??-99)));
+  // Sample-adjusted Impact (matches onoff.html): shrink the raw swing toward 0 by the
+  // bench-unit sample so a player with few off-court possessions can't post a fake number.
+  rows.forEach(r=>{ const on=+r.on_poss||0, off=+r.off_poss||0, raw=r.onoff_net;
+    r._adj=(raw!=null&&on>=300&&off>=200)?Math.round(Math.max(-35,Math.min(35,raw))*off/(off+300)*10)/10:null; });
+  rows.sort((a,b)=>((b._adj??-99)-(a._adj??-99)));
   const f=(v,d)=>v==null?'—':(+v).toFixed(d==null?1:d);
   const col=v=>v==null?'':(v>0?'#2bb673':v<0?'#e06552':'');
   const impTier=v=>v==null?null:v>=12?{t:'Elite',c:'#1f9d57'}:v>=6?{t:'Strong',c:'#2bb673'}:v>=2?{t:'Positive',c:'#6bbf8a'}:v>-2?{t:'Neutral',c:'#8a93a3'}:v>-6?{t:'Negative',c:'#e0885a'}:{t:'Drag',c:'#e06552'};
@@ -4917,7 +4921,7 @@ async function renderOnOff(){
       <td style="text-align:left;color:var(--text3);">${i+1}</td>
       <td style="text-align:left;"><a href="player.html?espn=${r.espn_id}" style="color:var(--text);font-weight:700;text-decoration:none;">${r.name||'—'}</a></td>
       <td>${f(r.on_poss,0)}</td>
-      <td style="font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:${col(r.onoff_net)};white-space:nowrap;">${r.onoff_net>0?'+':''}${f(r.onoff_net)}${(()=>{const tr=impTier(r.onoff_net);return tr?`<div style="font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${tr.c};margin-top:1px;">${tr.t}</div>`:'';})()}</td>
+      <td title="Raw swing ${r.onoff_net>0?'+':''}${f(r.onoff_net)} over ${f(r.off_poss,0)} bench-unit poss — Impact shrinks this for sample size" style="font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:${col(r._adj)};white-space:nowrap;">${r._adj==null?'—':(r._adj>0?'+':'')+f(r._adj)}${(()=>{const tr=impTier(r._adj);return tr?`<div style="font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${tr.c};margin-top:1px;">${tr.t}</div>`:'';})()}</td>
       <td style="color:${col(r.on_net)};">${f(r.on_net)}</td>
       <td style="color:${col(r.off_net)};">${f(r.off_net)}</td>
       <td>${f(r.on_o)}</td><td>${f(r.on_d)}</td>
@@ -4926,7 +4930,7 @@ async function renderOnOff(){
   }).join('');
   host.innerHTML=`
     <div class="sec-head">On/Off &amp; WOWY <span style="color:var(--text3);font-weight:600;font-size:12px;">· ${yl}</span></div>
-    <p style="color:var(--text3);font-size:12.5px;line-height:1.5;max-width:840px;margin:0 0 10px;">How the team scores and defends with each player <b style="color:var(--text2);">on the court vs off it</b>, reconstructed from NCAA play-by-play lineups. <b style="color:var(--text2);">Impact</b> = how many points per 100 possessions the team is better with a player on the floor vs. the bench. Raw (not opponent-adjusted) — context, not proof.</p>
+    <p style="color:var(--text3);font-size:12.5px;line-height:1.5;max-width:840px;margin:0 0 10px;">How the team scores and defends with each player <b style="color:var(--text2);">on the court vs off it</b>, reconstructed from NCAA play-by-play lineups. <b style="color:var(--text2);">Impact</b> = the on/off swing (points per 100) <b style="color:var(--text2);">adjusted for sample size</b> — shrunk toward zero when it rests on few bench-unit possessions (hover for the raw number). Measured vs teammates, not opponent-adjusted — context, not proof. Players under 300 on / 200 off possessions show “—”.</p>
     <div style="display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;font-weight:700;margin:0 0 14px;"><span style="color:#1f9d57;">+12 Elite</span><span style="color:#2bb673;">+6 Strong</span><span style="color:#6bbf8a;">+2 Positive</span><span style="color:#8a93a3;">±2 Neutral</span><span style="color:#e0885a;">−6 Negative</span><span style="color:#e06552;">Drag</span></div>
     <div style="overflow-x:auto;"><table class="sortable-table" style="min-width:760px;">
       <thead><tr>
