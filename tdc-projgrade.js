@@ -197,6 +197,13 @@
   // gradeSolo) shows the identical coupled OVR with no per-page wiring.
   var _COUPLED = {};
   function setCoupled(m){ if(m && typeof m === 'object') _COUPLED = m; }
+  // Versatility bump (scripts/build_versatility.py → versatility_adj.json, keyed by espn_id):
+  // a bounded, positive-only "does-a-lot" lift for players whose all-around NON-scoring
+  // impact (playmaking/defense/spacing/rebounding, position-relative) the scoring-weighted
+  // grade under-rewards. Folded into the grade anchor (so it flows into the coupled regen too).
+  var _VERS = {};
+  function setVersatility(m){ if(m && typeof m === 'object') _VERS = m; }
+  function _versOf(row){ var e = row && row.espn_id; return (e != null && _VERS['' + e] != null) ? _VERS['' + e] : 0; }
   var MAXMIN = 34, TOTMIN = 200, ROT_BAND = 16, ROT_POWER = 2.2;
   var ROLE_K = 14, ROLE_UP = 3, FLOOR_GAP = 12, CEIL = 7;
   // minutes ("playing-time quality") knobs — see gradeRoster
@@ -394,7 +401,8 @@
     return roster.map(function(p, i){
       if(quals[i] == null) return { min: 0, grade: null, qual: null };
       var g = _gradeV5(quals[i], p.yr || p.class_year, mins[i]);
-      if(p.id != null && _COUPLED[p.id] != null) g = _COUPLED[p.id];   // projected-line coupling
+      if(p.id != null && _COUPLED[p.id] != null) g = _COUPLED[p.id];   // projected-line coupling (vers-free anchor)
+      g = Math.round(g + _versOf(p));                                  // + versatility, on TOP of coupled-or-computed
       return { min: mins[i], qual: Math.round(quals[i] * 10) / 10, grade: g };
     });
   }
@@ -405,16 +413,16 @@
   // with the player/team pages without needing every team's full roster.
   function gradeSolo(row){
     if(!row) return null;
-    if(row.id != null && _COUPLED[row.id] != null) return _COUPLED[row.id];   // projected-line coupling
+    if(row.id != null && _COUPLED[row.id] != null) return Math.round(_COUPLED[row.id] + _versOf(row));   // coupled + versatility
     var g = parseFloat(row.tdc_grade); if(!isFinite(g)) return null;
     var qual = g;   // no conference discount here — see gradeRoster; the level lives in the projection
     var trans = _clsTrans(row.yr || row.class_year);
     var devBpm = (trans && _DEV && _DEV.bpm_delta && _DEV.bpm_delta[trans]) ? (_DEV.bpm_delta[trans][_qtier(qual)] || 0) : 0;
-    return Math.round(qual + devBpm * (_BR.b || 1.174));
+    return Math.round(qual + devBpm * (_BR.b || 1.174) + _versOf(row));
   }
 
   window.TDCProjGrade = { projMin: projMin, grade: grade, ovr: ovr, K: K, setPedigree: setPedigree,
-                          gradeRoster: gradeRoster, gradeSolo: gradeSolo, projectMinutes: projectMinutes, setModel: setModel, setCoupled: setCoupled };
+                          gradeRoster: gradeRoster, gradeSolo: gradeSolo, projectMinutes: projectMinutes, setModel: setModel, setCoupled: setCoupled, setVersatility: setVersatility };
 
   // Self-load the derived pedigree coefficients (tiny, local file) so every page
   // picks them up with no per-page wiring. This resolves well before the slower
@@ -431,6 +439,14 @@
     fetch('scripts/data/player_coupled_grades.json?v=8')
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ if(j && j.grades) setCoupled(j.grades); })
+      .catch(function(){});
+  }catch(e){}
+
+  // Versatility "does-a-lot" bump (positive-only, keyed by espn_id).
+  try{
+    fetch('scripts/data/versatility_adj.json?v=1')
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){ if(j && j.bumps) setVersatility(j.bumps); })
       .catch(function(){});
   }catch(e){}
 

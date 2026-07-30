@@ -20,6 +20,9 @@ var window = { _careerHistoryMap:{}, _advByEspn:{}, _projCoach:null, _projCoachC
 var localStorage = { getItem:function(){ return null; } };
 load('/Users/aidanlee/the-depth-chart/tdc-projgrade.js');
 load('/Users/aidanlee/the-depth-chart/tdc-proj.js');
+// NB: versatility is deliberately NOT loaded here — the coupling anchors on the
+// vers-FREE grade, and the versatility bump is added on top at display time. Baking it
+// into the anchor double-lifts a versatile+featured player (coupling + versatility).
 load('/private/tmp/claude-501/-Users-aidanlee-the-depth-chart/1d95c2f3-7530-4191-aac9-5f4fbef225ba/scratchpad/allplayers.js');
 
 var A = 73.42, B = 1.174;          // estBPM -> grade bridge
