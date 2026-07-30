@@ -167,6 +167,7 @@ def upload(rows):
     return True
 
 def main():
+    global DELAY
     args=sys.argv[1:]
     sample="--sample" in args
     team_id=None; season=None; seasons=[2022,2023,2024,2025,2026]
@@ -174,9 +175,11 @@ def main():
     if "--season" in args: season=int(args[args.index("--season")+1]); seasons=[season]
     if "--seasons" in args:
         seasons=[int(x) for x in args[args.index("--seasons")+1:] if x.isdigit()]
+    # gentler pacing avoids ESPN rate-limiting on long historical re-scrapes
+    if "--delay" in args: DELAY=float(args[args.index("--delay")+1])
 
     games=games_for(seasons, team_id)
-    print("games to consider: %d" % len(games))
+    print("games to consider: %d  (delay %.2fs)" % (len(games), DELAY))
 
     if sample:
         allshots=[]
@@ -194,13 +197,24 @@ def main():
     if os.path.exists(DONE):
         try: done=set(json.load(open(DONE)))
         except Exception: done=set()
-    buf=[]; pending=[]; n_shots=0; t0=time.time()
+    buf=[]; pending=[]; n_shots=0; t0=time.time(); miss=0; misses=0
     todo=[g for g in games if g["id"] not in done]
     print("remaining: %d (already done: %d)" % (len(todo),len(done)))
     for i,g in enumerate(todo):
         data=fetch(SUMMARY % g["id"])
-        if data: buf+=parse_shots(data,g["id"],g["season_year"])
-        pending.append(g["id"]); time.sleep(DELAY)
+        if data is not None:
+            # a real response — checkpoint this game (even if it genuinely has 0 shots)
+            buf+=parse_shots(data,g["id"],g["season_year"])
+            pending.append(g["id"]); miss=0
+        else:
+            # fetch failed after retries (timeout / rate-limit / 404): do NOT mark it
+            # done, so it retries on a later resume instead of being lost as an empty
+            # game. (This is what left the historical seasons half-scraped.)
+            miss+=1; misses+=1
+            if miss%12==0:
+                print("  %d fetch failures in a row -> backing off 120s (likely rate-limited)"%miss,flush=True)
+                time.sleep(120)
+        time.sleep(DELAY)
         if len(buf)>=800 or i==len(todo)-1:
             # only mark games done + clear the buffer if the upload actually succeeds
             if not buf or upload(buf):
@@ -210,7 +224,7 @@ def main():
                 json.dump(list(done),open(DONE,"w"))
             # else: keep buf + pending, retry on the next flush (no data/checkpoint loss)
         if (i+1)%200==0:
-            el=time.time()-t0; print("  %d/%d games  %d shots  %.0fs  (~%.1f games/s)"%(i+1,len(todo),n_shots,el,(i+1)/max(1,el)))
-    print("DONE: %d shots uploaded across %d games"%(n_shots,len(todo)))
+            el=time.time()-t0; print("  %d/%d games  %d shots  %d misses  %.0fs  (~%.1f games/s)"%(i+1,len(todo),n_shots,misses,el,(i+1)/max(1,el)),flush=True)
+    print("DONE: %d shots uploaded, %d fetch-misses left to retry on next run"%(n_shots,misses))
 
 if __name__=="__main__": main()
