@@ -10,6 +10,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script src="tdc-nil.js"></script>
   <script src="tdc-projgrade.js?v=20"></script>
+  <script src="tdc-lineups.js?v=3"></script>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-shotchart.js?v=14"></script>
@@ -232,6 +233,23 @@
     .mu-edges{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
     .mu-e{display:flex;align-items:flex-start;gap:9px;font-size:12.5px;color:var(--text2);line-height:1.5;}
     .mu-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+    /* Position matchups — starters slotted PG–C, spot by spot */
+    .mb-wrap{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg);}
+    .mb-row{display:grid;grid-template-columns:1fr 82px 1fr;align-items:center;border-top:1px solid var(--border);}
+    .mb-row:first-child{border-top:none;}
+    .mb-side{display:flex;align-items:center;gap:9px;padding:10px 16px;min-width:0;}
+    .mb-side.r{justify-content:flex-end;}
+    .mb-nm{font-size:13px;font-weight:600;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .mb-nm.w{font-weight:800;color:var(--text);}
+    .mb-ov{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;color:var(--text3);flex-shrink:0;font-variant-numeric:tabular-nums;}
+    .mb-ov.w{font-size:19px;}
+    .mb-slot{text-align:center;padding:8px 0;background:var(--bg3);border-left:1px solid var(--border);border-right:1px solid var(--border);}
+    .mb-pos{display:block;font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--text2);}
+    .mb-edge{display:block;font-size:9.5px;font-weight:700;color:var(--accent);margin-top:1px;font-variant-numeric:tabular-nums;}
+    .mb-tally{text-align:center;font-size:12.5px;color:var(--text2);padding:11px 16px;border-top:1px solid var(--border);background:var(--bg3);}
+    /* Units on the floor */
+    .units-block{border:1px solid var(--border);border-radius:10px;padding:2px 18px 18px;}
+    .units-team-h{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;padding:12px 0 2px 12px;}
     .cf-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px;}
     .cf-coach{font-size:14px;font-weight:800;color:var(--text);}
     .cf-arch{font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
@@ -2072,6 +2090,71 @@ async function _fillTeamGenome(s1,s2,y1,y2){
   const w=document.getElementById('tsgWrap'); if(w) w.innerHTML=r;
   sec.style.display='';
 }
+// ── Position matchups: slot each team's 5 starters into PG/SG/SF/PF/C and pair them ──
+function _htIn(h){ const m=/(\d+)\D+(\d+)/.exec(h||''); return m?(+m[1]*12 + +m[2]):78; }
+// projected OVR for a current-roster player (keeps this head-to-head consistent with
+// the rest of the site's forward-looking grades); memoized. Falls back to raw grade.
+function _pmOVR(p){
+  if(p._pmG!=null) return p._pmG;
+  let g=parseFloat(p.tdc_grade)||0;
+  try{
+    if(window.TDCProjGrade&&TDCProjGrade.gradeSolo&&parseFloat(p.mpg)>0){
+      const v=TDCProjGrade.gradeSolo({id:p.id, espn_id:p.espn_id, tdc_grade:p.tdc_grade, yr:p.yr||p.class_year});
+      if(v!=null&&!isNaN(v)) g=v;
+    }
+  }catch(e){}
+  p._pmG=g; return g;
+}
+function _slotStarters(st){
+  const SLOTS=['PG','SG','SF','PF','C'];
+  const slotOf=(pos,ht)=>{ const p=(pos||'').toUpperCase().replace(/[^A-Z]/g,'');
+    if(p==='PG')return 'PG'; if(p==='SG'||p==='CG')return 'SG'; if(p==='SF'||p==='GF')return 'SF';
+    if(p==='PF')return 'PF'; if(p==='C'||p==='FC'||p==='CF')return 'C';
+    if(p==='G')return ht<=74?'PG':'SG'; if(p==='F')return ht>=80?'PF':'SF';
+    return ht<=73?'PG':ht<=77?'SG':ht<=80?'SF':ht<=83?'PF':'C'; };
+  const ranked=st.map(p=>({p, s:slotOf(p.position,_htIn(p.height)), g:_pmOVR(p)})).sort((a,b)=>b.g-a.g);
+  const res={};
+  ranked.forEach(x=>{ let slot=x.s;
+    if(res[slot]){ const open=SLOTS.filter(o=>!res[o]).sort((a,b)=>Math.abs(SLOTS.indexOf(a)-SLOTS.indexOf(x.s))-Math.abs(SLOTS.indexOf(b)-SLOTS.indexOf(x.s))); slot=open[0]; }
+    if(slot) res[slot]=x.p; });
+  return SLOTS.map(s=>({slot:s, p:res[s]||null}));
+}
+function _battleSection(st1,st2,c1,c2,n1,n2){
+  const A=_slotStarters(st1), B=_slotStarters(st2); let w1=0,w2=0;
+  const rows=A.map((x,i)=>{ const p1=x.p,p2=B[i].p;
+    const g1=p1?Math.round(_pmOVR(p1)):0, g2=p2?Math.round(_pmOVR(p2)):0, e=g1-g2;
+    if(g1&&g2){ if(e>0)w1++; else if(e<0)w2++; }
+    const win1=e>0, win2=e<0;
+    return `<div class="mb-row">
+      <div class="mb-side">${p1?`<span class="mb-nm${win1?' w':''}">${p1.name}</span><span class="mb-ov${win1?' w':''}" ${win1?`style="color:${c1}"`:''}>${g1||'—'}</span>`:'<span class="mb-nm" style="color:var(--text3)">—</span>'}</div>
+      <div class="mb-slot"><span class="mb-pos">${x.slot}</span>${(g1&&g2&&e!==0)?`<span class="mb-edge">${e>0?'◀':'▶'} ${Math.abs(e)}</span>`:'<span class="mb-edge" style="color:var(--text3)">even</span>'}</div>
+      <div class="mb-side r">${p2?`<span class="mb-ov${win2?' w':''}" ${win2?`style="color:${c2}"`:''}>${g2||'—'}</span><span class="mb-nm${win2?' w':''}">${p2.name}</span>`:'<span class="mb-nm" style="color:var(--text3)">—</span>'}</div>
+    </div>`; }).join('');
+  const lead = w1>w2?`<b style="color:${c1}">${n1}</b> takes ${w1} of 5 spots` : w2>w1?`<b style="color:${c2}">${n2}</b> takes ${w2} of 5 spots` : `Dead even — ${w1}-${w2} across the five spots`;
+  return `<div class="compare-section-head">Position Matchups <span style="font-weight:500;color:var(--text3);font-size:11px;">projected starter at each spot · OVR edge</span></div>
+    <div class="mb-wrap">${rows}<div class="mb-tally">${lead}</div></div>`;
+}
+function _fillPosBattle(t1,t2,c1,c2){
+  const el=document.getElementById('posBattle'); if(!el) return;
+  const s1=rosterOf(t1.name).slice(0,5), s2=rosterOf(t2.name).slice(0,5);
+  if(s1.length<3||s2.length<3){ el.innerHTML=''; return; }
+  const paint=()=>{ el.innerHTML=_battleSection(s1,s2,c1,c2,t1.name,t2.name); };
+  if(window.TDCProjGrade&&TDCProjGrade.ready&&TDCProjGrade.ready.then) TDCProjGrade.ready.then(paint).catch(paint);
+  else paint();
+}
+// ── Units on the Floor: each team's real on/off lineups (full name from the season row) ──
+function _fillUnits(s1,s2,y1,y2,c1,c2,n1,n2){
+  const el=document.getElementById('unitsClash'); if(!el||!window.TDC_LINEUPS) return;
+  const f1=(s1&&s1.team)||n1, f2=(s2&&s2.team)||n2, opt={maxLineups:5,maxTrios:5,maxPairs:5};
+  Promise.all([TDC_LINEUPS.section(f1,y1||2026,opt),TDC_LINEUPS.section(f2,y2||2026,opt)]).then(([h1,h2])=>{
+    if(!h1&&!h2){ el.innerHTML=''; return; }
+    el.innerHTML=`<div class="compare-section-head">Units on the Floor <span style="font-weight:500;color:var(--text3);font-size:11px;">the lineups each team actually plays</span></div>
+      <div class="units-block">
+        ${h1?`<div class="units-team-h" style="color:${c1};border-left:3px solid ${c1};">${n1}</div>${h1}`:''}
+        ${h2?`<div class="units-team-h" style="color:${c2};border-left:3px solid ${c2};margin-top:22px;">${n2}</div>${h2}`:''}
+      </div>`;
+  }).catch(()=>{});
+}
 async function renderTeams(){
   destroyCharts();
   const [t1,t2]=sel.teams;
@@ -2123,6 +2206,8 @@ async function renderTeams(){
     <div class="ol-grid">${resume(s1,c1,false)}${resume(s2,c2,true)}</div>
 
     ${(s1&&s2&&(s1.team!==s2.team||y1!==y2))?_matchupCard(s1,s2,f1,f2,t1.name,t2.name,c1,c2):''}
+
+    <div id="posBattle" style="margin-bottom:26px;"></div>
 
     <div class="compare-section-head">Program Context — Last 20 Seasons (2006-26)</div>
     <div class="sim-grid">
@@ -2196,6 +2281,8 @@ async function renderTeams(){
     <div class="scc-lbl" style="color:${c2};border-bottom-color:${c2};">${t2.name}${sameYear?'':' · '+yl2}</div>
     <div id="tchem2" style="margin-bottom:6px;"><div class="sim-row" style="color:var(--text3);">Analyzing lineup…</div></div>
 
+    <div id="unitsClash" style="margin-top:26px;"></div>
+
     <div class="compare-section-head">Matchup Factor — ${t1.name} vs ${t2.name}, if they played</div>
     <div id="tmatch" style="margin-bottom:6px;"><div class="sim-row" style="color:var(--text3);">Running the matchup…</div></div>
 
@@ -2245,6 +2332,8 @@ async function renderTeams(){
     _renderTeamShotCharts(s1,s2,y1,y2,t1,t2);
     _fillTeamDNA(s1,s2,y1,y2);
     _fillTeamGenome(s1,s2,y1,y2);
+    _fillPosBattle(t1,t2,c1,c2);
+    _fillUnits(s1,s2,y1,y2,c1,c2,t1.name,t2.name);
     if(s1||s2){
       // percentile radar vs each pick's own season
       const labels=TSP_AXES.map(a=>a.l);
@@ -2700,7 +2789,14 @@ function toggleTheme(){
   });
 })();
 
-load();
+// Deep-link: ?mode=teams opens the Teams tab straight away (used by the
+// Rankings → Compare Teams nav entry). Optional ?t1=&t2= preselect programs.
+load().then(()=>{
+  try{
+    const q=new URLSearchParams(location.search);
+    if((q.get('mode')||'').toLowerCase()==='teams') setMode('teams');
+  }catch(e){}
+});
 </script>
 
 <style id="tdc-theme-css">

@@ -22,7 +22,7 @@
       ['index.html',           'Team Rankings'],
       ['team.html',            'Teams'],
       ['team-stats.html',      'Team Stats'],
-      ['compare-teams.html',   'Compare Teams'],
+      ['compare-players.html?mode=teams', 'Compare Teams'],
       ['predict.html',         'Projections'],
     ]],
     ['Players', [
