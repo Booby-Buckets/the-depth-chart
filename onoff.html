@@ -96,6 +96,7 @@
     <button class="modebtn on" data-m="players" onclick="switchMode('players',this)">Players</button>
     <button class="modebtn" data-m="lineups" onclick="switchMode('lineups',this)">Lineups</button>
     <button class="modebtn" data-m="trios" onclick="switchMode('trios',this)">Trios</button>
+    <button class="modebtn" data-m="pairs" onclick="switchMode('pairs',this)">Pairs</button>
   </div>
 
   <div class="legend open" id="legend">
@@ -132,7 +133,7 @@
 function toggleTheme(){ var d=document.documentElement; var dark=d.getAttribute('data-theme')==='dark'; d.setAttribute('data-theme',dark?'light':'dark'); try{localStorage.setItem('tdc_theme',dark?'light':'dark');}catch(e){} document.getElementById('themeBtn').textContent=dark?'🌙':'☀️'; }
 (function(){ var t=localStorage.getItem('tdc_theme')||'dark'; document.documentElement.setAttribute('data-theme',t); var b=document.getElementById('themeBtn'); if(b) b.textContent=t==='dark'?'☀️':'🌙'; })();
 
-var MODE='players', DATA={}, LU=null, ROWS=[], sortKey='adj', sortAsc=false;
+var MODE='players', DATA={}, LU=null, CB=null, ROWS=[], sortKey='adj', sortAsc=false;
 var COLSETS={
   players:[
     {k:'name', l:'Player', left:true, tip:'Player · team'},
@@ -162,17 +163,24 @@ var COLSETS={
   ],
   trios:[
     {k:'unit', l:'Trio', left:true, tip:'Three players · team'},
-    {k:'poss', l:'Poss', tip:'Possessions these three shared across the team\'s tracked five-man lineups'},
-    {k:'net', l:'Net', big:true, tip:'Possession-weighted net rating across the lineups these three appeared in together.'},
-    {k:'units', l:'Units', tip:'How many of the team\'s tracked five-man lineups include all three'},
+    {k:'poss', l:'Poss', tip:'Possessions these three shared'},
+    {k:'net', l:'Net', big:true, tip:'Possession-weighted net rating with these three on the floor together.'},
+    {k:'units', l:'Units', tip:'How many five-man lineups include all three'},
+  ],
+  pairs:[
+    {k:'unit', l:'Pair', left:true, tip:'Two players · team'},
+    {k:'poss', l:'Poss', tip:'Possessions these two shared'},
+    {k:'net', l:'Net', big:true, tip:'Possession-weighted net rating with these two on the floor together.'},
+    {k:'units', l:'Units', tip:'How many five-man lineups include both'},
   ],
 };
 var POSSOPTS={
   players:[['200','200+ poss'],['400','400+ poss'],['800','800+ poss'],['0','Any']],
   lineups:[['40','40+ poss'],['75','75+ poss'],['150','150+ poss'],['0','Any']],
   trios:[['100','100+ poss'],['175','175+ poss'],['300','300+ poss'],['0','Any']],
+  pairs:[['200','200+ poss'],['350','350+ poss'],['600','600+ poss'],['0','Any']],
 };
-var DEFSORT={players:'adj', lineups:'net', trios:'net'}, DEFMIN={players:'400', lineups:'40', trios:'175'};
+var DEFSORT={players:'adj', lineups:'net', trios:'net', pairs:'net'}, DEFMIN={players:'400', lineups:'40', trios:'175', pairs:'350'};
 var COLS=COLSETS.players;
 var _lnorm=s=>(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[&.'’]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
 function logoFor(name){ var M=window.TDC_TEAM_COLORS||{}; var t=M[_lnorm(name)]; if(!t){ var n=_lnorm(name); for(var k in M){ if(n.indexOf(k)===0||k.indexOf(n)===0){t=M[k];break;} } } return (t&&t.logo)||''; }
@@ -258,29 +266,40 @@ function buildLineups(s){ var out=[], t=(LU&&LU[s])||{};
     out.push({unit:{players:l.players,team:team}, team:team, poss:l.poss, net:l.net, off_rtg:l.off_rtg, def_rtg:l.def_rtg, efg:l.efg, tov_pct:l.tov_pct, orb_pct:l.orb_pct, ftr:l.ftr}); }); }
   return out;
 }
-function buildTrios(s){ var out=[], t=(LU&&LU[s])||{};
+// combos: prefer the full-fidelity precomputed combos.json (all units); else derive from
+// the tracked five-man lineups. size 3 = trios, 2 = pairs.
+function buildCombos(s, size){
+  var out=[], ck=(size===2?'pairs':'trios'), cb=(CB&&CB[s])||null;
+  if(cb){ for(var team in cb){ (cb[team][ck]||[]).forEach(function(c){
+    out.push({unit:{players:c.players,team:team}, team:team, poss:c.poss, net:c.net, units:c.units}); }); }
+    return out; }
+  var t=(LU&&LU[s])||{};
   for(var team in t){ var agg={};
-    (t[team]||[]).forEach(function(l){ var ps=l.players.slice().sort();
-      for(var i=0;i<ps.length;i++) for(var j=i+1;j<ps.length;j++) for(var k=j+1;k<ps.length;k++){
-        var key=ps[i]+'|'+ps[j]+'|'+ps[k];
-        var a=agg[key]||(agg[key]={names:[ps[i],ps[j],ps[k]], poss:0, wnet:0, units:0});
-        a.poss+=l.poss; a.wnet+=l.poss*l.net; a.units++;
-      }
+    (t[team]||[]).forEach(function(l){ var ps=l.players.slice().sort(), idx=[];
+      if(size===2){ for(var i=0;i<ps.length;i++)for(var j=i+1;j<ps.length;j++) idx.push([ps[i],ps[j]]); }
+      else { for(var i=0;i<ps.length;i++)for(var j=i+1;j<ps.length;j++)for(var k=j+1;k<ps.length;k++) idx.push([ps[i],ps[j],ps[k]]); }
+      idx.forEach(function(names){ var key=names.join('|');
+        var a=agg[key]||(agg[key]={names:names, poss:0, wnet:0, units:0}); a.poss+=l.poss; a.wnet+=l.poss*l.net; a.units++; });
     });
     for(var key in agg){ var a=agg[key];
       out.push({unit:{players:a.names,team:team}, team:team, poss:Math.round(a.poss), net:Math.round(a.wnet/Math.max(1,a.poss)*10)/10, units:a.units}); }
   }
   return out;
 }
+function buildTrios(s){ return buildCombos(s,3); }
+function buildPairs(s){ return buildCombos(s,2); }
 function rebuildMinOpts(){ document.getElementById('minPoss').innerHTML=POSSOPTS[MODE].map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===DEFMIN[MODE]?' selected':'')+'>'+o[1]+'</option>'; }).join(''); }
 function applyMode(){
   COLS=COLSETS[MODE]; sortKey=DEFSORT[MODE]; sortAsc=false; rebuildMinOpts();
   var s=document.getElementById('seasonSel').value;
   if(MODE==='players'){ loadSeason(s); head(); render(); return; }
-  var go=function(){ ROWS=(MODE==='lineups')?buildLineups(s):buildTrios(s); head(); render(); };
-  if(LU){ go(); }
-  else { document.getElementById('empty').style.display='block'; document.getElementById('empty').textContent='Loading lineups…'; document.getElementById('tbody').innerHTML='';
-    fetch('scripts/data/lineups.json').then(function(r){ return r.ok?r.json():{}; }).then(function(j){ LU=j||{}; go(); }).catch(function(){ LU={}; go(); }); }
+  var go=function(){ ROWS=(MODE==='lineups')?buildLineups(s):(MODE==='pairs')?buildPairs(s):buildTrios(s); head(); render(); };
+  var todo=[];
+  if(!LU) todo.push(fetch('scripts/data/lineups.json').then(function(r){return r.ok?r.json():{};}).then(function(j){LU=j||{};}).catch(function(){LU={};}));
+  if(CB===null && (MODE==='trios'||MODE==='pairs')) todo.push(fetch('scripts/data/combos.json').then(function(r){return r.ok?r.json():{};}).then(function(j){CB=j||{};}).catch(function(){CB={};}));
+  if(!todo.length){ go(); return; }
+  document.getElementById('empty').style.display='block'; document.getElementById('empty').textContent='Loading…'; document.getElementById('tbody').innerHTML='';
+  Promise.all(todo).then(go);
 }
 function switchMode(m){ if(m===MODE) return; MODE=m;
   [].forEach.call(document.querySelectorAll('.modebtn'),function(b){ b.classList.toggle('on',b.getAttribute('data-m')===m); });
