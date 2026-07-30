@@ -31,9 +31,9 @@
      DESIGN TOKENS
   ============================================================ */
   :root {
-    /* centered content column — keeps the page from stretching edge-to-edge on
-       wide monitors (nav/hero backgrounds stay full-bleed; their content centers) */
-    --shell: 1600px;
+    /* content column width. 100% = full-bleed (spans the whole page, matching the
+       nav/header bands); set a px value (e.g. 1600px) to center with side margins. */
+    --shell: 100%;
     --bg: #FAF9F6;
     --bg2: #F1EFEA;
     --bg3: #E6E3DB;
@@ -1229,7 +1229,7 @@
   .sc-net{font-family:'Playfair Display',serif;font-weight:800;font-size:27px;color:var(--accent);line-height:1;}
   .sc-netlbl{font-size:9px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--text3);margin-top:1px;}
   .sc-meta{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;font-weight:700;color:var(--text2);}
-  .sc-players{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;}
+  .sc-players{display:grid;grid-template-columns:repeat(8,1fr);gap:12px;}
   .sc-empty{grid-column:1/-1;padding:26px 22px;text-align:center;color:var(--text3);font-size:13px;line-height:1.5;border:1px dashed var(--border);border-radius:16px;background:var(--bg2);}
   .sc-player{display:flex;flex-direction:column;align-items:center;border:1px solid var(--border);border-radius:16px;padding:18px 10px 14px;background:var(--bg2);text-decoration:none;color:inherit;box-shadow:0 1px 2px rgba(20,16,31,.05);transition:transform .2s cubic-bezier(.34,1.4,.64,1),box-shadow .22s,border-color .2s;}
   .sc-player:hover{transform:translateY(-4px);box-shadow:0 16px 34px rgba(24,20,14,.18);border-color:var(--accent);}
@@ -1240,7 +1240,7 @@
   .sc-badge.sc-g99{background:linear-gradient(135deg,#e6bf58,#c99a2e);color:#3a2a06;}
   .sc-pname{font-weight:700;font-size:13.5px;margin-top:2px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .sc-pteam{font-size:11px;color:var(--text3);font-weight:600;margin-top:1px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  @media(max-width:980px){.sc-players{grid-template-columns:repeat(3,1fr);}}
+  @media(max-width:1200px){.sc-players{grid-template-columns:repeat(4,1fr);}}
   @media(max-width:760px){.sc-teams{grid-template-columns:repeat(2,1fr);}}
   @media(max-width:600px){.showcase{padding-left:16px;padding-right:16px;}.sc-players{grid-template-columns:repeat(2,1fr);}}
 </style>
@@ -1554,7 +1554,7 @@ async function renderShowcase(){
     const base = qual.length>=6 ? qual : pool;
     let ps=[], emptyMsg='';
     if(confFilter){
-      ps = base.filter(p=>schoolConf(p.school)===confFilter).slice(0,6);
+      ps = base.filter(p=>schoolConf(p.school)===confFilter).slice(0,8);
       if(!ps.length){
         // No players resolve to this conference — show an honest empty-state rather than
         // silently headlining top-overall players from other leagues (the old MVC bug).
@@ -1563,7 +1563,7 @@ async function renderShowcase(){
           : `No ${confName||'conference'} players in the top-grade pool for ${yLbl}.`;
       }
     } else {
-      ps = base.slice(0,6);
+      ps = base.slice(0,8);
     }
     if(emptyMsg){
       document.getElementById('scPlayers').innerHTML=`<div class="sc-empty">${emptyMsg}</div>`;
