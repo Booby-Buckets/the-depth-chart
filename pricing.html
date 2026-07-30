@@ -32,7 +32,7 @@
     .page-sub{font-size:15px;color:var(--text3);margin-bottom:48px;max-width:500px;line-height:1.6;}
 
     /* PLAN CARDS */
-    .plans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;margin-bottom:56px;align-items:start;}
+    .plans{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-bottom:56px;align-items:start;}
     .plan{border:1px solid var(--border);padding:28px 26px;position:relative;}
     .plan.featured{border:2px solid var(--accent);}
     .plan.top{border:2px solid var(--text);}
@@ -119,8 +119,11 @@
     .footer-logo span{color:var(--accent);}
     .footer-meta{font-size:11px;font-weight:600;color:var(--text3);}
 
-    @media(max-width:920px){
-      .plans{grid-template-columns:1fr;max-width:460px;margin-left:auto;margin-right:auto;}
+    @media(max-width:1120px){
+      .plans{grid-template-columns:repeat(2,minmax(0,1fr));max-width:680px;margin-left:auto;margin-right:auto;}
+    }
+    @media(max-width:560px){
+      .plans{grid-template-columns:1fr;max-width:460px;}
     }
     @media(max-width:700px){
       .page{padding:40px 20px;}
@@ -244,6 +247,22 @@ body{background:transparent!important;}
       </ul>
       <button class="plan-btn paid" onclick="startCheckout('pro_monthly')">Get Pro</button>
     </div>
+    <div class="plan coach">
+      <div class="plan-badge" style="background:var(--accent);color:#221c08;">For Staffs</div>
+      <div class="plan-name">⬡ Coach's Tier</div>
+      <!-- PLACEHOLDER PRICE — set your real Coach's Tier price here and paste the matching Stripe links in LINKS below -->
+      <div class="plan-price">$29.99<span>/month</span></div>
+      <div class="plan-price-alt">or $299/year — save $60</div>
+      <div class="plan-divider"></div>
+      <ul class="plan-features">
+        <li>Opponent scouting reports</li>
+        <li>Self-scout &amp; tendencies</li>
+        <li>Personnel intelligence &amp; fit</li>
+        <li>Predictive player identifiers</li>
+        <li>Game-plan war room — 4 hubs</li>
+      </ul>
+      <button class="plan-btn paid" onclick="startCheckout('coach_monthly')">Get Coach's Tier</button>
+    </div>
   </div>
 
   <!-- AUTH SECTION -->
@@ -348,6 +367,10 @@ body{background:transparent!important;}
         <div id="upProRow" style="margin-top:8px;">
           <button class="form-btn paid" onclick="startCheckout('pro_monthly')">Pro — $8.99/month</button>
           <button class="form-btn secondary" onclick="startCheckout('pro_yearly')" style="margin-top:8px;">Pro — $89/year (save $18)</button>
+        </div>
+        <div id="upCoachRow" style="margin-top:8px;">
+          <button class="form-btn paid" onclick="startCheckout('coach_monthly')">⬡ Coach's Tier — $29.99/month</button>
+          <button class="form-btn secondary" onclick="startCheckout('coach_yearly')" style="margin-top:8px;">Coach's Tier — $299/year (save $60)</button>
         </div>
       </div>
       <button class="form-btn secondary" onclick="handleSignOut()" style="margin-top:10px;">Sign Out</button>
@@ -665,13 +688,15 @@ function startCheckout(plan){
   // Stripe Payment Links. Create the two Pro links in your Stripe dashboard
   // ($8.99/mo and $89/yr) and paste their URLs below to activate the Pro tier.
   const LINKS = {
-    monthly:     'https://buy.stripe.com/8x25kF67o36U0ticUn33W00',
-    yearly:      'https://buy.stripe.com/14AdRbeDUgXKcc0g6z33W01',
-    pro_monthly: '',   // TODO: paste Stripe Payment Link for Pro $8.99/month
-    pro_yearly:  '',   // TODO: paste Stripe Payment Link for Pro $89/year
+    monthly:       'https://buy.stripe.com/8x25kF67o36U0ticUn33W00',
+    yearly:        'https://buy.stripe.com/14AdRbeDUgXKcc0g6z33W01',
+    pro_monthly:   '',   // TODO: paste Stripe Payment Link for Pro $8.99/month
+    pro_yearly:    '',   // TODO: paste Stripe Payment Link for Pro $89/year
+    coach_monthly: '',   // TODO: paste Stripe Payment Link for Coach's Tier (monthly)
+    coach_yearly:  '',   // TODO: paste Stripe Payment Link for Coach's Tier (yearly)
   };
   const url = LINKS[plan];
-  if(!url){ alert('Pro checkout isn\'t live yet — the Stripe payment link still needs to be added.'); return; }
+  if(!url){ alert('This plan\'s checkout isn\'t live yet — its Stripe payment link still needs to be added.'); return; }
   location.href = url + '?prefilled_email=' + encodeURIComponent(currentUser.email);
 }
 
