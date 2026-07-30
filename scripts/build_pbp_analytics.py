@@ -18,6 +18,7 @@ Usage:
 """
 import json, re, os, time, argparse
 from collections import defaultdict
+from itertools import combinations
 
 from build_onoff import (http, norm, scoreboard, match_our_game, our_games_on,
                          sb_get, PROXY, season_dates, _minf, r1)
@@ -372,6 +373,38 @@ def run(season, limit=0, verbose=False):
     return _write(season, team, anet, bnet, players, units, name, matched, processed, failed, verbose)
 
 
+# FULL-FIDELITY trios/pairs: aggregate every k-man subset over the COMPLETE set of
+# five-man units (not just the top-12 lineups the client used to derive from). A trio's
+# stats = the sum over every five-man unit it appeared in — exact possessions/net, since
+# the units are mutually-exclusive possession windows.
+def _combos(us, nm, size, minposs):
+    agg = {}
+    for unit, l in us.items():
+        poss = l["fga"] - l["oreb"] + l["tov"] + 0.44 * l["fta"]
+        if poss <= 0 or len(unit) < size: continue
+        for combo in combinations(sorted(unit), size):
+            a = agg.get(combo)
+            if a is None:
+                a = agg[combo] = {"poss": 0.0, "oPts": 0, "dPts": 0, "fga": 0, "fgm": 0,
+                                  "fg3m": 0, "tov": 0, "fta": 0, "oreb": 0, "opp_dreb": 0, "units": 0}
+            a["poss"] += poss; a["units"] += 1
+            for k in ("oPts", "dPts", "fga", "fgm", "fg3m", "tov", "fta", "oreb", "opp_dreb"):
+                a[k] += l[k]
+    rows = []
+    for combo, a in agg.items():
+        p = a["poss"]
+        if p < minposs: continue
+        efg = 100 * (a["fgm"] + 0.5 * a["fg3m"]) / a["fga"] if a["fga"] else None
+        rows.append({
+            "players": [nm(e) for e in combo], "poss": round(p), "units": a["units"],
+            "off_rtg": r1(100 * a["oPts"] / p), "def_rtg": r1(100 * a["dPts"] / p),
+            "net": r1(100 * (a["oPts"] - a["dPts"]) / p), "efg": r1(efg),
+            "tov_pct": r1(100 * a["tov"] / p),
+            "orb_pct": r1(100 * a["oreb"] / (a["oreb"] + a["opp_dreb"])) if (a["oreb"] + a["opp_dreb"]) else None,
+        })
+    rows.sort(key=lambda r: -r["poss"])
+    return rows
+
 def _write(season, team, anet, bnet, players, units, name,
            matched=0, processed=0, failed=None, verbose=False):
     nm = lambda e: name.get(e, e)
@@ -411,8 +444,15 @@ def _write(season, team, anet, bnet, players, units, name,
         rows.sort(key=lambda r: -r["poss"])
         if rows: out_lu[tn] = rows[:12]
 
+    # full-fidelity trios + pairs (aggregated over ALL units, not the top-12)
+    out_combos = {}
+    for tn, us in units.items():
+        trios = _combos(us, nm, 3, 90)[:16]
+        pairs = _combos(us, nm, 2, 180)[:16]
+        if trios or pairs: out_combos[tn] = {"trios": trios, "pairs": pairs}
+
     os.makedirs(DATADIR, exist_ok=True)
-    for fn, key, data in (("team_pbp.json", "team", out_team), ("lineups.json", "lineups", out_lu)):
+    for fn, key, data in (("team_pbp.json", "team", out_team), ("lineups.json", "lineups", out_lu), ("combos.json", "combos", out_combos)):
         path = os.path.join(DATADIR, fn)
         blob = {}
         try:
