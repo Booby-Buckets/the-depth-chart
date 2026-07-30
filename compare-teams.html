@@ -3,6 +3,7 @@
 <head>
   <script src="auth.js?v=paywall4"></script>
   <script src="tdc-projgrade.js?v=20"></script>
+  <script src="tdc-lineups.js?v=3"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -69,6 +70,19 @@
     .mb-pos{display:block;font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--text2);}
     .mb-edge{display:block;font-size:9.5px;font-weight:700;color:var(--accent);margin-top:1px;font-variant-numeric:tabular-nums;}
     .mb-tally{text-align:center;font-size:12.5px;color:var(--text2);padding:11px 16px;border-top:1px solid var(--border);background:var(--bg2);}
+    /* Keys to the matchup (edges digest) */
+    .edges-grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);border-bottom:none;}
+    .edges-col{padding:14px 18px;}
+    .edges-col.right{border-left:1px solid var(--border);text-align:right;}
+    .edges-team{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;}
+    .edge-chip{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--border);}
+    .edges-col.right .edge-chip{flex-direction:row-reverse;}
+    .edge-label{font-size:13px;font-weight:700;color:var(--text2);}
+    .edge-mag{font-size:11px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap;}
+    .edge-none{font-size:12px;color:var(--text3);padding:8px 0;border-top:1px solid var(--border);}
+    /* Units on the floor */
+    .units-block{border:1px solid var(--border);padding:2px 18px 18px;}
+    .units-team-h{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;padding:12px 0 2px 12px;}
     .dna-mu-h{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);} .dna-mu-h span{font-weight:500;letter-spacing:.02em;text-transform:none;}
     .dna-mu-big{font-family:'Playfair Display',serif;font-size:15px;font-weight:600;margin-top:6px;} .dna-mu-big b{font-size:24px;}
     .dna-mu-p{font-size:11.5px;color:var(--text3);margin-top:6px;line-height:1.5;max-width:560px;margin-left:auto;margin-right:auto;}
@@ -368,6 +382,55 @@ function battleSection(st1,st2,c1,c2,n1,n2){
   return `<div class="compare-section-head">Position Matchups <span style="font-weight:500;color:var(--text3);font-size:11px;">projected starter at each spot · OVR edge</span></div>
     <div class="mb-wrap">${rows}<div class="mb-tally">${lead}</div></div>`;
 }
+// ── Keys to the Matchup: distill the biggest edges each team holds ──
+function _starterAvg(st){ const g=st.map(p=>parseFloat(p.tdc_grade)).filter(v=>!isNaN(v)); return g.length?g.reduce((a,b)=>a+b,0)/g.length:null; }
+function edgesSection(d1,d2,s1,s2,n1,n2,c1,c2){
+  const same = !!(d1&&d2&&d1.season===d2.season);
+  const a=d1?d1.t:{}, b=d2?d2.t:{};
+  const E=[];
+  // add(v1,v2,scale,label,higherBetter,unit): strength normalizes magnitudes so
+  // a 4-pt ORtg gap and a 2-pt eFG gap are comparable when ranking edges.
+  const add=(v1,v2,scale,label,higher,unit,dec)=>{
+    if(v1==null||v2==null||isNaN(+v1)||isNaN(+v2)) return;
+    const raw=(+v1)-(+v2), mag=Math.abs(raw); if(mag<0.15) return;
+    const side=((higher?1:-1)*raw)>=0?1:2;
+    E.push({side,label,strength:mag/scale,txt:'+'+mag.toFixed(dec==null?1:dec)+' '+unit});
+  };
+  if(same){
+    add(_dO(a),_dO(b),3,'Offense',true,'ORtg');
+    add(_dD(a),_dD(b),3,'Defense',false,'DRtg');
+    add(a.oeFG,b.oeFG,2,'Shooting',true,'eFG%');
+    add(a.oORB,b.oORB,3,'Off. glass',true,'ORB%');
+    add(a.dTOV,b.dTOV,2.5,'Ball pressure',true,'forced TO%');
+    add(a.oTOV,b.oTOV,2.5,'Ball security',false,'TO%');
+  }
+  add(_starterAvg(s1),_starterAvg(s2),2,'Starter talent',true,'avg OVR');
+  if(!E.length) return '';
+  const col=(side,name,color,right)=>{
+    const mine=E.filter(e=>e.side===side).sort((x,y)=>y.strength-x.strength).slice(0,4);
+    const chips = mine.length
+      ? mine.map(e=>`<div class="edge-chip"><span class="edge-label">${e.label}</span><span class="edge-mag">${e.txt}</span></div>`).join('')
+      : '<div class="edge-none">No clear statistical edge.</div>';
+    return `<div class="edges-col${right?' right':''}"><div class="edges-team" style="color:${color};">${name}</div>${chips}</div>`;
+  };
+  const note = same ? '' : ' <span style="font-weight:500;color:var(--text3);font-size:11px;">· talent only (no shared DNA season)</span>';
+  return `<div class="compare-section-head">Keys to the Matchup <span style="font-weight:500;color:var(--text3);font-size:11px;">where each team holds the advantage</span>${note}</div>
+    <div class="edges-grid">${col(1,n1,c1,false)}${col(2,n2,c2,true)}</div>`;
+}
+// ── Units on the Floor: each team's real on/off lineups (async, appended) ──
+function fillUnits(d1,d2,n1,n2,c1,c2){
+  if(!window.TDC_LINEUPS) return;
+  const el=document.getElementById('unitsClash'); if(!el) return;
+  const f1=(d1&&d1.key)||n1, f2=(d2&&d2.key)||n2, opt={maxLineups:5,maxTrios:5,maxPairs:5};
+  Promise.all([TDC_LINEUPS.section(f1,2026,opt),TDC_LINEUPS.section(f2,2026,opt)]).then(([h1,h2])=>{
+    if(!h1&&!h2){ el.innerHTML=''; return; }
+    el.innerHTML=`<div class="compare-section-head">Units on the Floor <span style="font-weight:500;color:var(--text3);font-size:11px;">2025-26 · the lineups each team actually plays</span></div>
+      <div class="units-block">
+        ${h1?`<div class="units-team-h" style="color:${c1};border-left:3px solid ${c1};">${n1}</div>${h1}`:''}
+        ${h2?`<div class="units-team-h" style="color:${c2};border-left:3px solid ${c2};margin-top:22px;">${n2}</div>${h2}`:''}
+      </div>`;
+  }).catch(()=>{});
+}
 function renderComparison(){
   const n1=document.getElementById('team1sel').value;
   const n2=document.getElementById('team2sel').value;
@@ -404,9 +467,13 @@ function renderComparison(){
       </div>
     </div>
 
+    ${edgesSection(d1,d2,starters1,starters2,n1,n2,c1,c2)}
+
     ${dnaStatSection(d1,d2,n1,n2)}
 
     ${battleSection(starters1,starters2,c1,c2,t1.name,t2.name)}
+
+    <div id="unitsClash"></div>
 
     <div class="compare-section-head">Roster Grades</div>
     ${gradeRow('Coach Grade', t1.coach_grade, t2.coach_grade)}
@@ -445,6 +512,8 @@ function renderComparison(){
         </div>`).join('')}
       </div>
     </div>`;
+
+  fillUnits(d1,d2,n1,n2,c1,c2);
 }
 
 function toggleTheme(){
