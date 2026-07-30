@@ -275,9 +275,12 @@
   // demonstrated minutes already price it in. Freshmen / low-baseline players are exempt
   // (they legitimately ramp via the depth model). Younger players get a larger allowance —
   // a rising sophomore has more role to gain than a graduate on his last go-round.
-  var STEP_K = 0.42, ANCHOR_MIN_MPG = 12, ANCHOR_MIN_GP = 8;
-  function _jumpBase(yr){ var y = ('' + (yr || '')).toLowerCase();
-    if(/fr/.test(y)) return 9; if(/so/.test(y)) return 8; if(/jr/.test(y)) return 7; return 6; }
+  var STEP_K = 0.42, ANCHOR_MIN_MPG = 12, ANCHOR_MIN_GP = 8, MIN_CEIL = 36;
+  // Fraction of the gap between demonstrated MPG and the realistic heavy-starter ceiling
+  // a player realizes — younger = more breakout room. Additive "+8 to a 29-mpg starter"
+  // overshot to 37; this makes the added minutes SHRINK as you approach the ceiling.
+  function _headroomFrac(yr){ var y = ('' + (yr || '')).toLowerCase();
+    if(/fr/.test(y)) return 0.62; if(/so/.test(y)) return 0.55; if(/jr/.test(y)) return 0.48; return 0.42; }
   function projectMinutesByDepth(roster, mq){
     var n = roster.length;
     var q = mq.map(function(x){ return x == null ? 45 : x; });
@@ -316,13 +319,16 @@
       cap[i] = Infinity;
       var p = roster[i], demo = parseFloat(p && p.mpg), gp = parseFloat(p && p.gp);
       if(isFinite(demo) && demo >= ANCHOR_MIN_MPG && (!isFinite(gp) || gp >= ANCHOR_MIN_GP)){
-        var jump = _jumpBase(p.yr || p.class_year);
+        // realize a fraction of the headroom to the ceiling — added minutes shrink as demo
+        // rises, so a 29.5-mpg starter nudges to ~33, not 37; a workhorse already at/over the
+        // ceiling just holds his minutes.
+        var grow = Math.max(0, MIN_CEIL - demo) * _headroomFrac(p.yr || p.class_year);
         var oc = _originConf(p), dc = _confOf(p.team);   // origin (transfer school) vs destination league
         if(_LV && _LV.conf_strength && oc && dc){
           var up = (_LV.conf_strength[dc] || 0) - (_LV.conf_strength[oc] || 0);
-          jump -= STEP_K * up;                            // up>0 (step up) shrinks; up<0 (step down) grows
+          if(up > 0) grow -= STEP_K * up;                 // a step UP in competition costs minutes
         }
-        cap[i] = demo + Math.max(0, Math.min(12, jump));  // never below demonstrated; sane ceiling on growth
+        cap[i] = demo + Math.max(-2, grow);               // slight drop allowed for an extreme step-up
       }
     }
     for(var it2 = 0; it2 < 6; it2++){
@@ -422,7 +428,7 @@
 
   // Role-aware grade coupling v2 (movers only; resolves before the roster fetch).
   try{
-    fetch('scripts/data/player_coupled_grades.json?v=7')
+    fetch('scripts/data/player_coupled_grades.json?v=8')
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ if(j && j.grades) setCoupled(j.grades); })
       .catch(function(){});
