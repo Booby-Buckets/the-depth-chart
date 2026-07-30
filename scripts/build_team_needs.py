@@ -60,6 +60,14 @@ except Exception: _DEV = {}
 try:
     _BR = (json.load(open(os.path.join(D,"projgrade_bridge.json"))) or {}).get("b",1.174)
 except Exception: _BR = 1.174
+try:
+    _VERS = (json.load(open(os.path.join(D,"versatility_adj.json"))) or {}).get("bumps",{})
+except Exception: _VERS = {}
+def _vers_of(p):
+    e = p.get('espn_id')
+    if e is None: return 0.0
+    try: return float(_VERS.get(str(e), 0) or 0)
+    except (TypeError, ValueError): return 0.0
 def _cls_trans(yr):
     y=(yr or "").lower()
     if "fr" in y: return "so"
@@ -72,15 +80,20 @@ def grade(p):
     try: g=float(p.get('tdc_grade'))
     except (TypeError,ValueError): return None
     pid=p.get('id')
+    # base = coupled override (vers-free) OR class-dev-bumped OR freshman raw
+    base=None
     if pid is not None and str(pid) in _COUPLED:
-        try: return float(_COUPLED[str(pid)])
-        except (TypeError,ValueError): pass
-    try: mpg=float(p.get('mpg') or 0)
-    except (TypeError,ValueError): mpg=0
-    if mpg<=0: return g                      # freshman / no prior role → demonstrated (already a projection)
-    trans=_cls_trans(p.get('class_year') or p.get('yr'))
-    devbpm=(_DEV.get(trans,{}) or {}).get(_qtier(g),0) if trans else 0
-    return round(g + devbpm*_BR)
+        try: base=float(_COUPLED[str(pid)])
+        except (TypeError,ValueError): base=None
+    if base is None:
+        try: mpg=float(p.get('mpg') or 0)
+        except (TypeError,ValueError): mpg=0
+        if mpg<=0: base=g                    # freshman / no prior role → demonstrated (already a projection)
+        else:
+            trans=_cls_trans(p.get('class_year') or p.get('yr'))
+            devbpm=(_DEV.get(trans,{}) or {}).get(_qtier(g),0) if trans else 0
+            base=g + devbpm*_BR
+    return round(base + _vers_of(p))         # + versatility bump, on top (matches the live display)
 
 def main():
     print("fetching players (projected rosters)…")
