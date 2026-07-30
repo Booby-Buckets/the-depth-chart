@@ -55,6 +55,20 @@
     .compare-cell.winner{font-weight:800;}
     .compare-section-head{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:10px 20px;background:var(--bg2);border:1px solid var(--border);border-bottom:none;margin-top:16px;}
     .dna-matchup{border:1px solid var(--border);border-bottom:none;background:linear-gradient(180deg,var(--bg2),var(--bg));padding:18px 20px;text-align:center;}
+    /* Position matchups */
+    .mb-wrap{border:1px solid var(--border);border-bottom:none;background:var(--bg);}
+    .mb-row{display:grid;grid-template-columns:1fr 78px 1fr;align-items:center;border-top:1px solid var(--border);}
+    .mb-row:first-child{border-top:none;}
+    .mb-side{display:flex;align-items:center;gap:9px;padding:10px 16px;min-width:0;}
+    .mb-side.r{justify-content:flex-end;}
+    .mb-nm{font-size:13px;font-weight:600;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .mb-nm.w{font-weight:800;color:var(--text);}
+    .mb-ov{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;color:var(--text3);flex-shrink:0;font-variant-numeric:tabular-nums;}
+    .mb-ov.w{font-size:19px;}
+    .mb-slot{text-align:center;padding:8px 0;background:var(--bg2);border-left:1px solid var(--border);border-right:1px solid var(--border);}
+    .mb-pos{display:block;font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--text2);}
+    .mb-edge{display:block;font-size:9.5px;font-weight:700;color:var(--accent);margin-top:1px;font-variant-numeric:tabular-nums;}
+    .mb-tally{text-align:center;font-size:12.5px;color:var(--text2);padding:11px 16px;border-top:1px solid var(--border);background:var(--bg2);}
     .dna-mu-h{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);} .dna-mu-h span{font-weight:500;letter-spacing:.02em;text-transform:none;}
     .dna-mu-big{font-family:'Playfair Display',serif;font-size:15px;font-weight:600;margin-top:6px;} .dna-mu-big b{font-size:24px;}
     .dna-mu-p{font-size:11.5px;color:var(--text3);margin-top:6px;line-height:1.5;max-width:560px;margin-left:auto;margin-right:auto;}
@@ -202,7 +216,7 @@ async function load(){
       await TDCProjGrade.ready;
       allPlayers.forEach(p=>{
         if(p._baseGrade==null) p._baseGrade=p.tdc_grade;
-        if(parseFloat(p.mpg)>0){ const g=TDCProjGrade.gradeSolo({id:p.id, tdc_grade:p._baseGrade, yr:p.yr||p.class_year});
+        if(parseFloat(p.mpg)>0){ const g=TDCProjGrade.gradeSolo({id:p.id, espn_id:p.espn_id, tdc_grade:p._baseGrade, yr:p.yr||p.class_year});
           if(g!=null&&!isNaN(g)) p.tdc_grade=''+g; }
       });
     }
@@ -323,6 +337,37 @@ function dnaStatSection(d1,d2,n1,n2){
     ${statRow('Def. Rebound %', a.dDRB, b.dDRB, true)}`;
 }
 
+// ── Position matchups: slot each team's 5 starters into PG/SG/SF/PF/C and pair them ──
+function _htIn(h){ const m=/(\d+)\D+(\d+)/.exec(h||''); return m?(+m[1]*12 + +m[2]):78; }
+function slotStarters(st){
+  const SLOTS=['PG','SG','SF','PF','C'];
+  const slotOf=(pos,ht)=>{ const p=(pos||'').toUpperCase().replace(/[^A-Z]/g,'');
+    if(p==='PG')return 'PG'; if(p==='SG'||p==='CG')return 'SG'; if(p==='SF'||p==='GF')return 'SF';
+    if(p==='PF')return 'PF'; if(p==='C'||p==='FC'||p==='CF')return 'C';
+    if(p==='G')return ht<=74?'PG':'SG'; if(p==='F')return ht>=80?'PF':'SF';
+    return ht<=73?'PG':ht<=77?'SG':ht<=80?'SF':ht<=83?'PF':'C'; };
+  const ranked=st.map(p=>({p, s:slotOf(p.position,_htIn(p.height)), g:parseFloat(p.tdc_grade)||0})).sort((a,b)=>b.g-a.g);
+  const res={};
+  ranked.forEach(x=>{ let slot=x.s;
+    if(res[slot]){ const open=SLOTS.filter(o=>!res[o]).sort((a,b)=>Math.abs(SLOTS.indexOf(a)-SLOTS.indexOf(x.s))-Math.abs(SLOTS.indexOf(b)-SLOTS.indexOf(x.s))); slot=open[0]; }
+    if(slot) res[slot]=x.p; });
+  return SLOTS.map(s=>({slot:s, p:res[s]||null}));
+}
+function battleSection(st1,st2,c1,c2,n1,n2){
+  const A=slotStarters(st1), B=slotStarters(st2); let w1=0,w2=0;
+  const rows=A.map((x,i)=>{ const p1=x.p,p2=B[i].p;
+    const g1=p1?parseFloat(p1.tdc_grade)||0:0, g2=p2?parseFloat(p2.tdc_grade)||0:0, e=g1-g2;
+    if(g1&&g2){ if(e>0)w1++; else if(e<0)w2++; }
+    const win1=e>0, win2=e<0;
+    return `<div class="mb-row">
+      <div class="mb-side">${p1?`<span class="mb-nm${win1?' w':''}">${p1.name}</span><span class="mb-ov${win1?' w':''}" ${win1?`style="color:${c1}"`:''}>${p1.tdc_grade||'—'}</span>`:'<span class="mb-nm" style="color:var(--text3)">—</span>'}</div>
+      <div class="mb-slot"><span class="mb-pos">${x.slot}</span>${(g1&&g2&&e!==0)?`<span class="mb-edge">${e>0?'◀':'▶'} ${Math.abs(e)}</span>`:'<span class="mb-edge" style="color:var(--text3)">even</span>'}</div>
+      <div class="mb-side r">${p2?`<span class="mb-ov${win2?' w':''}" ${win2?`style="color:${c2}"`:''}>${p2.tdc_grade||'—'}</span><span class="mb-nm${win2?' w':''}">${p2.name}</span>`:'<span class="mb-nm" style="color:var(--text3)">—</span>'}</div>
+    </div>`; }).join('');
+  const lead = w1>w2?`<b style="color:${c1}">${n1}</b> takes ${w1} of 5 spots` : w2>w1?`<b style="color:${c2}">${n2}</b> takes ${w2} of 5 spots` : `Dead even — ${w1}-${w2} across the five spots`;
+  return `<div class="compare-section-head">Position Matchups <span style="font-weight:500;color:var(--text3);font-size:11px;">projected starter at each spot · OVR edge</span></div>
+    <div class="mb-wrap">${rows}<div class="mb-tally">${lead}</div></div>`;
+}
 function renderComparison(){
   const n1=document.getElementById('team1sel').value;
   const n2=document.getElementById('team2sel').value;
@@ -360,6 +405,8 @@ function renderComparison(){
     </div>
 
     ${dnaStatSection(d1,d2,n1,n2)}
+
+    ${battleSection(starters1,starters2,c1,c2,t1.name,t2.name)}
 
     <div class="compare-section-head">Roster Grades</div>
     ${gradeRow('Coach Grade', t1.coach_grade, t2.coach_grade)}
