@@ -1901,6 +1901,21 @@ async function init(){
       teamPlayers = Array.isArray(allRows) ? allRows.filter(r=>r.name&&r.name!=='—') : [];
     }catch(e){ teamPlayers=[]; }
 
+    // ROBUSTNESS: the projection engine zeroes players flagged out for the season
+    // (is_injured, or the sheet convention hometown="Injured"/"Out") — correct for TEAM
+    // ratings, but on a player's OWN page it produces a useless all-zero line and also makes
+    // the engine mis-read "Injured" as a transfer origin. So on this page treat HIM as healthy
+    // (project his ability); flag it so the UI can note it. Team/rankings pages are unaffected.
+    const _statusOut = s => { const h=((s||'')+'').trim().toLowerCase(); return h==='injured'||h==='out'; };
+    if(player && (_statusOut(player.hometown) || player.is_injured===true)){
+      player._injuredFlag = true;
+      if(_statusOut(player.hometown)) player.hometown='';
+      player.is_injured=false;
+      const _pk=(player.name||'').toLowerCase().trim();
+      teamPlayers.forEach(p=>{ const isMe=(player.espn_id!=null&&String(p.espn_id)===String(player.espn_id))||(p.name||'').toLowerCase().trim()===_pk;
+        if(isMe){ if(_statusOut(p.hometown)) p.hometown=''; p.is_injured=false; } });
+    }
+
     // Projection model v5: the OVR comes from the whole-roster rotation model (same call as
     // the team page), so the player page, depth chart and rankings show an IDENTICAL grade.
     try{
@@ -1979,6 +1994,24 @@ async function init(){
         const singleTeam = [player];
         const singleProj = buildTeamProjections(singleTeam, conf);
         proj = singleProj[0] || null;
+      }
+      // ROBUSTNESS: the team minutes model can zero a PROVEN player who's buried in a noisy
+      // depth chart (transfers often default to depth_order 14+, so they project 0 minutes on
+      // a stacked new team) — an all-zero line is useless on his OWN page. Fallback: carry his
+      // DEMONSTRATED line forward at ~his usual minutes (top-level stats, so a sparse row with
+      // null oreb/dreb/fga doesn't break it, and no team-usage over/under-shoot). Team/rankings
+      // pages keep the honest depth-chart order.
+      if((!proj || !(parseFloat(proj.mpg)>2)) && parseFloat(player.mpg)>8 && parseFloat(player.ppg)>0){
+        const _dm=parseFloat(player.mpg)||1, _pm=Math.min(_dm*0.95, 32), _sc=_pm/_dm;   // ~usual minutes, capped
+        const _F=k=>{ const v=parseFloat(player[k]); return isFinite(v)?Math.round(v*_sc*10)/10:null; };
+        proj=Object.assign({}, player, {
+          mpg:Math.round(_pm*10)/10,
+          ppg:_F('ppg'), rpg:_F('rpg'), apg:_F('apg'), oreb:_F('oreb'), dreb:_F('dreb'),
+          stl:_F('stl'), blk:_F('blk'), tovs:_F('tovs'),
+          fgm:_F('fgm'), fga:_F('fga'), tpm:_F('tpm'), tpa:_F('tpa'), ftm:_F('ftm'), fta:_F('fta'),
+          fg_pct:player.fg_pct, tp_pct:player.tp_pct, ft_pct:player.ft_pct, _proj:true, _carryFwd:true
+        });
+        player._carryFwd=true;
       }
     }catch(projErr){
       console.warn('Projection failed:',projErr);
