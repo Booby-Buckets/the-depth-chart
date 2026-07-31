@@ -43,6 +43,7 @@ window.TDCRating = (function () {
     ]).then(function (res) {
       var e = res[0] || {}; EXP = e.expectations || {}; W = e.weights || {}; RATE = e.rate_stats || []; EFF = e.eff_stats || [];
       LQ = (e.pop && e.pop.lookq) || LQ;
+      if (e.calibration) setCalibration(e.calibration);   // pool-centered, data-driven
       var sg = res[1]; if (sg && sg.players) sg.players.forEach(function (p) { if (p.espn_id != null) SG['' + p.espn_id] = p; });
       var dna = res[2]; var tms = (dna && dna['2026'] && dna['2026'].teams) || {}; var nets = [];
       Object.keys(tms).forEach(function (f) { var v = tms[f]; var n = (v.adjNet != null ? v.adjNet : v.net);
@@ -97,7 +98,7 @@ window.TDCRating = (function () {
   // trusted projected grade — which already carries role + development. So the TDC
   // Rating = projected grade, reshaped by how unusual/valuable the player is for his
   // archetype and how his custom stats + team context read.
-  var CENTER = 0.45, K = 1.7, AMIN = -3, AMAX = 4;
+  var CENTER = 0.30, K = 3.0, AMIN = -3, AMAX = 4;   // fallback; overridden by the file's calibration
   function setCalibration(c) { if (!c) return; if (c.center != null) CENTER = c.center; if (c.k != null) K = c.k;
     if (c.archMin != null) AMIN = c.archMin; if (c.archMax != null) AMAX = c.archMax; }
 

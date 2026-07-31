@@ -57,8 +57,14 @@ def main():
         "eff_stats": ag.EFF,
         "weights": WEIGHTS,
         "pop": sg,
+        # calibration of the archetype bonus that layers on the projected grade —
+        # CENTERED on the current-pool mean composite (~0.30, from the 524-player
+        # distribution) so half get a positive bonus / half negative; K maps the spread
+        # (std ~0.33) to grade points; bounded so it reshapes without overwhelming.
+        "calibration": {"center": 0.30, "k": 3.0, "archMin": -3, "archMax": 4},
         "expectations": out_exp,
-        "notes": "expected[pos][stat] = polyval(coef, height_in); z = (actual_per40 - expected)/sd",
+        "notes": "rating = projected_grade + clamp(k*(composite-center), archMin, archMax); "
+                 "expected[pos][stat] = polyval(coef, height_in); z = (actual_per40 - expected)/sd",
     }
     path = os.path.join(D, "archetype_expectations.json")
     json.dump(payload, open(path, "w"))
