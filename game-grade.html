@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
   <script src="auth.js?v=paywall4"></script>
+  <script src="tdc-projgrade.js?v=27"></script>
+  <script src="tdc-rating.js?v=4"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -110,11 +112,11 @@ const seasonLbl=y=>y?((y-1)+'-'+String(y).slice(2)):'';
 const classInfo=y=>{const s=(''+(y||'')).toLowerCase();return s.indexOf('fr')>=0?'Fr':s.indexOf('so')>=0?'So':s.indexOf('jr')>=0?'Jr':s.indexOf('sr')>=0?'Sr':(y||'');};
 
 async function loadYear(){
-  const r=await fetch(SB+'/rest/v1/players?select=name,team,position,class_year,yr,height,tdc_grade,ppg,rpg,apg,stl,blk,fg_pct,tp_pct,mpg,gp,photo_url&tdc_grade=not.is.null&gp=gte.15&mpg=gte.14&order=name.asc',{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  const r=await fetch(SB+'/rest/v1/players?select=id,espn_id,name,team,position,class_year,yr,height,tdc_grade,ppg,rpg,apg,stl,blk,tpa,fga,fta,oreb,dreb,tovs,fg_pct,tp_pct,mpg,gp,photo_url&tdc_grade=not.is.null&gp=gte.15&mpg=gte.14&order=name.asc',{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
   return (r||[]).filter(p=>grNum(p.tdc_grade)!=null);
 }
 async function loadAll(){
-  const base=SB+'/rest/v1/player_history?select=name,team,season_year,position,yr,height,tdc_grade,ppg,rpg,apg,stl,blk,fg_pct,tp_pct,mpg,gp,photo_url&tdc_grade=not.is.null&gp=gte.18&mpg=gte.18';
+  const base=SB+'/rest/v1/player_history?select=name,team,season_year,position,yr,height,tdc_grade,ppg,rpg,apg,stl,blk,tpa,fga,fta,oreb,dreb,tovs,fg_pct,tp_pct,mpg,gp,photo_url&tdc_grade=not.is.null&gp=gte.18&mpg=gte.18';
   const cr=await fetch(base+'&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact','Range':'0-0','Range-Unit':'items'})});
   const total=+(cr.headers.get('content-range')||'0/0').split('/')[1]||0; const PG=1000, pages=Math.min(Math.ceil(total/PG),22), jobs=[];
   for(let i=0;i<pages;i++) jobs.push(fetch(base,{headers:Object.assign({},H,{'Range-Unit':'items','Range':(i*PG)+'-'+(i*PG+PG-1)})}).then(r=>r.ok?r.json():[]));
@@ -123,12 +125,30 @@ async function loadAll(){
 }
 function curPool(){ return scope==='year'?POOL_YEAR:POOL_ALL; }
 
+// The answer = the SAME canonical grade the rest of the site shows. Current players
+// (year scope) → projected OVR (gradeSolo, box-only + 99 ceiling). A historical season
+// (all scope) → that season's box-adjusted grade (per-season centered, weak-team damped).
+function _canonGrade(p){
+  if(!p) return null;
+  try{
+    if(scope==='year' && window.TDCProjGrade && TDCProjGrade.gradeSolo){
+      const g=TDCProjGrade.gradeSolo(p); if(g!=null && !isNaN(g)) return Math.round(g);
+    } else if(scope==='all' && window.TDCRating && TDCRating.boxAdjust){
+      const a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(p.season_year)||0);
+      if(a && a.grade!=null) return Math.round(a.grade);
+    }
+  }catch(e){}
+  return grNum(p.tdc_grade);
+}
+
 async function setScope(s){
   if(s===scope&&curPool()) return; scope=s;
   el('tYear').classList.toggle('on',s==='year'); el('tAll').classList.toggle('on',s==='all');
   S={score:0,rounds:0,nailed:0,missSum:0}; renderScore();
   el('content').innerHTML='<div class="loading">'+(s==='all'?'Loading 20 years of players…':'Loading players…')+'</div>';
   if(s==='year'){ if(!POOL_YEAR) POOL_YEAR=await loadYear(); } else { if(!POOL_ALL) POOL_ALL=await loadAll(); }
+  if(window.TDCProjGrade&&TDCProjGrade.ready){ try{ await TDCProjGrade.ready; }catch(e){} }
+  if(window.TDCRating&&TDCRating.ready){ try{ await TDCRating.ready; }catch(e){} }
   nextRound();
 }
 function renderScore(){ el('sScore').textContent=S.score; el('sRounds').textContent=S.rounds; el('sNailed').textContent=S.nailed; el('sAvg').textContent=S.rounds?(S.missSum/S.rounds).toFixed(1):'—'; }
@@ -136,6 +156,7 @@ function renderScore(){ el('sScore').textContent=S.score; el('sRounds').textCont
 function nextRound(){
   const pool=curPool(); if(!pool||!pool.length){ el('content').innerHTML='<div class="loading">No players available.</div>'; return; }
   TARGET=pool[Math.floor(Math.random()*pool.length)]; guessVal=75; locked=false;
+  TARGET._grade=_canonGrade(TARGET);   // canonical grade = the answer, matching the rest of the site
   const t=TARGET, ph=t.photo_url?`<img class="ph" src="${esc(t.photo_url)}" alt="" onerror="this.style.visibility='hidden'">`:`<div class="ph"></div>`;
   const meta=[t.position,classInfo(t.class_year||t.yr),(scope==='all'&&t.season_year)?seasonLbl(t.season_year):null,t.team,t.height].filter(Boolean).join(' · ');
   const st=(k,v)=>`<div class="st"><div class="v">${v}</div><div class="k">${k}</div></div>`;
@@ -155,7 +176,7 @@ function onSlide(v){ if(locked) return; guessVal=+v; el('gVal').textContent=v; }
 
 function submitGuess(){
   if(locked) return; locked=true;
-  const actual=grNum(TARGET.tdc_grade), miss=Math.abs(guessVal-actual);
+  const actual=(TARGET._grade!=null?TARGET._grade:grNum(TARGET.tdc_grade)), miss=Math.abs(guessVal-actual);
   const pts=Math.max(0,100-6*miss);
   S.score+=pts; S.rounds++; S.missSum+=miss; if(miss<=2) S.nailed++; renderScore();
   const cls=miss<=2?'g':miss<=6?'a':'r', word=miss<=2?'Nailed it!':miss<=6?'Close':miss<=12?'Not bad':'Way off';

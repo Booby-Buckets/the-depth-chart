@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
   <script src="auth.js?v=paywall4"></script>
+  <script src="tdc-projgrade.js?v=27"></script>
+  <script src="tdc-rating.js?v=4"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -129,7 +131,7 @@ let allTeams = [];
 
 async function load(){
   const [pr, tr] = await Promise.all([
-    fetch(`${SB}/rest/v1/players?select=name,team,position,tdc_grade,class_year,yr,ppg&limit=5000&order=name.asc`, {headers:H}),
+    fetch(`${SB}/rest/v1/players?select=id,espn_id,name,team,position,tdc_grade,class_year,yr,ppg&limit=5000&order=name.asc`, {headers:H}),
     fetch(`${SB}/rest/v1/teams?select=name,conf,conference&order=name.asc`, {headers:H})
   ]);
   allPlayers = await pr.json();
@@ -141,6 +143,15 @@ async function load(){
   allPlayers = allPlayers
     .filter(p => p.name && p.name !== '—')
     .map(p => ({...p, conf: (teamMap[p.team]||{}).conf || (teamMap[p.team]||{}).conference || ''}));
+
+  // Display the canonical PROJECTED OVR (gradeSolo — box-only archetype + 99 ceiling),
+  // the same number every other page shows, instead of the raw demonstrated tdc_grade.
+  if(window.TDCProjGrade && TDCProjGrade.ready){ try{ await TDCProjGrade.ready; }catch(e){} }
+  allPlayers.forEach(p => {
+    let g = null;
+    if(window.TDCProjGrade && TDCProjGrade.gradeSolo){ const v = TDCProjGrade.gradeSolo(p); if(v!=null && !isNaN(v)) g = v; }
+    p._ovr = (g!=null) ? g : (p.tdc_grade!=null ? p.tdc_grade : null);
+  });
 
   // Populate team dropdown
   const sel = document.getElementById('teamFilter');
@@ -172,7 +183,7 @@ function buildList(){
   // NUMERIC (e.g. 83) — the old GRADE_ORDER letter table never matched, so the list
   // silently fell back to pure alphabetical. Compare numerically, descending.
   filtered.sort((a,b) => {
-    const av = parseFloat(a.tdc_grade), bv = parseFloat(b.tdc_grade);
+    const av = parseFloat(a._ovr), bv = parseFloat(b._ovr);
     const an = isFinite(av)?av:-1, bn = isFinite(bv)?bv:-1;
     if(an !== bn) return bn - an;
     return (a.name||'').localeCompare(b.name||'');
@@ -185,7 +196,7 @@ function buildList(){
     // Group by grade
     let currentGrade = null;
     filtered.forEach(p => {
-      const g = p.tdc_grade || 'Ungraded';
+      const g = (p._ovr!=null ? p._ovr : 'Ungraded');
       if(g !== currentGrade){
         if(currentGrade !== null) text += '\n';
         text += `── ${g} ──\n`;
@@ -197,13 +208,13 @@ function buildList(){
     filtered.forEach(p => { text += `${p.name} | ${p.team}\n`; });
   } else if(fmt === 'numbered'){
     filtered.forEach((p,i) => {
-      const g = p.tdc_grade ? ` (${p.tdc_grade})` : '';
+      const g = p._ovr!=null ? ` (${p._ovr})` : '';
       text += `${i+1}. ${p.name} — ${p.team}${g}\n`;
     });
   } else if(fmt === 'csv'){
     text = 'Name,Team,Conference,Position,Grade\n';
     filtered.forEach(p => {
-      text += `"${p.name}","${p.team}","${p.conf}","${p.position||''}","${p.tdc_grade||''}"\n`;
+      text += `"${p.name}","${p.team}","${p.conf}","${p.position||''}","${p._ovr!=null?p._ovr:''}"\n`;
     });
   }
 

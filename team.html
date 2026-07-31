@@ -15,6 +15,7 @@
   <script src="tdc-freshman.js?v=pub4"></script>
   <script src="tdc-ratings.js?v=2"></script>
   <script src="tdc-projgrade.js?v=27"></script>
+  <script src="tdc-rating.js?v=4"></script>
   <script src="tdc-pool.js?v=1"></script>
   <script src="tdc-glossary.js?v=4"></script>
   <style>
@@ -6051,6 +6052,15 @@ async function loadHistoricRoster(yr){
   if(!_fromBbref) rows=await _reconcileRosterWithBbref(rows, yr);
   // player_history.yr is empty for older seasons — backfill class year from bbref_seasons
   await _fillClassYears(rows, yr);
+  // Box-only archetype fit for this PAST season — grade it the same way as the
+  // projection (per-season centered, weak-team dampened), so the team page's historical
+  // OVRs match the player page / rankings for every year. _gdisp reads _projGrade.
+  if(window.TDCRating && TDCRating.ready){
+    try{ await TDCRating.ready; }catch(e){}
+    if(TDCRating.boxAdjust) rows.forEach(p=>{ if(!p||p.tdc_grade==null) return;
+      try{ const a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(yr)||0);
+        if(a&&a.grade!=null) p._projGrade=Math.round(a.grade); }catch(e){} });
+  }
   renderHistoricRoster(rows, yr);
   renderSeasonLosses(rows, yr);
   computeSeasonAwards(rows, yr);

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <script src="auth.js?v=paywall4"></script>
+  <script src="tdc-rating.js?v=4"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=2"></script>
@@ -441,13 +442,27 @@ async function _ensureGenome(){
   }catch(e){}
   _genLoaded=true; return _GEN;
 }
+// Box-only archetype fit — grade every season the same box way as the rest of the site
+// (per-season centered, weak-team dampened). bbref stores per-40 as *_per_min; feed mpg=40
+// so per40(line,k)=value, and pcts are 0-1 → ×100.
+function _bbBoxGrade(r){
+  if(!window.TDCRating || !TDCRating.boxAdjust || r.tdc_grade==null) return num(r.tdc_grade);
+  var g=r.per40||{}, n=function(v){var f=parseFloat(v);return isFinite(f)?f:null;}, pct=function(v){var f=parseFloat(v);return isFinite(f)?f*100:null;};
+  var line={ position:r.pos, height:r.height, team:r.school, mpg:40,
+    ppg:n(g.pts_per_min), apg:n(g.ast_per_min), tovs:n(g.tov_per_min), stl:n(g.stl_per_min), blk:n(g.blk_per_min),
+    tpa:n(g.fg3a_per_min), fga:n(g.fga_per_min), fta:n(g.fta_per_min), oreb:n(g.orb_per_min), dreb:n(g.drb_per_min),
+    rpg:n(g.trb_per_min), fg_pct:pct(g.fg_pct), tp_pct:pct(g.fg3_pct) };
+  try{ var a=TDCRating.boxAdjust(r.tdc_grade,{position:r.pos,height:r.height},line,parseInt(r.season_year)||0);
+    if(a && a.grade!=null) return Math.round(a.grade); }catch(e){}
+  return num(r.tdc_grade);
+}
 function flatten(r){
   var pg=r.pergame||{}, p4=r.per40||{}, a=r.advanced||{};
   var ht=htIn(r.height), mp=num(a.mp), ws=num(a.ws);
   var gen=(String(r.season_year)==='2026' && r.espn_id!=null)?_GEN[r.espn_id]:null;
   return {
     name:r.player, school:r.school, espn_id:r.espn_id, pos:r.pos, ht:r.height,
-    posg:posGroup(r.pos,ht), season:r.season_year, grade:num(r.tdc_grade),
+    posg:posGroup(r.pos,ht), season:r.season_year, grade:_bbBoxGrade(r),
     gp:num(pg.games), mptot:mp, mpg:num(pg.mp_per_g),
     pts:num(pg.pts_per_g), trb:num(pg.trb_per_g), ast:num(pg.ast_per_g),
     stl:num(pg.stl_per_g), blk:num(pg.blk_per_g), tov:num(pg.tov_per_g),
@@ -483,6 +498,7 @@ function colorCls(key,v){
 async function loadSeason(key){
   if(_cache[key]) return _cache[key];
   await _ensureGenome();   // so the 2025-26 Signature stats are merged in during flatten
+  if(window.TDCRating && TDCRating.ready){ try{ await TDCRating.ready; }catch(e){} }   // box-adjust grades during flatten
   var L=document.getElementById('loadingMsg'), P=document.getElementById('progressFill');
   var base=SB+'/rest/v1/bbref_seasons?select=player,school,pos,height,season_year,tdc_grade,espn_id,pergame,per40,advanced';
 
