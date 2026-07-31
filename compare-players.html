@@ -10,6 +10,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script src="tdc-nil.js"></script>
   <script src="tdc-projgrade.js?v=27"></script>
+  <script src="tdc-rating.js?v=4"></script>
   <script src="tdc-lineups.js?v=3"></script>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=2"></script>
@@ -1215,6 +1216,23 @@ var BENCH_AXES=[
   {l:'Defense', f:function(s){return (parseFloat(s.stl)||0)+(parseFloat(s.blk)||0);}}
 ];
 
+// Canonical display grade, consistent with every other page: current players show the
+// projected OVR (gradeSolo, box-only + 99 ceiling); a specific historical season shows
+// that season's box-adjusted grade (per-season centered, weak-team dampened).
+function _cmpGrade(p){
+  if(!p) return null;
+  try{
+    if(p._isHistory){
+      if(window.TDCRating && TDCRating.boxAdjust){
+        const a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(p.season_year)||0);
+        if(a && a.grade!=null) return Math.round(a.grade);
+      }
+    } else if(window.TDCProjGrade && TDCProjGrade.gradeSolo){
+      const g=TDCProjGrade.gradeSolo(p); if(g!=null && !isNaN(g)) return g;
+    }
+  }catch(e){}
+  return p.tdc_grade!=null ? p.tdc_grade : null;
+}
 function renderPlayers(){
   destroyCharts();
   const [p1,p2]=sel.players;
@@ -1223,13 +1241,13 @@ function renderPlayers(){
   c2=distinctPair(c1,c2); // same team / lookalike brands → keep the two sides distinct
   const sec=document.getElementById('compareSection'); sec.classList.add('show');
   const sl1=_seasonLabel(p1), sl2=_seasonLabel(p2);
-  const head=(p,c,right,sl)=>`<div class="cmp-head${right?' right':''}" style="border-color:${c};${right?'border-right':'border-left'}:3px solid ${c};">
+  const head=(p,c,right,sl)=>{ const cg=_cmpGrade(p); return `<div class="cmp-head${right?' right':''}" style="border-color:${c};${right?'border-right':'border-left'}:3px solid ${c};">
       ${(l=>l?`<img class="ch-logo" src="${l}" alt="" loading="lazy">`:'')(_logoFor(p.team))}
       <div class="ch-name">${p._isHistory?p.name:`<a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}">${p.name}</a>`}</div>
       <div class="ch-sub">${p._isHistory?`<span style="color:#5b9d8f;font-weight:700;">${sl} · </span>`:''}${p.team||'—'} · ${p.position||'—'} · ${p.class_year||p.yr||'—'} · ${p.height||'—'}</div>
-      <div class="ch-grade ${gc(p.tdc_grade||'')}">${p.tdc_grade||'—'}</div>
+      <div class="ch-grade ${gc(cg||'')}">${cg!=null?cg:'—'}</div>
       <div class="ch-tags"><span class="ch-tag gold">${archetypeOf(p)}</span>${p._isHistory?'':`<span class="ch-tag">${roleOf(p)}</span>`}</div>
-    </div>`;
+    </div>`; };
   const bothCurrent=!p1._isHistory&&!p2._isHistory;
   const chem=_playerChem(p1,p2);
   const matchup=_playerMatchup(p1,p2);
