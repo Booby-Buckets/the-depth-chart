@@ -4,7 +4,8 @@
   <script src="auth.js?v=paywall4"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-freshman.js?v=pub4"></script>
-  <script src="tdc-projgrade.js?v=25"></script>
+  <script src="tdc-projgrade.js?v=27"></script>
+  <script src="tdc-rating.js?v=4"></script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Player Database — The Depth Chart</title>
@@ -489,10 +490,19 @@ async function loadSeason(yr){
   rows.forEach(p=>{ const k=p.name+'|'+p.team+'|'+p.season_year, gp=+p.gp||0;
     if(!byKey[k]||gp>(byKey[k]._gp||0)){ p._gp=gp; byKey[k]=p; } });
   const waMap = await loadWA(yr);
+  // Box-only archetype fit: grade every past season the SAME way as the projection —
+  // demonstrated grade reshaped by how unusual the player is for his height/position,
+  // re-centered on that season. Keeps the rankings consistent across all years.
+  if(window.TDCRating && TDCRating.ready){ try{ await TDCRating.ready; }catch(e){} }
+  const _boxAdj = (window.TDCRating && TDCRating.boxAdjust) ? function(p){
+    var a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(p.season_year)||0);
+    return (a&&a.grade!=null)?Math.round(a.grade):null; } : function(){ return null; };
   const mapped=Object.values(byKey).map(p=>{ const rt=resolveTeam(p.team);
     const waKey = yr==='all' ? (p.espn_id+'|'+p.season_year) : String(p.espn_id);
     const wa = p.espn_id!=null && waMap.has(waKey) ? waMap.get(waKey) : null;
-    return {...p, class_year:p.yr, _hist:true, teamData:rt.teamData, conf:rt.conf, wa}; });
+    const _adj=_boxAdj(p);
+    return {...p, class_year:p.yr, _hist:true, teamData:rt.teamData, conf:rt.conf, wa,
+            _projGrade:(_adj!=null?_adj:null)}; });
   const data = yr==='all' ? allPlayers.concat(mapped) : mapped;
   seasonCache[yr]=data;
   return data;

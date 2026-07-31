@@ -14,8 +14,8 @@
   <script src="tdc-ratings.js?v=2"></script>
   <script src="tdc-leaderboard.js?v=1"></script>
   <script src="tdc-portalfit.js?v=needs4"></script>
-  <script src="tdc-projgrade.js?v=25"></script>
-  <script src="tdc-rating.js?v=2"></script>
+  <script src="tdc-projgrade.js?v=27"></script>
+  <script src="tdc-rating.js?v=4"></script>
   <script src="tdc-pool.js?v=1"></script>
   <meta charset="UTF-8"/>
   <style>
@@ -285,6 +285,25 @@
     .tdcr-cat{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg2);}
     .tdcr-cl{font-size:12px;font-weight:600;color:var(--text2);}
     .tdcr-cv{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;font-variant-numeric:tabular-nums;}
+    /* Archetype fit — box-only, every-year contribution table */
+    .acat-tbl{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg2);}
+    .acat-hd,.acat-row{display:grid;grid-template-columns:1fr 66px 44px 60px;gap:10px;align-items:center;padding:10px 15px;}
+    .acat-hd{background:var(--bg3);font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .acat-hd span:not(:first-child),.acat-row span:not(.acat-l){text-align:right;}
+    .acat-row{border-top:1px solid var(--border);}
+    .acat-l{font-size:13px;font-weight:700;color:var(--text);}
+    .acat-l em{display:block;font-style:normal;font-size:10.5px;font-weight:500;color:var(--text3);margin-top:1px;}
+    .acat-z,.acat-w,.acat-p{font-variant-numeric:tabular-nums;font-weight:700;font-size:13px;}
+    .acat-z{font-weight:800;} .acat-w{color:var(--text3);font-weight:600;}
+    .acat-p{font-family:'Playfair Display',serif;font-size:15px;}
+    .acat-foot{display:grid;grid-template-columns:1fr 66px;gap:10px;padding:10px 15px;border-top:1px solid var(--border);}
+    .acat-foot.tot{background:color-mix(in srgb, var(--accent) 12%, var(--bg2));border-top:1px solid var(--border2);}
+    .af-l{font-size:12.5px;color:var(--text2);font-weight:700;}
+    .af-l em{font-style:normal;color:var(--text3);font-weight:500;}
+    .acat-foot.tot .af-l{color:var(--text);font-weight:800;font-size:13px;}
+    .af-v{text-align:right;font-family:'Playfair Display',serif;font-weight:800;font-variant-numeric:tabular-nums;font-size:15px;color:var(--text2);}
+    .acat-foot.tot .af-v{color:var(--text);font-size:18px;}
+    .af-v.pos{color:#5ab875;} .af-v.neg{color:#e0885a;}
     .bu-row{display:flex;align-items:baseline;justify-content:space-between;gap:14px;padding:11px 16px;border-top:1px solid var(--border);}
     .bu-row:first-child{border-top:none;}
     .bu-lbl{font-size:13px;font-weight:700;color:var(--text);}
@@ -2864,12 +2883,29 @@ function _seasonRanks(year, g, posRaw, pillars, eN, eP, ePL){
       count('&tdc_grade=gt.'+gi,function(n){ if(n!=null&&eN) eN.textContent='#'+(n+1).toLocaleString(); });
     });
 }
+// Box-only archetype fit for a HISTORICAL season, so past-season hero grades match
+// the rankings tab + the index/roster lists (every year graded the same box way).
+function _boxHistGrade(row){
+  if(!row) return null;
+  var g=parseFloat(row.tdc_grade); if(!isFinite(g)) return (row.tdc_grade!=null?row.tdc_grade:null);
+  if(window.TDCRating && TDCRating.boxAdjust){
+    try{ var pos=row.position||player.position, ht=row.height||player.height;
+      var a=TDCRating.boxAdjust(g,{position:pos,height:ht},Object.assign({},row,{position:pos,height:ht}),parseInt(row.season_year)||0);
+      if(a && a.grade!=null) return Math.round(a.grade);
+    }catch(e){}
+  }
+  return Math.round(g);
+}
+var _heroBoxReady=false;
 function _updateHeroGridForSeason(val){
   var isProj=(val==='proj'||val==null||+val>=2027);
   var row=isProj?null:_ovrSeasonRow(val);
-  // grade
-  _setHeroGrade(isProj?(_projectedGrade()||player.tdc_grade):(row&&row.tdc_grade));
-  var g=parseFloat(isProj?(_projectedGrade()||player.tdc_grade):(row&&row.tdc_grade));
+  // grade — projected already carries the box archetype (via arch_bonus); historical
+  // gets it applied here so every season is consistent.
+  _setHeroGrade(isProj?(_projectedGrade()||player.tdc_grade):_boxHistGrade(row));
+  var g=parseFloat(isProj?(_projectedGrade()||player.tdc_grade):_boxHistGrade(row));
+  // if the archetype data isn't loaded yet, re-run once it is (idempotent)
+  if(!isProj && !_heroBoxReady && window.TDCRating && TDCRating.ready){ _heroBoxReady=true; TDCRating.ready.then(function(){ _updateHeroGridForSeason(val); }); }
   // wins added
   var wa=isProj?_curSeasonWA():(row?(row.wa!=null&&row.wa!==''?parseFloat(row.wa):(row._advanced?_winsAdded(row._advanced):null)):null);
   var eWA=document.getElementById('heroWA'); if(eWA) eWA.textContent=(wa==null||isNaN(wa))?'—':((wa>0?'+':'')+(+wa).toFixed(1));
@@ -3939,7 +3975,7 @@ function renderRankings(){
     if(!_exp.coupled && Math.abs(_exp.devDelta)>=0.05)
       parts.push(_buRow('Class development','year-over-year growth curve for his class', _exp.devDelta, true, false));
     if(_exp.archetype!=null && Math.abs(_exp.archetype)>=0.05)
-      parts.push(_buRow('Archetype & context', 'how unusual/valuable he is for his height & position (vs raw production) + team context', _exp.archetype, true, false));
+      parts.push(_buRow('Archetype fit', 'how unusual he is for his height &amp; position vs raw production — graded the same box way every season (breakdown below)', _exp.archetype, true, false));
     if(_exp.gpShrink!=null && _exp.gpShrink<=-0.05)
       parts.push(_buRow('Small-sample regression', (_lastAct&&_lastAct.gp!=null?'only '+_lastAct.gp+' games last season — ':'')+'pulled toward baseline until proven over a fuller season', _exp.gpShrink, true, false));
     parts.push(_buRow('Projected 2026-27 OVR','',_exp.final,false,true));
@@ -3978,27 +4014,66 @@ function renderRankings(){
       <span class="rk-chip"><span class="rk-chip-k">Height</span>${s.height||player.height||'—'}</span>
     </div>
     ${_buildup}
+    <div id="histBuild"></div>
     <div id="tdcRatingBox"></div>
     <div class="sec-title" style="margin:24px 0 4px;">What the grade measures</div>
     <div class="rk-sub">These are the actual inputs the grade model reads from his ${_projMode?'2025-26':'season'} box score — each ranked within its own season and adjusted for conference. It doesn't use Wins Added or BPM.</div>
     <div class="rk-drivers">${rows}</div>
     <div class="rk-foot">Bars show his level vs a strong-${GRP_LBL[grp]||'player'} benchmark (plus height &amp; position, not shown). The model is trained on 20 years of these lines against hand-set grades; the projection adjustments are in the build-up above.</div>`;
   setTimeout(()=>host.querySelectorAll('.rk-fill').forEach(el=>{el.style.width=el.getAttribute('data-w')+'%';}),60);
-  // Archetype breakdown — the grade ITSELF now includes the archetype bonus (the
-  // 'Archetype & context' line in the build-up), so this shows WHY: how unusual/
-  // valuable he is for his height & position in each area (no separate number).
-  if(window.TDCRating && TDCRating.categories && _projMode){
+  // Archetype fit — the box-only, every-year-consistent breakdown. Shows exactly how
+  // each stat area moves the grade: z = how unusual he is for his height & position,
+  // × its weight × K = grade points. Summed and re-centered on the season's average
+  // rotation player = the "Archetype fit" adjustment applied to the demonstrated grade.
+  // Graded the SAME box way for every season (2013 == 2026), so it works historically.
+  if(window.TDCRating && TDCRating.boxAdjust){
     TDCRating.ready.then(function(){
       const box=document.getElementById('tdcRatingBox'); if(!box) return;
       const fullTeam=(teamData&&(teamData.full||teamData.name))||player.team;
+      const _season = _projMode ? 2026 : (parseInt(s.season_year)||(_lastAct&&parseInt(_lastAct.season_year))||2026);
       const line={...s, position:s.position||player.position, height:s.height||player.height, team:fullTeam, espn_id:player.espn_id};
-      const cats=TDCRating.categories({espn_id:player.espn_id,position:player.position,height:player.height,team:fullTeam}, line);
-      if(!cats) return;
-      const ord=['Scoring','Creation','Efficiency','Defense','Rebounding','Shooting','Impact','Versatility'];
-      const chip=(k)=>{const v=cats[k]||0,pos=v>=0;return `<div class="tdcr-cat"><span class="tdcr-cl">${k}</span><span class="tdcr-cv" style="color:${pos?'#5ab875':'#e0885a'}">${pos?'+':''}${v.toFixed(1)}</span></div>`;};
-      box.innerHTML=`<div class="sec-title" style="margin:24px 0 4px;">Archetype breakdown <span style="font-weight:500;color:var(--text3);font-size:11px;">expectation-relative + team context</span></div>
-        <div class="rk-sub">How unusual/valuable he is <b>for his height & position</b> in each area (vs raw production), blending Shot Genome shot-quality and team success — this is what drives the <b>Archetype &amp; context</b> adjustment in the grade above. Positive = above his archetype's baseline.</div>
-        <div class="tdcr-cats">${ord.map(chip).join('')}</div>`;
+      const key={position:line.position,height:line.height};
+      const cats=TDCRating.boxCategories(key, line); if(!cats) return;
+      const IN=TDCRating._internal?TDCRating._internal():{}; const W=IN.BOXW||{}, K=IN.K||3.0;
+      const AMIN=IN.AMIN!=null?IN.AMIN:-3, AMAX=IN.AMAX!=null?IN.AMAX:4;
+      const center=TDCRating.seasonCenter(_season), comp=TDCRating.boxComposite(key,line), bonus=TDCRating.boxBonus(key,line,_season);
+      const rawBonus=Math.max(AMIN,Math.min(AMAX,K*(comp-center)));
+      const damp=(TDCRating.teamDamp?TDCRating.teamDamp(rawBonus,line.team,_season):0);
+      const tz=(TDCRating.teamStrengthZ?TDCRating.teamStrengthZ(line.team,_season):0);
+      const ord=['Scoring','Creation','Efficiency','Defense','Rebounding','Shooting','Versatility'];
+      const LBL={Scoring:'Scoring',Creation:'Playmaking &amp; care',Efficiency:'Scoring efficiency',Defense:'Defense',Rebounding:'Rebounding',Shooting:'Outside shooting',Versatility:'Versatility'};
+      const SUB={Scoring:'points vs his height &amp; position',Creation:'assists vs turnovers, for his type',Efficiency:'FG% + true shooting',Defense:'steals &amp; blocks',Rebounding:'offensive &amp; defensive boards',Shooting:'3PA volume &amp; 3P%',Versatility:'strong in 2+ areas at once'};
+      const rowH=ord.map(function(k){var z=cats[k]||0,w=W[k]||0,pts=K*w*z,pz=z>=0;
+        return '<div class="acat-row"><span class="acat-l">'+LBL[k]+'<em>'+SUB[k]+'</em></span>'+
+          '<span class="acat-z" style="color:'+(pz?'#5ab875':'#e0885a')+'">'+(pz?'+':'')+z.toFixed(2)+'σ</span>'+
+          '<span class="acat-w">'+Math.round(w*100)+'%</span>'+
+          '<span class="acat-p" style="color:'+(pts>=0?'#5ab875':'#e0885a')+'">'+(pts>=0?'+':'')+pts.toFixed(2)+'</span></div>';}).join('');
+      const gross=K*comp, baseline=K*center;
+      const seasLbl=_projMode?'2026-27 rotation players':((_seasonLbl(_season)||_season)+' rotation players');
+      box.innerHTML=`<div class="sec-title" style="margin:26px 0 4px;">Archetype fit — how his stats move the grade</div>
+        <div class="rk-sub">Every counting stat is measured against what a <b>${GRP_LBL[grp]||'player'} his height</b> is expected to produce (per-40, from 20 years of history), so being unusual for his type is what's rewarded. Each area's <b>σ</b> × its weight × 3 = the grade points it adds, summed and re-centered on the average ${seasLbl}. Same box math for every season.</div>
+        <div class="acat-tbl">
+          <div class="acat-hd"><span>Area</span><span>vs type</span><span>weight</span><span>points</span></div>
+          ${rowH}
+          <div class="acat-foot"><span class="af-l">Total archetype value <em>(sum of points)</em></span><span class="af-v ${gross>=0?'pos':'neg'}">${gross>=0?'+':''}${gross.toFixed(2)}</span></div>
+          <div class="acat-foot"><span class="af-l">− Average ${seasLbl.replace(' rotation players',' baseline')}</span><span class="af-v">${baseline>=0?'+':''}${baseline.toFixed(2)}</span></div>
+          ${damp<=-0.05?`<div class="acat-foot"><span class="af-l">− Weak-team adjustment <em>${GRP_LBL[grp]||'production'} on a team ${Math.abs(tz).toFixed(1)}σ below average — discounted</em></span><span class="af-v neg">${damp.toFixed(2)}</span></div>`:''}
+          <div class="acat-foot tot"><span class="af-l">= Archetype fit ${(bonus>=AMAX-0.05||bonus<=AMIN+0.05?'(capped)':'')}</span><span class="af-v ${bonus>=0?'pos':'neg'}">${bonus>=0?'+':''}${bonus.toFixed(1)}</span></div>
+        </div>`;
+      // EVERY-YEAR: a historical/demonstrated season shows the raw trained grade; add the
+      // box archetype fit so past seasons are graded consistently with the projection.
+      if(!_projMode && !isNaN(g)){
+        const adj=Math.min(99,Math.round(g+bonus));
+        const gc=(adj>=90?'#5ab875':adj>=80?'var(--accent)':adj>=70?'var(--text)':'var(--text2)');
+        const ge=host.querySelector('.rk-grade'); if(ge){ge.textContent=adj; ge.style.color=gc;}
+        const bd=host.querySelector('#histBuild');
+        if(bd) bd.innerHTML=`<div class="sec-title" style="margin:22px 0 8px;">How the grade is built</div>
+          <div class="rk-buildup">
+            <div class="bu-row"><span class="bu-lbl">Demonstrated grade<em>${_seasonLbl(_season)||_season} · trained model on his full box-score profile</em></span><span class="bu-val">${g}</span></div>
+            <div class="bu-row"><span class="bu-lbl">Archetype fit<em>how unusual he is for his height &amp; position vs raw production (box-only, per-season)</em></span><span class="bu-val ${bonus>0.05?'pos':bonus<-0.05?'neg':''}">${bonus>=0?'+':''}${_f1(bonus)}</span></div>
+            <div class="bu-row total"><span class="bu-lbl">${_seasonLbl(_season)||_season} Overall</span><span class="bu-val">${adj}</span></div>
+          </div>`;
+      }
     }).catch(function(){});
   }
 }

@@ -414,7 +414,7 @@
       if(quals[i] == null) return { min: 0, grade: null, qual: null };
       var g = _gradeV5(quals[i], p.yr || p.class_year, mins[i]);
       if(p.id != null && _COUPLED[p.id] != null) g = _COUPLED[p.id];   // projected-line coupling (vers-free anchor)
-      g = Math.round(g + _archOf(p) + _gpsOf(p));                      // + archetype bonus, − small-sample shrink
+      g = Math.min(99, Math.round(g + _archOf(p) + _gpsOf(p)));        // + archetype bonus, − small-sample shrink; 99 ceiling (site scale)
       return { min: mins[i], qual: Math.round(quals[i] * 10) / 10, grade: g };
     });
   }
@@ -425,12 +425,12 @@
   // with the player/team pages without needing every team's full roster.
   function gradeSolo(row){
     if(!row) return null;
-    if(row.id != null && _COUPLED[row.id] != null) return Math.round(_COUPLED[row.id] + _archOf(row) + _gpsOf(row));   // coupled + archetype − small-sample
+    if(row.id != null && _COUPLED[row.id] != null) return Math.min(99, Math.round(_COUPLED[row.id] + _archOf(row) + _gpsOf(row)));   // coupled + archetype − small-sample; 99 ceiling
     var g = parseFloat(row.tdc_grade); if(!isFinite(g)) return null;
     var qual = g;   // no conference discount here — see gradeRoster; the level lives in the projection
     var trans = _clsTrans(row.yr || row.class_year);
     var devBpm = (trans && _DEV && _DEV.bpm_delta && _DEV.bpm_delta[trans]) ? (_DEV.bpm_delta[trans][_qtier(qual)] || 0) : 0;
-    return Math.round(qual + devBpm * (_BR.b || 1.174) + _archOf(row) + _gpsOf(row));
+    return Math.min(99, Math.round(qual + devBpm * (_BR.b || 1.174) + _archOf(row) + _gpsOf(row)));
   }
 
   // Transparent decomposition of the SAME number gradeSolo returns, so a page can
@@ -456,7 +456,7 @@
     var r1 = function(x){ return Math.round(x * 10) / 10; };
     return { demonstrated: r1(demo), coupled: coupled, roleDelta: r1(roleDelta),
              devDelta: r1(devDelta), archetype: r1(arch), gpShrink: r1(gps), anchor: r1(anchor),
-             final: Math.round(anchor + arch + gps) };
+             final: Math.min(99, Math.round(anchor + arch + gps)) };
   }
 
   window.TDCProjGrade = { projMin: projMin, grade: grade, ovr: ovr, K: K, setPedigree: setPedigree,
@@ -483,7 +483,7 @@
   // Archetype bonus (calibrated expectation-relative + custom composite → grade points,
   // keyed by players.id). This is what makes the grade equal the TDC Rating.
   try{
-    fetch('scripts/data/arch_bonus.json?v=1')
+    fetch('scripts/data/arch_bonus.json?v=3')
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ if(j && j.bonuses) setArchBonus(j.bonuses); })
       .catch(function(){});

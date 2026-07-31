@@ -19,6 +19,9 @@
 window.TDCRating = (function () {
   var EXP = null, W = null, RATE = [], EFF = [], LQ = { mean: 50, std: 5 };
   var SG = {}, TNET = {}, TN = { mean: 0, std: 9.5 };
+  var BOXW = null, CENTERS = {}, BOXCENTER = 0.03;   // box-only weights + per-season centers
+  var TSTR = {};                                      // per-season team strength (SRS z) for the weak-team dampener
+  var DAMP_K = 0.8, DAMP_REF = 3.0, DAMP_CAP = 2.0;
   var _p = null;
 
   function _std(a) { if (!a.length) return 1; var m = a.reduce(function (s, x) { return s + x; }, 0) / a.length;
@@ -37,13 +40,16 @@ window.TDCRating = (function () {
   function load() {
     if (_p) return _p;
     _p = Promise.all([
-      fetch('scripts/data/archetype_expectations.json').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+      fetch('scripts/data/archetype_expectations.json?v=2').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
       fetch('scripts/data/shot_genome_players.json').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-      fetch('scripts/data/team_dna.json').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
+      fetch('scripts/data/team_dna.json').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+      fetch('scripts/data/team_strength.json?v=1').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
     ]).then(function (res) {
       var e = res[0] || {}; EXP = e.expectations || {}; W = e.weights || {}; RATE = e.rate_stats || []; EFF = e.eff_stats || [];
       LQ = (e.pop && e.pop.lookq) || LQ;
+      BOXW = e.box_weights || null; CENTERS = e.season_centers || {}; if (e.box_center != null) BOXCENTER = e.box_center;
       if (e.calibration) setCalibration(e.calibration);   // pool-centered, data-driven
+      var ts = res[3]; TSTR = (ts && ts.z) || {};
       var sg = res[1]; if (sg && sg.players) sg.players.forEach(function (p) { if (p.espn_id != null) SG['' + p.espn_id] = p; });
       var dna = res[2]; var tms = (dna && dna['2026'] && dna['2026'].teams) || {}; var nets = [];
       Object.keys(tms).forEach(function (f) { var v = tms[f]; var n = (v.adjNet != null ? v.adjNet : v.net);
@@ -100,7 +106,27 @@ window.TDCRating = (function () {
   // archetype and how his custom stats + team context read.
   var CENTER = 0.30, K = 3.0, AMIN = -3, AMAX = 4;   // fallback; overridden by the file's calibration
   function setCalibration(c) { if (!c) return; if (c.center != null) CENTER = c.center; if (c.k != null) K = c.k;
-    if (c.archMin != null) AMIN = c.archMin; if (c.archMax != null) AMAX = c.archMax; }
+    if (c.archMin != null) AMIN = c.archMin; if (c.archMax != null) AMAX = c.archMax;
+    if (c.damp_k != null) DAMP_K = c.damp_k; if (c.damp_ref != null) DAMP_REF = c.damp_ref; if (c.damp_cap != null) DAMP_CAP = c.damp_cap; }
+
+  // team strength (SRS z within season); prefix-tolerant so short/full names both hit.
+  function teamStrengthZ(team, season) {
+    if (!team) return 0; var yr = TSTR['' + season]; if (!yr) return 0;
+    var lo = ('' + team).toLowerCase().trim(); var z = yr[lo];
+    if (z == null) { var k = Object.keys(yr).find(function (f) {
+      return f === lo || lo.indexOf(f + ' ') === 0 || f.indexOf(lo + ' ') === 0 || (lo.length >= 5 && f.indexOf(lo) === 0); });
+      if (k) z = yr[k]; }
+    return z == null ? 0 : z;
+  }
+  // DAMPEN-ONLY: a weak team pulls a POSITIVE archetype bonus down (empty-calorie stats);
+  // strong/average teams and non-positive bonuses do nothing. Never inflates.
+  function teamDamp(bonus, team, season) {
+    if (bonus <= 0) return 0;
+    var tz = teamStrengthZ(team, season); if (tz >= 0) return 0;
+    var weak = -tz; if (weak > DAMP_CAP) weak = DAMP_CAP;
+    var frac = bonus / DAMP_REF; if (frac > 1) frac = 1;
+    return -DAMP_K * weak * frac;
+  }
 
   // baseGrade = the site's projected OVR (role/dev already applied); line = the projected line.
   function rate(player, line, baseGrade) {
@@ -112,7 +138,50 @@ window.TDCRating = (function () {
              categories: categories(player, line) };
   }
 
+  // ── BOX-ONLY path (every-year consistent) ─────────────────────────────────
+  // No Shot Genome / team-success — just expectation-relative box categories, so a
+  // 2013 season and a 2026 season are graded the same way. Mirrors the Python
+  // rate_player + build_arch_bonus exactly, so precomputed 2026 bonuses and these
+  // client-side historical bonuses agree. Re-centered per season (season_centers).
+  function boxCategories(player, line) {
+    line = line || player;
+    var pos = npos(line.position || player.position), ht = _htIn(line.height || player.height);
+    function rz(stat, actual) { return rel(pos, ht, stat, actual); }
+    var p40 = {}; RATE.forEach(function (k) { p40[k] = per40(line, k); });
+    var ts = tsOf(line), fg = _num(line.fg_pct);
+    var C = {
+      Scoring: rz('ppg', p40.ppg),
+      Creation: 0.6 * rz('apg', p40.apg) + 0.4 * (-rz('tovs', p40.tovs)),
+      Efficiency: ts == null ? rz('fg_pct', fg) : (rz('fg_pct', fg) * 0.5 + ((ts - 54) / 6) * 0.5),
+      Defense: 0.5 * rz('stl', p40.stl) + 0.5 * rz('blk', p40.blk),
+      Rebounding: 0.5 * rz('oreb', p40.oreb) + 0.5 * rz('dreb', p40.dreb),
+      Shooting: 0.5 * rz('tpa', p40.tpa) + 0.5 * rz('tp_pct', _num(line.tp_pct))
+    };
+    var above = ['Scoring', 'Creation', 'Defense', 'Rebounding', 'Shooting'].filter(function (k) { return C[k] > 0.75; });
+    C.Versatility = (above.length - 1) * 0.7;
+    return C;
+  }
+  function boxComposite(player, line) { var C = boxCategories(player, line), z = 0, w = BOXW || W;
+    Object.keys(w).forEach(function (k) { if (C[k] != null) z += w[k] * C[k]; }); return z; }
+  function seasonCenter(season) { var c = CENTERS['' + season]; return c == null ? BOXCENTER : c; }
+  function boxBonus(player, line, season) {
+    var raw = clamp(K * (boxComposite(player, line) - seasonCenter(season)), AMIN, AMAX);
+    var team = (line && line.team) || (player && player.team);
+    return clamp(raw + teamDamp(raw, team, season), AMIN, AMAX);
+  }
+  // rawGrade = the season's demonstrated tdc_grade; returns it reshaped by archetype fit.
+  function boxAdjust(rawGrade, player, line, season) {
+    var base = _num(rawGrade); if (base == null) return null;
+    var b = boxBonus(player, line, season);
+    return { grade: Math.min(99, Math.round((base + b) * 10) / 10), bonus: Math.round(b * 10) / 10,
+             composite: Math.round(boxComposite(player, line) * 1000) / 1000,
+             center: seasonCenter(season), categories: boxCategories(player, line) };
+  }
+
   return { ready: load(), load: load, categories: categories, composite: composite, rate: rate,
+           boxCategories: boxCategories, boxComposite: boxComposite, boxBonus: boxBonus,
+           boxAdjust: boxAdjust, seasonCenter: seasonCenter,
+           teamStrengthZ: teamStrengthZ, teamDamp: teamDamp,
            setCalibration: setCalibration, expected: expected, rel: rel,
-           _internal: function () { return { EXP: EXP, W: W, CENTER: CENTER, K: K }; } };
+           _internal: function () { return { EXP: EXP, W: W, BOXW: BOXW, CENTERS: CENTERS, CENTER: CENTER, K: K, AMIN: AMIN, AMAX: AMAX, DAMP_K: DAMP_K, DAMP_REF: DAMP_REF, DAMP_CAP: DAMP_CAP }; } };
 })();
