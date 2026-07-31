@@ -316,7 +316,12 @@
     .sch-tbl td{font-size:13.5px;font-weight:700;color:var(--text2);}
     .sch-col-own{background:color-mix(in srgb, var(--accent) 12%, var(--bg2));}
     .sch-tbl thead th.sch-col-own{background:color-mix(in srgb, var(--accent) 22%, var(--bg3));color:var(--text);}
-    .sch-own-tag{display:block;font-size:8.5px;font-weight:800;color:var(--accent);letter-spacing:.04em;margin-top:1px;}
+    .sch-own-tag{display:block;font-size:8.5px;font-weight:800;color:var(--text3);letter-spacing:.04em;margin-top:1px;text-transform:none;}
+    .sch-eyebrow{display:block;font-size:8px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;}
+    .sch-logo{display:block;width:24px;height:24px;object-fit:contain;margin:0 auto 4px;}
+    .sch-sysname{display:block;font-size:11.5px;font-weight:800;color:var(--text);letter-spacing:.01em;text-transform:none;line-height:1.15;}
+    .sch-tbl thead th.sch-col-old,.sch-tbl thead th.sch-col-own{color:var(--text);}
+    .sch-tbl td.sch-col-old,.sch-tbl td.sch-col-own{font-weight:800;color:var(--text);}
     .sch-hi{color:#5ab875;font-weight:800;} .sch-lo{color:var(--text3);}
     .sch-stat em{display:block;font-style:normal;font-size:10px;font-weight:500;color:var(--text3);margin-top:1px;}
     .sch-sens{margin-top:16px;border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:14px 16px;}
@@ -4732,8 +4737,16 @@ async function renderScheme(){
     {name:'Crash Glass',sub:'off. rebounding',pace:1.0,havoc:1.0,orb:1.20,drb:1.06,ast:1.0,lean:0.95,fgb:0},
     {name:'Slow Grind',sub:'low pace / good looks',pace:0.90,havoc:0.95,orb:1.0,drb:1.03,ast:1.05,lean:1.0,fgb:0.5}
   ];
-  const own={name:'His System',sub:(ownScales.coach||player.team||'').slice(0,16),pace:ownScales.pace,havoc:ownScales.havoc,orb:ownScales.orb,drb:ownScales.drb,ast:ownScales.ast,lean:ownScales.lean,fgb:ownScales.fgb,_own:true};
-  const SYS=PRESETS.concat([own]);
+  const _tc=t=>(window.tdcTeamColorHex&&tdcTeamColorHex(t))||'#7a7a7a';
+  const _logo=t=>((window.tdcTeamColor&&tdcTeamColor(t))||{}).logo||'';
+  const own={name:player.team||'His System',sub:ownScales.coach||'current staff',pace:ownScales.pace,havoc:ownScales.havoc,orb:ownScales.orb,drb:ownScales.drb,ast:ownScales.ast,lean:ownScales.lean,fgb:ownScales.fgb,_own:true,team:player.team,eyebrow:'2026-27'};
+  // transfers: add the team he's LEAVING (his demonstrated stats were earned there)
+  const teamCols=[];
+  if(isTransfer && refScales){
+    teamCols.push({name:player.hometown,sub:refScales.coach||'last team',pace:refScales.pace,havoc:refScales.havoc,orb:refScales.orb,drb:refScales.drb,ast:refScales.ast,lean:refScales.lean,fgb:refScales.fgb,_old:true,team:player.hometown,eyebrow:'last team'});
+  }
+  const SYS=PRESETS.concat(teamCols,[own]);
+  const SYSCOL=SYS.map(s=>(s._own||s._old)?_tc(s.team):null);   // team-color tint per column
   const line=sc=>{const oreb=neutral.oreb*sc.orb*sc.pace, dreb=neutral.dreb*sc.drb*sc.pace;
     return {poss:68*sc.pace, stl:neutral.stl*sc.havoc*sc.pace, oreb, dreb, rpg:oreb+dreb,
       apg:neutral.apg*sc.ast*sc.pace, fg_pct:neutral.fg_pct+sc.fgb, tpa:neutral.tpa*sc.lean*sc.pace}; };
@@ -4747,12 +4760,18 @@ async function renderScheme(){
     {k:'fg_pct',l:'FG%',sub:'shot quality'},
     {k:'tpa',l:'3PA',sub:'shot diet'}
   ];
-  const cols=SYS.map(s=>`<th class="${s._own?'sch-col-own':''}">${s.name}${s._own?'<span class="sch-own-tag">'+esc(s.sub||player.team)+'</span>':`<span class="sch-own-tag" style="color:var(--text3)">${s.sub}</span>`}</th>`).join('');
+  const cols=SYS.map((s,i)=>{const tint=SYSCOL[i], logo=(s._own||s._old)?_logo(s.team):'';
+    const bg=tint?`background:color-mix(in srgb, ${tint} 22%, var(--bg3));`:'';
+    const cls=s._own?'sch-col-own':s._old?'sch-col-old':'';
+    return `<th class="${cls}" style="${bg}">${s.eyebrow?`<span class="sch-eyebrow">${esc(s.eyebrow)}</span>`:''}${logo?`<img class="sch-logo" src="${logo}" alt="" onerror="this.style.display='none'">`:''}<span class="sch-sysname">${esc(s.name)}</span><span class="sch-own-tag">${esc(s.sub)}</span></th>`;
+  }).join('');
   const rowsH=ROWS.map(r=>{
     const vals=lines.map(l=>l[r.k]);
     const mx=Math.max.apply(null,vals), mn=Math.min.apply(null,vals);
-    const tds=vals.map((v,i)=>{const own=SYS[i]._own; const hi=Math.abs(v-mx)<1e-6&&mx-mn>0.05, lo=Math.abs(v-mn)<1e-6&&mx-mn>0.05;
-      return `<td class="${own?'sch-col-own ':''}${hi?'sch-hi':lo?'sch-lo':''}">${v.toFixed(1)}${r.k==='fg_pct'?'%':''}</td>`;}).join('');
+    const tds=vals.map((v,i)=>{const tint=SYSCOL[i], own=SYS[i]._own, old=SYS[i]._old;
+      const hi=Math.abs(v-mx)<1e-6&&mx-mn>0.05, lo=Math.abs(v-mn)<1e-6&&mx-mn>0.05;
+      const bg=tint?`background:color-mix(in srgb, ${tint} 13%, var(--bg2));`:'';
+      return `<td class="${own?'sch-col-own ':old?'sch-col-old ':''}${hi?'sch-hi':lo?'sch-lo':''}" style="${bg}">${v.toFixed(1)}${r.k==='fg_pct'?'%':''}</td>`;}).join('');
     return `<tr><td class="sch-stat">${r.l}<em>${r.sub}</em></td>${tds}</tr>`;
   }).join('');
   // sensitivity: which of his stats swings most across systems (relative range)
@@ -4761,7 +4780,7 @@ async function renderScheme(){
   const maxRel=sens.length?sens[0].rel:1;
   const sensH=sens.slice(0,4).map(s=>`<div class="sch-sens-row"><span class="sl">${s.l}</span><div class="sch-sens-bar"><span style="width:${Math.round(s.rel/maxRel*100)}%"></span></div><span class="sv">${s.mn.toFixed(1)} → ${s.mx.toFixed(1)}</span></div>`).join('');
   const intro = isTransfer
-    ? `<b>${esc(player.name)}</b> is transferring into <b>${esc(player.team)}</b>. Here's how our model projects his 2026-27 line under different coaching systems — holding his talent & role constant. His actual landing spot is highlighted; the range shows how much the <b>scheme</b> alone moves each stat.`
+    ? `<b>${esc(player.name)}</b> is transferring from <b>${esc(player.hometown)}</b> to <b>${esc(player.team)}</b>. Here's how our model projects his 2026-27 line under different coaching systems — both real teams are shown (tinted with their colors: where he's <b>coming from</b> and where he's <b>going</b>), holding his talent & role constant so only the <b>scheme</b> moves each stat.`
     : isFresh
       ? `<b>${esc(player.name)}</b> hasn't played college minutes yet. This shows how much his projected freshman line would swing based purely on the <b>system he lands in</b> — his current team is highlighted.`
       : `<b>${esc(player.name)}</b>'s stats already bake in <b>${esc(player.team)}</b>'s system (highlighted). This counterfactual re-projects him into other systems to show how much of his production is <b>scheme-driven</b> vs his own game.`;
