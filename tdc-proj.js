@@ -505,11 +505,12 @@ async function loadProjCoachStyle(team){
   if(!team) return;
   try{
     if(!window._projCoachCache){
-      const [prof,seas,dna,sgt]=await Promise.all([
+      const [prof,seas,dna,sgt,bmv]=await Promise.all([
         fetch('scripts/data/coach_profiles.json').then(r=>r.ok?r.json():[]).catch(()=>[]),
         fetch('scripts/data/coach_seasons.json').then(r=>r.ok?r.json():[]).catch(()=>[]),
         fetch('scripts/data/team_dna.json').then(r=>r.ok?r.json():null).catch(()=>null),
-        fetch('scripts/data/shot_genome_teams.json').then(r=>r.ok?r.json():null).catch(()=>null)
+        fetch('scripts/data/shot_genome_teams.json').then(r=>r.ok?r.json():null).catch(()=>null),
+        fetch('scripts/data/team_ballmovement.json').then(r=>r.ok?r.json():null).catch(()=>null)
       ]);
       const bySlug={}; prof.forEach(p=>bySlug[p.coach_slug]=p);
       const byTeam={};  // school -> most recent {y, slug}
@@ -530,15 +531,36 @@ async function loadProjCoachStyle(team){
       const lookq={}; const lq=[];
       ((sgt&&sgt.teams)||[]).forEach(t=>{ const v=t.off&&t.off.lq; if(v!=null&&t.team){ lookq[t.team.toLowerCase()]=v; lq.push(v); } });
       lq.sort((a,b)=>a-b); const lgLookq=lq.length?lq[Math.floor(lq.length/2)]:50;
-      window._projCoachCache={bySlug,byTeam,lgPace,havoc,lgHavoc,lookq,lgLookq};
+      // team REBOUNDING tendency (four-factor rates — already pace-independent): oORB (how
+      // hard it crashes the offensive glass) + dDRB (how well it secures the defensive glass).
+      // A transfer joining a crash-glass team projects for more O-boards. Centered on median.
+      const oreb={}, dreb={}, orv=[], drv=[];
+      Object.keys(tms).forEach(f=>{ const t=tms[f];
+        if(t&&t.oORB!=null){ oreb[f.toLowerCase()]=t.oORB; orv.push(t.oORB); }
+        if(t&&t.dDRB!=null){ dreb[f.toLowerCase()]=t.dDRB; drv.push(t.dDRB); } });
+      orv.sort((a,b)=>a-b); drv.sort((a,b)=>a-b);
+      const lgOreb=orv.length?orv[Math.floor(orv.length/2)]:28, lgDreb=drv.length?drv[Math.floor(drv.length/2)]:71;
+      // team BALL MOVEMENT (assists per 100 poss — pace-independent, precomputed): a motion/
+      // pass-heavy system (Purdue ~30) lifts a newcomer's assists; an iso-heavy one trims them.
+      const astpp=(bmv&&bmv.astpp)||{}, lgAstpp=(bmv&&bmv.lg)||20;
+      window._projCoachCache={bySlug,byTeam,lgPace,havoc,lgHavoc,lookq,lgLookq,oreb,lgOreb,dreb,lgDreb,astpp,lgAstpp};
     }
-    const {bySlug,byTeam,lgPace,havoc,lgHavoc,lookq,lgLookq}=window._projCoachCache;
+    const {bySlug,byTeam,lgPace,havoc,lgHavoc,lookq,lgLookq,oreb,lgOreb,dreb,lgDreb,astpp,lgAstpp}=window._projCoachCache;
     // resolve this team's defensive havoc + offensive look-quality (full team_dna/genome
     // name vs the roster's short name)
+    // Short roster name (e.g. "Houston") -> full team_dna key ("houston cougars"). Must NOT
+    // greedily grab a DIFFERENT school that shares the prefix ("houston christian huskies") —
+    // so skip a candidate whose leftover names another school, and otherwise prefer the
+    // shortest (mascot-only) leftover. Fixes havoc/look-quality/rebounding/ball-movement alike.
+    const _MARK=/(christian|baptist|\bstate\b|southern|a&m|a&t|international|wesleyan|\bof\b|valley|pine bluff)/;
     const _resolveTeam=(map)=>{ if(!map) return null; const lo=team.toLowerCase();
       if(map[lo]!=null) return map[lo];
-      const k=Object.keys(map).find(f=>f===lo||f.startsWith(lo+' ')||(lo.length>=6&&f.indexOf(lo)===0)); return k?map[k]:null; };
+      let best=null,bestLen=1e9;
+      Object.keys(map).forEach(f=>{ if(!f.startsWith(lo+' ')) return; const rest=f.slice(lo.length+1);
+        if(_MARK.test(rest)) return; if(rest.length<bestLen){ bestLen=rest.length; best=f; } });
+      return best?map[best]:null; };
     let teamHavoc=_resolveTeam(havoc), teamLookq=_resolveTeam(lookq);
+    let teamOreb=_resolveTeam(oreb), teamDreb=_resolveTeam(dreb), teamAstpp=_resolveTeam(astpp);
     let entry=byTeam[team];
     if(!entry){ const lo=team.toLowerCase();
       const k=Object.keys(byTeam).find(s=>{const sl=s.toLowerCase();
@@ -549,8 +571,10 @@ async function loadProjCoachStyle(team){
         three_pa_pctl:(p.pctl&&p.pctl.three_pa_rate)||null,
         star_pctl:(p.pctl&&p.pctl.top_scorer_share)||null,
         havoc:teamHavoc, lgHavoc:lgHavoc||15, lookq:teamLookq, lgLookq:lgLookq||50,
+        oreb:teamOreb, lgOreb:lgOreb||28, dreb:teamDreb, lgDreb:lgDreb||71, astpp:teamAstpp, lgAstpp:lgAstpp||20,
         archetype:p.archetype, coach:p.coach}; }
-    else if(teamHavoc!=null||teamLookq!=null){ window._projCoach={lgPace:lgPace||68, havoc:teamHavoc, lgHavoc:lgHavoc||15, lookq:teamLookq, lgLookq:lgLookq||50}; }
+    else if(teamHavoc!=null||teamLookq!=null||teamOreb!=null||teamAstpp!=null){ window._projCoach={lgPace:lgPace||68, havoc:teamHavoc, lgHavoc:lgHavoc||15, lookq:teamLookq, lgLookq:lgLookq||50,
+        oreb:teamOreb, lgOreb:lgOreb||28, dreb:teamDreb, lgDreb:lgDreb||71, astpp:teamAstpp, lgAstpp:lgAstpp||20}; }
   }catch(e){}
 }
 // Apply the coach's TEMPO to newcomers only. A returner's prior stats already reflect
@@ -588,8 +612,18 @@ function applyCoachContext(roster){
   // OFFENSIVE look-quality: joining a team that generates better looks (xeFG above the
   // league median) nudges a newcomer's FG% up; a worse-look offense nudges it down.
   const fgBump = (C.lookq!=null&&C.lgLookq) ? Math.max(-1.4,Math.min(1.4, (C.lookq-C.lgLookq)*0.20)) : 0;
+  // REBOUNDING: crash-the-glass offense (oORB above median) lifts a newcomer's O-boards;
+  // a strong defensive-rebounding system lifts his D-boards. Def rebounding is more uniform
+  // across teams, so it's bounded tighter than offensive.
+  const orbScale = (C.oreb!=null&&C.lgOreb) ? Math.max(0.82,Math.min(1.20, C.oreb/C.lgOreb)) : 1;
+  const drbScale = (C.dreb!=null&&C.lgDreb) ? Math.max(0.93,Math.min(1.08, C.dreb/C.lgDreb)) : 1;
+  // BALL MOVEMENT: a motion/pass-heavy system (assists per 100 poss above median) lifts a
+  // newcomer's assists; an iso-heavy one trims them. Pace is handled separately, so this is
+  // the per-possession passing tendency on top of it.
+  const astScale = (C.astpp!=null&&C.lgAstpp) ? Math.max(0.80,Math.min(1.25, C.astpp/C.lgAstpp)) : 1;
   const paceOn=Math.abs(paceScale-1)>=0.008, threeOn=Math.abs(threeLean-1)>=0.01, starOn=(starPctl!=null&&starPctl>60), havocOn=Math.abs(havocScale-1)>=0.02, lookOn=Math.abs(fgBump)>=0.15;
-  if(!paceOn && !threeOn && !starOn && !havocOn && !lookOn) return roster;   // ~neutral system → no-op
+  const rebOn=Math.abs(orbScale-1)>=0.02||Math.abs(drbScale-1)>=0.02, astOn=Math.abs(astScale-1)>=0.02;
+  if(!paceOn && !threeOn && !starOn && !havocOn && !lookOn && !rebOn && !astOn) return roster;   // ~neutral system → no-op
   const r1=v=>v==null?null:Math.round(v*10)/10;
   const VOL=['ppg','rpg','apg','stl','blk','tovs','oreb','dreb','fgm','fga','tpm','tpa','ftm','fta'];
   const active=roster.filter(p=>!p._dnp&&!p._injured);
@@ -602,7 +636,7 @@ function applyCoachContext(roster){
     const newcomer=isTransfer||isFrosh;
     const hasLine=!!parseFloat(p.ppg||0)||p._noStatEst;
     let sp=p, changed=false;
-    if(newcomer && hasLine && (paceOn||threeOn||havocOn||lookOn)){
+    if(newcomer && hasLine && (paceOn||threeOn||havocOn||lookOn||rebOn||astOn)){
       sp={...p}; changed=true;
       if(paceOn){ VOL.forEach(k=>{ if(sp[k]!=null) sp[k]=parseFloat(sp[k]||0)*paceScale; }); sp._paceScale=Math.round(paceScale*1000)/1000; }
       if(threeOn){ _applyThreeLean(sp, threeLean); sp._threeLean=Math.round(threeLean*1000)/1000; }
@@ -617,6 +651,30 @@ function applyCoachContext(roster){
         if(fga>0 && sp.fgm!=null){ const dMade=fga*(newFg-oldFg)/100; sp.fgm=parseFloat(sp.fgm)+dMade;
           if(sp.ppg!=null) sp.ppg=parseFloat(sp.ppg)+dMade*2.1; }   // extra makes ≈ 2.1 pts avg
         sp.fg_pct=newFg; sp._lookqFg=Math.round(fgBump*100)/100;
+      }
+      if(rebOn){   // glass-crashing / defensive-rebounding system → O-boards & D-boards
+        var _orb0=parseFloat(sp.oreb||0);
+        if(sp.oreb!=null) sp.oreb=_orb0*orbScale;
+        if(sp.dreb!=null) sp.dreb=parseFloat(sp.dreb||0)*drbScale;
+        if(sp.oreb!=null&&sp.dreb!=null&&sp.rpg!=null) sp.rpg=parseFloat(sp.oreb)+parseFloat(sp.dreb);   // keep total = parts
+        // PUTBACK COUPLING: the EXTRA offensive boards a crash-glass system creates come with
+        // extra near-rim attempts (high %), so a big's scoring rises WITH his rebounding
+        // instead of boards climbing while his shot count stays flat. Proximity shots — not
+        // conference-taxed. Bigs convert/attempt far more of these than guards.
+        var _dOreb=parseFloat(sp.oreb||0)-_orb0;
+        if(_dOreb>0.02){
+          var _pos=(''+(sp.position||'')).toUpperCase();
+          var _putRate=(_pos.indexOf('C')>=0||_pos.indexOf('PF')>=0||_pos==='F')?0.90:0.40;
+          var _putFga=_dOreb*_putRate, _putFgm=_putFga*0.58;
+          if(sp.fga!=null) sp.fga=parseFloat(sp.fga||0)+_putFga;
+          if(sp.fgm!=null) sp.fgm=parseFloat(sp.fgm||0)+_putFgm;
+          if(sp.ppg!=null) sp.ppg=parseFloat(sp.ppg||0)+_putFgm*2;
+          sp._putbackPts=Math.round(_putFgm*2*10)/10;
+        }
+        sp._orb=Math.round(orbScale*1000)/1000; sp._drb=Math.round(drbScale*1000)/1000;
+      }
+      if(astOn && sp.apg!=null){   // ball-movement system → assists (per-possession, on top of pace)
+        sp.apg=parseFloat(sp.apg||0)*astScale; sp._ast=Math.round(astScale*1000)/1000;
       }
     }
     if(starOn && p===topScorer && starUsg>1.004 && hasLine){
@@ -1008,24 +1066,33 @@ function buildTeamProjections(players, conf){
       // behind better teammates, and his FG% still translates down — so he doesn't run away.
       scoringTransMult = Math.min(1, scoringTransMult + Math.min(0.22, (_usgNow - 22) * 0.028));
     }
-    // Shot volume: minutes-driven, with class/pos FGA growth, usage vacancy, conference
-    // translation, and the transfer scoring penalty.
-    const newFga = r1(pm.fga*fgaGrow*newMpg*vacMult*volTrans*scoringTransMult);
-    const newTpa = r1(pm.tpa*fgaGrow*newMpg*vacMult*volTrans*scoringTransMult);
+    // FIX (2026-07-31) — decouple shot VOLUME from the conference-CREATION tax. The
+    // volTrans×scoringTransMult tax is calibrated for a shot-creator ("an 18-shot WCC night
+    // isn't 18 in the SEC"), but a big's looks come from rolls, dump-offs and putbacks
+    // (role/proximity), which travel up in league far better than self-creation. So forgive
+    // most of the VOLUME tax for bigs — their EFFICIENCY (FG%/transPctAdj) still translates
+    // fully. Guards keep the full tax; wings partial. Stops a low-major big's shot rate from
+    // being halved when his minutes barely move.
+    const _volForgive = isBig ? 0.50 : (isGuard ? 0.0 : 0.28);
+    const volTaxEff = 1 - (1 - volTrans*scoringTransMult) * (1 - _volForgive);
+    // Shot volume: minutes-driven, with class/pos FGA growth, usage vacancy, and the
+    // (position-aware) conference/transfer volume tax.
+    const newFga = r1(pm.fga*fgaGrow*newMpg*vacMult*volTaxEff);
+    const newTpa = r1(pm.tpa*fgaGrow*newMpg*vacMult*volTaxEff);
 
     const pf     = posFitMult;
     // Derive all stats from components so PPG is always consistent with FGA.
     // Year progression shows through efficiency (fgProj) not shot-volume inflation.
     const fgm_v  = r1(newFga*(fgProj/100)*pf);
     const tpm_v  = r1(newTpa*(tpProj/100)*pf);
-    const fta_v  = r1(pm.fta*newMpg*pf*vacMult*volTrans*scoringTransMult);
+    const fta_v  = r1(pm.fta*newMpg*pf*vacMult*volTaxEff);
     const ftm_v  = r1(fta_v*(ftProj/100));
     // PPG from components: 2×FGM + bonus point per 3PM + FTM
     const ppg_comp = fgm_v*2 + tpm_v + ftm_v;
     // PPG floor: per-minute scoring rate × new minutes × rateGrowth.
     // Catches cases where player_history FTA is incomplete (under-projects free throws).
     const ppgFloorMult = grade>=90?0.95:grade>=83?0.91:0.88;
-    const ppg_floor = d40('p40','ppg',pm.ppg) * newMpg * pf * ppgFloorMult * (1+(vacMult-1)*0.7) * volTrans * scoringTransMult;
+    const ppg_floor = d40('p40','ppg',pm.ppg) * newMpg * pf * ppgFloorMult * (1+(vacMult-1)*0.7) * volTaxEff;
 
     // scoringTransMult already applied to the shot line above, so PPG stays consistent.
     const ppg_v  = r1(Math.max(ppg_comp, ppg_floor));
