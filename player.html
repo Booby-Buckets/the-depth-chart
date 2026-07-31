@@ -14,7 +14,7 @@
   <script src="tdc-ratings.js?v=2"></script>
   <script src="tdc-leaderboard.js?v=1"></script>
   <script src="tdc-portalfit.js?v=needs4"></script>
-  <script src="tdc-projgrade.js?v=24"></script>
+  <script src="tdc-projgrade.js?v=25"></script>
   <script src="tdc-rating.js?v=2"></script>
   <script src="tdc-pool.js?v=1"></script>
   <meta charset="UTF-8"/>
@@ -3938,8 +3938,8 @@ function renderRankings(){
       parts.push(_buRow('Projected role &amp; usage', _exp.roleDelta>0?'graded up for a bigger role in the offense':'graded down for a reduced role', _exp.roleDelta, true, false));
     if(!_exp.coupled && Math.abs(_exp.devDelta)>=0.05)
       parts.push(_buRow('Class development','year-over-year growth curve for his class', _exp.devDelta, true, false));
-    if(Math.abs(_exp.versatility)>=0.05)
-      parts.push(_buRow('Versatility bump','breadth of non-scoring impact — rebounding, defense, passing, spacing', _exp.versatility, true, false));
+    if(_exp.archetype!=null && Math.abs(_exp.archetype)>=0.05)
+      parts.push(_buRow('Archetype & context', 'how unusual/valuable he is for his height & position (vs raw production) + team context', _exp.archetype, true, false));
     if(_exp.gpShrink!=null && _exp.gpShrink<=-0.05)
       parts.push(_buRow('Small-sample regression', (_lastAct&&_lastAct.gp!=null?'only '+_lastAct.gp+' games last season — ':'')+'pulled toward baseline until proven over a fuller season', _exp.gpShrink, true, false));
     parts.push(_buRow('Projected 2026-27 OVR','',_exp.final,false,true));
@@ -3984,19 +3984,20 @@ function renderRankings(){
     <div class="rk-drivers">${rows}</div>
     <div class="rk-foot">Bars show his level vs a strong-${GRP_LBL[grp]||'player'} benchmark (plus height &amp; position, not shown). The model is trained on 20 years of these lines against hand-set grades; the projection adjustments are in the build-up above.</div>`;
   setTimeout(()=>host.querySelectorAll('.rk-fill').forEach(el=>{el.style.width=el.getAttribute('data-w')+'%';}),60);
-  // TDC Rating (beta): the archetype/custom rating layered on the projected grade.
-  if(window.TDCRating && TDCRating.rate && _projMode && !isNaN(g)){
+  // Archetype breakdown — the grade ITSELF now includes the archetype bonus (the
+  // 'Archetype & context' line in the build-up), so this shows WHY: how unusual/
+  // valuable he is for his height & position in each area (no separate number).
+  if(window.TDCRating && TDCRating.categories && _projMode){
     TDCRating.ready.then(function(){
       const box=document.getElementById('tdcRatingBox'); if(!box) return;
       const fullTeam=(teamData&&(teamData.full||teamData.name))||player.team;
       const line={...s, position:s.position||player.position, height:s.height||player.height, team:fullTeam, espn_id:player.espn_id};
-      const R=TDCRating.rate({espn_id:player.espn_id,position:player.position,height:player.height,team:fullTeam}, line, g);
-      if(!R||R.rating==null) return;
-      const cats=R.categories||{}, ord=['Scoring','Creation','Efficiency','Defense','Rebounding','Shooting','Impact','Versatility'];
+      const cats=TDCRating.categories({espn_id:player.espn_id,position:player.position,height:player.height,team:fullTeam}, line);
+      if(!cats) return;
+      const ord=['Scoring','Creation','Efficiency','Defense','Rebounding','Shooting','Impact','Versatility'];
       const chip=(k)=>{const v=cats[k]||0,pos=v>=0;return `<div class="tdcr-cat"><span class="tdcr-cl">${k}</span><span class="tdcr-cv" style="color:${pos?'#5ab875':'#e0885a'}">${pos?'+':''}${v.toFixed(1)}</span></div>`;};
-      box.innerHTML=`<div class="sec-title" style="margin:24px 0 4px;">TDC Rating <span style="font-weight:500;color:var(--text3);font-size:11px;">beta · expectation-relative + team context</span></div>
-        <div class="rk-sub">A different lens: how unusual/valuable he is <b>for his height & position</b> (vs the trained grade's raw production), blending Shot Genome shot-quality and team success. Layered on the projected grade.</div>
-        <div class="tdcr-head"><div class="tdcr-num">${R.rating.toFixed(1)}</div><div class="tdcr-meta"><span>Grade ${g}</span><span class="tdcr-arch" style="color:${R.archBonus>=0?'#5ab875':'#e0885a'}">${R.archBonus>=0?'+':''}${R.archBonus} archetype/context</span></div></div>
+      box.innerHTML=`<div class="sec-title" style="margin:24px 0 4px;">Archetype breakdown <span style="font-weight:500;color:var(--text3);font-size:11px;">expectation-relative + team context</span></div>
+        <div class="rk-sub">How unusual/valuable he is <b>for his height & position</b> in each area (vs raw production), blending Shot Genome shot-quality and team success — this is what drives the <b>Archetype &amp; context</b> adjustment in the grade above. Positive = above his archetype's baseline.</div>
         <div class="tdcr-cats">${ord.map(chip).join('')}</div>`;
     }).catch(function(){});
   }

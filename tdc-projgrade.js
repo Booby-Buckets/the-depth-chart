@@ -204,6 +204,13 @@
   var _VERS = {};
   function setVersatility(m){ if(m && typeof m === 'object') _VERS = m; }
   function _versOf(row){ var e = row && row.espn_id; return (e != null && _VERS['' + e] != null) ? _VERS['' + e] : 0; }
+  // ARCHETYPE bonus (scripts/build_arch_bonus.py → arch_bonus.json, keyed by players.id):
+  // the calibrated expectation-relative + custom-stat + team-context composite mapped to
+  // grade points. REPLACES the old versatility bump — this is what makes the site-wide
+  // grade equal the TDC Rating. Matches tdc-rating.js's archBonus exactly.
+  var _ARCH = {};
+  function setArchBonus(m){ if(m && typeof m === 'object') _ARCH = m; }
+  function _archOf(row){ var i = row && row.id; return (i != null && _ARCH['' + i] != null) ? _ARCH['' + i] : 0; }
   // small-sample (games-played) regression — a NEGATIVE delta for players whose grade
   // rests on too few games (build_gp_regression.py), keyed by players.id.
   var _GPS = {};
@@ -407,7 +414,7 @@
       if(quals[i] == null) return { min: 0, grade: null, qual: null };
       var g = _gradeV5(quals[i], p.yr || p.class_year, mins[i]);
       if(p.id != null && _COUPLED[p.id] != null) g = _COUPLED[p.id];   // projected-line coupling (vers-free anchor)
-      g = Math.round(g + _versOf(p) + _gpsOf(p));                      // + versatility, − small-sample shrink
+      g = Math.round(g + _archOf(p) + _gpsOf(p));                      // + archetype bonus, − small-sample shrink
       return { min: mins[i], qual: Math.round(quals[i] * 10) / 10, grade: g };
     });
   }
@@ -418,12 +425,12 @@
   // with the player/team pages without needing every team's full roster.
   function gradeSolo(row){
     if(!row) return null;
-    if(row.id != null && _COUPLED[row.id] != null) return Math.round(_COUPLED[row.id] + _versOf(row) + _gpsOf(row));   // coupled + versatility − small-sample
+    if(row.id != null && _COUPLED[row.id] != null) return Math.round(_COUPLED[row.id] + _archOf(row) + _gpsOf(row));   // coupled + archetype − small-sample
     var g = parseFloat(row.tdc_grade); if(!isFinite(g)) return null;
     var qual = g;   // no conference discount here — see gradeRoster; the level lives in the projection
     var trans = _clsTrans(row.yr || row.class_year);
     var devBpm = (trans && _DEV && _DEV.bpm_delta && _DEV.bpm_delta[trans]) ? (_DEV.bpm_delta[trans][_qtier(qual)] || 0) : 0;
-    return Math.round(qual + devBpm * (_BR.b || 1.174) + _versOf(row) + _gpsOf(row));
+    return Math.round(qual + devBpm * (_BR.b || 1.174) + _archOf(row) + _gpsOf(row));
   }
 
   // Transparent decomposition of the SAME number gradeSolo returns, so a page can
@@ -433,7 +440,7 @@
   function explain(row){
     if(!row) return null;
     var demo = parseFloat(row.tdc_grade); if(!isFinite(demo)) return null;
-    var vers = _versOf(row);
+    var arch = _archOf(row);
     var gps = _gpsOf(row);   // small-sample (games-played) regression, <= 0
     var coupled = (row.id != null && _COUPLED[row.id] != null);
     var anchor, roleDelta = 0, devDelta = 0;
@@ -448,12 +455,12 @@
     }
     var r1 = function(x){ return Math.round(x * 10) / 10; };
     return { demonstrated: r1(demo), coupled: coupled, roleDelta: r1(roleDelta),
-             devDelta: r1(devDelta), versatility: r1(vers), gpShrink: r1(gps), anchor: r1(anchor),
-             final: Math.round(anchor + vers + gps) };
+             devDelta: r1(devDelta), archetype: r1(arch), gpShrink: r1(gps), anchor: r1(anchor),
+             final: Math.round(anchor + arch + gps) };
   }
 
   window.TDCProjGrade = { projMin: projMin, grade: grade, ovr: ovr, K: K, setPedigree: setPedigree,
-                          gradeRoster: gradeRoster, gradeSolo: gradeSolo, explain: explain, projectMinutes: projectMinutes, setModel: setModel, setCoupled: setCoupled, setVersatility: setVersatility, setGpShrink: setGpShrink };
+                          gradeRoster: gradeRoster, gradeSolo: gradeSolo, explain: explain, projectMinutes: projectMinutes, setModel: setModel, setCoupled: setCoupled, setVersatility: setVersatility, setArchBonus: setArchBonus, setGpShrink: setGpShrink };
 
   // Self-load the derived pedigree coefficients (tiny, local file) so every page
   // picks them up with no per-page wiring. This resolves well before the slower
@@ -473,11 +480,12 @@
       .catch(function(){});
   }catch(e){}
 
-  // Versatility "does-a-lot" bump (positive-only, keyed by espn_id).
+  // Archetype bonus (calibrated expectation-relative + custom composite → grade points,
+  // keyed by players.id). This is what makes the grade equal the TDC Rating.
   try{
-    fetch('scripts/data/versatility_adj.json?v=3')
+    fetch('scripts/data/arch_bonus.json?v=1')
       .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){ if(j && j.bumps) setVersatility(j.bumps); })
+      .then(function(j){ if(j && j.bonuses) setArchBonus(j.bonuses); })
       .catch(function(){});
   }catch(e){}
 
