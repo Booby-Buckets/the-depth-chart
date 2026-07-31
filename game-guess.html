@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
   <script src="auth.js?v=paywall4"></script>
+  <script src="tdc-projgrade.js?v=27"></script>
+  <script src="tdc-rating.js?v=4"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -357,20 +359,30 @@ function useHint(){ if(state.hint||state.done||!TARGET)return; state.hint=true; 
 
 // ── pools ──
 async function loadYearPool(){
-  var pl=await fetch(SB+'/rest/v1/players?select=name,team,position,class_year,yr,height,tdc_grade,espn_id&tdc_grade=gte.70&gp=gte.15&order=name.asc',{headers:H}).then(r=>r.json()).catch(function(){return[];});
+  var pl=await fetch(SB+'/rest/v1/players?select=id,name,team,position,class_year,yr,height,tdc_grade,espn_id&tdc_grade=gte.70&gp=gte.15&order=name.asc',{headers:H}).then(r=>r.json()).catch(function(){return[];});
   var seen={},out=[]; (Array.isArray(pl)?pl:[]).forEach(function(p){ if(p&&p.name&&!seen[p.name]){seen[p.name]=1;out.push(p);} });
+  // Grade = the site's canonical PROJECTED OVR (gradeSolo, box-only + 99 ceiling).
+  if(window.TDCProjGrade&&TDCProjGrade.ready){ try{ await TDCProjGrade.ready; }catch(e){} }
+  if(window.TDCProjGrade&&TDCProjGrade.gradeSolo) out.forEach(function(p){ try{ var g=TDCProjGrade.gradeSolo(p); if(g!=null&&!isNaN(g)) p.tdc_grade=Math.round(g); }catch(e){} });
   return out;
 }
 async function loadAllPool(){
-  const base=SB+'/rest/v1/player_history?select=name,team,season_year,position,yr,height,tdc_grade,espn_id&tdc_grade=gte.80&gp=gte.18&mpg=gte.20';
+  const base=SB+'/rest/v1/player_history?select=name,team,season_year,position,yr,height,tdc_grade,espn_id,ppg,rpg,apg,mpg,stl,blk,tovs,oreb,dreb,tpa,fga,fta,fg_pct,tp_pct&tdc_grade=gte.80&gp=gte.18&mpg=gte.20';
   const cr=await fetch(base+'&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact','Range':'0-0','Range-Unit':'items'})});
   const total=parseInt((cr.headers.get('content-range')||'/0').split('/')[1]||0)||5000;
   const PG=1000, pages=Math.ceil(total/PG), jobs=[];
   for(let i=0;i<pages;i++) jobs.push(fetch(base,{headers:Object.assign({},H,{'Range-Unit':'items','Range':(i*PG)+'-'+(i*PG+PG-1)})}).then(r=>r.ok?r.json():[]));
   const parts=await Promise.all(jobs);
+  var all=parts.reduce(function(a,b){return a.concat(b);},[]);
+  // Box-adjust each season's grade FIRST (per-season centered, weak-team dampened) so the
+  // peak-season pick + the compare/reveal all use the canonical grade.
+  if(window.TDCRating&&TDCRating.ready){ try{ await TDCRating.ready; }catch(e){} }
+  if(window.TDCRating&&TDCRating.boxAdjust) all.forEach(function(p){ try{
+    var a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(p.season_year)||0);
+    if(a&&a.grade!=null) p.tdc_grade=Math.round(a.grade); }catch(e){} });
   // one row per player = their peak (highest-grade) season
   var best={};
-  parts.reduce(function(a,b){return a.concat(b);},[]).forEach(function(p){ if(!p||!p.name)return; var g=grNum(p.tdc_grade)||0; if(!best[p.name]||g>best[p.name]._g){ p._g=g; best[p.name]=p; } });
+  all.forEach(function(p){ if(!p||!p.name)return; var g=grNum(p.tdc_grade)||0; if(!best[p.name]||g>best[p.name]._g){ p._g=g; best[p.name]=p; } });
   return Object.keys(best).map(function(k){return best[k];});
 }
 async function ensurePool(){

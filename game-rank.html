@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
   <script src="auth.js?v=paywall4"></script>
+  <script src="tdc-projgrade.js?v=27"></script>
+  <script src="tdc-rating.js?v=4"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -111,11 +113,11 @@ let S={score:0,rounds:0,perfect:0};
 function curPool(){ return scope==='year'?POOL_YEAR:POOL_ALL; }
 
 async function loadYear(){
-  const r=await fetch(SB+'/rest/v1/players?select=name,team,ppg,rpg,apg,stl,blk,tdc_grade,tp_pct,mpg,gp&tdc_grade=gte.72&gp=gte.15&mpg=gte.16&order=name.asc',{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  const r=await fetch(SB+'/rest/v1/players?select=id,espn_id,name,team,class_year,yr,ppg,rpg,apg,stl,blk,tdc_grade,tp_pct,mpg,gp&tdc_grade=gte.72&gp=gte.15&mpg=gte.16&order=name.asc',{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
   return (r||[]).filter(p=>p.name);
 }
 async function loadAll(){
-  const base=SB+'/rest/v1/player_history?select=name,team,season_year,ppg,rpg,apg,stl,blk,tdc_grade,tp_pct,mpg,gp&tdc_grade=gte.82&gp=gte.20&mpg=gte.22';
+  const base=SB+'/rest/v1/player_history?select=name,team,season_year,position,height,ppg,rpg,apg,stl,blk,tovs,oreb,dreb,tpa,fga,fta,fg_pct,tdc_grade,tp_pct,mpg,gp&tdc_grade=gte.82&gp=gte.20&mpg=gte.22';
   const cr=await fetch(base+'&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact','Range':'0-0','Range-Unit':'items'})});
   const total=+(cr.headers.get('content-range')||'0/0').split('/')[1]||0; const PG=1000, pages=Math.min(Math.ceil(total/PG),22), jobs=[];
   for(let i=0;i<pages;i++) jobs.push(fetch(base,{headers:Object.assign({},H,{'Range-Unit':'items','Range':(i*PG)+'-'+(i*PG+PG-1)})}).then(r=>r.ok?r.json():[]));
@@ -129,7 +131,21 @@ async function setScope(s){
   S={score:0,rounds:0,perfect:0}; renderScore();
   el('content').innerHTML='<div class="loading">'+(s==='all'?'Loading 20 years of players…':'Loading players…')+'</div>';
   if(s==='year'){ if(!POOL_YEAR) POOL_YEAR=await loadYear(); } else { if(!POOL_ALL) POOL_ALL=await loadAll(); }
+  if(window.TDCProjGrade&&TDCProjGrade.ready){ try{ await TDCProjGrade.ready; }catch(e){} }
+  if(window.TDCRating&&TDCRating.ready){ try{ await TDCRating.ready; }catch(e){} }
+  _stampGrades(curPool());
   nextRound();
+}
+// Rank by the site's canonical grade: current players (year) → projected OVR (gradeSolo);
+// a historical season (all) → that season's box-adjusted grade. Overwrites tdc_grade once.
+function _stampGrades(pool){
+  if(!pool) return;
+  pool.forEach(p=>{ if(p._graded) return; p._graded=true;
+    try{
+      if(scope==='year'){ if(window.TDCProjGrade&&TDCProjGrade.gradeSolo){ const g=TDCProjGrade.gradeSolo(p); if(g!=null&&!isNaN(g)) p.tdc_grade=Math.round(g); } }
+      else if(window.TDCRating&&TDCRating.boxAdjust){ const a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(p.season_year)||0); if(a&&a.grade!=null) p.tdc_grade=Math.round(a.grade); }
+    }catch(e){}
+  });
 }
 function renderScore(){ el('sScore').textContent=S.score; el('sRounds').textContent=S.rounds; el('sPerfect').textContent=S.perfect; }
 
