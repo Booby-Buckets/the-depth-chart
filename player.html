@@ -15,6 +15,7 @@
   <script src="tdc-leaderboard.js?v=1"></script>
   <script src="tdc-portalfit.js?v=needs4"></script>
   <script src="tdc-projgrade.js?v=24"></script>
+  <script src="tdc-rating.js?v=1"></script>
   <script src="tdc-pool.js?v=1"></script>
   <meta charset="UTF-8"/>
   <style>
@@ -274,6 +275,16 @@
     .rk-row{display:grid;grid-template-columns:160px 56px 1fr;gap:14px;align-items:center;}
     /* Grade build-up: the real, honest decomposition of the projected OVR */
     .rk-buildup{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg2);}
+    /* TDC Rating (beta) */
+    .tdcr-head{display:flex;align-items:baseline;gap:16px;margin:6px 0 14px;}
+    .tdcr-num{font-family:'Inter',sans-serif;font-weight:800;font-size:40px;line-height:1;letter-spacing:-.02em;color:var(--accent);font-variant-numeric:tabular-nums;}
+    .tdcr-meta{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--text3);}
+    .tdcr-arch{font-weight:700;}
+    .tdcr-cats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+    @media(max-width:600px){.tdcr-cats{grid-template-columns:repeat(2,1fr);}}
+    .tdcr-cat{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg2);}
+    .tdcr-cl{font-size:12px;font-weight:600;color:var(--text2);}
+    .tdcr-cv{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;font-variant-numeric:tabular-nums;}
     .bu-row{display:flex;align-items:baseline;justify-content:space-between;gap:14px;padding:11px 16px;border-top:1px solid var(--border);}
     .bu-row:first-child{border-top:none;}
     .bu-lbl{font-size:13px;font-weight:700;color:var(--text);}
@@ -3967,11 +3978,28 @@ function renderRankings(){
       <span class="rk-chip"><span class="rk-chip-k">Height</span>${s.height||player.height||'—'}</span>
     </div>
     ${_buildup}
+    <div id="tdcRatingBox"></div>
     <div class="sec-title" style="margin:24px 0 4px;">What the grade measures</div>
     <div class="rk-sub">These are the actual inputs the grade model reads from his ${_projMode?'2025-26':'season'} box score — each ranked within its own season and adjusted for conference. It doesn't use Wins Added or BPM.</div>
     <div class="rk-drivers">${rows}</div>
     <div class="rk-foot">Bars show his level vs a strong-${GRP_LBL[grp]||'player'} benchmark (plus height &amp; position, not shown). The model is trained on 20 years of these lines against hand-set grades; the projection adjustments are in the build-up above.</div>`;
   setTimeout(()=>host.querySelectorAll('.rk-fill').forEach(el=>{el.style.width=el.getAttribute('data-w')+'%';}),60);
+  // TDC Rating (beta): the archetype/custom rating layered on the projected grade.
+  if(window.TDCRating && TDCRating.rate && _projMode && !isNaN(g)){
+    TDCRating.ready.then(function(){
+      const box=document.getElementById('tdcRatingBox'); if(!box) return;
+      const fullTeam=(teamData&&(teamData.full||teamData.name))||player.team;
+      const line={...s, position:s.position||player.position, height:s.height||player.height, team:fullTeam, espn_id:player.espn_id};
+      const R=TDCRating.rate({espn_id:player.espn_id,position:player.position,height:player.height,team:fullTeam}, line, g);
+      if(!R||R.rating==null) return;
+      const cats=R.categories||{}, ord=['Scoring','Creation','Efficiency','Defense','Rebounding','Shooting','Impact','Versatility'];
+      const chip=(k)=>{const v=cats[k]||0,pos=v>=0;return `<div class="tdcr-cat"><span class="tdcr-cl">${k}</span><span class="tdcr-cv" style="color:${pos?'#5ab875':'#e0885a'}">${pos?'+':''}${v.toFixed(1)}</span></div>`;};
+      box.innerHTML=`<div class="sec-title" style="margin:24px 0 4px;">TDC Rating <span style="font-weight:500;color:var(--text3);font-size:11px;">beta · expectation-relative + team context</span></div>
+        <div class="rk-sub">A different lens: how unusual/valuable he is <b>for his height & position</b> (vs the trained grade's raw production), blending Shot Genome shot-quality and team success. Layered on the projected grade.</div>
+        <div class="tdcr-head"><div class="tdcr-num">${R.rating.toFixed(1)}</div><div class="tdcr-meta"><span>Grade ${g}</span><span class="tdcr-arch" style="color:${R.archBonus>=0?'#5ab875':'#e0885a'}">${R.archBonus>=0?'+':''}${R.archBonus} archetype/context</span></div></div>
+        <div class="tdcr-cats">${ord.map(chip).join('')}</div>`;
+    }).catch(function(){});
+  }
 }
 
 // ── Projected 2026-27 grade ───────────────────────────────────────────────

@@ -92,6 +92,26 @@ window.TDCRating = (function () {
   function composite(player, line) { var C = categories(player, line); var z = 0;
     Object.keys(W).forEach(function (k) { z += W[k] * (C[k] || 0); }); return z; }
 
-  return { ready: load(), load: load, categories: categories, composite: composite,
-           expected: expected, rel: rel, _internal: function () { return { EXP: EXP, W: W }; } };
+  // Calibration (tunable): the archetype/custom composite is centered on the
+  // current-pool average and mapped to a bounded bonus that layers ON the site's
+  // trusted projected grade — which already carries role + development. So the TDC
+  // Rating = projected grade, reshaped by how unusual/valuable the player is for his
+  // archetype and how his custom stats + team context read.
+  var CENTER = 0.45, K = 1.7, AMIN = -3, AMAX = 4;
+  function setCalibration(c) { if (!c) return; if (c.center != null) CENTER = c.center; if (c.k != null) K = c.k;
+    if (c.archMin != null) AMIN = c.archMin; if (c.archMax != null) AMAX = c.archMax; }
+
+  // baseGrade = the site's projected OVR (role/dev already applied); line = the projected line.
+  function rate(player, line, baseGrade) {
+    var comp = composite(player, line);
+    var arch = clamp(K * (comp - CENTER), AMIN, AMAX);
+    var base = _num(baseGrade);
+    return { rating: base == null ? null : Math.round((base + arch) * 10) / 10,
+             archBonus: Math.round(arch * 10) / 10, composite: Math.round(comp * 1000) / 1000,
+             categories: categories(player, line) };
+  }
+
+  return { ready: load(), load: load, categories: categories, composite: composite, rate: rate,
+           setCalibration: setCalibration, expected: expected, rel: rel,
+           _internal: function () { return { EXP: EXP, W: W, CENTER: CENTER, K: K }; } };
 })();
