@@ -603,24 +603,30 @@ function _applyThreeLean(sp, leanScale){
 function applyCoachContext(roster){
   const C=window._projCoach; if(!C) return roster;
   const lg=C.lgPace||68;
-  const paceScale = C.poss_pg ? Math.max(0.90,Math.min(1.12, C.poss_pg/lg)) : 1;
-  const threeLean = C.three_pa_pctl!=null ? Math.max(0.82,Math.min(1.18, 1+0.34*(C.three_pa_pctl-50)/100)) : 1;
+  // VOLATILITY (user 2026-07-31: "more volatile, aggressive"): amplify each scheme signal's
+  // deviation from neutral ~2×, with correspondingly wider caps. Still CENTERED on the league
+  // median (a median-system player is unchanged) — this doubles the magnitude of the swing,
+  // not a uniform shift. Dial SCHEME_V to tune.
+  const SCHEME_V=2.0;
+  const _amp=(raw,lo,hi)=>{ var s=1+SCHEME_V*(raw-1); return s<lo?lo:s>hi?hi:s; };
+  const paceScale = C.poss_pg ? _amp(C.poss_pg/lg, 0.80, 1.26) : 1;
+  const threeLean = C.three_pa_pctl!=null ? _amp(1+0.34*(C.three_pa_pctl-50)/100, 0.64, 1.36) : 1;
   const starPctl  = (C.star_pctl!=null) ? C.star_pctl : null;
   // DEFENSIVE havoc: a transfer entering a high-pressure D (forced-TO% above league
   // median) projects for MORE steals; a passive D, fewer. Centered on the median.
-  const havocScale = (C.havoc!=null&&C.lgHavoc) ? Math.max(0.80,Math.min(1.30, C.havoc/C.lgHavoc)) : 1;
+  const havocScale = (C.havoc!=null&&C.lgHavoc) ? _amp(C.havoc/C.lgHavoc, 0.60, 1.60) : 1;
   // OFFENSIVE look-quality: joining a team that generates better looks (xeFG above the
   // league median) nudges a newcomer's FG% up; a worse-look offense nudges it down.
-  const fgBump = (C.lookq!=null&&C.lgLookq) ? Math.max(-1.4,Math.min(1.4, (C.lookq-C.lgLookq)*0.20)) : 0;
+  const fgBump = (C.lookq!=null&&C.lgLookq) ? Math.max(-2.8,Math.min(2.8, (C.lookq-C.lgLookq)*0.40)) : 0;
   // REBOUNDING: crash-the-glass offense (oORB above median) lifts a newcomer's O-boards;
   // a strong defensive-rebounding system lifts his D-boards. Def rebounding is more uniform
   // across teams, so it's bounded tighter than offensive.
-  const orbScale = (C.oreb!=null&&C.lgOreb) ? Math.max(0.82,Math.min(1.20, C.oreb/C.lgOreb)) : 1;
-  const drbScale = (C.dreb!=null&&C.lgDreb) ? Math.max(0.93,Math.min(1.08, C.dreb/C.lgDreb)) : 1;
+  const orbScale = (C.oreb!=null&&C.lgOreb) ? _amp(C.oreb/C.lgOreb, 0.64, 1.40) : 1;
+  const drbScale = (C.dreb!=null&&C.lgDreb) ? _amp(C.dreb/C.lgDreb, 0.86, 1.16) : 1;
   // BALL MOVEMENT: a motion/pass-heavy system (assists per 100 poss above median) lifts a
   // newcomer's assists; an iso-heavy one trims them. Pace is handled separately, so this is
   // the per-possession passing tendency on top of it.
-  const astScale = (C.astpp!=null&&C.lgAstpp) ? Math.max(0.80,Math.min(1.25, C.astpp/C.lgAstpp)) : 1;
+  const astScale = (C.astpp!=null&&C.lgAstpp) ? _amp(C.astpp/C.lgAstpp, 0.58, 1.52) : 1;
   const paceOn=Math.abs(paceScale-1)>=0.008, threeOn=Math.abs(threeLean-1)>=0.01, starOn=(starPctl!=null&&starPctl>60), havocOn=Math.abs(havocScale-1)>=0.02, lookOn=Math.abs(fgBump)>=0.15;
   const rebOn=Math.abs(orbScale-1)>=0.02||Math.abs(drbScale-1)>=0.02, astOn=Math.abs(astScale-1)>=0.02;
   if(!paceOn && !threeOn && !starOn && !havocOn && !lookOn && !rebOn && !astOn) return roster;   // ~neutral system → no-op

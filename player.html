@@ -9,7 +9,7 @@
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-nil.js?v=cal1"></script>
   <script src="tdc-pos.js"></script>
-  <script src="tdc-proj.js?v=coach14"></script>
+  <script src="tdc-proj.js?v=coach15"></script>
   <script src="tdc-freshman.js?v=pub4"></script>
   <script src="tdc-ratings.js?v=2"></script>
   <script src="tdc-leaderboard.js?v=1"></script>
@@ -4670,14 +4670,15 @@ async function _schScales(team){
   if(!team) return Z;
   try{ if(typeof loadProjCoachStyle==='function') await loadProjCoachStyle(team); }catch(e){ return Z; }
   var C=window._projCoach||{}, cl=function(v,a,b){return v<a?a:v>b?b:v;};
+  var V=2.0, _a=function(raw,lo,hi){return cl(1+V*(raw-1),lo,hi);};   // must match tdc-proj.js applyCoachContext
   return {
-    pace: (C.poss_pg&&C.lgPace)?cl(C.poss_pg/C.lgPace,0.90,1.12):1,
-    havoc:(C.havoc!=null&&C.lgHavoc)?cl(C.havoc/C.lgHavoc,0.80,1.30):1,
-    orb:  (C.oreb!=null&&C.lgOreb)?cl(C.oreb/C.lgOreb,0.82,1.20):1,
-    drb:  (C.dreb!=null&&C.lgDreb)?cl(C.dreb/C.lgDreb,0.93,1.08):1,
-    ast:  (C.astpp!=null&&C.lgAstpp)?cl(C.astpp/C.lgAstpp,0.80,1.25):1,
-    lean: (C.three_pa_pctl!=null)?cl(1+0.34*(C.three_pa_pctl-50)/100,0.82,1.18):1,
-    fgb:  (C.lookq!=null&&C.lgLookq)?cl((C.lookq-C.lgLookq)*0.20,-1.4,1.4):0,
+    pace: (C.poss_pg&&C.lgPace)?_a(C.poss_pg/C.lgPace,0.80,1.26):1,
+    havoc:(C.havoc!=null&&C.lgHavoc)?_a(C.havoc/C.lgHavoc,0.60,1.60):1,
+    orb:  (C.oreb!=null&&C.lgOreb)?_a(C.oreb/C.lgOreb,0.64,1.40):1,
+    drb:  (C.dreb!=null&&C.lgDreb)?_a(C.dreb/C.lgDreb,0.86,1.16):1,
+    ast:  (C.astpp!=null&&C.lgAstpp)?_a(C.astpp/C.lgAstpp,0.58,1.52):1,
+    lean: (C.three_pa_pctl!=null)?_a(1+0.34*(C.three_pa_pctl-50)/100,0.64,1.36):1,
+    fgb:  (C.lookq!=null&&C.lgLookq)?cl((C.lookq-C.lgLookq)*0.40,-2.8,2.8):0,
     coach:C.coach||'', poss:C.poss_pg||68
   };
 }
@@ -4732,10 +4733,10 @@ async function renderScheme(){
   }
   const PRESETS=[
     {name:'Neutral',sub:'league avg',pace:1.0,havoc:1.0,orb:1.0,drb:1.0,ast:1.0,lean:1.0,fgb:0},
-    {name:'Pressure D',sub:'forces TOs',pace:1.04,havoc:1.28,orb:1.02,drb:1.0,ast:1.0,lean:1.0,fgb:0},
-    {name:'Motion',sub:'ball movement',pace:1.02,havoc:1.0,orb:1.0,drb:1.0,ast:1.22,lean:1.06,fgb:0.7},
-    {name:'Crash Glass',sub:'off. rebounding',pace:1.0,havoc:1.0,orb:1.20,drb:1.06,ast:1.0,lean:0.95,fgb:0},
-    {name:'Slow Grind',sub:'low pace / good looks',pace:0.90,havoc:0.95,orb:1.0,drb:1.03,ast:1.05,lean:1.0,fgb:0.5}
+    {name:'Pressure D',sub:'forces TOs',pace:1.10,havoc:1.55,orb:1.05,drb:1.0,ast:1.0,lean:1.02,fgb:0},
+    {name:'Motion',sub:'ball movement',pace:1.05,havoc:1.0,orb:1.0,drb:1.0,ast:1.48,lean:1.15,fgb:1.5},
+    {name:'Crash Glass',sub:'off. rebounding',pace:1.0,havoc:1.0,orb:1.40,drb:1.14,ast:0.95,lean:0.90,fgb:0},
+    {name:'Slow Grind',sub:'low pace / good looks',pace:0.86,havoc:0.85,orb:1.0,drb:1.05,ast:1.10,lean:1.0,fgb:1.2}
   ];
   const _tc=t=>(window.tdcTeamColorHex&&tdcTeamColorHex(t))||'#7a7a7a';
   const _logo=t=>((window.tdcTeamColor&&tdcTeamColor(t))||{}).logo||'';
