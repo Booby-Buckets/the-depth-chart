@@ -469,7 +469,7 @@
 
   // Versatility "does-a-lot" bump (positive-only, keyed by espn_id).
   try{
-    fetch('scripts/data/versatility_adj.json?v=2')
+    fetch('scripts/data/versatility_adj.json?v=3')
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ if(j && j.bumps) setVersatility(j.bumps); })
       .catch(function(){});
