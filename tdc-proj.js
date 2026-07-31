@@ -505,10 +505,11 @@ async function loadProjCoachStyle(team){
   if(!team) return;
   try{
     if(!window._projCoachCache){
-      const [prof,seas,dna]=await Promise.all([
+      const [prof,seas,dna,sgt]=await Promise.all([
         fetch('scripts/data/coach_profiles.json').then(r=>r.ok?r.json():[]).catch(()=>[]),
         fetch('scripts/data/coach_seasons.json').then(r=>r.ok?r.json():[]).catch(()=>[]),
-        fetch('scripts/data/team_dna.json').then(r=>r.ok?r.json():null).catch(()=>null)
+        fetch('scripts/data/team_dna.json').then(r=>r.ok?r.json():null).catch(()=>null),
+        fetch('scripts/data/shot_genome_teams.json').then(r=>r.ok?r.json():null).catch(()=>null)
       ]);
       const bySlug={}; prof.forEach(p=>bySlug[p.coach_slug]=p);
       const byTeam={};  // school -> most recent {y, slug}
@@ -524,13 +525,20 @@ async function loadProjCoachStyle(team){
       const tms=(dna&&dna['2026']&&dna['2026'].teams)||{};
       Object.keys(tms).forEach(f=>{ const d=tms[f]&&tms[f].dTOV; if(d!=null){ havoc[f.toLowerCase()]=d; hv.push(d); } });
       hv.sort((a,b)=>a-b); const lgHavoc=hv.length?hv[Math.floor(hv.length/2)]:15;
-      window._projCoachCache={bySlug,byTeam,lgPace,havoc,lgHavoc};
+      // team OFFENSIVE look-quality (xeFG of the looks it generates) — a transfer joining
+      // a team that manufactures better looks gets a small efficiency lift, and vice-versa.
+      const lookq={}; const lq=[];
+      ((sgt&&sgt.teams)||[]).forEach(t=>{ const v=t.off&&t.off.lq; if(v!=null&&t.team){ lookq[t.team.toLowerCase()]=v; lq.push(v); } });
+      lq.sort((a,b)=>a-b); const lgLookq=lq.length?lq[Math.floor(lq.length/2)]:50;
+      window._projCoachCache={bySlug,byTeam,lgPace,havoc,lgHavoc,lookq,lgLookq};
     }
-    const {bySlug,byTeam,lgPace,havoc,lgHavoc}=window._projCoachCache;
-    // resolve this team's defensive havoc (full name in team_dna vs the roster's short name)
-    let teamHavoc=null;
-    if(havoc){ const lo=team.toLowerCase();
-      teamHavoc = havoc[lo]; if(teamHavoc==null){ const hk=Object.keys(havoc).find(f=>f===lo||f.startsWith(lo+' ')||(lo.length>=6&&f.indexOf(lo)===0)); if(hk) teamHavoc=havoc[hk]; } }
+    const {bySlug,byTeam,lgPace,havoc,lgHavoc,lookq,lgLookq}=window._projCoachCache;
+    // resolve this team's defensive havoc + offensive look-quality (full team_dna/genome
+    // name vs the roster's short name)
+    const _resolveTeam=(map)=>{ if(!map) return null; const lo=team.toLowerCase();
+      if(map[lo]!=null) return map[lo];
+      const k=Object.keys(map).find(f=>f===lo||f.startsWith(lo+' ')||(lo.length>=6&&f.indexOf(lo)===0)); return k?map[k]:null; };
+    let teamHavoc=_resolveTeam(havoc), teamLookq=_resolveTeam(lookq);
     let entry=byTeam[team];
     if(!entry){ const lo=team.toLowerCase();
       const k=Object.keys(byTeam).find(s=>{const sl=s.toLowerCase();
@@ -540,9 +548,9 @@ async function loadProjCoachStyle(team){
       if(p) window._projCoach={poss_pg:p.poss_pg, lgPace:lgPace||68,
         three_pa_pctl:(p.pctl&&p.pctl.three_pa_rate)||null,
         star_pctl:(p.pctl&&p.pctl.top_scorer_share)||null,
-        havoc:teamHavoc, lgHavoc:lgHavoc||15,
+        havoc:teamHavoc, lgHavoc:lgHavoc||15, lookq:teamLookq, lgLookq:lgLookq||50,
         archetype:p.archetype, coach:p.coach}; }
-    else if(teamHavoc!=null){ window._projCoach={lgPace:lgPace||68, havoc:teamHavoc, lgHavoc:lgHavoc||15}; }
+    else if(teamHavoc!=null||teamLookq!=null){ window._projCoach={lgPace:lgPace||68, havoc:teamHavoc, lgHavoc:lgHavoc||15, lookq:teamLookq, lgLookq:lgLookq||50}; }
   }catch(e){}
 }
 // Apply the coach's TEMPO to newcomers only. A returner's prior stats already reflect
@@ -577,8 +585,11 @@ function applyCoachContext(roster){
   // DEFENSIVE havoc: a transfer entering a high-pressure D (forced-TO% above league
   // median) projects for MORE steals; a passive D, fewer. Centered on the median.
   const havocScale = (C.havoc!=null&&C.lgHavoc) ? Math.max(0.80,Math.min(1.30, C.havoc/C.lgHavoc)) : 1;
-  const paceOn=Math.abs(paceScale-1)>=0.008, threeOn=Math.abs(threeLean-1)>=0.01, starOn=(starPctl!=null&&starPctl>60), havocOn=Math.abs(havocScale-1)>=0.02;
-  if(!paceOn && !threeOn && !starOn && !havocOn) return roster;   // ~neutral system → no-op
+  // OFFENSIVE look-quality: joining a team that generates better looks (xeFG above the
+  // league median) nudges a newcomer's FG% up; a worse-look offense nudges it down.
+  const fgBump = (C.lookq!=null&&C.lgLookq) ? Math.max(-1.4,Math.min(1.4, (C.lookq-C.lgLookq)*0.20)) : 0;
+  const paceOn=Math.abs(paceScale-1)>=0.008, threeOn=Math.abs(threeLean-1)>=0.01, starOn=(starPctl!=null&&starPctl>60), havocOn=Math.abs(havocScale-1)>=0.02, lookOn=Math.abs(fgBump)>=0.15;
+  if(!paceOn && !threeOn && !starOn && !havocOn && !lookOn) return roster;   // ~neutral system → no-op
   const r1=v=>v==null?null:Math.round(v*10)/10;
   const VOL=['ppg','rpg','apg','stl','blk','tovs','oreb','dreb','fgm','fga','tpm','tpa','ftm','fta'];
   const active=roster.filter(p=>!p._dnp&&!p._injured);
@@ -591,7 +602,7 @@ function applyCoachContext(roster){
     const newcomer=isTransfer||isFrosh;
     const hasLine=!!parseFloat(p.ppg||0)||p._noStatEst;
     let sp=p, changed=false;
-    if(newcomer && hasLine && (paceOn||threeOn||havocOn)){
+    if(newcomer && hasLine && (paceOn||threeOn||havocOn||lookOn)){
       sp={...p}; changed=true;
       if(paceOn){ VOL.forEach(k=>{ if(sp[k]!=null) sp[k]=parseFloat(sp[k]||0)*paceScale; }); sp._paceScale=Math.round(paceScale*1000)/1000; }
       if(threeOn){ _applyThreeLean(sp, threeLean); sp._threeLean=Math.round(threeLean*1000)/1000; }
@@ -600,6 +611,12 @@ function applyCoachContext(roster){
         if(sp.stl!=null) sp.stl=parseFloat(sp.stl||0)*havocScale;
         if(sp.tovs!=null) sp.tovs=parseFloat(sp.tovs||0)*(1+0.30*(havocScale-1));  // pressure systems turn it over a touch more too
         sp._havoc=Math.round(havocScale*1000)/1000;
+      }
+      if(lookOn && sp.fg_pct!=null){   // shot-quality environment → FG%, carried into makes+points
+        const oldFg=parseFloat(sp.fg_pct)||0, newFg=Math.max(30,Math.min(70, oldFg+fgBump)), fga=parseFloat(sp.fga)||0;
+        if(fga>0 && sp.fgm!=null){ const dMade=fga*(newFg-oldFg)/100; sp.fgm=parseFloat(sp.fgm)+dMade;
+          if(sp.ppg!=null) sp.ppg=parseFloat(sp.ppg)+dMade*2.1; }   // extra makes ≈ 2.1 pts avg
+        sp.fg_pct=newFg; sp._lookqFg=Math.round(fgBump*100)/100;
       }
     }
     if(starOn && p===topScorer && starUsg>1.004 && hasLine){
