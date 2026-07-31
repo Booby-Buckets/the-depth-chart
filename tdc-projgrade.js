@@ -204,6 +204,11 @@
   var _VERS = {};
   function setVersatility(m){ if(m && typeof m === 'object') _VERS = m; }
   function _versOf(row){ var e = row && row.espn_id; return (e != null && _VERS['' + e] != null) ? _VERS['' + e] : 0; }
+  // small-sample (games-played) regression — a NEGATIVE delta for players whose grade
+  // rests on too few games (build_gp_regression.py), keyed by players.id.
+  var _GPS = {};
+  function setGpShrink(m){ if(m && typeof m === 'object') _GPS = m; }
+  function _gpsOf(row){ var i = row && row.id; return (i != null && _GPS['' + i] != null) ? _GPS['' + i] : 0; }
   var MAXMIN = 34, TOTMIN = 200, ROT_BAND = 16, ROT_POWER = 2.2;
   var ROLE_K = 14, ROLE_UP = 3, FLOOR_GAP = 12, CEIL = 7;
   // minutes ("playing-time quality") knobs — see gradeRoster
@@ -402,7 +407,7 @@
       if(quals[i] == null) return { min: 0, grade: null, qual: null };
       var g = _gradeV5(quals[i], p.yr || p.class_year, mins[i]);
       if(p.id != null && _COUPLED[p.id] != null) g = _COUPLED[p.id];   // projected-line coupling (vers-free anchor)
-      g = Math.round(g + _versOf(p));                                  // + versatility, on TOP of coupled-or-computed
+      g = Math.round(g + _versOf(p) + _gpsOf(p));                      // + versatility, − small-sample shrink
       return { min: mins[i], qual: Math.round(quals[i] * 10) / 10, grade: g };
     });
   }
@@ -413,12 +418,12 @@
   // with the player/team pages without needing every team's full roster.
   function gradeSolo(row){
     if(!row) return null;
-    if(row.id != null && _COUPLED[row.id] != null) return Math.round(_COUPLED[row.id] + _versOf(row));   // coupled + versatility
+    if(row.id != null && _COUPLED[row.id] != null) return Math.round(_COUPLED[row.id] + _versOf(row) + _gpsOf(row));   // coupled + versatility − small-sample
     var g = parseFloat(row.tdc_grade); if(!isFinite(g)) return null;
     var qual = g;   // no conference discount here — see gradeRoster; the level lives in the projection
     var trans = _clsTrans(row.yr || row.class_year);
     var devBpm = (trans && _DEV && _DEV.bpm_delta && _DEV.bpm_delta[trans]) ? (_DEV.bpm_delta[trans][_qtier(qual)] || 0) : 0;
-    return Math.round(qual + devBpm * (_BR.b || 1.174) + _versOf(row));
+    return Math.round(qual + devBpm * (_BR.b || 1.174) + _versOf(row) + _gpsOf(row));
   }
 
   // Transparent decomposition of the SAME number gradeSolo returns, so a page can
@@ -429,6 +434,7 @@
     if(!row) return null;
     var demo = parseFloat(row.tdc_grade); if(!isFinite(demo)) return null;
     var vers = _versOf(row);
+    var gps = _gpsOf(row);   // small-sample (games-played) regression, <= 0
     var coupled = (row.id != null && _COUPLED[row.id] != null);
     var anchor, roleDelta = 0, devDelta = 0;
     if(coupled){
@@ -442,12 +448,12 @@
     }
     var r1 = function(x){ return Math.round(x * 10) / 10; };
     return { demonstrated: r1(demo), coupled: coupled, roleDelta: r1(roleDelta),
-             devDelta: r1(devDelta), versatility: r1(vers), anchor: r1(anchor),
-             final: Math.round(anchor + vers) };
+             devDelta: r1(devDelta), versatility: r1(vers), gpShrink: r1(gps), anchor: r1(anchor),
+             final: Math.round(anchor + vers + gps) };
   }
 
   window.TDCProjGrade = { projMin: projMin, grade: grade, ovr: ovr, K: K, setPedigree: setPedigree,
-                          gradeRoster: gradeRoster, gradeSolo: gradeSolo, explain: explain, projectMinutes: projectMinutes, setModel: setModel, setCoupled: setCoupled, setVersatility: setVersatility };
+                          gradeRoster: gradeRoster, gradeSolo: gradeSolo, explain: explain, projectMinutes: projectMinutes, setModel: setModel, setCoupled: setCoupled, setVersatility: setVersatility, setGpShrink: setGpShrink };
 
   // Self-load the derived pedigree coefficients (tiny, local file) so every page
   // picks them up with no per-page wiring. This resolves well before the slower
@@ -472,6 +478,14 @@
     fetch('scripts/data/versatility_adj.json?v=3')
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ if(j && j.bumps) setVersatility(j.bumps); })
+      .catch(function(){});
+  }catch(e){}
+
+  // Small-sample (games-played) regression (negative, keyed by players.id).
+  try{
+    fetch('scripts/data/gp_shrink.json?v=1')
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){ if(j && j.deltas) setGpShrink(j.deltas); })
       .catch(function(){});
   }catch(e){}
 
