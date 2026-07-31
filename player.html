@@ -3664,15 +3664,18 @@ function renderGameLog(){
 }
 
 // ── RANKINGS: how the tdc_grade is built ──────────────────────────────────────
+// The ACTUAL inputs the grade model (RidgeCV, scripts/grade_features.py) measures,
+// each z-scored within its own season and conference-tier-adjusted. NOT Wins Added
+// or BPM — those are derived views the model never sees.
 const GRADE_W=[
-  {k:'wa',  lbl:'Wins Added',   stat:'WA',   w:1.7,  max:9,  good:1},
-  {k:'ppg', lbl:'Scoring',      stat:'PPG',  w:0.95, max:28, good:1},
-  {k:'ts',  lbl:'Efficiency',   stat:'TS%',  w:0.5,  max:65, good:1},
-  {k:'bpm', lbl:'Box Impact',   stat:'BPM',  w:0.6,  max:13, good:1},
-  {k:'rpg', lbl:'Rebounding',   stat:'RPG',  w:0.32, max:12, good:1},
-  {k:'apg', lbl:'Playmaking',   stat:'APG',  w:0.32, max:8,  good:1},
-  {k:'mpg', lbl:'Workload',     stat:'MPG',  w:0.22, max:36, good:1},
-  {k:'tovs',lbl:'Ball Security',stat:'TOV',  w:0.18, max:3.6,good:0},
+  {k:'ppg',   lbl:'Scoring',      stat:'PPG',  max:20,  good:1},
+  {k:'ts',    lbl:'Shooting Eff.',stat:'TS%',  max:64,  good:1},
+  {k:'rpg',   lbl:'Rebounding',   stat:'RPG',  max:11,  good:1},
+  {k:'apg',   lbl:'Playmaking',   stat:'APG',  max:7,   good:1},
+  {k:'stl',   lbl:'Steals',       stat:'STL',  max:2.2, good:1},
+  {k:'blk',   lbl:'Blocks',       stat:'BLK',  max:2.8, good:1},
+  {k:'ast_to',lbl:'Ball Control', stat:'A/TO', max:3,   good:1},
+  {k:'mpg',   lbl:'Workload',     stat:'MPG',  max:35,  good:1},
 ];
 const GRP_LBL={G:'Guards',W:'Wings & Forwards',B:'Bigs'};
 function _tsPct(s){ const t=s._advanced&&s._advanced.ts_pct; if(t!=null&&t!=='') return parseFloat(t)*100;
@@ -3890,8 +3893,13 @@ function renderRankings(){
   const grp=_norm3(s.position||player.position);
   const g=parseInt(s.tdc_grade!=null?s.tdc_grade:player.tdc_grade);
   const conf=(teamData&&(teamData.conf||teamData.conference))||'';
-  const tsv=_tsPct(s);
-  const val=k=> k==='ts'?tsv : k==='wa'?(parseFloat(s.wa)||0) : k==='bpm'?(parseFloat(s._advanced&&s._advanced.bpm)||0) : (parseFloat(s[k])||0);
+  // Profile shows the DEMONSTRATED season — the actual box-score line the grade model
+  // was trained on (returners); freshmen fall back to the projected line.
+  const _prof = _projRet ? (_lastAct||s) : s;
+  const tsv=_tsPct(_prof);
+  const val=k=> k==='ts' ? tsv
+    : k==='ast_to' ? ((parseFloat(_prof.tovs)||0)>0 ? (parseFloat(_prof.apg)||0)/parseFloat(_prof.tovs) : (parseFloat(_prof.apg)||0))
+    : (parseFloat(_prof[k])||0);
   const rows=GRADE_W.map(d=>{
     const v=val(d.k); const fill=Math.max(0,Math.min(1,(v||0)/d.max));
     const txt= d.k==='ts' ? (v!=null?v.toFixed(1)+'%':'—') : _f1(v);
@@ -3957,10 +3965,10 @@ function renderRankings(){
       <span class="rk-chip"><span class="rk-chip-k">Height</span>${s.height||player.height||'—'}</span>
     </div>
     ${_buildup}
-    <div class="sec-title" style="margin:24px 0 4px;">Statistical profile</div>
-    <div class="rk-sub">Where he ranks in each area — the ${_projMode?'projected':'season'} box-score line the demonstrated grade is built on. Descriptive, not the grade formula.</div>
+    <div class="sec-title" style="margin:24px 0 4px;">What the grade measures</div>
+    <div class="rk-sub">These are the actual inputs the grade model reads from his ${_projMode?'2025-26':'season'} box score — each ranked within its own season and adjusted for conference. It doesn't use Wins Added or BPM.</div>
     <div class="rk-drivers">${rows}</div>
-    <div class="rk-foot">Levels are shown against a strong-${GRP_LBL[grp]||'player'} benchmark. The grade itself is the trained model's rating of the full profile, then the adjustments in the build-up above.</div>`;
+    <div class="rk-foot">Bars show his level vs a strong-${GRP_LBL[grp]||'player'} benchmark (plus height &amp; position, not shown). The model is trained on 20 years of these lines against hand-set grades; the projection adjustments are in the build-up above.</div>`;
   setTimeout(()=>host.querySelectorAll('.rk-fill').forEach(el=>{el.style.width=el.getAttribute('data-w')+'%';}),60);
 }
 
