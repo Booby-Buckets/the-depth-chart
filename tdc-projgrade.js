@@ -421,8 +421,33 @@
     return Math.round(qual + devBpm * (_BR.b || 1.174) + _versOf(row));
   }
 
+  // Transparent decomposition of the SAME number gradeSolo returns, so a page can
+  // SHOW exactly how the projected OVR is built (demonstrated grade → role/usage or
+  // development → versatility) instead of an invented weight chart. Pass the row with
+  // the DEMONSTRATED tdc_grade (last actual season), plus id + espn_id.
+  function explain(row){
+    if(!row) return null;
+    var demo = parseFloat(row.tdc_grade); if(!isFinite(demo)) return null;
+    var vers = _versOf(row);
+    var coupled = (row.id != null && _COUPLED[row.id] != null);
+    var anchor, roleDelta = 0, devDelta = 0;
+    if(coupled){
+      anchor = _COUPLED[row.id];
+      roleDelta = anchor - demo;   // net role/usage move from the projected-line coupling
+    } else {
+      var trans = _clsTrans(row.yr || row.class_year);
+      var devBpm = (trans && _DEV && _DEV.bpm_delta && _DEV.bpm_delta[trans]) ? (_DEV.bpm_delta[trans][_qtier(demo)] || 0) : 0;
+      devDelta = devBpm * (_BR.b || 1.174);   // class-development curve
+      anchor = demo + devDelta;
+    }
+    var r1 = function(x){ return Math.round(x * 10) / 10; };
+    return { demonstrated: r1(demo), coupled: coupled, roleDelta: r1(roleDelta),
+             devDelta: r1(devDelta), versatility: r1(vers), anchor: r1(anchor),
+             final: Math.round(anchor + vers) };
+  }
+
   window.TDCProjGrade = { projMin: projMin, grade: grade, ovr: ovr, K: K, setPedigree: setPedigree,
-                          gradeRoster: gradeRoster, gradeSolo: gradeSolo, projectMinutes: projectMinutes, setModel: setModel, setCoupled: setCoupled, setVersatility: setVersatility };
+                          gradeRoster: gradeRoster, gradeSolo: gradeSolo, explain: explain, projectMinutes: projectMinutes, setModel: setModel, setCoupled: setCoupled, setVersatility: setVersatility };
 
   // Self-load the derived pedigree coefficients (tiny, local file) so every page
   // picks them up with no per-page wiring. This resolves well before the slower

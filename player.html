@@ -14,7 +14,7 @@
   <script src="tdc-ratings.js?v=2"></script>
   <script src="tdc-leaderboard.js?v=1"></script>
   <script src="tdc-portalfit.js?v=needs4"></script>
-  <script src="tdc-projgrade.js?v=20"></script>
+  <script src="tdc-projgrade.js?v=21"></script>
   <script src="tdc-pool.js?v=1"></script>
   <meta charset="UTF-8"/>
   <style>
@@ -271,7 +271,17 @@
     .rk-chip-k{font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);}
     .rk-sub{font-size:12.5px;color:var(--text3);margin-bottom:16px;line-height:1.5;}
     .rk-drivers{display:flex;flex-direction:column;gap:11px;}
-    .rk-row{display:grid;grid-template-columns:160px 56px 1fr 54px;gap:14px;align-items:center;}
+    .rk-row{display:grid;grid-template-columns:160px 56px 1fr;gap:14px;align-items:center;}
+    /* Grade build-up: the real, honest decomposition of the projected OVR */
+    .rk-buildup{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg2);}
+    .bu-row{display:flex;align-items:baseline;justify-content:space-between;gap:14px;padding:11px 16px;border-top:1px solid var(--border);}
+    .bu-row:first-child{border-top:none;}
+    .bu-lbl{font-size:13px;font-weight:700;color:var(--text);}
+    .bu-lbl em{display:block;font-style:normal;font-size:11px;font-weight:500;color:var(--text3);margin-top:2px;}
+    .bu-val{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;color:var(--text2);font-variant-numeric:tabular-nums;white-space:nowrap;}
+    .bu-val.pos{color:#5ab875;} .bu-val.neg{color:#e0885a;}
+    .bu-row.total{background:color-mix(in srgb, var(--accent) 12%, var(--bg2));border-top:1px solid var(--border2);}
+    .bu-row.total .bu-lbl{font-weight:800;} .bu-row.total .bu-val{color:var(--text);font-size:22px;}
     .rk-name{font-size:13px;font-weight:700;color:var(--text);}
     .rk-stat{font-size:9.5px;font-weight:700;letter-spacing:.06em;color:var(--text3);margin-left:7px;}
     .rk-val{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text);text-align:right;}
@@ -3890,9 +3900,32 @@ function renderRankings(){
       <div class="rk-name">${d.lbl}<span class="rk-stat">${d.stat}</span></div>
       <div class="rk-val">${txt}</div>
       <div class="rk-bar"><div class="rk-fill${neg?' neg':''}" data-w="${Math.round(fill*100)}" style="width:0%"></div></div>
-      <div class="rk-wt" title="model weight">${neg?'−':''}${d.w.toFixed(2)}×</div>
     </div>`;
   }).join('');
+  // The REAL decomposition of the projected OVR (demonstrated → role/dev → versatility),
+  // straight from the grade engine so it always matches the number shown.
+  const _exp = (_projRet && window.TDCProjGrade && TDCProjGrade.explain)
+    ? TDCProjGrade.explain({id:player.id, espn_id:player.espn_id, tdc_grade:(_lastAct&&_lastAct.tdc_grade), yr:player.yr||player.class_year})
+    : null;
+  const _buRow=(lbl,sub,val,isDelta,isTotal)=>{
+    const vtxt=isDelta?((val>=0?'+':'')+_f1(val)):(''+Math.round(val));
+    const vcls=isDelta?(val>0.05?' pos':val<-0.05?' neg':''):'';
+    return `<div class="bu-row${isTotal?' total':''}"><span class="bu-lbl">${lbl}${sub?`<em>${sub}</em>`:''}</span><span class="bu-val${vcls}">${vtxt}</span></div>`;
+  };
+  let _buildup='';
+  if(_exp){
+    const parts=[_buRow('Demonstrated grade','2025-26 · trained model on his full box-score profile',_exp.demonstrated,false,false)];
+    if(_exp.coupled && Math.abs(_exp.roleDelta)>=0.05)
+      parts.push(_buRow('Projected role &amp; usage', _exp.roleDelta>0?'graded up for a bigger role in the offense':'graded down for a reduced role', _exp.roleDelta, true, false));
+    if(!_exp.coupled && Math.abs(_exp.devDelta)>=0.05)
+      parts.push(_buRow('Class development','year-over-year growth curve for his class', _exp.devDelta, true, false));
+    if(Math.abs(_exp.versatility)>=0.05)
+      parts.push(_buRow('Versatility bump','breadth of non-scoring impact — rebounding, defense, passing, spacing', _exp.versatility, true, false));
+    parts.push(_buRow('Projected 2026-27 OVR','',_exp.final,false,true));
+    _buildup=`<div class="sec-title" style="margin:22px 0 8px;">How the grade is built</div>
+      <div class="rk-buildup">${parts.join('')}</div>
+      <div class="rk-foot" style="margin-top:9px;">Every projected grade starts from the trained demonstrated grade, then adds only these adjustments — nothing else. The box-score profile below is what the demonstrated grade is built on.</div>`;
+  }
   const scale=[['99','Generational'],['90','All-American'],['82','All-Conference'],['74','Rotation'],['64','Bench']];
   // forward-looking blurb — honest about whether the grade RISES, holds, or eases (was hardcoded "rises")
   const _demoG=parseInt(_lastAct&&_lastAct.tdc_grade), _pMpg=parseFloat(s.mpg), _lMpg=parseFloat(_lastAct&&_lastAct.mpg);
@@ -3913,8 +3946,7 @@ function renderRankings(){
         <div class="sec-title" style="margin-bottom:10px;">${_projMode?'How this grade is projected':'How this grade is built'}</div>
         <ul class="rk-method">
           ${_projRet?`<li><b>It's forward-looking.</b> His demonstrated grade last season was <b>${_demoG}</b> on ${_f1(_lastAct.mpg)} MPG. Projected into ${_roleTxt} for 2026-27, ${_moveTxt}.</li>`:''}
-          <li><b>Wins Added drives it.</b> The biggest factor is how many games the team would lose without this player${s.wa!=null?` — about <b>${Number(s.wa).toFixed(1)}</b> ${_projMode?'projected':'here'}`:''}. It rewards being the engine of a winning team, not padding stats.</li>
-          ${_projRet?'':`<li><b>Team success counts.</b> Wins Added can only be high when the team actually won${conf?` (${conf})`:''} — a great line on a losing team adds few wins, and is graded accordingly.</li>`}
+          <li><b>Anchored on a trained model.</b> The demonstrated grade comes from a model trained on 20 years of player-seasons — not a hand-weighted formula. The projection then adjusts it only for role and all-around impact; the exact build-up is below.</li>
           <li><b>Position-relative & cross-era.</b> Measured against every ${GRP_LBL[grp]||'player'} season since 2006-07; only the truly dominant reach 99 (~1 a year).</li>
         </ul>
       </div>
@@ -3924,10 +3956,11 @@ function renderRankings(){
       ${conf?`<span class="rk-chip"><span class="rk-chip-k">Conference</span>${conf}</span>`:''}
       <span class="rk-chip"><span class="rk-chip-k">Height</span>${s.height||player.height||'—'}</span>
     </div>
-    <div class="sec-title" style="margin:24px 0 4px;">What drives it</div>
-    <div class="rk-sub">Each input's bar shows this player's level; the weight (×) is how heavily the model leans on it. Wins Added leads by far; turnovers subtract.</div>
+    ${_buildup}
+    <div class="sec-title" style="margin:24px 0 4px;">Statistical profile</div>
+    <div class="rk-sub">Where he ranks in each area — the ${_projMode?'projected':'season'} box-score line the demonstrated grade is built on. Descriptive, not the grade formula.</div>
     <div class="rk-drivers">${rows}</div>
-    <div class="rk-foot">Inputs are tier-adjusted, then z-scored within ${GRP_LBL[grp]||'position'} across all seasons and combined by the weights above into the 40–99 grade.</div>`;
+    <div class="rk-foot">Levels are shown against a strong-${GRP_LBL[grp]||'player'} benchmark. The grade itself is the trained model's rating of the full profile, then the adjustments in the build-up above.</div>`;
   setTimeout(()=>host.querySelectorAll('.rk-fill').forEach(el=>{el.style.width=el.getAttribute('data-w')+'%';}),60);
 }
 
