@@ -25,7 +25,8 @@ KEY = "sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
 HDR = {"apikey": KEY, "Authorization": "Bearer " + KEY}
 D = os.path.join(os.path.dirname(__file__), "data")
 SEASON = 2026
-VMAX = 2.5            # bump ceiling
+VMAX = 1.6           # bump ceiling (scaled down from 2.5 — it should nudge, not swing)
+SCALE = 0.6          # global scale on the whole bump so it's a nudge, not a grade mover
 MIN_MP = 500         # need real minutes for the advanced stats to mean anything
 
 def get(path):
@@ -100,7 +101,7 @@ def main():
         # taper toward the top: an already-elite grade is not being under-rated for
         # versatility, so the bump fades out above ~87 (nearly nothing by 93).
         taper = max(0.2, min(1.0, (93 - r["grade"]) / 6.0))
-        bump = max(0.0, min(VMAX, ((breadth - 1.5) * 0.9 + bpm_term) * role * taper))
+        bump = max(0.0, min(VMAX, SCALE * ((breadth - 1.5) * 0.9 + bpm_term) * role * taper))
         bump = round(bump * 10) / 10
         if bump >= 0.5:
             out[r["e"]] = bump
