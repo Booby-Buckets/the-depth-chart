@@ -505,9 +505,10 @@ async function loadProjCoachStyle(team){
   if(!team) return;
   try{
     if(!window._projCoachCache){
-      const [prof,seas]=await Promise.all([
+      const [prof,seas,dna]=await Promise.all([
         fetch('scripts/data/coach_profiles.json').then(r=>r.ok?r.json():[]).catch(()=>[]),
-        fetch('scripts/data/coach_seasons.json').then(r=>r.ok?r.json():[]).catch(()=>[])
+        fetch('scripts/data/coach_seasons.json').then(r=>r.ok?r.json():[]).catch(()=>[]),
+        fetch('scripts/data/team_dna.json').then(r=>r.ok?r.json():null).catch(()=>null)
       ]);
       const bySlug={}; prof.forEach(p=>bySlug[p.coach_slug]=p);
       const byTeam={};  // school -> most recent {y, slug}
@@ -517,9 +518,19 @@ async function loadProjCoachStyle(team){
       // adjustment is CENTERED (half of coaches faster, half slower), not biased.
       const paces=prof.filter(p=>(p.seasons||0)>=3&&p.poss_pg).map(p=>p.poss_pg).sort((a,b)=>a-b);
       const lgPace=paces.length?paces[Math.floor(paces.length/2)]:68;
-      window._projCoachCache={bySlug,byTeam,lgPace};
+      // team DEFENSIVE havoc (forced-TO%) by team, so a transfer entering a pressure
+      // system (Pitino, etc.) projects for MORE steals — centered on the league median.
+      const havoc={}; const hv=[];
+      const tms=(dna&&dna['2026']&&dna['2026'].teams)||{};
+      Object.keys(tms).forEach(f=>{ const d=tms[f]&&tms[f].dTOV; if(d!=null){ havoc[f.toLowerCase()]=d; hv.push(d); } });
+      hv.sort((a,b)=>a-b); const lgHavoc=hv.length?hv[Math.floor(hv.length/2)]:15;
+      window._projCoachCache={bySlug,byTeam,lgPace,havoc,lgHavoc};
     }
-    const {bySlug,byTeam,lgPace}=window._projCoachCache;
+    const {bySlug,byTeam,lgPace,havoc,lgHavoc}=window._projCoachCache;
+    // resolve this team's defensive havoc (full name in team_dna vs the roster's short name)
+    let teamHavoc=null;
+    if(havoc){ const lo=team.toLowerCase();
+      teamHavoc = havoc[lo]; if(teamHavoc==null){ const hk=Object.keys(havoc).find(f=>f===lo||f.startsWith(lo+' ')||(lo.length>=6&&f.indexOf(lo)===0)); if(hk) teamHavoc=havoc[hk]; } }
     let entry=byTeam[team];
     if(!entry){ const lo=team.toLowerCase();
       const k=Object.keys(byTeam).find(s=>{const sl=s.toLowerCase();
@@ -529,7 +540,9 @@ async function loadProjCoachStyle(team){
       if(p) window._projCoach={poss_pg:p.poss_pg, lgPace:lgPace||68,
         three_pa_pctl:(p.pctl&&p.pctl.three_pa_rate)||null,
         star_pctl:(p.pctl&&p.pctl.top_scorer_share)||null,
+        havoc:teamHavoc, lgHavoc:lgHavoc||15,
         archetype:p.archetype, coach:p.coach}; }
+    else if(teamHavoc!=null){ window._projCoach={lgPace:lgPace||68, havoc:teamHavoc, lgHavoc:lgHavoc||15}; }
   }catch(e){}
 }
 // Apply the coach's TEMPO to newcomers only. A returner's prior stats already reflect
@@ -561,8 +574,11 @@ function applyCoachContext(roster){
   const paceScale = C.poss_pg ? Math.max(0.90,Math.min(1.12, C.poss_pg/lg)) : 1;
   const threeLean = C.three_pa_pctl!=null ? Math.max(0.82,Math.min(1.18, 1+0.34*(C.three_pa_pctl-50)/100)) : 1;
   const starPctl  = (C.star_pctl!=null) ? C.star_pctl : null;
-  const paceOn=Math.abs(paceScale-1)>=0.008, threeOn=Math.abs(threeLean-1)>=0.01, starOn=(starPctl!=null&&starPctl>60);
-  if(!paceOn && !threeOn && !starOn) return roster;       // ~neutral coach → no-op
+  // DEFENSIVE havoc: a transfer entering a high-pressure D (forced-TO% above league
+  // median) projects for MORE steals; a passive D, fewer. Centered on the median.
+  const havocScale = (C.havoc!=null&&C.lgHavoc) ? Math.max(0.80,Math.min(1.30, C.havoc/C.lgHavoc)) : 1;
+  const paceOn=Math.abs(paceScale-1)>=0.008, threeOn=Math.abs(threeLean-1)>=0.01, starOn=(starPctl!=null&&starPctl>60), havocOn=Math.abs(havocScale-1)>=0.02;
+  if(!paceOn && !threeOn && !starOn && !havocOn) return roster;   // ~neutral system → no-op
   const r1=v=>v==null?null:Math.round(v*10)/10;
   const VOL=['ppg','rpg','apg','stl','blk','tovs','oreb','dreb','fgm','fga','tpm','tpa','ftm','fta'];
   const active=roster.filter(p=>!p._dnp&&!p._injured);
@@ -575,10 +591,16 @@ function applyCoachContext(roster){
     const newcomer=isTransfer||isFrosh;
     const hasLine=!!parseFloat(p.ppg||0)||p._noStatEst;
     let sp=p, changed=false;
-    if(newcomer && hasLine && (paceOn||threeOn)){
+    if(newcomer && hasLine && (paceOn||threeOn||havocOn)){
       sp={...p}; changed=true;
       if(paceOn){ VOL.forEach(k=>{ if(sp[k]!=null) sp[k]=parseFloat(sp[k]||0)*paceScale; }); sp._paceScale=Math.round(paceScale*1000)/1000; }
       if(threeOn){ _applyThreeLean(sp, threeLean); sp._threeLean=Math.round(threeLean*1000)/1000; }
+      if(havocOn){   // defense-driven: pace already scaled steals for possessions; this is
+                     // the ADDITIONAL per-possession pressure of the new system
+        if(sp.stl!=null) sp.stl=parseFloat(sp.stl||0)*havocScale;
+        if(sp.tovs!=null) sp.tovs=parseFloat(sp.tovs||0)*(1+0.30*(havocScale-1));  // pressure systems turn it over a touch more too
+        sp._havoc=Math.round(havocScale*1000)/1000;
+      }
     }
     if(starOn && p===topScorer && starUsg>1.004 && hasLine){
       if(!changed){ sp={...p}; changed=true; }
