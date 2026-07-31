@@ -617,7 +617,9 @@ function applyCoachContext(roster){
   const havocScale = (C.havoc!=null&&C.lgHavoc) ? _amp(C.havoc/C.lgHavoc, 0.60, 1.60) : 1;
   // OFFENSIVE look-quality: joining a team that generates better looks (xeFG above the
   // league median) nudges a newcomer's FG% up; a worse-look offense nudges it down.
-  const fgBump = (C.lookq!=null&&C.lgLookq) ? Math.max(-2.8,Math.min(2.8, (C.lookq-C.lgLookq)*0.40)) : 0;
+  const fgBump = (C.lookq!=null&&C.lgLookq) ? Math.max(-4.5,Math.min(4.5, (C.lookq-C.lgLookq)*0.70)) : 0;
+  // look-quality lifts 3P% too (a good-look offense generates cleaner threes; a bad one, contested)
+  const tpBump = (C.lookq!=null&&C.lgLookq) ? Math.max(-4.5,Math.min(4.5, (C.lookq-C.lgLookq)*0.60)) : 0;
   // REBOUNDING: crash-the-glass offense (oORB above median) lifts a newcomer's O-boards;
   // a strong defensive-rebounding system lifts his D-boards. Def rebounding is more uniform
   // across teams, so it's bounded tighter than offensive.
@@ -627,7 +629,7 @@ function applyCoachContext(roster){
   // newcomer's assists; an iso-heavy one trims them. Pace is handled separately, so this is
   // the per-possession passing tendency on top of it.
   const astScale = (C.astpp!=null&&C.lgAstpp) ? _amp(C.astpp/C.lgAstpp, 0.58, 1.52) : 1;
-  const paceOn=Math.abs(paceScale-1)>=0.008, threeOn=Math.abs(threeLean-1)>=0.01, starOn=(starPctl!=null&&starPctl>60), havocOn=Math.abs(havocScale-1)>=0.02, lookOn=Math.abs(fgBump)>=0.15;
+  const paceOn=Math.abs(paceScale-1)>=0.008, threeOn=Math.abs(threeLean-1)>=0.01, starOn=(starPctl!=null&&starPctl>60), havocOn=Math.abs(havocScale-1)>=0.02, lookOn=Math.abs(fgBump)>=0.15||Math.abs(tpBump)>=0.2;
   const rebOn=Math.abs(orbScale-1)>=0.02||Math.abs(drbScale-1)>=0.02, astOn=Math.abs(astScale-1)>=0.02;
   if(!paceOn && !threeOn && !starOn && !havocOn && !lookOn && !rebOn && !astOn) return roster;   // ~neutral system → no-op
   const r1=v=>v==null?null:Math.round(v*10)/10;
@@ -652,11 +654,17 @@ function applyCoachContext(roster){
         if(sp.tovs!=null) sp.tovs=parseFloat(sp.tovs||0)*(1+0.30*(havocScale-1));  // pressure systems turn it over a touch more too
         sp._havoc=Math.round(havocScale*1000)/1000;
       }
-      if(lookOn && sp.fg_pct!=null){   // shot-quality environment → FG%, carried into makes+points
-        const oldFg=parseFloat(sp.fg_pct)||0, newFg=Math.max(30,Math.min(70, oldFg+fgBump)), fga=parseFloat(sp.fga)||0;
+      if(lookOn && fgBump && sp.fg_pct!=null){   // shot-quality environment → FG%, carried into makes+points
+        const oldFg=parseFloat(sp.fg_pct)||0, newFg=Math.max(28,Math.min(72, oldFg+fgBump)), fga=parseFloat(sp.fga)||0;
         if(fga>0 && sp.fgm!=null){ const dMade=fga*(newFg-oldFg)/100; sp.fgm=parseFloat(sp.fgm)+dMade;
           if(sp.ppg!=null) sp.ppg=parseFloat(sp.ppg)+dMade*2.1; }   // extra makes ≈ 2.1 pts avg
         sp.fg_pct=newFg; sp._lookqFg=Math.round(fgBump*100)/100;
+      }
+      if(lookOn && tpBump && sp.tp_pct!=null){   // shot-quality → 3P%; extra makes carry the +1 bonus point
+        const oldTp=parseFloat(sp.tp_pct)||0, newTp=Math.max(15,Math.min(55, oldTp+tpBump)), tpa=parseFloat(sp.tpa)||0;
+        if(tpa>0 && sp.tpm!=null){ const dTp=tpa*(newTp-oldTp)/100; sp.tpm=parseFloat(sp.tpm)+dTp;
+          if(sp.ppg!=null) sp.ppg=parseFloat(sp.ppg)+dTp; }   // +1 marginal (base 2 already in FG% makes)
+        sp.tp_pct=newTp; sp._lookqTp=Math.round(tpBump*100)/100;
       }
       if(rebOn){   // glass-crashing / defensive-rebounding system → O-boards & D-boards
         var _orb0=parseFloat(sp.oreb||0);
@@ -953,10 +961,12 @@ function buildTeamProjections(players, conf){
     }
 
     // Percentage adjustment from conference difficulty
-    const transPctAdj = transferFactor<0.75?-3.5:transferFactor<0.85?-2.5
-                      : transferFactor<0.92?-1.5:transferFactor<0.97?-0.8
-                      : transferFactor>1.20?+1.2:transferFactor>1.10?+0.8
-                      : transferFactor>1.04?+0.4:0;
+    // conference difficulty → shooting %. Amplified (~1.8×) so a real level jump moves the
+    // percentages clearly, not by a point or two.
+    const transPctAdj = transferFactor<0.75?-6.2:transferFactor<0.85?-4.5
+                      : transferFactor<0.92?-2.7:transferFactor<0.97?-1.5
+                      : transferFactor>1.20?+2.2:transferFactor>1.10?+1.4
+                      : transferFactor>1.04?+0.7:0;
 
     // RPG conference adjustment: stronger competition = fewer easy boards
     const rpgConfAdj = isTransferIn ? (
@@ -1042,7 +1052,7 @@ function buildTeamProjections(players, conf){
     // (3P% b=.22 + attempt-volume bonus; FG% b=.62; FT% b=.50), plus the measured
     // class delta, then the TDC context adjustments (volume, transfer, role).
     const fgDataProj = _projPct('fg_pct', fgSmoothed, projCls, oldFga, grade);
-    const fgProj = r1(clamp(fgDataProj - volPenalty + transPctAdj + roleEffBoost + pgSystemBoost, 30, 65));
+    const fgProj = r1(clamp(fgDataProj - volPenalty + transPctAdj + roleEffBoost + pgSystemBoost, 27, 69));
 
     const careerTpa  = meaningful.length
       ? meaningful.reduce((s,h)=>s+parseFloat(h.tpa||0),0)/meaningful.length
@@ -1052,7 +1062,7 @@ function buildTeamProjections(players, conf){
     // doesn't lose his stroke taking a few more attempts) — mirrors the FG% temper
     const tpVolPen = (volChange>0?volChange*2:volChange) * (grade>=88?0.35:grade>=82?0.6:1);
     const tpProj = is3Shooter
-      ? r1(clamp(_projPct('tp_pct', tpBase, projCls, careerTpa, grade) - tpVolPen + transPctAdj*0.6, 20, 50))
+      ? r1(clamp(_projPct('tp_pct', tpBase, projCls, careerTpa, grade) - tpVolPen + transPctAdj*0.6, 14, 54))
       : tpBase;
     const ftProj = r1(clamp(_projPct('ft_pct', ftSmoothed, projCls, parseFloat(base.fta||0), grade), 45, 97));
 
@@ -1346,13 +1356,13 @@ function projectSinglePlayer(p, conf){
   const volPenalty=oldFga>0?(newFgaEst/oldFga-1)*3.5:0;
 
   // Conference penalty on percentages only
-  const transPctAdj=transferFactor<0.85?-2.5:transferFactor<0.95?-1.2:transferFactor>1.15?+1.0:transferFactor>1.05?+0.5:0;
+  const transPctAdj=transferFactor<0.85?-4.5:transferFactor<0.95?-2.2:transferFactor>1.15?+1.8:transferFactor>1.05?+0.9:0;
 
   const fgDelta=yearEffBoost-volPenalty+transPctAdj;
-  const fg_pct_proj=r1t(Math.max(30,Math.min(65,fgBase+fgDelta)));
+  const fg_pct_proj=r1t(Math.max(27,Math.min(69,fgBase+fgDelta)));
   const tpVolPenalty=oldFga>0?((newFgaEst/oldFga-1)*2.0):0;
   const tpDelta=(isFr?1.5:isSo?0.8:isJr?0.4:0)-tpVolPenalty+transPctAdj*0.6;
-  const tp_pct_proj=r1t(Math.max(18,Math.min(50,tpBase+tpDelta)));
+  const tp_pct_proj=r1t(Math.max(14,Math.min(54,tpBase+tpDelta)));
   const ftDelta=isFr?1.5:isSo?1.0:isJr?0.5:0;
   const ft_pct_proj=r1t(Math.max(45,Math.min(97,ftBase+ftDelta)));
 

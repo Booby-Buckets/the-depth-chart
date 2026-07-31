@@ -9,7 +9,7 @@
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-nil.js?v=cal1"></script>
   <script src="tdc-pos.js"></script>
-  <script src="tdc-proj.js?v=coach15"></script>
+  <script src="tdc-proj.js?v=coach16"></script>
   <script src="tdc-freshman.js?v=pub4"></script>
   <script src="tdc-ratings.js?v=2"></script>
   <script src="tdc-leaderboard.js?v=1"></script>
@@ -4678,7 +4678,8 @@ async function _schScales(team){
     drb:  (C.dreb!=null&&C.lgDreb)?_a(C.dreb/C.lgDreb,0.86,1.16):1,
     ast:  (C.astpp!=null&&C.lgAstpp)?_a(C.astpp/C.lgAstpp,0.58,1.52):1,
     lean: (C.three_pa_pctl!=null)?_a(1+0.34*(C.three_pa_pctl-50)/100,0.64,1.36):1,
-    fgb:  (C.lookq!=null&&C.lgLookq)?cl((C.lookq-C.lgLookq)*0.40,-2.8,2.8):0,
+    fgb:  (C.lookq!=null&&C.lgLookq)?cl((C.lookq-C.lgLookq)*0.70,-4.5,4.5):0,
+    tpb:  (C.lookq!=null&&C.lgLookq)?cl((C.lookq-C.lgLookq)*0.60,-4.5,4.5):0,
     coach:C.coach||'', poss:C.poss_pg||68
   };
 }
@@ -4711,7 +4712,8 @@ async function renderScheme(){
       dreb:pf(proj.dreb)/((D.drb||1)*(D.pace||1)),
       apg: pf(proj.apg)/((D.ast||1)*(D.pace||1)),
       tpa: pf(proj.tpa)/((D.lean||1)*(D.pace||1)),
-      fg_pct: pf(proj.fg_pct)-(isFresh?0:(D.fgb||0))
+      fg_pct: pf(proj.fg_pct)-(isFresh?0:(D.fgb||0)),
+      tp_pct: pf(proj.tp_pct)-(isFresh?0:(D.tpb||0))
     };
   } else {
     const R=(refScales||ownScales), mS=demoMpg>0?projMpg/demoMpg:1;
@@ -4721,7 +4723,8 @@ async function renderScheme(){
       dreb:pf(demo.dreb)*mS/((R.drb||1)*(R.pace||1)),
       apg: pf(demo.apg)*mS/((R.ast||1)*(R.pace||1)),
       tpa: pf(demo.tpa)*mS/((R.lean||1)*(R.pace||1)),
-      fg_pct: pf(demo.fg_pct)-(R.fgb||0)
+      fg_pct: pf(demo.fg_pct)-(R.fgb||0),
+      tp_pct: pf(demo.tp_pct)-(R.tpb||0)
     };
   }
   // Guard: no usable projected production (e.g. an un-profiled incoming freshman) → don't
@@ -4732,25 +4735,25 @@ async function renderScheme(){
     return;
   }
   const PRESETS=[
-    {name:'Neutral',sub:'league avg',pace:1.0,havoc:1.0,orb:1.0,drb:1.0,ast:1.0,lean:1.0,fgb:0},
-    {name:'Pressure D',sub:'forces TOs',pace:1.10,havoc:1.55,orb:1.05,drb:1.0,ast:1.0,lean:1.02,fgb:0},
-    {name:'Motion',sub:'ball movement',pace:1.05,havoc:1.0,orb:1.0,drb:1.0,ast:1.48,lean:1.15,fgb:1.5},
-    {name:'Crash Glass',sub:'off. rebounding',pace:1.0,havoc:1.0,orb:1.40,drb:1.14,ast:0.95,lean:0.90,fgb:0},
-    {name:'Slow Grind',sub:'low pace / good looks',pace:0.86,havoc:0.85,orb:1.0,drb:1.05,ast:1.10,lean:1.0,fgb:1.2}
+    {name:'Neutral',sub:'league avg',pace:1.0,havoc:1.0,orb:1.0,drb:1.0,ast:1.0,lean:1.0,fgb:0,tpb:0},
+    {name:'Pressure D',sub:'forces TOs',pace:1.10,havoc:1.55,orb:1.05,drb:1.0,ast:1.0,lean:1.02,fgb:-1.5,tpb:-1.5},
+    {name:'Motion',sub:'clean looks',pace:1.05,havoc:1.0,orb:1.0,drb:1.0,ast:1.48,lean:1.15,fgb:4.0,tpb:3.8},
+    {name:'Crash Glass',sub:'off. rebounding',pace:1.0,havoc:1.0,orb:1.40,drb:1.14,ast:0.95,lean:0.90,fgb:1.0,tpb:-1.0},
+    {name:'Slow Grind',sub:'patient, good shots',pace:0.86,havoc:0.85,orb:1.0,drb:1.05,ast:1.10,lean:1.0,fgb:3.2,tpb:3.0}
   ];
   const _tc=t=>(window.tdcTeamColorHex&&tdcTeamColorHex(t))||'#7a7a7a';
   const _logo=t=>((window.tdcTeamColor&&tdcTeamColor(t))||{}).logo||'';
-  const own={name:player.team||'His System',sub:ownScales.coach||'current staff',pace:ownScales.pace,havoc:ownScales.havoc,orb:ownScales.orb,drb:ownScales.drb,ast:ownScales.ast,lean:ownScales.lean,fgb:ownScales.fgb,_own:true,team:player.team,eyebrow:'2026-27'};
+  const own={name:player.team||'His System',sub:ownScales.coach||'current staff',pace:ownScales.pace,havoc:ownScales.havoc,orb:ownScales.orb,drb:ownScales.drb,ast:ownScales.ast,lean:ownScales.lean,fgb:ownScales.fgb,tpb:ownScales.tpb,_own:true,team:player.team,eyebrow:'2026-27'};
   // transfers: add the team he's LEAVING (his demonstrated stats were earned there)
   const teamCols=[];
   if(isTransfer && refScales){
-    teamCols.push({name:player.hometown,sub:refScales.coach||'last team',pace:refScales.pace,havoc:refScales.havoc,orb:refScales.orb,drb:refScales.drb,ast:refScales.ast,lean:refScales.lean,fgb:refScales.fgb,_old:true,team:player.hometown,eyebrow:'last team'});
+    teamCols.push({name:player.hometown,sub:refScales.coach||'last team',pace:refScales.pace,havoc:refScales.havoc,orb:refScales.orb,drb:refScales.drb,ast:refScales.ast,lean:refScales.lean,fgb:refScales.fgb,tpb:refScales.tpb,_old:true,team:player.hometown,eyebrow:'last team'});
   }
   const SYS=PRESETS.concat(teamCols,[own]);
   const SYSCOL=SYS.map(s=>(s._own||s._old)?_tc(s.team):null);   // team-color tint per column
   const line=sc=>{const oreb=neutral.oreb*sc.orb*sc.pace, dreb=neutral.dreb*sc.drb*sc.pace;
     return {poss:68*sc.pace, stl:neutral.stl*sc.havoc*sc.pace, oreb, dreb, rpg:oreb+dreb,
-      apg:neutral.apg*sc.ast*sc.pace, fg_pct:neutral.fg_pct+sc.fgb, tpa:neutral.tpa*sc.lean*sc.pace}; };
+      apg:neutral.apg*sc.ast*sc.pace, fg_pct:neutral.fg_pct+sc.fgb, tp_pct:neutral.tp_pct+(sc.tpb||0), tpa:neutral.tpa*sc.lean*sc.pace}; };
   const lines=SYS.map(line);
   const ROWS=[
     {k:'poss',l:'Pace',sub:'possessions/g'},
@@ -4759,6 +4762,7 @@ async function renderScheme(){
     {k:'dreb',l:'Def. Reb',sub:'secure glass'},
     {k:'apg',l:'Assists',sub:'ball movement'},
     {k:'fg_pct',l:'FG%',sub:'shot quality'},
+    {k:'tp_pct',l:'3P%',sub:'look quality'},
     {k:'tpa',l:'3PA',sub:'shot diet'}
   ];
   const cols=SYS.map((s,i)=>{const tint=SYSCOL[i], logo=(s._own||s._old)?_logo(s.team):'';
@@ -4772,7 +4776,7 @@ async function renderScheme(){
     const tds=vals.map((v,i)=>{const tint=SYSCOL[i], own=SYS[i]._own, old=SYS[i]._old;
       const hi=Math.abs(v-mx)<1e-6&&mx-mn>0.05, lo=Math.abs(v-mn)<1e-6&&mx-mn>0.05;
       const bg=tint?`background:color-mix(in srgb, ${tint} 13%, var(--bg2));`:'';
-      return `<td class="${own?'sch-col-own ':old?'sch-col-old ':''}${hi?'sch-hi':lo?'sch-lo':''}" style="${bg}">${v.toFixed(1)}${r.k==='fg_pct'?'%':''}</td>`;}).join('');
+      return `<td class="${own?'sch-col-own ':old?'sch-col-old ':''}${hi?'sch-hi':lo?'sch-lo':''}" style="${bg}">${v.toFixed(1)}${(r.k==='fg_pct'||r.k==='tp_pct')?'%':''}</td>`;}).join('');
     return `<tr><td class="sch-stat">${r.l}<em>${r.sub}</em></td>${tds}</tr>`;
   }).join('');
   // sensitivity: which of his stats swings most across systems (relative range)
