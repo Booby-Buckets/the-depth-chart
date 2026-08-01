@@ -46,6 +46,9 @@ D = os.path.join(HERE, "data")
 
 # ── our own TDC Impact weights (points-equivalent value of each box event) ──
 # These are OURS. Rationale: reward production, tax inefficiency. Tunable in one place.
+# Deliberately pf-free: personal fouls live only in box_scores, not in player_history or
+# the ESPN per-game feed, so excluding them keeps TI *identical* wherever it's computed
+# (this Python batch AND the Apps Script ingest mirror, scripts/tdc_derived.gs).
 TI_W = {
     "pts": 1.00,          # a point is a point
     "oreb": 0.80,         # offensive board ~= a fresh possession
@@ -56,7 +59,6 @@ TI_W = {
     "miss_fg": -0.50,     # per missed field goal (fga - fgm)
     "miss_ft": -0.35,     # per missed free throw (fta - ftm)
     "tov": -1.00,         # lost possession
-    "pf": -0.20,          # personal foul
 }
 MIN_MP_QUAL = 40          # season minutes floor to publish a rate stat (else null)
 REG_MP = 100              # per-40 regression: pull low-minute lines toward 0
@@ -130,7 +132,7 @@ def compute(P, T, O, NAME, PTEAM, season):
         ti = (TI_W["pts"] * a["pts"] + TI_W["oreb"] * a["oreb"] + TI_W["dreb"] * a["dreb"]
               + TI_W["ast"] * a["ast"] + TI_W["stl"] * a["stl"] + TI_W["blk"] * a["blk"]
               + TI_W["miss_fg"] * (a["fga"] - a["fgm"]) + TI_W["miss_ft"] * (a["fta"] - a["ftm"])
-              + TI_W["tov"] * a["tov"] + TI_W["pf"] * a["pf"])
+              + TI_W["tov"] * a["tov"])
         ti40 = ti * 40.0 / (mp + REG_MP)          # per-40, minute-regressed
         ti100 = safe(ti * 100.0, (mp / (tmp / 5.0)) * team_poss) if team_poss else None
 

@@ -8,7 +8,9 @@
 //   For every row that has a player Name, it looks the player up in your Supabase
 //   `player_history` (their most recent season) and fills in whichever of these
 //   columns your sheet has: Ht, PPG, RPG, APG, MPG (+ FG%, 3P%, FT%, STL, BLK).
-//   BPM is pulled separately from `bbref_seasons` (advanced stats).
+//   TI (our own impact metric) is COMPUTED from the raw counting stats via
+//   tdc_derived.gs — no Sports-Reference data. A legacy "BPM" column gets TI too.
+//   Requires the tdc_derived.gs module pasted into the same Apps Script project.
 //
 //   • Transfers just work — the match is by player NAME across every school, so a
 //     Colorado transfer's Colorado line fills in automatically.
@@ -31,7 +33,8 @@ var COL_MAP = {
   ppg:['ppg','pts'], rpg:['rpg','reb'], apg:['apg','ast'], mpg:['mpg','min'],
   fg_pct:['fg%','fgpct','fg'], tp_pct:['3p%','3pt%','tppct','3p','3pt'], ft_pct:['ft%','ftpct','ft'],
   stl:['stl','spg'], blk:['blk','bpg'],
-  bpm:['bpm']
+  // TI = our owned impact metric (computed, no SR). Also fills a legacy "BPM" column.
+  ti:['ti','ti40','impact','bpm']
 };
 var NAME_HEADERS = ['name','player'];
 // rows whose name cell equals one of these are section dividers, not players
@@ -88,27 +91,17 @@ function fillRosterFromDB() {
   if (!players.length) { ui.alert('No player names found under the header.'); return; }
 
   // One parallel request per player against player_history (most recent season).
+  // Pull the raw counting stats too (fga/fgm/fta/ftm/tpm/tpa/oreb/dreb/tovs/gp) so
+  // tdc_derived.gs can compute our owned TI — no separate bbref/SR request needed.
   var histReqs = players.map(function (p) {
     return {
-      url: SB_URL + '/rest/v1/player_history?select=height,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,season_year'
+      url: SB_URL + '/rest/v1/player_history?select=height,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk'
+                  + ',fga,fgm,fta,ftm,tpm,tpa,oreb,dreb,tovs,gp,season_year'
                   + '&name=eq.' + encodeURIComponent(p.name) + '&order=season_year.desc&limit=1',
       headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }, muteHttpExceptions: true
     };
   });
   var histRes = UrlFetchApp.fetchAll(histReqs);
-
-  // BPM from bbref_seasons (only if the sheet actually has a BPM column).
-  var bpmRes = null;
-  if (col.bpm !== undefined) {
-    var bpmReqs = players.map(function (p) {
-      return {
-        url: SB_URL + '/rest/v1/bbref_seasons?select=advanced,season_year'
-                    + '&player=eq.' + encodeURIComponent(p.name) + '&order=season_year.desc&limit=1',
-        headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }, muteHttpExceptions: true
-      };
-    });
-    bpmRes = UrlFetchApp.fetchAll(bpmReqs);
-  }
 
   var filled = 0, unmatched = [];
   for (var i = 0; i < players.length; i++) {
@@ -127,12 +120,10 @@ function fillRosterFromDB() {
     setIfEmpty(sheet, vals, p.row, col.stl, h.stl);
     setIfEmpty(sheet, vals, p.row, col.blk, h.blk);
 
-    if (bpmRes) {
-      try {
-        var b = JSON.parse(bpmRes[i].getContentText());
-        if (b && b.length && b[0].advanced && b[0].advanced.bpm != null)
-          setIfEmpty(sheet, vals, p.row, col.bpm, parseFloat(b[0].advanced.bpm));
-      } catch (e) {}
+    // Our owned impact metric — computed from the raw stats (tdc_derived.gs), no SR.
+    if (col.ti !== undefined) {
+      var ti = tdcImpact40FromPerGame(h, h.gp);
+      if (ti !== null) setIfEmpty(sheet, vals, p.row, col.ti, ti);
     }
     filled++;
   }
