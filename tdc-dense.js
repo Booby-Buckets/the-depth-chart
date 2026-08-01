@@ -73,10 +73,21 @@
     if(GAMES[season]||LOADING[season]||season>=2027) return;   // 2027 = projection, no games of its own
     LOADING[season]=true;
     var all=[];
-    // season NET (SRS) for opponent quality, AND last season's NET for the preseason
-    // prior (each team's starting projection before this season's games are weighed in).
-    var srsP = SRS[season] ? Promise.resolve(SRS[season]) :
-      fetch(SB+'team_seasons?season_year=in.('+(season-1)+','+season+')&select=team,srs,season_year',{headers:HD})
+    // Each team's starting prior + opponent quality. Preferred source is the roster-based
+    // PROJECTION (tdc-ratings) for the season it projects — that's the real preseason
+    // rating, roster-aware, and it self-updates via in-season form. For completed seasons
+    // (no stored projection) fall back to real season SRS for opponent quality and last
+    // season's NET (regressed) for the prior.
+    var projSeason=(window.TDC_RATINGS&&TDC_RATINGS.SEASON)||null;
+    var srsP;
+    if(SRS[season]){ srsP=Promise.resolve(SRS[season]); }
+    else if(season===projSeason && window.TDC_RATINGS && TDC_RATINGS.get){
+      srsP=TDC_RATINGS.get().then(function(pd){ var m={}, pr={};
+        (pd&&pd.teams||[]).forEach(function(t){ if(t.full&&t.rating!=null){ m[t.full]=+t.rating; pr[t.full]=+t.rating; } });
+        SRS[season]=m; PRIOR[season]=pr; return m;
+      }).catch(function(){ SRS[season]={}; PRIOR[season]={}; return {}; });
+    } else {
+      srsP=fetch(SB+'team_seasons?season_year=in.('+(season-1)+','+season+')&select=team,srs,season_year',{headers:HD})
         .then(function(r){return r.ok?r.json():[];})
         .then(function(rows){ var m={}, pr={};
           (rows||[]).forEach(function(r){ if(r.srs==null) return;
@@ -85,6 +96,7 @@
           });
           SRS[season]=m; PRIOR[season]=pr; return m; })
         .catch(function(){ SRS[season]={}; PRIOR[season]={}; return {}; });
+    }
     function page(off){
       fetch(SB+'games?season_year=eq.'+season+'&status=eq.STATUS_FINAL&select=home,away,home_score,away_score,date&order=date.asc&limit=1000&offset='+off,{headers:HD})
         .then(function(r){return r.ok?r.json():[];})
