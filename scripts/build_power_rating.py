@@ -102,14 +102,17 @@ def main():
 
     with open(os.path.join(D, "owned_power_rating.json"), "w") as f:
         json.dump(out, f, separators=(",", ":"))
-    # UPDATE sql (owner runs) — one statement per team-season
+    # UPDATE sql (owner runs — anon key is RLS-blocked on team_seasons). One bulk
+    # UPDATE...FROM(VALUES) per season keeps each statement ~365 rows and fast.
     with open(os.path.join(D, "power_rating_update.sql"), "w") as f:
         f.write("-- Owned Power Rating (scripts/build_power_rating.py) replacing SR's SRS in team_seasons.\n")
-        f.write("-- Computed from game results only. Review power_rating_review.csv first.\n\nBEGIN;\n")
+        f.write("-- Computed from game results only. Review power_rating_review.csv first.\n")
+        f.write("-- Run in the Supabase SQL editor (paste the whole file).\n\nBEGIN;\n")
         for s in out:
-            for t, r in out[s].items():
-                f.write(f"UPDATE team_seasons SET srs={r} WHERE team_id={t} AND season_year={s};\n")
-        f.write("COMMIT;\n")
+            vals = ",\n  ".join(f"({t},{s},{r})" for t, r in out[s].items())
+            f.write(f"\nUPDATE team_seasons AS t SET srs = v.srs\nFROM (VALUES\n  {vals}\n) AS v(team_id, season_year, srs)\n"
+                    f"WHERE t.team_id = v.team_id AND t.season_year = v.season_year;\n")
+        f.write("\nCOMMIT;\n")
     with open(os.path.join(D, "power_rating_review.csv"), "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["season", "team_id", "team", "old_srs", "owned_rating", "delta"])
