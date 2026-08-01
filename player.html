@@ -1964,14 +1964,12 @@ async function init(){
         }catch(e){ console.warn('Teammate history fetch failed:',e); }
       }
 
-      // Prefetch bbref advanced for the roster so the shared model's
-      // usage-vacancy logic can gate on real USG%/TS% (same as the team page).
+      // Prefetch OWNED advanced stats (computed from box_scores by derived_stats.py —
+      // no Sports-Reference values) so the shared model's usage-vacancy logic can gate
+      // on real USG%/TS%. Static map keyed by espn_id, same shape the engine expects.
       try{
-        const _aids=teamPlayers.map(x=>x.espn_id).filter(Boolean);
-        if(_aids.length && !window._advByEspn){
-          const _arows=await fetch(`${SB}/rest/v1/bbref_seasons?season_year=eq.2026&espn_id=in.(${_aids.join(',')})&select=espn_id,advanced`,{headers:H}).then(r=>r.ok?r.json():[]);
-          const m={}; (_arows||[]).forEach(r=>{ if(r.espn_id&&r.advanced) m[r.espn_id]=r.advanced; });
-          window._advByEspn=m;
+        if(!window._advByEspn){
+          window._advByEspn = await fetch('scripts/data/proj_advanced_2026.json?v=1').then(r=>r.ok?r.json():{}).catch(()=>({}));
         }
       }catch(e){}
       // Fold in the team's current coach tendencies (pace) — sets window._projCoach

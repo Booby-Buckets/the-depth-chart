@@ -2446,18 +2446,14 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
   const el=document.getElementById('projectionsContent');
   if(!el) return;
 
-  // Authoritative current-season advanced stats (bbref) — fetched BEFORE the
-  // model runs so usage-vacancy can gate on real USG%/TS%, then reused for the
-  // projected advanced columns.
+  // Authoritative current-season advanced stats — OWNED, computed from box_scores by
+  // derived_stats.py (no Sports-Reference values). Loaded BEFORE the model runs so
+  // usage-vacancy can gate on real USG%/TS%, then reused for the projected columns.
   let advByEspn={};
   try{
-    const ids=players.map(p=>p.espn_id).filter(Boolean);
-    if(ids.length){
-      const rows=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.2026&espn_id=in.(${ids.join(',')})&select=espn_id,advanced`,{headers:H}).then(r=>r.ok?r.json():[]);
-      (rows||[]).forEach(r=>{ if(r.espn_id&&r.advanced) advByEspn[r.espn_id]=r.advanced; });
-    }
+    advByEspn = await fetch('scripts/data/proj_advanced_2026.json?v=1').then(r=>r.ok?r.json():{}).catch(()=>({}));
   }catch(e){}
-  window._advByEspn=advByEspn;
+  window._advByEspn=advByEspn||{};
 
   // Freshman projections (owner's editor) are the single source of truth — load
   // them before projecting so a projected freshman shows the EXACT editor line +
