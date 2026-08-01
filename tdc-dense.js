@@ -93,19 +93,34 @@
         all.forEach(function(g){
           if(g.home_score==null||g.away_score==null) return;
           var mg=g.home_score-g.away_score;
-          // adj = game margin + opponent's season NET  → an opponent-adjusted "how good was this performance"
-          // (beat a +25 team by 5 → performed like +30; lose to a +25 team by 5 → still +20, above average)
-          (m[g.home]=m[g.home]||[]).push({opp:g.away, ts:g.home_score, os:g.away_score, home:true,  date:g.date, adj:mg+(srs[g.away]||0)});
-          (m[g.away]=m[g.away]||[]).push({opp:g.home, ts:g.away_score, os:g.home_score, home:false, date:g.date, adj:(-mg)+(srs[g.home]||0)});
+          // adj = capped game margin + opponent's season NET → opponent-adjusted "how good
+          // was this performance". Margin is capped (diminishing returns) so a 40-point win
+          // over a cupcake isn't 40 points of signal — past MARGIN_CAP each point counts 1/4.
+          (m[g.home]=m[g.home]||[]).push({opp:g.away, ts:g.home_score, os:g.away_score, home:true,  date:g.date, adj:capMargin(mg)+(srs[g.away]||0)});
+          (m[g.away]=m[g.away]||[]).push({opp:g.home, ts:g.away_score, os:g.home_score, home:false, date:g.date, adj:capMargin(-mg)+(srs[g.home]||0)});
         });
         GAMES[season]=m; LOADING[season]=false; addTrend();
       });
     }
     page(0);
   }
-  // running (season-to-date) NET: expanding average of the opponent-adjusted game ratings.
-  // Converges toward the team's season NET; a great loss nudges it up, a bad win nudges it down.
-  function netTraj(glog){ var out=[],s=0; for(var i=0;i<glog.length;i++){ s+=glog[i].adj; out.push(s/(i+1)); } return out; }
+  // ── per-game NET normalization knobs ────────────────────────────────────────────
+  // Early-season single-game nets are wild (a week-1 blowout of a cupcake reads like
+  // +55). Two dampers keep them sane and make them EARN their rating:
+  var MARGIN_CAP   = 22;   // full credit to a 22-pt margin; each point beyond counts 1/4
+  var MARGIN_BEYOND= 0.25;
+  var PRIOR_GAMES  = 5;    // pseudo-games of "average" (NET 0) mixed in → shrinks the
+  var PRIOR_NET    = 0;    // running average toward league-average until a team proves itself
+  // soft margin cap: preserves sign, compresses blowouts past MARGIN_CAP
+  function capMargin(mg){ var s=mg<0?-1:1, a=Math.abs(mg);
+    return s*(a<=MARGIN_CAP ? a : MARGIN_CAP+(a-MARGIN_CAP)*MARGIN_BEYOND); }
+
+  // running (season-to-date) NET: opponent-adjusted game ratings, regressed toward an
+  // average team by PRIOR_GAMES pseudo-games. Week 1 starts near 0 and climbs as the
+  // schedule accumulates; the prior fades to negligible over a full season. Converges
+  // toward the team's true season NET — a great loss nudges it up, a bad win nudges it down.
+  function netTraj(glog){ var out=[], s=PRIOR_NET*PRIOR_GAMES;
+    for(var i=0;i<glog.length;i++){ s+=glog[i].adj; out.push(s/(i+1+PRIOR_GAMES)); } return out; }
   function sparkLine(vals){
     var n=vals.length; if(n<2) return '';
     var mn=Math.min.apply(null,vals), mx=Math.max.apply(null,vals), rng=(mx-mn)||1;
