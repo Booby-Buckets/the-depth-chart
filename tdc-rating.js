@@ -43,7 +43,7 @@ window.TDCRating = (function () {
       fetch('scripts/data/archetype_expectations.json?v=2').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
       fetch('scripts/data/shot_genome_players.json').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
       fetch('scripts/data/team_dna.json').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-      fetch('scripts/data/team_strength.json?v=1').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
+      fetch('scripts/data/team_strength.json?v=2').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
     ]).then(function (res) {
       var e = res[0] || {}; EXP = e.expectations || {}; W = e.weights || {}; RATE = e.rate_stats || []; EFF = e.eff_stats || [];
       LQ = (e.pop && e.pop.lookq) || LQ;
