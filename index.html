@@ -1529,8 +1529,11 @@ async function renderShowcase(){
           if(r.ok){ const raw=await r.json();
             if(Array.isArray(raw)&&raw.length) pool=raw.map(p=>({id:p.id,player:p.name,school:p.team,tdc_grade:p.tdc_grade,espn_id:p.espn_id,pergame:{games:99,mp_per_g:p.mpg||99},mpg:p.mpg,depth_order:p.depth_order,ppg:p.ppg,rpg:p.rpg,apg:p.apg,tovs:p.tovs,yr:p.yr,class_year:p.class_year,starter:p.starter,ft_pct:p.ft_pct,tp_pct:p.tp_pct,tpa:p.tpa})); }
         } else {
-          const r=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${curSeason}&tdc_grade=not.is.null&select=player,school,tdc_grade,espn_id,height,pos,pergame,per40&order=tdc_grade.desc&limit=800`,{headers:HEADERS});
-          if(r.ok){ const raw=await r.json(); if(Array.isArray(raw)&&raw.length) pool=raw; }
+          // Past season: rank that year's players by grade from player_history (owned),
+          // mapped to the same flat shape as the projected branch.
+          const r=await fetch(`${SB_URL}/rest/v1/player_history?season_year=eq.${curSeason}&tdc_grade=not.is.null&select=name,team,tdc_grade,espn_id,height,position,mpg,ppg,rpg,apg,tovs,yr,ft_pct,tp_pct,tpa&order=tdc_grade.desc&limit=800`,{headers:HEADERS});
+          if(r.ok){ const raw=await r.json();
+            if(Array.isArray(raw)&&raw.length) pool=raw.map(p=>({player:p.name,school:p.team,tdc_grade:p.tdc_grade,espn_id:p.espn_id,height:p.height,pos:p.position,pergame:{games:99,mp_per_g:p.mpg||99},mpg:p.mpg,ppg:p.ppg,rpg:p.rpg,apg:p.apg,tovs:p.tovs,yr:p.yr,class_year:p.yr,ft_pct:p.ft_pct,tp_pct:p.tp_pct,tpa:p.tpa})); }
         }
       }catch(e){}
     }
