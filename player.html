@@ -16,6 +16,7 @@
   <script src="tdc-portalfit.js?v=needs4"></script>
   <script src="tdc-projgrade.js?v=27"></script>
   <script src="tdc-rating.js?v=4"></script>
+  <script src="tdc-owned-seasons.js?v=2"></script>
   <script src="tdc-pool.js?v=1"></script>
   <meta charset="UTF-8"/>
   <style>
@@ -1587,12 +1588,8 @@ function buildSkillBreakdown(srcRow, projectedFlag, label){
     {l:'eFG%',k:'efg_pct',v:pgs.efg_pct,f:ffr},
     {l:'TS%', k:'ts_pct', v:adv.ts_pct, f:ffr},
     {l:'USG%',k:'usg_pct',v:adv.usg_pct,f:fpc},
-    {l:'BPM', k:'bpm',  v:adv.bpm,  f:f1},
-    {l:'OBPM',k:'obpm', v:adv.obpm, f:f1},
-    {l:'DBPM',k:'dbpm', v:adv.dbpm, f:f1},
-    {l:'PER', k:'per',  v:adv.per,  f:f1},
-    {l:'WS',  k:'ws',   v:adv.ws,   f:f1},
-    {l:'WS/40',k:'ws_per_40',v:adv.ws_per_40,f:f3},
+    {l:'TI/40', k:'ti40', v:adv.ti40, f:f1},
+    {l:'TI/100',k:'ti100',v:adv.ti100,f:f1},
     {l:'AST%',k:'ast_pct',v:adv.ast_pct,f:fpc},
     {l:'TRB%',k:'trb_pct',v:adv.trb_pct,f:fpc},
     {l:'ORB%',k:'orb_pct',v:adv.orb_pct,f:fpc},
@@ -1664,10 +1661,10 @@ async function buildFromBoxScores(espn, name, season){
 // per-40 / advanced dicts attached for the Full Stats + Rankings tabs.
 function _bn(v){ const n=parseFloat(v); return isNaN(n)?null:n; }
 function _bp(v){ const n=parseFloat(v); return isNaN(n)?null:Math.round(n*1000)/10; } // ".532" -> 53.2
-function _winsAdded(adv){ // WS minus replacement (0.04 WS/40) = games the team loses without them
-  const ws=parseFloat((adv||{}).ws), mp=parseFloat((adv||{}).mp);
-  if(isNaN(ws)) return null;
-  return Math.round((ws-0.04*((isNaN(mp)?0:mp)/40))*10)/10;
+function _winsAdded(adv){ // OWNED: TI value above replacement over the season, on the wins scale
+  const ti=parseFloat((adv||{}).ti40), mp=parseFloat((adv||{}).mp);
+  if(isNaN(ti)||isNaN(mp)) return null;
+  return Math.round(((ti-5.0)*(mp/40)/69.87)*10)/10;   // REPL=5.0, PPW=69.87 (build_wins_added.py)
 }
 function bbrefToFlat(rows){
   return (rows||[]).map(r=>{
@@ -1739,8 +1736,7 @@ async function init(){
       // ESPN id is authoritative — NEVER fall back to a name match (which merges
       // different people who share a name). Roster -> player_history -> box scores.
       if(!playerRow){
-        const raw=await fetch(`${SB}/rest/v1/bbref_seasons?espn_id=eq.${pespn}&select=*&order=season_year.desc&limit=40`,{headers:H}).then(r=>r.json()).catch(()=>[]);
-        const hrows=bbrefToFlat(Array.isArray(raw)?raw:[]);
+        const hrows=bbrefToFlat(await TDCOwnedSeasons.byEspn(pespn, 'desc'));
         if(hrows.length){
           playerRow=(pseason&&hrows.find(r=>String(r.season_year)===String(pseason)))||hrows[0];
           window._historicalView=true;
@@ -1784,9 +1780,7 @@ async function init(){
       // Fallback 4: bbref-only player (no espn_id, absent from player_history) —
       // e.g. Trey Wertz, who exists solely in bbref_seasons. Resolve by full name.
       if(!playerRow&&pname){
-        const raw=await fetch(`${SB}/rest/v1/bbref_seasons?player=eq.${sbEncode(pname)}&select=*&order=season_year.desc&limit=40`,{headers:H}).then(r=>r.json()).catch(()=>[]);
-        const rawArr=Array.isArray(raw)?raw:[];
-        const brows=bbrefToFlat(rawArr);
+        const brows=bbrefToFlat(await TDCOwnedSeasons.byName(pname, 'desc'));
         if(brows.length){
           const tl=(pteam||'').toLowerCase().trim();
           let idx=-1;
@@ -1844,14 +1838,8 @@ async function init(){
     window._playerEspn = _espnId;
     try{
       if(_espnId){
-        const chR = await fetch(`${SB}/rest/v1/bbref_seasons?espn_id=eq.${_espnId}&select=*&order=season_year.asc&limit=20`,{headers:H});
-        if(chR.ok){ const raw=await chR.json(); careerHistory = bbrefToFlat(Array.isArray(raw)?raw:[]); }
-      } else if(window._bbrefId){
-        // bbref-only player (no espn_id) — load every season for this exact
-        // bbref_id (stable per-player key, indexed) so the season selector and
-        // Full Stats span the whole career, not just the resolved row.
-        const chR = await fetch(`${SB}/rest/v1/bbref_seasons?bbref_id=eq.${sbEncode(window._bbrefId)}&select=*&order=season_year.asc&limit=20`,{headers:H});
-        if(chR.ok){ const raw=await chR.json(); careerHistory = bbrefToFlat(Array.isArray(raw)?raw:[]); }
+        // OWNED career: player_advanced + player_history (bbref-shaped) → bbrefToFlat unchanged.
+        careerHistory = bbrefToFlat(await TDCOwnedSeasons.byEspn(_espnId, 'asc'));
       }
       // no ESPN id (e.g. true freshman) → no prior college history; leave empty
       // rather than risk merging a different person who shares the name.
@@ -1865,9 +1853,8 @@ async function init(){
     // but only if every matched row shares ONE identity, so we never merge namesakes.
     if(!careerHistory.length && player && player.name){
       try{
-        const nr=await fetch(`${SB}/rest/v1/bbref_seasons?player=eq.${sbEncode(player.name)}&select=*&order=season_year.asc&limit=20`,{headers:H}).then(r=>r.ok?r.json():[]);
-        const rows=Array.isArray(nr)?nr:[];
-        const ids=[...new Set(rows.map(r=>r.espn_id!=null?('e'+r.espn_id):('b'+(r.bbref_id||''))).filter(x=>x&&x!=='b'))];
+        const rows=await TDCOwnedSeasons.byName(player.name, 'asc');
+        const ids=[...new Set(rows.map(r=>r.espn_id).filter(x=>x!=null))];
         if(rows.length && ids.length===1){
           careerHistory = bbrefToFlat(rows);
           if(!_espnId && rows[0].espn_id){ _espnId=rows[0].espn_id; window._playerEspn=_espnId; }
@@ -1875,16 +1862,8 @@ async function init(){
       }catch(e){}
     }
 
-    // Geographic hometown fallback: if the espn_id path didn't surface a place
-    // (e.g. players.espn_id doesn't line up with bbref), look it up by name.
-    // Only accept an UNAMBIGUOUS single place so we never inherit a namesake's town.
-    if(!careerHistory.some(r=>r&&r.hometown) && player && player.name){
-      try{
-        const hr=await fetch(`${SB}/rest/v1/bbref_seasons?player=eq.${sbEncode(player.name)}&hometown=not.is.null&select=hometown&order=season_year.desc&limit=8`,{headers:H}).then(r=>r.ok?r.json():[]);
-        const places=[...new Set((hr||[]).map(x=>String(x.hometown||'').trim()).filter(Boolean))];
-        if(places.length===1) player._birthplace=places[0];
-      }catch(e){}
-    }
+    // (Historical hometown came from bbref_seasons — removed with the SR migration.
+    // Current-roster hometown still comes from the players table via player.hometown.)
 
     // ── BUILD _careerHistoryMap for projectPlayer ─────────────────
     window._careerHistoryMap = {};
@@ -2059,9 +2038,11 @@ function _seasonLbl(y){ y=parseInt(y); return isNaN(y)?y:((y-1)+'-'+(''+y).slice
 // (95,320 seasons). WA = Win Shares - 0.04*(MP/40) replacement baseline.
 // NOTE: this 51-point array is only used for percentile shading — the all-time
 // RANK comes from _waAllTimeRank(), since this array saturates at the 99th.
-NAT_PCT["wa"]=[-3.5,-0.58,-0.39,-0.28,-0.21,-0.15,-0.1,-0.05,-0.01,0.03,0.07,0.1,0.14,0.18,0.23,0.27,0.31,0.35,0.39,0.44,0.49,0.53,0.58,0.64,0.69,0.75,0.81,0.86,0.93,0.99,1.06,1.13,1.2,1.27,1.35,1.44,1.53,1.62,1.73,1.84,1.96,2.08,2.22,2.37,2.54,2.73,2.96,3.25,3.63,4.24,10.14];
-var WA_POOL_N=95320;
-var WA_RANK_G=[[10.1,0],[9.7,1],[9.3,2],[9.1,3],[8.8,5],[8.6,6],[8.5,7],[8.3,9],[8.2,10],[7.8,12],[7.7,13],[7.6,15],[7.5,16],[7.4,19],[7.3,22],[7.2,29],[7.1,36],[7,39],[6.9,43],[6.8,48],[6.7,54],[6.6,60],[6.5,69],[6.4,82],[6.3,94],[6.2,109],[6.1,124],[6,150],[5.9,168],[5.8,199],[5.7,225],[5.6,262],[5.5,295],[5.4,332],[5.3,380],[5.2,417],[5.1,462],[5,521],[4.9,587],[4.8,654],[4.7,745],[4.6,858],[4.5,975],[4.4,1093],[4.3,1234],[4.2,1371],[4.1,1530],[4,1724],[3.9,1948],[3.8,2178],[3.7,2447],[3.6,2722],[3.5,3051],[3.4,3385],[3.3,3754],[3.2,4166],[3.1,4608],[3,5082],[2.9,5641],[2.8,6234],[2.7,6841],[2.6,7505],[2.5,8247],[2.4,9065],[2.3,9897],[2.2,10838],[2.1,11817],[2,12852],[1.9,13988],[1.8,15187],[1.7,16421],[1.6,17768],[1.5,19176],[1.4,20670],[1.3,22308],[1.2,24073],[1.1,25989],[1,27974],[0.9,30061],[0.8,32370],[0.7,34819],[0.6,37347],[0.5,40105],[0.4,43247],[0.3,46711],[0.2,50734],[0.1,55758],[-0,63907],[-0.1,79955],[-0.2,86733],[-0.3,89998],[-0.4,91856],[-0.5,92969],[-0.6,93778],[-0.7,94275],[-0.8,94606],[-0.9,94823],[-1,94961],[-1.1,95081],[-1.2,95159],[-1.3,95204],[-1.4,95239],[-1.5,95260],[-1.6,95275],[-1.7,95284],[-1.8,95296],[-1.9,95300],[-2,95306],[-2.1,95311],[-2.2,95314],[-2.3,95316],[-2.9,95317],[-3.2,95318],[-3.5,95319]];
+NAT_PCT["wa"]=[-0.52, -0.08, -0.06, -0.04, -0.03, -0.03, -0.02, -0.02, -0.01, -0.01, -0.01, -0.01, -0.0, 0.01, 0.04, 0.07, 0.11, 0.16, 0.22, 0.27, 0.34, 0.41, 0.49, 0.57, 0.66, 0.75, 0.85, 0.94, 1.05, 1.15, 1.26, 1.38, 1.49, 1.62, 1.74, 1.88, 2.02, 2.16, 2.32, 2.48, 2.65, 2.84, 3.02, 3.25, 3.49, 3.74, 4.04, 4.41, 4.9, 5.63, 12.69];   // OWNED: from TI (build_wins_added.py), not Win Shares
+NAT_PCT["ti40"]=[0.67, 5.02, 5.85, 6.48, 6.98, 7.39, 7.75, 8.09, 8.39, 8.67, 8.94, 9.2, 9.44, 9.68, 9.91, 10.12, 10.35, 10.55, 10.76, 10.97, 11.18, 11.39, 11.58, 11.8, 12.01, 12.21, 12.43, 12.63, 12.85, 13.07, 13.29, 13.52, 13.74, 13.98, 14.23, 14.49, 14.75, 15.02, 15.3, 15.61, 15.93, 16.29, 16.64, 17.03, 17.47, 17.97, 18.56, 19.33, 20.23, 21.76, 33.67];
+NAT_PCT["ti100"]=[1.37, 9.65, 11.19, 12.17, 12.97, 13.65, 14.22, 14.72, 15.2, 15.62, 16.04, 16.43, 16.8, 17.14, 17.48, 17.83, 18.16, 18.48, 18.81, 19.12, 19.41, 19.73, 20.02, 20.33, 20.63, 20.95, 21.26, 21.56, 21.86, 22.18, 22.52, 22.85, 23.21, 23.55, 23.92, 24.29, 24.69, 25.08, 25.5, 25.96, 26.43, 26.91, 27.46, 28.03, 28.71, 29.49, 30.43, 31.51, 33.0, 35.22, 53.0];
+var WA_POOL_N=82134;
+var WA_RANK_G=[[12.7, 0], [12.6, 1], [12.5, 1], [12.4, 1], [12.3, 1], [12.2, 1], [12.1, 1], [12.0, 1], [11.9, 1], [11.8, 1], [11.7, 1], [11.6, 1], [11.5, 1], [11.4, 1], [11.3, 1], [11.2, 1], [11.1, 1], [11.0, 2], [10.9, 2], [10.8, 2], [10.7, 2], [10.6, 2], [10.5, 2], [10.4, 3], [10.3, 4], [10.2, 5], [10.1, 7], [10.0, 8], [9.9, 9], [9.8, 10], [9.7, 12], [9.6, 13], [9.5, 13], [9.4, 14], [9.3, 17], [9.2, 19], [9.1, 21], [9.0, 24], [8.9, 34], [8.8, 38], [8.7, 47], [8.6, 52], [8.5, 60], [8.4, 62], [8.3, 67], [8.2, 77], [8.1, 84], [8.0, 96], [7.9, 113], [7.8, 122], [7.7, 142], [7.6, 174], [7.5, 199], [7.4, 231], [7.3, 266], [7.2, 293], [7.1, 328], [7.0, 370], [6.9, 415], [6.8, 463], [6.7, 511], [6.6, 577], [6.5, 648], [6.4, 732], [6.3, 824], [6.2, 911], [6.1, 1021], [6.0, 1147], [5.9, 1267], [5.8, 1401], [5.7, 1545], [5.6, 1693], [5.5, 1853], [5.4, 2057], [5.3, 2248], [5.2, 2485], [5.1, 2721], [5.0, 2973], [4.9, 3267], [4.8, 3581], [4.7, 3867], [4.6, 4232], [4.5, 4590], [4.4, 4958], [4.3, 5373], [4.2, 5786], [4.1, 6262], [4.0, 6769], [3.9, 7317], [3.8, 7884], [3.7, 8479], [3.6, 9112], [3.5, 9768], [3.4, 10449], [3.3, 11122], [3.2, 11829], [3.1, 12535], [3.0, 13351], [2.9, 14209], [2.8, 15130], [2.7, 16007], [2.6, 16910], [2.5, 17875], [2.4, 18908], [2.3, 19920], [2.2, 20976], [2.1, 22083], [2.0, 23201], [1.9, 24391], [1.8, 25542], [1.7, 26814], [1.6, 28137], [1.5, 29486], [1.4, 30939], [1.3, 32340], [1.2, 33800], [1.1, 35302], [1.0, 36857], [0.9, 38480], [0.8, 40210], [0.7, 41946], [0.6, 43830], [0.5, 45799], [0.4, 47886], [0.3, 50290], [0.2, 53034], [0.1, 56289], [0.0, 61734], [-0.1, 80976], [-0.2, 81951], [-0.3, 82103], [-0.4, 82127], [-0.5, 82133], [-0.6, 82134], [-0.7, 82134], [-0.8, 82134], [-0.9, 82134], [-1.0, 82134], [-1.1, 82134], [-1.2, 82134], [-1.3, 82134], [-1.4, 82134], [-1.5, 82134]];
 // Exact all-time Wins Added rank from the real distribution (95,320 scored
 // player-seasons). The old estimate derived rank from a 51-point percentile
 // array, which saturated at the 99th -> every elite season floored at ~#696.
@@ -2228,9 +2209,9 @@ function renderImpact(srcRow, projectedFlag){
   // ── Wins Added: the VIEWED season if it's an actual one (so it changes as you flip
   //    through years); otherwise the most-recent played season. Ranked vs the WHOLE database ──
   var adv=null, advSeason=null;
-  if(srcRow && projectedFlag===false && srcRow._advanced && srcRow._advanced.ws!=null && srcRow._advanced.ws!=='') { adv=srcRow._advanced; advSeason=srcRow.season_year; }
-  if(!adv && player._advanced && player._advanced.ws!=null && player._advanced.ws!=='') { adv=player._advanced; advSeason=player.season_year; }
-  if(!adv && typeof careerHistory!=='undefined'){ for(var _i=careerHistory.length-1;_i>=0;_i--){ var _a=careerHistory[_i]&&careerHistory[_i]._advanced; if(_a&&_a.ws!=null&&_a.ws!==''){adv=_a;advSeason=careerHistory[_i].season_year;break;} } }
+  if(srcRow && projectedFlag===false && srcRow._advanced && srcRow._advanced.ti40!=null && srcRow._advanced.ti40!=='') { adv=srcRow._advanced; advSeason=srcRow.season_year; }
+  if(!adv && player._advanced && player._advanced.ti40!=null && player._advanced.ti40!=='') { adv=player._advanced; advSeason=player.season_year; }
+  if(!adv && typeof careerHistory!=='undefined'){ for(var _i=careerHistory.length-1;_i>=0;_i--){ var _a=careerHistory[_i]&&careerHistory[_i]._advanced; if(_a&&_a.ti40!=null&&_a.ti40!==''){adv=_a;advSeason=careerHistory[_i].season_year;break;} } }
   var wa=adv?_winsAdded(adv):null;
   var comps=[
     {l:'Scoring',v:Math.round(c.scoring)},{l:'Creation',v:Math.round(c.creation)},
@@ -2316,8 +2297,8 @@ function _distCache(s){ return s==='2627'||(_pexpCache&&_pexpCache[s]); }
 // flatten a bbref_seasons row into a flat percentile-pool row (per-game + advanced)
 function _bn2(v){ var n=parseFloat(v); return isNaN(n)?null:n; }
 function _bp2(v){ var n=parseFloat(v); return isNaN(n)?null:n*100; } // ".639" -> 63.9
-function _advFlat(adv){ adv=adv||{}; return {ts:_bp2(adv.ts_pct),per:_bn2(adv.per),usg:_bn2(adv.usg_pct),ws:_bn2(adv.ws),mp:_bn2(adv.mp),
-  ast_pct:_bn2(adv.ast_pct),orb_pct:_bn2(adv.orb_pct),drb_pct:_bn2(adv.drb_pct),blk_pct:_bn2(adv.blk_pct),stl_pct:_bn2(adv.stl_pct)}; }
+function _advFlat(adv){ adv=adv||{}; return {ts:_bp2(adv.ts_pct),ti:_bn2(adv.ti40),usg:_bn2(adv.usg_pct),mp:_bn2(adv.mp),
+  ast_pct:_bn2(adv.ast_pct),orb_pct:_bn2(adv.orb_pct),drb_pct:_bn2(adv.drb_pct),blk_pct:_bn2(adv.blk_pct),stl_pct:_bn2(adv.stl_pct),tov_pct:_bn2(adv.tov_pct)}; }
 function _bbrefPoolRow(r){
   var pg=r.pergame||{};
   return Object.assign({name:r.player,team:r.school,position:r.pos,height:r.height,tdc_grade:r.tdc_grade,
@@ -2350,8 +2331,8 @@ function renderDist(){
     {k:'mpg',l:'Minutes / Game'},{k:'fg_pct',l:'Field Goal %',pct:1},{k:'tp_pct',l:'Three-Point %',pct:1},
     {k:'ft_pct',l:'Free Throw %',pct:1},{k:'stl',l:'Steals / Game'},{k:'blk',l:'Blocks / Game'},
     {k:'tovs',l:'Turnovers / Game',inv:1},
-    {k:'ts',l:'True Shooting %',pct:1},{k:'per',l:'PER (Efficiency)'},{k:'usg',l:'Usage %',pct:1},
-    {k:'ws',l:'Win Shares'},{k:'ast_pct',l:'Assist %',pct:1},{k:'orb_pct',l:'Off Rebound %',pct:1},
+    {k:'ts',l:'True Shooting %',pct:1},{k:'ti',l:'TDC Impact / 40'},{k:'usg',l:'Usage %',pct:1},
+    {k:'tov_pct',l:'Turnover %',inv:1},{k:'ast_pct',l:'Assist %',pct:1},{k:'orb_pct',l:'Off Rebound %',pct:1},
     {k:'drb_pct',l:'Def Rebound %',pct:1},{k:'blk_pct',l:'Block %',pct:1},{k:'stl_pct',l:'Steal %',pct:1}
   ];
   var cards=DS.map(function(s){
@@ -2902,7 +2883,7 @@ function _norm5(pos){ var p=((pos||'')+'').toUpperCase().split(/[\/,\s]/)[0];
   return ({PG:'PG',SG:'SG',CG:'SG',G:'SG',SF:'SF',GF:'SF',F:'PF',PF:'PF',FC:'C',C:'C'})[p]||'SF'; }
 function _curSeasonWA(){
   var a=player&&player._advanced;
-  if(a&&a.ws!=null&&a.ws!==''&&typeof _winsAdded==='function') return _winsAdded(a);
+  if(a&&a.ti40!=null&&a.ti40!==''&&typeof _winsAdded==='function') return _winsAdded(a);
   var ss=_ovrSeasons(); for(var i=0;i<ss.length;i++){ if(ss[i].wa!=null&&ss[i].wa!=='') return parseFloat(ss[i].wa); }
   return null;
 }
@@ -2918,14 +2899,14 @@ function _seasonRanks(year, g, posRaw, pillars, eN, eP, ePL){
   var gi=Math.round(g), mine=_pillarScore(pillars);
   var qs='season_year=eq.'+year;
   function count(extra,cb){
-    fetch(SB+'/rest/v1/bbref_seasons?'+qs+extra+'&select=bbref_id&limit=1',
+    fetch(SB+'/rest/v1/player_history?'+qs+extra+'&select=espn_id&limit=1',
       {headers:Object.assign({},H,{Prefer:'count=exact'})}).then(function(r){
         var n=parseInt(((r.headers.get('content-range')||'').split('/')[1]||''),10);
         cb(isNaN(n)?null:n);
       }).catch(function(){ cb(null); });
   }
   // rows sharing this exact grade -> how many out-score us on pillars
-  fetch(SB+'/rest/v1/bbref_seasons?'+qs+'&tdc_grade=eq.'+gi+'&select=pos,grade_pillars&limit=2000',
+  fetch(SB+'/rest/v1/player_history?'+qs+'&tdc_grade=eq.'+gi+'&select=pos,position&limit=2000',
     {headers:H}).then(function(r){ return r.ok?r.json():[]; }).then(function(same){
       function tie(filterPos){
         if(mine==null) return 0;
@@ -3101,10 +3082,10 @@ function expVal(p,key){
   if(key==='_a40')return mpg>=RATE_MIN?+(apg*40/mpg).toFixed(1):null;
   if(key==='_r40')return mpg>=RATE_MIN?+(rpg*40/mpg).toFixed(1):null;
   if(key==='_ts'){if(mpg<RATE_MIN)return null;var fga=parseFloat(p.fga)||0,fta=parseFloat(p.fta)||0,d=2*(fga+0.44*fta);return d>0?+(ppg/d*100).toFixed(1):null;}
-  if(key==='_wa'){
-    var ws=p.ws!=null?parseFloat(p.ws):(p._advanced?parseFloat(p._advanced.ws):NaN);
+  if(key==='_wa'){   // OWNED Wins Added from TI (build_wins_added.py: REPL 5.0, PPW 69.87)
+    var ti=p.ti!=null?parseFloat(p.ti):(p._advanced?parseFloat(p._advanced.ti40):NaN);
     var mp=p.mp!=null?parseFloat(p.mp):(p._advanced?parseFloat(p._advanced.mp):NaN);
-    return (isFinite(ws)&&isFinite(mp))?+(ws-0.04*(mp/40)).toFixed(1):null;
+    return (isFinite(ti)&&isFinite(mp))?+(((ti-5.0)*(mp/40)/69.87)).toFixed(1):null;
   }
   var v=parseFloat(p[key]); return isNaN(v)?null:v;
 }
@@ -3114,14 +3095,9 @@ async function loadPexpSeason(key){
   if(key==='2627') return window._tdcAllPlayers||[];  // projected: current rosters (per-game only)
   if(_pexpCache[key]) return _pexpCache[key];
   var nt=document.getElementById('pexpNote'); if(nt) nt.textContent='Loading '+_pexpSeasonLbl(key)+'…';
-  // pool from BBRef so percentiles cover advanced stats too (per-game + advanced)
-  var base=SB+'/rest/v1/bbref_seasons?select=player,school,pos,height,pergame,advanced,tdc_grade';
-  var url=key==='all'?base:base+'&season_year=eq.'+key;
-  var rows=[],pg=0;
-  while(true){
-    try{ var r=await fetch(url,{headers:{...H,'Range-Unit':'items','Range':(pg*1000)+'-'+(pg*1000+999)}}); var b=await r.json();
-      if(!Array.isArray(b)||!b.length) break; rows=rows.concat(b.map(_bbrefPoolRow)); if(b.length<1000) break; pg++; }catch(e){ break; }
-  }
+  // OWNED pool (player_advanced + player_history), bbref-shaped → _bbrefPoolRow unchanged.
+  var raw=await TDCOwnedSeasons.bySeason(key==='all'?'all':key);
+  var rows=(raw||[]).map(_bbrefPoolRow);
   _pexpCache[key]=rows; return rows;
 }
 // the viewed player's own stat row for the selected season (for the highlight)
@@ -3284,7 +3260,7 @@ function renderPage(){
   const _hGrade=(function(){var g=_projectedGrade();return (g!=null&&!isNaN(g))?g:(p.tdc_grade||'—');})();
   const _hBadges=(badgeData&&badgeData.total)||0;
   const _hWA=(function(){var a=player&&player._advanced;
-    if(a&&a.ws!=null&&a.ws!==''&&typeof _winsAdded==='function'){var w=_winsAdded(a);return (w>0?'+':'')+w.toFixed(1);}
+    if(a&&a.ti40!=null&&a.ti40!==''&&typeof _winsAdded==='function'){var w=_winsAdded(a);return (w>0?'+':'')+w.toFixed(1);}
     return '—';})();
   document.getElementById('heroSection').innerHTML=`
     <div class="player-hero" style="--tc:${color};">
@@ -3585,11 +3561,9 @@ const STAT_MODES={
     ['FG','fg_per_min',_f1],['FGA','fga_per_min',_f1],['FG%','fg_pct',_fp100],['3P','fg3_per_min',_f1],['3PA','fg3a_per_min',_f1],['3P%','fg3_pct',_fp100],
     ['FT','ft_per_min',_f1],['FTA','fta_per_min',_f1],['FT%','ft_pct',_fp100],['ORB','orb_per_min',_f1],['DRB','drb_per_min',_f1],
     ['STL','stl_per_min',_f1],['BLK','blk_per_min',_f1],['TOV','tov_per_min',_f1],['PF','pf_per_min',_f1]]},
-  advanced:{src:'_advanced',cols:[['WA','wa',_f1],['PER','per',_f1],['TS%','ts_pct',_fp100],['USG%','usg_pct',_fpRaw],
+  advanced:{src:'_advanced',cols:[['WA','wa',_f1],['TI/40','ti40',_f1],['TI/100','ti100',_f1],['TS%','ts_pct',_fp100],['USG%','usg_pct',_fpRaw],
     ['ORB%','orb_pct',_fpRaw],['DRB%','drb_pct',_fpRaw],['TRB%','trb_pct',_fpRaw],['AST%','ast_pct',_fpRaw],
-    ['STL%','stl_pct',_fpRaw],['BLK%','blk_pct',_fpRaw],['TOV%','tov_pct',_fpRaw],
-    ['OWS','ows',_f1],['DWS','dws',_f1],['WS','ws',_f1],['WS/40','ws_per_40',_f3],
-    ['OBPM','obpm',_f1],['DBPM','dbpm',_f1],['BPM','bpm',_f1],['PProd','pprod',_fi]]},
+    ['STL%','stl_pct',_fpRaw],['BLK%','blk_pct',_fpRaw],['TOV%','tov_pct',_fpRaw]]},
 };
 function renderModeTable(mode){
   const M=STAT_MODES[mode]; const hist=_dedupHist();
