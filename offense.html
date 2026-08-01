@@ -372,7 +372,7 @@ async function loadTeam(){
   const withId=roster.filter(p=>p.espn_id!=null);
   let adv=[];
   if(withId.length){ const ids=withId.map(p=>p.espn_id).join(',');
-    try{ adv=await fetch(`${SB_URL}/rest/v1/player_advanced?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,ti40,ts_pct,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,trb_pct,stl_pct,blk_pct,min,g`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+    try{ adv=await fetch(`${SB_URL}/rest/v1/player_advanced?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,ti40,owa,dwa,ts_pct,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,trb_pct,stl_pct,blk_pct,min,g`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
   }
   const advById={}; adv.forEach(a=>{ advById[a.espn_id]={...a,mp:a.min,games:a.g}; });
   let players=roster.map(p=>{ const a=advById[p.espn_id]; if(!a) return null;
@@ -393,12 +393,12 @@ async function loadTeam(){
   }
 
   // players
-  const prow=p=>{ const [lab,cls]=p.role, ti=num(p.a.ti40), usg=num(p.a.usg_pct), ts=num(p.a.ts_pct)*100, ast=num(p.a.ast_pct);
+  const prow=p=>{ const [lab,cls]=p.role, owa=num(p.a.owa), usg=num(p.a.usg_pct), ts=num(p.a.ts_pct)*100, ast=num(p.a.ast_pct);
     return `<div class="pr" style="--tc:${tc}"><div class="nm">${esc(p.name)}<span class="pos">${esc(p.pos||'')}</span></div>
-      <div class="dbpm"><div class="v" style="color:${ti>=15?'var(--green)':ti>=10?'var(--text2)':'var(--red)'}">${ti.toFixed(1)}</div><div class="l">TI</div></div>
+      <div class="dbpm"><div class="v" style="color:${owa>=3?'var(--green)':owa>=1.5?'var(--text2)':'var(--red)'}">${owa.toFixed(1)}</div><div class="l">OWA</div></div>
       <div class="foot"><span><b>${usg.toFixed(0)}</b>% usg</span><span><b>${ts.toFixed(0)}</b>% TS</span><span><b>${ast.toFixed(0)}</b>% ast</span></div>
       <div class="lab ${cls}">${lab}</div></div>`; };
-  const engine=players.filter(p=>p.mpg>=12).sort((a,b)=>num(b.a.ti40)-num(a.a.ti40))[0]||players[0];
+  const engine=players.filter(p=>p.mpg>=12).sort((a,b)=>num(b.a.owa)-num(a.a.owa))[0]||players[0];
   const topUsg=players[0];
   const pread = engine ? `<div class="read"><b>${esc((topUsg&&topUsg.role[0]==='Primary option')?topUsg.name:engine.name)}</b> is the engine of the offense${engine&&topUsg&&engine!==topUsg&&topUsg.role[0]==='Primary option'?`, and <b>${esc(engine.name)}</b> is its most efficient scorer`:` (${engine.role[0].toLowerCase()})`}.</div>` : '';
 

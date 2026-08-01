@@ -3,7 +3,7 @@
 <head>
   <script src="auth.js?v=paywall4"></script>
   <script src="tdc-rating.js?v=4"></script>
-  <script src="tdc-owned-seasons.js?v=3"></script>
+  <script src="tdc-owned-seasons.js?v=4"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=2"></script>
@@ -397,6 +397,8 @@ const STATS = [
   {k:'ti40',    l:'TI/40',   g:'Impact',      d:1, desc:'TDC Impact per 40 minutes — our owned box-score value metric (points-equivalent value above baseline). Replaces BPM/PER/WS.'},
   {k:'ti100',   l:'TI/100',  g:'Impact',      d:1, desc:'TDC Impact per 100 team possessions.'},
   {k:'wa',      l:'WA',      g:'Impact',      d:1, desc:'Wins Added — wins contributed above a replacement-level player (derived from TI).'},
+  {k:'owa',     l:'OWA',     g:'Impact',      d:1, desc:'Offensive Wins Added — the offensive slice of TI on a wins scale. Owned; calibrated to the OWS range. Does not sum with DWA to WA.'},
+  {k:'dwa',     l:'DWA',     g:'Impact',      d:1, desc:'Defensive Wins Added — Dean Oliver’s Defensive Win Shares math computed from our own box scores. Team-defense-heavy (a box-score limit), so read it as an estimate.'},
   {k:'svoe',    l:'SVOE',    g:'Signature',   d:2, desc:'Shot Value Over Expected — points per shot above what the shot diet predicts (actual vs expected eFG). An original TDC stat.'},
   {k:'lq',      l:'Look Q',  g:'Signature',   d:1, suf:'%', desc:'Look Quality — the eFG% a league-average shooter would post on this player’s exact shot diet. An original TDC stat.'},
   {k:'smAdj',   l:'SM+',     g:'Signature',   d:1, desc:'Shot-Making (SM+) — points added over an average shooter from the same spots. Pure finishing skill; an original TDC stat.'},
@@ -404,7 +406,7 @@ const STATS = [
 ];
 const SMAP = {}; STATS.forEach(s=>SMAP[s.k]=s);
 // columns shown in the leaderboard table (in order)
-const TABLE_KEYS = ['grade','pts','trb','ast','mpg','gp','pts40','ts','efg','usg','ast_pct','tov_pct','trb_pct','stl_pct','blk_pct','ti40','ti100','wa','svoe','lq','smAdj','selfCr'];
+const TABLE_KEYS = ['grade','pts','trb','ast','mpg','gp','pts40','ts','efg','usg','ast_pct','tov_pct','trb_pct','stl_pct','blk_pct','ti40','ti100','wa','owa','dwa','svoe','lq','smAdj','selfCr'];
 // headline leader cards
 const LEADER_KEYS = ['wa','ti40','ti100','ts','usg','ast_pct','trb_pct'];
 
@@ -463,7 +465,7 @@ function flatten(r){
     fg:num(pg.fg_pct), fg3:num(pg.fg3_pct), ft:num(pg.ft_pct), efg:num(pg.efg_pct),
     pts40:num(p4.pts_per_min), trb40:num(p4.trb_per_min), ast40:num(p4.ast_per_min),
     stl40:num(p4.stl_per_min), blk40:num(p4.blk_per_min), tov40:num(p4.tov_per_min),
-    ti40:ti, ti100:num(a.ti100),
+    ti40:ti, ti100:num(a.ti100), owa:num(a.owa), dwa:num(a.dwa),
     usg:num(a.usg_pct), ts:num(a.ts_pct), ast_pct:num(a.ast_pct), trb_pct:num(a.trb_pct),
     orb_pct:num(a.orb_pct), drb_pct:num(a.drb_pct), stl_pct:num(a.stl_pct), blk_pct:num(a.blk_pct), tov_pct:num(a.tov_pct),
     ftr:num(a.fta_per_fga_pct), tpar:num(a.fg3a_per_fga_pct),

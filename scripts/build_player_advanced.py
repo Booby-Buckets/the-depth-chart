@@ -23,7 +23,7 @@ COLS = ["espn_id", "season_year", "name", "team", "g", "min",
         "ts_pct", "efg_pct", "fg_pct", "tp_pct", "ft_pct",
         "pts40", "reb40", "ast40",
         "usg_pct", "ast_pct", "tov_pct", "orb_pct", "drb_pct", "trb_pct", "stl_pct", "blk_pct",
-        "ti40", "ti100"]
+        "ti40", "ti100", "owa", "dwa"]
 # postgres types (real for rate stats, int for counts)
 INT_COLS = {"espn_id", "season_year", "g", "min"}
 

@@ -31,6 +31,8 @@ CREATE TABLE player_advanced (
   blk_pct real,
   ti40 real,
   ti100 real,
+  owa real,
+  dwa real,
   PRIMARY KEY (espn_id, season_year)
 );
 CREATE INDEX idx_padv_year ON player_advanced (season_year);

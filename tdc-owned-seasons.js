@@ -14,7 +14,7 @@
   var SB = 'https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/';
   var HD = { apikey: 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye',
              Authorization: 'Bearer sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye' };
-  var PA = 'espn_id,season_year,name,team,g,min,ppg,rpg,apg,ts_pct,efg_pct,fg_pct,tp_pct,ft_pct,pts40,reb40,ast40,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,trb_pct,stl_pct,blk_pct,ti40,ti100';
+  var PA = 'espn_id,season_year,name,team,g,min,ppg,rpg,apg,ts_pct,efg_pct,fg_pct,tp_pct,ft_pct,pts40,reb40,ast40,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,trb_pct,stl_pct,blk_pct,ti40,ti100,owa,dwa';
   var PH = 'espn_id,season_year,name,team,height,weight,position,yr,tdc_grade,gp,mpg,ppg,rpg,apg,stl,blk,tovs,oreb,dreb,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct';
 
   function j(url) { return fetch(SB + url, { headers: HD }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }); }
@@ -53,7 +53,7 @@
       ts_pct: n(pa.ts_pct), usg_pct: n(pa.usg_pct), ast_pct: n(pa.ast_pct),
       orb_pct: n(pa.orb_pct), drb_pct: n(pa.drb_pct), trb_pct: n(pa.trb_pct),
       stl_pct: n(pa.stl_pct), blk_pct: n(pa.blk_pct), tov_pct: n(pa.tov_pct),
-      mp: n(pa.min), ti40: n(pa.ti40), ti100: n(pa.ti100),
+      mp: n(pa.min), ti40: n(pa.ti40), ti100: n(pa.ti100), owa: n(pa.owa), dwa: n(pa.dwa),
       bpm: null, obpm: null, dbpm: null, ws: null, ows: null, dws: null, per: null
     };
     var team = ph.team || pa.team;

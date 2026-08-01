@@ -63,6 +63,14 @@ TI_W = {
 MIN_MP_QUAL = 40          # season minutes floor to publish a rate stat (else null)
 REG_MP = 100              # per-40 regression: pull low-minute lines toward 0
 
+# Offensive & Defensive Wins Added — owned signals mapped to the familiar OWS/DWS scale
+# by a fixed linear calibration (validated in build_wins_split.py: DWA r=0.96, OWA r=0.91
+# vs bbref; constants stable across seasons). OWA = offensive TI slice; DWA = Dean Oliver's
+# DWS math from our own player/team/opponent box aggregates. They do NOT sum to WA.
+OWA_REPL = 3.0
+OWA_A, OWA_B = -0.10, 0.0092     # owa = OWA_A + OWA_B * ((ti_off/40 - REPL) * min/40)
+DWA_A, DWA_B = 0.186, 0.74       # dwa = DWA_A + DWA_B * (Oliver DWS from owned box)
+
 
 def _z():
     return {k: 0.0 for k in ("min pts fga fgm fta ftm tpa tpm oreb dreb reb ast stl blk tov pf g").split()}
@@ -94,12 +102,54 @@ def poss(a):
     return a["fga"] + 0.44 * a["fta"] - a["oreb"] + a["tov"]
 
 
+def owa_raw(a):
+    """Offensive slice of TI (pts/ast/oreb/misses/tov), above-replacement × volume."""
+    ti = (1.0 * a["pts"] + 0.8 * a["oreb"] + 0.7 * a["ast"]
+          - 0.5 * (a["fga"] - a["fgm"]) - 0.35 * (a["fta"] - a["ftm"]) - 1.0 * a["tov"])
+    ti40 = ti * 40.0 / (a["min"] + REG_MP)
+    return (ti40 - OWA_REPL) * (a["min"] / 40.0)
+
+
+def dwa_raw(a, t, o, lg_ppp, lg_ppg, lg_pace):
+    """Dean Oliver's Defensive Win Shares for one player, from owned box aggregates.
+    a=player, t=team, o=opponent-allowed totals, lg=league rates."""
+    MP, Tm_MP = a["min"], t["min"]
+    if MP < 1 or Tm_MP < 1 or not o:
+        return None
+    Tm_DefPoss = poss(o)                       # opponent possessions = team defensive poss
+    if Tm_DefPoss <= 0:
+        return None
+    DORp = o["oreb"] / (o["oreb"] + t["dreb"]) if (o["oreb"] + t["dreb"]) > 0 else 0
+    DFGp = o["fgm"] / o["fga"] if o["fga"] > 0 else 0
+    den = DFGp * (1 - DORp) + (1 - DFGp) * DORp
+    FMwt = (DFGp * (1 - DORp)) / den if den > 0 else 0
+    Stops1 = a["stl"] + a["blk"] * FMwt * (1 - 1.07 * DORp) + a["dreb"] * (1 - FMwt)
+    ftmiss = (1 - (o["ftm"] / o["fta"])) ** 2 if o["fta"] > 0 else 0
+    Stops2 = ((((o["fga"] - o["fgm"] - t["blk"]) / Tm_MP) * FMwt * (1 - 1.07 * DORp)
+              + ((o["tov"] - t["stl"]) / Tm_MP)) * MP
+             + (a["pf"] / t["pf"] if t["pf"] > 0 else 0) * 0.4 * o["fta"] * ftmiss)
+    Stopp = ((Stops1 + Stops2) * Tm_MP) / (Tm_DefPoss * MP) if (Tm_DefPoss * MP) > 0 else 0
+    Tm_DRtg = 100.0 * o["pts"] / Tm_DefPoss
+    scposs = o["fgm"] + (1 - ftmiss) * o["fta"] * 0.4
+    DPtsScPoss = o["pts"] / scposs if scposs > 0 else 1.0
+    DRtg = Tm_DRtg + 0.2 * (100 * DPtsScPoss * (1 - Stopp) - Tm_DRtg)
+    marg_def = (MP / Tm_MP) * Tm_DefPoss * (1.08 * lg_ppp - DRtg / 100.0)
+    Tm_pace = poss(t) / (t["min"] / 200.0) if t["min"] else lg_pace
+    mpw = 0.32 * lg_ppg * (Tm_pace / lg_pace) if lg_pace else 1.0
+    return marg_def / mpw if mpw else None
+
+
 def safe(n, d):
     return (n / d) if d else None
 
 
 def compute(P, T, O, NAME, PTEAM, season):
     out = {}
+    # league aggregates for DWA (Oliver marginal points-per-win)
+    lg_poss = sum(poss(x) for x in T.values()) or 1
+    lg_pts = sum(x["pts"] for x in T.values())
+    lg_g = sum((x["min"] / 200.0) for x in T.values()) or 1
+    lg_ppp, lg_ppg, lg_pace = lg_pts / lg_poss, lg_pts / lg_g, lg_poss / lg_g
     for eid, a in P.items():
         tm = PTEAM.get(eid)
         t = T.get(tm); o = O.get(tm)
@@ -135,6 +185,10 @@ def compute(P, T, O, NAME, PTEAM, season):
               + TI_W["tov"] * a["tov"])
         ti40 = ti * 40.0 / (mp + REG_MP)          # per-40, minute-regressed
         ti100 = safe(ti * 100.0, (mp / (tmp / 5.0)) * team_poss) if team_poss else None
+        # Offensive & Defensive Wins Added (owned; calibrated to OWS/DWS scale)
+        owa = OWA_A + OWA_B * owa_raw(a)
+        _dwr = dwa_raw(a, t, o, lg_ppp, lg_ppg, lg_pace)
+        dwa = (DWA_A + DWA_B * _dwr) if _dwr is not None else None
 
         def rnd(x, n=1):
             return round(x, n) if x is not None else None
@@ -156,8 +210,9 @@ def compute(P, T, O, NAME, PTEAM, season):
             "orb_pct": rnd(orb_pct) if pub else None, "drb_pct": rnd(drb_pct) if pub else None,
             "trb_pct": rnd(trb_pct) if pub else None,
             "stl_pct": rnd(stl_pct, 2) if pub else None, "blk_pct": rnd(blk_pct, 2) if pub else None,
-            # our own value metric
+            # our own value metrics
             "ti40": rnd(ti40, 2), "ti100": rnd(ti100, 2) if pub else None,
+            "owa": rnd(owa, 2), "dwa": rnd(dwa, 2),
         }
     return out
 
@@ -165,7 +220,13 @@ def compute(P, T, O, NAME, PTEAM, season):
 def run_season(season, validate=False):
     print(f"[{season}] fetching box_scores…")
     cols = "espn_id,player,team,opp,min,pts,fga,fgm,fta,ftm,tpa,tpm,oreb,dreb,reb,ast,stl,blk,tov,pf"
-    rows = ag.get(f"box_scores?season_year=eq.{season}", cols)
+    import time
+    for attempt in range(5):                       # box_scores is ~120k rows/yr — flaky conns reset mid-stream
+        try:
+            rows = ag.get(f"box_scores?season_year=eq.{season}", cols); break
+        except Exception as e:
+            if attempt == 4: raise
+            print(f"[{season}] fetch retry {attempt+1} ({type(e).__name__})"); time.sleep(4 * (attempt + 1))
     print(f"[{season}] {len(rows)} box rows -> aggregating")
     P, T, O, NAME, PTEAM = aggregate(rows)
     res = compute(P, T, O, NAME, PTEAM, season)

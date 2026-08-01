@@ -370,12 +370,12 @@ async function loadTeam(){
   const withId=roster.filter(p=>p.espn_id!=null);
   let adv=[];
   if(withId.length){ const ids=withId.map(p=>p.espn_id).join(',');
-    try{ adv=await fetch(`${SB_URL}/rest/v1/player_advanced?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,ti40,ts_pct,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,trb_pct,stl_pct,blk_pct,min,g`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+    try{ adv=await fetch(`${SB_URL}/rest/v1/player_advanced?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,ti40,dwa,owa,ts_pct,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,trb_pct,stl_pct,blk_pct,min,g`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
   }
   const advById={}; adv.forEach(a=>{ advById[a.espn_id]={...a,mp:a.min,games:a.g}; });
   let players=roster.map(p=>{ const a=advById[p.espn_id]; if(!a) return null;
     return {name:p.name,pos:p.position||'',mpg:+p.mpg||0,a,role:defRole(a,p.position||'')}; }).filter(Boolean);
-  players.sort((x,y)=>dScore(y.a)-dScore(x.a));
+  players.sort((x,y)=>num(y.a.dwa)-num(x.a.dwa));
 
   // team identity
   let idHtml='';
@@ -390,9 +390,9 @@ async function loadTeam(){
   }
 
   // players
-  const prow=p=>{ const [lab,cls]=p.role, d=dScore(p.a);
+  const prow=p=>{ const [lab,cls]=p.role, d=num(p.a.dwa);
     return `<div class="pr" style="--tc:${tc}"><div class="nm">${esc(p.name)}<span class="pos">${esc(p.pos||'')}</span></div>
-      <div class="dbpm"><div class="v" style="color:${d>=6?'var(--green)':d>=4?'var(--text2)':'var(--red)'}">${d.toFixed(1)}</div><div class="l">DEF</div></div>
+      <div class="dbpm"><div class="v" style="color:${d>=2?'var(--green)':d>=1?'var(--text2)':'var(--red)'}">${d.toFixed(1)}</div><div class="l">DWA</div></div>
       <div class="foot"><span><b>${num(p.a.blk_pct).toFixed(1)}</b>% blk</span><span><b>${num(p.a.stl_pct).toFixed(1)}</b>% stl</span><span><b>${num(p.a.drb_pct).toFixed(0)}</b>% dReb</span></div>
       <div class="lab ${cls}">${lab}</div></div>`; };
   const anchor=players[0], weak=[...players].filter(p=>p.mpg>=10).sort((a,b)=>num(a.a.dbpm)-num(b.a.dbpm))[0];
