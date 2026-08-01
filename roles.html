@@ -175,11 +175,11 @@ async function loadTeam(){
   const withId=roster.filter(p=>p.espn_id!=null);
   let adv=[];
   if(withId.length){ const ids=withId.map(p=>p.espn_id).join(',');
-    try{ adv=await fetch(`${SB_URL}/rest/v1/bbref_seasons?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,pos,advanced`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+    try{ adv=await fetch(`${SB_URL}/rest/v1/player_advanced?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,ti40,ts_pct,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,trb_pct,stl_pct,blk_pct,min,g`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
   }
-  const advById={}; adv.forEach(a=>{ if(a.advanced) advById[a.espn_id]={...a.advanced,pos:a.pos}; });
+  const advById={}; adv.forEach(a=>{ advById[a.espn_id]={...a,mp:a.min,games:a.g}; });
   let players=roster.map(p=>{ const a=advById[p.espn_id]; if(!a) return {name:p.name,pos:p.position,order:p.depth_order!=null?+p.depth_order:99,mpg:+p.mpg||0,hist:false};
-    return {name:p.name,pos:p.position||a.pos,order:p.depth_order!=null?+p.depth_order:99,mpg:+p.mpg||0,hist:true,a,arch:archetype(a,p.position||a.pos)}; });
+    return {name:p.name,pos:p.position||'',order:p.depth_order!=null?+p.depth_order:99,mpg:+p.mpg||0,hist:true,a,arch:archetype(a,p.position||'')}; });
   players.sort((x,y)=>(x.order-y.order)||(y.mpg-x.mpg));
   const withHist=players.filter(p=>p.hist);
   if(!withHist.length){ el('out').innerHTML='<div class="muted" style="padding:50px 20px;">No D-I track record on file for this roster yet — likely a young or heavily new group. Roles read once players have a season of D-I data.</div>'; return; }

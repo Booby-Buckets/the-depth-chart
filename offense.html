@@ -158,7 +158,7 @@
 
   <div id="out"><div class="muted" style="padding:60px 20px;">Pick a team above to read its offense.</div></div>
 
-  <div class="note" data-anim>Head coach from the program's career profile (archetype, pace, rotation). Team identity uses the 2026-27 projected offensive four factors (ᴾᶜ = percentile vs D-I, higher = better). <b>Where they score</b> is the team's own shots, classified by zone; their FG% and eFG vs the D-I baseline show where the offense is efficient, and the chart plots each made shot — sortable by season or pooled across every season with shot-location data (2021-22 to 2025-26; older seasons are sparser). Player footprints are each scorer's 2025-26 advanced rates — offensive box plus-minus (OBPM), usage %, true-shooting %, assist %.</div>
+  <div class="note" data-anim>Head coach from the program's career profile (archetype, pace, rotation). Team identity uses the 2026-27 projected offensive four factors (ᴾᶜ = percentile vs D-I, higher = better). <b>Where they score</b> is the team's own shots, classified by zone; their FG% and eFG vs the D-I baseline show where the offense is efficient, and the chart plots each made shot — sortable by season or pooled across every season with shot-location data (2021-22 to 2025-26; older seasons are sparser). Player footprints are each scorer's 2025-26 advanced rates — TDC Impact (TI), usage %, true-shooting %, assist %.</div>
 </div>
 
 <script>
@@ -202,11 +202,10 @@ function pick(key){ selKey=+key; el('sel').value=labelOf(poolRow(+key)); el('lis
 
 const num=v=>{const n=parseFloat(v);return isNaN(n)?0:n;};
 function offRole(a,pos){
-  const obpm=num(a.obpm), usg=num(a.usg_pct), ast=num(a.ast_pct), ts=num(a.ts_pct), three=num(a.fg3a_per_fga_pct);
+  const ti=num(a.ti40), usg=num(a.usg_pct), ast=num(a.ast_pct), ts=num(a.ts_pct);
   if(usg>=27) return ['Primary option','lg'];
   if(ast>=22&&usg>=17) return ['Lead creator','lg'];
-  if(three>=0.55&&ts>=0.56) return ['Floor spacer','lg'];
-  if(obpm>=3.5) return ['Efficient scorer','lg'];
+  if(ti>=15&&ts>=0.56) return ['Efficient scorer','lg'];
   if(usg>=18) return ['Secondary option','la'];
   if(ts>=0.58) return ['Efficient role','la'];
   return ['Low-usage','lr'];
@@ -373,13 +372,13 @@ async function loadTeam(){
   const withId=roster.filter(p=>p.espn_id!=null);
   let adv=[];
   if(withId.length){ const ids=withId.map(p=>p.espn_id).join(',');
-    try{ adv=await fetch(`${SB_URL}/rest/v1/bbref_seasons?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,pos,advanced`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+    try{ adv=await fetch(`${SB_URL}/rest/v1/player_advanced?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,ti40,ts_pct,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,trb_pct,stl_pct,blk_pct,min,g`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
   }
-  const advById={}; adv.forEach(a=>{ if(a.advanced) advById[a.espn_id]={...a.advanced,pos:a.pos}; });
+  const advById={}; adv.forEach(a=>{ advById[a.espn_id]={...a,mp:a.min,games:a.g}; });
   let players=roster.map(p=>{ const a=advById[p.espn_id]; if(!a) return null;
     if(num(a.mp)<150||num(a.games)<10) return null;   // drop walk-on / garbage-time samples
-    return {name:p.name,pos:p.position||a.pos,mpg:+p.mpg||0,a,role:offRole(a,p.position||a.pos)}; }).filter(Boolean);
-  players.sort((x,y)=>num(y.a.obpm)-num(x.a.obpm));
+    return {name:p.name,pos:p.position||'',mpg:+p.mpg||0,a,role:offRole(a,p.position||'')}; }).filter(Boolean);
+  players.sort((x,y)=>num(y.a.ti40)-num(x.a.ti40));
 
   // team identity
   let idHtml='';
@@ -394,12 +393,12 @@ async function loadTeam(){
   }
 
   // players
-  const prow=p=>{ const [lab,cls]=p.role, obpm=num(p.a.obpm), usg=num(p.a.usg_pct), ts=num(p.a.ts_pct)*100, ast=num(p.a.ast_pct);
+  const prow=p=>{ const [lab,cls]=p.role, ti=num(p.a.ti40), usg=num(p.a.usg_pct), ts=num(p.a.ts_pct)*100, ast=num(p.a.ast_pct);
     return `<div class="pr" style="--tc:${tc}"><div class="nm">${esc(p.name)}<span class="pos">${esc(p.pos||'')}</span></div>
-      <div class="dbpm"><div class="v" style="color:${obpm>=2?'var(--green)':obpm>=-0.5?'var(--text2)':'var(--red)'}">${obpm>=0?'+':''}${obpm.toFixed(1)}</div><div class="l">OBPM</div></div>
+      <div class="dbpm"><div class="v" style="color:${ti>=15?'var(--green)':ti>=10?'var(--text2)':'var(--red)'}">${ti.toFixed(1)}</div><div class="l">TI</div></div>
       <div class="foot"><span><b>${usg.toFixed(0)}</b>% usg</span><span><b>${ts.toFixed(0)}</b>% TS</span><span><b>${ast.toFixed(0)}</b>% ast</span></div>
       <div class="lab ${cls}">${lab}</div></div>`; };
-  const engine=players.filter(p=>p.mpg>=12).sort((a,b)=>num(b.a.obpm)-num(a.a.obpm))[0]||players[0];
+  const engine=players.filter(p=>p.mpg>=12).sort((a,b)=>num(b.a.ti40)-num(a.a.ti40))[0]||players[0];
   const topUsg=players[0];
   const pread = engine ? `<div class="read"><b>${esc((topUsg&&topUsg.role[0]==='Primary option')?topUsg.name:engine.name)}</b> is the engine of the offense${engine&&topUsg&&engine!==topUsg&&topUsg.role[0]==='Primary option'?`, and <b>${esc(engine.name)}</b> is its most efficient scorer`:` (${engine.role[0].toLowerCase()})`}.</div>` : '';
 
@@ -450,7 +449,7 @@ async function loadTeam(){
     ${idHtml?`<div class="sec-h">Team offensive identity <span class="hint">projected 2026-27 · <b>ᴾᶜ = percentile vs Division I</b> (higher is better)</span></div>${idHtml}`:''}
     ${oppShots.length?`<div class="sec-h">Where they score <span class="hint">their own shots · pick a season</span></div>
       <div id="scoredScope" class="chips"></div><div id="scoredBody"></div>`:''}
-    <div class="sec-h">Rotation scorers <span class="hint">2025-26 · sorted by offensive impact (OBPM)</span></div>
+    <div class="sec-h">Rotation scorers <span class="hint">2025-26 · sorted by offensive impact (TI)</span></div>
     ${players.length?players.map(prow).join('')+pread:'<div class="muted">No player defensive data on file for this roster yet.</div>'}
   </div>`;
   const scopeEl=el('scoredScope');
