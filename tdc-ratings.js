@@ -36,7 +36,7 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v16_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v17_'+SEASON, TTL=24*3600*1000;
   // in-season form: once 2026-27 games are played, each team's rating drifts
   // toward how it's ACTUALLY performing vs our own lines. surprise = actual
   // margin - expected margin; form = sum(surprise)/(n + FORM_PRIOR) capped at
@@ -44,6 +44,29 @@
   // takes a sustained run (not two lucky games) to move much.
   const FORM_PRIOR=10, FORM_CAP=3;
   const CAL_A=11.75, CAL_B=2.355;          // calibrated BPM→SRS (see header)
+  // OWNED BPM. Each returner enters the projection on the Box Plus/Minus scale.
+  // A regression of bbref BPM onto OUR OWN box-derived rates (player_advanced) PLUS the
+  // player's team quality — his 2026 team's owned Power Rating (team_seasons.srs). That
+  // team term is the same "team adjustment" real BPM uses (a player's rating is tied to
+  // how good his team actually was), and it's what lifts this fit from r~0.79 (box-only,
+  // which left star-driven teams like UConn 26 spots low) to r~0.95 vs real BPM. Result is
+  // de-attenuated to real-BPM spread so the CAL_A/CAL_B mapping stays valid. REPLACES the
+  // old `ti40 -> BPM` shortcut (r~0.36) that compressed the star tier and scrambled ranks.
+  // No Sports-Reference read: trained offline, only these static constants ship, and srs is
+  // our own metric. Rebuild / re-derive: scripts/build_bpm_model.py (prints these verbatim).
+  const BPM_B0=-5.17252, BPM_MU=-0.5627, BPM_K=1.0590, BPM_SRS=0.31069;
+  const BPM_FEATS=['ts_pct','efg_pct','tp_pct','ft_pct','pts40','reb40','ast40','usg_pct','ast_pct','tov_pct','orb_pct','drb_pct','stl_pct','blk_pct','ti40'];
+  const BPM_COEF=[0.32314,1.29670,2.03894,0.99409,0.21218,0.13564,-2.82989,-0.39381,0.64736,-0.07035,-0.13910,0.02546,0.42890,0.09517,0.47585];
+  function estBpm(r, teamSrs){   // player_advanced row + his team's owned Power Rating -> owned BPM
+    if(!r) return NaN;
+    let s=BPM_B0 + BPM_SRS*(isFinite(teamSrs)?teamSrs:0);
+    for(let i=0;i<BPM_FEATS.length;i++){
+      const v=parseFloat(r[BPM_FEATS[i]]);
+      if(!isFinite(v)) return NaN;
+      s+=BPM_COEF[i]*v;
+    }
+    return BPM_MU+(s-BPM_MU)*BPM_K;
+  }
   const BLEND_ROSTER=0.90, ANCHOR=0.70;    // roster weight; prior-SRS regression
   const CARRY=0.70;                        // rosterless teams: regressed SRS'26 carryover
   // Coach effect. rosterRating is pure TALENT (a BPM→SRS mapping), so it cannot see
@@ -159,7 +182,7 @@
     const [teams, players, bb, ts, hcaData, coachData, sgData, contData]=await Promise.all([
       fetch(SB+'/rest/v1/teams?select=name,conf,conference,head_coach,coach&limit=500',{headers:H}).then(r=>r.json()),
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,rpg,depth_order,is_injured,hometown&order=id.asc'),
-      fetchPaged(SB+'/rest/v1/player_advanced?season_year=eq.2026&espn_id=not.is.null&select=espn_id,ti40&order=espn_id.asc'),
+      fetchPaged(SB+'/rest/v1/player_advanced?season_year=eq.2026&espn_id=not.is.null&select=espn_id,team,ts_pct,efg_pct,tp_pct,ft_pct,pts40,reb40,ast40,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,stl_pct,blk_pct,ti40&order=espn_id.asc'),
       fetch(SB+'/rest/v1/team_seasons?season_year=eq.2026&select=team,conference,srs,tier&limit=1000',{headers:H}).then(r=>r.json()),
       fetch('scripts/data/team_hca.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('data/coach-careers.json').then(r=>r.ok?r.json():null).catch(()=>null),
@@ -181,13 +204,15 @@
       const shrunk=rec.lf*(rec.n/(rec.n+COACH_K));          // 3 seasons counts ~3/8
       coachAdjOf[t.name]=+Math.max(-COACH_CAP,Math.min(COACH_CAP,COACH_W*shrunk)).toFixed(2);
     });
-    const advById={}; (bb||[]).forEach(r=>{ if(r.espn_id!=null&&r.ti40!=null) advById[r.espn_id]={ti40:r.ti40}; });
     // Shot Genome per-player: eFG over Look Quality = shot-making luck (in eFG pts)
     const sgByEspn={}; ((sgData&&sgData.players)||[]).forEach(p=>{
       if(p.espn_id!=null && p.lq!=null && p.efg!=null && (p.fga||0)>=SHOT_MINFGA)
         sgByEspn[p.espn_id]={luck:p.efg-p.lq, fga:p.fga}; });
     const tsRows=(ts||[]);
     const srsOf={}; (ts||[]).forEach(t=>{ if(t.srs!=null) srsOf[t.team]=parseFloat(t.srs); });
+    // Owned BPM per returner. Needs his 2026 team's owned Power Rating (srs) as the
+    // team-adjustment term — player_advanced.team matches team_seasons.team exactly.
+    const advById={}; (bb||[]).forEach(r=>{ if(r.espn_id!=null){ const b=estBpm(r, srsOf[r.team]); if(isFinite(b)) advById[r.espn_id]={bpm:b}; } });
 
     // group rostered players by team
     const byTeam={};
@@ -212,8 +237,7 @@
         const grade=parseFloat(p.tdc_grade)||70;
         const c=cls(p.yr||p.class_year);
         const adv=p.espn_id!=null?advById[p.espn_id]:null;
-        const ti=adv?parseFloat(adv.ti40):NaN;
-        let bpm=isFinite(ti)?(-10.35+0.738*ti):NaN;   // OWNED TI -> BPM-equivalent (empirical 2026 fit)
+        let bpm=adv?adv.bpm:NaN;   // OWNED BPM (regression on our box rates; see estBpm)
         // de-luck: shave the transient part of shooting-over-shot-quality off BPM
         // before the lag model. Follows the player, so only returners carry it.
         let luckEfg=0, deluck=0;
