@@ -485,9 +485,12 @@ async function loadSeason(yr){
     rows=rows.concat(b);
     if(b.length<PG) break; page++;
   }
-  // dedupe within a season (player listed on two team-rows) — keep higher GP
+  // dedupe within a season — a transferred player's season is double-stamped in
+  // player_history (one row under his real team, a phantom under the team he moved TO), so
+  // keying by name+TEAM let both through and he appeared twice. Key by the PLAYER (espn_id,
+  // else name) per season and keep the higher-GP row (his real team) so he shows once.
   const byKey={};
-  rows.forEach(p=>{ const k=p.name+'|'+p.team+'|'+p.season_year, gp=+p.gp||0;
+  rows.forEach(p=>{ const k=(p.espn_id!=null?('e'+p.espn_id):('n'+(p.name||'')))+'|'+p.season_year, gp=+p.gp||0;
     if(!byKey[k]||gp>(byKey[k]._gp||0)){ p._gp=gp; byKey[k]=p; } });
   const waMap = await loadWA(yr);
   // Box-only archetype fit: grade every past season the SAME way as the projection —
