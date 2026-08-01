@@ -469,26 +469,22 @@ function projectAdvanced(adv, cls, projMpg){
   const L=PROJ_TRENDS.lag1, D=PROJ_TRENDS.advDelta[cls]||PROJ_TRENDS.advDelta.SR;
   const pf=v=>{const n=parseFloat(v);return isNaN(n)?null:n;};
   const sh=(k,v,d)=>v==null?null:L[k].m + L[k].b*(v-L[k].m) + (d||0);
-  const usg=sh('usg',pf(adv.usg_pct),D.usg), bpm=sh('bpm',pf(adv.bpm),D.bpm);
-  const per=sh('per',pf(adv.per),D.per),    ws40=sh('ws40',pf(adv.ws_per_40),D.ws40);
+  const usg=sh('usg',pf(adv.usg_pct),D.usg);
   const tsRaw=pf(adv.ts_pct); const ts=tsRaw==null?null:L.ts.m + L.ts.b*(tsRaw*100-L.ts.m) + ((PROJ_TRENDS.eff[cls]||{}).ts||0);
-  // Wins Added from projected WS/40 over projected minutes (≈31-game season)
-  const mp=(projMpg||0)*31;
-  const wa=ws40==null?null:Math.round((ws40-0.04)*mp/40*10)/10;
+  // OWNED Wins Added from projected TI over projected minutes (≈31-game season)
+  const ti=pf(adv.ti40); const mp=(projMpg||0)*31;
+  const wa=ti==null?null:Math.round((ti-5.0)*mp/40/69.87*10)/10;
   const r1=v=>v==null?null:Math.round(v*10)/10;
-  return {usg:r1(usg), bpm:r1(bpm), per:r1(per), ws40:ws40==null?null:Math.round(ws40*1000)/1000, ts:r1(ts), wa:wa};
+  return {usg:r1(usg), ti40:r1(ti), ts:r1(ts), wa:wa};
 }
 // grade-based advanced estimate for freshmen / no-data players (labeled EST)
 function estimateAdvanced(grade, projMpg, fgaPerG){
-  const N=window.TDC_NIL;
-  const bpm=N?N.gradeImpact(grade):((grade-77)/5*2.2-0.6);
-  const per=14.2+(grade-77)*0.35;
   const usg=Math.min(30,14+(fgaPerG||6)*0.9);
-  const ws40=Math.max(0,0.098+(grade-77)*0.004);
   const ts=52.9+(grade-80)*0.15;
-  const mp=(projMpg||0)*31, wa=Math.round((ws40-0.04)*mp/40*10)/10;
+  const ti=Math.max(2,(grade-70)*0.7+4);   // grade-based TI estimate (no box data)
+  const mp=(projMpg||0)*31, wa=Math.round((ti-5.0)*mp/40/69.87*10)/10;
   const r1=v=>Math.round(v*10)/10;
-  return {usg:r1(usg), bpm:r1(bpm), per:r1(per), ws40:Math.round(ws40*1000)/1000, ts:r1(ts), wa:wa, _est:true};
+  return {usg:r1(usg), ti40:r1(ti), ts:r1(ts), wa:wa, _est:true};
 }
 
 // ── COACHING CONTEXT ─────────────────────────────────────────────────────────

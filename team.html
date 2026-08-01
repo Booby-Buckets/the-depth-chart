@@ -11,7 +11,7 @@
   <script src="tdc-nil.js?v=cal1"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js"></script>
-  <script src="tdc-proj.js?v=coach16"></script>
+  <script src="tdc-proj.js?v=coach17"></script>
   <script src="tdc-freshman.js?v=pub4"></script>
   <script src="tdc-ratings.js?v=2"></script>
   <script src="tdc-projgrade.js?v=27"></script>
@@ -2422,7 +2422,7 @@ async function _fillProjAwards(projected){
         : h.award==='All-Defense' ? `${h.conf} All-Defensive · ${ORD[h.team-1]}`
         : `${h.conf} All-Freshman · ${ORD[h.team-1]}`;
       chips.push({n:p.name, t:label, gold:h.award==='All-America'||h.team===1,
-        d:(a.bpm!=null&&isFinite(a.bpm))?`proj ${fmt1(a.bpm)} BPM · ${fmt1(a.wa)} WA${a._est?' (est.)':''}`:`grade ${p.tdc_grade||'—'}`});
+        d:(a.ti40!=null&&isFinite(a.ti40))?`proj ${fmt1(a.ti40)} TI · ${fmt1(a.wa)} WA${a._est?' (est.)':''}`:`grade ${p.tdc_grade||'—'}`});
     });
   });
   host.innerHTML=`<div style="margin-bottom:20px;">
@@ -2633,7 +2633,7 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
         <div class="stat-header-cell">TO</div>
         <div class="stat-header-cell">USG%</div>
         <div class="stat-header-cell">TS%</div>
-        <div class="stat-header-cell">BPM</div>
+        <div class="stat-header-cell">TI</div>
         <div class="stat-header-cell">WA</div>
         <div class="stat-header-cell">Gr</div>
       </div>
@@ -2692,7 +2692,7 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
           <div class="rot-stat" style="${sc(p.tovs,'tovs')}">${fmt(p.tovs)}</div>
           ${advCell(A.usg,'%')}
           ${advCell(A.ts,'%')}
-          ${advCell(A.bpm)}
+          ${advCell(A.ti40)}
           ${advCell(A.wa)}
           <div class="rot-grade ${gc(p.tdc_grade||'')}">${_gdisp(p)}</div>
         </div>`;
@@ -4810,35 +4810,34 @@ function setSwapSource(src){
   document.querySelectorAll('.swap-tab').forEach(b=>b.classList.toggle('on',b.dataset.src===src));
   filterSwapList(swapTargetPos?.pos);
 }
-function mapBbref(r){
-  const pg=r.pergame||{};
-  const n=k=>parseFloat(pg[k])||0, pc=k=>pg[k]!=null?Math.round(parseFloat(pg[k])*1000)/10:null;
-  const apg=n('ast_per_g'), inch=_inches(r.height)||76;
-  const pos=/C/.test(r.pos||'')||inch>=82?'C':/F/.test(r.pos||'')?(inch>=80?'PF':'SF'):(apg>=3.5?'PG':'SG');
+function mapHist(r){   // OWNED all-time row from a flat player_history row (was mapBbref)
+  const num=v=>parseFloat(v)||0, pc=v=>(v!=null&&v!=='')?Math.round(parseFloat(v)*10)/10:null; // ph stores %s as 55.4
+  const apg=num(r.apg), inch=_inches(r.height)||76;
+  const pos=/C/.test(r.position||'')||inch>=82?'C':/F/.test(r.position||'')?(inch>=80?'PF':'SF'):(apg>=3.5?'PG':'SG');
   const yy=`'${(''+r.season_year).slice(2)}`;
-  return {name:`${r.player} ${yy}`, team:r.school, position:pos, height:r.height,
-    yr:r.class||'', class_year:r.class||'', tdc_grade:r.tdc_grade!=null?''+r.tdc_grade:null,
+  return {name:`${r.name} ${yy}`, team:r.team, position:pos, height:r.height,
+    yr:r.yr||'', class_year:r.yr||'', tdc_grade:r.tdc_grade!=null?''+r.tdc_grade:null,
     espn_id:r.espn_id||null, _hist:true, _histSeason:r.season_year,
-    mpg:n('mp_per_g'), ppg:n('pts_per_g'), rpg:n('trb_per_g'), apg,
-    fgm:n('fg_per_g'), fga:n('fga_per_g'), fg_pct:pc('fg_pct'),
-    tpm:n('fg3_per_g'), tpa:n('fg3a_per_g'), tp_pct:pc('fg3_pct'),
-    ftm:n('ft_per_g'), fta:n('fta_per_g'), ft_pct:pc('ft_pct'),
-    oreb:n('orb_per_g'), dreb:n('drb_per_g'), stl:n('stl_per_g'),
-    blk:n('blk_per_g'), tovs:n('tov_per_g')};
+    mpg:num(r.mpg), ppg:num(r.ppg), rpg:num(r.rpg), apg,
+    fgm:num(r.fgm), fga:num(r.fga), fg_pct:pc(r.fg_pct),
+    tpm:num(r.tpm), tpa:num(r.tpa), tp_pct:pc(r.tp_pct),
+    ftm:num(r.ftm), fta:num(r.fta), ft_pct:pc(r.ft_pct),
+    oreb:num(r.oreb), dreb:num(r.dreb), stl:num(r.stl),
+    blk:num(r.blk), tovs:num(r.tovs)};
 }
 async function fetchAllTime(q){
   // bbref_seasons is 94k rows with no grade/name index — whole-table filters
   // time out, but the season_year index makes per-season queries instant, so
   // fan out one request per season (same trick the sync scripts use)
-  const sel='select=player,school,season_year,class,height,pos,tdc_grade,espn_id,pergame';
+  const sel='select=name,team,season_year,yr,height,position,tdc_grade,espn_id,ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,oreb,dreb,stl,blk,tovs';
   const filt=(q&&q.length>=3)
-    ?`player=ilike.*${encodeURIComponent(q)}*&tdc_grade=not.is.null`
+    ?`name=ilike.*${encodeURIComponent(q)}*&tdc_grade=not.is.null`
     :'tdc_grade=gte.88';
   if(!q&&_allTimeCache&&_allTimeCache.length) return _allTimeCache;
   const one=async y=>{
-    for(let a=0;a<2;a++){   // heavy jsonb selects can hit statement timeouts — retry once
+    for(let a=0;a<2;a++){   // retry once on a transient timeout
       try{
-        const r=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${y}&${filt}&${sel}&limit=100`,{headers:H});
+        const r=await fetch(`${SB_URL}/rest/v1/player_history?season_year=eq.${y}&${filt}&${sel}&limit=100`,{headers:H});
         if(r.ok){ const j=await r.json(); if(Array.isArray(j)) return j; }
       }catch(e){}
       await new Promise(rs=>setTimeout(rs,350));
@@ -4851,7 +4850,7 @@ async function fetchAllTime(q){
     const chunk=await Promise.all(yrs.slice(i,i+4).map(one));
     chunk.forEach(b=>all.push(...b));
   }
-  const mapped=all.map(mapBbref)
+  const mapped=all.map(mapHist)
     .sort((a,b)=>(parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0));
   if((!q||q.length<3)&&mapped.length) _allTimeCache=mapped;
   return mapped;
@@ -6023,31 +6022,11 @@ async function loadHistoricRoster(yr){
   // flip between the right roster and St. John's. Reading the authoritative table first
   // removes the guess entirely. Matching on `school` (not the slug) because the slug
   // rule mis-derives 30 of 319 schools (IU Indy → iupui, UAB → alabama-birmingham).
-  let rows=[], _fromBbref=false;
-  if(key){
-    const bb=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${yr}&school=eq.${encodeURIComponent(key)}&select=player,pos,height,class,tdc_grade,espn_id,pergame`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    if(bb&&bb.length){ rows=bb.map(b=>_bbrefToHistRow(b, key)); _fromBbref=true; }
-  }
-  // bbref misses a season → fall back to the ESPN scrape (then reconciled below)
-  if(!rows.length && key) rows=await fetch(`${SB_URL}/rest/v1/player_history?season_year=eq.${yr}&team=eq.${encodeURIComponent(key)}&select=*&order=tdc_grade.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-  // no player_history key at all (bbref-only programs) — resolve by slug alias
-  if(!rows||!rows.length){
-    // slug from the resolved player_history key, or a direct name→slug alias for
-    // bbref-only programs that have no player_history rows to resolve against.
-    const slug = key ? key.toLowerCase().replace(/[.'()&]/g,'').trim().replace(/\s+/g,'-')
-                     : (PH_FORMAL_SLUG[(teamT.name||'').toLowerCase().trim()] || null);
-    if(slug){
-      const bb=await fetch(`${SB_URL}/rest/v1/bbref_seasons?school_slug=eq.${encodeURIComponent(slug)}&season_year=eq.${yr}&select=player,pos,height,class,tdc_grade,espn_id,pergame`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-      if(bb&&bb.length){ rows=bb.map(b=>_bbrefToHistRow(b, key||teamT.name||'')); _fromBbref=true; }
-    }
-  }
-  // pre-2012 (no season-stat rows) — build the roster from box scores instead
+  // OWNED historical roster: player_history (bio + grade + per-game box), deduped at the
+  // DB level, so no bbref reconciliation needed. Pre-2012 falls back to box scores.
+  let rows=[];
+  if(key) rows=await fetch(`${SB_URL}/rest/v1/player_history?season_year=eq.${yr}&team=eq.${encodeURIComponent(key)}&select=*&order=tdc_grade.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
   if(!rows||!rows.length) rows=await rosterFromBox(yr, mascot);
-  // Only the player_history / box-score fallbacks can carry transfer-duplicate rows;
-  // a bbref roster is already authoritative, so don't put it through the majority vote.
-  if(!_fromBbref) rows=await _reconcileRosterWithBbref(rows, yr);
-  // player_history.yr is empty for older seasons — backfill class year from bbref_seasons
-  await _fillClassYears(rows, yr);
   // Box-only archetype fit for this PAST season — grade it the same way as the
   // projection (per-season centered, weak-team dampened), so the team page's historical
   // OVRs match the player page / rankings for every year. _gdisp reads _projGrade.
@@ -6069,29 +6048,10 @@ async function loadHistoricRoster(yr){
 // (2) add players bbref has but player_history is missing (e.g. no ESPN id, like Trey
 // Wertz on Notre Dame 2022-23). Uses the roster's majority school for both.
 const _pnorm=s=>(''+s).toLowerCase().replace(/[.']/g,'').replace(/\s+(jr|sr|ii|iii|iv)\b/g,'').trim();
-async function _reconcileRosterWithBbref(rows, yr){
-  rows=rows||[];
-  const ids=[...new Set(rows.map(r=>r.espn_id).filter(x=>x!=null))];
-  let byId=[];
-  if(ids.length){ try{ byId=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${yr}&espn_id=in.(${ids.join(',')})&select=espn_id,school,school_slug`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){} }
-  const schoolById={}, schoolCount={}, slugCount={};
-  (byId||[]).forEach(b=>{ if(b.espn_id!=null && b.school){ schoolById[b.espn_id]=(''+b.school).toLowerCase().trim(); schoolCount[b.school]=(schoolCount[b.school]||0)+1; if(b.school_slug) slugCount[b.school_slug]=(slugCount[b.school_slug]||0)+1; } });
-  let canonSchool=null,cmax=0; Object.keys(schoolCount).forEach(s=>{ if(schoolCount[s]>cmax){cmax=schoolCount[s];canonSchool=s;} });
-  let canonSlug=null,smax=0; Object.keys(slugCount).forEach(s=>{ if(slugCount[s]>smax){smax=slugCount[s];canonSlug=s;} });
-  // (1) dedup — only when there's a clear team consensus
-  let out = (cmax>=2 && canonSchool) ? rows.filter(r=>{ const s=r.espn_id!=null?schoolById[r.espn_id]:null; return !s || s===canonSchool.toLowerCase(); }) : rows.slice();
-  // (2) supplement missing players from the full bbref roster (school_slug is indexed)
-  if(canonSlug){
-    let bb=[];
-    try{ bb=await fetch(`${SB_URL}/rest/v1/bbref_seasons?school_slug=eq.${encodeURIComponent(canonSlug)}&season_year=eq.${yr}&select=player,pos,height,class,tdc_grade,espn_id,pergame`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
-    const haveName=new Set(out.map(r=>_pnorm(r.name))), haveId=new Set(out.map(r=>r.espn_id).filter(x=>x!=null));
-    (bb||[]).forEach(b=>{ const nm=_pnorm(b.player);
-      if(!nm || haveName.has(nm) || (b.espn_id!=null && haveId.has(b.espn_id))) return;
-      out.push(_bbrefToHistRow(b, canonSchool||(rows[0]&&rows[0].team)||'')); haveName.add(nm);
-    });
-  }
-  return out;
-}
+// No-op since the SR migration: the roster now comes straight from the deduped
+// player_history table, so there's no bbref school to reconcile against. Kept as a
+// passthrough so any remaining caller is harmless.
+async function _reconcileRosterWithBbref(rows, yr){ return rows||[]; }
 function _bbrefToHistRow(b, school){
   const pg=b.pergame||{}, num=v=>{ const n=parseFloat(v); return isFinite(n)?n:null; };
   const pct=v=>{ const n=parseFloat(v); return isFinite(n)?+((n<=1?n*100:n).toFixed(1)):null; };  // bbref stores pcts as decimals
@@ -6111,8 +6071,8 @@ async function _fillClassYears(rows, yr){
   if(!ids.length) return;
   const CL={FR:'Fr.',SO:'So.',JR:'Jr.',SR:'Sr.',GR:'Gr.','5':'Sr.'};
   try{
-    const bb=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${yr}&espn_id=in.(${ids.join(',')})&select=espn_id,class`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    const m={}; bb.forEach(b=>{ if(b.espn_id!=null) m[b.espn_id]=CL[(b.class||'').toUpperCase()]||b.class||''; });
+    const bb=await fetch(`${SB_URL}/rest/v1/player_history?season_year=eq.${yr}&espn_id=in.(${ids.join(',')})&select=espn_id,yr`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const m={}; bb.forEach(b=>{ if(b.espn_id!=null && b.yr) m[b.espn_id]=CL[(''+b.yr).toUpperCase()]||b.yr||''; });
     rows.forEach(r=>{ if(!r.yr && r.espn_id!=null && m[r.espn_id]) r.yr=m[r.espn_id]; });
   }catch(e){}
 }
