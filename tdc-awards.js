@@ -52,10 +52,10 @@
     const [teams, players, bb]=await Promise.all([
       fetch(SB+'/rest/v1/teams?select=name,conf,conference&limit=500',{headers:H}).then(r=>r.json()),
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,position,yr,class_year,tdc_grade,ppg,rpg,apg,stl,blk,mpg,is_injured,hometown&order=id.asc'),
-      fetchPaged(SB+'/rest/v1/bbref_seasons?season_year=eq.2026&espn_id=not.is.null&select=espn_id,advanced&order=bbref_id.asc'),
+      fetchPaged(SB+'/rest/v1/player_advanced?season_year=eq.2026&espn_id=not.is.null&select=espn_id,ti40&order=espn_id.asc'),
     ]);
     const confOf={}; (teams||[]).forEach(t=>{ confOf[t.name]=t.conf||t.conference||''; });
-    const advById={}; (bb||[]).forEach(r=>{ if(r.espn_id!=null&&r.advanced) advById[r.espn_id]=r.advanced; });
+    const advById={}; (bb||[]).forEach(r=>{ if(r.espn_id!=null&&r.ti40!=null) advById[r.espn_id]={ti40:r.ti40}; });
 
     const cand=[];
     (players||[]).forEach(p=>{
@@ -65,11 +65,11 @@
       const conf=confOf[p.team]||'';
       const c=cls(p.yr||p.class_year);
       const adv=p.espn_id!=null?advById[p.espn_id]:null;
-      const bpm=adv?parseFloat(adv.bpm):NaN, dbpm=adv?parseFloat(adv.dbpm):NaN;
-      // projected BPM: lag-1 shrink + class bump; grade proxy when no bbref row
+      const ti=adv?parseFloat(adv.ti40):NaN;
+      // projected impact: owned TI mapped to a BPM-like scale (+class bump); grade proxy w/o box data
       const gi=(grade-77)*0.55-0.6;
-      const projBpm=isFinite(bpm)?(0.635+0.785*bpm+(CLS_BUMP[c]||0)):gi;
-      const projDbpm=isFinite(dbpm)?(0.785*dbpm+0.1):(grade-80)*0.15;
+      const projBpm=isFinite(ti)?((ti-10)*0.5+(CLS_BUMP[c]||0)):gi;
+      const projDbpm=(grade-80)*0.15;   // defense leans on `stocks` (stl+blk) below; no owned dbpm
       const hasStats=(parseFloat(p.ppg)||0)>0;
       const prod=hasStats
         ? (parseFloat(p.ppg)||0)*0.9+(parseFloat(p.rpg)||0)*0.5+(parseFloat(p.apg)||0)*0.7

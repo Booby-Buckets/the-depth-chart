@@ -449,7 +449,7 @@ const waCache={};
 async function loadWA(yr){
   if(waCache[yr]) return waCache[yr];
   const m=new Map();
-  const base=`${SB}/rest/v1/bbref_seasons?select=espn_id,season_year,advanced&espn_id=not.is.null`;
+  const base=`${SB}/rest/v1/player_advanced?select=espn_id,season_year,ti40,min&espn_id=not.is.null`;
   const url = yr==='all' ? base : `${base}&season_year=eq.${yr}`;
   let page=0; const PG=1000;
   try{
@@ -459,9 +459,9 @@ async function loadWA(yr){
       const b=await r.json();
       if(!Array.isArray(b)||!b.length) break;
       b.forEach(row=>{
-        const a=row.advanced||{}, ws=parseFloat(a.ws), mp=parseFloat(a.mp);
-        if(!isFinite(ws)||!isFinite(mp)) return;
-        const wa=Math.round((ws-0.04*(mp/40))*10)/10;
+        const ti=parseFloat(row.ti40), mp=parseFloat(row.min);
+        if(!isFinite(ti)||!isFinite(mp)) return;
+        const wa=Math.round((ti-5.0)*mp/40/69.87*10)/10;   // OWNED Wins Added (TI-based)
         m.set(yr==='all'?(row.espn_id+'|'+row.season_year):String(row.espn_id), wa);
       });
       if(b.length<PG) break; page++;

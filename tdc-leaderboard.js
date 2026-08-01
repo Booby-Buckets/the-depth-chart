@@ -29,13 +29,10 @@
     {k:'trb_pct',l:'TRB%',d:1,pc:1,get:function(r){return r.adv.trb_pct;}},
     {k:'stl_pct',l:'STL%',d:1,pc:1,get:function(r){return r.adv.stl_pct;}},
     {k:'blk_pct',l:'BLK%',d:1,pc:1,get:function(r){return r.adv.blk_pct;}},
-    {k:'bpm',  l:'BPM',d:1,get:function(r){return r.adv.bpm;}},
-    {k:'obpm', l:'OBPM',d:1,get:function(r){return r.adv.obpm;}},
-    {k:'dbpm', l:'DBPM',d:1,get:function(r){return r.adv.dbpm;}},
-    {k:'per',  l:'PER',d:1,get:function(r){return r.adv.per;}},
-    {k:'ws',   l:'WS', d:1,get:function(r){return r.adv.ws;}}
+    {k:'ti40', l:'TI/40',d:1,get:function(r){return r.adv.ti40;}},
+    {k:'ti100',l:'TI/100',d:1,get:function(r){return r.adv.ti100;}}
   ];
-  var LBL={grade:'TDC overall grade',pts:'Points per game',trb:'Rebounds per game',ast:'Assists per game',stl:'Steals per game',blk:'Blocks per game',mpg:'Minutes per game',ts:'True Shooting %',efg:'Effective FG %',fg:'Field-goal %',fg3:'Three-point %',ft:'Free-throw %',usg:'Usage rate',ast_pct:'Assist rate',trb_pct:'Rebound rate',stl_pct:'Steal rate',blk_pct:'Block rate',bpm:'Box Plus/Minus',obpm:'Offensive BPM',dbpm:'Defensive BPM',per:'Player Efficiency Rating',ws:'Win Shares'};
+  var LBL={grade:'TDC overall grade',pts:'Points per game',trb:'Rebounds per game',ast:'Assists per game',stl:'Steals per game',blk:'Blocks per game',mpg:'Minutes per game',ts:'True Shooting %',efg:'Effective FG %',fg:'Field-goal %',fg3:'Three-point %',ft:'Free-throw %',usg:'Usage rate',ast_pct:'Assist rate',trb_pct:'Rebound rate',stl_pct:'Steal rate',blk_pct:'Block rate',ti40:'TDC Impact / 40',ti100:'TDC Impact / 100'};
   var SMAP={}; STATS.forEach(function(s){SMAP[s.k]=s;});
 
   var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
@@ -59,7 +56,8 @@
     if(POOL) return POOL; if(_loading) return _loading;
     _loading=(async function(){
       var col=fetch('scripts/data/team_colors.json',{cache:'no-cache'}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
-      var rowsP=fetchAll(SB+'/rest/v1/bbref_seasons?season_year=eq.2026&tdc_grade=not.is.null&select=player,school,espn_id,tdc_grade,pergame,advanced');
+      // OWNED pool (player_advanced + player_history) in bbref shape — pergame/advanced blobs.
+      var rowsP=(window.TDCOwnedSeasons?TDCOwnedSeasons.bySeason('2026'):Promise.resolve([]));
       var arr=await col; COLORS={};
       (arr||[]).forEach(function(e){ if(!e) return; [e.location,e.display,e.name].forEach(function(kk){ if(kk) COLORS[norm(kk)]=e; }); });
       var raw=await rowsP;

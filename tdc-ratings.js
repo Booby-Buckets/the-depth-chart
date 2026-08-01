@@ -159,7 +159,7 @@
     const [teams, players, bb, ts, hcaData, coachData, sgData, contData]=await Promise.all([
       fetch(SB+'/rest/v1/teams?select=name,conf,conference,head_coach,coach&limit=500',{headers:H}).then(r=>r.json()),
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,rpg,depth_order,is_injured,hometown&order=id.asc'),
-      fetchPaged(SB+'/rest/v1/bbref_seasons?season_year=eq.2026&espn_id=not.is.null&select=espn_id,advanced&order=bbref_id.asc'),
+      fetchPaged(SB+'/rest/v1/player_advanced?season_year=eq.2026&espn_id=not.is.null&select=espn_id,ti40&order=espn_id.asc'),
       fetch(SB+'/rest/v1/team_seasons?season_year=eq.2026&select=team,conference,srs,tier&limit=1000',{headers:H}).then(r=>r.json()),
       fetch('scripts/data/team_hca.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('data/coach-careers.json').then(r=>r.ok?r.json():null).catch(()=>null),
@@ -181,7 +181,7 @@
       const shrunk=rec.lf*(rec.n/(rec.n+COACH_K));          // 3 seasons counts ~3/8
       coachAdjOf[t.name]=+Math.max(-COACH_CAP,Math.min(COACH_CAP,COACH_W*shrunk)).toFixed(2);
     });
-    const advById={}; (bb||[]).forEach(r=>{ if(r.espn_id!=null&&r.advanced) advById[r.espn_id]=r.advanced; });
+    const advById={}; (bb||[]).forEach(r=>{ if(r.espn_id!=null&&r.ti40!=null) advById[r.espn_id]={ti40:r.ti40}; });
     // Shot Genome per-player: eFG over Look Quality = shot-making luck (in eFG pts)
     const sgByEspn={}; ((sgData&&sgData.players)||[]).forEach(p=>{
       if(p.espn_id!=null && p.lq!=null && p.efg!=null && (p.fga||0)>=SHOT_MINFGA)
@@ -212,7 +212,8 @@
         const grade=parseFloat(p.tdc_grade)||70;
         const c=cls(p.yr||p.class_year);
         const adv=p.espn_id!=null?advById[p.espn_id]:null;
-        let bpm=adv?parseFloat(adv.bpm):NaN;
+        const ti=adv?parseFloat(adv.ti40):NaN;
+        let bpm=isFinite(ti)?(-10.35+0.738*ti):NaN;   // OWNED TI -> BPM-equivalent (empirical 2026 fit)
         // de-luck: shave the transient part of shooting-over-shot-quality off BPM
         // before the lag model. Follows the player, so only returners carry it.
         let luckEfg=0, deluck=0;

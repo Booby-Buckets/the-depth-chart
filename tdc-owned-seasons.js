@@ -34,7 +34,7 @@
       fg_per_g: n(ph.fgm), fga_per_g: n(ph.fga), fg_pct: frac(ph.fg_pct),
       fg3_per_g: n(ph.tpm), fg3a_per_g: n(ph.tpa), fg3_pct: frac(ph.tp_pct),
       ft_per_g: n(ph.ftm), fta_per_g: n(ph.fta), ft_pct: frac(ph.ft_pct),
-      orb_per_g: n(ph.oreb), drb_per_g: n(ph.dreb)
+      orb_per_g: n(ph.oreb), drb_per_g: n(ph.dreb), efg_pct: n(pa.efg_pct)  // pa.efg is already a fraction
     };
     // per40 uses SR's odd '_per_min' suffix (that's the key name consumers read)
     var per40o = {
