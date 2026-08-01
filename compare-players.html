@@ -11,6 +11,7 @@
   <script src="tdc-nil.js"></script>
   <script src="tdc-projgrade.js?v=27"></script>
   <script src="tdc-rating.js?v=4"></script>
+  <script src="tdc-owned-seasons.js?v=3"></script>
   <script src="tdc-lineups.js?v=3"></script>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=2"></script>
@@ -882,9 +883,8 @@ function scatterUsgTs(canvasId, cloud, players){
 // Fixed-range normalization for the advanced radar (no advanced population is
 // loaded client-side, so map each metric onto a sensible D1 min→max band).
 const ADV_RADAR=[
-  {l:'PER',   get:a=>parseFloat(a.per),                           lo:2,  hi:30},
-  {l:'BPM',   get:a=>parseFloat(a.bpm),                           lo:-6, hi:13},
-  {l:'WS/40', get:a=>parseFloat(a.ws_per_40),                     lo:0,  hi:.25},
+  {l:'TI/40', get:a=>parseFloat(a.ti40),                          lo:5,  hi:30},
+  {l:'TI/100',get:a=>parseFloat(a.ti100),                         lo:8,  hi:50},
   {l:'USG%',  get:a=>parseFloat(a.usg_pct),                       lo:8,  hi:35},
   {l:'TS%',   get:a=>parseFloat(a.ts_pct)*100,                    lo:44, hi:66},
   {l:'REB%',  get:a=>parseFloat(a.trb_pct),                       lo:3,  hi:24},
@@ -897,9 +897,9 @@ let _advCloudCache=null;
 async function advCloud(){
   if(_advCloudCache) return _advCloudCache;
   try{
-    const raw=await fetch(`${SB}/rest/v1/bbref_seasons?season_year=eq.2026&tdc_grade=not.is.null&select=advanced&order=tdc_grade.desc&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]);
+    const raw=await fetch(`${SB}/rest/v1/player_advanced?season_year=eq.2026&min=gte.400&select=usg_pct,ts_pct,min&order=min.desc&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]);
     const pts=[];
-    (raw||[]).forEach(r=>{ const a=r.advanced; if(!a) return; const u=parseFloat(a.usg_pct), t=parseFloat(a.ts_pct), mp=parseFloat(a.mp)||0;
+    (raw||[]).forEach(r=>{ const u=parseFloat(r.usg_pct), t=parseFloat(r.ts_pct), mp=parseFloat(r.min)||0;
       if(!isNaN(u)&&!isNaN(t)&&mp>=400) pts.push({x:u,y:t*100}); });
     _advCloudCache=pts;
   }catch(e){ _advCloudCache=[]; }
@@ -960,7 +960,8 @@ function nilOf(p){
   var A=p._advanced||{};
   var grade=parseFloat(p.tdc_grade)||null;
   var pf=function(v){ var n=parseFloat(v); return isNaN(n)?null:n; };
-  var proven=N.impact(pf(A.bpm), pf(A.ws_per_40), pf(A.per), grade);
+  var bpmEq=(A.ti40!=null&&!isNaN(+A.ti40))?(-10.35+0.738*(+A.ti40)):null;   // owned TI -> BPM-equivalent
+  var proven=N.impact(bpmEq, null, null, grade);
   var t=teamMap[p.team]||{};
   var tier=t.nil_tier||t.team_tier||t.tier||5;
   var conf=t.conf||t.conference||'';
@@ -991,7 +992,7 @@ function cmpRow(label,av,bv,fmtFn,higher){
     +'<div class="compare-cell right '+wB+'">'+(hasB?fmtFn(b):'—')+'</div></div>';
 }
 // ── most similar players: weighted z-distance over an ALL-TIME pool ──
-// The full bbref_seasons table can't be scanned in one query (statement
+// The full player-season history can't be scanned in one query (statement
 // timeout), so pull the top-300 graded seasons per year (indexed, fast) at
 // concurrency 2 — same pattern as the analytics all-seasons loader — and
 // cache the slimmed pool in localStorage so later visits are instant.
@@ -1008,12 +1009,9 @@ function allTimePool(onProgress){
   _atLoading=(function(){
     var years=[]; for(var y=AT_FROM;y<=AT_TO;y++) years.push(y);
     var rows=[], done=0, i=0;
-    var SEL='select=player,school,season_year,pos,height,tdc_grade,'
-      +'ppg:pergame-%3E%3Epts_per_g,rpg:pergame-%3E%3Etrb_per_g,apg:pergame-%3E%3East_per_g,mpg:pergame-%3E%3Emp_per_g,'
-      +'stl:pergame-%3E%3Estl_per_g,blk:pergame-%3E%3Eblk_per_g,tovs:pergame-%3E%3Etov_per_g,'
-      +'fg_pct:pergame-%3E%3Efg_pct,tp_pct:pergame-%3E%3Efg3_pct,ft_pct:pergame-%3E%3Eft_pct';
+    var SEL='select=player:name,school:team,season_year,pos:position,height,tdc_grade,ppg,rpg,apg,mpg,stl,blk,tovs,fg_pct,tp_pct,ft_pct';
     function one(y,attempt){
-      return fetch(SB+'/rest/v1/bbref_seasons?season_year=eq.'+y+'&tdc_grade=not.is.null&'+SEL+'&order=tdc_grade.desc&limit=300',{headers:H})
+      return fetch(SB+'/rest/v1/player_history?season_year=eq.'+y+'&tdc_grade=not.is.null&'+SEL+'&order=tdc_grade.desc&limit=300',{headers:H})
         .then(function(r){ if(!r.ok) throw 0; return r.json(); })
         .then(function(d){ (d||[]).forEach(function(x){
             ['fg_pct','tp_pct','ft_pct'].forEach(function(k){ var v=parseFloat(x[k]); x[k]=isFinite(v)?(v<=1?Math.round(v*1000)/10:v):null; }); // bbref decimals → 53.2-style
@@ -1106,18 +1104,12 @@ function adv(p){
     r40: mpg>0 ? reb*40/mpg : 0
   };
 }
-// ── FULL ADVANCED + PER-40 (authoritative, from bbref_seasons) ──
+// ── FULL ADVANCED + PER-40 (owned, from player_advanced + player_history) ──
 // bbref stores everything as strings; shooting %s as decimals (".515"), rate
 // %s already in points ("26.5"), ratios as decimals (".197"). Format per type.
 const ADV_DEFS=[
-  {l:'PER',k:'per',src:'adv',t:'num',hi:true},
-  {l:'BPM',k:'bpm',src:'adv',t:'num',hi:true},
-  {l:'OBPM',k:'obpm',src:'adv',t:'num',hi:true},
-  {l:'DBPM',k:'dbpm',src:'adv',t:'num',hi:true},
-  {l:'Win Shares',k:'ws',src:'adv',t:'num',hi:true},
-  {l:'OWS',k:'ows',src:'adv',t:'num',hi:true},
-  {l:'DWS',k:'dws',src:'adv',t:'num',hi:true},
-  {l:'WS/40',k:'ws_per_40',src:'adv',t:'ratio3',hi:true},
+  {l:'TI/40',k:'ti40',src:'adv',t:'num',hi:true},
+  {l:'TI/100',k:'ti100',src:'adv',t:'num',hi:true},
   {l:'TS%',k:'ts_pct',src:'adv',t:'pct',hi:true},
   {l:'eFG%',k:'efg_pct',src:'p40',t:'pct',hi:true},
   {l:'USG%',k:'usg_pct',src:'adv',t:'rate',hi:true},
@@ -1130,7 +1122,6 @@ const ADV_DEFS=[
   {l:'BLK%',k:'blk_pct',src:'adv',t:'rate',hi:true},
   {l:'3PAr',k:'fg3a_per_fga_pct',src:'adv',t:'ratio3',hi:true},
   {l:'FTr',k:'fta_per_fga_pct',src:'adv',t:'ratio3',hi:true},
-  {l:'Pts Produced',k:'pprod',src:'adv',t:'int',hi:true},
 ];
 const P40_DEFS=[
   {l:'PTS/40',k:'pts_per_min',t:'num',hi:true},
@@ -1175,14 +1166,13 @@ function advRow(def,p1,p2){
 async function attachBbref(p){
   if(!p || p._advanced!==undefined) return p;
   const yr = p._isHistory ? p.season_year : 2026; // current roster → 2025-26 actual
+  // OWNED advanced+per40 (player_advanced + player_history in bbref shape) for this season.
   let rows=null;
   try{
-    if(p.espn_id){
-      rows=await fetch(`${SB}/rest/v1/bbref_seasons?espn_id=eq.${p.espn_id}&season_year=eq.${yr}&select=advanced,per40,school,grade_pillars&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]);
-    }
-    if((!rows||!rows.length) && p.name){
-      rows=await fetch(`${SB}/rest/v1/bbref_seasons?player=eq.${encodeURIComponent(p.name)}&season_year=eq.${yr}&select=advanced,per40,school,grade_pillars&limit=8`,{headers:H}).then(r=>r.ok?r.json():[]);
-      if(rows&&rows.length>1 && p.team){
+    if(window.TDCOwnedSeasons){
+      let all = p.espn_id ? await TDCOwnedSeasons.byEspn(p.espn_id) : (p.name ? await TDCOwnedSeasons.byName(p.name) : []);
+      rows=(all||[]).filter(r=>String(r.season_year)===String(yr));
+      if(rows.length>1 && p.team){
         const tl=(p.team||'').toLowerCase().trim();
         const m=rows.find(r=>(r.school||'').toLowerCase().trim()===tl);
         rows=m?[m]:[rows[0]];
@@ -1190,9 +1180,9 @@ async function attachBbref(p){
     }
   }catch(e){ rows=null; }
   const row=(rows&&rows.length)?rows[0]:null;
-  p._advanced = row&&row.advanced ? row.advanced : null;
-  p._per40    = row&&row.per40    ? row.per40    : null;
-  p._pillars  = row&&row.grade_pillars ? row.grade_pillars : null;
+  p._advanced = row ? row.advanced : null;
+  p._per40    = row ? row.per40    : null;
+  p._pillars  = row ? row.grade_pillars : null;   // null — owned data has no grade_pillars
   return p;
 }
 function outlook(proj, conf, group){
@@ -1794,21 +1784,7 @@ async function _rosterFor(fullName, yr){
   // played for the team THAT year. player_history stamps each player-season with
   // their DESTINATION team, which drops players who transferred out and adds
   // "ghosts" who transferred in — so it's wrong for a historical roster.
-  if(key){
-    const slug=key.toLowerCase().replace(/[.'()&]/g,'').trim().replace(/\s+/g,'-');
-    const bb=await fetch(`${SB}/rest/v1/bbref_seasons?school_slug=eq.${encodeURIComponent(slug)}&season_year=eq.${yr}&select=player,pos,height,class,tdc_grade,espn_id,pergame&limit=25`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    if(bb&&bb.length){
-      rows=(bb||[]).map(b=>{ const pg=b.pergame||{}; return { name:b.player, position:b.pos, height:b.height, yr:b.class,
-        ppg:parseFloat(pg.pts_per_g), rpg:parseFloat(pg.trb_per_g), apg:parseFloat(pg.ast_per_g), mpg:parseFloat(pg.mp_per_g),
-        gp:parseFloat(pg.games), tdc_grade:b.tdc_grade, espn_id:b.espn_id,
-        fga:parseFloat(pg.fga_per_g), tpa:parseFloat(pg.fg3a_per_g), fta:parseFloat(pg.fta_per_g),
-        tp_pct:pg.fg3_pct!=null?parseFloat(pg.fg3_pct)*100:null, fg_pct:pg.fg_pct!=null?parseFloat(pg.fg_pct)*100:null, ft_pct:pg.ft_pct!=null?parseFloat(pg.ft_pct)*100:null,
-        stl:parseFloat(pg.stl_per_g), blk:parseFloat(pg.blk_per_g), tovs:parseFloat(pg.tov_per_g), oreb:parseFloat(pg.orb_per_g), dreb:parseFloat(pg.drb_per_g) }; })
-        .sort((a,b)=>(b.mpg||0)-(a.mpg||0));
-    }
-  }
-  // Fall back to player_history for seasons bbref hasn't scraped (e.g. the current
-  // projected year), dropping the inbound transfer ghosts it carries.
+  // OWNED historical roster from player_history (deduped at the DB level).
   if((!rows||!rows.length)&&key){
     rows=await fetch(`${SB}/rest/v1/player_history?team=eq.${encodeURIComponent(key)}&season_year=eq.${yr}&select=name,position,height,yr,ppg,rpg,apg,mpg,gp,tdc_grade,espn_id,fga,tpa,fta,tp_pct,fg_pct,ft_pct,stl,blk,tovs,oreb,dreb&order=mpg.desc.nullslast&limit=15`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
     rows=await _dropTransferGhosts(rows, yr);
@@ -1823,11 +1799,16 @@ async function _rosterFor(fullName, yr){
 // take the roster's majority school and drop anyone who disagrees. Same approach as
 // team.html's _reconcileRosterWithBbref.
 async function _dropTransferGhosts(rows, yr){
+  // No-op since the SR migration: player_history's transfer double-count was removed at
+  // the DB level (dedup), so there are no ghost rows to drop and no bbref to check against.
+  return rows||[];
+}
+async function _dropTransferGhosts_legacy(rows, yr){
   rows=rows||[];
   const ids=[...new Set(rows.map(r=>r.espn_id).filter(x=>x!=null))];
   if(ids.length<2) return rows;
   let bb=[];
-  try{ bb=await fetch(`${SB}/rest/v1/bbref_seasons?season_year=eq.${yr}&espn_id=in.(${ids.join(',')})&select=espn_id,school`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){ return rows; }
+  bb=[];
   const schoolById={}, count={};
   (bb||[]).forEach(b=>{ if(b.espn_id!=null&&b.school){ const s=(''+b.school).toLowerCase().trim();
     schoolById[b.espn_id]=s; count[s]=(count[s]||0)+1; } });
@@ -2475,16 +2456,20 @@ async function _fillScout(r1,r2,s1,s2,f1,f2,n1,n2,c1,c2){
   const el=document.getElementById('scoutWrap'); if(!el) return;
   if(!s1||!s2){ el.innerHTML='<div style="color:var(--text3);font-size:12px;">Not enough season data for a written scout.</div>'; return; }
   const P1=_rosterProfile(r1.rows||[]), P2=_rosterProfile(r2.rows||[]);
-  // advanced layer (bbref rotation BPM, efficiency hub) + roster continuity
+  // advanced layer (owned rotation TI, efficiency hub) + roster continuity
   const slugOf=k=>k?k.toLowerCase().replace(/[.'()&]/g,'').trim().replace(/\s+/g,'-'):null;
   const advOf=async(key,yr)=>{
-    const slug=slugOf(key); if(!slug) return null;
-    const rows=await fetch(`${SB}/rest/v1/bbref_seasons?school_slug=eq.${encodeURIComponent(slug)}&season_year=eq.${yr}&select=player,advanced&limit=20`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    let mpSum=0,bpmSum=0,best=null,hub=null;
-    (rows||[]).forEach(r=>{ const a=r.advanced||{}; const mp=parseFloat(a.mp)||0,bpm=parseFloat(a.bpm),usg=parseFloat(a.usg_pct),ts=parseFloat(a.ts_pct);
-      if(mp>=200&&isFinite(bpm)){ mpSum+=mp; bpmSum+=bpm*mp; if(!best||bpm>best.bpm) best={name:r.player,bpm:bpm}; }
-      if(mp>=200&&isFinite(usg)&&usg>=20&&isFinite(ts)){ if(!hub||ts>hub.ts) hub={name:r.player,usg:usg,ts:ts}; } });
-    return mpSum?{mwBpm:bpmSum/mpSum,best,hub}:null;
+    if(!key) return null;
+    // OWNED: team's players from player_history (by team+season), joined to player_advanced (TI/usg/ts).
+    const ph=await fetch(`${SB}/rest/v1/player_history?team=eq.${encodeURIComponent(key)}&season_year=eq.${yr}&select=name,espn_id&limit=25`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const ids=(ph||[]).map(p=>p.espn_id).filter(x=>x!=null);
+    let pa=[]; if(ids.length){ pa=await fetch(`${SB}/rest/v1/player_advanced?season_year=eq.${yr}&espn_id=in.(${ids.join(',')})&select=espn_id,ti40,usg_pct,ts_pct,min`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]); }
+    const nameById={}; (ph||[]).forEach(p=>{ if(p.espn_id!=null) nameById[p.espn_id]=p.name; });
+    let mpSum=0,tiSum=0,best=null,hub=null;
+    (pa||[]).forEach(r=>{ const mp=parseFloat(r.min)||0,ti=parseFloat(r.ti40),usg=parseFloat(r.usg_pct),ts=parseFloat(r.ts_pct),nm=nameById[r.espn_id];
+      if(mp>=200&&isFinite(ti)){ mpSum+=mp; tiSum+=ti*mp; if(!best||ti>best.bpm) best={name:nm,bpm:ti}; }
+      if(mp>=200&&isFinite(usg)&&usg>=20&&isFinite(ts)){ if(!hub||ts>hub.ts) hub={name:nm,usg:usg,ts:ts}; } });
+    return mpSum?{mwBpm:tiSum/mpSum,best,hub}:null;   // mwBpm/best.bpm now hold TI (owned)
   };
   const contOf=async(key,yr,rows)=>{
     if(!key||!rows.length) return null;
@@ -2538,7 +2523,7 @@ async function _fillScout(r1,r2,s1,s2,f1,f2,n1,n2,c1,c2){
   if(K1!=null&&K2!=null&&Math.abs(K1-K2)>=20)
     edge(K1>K2?1:2, `Continuity · ${Math.max(K1,K2)}% vs ${Math.min(K1,K2)}% returning minutes`);
   if(A1&&A2&&Math.abs(A1.mwBpm-A2.mwBpm)>=1.5)
-    edge(A1.mwBpm>A2.mwBpm?1:2, `Rotation impact · +${Math.max(A1.mwBpm,A2.mwBpm).toFixed(1)} vs +${Math.min(A1.mwBpm,A2.mwBpm).toFixed(1)} m.w. BPM`);
+    edge(A1.mwBpm>A2.mwBpm?1:2, `Rotation impact · +${Math.max(A1.mwBpm,A2.mwBpm).toFixed(1)} vs +${Math.min(A1.mwBpm,A2.mwBpm).toFixed(1)} m.w. TI`);
   // style edges (own-season percentile gaps)
   [['off','Offense'],['def','Defense'],['fg','Shooting'],['tp','3-point shooting'],['ft','FT shooting'],
    ['oreb','Offensive glass'],['ast','Ball movement'],['havoc','Havoc (stl+blk)'],['tov','Ball security']]
@@ -2610,10 +2595,10 @@ async function _fillScout(r1,r2,s1,s2,f1,f2,n1,n2,c1,c2){
   // advanced (under-the-hood) paragraph
   if(A1&&A2){
     const fb=v=>(v>=0?'+':'')+v.toFixed(1);
-    const adv=[`Under the hood, ${poss(A1.mwBpm>=A2.mwBpm?n1:n2)} rotation grades stronger — a minutes-weighted ${fb(Math.max(A1.mwBpm,A2.mwBpm))} BPM against ${fb(Math.min(A1.mwBpm,A2.mwBpm))}`];
+    const adv=[`Under the hood, ${poss(A1.mwBpm>=A2.mwBpm?n1:n2)} rotation grades stronger — a minutes-weighted ${fb(Math.max(A1.mwBpm,A2.mwBpm))} TI against ${fb(Math.min(A1.mwBpm,A2.mwBpm))}`];
     if(A1.best&&A2.best){
       const bb=A1.best.bpm>=A2.best.bpm?A1.best:A2.best;
-      adv.push(`the highest-impact player on the floor is ${bb.name} (${fb(bb.bpm)} BPM)`);
+      adv.push(`the highest-impact player on the floor is ${bb.name} (${fb(bb.bpm)} TI)`);
     }
     if(A1.hub&&A2.hub)
       adv.push(`the efficiency hubs: ${A1.hub.name} (${Math.round(A1.hub.ts*100)}% TS on ${Math.round(A1.hub.usg)}% usage) opposite ${A2.hub.name} (${Math.round(A2.hub.ts*100)}% TS on ${Math.round(A2.hub.usg)}% usage)`);
