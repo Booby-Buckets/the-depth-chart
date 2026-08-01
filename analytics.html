@@ -3,6 +3,7 @@
 <head>
   <script src="auth.js?v=paywall4"></script>
   <script src="tdc-rating.js?v=4"></script>
+  <script src="tdc-owned-seasons.js?v=3"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=2"></script>
@@ -393,16 +394,9 @@ const STATS = [
   {k:'blk',     l:'BLK',     g:'Defense',     d:1, desc:'Blocks per game.'},
   {k:'stl_pct', l:'STL%',    g:'Defense',     d:1, suf:'%', desc:"Steal rate — share of opponent possessions a player ends with a steal."},
   {k:'blk_pct', l:'BLK%',    g:'Defense',     d:1, suf:'%', desc:"Block rate — share of opponent 2-point shots a player blocks."},
-  {k:'obpm',    l:'OBPM',    g:'Impact',      d:1, desc:'Offensive Box Plus/Minus — offensive points per 100 possessions above an average player.'},
-  {k:'dbpm',    l:'DBPM',    g:'Impact',      d:1, desc:'Defensive Box Plus/Minus — defensive points per 100 possessions above average.'},
-  {k:'bpm',     l:'BPM',     g:'Impact',      d:1, desc:'Box Plus/Minus — total points per 100 possessions a player adds above average.'},
-  {k:'ws',      l:'WS',      g:'Impact',      d:1, desc:'Win Shares — estimated wins a player produced.'},
-  {k:'ows',     l:'OWS',     g:'Impact',      d:1, desc:'Offensive Win Shares — wins produced from offense.'},
-  {k:'dws',     l:'DWS',     g:'Impact',      d:1, desc:'Defensive Win Shares — wins produced from defense.'},
-  {k:'ws40',    l:'WS/40',   g:'Impact',      d:3, desc:'Win Shares per 40 minutes — rate version of Win Shares.'},
-  {k:'wa',      l:'WA',      g:'Impact',      d:1, desc:'Wins Added — wins contributed above a replacement-level player.'},
-  {k:'per',     l:'PER',     g:'Impact',      d:1, desc:'Player Efficiency Rating — per-minute production; league average is 15.'},
-  {k:'pprod',   l:'Pts Prod',g:'Impact',      d:0, desc:'Points Produced — total points a player is estimated to create (scoring + assists).'},
+  {k:'ti40',    l:'TI/40',   g:'Impact',      d:1, desc:'TDC Impact per 40 minutes — our owned box-score value metric (points-equivalent value above baseline). Replaces BPM/PER/WS.'},
+  {k:'ti100',   l:'TI/100',  g:'Impact',      d:1, desc:'TDC Impact per 100 team possessions.'},
+  {k:'wa',      l:'WA',      g:'Impact',      d:1, desc:'Wins Added — wins contributed above a replacement-level player (derived from TI).'},
   {k:'svoe',    l:'SVOE',    g:'Signature',   d:2, desc:'Shot Value Over Expected — points per shot above what the shot diet predicts (actual vs expected eFG). An original TDC stat.'},
   {k:'lq',      l:'Look Q',  g:'Signature',   d:1, suf:'%', desc:'Look Quality — the eFG% a league-average shooter would post on this player’s exact shot diet. An original TDC stat.'},
   {k:'smAdj',   l:'SM+',     g:'Signature',   d:1, desc:'Shot-Making (SM+) — points added over an average shooter from the same spots. Pure finishing skill; an original TDC stat.'},
@@ -410,9 +404,9 @@ const STATS = [
 ];
 const SMAP = {}; STATS.forEach(s=>SMAP[s.k]=s);
 // columns shown in the leaderboard table (in order)
-const TABLE_KEYS = ['grade','pts','trb','ast','mpg','gp','pts40','ts','efg','usg','ast_pct','tov_pct','trb_pct','stl_pct','blk_pct','obpm','dbpm','bpm','ws','wa','per','svoe','lq','smAdj','selfCr'];
+const TABLE_KEYS = ['grade','pts','trb','ast','mpg','gp','pts40','ts','efg','usg','ast_pct','tov_pct','trb_pct','stl_pct','blk_pct','ti40','ti100','wa','svoe','lq','smAdj','selfCr'];
 // headline leader cards
-const LEADER_KEYS = ['wa','bpm','ws','per','ts','usg','ast_pct','trb_pct'];
+const LEADER_KEYS = ['wa','ti40','ti100','ts','usg','ast_pct','trb_pct'];
 
 // ── State ───────────────────────────────────────────────────────
 let CUR_SEASON = '2026';
@@ -458,7 +452,7 @@ function _bbBoxGrade(r){
 }
 function flatten(r){
   var pg=r.pergame||{}, p4=r.per40||{}, a=r.advanced||{};
-  var ht=htIn(r.height), mp=num(a.mp), ws=num(a.ws);
+  var ht=htIn(r.height), mp=num(a.mp), ti=num(a.ti40);
   var gen=(String(r.season_year)==='2026' && r.espn_id!=null)?_GEN[r.espn_id]:null;
   return {
     name:r.player, school:r.school, espn_id:r.espn_id, pos:r.pos, ht:r.height,
@@ -469,14 +463,13 @@ function flatten(r){
     fg:num(pg.fg_pct), fg3:num(pg.fg3_pct), ft:num(pg.ft_pct), efg:num(pg.efg_pct),
     pts40:num(p4.pts_per_min), trb40:num(p4.trb_per_min), ast40:num(p4.ast_per_min),
     stl40:num(p4.stl_per_min), blk40:num(p4.blk_per_min), tov40:num(p4.tov_per_min),
-    bpm:num(a.bpm), obpm:num(a.obpm), dbpm:num(a.dbpm), ws:ws, ows:num(a.ows), dws:num(a.dws),
-    ws40:num(a.ws_per_40), per:num(a.per), pprod:num(a.pprod),
+    ti40:ti, ti100:num(a.ti100),
     usg:num(a.usg_pct), ts:num(a.ts_pct), ast_pct:num(a.ast_pct), trb_pct:num(a.trb_pct),
     orb_pct:num(a.orb_pct), drb_pct:num(a.drb_pct), stl_pct:num(a.stl_pct), blk_pct:num(a.blk_pct), tov_pct:num(a.tov_pct),
     ftr:num(a.fta_per_fga_pct), tpar:num(a.fg3a_per_fga_pct),
     lq: gen?num(gen.lq):null, smAdj: gen?num(gen.smAdj):null, selfCr: gen?num(gen.selfPct):null,
     svoe: (gen&&gen.lq!=null&&gen.efg!=null)? +((2*(gen.efg-gen.lq)/100).toFixed(2)) : null,
-    wa:(ws!=null&&mp!=null)?(ws-0.04*(mp/40)):null
+    wa:(ti!=null&&mp!=null)?((ti-5.0)*mp/40/69.87):null
   };
 }
 function fmt(v,st){
@@ -500,7 +493,6 @@ async function loadSeason(key){
   await _ensureGenome();   // so the 2025-26 Signature stats are merged in during flatten
   if(window.TDCRating && TDCRating.ready){ try{ await TDCRating.ready; }catch(e){} }   // box-adjust grades during flatten
   var L=document.getElementById('loadingMsg'), P=document.getElementById('progressFill');
-  var base=SB+'/rest/v1/bbref_seasons?select=player,school,pos,height,season_year,tdc_grade,espn_id,pergame,per40,advanced';
 
   if(key==='all'){
     // The full table is ~97k rows and deep offset pagination on it times out
@@ -510,19 +502,26 @@ async function loadSeason(key){
     // dragging ~150MB into the browser.
     // Free-tier Supabase rejects more than ~3 concurrent heavy sorts (instant 500),
     // so fetch with a small concurrency pool + retry.
-    var PER=400, yrs=[]; for(var y=2007;y<=2026;y++) yrs.push(y);
+    var PER=400, yrs=[]; for(var y=2012;y<=2026;y++) yrs.push(y);   // player_history starts 2012
     var done=0;
+    var PH_SEL='espn_id,name,team,tdc_grade,height,position,yr,gp,mpg,ppg,rpg,apg,stl,blk,tovs,oreb,dreb,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct';
+    var PA_SEL='espn_id,season_year,name,team,g,min,ti40,ti100,ts_pct,efg_pct,fg_pct,tp_pct,ft_pct,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,trb_pct,stl_pct,blk_pct,pts40,reb40,ast40';
     async function fetchYear(yr){
-      var u=base+'&season_year=eq.'+yr+'&tdc_grade=not.is.null&order=tdc_grade.desc.nullslast&limit='+PER;
+      // OWNED: top graded players from player_history, joined with player_advanced (rates+TI),
+      // merged into bbref-shaped rows the existing flatten() consumes unchanged.
+      var ph=[];
       for(var a=0;a<4;a++){
-        try{ var r=await fetch(u,{headers:H}); if(r.ok){ var b=await r.json(); if(Array.isArray(b)){
-          done++; if(P) P.style.width=Math.min(95,done/yrs.length*100)+'%';
-          if(L) L.textContent='Loading all seasons — '+done+'/'+yrs.length+'…';
-          return b;
-        } } }catch(e){}
-        await new Promise(function(res){ setTimeout(res, 400*(a+1)); });   // backoff before retry
+        try{ var r=await fetch(SB+'/rest/v1/player_history?season_year=eq.'+yr+'&tdc_grade=not.is.null&order=tdc_grade.desc.nullslast&limit='+PER+'&select='+PH_SEL,{headers:H});
+          if(r.ok){ ph=await r.json(); if(Array.isArray(ph)) break; } }catch(e){}
+        await new Promise(function(res){ setTimeout(res, 400*(a+1)); });
       }
-      done++; return [];
+      done++; if(P) P.style.width=Math.min(95,done/yrs.length*100)+'%';
+      if(L) L.textContent='Loading all seasons — '+done+'/'+yrs.length+'…';
+      if(!Array.isArray(ph)||!ph.length) return [];
+      var ids=ph.map(function(p){return p.espn_id;}).filter(function(x){return x!=null;});
+      var pa=[]; if(ids.length){ try{ pa=await fetch(SB+'/rest/v1/player_advanced?season_year=eq.'+yr+'&espn_id=in.('+ids.join(',')+')&select='+PA_SEL,{headers:H}).then(function(r){return r.ok?r.json():[];}); }catch(e){} }
+      var paMap={}; (pa||[]).forEach(function(x){ paMap[x.espn_id]=x; });
+      return ph.map(function(p){ return TDCOwnedSeasons._shape(paMap[p.espn_id]||{espn_id:p.espn_id,season_year:yr,name:p.name,team:p.team,g:p.gp,min:(p.mpg*(p.gp||0))||null}, p); });
     }
     var LIMIT=2, results=new Array(yrs.length), qi=0;
     async function worker(){ while(qi<yrs.length){ var i=qi++; results[i]=await fetchYear(yrs[i]); } }
@@ -534,16 +533,11 @@ async function loadSeason(key){
     _cache[key]=rows; return rows;
   }
 
-  var url = base+'&season_year=eq.'+key+'&order=bbref_id';
-  var rows=[],pg=0;
-  while(true){
-    if(L) L.textContent='Loading '+seasonLbl(key)+' — '+rows.length.toLocaleString()+' rows…';
-    var r=await fetch(url,{headers:{...H,'Range-Unit':'items','Range':(pg*1000)+'-'+(pg*1000+999)}});
-    var b=await r.json(); if(!Array.isArray(b)||!b.length) break;
-    for(var i=0;i<b.length;i++) rows.push(flatten(b[i]));
-    if(P) P.style.width=Math.min(95,rows.length/6000*100)+'%';
-    if(b.length<1000) break; pg++;
-  }
+  // OWNED per-season pool (player_advanced + player_history), bbref-shaped -> flatten.
+  if(L) L.textContent='Loading '+seasonLbl(key)+'…';
+  var raw = window.TDCOwnedSeasons ? await TDCOwnedSeasons.bySeason(key) : [];
+  var rows=(raw||[]).map(flatten);
+  if(P) P.style.width='95%';
   _cache[key]=rows; return rows;
 }
 async function changeSeason(key){
