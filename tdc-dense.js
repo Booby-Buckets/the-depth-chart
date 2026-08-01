@@ -87,13 +87,20 @@
         SRS[season]=m; PRIOR[season]=pr; return m;
       }).catch(function(){ SRS[season]={}; PRIOR[season]={}; return {}; });
     } else {
-      srsP=fetch(SB+'team_seasons?season_year=in.('+(season-1)+','+season+')&select=team,srs,season_year',{headers:HD})
-        .then(function(r){return r.ok?r.json():[];})
-        .then(function(rows){ var m={}, pr={};
-          (rows||[]).forEach(function(r){ if(r.srs==null) return;
-            if(r.season_year===season) m[r.team]=+r.srs;
-            else pr[r.team]=(+r.srs)*PRIOR_SHRINK;   // last year, regressed → preseason prior
-          });
+      // Completed season: real SRS for opponent quality; the prior is a recency-weighted
+      // blend of the last 3 seasons' NET, regressed toward the mean (program strength that
+      // smooths one-off years — a rebuild after a great year doesn't start sky-high).
+      // Each season is fetched separately: a single in.(4 seasons) query is ~1460 rows and
+      // the 1000-row cap would silently drop the current season → no opponent adjustment.
+      var yfetch=function(y){ return fetch(SB+'team_seasons?season_year=eq.'+y+'&select=team,srs',{headers:HD})
+        .then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}); };
+      srsP=Promise.all([yfetch(season), yfetch(season-1), yfetch(season-2), yfetch(season-3)])
+        .then(function(res){ var m={}, acc={};
+          (res[0]||[]).forEach(function(r){ if(r.srs!=null) m[r.team]=+r.srs; });   // opponent quality
+          [1,2,3].forEach(function(off){ var w=PRIOR_YEAR_W[off];
+            (res[off]||[]).forEach(function(r){ if(r.srs==null) return;
+              var e=acc[r.team]||(acc[r.team]={num:0,den:0}); e.num+=w*(+r.srs); e.den+=w; }); });
+          var pr={}; Object.keys(acc).forEach(function(t){ if(acc[t].den>0) pr[t]=PRIOR_SHRINK*(acc[t].num/acc[t].den); });
           SRS[season]=m; PRIOR[season]=pr; return m; })
         .catch(function(){ SRS[season]={}; PRIOR[season]={}; return {}; });
     }
@@ -129,7 +136,9 @@
   var MARGIN_CAP   = 22;   // full credit to a 22-pt margin; each point beyond counts 1/4
   var MARGIN_BEYOND= 0.25;
   var PRIOR_GAMES  = 6;    // weight of the preseason prior, in pseudo-games
-  var PRIOR_SHRINK = 0.65; // how much of last season's NET carries into the preseason prior
+  var PRIOR_SHRINK = 0.65; // how much of the multi-year program level carries into the prior
+  var PRIOR_YEAR_W = {1:0.6, 2:0.3, 3:0.1};  // recency weights over the last 3 seasons — a
+                                             // program's fluke year is tempered by its history
   // soft margin cap: preserves sign, compresses blowouts past MARGIN_CAP
   function capMargin(mg){ var s=mg<0?-1:1, a=Math.abs(mg);
     return s*(a<=MARGIN_CAP ? a : MARGIN_CAP+(a-MARGIN_CAP)*MARGIN_BEYOND); }
