@@ -65,19 +65,26 @@
   var SB='https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/';
   var HD={apikey:'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye',Authorization:'Bearer sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye'};
   var GAMES={};                 // season -> { fullName: [ game objects, each with opponent-adjusted rating ] }
-  var SRS={};                   // season -> { fullName: srs }  (opponent quality)
+  var SRS={};                   // season -> { fullName: srs }  (opponent quality, this season)
+  var PRIOR={};                 // season -> { fullName: preseason prior NET }  (last season, regressed)
   var LOADING={};               // season -> true while fetching
   function curSeason(){ var s=document.getElementById('seasonSel'); return s?(+s.value||2027):2027; }
   function ensureGames(season){
     if(GAMES[season]||LOADING[season]||season>=2027) return;   // 2027 = projection, no games of its own
     LOADING[season]=true;
     var all=[];
-    // season NET (SRS) for every team → opponent quality
+    // season NET (SRS) for opponent quality, AND last season's NET for the preseason
+    // prior (each team's starting projection before this season's games are weighed in).
     var srsP = SRS[season] ? Promise.resolve(SRS[season]) :
-      fetch(SB+'team_seasons?season_year=eq.'+season+'&select=team,srs',{headers:HD})
+      fetch(SB+'team_seasons?season_year=in.('+(season-1)+','+season+')&select=team,srs,season_year',{headers:HD})
         .then(function(r){return r.ok?r.json():[];})
-        .then(function(rows){ var m={}; (rows||[]).forEach(function(r){ if(r.srs!=null) m[r.team]=+r.srs; }); SRS[season]=m; return m; })
-        .catch(function(){ SRS[season]={}; return {}; });
+        .then(function(rows){ var m={}, pr={};
+          (rows||[]).forEach(function(r){ if(r.srs==null) return;
+            if(r.season_year===season) m[r.team]=+r.srs;
+            else pr[r.team]=(+r.srs)*PRIOR_SHRINK;   // last year, regressed → preseason prior
+          });
+          SRS[season]=m; PRIOR[season]=pr; return m; })
+        .catch(function(){ SRS[season]={}; PRIOR[season]={}; return {}; });
     function page(off){
       fetch(SB+'games?season_year=eq.'+season+'&status=eq.STATUS_FINAL&select=home,away,home_score,away_score,date&order=date.asc&limit=1000&offset='+off,{headers:HD})
         .then(function(r){return r.ok?r.json():[];})
@@ -109,17 +116,18 @@
   // +55). Two dampers keep them sane and make them EARN their rating:
   var MARGIN_CAP   = 22;   // full credit to a 22-pt margin; each point beyond counts 1/4
   var MARGIN_BEYOND= 0.25;
-  var PRIOR_GAMES  = 5;    // pseudo-games of "average" (NET 0) mixed in → shrinks the
-  var PRIOR_NET    = 0;    // running average toward league-average until a team proves itself
+  var PRIOR_GAMES  = 6;    // weight of the preseason prior, in pseudo-games
+  var PRIOR_SHRINK = 0.65; // how much of last season's NET carries into the preseason prior
   // soft margin cap: preserves sign, compresses blowouts past MARGIN_CAP
   function capMargin(mg){ var s=mg<0?-1:1, a=Math.abs(mg);
     return s*(a<=MARGIN_CAP ? a : MARGIN_CAP+(a-MARGIN_CAP)*MARGIN_BEYOND); }
 
-  // running (season-to-date) NET: opponent-adjusted game ratings, regressed toward an
-  // average team by PRIOR_GAMES pseudo-games. Week 1 starts near 0 and climbs as the
-  // schedule accumulates; the prior fades to negligible over a full season. Converges
-  // toward the team's true season NET — a great loss nudges it up, a bad win nudges it down.
-  function netTraj(glog){ var out=[], s=PRIOR_NET*PRIOR_GAMES;
+  // running (season-to-date) NET: opponent-adjusted game ratings ANCHORED to the team's
+  // preseason prior (last season's NET, regressed) by PRIOR_GAMES pseudo-games. A team
+  // STARTS at its projected level — good teams high, weak teams low — and each real game
+  // nudges it from there, so an early cupcake buy-game can't spike or crater the line. The
+  // prior fades toward negligible over a full season as real results accumulate.
+  function netTraj(glog, prior){ var p=(prior||0), out=[], s=p*PRIOR_GAMES;
     for(var i=0;i<glog.length;i++){ s+=glog[i].adj; out.push(s/(i+1+PRIOR_GAMES)); } return out; }
   function sparkLine(vals){
     var n=vals.length; if(n<2) return '';
@@ -151,18 +159,19 @@
       var sp=row.querySelector('.tr-spacer'); if(!sp||sp.dataset.tr===''+src) return;
       var a=row.querySelector('.tr-team-name'); if(!a) return;
       sp.dataset.tr=''+src;
-      var glog=map[a.textContent.trim()];
-      var traj=(glog&&glog.length>=2)?netTraj(glog):null;
+      var nm=a.textContent.trim();
+      var glog=map[nm];
+      var traj=(glog&&glog.length>=2)?netTraj(glog, PRIOR[src]&&PRIOR[src][nm]):null;
       sp.innerHTML=traj?sparkLine(traj):'';
     });
   }
 
   /* ---- click-to-expand row (minimal inline dropdown) ---- */
   /* interactive season-margin chart: hover/click a point to see the game + score */
-  function dropChart(glog){
+  function dropChart(glog, prior){
     var wrap=document.createElement('div'); wrap.className='td-plot';
     if(!glog||glog.length<2){ wrap.innerHTML='<div class="td-empty">No game log yet — this is a projection.</div>'; return wrap; }
-    var n=glog.length, traj=netTraj(glog);
+    var n=glog.length, traj=netTraj(glog, prior);
     var mn=Math.min.apply(null,traj), mx=Math.max.apply(null,traj), pad=(mx-mn)*0.12||1; mn-=pad; mx+=pad;
     var rng=(mx-mn)||1;
     var W=430,H=96,pT=8,pB=8, X=function(i){return i*(W/(n-1));}, Y=function(v){return pT+(1-(v-mn)/rng)*(H-pT-pB);};
@@ -313,11 +322,12 @@
     var short=decodeURIComponent((href.split('team=')[1]||'').split('&')[0]||'');
     var cs=curSeason();
     var glog=(GAMES[cs]&&GAMES[cs][name])||null;
+    var prior=(PRIOR[cs]&&PRIOR[cs][name]);
     var d=document.createElement('div'); d.className='tr-drop';
     var inner=document.createElement('div'); inner.className='tr-drop-inner';
     var chart=document.createElement('div'); chart.className='td-chart';
     chart.innerHTML='<div class="td-title">'+name+' · NET through the season <span class="td-hint">— hover / tap a game</span></div>';
-    chart.appendChild(dropChart(glog));
+    chart.appendChild(dropChart(glog, prior));
     var link=document.createElement('a'); link.className='td-link'; link.href=href; link.textContent='Open full page →';
     inner.appendChild(chart);
     inner.appendChild(dropRoster(short, cs, name));
