@@ -394,6 +394,32 @@
     if(rk<1) return '';
     return '<div class="tos-outlook">Projected <b>#'+rk+'</b> in the '+esc(mc)+'</div>';
   }
+  // "How they play": league-relative style tags from the projected team profile that
+  // index.html already computed (window._teamMetaByName): Team-DNA efficiency (ortg/drtg)
+  // + per-game rates. Picks offense/defense quality + the single strongest stylistic trait.
+  function teamStyle(full){
+    var meta=window._teamMetaByName; if(!meta) return '';
+    var me=meta[(''+full).toLowerCase().trim()]; if(!me) return '';
+    var all=[]; for(var k in meta) all.push(meta[k]);
+    function pr(key, v, invert){   // percentile of v within the league (invert for "lower is better")
+      if(v==null||!isFinite(v)) return null; var c=0,n=0;
+      for(var i=0;i<all.length;i++){ var x=all[i][key]; if(x!=null&&isFinite(x)){ c++; if(x<=v) n++; } }
+      if(!c) return null; var p=n/c; return invert?1-p:p;
+    }
+    var tags=[];
+    var o=pr('ortg', me.ortg, false);
+    if(o!=null){ if(o>=0.88) tags.push(['Elite offense','off']); else if(o>=0.65) tags.push(['Efficient offense','off']); else if(o<=0.18) tags.push(['Struggles to score','']); }
+    var d=pr('drtg', me.drtg, true);
+    if(d!=null){ if(d>=0.88) tags.push(['Elite defense','def']); else if(d>=0.65) tags.push(['Stingy defense','def']); else if(d<=0.18) tags.push(['Leaky defense','']); }
+    var skills=[['spg','Ball-hawking','def'],['bpg','Rim protection','def'],['orpg','Crashes the glass','off'],['ato','Ball movement','off'],['tp','Deep shooting','off']];
+    var best=null;
+    for(var i=0;i<skills.length;i++){ var p=pr(skills[i][0], me[skills[i][0]], false); if(p!=null&&(!best||p>best.p)) best={p:p,s:skills[i]}; }
+    if(best && best.p>=0.85 && tags.length<3) tags.push([best.s[1],best.s[2]]);
+    tags=tags.slice(0,3);
+    if(!tags.length) tags.push(['Balanced','']);
+    return '<div class="tos-style"><span class="tos-style-lbl">Plays like</span>'
+      +tags.map(function(x){return '<span class="tos-tag'+(x[1]?' '+x[1]:'')+'">'+esc(x[0])+'</span>';}).join('')+'</div>';
+  }
   function renderOffseason(box, current, lastTop, curById, prevBy, contRec, full, short, ratings){
     // INCOMING = current players who did NOT play for this team last season
     var incoming=[];
@@ -432,7 +458,7 @@
       ? '<div class="tos-cont"><div class="tos-cont-bar"><span style="width:'+Math.max(3,Math.min(100,pct))+'%"></span></div>'
         +'<div class="tos-cont-lbl"><b>'+pct+'%</b> of last year’s minutes return'+(retN!=null?(' · '+retN+' back'):'')+'</div></div>'
       : '';
-    box.innerHTML = confOutlook(ratings, full, short) + cont
+    box.innerHTML = confOutlook(ratings, full, short) + teamStyle(full) + cont
       +'<div class="tos-cols">'
       +'<div class="tos-col"><div class="tos-h in">Incoming</div>'+inRows+'</div>'
       +'<div class="tos-col"><div class="tos-h out">Departures</div>'+outRows+'</div>'
