@@ -462,8 +462,8 @@
     box.innerHTML = confOutlook(ratings, full, short) + cont
       +'<div class="tos-cols">'
       +'<div class="tos-col"><div class="tos-h in">Incoming</div>'+inRows+'</div>'
-      +mid
       +'<div class="tos-col"><div class="tos-h out">Departures</div>'+outRows+'</div>'
+      +mid
       +'</div>';
   }
 
