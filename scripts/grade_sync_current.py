@@ -82,8 +82,11 @@ def main(write=False):
 
     def _closest(cand, p):
         d = (cand.ppg_n - p.ppg_n).abs() + (cand.mpg_n - p.mpg_n).abs()
-        best = cand.loc[d.idxmin()]
-        return best, float(d.loc[d.idxmin()])
+        if d.notna().sum() == 0:            # no comparable stat lines (all NA) →
+            best = cand.iloc[0]             # fall back to the first candidate row
+            return best, float("inf")       # inf dist so the fuzzy key-match (needs <5) is skipped
+        i = d.idxmin()
+        return cand.loc[i], float(d.loc[i])
 
     def model_grade(p):
         # 1) exact name, 2) suffix-stripped name, 3) last-name+initial w/ close stats
