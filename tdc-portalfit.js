@@ -55,8 +55,22 @@
     var d=prof.pctl, P=profile(player), D=function(k){ return d[k]!=null?d[k]/100:.5; };
     var s=58, R=[]; function add(x,t){ s+=x; if(Math.abs(x)>=3&&t) R.push({d:Math.round(x),t:t}); }
     var pace=D('poss_pg'), three=D('three_pa_rate'), star=D('top_scorer_share'), ast=D('ast_rate');
-    var runner=s01(P.perimD*0.5+(1-P.size)*0.6+P.creator*0.3);
-    add((pace-0.5)*(runner-0.5)*60, pace>0.5?(runner>0.5?'thrives in his up-tempo system':'may struggle to keep his pace'):(runner>0.5?'his tempo underuses this player’s speed':'fits his half-court tempo'));
+    // "big" = plays inside. Position first (resolves "F"/blank by height — Boozer is
+    // listed "F"), plus an undersized-post catch: heavy rebounder who doesn't space
+    // the floor (e.g. Bonzie Colson at 6'5" played the 5, not a speed wing).
+    var _pp=pos(player); var isBig=(_pp==='C'||_pp==='PF')||(P.rebounder>0.6&&P.shooter<0.42);
+    // "runner" = how much up-tempo actually helps him. Perimeter athletes gain from
+    // pace; back-to-the-basket bigs are neutral-to-better in the half-court, so a big
+    // only scores high here as a genuine rim-runner (mobile finisher), never as a
+    // skilled post. This stops a slow big reading as a "speed" player a slow tempo wastes.
+    var runner = isBig ? s01(P.finisher*0.55 + P.perimD*0.20 - P.size*0.30 + 0.12)
+                       : s01(P.perimD*0.5+(1-P.size)*0.6+P.creator*0.3);
+    var tempoTxt = isBig
+      ? (pace>0.5 ? (runner>0.5?'runs the floor hard in his up-tempo system':'a fast pace can leave this half-court big trailing the play')
+                  : (runner>0.5?'his rim-running goes to waste in this walk-it-up tempo':'fits his half-court, play-through-the-post tempo'))
+      : (pace>0.5 ? (runner>0.5?'thrives in his up-tempo system':'may struggle to keep his pace')
+                  : (runner>0.5?'his tempo underuses this player’s speed':'fits his half-court tempo'));
+    add((pace-0.5)*(runner-0.5)*60, tempoTxt);
     add((three-0.5)*(P.shooter-0.45)*72, three>0.5?(P.shooter>0.45?'his shooting fits the spread system':'no shooting hurts the coach’s spacing'):'');
     add((star-0.5)*(P.scorer-0.5)*46, star>0.5?(P.scorer>0.5?'gets featured in the star-centric offense':''):(P.scorer>0.5?'the egalitarian system caps this scorer':'fits the share-the-ball offense'));
     add((ast-0.5)*(P.creator-0.4)*36, (ast>0.5&&P.creator>0.4)?'his passing suits the coach’s ball movement':'');

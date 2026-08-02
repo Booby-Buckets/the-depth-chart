@@ -18,7 +18,7 @@
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-shotchart.js?v=14"></script>
   <script src="tdc-shotflow.js?v=9"></script>
-  <script src="tdc-portalfit.js?v=needs4"></script>
+  <script src="tdc-portalfit.js?v=needs7"></script>
   <script src="tdc-chemistry.js?v=5"></script>
   <script src="tdc-advstats.js?v=1"></script>
   <style>
@@ -107,6 +107,13 @@
     .chart-legend span{display:inline-flex;align-items:center;gap:6px;}
     .chart-legend i{width:11px;height:11px;border-radius:2px;}
     .chart-legend .cl-logo{width:18px;height:18px;object-fit:contain;}
+    /* radial "petal" skill gauge (one per player) */
+    .petal-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start;}
+    @media(max-width:620px){.petal-grid{grid-template-columns:1fr;}}
+    .petal-cell{display:flex;flex-direction:column;align-items:center;gap:8px;padding:4px 2px 2px;}
+    .petal-name{font-size:13px;font-weight:800;letter-spacing:.01em;text-align:center;}
+    .petal-host{color:var(--text2);width:100%;}
+    .petal-foot{margin-top:12px;font-size:11px;color:var(--text3);text-align:center;line-height:1.5;}
     /* PROJECTED OUTLOOK */
     .ol-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0 26px;}
     .ol-card{border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
@@ -822,6 +829,39 @@ function setMode(m){
   destroyCharts();
 }
 
+// ── radial "petal" skill gauge — one player, wedge length + brightness = national percentile ──
+function petalChart(el, axes, values, baseColor, name){
+  if(!el) return;
+  const S=300, cx=S/2, cy=S/2, rMax=112, r0=30, N=axes.length, step=360/N, gap=5;
+  const uid='pg'+Math.floor(Math.abs(Math.sin(name.length+N+baseColor.length))*1e6).toString(36);
+  const pol=(r,a)=>{ const t=(a-90)*Math.PI/180; return [cx+r*Math.cos(t), cy+r*Math.sin(t)]; };
+  const F=n=>(+n).toFixed(2);
+  const sector=(ri,ro,a0,a1)=>{ const [xob,yob]=pol(ro,a0),[xoe,yoe]=pol(ro,a1),[xie,yie]=pol(ri,a1),[xib,yib]=pol(ri,a0); const lg=(a1-a0)>180?1:0;
+    return `M${F(xob)} ${F(yob)} A${ro} ${ro} 0 ${lg} 1 ${F(xoe)} ${F(yoe)} L${F(xie)} ${F(yie)} A${ri} ${ri} 0 ${lg} 0 ${F(xib)} ${F(yib)} Z`; };
+  let p=[];
+  // guide rings at the 90th & 100th percentile + their ticks (mirrors the reference card)
+  [0.9,1].forEach(f=>{ const r=r0+f*(rMax-r0); p.push(`<circle cx="${cx}" cy="${cy}" r="${F(r)}" fill="none" stroke="currentColor" stroke-opacity="0.14" stroke-width="1"${f<1?' stroke-dasharray="3 4"':''}/>`); });
+  p.push(`<text x="${cx+4}" y="${F(cy-rMax+3)}" font-size="8" fill="currentColor" fill-opacity="0.45">100</text>`);
+  p.push(`<text x="${cx+4}" y="${F(cy-(r0+0.9*(rMax-r0))+3)}" font-size="8" fill="currentColor" fill-opacity="0.35">90</text>`);
+  axes.forEach((ax,i)=>{
+    const v=Math.max(0,Math.min(100,Math.round(values[i]||0)));
+    const a0=i*step+gap/2, a1=(i+1)*step-gap/2, mid=(a0+a1)/2;
+    const rFill=r0+(v/100)*(rMax-r0);
+    p.push(`<path d="${sector(r0,rMax,a0,a1)}" fill="${baseColor}" fill-opacity="0.06"/>`);            // track
+    p.push(`<path d="${sector(r0,rFill,a0,a1)}" fill="url(#${uid})" fill-opacity="${F(0.40+0.55*v/100)}"/>`); // value
+    const rn=Math.max(r0+15, rFill-14), [nx,ny]=pol(rn,mid);
+    p.push(`<text x="${F(nx)}" y="${F(ny)}" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" dominant-baseline="central" style="paint-order:stroke;stroke:rgba(0,0,0,.4);stroke-width:2.4px;">${v}</text>`);
+    const [dx,dy]=pol(rMax+6, mid); p.push(`<circle cx="${F(dx)}" cy="${F(dy)}" r="1.7" fill="${baseColor}" fill-opacity="0.65"/>`);
+    const [lx,ly]=pol(rMax+16, mid), anc=(mid<8||mid>352||Math.abs(mid-180)<8)?'middle':(mid<180?'start':'end');
+    p.push(`<text x="${F(lx)}" y="${F(ly)}" font-size="9.5" font-weight="700" fill="currentColor" fill-opacity="0.75" text-anchor="${anc}" dominant-baseline="central" letter-spacing="0.03em">${ax}</text>`);
+  });
+  p.push(`<circle cx="${cx}" cy="${cy}" r="${r0-9}" fill="currentColor" fill-opacity="0.05" stroke="currentColor" stroke-opacity="0.12"/>`);
+  el.innerHTML=`<svg viewBox="0 0 ${S} ${S}" width="100%" style="max-width:330px;display:block;margin:0 auto;overflow:visible;">`
+    +`<defs><radialGradient id="${uid}" cx="50%" cy="50%" r="66%">`
+    +`<stop offset="0%" stop-color="${baseColor}" stop-opacity="0.5"/><stop offset="100%" stop-color="${baseColor}" stop-opacity="1"/></radialGradient></defs>`
+    +p.join('')+`</svg>`;
+}
+
 // ── radar / bar chart builders ──
 function radarChart(canvasId, labels, dsets){
   const ctx=document.getElementById(canvasId); if(!ctx) return;
@@ -1266,16 +1306,19 @@ function renderPlayers(){
       <div class="ol-card right"><div class="ol-badge ${ol2.cls}">${ol2.label}</div><div class="ol-sub">${conf2||'—'} · vs All-American ${GROUP_LBL[g2]}</div></div>
     </div>`:''}
 
+    <div class="chart-card full" style="margin-bottom:20px;"><div class="chart-title">Skill Profile · National Percentiles</div>
+      <div class="petal-grid">
+        <div class="petal-cell"><div class="petal-name" style="color:${c1}">${p1.name}</div><div id="petal1" class="petal-host"></div></div>
+        <div class="petal-cell"><div class="petal-name" style="color:${c2}">${p2.name}</div><div id="petal2" class="petal-host"></div></div>
+      </div>
+      <div class="petal-foot">Each wedge is that player's national percentile (0–100) among D-I players this season — longer &amp; brighter is better.</div></div>
     <div class="chart-grid">
-      <div class="chart-card"><div class="chart-title">Skill Profile · National Percentiles</div>
-        <div class="chart-box"><canvas id="pRadar"></canvas></div>
-        <div class="chart-legend"><span><i style="background:${c1}"></i>${p1.name}</span><span><i style="background:${c2}"></i>${p2.name}</span></div></div>
       <div class="chart-card"><div class="chart-title">Projection vs All-American Ceiling · ${g1===g2?GROUP_LBL[g1]:GROUP_LBL[g1]+' / '+GROUP_LBL[g2]}</div>
         <div class="chart-box"><canvas id="pBench"></canvas></div>
         <div class="chart-legend"><span><i style="background:${c1}"></i>${p1.name}</span><span><i style="background:${c2}"></i>${p2.name}</span><span><i style="background:#C8A020"></i>AA ${g1===g2?GROUP_LBL[g1]:'(own group)'}</span></div></div>
+      <div class="chart-card"><div class="chart-title">Per-Game Percentile Ranks</div>
+        <div class="chart-box short"><canvas id="pBar"></canvas></div></div>
     </div>
-    <div class="chart-card full" style="margin-bottom:26px;"><div class="chart-title">Per-Game Percentile Ranks</div>
-      <div class="chart-box short"><canvas id="pBar"></canvas></div></div>
 
     ${(p1._advanced||p2._advanced)?`
     <div class="chart-grid">
@@ -1408,7 +1451,8 @@ function renderPlayers(){
   const norm=(s,aaProf)=>BENCH_AXES.map(a=>{var aa=a.f(aaProf)||1; return Math.round(Math.min(135, a.f(s)/aa*100));});
   const bp1=norm(pr1,aa1), bp2=norm(pr2,aa2), baa=BENCH_AXES.map(()=>100);
   setTimeout(()=>{
-    radarChart('pRadar',labels,[ds(p1.name,d1,c1),ds(p2.name,d2,c2)]);
+    petalChart(document.getElementById('petal1'),labels,d1,c1,p1.name);
+    petalChart(document.getElementById('petal2'),labels,d2,c2,p2.name);
     radarChart('pBench',blabels,[ds(p1.name,bp1,c1),ds(p2.name,bp2,c2),ds('All-American',baa,'#C8A020')]);
     barChart('pBar',labels,[ds(p1.name,d1,c1,true),ds(p2.name,d2,c2,true)]);
     // play-style trait DNA (Portal Fit engine's continuous trait vector, 0-100)
@@ -1464,15 +1508,46 @@ function _ensureCoachProfiles(){
   return _cpPromise;
 }
 function _coachOf(player){ const tm=teamMap[player&&player.team]; return tm?((tm.head_coach||tm.coach||'').trim()):''; }
-function _profOf(player){ const cn=_coachOf(player); const m=window._coachByName; return (cn&&m)?(m[_normName(cn)]||null):null; }
+// For a HISTORY player, resolve who actually coached that school that season from
+// coach_profiles (schools + first_year..last_year). Career-aggregate data can't
+// disambiguate a coach's transition years across schools, so among candidates we
+// take the longest-tenured (the school's primary coach) — correct for the common
+// single-school case (e.g. 2016-17 Notre Dame → Mike Brey, not the current staff).
+function _coachForSeason(teamName, year){
+  const m=window._coachByName; if(!m||!teamName||!year) return null;
+  const tgt=_normName(teamName); let best=null;
+  Object.keys(m).forEach(k=>{
+    const c=m[k]; if(!c) return;
+    const schools=(''+(c.schools||'')).split(',').map(s=>_normName(s)).filter(Boolean);
+    const hit=schools.some(s=>s && (tgt.indexOf(s)>=0 || s.indexOf(tgt)>=0));
+    if(!hit) return;
+    const fy=+c.first_year||0, ly=+c.last_year||9999;
+    if(year<fy||year>ly) return;
+    if(!best || (+c.seasons||0)>(+best.seasons||0)) best=c;
+  });
+  return best;
+}
+// Unified: {name, prof}. Current players use their team's head_coach; history
+// players use the season-resolved coach (null if the era predates our data).
+function _resolveCoach(player){
+  if(player && player._isHistory && player.season_year){
+    const cp=_coachForSeason(player.team, player.season_year);
+    return cp ? {name:cp.coach, prof:cp} : {name:'', prof:null};
+  }
+  const cn=_coachOf(player), m=window._coachByName;
+  return {name:cn, prof:(cn&&m)?(m[_normName(cn)]||null):null};
+}
+function _profOf(player){ return _resolveCoach(player).prof; }
 async function _fillCoachFit(p1,p2,c1,c2){
   const sec=document.getElementById('cfitSection'); if(!sec) return;
   if(!window.TDCPortalFit||!TDCPortalFit.coachFit){ sec.style.display='none'; return; }
   await _ensureCoachProfiles();
   const side=(p,elId)=>{
     const el=document.getElementById(elId); if(!el) return;
-    const cn=_coachOf(p), prof=_profOf(p);
-    if(!prof){ el.innerHTML=`<div class="sim-row" style="color:var(--text3);">No coach profile for ${p.team||'—'}${cn?` (${cn})`:''}.</div>`; return; }
+    const rc=_resolveCoach(p), cn=rc.name, prof=rc.prof;
+    if(!prof){
+      const seasonLbl=(p._isHistory&&p.season_year)?` in ${_seasonLabel(p)}`:'';
+      el.innerHTML=`<div class="sim-row" style="color:var(--text3);">No coach on file for ${p.team||'—'}${seasonLbl}${(cn&&!p._isHistory)?` (${cn})`:''}.</div>`; return; }
     const res=TDCPortalFit.coachFit(prof,p)||{}, fit=Math.round(res.fit||0);
     const col=fit>=72?'#1a8c3a':fit>=52?'#C8A020':'#cc5533';
     let rHtml=(res.reasons||[]).slice(0,4).map(r=>`<div class="cf-reason"><span class="cf-dot" style="background:${(r.d>0)?'#1a8c3a':(r.d<0?'#cc5533':'#8a867a')}"></span>${r.t||''}</div>`).join('');
