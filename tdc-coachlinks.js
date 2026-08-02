@@ -21,6 +21,7 @@ window.TDC_COACHLINKS = (function () {
     ]],
     ['Self-Scout', [
       ['self-scout.html',     'Self-Scout Report'],
+      ['moneyball.html',      'Moneyball'],
       ['consistency.html',    'Consistency'],
       ['lineups.html',        'Lineups'],
       ['pairings.html',       'Pairings'],
