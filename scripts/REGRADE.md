@@ -55,13 +55,24 @@ One at a time, in order. `--write` steps modify the DB (intended). The terminal
 uses the normal `sb_secret_` key fine — the browser-guard problem is Apps-Script-only.
 Your original hand grades are backed up in `data/manual_grades_backup.csv`.
 
-### 3. Republish the rankings
-Click **Republish** in **owner.html**. This recomputes the cached
-`predictive_ratings` (team power ratings) from the re-graded roster. Then
-hard-refresh the site (⌘⇧R).
+### 3. Rebuild the id-keyed grade files  ← don't skip this
+The projection's **coupled grade anchors on `tdc_grade`**, so after a re-grade the
+coupled/arch/gp files are stale and the site keeps showing the OLD grades ("still
+the same rankings"). Regenerate them:
+```bash
+cd /Users/aidanlee/the-depth-chart/scripts
+python3 rebuild_grade_files.py
+```
+Then bump caches + commit (the script prints this reminder too):
+- in `tdc-projgrade.js`, bump `?v=` on player_coupled_grades / arch_bonus / gp_shrink
+- bump `tdc-projgrade.js?v=` across the `.html` pages
+- `git add` the 3 JSON + `tdc-projgrade.js` + `*.html`, commit & push
 
-That's it. Player grades go data-driven immediately (client-side); team rankings
-update on republish.
+### 4. Republish the rankings
+Click **Republish** in **owner.html** (recomputes cached `predictive_ratings` /
+team power ratings), then hard-refresh the site (⌘⇧R).
+
+That's it. Player grades come from step 3's files; team rankings from step 4.
 
 ---
 
