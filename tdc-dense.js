@@ -417,8 +417,7 @@
     if(best && best.p>=0.85 && tags.length<3) tags.push([best.s[1],best.s[2]]);
     tags=tags.slice(0,3);
     if(!tags.length) tags.push(['Balanced','']);
-    return '<div class="tos-style"><span class="tos-style-lbl">Plays like</span>'
-      +tags.map(function(x){return '<span class="tos-tag'+(x[1]?' '+x[1]:'')+'">'+esc(x[0])+'</span>';}).join('')+'</div>';
+    return tags.map(function(x){return '<span class="tos-tag'+(x[1]?' '+x[1]:'')+'">'+esc(x[0])+'</span>';}).join('');
   }
   function renderOffseason(box, current, lastTop, curById, prevBy, contRec, full, short, ratings){
     // INCOMING = current players who did NOT play for this team last season
@@ -458,9 +457,12 @@
       ? '<div class="tos-cont"><div class="tos-cont-bar"><span style="width:'+Math.max(3,Math.min(100,pct))+'%"></span></div>'
         +'<div class="tos-cont-lbl"><b>'+pct+'%</b> of last year’s minutes return'+(retN!=null?(' · '+retN+' back'):'')+'</div></div>'
       : '';
-    box.innerHTML = confOutlook(ratings, full, short) + teamStyle(full) + cont
+    var chips=teamStyle(full);
+    var mid=chips?('<div class="tos-col tos-col-style"><div class="tos-h play">Plays like</div><div class="tos-style">'+chips+'</div></div>'):'';
+    box.innerHTML = confOutlook(ratings, full, short) + cont
       +'<div class="tos-cols">'
       +'<div class="tos-col"><div class="tos-h in">Incoming</div>'+inRows+'</div>'
+      +mid
       +'<div class="tos-col"><div class="tos-h out">Departures</div>'+outRows+'</div>'
       +'</div>';
   }
