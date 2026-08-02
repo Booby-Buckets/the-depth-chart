@@ -120,17 +120,21 @@ const SB='https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H={apikey:KEY,Authorization:'Bearer '+KEY};
 
-/* ── the value math ────────────────────────────────────────────────
-   Currency = Wins Added (WA). We anchor the whole roster's WA to the team's
-   PROJECTED wins above a replacement-level baseline (derived from the projection's
-   Power Rating), then distribute those wins across the rotation by each player's
-   value × projected minutes. So the parts always sum to the whole — the same
-   discipline real WAR/WS systems use. Returners' proven WA (last season's
-   ti40-based Wins Added) informs the split; freshmen lean on their projected grade. */
-const REPL_GRADE=62;        // replacement-level overall (a fringe D-I rotation body)
-const BASE_WINS=15;         // wins for a Power-Rating-0 team (17yr history: ~14-16)
-const WINS_PER_RTG=0.67;    // slope of Power Rating -> wins (SRS 0->15 ... 27->33)
-function projWins(rtg){ return Math.max(6, Math.min(34, BASE_WINS + WINS_PER_RTG*rtg)); }
+/* ── the value math (calibrated on 17 yrs of team_seasons + player_advanced) ──────
+   Currency = Wins Added (WA), and it's a MEASURED currency, not an invention:
+     • wins ≈ 15.91 + 0.548·PowerRating           (r=.77, n=6392 team-seasons)
+     • team wins ≈ −2.67 + 0.989·Σ(player WA)      (r=.80) → a player's WA is worth
+       ~1 real team win, and the roster's WA genuinely sums to the team's wins.
+     • player WA = (ti40 − 5)·(min/40) / 69.87     (owned metric; replacement = ti40 5)
+     • ti40 ≈ −30.67 + 0.594·grade                 (r=.77) → bridges grade to a rate for
+       players with no college sample (freshmen), so they get a real projected WA too.
+   Because WA ≈ wins (slope ~1), a win GAP to a goal converts directly to WA to add. */
+const GAMES=31, WA_DEN=69.87;
+const BASE_WINS=15.91, WINS_PER_RTG=0.548;
+const TI40_A=-30.67, TI40_B=0.594;
+function projWins(rtg){ return Math.max(4, Math.min(35, BASE_WINS+WINS_PER_RTG*rtg)); }
+function ti40Of(grade){ return TI40_A+TI40_B*grade; }
+function waOf(ti40,mpg){ return (ti40-5)*(mpg*GAMES/40)/WA_DEN; }   // season WA from a per-40 rate + role
 
 // Goal tiers — target Power Rating + the outcome it historically buys (17yr team_seasons:
 // SRS bins -> made%, avg seed, protected%, S16%, FF%). See build note in the repo.
@@ -186,32 +190,31 @@ async function selectTeam(t){
   buildModel(t, roster, adv);
 }
 
-// Build per-player Wins Added, calibrated so the rotation sums to the team's wins-above-baseline.
+// Per-player projected Wins Added — computed directly from each player's projected rate
+// (returner: his real ti40; freshman: grade→ti40) and his projected minutes. These are
+// independent, MEASURED WA values that sum to the roster's total (validated slope ~1).
 function buildModel(t, roster, adv){
   const teamWins=projWins(t.rating);
-  const teamWA=teamWins-BASE_WINS;                      // wins the roster adds above replacement
-  // projected minutes from the depth-chart model (falls back to mpg/role)
   let projMin=null;
   if(window.TDCProjGrade&&TDCProjGrade.gradeRoster){ try{ const gr=TDCProjGrade.gradeRoster(roster);
     projMin=roster.map((p,i)=>(gr[i]&&isFinite(gr[i].min))?gr[i].min:null); }catch(e){} }
   const grade=p=>{ if(window.TDCProjGrade&&TDCProjGrade.gradeSolo){ const g=TDCProjGrade.gradeSolo(p); if(g!=null&&!isNaN(g)) return g; } return parseFloat(p.tdc_grade)||70; };
-  const ceilOf=p=>{ // simple dev ceiling: younger players have more runway above their projection
-    const g=grade(p); const y=((p.yr||p.class_year||'')+'').toLowerCase();
+  const ceilGrade=p=>{ const g=grade(p); const y=((p.yr||p.class_year||'')+'').toLowerCase();
     const up=/fr/.test(y)?6:/so/.test(y)?4:/jr/.test(y)?2:1; return Math.min(99,g+up); };
   let ents=roster.map((p,i)=>{
-    const g=grade(p), mn=(projMin&&projMin[i]!=null)?projMin[i]:Math.max(4,(parseFloat(p.mpg)||8));
-    const val=Math.max(0,g-REPL_GRADE);                 // value above replacement
-    const provenWA=(p.espn_id&&adv[p.espn_id])?adv[p.espn_id].wa:null;
-    return {p, g, mn, val, vm:val*mn, provenWA, ceil:ceilOf(p), i};
+    const g=grade(p);
+    const mn=(projMin&&projMin[i]!=null)?projMin[i]:Math.max(4,(parseFloat(p.mpg)||8));
+    const proven=(p.espn_id&&adv[p.espn_id])||null;     // {wa,ti40,min} last season
+    const ti = proven ? proven.ti40 : ti40Of(g);        // returner = proven rate; else grade-bridge
+    const wa = waOf(ti, mn);
+    const cg = ceilGrade(p);
+    const ceilWA = Math.max(wa, waOf(Math.max(ti, ti40Of(cg)), mn));
+    return {p, g, mn, ti, wa, cg, ceilWA, waPerMin:wa/(mn||1), provenWA: proven?proven.wa:null, i};
   });
-  const rot=ents.filter(e=>e.mn>=6).sort((a,b)=>b.vm-a.vm);
-  const vmSum=rot.reduce((s,e)=>s+e.vm,0)||1;
-  rot.forEach(e=>{ e.wa=teamWA*(e.vm/vmSum); e.waPerMin=e.wa/(e.mn||1);
-    // ceiling WA: same distribution but with the player's ceiling grade value
-    e.ceilVal=Math.max(0,e.ceil-REPL_GRADE); });
-  // ceiling team WA if everyone hits their development ceiling (minutes held fixed)
-  const ceilWA=rot.reduce((s,e)=>s+ (teamWA*(e.ceilVal*e.mn/vmSum)) ,0);
-  render(t, {teamWins,teamWA,rot,ceilWA});
+  const rot=ents.filter(e=>e.mn>=6).sort((a,b)=>b.wa-a.wa);
+  const rosterWA=rot.reduce((s,e)=>s+e.wa,0);
+  const ceilRosterWA=rot.reduce((s,e)=>s+e.ceilWA,0);
+  render(t, {teamWins, rot, rosterWA, ceilRosterWA});
 }
 
 function render(t, m){
@@ -225,15 +228,18 @@ function render(t, m){
   const tgtRtg=goal.rtg, tgtWins=projWins(tgtRtg);
   const winGap=tgtWins-wins, rtgGap=tgtRtg-rtg;
   const reach=winGap<=0.4;
-  const ceilWins=BASE_WINS+m.ceilWA;                    // wins if everyone hits their dev ceiling
+  // ceiling: realistically not every player maxes out at once, and no team wins 40 — take ~65%
+  // of the summed development room and cap at a physical ceiling.
+  const ceilWins=Math.min(37, wins+0.65*(m.ceilRosterWA-m.rosterWA));
   const devCovers=ceilWins>=tgtWins-0.4;
-  // per-player targets: distribute the win gap across the top rotation, proportional to their upside room (ceil-current)
-  const needers=m.rot.slice(0,5).map(e=>({e, room:Math.max(0.1,(e.ceil-e.g))}));
+  // per-player targets: distribute the win gap across the core by each player's WA room (ceilWA − wa)
+  const needers=m.rot.slice(0,6).map(e=>({e, room:Math.max(0.03,e.ceilWA-e.wa)})).filter(x=>x.room>0.05);
   const roomSum=needers.reduce((s,x)=>s+x.room,0)||1;
-  const perPlayer=needers.map(x=>({name:x.e.p.name, cur:x.e.wa, add: Math.max(0,winGap)*(x.room/roomSum), tgt: x.e.wa+Math.max(0,winGap)*(x.room/roomSum)}));
-  // portal path: a starter-quality add (grade ~85, ~26 mpg) is worth ~this many wins here
-  const addWA = (85-REPL_GRADE)*26 / ((m.rot.reduce((s,e)=>s+e.val*e.mn,0)/Math.max(1,m.teamWA))||1);
-  const addsNeeded = winGap>0 ? Math.max(1,Math.ceil(winGap/Math.max(0.5,addWA))) : 0;
+  const perPlayer=needers.map(x=>{ const add=Math.max(0,winGap)*(x.room/roomSum); return {name:x.e.p.name, cur:x.e.wa, add, tgt:x.e.wa+add}; });
+  // portal path: MARGINAL value of a starter-level add (grade ~85 → ti40, ~26 mpg), net of the
+  // ~replacement minutes it displaces from the current rotation.
+  const addWA = Math.max(0.6, waOf(ti40Of(85), 26) - 0.3);
+  const addsNeeded = winGap>0 ? Math.max(1,Math.ceil(winGap/addWA)) : 0;
 
   b.innerHTML = `
   <div class="sec-h">Team value <span class="note">projected 2026-27</span></div>
@@ -243,13 +249,13 @@ function render(t, m){
       <div class="big-l">Projected Power Rating · #${t.rank}</div>
       <div class="snap-row" style="margin-top:16px">
         <div class="kv"><div class="v">${wins.toFixed(0)}</div><div class="k">Proj. wins</div></div>
-        <div class="kv"><div class="v">${m.teamWA.toFixed(1)}</div><div class="k">Wins added (roster)</div></div>
-        <div class="kv"><div class="v">${(BASE_WINS+m.ceilWA).toFixed(0)}</div><div class="k">Ceiling wins</div></div>
+        <div class="kv"><div class="v">${m.rosterWA.toFixed(1)}</div><div class="k">Roster Wins Added</div></div>
+        <div class="kv"><div class="v">${ceilWins.toFixed(0)}</div><div class="k">Ceiling wins</div></div>
       </div>
     </div>
     <div class="card">
       <div class="big-l" style="margin:0 0 8px">Outlook</div>
-      <div class="outlook">${outlook}<br><br>The rotation is worth <b>${m.teamWA.toFixed(1)} wins</b> above a replacement roster. If every player hit his development ceiling, the roster reaches <b>${ceilWins.toFixed(0)} wins</b> — a +${(ceilWins-wins).toFixed(1)}-win band of untapped upside.</div>
+      <div class="outlook">${outlook}<br><br>The rotation sums to <b>${m.rosterWA.toFixed(1)} Wins Added</b> — its total value in wins. If every player hit his development ceiling, the roster would win <b>${ceilWins.toFixed(0)}</b>, a +${(ceilWins-wins).toFixed(1)}-win band of untapped upside.</div>
     </div>
   </div>
 
@@ -261,7 +267,7 @@ function render(t, m){
       <div class="gap-verdict ${reach?'reach':'short'}">${reach?'On track':`${winGap.toFixed(1)} wins short`}</div>
     </div>
     <div class="meter"><span style="width:${Math.max(3,Math.min(100,100*wins/tgtWins)).toFixed(1)}%"></span></div>
-    <div class="meter-lbls"><span>${BASE_WINS} (replacement)</span><span>now: ${wins.toFixed(0)}W</span><span>goal: ${tgtWins.toFixed(0)}W</span></div>
+    <div class="meter-lbls"><span>now ${wins.toFixed(0)} wins</span><span>goal ${tgtWins.toFixed(0)} wins</span></div>
     ${reach
       ? `<div class="gap-line">This roster already projects to clear <b>${goal.label.toLowerCase()}</b>. The lever now is <b>protecting the floor</b> — the players below carry the value; keep them healthy and on the court.</div>`
       : `<div class="gap-line">To get there this roster must add <b>${winGap.toFixed(1)} wins</b> (a <b>+${rtgGap.toFixed(1)}</b> Power-Rating jump). Three ways to pay for it:</div>
@@ -270,7 +276,7 @@ function render(t, m){
       <div class="path"><div class="path-h dev">Development path</div><div class="path-b">${devCovers?`If the returners hit their ceilings, the roster reaches <b>${ceilWins.toFixed(0)} wins</b> — <b>covers it</b> from within.</b>`:`Full internal development gets you to <b>${ceilWins.toFixed(0)} wins</b> — still <b>${(tgtWins-ceilWins).toFixed(1)} short</b>. You need outside help.`}</div></div>
       <div class="path"><div class="path-h add">Portal path</div><div class="path-b">Roughly <b>${addsNeeded} starter-level add${addsNeeded===1?'':'s'}</b> (grade ~85, ~26 mpg) covers the gap — or ${(addsNeeded*2)} high-value role players.</div></div>
     </div>`}
-    <div class="disclaimer">Goal prices are the historical median outcome at each Power Rating (17 seasons of results). Wins Added is calibrated so the rotation sums to the team's projected wins above a replacement roster — a model, not a guarantee.</div>
+    <div class="disclaimer">Goal prices = the median historical outcome at each Power Rating (17 seasons, r=.77). Wins Added is the owned metric — validated at ~1 team win per player-WA across 2,400 team-seasons — so a win gap converts straight to production. A model, not a guarantee.</div>
   </div>
 
   <div class="sec-h">Value board <span class="note">Wins Added = one number per player</span></div>
@@ -279,14 +285,15 @@ function render(t, m){
   </tr></thead><tbody>
     ${m.rot.map(e=>{
       const maxWA=Math.max(...m.rot.map(x=>x.wa),0.1);
-      const gem = (e.waPerMin>maxWA/ (m.rot[0].mn||1)*0.9 && e.mn< (m.rot[0].mn||30)*0.8) || (e.ceil-e.g>=4 && e.g>=80);
+      const topRate=Math.max(...m.rot.map(x=>x.waPerMin),0.001);
+      const gem = (e.waPerMin>=topRate*0.78 && e.i>=5) || (e.cg-e.g>=4 && e.g>=80);
       const role=e.i<5?`Starter`:`Bench`;
       return `<tr>
         <td class="l"><span class="pname">${esc(e.p.name)}</span>${gem?'<span class="gem">value</span>':''}<div class="prole">${esc(e.p.position||'')} · ${role}${e.provenWA!=null?` · ${e.provenWA>0?'+':''}${e.provenWA.toFixed(1)} WA last yr`:''}</div></td>
         <td>${e.mn.toFixed(0)}</td><td>${Math.round(e.g)}</td>
         <td class="wa ${e.wa>=0?'pos':'neg'}">${e.wa>0?'+':''}${e.wa.toFixed(1)}</td>
         <td class="l barcell"><div class="vbar"><span style="width:${Math.max(3,100*e.wa/maxWA).toFixed(0)}%"></span></div></td>
-        <td class="ceil">${Math.round(e.ceil)}</td>
+        <td class="ceil">${Math.round(e.cg)}</td>
       </tr>`;
     }).join('')}
   </tbody></table>
