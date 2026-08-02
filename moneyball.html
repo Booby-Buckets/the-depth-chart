@@ -89,6 +89,12 @@
     .gem{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--amber);border:1px solid color-mix(in srgb,var(--amber) 45%,transparent);border-radius:20px;padding:1px 7px;margin-left:7px;}
     .ceil{color:var(--text3);font-size:11.5px;}
     .disclaimer{font-size:11px;color:var(--text3);line-height:1.6;margin-top:10px;}
+    .pslide{width:100%;max-width:120px;accent-color:var(--accent);cursor:pointer;vertical-align:middle;}
+    .wa.moved{text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px;text-decoration-thickness:2px;}
+    .reset-row{display:flex;justify-content:flex-end;margin:-4px 0 8px;}
+    .reset-btn{font-family:inherit;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);border-radius:16px;padding:4px 11px;cursor:pointer;}
+    .reset-btn:hover{border-color:var(--accent);color:var(--text);}
+    .gap-verdict.reach{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green);}
   </style>
 </head>
 <body>
@@ -217,89 +223,125 @@ function buildModel(t, roster, adv){
   render(t, {teamWins, rot, rosterWA, ceilRosterWA});
 }
 
+let ST=null;   // {t, m, whatif:[per-player WA]}
+const $id=x=>document.getElementById(x);
+const sum=a=>a.reduce((s,x)=>s+x,0);
+
 function render(t, m){
-  const rtg=t.rating, wins=m.teamWins;
-  const b=document.getElementById('body');
-  // outlook from the current rating
-  const goal=GOALS.find(g=>g.id===curGoal);
+  ST={t, m, whatif:m.rot.map(e=>e.wa), goal:curGoal};
+  const rtg=t.rating;
   const curTier=[...GOALS].reverse().find(g=>rtg>=g.rtg);
   const outlook = curTier ? `Projected <b>${curTier.label.toLowerCase()}</b> — ${curTier.blurb}.` : `Projected below the at-large line — this roster needs a real jump to dance.`;
-  // ── goal lab math ──
-  const tgtRtg=goal.rtg, tgtWins=projWins(tgtRtg);
-  const winGap=tgtWins-wins, rtgGap=tgtRtg-rtg;
-  const reach=winGap<=0.4;
-  // ceiling: realistically not every player maxes out at once, and no team wins 40 — take ~65%
-  // of the summed development room and cap at a physical ceiling.
-  const ceilWins=Math.min(37, wins+0.65*(m.ceilRosterWA-m.rosterWA));
-  const devCovers=ceilWins>=tgtWins-0.4;
-  // per-player targets: distribute the win gap across the core by each player's WA room (ceilWA − wa)
-  const needers=m.rot.slice(0,6).map(e=>({e, room:Math.max(0.03,e.ceilWA-e.wa)})).filter(x=>x.room>0.05);
-  const roomSum=needers.reduce((s,x)=>s+x.room,0)||1;
-  const perPlayer=needers.map(x=>{ const add=Math.max(0,winGap)*(x.room/roomSum); return {name:x.e.p.name, cur:x.e.wa, add, tgt:x.e.wa+add}; });
-  // portal path: MARGINAL value of a starter-level add (grade ~85 → ti40, ~26 mpg), net of the
-  // ~replacement minutes it displaces from the current rotation.
-  const addWA = Math.max(0.6, waOf(ti40Of(85), 26) - 0.3);
-  const addsNeeded = winGap>0 ? Math.max(1,Math.ceil(winGap/addWA)) : 0;
-
-  b.innerHTML = `
+  const ceilWins=Math.min(37, m.teamWins+0.65*(m.ceilRosterWA-m.rosterWA));
+  const maxWA=Math.max(...m.rot.map(x=>x.ceilWA),0.1);
+  document.getElementById('body').innerHTML = `
   <div class="sec-h">Team value <span class="note">projected 2026-27</span></div>
   <div class="snap">
     <div class="card">
       <div class="big-n">${rtg>0?'+':''}${rtg.toFixed(1)}</div>
       <div class="big-l">Projected Power Rating · #${t.rank}</div>
       <div class="snap-row" style="margin-top:16px">
-        <div class="kv"><div class="v">${wins.toFixed(0)}</div><div class="k">Proj. wins</div></div>
-        <div class="kv"><div class="v">${m.rosterWA.toFixed(1)}</div><div class="k">Roster Wins Added</div></div>
+        <div class="kv"><div class="v" id="snapWins">${m.teamWins.toFixed(0)}</div><div class="k">Proj. wins</div></div>
+        <div class="kv"><div class="v" id="snapWA">${m.rosterWA.toFixed(1)}</div><div class="k">Roster Wins Added</div></div>
         <div class="kv"><div class="v">${ceilWins.toFixed(0)}</div><div class="k">Ceiling wins</div></div>
       </div>
     </div>
     <div class="card">
       <div class="big-l" style="margin:0 0 8px">Outlook</div>
-      <div class="outlook">${outlook}<br><br>The rotation sums to <b>${m.rosterWA.toFixed(1)} Wins Added</b> — its total value in wins. If every player hit his development ceiling, the roster would win <b>${ceilWins.toFixed(0)}</b>, a +${(ceilWins-wins).toFixed(1)}-win band of untapped upside.</div>
+      <div class="outlook">${outlook}<br><br>The rotation sums to <b>${m.rosterWA.toFixed(1)} Wins Added</b> — its total value in wins. Hit every development ceiling and the roster would win <b>${ceilWins.toFixed(0)}</b>, a +${(ceilWins-m.teamWins).toFixed(1)}-win band of upside.</div>
     </div>
   </div>
 
-  <div class="sec-h">Goal Lab <span class="note">what it takes, and who gets you there</span></div>
-  <div class="goals">${GOALS.map(g=>`<button class="goal-btn ${g.id===curGoal?'on':''}" data-g="${g.id}">${g.label}</button>`).join('')}</div>
+  <div class="sec-h">Goal Lab <span class="note">set a goal · drag the sliders below to reach it</span></div>
+  <div class="goals">${GOALS.map(g=>`<button class="goal-btn ${g.id===ST.goal?'on':''}" data-g="${g.id}">${g.label}</button>`).join('')}</div>
   <div class="gap">
     <div class="gap-head">
-      <div class="gap-title">${goal.label} <span style="color:var(--text3);font-weight:600">· needs ~+${tgtRtg} rating (${tgtWins.toFixed(0)} wins)</span></div>
-      <div class="gap-verdict ${reach?'reach':'short'}">${reach?'On track':`${winGap.toFixed(1)} wins short`}</div>
+      <div class="gap-title" id="goalTitle"></div>
+      <div class="gap-verdict" id="gapVerdict"></div>
     </div>
-    <div class="meter"><span style="width:${Math.max(3,Math.min(100,100*wins/tgtWins)).toFixed(1)}%"></span></div>
-    <div class="meter-lbls"><span>now ${wins.toFixed(0)} wins</span><span>goal ${tgtWins.toFixed(0)} wins</span></div>
-    ${reach
-      ? `<div class="gap-line">This roster already projects to clear <b>${goal.label.toLowerCase()}</b>. The lever now is <b>protecting the floor</b> — the players below carry the value; keep them healthy and on the court.</div>`
-      : `<div class="gap-line">To get there this roster must add <b>${winGap.toFixed(1)} wins</b> (a <b>+${rtgGap.toFixed(1)}</b> Power-Rating jump). Three ways to pay for it:</div>
-    <div class="paths">
-      <div class="path"><div class="path-h tgt">Lift the core</div><div class="path-b">${perPlayer.filter(x=>x.add>0.15).slice(0,3).map(x=>`<b>${esc(x.name)}</b> ${x.cur.toFixed(1)}→${x.tgt.toFixed(1)} WA`).join('<br>')||'—'}<br><span class="ceil">each raising his game by the shown wins.</span></div></div>
-      <div class="path"><div class="path-h dev">Development path</div><div class="path-b">${devCovers?`If the returners hit their ceilings, the roster reaches <b>${ceilWins.toFixed(0)} wins</b> — <b>covers it</b> from within.</b>`:`Full internal development gets you to <b>${ceilWins.toFixed(0)} wins</b> — still <b>${(tgtWins-ceilWins).toFixed(1)} short</b>. You need outside help.`}</div></div>
-      <div class="path"><div class="path-h add">Portal path</div><div class="path-b">Roughly <b>${addsNeeded} starter-level add${addsNeeded===1?'':'s'}</b> (grade ~85, ~26 mpg) covers the gap — or ${(addsNeeded*2)} high-value role players.</div></div>
-    </div>`}
-    <div class="disclaimer">Goal prices = the median historical outcome at each Power Rating (17 seasons, r=.77). Wins Added is the owned metric — validated at ~1 team win per player-WA across 2,400 team-seasons — so a win gap converts straight to production. A model, not a guarantee.</div>
+    <div class="meter"><span id="meterFill"></span></div>
+    <div class="meter-lbls"><span id="nowW"></span><span id="goalW"></span></div>
+    <div id="pathsWrap"></div>
+    <div class="disclaimer">Goal prices = the median historical outcome at each Power Rating (17 seasons, r=.77). Wins Added is the owned metric — validated at ~1 team win per player-WA across 2,400 team-seasons — so a win gap converts straight to production.</div>
   </div>
 
-  <div class="sec-h">Value board <span class="note">Wins Added = one number per player</span></div>
+  <div class="sec-h">Value board <span class="note">Wins Added · drag Simulate to run a what-if</span></div>
+  <div class="reset-row"><button class="reset-btn" id="resetBtn" style="display:none">↺ Reset to projection</button></div>
   <table><thead><tr>
-    <th class="l">Player</th><th>Proj min</th><th>Grade</th><th>Wins added</th><th class="l barcell">Share</th><th>Ceiling</th>
+    <th class="l">Player</th><th>Min</th><th>Grade</th><th>Wins added</th><th class="l barcell">Share</th><th class="l">Simulate ↔</th><th>Ceiling</th>
   </tr></thead><tbody>
-    ${m.rot.map(e=>{
-      const maxWA=Math.max(...m.rot.map(x=>x.wa),0.1);
+    ${m.rot.map((e,i)=>{
       const topRate=Math.max(...m.rot.map(x=>x.waPerMin),0.001);
       const gem = (e.waPerMin>=topRate*0.78 && e.i>=5) || (e.cg-e.g>=4 && e.g>=80);
       const role=e.i<5?`Starter`:`Bench`;
       return `<tr>
         <td class="l"><span class="pname">${esc(e.p.name)}</span>${gem?'<span class="gem">value</span>':''}<div class="prole">${esc(e.p.position||'')} · ${role}${e.provenWA!=null?` · ${e.provenWA>0?'+':''}${e.provenWA.toFixed(1)} WA last yr`:''}</div></td>
         <td>${e.mn.toFixed(0)}</td><td>${Math.round(e.g)}</td>
-        <td class="wa ${e.wa>=0?'pos':'neg'}">${e.wa>0?'+':''}${e.wa.toFixed(1)}</td>
-        <td class="l barcell"><div class="vbar"><span style="width:${Math.max(3,100*e.wa/maxWA).toFixed(0)}%"></span></div></td>
+        <td class="wa pos" id="wa${i}">+${e.wa.toFixed(1)}</td>
+        <td class="l barcell"><div class="vbar"><span id="bar${i}"></span></div></td>
+        <td class="l"><input type="range" class="pslide" data-i="${i}" min="0" max="${Math.max(0.5,e.ceilWA).toFixed(1)}" step="0.1" value="${e.wa.toFixed(1)}"></td>
         <td class="ceil">${Math.round(e.cg)}</td>
       </tr>`;
     }).join('')}
   </tbody></table>
-  <div class="disclaimer">“Value” tag = a player producing wins out of proportion to his minutes, or a young high-grade player with real ceiling — the market (rotation, reputation) underrates him.</div>
+  <div class="disclaimer">“Value” = a player producing wins out of proportion to his minutes, or a young high-grade player with real ceiling. <b>Simulate</b> pushes a player toward his ceiling (right) or a bust (left) and the goal meter reacts live — that's the art of roster-building.</div>
   `;
-  document.querySelectorAll('.goal-btn').forEach(btn=>btn.addEventListener('click',()=>{ curGoal=btn.dataset.g; render(t,m); }));
+  document.querySelectorAll('.goal-btn').forEach(btn=>btn.addEventListener('click',()=>{
+    ST.goal=curGoal=btn.dataset.g;
+    document.querySelectorAll('.goal-btn').forEach(x=>x.classList.toggle('on',x.dataset.g===ST.goal));
+    $id('pathsWrap').innerHTML=buildPaths(); recompute(); }));
+  document.querySelectorAll('.pslide').forEach(sl=>sl.addEventListener('input',()=>{ ST.whatif[+sl.dataset.i]=parseFloat(sl.value); recompute(); }));
+  $id('resetBtn').addEventListener('click',()=>{ ST.whatif=m.rot.map(e=>e.wa);
+    document.querySelectorAll('.pslide').forEach(sl=>{ sl.value=m.rot[+sl.dataset.i].wa.toFixed(1); }); recompute(); });
+  $id('pathsWrap').innerHTML=buildPaths();
+  recompute();
+}
+
+// The three "recipes" — computed from the BASE projection + current goal (static per goal).
+function buildPaths(){
+  const m=ST.m, goal=GOALS.find(g=>g.id===ST.goal);
+  const tgtWins=projWins(goal.rtg), winGap=tgtWins-m.teamWins;
+  const ceilWins=Math.min(37, m.teamWins+0.65*(m.ceilRosterWA-m.rosterWA));
+  const devCovers=ceilWins>=tgtWins-0.4;
+  if(winGap<=0.4){
+    return `<div class="gap-line">This roster already projects to clear <b>${goal.label.toLowerCase()}</b> — the lever is <b>protecting the floor</b>: the players below carry the value, so keep them healthy and on the court. (Drag any Simulate slider left to stress-test what a bust or injury would cost.)</div>`;
+  }
+  const needers=m.rot.slice(0,6).map(e=>({e, room:Math.max(0.03,e.ceilWA-e.wa)})).filter(x=>x.room>0.05);
+  const roomSum=needers.reduce((s,x)=>s+x.room,0)||1;
+  const perPlayer=needers.map(x=>{ const add=Math.max(0,winGap)*(x.room/roomSum); return {name:x.e.p.name, cur:x.e.wa, tgt:x.e.wa+add, add}; });
+  const addWA=Math.max(0.6, waOf(ti40Of(85),26)-0.3);
+  const addsNeeded=Math.max(1,Math.ceil(winGap/addWA));
+  return `<div class="gap-line">From the projection this roster is <b>${winGap.toFixed(1)} wins</b> short (a <b>+${(goal.rtg-ST.t.rating).toFixed(1)}</b> Power-Rating jump). Three ways to pay for it — or drag the sliders to try your own:</div>
+    <div class="paths">
+      <div class="path"><div class="path-h tgt">Lift the core</div><div class="path-b">${perPlayer.filter(x=>x.add>0.15).slice(0,3).map(x=>`<b>${esc(x.name)}</b> ${x.cur.toFixed(1)}→${x.tgt.toFixed(1)} WA`).join('<br>')||'—'}<br><span class="ceil">each raising his game by the shown wins.</span></div></div>
+      <div class="path"><div class="path-h dev">Development path</div><div class="path-b">${devCovers?`If the returners hit their ceilings, the roster reaches <b>${ceilWins.toFixed(0)} wins</b> — <b>covers it</b> from within.`:`Full internal development gets to <b>${ceilWins.toFixed(0)} wins</b> — still <b>${(tgtWins-ceilWins).toFixed(1)} short</b>. You'd need outside help.`}</div></div>
+      <div class="path"><div class="path-h add">Portal path</div><div class="path-b">Roughly <b>${addsNeeded} starter-level add${addsNeeded===1?'':'s'}</b> (grade ~85, ~26 mpg) covers the gap — or ${addsNeeded*2} high-value role players.</div></div>
+    </div>`;
+}
+
+// Live: read the sliders, roll up to team wins, update the meter + verdict + player cells.
+function recompute(){
+  if(!ST) return;
+  const m=ST.m, goal=GOALS.find(g=>g.id===ST.goal);
+  const rosterWA=sum(ST.whatif);
+  const wins=m.teamWins + (rosterWA - m.rosterWA);          // WA ≈ wins, so a WA delta is a win delta
+  const tgtWins=projWins(goal.rtg), gap=tgtWins-wins, reach=gap<=0.4;
+  const moved=ST.whatif.some((w,i)=>Math.abs(w-m.rot[i].wa)>0.05);
+  $id('snapWins').textContent=wins.toFixed(0);
+  $id('snapWA').textContent=rosterWA.toFixed(1);
+  $id('goalTitle').innerHTML=`${goal.label} <span style="color:var(--text3);font-weight:600">· needs ~+${goal.rtg} rating (${tgtWins.toFixed(0)} wins)</span>`;
+  const v=$id('gapVerdict'); v.className='gap-verdict '+(reach?'reach':'short');
+  v.textContent = reach ? (moved?'Reaches it ✓':'On track') : `${gap.toFixed(1)} wins short`;
+  $id('meterFill').style.width=Math.max(3,Math.min(100,100*wins/tgtWins)).toFixed(1)+'%';
+  $id('nowW').textContent=(moved?'what-if ':'now ')+wins.toFixed(0)+' wins';
+  $id('goalW').textContent='goal '+tgtWins.toFixed(0)+' wins';
+  const maxWA=Math.max(...m.rot.map(x=>x.ceilWA),0.1);
+  ST.whatif.forEach((w,i)=>{
+    const c=$id('wa'+i); if(c){ c.textContent=(w>=0?'+':'')+w.toFixed(1);
+      c.className='wa '+(w>=0?'pos':'neg')+(Math.abs(w-m.rot[i].wa)>0.05?' moved':''); }
+    const bar=$id('bar'+i); if(bar) bar.style.width=Math.max(2,100*w/maxWA).toFixed(0)+'%';
+  });
+  $id('resetBtn').style.display=moved?'inline-block':'none';
 }
 boot();
 </script>
