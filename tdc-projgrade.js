@@ -211,6 +211,13 @@
   var _ARCH = {};
   function setArchBonus(m){ if(m && typeof m === 'object') _ARCH = m; }
   function _archOf(row){ var i = row && row.id; return (i != null && _ARCH['' + i] != null) ? _ARCH['' + i] : 0; }
+  // Archetype-bonus TAPER: the +bonus stays full strength for mid grades (where it does its
+  // real job — distinguishing role players by how unusual they are for their position), but
+  // shrinks as the anchor grade nears the ceiling, so it can NOT turn a very-good season into
+  // an all-time 99. Without it the +4 bonus pushed raw-95 seasons (Caleb Wilson, Tyler Tanner)
+  // to a clamped 99, logjamming the top. Keyed on the demonstrated/anchor grade; MUST mirror
+  // tdc-rating.js archTaper so historical (boxAdjust) and current (here) grades agree.
+  function _taperArch(anchor, arch){ return arch > 0 ? arch * Math.max(0.15, Math.min(1, 1 - (anchor - 86) / 14)) : arch; }
   // small-sample (games-played) regression — a NEGATIVE delta for players whose grade
   // rests on too few games (build_gp_regression.py), keyed by players.id.
   var _GPS = {};
@@ -414,7 +421,7 @@
       if(quals[i] == null) return { min: 0, grade: null, qual: null };
       var g = _gradeV5(quals[i], p.yr || p.class_year, mins[i]);
       if(p.id != null && _COUPLED[p.id] != null) g = _COUPLED[p.id];   // projected-line coupling (vers-free anchor)
-      g = Math.min(99, Math.round(g + _archOf(p) + _gpsOf(p)));        // + archetype bonus, − small-sample shrink; 99 ceiling (site scale)
+      g = Math.min(99, Math.round(g + _taperArch(g, _archOf(p)) + _gpsOf(p)));        // + tapered archetype bonus, − small-sample shrink; 99 ceiling (site scale)
       return { min: mins[i], qual: Math.round(quals[i] * 10) / 10, grade: g };
     });
   }
@@ -425,12 +432,13 @@
   // with the player/team pages without needing every team's full roster.
   function gradeSolo(row){
     if(!row) return null;
-    if(row.id != null && _COUPLED[row.id] != null) return Math.min(99, Math.round(_COUPLED[row.id] + _archOf(row) + _gpsOf(row)));   // coupled + archetype − small-sample; 99 ceiling
+    if(row.id != null && _COUPLED[row.id] != null){ var ca = _COUPLED[row.id]; return Math.min(99, Math.round(ca + _taperArch(ca, _archOf(row)) + _gpsOf(row))); }   // coupled + tapered archetype − small-sample; 99 ceiling
     var g = parseFloat(row.tdc_grade); if(!isFinite(g)) return null;
     var qual = g;   // no conference discount here — see gradeRoster; the level lives in the projection
     var trans = _clsTrans(row.yr || row.class_year);
     var devBpm = (trans && _DEV && _DEV.bpm_delta && _DEV.bpm_delta[trans]) ? (_DEV.bpm_delta[trans][_qtier(qual)] || 0) : 0;
-    return Math.min(99, Math.round(qual + devBpm * (_BR.b || 1.174) + _archOf(row) + _gpsOf(row)));
+    var anchor = qual + devBpm * (_BR.b || 1.174);
+    return Math.min(99, Math.round(anchor + _taperArch(anchor, _archOf(row)) + _gpsOf(row)));
   }
 
   // Transparent decomposition of the SAME number gradeSolo returns, so a page can
@@ -440,7 +448,6 @@
   function explain(row){
     if(!row) return null;
     var demo = parseFloat(row.tdc_grade); if(!isFinite(demo)) return null;
-    var arch = _archOf(row);
     var gps = _gpsOf(row);   // small-sample (games-played) regression, <= 0
     var coupled = (row.id != null && _COUPLED[row.id] != null);
     var anchor, roleDelta = 0, devDelta = 0;
@@ -453,6 +460,7 @@
       devDelta = devBpm * (_BR.b || 1.174);   // class-development curve
       anchor = demo + devDelta;
     }
+    var arch = _taperArch(anchor, _archOf(row));   // tapered near the ceiling — see _taperArch
     var r1 = function(x){ return Math.round(x * 10) / 10; };
     return { demonstrated: r1(demo), coupled: coupled, roleDelta: r1(roleDelta),
              devDelta: r1(devDelta), archetype: r1(arch), gpShrink: r1(gps), anchor: r1(anchor),

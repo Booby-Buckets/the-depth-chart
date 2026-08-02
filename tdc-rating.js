@@ -105,6 +105,11 @@ window.TDCRating = (function () {
   // Rating = projected grade, reshaped by how unusual/valuable the player is for his
   // archetype and how his custom stats + team context read.
   var CENTER = 0.30, K = 3.0, AMIN = -3, AMAX = 4;   // fallback; overridden by the file's calibration
+  // Archetype-bonus TAPER: full strength for mid grades, shrinks as the demonstrated grade
+  // nears the ceiling so a +bonus can't turn a very-good season into an all-time 99 (the +4
+  // bonus was pushing raw-95 seasons like Caleb Wilson to a clamped 99, logjamming the top).
+  // MUST mirror tdc-projgrade.js _taperArch so historical + current grades agree.
+  function archTaper(raw) { return clamp(1 - (raw - 86) / 14, 0.15, 1); }
   function setCalibration(c) { if (!c) return; if (c.center != null) CENTER = c.center; if (c.k != null) K = c.k;
     if (c.archMin != null) AMIN = c.archMin; if (c.archMax != null) AMAX = c.archMax;
     if (c.damp_k != null) DAMP_K = c.damp_k; if (c.damp_ref != null) DAMP_REF = c.damp_ref; if (c.damp_cap != null) DAMP_CAP = c.damp_cap; }
@@ -133,6 +138,7 @@ window.TDCRating = (function () {
     var comp = composite(player, line);
     var arch = clamp(K * (comp - CENTER), AMIN, AMAX);
     var base = _num(baseGrade);
+    if (arch > 0 && base != null) arch *= archTaper(base);   // shrink the bonus near the ceiling — see archTaper
     return { rating: base == null ? null : Math.round((base + arch) * 10) / 10,
              archBonus: Math.round(arch * 10) / 10, composite: Math.round(comp * 1000) / 1000,
              categories: categories(player, line) };
@@ -173,6 +179,7 @@ window.TDCRating = (function () {
   function boxAdjust(rawGrade, player, line, season) {
     var base = _num(rawGrade); if (base == null) return null;
     var b = boxBonus(player, line, season);
+    if (b > 0) b *= archTaper(base);   // shrink the bonus near the ceiling — see archTaper
     return { grade: Math.min(99, Math.round((base + b) * 10) / 10), bonus: Math.round(b * 10) / 10,
              composite: Math.round(boxComposite(player, line) * 1000) / 1000,
              center: seasonCenter(season), categories: boxCategories(player, line) };
