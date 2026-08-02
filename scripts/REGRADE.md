@@ -36,9 +36,21 @@ cd /Users/aidanlee/the-depth-chart/scripts
 export SUPABASE_SERVICE_KEY=sb_secret_...   # your service_role key (same one in load_supabase.py; never commit it)
 python3 grade_pull.py                 # refresh history cache (no writes)
 python3 grade_finalize.py --write     # train model, re-score all player_history
-python3 grade_sync_current.py --write # overwrite experienced players' tdc_grade w/ model grade
+python3 grade_sync_current.py --write --pure   # grade experienced players PURELY by the model (ignore your hand grades); freshmen keep their sheet grade
 python3 rank_rebalance.py --write     # era rebalance — MUST run last
 ```
+
+**`--pure` is the "ignore my rankings" switch.** Without it, each experienced
+player's grade is clipped to within `BAND=2` of your manual grade (a light
+"scouting bump" hug). With `--pure`, experienced players get the full model
+(data) grade and can move as far as the stats say; **freshmen always keep your
+sheet grade** either way. Use `--pure` when you want the site graded on data, not
+on your rankings.
+
+If the model is already trained (grade_model.json exists from a prior run) and you
+only want to re-apply pure grades, you can skip the first two lines and just run
+`grade_sync_current.py --write --pure` + `rank_rebalance.py --write` — that also
+avoids retraining the model on its own prior output.
 One at a time, in order. `--write` steps modify the DB (intended). The terminal
 uses the normal `sb_secret_` key fine — the browser-guard problem is Apps-Script-only.
 Your original hand grades are backed up in `data/manual_grades_backup.csv`.
