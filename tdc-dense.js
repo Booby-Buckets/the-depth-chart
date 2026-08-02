@@ -361,10 +361,12 @@
     var curP=fetch(SB+'players?team=eq.'+encodeURIComponent(short)
         +'&select=name,espn_id,yr,class_year,tdc_grade,ppg,hometown,depth_order&order=depth_order.asc&limit=18',{headers:HD})
       .then(function(r){return r.ok?r.json():[];});
-    Promise.all([curP, seasonRoster(full||short, prevSeason), loadContinuity()]).then(function(res){
+    var ratingsP=(window.TDC_RATINGS&&TDC_RATINGS.get)?TDC_RATINGS.get().catch(function(){return null;}):Promise.resolve(null);
+    Promise.all([curP, seasonRoster(full||short, prevSeason), loadContinuity(), ratingsP]).then(function(res){
       var current=(res[0]||[]).filter(function(p){return p.name && p.name!=='—';});
       var lastTop=res[1]||[];
       var contRec=(res[2]||{})[short]||null;
+      var ratings=res[3];
       var curById={}; current.forEach(function(p){ if(p.espn_id!=null) curById[p.espn_id]=p; });
       var ids=current.map(function(p){return p.espn_id;}).filter(function(x){return x!=null;});
       var lookup = ids.length
@@ -373,12 +375,26 @@
         : Promise.resolve([]);
       lookup.then(function(ph){
         var prevBy={}; (ph||[]).forEach(function(r){ if(r.espn_id!=null && prevBy[r.espn_id]==null) prevBy[r.espn_id]=r.team; });
-        renderOffseason(box, current, lastTop, curById, prevBy, contRec, full, short);
+        renderOffseason(box, current, lastTop, curById, prevBy, contRec, full, short, ratings);
       });
     }).catch(function(){ box.innerHTML='<div class="td-empty">Offseason data unavailable.</div>'; });
     return box;
   }
-  function renderOffseason(box, current, lastTop, curById, prevBy, contRec, full, short){
+  // projected finish within the team's own conference (context the columns don't show —
+  // the RK column is national). Normalize conf codes so short/full forms don't split a league.
+  function confOutlook(ratings, full, short){
+    if(!ratings || !ratings.teams) return '';
+    var me=null;
+    for(var i=0;i<ratings.teams.length;i++){ var t=ratings.teams[i]; if(t.full===full||t.team===short){ me=t; break; } }
+    if(!me || !me.conf) return '';
+    var mc=shortConf(me.conf);
+    var peers=ratings.teams.filter(function(t){ return t.conf && shortConf(t.conf)===mc; })
+      .sort(function(a,b){ return b.rating-a.rating; });
+    var rk=peers.indexOf(me)+1;
+    if(rk<1) return '';
+    return '<div class="tos-outlook">Projected <b>#'+rk+'</b> in the '+esc(mc)+'</div>';
+  }
+  function renderOffseason(box, current, lastTop, curById, prevBy, contRec, full, short, ratings){
     // INCOMING = current players who did NOT play for this team last season
     var incoming=[];
     current.forEach(function(p){
@@ -416,7 +432,7 @@
       ? '<div class="tos-cont"><div class="tos-cont-bar"><span style="width:'+Math.max(3,Math.min(100,pct))+'%"></span></div>'
         +'<div class="tos-cont-lbl"><b>'+pct+'%</b> of last year’s minutes return'+(retN!=null?(' · '+retN+' back'):'')+'</div></div>'
       : '';
-    box.innerHTML = cont
+    box.innerHTML = confOutlook(ratings, full, short) + cont
       +'<div class="tos-cols">'
       +'<div class="tos-col"><div class="tos-h in">Incoming</div>'+inRows+'</div>'
       +'<div class="tos-col"><div class="tos-h out">Departures</div>'+outRows+'</div>'
