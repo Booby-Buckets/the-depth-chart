@@ -15,6 +15,7 @@
   <script src="tdc-proj.js?v=coach17"></script>
   <script src="tdc-shotchart.js?v=1"></script>
   <script src="tdc-lineups.js?v=3"></script>
+  <script src="tdc-situational.js?v=1"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -226,6 +227,12 @@ function teamColor(row){
   if(!dark&&l>0.72) return accent; if(dark&&l<0.16) return accent; return c;
 }
 function dnaOf(r){ return (DNA&&DNA['2027']&&DNA['2027'].teams&&DNA['2027'].teams[r.full])||null; }
+function dna26Of(r){ return (DNA&&DNA['2026']&&DNA['2026'].teams&&DNA['2026'].teams[r.full])||null; }
+let _dftrDist=null, _oftrDist=null;
+function ftrDist(){ if(_dftrDist) return; const t=(DNA&&DNA['2026']&&DNA['2026'].teams)||{};
+  _dftrDist=Object.values(t).map(x=>x&&x.dFTr).filter(x=>x!=null).sort((a,b)=>a-b);
+  _oftrDist=Object.values(t).map(x=>x&&x.oFTr).filter(x=>x!=null).sort((a,b)=>a-b); }
+function pctlIn(arr,v){ if(!arr||!arr.length||v==null) return null; let n=0; for(const x of arr){ if(x<=v) n++; } return Math.round(100*n/arr.length); }
 function sgOf(r){ return SG[r.full]||SG[(r.full||'').toLowerCase()]||null; }
 function reportOf(r){
   if(!REPORTS||!REPORTS.teams) return null;
@@ -509,7 +516,26 @@ function defenseBreakdown(r){
     ? `Their defense ${weakest.lo} (${Math.round(weakest.p)}ᵗʰ percentile at ${weakest.nm}) — that's the seam to attack.`
     : `A stingy defense with no glaring hole; their best trait is ${strongest.nm} (${Math.round(strongest.p)}ᵗʰ). Move them side-to-side and take the first good look.`;
   return `<div class="sec-h">Their defense — where to attack <span class="hint">2026-27 projected · percentile vs D-I</span></div>
-    <div class="card"><div class="dfbars">${bars}</div><div class="obread"><b>Attack plan:</b> ${attack}${rimHtml}</div></div>`;
+    <div class="card"><div class="dfbars">${bars}</div><div class="obread"><b>Attack plan:</b> ${attack}${rimHtml}</div></div>
+    ${foulProfile(r)}`;
+}
+
+// Foul & free-throw profile — how much this defense sends opponents to the line (dFTr),
+// how much they get there themselves (oFTr), and who's foul-prone in the rotation.
+function foulProfile(r){
+  ftrDist(); const d26=dna26Of(r); if(!d26||d26.dFTr==null) return '';
+  const dp=pctlIn(_dftrDist,d26.dFTr);           // high = fouls a lot / soft whistle magnet
+  const op=(d26.oFTr!=null)?pctlIn(_oftrDist,d26.oFTr):null;
+  const rows=[];
+  rows.push(`<div class="dfrow"><div class="dfl">put opponents on the line</div><div class="dfbar"><div class="dff" style="width:${dp}%;background:${dp>=55?'var(--green)':'var(--red)'}"></div></div><div class="dfp">${dp}ᵖᶜ</div></div>`);
+  if(op!=null) rows.push(`<div class="dfrow"><div class="dfl">get to the line themselves</div><div class="dfbar"><div class="dff" style="width:${op}%;background:${op>=55?'var(--green)':'var(--red)'}"></div></div><div class="dfp">${op}ᵖᶜ</div></div>`);
+  const read = dp>=60
+    ? `This is a <b>foul-prone defense</b> (${dp}ᵗʰ percentile in free throws allowed) — attack the rim early, draw contact, and get them into the bonus. Their bigs can be neutralized with foul trouble.`
+    : dp<=35
+    ? `A <b>disciplined, low-foul defense</b> (${dp}ᵗʰ percentile) — they won't bail you out at the line, so you'll have to earn baskets in the halfcourt. Don't settle for tough twos hoping for a whistle.`
+    : `An average-fouling defense (${dp}ᵗʰ percentile) — free throws will be there in stretches but aren't a reliable pressure valve; take the rim attacks the offense gives you.`;
+  return `<div class="sec-h" style="margin-top:22px">Foul &amp; free-throw profile <span class="hint">2025-26 observed · FTA per FGA vs D-I</span></div>
+    <div class="card"><div class="dfbars">${rows.join('')}</div><div class="obread"><b>At the line:</b> ${read}</div></div>`;
 }
 
 function render(){
@@ -550,6 +576,7 @@ function render(){
     ${me?matchupMini(me,opp):''}
     ${plan||'<div class="card"><div class="muted">Team DNA isn\'t on file for this opponent yet, so the auto game plan is unavailable.</div></div>'}
     ${profile}
+    <div id="scoutSituational"></div>
     <div class="sec-h">Personnel — projected line &amp; how to attack</div>
     <div id="scoutScorers"><div class="muted" style="padding:16px 4px">Projecting their rotation &amp; reading their tendencies…</div></div>
     ${offenseBreakdown(r)}
@@ -561,6 +588,7 @@ function render(){
     <div id="scoutLineupHost"></div>
   </div>`;
   loadPersonnel(r);
+  if(window.TDC_SITUATIONAL) TDC_SITUATIONAL.section(r, 2026).then(function(h){ var sh=document.getElementById('scoutSituational'); if(sh&&h){ sh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(sh); } });
   if(window.TDC_LINEUPS) TDC_LINEUPS.section(r.full, 2026).then(function(h){ var lh=document.getElementById('scoutLineupHost'); if(lh&&h){ lh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(lh); } });
   if(me) loadKeyMatchups(poolRow(me.key), r);
   if(sg&&sg.off) loadShotChart(r);
