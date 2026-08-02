@@ -65,3 +65,40 @@ $$;
 
 -- run it now to fix the current (post-sync) state:
 select backfill_espn_ids() as players_relinked;
+
+
+-- ============================================================
+-- Backfill players box stats from player_history (runs AFTER espn_id)
+-- ------------------------------------------------------------
+-- A statless roster row (returner whose sheet line wasn't autofilled)
+-- gets its most-recent real season line from player_history, matched
+-- by the now-restored espn_id. Only fills NULLs — never clobbers stats
+-- the sheet already provided. Freshmen (no espn_id / no history) stay
+-- blank, which is correct.
+-- ============================================================
+
+create or replace function backfill_player_stats() returns integer language plpgsql as $$
+declare n integer;
+begin
+  with recent as (
+    select distinct on (espn_id)
+           espn_id, ppg, rpg, apg, mpg, fg_pct, tp_pct, ft_pct,
+           stl, blk, tovs, oreb, dreb, gp, fgm, fga, tpm, tpa, ftm, fta
+    from player_history
+    where espn_id is not null
+    order by espn_id, season_year desc          -- most-recent season = last demonstrated line
+  )
+  update players p
+     set ppg=r.ppg, rpg=r.rpg, apg=r.apg, mpg=r.mpg,
+         fg_pct=r.fg_pct, tp_pct=r.tp_pct, ft_pct=r.ft_pct,
+         stl=r.stl, blk=r.blk, tovs=r.tovs, oreb=r.oreb, dreb=r.dreb,
+         gp=r.gp, fgm=r.fgm, fga=r.fga, tpm=r.tpm, tpa=r.tpa, ftm=r.ftm, fta=r.fta
+    from recent r
+   where p.espn_id = r.espn_id
+     and p.ppg is null;                          -- only statless rows
+  get diagnostics n = row_count;
+  return n;   -- number of players given a stat line
+end;
+$$;
+
+select backfill_player_stats() as players_statfilled;

@@ -278,6 +278,9 @@ function syncToSupabase() {
   // never guesses). Create the function once via scripts/backfill_espn_ids.sql.
   try { sbPost('/rest/v1/rpc/backfill_espn_ids', {}); Logger.log('ESPN id backfill invoked.'); }
   catch (e) { Logger.log('ESPN id backfill skipped (create it via backfill_espn_ids.sql): ' + e.message); }
+  // Fill statless returners' box lines from player_history (by the restored espn_id).
+  try { sbPost('/rest/v1/rpc/backfill_player_stats', {}); Logger.log('Player-stat backfill invoked.'); }
+  catch (e) { Logger.log('Player-stat backfill skipped (create it via backfill_espn_ids.sql): ' + e.message); }
 
   // ── Recent Additions tab ───────────────────────────────────
   syncRecentAdditions(ss);
