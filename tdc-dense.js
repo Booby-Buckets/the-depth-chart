@@ -337,6 +337,92 @@
     }).catch(function(){});
     return box;
   }
+  /* ---- preseason "Offseason report" (fills the left panel before any games) ---- */
+  var _contCache=null;
+  function loadContinuity(){
+    if(_contCache) return Promise.resolve(_contCache);
+    return fetch('data/continuity.json').then(function(r){return r.ok?r.json():{};})
+      .then(function(j){ _contCache=j||{}; return _contCache; }).catch(function(){ _contCache={}; return {}; });
+  }
+  function shortSch(t){ if(!t) return ''; if(window.tdcShortSchool){ try{ var s=window.tdcShortSchool(t); if(s) return s; }catch(e){} } return ''+t; }
+  function sameTeam(a, short, full){ if(a==null) return false; a=(''+a).toLowerCase().trim();
+    return a===(''+short).toLowerCase().trim() || a===(''+full).toLowerCase().trim()
+        || a.indexOf((''+short).toLowerCase().trim()+' ')===0; }
+  function ovrGrade(p){ return (window.TDCProjGrade&&TDCProjGrade.ovr)?(TDCProjGrade.ovr(p)||p.tdc_grade||null):(p.tdc_grade||null); }
+  function esc(s){ return (''+(s==null?'':s)).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+
+  // A projected team has no game log, but it DOES have a story: who came, who left, how
+  // much production returns. current roster (players) vs last season's roster (box_scores),
+  // classified by each current player's PRIOR season team (player_history).
+  function dropOffseason(short, full){
+    var box=document.createElement('div'); box.className='td-offseason';
+    box.innerHTML='<div class="td-loading">Loading offseason…</div>';
+    var prevSeason=curSeason()-1;
+    var curP=fetch(SB+'players?team=eq.'+encodeURIComponent(short)
+        +'&select=name,espn_id,yr,class_year,tdc_grade,ppg,hometown,depth_order&order=depth_order.asc&limit=18',{headers:HD})
+      .then(function(r){return r.ok?r.json():[];});
+    Promise.all([curP, seasonRoster(full||short, prevSeason), loadContinuity()]).then(function(res){
+      var current=(res[0]||[]).filter(function(p){return p.name && p.name!=='—';});
+      var lastTop=res[1]||[];
+      var contRec=(res[2]||{})[short]||null;
+      var curById={}; current.forEach(function(p){ if(p.espn_id!=null) curById[p.espn_id]=p; });
+      var ids=current.map(function(p){return p.espn_id;}).filter(function(x){return x!=null;});
+      var lookup = ids.length
+        ? fetch(SB+'player_history?season_year=eq.'+prevSeason+'&espn_id=in.('+ids.join(',')
+            +')&select=espn_id,team',{headers:HD}).then(function(r){return r.ok?r.json():[];})
+        : Promise.resolve([]);
+      lookup.then(function(ph){
+        var prevBy={}; (ph||[]).forEach(function(r){ if(r.espn_id!=null && prevBy[r.espn_id]==null) prevBy[r.espn_id]=r.team; });
+        renderOffseason(box, current, lastTop, curById, prevBy, contRec, full, short);
+      });
+    }).catch(function(){ box.innerHTML='<div class="td-empty">Offseason data unavailable.</div>'; });
+    return box;
+  }
+  function renderOffseason(box, current, lastTop, curById, prevBy, contRec, full, short){
+    // INCOMING = current players who did NOT play for this team last season
+    var incoming=[];
+    current.forEach(function(p){
+      var prev=(p.espn_id!=null)?prevBy[p.espn_id]:null;
+      if(prev!=null && sameTeam(prev, short, full)) return;   // played here last season → returner
+      var from=null;
+      if(prev!=null){ from=shortSch(prev); }                  // played D1 elsewhere last season → transfer
+      else {
+        // no prior-SEASON row: a transfer who redshirted/sat out still records his old school
+        // in hometown as "School (YY-YY)" (true freshmen / intl don't), so fall back to that.
+        var m=(''+(p.hometown||'')).trim().match(/^(.+?)\s*\(\d{2}\s*-\s*\d{2}\)\s*$/);
+        if(m) from=m[1].trim();
+      }
+      incoming.push({ name:p.name, grade:ovrGrade(p), from:from });
+    });
+    incoming.sort(function(a,b){ return (b.grade||0)-(a.grade||0); });
+    incoming=incoming.slice(0,6);
+    // DEPARTURES = last season's rotation (top minutes) not on the current roster
+    var departures=lastTop.filter(function(p){ return !(p.espn_id!=null && curById[p.espn_id]); })
+      .sort(function(a,b){ return (b.tdc_grade||0)-(a.tdc_grade||0); }).slice(0,5);
+    // returning production
+    var pct = contRec ? Math.round(contRec.continuity) : null;
+    var retN = contRec ? contRec.returners : null;
+    var g=function(v){ return (v==null||v==='')?'—':v; };
+    var inRows = incoming.length ? incoming.map(function(p){
+        return '<div class="tos-p"><span class="tos-name">'+esc(p.name)+'</span>'
+          +'<span class="tos-from">'+(p.from?esc(p.from):'Freshman')+'</span>'
+          +'<span class="tos-g">'+g(p.grade)+'</span></div>';
+      }).join('') : '<div class="tos-none">No newcomers</div>';
+    var outRows = departures.length ? departures.map(function(p){
+        return '<div class="tos-p"><span class="tos-name">'+esc(p.name)+'</span>'
+          +'<span class="tos-g">'+g(p.tdc_grade)+'</span></div>';
+      }).join('') : '<div class="tos-none">No key departures</div>';
+    var cont = (pct!=null)
+      ? '<div class="tos-cont"><div class="tos-cont-bar"><span style="width:'+Math.max(3,Math.min(100,pct))+'%"></span></div>'
+        +'<div class="tos-cont-lbl"><b>'+pct+'%</b> of last year’s minutes return'+(retN!=null?(' · '+retN+' back'):'')+'</div></div>'
+      : '';
+    box.innerHTML = cont
+      +'<div class="tos-cols">'
+      +'<div class="tos-col"><div class="tos-h in">Incoming</div>'+inRows+'</div>'
+      +'<div class="tos-col"><div class="tos-h out">Departures</div>'+outRows+'</div>'
+      +'</div>';
+  }
+
   function buildDrop(row){
     var a=row.querySelector('.tr-team-name'); var name=a?a.textContent.trim():'';
     var href=a?a.getAttribute('href'):'#';
@@ -347,8 +433,16 @@
     var d=document.createElement('div'); d.className='tr-drop';
     var inner=document.createElement('div'); inner.className='tr-drop-inner';
     var chart=document.createElement('div'); chart.className='td-chart';
-    chart.innerHTML='<div class="td-title">'+name+' · NET through the season <span class="td-hint">— hover / tap a game</span></div>';
-    chart.appendChild(dropChart(glog, prior));
+    // No game log yet (a projected season before tip-off) → show the offseason report
+    // instead of an empty chart. Once real games exist, the NET trajectory takes over.
+    var preseason=(cs>=2027)&&(!glog||glog.length<2);
+    if(preseason){
+      chart.innerHTML='<div class="td-title">'+name+' · Offseason report</div>';
+      chart.appendChild(dropOffseason(short, name));
+    } else {
+      chart.innerHTML='<div class="td-title">'+name+' · NET through the season <span class="td-hint">— hover / tap a game</span></div>';
+      chart.appendChild(dropChart(glog, prior));
+    }
     var link=document.createElement('a'); link.className='td-link'; link.href=href; link.textContent='Open full page →';
     inner.appendChild(chart);
     inner.appendChild(dropRoster(short, cs, name));
