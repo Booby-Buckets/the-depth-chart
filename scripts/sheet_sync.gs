@@ -455,17 +455,19 @@ function insertPlayers(team) {
   // NOTE: espn_id is also intentionally NOT in the payload — same reason: the upsert
   // preserves the backfilled id (headshots + grade joins) across syncs.
 
-  // Bucket the roster: freshmen carry a grade, experienced don't, '—' slots plain-insert.
-  const froshRows = [], expRows = [], slotRows = [];
+  // Bucket the roster: freshmen carry a grade, experienced don't. '—' empty-slot
+  // placeholders are SKIPPED — they'd collide on the full (name,team) unique key and
+  // they're excluded from rankings anyway.
+  const froshRows = [], expRows = [];
   team.players.forEach(function (p, i) {
+    const nm = p.name || '—';
+    if (!nm || nm === '—' || nm === '-') return;   // skip empty slots
     const row = base(p, i);
-    const real = row.name && row.name !== '—' && row.name !== '-';
-    if (!real) { slotRows.push(row); return; }
     if (_isFreshman(p)) { row.tdc_grade = p.tdc_grade || null; froshRows.push(row); }
     else expRows.push(row);   // no tdc_grade key → DB data grade preserved
   });
 
-  const s = (froshRows[0] || expRows[0] || slotRows[0]) || {};
+  const s = (froshRows[0] || expRows[0]) || {};
   Logger.log('    Sample: ' + s.name + ' pos=' + s.position +
     ' ppg=' + s.ppg + ' grade=' + (('tdc_grade' in s) ? s.tdc_grade : '(kept DB data grade)'));
 
@@ -477,9 +479,6 @@ function insertPlayers(team) {
   }
   for (let i = 0; i < expRows.length; i += BATCH) {
     sbPost('/rest/v1/players?on_conflict=name,team', expRows.slice(i, i + BATCH));
-  }
-  for (let i = 0; i < slotRows.length; i += BATCH) {
-    sbPost('/rest/v1/players', slotRows.slice(i, i + BATCH));
   }
 }
 
