@@ -114,6 +114,8 @@
     .petal-name{font-size:13px;font-weight:800;letter-spacing:.01em;text-align:center;}
     .petal-host{color:var(--text2);width:100%;}
     .petal-foot{margin-top:12px;font-size:11px;color:var(--text3);text-align:center;line-height:1.5;}
+    .statless-note{margin:12px 0 4px;padding:10px 14px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;background:rgba(120,140,200,.06);font-size:12px;color:var(--text2);line-height:1.5;}
+    .statless-note b{color:var(--text);font-weight:700;}
     /* PROJECTED OUTLOOK */
     .ol-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0 26px;}
     .ol-card{border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
@@ -1311,6 +1313,12 @@ function renderPlayers(){
       <div class="ol-card right"><div class="ol-badge ${ol2.cls}">${ol2.label}</div><div class="ol-sub">${conf2||'—'} · vs All-American ${GROUP_LBL[g2]}</div></div>
     </div>`:''}
 
+    <div class="compare-section-head">${statLabel}</div>
+    ${statRow('PPG',p1.ppg,p2.ppg)}${statRow('RPG',p1.rpg,p2.rpg)}${statRow('APG',p1.apg,p2.apg)}${statRow('MPG',p1.mpg,p2.mpg)}
+    ${statRow('FG%',p1.fg_pct,p2.fg_pct)}${statRow('3P%',p1.tp_pct,p2.tp_pct)}${statRow('FT%',p1.ft_pct,p2.ft_pct)}
+    ${statRow('STL',p1.stl,p2.stl)}${statRow('BLK',p1.blk,p2.blk)}${statRow('TO',p1.tovs,p2.tovs,false)}${statRow('GP',p1.gp,p2.gp)}
+    ${_statlessNote(p1,p2)}
+
     <div class="chart-card full" style="margin-bottom:20px;"><div class="chart-title">Skill Profile · National Percentiles</div>
       <div class="petal-grid">
         <div class="petal-cell"><div class="petal-name" style="color:${c1}">${p1.name}</div><div id="petal1" class="petal-host"></div></div>
@@ -1431,11 +1439,6 @@ function renderPlayers(){
     ${statRow('TS%',a1.ts,a2.ts)}${statRow('eFG%',a1.efg,a2.efg)}${statRow('AST/TO',a1.astto,a2.astto)}
     ${statRow('PTS/40',a1.p40,a2.p40)}${statRow('REB/40',a1.r40,a2.r40)}
     `}
-
-    <div class="compare-section-head">${statLabel}</div>
-    ${statRow('PPG',p1.ppg,p2.ppg)}${statRow('RPG',p1.rpg,p2.rpg)}${statRow('APG',p1.apg,p2.apg)}
-    ${statRow('FG%',p1.fg_pct,p2.fg_pct)}${statRow('3P%',p1.tp_pct,p2.tp_pct)}${statRow('FT%',p1.ft_pct,p2.ft_pct)}
-    ${statRow('STL',p1.stl,p2.stl)}${statRow('BLK',p1.blk,p2.blk)}${statRow('TO',p1.tovs,p2.tovs,false)}
 
     <div class="compare-section-head" style="margin-top:26px;">Most Similar Players · Since 2006</div>
     <div class="sim-grid">
@@ -1782,6 +1785,15 @@ function distinctPair(c1,c2){
   if(_cDist(c1,c2)>=70) return c2;
   const teal=readableCol(cssVar('--teal')||'#3f8d7d');
   return _cDist(c1,teal)>=70 ? teal : readableCol('#E6D5A8');
+}
+// Does this player have a real box-score line? (roster newcomers/freshmen have null stats)
+function _hasStats(p){ return !!p && ['ppg','rpg','apg','mpg'].some(k=>{ const v=parseFloat(p[k]); return !isNaN(v); }); }
+// Honest note when a player has no season stats, so the blank percentile charts make sense.
+function _statlessNote(p1,p2){
+  const miss=[p1,p2].filter(p=>!_hasStats(p)).map(p=>p&&p.name).filter(Boolean);
+  if(!miss.length) return '';
+  const many=miss.length>1;
+  return `<div class="statless-note">No season box stats on file for <b>${miss.join('</b> & <b>')}</b> — an incoming freshman/newcomer, or the roster line hasn't been filled yet. The percentile charts below read blank for ${many?'them':'that player'} until stats exist.</div>`;
 }
 function statRow(label,a,b,higher=true){
   const av=parseFloat(a),bv=parseFloat(b),hasA=!isNaN(av),hasB=!isNaN(bv);
