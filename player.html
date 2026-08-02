@@ -2906,19 +2906,21 @@ function _seasonRanks(year, g, posRaw, pillars, eN, eP, ePL){
         cb(isNaN(n)?null:n);
       }).catch(function(){ cb(null); });
   }
-  // rows sharing this exact grade -> how many out-score us on pillars
-  fetch(SB+'/rest/v1/player_history?'+qs+'&tdc_grade=eq.'+gi+'&select=pos,position&limit=2000',
+  // rows sharing this exact grade -> how many out-score us on pillars (tie-break).
+  // player_history has a `position` column (coarse G/F/C), NOT `pos` — querying the missing
+  // `pos` column errored the whole fetch, which is why the position rank was blank.
+  fetch(SB+'/rest/v1/player_history?'+qs+'&tdc_grade=eq.'+gi+'&select=position,grade_pillars&limit=2000',
     {headers:H}).then(function(r){ return r.ok?r.json():[]; }).then(function(same){
       function tie(filterPos){
         if(mine==null) return 0;
         var c=0; for(var i=0;i<same.length;i++){
           var s=_pillarScore(same[i].grade_pillars); if(s==null||s<=mine) continue;
-          if(filterPos){ var pp=(''+(same[i].pos||'')).trim().toUpperCase().charAt(0); if(pp!==pos) continue; }
+          if(filterPos){ var pp=(''+(same[i].position||'')).trim().toUpperCase().charAt(0); if(pp!==pos) continue; }
           c++; }
         return c;
       }
       count('&tdc_grade=gt.'+gi,function(n){ if(n!=null&&eN) eN.textContent='#'+(n+tie(false)+1).toLocaleString(); });
-      if(pos) count('&tdc_grade=gt.'+gi+'&pos=eq.'+pos,function(n){ if(n!=null&&eP) eP.textContent='#'+(n+tie(true)+1).toLocaleString(); });
+      if(pos) count('&tdc_grade=gt.'+gi+'&position=eq.'+pos,function(n){ if(n!=null&&eP) eP.textContent='#'+(n+tie(true)+1).toLocaleString(); });
     }).catch(function(){
       count('&tdc_grade=gt.'+gi,function(n){ if(n!=null&&eN) eN.textContent='#'+(n+1).toLocaleString(); });
     });
@@ -2971,7 +2973,9 @@ function _updateHeroGridForSeason(val){
   } else if(!isNaN(g) && row){
     // Rank within THAT SEASON. (This used to compare a past season's grade to
     // the CURRENT player pool, so any old elite season came back #1.)
-    _seasonRanks(row.season_year, g, (row.position||player.position||''), (row._pillars||null), eN, eP, ePL);
+    // rank by the RAW stored grade — the pool is raw tdc_grade, so comparing the box-adjusted
+    // display grade (which the archetype bonus lifts above raw) over-ranked the player (#2).
+    _seasonRanks(row.season_year, parseFloat(row.tdc_grade), (row.position||player.position||''), (row._pillars||null), eN, eP, ePL);
   }
 }
 
