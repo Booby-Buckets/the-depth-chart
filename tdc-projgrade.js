@@ -482,7 +482,7 @@
 
   // Role-aware grade coupling v2 (movers only; resolves before the roster fetch).
   try{
-    fetch('scripts/data/player_coupled_grades.json?v=9')
+    fetch('scripts/data/player_coupled_grades.json?v=10')
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ if(j && j.grades) setCoupled(j.grades); })
       .catch(function(){});
@@ -491,7 +491,7 @@
   // Archetype bonus (calibrated expectation-relative + custom composite → grade points,
   // keyed by players.id). This is what makes the grade equal the TDC Rating.
   try{
-    fetch('scripts/data/arch_bonus.json?v=3')
+    fetch('scripts/data/arch_bonus.json?v=4')
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ if(j && j.bonuses) setArchBonus(j.bonuses); })
       .catch(function(){});
@@ -499,7 +499,7 @@
 
   // Small-sample (games-played) regression (negative, keyed by players.id).
   try{
-    fetch('scripts/data/gp_shrink.json?v=1')
+    fetch('scripts/data/gp_shrink.json?v=2')
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ if(j && j.deltas) setGpShrink(j.deltas); })
       .catch(function(){});
