@@ -417,11 +417,20 @@ function insertLosses(team) {
 // PLAYERS INSERT
 // ============================================================
 
+// A freshman / redshirt-freshman has no prior-year college line, so the model can't
+// grade him — his SHEET grade is the only signal. Everyone else has last season's
+// stats, so the DATA grade (written by the re-grade pipeline) should win.
+function _isFreshman(p) { return /^r?-?fr\.?/i.test(String(p.yr || '').trim()); }
+
 function insertPlayers(team) {
   if (!team.players.length) return;
 
   var now = new Date().toISOString();   // > SYNC_START, so these survive the cleanup
-  const rows = team.players.map((p, i) => ({
+  // Base row WITHOUT tdc_grade. We add tdc_grade ONLY for freshmen below — so the
+  // upsert never overwrites an experienced player's DATA grade with your sheet
+  // ranking. (A merge-duplicates upsert only updates the columns present in the
+  // payload; omitting tdc_grade leaves the DB value intact.)
+  const base = (p, i) => ({
     team:             team.name,
     name:             p.name || '—',
     position:         p.position,
@@ -432,7 +441,6 @@ function insertPlayers(team) {
     starter:          p.starter,
     is_addition:      p.is_addition,
     depth_order:      i + 1,
-    tdc_grade:        p.tdc_grade  || null,
     hometown:         p.from_school || null,
     is_international: p.is_international || false,
     is_injured:       p.is_injured       || false,
@@ -443,29 +451,35 @@ function insertPlayers(team) {
     ftm:    p.ftm,    fta:    p.fta,    ft_pct: p.ft_pct,
     oreb:   p.oreb,   dreb:   p.dreb,
     stl:    p.stl,    blk:    p.blk,    tovs:   p.tovs,   gp:     p.gp,
-  }));
-  // NOTE: espn_id is intentionally NOT in the payload — a merge-duplicates upsert
-  // only updates columns it's given, so a player's backfilled espn_id (and thus
-  // headshots + grade joins) is PRESERVED across syncs.
+  });
+  // NOTE: espn_id is also intentionally NOT in the payload — same reason: the upsert
+  // preserves the backfilled id (headshots + grade joins) across syncs.
 
-  // Log a sample player for sanity checking
-  const s = rows[0];
-  Logger.log('    Sample: ' + s.name + ' pos=' + s.position + (s.position2 ? '/' + s.position2 : '') +
-    ' ppg=' + s.ppg + ' rpg=' + s.rpg + ' fga=' + s.fga + ' grade=' + s.tdc_grade);
+  // Bucket the roster: freshmen carry a grade, experienced don't, '—' slots plain-insert.
+  const froshRows = [], expRows = [], slotRows = [];
+  team.players.forEach(function (p, i) {
+    const row = base(p, i);
+    const real = row.name && row.name !== '—' && row.name !== '-';
+    if (!real) { slotRows.push(row); return; }
+    if (_isFreshman(p)) { row.tdc_grade = p.tdc_grade || null; froshRows.push(row); }
+    else expRows.push(row);   // no tdc_grade key → DB data grade preserved
+  });
 
-  // Real players UPSERT on (name,team) → same id kept. Empty-slot placeholders
-  // ('—') aren't in the unique index, so they can't use ON CONFLICT — plain-insert
-  // them (they churn ids harmlessly; no grade file references them).
-  const isReal = function (r) { return r.name && r.name !== '—' && r.name !== '-'; };
-  const real  = rows.filter(isReal);
-  const slots = rows.filter(function (r) { return !isReal(r); });
+  const s = (froshRows[0] || expRows[0] || slotRows[0]) || {};
+  Logger.log('    Sample: ' + s.name + ' pos=' + s.position +
+    ' ppg=' + s.ppg + ' grade=' + (('tdc_grade' in s) ? s.tdc_grade : '(kept DB data grade)'));
 
   const BATCH = 50;
-  for (let i = 0; i < real.length; i += BATCH) {
-    sbPost('/rest/v1/players?on_conflict=name,team', real.slice(i, i + BATCH));
+  // Freshmen and experienced go in SEPARATE upsert batches so a batch's column set is
+  // uniform — a mixed batch would null out tdc_grade for the experienced rows.
+  for (let i = 0; i < froshRows.length; i += BATCH) {
+    sbPost('/rest/v1/players?on_conflict=name,team', froshRows.slice(i, i + BATCH));
   }
-  for (let i = 0; i < slots.length; i += BATCH) {
-    sbPost('/rest/v1/players', slots.slice(i, i + BATCH));
+  for (let i = 0; i < expRows.length; i += BATCH) {
+    sbPost('/rest/v1/players?on_conflict=name,team', expRows.slice(i, i + BATCH));
+  }
+  for (let i = 0; i < slotRows.length; i += BATCH) {
+    sbPost('/rest/v1/players', slotRows.slice(i, i + BATCH));
   }
 }
 

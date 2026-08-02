@@ -18,6 +18,14 @@ keep the **same `players.id`** and `espn_id` — the data-grade files stay valid
 and headshots don't break. It also auto-backfills `espn_id` + stats for new
 players and removes players who left.
 
+**The sync does NOT overwrite experienced players' grades.** It only writes
+`tdc_grade` for **freshmen / redshirt-freshmen** (who have no last-year data, so
+your sheet grade is the only signal). For everyone with experience it leaves the
+DB's data grade intact — so syncing can't re-inject your sheet rankings over the
+model grades. (Deeper: even the re-grade in step 2 keeps each graded player within
+`BAND=2` points of your manual grade by design — see `grade_sync_current.py`. If
+you want the model to move *further* off your grades, raise `BAND`/`DEADBAND`.)
+
 Watch the log for `Departed-player cleanup ran (synced N players)`. If you see
 `Cleanup SKIPPED — only N players synced`, the upserts failed (almost always the
 unique index is missing — see setup) — fix that before trusting the run.
