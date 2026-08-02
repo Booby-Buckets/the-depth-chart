@@ -863,14 +863,18 @@ function petalChart(el, axes, values, baseColor, name){
 }
 
 // ── radar / bar chart builders ──
-function radarChart(canvasId, labels, dsets){
+function radarChart(canvasId, labels, dsets, opts){
   const ctx=document.getElementById(canvasId); if(!ctx) return;
   const grid=cssVar('--border2'), tick=cssVar('--text3');
+  // auto-scale so data that exceeds 100 (e.g. vs-AA ratios up to 135) still fits
+  let mx=(opts&&opts.max)||0;
+  if(!mx){ let hi=0; (dsets||[]).forEach(d=>(d.data||[]).forEach(v=>{ if(+v>hi)hi=+v; })); mx=hi>100?Math.ceil(hi/20)*20:100; }
   const c=new Chart(ctx,{type:'radar',data:{labels,datasets:dsets},options:{
     responsive:true,maintainAspectRatio:false,
+    layout:{padding:{top:22,right:30,bottom:22,left:30}},   // room for point labels so "Rebounding" etc. don't clip
     plugins:{legend:{display:false},tooltip:{callbacks:{label:(i)=>i.dataset.label+': '+i.formattedValue+'th'}}},
-    scales:{r:{min:0,max:100,ticks:{stepSize:25,display:false},grid:{color:grid},angleLines:{color:grid},
-      pointLabels:{color:tick,font:{size:11,weight:'600'}}}}
+    scales:{r:{min:0,max:mx,ticks:{stepSize:25,display:false},grid:{color:grid},angleLines:{color:grid},
+      pointLabels:{color:tick,font:{size:11,weight:'600'},padding:6}}}
   }}); charts.push(c);
 }
 function barChart(canvasId, labels, dsets){
@@ -889,12 +893,13 @@ function advRadarChart(canvasId, labels, dsets, raws, rawFmt){
   const grid=cssVar('--border2'), tick=cssVar('--text3');
   const c=new Chart(ctx,{type:'radar',data:{labels,datasets:dsets},options:{
     responsive:true,maintainAspectRatio:false,
+    layout:{padding:{top:22,right:30,bottom:22,left:30}},
     plugins:{legend:{display:false},tooltip:{callbacks:{label:(i)=>{
       const rv=raws&&raws[i.datasetIndex]?raws[i.datasetIndex][i.dataIndex]:null;
       return i.dataset.label+': '+(rv==null||isNaN(rv)?'—':rawFmt(rv,i.dataIndex));
     }}}},
     scales:{r:{min:0,max:100,ticks:{stepSize:25,display:false},grid:{color:grid},angleLines:{color:grid},
-      pointLabels:{color:tick,font:{size:10,weight:'600'}}}}
+      pointLabels:{color:tick,font:{size:10,weight:'600'},padding:6}}}
   }}); charts.push(c);
 }
 // Grouped bars on a raw (auto) scale, not the 0-100 percentile scale.
