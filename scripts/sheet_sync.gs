@@ -230,15 +230,20 @@ function debugTeam() {
   }
 }
 
-/** Full sync — wipe players/losses then re-insert everything */
+/** Full sync — UPSERT players (ids preserved) + rebuild losses, then backfill
+ *  espn_id/stats and remove departed players. */
 function syncToSupabase() {
   Logger.log('=== TDC SYNC START ===');
 
-  // ── Wipe existing data ──────────────────────────────────────
-  Logger.log('Wiping players and losses...');
+  // ── Wipe losses (fully rebuilt each run). PLAYERS are UPSERTed on (name,team),
+  // NOT wiped, so a returning player keeps the SAME id across syncs — which keeps
+  // the id-keyed grade files valid. Departed players are removed by a targeted
+  // cleanup after the loop (see below). SYNC_START marks the pre-upsert instant so
+  // that cleanup only deletes rows nothing touched this run.
+  Logger.log('Wiping losses...');
   sbDelete('/rest/v1/losses?team=not.is.null');
-  sbDelete('/rest/v1/players?name=not.is.null');
-  Logger.log('Wipe complete.');
+  var SYNC_START = new Date().toISOString();
+  Logger.log('Losses wiped. Upsert cutoff: ' + SYNC_START);
 
   // ── Rankings ───────────────────────────────────────────────
   const { rankMap, prevRankMap, tierMap } = readRankings();
@@ -271,11 +276,24 @@ function syncToSupabase() {
     }
   }
 
+  // ── Remove departed players ─────────────────────────────────
+  // Anyone whose (name,team) wasn't upserted this run still has an OLD updated_at.
+  // Delete only those. Guarded: if far fewer players synced than expected (a tab
+  // failed to parse), SKIP the delete so a partial run can't wipe a conference.
+  var MIN_EXPECTED = 800;
+  if (totalPlayers >= MIN_EXPECTED) {
+    sbDelete('/rest/v1/players?updated_at=lt.' + encodeURIComponent(SYNC_START));
+    Logger.log('Departed-player cleanup ran (synced ' + totalPlayers + ' players).');
+  } else {
+    Logger.log('⚠️ Cleanup SKIPPED — only ' + totalPlayers + ' players synced (< ' +
+      MIN_EXPECTED + '). Departed players left in place to avoid a partial-sync wipe.');
+  }
+
   // ── Recover ESPN ids (headshots + projection joins) ─────────
-  // The sheet doesn't carry espn_id, and the wipe above clears it, which breaks
-  // ESPN headshots and the projection's pedigree/versatility joins. This RPC
-  // re-matches players → player_history server-side (unique name, team tie-break,
-  // never guesses). Create the function once via scripts/backfill_espn_ids.sql.
+  // The upsert preserves espn_id on existing players, so this now only fills it in
+  // for NEWLY-added players (their first sync). Matches players → player_history
+  // server-side (unique name, team tie-break, never guesses). Create the function
+  // once via scripts/backfill_espn_ids.sql.
   try { sbPost('/rest/v1/rpc/backfill_espn_ids', {}); Logger.log('ESPN id backfill invoked.'); }
   catch (e) { Logger.log('ESPN id backfill skipped (create it via backfill_espn_ids.sql): ' + e.message); }
   // Fill statless returners' box lines from player_history (by the restored espn_id).
@@ -402,6 +420,7 @@ function insertLosses(team) {
 function insertPlayers(team) {
   if (!team.players.length) return;
 
+  var now = new Date().toISOString();   // > SYNC_START, so these survive the cleanup
   const rows = team.players.map((p, i) => ({
     team:             team.name,
     name:             p.name || '—',
@@ -417,6 +436,7 @@ function insertPlayers(team) {
     hometown:         p.from_school || null,
     is_international: p.is_international || false,
     is_injured:       p.is_injured       || false,
+    updated_at:       now,
     ppg:    p.ppg,    rpg:    p.rpg,    apg:    p.apg,    mpg:    p.mpg,
     fgm:    p.fgm,    fga:    p.fga,    fg_pct: p.fg_pct,
     tpm:    p.tpm,    tpa:    p.tpa,    tp_pct: p.tp_pct,
@@ -424,15 +444,28 @@ function insertPlayers(team) {
     oreb:   p.oreb,   dreb:   p.dreb,
     stl:    p.stl,    blk:    p.blk,    tovs:   p.tovs,   gp:     p.gp,
   }));
+  // NOTE: espn_id is intentionally NOT in the payload — a merge-duplicates upsert
+  // only updates columns it's given, so a player's backfilled espn_id (and thus
+  // headshots + grade joins) is PRESERVED across syncs.
 
   // Log a sample player for sanity checking
   const s = rows[0];
   Logger.log('    Sample: ' + s.name + ' pos=' + s.position + (s.position2 ? '/' + s.position2 : '') +
     ' ppg=' + s.ppg + ' rpg=' + s.rpg + ' fga=' + s.fga + ' grade=' + s.tdc_grade);
 
+  // Real players UPSERT on (name,team) → same id kept. Empty-slot placeholders
+  // ('—') aren't in the unique index, so they can't use ON CONFLICT — plain-insert
+  // them (they churn ids harmlessly; no grade file references them).
+  const isReal = function (r) { return r.name && r.name !== '—' && r.name !== '-'; };
+  const real  = rows.filter(isReal);
+  const slots = rows.filter(function (r) { return !isReal(r); });
+
   const BATCH = 50;
-  for (let i = 0; i < rows.length; i += BATCH) {
-    sbPost('/rest/v1/players', rows.slice(i, i + BATCH));
+  for (let i = 0; i < real.length; i += BATCH) {
+    sbPost('/rest/v1/players?on_conflict=name,team', real.slice(i, i + BATCH));
+  }
+  for (let i = 0; i < slots.length; i += BATCH) {
+    sbPost('/rest/v1/players', slots.slice(i, i + BATCH));
   }
 }
 
