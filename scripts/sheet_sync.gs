@@ -252,14 +252,21 @@ function syncToSupabase() {
 
   // ── Conference tabs ────────────────────────────────────────
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let totalTeams = 0, totalPlayers = 0, totalLosses = 0;
+  let totalTeams = 0, totalPlayers = 0, totalLosses = 0, skippedTabs = 0;
 
   for (const [tabName, confCode] of Object.entries(CONF_TABS)) {
     const sheet = ss.getSheetByName(tabName);
     if (!sheet) { Logger.log('Tab not found: ' + tabName); continue; }
 
     Logger.log('Processing ' + tabName + '...');
-    const teams = parseSheet(sheet.getDataRange().getValues(), confCode);
+    let teams;
+    try {
+      teams = parseSheet(sheet.getDataRange().getValues(), confCode);
+    } catch (e) {
+      Logger.log('  ⚠️ ' + tabName + ' parse failed (' + e.message + ') — skipping this tab, continuing.');
+      skippedTabs++;
+      continue;   // one malformed tab can't abort the whole sync (e.g. A10 after it)
+    }
 
     for (const team of teams) {
       try {
@@ -281,12 +288,12 @@ function syncToSupabase() {
   // Delete only those. Guarded: if far fewer players synced than expected (a tab
   // failed to parse), SKIP the delete so a partial run can't wipe a conference.
   var MIN_EXPECTED = 800;
-  if (totalPlayers >= MIN_EXPECTED) {
+  if (totalPlayers >= MIN_EXPECTED && skippedTabs === 0) {
     sbDelete('/rest/v1/players?updated_at=lt.' + encodeURIComponent(SYNC_START));
     Logger.log('Departed-player cleanup ran (synced ' + totalPlayers + ' players).');
   } else {
-    Logger.log('⚠️ Cleanup SKIPPED — only ' + totalPlayers + ' players synced (< ' +
-      MIN_EXPECTED + '). Departed players left in place to avoid a partial-sync wipe.');
+    Logger.log('⚠️ Cleanup SKIPPED — ' + totalPlayers + ' players synced, ' + skippedTabs +
+      ' tab(s) skipped. Departed players left in place to avoid deleting a skipped tab or a partial-sync wipe.');
   }
 
   // ── Recover ESPN ids (headshots + projection joins) ─────────
@@ -662,7 +669,7 @@ function parseSheet(rows, confCode) {
 
     const isReturnStarter = rawName.includes('*');
     const isAddition      = rawName.includes('+') || yr === 'Fr.';
-    const flags           = cells[COL.FLAGS];
+    const flags           = cells[COL.FLAGS] || '';   // narrow tabs (e.g. no AF col) → '' not undefined
 
     const stats = parseStats(row);
 
