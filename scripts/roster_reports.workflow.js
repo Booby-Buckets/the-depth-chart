@@ -15,7 +15,10 @@ export const meta = {
   phases: [{ title: 'Report', detail: 'one agent per team writes its 6-section report' }],
 }
 
-const teams = (args && args.teams) ? args.teams : {}
+// args may arrive as an object OR a JSON string (the tool sometimes serializes it) — handle both.
+let _A = args
+if (typeof _A === 'string') { try { _A = JSON.parse(_A) } catch (e) { _A = {} } }
+const teams = (_A && _A.teams) ? _A.teams : (_A && !_A.teams && typeof _A === 'object' ? _A : {})
 const names = Object.keys(teams)
 if (!names.length) { log('no teams in args.teams — pass roster_inputs.json'); return [] }
 log(`generating roster reports for ${names.length} teams`)

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <script src="tdc-theme.js?v=2"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Moneyball — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <script src="auth.js?v=paywall4"></script>
+  <script src="tdc-projgrade.js?v=28"></script>
+  <script src="team-colors.js?v=2"></script>
+  <script src="tdc-ratings.js?v=4"></script>
+  <link rel="stylesheet" href="tdc-anim.css?v=4"/>
+  <script src="tdc-anim.js?v=5"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--amber:#b5872a;--red:#cc2200;--blue:#3b6fd4;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--amber:#d8b05a;--red:#e07070;--blue:#6f9bff;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+    .page{max-width:1000px;margin:0 auto;padding:30px 22px 100px;}
+    .eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+    .eyebrow .lock{font-size:10px;color:var(--text3);border:1px solid var(--border2);border-radius:20px;padding:2px 8px;letter-spacing:.06em;}
+    h1{font-family:'Playfair Display',serif;font-size:36px;font-weight:800;letter-spacing:-.01em;margin-bottom:4px;}
+    .sub{font-size:13px;color:var(--text3);margin-bottom:22px;max-width:820px;line-height:1.6;}
+    .combo{position:relative;max-width:420px;}
+    .search{width:100%;padding:12px 14px;border:1px solid var(--accent);border-radius:10px;background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;font-weight:600;outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent);}
+    .combo-list{display:none;position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:30;max-height:340px;overflow-y:auto;background:var(--bg);border:1px solid var(--border2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.2);}
+    .combo-item{padding:9px 13px;cursor:pointer;font-size:13.5px;display:flex;justify-content:space-between;gap:10px;font-weight:600;}
+    .combo-item:hover{background:var(--bg3);} .combo-item .cr{color:var(--text3);font-variant-numeric:tabular-nums;font-weight:500;}
+    .combo-empty{padding:12px;font-size:12px;color:var(--text3);}
+    .loading{padding:70px;text-align:center;color:var(--text3);}
+    .sec-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:30px 0 12px;display:flex;align-items:center;gap:10px;}
+    .sec-h::after{content:'';flex:1;height:1px;background:var(--border);}
+    .sec-h .note{font-weight:500;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;}
+
+    /* team snapshot */
+    .snap{display:grid;grid-template-columns:1.1fr 1fr;gap:16px;margin-top:8px;}
+    @media(max-width:720px){.snap{grid-template-columns:1fr;}}
+    .card{border:1px solid var(--border);border-radius:16px;background:var(--bg2);padding:18px 20px;position:relative;overflow:hidden;}
+    .card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--tc,var(--accent));}
+    .big-n{font-family:'Playfair Display',serif;font-weight:800;font-size:46px;line-height:1;}
+    .big-l{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-top:6px;}
+    .snap-row{display:flex;gap:26px;flex-wrap:wrap;margin-top:4px;}
+    .kv{}
+    .kv .v{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;}
+    .kv .k{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .outlook{font-size:13px;line-height:1.65;color:var(--text2);}
+    .outlook b{color:var(--text);}
+
+    /* goal lab */
+    .goals{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
+    .goal-btn{border:1px solid var(--border2);border-radius:22px;background:var(--bg2);color:var(--text2);font-family:inherit;font-weight:700;font-size:12.5px;padding:7px 15px;cursor:pointer;transition:all .12s;}
+    .goal-btn:hover{border-color:var(--accent);color:var(--text);}
+    .goal-btn.on{background:var(--accent);border-color:var(--accent);color:#1a1206;}
+    .gap{border:1px solid var(--border);border-radius:16px;background:var(--bg2);padding:20px;margin-bottom:16px;}
+    .gap-head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px;}
+    .gap-title{font-size:15px;font-weight:800;}
+    .gap-verdict{font-size:12.5px;font-weight:700;padding:3px 11px;border-radius:20px;}
+    .gap-verdict.reach{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green);}
+    .gap-verdict.short{background:color-mix(in srgb,var(--red) 16%,transparent);color:var(--red);}
+    .meter{height:12px;border-radius:8px;background:var(--bg3);overflow:hidden;position:relative;margin:6px 0 4px;}
+    .meter>span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--blue));border-radius:8px;}
+    .meter-tick{position:absolute;top:-4px;width:2px;height:20px;background:var(--text);opacity:.55;}
+    .meter-lbls{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text3);font-variant-numeric:tabular-nums;}
+    .gap-line{font-size:13.5px;line-height:1.7;color:var(--text2);margin-top:12px;}
+    .gap-line b{color:var(--text);}
+    .paths{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:14px;}
+    @media(max-width:720px){.paths{grid-template-columns:1fr;}}
+    .path{border:1px solid var(--border);border-radius:12px;background:var(--bg);padding:12px 13px;}
+    .path-h{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;}
+    .path-h.dev{color:var(--green);} .path-h.tgt{color:var(--blue);} .path-h.add{color:var(--amber);}
+    .path-b{font-size:12px;line-height:1.6;color:var(--text2);}
+    .path-b b{color:var(--text);}
+
+    /* value board */
+    table{width:100%;border-collapse:collapse;font-size:13px;}
+    th{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);}
+    th.l,td.l{text-align:left;}
+    td{padding:8px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;text-align:right;}
+    tr:last-child td{border-bottom:none;}
+    .pname{font-weight:700;color:var(--text);}
+    .prole{font-size:10.5px;color:var(--text3);}
+    .wa{font-weight:800;}
+    .wa.pos{color:var(--green);} .wa.neg{color:var(--red);}
+    .barcell{width:120px;}
+    .vbar{height:8px;border-radius:5px;background:var(--bg3);overflow:hidden;}
+    .vbar>span{display:block;height:100%;border-radius:5px;background:var(--tc,var(--accent));}
+    .gem{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--amber);border:1px solid color-mix(in srgb,var(--amber) 45%,transparent);border-radius:20px;padding:1px 7px;margin-left:7px;}
+    .ceil{color:var(--text3);font-size:11.5px;}
+    .disclaimer{font-size:11px;color:var(--text3);line-height:1.6;margin-top:10px;}
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="eyebrow">⬡ Coach's Tier · Self-Scout <span class="lock" id="lockChip">Coach</span></div>
+  <h1>Moneyball</h1>
+  <div class="sub">Every player, one number: <b>Wins Added</b> — how many wins his production is worth. Add up the rotation and you get the team's ceiling. Then set a goal, and the <b>Goal Lab</b> tells you the price in wins, who has to produce what to pay it, and the different ways to get there. Roster-building as math.</div>
+
+  <div class="combo">
+    <input class="search" id="teamSearch" placeholder="Search a team…" autocomplete="off"/>
+    <div class="combo-list" id="teamList"></div>
+  </div>
+
+  <div id="body"></div>
+</div>
+
+<script src="tdc-nav.js?v=6"></script>
+<script src="tdc-coachlinks.js?v=14"></script>
+<script>
+/* ── paywall gate (open in dev / for owner) ────────────────────────── */
+(function(){
+  if(window.TDC_PAYWALL_ENABLED===false||(window.tdcIsOwner&&window.tdcIsOwner())) return;
+  var REQUIRED_PLANS=['coach'];
+  try{ var raw=localStorage.getItem('tdc_entitlement'); var p=raw?JSON.parse(raw):null;
+    if(!p||REQUIRED_PLANS.indexOf(p.plan)<0){ /* soft gate: page still renders in dev */ } }catch(e){}
+})();
+
+const SB='https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H={apikey:KEY,Authorization:'Bearer '+KEY};
+
+/* ── the value math ────────────────────────────────────────────────
+   Currency = Wins Added (WA). We anchor the whole roster's WA to the team's
+   PROJECTED wins above a replacement-level baseline (derived from the projection's
+   Power Rating), then distribute those wins across the rotation by each player's
+   value × projected minutes. So the parts always sum to the whole — the same
+   discipline real WAR/WS systems use. Returners' proven WA (last season's
+   ti40-based Wins Added) informs the split; freshmen lean on their projected grade. */
+const REPL_GRADE=62;        // replacement-level overall (a fringe D-I rotation body)
+const BASE_WINS=15;         // wins for a Power-Rating-0 team (17yr history: ~14-16)
+const WINS_PER_RTG=0.67;    // slope of Power Rating -> wins (SRS 0->15 ... 27->33)
+function projWins(rtg){ return Math.max(6, Math.min(34, BASE_WINS + WINS_PER_RTG*rtg)); }
+
+// Goal tiers — target Power Rating + the outcome it historically buys (17yr team_seasons:
+// SRS bins -> made%, avg seed, protected%, S16%, FF%). See build note in the repo.
+const GOALS=[
+  {id:'ncaa', label:'Make the Tournament', rtg:13, blurb:'~69% at-large odds, ~6-7 seed'},
+  {id:'seed', label:'Protected Seed / Top 25', rtg:17, blurb:'~66% land a top-4 seed, avg ~4 seed'},
+  {id:'s16',  label:'Sweet 16 Caliber', rtg:19, blurb:'~66% reach the second weekend'},
+  {id:'ff',   label:'Final Four Contender', rtg:23, blurb:'~38% reach the Final Four'},
+  {id:'title',label:'Title Contender', rtg:26, blurb:'~64% Final Four, a 1-seed'},
+];
+
+let TEAMS=[], curTeam=null, curGoal='seed';
+
+function ord(n){ n=Math.round(n); var s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+function esc(s){ return (''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+async function boot(){
+  const D=await TDC_RATINGS.get();
+  TEAMS=(D.teams||[]).filter(t=>t.projected).map(t=>({short:t.team, full:t.full, conf:t.conf, rating:t.rating, rank:t.rank}))
+    .sort((a,b)=>a.rank-b.rank);
+  wireSearch();
+  const q=new URLSearchParams(location.search).get('team');
+  if(q){ const m=TEAMS.find(t=>t.short===q||t.full===q); if(m){ document.getElementById('teamSearch').value=m.full; selectTeam(m); } }
+}
+function wireSearch(){
+  const inp=document.getElementById('teamSearch'), list=document.getElementById('teamList');
+  function render(f){ f=(f||'').toLowerCase().trim();
+    const ms=TEAMS.filter(t=>t.full.toLowerCase().includes(f)||t.short.toLowerCase().includes(f)).slice(0,40);
+    list.innerHTML=ms.length?ms.map(t=>`<div class="combo-item" data-s="${esc(t.short)}"><span>${esc(t.full)}</span><span class="cr">#${t.rank} · ${t.rating>0?'+':''}${t.rating.toFixed(1)}</span></div>`).join(''):'<div class="combo-empty">No team</div>';
+    list.style.display='block';
+  }
+  inp.addEventListener('focus',()=>render(inp.value));
+  inp.addEventListener('input',()=>render(inp.value));
+  list.addEventListener('click',e=>{ const it=e.target.closest('.combo-item'); if(!it)return;
+    const t=TEAMS.find(x=>x.short===it.dataset.s); if(t){ inp.value=t.full; list.style.display='none'; selectTeam(t); } });
+  document.addEventListener('click',e=>{ if(!e.target.closest('.combo')) list.style.display='none'; });
+}
+
+async function selectTeam(t){
+  curTeam=t;
+  history.replaceState(null,'',location.pathname+'?team='+encodeURIComponent(t.short));
+  const col=(window.tdcTeamColorHex&&tdcTeamColorHex(t.full))||'#A8843C';
+  document.documentElement.style.setProperty('--tc',col);
+  document.getElementById('body').innerHTML='<div class="loading">Building the value model…</div>';
+  // roster + last-season advanced (ti40/min) for proven WA
+  let roster=[];
+  try{ roster=await fetch(`${SB}/players?team=eq.${encodeURIComponent(t.short)}&name=neq.%E2%80%94&select=id,espn_id,name,position,height,class_year,yr,tdc_grade,mpg,ppg,depth_order,is_injured,hometown&order=depth_order.asc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  roster=(roster||[]).filter(p=>p.name&&p.name!=='—'&&!p.is_injured);
+  const eids=roster.map(p=>p.espn_id).filter(Boolean);
+  let adv={};
+  if(eids.length){ try{ const a=await fetch(`${SB}/player_advanced?season_year=eq.2026&espn_id=in.(${eids.join(',')})&select=espn_id,ti40,min`,{headers:H}).then(r=>r.ok?r.json():[]);
+    (a||[]).forEach(r=>{ if(r.ti40!=null&&r.min!=null) adv[r.espn_id]={wa:(r.ti40-5.0)*(r.min/40)/69.87, ti40:r.ti40, min:r.min}; }); }catch(e){} }
+  buildModel(t, roster, adv);
+}
+
+// Build per-player Wins Added, calibrated so the rotation sums to the team's wins-above-baseline.
+function buildModel(t, roster, adv){
+  const teamWins=projWins(t.rating);
+  const teamWA=teamWins-BASE_WINS;                      // wins the roster adds above replacement
+  // projected minutes from the depth-chart model (falls back to mpg/role)
+  let projMin=null;
+  if(window.TDCProjGrade&&TDCProjGrade.gradeRoster){ try{ const gr=TDCProjGrade.gradeRoster(roster);
+    projMin=roster.map((p,i)=>(gr[i]&&isFinite(gr[i].min))?gr[i].min:null); }catch(e){} }
+  const grade=p=>{ if(window.TDCProjGrade&&TDCProjGrade.gradeSolo){ const g=TDCProjGrade.gradeSolo(p); if(g!=null&&!isNaN(g)) return g; } return parseFloat(p.tdc_grade)||70; };
+  const ceilOf=p=>{ // simple dev ceiling: younger players have more runway above their projection
+    const g=grade(p); const y=((p.yr||p.class_year||'')+'').toLowerCase();
+    const up=/fr/.test(y)?6:/so/.test(y)?4:/jr/.test(y)?2:1; return Math.min(99,g+up); };
+  let ents=roster.map((p,i)=>{
+    const g=grade(p), mn=(projMin&&projMin[i]!=null)?projMin[i]:Math.max(4,(parseFloat(p.mpg)||8));
+    const val=Math.max(0,g-REPL_GRADE);                 // value above replacement
+    const provenWA=(p.espn_id&&adv[p.espn_id])?adv[p.espn_id].wa:null;
+    return {p, g, mn, val, vm:val*mn, provenWA, ceil:ceilOf(p), i};
+  });
+  const rot=ents.filter(e=>e.mn>=6).sort((a,b)=>b.vm-a.vm);
+  const vmSum=rot.reduce((s,e)=>s+e.vm,0)||1;
+  rot.forEach(e=>{ e.wa=teamWA*(e.vm/vmSum); e.waPerMin=e.wa/(e.mn||1);
+    // ceiling WA: same distribution but with the player's ceiling grade value
+    e.ceilVal=Math.max(0,e.ceil-REPL_GRADE); });
+  // ceiling team WA if everyone hits their development ceiling (minutes held fixed)
+  const ceilWA=rot.reduce((s,e)=>s+ (teamWA*(e.ceilVal*e.mn/vmSum)) ,0);
+  render(t, {teamWins,teamWA,rot,ceilWA});
+}
+
+function render(t, m){
+  const rtg=t.rating, wins=m.teamWins;
+  const b=document.getElementById('body');
+  // outlook from the current rating
+  const goal=GOALS.find(g=>g.id===curGoal);
+  const curTier=[...GOALS].reverse().find(g=>rtg>=g.rtg);
+  const outlook = curTier ? `Projected <b>${curTier.label.toLowerCase()}</b> — ${curTier.blurb}.` : `Projected below the at-large line — this roster needs a real jump to dance.`;
+  // ── goal lab math ──
+  const tgtRtg=goal.rtg, tgtWins=projWins(tgtRtg);
+  const winGap=tgtWins-wins, rtgGap=tgtRtg-rtg;
+  const reach=winGap<=0.4;
+  const ceilWins=BASE_WINS+m.ceilWA;                    // wins if everyone hits their dev ceiling
+  const devCovers=ceilWins>=tgtWins-0.4;
+  // per-player targets: distribute the win gap across the top rotation, proportional to their upside room (ceil-current)
+  const needers=m.rot.slice(0,5).map(e=>({e, room:Math.max(0.1,(e.ceil-e.g))}));
+  const roomSum=needers.reduce((s,x)=>s+x.room,0)||1;
+  const perPlayer=needers.map(x=>({name:x.e.p.name, cur:x.e.wa, add: Math.max(0,winGap)*(x.room/roomSum), tgt: x.e.wa+Math.max(0,winGap)*(x.room/roomSum)}));
+  // portal path: a starter-quality add (grade ~85, ~26 mpg) is worth ~this many wins here
+  const addWA = (85-REPL_GRADE)*26 / ((m.rot.reduce((s,e)=>s+e.val*e.mn,0)/Math.max(1,m.teamWA))||1);
+  const addsNeeded = winGap>0 ? Math.max(1,Math.ceil(winGap/Math.max(0.5,addWA))) : 0;
+
+  b.innerHTML = `
+  <div class="sec-h">Team value <span class="note">projected 2026-27</span></div>
+  <div class="snap">
+    <div class="card">
+      <div class="big-n">${rtg>0?'+':''}${rtg.toFixed(1)}</div>
+      <div class="big-l">Projected Power Rating · #${t.rank}</div>
+      <div class="snap-row" style="margin-top:16px">
+        <div class="kv"><div class="v">${wins.toFixed(0)}</div><div class="k">Proj. wins</div></div>
+        <div class="kv"><div class="v">${m.teamWA.toFixed(1)}</div><div class="k">Wins added (roster)</div></div>
+        <div class="kv"><div class="v">${(BASE_WINS+m.ceilWA).toFixed(0)}</div><div class="k">Ceiling wins</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="big-l" style="margin:0 0 8px">Outlook</div>
+      <div class="outlook">${outlook}<br><br>The rotation is worth <b>${m.teamWA.toFixed(1)} wins</b> above a replacement roster. If every player hit his development ceiling, the roster reaches <b>${ceilWins.toFixed(0)} wins</b> — a +${(ceilWins-wins).toFixed(1)}-win band of untapped upside.</div>
+    </div>
+  </div>
+
+  <div class="sec-h">Goal Lab <span class="note">what it takes, and who gets you there</span></div>
+  <div class="goals">${GOALS.map(g=>`<button class="goal-btn ${g.id===curGoal?'on':''}" data-g="${g.id}">${g.label}</button>`).join('')}</div>
+  <div class="gap">
+    <div class="gap-head">
+      <div class="gap-title">${goal.label} <span style="color:var(--text3);font-weight:600">· needs ~+${tgtRtg} rating (${tgtWins.toFixed(0)} wins)</span></div>
+      <div class="gap-verdict ${reach?'reach':'short'}">${reach?'On track':`${winGap.toFixed(1)} wins short`}</div>
+    </div>
+    <div class="meter"><span style="width:${Math.max(3,Math.min(100,100*wins/tgtWins)).toFixed(1)}%"></span></div>
+    <div class="meter-lbls"><span>${BASE_WINS} (replacement)</span><span>now: ${wins.toFixed(0)}W</span><span>goal: ${tgtWins.toFixed(0)}W</span></div>
+    ${reach
+      ? `<div class="gap-line">This roster already projects to clear <b>${goal.label.toLowerCase()}</b>. The lever now is <b>protecting the floor</b> — the players below carry the value; keep them healthy and on the court.</div>`
+      : `<div class="gap-line">To get there this roster must add <b>${winGap.toFixed(1)} wins</b> (a <b>+${rtgGap.toFixed(1)}</b> Power-Rating jump). Three ways to pay for it:</div>
+    <div class="paths">
+      <div class="path"><div class="path-h tgt">Lift the core</div><div class="path-b">${perPlayer.filter(x=>x.add>0.15).slice(0,3).map(x=>`<b>${esc(x.name)}</b> ${x.cur.toFixed(1)}→${x.tgt.toFixed(1)} WA`).join('<br>')||'—'}<br><span class="ceil">each raising his game by the shown wins.</span></div></div>
+      <div class="path"><div class="path-h dev">Development path</div><div class="path-b">${devCovers?`If the returners hit their ceilings, the roster reaches <b>${ceilWins.toFixed(0)} wins</b> — <b>covers it</b> from within.</b>`:`Full internal development gets you to <b>${ceilWins.toFixed(0)} wins</b> — still <b>${(tgtWins-ceilWins).toFixed(1)} short</b>. You need outside help.`}</div></div>
+      <div class="path"><div class="path-h add">Portal path</div><div class="path-b">Roughly <b>${addsNeeded} starter-level add${addsNeeded===1?'':'s'}</b> (grade ~85, ~26 mpg) covers the gap — or ${(addsNeeded*2)} high-value role players.</div></div>
+    </div>`}
+    <div class="disclaimer">Goal prices are the historical median outcome at each Power Rating (17 seasons of results). Wins Added is calibrated so the rotation sums to the team's projected wins above a replacement roster — a model, not a guarantee.</div>
+  </div>
+
+  <div class="sec-h">Value board <span class="note">Wins Added = one number per player</span></div>
+  <table><thead><tr>
+    <th class="l">Player</th><th>Proj min</th><th>Grade</th><th>Wins added</th><th class="l barcell">Share</th><th>Ceiling</th>
+  </tr></thead><tbody>
+    ${m.rot.map(e=>{
+      const maxWA=Math.max(...m.rot.map(x=>x.wa),0.1);
+      const gem = (e.waPerMin>maxWA/ (m.rot[0].mn||1)*0.9 && e.mn< (m.rot[0].mn||30)*0.8) || (e.ceil-e.g>=4 && e.g>=80);
+      const role=e.i<5?`Starter`:`Bench`;
+      return `<tr>
+        <td class="l"><span class="pname">${esc(e.p.name)}</span>${gem?'<span class="gem">value</span>':''}<div class="prole">${esc(e.p.position||'')} · ${role}${e.provenWA!=null?` · ${e.provenWA>0?'+':''}${e.provenWA.toFixed(1)} WA last yr`:''}</div></td>
+        <td>${e.mn.toFixed(0)}</td><td>${Math.round(e.g)}</td>
+        <td class="wa ${e.wa>=0?'pos':'neg'}">${e.wa>0?'+':''}${e.wa.toFixed(1)}</td>
+        <td class="l barcell"><div class="vbar"><span style="width:${Math.max(3,100*e.wa/maxWA).toFixed(0)}%"></span></div></td>
+        <td class="ceil">${Math.round(e.ceil)}</td>
+      </tr>`;
+    }).join('')}
+  </tbody></table>
+  <div class="disclaimer">“Value” tag = a player producing wins out of proportion to his minutes, or a young high-grade player with real ceiling — the market (rotation, reputation) underrates him.</div>
+  `;
+  document.querySelectorAll('.goal-btn').forEach(btn=>btn.addEventListener('click',()=>{ curGoal=btn.dataset.g; render(t,m); }));
+}
+boot();
+</script>
+</body>
+</html>
