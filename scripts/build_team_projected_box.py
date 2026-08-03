@@ -45,7 +45,8 @@ def proj_mpg(depth, last, starter):
     if d is None and last > 0: pm = last
     return pm
 
-print("Pulling rosters + real per-game history...", __import__("sys").stderr)
+import sys
+print("Pulling rosters + real per-game history...", file=sys.stderr)
 players = sb("players?select=team,name,espn_id,mpg,depth_order,starter&name=neq.%E2%80%94")
 # latest real per-game line per espn_id
 ph = sb("player_history?select=espn_id,season_year,ppg,rpg,apg,mpg,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,stl,blk,tovs")
