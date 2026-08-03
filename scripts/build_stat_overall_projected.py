@@ -28,6 +28,11 @@ H={"apikey":KEY,"Authorization":"Bearer "+KEY}
 D=os.path.join(os.path.dirname(os.path.abspath(__file__)),"data")
 CUR=2026; K_SOS=0.42; MU=73.0; SP=7.6; FLOOR=55; MIN_MIN=200; G_PROJ=31
 USG_REF=21.0; USG_POW=1.2; USG_LO=0.45; USG_HI=1.08   # must match build_stat_overall.py (usage weighting)
+# Transfer adjustments: DWA is team-defense-context inflated and does NOT follow a
+# player to a new program, so a transfer keeps only part of his defensive edge; and
+# his projected role at a new school is uncertain, so cap the minutes bump.
+TRANSFER_DEF_DAMP=0.5      # transfer keeps 50% of his (dwa - median) defensive edge
+TRANSFER_MPG_BUMP=10.0     # a transfer's projected mpg can rise at most this much over last year
 
 def sb_get(path):
     out,off=[],0
@@ -100,6 +105,10 @@ adv["demo_ovr"]=adv["C_demo"].apply(to_grade)
 
 # ---- PROJECT each returner's line, value on the same scale ----
 roles=pl.dropna(subset=["espn_id"]).drop_duplicates("espn_id").set_index("espn_id")
+MED_DWA40=float((adv["dwa"].fillna(0)/adv["mp40"].clip(lower=0.1)).median())   # league median defensive rate
+def _is_transfer(demo_team, cur_team):
+    if not demo_team or not cur_team: return False
+    return not str(demo_team).lower().strip().startswith(str(cur_team).lower().strip())
 out={}
 for _,r in adv.iterrows():
     eid=r["espn_id"]
@@ -108,10 +117,14 @@ for _,r in adv.iterrows():
     last_mpg = (role["mpg"] if role is not None and pd.notna(role["mpg"]) else (r["min"]/max(r["g"] or G_PROJ,1)))
     starter = bool(role["starter"]) if (role is not None and pd.notna(role["starter"])) else False
     yr = (role["yr"] or role["class_year"]) if role is not None else None
+    cur_team = role["team"] if role is not None else None
+    xfer = _is_transfer(r["team"], cur_team)                    # changed programs for 2026-27?
     pm = proj_mpg(d_ord, last_mpg, starter)                    # projected MPG
+    if xfer: pm = min(pm, last_mpg + TRANSFER_MPG_BUMP)         # cap a transfer's role jump (uncertain)
     dm = dev_mult(yr, r["demo_ovr"])                            # class development on offense
     # per-40 rates from ACTUAL, offense nudged by dev
     owa40 = (r["owa"] or 0)/max(r["mp40"],0.1); dwa40 = (r["dwa"] or 0)/max(r["mp40"],0.1)
+    if xfer: dwa40 = MED_DWA40 + TRANSFER_DEF_DAMP*(dwa40 - MED_DWA40)   # team-D credit doesn't transfer
     per40_p = (owa40*r["usg_mult"]*dm + dwa40) * r["sos"]
     proj_min = pm * G_PROJ                                      # projected season minutes
     # RATE reliability comes from his ACTUAL sample (an 8-mpg per-40 is noisy and

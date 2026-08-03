@@ -212,7 +212,9 @@
     const srsOf={}; (ts||[]).forEach(t=>{ if(t.srs!=null) srsOf[t.team]=parseFloat(t.srs); });
     // Owned BPM per returner. Needs his 2026 team's owned Power Rating (srs) as the
     // team-adjustment term — player_advanced.team matches team_seasons.team exactly.
-    const advById={}; (bb||[]).forEach(r=>{ if(r.espn_id!=null){ const b=estBpm(r, srsOf[r.team]); if(isFinite(b)) advById[r.espn_id]={bpm:b}; } });
+    // bpm  = owned BPM incl. his 2025-26 team's SRS context; bpm0 = context-neutral
+    // (SRS=0) so a TRANSFER doesn't carry his old team's quality to his new school.
+    const advById={}; (bb||[]).forEach(r=>{ if(r.espn_id!=null){ const b=estBpm(r, srsOf[r.team]); if(isFinite(b)) advById[r.espn_id]={bpm:b, bpm0:estBpm(r,0), team:r.team}; } });
 
     // group rostered players by team
     const byTeam={};
@@ -237,7 +239,12 @@
         const grade=parseFloat(p.tdc_grade)||70;
         const c=cls(p.yr||p.class_year);
         const adv=p.espn_id!=null?advById[p.espn_id]:null;
+        // TRANSFER: his 2025-26 team differs from his 2026-27 program, so the team-defense/
+        // quality credit baked into his BPM doesn't fully follow him — keep his own
+        // production + only HALF the team-context boost (blend toward the context-neutral bpm0).
+        const isXfer = !!(adv && adv.team && !String(adv.team).toLowerCase().startsWith(String(short).toLowerCase()));
         let bpm=adv?adv.bpm:NaN;   // OWNED BPM (regression on our box rates; see estBpm)
+        if(isXfer && adv && isFinite(adv.bpm0)) bpm=0.5*bpm+0.5*adv.bpm0;
         // de-luck: shave the transient part of shooting-over-shot-quality off BPM
         // before the lag model. Follows the player, so only returners carry it.
         let luckEfg=0, deluck=0;
@@ -253,6 +260,8 @@
         let min=(projMin&&projMin[i]!=null)?projMin[i]
                  :(hasStats?Math.max(4,(parseFloat(p.mpg)||8)*(isTr?0.95:1))
                           :(grade>=92?26:grade>=88?22:grade>=82?15:grade>=78?10:6));
+        // a transfer's role at a new school is uncertain — cap his projected minutes bump
+        if(isXfer && isFinite(min)){ const lm=parseFloat(p.mpg); if(isFinite(lm)) min=Math.min(min, lm+10); }
         // Owner's freshman projection: value him by his PROJECTED STATS (a BPM
         // computed from the projected box score) and projected minutes — the same
         // currency as returners — rather than the grade/OVR fallback.
