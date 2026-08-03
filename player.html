@@ -2015,6 +2015,21 @@ async function init(){
     // Owner's custom freshman projection (from Supabase) overrides the model line
     try{ if(window.TDCFresh){ await TDCFresh.load(); _applyFreshProfile(); } }catch(e){}
 
+    // Projected RPG is derived from oreb+dreb, which the roster SHEET line lacks →
+    // it can come out 0 (e.g. Davis Fogle). Backfill from his REAL rebounds, scaled
+    // to projected minutes, so a rebounder never projects to 0 boards.
+    try{
+      if(proj && !proj._frosh && !(parseFloat(proj.rpg)>0)){
+        const real=(typeof _ovrSeasons==='function' && _ovrSeasons()[0]) ? _ovrSeasons()[0] : null;
+        if(real && parseFloat(real.rpg)>0){
+          const rm=parseFloat(real.mpg)||1, pm=parseFloat(proj.mpg)||rm, sc=pm/rm, R1=v=>Math.round((parseFloat(v)||0)*sc*10)/10;
+          proj.rpg=R1(real.rpg);
+          if(!(parseFloat(proj.oreb)>0)) proj.oreb=R1(real.oreb);
+          if(!(parseFloat(proj.dreb)>0)) proj.dreb=R1(real.dreb);
+        }
+      }
+    }catch(e){}
+
     renderPage();
     loadDraftSticker();
   }catch(e){
@@ -2403,9 +2418,13 @@ function buildOverviewCards(p, proj){
   }
 
   const hasActual = p.ppg && parseFloat(p.ppg) > 0;
+  // The "actual" column must show his REAL latest-season line (careerHistory, from
+  // player_history) — which has FG%/3P%/FT%/STL/BLK/TO — not the roster sheet row `p`,
+  // whose stat columns are partial. Falls back to `p` if no career history is loaded.
+  const actual = (typeof _ovrSeasons==='function' && _ovrSeasons().length) ? _ovrSeasons()[0] : p;
 
   if(!proj){
-    return '<div class="stat-cards" style="margin-bottom:24px;">'+cards(p, false, null)+'</div>';
+    return '<div class="stat-cards" style="margin-bottom:24px;">'+cards(actual, false, null)+'</div>';
   }
 
   // Injured player — show DNP banner instead of projection stats
@@ -2414,7 +2433,7 @@ function buildOverviewCards(p, proj){
       '<div class="ov-split" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">',
       '<div>',
       '<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">2025-26 Actual</div>',
-      '<div class="stat-cards">' + cards(p, false, null) + '</div>',
+      '<div class="stat-cards">' + cards(actual, false, null) + '</div>',
       '</div>',
       '<div>',
       '<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#ef4444;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #ef4444;">2026-27 Projected</div>',
@@ -2440,11 +2459,11 @@ function buildOverviewCards(p, proj){
   return '<div class="ov-split" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">'
     +'<div>'
     +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">2025-26 Actual</div>'
-    +'<div class="stat-cards">'+cards(p, false, null)+'</div>'
+    +'<div class="stat-cards">'+cards(actual, false, null)+'</div>'
     +'</div>'
     +'<div>'
     +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--accent);">2026-27 Projected'+estBadge+'</div>'
-    +'<div class="stat-cards">'+cards(proj, true, p)+'</div>'
+    +'<div class="stat-cards">'+cards(proj, true, actual)+'</div>'
     +'</div>'
     +'</div>';
 }
