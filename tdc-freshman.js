@@ -259,8 +259,16 @@
     });
     return out; }
 
+  // ── generic owner-blob key store (shared by tdc-injury.js etc.) ──
+  // Injuries and any other small owner-managed records live in the SAME
+  // profiles.freshman_projections jsonb under their own key prefix, so they reuse
+  // this module's single in-memory blob + one save path (no cross-clobbering).
+  function getKey(k){ return (_blob&&typeof _blob==='object')?(_blob[k]||null):null; }
+  function setKey(k,v){ _blob=_blob||{}; if(v==null){ delete _blob[k]; } else { _blob[k]=v; } return pushBlob(); }
+
   window.TDCFresh={
     isOwner:isOwner, isFreshman:isFreshman, load:load, profileFor:profileFor, line:line, archetypeOf:archetypeOf, openEditor:openEditor, estBPM:estBPM, ratingOverrides:ratingOverrides,
+    getKey:getKey, setKey:setKey,
     _set:function(k,v){ if(k==='archetype')_d.archetype=v; else if(k==='role')_d.role=v; render(); },
     _setSlider:function(k,v){ _d.sliders[k]=+v; preview(); },
     _setOvr:function(v){ _d.ovr=+v; preview(); },

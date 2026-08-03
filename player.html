@@ -10,7 +10,8 @@
   <script src="tdc-nil.js?v=cal1"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-proj.js?v=coach17"></script>
-  <script src="tdc-freshman.js?v=pub4"></script>
+  <script src="tdc-freshman.js?v=pub5"></script>
+  <script src="tdc-injury.js?v=3"></script>
   <script src="tdc-ratings.js?v=5"></script>
   <script src="tdc-leaderboard.js?v=2"></script>
   <script src="tdc-portalfit.js?v=needs7"></script>
@@ -2427,9 +2428,19 @@ function buildOverviewCards(p, proj){
     return '<div class="stat-cards" style="margin-bottom:24px;">'+cards(actual, false, null)+'</div>';
   }
 
-  // Injured player — show DNP banner instead of projection stats
-  if(proj._injured || player.is_injured){
-    const injuredHTML = [
+  // Injured & out of rotation — show the out banner instead of projection stats.
+  // The owner injury report (proj._injInfo) supplies the body part + timeline; falls
+  // back to the generic DNP copy for legacy sheet-flagged players.
+  const _inj = (window.TDCInjury && proj) ? TDCInjury.forCards(proj) : null;
+  if((proj._injured || player.is_injured) && (!_inj || _inj.out)){
+    const outCol = (_inj && _inj.out)
+      ? TDCInjury.outHTML(proj._injInfo)
+      : ['<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 16px;background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.2);border-radius:8px;text-align:center;gap:10px;">',
+         '<div style="font-size:28px;">🏥</div>',
+         '<div style="font-size:14px;font-weight:700;color:#ef4444;">Projected DNP</div>',
+         '<div style="font-size:12px;color:var(--text3);line-height:1.5;max-width:220px;">Expected to miss the 2026-27 season. Minutes redistributed to healthy teammates.</div>',
+         '</div>'].join('');
+    return [
       '<div class="ov-split" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">',
       '<div>',
       '<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">2025-26 Actual</div>',
@@ -2437,26 +2448,23 @@ function buildOverviewCards(p, proj){
       '</div>',
       '<div>',
       '<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#ef4444;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #ef4444;">2026-27 Projected</div>',
-      '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 16px;background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.2);border-radius:8px;text-align:center;gap:10px;">',
-      '<div style="font-size:28px;">🏥</div>',
-      '<div style="font-size:14px;font-weight:700;color:#ef4444;">Projected DNP</div>',
-      '<div style="font-size:12px;color:var(--text3);line-height:1.5;max-width:220px;">Expected to miss the 2026-27 season. Minutes redistributed to healthy teammates.</div>',
-      '</div>',
+      outCol,
       '</div>',
       '</div>'
     ].join('');
-    return injuredHTML;
   }
+  // Hurt but expected to play — keep the projection, lead with the "hurt" disclaimer.
+  const _injBanner = (_inj && !_inj.out) ? _inj.banner : '';
 
   if(!hasActual){
-    return '<div style="margin-bottom:24px;">'
+    return _injBanner+'<div style="margin-bottom:24px;">'
       +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--accent);display:flex;align-items:center;gap:8px;">2026-27 Projected <span style="font-size:9px;padding:1px 4px;background:rgba(139,105,20,.12);">EST</span></div>'
       +'<div class="stat-cards">'+cards(proj, true, null)+'</div>'
       +'</div>';
   }
 
   const estBadge = proj._frosh ? ' <span style="font-size:9px;padding:1px 4px;background:rgba(139,105,20,.12);">EST</span>' : '';
-  return '<div class="ov-split" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">'
+  return _injBanner+'<div class="ov-split" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">'
     +'<div>'
     +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">2025-26 Actual</div>'
     +'<div class="stat-cards">'+cards(actual, false, null)+'</div>'
@@ -2576,8 +2584,13 @@ function setOvrSeason(val){
 }
 // ===== boxed overview card: season options + the new insight boxes =====
 function _ovcSeasonOpts(){
-  var seasons=_ovrSeasons(); var useProj=(proj && !proj._frosh && !proj._injured);
-  var opts=(useProj?'<option value="proj">'+_seasonLbl2(2027)+' Projected</option>':'');
+  var seasons=_ovrSeasons();
+  // An owner-marked out-of-rotation injury (proj._injOut) still shows the projected view —
+  // it renders the "Out of rotation" banner. Legacy _injured (no injury record) stays hidden.
+  var injOut=!!(proj && proj._injOut);
+  var useProj=(proj && !proj._frosh && (!proj._injured || injOut));
+  var lbl=injOut?(_seasonLbl2(2027)+' · Out'):(_seasonLbl2(2027)+' Projected');
+  var opts=(useProj?'<option value="proj">'+lbl+'</option>':'');
   seasons.forEach(function(s){ opts+='<option value="'+s.season_year+'">'+_seasonLbl2(s.season_year)+' · '+(s.team||'')+'</option>'; });
   return {opts:opts, useProj:useProj, seasons:seasons};
 }
@@ -3291,8 +3304,16 @@ function _openFreshEditor(){
   if(!window.TDCFresh || !player) return;
   TDCFresh.openEditor(player, { onSaved:function(){ _applyFreshProfile(); renderPage(); } });
 }
+// Owner-only injury report: marks the player hurt (body part + timeline) and drives the
+// existing DNP / projection display off proj._injured / proj._injHurt. Public unaffected.
+function _applyInjury(){ if(window.TDCInjury && proj) TDCInjury.apply(player, proj); }
+function _openInjuryEditor(){
+  if(!window.TDCInjury || !player) return;
+  TDCInjury.openEditor(player, function(){ _applyInjury(); renderPage(); });
+}
 function renderPage(){
   const p=player;
+  _applyInjury();   // owner-only: set proj injury flags before scouting/overview read them
   const color=_teamAccent(p.team)||teamData?.color||'#888';
   const yr=p.yr||p.class_year||'';
   const scout=buildScoutingReport(p,proj,gPct);
@@ -3343,10 +3364,11 @@ function renderPage(){
           <div class="hp" id="heroGpPill"${p.gp?'':' style="display:none;"'}><span class="k">GP</span><span class="v" id="heroGp">${p.gp||''}</span></div>
           ${p.is_injured?`<div class="hp hp-warn"><span class="k">Status</span><span class="v">Injured</span></div>`:''}
         </div>
-        ${(p.starter || (proj&&proj._origin) || (window.TDCFresh&&TDCFresh.isOwner()&&TDCFresh.isFreshman(p)))?`<div class="hero-tags">
+        ${(p.starter || (proj&&proj._origin) || (window.TDCFresh&&TDCFresh.isOwner()&&TDCFresh.isFreshman(p)) || (window.TDCInjury&&TDCInjury.isOwner()))?`<div class="hero-tags">
           ${p.starter?`<span class="hero-tag">Returning Starter</span>`:''}
           ${proj&&proj._origin?`<span class="hero-tag">Transfer · ×${r1(proj._factor)}</span>`:''}
           ${(window.TDCFresh&&TDCFresh.isOwner()&&TDCFresh.isFreshman(p))?`<button class="hero-tag edit" onclick="_openFreshEditor()">⚙ ${TDCFresh.profileFor(p)?'Edit':'Project'} playstyle${TDCFresh.profileFor(p)?' · custom':''}</button>`:''}
+          ${(window.TDCInjury&&TDCInjury.isOwner())?(function(){var r=TDCInjury.get(p);return '<button class="hero-tag edit'+(r?' inj-on':'')+'" onclick="_openInjuryEditor()">⚕ '+(r?TDCInjury.statusLabel(r):'Add injury')+'</button>';})():''}
         </div>`:''}
         <div id="draftSticker"></div>
       </div>
