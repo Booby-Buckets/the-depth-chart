@@ -65,7 +65,11 @@ if [ "${1:-}" = "--push" ]; then
     echo "No changes to commit."
   else
     git commit -q -m "Rebuild statistical overalls + team analytics from current roster"
-    git push origin "$(git rev-parse --abbrev-ref HEAD)"
+    BR="$(git rev-parse --abbrev-ref HEAD)"
+    # A scheduled job (news/buzz refresh) may have pushed while we worked — rebase
+    # on top of it first so the push isn't rejected. Different files, no conflict.
+    git pull --rebase --autostash origin "$BR" >/dev/null 2>&1 || true
+    git push origin "$BR"
     echo "Pushed. Vercel will deploy."
   fi
 else
