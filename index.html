@@ -1655,12 +1655,16 @@ async function loadProjectedSeason(){
   const banner=document.getElementById('projBanner'); if(banner) banner.style.display='flex';
   try {
     const colors = await ensureColors();
-    const [D, projRows, sgTeams] = await Promise.all([
+    const [D, projRows, sgTeams, boxFillRaw] = await Promise.all([
       TDC_RATINGS.get(),
       fetch(`${SB_URL}/rest/v1/team_projections?select=*`, { headers: HEADERS })
         .then(r=>r.ok?r.json():[]).catch(()=>[]),
       fetch('scripts/data/shot_genome_teams.json').then(r=>r.ok?r.json():null).catch(()=>null),
+      // projected team box line from rosters — fills PPG/FG%/OReb… for teams whose
+      // team_projections row is missing/zeroed (e.g. Gonzaga). Keyed by full name.
+      fetch('scripts/data/team_projected_box.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
+    const boxFill={}; if(boxFillRaw) Object.keys(boxFillRaw).forEach(k=>boxFill[k.toLowerCase().trim()]=boxFillRaw[k]);
     // Offensive / defensive efficiency (per 100 poss) from the Team DNA engine, projected 2026-27.
     const effLc = effByLc(await ensureEff(), '2027');
     // Shot Genome team numbers (2025-26): Look Quality / Shot-Making / Creation, by full name
@@ -1671,7 +1675,8 @@ async function loadProjectedSeason(){
     allTeams = D.teams.map(r=>{
       const mc=matchColor(r.full,colors);
       const proj=projBy[(r.team||'').toLowerCase().trim()];
-      const num=k=>proj?(+proj[k]||0):0;
+      const bf=boxFill[(r.full||'').toLowerCase().trim()];
+      const num=k=>{ let v=proj?(+proj[k]||0):0; if(!v && bf && bf[k]!=null) v=+bf[k]||0; return v; };
       const code=r.projected?(CODE_FIX[r.conf]||r.conf||''):confAbbr(r.conf);
       return {
         name:r.full, short:r.team,
