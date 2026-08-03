@@ -1324,6 +1324,32 @@ async function loadTeam(name){
        }
      }catch(e){ console.warn('Career history error:',e); }
 
+     // SHEET STATS DON'T MATTER. The roster sheet only reliably carries the NAME; its
+     // stat columns are partial/stale. Match each roster player to his canonical
+     // player_history (by espn_id first, then name) and display his REAL latest actual
+     // line — so STL/BLK/TO/FG%/3P%/FT% fill in and the rest are the true numbers. The
+     // OVR already comes from espn_id (stat overall), so it's unaffected.
+     try{
+       const _hist = window._careerHistoryMap || {};
+       const _byEspn = {};
+       Object.values(_hist).forEach(arr=>(arr||[]).forEach(r=>{
+         if(r.espn_id!=null && r.espn_id!=='') (_byEspn[r.espn_id]=_byEspn[r.espn_id]||[]).push(r);
+       }));
+       const _latest = rows => (rows&&rows.length)
+         ? rows.slice().sort((a,b)=>(+a.season_year||0)-(+b.season_year||0))[rows.length-1] : null;
+       const STAT_FIELDS=['ppg','rpg','apg','mpg','stl','blk','tovs','fg_pct','tp_pct','ft_pct',
+                          'oreb','dreb','fga','fgm','fta','ftm','tpa','tpm','gp'];
+       (players||[]).forEach(p=>{
+         let rowsFor = (p.espn_id!=null && p.espn_id!=='') ? _byEspn[p.espn_id] : null;
+         if(!rowsFor) rowsFor = _hist[(''+(p.name||'')).toLowerCase().trim()];
+         const last=_latest(rowsFor);
+         if(last){
+           p._lastActualSeason = last.season_year;
+           STAT_FIELDS.forEach(f=>{ if(last[f]!=null && last[f]!=='') p[f]=last[f]; });
+         }
+       });
+     }catch(e){ console.warn('Roster stat-link error:',e); }
+
     // Fetch losses for this team
     const lr = await fetch(
       `${SB_URL}/rest/v1/losses?team=eq.${encodeURIComponent(name)}&select=*`,
