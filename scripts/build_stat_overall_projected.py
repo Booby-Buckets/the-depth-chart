@@ -105,33 +105,31 @@ box=box.dropna(subset=["espn_id"]).drop_duplicates("espn_id").set_index("espn_id
 advByEspn=adv.dropna(subset=["espn_id"]).drop_duplicates("espn_id").set_index("espn_id")
 BOX_IDS=set(int(x) for x in box.index)   # plain-int membership (Int64Index `in` is unreliable)
 
-# ---- SOS: TEAM-LEVEL strength blended with conference, FLOORED by PROGRAM PEDIGREE —
-#      must match build_stat_overall.py so the projected grades sit on the same scale.
-#      2026-27 has no team_seasons row yet, so we proxy each team's environment with its
-#      2026 SRS (teams carry over year to year); a transfer inherits their NEW school's SOS.
-#      Pedigree = recency-weighted 4yr SRS (thru 2026) so blue-bloods stay tier-one.
+# ---- SOS: TEAM-LEVEL strength blended with conference, then HAND-TUNED conference targets
+#      + a Gonzaga anomaly pin — must match build_stat_overall.py so projected grades sit on
+#      the same scale. 2026-27 has no team_seasons row yet, so we proxy each team's
+#      environment with its 2026 SRS; a transfer inherits their NEW school's SOS.
 W_TEAM=0.45; SOS_REF_PCT=0.95; SOS_FLOOR=0.50   # must match build_stat_overall.py
-PED_W={0:1.0,1:0.8,2:0.6,3:0.4}
+CONF_TARGET={"Atlantic Coast Conference":0.96,"Big East Conference":0.94,
+             "Mountain West Conference":0.80,"Atlantic 10 Conference":0.80,
+             "American Conference":0.75}
+TEAM_SOS_OVERRIDE={"Gonzaga Bulldogs":0.92}
 ts["srs"]=pd.to_numeric(ts["srs"],errors="coerce"); ts["season_year"]=pd.to_numeric(ts["season_year"],errors="coerce")
-srs_by=ts.dropna(subset=["srs"]).drop_duplicates(["season_year","team"]).set_index(["team","season_year"])["srs"].to_dict()
-def pedigree(team):
-    num=den=0.0
-    for back,w in PED_W.items():
-        v=srs_by.get((team,CUR-back))
-        if v is not None: num+=w*v; den+=w
-    return num/den if den else np.nan
 tcur=ts[ts.season_year==CUR].dropna(subset=["conference","srs"]).copy().drop_duplicates("team")
 cs=tcur.groupby("conference")["srs"].mean()
 tcur["conf_srs"]=tcur["conference"].map(cs)
-tcur["blend"]=W_TEAM*tcur["srs"]+(1.0-W_TEAM)*tcur["conf_srs"]
-tcur["ped"]=tcur["team"].map(pedigree)
-tcur["strength"]=tcur[["blend","ped"]].max(axis=1)   # pedigree is a FLOOR, never a drag
+tcur["strength"]=W_TEAM*tcur["srs"]+(1.0-W_TEAM)*tcur["conf_srs"]
 top=tcur["strength"].quantile(SOS_REF_PCT)
-tstr=tcur.set_index("team")["strength"].to_dict()
+tcur["sos"]=(1.0-K_SOS*(1.0-tcur["strength"]/top)).clip(SOS_FLOOR,1.0)
+tconf=tcur.set_index("team")["conference"].to_dict()
+tsos=tcur.set_index("team")["sos"].to_dict()
 def sos_of(full_team):
-    v=tstr.get(full_team,np.nan)
-    if not np.isfinite(v): return 0.80
-    return float(np.clip(1.0-K_SOS*(1.0-v/top),SOS_FLOOR,1.0))
+    ov=TEAM_SOS_OVERRIDE.get(full_team)
+    if ov is not None: return ov                     # team anomaly pin (overrides conf)
+    conf=tconf.get(full_team); t=CONF_TARGET.get(conf)
+    if t is not None: return t                        # flat conference level
+    s=tsos.get(full_team)
+    return 0.80 if s is None else float(s)
 # short->full team name (predictive_ratings), to link current roster to last-year school
 S2F={}
 try:

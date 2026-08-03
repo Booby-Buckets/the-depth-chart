@@ -63,33 +63,36 @@ for c in ["season_year","srs","wins","losses"]: ts[c]=pd.to_numeric(ts[c],errors
 ph["espn_id"]=pd.to_numeric(ph["espn_id"],errors="coerce")
 ph["season_year"]=pd.to_numeric(ph["season_year"],errors="coerce")
 
-# ---- per-season, per-team SOS: TEAM-LEVEL strength (own SRS) blended with conference,
-#      FLOORED by PROGRAM PEDIGREE so sustained-elite blue-bloods are always tier-one ----
-# Conference-average SRS alone punishes elite teams in weak leagues (Gonzaga/WCC) and
-# flatters mediocre teams in strong ones (ASU/Big12). Blend the team's OWN SRS in so the
-# environment tracks the actual team, not just its league. THEN take the max with a
-# recency-weighted multi-year "pedigree" SRS, so a program of sustained tier-one strength
-# (Gonzaga, Duke, Houston, UConn...) never gets dropped off for a weak conference — their
-# practice/recruiting/non-con environment is elite regardless of who they play in-league.
+# ---- per-season, per-team SOS: TEAM-LEVEL strength (own SRS) blended with conference ----
+# Conference-average SRS alone punishes elite teams in weak leagues and flatters mediocre
+# teams in strong ones; blend the team's OWN SRS in so the environment tracks the team.
+# The 95th-pct team = full credit (1.0); floor 0.50. HAND-TUNED conference targets + a
+# Gonzaga anomaly pin are then layered on the CURRENT (2026) ladder only — see CONF_TARGET.
 W_TEAM=0.45; SOS_REF_PCT=0.95; SOS_FLOOR=0.50
-PED_W={0:1.0,1:0.8,2:0.6,3:0.4}   # weight by seasons-ago (current..3yr back)
 ts=ts.dropna(subset=["conference","srs"])
-# program pedigree: for each (season,team), recency-weighted SRS over that season + 3 prior
-srs_by=ts.drop_duplicates(["season_year","team"]).set_index(["team","season_year"])["srs"].to_dict()
-def pedigree(team,yr):
-    num=den=0.0
-    for back,w in PED_W.items():
-        v=srs_by.get((team,yr-back))
-        if v is not None: num+=w*v; den+=w
-    return num/den if den else np.nan
 conf_str=ts.groupby(["season_year","conference"])["srs"].mean().rename("conf_srs").reset_index()
 tmap=ts.merge(conf_str,on=["season_year","conference"])
-tmap["blend"]=W_TEAM*tmap["srs"]+(1.0-W_TEAM)*tmap["conf_srs"]
-tmap["ped"]=tmap.apply(lambda r: pedigree(r["team"],r["season_year"]),axis=1)
-tmap["strength"]=tmap[["blend","ped"]].max(axis=1)   # pedigree is a FLOOR, never a drag
+tmap["strength"]=W_TEAM*tmap["srs"]+(1.0-W_TEAM)*tmap["conf_srs"]
 ref=tmap.groupby("season_year")["strength"].quantile(SOS_REF_PCT).rename("top_srs").reset_index()
 tmap=tmap.merge(ref,on="season_year")
 tmap["sos"]=(1.0 - K_SOS*(1.0 - tmap["strength"]/tmap["top_srs"])).clip(SOS_FLOOR,1.0)
+
+# ---- HAND-TUNED CURRENT-LADDER overrides (2026 only; history keeps its per-year formula).
+#      Shift each named conference's 2026 mean to the target (preserving within-conf spread),
+#      then pin team-level anomalies. Kept in sync with build_stat_overall_projected.py.
+CONF_TARGET={"Atlantic Coast Conference":0.96,"Big East Conference":0.94,
+             "Mountain West Conference":0.80,"Atlantic 10 Conference":0.80,
+             "American Conference":0.75}
+TEAM_SOS_OVERRIDE={"Gonzaga Bulldogs":0.92}
+def _apply_overrides(r):
+    s=r["sos"]
+    if r["season_year"]==CUR:
+        t=CONF_TARGET.get(r["conference"])
+        if t is not None: s=t                       # flat conference level
+        ov=TEAM_SOS_OVERRIDE.get(r["team"])
+        if ov is not None: s=ov                      # team anomaly pin (overrides conf)
+    return s
+tmap["sos"]=tmap.apply(_apply_overrides,axis=1)
 sos_lookup=tmap.set_index(["season_year","team"])["sos"].to_dict()
 
 # positions (latest per espn_id)
