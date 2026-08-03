@@ -26,7 +26,8 @@ from scipy.stats import norm
 SB="https://izlqhnxowdhtdofkwrho.supabase.co"; KEY="sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
 H={"apikey":KEY,"Authorization":"Bearer "+KEY}
 D=os.path.join(os.path.dirname(os.path.abspath(__file__)),"data")
-CUR=2026; K_SOS=0.42; MU=73.0; SP=7.3; FLOOR=55; MIN_MIN=200; G_PROJ=31
+CUR=2026; K_SOS=0.42; MU=73.0; SP=7.6; FLOOR=55; MIN_MIN=200; G_PROJ=31
+USG_REF=21.0; USG_POW=1.2; USG_LO=0.45; USG_HI=1.08   # must match build_stat_overall.py (usage weighting)
 
 def sb_get(path):
     out,off=[],0
@@ -78,9 +79,11 @@ def sos_of(team):
     return 0.80 if not np.isfinite(v) else 1.0-K_SOS*(1.0-v/top)
 
 adv=adv[adv["min"].fillna(0)>=MIN_MIN].copy()
+_usg=pd.to_numeric(adv["usg_pct"],errors="coerce").fillna(USG_REF)
+adv["usg_mult"]=np.clip((_usg/USG_REF)**USG_POW, USG_LO, USG_HI)
 adv["sos"]=adv["team"].map(sos_of)
 adv["mp40"]=adv["min"]/40.0
-adv["wa"]=(adv["owa"].fillna(0)+adv["dwa"].fillna(0))*adv["sos"]
+adv["wa"]=(adv["owa"].fillna(0)*adv["usg_mult"]+adv["dwa"].fillna(0))*adv["sos"]
 
 # ---- DEMONSTRATED 2026 reference distribution (the frozen scale) ----
 per40=adv["wa"]/adv["mp40"].clip(lower=0.1)
@@ -109,7 +112,7 @@ for _,r in adv.iterrows():
     dm = dev_mult(yr, r["demo_ovr"])                            # class development on offense
     # per-40 rates from ACTUAL, offense nudged by dev
     owa40 = (r["owa"] or 0)/max(r["mp40"],0.1); dwa40 = (r["dwa"] or 0)/max(r["mp40"],0.1)
-    per40_p = (owa40*dm + dwa40) * r["sos"]
+    per40_p = (owa40*r["usg_mult"]*dm + dwa40) * r["sos"]
     proj_min = pm * G_PROJ                                      # projected season minutes
     # RATE reliability comes from his ACTUAL sample (an 8-mpg per-40 is noisy and
     # must stay shrunk toward the median even when projected into a big role);

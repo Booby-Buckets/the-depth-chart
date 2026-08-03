@@ -230,11 +230,18 @@
   // grade-statistical-overall). PROJECTED for returners (forward-looking OVR the
   // site ranks on), DEMONSTRATED as fallback. Freshmen / players with no played
   // season aren't in these maps and fall through to the legacy logic (editor OVR).
-  var _SO_DEMO = {}, _SO_PROJ = {};
+  var _SO_DEMO = {}, _SO_PROJ = {}, _SO_HIST = {};   // demonstrated(2026), projected(2026-27), historical {season:{espn:ovr}}
   function setStatOverall(demo, proj){ if(demo) _SO_DEMO = demo; if(proj) _SO_PROJ = proj; }
+  function setStatHist(h){ if(h) _SO_HIST = h; }
+  // Season-aware: a row tagged with a PAST season gets that season's grade; a row
+  // tagged 2026 gets the demonstrated grade; an untagged/roster/projected row gets
+  // the forward-looking projected grade (→ demonstrated fallback).
   function _statOvrOf(row){
     var e = row && row.espn_id; if(e == null) return null;
     var k = '' + e;
+    var sy = (row.season_year != null) ? parseInt(row.season_year, 10) : null;
+    if(sy && sy <= 2025){ var hy = _SO_HIST['' + sy]; return (hy && hy[k] != null) ? hy[k] : null; }
+    if(sy === 2026) return (_SO_DEMO[k] != null) ? _SO_DEMO[k] : null;
     if(_SO_PROJ[k] != null) return _SO_PROJ[k];
     if(_SO_DEMO[k] != null) return _SO_DEMO[k];
     return null;
@@ -493,8 +500,8 @@
   }
 
   window.TDCProjGrade = { projMin: projMin, grade: grade, ovr: ovr, K: K, setPedigree: setPedigree,
-                          gradeRoster: gradeRoster, gradeSolo: gradeSolo, explain: explain, projectMinutes: projectMinutes, setModel: setModel, setCoupled: setCoupled, setVersatility: setVersatility, setArchBonus: setArchBonus, setGpShrink: setGpShrink, setStatOverall: setStatOverall,
-                          statMaps: function(){ return { demo: _SO_DEMO, proj: _SO_PROJ }; } };
+                          gradeRoster: gradeRoster, gradeSolo: gradeSolo, explain: explain, projectMinutes: projectMinutes, setModel: setModel, setCoupled: setCoupled, setVersatility: setVersatility, setArchBonus: setArchBonus, setGpShrink: setGpShrink, setStatOverall: setStatOverall, setStatHist: setStatHist,
+                          statMaps: function(){ return { demo: _SO_DEMO, proj: _SO_PROJ, hist: _SO_HIST }; } };
 
   // Self-load the derived pedigree coefficients (tiny, local file) so every page
   // picks them up with no per-page wiring. This resolves well before the slower
@@ -541,7 +548,9 @@
       .catch(function(){ return null; });
   }
   window.TDCProjGrade.ready = Promise.all([
-    _loadSO('scripts/data/stat_overall.json?v=1').then(function(m){ if(m) setStatOverall(m, null); }),
-    _loadSO('scripts/data/stat_overall_projected.json?v=1').then(function(m){ if(m) setStatOverall(null, m); })
+    _loadSO('scripts/data/stat_overall.json?v=2').then(function(m){ if(m) setStatOverall(m, null); }),
+    _loadSO('scripts/data/stat_overall_projected.json?v=2').then(function(m){ if(m) setStatOverall(null, m); }),
+    fetch('scripts/data/stat_overall_history.json?v=2').then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){ if(j) setStatHist(j); }).catch(function(){})
   ]).then(function(){ return true; }).catch(function(){ return true; });
 })();
