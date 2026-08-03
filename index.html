@@ -7,7 +7,7 @@
   <script src="tdc-ratings.js?v=4"></script>
   <script src="tdc-glossary.js?v=4"></script>
   <script src="tdc-freshman.js?v=pub4"></script>
-  <script src="tdc-projgrade.js?v=30"></script>
+  <script src="tdc-projgrade.js?v=34"></script>
   <script src="tdc-rating.js?v=5"></script>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=2"></script>
@@ -1563,22 +1563,16 @@ async function renderShowcase(){
       if(g!=null&&!isNaN(g)&&g!=+p.tdc_grade){ p.tdc_grade=''+g; _pv=true; } });
     if(_pv) pool.sort((a,b)=>(parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0));
   }
-  // PAST seasons: apply the SAME box-only archetype fit used for the projection, so
-  // every year is graded consistently — the demonstrated grade reshaped by how unusual
-  // the player is for his height/position, re-centered on that season (no Shot Genome/
-  // team context, which don't exist historically). bbref stores per-40 as *_per_min.
-  if(curSeason!==2027 && window.TDCRating && TDCRating.boxAdjust && Array.isArray(pool) && pool.length){
-    try{ await TDCRating.ready; }catch(e){}
-    const _bbLine=p=>{ const g=p.per40||{}, n=v=>{var f=parseFloat(v);return isFinite(f)?f:null;}, pct=v=>{var f=parseFloat(v);return isFinite(f)?f*100:null;};
-      return { position:p.pos, height:p.height, team:p.school, mpg:40, ppg:n(g.pts_per_min), apg:n(g.ast_per_min), tovs:n(g.tov_per_min),
-        stl:n(g.stl_per_min), blk:n(g.blk_per_min), tpa:n(g.fg3a_per_min), fga:n(g.fga_per_min), fta:n(g.fta_per_min),
-        oreb:n(g.orb_per_min), dreb:n(g.drb_per_min), rpg:n(g.trb_per_min), fg_pct:pct(g.fg_pct), tp_pct:pct(g.fg3_pct) }; };
-    let _bv=false;
+  // PAST seasons: use the season-aware statistical overall (stat_overall_history via
+  // gradeSolo) so every year shows the same first-principles grade the rest of the site
+  // ranks on. Players missing from that season's history keep their base grade.
+  if(curSeason!==2027 && window.TDCProjGrade && TDCProjGrade.gradeSolo && Array.isArray(pool) && pool.length){
+    try{ await TDCProjGrade.ready; if(TDCProjGrade.loadHist) await TDCProjGrade.loadHist(); }catch(e){}
+    let _hv=false;
     pool.forEach(p=>{ if(p._baseGrade==null) p._baseGrade=p.tdc_grade;
-      if(!p.per40||p.height==null) return;
-      const a=TDCRating.boxAdjust(p._baseGrade,{position:p.pos,height:p.height},_bbLine(p),curSeason);
-      if(a&&a.grade!=null){ const g=Math.round(a.grade); if(g!=+p.tdc_grade){ p.tdc_grade=''+g; _bv=true; } } });
-    if(_bv) pool.sort((a,b)=>(parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0));
+      const g=TDCProjGrade.gradeSolo({espn_id:p.espn_id, season_year:curSeason, tdc_grade:p._baseGrade, yr:p.yr||p.class_year});
+      if(g!=null&&!isNaN(g)&&g!=+p.tdc_grade){ p.tdc_grade=''+g; _hv=true; } });
+    if(_hv) pool.sort((a,b)=>(parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0));
   }
   if(blk && Array.isArray(pool) && pool.length){
     // require real playing time so a low-minute fluke grade can't headline
