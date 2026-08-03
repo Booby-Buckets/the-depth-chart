@@ -63,17 +63,30 @@ for c in ["season_year","srs","wins","losses"]: ts[c]=pd.to_numeric(ts[c],errors
 ph["espn_id"]=pd.to_numeric(ph["espn_id"],errors="coerce")
 ph["season_year"]=pd.to_numeric(ph["season_year"],errors="coerce")
 
-# ---- per-season, per-team SOS: TEAM-LEVEL strength (own SRS) blended with conference ----
+# ---- per-season, per-team SOS: TEAM-LEVEL strength (own SRS) blended with conference,
+#      FLOORED by PROGRAM PEDIGREE so sustained-elite blue-bloods are always tier-one ----
 # Conference-average SRS alone punishes elite teams in weak leagues (Gonzaga/WCC) and
 # flatters mediocre teams in strong ones (ASU/Big12). Blend the team's OWN SRS in so the
-# environment tracks the actual team, not just its league.  Anchor "full credit" at the
-# 95th-pct team (not the single max, which over-compresses everyone below it) and cap the
-# multiplier at 1.0 so SOS is always a discount, never a bonus.
+# environment tracks the actual team, not just its league. THEN take the max with a
+# recency-weighted multi-year "pedigree" SRS, so a program of sustained tier-one strength
+# (Gonzaga, Duke, Houston, UConn...) never gets dropped off for a weak conference — their
+# practice/recruiting/non-con environment is elite regardless of who they play in-league.
 W_TEAM=0.45; SOS_REF_PCT=0.95; SOS_FLOOR=0.50
+PED_W={0:1.0,1:0.8,2:0.6,3:0.4}   # weight by seasons-ago (current..3yr back)
 ts=ts.dropna(subset=["conference","srs"])
+# program pedigree: for each (season,team), recency-weighted SRS over that season + 3 prior
+srs_by=ts.drop_duplicates(["season_year","team"]).set_index(["team","season_year"])["srs"].to_dict()
+def pedigree(team,yr):
+    num=den=0.0
+    for back,w in PED_W.items():
+        v=srs_by.get((team,yr-back))
+        if v is not None: num+=w*v; den+=w
+    return num/den if den else np.nan
 conf_str=ts.groupby(["season_year","conference"])["srs"].mean().rename("conf_srs").reset_index()
 tmap=ts.merge(conf_str,on=["season_year","conference"])
-tmap["strength"]=W_TEAM*tmap["srs"]+(1.0-W_TEAM)*tmap["conf_srs"]
+tmap["blend"]=W_TEAM*tmap["srs"]+(1.0-W_TEAM)*tmap["conf_srs"]
+tmap["ped"]=tmap.apply(lambda r: pedigree(r["team"],r["season_year"]),axis=1)
+tmap["strength"]=tmap[["blend","ped"]].max(axis=1)   # pedigree is a FLOOR, never a drag
 ref=tmap.groupby("season_year")["strength"].quantile(SOS_REF_PCT).rename("top_srs").reset_index()
 tmap=tmap.merge(ref,on="season_year")
 tmap["sos"]=(1.0 - K_SOS*(1.0 - tmap["strength"]/tmap["top_srs"])).clip(SOS_FLOOR,1.0)
