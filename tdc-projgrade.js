@@ -240,7 +240,7 @@
   var _histLoaded = false, _histPromise = null;
   function loadHist(){
     if(_histPromise) return _histPromise;
-    _histPromise = fetch('scripts/data/stat_overall_history.json?v=2')
+    _histPromise = fetch('scripts/data/stat_overall_history.json?v=3')
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ if(j) setStatHist(j); _histLoaded = true; return true; })
       .catch(function(){ _histLoaded = true; return false; });
@@ -468,6 +468,8 @@
   // with the player/team pages without needing every team's full roster.
   function gradeSolo(row){
     if(!row) return null;
+    var _gp = (row.gp != null && row.gp !== '') ? +row.gp : ((row.g != null && row.g !== '') ? +row.g : null);
+    if(_gp != null && _gp > 0 && _gp < 3) return null;       // played <3 games → no rating (noise)
     var _sv = _statOvrOf(row); if(_sv != null) return _sv;   // LIVE: statistical overall (projected→demonstrated) by espn_id
     if(row.id != null && _COUPLED[row.id] != null){ var ca = _COUPLED[row.id]; return Math.min(99, Math.round(ca + _taperArch(ca, _archOf(row)) + _gpsOf(row))); }   // legacy fallback (no stat overall — e.g. freshmen): coupled + tapered archetype
     var g = parseFloat(row.tdc_grade); if(!isFinite(g)) return null;
@@ -561,7 +563,7 @@
       .catch(function(){ return null; });
   }
   window.TDCProjGrade.ready = Promise.all([
-    _loadSO('scripts/data/stat_overall.json?v=2').then(function(m){ if(m) setStatOverall(m, null); }),
-    _loadSO('scripts/data/stat_overall_projected.json?v=2').then(function(m){ if(m) setStatOverall(null, m); })
+    _loadSO('scripts/data/stat_overall.json?v=3').then(function(m){ if(m) setStatOverall(m, null); }),
+    _loadSO('scripts/data/stat_overall_projected.json?v=3').then(function(m){ if(m) setStatOverall(null, m); })
   ]).then(function(){ return true; }).catch(function(){ return true; });   // history is lazy — see loadHist()
 })();

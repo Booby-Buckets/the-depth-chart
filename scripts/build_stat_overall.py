@@ -24,7 +24,7 @@ from scipy.stats import norm
 SB="https://izlqhnxowdhtdofkwrho.supabase.co"; KEY="sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
 H={"apikey":KEY,"Authorization":"Bearer "+KEY}
 D=os.path.join(os.path.dirname(os.path.abspath(__file__)),"data")
-CUR=2026; K_SOS=0.42; MU=73.0; SP=7.6; FLOOR=55; SCORE_MIN=20; REF_MIN=200
+CUR=2026; K_SOS=0.42; MU=73.0; SP=7.6; FLOOR=55; MIN_GP=3; REF_MIN=200
 # Usage weighting: a low-usage finisher's efficiency is "easier" (uncontested rim
 # finishes) and less valuable than the same efficiency carried at high volume, so we
 # scale the OFFENSIVE value by how much of the offense a player shoulders. Pulls
@@ -49,10 +49,10 @@ def pos_bucket(p):
     return "?"
 
 print("Pulling player_advanced (all seasons), team_seasons, positions...",file=sys.stderr)
-adv=pd.DataFrame(sb_get("player_advanced?select=espn_id,season_year,name,team,min,ppg,usg_pct,tov_pct,ti40,owa,dwa"))
+adv=pd.DataFrame(sb_get("player_advanced?select=espn_id,season_year,name,team,g,min,ppg,usg_pct,tov_pct,ti40,owa,dwa"))
 ts =pd.DataFrame(sb_get("team_seasons?select=season_year,team,conference,srs,wins,losses"))
 ph =pd.DataFrame(sb_get("player_history?select=espn_id,season_year,position"))
-for c in ["espn_id","season_year","min"]: adv[c]=pd.to_numeric(adv[c],errors="coerce")
+for c in ["espn_id","season_year","min","g"]: adv[c]=pd.to_numeric(adv[c],errors="coerce")
 for c in ["usg_pct","tov_pct","ti40","owa","dwa"]: adv[c]=pd.to_numeric(adv[c],errors="coerce")
 for c in ["season_year","srs","wins","losses"]: ts[c]=pd.to_numeric(ts[c],errors="coerce")
 ph["espn_id"]=pd.to_numeric(ph["espn_id"],errors="coerce")
@@ -74,11 +74,10 @@ def sos_of(row):
     return sos_lookup.get((row["season_year"], row["team"]), 0.80)
 
 adv["sos"]=adv.apply(sos_of,axis=1)
-# Score ANYONE with a real sample (>=SCORE_MIN), but calibrate the scale against the
-# ROTATION pool (>=REF_MIN). This way a 1-game / 27-minute player gets a heavily
-# minutes-shrunk, tiny-volume value that lands near the floor — instead of being
-# excluded and falling back to an inflated legacy grade.
-adv=adv[adv["min"].fillna(0)>=SCORE_MIN].copy()
+# A player must have played >= MIN_GP games to get a rating at all (a 1-2 game
+# sample is noise). Everyone else is scored, but the scale is calibrated against the
+# ROTATION pool (>=REF_MIN minutes) so low-minute players land near the floor.
+adv=adv[adv["g"].fillna(0)>=MIN_GP].copy()
 adv["mp40"]=adv["min"]/40.0
 _usg=pd.to_numeric(adv["usg_pct"],errors="coerce").fillna(USG_REF)
 adv["usg_mult"]=np.clip((_usg/USG_REF)**USG_POW, USG_LO, USG_HI)

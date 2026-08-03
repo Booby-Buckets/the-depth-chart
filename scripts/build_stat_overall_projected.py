@@ -78,7 +78,7 @@ def sos_of(team):
     c=tconf.get(team); v=cs.get(c,np.nan)
     return 0.80 if not np.isfinite(v) else 1.0-K_SOS*(1.0-v/top)
 
-adv=adv[adv["min"].fillna(0)>=MIN_MIN].copy()
+adv=adv[(adv["min"].fillna(0)>=MIN_MIN)&(adv["g"].fillna(0)>=3)].copy()   # rotation + >=3 games
 _usg=pd.to_numeric(adv["usg_pct"],errors="coerce").fillna(USG_REF)
 adv["usg_mult"]=np.clip((_usg/USG_REF)**USG_POW, USG_LO, USG_HI)
 adv["sos"]=adv["team"].map(sos_of)
