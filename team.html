@@ -916,7 +916,12 @@
     .hr-name:hover{color:var(--accent);text-decoration:underline;}
     .hr-meta{font-size:11px;color:var(--text3);}
     .hr-ovr{font-family:'Playfair Display',serif;font-weight:800;color:var(--tc,var(--text));}
-    .hr-table tr:hover td{background:color-mix(in srgb,var(--tc,#888) 7%,transparent);}
+    .hr-table td{padding:9px 10px;}                                   /* a touch more air */
+    .hr-table thead th{position:sticky;top:0;background:var(--bg2);z-index:2;}
+    .hr-table tbody tr:nth-child(2n) td{background:rgba(128,128,128,.03);}  /* subtle zebra */
+    .hr-table tbody tr:hover td{background:color-mix(in srgb,var(--tc,#888) 8%,transparent);}
+    .hr-ovr-chip{display:inline-block;min-width:34px;padding:3px 0;border-radius:7px;
+      font-family:'Playfair Display',serif;font-weight:800;font-size:13px;line-height:1.2;text-align:center;}
 </style>
   <script src="tdc-engine.js"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
@@ -6487,6 +6492,17 @@ function _appendDepthLosses(yr){
   if(!document.getElementById('seasonLossesWrap')) dc.insertAdjacentHTML('beforeend','<div id="seasonLossesWrap"></div>');
   renderSeasonLosses(teamPlayers||[], yr);
 }
+// Color-graded OVR chip for the roster table — elite green → good blue → mid slate → muted.
+function _ovrChip(g){
+  var n=parseInt(g,10);
+  if(isNaN(n)) return '<span class="hr-ovr-chip" style="color:var(--text3)">—</span>';
+  var bg,fg='#0b0f19';
+  if(n>=90) bg='#5ec27a';
+  else if(n>=84) bg='#5a9bd8';
+  else if(n>=78) bg='#6b7688';
+  else { bg='rgba(128,128,128,.16)'; fg='var(--text2)'; }
+  return '<span class="hr-ovr-chip" style="background:'+bg+';color:'+fg+'">'+n+'</span>';
+}
 function histTable(rows, yr, projected){
   const r=projected
     ? [...rows].sort((a,b)=>(parseFloat(a.depth_order)||999)-(parseFloat(b.depth_order)||999) || (parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0))
@@ -6500,7 +6516,7 @@ function histTable(rows, yr, projected){
     <td>${p.gp||'—'}</td><td>${num(p.mpg)}</td><td>${num(p.ppg)}</td><td>${num(p.rpg)}</td><td>${num(p.apg)}</td>
     <td>${num(p.stl)}</td><td>${num(p.blk)}</td><td>${num(p.tovs)}</td>
     <td>${pct(p.fg_pct)}</td><td>${pct(p.tp_pct)}</td><td>${pct(p.ft_pct)}</td>
-    <td class="hr-ovr">${projected?(_gdisp(p)||'—'):(p.tdc_grade||'—')}</td></tr>`).join('');
+    <td>${_ovrChip(projected?_gdisp(p):p.tdc_grade)}</td></tr>`).join('');
   return `<div class="hr-wrap"><table class="hr-table"><thead><tr>
     <th>#</th><th>Player</th><th>GP</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th><th>STL</th><th>BLK</th><th>TO</th><th>FG%</th><th>3P%</th><th>FT%</th><th>OVR</th>
   </tr></thead><tbody>${body}</tbody></table></div>`;
