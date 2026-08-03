@@ -96,6 +96,16 @@
     return { out:!!proj._injOut, banner: proj._injOut?'':bannerHTML(proj._injInfo), outHTML:outHTML(proj._injInfo) };
   }
 
+  // Compact depth-chart chip (owner-only), styled like the WAIVER? badge but red.
+  // e.g. "Inj · 1–3 months" / "Out · Full season". Body part + note in the tooltip.
+  function badgeHTML(p){
+    var rec=get(p); if(!rec) return '';
+    var out=outOfRotation(rec);
+    var lbl=(out?'Out':'Inj')+' · '+tl(rec.timeline).label;
+    var title=(rec.part||'Injury')+' · '+tl(rec.timeline).label+(out?' — out of rotation':' — expected to play')+(rec.note?' — '+rec.note:'');
+    return '<span class="dc-injbadge'+(out?' out':'')+'" title="'+_esc(title)+'">'+_esc(lbl)+'</span>';
+  }
+
   function heroButtonHTML(p){
     if(!isOwner()||!p) return '';
     var rec=get(p);
@@ -137,7 +147,8 @@
     '.inj-out-ic{font-size:28px;}.inj-out-h{font-size:14px;font-weight:800;color:#e0776f;}',
     '.inj-out-sub{font-size:12px;font-weight:700;color:var(--text2);}',
     '.inj-out-tx{font-size:11.5px;color:var(--text3);line-height:1.5;max-width:240px;}',
-    '.hero-tags .hero-tag.inj-on{border-color:rgba(224,119,111,.5) !important;color:#e0776f !important;background:rgba(224,119,111,.10) !important;}'
+    '.hero-tags .hero-tag.inj-on{border-color:rgba(224,119,111,.5) !important;color:#e0776f !important;background:rgba(224,119,111,.10) !important;}',
+    '.dc-injbadge{display:inline-block;margin-top:3px;padding:0 5px;border-radius:3px;font-size:8.5px;font-weight:800;letter-spacing:.03em;border:1px solid rgba(224,119,111,.55);color:#e0776f;background:rgba(224,119,111,.10);line-height:1.6;white-space:nowrap;cursor:help;}'
     ].join(''); document.head.appendChild(st); }
 
   var _p=null,_d=null,_onSaved=null;
@@ -182,7 +193,7 @@
 
   window.TDCInjury={
     isOwner:isOwner, load:load, get:get, outOfRotation:outOfRotation, statusLabel:statusLabel,
-    apply:apply, forCards:forCards, bannerHTML:bannerHTML, outHTML:outHTML, heroButtonHTML:heroButtonHTML, openEditor:openEditor,
+    apply:apply, forCards:forCards, bannerHTML:bannerHTML, outHTML:outHTML, heroButtonHTML:heroButtonHTML, badgeHTML:badgeHTML, openEditor:openEditor,
     _open:function(){ if(window.player) openEditor(window.player, window._injOnSaved); },
     _close:close,
     _set:function(k,v){ if(k==='play') _d.play=(v===true||v==='true'); else _d[k]=v;

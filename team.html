@@ -12,7 +12,8 @@
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=1"></script>
   <script src="tdc-proj.js?v=coach17"></script>
-  <script src="tdc-freshman.js?v=pub4"></script>
+  <script src="tdc-freshman.js?v=pub5"></script>
+  <script src="tdc-injury.js?v=4"></script>
   <script src="tdc-ratings.js?v=5"></script>
   <script src="tdc-projgrade.js?v=34"></script>
   <script src="tdc-realstats.js?v=1"></script>
@@ -6417,9 +6418,11 @@ function renderHistoricRoster(rows, yr, projected){
       const g=_gdisp(p);   // projected OVR for returners (falls back to demonstrated grade for historic seasons)
       const inj=_ltd(p) ? `<span class="dc-inj" title="Played ${parseFloat(p.gp)||0} of ${_teamGp} games — injury-shortened season">${parseFloat(p.gp)||0}/${_teamGp} GP</span>` : '';
       const wav=p.is_waiver ? `<span title="On the roster, but has not yet been granted an eligibility waiver — his availability for the season is still pending." style="display:inline-block;font-size:8px;font-weight:800;letter-spacing:.03em;padding:0 4px;border-radius:3px;border:1px solid var(--accent);color:var(--accent);margin-left:6px;cursor:help;line-height:1.6;vertical-align:middle;">WAIVER?</span>` : '';
+      // Owner-only injury chip (2026-27 projected view only) — from the on-page injury report.
+      const injBadge=(projected && window.TDCInjury) ? TDCInjury.badgeHTML(p) : '';
       return `<div class="dc-row${i===0?' dc-starter':''}">
         <span class="dc-rk">${i===0?'★':(i+1)}</span>
-        <span class="dc-info"><a class="dc-name" href="${link(p)}">${p.name}</a>${wav}<span class="dc-bio">${bio||'&nbsp;'}</span>${inj}</span>
+        <span class="dc-info"><a class="dc-name" href="${link(p)}">${p.name}</a>${wav}${injBadge}<span class="dc-bio">${bio||'&nbsp;'}</span>${inj}</span>
         <span class="dc-grade">${g}</span>
       </div>`;
     }).join('');
