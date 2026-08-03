@@ -88,7 +88,7 @@ for sc,(y,slug) in best.items():
 # ---- pull 2026-27 rosters ----
 rows=[];off=0
 while True:
-    b=json.load(urllib.request.urlopen(urllib.request.Request(SB+f"/rest/v1/players?select=team,name,espn_id,tdc_grade,mpg,position,height&name=neq.%E2%80%94&limit=1000&offset={off}",headers=H),timeout=60))
+    b=json.load(urllib.request.urlopen(urllib.request.Request(SB+f"/rest/v1/players?select=team,name,espn_id,tdc_grade,mpg,position,height&name=neq.%E2%80%94&order=team.asc,name.asc,espn_id.asc&limit=1000&offset={off}",headers=H),timeout=60))
     if not b: break
     rows+=b; off+=1000
     if len(b)<1000: break

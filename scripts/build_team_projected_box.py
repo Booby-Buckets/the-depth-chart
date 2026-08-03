@@ -20,10 +20,15 @@ H = {"apikey": K, "Authorization": "Bearer " + K}
 SLOT_MIN = [0, 31, 30, 29, 27, 25, 19, 16, 12, 9, 7]
 
 def sb(path):
+    # STABLE ORDER required: PostgREST offset pagination without ORDER BY skips/dupes rows.
+    order = ""
+    if "order=" not in path and "select=" in path:
+        first = path.split("select=", 1)[1].split("&", 1)[0].split(",")[0]
+        if first: order = f"&order={first}.asc"
     out, off = [], 0
     while True:
         b = json.load(urllib.request.urlopen(urllib.request.Request(
-            SB + "/rest/v1/" + path + ("&" if "?" in path else "?") + f"limit=1000&offset={off}", headers=H), timeout=60))
+            SB + "/rest/v1/" + path + ("&" if "?" in path else "?") + f"limit=1000&offset={off}{order}", headers=H), timeout=60))
         out += b
         if len(b) < 1000: break
         off += 1000

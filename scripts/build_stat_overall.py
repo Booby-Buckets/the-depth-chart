@@ -32,9 +32,14 @@ CUR=2026; K_SOS=0.42; MU=73.0; SP=7.6; FLOOR=55; MIN_GP=3; REF_MIN=200
 USG_REF=21.0; USG_POW=1.2; USG_LO=0.45; USG_HI=1.08   # mostly a DOWNWEIGHT for low usage; only a slight boost above average
 
 def sb_get(path):
+    # STABLE ORDER required: PostgREST offset pagination without ORDER BY skips/dupes rows.
+    order=""
+    if "order=" not in path and "select=" in path:
+        first=path.split("select=",1)[1].split("&",1)[0].split(",")[0]
+        if first: order=f"&order={first}.asc"
     out,off=[],0
     while True:
-        url=f"{SB}/rest/v1/{path}"+("&" if "?" in path else "?")+f"limit=1000&offset={off}"
+        url=f"{SB}/rest/v1/{path}"+("&" if "?" in path else "?")+f"limit=1000&offset={off}{order}"
         ch=json.load(urllib.request.urlopen(urllib.request.Request(url,headers=H))); out+=ch
         if len(ch)<1000: break
         off+=1000
@@ -58,12 +63,20 @@ for c in ["season_year","srs","wins","losses"]: ts[c]=pd.to_numeric(ts[c],errors
 ph["espn_id"]=pd.to_numeric(ph["espn_id"],errors="coerce")
 ph["season_year"]=pd.to_numeric(ph["season_year"],errors="coerce")
 
-# ---- per-season, per-team SOS from conference SRS ----
+# ---- per-season, per-team SOS: TEAM-LEVEL strength (own SRS) blended with conference ----
+# Conference-average SRS alone punishes elite teams in weak leagues (Gonzaga/WCC) and
+# flatters mediocre teams in strong ones (ASU/Big12). Blend the team's OWN SRS in so the
+# environment tracks the actual team, not just its league.  Anchor "full credit" at the
+# 95th-pct team (not the single max, which over-compresses everyone below it) and cap the
+# multiplier at 1.0 so SOS is always a discount, never a bonus.
+W_TEAM=0.45; SOS_REF_PCT=0.95; SOS_FLOOR=0.50
 ts=ts.dropna(subset=["conference","srs"])
 conf_str=ts.groupby(["season_year","conference"])["srs"].mean().rename("conf_srs").reset_index()
-top=conf_str.groupby("season_year")["conf_srs"].max().rename("top_srs").reset_index()
-tmap=ts.merge(conf_str,on=["season_year","conference"]).merge(top,on="season_year")
-tmap["sos"]=1.0 - K_SOS*(1.0 - tmap["conf_srs"]/tmap["top_srs"])
+tmap=ts.merge(conf_str,on=["season_year","conference"])
+tmap["strength"]=W_TEAM*tmap["srs"]+(1.0-W_TEAM)*tmap["conf_srs"]
+ref=tmap.groupby("season_year")["strength"].quantile(SOS_REF_PCT).rename("top_srs").reset_index()
+tmap=tmap.merge(ref,on="season_year")
+tmap["sos"]=(1.0 - K_SOS*(1.0 - tmap["strength"]/tmap["top_srs"])).clip(SOS_FLOOR,1.0)
 sos_lookup=tmap.set_index(["season_year","team"])["sos"].to_dict()
 
 # positions (latest per espn_id)

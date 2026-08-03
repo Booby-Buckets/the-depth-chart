@@ -24,9 +24,14 @@ H={"apikey":KEY,"Authorization":"Bearer "+KEY}
 D=os.path.join(os.path.dirname(os.path.abspath(__file__)),"data")
 
 def sb_get(path):
+    # STABLE ORDER required: PostgREST offset pagination without ORDER BY skips/dupes rows.
+    order=""
+    if "order=" not in path and "select=" in path:
+        first=path.split("select=",1)[1].split("&",1)[0].split(",")[0]
+        if first: order=f"&order={first}.asc"
     out,off=[],0
     while True:
-        url=f"{SB}/rest/v1/{path}"+("&" if "?" in path else "?")+f"limit=1000&offset={off}"
+        url=f"{SB}/rest/v1/{path}"+("&" if "?" in path else "?")+f"limit=1000&offset={off}{order}"
         ch=json.load(urllib.request.urlopen(urllib.request.Request(url,headers=H))); out+=ch
         if len(ch)<1000: break
         off+=1000
