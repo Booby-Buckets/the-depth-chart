@@ -14,7 +14,7 @@
   <script src="tdc-ratings.js?v=4"></script>
   <script src="tdc-leaderboard.js?v=2"></script>
   <script src="tdc-portalfit.js?v=needs7"></script>
-  <script src="tdc-projgrade.js?v=30"></script>
+  <script src="tdc-projgrade.js?v=31"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-owned-seasons.js?v=4"></script>
   <script src="tdc-pool.js?v=1"></script>
@@ -257,6 +257,24 @@
     .gl-chart-avg b{font-family:'Playfair Display',serif;font-size:15px;color:var(--text);}
     .gl-gsc{font-family:'Playfair Display',serif;font-weight:700;}
     /* Rankings tab */
+    /* Statistical Overall card (new model) */
+    .so-card{border:1px solid var(--border);border-radius:16px;padding:22px 24px;margin-bottom:24px;
+      background:linear-gradient(150deg, color-mix(in srgb, var(--tc) 8%, var(--bg2)), var(--bg2));}
+    .so-head{display:flex;align-items:center;gap:18px;}
+    .so-num{font-family:'Playfair Display',serif;font-weight:800;font-size:60px;line-height:.9;font-variant-numeric:tabular-nums;}
+    .so-lbl{font-size:15px;font-weight:800;letter-spacing:.01em;color:var(--text);}
+    .so-sub{font-size:12px;color:var(--text3);margin-top:3px;}
+    .so-flow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:16px 0 2px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:11px;}
+    .so-flow-item{display:flex;flex-direction:column;gap:2px;}
+    .so-flow-k{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .so-flow-v{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1;font-variant-numeric:tabular-nums;color:var(--text);}
+    .so-flow-arrow{color:var(--text3);font-size:16px;}
+    .so-chips{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 4px;}
+    .so-chip{display:inline-flex;flex-direction:column;gap:2px;background:var(--bg);border:1px solid var(--border);
+      border-radius:9px;padding:7px 12px;font-size:14px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;}
+    .so-chip-k{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .so-chip-k em{font-style:normal;opacity:.7;}
+    .so-note{font-size:12.5px;line-height:1.55;color:var(--text2);margin:14px 0 0;max-width:70ch;}
     .rk-top{display:grid;grid-template-columns:170px 1fr;gap:26px;align-items:start;}
     .rk-gradebox{text-align:center;padding:22px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;}
     .rk-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:64px;line-height:1;}
@@ -1900,10 +1918,15 @@ async function init(){
                                          return Object.assign({},p,{tdc_grade:g}); });
         const gres = TDCProjGrade.gradeRoster(rr2);
         teamPlayers.forEach((p,i)=>{ if(!gres[i])return; const f=_fp(p);
-          p._projMin=gres[i].min; p._projGrade=(f&&f.ovr!=null)?Math.round(parseFloat(f.ovr)):gres[i].grade; });
+          p._projMin=gres[i].min;
+          // Statistical overall is authoritative for the OVR; gradeRoster now only
+          // supplies projected MINUTES. Freshmen (not in the stat maps) keep the old grade.
+          const _sg = TDCProjGrade.gradeSolo ? TDCProjGrade.gradeSolo(p) : null;
+          p._projGrade = (_sg!=null && !isNaN(_sg)) ? _sg : ((f&&f.ovr!=null)?Math.round(parseFloat(f.ovr)):gres[i].grade); });
         const key=(player.name||'').toLowerCase().trim();
         const me = teamPlayers.find(p=>(p.name||'').toLowerCase().trim()===key);
         if(me){ player._projGrade=me._projGrade; player._projMin=me._projMin; }
+        try{ _setHeroGrade(_projectedGrade()); }catch(e){}   // refresh hero once the stat overall is loaded
       }
     }catch(e){}
 
@@ -2937,7 +2960,16 @@ function _updateHeroGridForSeason(val){
   var row=isProj?null:_ovrSeasonRow(val);
   // grade — projected already carries the box archetype (via arch_bonus); historical
   // gets it applied here so every season is consistent.
-  _setHeroGrade(isProj?(_projectedGrade()||player.tdc_grade):_boxHistGrade(row));
+  // Hero grade IS the statistical overall (cutover): projected for the outlook,
+  // demonstrated for the current season; older seasons keep the historical box grade.
+  (function(){
+    var maps=(window.TDCProjGrade&&TDCProjGrade.statMaps)?TDCProjGrade.statMaps():null;
+    var eid=player.espn_id!=null?String(player.espn_id):null;
+    var demoO=(maps&&eid)?maps.demo[eid]:null, projO=(maps&&eid)?maps.proj[eid]:null;
+    if(isProj){ _setHeroGrade(projO!=null?projO:(_projectedGrade()||player.tdc_grade)); }
+    else if(row && +row.season_year===2026 && demoO!=null){ _setHeroGrade(demoO); }
+    else { _setHeroGrade(_boxHistGrade(row)); }
+  })();
   var g=parseFloat(isProj?(_projectedGrade()||player.tdc_grade):_boxHistGrade(row));
   // if the archetype data isn't loaded yet, re-run once it is (idempotent)
   if(!isProj && !_heroBoxReady && window.TDCRating && TDCRating.ready){ _heroBoxReady=true; TDCRating.ready.then(function(){ _updateHeroGridForSeason(val); }); }
@@ -4023,35 +4055,73 @@ function renderRankings(){
                 : g>_demoG ? `the same per-minute impact produces more, so the grade rises to <b>${g}</b>`
                 : `his projected production eases the grade to <b>${g}</b>`;
   const gradeC=isNaN(g)?'var(--text3)':(g>=90?'#5ab875':g>=80?'var(--accent)':g>=70?'var(--text)':'var(--text2)');
+  // ── Statistical Overall (new model) ───────────────────────────────────────
+  // Lead the Rankings tab with the first-principles statistical overall: built
+  // only from owned on-court winning value (SOS-adjusted wins added, per-minute
+  // quality × role), NO hand grades. Data: scripts/data/stat_overall.json keyed
+  // by espn_id. Lazy-loaded, then re-render. See memory grade-statistical-overall.
+  if(window._statOvr===undefined){
+    window._statOvr=null;
+    Promise.all([
+      fetch('scripts/data/stat_overall.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('scripts/data/stat_overall_projected.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null)
+    ]).then(([demo,proj])=>{
+      window._statOvr=(demo&&demo.players)?demo.players:{};
+      window._statOvrProj=(proj&&proj.players)?proj.players:{};
+      renderRankings();
+    }).catch(()=>{window._statOvr={};window._statOvrProj={};});
+  }
+  const _sid=player.espn_id!=null?String(player.espn_id):null;
+  const _so=(window._statOvr&&_sid)?window._statOvr[_sid]:null;                 // demonstrated 2025-26
+  const _sop=(window._statOvrProj&&_sid)?window._statOvrProj[_sid]:null;        // projected 2026-27
+  let _statBlock='';
+  if(_so){
+    // Lead with the PROJECTED overall (forward-looking) when we have it; both come
+    // from the SAME statistical valuation — projected just runs it on the projected
+    // stat line (role + class-dev), so demonstrated and projected share one scale.
+    const head=_sop?_sop.ovr:_so.ovr;
+    const soC=head>=95?'#5ab875':head>=88?'var(--accent)':head>=78?'var(--text)':'var(--text2)';
+    const chip=(k,v)=>`<span class="so-chip"><span class="so-chip-k">${k}</span>${v}</span>`;
+    const mv=_sop?(_sop.ovr-_so.ovr):null;
+    const mvC=mv>0?'#5ab875':mv<0?'#e0885a':'var(--text3)';
+    const flow=_sop?`<div class="so-flow">
+        <span class="so-flow-item"><span class="so-flow-k">Demonstrated 2025-26</span><span class="so-flow-v">${_so.ovr}</span></span>
+        <span class="so-flow-arrow">→</span>
+        <span class="so-flow-item"><span class="so-flow-k">Projected role · ~${_sop.proj_mpg} MPG${_sop.dev_mult!==1?' · dev ×'+_sop.dev_mult:''}</span><span class="so-flow-v" style="color:${mvC}">${mv>0?'+':''}${mv}</span></span>
+        <span class="so-flow-arrow">→</span>
+        <span class="so-flow-item"><span class="so-flow-k">Projected 2026-27</span><span class="so-flow-v" style="color:${soC}">${_sop.ovr}</span></span>
+      </div>`:'';
+    _statBlock=`
+    <div class="so-card">
+      <div class="so-head">
+        <div class="so-num" style="color:${soC}">${head}</div>
+        <div class="so-headtxt">
+          <div class="so-lbl">${_sop?'Projected 2026-27 Overall':'Statistical Overall'}</div>
+          <div class="so-sub">${_sop?'projected stat line run through the same valuation':'2025-26'} · built only from on-court winning value — no hand grades</div>
+        </div>
+      </div>
+      ${flow}
+      <div class="so-chips">
+        ${chip('Wins Added <em>2025-26</em>', (_so.wa>=0?'+':'')+_so.wa)}
+        ${chip('Scoring value <em>TI/40</em>', _so.ti40)}
+        ${chip('Defense <em>DWA</em>', (_so.dwa>=0?'+':'')+_so.dwa)}
+        ${chip('Usage', _so.usg+'%')}
+        ${chip('Competition', '×'+_so.sos)}
+      </div>
+      <p class="so-note">One valuation, two inputs: <b>demonstrated</b> runs it on his actual 2025-26 line; <b>projected</b> runs the same math on his projected role (minutes + class-development curve). The metric — SOS-adjusted wins added, per-minute quality × role — tracks team win% at <b>r≈0.69</b> in back-testing vs r≈0.43 for the old box grade. No hand grades anywhere.</p>
+    </div>`;
+  }
   host.innerHTML=`
-    <div class="rk-top">
-      <div class="rk-gradebox">
-        <div class="rk-grade" style="color:${gradeC};">${isNaN(g)?'—':g}</div>
-        <div class="rk-grade-lbl">Overall Grade</div>
-        <div class="rk-season">${_projMode?'2026-27 Projected':(_seasonLbl(s.season_year)||'')}</div>
-        ${s.wa!=null?`<div class="rk-wa"><div class="rk-wa-num">${(s.wa>=0?'+':'')+Number(s.wa).toFixed(1)}</div><div class="rk-wa-lbl">${_projMode?'Proj. Wins Added':'Wins Added'}</div></div>`:''}
-      </div>
-      <div class="rk-explain">
-        <div class="sec-title" style="margin-bottom:10px;">${_projMode?'How this grade is projected':'How this grade is built'}</div>
-        <ul class="rk-method">
-          ${_projRet?`<li><b>It's forward-looking.</b> His demonstrated grade last season was <b>${_demoG}</b> on ${_f1(_lastAct.mpg)} MPG. Projected into ${_roleTxt} for 2026-27, ${_moveTxt}.</li>`:''}
-          <li><b>Anchored on a trained model.</b> The demonstrated grade comes from a model trained on 20 years of player-seasons — not a hand-weighted formula. The projection then adjusts it only for role and all-around impact; the exact build-up is below.</li>
-          <li><b>Position-relative & cross-era.</b> Measured against every ${GRP_LBL[grp]||'player'} season since 2006-07; only the truly dominant reach 99 (~1 a year).</li>
-        </ul>
-      </div>
-    </div>
+    ${_statBlock}
     <div class="rk-profile">
       <span class="rk-chip"><span class="rk-chip-k">Position group</span>${GRP_LBL[grp]||'—'}</span>
       ${conf?`<span class="rk-chip"><span class="rk-chip-k">Conference</span>${conf}</span>`:''}
       <span class="rk-chip"><span class="rk-chip-k">Height</span>${s.height||player.height||'—'}</span>
     </div>
-    ${_buildup}
-    <div id="histBuild"></div>
-    <div id="tdcRatingBox"></div>
-    <div class="sec-title" style="margin:24px 0 4px;">What the grade measures</div>
-    <div class="rk-sub">These are the actual inputs the grade model reads from his ${_projMode?'2025-26':'season'} box score — each ranked within its own season and adjusted for conference. It doesn't use Wins Added or BPM.</div>
+    <div class="sec-title" style="margin:24px 0 4px;">His 2025-26 box-score profile</div>
+    <div class="rk-sub">The raw production behind the overall — each stat ranked within its own season and adjusted for conference.</div>
     <div class="rk-drivers">${rows}</div>
-    <div class="rk-foot">Bars show his level vs a strong-${GRP_LBL[grp]||'player'} benchmark (plus height &amp; position, not shown). The model is trained on 20 years of these lines against hand-set grades; the projection adjustments are in the build-up above.</div>`;
+    <div class="rk-foot">Bars show his level vs a strong-${GRP_LBL[grp]||'player'} benchmark for his height &amp; position. The overall itself is the statistical valuation above — SOS-adjusted wins added, per-minute quality × role.</div>`;
   setTimeout(()=>host.querySelectorAll('.rk-fill').forEach(el=>{el.style.width=el.getAttribute('data-w')+'%';}),60);
   // Archetype fit — the box-only, every-year-consistent breakdown. Shows exactly how
   // each stat area moves the grade: z = how unusual he is for his height & position,
