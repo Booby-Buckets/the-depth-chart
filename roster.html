@@ -5,6 +5,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-freshman.js?v=pub4"></script>
   <script src="tdc-projgrade.js?v=34"></script>
+  <script src="tdc-realstats.js?v=1"></script>
   <script src="tdc-rating.js?v=5"></script>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=2"></script>
@@ -573,6 +574,8 @@ async function loadData(){
     const teamMap = {};
     allTeams.forEach(t => teamMap[t.name] = t);
     if(window.TDCProjGrade && TDCProjGrade.ready){ try{ await TDCProjGrade.ready; }catch(e){} }   // v5 model data (level/dev)
+    // SHEET STATS DON'T MATTER — show real linked player_history stats (by espn_id).
+    try{ if(window.TDCRealStats) await TDCRealStats.enrich(allRaw); }catch(e){ console.warn('realstats',e); }
     allPlayers = allRaw.filter(p => p.name && p.name !== '—').map(p => {
       const cw = (p.espn_id!=null && carryWA.has(String(p.espn_id))) ? carryWA.get(String(p.espn_id)) : null;
       // Displayed OVR override: a freshman's editor OVR (single source of truth) if the

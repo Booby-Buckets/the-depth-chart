@@ -11,6 +11,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script src="tdc-nil.js"></script>
   <script src="tdc-projgrade.js?v=34"></script>
+  <script src="tdc-realstats.js?v=1"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-owned-seasons.js?v=4"></script>
   <script src="tdc-lineups.js?v=3"></script>
@@ -440,6 +441,8 @@ async function load(){
     if(batch.length<PAGE) break;
     page++;
   }
+  // SHEET STATS DON'T MATTER — link current players to real player_history stats (by espn_id).
+  try{ if(window.TDCRealStats) await TDCRealStats.enrich(allPlayers); }catch(e){ console.warn('realstats',e); }
 }
 
 // ── helpers ──
