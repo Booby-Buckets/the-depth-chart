@@ -1,0 +1,189 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Newcomer OVRs — The Depth Chart</title>
+<script src="tdc-theme.js?v=2"></script>
+<script src="auth.js?v=paywall4"></script>
+<script src="tdc-freshman.js?v=pub4"></script>
+<script src="tdc-ratings.js?v=5"></script>
+<script src="tdc-nav.js?v=6"></script>
+<style>
+:root{--bg:#0A0E18;--bg2:#111827;--panel:#131a29;--border:#1e2740;--border2:#2a3350;
+  --text:#e9edf6;--text2:#aeb8cf;--text3:#7a86a2;--accent:#5aa2ff;--good:#5fd08a;--warn:#e0b25a;}
+:root[data-theme="light"]{--bg:#f4f6fb;--bg2:#fff;--panel:#fff;--border:#dde3ee;--border2:#c9d3e6;
+  --text:#131a29;--text2:#4a5570;--text3:#7a86a2;--accent:#2f6df0;--good:#1f9d5b;--warn:#b7791f;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:1080px;margin:0 auto;padding:26px 20px 80px;}
+.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:700;}
+h1{font-size:27px;margin:6px 0 4px;font-weight:700;letter-spacing:-.01em;}
+.sub{color:var(--text2);max-width:70ch;margin:0 0 8px;}
+.gate{background:var(--panel);border:1px solid var(--warn);border-radius:12px;padding:12px 16px;color:var(--warn);margin:14px 0;font-weight:600;display:none;}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:18px 0 12px;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5;border-bottom:1px solid var(--border);}
+input[type=search],select{background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:9px 12px;font-size:13.5px;outline:none;}
+input[type=search]{flex:1;min-width:180px;}
+input[type=search]:focus,select:focus{border-color:var(--accent);}
+.toggle{display:inline-flex;align-items:center;gap:8px;color:var(--text2);font-size:13px;cursor:pointer;background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:8px 12px;user-select:none;}
+.toggle[aria-pressed=true]{color:var(--text);border-color:var(--accent);}
+.toggle .sw{width:30px;height:17px;border-radius:9px;background:var(--border2);position:relative;transition:.15s;}
+.toggle[aria-pressed=true] .sw{background:var(--accent);}
+.toggle .sw::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:.15s;}
+.toggle[aria-pressed=true] .sw::after{left:15px;}
+.btn{background:var(--accent);color:#fff;border:none;border-radius:9px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.btn.ghost{background:var(--panel);color:var(--text);border:1px solid var(--border2);}
+.count{color:var(--text3);font-size:12.5px;}
+.msg{font-size:13px;font-weight:600;min-height:18px;margin-left:auto;}
+.msg.ok{color:var(--good);} .msg.err{color:#e0885a;}
+.tablewrap{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow-x:auto;}
+table{border-collapse:collapse;width:100%;min-width:640px;}
+thead th{position:sticky;top:0;background:var(--panel);text-align:left;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);font-weight:700;padding:11px 12px;border-bottom:1px solid var(--border);white-space:nowrap;}
+tbody td{padding:8px 12px;border-bottom:1px solid var(--border);white-space:nowrap;}
+tbody tr:last-child td{border-bottom:0;}
+tbody tr.dirty{background:color-mix(in srgb,var(--accent) 8%,transparent);}
+tbody tr.missing td:first-child{box-shadow:inset 3px 0 0 var(--warn);}
+.pname{font-weight:700;}
+.pmeta{color:var(--text3);font-size:12px;}
+.team{color:var(--text2);font-size:12.5px;}
+.ovr-in{width:56px;background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:7px;padding:6px 8px;font-size:14px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums;}
+.ovr-in:focus{border-color:var(--accent);outline:none;}
+.ovr-in.set{border-color:var(--good);}
+.pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;background:var(--bg2);color:var(--text3);}
+.foot{color:var(--text3);font-size:12px;margin-top:14px;}
+</style></head>
+<body>
+<div id="tdcNav"></div>
+<div class="wrap">
+  <div class="eyebrow">Owner tools</div>
+  <h1>Newcomer OVRs</h1>
+  <p class="sub">Set overalls for freshmen and imports who have no college stats to compute from. Edit any number, then <b>Save all</b> once — it writes every change in a single update, and the rankings pick them up after you republish.</p>
+  <div class="gate" id="gate"></div>
+
+  <div class="bar">
+    <input type="search" id="q" placeholder="Search player or team…" autocomplete="off">
+    <select id="teamSel"><option value="">All teams</option></select>
+    <div class="toggle" id="missTog" role="button" aria-pressed="true" tabindex="0"><span class="sw"></span>Needs OVR only</div>
+    <button class="btn" id="saveBtn" disabled>Save all</button>
+    <button class="btn ghost" id="repubBtn" title="Recompute + publish the projected rankings with these OVRs">Republish rankings</button>
+    <span class="msg" id="msg"></span>
+  </div>
+  <div class="count" id="count"></div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>#</th><th>Player</th><th>Team</th><th>Pos</th><th>Ht</th><th>Class</th><th>Suggested</th><th>OVR</th></tr></thead>
+      <tbody id="tb"></tbody>
+    </table>
+  </div>
+  <p class="foot">Newcomers = players with no played-season stats. Suggested OVR uses your sheet grade if present, else a positional baseline — override freely. After saving, click <b>Republish rankings</b> (or do it from the owner console) so team ratings reflect the new OVRs.</p>
+</div>
+
+<script>
+const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const OWNER='blee4824@gmail.com';
+const H={apikey:KEY,Authorization:'Bearer '+KEY};
+function session(){ try{return JSON.parse(localStorage.getItem('tdc_session')||'null');}catch(e){return null;} }
+const $=s=>document.querySelector(s);
+let PLAYERS=[], BLOB={}, DIRTY={}, missOnly=true, q='', team='';
+
+function frKey(p){ return 'tdc_fr:'+(p.team||'')+':'+(p.name||''); }
+function isNewcomer(p){ return !(parseFloat(p.ppg)>0); }               // no played-season stats
+function savedOvr(p){ const e=BLOB[frKey(p)]; return (e&&e.ovr!=null&&e.ovr!=='')?parseInt(e.ovr,10):null; }
+function suggest(p){ const g=parseInt(p.tdc_grade,10); if(!isNaN(g)) return g;   // your sheet grade
+  const ht=/(\d+)-(\d+)/.exec(p.height||''); const pos=(p.position||'').toUpperCase();
+  return 74; }                                                          // positional baseline default
+
+async function fetchAll(path){ let out=[],from=0;const PAGE=1000;
+  while(true){ const r=await fetch(`${SB}/rest/v1/${path}`,{headers:{...H,'Range-Unit':'items','Range':`${from}-${from+PAGE-1}`}});
+    const b=await r.json(); if(!Array.isArray(b)||!b.length)break; out=out.concat(b); if(b.length<PAGE)break; from+=PAGE; } return out; }
+
+async function loadBlob(){
+  const s=session(), owner=!!(s&&s.user&&(s.user.email||'').toLowerCase()===OWNER);
+  const OWNER_ID='c5784cf4-dd77-4429-b0e6-578a0c1c5c8f';
+  const url = owner ? `${SB}/rest/v1/profiles?id=eq.${s.user.id}&select=freshman_projections`
+                    : `${SB}/rest/v1/profiles?id=eq.${OWNER_ID}&select=freshman_projections`;
+  const hdr = owner ? {apikey:KEY,Authorization:'Bearer '+s.access_token} : {apikey:KEY};
+  try{ const rows=await fetch(url,{headers:hdr}).then(r=>r.ok?r.json():[]); BLOB=(rows&&rows[0]&&rows[0].freshman_projections)||{}; }
+  catch(e){ BLOB={}; }
+}
+
+async function saveAll(){
+  const s=session();
+  if(!(s&&s.user&&(s.user.email||'').toLowerCase()===OWNER&&s.access_token)){ setMsg('Sign in as owner to save.','err'); return; }
+  const ids=Object.keys(DIRTY); if(!ids.length){ setMsg('No changes to save.'); return; }
+  ids.forEach(k=>{ const v=DIRTY[k]; const cur=BLOB[k]||{}; if(v==null){ delete BLOB[k]; } else { BLOB[k]={...cur, ovr:v, _noStatEst:true}; } });
+  $('#saveBtn').disabled=true; setMsg('Saving '+ids.length+'…');
+  const r=await fetch(`${SB}/rest/v1/profiles?id=eq.${s.user.id}`,{method:'PATCH',
+    headers:{apikey:KEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json',Prefer:'return=minimal'},
+    body:JSON.stringify({freshman_projections:BLOB})});
+  if(r.ok){ DIRTY={}; setMsg('Saved '+ids.length+' OVRs. Now click Republish rankings.','ok'); render(); }
+  else { const t=await r.text().catch(()=>''); setMsg('Save failed ('+r.status+'). '+t.slice(0,120),'err'); $('#saveBtn').disabled=false; }
+}
+
+async function republish(){
+  if(!(window.TDC_RATINGS&&TDC_RATINGS.rebuild)){ setMsg('Ratings engine not loaded.','err'); return; }
+  setMsg('Recomputing rankings…');
+  try{ if(window.TDCProjGrade&&TDCProjGrade.ready)await TDCProjGrade.ready;
+    const ov=(window.TDCFresh&&TDCFresh.ratingOverrides)?TDCFresh.ratingOverrides():undefined;
+    await TDC_RATINGS.rebuild(ov); setMsg('Rankings republished.','ok'); }
+  catch(e){ setMsg('Republish failed — use the owner console. '+String(e).slice(0,100),'err'); }
+}
+
+function setMsg(t,cls){ const m=$('#msg'); m.textContent=t||''; m.className='msg'+(cls?' '+cls:''); }
+function markDirty(p,val){ const k=frKey(p); const sv=savedOvr(p);
+  if(val===sv || (val==null&&sv==null)) delete DIRTY[k]; else DIRTY[k]=val;
+  $('#saveBtn').disabled=!Object.keys(DIRTY).length;
+  const n=Object.keys(DIRTY).length; if(n) setMsg(n+' unsaved change'+(n>1?'s':'')); else setMsg(''); }
+
+function render(){
+  const rows=PLAYERS.filter(p=>{
+    if(missOnly && savedOvr(p)!=null) return false;
+    if(team && p.team!==team) return false;
+    if(q){ const s=(p.name+' '+p.team).toLowerCase(); if(!s.includes(q)) return false; }
+    return true;
+  }).sort((a,b)=>(a.team||'').localeCompare(b.team||'')||(a.name||'').localeCompare(b.name||''));
+  $('#count').textContent=`${rows.length} newcomer${rows.length===1?'':'s'}${missOnly?' needing an OVR':''} · ${PLAYERS.length} total`;
+  $('#tb').innerHTML=rows.slice(0,700).map((p,i)=>{
+    const k=frKey(p), sv=savedOvr(p), dv=(k in DIRTY)?DIRTY[k]:sv, val=(dv!=null?dv:''), sug=suggest(p);
+    const dirty=(k in DIRTY)?'dirty':'', missing=(sv==null)?'missing':'';
+    return `<tr class="${dirty} ${missing}" data-k="${k}">
+      <td class="pmeta">${i+1}</td>
+      <td><span class="pname">${p.name}</span> <span class="pmeta">${p.yr||p.class_year||''}</span></td>
+      <td class="team">${p.team||''}</td>
+      <td>${p.position||'—'}</td>
+      <td class="pmeta">${p.height||'—'}</td>
+      <td class="pmeta">${p.yr||p.class_year||'—'}</td>
+      <td class="pmeta">${sug}</td>
+      <td><input class="ovr-in ${sv!=null?'set':''}" type="number" min="55" max="99" value="${val}" placeholder="${sug}" data-k="${k}"></td>
+    </tr>`;
+  }).join('') + (rows.length>700?`<tr><td colspan="8" class="pmeta" style="padding:12px">Showing first 700 — filter by team or search to narrow.</td></tr>`:'');
+}
+
+document.addEventListener('input',e=>{
+  if(e.target.classList.contains('ovr-in')){
+    const k=e.target.dataset.k, p=PLAYERS.find(x=>frKey(x)===k); if(!p) return;
+    let v=e.target.value===''?null:parseInt(e.target.value,10);
+    if(v!=null){ v=Math.max(55,Math.min(99,v)); }
+    markDirty(p,v);
+    e.target.closest('tr').classList.toggle('dirty', k in DIRTY);
+  }
+});
+$('#q').oninput=e=>{ q=e.target.value.trim().toLowerCase(); render(); };
+$('#teamSel').onchange=e=>{ team=e.target.value; render(); };
+const mt=$('#missTog'); const togMiss=()=>{ missOnly=!missOnly; mt.setAttribute('aria-pressed',missOnly); render(); };
+mt.onclick=togMiss; mt.onkeydown=e=>{ if(e.key===' '||e.key==='Enter'){e.preventDefault();togMiss();} };
+$('#saveBtn').onclick=saveAll;
+$('#repubBtn').onclick=republish;
+
+(async function(){
+  const s=session(), owner=!!(s&&s.user&&(s.user.email||'').toLowerCase()===OWNER);
+  if(!owner){ const g=$('#gate'); g.style.display='block'; g.textContent='Read-only — sign in as the owner to save OVRs.'; $('#saveBtn').disabled=true; $('#repubBtn').disabled=true; }
+  await loadBlob();
+  const all=await fetchAll('players?select=name,team,position,height,class_year,yr,espn_id,ppg,tdc_grade&name=neq.%E2%80%94&order=team.asc');
+  PLAYERS=all.filter(isNewcomer);
+  const teams=[...new Set(PLAYERS.map(p=>p.team).filter(Boolean))].sort();
+  $('#teamSel').insertAdjacentHTML('beforeend', teams.map(t=>`<option value="${t.replace(/"/g,'&quot;')}">${t}</option>`).join(''));
+  render();
+})();
+</script>
+</body></html>
