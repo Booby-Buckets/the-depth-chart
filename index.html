@@ -7,7 +7,7 @@
   <script src="tdc-ratings.js?v=4"></script>
   <script src="tdc-glossary.js?v=4"></script>
   <script src="tdc-freshman.js?v=pub4"></script>
-  <script src="tdc-projgrade.js?v=32"></script>
+  <script src="tdc-projgrade.js?v=33"></script>
   <script src="tdc-rating.js?v=5"></script>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=2"></script>
@@ -1567,7 +1567,7 @@ async function renderShowcase(){
   // gradeSolo) so every year shows the same first-principles grade the rest of the site
   // ranks on. Players missing from that season's history keep their base grade.
   if(curSeason!==2027 && window.TDCProjGrade && TDCProjGrade.gradeSolo && Array.isArray(pool) && pool.length){
-    try{ await TDCProjGrade.ready; }catch(e){}
+    try{ await TDCProjGrade.ready; if(TDCProjGrade.loadHist) await TDCProjGrade.loadHist(); }catch(e){}
     let _hv=false;
     pool.forEach(p=>{ if(p._baseGrade==null) p._baseGrade=p.tdc_grade;
       const g=TDCProjGrade.gradeSolo({espn_id:p.espn_id, season_year:curSeason, tdc_grade:p._baseGrade, yr:p.yr||p.class_year});
