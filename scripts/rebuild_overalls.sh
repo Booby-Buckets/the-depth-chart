@@ -21,6 +21,15 @@ run () {                                 # run() "label" script.py
 
 echo "Rebuilding statistical overalls + team analytics from the current roster…"
 
+# 0) RESTORE espn_ids the resync dropped. A stats resync can rebuild `players`
+#    without espn_id, and NO espn_id = NO overall (grades go blank). This matches
+#    (name, team) → espn_id from player_history and needs the service key. Skips
+#    cleanly (with a warning) if the key isn't available — but then any dropped
+#    returner stays blank, so set SUPABASE_SERVICE_KEY before a real resync.
+echo ""
+echo "── Restore espn_ids dropped by the resync ────────────────────────────"
+python3 backfill_espn_ids.py || echo "⚠  espn_id backfill skipped/failed (set SUPABASE_SERVICE_KEY to restore dropped IDs) — continuing"
+
 # 1) Demonstrated player overall (reads player_advanced → stat_overall.json + history)
 run "Demonstrated overall"        build_stat_overall.py
 # 2) Projected 2026-27 player overall (reads the roster → stat_overall_projected.json)
