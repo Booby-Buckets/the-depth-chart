@@ -39,7 +39,8 @@ USG_TOV_EL=0.95      # turnover elasticity to usage
 USG_EFF_PEN=0.06     # FG% drop per +100% usage (usage-efficiency tradeoff)
 REG_FG, REG_TP, REG_FT = 0.15, 0.25, 0.20   # shrink efficiency toward positional mean
 FTIMP_W=0.35         # weight on FT-implied 3P% (0.55*ftpct-10)
-TARGET_TEAM_USG=22.0; USG_CAP=(9.0,32.0); MPG_XFER_BUMP=10.0; TRANSFER_DEF_DAMP=0.5
+TARGET_TEAM_USG=22.0; USG_CAP=(9.0,32.0); MPG_XFER_BUMP=10.0
+TRANSFER_DEF_DAMP=float(os.environ.get("TRANSFER_DEF_DAMP","0.90"))  # share of a transfer's team-D (DWA) credit that follows him
 
 def sb_get(path):
     # STABLE ORDER is required: PostgREST offset pagination without ORDER BY returns
@@ -258,7 +259,7 @@ for short, roster in roster_by_team.items():
         # DWA carries from last year's defensive RATE (team-D can't be projected), scaled to new minutes
         dwa_last=_n(r["a"]["dwa"] if r["a"] is not None else 0); last_min=_n(r["a"]["min"] if r["a"] is not None else last_mpg*G_PROJ) or 1
         dwa40=dwa_last/(last_min/40.0)
-        if xfer: dwa40=0.5*dwa40   # team-D credit doesn't fully transfer
+        if xfer: dwa40=TRANSFER_DEF_DAMP*dwa40   # team-D credit doesn't fully transfer
         dwa_p=dwa40*(mn/40.0)
         sos=sos_of(full)
         usg_mult=min(USG_HI,max(USG_LO,(r["proj_usg"]/USG_REF)**USG_POW))
