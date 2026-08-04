@@ -4191,7 +4191,17 @@ function renderRankings(){
       </div>
       ${flow}
       <div class="so-chips">
-        ${chip('Wins Added <em>2025-26</em>', (_so.wa>=0?'+':'')+_so.wa)}
+        ${chip('Wins Added <em>2025-26</em>', (function(){
+            // Show the RAW owned wins-added (same number as the hero + Advanced table), not
+            // the SOS/usage-adjusted grade input — the "Competition ×sos" chip below shows the
+            // discount the grade applies, so the two no longer read as a contradiction.
+            var w=null;
+            try{ var ch=(typeof careerHistory!=='undefined')?careerHistory:null;
+                 if(ch&&ch.length){ var la=ch[ch.length-1]; if(la&&la._advanced&&la._advanced.wa!=null) w=la._advanced.wa; } }catch(e){}
+            if(w==null&&typeof _winsAdded==='function'&&player&&player._advanced) w=_winsAdded(player._advanced);
+            if(w==null) w=_so.wa;
+            return (w>=0?'+':'')+w;
+          })())}
         ${chip('Scoring value <em>TI/40</em>', _so.ti40)}
         ${chip('Defense <em>DWA</em>', (_so.dwa>=0?'+':'')+_so.dwa)}
         ${chip('Usage', _so.usg+'%')}
