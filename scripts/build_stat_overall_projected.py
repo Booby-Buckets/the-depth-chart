@@ -93,8 +93,16 @@ def cls_trans(yr):
     if "jr" in y: return "jr"   # junior-to-be    -> so->jr
     if "sr" in y: return "sr"   # senior-to-be    -> jr->sr
     return None                  # incoming freshman (no prior season) / grad / unknown
-def dev_mult(yr,demo):
-    t=cls_trans(yr)
+def infer_trans(n_prior):
+    # roster class is often blank; infer the upcoming transition from seasons already played
+    # (1 prior season = was a freshman = upcoming sophomore, etc.) so a data gap doesn't
+    # silently zero a young player's development.
+    if n_prior<=1: return "so"
+    if n_prior==2: return "jr"
+    if n_prior==3: return "sr"
+    return None
+def dev_mult(yr,demo,n_prior=None):
+    t=cls_trans(yr) or (infer_trans(n_prior) if n_prior else None)
     if not t: return 1.0
     tier="low" if demo<73 else ("mid" if demo<84 else "high")
     return DEV.get(t,{}).get(tier,1.0)
@@ -104,6 +112,10 @@ adv=pd.DataFrame(sb_get(f"player_advanced?select=espn_id,name,team,g,min,usg_pct
 box=pd.DataFrame(sb_get(f"player_history?select=espn_id,ppg,mpg,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,stl,blk,tovs,apg,gp,fg_pct,tp_pct,ft_pct&season_year=eq.{CUR}"))
 pl =pd.DataFrame(sb_get("players?select=espn_id,depth_order,starter,mpg,yr,class_year,team,position,height"))
 ts =pd.DataFrame(sb_get("team_seasons?select=season_year,team,conference,srs"))
+# prior seasons played (through CUR) per player — infers class when the roster's is blank
+_cs=pd.DataFrame(sb_get(f"player_history?select=espn_id,season_year&mpg=gt.2&season_year=lte.{CUR}"))
+_cs["espn_id"]=pd.to_numeric(_cs["espn_id"],errors="coerce")
+CAREER_SEASONS=_cs.dropna(subset=["espn_id"]).groupby("espn_id")["season_year"].nunique().to_dict()
 for df in (adv,pl,box): df["espn_id"]=pd.to_numeric(df["espn_id"],errors="coerce").astype("Int64")
 for c in ["g","min","usg_pct","owa","dwa","ti40"]: adv[c]=pd.to_numeric(adv[c],errors="coerce")
 for c in ["ppg","mpg","fgm","fga","tpm","tpa","ftm","fta","oreb","dreb","stl","blk","tovs","apg","gp","fg_pct","tp_pct","ft_pct"]:
@@ -231,7 +243,7 @@ for short, roster in roster_by_team.items():
         xfer=bool(demo_team_full and not str(demo_team_full).lower().startswith(str(short).lower()))
         if xfer: pm=min(pm,last_mpg+MPG_XFER_BUMP)
         usg_ratio=min(1.6,max(0.6,r["proj_usg"]/max(r["last_usg"],1)))
-        dm=dev_mult(p.yr or p.class_year, r["demo"])
+        dm=dev_mult(p.yr or p.class_year, r["demo"], CAREER_SEASONS.get(e))
         # per-40 last-year rates
         def p40(k): return _n(b[k])*40.0/max(last_mpg,1)
         fga40=p40("fga")*usg_ratio*dm; tpa40=p40("tpa")*usg_ratio*dm; fta40=p40("fta")*usg_ratio*dm
