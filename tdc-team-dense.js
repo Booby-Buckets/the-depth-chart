@@ -1,8 +1,9 @@
 /* ============================================================
-   TDC TEAM DENSE JS — force dark + drop the team logo into the hero.
+   TDC TEAM DENSE JS — hero team logo + grade-tile coloring.
+   (Dark-force removed 2026: the clean skin supports both themes,
+   so the theme is owned solely by tdc-theme.js.)
 ============================================================ */
 (function(){
-  try{ document.documentElement.setAttribute('data-theme','dark'); }catch(e){}
   function norm(s){ return (s||'').toLowerCase().replace(/&/g,' ').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
   function logoFor(name){
     var C=window.TDC_TEAM_COLORS; if(!C||!name) return null;
