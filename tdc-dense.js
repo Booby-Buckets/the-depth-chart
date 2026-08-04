@@ -4,8 +4,10 @@
    it works with the existing render/sort/filter untouched.
 ============================================================ */
 (function(){
-  /* force the dark navy theme this look is designed for */
-  try{ document.documentElement.setAttribute('data-theme','dark'); }catch(e){}
+  /* Force the dark navy theme this dense look was designed for — UNLESS the page has
+     opted into the 2026 clean skin (tdc-skin.css), which supports both light and dark.
+     This lets the skin roll out page-by-page: adding tdc-skin.css auto-releases the dark-lock. */
+  try{ if(!document.querySelector('link[href*="tdc-skin.css"]')) document.documentElement.setAttribute('data-theme','dark'); }catch(e){}
 
   /* ---- team logos (from TDC_TEAM_COLORS, loaded site-wide) ---- */
   // strip & . ' (and curly ') the SAME way the TDC_TEAM_COLORS keys were built — else
