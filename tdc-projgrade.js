@@ -562,8 +562,18 @@
       .then(function(j){ if(!j || !j.players) return null; var m = {}; for(var k in j.players){ var v = j.players[k]; m[k] = (v && v.ovr != null) ? v.ovr : v; } return m; })
       .catch(function(){ return null; });
   }
+  // Keep the FULL projected line rows (not just the ovr) so surfaces can display the exact
+  // line the grade was computed from — reconciling the shown stats with the OVR.
+  var _SO_PROJ_ROW = {};
+  function _loadProjRows(url){
+    return fetch(url).then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){ if(!j || !j.players) return null; _SO_PROJ_ROW = j.players; var m = {};
+        for(var k in j.players){ var v = j.players[k]; m[k] = (v && v.ovr != null) ? v.ovr : v; } return m; })
+      .catch(function(){ return null; });
+  }
+  window.TDCProjGrade.projRowOf = function(espn){ return (espn!=null && _SO_PROJ_ROW) ? (_SO_PROJ_ROW['' + espn] || null) : null; };
   window.TDCProjGrade.ready = Promise.all([
     _loadSO('scripts/data/stat_overall.json?v=3').then(function(m){ if(m) setStatOverall(m, null); }),
-    _loadSO('scripts/data/stat_overall_projected.json?v=3').then(function(m){ if(m) setStatOverall(null, m); })
+    _loadProjRows('scripts/data/stat_overall_projected.json?v=4').then(function(m){ if(m) setStatOverall(null, m); })
   ]).then(function(){ return true; }).catch(function(){ return true; });   // history is lazy — see loadHist()
 })();

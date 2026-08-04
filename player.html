@@ -15,7 +15,7 @@
   <script src="tdc-ratings.js?v=5"></script>
   <script src="tdc-leaderboard.js?v=2"></script>
   <script src="tdc-portalfit.js?v=needs7"></script>
-  <script src="tdc-projgrade.js?v=34"></script>
+  <script src="tdc-projgrade.js?v=35"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-owned-seasons.js?v=4"></script>
   <script src="tdc-pool.js?v=1"></script>
@@ -1990,6 +1990,18 @@ async function init(){
         const singleProj = buildTeamProjections(singleTeam, conf);
         proj = singleProj[0] || null;
       }
+      // RECONCILE the projection with the GRADE: the OVR is computed from the statistical-
+      // overall projected line (stat_overall_projected.json). Display THAT same line so the
+      // shown stats and the grade come from one source (no more 21ppg-shown-but-graded-at-18).
+      try{
+        const _spk = (window.TDCProjGrade && TDCProjGrade.projRowOf && player && player.espn_id!=null)
+          ? TDCProjGrade.projRowOf(player.espn_id) : null;
+        if(_spk && _spk.ppg!=null){
+          proj = Object.assign({}, proj||{}, {_reconciled:true});
+          ['ppg','rpg','apg','mpg','fg_pct','tp_pct','ft_pct','stl','blk','tovs','oreb','dreb',
+           'fgm','fga','tpm','tpa','ftm','fta'].forEach(k=>{ if(_spk[k]!=null) proj[k]=_spk[k]; });
+        }
+      }catch(e){}
       // ROBUSTNESS: the team minutes model can zero a PROVEN player who's buried in a noisy
       // depth chart (transfers often default to depth_order 14+, so they project 0 minutes on
       // a stacked new team) — an all-zero line is useless on his OWN page. Fallback: carry his

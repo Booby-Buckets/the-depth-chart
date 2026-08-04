@@ -39,7 +39,8 @@ USG_TOV_EL=0.95      # turnover elasticity to usage
 USG_EFF_PEN=0.06     # FG% drop per +100% usage (usage-efficiency tradeoff)
 REG_FG, REG_TP, REG_FT = 0.15, 0.25, 0.20   # shrink efficiency toward positional mean
 FTIMP_W=0.35         # weight on FT-implied 3P% (0.55*ftpct-10)
-TARGET_TEAM_USG=22.0; USG_CAP=(9.0,32.0); MPG_XFER_BUMP=10.0
+TARGET_TEAM_USG=float(os.environ.get("TARGET_TEAM_USG","22.0")); USG_CAP=(9.0,34.0); MPG_XFER_BUMP=10.0
+VAC_CONC=float(os.environ.get("VAC_CONC","2.0"))  # vacancy concentration: weight ∝ last_usg**VAC_CONC (focal points absorb more of a departed rotation, within the team cap)
 TRANSFER_DEF_DAMP=float(os.environ.get("TRANSFER_DEF_DAMP","0.90"))  # share of a transfer's team-D (DWA) credit that follows him
 
 def sb_get(path):
@@ -200,10 +201,12 @@ for short, roster in roster_by_team.items():
                       last_usg=_n(a["usg_pct"] if a is not None else None,USG_REF) or USG_REF,
                       demo=demo_ovr.get(e,72)))
     if not R: continue
-    # redistribute vacated usage to returners (weight = last_usg × proj_min)
-    wsum=sum(r["last_usg"]*r["pm"] for r in R) or 1
+    # redistribute vacated usage to returners — CONCENTRATED on the higher-usage options
+    # (weight = last_usg**VAC_CONC × proj_min), so a gutted roster's #1 returner absorbs the
+    # departed shot creation rather than spreading it thin. Team total still capped below.
+    wsum=sum((r["last_usg"]**VAC_CONC)*r["pm"] for r in R) or 1
     for r in R:
-        share=(r["last_usg"]*r["pm"])/wsum
+        share=((r["last_usg"]**VAC_CONC)*r["pm"])/wsum
         add_usg=(vac_load*RETURNER_VAC*share)/max(r["pm"]*G_PROJ,1.0)   # %·min · frac / min = %
         r["raw_usg"]=r["last_usg"]+add_usg
     # TEAM CONSTRAINT: on-court usages sum to ~100%, so the rotation can't average >~22%.
@@ -283,6 +286,9 @@ for short, roster in roster_by_team.items():
             "fg_pct":round(fg_p,1),"tp_pct":round(tp_p,1),"ft_pct":round(ft_p,1),
             "stl":round(pg["stl"],1),"blk":round(pg["blk"],1),"tovs":round(pg["tov"],1),
             "oreb":round(pg["oreb"],1),"dreb":round(pg["dreb"],1),
+            # makes/attempts so the player page can render the FULL line off THIS (graded) source
+            "fgm":round(fgm,1),"fga":round(fga,1),"tpm":round(tpm,1),"tpa":round(tpa,1),
+            "ftm":round(ftm,1),"fta":round(fta,1),
         }
 
 json.dump({"season":"2026-27","scale":{"mu":MU,"sp":SP},"n":len(out),"players":out},
