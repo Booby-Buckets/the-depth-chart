@@ -1,0 +1,49 @@
+/* ===================================================================
+   tdc-skin.css — the 2026 "clean base + team-tinted accent + depth" skin.
+   Loaded AFTER tdc-dense.css / tdc-player-dense.css so its palette wins.
+   Rolls out page-by-page: add this <link> to a page to opt it in.
+   Nothing structural — only color/surface tokens + a translucent depth
+   treatment on the stat panels. Team color still rides --tc for the
+   minimal accent slots; grades keep their own tier color.
+   =================================================================== */
+
+/* ---- LIGHT base: white / cool-grey ---- */
+:root[data-theme="light"], :root:not([data-theme="dark"]){
+  --bg:#f6f7f9; --bg2:#ffffff; --bg3:#eef1f6;
+  --border:#e6e9ef; --border2:#d7dce4;
+  --text:#181b21; --text2:#5c6572; --text3:#98a1ad;
+  --accent:#2952e0;
+  --green:#12996a; --red:#e0533b;
+  /* translucent depth for stat trays + tiles */
+  --tray-bg:rgba(255,255,255,.42); --tray-border:rgba(28,40,74,.10); --tray-shadow:rgba(24,32,58,.06);
+  --tile-bg:rgba(255,255,255,.74); --tile-border:rgba(28,40,74,.11); --tile-hi:rgba(255,255,255,.85);
+  --tile-shadow:0 1px 2px rgba(20,26,40,.04),0 6px 16px rgba(20,26,40,.05);
+}
+
+/* ---- DARK base: dark-grey / light-grey / white ---- */
+:root[data-theme="dark"]{
+  --bg:#1a1c20; --bg2:#24272d; --bg3:#2c3037;
+  --border:#33373f; --border2:#45464d;
+  --text:#ffffff; --text2:#aeb4bd; --text3:#6c727c;
+  --accent:#8fa2ff;
+  --green:#3fd39a; --red:#ff6b6b;
+  --tray-bg:rgba(255,255,255,.028); --tray-border:rgba(255,255,255,.08); --tray-shadow:rgba(0,0,0,.28);
+  --tile-bg:rgba(255,255,255,.05); --tile-border:rgba(255,255,255,.10); --tile-hi:rgba(255,255,255,.06);
+  --tile-shadow:0 2px 10px rgba(0,0,0,.26);
+}
+
+/* ---- neutralize tdc-dense.css's hardcoded navy field: make the ground theme-aware ---- */
+html{ background:var(--bg) !important; }
+.tdc-bg{ background:var(--bg) !important; }
+.nav-wrap{ background:color-mix(in srgb, var(--bg2) 90%, transparent) !important; border-bottom-color:var(--border) !important; }
+
+/* ---- translucent depth on the stat panels (player overview cards) ---- */
+.stat-cards{
+  background:var(--tray-bg); border:1px solid var(--tray-border); border-radius:14px;
+  padding:9px; box-shadow:inset 0 1px 0 var(--tile-hi), 0 8px 22px var(--tray-shadow);
+}
+.stat-card{
+  background:var(--tile-bg) !important; border:1px solid var(--tile-border) !important; border-radius:10px;
+  box-shadow:inset 0 1px 0 var(--tile-hi), var(--tile-shadow);
+  -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+}
