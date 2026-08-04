@@ -3517,7 +3517,31 @@ function renderPage(){
   setTimeout(_tabScrollHint, 150);
 }
 
+// The Full Stats OVR column must show the SAME statistical overall as the hero/rankings
+// (gradeSolo, season-aware) — not the raw per-season players/player_history tdc_grade,
+// which is a legacy grade and made a season read 95 while the site's overall said 85.
+function _statOvrRow(sy, fallback){
+  if(window.TDCProjGrade && TDCProjGrade.gradeSolo){
+    var g=TDCProjGrade.gradeSolo({espn_id:(player&&player.espn_id), season_year:sy, tdc_grade:fallback});
+    if(g!=null && !isNaN(g)) return g;
+  }
+  return fallback;
+}
+var _statsHistReady=false;
+function _rerenderStatTables(){
+  var a=document.getElementById('sm-body-pergame'); if(a) a.innerHTML=renderStatTable(player, proj);
+  var b=document.getElementById('sm-body-per40'); if(b) b.innerHTML=renderModeTable('per40');
+  var c=document.getElementById('sm-body-advanced'); if(c) c.innerHTML='<div style="overflow-x:auto;">'+renderModeTable('advanced')+'</div>';
+}
+// Past-season statistical overalls live in the lazy history file — load it once, then
+// repaint the tables so 2024/25 rows show the real overall instead of the raw fallback.
+function _ensureStatsHist(){
+  if(_statsHistReady || !(window.TDCProjGrade && TDCProjGrade.loadHist)) return;
+  _statsHistReady=true;
+  TDCProjGrade.loadHist().then(function(){ _rerenderStatTables(); });
+}
 function renderStatTable(p, projData){
+  _ensureStatsHist();
   const seasonLabel = y => {
     const yr = parseInt(y);
     return isNaN(yr) ? y : `${yr-1}-${String(yr).slice(2)}`;
@@ -3546,7 +3570,7 @@ function renderStatTable(p, projData){
       if(s.sat_out || (s.ppg==null && (s.gp==null||s.gp===0))){
         rowsHtml += `<tr style="opacity:.55;">
           <td>${seasonLabel(s.season_year)}${teamSub(s.team)}</td>
-          ${ovrCell(s.tdc_grade)}
+          ${ovrCell(_statOvrRow(s.season_year, s.tdc_grade))}
           <td colspan="19" style="text-align:left;font-style:italic;color:var(--text3);">
             Redshirt / Did not play
           </td>
@@ -3555,7 +3579,7 @@ function renderStatTable(p, projData){
         const pgd=s._pergame||{};
         rowsHtml += `<tr class="actual">
           <td>${seasonLabel(s.season_year)}${teamSub(s.team)}</td>
-          ${ovrCell(s.tdc_grade)}
+          ${ovrCell(_statOvrRow(s.season_year, s.tdc_grade))}
           <td>${s.gp||'—'}</td>
           <td ${_cc(pgd,'pts_per_g')}>${fmt(s.ppg)}</td><td ${_cc(pgd,'trb_per_g')}>${fmt(s.rpg)}</td><td ${_cc(pgd,'ast_per_g')}>${fmt(s.apg)}</td><td ${_cc(pgd,'mp_per_g')}>${fmt(s.mpg)}</td>
           <td ${_cc(pgd,'fg_per_g')}>${fmt(s.fgm)}</td><td ${_cc(pgd,'fga_per_g')}>${fmt(s.fga)}</td><td ${_cc(pgd,'fg_pct')}>${fmtP(s.fg_pct)}</td>
@@ -3570,7 +3594,7 @@ function renderStatTable(p, projData){
     // No career history — fall back to current season row from players table
     rowsHtml += `<tr class="actual">
       <td>2025-26${teamSub(p.team)}</td>
-      ${ovrCell(p.tdc_grade)}
+      ${ovrCell(_statOvrRow(2026, p.tdc_grade))}
       <td>${p.gp||'—'}</td>
       <td>${fmt(p.ppg)}</td><td>${fmt(p.rpg)}</td><td>${fmt(p.apg)}</td><td>${fmt(p.mpg)}</td>
       <td>${fmt(p.fgm)}</td><td>${fmt(p.fga)}</td><td>${fmtP(p.fg_pct)}</td>
@@ -3585,7 +3609,7 @@ function renderStatTable(p, projData){
   if(projData){
     rowsHtml += `<tr class="proj">
       <td>2026-27 ★<div style="font-size:9px;color:var(--text3);font-weight:600;">Projected</div></td>
-      ${ovrCell(p.tdc_grade)}
+      ${ovrCell(_statOvrRow(undefined, p.tdc_grade))}
       <td>—</td>
       <td>${fmt(projData.ppg)}</td><td>${fmt(projData.rpg)}</td><td>${fmt(projData.apg)}</td><td>${fmt(projData.mpg)}</td>
       <td>${fmt(projData.fgm)}</td><td>${fmt(projData.fga)}</td><td>${fmtP(projData.fg_pct)}</td>
@@ -3653,7 +3677,7 @@ function renderModeTable(mode){
   if(!hist.length) return `<div style="padding:30px;color:var(--text3);font-style:italic;">No ${mode==='per40'?'per-40':'advanced'} data available.</div>`;
   const head=`<th>Season</th><th>OVR</th>`+M.cols.map(c=>`<th>${c[0]}</th>`).join('');
   const body=hist.map(s=>{ const d=s[M.src]||{};
-    return `<tr class="actual"><td>${_seasonLbl(s.season_year)}${_teamSub(s.team)}</td>${_ovrTd(s.tdc_grade)}`
+    return `<tr class="actual"><td>${_seasonLbl(s.season_year)}${_teamSub(s.team)}</td>${_ovrTd(_statOvrRow(s.season_year, s.tdc_grade))}`
       +M.cols.map(c=>`<td ${_cc(d,c[1])}>${c[2](d[c[1]])}</td>`).join('')+`</tr>`;
   }).join('');
   return `<table class="stat-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
