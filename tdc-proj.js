@@ -999,8 +999,11 @@ function buildTeamProjections(players, conf){
       return sw>0?sv/sw:parseFloat(arr[0][key]||0);
     };
 
-    // FG%: recency-weighted career smooth, lean heavily on most recent season
-    const fgBase      = parseFloat(base.fg_pct||0)||44;
+    // FG%: recency-weighted career smooth, lean heavily on most recent season.
+    // Source the base % from REAL player_history (latestH) first — the roster/sheet row's
+    // shooting columns are often empty/partial (Huff's fg_pct was blank → the 44 fallback,
+    // projecting a 66% finisher to a career-low 55%). Volume/PPG still use `base` unchanged.
+    const fgBase      = parseFloat((latestH&&latestH.fg_pct)||base.fg_pct||0)||44;
     const careerFgPct = meaningful.length>=2 ? shootBase(meaningful,'fg_pct','fga') : fgBase;
     const fgSmoothed  = fgBase*0.55 + careerFgPct*0.45;
 
@@ -1008,7 +1011,7 @@ function buildTeamProjections(players, conf){
       ? (meaningful.length>=2 ? shootBase(meaningful,'tp_pct','tpa') : parseFloat(meaningful[0].tp_pct||0))
       : (parseFloat(base.tp_pct||0)||parseFloat(p.tp_pct||0)||33);
 
-    const ftBase      = parseFloat(base.ft_pct||0)||70;
+    const ftBase      = parseFloat((latestH&&latestH.ft_pct)||base.ft_pct||0)||70;
     const careerFtPct = meaningful.length>=2 ? shootBase(meaningful,'ft_pct','fta') : ftBase;
     const ftSmoothed  = ftBase*0.70 + careerFtPct*0.30;
 
