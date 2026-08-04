@@ -83,11 +83,16 @@ def proj_mpg(d,last,starter):
     return pm
 DEV=json.load(open(os.path.join(D,"dev_curves.json")))["rate_mult"]
 def cls_trans(yr):
+    # roster `yr` is the class the player WILL BE in 2026-27, and dev_curves keys are named by
+    # the class he BECOMES (rate_mult["so"] = the fr->so jump; see build_dev_curves.py). So map
+    # the upcoming class straight to its own curve — NOT the next transition. (Previously this
+    # shifted one step too far: a sophomore-to-be got the smaller so->jr bump instead of his
+    # real fr->so leap, systematically under-developing young returners like Diop.)
     y=str(yr or "").lower()
-    if "fr" in y: return "so"
-    if "so" in y: return "jr"
-    if "jr" in y: return "sr"
-    return None
+    if "so" in y: return "so"   # sophomore-to-be -> fr->so jump (largest)
+    if "jr" in y: return "jr"   # junior-to-be    -> so->jr
+    if "sr" in y: return "sr"   # senior-to-be    -> jr->sr
+    return None                  # incoming freshman (no prior season) / grad / unknown
 def dev_mult(yr,demo):
     t=cls_trans(yr)
     if not t: return 1.0
