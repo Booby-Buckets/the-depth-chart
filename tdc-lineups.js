@@ -161,11 +161,30 @@ window.TDC_LINEUPS = (function () {
   // adjusted-net cell (row net + team SoS delta) + a SoS cell (the team constant)
   function adjCell(net, sos) { var a = (+net || 0) + (sos || 0), c = a > 0 ? '#2bb673' : a < 0 ? '#e06552' : 'var(--text2)'; return td(a, 1, c); }
   function sosCell(sos) { return td(sos, 1, sos > 0 ? '#5bb381' : sos < 0 ? '#e0885a' : 'var(--text3)'); }
+  // hover descriptions for every stat column (self-contained so tooltips work on every
+  // page this module renders on, whether or not tdc-glossary.js is loaded).
+  var TT = {
+    poss: 'The number of possessions this group played together (offense + defense). A bigger number is a more reliable sample.',
+    net: 'Points scored minus points allowed per 100 possessions with this group on the floor — the bottom-line scoring margin.',
+    adj: 'Net adjusted for schedule: this group’s net plus the team’s schedule strength (SoS), so the number is comparable across teams.',
+    sos: 'Strength of schedule in net-rating points — how much tougher (+) or weaker (−) than average the team’s opponents were. Team-level: the same for every one of its lineups.',
+    ortg: 'Points scored per 100 possessions with this group on the floor — offensive efficiency, independent of pace.',
+    drtg: 'Points allowed per 100 possessions with this group on the floor — defensive efficiency. Lower is better.',
+    efg: 'Effective field-goal %: shooting that credits threes as worth more (a made 3 counts like 1.5 made 2s). A better read on shooting than raw FG%.',
+    tov: 'Turnover rate — the share of possessions that end in a turnover. Lower is better.',
+    orb: 'Offensive-rebound rate — the share of its own missed shots this group rebounded for another chance.',
+    ftr: 'Free-throw rate — free throws attempted per field-goal attempt; how much this group gets to the line.',
+    units: 'How many distinct five-man lineups this combo appeared in together. More units and possessions make the numbers more trustworthy.'
+  };
+  var TT_ID = { 'POSS': 'poss', 'NET': 'net', 'Adj': 'adj', 'SoS': 'sos', 'ORtg': 'ortg', 'DRtg': 'drtg', 'eFG%': 'efg', 'TOV%': 'tov', 'ORB%': 'orb', 'FTr': 'ftr', 'Units': 'units' };
+  function thLabel(label) { var t = TT[TT_ID[label]]; return t ? '<span title="' + t.replace(/"/g, '&quot;') + '" style="border-bottom:1px dotted currentColor;cursor:help;">' + label + '</span>' : label; }
+  function thCell(h) {   // h = [label, align, isGroupStart]
+    var tip = !!TT[TT_ID[h[0]]];
+    return '<th style="padding:7px 9px;border:1px solid var(--border);background:var(--bg3);text-align:' + h[1] + ';font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);white-space:nowrap;' + (h[2] ? LU_DIVB : '') + (tip ? 'cursor:help;' : '') + '">' + thLabel(h[0]) + '</th>';
+  }
   function luHead() {
     var hs = [['Lineup', 'left', 0], ['POSS', 'center', 0], ['NET', 'center', 0], ['Adj', 'center', 0], ['SoS', 'center', 0], ['ORtg', 'center', 1], ['DRtg', 'center', 0], ['eFG%', 'center', 1], ['TOV%', 'center', 0], ['ORB%', 'center', 0], ['FTr', 'center', 0]];
-    return '<thead><tr>' + hs.map(function (h) {
-      return '<th style="padding:7px 9px;border:1px solid var(--border);background:var(--bg3);text-align:' + h[1] + ';font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);white-space:nowrap;' + (h[2] ? LU_DIVB : '') + '">' + h[0] + '</th>';
-    }).join('') + '</tr></thead>';
+    return '<thead><tr>' + hs.map(thCell).join('') + '</tr></thead>';
   }
   function luRow(l, idx, i, sos) {
     var tr = tier(l.net), netc = l.net > 0 ? '#2bb673' : l.net < 0 ? '#e06552' : 'var(--text2)';
@@ -196,9 +215,7 @@ window.TDC_LINEUPS = (function () {
   // ORtg, DRtg + four factors, blended from the units they share), plus a Units column.
   function comboHead() {
     var hs = [['Players', 'left', 0], ['POSS', 'center', 0], ['NET', 'center', 0], ['Adj', 'center', 0], ['SoS', 'center', 0], ['ORtg', 'center', 1], ['DRtg', 'center', 0], ['eFG%', 'center', 1], ['TOV%', 'center', 0], ['ORB%', 'center', 0], ['FTr', 'center', 0], ['Units', 'center', 1]];
-    return '<thead><tr>' + hs.map(function (h) {
-      return '<th style="padding:6px 9px;border:1px solid var(--border);background:var(--bg3);text-align:' + h[1] + ';font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);white-space:nowrap;' + (h[2] ? LU_DIVB : '') + '">' + h[0] + '</th>';
-    }).join('') + '</tr></thead>';
+    return '<thead><tr>' + hs.map(thCell).join('') + '</tr></thead>';
   }
   function comboRow(t, idx, i, sos) {
     var tr = tier(t.net), netc = t.net > 0 ? '#2bb673' : t.net < 0 ? '#e06552' : 'var(--text2)';
