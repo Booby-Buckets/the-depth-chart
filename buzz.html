@@ -49,6 +49,7 @@
   </style>
   <!-- new-UI theme layer: navy+blue dark palette (matches index/player); light-mode guard keeps the toggle readable -->
   <link rel="stylesheet" href="tdc-dense.css?v=18"/>
+  <link rel="stylesheet" href="tdc-skin.css?v=4"/>
   <style>
     :root:not([data-theme="dark"]){background:var(--bg)!important;}
     :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
@@ -73,7 +74,7 @@ function toggleTheme(){ const d=document.documentElement; const dark=d.getAttrib
   d.setAttribute('data-theme',dark?'light':'dark'); document.getElementById('themeBtn').textContent=dark?'☾':'☀';
   try{ localStorage.setItem('tdc_theme',dark?'light':'dark'); }catch(e){} }
 (function(){ let t='light'; try{ t=localStorage.getItem('tdc_theme')||'light'; }catch(e){}
-  if(t==='dark'){ document.documentElement.setAttribute('data-theme','dark'); document.getElementById('themeBtn').textContent='☀'; } })();
+  if(t==='dark'){ if(!document.querySelector('link[href*="tdc-skin.css"]'))document.documentElement.setAttribute('data-theme','dark'); document.getElementById('themeBtn').textContent='☀'; } })();
 
 const el=id=>document.getElementById(id);
 let ALL=[], filtered=[], shown=0, PAGE=40, activeChip=null;

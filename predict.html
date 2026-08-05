@@ -55,6 +55,7 @@
   <script src="tdc-anim.js?v=5"></script>
   <!-- new-UI theme layer: navy+blue dark palette (matches index/player); light-mode guard keeps the toggle readable -->
   <link rel="stylesheet" href="tdc-dense.css?v=18"/>
+  <link rel="stylesheet" href="tdc-skin.css?v=4"/>
   <style>
     :root:not([data-theme="dark"]){background:var(--bg)!important;}
     :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
@@ -107,11 +108,11 @@
 <script>
 function toggleTheme(){
   const cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
-  if(cur==='dark') document.documentElement.setAttribute('data-theme','dark'); else document.documentElement.removeAttribute('data-theme');
+  if(cur==='dark') if(!document.querySelector('link[href*="tdc-skin.css"]'))document.documentElement.setAttribute('data-theme','dark'); else document.documentElement.removeAttribute('data-theme');
   localStorage.setItem('tdc_theme',cur);
   document.getElementById('themeBtn').textContent=cur==='dark'?'☀️':'🌙';
 }
-(function(){ if(localStorage.getItem('tdc_theme')==='dark'){ document.documentElement.setAttribute('data-theme','dark'); window.addEventListener('DOMContentLoaded',()=>{document.getElementById('themeBtn').textContent='☀️';}); } })();
+(function(){ if(localStorage.getItem('tdc_theme')==='dark'){ if(!document.querySelector('link[href*="tdc-skin.css"]'))document.documentElement.setAttribute('data-theme','dark'); window.addEventListener('DOMContentLoaded',()=>{document.getElementById('themeBtn').textContent='☀️';}); } })();
 
 const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
