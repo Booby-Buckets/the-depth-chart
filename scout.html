@@ -147,6 +147,26 @@
     .scavg b{color:var(--text);font-size:14px;}
     .scfc{text-align:right;font-size:11.5px;color:var(--text3);font-variant-numeric:tabular-nums;}
     .sctag{text-align:right;font-size:11px;font-weight:800;}
+    /* ── per-player attack book (expandable) ── */
+    .abcard{border:1px solid var(--border);border-radius:12px;background:var(--bg2);margin-bottom:8px;overflow:hidden;}
+    .abcard[open]{border-color:var(--border2);box-shadow:0 4px 16px rgba(0,0,0,.05);}
+    .absum{display:grid;grid-template-columns:34px 1fr auto 15px;gap:13px;align-items:center;padding:12px 15px;cursor:pointer;list-style:none;}
+    .absum::-webkit-details-marker{display:none;}
+    .absum:hover{background:color-mix(in srgb,var(--accent) 5%,var(--bg2));}
+    .abhead{font-size:11.5px;font-weight:800;color:var(--accent);text-align:right;max-width:238px;line-height:1.35;}
+    @media(max-width:640px){.absum{grid-template-columns:34px 1fr 15px;}.abhead{display:none;}}
+    .abtog{color:var(--text3);font-size:12px;transition:transform .18s;text-align:center;}
+    .abcard[open] .abtog{transform:rotate(90deg);}
+    .abbody{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;padding:13px 15px 15px;border-top:1px solid var(--border);}
+    @media(max-width:640px){.abbody{grid-template-columns:1fr;}}
+    .abct{font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+    .abct.guard{color:var(--red);}
+    .abct.attack{color:var(--green);}
+    .abrow{margin-bottom:11px;}
+    .abrow:last-child{margin-bottom:0;}
+    .abl{font-size:11px;font-weight:800;color:var(--text);margin-bottom:2px;}
+    .abr{font-size:12px;color:var(--text2);line-height:1.5;}
+    .abnone{grid-column:1/-1;font-size:12px;color:var(--text3);line-height:1.6;}
     .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:30px;max-width:760px;}
     /* roster report reuse */
     .rr-essence{font-size:13.5px;line-height:1.7;color:var(--text);background:var(--bg2);border-left:3px solid var(--tc,#888);padding:14px 16px;margin-bottom:22px;border-radius:0 8px 8px 0;}
@@ -401,7 +421,10 @@ function tendencies(opp,sg){
   </div>`;
 }
 
-// ── opponent personnel: PROJECTED line + per-player attack intel ──
+// ── opponent personnel: the ATTACK BOOK — projected line + a deep per-man read on
+//    how to GUARD his offense and ATTACK his defense, synthesized from his 2025-26
+//    shot chart (zone efficiency), game log (pressure/consistency/fouls) and season
+//    defensive footprint. Everything below runs off data already fetched here. ──
 async function loadPersonnel(row){
   const host=el('scoutScorers'); if(!host) return;
   const _R=v=>{const n=+v;return isNaN(n)?0:n;};
@@ -414,50 +437,115 @@ async function loadPersonnel(row){
   try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready;
     if(typeof buildTeamProjections==='function'){ const pr=buildTeamProjections(roster.map(x=>Object.assign({},x)), row.conf||''); (pr||[]).forEach(x=>{ if(x&&x.name) PJ[x.name.toLowerCase().trim()]=x; }); }
   }catch(e){}
-  // DNA tertile thresholds for the situational attack notes
+  // DNA tertile thresholds for the situational (pressure) attack reads
   const teams=(DNA&&DNA['2026']&&DNA['2026'].teams)||{};
   const col=k=>Object.values(teams).map(t=>t[k]).filter(x=>x!=null).sort((a,b)=>a-b), qf=(v,f)=>v.length?v[Math.floor(v.length*f)]:0;
-  const T={fast:qf(col('tempo'),2/3),slow:qf(col('tempo'),1/3),havoc:qf(col('dTOV'),2/3),low:qf(col('dTOV'),1/3)};
+  const T={havoc:qf(col('dTOV'),2/3),low:qf(col('dTOV'),1/3)};
   const dnaByOpp=o=>teams[o];
   // one box + one shots fetch for the whole rotation
   const ids=withId.map(p=>p.espn_id).join(',');
   let box=[],shots=[];
   try{ [box,shots]=await Promise.all([
-    fetch(`${SB_URL}/rest/v1/box_scores?espn_id=in.(${ids})&season_year=eq.2026&min=gte.4&select=espn_id,opp,min,fga,fgm,tpm,fta,ftm,tov,pts,pf`,{headers:H}).then(r=>r.ok?r.json():[]),
-    fetch(`${SB_URL}/rest/v1/shots?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,made,sv,stype&limit=14000`,{headers:H}).then(r=>r.ok?r.json():[])
+    fetch(`${SB_URL}/rest/v1/box_scores?espn_id=in.(${ids})&season_year=eq.2026&min=gte.4&select=espn_id,opp,min,fga,fgm,tpm,fta,ftm,tov,pts,pf&limit=4000`,{headers:H}).then(r=>r.ok?r.json():[]),
+    fetch(`${SB_URL}/rest/v1/shots?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,made,sv,stype&limit=16000`,{headers:H}).then(r=>r.ok?r.json():[])
   ]); }catch(e){}
   const boxBy={},shotBy={}; box.forEach(b=>{(boxBy[b.espn_id]=boxBy[b.espn_id]||[]).push(b);}); shots.forEach(s=>{(shotBy[s.espn_id]=shotBy[s.espn_id]||[]).push(s);});
-  const efg=g=>{let fga=0,mw=0;g.forEach(x=>{fga+=_R(x.fga);mw+=_R(x.fgm)+0.5*_R(x.tpm);});return fga?mw/fga*100:null;};
   const p40=(g,k)=>{let m=0,v=0;g.forEach(x=>{m+=_R(x.min);v+=_R(x[k]);});return m?v/m*40:0;};
+
+  // his shot chart → rim/mid/three frequency + FG% + eFG% (threes ×1.5)
+  function zones(sh){
+    let rimA=0,rimM=0,midA=0,midM=0,thrA=0,thrM=0;
+    sh.forEach(s=>{ const three=s.sv===3, rim=(s.stype==='layup'||s.stype==='dunk'||s.stype==='tip');
+      if(three){ thrA++; if(s.made) thrM++; } else if(rim){ rimA++; if(s.made) rimM++; } else { midA++; if(s.made) midM++; } });
+    const tot=rimA+midA+thrA; if(!tot) return null;
+    const z=(a,m,mult)=>({a, fg:a?m/a*100:0, efg:a?m*(mult||1)/a*100:0, freq:a/tot*100});
+    return {rim:z(rimA,rimM,1), mid:z(midA,midM,1), three:z(thrA,thrM,1.5), total:tot};
+  }
+  // game-to-game scoring shape → boom-or-bust vs metronome
+  function consistency(bx){
+    const pts=bx.map(x=>_R(x.pts)); if(pts.length<6) return null;
+    const mean=pts.reduce((a,b)=>a+b,0)/pts.length;
+    const sd=Math.sqrt(pts.reduce((a,b)=>a+(b-mean)*(b-mean),0)/pts.length);
+    const s=[...pts].sort((a,b)=>a-b), q=f=>s[Math.min(s.length-1,Math.floor(s.length*f))];
+    return {mean, cv:mean>3?sd/mean:0, floor:q(0.15), ceil:q(0.85)};
+  }
 
   function intel(p){
     const pj=PJ[(p.name||'').toLowerCase().trim()];
     const line=(pj&&_R(pj.mpg)>0)?pj:p, ovr=(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):_R(p.tdc_grade);
-    const bx=boxBy[p.espn_id]||[], sh=shotBy[p.espn_id]||[]; const notes=[];
+    const bx=boxBy[p.espn_id]||[], sh=shotBy[p.espn_id]||[];
+    const pos=(p.position||p.position2||'').toUpperCase(), isBig=/[CF]/.test(pos)&&!/G/.test(pos);
+    const guard=[], attack=[]; let headline=null, hSal=0;
+    const setH=(sal,txt)=>{ if(sal>hSal){ hSal=sal; headline=txt; } };
+
+    // ── OFFENSE: how to guard him ──
+    const Z=zones(sh);
+    if(Z&&Z.total>=25){
+      const zs=[['at the rim',Z.rim],['from mid-range',Z.mid],['from three',Z.three]];
+      guard.push(['Shot diet',`${Math.round(Z.rim.freq)}% at rim (${Math.round(Z.rim.fg)}% FG) · ${Math.round(Z.mid.freq)}% mid (${Math.round(Z.mid.fg)}%) · ${Math.round(Z.three.freq)}% three (${Math.round(Z.three.fg)}%)`]);
+      const primary=zs.slice().sort((a,b)=>b[1].freq-a[1].freq)[0];
+      if(primary&&primary[1].freq>=45){
+        const rd=primary[0]==='at the rim'?'Wall off the paint and make him finish over length — turn him into a jump-shooter.'
+               :primary[0]==='from three'?'Run him off the line, no help off him — force it onto the floor.'
+               :'Crowd the pull-up and funnel him into help — take away his rhythm mid-range.';
+        guard.push(['Take away his money zone',`${Math.round(primary[1].freq)}% of his shots come ${primary[0]} at ${Math.round(primary[1].fg)}%. ${rd}`]);
+        setH(primary[1].freq*0.5, primary[0]==='at the rim'?'Wall off the rim — his game lives at the basket':primary[0]==='from three'?'Chase him off the line — he lives on threes':'Crowd his pull-up — mid-range scorer');
+      }
+      const vol=zs.filter(z=>z[1].freq>=15).sort((a,b)=>a[1].efg-b[1].efg)[0];
+      if(vol&&vol[1].efg<=44&&vol!==primary) guard.push(['Force him here',`Just ${Math.round(vol[1].efg)}% eFG ${vol[0]} — steer him into that shot and live with it.`]);
+    }
     if(bx.length>=6){
+      const hav=bx.filter(x=>{const d=dnaByOpp(x.opp);return d&&d.dTOV!=null&&d.dTOV>=T.havoc;}), low=bx.filter(x=>{const d=dnaByOpp(x.opp);return d&&d.dTOV!=null&&d.dTOV<=T.low;});
+      if(hav.length>=4&&low.length>=4){ const dd=p40(hav,'tov')-p40(low,'tov');
+        if(dd>=1.5){ guard.push(['Pressure-vulnerable',`+${dd.toFixed(1)} turnovers/40 vs ball-pressure defenses — get into him early and speed him up.`]); setH(30+dd*5,'Pressure him — coughs it up vs havoc'); }
+        else if(dd<=-0.6) guard.push(['Handles pressure',`Steady vs havoc (${dd.toFixed(1)} TO/40) — a press won't rattle him; guard him in the half-court.`]);
+      }
+      const c=consistency(bx);
+      if(c){
+        if(c.cv>=0.55){ guard.push(['Boom-or-bust',`Streaky — floor ${c.floor} / ceiling ${c.ceil} pts (avg ${c.mean.toFixed(1)}). Take him out of rhythm early; the no-show games are there to force.`]); setH(24+c.cv*10,'Streaky — knock him off his rhythm early'); }
+        else if(c.cv<=0.32&&c.mean>=10){ guard.push(['Metronome',`Steady ${c.mean.toFixed(1)} a night (floor ${c.floor}/ceiling ${c.ceil}) — no easy nights, account for him every trip.`]); setH(19,'Steady producer — no nights off'); }
+      }
       let fta=0,ftm=0,pf=0,mn=0; bx.forEach(x=>{fta+=_R(x.fta);ftm+=_R(x.ftm);pf+=_R(x.pf);mn+=_R(x.min);});
       const ftp=fta?ftm/fta*100:null, pf40=mn?pf/mn*40:0;
-      if(ftp!=null&&ftp<=64&&fta>=15) notes.push('Foul him late — '+Math.round(ftp)+'% FT');
-      if(pf40>=4.2) notes.push('Attack him — foul-prone ('+pf40.toFixed(1)+'/40)');
-      const fast=bx.filter(x=>{const d=dnaByOpp(x.opp);return d&&d.tempo!=null&&d.tempo>=T.fast;}), slow=bx.filter(x=>{const d=dnaByOpp(x.opp);return d&&d.tempo!=null&&d.tempo<=T.slow;});
-      if(fast.length>=4&&slow.length>=4){ const ef=efg(fast),es=efg(slow); if(ef!=null&&es!=null){ const d=Math.round(ef-es); if(d<=-6) notes.push('Speed him up — eFG '+Math.abs(d)+' lower vs pace'); } }
-      const hav=bx.filter(x=>{const d=dnaByOpp(x.opp);return d&&d.dTOV!=null&&d.dTOV>=T.havoc;}), low=bx.filter(x=>{const d=dnaByOpp(x.opp);return d&&d.dTOV!=null&&d.dTOV<=T.low;});
-      if(hav.length>=4&&low.length>=4){ const d=p40(hav,'tov')-p40(low,'tov'); if(d>=1.5) notes.push('Pressure him — +'+d.toFixed(1)+' TO/40 vs havoc'); }
+      if(ftp!=null&&ftp<=64&&fta>=15) guard.push(['Foul him late',`${Math.round(ftp)}% from the line on ${fta} attempts — a Hack option in a close game.`]);
+      // ── DEFENSE (from fouls in the log) ──
+      if(pf40>=4.2){ attack.push(['Foul-prone',`${pf40.toFixed(1)} fouls/40 — hunt him in ball screens and drives to get him in foul trouble.`]); setH(22+pf40,'Foul-prone — hunt him in the pick-and-roll'); }
     }
-    if(sh.length>=25){ const zt=sh.filter(s=>s.stype).length; const th=sh.filter(s=>s.sv===3).length, rim=sh.filter(s=>s.stype==='layup'||s.stype==='dunk'||s.stype==='tip').length;
-      if(th/zt>=0.55) notes.push('Run him off the line — '+Math.round(th/zt*100)+'% threes');
-      else if(rim/zt>=0.55) notes.push('Wall off the rim — '+Math.round(rim/zt*100)+'% at the rim');
+    // ── DEFENSE: how to attack him (season footprint) ──
+    const mpg=_R(p.mpg), blk40=mpg?_R(p.blk)/mpg*40:0, stl40=mpg?_R(p.stl)/mpg*40:0;
+    if(mpg>=8){
+      if(isBig){
+        if(blk40>=1.6){ attack.push(['Rim protector',`${blk40.toFixed(1)} blocks/40 — attack away from him and draw him into ball screens; finish through, not into, him.`]); setH(16,'Rim protector — pull him out of the paint'); }
+        else if(blk40<=0.5){ attack.push(['No rim deterrent',`Only ${blk40.toFixed(1)} blocks/40 for a big — go right at him, he won't send it back.`]); setH(26,'Attack him at the rim — no shot-blocking'); }
+      }
+      if(stl40>=2.0){ attack.push(['Gambler',`${stl40.toFixed(1)} steals/40 — he jumps lanes; back-cut and attack the gaps he vacates.`]); setH(18,'Gambles for steals — back-cut him'); }
     }
-    return {line,ovr,notes:notes.slice(0,3)};
+
+    const thin=bx.length<6&&(!Z||Z.total<25);
+    if(!headline) headline = ovr>=85?'Star — make someone else beat you' : thin?'Limited game data — read off the projection' : 'Sound two-way piece — pick your spots';
+    return {line, ovr, headline, guard, attack, thin, isStar:ovr>=85};
   }
+
+  // the attack book profiles players we have TAPE on (espn_id → 2025-26 game log +
+  // shot chart); tendencies can't honestly be read for a player with no college
+  // history, so no-tape freshmen are covered by the AI Personnel Report below instead.
   const rows=withId.map(p=>{ const pj=PJ[(p.name||'').toLowerCase().trim()]; return {p, pm: pj?_R(pj.mpg):_R(p.mpg)}; }).sort((a,b)=>b.pm-a.pm).slice(0,8);
   const F=(v,d)=>v==null?'—':(+v).toFixed(d==null?1:d);
-  const card=({p})=>{ const it=intel(p), l=it.line;
-    return `<div class="pcard"><div class="pchead">
+  const exCol=(kind,arr)=> arr.length?`<div><div class="abct ${kind}">${kind==='guard'?'Guard his offense':'Attack his defense'}</div>${arr.map(x=>`<div class="abrow"><div class="abl">${esc(x[0])}</div><div class="abr">${esc(x[1])}</div></div>`).join('')}</div>`:'';
+  const card=({p},i)=>{ const it=intel(p), l=it.line;
+    const body=(it.guard.length||it.attack.length)
+      ? `<div class="abbody">${exCol('guard',it.guard)}${exCol('attack',it.attack)}</div>`
+      : `<div class="abbody"><div class="abnone">Not enough 2025-26 game data to profile his tendencies yet — the projected line above is the read.</div></div>`;
+    return `<details class="abcard"${(it.isStar||i<2)?' open':''}>
+      <summary class="absum">
         <div class="pcovr">${it.ovr!=null?it.ovr:'—'}</div>
-        <div class="pcwho"><div class="pcn">${esc(p.name)}<span class="pcpos">${esc(p.position||'')}</span></div><div class="pcline"><b>${F(l.ppg)}</b> pts · <b>${F(l.rpg)}</b> reb · <b>${F(l.apg)}</b> ast · ${F(l.mpg,0)} min · ${F(l.fg_pct,0)}/${F(l.tp_pct,0)}/${F(l.ft_pct,0)}</div></div>
-      </div>${it.notes.length?`<div class="pcnotes">${it.notes.map(n=>`<span class="pcnote">${esc(n)}</span>`).join('')}</div>`:''}</div>`; };
-  host.innerHTML=`<div class="pchint">Projected 2026-27 line + how to attack each man — from the same engine that powers the rankings.</div>${rows.map(card).join('')}`;
+        <div class="pcwho"><div class="pcn">${esc(p.name)}<span class="pcpos">${esc(p.position||'')}</span></div>
+          <div class="pcline"><b>${F(l.ppg)}</b> pts · <b>${F(l.rpg)}</b> reb · <b>${F(l.apg)}</b> ast · ${F(l.mpg,0)} min · ${F(l.fg_pct,0)}/${F(l.tp_pct,0)}/${F(l.ft_pct,0)}</div></div>
+        <div class="abhead">${esc(it.headline)}</div>
+        <div class="abtog">▸</div>
+      </summary>${body}
+    </details>`; };
+  host.innerHTML=`<div class="pchint">Each opponent's projected 2026-27 line plus a deep read on <b>how to guard him</b> and <b>how to attack him</b> — synthesized from his 2025-26 shot chart, game log and defensive footprint. Click a player to open his book.</div>${rows.map(card).join('')}`;
 }
 
 async function loadShotChart(row){
@@ -578,7 +666,7 @@ function render(){
     ${plan||'<div class="card"><div class="muted">Team DNA isn\'t on file for this opponent yet, so the auto game plan is unavailable.</div></div>'}
     ${profile}
     <div id="scoutSituational"></div>
-    <div class="sec-h">Personnel — projected line &amp; how to attack</div>
+    <div class="sec-h">The Attack Book — how to guard &amp; attack each man <span class="hint">projected line · 2025-26 tendencies</span></div>
     <div id="scoutScorers"><div class="muted" style="padding:16px 4px">Projecting their rotation &amp; reading their tendencies…</div></div>
     ${offenseBreakdown(r)}
     ${defenseBreakdown(r)}
