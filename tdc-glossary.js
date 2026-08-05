@@ -129,9 +129,21 @@
       el.style.textUnderlineOffset = '2px'; el.style.cursor = 'help';
     });
   }
+  // decorate the common stat-label surfaces across a page. Only elements whose visible
+  // text is a KNOWN stat label get a tooltip, and anything with an existing title is left
+  // alone — so a broad selector is safe (non-stat headers simply don't match).
+  function autoDecorate() { try { decorate(document, '.stat-card-label,.s-label,.stat-lbl,.stat-label,[data-stat],th,.th'); } catch (e) {} }
   g.TDC_TIP = TIP;
   g.statTip = statTip;
   g.tipAttr = tipAttr;
   g.tipByLabel = tipByLabel;
   g.tdcDecorateTips = decorate;
+  g.tdcAutoTips = autoDecorate;
+  // Auto-run on any page that includes this script: on load + two async waves (for
+  // fetched/late-rendered content). No permanent observer — pages that keep re-rendering
+  // (e.g. player tabs) add their own light observer.
+  if (typeof document !== 'undefined') {
+    if (document.readyState !== 'loading') autoDecorate(); else document.addEventListener('DOMContentLoaded', autoDecorate);
+    try { setTimeout(autoDecorate, 700); setTimeout(autoDecorate, 1800); } catch (e) {}
+  }
 })(typeof window !== 'undefined' ? window : this);
