@@ -55,6 +55,23 @@ window.TDC_LINEUPS = (function () {
     for (var k in t) { var nk = norm(k); if (nk === nf || nk.indexOf(nf) === 0 || nf.indexOf(nk) === 0) return t[k]; }
     return null;
   }
+  // team_dna → team-level schedule strength. adjust_team_dna.py stores an opponent-
+  // adjusted team net (adjNet); the schedule delta (adjNet − raw net) is the team's SoS
+  // in net-rating points (+ = tougher schedule). Applied uniformly to the team's lineups
+  // (per-lineup opponents would need a pbp re-scrape); Adj Net = a row's net + this delta.
+  var _dna = null, _dnap = null;
+  function loadDna() {
+    if (_dna) return Promise.resolve(_dna);
+    if (_dnap) return _dnap;
+    _dnap = fetch('scripts/data/team_dna.json').then(function (r) { return r.ok ? r.json() : {}; })
+      .then(function (j) { _dna = j || {}; return _dna; }).catch(function () { _dna = {}; return _dna; });
+    return _dnap;
+  }
+  function sosDeltaFor(dna, season, full) {
+    var t = (dna && dna['' + season] && dna['' + season].teams) || {}, e = t[full];
+    if (!e) { var nf = norm(full); for (var k in t) { var nk = norm(k); if (nk === nf || nk.indexOf(nf) === 0 || nf.indexOf(nk) === 0) { e = t[k]; break; } } }
+    return (e && e.adjNet != null && e.net != null) ? Math.round((e.adjNet - e.net) * 10) / 10 : null;
+  }
   // player positions for EVERYONE who played the team's season (incl. players who've
   // since left — the current roster only covers returners). From player_history
   // (season_year, team=short name, name, position G/F/C). Cached per team+season.
@@ -141,13 +158,16 @@ window.TDC_LINEUPS = (function () {
     return '<td style="padding:7px 9px;border:1px solid var(--border);text-align:center;font-weight:700;font-size:12px;color:' + color + ';' + (extra || '') + '">'
       + (v == null || isNaN(v) ? '—' : (+v).toFixed(dec == null ? 0 : dec)) + '</td>';
   }
+  // adjusted-net cell (row net + team SoS delta) + a SoS cell (the team constant)
+  function adjCell(net, sos) { var a = (+net || 0) + (sos || 0), c = a > 0 ? '#2bb673' : a < 0 ? '#e06552' : 'var(--text2)'; return td(a, 1, c); }
+  function sosCell(sos) { return td(sos, 1, sos > 0 ? '#5bb381' : sos < 0 ? '#e0885a' : 'var(--text3)'); }
   function luHead() {
-    var hs = [['Lineup', 'left', 0], ['POSS', 'center', 0], ['NET', 'center', 0], ['ORtg', 'center', 1], ['DRtg', 'center', 0], ['eFG%', 'center', 1], ['TOV%', 'center', 0], ['ORB%', 'center', 0], ['FTr', 'center', 0]];
+    var hs = [['Lineup', 'left', 0], ['POSS', 'center', 0], ['NET', 'center', 0], ['Adj', 'center', 0], ['SoS', 'center', 0], ['ORtg', 'center', 1], ['DRtg', 'center', 0], ['eFG%', 'center', 1], ['TOV%', 'center', 0], ['ORB%', 'center', 0], ['FTr', 'center', 0]];
     return '<thead><tr>' + hs.map(function (h) {
       return '<th style="padding:7px 9px;border:1px solid var(--border);background:var(--bg3);text-align:' + h[1] + ';font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);white-space:nowrap;' + (h[2] ? LU_DIVB : '') + '">' + h[0] + '</th>';
     }).join('') + '</tr></thead>';
   }
-  function luRow(l, idx, i) {
+  function luRow(l, idx, i, sos) {
     var tr = tier(l.net), netc = l.net > 0 ? '#2bb673' : l.net < 0 ? '#e06552' : 'var(--text2)';
     var zebra = (i % 2) ? 'background:color-mix(in srgb,var(--text3) 5%,transparent);' : '';
     var netInner = '<div style="font-weight:800;font-size:13px;color:' + netc + ';line-height:1.05;">' + (l.net > 0 ? '+' : '') + (+l.net).toFixed(1) + '</div>'
@@ -156,6 +176,8 @@ window.TDC_LINEUPS = (function () {
       + '<td style="padding:8px 10px;border:1px solid var(--border);text-align:left;font-weight:700;font-size:12px;line-height:1.4;min-width:180px;">' + lineupNames(l.players, idx) + '</td>'
       + td(l.poss, 0, 'var(--text2)')
       + '<td style="padding:5px 9px;border:1px solid var(--border);text-align:center;">' + netInner + '</td>'
+      + adjCell(l.net, sos)
+      + sosCell(sos)
       + td(l.off_rtg, 0, heat(l.off_rtg, 77, 20, true), LU_DIVB)
       + td(l.def_rtg, 0, heat(l.def_rtg, 74, 20, false))
       + td(l.efg, 1, heat(l.efg, 47.5, 8, true), LU_DIVB)
@@ -164,21 +186,21 @@ window.TDC_LINEUPS = (function () {
       + td(l.ftr, 1, heat(l.ftr, 21, 12, true))
       + '</tr>';
   }
-  function lineupTable(qL, idx, maxL) {
+  function lineupTable(qL, idx, maxL, sos) {
     return '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">'
-      + '<div style="min-width:' + LU_MINW + 'px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">'
+      + '<div style="min-width:756px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">'
       + '<table style="border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;">'
-      + luHead() + '<tbody>' + qL.slice(0, maxL).map(function (l, i) { return luRow(l, idx, i); }).join('') + '</tbody></table></div></div>';
+      + luHead() + '<tbody>' + qL.slice(0, maxL).map(function (l, i) { return luRow(l, idx, i, sos); }).join('') + '</tbody></table></div></div>';
   }
   // trios / pairs — SAME spreadsheet grid + full stat set as the five-man table (net,
   // ORtg, DRtg + four factors, blended from the units they share), plus a Units column.
   function comboHead() {
-    var hs = [['Players', 'left', 0], ['POSS', 'center', 0], ['NET', 'center', 0], ['ORtg', 'center', 1], ['DRtg', 'center', 0], ['eFG%', 'center', 1], ['TOV%', 'center', 0], ['ORB%', 'center', 0], ['FTr', 'center', 0], ['Units', 'center', 1]];
+    var hs = [['Players', 'left', 0], ['POSS', 'center', 0], ['NET', 'center', 0], ['Adj', 'center', 0], ['SoS', 'center', 0], ['ORtg', 'center', 1], ['DRtg', 'center', 0], ['eFG%', 'center', 1], ['TOV%', 'center', 0], ['ORB%', 'center', 0], ['FTr', 'center', 0], ['Units', 'center', 1]];
     return '<thead><tr>' + hs.map(function (h) {
       return '<th style="padding:6px 9px;border:1px solid var(--border);background:var(--bg3);text-align:' + h[1] + ';font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);white-space:nowrap;' + (h[2] ? LU_DIVB : '') + '">' + h[0] + '</th>';
     }).join('') + '</tr></thead>';
   }
-  function comboRow(t, idx, i) {
+  function comboRow(t, idx, i, sos) {
     var tr = tier(t.net), netc = t.net > 0 ? '#2bb673' : t.net < 0 ? '#e06552' : 'var(--text2)';
     var zebra = (i % 2) ? 'background:color-mix(in srgb,var(--text3) 5%,transparent);' : '';
     var netInner = '<div style="font-weight:800;font-size:12.5px;color:' + netc + ';line-height:1.05;">' + (t.net > 0 ? '+' : '') + (+t.net).toFixed(1) + '</div>'
@@ -187,6 +209,8 @@ window.TDC_LINEUPS = (function () {
       + '<td style="padding:7px 10px;border:1px solid var(--border);text-align:left;font-weight:700;font-size:11.5px;line-height:1.4;min-width:168px;">' + lineupNames(t.players, idx) + '</td>'
       + td(t.poss, 0, 'var(--text2)')
       + '<td style="padding:5px 9px;border:1px solid var(--border);text-align:center;">' + netInner + '</td>'
+      + adjCell(t.net, sos)
+      + sosCell(sos)
       + td(t.off_rtg, 0, heat(t.off_rtg, 77, 20, true), LU_DIVB)
       + td(t.def_rtg, 0, heat(t.def_rtg, 74, 20, false))
       + td(t.efg, 1, heat(t.efg, 47.5, 8, true), LU_DIVB)
@@ -196,10 +220,10 @@ window.TDC_LINEUPS = (function () {
       + td(t.units, 0, 'var(--text3)', LU_DIVB)
       + '</tr>';
   }
-  function comboTable(rows, idx, maxN) {
+  function comboTable(rows, idx, maxN, sos) {
     if (!rows || !rows.length) return emptyCol();
-    return '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><div style="min-width:712px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">'
-      + '<table style="border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;">' + comboHead() + '<tbody>' + rows.slice(0, maxN).map(function (t, i) { return comboRow(t, idx, i); }).join('') + '</tbody></table></div></div>';
+    return '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><div style="min-width:812px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">'
+      + '<table style="border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;">' + comboHead() + '<tbody>' + rows.slice(0, maxN).map(function (t, i) { return comboRow(t, idx, i, sos); }).join('') + '</tbody></table></div></div>';
   }
   function rowC(t) {   // a trio or pair row (both carry .players)
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--border);">'
@@ -215,9 +239,10 @@ window.TDC_LINEUPS = (function () {
     opt = opt || {};
     var minP = opt.minPoss || 40, trioMin = opt.trioMin || 150, pairMin = opt.pairMin || 250;
     var maxL = opt.maxLineups || 8, maxT = opt.maxTrios || 8, maxP = opt.maxPairs || 8;
-    return Promise.all([load(), loadCombos(), loadPos(full, season)]).then(function (res) {
+    return Promise.all([load(), loadCombos(), loadPos(full, season), loadDna()]).then(function (res) {
       var lus = lookup(res[0], '' + season, full), cc = combosLookup(res[1], '' + season, full);
       var posBase = res[2] || {};
+      var sos = sosDeltaFor(res[3], season, full);   // team schedule delta (adjNet − net)
       var fullFi = !!(cc && ((cc.trios && cc.trios.length) || (cc.pairs && cc.pairs.length)));
       if (!lus.length && !fullFi) return '';
       var qL = lus.filter(function (l) { return l.poss >= minP; }).sort(function (a, b) { return b.poss - a.poss; });
@@ -235,12 +260,12 @@ window.TDC_LINEUPS = (function () {
       var pIdx = {}, _ri = posIndex(opt.pos);
       for (var _k in posBase) pIdx[_k] = toGFC(posBase[_k]);
       for (var _k2 in _ri) if (!pIdx[_k2]) pIdx[_k2] = toGFC(_ri[_k2]);
-      var lineupCol = qL.length ? lineupTable(qL, pIdx, maxL) : emptyCol();
-      var trioCol = comboTable(triRows, pIdx, maxT);
-      var pairCol = comboTable(pairRows, pIdx, maxP);
+      var lineupCol = qL.length ? lineupTable(qL, pIdx, maxL, sos) : emptyCol();
+      var trioCol = comboTable(triRows, pIdx, maxT, sos);
+      var pairCol = comboTable(pairRows, pIdx, maxP, sos);
       return ''
         + '<div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:26px 0 4px;">Lineups, Trios &amp; Pairs <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;">· ' + yl + ' · ' + src + '</span></div>'
-        + '<div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:12px;max-width:820px;">The five-man units this team played and how each performed on the floor, plus the three- and two-man combos inside them. <b style="color:var(--text2);">Net</b> = per-100 scoring margin with that group on; <b style="color:var(--text2);">ORtg/DRtg</b> = points scored/allowed per 100. <b style="color:var(--text2);">eFG/TOV/ORB/FTr</b> = the four factors (shooting · ball security · offensive glass · foul-drawing); <span style="color:#5bb381;">green</span>/<span style="color:#e0885a;">red</span> = better/worse than a typical unit. Superscripts are each man&rsquo;s position (G/F/C). Trio &amp; pair stats are blended (possession-weighted) from the lineups they share; <b style="color:var(--text2);">Units</b> = how many five-man lineups the combo appeared in.</div>'
+        + '<div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:12px;max-width:820px;">The five-man units this team played and how each performed on the floor, plus the three- and two-man combos inside them. <b style="color:var(--text2);">Net</b> = per-100 scoring margin with that group on; <b style="color:var(--text2);">ORtg/DRtg</b> = points scored/allowed per 100. <b style="color:var(--text2);">eFG/TOV/ORB/FTr</b> = the four factors (shooting · ball security · offensive glass · foul-drawing); <span style="color:#5bb381;">green</span>/<span style="color:#e0885a;">red</span> = better/worse than a typical unit. Superscripts are each man&rsquo;s position (G/F/C). Trio &amp; pair stats are blended (possession-weighted) from the lineups they share; <b style="color:var(--text2);">Units</b> = how many five-man lineups the combo appeared in. <b style="color:var(--text2);">Adj</b> = net adjusted for schedule; <b style="color:var(--text2);">SoS</b> = the team&rsquo;s schedule strength in net points (+ = tougher) — a team-level adjustment, the same for every one of its lineups.</div>'
         + colHdr('Five-man lineups · most-used') + lineupCol
         + '<div style="margin-top:20px;">' + colHdr('Top trios') + trioCol + '</div>'
         + '<div style="margin-top:20px;">' + colHdr('Top pairs') + pairCol + '</div>';
