@@ -88,6 +88,55 @@ window.TDC_LINEUPS = (function () {
       + '<div style="font-size:10.5px;color:var(--text3);margin-top:2px;">' + l.poss + ' poss · ' + (+l.off_rtg).toFixed(0) + ' ORtg · ' + (+l.def_rtg).toFixed(0) + ' DRtg</div></div>'
       + '<div style="white-space:nowrap;flex-shrink:0;">' + nchip(l.net) + '</div></div>';
   }
+  // ── deep five-man table (Hoop-Explorer-style: the four factors per unit, already in
+  //    lineups.json) with position badges + subtle per-cell heat vs league baselines ──
+  function heat(v, base, spread, hiGood) {
+    if (v == null || isNaN(v)) return 'var(--text3)';
+    var d = (v - base) / spread; if (!hiGood) d = -d; d = Math.max(-1, Math.min(1, d));
+    if (d > 0.15) return d > 0.55 ? '#1f9d57' : '#5bb381';
+    if (d < -0.15) return d < -0.55 ? '#e06552' : '#e0885a';
+    return 'var(--text2)';
+  }
+  function cellN(v, dec, color) {
+    return '<div style="text-align:right;font-variant-numeric:tabular-nums;font-weight:700;font-size:12px;color:' + color + ';">'
+      + (v == null || isNaN(v) ? '—' : (+v).toFixed(dec == null ? 0 : dec)) + '</div>';
+  }
+  function posKey(s) { return norm(s).replace(/\b(jr|sr|ii|iii|iv|v)\b/g, '').replace(/\s+/g, ' ').trim(); }
+  function posIndex(map) { var idx = {}; if (map) for (var k in map) { if (map[k]) idx[posKey(k)] = ('' + map[k]).toUpperCase(); } return idx; }
+  function posBadge(p) { return p ? '<sup style="font-size:8px;font-weight:800;color:var(--accent);margin-left:1px;letter-spacing:.02em;">' + p + '</sup>' : ''; }
+  function lineupNames(players, idx) {
+    var sn = shortNames(players);
+    return players.map(function (p, i) { return '<span title="' + p.replace(/"/g, '&quot;') + '">' + sn[i] + posBadge(idx && idx[posKey(p)]) + '</span>'; })
+      .join('<span style="color:var(--text3);"> · </span>');
+  }
+  var LU_GTC = 'minmax(196px,1fr) 42px 44px 44px 62px 44px 44px 44px 44px';
+  function luHead() {
+    var hs = ['', 'POSS', 'ORtg', 'DRtg', 'NET', 'eFG%', 'TOV%', 'ORB%', 'FTr'];
+    return '<div style="display:grid;grid-template-columns:' + LU_GTC + ';gap:7px;padding:0 2px 7px;min-width:632px;">'
+      + hs.map(function (h, i) { return '<div style="font-size:8.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);' + (i ? 'text-align:right;' : '') + '">' + h + '</div>'; }).join('')
+      + '</div>';
+  }
+  function luRow(l, idx) {
+    var tr = tier(l.net), netc = l.net > 0 ? '#2bb673' : l.net < 0 ? '#e06552' : 'var(--text2)';
+    var netCell = '<div style="text-align:right;line-height:1.05;"><div style="font-variant-numeric:tabular-nums;font-weight:800;font-size:12.5px;color:' + netc + ';">'
+      + (l.net > 0 ? '+' : '') + (+l.net).toFixed(1) + '</div>'
+      + (tr ? '<div style="font-size:7.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:' + tr.c + ';margin-top:1px;">' + tr.t + '</div>' : '') + '</div>';
+    return '<div style="display:grid;grid-template-columns:' + LU_GTC + ';gap:7px;align-items:center;padding:9px 2px;border-top:1px solid var(--border);min-width:632px;">'
+      + '<div style="min-width:0;font-weight:700;font-size:12px;line-height:1.4;">' + lineupNames(l.players, idx) + '</div>'
+      + cellN(l.poss, 0, 'var(--text2)')
+      + cellN(l.off_rtg, 0, heat(l.off_rtg, 77, 20, true))
+      + cellN(l.def_rtg, 0, heat(l.def_rtg, 74, 20, false))
+      + netCell
+      + cellN(l.efg, 1, heat(l.efg, 47.5, 8, true))
+      + cellN(l.tov_pct, 1, heat(l.tov_pct, 16, 5, false))
+      + cellN(l.orb_pct, 1, heat(l.orb_pct, 6, 6, true))
+      + cellN(l.ftr, 1, heat(l.ftr, 21, 12, true))
+      + '</div>';
+  }
+  function lineupTable(qL, idx, maxL) {
+    return '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">' + luHead()
+      + qL.slice(0, maxL).map(function (l) { return luRow(l, idx); }).join('') + '</div>';
+  }
   function rowC(t) {   // a trio or pair row (both carry .players)
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--border);">'
       + '<div style="min-width:0;"><div style="font-weight:700;font-size:12.5px;" title="' + t.players.join(', ').replace(/"/g, '&quot;') + '">' + shortNames(t.players).join(' · ') + '</div>'
@@ -111,12 +160,13 @@ window.TDC_LINEUPS = (function () {
       var pairRows = (cc && cc.pairs) ? cc.pairs : combo(lus, 2).filter(function (t) { return t.poss >= pairMin; });
       var yl = (season - 1) + '-' + ('' + season).slice(2);
       var src = fullFi ? 'full play-by-play' : 'reconstructed from the tracked lineups';
-      var lineupCol = qL.slice(0, maxL).map(row5).join('') || emptyCol();
+      var pIdx = posIndex(opt.pos);
+      var lineupCol = qL.length ? lineupTable(qL, pIdx, maxL) : emptyCol();
       var trioCol = triRows.slice(0, maxT).map(rowC).join('') || emptyCol();
       var pairCol = pairRows.slice(0, maxP).map(rowC).join('') || emptyCol();
       return ''
         + '<div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:26px 0 4px;">Lineups, Trios &amp; Pairs <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;">· ' + yl + ' · ' + src + '</span></div>'
-        + '<div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:12px;max-width:820px;">The five-man units this team played, and the three- and two-man combinations inside them. <b style="color:var(--text2);">Net</b> = points per 100 the team out-scored opponents with that group on the floor.</div>'
+        + '<div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:12px;max-width:820px;">The five-man units this team played and how each performed on the floor, plus the three- and two-man combos inside them. <b style="color:var(--text2);">Net</b> = per-100 scoring margin with that group on. <b style="color:var(--text2);">eFG/TOV/ORB/FTr</b> = the four factors (shooting · ball security · offensive glass · foul-drawing); <span style="color:#5bb381;">green</span>/<span style="color:#e0885a;">red</span> = better/worse than a typical unit. Superscripts are each man&rsquo;s position.</div>'
         + colHdr('Five-man lineups · most-used') + lineupCol
         + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:18px;">'
         + '<div>' + colHdr('Top trios') + trioCol + '</div>'

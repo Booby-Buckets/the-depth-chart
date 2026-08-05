@@ -14,7 +14,7 @@
   <script src="tdc-projgrade.js?v=35"></script>
   <script src="tdc-proj.js?v=coach17"></script>
   <script src="tdc-shotchart.js?v=1"></script>
-  <script src="tdc-lineups.js?v=3"></script>
+  <script src="tdc-lineups.js?v=4"></script>
   <script src="tdc-situational.js?v=1"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
@@ -241,12 +241,12 @@ function pbpOf(r){ if(!PBP) return null; const s=PBP['2026']||PBP[Object.keys(PB
 // Cached per team; if the fetch fails (empty set) we don't filter, to avoid blanking.
 let _rnCache={};
 function _normNm(s){ return (''+(s||'')).toLowerCase().replace(/[.'`’]/g,'').replace(/\b(jr|sr|ii|iii|iv|v)\b/g,'').replace(/\s+/g,' ').trim(); }
-async function currentRosterNames(row){
+async function currentRoster(row){
   const key=row.team||row.full; if(_rnCache[key]) return _rnCache[key];
-  const set=new Set();
-  try{ const rs=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name`,{headers:H}).then(x=>x.ok?x.json():[]);
-    (rs||[]).forEach(p=>{ if(p&&p.name) set.add(_normNm(p.name)); }); }catch(e){}
-  _rnCache[key]=set; return set;
+  const names=new Set(), pos={};
+  try{ const rs=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,position`,{headers:H}).then(x=>x.ok?x.json():[]);
+    (rs||[]).forEach(p=>{ if(p&&p.name){ names.add(_normNm(p.name)); if(p.position) pos[p.name]=p.position; } }); }catch(e){}
+  const out={names,pos}; _rnCache[key]=out; return out;
 }
 function _onRoster(RN,nm){ return !RN||!RN.size||RN.has(_normNm(nm)); }
 
@@ -649,8 +649,9 @@ async function render(){
   const me=selKey.Me!=null&&selKey.Me!==selKey.Opp?{key:selKey.Me}:null;
   const initials=(r.full||'').split(' ').map(w=>w[0]).slice(0,2).join('');
   const rec=`#${r.rank||'—'} nationally · rating ${fmtR(r)}`;
-  // current-roster names (to strip departed players from last-season PBP references)
-  const _tok=selKey.Opp; const RN=await currentRosterNames(r); if(selKey.Opp!==_tok) return;
+  // current roster (names to strip departed players from last-season PBP references,
+  // + positions to badge the lineup players)
+  const _tok=selKey.Opp; const CR=await currentRoster(r); if(selKey.Opp!==_tok) return; const RN=CR.names;
 
   let plan='';
   if(dna){
@@ -695,7 +696,7 @@ async function render(){
   </div>`;
   loadPersonnel(r);
   if(window.TDC_SITUATIONAL) TDC_SITUATIONAL.section(r, 2026).then(function(h){ var sh=document.getElementById('scoutSituational'); if(sh&&h){ sh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(sh); } });
-  if(window.TDC_LINEUPS) TDC_LINEUPS.section(r.full, 2026).then(function(h){ var lh=document.getElementById('scoutLineupHost'); if(lh&&h){ lh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(lh); } });
+  if(window.TDC_LINEUPS) TDC_LINEUPS.section(r.full, 2026, {pos:CR.pos}).then(function(h){ var lh=document.getElementById('scoutLineupHost'); if(lh&&h){ lh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(lh); } });
   if(me) loadKeyMatchups(poolRow(me.key), r);
   if(sg&&sg.off) loadShotChart(r);
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(r.full));
