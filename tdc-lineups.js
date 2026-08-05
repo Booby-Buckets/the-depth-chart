@@ -189,13 +189,18 @@ window.TDC_LINEUPS = (function () {
   };
   var TT_ID = { 'POSS': 'poss', 'NET': 'net', 'Adj': 'adj', 'SoS': 'sos', 'ORtg': 'ortg', 'DRtg': 'drtg', 'eFG%': 'efg', 'TOV%': 'tov', 'ORB%': 'orb', 'FTr': 'ftr', 'Units': 'units' };
   function thLabel(label) { var t = TT[TT_ID[label]]; return t ? '<span title="' + t.replace(/"/g, '&quot;') + '" style="border-bottom:1px dotted currentColor;cursor:help;">' + label + '</span>' : label; }
-  function thCell(h) {   // h = [label, align, isGroupStart]
-    var tip = !!TT[TT_ID[h[0]]];
-    return '<th style="padding:7px 9px;border:1px solid var(--border);background:var(--bg3);text-align:' + h[1] + ';font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);white-space:nowrap;' + (h[2] ? LU_DIVB : '') + (tip ? 'cursor:help;' : '') + '">' + thLabel(h[0]) + '</th>';
-  }
-  function luHead() {
-    var hs = [['Lineup', 'left', 0], ['POSS', 'center', 0], ['NET', 'center', 0], ['Adj', 'center', 0], ['SoS', 'center', 0], ['ORtg', 'center', 1], ['DRtg', 'center', 0], ['eFG%', 'center', 1], ['TOV%', 'center', 0], ['ORB%', 'center', 0], ['FTr', 'center', 0]];
-    return '<thead><tr>' + hs.map(thCell).join('') + '</tr></thead>';
+  // header column specs + click-to-sort machinery
+  var FIVE_HS = [['Lineup', 'left', 0], ['POSS', 'center', 0], ['NET', 'center', 0], ['Adj', 'center', 0], ['SoS', 'center', 0], ['ORtg', 'center', 1], ['DRtg', 'center', 0], ['eFG%', 'center', 1], ['TOV%', 'center', 0], ['ORB%', 'center', 0], ['FTr', 'center', 0]];
+  var COMBO_HS = [['Players', 'left', 0], ['POSS', 'center', 0], ['NET', 'center', 0], ['Adj', 'center', 0], ['SoS', 'center', 0], ['ORtg', 'center', 1], ['DRtg', 'center', 0], ['eFG%', 'center', 1], ['TOV%', 'center', 0], ['ORB%', 'center', 0], ['FTr', 'center', 0], ['Units', 'center', 1]];
+  var SORT_KEY = { 'POSS': 'poss', 'NET': 'net', 'Adj': 'net', 'ORtg': 'off_rtg', 'DRtg': 'def_rtg', 'eFG%': 'efg', 'TOV%': 'tov_pct', 'ORB%': 'orb_pct', 'FTr': 'ftr', 'Units': 'units' };
+  var LOWER_BETTER = { def_rtg: 1, tov_pct: 1 };
+  var _reg = {}, _rn = 0;
+  function thCell(h, sc) {   // h = [label, align, isGroupStart]; sc = sort context (or null)
+    var tip = !!TT[TT_ID[h[0]]], sk = sc && SORT_KEY[h[0]], active = sk && sc.sortKey === sk;
+    var ind = active ? (sc.sortDir === 'desc' ? ' ▾' : ' ▴') : '';
+    var onclick = sk ? ' onclick="window.TDC_LINEUPS&&TDC_LINEUPS._sort(\'' + sc.id + '\',\'' + h[0] + '\')"' : '';
+    var cursor = sk ? 'cursor:pointer;' : (tip ? 'cursor:help;' : '');
+    return '<th' + onclick + ' style="padding:7px 9px;border:1px solid var(--border);background:var(--bg3);text-align:' + h[1] + ';font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:' + (active ? 'var(--text)' : 'var(--text3)') + ';white-space:nowrap;' + (h[2] ? LU_DIVB : '') + cursor + '">' + thLabel(h[0]) + ind + '</th>';
   }
   function luRow(l, idx, i, sos) {
     var tr = tier(l.net), netc = l.net > 0 ? '#2bb673' : l.net < 0 ? '#e06552' : 'var(--text2)';
@@ -216,18 +221,43 @@ window.TDC_LINEUPS = (function () {
       + td(l.ftr, 1, heat(l.ftr, 21, 12, true))
       + '</tr>';
   }
-  function lineupTable(qL, idx, maxL, sos) {
-    return '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">'
-      + '<div style="min-width:756px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">'
-      + '<table style="border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;">'
-      + luHead() + '<tbody>' + qL.slice(0, maxL).map(function (l, i) { return luRow(l, idx, i, sos); }).join('') + '</tbody></table></div></div>';
+  // min-possessions filter chips
+  function filterBar(s) {
+    var opts = s.kind === 'five' ? [0, 40, 100, 200] : [0, 150, 400, 700];
+    return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;flex-wrap:wrap;">'
+      + '<span style="font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);">Min poss</span>'
+      + opts.map(function (v) { var on = (s.minPoss || 0) === v;
+        return '<button onclick="window.TDC_LINEUPS&&TDC_LINEUPS._filter(\'' + s.id + '\',' + v + ')" style="font-size:10px;font-weight:700;padding:2px 10px;border-radius:20px;border:1px solid ' + (on ? 'var(--text2)' : 'var(--border)') + ';background:' + (on ? 'var(--bg3)' : 'transparent') + ';color:' + (on ? 'var(--text)' : 'var(--text3)') + ';cursor:pointer;font-family:inherit;">' + (v === 0 ? 'All' : v + '+') + '</button>'; }).join('')
+      + '</div>';
+  }
+  // render one table (filter + sort applied) from registry state
+  function renderBlock(s) {
+    var key = s.sortKey, dir = s.sortDir;
+    var rows = s.rows.filter(function (r) { return (r.poss || 0) >= (s.minPoss || 0); })
+      .slice().sort(function (a, b) { var av = a[key], bv = b[key]; av = (av == null ? -1e9 : av); bv = (bv == null ? -1e9 : bv); return dir === 'desc' ? bv - av : av - bv; })
+      .slice(0, s.max);
+    var sc = { id: s.id, sortKey: s.sortKey, sortDir: s.sortDir };
+    var hs = s.kind === 'five' ? FIVE_HS : COMBO_HS, minw = s.kind === 'five' ? 756 : 812;
+    var head = '<thead><tr>' + hs.map(function (h) { return thCell(h, sc); }).join('') + '</tr></thead>';
+    var body = rows.length ? rows.map(function (r, i) { return s.kind === 'five' ? luRow(r, s.idx, i, s.sos) : comboRow(r, s.idx, i, s.sos); }).join('')
+      : '<tr><td colspan="' + hs.length + '" style="padding:16px;text-align:center;color:var(--text3);font-size:12px;border:1px solid var(--border);">No units at this possession cutoff.</td></tr>';
+    return filterBar(s)
+      + '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><div style="min-width:' + minw + 'px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">'
+      + '<table style="border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;">' + head + '<tbody>' + body + '</tbody></table></div></div>';
+  }
+  function rerender(id) { var s = _reg[id], el = document.getElementById(id); if (s && el) el.innerHTML = renderBlock(s); }
+  function _sort(id, label) { var s = _reg[id]; if (!s) return; var key = SORT_KEY[label]; if (!key) return;
+    if (s.sortKey === key) s.sortDir = s.sortDir === 'desc' ? 'asc' : 'desc';
+    else { s.sortKey = key; s.sortDir = LOWER_BETTER[key] ? 'asc' : 'desc'; } rerender(id); }
+  function _filter(id, v) { var s = _reg[id]; if (!s) return; s.minPoss = +v || 0; rerender(id); }
+  // register a table's state + return its wrapper HTML (sortable + filterable in place)
+  function block(kind, rows, idx, sos, max, minPoss, sortKey, sortDir) {
+    var id = 'tdclu' + (++_rn);
+    _reg[id] = { id: id, kind: kind, rows: rows || [], idx: idx, sos: sos, max: max, minPoss: minPoss || 0, sortKey: sortKey, sortDir: sortDir };
+    return '<div id="' + id + '">' + renderBlock(_reg[id]) + '</div>';
   }
   // trios / pairs — SAME spreadsheet grid + full stat set as the five-man table (net,
   // ORtg, DRtg + four factors, blended from the units they share), plus a Units column.
-  function comboHead() {
-    var hs = [['Players', 'left', 0], ['POSS', 'center', 0], ['NET', 'center', 0], ['Adj', 'center', 0], ['SoS', 'center', 0], ['ORtg', 'center', 1], ['DRtg', 'center', 0], ['eFG%', 'center', 1], ['TOV%', 'center', 0], ['ORB%', 'center', 0], ['FTr', 'center', 0], ['Units', 'center', 1]];
-    return '<thead><tr>' + hs.map(thCell).join('') + '</tr></thead>';
-  }
   function comboRow(t, idx, i, sos) {
     var tr = tier(t.net), netc = t.net > 0 ? '#2bb673' : t.net < 0 ? '#e06552' : 'var(--text2)';
     var zebra = (i % 2) ? 'background:color-mix(in srgb,var(--text3) 5%,transparent);' : '';
@@ -247,11 +277,6 @@ window.TDC_LINEUPS = (function () {
       + td(t.ftr, 1, heat(t.ftr, 21, 12, true))
       + td(t.units, 0, 'var(--text3)', LU_DIVB)
       + '</tr>';
-  }
-  function comboTable(rows, idx, maxN, sos) {
-    if (!rows || !rows.length) return emptyCol();
-    return '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><div style="min-width:812px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">'
-      + '<table style="border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;">' + comboHead() + '<tbody>' + rows.slice(0, maxN).map(function (t, i) { return comboRow(t, idx, i, sos); }).join('') + '</tbody></table></div></div>';
   }
   function rowC(t) {   // a trio or pair row (both carry .players)
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--border);">'
@@ -273,13 +298,12 @@ window.TDC_LINEUPS = (function () {
       var sos = sosDeltaFor(res[3], season, full);   // team schedule delta (adjNet − net)
       var fullFi = !!(cc && ((cc.trios && cc.trios.length) || (cc.pairs && cc.pairs.length)));
       if (!lus.length && !fullFi) return '';
-      var qL = lus.filter(function (l) { return l.poss >= minP; }).sort(function (a, b) { return b.poss - a.poss; });
-      // use combos.json only when it already carries the four factors (future pipeline);
-      // otherwise derive the full stat set client-side from the tracked lineups so the
-      // trio/pair four factors are never blank.
+      // pass the UNFILTERED sets to the sortable/filterable table blocks (the min-poss
+      // chips do the filtering in-place, defaulting to minP/trioMin so the first view is
+      // unchanged). use combos.json only when it already carries the four factors.
       var comboHasFactors = !!(cc && cc.trios && cc.trios.length && cc.trios[0] && cc.trios[0].efg != null);
-      var triRows = comboHasFactors ? cc.trios : combo(lus, 3).filter(function (t) { return t.poss >= trioMin; });
-      var pairRows = (comboHasFactors && cc.pairs) ? cc.pairs : combo(lus, 2).filter(function (t) { return t.poss >= pairMin; });
+      var triRows = comboHasFactors ? cc.trios : combo(lus, 3);
+      var pairRows = (comboHasFactors && cc.pairs) ? cc.pairs : combo(lus, 2);
       var yl = (season - 1) + '-' + ('' + season).slice(2);
       var src = fullFi ? 'full play-by-play' : 'reconstructed from the tracked lineups';
       // positions for EVERYONE, consistent G/F/C down the whole column: player_history
@@ -288,16 +312,16 @@ window.TDC_LINEUPS = (function () {
       var pIdx = {}, _ri = posIndex(opt.pos);
       for (var _k in posBase) pIdx[_k] = toGFC(posBase[_k]);
       for (var _k2 in _ri) if (!pIdx[_k2]) pIdx[_k2] = toGFC(_ri[_k2]);
-      var lineupCol = qL.length ? lineupTable(qL, pIdx, maxL, sos) : emptyCol();
-      var trioCol = comboTable(triRows, pIdx, maxT, sos);
-      var pairCol = comboTable(pairRows, pIdx, maxP, sos);
+      var lineupCol = lus.length ? block('five', lus, pIdx, sos, maxL, minP, 'poss', 'desc') : emptyCol();
+      var trioCol = (triRows && triRows.length) ? block('combo', triRows, pIdx, sos, maxT, trioMin, 'net', 'desc') : emptyCol();
+      var pairCol = (pairRows && pairRows.length) ? block('combo', pairRows, pIdx, sos, maxP, trioMin, 'net', 'desc') : emptyCol();
       return ''
         + '<div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:26px 0 4px;">Lineups, Trios &amp; Pairs <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;">· ' + yl + ' · ' + src + '</span></div>'
-        + '<div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:12px;max-width:820px;">The five-man units this team played and how each performed on the floor, plus the three- and two-man combos inside them. <b style="color:var(--text2);">Net</b> = per-100 scoring margin with that group on; <b style="color:var(--text2);">ORtg/DRtg</b> = points scored/allowed per 100. <b style="color:var(--text2);">eFG/TOV/ORB/FTr</b> = the four factors (shooting · ball security · offensive glass · foul-drawing); <span style="color:#5bb381;">green</span>/<span style="color:#e0885a;">red</span> = better/worse than a typical unit. Superscripts are each man&rsquo;s position (G/F/C). Trio &amp; pair stats are blended (possession-weighted) from the lineups they share; <b style="color:var(--text2);">Units</b> = how many five-man lineups the combo appeared in. <b style="color:var(--text2);">Adj</b> = net adjusted for schedule; <b style="color:var(--text2);">SoS</b> = the team&rsquo;s schedule strength in net points (+ = tougher) — a team-level adjustment, the same for every one of its lineups.</div>'
+        + '<div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:12px;max-width:820px;">The five-man units this team played and how each performed on the floor, plus the three- and two-man combos inside them. <b style="color:var(--text2);">Net</b> = per-100 scoring margin with that group on; <b style="color:var(--text2);">ORtg/DRtg</b> = points scored/allowed per 100. <b style="color:var(--text2);">eFG/TOV/ORB/FTr</b> = the four factors (shooting · ball security · offensive glass · foul-drawing); <span style="color:#5bb381;">green</span>/<span style="color:#e0885a;">red</span> = better/worse than a typical unit. Superscripts are each man&rsquo;s position (G/F/C). Trio &amp; pair stats are blended (possession-weighted) from the lineups they share; <b style="color:var(--text2);">Units</b> = how many five-man lineups the combo appeared in. <b style="color:var(--text2);">Adj</b> = net adjusted for schedule; <b style="color:var(--text2);">SoS</b> = the team&rsquo;s schedule strength in net points (+ = tougher) — a team-level adjustment, the same for every one of its lineups. Click any column to sort; use the Min-poss chips to cut small samples.</div>'
         + colHdr('Five-man lineups · most-used') + lineupCol
         + '<div style="margin-top:20px;">' + colHdr('Top trios') + trioCol + '</div>'
         + '<div style="margin-top:20px;">' + colHdr('Top pairs') + pairCol + '</div>';
     });
   }
-  return { load: load, forTeam: forTeam, section: section, trios: trios, combo: combo, short: short, tier: tier };
+  return { load: load, forTeam: forTeam, section: section, trios: trios, combo: combo, short: short, tier: tier, _sort: _sort, _filter: _filter };
 })();
