@@ -32,6 +32,10 @@
     topg:   "Turnovers given away per game. Lower is better.",
     spg:    "Steals per game.",
     bpg:    "Shots blocked per game.",
+    oreb:   "Offensive rebounds per game — missed shots the team grabbed for another chance.",
+    dreb:   "Defensive rebounds per game — opponent misses the team secured to end the possession.",
+    ato:    "Assist-to-turnover ratio — how many assists the team records for every turnover. Higher means cleaner, more efficient ball movement.",
+    winpct: "Percentage of games won.",
 
     // ── efficiency / tempo (Team DNA) ──
     ortg:   "Points scored per 100 possessions — scoring efficiency, independent of how " +

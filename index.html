@@ -5,7 +5,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=5"></script>
-  <script src="tdc-glossary.js?v=4"></script>
+  <script src="tdc-glossary.js?v=5"></script>
   <script src="tdc-freshman.js?v=pub4"></script>
   <script src="tdc-projgrade.js?v=35"></script>
   <script src="tdc-rating.js?v=5"></script>
@@ -1990,6 +1990,16 @@ function wireStickyScroll(){
   // Click-to-sort column headers
   const thead=document.querySelector('.table-header');
   if(thead){ thead.addEventListener('click',e=>{ const th=e.target.closest('[data-sort]'); if(th) setSort(th.dataset.sort,true); }); }
+  // Stat-header tooltips: pull plain-English descriptions from the shared glossary and
+  // apply them to any rankings column that doesn't already carry a custom tooltip.
+  (function(){
+    const MAP={srs:'power',ortg:'ortg',drtg:'drtg',wins:'record',winpct:'winpct',ppg:'ppg',oppg:'oppg',fg:'fg_pct',tp:'tp_pct',ft:'ft_pct',orpg:'oreb',drpg:'dreb',apg:'apg',ato:'ato',spg:'spg',bpg:'bpg',topg:'topg',shotluck:'shotluck',sglq:'lookq',sgsm:'shotmaking',sgcr:'creation'};
+    document.querySelectorAll('.table-header [data-sort]').forEach(th=>{
+      if(th.getAttribute('title')) return;                 // keep existing custom tooltips
+      const t=window.statTip?statTip(MAP[th.dataset.sort]):''; if(!t) return;
+      th.setAttribute('title',t); th.style.textDecoration='underline dotted'; th.style.textUnderlineOffset='3px'; th.style.cursor='help';
+    });
+  })();
   updateSortHeaders();
   loadSeason(2027);
 })();
