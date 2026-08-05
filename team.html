@@ -1241,7 +1241,8 @@ function _heroRgb(hex){
   if(mx===mn) return null;                                   // greyscale → no tint
   var d=mx-mn; s=l>0.5?d/(2-mx-mn):d/(mx+mn);
   switch(mx){case r:h=(g-b)/d+(g<b?6:0);break;case g:h=(b-r)/d+2;break;default:h=(r-g)/d+4;} h/=6;
-  if(s<0.08) return null;
+  if(s<0.08) return null;                                    // greyscale → no tint
+  if(l<0.05) return null;                                    // near-black (#020303): "hue" is channel noise → don't fake a color
   s=Math.max(0.6,Math.min(0.95,s+0.1)); l=0.60;             // == _vivid
   function f(p,q,t){if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;}
   var q=l<0.5?l*(1+s):l+s-l*s,p=2*l-q;

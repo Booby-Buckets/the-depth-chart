@@ -2513,8 +2513,12 @@ function _teamColor(tn){ var c=_teamAccent(tn); if(c) return c; var i=_teamInfo(
 // secondary (Iowa's gold). A dark-but-SATURATED primary (Gonzaga navy #041e42) is
 // kept: it's the team's real identity (matches the team page) and both the light
 // hero wash (--tc-hero-rgb) and dark-mode accents (--tcr) brighten it so it pops.
-// So the gate is saturation only — the old lightness floor wrongly rejected navy.
-function _usableHue(hex){ var r=_hexToRgb(hex); if(!r) return false; var h=_rgbToHsl(r.r,r.g,r.b); return h.s>=0.18 && h.l<=0.92; }
+// Gate: saturated, not near-WHITE, not near-BLACK. The old 0.16 floor wrongly
+// rejected navy (l~0.14); the tiny 0.05 floor only rejects true near-blacks like
+// Elon's #020303 (l~0.01) whose "hue" is 1-value channel noise (would brighten to a
+// garbage color) → those fall back to the secondary. Real navies stay (darkest is
+// Oakland #04091c, l~0.06).
+function _usableHue(hex){ var r=_hexToRgb(hex); if(!r) return false; var h=_rgbToHsl(r.r,r.g,r.b); return h.s>=0.18 && h.l>=0.05 && h.l<=0.92; }
 function _teamAccent(tn){
   var e=(window.tdcTeamColor&&window.tdcTeamColor(tn))||null;
   if(!e) return (window.tdcTeamColorHex&&tdcTeamColorHex(tn))||null;
