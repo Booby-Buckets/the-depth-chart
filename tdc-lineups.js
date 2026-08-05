@@ -149,6 +149,17 @@ window.TDC_LINEUPS = (function () {
     return players.map(function (p, i) { return '<span title="' + p.replace(/"/g, '&quot;') + '">' + sn[i] + posBadge(idx && idx[posKey(p)]) + '</span>'; })
       .join('<span style="color:var(--text3);"> · </span>');
   }
+  // personnel archetype from a five-man unit's G/F/C makeup (needs all 5 positions known)
+  function archetypeOf(players, idx) {
+    var g = 0, f = 0, c = 0, unk = 0;
+    players.forEach(function (p) { var pos = idx && idx[posKey(p)]; if (pos === 'G') g++; else if (pos === 'F') f++; else if (pos === 'C') c++; else unk++; });
+    if (unk > 0 || players.length !== 5) return null;
+    var lab = g >= 4 ? '4-Guard' : c >= 2 ? 'Twin Towers' : g === 3 ? '3-Guard' : g <= 1 ? 'Jumbo' : c === 0 ? 'Small Ball' : 'Balanced';
+    return { lab: lab, mk: g + 'G · ' + f + 'F · ' + c + 'C' };
+  }
+  function archTag(a) {
+    return a ? '<div style="margin-top:4px;"><span title="' + a.mk + '" style="display:inline-block;font-size:8px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:1px 7px;cursor:help;">' + a.lab + '</span></div>' : '';
+  }
   // ── spreadsheet-style grid: a real <table> with collapsed 1px gridlines + a grey
   //    header row (Google-Sheets look). Three stat groups (POSS·NET | ORtg·DRtg | four
   //    factors) split by a heavier vertical rule; banded rows; numbers keep green/red
@@ -192,7 +203,7 @@ window.TDC_LINEUPS = (function () {
     var netInner = '<div style="font-weight:800;font-size:13px;color:' + netc + ';line-height:1.05;">' + (l.net > 0 ? '+' : '') + (+l.net).toFixed(1) + '</div>'
       + (tr ? '<div style="font-size:7.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:' + tr.c + ';margin-top:1px;">' + tr.t + '</div>' : '');
     return '<tr style="' + zebra + '">'
-      + '<td style="padding:8px 10px;border:1px solid var(--border);text-align:left;font-weight:700;font-size:12px;line-height:1.4;min-width:180px;">' + lineupNames(l.players, idx) + '</td>'
+      + '<td style="padding:8px 10px;border:1px solid var(--border);text-align:left;font-weight:700;font-size:12px;line-height:1.4;min-width:180px;">' + lineupNames(l.players, idx) + archTag(archetypeOf(l.players, idx)) + '</td>'
       + td(l.poss, 0, 'var(--text2)')
       + '<td style="padding:5px 9px;border:1px solid var(--border);text-align:center;">' + netInner + '</td>'
       + adjCell(l.net, sos)
