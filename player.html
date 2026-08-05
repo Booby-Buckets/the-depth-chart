@@ -13,6 +13,7 @@
   <script src="tdc-freshman.js?v=pub5"></script>
   <script src="tdc-injury.js?v=4"></script>
   <script src="tdc-ratings.js?v=5"></script>
+  <script src="tdc-glossary.js?v=6"></script>
   <script src="tdc-leaderboard.js?v=2"></script>
   <script src="tdc-portalfit.js?v=needs7"></script>
   <script src="tdc-projgrade.js?v=35"></script>
@@ -5546,6 +5547,20 @@ init();
   try{var s=localStorage.getItem('tdc_theme'); if(s) document.documentElement.setAttribute('data-theme',s);}catch(e){}
   function init(){ syncBtn(document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light'); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+})();
+</script>
+<script>
+// Stat tooltips: describe each stat on hover (shared glossary). The overview stat cards
+// re-render on tab/season change, so re-decorate whenever the page content mutates.
+(function(){
+  if(!window.tdcDecorateTips) return;
+  var SEL='.stat-card-label';
+  function run(){ try{ tdcDecorateTips(document, SEL); }catch(e){} }
+  run();
+  try{
+    var host=document.querySelector('.tabs')||document.body;
+    new MutationObserver(function(){ run(); }).observe(host,{childList:true,subtree:true});
+  }catch(e){}
 })();
 </script>
 <script src="tdc-player-dense.js?v=2"></script>

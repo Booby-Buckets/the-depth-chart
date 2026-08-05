@@ -103,13 +103,35 @@
   };
   TIP.srs = TIP.power;         // legacy alias
   TIP.netrating = TIP.power;
+  TIP.mpg = "Minutes played per game.";
 
+  // label → key lookup, so a surface can be decorated by its visible stat label
+  // (PPG, FG%, A/TO…) instead of a hand-maintained per-column id map.
+  var LBL = { ppg: 'ppg', pts: 'ppg', rpg: 'rpg', reb: 'rpg', trb: 'rpg', apg: 'apg', ast: 'apg',
+    mpg: 'mpg', min: 'mpg', mins: 'mpg', fg: 'fg_pct', '3p': 'tp_pct', tp: 'tp_pct', ft: 'ft_pct',
+    stl: 'spg', spg: 'spg', blk: 'bpg', bpg: 'bpg', to: 'topg', tov: 'topg', topg: 'topg',
+    oreb: 'oreb', orb: 'oreb', dreb: 'dreb', drb: 'dreb', ortg: 'ortg', drtg: 'drtg',
+    net: 'neteff', neteff: 'neteff', efg: 'efg', ts: 'ts', tempo: 'tempo', poss: 'tempo',
+    pace: 'tempo', ato: 'ato', winpct: 'winpct', oppg: 'oppg', opp: 'oppg' };
+  function norm(s) { return ('' + s).toLowerCase().replace(/[^a-z0-9]/g, ''); }
   function statTip(id) { return (id && TIP[id]) || ''; }
+  function tipByLabel(label) { return TIP[LBL[norm(label)]] || ''; }
   function tipAttr(id) {
     var t = statTip(id);
     return t ? ' title="' + t.replace(/"/g, '&quot;') + '"' : '';
   }
+  // apply tooltips to every element matching sel whose visible text is a known stat label
+  function decorate(root, sel) {
+    (root || document).querySelectorAll(sel).forEach(function (el) {
+      if (el.getAttribute('title')) return;
+      var t = tipByLabel(el.textContent); if (!t) return;
+      el.setAttribute('title', t); el.style.textDecoration = 'underline dotted';
+      el.style.textUnderlineOffset = '2px'; el.style.cursor = 'help';
+    });
+  }
   g.TDC_TIP = TIP;
   g.statTip = statTip;
   g.tipAttr = tipAttr;
+  g.tipByLabel = tipByLabel;
+  g.tdcDecorateTips = decorate;
 })(typeof window !== 'undefined' ? window : this);
