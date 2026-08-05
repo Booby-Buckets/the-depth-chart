@@ -391,6 +391,14 @@
     .impact-pctl{font-size:11px;font-weight:600;color:var(--text3);margin-top:2px;text-transform:uppercase;letter-spacing:.04em;}
     .impact-bar{height:8px;border-radius:5px;background:var(--bg3);overflow:hidden;margin-bottom:18px;}
     .impact-bar .impact-fill{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg, color-mix(in srgb,var(--tc) 60%,#fff), var(--tc));}
+    /* Dark mode: a dark-but-saturated team color (navy) used as gradient/solid fill
+       vanishes on the dark ground (the reason the resolver used to reject navy). Now
+       that navy is the identity color, brighten these accents to --tcr in dark so they
+       stay legible. Light mode keeps raw --tc — dark navy pops on the white ground. */
+    [data-theme="dark"] .impact-num,
+    [data-theme="dark"] .ds-rank{ background:linear-gradient(150deg, #ffffff, color-mix(in srgb, var(--tcr) 45%, #fff)); -webkit-background-clip:text; background-clip:text; }
+    [data-theme="dark"] .impact-bar .impact-fill,
+    [data-theme="dark"] .imp-card-bar .impact-fill{ background:linear-gradient(90deg, color-mix(in srgb, var(--tcr) 70%, #fff), var(--tcr)) !important; }
     .impact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:10px;}
     .imp-card{background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:11px 12px;}
     .imp-card-l{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
@@ -2500,10 +2508,13 @@ function _teamInfo(tn){
   return null;
 }
 function _teamColor(tn){ var c=_teamAccent(tn); if(c) return c; var i=_teamInfo(tn); return i&&i.color?i.color:null; }
-// Best usable accent for a team: the primary, unless it's greyscale or nearly
-// black (Iowa's #231f20, Army black, etc) — those wash out to nothing on the
-// dark ground, so fall back to the secondary (Iowa's gold).
-function _usableHue(hex){ var r=_hexToRgb(hex); if(!r) return false; var h=_rgbToHsl(r.r,r.g,r.b); return h.s>=0.18 && h.l>=0.16 && h.l<=0.92; }
+// Best usable accent for a team: the primary, unless it's greyscale / near-black
+// (Iowa's #231f20, Army #000000) — those have NO hue to show, so fall back to the
+// secondary (Iowa's gold). A dark-but-SATURATED primary (Gonzaga navy #041e42) is
+// kept: it's the team's real identity (matches the team page) and both the light
+// hero wash (--tc-hero-rgb) and dark-mode accents (--tcr) brighten it so it pops.
+// So the gate is saturation only — the old lightness floor wrongly rejected navy.
+function _usableHue(hex){ var r=_hexToRgb(hex); if(!r) return false; var h=_rgbToHsl(r.r,r.g,r.b); return h.s>=0.18 && h.l<=0.92; }
 function _teamAccent(tn){
   var e=(window.tdcTeamColor&&window.tdcTeamColor(tn))||null;
   if(!e) return (window.tdcTeamColorHex&&tdcTeamColorHex(tn))||null;
