@@ -235,6 +235,20 @@ const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>
 let D=null, DNA=null, SG={}, REPORTS=null, COLORMAP={}, sgMean={}, PBP=null, PBPNORM={};
 let selKey={Me:null,Opp:null};
 function pbpOf(r){ if(!PBP) return null; const s=PBP['2026']||PBP[Object.keys(PBP).sort().reverse()[0]]||{}; const t=(s&&s.teams)||s; return (t&&(t[r.full]||t[r.team]))||null; }
+// Current-roster name set (normalized) so PBP-derived player references — block
+// leaders, assist feeds, all from LAST season's play-by-play — never name a player
+// who has since graduated/transferred out (e.g. Duke's Maliq Brown on a 2026-27 report).
+// Cached per team; if the fetch fails (empty set) we don't filter, to avoid blanking.
+let _rnCache={};
+function _normNm(s){ return (''+(s||'')).toLowerCase().replace(/[.'`’]/g,'').replace(/\b(jr|sr|ii|iii|iv|v)\b/g,'').replace(/\s+/g,' ').trim(); }
+async function currentRosterNames(row){
+  const key=row.team||row.full; if(_rnCache[key]) return _rnCache[key];
+  const set=new Set();
+  try{ const rs=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name`,{headers:H}).then(x=>x.ok?x.json():[]);
+    (rs||[]).forEach(p=>{ if(p&&p.name) set.add(_normNm(p.name)); }); }catch(e){}
+  _rnCache[key]=set; return set;
+}
+function _onRoster(RN,nm){ return !RN||!RN.size||RN.has(_normNm(nm)); }
 
 // ── team-name resolver: one rating row → every engine's key form ──
 const poolRow=k=>k!=null?D.teams[k]:null;
@@ -568,7 +582,7 @@ async function loadShotChart(row){
 }
 
 // ── their offense: how they generate + who creates + how to disrupt ──
-function offenseBreakdown(r){
+function offenseBreakdown(r, RN){
   const p=pbpOf(r); if(!p||!p.gp) return '';
   const z=k=>{ const n=PBPNORM[k]; return n&&n.sd?(p[k]-n.m)/n.sd:0; };
   const src=[];
@@ -576,7 +590,8 @@ function offenseBreakdown(r){
   if(z('second_chance_pg')>=0.55) src.push(['Second-chance points',`${p.second_chance_pg.toFixed(1)}/g on the o-glass`]);
   if(z('off_to_pg')>=0.55) src.push(['Points off turnovers',`${p.off_to_pg.toFixed(1)}/g`]);
   if(z('and1_pg')>=0.7) src.push(['Draws contact',`${p.and1_pg.toFixed(1)} and-1s/g`]);
-  const feeds=(p.feeds||[]).slice(0,3);
+  // only creators/finishers still on the 2026-27 roster (PBP feeds are last season's)
+  const feeds=(p.feeds||[]).filter(f=>_onRoster(RN,f.from)&&_onRoster(RN,f.to)).slice(0,3);
   const hubHtml=feeds.length?`<div class="obsub">Who creates it</div>`+feeds.map(f=>`<div class="obfeed"><span><b>${esc(f.from)}</b> → ${esc(f.to)}</span><span class="obn">${f.n} assists${f.pts?` · ${f.pts} pts`:''}</span></div>`).join(''):'';
   // disrupt
   const dis=[];
@@ -589,7 +604,7 @@ function offenseBreakdown(r){
     <div class="card">${srcHtml}${hubHtml}<div class="obread"><b>Disrupt it:</b> ${dis.join('; ')}.</div></div>`;
 }
 // ── their defense: identity + where to attack ──
-function defenseBreakdown(r){
+function defenseBreakdown(r, RN){
   const dna=dnaOf(r), p=pbpOf(r); if(!dna||!dna.pct) return '';
   const pct=dna.pct; const F=[
     {k:'deFG',nm:'contesting shots',lo:'lets you get clean looks',hi:'clamps down on your shot'},
@@ -598,7 +613,7 @@ function defenseBreakdown(r){
   ].filter(f=>pct[f.k]!=null).map(f=>({...f,p:pct[f.k]}));
   if(!F.length) return '';
   const weakest=[...F].sort((a,b)=>a.p-b.p)[0], strongest=[...F].sort((a,b)=>b.p-a.p)[0];
-  const rim=(p&&p.blk_leaders||[]).slice(0,2);
+  const rim=(p&&p.blk_leaders||[]).filter(x=>_onRoster(RN,x.name)).slice(0,2);   // returners only (blk leaders are last-season PBP)
   const bars=F.map(f=>`<div class="dfrow"><div class="dfl">${f.nm}</div><div class="dfbar"><div class="dff" style="width:${Math.round(f.p)}%;background:${f.p>=50?'var(--green)':'var(--red)'}"></div></div><div class="dfp">${Math.round(f.p)}ᵖᶜ</div></div>`).join('');
   const rimHtml=rim.length?` Their rim protection runs through <b>${esc(rim[0].name)}</b> (${rim[0].blk} blocks)${rim[1]?` and ${esc(rim[1].name)}`:''} — attack away from him or draw him out.`:'';
   const attack = weakest.p<45
@@ -627,13 +642,15 @@ function foulProfile(r){
     <div class="card"><div class="dfbars">${rows.join('')}</div><div class="obread"><b>At the line:</b> ${read}</div></div>`;
 }
 
-function render(){
+async function render(){
   const opp=selKey.Opp!=null?{key:selKey.Opp,r:poolRow(selKey.Opp)}:null;
   if(!opp){ el('out').innerHTML='<div class="muted" style="padding:60px 20px;">Pick an opponent above to generate their scouting report.</div>'; return; }
   const r=opp.r, tc=teamColor(r), dna=dnaOf(r), sg=sgOf(r), rep=reportOf(r);
   const me=selKey.Me!=null&&selKey.Me!==selKey.Opp?{key:selKey.Me}:null;
   const initials=(r.full||'').split(' ').map(w=>w[0]).slice(0,2).join('');
   const rec=`#${r.rank||'—'} nationally · rating ${fmtR(r)}`;
+  // current-roster names (to strip departed players from last-season PBP references)
+  const _tok=selKey.Opp; const RN=await currentRosterNames(r); if(selKey.Opp!==_tok) return;
 
   let plan='';
   if(dna){
@@ -668,8 +685,8 @@ function render(){
     <div id="scoutSituational"></div>
     <div class="sec-h">The Attack Book — how to guard &amp; attack each man <span class="hint">projected line · 2025-26 tendencies</span></div>
     <div id="scoutScorers"><div class="muted" style="padding:16px 4px">Projecting their rotation &amp; reading their tendencies…</div></div>
-    ${offenseBreakdown(r)}
-    ${defenseBreakdown(r)}
+    ${offenseBreakdown(r,RN)}
+    ${defenseBreakdown(r,RN)}
     <div class="sec-h">Shot Tendencies</div>
     ${tendencies(r,sg)}
     <div class="sec-h">Personnel Report</div>
