@@ -1984,8 +1984,23 @@ function renderRows(data, srt, favTeam, favColor, favBg){
 function wireStickyScroll(){
   const sc=document.querySelector('.table-scroll'); if(!sc||sc._stickyWired) return;
   sc._stickyWired=true;
-  const upd=()=>sc.classList.toggle('scrolled', sc.scrollLeft>0);
+  // The expanded team report (.tr-drop) is a full-canvas-width row, so scrolling the
+  // stat columns right drags it off the left. CSS sticky can't fix it (no slide room).
+  // Instead, size each open drop to the visible viewport and counter-translate it by
+  // scrollLeft so it stays pinned to the left edge at any horizontal scroll position.
+  const pinDrops=()=>{
+    const x=sc.scrollLeft, w=sc.clientWidth;
+    sc.querySelectorAll('.tr-drop').forEach(d=>{
+      d.style.width=w+'px';
+      d.style.transform=x?('translateX('+x+'px)'):'';
+    });
+  };
+  const upd=()=>{ sc.classList.toggle('scrolled', sc.scrollLeft>0); pinDrops(); };
   sc.addEventListener('scroll', upd, {passive:true});
+  // Re-pin when a drop is inserted/removed (expand/collapse) and on viewport resize.
+  const list=document.getElementById('rankingsList');
+  if(list && window.MutationObserver){ new MutationObserver(pinDrops).observe(list,{childList:true}); }
+  window.addEventListener('resize', pinDrops, {passive:true});
   upd();
 }
 
