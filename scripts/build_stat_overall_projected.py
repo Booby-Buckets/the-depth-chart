@@ -246,7 +246,17 @@ for short, roster in roster_by_team.items():
         last_mpg=r["last_mpg"]; pm=r["pm"]
         # transfer? (played elsewhere last year) — cap the minutes jump
         demo_team_full=(r["a"].team if r["a"] is not None else None)
-        xfer=bool(demo_team_full and not str(demo_team_full).lower().startswith(str(short).lower()))
+        # Transfer detection: match last-year team to the CURRENT team's FULL name (S2F-resolved,
+        # e.g. "Utah Utes"), NOT a bare short-name prefix. player_advanced.team is a full
+        # "School Mascot" string, so a mid-major whose name merely STARTS with the new school
+        # ("Utah Valley Wolverines" vs short "Utah", "Miami (OH)" vs "Miami") no longer reads as
+        # "stayed". Falls back to the legacy short-prefix test only when the team has no S2F map.
+        _lt=str(demo_team_full or "").lower().strip(); _cf=str(full).lower().strip(); _cs=str(short).lower().strip()
+        if _cf!=_cs:
+            returner = bool(_lt) and (_lt==_cf or _lt.startswith(_cf+" "))
+        else:
+            returner = bool(_lt) and _lt.startswith(_cs)
+        xfer = bool(demo_team_full) and not returner
         if xfer:
             pm=min(pm,last_mpg+MPG_XFER_BUMP)
             # Level-jump offensive translation: discount projected usage by the SOS gap
