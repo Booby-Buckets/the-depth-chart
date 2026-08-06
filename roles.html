@@ -11,6 +11,8 @@
   <script src="auth.js?v=paywall4"></script>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=5"></script>
+  <script src="tdc-projgrade.js?v=35"></script>
+  <script src="tdc-proj.js?v=coach18"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -39,6 +41,12 @@
     /* role card */
     .rc{border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:15px 17px;margin-bottom:10px;}
     .rc-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:4px;flex-wrap:wrap;}
+    .rc-head{display:flex;align-items:center;gap:13px;margin-bottom:8px;}
+    .rc-ovr{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;line-height:1;color:var(--tc,var(--accent));min-width:38px;text-align:center;flex-shrink:0;}
+    .rc-ovr small{display:block;font-family:'Inter',sans-serif;font-size:8px;font-weight:800;letter-spacing:.08em;color:var(--text3);margin-top:2px;}
+    .rc-who{flex:1;min-width:0;}
+    .rc-line{font-size:11.5px;color:var(--text3);font-variant-numeric:tabular-nums;margin-top:3px;}
+    .rc-line b{color:var(--text2);}
     .rc-nm{font-weight:800;font-size:15px;}
     .rc-nm .pos{font-size:10px;font-weight:700;color:var(--accent);margin-left:7px;}
     .rc-arch{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:var(--tc,var(--accent));}
@@ -174,15 +182,22 @@ async function loadTeam(){
   const tc=teamColor(row);
   el('out').innerHTML='<div class="loading">Reading the personnel…</div>';
   let roster=[];
-  try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,mpg,depth_order&order=depth_order.asc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,position2,depth_order,hometown,is_injured,class_year,yr,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb&order=depth_order.asc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
   const withId=roster.filter(p=>p.espn_id!=null);
+  // canonical projected 2026-27 line + OVR (same engine as the rankings/player page)
+  let PJ={};
+  try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready;
+    if(typeof buildTeamProjections==='function'){ const pr=buildTeamProjections(roster.map(x=>Object.assign({},x)), row.conf||''); (pr||[]).forEach(x=>{ if(x&&x.name) PJ[x.name.toLowerCase().trim()]=x; }); }
+  }catch(e){}
   let adv=[];
   if(withId.length){ const ids=withId.map(p=>p.espn_id).join(',');
     try{ adv=await fetch(`${SB_URL}/rest/v1/player_advanced?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,ti40,ts_pct,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,trb_pct,stl_pct,blk_pct,min,g`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
   }
   const advById={}; adv.forEach(a=>{ advById[a.espn_id]={...a,mp:a.min,games:a.g}; });
-  let players=roster.map(p=>{ const a=advById[p.espn_id]; if(!a) return {name:p.name,pos:p.position,order:p.depth_order!=null?+p.depth_order:99,mpg:+p.mpg||0,hist:false};
-    return {name:p.name,pos:p.position||'',order:p.depth_order!=null?+p.depth_order:99,mpg:+p.mpg||0,hist:true,a,arch:archetype(a,p.position||'')}; });
+  let players=roster.map(p=>{ const a=advById[p.espn_id]; const pj=PJ[(p.name||'').toLowerCase().trim()];
+    const base={name:p.name,pos:p.position||'',order:p.depth_order!=null?+p.depth_order:99,mpg:+p.mpg||0,pj,raw:p};
+    if(!a) return {...base,hist:false};
+    return {...base,hist:true,a,arch:archetype(a,p.position||'')}; });
   players.sort((x,y)=>(x.order-y.order)||(y.mpg-x.mpg));
   const withHist=players.filter(p=>p.hist);
   if(!withHist.length){ el('out').innerHTML='<div class="muted" style="padding:50px 20px;">No D-I track record on file for this roster yet — likely a young or heavily new group. Roles read once players have a season of D-I data.</div>'; return; }
@@ -200,11 +215,17 @@ async function loadTeam(){
   const fit=`<div class="fit">${esc(row.full)}: ${bits.join(', ')}.</div>`;
 
   const sig=s=>`<div class="sig"><div class="st"><span>${s[0]}</span><b>${s[2]}</b></div><div class="sbar"><div class="sf" style="width:${s[1].toFixed(0)}%"></div></div></div>`;
+  const F=(v,d)=>v==null||isNaN(v)?'—':(+v).toFixed(d==null?1:d);
   const card=p=>{
-    if(!p.hist) return `<div class="rc"><div class="rc-top"><div class="rc-nm">${esc(p.name)}<span class="pos">${esc(p.pos||'')}</span></div><div class="nohist">no D-I track record yet</div></div></div>`;
-    return `<div class="rc" style="--tc:${tc}"><div class="rc-top"><div class="rc-nm">${esc(p.name)}<span class="pos">${esc(p.pos||'')}</span></div><div class="rc-arch">${p.arch.label}</div></div>
-      ${p.arch.mods.length?`<div class="rc-mods">${p.arch.mods.map(m=>`<span class="mod">${esc(m)}</span>`).join('')}</div>`:'<div class="rc-sub"></div>'}
-      <div class="sigs">${signals(p.a).map(sig).join('')}</div></div>`;
+    const pj=p.pj, raw=p.raw||{};
+    const ovr=(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):(raw.tdc_grade!=null&&!isNaN(+raw.tdc_grade)?Math.round(+raw.tdc_grade):null);
+    const l=(pj&&(+pj.mpg>0))?pj:raw;
+    const lineHtml=`<div class="rc-line"><b>${F(l.ppg)}</b> pts · <b>${F(l.rpg)}</b> reb · <b>${F(l.apg)}</b> ast · ${F(l.mpg,0)} min · ${F(l.fg_pct,0)}/${F(l.tp_pct,0)}/${F(l.ft_pct,0)}</div>`;
+    const tag=p.hist?`<div class="rc-arch">${p.arch.label}</div>`:`<div class="nohist">no D-I track record yet</div>`;
+    const head=`<div class="rc-head"><div class="rc-ovr">${ovr!=null?ovr:'—'}<small>OVR</small></div>
+      <div class="rc-who"><div class="rc-top"><div class="rc-nm">${esc(p.name)}<span class="pos">${esc(p.pos||'')}</span></div>${tag}</div>${lineHtml}</div></div>`;
+    const body=p.hist?`${p.arch.mods.length?`<div class="rc-mods">${p.arch.mods.map(m=>`<span class="mod">${esc(m)}</span>`).join('')}</div>`:''}<div class="sigs">${signals(p.a).map(sig).join('')}</div>`:'';
+    return `<div class="rc" style="--tc:${tc}">${head}${body}</div>`;
   };
 
   el('out').innerHTML=`<div style="--tc:${tc}">
