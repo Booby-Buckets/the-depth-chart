@@ -119,6 +119,13 @@
   TIP.defrebounding = "How well this defense secures the defensive glass to end possessions, as a national percentile.";
   TIP.ftallowed = "How often this defense fouls and sends opponents to the line — a national percentile (higher = more foul-prone).";
   TIP.ftdrawn = "How often this team gets to the free-throw line itself, as a national percentile.";
+  // scout / self-scout "Statistical Identity" four-factor bars (national percentiles).
+  TIP.shootingefg = "Team shooting — effective FG% (threes count extra), as a national percentile.";
+  TIP.ballsecurity = "Ball security — how well the team avoids turnovers, as a national percentile (higher = fewer giveaways).";
+  TIP.offrebounding = "Offensive rebounding — how well the team rebounds its own misses for extra chances, as a national percentile.";
+  TIP.offenseoverall = "Overall offense — points scored per 100 possessions, as a national percentile.";
+  TIP.defendingshots = "Defending shots — how well the team contests shots (opponent eFG% allowed), as a national percentile.";
+  TIP.defenseoverall = "Overall defense — points allowed per 100 possessions, as a national percentile (higher = better).";
 
   // label → key lookup, so a surface can be decorated by its visible stat label
   // (PPG, FG%, A/TO…) instead of a hand-maintained per-column id map.
@@ -131,8 +138,10 @@
     usage: 'usage', playmaking: 'playmaking', spacing: 'spacing', rebounding: 'rebounding',
     rimprotection: 'rimprotection', disruption: 'disruption',
     contestingshots: 'contestingshots', forcingturnovers: 'forcingturnovers',
-    defensiverebounding: 'defrebounding', putopponentsontheline: 'ftallowed',
-    gettothelinethemselves: 'ftdrawn' };
+    defensiverebounding: 'defrebounding', defrebounding: 'defrebounding',
+    putopponentsontheline: 'ftallowed', gettothelinethemselves: 'ftdrawn',
+    shootingefg: 'shootingefg', ballsecurity: 'ballsecurity', offrebounding: 'offrebounding',
+    offenseoverall: 'offenseoverall', defendingshots: 'defendingshots', defenseoverall: 'defenseoverall' };
   function norm(s) { return ('' + s).toLowerCase().replace(/[^a-z0-9]/g, ''); }
   function statTip(id) { return (id && TIP[id]) || ''; }
   function tipByLabel(label) { return TIP[LBL[norm(label)]] || ''; }
@@ -169,7 +178,7 @@
   // text is a KNOWN stat label get a tooltip, and anything with an existing title is left
   // alone — so a broad selector is safe (non-stat headers simply don't match).
   function autoDecorate() {
-    try { decorate(document, '.stat-card-label,.s-label,.stat-lbl,.stat-label,[data-stat],th,.th,.sig .st span,.dfl'); } catch (e) {}
+    try { decorate(document, '.stat-card-label,.s-label,.stat-lbl,.stat-label,[data-stat],th,.th,.sig .st span,.dfl,.bl span:first-child'); } catch (e) {}
     try {
       document.querySelectorAll('.foot span').forEach(function (s) {
         if (s.getAttribute('title')) return; var t = tipFoot(s.textContent); if (!t) return;
