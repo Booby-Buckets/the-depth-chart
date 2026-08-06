@@ -129,21 +129,46 @@
       el.style.textUnderlineOffset = '2px'; el.style.cursor = 'help';
     });
   }
+  // advanced per-player RATE stats shown in the Coach's-Tier "footprint" spans
+  // (defense/foul-ft/offense/newcomers/shot-genome), each written as "<value> <token>".
+  function tipFoot(text) {
+    var t = ('' + text).toLowerCase();
+    if (/dreb/.test(t)) return "Defensive-rebound rate — the share of available defensive boards this player grabbed while on the floor.";
+    if (/oreb/.test(t)) return "Offensive-rebound rate — the share of available offensive boards this player grabbed while on the floor.";
+    if (/blk/.test(t)) return "Block rate — the share of opponent two-point shots this player blocked while on the floor. A rim-protection signal.";
+    if (/stl/.test(t)) return "Steal rate — the share of opponent possessions this player ended with a steal. A ball-pressure / disruption signal.";
+    if (/usg/.test(t)) return "Usage rate — the share of the team's possessions this player used (shots, free throws, turnovers) while on the floor. How central he is to the offense.";
+    if (/fta\s*\/?\s*40/.test(t)) return "Free-throw attempts per 40 minutes — how often this player gets to the line.";
+    if (/pf\s*\/?\s*40/.test(t)) return "Personal fouls per 40 minutes — how foul-prone this player is.";
+    if (/ft\s*rate|ftr/.test(t)) return TIP.ftr;
+    if (/\bast\b|ast$/.test(t)) return "Assist rate — the share of teammate baskets this player set up while on the floor. A playmaking / creation signal.";
+    if (/\bts\b|true.?shoot/.test(t)) return TIP.ts;
+    return "";
+  }
   // decorate the common stat-label surfaces across a page. Only elements whose visible
   // text is a KNOWN stat label get a tooltip, and anything with an existing title is left
   // alone — so a broad selector is safe (non-stat headers simply don't match).
-  function autoDecorate() { try { decorate(document, '.stat-card-label,.s-label,.stat-lbl,.stat-label,[data-stat],th,.th'); } catch (e) {} }
+  function autoDecorate() {
+    try { decorate(document, '.stat-card-label,.s-label,.stat-lbl,.stat-label,[data-stat],th,.th'); } catch (e) {}
+    try {
+      document.querySelectorAll('.foot span').forEach(function (s) {
+        if (s.getAttribute('title')) return; var t = tipFoot(s.textContent); if (!t) return;
+        s.setAttribute('title', t); s.style.cursor = 'help'; s.style.textDecoration = 'underline dotted'; s.style.textUnderlineOffset = '2px';
+      });
+    } catch (e) {}
+  }
   g.TDC_TIP = TIP;
   g.statTip = statTip;
   g.tipAttr = tipAttr;
   g.tipByLabel = tipByLabel;
   g.tdcDecorateTips = decorate;
   g.tdcAutoTips = autoDecorate;
-  // Auto-run on any page that includes this script: on load + two async waves (for
-  // fetched/late-rendered content). No permanent observer — pages that keep re-rendering
-  // (e.g. player tabs) add their own light observer.
+  // Auto-run on any page that includes this script: on load + a debounced observer so
+  // async/late-rendered stats get tipped whenever they appear. Safe from loops — the
+  // observer watches childList only, while decorate sets title/style (attributes).
   if (typeof document !== 'undefined') {
+    var _t; function schedule() { clearTimeout(_t); _t = setTimeout(autoDecorate, 200); }
     if (document.readyState !== 'loading') autoDecorate(); else document.addEventListener('DOMContentLoaded', autoDecorate);
-    try { setTimeout(autoDecorate, 700); setTimeout(autoDecorate, 1800); } catch (e) {}
+    try { new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true }); } catch (e) {}
   }
 })(typeof window !== 'undefined' ? window : this);
