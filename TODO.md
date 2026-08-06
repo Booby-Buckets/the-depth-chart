@@ -9,21 +9,19 @@ by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!
 ## UI / Design
 - [x] **Deepen the dark grey** — darker dark palette site-wide (tdc-skin.css). *(done, cc026b3)*
 - [x] **Uniform rankings dropdowns** — season + sort selects: same radius/height/custom caret. *(done, cc026b3)*
-- [!] **Expanded report scrolls off-left** (index rankings) — when the stat columns are
-      scrolled right, the expanded team `.tr-drop` report scrolls off the left instead of
-      staying visible. CSS sticky failed (the row is exactly its containing-block width,
-      no slide room, and the table uses grid-cell overflow not a wide wrapper). Needs a
-      rework — likely pin the report to the viewport with JS transform on scroll, or
-      restructure the drop row. *Done = report stays fully readable at any horizontal scroll.*
+- [x] **Expanded report scrolls off-left** (index rankings) — fixed: `wireStickyScroll`
+      sizes each open `.tr-drop` to the viewport and counter-translates it by `scrollLeft`
+      (re-pinned on scroll / expand / resize). Verified at 768px. *(done, 4473032)*
 - [x] **Team-color matching on player + team pages** — the projected-stat numbers/accents
       render generic purple (--accent) instead of the team color. Make the projected stats
       + accent slots use `--tc`/`--tcr` (team-tinted) on both player.html and team.html.
       *Done = Notre Dame reads navy/gold, not purple; verified on 2–3 teams incl. a dark navy.*
-- [!] **Mainstream the color system** — "too many blues / stray colors." Pick ONE scale for
-      the numeric/percentile identifiers site-wide: either a single blue scale OR a red→green
-      scale (user to pick). Apply consistently to the stat heatmaps (player DB, stats table,
-      rankings) so the palette reads as one system. *Done = one agreed scale everywhere; no
-      stray accent colors on "main things."* **NEEDS USER: blue scale or red-green?**
+- [x] **Mainstream the color system** — user picked the **blue scale**. Unified grade/percentile
+      coloring to one blue intensity ramp (bright/deep = better, muted grey-blue = weaker) across
+      rankings (index gradeColor/pctColor/grade letters + sparks), player DB (roster letter + 2K
+      grade classes), and stats table (analytics `_gradeCol`). Stat-cell heat was already this blue
+      (`c1–c4` / `_statColor`). Left true +/- deltas (margin, Luck, Shot-Making, rank arrows) as
+      red→green. Verified blue on player DB + no traffic-light strays; no console errors.
 - [x] **Postseason achievement badges** — small result tag on team-season rows/pages:
       (Champ) (Runner-up) (Final 4) (Elite 8) (S16) (R64) (First 4). Source from postseason
       data. Show on team.html season header + the Analytics → Team History / stats rows.

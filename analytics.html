@@ -480,7 +480,9 @@ function fmt(v,st){
 // percentile colour class (reuses c1–c4 from the table sheet)
 function lowerBound(arr,v){ var lo=0,hi=arr.length; while(lo<hi){var m=(lo+hi)>>1; if(arr[m]<v) lo=m+1; else hi=m;} return lo; }
 function pctRank(key,v){ var arr=PCT[key]; if(!arr||!arr.length||v===null) return null; var r=lowerBound(arr,v); return arr.length>1 ? r/(arr.length-1) : 1; }
-function _gradeCol(v){ v=+v; return v>=90?'#5ab875':v>=82?'var(--accent)':v>=74?'var(--text)':'var(--text2)'; }
+// Single blue quality ramp (brighter/deeper blue = better) — matches the site-wide scale.
+function _gradeCol(v){ v=+v; var dark=document.documentElement.getAttribute('data-theme')==='dark';
+  return v>=90?(dark?'#8ab8ff':'#1746b8'):v>=82?(dark?'#6f9fe6':'#2f66c0'):v>=74?(dark?'#7f93b8':'#5f7bb0'):'var(--text2)'; }
 function colorCls(key,v){
   var st=SMAP[key]; var p=pctRank(key,v); if(p===null) return 'c0';
   if(st.inv) p=1-p;
