@@ -112,6 +112,13 @@
   TIP.rebounding = "Rebounding — the share of available rebounds (offensive + defensive) this player grabs while on the floor.";
   TIP.rimprotection = "Rim protection — shot-blocking rate; how much this player deters and blocks shots at the basket.";
   TIP.disruption = "Disruption — steal rate; how often this player forces turnovers and jumps passing lanes.";
+  // Coach's-Tier defensive four-factor "phrase" bars (scout / self-scout), each a national
+  // percentile (higher = better at that job, except foul rate).
+  TIP.contestingshots = "How well this defense contests shots — the effective FG% it allows, as a national percentile (higher = tougher shot defense).";
+  TIP.forcingturnovers = "How often this defense forces turnovers, as a national percentile (higher = more havoc).";
+  TIP.defrebounding = "How well this defense secures the defensive glass to end possessions, as a national percentile.";
+  TIP.ftallowed = "How often this defense fouls and sends opponents to the line — a national percentile (higher = more foul-prone).";
+  TIP.ftdrawn = "How often this team gets to the free-throw line itself, as a national percentile.";
 
   // label → key lookup, so a surface can be decorated by its visible stat label
   // (PPG, FG%, A/TO…) instead of a hand-maintained per-column id map.
@@ -122,7 +129,10 @@
     net: 'neteff', neteff: 'neteff', efg: 'efg', ts: 'ts', tempo: 'tempo', poss: 'tempo',
     pace: 'tempo', ato: 'ato', winpct: 'winpct', oppg: 'oppg', opp: 'oppg',
     usage: 'usage', playmaking: 'playmaking', spacing: 'spacing', rebounding: 'rebounding',
-    rimprotection: 'rimprotection', disruption: 'disruption' };
+    rimprotection: 'rimprotection', disruption: 'disruption',
+    contestingshots: 'contestingshots', forcingturnovers: 'forcingturnovers',
+    defensiverebounding: 'defrebounding', putopponentsontheline: 'ftallowed',
+    gettothelinethemselves: 'ftdrawn' };
   function norm(s) { return ('' + s).toLowerCase().replace(/[^a-z0-9]/g, ''); }
   function statTip(id) { return (id && TIP[id]) || ''; }
   function tipByLabel(label) { return TIP[LBL[norm(label)]] || ''; }
@@ -159,7 +169,7 @@
   // text is a KNOWN stat label get a tooltip, and anything with an existing title is left
   // alone — so a broad selector is safe (non-stat headers simply don't match).
   function autoDecorate() {
-    try { decorate(document, '.stat-card-label,.s-label,.stat-lbl,.stat-label,[data-stat],th,.th,.sig .st span'); } catch (e) {}
+    try { decorate(document, '.stat-card-label,.s-label,.stat-lbl,.stat-label,[data-stat],th,.th,.sig .st span,.dfl'); } catch (e) {}
     try {
       document.querySelectorAll('.foot span').forEach(function (s) {
         if (s.getAttribute('title')) return; var t = tipFoot(s.textContent); if (!t) return;
