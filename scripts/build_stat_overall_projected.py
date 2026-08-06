@@ -42,6 +42,12 @@ FTIMP_W=0.35         # weight on FT-implied 3P% (0.55*ftpct-10)
 TARGET_TEAM_USG=float(os.environ.get("TARGET_TEAM_USG","22.0")); USG_CAP=(9.0,34.0); MPG_XFER_BUMP=10.0
 VAC_CONC=float(os.environ.get("VAC_CONC","2.0"))  # vacancy concentration: weight ∝ last_usg**VAC_CONC (focal points absorb more of a departed rotation, within the team cap)
 TRANSFER_DEF_DAMP=float(os.environ.get("TRANSFER_DEF_DAMP","0.90"))  # share of a transfer's team-D (DWA) credit that follows him
+# Offensive level-jump translation: a transfer stepping UP in competition (e.g. Big South
+# → ACC) does NOT carry his mid-major usage/scoring rate intact — usage doesn't travel, and
+# the shots he used to command go to a tougher pecking order. Discount his projected usage by
+# the SOS gap old→new (never boosts on a step down). Mirrors the depth-chart engine's
+# conference volume tax so the player page and team page stop disagreeing (Duncomb 21 vs 11).
+XFER_OFF_STR=float(os.environ.get("XFER_OFF_STR","0.7"))  # 0=off, 1=fully apply the SOS-gap discount
 
 def sb_get(path):
     # STABLE ORDER is required: PostgREST offset pagination without ORDER BY returns
@@ -241,7 +247,15 @@ for short, roster in roster_by_team.items():
         # transfer? (played elsewhere last year) — cap the minutes jump
         demo_team_full=(r["a"].team if r["a"] is not None else None)
         xfer=bool(demo_team_full and not str(demo_team_full).lower().startswith(str(short).lower()))
-        if xfer: pm=min(pm,last_mpg+MPG_XFER_BUMP)
+        if xfer:
+            pm=min(pm,last_mpg+MPG_XFER_BUMP)
+            # Level-jump offensive translation: discount projected usage by the SOS gap
+            # old→new (min 1.0 so a step DOWN never inflates). Flows into shot volume via
+            # usg_ratio AND into the grade via usg_mult, keeping line and OVR consistent.
+            sos_new=sos_of(full); sos_old=sos_of(demo_team_full)
+            xfer_off=min(1.0, sos_old/sos_new) if sos_new>0 else 1.0
+            xfer_off=1.0-(1.0-xfer_off)*XFER_OFF_STR
+            r["proj_usg"]=max(USG_CAP[0], r["proj_usg"]*xfer_off)
         usg_ratio=min(1.6,max(0.6,r["proj_usg"]/max(r["last_usg"],1)))
         dm=dev_mult(p.yr or p.class_year, r["demo"], CAREER_SEASONS.get(e))
         # per-40 last-year rates
