@@ -21,7 +21,7 @@ by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!
       scale (user to pick). Apply consistently to the stat heatmaps (player DB, stats table,
       rankings) so the palette reads as one system. *Done = one agreed scale everywhere; no
       stray accent colors on "main things."* **NEEDS USER: blue scale or red-green?**
-- [ ] **Postseason achievement badges** — small result tag on team-season rows/pages:
+- [x] **Postseason achievement badges** — small result tag on team-season rows/pages:
       (Champ) (Runner-up) (Final 4) (Elite 8) (S16) (R64) (First 4). Source from postseason
       data. Show on team.html season header + the Analytics → Team History / stats rows.
       *Done = each tourney team-season shows its finish.*

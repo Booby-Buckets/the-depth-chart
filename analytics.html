@@ -604,6 +604,16 @@ async function ensureColors(){ if(LB_COLORS) return; LB_COLORS={};
 }
 function teamMeta(school){ if(!LB_COLORS) return null; var k=_lbNorm(school); if(LB_COLORS[k]) return LB_COLORS[k];
   for(var key in LB_COLORS){ if(key&&(k.indexOf(key)===0||key.indexOf(k)===0)) return LB_COLORS[key]; } return null; }
+// small postseason-finish badge from team_seasons.ncaa_result
+function psBadge(res){
+  if(!res) return '';
+  var M={'Champion':['CHAMP','#e9c46a','#3a2f10'],'Runner-Up':['RUNNER-UP','#c9ccd3','#1a1c20'],
+    'Final Four':['FINAL 4','#5bb381','#0e2419'],'Elite Eight':['ELITE 8','#6f9bff','#0e1a33'],
+    'Sweet 16':['S16','#9a86e0','#150e2e'],'Round of 32':['R32','#7a8291','#12151b'],
+    'Round of 64':['R64','#7a8291','#12151b'],'First Four':['FIRST 4','#7a8291','#12151b']};
+  var m=M[res]; if(!m) return '';
+  return '<span title="'+res+'" style="font-size:8.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border-radius:20px;background:'+m[1]+';color:'+m[2]+';white-space:nowrap;margin-left:7px;vertical-align:middle;">'+m[0]+'</span>';
+}
 function _showPhotos(){ try{ return !!(window.tdcShowPhotos&&window.tdcShowPhotos()); }catch(e){ return false; } }
 function _lastName(n){ var p=(''+(n||'')).trim().split(/\s+/); return p.length>1?p.slice(1).join(' '):(p[0]||''); }
 async function openLeaders(k){ _lbKey=k; await ensureColors(); renderLeaderboard(k);
@@ -881,7 +891,7 @@ async function loadTeamHistory(){
   document.getElementById('loadingEl').style.display='block';
   document.getElementById('teamsView').style.display='none';
   if(L) L.textContent='Loading 20 seasons of team stats…';
-  const sel='select=team,conference,season_year,wins,losses,srs,ppg,oppg,rpg,apg,spg,bpg,topg,fg_pct,tp_pct,ft_pct';
+  const sel='select=team,conference,season_year,wins,losses,srs,ppg,oppg,rpg,apg,spg,bpg,topg,fg_pct,tp_pct,ft_pct,ncaa_result,ncaa_seed';
   const rows=[]; let off=0;
   while(true){
     const r=await fetch(`${SB}/rest/v1/team_seasons?${sel}&order=team.asc,season_year.asc`,
@@ -913,7 +923,7 @@ async function loadTeamHistory(){
   // raw per-season rows for the season-separated view
   TEAM_RAW=rows.map(r=>{
     const o={seasonYr:r.season_year, season:`${r.season_year-1}–${(''+r.season_year).slice(2)}`,
-      team:r.team, conf:confAb(r.conference), rec:`${+r.wins||0}–${+r.losses||0}`};
+      team:r.team, conf:confAb(r.conference), rec:`${+r.wins||0}–${+r.losses||0}`, ncaa_result:r.ncaa_result, ncaa_seed:r.ncaa_seed};
     KEYS.forEach(k=>{ const v=parseFloat(r[k]); o[k]=isFinite(v)?v:null; });
     return o;
   });
@@ -951,7 +961,7 @@ async function renderTeams(){
   const f=(v,c)=>v==null?'—':(c.d===0?Math.round(v):(c.signed&&v>0?'+':'')+v.toFixed(c.d??1));
   document.getElementById('teamsTbody').innerHTML=shown.map(t=>'<tr>'+cols.map(c=>{
     if(c.k==='team'){ const tm=teamMeta(t.team), lg=tm&&tm.logo, short=t.team.split(' ').slice(0,-1).join(' ')||t.team;
-      return `<td style="text-align:left;font-weight:700;white-space:nowrap;"><a href="team.html?team=${encodeURIComponent(short)}${t.seasonYr?'&season='+t.seasonYr:''}" style="color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:8px;">${lg?`<img src="${lg}" alt="" style="width:18px;height:18px;object-fit:contain;flex-shrink:0;" onerror="this.remove()">`:''}<span>${t.team}</span></a></td>`; }
+      return `<td style="text-align:left;font-weight:700;white-space:nowrap;"><a href="team.html?team=${encodeURIComponent(short)}${t.seasonYr?'&season='+t.seasonYr:''}" style="color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:8px;">${lg?`<img src="${lg}" alt="" style="width:18px;height:18px;object-fit:contain;flex-shrink:0;" onerror="this.remove()">`:''}<span>${t.team}</span></a>${psBadge(t.ncaa_result)}</td>`; }
     if(c.k==='conf') return `<td style="text-align:left;color:var(--text3);">${t.conf||'—'}</td>`;
     if(c.k==='season') return `<td style="text-align:left;color:var(--text3);white-space:nowrap;">${t.season}</td>`;
     if(c.k==='rec') return `<td style="text-align:left;">${t.rec}</td>`;
