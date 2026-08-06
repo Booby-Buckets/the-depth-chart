@@ -73,6 +73,15 @@
     .arr .d{font-size:10px;font-weight:800;font-variant-numeric:tabular-nums;}
     .arr .ln{font-size:12px;line-height:1;}
     .arr .up{color:var(--green);} .arr .dn{color:var(--red);} .arr .fl{color:var(--text3);}
+    /* how to attack him */
+    .rc-atk{margin-top:12px;padding-top:11px;border-top:1px solid var(--border);}
+    .ex-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px 22px;}
+    @media(max-width:640px){.ex-cols{grid-template-columns:1fr;}}
+    .ex-h{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+    .ex-h.guard{color:var(--red);} .ex-h.attack{color:var(--green);}
+    .ex-row{font-size:11.5px;color:var(--text2);line-height:1.5;margin-bottom:8px;}
+    .ex-row:last-child{margin-bottom:0;}
+    .ex-row b{color:var(--text);font-weight:800;}
     .rc-arch{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:var(--tc,var(--accent));}
     .rc-sub{font-size:12px;color:var(--text3);margin-bottom:12px;}
     .rc-mods{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
@@ -253,10 +262,85 @@ async function loadTeam(){
     try{ adv=await fetch(`${SB_URL}/rest/v1/player_advanced?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,ti40,ts_pct,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,trb_pct,stl_pct,blk_pct,min,g`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
   }
   const advById={}; adv.forEach(a=>{ advById[a.espn_id]={...a,mp:a.min,games:a.g}; });
+  // ── "how to attack him" tendencies (ported from scout's Attack Book): shot-zone
+  //    weakness, pressure vulnerability, boom-or-bust, foul-prone, rim/gambler on D ──
+  const _R=v=>{const n=+v;return isNaN(n)?0:n;};
+  let DNA=null; try{ DNA=await fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null); }catch(e){}
+  const dteams=(DNA&&DNA['2026']&&DNA['2026'].teams)||{};
+  const dcol=k=>Object.values(dteams).map(t=>t[k]).filter(x=>x!=null).sort((a,b)=>a-b), qf=(v,f)=>v.length?v[Math.floor(v.length*f)]:0;
+  const T={havoc:qf(dcol('dTOV'),2/3),low:qf(dcol('dTOV'),1/3)}, dnaByOpp=o=>dteams[o];
+  let box=[],shots=[];
+  if(withId.length){ const ids=withId.map(p=>p.espn_id).join(',');
+    try{ [box,shots]=await Promise.all([
+      fetch(`${SB_URL}/rest/v1/box_scores?espn_id=in.(${ids})&season_year=eq.2026&min=gte.4&select=espn_id,opp,min,fga,fgm,tpm,fta,ftm,tov,pts,pf&limit=4000`,{headers:H}).then(r=>r.ok?r.json():[]),
+      fetch(`${SB_URL}/rest/v1/shots?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,made,sv,stype&limit=16000`,{headers:H}).then(r=>r.ok?r.json():[])
+    ]); }catch(e){}
+  }
+  const boxBy={},shotBy={}; box.forEach(b=>{(boxBy[b.espn_id]=boxBy[b.espn_id]||[]).push(b);}); shots.forEach(s=>{(shotBy[s.espn_id]=shotBy[s.espn_id]||[]).push(s);});
+  const p40=(g,k)=>{let m=0,v=0;g.forEach(x=>{m+=_R(x.min);v+=_R(x[k]);});return m?v/m*40:0;};
+  function zones(sh){
+    let rimA=0,rimM=0,midA=0,midM=0,thrA=0,thrM=0;
+    sh.forEach(s=>{ const three=s.sv===3, rim=(s.stype==='layup'||s.stype==='dunk'||s.stype==='tip');
+      if(three){ thrA++; if(s.made) thrM++; } else if(rim){ rimA++; if(s.made) rimM++; } else { midA++; if(s.made) midM++; } });
+    const tot=rimA+midA+thrA; if(!tot) return null;
+    const z=(a,m,mult)=>({a, fg:a?m/a*100:0, efg:a?m*(mult||1)/a*100:0, freq:a/tot*100});
+    return {rim:z(rimA,rimM,1), mid:z(midA,midM,1), three:z(thrA,thrM,1.5), total:tot};
+  }
+  function consistency(bx){
+    const pts=bx.map(x=>_R(x.pts)); if(pts.length<6) return null;
+    const mean=pts.reduce((a,b)=>a+b,0)/pts.length;
+    const sd=Math.sqrt(pts.reduce((a,b)=>a+(b-mean)*(b-mean),0)/pts.length);
+    const s=[...pts].sort((a,b)=>a-b), q=f=>s[Math.min(s.length-1,Math.floor(s.length*f))];
+    return {mean, cv:mean>3?sd/mean:0, floor:q(0.15), ceil:q(0.85)};
+  }
+  function intel(p){
+    const bx=boxBy[p.espn_id]||[], sh=shotBy[p.espn_id]||[];
+    const pos=(p.position||p.position2||'').toUpperCase(), isBig=/[CF]/.test(pos)&&!/G/.test(pos);
+    const guard=[], attack=[];
+    const Z=zones(sh);
+    if(Z&&Z.total>=25){
+      const zs=[['at the rim',Z.rim],['from mid-range',Z.mid],['from three',Z.three]];
+      guard.push(['Shot diet',`${Math.round(Z.rim.freq)}% rim (${Math.round(Z.rim.fg)}%) · ${Math.round(Z.mid.freq)}% mid (${Math.round(Z.mid.fg)}%) · ${Math.round(Z.three.freq)}% three (${Math.round(Z.three.fg)}%)`]);
+      const primary=zs.slice().sort((a,b)=>b[1].freq-a[1].freq)[0];
+      if(primary&&primary[1].freq>=45){
+        const rd=primary[0]==='at the rim'?'Wall off the paint — make him finish over length.'
+               :primary[0]==='from three'?'Run him off the line, no help off him.'
+               :'Crowd the pull-up and funnel him into help.';
+        guard.push(['Take away his money zone',`${Math.round(primary[1].freq)}% of his shots come ${primary[0]} at ${Math.round(primary[1].fg)}%. ${rd}`]);
+      }
+      const vol=zs.filter(z=>z[1].freq>=15).sort((a,b)=>a[1].efg-b[1].efg)[0];
+      if(vol&&vol[1].efg<=44&&vol!==primary) guard.push(['Force him here',`Just ${Math.round(vol[1].efg)}% eFG ${vol[0]} — steer him into it.`]);
+    }
+    if(bx.length>=6){
+      const hav=bx.filter(x=>{const d=dnaByOpp(x.opp);return d&&d.dTOV!=null&&d.dTOV>=T.havoc;}), low=bx.filter(x=>{const d=dnaByOpp(x.opp);return d&&d.dTOV!=null&&d.dTOV<=T.low;});
+      if(hav.length>=4&&low.length>=4){ const dd=p40(hav,'tov')-p40(low,'tov');
+        if(dd>=1.5) guard.push(['Pressure-vulnerable',`+${dd.toFixed(1)} turnovers/40 vs ball-pressure defenses — get into him early.`]);
+        else if(dd<=-0.6) guard.push(['Handles pressure',`Steady vs havoc (${dd.toFixed(1)} TO/40) — a press won't rattle him.`]);
+      }
+      const c=consistency(bx);
+      if(c){
+        if(c.cv>=0.55) guard.push(['Boom-or-bust',`Streaky — floor ${c.floor} / ceiling ${c.ceil} pts (avg ${c.mean.toFixed(1)}). Knock him off rhythm early.`]);
+        else if(c.cv<=0.32&&c.mean>=10) guard.push(['Metronome',`Steady ${c.mean.toFixed(1)} a night (floor ${c.floor}/ceiling ${c.ceil}) — no easy nights.`]);
+      }
+      let fta=0,ftm=0,pf=0,mn=0; bx.forEach(x=>{fta+=_R(x.fta);ftm+=_R(x.ftm);pf+=_R(x.pf);mn+=_R(x.min);});
+      const ftp=fta?ftm/fta*100:null, pf40=mn?pf/mn*40:0;
+      if(ftp!=null&&ftp<=64&&fta>=15) guard.push(['Foul him late',`${Math.round(ftp)}% from the line on ${fta} attempts.`]);
+      if(pf40>=4.2) attack.push(['Foul-prone',`${pf40.toFixed(1)} fouls/40 — hunt him in ball screens to get him in trouble.`]);
+    }
+    const mpg=_R(p.mpg), blk40=mpg?_R(p.blk)/mpg*40:0, stl40=mpg?_R(p.stl)/mpg*40:0;
+    if(mpg>=8){
+      if(isBig){
+        if(blk40>=1.6) attack.push(['Rim protector',`${blk40.toFixed(1)} blocks/40 — attack away from him; finish through, not into, him.`]);
+        else if(blk40<=0.5) attack.push(['No rim deterrent',`Only ${blk40.toFixed(1)} blocks/40 for a big — go right at him.`]);
+      }
+      if(stl40>=2.0) attack.push(['Gambler',`${stl40.toFixed(1)} steals/40 — he jumps lanes; back-cut and attack the gaps.`]);
+    }
+    return {guard, attack};
+  }
   let players=roster.map(p=>{ const a=advById[p.espn_id]; const pj=PJ[(p.name||'').toLowerCase().trim()];
     const seasons=(devById[p.espn_id]||[]).sort((x,y)=>x.yr-y.yr);
     const proj=(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):(p.tdc_grade!=null&&!isNaN(+p.tdc_grade)?Math.round(+p.tdc_grade):null);
-    const base={name:p.name,pos:p.position||'',order:p.depth_order!=null?+p.depth_order:99,mpg:+p.mpg||0,pj,raw:p,seasons,proj,trend:trendOf(seasons,proj)};
+    const base={name:p.name,pos:p.position||'',order:p.depth_order!=null?+p.depth_order:99,mpg:+p.mpg||0,pj,raw:p,seasons,proj,trend:trendOf(seasons,proj),atk:intel(p)};
     if(!a) return {...base,hist:false};
     return {...base,hist:true,a,arch:archetype(a,p.position||'')}; });
   players.sort((x,y)=>(x.order-y.order)||(y.mpg-x.mpg));
@@ -291,7 +375,11 @@ async function loadTeam(){
     p.seasons.forEach((s,i)=>{ if(i>0) path+=arrHtml(s.g-p.seasons[i-1].g); path+=nodeHtml("'"+String(s.yr%100).padStart(2,'0'),s.cls,s.g,s.ppg,false); });
     if(p.proj!=null){ if(p.seasons.length) path+=arrHtml(p.proj-p.seasons[p.seasons.length-1].g); path+=nodeHtml("'27",'',p.proj,null,true); }
     const devHtml=path?`<div class="rc-dev"><div class="rc-dev-h"><span class="rc-dev-l">Development</span><span class="tbadge ${tc2}">${tl}</span></div><div class="path">${path}</div></div>`:'';
-    return `<div class="rc" style="--tc:${tc}">${head}${body}${devHtml}</div>`;
+    // how to attack him (Attack Book reads)
+    const gd=(p.atk&&p.atk.guard)||[], at=(p.atk&&p.atk.attack)||[];
+    const exCol=(kind,arr)=>arr.length?`<div><div class="ex-h ${kind}">${kind==='guard'?'Guard his offense':'Attack his defense'}</div>${arr.map(x=>`<div class="ex-row"><b>${esc(x[0])}</b> — ${esc(x[1])}</div>`).join('')}</div>`:'';
+    const atkHtml=(gd.length||at.length)?`<div class="rc-atk"><div class="rc-dev-l" style="margin-bottom:9px;">How to attack him</div><div class="ex-cols">${exCol('guard',gd)}${exCol('attack',at)}</div></div>`:'';
+    return `<div class="rc" style="--tc:${tc}">${head}${body}${devHtml}${atkHtml}</div>`;
   };
 
   el('out').innerHTML=`<div style="--tc:${tc}">
