@@ -49,12 +49,16 @@ by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!
       stats, WA, and class. *Done = no "—" rows for players who have a real season.*
 
 ## Model
-- [!] **Projections are inflated / "messed up again"** — the 2026-27 projected lines are
-      unrealistic (Logan Duncomb projected 21.0 pts / 10.3 reb after 18.3/8.9 at Winthrop,
-      transferring to Notre Dame where usage/minutes should drop). Player rankings +
-      projections regressed. Investigate the projection engine (tdc-proj buildTeamProjections
-      / minutes + usage handling for transfers) and re-calibrate so projections are sane.
-      *Done = spot-checked transfers/returners project realistic lines; Duncomb-type cases fixed.*
+- [x] **Projections are inflated / "messed up again"** — FIXED. Root cause was NOT the live
+      depth-chart engine (that already had Duncomb ~11) but the precomputed
+      `stat_overall_projected.json` the player page + rankings read: it projected each box line
+      from last year's usage with NO offensive discount for a level jump, and the usage-vacancy
+      model (weight ∝ last_usg²) concentrated departed shots onto a mid-major transfer's inflated
+      usage → depth-order-5 Duncomb slammed to the 34% usage cap → 21.0/10.3. Fix
+      (build_stat_overall_projected.py): discount a transfer's projected usage by the SOS gap
+      old→new school (never boosts on a step down); regenerated JSON — 295 transfers compress,
+      all drops, returners identical; Duncomb 21.0/34%→14.4/23%, OVR 91→87. Verified on player
+      page. *(done, b484eb8)*
 
 - [!] **On/off has no opponent/talent adjustment** — the reconstructed lineup NET/ORtg/DRtg
       (onoff.html + tdc-lineups) are unadjusted for opponent strength (SRS / Net), so a big
