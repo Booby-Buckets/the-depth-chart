@@ -9,14 +9,8 @@ Each item has the *root cause I found* + a *recommended fix* so tomorrow's sessi
 
 ## 1. NEEDS YOUR DECISION
 
-### A. Mainstream the color system  ⟵ *blocks a site-wide sweep*
-- **Question:** One scale for all numeric/percentile identifiers — **a single blue scale** or a
-  **red→green scale**? (Rankings heat, player-DB stat cells, stats-table `c0–c4` classes,
-  percentile bars all key off the same buckets.)
-- **My suggestion:** single **blue scale** for "how good" percentiles (reads as one brand system,
-  avoids the red=bad emotional load on merely-average players), and reserve red→green **only** for
-  true +/- deltas (on/off, trend arrows). Say the word and I'll sweep `colorCls`/heatmap tokens
-  in one pass across player DB, stats table, and rankings.
+*(Color system — DONE: you picked the blue scale; unified across rankings, player DB, and stats
+table. See "Already done" below. Nothing else is currently blocked on a decision.)*
 
 ---
 
@@ -83,22 +77,20 @@ Each item has the *root cause I found* + a *recommended fix* so tomorrow's sessi
 
 ---
 
-## 5. HARD REWORK (client-side, but needs careful browser verification)
+## 5. HARD REWORK — DONE
 
-### F. Expanded team report scrolls off-left (index rankings)
-- **Root cause:** when the stat columns are scrolled right, the expanded `.tr-drop` report scrolls with
-  them. CSS `position:sticky` had no effect — the drop row is exactly its containing-block (viewport) width
-  with no slide room, and the table uses grid-cell overflow, not a wide wrapper.
-- **Recommended fix:** pin the report to the viewport with a JS scroll handler (translateX to counter the
-  horizontal scroll), or restructure the drop row out of the scrolling grid. Needs live browser verification
-  (screenshots have been glitchy this session), so best done interactively.
+### F. Expanded team report scrolls off-left (index rankings) ✅
+- Fixed: `wireStickyScroll` now sizes each open `.tr-drop` to the viewport and counter-translates it by
+  `scrollLeft` (re-pinned on scroll / expand / resize). Verified at 768px — the report tracks the scroll
+  and stays fully visible.
 
 ---
 
-## Already done this loop (for reference)
+## Already done (for reference)
 - ✅ Deepen dark grey · ✅ Uniform rankings dropdowns · ✅ Contender Quadrant now year-aware
   (+ killed broken Volume-vs-Efficiency chart) · ✅ Team-color projected stats (player page) ·
-  ✅ Logos on Team History + Player DB · ✅ Postseason achievement badges on team-seasons.
+  ✅ Logos on Team History + Player DB · ✅ Postseason achievement badges on team-seasons ·
+  ✅ Expanded report pinned on horizontal scroll · ✅ Blue color scale unified site-wide.
 
 ## Backlog (low priority)
 - Personnel Book pass 4 (roles.html) — dedicated shot-profile chart + full consistency distribution.
