@@ -3,10 +3,13 @@
 Working list for `/loop`. Newest requests captured from the session. Ordered roughly
 by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!]` blocked.
 
+> **The remaining open items are all blocked on a decision, a DB/pipeline action, or Node-verified
+> model work — see [FOR_TOMORROW.md](FOR_TOMORROW.md) for the diagnosis + recommended fix on each.**
+
 ## UI / Design
 - [x] **Deepen the dark grey** — darker dark palette site-wide (tdc-skin.css). *(done, cc026b3)*
 - [x] **Uniform rankings dropdowns** — season + sort selects: same radius/height/custom caret. *(done, cc026b3)*
-- [ ] **Expanded report scrolls off-left** (index rankings) — when the stat columns are
+- [!] **Expanded report scrolls off-left** (index rankings) — when the stat columns are
       scrolled right, the expanded team `.tr-drop` report scrolls off the left instead of
       staying visible. CSS sticky failed (the row is exactly its containing-block width,
       no slide room, and the table uses grid-cell overflow not a wide wrapper). Needs a
@@ -16,7 +19,7 @@ by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!
       render generic purple (--accent) instead of the team color. Make the projected stats
       + accent slots use `--tc`/`--tcr` (team-tinted) on both player.html and team.html.
       *Done = Notre Dame reads navy/gold, not purple; verified on 2–3 teams incl. a dark navy.*
-- [ ] **Mainstream the color system** — "too many blues / stray colors." Pick ONE scale for
+- [!] **Mainstream the color system** — "too many blues / stray colors." Pick ONE scale for
       the numeric/percentile identifiers site-wide: either a single blue scale OR a red→green
       scale (user to pick). Apply consistently to the stat heatmaps (player DB, stats table,
       rankings) so the palette reads as one system. *Done = one agreed scale everywhere; no
@@ -37,25 +40,25 @@ by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!
       quick. Done = quadrant redraws per selected year; bubbles gone.*
 
 ## Data
-- [ ] **2008-09 UNC roster has no player stats** — team.html "No roster data for 2008-09"
+- [!] **2008-09 UNC roster has no player stats** — team.html "No roster data for 2008-09"
       even though it's rated the #1 team all-time (SRS). The season is in team_seasons but
       the roster/player rows (player_history / box_scores) are missing. Backfill the 08-09
       roster + per-player stats. *Done = 08-09 UNC depth chart + player stats render.*
       **May need a scrape + DB insert (user-run) — investigate source first.**
-- [ ] **Players missing stats / WA / class on the stat pages** — in the player DB and
+- [!] **Players missing stats / WA / class on the stat pages** — in the player DB and
       Analytics → Stats, some players show "—" for stats, Wins Added, and year/class (e.g.
       Cameron Boozer, Bruce Thornton). Ensure every listed player-season carries its box
       stats, WA, and class. *Done = no "—" rows for players who have a real season.*
 
 ## Model
-- [ ] **Projections are inflated / "messed up again"** — the 2026-27 projected lines are
+- [!] **Projections are inflated / "messed up again"** — the 2026-27 projected lines are
       unrealistic (Logan Duncomb projected 21.0 pts / 10.3 reb after 18.3/8.9 at Winthrop,
       transferring to Notre Dame where usage/minutes should drop). Player rankings +
       projections regressed. Investigate the projection engine (tdc-proj buildTeamProjections
       / minutes + usage handling for transfers) and re-calibrate so projections are sane.
       *Done = spot-checked transfers/returners project realistic lines; Duncomb-type cases fixed.*
 
-- [ ] **On/off has no opponent/talent adjustment** — the reconstructed lineup NET/ORtg/DRtg
+- [!] **On/off has no opponent/talent adjustment** — the reconstructed lineup NET/ORtg/DRtg
       (onoff.html + tdc-lineups) are unadjusted for opponent strength (SRS / Net), so a big
       swing on a bad team is overstated, and the per-stint ORtg/DRtg values are absurd
       (e.g. ORtg 321.4 / DRtg 206.0 — not real per-100). Add a talent/opponent adjuster
