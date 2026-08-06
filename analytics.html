@@ -928,6 +928,7 @@ function sortTeams(k){
 }
 async function renderTeams(){
   await loadTeamHistory();
+  try{ await ensureColors(); }catch(e){}   // for team logos in the table
   if(view!=='teams') return;
   const mode=document.getElementById('teamSeasonSel').value||'all';
   const cols=teamCols(mode);
@@ -949,7 +950,8 @@ async function renderTeams(){
     `<th style="cursor:pointer;white-space:nowrap;${c.left?'text-align:left;':''}${c.tip?'text-decoration:underline dotted;text-underline-offset:3px;':''}" ${c.tip?`title="${c.tip.replace(/"/g,'&quot;')}"`:''} onclick="sortTeams('${c.k}')">${c.lbl}${teamSort===c.k?(teamDir<0?' ▼':' ▲'):''}</th>`).join('')+'</tr>';
   const f=(v,c)=>v==null?'—':(c.d===0?Math.round(v):(c.signed&&v>0?'+':'')+v.toFixed(c.d??1));
   document.getElementById('teamsTbody').innerHTML=shown.map(t=>'<tr>'+cols.map(c=>{
-    if(c.k==='team') return `<td style="text-align:left;font-weight:700;white-space:nowrap;"><a href="team.html?team=${encodeURIComponent(t.team.split(' ').slice(0,-1).join(' ')||t.team)}${t.seasonYr?'&season='+t.seasonYr:''}" style="color:inherit;text-decoration:none;">${t.team}</a></td>`;
+    if(c.k==='team'){ const tm=teamMeta(t.team), lg=tm&&tm.logo, short=t.team.split(' ').slice(0,-1).join(' ')||t.team;
+      return `<td style="text-align:left;font-weight:700;white-space:nowrap;"><a href="team.html?team=${encodeURIComponent(short)}${t.seasonYr?'&season='+t.seasonYr:''}" style="color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:8px;">${lg?`<img src="${lg}" alt="" style="width:18px;height:18px;object-fit:contain;flex-shrink:0;" onerror="this.remove()">`:''}<span>${t.team}</span></a></td>`; }
     if(c.k==='conf') return `<td style="text-align:left;color:var(--text3);">${t.conf||'—'}</td>`;
     if(c.k==='season') return `<td style="text-align:left;color:var(--text3);white-space:nowrap;">${t.season}</td>`;
     if(c.k==='rec') return `<td style="text-align:left;">${t.rec}</td>`;

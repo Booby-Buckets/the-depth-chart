@@ -25,7 +25,7 @@ by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!
       (Champ) (Runner-up) (Final 4) (Elite 8) (S16) (R64) (First 4). Source from postseason
       data. Show on team.html season header + the Analytics → Team History / stats rows.
       *Done = each tourney team-season shows its finish.*
-- [ ] **Logos on the stat/history tables** — team logos are missing next to team names on
+- [x] **Logos on the stat/history tables** — team logos are missing next to team names on
       the Analytics → Team History (and player DB team cells use colored pills, not logos).
       Add the team logo where names appear. *Done = logos render on those tables.*
 - [x] **Contender Quadrant not year-aware + kill "Volume vs Efficiency"** (analytics League
