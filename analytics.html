@@ -345,13 +345,8 @@ body{background:transparent!important;}
   </div>
   <div class="ls-sec">
     <h2 class="ls-h2">The Contender Quadrant</h2>
-    <p class="ls-sub">Every D-1 team plotted by offensive vs defensive efficiency (points per 100 possessions) this season. Top-right — score well and defend — is where champions live. Hover any dot.</p>
+    <p class="ls-sub">Every D-1 team plotted by offensive vs defensive efficiency (points per 100 possessions). Top-right — score well and defend — is where champions live. Hover any dot.</p>
     <div id="lsQuadrant"><div class="loading" style="padding:40px;">Loading…</div></div>
-  </div>
-  <div class="ls-sec">
-    <h2 class="ls-h2">Volume vs Efficiency</h2>
-    <p class="ls-sub">This season's top scorers. Bubble size = total points, color = True Shooting% (pink = cold, green = hot). Big volume <em>and</em> green is the rare combination.</p>
-    <div id="lsBubbles"><div class="loading" style="padding:40px;">Loading…</div></div>
   </div>
 </div>
 
@@ -774,19 +769,27 @@ function setView(v){
   else if(v==='landscape') loadLandscape();
   else renderTeams();
 }
-// ── LEAGUE LANDSCAPE (precomputed charts) ──
-let _lsLoaded=false;
+// ── LEAGUE LANDSCAPE ──
+let _lsLoaded=false, _dnaAll=null;
 async function loadLandscape(){
   if(_lsLoaded || !window.TDC_CHARTS) return; _lsLoaded=true;
-  loadConfTalent();
-  try{
-    const [q,b]=await Promise.all([
-      fetch('scripts/data/chart_quadrant.json').then(r=>r.json()),
-      fetch('scripts/data/chart_bubbles.json').then(r=>r.json())
-    ]);
-    TDC_CHARTS.quadrant(document.getElementById('lsQuadrant'), q);
-    TDC_CHARTS.bubbles(document.getElementById('lsBubbles'), b);
-  }catch(e){ document.getElementById('lsQuadrant').innerHTML='<div style="padding:30px;color:var(--text3);">Could not load landscape data.</div>'; }
+  // per-season efficiency for the Contender Quadrant (ORtg/DRtg/net/w/l per team, any year)
+  try{ _dnaAll=await fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null); }catch(e){}
+  loadConfTalent();   // populates the year selector + draws conf talent AND the year-synced quadrant
+}
+// The Contender Quadrant now follows the Conference-Talent year selector (redrawn from
+// team_dna for whichever season is picked), instead of a single precomputed snapshot.
+function renderQuadrant(year){
+  const el=document.getElementById('lsQuadrant'); if(!el||!window.TDC_CHARTS) return;
+  const teams=(_dnaAll&&_dnaAll[year]&&_dnaAll[year].teams)||null;
+  if(!teams){ el.innerHTML='<div style="padding:30px;color:var(--text3);">No efficiency data for that season.</div>'; return; }
+  const data=Object.keys(teams).map(function(name){ const t=teams[name];
+    return {team:name, ortg:t.ORtg, drtg:t.DRtg, net:t.net, w:t.w, l:t.l, seed:null};
+  }).filter(function(d){ return d.ortg&&d.drtg; }).sort(function(a,b){ return (b.net||0)-(a.net||0); });
+  if(!data.length){ el.innerHTML='<div style="padding:30px;color:var(--text3);">No efficiency data for that season.</div>'; return; }
+  TDC_CHARTS.quadrant(el, data);
+  const sub=el.parentElement.querySelector('.ls-sub');
+  if(sub) sub.innerHTML='Every D-1 team plotted by offensive vs defensive efficiency (points per 100 possessions) in '+(year-1)+'–'+String(year).slice(2)+'. Top-right — score well and defend — is where champions live. Hover any dot.';
 }
 
 // ── Conference Talent (live from team_seasons, any year) ──────────
@@ -803,6 +806,7 @@ async function loadConfTalent(){
   renderConfTalent(+sel.value);
 }
 async function renderConfTalent(year){
+  renderQuadrant(year);   // keep the Contender Quadrant in sync with the picked season
   const host=document.getElementById('confTalent');
   host.innerHTML='<div class="loading" style="padding:40px;">Loading '+(year-1)+'–'+String(year).slice(2)+'…</div>';
   try{
