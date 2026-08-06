@@ -12,7 +12,7 @@ by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!
       no slide room, and the table uses grid-cell overflow not a wide wrapper). Needs a
       rework — likely pin the report to the viewport with JS transform on scroll, or
       restructure the drop row. *Done = report stays fully readable at any horizontal scroll.*
-- [ ] **Team-color matching on player + team pages** — the projected-stat numbers/accents
+- [x] **Team-color matching on player + team pages** — the projected-stat numbers/accents
       render generic purple (--accent) instead of the team color. Make the projected stats
       + accent slots use `--tc`/`--tcr` (team-tinted) on both player.html and team.html.
       *Done = Notre Dame reads navy/gold, not purple; verified on 2–3 teams incl. a dark navy.*

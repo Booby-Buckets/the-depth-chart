@@ -373,14 +373,14 @@
     .stat-card{border:1px solid var(--border);background:var(--bg2);padding:12px 10px;text-align:center;position:relative;border-radius:10px;transition:border-color .2s ease, box-shadow .25s ease, background .25s ease;}
     .stat-card:hover{border-color:color-mix(in srgb, var(--tc) 45%, var(--border2));background:color-mix(in srgb, var(--tc) 9%, var(--bg2));box-shadow:0 6px 20px rgba(0,0,0,.28);}
     .stat-card-val{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;line-height:1;margin-bottom:3px;}
-    .stat-card-proj{font-size:11px;font-weight:700;color:var(--accent);margin-bottom:3px;}
+    .stat-card-proj{font-size:11px;font-weight:700;color:var(--tcr,var(--accent));margin-bottom:3px;}
     .stat-card-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
     .stat-card-diff{font-size:10px;font-weight:700;margin-top:3px;}
     /* merged last-year → projected card */
     .sc-merge{display:flex;align-items:baseline;justify-content:center;gap:5px;margin-top:6px;white-space:nowrap;}
     .sc-last{font-family:'Playfair Display',serif;font-weight:700;font-size:15px;color:var(--text3);}
     .sc-arrow{font-size:11px;font-weight:700;color:var(--text3);}
-    .sc-proj{font-family:'Playfair Display',serif;font-weight:800;font-size:21px;line-height:1;color:var(--accent);}
+    .sc-proj{font-family:'Playfair Display',serif;font-weight:800;font-size:21px;line-height:1;color:var(--tcr,var(--accent));}
     .stat-card .stat-card-label.top{margin-bottom:0;}
     /* IMPACT SCORE */
     .impact-wrap{border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:26px;background:linear-gradient(150deg, color-mix(in srgb, var(--tc) 9%, var(--bg2)), var(--bg2) 70%);position:relative;overflow:hidden;}
@@ -444,8 +444,8 @@
     .stat-table td{padding:10px 8px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;text-align:right;white-space:nowrap;}
     .stat-table td:first-child{text-align:left;font-weight:700;}
     .stat-table tr.actual td{color:var(--text2);}
-    .stat-table tr.proj td{color:var(--accent);}
-    .stat-table tr.proj td:first-child{color:var(--accent);}
+    .stat-table tr.proj td{color:var(--tcr,var(--accent));}
+    .stat-table tr.proj td:first-child{color:var(--tcr,var(--accent));}
 
     /* PERCENTILE BARS */
     /* PERCENTILE DISTRIBUTION CARDS */
@@ -2418,7 +2418,7 @@ function buildOverviewCards(p, proj){
     {l:'STL',k:'stl',lb:'stl'},{l:'BLK',k:'blk',lb:'blk'},{l:'TO',k:'tovs'}];
 
   function card(val, label, accent, diff, invert, lb){
-    const col = accent ? 'color:var(--accent);' : '';
+    const col = accent ? 'color:var(--tcr,var(--accent));' : '';   // projected stats in the team color, not generic accent
     let cls = 'eq';
     if(diff != null){
       if(invert) cls = diff < -0.05 ? 'up' : diff > 0.05 ? 'dn' : 'eq';
@@ -2481,7 +2481,7 @@ function buildOverviewCards(p, proj){
 
   if(!hasActual){
     return _injBanner+'<div style="margin-bottom:24px;">'
-      +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--accent);display:flex;align-items:center;gap:8px;">2026-27 Projected <span style="font-size:9px;padding:1px 4px;background:rgba(139,105,20,.12);">EST</span></div>'
+      +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tcr,var(--accent));margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--tcr,var(--accent));display:flex;align-items:center;gap:8px;">2026-27 Projected <span style="font-size:9px;padding:1px 4px;background:rgba(139,105,20,.12);">EST</span></div>'
       +'<div class="stat-cards">'+cards(proj, true, null)+'</div>'
       +'</div>';
   }
