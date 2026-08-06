@@ -104,6 +104,14 @@
   TIP.srs = TIP.power;         // legacy alias
   TIP.netrating = TIP.power;
   TIP.mpg = "Minutes played per game.";
+  // Coach's-Tier player "signal" bars (roles / predictive-profile): each is a national
+  // percentile of an advanced rate, phrased as a role trait.
+  TIP.usage = "Usage — the share of the team's possessions this player uses (shots, free throws, turnovers) while on the floor. How central he is to the offense.";
+  TIP.playmaking = "Playmaking — how much this player creates for teammates (assist rate). A high bar means a primary distributor.";
+  TIP.spacing = "Spacing — how much this player stretches the floor, measured by the share of his shots that come from three.";
+  TIP.rebounding = "Rebounding — the share of available rebounds (offensive + defensive) this player grabs while on the floor.";
+  TIP.rimprotection = "Rim protection — shot-blocking rate; how much this player deters and blocks shots at the basket.";
+  TIP.disruption = "Disruption — steal rate; how often this player forces turnovers and jumps passing lanes.";
 
   // label → key lookup, so a surface can be decorated by its visible stat label
   // (PPG, FG%, A/TO…) instead of a hand-maintained per-column id map.
@@ -112,7 +120,9 @@
     stl: 'spg', spg: 'spg', blk: 'bpg', bpg: 'bpg', to: 'topg', tov: 'topg', topg: 'topg',
     oreb: 'oreb', orb: 'oreb', dreb: 'dreb', drb: 'dreb', ortg: 'ortg', drtg: 'drtg',
     net: 'neteff', neteff: 'neteff', efg: 'efg', ts: 'ts', tempo: 'tempo', poss: 'tempo',
-    pace: 'tempo', ato: 'ato', winpct: 'winpct', oppg: 'oppg', opp: 'oppg' };
+    pace: 'tempo', ato: 'ato', winpct: 'winpct', oppg: 'oppg', opp: 'oppg',
+    usage: 'usage', playmaking: 'playmaking', spacing: 'spacing', rebounding: 'rebounding',
+    rimprotection: 'rimprotection', disruption: 'disruption' };
   function norm(s) { return ('' + s).toLowerCase().replace(/[^a-z0-9]/g, ''); }
   function statTip(id) { return (id && TIP[id]) || ''; }
   function tipByLabel(label) { return TIP[LBL[norm(label)]] || ''; }
@@ -149,7 +159,7 @@
   // text is a KNOWN stat label get a tooltip, and anything with an existing title is left
   // alone — so a broad selector is safe (non-stat headers simply don't match).
   function autoDecorate() {
-    try { decorate(document, '.stat-card-label,.s-label,.stat-lbl,.stat-label,[data-stat],th,.th'); } catch (e) {}
+    try { decorate(document, '.stat-card-label,.s-label,.stat-lbl,.stat-label,[data-stat],th,.th,.sig .st span'); } catch (e) {}
     try {
       document.querySelectorAll('.foot span').forEach(function (s) {
         if (s.getAttribute('title')) return; var t = tipFoot(s.textContent); if (!t) return;
