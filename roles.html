@@ -13,6 +13,8 @@
   <script src="tdc-ratings.js?v=5"></script>
   <script src="tdc-projgrade.js?v=35"></script>
   <script src="tdc-proj.js?v=coach18"></script>
+  <script src="tdc-rating.js?v=5"></script>
+  <script src="tdc-owned-seasons.js?v=4"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -49,6 +51,28 @@
     .rc-line b{color:var(--text2);}
     .rc-nm{font-weight:800;font-size:15px;}
     .rc-nm .pos{font-size:10px;font-weight:700;color:var(--accent);margin-left:7px;}
+    /* development trajectory */
+    .rc-dev{margin-top:12px;padding-top:11px;border-top:1px solid var(--border);}
+    .rc-dev-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;}
+    .rc-dev-l{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .tbadge{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+    .b-asc{color:var(--green);background:color-mix(in srgb,var(--green) 15%,transparent);}
+    .b-break{color:var(--green);background:color-mix(in srgb,var(--green) 22%,transparent);}
+    .b-imp{color:var(--green);background:color-mix(in srgb,var(--green) 10%,transparent);}
+    .b-steady{color:var(--text2);background:var(--bg3);}
+    .b-decl{color:var(--red);background:color-mix(in srgb,var(--red) 14%,transparent);}
+    .b-new{color:#c8963e;background:color-mix(in srgb,#c8963e 16%,transparent);}
+    .path{display:flex;align-items:center;gap:2px;flex-wrap:wrap;}
+    .node{text-align:center;min-width:48px;}
+    .node .yr{font-size:8.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);}
+    .node .gv{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;line-height:1;margin-top:2px;}
+    .node .pp{font-size:9px;color:var(--text3);margin-top:1px;font-variant-numeric:tabular-nums;}
+    .node.proj .gv{color:var(--tc,var(--accent));}
+    .node.proj{border:1px dashed var(--border2);border-radius:9px;padding:4px 5px;}
+    .arr{display:flex;flex-direction:column;align-items:center;padding:0 1px;min-width:34px;}
+    .arr .d{font-size:10px;font-weight:800;font-variant-numeric:tabular-nums;}
+    .arr .ln{font-size:12px;line-height:1;}
+    .arr .up{color:var(--green);} .arr .dn{color:var(--red);} .arr .fl{color:var(--text3);}
     .rc-arch{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:var(--tc,var(--accent));}
     .rc-sub{font-size:12px;color:var(--text3);margin-bottom:12px;}
     .rc-mods{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
@@ -177,6 +201,26 @@ function archetype(a,pos){
   return {label,mods};
 }
 
+// ── development trajectory (ported from roster-dev): year-over-year grade path + trend ──
+const CLS={FR:'Fr',SO:'So',JR:'Jr',SR:'Sr','GR':'Gr'};
+function trendOf(seasons, proj){
+  if(!seasons.length) return ['New arrival','b-new'];
+  if(seasons.length===1) return ['Emerging','b-new'];
+  const first=seasons[0].g, last=seasons[seasons.length-1].g;
+  let maxJump=-99; for(let i=1;i<seasons.length;i++) maxJump=Math.max(maxJump,seasons[i].g-seasons[i-1].g);
+  const d=last-first;
+  if(maxJump>=7) return ['Breakout','b-break'];
+  if(d>=8) return ['Ascending','b-asc'];
+  if(d>=3) return ['Improving','b-imp'];
+  if(d<=-4) return ['Declining','b-decl'];
+  return ['Steady','b-steady'];
+}
+function arrHtml(delta){ const d=Math.round(delta); const cls=d>=2?'up':d<=-2?'dn':'fl'; const gl=d>=2?'↗':d<=-2?'↘':'→';
+  return `<div class="arr"><div class="d ${cls}">${d>0?'+':''}${d}</div><div class="ln ${cls}">${gl}</div></div>`; }
+function nodeHtml(yr,cls,g,ppg,proj){
+  return `<div class="node${proj?' proj':''}"><div class="yr">${esc(yr)}${cls?' · '+esc(cls):''}</div><div class="gv">${g}</div>${ppg!=null?`<div class="pp">${(+ppg).toFixed(1)} ppg</div>`:(proj?'<div class="pp">proj</div>':'')}</div>`;
+}
+
 async function loadTeam(){
   const row=poolRow(selKey); if(!row) return;
   const tc=teamColor(row);
@@ -189,13 +233,30 @@ async function loadTeam(){
   try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready;
     if(typeof buildTeamProjections==='function'){ const pr=buildTeamProjections(roster.map(x=>Object.assign({},x)), row.conf||''); (pr||[]).forEach(x=>{ if(x&&x.name) PJ[x.name.toLowerCase().trim()]=x; }); }
   }catch(e){}
+  // year-over-year grade history (owned career, box-adjusted) for the development path
+  let hist=[];
+  if(withId.length){ try{ hist=(window.TDCOwnedSeasons?await TDCOwnedSeasons.byEspn(withId.map(p=>p.espn_id),'asc'):[]); }catch(e){} }
+  if(window.TDCRating && TDCRating.ready){ try{ await TDCRating.ready; }catch(e){} }
+  const _bbBoxGrade=h=>{
+    if(!window.TDCRating || !TDCRating.boxAdjust || h.tdc_grade==null) return Math.round(+h.tdc_grade);
+    const g=h.per40||{}, n=v=>{const f=parseFloat(v);return isFinite(f)?f:null;}, pct=v=>{const f=parseFloat(v);return isFinite(f)?f*100:null;};
+    const line={ position:h.pos, height:h.height, team:h.school, mpg:40, ppg:n(g.pts_per_min), apg:n(g.ast_per_min),
+      tovs:n(g.tov_per_min), stl:n(g.stl_per_min), blk:n(g.blk_per_min), tpa:n(g.fg3a_per_min), fga:n(g.fga_per_min),
+      fta:n(g.fta_per_min), oreb:n(g.orb_per_min), dreb:n(g.drb_per_min), rpg:n(g.trb_per_min), fg_pct:pct(g.fg_pct), tp_pct:pct(g.fg3_pct) };
+    try{ const a=TDCRating.boxAdjust(h.tdc_grade,{position:h.pos,height:h.height},line,parseInt(h.season_year)||0);
+      if(a && a.grade!=null) return Math.round(a.grade); }catch(e){}
+    return Math.round(+h.tdc_grade);
+  };
+  const devById={}; hist.forEach(h=>{ if(h.tdc_grade==null) return; const pg=h.pergame||{}; (devById[h.espn_id]=devById[h.espn_id]||[]).push({yr:h.season_year, cls:CLS[(h.class||'').toUpperCase()]||h.class||'', g:_bbBoxGrade(h), ppg:(pg.pts_per_g!=null?+pg.pts_per_g:(pg.pts!=null?+pg.pts:null))}); });
   let adv=[];
   if(withId.length){ const ids=withId.map(p=>p.espn_id).join(',');
     try{ adv=await fetch(`${SB_URL}/rest/v1/player_advanced?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,ti40,ts_pct,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,trb_pct,stl_pct,blk_pct,min,g`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
   }
   const advById={}; adv.forEach(a=>{ advById[a.espn_id]={...a,mp:a.min,games:a.g}; });
   let players=roster.map(p=>{ const a=advById[p.espn_id]; const pj=PJ[(p.name||'').toLowerCase().trim()];
-    const base={name:p.name,pos:p.position||'',order:p.depth_order!=null?+p.depth_order:99,mpg:+p.mpg||0,pj,raw:p};
+    const seasons=(devById[p.espn_id]||[]).sort((x,y)=>x.yr-y.yr);
+    const proj=(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):(p.tdc_grade!=null&&!isNaN(+p.tdc_grade)?Math.round(+p.tdc_grade):null);
+    const base={name:p.name,pos:p.position||'',order:p.depth_order!=null?+p.depth_order:99,mpg:+p.mpg||0,pj,raw:p,seasons,proj,trend:trendOf(seasons,proj)};
     if(!a) return {...base,hist:false};
     return {...base,hist:true,a,arch:archetype(a,p.position||'')}; });
   players.sort((x,y)=>(x.order-y.order)||(y.mpg-x.mpg));
@@ -225,7 +286,12 @@ async function loadTeam(){
     const head=`<div class="rc-head"><div class="rc-ovr">${ovr!=null?ovr:'—'}<small>OVR</small></div>
       <div class="rc-who"><div class="rc-top"><div class="rc-nm">${esc(p.name)}<span class="pos">${esc(p.pos||'')}</span></div>${tag}</div>${lineHtml}</div></div>`;
     const body=p.hist?`${p.arch.mods.length?`<div class="rc-mods">${p.arch.mods.map(m=>`<span class="mod">${esc(m)}</span>`).join('')}</div>`:''}<div class="sigs">${signals(p.a).map(sig).join('')}</div>`:'';
-    return `<div class="rc" style="--tc:${tc}">${head}${body}</div>`;
+    // development trajectory: year-over-year grade path + projected node + trend badge
+    const [tl,tc2]=p.trend; let path='';
+    p.seasons.forEach((s,i)=>{ if(i>0) path+=arrHtml(s.g-p.seasons[i-1].g); path+=nodeHtml("'"+String(s.yr%100).padStart(2,'0'),s.cls,s.g,s.ppg,false); });
+    if(p.proj!=null){ if(p.seasons.length) path+=arrHtml(p.proj-p.seasons[p.seasons.length-1].g); path+=nodeHtml("'27",'',p.proj,null,true); }
+    const devHtml=path?`<div class="rc-dev"><div class="rc-dev-h"><span class="rc-dev-l">Development</span><span class="tbadge ${tc2}">${tl}</span></div><div class="path">${path}</div></div>`:'';
+    return `<div class="rc" style="--tc:${tc}">${head}${body}${devHtml}</div>`;
   };
 
   el('out').innerHTML=`<div style="--tc:${tc}">
