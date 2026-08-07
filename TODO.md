@@ -74,5 +74,7 @@ by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!
       Then add the opponent adjuster. Do it where the scrape runs so parser fixes can be verified.
 
 ## Optional / backlog
-- [ ] **Personnel Book pass 4** (roles.html) — dedicated shot-profile chart + full
-      consistency distribution (largely redundant now; low priority).
+- [x] **Personnel Book pass 4** (roles.html) — DONE. Added a visual shot-profile chart
+      (rim/mid/three frequency bars colored by efficiency) + a game-scoring distribution
+      (per-game points histogram with floor/avg/ceiling). Renders per player with shot/box
+      data; freshmen/no-data players skip gracefully. Verified on Houston, no console errors.

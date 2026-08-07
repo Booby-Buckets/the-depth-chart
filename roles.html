@@ -340,7 +340,8 @@ async function loadTeam(){
   let players=roster.map(p=>{ const a=advById[p.espn_id]; const pj=PJ[(p.name||'').toLowerCase().trim()];
     const seasons=(devById[p.espn_id]||[]).sort((x,y)=>x.yr-y.yr);
     const proj=(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):(p.tdc_grade!=null&&!isNaN(+p.tdc_grade)?Math.round(+p.tdc_grade):null);
-    const base={name:p.name,pos:p.position||'',order:p.depth_order!=null?+p.depth_order:99,mpg:+p.mpg||0,pj,raw:p,seasons,proj,trend:trendOf(seasons,proj),atk:intel(p)};
+    const base={name:p.name,pos:p.position||'',order:p.depth_order!=null?+p.depth_order:99,mpg:+p.mpg||0,pj,raw:p,seasons,proj,trend:trendOf(seasons,proj),atk:intel(p),
+      shot:zones(shotBy[p.espn_id]||[]), gpts:(boxBy[p.espn_id]||[]).filter(x=>_R(x.min)>=4).map(x=>_R(x.pts)), cons:consistency(boxBy[p.espn_id]||[])};
     if(!a) return {...base,hist:false};
     return {...base,hist:true,a,arch:archetype(a,p.position||'')}; });
   players.sort((x,y)=>(x.order-y.order)||(y.mpg-x.mpg));
@@ -361,6 +362,30 @@ async function loadTeam(){
 
   const sig=s=>`<div class="sig"><div class="st"><span>${s[0]}</span><b>${s[2]}</b></div><div class="sbar"><div class="sf" style="width:${s[1].toFixed(0)}%"></div></div></div>`;
   const F=(v,d)=>v==null||isNaN(v)?'—':(+v).toFixed(d==null?1:d);
+  // ── PASS 4: shot-profile chart (freq bar per zone, colored by efficiency) ──
+  const zoneColor=efg=>efg>=54?'var(--green)':efg>=46?'var(--tc,var(--accent))':'var(--red)';
+  const shotProfileHtml=Z=>{
+    if(!Z||Z.total<25) return '';
+    const rows=[['Rim',Z.rim],['Mid',Z.mid],['Three',Z.three]].map(([lbl,z])=>
+      `<div style="display:flex;align-items:center;gap:8px;margin:5px 0;font-size:10.5px;">
+         <span style="width:38px;color:var(--text3);font-weight:700;">${lbl}</span>
+         <div style="flex:1;height:9px;background:var(--bg3);border-radius:5px;overflow:hidden;">
+           <div style="width:${Math.round(z.freq)}%;height:100%;background:${zoneColor(z.efg)};"></div></div>
+         <span style="width:82px;text-align:right;color:var(--text2);font-variant-numeric:tabular-nums;">${Math.round(z.freq)}% · ${Math.round(z.fg)}% FG</span>
+       </div>`).join('');
+    return `<div class="rc-dev"><div class="rc-dev-l" style="margin-bottom:7px;">Shot profile <span style="color:var(--text3);font-weight:600;text-transform:none;letter-spacing:0;">· ${Z.total} FGA · bar = share, color = efficiency</span></div>${rows}</div>`;
+  };
+  // ── PASS 4: full game-scoring distribution (histogram of per-game points) ──
+  const distHtml=(pts,c)=>{
+    if(!pts||pts.length<6) return '';
+    const BINS=[[0,4],[5,9],[10,14],[15,19],[20,24],[25,29],[30,99]];
+    const cnt=BINS.map(([lo,hi])=>pts.filter(v=>v>=lo&&v<=hi).length);
+    const mx=Math.max(1,...cnt);
+    const bars=cnt.map((n,i)=>`<div title="${BINS[i][0]}${BINS[i][1]>=99?'+':'-'+BINS[i][1]} pts: ${n} game${n===1?'':'s'}" style="flex:1;height:${Math.max(4,Math.round(n/mx*100))}%;background:var(--tc,var(--accent));opacity:${n?.85:.15};border-radius:2px 2px 0 0;"></div>`).join('');
+    const foot=c?`<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:4px;font-variant-numeric:tabular-nums;"><span>floor ${c.floor}</span><span>avg ${c.mean.toFixed(1)}</span><span>ceiling ${c.ceil}</span></div>`:'';
+    return `<div class="rc-dev"><div class="rc-dev-l" style="margin-bottom:7px;">Game scoring distribution <span style="color:var(--text3);font-weight:600;text-transform:none;letter-spacing:0;">· ${pts.length} games (0 → 30+ pts)</span></div>
+      <div style="display:flex;align-items:flex-end;gap:3px;height:46px;">${bars}</div>${foot}</div>`;
+  };
   const card=p=>{
     const pj=p.pj, raw=p.raw||{};
     const ovr=(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):(raw.tdc_grade!=null&&!isNaN(+raw.tdc_grade)?Math.round(+raw.tdc_grade):null);
@@ -379,7 +404,9 @@ async function loadTeam(){
     const gd=(p.atk&&p.atk.guard)||[], at=(p.atk&&p.atk.attack)||[];
     const exCol=(kind,arr)=>arr.length?`<div><div class="ex-h ${kind}">${kind==='guard'?'Guard his offense':'Attack his defense'}</div>${arr.map(x=>`<div class="ex-row"><b>${esc(x[0])}</b> — ${esc(x[1])}</div>`).join('')}</div>`:'';
     const atkHtml=(gd.length||at.length)?`<div class="rc-atk"><div class="rc-dev-l" style="margin-bottom:9px;">How to attack him</div><div class="ex-cols">${exCol('guard',gd)}${exCol('attack',at)}</div></div>`:'';
-    return `<div class="rc" style="--tc:${tc}">${head}${body}${devHtml}${atkHtml}</div>`;
+    // pass 4: visual scouting profile — shot diet chart + game-scoring distribution
+    const profHtml=p.hist?(shotProfileHtml(p.shot)+distHtml(p.gpts,p.cons)):'';
+    return `<div class="rc" style="--tc:${tc}">${head}${body}${devHtml}${profHtml}${atkHtml}</div>`;
   };
 
   el('out').innerHTML=`<div style="--tc:${tc}">
