@@ -60,13 +60,18 @@ by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!
       all drops, returners identical; Duncomb 21.0/34%→14.4/23%, OVR 91→87. Verified on player
       page. *(done, b484eb8)*
 
-- [!] **On/off has no opponent/talent adjustment** — the reconstructed lineup NET/ORtg/DRtg
-      (onoff.html + tdc-lineups) are unadjusted for opponent strength (SRS / Net), so a big
-      swing on a bad team is overstated, and the per-stint ORtg/DRtg values are absurd
-      (e.g. ORtg 321.4 / DRtg 206.0 — not real per-100). Add a talent/opponent adjuster
-      (like adjust_team_dna does for teams) so on/off reads vs the field, not vs a weak
-      slate. *Done = lineup ratings are opponent-adjusted and in a believable per-100 range.*
-      **Likely a pipeline change (build_pbp_analytics) — investigate; may need a re-run.**
+- [!] **On/off lineup ratings are systematically broken** (bigger than the original "no opponent
+      adjustment" framing). Diagnosis (Aug 2026): the per-lineup ORtg/DRtg/net in lineups.json are
+      unreliable across the board, not just outliers — median ORtg is 77–83 even for poss≥400
+      lineups (real ≈105), only ~30% land in a believable 80–135 band, and outliers hit ORtg 815
+      on 46 poss (8 pts/possession, impossible). Root: points/possessions aren't attributed to the
+      on-court five consistently in the pbp parse (build_pbp_analytics.py), AND `_combos` uses the
+      OFFENSIVE possession estimate (fga−oreb+tov+0.44·fta) as the denominator for BOTH off_rtg and
+      def_rtg (L400 — def should use defensive possessions). lineups.json stores only the computed
+      ratings (no raw points), so it can't be fixed client-side, and a display filter would show a
+      small still-wrong subset. **BLOCKED HERE:** needs the pbp parser debugged against real games +
+      a full-season re-scrape — both require an env where ESPN/SR aren't WAF-blocked (this one is).
+      Then add the opponent adjuster. Do it where the scrape runs so parser fixes can be verified.
 
 ## Optional / backlog
 - [ ] **Personnel Book pass 4** (roles.html) — dedicated shot-profile chart + full
