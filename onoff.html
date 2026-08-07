@@ -44,11 +44,22 @@
   .pl-tm{font-size:11px;color:var(--text3);}
   .onoff-big{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;}
   .c-pos{color:#2bb673;} .c-neg{color:#e06552;}
-  .modebar{display:inline-flex;border:1px solid var(--border2);border-radius:9px;overflow:hidden;margin:0 0 16px;}
-  .modebtn{background:var(--bg2);border:none;border-right:1px solid var(--border2);color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:9px 20px;cursor:pointer;transition:background .15s,color .15s;}
-  .modebtn:last-child{border-right:none;}
+  /* Impact / Net headline cell: diverging bar + value + tier pill */
+  .impact-wrap{display:flex;align-items:center;justify-content:flex-end;gap:8px;}
+  .impact-bar{position:relative;width:46px;height:13px;flex:0 0 auto;background:var(--bg3);border-radius:3px;}
+  .impact-bar::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--border2);}
+  .impact-bar i{position:absolute;top:0;bottom:0;}
+  .impact-bar i.pos{background:#2bb673;left:50%;border-radius:0 2px 2px 0;}
+  .impact-bar i.neg{background:#e06552;right:50%;border-radius:2px 0 0 2px;}
+  .impact-val{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;min-width:42px;text-align:right;}
+  .impact-chip{font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:20px;white-space:nowrap;}
+  /* Rate-column heat (blue scale — deeper = more efficient; DRtg inverted) */
+  td.heat{border-radius:3px;}
+  /* Cleaner pill mode toggle */
+  .modebar{display:inline-flex;gap:3px;background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:3px;margin:0 0 16px;}
+  .modebtn{background:none;border:none;color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:8px 18px;border-radius:8px;cursor:pointer;transition:background .15s,color .15s;}
   .modebtn.on{background:var(--accent);color:#221c08;}
-  .modebtn:hover:not(.on){color:var(--text);}
+  .modebtn:hover:not(.on){color:var(--text);background:var(--bg3);}
   .pl-nm.unit{font-weight:700;font-size:12.5px;}
   .empty{padding:60px 20px;text-align:center;color:var(--text3);}
   /* Impact = the one digestible number: on/off net + a plain-language tier */
@@ -147,17 +158,17 @@ var COLSETS={
     {k:'onoff_net', l:'Raw', tip:'The UNadjusted swing (on-court net minus off-court net, per 100). The Impact column shrinks this for sample size.'},
     {k:'on_net', l:'On Net', tip:'Team net efficiency (per 100) with the player ON the court'},
     {k:'off_net', l:'Off Net', tip:'Team net efficiency (per 100) with the player OFF the court'},
-    {k:'on_o', l:'On ORtg', tip:'Points scored per 100 with the player on'},
-    {k:'on_d', l:'On DRtg', tip:'Points allowed per 100 with the player on', inv:true},
-    {k:'off_o', l:'Off ORtg', tip:'Points scored per 100 with the player off'},
-    {k:'off_d', l:'Off DRtg', tip:'Points allowed per 100 with the player off', inv:true},
+    {k:'on_o', l:'On ORtg', tip:'Points scored per 100 with the player on', heat:true},
+    {k:'on_d', l:'On DRtg', tip:'Points allowed per 100 with the player on', inv:true, heat:true},
+    {k:'off_o', l:'Off ORtg', tip:'Points scored per 100 with the player off', heat:true},
+    {k:'off_d', l:'Off DRtg', tip:'Points allowed per 100 with the player off', inv:true, heat:true},
   ],
   lineups:[
     {k:'unit', l:'Lineup (the five)', left:true, tip:'The five on the floor · team'},
     {k:'poss', l:'Poss', tip:'Offensive possessions this five played together'},
     {k:'net', l:'Net', big:true, tip:'Points per 100 the team outscored opponents with this five on the floor.'},
-    {k:'off_rtg', l:'ORtg', tip:'Points scored per 100'},
-    {k:'def_rtg', l:'DRtg', tip:'Points allowed per 100', inv:true},
+    {k:'off_rtg', l:'ORtg', tip:'Points scored per 100', heat:true},
+    {k:'def_rtg', l:'DRtg', tip:'Points allowed per 100', inv:true, heat:true},
     {k:'efg', l:'eFG%', tip:'Effective FG% with this five on'},
     {k:'tov_pct', l:'TOV%', tip:'Turnover rate', inv:true},
     {k:'orb_pct', l:'ORB%', tip:'Offensive-rebound rate'},
@@ -195,6 +206,15 @@ function netTier(v){ if(v==null) return null;
   if(v>=15) return {t:'Elite',c:'#1f9d57'}; if(v>=8) return {t:'Strong',c:'#2bb673'};
   if(v>=2) return {t:'Positive',c:'#6bbf8a'}; if(v>-2) return {t:'Neutral',c:'#8a93a3'};
   if(v>-8) return {t:'Negative',c:'#e0885a'}; return {t:'Drag',c:'#e06552'}; }
+// Headline cell: diverging bar (green right / red left) + value + tier pill.
+function impactTd(v, tier, maxAbs){
+  if(v==null || !isFinite(v)) return '<td class="onoff-big"><div class="impact-wrap"><span class="impact-val">—</span></div></td>';
+  var w=(Math.min(1, Math.abs(v)/maxAbs)*50).toFixed(0);
+  var bar='<i class="'+(v>=0?'pos':'neg')+'" style="width:'+w+'%"></i>';
+  var chip=tier?'<span class="impact-chip" style="color:'+tier.c+';background:'+tier.c+'22;">'+tier.t+'</span>':'';
+  var vc=v>0?'c-pos':v<0?'c-neg':'';
+  return '<td class="onoff-big"><div class="impact-wrap">'+chip+'<span class="impact-bar">'+bar+'</span><span class="impact-val '+vc+'">'+(v>0?'+':'')+fnum(v,1)+'</span></div></td>';
+}
 function _short(p){ var t=(p||'').trim().split(/\s+/); var last=t[t.length-1];
   if(t.length>=2 && /^(jr|sr|ii|iii|iv|v)\.?$/i.test(last)) return t[t.length-2]; return last; }
 function unitNames(r,full){ return r.unit.players.map(function(p){ return full?p:_short(p); }).join(', '); }
@@ -221,6 +241,12 @@ function render(){
   var tb=document.getElementById('tbody'), emp=document.getElementById('empty');
   if(!rows.length){ tb.innerHTML=''; emp.style.display='block'; emp.textContent=ROWS.length?('No '+noun+' match the filter.'):(MODE==='players'?'On/off data is still being built — check back shortly.':'No lineup data for this season yet.'); return; }
   emp.style.display='none';
+  // per-column heat ranges (min/max across the filtered rows) for the rate columns
+  var HEAT={}; COLS.forEach(function(c){ if(!c.heat) return;
+    var vs=rows.map(function(r){return r[c.k];}).filter(function(v){return v!=null&&isFinite(v);});
+    if(vs.length) HEAT[c.k]={lo:Math.min.apply(null,vs), hi:Math.max.apply(null,vs)}; });
+  function heatBg(c,v){ var h=HEAT[c.k]; if(!h||v==null||!isFinite(v)||h.hi<=h.lo) return '';
+    var n=(v-h.lo)/(h.hi-h.lo); if(c.inv) n=1-n; return 'background:rgba(77,127,214,'+(0.06+n*0.34).toFixed(3)+');'; }
   var body=rows.slice(0,400).map(function(r,i){
     var td=COLS.map(function(c){
       if(c.left){
@@ -230,17 +256,15 @@ function render(){
         return '<td class="l"><div class="pl">'+(logo?'<img src="'+logo+'" onerror="this.style.display=\'none\'">':'')+'<span><div class="pl-nm'+(MODE==='players'?'':' unit')+'"'+ta+'>'+nm+'</div><div class="pl-tm">'+(r.team||'')+'</div></span></div></td>';
       }
       var v=r[c.k], d=(c.k==='on_poss'||c.k==='off_poss'||c.k==='poss'||c.k==='games'||c.k==='pct'||c.k==='units')?0:1;
-      var signed=(c.big||c.k==='on_net'||c.k==='off_net'||c.k==='onoff_net');
+      // headline Impact / Net → diverging bar + value + tier pill
+      if(c.k==='adj') return impactTd(v, adjTier(r.pct), 30);
+      if(c.k==='net' && c.big) return impactTd(v, netTier(v), 25);
+      var signed=(c.k==='on_net'||c.k==='off_net'||c.k==='onoff_net');
       var color=signed?cls(c.inv?-v:v):'';
-      if(c.k==='adj'){ var tr=adjTier(r.pct);
-        return '<td class="onoff-big '+color+'"><div class="impact-cell"><span>'+((v==null)?'—':(v>0?'+':'')+fnum(v,d))+'</span>'+(tr?'<span class="impact-tier" style="color:'+tr.c+';">'+tr.t+'</span>':'')+'</div></td>';
-      }
-      if(c.k==='net' && c.big){ var t2=netTier(v);
-        return '<td class="onoff-big '+color+'"><div class="impact-cell"><span>'+((v==null)?'—':(v>0?'+':'')+fnum(v,d))+'</span>'+(t2?'<span class="impact-tier" style="color:'+t2.c+';">'+t2.t+'</span>':'')+'</div></td>';
-      }
       var txt=fnum(v,d);
       if(signed && v!=null && v>0) txt='+'+txt;
-      return '<td class="'+(c.big?'onoff-big ':'')+color+'">'+txt+'</td>';
+      var style=c.heat?heatBg(c,v):'';
+      return '<td class="'+(c.heat?'heat ':'')+color+'"'+(style?' style="'+style+'"':'')+'>'+txt+'</td>';
     }).join('');
     return '<tr><td class="rk">'+(i+1)+'</td>'+td+'</tr>';
   }).join('');
