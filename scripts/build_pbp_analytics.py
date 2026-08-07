@@ -347,7 +347,8 @@ def run(season, limit=0, verbose=False):
     players = defaultdict(lambda: {"name": None, "team": None, "ast": 0, "ast_pts": 0,
                                    "fgm": 0, "fgm_ast": 0, "blk": 0, "blkd": 0})
     units = defaultdict(lambda: defaultdict(lambda: {"oPts": 0, "dPts": 0, "fga": 0, "fgm": 0,
-                                                     "fg3m": 0, "fta": 0, "tov": 0, "oreb": 0, "opp_dreb": 0}))
+                                                     "fg3m": 0, "fta": 0, "tov": 0, "oreb": 0, "opp_dreb": 0,
+                                                     "opp_fga": 0, "opp_oreb": 0, "opp_tov": 0, "opp_fta": 0}))
     name = {}
     matched = processed = 0; failed = defaultdict(int)
 
