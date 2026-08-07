@@ -109,7 +109,11 @@ def analyze_game(nid, og):
                  for s in ("H", "A")},
         "lineup": defaultdict(lambda: {"oPts": 0, "oPoss": 0.0, "dPts": 0, "dPoss": 0.0,
                                        "fgm": 0, "fga": 0, "fg3m": 0, "fta": 0, "tov": 0, "oreb": 0,
-                                       "opp_dreb": 0, "secs": 0}),
+                                       "opp_dreb": 0, "secs": 0,
+                                       # DEFENSIVE four-factor components (the opponent's offense while
+                                       # THIS five is on defense) — needed for a correct def_rtg
+                                       # denominator. Without these def_rtg reused the offensive poss.
+                                       "opp_fga": 0, "opp_fta": 0, "opp_tov": 0, "opp_oreb": 0}),
     }
     SUB_RE = re.compile(r'^Subbing (in|out) for (.+?)-(.+)$')
 
@@ -158,8 +162,12 @@ def analyze_game(nid, og):
                     uk_o = unit_key(sc_side)
                     if uk_o:
                         A["lineup"][uk_o]["oPts"] += dpts
-                        if dpts == 1:                 # a +1 jump is a made FT (misses are logged separately)
-                            A["lineup"][uk_o]["fta"] += 1
+                        # NOTE: fta is counted ONCE at the explicit "free throw" event below (for both
+                        # makes and misses). The old +1-inference here ALSO added fta on a made FT, so
+                        # every made FT double-counted fta → inflated possessions → deflated every
+                        # ORtg/DRtg (the systematic ~med-83 symptom). Removed. [VERIFY: if a --verbose
+                        # run shows lineup FTA far BELOW the box FTA, this feed omits made-FT events and
+                        # you'd restore `if dpts==1: fta+=1` here instead.]
                     uk_d = unit_key("A" if sc_side == "H" else "H")
                     if uk_d:
                         A["lineup"][uk_d]["dPts"] += dpts
@@ -190,6 +198,9 @@ def analyze_game(nid, og):
                 A["team"][side]["fga"] += 1
                 if uk:
                     A["lineup"][uk]["fga"] += 1
+                duk = unit_key(other)                 # the five ON DEFENSE for this shot
+                if duk:
+                    A["lineup"][duk]["opp_fga"] += 1
                 if poss_side == side and poss_start is not None and clk is not None and (poss_start - clk) <= TRANSITION_SECS:
                     A["team"][side]["tfga"] += 1
                     if made:
@@ -225,6 +236,9 @@ def analyze_game(nid, og):
             if "offensive rebound" in dl:
                 if uk:
                     A["lineup"][uk]["oreb"] += 1
+                duk = unit_key(other)                 # defense allowed this offensive rebound
+                if duk:
+                    A["lineup"][duk]["opp_oreb"] += 1
                 sc_flag = side                 # second-chance possession begins
                 poss_side = side               # keep the ball; poss_start unchanged (a putback isn't transition)
 
@@ -237,11 +251,18 @@ def analyze_game(nid, og):
             if "turnover" in dl or "shot clock" in dl:
                 if uk:
                     A["lineup"][uk]["tov"] += 1
+                duk = unit_key(other)                 # defense forced this turnover
+                if duk:
+                    A["lineup"][duk]["opp_tov"] += 1
                 last_to_side = side
                 poss_side = other; poss_start = clk; sc_flag = None
 
-            if "free throw" in dl and uk:      # only misses are logged (made FTs recovered via +1 in score-delta)
-                A["lineup"][uk]["fta"] += 1
+            if "free throw" in dl:             # every FT event = one attempt (makes AND misses)
+                if uk:
+                    A["lineup"][uk]["fta"] += 1
+                duk = unit_key(other)                 # defense sent this offense to the line
+                if duk:
+                    A["lineup"][duk]["opp_fta"] += 1
 
             # and-1: last made FG's shooter draws a shooting foul on the same trip
             if "shooting foul" in dl and "draws the foul" in dl and last_make:
@@ -378,28 +399,31 @@ def run(season, limit=0, verbose=False):
 # stats = the sum over every five-man unit it appeared in — exact possessions/net, since
 # the units are mutually-exclusive possession windows.
 def _combos(us, nm, size, minposs):
+    SUM = ("oPts", "dPts", "fga", "fgm", "fg3m", "tov", "fta", "oreb", "opp_dreb",
+           "opp_fga", "opp_oreb", "opp_tov", "opp_fta")
     agg = {}
     for unit, l in us.items():
-        poss = l["fga"] - l["oreb"] + l["tov"] + 0.44 * l["fta"]
-        if poss <= 0 or len(unit) < size: continue
+        oposs = l["fga"] - l["oreb"] + l["tov"] + 0.44 * l["fta"]
+        if oposs <= 0 or len(unit) < size: continue
         for combo in combinations(sorted(unit), size):
             a = agg.get(combo)
             if a is None:
-                a = agg[combo] = {"poss": 0.0, "oPts": 0, "dPts": 0, "fga": 0, "fgm": 0,
-                                  "fg3m": 0, "tov": 0, "fta": 0, "oreb": 0, "opp_dreb": 0, "units": 0}
-            a["poss"] += poss; a["units"] += 1
-            for k in ("oPts", "dPts", "fga", "fgm", "fg3m", "tov", "fta", "oreb", "opp_dreb"):
-                a[k] += l[k]
+                a = agg[combo] = {k: 0 for k in SUM}; a["units"] = 0
+            a["units"] += 1
+            for k in SUM:
+                a[k] += l.get(k, 0)
     rows = []
     for combo, a in agg.items():
-        p = a["poss"]
-        if p < minposs: continue
+        oposs = a["fga"] - a["oreb"] + a["tov"] + 0.44 * a["fta"]
+        dposs = a["opp_fga"] - a["opp_oreb"] + a["opp_tov"] + 0.44 * a["opp_fta"]
+        if oposs < minposs or dposs < minposs: continue
+        ortg = 100 * a["oPts"] / oposs
+        drtg = 100 * a["dPts"] / dposs               # defensive denominator (was offensive poss)
         efg = 100 * (a["fgm"] + 0.5 * a["fg3m"]) / a["fga"] if a["fga"] else None
         rows.append({
-            "players": [nm(e) for e in combo], "poss": round(p), "units": a["units"],
-            "off_rtg": r1(100 * a["oPts"] / p), "def_rtg": r1(100 * a["dPts"] / p),
-            "net": r1(100 * (a["oPts"] - a["dPts"]) / p), "efg": r1(efg),
-            "tov_pct": r1(100 * a["tov"] / p),
+            "players": [nm(e) for e in combo], "poss": round((oposs + dposs) / 2), "units": a["units"],
+            "off_rtg": r1(ortg), "def_rtg": r1(drtg), "net": r1(ortg - drtg), "efg": r1(efg),
+            "tov_pct": r1(100 * a["tov"] / oposs),
             "orb_pct": r1(100 * a["oreb"] / (a["oreb"] + a["opp_dreb"])) if (a["oreb"] + a["opp_dreb"]) else None,
         })
     rows.sort(key=lambda r: -r["poss"])
@@ -426,18 +450,35 @@ def _write(season, team, anet, bnet, players, units, name,
             "blk_leaders": [{"name": p["name"], "blk": p["blk"]}
                             for p in sorted(tps, key=lambda p: -p["blk"])[:5] if p["blk"]],
         }
+    # ── VALIDATION (verbose): aggregate every 5-man unit per team into a team ORtg/DRtg and
+    # compare to reality. A healthy team lands ORtg≈DRtg≈95-120 and oPoss≈dPoss (possessions
+    # alternate). If ORtg reads ~83 the possession denominator is still inflated (check the FTA
+    # double-count fix); if oPoss and dPoss diverge a lot the on-court-five tracking is dropping
+    # events. Run: python3 build_pbp_analytics.py --season 2025 --limit 8 --verbose
+    if verbose:
+        print("\n== lineup-rating validation (team totals from summed units; expect ORtg/DRtg 95-120) ==")
+        for tn, us in list(units.items())[:12]:
+            oP = sum(l["oPts"] for l in us.values()); dP = sum(l["dPts"] for l in us.values())
+            oPo = sum(l["fga"] - l["oreb"] + l["tov"] + 0.44 * l["fta"] for l in us.values())
+            dPo = sum(l["opp_fga"] - l["opp_oreb"] + l["opp_tov"] + 0.44 * l["opp_fta"] for l in us.values())
+            if oPo < 1 or dPo < 1: continue
+            flag = "" if 90 <= 100 * oP / oPo <= 125 and 0.8 <= (oPo / dPo if dPo else 0) <= 1.25 else "  <-- CHECK"
+            print(f"   {str(tn)[:24]:24} ORtg {100*oP/oPo:5.1f}  DRtg {100*dP/dPo:5.1f}  oPoss {oPo:6.0f} dPoss {dPo:6.0f}{flag}")
     out_lu = {}
     for tn, us in units.items():
         rows = []
         for unit, l in us.items():
-            poss = l["fga"] - l["oreb"] + l["tov"] + 0.44 * l["fta"]
-            if poss < 25: continue                      # meaningful sample only
+            # SEPARATE offensive and defensive possessions (Oliver four-factor estimate on each end).
+            oposs = l["fga"] - l["oreb"] + l["tov"] + 0.44 * l["fta"]
+            dposs = l["opp_fga"] - l["opp_oreb"] + l["opp_tov"] + 0.44 * l["opp_fta"]
+            if oposs < 25 or dposs < 25: continue       # meaningful sample on BOTH ends
+            ortg = 100 * l["oPts"] / oposs
+            drtg = 100 * l["dPts"] / dposs              # was /oposs — the def_rtg denominator bug
             efg = 100 * (l["fgm"] + 0.5 * l["fg3m"]) / l["fga"] if l["fga"] else None
             rows.append({
-                "players": [nm(e) for e in unit], "poss": round(poss),
-                "off_rtg": r1(100 * l["oPts"] / poss), "def_rtg": r1(100 * l["dPts"] / poss),
-                "net": r1(100 * (l["oPts"] - l["dPts"]) / poss),
-                "efg": r1(efg), "tov_pct": r1(100 * l["tov"] / poss),
+                "players": [nm(e) for e in unit], "poss": round((oposs + dposs) / 2),
+                "off_rtg": r1(ortg), "def_rtg": r1(drtg), "net": r1(ortg - drtg),
+                "efg": r1(efg), "tov_pct": r1(100 * l["tov"] / oposs),
                 "orb_pct": r1(100 * l["oreb"] / (l["oreb"] + l["opp_dreb"])) if (l["oreb"] + l["opp_dreb"]) else None,
                 "ftr": r1(100 * l["fta"] / l["fga"]) if l["fga"] else None,
             })
