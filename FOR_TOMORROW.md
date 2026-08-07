@@ -95,3 +95,47 @@ table. See "Already done" below. Nothing else is currently blocked on a decision
 ## Backlog (low priority)
 - Personnel Book pass 4 (roles.html) — dedicated shot-profile chart + full consistency distribution.
   Largely redundant now.
+
+---
+
+# Grade-system overhaul (from the JoJo Tugler review) — scoped, not yet shipped
+
+Tugler (Houston C, 8.4 ppg) showing as the #1 projected player (92) exposed that there are
+**three different grade numbers per player that don't agree**, plus a data-linkage bug:
+
+1. **espn_id nickname gap (data — needs a DB write you run).** Tugler's `players` row has
+   `espn_id=NULL` because the roster says "JoJo Tugler" but his stats are under "Joseph Tugler".
+   With no espn_id, his history (2024/2025), Wins Added, and the statistical projection can't
+   attach — so he floats on the **sheet grade (89)**, shows only one season, and blank WA.
+   `scripts/espn_backfill.sql` has 6 VERIFIED-safe links (incl. Tugler → 5060700). RLS blocks
+   the anon key, so run it in the Supabase SQL editor. The broader nickname set needs per-player
+   review (last-name matching is unsafe — Tyran Stokes ≠ Kamau Stokes). **Durable fix = nickname
+   normalization in the roster-sync Apps Script** so espn_id is assigned on every sync (else a
+   resync re-nulls it). See [[roster-sync]].
+
+2. **Three grade paths must be unified.** (a) demonstrated `stat_overall.json` (Tugler 88),
+   (b) statistical projected `stat_overall_projected.json` (Tugler absent — no espn_id),
+   (c) **`gradeSolo` in tdc-projgrade.js — the RANKING grade** (Tugler 92, from bumping the sheet
+   89). The rankings/top-players strip use (c). Unify so one scale drives player line, grade, and
+   rankings. See [[projection-two-paths]].
+
+3. **Centers over-valued (model).** In `build_stat_overall.py` L113: `wa=(owa*usg_mult + dwa)*sos`
+   — DWA enters at FULL weight while offense is usage-scaled, and DWA is team-defense-heavy (Oliver
+   DWS), so rim protectors on elite defenses over-grade. Tried `DWA_W=0.62` (added constant + L113):
+   effect was MILD (Tugler 88→87; Reed/Peat dropped out of top 20). Reverted — shipping the
+   demonstrated change alone widens the 3-path disagreement; must be done together with the projected
+   rebuild + gradeSolo. Real center fix probably needs regressing DWA toward an individual signal,
+   not just a global weight.
+
+4. **Projected scale compressed.** demonstrated 2025-26: max 99, **137 players ≥90**. projected
+   2026-27 (`stat_overall_projected.json`): max **91, only 5 ≥90**. Returning stars get crushed
+   (a 97 returner → ~88). Align the projected probit scale to the demonstrated distribution.
+
+5. **Tiny-sample %s.** 100% 3P% on ~0 attempts is carried forward with no regression (worse for
+   unlinked players who skip the regressed projection). Regress percentages to positional mean below
+   a min-attempts threshold; show N/A rather than 100%.
+
+**Recommended order for a focused session:** (1) espn_id (you run the SQL) → then re-run both build
+scripts so newly-linked players populate → (2) unify the scale + gradeSolo, (3) DWA rebalance,
+(4) tiny-sample %s. Validate the whole top-30 (position balance) before committing, and bump
+`stat_overall*.json?v=` + `tdc-projgrade.js?v=` across the ~25 loader pages.
