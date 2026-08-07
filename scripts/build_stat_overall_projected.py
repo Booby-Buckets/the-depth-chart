@@ -32,6 +32,12 @@ USG_REF=21.0; USG_POW=1.2; USG_LO=0.45; USG_HI=1.08   # match build_stat_overall
 TIW={"pts":1.0,"oreb":0.8,"dreb":0.3,"ast":0.7,"stl":1.4,"blk":0.9,"miss_fg":-0.5,"miss_ft":-0.35,"tov":-1.0}
 REG_MP=100.0; OWA_REPL=3.0; OWA_A=-0.10; OWA_B=0.0092
 DWA_W=float(os.environ.get("DWA_W","0.62"))   # match build_stat_overall.py — team-defense-heavy DWA carried at reduced weight so defense-driven bigs don't over-rank creators
+# Over-regression guard: the rate-reliability shrinkage (cred_a below) is calibrated to keep
+# small-sample flukes from projecting elite, but for a PROVEN, high-minute returner keeping his
+# role it double-counts uncertainty — a demonstrated 96 was projecting 91. Cap how far such a
+# returner can fall below his demonstrated grade from projection alone. Transfers (level jump)
+# and role-shrinkers are exempt; development/vacancy can still push a grade UP freely.
+PROJ_MAXDROP=int(os.environ.get("PROJ_MAXDROP","2"))
 # ---- projection knobs ----
 RETURNER_VAC=0.70    # share of departed usage that returners (vs incoming frosh) absorb
 USG_SCORE_EL=0.90    # shot volume elasticity to usage
@@ -318,6 +324,11 @@ for short, roster in roster_by_team.items():
         b_p=MU40+cred_a*(per40_p-MU40)
         c_p=b_p*math.sqrt(min(max(mn/P90,0),1.3))
         ovr=to_grade(c_p)
+        # over-regression guard — proven returner (>=400 last-yr min) keeping his role
+        # (projected mpg >= 85% of last) can't fall more than PROJ_MAXDROP below his
+        # demonstrated grade. Transfers excluded (their drop is the real level jump).
+        if not xfer and last_min>=400 and pm>=last_mpg*0.85:
+            ovr=max(ovr,int(r["demo"])-PROJ_MAXDROP)
         out[str(e)]={
             "ovr":ovr,"demo_ovr":int(r["demo"]),"proj_mpg":round(pm,1),"last_mpg":round(last_mpg,1),
             "dev_mult":round(dm,3),"proj_usg":round(r["proj_usg"],1),"last_usg":round(r["last_usg"],1),
