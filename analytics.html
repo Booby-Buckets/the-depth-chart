@@ -436,10 +436,24 @@ async function _ensureGenome(){
   }catch(e){}
   _genLoaded=true; return _GEN;
 }
+// Site-wide statistical overall by {season:{espn_id:ovr}} — the unified grade the rest of
+// the site ranks on. Loaded before flatten so _bbBoxGrade can use it (see there).
+let _SOH=null;
+async function _ensureSOH(){
+  if(_SOH) return _SOH;
+  try{ _SOH=await fetch('scripts/data/stat_overall_history.json?v=3').then(function(r){return r.ok?r.json():null;}); }catch(e){}
+  _SOH=_SOH||{}; return _SOH;
+}
 // Box-only archetype fit — grade every season the same box way as the rest of the site
 // (per-season centered, weak-team dampened). bbref stores per-40 as *_per_min; feed mpg=40
 // so per40(line,k)=value, and pcts are 0-1 → ×100.
 function _bbBoxGrade(r){
+  // UNIFIED: the site-wide statistical overall (stat_overall_history.json, keyed
+  // {season:{espn_id:ovr}}) is the source of truth for grades everywhere else — use it
+  // here too instead of the stale player_history.tdc_grade (which over-rated bigs and
+  // sat up to ~20pts off, e.g. Pharrel Payne 97 vs 73). Fall back only when a player-
+  // season isn't in the statistical file.
+  if(_SOH && r.espn_id!=null){ var sy=_SOH[''+r.season_year]; var u=sy&&sy[''+r.espn_id]; if(u!=null) return u; }
   if(!window.TDCRating || !TDCRating.boxAdjust || r.tdc_grade==null) return num(r.tdc_grade);
   var g=r.per40||{}, n=function(v){var f=parseFloat(v);return isFinite(f)?f:null;}, pct=function(v){var f=parseFloat(v);return isFinite(f)?f*100:null;};
   var line={ position:r.pos, height:r.height, team:r.school, mpg:40,
@@ -493,6 +507,7 @@ function colorCls(key,v){
 async function loadSeason(key){
   if(_cache[key]) return _cache[key];
   await _ensureGenome();   // so the 2025-26 Signature stats are merged in during flatten
+  await _ensureSOH();      // unified statistical overall for the grade column
   if(window.TDCRating && TDCRating.ready){ try{ await TDCRating.ready; }catch(e){} }   // box-adjust grades during flatten
   var L=document.getElementById('loadingMsg'), P=document.getElementById('progressFill');
 
