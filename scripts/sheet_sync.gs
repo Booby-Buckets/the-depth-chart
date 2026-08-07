@@ -709,7 +709,7 @@ function parseSheet(rows, confCode) {
 /** Parse all numeric stat columns from a raw sheet row */
 function parseStats(row) {
   const n = v => { const x = parseFloat(v); return isNaN(x) ? null : x; };
-  return {
+  const s = {
     ppg:    n(row[COL.PPG]),
     rpg:    n(row[COL.RPG]),
     apg:    n(row[COL.APG]),
@@ -730,6 +730,14 @@ function parseStats(row) {
     tovs:   n(row[COL.TOV]),
     gp:     n(row[COL.GP]),
   };
+  // GUARD: made can NEVER exceed attempts. The sheet's shooting columns are ordered
+  // inconsistently (FT is FTA[R] then FTM[S], while FG/3P are made-then-attempted), which
+  // silently swapped 3P/FT on sync and corrupted the whole 2025-26 season. Normalize so the
+  // DB always gets made<=att regardless of the sheet's column order. Idempotent — a correctly
+  // ordered row is untouched. (One-time DB cleanup: scripts/fix_shooting_swap_2026.sql.)
+  const fx = (m, a) => { if (s[m] != null && s[a] != null && s[m] > s[a]) { const t = s[m]; s[m] = s[a]; s[a] = t; } };
+  fx('fgm', 'fga'); fx('tpm', 'tpa'); fx('ftm', 'fta');
+  return s;
 }
 
 /** Normalize a height cell — handles Date objects (Sheets auto-converts 6-8 to a date) */
