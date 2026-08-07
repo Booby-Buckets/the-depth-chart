@@ -38,11 +38,12 @@ by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!
       quick. Done = quadrant redraws per selected year; bubbles gone.*
 
 ## Data
-- [!] **2008-09 UNC roster has no player stats** — team.html "No roster data for 2008-09"
-      even though it's rated the #1 team all-time (SRS). The season is in team_seasons but
-      the roster/player rows (player_history / box_scores) are missing. Backfill the 08-09
-      roster + per-player stats. *Done = 08-09 UNC depth chart + player stats render.*
-      **May need a scrape + DB insert (user-run) — investigate source first.**
+- [x] **2008-09 UNC roster has no player stats** — DONE. Backfilled the championship roster
+      (17 players) into player_history via scripts/insert_unc_2009.sql (ESPN per-game stats,
+      team='North Carolina' to match the join convention). Verified: team.html renders the full
+      2008-09 depth chart (Lawson/Ellington/Green/Hansbrough starters, positions inferred), no
+      "No roster data", no console errors. Pre-2012 so grades/WA are blank (no box_scores). This
+      SQL is the template for backfilling other pre-2012 all-time teams.
 - [x] **Players missing stats / WA / class on the stat pages** — RESOLVED by the espn_id
       backfill (the "—" rows were unlinked players who couldn't join player_advanced/history).
       Verified: 0 of 3,522 2025-26 rotation players (gp≥5, mpg≥8) are missing WA or class.
