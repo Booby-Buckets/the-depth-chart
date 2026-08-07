@@ -273,6 +273,12 @@ def analyze_game(nid, og):
                         A["team"][last_make[0]]["and1"] += 1
                         last_make = None
 
+    # Guard: some games return periods but no shot events (empty/partial pbp from the proxy) →
+    # fga 0 → the possession denominator collapses and the per-100 ratings are garbage that
+    # pollutes the season aggregate. Reject them so only well-formed games contribute. A real
+    # game has ~120+ combined FGA; 40 is a safe floor for a shortened/sparse-but-usable game.
+    if (A["team"]["H"]["fga"] + A["team"]["A"]["fga"]) < 40:
+        return None, "empty-pbp"
     eid_team = {}
     for sd in ("H", "A"):
         for eid in n2e[sd].values():
