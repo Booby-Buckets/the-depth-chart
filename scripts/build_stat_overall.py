@@ -30,6 +30,11 @@ CUR=2026; K_SOS=0.42; MU=73.0; SP=7.6; FLOOR=55; MIN_GP=3; REF_MIN=200
 # scale the OFFENSIVE value by how much of the offense a player shoulders. Pulls
 # empty-efficiency role bigs down and separates role players from high-load creators.
 USG_REF=21.0; USG_POW=1.2; USG_LO=0.45; USG_HI=1.08   # mostly a DOWNWEIGHT for low usage; only a slight boost above average
+# DWA (Defensive Wins Added) is Oliver DWS from the box score — TEAM-DEFENSE-HEAVY, so it
+# over-credits bigs on good defenses (a low-usage rim protector draws ~45% of his value from
+# DWA vs ~15% for a scoring guard). Carry it at less than full weight so defense-driven role
+# bigs don't out-rank higher-usage creators; offense (usage-weighted) then separates the top.
+DWA_W=float(os.environ.get("DWA_W","0.62"))
 
 def sb_get(path):
     # STABLE ORDER required: PostgREST offset pagination without ORDER BY skips/dupes rows.
@@ -110,7 +115,7 @@ adv=adv[adv["g"].fillna(0)>=MIN_GP].copy()
 adv["mp40"]=adv["min"]/40.0
 _usg=pd.to_numeric(adv["usg_pct"],errors="coerce").fillna(USG_REF)
 adv["usg_mult"]=np.clip((_usg/USG_REF)**USG_POW, USG_LO, USG_HI)
-adv["wa"]=(adv["owa"].fillna(0)*adv["usg_mult"] + adv["dwa"].fillna(0))*adv["sos"]
+adv["wa"]=(adv["owa"].fillna(0)*adv["usg_mult"] + DWA_W*adv["dwa"].fillna(0))*adv["sos"]
 
 rows=[]
 for yr,g in adv.groupby("season_year"):
