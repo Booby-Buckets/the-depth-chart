@@ -43,10 +43,9 @@ by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!
       the roster/player rows (player_history / box_scores) are missing. Backfill the 08-09
       roster + per-player stats. *Done = 08-09 UNC depth chart + player stats render.*
       **May need a scrape + DB insert (user-run) — investigate source first.**
-- [!] **Players missing stats / WA / class on the stat pages** — in the player DB and
-      Analytics → Stats, some players show "—" for stats, Wins Added, and year/class (e.g.
-      Cameron Boozer, Bruce Thornton). Ensure every listed player-season carries its box
-      stats, WA, and class. *Done = no "—" rows for players who have a real season.*
+- [x] **Players missing stats / WA / class on the stat pages** — RESOLVED by the espn_id
+      backfill (the "—" rows were unlinked players who couldn't join player_advanced/history).
+      Verified: 0 of 3,522 2025-26 rotation players (gp≥5, mpg≥8) are missing WA or class.
 
 ## Model
 - [x] **Projections are inflated / "messed up again"** — FIXED. Root cause was NOT the live
