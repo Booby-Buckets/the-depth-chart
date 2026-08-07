@@ -9,3 +9,12 @@ SET tpm = LEAST(tpm, tpa),
     fta = GREATEST(ftm, fta)
 WHERE season_year = 2026
   AND tpa IS NOT NULL;
+
+-- The players (current roster) table came from the same buggy sync and has the same swap
+-- (~92% of FT rows show made>att). Same idempotent fix; no season filter (players is current-only).
+UPDATE players
+SET tpm = LEAST(tpm, tpa),
+    tpa = GREATEST(tpm, tpa),
+    ftm = LEAST(ftm, fta),
+    fta = GREATEST(ftm, fta)
+WHERE tpa IS NOT NULL;
