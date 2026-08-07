@@ -574,6 +574,6 @@
   window.TDCProjGrade.projRowOf = function(espn){ return (espn!=null && _SO_PROJ_ROW) ? (_SO_PROJ_ROW['' + espn] || null) : null; };
   window.TDCProjGrade.ready = Promise.all([
     _loadSO('scripts/data/stat_overall.json?v=4').then(function(m){ if(m) setStatOverall(m, null); }),
-    _loadProjRows('scripts/data/stat_overall_projected.json?v=10').then(function(m){ if(m) setStatOverall(null, m); })
+    _loadProjRows('scripts/data/stat_overall_projected.json?v=11').then(function(m){ if(m) setStatOverall(null, m); })
   ]).then(function(){ return true; }).catch(function(){ return true; });   // history is lazy — see loadHist()
 })();

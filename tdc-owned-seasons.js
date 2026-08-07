@@ -26,6 +26,11 @@
   // Build one bbref-shaped row from a player_advanced row (pa) + optional player_history row (ph).
   function shape(pa, ph) {
     ph = ph || {};
+    // GUARD: the 2025-26 player_history load swapped 3P/FT made<->attempted (made>att is
+    // impossible). Normalize so made<=att regardless of DB state — idempotent, leaves correct
+    // rows untouched. Root fix is scripts/fix_shooting_swap_2026.sql.
+    (function(){ function fx(m,a){ var mv=parseFloat(ph[m]),av=parseFloat(ph[a]);
+      if(isFinite(mv)&&isFinite(av)&&mv>av){ ph[m]=av; ph[a]=mv; } } fx('tpm','tpa'); fx('ftm','fta'); })();
     var mpg = n(ph.mpg);
     var pergame = {
       games: n(pa.g), games_started: null,

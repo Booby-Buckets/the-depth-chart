@@ -61,6 +61,9 @@
       if(opts.season && +real.season_year !== +opts.season) return;   // season pin miss → leave sheet
       p._realStatsSeason = real.season_year;
       FIELDS.forEach(function(f){ var v = _num(real[f]); if(v != null) p[f] = v; });
+      // GUARD: 2025-26 player_history swapped 3P/FT made<->att (made>att is impossible).
+      // Normalize so made<=att regardless of DB state. Root fix: fix_shooting_swap_2026.sql.
+      (function(){ function fx(m,a){ var mv=_num(p[m]),av=_num(p[a]); if(mv!=null&&av!=null&&mv>av){ p[m]=av; p[a]=mv; } } fx('tpm','tpa'); fx('ftm','fta'); })();
     });
     return rows;
   }

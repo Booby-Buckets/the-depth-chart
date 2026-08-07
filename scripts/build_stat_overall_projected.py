@@ -134,6 +134,12 @@ for c in ["g","min","usg_pct","owa","dwa","ti40"]: adv[c]=pd.to_numeric(adv[c],e
 for c in ["ppg","mpg","fgm","fga","tpm","tpa","ftm","fta","oreb","dreb","stl","blk","tovs","apg","gp","fg_pct","tp_pct","ft_pct"]:
     box[c]=pd.to_numeric(box[c],errors="coerce")
 box=box.dropna(subset=["espn_id"]).drop_duplicates("espn_id").set_index("espn_id")
+# GUARD: the 2025-26 player_history load swapped MADE/ATTEMPTED for 3P and FT (made>att is
+# impossible). Normalize so made<=att regardless of DB state, else the projected shooting is
+# garbage. Idempotent — leaves correctly-stored rows untouched. See fix_shooting_swap_2026.sql.
+for _m,_a in (("tpm","tpa"),("ftm","fta")):
+    _lo=box[[_m,_a]].min(axis=1); _hi=box[[_m,_a]].max(axis=1)
+    box[_m]=_lo; box[_a]=_hi
 advByEspn=adv.dropna(subset=["espn_id"]).drop_duplicates("espn_id").set_index("espn_id")
 BOX_IDS=set(int(x) for x in box.index)   # plain-int membership (Int64Index `in` is unreliable)
 
