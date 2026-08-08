@@ -21,7 +21,7 @@ from collections import defaultdict
 from itertools import combinations
 
 from build_onoff import (http, norm, scoreboard, match_our_game, our_games_on,
-                         sb_get, PROXY, season_dates, _minf, r1)
+                         sb_get, PROXY, season_dates, _minf, r1, pbp_json)
 
 DATADIR = os.path.join(os.path.dirname(__file__), "data")
 ASSIST_RE = re.compile(r'\(([^()]+?) assists\)')
@@ -47,7 +47,7 @@ def shot_pts(desc):
 
 def analyze_game(nid, og):
     """Walk one game's play-by-play once and return every analytics bucket."""
-    pbp = http(f"{PROXY}/game/{nid}/play-by-play")
+    pbp = pbp_json(nid)
     if not pbp or not pbp.get("periods"):
         return None, "no-pbp"
     teams = pbp.get("teams", [])
@@ -133,6 +133,9 @@ def analyze_game(nid, og):
         prev_h = prev_a = None
         poss_side = poss_start = last_to_side = sc_flag = None
         run_side = None; run_pts = 0
+        prev_sig = None        # dedup: the feed emits each play TWICE (a spaced + no-space
+                               # variant for misses; a plain + "(assists)" variant for makes)
+        prev_had_assist = False
         for pl in per.get("playbyplayStats", []):
             desc = pl.get("eventDescription", "") or ""
             dl = desc.lower()
@@ -193,6 +196,29 @@ def analyze_game(nid, og):
             missed = "misses" in dl
             is_fga = (made or missed) and "free throw" not in dl
             uk = unit_key(side)
+
+            # DEDUP: the proxy feed emits each play twice — a spaced + no-space variant for
+            # misses ("Travis Perry misses" / "Travis Perrymisses"), and a plain + assist
+            # variant for makes ("... layup" / "... layup (Y assists)"). Points survive (they
+            # ride score deltas) but FGA/reb/tov/fta are per-event → doubled, which is what
+            # deflated every ORtg. Collapse a play against the immediately-preceding one on a
+            # whitespace/assist-stripped signature; on the make's assist-variant recover the
+            # assist (only if the plain first-half didn't already) before skipping the count.
+            sig = re.sub(r"\s+", "", re.sub(r"\(.*?\)", "", dl))
+            has_ast = bool(made and "free throw" not in dl and ASSIST_RE.search(desc))
+            if sig and sig == prev_sig:
+                if has_ast and not prev_had_assist and actor:
+                    am = ASSIST_RE.search(desc)
+                    aeid = n2e[side].get(norm(am.group(1)))
+                    if aeid:
+                        c = A["assist_net"][aeid][actor]
+                        c["n"] += 1; c["pts"] += shot_pts(desc)
+                        A["player"][aeid]["ast"] += 1
+                        A["player"][aeid]["ast_pts"] += shot_pts(desc)
+                        A["player"][actor]["fgm_ast"] += 1
+                continue
+            prev_sig = sig
+            prev_had_assist = has_ast
 
             if is_fga:
                 A["team"][side]["fga"] += 1

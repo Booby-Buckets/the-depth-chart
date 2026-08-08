@@ -38,6 +38,27 @@ def http(url, headers=None, tries=4):
         time.sleep(0.5 * (a + 1))
     return None
 
+_PBP_CACHE = os.path.join(DATADIR, "pbp_cache")
+def pbp_json(nid):
+    """Raw play-by-play for a game, cached to disk so re-runs don't re-fetch all ~5000
+    games from the proxy. Both on/off and the analytics builder pull the same feed, so a
+    game is fetched from the network at most once ever. Only well-formed responses are
+    cached; empties/None re-fetch (cheap) in case the proxy backfills them later."""
+    fp = os.path.join(_PBP_CACHE, f"{nid}.json")
+    if os.path.exists(fp):
+        try:
+            return json.load(open(fp))
+        except Exception:
+            pass
+    j = http(f"{PROXY}/game/{nid}/play-by-play")
+    if j and j.get("periods"):
+        os.makedirs(_PBP_CACHE, exist_ok=True)
+        try:
+            json.dump(j, open(fp, "w"))
+        except Exception:
+            pass
+    return j
+
 def norm(s):
     s = (s or "").lower()
     s = re.sub(r'[.\'’]', '', s)
@@ -98,7 +119,7 @@ def match_our_game(our_games, ncaa):
 
 # ── reconstruct one game -> per-espn on-court tallies + team totals ──────
 def process_game(nid, og):
-    pbp = http(f"{PROXY}/game/{nid}/play-by-play")
+    pbp = pbp_json(nid)
     if not pbp or not pbp.get("periods"): return None, "no-pbp"
     teams = pbp.get("teams", [])
     if len(teams) != 2: return None, "teams"
@@ -162,6 +183,7 @@ def process_game(nid, og):
 
     for per in pbp["periods"]:
         prev_h = prev_a = None
+        prev_sig = None        # dedup: the feed emits each play twice (see pbp analytics)
         for pl in per.get("playbyplayStats", []):
             desc = pl.get("eventDescription","")
             # score delta -> points to whichever side scored
@@ -190,6 +212,16 @@ def process_game(nid, og):
                 if io=="in": on[side].add(eid)
                 else: on[side].discard(eid)
                 continue
+            # DEDUP: the proxy feed emits each play twice (a spaced + no-space miss variant,
+            # a plain + "(assists)" make variant). Points ride score deltas (safe) but the
+            # fga/oreb/tov/fta tallies below are per-event → doubled, which halved every ORtg
+            # (the POSS_CAL fudge was tuned on the old un-doubled feed). Skip a play if it
+            # matches the previous one on a whitespace/paren-stripped signature.
+            dl = desc.lower()
+            sig = re.sub(r"\s+", "", re.sub(r"\(.*?\)", "", dl))
+            if sig and sig == prev_sig:
+                continue
+            prev_sig = sig
             # possession-component tallies for the acting side
             side = side_of_play(pl)
             c = classify(desc)
@@ -213,11 +245,13 @@ def classify(desc):
     if 'makes' in d or 'misses' in d: return 'fga'
     return 'other'
 
-# possession calibration: event-parsed possessions run a touch low (missed made-FTs
-# are recovered, but a few turnover/steal edge cases still slip through), so ratings
-# come out ~10-13% high. Scale possessions so league-average ORtg lands near the true
-# ~104. Re-tune from a full-season run's mean ORtg (mean/104) if needed.
-POSS_CAL = 1.12
+# possession calibration. The 1.12 value was tuned on the OLD feed, back when the proxy
+# emitted each play once; once the feed began emitting every play twice (see the dedup in
+# process_game) possessions ran ~2x high and ORtg collapsed to ~75. With the dedup in
+# place the raw event-parsed possessions are accurate on first principles — a 10-game Jan
+# sample lands league-mean ORtg at ~103 (vs the true ~104) with NO fudge — so this is now
+# ~1.0. Re-tune from a full-season run's mean ORtg (mean/104) if it drifts.
+POSS_CAL = 1.0
 
 def season_dates(season):
     # season 2025 == 2024-25: Nov (season-1) .. Apr (season)
