@@ -232,6 +232,20 @@ def process_game(nid, og):
             elif "blocks" in desc.lower():          # a blocked shot is a missed FGA for the OFFENSE
                 other = "A" if side=="H" else "H"; stint[other]["fga"]+=1
     close_stint()
+    # PARTIAL-PBP GUARD: early-season feeds often carry the final SCORE but drop most
+    # shot events, so points (from score deltas) stay intact while possessions (from
+    # fga/oreb/tov/fta events) collapse — ORtg then explodes into the hundreds/thousands
+    # and poisons the season aggregate. (build_pbp_analytics dodges this by only crediting
+    # full five-man units, which broken games lack; the stint model here has no such filter.)
+    # A completely-tracked D1 game has ~55-80 possessions per team and ORtg ~60-140; reject
+    # anything well outside that as a broken/partial feed.
+    for _s in ("H", "A"):
+        _p = tot[_s]["P"]                                    # full-game possessions for the side
+        if _p < 45 or _p > 120:
+            return None, "bad-poss(%s=%.0f)" % (_s, _p)
+        _ortg = 100 * tot[_s]["F"] / _p if _p else 0
+        if _ortg < 55 or _ortg > 150:
+            return None, "bad-ortg(%s=%.0f)" % (_s, _ortg)
     names = {str(b["espn_id"]): b["player"] for b in box if b.get("espn_id") is not None}
     return {"acc":acc, "tot":tot, "bad":bad, "teamH":box_home, "teamA":box_away, "names":names}, "ok"
 
@@ -245,13 +259,15 @@ def classify(desc):
     if 'makes' in d or 'misses' in d: return 'fga'
     return 'other'
 
-# possession calibration. The 1.12 value was tuned on the OLD feed, back when the proxy
-# emitted each play once; once the feed began emitting every play twice (see the dedup in
-# process_game) possessions ran ~2x high and ORtg collapsed to ~75. With the dedup in
-# place the raw event-parsed possessions are accurate on first principles — a 10-game Jan
-# sample lands league-mean ORtg at ~103 (vs the true ~104) with NO fudge — so this is now
-# ~1.0. Re-tune from a full-season run's mean ORtg (mean/104) if it drifts.
-POSS_CAL = 1.0
+# possession calibration. History: 1.12 was tuned on the OLD (un-doubled) feed; the feed
+# then began emitting every play twice, so possessions ran ~2x high and ORtg collapsed to
+# ~75 (fixed by the dedup in process_game). A 10-game Jan sample suggested ~1.0, but the
+# FULL 2026 season (after the partial-pbp guard removes broken early-season games) lands at
+# ~94.6 median ORtg at 1.0 — ~10% under the clean first-principles truth from
+# build_pbp_analytics (~106) and under the true D1 ~104-106. So the stint model here still
+# over-counts possessions by ~10%; 0.90 pulls median ORtg back to ~105. Re-tune from a
+# full-season run's median ORtg (POSS_CAL_old * median/105) if it drifts.
+POSS_CAL = 0.90
 
 def season_dates(season):
     # season 2025 == 2024-25: Nov (season-1) .. Apr (season)
