@@ -2636,5 +2636,47 @@ function toggleTheme(){
 })();
 </script>
   <script src="tdc-dense.js?v=32"></script>
+<script>
+/* A11y: the rankings is a CSS-grid table (divs), so give it ARIA table semantics —
+   screen readers then announce it as a real table (columns, headers, row navigation)
+   with none of the layout/sticky/sort risk of converting the DOM to <table> elements.
+   Re-applied after each sort/filter render via a MutationObserver on the row list. */
+(function(){
+  function apply(){
+    var scroll=document.querySelector('.table-scroll'); if(!scroll) return;
+    scroll.setAttribute('role','table');
+    if(!scroll.getAttribute('aria-label')) scroll.setAttribute('aria-label','Division I team power rankings');
+    var hdr=scroll.querySelector('.table-header');
+    if(hdr){
+      hdr.setAttribute('role','row');
+      hdr.querySelectorAll('.th').forEach(function(th){
+        if(th.getAttribute('role')!=='columnheader') th.setAttribute('role','columnheader');
+        if(th.classList.contains('sortable'))
+          th.setAttribute('aria-sort', th.classList.contains('sorted') ? (th.classList.contains('asc')?'ascending':'descending') : 'none');
+      });
+    }
+    var body=document.getElementById('rankingsList');
+    if(body){
+      body.setAttribute('role','rowgroup');
+      body.querySelectorAll('.team-row').forEach(function(row){
+        if(row.getAttribute('role')!=='row') row.setAttribute('role','row');
+        var cells=row.children;
+        for(var c=0;c<cells.length;c++){
+          var want=cells[c].classList.contains('tr-team-cell')?'rowheader':'cell';
+          if(cells[c].getAttribute('role')!==want) cells[c].setAttribute('role',want);
+        }
+      });
+    }
+  }
+  function boot(){
+    apply();
+    var body=document.getElementById('rankingsList');
+    if(body){ try{ new MutationObserver(apply).observe(body,{childList:true}); }catch(e){} }
+    var hdr=document.querySelector('.table-header');
+    if(hdr){ hdr.addEventListener('click',function(){ setTimeout(apply,0); }); }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+})();
+</script>
 </body>
 </html>
