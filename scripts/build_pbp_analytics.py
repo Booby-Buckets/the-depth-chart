@@ -525,6 +525,22 @@ def _write(season, team, anet, bnet, players, units, name,
         pairs = _combos(us, nm, 2, 180)[:16]
         if trios or pairs: out_combos[tn] = {"trios": trios, "pairs": pairs}
 
+    # ── DATA SANITY GUARD (mirrors build_onoff.py) — refuse to overwrite committed data
+    # with a broken rebuild. The duplicate-event bug drove lineup ORtg to ~75; partial-pbp
+    # garbage pushed it well over 125. A healthy season's median lineup ORtg is ~100-112.
+    _orts = sorted(u["off_rtg"] for tm in out_lu.values() for u in tm
+                   if u.get("off_rtg") is not None and 40 <= u["off_rtg"] <= 200)
+    _med = _orts[len(_orts)//2] if _orts else None
+    if _med is None or len(_orts) < 100:
+        print(f"\n*** SANITY FAIL: season {season} produced only {len(_orts)} lineup units — "
+              f"NOT writing (preserving committed data). ***")
+        return
+    if _med < 90 or _med > 125:
+        print(f"\n*** SANITY FAIL: season {season} median lineup ORtg {_med:.1f} is implausible "
+              f"(expect ~100-112). Looks like the duplicate-event / partial-pbp bug — NOT writing "
+              f"so the committed data is preserved. Investigate before rebuilding. ***")
+        return
+    print(f"[sanity] season {season} median lineup ORtg {_med:.1f} — OK")
     os.makedirs(DATADIR, exist_ok=True)
     for fn, key, data in (("team_pbp.json", "team", out_team), ("lineups.json", "lineups", out_lu), ("combos.json", "combos", out_combos)):
         path = os.path.join(DATADIR, fn)

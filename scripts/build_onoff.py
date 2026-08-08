@@ -336,6 +336,27 @@ def finish(agg, matched, processed, failed, season, write, verbose):
         rows.sort(key=lambda r:-(r["onoff_net"] if r["onoff_net"] is not None else -99))
         for r in rows[:12]:
             print(f"  {(r['team'] or '?')[:18]:18} espn {r['espn_id']:>8}  on {f(r['on_net'])}  off {f(r['off_net'])}  on/off {f(r['onoff_net'])}  ({r['on_poss']}p)")
+    # ── DATA SANITY GUARD ──────────────────────────────────────────────────
+    # The product IS the numbers, and several silent data bugs have shipped before
+    # (doubled possessions -> league ORtg ~75; garbage partial-pbp games -> ORtg 130+).
+    # Refuse to overwrite the committed data with anything whose league median ORtg is
+    # implausible, so a broken rebuild can never clobber good data.
+    _oo = sorted(r["on_o"] for r in rows if r.get("on_o") is not None and 40 <= r["on_o"] <= 200)
+    _med = _oo[len(_oo)//2] if _oo else None
+    if _med is None or len(rows) < 100:
+        print(f"\n*** SANITY FAIL: season {season} produced only {len(rows)} rows / no ORtg — "
+              f"NOT writing (preserving committed data). ***")
+        return rows
+    if _med < 80 or _med > 130:
+        print(f"\n*** SANITY FAIL: season {season} median ORtg {_med:.1f} is implausible "
+              f"(expect ~95-118). Looks like the doubled-possession / partial-pbp bug — NOT "
+              f"writing so the committed data is preserved. Investigate before rebuilding. ***")
+        return rows
+    if _med < 95 or _med > 118:
+        print(f"\n*** SANITY WARN: season {season} median ORtg {_med:.1f} is outside the usual "
+              f"95-118 band; writing anyway — double-check POSS_CAL. ***")
+    else:
+        print(f"[sanity] season {season} median ORtg {_med:.1f} — OK")
     if write:
         os.makedirs(DATADIR, exist_ok=True)
         path=os.path.join(DATADIR,"player_onoff.json")
