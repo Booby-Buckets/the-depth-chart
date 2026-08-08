@@ -559,12 +559,15 @@
     .table-scroll .table-header,
     .table-scroll .team-row,
     .table-scroll .skeleton-row { width: 100%; }
+    /* translateZ(0) promotes each pinned column to its own compositing layer so it
+       repaints cleanly over the scrolling heat cells; without it Chromium leaves
+       ghost fringes of the colored stat cells at the left edge while scrolling. */
     .table-header > .th:nth-child(1),
     .team-row > .tr-rank-wrap,
-    .skeleton-row > .skel-rank { position: sticky; left: 0; z-index: 4; }
+    .skeleton-row > .skel-rank { position: sticky; left: 0; z-index: 4; transform: translateZ(0); }
     .table-header > .th:nth-child(2),
     .team-row > .tr-team-cell,
-    .skeleton-row > .skel-name { position: sticky; left: 48px; z-index: 4; }
+    .skeleton-row > .skel-name { position: sticky; left: 48px; z-index: 4; transform: translateZ(0); }
     /* Background + shadow only appear once the stats are actually scrolled,
        so wide screens (no scroll) show no boxy backgrounds. */
     .table-scroll.scrolled .table-header > .th:nth-child(1),
