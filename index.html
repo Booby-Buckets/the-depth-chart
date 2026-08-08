@@ -565,20 +565,26 @@
     .table-header > .th:nth-child(2),
     .team-row > .tr-team-cell,
     .skeleton-row > .skel-name { position: sticky; left: 48px; z-index: 4; }
-    /* Background + shadow only appear once the stats are actually scrolled, so wide
-       screens (no scroll) show no boxy backgrounds. The pinned columns are filled with
-       an opaque INSET box-shadow, not just background-color: a Chromium position:sticky
-       compositing bug leaks the scrolling heat cells through an opaque background at the
-       left edge, but the box-shadow paints in a step that composites correctly and
-       occludes them. (background is kept as a fallback for engines without the bug.) */
-    .table-scroll.scrolled .table-header > .th:nth-child(1),
-    .table-scroll.scrolled .team-row > .tr-rank-wrap,
-    .table-scroll.scrolled .skeleton-row > .skel-rank { background: var(--bg); box-shadow: inset 0 0 0 999px var(--bg); }
-    .table-scroll.scrolled .table-header > .th:nth-child(2),
+    /* The pinned rank/team columns are ALWAYS opaque — never transparent, scrolled or not —
+       so the scrolling stat cells can never show through them. Filled with BOTH a matching
+       background-color AND an opaque inset box-shadow: a plain sticky background leaks
+       colored cells through on some engines, but the box-shadow paints in a step that
+       reliably occludes. Row cells match the table surface (--bg2); header cells match the
+       header row (--bg3). Only the right-edge divider shadow is gated on scroll. */
+    .team-row > .tr-rank-wrap,
+    .team-row > .tr-team-cell,
+    .skeleton-row > .skel-rank,
+    .skeleton-row > .skel-name { background: var(--bg2); box-shadow: inset 0 0 0 999px var(--bg2); }
+    .table-header > .th:nth-child(1),
+    .table-header > .th:nth-child(2) { background: var(--bg3); box-shadow: inset 0 0 0 999px var(--bg3); }
+    /* right-edge divider shadow only once stats actually scroll under the pinned columns */
+    .table-scroll.scrolled .table-header > .th:nth-child(2) { box-shadow: inset 0 0 0 999px var(--bg3), 10px 0 12px -10px rgba(0,0,0,.22); }
     .table-scroll.scrolled .team-row > .tr-team-cell,
-    .table-scroll.scrolled .skeleton-row > .skel-name { background: var(--bg); box-shadow: inset 0 0 0 999px var(--bg), 10px 0 12px -10px rgba(0,0,0,.22); }
-    .table-scroll.scrolled .team-row:hover > .tr-rank-wrap { background: var(--bg2); box-shadow: inset 0 0 0 999px var(--bg2); }
-    .table-scroll.scrolled .team-row:hover > .tr-team-cell { background: var(--bg2); box-shadow: inset 0 0 0 999px var(--bg2), 10px 0 12px -10px rgba(0,0,0,.22); }
+    .table-scroll.scrolled .skeleton-row > .skel-name { box-shadow: inset 0 0 0 999px var(--bg2), 10px 0 12px -10px rgba(0,0,0,.22); }
+    /* subtle hover tint so hovered rows still read on the pinned cells */
+    .team-row:hover > .tr-rank-wrap { background: var(--bg3); box-shadow: inset 0 0 0 999px var(--bg3); }
+    .team-row:hover > .tr-team-cell { background: var(--bg3); box-shadow: inset 0 0 0 999px var(--bg3); }
+    .table-scroll.scrolled .team-row:hover > .tr-team-cell { box-shadow: inset 0 0 0 999px var(--bg3), 10px 0 12px -10px rgba(0,0,0,.22); }
   }
 
   .table-header {
