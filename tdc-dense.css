@@ -162,7 +162,13 @@ html{ background:#0A0E18 !important; }
   .tr-spacer{ width:54px; }                 /* mobile card layout only; 641px+ uses the 74px grid track */
   .mg-val{ font-size:15px !important; }
 }
-.tr-trend-svg{ width:60px; height:20px; display:block; opacity:.9; }
+/* No element-level opacity: opacity<1 promotes the sparkline to its own compositing
+   layer, which then bleeds through the pinned RK/TEAM columns on horizontal scroll
+   (the box-shadow occlusion can't cover a separately-composited layer). The subtle
+   fade is applied via stroke-opacity/fill-opacity instead, which don't create a layer. */
+.tr-trend-svg{ width:60px; height:20px; display:block; }
+.tr-trend-svg path{ stroke-opacity:.9; }
+.tr-trend-svg circle{ fill-opacity:.9; }
 
 /* ---- click-to-expand row dropdown (minimal) ---- */
 .team-row{ cursor:pointer; }
