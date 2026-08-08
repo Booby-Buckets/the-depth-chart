@@ -559,32 +559,35 @@
     .table-scroll .table-header,
     .table-scroll .team-row,
     .table-scroll .skeleton-row { width: 100%; }
+    /* z-index:6 on the rank so it sits ABOVE the team cell's leftward occluding shadow (below) */
     .table-header > .th:nth-child(1),
     .team-row > .tr-rank-wrap,
-    .skeleton-row > .skel-rank { position: sticky; left: 0; z-index: 4; }
+    .skeleton-row > .skel-rank { position: sticky; left: 0; z-index: 6; }
     .table-header > .th:nth-child(2),
     .team-row > .tr-team-cell,
     .skeleton-row > .skel-name { position: sticky; left: 48px; z-index: 4; }
-    /* The pinned rank/team columns are ALWAYS opaque — never transparent, scrolled or not —
-       so the scrolling stat cells can never show through them. Filled with BOTH a matching
-       background-color AND an opaque inset box-shadow: a plain sticky background leaks
-       colored cells through on some engines, but the box-shadow paints in a step that
-       reliably occludes. Row cells match the table surface (--bg2); header cells match the
-       header row (--bg3). Only the right-edge divider shadow is gated on scroll. */
+    /* The pinned columns are always opaque so scrolling stat cells can't show through.
+       IMPORTANT: a sticky element pinned to the scroll container's exact left edge (the RANK
+       column, left:0) does NOT reliably occlude the cells scrolling under it in Chromium —
+       but a sticky element offset from the edge (the TEAM column, left:48) does. So instead of
+       relying on the rank cell to occlude, the TEAM cell paints its opaque fill 48px to the
+       LEFT (-48px 0 0 0), covering the rank column's zone too; the rank sits above it
+       (z-index:6) so its number stays visible. Row cells use --bg2 (table surface); header
+       cells use --bg3 (header row). Right-edge divider shadow is gated on scroll. */
     .team-row > .tr-rank-wrap,
+    .skeleton-row > .skel-rank { background: var(--bg2); box-shadow: inset 0 0 0 999px var(--bg2); }
+    .table-header > .th:nth-child(1) { background: var(--bg3); box-shadow: inset 0 0 0 999px var(--bg3); }
     .team-row > .tr-team-cell,
-    .skeleton-row > .skel-rank,
-    .skeleton-row > .skel-name { background: var(--bg2); box-shadow: inset 0 0 0 999px var(--bg2); }
-    .table-header > .th:nth-child(1),
-    .table-header > .th:nth-child(2) { background: var(--bg3); box-shadow: inset 0 0 0 999px var(--bg3); }
+    .skeleton-row > .skel-name { background: var(--bg2); box-shadow: inset 0 0 0 999px var(--bg2), -48px 0 0 0 var(--bg2); }
+    .table-header > .th:nth-child(2) { background: var(--bg3); box-shadow: inset 0 0 0 999px var(--bg3), -48px 0 0 0 var(--bg3); }
     /* right-edge divider shadow only once stats actually scroll under the pinned columns */
-    .table-scroll.scrolled .table-header > .th:nth-child(2) { box-shadow: inset 0 0 0 999px var(--bg3), 10px 0 12px -10px rgba(0,0,0,.22); }
     .table-scroll.scrolled .team-row > .tr-team-cell,
-    .table-scroll.scrolled .skeleton-row > .skel-name { box-shadow: inset 0 0 0 999px var(--bg2), 10px 0 12px -10px rgba(0,0,0,.22); }
+    .table-scroll.scrolled .skeleton-row > .skel-name { box-shadow: inset 0 0 0 999px var(--bg2), -48px 0 0 0 var(--bg2), 10px 0 12px -10px rgba(0,0,0,.22); }
+    .table-scroll.scrolled .table-header > .th:nth-child(2) { box-shadow: inset 0 0 0 999px var(--bg3), -48px 0 0 0 var(--bg3), 10px 0 12px -10px rgba(0,0,0,.22); }
     /* subtle hover tint so hovered rows still read on the pinned cells */
     .team-row:hover > .tr-rank-wrap { background: var(--bg3); box-shadow: inset 0 0 0 999px var(--bg3); }
-    .team-row:hover > .tr-team-cell { background: var(--bg3); box-shadow: inset 0 0 0 999px var(--bg3); }
-    .table-scroll.scrolled .team-row:hover > .tr-team-cell { box-shadow: inset 0 0 0 999px var(--bg3), 10px 0 12px -10px rgba(0,0,0,.22); }
+    .team-row:hover > .tr-team-cell { background: var(--bg3); box-shadow: inset 0 0 0 999px var(--bg3), -48px 0 0 0 var(--bg3); }
+    .table-scroll.scrolled .team-row:hover > .tr-team-cell { box-shadow: inset 0 0 0 999px var(--bg3), -48px 0 0 0 var(--bg3), 10px 0 12px -10px rgba(0,0,0,.22); }
   }
 
   .table-header {
