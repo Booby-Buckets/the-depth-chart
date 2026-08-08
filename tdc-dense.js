@@ -159,9 +159,14 @@
     var d='M'+X(0).toFixed(1)+','+Y(vals[0]).toFixed(1);
     for(var j=1;j<n;j++) d+='L'+X(j).toFixed(1)+','+Y(vals[j]).toFixed(1);
     var end=vals[n-1], col=(end>=0)?'#2DE0A6':'#F87171';   // green = above-average NET, red = below
-    return '<svg class="tr-trend-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">'
-      +'<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'
-      +'<circle cx="'+X(n-1).toFixed(1)+'" cy="'+Y(end).toFixed(1)+'" r="1.9" fill="'+col+'"/></svg>';
+    // Render as a CSS background-image, NOT an inline <svg>: an inline SVG element paints
+    // THROUGH the sticky RK/TEAM columns on horizontal scroll (it composites on its own
+    // layer that the columns' opaque fill can't occlude). A background-image is a paint
+    // property the pinned columns' opaque box-shadow occludes cleanly, like any other cell.
+    var svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">'
+      +'<path d="'+d+'" fill="none" stroke="'+col+'" stroke-opacity="0.9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'
+      +'<circle cx="'+X(n-1).toFixed(1)+'" cy="'+Y(end).toFixed(1)+'" r="1.9" fill="'+col+'" fill-opacity="0.9"/></svg>';
+    return '<div class="tr-trend-svg" style="background-image:url(\''+('data:image/svg+xml,'+encodeURIComponent(svg))+'\')"></div>';
   }
   function addTrend(){
     var cs=curSeason();

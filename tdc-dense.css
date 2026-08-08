@@ -162,13 +162,12 @@ html{ background:#0A0E18 !important; }
   .tr-spacer{ width:54px; }                 /* mobile card layout only; 641px+ uses the 74px grid track */
   .mg-val{ font-size:15px !important; }
 }
-/* No element-level opacity: opacity<1 promotes the sparkline to its own compositing
-   layer, which then bleeds through the pinned RK/TEAM columns on horizontal scroll
-   (the box-shadow occlusion can't cover a separately-composited layer). The subtle
-   fade is applied via stroke-opacity/fill-opacity instead, which don't create a layer. */
-.tr-trend-svg{ width:60px; height:20px; display:block; }
-.tr-trend-svg path{ stroke-opacity:.9; }
-.tr-trend-svg circle{ fill-opacity:.9; }
+/* The trend sparkline is a background-image on a plain div (not an inline <svg>), so the
+   pinned RK/TEAM columns' opaque fill occludes it on horizontal scroll — an inline SVG
+   element paints through a sticky cell in Chromium; a CSS background does not. The subtle
+   fade lives in the SVG's own stroke-opacity (inside the image), never element opacity
+   (which would re-promote it to a bleeding compositing layer). */
+.tr-trend-svg{ width:60px; height:20px; display:block; background:center/60px 20px no-repeat; }
 
 /* ---- click-to-expand row dropdown (minimal) ---- */
 .team-row{ cursor:pointer; }
