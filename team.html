@@ -944,7 +944,7 @@
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index cover -->
   <script>try{document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
   <link rel="stylesheet" href="tdc-dense.css?v=27"/>
-  <link rel="stylesheet" href="tdc-team-dense.css?v=12"/>
+  <link rel="stylesheet" href="tdc-team-dense.css?v=15"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth -->
   <link rel="stylesheet" href="tdc-skin.css?v=7"/>
 </head>
@@ -1808,7 +1808,7 @@ async function renderHeroBar(yr, teamObj){
     else if(rank && rank<=76){ seedCell={v:'Bubble',l:'Projected seed',cls:'seed',badge:'B',badgeCls:'bubble'}; }
     if(seedCell) seedCell.tip='projseed';
     rEl.innerHTML=_ribHTML([
-      {v:net.s,l:'Power Rating',tip:'projrating',col:net.cls==='pos'?'var(--mint)':(net.cls==='neg'?'var(--red)':'')},
+      {v:net.s,l:'Power Rating',tip:'projrating',col:net.cls==='pos'?'var(--tc-readable)':(net.cls==='neg'?'var(--red)':'')},
       seedCell,
       rank?{v:'#'+rank,l:'Proj rank',tip:'projrank'}:null,
       {v:t.conf||t.conference,l:'Conference'},
@@ -1818,11 +1818,11 @@ async function renderHeroBar(yr, teamObj){
       // Positive = hot (projection regresses it), negative = cold (projection bumps it).
       (rr&&rr.shotLuck!=null&&Math.abs(rr.shotLuck)>=2)
         ? {v:(rr.shotLuck>0?'+':'')+rr.shotLuck, l:'Shot luck', tip:'shotluck',
-           col:rr.shotLuck>0?'var(--amber)':'var(--mint)'} : null,
+           col:rr.shotLuck>0?'var(--amber)':'var(--tc-readable)'} : null,
       // continuity: share of last year's minutes returning (a projection factor)
       (rr&&rr.continuity!=null)
         ? {v:Math.round(rr.continuity)+'%', l:'Continuity', tip:'continuity',
-           col:rr.continuity>=50?'var(--mint)':rr.continuity<=20?'var(--amber)':''} : null,
+           col:rr.continuity>=50?'var(--tc-readable)':rr.continuity<=20?'var(--amber)':''} : null,
     ]);
     if(gEl){
       const gh=await _projGradeTiles(rr);
@@ -1856,7 +1856,7 @@ async function renderHeroBar(yr, teamObj){
   // wide ribbon: NET · NCAA seed · final rank · record · conf · result
   const confRec=(row.conf_wins!=null&&row.conf_losses!=null)?`${row.conf_wins}–${row.conf_losses}`:'';
   rEl.innerHTML=_ribHTML([
-    {v:net.s,l:'Power Rating',tip:'power',col:net.cls==='pos'?'var(--mint)':(net.cls==='neg'?'var(--red)':'')},
+    {v:net.s,l:'Power Rating',tip:'power',col:net.cls==='pos'?'var(--tc-readable)':(net.cls==='neg'?'var(--red)':'')},
     row.ncaa_seed?{v:'No. '+row.ncaa_seed,l:'NCAA seed',cls:'seed',badge:String(row.ncaa_seed),tip:'ncaaseed'}:null,
     rank?{v:'#'+rank,l:'Final rank',tip:'natrank'}:null,
     {v:`${row.wins}–${row.losses}`,l:'Record'},
