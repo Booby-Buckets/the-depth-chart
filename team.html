@@ -932,7 +932,7 @@
   <link rel="stylesheet" href="tdc-dense.css?v=27"/>
   <link rel="stylesheet" href="tdc-team-dense.css?v=11"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth -->
-  <link rel="stylesheet" href="tdc-skin.css?v=6"/>
+  <link rel="stylesheet" href="tdc-skin.css?v=7"/>
 </head>
 <body data-anim-auto>
 <script src="tdc-nav.js?v=6"></script>
@@ -3433,7 +3433,7 @@ let _squadSel = null;
 function _sqAttr(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function _sqInit(n){ return (n||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase(); }
 function _sqHead(eid){ return (eid&&window.tdcShowPhotos&&window.tdcShowPhotos())?`<img src="https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/${eid}.png" alt="" onerror="this.remove()"/>`:''; }
-function _sqCol(g){ g=parseFloat(g); const dk=document.documentElement.getAttribute('data-theme')==='dark'; if(isNaN(g))return 'var(--text3)'; if(g>=88)return dk?'#5ab875':'#1a8c3a'; if(g>=80)return dk?'#e6d5a8':'#a06000'; if(g>=72)return 'var(--text)'; return 'var(--text2)'; }
+function _sqCol(g){ g=parseFloat(g); const dk=document.documentElement.getAttribute('data-theme')==='dark'; if(isNaN(g))return 'var(--text3)'; if(g>=88)return dk?'#8ab8ff':'#1746b8'; if(g>=80)return dk?'#6f9fe6':'#2f66c0'; if(g>=72)return dk?'#9fb3d6':'#5f7bb0'; return 'var(--text2)'; }
 const _COURT_XY={ C:{x:58,y:19}, PF:{x:31,y:28}, SF:{x:19,y:57}, SG:{x:81,y:57}, PG:{x:50,y:61} };
 // On-court position adjusted for PLAYING STYLE, not just the depth-chart slot:
 // a stretch big drifts out toward the wing/arc instead of sitting on the block,
@@ -6520,10 +6520,12 @@ function _appendDepthLosses(yr){
 function _ovrChip(g){
   var n=parseInt(g,10);
   if(isNaN(n)) return '<span class="hr-ovr-chip" style="color:var(--text3)">—</span>';
-  var bg,fg='#0b0f19';
-  if(n>=90) bg='#5ec27a';
-  else if(n>=84) bg='#5a9bd8';
-  else if(n>=78) bg='#6b7688';
+  // Single blue quality ramp (deeper = better) — matches the site-wide grade scale.
+  var bg,fg='#fff';
+  if(n>=90) bg='#1746b8';
+  else if(n>=83) bg='#2f66c0';
+  else if(n>=76) bg='#5a86c8';
+  else if(n>=68){ bg='#c3d3ee'; fg='#1a2b4a'; }
   else { bg='rgba(128,128,128,.16)'; fg='var(--text2)'; }
   return '<span class="hr-ovr-chip" style="background:'+bg+';color:'+fg+'">'+n+'</span>';
 }
