@@ -1,0 +1,48 @@
+/* ============================================================
+   tdc-a11y.css — site-wide accessibility baseline.
+   Purely additive: nothing here changes the mouse-user experience.
+   Loaded on every page alongside tdc-a11y.js.
+   ============================================================ */
+
+/* Visible keyboard focus. :focus-visible only triggers for keyboard/AT navigation,
+   so mouse clicks never show an outline — no visual regression for pointer users. */
+:focus-visible {
+  outline: 2px solid var(--accent, #4a84f4) !important;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+/* belt-and-suspenders for engines without :focus-visible support */
+a:focus-visible, button:focus-visible, [role="button"]:focus-visible,
+[tabindex]:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent, #4a84f4) !important;
+  outline-offset: 2px;
+}
+
+/* Screen-reader-only utility */
+.sr-only {
+  position: absolute !important; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* Skip-to-content link (injected by tdc-a11y.js). Hidden until keyboard-focused. */
+.tdc-skip-link {
+  position: fixed; left: 8px; top: -80px; z-index: 100000;
+  background: var(--accent, #2952e0); color: #fff;
+  padding: 9px 16px; border-radius: 8px;
+  font-family: inherit; font-size: 13px; font-weight: 700;
+  text-decoration: none; transition: top .15s ease;
+}
+.tdc-skip-link:focus { top: 8px; }
+
+/* Respect reduced-motion. Use near-instant durations (NOT animation:none) so JS that
+   listens for transitionend/animationend still fires — avoids breaking accordions,
+   bar reveals, tab swaps, etc. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
