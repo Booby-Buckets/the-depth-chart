@@ -44,8 +44,9 @@
 .hero-name{ font-family:'Sora',sans-serif !important; font-weight:800 !important; font-size:38px !important; line-height:1.0 !important; letter-spacing:-.02em !important; margin:1px 0 4px !important; }
 .hero-nickname{ font-size:12px !important; color:var(--text3) !important; margin-bottom:3px !important; }
 .hero-meta{ font-size:12px !important; color:var(--text2) !important; gap:10px !important; }
-.hero-meta a{ color:var(--mint) !important; }
-.hero-rank{ color:var(--tc-readable) !important; font-weight:700; }
+.hero-meta a{ color:var(--text2) !important; transition:color .15s; }   /* coach link: neutral, team accent on hover (was loud mint green) */
+.hero-meta a:hover{ color:var(--tc-readable,var(--accent)) !important; }
+.hero-rank{ font-weight:700; }   /* color/shape owned by team.html's soft neutral chip */
 
 /* metrics now live in the full-width ribbon below, not inline by the name */
 .hero-metrics{ display:none !important; }
@@ -70,9 +71,22 @@
 /* grade strip → modern grade tiles (colored by grade + accent bar; year-aware via JS) */
 .hero-grades{ display:flex !important; gap:9px !important; background:transparent !important; border:none !important; border-radius:0 !important; padding:0 !important; overflow:visible !important; flex:0 0 auto; }
 .hero-grade{ width:90px; display:flex !important; flex-direction:column; padding:9px 13px 12px !important; border-radius:11px !important; background:rgba(9,12,20,.38) !important; border:1px solid rgba(130,150,200,.10) !important; position:relative; overflow:hidden; text-align:left !important; }
-.hero-grade-val{ font-family:'Sora',sans-serif !important; font-weight:800 !important; font-size:23px !important; line-height:1.05 !important; font-variant-numeric:tabular-nums; }
+.hero-grade-val{ font-family:'Sora',sans-serif !important; font-weight:800 !important; font-size:23px !important; line-height:1.05 !important; font-variant-numeric:tabular-nums; color:var(--text2); }
 .hero-grade-label{ font-size:9.5px !important; font-weight:700 !important; letter-spacing:.06em; text-transform:uppercase; color:var(--text3) !important; margin-top:3px !important; }
-.hero-grade::after{ content:''; position:absolute; left:0; bottom:0; height:3px; border-radius:0 2px 2px 0; width:var(--hgf,60%); background:var(--hgc,var(--mint)); transition:width .3s; }
+/* Graphite ink ramp — the value itself stays neutral/editorial (tier 1 = darkest in
+   light / brightest in dark); the team-colored accent bar below carries the strength
+   signal. Replaces the old violet/mint/blue rainbow. */
+.hero-grade[data-gt="1"] .hero-grade-val{ color:#0f172a !important; }
+.hero-grade[data-gt="2"] .hero-grade-val{ color:#293445 !important; }
+.hero-grade[data-gt="3"] .hero-grade-val{ color:#475569 !important; }
+.hero-grade[data-gt="4"] .hero-grade-val{ color:#6b7280 !important; }
+.hero-grade[data-gt="5"] .hero-grade-val{ color:#94a3b8 !important; }
+:root[data-theme="dark"] .hero-grade[data-gt="1"] .hero-grade-val{ color:#f8fafc !important; }
+:root[data-theme="dark"] .hero-grade[data-gt="2"] .hero-grade-val{ color:#dfe6ef !important; }
+:root[data-theme="dark"] .hero-grade[data-gt="3"] .hero-grade-val{ color:#c0c8d4 !important; }
+:root[data-theme="dark"] .hero-grade[data-gt="4"] .hero-grade-val{ color:#98a3b3 !important; }
+:root[data-theme="dark"] .hero-grade[data-gt="5"] .hero-grade-val{ color:#6f7a89 !important; }
+.hero-grade::after{ content:''; position:absolute; left:0; bottom:0; height:3px; border-radius:0 2px 2px 0; width:var(--hgf,60%); background:var(--tc-readable,var(--accent)); opacity:.9; transition:width .3s; }
 
 /* tabs → modern segmented pills */
 .hero-tabs{ display:flex !important; gap:3px !important; background:var(--bg2) !important; border:1px solid var(--border) !important; border-radius:12px !important; padding:4px !important; border-top:none !important; margin-top:14px !important; }

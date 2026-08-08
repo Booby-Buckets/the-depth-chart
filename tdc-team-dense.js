@@ -23,21 +23,24 @@
     hero.insertBefore(img, hero.firstChild);
     return true;
   }
-  /* ---- color the grade tiles by grade + set the accent bar width ---- */
-  var GC={mint:'#2DE0A6',violet:'#8B7CFF',blue:'#5B8DEF',amber:'#FBBF24',red:'#F87171'};
+  /* ---- grade tiles: graphite ink for the value (tier 1 = darkest/best), team color
+     for the accent bar. Returns a tier (1..5, drives the ink shade via CSS, theme-aware)
+     + a fill% for the bar width. No rainbow — the color signal is the team-colored bar. */
   function gInfo(raw){
     var s=(''+raw).trim();
-    if(/^tier/i.test(s)){ var t=parseInt(s.replace(/\D/g,''))||5; var map={1:[GC.violet,99],2:[GC.blue,90],3:[GC.mint,82],4:[GC.mint,74],5:[GC.amber,66]}; var m=map[t]||[GC.amber,55]; return {c:m[0],fill:m[1]}; }
-    if(/^[0-9.]+$/.test(s)){ var v=parseFloat(s); var c=v>=90?GC.blue:v>=80?GC.mint:v>=70?GC.amber:GC.red; return {c:c,fill:Math.max(20,Math.min(100,v))}; }
-    var L={'A+':[GC.violet,99],'A':[GC.blue,93],'A-':[GC.blue,90],'B+':[GC.mint,87],'B':[GC.mint,83],'B-':[GC.mint,80],'C+':[GC.amber,77],'C':[GC.amber,73],'C-':[GC.amber,70],'D':[GC.red,62],'F':[GC.red,42]};
-    var k=s.toUpperCase(), m=L[k]||[GC.mint,72]; return {c:m[0],fill:m[1]};
+    if(/^tier/i.test(s)){ var t=parseInt(s.replace(/\D/g,''))||5; var map={1:[1,99],2:[2,90],3:[3,82],4:[3,74],5:[4,66]}; var m=map[t]||[4,55]; return {tier:m[0],fill:m[1]}; }
+    if(/^[0-9.]+$/.test(s)){ var v=parseFloat(s); var ti=v>=90?1:v>=80?2:v>=70?3:v>=60?4:5; return {tier:ti,fill:Math.max(20,Math.min(100,v))}; }
+    var L={'A+':[1,99],'A':[1,93],'A-':[2,90],'B+':[2,87],'B':[3,83],'B-':[3,80],'C+':[4,77],'C':[4,73],'C-':[4,70],'D':[5,62],'F':[5,42]};
+    var k=s.toUpperCase(), m=L[k]||[3,72]; return {tier:m[0],fill:m[1]};
   }
   function styleGrades(){
     var cells=document.querySelectorAll('.hero-grade'); if(!cells.length) return false;
     cells.forEach(function(cell){
       var el=cell.querySelector('.hero-grade-val'); if(!el) return;
       var g=gInfo(el.textContent);
-      el.style.color=g.c; cell.style.setProperty('--hgc',g.c); cell.style.setProperty('--hgf',g.fill+'%');
+      el.style.color='';                                   // let CSS own the graphite ink (theme-aware)
+      cell.style.removeProperty('--hgc');
+      cell.dataset.gt=g.tier; cell.style.setProperty('--hgf',g.fill+'%');
     });
     return true;
   }
