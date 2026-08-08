@@ -5,7 +5,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-shotchart.js?v=14"></script>
-  <script src="tdc-lineups.js?v=12"></script>
+  <script src="tdc-lineups.js?v=13"></script>
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-moneyball.js?v=1"></script>
   <script src="tdc-nil.js?v=cal1"></script>
@@ -700,6 +700,18 @@
     .sortable-table tbody tr:nth-child(even) td{background:rgba(128,128,128,.035);}
     .sortable-table tbody tr:hover td{background:var(--bg2);}
     .sortable-table td.elite{background:rgba(26,140,58,.12);}
+    /* On/Off impact visuals — shared by the On/Off tab + Customize › Team Analytics
+       (ported from onoff.html so the whole site reads the same). */
+    .impact-wrap{display:flex;align-items:center;justify-content:flex-end;gap:8px;}
+    .impact-bar{position:relative;width:46px;height:13px;flex:0 0 auto;background:var(--bg3);border-radius:3px;}
+    .impact-bar::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--border2);}
+    .impact-bar i{position:absolute;top:0;bottom:0;}
+    .impact-bar i.pos{background:#2bb673;left:50%;border-radius:0 2px 2px 0;}
+    .impact-bar i.neg{background:#e06552;right:50%;border-radius:2px 0 0 2px;}
+    .impact-val{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;min-width:44px;text-align:right;}
+    .impact-chip{font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:20px;white-space:nowrap;}
+    .c-pos{color:#2bb673;} .c-neg{color:#e06552;}
+    .sortable-table td.heat{border-radius:3px;}
     .section-head{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:16px 0 10px;border-bottom:1px solid var(--border);margin-bottom:12px;}
     .loading-spinner{width:32px;height:32px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 16px;}
     .comment-card{border:1px solid var(--border);padding:14px 16px;margin-bottom:10px;transition:border-color .2s;}
@@ -4152,6 +4164,7 @@ function rebuildCustomizeUI(){
     <div class="cz-subpanel" data-sub="analytics">
       <div class="sec-head" style="margin:2px 0 14px;">Team Analytics <span class="sec-head-sub">lineup impact &amp; where this roster is exposed</span></div>
       ${renderImpactPanel()}
+      ${renderCzOnoffPanel()}
     </div>
     <div class="cz-subpanel" data-sub="coach">
       <div class="sec-head" style="margin:2px 0 14px;">Coach <span class="sec-head-sub">how this coach's system fits your roster · swap to compare</span></div>
@@ -4162,6 +4175,7 @@ function rebuildCustomizeUI(){
       ${renderCustomProjectionsTable()}
     </div>`;
   switchCustomizeSubtab(window._custSub||'lineup');
+  fillCzOnoff();
 }
 // Sub-tabs keep the busy Customize tab from dumping every chart at once — one
 // focused section shows at a time (the squad court now lives in the Lineup tab).
@@ -4747,6 +4761,59 @@ function renderImpactPanel(){
   </div>`;
 }
 
+// ── REAL ON/OFF IMPACT in the Customize tab ───────────────────────────────
+// The Team Impact grid above is projection-driven (what this rotation SHOULD do).
+// This block layers in the REAL, measured on/off swing for each rotation player
+// from last season's play-by-play (player_onoff.json) — who actually moved the
+// team's net rating when they were on the floor. Same impact-bar language as the
+// On/Off tab + onoff.html.
+function renderCzOnoffPanel(){
+  return `<div id="czOnoffHost" style="margin-top:22px;"></div>`;
+}
+function fillCzOnoff(){
+  const host=document.getElementById('czOnoffHost'); if(!host) return;
+  const draw=()=>{
+    const data=_onoffData||{};
+    const nm=s=>(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
+    const short=nm((typeof teamName!=='undefined'&&teamName)||(typeof teamT!=='undefined'&&teamT&&teamT.name)||'');
+    let season=null, rows=[];
+    for(const s of Object.keys(data).sort().reverse()){
+      const cand=(data[s]||[]).filter(r=>{ const t=nm(r.team); return t===short||t.startsWith(short+' '); });
+      if(cand.length){ season=s; rows=cand; break; }
+    }
+    if(!rows.length){ host.innerHTML=`<div class="imp-head"><span>Real On/Off Impact <em>· measured last season</em></span></div>
+      <div style="padding:14px;color:var(--text3);font-size:12px;border:1px solid var(--border);border-radius:10px;">No play-by-play on/off data for this team yet.</div>`; return; }
+    rows.forEach(r=>{ const on=+r.on_poss||0, off=+r.off_poss||0, raw=r.onoff_net;
+      r._adj=(raw!=null&&on>=300&&off>=200)?Math.round(Math.max(-35,Math.min(35,raw))*off/(off+300)*10)/10:null; });
+    const byId={}, byName={};
+    rows.forEach(r=>{ if(r.espn_id!=null) byId[String(r.espn_id)]=r; byName[nm(r.name)]=r; });
+    // current custom rotation (players getting minutes), matched to the on/off rows
+    const proj=(buildCustomProjections()||[]).filter(p=>(parseFloat(p.mpg)||0)>0);
+    const items=proj.map(p=>{
+      const r=(p.espn_id!=null&&byId[String(p.espn_id)])||byName[nm(p.name)];
+      return r?{name:p.name, adj:r._adj, on_poss:+r.on_poss||0, raw:r.onoff_net}:null;
+    }).filter(x=>x&&x.adj!=null).sort((a,b)=>b.adj-a.adj);
+    if(!items.length){ host.innerHTML=`<div class="imp-head"><span>Real On/Off Impact <em>· measured last season</em></span></div>
+      <div style="padding:14px;color:var(--text3);font-size:12px;border:1px solid var(--border);border-radius:10px;">None of the current rotation has enough tracked possessions (300+ on / 200+ off) for a reliable on/off read.</div>`; return; }
+    const f=(v)=>v==null?'—':(+v).toFixed(1);
+    const tier=v=>v==null?null:v>=12?{t:'Elite',c:'#1f9d57'}:v>=6?{t:'Strong',c:'#2bb673'}:v>=2?{t:'Positive',c:'#6bbf8a'}:v>-2?{t:'Neutral',c:'#8a93a3'}:v>-6?{t:'Negative',c:'#e0885a'}:{t:'Drag',c:'#e06552'};
+    const bar=(v,maxAbs)=>{ const w=(Math.min(1,Math.abs(v)/maxAbs)*50).toFixed(0);
+      return '<span class="impact-bar"><i class="'+(v>=0?'pos':'neg')+'" style="width:'+w+'%"></i></span>'; };
+    const yl=(+season-1)+'-'+(''+season).slice(2);
+    const rowsH=items.map(x=>{ const tr=tier(x.adj), vc=x.adj>0?'c-pos':x.adj<0?'c-neg':'';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 2px;border-top:1px solid var(--border);">
+        <div style="min-width:0;font-weight:700;font-size:12.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(x.name||'').replace(/"/g,'&quot;')} · ${x.on_poss} on-poss">${x.name||'—'}</div>
+        <div class="impact-wrap" style="flex:0 0 auto;">${tr?`<span class="impact-chip" style="color:${tr.c};background:${tr.c}22;">${tr.t}</span>`:''}${bar(x.adj,20)}<span class="impact-val ${vc}">${x.adj>0?'+':''}${f(x.adj)}</span></div>
+      </div>`; }).join('');
+    host.innerHTML=`<div class="imp-head"><span>Real On/Off Impact <em>· measured ${yl} — not projection</em></span>
+        <span style="font-size:10px;color:var(--text3);">points per 100, sample-adjusted</span></div>
+      <div style="border:1px solid var(--border);border-radius:12px;padding:4px 14px 10px;background:var(--bg2);">${rowsH}</div>
+      <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:8px;max-width:760px;">How much better the team's net rating was with each man <b style="color:var(--text2);">on the floor vs off it</b> last season, reconstructed from play-by-play and shrunk for sample size. Measured against teammates, not opponent-adjusted — context for who really drives this rotation.</div>`;
+  };
+  if(_onoffData){ draw(); return; }
+  fetch('scripts/data/player_onoff.json').then(r=>r.ok?r.json():{}).then(j=>{ _onoffData=j||{}; draw(); }).catch(()=>{ host.innerHTML=''; });
+}
+
 // ── WEAKNESS SCOUT ────────────────────────────────────────
 const band=(v,lo,hi)=>Math.max(0,Math.min(100,Math.round((v-lo)/(hi-lo)*100)));
 const _inches=h=>{const m=/^(\d+)[-'](\d+)/.exec(h||'');return m?(+m[1]*12)+(+m[2]):null;};
@@ -4948,19 +5015,31 @@ async function renderOnOff(){
   const f=(v,d)=>v==null?'—':(+v).toFixed(d==null?1:d);
   const col=v=>v==null?'':(v>0?'#2bb673':v<0?'#e06552':'');
   const impTier=v=>v==null?null:v>=12?{t:'Elite',c:'#1f9d57'}:v>=6?{t:'Strong',c:'#2bb673'}:v>=2?{t:'Positive',c:'#6bbf8a'}:v>-2?{t:'Neutral',c:'#8a93a3'}:v>-6?{t:'Negative',c:'#e0885a'}:{t:'Drag',c:'#e06552'};
+  // diverging impact-bar cell (green right / red left) — matches onoff.html
+  const impCell=(v,tier,maxAbs)=>{
+    if(v==null||!isFinite(v)) return '<td class="onoff-big"><div class="impact-wrap"><span class="impact-val">—</span></div></td>';
+    const w=(Math.min(1,Math.abs(v)/maxAbs)*50).toFixed(0);
+    const bar='<i class="'+(v>=0?'pos':'neg')+'" style="width:'+w+'%"></i>';
+    const chip=tier?'<span class="impact-chip" style="color:'+tier.c+';background:'+tier.c+'22;">'+tier.t+'</span>':'';
+    const vc=v>0?'c-pos':v<0?'c-neg':'';
+    return '<td class="onoff-big" title="Raw swing '+(v>0?'+':'')+f(v)+' — sample-adjusted"><div class="impact-wrap">'+chip+'<span class="impact-bar">'+bar+'</span><span class="impact-val '+vc+'">'+(v>0?'+':'')+f(v,1)+'</span></div></td>';
+  };
+  // per-column blue heat (deeper = more efficient; DRtg inverted) across the shown rows
+  const HK=['on_o','on_d','off_o','off_d'], HR={};
+  HK.forEach(k=>{ const vs=rows.map(r=>r[k]).filter(v=>v!=null&&isFinite(v)); if(vs.length) HR[k]={lo:Math.min(...vs),hi:Math.max(...vs)}; });
+  const heatBg=(k,v,inv)=>{ const h=HR[k]; if(!h||v==null||!isFinite(v)||h.hi<=h.lo) return ''; let n=(v-h.lo)/(h.hi-h.lo); if(inv) n=1-n; return ' style="background:rgba(77,127,214,'+(0.06+n*0.34).toFixed(3)+');"'; };
   const yl=(+season-1)+'-'+(''+season).slice(2);
   const showPhoto=(window.tdcShowPhotos&&window.tdcShowPhotos());
   const body=rows.map((r,i)=>{
-    const photo=(showPhoto&&r.espn_id)?('https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+r.espn_id+'.png'):'';
     return `<tr>
       <td style="text-align:left;color:var(--text3);">${i+1}</td>
       <td style="text-align:left;"><a href="player.html?espn=${r.espn_id}" style="color:var(--text);font-weight:700;text-decoration:none;">${r.name||'—'}</a></td>
       <td>${f(r.on_poss,0)}</td>
-      <td title="Raw swing ${r.onoff_net>0?'+':''}${f(r.onoff_net)} over ${f(r.off_poss,0)} bench-unit poss — Impact shrinks this for sample size" style="font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:${col(r._adj)};white-space:nowrap;">${r._adj==null?'—':(r._adj>0?'+':'')+f(r._adj)}${(()=>{const tr=impTier(r._adj);return tr?`<div style="font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${tr.c};margin-top:1px;">${tr.t}</div>`:'';})()}</td>
-      <td style="color:${col(r.on_net)};">${f(r.on_net)}</td>
-      <td style="color:${col(r.off_net)};">${f(r.off_net)}</td>
-      <td>${f(r.on_o)}</td><td>${f(r.on_d)}</td>
-      <td>${f(r.off_o)}</td><td>${f(r.off_d)}</td>
+      ${impCell(r._adj, impTier(r._adj), 20)}
+      <td style="color:${col(r.on_net)};">${r.on_net>0?'+':''}${f(r.on_net)}</td>
+      <td style="color:${col(r.off_net)};">${r.off_net>0?'+':''}${f(r.off_net)}</td>
+      <td class="heat"${heatBg('on_o',r.on_o)}>${f(r.on_o)}</td><td class="heat"${heatBg('on_d',r.on_d,true)}>${f(r.on_d)}</td>
+      <td class="heat"${heatBg('off_o',r.off_o)}>${f(r.off_o)}</td><td class="heat"${heatBg('off_d',r.off_d,true)}>${f(r.off_d)}</td>
     </tr>`;
   }).join('');
   host.innerHTML=`

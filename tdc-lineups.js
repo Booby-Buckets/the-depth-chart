@@ -141,6 +141,16 @@ window.TDC_LINEUPS = (function () {
   function toGFC(p) { p = ('' + (p || '')).toUpperCase().trim(); if (!p) return '';
     if (p.indexOf('C') >= 0 && p.indexOf('G') < 0 && p.indexOf('F') < 0) return 'C';
     if (p.indexOf('F') >= 0) return 'F'; return 'G'; }
+  // small diverging net bar (green right / red left) under the NET value — the on/off
+  // visual language shared with onoff.html + the team On/Off tab.
+  function netBarMini(v, maxAbs) {
+    if (v == null || isNaN(v)) return '';
+    var w = (Math.min(1, Math.abs(v) / maxAbs) * 50).toFixed(0);
+    var color = v >= 0 ? '#2bb673' : '#e06552', side = v >= 0 ? 'left:50%;' : 'right:50%;';
+    return '<div style="position:relative;height:5px;width:52px;margin:3px auto 0;background:var(--bg3);border-radius:3px;">'
+      + '<div style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:var(--border2);"></div>'
+      + '<div style="position:absolute;top:0;bottom:0;' + side + 'width:' + w + '%;background:' + color + ';border-radius:2px;"></div></div>';
+  }
   function posKey(s) { return norm(s).replace(/\b(jr|sr|ii|iii|iv|v)\b/g, '').replace(/\s+/g, ' ').trim(); }
   function posIndex(map) { var idx = {}; if (map) for (var k in map) { if (map[k]) idx[posKey(k)] = ('' + map[k]).toUpperCase(); } return idx; }
   function posBadge(p) { return p ? '<sup style="font-size:8px;font-weight:800;color:var(--accent);margin-left:1px;letter-spacing:.02em;">' + p + '</sup>' : ''; }
@@ -206,7 +216,8 @@ window.TDC_LINEUPS = (function () {
     var tr = tier(l.net), netc = l.net > 0 ? '#2bb673' : l.net < 0 ? '#e06552' : 'var(--text2)';
     var zebra = (i % 2) ? 'background:color-mix(in srgb,var(--text3) 5%,transparent);' : '';
     var netInner = '<div style="font-weight:800;font-size:13px;color:' + netc + ';line-height:1.05;">' + (l.net > 0 ? '+' : '') + (+l.net).toFixed(1) + '</div>'
-      + (tr ? '<div style="font-size:7.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:' + tr.c + ';margin-top:1px;">' + tr.t + '</div>' : '');
+      + (tr ? '<div style="font-size:7.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:' + tr.c + ';margin-top:1px;">' + tr.t + '</div>' : '')
+      + netBarMini(l.net, 25);
     return '<tr style="' + zebra + '">'
       + '<td style="padding:8px 10px;border:1px solid var(--border);text-align:left;font-weight:700;font-size:12px;line-height:1.4;min-width:180px;">' + lineupNames(l.players, idx) + archTag(archetypeOf(l.players, idx)) + '</td>'
       + td(l.poss, 0, 'var(--text2)')
@@ -262,7 +273,8 @@ window.TDC_LINEUPS = (function () {
     var tr = tier(t.net), netc = t.net > 0 ? '#2bb673' : t.net < 0 ? '#e06552' : 'var(--text2)';
     var zebra = (i % 2) ? 'background:color-mix(in srgb,var(--text3) 5%,transparent);' : '';
     var netInner = '<div style="font-weight:800;font-size:12.5px;color:' + netc + ';line-height:1.05;">' + (t.net > 0 ? '+' : '') + (+t.net).toFixed(1) + '</div>'
-      + (tr ? '<div style="font-size:7px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:' + tr.c + ';margin-top:1px;">' + tr.t + '</div>' : '');
+      + (tr ? '<div style="font-size:7px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:' + tr.c + ';margin-top:1px;">' + tr.t + '</div>' : '')
+      + netBarMini(t.net, 25);
     return '<tr style="' + zebra + '">'
       + '<td style="padding:7px 10px;border:1px solid var(--border);text-align:left;font-weight:700;font-size:11.5px;line-height:1.4;min-width:168px;">' + lineupNames(t.players, idx) + '</td>'
       + td(t.poss, 0, 'var(--text2)')
