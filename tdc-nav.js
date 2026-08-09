@@ -43,7 +43,7 @@
     ]],
     ['Postseason', [
       ['tournaments.html',     'Tournaments'],
-      ['bracket.html',         'Bracket'],
+      ['bracket.html',         'Bracketology'],
       ['awards.html',          'Awards'],
     ]],
     ['Coaches', [
