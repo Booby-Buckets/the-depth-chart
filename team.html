@@ -6197,6 +6197,8 @@ async function loadHistoricRoster(yr){
   // DB level, so no bbref reconciliation needed. Pre-2012 falls back to box scores.
   let rows=[];
   if(key) rows=await fetch(`${SB_URL}/rest/v1/player_history?season_year=eq.${yr}&team=eq.${encodeURIComponent(key)}&select=*&order=tdc_grade.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  // pre-2012 (player_history starts 2012): bbref_seasons is the authoritative roster (with grades)
+  if((!rows||!rows.length) && key) rows=await rosterFromBbref(yr, key);
   if(!rows||!rows.length) rows=await rosterFromBox(yr, mascot);
   // Box-only archetype fit for this PAST season — grade it the same way as the
   // projection (per-season centered, weak-team dampened), so the team page's historical
@@ -6422,6 +6424,20 @@ async function rosterFromBox(yr, mascot){
   return Object.values(P).map(p=>{ const g=p.g.size||1, pg=x=>Math.round(p.s[x]/g*10)/10;
     return {name:p.name, espn_id:p.espn_id, gp:g, mpg:pg('min'), ppg:pg('pts'), rpg:pg('reb'), apg:pg('ast'),
       fg_pct:p.s.fga?Math.round(1000*p.s.fgm/p.s.fga)/10:null, tp_pct:p.s.tpa?Math.round(1000*p.s.tpm/p.s.tpa)/10:null, tdc_grade:null}; });
+}
+// Pre-2012 roster fallback: bbref_seasons is the authoritative roster for years before
+// player_history begins (2012). It carries bio + per-game + our tdc_grade, so a 2006-07 UNC
+// (Hansbrough/Green/Wright) renders with grades just like a modern season.
+async function rosterFromBbref(yr, school){
+  if(!school) return [];
+  const rows=await fetch(`${SB_URL}/rest/v1/bbref_seasons?season_year=eq.${yr}&school=eq.${encodeURIComponent(school)}&select=player,pos,height,class,espn_id,tdc_grade,pergame&order=tdc_grade.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  const pctF=v=>{ v=parseFloat(v); if(!isFinite(v)) return null; return v<=1?Math.round(v*1000)/10:Math.round(v*10)/10; };  // bbref stores fractions (.414) → 41.4
+  return (rows||[]).map(r=>{ const pg=r.pergame||{};
+    return { name:r.player, position:r.pos, height:r.height, yr:r.class, espn_id:r.espn_id,
+      team:(typeof teamT!=='undefined'&&teamT&&teamT.name)||school, tdc_grade:r.tdc_grade,
+      gp:parseInt(pg.games)||null, mpg:parseFloat(pg.mp_per_g)||null, ppg:parseFloat(pg.pts_per_g)||null,
+      rpg:parseFloat(pg.trb_per_g)||null, apg:parseFloat(pg.ast_per_g)||null,
+      fg_pct:pctF(pg.fg_pct), tp_pct:pctF(pg.fg3_pct) }; });
 }
 function _htIn(h){ const m=/(\d+)[-'](\d+)/.exec(h||''); return m?(+m[1]*12 + +m[2]):0; }
 // Bucket a player into G / F (wing) / C from position (+ height for the ambiguous plain "F").
