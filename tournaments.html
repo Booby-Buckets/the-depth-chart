@@ -355,13 +355,40 @@ async function buildProjectedNCAA(){
   const D=await TDC_RATINGS.get();
   const teams=D.teams.filter(t=>t.rating!=null&&t.conf).map(t=>({full:t.full,team:t.team,conf:t.conf,rating:t.rating,rank:t.rank}));
   const rt={}; teams.forEach(t=>{ rt[t.full]=t.rating; });
+  // ── STYLE MATCHUP POINTS (team_dna four factors) ──────────────────────────
+  // Overall quality is already in the ratings; this adds the OPPONENT-SPECIFIC cross-
+  // interaction — how A's offensive strengths meet B's defensive weaknesses (and vice
+  // versa). It's ~0 for average/evenly-matched teams and only swings a couple points on a
+  // real stylistic mismatch, so it flips genuinely CLOSE games (an 11 over a 6, a hot-
+  // shooting team vs a leaky perimeter D) without upsetting 1-seeds. See team_dna engine.
+  let _dna={}; try{ _dna=((await fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():{}))['2027']||{}).teams||{}; }catch(e){}
+  const _LG={oeFG:53.0,deFG:48.4,oTOV:15.1,dTOV:17.8,oORB:31.2,dDRB:73.2};
+  function _muEdge(a,b){
+    const da=_dna[a.full], db=_dna[b.full]; if(!da||!db) return 0;
+    const num=(o,k)=>{ const v=o&&o[k]; return (typeof v==='number'&&isFinite(v))?v:null; };
+    // exploit(off, def) = attacker's favorable offensive deviations × the defender's
+    // matching weaknesses (positive = weak D), summed with four-factor point weights
+    const exploit=(o,d)=>{
+      let s=0,ok=false;
+      const oE=num(o,'oeFG'),oT=num(o,'oTOV'),oO=num(o,'oORB');
+      const dE=num(d,'deFG'),dT=num(d,'dTOV'),dD=num(d,'dDRB');
+      if(oE!=null&&dE!=null){ s+=0.115*((oE-_LG.oeFG)*(dE-_LG.deFG)); ok=true; }       // A shoots well × B lets you shoot
+      if(oT!=null&&dT!=null){ s+=0.088*((_LG.oTOV-oT)*(_LG.dTOV-dT)); ok=true; }        // A protects ball × B forces few TOs
+      if(oO!=null&&dD!=null){ s+=0.054*((oO-_LG.oORB)*(_LG.dDRB-dD)); ok=true; }        // A crashes glass × B poor D-reb
+      return ok?s:0;
+    };
+    const m=exploit(da,db)-exploit(db,da);
+    return Math.max(-4.0, Math.min(4.0, m));   // cap: a real mismatch can flip a close seed, but 1-seeds stay safe
+  }
   // AQ = top-rated team per conference (projected conference-tournament champ)
   const byConf={}; teams.forEach(t=>{ if(!byConf[t.conf]||t.rating>byConf[t.conf].rating) byConf[t.conf]=t; });
   const aqs=Object.values(byConf).sort((a,b)=>b.rating-a.rating);
   const aqN=new Set(aqs.map(t=>t.full));
   const atlarge=teams.filter(t=>!aqN.has(t.full)).sort((a,b)=>b.rating-a.rating).slice(0,76-aqs.length);
   let gid=920000000; const games=[];
-  const proj=(a,b)=> a.rating>=b.rating?a:b;
+  // winner = better team AFTER the style-matchup adjustment (so a close underdog with a
+  // favorable matchup can win — realistic upsets, not chalk)
+  const proj=(a,b)=> ((a.rating-b.rating)+_muEdge(a,b))>=0 ? a : b;
   const mk=(a,b,round,rord,region,date)=>{ const w=proj(a,b);
     return {id:gid++, season:2027, date, category:'NCAA', tournament:'NCAA Tournament (Projected)',
       round, round_order:rord, division:region, neutral:true, _proj:true, notable:true,
