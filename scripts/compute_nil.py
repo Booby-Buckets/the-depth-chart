@@ -24,10 +24,10 @@ REPL=-1.0
 FLOOR_PTS=1.6      # rotation-body floor: a player who plays is worth >= this many net pts (×minutes×premium)
 WALKON_THR=-6.0    # impact below this = walk-on / non-rotation: nominal value, excluded from roster spend
 WALKON_VALUE=0.01  # $M nominal ($10K) for walk-ons
-# team spending budgets, scaled up for the 2025 market: high tiers (power-conf-heavy)
-# ~×1.73, low tiers (mid/low) ~×1.44 — so the deal/over-budget verdicts stay calibrated
-# now that player values rose 44–73%.
-TIER_MID={1:26.1,2:21.5,3:12.7,4:9.3,5:5.0,6:3.6,7:1.8,8:0.9,9:0.3}
+# team spending budgets. Scaled ×1.38 in 2026-08 to track the curve-flatten value lift
+# (rosters rose a median ~38%) so the deal/over-budget verdict balance stays ~60% deals
+# instead of collapsing to ~32%. (Prior base was already ×1.73/×1.44 over raw 2025 spend.)
+TIER_MID={1:36.0,2:29.7,3:17.5,4:12.8,5:6.9,6:5.0,7:2.5,8:1.2,9:0.4}
 W={"bpm":0.40,"grade":0.30,"ws40":0.20,"per":0.10}
 # market-premium knobs
 # size is judged RELATIVE TO POSITION, not on one flat curve — a 6'6" PG (rare,
@@ -129,8 +129,8 @@ for p in players:
 # grade (stars are worth exponentially more), times projected minutes (role), times
 # the team's spending tier, times a market premium (size/scoring/conf) and a youth
 # bump (the market pays for upside). Calibrated to real NIL anchors.
-GRADE_FLOOR,GRADE_SPAN,CURVE = 58.0, 42.0, 2.127
-TOP_M = 6.735                                   # $M for a grade-100, tier-1, full-min, avg-premium player
+GRADE_FLOOR,GRADE_SPAN,CURVE = 58.0, 42.0, 1.64   # curve flattened 2.127→1.64 (2026-08): lift mid/role ~+27%, stars ~flat
+TOP_M = 6.62                                    # $M for a grade-100, tier-1, full-min, avg-premium player (trimmed w/ curve flatten to hold the top ~flat)
                                                 # calibrated to real 2025 deals (blend of paid + market, 30-player anchor set)
 TIER_MULT = {1:1.00,2:0.74,3:0.54,4:0.40,5:0.29,6:0.20,7:0.13,8:0.07,9:0.03}
 def grade_base(g):

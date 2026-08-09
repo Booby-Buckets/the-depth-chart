@@ -7,7 +7,7 @@
    Calibrated by scripts/compute_nil.py (re-run to refresh constants + nil-data.json). */
 window.TDC_NIL = {
   // ── grade-centric realistic-market model (mirrors scripts/compute_nil.py) ──
-  MODEL: { grade_floor:58, grade_span:42, curve:2.127, top_m:6.735,  // calibrated to real 2025 deals (blend paid+market, 30-player anchor set)
+  MODEL: { grade_floor:58, grade_span:42, curve:1.64, top_m:6.62,  // 2026-08: curve flattened 2.127→1.64 + top_m trimmed → mid/role +~27%, stars ~flat (see compute_nil.py)
            tier_mult:{1:1.00,2:0.74,3:0.54,4:0.40,5:0.29,6:0.20,7:0.13,8:0.07,9:0.03},
            pos_mult:{PG:1.00,CG:1.00,SG:1.00,G:1.00,SF:1.00,GF:1.00,F:1.03,PF:1.06,FC:1.07,C:1.08} },  // grades are position-relative, so only a mild big premium
   MARKET_RATE: 0.263,                                             // (legacy) $M per net-rating point
@@ -17,7 +17,7 @@ window.TDC_NIL = {
   WALKON_VALUE: 0.01,                                             // $M nominal ($10K) for walk-ons
   BASE_BY_TIER: {1:0.90,2:0.80,3:0.55,4:0.40,5:0.27,6:0.18,7:0.10,8:0.04,9:0.015}, // $M roster-spot base (×minutes), by team spending tier
   RATE_BY_TIER: {1:1.0,2:1.0,3:0.92,4:0.84,5:0.74,6:0.64,7:0.55,8:0.42,9:0.32},      // rate multiplier by team spending tier
-  TIER_BUDGET: {1:26.1,2:21.5,3:12.7,4:9.3,5:5.0,6:3.6,7:1.8,8:0.9,9:0.3},  // calibrated to the 2025 team-spend distribution (~median per tier)
+  TIER_BUDGET: {1:36.0,2:29.7,3:17.5,4:12.8,5:6.9,6:5.0,7:2.5,8:1.2,9:0.4},  // ×1.38 (2026-08) to track the curve-flatten value lift; keeps ~60% deals
   IMPACT: {
     w:    {bpm:0.40, grade:0.30, ws40:0.20, per:0.10},
     mean: {bpm:-0.6268, ws40:0.0969, per:14.043, grade:76.7932},
