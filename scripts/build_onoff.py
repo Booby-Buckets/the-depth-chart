@@ -88,24 +88,36 @@ def scoreboard(d):
         def sc(x):
             try: return int(x.get("score"))
             except: return None
+        # keep EVERY name variant the feed gives — short, full, the 6-char abbrev, and
+        # the SEO slug (hyphens -> spaces). The scoreboard's `short` often disagrees with
+        # our stored team name (e.g. NCAA "Southern California" vs our "USC Trojans"),
+        # sharing zero tokens; the char6 "USC" / seo "usc" recovers the match.
+        def alts(nm):
+            vals = [nm.get("short"), nm.get("full"), nm.get("char6"),
+                    (nm.get("seo") or "").replace("-", " ")]
+            return [v for v in vals if v]
         out.append({"nid": m.group(1),
                     "home": h.get("short") or h.get("full") or "",
                     "away": a.get("short") or a.get("full") or "",
+                    "home_alt": alts(h), "away_alt": alts(a),
                     "hs": sc(hg), "as": sc(ag)})
     return out
 
 def _tov(a, b): return len(set(norm(a).split()) & set(norm(b).split()))
+def _tov_best(alts, name): return max((_tov(a, name) for a in (alts or [])), default=0)
 
 # ── match an NCAA game to OUR game: team-token overlap disambiguated by final score ─
 def match_our_game(our_games, ncaa):
     nh, na, nhs, nas = ncaa["home"], ncaa["away"], ncaa.get("hs"), ncaa.get("as")
+    nha = ncaa.get("home_alt") or [nh]     # all NCAA name variants for each side
+    naa = ncaa.get("away_alt") or [na]
     best = None; best_key = (-1, 99)
     for g in our_games:
-        # orientation 1: NCAA home == our home
-        s1 = min(_tov(nh, g["home"]), _tov(na, g["away"]))
+        # orientation 1: NCAA home == our home  (best overlap across all name variants)
+        s1 = min(_tov_best(nha, g["home"]), _tov_best(naa, g["away"]))
         d1 = abs((g.get("home_score") or -99) - (nhs or -1)) + abs((g.get("away_score") or -99) - (nas or -1)) if (nhs is not None) else 99
         # orientation 2: flipped
-        s2 = min(_tov(nh, g["away"]), _tov(na, g["home"]))
+        s2 = min(_tov_best(nha, g["away"]), _tov_best(naa, g["home"]))
         d2 = abs((g.get("home_score") or -99) - (nas or -1)) + abs((g.get("away_score") or -99) - (nhs or -1)) if (nhs is not None) else 99
         s, d = (s1, d1) if (s1, -d1) >= (s2, -d2) else (s2, d2)
         if s < 1: continue                     # both teams must share at least one token
