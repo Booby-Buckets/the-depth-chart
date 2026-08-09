@@ -110,10 +110,19 @@ proj={}
 for team,roster in byteam.items():
     R=[]
     for p in roster:
-        g=p.get("tdc_grade"); 
-        if g in (None,""): continue
-        g=float(g); h=htin(p.get("height")); grp_=grp(p.get("position"),h)
-        fp=fp_by_espn(p["espn_id"]) if p.get("espn_id") else None
+        g=p.get("tdc_grade")
+        h=htin(p.get("height")); grp_=grp(p.get("position"),h)
+        fp0=fp_by_espn(p["espn_id"]) if p.get("espn_id") else None
+        # A rotation player whose roster grade never synced (a known Sheet->Supabase gap for
+        # transfers, e.g. Xaivian Lee -> Gonzaga) still has a real Player-DNA fingerprint. Keep
+        # them on their fingerprint instead of dropping the team below the 5-player DNA cutoff.
+        # Only truly skip when there is NEITHER a grade NOR a fingerprint (unknown newcomer).
+        if g in (None,""):
+            if fp0 is None: continue
+            g=None
+        else:
+            g=float(g)
+        fp=fp0
         if fp: fp=dict(fp)
         else: fp=fresh_fp(g,grp_)   # freshman / no D1 history
         mp=p.get("mpg")
@@ -121,7 +130,7 @@ for team,roster in byteam.items():
         # A mid-grade rotation player (72-77) on a ~12-man roster still plays real minutes,
         # so floor them above the 8-min bar rather than at 6 (kept teams like Purdue/Texas
         # Tech, whose returners' mpg is unfilled, from being dropped entirely).
-        if mp in (None,""): mp={ True:26}.get(g>=92) or (22 if g>=88 else 16 if g>=82 else 12 if g>=78 else 9 if g>=72 else 6)
+        if mp in (None,""): mp=(({ True:26}.get(g>=92) or (22 if g>=88 else 16 if g>=82 else 12 if g>=78 else 9 if g>=72 else 6)) if g is not None else 16)
         fp["mpg"]=float(mp)
         R.append(fp)
     F=rfeat(R, minn=5)   # projection is more permissive than the historical fit (6)
