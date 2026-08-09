@@ -18,7 +18,7 @@ function buildHead(html, title, desc, url, image) {
   var img = image
     ? '\n  <meta property="og:image" content="' + esc(image) + '">' +
       '\n  <meta name="twitter:image" content="' + esc(image) + '">' +
-      '\n  <meta name="twitter:card" content="summary_large_image">'
+      '\n  <meta name="twitter:card" content="summary">'
     : '\n  <meta name="twitter:card" content="summary">';
   var block =
     '\n  <meta property="og:title" content="' + esc(title) + '">' +

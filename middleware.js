@@ -7,7 +7,13 @@
 
 export const config = { matcher: ['/team.html', '/player.html'] };
 
-var CRAWLER = /facebookexternalhit|Facebot|Twitterbot|Slackbot|Slack-ImgProxy|Discordbot|WhatsApp|LinkedInBot|TelegramBot|Pinterest|redditbot|Googlebot|bingbot|Applebot|SkypeUriPreview|vkShare|Embedly|Iframely|Bluesky|Mastodon|WordPress/i;
+// Broad but safe: generic markers ("bot", "crawl", "preview", …) never appear in real
+// desktop/mobile browser UAs (Chrome/Safari/Firefox/Edge), so humans still fall through to
+// the fast static path — while validators and any platform not named explicitly get the card.
+// Deliberately NOT matched: "slack"/"discord"/"telegram"/"fban" in-app webviews (real humans);
+// their crawlers end in "bot" and are caught by that. The functions' fetch UA ('tdc-og-fetch')
+// contains none of these tokens, so the internal fetch never loops.
+var CRAWLER = /bot|crawl|spider|scrape|unfurl|preview|screenshot|snippet|validat|headlesschrome|lighthouse|inspectiontool|prerender|facebookexternalhit|whatsapp|slack-imgproxy|skypeuripreview|vkshare|embedly|iframely|bluesky|mastodon|wordpress|opengraph/i;
 
 export default function middleware(request) {
   try {
