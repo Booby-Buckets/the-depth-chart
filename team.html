@@ -10,7 +10,7 @@
   <script src="tdc-lineups.js?v=13"></script>
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-moneyball.js?v=1"></script>
-  <script src="tdc-nil.js?v=lift3"></script>
+  <script src="tdc-nil.js?v=lift4"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=1"></script>
   <script src="tdc-proj.js?v=coach19"></script>
@@ -5905,7 +5905,7 @@ async function renderTeamDNA(){
 async function renderMoneyball(){
   var host=document.getElementById('moneyballWrap'); if(!host||!window.TDC_MONEYBALL) return;
   try{
-    if(!window._nilData){ window._nilData=await fetch('nil-data.json?v=lift2').then(r=>r.json()); }
+    if(!window._nilData){ window._nilData=await fetch('nil-data.json?v=lift3').then(r=>r.json()); }
     var posBy={}; (typeof _allDbPlayers!=='undefined'?_allDbPlayers:[]).forEach(function(p){ if(p.name&&p.position&&!posBy[p.name]) posBy[p.name]=p.position; });
     var lineup=(typeof _lineupRotation==='function')?_lineupRotation():[];
     TDC_MONEYBALL.render(host, {nilData:window._nilData, teamName:(teamT&&teamT.name)||'', posByName:posBy, lineup:lineup});
@@ -6002,7 +6002,7 @@ async function _nilMarketPublish(btn){
 }
 async function renderNil(){
   const host=document.getElementById('nilContent'); const tT=(typeof teamT!=='undefined')?teamT:null; if(!host||!tT) return;
-  if(!_nilData){ try{ _nilData=await fetch('nil-data.json?v=lift2').then(r=>r.json()); }catch(e){ host.innerHTML='<div style="padding:40px;color:var(--text3);">NIL data unavailable.</div>'; return; } }
+  if(!_nilData){ try{ _nilData=await fetch('nil-data.json?v=lift3').then(r=>r.json()); }catch(e){ host.innerHTML='<div style="padding:40px;color:var(--text3);">NIL data unavailable.</div>'; return; } }
   const d=_nilData.teams[tT.name];
   if(!d){ host.innerHTML='<div style="padding:40px;color:var(--text3);">No NIL valuation for this team yet — needs a NIL tier and roster.</div>'; return; }
   // ── NIL MARKET VALUE (positional curves): owner anchors → per-player market $ ──
@@ -6017,7 +6017,10 @@ async function renderNil(){
   // p.pos = the NIL VALUATION position from nil-data (carries any natural-position override,
   // e.g. a stretch-4 listed at SF); fall back to the roster's depth-chart position.
   const _posOf=p=>{ const rp=_bnM[(p.name||'').toLowerCase().trim()]; return p.pos||p.position||(rp&&rp.position)||''; };
-  const _mkOf=p=>(window.TDC_NIL&&TDC_NIL.curveMarket)?TDC_NIL.curveMarket(_posOf(p),p.grade,_curves):null;
+  const _htOf=p=>{ if(p.ht!=null&&isFinite(+p.ht)) return +p.ht; const rp=_bnM[(p.name||'').toLowerCase().trim()]; return (rp&&window.TDC_NIL)?TDC_NIL.htIn(rp.height):null; };
+  // out-of-position players priced at their best position (height-aware); returns {val,pos}
+  const _bmOf=p=>(window.TDC_NIL&&TDC_NIL.bestMarket)?TDC_NIL.bestMarket(p.grade,_posOf(p),_htOf(p),_curves):{val:null,pos:_posOf(p)};
+  const _mkOf=p=>_bmOf(p).val;
   const _rosterMarket=d.players.reduce((s,p)=>{ const m=_mkOf(p); return s+(m||0); },0);
   const col=((typeof teamColor_g!=='undefined')?teamColor_g:null)||'#888', mkt=_nilData.market_rate_per_pt;
   const fmt=m=>m>=1?('$'+(+m).toFixed(1)+'M'):('$'+Math.round(m*1000)+'K');
@@ -6058,8 +6061,9 @@ async function renderNil(){
     const href=rp&&rp.espn_id?`player.html?espn=${rp.espn_id}&name=${encodeURIComponent(p.name)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(tT.name||'')}`;
     const nameCell=`<a href="${href}" style="color:inherit;text-decoration:none;">${p.name}</a>`;
     const model=p.proj!=null?p.proj:p.value;
-    const mktV=_mkOf(p);
-    const posC=_posOf(p)&&window.TDC_NIL?TDC_NIL.POS5(_posOf(p)):'—';
+    const _bm=_bmOf(p);
+    const mktV=_bm.val;
+    const posC=_bm.pos||'—';   // shows the position the market prices him at (natural, if out of position)
     const vd=(mktV!=null&&window.TDC_NIL&&TDC_NIL.marketVerdict)?TDC_NIL.marketVerdict(model,mktV,{grade:p.grade,mpg:p.mpg,tier:d.tier}):{tag:null};
     const vCol=vd.tag==='underrated'?'var(--green)':'var(--amber)';
     const vCell=(vd.tag==='underrated'||vd.tag==='overrated')

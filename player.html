@@ -9,7 +9,7 @@
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-shotchart.js?v=14"></script>
   <script src="tdc-shotflow.js?v=9"></script>
-  <script src="tdc-nil.js?v=lift3"></script>
+  <script src="tdc-nil.js?v=lift4"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-proj.js?v=coach19"></script>
   <script src="tdc-freshman.js?v=pub5"></script>
@@ -2897,7 +2897,7 @@ function renderOvcTeamFit(x){
 }
 async function _ovcLoadNil(){
   try{ var N=window.TDC_NIL; if(!N) return;
-    if(window._nilData===undefined){ window._nilData=null; try{ window._nilData=await fetch('nil-data.json?v=lift2').then(function(r){return r.ok?r.json():null;}); }catch(e){} }
+    if(window._nilData===undefined){ window._nilData=null; try{ window._nilData=await fetch('nil-data.json?v=lift3').then(function(r){return r.ok?r.json():null;}); }catch(e){} }
     var nd=window._nilData, tn=nd&&nd.teams&&nd.teams[player.team]; if(!tn||!tn.players) return;
     var nk=(player.name||'').toLowerCase().trim(), row=tn.players.find(function(p){return (p.name||'').toLowerCase().trim()===nk;});
     if(!row||row.value==null) return; window._ovcNil=N.fmt(row.value); renderOvcFooter();
@@ -4845,7 +4845,7 @@ async function renderNilPlayer(){
   let pos=(player&&player.position)||''; const cls=(player&&(player.class_year||player.yr))||'';
   // Read the SAME precomputed roster value as the team page so the two always agree.
   if(window._nilData===undefined){ window._nilData=null;
-    try{ window._nilData=await fetch('nil-data.json?v=lift2').then(r=>r.ok?r.json():null); }catch(e){} }
+    try{ window._nilData=await fetch('nil-data.json?v=lift3').then(r=>r.ok?r.json():null); }catch(e){} }
   // Market anchors — the owner's positional curve; same source as the team NIL tab.
   if(window._nilMarket===undefined){ window._nilMarket=null;
     try{ window._nilMarket=await fetch('scripts/data/nil_market_anchors.json?v=1').then(r=>r.ok?r.json():null); }catch(e){} }
@@ -4874,7 +4874,11 @@ async function renderNilPlayer(){
   // Curve priority: local unsaved preview → owner-published blob (Supabase) → committed file default.
   const _mkPub=(window.TDCFresh&&TDCFresh.getKey)?TDCFresh.getKey('nil_market'):null;
   const _mkCurves=(_mkOv&&_mkOv.curves)||(_mkPub&&_mkPub.curves)||(window._nilMarket&&window._nilMarket.curves)||null;
-  const marketVal=(!walkon&&_mkCurves&&N.curveMarket)?N.curveMarket(pos,grade,_mkCurves):null;
+  // out-of-position players are priced at their best position (height-aware)
+  const _htIn=(row&&row.ht!=null&&isFinite(+row.ht))?+row.ht:N.htIn(player&&player.height);
+  const _bm=(!walkon&&_mkCurves&&N.bestMarket)?N.bestMarket(grade,pos,_htIn,_mkCurves):null;
+  const marketVal=_bm?_bm.val:null;
+  const marketPos=_bm?_bm.pos:(N.POS5?N.POS5(pos):pos);
   const mktDelta=(marketVal!=null&&modelVal!=null)?(marketVal-modelVal):null;
   const _verdict=(marketVal!=null&&N.marketVerdict)?N.marketVerdict(modelVal,marketVal,{grade:grade,mpg:mpg,tier:nilTier}):{tag:null};
   // premium sub-components (for the readout)
@@ -4898,7 +4902,7 @@ async function renderNilPlayer(){
     ${marketVal!=null?`<div class="sec-title" style="margin:24px 0 12px;">Model vs Market</div>
     <div class="nilx-mm">
       <div class="nilx-mm-card"><div class="mm-l">Model Value</div><div class="mm-v">${fmt(modelVal)}</div><div class="mm-s">production estimate</div></div>
-      <div class="nilx-mm-card"><div class="mm-l">Market Value</div><div class="mm-v" style="color:${col}">${fmt(marketVal)}</div><div class="mm-s">${N.POS5(pos)} positional curve</div></div>
+      <div class="nilx-mm-card"><div class="mm-l">Market Value</div><div class="mm-v" style="color:${col}">${fmt(marketVal)}</div><div class="mm-s">${marketPos} positional curve${(_bm&&_bm.moved)?' · natural pos':''}</div></div>
       <div class="nilx-mm-card"><div class="mm-l">Verdict · vs market</div><div class="mm-v" style="font-size:21px;color:${_verdict.tag?N.markColor(_verdict.tag):'var(--text3)'}">${_verdict.tag?N.markLabel(_verdict.tag):'—'}</div><div class="mm-s">${_verdict.tag==='underrated'?'slept on — production ~'+_verdict.ratio.toFixed(1)+'× his market price':_verdict.tag==='overrated'?'market prices him ~'+_verdict.ratio.toFixed(1)+'× his production':_verdict.tag==='fair'?'market ≈ production (tier-fair)':'not enough role to judge'}</div></div>
     </div>`:''}
     ${walkon?`<div class="nilx-flag" style="border-color:${col}"><b>Walk-on / non-rotation</b> — nominal value; not part of NIL roster spend.</div>`:`

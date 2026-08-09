@@ -130,6 +130,23 @@ window.TDC_NIL = {
     else v = v70 - (v80-v70)*(70-g)/10;                 // extend below 70
     return Math.max(0.03, Math.round(v*1000)/1000);
   };
+  // ── out-of-position market pricing ─────────────────────────────────────────
+  // A player physically bigger/smaller than his LISTED slot (a 6-9 "SF" who's really a PF)
+  // is priced by the market on his true archetype. naturalPos = nearest position by height;
+  // bestMarket prices an OUT-of-position player at the HIGHEST-value position in the range
+  // between his listed slot and his height-natural one (never lowers him). In-position → listed.
+  N.POS_ORDER = ['PG','SG','SF','PF','C'];
+  N.POS_HT = {PG:74, SG:76, SF:78.5, PF:80.5, C:82.5};
+  N.naturalPos = function(htIn){ if(!htIn||!isFinite(+htIn)) return null;
+    var best=null, bd=1e9; N.POS_ORDER.forEach(function(p){ var d=Math.abs(+htIn-N.POS_HT[p]); if(d<bd){ bd=d; best=p; } }); return best; };
+  N.bestMarket = function(grade, pos, htIn, curves){
+    var lp=N.POS5(pos), base=N.curveMarket(lp, grade, curves), np=N.naturalPos(htIn);
+    if(np==null || np===lp) return {val:base, pos:lp, moved:false};
+    var i=N.POS_ORDER.indexOf(lp), j=N.POS_ORDER.indexOf(np), lo=Math.min(i,j), hi=Math.max(i,j);
+    var bp=lp, bv=base;
+    for(var k=lo;k<=hi;k++){ var v=N.curveMarket(N.POS_ORDER[k], grade, curves); if(v!=null && (bv==null||v>bv)){ bv=v; bp=N.POS_ORDER[k]; } }
+    return {val:bv, pos:bp, moved:bp!==lp};
+  };
 
   // ── UNDERRATED / OVERRATED vs market (TIER-FAIR) ──────────────────────────
   // "Slept on" should mean TALENT the market underprices — not just "plays at a rich school."

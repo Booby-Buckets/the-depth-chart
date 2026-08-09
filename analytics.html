@@ -17,7 +17,7 @@
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-owned-seasons.js?v=7"></script>
   <script src="tdc-freshman.js?v=pub5"></script>
-  <script src="tdc-nil.js?v=lift3"></script>
+  <script src="tdc-nil.js?v=lift4"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=2"></script>
@@ -832,7 +832,7 @@ async function renderNilMovers(){
   _nilMoversDone=true;
   const N=window.TDC_NIL;
   let nd=null, curves=null;
-  try{ nd=await fetch('nil-data.json?v=lift2').then(r=>r.ok?r.json():null); }catch(e){}
+  try{ nd=await fetch('nil-data.json?v=lift3').then(r=>r.ok?r.json():null); }catch(e){}
   try{ if(window.TDCFresh&&TDCFresh.load){ await TDCFresh.load(); const pub=TDCFresh.getKey&&TDCFresh.getKey('nil_market'); if(pub&&pub.curves) curves=pub.curves; } }catch(e){}
   if(!curves){ try{ const a=await fetch('scripts/data/nil_market_anchors.json?v=lift1').then(r=>r.ok?r.json():null); curves=a&&a.curves; }catch(e){} }
   if(!nd||!nd.teams||!curves){ host.innerHTML='<div style="padding:30px;color:var(--text3);">NIL data unavailable.</div>'; return; }
@@ -840,10 +840,11 @@ async function renderNilMovers(){
   Object.keys(nd.teams).forEach(function(tn){ const t=nd.teams[tn];
     (t.players||[]).forEach(function(p){
       if(p.walkon||p.override||p.value==null) return;
-      const mk=N.curveMarket(p.pos,p.grade,curves); if(mk==null) return;
+      const bm=N.bestMarket?N.bestMarket(p.grade,p.pos,p.ht,curves):{val:N.curveMarket(p.pos,p.grade,curves),pos:N.POS5(p.pos)};
+      const mk=bm.val; if(mk==null) return;
       const vd=N.marketVerdict(p.value,mk,{grade:p.grade,mpg:p.mpg,tier:t.tier});
       if(vd.tag!=='underrated'&&vd.tag!=='overrated') return;
-      pool.push({name:p.name,team:tn,grade:p.grade,pos:N.POS5(p.pos),espn:p.espn_id,prod:vd.prod,market:mk,tag:vd.tag,ratio:vd.ratio});
+      pool.push({name:p.name,team:tn,grade:p.grade,pos:bm.pos,espn:p.espn_id,prod:vd.prod,market:mk,tag:vd.tag,ratio:vd.ratio});
     });
   });
   const und=pool.filter(function(x){return x.tag==='underrated';}).sort(function(a,b){return b.ratio-a.ratio;}).slice(0,15);
