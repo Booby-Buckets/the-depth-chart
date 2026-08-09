@@ -616,6 +616,9 @@
     .proj-gs .rot-grade{border-right:none;}
     .proj-gs .rot-stat{font-family:'Inter',system-ui,sans-serif;font-variant-numeric:tabular-nums;font-weight:600;font-size:12.5px;background:transparent;}
     .proj-gs .rot-grade{font-variant-numeric:tabular-nums;}
+    .proj-gs .stat-header-cell.proj-sortable{cursor:pointer;user-select:none;transition:color .12s,background .12s;}
+    .proj-gs .stat-header-cell.proj-sortable:hover{color:var(--text);background:rgba(128,128,128,.10);}
+    .proj-gs .proj-sarr{font-size:8px;color:var(--accent);}
 
     /* GRADE COLORS — blue scale, dark=elite, light=poor */
     .gAp{color:#0a3fd4;}.gA{color:#0a3fd4;}.gAm{color:#1a52e0;}
@@ -2701,6 +2704,8 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
     return `background:${bg};color:#ffffff;font-weight:700;`;
   };
 
+  window._projRows=projected;   // source for the sortable-header handler (_projSortBy)
+  window._projSortState={key:'pos',dir:1};
   el.innerHTML=`
     ${summaryCards}
     <div id="projAwardsWrap"></div>
@@ -2710,38 +2715,18 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
     <div class="rot-table-card proj-gs">
     <div style="min-width:1440px;">
       <div class="pstat-header" style="min-width:1440px;">
-        <div class="stat-header-cell"></div>
-        <div class="stat-header-cell left">Pos</div>
-        <div class="stat-header-cell left">Name</div>
-        <div class="stat-header-cell">Yr→</div>
-        <div class="stat-header-cell">Ht</div>
-        <div class="stat-header-cell">MPG</div>
-        <div class="stat-header-cell">PPG</div>
-        <div class="stat-header-cell">RPG</div>
-        <div class="stat-header-cell">APG</div>
-        <div class="stat-header-cell">FGM</div>
-        <div class="stat-header-cell">FGA</div>
-        <div class="stat-header-cell">FG%</div>
-        <div class="stat-header-cell">3PM</div>
-        <div class="stat-header-cell">3PA</div>
-        <div class="stat-header-cell">3P%</div>
-        <div class="stat-header-cell">FTM</div>
-        <div class="stat-header-cell">FTA</div>
-        <div class="stat-header-cell">FT%</div>
-        <div class="stat-header-cell">OR</div>
-        <div class="stat-header-cell">DR</div>
-        <div class="stat-header-cell">STL</div>
-        <div class="stat-header-cell">BLK</div>
-        <div class="stat-header-cell">TO</div>
-        <div class="stat-header-cell">USG%</div>
-        <div class="stat-header-cell">TS%</div>
-        <div class="stat-header-cell">TI</div>
-        <div class="stat-header-cell">WA</div>
-        <div class="stat-header-cell">Gr</div>
+        ${[{l:''},{k:'pos',l:'Pos',left:1},{k:'name',l:'Name',left:1},{l:'Yr→'},{k:'ht',l:'Ht'},
+           {k:'mpg',l:'MPG'},{k:'ppg',l:'PPG'},{k:'rpg',l:'RPG'},{k:'apg',l:'APG'},
+           {k:'fgm',l:'FGM'},{k:'fga',l:'FGA'},{k:'fg_pct',l:'FG%'},
+           {k:'tpm',l:'3PM'},{k:'tpa',l:'3PA'},{k:'tp_pct',l:'3P%'},
+           {k:'ftm',l:'FTM'},{k:'fta',l:'FTA'},{k:'ft_pct',l:'FT%'},
+           {k:'oreb',l:'OR'},{k:'dreb',l:'DR'},{k:'stl',l:'STL'},{k:'blk',l:'BLK'},{k:'tovs',l:'TO'},
+           {k:'usg',l:'USG%'},{k:'ts',l:'TS%'},{k:'ti40',l:'TI'},{k:'wa',l:'WA'},{k:'tdc_grade',l:'Gr'}]
+          .map(c=>`<div class="stat-header-cell${c.left?' left':''}${c.k?' proj-sortable':''}"${c.k?` onclick="_projSortBy('${c.k}')" title="Sort by ${c.l}"`:''}>${c.l}${c.k?`<span class="proj-sarr" id="parr-${c.k}"></span>`:''}</div>`).join('')}
       </div>
-      ${projected.map((p,i)=>{
+      <div id="projBody">${projected.map((p,i)=>{
         if(p._injured||p._dnp){
-          return `<div class="protation-row" style="min-width:1440px;opacity:.7;border-left:2px solid #ef4444;padding-left:6px;">
+          return `<div class="protation-row" data-k="${i}" style="min-width:1440px;opacity:.7;border-left:2px solid #ef4444;padding-left:6px;">
             <div class="rot-num" style="color:#ef4444;">—</div>
             <div class="rot-pos" style="color:var(--text3);">${p._deployedPos||p.position||''}</div>
             <div class="rot-name">
@@ -2753,7 +2738,7 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
             <div class="rot-stat" style="grid-column:6/-1;text-align:left;color:var(--text3);font-style:italic;white-space:nowrap;">Projected DNP — minutes redistributed</div>
           </div>`;
         }
-        const isStarter=i<5;
+        const isStarter=!!p._sRow;
         const yr=p.yr||p.class_year||'';
         // Show next year
         const nextYr=yr||'—';
@@ -2765,7 +2750,7 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
         const A=p._projAdv||{};
         const advCell=(v,suffix)=>`<div class="rot-stat" style="${A._est?'color:var(--text3);font-style:italic;':''}">${v!=null&&isFinite(v)?Number(v).toFixed(1)+(suffix||''):'—'}</div>`;
         return `
-        <div class="protation-row" style="min-width:1440px;${isStarter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
+        <div class="protation-row" data-k="${i}" style="min-width:1440px;${isStarter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
           <div class="rot-num" style="${isStarter?`color:var(--tc-readable,${color});font-weight:700;`:''}">${i+1}</div>
           <div class="rot-pos" style="${isStarter?`color:var(--tc-readable,${color});`:''}">${(()=>{const dp=p._deployedPos||p.position||'';const oop=dp&&p.position&&dp!==p.position;return oop?dp+`<span title="Primary: ${p.position}" style="font-size:8px;color:var(--text3);margin-left:2px;vertical-align:super;">&#x21D5;</span>`:dp;})()}</div>
           <div class="rot-name">
@@ -2798,7 +2783,7 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
           ${advCell(A.wa)}
           <div class="rot-grade ${gc(p.tdc_grade||'')}">${_gdisp(p)}</div>
         </div>`;
-      }).join('')}
+      }).join('')}</div>
     </div>
     </div>
     <div style="margin-top:24px;" id="projChartWrap">
@@ -2811,6 +2796,41 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
   // Render chart after HTML is set
   setTimeout(()=>renderProjNatlChart(projected, color, rgb), 0);
   _fillProjAwards(projected);
+}
+
+// Sortable projections table: reorders the #projBody rows in place by the clicked column
+// (click again to flip direction). Injured/DNP rows always sink to the bottom; row numbers
+// renumber to the new order. Reads window._projRows (the rendered array) via each row's data-k.
+function _projSortBy(key){
+  const rows=window._projRows, body=document.getElementById('projBody');
+  if(!rows||!body) return;
+  const st=window._projSortState||(window._projSortState={key:null,dir:1});
+  if(st.key===key) st.dir=-st.dir; else { st.key=key; st.dir=(key==='pos'||key==='name')?1:-1; }
+  const dir=st.dir;
+  const PR={PG:0,G:0.5,SG:1,GF:1.5,SF:2,F:2.5,PF:3,FC:3.5,C:4};
+  const prank=p=>{ const dp=(p._deployedPos||p.position||'').toUpperCase().split('/')[0].replace(/[^A-Z]/g,''); return PR[dp]!=null?PR[dp]:9; };
+  const htIn=h=>{ const m=(''+(h||'')).match(/(\d+)\D+(\d+)/); return m?(+m[1]*12+ +m[2]):-1; };
+  const num=v=>{ const n=parseFloat(v); return isFinite(n)?n:-1; };
+  const val=p=>{ if(key==='pos') return prank(p); if(key==='name') return (p.name||'').toLowerCase();
+    if(key==='ht') return htIn(p.height);
+    if(key==='usg'||key==='ts'||key==='ti40'||key==='wa') return num((p._projAdv||{})[key]);
+    if(key==='tdc_grade') return num(p.tdc_grade); return num(p[key]); };
+  const isInj=p=>!!(p._injured||p._dnp);
+  const els=[...body.querySelectorAll('.protation-row')];
+  els.sort((ea,eb)=>{
+    const a=rows[+ea.dataset.k], b=rows[+eb.dataset.k]; if(!a||!b) return 0;
+    if(isInj(a)!==isInj(b)) return isInj(a)?1:-1;      // injured always last
+    if(key==='pos'){                                    // position groups → starters first → minutes
+      const pa=prank(a),pb=prank(b); if(pa!==pb) return dir*(pa-pb);
+      const sa=a._sRow?0:1, sb=b._sRow?0:1; if(sa!==sb) return sa-sb;
+      return num(b.mpg)-num(a.mpg);
+    }
+    const va=val(a), vb=val(b);
+    return (typeof va==='string') ? dir*va.localeCompare(vb) : dir*(va-vb);
+  });
+  els.forEach((el,i)=>{ body.appendChild(el); const n=el.querySelector('.rot-num'); const p=rows[+el.dataset.k]; if(n&&!isInj(p)) n.textContent=i+1; });
+  document.querySelectorAll('.proj-sarr').forEach(s=>s.textContent='');
+  const arr=document.getElementById('parr-'+key); if(arr) arr.textContent=dir<0?' ▼':' ▲';
 }
 
 // ── CUSTOMIZE LINEUP ENGINE ──────────────────────────────
