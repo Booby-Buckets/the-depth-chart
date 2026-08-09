@@ -3142,7 +3142,9 @@ function _effGrade(p, pos){
   return Math.max(40, Math.min(99, g + (fit.adjGrade||0)));
 }
 function _rbMpg(p, isStarter){
-  return customMpg[p.name]!==undefined ? Math.round(customMpg[p.name]) : Math.round(parseFloat(p.mpg)|| (isStarter?26:12));
+  if(customMpg[p.name]!==undefined) return Math.round(customMpg[p.name]);
+  if(p._projMin!=null&&isFinite(p._projMin)) return Math.round(p._projMin);
+  return Math.round(parseFloat(p.mpg)|| (isStarter?26:12));
 }
 function _rbSegColor(i){ return ['var(--tc,#2c6ef2)','#5ab875','#d4a24a','#a06cc9','#7a8aa0','#c97a5a'][i%6]; }
 // Minutes are SEASON AVERAGES (MPG). A single game is 200 player-minutes, but a
@@ -3267,7 +3269,7 @@ function autoBuildRotation(){
 }
 function rbStep(name, delta){
   let cur=customMpg[name];
-  if(cur===undefined){ cur=12; POS_KEYS.forEach(pos=>{(customDepth[pos]||[]).forEach((p,i)=>{ if(p.name===name) cur=Math.round(parseFloat(p.mpg)|| (i===0?26:12)); });}); }
+  if(cur===undefined){ cur=12; POS_KEYS.forEach(pos=>{(customDepth[pos]||[]).forEach((p,i)=>{ if(p.name===name) cur=Math.round((p._projMin!=null&&isFinite(p._projMin))?p._projMin:(parseFloat(p.mpg)|| (i===0?26:12))); });}); }
   customMpg[name]=Math.max(0,Math.min(40,Math.round(cur)+delta));
   _baseCustomProj=buildCustomProjections();
   const sq=document.getElementById('squadView'); if(sq) sq.innerHTML=_squadInner();
@@ -4098,7 +4100,14 @@ function rebuildCustomizeUI(){
       const baseGrade = (()=>{ const pg=parseFloat(_gdisp(p)); if(isFinite(pg)) return pg; const n=parseFloat(rawGrade); if(!isNaN(n)) return n; return gradeToNum(rawGrade)||70; })();
       const effGrade  = Math.max(40,Math.min(99,Math.round(baseGrade+fit.adjGrade)));
       const isStarter = rowIdx===0;
-      const mpgBase = parseFloat(p.mpg)||( isStarter?26:15 );
+      // Seed from the PROJECTION's own minutes so the editor starts exactly where the
+      // projections land (buildCustomProjections normalizes _projMin to a 200-min game).
+      // Falls back to raw _projMin, then last-season mpg, so a barely-playing player never
+      // starts at ~24 again.
+      const _pr = (typeof _baseCustomProj!=='undefined'&&_baseCustomProj) ? _baseCustomProj.find(r=>r&&r.name===p.name) : null;
+      const mpgBase = (_pr&&_pr.mpg!=null&&isFinite(_pr.mpg)) ? Math.round(_pr.mpg)
+                    : (p._projMin!=null&&isFinite(p._projMin)) ? Math.round(p._projMin)
+                    : (parseFloat(p.mpg)||( isStarter?26:15 ));
       const mpgCur  = customMpg[p.name]!==undefined ? customMpg[p.name] : parseFloat(mpgBase).toFixed(1);
       const maxMpg  = 40;
       const minMpg  = 0;
@@ -4269,7 +4278,9 @@ function buildCustomProjections(){
   const allCustomPlayers=colPlayers.map(({p,pos},i)=>{
     const assignedPos=customPos[p.name]||pos;
     return {...p,position:assignedPos,depth_order:i+1,
-      _customMpg:customMpg[p.name]!==undefined?customMpg[p.name]:null,
+      // unedited minutes default to the PROJECTED rotation minutes (_projMin) so the
+      // projected stat line matches what the editor shows (was last-season p.mpg).
+      _customMpg:customMpg[p.name]!==undefined?customMpg[p.name]:((p._projMin!=null&&isFinite(p._projMin))?Math.round(p._projMin):null),
       _assignedPos:assignedPos,_naturalPos:p._naturalPos||p.position||'G',
       _role:customRole[p.name]||'none'};
   });
