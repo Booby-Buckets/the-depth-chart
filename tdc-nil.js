@@ -131,26 +131,33 @@ window.TDC_NIL = {
     return Math.max(0.03, Math.round(v*1000)/1000);
   };
 
-  // ── UNDERRATED / OVERRATED vs market ──────────────────────────────────────
-  // Compare our production MODEL $ to the MARKET curve $:
-  //   Model >= 1.30× Market  → UNDERRATED ("slept on": the market prices him below his production)
-  //   Market >= 1.30× Model  → OVERRATED  (the market pays above his production)
-  // Only judged for REAL rotation pieces with real $ on BOTH sides — otherwise the grade-curve
-  // floor (bench guys) and the fact that Market ignores team tier (tiny schools) create false
-  // extremes. Returns {tag:'underrated'|'overrated'|'fair'|null, ratio, delta}.
-  N.MARK_RATIO = 1.30;                 // ±30% divergence to earn a tag (owner-chosen)
+  // ── UNDERRATED / OVERRATED vs market (TIER-FAIR) ──────────────────────────
+  // "Slept on" should mean TALENT the market underprices — not just "plays at a rich school."
+  // Model bakes in team wealth (tier) while Market is tier-blind, so we first STRIP the tier
+  // scaling out of Model (→ tier-neutral production) and rescale it to the market's level via
+  // TIER_REF, then compare that talent-production to the market price for his grade & slot:
+  //   prod >= 1.30× Market → UNDERRATED (produces more than his grade-slot market price)
+  //   Market >= 1.30× prod → OVERRATED
+  // Only real rotation pieces are judged (grade/mpg + a market floor) so grade-curve-floor
+  // bench players don't create false extremes. Returns {tag, ratio, delta, prod}.
+  N.MARK_RATIO = 1.30;                          // ±30% divergence to earn a tag (owner-chosen)
   N.MARK_MINGRADE = 74; N.MARK_MINMPG = 10; N.MARK_MINVAL = 0.25;   // qualifier floors
+  N.TIER_REF = 0.48;   // rescales tier-neutral production to the market's level (median-matched over the 2026-27 pool)
   N.marketVerdict = function(model, market, opts){
     opts = opts || {};
     var g = +opts.grade, mp = +opts.mpg;
     if(model==null||market==null||!isFinite(+model)||!isFinite(+market)) return {tag:null};
     model=+model; market=+market;
-    if((isFinite(g)&&g<N.MARK_MINGRADE) || (isFinite(mp)&&mp<N.MARK_MINMPG) ||
-       model<N.MARK_MINVAL || market<N.MARK_MINVAL) return {tag:null};   // not qualified — no badge
-    var r = model/market, d = model-market;
-    if(r >= N.MARK_RATIO)   return {tag:'underrated', ratio:r,   delta:d};
-    if(1/r >= N.MARK_RATIO) return {tag:'overrated',  ratio:1/r, delta:d};
-    return {tag:'fair', ratio:r, delta:d};
+    if((isFinite(g)&&g<N.MARK_MINGRADE) || (isFinite(mp)&&mp<N.MARK_MINMPG) || market<N.MARK_MINVAL)
+      return {tag:null};   // not qualified — no badge
+    // tier-fair production: divide out team-wealth scaling, rescale to market level
+    var prod = model, tn = (opts.tier!=null) ? N.tierNum(opts.tier) : null;
+    if(tn!=null){ var tm = N.MODEL.tier_mult[tn] || 0.29; prod = model / tm * N.TIER_REF; }
+    if(prod < N.MARK_MINVAL) return {tag:null};
+    var r = prod/market, d = prod-market;
+    if(r >= N.MARK_RATIO)   return {tag:'underrated', ratio:r,   delta:d, prod:prod};
+    if(1/r >= N.MARK_RATIO) return {tag:'overrated',  ratio:1/r, delta:d, prod:prod};
+    return {tag:'fair', ratio:r, delta:d, prod:prod};
   };
   N.markLabel = function(tag){ return tag==='underrated'?'UNDERRATED':tag==='overrated'?'OVERRATED':tag==='fair'?'FAIR VALUE':''; };
   // green = value/underrated, amber = overrated (matches the Δ coloring already on the pages)

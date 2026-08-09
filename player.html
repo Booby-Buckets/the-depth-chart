@@ -9,7 +9,7 @@
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-shotchart.js?v=14"></script>
   <script src="tdc-shotflow.js?v=9"></script>
-  <script src="tdc-nil.js?v=lift2"></script>
+  <script src="tdc-nil.js?v=lift3"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-proj.js?v=coach18"></script>
   <script src="tdc-freshman.js?v=pub5"></script>
@@ -4874,7 +4874,7 @@ async function renderNilPlayer(){
   const _mkCurves=(_mkOv&&_mkOv.curves)||(_mkPub&&_mkPub.curves)||(window._nilMarket&&window._nilMarket.curves)||null;
   const marketVal=(!walkon&&_mkCurves&&N.curveMarket)?N.curveMarket(pos,grade,_mkCurves):null;
   const mktDelta=(marketVal!=null&&modelVal!=null)?(marketVal-modelVal):null;
-  const _verdict=(marketVal!=null&&N.marketVerdict)?N.marketVerdict(modelVal,marketVal,{grade:grade,mpg:mpg}):{tag:null};
+  const _verdict=(marketVal!=null&&N.marketVerdict)?N.marketVerdict(modelVal,marketVal,{grade:grade,mpg:mpg,tier:nilTier}):{tag:null};
   // premium sub-components (for the readout)
   const pSize=N.sizeMult(N.htIn(player&&player.height),pos), pConf=N.confMult(N.confClass(conf));
   const tierN=N.tierNum(nilTier);
@@ -4897,7 +4897,7 @@ async function renderNilPlayer(){
     <div class="nilx-mm">
       <div class="nilx-mm-card"><div class="mm-l">Model Value</div><div class="mm-v">${fmt(modelVal)}</div><div class="mm-s">production estimate</div></div>
       <div class="nilx-mm-card"><div class="mm-l">Market Value</div><div class="mm-v" style="color:${col}">${fmt(marketVal)}</div><div class="mm-s">${N.POS5(pos)} positional curve</div></div>
-      <div class="nilx-mm-card"><div class="mm-l">Δ Market − Model</div><div class="mm-v" style="color:${mktDelta>=0?'var(--amber)':'var(--green)'}">${mktDelta>=0?'+':'−'}${fmt(Math.abs(mktDelta))}</div><div class="mm-s">${_verdict.tag==='underrated'?'<b style="color:var(--green)">UNDERRATED</b> · slept on by the market':_verdict.tag==='overrated'?'<b style="color:var(--amber)">OVERRATED</b> · market pays above production':_verdict.tag==='fair'?'fair value · market ≈ model':(mktDelta>=0?'market pays above production':'a value buy')}</div></div>
+      <div class="nilx-mm-card"><div class="mm-l">Verdict · vs market</div><div class="mm-v" style="font-size:21px;color:${_verdict.tag?N.markColor(_verdict.tag):'var(--text3)'}">${_verdict.tag?N.markLabel(_verdict.tag):'—'}</div><div class="mm-s">${_verdict.tag==='underrated'?'slept on — production ~'+_verdict.ratio.toFixed(1)+'× his market price':_verdict.tag==='overrated'?'market prices him ~'+_verdict.ratio.toFixed(1)+'× his production':_verdict.tag==='fair'?'market ≈ production (tier-fair)':'not enough role to judge'}</div></div>
     </div>`:''}
     ${walkon?`<div class="nilx-flag" style="border-color:${col}"><b>Walk-on / non-rotation</b> — nominal value; not part of NIL roster spend.</div>`:`
     <div class="sec-title" style="margin:26px 0 14px;">How it's valued</div>
@@ -4910,7 +4910,7 @@ async function renderNilPlayer(){
       <div class="nilx-op">=</div>
       <div class="nilx-step final" style="border-color:${col}"><div class="nx-t">Projected NIL value</div><div class="nx-b" style="color:${col};font-size:24px">${fmt(modelVal)}</div>${override?`<div class="nx-s">overridden by the deal above</div>`:''}</div>
     </div>`}
-    <div class="nilx-note">A realistic-market estimate: the player's <b>TDC grade</b> (talent, usage, efficiency, recruiting hype) on a <b>convex curve</b> — stars are worth exponentially more — times <b>projected minutes</b> (role), the team's <b>NIL spending tier</b>, a <b>market premium</b> (size · scoring · conference), a <b>youth bump</b> for upside, a <b>center premium</b> (good bigs are scarce), and an <b>NBA-prospect premium</b> for young lottery-caliber grades. Calibrated to real NIL deals; a manual override replaces it when a known deal is on file. Matches this team's NIL Value tab.${marketVal!=null?` <b>Market Value</b> is a different lens — a <b>positional market curve</b> (what a 90 / 80 / 70-grade player goes for at each slot, set by the owner) read off by this player's grade &amp; position, independent of minutes. <b>Δ</b> = Market − Model: <span style="color:var(--amber);font-weight:700;">amber</span> means the market pays above production, <span style="color:var(--green);font-weight:700;">green</span> is a value buy.`:''}</div>
+    <div class="nilx-note">A realistic-market estimate: the player's <b>TDC grade</b> (talent, usage, efficiency, recruiting hype) on a <b>convex curve</b> — stars are worth exponentially more — times <b>projected minutes</b> (role), the team's <b>NIL spending tier</b>, a <b>market premium</b> (size · scoring · conference), a <b>youth bump</b> for upside, a <b>center premium</b> (good bigs are scarce), and an <b>NBA-prospect premium</b> for young lottery-caliber grades. Calibrated to real NIL deals; a manual override replaces it when a known deal is on file. Matches this team's NIL Value tab.${marketVal!=null?` <b>Market Value</b> is a different lens — a <b>positional market curve</b> (what a 90 / 80 / 70-grade player goes for at each slot, set by the owner) read off by this player's grade &amp; position, independent of minutes. The <b>Verdict</b> is <b>tier-fair</b>: it strips out team spending so talent (not the program) drives it, then compares his production to the market price for his grade &amp; slot — <span style="color:var(--green);font-weight:700;">UNDERRATED</span> = slept on (produces more than the market pays), <span style="color:var(--amber);font-weight:700;">OVERRATED</span> = market pays above production.`:''}</div>
   </div>`;
   host.innerHTML=html;
 }
