@@ -6706,11 +6706,12 @@ function renderHistoricRoster(rows, yr, projected){
     // a 70). A tie-break puts the taller of two bigs at the 5; a guard at the 5 is blocked.
     const value=(p,pos)=>{ const d=Math.abs(IDX[slot(p)]-IDX[pos]);
       return gr(p) - htFit(p,pos) - d*2 - (d>=3?12:0) + (pos==='C'?Math.max(0,(_htIn(p.height)-80))*0.15:0); };
-    // Starters: OPTIMAL five-man assignment (maximize total value), not a greedy pick.
-    // Greedy grabs the single best (player,spot) first and strands weak players in the
-    // gaps — a 70 at the 5 while an 86 sits at the 4. The search jointly finds that
-    // moving the big up to the 5 and sliding the next forward to the 4 scores higher.
-    const poolS=[...rows].sort((a,b)=>gr(b)-gr(a)).slice(0, Math.min(rows.length,9));
+    // Starters = the five highest-PROJECTED-MINUTE players (who actually plays), then the
+    // optimal assignment slots them into PG..C by fit. Using GRADE here made a high-OVR
+    // buried transfer (e.g. a 85 projecting 7 mpg) outrank the real 27-mpg starter; minutes
+    // are the role signal and match the projections table. gr() still drives position fit.
+    const _pm=p=>(p._projMin!=null&&isFinite(p._projMin))?p._projMin:(parseFloat(p.mpg)||0);
+    const poolS=[...rows].sort((a,b)=>_pm(b)-_pm(a)).slice(0, Math.min(rows.length,5));
     let bestAsg={tot:-1e9, map:null};
     (function rec(i, usedI, map, tot){
       if(i===POS.length){ if(tot>bestAsg.tot) bestAsg={tot, map:Object.assign({},map)}; return; }
@@ -6723,7 +6724,7 @@ function renderHistoricRoster(rows, yr, projected){
     // Backups: everyone else to their best-fit column, with a depth penalty so they
     // spread across positions (bigs back up bigs) instead of stacking one spot deep.
     const colByPos={}; cols=POS.map(pos=>{ const c={pos, list:st[pos]?[st[pos]]:[]}; colByPos[pos]=c; return c; });
-    [...rows].filter(p=>!used.has(p)).sort((a,b)=>gr(b)-gr(a)).forEach(p=>{
+    [...rows].filter(p=>!used.has(p)).sort((a,b)=>_pm(b)-_pm(a)).forEach(p=>{
       let bp=POS[0], bv=-1e9; POS.forEach(pos=>{ const v=value(p,pos)-colByPos[pos].list.length*4; if(v>bv){bv=v;bp=pos;} }); colByPos[bp].list.push(p);
     });
   } else {
