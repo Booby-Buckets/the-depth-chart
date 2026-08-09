@@ -4339,26 +4339,30 @@ function buildCustomProjections(){
     return applyRoleToProjection(result,roleKey,p.tdc_grade,p._naturalPos||p.position,p._assignedPos||p.position);
   });
   // Normalize to a REAL game: 5 on the floor × 40 minutes = 200 player-minutes.
-  // Season MPG sums run over 200 (overtimes, players missing games), so raw
-  // slider totals never balance — scale every rotation to exactly 200 so this
-  // team's totals are consistent with every other team's.
-  // the 200 minutes belong to the actual rotation — normalize on the top 10
-  // by minutes so deep-bench filler doesn't deflate the real players
-  // Rotation: only the top ROT players (by minutes) share real minutes; everyone
-  // past the coach's rotation gets garbage-time minutes (blowouts) with
-  // correspondingly low stats. Rotation still normalizes to a 200-minute game.
-  const ROT=Math.max(6,Math.min(15,_rotationSize||10)), GARB=3.2;
+  // TUNED (Aug 2026): the old code took the top ROT players and flat-assigned everyone past
+  // that a garbage-time 3.2 — a hard cliff that cut genuine 8-9-min rotation players (e.g. a
+  // rotation freshman) down to 3.2. The projected minutes now come from the rotation model
+  // (_projMin), which already gives the deep bench ~0-2, so we simply scale the whole rotation
+  // PROPORTIONALLY to 200 — preserving the model's distribution with no cliff. Deep-bench
+  // players stay low because _projMin already gives them ~0-2; no real rotation piece is cut.
   const CNT=['ppg','rpg','apg','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','stl','blk','tovs'];
-  const ranked=projRows.map(p=>({p,m:parseFloat(p.mpg)||0})).filter(x=>x.m>0).sort((a,b)=>b.m-a.m);
-  const benchN=Math.max(0,ranked.length-ROT);
-  const rotTarget=Math.max(120,200-benchN*GARB);
-  const rotSum=ranked.slice(0,ROT).reduce((s,x)=>s+x.m,0);
-  ranked.forEach((x,i)=>{
-    const p=x.p, m=x.m; if(!m) return;
-    const nm=(i<ROT)?Math.min(40,m*(rotSum>0?rotTarget/rotSum:1)):GARB, r=nm/m;
-    p.mpg=r1t(nm);
-    CNT.forEach(k=>{ if(p[k]!=null) p[k]=r1t(parseFloat(p[k])*r); });
-  });
+  const active=projRows.filter(p=>(parseFloat(p.mpg)||0)>0);
+  const total=active.reduce((s,p)=>s+(parseFloat(p.mpg)||0),0);
+  if(total>0){
+    const scale=200/total;
+    // first pass: proportional, capped at 40
+    active.forEach(p=>{ p._nm=Math.min(40,(parseFloat(p.mpg)||0)*scale); });
+    // redistribute any overflow from 40-capped players onto the sub-40 rotation (once)
+    const capped=active.reduce((s,p)=>s+p._nm,0);
+    if(capped<199.5){
+      const under=active.filter(p=>p._nm<40), underSum=under.reduce((s,p)=>s+p._nm,0), need=200-capped;
+      if(underSum>0) under.forEach(p=>{ p._nm=Math.min(40,p._nm+need*(p._nm/underSum)); });
+    }
+    active.forEach(p=>{ const m=parseFloat(p.mpg)||0, nm=p._nm, r=m>0?nm/m:0;
+      p.mpg=r1t(nm);
+      CNT.forEach(k=>{ if(p[k]!=null) p[k]=r1t(parseFloat(p[k])*r); });
+      delete p._nm; });
+  }
   return projRows;
 }
 
