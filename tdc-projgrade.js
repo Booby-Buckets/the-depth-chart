@@ -466,11 +466,26 @@
   // level-adjusted quality + development, NO role penalty. Equals gradeRoster's grade for
   // starters (whose role penalty is ~0), which is who the strip shows — so it stays consistent
   // with the player/team pages without needing every team's full roster.
+  // Scout-grade blend: the statistical overall is production-only and can't see on-ball
+  // defense, tools, or upside. When the owner's hand grade (tdc_grade) is ABOVE the
+  // statistical grade, pull the OVR partway toward it (bounded) so a defensive stopper or a
+  // young high-upside player isn't undervalued. UP-ONLY — a player the stats grade HIGHER
+  // than the scout keeps his (higher) stat grade. Current/projected OVR only; historical
+  // rows (season_year set) stay pure statistical.
+  var SCOUT_W = 0.40, SCOUT_CAP = 5;
+  function _scoutBlend(sv, row){
+    if(sv == null || !row) return sv;
+    if(row.season_year != null) return sv;
+    var hg = parseFloat(row.tdc_grade);
+    if(!isFinite(hg) || hg <= sv) return sv;
+    return Math.min(99, sv + Math.min(SCOUT_CAP, Math.round(SCOUT_W * (hg - sv))));
+  }
   function gradeSolo(row){
     if(!row) return null;
     var _gp = (row.gp != null && row.gp !== '') ? +row.gp : ((row.g != null && row.g !== '') ? +row.g : null);
     if(_gp != null && _gp > 0 && _gp < 3) return null;       // played <3 games → no rating (noise)
-    var _sv = _statOvrOf(row); if(_sv != null) return _sv;   // LIVE: statistical overall (projected→demonstrated) by espn_id
+    var _sv = _statOvrOf(row);                               // LIVE: statistical overall (projected→demonstrated) by espn_id
+    if(_sv != null) return _scoutBlend(_sv, row);
     if(row.id != null && _COUPLED[row.id] != null){ var ca = _COUPLED[row.id]; return Math.min(99, Math.round(ca + _taperArch(ca, _archOf(row)) + _gpsOf(row))); }   // legacy fallback (no stat overall — e.g. freshmen): coupled + tapered archetype
     var g = parseFloat(row.tdc_grade); if(!isFinite(g)) return null;
     var qual = g;   // no conference discount here — see gradeRoster; the level lives in the projection
