@@ -4344,6 +4344,21 @@ async function loadShotChart(season){
     try{ var sr=_ovrSeasonRow(season);
       if(sr){ var fga=parseFloat(sr.fga), gp=parseFloat(sr.gp);
         if(isFinite(fga)&&isFinite(gp)&&gp>0) exp=fga*gp; } }catch(e){}
+    // Hide the court entirely when there are too few tracked shots to form a readable chart —
+    // a handful of dots on an empty half-court reads as "no shot chart" and misleads. Show a
+    // disclaimer instead. (~440 real attempts but only 34 tracked = hide.) Charts with enough
+    // dots still render, keeping the existing partial-coverage note for the % gap.
+    var _n=Array.isArray(rows)?rows.length:0, _SC_MIN=40;
+    if(_n < _SC_MIN){
+      var _who=(player&&player.name)||'this player', _sl=(typeof _seasonLbl2==='function')?_seasonLbl2(season):season;
+      var _msg=(_n===0)
+        ? 'ESPN didn’t publish shot-location data for '+_who+' in '+_sl+', so there’s no shot chart to show.'
+        : 'Only '+_n+' of '+_who+'’s shots have tracked locations in '+_sl+' — too few to form a readable chart, so it’s hidden.';
+      host.innerHTML='<div style="padding:24px 22px;border:1px dashed var(--border2);border-radius:14px;background:var(--bg2);text-align:center;">'
+        +'<div style="font-weight:800;color:var(--text2);font-size:13px;letter-spacing:.02em;margin-bottom:6px;">No shot chart</div>'
+        +'<div style="color:var(--text3);font-size:12.5px;line-height:1.6;max-width:460px;margin:0 auto;">'+_msg+'</div></div>';
+      loadShotFlow(season); return;
+    }
     TDC_SHOTCHART.render(host, Array.isArray(rows)?rows:[],
       {subtitle:(player&&player.name)||'this player', expected:exp});
   }catch(e){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Could not load shot chart.</div>'; }
