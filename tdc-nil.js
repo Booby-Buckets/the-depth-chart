@@ -139,12 +139,20 @@ window.TDC_NIL = {
   N.POS_HT = {PG:74, SG:76, SF:78.5, PF:80.5, C:82.5};
   N.naturalPos = function(htIn){ if(!htIn||!isFinite(+htIn)) return null;
     var best=null, bd=1e9; N.POS_ORDER.forEach(function(p){ var d=Math.abs(+htIn-N.POS_HT[p]); if(d<bd){ bd=d; best=p; } }); return best; };
+  // Only FORWARDS/CENTERS are size-defined — a tall PG/SG is still a guard, so guards are
+  // NEVER reclassified. A forward/center only shifts UP the frontcourt ladder (SF→PF→C) when
+  // his height puts him at a bigger slot (a 6-9 "SF" is a PF, a 6-11 "PF" is a C); never down,
+  // never into a guard slot.
+  N.FRONT = {SF:1, PF:1, C:1};
   N.bestMarket = function(grade, pos, htIn, curves){
-    var lp=N.POS5(pos), base=N.curveMarket(lp, grade, curves), np=N.naturalPos(htIn);
-    if(np==null || np===lp) return {val:base, pos:lp, moved:false};
-    var i=N.POS_ORDER.indexOf(lp), j=N.POS_ORDER.indexOf(np), lo=Math.min(i,j), hi=Math.max(i,j);
+    var lp=N.POS5(pos), base=N.curveMarket(lp, grade, curves);
+    if(!N.FRONT[lp]) return {val:base, pos:lp, moved:false};                 // guards keep their slot
+    var np=N.naturalPos(htIn);
+    if(np==null || !N.FRONT[np]) return {val:base, pos:lp, moved:false};     // don't pull a forward into a guard slot
+    var i=N.POS_ORDER.indexOf(lp), j=N.POS_ORDER.indexOf(np);
+    if(j<=i) return {val:base, pos:lp, moved:false};                         // only bigger, never smaller
     var bp=lp, bv=base;
-    for(var k=lo;k<=hi;k++){ var v=N.curveMarket(N.POS_ORDER[k], grade, curves); if(v!=null && (bv==null||v>bv)){ bv=v; bp=N.POS_ORDER[k]; } }
+    for(var k=i;k<=j;k++){ var v=N.curveMarket(N.POS_ORDER[k], grade, curves); if(v!=null && (bv==null||v>bv)){ bv=v; bp=N.POS_ORDER[k]; } }
     return {val:bv, pos:bp, moved:bp!==lp};
   };
 
