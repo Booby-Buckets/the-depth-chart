@@ -43,7 +43,7 @@
   // ±FORM_CAP — a hot team gains up to +3, a cold one loses up to -3, and it
   // takes a sustained run (not two lucky games) to move much.
   const FORM_PRIOR=10, FORM_CAP=3;
-  const CAL_A=11.75, CAL_B=2.355;          // calibrated BPM→SRS (see header)
+  const CAL_A=-0.3, CAL_B=4.16;            // BPM→SRS (recal 2026-08: was 11.75/2.355 — intercept too high + slope too shallow bunched 24 teams ≥20.3; now ~6, matching historical spread; avg-BPM roster → ~0)
   // OWNED BPM. Each returner enters the projection on the Box Plus/Minus scale.
   // A regression of bbref BPM onto OUR OWN box-derived rates (player_advanced) PLUS the
   // player's team quality — his 2026 team's owned Power Rating (team_seasons.srs). That
