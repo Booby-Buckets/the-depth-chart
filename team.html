@@ -379,7 +379,11 @@
     .sq-rc{flex:1;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:10px 6px;}
     .sq-big{font-family:'Playfair Display',serif;font-weight:800;font-size:30px;line-height:1;}
     .sq-lbl{font-size:8.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-top:5px;}
-    .sq-syn-word{text-align:center;font-size:11px;font-weight:800;letter-spacing:.04em;margin:9px 0 14px;}
+    .sq-syn-word{text-align:center;font-size:11px;font-weight:800;letter-spacing:.04em;margin:9px 0 12px;}
+    .sq-mini{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:0 0 14px;}
+    .sq-mini-c{background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:7px 3px;text-align:center;}
+    .sq-mini-c b{display:block;font-family:'Playfair Display',serif;font-weight:800;font-size:15px;line-height:1;color:var(--text);font-variant-numeric:tabular-nums;}
+    .sq-mini-c span{display:block;font-size:7.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
     .sq-dims{display:flex;flex-direction:column;gap:9px;}
     .sq-dim-top{display:flex;justify-content:space-between;font-size:10.5px;font-weight:700;margin-bottom:3px;}
     .sq-dim-top span{color:var(--text2);} .sq-dim-top b{color:var(--text);font-variant-numeric:tabular-nums;}
@@ -881,6 +885,15 @@
   /* ── Customize tab — stack position columns vertically ── */
   #lineupColumns{display:flex!important;flex-direction:column!important;}
   .pos-col{width:100%!important;border-right:none!important;border-bottom:1px solid var(--border)!important;}
+
+  /* ── Squad court — smaller tiles so the top row (C) doesn't clip the short court ── */
+  .sq-court{aspect-ratio:4/3.4!important;}
+  .sq-player{width:72px!important;}
+  .sq-ava{width:52px!important;height:52px!important;border-width:2px!important;}
+  .sq-init{font-size:19px!important;}
+  .sq-tag{margin-top:4px!important;padding:1px 7px!important;}
+  .sq-ovr{font-size:11px!important;} .sq-pos{font-size:7.5px!important;}
+  .sq-name{font-size:10px!important;max-width:74px!important;margin-top:2px!important;}
 }
     .tdc-prem{display:inline-flex;width:1em;height:1em;flex-shrink:0;vertical-align:-0.12em;cursor:default;margin-left:3px;}
     .tdc-prem svg{width:100%;height:100%;overflow:visible;}
@@ -1033,8 +1046,6 @@
     <button class="hero-tab" id="projTabBtn" onclick="switchTab('projections',this)">2026-27 Projections</button>
     <button class="hero-tab" onclick="switchTab('nil',this)">NIL Value</button>
     <button class="hero-tab" onclick="switchTab('report',this)">Roster Report</button>
-    <button class="hero-tab" onclick="switchTab('analysis',this)">Analysis</button>
-    <button class="hero-tab" onclick="switchTab('comments',this)">Comments</button>
     <button class="hero-tab" id="followTeamBtn" onclick="toggleTeamFollow()" style="margin-left:auto;padding:6px 16px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:none;border:1px solid var(--border2);color:var(--text3);cursor:pointer;font-family:'Inter',sans-serif;border-radius:0;display:flex;align-items:center;gap:6px;">Follow Team</button>
   </div>
   <div id="teamFollowerCount" style="font-size:11px;color:var(--text3);padding:6px 0 0;"></div>
@@ -1167,26 +1178,11 @@
       <div class="sec-head">Roster Report <span style="font-size:10px;font-weight:600;color:var(--text3);margin-left:8px;">AI scouting breakdown · starters · bench · second unit · coaching fit</span></div>
       <div id="reportContent"><div class="loading-state"><div class="loading-spinner"></div></div></div>
     </div>
-    <div class="panel" id="panel-analysis">
-      <div class="sec-head">Team Outlook</div>
-      <div class="outlook-text" id="outlookText"></div>
-      <div class="sec-head" style="margin-top:34px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-        <span>Team Shot Chart</span>
-        <select id="teamShotSeason" style="padding:6px 9px;font-size:12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);color:var(--text);" onchange="loadTeamShotChart(this.value)"></select>
-      </div>
-      <div id="teamShotHost"></div>
-    </div>
     <div class="panel" id="panel-dna">
       <div id="teamDnaHost"><div style="padding:24px;color:var(--text3);">Loading Team DNA…</div></div>
     </div>
     <div class="panel" id="panel-onoff">
       <div id="onoffHost"><div style="padding:24px;color:var(--text3);">Loading On/Off…</div></div>
-    </div>
-    <div class="panel" id="panel-comments">
-      <div class="sec-head">Comments</div>
-      <div id="commentsContent">
-        <div class="loading-state"><div class="loading-spinner"></div></div>
-      </div>
     </div>
   </div>
   <div class="side-col">
@@ -2450,8 +2446,9 @@ function renderSidebar(t, players, losses, color){
 }
 
 function renderOutlook(t){
+  const el=document.getElementById('outlookText'); if(!el) return;   // Analysis panel removed
   const text = t.outlook || '';
-  document.getElementById('outlookText').innerHTML =
+  el.innerHTML =
     text ? text.split('\n\n').map(p=>`<p>${p}</p>`).join('') :
     '<p style="color:var(--text3);font-style:italic;">No outlook written yet.</p>';
 }
@@ -3453,7 +3450,7 @@ function _sqAttr(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')
 function _sqInit(n){ return (n||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase(); }
 function _sqHead(eid){ return (eid&&window.tdcShowPhotos&&window.tdcShowPhotos())?`<img src="https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/${eid}.png" alt="" onerror="this.remove()"/>`:''; }
 function _sqCol(g){ g=parseFloat(g); const dk=document.documentElement.getAttribute('data-theme')==='dark'; if(isNaN(g))return 'var(--text3)'; if(g>=88)return dk?'#8ab8ff':'#1746b8'; if(g>=80)return dk?'#6f9fe6':'#2f66c0'; if(g>=72)return dk?'#9fb3d6':'#5f7bb0'; return 'var(--text2)'; }
-const _COURT_XY={ C:{x:58,y:19}, PF:{x:31,y:28}, SF:{x:19,y:57}, SG:{x:81,y:57}, PG:{x:50,y:61} };
+const _COURT_XY={ C:{x:58,y:25}, PF:{x:31,y:33}, SF:{x:19,y:60}, SG:{x:81,y:60}, PG:{x:50,y:64} };
 // On-court position adjusted for PLAYING STYLE, not just the depth-chart slot:
 // a stretch big drifts out toward the wing/arc instead of sitting on the block,
 // a non-shooting rim-runner crashes closer to the rim. Basket is at the TOP
@@ -3667,12 +3664,27 @@ function _lineupAnalysis(starters){
   const anchor=blks[0]||0, second=blks[1]||0;
   // bounds calibrated to 5-starter SUMS: ~55 ppg / ~25 rpg is an average high-major
   // lineup, so the low end sits well below that (a realistic lineup never floors).
+  // extra numeric identifiers (size / ball security / shooting / experience)
+  const htIn=s=>{const m=/(\d+)\D+(\d+)/.exec(''+(s||''));return m?(+m[1]*12+ +m[2]):null;};
+  const hts=ps.map(p=>htIn(p.height)).filter(v=>v);
+  const avgHt=hts.length?Math.round(hts.reduce((a,b)=>a+b,0)/hts.length):null;
+  const astTov=(function(){const t=S('tovs');return t>0?S('apg')/t:null;})();
+  const tp3=(function(){let num=0,den=0;ps.forEach(p=>{const a=parseFloat(p.tpa)||0,pc=parseFloat(p.tp_pct)||0;if(a>0){num+=pc*a;den+=a;}});return den?num/den:null;})();
+  const cnum=v=>{v=(''+(v||'')).toUpperCase();return v.includes('FR')?1:v.includes('SO')?2:v.includes('JR')?3:v.includes('SR')?4:(v.includes('GR')?5:null);};
+  const clsA=ps.map(p=>cnum(p.class_year||p.yr)).filter(v=>v);
+  const avgCls=clsA.length?clsA.reduce((a,b)=>a+b,0)/clsA.length:null;
+  const clsLbl=avgCls==null?'—':(avgCls<1.6?'Fr':avgCls<2.6?'So':avgCls<3.6?'Jr':'Sr+');
   const dims={ Scoring:norm(S('ppg'),38,78), Spacing:norm(spacers*19+elite*9,8,78),
     Playmaking:norm(S('apg'),7,19), Rebounding:norm(S('rpg'),15,38),
     'Perimeter D':norm(S('stl'),2,7), 'Rim Protect':norm(anchor*22+second*11+S('blk')*2,10,68) };
+  if(avgHt!=null) dims.Size=norm(avgHt,74,81);
+  if(astTov!=null) dims['Ball Security']=norm(astTov,0.7,2.2);
   const grades=ps.map(p=>parseFloat(p.tdc_grade)).filter(g=>!isNaN(g));
   const rating=grades.length?Math.round(grades.reduce((a,b)=>a+b,0)/grades.length):null;
-  return {overall,dims,rating,shooters:spacers,count:ps.length};
+  const mini={ size:avgHt!=null?(Math.floor(avgHt/12)+'-'+(avgHt%12)):'—',
+    tp3:tp3!=null?tp3.toFixed(1):'—', astTov:astTov!=null?astTov.toFixed(1):'—', cls:clsLbl };
+  const ceil=grades.length?Math.max(...grades):null;
+  return {overall,dims,rating,shooters:spacers,count:ps.length,mini,ceil};
 }
 // How well ONE player fits the coach's system — compares the coach's style
 // percentiles (demand) to the player's trait profile (supply). Used to draw
@@ -3779,6 +3791,12 @@ function _playstylePanel(an){
       <div class="sq-rc"><div class="sq-big" style="color:${_synCol(an.overall)}">${an.overall}</div><div class="sq-lbl">Synergy</div></div>
     </div>
     <div class="sq-syn-word" style="color:${_synCol(an.overall)}">${synWord}</div>
+    <div class="sq-mini">
+      <div class="sq-mini-c"><b>${an.mini.size}</b><span>Avg Size</span></div>
+      <div class="sq-mini-c"><b>${an.mini.tp3}</b><span>3P%</span></div>
+      <div class="sq-mini-c"><b>${an.mini.astTov}</b><span>AST/TO</span></div>
+      <div class="sq-mini-c"><b>${an.mini.cls}</b><span>Class</span></div>
+    </div>
     <div class="sq-dims">${ents.map(dimBar).join('')}</div>
     <div class="sq-style-note"><b style="color:#5ab875;">Edge:</b> ${top[0]} &nbsp; <b style="color:#e07070;">Gap:</b> ${low[0]}</div>
     <div class="sq-style-note" style="color:var(--text3);">${an.shooters} of ${an.count} starters space the floor.</div>
