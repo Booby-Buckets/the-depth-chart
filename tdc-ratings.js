@@ -90,6 +90,23 @@
   // (chemistry/system familiarity) — a standard early-season signal. Small bounded
   // nudge on the final rating, centered on a typical returning-minutes share.
   const CONT_BASE=35, CONT_K=0.03, CONT_CAP=1.5;
+  // Scoring-engine scarcity. Owned BPM rewards efficient LOW-usage players (its usg
+  // coefficient is negative), so a rotation of efficient role players with no primary
+  // bucket-getter can over-rate (e.g. Saint Louis: everyone efficient, nobody >~18 pts/40).
+  // Penalize teams whose best real-load scorer falls below a per-40 threshold — but WAIVE it
+  // in proportion to elite PLAYMAKING (a distributor engine) or elite DEFENSE, so a pass-first
+  // PG team (Michigan State, top ast% ~53) or a defense-led team (Arizona) isn't punished for
+  // lacking a volume scorer. leadPts40 = best pts/40 among rotation regulars using ≥SCE_USG%;
+  // carve = max(playmaking ramp on top ast%, defense ramp on minutes-weighted stl%+blk%).
+  // All tunable; set SCE_K=0 to disable. Calibrated on 2026-27 rosters (see the ratings notes).
+  // Calibrated on the 2026-27 field (projected-minutes rotations): TARGET=19 pts/40 only bites
+  // teams with a genuinely weak lead scorer (SLU 18.4) and spares borderline ones (Arizona 19.1);
+  // cap 2.0 keeps it a nudge, not a hammer. AST/DEF carve ramps set to the real distribution so
+  // only elite distributors (MSU 53) / elite steal-block defenses (>~4.5) get waived.
+  const SCE_TARGET=19.0, SCE_K=0.45, SCE_CAP=2.0;   // pen = K·max(0, TARGET − leadPts40), capped
+  const SCE_MINMIN=18, SCE_USG=20;                  // "rotation regular" proj. minutes; real-load usage
+  const SCE_AST_LO=25, SCE_AST_HI=42;               // playmaking carve-out ramp (top ast%)
+  const SCE_DEF_LO=3.8, SCE_DEF_HI=6.0;             // defense carve-out ramp (mw stl%+blk%)
   // home court measured from our 20yr game history, controlled for opponent
   // strength (scripts/calibrate_hca.py): a baseline curve by opponent rating
   // (~+3.7 vs decent visitors, larger vs weak ones) + a shrunk per-venue
@@ -214,7 +231,8 @@
     // team-adjustment term — player_advanced.team matches team_seasons.team exactly.
     // bpm  = owned BPM incl. his 2025-26 team's SRS context; bpm0 = context-neutral
     // (SRS=0) so a TRANSFER doesn't carry his old team's quality to his new school.
-    const advById={}; (bb||[]).forEach(r=>{ if(r.espn_id!=null){ const b=estBpm(r, srsOf[r.team]); if(isFinite(b)) advById[r.espn_id]={bpm:b, bpm0:estBpm(r,0), team:r.team}; } });
+    const advById={}; (bb||[]).forEach(r=>{ if(r.espn_id!=null){ const b=estBpm(r, srsOf[r.team]); if(isFinite(b)) advById[r.espn_id]={bpm:b, bpm0:estBpm(r,0), team:r.team,
+      usg:parseFloat(r.usg_pct), pts40:parseFloat(r.pts40), ast:parseFloat(r.ast_pct), stl:parseFloat(r.stl_pct), blk:parseFloat(r.blk_pct)}; } });
 
     // group rostered players by team
     const byTeam={};
@@ -269,7 +287,8 @@
                     :(_ovr.byNameTeam&&_ovr.byNameTeam[((p.team||'')+'|'+(p.name||'')).toLowerCase()]);
           if(ov){ if(ov.bpm!=null&&!isNaN(+ov.bpm)) projBpm=+ov.bpm;
                   if(ov.min!=null&&!isNaN(+ov.min)) min=Math.max(4,+ov.min); } }
-        return {projBpm,min,luckEfg,hasSg:!!sg};
+        return {projBpm,min,luckEfg,hasSg:!!sg,
+          usg:adv?adv.usg:NaN, pts40:adv?adv.pts40:NaN, ast:adv?adv.ast:NaN, stl:adv?adv.stl:NaN, blk:adv?adv.blk:NaN};
       });
       // Rotation is now defined by the PROJECTED minutes (the depth chart), not a
       // top-11-by-BPM re-sort — so a high-BPM player the coach benches is weighted by his
@@ -286,12 +305,30 @@
       const cAdj=coachAdjOf[short]||0;
       const cont=(contData&&contData[short])?contData[short].continuity:null;
       const contAdj=cont!=null?+Math.max(-CONT_CAP,Math.min(CONT_CAP,CONT_K*(cont-CONT_BASE))).toFixed(2):0;
-      const rating=((prior!=null)?(BLEND_ROSTER*rosterRating+(1-BLEND_ROSTER)*(ANCHOR*prior))
-                                 :rosterRating) + cAdj + contAdj;
+      // Scoring-engine scarcity penalty (see constants). Uses the projected rotation regulars.
+      let scePen=0;
+      const reg=rot.filter(e=>e.min>=SCE_MINMIN);
+      if(reg.length && SCE_K>0){
+        const loads=reg.filter(e=>isFinite(e.usg)&&e.usg>=SCE_USG&&isFinite(e.pts40)).map(e=>e.pts40);
+        if(loads.length){
+          const lead=Math.max.apply(null,loads);
+          const raw=Math.min(SCE_CAP, SCE_K*Math.max(0, SCE_TARGET-lead));
+          if(raw>0){
+            const cl=x=>Math.max(0,Math.min(1,x));
+            const topAst=Math.max.apply(null, reg.map(e=>isFinite(e.ast)?e.ast:0));
+            const dmin=reg.reduce((s,e)=>s+e.min,0)||1;
+            const mwDef=reg.reduce((s,e)=>s+((isFinite(e.stl)?e.stl:0)+(isFinite(e.blk)?e.blk:0))*e.min,0)/dmin;
+            const carve=Math.max(cl((topAst-SCE_AST_LO)/(SCE_AST_HI-SCE_AST_LO)), cl((mwDef-SCE_DEF_LO)/(SCE_DEF_HI-SCE_DEF_LO)));
+            scePen=+(raw*(1-carve)).toFixed(2);
+          }
+        }
+      }
+      const rating=(((prior!=null)?(BLEND_ROSTER*rosterRating+(1-BLEND_ROSTER)*(ANCHOR*prior))
+                                 :rosterRating) + cAdj + contAdj) - scePen;
       rows.push({team:short, full, conf:confOf[short]||'', rating:+rating.toFixed(2), coachAdj:cAdj,
         contAdj:contAdj, continuity:cont,
         roster:+rosterRating.toFixed(2), prior:prior!=null?+prior.toFixed(1):null, projected:true,
-        shotLuck:shotLuck, hcaOff:hcaOf[full]!=null?hcaOf[full]:0});
+        scePen:scePen||0, shotLuck:shotLuck, hcaOff:hcaOf[full]!=null?hcaOf[full]:0});
     });
     // non-rostered D1 teams: regressed carryover of last season's SRS
     const covered=new Set(rows.map(r=>r.full));
