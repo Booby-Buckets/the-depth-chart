@@ -1440,7 +1440,12 @@ async function loadTeam(name){
     if(window.TDCProjGrade && TDCProjGrade.gradeRoster){
       try{
         await TDCProjGrade.ready;
-        const rr = players.map(p=>{ const fp=_fpOf(p); const g=(fp&&fp.ovr!=null)?Math.round(parseFloat(fp.ovr)):parseFloat(p.tdc_grade);
+        const rr = players.map(p=>{ const fp=_fpOf(p); let g=(fp&&fp.ovr!=null)?Math.round(parseFloat(fp.ovr)):parseFloat(p.tdc_grade);
+                                    // New transfers sync with tdc_grade=null (ungraded until the re-grade). Without a
+                                    // quality the rotation model gives them 0 minutes — a 34-mpg transfer PG (Javon
+                                    // Bennett) sank to the bench. Fall back to the computed statistical overall so his
+                                    // demonstrated production + depth_order still earn him real minutes.
+                                    if(!isFinite(g) && TDCProjGrade.gradeSolo){ const gs=TDCProjGrade.gradeSolo(p); if(gs!=null&&!isNaN(gs)) g=gs; }
                                     return Object.assign({}, p, {tdc_grade:g}); });
         const res = TDCProjGrade.gradeRoster(rr);
         players.forEach((p,i)=>{ if(!res[i]) return; const fp=_fpOf(p);
@@ -6704,7 +6709,15 @@ function renderHistoricRoster(rows, yr, projected){
     // listed spot (respects real roles on close calls, e.g. keeps a listed C at the 5,
     // but still yields when a clearly better player should slide in — a big to the 5 over
     // a 70). A tie-break puts the taller of two bigs at the 5; a guard at the 5 is blocked.
-    const value=(p,pos)=>{ const d=Math.abs(IDX[slot(p)]-IDX[pos]);
+    // A player at his LISTED secondary position (position2) is NOT out of position, so it
+    // costs nothing — a PF/SF (Wiggins) fills the 3 before a PF-only big (Huff) gets dragged
+    // there. Distance = the closest of his listed slots to the target.
+    const _sl=x=>{ x=(''+(x||'')).toUpperCase().trim();
+      if(x==='PG')return 'PG'; if(x==='SG'||x==='CG'||x==='G')return 'SG';
+      if(x==='SF'||x==='GF')return 'SF'; if(x==='PF'||x==='F')return 'PF'; if(x==='C')return 'C'; return null; };
+    const posDist=(p,pos)=>{ const cs=[slot(p)]; const s2=_sl(p.position2); if(s2&&cs.indexOf(s2)<0)cs.push(s2);
+      return Math.min.apply(null, cs.map(c=>Math.abs(IDX[c]-IDX[pos]))); };
+    const value=(p,pos)=>{ const d=posDist(p,pos);
       return gr(p) - htFit(p,pos) - d*2 - (d>=3?12:0) + (pos==='C'?Math.max(0,(_htIn(p.height)-80))*0.15:0); };
     // Starters = the five highest-PROJECTED-MINUTE players (who actually plays), then the
     // optimal assignment slots them into PG..C by fit. Using GRADE here made a high-OVR
@@ -6771,6 +6784,15 @@ function renderHistoricRoster(rows, yr, projected){
   });
   }
   const color=teamColor_g, rgb=teamRgb_g;
+  // Out-of-position OVR reducer: a player forced into a slot that's neither his primary NOR
+  // secondary position takes an overall hit (a 4 dragged to the 3, a guard to the 4) — scaled
+  // by how far off (−3 per slot, cap −8). Display-only on the depth chart; his true grade
+  // elsewhere is unchanged. Projected season only (historic positions are too noisy).
+  const _rsl=x=>{ x=(''+(x||'')).toUpperCase().trim(); return x==='PG'?'PG':(x==='SG'||x==='CG'||x==='G')?'SG':(x==='SF'||x==='GF')?'SF':(x==='PF'||x==='F')?'PF':x==='C'?'C':null; };
+  const _IDXd={PG:0,SG:1,SF:2,PF:3,C:4};
+  const _oopDist=(p,colPos)=>{ const cs=_rsl(colPos); if(cs==null) return 0;
+    const L=[_rsl(p.position),_rsl(p.position2)].filter(Boolean); if(!L.length) return 0;
+    return Math.min.apply(null, L.map(s=>Math.abs(_IDXd[s]-_IDXd[cs]))); };
   const colHtml=cols.map(c=>{
     const head=`<div class="dc-head" style="border-bottom-color:${color};background:rgba(${rgb},.07);">${c.pos}</div>`;
     if(!c.list.length) return `<div class="dc-col">${head}<div class="dc-empty">—</div></div>`;
@@ -6778,7 +6800,11 @@ function renderHistoricRoster(rows, yr, projected){
       const _pm=(p._projMin!=null)?p._projMin:parseFloat(p.mpg);   // model-derived projected minutes (2026-27)
       const mpg=(_pm!=null&&!isNaN(_pm))?num(_pm)+'m':'';
       const bio=[p.yr, p.height, mpg].filter(Boolean).join(' · ');
-      const g=_gdisp(p);   // projected OVR for returners (falls back to demonstrated grade for historic seasons)
+      let g=_gdisp(p);   // projected OVR for returners (falls back to demonstrated grade for historic seasons)
+      const _oop=projected?_oopDist(p,c.pos):0;
+      if(_oop>0){ const _n=parseFloat(g);
+        if(isFinite(_n)){ const _pen=Math.min(8,_oop*3);
+          g=`<span title="Out of position (${p.position}${p.position2?'/'+p.position2:''} → ${c.pos}) · OVR −${_pen}" style="color:var(--amber,#c9962b);">${Math.round(_n-_pen)}<span style="font-size:9px;vertical-align:super;">↓</span></span>`; } }
       const inj=_ltd(p) ? `<span class="dc-inj" title="Played ${parseFloat(p.gp)||0} of ${_teamGp} games — injury-shortened season">${parseFloat(p.gp)||0}/${_teamGp} GP</span>` : '';
       const wav=p.is_waiver ? `<span title="On the roster, but has not yet been granted an eligibility waiver — his availability for the season is still pending." style="display:inline-block;font-size:8px;font-weight:800;letter-spacing:.03em;padding:0 4px;border-radius:3px;border:1px solid var(--accent);color:var(--accent);margin-left:6px;cursor:help;line-height:1.6;vertical-align:middle;">WAIVER?</span>` : '';
       // Owner-only injury chip (2026-27 projected view only) — from the on-page injury report.
