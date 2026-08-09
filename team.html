@@ -9,7 +9,6 @@
   <script src="tdc-shotchart.js?v=14"></script>
   <script src="tdc-lineups.js?v=13"></script>
   <script src="tdc-shotflow.js?v=9"></script>
-  <script src="tdc-moneyball.js?v=1"></script>
   <script src="tdc-nil.js?v=lift5"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=1"></script>
@@ -223,27 +222,36 @@
     .rb-team-total.over{color:var(--red);background:color-mix(in srgb,var(--red) 14%,transparent);}
     .rb-note{font-size:11px;color:var(--text3);line-height:1.55;margin-bottom:16px;}
     .rb-note b{color:var(--text2);}
-    .rb-grid{display:flex;flex-direction:column;gap:12px;}
-    .rb-pos{border:1px solid var(--border);border-radius:11px;background:var(--bg2);padding:12px 14px;}
-    .rb-pos-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
-    .rb-pos-name{font-size:12px;font-weight:800;letter-spacing:.1em;color:var(--text2);}
-    .rb-pos-total{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;}
-    .rb-pos-total span{font-size:10px;color:var(--text3);font-weight:600;}
-    .rb-pos-total.ok{color:var(--green);} .rb-pos-total.under{color:#c98a1a;} .rb-pos-total.over{color:var(--red);}
-    .rb-bar{display:flex;height:22px;border-radius:6px;overflow:hidden;background:var(--bg3);margin-bottom:10px;gap:1px;}
-    .rb-seg{display:flex;align-items:center;justify-content:center;min-width:0;transition:width .3s;overflow:hidden;}
-    .rb-seg span{font-size:10px;font-weight:800;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.45);}
+    .rb-grid{display:flex;flex-direction:column;gap:14px;}
+    .rb-pos{position:relative;border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:14px 16px 14px 18px;overflow:hidden;transition:border-color .15s;}
+    .rb-pos::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--tc,var(--accent));opacity:.85;}
+    .rb-pos:hover{border-color:color-mix(in srgb,var(--tc,var(--accent)) 40%,var(--border));}
+    .rb-pos-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:11px;}
+    .rb-pos-name{font-size:14px;font-weight:800;letter-spacing:.1em;color:var(--text);display:inline-flex;align-items:baseline;gap:9px;}
+    .rb-pos-deep{font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);}
+    .rb-pos-total{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;padding:3px 9px;border-radius:7px;}
+    .rb-pos-total span{font-size:9.5px;color:inherit;opacity:.7;font-weight:700;margin-left:1px;}
+    .rb-pos-total.ok{color:var(--green);background:color-mix(in srgb,var(--green) 12%,transparent);}
+    .rb-pos-total.under{color:#c98a1a;background:color-mix(in srgb,#c98a1a 13%,transparent);}
+    .rb-pos-total.over{color:var(--red);background:color-mix(in srgb,var(--red) 13%,transparent);}
+    .rb-bar{display:flex;height:26px;border-radius:8px;overflow:hidden;background:var(--bg3);margin-bottom:12px;gap:2px;box-shadow:inset 0 1px 2px rgba(0,0,0,.08);}
+    .rb-seg{display:flex;align-items:center;justify-content:center;min-width:0;transition:width .35s cubic-bezier(.4,0,.2,1);overflow:hidden;border-radius:3px;}
+    .rb-seg span{display:inline-flex;align-items:baseline;gap:3px;font-size:9.5px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.5);letter-spacing:.02em;}
+    .rb-seg span b{font-size:11px;font-weight:800;}
     .rb-empty{width:100%;}
-    .rb-players{display:flex;flex-wrap:wrap;gap:6px;}
-    .rb-prow{display:flex;align-items:center;gap:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:5px 9px;}
-    .rb-prow.rb-dnp{opacity:.5;}
-    .rb-p-name{font-size:12px;font-weight:700;}
-    .rb-fit{font-size:8.5px;font-weight:800;text-transform:uppercase;color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent);padding:1px 5px;border-radius:5px;margin-left:5px;}
-    .rb-p-eff{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;}
-    .rb-p-step{display:inline-flex;align-items:center;gap:5px;}
-    .rb-p-step button{width:20px;height:20px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:13px;font-weight:700;cursor:pointer;border-radius:5px;line-height:1;display:flex;align-items:center;justify-content:center;}
-    .rb-p-step button:hover{border-color:var(--tc,var(--accent));}
-    .rb-p-step b{font-size:12px;font-weight:800;min-width:20px;text-align:center;font-variant-numeric:tabular-nums;}
+    .rb-players{display:flex;flex-wrap:wrap;gap:7px;}
+    .rb-prow{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:6px 10px 6px 8px;transition:border-color .15s,transform .1s;}
+    .rb-prow:hover{border-color:var(--border2);}
+    .rb-prow.rb-dnp{opacity:.45;}
+    .rb-sw{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+    .rb-star{color:var(--tc,var(--accent));font-size:11px;margin-right:2px;}
+    .rb-p-name{font-size:12px;font-weight:700;display:inline-flex;align-items:center;}
+    .rb-fit{font-size:8.5px;font-weight:800;text-transform:uppercase;color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent);padding:1px 5px;border-radius:5px;margin-left:6px;}
+    .rb-p-eff{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;min-width:22px;text-align:center;}
+    .rb-p-step{display:inline-flex;align-items:center;gap:2px;background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:2px;}
+    .rb-p-step button{width:22px;height:22px;border:none;background:transparent;color:var(--text2);font-size:14px;font-weight:700;cursor:pointer;border-radius:5px;line-height:1;display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s;}
+    .rb-p-step button:hover{background:var(--tc,var(--accent));color:#fff;}
+    .rb-p-step b{font-size:12px;font-weight:800;min-width:26px;text-align:center;font-variant-numeric:tabular-nums;}
     /* Coach ↔ roster synergy panel */
     .coach-panel{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:16px 18px;margin-bottom:18px;}
     .cp-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
@@ -1172,10 +1180,6 @@
       <div class="sec-head">Customize Lineup <span class="sec-head-sub">Drag to reorder · Swap players · Adjust minutes</span></div>
       <div id="customizeContent">
         <div class="loading-state"><div class="loading-spinner"></div><div>Loading lineup builder…</div></div>
-      </div>
-      <div class="sec-head" style="margin-top:32px;">Moneyball <span class="sec-head-sub">NIL value vs on-court impact — bargains, spend efficiency &amp; value lineups</span></div>
-      <div id="moneyballWrap">
-        <div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Loading value model…</div>
       </div>
     </div>
     <div class="panel" id="panel-losses">
@@ -3205,7 +3209,13 @@ function _rbMpg(p, isStarter){
   if(p._projMin!=null&&isFinite(p._projMin)) return Math.round(p._projMin);
   return Math.round(parseFloat(p.mpg)|| (isStarter?26:12));
 }
-function _rbSegColor(i){ return ['var(--tc,#2c6ef2)','#5ab875','#d4a24a','#a06cc9','#7a8aa0','#c97a5a'][i%6]; }
+// Depth ramp: starter = full team color, deeper players fade toward neutral gray.
+// Reads as a clean minutes gradient and works in both light + dark themes.
+function _rbSegColor(i){ return ['var(--tc,#2c6ef2)',
+  'color-mix(in srgb,var(--tc,#2c6ef2) 70%,var(--text3))',
+  'color-mix(in srgb,var(--tc,#2c6ef2) 46%,var(--text3))',
+  'color-mix(in srgb,var(--tc,#2c6ef2) 28%,var(--text3))',
+  'var(--text3)','color-mix(in srgb,var(--text3) 70%,var(--bg3))'][i]||'var(--text3)'; }
 // Minutes are SEASON AVERAGES (MPG). A single game is 200 player-minutes, but a
 // roster's summed MPG runs higher (~205-235) because injuries, foul trouble and
 // blowouts spread minutes deeper than a perfect healthy game would. So we do NOT
@@ -3344,19 +3354,25 @@ function renderRotationBuilder(){
   const teamTotal=cols.reduce((s,c)=>s+c.total,0);
   const rotOpts=[];for(let n=6;n<=15;n++)rotOpts.push(`<option value="${n}"${n===_rotationSize?' selected':''}>${n}-man</option>`);
   const posHtml=cols.map(c=>{
-    const segs=c.rows.filter(r=>r.mpg>0).map((r,idx)=>`<div class="rb-seg" style="width:${Math.min(100,r.mpg/48*100)}%;background:${_rbSegColor(idx)};" title="${_sqAttr(r.p.name)}: ${r.mpg} mpg">${r.mpg>=7?`<span>${_sqInit(r.p.name)} ${r.mpg}</span>`:''}</div>`).join('');
+    // map each row to its color index among the ACTIVE (playing) players so the
+    // roster pill swatch matches its slice of the bar.
+    const activeIdx={}; let ai=0; c.rows.forEach(r=>{ if(r.mpg>0){ activeIdx[r.i]=ai++; } });
+    const nActive=ai;
+    const segs=c.rows.filter(r=>r.mpg>0).map((r,idx)=>`<div class="rb-seg" style="width:${Math.min(100,r.mpg/48*100)}%;background:${_rbSegColor(idx)};" title="${_sqAttr(r.p.name)}: ${r.mpg} mpg">${r.mpg>=7?`<span>${_sqInit(r.p.name)}<b>${r.mpg}</b></span>`:''}</div>`).join('');
     const cls=(c.total>=40&&c.total<=48)?'ok':(c.total>=34&&c.total<=54)?'under':'over';
     const prows=c.rows.map(r=>{
       const pKey=`rb-${c.pos}-${r.i}`;
       const bad=(r.fit.adjGrade<=-8)?`<span class="rb-fit" title="${(r.fit.reason||'').replace(/"/g,'&quot;')}">poor fit</span>`:'';
+      const sw=(r.mpg>0)?_rbSegColor(activeIdx[r.i]):'var(--border2)';
       return `<div class="rb-prow${r.mpg===0?' rb-dnp':''}">
-        <span class="rb-p-name">${r.isStarter?'★ ':''}${r.p.name}${bad}</span>
+        <span class="rb-sw" style="background:${sw}"></span>
+        <span class="rb-p-name">${r.isStarter?'<span class="rb-star">★</span>':''}${r.p.name}${bad}</span>
         <span class="rb-p-eff" style="color:${_sqCol(r.eff)};" title="talent + position fit">${Math.round(r.eff)}</span>
-        <span class="rb-p-step"><button onclick="rbStep('${_sqAttr(r.p.name)}',-2)">−</button><b id="mpgVal-${pKey}">${r.mpg}</b><button onclick="rbStep('${_sqAttr(r.p.name)}',2)">+</button></span>
+        <span class="rb-p-step"><button onclick="rbStep('${_sqAttr(r.p.name)}',-2)" aria-label="fewer minutes">−</button><b id="mpgVal-${pKey}">${r.mpg}</b><button onclick="rbStep('${_sqAttr(r.p.name)}',2)" aria-label="more minutes">+</button></span>
       </div>`;
     }).join('');
     return `<div class="rb-pos">
-      <div class="rb-pos-head"><span class="rb-pos-name">${c.pos}</span><span class="rb-pos-total ${cls}">${c.total}<span> mpg</span></span></div>
+      <div class="rb-pos-head"><span class="rb-pos-name">${c.pos}<span class="rb-pos-deep">${nActive}-deep</span></span><span class="rb-pos-total ${cls}">${c.total}<span> mpg</span></span></div>
       <div class="rb-bar">${segs||'<div class="rb-empty"></div>'}</div>
       <div class="rb-players">${prows}</div>
     </div>`;
@@ -5208,7 +5224,6 @@ function switchTab(id, btn){
   if(id==='schedule') initSchedule();
   if(id==='report') renderRosterReport();
   if(id==='nil') renderNil();
-  if(id==='customize' && !window._mbAuto){ window._mbAuto=true; renderMoneyball(); }
 }
 
 // ── ROSTER REPORT — AI scouting breakdown from scripts/data/roster_reports.json ──
@@ -5950,15 +5965,6 @@ async function renderTeamDNA(){
 }
 
 // ── MONEYBALL — NIL value vs impact (uses nil-data.json + the value module) ──
-async function renderMoneyball(){
-  var host=document.getElementById('moneyballWrap'); if(!host||!window.TDC_MONEYBALL) return;
-  try{
-    if(!window._nilData){ window._nilData=await fetch('nil-data.json?v=lift4').then(r=>r.json()); }
-    var posBy={}; (typeof _allDbPlayers!=='undefined'?_allDbPlayers:[]).forEach(function(p){ if(p.name&&p.position&&!posBy[p.name]) posBy[p.name]=p.position; });
-    var lineup=(typeof _lineupRotation==='function')?_lineupRotation():[];
-    TDC_MONEYBALL.render(host, {nilData:window._nilData, teamName:(teamT&&teamT.name)||'', posByName:posBy, lineup:lineup});
-  }catch(e){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Could not load the value model.</div>'; }
-}
 // wait for the roster/lineup to populate before the first auto-build (else it
 // would flash "no players"); leaves the placeholder if data never arrives
 function _lspAutoBuild(tries){
