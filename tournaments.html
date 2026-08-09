@@ -688,8 +688,23 @@ async function _computeProjAwards(gs, cat, champName){
     p.val=g*(1+0.05*w); p.ppg=parseFloat(p.ppg)||0; p.rpg=parseFloat(p.rpg)||0; p.apg=parseFloat(p.apg)||0;
     p.player=p.name; p.avg=null; p.g=w+1; });
   rows.sort((a,b)=>b.val-a.val);
-  // one player per team on the MVP/first-team feels right, but keep it simple: top by val
-  return {mvp:rows[0], first:rows.slice(0,5), second:rows.slice(5,10), src:'proj'};
+  // Realistic spread: an all-tournament team isn't one program's starting five. Cap the
+  // CHAMPION at 3 players and every other team at 2, filling 10 spots greedily by value —
+  // so after the champ's top 3 and the finalist's top 2, the rest go to the best players on
+  // the OTHER deep teams (a Final Four star, an Elite 8 standout, a hot Sweet 16 scorer).
+  let champShort=null, champW=-1;
+  Object.keys(winByShort).forEach(s=>{ if(winByShort[s]>champW){ champW=winByShort[s]; champShort=s; } });
+  const CAP_CHAMP=3, CAP_OTHER=2, NEED=10;
+  const perTeam={}, picks=[];
+  for(const p of rows){
+    if(picks.length>=NEED) break;
+    const cap=(p.team===champShort)?CAP_CHAMP:CAP_OTHER;
+    if((perTeam[p.team]||0)>=cap) continue;
+    perTeam[p.team]=(perTeam[p.team]||0)+1; picks.push(p);
+  }
+  // tiny field (caps couldn't fill 10) → backfill by value, ignoring caps
+  if(picks.length<NEED){ for(const p of rows){ if(picks.length>=NEED) break; if(picks.indexOf(p)<0) picks.push(p); } }
+  return {mvp:picks[0], first:picks.slice(0,5), second:picks.slice(5,10), src:'proj'};
 }
 function _mvpCard(a){
   const logo=_tlogo(a.team);
