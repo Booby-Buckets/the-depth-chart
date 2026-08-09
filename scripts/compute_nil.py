@@ -162,6 +162,16 @@ def prospect_mult(g,cls):   # NBA-DRAFT prospect — YOUNG + elite grade spikes 
     # 5-star — otherwise a blue-blood's whole freshman class inflates the roster total.
     return 1.0   # prospect bump removed: real deals show elite freshmen are NOT paid a premium
 
+# per-player NIL POSITION override (natural position ≠ lineup position — a stretch-4 listed
+# at SF, etc.): value him on his natural position (model pos_mult + the market curve read off
+# pos) WITHOUT changing his depth-chart position. From nil-overrides.json by_name[*].pos.
+_ovp0=os.path.join(os.path.dirname(__file__),"..","nil-overrides.json")
+POS_OVR={}
+if os.path.exists(_ovp0):
+    try:
+        for k,v in (json.load(open(_ovp0)).get("by_name") or {}).items():
+            if isinstance(v,dict) and v.get("pos"): POS_OVR[k]=str(v["pos"]).upper()
+    except Exception: POS_OVR={}
 rows=[]
 for name,info in tinfo.items():
     budget=TIER_MID.get(tier_num(info["nil_tier"]))
@@ -169,7 +179,7 @@ for name,info in tinfo.items():
     tn=tier_num(info["nil_tier"]); cls=conf_class(info.get("conference")); tmult=TIER_MULT.get(tn,0.2)
     prod=0; pls=[]
     for p in ros.get(name,[]):
-        g=gnum(p.get("tdc_grade")); pos=p.get("position"); mp=est_mpg(p); eid=p.get("espn_id")
+        g=gnum(p.get("tdc_grade")); pos=POS_OVR.get(p["name"]) or p.get("position"); mp=est_mpg(p); eid=p.get("espn_id")
         if eid and int(eid) in bb:
             bp,ws,pr,ga,mpb,htb,ppgb,pillars=bb[int(eid)]
             prem=premium(htb,ppgb,cls,pos,pillars)

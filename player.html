@@ -2897,7 +2897,7 @@ function renderOvcTeamFit(x){
 }
 async function _ovcLoadNil(){
   try{ var N=window.TDC_NIL; if(!N) return;
-    if(window._nilData===undefined){ window._nilData=null; try{ window._nilData=await fetch('nil-data.json?v=lift1').then(function(r){return r.ok?r.json():null;}); }catch(e){} }
+    if(window._nilData===undefined){ window._nilData=null; try{ window._nilData=await fetch('nil-data.json?v=lift2').then(function(r){return r.ok?r.json():null;}); }catch(e){} }
     var nd=window._nilData, tn=nd&&nd.teams&&nd.teams[player.team]; if(!tn||!tn.players) return;
     var nk=(player.name||'').toLowerCase().trim(), row=tn.players.find(function(p){return (p.name||'').toLowerCase().trim()===nk;});
     if(!row||row.value==null) return; window._ovcNil=N.fmt(row.value); renderOvcFooter();
@@ -4842,10 +4842,10 @@ async function renderNilPlayer(){
   const col=((typeof teamColor_g!=='undefined')?teamColor_g:null)||'#888', fmt=N.fmt;
   const team=(player&&player.team)||'';
   const conf=((typeof teamData!=='undefined'&&teamData&&(teamData.conf||teamData.conference)))||(player&&(player.conf||player.conference))||'';
-  const pos=(player&&player.position)||'', cls=(player&&(player.class_year||player.yr))||'';
+  let pos=(player&&player.position)||''; const cls=(player&&(player.class_year||player.yr))||'';
   // Read the SAME precomputed roster value as the team page so the two always agree.
   if(window._nilData===undefined){ window._nilData=null;
-    try{ window._nilData=await fetch('nil-data.json?v=lift1').then(r=>r.ok?r.json():null); }catch(e){} }
+    try{ window._nilData=await fetch('nil-data.json?v=lift2').then(r=>r.ok?r.json():null); }catch(e){} }
   // Market anchors — the owner's positional curve; same source as the team NIL tab.
   if(window._nilMarket===undefined){ window._nilMarket=null;
     try{ window._nilMarket=await fetch('scripts/data/nil_market_anchors.json?v=1').then(r=>r.ok?r.json():null); }catch(e){} }
@@ -4854,7 +4854,9 @@ async function renderNilPlayer(){
   const row=teamNil?teamNil.players.find(p=>(p.name||'').toLowerCase().trim()===nk):null;
   const nilTier=(teamNil&&teamNil.tier)||N.tierNum((teamData&&(teamData.nil_tier||teamData.team_tier))||5);
   let grade,mpg,prem,value,override,walkon;
-  if(row){ grade=row.grade; mpg=row.mpg; prem=row.prem; value=row.value; override=!!row.override; walkon=!!row.walkon; }
+  if(row){ grade=row.grade; mpg=row.mpg; prem=row.prem; value=row.value; override=!!row.override; walkon=!!row.walkon;
+    if(row.pos) pos=row.pos;   // NIL valuation position (natural-position override) drives the market curve
+  }
   else {  // team not tiered / player not on roster — compute live from the same model
     grade=parseFloat(player&&player.tdc_grade)||null;
     mpg=(player&&+player.mpg>0?+player.mpg:(grade>=88?28:grade>=82?24:grade>=76?20:15));
