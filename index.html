@@ -1683,7 +1683,7 @@ async function loadProjectedSeason(){
   const banner=document.getElementById('projBanner'); if(banner) banner.style.display='flex';
   try {
     const colors = await ensureColors();
-    const [D, projRows, sgTeams, boxFillRaw] = await Promise.all([
+    const [D, projRows, sgTeams, boxFillRaw, sgProjRaw] = await Promise.all([
       TDC_RATINGS.get(),
       fetch(`${SB_URL}/rest/v1/team_projections?select=*`, { headers: HEADERS })
         .then(r=>r.ok?r.json():[]).catch(()=>[]),
@@ -1691,12 +1691,16 @@ async function loadProjectedSeason(){
       // projected team box line from rosters — fills PPG/FG%/OReb… for teams whose
       // team_projections row is missing/zeroed (e.g. Gonzaga). Keyed by full name.
       fetch('scripts/data/team_projected_box.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),
+      // PROJECTED 2026-27 offense shot genome (build_projected_shot_genome.py), by full name.
+      fetch('scripts/data/shot_genome_projected.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
     const boxFill={}; if(boxFillRaw) Object.keys(boxFillRaw).forEach(k=>boxFill[k.toLowerCase().trim()]=boxFillRaw[k]);
     // Offensive / defensive efficiency (per 100 poss) from the Team DNA engine, projected 2026-27.
     const effLc = effByLc(await ensureEff(), '2027');
     // Shot Genome team numbers (2025-26): Look Quality / Shot-Making / Creation, by full name
     const sgBy={}; ((sgTeams&&sgTeams.teams)||[]).forEach(t=>{ sgBy[(t.team||'').toLowerCase().trim()]=t; });
+    // projected 2026-27 offense genome (preferred on this projected view; falls back to 2025-26)
+    const sgProjBy={}; const _sgp=(sgProjRaw&&sgProjRaw['2027'])||{}; Object.keys(_sgp).forEach(k=>{ sgProjBy[k.toLowerCase().trim()]=_sgp[k]; });
     const projBy={}; (projRows||[]).forEach(p=>{ projBy[(p.team||'').toLowerCase().trim()]=p; });
     window._teamProjByName = projBy;
     const CODE_FIX={'BIG-12':'B12','Big-East':'BE','BIG-EAST':'BE'};
@@ -1720,7 +1724,7 @@ async function loadProjectedSeason(){
         projected:r.projected, allPlay:r.allPlay,
         shotluck:(r.shotLuck!=null?r.shotLuck:null),   // returners' shot-making luck (2026-27 only)
         ...(function(){ const e=effLc[(r.full||'').toLowerCase().trim()]; return e?{ortg:e.o,drtg:e.d}:{ortg:null,drtg:null}; })(),
-        ...(function(){ const sg=sgBy[(r.full||'').toLowerCase().trim()];
+        ...(function(){ const k=(r.full||'').toLowerCase().trim(); const sg=sgProjBy[k]||sgBy[k];
           return sg?{ sglq:(sg.off?sg.off.lq:null), sgsm:(sg.off?sg.off.smAdj:null), sgcr:(sg.crAdjPg!=null?sg.crAdjPg:null) }
                   :{ sglq:null, sgsm:null, sgcr:null }; })(),
       };

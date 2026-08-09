@@ -5544,6 +5544,11 @@ async function renderTeamDNA(){
       window._sgTeams={}; ((sgd&&sgd.teams)||[]).forEach(x=>{ window._sgTeams[x.team]=x; });
     }catch(e){ window._sgTeams={}; }
   }
+  if(window._sgProj===undefined){   // PROJECTED 2026-27 offense Shot Genome (build_projected_shot_genome.py)
+    try{ const spd=await fetch('scripts/data/shot_genome_projected.json?v=1').then(r=>r.ok?r.json():null);
+      window._sgProj=(spd&&spd['2027'])||{};
+    }catch(e){ window._sgProj={}; }
+  }
   if(window._passNet===undefined){   // Passing Network (2025-26), keyed by full team name
     try{ window._passNet=await fetch('data/passing_network.json').then(r=>r.ok?r.json():{}); }catch(e){ window._passNet={}; }
   }
@@ -5725,11 +5730,11 @@ async function renderTeamDNA(){
       <div class="dna-mu-sub" style="margin-top:8px;">Pick any team for the full projection. Teams are ordered strongest → weakest by <b>schedule-adjusted</b> net efficiency; the number in parentheses is ${teamT.name}'s <b>projected margin per game</b> vs that team on a neutral floor (+ favors ${teamT.name}).</div>
       <div id="dnaMatchupOut"></div>
     </div>` : '';
-  // ── Shot Genome (2025-26 only): offense + defense (Contest vs Funnel) ──
+  // ── Shot Genome: 2026-27 PROJECTED (offense only, from returning players) on the
+  //    projected view; actual 2025-26 (offense + defense) on that season. ──
   let sgHtml='';
-  // Shot data is 2025-26 only: show it on that season's DNA and on the projected
-  // (2026-27) view as last-season context; hide it on older seasons where it'd mislead.
-  const sg=((+season===2026 || +season>=2027) && window._sgTeams && key)?window._sgTeams[key]:null;
+  const sgProjRow=(PROJ && window._sgProj && key)?window._sgProj[key]:null;
+  const sg=sgProjRow || ((+season===2026 && window._sgTeams && key)?window._sgTeams[key]:null);
   if(sg){
     const o=sg.off||{}, d=sg.def||{}, opc=o.pct||{}, dpc=d.pct||{};
     const barC=p=>p>=66?'#3fa66a':p>=33?'#c9962f':'#c75d5d';
@@ -5737,27 +5742,33 @@ async function renderTeamDNA(){
       const bar=pct!=null?`<div class="sgt-bar"><i style="width:${pct}%;background:${barC(pct)}"></i></div><div class="sgt-pct" style="color:${barC(pct)}">${ord(pct)} pctile</div>`:'<div class="sgt-pct" style="visibility:hidden">–</div>';
       return `<div class="sgt-card has-tip" title="${(tip||'').replace(/"/g,'&quot;')}"><div class="sgt-lbl">${lbl}</div><div class="sgt-val">${val}</div>${bar}</div>`;
     };
-    const funnel=dpc.lq!=null?dpc.lq:50, contest=dpc.smAdj!=null?dpc.smAdj:50;
-    let dv;
-    if(funnel>=70&&contest>=70) dv='<b>Lockdown</b> — forces bad looks AND contests them into misses.';
-    else if(contest>=68&&contest-funnel>=15) dv='<b>Contest defense</b> — allows decent looks but makes you miss them.';
-    else if(funnel>=68&&funnel-contest>=15) dv='<b>Funnel defense</b> — forces tough shots by location more than it contests.';
-    else if(contest>=55||funnel>=55) dv='Solid two-way shot defense.';
-    else dv='Gives up quality looks and does not suppress shooting much.';
-    const suppress=(d.smAdj!=null)?(-d.smAdj):null;   // positive = opponents shoot BELOW expected
+    const sgLbl=sgProjRow?'· 2026-27 projected':'· 2025-26';
     sgHtml=`
-      <div class="dna-sec" style="margin-top:26px;">Shot Genome — offense <span style="color:var(--text3);font-weight:600;">· 2025-26</span></div>
+      <div class="dna-sec" style="margin-top:26px;">Shot Genome — offense <span style="color:var(--text3);font-weight:600;">${sgLbl}</span></div>
       <div class="sgt-grid">
         ${card('Look Quality', o.lq!=null?o.lq.toFixed(1):'—', opc.lq, 'The eFG% a league-average shooter would post on this shot diet — how good the looks the team generates are.')}
         ${card('Shot-Making', o.smAdj!=null?((o.smAdj>=0?'+':'')+o.smAdj.toFixed(1)):'—', opc.smAdj, 'Points added over an average shooter given the shot diet, per 100 shots, competition-adjusted. Pure finishing.')}
         ${card('Creation', sg.crAdjPg!=null?sg.crAdjPg.toFixed(1):'—', sg.crPct, 'Expected points the passing creates per game, each assist valued by the quality of the look it sets up.')}
-      </div>
+      </div>`;
+    if(sgProjRow){
+      sgHtml+=`<div class="dna-imp-cap" style="text-align:left;margin-top:8px;">Projected from returning players' 2025-26 shot profiles, weighted by projected minutes (${sg.n} returners with shot data). Defense shot genome isn't projected — it depends on next season's opponents.</div>`;
+    } else {
+      const funnel=dpc.lq!=null?dpc.lq:50, contest=dpc.smAdj!=null?dpc.smAdj:50;
+      let dv;
+      if(funnel>=70&&contest>=70) dv='<b>Lockdown</b> — forces bad looks AND contests them into misses.';
+      else if(contest>=68&&contest-funnel>=15) dv='<b>Contest defense</b> — allows decent looks but makes you miss them.';
+      else if(funnel>=68&&funnel-contest>=15) dv='<b>Funnel defense</b> — forces tough shots by location more than it contests.';
+      else if(contest>=55||funnel>=55) dv='Solid two-way shot defense.';
+      else dv='Gives up quality looks and does not suppress shooting much.';
+      const suppress=(d.smAdj!=null)?(-d.smAdj):null;   // positive = opponents shoot BELOW expected
+      sgHtml+=`
       <div class="dna-sec" style="margin-top:22px;">Shot Genome — defense · Contest vs Funnel</div>
       <div class="dna-imp-cap" style="text-align:left;margin:-6px 0 10px;">${dv}</div>
       <div class="sgt-grid">
         ${card('Looks allowed', d.lq!=null?d.lq.toFixed(1):'—', dpc.lq, 'Look Quality allowed — how good the shots opponents GET by location. A low number (high percentile) means the defense funnels them into tough shots.')}
         ${card('Contest', suppress!=null?((suppress>=0?'+':'')+suppress.toFixed(1)):'—', dpc.smAdj, 'How far opponents shoot BELOW what their looks predict, per 100 shots. High = the defense contests good looks into misses.')}
       </div>`;
+    }
   }
   // ── Passing Network (2025-26): who-feeds-whom graph + Connectivity ──
   let pnHtml='';
