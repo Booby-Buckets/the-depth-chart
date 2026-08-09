@@ -496,7 +496,7 @@ function estimateAdvanced(grade, projMpg, fgaPerG){
 // already plays near his pace, so paceScale ≈ 1; transfers/freshmen (whose prior
 // context differs) get pulled to the coach's system. Keeps shooting %s intact
 // (makes + attempts scale together).
-async function loadProjCoachStyle(team){
+async function loadProjCoachStyle(team, headCoach){
   window._projCoach=null;
   if(!team) return;
   try{
@@ -509,6 +509,15 @@ async function loadProjCoachStyle(team){
         fetch('scripts/data/team_ballmovement.json').then(r=>r.ok?r.json():null).catch(()=>null)
       ]);
       const bySlug={}; prof.forEach(p=>bySlug[p.coach_slug]=p);
+      // name + (first-initial|last) maps so a CURRENT hire from teams.head_coach resolves to
+      // his profile even when the scrape hasn't caught up or the name is a nickname variant
+      // (e.g. sheet "Mike Boynton" -> profile "Michael Boynton"). initial+last only trusted
+      // when the last name is unique.
+      const byName={}, byIL={};
+      const _norm=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+      const _il=s=>{ const p=(s||'').toLowerCase().replace(/[^a-z ]/g,' ').split(/\s+/).filter(Boolean); return p.length>=2?(p[0][0]+'|'+p[p.length-1]):null; };
+      prof.forEach(p=>{ if(!p.coach)return; byName[_norm(p.coach)]=p;
+        const il=_il(p.coach); if(il){ (byIL[il]=byIL[il]||[]).push(p); } });
       const byTeam={};  // school -> most recent {y, slug}
       seas.forEach(s=>{ if(!s.school||!s.coach_slug)return; const c=byTeam[s.school];
         if(!c||s.season_year>c.y) byTeam[s.school]={y:s.season_year,slug:s.coach_slug}; });
@@ -539,9 +548,9 @@ async function loadProjCoachStyle(team){
       // team BALL MOVEMENT (assists per 100 poss — pace-independent, precomputed): a motion/
       // pass-heavy system (Purdue ~30) lifts a newcomer's assists; an iso-heavy one trims them.
       const astpp=(bmv&&bmv.astpp)||{}, lgAstpp=(bmv&&bmv.lg)||20;
-      window._projCoachCache={bySlug,byTeam,lgPace,havoc,lgHavoc,lookq,lgLookq,oreb,lgOreb,dreb,lgDreb,astpp,lgAstpp};
+      window._projCoachCache={bySlug,byTeam,byName,byIL,lgPace,havoc,lgHavoc,lookq,lgLookq,oreb,lgOreb,dreb,lgDreb,astpp,lgAstpp};
     }
-    const {bySlug,byTeam,lgPace,havoc,lgHavoc,lookq,lgLookq,oreb,lgOreb,dreb,lgDreb,astpp,lgAstpp}=window._projCoachCache;
+    const {bySlug,byTeam,byName,byIL,lgPace,havoc,lgHavoc,lookq,lgLookq,oreb,lgOreb,dreb,lgDreb,astpp,lgAstpp}=window._projCoachCache;
     // resolve this team's defensive havoc + offensive look-quality (full team_dna/genome
     // name vs the roster's short name)
     // Short roster name (e.g. "Houston") -> full team_dna key ("houston cougars"). Must NOT
@@ -557,13 +566,25 @@ async function loadProjCoachStyle(team){
       return best?map[best]:null; };
     let teamHavoc=_resolveTeam(havoc), teamLookq=_resolveTeam(lookq);
     let teamOreb=_resolveTeam(oreb), teamDreb=_resolveTeam(dreb), teamAstpp=_resolveTeam(astpp);
-    let entry=byTeam[team];
-    if(!entry){ const lo=team.toLowerCase();
-      const k=Object.keys(byTeam).find(s=>{const sl=s.toLowerCase();
-        return sl===lo||sl.startsWith(lo+' ')||lo.startsWith(sl+' ')||(lo.length>=6&&(sl.includes(lo)||lo.includes(sl)));});
-      if(k) entry=byTeam[k]; }
-    if(entry){ const p=bySlug[entry.slug];
-      if(p) window._projCoach={poss_pg:p.poss_pg, lgPace:lgPace||68,
+    // CURRENT head coach (from teams.head_coach) wins over the historical team→coach map,
+    // so an offseason hire's playstyle applies before the scrape catches up.
+    let p=null;
+    if(headCoach){
+      const _norm=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+      const _il=s=>{ const q=(s||'').toLowerCase().replace(/[^a-z ]/g,' ').split(/\s+/).filter(Boolean); return q.length>=2?(q[0][0]+'|'+q[q.length-1]):null; };
+      p=byName[_norm(headCoach)]||null;
+      if(!p){ const il=_il(headCoach), c=il&&byIL[il]; if(c&&c.length===1) p=c[0]; }
+    }
+    if(!p){
+      let entry=byTeam[team];
+      if(!entry){ const lo=team.toLowerCase();
+        const k=Object.keys(byTeam).find(s=>{const sl=s.toLowerCase();
+          return sl===lo||sl.startsWith(lo+' ')||lo.startsWith(sl+' ')||(lo.length>=6&&(sl.includes(lo)||lo.includes(sl)));});
+        if(k) entry=byTeam[k]; }
+      if(entry) p=bySlug[entry.slug];
+    }
+    if(p){
+      window._projCoach={poss_pg:p.poss_pg, lgPace:lgPace||68,
         three_pa_pctl:(p.pctl&&p.pctl.three_pa_rate)||null,
         star_pctl:(p.pctl&&p.pctl.top_scorer_share)||null,
         havoc:teamHavoc, lgHavoc:lgHavoc||15, lookq:teamLookq, lgLookq:lgLookq||50,

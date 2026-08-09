@@ -13,7 +13,7 @@
   <script src="tdc-nil.js?v=lift3"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=1"></script>
-  <script src="tdc-proj.js?v=coach18"></script>
+  <script src="tdc-proj.js?v=coach19"></script>
   <script src="tdc-freshman.js?v=pub5"></script>
   <script src="tdc-injury.js?v=4"></script>
   <script src="tdc-ratings.js?v=6"></script>
@@ -1541,20 +1541,26 @@ function applyTeamTheme(color){
 // that year, so the hero shows the right coach when you scrub back through years
 // (e.g. Kentucky 2015-16 → Calipari, 2026-27 → Pope) and links to their page.
 function _coachNorm(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+// first-initial + last-name key, e.g. "Mike Boynton" & "Michael Boynton" -> "m|boynton".
+// Bridges nickname variants (Mike/Michael, Bob/Robert) when a sheet hire's exact name
+// doesn't match the scrape's; only trusted when the last name is UNIQUE in the data.
+function _coachIL(s){ const p=(s||'').toLowerCase().replace(/[^a-z ]/g,' ').split(/\s+/).filter(Boolean); return p.length>=2?(p[0][0]+'|'+p[p.length-1]):null; }
 async function loadCoachIdx(){
   if(window._coachIdx) return window._coachIdx;
   if(window._coachIdxPromise) return window._coachIdxPromise;
   window._coachIdxPromise = (async()=>{
     try{
       const rows = await fetch('scripts/data/coach_seasons.json').then(r=>r.ok?r.json():[]);
-      const idx = {}, byName = {};
+      const idx = {}, byName = {}, byIL = {};
       (Array.isArray(rows)?rows:[]).forEach(r=>{
-        if(r.coach && r.coach_slug) byName[_coachNorm(r.coach)] = r.coach_slug;
+        if(r.coach && r.coach_slug){ byName[_coachNorm(r.coach)] = r.coach_slug;
+          const il=_coachIL(r.coach); if(il){ (byIL[il]=byIL[il]||new Set()).add(r.coach_slug); } }
         [ _coachNorm(r.school), _coachNorm(r.school_slug) ].forEach(k=>{
           if(!k) return; (idx[k] = idx[k] || {})[r.season_year] = { coach:r.coach, slug:r.coach_slug };
         });
       });
       window._coachByName = byName;        // name -> slug, for coaches hired since the last scrape
+      window._coachByIL = byIL;            // initial+last -> slug set (nickname bridge, unique-last only)
       window._coachIdx = idx; return idx;
     }catch(e){ console.warn('coach index load failed', e); return (window._coachIdx={}); }
   })();
@@ -1568,7 +1574,12 @@ async function loadCoachIdx(){
 function sheetCoach(teamObj){
   const nm=((teamObj&&(teamObj.head_coach||teamObj.coach))||'').trim();
   if(!nm) return null;
-  return { coach:nm, slug:(window._coachByName||{})[_coachNorm(nm)]||null };
+  let slug=(window._coachByName||{})[_coachNorm(nm)]||null;
+  if(!slug){   // exact name missed — bridge nickname variants (Mike↔Michael) when the last name is unique
+    const il=_coachIL(nm), set=il&&(window._coachByIL||{})[il];
+    if(set && set.size===1) slug=[...set][0];
+  }
+  return { coach:nm, slug };
 }
 // Who to show/grade for a given season: the sheet for 2026-27, the scrape for history.
 function coachFor(idx, teamObj, school, year){
@@ -2530,7 +2541,7 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
   const _freshNames = new Set((players||[]).filter(p=>window.TDCFresh&&TDCFresh.isFreshman(p)&&TDCFresh.profileFor(p)).map(p=>(p.name||'').toLowerCase().trim()));
   const _origByName = {}; (players||[]).forEach(p=>{ _origByName[(p.name||'').toLowerCase().trim()]=p; });
   // Fold in this team's current coach tendencies (pace) — sets window._projCoach
-  try{ if(typeof loadProjCoachStyle==='function') await loadProjCoachStyle((teamT&&teamT.name)||(players[0]&&players[0].team)); }catch(e){}
+  try{ if(typeof loadProjCoachStyle==='function') await loadProjCoachStyle((teamT&&teamT.name)||(players[0]&&players[0].team), (teamT&&(teamT.head_coach||teamT.coach))||null); }catch(e){}
   const _rawProjected=buildTeamProjections(players, _teamRow?.conf||conf);
   let projected=applyPredictionWalls(_rawProjected);
   if(_freshNames.size){
