@@ -1,10 +1,7 @@
-// Per-team social-preview injector.
-// Only CRAWLER user-agents are rewritten here (see vercel.json "rewrites"); real visitors
-// always get the untouched static team.html, so nothing here can break the page for humans.
-// We fetch the static page with a plain UA (which is NOT matched by the crawler rewrite, so
-// there is no routing loop), swap in per-team Open Graph / Twitter / <title>, and return it.
-// On ANY error we return the static page unchanged (worst case: preview falls back to the
-// site default — the pre-existing behavior).
+// Per-team social-preview injector. Reached ONLY by crawler user-agents (middleware.js
+// redirects them here); real visitors always get the static /team.html untouched. We fetch
+// the static page with a plain UA (not a crawler → middleware ignores it → no loop), then
+// strip + re-inject a clean set of OG/Twitter tags. Any error → return the page unchanged.
 
 function esc(s) {
   return String(s == null ? '' : s)
@@ -12,12 +9,26 @@ function esc(s) {
     .replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function setMeta(html, attr, key, value) {
-  var v = esc(value);
-  var re = new RegExp('(<meta\\s+' + attr + '="' + key + '"\\s+content=")[^"]*(">)', 'i');
-  if (re.test(html)) return html.replace(re, '$1' + v + '$2');
-  // not present -> inject right after <head>
-  return html.replace('<head>', '<head>\n  <meta ' + attr + '="' + key + '" content="' + v + '">');
+// Remove any existing managed meta tags, then inject one clean set (avoids duplicates).
+function buildHead(html, title, desc, url, image) {
+  var keys = ['og:title', 'og:description', 'og:image', 'og:url', 'twitter:title', 'twitter:description', 'twitter:image', 'twitter:card'];
+  keys.forEach(function (k) {
+    html = html.replace(new RegExp('[ \\t]*<meta\\s+(?:property|name)="' + k + '"[^>]*>\\r?\\n?', 'gi'), '');
+  });
+  var img = image
+    ? '\n  <meta property="og:image" content="' + esc(image) + '">' +
+      '\n  <meta name="twitter:image" content="' + esc(image) + '">' +
+      '\n  <meta name="twitter:card" content="summary_large_image">'
+    : '\n  <meta name="twitter:card" content="summary">';
+  var block =
+    '\n  <meta property="og:title" content="' + esc(title) + '">' +
+    '\n  <meta name="twitter:title" content="' + esc(title) + '">' +
+    '\n  <meta property="og:description" content="' + esc(desc) + '">' +
+    '\n  <meta name="twitter:description" content="' + esc(desc) + '">' +
+    '\n  <meta property="og:url" content="' + esc(url) + '">' + img;
+  html = html.replace('<head>', '<head>' + block);
+  html = html.replace(/<title>[\s\S]*?<\/title>/i, '<title>' + esc(title) + '</title>');
+  return html;
 }
 
 module.exports = async function (req, res) {
@@ -28,35 +39,26 @@ module.exports = async function (req, res) {
 
   var html = null;
   try {
-    // plain fetch => default UA => NOT crawler => rewrite does not fire => static file, no loop
-    var r = await fetch(base + '/team.html', { headers: { 'user-agent': 'tdc-og-fetch' } });
-    html = await r.text();
+    html = await (await fetch(base + '/team.html', { headers: { 'user-agent': 'tdc-og-fetch' } })).text();
   } catch (e) { html = null; }
 
   if (!html) {
-    // Could not read the page at all — send a minimal preview so the crawler still gets something.
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     return res.status(200).send(
       '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
       '<title>The Depth Chart — College Basketball Analytics</title>' +
-      '<meta property="og:title" content="The Depth Chart — College Basketball Analytics">' +
-      '<meta property="og:description" content="Advanced college basketball roster rankings, team & player analytics, and 2026-27 projections.">' +
       '<meta http-equiv="refresh" content="0;url=/team.html?team=' + esc(encodeURIComponent(team)) + '">' +
       '</head><body></body></html>'
     );
   }
 
   try {
-    var title, desc, image;
+    var title, desc, image = null;
     if (team) {
       var teams = [];
       try { teams = await (await fetch(base + '/scripts/data/team_colors.json')).json(); } catch (e) { teams = []; }
-      var lc = team.toLowerCase();
-      var t = null;
-      for (var i = 0; i < teams.length; i++) {
-        var loc = (teams[i].location || '').toLowerCase();
-        if (loc === lc) { t = teams[i]; break; }
-      }
+      var lc = team.toLowerCase(), t = null;
+      for (var i = 0; i < teams.length; i++) if ((teams[i].location || '').toLowerCase() === lc) { t = teams[i]; break; }
       if (!t) for (var j = 0; j < teams.length; j++) {
         if ((teams[j].location || '').toLowerCase().indexOf(lc) === 0 || (teams[j].display || '').toLowerCase().indexOf(lc) === 0) { t = teams[j]; break; }
       }
@@ -67,23 +69,9 @@ module.exports = async function (req, res) {
     } else {
       title = 'Team Analytics — The Depth Chart';
       desc = 'Advanced college basketball team analytics, roster rankings, and 2026-27 projections.';
-      image = null;
     }
-
-    html = setMeta(html, 'property', 'og:title', title);
-    html = setMeta(html, 'name', 'twitter:title', title);
-    html = setMeta(html, 'property', 'og:description', desc);
-    html = setMeta(html, 'name', 'twitter:description', desc);
-    html = setMeta(html, 'property', 'og:url', base + '/team.html?team=' + encodeURIComponent(team));
-    if (image) {
-      html = setMeta(html, 'property', 'og:image', image);
-      html = setMeta(html, 'name', 'twitter:image', image);
-      html = setMeta(html, 'name', 'twitter:card', 'summary_large_image');
-    }
-    html = html.replace(/<title>[\s\S]*?<\/title>/i, '<title>' + esc(title) + '</title>');
-  } catch (e) {
-    // leave html unmodified — the static default OG still applies
-  }
+    html = buildHead(html, title, desc, base + '/team.html?team=' + encodeURIComponent(team), image);
+  } catch (e) { /* leave html unmodified */ }
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=86400');
