@@ -604,6 +604,18 @@
     /* Solid backdrop so the team-colored ambient glow can't wash out the projection
        roster cells (matches the historic roster table). */
     .rot-table-card{overflow-x:auto;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:2px 16px 6px;margin-top:6px;}
+    /* ── Google-Sheets look — scoped to the projections table (.proj-gs) ── */
+    .proj-gs{padding:0!important;}
+    .proj-gs .pstat-header,.proj-gs .protation-row{gap:0;}
+    .proj-gs .pstat-header{position:sticky;top:0;z-index:6;background:var(--bg3);border-bottom:2px solid var(--border2);padding:0;}
+    .proj-gs .stat-header-cell{padding:8px 6px;border-right:1px solid var(--border);}
+    .proj-gs .protation-row{border-bottom:1px solid var(--border);cursor:default;padding:0;}
+    .proj-gs .protation-row:nth-child(even){background:rgba(128,128,128,.04);}
+    .proj-gs .protation-row:hover{background:rgba(128,128,128,.10);}
+    .proj-gs .rot-num,.proj-gs .rot-pos,.proj-gs .rot-name,.proj-gs .rot-cls,.proj-gs .rot-stat,.proj-gs .rot-grade{border-right:1px solid var(--border);padding:7px 6px;margin:0;border-radius:0;}
+    .proj-gs .rot-grade{border-right:none;}
+    .proj-gs .rot-stat{font-family:'Inter',system-ui,sans-serif;font-variant-numeric:tabular-nums;font-weight:600;font-size:12.5px;background:transparent;}
+    .proj-gs .rot-grade{font-variant-numeric:tabular-nums;}
 
     /* GRADE COLORS — blue scale, dark=elite, light=poor */
     .gAp{color:#0a3fd4;}.gA{color:#0a3fd4;}.gAm{color:#1a52e0;}
@@ -2566,6 +2578,17 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
     el.innerHTML='<div style="padding:20px;color:var(--text3);">No projections available — add player grades to enable projections.</div>';
     return;
   }
+  // Default order: starters (top-5 by role) then bench, each in floor-position order
+  // PG→SG→SF→PF→C, so row 1 is the point guard and row 5 the center.
+  const POS_RANK={PG:0,G:0.5,SG:1,GF:1.5,SF:2,F:2.5,PF:3,FC:3.5,C:4};
+  const _prank=p=>{ const dp=(p._deployedPos||p.position||'').toUpperCase().split('/')[0].replace(/[^A-Z]/g,''); return POS_RANK[dp]!=null?POS_RANK[dp]:9; };
+  (function(){
+    const inj=projected.filter(p=>p._injured||p._dnp);
+    const act=projected.filter(p=>!(p._injured||p._dnp));
+    const starters=act.slice(0,5).sort((a,b)=>_prank(a)-_prank(b));
+    const bench=act.slice(5).sort((a,b)=>_prank(a)-_prank(b));
+    projected=[...starters,...bench,...inj];
+  })();
   const fmt=v=>v!=null&&v!==''?Number(v).toFixed(1):'—';
   const fmtP=v=>v!=null&&v!==''?Math.round(Number(v)*10)/10+'%':'—';
 
@@ -2684,7 +2707,7 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px;padding:4px 0;">
       <div style="font-size:11px;color:var(--text3);"><span style="background:rgba(139,105,20,.12);color:var(--accent);padding:2px 5px;font-weight:700;">EST</span> = Freshman estimate &nbsp; <span style="background:rgba(26,95,191,.1);color:#1a5fbf;padding:2px 5px;font-weight:700;">×</span> = Transfer factor &nbsp; <span style="background:rgba(180,50,0,.1);color:#cc3300;padding:2px 5px;font-weight:700;">FINAL</span> = Last season &nbsp; <span style="color:var(--text3);font-style:italic;">USG/TS/BPM/WA = projected advanced</span></div>
     </div>
-    <div class="rot-table-card">
+    <div class="rot-table-card proj-gs">
     <div style="min-width:1440px;">
       <div class="pstat-header" style="min-width:1440px;">
         <div class="stat-header-cell"></div>
