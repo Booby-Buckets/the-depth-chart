@@ -5133,10 +5133,34 @@ async function renderOnOff(){
   const seasons=Object.keys(_onoffData||{}).sort().reverse();
   const nm=s=>(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
   const short=nm((typeof teamName!=='undefined'&&teamName)||(teamT&&teamT.name)||'');
+  // The on/off data is keyed by FULL ESPN name ("Florida Gators"), so a bare
+  // startsWith(short) match wrongly swept in sibling schools that share a name
+  // prefix (Florida State, Florida Atlantic). Disambiguate: group the prefix
+  // matches by full team name and pick the one that is actually THIS team — by
+  // roster espn_id overlap (returners), backed by an exact full-name match.
+  const rosterIds=new Set((typeof teamPlayers!=='undefined'?teamPlayers:[])
+    .map(p=>p&&p.espn_id!=null?String(p.espn_id):'').filter(Boolean));
+  let fullNorm=nm((teamT&&teamT.full)||'');
+  if(!fullNorm && window.TDC_RATINGS){ try{ const D=await TDC_RATINGS.get();
+    const row=(D&&D.teams||[]).find(x=>nm(x.team)===short); if(row&&row.full) fullNorm=nm(row.full);
+  }catch(e){} }
   let season=null, rows=[];
   for(const s of seasons){
     const cand=(_onoffData[s]||[]).filter(r=>{ const t=nm(r.team); return t===short||t.startsWith(short+' '); });
-    if(cand.length){ season=s; rows=cand; break; }
+    if(!cand.length) continue;
+    const groups={}; cand.forEach(r=>{ const k=nm(r.team); (groups[k]=groups[k]||[]).push(r); });
+    const keys=Object.keys(groups);
+    let pick=groups[keys[0]];
+    if(keys.length>1){                       // >1 school shares the prefix — choose ours
+      let best=null,bestScore=-Infinity;
+      keys.forEach(k=>{
+        let sc=rosterIds.size?groups[k].reduce((n,r)=>n+(rosterIds.has(String(r.espn_id))?1:0),0):0;
+        if(fullNorm&&k===fullNorm) sc+=1000; else if(k===short) sc+=1;   // exact-name tiebreaks
+        if(sc>bestScore){ bestScore=sc; best=groups[k]; }
+      });
+      pick=best||pick;
+    }
+    if(pick&&pick.length){ season=s; rows=pick; break; }
   }
   if(!rows.length){ host.innerHTML='<div style="padding:24px;color:var(--text3);">No on/off data for this team yet — the lineup pipeline is still building (game-level WOWY from NCAA play-by-play).</div>'; host._done=true; return; }
   // Sample-adjusted Impact (matches onoff.html): shrink the raw swing toward 0 by the
