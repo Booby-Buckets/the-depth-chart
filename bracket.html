@@ -53,6 +53,7 @@
     .rbr-h{font-family:'Playfair Display',serif;font-weight:800;font-size:16px;padding:12px 15px;border-bottom:1px solid var(--border);
       background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 9%,var(--bg2)),var(--bg2));display:flex;align-items:baseline;gap:9px;}
     .rbr-h .rw{font-size:10.5px;font-weight:700;color:var(--text3);letter-spacing:.02em;font-family:'Inter',sans-serif;}
+    .rbr-body{padding:12px;display:flex;flex-direction:column;gap:7px;}
     .rbr-scroll{overflow-x:auto;padding:12px;}
     .rounds{display:flex;gap:8px;min-width:600px;}
     .col{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:6px;min-width:0;}
@@ -68,6 +69,7 @@
     .tm .tnm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .tm .tr{font-size:9px;color:var(--text3);flex-shrink:0;font-variant-numeric:tabular-nums;}
     .tm .up{font-size:8px;font-weight:800;color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,transparent);padding:1px 4px;border-radius:5px;flex-shrink:0;letter-spacing:.03em;}
+    .tm .fftag{font-size:7.5px;font-weight:800;text-transform:uppercase;color:var(--text3);background:var(--bg3);padding:1px 5px;border-radius:5px;flex-shrink:0;letter-spacing:.04em;}
     /* final four */
     .ff-wrap{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:center;border:1px solid var(--border);border-radius:16px;background:var(--bg2);padding:20px 18px;}
     @media(max-width:760px){.ff-wrap{grid-template-columns:1fr;}}
@@ -94,9 +96,9 @@
   <script src="tdc-nav.js?v=7"></script>
   <div class="page">
     <h1 data-anim>Bracketology</h1>
-    <div class="sub" data-anim>The 2026-27 NCAA Tournament projected end-to-end from <b>roster-based ratings</b> — the same engine that drives our postseason bracket. The 76-team field is S-curve seeded (with conference protection so a league's best teams land in different regions), and <b>every game</b> is played out to a champion. Matchups aren't pure chalk: a <b>style-matchup adjustment</b> from each team's shot-quality, turnover and rebounding profile can flip genuinely close games, so realistic upsets appear. Preseason talent projection — not a resume-based bracket.</div>
-    <div id="out"><div class="loading">Projecting the field &amp; playing out every round…</div></div>
-    <div class="note" data-anim>How it works: 1 automatic bid per conference (projected league-tournament champ) plus the best at-large teams to 76. The 24 lowest fill the 12-game Opening Round; the field of 64 is seeded 1–16, four per line, snaked across the four regions. Each game advances the higher-rated team <i>after</i> a capped four-factor style-matchup adjustment (±4 pts), so a close underdog with a favorable matchup can win. Ratings are on the SRS (point-margin) scale.</div>
+    <div class="sub" data-anim>The projected 2026-27 NCAA Tournament <b>seed field</b> from <b>roster-based ratings</b> — who's in and what seed line they land on. The 76-team field is S-curve seeded (with conference protection so a league's best teams land in different regions). This is a projected <b>seeding</b>, not a prediction of who wins each game.</div>
+    <div id="out"><div class="loading">Projecting the seed field…</div></div>
+    <div class="note" data-anim>How it works: 1 automatic bid per conference (projected league-tournament champ) plus the best at-large teams to 76. The 24 lowest fill the 12-game Opening Round; the field of 64 is seeded 1–16, four per line, snaked across the four regions. Ratings are on the SRS (point-margin) scale — the seed order follows the rating order, so no game outcomes are simulated.</div>
   </div>
 
 <script>
@@ -227,73 +229,39 @@ const fmtR=r=>r==null?'':(r>=0?'+':'')+(+r).toFixed(1);
 
   const shortName=full=>{ const t=byFull[full]; return (t&&t.team)||full; };
 
-  // team row inside a game box. side: 'home'|'away'. upset flag when this team won as
-  // the higher seed number (the underdog).
-  const teamRow=(g,side)=>{
-    const full=side==='home'?g.home:g.away;
-    const seed=side==='home'?g.home_seed:g.away_seed;
-    const rating=side==='home'?g._hr:g._ar;
-    const oppSeed=side==='home'?g.away_seed:g.home_seed;
-    const win=g.winner===full;
-    const upset=win && seed!=null && oppSeed!=null && seed>oppSeed;
-    return `<div class="tm ${win?'w':'l'}">
-      <span class="seed">${seed!=null?seed:''}</span>
-      <span class="tdot" style="background:${teamColor(full,shortName(full))}"></span>
-      <span class="tnm">${full}</span>
-      ${upset?'<span class="up">UPSET</span>':''}
-      <span class="tr">${fmtR(rating)}</span></div>`;
-  };
-  const gameBox=(g,cls)=>`<div class="gm ${cls||''}">${teamRow(g,'home')}${teamRow(g,'away')}</div>`;
-
   // group games
   const byRound=o=>games.filter(g=>g.round_order===o);
   const regionGames=(region,o)=>games.filter(g=>g.division===region&&g.round_order===o);
+  // teams that had to win a play-in to reach the field of 64 (shown as "First Four")
+  const playIn=new Set(byRound(0).map(g=>g.winner));
 
-  // ── champion ──
-  const ncG=byRound(6)[0];
-  const champ=ncG?ncG.winner:null;
-  const champSeedFrom=g=>g.winner===g.home?g.home_seed:g.away_seed;
-  const champSeed=ncG?champSeedFrom(ncG):null;
-  const champR=ncG?(ncG.winner===ncG.home?ncG._hr:ncG._ar):null;
-  const cc=champ?teamColor(champ,shortName(champ)):'var(--accent)';
-  const champHtml=champ?`<div class="champ" data-anim style="--champ:${cc}">
-    <div class="champ-mono">${(shortName(champ)||champ).slice(0,3).toUpperCase()}</div>
-    <div><div class="ce">Projected National Champion</div>
-    <h2>${champ}</h2>
-    <div class="cm">No. ${champSeed} seed &middot; <b>${fmtR(champR)}</b> projected rating &middot; def. ${ncG.winner===ncG.home?ncG.away:ncG.home} in the final</div></div></div>`:'';
+  // one seed line inside a matchup box — NEUTRAL (this is a projected SEED, not a
+  // predicted result), so no winner highlight and no upset tag.
+  const teamRow=(full,seed,rating,ff)=>`<div class="tm">
+      <span class="seed">${seed!=null?seed:''}</span>
+      <span class="tdot" style="background:${teamColor(full,shortName(full))}"></span>
+      <span class="tnm">${full}</span>
+      ${ff&&playIn.has(full)?'<span class="fftag" title="Reached the field through the Opening Round">First Four</span>':''}
+      <span class="tr">${fmtR(rating)}</span></div>`;
+  const matchBox=(g,ff)=>`<div class="gm">${teamRow(g.home,g.home_seed,g._hr,ff)}${teamRow(g.away,g.away_seed,g._ar,ff)}</div>`;
 
-  // ── regions (bracket tree: 1st Rd -> Elite 8) ──
-  const ROUND_COLS=[['1st Rd',1],['2nd Rd',2],['Sweet 16',3],['Elite 8',4]];
+  // ── regions: the projected SEED FIELD (the eight seed-line pairings), no games run ──
   const regionHtml=region=>{
-    const winnerG=regionGames(region,4)[0];
-    const champTeam=winnerG?winnerG.winner:'';
-    const cols=ROUND_COLS.map(([lbl,o])=>{
-      const gs=regionGames(region,o);
-      return `<div class="col"><div class="col-h">${lbl}</div>${gs.map(g=>gameBox(g)).join('')}</div>`;
-    }).join('');
+    const gs=regionGames(region,1);              // round_order 1 = the seeded field, in bracket order
+    const top=gs[0]?gs[0].home:'';               // the region's No. 1 seed
     const short=region.replace(' Region','');
-    return `<div class="rbr" data-anim><div class="rbr-h">${short}<span class="rw">→ ${champTeam} to the Final Four</span></div>
-      <div class="rbr-scroll"><div class="rounds">${cols}</div></div></div>`;
+    return `<div class="rbr" data-anim><div class="rbr-h">${short}<span class="rw">No. 1 seed · ${top}</span></div>
+      <div class="rbr-body">${gs.map(g=>matchBox(g,true)).join('')}</div></div>`;
   };
   const regionsBlock=`<div class="rgrid">${PROJ_REGIONS.map(regionHtml).join('')}</div>`;
 
-  // ── Final Four + Championship ──
-  const ffG=byRound(5);
-  const ffHtml=ffG.length>=2?`<div class="ff-wrap" data-anim>
-    <div class="ff-col"><div class="ff-title">National Semifinal</div>${gameBox(ffG[0])}</div>
-    <div class="ff-nc"><div class="lbl">National Championship</div>${ncG?gameBox(ncG,'ncg'):''}</div>
-    <div class="ff-col"><div class="ff-title">National Semifinal</div>${gameBox(ffG[1])}</div>
-  </div>`:'';
-
-  // ── Opening Round (12 play-in games) ──
+  // ── Opening Round (12 play-in pairings) — shown as matchups, not predicted winners ──
   const orG=byRound(0);
-  const orHtml=orG.length?`<div class="orgrid">${orG.map(g=>gameBox(g)).join('')}</div>`:'';
+  const orHtml=orG.length?`<div class="orgrid">${orG.map(g=>matchBox(g,false)).join('')}</div>`:'';
 
   el('out').innerHTML=
-    champHtml+
-    (ffHtml?`<div class="sec">Final Four &amp; Title Game <span class="shint">projected national semifinals + championship</span></div>${ffHtml}`:'')+
-    `<div class="sec">The Regions <span class="shint">every game played out &middot; scroll a region for later rounds</span></div>${regionsBlock}`+
-    (orHtml?`<div class="sec">Opening Round <span class="shint">the 12 play-in games (last four byes on each of the 11 / 12 / 15 / 16 lines)</span></div>${orHtml}`:'');
+    `<div class="sec">The Regions <span class="shint">projected seed lines 1–16 in each region</span></div>${regionsBlock}`+
+    (orHtml?`<div class="sec">Opening Round <span class="shint">the 12 play-in pairings on the 11 / 12 / 15 / 16 seed lines</span></div>${orHtml}`:'');
 
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
 })();
