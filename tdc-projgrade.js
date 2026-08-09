@@ -480,14 +480,19 @@
     if(!isFinite(hg) || hg <= sv) return sv;
     return Math.min(99, sv + Math.min(SCOUT_CAP, Math.round(SCOUT_W * (hg - sv))));
   }
+  // Floor for real roster players too raw to grade — barely-played deep-bench guys
+  // (too few games for the stat model) and the ungraded. They used to render blank;
+  // a baseline keeps them on the board without inventing a number from noise. They
+  // still sort to the very bottom, so rankings/leaderboards are unaffected up top.
+  var BASELINE_OVR = 50;
   function gradeSolo(row){
     if(!row) return null;
     var _gp = (row.gp != null && row.gp !== '') ? +row.gp : ((row.g != null && row.g !== '') ? +row.g : null);
-    if(_gp != null && _gp > 0 && _gp < 3) return null;       // played <3 games → no rating (noise)
+    if(_gp != null && _gp > 0 && _gp < 3) return BASELINE_OVR; // played <3 games → baseline (too small a sample to grade)
     var _sv = _statOvrOf(row);                               // LIVE: statistical overall (projected→demonstrated) by espn_id
     if(_sv != null) return _scoutBlend(_sv, row);
     if(row.id != null && _COUPLED[row.id] != null){ var ca = _COUPLED[row.id]; return Math.min(99, Math.round(ca + _taperArch(ca, _archOf(row)) + _gpsOf(row))); }   // legacy fallback (no stat overall — e.g. freshmen): coupled + tapered archetype
-    var g = parseFloat(row.tdc_grade); if(!isFinite(g)) return null;
+    var g = parseFloat(row.tdc_grade); if(!isFinite(g)) return BASELINE_OVR; // on a roster but ungraded → baseline, not blank
     var qual = g;   // no conference discount here — see gradeRoster; the level lives in the projection
     var trans = _clsTrans(row.yr || row.class_year);
     var devBpm = (trans && _DEV && _DEV.bpm_delta && _DEV.bpm_delta[trans]) ? (_DEV.bpm_delta[trans][_qtier(qual)] || 0) : 0;

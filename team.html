@@ -16,7 +16,7 @@
   <script src="tdc-freshman.js?v=pub5"></script>
   <script src="tdc-injury.js?v=4"></script>
   <script src="tdc-ratings.js?v=7"></script>
-  <script src="tdc-projgrade.js?v=scout1"></script>
+  <script src="tdc-projgrade.js?v=base1"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-pool.js?v=1"></script>
@@ -6452,6 +6452,11 @@ async function loadHistoricRoster(yr){
       try{ const a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(yr)||0);
         if(a&&a.grade!=null) p._projGrade=Math.round(a.grade); }catch(e){} });
   }
+  // Barely-played / ungraded deep-bench players (tdc_grade null → skipped above) used to
+  // render a blank OVR. Give them a baseline via gradeSolo (floors to 50) so every rostered
+  // player carries a number.
+  if(window.TDCProjGrade && TDCProjGrade.gradeSolo){ rows.forEach(p=>{ if(!p||p._projGrade!=null) return;
+    try{ const g=TDCProjGrade.gradeSolo(p); if(g!=null&&!isNaN(g)) p._projGrade=g; }catch(e){} }); }
   renderHistoricRoster(rows, yr);
   renderSeasonLosses(rows, yr);
   computeSeasonAwards(rows, yr);
