@@ -5144,21 +5144,34 @@ async function renderOnOff(){
   if(!fullNorm && window.TDC_RATINGS){ try{ const D=await TDC_RATINGS.get();
     const row=(D&&D.teams||[]).find(x=>nm(x.team)===short); if(row&&row.full) fullNorm=nm(row.full);
   }catch(e){} }
+  const overlapCount=g=>g.reduce((n,r)=>n+(rosterIds.has(String(r.espn_id))?1:0),0);
   let season=null, rows=[];
   for(const s of seasons){
-    const cand=(_onoffData[s]||[]).filter(r=>{ const t=nm(r.team); return t===short||t.startsWith(short+' '); });
-    if(!cand.length) continue;
-    const groups={}; cand.forEach(r=>{ const k=nm(r.team); (groups[k]=groups[k]||[]).push(r); });
-    const keys=Object.keys(groups);
-    let pick=groups[keys[0]];
-    if(keys.length>1){                       // >1 school shares the prefix — choose ours
-      let best=null,bestScore=-Infinity;
-      keys.forEach(k=>{
-        let sc=rosterIds.size?groups[k].reduce((n,r)=>n+(rosterIds.has(String(r.espn_id))?1:0),0):0;
-        if(fullNorm&&k===fullNorm) sc+=1000; else if(k===short) sc+=1;   // exact-name tiebreaks
-        if(sc>bestScore){ bestScore=sc; best=groups[k]; }
-      });
-      pick=best||pick;
+    const all=_onoffData[s]||[];
+    const cand=all.filter(r=>{ const t=nm(r.team); return t===short||t.startsWith(short+' '); });
+    let pick=null;
+    if(cand.length){
+      const groups={}; cand.forEach(r=>{ const k=nm(r.team); (groups[k]=groups[k]||[]).push(r); });
+      const keys=Object.keys(groups);
+      pick=groups[keys[0]];
+      if(keys.length>1){                     // >1 school shares the prefix — choose ours
+        let best=null,bestScore=-Infinity;
+        keys.forEach(k=>{
+          let sc=overlapCount(groups[k]);
+          if(fullNorm&&k===fullNorm) sc+=1000; else if(k===short) sc+=1;   // exact-name tiebreaks
+          if(sc>bestScore){ bestScore=sc; best=groups[k]; }
+        });
+        pick=best||pick;
+      }
+    } else if(rosterIds.size>=4){
+      // No name match at all — the school's short name doesn't prefix its full ESPN
+      // name (e.g. "St. Joe's" -> "Saint Joseph's Hawks"). Recover via roster
+      // espn_id overlap: the team most of THIS roster played for last year. Guarded
+      // (>=3 players AND >=40% of the tracked roster) so a cluster of transfers from
+      // one school can't masquerade as a team that simply has no data.
+      const groups={}; all.forEach(r=>{ const k=nm(r.team); (groups[k]=groups[k]||[]).push(r); });
+      let best=null,bo=0; Object.keys(groups).forEach(k=>{ const ov=overlapCount(groups[k]); if(ov>bo){bo=ov;best=groups[k];} });
+      if(best && bo>=3 && bo>=0.4*rosterIds.size) pick=best;
     }
     if(pick&&pick.length){ season=s; rows=pick; break; }
   }
