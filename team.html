@@ -5968,6 +5968,27 @@ function _nilMarketExport(){
   else window.prompt('Copy this into scripts/data/nil_market_anchors.json:',out);
 }
 function _nilMarketReset(){ try{ localStorage.removeItem('tdc_nil_market'); }catch(e){} renderNil(); }
+// Publish anchors to the site for every visitor — writes them into the owner blob
+// (profiles.freshman_projections.nil_market) with the owner JWT, exactly like the
+// freshman projections / ratings publish. Readers pick them up via TDCFresh.getKey.
+async function _nilMarketPublish(btn){
+  if(typeof _isOwner!=='function' || !_isOwner()){ alert('Owner only.'); return; }
+  if(!(window.TDCFresh&&TDCFresh.setKey)){ alert('Publish unavailable — auth not loaded. Reload and sign in as owner.'); return; }
+  let s=null; try{ s=JSON.parse(localStorage.getItem('tdc_nil_market')||'null'); }catch(e){}
+  const _pub=(window.TDCFresh.getKey)?TDCFresh.getKey('nil_market'):null;
+  const curves=(s&&s.curves)||(_pub&&_pub.curves)||(window._nilMarket&&window._nilMarket.curves)||{};
+  if(!curves||!Object.keys(curves).length){ alert('No anchors to publish yet.'); return; }
+  const meta=Object.assign({}, (window._nilMarket&&window._nilMarket.meta)||{note:'Owner-set NIL market anchors',unit:'$M',anchorGrades:[90,80,70]}, {updated:new Date().toISOString().slice(0,10)});
+  const _t=btn?btn.textContent:''; if(btn){ btn.disabled=true; btn.textContent='Publishing…'; }
+  try{
+    const r=await TDCFresh.setKey('nil_market', {meta, curves});
+    if(!r || r.ok===false || (typeof r.ok==='boolean' && !r.ok)) throw new Error('write rejected — are you signed in as owner?');
+    try{ localStorage.removeItem('tdc_nil_market'); }catch(e){}   // now reads from the published blob
+    if(btn){ btn.textContent='✓ Published'; }
+    alert('✓ Published to the site — every visitor now sees these market anchors.');
+    renderNil();
+  }catch(e){ alert('✗ Publish failed: '+((e&&e.message)||e)); if(btn){ btn.disabled=false; btn.textContent=_t||'Publish to site'; } }
+}
 async function renderNil(){
   const host=document.getElementById('nilContent'); const tT=(typeof teamT!=='undefined')?teamT:null; if(!host||!tT) return;
   if(!_nilData){ try{ _nilData=await fetch('nil-data.json?v=cal1').then(r=>r.json()); }catch(e){ host.innerHTML='<div style="padding:40px;color:var(--text3);">NIL data unavailable.</div>'; return; } }
@@ -5975,8 +5996,11 @@ async function renderNil(){
   if(!d){ host.innerHTML='<div style="padding:40px;color:var(--text3);">No NIL valuation for this team yet — needs a NIL tier and roster.</div>'; return; }
   // ── NIL MARKET VALUE (positional curves): owner anchors → per-player market $ ──
   if(!window._nilMarket){ try{ window._nilMarket=await fetch('scripts/data/nil_market_anchors.json?v=1').then(r=>r.ok?r.json():null); }catch(e){ window._nilMarket=null; } }
+  if(window.TDCFresh&&TDCFresh.load){ try{ await TDCFresh.load(); }catch(e){} }
+  // Curve priority: local unsaved preview → owner-published blob (Supabase) → committed file default.
+  const _pub=(window.TDCFresh&&TDCFresh.getKey)?TDCFresh.getKey('nil_market'):null;
   let _mkOv=null; try{ _mkOv=JSON.parse(localStorage.getItem('tdc_nil_market')||'null'); }catch(e){}
-  const _curves=(_mkOv&&_mkOv.curves)||(window._nilMarket&&window._nilMarket.curves)||{};
+  const _curves=(_mkOv&&_mkOv.curves)||(_pub&&_pub.curves)||(window._nilMarket&&window._nilMarket.curves)||{};
   const _rlM=(typeof teamPlayers!=='undefined'&&teamPlayers||[]);
   const _bnM={}; _rlM.forEach(p=>{ _bnM[(p.name||'').toLowerCase().trim()]=p; });
   const _posOf=p=>{ const rp=_bnM[(p.name||'').toLowerCase().trim()]; return p.position||(rp&&rp.position)||''; };
@@ -6038,11 +6062,12 @@ async function renderNil(){
       <div style="font-size:11px;color:var(--text3);margin-bottom:10px;">Set the market price for a 90 / 80 / 70-grade player at each position; every player's Market Value interpolates on their position's curve. Changes preview instantly on this device.</div>
       <table style="border-collapse:collapse;font-size:12px;"><thead><tr><th style="text-align:left;color:var(--text3);font-size:10px;padding:0 8px 4px 0;">POS</th>${_G.map(g=>`<th style="color:var(--text3);font-size:10px;font-weight:700;padding:0 4px 4px;">Grade ${g}</th>`).join('')}</tr></thead><tbody>${_rows}</tbody></table>
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <button onclick="_nilMarketExport()" style="font-size:11px;font-weight:700;padding:6px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;">Copy JSON to publish</button>
+        <button onclick="_nilMarketPublish(this)" style="font-size:11px;font-weight:800;padding:6px 14px;border:1px solid var(--green);border-radius:8px;background:var(--green);color:#fff;cursor:pointer;">Publish to site</button>
+        <button onclick="_nilMarketExport()" style="font-size:11px;font-weight:700;padding:6px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;">Copy JSON</button>
         <button onclick="_nilMarketReset()" style="font-size:11px;font-weight:700;padding:6px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text3);cursor:pointer;">Reset to published</button>
-        ${_mkOv?'<span style="font-size:10px;color:var(--amber);font-weight:700;">Unsaved local preview</span>':''}
+        ${_mkOv?'<span style="font-size:10px;color:var(--amber);font-weight:700;">Unsaved local preview</span>':(_pub?'<span style="font-size:10px;color:var(--green);font-weight:700;">Live from site'+(_pub.meta&&_pub.meta.updated?' · '+_pub.meta.updated:'')+'</span>':'')}
       </div>
-      <div style="font-size:10px;color:var(--text3);margin-top:8px;">To publish for everyone: Copy JSON → commit <code>scripts/data/nil_market_anchors.json</code>.</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:8px;"><b>Publish to site</b> pushes these anchors live for every visitor instantly (owner-only). <b>Copy JSON</b> exports them to commit as the file default <code>scripts/data/nil_market_anchors.json</code>.</div>
     </div>`;
   }
   html+=`<div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:16px;max-width:860px;"><b>Model Value</b> is our production estimate — the player's <b>TDC grade</b> on a convex curve × projected minutes (role) × team spending tier × a size/scoring/conference premium × a youth bump; calibrated to real deals. <b>Market Value</b> is a different lens: a <b>positional market curve</b> (what a 90 / 80 / 70-grade player goes for at each position) read off by the player's grade &amp; slot — pricing talent and position regardless of minutes. <b>Δ</b> = Market − Model: <span style="color:var(--amber);font-weight:700;">amber</span> = market pays above production, <span style="color:var(--green);font-weight:700;">green</span> = a value buy.</div>`;

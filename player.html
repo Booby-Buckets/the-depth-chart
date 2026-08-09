@@ -4869,7 +4869,9 @@ async function renderNilPlayer(){
   // Market Value — owner's positional market curve read off by grade & slot (independent of
   // minutes). Respect the owner's live localStorage preview so this matches the team NIL tab.
   let _mkOv=null; try{ _mkOv=JSON.parse(localStorage.getItem('tdc_nil_market')||'null'); }catch(e){}
-  const _mkCurves=(_mkOv&&_mkOv.curves)||(window._nilMarket&&window._nilMarket.curves)||null;
+  // Curve priority: local unsaved preview → owner-published blob (Supabase) → committed file default.
+  const _mkPub=(window.TDCFresh&&TDCFresh.getKey)?TDCFresh.getKey('nil_market'):null;
+  const _mkCurves=(_mkOv&&_mkOv.curves)||(_mkPub&&_mkPub.curves)||(window._nilMarket&&window._nilMarket.curves)||null;
   const marketVal=(!walkon&&_mkCurves&&N.curveMarket)?N.curveMarket(pos,grade,_mkCurves):null;
   const mktDelta=(marketVal!=null&&modelVal!=null)?(marketVal-modelVal):null;
   // premium sub-components (for the readout)
