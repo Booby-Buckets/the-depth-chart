@@ -101,3 +101,33 @@ window.TDC_NIL = {
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };
 })();
+
+// ── NIL MARKET VALUE (positional curves) ──────────────────────────────────
+// Distinct from the production MODEL value above: the owner sets $ anchors per POSITION
+// at grades 90/80/70 (nil_market_anchors.json / tuned live), and a player's Market Value is
+// their grade interpolated on that position curve — independent of minutes/role. Two
+// grade-88 wings carry the same market price even if one plays 30 mpg and the other 12.
+(function(){
+  var N = window.TDC_NIL; if(!N) return;
+  N.POS5 = function(pos){ pos=(''+(pos||'')).toUpperCase().trim();
+    if(pos.indexOf('PG')>=0) return 'PG';
+    if(pos.indexOf('SG')>=0||pos==='CG') return 'SG';
+    if(pos.indexOf('SF')>=0||pos==='GF') return 'SF';
+    if(pos.indexOf('PF')>=0) return 'PF';
+    if(pos==='C'||pos.indexOf('C')>=0) return 'C';
+    if(pos==='G') return 'SG'; if(pos==='F') return 'SF';
+    return 'SF'; };
+  // Market $ for (position, grade) off the [90,80,70]-anchor curve. curves = {PG:{90,80,70},…}.
+  N.curveMarket = function(pos, grade, curves){
+    if(grade==null||!isFinite(+grade)) return null;
+    curves = curves || N.MARKET || {}; var c = curves[N.POS5(pos)]; if(!c) return null;
+    var v90=+c['90'], v80=+c['80'], v70=+c['70'];
+    if(!isFinite(v90)||!isFinite(v80)||!isFinite(v70)) return null;
+    var g=+grade, v;
+    if(g>=90) v = v90 + (v90-v80)/10*(g-90)*0.6;        // dampened extrapolation above 90
+    else if(g>=80) v = v80 + (v90-v80)*(g-80)/10;
+    else if(g>=70) v = v70 + (v80-v70)*(g-70)/10;
+    else v = v70 - (v80-v70)*(70-g)/10;                 // extend below 70
+    return Math.max(0.03, Math.round(v*1000)/1000);
+  };
+})();

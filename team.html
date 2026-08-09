@@ -10,7 +10,7 @@
   <script src="tdc-lineups.js?v=13"></script>
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-moneyball.js?v=1"></script>
-  <script src="tdc-nil.js?v=cal1"></script>
+  <script src="tdc-nil.js?v=mkt1"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=1"></script>
   <script src="tdc-proj.js?v=coach18"></script>
@@ -5930,11 +5930,39 @@ async function loadLineupShotProfile(){
 }
 
 let _nilData=null;
+// ── NIL market-anchor editor handlers (owner) ── live preview in localStorage; publish by
+// committing the copied JSON to scripts/data/nil_market_anchors.json.
+function _nilMarketEdit(pos,g,val){
+  let s=null; try{ s=JSON.parse(localStorage.getItem('tdc_nil_market')||'null'); }catch(e){}
+  if(!s||!s.curves){ s={curves:JSON.parse(JSON.stringify((window._nilMarket&&window._nilMarket.curves)||{}))}; }
+  s.curves[pos]=s.curves[pos]||{};
+  if(val===''||val==null) delete s.curves[pos][g]; else s.curves[pos][g]=+val;
+  try{ localStorage.setItem('tdc_nil_market', JSON.stringify(s)); }catch(e){}
+  renderNil();
+}
+function _nilMarketExport(){
+  let s=null; try{ s=JSON.parse(localStorage.getItem('tdc_nil_market')||'null'); }catch(e){}
+  const curves=(s&&s.curves)||(window._nilMarket&&window._nilMarket.curves)||{};
+  const meta=(window._nilMarket&&window._nilMarket.meta)||{note:'Owner-set NIL market anchors',unit:'$M',anchorGrades:[90,80,70]};
+  const out=JSON.stringify({meta,curves},null,2);
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(out).then(()=>alert('Market anchors JSON copied — commit it to scripts/data/nil_market_anchors.json to publish for everyone.'),()=>window.prompt('Copy this into scripts/data/nil_market_anchors.json:',out)); }
+  else window.prompt('Copy this into scripts/data/nil_market_anchors.json:',out);
+}
+function _nilMarketReset(){ try{ localStorage.removeItem('tdc_nil_market'); }catch(e){} renderNil(); }
 async function renderNil(){
   const host=document.getElementById('nilContent'); const tT=(typeof teamT!=='undefined')?teamT:null; if(!host||!tT) return;
   if(!_nilData){ try{ _nilData=await fetch('nil-data.json?v=cal1').then(r=>r.json()); }catch(e){ host.innerHTML='<div style="padding:40px;color:var(--text3);">NIL data unavailable.</div>'; return; } }
   const d=_nilData.teams[tT.name];
   if(!d){ host.innerHTML='<div style="padding:40px;color:var(--text3);">No NIL valuation for this team yet — needs a NIL tier and roster.</div>'; return; }
+  // ── NIL MARKET VALUE (positional curves): owner anchors → per-player market $ ──
+  if(!window._nilMarket){ try{ window._nilMarket=await fetch('scripts/data/nil_market_anchors.json?v=1').then(r=>r.ok?r.json():null); }catch(e){ window._nilMarket=null; } }
+  let _mkOv=null; try{ _mkOv=JSON.parse(localStorage.getItem('tdc_nil_market')||'null'); }catch(e){}
+  const _curves=(_mkOv&&_mkOv.curves)||(window._nilMarket&&window._nilMarket.curves)||{};
+  const _rlM=(typeof teamPlayers!=='undefined'&&teamPlayers||[]);
+  const _bnM={}; _rlM.forEach(p=>{ _bnM[(p.name||'').toLowerCase().trim()]=p; });
+  const _posOf=p=>{ const rp=_bnM[(p.name||'').toLowerCase().trim()]; return p.position||(rp&&rp.position)||''; };
+  const _mkOf=p=>(window.TDC_NIL&&TDC_NIL.curveMarket)?TDC_NIL.curveMarket(_posOf(p),p.grade,_curves):null;
+  const _rosterMarket=d.players.reduce((s,p)=>{ const m=_mkOf(p); return s+(m||0); },0);
   const col=((typeof teamColor_g!=='undefined')?teamColor_g:null)||'#888', mkt=_nilData.market_rate_per_pt;
   const fmt=m=>m>=1?('$'+(+m).toFixed(1)+'M'):('$'+Math.round(m*1000)+'K');
   const deal=d.verdict==='deal', maxv=Math.max(d.value,d.budget)||1;
@@ -5947,7 +5975,8 @@ async function renderNil(){
   function round1(v){ return Math.round(v*1000)/1000; }
   let html=`<div style="display:flex;flex-wrap:wrap;gap:13px;margin-bottom:20px;">
     <div class="nil-card"><div class="nil-lbl">NIL Budget · Tier ${d.tier}</div><div class="nil-big">${fmt(d.budget)}</div></div>
-    <div class="nil-card"><div class="nil-lbl">Roster Value</div><div class="nil-big" style="color:var(--tc-readable,${col})">${fmt(d.value)}</div></div>
+    <div class="nil-card"><div class="nil-lbl">Roster Value · Model</div><div class="nil-big" style="color:var(--tc-readable,${col})">${fmt(d.value)}</div></div>
+    <div class="nil-card"><div class="nil-lbl">Roster Value · Market</div><div class="nil-big" style="color:var(--tc-readable,${col})">${fmt(_rosterMarket)}</div><div class="nil-sub">positional curves</div></div>
     <div class="nil-card" style="border-color:${deal?'var(--green)':'var(--red)'}"><div class="nil-lbl">Verdict</div><div class="nil-big" style="color:${deal?'var(--green)':'var(--red)'}">${deal?'DEAL':'EXPENSIVE'}</div><div class="nil-sub">${fmt(Math.abs(d.diff))} ${deal?'under budget':'overpay'}</div></div>
     <div class="nil-card"><div class="nil-lbl">Cost / Net Point</div><div class="nil-big">$${Math.round(d.implied_rate*1000)}K</div><div class="nil-sub">market $${Math.round(mkt*1000)}K</div></div>
     ${hasOverrides?`<div class="nil-card"><div class="nil-lbl">Projected Spend</div><div class="nil-big">${fmt(d.projected_spend)}</div><div class="nil-sub" style="color:${spendGap>0?'var(--red)':'var(--green)'};font-weight:700;">${spendGap>0?'+':''}${fmt(Math.abs(spendGap))} ${spendGap>0?'above model':'below model'}</div></div>`:''}
@@ -5961,7 +5990,7 @@ async function renderNil(){
     <div style="font-size:10px;color:var(--text3);margin-top:4px;">Green bar = roster value · vertical line = budget</div>
   </div>
   <div style="overflow-x:auto;">
-  <table class="nil-table"><thead><tr><th class="left">Player</th><th>Grade</th><th>MPG</th><th>Prem</th><th title="What the production model alone says this player is worth">Model Value</th><th>NIL Value</th><th title="NIL Value minus Model Value — positive means paid above what production justifies, negative means below">Over / Under</th></tr></thead><tbody>`;
+  <table class="nil-table"><thead><tr><th class="left">Player</th><th>Grade</th><th>Pos</th><th>MPG</th><th title="Production model estimate: grade × projected minutes × market premium × team tier">Model Value</th><th title="Positional market curve for this player's grade & slot — set by the owner, independent of minutes">Market Value</th><th title="Market minus Model — how far the market prices this slot above (amber) or below (green) what production justifies">Δ</th></tr></thead><tbody>`;
   const _rosterList=(typeof teamPlayers!=='undefined'&&teamPlayers||[]);
   const _injSet=new Set(_rosterList.filter(p=>p.is_injured).map(p=>(p.name||'').toLowerCase().trim()));
   const _byName={}; _rosterList.forEach(p=>{ _byName[(p.name||'').toLowerCase().trim()]=p; });
@@ -5972,14 +6001,32 @@ async function renderNil(){
     const rp=_byName[key];
     const href=rp&&rp.espn_id?`player.html?espn=${rp.espn_id}&name=${encodeURIComponent(p.name)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(tT.name||'')}`;
     const nameCell=`<a href="${href}" style="color:inherit;text-decoration:none;">${p.name}</a>`;
-    const proj=p.proj!=null?p.proj:p.value;
-    const diff=p.payDiff!=null?p.payDiff:0;
-    const diffCell=Math.abs(diff)<0.005?`<span style="color:var(--text3);">—</span>`
-      :`<span style="font-weight:700;color:${diff>0?'var(--red)':'var(--green)'};">${diff>0?'+':'−'}${fmt(Math.abs(diff))}</span>`;
-    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="left">${nameCell}${injTag}</td><td>${gr}</td><td>${Math.round(p.mpg)}</td><td>×${(+p.prem||1).toFixed(2)}</td><td style="color:var(--text3);">${fmt(proj)}</td><td style="font-weight:700;color:var(--tc-readable,${col})${inj?';text-decoration:line-through;':''}">${fmt(p.value)}</td><td>${diffCell}</td></tr>`; });
-  html+=`</tbody></table>
-  </div>
-  <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:14px;max-width:860px;"><b>NIL Value</b> is a realistic-market estimate: the player's <b>TDC grade</b> (talent, usage, efficiency, and recruiting hype for freshmen) on a <b>convex curve</b> — stars are worth exponentially more — times <b>projected minutes</b> (role), the team's <b>spending tier</b>, a <b>market premium (Prem)</b> for size / scoring / conference, and a <b>youth bump</b> (the market pays for upside). Calibrated to real NIL deals. <b>Model Value</b> is the estimate before any override; <b>NIL Value</b> matches it unless a known real deal is on file, when <b>Over / Under</b> shows the gap. Budget is the team's NIL-tier midpoint — roster value within budget = a <b>deal</b>, over = <b>stretched</b>.</div>`;
+    const model=p.proj!=null?p.proj:p.value;
+    const mktV=_mkOf(p);
+    const dv=(mktV!=null)?mktV-model:null;
+    const dCell=(dv==null||Math.abs(dv)<0.005)?`<span style="color:var(--text3);">—</span>`
+      :`<span style="font-weight:700;color:${dv>0?'var(--amber)':'var(--green)'};">${dv>0?'+':'−'}${fmt(Math.abs(dv))}</span>`;
+    const posC=_posOf(p)&&window.TDC_NIL?TDC_NIL.POS5(_posOf(p)):'—';
+    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="left">${nameCell}${injTag}</td><td>${gr}</td><td>${posC}</td><td>${Math.round(p.mpg)}</td><td style="color:var(--text3);">${fmt(model)}</td><td style="font-weight:700;color:var(--tc-readable,${col})${inj?';text-decoration:line-through;':''}">${mktV!=null?fmt(mktV):'—'}</td><td>${dCell}</td></tr>`; });
+  html+=`</tbody></table></div>`;
+  // ── owner-only market anchor editor ──
+  if(typeof _isOwner==='function' && _isOwner()){
+    const _P=['PG','SG','SF','PF','C'], _G=['90','80','70'];
+    const _cell=(pos,g)=>{ const cv=(_curves[pos]&&_curves[pos][g]!=null)?_curves[pos][g]:''; return `<td style="padding:3px 4px;"><input type="number" step="0.05" min="0" value="${cv}" onchange="_nilMarketEdit('${pos}','${g}',this.value)" style="width:70px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);padding:4px 6px;font-family:var(--mono,monospace);font-size:12px;text-align:right;"/></td>`; };
+    const _rows=_P.map(pos=>`<tr><td style="text-align:left;font-weight:700;padding:3px 8px 3px 0;">${pos}</td>${_G.map(g=>_cell(pos,g)).join('')}</tr>`).join('');
+    html+=`<div style="margin-top:22px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--bg2);max-width:520px;">
+      <div style="font-weight:800;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--text2);margin-bottom:3px;">Market anchors <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--text3);">· owner · $M by position &amp; grade</span></div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px;">Set the market price for a 90 / 80 / 70-grade player at each position; every player's Market Value interpolates on their position's curve. Changes preview instantly on this device.</div>
+      <table style="border-collapse:collapse;font-size:12px;"><thead><tr><th style="text-align:left;color:var(--text3);font-size:10px;padding:0 8px 4px 0;">POS</th>${_G.map(g=>`<th style="color:var(--text3);font-size:10px;font-weight:700;padding:0 4px 4px;">Grade ${g}</th>`).join('')}</tr></thead><tbody>${_rows}</tbody></table>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button onclick="_nilMarketExport()" style="font-size:11px;font-weight:700;padding:6px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;">Copy JSON to publish</button>
+        <button onclick="_nilMarketReset()" style="font-size:11px;font-weight:700;padding:6px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text3);cursor:pointer;">Reset to published</button>
+        ${_mkOv?'<span style="font-size:10px;color:var(--amber);font-weight:700;">Unsaved local preview</span>':''}
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:8px;">To publish for everyone: Copy JSON → commit <code>scripts/data/nil_market_anchors.json</code>.</div>
+    </div>`;
+  }
+  html+=`<div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:16px;max-width:860px;"><b>Model Value</b> is our production estimate — the player's <b>TDC grade</b> on a convex curve × projected minutes (role) × team spending tier × a size/scoring/conference premium × a youth bump; calibrated to real deals. <b>Market Value</b> is a different lens: a <b>positional market curve</b> (what a 90 / 80 / 70-grade player goes for at each position) read off by the player's grade &amp; slot — pricing talent and position regardless of minutes. <b>Δ</b> = Market − Model: <span style="color:var(--amber);font-weight:700;">amber</span> = market pays above production, <span style="color:var(--green);font-weight:700;">green</span> = a value buy.</div>`;
   host.innerHTML=html;
 }
 
