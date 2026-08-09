@@ -130,4 +130,29 @@ window.TDC_NIL = {
     else v = v70 - (v80-v70)*(70-g)/10;                 // extend below 70
     return Math.max(0.03, Math.round(v*1000)/1000);
   };
+
+  // ── UNDERRATED / OVERRATED vs market ──────────────────────────────────────
+  // Compare our production MODEL $ to the MARKET curve $:
+  //   Model >= 1.30× Market  → UNDERRATED ("slept on": the market prices him below his production)
+  //   Market >= 1.30× Model  → OVERRATED  (the market pays above his production)
+  // Only judged for REAL rotation pieces with real $ on BOTH sides — otherwise the grade-curve
+  // floor (bench guys) and the fact that Market ignores team tier (tiny schools) create false
+  // extremes. Returns {tag:'underrated'|'overrated'|'fair'|null, ratio, delta}.
+  N.MARK_RATIO = 1.30;                 // ±30% divergence to earn a tag (owner-chosen)
+  N.MARK_MINGRADE = 74; N.MARK_MINMPG = 10; N.MARK_MINVAL = 0.25;   // qualifier floors
+  N.marketVerdict = function(model, market, opts){
+    opts = opts || {};
+    var g = +opts.grade, mp = +opts.mpg;
+    if(model==null||market==null||!isFinite(+model)||!isFinite(+market)) return {tag:null};
+    model=+model; market=+market;
+    if((isFinite(g)&&g<N.MARK_MINGRADE) || (isFinite(mp)&&mp<N.MARK_MINMPG) ||
+       model<N.MARK_MINVAL || market<N.MARK_MINVAL) return {tag:null};   // not qualified — no badge
+    var r = model/market, d = model-market;
+    if(r >= N.MARK_RATIO)   return {tag:'underrated', ratio:r,   delta:d};
+    if(1/r >= N.MARK_RATIO) return {tag:'overrated',  ratio:1/r, delta:d};
+    return {tag:'fair', ratio:r, delta:d};
+  };
+  N.markLabel = function(tag){ return tag==='underrated'?'UNDERRATED':tag==='overrated'?'OVERRATED':tag==='fair'?'FAIR VALUE':''; };
+  // green = value/underrated, amber = overrated (matches the Δ coloring already on the pages)
+  N.markColor = function(tag){ return tag==='underrated'?'var(--green)':tag==='overrated'?'var(--amber)':'var(--text3)'; };
 })();

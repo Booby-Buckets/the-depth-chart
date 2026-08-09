@@ -10,7 +10,7 @@
   <script src="tdc-lineups.js?v=13"></script>
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-moneyball.js?v=1"></script>
-  <script src="tdc-nil.js?v=lift1"></script>
+  <script src="tdc-nil.js?v=lift2"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=1"></script>
   <script src="tdc-proj.js?v=coach18"></script>
@@ -6033,7 +6033,7 @@ async function renderNil(){
     <div style="font-size:10px;color:var(--text3);margin-top:4px;">Green bar = roster value · vertical line = budget</div>
   </div>
   <div style="overflow-x:auto;">
-  <table class="nil-table"><thead><tr><th class="left">Player</th><th>Grade</th><th>Pos</th><th>MPG</th><th title="Production model estimate: grade × projected minutes × market premium × team tier">Model Value</th><th title="Positional market curve for this player's grade & slot — set by the owner, independent of minutes">Market Value</th><th title="Market minus Model — how far the market prices this slot above (amber) or below (green) what production justifies">Δ</th></tr></thead><tbody>`;
+  <table class="nil-table"><thead><tr><th class="left">Player</th><th>Grade</th><th>Pos</th><th>MPG</th><th title="Production model estimate: grade × projected minutes × market premium × team tier">Model Value</th><th title="Positional market curve for this player's grade & slot — set by the owner, independent of minutes">Market Value</th><th title="Market minus Model — how far the market prices this slot above (amber) or below (green) what production justifies">Δ</th><th title="UNDERRATED = our production model values him 30%+ above the market price (slept on). OVERRATED = market prices him 30%+ above production. Only real rotation pieces are judged.">Verdict</th></tr></thead><tbody>`;
   const _rosterList=(typeof teamPlayers!=='undefined'&&teamPlayers||[]);
   const _injSet=new Set(_rosterList.filter(p=>p.is_injured).map(p=>(p.name||'').toLowerCase().trim()));
   const _byName={}; _rosterList.forEach(p=>{ _byName[(p.name||'').toLowerCase().trim()]=p; });
@@ -6050,7 +6050,12 @@ async function renderNil(){
     const dCell=(dv==null||Math.abs(dv)<0.005)?`<span style="color:var(--text3);">—</span>`
       :`<span style="font-weight:700;color:${dv>0?'var(--amber)':'var(--green)'};">${dv>0?'+':'−'}${fmt(Math.abs(dv))}</span>`;
     const posC=_posOf(p)&&window.TDC_NIL?TDC_NIL.POS5(_posOf(p)):'—';
-    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="left">${nameCell}${injTag}</td><td>${gr}</td><td>${posC}</td><td>${Math.round(p.mpg)}</td><td style="color:var(--text3);">${fmt(model)}</td><td style="font-weight:700;color:var(--tc-readable,${col})${inj?';text-decoration:line-through;':''}">${mktV!=null?fmt(mktV):'—'}</td><td>${dCell}</td></tr>`; });
+    const vd=(mktV!=null&&window.TDC_NIL&&TDC_NIL.marketVerdict)?TDC_NIL.marketVerdict(model,mktV,{grade:p.grade,mpg:p.mpg}):{tag:null};
+    const vCol=vd.tag==='underrated'?'var(--green)':'var(--amber)';
+    const vCell=(vd.tag==='underrated'||vd.tag==='overrated')
+      ? `<span style="font-size:9px;font-weight:800;letter-spacing:.02em;padding:2px 6px;border-radius:4px;color:${vCol};border:1px solid ${vCol};background:color-mix(in srgb, ${vCol} 13%, transparent);">${vd.tag==='underrated'?'UNDERRATED':'OVERRATED'}</span>`
+      : `<span style="color:var(--text3);font-size:10px;">${vd.tag==='fair'?'fair':'—'}</span>`;
+    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="left">${nameCell}${injTag}</td><td>${gr}</td><td>${posC}</td><td>${Math.round(p.mpg)}</td><td style="color:var(--text3);">${fmt(model)}</td><td style="font-weight:700;color:var(--tc-readable,${col})${inj?';text-decoration:line-through;':''}">${mktV!=null?fmt(mktV):'—'}</td><td>${dCell}</td><td>${vCell}</td></tr>`; });
   html+=`</tbody></table></div>`;
   // ── owner-only market anchor editor ──
   if(typeof _isOwner==='function' && _isOwner()){

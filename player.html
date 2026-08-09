@@ -9,7 +9,7 @@
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-shotchart.js?v=14"></script>
   <script src="tdc-shotflow.js?v=9"></script>
-  <script src="tdc-nil.js?v=lift1"></script>
+  <script src="tdc-nil.js?v=lift2"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-proj.js?v=coach18"></script>
   <script src="tdc-freshman.js?v=pub5"></script>
@@ -4874,6 +4874,7 @@ async function renderNilPlayer(){
   const _mkCurves=(_mkOv&&_mkOv.curves)||(_mkPub&&_mkPub.curves)||(window._nilMarket&&window._nilMarket.curves)||null;
   const marketVal=(!walkon&&_mkCurves&&N.curveMarket)?N.curveMarket(pos,grade,_mkCurves):null;
   const mktDelta=(marketVal!=null&&modelVal!=null)?(marketVal-modelVal):null;
+  const _verdict=(marketVal!=null&&N.marketVerdict)?N.marketVerdict(modelVal,marketVal,{grade:grade,mpg:mpg}):{tag:null};
   // premium sub-components (for the readout)
   const pSize=N.sizeMult(N.htIn(player&&player.height),pos), pConf=N.confMult(N.confClass(conf));
   const tierN=N.tierNum(nilTier);
@@ -4896,7 +4897,7 @@ async function renderNilPlayer(){
     <div class="nilx-mm">
       <div class="nilx-mm-card"><div class="mm-l">Model Value</div><div class="mm-v">${fmt(modelVal)}</div><div class="mm-s">production estimate</div></div>
       <div class="nilx-mm-card"><div class="mm-l">Market Value</div><div class="mm-v" style="color:${col}">${fmt(marketVal)}</div><div class="mm-s">${N.POS5(pos)} positional curve</div></div>
-      <div class="nilx-mm-card"><div class="mm-l">Δ Market − Model</div><div class="mm-v" style="color:${mktDelta>=0?'var(--amber)':'var(--green)'}">${mktDelta>=0?'+':'−'}${fmt(Math.abs(mktDelta))}</div><div class="mm-s">${mktDelta>=0?'market pays above production':'a value buy'}</div></div>
+      <div class="nilx-mm-card"><div class="mm-l">Δ Market − Model</div><div class="mm-v" style="color:${mktDelta>=0?'var(--amber)':'var(--green)'}">${mktDelta>=0?'+':'−'}${fmt(Math.abs(mktDelta))}</div><div class="mm-s">${_verdict.tag==='underrated'?'<b style="color:var(--green)">UNDERRATED</b> · slept on by the market':_verdict.tag==='overrated'?'<b style="color:var(--amber)">OVERRATED</b> · market pays above production':_verdict.tag==='fair'?'fair value · market ≈ model':(mktDelta>=0?'market pays above production':'a value buy')}</div></div>
     </div>`:''}
     ${walkon?`<div class="nilx-flag" style="border-color:${col}"><b>Walk-on / non-rotation</b> — nominal value; not part of NIL roster spend.</div>`:`
     <div class="sec-title" style="margin:26px 0 14px;">How it's valued</div>
