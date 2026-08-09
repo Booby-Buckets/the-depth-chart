@@ -55,6 +55,8 @@
     .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:3px;gap:3px;}
     .seg button{font-size:12px;font-weight:700;letter-spacing:.02em;padding:6px 13px;border:none;border-radius:6px;background:none;color:var(--text3);cursor:pointer;transition:background .12s,color .12s;}
     .seg button.on{background:var(--accent);color:#221c08;}
+    .diff-seg{flex-wrap:wrap;justify-content:center;}
+    @media(max-width:560px){ .diff-seg button{padding:6px 9px;font-size:11px;} }
     .g-meta{display:flex;align-items:center;justify-content:center;gap:14px;margin:14px 0 20px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);}
     .g-meta b{color:var(--accent);}
     /* search */
@@ -162,14 +164,30 @@ function toggleTheme(){const d=document.documentElement.getAttribute('data-theme
 (function(){try{var s=localStorage.getItem('tdc_theme');if(s){document.documentElement.setAttribute('data-theme',s);var b=document.getElementById('themeBtn');if(b)b.textContent=s==='dark'?'☀️':'🌙';}}catch(e){}})();
 
 const MAX=10;
-let scope='year', mode='daily';                 // 'year'|'all', 'daily'|'unlimited'
+let scope='year', mode='daily', difficulty='medium';   // 'year'|'all', 'daily'|'unlimited', difficulty tier
 // Two tiers: the ANSWER pool (POOL_*) is the notable players the mystery can be;
 // the GUESS pool (GUESS_*) is a broader set of real rotation players you're allowed
 // to guess (so e.g. a 79-grade starter still autocompletes even if he can't be the
 // answer). GUESS_* is a superset of POOL_*.
-let POOL_YEAR=null, POOL_ALL=null, GUESS_YEAR=null, GUESS_ALL=null, CONF={}, TARGET=null, DAY=0, state={guesses:[],done:false,won:false,hint:false};
-function currentPool(){ return scope==='year'?POOL_YEAR:POOL_ALL; }   // answers
+let GUESS_YEAR=null, GUESS_ALL=null, CONF={}, TARGET=null, DAY=0, state={guesses:[],done:false,won:false,hints:0};
 function guessPool(){ return scope==='year'?GUESS_YEAR:GUESS_ALL; }    // allowed guesses
+
+// ── difficulty: filters the ANSWER pool (who the mystery can be) by grade + whether
+// the player is at a power conference. The GUESS pool stays broad either way. ──
+var POWER=['acc','big ten','big 12','sec','big east','pac-12','pac 12'];
+function isPower(p){ var c=(confOf(p.team)||'').toLowerCase(); if(!c||c==='—')return false; return POWER.some(function(x){return c.indexOf(x)>=0;}); }
+var DIFFS={
+  easy:      {lbl:'Easy',      hint:'85+ · power confs',        test:function(g,pw){return pw&&g>=85;}},
+  medium:    {lbl:'Medium',    hint:'80+ · mostly power',       test:function(g,pw){return pw?g>=80:g>=87;}},
+  hard:      {lbl:'Hard',      hint:'75+ · mostly power',       test:function(g,pw){return pw?g>=75:g>=83;}},
+  difficult: {lbl:'Difficult', hint:'75+ · anywhere',           test:function(g,pw){return g>=75;}},
+  impossible:{lbl:'Impossible',hint:'any player',               test:function(g,pw){return true;}}
+};
+function answerPool(){
+  var gp=guessPool()||[], d=DIFFS[difficulty]||DIFFS.medium;
+  return gp.filter(function(p){ var g=(p._g||grNum(p.tdc_grade)||0); return d.test(g, isPower(p)); });
+}
+function currentPool(){ return answerPool(); }   // answers, filtered by difficulty
 function seasonLbl(y){ y=+y; return isNaN(y)?'':((y-1)+'-'+(''+y).slice(2)); }
 
 // ── daily index (America/New_York day, same for everyone) ──
@@ -233,10 +251,21 @@ function cmpYear(g){
   var arrow=ty>gy?'↑':'↓', cls=Math.abs(ty-gy)<=2?'warm':'miss';
   return {html:'<div class="cell '+cls+'"><span class="arrow">'+arrow+'</span><span>'+lbl+'</span></div>', mark:cls==='warm'?'🟨':'⬛'};
 }
-function hintText(){
-  var pos=TARGET.position||'?', conf=confOf(TARGET.team);
-  var era=(scope==='all'&&TARGET.season_year)?(' · '+(Math.floor(TARGET.season_year/10)*10)+'s'):'';
-  return 'A <b>'+pos+'</b>'+(conf&&conf!=='—'?' from the <b>'+conf+'</b>':'')+era;
+// 3 progressive hints, vague → specific.
+function hintText(n){
+  if(!TARGET) return '';
+  if(n===1){
+    var pos=TARGET.position||'?', conf=confOf(TARGET.team);
+    var era=(scope==='all'&&TARGET.season_year)?(' · '+(Math.floor(TARGET.season_year/10)*10)+'s'):'';
+    return 'A <b>'+pos+'</b>'+(conf&&conf!=='—'?' from the <b>'+conf+'</b>':'')+era;
+  }
+  if(n===2){
+    return '<b>'+classInfo(TARGET.class_year||TARGET.yr).lbl+'</b> · <b>'+(TARGET.height||'?')+'</b>';
+  }
+  // hint 3 — grade band + school initial (most revealing)
+  var g=grNum(TARGET.tdc_grade), lo=g!=null?Math.floor(g/5)*5:null;
+  var band=lo!=null?(lo+'–'+(lo+4)):'?';
+  return 'Grade <b>'+band+'</b> · school starts with <b>'+((TARGET.team||'?').charAt(0).toUpperCase())+'</b>';
 }
 function guessRow(g){
   var cfg=colConfig();
@@ -278,10 +307,18 @@ function render(){
         '<button class="'+(mode==='daily'?'on':'')+'" onclick="setMode(\'daily\')">Daily</button>'+
         '<button class="'+(mode==='unlimited'?'on':'')+'" onclick="setMode(\'unlimited\')">Unlimited</button>'+
       '</div>'+
+      '<div class="seg diff-seg" title="Difficulty sets who the mystery player can be">'+
+        Object.keys(DIFFS).map(function(k){return '<button class="'+(difficulty===k?'on':'')+'" onclick="setDifficulty(\''+k+'\')" title="'+DIFFS[k].hint+'">'+DIFFS[k].lbl+'</button>';}).join('')+
+      '</div>'+
     '</div>';
-  var hint=state.hint
-    ? '<div class="g-hint">💡 <b>Hint:</b> '+hintText()+'</div>'
-    : (state.done?'':'<button class="g-hint-btn" onclick="useHint()">💡 Reveal a hint (1)</button>');
+  var hintsShown='';
+  for(var _hi=1;_hi<=(state.hints||0);_hi++){ hintsShown+='<div class="g-hint">💡 <b>Hint '+_hi+':</b> '+hintText(_hi)+'</div>'; }
+  var hintBtn=(!state.done && (state.hints||0)<3)?'<button class="g-hint-btn" onclick="useHint()">💡 Reveal a hint ('+(3-(state.hints||0))+' left)</button>':'';
+  var hint=hintsShown+hintBtn;
+  if(!TARGET){
+    host.innerHTML=controls+'<div class="g-hint" style="margin-top:18px;">No players match <b>'+((DIFFS[difficulty]||{}).lbl||'')+'</b> for this scope. Try an easier tier.</div>';
+    return;
+  }
   host.innerHTML=
     controls+
     '<div class="g-meta"><span>Guess <b>'+used+'</b> / '+MAX+'</span><span>'+left+' left</span></div>'+
@@ -366,10 +403,10 @@ function markYear(g){var a=+g.season_year||0,b=+TARGET.season_year||0;if(!a||!b)
 function toast(msg){var t=document.createElement('div');t.textContent=msg;t.style.cssText='position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.3);';document.body.appendChild(t);setTimeout(function(){t.remove();},2200);}
 
 // ── persistence (daily only; keyed by scope + day) ──
-function dayKey(){ return 'tdc_guess_'+scope+'_'+DAY; }
-function save(){ if(mode!=='daily')return; try{localStorage.setItem(dayKey(),JSON.stringify({guesses:state.guesses,done:state.done,won:state.won,hint:state.hint}));}catch(e){} }
-function load(){ try{var s=localStorage.getItem(dayKey());if(s){var o=JSON.parse(s);state.guesses=o.guesses||[];state.done=!!o.done;state.won=!!o.won;state.hint=!!o.hint;}}catch(e){} }
-function useHint(){ if(state.hint||state.done||!TARGET)return; state.hint=true; save(); render(); }
+function dayKey(){ return 'tdc_guess_'+scope+'_'+difficulty+'_'+DAY; }
+function save(){ if(mode!=='daily')return; try{localStorage.setItem(dayKey(),JSON.stringify({guesses:state.guesses,done:state.done,won:state.won,hints:state.hints}));}catch(e){} }
+function load(){ try{var s=localStorage.getItem(dayKey());if(s){var o=JSON.parse(s);state.guesses=o.guesses||[];state.done=!!o.done;state.won=!!o.won;state.hints=o.hints!=null?o.hints:(o.hint?1:0);}}catch(e){} }
+function useHint(){ if(state.done||!TARGET||(state.hints||0)>=3)return; state.hints=(state.hints||0)+1; save(); render(); }
 
 // ── pools ──
 async function loadYearPool(){
@@ -381,7 +418,7 @@ async function loadYearPool(){
   return out;
 }
 async function loadAllPool(){
-  const base=SB+'/rest/v1/player_history?select=name,team,season_year,position,yr,height,tdc_grade,espn_id,ppg,rpg,apg,mpg,stl,blk,tovs,oreb,dreb,tpa,fga,fta,fg_pct,tp_pct&tdc_grade=gte.80&gp=gte.18&mpg=gte.20';
+  const base=SB+'/rest/v1/player_history?select=name,team,season_year,position,yr,height,tdc_grade,espn_id,ppg,rpg,apg,mpg,stl,blk,tovs,oreb,dreb,tpa,fga,fta,fg_pct,tp_pct&tdc_grade=gte.75&gp=gte.18&mpg=gte.20';
   const cr=await fetch(base+'&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact','Range':'0-0','Range-Unit':'items'})});
   const total=parseInt((cr.headers.get('content-range')||'/0').split('/')[1]||0)||5000;
   const PG=1000, pages=Math.ceil(total/PG), jobs=[];
@@ -401,24 +438,26 @@ async function loadAllPool(){
 }
 async function ensurePool(){
   if(scope==='year'){
-    if(!GUESS_YEAR){ GUESS_YEAR=await loadYearPool(); POOL_YEAR=GUESS_YEAR.filter(function(p){return (grNum(p.tdc_grade)||0)>=80;}); }
+    if(!GUESS_YEAR) GUESS_YEAR=await loadYearPool();
   } else {
-    if(!GUESS_ALL){ document.getElementById('content').innerHTML='<div class="loading">Loading 20 years of players…</div>'; GUESS_ALL=await loadAllPool(); POOL_ALL=GUESS_ALL.filter(function(p){return (p._g||grNum(p.tdc_grade)||0)>=82;}); }
+    if(!GUESS_ALL){ document.getElementById('content').innerHTML='<div class="loading">Loading 20 years of players…</div>'; GUESS_ALL=await loadAllPool(); }
   }
 }
 
 // ── target + flow ──
+var DSALT={easy:11111,medium:22222,hard:33333,difficult:44444,impossible:55555};
 function pickTarget(){
   var pool=currentPool(); if(!pool||!pool.length){TARGET=null;return;}
   if(mode==='daily'){
     var stable=pool.slice().sort(function(a,b){return (a.name<b.name)?-1:(a.name>b.name)?1:0;});
-    TARGET=stable[pickIndex(DAY+(scope==='all'?424242:0), stable.length)];
+    TARGET=stable[pickIndex(DAY+(scope==='all'?424242:0)+(DSALT[difficulty]||0), stable.length)];
   } else { TARGET=pool[Math.floor(Math.random()*pool.length)]; }
 }
-function startPuzzle(){ pickTarget(); state={guesses:[],done:false,won:false,hint:false}; if(mode==='daily') load(); render(); }
-function nextGame(){ if(mode!=='unlimited')return; pickTarget(); state={guesses:[],done:false,won:false,hint:false}; render(); }
+function startPuzzle(){ pickTarget(); state={guesses:[],done:false,won:false,hints:0}; if(mode==='daily') load(); render(); }
+function nextGame(){ if(mode!=='unlimited')return; pickTarget(); state={guesses:[],done:false,won:false,hints:0}; render(); }
 async function setScope(s){ if(s===scope)return; scope=s; await ensurePool(); startPuzzle(); }
 async function setMode(m){ if(m===mode)return; mode=m; startPuzzle(); }
+function setDifficulty(d){ if(d===difficulty||!DIFFS[d])return; difficulty=d; startPuzzle(); }
 
 // ── init ──
 async function init(){
