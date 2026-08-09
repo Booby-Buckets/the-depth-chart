@@ -3209,13 +3209,16 @@ function _rbMpg(p, isStarter){
   if(p._projMin!=null&&isFinite(p._projMin)) return Math.round(p._projMin);
   return Math.round(parseFloat(p.mpg)|| (isStarter?26:12));
 }
-// Depth ramp: starter = full team color, deeper players fade toward neutral gray.
-// Reads as a clean minutes gradient and works in both light + dark themes.
+// Depth ramp: starter = full team color, deeper players fade toward the card
+// surface so each tier recedes cleanly (works in both light + dark themes —
+// fading toward gray muddied the mid-tiers, fading toward the surface reads as
+// "fewer minutes = quieter").
 function _rbSegColor(i){ return ['var(--tc,#2c6ef2)',
-  'color-mix(in srgb,var(--tc,#2c6ef2) 70%,var(--text3))',
-  'color-mix(in srgb,var(--tc,#2c6ef2) 46%,var(--text3))',
-  'color-mix(in srgb,var(--tc,#2c6ef2) 28%,var(--text3))',
-  'var(--text3)','color-mix(in srgb,var(--text3) 70%,var(--bg3))'][i]||'var(--text3)'; }
+  'color-mix(in srgb,var(--tc,#2c6ef2) 76%,var(--bg2))',
+  'color-mix(in srgb,var(--tc,#2c6ef2) 54%,var(--bg2))',
+  'color-mix(in srgb,var(--tc,#2c6ef2) 38%,var(--bg2))',
+  'color-mix(in srgb,var(--tc,#2c6ef2) 27%,var(--bg2))',
+  'color-mix(in srgb,var(--tc,#2c6ef2) 19%,var(--bg2))'][i]||'color-mix(in srgb,var(--tc,#2c6ef2) 16%,var(--bg2))'; }
 // Minutes are SEASON AVERAGES (MPG). A single game is 200 player-minutes, but a
 // roster's summed MPG runs higher (~205-235) because injuries, foul trouble and
 // blowouts spread minutes deeper than a perfect healthy game would. So we do NOT
