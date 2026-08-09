@@ -6038,6 +6038,14 @@ function onRosterSeason(v){
     if(statsCard){ statsCard.style.display=''; document.getElementById('seasonStatsBody').innerHTML='<div class="empty-note">Loading…</div>'; }
     loadHistoricRoster(_rosterSeason);
   }
+  // Keep the other season-aware tabs on the SAME year you're viewing (one-way: roster → tabs).
+  // Schedule/DNA data only exist for played seasons, so a 2026-27 (projected) roster maps the
+  // schedule to the last completed season (2026); DNA shows its projected view for 2027.
+  var _sy = _rosterSeason >= 2027 ? 2026 : _rosterSeason;
+  _schedSeason = _sy;
+  if(_schedInit){ var _ss=document.getElementById('schedSeasonSel'); if(_ss) _ss.value=String(_sy); loadSchedule(); }
+  window._dnaSeason = String(_rosterSeason);
+  var _dnaP=document.getElementById('panel-dna'); if(_dnaP && _dnaP.classList.contains('active')) renderTeamDNA();
   try{ if(window.TDCPanels) TDCPanels.refresh(); }catch(e){}
 }
 // ── Side-panel manager: drag to reorder, hide/restore; persisted per browser ──
