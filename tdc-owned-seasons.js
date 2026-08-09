@@ -104,11 +104,15 @@
   }
 
   // Paginate a filtered table 1000 rows at a time (Range headers).
-  function pageAll(table, sel, where) {
+  function pageAll(table, sel, where, order) {
+    // A STABLE ORDER BY is mandatory: without it Range-paginated pulls skip/duplicate rows
+    // at every 1000-row boundary, which silently dropped per-game rows for players like
+    // Cameron Boozer / Bruce Thornton (they showed "—" in the leaderboard). See the
+    // supabase-pagination-order note.
     var out = [];
     function go(frm) {
       var h = {}; for (var k in HD) h[k] = HD[k]; h['Range-Unit'] = 'items'; h['Range'] = frm + '-' + (frm + 999);
-      return fetch(SB + table + '?select=' + sel + '&' + where, { headers: h })
+      return fetch(SB + table + '?select=' + sel + '&' + where + (order ? ('&order=' + order) : ''), { headers: h })
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (b) { out = out.concat(b || []); return (b && b.length === 1000) ? go(frm + 1000) : out; })
         .catch(function () { return out; });
@@ -119,8 +123,12 @@
   // A whole season (or 'all') as bbref-shaped rows — the percentile-pool path.
   function bySeason(season) {
     var w = (season === 'all') ? 'ppg=not.is.null' : 'season_year=eq.' + season;
-    return Promise.all([pageAll('player_advanced', PA, w), pageAll('player_history', PH, w)])
-      .then(function (r) { return merge(r[0], r[1]); });
+    // order by a stable key per table (player_history has a unique id; player_advanced's
+    // natural key is espn_id+season_year) so pagination can't drop rows at page boundaries.
+    return Promise.all([
+      pageAll('player_advanced', PA, w, 'espn_id.asc,season_year.asc'),
+      pageAll('player_history', PH, w, 'id.asc')
+    ]).then(function (r) { return merge(r[0], r[1]); });
   }
 
   g.TDCOwnedSeasons = { byEspn: byEspn, byName: byName, bySeason: bySeason, _shape: shape, _merge: merge, _slug: slug };
