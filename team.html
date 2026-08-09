@@ -5905,7 +5905,7 @@ async function renderTeamDNA(){
 async function renderMoneyball(){
   var host=document.getElementById('moneyballWrap'); if(!host||!window.TDC_MONEYBALL) return;
   try{
-    if(!window._nilData){ window._nilData=await fetch('nil-data.json?v=lift3').then(r=>r.json()); }
+    if(!window._nilData){ window._nilData=await fetch('nil-data.json?v=lift4').then(r=>r.json()); }
     var posBy={}; (typeof _allDbPlayers!=='undefined'?_allDbPlayers:[]).forEach(function(p){ if(p.name&&p.position&&!posBy[p.name]) posBy[p.name]=p.position; });
     var lineup=(typeof _lineupRotation==='function')?_lineupRotation():[];
     TDC_MONEYBALL.render(host, {nilData:window._nilData, teamName:(teamT&&teamT.name)||'', posByName:posBy, lineup:lineup});
@@ -6002,7 +6002,7 @@ async function _nilMarketPublish(btn){
 }
 async function renderNil(){
   const host=document.getElementById('nilContent'); const tT=(typeof teamT!=='undefined')?teamT:null; if(!host||!tT) return;
-  if(!_nilData){ try{ _nilData=await fetch('nil-data.json?v=lift3').then(r=>r.json()); }catch(e){ host.innerHTML='<div style="padding:40px;color:var(--text3);">NIL data unavailable.</div>'; return; } }
+  if(!_nilData){ try{ _nilData=await fetch('nil-data.json?v=lift4').then(r=>r.json()); }catch(e){ host.innerHTML='<div style="padding:40px;color:var(--text3);">NIL data unavailable.</div>'; return; } }
   const d=_nilData.teams[tT.name];
   if(!d){ host.innerHTML='<div style="padding:40px;color:var(--text3);">No NIL valuation for this team yet — needs a NIL tier and roster.</div>'; return; }
   // ── NIL MARKET VALUE (positional curves): owner anchors → per-player market $ ──
@@ -6049,7 +6049,7 @@ async function renderNil(){
     <div style="font-size:10px;color:var(--text3);margin-top:4px;">Green bar = roster value · vertical line = budget</div>
   </div>
   <div style="overflow-x:auto;">
-  <table class="nil-table"><thead><tr><th class="left">Player</th><th>Grade</th><th>Pos</th><th>MPG</th><th title="Production model estimate: grade × projected minutes × market premium × team tier">Model Value</th><th title="Positional market curve for this player's grade & slot — set by the owner, independent of minutes">Market Value</th><th title="TIER-FAIR: strips team spending, then compares his production to the market price for his grade & slot. UNDERRATED = produces 30%+ above his market price (slept on). OVERRATED = market prices him 30%+ above production. Only real rotation pieces are judged.">Verdict</th></tr></thead><tbody>`;
+  <table class="nil-table"><thead><tr><th class="left">Player</th><th title="Class / eligibility">Yr</th><th>Pos</th><th>Grade</th><th title="Projected minutes per game">MPG</th><th title="Last season's demonstrated production — points / rebounds / assists per game">PPG/RPG/APG</th><th title="Wins Added — the owned on-court production value (offensive + defensive) the Model is built on. Last season.">WA</th><th title="Production model estimate: grade × projected minutes × market premium × team tier">Model Value</th><th title="Positional market curve for this player's grade & slot — set by the owner, independent of minutes">Market Value</th><th title="This player's Market Value as a share of the roster's total market value">% Roster</th><th title="TIER-FAIR: strips team spending, then compares his production to the market price for his grade & slot. UNDERRATED = produces 30%+ above his market price (slept on). OVERRATED = market prices him 30%+ above production. Only real rotation pieces are judged.">Verdict</th></tr></thead><tbody>`;
   const _rosterList=(typeof teamPlayers!=='undefined'&&teamPlayers||[]);
   const _injSet=new Set(_rosterList.filter(p=>p.is_injured).map(p=>(p.name||'').toLowerCase().trim()));
   const _byName={}; _rosterList.forEach(p=>{ _byName[(p.name||'').toLowerCase().trim()]=p; });
@@ -6069,8 +6069,47 @@ async function renderNil(){
     const vCell=(vd.tag==='underrated'||vd.tag==='overrated')
       ? `<span style="font-size:9px;font-weight:800;letter-spacing:.02em;padding:2px 6px;border-radius:4px;color:${vCol};border:1px solid ${vCol};background:color-mix(in srgb, ${vCol} 13%, transparent);">${vd.tag==='underrated'?'UNDERRATED':'OVERRATED'}</span>`
       : `<span style="color:var(--text3);font-size:10px;">${vd.tag==='fair'?'fair':'—'}</span>`;
-    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="left">${nameCell}${injTag}</td><td>${gr}</td><td>${posC}</td><td>${Math.round(p.mpg)}</td><td style="color:var(--text3);">${fmt(model)}</td><td style="font-weight:700;color:var(--tc-readable,${col})${inj?';text-decoration:line-through;':''}">${mktV!=null?fmt(mktV):'—'}</td><td>${vCell}</td></tr>`; });
+    const _n1=v=>(v==null||!isFinite(+v))?null:(+v).toFixed(1);
+    const prodCell=(_n1(p.ppg)!=null)?`${_n1(p.ppg)}<span style="color:var(--text3);"> / ${_n1(p.rpg)||'—'} / ${_n1(p.apg)||'—'}</span>`:'<span style="color:var(--text3);">—</span>';
+    const waCell=(p.wa!=null&&isFinite(+p.wa))?`<span style="font-weight:700;color:${+p.wa>=4?'var(--green)':'inherit'};">${(+p.wa>0?'+':'')}${(+p.wa).toFixed(1)}</span>`:'<span style="color:var(--text3);">—</span>';
+    const pctRoster=(_rosterMarket>0&&mktV!=null)?Math.round(mktV/_rosterMarket*100):null;
+    const clsCell=p.cls||'<span style="color:var(--text3);">—</span>';
+    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="left">${nameCell}${injTag}</td><td style="color:var(--text2);">${clsCell}</td><td>${posC}</td><td>${gr}</td><td>${Math.round(p.mpg)}</td><td style="white-space:nowrap;">${prodCell}</td><td>${waCell}</td><td style="color:var(--text3);">${fmt(model)}</td><td style="font-weight:700;color:var(--tc-readable,${col})${inj?';text-decoration:line-through;':''}">${mktV!=null?fmt(mktV):'—'}</td><td style="color:var(--text3);">${pctRoster!=null?pctRoster+'%':'—'}</td><td>${vCell}</td></tr>`; });
   html+=`</tbody></table></div>`;
+  // ── roster insights (fills the page): market $ by position + best value / biggest overpay ──
+  (function(){
+    const rl=d.players.filter(p=>!p.walkon);
+    const byPos={PG:0,SG:0,SF:0,PF:0,C:0};
+    rl.forEach(p=>{ const bm=_bmOf(p); if(bm.val!=null&&byPos[bm.pos]!=null) byPos[bm.pos]+=bm.val; });
+    const maxPos=Math.max(1,...Object.values(byPos));
+    const posBars=['PG','SG','SF','PF','C'].map(pp=>`
+      <div style="display:flex;align-items:center;gap:8px;margin:5px 0;">
+        <span style="width:26px;font-weight:800;font-size:11px;color:var(--text2);">${pp}</span>
+        <div style="flex:1;height:14px;background:var(--bg3);border-radius:7px;overflow:hidden;"><div style="height:100%;width:${Math.round(byPos[pp]/maxPos*100)}%;background:var(--tc-readable,${col});border-radius:7px;"></div></div>
+        <span style="width:58px;text-align:right;font-size:11px;color:var(--text2);font-weight:700;">${fmt(byPos[pp])}</span>
+      </div>`).join('');
+    const judged=rl.map(p=>{ const bm=_bmOf(p); const model=p.proj!=null?p.proj:p.value; const vd=(bm.val!=null&&window.TDC_NIL&&TDC_NIL.marketVerdict)?TDC_NIL.marketVerdict(model,bm.val,{grade:p.grade,mpg:p.mpg,tier:d.tier}):{tag:null}; return {p,bm,vd}; });
+    const val=judged.filter(x=>x.vd.tag==='underrated').sort((a,b)=>b.vd.ratio-a.vd.ratio)[0];
+    const over=judged.filter(x=>x.vd.tag==='overrated').sort((a,b)=>b.vd.ratio-a.vd.ratio)[0];
+    const sub=x=> x.vd.tag==='underrated'?`produces ${x.vd.ratio.toFixed(1)}× his market price`:`market pays ${x.vd.ratio.toFixed(1)}× his production`;
+    const card=(title,x,c)=> x?`
+      <div style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${c};border-radius:12px;padding:13px 16px;">
+        <div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);">${title}</div>
+        <div style="font-weight:800;font-size:16px;margin:5px 0 2px;">${x.p.name}</div>
+        <div style="font-size:12px;color:var(--text3);">${x.bm.pos} · ${x.p.grade} OVR · Market ${fmt(x.bm.val)} · ${sub(x)}</div>
+      </div>`:'';
+    html+=`<div style="font-weight:800;font-size:14px;margin:24px 0 12px;color:var(--text);">Roster insights</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;align-items:start;max-width:900px;">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">
+          <div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">Market $ by position</div>
+          ${posBars}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          ${card('Best value · slept on',val,'var(--green)')||'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:13px 16px;color:var(--text3);font-size:12px;">No standout values on this roster.</div>'}
+          ${card('Biggest overpay',over,'var(--amber)')||''}
+        </div>
+      </div>`;
+  })();
   // ── owner-only market anchor editor ──
   if(typeof _isOwner==='function' && _isOwner()){
     const _P=['PG','SG','SF','PF','C'], _G=['90','80','70'];
