@@ -211,12 +211,17 @@
     // teams.head_coach is maintained from the roster sheet, so it reflects offseason
     // hires the Sports-Reference scrape hasn't seen yet — that's the whole point here.
     const cn=s=>(''+(s||'')).toLowerCase().replace(/[.'`]/g,'').replace(/\s+/g,' ').trim();
-    const liftByCoach={};
+    // first-initial+last key so a sheet hire's nickname (Mike) still matches the career
+    // record (Michael) when the last name is unique — mirrors the projection/coach-panel bridge.
+    const _il=s=>{ const p=(''+(s||'')).toLowerCase().replace(/[^a-z ]/g,' ').split(/\s+/).filter(Boolean); return p.length>=2?(p[0][0]+'|'+p[p.length-1]):null; };
+    const liftByCoach={}, liftByIL={};
     Object.keys(coachData||{}).forEach(k=>{ const c=coachData[k];
-      if(c&&c.n&&c.lf!=null) liftByCoach[cn(c.n)]={lf:+c.lf, n:+c.ln||0}; });
+      if(c&&c.n&&c.lf!=null){ const rec={lf:+c.lf, n:+c.ln||0}; liftByCoach[cn(c.n)]=rec;
+        const il=_il(c.n); if(il){ (liftByIL[il]=liftByIL[il]||[]).push(rec); } } });
     const coachAdjOf={};
     (teams||[]).forEach(t=>{
-      const rec=liftByCoach[cn(t.head_coach||t.coach)];
+      let rec=liftByCoach[cn(t.head_coach||t.coach)];
+      if(!rec){ const il=_il(t.head_coach||t.coach), a=il&&liftByIL[il]; if(a&&a.length===1) rec=a[0]; }
       if(!rec||!rec.n) return;
       const shrunk=rec.lf*(rec.n/(rec.n+COACH_K));          // 3 seasons counts ~3/8
       coachAdjOf[t.name]=+Math.max(-COACH_CAP,Math.min(COACH_CAP,COACH_W*shrunk)).toFixed(2);
