@@ -31,14 +31,21 @@
     // rows untouched. Root fix is scripts/fix_shooting_swap_2026.sql.
     (function(){ function fx(m,a){ var mv=parseFloat(ph[m]),av=parseFloat(ph[a]);
       if(isFinite(mv)&&isFinite(av)&&mv>av){ ph[m]=av; ph[a]=mv; } } fx('tpm','tpa'); fx('ftm','fta'); })();
+    // Per-game box comes from player_history, but some seasons (pre-2012 freshmen,
+    // late-added years like Dillon Jones' 2020-21) exist in player_advanced with NO
+    // player_history row — so ph is empty and ppg/rpg/apg/mpg + shooting would show
+    // "—". player_advanced carries its OWN ppg/rpg/apg/min/g + fraction shooting %s,
+    // so fall back to those; the counting splits (fgm/fta/stl…) it lacks stay null.
+    function pick(a, b) { return a != null ? a : b; }
     var mpg = n(ph.mpg);
+    if (mpg == null && n(pa.min) != null && n(pa.g)) mpg = +(n(pa.min) / n(pa.g)).toFixed(1);
     var pergame = {
       games: n(pa.g), games_started: null,
-      pts_per_g: n(ph.ppg), trb_per_g: n(ph.rpg), ast_per_g: n(ph.apg), mp_per_g: mpg,
+      pts_per_g: pick(n(ph.ppg), n(pa.ppg)), trb_per_g: pick(n(ph.rpg), n(pa.rpg)), ast_per_g: pick(n(ph.apg), n(pa.apg)), mp_per_g: mpg,
       stl_per_g: n(ph.stl), blk_per_g: n(ph.blk), tov_per_g: n(ph.tovs), pf_per_g: null,
-      fg_per_g: n(ph.fgm), fga_per_g: n(ph.fga), fg_pct: frac(ph.fg_pct),
-      fg3_per_g: n(ph.tpm), fg3a_per_g: n(ph.tpa), fg3_pct: frac(ph.tp_pct),
-      ft_per_g: n(ph.ftm), fta_per_g: n(ph.fta), ft_pct: frac(ph.ft_pct),
+      fg_per_g: n(ph.fgm), fga_per_g: n(ph.fga), fg_pct: pick(frac(ph.fg_pct), n(pa.fg_pct)),
+      fg3_per_g: n(ph.tpm), fg3a_per_g: n(ph.tpa), fg3_pct: pick(frac(ph.tp_pct), n(pa.tp_pct)),
+      ft_per_g: n(ph.ftm), fta_per_g: n(ph.fta), ft_pct: pick(frac(ph.ft_pct), n(pa.ft_pct)),
       orb_per_g: n(ph.oreb), drb_per_g: n(ph.dreb), efg_pct: n(pa.efg_pct)  // pa.efg is already a fraction
     };
     // per40 uses SR's odd '_per_min' suffix (that's the key name consumers read)
