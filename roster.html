@@ -520,14 +520,20 @@ async function loadSeason(yr){
   // Box-only archetype fit: grade every past season the SAME way as the projection —
   // demonstrated grade reshaped by how unusual the player is for his height/position,
   // re-centered on that season. Keeps the rankings consistent across all years.
-  if(window.TDCRating && TDCRating.ready){ try{ await TDCRating.ready; }catch(e){} }
-  const _boxAdj = (window.TDCRating && TDCRating.boxAdjust) ? function(p){
-    var a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(p.season_year)||0);
-    return (a&&a.grade!=null)?Math.round(a.grade):null; } : function(){ return null; };
+  // Displayed OVR = the canonical STATISTICAL OVERALL (tdc-projgrade gradeSolo) — the same
+  // number the player page + gradelist show — NOT the older tdc-rating boxAdjust, which ran
+  // ~1-2 pts hotter and disagreed (Dillon Jones 2023-24 read 91 here vs 84 on his page).
+  if(window.TDCProjGrade && TDCProjGrade.ready){ try{ await TDCProjGrade.ready; }catch(e){} }
+  // load the historical stat overalls so gradeSolo returns the STAT OVERALL for past seasons
+  // (without them it falls back to the raw hand grade — e.g. Dillon Jones 88 instead of 84).
+  if(window.TDCProjGrade && TDCProjGrade.loadHist){ try{ await TDCProjGrade.loadHist(); }catch(e){} }
+  const _solo = (window.TDCProjGrade && TDCProjGrade.gradeSolo) ? function(p){
+    var g=TDCProjGrade.gradeSolo({espn_id:p.espn_id, season_year:parseInt(p.season_year)||undefined, tdc_grade:p.tdc_grade, position:p.position});
+    return (g!=null && !isNaN(g))?Math.round(g):null; } : function(){ return null; };
   const mapped=Object.values(byKey).map(p=>{ const rt=resolveTeam(p.team);
     const waKey = yr==='all' ? (p.espn_id+'|'+p.season_year) : String(p.espn_id);
     const wa = p.espn_id!=null && waMap.has(waKey) ? waMap.get(waKey) : null;
-    const _adj=_boxAdj(p);
+    const _adj=_solo(p);
     return {...p, class_year:p.yr, _hist:true, teamData:rt.teamData, conf:rt.conf, wa,
             _projGrade:(_adj!=null?_adj:null)}; });
   const data = yr==='all' ? allPlayers.concat(mapped) : mapped;

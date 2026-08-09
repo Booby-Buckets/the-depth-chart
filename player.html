@@ -1008,7 +1008,12 @@ function buildScoutingReport(p, proj, globalPct){
   var tovs=_n(s,'tovs'),mpg=_n(s,'mpg');
   // Effective grade = the owner's edited projection OVR for a profiled freshman,
   // else the players-table grade — so the report's overall tracks editor changes.
-  var pos=p.position||'G', grade=parseFloat((useProj&&proj&&proj.tdc_grade!=null)?proj.tdc_grade:p.tdc_grade)||70;
+  // Canonical grade = the statistical overall the hero shows (_projectedGrade -> player._projGrade
+  // / gradeSolo), NOT the raw hand grade — so scouting always matches the header + rankings.
+  var pos=p.position||'G';
+  var grade=(typeof _projectedGrade==='function') ? _projectedGrade() : null;
+  if(grade==null||isNaN(grade)) grade=(window.TDCProjGrade&&TDCProjGrade.gradeSolo)?TDCProjGrade.gradeSolo(p):null;
+  if(grade==null||isNaN(grade)) grade=parseFloat((useProj&&proj&&proj.tdc_grade!=null)?proj.tdc_grade:p.tdc_grade)||70;
   var customArch=_freshArch(p);
   var yr=(p.yr||p.class_year||'').toLowerCase();
   var isFr=yr.includes('fr.')||yr.includes('r-fr');
@@ -1269,7 +1274,12 @@ function buildProspectCard(p, proj, scout){
   var fg=_n(s,'fg_pct'),tp=_n(s,'tp_pct'),ft=_n(s,'ft_pct');
   var stl=_n(s,'stl'),blk=_n(s,'blk'),tovs=_n(s,'tovs');
   var oreb=_n(s,'oreb'),tpm=_n(s,'tpm'),fta=_n(s,'fta');
-  var pos=p.position||'G', grade=parseFloat((useProj&&proj&&proj.tdc_grade!=null)?proj.tdc_grade:p.tdc_grade)||70;
+  // Canonical grade = the statistical overall the hero shows (_projectedGrade -> player._projGrade
+  // / gradeSolo), NOT the raw hand grade — so scouting always matches the header + rankings.
+  var pos=p.position||'G';
+  var grade=(typeof _projectedGrade==='function') ? _projectedGrade() : null;
+  if(grade==null||isNaN(grade)) grade=(window.TDCProjGrade&&TDCProjGrade.gradeSolo)?TDCProjGrade.gradeSolo(p):null;
+  if(grade==null||isNaN(grade)) grade=parseFloat((useProj&&proj&&proj.tdc_grade!=null)?proj.tdc_grade:p.tdc_grade)||70;
   var _emph=(function(){ var a=_freshArch(p); return (a&&FR_ARCH_META[a].emph)||{}; })();
   var yr=(p.yr||p.class_year||'').toString().toLowerCase();
   var isFr=yr.includes('fr'), isSo=yr.includes('so'), isJr=yr.includes('jr'), isSr=yr.includes('sr')||yr.includes('gr');
@@ -2603,7 +2613,14 @@ function _skillSrcFor(val){
   var s=_ovrSeasonRow(val); return s?{src:s,projected:false,label:_seasonLbl2(val)}:{src:player,projected:false};
 }
 function renderSkill(val){ var h=document.getElementById('skillHost'); if(!h) return; var x=_skillSrcFor(val); h.innerHTML=buildSkillBreakdown(x.src,x.projected,x.label); }
-function _setHeroGrade(g){ var hg=document.getElementById('heroGrade'); if(hg && g!=null && g!=='') hg.textContent=g; }
+function _setHeroGrade(g){ var hg=document.getElementById('heroGrade'); if(hg && g!=null && g!=='') hg.textContent=g;
+  // expose the canonical displayed grade (statistical overall) so the scouting card etc. match the hero
+  window._tdcHeroGrade=(g!=null && g!=='' && g!=='—' && !isNaN(parseFloat(g)))?parseFloat(g):null; }
+// Re-render the scouting card once the canonical grade + data are ready (it's first built during
+// the initial render, before player._projGrade is stamped, so it can show a stale grade).
+function _renderScoutCard(){ var host=document.getElementById('prospectCardHost');
+  if(!host || typeof buildProspectCard!=='function' || !window._ovcScout) return;
+  try{ host.innerHTML=buildProspectCard(player,(typeof proj!=='undefined'?proj:null),window._ovcScout); }catch(e){} }
 function setOvrSeason(val){
   var host=document.getElementById('ovrCards'); if(!host) return;
   renderSkill(val);
@@ -3042,6 +3059,7 @@ function _updateHeroGridForSeason(val){
     }
     if(hg==null||isNaN(hg)) hg=isProj?(_projectedGrade()||player.tdc_grade):_boxHistGrade(row);
     _setHeroGrade(hg);
+    if(typeof _renderScoutCard==='function') _renderScoutCard();   // keep the scouting card's grade in sync with the hero
   })();
   // past season selected: lazily fetch the historical grades once, then re-render
   if(!isProj && row && +row.season_year<=2025 && !_heroHistReady && window.TDCProjGrade && TDCProjGrade.loadHist){
@@ -3372,7 +3390,9 @@ function renderPage(){
   // ONLY for the owner (window.tdcShowPhotos); the public sees the initial placeholder.
   const _headshot = (window.tdcShowPhotos&&window.tdcShowPhotos()) ? (p.photo_url || (p.espn_id ? `https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/${p.espn_id}.png` : '')) : '';
   // header 2x2 summary grid values (rank fills in from the impact calc)
-  const _hGrade=(function(){var g=_projectedGrade();return (g!=null&&!isNaN(g))?g:(p.tdc_grade||'—');})();
+  const _hGrade=(function(){var g=_projectedGrade();var v=(g!=null&&!isNaN(g))?g:(p.tdc_grade||'—');
+    window._tdcHeroGrade=(v!=='—'&&!isNaN(parseFloat(v)))?parseFloat(v):null;   // canonical for the scouting card etc.
+    return v;})();
   const _hBadges=(badgeData&&badgeData.total)||0;
   const _hWA=(function(){var a=player&&player._advanced;
     if(a&&a.ti40!=null&&a.ti40!==''&&typeof _winsAdded==='function'){var w=_winsAdded(a);return (w>0?'+':'')+w.toFixed(1);}
@@ -3510,7 +3530,7 @@ function renderPage(){
 
     <!-- SCOUTING REPORT TAB -->
     <div class="tab-panel" id="panel-scout">
-      ${buildProspectCard(p, proj, scout)}
+      <div id="prospectCardHost">${buildProspectCard(p, proj, scout)}</div>
       <div class="scout-fc-grid">
         <div class="scout-fc-card"><div class="scout-fc-label">Team Role</div><div class="scout-fc-val">${scout.role}</div><div class="scout-fc-desc">${scout.roleDesc}</div></div>
         <div class="scout-fc-card"><div class="scout-fc-label">Projected Outlook</div><div class="scout-fc-val" style="color:${scout.jumpDir==='up'?'#5ab875':scout.jumpDir==='down'?'#e07070':'var(--accent)'};">${({up:'Projected Leap',down:'Reduced Role','new':'Unproven',transfer:'New Level',flat:'Steady'})[scout.jumpDir]||'Steady'}</div><div class="scout-fc-desc">${scout.jumpText}</div></div>
@@ -4484,8 +4504,16 @@ function _projectedGrade(){
   // Projection model v5: the whole-roster rotation grade, stamped on `player` at load — the
   // SAME value the depth chart and rankings show. Identical everywhere by construction.
   if(player && player._projGrade!=null && !isNaN(player._projGrade)) return player._projGrade;
-  // Fallback (roster not yet stamped): the per-row shared model.
-  if(window.TDCProjGrade){ var _pg=TDCProjGrade.gradeSolo?TDCProjGrade.gradeSolo(player):TDCProjGrade.grade(player); if(_pg!=null&&!isNaN(_pg)) return _pg; }
+  // Fallback (roster not yet stamped, or a former player with no current season): the shared
+  // statistical overall for the player's MOST RECENT demonstrated season. gradeSolo(player)
+  // with no season returns null for former players and used to drop us to the stale legacy
+  // grade (e.g. Dillon Jones 88 instead of 84) — pass the latest season so it resolves.
+  if(window.TDCProjGrade && (TDCProjGrade.gradeSolo||TDCProjGrade.grade)){
+    var _dr=null; try{ var _hh=(typeof _dedupHist==='function')?_dedupHist():[]; _dr=_hh.length?_hh[_hh.length-1]:null; }catch(e){}
+    var _sarg=_dr?{espn_id:player.espn_id,season_year:+_dr.season_year,tdc_grade:_dr.tdc_grade,position:player.position}:player;
+    var _pg=TDCProjGrade.gradeSolo?TDCProjGrade.gradeSolo(_sarg):TDCProjGrade.grade(player);
+    if(_pg!=null&&!isNaN(_pg)) return _pg;
+  }
   // Legacy fallback: history-based projection when the shared model is unavailable.
   try{
     var _h=(typeof _dedupHist==='function')?_dedupHist():[]; var _la=_h.length?_h[_h.length-1]:null;
