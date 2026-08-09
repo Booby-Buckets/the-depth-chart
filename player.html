@@ -1111,7 +1111,6 @@ function buildScoutingReport(p, proj, globalPct){
   if(tp>=38)tags.push({t:'Shooting Threat',c:'pos'});
   if(apg>4.5)tags.push({t:'Shot Creator',c:'pos'});
   if(grade>=90)tags.push({t:'Top-100 Grade',c:'gold'});
-  if(p.starter)tags.push({t:'Returning Starter',c:'neu'});
   if(p.hometown)tags.push({t:'Transfer',c:'neu'});
   // de-dupe by label (archetype tag can collide with a stat tag)
   (function(){var seen={};tags=tags.filter(function(t){if(seen[t.t])return false;seen[t.t]=1;return true;});})();
@@ -3417,8 +3416,7 @@ function renderPage(){
           <div class="hp" id="heroGpPill"${p.gp?'':' style="display:none;"'}><span class="k">GP</span><span class="v" id="heroGp">${p.gp||''}</span></div>
           ${p.is_injured?`<div class="hp hp-warn"><span class="k">Status</span><span class="v">Injured</span></div>`:''}
         </div>
-        ${(p.starter || (proj&&proj._origin) || (window.TDCFresh&&TDCFresh.isOwner()&&TDCFresh.isFreshman(p)) || (window.TDCInjury&&TDCInjury.isOwner()))?`<div class="hero-tags">
-          ${p.starter?`<span class="hero-tag">Returning Starter</span>`:''}
+        ${((proj&&proj._origin) || (window.TDCFresh&&TDCFresh.isOwner()&&TDCFresh.isFreshman(p)) || (window.TDCInjury&&TDCInjury.isOwner()))?`<div class="hero-tags">
           ${proj&&proj._origin?`<span class="hero-tag">Transfer · ×${r1(proj._factor)}</span>`:''}
           ${(window.TDCFresh&&TDCFresh.isOwner()&&TDCFresh.isFreshman(p))?`<button class="hero-tag edit" onclick="_openFreshEditor()">⚙ ${TDCFresh.profileFor(p)?'Edit':'Project'} playstyle${TDCFresh.profileFor(p)?' · custom':''}</button>`:''}
           ${(window.TDCInjury&&TDCInjury.isOwner())?(function(){var r=TDCInjury.get(p);return '<button class="hero-tag edit'+(r?' inj-on':'')+'" onclick="_openInjuryEditor()">⚕ '+(r?TDCInjury.statusLabel(r):'Add injury')+'</button>';})():''}
