@@ -177,9 +177,9 @@ for name,info in tinfo.items():
             prem=premium(ht_in(p.get("height")),gnum(p.get("ppg")),cls,pos)
         base=grade_base(g)
         if base<=0.003 or g is None:            # sub-rotation / very low grade: nominal only
-            pls.append((p["name"],g,mp,prem,0.0,True)); continue
+            pls.append((p["name"],g,mp,prem,0.0,True,pos,eid)); continue
         val=base*TOP_M*tmult*min_factor(mp)*prem*youth_mult(p.get("class_year"))*pos_mult(pos)*prospect_mult(g,p.get("class_year"))
-        prod+=val; pls.append((p["name"],g,mp,prem,round(val,3),False))
+        prod+=val; pls.append((p["name"],g,mp,prem,round(val,3),False,pos,eid))
     if prod<=0.05: continue
     rows.append({"name":name,"tier":tn,"budget":budget,"prod":prod,"srs":team_srs(name),"cls":cls,"pls":pls})
 MKT=0.263   # base rate from real salary data (Tennessee anchors); RATE_BY_TIER scales it per team
@@ -201,9 +201,10 @@ out={"market_rate_per_pt":round(MKT,4),"walkon_value":WALKON_VALUE,"tier_budget_
 out["overrides"]=OVR
 for r in rows:
     pls=[]
-    for n,g,mp,prem,v,wo in r["pls"]:
+    for n,g,mp,prem,v,wo,pos,eid in r["pls"]:
         proj=WALKON_VALUE if wo else v; val=pval(n,proj)
         pls.append({"name":n,"grade":(round(g) if g is not None else None),"mpg":round(mp,1),"prem":round(prem,2),
+            "pos":pos,"espn_id":eid,
             "proj":round(proj,3),"value":round(val,3),"payDiff":round(val-proj,3),"walkon":wo,"override":(n in OVR)})
     pls.sort(key=lambda x:-x["value"])
     val=round(sum(p["value"] for p in pls),2)      # team value = sum of player values (reflects overrides)

@@ -16,6 +16,8 @@
   <script src="auth.js?v=paywall4"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-owned-seasons.js?v=7"></script>
+  <script src="tdc-freshman.js?v=pub5"></script>
+  <script src="tdc-nil.js?v=lift3"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=2"></script>
@@ -359,6 +361,11 @@ body{background:transparent!important;}
     <h2 class="ls-h2">The Contender Quadrant</h2>
     <p class="ls-sub">Every D-1 team plotted by offensive vs defensive efficiency (points per 100 possessions). Top-right — score well and defend — is where champions live. Hover any dot.</p>
     <div id="lsQuadrant"><div class="loading" style="padding:40px;">Loading…</div></div>
+  </div>
+  <div class="ls-sec">
+    <h2 class="ls-h2">NIL Market Movers</h2>
+    <p class="ls-sub"><b>Tier-fair</b> value vs the market. We strip out team spending so talent (not the program) drives it, then compare each player's production to the market price for his grade &amp; position. <b style="color:var(--green,#1a8c3a);">Underrated</b> = slept on (produces above his market price); <b style="color:var(--amber,#c9962b);">Overrated</b> = market pays above production. Rotation players only.</p>
+    <div id="nilMovers"><div class="loading" style="padding:40px;">Loading…</div></div>
   </div>
 </div>
 
@@ -811,10 +818,50 @@ function setView(v){
 // ── LEAGUE LANDSCAPE ──
 let _lsLoaded=false, _dnaAll=null;
 async function loadLandscape(){
+  renderNilMovers();   // independent of Chart.js — draws even if the charts lib failed
   if(_lsLoaded || !window.TDC_CHARTS) return; _lsLoaded=true;
   // per-season efficiency for the Contender Quadrant (ORtg/DRtg/net/w/l per team, any year)
   try{ _dnaAll=await fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null); }catch(e){}
   loadConfTalent();   // populates the year selector + draws conf talent AND the year-synced quadrant
+}
+// ── NIL Market Movers (tier-fair Model vs Market) ──────────────────────────
+let _nilMoversDone=false;
+async function renderNilMovers(){
+  if(_nilMoversDone) return;
+  const host=document.getElementById('nilMovers'); if(!host||!window.TDC_NIL) return;
+  _nilMoversDone=true;
+  const N=window.TDC_NIL;
+  let nd=null, curves=null;
+  try{ nd=await fetch('nil-data.json?v=lift1').then(r=>r.ok?r.json():null); }catch(e){}
+  try{ if(window.TDCFresh&&TDCFresh.load){ await TDCFresh.load(); const pub=TDCFresh.getKey&&TDCFresh.getKey('nil_market'); if(pub&&pub.curves) curves=pub.curves; } }catch(e){}
+  if(!curves){ try{ const a=await fetch('scripts/data/nil_market_anchors.json?v=lift1').then(r=>r.ok?r.json():null); curves=a&&a.curves; }catch(e){} }
+  if(!nd||!nd.teams||!curves){ host.innerHTML='<div style="padding:30px;color:var(--text3);">NIL data unavailable.</div>'; return; }
+  const pool=[];
+  Object.keys(nd.teams).forEach(function(tn){ const t=nd.teams[tn];
+    (t.players||[]).forEach(function(p){
+      if(p.walkon||p.override||p.value==null) return;
+      const mk=N.curveMarket(p.pos,p.grade,curves); if(mk==null) return;
+      const vd=N.marketVerdict(p.value,mk,{grade:p.grade,mpg:p.mpg,tier:t.tier});
+      if(vd.tag!=='underrated'&&vd.tag!=='overrated') return;
+      pool.push({name:p.name,team:tn,grade:p.grade,pos:N.POS5(p.pos),espn:p.espn_id,prod:vd.prod,market:mk,tag:vd.tag,ratio:vd.ratio});
+    });
+  });
+  const und=pool.filter(function(x){return x.tag==='underrated';}).sort(function(a,b){return b.ratio-a.ratio;}).slice(0,15);
+  const ovr=pool.filter(function(x){return x.tag==='overrated';}).sort(function(a,b){return b.ratio-a.ratio;}).slice(0,15);
+  const fmt=N.fmt;
+  function row(x,i,color){
+    const href='player.html?'+(x.espn?('espn='+x.espn+'&'):'')+'name='+encodeURIComponent(x.name);
+    return '<a href="'+href+'" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;text-decoration:none;color:inherit;'+(i%2?'background:var(--bg2);':'')+'">'
+      +'<span style="width:18px;color:var(--text3);font-weight:800;font-size:12px;text-align:right;">'+(i+1)+'</span>'
+      +'<span style="flex:1;min-width:0;"><span style="font-weight:700;font-size:13px;">'+x.name+'</span><br><span style="font-size:11px;color:var(--text3);">'+x.team+' · '+x.pos+' · '+x.grade+' OVR</span></span>'
+      +'<span style="text-align:right;font-size:10.5px;color:var(--text3);line-height:1.35;white-space:nowrap;">Prod '+fmt(x.prod)+'<br>Mkt '+fmt(x.market)+'</span>'
+      +'<span style="width:42px;text-align:right;font-weight:800;font-size:13px;color:'+color+';">'+x.ratio.toFixed(1)+'×</span></a>';
+  }
+  const G='var(--green,#1a8c3a)', A='var(--amber,#c9962b)';
+  host.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px;">'
+    +'<div><div style="font-weight:800;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:'+G+';margin-bottom:8px;">▲ Most Underrated · slept on</div>'+(und.length?und.map(function(x,i){return row(x,i,G);}).join(''):'<div style="color:var(--text3);padding:16px;">None flagged.</div>')+'</div>'
+    +'<div><div style="font-weight:800;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:'+A+';margin-bottom:8px;">▼ Most Overrated · market above production</div>'+(ovr.length?ovr.map(function(x,i){return row(x,i,A);}).join(''):'<div style="color:var(--text3);padding:16px;">None flagged.</div>')+'</div>'
+    +'</div>';
 }
 // The Contender Quadrant now follows the Conference-Talent year selector (redrawn from
 // team_dna for whichever season is picked), instead of a single precomputed snapshot.
