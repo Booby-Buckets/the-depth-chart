@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="stylesheet" href="tdc-a11y.css?v=1">
+  <script src="tdc-a11y.js?v=1" defer></script>
+  <meta name="description" content="Guess where a college basketball player went to school — daily & unlimited, five difficulty tiers.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Guess the College — The Depth Chart">
+  <meta property="og:description" content="You're shown a player — guess where they went to college. Daily, unlimited, five difficulty tiers.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/game-college.html">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Guess the College — The Depth Chart">
+  <meta name="twitter:description" content="You're shown a player — guess where they went to college.">
+  <script src="auth.js?v=paywall4"></script>
+  <script src="tdc-projgrade.js?v=base1"></script>
+  <script src="tdc-rating.js?v=5"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta charset="UTF-8"/>
+  <script src="tdc-theme.js?v=2"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Guess the College — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html{background:var(--bg);}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
+    a{color:inherit;}
+    .nav-wrap{border-bottom:1px solid var(--border);background:rgba(250,249,246,.66);backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);position:sticky;top:0;z-index:200;}
+    [data-theme="dark"] .nav-wrap{background:rgba(20,20,22,.84);border-bottom-color:rgba(26,43,68,.9);}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;letter-spacing:-.01em;white-space:nowrap;}
+    .nav-logo span{color:var(--accent);}
+    .nav-actions{display:flex;align-items:center;gap:20px;}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .theme-toggle:hover{border-color:var(--accent);color:var(--text);}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
+    .nav-sub::-webkit-scrollbar{display:none;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;white-space:nowrap;flex-shrink:0;transition:color .2s;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a:hover{color:var(--text);}
+    .wrap{max-width:760px;margin:0 auto;padding:26px 20px 90px;}
+    .g-head{text-align:center;margin-bottom:8px;}
+    .g-title{font-family:'Playfair Display',serif;font-weight:800;font-size:34px;letter-spacing:-.01em;}
+    .g-sub{font-size:13px;color:var(--text3);margin-top:4px;}
+    .g-controls{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:6px 0 6px;}
+    .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:3px;gap:3px;}
+    .seg button{font-size:12px;font-weight:700;letter-spacing:.02em;padding:6px 13px;border:none;border-radius:6px;background:none;color:var(--text3);cursor:pointer;transition:background .12s,color .12s;}
+    .seg button.on{background:var(--accent);color:#221c08;}
+    .diff-seg{flex-wrap:wrap;justify-content:center;}
+    @media(max-width:560px){ .diff-seg button{padding:6px 9px;font-size:11px;} }
+    .g-meta{display:flex;align-items:center;justify-content:center;gap:14px;margin:14px 0 16px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);}
+    .g-meta b{color:var(--accent);}
+    /* mystery player card */
+    .pc{max-width:440px;margin:0 auto 18px;border:1px solid var(--border);border-radius:16px;background:var(--bg2);padding:18px 20px;text-align:center;}
+    .pc-eyebrow{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);}
+    .pc-name{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;line-height:1.05;margin:4px 0 3px;}
+    .pc-meta{font-size:12.5px;color:var(--text2);font-weight:600;}
+    .pc-school{margin-top:9px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);}
+    .pc-stats{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:12px;}
+    .pc-stat{background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:7px 12px;min-width:56px;}
+    .pc-stat .v{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;line-height:1;}
+    .pc-stat .l{font-size:8.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:3px;}
+    /* search */
+    .g-hint-btn{display:block;margin:0 auto 16px;font-size:12.5px;font-weight:700;padding:8px 16px;border-radius:9px;border:1px solid var(--border2);background:var(--bg2);color:var(--accent);cursor:pointer;transition:border-color .15s;}
+    .g-hint-btn:hover{border-color:var(--accent);}
+    .g-hint{max-width:440px;margin:0 auto 16px;padding:10px 14px;border-radius:9px;background:rgba(168,132,60,.08);border:1px solid rgba(168,132,60,.28);font-size:13px;color:var(--text2);text-align:center;}
+    .g-hint b{color:var(--accent);font-weight:800;}
+    .g-search{position:relative;max-width:440px;margin:0 auto 18px;}
+    .g-input{width:100%;padding:13px 16px;font-size:15px;font-family:'Inter',sans-serif;font-weight:600;color:var(--text);background:var(--bg2);border:1.5px solid var(--border2);border-radius:10px;outline:none;transition:border-color .15s;}
+    .g-input:focus{border-color:var(--accent);}
+    .g-drop{position:absolute;top:calc(100% + 5px);left:0;right:0;background:var(--bg);border:1px solid var(--border2);border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.18);max-height:280px;overflow-y:auto;z-index:20;display:none;}
+    .g-drop.on{display:block;}
+    .g-opt{padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);}
+    .g-opt:last-child{border-bottom:none;}
+    .g-opt:hover,.g-opt.sel{background:var(--bg2);}
+    .g-opt img{width:22px;height:22px;object-fit:contain;flex-shrink:0;}
+    .g-opt .nm{font-weight:700;font-size:14px;}
+    .g-opt .tm{font-size:11px;color:var(--text3);margin-left:auto;}
+    /* board */
+    .g-board-scroll{overflow-x:auto;}
+    .g-board{min-width:420px;max-width:520px;margin:0 auto;}
+    .g-row{display:grid;grid-template-columns:1.6fr 1fr;gap:6px;margin-bottom:6px;}
+    .g-row.head .cell{background:none;color:var(--text3);font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:4px 2px;min-height:0;}
+    .cell{background:var(--bg3);border-radius:8px;min-height:48px;display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;padding:6px 8px;font-size:13px;font-weight:700;line-height:1.15;}
+    .cell.school{background:var(--bg2);border:1px solid var(--border);justify-content:flex-start;gap:9px;}
+    .cell.school img{width:22px;height:22px;object-fit:contain;flex-shrink:0;}
+    .cell.hit{background:#1f9d57;color:#fff;border-color:#1f9d57;}
+    .cell.miss{background:var(--bg3);color:var(--text2);}
+    /* result */
+    .g-result{text-align:center;margin-top:22px;padding:22px;border:1px solid var(--border);border-radius:14px;background:var(--bg2);display:none;}
+    .g-result.on{display:block;animation:pop .4s cubic-bezier(.34,1.46,.64,1);}
+    @keyframes pop{from{opacity:0;transform:scale(.94);}to{opacity:1;transform:scale(1);}}
+    .g-result .rz-logo{width:76px;height:76px;object-fit:contain;margin:0 auto 10px;display:block;}
+    .g-result .rz-verdict{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;}
+    .g-result .rz-verdict.win{color:#1f9d57;} .g-result .rz-verdict.lose{color:#cf5a4e;}
+    .g-result .rz-name{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;}
+    .g-result .rz-line{font-size:13px;color:var(--text3);margin-top:4px;}
+    .g-btn{display:inline-block;margin-top:16px;padding:10px 20px;font-size:13px;font-weight:700;letter-spacing:.04em;border-radius:9px;border:none;cursor:pointer;background:var(--accent);color:#221c08;text-decoration:none;}
+    .g-btn.ghost{background:none;border:1px solid var(--border2);color:var(--text2);margin-left:8px;}
+    .g-legend{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:22px;font-size:11px;color:var(--text3);}
+    .g-legend span{display:inline-flex;align-items:center;gap:6px;}
+    .g-legend i{width:12px;height:12px;border-radius:3px;display:inline-block;}
+    .loading{padding:60px;text-align:center;color:var(--text3);}
+    @media(max-width:520px){.nav-top,.nav-sub{padding-left:16px;padding-right:16px;}.g-title{font-size:27px;}}
+  </style>
+  <link rel="stylesheet" href="tdc-anim.css?v=4"/>
+  <script src="tdc-anim.js?v=5"></script>
+  <link rel="stylesheet" href="tdc-dense.css?v=29"/>
+  <link rel="stylesheet" href="tdc-skin.css?v=7"/>
+  <style>
+    :root:not([data-theme="dark"]){background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
+  </style>
+</head>
+<body data-anim-auto>
+<script src="tdc-nav.js?v=7"></script>
+  <div class="wrap">
+    <div class="g-head">
+      <div class="g-title">Guess the College</div>
+      <div class="g-sub">You're shown a player — guess where they went to college. Play the daily, go unlimited, pick this year or all-time.</div>
+    </div>
+    <div id="content"><div class="loading">Loading today's player…</div></div>
+  </div>
+
+<script>
+const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H={apikey:KEY,Authorization:'Bearer '+KEY};
+function toggleTheme(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');var b=document.getElementById('themeBtn');if(b)b.textContent=d?'🌙':'☀️';try{localStorage.setItem('tdc_theme',d?'light':'dark');}catch(e){}}
+(function(){try{var s=localStorage.getItem('tdc_theme');if(s){document.documentElement.setAttribute('data-theme',s);var b=document.getElementById('themeBtn');if(b)b.textContent=s==='dark'?'☀️':'🌙';}}catch(e){}})();
+
+const MAX=8;
+let scope='year', mode='daily', difficulty='medium';
+let GUESS_YEAR=null, GUESS_ALL=null, CONF={}, MASCOT={}, LOGO={}, SCHOOLS=[], TARGET=null, DAY=0, state={guesses:[],done:false,won:false,hints:0};
+function guessPool(){ return scope==='year'?GUESS_YEAR:GUESS_ALL; }
+function seasonLbl(y){ y=+y; return isNaN(y)?'':((y-1)+'-'+(''+y).slice(2)); }
+
+// ── difficulty: filters WHICH players can be the mystery (grade + power conf) ──
+var POWER=['acc','big ten','big 12','sec','big east','pac-12','pac 12'];
+function isPower(p){ var c=(confOf(p.team)||'').toLowerCase(); if(!c||c==='—')return false; return POWER.some(function(x){return c.indexOf(x)>=0;}); }
+var DIFFS={
+  easy:      {lbl:'Easy',      hint:'85+ · power confs',  test:function(g,pw){return pw&&g>=85;}},
+  medium:    {lbl:'Medium',    hint:'80+ · mostly power', test:function(g,pw){return pw?g>=80:g>=87;}},
+  hard:      {lbl:'Hard',      hint:'75+ · mostly power', test:function(g,pw){return pw?g>=75:g>=83;}},
+  difficult: {lbl:'Difficult', hint:'75+ · anywhere',     test:function(g,pw){return g>=75;}},
+  impossible:{lbl:'Impossible',hint:'any player',         test:function(g,pw){return true;}}
+};
+function grNum(g){var n=parseInt(g);return isNaN(n)?null:n;}
+function answerPool(){
+  var gp=guessPool()||[], d=DIFFS[difficulty]||DIFFS.medium;
+  return gp.filter(function(p){ if(!p.team||!CONF[p.team])return false; var g=(p._g||grNum(p.tdc_grade)||0); return d.test(g, isPower(p)); });
+}
+function currentPool(){ return answerPool(); }
+
+// ── daily index ──
+function todayIndex(){ const et=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'})); return Math.floor(Date.UTC(et.getFullYear(),et.getMonth(),et.getDate())/86400000); }
+function pickIndex(day,len){ let h=(day*2654435761)>>>0; h^=h>>>15; h=(h*2246822519)>>>0; return h%len; }
+
+function classInfo(raw){var s=(raw||'').toLowerCase();
+  if(s.includes('gr'))return'Grad'; if(s.includes('sr'))return'Sr'; if(s.includes('jr'))return'Jr';
+  if(s.includes('so'))return'So'; if(s.includes('fr'))return'Fr'; return(raw||'—');}
+function confOf(team){return CONF[team]||'—';}
+function num1(v){ var n=parseFloat(v); return isFinite(n)?n.toFixed(1):null; }
+
+// ── 3 progressive hints: conference → school initial → mascot ──
+function hintText(n){
+  if(!TARGET) return '';
+  if(n===1){ var c=confOf(TARGET.team); return c&&c!=='—'?('Plays in the <b>'+c+'</b>'):'A non-major-conference school'; }
+  if(n===2){ return 'School starts with <b>'+((TARGET.team||'?').charAt(0).toUpperCase())+'</b>'; }
+  var m=MASCOT[TARGET.team]; return m?('The <b>'+m+'</b>'):('<b>'+TARGET.team+'</b>');
+}
+
+// ── mystery player card (school hidden until solved) ──
+function playerCard(){
+  if(!TARGET) return '';
+  var pos=TARGET.position||'—', cls=classInfo(TARGET.class_year||TARGET.yr), ht=TARGET.height||'—';
+  var yr=(scope==='all'&&TARGET.season_year)?(' · '+seasonLbl(TARGET.season_year)):'';
+  var stats='';
+  var ppg=num1(TARGET.ppg), rpg=num1(TARGET.rpg), apg=num1(TARGET.apg);
+  if(ppg!=null||rpg!=null||apg!=null){
+    stats='<div class="pc-stats">'+
+      (ppg!=null?'<div class="pc-stat"><div class="v">'+ppg+'</div><div class="l">PPG</div></div>':'')+
+      (rpg!=null?'<div class="pc-stat"><div class="v">'+rpg+'</div><div class="l">RPG</div></div>':'')+
+      (apg!=null?'<div class="pc-stat"><div class="v">'+apg+'</div><div class="l">APG</div></div>':'')+
+      '<div class="pc-stat"><div class="v">'+(TARGET.tdc_grade||'—')+'</div><div class="l">TDC</div></div>'+
+    '</div>';
+  } else {
+    stats='<div class="pc-stats"><div class="pc-stat"><div class="v">'+(TARGET.tdc_grade||'—')+'</div><div class="l">TDC Grade</div></div></div>';
+  }
+  var school=state.done?('<div class="pc-school" style="color:var(--text2)">'+TARGET.team+'</div>'):'<div class="pc-school">🎓 ??? College</div>';
+  return '<div class="pc">'+
+    '<div class="pc-eyebrow">Where did this player go?</div>'+
+    '<div class="pc-name">'+TARGET.name+'</div>'+
+    '<div class="pc-meta">'+pos+' · '+cls+' · '+ht+yr+'</div>'+
+    school+stats+'</div>';
+}
+
+// ── a guessed-school row: school + conference-match ──
+function guessRow(school){
+  var gc=confOf(school), tc=confOf(TARGET.team);
+  var right=(school===TARGET.team);
+  var confHit=(gc===tc&&gc!=='—');
+  var logo=LOGO[school]?('<img src="'+LOGO[school]+'" alt="" onerror="this.style.display=\'none\'">'):'';
+  return '<div class="g-row">'+
+    '<div class="cell school'+(right?' hit':'')+'">'+logo+'<span>'+school+'</span></div>'+
+    '<div class="cell '+(confHit?'hit':'miss')+'">'+gc+'</div>'+
+  '</div>';
+}
+
+function render(){
+  var host=document.getElementById('content');
+  var controls=
+    '<div class="g-controls">'+
+      '<div class="seg">'+
+        '<button class="'+(scope==='year'?'on':'')+'" onclick="setScope(\'year\')">This Year</button>'+
+        '<button class="'+(scope==='all'?'on':'')+'" onclick="setScope(\'all\')">All-Time</button>'+
+      '</div>'+
+      '<div class="seg">'+
+        '<button class="'+(mode==='daily'?'on':'')+'" onclick="setMode(\'daily\')">Daily</button>'+
+        '<button class="'+(mode==='unlimited'?'on':'')+'" onclick="setMode(\'unlimited\')">Unlimited</button>'+
+      '</div>'+
+      '<div class="seg diff-seg">'+
+        Object.keys(DIFFS).map(function(k){return '<button class="'+(difficulty===k?'on':'')+'" onclick="setDifficulty(\''+k+'\')" title="'+DIFFS[k].hint+'">'+DIFFS[k].lbl+'</button>';}).join('')+
+      '</div>'+
+    '</div>';
+  if(!TARGET){ host.innerHTML=controls+'<div class="g-hint" style="margin-top:18px;">No players match <b>'+((DIFFS[difficulty]||{}).lbl||'')+'</b> for this scope. Try an easier tier.</div>'; return; }
+  var used=state.guesses.length, left=MAX-used;
+  var search=state.done?'':(
+    '<div class="g-search">'+
+      '<input class="g-input" id="gi" type="text" autocomplete="off" placeholder="Guess a school…" oninput="onInput(this.value)" onkeydown="onKey(event)">'+
+      '<div class="g-drop" id="gd"></div>'+
+    '</div>');
+  var hintsShown='';
+  for(var hi=1;hi<=(state.hints||0);hi++){ hintsShown+='<div class="g-hint">💡 <b>Hint '+hi+':</b> '+hintText(hi)+'</div>'; }
+  var hintBtn=(!state.done && (state.hints||0)<3)?'<button class="g-hint-btn" onclick="useHint()">💡 Reveal a hint ('+(3-(state.hints||0))+' left)</button>':'';
+  var rows=state.guesses.map(function(s){return guessRow(s);}).join('');
+  var head=rows?'<div class="g-row head"><div class="cell">School</div><div class="cell">Conference</div></div>':'';
+  host.innerHTML=
+    controls+
+    playerCard()+
+    '<div class="g-meta"><span>Guess <b>'+used+'</b> / '+MAX+'</span><span>'+left+' left</span></div>'+
+    search+hintsShown+hintBtn+
+    '<div class="g-board-scroll"><div class="g-board">'+head+rows+'</div></div>'+
+    '<div class="g-legend"><span><i style="background:#1f9d57"></i>Correct / same conference</span><span><i style="background:var(--bg3)"></i>Different conference</span></div>'+
+    '<div class="g-result" id="gr"></div>';
+  if(state.done) showResult();
+  var gi=document.getElementById('gi'); if(gi) gi.focus();
+}
+
+// ── autocomplete over SCHOOLS ──
+let _sel=-1, _matches=[];
+function onInput(v){
+  v=(v||'').toLowerCase().trim(); _sel=-1;
+  var d=document.getElementById('gd'); if(!d)return;
+  if(!v){ d.classList.remove('on'); d.innerHTML=''; return; }
+  var guessed={}; state.guesses.forEach(function(s){guessed[s]=1;});
+  _matches=SCHOOLS.filter(function(s){return s.toLowerCase().indexOf(v)>=0 && !guessed[s];}).slice(0,8);
+  if(!_matches.length){ d.classList.remove('on'); return; }
+  d.innerHTML=_matches.map(function(s,i){
+    var lg=LOGO[s]?('<img src="'+LOGO[s]+'" alt="" onerror="this.style.display=\'none\'">'):'';
+    return '<div class="g-opt'+(i===_sel?' sel':'')+'" onclick="submitGuess(\''+s.replace(/'/g,"\\'")+'\')">'+lg+'<span class="nm">'+s+'</span><span class="tm">'+confOf(s)+'</span></div>';
+  }).join('');
+  d.classList.add('on');
+}
+function onKey(e){
+  var d=document.getElementById('gd');
+  if(e.key==='ArrowDown'){e.preventDefault();_sel=Math.min(_sel+1,_matches.length-1);onInput(document.getElementById('gi').value);}
+  else if(e.key==='ArrowUp'){e.preventDefault();_sel=Math.max(_sel-1,0);onInput(document.getElementById('gi').value);}
+  else if(e.key==='Enter'){e.preventDefault(); if(_sel>=0&&_matches[_sel])submitGuess(_matches[_sel]); else if(_matches.length===1)submitGuess(_matches[0]);}
+}
+function submitGuess(school){
+  if(state.done||!TARGET)return;
+  if(state.guesses.indexOf(school)>=0)return;
+  state.guesses.push(school);
+  if(school===TARGET.team){ state.done=true; state.won=true; }
+  else if(state.guesses.length>=MAX){ state.done=true; state.won=false; }
+  save(); render();
+}
+
+// ── result ──
+function showResult(){
+  var el=document.getElementById('gr'); if(!el)return;
+  var t=TARGET, lg=LOGO[t.team];
+  var seasonBit=(scope==='all'&&t.season_year)?(seasonLbl(t.season_year)+' · '):'';
+  el.className='g-result on';
+  el.innerHTML=
+    (lg?'<img class="rz-logo" src="'+lg+'" alt="" onerror="this.style.display=\'none\'">':'')+
+    '<div class="rz-verdict '+(state.won?'win':'lose')+'">'+(state.won?'Solved in '+state.guesses.length:'Out of guesses')+'</div>'+
+    '<div class="rz-name">'+t.team+'</div>'+
+    '<div class="rz-line">'+t.name+' · '+(t.position||'')+' · '+seasonBit+confOf(t.team)+'</div>'+
+    '<div><button class="g-btn" onclick="shareResult()">Share</button>'+
+      (mode==='unlimited'?'<button class="g-btn ghost" onclick="nextGame()">Next player</button>':'')+'</div>';
+}
+function shareResult(){
+  var lines=state.guesses.map(function(s){ return (s===TARGET.team)?'🟩':((confOf(s)===confOf(TARGET.team)&&confOf(s)!=='—')?'🟨⬛':'⬛⬛'); }).join('\n');
+  var head='The Depth Chart — Guess the College #'+(DAY%100000)+'  '+(state.won?state.guesses.length:'X')+'/'+MAX;
+  var txt=head+'\n'+lines+'\nplay: thedepthchartcbb.com/game-college.html';
+  if(navigator.clipboard){navigator.clipboard.writeText(txt).then(function(){toast('Copied to clipboard!');},function(){toast('Copy failed');});}
+  else toast(txt);
+}
+function toast(msg){var t=document.createElement('div');t.textContent=msg;t.style.cssText='position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.3);';document.body.appendChild(t);setTimeout(function(){t.remove();},2200);}
+
+// ── persistence (daily only; keyed by scope + difficulty + day) ──
+function dayKey(){ return 'tdc_college_'+scope+'_'+difficulty+'_'+DAY; }
+function save(){ if(mode!=='daily')return; try{localStorage.setItem(dayKey(),JSON.stringify({guesses:state.guesses,done:state.done,won:state.won,hints:state.hints}));}catch(e){} }
+function load(){ try{var s=localStorage.getItem(dayKey());if(s){var o=JSON.parse(s);state.guesses=o.guesses||[];state.done=!!o.done;state.won=!!o.won;state.hints=o.hints||0;}}catch(e){} }
+function useHint(){ if(state.done||!TARGET||(state.hints||0)>=3)return; state.hints=(state.hints||0)+1; save(); render(); }
+
+// ── pools (mystery players) ──
+async function loadYearPool(){
+  var pl=await fetch(SB+'/rest/v1/players?select=id,name,team,position,class_year,yr,height,tdc_grade,espn_id,ppg,rpg,apg,mpg&tdc_grade=gte.70&gp=gte.15&order=name.asc',{headers:H}).then(r=>r.json()).catch(function(){return[];});
+  var seen={},out=[]; (Array.isArray(pl)?pl:[]).forEach(function(p){ if(p&&p.name&&p.team&&!seen[p.name]){seen[p.name]=1;out.push(p);} });
+  if(window.TDCProjGrade&&TDCProjGrade.ready){ try{ await TDCProjGrade.ready; }catch(e){} }
+  if(window.TDCProjGrade&&TDCProjGrade.gradeSolo) out.forEach(function(p){ try{ var g=TDCProjGrade.gradeSolo(p); if(g!=null&&!isNaN(g)) p.tdc_grade=Math.round(g); }catch(e){} });
+  return out;
+}
+async function loadAllPool(){
+  const base=SB+'/rest/v1/player_history?select=name,team,season_year,position,yr,height,tdc_grade,espn_id,ppg,rpg,apg,mpg&tdc_grade=gte.75&gp=gte.18&mpg=gte.20';
+  const cr=await fetch(base+'&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact','Range':'0-0','Range-Unit':'items'})});
+  const total=parseInt((cr.headers.get('content-range')||'/0').split('/')[1]||0)||5000;
+  const PG=1000, pages=Math.ceil(total/PG), jobs=[];
+  for(let i=0;i<pages;i++) jobs.push(fetch(base,{headers:Object.assign({},H,{'Range-Unit':'items','Range':(i*PG)+'-'+(i*PG+PG-1)})}).then(r=>r.ok?r.json():[]));
+  const parts=await Promise.all(jobs);
+  var all=parts.reduce(function(a,b){return a.concat(b);},[]);
+  if(window.TDCRating&&TDCRating.ready){ try{ await TDCRating.ready; }catch(e){} }
+  if(window.TDCRating&&TDCRating.boxAdjust) all.forEach(function(p){ try{
+    var a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(p.season_year)||0);
+    if(a&&a.grade!=null) p.tdc_grade=Math.round(a.grade); }catch(e){} });
+  var best={};   // one row per player = their peak (highest-grade) season
+  all.forEach(function(p){ if(!p||!p.name||!p.team)return; var g=grNum(p.tdc_grade)||0; if(!best[p.name]||g>best[p.name]._g){ p._g=g; best[p.name]=p; } });
+  return Object.keys(best).map(function(k){return best[k];});
+}
+async function ensurePool(){
+  if(scope==='year'){ if(!GUESS_YEAR) GUESS_YEAR=await loadYearPool(); }
+  else { if(!GUESS_ALL){ document.getElementById('content').innerHTML='<div class="loading">Loading 20 years of players…</div>'; GUESS_ALL=await loadAllPool(); } }
+}
+
+// ── target + flow ──
+var DSALT={easy:11111,medium:22222,hard:33333,difficult:44444,impossible:55555};
+function pickTarget(){
+  var pool=currentPool(); if(!pool||!pool.length){TARGET=null;return;}
+  if(mode==='daily'){
+    var stable=pool.slice().sort(function(a,b){return (a.name<b.name)?-1:(a.name>b.name)?1:0;});
+    TARGET=stable[pickIndex(DAY+(scope==='all'?424242:0)+(DSALT[difficulty]||0), stable.length)];
+  } else { TARGET=pool[Math.floor(Math.random()*pool.length)]; }
+}
+function startPuzzle(){ pickTarget(); state={guesses:[],done:false,won:false,hints:0}; if(mode==='daily') load(); render(); }
+function nextGame(){ if(mode!=='unlimited')return; pickTarget(); state={guesses:[],done:false,won:false,hints:0}; render(); }
+async function setScope(s){ if(s===scope)return; scope=s; await ensurePool(); startPuzzle(); }
+async function setMode(m){ if(m===mode)return; mode=m; startPuzzle(); }
+function setDifficulty(d){ if(d===difficulty||!DIFFS[d])return; difficulty=d; startPuzzle(); }
+
+// ── init ──
+async function init(){
+  DAY=todayIndex();
+  try{
+    var tm=await fetch(SB+'/rest/v1/teams?select=name,conf',{headers:H}).then(r=>r.json()).catch(function(){return[];});
+    (Array.isArray(tm)?tm:[]).forEach(function(t){ if(t.name){ CONF[t.name]=t.conf||'—'; } });
+    SCHOOLS=Object.keys(CONF).sort();
+    try{ var tc=await fetch('scripts/data/team_colors.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
+      (tc||[]).forEach(function(e){ if(e&&e.location){ if(e.name) MASCOT[e.location]=e.name; if(e.logo) LOGO[e.location]=e.logo; } });
+    }catch(e){}
+    await ensurePool();
+    if(!guessPool()||!guessPool().length){document.getElementById('content').innerHTML='<div class="loading">Could not load the player pool.</div>';return;}
+    startPuzzle();
+  }catch(e){ document.getElementById('content').innerHTML='<div class="loading">Error: '+e.message+'</div>'; }
+}
+document.addEventListener('click',function(e){var d=document.getElementById('gd');if(d&&!e.target.closest('.g-search'))d.classList.remove('on');});
+init();
+</script>
+</body>
+</html>
