@@ -216,7 +216,7 @@
 })();
 </script>
 <script src="tdc-nav.js?v=7"></script>
-<script src="tdc-coachlinks.js?v=18"></script>
+<script src="tdc-coachlinks.js?v=19"></script>
 <div class="page">
   <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Scouting Hub</span></div>
   <h1 data-anim>Opponent Scouting Report</h1>
@@ -594,6 +594,44 @@ async function loadShotChart(row){
   }catch(e){ host.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3);font-size:12px;">Could not load shot chart.</div>'; }
 }
 
+// ── their DEFENSIVE shot profile: what they allow by zone vs the D-I expected make,
+//    + a zone attack plan (merged in from the retired shot-profile.html) ──
+async function loadShotProfile(row){
+  const host=el('scoutShotProfile'); if(!host) return;
+  let EXP={rim:0.5615,mid:0.3848,three:0.341};
+  try{ const zm=window.SGMETA&&window.SGMETA.zone_make; if(zm){ EXP.rim=zm.rim||EXP.rim; EXP.mid=zm.mid||EXP.mid; EXP.three=((zm.atb3||.335)*3+(zm.corner3||.359))/4; } }catch(e){}
+  let tid=null;
+  try{ const rows=await fetch(SB_URL+'/rest/v1/team_seasons?select=team,team_id&team=ilike.'+encodeURIComponent(sn(row.team))+'*&limit=25',{headers:H}).then(r=>r.ok?r.json():[]);
+    const tn=sn(row.team).toLowerCase().trim();
+    for(let k=1;k<=3&&tid==null;k++){ for(const r of rows){ const w=r.team.split(' '); if(w.length>k&&w.slice(0,w.length-k).join(' ').toLowerCase()===tn){ tid=r.team_id; break; } } }
+    if(tid==null&&rows.length) tid=rows[0].team_id;
+  }catch(e){}
+  if(tid==null){ host.innerHTML=''; return; }
+  let games=[], def=[];
+  try{ games=await fetch(`${SB_URL}/rest/v1/games?or=(home.eq.${encodeURIComponent(row.full)},away.eq.${encodeURIComponent(row.full)})&season_year=eq.2026&select=id&limit=60`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  if(games.length){ const ids=games.map(g=>g.id).join(','); try{ def=await fetch(`${SB_URL}/rest/v1/shots?game_id=in.(${ids})&team_id=neq.${tid}&select=made,sv,stype&limit=8000`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){} }
+  if(def.length<50){ host.innerHTML=''; return; }
+  const zoneOf=s=>{ if(s.sv===3) return 'three'; const st=(s.stype||'').toLowerCase(); return /layup|dunk|tip|alley|finger|slam/.test(st)?'rim':'mid'; };
+  const expEfg=z=>z==='three'?EXP.three*1.5:EXP[z];
+  const t={rim:{a:0,m:0},mid:{a:0,m:0},three:{a:0,m:0}}; let tot=0;
+  def.forEach(s=>{ const z=zoneOf(s); t[z].a++; if(s.made) t[z].m++; tot++; });
+  const Dp={}; ['rim','mid','three'].forEach(z=>{ const a=t[z].a, fg=a?t[z].m/a:0, efg=z==='three'?fg*1.5:fg; Dp[z]={a,freq:tot?a/tot:0,efg,exp:expEfg(z),delta:efg-expEfg(z)}; });
+  const ZL={rim:'At the rim',mid:'Mid-range',three:'Three'}, pct=v=>Math.round(v*100);
+  const row3=z=>{ const r=Dp[z], dcol=r.delta<0?'var(--green,#1a8c3a)':'var(--red,#cc2200)';
+    return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--border)">
+      <div><b>${ZL[z]}</b> <span style="color:var(--text3);font-size:11px">· ${r.a} allowed · ${pct(r.freq)}% of shots</span></div>
+      <div style="text-align:right;font-variant-numeric:tabular-nums"><b>${pct(r.efg)}%</b><div style="font-size:9.5px;color:var(--text3)">eFG allowed</div></div>
+      <div style="text-align:right;min-width:66px;color:${dcol};font-weight:800">${r.delta>0?'+':''}${pct(r.delta)}%<div style="font-size:9.5px;color:var(--text3);font-weight:600">vs ${pct(r.exp)} exp</div></div>
+    </div>`; };
+  const worst=['rim','mid','three'].map(z=>({z,...Dp[z]})).sort((a,b)=>b.delta-a.delta)[0];
+  const atk={rim:'get downhill and finish at the rim',mid:'work the two-point game — pull-ups and floaters',three:'let it fly from three'};
+  const plan = worst.delta>0.005
+    ? `<b>Attack ${ZL[worst.z].toLowerCase()}</b> — they allow <b>${pct(worst.efg)}%</b> eFG there, <b>+${pct(worst.delta)}%</b> above what the shot is worth. ${atk[worst.z].charAt(0).toUpperCase()+atk[worst.z].slice(1)}.`
+    : `No soft spot — they defend every zone at or below the expected make. Pick your matchups; this is a stingy shot defense.`;
+  host.innerHTML=`<div class="sec-h" style="margin-top:22px">Their defense — shot profile by zone <span class="hint">2025-26 · what opponents make against them · green = they defend it well</span></div>
+    <div class="card"><div>${['rim','mid','three'].map(row3).join('')}</div><div class="obread"><b>Attack plan:</b> ${plan}</div></div>`;
+}
+
 // ── their offense: how they generate + who creates + how to disrupt ──
 function offenseBreakdown(r, RN){
   const p=pbpOf(r); if(!p||!p.gp) return '';
@@ -703,6 +741,7 @@ async function render(){
     ${defenseBreakdown(r,RN)}
     <div class="sec-h">Shot Tendencies</div>
     ${tendencies(r,sg)}
+    <div id="scoutShotProfile"></div>
     <div class="sec-h">Personnel Report</div>
     ${renderReportBlock(rep)}
     <div id="scoutLineupHost"></div>
@@ -712,6 +751,7 @@ async function render(){
   if(window.TDC_LINEUPS) TDC_LINEUPS.section(r.full, 2026, {pos:CR.pos}).then(function(h){ var lh=document.getElementById('scoutLineupHost'); if(lh&&h){ lh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(lh); } });
   if(me) loadKeyMatchups(poolRow(me.key), r);
   if(sg&&sg.off) loadShotChart(r);
+  loadShotProfile(r);
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(r.full));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
 }
@@ -741,6 +781,7 @@ async function render(){
       const m=v.reduce((a,b)=>a+b,0)/v.length; const s=Math.sqrt(v.reduce((a,b)=>a+(b-m)*(b-m),0)/v.length)||1; return {m,s}; };
     sgMean.rim=stat('rimRate'); sgMean.three=stat('threeRate');
   }
+  if(sg&&sg.meta) window.SGMETA=sg.meta;   // D-I expected make rates by zone (for the defensive shot profile)
   wireCombo('Me'); wireCombo('Opp');
   // deep-link support: ?opp=Full Name  &  ?me=Full Name
   const qs=new URLSearchParams(location.search);

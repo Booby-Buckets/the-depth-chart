@@ -9,7 +9,6 @@ window.TDC_COACHLINKS = (function () {
   var GROUPS = [
     ['Scouting', [
       ['scout.html',           'Scouting Report'],
-      ['shot-profile.html',    'Shot Profile'],
       ['style-matchups.html',  'Style Matchups'],
       ['offense.html',         'Offense'],
       ['defense.html',         'Defense'],
