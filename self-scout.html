@@ -27,6 +27,7 @@
   <script src="tdc-projgrade.js?v=base1"></script>
   <script src="tdc-proj.js?v=coach19"></script>
   <script src="tdc-lineups.js?v=13"></script>
+  <script src="tdc-teamsit.js?v=1"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -111,7 +112,7 @@
 })();
 </script>
 <script src="tdc-nav.js?v=7"></script>
-<script src="tdc-coachlinks.js?v=20"></script>
+<script src="tdc-coachlinks.js?v=21"></script>
 <div class="page">
   <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Self-Scout Hub</span></div>
   <h1 data-anim>Self-Scout Report</h1>
@@ -283,8 +284,9 @@ async function loadTeam(){
     }
   }
 
-  el('out').innerHTML=`<div style="--tc:${tc}">${idHtml}${rotHtml}${offHtml}${defHtml}<div id="ssRotHost"></div><div id="ssLineupHost"></div></div>`;
+  el('out').innerHTML=`<div style="--tc:${tc}">${idHtml}${rotHtml}${offHtml}${defHtml}<div id="ssRotHost"></div><div id="ssTeamSit" style="--tc:${tc}"></div><div id="ssLineupHost"></div></div>`;
   rotationSection(row).then(function(h){ var rh=document.getElementById('ssRotHost'); if(rh&&h){ rh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(rh); } });
+  if(window.TDC_TEAMSIT) TDC_TEAMSIT.section(row).then(function(h){ var th=document.getElementById('ssTeamSit'); if(th&&h){ th.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(th); } });
   if(window.TDC_LINEUPS) TDC_LINEUPS.section(row.full, 2026).then(function(h){ var lh=document.getElementById('ssLineupHost'); if(lh&&h){ lh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(lh); } });
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));

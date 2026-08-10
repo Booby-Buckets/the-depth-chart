@@ -19,8 +19,6 @@ window.TDC_COACHLINKS = (function () {
       ['moneyball.html',      'Moneyball'],
       ['consistency.html',    'Consistency'],
       ['lineups.html',        'Lineups'],
-      ['team-clutch.html',    'Team Clutch'],
-      ['adjustments.html',    'Adjustments'],
     ]],
     ['Personnel', [
       ['dossier.html',        'Player Dossier'],
