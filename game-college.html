@@ -53,6 +53,10 @@
     @media(max-width:560px){ .diff-seg button{padding:6px 9px;font-size:11px;} }
     .g-meta{display:flex;align-items:center;justify-content:center;gap:14px;margin:14px 0 16px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);}
     .g-meta b{color:var(--accent);}
+    .g-streak{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin:14px auto 16px;max-width:440px;}
+    .g-streak span{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:7px 13px;font-size:12px;font-weight:700;color:var(--text2);}
+    .g-streak span b{font-family:'Playfair Display',serif;font-size:16px;color:var(--accent);}
+    .g-streak span.empty{opacity:.6;} .g-streak span.empty b{color:var(--text3);}
     /* mystery player card */
     .pc{max-width:440px;margin:0 auto 18px;border:1px solid var(--border);border-radius:16px;background:var(--bg2);padding:18px 20px;text-align:center;}
     .pc-eyebrow{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);}
@@ -121,7 +125,7 @@
   <div class="wrap">
     <div class="g-head">
       <div class="g-title">Guess the College</div>
-      <div class="g-sub">You're shown a player — guess where they went to college. Play the daily, go unlimited, pick this year or all-time.</div>
+      <div class="g-sub">You're shown a player — name their college in <b>one guess</b> and build a streak. Hints are limited per run (3 easy · 2 medium · 1 hard) — spend them wisely.</div>
     </div>
     <div id="content"><div class="loading">Loading today's player…</div></div>
   </div>
@@ -133,9 +137,14 @@ const H={apikey:KEY,Authorization:'Bearer '+KEY};
 function toggleTheme(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');var b=document.getElementById('themeBtn');if(b)b.textContent=d?'🌙':'☀️';try{localStorage.setItem('tdc_theme',d?'light':'dark');}catch(e){}}
 (function(){try{var s=localStorage.getItem('tdc_theme');if(s){document.documentElement.setAttribute('data-theme',s);var b=document.getElementById('themeBtn');if(b)b.textContent=s==='dark'?'☀️':'🌙';}}catch(e){}})();
 
-const MAX=8;
-let scope='year', mode='daily', difficulty='medium';
-let GUESS_YEAR=null, GUESS_ALL=null, CONF={}, MASCOT={}, LOGO={}, SCHOOLS=[], TARGET=null, DAY=0, state={guesses:[],done:false,won:false,hints:0};
+// Streak/survival: ONE guess per player. Hints are a shared budget for the whole
+// run (streak) — spend them across players however you like; run out and you're on
+// your own. Budget by difficulty.
+var HINT_BUDGET={easy:3,medium:2,hard:1,difficult:1,impossible:0};
+let scope='year', mode='unlimited', difficulty='medium';
+let GUESS_YEAR=null, GUESS_ALL=null, CONF={}, MASCOT={}, LOGO={}, SCHOOLS=[], TARGET=null, DAY=0;
+let streak=0, best=0, hintsLeft=0;
+let state={guess:null,done:false,won:false,hp:0};   // hp = hints revealed for the CURRENT player
 function guessPool(){ return scope==='year'?GUESS_YEAR:GUESS_ALL; }
 function seasonLbl(y){ y=+y; return isNaN(y)?'':((y-1)+'-'+(''+y).slice(2)); }
 
@@ -199,18 +208,6 @@ function playerCard(){
     school+stats+'</div>';
 }
 
-// ── a guessed-school row: school + conference-match ──
-function guessRow(school){
-  var gc=confOf(school), tc=confOf(TARGET.team);
-  var right=(school===TARGET.team);
-  var confHit=(gc===tc&&gc!=='—');
-  var logo=LOGO[school]?('<img src="'+LOGO[school]+'" alt="" onerror="this.style.display=\'none\'">'):'';
-  return '<div class="g-row">'+
-    '<div class="cell school'+(right?' hit':'')+'">'+logo+'<span>'+school+'</span></div>'+
-    '<div class="cell '+(confHit?'hit':'miss')+'">'+gc+'</div>'+
-  '</div>';
-}
-
 function render(){
   var host=document.getElementById('content');
   var controls=
@@ -224,31 +221,51 @@ function render(){
         '<button class="'+(mode==='unlimited'?'on':'')+'" onclick="setMode(\'unlimited\')">Unlimited</button>'+
       '</div>'+
       '<div class="seg diff-seg">'+
-        Object.keys(DIFFS).map(function(k){return '<button class="'+(difficulty===k?'on':'')+'" onclick="setDifficulty(\''+k+'\')" title="'+DIFFS[k].hint+'">'+DIFFS[k].lbl+'</button>';}).join('')+
+        Object.keys(DIFFS).map(function(k){return '<button class="'+(difficulty===k?'on':'')+'" onclick="setDifficulty(\''+k+'\')" title="'+DIFFS[k].hint+' · '+(HINT_BUDGET[k]||0)+' hints/run">'+DIFFS[k].lbl+'</button>';}).join('')+
       '</div>'+
     '</div>';
   if(!TARGET){ host.innerHTML=controls+'<div class="g-hint" style="margin-top:18px;">No players match <b>'+((DIFFS[difficulty]||{}).lbl||'')+'</b> for this scope. Try an easier tier.</div>'; return; }
-  var used=state.guesses.length, left=MAX-used;
-  var search=state.done?'':(
-    '<div class="g-search">'+
-      '<input class="g-input" id="gi" type="text" autocomplete="off" placeholder="Guess a school…" oninput="onInput(this.value)" onkeydown="onKey(event)">'+
-      '<div class="g-drop" id="gd"></div>'+
-    '</div>');
-  var hintsShown='';
-  for(var hi=1;hi<=(state.hints||0);hi++){ hintsShown+='<div class="g-hint">💡 <b>Hint '+hi+':</b> '+hintText(hi)+'</div>'; }
-  var hintBtn=(!state.done && (state.hints||0)<3)?'<button class="g-hint-btn" onclick="useHint()">💡 Reveal a hint ('+(3-(state.hints||0))+' left)</button>':'';
-  var rows=state.guesses.map(function(s){return guessRow(s);}).join('');
-  var head=rows?'<div class="g-row head"><div class="cell">School</div><div class="cell">Conference</div></div>':'';
-  host.innerHTML=
-    controls+
-    playerCard()+
-    '<div class="g-meta"><span>Guess <b>'+used+'</b> / '+MAX+'</span><span>'+left+' left</span></div>'+
-    search+hintsShown+hintBtn+
-    '<div class="g-board-scroll"><div class="g-board">'+head+rows+'</div></div>'+
-    '<div class="g-legend"><span><i style="background:#1f9d57"></i>Correct / same conference</span><span><i style="background:var(--bg3)"></i>Different conference</span></div>'+
-    '<div class="g-result" id="gr"></div>';
-  if(state.done) showResult();
+  var streakBar='<div class="g-streak">'+
+    '<span>🔥 Streak <b>'+streak+'</b></span>'+
+    '<span>Best <b>'+best+'</b></span>'+
+    '<span class="'+(hintsLeft<=0?'empty':'')+'">💡 <b>'+hintsLeft+'</b> hint'+(hintsLeft===1?'':'s')+' left</span>'+
+  '</div>';
+  var body;
+  if(state.done){
+    body=resultHtml();
+  } else {
+    var hintsShown='';
+    for(var hi=1;hi<=state.hp;hi++){ hintsShown+='<div class="g-hint">💡 <b>Hint '+hi+':</b> '+hintText(hi)+'</div>'; }
+    var canHint=(hintsLeft>0 && state.hp<3);
+    var hintBtn=canHint?'<button class="g-hint-btn" onclick="useHint()">💡 Use a hint ('+hintsLeft+' left in this run)</button>'
+                       :(state.hp>=3?'':'<div class="g-hint" style="opacity:.7">Out of hints — you\'re on your own.</div>');
+    body=hintsShown+hintBtn+
+      '<div class="g-search"><input class="g-input" id="gi" type="text" autocomplete="off" placeholder="Your one guess — name the school…" oninput="onInput(this.value)" onkeydown="onKey(event)"><div class="g-drop" id="gd"></div></div>'+
+      '<div class="g-legend"><span>🎯 <b>One guess.</b> Get it right to extend your streak.</span></div>';
+  }
+  host.innerHTML=controls+streakBar+playerCard()+body;
   var gi=document.getElementById('gi'); if(gi) gi.focus();
+}
+function resultHtml(){
+  var t=TARGET, lg=LOGO[t.team], correct=state.won;
+  var msg=correct
+    ? '<div class="rz-verdict win">✓ Correct — streak '+streak+'</div>'
+    : '<div class="rz-verdict lose">✗ '+(state.guess?('You said '+state.guess):'No guess')+'</div>';
+  var line=t.name+' · '+(t.position||'')+' · '+confOf(t.team);
+  var action;
+  if(mode==='daily'){
+    action='<button class="g-btn" onclick="shareResult()">Share</button>';
+  } else if(correct){
+    action='<button class="g-btn" onclick="nextPlayer(false)">Next player →</button>';
+  } else {
+    action='<button class="g-btn" onclick="playAgain()">Play again</button><button class="g-btn ghost" onclick="shareResult()">Share</button>';
+  }
+  return '<div class="g-result on">'+
+    (lg?'<img class="rz-logo" src="'+lg+'" alt="" onerror="this.style.display=\'none\'">':'')+
+    msg+
+    '<div class="rz-name">'+t.team+'</div>'+
+    '<div class="rz-line">'+line+'</div>'+
+    '<div>'+action+'</div></div>';
 }
 
 // ── autocomplete over SCHOOLS ──
@@ -257,8 +274,7 @@ function onInput(v){
   v=(v||'').toLowerCase().trim(); _sel=-1;
   var d=document.getElementById('gd'); if(!d)return;
   if(!v){ d.classList.remove('on'); d.innerHTML=''; return; }
-  var guessed={}; state.guesses.forEach(function(s){guessed[s]=1;});
-  _matches=SCHOOLS.filter(function(s){return s.toLowerCase().indexOf(v)>=0 && !guessed[s];}).slice(0,8);
+  _matches=SCHOOLS.filter(function(s){return s.toLowerCase().indexOf(v)>=0;}).slice(0,8);
   if(!_matches.length){ d.classList.remove('on'); return; }
   d.innerHTML=_matches.map(function(s,i){
     var lg=LOGO[s]?('<img src="'+LOGO[s]+'" alt="" onerror="this.style.display=\'none\'">'):'';
@@ -274,41 +290,32 @@ function onKey(e){
 }
 function submitGuess(school){
   if(state.done||!TARGET)return;
-  if(state.guesses.indexOf(school)>=0)return;
-  state.guesses.push(school);
-  if(school===TARGET.team){ state.done=true; state.won=true; }
-  else if(state.guesses.length>=MAX){ state.done=true; state.won=false; }
-  save(); render();
+  state.guess=school; state.done=true;
+  state.won=(school===TARGET.team);
+  if(state.won){ streak++; if(streak>best){ best=streak; saveBest(); } }
+  saveDaily(); render();
 }
 
-// ── result ──
-function showResult(){
-  var el=document.getElementById('gr'); if(!el)return;
-  var t=TARGET, lg=LOGO[t.team];
-  var seasonBit=(scope==='all'&&t.season_year)?(seasonLbl(t.season_year)+' · '):'';
-  el.className='g-result on';
-  el.innerHTML=
-    (lg?'<img class="rz-logo" src="'+lg+'" alt="" onerror="this.style.display=\'none\'">':'')+
-    '<div class="rz-verdict '+(state.won?'win':'lose')+'">'+(state.won?'Solved in '+state.guesses.length:'Out of guesses')+'</div>'+
-    '<div class="rz-name">'+t.team+'</div>'+
-    '<div class="rz-line">'+t.name+' · '+(t.position||'')+' · '+seasonBit+confOf(t.team)+'</div>'+
-    '<div><button class="g-btn" onclick="shareResult()">Share</button>'+
-      (mode==='unlimited'?'<button class="g-btn ghost" onclick="nextGame()">Next player</button>':'')+'</div>';
-}
+// ── share ──
 function shareResult(){
-  var lines=state.guesses.map(function(s){ return (s===TARGET.team)?'🟩':((confOf(s)===confOf(TARGET.team)&&confOf(s)!=='—')?'🟨⬛':'⬛⬛'); }).join('\n');
-  var head='The Depth Chart — Guess the College #'+(DAY%100000)+'  '+(state.won?state.guesses.length:'X')+'/'+MAX;
-  var txt=head+'\n'+lines+'\nplay: thedepthchartcbb.com/game-college.html';
+  var head='The Depth Chart — Guess the College';
+  var body=(mode==='daily')
+    ? ('Daily · '+((DIFFS[difficulty]||{}).lbl||'')+': '+(state.won?('✅ '+TARGET.team):'❌'))
+    : ('🔥 Streak: '+streak+' · '+((DIFFS[difficulty]||{}).lbl||''));
+  var txt=head+'\n'+body+'\nplay: thedepthchartcbb.com/game-college.html';
   if(navigator.clipboard){navigator.clipboard.writeText(txt).then(function(){toast('Copied to clipboard!');},function(){toast('Copy failed');});}
   else toast(txt);
 }
 function toast(msg){var t=document.createElement('div');t.textContent=msg;t.style.cssText='position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.3);';document.body.appendChild(t);setTimeout(function(){t.remove();},2200);}
 
-// ── persistence (daily only; keyed by scope + difficulty + day) ──
-function dayKey(){ return 'tdc_college_'+scope+'_'+difficulty+'_'+DAY; }
-function save(){ if(mode!=='daily')return; try{localStorage.setItem(dayKey(),JSON.stringify({guesses:state.guesses,done:state.done,won:state.won,hints:state.hints}));}catch(e){} }
-function load(){ try{var s=localStorage.getItem(dayKey());if(s){var o=JSON.parse(s);state.guesses=o.guesses||[];state.done=!!o.done;state.won=!!o.won;state.hints=o.hints||0;}}catch(e){} }
-function useHint(){ if(state.done||!TARGET||(state.hints||0)>=3)return; state.hints=(state.hints||0)+1; save(); render(); }
+// ── persistence: best streak (per scope+difficulty) + today's daily result ──
+function bestKey(){ return 'tdc_college_best_'+scope+'_'+difficulty; }
+function saveBest(){ try{ localStorage.setItem(bestKey(), String(best)); }catch(e){} }
+function loadBest(){ try{ best=parseInt(localStorage.getItem(bestKey()))||0; }catch(e){ best=0; } }
+function dayKey(){ return 'tdc_college_daily_'+scope+'_'+difficulty+'_'+DAY; }
+function saveDaily(){ if(mode!=='daily')return; try{ localStorage.setItem(dayKey(),JSON.stringify({guess:state.guess,done:state.done,won:state.won,hp:state.hp})); }catch(e){} }
+function loadDaily(){ try{ var s=localStorage.getItem(dayKey()); if(s){ var o=JSON.parse(s); state.guess=o.guess||null; state.done=!!o.done; state.won=!!o.won; state.hp=o.hp||0; } }catch(e){} }
+function useHint(){ if(state.done||!TARGET||hintsLeft<=0||state.hp>=3)return; state.hp++; hintsLeft--; saveDaily(); render(); }
 
 // ── pools (mystery players) ──
 async function loadYearPool(){
@@ -348,11 +355,20 @@ function pickTarget(){
     TARGET=stable[pickIndex(DAY+(scope==='all'?424242:0)+(DSALT[difficulty]||0), stable.length)];
   } else { TARGET=pool[Math.floor(Math.random()*pool.length)]; }
 }
-function startPuzzle(){ pickTarget(); state={guesses:[],done:false,won:false,hints:0}; if(mode==='daily') load(); render(); }
-function nextGame(){ if(mode!=='unlimited')return; pickTarget(); state={guesses:[],done:false,won:false,hints:0}; render(); }
-async function setScope(s){ if(s===scope)return; scope=s; await ensurePool(); startPuzzle(); }
-async function setMode(m){ if(m===mode)return; mode=m; startPuzzle(); }
-function setDifficulty(d){ if(d===difficulty||!DIFFS[d])return; difficulty=d; startPuzzle(); }
+// nextPlayer(true) starts a fresh RUN (streak 0, hint budget refilled); nextPlayer(false)
+// advances the current streak, keeping the shared hint budget.
+function nextPlayer(newRun){
+  if(newRun){ streak=0; hintsLeft=HINT_BUDGET[difficulty]||0; }
+  pickTarget();
+  state={guess:null,done:false,won:false,hp:0};
+  if(mode==='daily'){ loadDaily(); hintsLeft=Math.max(0,(HINT_BUDGET[difficulty]||0)-state.hp); }
+  render();
+}
+function playAgain(){ nextPlayer(true); }
+function startRound(){ loadBest(); nextPlayer(true); }
+async function setScope(s){ if(s===scope)return; scope=s; await ensurePool(); startRound(); }
+async function setMode(m){ if(m===mode)return; mode=m; startRound(); }
+function setDifficulty(d){ if(d===difficulty||!DIFFS[d])return; difficulty=d; startRound(); }
 
 // ── init ──
 async function init(){
@@ -366,7 +382,7 @@ async function init(){
     }catch(e){}
     await ensurePool();
     if(!guessPool()||!guessPool().length){document.getElementById('content').innerHTML='<div class="loading">Could not load the player pool.</div>';return;}
-    startPuzzle();
+    startRound();
   }catch(e){ document.getElementById('content').innerHTML='<div class="loading">Error: '+e.message+'</div>'; }
 }
 document.addEventListener('click',function(e){var d=document.getElementById('gd');if(d&&!e.target.closest('.g-search'))d.classList.remove('on');});
