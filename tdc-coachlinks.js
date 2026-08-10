@@ -10,12 +10,9 @@ window.TDC_COACHLINKS = (function () {
     ['Scouting', [
       ['scout.html',           'Scouting Report'],
       ['shot-profile.html',    'Shot Profile'],
-      ['situational.html',     'Situational'],
       ['style-matchups.html',  'Style Matchups'],
-      ['scoring-sources.html', 'Scoring Sources'],
       ['offense.html',         'Offense'],
       ['defense.html',         'Defense'],
-      ['foul-ft.html',         'Foul & FT'],
       ['game-review.html',     'Game Review'],
       ['game-breakdown.html',  'Game Breakdown'],
     ]],
