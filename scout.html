@@ -216,7 +216,7 @@
 })();
 </script>
 <script src="tdc-nav.js?v=7"></script>
-<script src="tdc-coachlinks.js?v=19"></script>
+<script src="tdc-coachlinks.js?v=20"></script>
 <div class="page">
   <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Scouting Hub</span></div>
   <h1 data-anim>Opponent Scouting Report</h1>
@@ -632,6 +632,42 @@ async function loadShotProfile(row){
     <div class="card"><div>${['rim','mid','three'].map(row3).join('')}</div><div class="obread"><b>Attack plan:</b> ${plan}</div></div>`;
 }
 
+// ── how they fare vs different opponent STYLES (merged from style-matchups.html):
+//    2025-26 W-L + margin split by opponent tempo / shot profile / strength ──
+let _styleCuts=null;
+async function loadStyleMatchups(row){
+  const host=el('scoutStyle'); if(!host) return;
+  const dna2=(DNA&&DNA['2026']&&DNA['2026'].teams)||{}; if(!Object.keys(dna2).length){ host.innerHTML=''; return; }
+  if(!_styleCuts){ const teams=Object.values(dna2), arrf=f=>teams.map(f).filter(v=>v!=null).sort((a,b)=>a-b),
+      q=(a,p)=>a.length?a[Math.max(0,Math.min(a.length-1,Math.round(p*(a.length-1))))]:null;
+    const th=Object.keys(SG).map(k=>SG[k]&&SG[k].off&&SG[k].off.threeRate).filter(v=>v!=null).sort((a,b)=>a-b);
+    _styleCuts={ tFast:q(arrf(t=>t.tempo),.67),tSlow:q(arrf(t=>t.tempo),.33),orHi:q(arrf(t=>t.ORtg),.75),drHi:q(arrf(t=>t.DRtg),.25),thHi:q(th,.67),thLo:q(th,.33) };
+  }
+  const CUT=_styleCuts, me=row.full;
+  let games=[]; try{ games=await fetch(`${SB_URL}/rest/v1/games?or=(home.eq.${encodeURIComponent(me)},away.eq.${encodeURIComponent(me)})&season_year=eq.2026&home_score=not.is.null&select=home,away,home_score,away_score&limit=60`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  if(games.length<5){ host.innerHTML=''; return; }
+  const G=games.map(x=>{ const home=x.home===me, my=home?x.home_score:x.away_score, opp=home?x.away_score:x.home_score, oppName=home?x.away:x.home, od=dna2[oppName], s=SG[oppName];
+    return {win:my>opp,margin:my-opp,tempo:od?od.tempo:null,ortg:od?od.ORtg:null,drtg:od?od.DRtg:null,three:s&&s.off?s.off.threeRate:null}; });
+  const fast=G.filter(g=>g.tempo!=null&&g.tempo>=CUT.tFast), slow=G.filter(g=>g.tempo!=null&&g.tempo<=CUT.tSlow),
+        three=G.filter(g=>g.three!=null&&g.three>=CUT.thHi), paint=G.filter(g=>g.three!=null&&g.three<=CUT.thLo),
+        eliteO=G.filter(g=>g.ortg!=null&&g.ortg>=CUT.orHi), eliteD=G.filter(g=>g.drtg!=null&&g.drtg<=CUT.drHi);
+  const rec=gs=>{ const w=gs.filter(g=>g.win).length; return {w,l:gs.length-w,mg:gs.length?gs.reduce((s,g)=>s+g.margin,0)/gs.length:0}; };
+  const mgcol=m=>m>=0.5?'var(--green,#1a8c3a)':m<=-0.5?'var(--red,#cc2200)':'var(--text3)';
+  const vrow=(cx,desc,gs)=>{ if(gs.length<3) return ''; const r=rec(gs);
+    return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--border)"><div><b>${cx}</b> <span style="color:var(--text3);font-size:11px">${desc}</span></div><div style="font-weight:700;font-variant-numeric:tabular-nums">${r.w}–${r.l}</div><div style="min-width:52px;text-align:right;font-weight:800;color:${mgcol(r.mg)}">${r.mg>=0?'+':''}${r.mg.toFixed(1)}</div></div>`; };
+  const axes=[['Tempo',[['vs Fast','top-third pace',fast],['vs Slow','bottom-third pace',slow]]],
+    ['Shot profile',[['vs Three-heavy','perimeter offenses',three],['vs Paint-bound','interior offenses',paint]]],
+    ['Opponent strength',[['vs Elite offenses','top-25% ORtg',eliteO],['vs Elite defenses','top-25% DRtg',eliteD]]]];
+  const body=axes.map(a=>{ const rows=a[1].map(x=>vrow(x[0],x[1],x[2])).join(''); return rows?`<div style="font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin:12px 0 0">${a[0]}</div>${rows}`:''; }).join('');
+  if(!body){ host.innerHTML=''; return; }
+  const best=gs=>gs.length>=3?rec(gs):null, nm=a=>a.length===1?a[0]:a.length===2?a[0]+' and '+a[1]:a.slice(0,-1).join(', ')+' and '+a[a.length-1], parts=[];
+  const rf=best(fast),rs=best(slow); if(rf&&rs){ if(rf.mg<=rs.mg-6) parts.push(`<b>tested by pace</b> (${rf.w}–${rf.l} vs fast teams — push tempo)`); else if(rs.mg<=rf.mg-6) parts.push(`<b>at their best up-tempo</b> (slow it down)`); }
+  const rt=best(three),rp=best(paint); if(rt&&rp){ if(rt.mg<=rp.mg-6) parts.push(`<b>vulnerable to three-heavy</b> offenses (${rt.w}–${rt.l})`); else if(rp.mg<=rt.mg-6) parts.push(`<b>tough on jump-shooting teams</b>`); }
+  const reo=best(eliteO),red=best(eliteD); if(reo&&red){ if(reo.mg<=red.mg-6) parts.push(`troubled more by <b>elite offenses</b>`); else if(red.mg<=reo.mg-6) parts.push(`challenged most by <b>elite defenses</b>`); }
+  const read = parts.length ? `<b>Style read:</b> ${esc(me)} is ${nm(parts)}.` : `<b>Style read:</b> ${esc(me)} handled every style about the same — no obvious stylistic weakness in the 2025-26 results.`;
+  host.innerHTML=`<div class="sec-h" style="margin-top:22px">How they fare vs different styles <span class="hint">2025-26 results by opponent tempo · shot profile · strength</span></div><div class="card">${body}<div class="obread">${read}</div></div>`;
+}
+
 // ── their offense: how they generate + who creates + how to disrupt ──
 function offenseBreakdown(r, RN){
   const p=pbpOf(r); if(!p||!p.gp) return '';
@@ -735,6 +771,7 @@ async function render(){
     ${plan||'<div class="card"><div class="muted">Team DNA isn\'t on file for this opponent yet, so the auto game plan is unavailable.</div></div>'}
     ${profile}
     <div id="scoutSituational"></div>
+    <div id="scoutStyle"></div>
     <div class="sec-h">The Attack Book — how to guard &amp; attack each man <span class="hint">projected line · 2025-26 tendencies</span></div>
     <div id="scoutScorers"><div class="muted" style="padding:16px 4px">Projecting their rotation &amp; reading their tendencies…</div></div>
     ${offenseBreakdown(r,RN)}
@@ -752,6 +789,7 @@ async function render(){
   if(me) loadKeyMatchups(poolRow(me.key), r);
   if(sg&&sg.off) loadShotChart(r);
   loadShotProfile(r);
+  loadStyleMatchups(r);
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(r.full));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
 }
