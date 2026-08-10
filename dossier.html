@@ -137,7 +137,7 @@
 })();
 </script>
 <script src="tdc-nav.js?v=7"></script>
-<script src="tdc-coachlinks.js?v=15"></script>
+<script src="tdc-coachlinks.js?v=16"></script>
 <div class="page">
   <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Player Intelligence</span></div>
   <h1 data-anim>Player Dossier</h1>
@@ -160,7 +160,11 @@ const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>
 const R=v=>{const n=+v;return isNaN(n)?0:n;};
 const F=(v,d)=>v==null?'—':(+v).toFixed(d==null?1:d);
 
-let D=null, COLORMAP={}, selKey=null, DNA26=null, T=null, roster=[], PROJMAP={};
+let D=null, COLORMAP={}, selKey=null, DNA26=null, T=null, roster=[], PROJMAP={}, SRSRANK=null;
+async function ensureSrs(){ if(SRSRANK) return; SRSRANK={};
+  try{ const ts=await fetch(`${SB_URL}/rest/v1/team_seasons?season_year=eq.2026&srs=not.is.null&select=team,srs&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]);
+    const S={}; (ts||[]).forEach(t=>{S[t.team]=+t.srs;}); Object.keys(S).sort((a,b)=>S[b]-S[a]).forEach((t,i)=>{SRSRANK[t]=i+1;});
+  }catch(e){} }
 const poolRow=k=>k!=null?D.teams[k]:null;
 const labelOf=r=>r?r.full:'';
 function _lum(hex){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');if(hex.length<6)return .5;const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return (0.299*r+0.587*g+0.114*b)/255;}
@@ -252,7 +256,7 @@ async function loadPlayer(p, tc, row){
   el('out').innerHTML='<div class="loading">Building the file…</div>';
   let log=[], shots=[], team=[];
   try{ [log,shots]=await Promise.all([
-    fetch(`${SB_URL}/rest/v1/box_scores?espn_id=eq.${p.espn_id}&season_year=eq.2026&select=opp,min,fga,fgm,tpm,fta,tov,pts&order=date`,{headers:H}).then(r=>r.ok?r.json():[]),
+    fetch(`${SB_URL}/rest/v1/box_scores?espn_id=eq.${p.espn_id}&season_year=eq.2026&select=game_id,team,opp,min,fga,fgm,tpm,fta,tov,pts&order=date`,{headers:H}).then(r=>r.ok?r.json():[]),
     fetch(`${SB_URL}/rest/v1/shots?espn_id=eq.${p.espn_id}&season_year=eq.2026&select=made,sv,stype,period,sec_left,home_score,away_score,ast_name,team_id`,{headers:H}).then(r=>r.ok?r.json():[])
   ]); }catch(e){}
   log=log.filter(g=>R(g.min)>0);
@@ -349,10 +353,53 @@ async function loadPlayer(p, tc, row){
     zoneHtml=`<div class="sec-h">Where he scores <span class="hint">shot diet · ${tot} shots</span></div><div class="zones">${zc('rim','At the rim')}${zc('mid','Mid-range')}${zc('three','Three')}</div>`;
   }
 
+  // ── who he does it against: opponent quality / venue / close games (games + SRS) ──
+  let splitsHtml=''; await ensureSrs();
+  const gids=[...new Set(log.map(g=>g.game_id).filter(Boolean))];
+  let gRows=[]; if(gids.length){ try{ gRows=await fetch(`${SB_URL}/rest/v1/games?id=in.(${gids.join(',')})&select=id,home,away,home_score,away_score,neutral`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){} }
+  const gById={}; gRows.forEach(g=>{gById[g.id]=g;});
+  const sAgg=gs=>{ if(!gs.length) return null; let pts=0,fgm=0,fga=0,tpm=0; gs.forEach(g=>{pts+=R(g.pts);fgm+=R(g.fgm);fga+=R(g.fga);tpm+=R(g.tpm);}); return {n:gs.length,ppg:pts/gs.length,efg:fga?(fgm+0.5*tpm)/fga*100:null}; };
+  const G=log.map(b=>{ const g=gById[b.game_id]; if(!g) return null; const home=g.home===b.team, oppName=home?g.away:g.home;
+    const my=home?R(g.home_score):R(g.away_score), opp=home?R(g.away_score):R(g.home_score);
+    return {pts:R(b.pts),fgm:R(b.fgm),fga:R(b.fga),tpm:R(b.tpm),venue:g.neutral?'N':(home?'H':'A'),oppRank:(SRSRANK[oppName]!=null?SRSRANK[oppName]:999),close:Math.abs(my-opp)<=5}; }).filter(Boolean);
+  if(G.length>=6){
+    const q1=G.filter(g=>g.oppRank<=50), q2=G.filter(g=>g.oppRank>50&&g.oppRank<=150), q3=G.filter(g=>g.oppRank>150);
+    const srow=(lab,gs)=>{ const a=sAgg(gs); return a?`<div class="sp2"><div class="spl">${lab}</div><div class="a">${F(a.ppg)}</div><div class="b">${a.n}</div></div>`:''; };
+    const card=(title,rows)=>rows?`<div class="idcard n"><div class="ih"><div class="inm">${title}</div></div><div class="sp2 hd"><div class="spl"></div><div class="a">PPG</div><div class="b">Gms</div></div>${rows}</div>`:'';
+    const qCard=card('By opponent quality', srow('vs Top-50',q1)+srow('vs 51–150',q2)+srow('vs 151+',q3));
+    const vCard=card('By venue', srow('Home',G.filter(g=>g.venue==='H'))+srow('Neutral',G.filter(g=>g.venue==='N'))+srow('Road',G.filter(g=>g.venue==='A')));
+    const cCard=card('Pressure', srow('Close (≤5)',G.filter(g=>g.close))+srow('Decided by 6+',G.filter(g=>!g.close)));
+    const aq=sAgg(q1), aAll=sAgg(G), aClose=sAgg(G.filter(g=>g.close)), aRoad=sAgg(G.filter(g=>g.venue==='A'));
+    let reads=[];
+    if(aq&&aAll&&aq.n>=3){ const d=aq.ppg-aAll.ppg; reads.push(d>=1.5?`Rises against the best — <b>${F(aq.ppg)}</b> ppg vs Top-50 (${d>=0?'+':''}${F(d)}).`:d<=-2?`Pads against weaker teams — just <b>${F(aq.ppg)}</b> vs Top-50 (${F(d)}).`:`Scores about the same regardless of opponent quality.`); }
+    if(aClose&&aAll&&aClose.n>=3){ const d=aClose.ppg-aAll.ppg; if(Math.abs(d)>=2) reads.push(d>=0?`Steps up in close games (<b>${F(aClose.ppg)}</b>).`:`Quiets down in close games (<b>${F(aClose.ppg)}</b>).`); }
+    if(aRoad&&aAll&&aRoad.n>=3){ const d=aRoad.ppg-aAll.ppg; if(d<=-2.5) reads.push(`Travels poorly — <b>${F(aRoad.ppg)}</b> on the road.`); }
+    splitsHtml=`<div class="sec-h">Who he does it against <span class="hint">2025-26 scoring by quality · venue · pressure</span></div><div class="idg">${qCard}${vCard}${cCard}</div>${reads.length?`<div class="idr" style="margin-top:8px">${reads.join(' ')}</div>`:''}`;
+  }
+
+  // ── shot creation: self-created vs assisted (ast_name already fetched) ──
+  let creationHtml=''; const madeSh=shots.filter(s=>s.made);
+  if(madeSh.length>=25){
+    const isAst=s=>s.ast_name&&(''+s.ast_name).trim().length>0;
+    const ast=madeSh.filter(isAst).length, self=madeSh.length-ast, selfPct=Math.round(self/madeSh.length*100);
+    const two=madeSh.filter(s=>s.sv!==3), th=madeSh.filter(s=>s.sv===3);
+    const twoAst=two.length?Math.round(two.filter(isAst).length/two.length*100):null, thAst=th.length?Math.round(th.filter(isAst).length/th.length*100):null;
+    const label=selfPct>=55?'Shot creator':selfPct>=40?'Balanced':'Setup scorer', cls=selfPct>=55?'g':selfPct>=40?'n':'a';
+    creationHtml=`<div class="sec-h">Shot creation <span class="hint">self-created vs assisted · ${madeSh.length} makes</span></div>
+      <div class="idg"><div class="idcard ${cls}"><div class="ih"><div class="inm">${label}</div><div class="isc">${selfPct}%<small>self-created</small></div></div>
+        <div class="sp2 hd"><div class="spl"></div><div class="a">Makes</div><div class="b">Share</div></div>
+        <div class="sp2"><div class="spl">Self-created</div><div class="a">${self}</div><div class="b">${selfPct}%</div></div>
+        <div class="sp2"><div class="spl">Assisted</div><div class="a">${ast}</div><div class="b">${100-selfPct}%</div></div>
+        ${twoAst!=null?`<div class="sp2"><div class="spl">2-pt makes assisted</div><div class="a">—</div><div class="b">${twoAst}%</div></div>`:''}
+        ${thAst!=null?`<div class="sp2"><div class="spl">3-pt makes assisted</div><div class="a">—</div><div class="b">${thAst}%</div></div>`:''}
+        <div class="idr">${selfPct>=55?`Creates his own — <b>${selfPct}%</b> of his makes are unassisted; hand him the ball and let him work.`:selfPct<=35?`A finisher — <b>${100-selfPct}%</b> of his makes come off a pass; get him touches in rhythm.`:`Balanced — creates and finishes about equally.`}${twoAst!=null&&twoAst<=35?` Low 2-pt assist rate — he gets to the rim off the bounce.`:''}${thAst!=null&&thAst>=80?` His threes are almost all catch-and-shoot.`:''}</div>
+      </div></div>`;
+  }
+
   // confidence
   const [cdot,clab]=confDot(Math.min(fast.length,slow.length,hav.length,lowD.length));
 
-  el('out').innerHTML=`<div style="--tc:${tc}">${head}${projHtml}${idg}${clutchHtml}${archHtml}${zoneHtml}
+  el('out').innerHTML=`<div style="--tc:${tc}">${head}${projHtml}${idg}${splitsHtml}${clutchHtml}${archHtml}${zoneHtml}${creationHtml}
     <div class="note" style="margin-top:18px">Situational confidence <span class="conf"><span class="dot" style="background:${cdot}"></span>${clab}</span> — based on the smallest split sample. Thin buckets are directional, not definitive.</div></div>`;
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
