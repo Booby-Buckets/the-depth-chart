@@ -325,14 +325,25 @@ function render(){
 
 // ══ Command Center — personalize the whole page to the coach's chosen team ══
 let MY_TEAM=null, RD=[], CMAP={}, NIL=null, byFull={};
-try{ MY_TEAM=localStorage.getItem('tdc_coach_team')||null; }catch(e){}
+try{ MY_TEAM=localStorage.getItem('tdc_coach_team')||null; }catch(e){}   // offline fallback (full name)
 window.MY_TEAM=MY_TEAM;
+// profile-backed team choice: profiles.favorite_team (SHORT name) is the cross-device
+// source of truth — shared with the account/community/profile "favorite team".
+const SB='https://izlqhnxowdhtdofkwrho.supabase.co', SBKEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+function getSession(){ try{ return JSON.parse(localStorage.getItem('tdc_session')||'null'); }catch(e){ return null; } }
+function teamShort(full){ const r=byFull[full]; return r?r.team:full; }
+function fullFromShort(s){ if(!s) return null; const r=RD.find(t=>t.team===s||t.full===s); return r?r.full:null; }
+async function loadTeamFromProfile(){ const s=getSession(); if(!s||!s.access_token||!s.user) return null;
+  try{ const r=await fetch(`${SB}/rest/v1/profiles?id=eq.${s.user.id}&select=favorite_team`,{headers:{apikey:SBKEY,Authorization:'Bearer '+s.access_token}}).then(x=>x.ok?x.json():[]);
+    const ft=r&&r[0]&&r[0].favorite_team; return ft?fullFromShort(ft):null; }catch(e){ return null; } }
+function saveTeamToProfile(full){ const s=getSession(); if(!s||!s.access_token||!s.user) return;
+  fetch(`${SB}/rest/v1/profiles?id=eq.${s.user.id}`,{method:'PATCH',headers:{apikey:SBKEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json'},body:JSON.stringify({favorite_team:teamShort(full)})}).catch(function(){}); }
 const ccEl=document.getElementById('cc'), heroEl=document.getElementById('marketingHero');
 const nz=v=>{const n=+v;return isNaN(n)?null:n;};
 const fmtRating=v=>{const n=+v;return isNaN(n)?'—':(n>=0?'+':'')+n.toFixed(1);};
 const teamLogo=full=>(window.TDC_TEAM&&TDC_TEAM.logo)?TDC_TEAM.logo(full):'';
 
-function setTeam(full){ MY_TEAM=full; window.MY_TEAM=full; try{localStorage.setItem('tdc_coach_team',full);}catch(e){} renderTop(); window.scrollTo({top:0,behavior:'smooth'}); }
+function setTeam(full){ MY_TEAM=full; window.MY_TEAM=full; try{localStorage.setItem('tdc_coach_team',full);}catch(e){} saveTeamToProfile(full); renderTop(); window.scrollTo({top:0,behavior:'smooth'}); }
 function changeTeam(){ MY_TEAM=null; window.MY_TEAM=null; try{localStorage.removeItem('tdc_coach_team');}catch(e){} renderTop(); window.scrollTo({top:0,behavior:'smooth'}); }
 
 function wirePicker(inId,listId,onPick,excludeFull){
@@ -419,6 +430,8 @@ function renderTop(){
     (arr||[]).forEach(e=>{ if(e&&e.c1&&e.location) CMAP[e.location]=e.c1; }); }catch(e){}
   try{ const D=await TDC_RATINGS.get(); RD=(D.teams||[]).filter(t=>t.rating!=null&&t.projected!==false).sort((a,b)=>(a.rank||999)-(b.rank||999)); RD.forEach(t=>{byFull[t.full]=t;}); }catch(e){ RD=[]; }
   try{ NIL=await fetch('nil-data.json?v=lift4',{cache:'no-cache'}).then(r=>r.ok?r.json():null); }catch(e){}
+  // profile favorite_team wins across devices; falls back to the localStorage full name
+  try{ const pf=await loadTeamFromProfile(); if(pf){ MY_TEAM=pf; window.MY_TEAM=pf; try{localStorage.setItem('tdc_coach_team',pf);}catch(e){} } }catch(e){}
   renderTop();
 })();
 </script>
