@@ -67,6 +67,15 @@
     .fbtn.on{background:var(--accent);border-color:var(--accent);color:#1a1206;}
     .fcount{font-size:11.5px;color:var(--text3);font-weight:600;white-space:nowrap;}
 
+    /* more-tools collapsible */
+    .more{margin-top:12px;border-top:1px dashed var(--border);padding-top:10px;}
+    .more>summary{cursor:pointer;list-style:none;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);padding:6px 2px;display:flex;align-items:center;gap:8px;}
+    .more>summary::-webkit-details-marker{display:none;}
+    .more>summary::before{content:'▸';color:var(--accent);transition:transform .15s;display:inline-block;}
+    .more[open]>summary::before{transform:rotate(90deg);}
+    .more>summary:hover{color:var(--text);}
+    .more .mc{background:var(--bg3);color:var(--text2);border-radius:20px;padding:1px 8px;font-size:11px;}
+    .more .tool-grid{margin-top:10px;opacity:.92;}
     /* hub sections */
     #grid{padding:26px 0 20px;}
     .hub-sec{margin-bottom:34px;scroll-margin-top:80px;}
@@ -151,13 +160,15 @@
 
 <script>
 // Public marketing / launcher page (no gate). Data-driven so it's searchable + filterable.
+// deep:true = a projection-led flagship (leads the hub). Everything else is a
+// focused "more tools" deep-dive, tucked under a collapsible so the hub reads clean.
 const HUBS = [
   { id:'scout', name:'Scouting', ico:'🔍', hc:'#c0417d', tag:'Walk in knowing the opponent better than they know themselves.', tools:[
-    {h:'scout.html', n:'Opponent Scouting Report', d:'The complete dossier — game plan, statistical identity, situational splits (venue · quality · clutch), first vs second half, foul & FT profile, personnel & shot tendencies.', s:'star'},
-    {h:'matchup.html', n:'Projected Game Plan', d:'Head-to-head projection with attack / neutralize keys.'},
+    {h:'scout.html', n:'Opponent Scouting Report', d:'The complete dossier — game plan, statistical identity, situational splits (venue · quality · clutch), first vs second half, foul & FT profile, personnel & shot tendencies.', s:'star', deep:true},
+    {h:'matchup.html', n:'Projected Game Plan', d:'Head-to-head projection with attack / neutralize keys.', deep:true},
+    {h:'offense.html', n:'Offensive Profile', d:'Coach identity + projected offensive DNA, broken down by zone & shot type.', deep:true},
+    {h:'defense.html', n:'Defensive Profile', d:'Projected four factors + who protects the rim vs who can be attacked.', deep:true},
     {h:'shot-profile.html', n:'Shot Profile', d:'Where they shoot & defend by zone, plus an attack plan.'},
-    {h:'offense.html', n:'Offensive Profile', d:'Where they score, broken down by zone & shot type.'},
-    {h:'defense.html', n:'Defensive Profile', d:'Four factors + who protects the rim vs who can be attacked.'},
     {h:'situational.html', n:'Situational Profile', d:'Splits by venue, opponent quality, close games & recent form.'},
     {h:'style-matchups.html', n:'Style Matchups', d:'How they fare against your tempo & shot profile.'},
     {h:'scoring-sources.html', n:'Scoring Sources', d:'Transition, second-chance, and-1 — how points are generated.'},
@@ -166,26 +177,26 @@ const HUBS = [
     {h:'compare-teams.html', n:'Style & DNA Comparison', d:'Two teams’ identities side by side.'},
   ]},
   { id:'self', name:'Self-Scout', ico:'🪞', hc:'#3b6fd4', tag:'See your own team the way the best analysts do.', tools:[
-    {h:'moneyball.html', n:'Moneyball', d:'Roster value in Wins Added + the Goal Lab — roster-building as math.', s:'star'},
-    {h:'self-scout.html', n:'Self-Scout Report', d:'Your identity and where you’re exposed.'},
-    {h:'team.html', n:'Team DNA & Win Formula', d:'Four factors, shot quality and your winning recipe.'},
+    {h:'moneyball.html', n:'Moneyball', d:'Roster value in Wins Added + the Goal Lab — roster-building as math.', s:'star', deep:true},
+    {h:'self-scout.html', n:'Self-Scout Report', d:'Your projected identity, rotation and where you’re exposed.', deep:true},
+    {h:'team.html', n:'Team DNA & Win Formula', d:'Four factors, shot quality and your winning recipe.', deep:true},
+    {h:'lineups.html', n:'Lineup Recommender', d:'Best-fit five-man units built from your rotation.', deep:true},
+    {h:'predict.html', n:'Projected Ratings & Schedule', d:'Your projection + game-by-game odds.', deep:true},
     {h:'onoff.html', n:'On/Off & WOWY', d:'Who actually moves the needle when they play.'},
     {h:'pairings.html', n:'Lineups & Pairings', d:'Best & worst five-man units and two-man duos.'},
-    {h:'lineups.html', n:'Lineup Recommender', d:'Best-fit five-man units built from your rotation.'},
     {h:'assist-network.html', n:'Assist Network', d:'Who feeds whom — distribution hubs & finishers.'},
     {h:'rotation.html', n:'Rotation & Bench', d:'Rotation size, starter reliance & minutes volatility.'},
     {h:'team-clutch.html', n:'Team Clutch Identity', d:'Late-game offense, defense & who closes.'},
     {h:'adjustments.html', n:'Adjustment Profile', d:'Halftime swings & how you respond to runs.'},
     {h:'consistency.html', n:'Consistency Trends', d:'Each player’s game-to-game reliability.'},
-    {h:'predict.html', n:'Projected Ratings & Schedule', d:'Your projection + game-by-game odds.'},
   ]},
   { id:'player', name:'Player Intelligence', ico:'🧠', hc:'#2f9e6f', tag:'Grade, project and fit every player on your board.', tools:[
-    {h:'dossier.html', n:'Player Dossier', d:'Projected line + full splits on any player.', s:'star'},
-    {h:'predictive-profile.html', n:'Predictive Profile', d:'The scouting book — how to use him and how to attack him.'},
-    {h:'roles.html', n:'Role & Fit', d:'Archetype + how the pieces fit together.'},
+    {h:'dossier.html', n:'Player Dossier', d:'Projected line + full splits on any player.', s:'star', deep:true},
+    {h:'predictive-profile.html', n:'Predictive Profile', d:'The scouting book — how to use him and how to attack him.', deep:true},
+    {h:'roles.html', n:'Personnel Book (Role & Fit)', d:'Projected OVR + archetype, development path & how to attack every man.', deep:true},
+    {h:'portal.html', n:'Transfer Portal Fit', d:'Rank available transfers by fit for your team.', deep:true},
+    {h:'roster-dev.html', n:'Development Timeline', d:'Year-over-year grade path + trajectory read.', deep:true},
     {h:'roster.html', n:'Skill Grades', d:'Every player’s skill grades at a glance.'},
-    {h:'portal.html', n:'Transfer Portal Fit', d:'Rank available transfers by fit for your team.'},
-    {h:'roster-dev.html', n:'Development Timeline', d:'Year-over-year grade path + trajectory read.'},
     {h:'game-context.html', n:'Game Context', d:'Pace sensitivity, pressure vulnerability & foul risk.'},
     {h:'matchup-advantage.html', n:'Matchup Advantage', d:'Where a player wins (or loses) his matchup.'},
     {h:'clutch.html', n:'Clutch Role Shift', d:'How his role and shot diet change late.'},
@@ -195,10 +206,10 @@ const HUBS = [
     {n:'Recruit Fit Scores', d:'How a recruit projects into your system.', s:'soon'},
   ]},
   { id:'prep', name:'Game Prep', ico:'📋', hc:'#c8963e', tag:'Turn the numbers into a plan your staff can run.', tools:[
-    {h:'scout.html', n:'The Game Plan', d:'Auto prep cards from the opponent’s DNA — attack & neutralize.', s:'star'},
-    {h:'game-review.html', n:'Automatic Game Review', d:'Four-factor autopsy of any game on the schedule.'},
+    {h:'scout.html', n:'The Game Plan', d:'Auto prep cards from the opponent’s DNA — attack & neutralize.', s:'star', deep:true},
+    {h:'team.html', n:'AI Personnel Reports', d:'AI scouting report on every roster (starters, bench, coach fit).', s:'beta', deep:true},
     {h:'game-breakdown.html', n:'Game Breakdown', d:'Flow, runs & top performers, possession by possession.'},
-    {h:'team.html', n:'AI Personnel Reports', d:'AI scouting report on every roster (starters, bench, coach fit).', s:'beta'},
+    {h:'game-review.html', n:'Automatic Game Review', d:'Four-factor autopsy of any game on the schedule.'},
     {n:'Practice-Plan Export', d:'Ship the plan to a practice sheet.', s:'soon'},
   ]},
 ];
@@ -239,15 +250,24 @@ function render(){
     const tools=h.tools.filter(t=> !query || (t.n+' '+t.d).toLowerCase().includes(query));
     if(!tools.length) return '';
     shown+=tools.length;
+    const deep=tools.filter(t=>t.deep), extra=tools.filter(t=>!t.deep);
+    let toolsHtml;
+    if(query){                       // searching: show every match flat (don't bury hits)
+      toolsHtml=`<div class="tool-grid">${tools.map(t=>toolCard(t,h.hc)).join('')}</div>`;
+    } else {
+      toolsHtml=`<div class="tool-grid">${deep.map(t=>toolCard(t,h.hc)).join('')}</div>`;
+      if(extra.length) toolsHtml+=`<details class="more"><summary>More ${esc(h.name)} deep-dives <span class="mc">${extra.length}</span></summary><div class="tool-grid">${extra.map(t=>toolCard(t,h.hc)).join('')}</div></details>`;
+    }
+    const cnt = (!query && deep.length) ? `${deep.length} flagship${deep.length===1?'':'s'}${extra.length?` · +${extra.length} more`:''}` : `${tools.length} tool${tools.length===1?'':'s'}`;
     return `<div class="hub-sec">
       <div class="hub-head">
         <div class="hub-ico" style="--hc:${h.hc}">${h.ico}</div>
         <div class="hub-meta">
-          <div class="hub-name">${esc(h.name)} <span class="n">${tools.length} tool${tools.length===1?'':'s'}</span></div>
+          <div class="hub-name">${esc(h.name)} <span class="n">${cnt}</span></div>
           <div class="hub-tag">${esc(h.tag)}</div>
         </div>
       </div>
-      <div class="tool-grid">${tools.map(t=>toolCard(t,h.hc)).join('')}</div>
+      ${toolsHtml}
     </div>`;
   }).join('') || `<div class="noresults">No tools match “${esc(qEl.value)}”. Try “shot”, “clutch”, “portal”, or clear the search.</div>`;
   fcountEl.textContent = query||activeHub!=='all' ? `${shown} of ${total}` : `${total} tools`;
