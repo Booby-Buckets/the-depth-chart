@@ -384,7 +384,7 @@ function renderCommandCenter(row){
   let topP=null; if(nilT&&nilT.players&&nilT.players.length){ topP=[...nilT.players].sort((a,b)=>(nz(b.grade)||0)-(nz(a.grade)||0))[0]; }
   const topCard=topP?`<div class="cc-card"><div class="cl">Top-rated player</div><div class="cv">${topP.grade||'—'}</div><div class="cd">${esc(topP.name)} · ${esc(topP.pos||'')}</div></div>`
     :`<div class="cc-card"><div class="cl">Top-rated player</div><div class="cv">—</div><div class="cd">roster loading</div></div>`;
-  const schedCard=`<div class="cc-card"><div class="cl">Schedule</div><div class="cv" style="font-size:15px;line-height:1.3;margin-top:9px">2026-27 slate<br>not released yet</div><div class="cd">Opponent scouting is live now →</div></div>`;
+  const schedCard=`<div class="cc-card" id="ccSchedCard"><div class="cl">Schedule</div><div class="cv" style="font-size:16px;line-height:1.3;margin-top:9px">TBD</div><div class="cd">2026-27 slate not released yet</div></div>`;
   const LAUNCH=[
     ['🪞','self-scout.html','Self-Scout Report','identity · rotation · exposures'],
     ['🧠','roles.html','Personnel Book','role &amp; fit · how to use each man'],
@@ -410,11 +410,39 @@ function renderCommandCenter(row){
     <div class="cc-cards">${projCard}${nilCard}${topCard}${schedCard}</div>
     <div class="cc-sec">Your command center <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3)">— every tool loaded for ${esc(row.full)}</span></div>
     <div class="cc-launch">${launch}</div>
+    <div class="cc-sec">Schedule <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3)">— 2026-27, projected win % &amp; spread per game</span></div>
+    <div class="cc-panel" id="ccSched" style="max-height:360px;overflow-y:auto">Loading schedule…</div>
     <div class="cc-sec">Quick access</div>
     <div class="cc-2col">${scoutPanel}${nilPanel}</div>
     <div class="cc-sec">All tools</div>`;
   wirePicker('ccOpp','ccOppList', full=>{ location.href='scout.html?opp='+encodeURIComponent(full)+'&me='+q; }, row.full);
+  loadSchedule(row);
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(ccEl);
+}
+
+// Real 2026-27 schedule + projected odds — populates the moment games are posted;
+// shows a clean "not released" state until then. Mirrors predict.html's engine.
+async function loadSchedule(row){
+  const host=document.getElementById('ccSched'), card=document.getElementById('ccSchedCard');
+  let games=[];
+  try{ games=await fetch(`${SB}/rest/v1/games?or=(home.eq.${encodeURIComponent(row.full)},away.eq.${encodeURIComponent(row.full)})&season_year=eq.2027&select=date,home,away,neutral,status&order=date.asc&limit=60`,{headers:{apikey:SBKEY}}).then(r=>r.ok?r.json():[]); }catch(e){}
+  if(!games||!games.length){
+    if(host) host.innerHTML=`<div style="font-size:12.5px;color:var(--text3);line-height:1.65">The <b style="color:var(--text2)">2026-27 schedule hasn't been released yet.</b> It'll appear here automatically once games are posted — with a projected win probability and point spread for every matchup. Until then, scout any opponent from the panel below.</div>`;
+    return;
+  }
+  let w=0,l=0;
+  const rows=games.map(g=>{ const homeMe=g.home===row.full, oppFull=homeMe?g.away:g.home, opp=byFull[oppFull];
+    let p=null, spread='';
+    if(opp){ try{ const L=TDC_RATINGS.lineFor(row,opp,g.neutral?'neutral':(homeMe?'home':'away')); p=L.probA; spread=L.spread||''; }catch(e){} }
+    if(p!=null) p>=50?w++:l++;
+    const odds = p!=null
+      ? `<span style="font-weight:800;color:${p>=50?'var(--green,#1a8c3a)':'var(--red,#cc2200)'}">${p.toFixed(0)}%</span><span style="min-width:66px;text-align:right;color:var(--text3);font-size:11px">${esc(spread)}</span>`
+      : `<span style="min-width:66px;text-align:right;color:var(--text3);font-size:11px">—</span>`;
+    return `<div class="cc-nrow"><span style="min-width:64px;color:var(--text3);font-size:11px">${esc(g.date||'')}</span><span style="flex:1">${homeMe?'vs':'at'} <b>${esc(oppFull)}</b></span>${odds}</div>`;
+  }).join('');
+  if(host) host.innerHTML=`<div style="font-size:12.5px;font-weight:800;margin-bottom:8px">Projected record ${w}-${l} <span style="font-weight:600;color:var(--text3)">· ${games.length} games</span></div>${rows}`;
+  if(card){ const cv=card.querySelector('.cv'), cd=card.querySelector('.cd'), next=games[0], homeMe=next.home===row.full;
+    if(cv){ cv.style.fontSize='27px'; cv.textContent=`${w}-${l}`; } if(cd) cd.textContent=`projected · next ${homeMe?'vs':'at'} ${homeMe?next.away:next.home}`; }
 }
 
 function renderTop(){
