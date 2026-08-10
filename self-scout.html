@@ -111,7 +111,7 @@
 })();
 </script>
 <script src="tdc-nav.js?v=7"></script>
-<script src="tdc-coachlinks.js?v=16"></script>
+<script src="tdc-coachlinks.js?v=17"></script>
 <div class="page">
   <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Self-Scout Hub</span></div>
   <h1 data-anim>Self-Scout Report</h1>
@@ -184,6 +184,45 @@ function roleOf(p){ const pos=(p.pos||'').split('/')[0]; const big=pos==='C'||po
   return 'Wing';
 }
 
+// Rotation identity (actual 2025-26 box scores) — merged in from the retired rotation.html.
+// Complements the projected rotation above with how the minutes REALLY got used.
+async function rotationSection(row){
+  let rows=[], roster=[];
+  try{ rows=await fetch(`${SB_URL}/rest/v1/box_scores?team=eq.${encodeURIComponent(row.full)}&season_year=eq.2026&select=game_id,player,min,pts,starter&limit=6000`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  if(!rows||!rows.length) return '';
+  try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  const norm=s=>(''+s).toLowerCase().replace(/[.'’]/g,'').replace(/\s+(jr|sr|ii|iii|iv)\b/g,'').trim();
+  const retSet=new Set((roster||[]).map(p=>norm(p.name)));
+  const byGame={}; rows.forEach(x=>{ (byGame[x.game_id]=byGame[x.game_id]||[]).push(x); });
+  const games=Object.values(byGame), ng=games.length; if(ng<5) return '';
+  const mean=a=>a.length?a.reduce((s,v)=>s+v,0)/a.length:0, pstd=a=>{ if(a.length<2) return 0; const m=mean(a); return Math.sqrt(mean(a.map(v=>(v-m)*(v-m)))); };
+  let rotSizes=[],startShare=[],benchPts=[],fives={},pmin={},ppts={},pstart={};
+  games.forEach(gs=>{ rotSizes.push(gs.filter(x=>R(x.min)>=8).length);
+    const tmin=gs.reduce((s,x)=>s+R(x.min),0), smin=gs.filter(x=>x.starter).reduce((s,x)=>s+R(x.min),0);
+    if(tmin>0) startShare.push(smin/tmin);
+    benchPts.push(gs.filter(x=>!x.starter).reduce((s,x)=>s+R(x.pts),0));
+    const five=gs.filter(x=>x.starter).map(x=>x.player).sort().join('|'); if(five) fives[five]=(fives[five]||0)+1;
+    gs.forEach(x=>{ (pmin[x.player]=pmin[x.player]||[]).push(R(x.min)); (ppts[x.player]=ppts[x.player]||[]).push(R(x.pts)); pstart[x.player]=(pstart[x.player]||0)+(x.starter?1:0); });
+  });
+  const avgRot=mean(rotSizes), avgStartShare=mean(startShare)*100, avgBench=mean(benchPts);
+  const topFive=Math.max(1,...Object.values(fives)), churn=1-topFive/ng, nFives=Object.keys(fives).length;
+  const players=Object.keys(pmin).map(pl=>{ const ms=pmin[pl],gp=ms.length,mpg=mean(ms),sd=pstd(ms),cv=mpg?sd/mpg:0;
+    return {name:pl,gp,mpg,sd,cv,started:pstart[pl]||0,ret:retSet.has(norm(pl))}; }).filter(p=>p.mpg>=4&&p.gp>=6).sort((a,b)=>b.mpg-a.mpg);
+  if(!players.length) return '';
+  const core=players.slice(0,9), coreCV=mean(core.map(p=>p.cv));
+  const rvs=Math.max(0,Math.min(100,Math.round(coreCV*140*0.55+churn*100*0.45)));
+  const rvsCls=rvs<=33?'g':rvs<=55?'a':'r', rvsLab=rvs<=33?'Set rotation':rvs<=55?'Flexible':'Matchup-driven';
+  const maxMpg=Math.max(...players.map(p=>p.mpg),1);
+  const tile=(l,v,d,cls)=>`<div style="border:1px solid var(--border);border-radius:11px;background:var(--bg);padding:12px 14px;"><div style="font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3)">${l}</div><div style="font-family:'Playfair Display',serif;font-weight:800;font-size:26px;line-height:1.1;margin-top:4px;${cls==='g'?'color:var(--green)':cls==='r'?'color:var(--red)':cls==='a'?'color:var(--amber)':''}">${v}</div><div style="font-size:10.5px;color:var(--text3);margin-top:2px">${d}</div></div>`;
+  const cards=`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">${tile('Rotation size',avgRot.toFixed(1),'players 8+ min a game')}${tile('Starter reliance',avgStartShare.toFixed(0)+'%','of minutes to starters')}${tile('Bench scoring',avgBench.toFixed(1),'pts a game off the bench')}${tile('Rotation volatility',rvs,rvsLab+' · '+nFives+' starting fives',rvsCls)}</div>`;
+  const depthWord=avgRot>=9.5?'goes deep with a':avgRot>=8?'runs a':'plays a tight';
+  const fiveWord=churn<0.25?`the same starting five in ${topFive} of ${ng} games`:`${nFives} different starting fives across ${ng} games`;
+  const read=`<div class="obread" style="margin-top:12px"><b>${esc(row.full)}</b> ${depthWord} <b>${avgRot.toFixed(1)}-man</b> rotation and gives the starters <b>${avgStartShare.toFixed(0)}%</b> of the minutes — ${fiveWord}. The bench chipped in <b>${avgBench.toFixed(1)}</b> points a night.</div>`;
+  const prow=p=>{ const tag=p.started>=ng*0.7?'Starter':p.started<=ng*0.15?'Bench':'Spot starter', volT=p.cv<0.22?'Steady':p.cv<0.38?'Variable':'Swingy';
+    return `<div class="pcard" style="display:flex;align-items:center;gap:12px"><div class="pcwho" style="flex:1;min-width:0"><div class="pcn">${p.ret?'<span style="color:var(--accent)">●</span> ':''}${esc(p.name)}<span class="pcpos">${tag} · ${volT}</span></div><div style="height:6px;border-radius:3px;background:var(--bg3);margin-top:6px;overflow:hidden"><div style="height:100%;width:${Math.round(p.mpg/maxMpg*100)}%;background:var(--tc,var(--accent))"></div></div></div><div style="text-align:right;min-width:78px"><div style="font-family:'Playfair Display',serif;font-weight:800;font-size:16px">${p.mpg.toFixed(1)}</div><div style="font-size:9.5px;color:var(--text3)">mpg ±${p.sd.toFixed(1)}</div></div></div>`; };
+  return `<div class="sec-h">Rotation identity <span class="hint">actual 2025-26 · ● = still on the roster</span></div><div class="card">${cards}${read}<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">${players.slice(0,10).map(prow).join('')}</div></div>`;
+}
+
 async function loadTeam(){
   const row=poolRow(selKey); if(!row) return; const tc=teamColor(row);
   el('out').innerHTML='<div class="loading">Auditing your team…</div>';
@@ -223,8 +262,12 @@ async function loadTeam(){
     const feeds=(p.feeds||[]).slice(0,3);
     const srcHtml=src.length?`<div class="obchips">${src.map(s=>`<span class="obchip"><b>${s[0]}</b> · ${s[1]}</span>`).join('')}</div>`:`<div class="obchips"><span class="obchip">A half-court, balanced offense — no single source carries you above the norm</span></div>`;
     const hubHtml=feeds.length?`<div class="obsub">Who creates it</div>`+feeds.map(f=>`<div class="obfeed"><span><b>${esc(f.from)}</b> → ${esc(f.to)}</span><span class="obn">${f.n} assists${f.pts?` · ${f.pts} pts`:''}</span></div>`).join(''):'';
+    // who gets set up — aggregate feeds by the finisher (data already loaded)
+    const finMap={}; (p.feeds||[]).forEach(f=>{ if(f.to) finMap[f.to]=(finMap[f.to]||0)+f.n; });
+    const fins=Object.keys(finMap).map(k=>({to:k,n:finMap[k]})).sort((a,b)=>b.n-a.n).slice(0,3);
+    const finHtml=fins.length?`<div class="obsub">Who gets set up</div>`+fins.map(f=>`<div class="obfeed"><span><b>${esc(f.to)}</b></span><span class="obn">${f.n} assists received</span></div>`).join(''):'';
     const dep = feeds.length&&feeds[0].n>=18?` Heavy reliance on <b>${esc(feeds[0].from)}</b> as the hub — if he's off the floor or blitzed, have a secondary creator ready.`:'';
-    offHtml=`<div class="sec-h">Your offense — how you generate <span class="hint">2025-26 play-by-play</span></div><div class="card">${srcHtml}${hubHtml}<div class="obread"><b>Self-check:</b> lean into what works, but a scout will try to take away your top source.${dep}</div></div>`;
+    offHtml=`<div class="sec-h">Your offense — how you generate <span class="hint">2025-26 play-by-play</span></div><div class="card">${srcHtml}${hubHtml}${finHtml}<div class="obread"><b>Self-check:</b> lean into what works, but a scout will try to take away your top source.${dep}</div></div>`;
   }
 
   // ── your defense — where you're exposed ──
@@ -240,7 +283,8 @@ async function loadTeam(){
     }
   }
 
-  el('out').innerHTML=`<div style="--tc:${tc}">${idHtml}${rotHtml}${offHtml}${defHtml}<div id="ssLineupHost"></div></div>`;
+  el('out').innerHTML=`<div style="--tc:${tc}">${idHtml}${rotHtml}${offHtml}${defHtml}<div id="ssRotHost"></div><div id="ssLineupHost"></div></div>`;
+  rotationSection(row).then(function(h){ var rh=document.getElementById('ssRotHost'); if(rh&&h){ rh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(rh); } });
   if(window.TDC_LINEUPS) TDC_LINEUPS.section(row.full, 2026).then(function(h){ var lh=document.getElementById('ssLineupHost'); if(lh&&h){ lh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(lh); } });
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
