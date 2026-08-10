@@ -15,6 +15,7 @@
   <meta name="twitter:description" content="Advanced college basketball roster rankings, team & player analytics, NIL values, and 2026-27 projections for all of Division I.">
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=2"></script>
+  <script src="auth.js?v=paywall4"></script>
   <script src="tdc-glossary.js?v=12"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -123,6 +124,19 @@
   </style>
 </head>
 <body>
+  <script>
+  (function(){
+    if(window.TDC_PAYWALL_ENABLED===false||(window.tdcIsOwner&&window.tdcIsOwner())) return;
+    var REQUIRED_PLANS=['coach'];
+    var s=null; try{ s=JSON.parse(localStorage.getItem('tdc_session')||'null'); }catch(e){}
+    if(!s||!s.access_token){ location.href='pricing.html?gate=coach'; return; }
+    fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user.id+'&select=plan',
+      {headers:{apikey:'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye',Authorization:'Bearer '+s.access_token}})
+      .then(function(r){return r.json();}).then(function(rows){var p=rows&&rows[0];
+        if(!p||REQUIRED_PLANS.indexOf(p.plan)<0) location.href='pricing.html?gate=coach';
+      }).catch(function(){ location.href='pricing.html?gate=coach'; });
+  })();
+  </script>
   <script src="tdc-nav.js?v=7"></script>
   <div class="page">
     <h1 data-anim>Projected Game Plan</h1>
