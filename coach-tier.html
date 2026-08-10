@@ -20,6 +20,8 @@
   <meta name="description" content="A coaching staff's analytics department in one subscription — opponent scouting, self-scout, player intelligence and game prep."/>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="auth.js?v=paywall4"></script>
+  <script src="tdc-ratings.js?v=7"></script>
+  <script src="tdc-teamlink.js?v=2"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -111,6 +113,62 @@
     .close h3{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;letter-spacing:-.01em;margin-bottom:8px;}
     .close p{font-size:13.5px;color:var(--text2);max-width:520px;margin:0 auto 20px;line-height:1.6;}
     .close .fine{font-size:11px;color:var(--text3);margin-top:14px;}
+    /* ── command center (personalized to your team) ── */
+    .cc-choose{border:1px solid var(--border2);border-radius:18px;margin:18px 0 6px;padding:26px 24px;text-align:center;
+      background:radial-gradient(120% 140% at 50% 0%,color-mix(in srgb,var(--accent) 10%,var(--bg2)),var(--bg2));}
+    .cc-choose .cc-k{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);}
+    .cc-choose h2{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;letter-spacing:-.01em;margin:8px 0 6px;}
+    .cc-choose p{font-size:13px;color:var(--text2);max-width:560px;margin:0 auto 16px;line-height:1.6;}
+    .cc-pick{position:relative;max-width:420px;margin:0 auto;}
+    .cc-pick input{width:100%;padding:13px 16px;border:1px solid var(--accent);border-radius:11px;background:var(--bg);color:var(--text);font-family:inherit;font-size:15px;font-weight:600;outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent);}
+    .cc-list{display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:40;max-height:320px;overflow-y:auto;background:var(--bg);border:1px solid var(--border2);border-radius:11px;box-shadow:0 14px 34px rgba(0,0,0,.22);text-align:left;}
+    .cc-list.on{display:block;}
+    .cc-opt{padding:10px 14px;cursor:pointer;font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px;}
+    .cc-opt:hover,.cc-opt.sel{background:var(--bg3);}
+    .cc-opt img{width:22px;height:22px;object-fit:contain;}
+    .cc-opt .cr{margin-left:auto;color:var(--text3);font-size:12px;}
+    /* hero when a team is chosen */
+    .cc-hero{display:flex;align-items:center;gap:20px;flex-wrap:wrap;border:1px solid var(--border2);border-radius:20px;margin:16px 0 14px;padding:22px 26px;
+      background:radial-gradient(130% 160% at 0 0,color-mix(in srgb,var(--tc,var(--accent)) 15%,var(--bg2)),var(--bg2));}
+    .cc-hero .cc-badge{width:74px;height:74px;border-radius:18px;background:var(--bg3);display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:8px;}
+    .cc-hero .cc-badge img{width:100%;height:100%;object-fit:contain;}
+    .cc-hero .cc-id{flex:1;min-width:220px;}
+    .cc-hero .cc-eyebrow{font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);}
+    .cc-hero h1{font-family:'Playfair Display',serif;font-weight:800;font-size:34px;letter-spacing:-.01em;line-height:1.02;margin:5px 0 4px;}
+    .cc-hero .cc-sub{font-size:13px;color:var(--text2);font-weight:600;}
+    .cc-hero .cc-sub b{color:var(--text);}
+    .cc-change{font-size:12px;font-weight:700;color:var(--text3);border:1px solid var(--border2);border-radius:9px;padding:8px 13px;background:var(--bg);cursor:pointer;transition:border-color .15s,color .15s;}
+    .cc-change:hover{border-color:var(--accent);color:var(--accent);}
+    /* insight cards */
+    .cc-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:8px;}
+    @media(max-width:760px){.cc-cards{grid-template-columns:repeat(2,1fr);}}
+    .cc-card{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:15px 16px;}
+    .cc-card .cl{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .cc-card .cv{font-family:'Playfair Display',serif;font-weight:800;font-size:27px;line-height:1.05;margin-top:5px;}
+    .cc-card .cd{font-size:11px;color:var(--text3);margin-top:3px;line-height:1.4;}
+    .cc-badge2{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:2px 8px;border-radius:20px;margin-top:6px;}
+    .cc-badge2.deal{color:var(--green,#1a8c3a);background:color-mix(in srgb,var(--green,#1a8c3a) 15%,transparent);}
+    .cc-badge2.overpay{color:var(--red,#cc2200);background:color-mix(in srgb,var(--red,#cc2200) 15%,transparent);}
+    .cc-badge2.fair{color:var(--accent);background:color-mix(in srgb,var(--accent) 15%,transparent);}
+    /* quick-launch flagships */
+    .cc-sec{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:26px 0 12px;display:flex;align-items:center;gap:10px;}
+    .cc-sec::after{content:'';flex:1;height:1px;background:var(--border);}
+    .cc-launch{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;}
+    .cc-tool{display:flex;align-items:center;gap:11px;border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:13px 15px;text-decoration:none;color:inherit;transition:border-color .15s,transform .12s;}
+    .cc-tool:hover{border-color:var(--tc,var(--accent));transform:translateY(-1px);}
+    .cc-tool .ci{font-size:18px;width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--tc,var(--accent)) 12%,var(--bg3));flex-shrink:0;}
+    .cc-tool>span:last-child{display:flex;flex-direction:column;min-width:0;}
+    .cc-tool .cn{font-size:13.5px;font-weight:800;display:block;} .cc-tool .cds{font-size:10.5px;color:var(--text3);margin-top:2px;display:block;}
+    /* NIL earners + opponent scout row */
+    .cc-2col{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    @media(max-width:760px){.cc-2col{grid-template-columns:1fr;}}
+    .cc-panel{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:15px 17px;}
+    .cc-panel h4{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
+    .cc-nrow{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;padding:6px 0;border-top:1px solid var(--border);}
+    .cc-nrow:first-of-type{border-top:none;} .cc-nrow b{font-weight:700;} .cc-nrow .nv{font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;}
+    .cc-oppwrap{position:relative;}
+    .cc-oppwrap input{width:100%;padding:11px 14px;border:1px solid var(--border2);border-radius:10px;background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;font-weight:600;outline:none;}
+    .cc-oppwrap input:focus{border-color:var(--accent);}
   </style>
   <link rel="stylesheet" href="tdc-dense.css?v=29"/>
   <link rel="stylesheet" href="tdc-skin.css?v=7"/>
@@ -123,7 +181,7 @@
 <body data-anim-auto>
 <script src="tdc-nav.js?v=7"></script>
 
-<div class="hero">
+<div class="hero" id="marketingHero">
   <div class="hero-orbs" aria-hidden="true"><div class="horb a"></div><div class="horb b"></div></div>
   <div class="wrap hero-in">
     <div class="kicker" data-anim>⬡ Coach's Tier</div>
@@ -135,6 +193,8 @@
     </div>
   </div>
 </div>
+
+<div class="wrap"><div id="cc"></div></div>
 
 <div class="finder">
   <div class="wrap finder-in">
@@ -224,7 +284,8 @@ function toolCard(t, hc){
   const soon=t.s==='soon', live=!t.s||t.s==='star';
   const chip = t.s==='beta'?'<span class="chip beta">Beta</span>' : t.s==='soon'?'<span class="chip soon">Soon</span>' : t.s==='star'?'<span class="chip star">★ Start</span>' : '';
   const tag = soon ? 'div' : 'a';
-  const href = soon ? '' : `href="${t.h}"`;
+  const q = (window.MY_TEAM && t.h && t.h.indexOf('.html')>=0) ? ('?team='+encodeURIComponent(window.MY_TEAM)) : '';
+  const href = soon ? '' : `href="${t.h}${q}"`;
   return `<${tag} class="tool ${soon?'soon locked':''}" ${href} style="--hc:${hc}" data-name="${esc((t.n+' '+t.d).toLowerCase())}">
     <span class="tdot"></span>
     <span class="tool-body"><span class="tool-name">${esc(t.n)}${chip}</span><span class="tool-desc">${esc(t.d)}</span></span>
@@ -261,7 +322,105 @@ function render(){
   }).join('') || `<div class="noresults">No tools match “${esc(qEl.value)}”. Try “shot”, “clutch”, “portal”, or clear the search.</div>`;
   fcountEl.textContent = query||activeHub!=='all' ? `${shown} of ${total}` : `${total} tools`;
 }
-render();
+
+// ══ Command Center — personalize the whole page to the coach's chosen team ══
+let MY_TEAM=null, RD=[], CMAP={}, NIL=null, byFull={};
+try{ MY_TEAM=localStorage.getItem('tdc_coach_team')||null; }catch(e){}
+window.MY_TEAM=MY_TEAM;
+const ccEl=document.getElementById('cc'), heroEl=document.getElementById('marketingHero');
+const nz=v=>{const n=+v;return isNaN(n)?null:n;};
+const fmtRating=v=>{const n=+v;return isNaN(n)?'—':(n>=0?'+':'')+n.toFixed(1);};
+const teamLogo=full=>(window.TDC_TEAM&&TDC_TEAM.logo)?TDC_TEAM.logo(full):'';
+
+function setTeam(full){ MY_TEAM=full; window.MY_TEAM=full; try{localStorage.setItem('tdc_coach_team',full);}catch(e){} renderTop(); window.scrollTo({top:0,behavior:'smooth'}); }
+function changeTeam(){ MY_TEAM=null; window.MY_TEAM=null; try{localStorage.removeItem('tdc_coach_team');}catch(e){} renderTop(); window.scrollTo({top:0,behavior:'smooth'}); }
+
+function wirePicker(inId,listId,onPick,excludeFull){
+  const inp=document.getElementById(inId), list=document.getElementById(listId); if(!inp||!list) return;
+  let sel=-1, matches=[];
+  const draw=()=>{ const q=(inp.value||'').toLowerCase().trim();
+    matches=RD.filter(t=>t.full!==excludeFull && (!q || (t.full+' '+t.team).toLowerCase().includes(q))).slice(0,30);
+    list.innerHTML=matches.map((t,i)=>`<div class="cc-opt${i===sel?' sel':''}" data-full="${esc(t.full)}">${(window.TDC_TEAM&&TDC_TEAM.logoImg)?TDC_TEAM.logoImg(t.full):''}<span>${esc(t.full)}</span><span class="cr">#${t.rank||'—'}</span></div>`).join('')||'<div class="cc-opt">No teams match</div>';
+    list.classList.add('on');
+  };
+  inp.addEventListener('focus',draw); inp.addEventListener('input',()=>{sel=-1;draw();});
+  inp.addEventListener('keydown',e=>{ if(e.key==='ArrowDown'){e.preventDefault();sel=Math.min(sel+1,matches.length-1);draw();}
+    else if(e.key==='ArrowUp'){e.preventDefault();sel=Math.max(sel-1,0);draw();}
+    else if(e.key==='Enter'){e.preventDefault(); const p=sel>=0?matches[sel]:matches[0]; if(p)onPick(p.full);}
+    else if(e.key==='Escape'){list.classList.remove('on');inp.blur();} });
+  inp.addEventListener('blur',()=>setTimeout(()=>list.classList.remove('on'),160));
+  list.addEventListener('mousedown',e=>{ const it=e.target.closest('.cc-opt'); if(it&&it.dataset.full){ e.preventDefault(); onPick(it.dataset.full); } });
+}
+
+function renderChoose(){
+  ccEl.innerHTML=`<div class="cc-choose">
+    <div class="cc-k">⬡ Your command center</div>
+    <h2>Pick the team you're representing</h2>
+    <p>Choose your program — or your favorite team — and this page becomes its command center: every tool pre-loaded for your roster, plus NIL value, your projection, and one-click scouting of any opponent.</p>
+    <div class="cc-pick"><input id="ccPick" type="text" placeholder="Search your team…" autocomplete="off"><div class="cc-list" id="ccList"></div></div>
+  </div>`;
+  wirePicker('ccPick','ccList', setTeam);
+}
+
+function renderCommandCenter(row){
+  const tc=CMAP[row.team]||CMAP[row.full]||'var(--accent)', q=encodeURIComponent(row.full), logo=teamLogo(row.full);
+  const nilT=(NIL&&NIL.teams&&NIL.teams[row.team])||null;
+  const projCard=`<div class="cc-card"><div class="cl">Projected 2026-27</div><div class="cv">#${row.rank||'—'}</div><div class="cd">rating ${fmtRating(row.rating)} · ${esc(row.conf||'')}</div></div>`;
+  let nilCard;
+  if(nilT){ const v=(nilT.verdict||'').toLowerCase(), vc=v.indexOf('deal')>=0?'deal':v.indexOf('over')>=0?'overpay':'fair';
+    nilCard=`<div class="cc-card"><div class="cl">NIL roster value</div><div class="cv">$${(nz(nilT.value)||0).toFixed(1)}m</div><div class="cd">Tier ${nilT.tier||'—'} · budget $${(nz(nilT.budget)||0).toFixed(0)}m</div><span class="cc-badge2 ${vc}">${esc(nilT.verdict||'—')}</span></div>`;
+  } else nilCard=`<div class="cc-card"><div class="cl">NIL roster value</div><div class="cv">—</div><div class="cd">NIL model not on file yet</div></div>`;
+  let topP=null; if(nilT&&nilT.players&&nilT.players.length){ topP=[...nilT.players].sort((a,b)=>(nz(b.grade)||0)-(nz(a.grade)||0))[0]; }
+  const topCard=topP?`<div class="cc-card"><div class="cl">Top-rated player</div><div class="cv">${topP.grade||'—'}</div><div class="cd">${esc(topP.name)} · ${esc(topP.pos||'')}</div></div>`
+    :`<div class="cc-card"><div class="cl">Top-rated player</div><div class="cv">—</div><div class="cd">roster loading</div></div>`;
+  const schedCard=`<div class="cc-card"><div class="cl">Schedule</div><div class="cv" style="font-size:15px;line-height:1.3;margin-top:9px">2026-27 slate<br>not released yet</div><div class="cd">Opponent scouting is live now →</div></div>`;
+  const LAUNCH=[
+    ['🪞','self-scout.html','Self-Scout Report','identity · rotation · exposures'],
+    ['🧠','roles.html','Personnel Book','role &amp; fit · how to use each man'],
+    ['📈','dossier.html','Player Dossier','projected line + full splits'],
+    ['💰','moneyball.html','Moneyball','roster value in Wins Added'],
+    ['🔁','lineups.html','Lineup Recommender','best-fit five-man units'],
+    ['📊','team.html','Team DNA & Win Formula','four factors + winning recipe'],
+    ['📅','predict.html','Projected Ratings','rating + game-by-game odds'],
+    ['🌱','roster-dev.html','Development','year-over-year trajectory'],
+  ];
+  const launch=LAUNCH.map(t=>`<a class="cc-tool" style="--tc:${tc}" href="${t[1]}?team=${q}"><span class="ci">${t[0]}</span><span><span class="cn">${t[2]}</span><span class="cds">${t[3]}</span></span></a>`).join('');
+  let nilList='';
+  if(nilT&&nilT.players&&nilT.players.length){ const top=[...nilT.players].filter(p=>nz(p.value)!=null).sort((a,b)=>(nz(b.value)||0)-(nz(a.value)||0)).slice(0,5);
+    nilList=top.map(p=>`<div class="cc-nrow"><span><b>${esc(p.name)}</b> <span style="color:var(--text3)">${esc(p.pos||'')}</span></span><span class="nv">$${(nz(p.value)||0).toFixed(2)}m</span></div>`).join(''); }
+  const nilPanel=`<div class="cc-panel"><h4>Top NIL earners</h4>${nilList||'<div class="cd" style="font-size:12px;color:var(--text3)">No NIL breakdown for this team yet.</div>'}</div>`;
+  const scoutPanel=`<div class="cc-panel"><h4>Scout an opponent</h4><div class="cc-oppwrap"><input id="ccOpp" type="text" placeholder="Search an opponent to scout…" autocomplete="off"><div class="cc-list" id="ccOppList"></div></div><div class="cd" style="font-size:11px;color:var(--text3);margin-top:8px">Opens a full scouting report — with your team set as the matchup.</div></div>`;
+  ccEl.innerHTML=`
+    <div class="cc-hero" style="--tc:${tc}">
+      <div class="cc-badge">${logo?`<img src="${logo}" alt="" onerror="this.parentNode.textContent='${esc((row.full||'').slice(0,3).toUpperCase())}'">`:esc((row.full||'').slice(0,3).toUpperCase())}</div>
+      <div class="cc-id"><div class="cc-eyebrow">⬡ Coach's Command Center</div><h1>${esc(row.full)}</h1><div class="cc-sub"><b>${esc(row.conf||'')}</b> · #${row.rank||'—'} projected · rating <b>${fmtRating(row.rating)}</b></div></div>
+      <button class="cc-change" onclick="changeTeam()">Change team</button>
+    </div>
+    <div class="cc-cards">${projCard}${nilCard}${topCard}${schedCard}</div>
+    <div class="cc-sec">Your command center <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3)">— every tool loaded for ${esc(row.full)}</span></div>
+    <div class="cc-launch">${launch}</div>
+    <div class="cc-sec">Quick access</div>
+    <div class="cc-2col">${scoutPanel}${nilPanel}</div>
+    <div class="cc-sec">All tools</div>`;
+  wirePicker('ccOpp','ccOppList', full=>{ location.href='scout.html?opp='+encodeURIComponent(full)+'&me='+q; }, row.full);
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(ccEl);
+}
+
+function renderTop(){
+  window.MY_TEAM=MY_TEAM;
+  if(MY_TEAM && byFull[MY_TEAM]){ if(heroEl) heroEl.style.display='none'; renderCommandCenter(byFull[MY_TEAM]); }
+  else { if(heroEl) heroEl.style.display=''; renderChoose(); }
+  render();
+}
+
+(async function ccInit(){
+  render();  // paint the hub immediately
+  try{ const arr=await fetch('scripts/data/team_colors.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
+    (arr||[]).forEach(e=>{ if(e&&e.c1&&e.location) CMAP[e.location]=e.c1; }); }catch(e){}
+  try{ const D=await TDC_RATINGS.get(); RD=(D.teams||[]).filter(t=>t.rating!=null&&t.projected!==false).sort((a,b)=>(a.rank||999)-(b.rank||999)); RD.forEach(t=>{byFull[t.full]=t;}); }catch(e){ RD=[]; }
+  try{ NIL=await fetch('nil-data.json?v=lift4',{cache:'no-cache'}).then(r=>r.ok?r.json():null); }catch(e){}
+  renderTop();
+})();
 </script>
 </body>
 </html>
