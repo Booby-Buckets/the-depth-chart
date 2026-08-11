@@ -589,11 +589,15 @@ async function ensureMarketData(){
   const rateFor=t=>tierRate[t]||globalRate;
   // price winning value on ITS OWN $/win rate (wwins is on the owned-WA scale, not the grade-WA
   // scale), so the median player prices ~fair vs cost and buy/overpay measure real deviation.
-  // put win value on the MARKET-VALUE scale: Σ(win value) ≈ Σ(market value) over scored players, so
-  // on average a player's win value ≈ what the market pays and only real deviations flag over/under.
+  // Price winning value CONVEXLY (like the market prices stars) so elite winners are worth
+  // disproportionately more and the top isn't uniformly flagged 'overpay'. Aggregate preserved:
+  // Σ(win value) ≈ Σ(market value) over scored players.
+  const WIN_CVX=1.4;
   const _sc=arr.filter(p=>p.wwins!=null&&p.wwins>0);
-  const _sMV=_sc.reduce((s,p)=>s+(p.marketVal||0),0), _sWW=_sc.reduce((s,p)=>s+p.wwins,0);
-  const winRate=_sWW>0?_sMV/_sWW:globalRate;
+  const _sMV=_sc.reduce((s,p)=>s+(p.marketVal||0),0), _sWWp=_sc.reduce((s,p)=>s+Math.pow(p.wwins,WIN_CVX),0);
+  const winK=_sWWp>0?_sMV/_sWWp:globalRate;
+  const winValueOf=w=>winK*Math.pow(Math.max(0,w),WIN_CVX);
+  const winRate=winValueOf(1);   // $/win reference (value of a 1-win player)
   // GM Mode needs a winning contribution for EVERY player; the unscored (freshmen) fall back to
   // grade-WA rescaled onto the winning-score scale.
   const _mw=arr.filter(p=>p.wwins!=null&&p.wwins>0).map(p=>p.wwins).sort((a,b)=>a-b);
@@ -605,15 +609,15 @@ async function ensureMarketData(){
     p.verdict=(p.pct>=0.30&&p.wa>=1.0)?'buy':(p.pct<=-0.30)?'over':'fair';
     // WINNING VALUE = what his win-driver production is worth, priced at the winning $/win rate.
     // Verdict = Winning Value vs Cost (the true Moneyball inefficiency), when we have a winning score.
-    p.winVal=(p.wwins!=null)?p.wwins*winRate:null;
+    p.winVal=(p.wwins!=null)?winValueOf(p.wwins):null;
     if(p.winVal!=null){ p.winSurplus=p.winVal-p.cost; p.winPct=p.winSurplus/Math.max(p.cost,0.25);
       p.winVerdict=(p.winPct>=0.25)?'buy':(p.winPct<=-0.25)?'over':'fair'; p.winpd=p.wwins/Math.max(p.cost,0.05); }
     else { p.winVal=null; p.winSurplus=null; p.winVerdict=null; p.winpd=null; }
     // winning contribution (all players, freshmen scaled from grade-WA) for GM Mode + the Ledger
     p.wcon=(p.wwins!=null)?p.wwins:Math.max(0,p.wa*waToWcon);
-    p.wconVal=p.wcon*winRate; p.wconSurp=p.wconVal-p.cost;
+    p.wconVal=winValueOf(p.wcon); p.wconSurp=p.wconVal-p.cost;
     const _wcp=p.wconSurp/Math.max(p.cost,0.25); p.wconVerdict=_wcp>=0.25?'buy':_wcp<=-0.25?'over':'fair'; });
-  MKT={players:arr, rate:globalRate, winRate, tierRate, rateFor};
+  MKT={players:arr, rate:globalRate, winRate, winValOf:winValueOf, tierRate, rateFor};
   return MKT;
 }
 async function bootMarket(){
@@ -752,6 +756,8 @@ function rosterWA(list){ if(!list.length) return 0; const mn=rosterMinutes(list)
 // allocated share of the 200-minute rotation (so stacking talent past a full rotation diminishes).
 function rosterWinning(list){ if(!list.length) return 0; const mn=rosterMinutes(list); return sum(list.map((p,i)=>(p.wcon||0)*(mn[i]/Math.max(p.min,1)))); }
 function rosterWinsRaw(list){ return WA_INTERCEPT+WA_SLOPE*rosterWinning(list); }
+// team winning VALUE ($): convex per-player pricing (a star is worth disproportionately more), minute-scaled
+function rosterWinningValue(list){ const f=(window.MKT&&MKT.winValOf)||(w=>w*((window.MKT&&MKT.winRate)||1)); if(!list.length) return 0; const mn=rosterMinutes(list); return sum(list.map((p,i)=>f((p.wcon||0)*(mn[i]/Math.max(p.min,1))))); }
 function rosterWins(list){ return list.length?Math.max(0,Math.min(37,rosterWinsRaw(list))):0; }
 function posBreak(R){ const c={G:0,F:0,C:0}; R.forEach(p=>c[posBucket(p.pos)]++); return `${c.G}G ${c.F}F ${c.C}C`; }
 function goalReached(wins){ let best=null; for(const g of GOALS){ if(wins>=projWins(g.rtg)-0.4) best=g; } return best; }
@@ -818,7 +824,7 @@ function renderGMDash(){
   const R=gmState.roster, cap=gmState.cap;
   const spend=sum(R.map(p=>p.cost)), over=spend>cap+1e-6;
   const wins=rosterWins(R);
-  const winValTot=rosterWinning(R)*(MKT.winRate||MKT.rate);          // minute-constrained roster winning worth
+  const winValTot=rosterWinningValue(R);                             // minute-constrained roster winning worth (convex)
   const surplus=sum(R.map(p=>(p.wconVal||0)-p.cost));               // winning-value surplus (worth − paid)
   const goal=goalReached(wins), next=nextGoal(wins);
   const pctBar=cap>0?Math.min(100,100*spend/cap):(spend>0?100:0);
@@ -845,7 +851,7 @@ function renderGMRoster(){
   const R=gmState.roster;
   if(!R.length){ $id('gmRoster').innerHTML='<div class="gm-empty">No one signed yet.<br>Hit <b>⚡ Auto-build</b> for an instant roster, or add players from the right.</div>'; $id('gmRosterSub').textContent=''; return; }
   const mn=rosterMinutes(R);
-  const rows=R.map((p,i)=>({p, mn:mn[i], wv:(p.wcon||0)*(mn[i]/Math.max(p.min,1))*(MKT.winRate||MKT.rate)})).sort((a,b)=>b.wv-a.wv);
+  const rows=R.map((p,i)=>({p, mn:mn[i], wv:(MKT.winValOf?MKT.winValOf((p.wcon||0)*(mn[i]/Math.max(p.min,1))):0)})).sort((a,b)=>b.wv-a.wv);
   $id('gmRosterSub').textContent=posBreak(R)+' · '+R.length;
   $id('gmRoster').innerHTML=rows.map(r=>`<div class="gm-p">
     <div class="nm">${esc(r.p.name)}<span class="posdot">${posBucket(r.p.pos)}</span>${r.p.ws!=null?`<span class="posdot" style="color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,transparent)" title="Winning score">WS ${Math.round(r.p.ws)}</span>`:''}<div class="pt">${esc(r.p.full)} · ${r.mn.toFixed(0)} min</div></div>
@@ -882,8 +888,8 @@ function buildLedger(){
   MKT.players.forEach(p=>{ (byTeam[p.team]=byTeam[p.team]||{team:p.team,full:p.full,conf:p.conf,tier:p.tier,players:[]}).players.push(p); });
   return Object.values(byTeam).map(t=>{
     t.spend=sum(t.players.map(p=>p.cost));                 // what the program pays
-    t.winning=rosterWinning(t.players);                    // minute-constrained winning contribution
-    t.winVal=t.winning*(MKT.winRate||MKT.rate);            // the roster's winning value ($)
+    t.winning=rosterWinning(t.players);                    // minute-constrained winning contribution (for wins)
+    t.winVal=rosterWinningValue(t.players);                // the roster's winning value ($) — convex per-player
     t.surplus=t.winVal-t.spend;                            // winning value − cost
     t.wpd=t.winning/Math.max(t.spend,0.05);                // winning wins per $M
     t.pct=t.surplus/Math.max(t.spend,0.25);
