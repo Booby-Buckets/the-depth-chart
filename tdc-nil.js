@@ -109,9 +109,21 @@ window.TDC_NIL = {
     return b*N.MODEL.top_m*N.NEUTRAL_MULT*N.minFactor(N.estMpg(mpg,grade))*(prem||1)*N.youthMult(cls)*N.bigMult(pos,grade)*N.prospectMult(grade,cls); };
   N.deTier = function(value,tier){ if(value==null||!isFinite(+value)||+value<=N.WALKON_VALUE*1.5) return value;  // rescale a precomputed tier-based value to open-market
     var tm=N.MODEL.tier_mult[N.tierNum(tier)]||0.2; return (+value)*N.NEUTRAL_MULT/tm; };
-  // open-market value of a nil-data player row: real deals (override) shown as-is; walk-ons untouched;
-  // everyone else rescaled off their program's tier. Use this so a known deal isn't distorted by the rescale.
-  N.neutralValueOf = function(p,tier){ if(!p) return 0; var v=+(p.value); if(!isFinite(v)) return 0;
+  // ── client-side known deals: real deals that override the model at runtime (no pipeline re-run),
+  //    loaded from nil-deals.json. Keyed by exact player name → $M. Populates async; the render
+  //    paths await N.dealsReady before pricing so it's always applied. ──
+  N.NAME_DEALS = {};
+  N.dealOf = function(name){ if(!name) return null; var v=N.NAME_DEALS[(''+name).trim()]; return (v!=null&&isFinite(+v))?+v:null; };
+  N.loadDeals = function(){ if(N._dealsP) return N._dealsP;
+    N._dealsP = fetch('nil-deals.json',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;})
+      .then(function(j){ if(j&&j.deals) for(var k in j.deals){ var v=+j.deals[k]; if(isFinite(v)) N.NAME_DEALS[(''+k).trim()]=v; } return N.NAME_DEALS; })
+      .catch(function(){ return N.NAME_DEALS; });
+    return N._dealsP; };
+  N.dealsReady = N.loadDeals();
+  // open-market value of a nil-data player row: known real deals win; baked overrides & walk-ons
+  // shown as-is; everyone else rescaled off their program's tier (so a deal isn't distorted).
+  N.neutralValueOf = function(p,tier){ if(!p) return 0; var dl=N.dealOf(p.name); if(dl!=null) return dl;
+    var v=+(p.value); if(!isFinite(v)) return 0;
     if(p.override||p.walkon) return v; return N.deTier(v,tier); };
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };

@@ -9,7 +9,7 @@
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-shotchart.js?v=14"></script>
   <script src="tdc-shotflow.js?v=9"></script>
-  <script src="tdc-nil.js?v=notier4"></script>
+  <script src="tdc-nil.js?v=deals1"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-proj.js?v=coach19"></script>
   <script src="tdc-freshman.js?v=pub5"></script>
@@ -4837,6 +4837,7 @@ window.addEventListener('resize',_tabScrollHint);
 async function renderNilPlayer(){
   const host=document.getElementById('nilContent'); if(!host) return;
   const N=window.TDC_NIL; if(!N){ host.innerHTML='<div style="padding:40px;color:var(--text3)">NIL model not loaded.</div>'; return; }
+  if(N.dealsReady){ try{ await N.dealsReady; }catch(e){} }   // client-side known deals before pricing
   const col=((typeof teamColor_g!=='undefined')?teamColor_g:null)||'#888', fmt=N.fmt;
   const team=(player&&player.team)||'';
   const conf=((typeof teamData!=='undefined'&&teamData&&(teamData.conf||teamData.conference)))||(player&&(player.conf||player.conference))||'';
@@ -4867,7 +4868,8 @@ async function renderNilPlayer(){
   const bigM=N.bigMult(pos,grade), prospM=N.prospectMult(grade,cls);
   const modelVal=N.gradeValueNeutral(grade,mpg,prem,cls,pos);   // tier-neutral: the player's own market value, not his program's tier
   const _tierModel=N.gradeValue(grade,mpg,nilTier,prem,cls,pos);   // tier-based — ONLY for the tier-fair verdict (marketVerdict divides the tier back out)
-  if(!override) value=modelVal;   // headline uses the neutral value unless a known deal is on file
+  if(!override) value=modelVal;   // headline uses the neutral value unless a baked override is on file
+  const _deal=N.dealOf(player&&player.name); if(_deal!=null) value=_deal;   // client-side known real deal wins
   // Market Value — owner's positional market curve read off by grade & slot (independent of
   // minutes). Respect the owner's live localStorage preview so this matches the team NIL tab.
   let _mkOv=null; try{ _mkOv=JSON.parse(localStorage.getItem('tdc_nil_market')||'null'); }catch(e){}

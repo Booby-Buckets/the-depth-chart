@@ -1045,8 +1045,9 @@ function nilOf(p){
   }
   if(imp==null) return null;
   var pos=p.position, pillars=p._pillars;
-  // open-market: price the player at what a top program pays (ref tier 1), not his own program's tier
-  return { val:N.marketValue(imp,mpg,ht,ppg,conf,1,pos,pillars), imp:imp,
+  var _deal=N.dealOf&&N.dealOf(p.name);
+  // open-market: known real deal wins, else price at what a top program pays (ref tier 1)
+  return { val:(_deal!=null?_deal:N.marketValue(imp,mpg,ht,ppg,conf,1,pos,pillars)), imp:imp,
     prem:N.marketPremium(ht,ppg,conf,pos,pillars), tier:N.tierNum(tier), lbl:lbl, fmt:N.fmt };
 }
 // generic comparison row with custom formatter (NIL numbers aren't stat-shaped)
