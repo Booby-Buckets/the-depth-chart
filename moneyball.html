@@ -589,6 +589,12 @@ async function ensureMarketData(){
   // scale), so the median player prices ~fair vs cost and buy/overpay measure real deviation.
   const winR=arr.filter(p=>p.wwins!=null&&p.wwins>0.3&&p.cost>0.15).map(p=>p.cost/p.wwins).sort((a,b)=>a-b);
   const winRate=winR.length?winR[Math.floor(winR.length/2)]:globalRate;
+  // GM Mode needs a winning contribution for EVERY player; the unscored (freshmen) fall back to
+  // grade-WA rescaled onto the winning-score scale.
+  const _mw=arr.filter(p=>p.wwins!=null&&p.wwins>0).map(p=>p.wwins).sort((a,b)=>a-b);
+  const _ma=arr.filter(p=>p.wwins!=null&&p.wa>0).map(p=>p.wa).sort((a,b)=>a-b);
+  const medW=_mw.length?_mw[Math.floor(_mw.length/2)]:1, medWa=_ma.length?_ma[Math.floor(_ma.length/2)]:1;
+  const waToWcon=medWa>0?medW/medWa:0.5;
   arr.forEach(p=>{ p.rate=rateFor(p.tier); p.fair=p.wa*p.rate; p.surplus=p.fair-p.cost; p.wpd=p.wa/Math.max(p.cost,0.05);
     p.pct=p.surplus/Math.max(p.cost,0.25);
     p.verdict=(p.pct>=0.30&&p.wa>=1.0)?'buy':(p.pct<=-0.30)?'over':'fair';
@@ -597,8 +603,11 @@ async function ensureMarketData(){
     p.winVal=(p.wwins!=null)?p.wwins*winRate:null;
     if(p.winVal!=null){ p.winSurplus=p.winVal-p.cost; p.winPct=p.winSurplus/Math.max(p.cost,0.25);
       p.winVerdict=(p.winPct>=0.25)?'buy':(p.winPct<=-0.25)?'over':'fair'; p.winpd=p.wwins/Math.max(p.cost,0.05); }
-    else { p.winVal=null; p.winSurplus=null; p.winVerdict=null; p.winpd=null; } });
-  MKT={players:arr, rate:globalRate, tierRate, rateFor};
+    else { p.winVal=null; p.winSurplus=null; p.winVerdict=null; p.winpd=null; }
+    // winning contribution (all players, freshmen scaled from grade-WA) for GM Mode
+    p.wcon=(p.wwins!=null)?p.wwins:Math.max(0,p.wa*waToWcon);
+    p.wconVal=p.wcon*winRate; });
+  MKT={players:arr, rate:globalRate, winRate, tierRate, rateFor};
   return MKT;
 }
 async function bootMarket(){
@@ -732,8 +741,11 @@ let gmState={cap:15, roster:[], mode:'value', q:'', pos:'all', affordOnly:false,
 const pk=p=>p.name+'|'+p.team;
 const inRoster=p=>gmState.roster.some(x=>pk(x)===pk(p));
 function rosterMinutes(list){ const des=list.map(p=>Math.min(p.min,PLAYER_MIN_CAP)); const tot=sum(des); const f=tot>ROT_MIN?ROT_MIN/tot:1; return des.map(d=>d*f); }
-function rosterWA(list){ if(!list.length) return 0; const mn=rosterMinutes(list); return sum(list.map((p,i)=>waOf(p.ti,mn[i]))); }
-function rosterWinsRaw(list){ return WA_INTERCEPT+WA_SLOPE*rosterWA(list); }
+function rosterWA(list){ if(!list.length) return 0; const mn=rosterMinutes(list); return sum(list.map((p,i)=>waOf(p.ti,mn[i]))); }   // grade-WA (used by the Ledger)
+// winning contribution the roster actually generates: each player's win-driver wins, scaled to his
+// allocated share of the 200-minute rotation (so stacking talent past a full rotation diminishes).
+function rosterWinning(list){ if(!list.length) return 0; const mn=rosterMinutes(list); return sum(list.map((p,i)=>(p.wcon||0)*(mn[i]/Math.max(p.min,1)))); }
+function rosterWinsRaw(list){ return WA_INTERCEPT+WA_SLOPE*rosterWinning(list); }
 function rosterWins(list){ return list.length?Math.max(0,Math.min(37,rosterWinsRaw(list))):0; }
 function posBreak(R){ const c={G:0,F:0,C:0}; R.forEach(p=>c[posBucket(p.pos)]++); return `${c.G}G ${c.F}F ${c.C}C`; }
 function goalReached(wins){ let best=null; for(const g of GOALS){ if(wins>=projWins(g.rtg)-0.4) best=g; } return best; }
@@ -773,7 +785,7 @@ function renderGM(){
    <div id="gmDash"></div>
    <div class="gm-cols">
      <div><div class="gm-col-h">Your roster <span class="sub2" id="gmRosterSub"></span></div><div class="gm-list" id="gmRoster"></div></div>
-     <div><div class="gm-col-h">Add players <span class="sub2">best value first</span></div>
+     <div><div class="gm-col-h">Add players <span class="sub2">best winning value / $</span></div>
        <div class="gm-pool-ctrl">
          <input id="gmSearch" placeholder="Search player or team…" value="${esc(gmState.q)}" autocomplete="off">
          <select id="gmPos"><option value="all">All pos</option><option value="G">Guards</option><option value="F">Forwards</option><option value="C">Centers</option></select>
@@ -782,7 +794,7 @@ function renderGM(){
        <div class="gm-list" id="gmPool"></div>
      </div>
    </div>
-   <div class="disclaimer" style="margin-top:14px">Your roster shares 200 minutes a game, so stacking talent past a full rotation gives diminishing returns — the art is balancing stars, value, and depth. Wins Added → projected wins uses the validated relation (team wins ≈ Σ Wins Added). Costs are modeled NIL market value. It's a fantasy front office: build from any program's players.</div>
+   <div class="disclaimer" style="margin-top:14px"><b>Winning value</b> now drives the build: each player's worth is his <b>win-driver score</b> (efficiency, defense, rebounding, ball-security — not empty scoring), priced in dollars. Auto-build and the pool rank by winning value per dollar. Your roster shares 200 minutes a game, so stacking talent past a full rotation gives diminishing returns. Value surplus = winning value − cost. Freshmen without 2025-26 stats fall back to a grade estimate. A fantasy front office — build from any program's players.</div>
    ${(window.TDC_COACHLINKS&&TDC_COACHLINKS.bar)?TDC_COACHLINKS.bar('The Depth Chart'):''}`;
   const capR=$id('gmCapR'), capN=$id('gmCapN');
   capR.addEventListener('input',()=>{ gmState.cap=+capR.value; capN.value=capR.value; renderGMDash(); renderGMPool(); });
@@ -799,7 +811,9 @@ function renderGM(){
 function renderGMDash(){
   const R=gmState.roster, cap=gmState.cap;
   const spend=sum(R.map(p=>p.cost)), over=spend>cap+1e-6;
-  const wa=rosterWA(R), wins=rosterWins(R), surplus=sum(R.map(p=>p.surplus));
+  const wins=rosterWins(R);
+  const winValTot=rosterWinning(R)*(MKT.winRate||MKT.rate);          // minute-constrained roster winning worth
+  const surplus=sum(R.map(p=>(p.wconVal||0)-p.cost));               // winning-value surplus (worth − paid)
   const goal=goalReached(wins), next=nextGoal(wins);
   const pctBar=cap>0?Math.min(100,100*spend/cap):(spend>0?100:0);
   $id('gmDash').innerHTML=`<div class="gm-dash">
@@ -809,7 +823,7 @@ function renderGMDash(){
       <div style="font-size:11.5px;color:${over?'var(--red)':'var(--text3)'}">${over?('Over budget by '+fM(spend-cap)):(fM(Math.max(0,cap-spend))+' remaining')}${R.length?' · '+R.length+' players ('+posBreak(R)+')':''}</div>
       <div class="gm-nums" style="margin-top:15px">
         <div><div class="v">${wins.toFixed(0)}</div><div class="k">Projected wins</div></div>
-        <div><div class="v">${wa.toFixed(1)}</div><div class="k">Roster WA</div></div>
+        <div><div class="v">${fM(winValTot)}</div><div class="k">Winning value</div></div>
         <div><div class="v" style="color:${surplus>=0?'var(--green)':'var(--red)'}">${surplus>=0?'+':''}${fM(surplus)}</div><div class="k">Value surplus</div></div>
       </div>
     </div>
@@ -825,11 +839,11 @@ function renderGMRoster(){
   const R=gmState.roster;
   if(!R.length){ $id('gmRoster').innerHTML='<div class="gm-empty">No one signed yet.<br>Hit <b>⚡ Auto-build</b> for an instant roster, or add players from the right.</div>'; $id('gmRosterSub').textContent=''; return; }
   const mn=rosterMinutes(R);
-  const rows=R.map((p,i)=>({p, mn:mn[i], wa:waOf(p.ti,mn[i])})).sort((a,b)=>b.wa-a.wa);
+  const rows=R.map((p,i)=>({p, mn:mn[i], wv:(p.wcon||0)*(mn[i]/Math.max(p.min,1))*(MKT.winRate||MKT.rate)})).sort((a,b)=>b.wv-a.wv);
   $id('gmRosterSub').textContent=posBreak(R)+' · '+R.length;
   $id('gmRoster').innerHTML=rows.map(r=>`<div class="gm-p">
-    <div class="nm">${esc(r.p.name)}<span class="posdot">${posBucket(r.p.pos)}</span><div class="pt">${esc(r.p.full)} · ${r.mn.toFixed(0)} min</div></div>
-    <div class="st"><b>${r.wa.toFixed(1)}</b> WA<br>${fM(r.p.cost)}</div>
+    <div class="nm">${esc(r.p.name)}<span class="posdot">${posBucket(r.p.pos)}</span>${r.p.ws!=null?`<span class="posdot" style="color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,transparent)" title="Winning score">WS ${Math.round(r.p.ws)}</span>`:''}<div class="pt">${esc(r.p.full)} · ${r.mn.toFixed(0)} min</div></div>
+    <div class="st"><b>${fM(r.wv)}</b> win val<br>${fM(r.p.cost)}</div>
     <button class="act rm" data-k="${esc(pk(r.p))}" title="Release">×</button></div>`).join('');
   $id('gmRoster').querySelectorAll('.act.rm').forEach(b=>b.addEventListener('click',()=>{ gmState.roster=gmState.roster.filter(x=>pk(x)!==b.dataset.k); renderGMDash(); renderGMRoster(); renderGMPool(); }));
 }
@@ -840,12 +854,12 @@ function renderGMPool(){
   if(s.q){ const q=s.q.toLowerCase(); a=a.filter(p=>p.name.toLowerCase().includes(q)||p.full.toLowerCase().includes(q)||p.team.toLowerCase().includes(q)); }
   if(s.pos!=='all') a=a.filter(p=>posBucket(p.pos)===s.pos);
   if(s.affordOnly) a=a.filter(p=>p.cost<=rem+1e-6);
-  a.sort((x,y)=>y.wpd-x.wpd);
+  a.sort((x,y)=>(y.wconVal/Math.max(y.cost,0.05))-(x.wconVal/Math.max(x.cost,0.05)));   // best winning value per $ first
   const shown=a.slice(0,s.limit);
-  $id('gmPool').innerHTML=(shown.map(p=>`<div class="gm-p">
-    <div class="nm">${esc(p.name)}<span class="posdot">${posBucket(p.pos)}</span><div class="pt">${esc(p.full)} · ${p.wa.toFixed(1)} WA · ${p.wpd.toFixed(1)}/$M</div></div>
-    <div class="st"><b>${fM(p.cost)}</b><br><span class="vpill ${p.verdict}" style="font-size:8px;padding:1px 6px">${p.verdict==='buy'?'Buy':p.verdict==='over'?'Over':'Fair'}</span></div>
-    <button class="act add" data-k="${esc(pk(p))}" title="Sign">＋</button></div>`).join('')||'<div class="gm-empty">No players match.</div>')
+  $id('gmPool').innerHTML=(shown.map(p=>{ const vd=p.winVerdict||((p.wconVal>=p.cost*1.25)?'buy':(p.wconVal<=p.cost*0.75)?'over':'fair'); return `<div class="gm-p">
+    <div class="nm">${esc(p.name)}<span class="posdot">${posBucket(p.pos)}</span><div class="pt">${esc(p.full)} · ${fM(p.wconVal)} win val${p.ws!=null?' · WS '+Math.round(p.ws):''}</div></div>
+    <div class="st"><b>${fM(p.cost)}</b><br><span class="vpill ${vd}" style="font-size:8px;padding:1px 6px">${vd==='buy'?'Buy':vd==='over'?'Over':'Fair'}</span></div>
+    <button class="act add" data-k="${esc(pk(p))}" title="Sign">＋</button></div>`;}).join('')||'<div class="gm-empty">No players match.</div>')
    + (a.length>s.limit?`<div style="padding:10px;text-align:center"><button class="gm-btn" id="gmMoreBtn" style="padding:6px 14px;font-size:11px">Show more (${a.length-s.limit})</button></div>`:'');
   $id('gmPool').querySelectorAll('.act.add').forEach(b=>b.addEventListener('click',()=>{ const p=MKT.players.find(x=>pk(x)===b.dataset.k); if(p&&!inRoster(p)&&gmState.roster.length<15){ gmState.roster.push(p); renderGMDash(); renderGMRoster(); renderGMPool(); } }));
   const mb=$id('gmMoreBtn'); if(mb) mb.addEventListener('click',()=>{ gmState.limit+=40; renderGMPool(); });
