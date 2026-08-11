@@ -22,7 +22,7 @@
   <script src="auth.js?v=paywall4"></script>
   <script src="tdc-ratings.js?v=7"></script>
   <script src="tdc-teamlink.js?v=2"></script>
-  <script src="tdc-nil.js?v=deals1"></script>
+  <script src="tdc-nil.js?v=ped1"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -458,6 +458,7 @@ function renderTop(){
   try{ const D=await TDC_RATINGS.get(); RD=(D.teams||[]).filter(t=>t.rating!=null&&t.projected!==false).sort((a,b)=>(a.rank||999)-(b.rank||999)); RD.forEach(t=>{byFull[t.full]=t;}); }catch(e){ RD=[]; }
   try{ NIL=await fetch('nil-data.json?v=lift4',{cache:'no-cache'}).then(r=>r.ok?r.json():null); }catch(e){}
   if(window.TDC_NIL&&TDC_NIL.dealsReady){ try{ await TDC_NIL.dealsReady; }catch(e){} }   // known real deals before pricing
+  if(window.TDC_NIL&&TDC_NIL.pedigreeReady){ try{ await TDC_NIL.pedigreeReady; }catch(e){} }   // recruiting pedigree (folded into neutralValueOf)
   // profile favorite_team wins across devices; falls back to the localStorage full name
   try{ const pf=await loadTeamFromProfile(); if(pf){ MY_TEAM=pf; window.MY_TEAM=pf; try{localStorage.setItem('tdc_coach_team',pf);}catch(e){} } }catch(e){}
   renderTop();

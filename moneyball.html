@@ -24,7 +24,7 @@
   <script src="tdc-projgrade.js?v=base1"></script>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=7"></script>
-  <script src="tdc-nil.js?v=deals1"></script>
+  <script src="tdc-nil.js?v=ped1"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -541,18 +541,8 @@ function ensureWinVal(){ if(_winvalP) return _winvalP; _winvalP=fetch('winning_v
 const _wvNorm=s=>(''+(s||'')).toLowerCase().replace(/[^a-z0-9]/g,'');
 function wvOf(pl){ if(!WINVAL) return null; let r=null; if(pl.espn_id!=null&&WINVAL.players) r=WINVAL.players[String(pl.espn_id)]; if(!r&&WINVAL.by_name) r=WINVAL.by_name[_wvNorm(pl.name)]; return r||null; }
 
-// ── recruiting PEDIGREE → market value only (not winning value). A 5-star still carries hype,
-//    but it decays each year as production proves out (a former top-3 senior barely gets it). ──
-let PED=null,_pedP=null;
-function ensurePed(){ if(_pedP) return _pedP; _pedP=fetch('scripts/data/recruit_pedigree.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{PED=(j&&j.players)||{};return PED;}).catch(()=>{PED={};}); return _pedP; }
-const PED_MAX=0.70;   // an elite (coef 1.0) freshman gets up to +70% market value from pedigree
-const pedDecay=cls=>{ const c=(''+(cls||'')).toLowerCase();
-  if(c.indexOf('fr')>=0) return 1.00;   // freshman: all hype, no proof yet
-  if(c.indexOf('so')>=0) return 0.60;
-  if(c.indexOf('jr')>=0) return 0.30;
-  if(c.indexOf('sr')>=0||c.indexOf('gr')>=0) return 0.10;   // 3+ yrs of production have spoken (DJ Wagner)
-  return 0.50; };
-const pedigreeMult=(espn,cls)=>{ const coef=(PED&&espn!=null)?(+PED[String(espn)]||0):0; return 1+PED_MAX*coef*pedDecay(cls); };
+// recruiting pedigree now lives in tdc-nil.js (N.pedOf / N.pedigreeReady) so market value means the
+// same thing sitewide; neutralValueOf already folds it into cost for non-deal players.
 
 async function ensureMarketData(){
   if(MKT) return MKT;
@@ -561,7 +551,7 @@ async function ensureMarketData(){
   const rm=await ratingsMap();
   if(window.TDC_NIL&&TDC_NIL.dealsReady){ try{ await TDC_NIL.dealsReady; }catch(e){} }   // known real deals before pricing
   try{ await ensureWinVal(); }catch(e){}                                                   // Winning Value (win-driver score)
-  try{ await ensurePed(); }catch(e){}                                                      // recruiting pedigree (market value only)
+  try{ if(window.TDC_NIL&&TDC_NIL.pedigreeReady) await TDC_NIL.pedigreeReady; }catch(e){}   // recruiting pedigree (market value only)
   const nt=window.TDC_NIL, dt=(nt&&nt.deTier)?((v,t)=>nt.deTier(v,t)):((v)=>v);
   const arr=[]; const teams=nil.teams;
   Object.keys(teams).forEach(short=>{
@@ -575,10 +565,8 @@ async function ensureMarketData(){
       // MARKET VALUE = the model's open-market estimate, INDEPENDENT of any deal (what he'd command
       // elsewhere). For deal players (overrides) recompute from grade/role so it isn't the deal itself.
       let marketVal=(pl.override&&nt&&nt.gradeValueNeutral)?nt.gradeValueNeutral(+pl.grade,+pl.mpg||min,pl.prem,(pl.cls||''),pl.pos):dt(+pl.value, T.tier);
-      const _ped=pedigreeMult(pl.espn_id, pl.cls);                          // recruiting pedigree, decayed by class year
-      marketVal*=_ped;
-      const _hasDeal=pl.override||(nt&&nt.dealOf&&nt.dealOf(pl.name)!=null);
-      if(!_hasDeal) cost=marketVal;                                         // no known deal → paid estimate = market value (incl pedigree)
+      const _ped=(nt&&nt.pedOf)?nt.pedOf(pl):1;                             // recruiting pedigree, decayed by class year
+      marketVal*=_ped;                                                       // MARKET VALUE incl pedigree; cost (neutralValueOf) already folds it in for non-deal players
       const ti=ti40Of(grade), wa=waOf(ti, min);
       const wv=wvOf(pl);
       arr.push({name:pl.name, team:short, full:info.full||short, conf:info.conf||'', espn_id:pl.espn_id,

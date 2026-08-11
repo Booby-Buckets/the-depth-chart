@@ -120,11 +120,27 @@ window.TDC_NIL = {
       .catch(function(){ return N.NAME_DEALS; });
     return N._dealsP; };
   N.dealsReady = N.loadDeals();
-  // open-market value of a nil-data player row: known real deals win; baked overrides & walk-ons
-  // shown as-is; everyone else rescaled off their program's tier (so a deal isn't distorted).
+  // ── recruiting PEDIGREE → market value only (never production). A former five-star still commands a
+  //    premium that decays each year as production proves out (a top-3 senior barely gets it).
+  //    Coefficient (0..1 per espn_id) from recruit_pedigree.json (247 composite; raw ranks stay private).
+  //    Loads async; render paths await N.pedigreeReady before pricing. ──
+  N.PEDIGREE = {}; N.PED_MAX = 0.70;
+  N.pedDecay = function(cls){ var c=(''+(cls||'')).toLowerCase();
+    if(c.indexOf('fr')>=0) return 1.00; if(c.indexOf('so')>=0) return 0.60;
+    if(c.indexOf('jr')>=0) return 0.30; if(c.indexOf('sr')>=0||c.indexOf('gr')>=0) return 0.10; return 0.50; };
+  N.pedigreeCoef = function(espn){ if(espn==null) return 0; var v=N.PEDIGREE[String(espn)]; return (v!=null&&isFinite(+v))?+v:0; };
+  N.pedigreeMult = function(espn,cls){ return 1 + N.PED_MAX*N.pedigreeCoef(espn)*N.pedDecay(cls); };
+  N.pedOf = function(p){ if(!p) return 1; return N.pedigreeMult(p.espn_id, p.cls||p.class_year||p.yr||p.class); };
+  N.loadPedigree = function(){ if(N._pedP) return N._pedP;
+    N._pedP = fetch('scripts/data/recruit_pedigree.json',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;})
+      .then(function(j){ if(j&&j.players) N.PEDIGREE=j.players; return N.PEDIGREE; }).catch(function(){ return N.PEDIGREE; });
+    return N._pedP; };
+  N.pedigreeReady = N.loadPedigree();
+  // open-market value of a nil-data player row: known real deals win as-is; baked overrides & walk-ons
+  // as-is; everyone else = model rescaled off their tier × recruiting pedigree (so a deal isn't distorted).
   N.neutralValueOf = function(p,tier){ if(!p) return 0; var dl=N.dealOf(p.name); if(dl!=null) return dl;
     var v=+(p.value); if(!isFinite(v)) return 0;
-    if(p.override||p.walkon) return v; return N.deTier(v,tier); };
+    if(p.override||p.walkon) return v; return N.deTier(v,tier)*N.pedOf(p); };
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };
 })();
