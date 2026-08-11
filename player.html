@@ -4866,6 +4866,7 @@ async function renderNilPlayer(){
   const base=N.gradeBase(grade), tm=N.MODEL.tier_mult[N.tierNum(nilTier)]||0.2, mf=N.minFactor(N.estMpg(mpg,grade)), ym=N.youthMult(cls);
   const bigM=N.bigMult(pos,grade), prospM=N.prospectMult(grade,cls);
   const modelVal=N.gradeValueNeutral(grade,mpg,prem,cls,pos);   // tier-neutral: the player's own market value, not his program's tier
+  const _tierModel=N.gradeValue(grade,mpg,nilTier,prem,cls,pos);   // tier-based — ONLY for the tier-fair verdict (marketVerdict divides the tier back out)
   if(!override) value=modelVal;   // headline uses the neutral value unless a known deal is on file
   // Market Value — owner's positional market curve read off by grade & slot (independent of
   // minutes). Respect the owner's live localStorage preview so this matches the team NIL tab.
@@ -4879,7 +4880,7 @@ async function renderNilPlayer(){
   const marketVal=_bm?_bm.val:null;
   const marketPos=_bm?_bm.pos:(N.POS5?N.POS5(pos):pos);
   const mktDelta=(marketVal!=null&&modelVal!=null)?(marketVal-modelVal):null;
-  const _verdict=(marketVal!=null&&N.marketVerdict)?N.marketVerdict(modelVal,marketVal,{grade:grade,mpg:mpg,tier:nilTier}):{tag:null};
+  const _verdict=(marketVal!=null&&N.marketVerdict)?N.marketVerdict(_tierModel,marketVal,{grade:grade,mpg:mpg,tier:nilTier}):{tag:null};
   // premium sub-components (for the readout)
   const pSize=N.sizeMult(N.htIn(player&&player.height),pos), pConf=N.confMult(N.confClass(conf));
   const tierN=N.tierNum(nilTier);

@@ -6118,24 +6118,30 @@ async function renderNil(){
   const _rosterMarket=d.players.reduce((s,p)=>{ const m=_mkOf(p); return s+(m||0); },0);
   const col=((typeof teamColor_g!=='undefined')?teamColor_g:null)||'#888', mkt=_nilData.market_rate_per_pt;
   const fmt=m=>m>=1?('$'+(+m).toFixed(1)+'M'):('$'+Math.round(m*1000)+'K');
-  const deal=d.verdict==='deal', maxv=Math.max(d.value,d.budget)||1;
-  const valPct=Math.round(d.value/maxv*100), budPct=Math.round(d.budget/maxv*100);
+  // tier-neutral roster value = the roster's open-market worth (price the players, not the program).
+  const _F=(window.TDC_NIL&&TDC_NIL.deTier)?(TDC_NIL.NEUTRAL_MULT/(TDC_NIL.MODEL.tier_mult[TDC_NIL.tierNum(d.tier)]||0.2)):1;
+  const nVal=(d.value||0)*_F;              // roster worth, tier-neutral
+  const nDiff=nVal-d.budget;               // worth − budget (+ = roster worth more than the program's budget)
+  const deal=nDiff>=0;                      // worth ≥ budget → getting value; else paying a premium over market
+  const maxv=Math.max(nVal,d.budget)||1;
+  const valPct=Math.round(nVal/maxv*100), budPct=Math.round(d.budget/maxv*100);
   // projected_spend = the model's own production estimate for the WHOLE roster,
   // ignoring any known-deal overrides — only worth a card when overrides move the
   // needle (otherwise it's identical to Roster Value and just clutters the row)
   const hasOverrides=d.players.some(p=>p.override);
-  const spendGap=hasOverrides?round1(d.value-d.projected_spend):0;
+  const nProjSpend=(d.projected_spend||0)*_F;
+  const spendGap=hasOverrides?round1(nVal-nProjSpend):0;
   function round1(v){ return Math.round(v*1000)/1000; }
   let html=`<div style="display:flex;flex-wrap:wrap;gap:13px;margin-bottom:20px;">
     <div class="nil-card"><div class="nil-lbl">NIL Budget · Tier ${d.tier}</div><div class="nil-big">${fmt(d.budget)}</div></div>
-    <div class="nil-card"><div class="nil-lbl">Roster Value · Model</div><div class="nil-big" style="color:var(--tc-readable,${col})">${fmt(d.value)}</div></div>
+    <div class="nil-card"><div class="nil-lbl">Roster Value · Model</div><div class="nil-big" style="color:var(--tc-readable,${col})">${fmt(nVal)}</div><div class="nil-sub">open-market · tier-neutral</div></div>
     <div class="nil-card"><div class="nil-lbl">Roster Value · Market</div><div class="nil-big" style="color:var(--tc-readable,${col})">${fmt(_rosterMarket)}</div><div class="nil-sub">positional curves</div></div>
-    <div class="nil-card" style="border-color:${deal?'var(--green)':'var(--red)'}"><div class="nil-lbl">Verdict</div><div class="nil-big" style="color:${deal?'var(--green)':'var(--red)'}">${deal?'DEAL':'EXPENSIVE'}</div><div class="nil-sub">${fmt(Math.abs(d.diff))} ${deal?'under budget':'overpay'}</div></div>
+    <div class="nil-card" style="border-color:${deal?'var(--green)':'var(--red)'}"><div class="nil-lbl">Budget vs Worth</div><div class="nil-big" style="color:${deal?'var(--green)':'var(--red)'}">${deal?'DEAL':'PREMIUM'}</div><div class="nil-sub">${fmt(Math.abs(nDiff))} ${deal?'worth over budget':'paid over market'}</div></div>
     <div class="nil-card"><div class="nil-lbl">Cost / Net Point</div><div class="nil-big">$${Math.round(d.implied_rate*1000)}K</div><div class="nil-sub">market $${Math.round(mkt*1000)}K</div></div>
-    ${hasOverrides?`<div class="nil-card"><div class="nil-lbl">Projected Spend</div><div class="nil-big">${fmt(d.projected_spend)}</div><div class="nil-sub" style="color:${spendGap>0?'var(--red)':'var(--green)'};font-weight:700;">${spendGap>0?'+':''}${fmt(Math.abs(spendGap))} ${spendGap>0?'above model':'below model'}</div></div>`:''}
+    ${hasOverrides?`<div class="nil-card"><div class="nil-lbl">Projected Spend</div><div class="nil-big">${fmt(nProjSpend)}</div><div class="nil-sub" style="color:${spendGap>0?'var(--red)':'var(--green)'};font-weight:700;">${spendGap>0?'+':''}${fmt(Math.abs(spendGap))} ${spendGap>0?'above model':'below model'}</div></div>`:''}
   </div>
   <div style="margin:4px 0 26px;max-width:700px;">
-    <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--text3);margin-bottom:5px;"><span>Roster value ${fmt(d.value)}</span><span>Budget ${fmt(d.budget)}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--text3);margin-bottom:5px;"><span>Roster value ${fmt(nVal)}</span><span>Budget ${fmt(d.budget)}</span></div>
     <div style="position:relative;height:16px;background:var(--bg3);border-radius:8px;overflow:hidden;">
       <div style="position:absolute;top:0;bottom:0;left:0;width:${valPct}%;background:${deal?'var(--green)':col};"></div>
       <div style="position:absolute;top:-4px;bottom:-4px;left:${budPct}%;width:2px;background:var(--text);"></div>
@@ -6143,7 +6149,7 @@ async function renderNil(){
     <div style="font-size:10px;color:var(--text3);margin-top:4px;">Green bar = roster value · vertical line = budget</div>
   </div>
   <div style="overflow-x:auto;">
-  <table class="nil-table"><thead><tr><th class="left">Player</th><th title="Class / eligibility">Yr</th><th>Pos</th><th>Grade</th><th title="Projected minutes per game">MPG</th><th title="Last season's demonstrated production — points / rebounds / assists per game">PPG/RPG/APG</th><th title="Wins Added — the owned on-court production value (offensive + defensive) the Model is built on. Last season.">WA</th><th title="Production model estimate: grade × projected minutes × market premium × team tier">Model Value</th><th title="Positional market curve for this player's grade & slot — set by the owner, independent of minutes">Market Value</th><th title="This player's Market Value as a share of the roster's total market value">% Roster</th><th title="TIER-FAIR: strips team spending, then compares his production to the market price for his grade & slot. UNDERRATED = produces 30%+ above his market price (slept on). OVERRATED = market prices him 30%+ above production. Only real rotation pieces are judged.">Verdict</th></tr></thead><tbody>`;
+  <table class="nil-table"><thead><tr><th class="left">Player</th><th title="Class / eligibility">Yr</th><th>Pos</th><th>Grade</th><th title="Projected minutes per game">MPG</th><th title="Last season's demonstrated production — points / rebounds / assists per game">PPG/RPG/APG</th><th title="Wins Added — the owned on-court production value (offensive + defensive) the Model is built on. Last season.">WA</th><th title="Production model estimate: grade × projected minutes × market premium. Tier-neutral — the player's open-market worth, not his program's spending tier.">Model Value</th><th title="Positional market curve for this player's grade & slot — set by the owner, independent of minutes">Market Value</th><th title="This player's Market Value as a share of the roster's total market value">% Roster</th><th title="TIER-FAIR: strips team spending, then compares his production to the market price for his grade & slot. UNDERRATED = produces 30%+ above his market price (slept on). OVERRATED = market prices him 30%+ above production. Only real rotation pieces are judged.">Verdict</th></tr></thead><tbody>`;
   const _rosterList=(typeof teamPlayers!=='undefined'&&teamPlayers||[]);
   const _injSet=new Set(_rosterList.filter(p=>p.is_injured).map(p=>(p.name||'').toLowerCase().trim()));
   const _byName={}; _rosterList.forEach(p=>{ _byName[(p.name||'').toLowerCase().trim()]=p; });
@@ -6154,7 +6160,8 @@ async function renderNil(){
     const rp=_byName[key];
     const href=rp&&rp.espn_id?`player.html?espn=${rp.espn_id}&name=${encodeURIComponent(p.name)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(tT.name||'')}`;
     const nameCell=`<a href="${href}" style="color:inherit;text-decoration:none;">${p.name}</a>`;
-    const model=p.proj!=null?p.proj:p.value;
+    const model=p.proj!=null?p.proj:p.value;          // tier-based — feeds the tier-fair verdict
+    const modelShown=(window.TDC_NIL&&TDC_NIL.deTier)?TDC_NIL.deTier(model,d.tier):model;   // tier-neutral — for display
     const _bm=_bmOf(p);
     const mktV=_bm.val;
     const posC=_bm.pos||'—';   // shows the position the market prices him at (natural, if out of position)
@@ -6168,7 +6175,7 @@ async function renderNil(){
     const waCell=(p.wa!=null&&isFinite(+p.wa))?`<span style="font-weight:700;color:${+p.wa>=4?'var(--green)':'inherit'};">${(+p.wa>0?'+':'')}${(+p.wa).toFixed(1)}</span>`:'<span style="color:var(--text3);">—</span>';
     const pctRoster=(_rosterMarket>0&&mktV!=null)?Math.round(mktV/_rosterMarket*100):null;
     const clsCell=p.cls||'<span style="color:var(--text3);">—</span>';
-    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="left">${nameCell}${injTag}</td><td style="color:var(--text2);">${clsCell}</td><td>${posC}</td><td>${gr}</td><td>${Math.round(p.mpg)}</td><td style="white-space:nowrap;">${prodCell}</td><td>${waCell}</td><td style="color:var(--text3);">${fmt(model)}</td><td style="font-weight:700;color:var(--tc-readable,${col})${inj?';text-decoration:line-through;':''}">${mktV!=null?fmt(mktV):'—'}</td><td style="color:var(--text3);">${pctRoster!=null?pctRoster+'%':'—'}</td><td>${vCell}</td></tr>`; });
+    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="left">${nameCell}${injTag}</td><td style="color:var(--text2);">${clsCell}</td><td>${posC}</td><td>${gr}</td><td>${Math.round(p.mpg)}</td><td style="white-space:nowrap;">${prodCell}</td><td>${waCell}</td><td style="color:var(--text3);">${fmt(modelShown)}</td><td style="font-weight:700;color:var(--tc-readable,${col})${inj?';text-decoration:line-through;':''}">${mktV!=null?fmt(mktV):'—'}</td><td style="color:var(--text3);">${pctRoster!=null?pctRoster+'%':'—'}</td><td>${vCell}</td></tr>`; });
   html+=`</tbody></table></div>`;
   // ── roster insights (fills the page): market $ by position + best value / biggest overpay ──
   (function(){
@@ -6222,7 +6229,7 @@ async function renderNil(){
       <div style="font-size:10px;color:var(--text3);margin-top:8px;"><b>Publish to site</b> pushes these anchors live for every visitor instantly (owner-only). <b>Copy JSON</b> exports them to commit as the file default <code>scripts/data/nil_market_anchors.json</code>.</div>
     </div>`;
   }
-  html+=`<div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:16px;max-width:860px;"><b>Model Value</b> is our production estimate — the player's <b>TDC grade</b> on a convex curve × projected minutes (role) × team spending tier × a size/scoring/conference premium × a youth bump; calibrated to real deals. <b>Market Value</b> is a different lens: a <b>positional market curve</b> (what a 90 / 80 / 70-grade player goes for at each position) read off by the player's grade &amp; slot — pricing talent and position regardless of minutes. <b>Verdict</b> is <b>tier-fair</b>: it strips team spending so talent (not the program) drives it, then compares production to the market price for the player's grade &amp; slot — <span style="color:var(--green);font-weight:700;">UNDERRATED</span> = slept on (produces above his market price), <span style="color:var(--amber);font-weight:700;">OVERRATED</span> = market pays above production.</div>`;
+  html+=`<div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:16px;max-width:860px;"><b>Model Value</b> is our production estimate — the player's <b>TDC grade</b> on a convex curve × projected minutes (role) × a size/scoring/conference premium × a youth bump; calibrated to real deals. It's <b>tier-neutral</b> — a player's open-market worth, the same whether he's at a blue-blood or a mid-major; the program's budget (what they can pay) is shown separately. <b>Roster Value</b> is the sum of those neutral values; <b>Budget vs Worth</b> flags a <b>DEAL</b> when the roster is worth more than the program's budget and a <b>PREMIUM</b> when they pay above its open-market value. <b>Market Value</b> is a different lens: a <b>positional market curve</b> (what a 90 / 80 / 70-grade player goes for at each position) read off by the player's grade &amp; slot — pricing talent and position regardless of minutes. <b>Verdict</b> is <b>tier-fair</b>: it strips team spending so talent (not the program) drives it, then compares production to the market price for the player's grade &amp; slot — <span style="color:var(--green);font-weight:700;">UNDERRATED</span> = slept on (produces above his market price), <span style="color:var(--amber);font-weight:700;">OVERRATED</span> = market pays above production.</div>`;
   html+=`<div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
     <a href="moneyball.html?team=${encodeURIComponent(tT.name)}" style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:800;letter-spacing:.02em;color:#1a1206;background:var(--accent);border:1px solid var(--accent);border-radius:22px;padding:9px 18px;text-decoration:none;">⬡ Open in Moneyball · Front Office →</a>
     <a href="moneyball.html?tab=ledger&team=${encodeURIComponent(tT.name)}" style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:800;letter-spacing:.02em;color:var(--accent);border:1px solid var(--border2);border-radius:22px;padding:9px 18px;text-decoration:none;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)'">📊 This program on The Ledger →</a>
