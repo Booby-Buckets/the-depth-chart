@@ -98,6 +98,15 @@ window.TDC_NIL = {
     var tm=N.MODEL.tier_mult[N.tierNum(tier)]||0.2;
     return b*N.MODEL.top_m*tm*N.minFactor(N.estMpg(mpg,grade))*(prem||1)*N.youthMult(cls)*N.bigMult(pos,grade)*N.prospectMult(grade,cls); };
   N.marketValue   = function(imp,mpg,htIn,ppg,confCode,tier,pos,pillars){ return N.isWalkon(imp) ? N.WALKON_VALUE : N.value(imp,mpg,tier)*N.marketPremium(htIn,ppg,confCode,pos,pillars) + N.baseIntercept(mpg,tier); }; // $M
+  // ── tier-neutral pricing: value a player by his OWN worth, not his program's spending tier ──
+  // K ≈ 0.406 = the roster-weighted average tier multiplier (preserves the leaguewide total),
+  // i.e. price every player as if on an average high-major. Same player is worth the same
+  // whether he's at a blue-blood or a mid-major — talent/role/premium, not the program.
+  N.NEUTRAL_MULT = 0.406;
+  N.gradeValueNeutral = function(grade,mpg,prem,cls,pos){ var b=N.gradeBase(grade); if(b<=0.003) return N.WALKON_VALUE;
+    return b*N.MODEL.top_m*N.NEUTRAL_MULT*N.minFactor(N.estMpg(mpg,grade))*(prem||1)*N.youthMult(cls)*N.bigMult(pos,grade)*N.prospectMult(grade,cls); };
+  N.deTier = function(value,tier){ if(value==null||!isFinite(+value)||+value<=N.WALKON_VALUE*1.5) return value;  // rescale a precomputed tier-based value to tier-neutral
+    var tm=N.MODEL.tier_mult[N.tierNum(tier)]||0.2; return (+value)*N.NEUTRAL_MULT/tm; };
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };
 })();
