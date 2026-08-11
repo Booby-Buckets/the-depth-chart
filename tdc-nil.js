@@ -99,11 +99,12 @@ window.TDC_NIL = {
     return b*N.MODEL.top_m*tm*N.minFactor(N.estMpg(mpg,grade))*(prem||1)*N.youthMult(cls)*N.bigMult(pos,grade)*N.prospectMult(grade,cls); };
   N.marketValue   = function(imp,mpg,htIn,ppg,confCode,tier,pos,pillars){ return N.isWalkon(imp) ? N.WALKON_VALUE : N.value(imp,mpg,tier)*N.marketPremium(htIn,ppg,confCode,pos,pillars) + N.baseIntercept(mpg,tier); }; // $M
   // ── open-market pricing: value a player by his OWN worth, not his program's spending tier ──
-  // A player's market value = what a TOP program would pay him (the open market is set by the
-  // top bidders), boosted so the very best land at real-deal levels (a generational recruit ~$6M,
-  // e.g. Tyran Stokes). NEUTRAL_MULT = top-of-market (tier-1 = 1.0) × ceiling boost (1.254).
-  // Same player is worth the same at a blue-blood or a mid-major — talent/role/premium, not program.
-  N.NEUTRAL_MULT = 1.254;
+  // A player's market value = what a top-tier program would pay him. Anchored at Tier-2 pricing
+  // (0.74) — strong top-of-market without over-inflating; no artificial ceiling boost (that made
+  // the whole scale too high just to force one known deal). Same player is worth the same at a
+  // blue-blood or a mid-major — talent/role/premium, not program. (Known real deals still show
+  // as-is via neutralValueOf; the model just runs a touch low on the very elite, e.g. Stokes.)
+  N.NEUTRAL_MULT = 0.74;
   N.gradeValueNeutral = function(grade,mpg,prem,cls,pos){ var b=N.gradeBase(grade); if(b<=0.003) return N.WALKON_VALUE;
     return b*N.MODEL.top_m*N.NEUTRAL_MULT*N.minFactor(N.estMpg(mpg,grade))*(prem||1)*N.youthMult(cls)*N.bigMult(pos,grade)*N.prospectMult(grade,cls); };
   N.deTier = function(value,tier){ if(value==null||!isFinite(+value)||+value<=N.WALKON_VALUE*1.5) return value;  // rescale a precomputed tier-based value to open-market
