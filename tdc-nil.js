@@ -99,12 +99,12 @@ window.TDC_NIL = {
     return b*N.MODEL.top_m*tm*N.minFactor(N.estMpg(mpg,grade))*(prem||1)*N.youthMult(cls)*N.bigMult(pos,grade)*N.prospectMult(grade,cls); };
   N.marketValue   = function(imp,mpg,htIn,ppg,confCode,tier,pos,pillars){ return N.isWalkon(imp) ? N.WALKON_VALUE : N.value(imp,mpg,tier)*N.marketPremium(htIn,ppg,confCode,pos,pillars) + N.baseIntercept(mpg,tier); }; // $M
   // ── open-market pricing: value a player by his OWN worth, not his program's spending tier ──
-  // A player's market value = what a top-tier program would pay him. Anchored at Tier-2 pricing
-  // (0.74) — strong top-of-market without over-inflating; no artificial ceiling boost (that made
-  // the whole scale too high just to force one known deal). Same player is worth the same at a
-  // blue-blood or a mid-major — talent/role/premium, not program. (Known real deals still show
-  // as-is via neutralValueOf; the model just runs a touch low on the very elite, e.g. Stokes.)
-  N.NEUTRAL_MULT = 0.74;
+  // A player's market value = his own worth on a realistic open market. Anchor tuned so the top
+  // of the market lands ~$4.0M (grade-90 star ~$4M, solid starter ~$1.3M, league median ~$0.8M) —
+  // outlier overpays like Stokes's reported $6M are NOT the star rate, so the scale isn't pushed
+  // toward them. Same player is worth the same at a blue-blood or a mid-major — talent/role, not
+  // program. (Known real deals still show as-is via neutralValueOf.)
+  N.NEUTRAL_MULT = 0.47;
   N.gradeValueNeutral = function(grade,mpg,prem,cls,pos){ var b=N.gradeBase(grade); if(b<=0.003) return N.WALKON_VALUE;
     return b*N.MODEL.top_m*N.NEUTRAL_MULT*N.minFactor(N.estMpg(mpg,grade))*(prem||1)*N.youthMult(cls)*N.bigMult(pos,grade)*N.prospectMult(grade,cls); };
   N.deTier = function(value,tier){ if(value==null||!isFinite(+value)||+value<=N.WALKON_VALUE*1.5) return value;  // rescale a precomputed tier-based value to open-market
