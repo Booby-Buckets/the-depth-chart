@@ -534,7 +534,12 @@ async function ratingsMap(){ if(RATMAP) return RATMAP; RATMAP={};
 
 let MKT=null;
 const INIT_PARAMS=new URLSearchParams(location.search);   // captured at load, before showTab rewrites the URL
-let mktState={sort:'surplus', dir:-1, pos:'all', conf:'all', cls:'all', verdict:'all', q:'', limit:60};
+let mktState={sort:'winSurplus', dir:-1, pos:'all', conf:'all', cls:'all', verdict:'all', q:'', limit:60};
+
+let WINVAL=null,_winvalP=null;
+function ensureWinVal(){ if(_winvalP) return _winvalP; _winvalP=fetch('winning_value.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{WINVAL=j;return j;}).catch(()=>null); return _winvalP; }
+const _wvNorm=s=>(''+(s||'')).toLowerCase().replace(/[^a-z0-9]/g,'');
+function wvOf(pl){ if(!WINVAL) return null; let r=null; if(pl.espn_id!=null&&WINVAL.players) r=WINVAL.players[String(pl.espn_id)]; if(!r&&WINVAL.by_name) r=WINVAL.by_name[_wvNorm(pl.name)]; return r||null; }
 
 async function ensureMarketData(){
   if(MKT) return MKT;
@@ -542,6 +547,8 @@ async function ensureMarketData(){
   if(!nil||!nil.teams) return null;
   const rm=await ratingsMap();
   if(window.TDC_NIL&&TDC_NIL.dealsReady){ try{ await TDC_NIL.dealsReady; }catch(e){} }   // known real deals before pricing
+  try{ await ensureWinVal(); }catch(e){}                                                   // Winning Value (win-driver score)
+  const nt=window.TDC_NIL, dt=(nt&&nt.deTier)?((v,t)=>nt.deTier(v,t)):((v)=>v);
   const arr=[]; const teams=nil.teams;
   Object.keys(teams).forEach(short=>{
     const T=teams[short], info=rm[short]||{};
@@ -550,11 +557,14 @@ async function ensureMarketData(){
       const grade=+pl.grade; if(!isFinite(grade)||grade<58) return;
       const min=mktMin(pl); if(min<8) return;
       let cost=+pl.value; if(!isFinite(cost)||cost<=0) return;
-      cost=(window.TDC_NIL&&TDC_NIL.neutralValueOf)?TDC_NIL.neutralValueOf(pl, T.tier):cost;   // open-market: price the player, not his program (real deals kept as-is)
+      cost=(nt&&nt.neutralValueOf)?nt.neutralValueOf(pl, T.tier):cost;      // COST = what he's paid (real deal if known, else market)
+      const marketVal=pl.override?cost:dt(+pl.value, T.tier);              // MARKET VALUE = model's open-market estimate
       const ti=ti40Of(grade), wa=waOf(ti, min);
-      arr.push({name:pl.name, team:short, full:info.full||short, conf:info.conf||'',
+      const wv=wvOf(pl);
+      arr.push({name:pl.name, team:short, full:info.full||short, conf:info.conf||'', espn_id:pl.espn_id,
         pos:(pl.pos||'').toUpperCase(), cls:(pl.cls||'').replace(/\./g,''),
-        grade:Math.round(grade), min:Math.round(min), ti, wa, cost, tier:T.tier||5});
+        grade:Math.round(grade), min:Math.round(min), ti, wa, cost, marketVal, tier:T.tier||5,
+        ws:wv?wv.ws:null, wwins:wv?wv.wwins:null});
     });
   });
   const meaningful=arr.filter(p=>p.wa>0.4&&p.cost>0.15);
@@ -575,9 +585,19 @@ async function ensureMarketData(){
     tierRate[t]=r; prev=r;
   }
   const rateFor=t=>tierRate[t]||globalRate;
+  // price winning value on ITS OWN $/win rate (wwins is on the owned-WA scale, not the grade-WA
+  // scale), so the median player prices ~fair vs cost and buy/overpay measure real deviation.
+  const winR=arr.filter(p=>p.wwins!=null&&p.wwins>0.3&&p.cost>0.15).map(p=>p.cost/p.wwins).sort((a,b)=>a-b);
+  const winRate=winR.length?winR[Math.floor(winR.length/2)]:globalRate;
   arr.forEach(p=>{ p.rate=rateFor(p.tier); p.fair=p.wa*p.rate; p.surplus=p.fair-p.cost; p.wpd=p.wa/Math.max(p.cost,0.05);
     p.pct=p.surplus/Math.max(p.cost,0.25);
-    p.verdict=(p.pct>=0.30&&p.wa>=1.0)?'buy':(p.pct<=-0.30)?'over':'fair'; });
+    p.verdict=(p.pct>=0.30&&p.wa>=1.0)?'buy':(p.pct<=-0.30)?'over':'fair';
+    // WINNING VALUE = what his win-driver production is worth, priced at the winning $/win rate.
+    // Verdict = Winning Value vs Cost (the true Moneyball inefficiency), when we have a winning score.
+    p.winVal=(p.wwins!=null)?p.wwins*winRate:null;
+    if(p.winVal!=null){ p.winSurplus=p.winVal-p.cost; p.winPct=p.winSurplus/Math.max(p.cost,0.25);
+      p.winVerdict=(p.winPct>=0.25)?'buy':(p.winPct<=-0.25)?'over':'fair'; p.winpd=p.wwins/Math.max(p.cost,0.05); }
+    else { p.winVal=null; p.winSurplus=null; p.winVerdict=null; p.winpd=null; } });
   MKT={players:arr, rate:globalRate, tierRate, rateFor};
   return MKT;
 }
@@ -595,27 +615,28 @@ function marketFiltered(){
   if(s.pos!=='all') a=a.filter(p=>posBucket(p.pos)===s.pos);
   if(s.conf!=='all') a=a.filter(p=>p.conf===s.conf);
   if(s.cls!=='all') a=a.filter(p=>(p.cls||'').toLowerCase().startsWith(s.cls));
-  if(s.verdict!=='all') a=a.filter(p=>p.verdict===s.verdict);
+  if(s.verdict!=='all') a=a.filter(p=>p.winVerdict===s.verdict);
   a.sort((x,y)=>(( x[s.sort]||0)-(y[s.sort]||0))*s.dir);
   return a;
 }
 
 function renderMarket(){
   const M=MKT;
-  const buys=M.players.filter(p=>p.verdict==='buy').length;
-  const over=M.players.filter(p=>p.verdict==='over').length;
+  const scored=M.players.filter(p=>p.winVal!=null);
+  const buys=scored.filter(p=>p.winVerdict==='buy').length;
+  const over=scored.filter(p=>p.winVerdict==='over').length;
   const nTeams=new Set(M.players.map(p=>p.team)).size;
   const confs=[...new Set(M.players.map(p=>p.conf).filter(Boolean))].sort();
   $id('mktBody').innerHTML=`
-    <div class="mkt-intro">Every rotation player across the <b>${nTeams} biggest-spending programs</b>, plotted by the wins his production is worth against what he costs on the NIL market. Each player is judged against <b>his own NIL tier's going rate</b>, so the <b style="color:var(--green)">green</b> ones outproduce what their market pays. League average is about <b>${fM(M.rate)} per win</b>.</div>
+    <div class="mkt-intro">Three numbers on every rotation player across the <b>${nTeams} biggest-spending programs</b>: what his <b style="color:var(--green)">winning</b> is actually worth (a win-driver score — efficiency, defense, rebounding, ball-security — priced in dollars), what the <b>market</b> would pay him, and what he <b>costs</b>. Plotted <b>winning value vs cost</b>: points <b style="color:var(--green)">above the line</b> win more than they're paid — the real Moneyball buys.</div>
     <div class="mkt-kpis">
-      <div class="mkt-kpi"><div class="v">${M.players.length}</div><div class="l">Players priced</div><div class="s">top NIL programs</div></div>
+      <div class="mkt-kpi"><div class="v">${scored.length}</div><div class="l">Players scored</div><div class="s">of ${M.players.length} priced</div></div>
       <div class="mkt-kpi"><div class="v">${fM(M.rate)}</div><div class="l">Market rate</div><div class="s">league avg / win</div></div>
-      <div class="mkt-kpi"><div class="v" style="color:var(--green)">${buys}</div><div class="l">Undervalued</div><div class="s">producing above pay</div></div>
-      <div class="mkt-kpi"><div class="v" style="color:var(--red)">${over}</div><div class="l">Overpaid</div><div class="s">below their price</div></div>
+      <div class="mkt-kpi"><div class="v" style="color:var(--green)">${buys}</div><div class="l">Undervalued</div><div class="s">win value &gt; cost</div></div>
+      <div class="mkt-kpi"><div class="v" style="color:var(--red)">${over}</div><div class="l">Overpaid</div><div class="s">cost &gt; win value</div></div>
     </div>
     <div class="scatter-wrap">
-      <div class="scatter-legend"><span><i class="buy"></i>Undervalued</span><span><i class="fair"></i>Fair value</span><span><i class="over"></i>Overpaid</span><span><i class="line"></i>League avg</span></div>
+      <div class="scatter-legend"><span><i class="buy"></i>Undervalued</span><span><i class="fair"></i>Fair</span><span><i class="over"></i>Overpaid</span><span><i class="line"></i>Paid = worth</span></div>
       <div id="scatterHost"></div>
     </div>
     <div class="mkt-ctrl">
@@ -627,7 +648,7 @@ function renderMarket(){
     </div>
     <div class="mkt-twrap"><table class="mkt"><thead id="mHead"></thead><tbody id="mBodyRows"></tbody></table></div>
     <div class="mkt-more" id="mMore"></div>
-    <div class="disclaimer" style="margin-top:12px">Cost = modeled NIL market value (grade, role, size, scoring, conference). Wins Added = production value in wins. “Fair value” is the leaguewide $-per-win rate; a player is <b>Undervalued</b> when his wins outrun his price by 30%+, <b>Overpaid</b> when they fall short by 30%+. A screener to point you where to look — not a contract.</div>
+    <div class="disclaimer" style="margin-top:12px"><b>Winning value</b> = a player's win-driver score (efficiency, defense, rebounding, ball-security — the skills that actually predict winning, weighted from a 7,000-team-season regression; scoring volume &amp; assists count little) turned into dollars at the market $-per-win rate. <b>Market value</b> = what the open NIL market would pay him. <b>Cost</b> = what he's actually paid (a known deal if on file, else market). <b>Undervalued</b> = winning value beats cost by 25%+. Freshmen &amp; players without 2025-26 stats have no winning score yet. A screener, not a contract.</div>
     ${(window.TDC_COACHLINKS&&TDC_COACHLINKS.bar)?TDC_COACHLINKS.bar('The Depth Chart'):''}`;
   $id('mSearch').addEventListener('input',e=>{ mktState.q=e.target.value; mktState.limit=60; renderScatter(); renderTable(); });
   $id('mConf').addEventListener('change',e=>{ mktState.conf=e.target.value; mktState.limit=60; renderScatter(); renderTable(); });
@@ -641,22 +662,23 @@ function renderMarket(){
 function renderScatter(){
   const list=marketFiltered();
   const W=720,H=380, mL=46,mB=32,mT=12,mR=12, pw=W-mL-mR, ph=H-mT-mB;
-  const costs=MKT.players.map(p=>p.cost).sort((a,b)=>a-b);
+  const pool=MKT.players.filter(p=>p.winVal!=null);            // only players with a winning score
+  const costs=pool.map(p=>p.cost).sort((a,b)=>a-b);
   const xmax=Math.max(1, costs[Math.floor(costs.length*0.97)]||1);
-  const ymax=Math.max(1, Math.max(...MKT.players.map(p=>p.wa))*1.05);
-  const X=c=>mL+Math.min(c,xmax)/xmax*pw, Y=w=>mT+ph-Math.min(w,ymax)/ymax*ph;
-  const rate=MKT.rate, waEnd=Math.min(ymax, xmax/rate);
+  const ymax=Math.max(1, (Math.max(...pool.map(p=>p.winVal))||1)*1.05);
+  const mx=Math.max(xmax,ymax);                                // shared scale so the 45° "paid = worth" line reads true
+  const X=c=>mL+Math.min(c,mx)/mx*pw, Y=v=>mT+ph-Math.min(v,mx)/mx*ph;
   const inSet=new Set(list.map(p=>p.name+'|'+p.team));
   const col=v=>v==='buy'?'var(--green)':v==='over'?'var(--red)':'var(--text3)';
-  const xticks=[0,xmax*0.25,xmax*0.5,xmax*0.75,xmax], yticks=[0,ymax*0.25,ymax*0.5,ymax*0.75,ymax];
-  const dots=MKT.players.map(p=>{ const on=inSet.has(p.name+'|'+p.team);
-    return `<circle class="dot${on?'':' dim'}" cx="${X(p.cost).toFixed(1)}" cy="${Y(p.wa).toFixed(1)}" r="${on?4:3}" fill="${col(p.verdict)}" fill-opacity="${on?0.82:0.5}" data-n="${esc(p.name)}" data-t="${esc(p.full)}" data-w="${p.wa.toFixed(1)}" data-c="${p.cost.toFixed(3)}" data-v="${p.verdict}" data-s="${p.surplus.toFixed(3)}"></circle>`; }).join('');
+  const ticks=[0,mx*0.25,mx*0.5,mx*0.75,mx];
+  const dots=pool.map(p=>{ const on=inSet.has(p.name+'|'+p.team);
+    return `<circle class="dot${on?'':' dim'}" cx="${X(p.cost).toFixed(1)}" cy="${Y(p.winVal).toFixed(1)}" r="${on?4:3}" fill="${col(p.winVerdict)}" fill-opacity="${on?0.82:0.5}" data-n="${esc(p.name)}" data-t="${esc(p.full)}" data-w="${esc(fM(p.winVal))}" data-c="${p.cost.toFixed(3)}" data-v="${p.winVerdict}" data-s="${p.winSurplus.toFixed(3)}"></circle>`; }).join('');
   $id('scatterHost').innerHTML=`<svg class="scatter" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
-    ${yticks.map(t=>`<line x1="${mL}" y1="${Y(t).toFixed(1)}" x2="${W-mR}" y2="${Y(t).toFixed(1)}" stroke="var(--border)" stroke-width="1"></line><text x="${mL-6}" y="${(Y(t)+3).toFixed(1)}" font-size="9" text-anchor="end">${t.toFixed(0)}</text>`).join('')}
-    ${xticks.map(t=>`<text x="${X(t).toFixed(1)}" y="${H-mB+16}" font-size="9" text-anchor="middle">${fM(t)}</text>`).join('')}
-    <line x1="${X(0).toFixed(1)}" y1="${Y(0).toFixed(1)}" x2="${X(waEnd*rate).toFixed(1)}" y2="${Y(waEnd).toFixed(1)}" stroke="var(--border2)" stroke-width="1.5" stroke-dasharray="5 4"></line>
-    <text x="${mL+2}" y="${mT+10}" font-size="9.5">Wins added ↑</text>
-    <text x="${W-mR}" y="${H-1}" font-size="9.5" text-anchor="end">NIL cost →</text>
+    ${ticks.map(t=>`<line x1="${mL}" y1="${Y(t).toFixed(1)}" x2="${W-mR}" y2="${Y(t).toFixed(1)}" stroke="var(--border)" stroke-width="1"></line><text x="${mL-6}" y="${(Y(t)+3).toFixed(1)}" font-size="9" text-anchor="end">${esc(fM(t))}</text>`).join('')}
+    ${ticks.map(t=>`<text x="${X(t).toFixed(1)}" y="${H-mB+16}" font-size="9" text-anchor="middle">${esc(fM(t))}</text>`).join('')}
+    <line x1="${X(0).toFixed(1)}" y1="${Y(0).toFixed(1)}" x2="${X(mx).toFixed(1)}" y2="${Y(mx).toFixed(1)}" stroke="var(--border2)" stroke-width="1.5" stroke-dasharray="5 4"></line>
+    <text x="${mL+2}" y="${mT+10}" font-size="9.5">Winning value ↑</text>
+    <text x="${W-mR}" y="${H-1}" font-size="9.5" text-anchor="end">Cost →</text>
     ${dots}
   </svg>`;
 }
@@ -667,8 +689,8 @@ function wireScatterTip(){
     if(!d||d.classList.contains('dim')){ tip.style.display='none'; return; }
     const s=+d.dataset.s;
     tip.innerHTML=`<div class="tn">${d.dataset.n}</div><div class="tm">${d.dataset.t}</div>
-      <div class="tr"><span>Wins added</span><b>${d.dataset.w}</b></div>
-      <div class="tr"><span>NIL cost</span><b>${fM(+d.dataset.c)}</b></div>
+      <div class="tr"><span>Winning value</span><b>${d.dataset.w}</b></div>
+      <div class="tr"><span>Cost</span><b>${fM(+d.dataset.c)}</b></div>
       <div class="tr"><span>Surplus</span><b style="color:${d.dataset.v==='buy'?'var(--green)':d.dataset.v==='over'?'var(--red)':'var(--text)'}">${s>=0?'+':''}${fM(s)}</b></div>`;
     tip.style.display='block';
     tip.style.left=Math.min(window.innerWidth-244, e.clientX+14)+'px';
@@ -676,7 +698,7 @@ function wireScatterTip(){
   host.addEventListener('mouseleave',()=>{ tip.style.display='none'; });
 }
 
-const MCOLS=[['#','l',null],['Player','l',null],['Grd','','grade'],['Min','','min'],['Wins','','wa'],['Cost','','cost'],['Wins/$M','','wpd'],['Surplus','','surplus'],['Value','l',null]];
+const MCOLS=[['#','l',null],['Player','l',null],['Grd','','grade'],['Win score','','ws'],['Win value','','winVal'],['Market','','marketVal'],['Cost','','cost'],['Surplus','','winSurplus'],['Value','l',null]];
 function renderTable(){
   const list=marketFiltered();
   $id('mHead').innerHTML=`<tr>${MCOLS.map(c=>{ const s=c[2]; const ar=s===mktState.sort?(mktState.dir<0?' ▼':' ▲'):'';
@@ -685,12 +707,13 @@ function renderTable(){
   $id('mBodyRows').innerHTML=shown.map((p,i)=>`<tr>
     <td class="rk">${i+1}</td>
     <td class="l"><span class="pn">${esc(p.name)}</span><div class="pt">${esc(p.full)} · ${esc(p.pos||'')}${p.cls?' · '+esc(p.cls):''}</div></td>
-    <td>${p.grade}</td><td>${p.min}</td>
-    <td class="wpd">${p.wa.toFixed(1)}</td>
+    <td>${p.grade}</td>
+    <td class="wpd">${p.ws!=null?Math.round(p.ws):'—'}</td>
+    <td>${p.winVal!=null?fM(p.winVal):'—'}</td>
+    <td style="color:var(--text3)">${fM(p.marketVal)}</td>
     <td>${fM(p.cost)}</td>
-    <td>${p.wpd.toFixed(2)}</td>
-    <td class="surp ${p.surplus>=0?'pos':'neg'}">${p.surplus>=0?'+':''}${fM(p.surplus)}</td>
-    <td class="l"><span class="vpill ${p.verdict}">${p.verdict==='buy'?'Buy':p.verdict==='over'?'Overpay':'Fair'}</span></td>
+    <td class="surp ${(p.winSurplus>=0)?'pos':'neg'}">${p.winSurplus!=null?((p.winSurplus>=0?'+':'')+fM(p.winSurplus)):'—'}</td>
+    <td class="l">${p.winVerdict?`<span class="vpill ${p.winVerdict}">${p.winVerdict==='buy'?'Buy':p.winVerdict==='over'?'Overpay':'Fair'}</span>`:`<span style="color:var(--text3);font-size:10.5px">no ’26 stats</span>`}</td>
   </tr>`).join('')||`<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:24px">No players match.</td></tr>`;
   $id('mMore').innerHTML=list.length>mktState.limit?`<button id="mMoreBtn">Show more (${list.length-mktState.limit})</button>`:(list.length?`<span style="font-size:11px;color:var(--text3)">${list.length} player${list.length===1?'':'s'}</span>`:'');
   const mb=$id('mMoreBtn'); if(mb) mb.addEventListener('click',()=>{ mktState.limit+=60; renderTable(); });
