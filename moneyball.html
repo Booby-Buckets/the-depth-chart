@@ -532,6 +532,7 @@ async function ratingsMap(){ if(RATMAP) return RATMAP; RATMAP={};
   return RATMAP; }
 
 let MKT=null;
+const INIT_PARAMS=new URLSearchParams(location.search);   // captured at load, before showTab rewrites the URL
 let mktState={sort:'surplus', dir:-1, pos:'all', conf:'all', cls:'all', verdict:'all', q:'', limit:60};
 
 async function ensureMarketData(){
@@ -553,18 +554,35 @@ async function ensureMarketData(){
         grade:Math.round(grade), min:Math.round(min), ti, wa, cost, tier:T.tier||5});
     });
   });
-  const rr=arr.filter(p=>p.wa>0.4&&p.cost>0.15).map(p=>p.cost/p.wa).sort((a,b)=>a-b);
-  const rate=rr.length?rr[Math.floor(rr.length/2)]:1.2;   // $M per win (robust median)
-  arr.forEach(p=>{ p.fair=p.wa*rate; p.surplus=p.fair-p.cost; p.wpd=p.wa/Math.max(p.cost,0.05);
+  const meaningful=arr.filter(p=>p.wa>0.4&&p.cost>0.15);
+  const med=a=>{ a=a.slice().sort((x,y)=>x-y); return a.length?a[Math.floor(a.length/2)]:null; };
+  const globalRate=med(meaningful.map(p=>p.cost/p.wa))||1.2;   // $M per win, leaguewide
+  // Per-NIL-tier market rate: judge each player against his OWN tier's going rate, not the
+  // whole league — so productive mid-majors aren't auto-"buys" and blue-bloods aren't
+  // auto-"overpays". Tiers with a thin sample fall back to the global rate.
+  const tierRatios={}; meaningful.forEach(p=>{ (tierRatios[p.tier]=tierRatios[p.tier]||[]).push(p.cost/p.wa); });
+  // Fill tiers 1..9 monotonically decreasing (richer tier pays more per win). Well-sampled tiers
+  // use their own median; sparse/low tiers extrapolate down from the tier above (never fall back
+  // to the global rate, which would over-price cheap tiers and make them all look like bargains).
+  const tierRate={}; let prev=null;
+  for(let t=1;t<=9;t++){
+    const s=tierRatios[t];
+    let r=(s&&s.length>=4)?med(s):(prev!=null?prev*0.72:globalRate);
+    if(prev!=null&&r>prev) r=prev*0.9;   // a higher (poorer) tier can't out-pay a richer one
+    tierRate[t]=r; prev=r;
+  }
+  const rateFor=t=>tierRate[t]||globalRate;
+  arr.forEach(p=>{ p.rate=rateFor(p.tier); p.fair=p.wa*p.rate; p.surplus=p.fair-p.cost; p.wpd=p.wa/Math.max(p.cost,0.05);
     p.pct=p.surplus/Math.max(p.cost,0.25);
     p.verdict=(p.pct>=0.30&&p.wa>=1.0)?'buy':(p.pct<=-0.30)?'over':'fair'; });
-  MKT={players:arr, rate};
+  MKT={players:arr, rate:globalRate, tierRate, rateFor};
   return MKT;
 }
 async function bootMarket(){
   const box=$id('mktBody');
   const d=await ensureMarketData();
   if(!d){ box.innerHTML='<div class="loading">Market data unavailable.</div>'; return; }
+  const qp=INIT_PARAMS.get('q'); if(qp) mktState.q=qp;   // deep-link a player/team
   renderMarket();
 }
 
@@ -586,19 +604,19 @@ function renderMarket(){
   const nTeams=new Set(M.players.map(p=>p.team)).size;
   const confs=[...new Set(M.players.map(p=>p.conf).filter(Boolean))].sort();
   $id('mktBody').innerHTML=`
-    <div class="mkt-intro">Every rotation player across the <b>${nTeams} biggest-spending programs</b>, plotted by the wins his production is worth against what he costs on the NIL market. Points <b style="color:var(--green)">above the line</b> deliver more winning than they're paid for — the market's bargains. The going rate is about <b>${fM(M.rate)} per win</b>.</div>
+    <div class="mkt-intro">Every rotation player across the <b>${nTeams} biggest-spending programs</b>, plotted by the wins his production is worth against what he costs on the NIL market. Each player is judged against <b>his own NIL tier's going rate</b>, so the <b style="color:var(--green)">green</b> ones outproduce what their market pays. League average is about <b>${fM(M.rate)} per win</b>.</div>
     <div class="mkt-kpis">
       <div class="mkt-kpi"><div class="v">${M.players.length}</div><div class="l">Players priced</div><div class="s">top NIL programs</div></div>
-      <div class="mkt-kpi"><div class="v">${fM(M.rate)}</div><div class="l">Market rate</div><div class="s">per win added</div></div>
+      <div class="mkt-kpi"><div class="v">${fM(M.rate)}</div><div class="l">Market rate</div><div class="s">league avg / win</div></div>
       <div class="mkt-kpi"><div class="v" style="color:var(--green)">${buys}</div><div class="l">Undervalued</div><div class="s">producing above pay</div></div>
       <div class="mkt-kpi"><div class="v" style="color:var(--red)">${over}</div><div class="l">Overpaid</div><div class="s">below their price</div></div>
     </div>
     <div class="scatter-wrap">
-      <div class="scatter-legend"><span><i class="buy"></i>Undervalued</span><span><i class="fair"></i>Fair value</span><span><i class="over"></i>Overpaid</span><span><i class="line"></i>Market rate</span></div>
+      <div class="scatter-legend"><span><i class="buy"></i>Undervalued</span><span><i class="fair"></i>Fair value</span><span><i class="over"></i>Overpaid</span><span><i class="line"></i>League avg</span></div>
       <div id="scatterHost"></div>
     </div>
     <div class="mkt-ctrl">
-      <input class="msearch" id="mSearch" placeholder="Search player or team…" autocomplete="off">
+      <input class="msearch" id="mSearch" placeholder="Search player or team…" autocomplete="off" value="${esc(mktState.q||'')}">
       <select id="mConf"><option value="all">All conferences</option>${confs.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select>
       <select id="mPos"><option value="all">All positions</option><option value="G">Guards</option><option value="F">Forwards</option><option value="C">Centers</option></select>
       <select id="mCls"><option value="all">All classes</option><option value="fr">Freshman</option><option value="so">Sophomore</option><option value="jr">Junior</option><option value="sr">Senior</option></select>
@@ -816,8 +834,8 @@ let ledState={sort:'surplus', dir:-1, sel:null};
 function buildLedger(){
   const byTeam={};
   MKT.players.forEach(p=>{ (byTeam[p.team]=byTeam[p.team]||{team:p.team,full:p.full,conf:p.conf,tier:p.tier,players:[]}).players.push(p); });
-  const rate=MKT.rate;
   return Object.values(byTeam).map(t=>{
+    const rate=MKT.rateFor(t.tier);   // judge each program against its own NIL-tier market
     t.spend=sum(t.players.map(p=>p.cost));
     t.wa=rosterWA(t.players);   // minute-constrained (200-min rotation), so it can't be inflated by deep rosters
     t.fair=t.wa*rate; t.surplus=t.fair-t.spend; t.wpd=t.wa/Math.max(t.spend,0.05);
@@ -827,7 +845,12 @@ function buildLedger(){
     return t;
   }).filter(t=>t.players.length>=5);
 }
-function bootLedger(){ ensureMarketData().then(d=>{ if(!d){ $id('ledgerBody').innerHTML='<div class="loading">Data unavailable.</div>'; return; } if(!LEDGER) LEDGER=buildLedger(); renderLedger(); }); }
+function bootLedger(){ ensureMarketData().then(d=>{ if(!d){ $id('ledgerBody').innerHTML='<div class="loading">Data unavailable.</div>'; return; } if(!LEDGER) LEDGER=buildLedger();
+  const tm=INIT_PARAMS.get('team');   // deep-link a program's balance sheet
+  if(tm){ const m=LEDGER.find(t=>t.team===tm||t.full===tm||t.team.toLowerCase()===(''+tm).toLowerCase()); if(m) ledState.sel=m.team; }
+  renderLedger();
+  if(ledState.sel){ const d2=$id('ledDetail'); if(d2) setTimeout(()=>d2.scrollIntoView({behavior:'smooth',block:'nearest'}),200); }
+}); }
 function ledSorted(){ const s=ledState; return LEDGER.slice().sort((a,b)=>((a[s.sort]||0)-(b[s.sort]||0))*s.dir); }
 
 function renderLedger(){
@@ -835,7 +858,7 @@ function renderLedger(){
   const best=LEDGER.slice().sort((a,b)=>b.surplus-a.surplus)[0];
   const worst=LEDGER.slice().sort((a,b)=>a.surplus-b.surplus)[0];
   $id('ledgerBody').innerHTML=`
-    <div class="mkt-intro">Every one of the <b>${LEDGER.length} biggest-spending programs</b> as a balance sheet: what its roster costs on the NIL market against the wins that roster is worth. Programs <b style="color:var(--green)">above the line</b> get more winning than they pay for — the best-run front offices. Click a team for its smartest and dumbest contracts.</div>
+    <div class="mkt-intro">Every one of the <b>${LEDGER.length} biggest-spending programs</b> as a balance sheet: what its roster costs on the NIL market against the wins that roster is worth. Programs in <b style="color:var(--green)">green</b> get more winning than they pay for <b>relative to their spending tier</b> — the best-run front offices. Click a team for its smartest and dumbest contracts.</div>
     <div class="mkt-kpis">
       <div class="mkt-kpi"><div class="v">${LEDGER.length}</div><div class="l">Programs</div><div class="s">tracked</div></div>
       <div class="mkt-kpi"><div class="v">${fM(total)}</div><div class="l">Total NIL spend</div><div class="s">modeled market</div></div>
@@ -843,7 +866,7 @@ function renderLedger(){
       <div class="mkt-kpi"><div class="v" style="color:var(--red);font-size:19px">${esc(worst.team)}</div><div class="l">Overpaying most</div><div class="s">${fM(worst.surplus)} surplus</div></div>
     </div>
     <div class="scatter-wrap">
-      <div class="scatter-legend"><span><i class="buy"></i>Great value</span><span><i class="fair"></i>Fair</span><span><i class="over"></i>Overpaying</span><span><i class="line"></i>Market rate</span></div>
+      <div class="scatter-legend"><span><i class="buy"></i>Great value</span><span><i class="fair"></i>Fair</span><span><i class="over"></i>Overpaying</span><span><i class="line"></i>League avg</span></div>
       <div id="ledScatterHost"></div>
     </div>
     <div class="mkt-twrap"><table class="mkt"><thead id="ledHead"></thead><tbody id="ledRows"></tbody></table></div>
@@ -941,8 +964,8 @@ document.getElementById('mbTabs').addEventListener('click',e=>{ const b=e.target
 
 (function init(){
   const sp=new URLSearchParams(location.search), tab=sp.get('tab');
-  if(sp.get('team')) showTab('office');
-  else if(tab&&['market','office','gm','ledger'].includes(tab)) showTab(tab);
+  if(tab&&['market','office','gm','ledger'].includes(tab)) showTab(tab);
+  else if(sp.get('team')) showTab('office');
   else showTab('market');
 })();
 </script>
