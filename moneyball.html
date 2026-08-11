@@ -24,7 +24,7 @@
   <script src="tdc-projgrade.js?v=base1"></script>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=7"></script>
-  <script src="tdc-nil.js?v=notier1"></script>
+  <script src="tdc-nil.js?v=notier2"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -549,7 +549,7 @@ async function ensureMarketData(){
       const grade=+pl.grade; if(!isFinite(grade)||grade<58) return;
       const min=mktMin(pl); if(min<8) return;
       let cost=+pl.value; if(!isFinite(cost)||cost<=0) return;
-      cost=(window.TDC_NIL&&TDC_NIL.deTier)?TDC_NIL.deTier(cost, T.tier):cost;   // tier-neutral: price the player, not his program
+      cost=(window.TDC_NIL&&TDC_NIL.neutralValueOf)?TDC_NIL.neutralValueOf(pl, T.tier):cost;   // open-market: price the player, not his program (real deals kept as-is)
       const ti=ti40Of(grade), wa=waOf(ti, min);
       arr.push({name:pl.name, team:short, full:info.full||short, conf:info.conf||'',
         pos:(pl.pos||'').toUpperCase(), cls:(pl.cls||'').replace(/\./g,''),
@@ -863,7 +863,7 @@ function renderLedger(){
     <div class="mkt-intro">Every one of the <b>${LEDGER.length} biggest-spending programs</b> as a balance sheet: what its roster costs on the NIL market against the wins that roster is worth. Programs in <b style="color:var(--green)">green</b> get more winning than they pay for <b>relative to their spending tier</b> — the best-run front offices. Click a team for its smartest and dumbest contracts.</div>
     <div class="mkt-kpis">
       <div class="mkt-kpi"><div class="v">${LEDGER.length}</div><div class="l">Programs</div><div class="s">tracked</div></div>
-      <div class="mkt-kpi"><div class="v">${fM(total)}</div><div class="l">Total NIL spend</div><div class="s">modeled market</div></div>
+      <div class="mkt-kpi"><div class="v">${fM(total)}</div><div class="l">Total market value</div><div class="s">open-market worth</div></div>
       <div class="mkt-kpi"><div class="v" style="color:var(--green);font-size:19px">${esc(best.team)}</div><div class="l">Best value</div><div class="s">+${fM(best.surplus)} surplus</div></div>
       <div class="mkt-kpi"><div class="v" style="color:var(--red);font-size:19px">${esc(worst.team)}</div><div class="l">Overpaying most</div><div class="s">${fM(worst.surplus)} surplus</div></div>
     </div>

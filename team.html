@@ -9,7 +9,7 @@
   <script src="tdc-shotchart.js?v=14"></script>
   <script src="tdc-lineups.js?v=13"></script>
   <script src="tdc-shotflow.js?v=9"></script>
-  <script src="tdc-nil.js?v=notier1"></script>
+  <script src="tdc-nil.js?v=notier2"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=1"></script>
   <script src="tdc-proj.js?v=coach19"></script>
@@ -6120,7 +6120,7 @@ async function renderNil(){
   const fmt=m=>m>=1?('$'+(+m).toFixed(1)+'M'):('$'+Math.round(m*1000)+'K');
   // tier-neutral roster value = the roster's open-market worth (price the players, not the program).
   const _F=(window.TDC_NIL&&TDC_NIL.deTier)?(TDC_NIL.NEUTRAL_MULT/(TDC_NIL.MODEL.tier_mult[TDC_NIL.tierNum(d.tier)]||0.2)):1;
-  const nVal=(d.value||0)*_F;              // roster worth, tier-neutral
+  const nVal=(window.TDC_NIL&&TDC_NIL.neutralValueOf)?d.players.reduce((s,p)=>s+TDC_NIL.neutralValueOf(p,d.tier),0):(d.value||0)*_F;   // roster worth = Σ open-market player values (real deals respected)
   const nDiff=nVal-d.budget;               // worth − budget (+ = roster worth more than the program's budget)
   const deal=nDiff>=0;                      // worth ≥ budget → getting value; else paying a premium over market
   const maxv=Math.max(nVal,d.budget)||1;
@@ -6161,7 +6161,7 @@ async function renderNil(){
     const href=rp&&rp.espn_id?`player.html?espn=${rp.espn_id}&name=${encodeURIComponent(p.name)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(tT.name||'')}`;
     const nameCell=`<a href="${href}" style="color:inherit;text-decoration:none;">${p.name}</a>`;
     const model=p.proj!=null?p.proj:p.value;          // tier-based — feeds the tier-fair verdict
-    const modelShown=(window.TDC_NIL&&TDC_NIL.deTier)?TDC_NIL.deTier(model,d.tier):model;   // tier-neutral — for display
+    const modelShown=(window.TDC_NIL&&TDC_NIL.neutralValueOf)?TDC_NIL.neutralValueOf(p,d.tier):model;   // open-market — for display (real deals as-is)
     const _bm=_bmOf(p);
     const mktV=_bm.val;
     const posC=_bm.pos||'—';   // shows the position the market prices him at (natural, if out of position)

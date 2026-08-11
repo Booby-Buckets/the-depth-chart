@@ -98,15 +98,20 @@ window.TDC_NIL = {
     var tm=N.MODEL.tier_mult[N.tierNum(tier)]||0.2;
     return b*N.MODEL.top_m*tm*N.minFactor(N.estMpg(mpg,grade))*(prem||1)*N.youthMult(cls)*N.bigMult(pos,grade)*N.prospectMult(grade,cls); };
   N.marketValue   = function(imp,mpg,htIn,ppg,confCode,tier,pos,pillars){ return N.isWalkon(imp) ? N.WALKON_VALUE : N.value(imp,mpg,tier)*N.marketPremium(htIn,ppg,confCode,pos,pillars) + N.baseIntercept(mpg,tier); }; // $M
-  // ── tier-neutral pricing: value a player by his OWN worth, not his program's spending tier ──
-  // K ≈ 0.406 = the roster-weighted average tier multiplier (preserves the leaguewide total),
-  // i.e. price every player as if on an average high-major. Same player is worth the same
-  // whether he's at a blue-blood or a mid-major — talent/role/premium, not the program.
-  N.NEUTRAL_MULT = 0.406;
+  // ── open-market pricing: value a player by his OWN worth, not his program's spending tier ──
+  // A player's market value = what a TOP program would pay him (the open market is set by the
+  // top bidders), boosted so the very best land at real-deal levels (a generational recruit ~$6M,
+  // e.g. Tyran Stokes). NEUTRAL_MULT = top-of-market (tier-1 = 1.0) × ceiling boost (1.254).
+  // Same player is worth the same at a blue-blood or a mid-major — talent/role/premium, not program.
+  N.NEUTRAL_MULT = 1.254;
   N.gradeValueNeutral = function(grade,mpg,prem,cls,pos){ var b=N.gradeBase(grade); if(b<=0.003) return N.WALKON_VALUE;
     return b*N.MODEL.top_m*N.NEUTRAL_MULT*N.minFactor(N.estMpg(mpg,grade))*(prem||1)*N.youthMult(cls)*N.bigMult(pos,grade)*N.prospectMult(grade,cls); };
-  N.deTier = function(value,tier){ if(value==null||!isFinite(+value)||+value<=N.WALKON_VALUE*1.5) return value;  // rescale a precomputed tier-based value to tier-neutral
+  N.deTier = function(value,tier){ if(value==null||!isFinite(+value)||+value<=N.WALKON_VALUE*1.5) return value;  // rescale a precomputed tier-based value to open-market
     var tm=N.MODEL.tier_mult[N.tierNum(tier)]||0.2; return (+value)*N.NEUTRAL_MULT/tm; };
+  // open-market value of a nil-data player row: real deals (override) shown as-is; walk-ons untouched;
+  // everyone else rescaled off their program's tier. Use this so a known deal isn't distorted by the rescale.
+  N.neutralValueOf = function(p,tier){ if(!p) return 0; var v=+(p.value); if(!isFinite(v)) return 0;
+    if(p.override||p.walkon) return v; return N.deTier(v,tier); };
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };
 })();

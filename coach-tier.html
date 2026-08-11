@@ -22,7 +22,7 @@
   <script src="auth.js?v=paywall4"></script>
   <script src="tdc-ratings.js?v=7"></script>
   <script src="tdc-teamlink.js?v=2"></script>
-  <script src="tdc-nil.js?v=notier1"></script>
+  <script src="tdc-nil.js?v=notier2"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -377,7 +377,7 @@ function renderCommandCenter(row){
   // tier-neutral roster value (price the players, not the program); the tier only sets the budget shown
   const _nilF=(nilT&&window.TDC_NIL&&TDC_NIL.deTier)?(TDC_NIL.NEUTRAL_MULT/(TDC_NIL.MODEL.tier_mult[TDC_NIL.tierNum(nilT.tier)]||0.2)):1;
   let nilCard;
-  if(nilT){ const nv=(nz(nilT.value)||0)*_nilF, bud=nz(nilT.budget)||0, deal=nv>=bud, vc=deal?'deal':'overpay';
+  if(nilT){ const nv=(window.TDC_NIL&&TDC_NIL.neutralValueOf)?(nilT.players||[]).reduce((s,p)=>s+TDC_NIL.neutralValueOf(p,nilT.tier),0):(nz(nilT.value)||0)*_nilF, bud=nz(nilT.budget)||0, deal=nv>=bud, vc=deal?'deal':'overpay';
     nilCard=`<div class="cc-card"><div class="cl">NIL roster value</div><div class="cv">$${nv.toFixed(1)}m</div><div class="cd">open-market · Tier ${nilT.tier||'—'} budget $${bud.toFixed(0)}m</div><span class="cc-badge2 ${vc}">${deal?'DEAL':'PREMIUM'}</span></div>`;
   } else nilCard=`<div class="cc-card"><div class="cl">NIL roster value</div><div class="cv">—</div><div class="cd">NIL model not on file yet</div></div>`;
   let topP=null; if(nilT&&nilT.players&&nilT.players.length){ topP=[...nilT.players].sort((a,b)=>(nz(b.grade)||0)-(nz(a.grade)||0))[0]; }
@@ -397,7 +397,7 @@ function renderCommandCenter(row){
   const launch=LAUNCH.map(t=>`<a class="cc-tool" style="--tc:${tc}" href="${t[1]}?team=${q}"><span class="ci">${t[0]}</span><span><span class="cn">${t[2]}</span><span class="cds">${t[3]}</span></span></a>`).join('');
   let nilList='';
   if(nilT&&nilT.players&&nilT.players.length){ const top=[...nilT.players].filter(p=>nz(p.value)!=null).sort((a,b)=>(nz(b.value)||0)-(nz(a.value)||0)).slice(0,5);
-    nilList=top.map(p=>`<div class="cc-nrow"><span><b>${esc(p.name)}</b> <span style="color:var(--text3)">${esc(p.pos||'')}</span></span><span class="nv">$${((nz(p.value)||0)*_nilF).toFixed(2)}m</span></div>`).join(''); }
+    nilList=top.map(p=>`<div class="cc-nrow"><span><b>${esc(p.name)}</b> <span style="color:var(--text3)">${esc(p.pos||'')}</span></span><span class="nv">$${((window.TDC_NIL&&TDC_NIL.neutralValueOf)?TDC_NIL.neutralValueOf(p,nilT.tier):(nz(p.value)||0)*_nilF).toFixed(2)}m</span></div>`).join(''); }
   const nilPanel=`<div class="cc-panel"><h4>Top market values</h4>${nilList||'<div class="cd" style="font-size:12px;color:var(--text3)">No NIL breakdown for this team yet.</div>'}</div>`;
   const scoutPanel=`<div class="cc-panel"><h4>Scout an opponent</h4><div class="cc-oppwrap"><input id="ccOpp" type="text" placeholder="Search an opponent to scout…" autocomplete="off"><div class="cc-list" id="ccOppList"></div></div><div class="cd" style="font-size:11px;color:var(--text3);margin-top:8px">Opens a full scouting report — with your team set as the matchup.</div></div>`;
   ccEl.innerHTML=`
