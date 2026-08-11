@@ -541,6 +541,19 @@ function ensureWinVal(){ if(_winvalP) return _winvalP; _winvalP=fetch('winning_v
 const _wvNorm=s=>(''+(s||'')).toLowerCase().replace(/[^a-z0-9]/g,'');
 function wvOf(pl){ if(!WINVAL) return null; let r=null; if(pl.espn_id!=null&&WINVAL.players) r=WINVAL.players[String(pl.espn_id)]; if(!r&&WINVAL.by_name) r=WINVAL.by_name[_wvNorm(pl.name)]; return r||null; }
 
+// ── recruiting PEDIGREE → market value only (not winning value). A 5-star still carries hype,
+//    but it decays each year as production proves out (a former top-3 senior barely gets it). ──
+let PED=null,_pedP=null;
+function ensurePed(){ if(_pedP) return _pedP; _pedP=fetch('scripts/data/recruit_pedigree.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{PED=(j&&j.players)||{};return PED;}).catch(()=>{PED={};}); return _pedP; }
+const PED_MAX=0.70;   // an elite (coef 1.0) freshman gets up to +70% market value from pedigree
+const pedDecay=cls=>{ const c=(''+(cls||'')).toLowerCase();
+  if(c.indexOf('fr')>=0) return 1.00;   // freshman: all hype, no proof yet
+  if(c.indexOf('so')>=0) return 0.60;
+  if(c.indexOf('jr')>=0) return 0.30;
+  if(c.indexOf('sr')>=0||c.indexOf('gr')>=0) return 0.10;   // 3+ yrs of production have spoken (DJ Wagner)
+  return 0.50; };
+const pedigreeMult=(espn,cls)=>{ const coef=(PED&&espn!=null)?(+PED[String(espn)]||0):0; return 1+PED_MAX*coef*pedDecay(cls); };
+
 async function ensureMarketData(){
   if(MKT) return MKT;
   let nil; try{ nil=await fetch('nil-data.json').then(r=>r.ok?r.json():null); }catch(e){}
@@ -548,6 +561,7 @@ async function ensureMarketData(){
   const rm=await ratingsMap();
   if(window.TDC_NIL&&TDC_NIL.dealsReady){ try{ await TDC_NIL.dealsReady; }catch(e){} }   // known real deals before pricing
   try{ await ensureWinVal(); }catch(e){}                                                   // Winning Value (win-driver score)
+  try{ await ensurePed(); }catch(e){}                                                      // recruiting pedigree (market value only)
   const nt=window.TDC_NIL, dt=(nt&&nt.deTier)?((v,t)=>nt.deTier(v,t)):((v)=>v);
   const arr=[]; const teams=nil.teams;
   Object.keys(teams).forEach(short=>{
@@ -560,12 +574,16 @@ async function ensureMarketData(){
       cost=(nt&&nt.neutralValueOf)?nt.neutralValueOf(pl, T.tier):cost;      // PAID = what he's actually paid (real deal if known — includes discounts — else the model estimate)
       // MARKET VALUE = the model's open-market estimate, INDEPENDENT of any deal (what he'd command
       // elsewhere). For deal players (overrides) recompute from grade/role so it isn't the deal itself.
-      const marketVal=(pl.override&&nt&&nt.gradeValueNeutral)?nt.gradeValueNeutral(+pl.grade,+pl.mpg||min,pl.prem,(pl.cls||''),pl.pos):dt(+pl.value, T.tier);
+      let marketVal=(pl.override&&nt&&nt.gradeValueNeutral)?nt.gradeValueNeutral(+pl.grade,+pl.mpg||min,pl.prem,(pl.cls||''),pl.pos):dt(+pl.value, T.tier);
+      const _ped=pedigreeMult(pl.espn_id, pl.cls);                          // recruiting pedigree, decayed by class year
+      marketVal*=_ped;
+      const _hasDeal=pl.override||(nt&&nt.dealOf&&nt.dealOf(pl.name)!=null);
+      if(!_hasDeal) cost=marketVal;                                         // no known deal → paid estimate = market value (incl pedigree)
       const ti=ti40Of(grade), wa=waOf(ti, min);
       const wv=wvOf(pl);
       arr.push({name:pl.name, team:short, full:info.full||short, conf:info.conf||'', espn_id:pl.espn_id,
         pos:(pl.pos||'').toUpperCase(), cls:(pl.cls||'').replace(/\./g,''),
-        grade:Math.round(grade), min:Math.round(min), ti, wa, cost, marketVal, tier:T.tier||5,
+        grade:Math.round(grade), min:Math.round(min), ti, wa, cost, marketVal, tier:T.tier||5, ped:_ped,
         ws:wv?wv.ws:null, wwins:wv?wv.wwins:null});
     });
   });
@@ -667,7 +685,7 @@ function renderMarket(){
     </div>
     <div class="mkt-twrap"><table class="mkt"><thead id="mHead"></thead><tbody id="mBodyRows"></tbody></table></div>
     <div class="mkt-more" id="mMore"></div>
-    <div class="disclaimer" style="margin-top:12px"><b>Win value</b> = a player's win-driver score (efficiency, defense, rebounding, ball-security — the skills that predict winning, weighted from a 7,000-team-season regression; scoring volume &amp; assists count little), priced so it sits on the same scale as market value. <b>Market value</b> = what the open NIL market would pay him — our model, <i>independent</i> of what he's actually on the books for, so it shows his worth elsewhere even when he's taking a discount. <b>Paid</b> = the actual deal where known (Kentucky's Jerone Morton is on ~$100K at home but would command more elsewhere — Paid $100K, Market value higher). <b>Undervalued</b> = win value beats what he's paid by 25%+. Freshmen without 2025-26 stats have no win value yet. A screener, not a contract.</div>
+    <div class="disclaimer" style="margin-top:12px"><b>Win value</b> = a player's win-driver score (efficiency, defense, rebounding, ball-security — the skills that predict winning, weighted from a 7,000-team-season regression; scoring volume &amp; assists count little), priced so it sits on the same scale as market value. <b>Market value</b> = what the open NIL market would pay him — our model (production + size/scoring/conference + <b>recruiting pedigree</b>, where a former five-star still commands a premium that decays each year as production proves out), <i>independent</i> of what he's actually on the books for, so it shows his worth elsewhere even when he's taking a discount. <b>Paid</b> = the actual deal where known (Kentucky's Jerone Morton is on ~$100K at home but would command more elsewhere — Paid $100K, Market value higher). <b>Undervalued</b> = win value beats what he's paid by 25%+. Freshmen without 2025-26 stats have no win value yet. A screener, not a contract.</div>
     ${(window.TDC_COACHLINKS&&TDC_COACHLINKS.bar)?TDC_COACHLINKS.bar('The Depth Chart'):''}`;
   $id('mSearch').addEventListener('input',e=>{ mktState.q=e.target.value; mktState.limit=60; renderScatter(); renderTable(); });
   $id('mConf').addEventListener('change',e=>{ mktState.conf=e.target.value; mktState.limit=60; renderScatter(); renderTable(); });
