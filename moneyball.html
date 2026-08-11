@@ -217,6 +217,26 @@
     .gm-pool-ctrl input:focus{border-color:var(--accent);}
     .gm-pool-ctrl select{padding:8px 9px;border:1px solid var(--border2);border-radius:9px;background:var(--bg);color:var(--text);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;outline:none;}
     .posdot{font-size:8.5px;font-weight:800;color:var(--text3);border:1px solid var(--border2);border-radius:5px;padding:1px 5px;margin-left:6px;vertical-align:middle;}
+
+    /* ── The Ledger ── */
+    table.mkt tbody tr.clik{cursor:pointer;}
+    table.mkt tbody tr.sel{background:color-mix(in srgb,var(--accent) 12%,transparent);}
+    .tierpill{font-size:8.5px;font-weight:800;letter-spacing:.03em;color:var(--text3);border:1px solid var(--border2);border-radius:5px;padding:1px 5px;margin-left:6px;vertical-align:middle;}
+    .led-detail{margin-top:18px;scroll-margin-top:60px;}
+    .led-detail .card{padding:0;overflow:hidden;}
+    .led-dh{display:flex;align-items:center;gap:12px;padding:15px 18px;border-bottom:1px solid var(--border);background:linear-gradient(120deg,color-mix(in srgb,var(--tc,var(--accent)) 12%,var(--bg2)),var(--bg2));}
+    .led-dh .dt{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;}
+    .led-dh .dm{font-size:11.5px;color:var(--text3);font-weight:600;}
+    .led-dh .dx{margin-left:auto;text-align:right;}
+    .led-dh .dx .dv{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;}
+    .led-dh .dx .dl{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .led-cols{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+    @media(max-width:640px){.led-cols{grid-template-columns:1fr;}}
+    .led-cols>div{padding:14px 16px;} .led-cols>div:first-child{border-right:1px solid var(--border);}
+    @media(max-width:640px){.led-cols>div:first-child{border-right:none;border-bottom:1px solid var(--border);}}
+    .led-cols .ch{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
+    .led-close{float:right;cursor:pointer;color:var(--text3);font-size:18px;line-height:1;padding:0 4px;}
+    .led-close:hover{color:var(--text);}
   </style>
   <link rel="stylesheet" href="tdc-skin.css?v=7"/>
 </head>
@@ -230,7 +250,7 @@
     <button class="mb-tab on" data-tab="market"><span class="tico">📈</span> The Market</button>
     <button class="mb-tab" data-tab="office"><span class="tico">🏛️</span> Front Office</button>
     <button class="mb-tab" data-tab="gm"><span class="tico">🧩</span> GM Mode</button>
-    <button class="mb-tab" data-tab="ledger"><span class="tico">📊</span> The Ledger <span class="soon">Soon</span></button>
+    <button class="mb-tab" data-tab="ledger"><span class="tico">📊</span> The Ledger</button>
   </div>
 
   <!-- ── THE MARKET ── -->
@@ -254,8 +274,7 @@
 
   <!-- ── THE LEDGER (placeholder) ── -->
   <div class="mb-panel" id="tab-ledger">
-    <div class="soon-wrap"><div class="se">📊</div><h3>The Ledger</h3>
-      <p>Which programs get the most wins per dollar? A leaguewide efficiency leaderboard plus every team's overpaid and underpaid players. Coming soon.</p></div>
+    <div id="ledgerBody"><div class="loading">Building the ledger…</div></div>
   </div>
 </div>
 
@@ -499,7 +518,7 @@ function recompute(){
    (modeled market $). The market's $-per-win rate defines "fair"; players whose
    wins outrun their price are the bargains. Source: nil-data.json (per-player
    modeled value) × the same WA math above (grade→ti40→WA). */
-const fM=m=>{ if(m==null||!isFinite(m)) return '—'; const neg=m<0, a=Math.abs(m); const s=a>=1?('$'+a.toFixed(2)+'M'):('$'+Math.round(a*1000)+'K'); return (neg?'-':'')+s; };
+const fM=m=>{ if(m==null||!isFinite(m)) return '—'; const neg=m<0, a=Math.abs(m); let s; if(a>=1000) s='$'+(a/1000).toFixed(2)+'B'; else if(a>=1) s='$'+a.toFixed(2)+'M'; else s='$'+Math.round(a*1000)+'K'; return (neg?'-':'')+s; };
 function posBucket(p){ p=(''+(p||'')).toUpperCase().split('/')[0].trim();
   if(p==='C'||p==='FC') return 'C';
   if(p==='SF'||p==='PF'||p==='F'||p==='GF') return 'F';
@@ -788,6 +807,122 @@ function renderGMPool(){
   const mb=$id('gmMoreBtn'); if(mb) mb.addEventListener('click',()=>{ gmState.limit+=40; renderGMPool(); });
 }
 
+/* ═══════════════════════ THE LEDGER ═══════════════════════
+   Every program as a balance sheet: roster cost (Σ modeled NIL market value) vs the
+   wins that roster is worth (Σ WA). Value surplus = wins-value at the leaguewide rate
+   minus what it costs — the best-run front offices get more winning than they pay for. */
+let LEDGER=null;
+let ledState={sort:'surplus', dir:-1, sel:null};
+function buildLedger(){
+  const byTeam={};
+  MKT.players.forEach(p=>{ (byTeam[p.team]=byTeam[p.team]||{team:p.team,full:p.full,conf:p.conf,tier:p.tier,players:[]}).players.push(p); });
+  const rate=MKT.rate;
+  return Object.values(byTeam).map(t=>{
+    t.spend=sum(t.players.map(p=>p.cost));
+    t.wa=rosterWA(t.players);   // minute-constrained (200-min rotation), so it can't be inflated by deep rosters
+    t.fair=t.wa*rate; t.surplus=t.fair-t.spend; t.wpd=t.wa/Math.max(t.spend,0.05);
+    t.pct=t.surplus/Math.max(t.spend,0.25);
+    t.verdict=t.pct>=0.15?'buy':t.pct<=-0.15?'over':'fair';
+    const info=RATMAP[t.team]||{}; t.rating=info.rating; t.rank=info.rank;
+    return t;
+  }).filter(t=>t.players.length>=5);
+}
+function bootLedger(){ ensureMarketData().then(d=>{ if(!d){ $id('ledgerBody').innerHTML='<div class="loading">Data unavailable.</div>'; return; } if(!LEDGER) LEDGER=buildLedger(); renderLedger(); }); }
+function ledSorted(){ const s=ledState; return LEDGER.slice().sort((a,b)=>((a[s.sort]||0)-(b[s.sort]||0))*s.dir); }
+
+function renderLedger(){
+  const total=sum(LEDGER.map(t=>t.spend));
+  const best=LEDGER.slice().sort((a,b)=>b.surplus-a.surplus)[0];
+  const worst=LEDGER.slice().sort((a,b)=>a.surplus-b.surplus)[0];
+  $id('ledgerBody').innerHTML=`
+    <div class="mkt-intro">Every one of the <b>${LEDGER.length} biggest-spending programs</b> as a balance sheet: what its roster costs on the NIL market against the wins that roster is worth. Programs <b style="color:var(--green)">above the line</b> get more winning than they pay for — the best-run front offices. Click a team for its smartest and dumbest contracts.</div>
+    <div class="mkt-kpis">
+      <div class="mkt-kpi"><div class="v">${LEDGER.length}</div><div class="l">Programs</div><div class="s">tracked</div></div>
+      <div class="mkt-kpi"><div class="v">${fM(total)}</div><div class="l">Total NIL spend</div><div class="s">modeled market</div></div>
+      <div class="mkt-kpi"><div class="v" style="color:var(--green);font-size:19px">${esc(best.team)}</div><div class="l">Best value</div><div class="s">+${fM(best.surplus)} surplus</div></div>
+      <div class="mkt-kpi"><div class="v" style="color:var(--red);font-size:19px">${esc(worst.team)}</div><div class="l">Overpaying most</div><div class="s">${fM(worst.surplus)} surplus</div></div>
+    </div>
+    <div class="scatter-wrap">
+      <div class="scatter-legend"><span><i class="buy"></i>Great value</span><span><i class="fair"></i>Fair</span><span><i class="over"></i>Overpaying</span><span><i class="line"></i>Market rate</span></div>
+      <div id="ledScatterHost"></div>
+    </div>
+    <div class="mkt-twrap"><table class="mkt"><thead id="ledHead"></thead><tbody id="ledRows"></tbody></table></div>
+    <div class="led-detail" id="ledDetail"></div>
+    <div class="disclaimer" style="margin-top:12px">Spend = sum of modeled NIL market value across the rotation. Roster WA = the wins that production is worth. “Value surplus” = the roster's wins-value at the leaguewide $-per-win rate minus what it costs — positive means the program is getting a deal. A model, not a cap sheet.</div>
+    ${(window.TDC_COACHLINKS&&TDC_COACHLINKS.bar)?TDC_COACHLINKS.bar('The Depth Chart'):''}`;
+  renderLedScatter(); renderLedTable(); wireLedScatterTip();
+  if(ledState.sel) renderLedTeam(ledState.sel);
+}
+
+function renderLedScatter(){
+  const L=LEDGER, W=720,H=380,mL=46,mB=32,mT=12,mR=12,pw=W-mL-mR,ph=H-mT-mB;
+  const spends=L.map(t=>t.spend).sort((a,b)=>a-b);
+  const xmax=Math.max(1, spends[Math.floor(spends.length*0.98)]||1);
+  const ymax=Math.max(1, Math.max(...L.map(t=>t.wa))*1.05);
+  const X=c=>mL+Math.min(c,xmax)/xmax*pw, Y=w=>mT+ph-Math.min(w,ymax)/ymax*ph;
+  const rate=MKT.rate, waEnd=Math.min(ymax, xmax/rate);
+  const col=v=>v==='buy'?'var(--green)':v==='over'?'var(--red)':'var(--text3)';
+  const xticks=[0,xmax*0.25,xmax*0.5,xmax*0.75,xmax], yticks=[0,ymax*0.25,ymax*0.5,ymax*0.75,ymax];
+  const dots=L.map(t=>`<circle class="dot" cx="${X(t.spend).toFixed(1)}" cy="${Y(t.wa).toFixed(1)}" r="4.5" fill="${col(t.verdict)}" fill-opacity="0.82" data-n="${esc(t.team)}" data-t="${esc(t.full)}" data-w="${t.wa.toFixed(1)}" data-c="${t.spend.toFixed(3)}" data-v="${t.verdict}" data-s="${t.surplus.toFixed(3)}"></circle>`).join('');
+  $id('ledScatterHost').innerHTML=`<svg class="scatter" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+    ${yticks.map(t=>`<line x1="${mL}" y1="${Y(t).toFixed(1)}" x2="${W-mR}" y2="${Y(t).toFixed(1)}" stroke="var(--border)" stroke-width="1"></line><text x="${mL-6}" y="${(Y(t)+3).toFixed(1)}" font-size="9" text-anchor="end">${t.toFixed(0)}</text>`).join('')}
+    ${xticks.map(t=>`<text x="${X(t).toFixed(1)}" y="${H-mB+16}" font-size="9" text-anchor="middle">${fM(t)}</text>`).join('')}
+    <line x1="${X(0).toFixed(1)}" y1="${Y(0).toFixed(1)}" x2="${X(waEnd*rate).toFixed(1)}" y2="${Y(waEnd).toFixed(1)}" stroke="var(--border2)" stroke-width="1.5" stroke-dasharray="5 4"></line>
+    <text x="${mL+2}" y="${mT+10}" font-size="9.5">Roster wins ↑</text>
+    <text x="${W-mR}" y="${H-1}" font-size="9.5" text-anchor="end">Roster cost →</text>
+    ${dots}</svg>`;
+}
+function wireLedScatterTip(){
+  const host=$id('ledScatterHost'), tip=$id('mktTip'); if(!host||host._tip) return; host._tip=1;
+  host.addEventListener('mousemove',e=>{ const d=e.target.closest&&e.target.closest('.dot'); if(!d){ tip.style.display='none'; return; }
+    const s=+d.dataset.s;
+    tip.innerHTML=`<div class="tn">${d.dataset.t}</div><div class="tm">${d.dataset.v==='buy'?'Great value':d.dataset.v==='over'?'Overpaying':'Fair value'}</div>
+      <div class="tr"><span>Roster WA</span><b>${d.dataset.w}</b></div>
+      <div class="tr"><span>Spend</span><b>${fM(+d.dataset.c)}</b></div>
+      <div class="tr"><span>Surplus</span><b style="color:${d.dataset.v==='buy'?'var(--green)':d.dataset.v==='over'?'var(--red)':'var(--text)'}">${s>=0?'+':''}${fM(s)}</b></div>`;
+    tip.style.display='block'; tip.style.left=Math.min(window.innerWidth-244,e.clientX+14)+'px'; tip.style.top=Math.max(10,e.clientY-10)+'px'; });
+  host.addEventListener('mouseleave',()=>{ tip.style.display='none'; });
+  host.addEventListener('click',e=>{ const d=e.target.closest&&e.target.closest('.dot'); if(d) selectLedTeam(d.dataset.n); });
+}
+
+const LCOLS=[['#','l',null],['Program','l',null],['Spend','','spend'],['Roster WA','','wa'],['Wins/$M','','wpd'],['Surplus','','surplus'],['Value','l',null]];
+function renderLedTable(){
+  const list=ledSorted();
+  $id('ledHead').innerHTML=`<tr>${LCOLS.map(c=>{ const s=c[2]; const ar=s===ledState.sort?(ledState.dir<0?' ▼':' ▲'):'';
+    return `<th class="${c[1]==='l'?'l':''}" ${s?`data-sort="${s}"`:'style="cursor:default"'}>${c[0]}<span class="ar">${ar}</span></th>`; }).join('')}</tr>`;
+  $id('ledRows').innerHTML=list.map((t,i)=>`<tr class="clik${ledState.sel===t.team?' sel':''}" data-team="${esc(t.team)}">
+    <td class="rk">${i+1}</td>
+    <td class="l"><span class="pn">${esc(t.full)}</span><span class="tierpill">T${t.tier}</span><div class="pt">${esc(t.conf||'')}${t.rank?' · #'+t.rank:''}</div></td>
+    <td>${fM(t.spend)}</td>
+    <td class="wpd">${t.wa.toFixed(1)}</td>
+    <td>${t.wpd.toFixed(2)}</td>
+    <td class="surp ${t.surplus>=0?'pos':'neg'}">${t.surplus>=0?'+':''}${fM(t.surplus)}</td>
+    <td class="l"><span class="vpill ${t.verdict}">${t.verdict==='buy'?'Value':t.verdict==='over'?'Overpay':'Fair'}</span></td>
+  </tr>`).join('');
+  $id('ledRows').querySelectorAll('tr.clik').forEach(tr=>tr.addEventListener('click',()=>selectLedTeam(tr.dataset.team)));
+  $id('ledHead').querySelectorAll('th[data-sort]').forEach(th=>th.addEventListener('click',()=>{ const k=th.dataset.sort; if(ledState.sort===k) ledState.dir*=-1; else { ledState.sort=k; ledState.dir=-1; } renderLedTable(); }));
+}
+function selectLedTeam(team){ ledState.sel=team; renderLedTable(); renderLedTeam(team); const d=$id('ledDetail'); if(d) d.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+function renderLedTeam(team){
+  const t=LEDGER.find(x=>x.team===team); if(!t){ $id('ledDetail').innerHTML=''; return; }
+  const col=(window.tdcTeamColorHex&&tdcTeamColorHex(t.full))||'var(--accent)';
+  const ranked=t.players.slice().sort((a,b)=>b.surplus-a.surplus);
+  const buys=ranked.filter(p=>p.surplus>0).slice(0,5);
+  const overs=ranked.filter(p=>p.surplus<0).sort((a,b)=>a.surplus-b.surplus).slice(0,5);
+  const row=p=>`<div class="gm-p"><div class="nm">${esc(p.name)}<span class="posdot">${posBucket(p.pos)}</span><div class="pt">${p.wa.toFixed(1)} WA · ${fM(p.cost)}</div></div><div class="st"><b style="color:${p.surplus>=0?'var(--green)':'var(--red)'}">${p.surplus>=0?'+':''}${fM(p.surplus)}</b><br><span class="vpill ${p.verdict}" style="font-size:8px;padding:1px 6px">${p.verdict==='buy'?'Buy':p.verdict==='over'?'Over':'Fair'}</span></div></div>`;
+  $id('ledDetail').innerHTML=`<div class="card" style="--tc:${col}">
+    <div class="led-dh">
+      <div><div class="dt">${esc(t.full)} <span class="led-close" id="ledClose" title="Close">×</span></div><div class="dm">${esc(t.conf||'')} · Tier ${t.tier}${t.rank?' · #'+t.rank+' nationally':''}</div></div>
+      <div class="dx"><div class="dv" style="color:${t.surplus>=0?'var(--green)':'var(--red)'}">${t.surplus>=0?'+':''}${fM(t.surplus)}</div><div class="dl">Value surplus</div></div>
+    </div>
+    <div class="led-cols">
+      <div><div class="ch" style="color:var(--green)">Best contracts</div>${buys.map(row).join('')||'<div class="gm-empty">None.</div>'}</div>
+      <div><div class="ch" style="color:var(--red)">Worst contracts</div>${overs.map(row).join('')||'<div class="gm-empty">No overpays — a clean sheet.</div>'}</div>
+    </div>
+  </div>`;
+  const c=$id('ledClose'); if(c) c.addEventListener('click',e=>{ e.stopPropagation(); ledState.sel=null; $id('ledDetail').innerHTML=''; renderLedTable(); });
+}
+
 /* ═══════════════════════ TABS ═══════════════════════ */
 const booted={};
 function showTab(name){
@@ -797,6 +932,7 @@ function showTab(name){
     if(name==='office') boot();
     else if(name==='market') bootMarket();
     else if(name==='gm') bootGM();
+    else if(name==='ledger') bootLedger();
   }
   try{ const sp=new URLSearchParams(location.search); sp.set('tab',name); if(name!=='office') sp.delete('team');
     history.replaceState(null,'',location.pathname+'?'+sp.toString()); }catch(e){}
