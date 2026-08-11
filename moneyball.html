@@ -604,9 +604,10 @@ async function ensureMarketData(){
     if(p.winVal!=null){ p.winSurplus=p.winVal-p.cost; p.winPct=p.winSurplus/Math.max(p.cost,0.25);
       p.winVerdict=(p.winPct>=0.25)?'buy':(p.winPct<=-0.25)?'over':'fair'; p.winpd=p.wwins/Math.max(p.cost,0.05); }
     else { p.winVal=null; p.winSurplus=null; p.winVerdict=null; p.winpd=null; }
-    // winning contribution (all players, freshmen scaled from grade-WA) for GM Mode
+    // winning contribution (all players, freshmen scaled from grade-WA) for GM Mode + the Ledger
     p.wcon=(p.wwins!=null)?p.wwins:Math.max(0,p.wa*waToWcon);
-    p.wconVal=p.wcon*winRate; });
+    p.wconVal=p.wcon*winRate; p.wconSurp=p.wconVal-p.cost;
+    const _wcp=p.wconSurp/Math.max(p.cost,0.25); p.wconVerdict=_wcp>=0.25?'buy':_wcp<=-0.25?'over':'fair'; });
   MKT={players:arr, rate:globalRate, winRate, tierRate, rateFor};
   return MKT;
 }
@@ -875,10 +876,11 @@ function buildLedger(){
   const byTeam={};
   MKT.players.forEach(p=>{ (byTeam[p.team]=byTeam[p.team]||{team:p.team,full:p.full,conf:p.conf,tier:p.tier,players:[]}).players.push(p); });
   return Object.values(byTeam).map(t=>{
-    const rate=MKT.rateFor(t.tier);   // judge each program against its own NIL-tier market
-    t.spend=sum(t.players.map(p=>p.cost));
-    t.wa=rosterWA(t.players);   // minute-constrained (200-min rotation), so it can't be inflated by deep rosters
-    t.fair=t.wa*rate; t.surplus=t.fair-t.spend; t.wpd=t.wa/Math.max(t.spend,0.05);
+    t.spend=sum(t.players.map(p=>p.cost));                 // what the program pays
+    t.winning=rosterWinning(t.players);                    // minute-constrained winning contribution
+    t.winVal=t.winning*(MKT.winRate||MKT.rate);            // the roster's winning value ($)
+    t.surplus=t.winVal-t.spend;                            // winning value − cost
+    t.wpd=t.winning/Math.max(t.spend,0.05);                // winning wins per $M
     t.pct=t.surplus/Math.max(t.spend,0.25);
     t.verdict=t.pct>=0.15?'buy':t.pct<=-0.15?'over':'fair';
     const info=RATMAP[t.team]||{}; t.rating=info.rating; t.rank=info.rank;
@@ -898,20 +900,20 @@ function renderLedger(){
   const best=LEDGER.slice().sort((a,b)=>b.surplus-a.surplus)[0];
   const worst=LEDGER.slice().sort((a,b)=>a.surplus-b.surplus)[0];
   $id('ledgerBody').innerHTML=`
-    <div class="mkt-intro">Every one of the <b>${LEDGER.length} biggest-spending programs</b> as a balance sheet: what its roster costs on the NIL market against the wins that roster is worth. Programs in <b style="color:var(--green)">green</b> get more winning than they pay for <b>relative to their spending tier</b> — the best-run front offices. Click a team for its smartest and dumbest contracts.</div>
+    <div class="mkt-intro">Every one of the <b>${LEDGER.length} biggest-spending programs</b> as a balance sheet: what its roster <b>costs</b> against the <b style="color:var(--green)">winning value</b> that roster actually produces (its win-driver score — efficiency, defense, rebounding, ball-security — priced in dollars). Programs <b style="color:var(--green)">above the line</b> win more than they pay for — the best-run front offices. Click a team for its smartest and dumbest contracts.</div>
     <div class="mkt-kpis">
       <div class="mkt-kpi"><div class="v">${LEDGER.length}</div><div class="l">Programs</div><div class="s">tracked</div></div>
-      <div class="mkt-kpi"><div class="v">${fM(total)}</div><div class="l">Total market value</div><div class="s">open-market worth</div></div>
-      <div class="mkt-kpi"><div class="v" style="color:var(--green);font-size:19px">${esc(best.team)}</div><div class="l">Best value</div><div class="s">+${fM(best.surplus)} surplus</div></div>
-      <div class="mkt-kpi"><div class="v" style="color:var(--red);font-size:19px">${esc(worst.team)}</div><div class="l">Overpaying most</div><div class="s">${fM(worst.surplus)} surplus</div></div>
+      <div class="mkt-kpi"><div class="v">${fM(total)}</div><div class="l">Total spend</div><div class="s">roster cost</div></div>
+      <div class="mkt-kpi"><div class="v" style="color:var(--green);font-size:19px">${esc(best.team)}</div><div class="l">Best-run</div><div class="s">+${fM(best.surplus)} over cost</div></div>
+      <div class="mkt-kpi"><div class="v" style="color:var(--red);font-size:19px">${esc(worst.team)}</div><div class="l">Overpaying most</div><div class="s">${fM(worst.surplus)} vs cost</div></div>
     </div>
     <div class="scatter-wrap">
-      <div class="scatter-legend"><span><i class="buy"></i>Great value</span><span><i class="fair"></i>Fair</span><span><i class="over"></i>Overpaying</span><span><i class="line"></i>League avg</span></div>
+      <div class="scatter-legend"><span><i class="buy"></i>Great value</span><span><i class="fair"></i>Fair</span><span><i class="over"></i>Overpaying</span><span><i class="line"></i>Paid = worth</span></div>
       <div id="ledScatterHost"></div>
     </div>
     <div class="mkt-twrap"><table class="mkt"><thead id="ledHead"></thead><tbody id="ledRows"></tbody></table></div>
     <div class="led-detail" id="ledDetail"></div>
-    <div class="disclaimer" style="margin-top:12px">Spend = sum of modeled NIL market value across the rotation. Roster WA = the wins that production is worth. “Value surplus” = the roster's wins-value at the leaguewide $-per-win rate minus what it costs — positive means the program is getting a deal. A model, not a cap sheet.</div>
+    <div class="disclaimer" style="margin-top:12px"><b>Winning value</b> = the roster's win-driver production (efficiency, defense, rebounding, ball-security — not empty scoring), minute-constrained over a 200-min rotation and priced at the $-per-win rate. <b>Spend</b> = what the program pays for that rotation. <b>Value surplus</b> = winning value − spend; positive means the program wins more than it pays for. A model, not a cap sheet.</div>
     ${(window.TDC_COACHLINKS&&TDC_COACHLINKS.bar)?TDC_COACHLINKS.bar('The Depth Chart'):''}`;
   renderLedScatter(); renderLedTable(); wireLedScatterTip();
   if(ledState.sel) renderLedTeam(ledState.sel);
@@ -921,26 +923,26 @@ function renderLedScatter(){
   const L=LEDGER, W=720,H=380,mL=46,mB=32,mT=12,mR=12,pw=W-mL-mR,ph=H-mT-mB;
   const spends=L.map(t=>t.spend).sort((a,b)=>a-b);
   const xmax=Math.max(1, spends[Math.floor(spends.length*0.98)]||1);
-  const ymax=Math.max(1, Math.max(...L.map(t=>t.wa))*1.05);
-  const X=c=>mL+Math.min(c,xmax)/xmax*pw, Y=w=>mT+ph-Math.min(w,ymax)/ymax*ph;
-  const rate=MKT.rate, waEnd=Math.min(ymax, xmax/rate);
+  const ymax=Math.max(1, (Math.max(...L.map(t=>t.winVal))||1)*1.05);
+  const mx=Math.max(xmax,ymax);                              // shared scale so the 45° "paid = worth" line reads true
+  const X=c=>mL+Math.min(c,mx)/mx*pw, Y=v=>mT+ph-Math.min(v,mx)/mx*ph;
   const col=v=>v==='buy'?'var(--green)':v==='over'?'var(--red)':'var(--text3)';
-  const xticks=[0,xmax*0.25,xmax*0.5,xmax*0.75,xmax], yticks=[0,ymax*0.25,ymax*0.5,ymax*0.75,ymax];
-  const dots=L.map(t=>`<circle class="dot" cx="${X(t.spend).toFixed(1)}" cy="${Y(t.wa).toFixed(1)}" r="4.5" fill="${col(t.verdict)}" fill-opacity="0.82" data-n="${esc(t.team)}" data-t="${esc(t.full)}" data-w="${t.wa.toFixed(1)}" data-c="${t.spend.toFixed(3)}" data-v="${t.verdict}" data-s="${t.surplus.toFixed(3)}"></circle>`).join('');
+  const ticks=[0,mx*0.25,mx*0.5,mx*0.75,mx];
+  const dots=L.map(t=>`<circle class="dot" cx="${X(t.spend).toFixed(1)}" cy="${Y(t.winVal).toFixed(1)}" r="4.5" fill="${col(t.verdict)}" fill-opacity="0.82" data-n="${esc(t.team)}" data-t="${esc(t.full)}" data-w="${esc(fM(t.winVal))}" data-c="${t.spend.toFixed(3)}" data-v="${t.verdict}" data-s="${t.surplus.toFixed(3)}"></circle>`).join('');
   $id('ledScatterHost').innerHTML=`<svg class="scatter" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
-    ${yticks.map(t=>`<line x1="${mL}" y1="${Y(t).toFixed(1)}" x2="${W-mR}" y2="${Y(t).toFixed(1)}" stroke="var(--border)" stroke-width="1"></line><text x="${mL-6}" y="${(Y(t)+3).toFixed(1)}" font-size="9" text-anchor="end">${t.toFixed(0)}</text>`).join('')}
-    ${xticks.map(t=>`<text x="${X(t).toFixed(1)}" y="${H-mB+16}" font-size="9" text-anchor="middle">${fM(t)}</text>`).join('')}
-    <line x1="${X(0).toFixed(1)}" y1="${Y(0).toFixed(1)}" x2="${X(waEnd*rate).toFixed(1)}" y2="${Y(waEnd).toFixed(1)}" stroke="var(--border2)" stroke-width="1.5" stroke-dasharray="5 4"></line>
-    <text x="${mL+2}" y="${mT+10}" font-size="9.5">Roster wins ↑</text>
-    <text x="${W-mR}" y="${H-1}" font-size="9.5" text-anchor="end">Roster cost →</text>
+    ${ticks.map(t=>`<line x1="${mL}" y1="${Y(t).toFixed(1)}" x2="${W-mR}" y2="${Y(t).toFixed(1)}" stroke="var(--border)" stroke-width="1"></line><text x="${mL-6}" y="${(Y(t)+3).toFixed(1)}" font-size="9" text-anchor="end">${esc(fM(t))}</text>`).join('')}
+    ${ticks.map(t=>`<text x="${X(t).toFixed(1)}" y="${H-mB+16}" font-size="9" text-anchor="middle">${esc(fM(t))}</text>`).join('')}
+    <line x1="${X(0).toFixed(1)}" y1="${Y(0).toFixed(1)}" x2="${X(mx).toFixed(1)}" y2="${Y(mx).toFixed(1)}" stroke="var(--border2)" stroke-width="1.5" stroke-dasharray="5 4"></line>
+    <text x="${mL+2}" y="${mT+10}" font-size="9.5">Winning value ↑</text>
+    <text x="${W-mR}" y="${H-1}" font-size="9.5" text-anchor="end">Spend →</text>
     ${dots}</svg>`;
 }
 function wireLedScatterTip(){
   const host=$id('ledScatterHost'), tip=$id('mktTip'); if(!host||host._tip) return; host._tip=1;
   host.addEventListener('mousemove',e=>{ const d=e.target.closest&&e.target.closest('.dot'); if(!d){ tip.style.display='none'; return; }
     const s=+d.dataset.s;
-    tip.innerHTML=`<div class="tn">${d.dataset.t}</div><div class="tm">${d.dataset.v==='buy'?'Great value':d.dataset.v==='over'?'Overpaying':'Fair value'}</div>
-      <div class="tr"><span>Roster WA</span><b>${d.dataset.w}</b></div>
+    tip.innerHTML=`<div class="tn">${d.dataset.t}</div><div class="tm">${d.dataset.v==='buy'?'Best-run':d.dataset.v==='over'?'Overpaying':'Fair value'}</div>
+      <div class="tr"><span>Winning value</span><b>${d.dataset.w}</b></div>
       <div class="tr"><span>Spend</span><b>${fM(+d.dataset.c)}</b></div>
       <div class="tr"><span>Surplus</span><b style="color:${d.dataset.v==='buy'?'var(--green)':d.dataset.v==='over'?'var(--red)':'var(--text)'}">${s>=0?'+':''}${fM(s)}</b></div>`;
     tip.style.display='block'; tip.style.left=Math.min(window.innerWidth-244,e.clientX+14)+'px'; tip.style.top=Math.max(10,e.clientY-10)+'px'; });
@@ -948,7 +950,7 @@ function wireLedScatterTip(){
   host.addEventListener('click',e=>{ const d=e.target.closest&&e.target.closest('.dot'); if(d) selectLedTeam(d.dataset.n); });
 }
 
-const LCOLS=[['#','l',null],['Program','l',null],['Spend','','spend'],['Roster WA','','wa'],['Wins/$M','','wpd'],['Surplus','','surplus'],['Value','l',null]];
+const LCOLS=[['#','l',null],['Program','l',null],['Spend','','spend'],['Winning value','','winVal'],['Win/$M','','wpd'],['Surplus','','surplus'],['Value','l',null]];
 function renderLedTable(){
   const list=ledSorted();
   $id('ledHead').innerHTML=`<tr>${LCOLS.map(c=>{ const s=c[2]; const ar=s===ledState.sort?(ledState.dir<0?' ▼':' ▲'):'';
@@ -957,7 +959,7 @@ function renderLedTable(){
     <td class="rk">${i+1}</td>
     <td class="l"><span class="pn">${esc(t.full)}</span><span class="tierpill">T${t.tier}</span><div class="pt">${esc(t.conf||'')}${t.rank?' · #'+t.rank:''}</div></td>
     <td>${fM(t.spend)}</td>
-    <td class="wpd">${t.wa.toFixed(1)}</td>
+    <td class="wpd">${fM(t.winVal)}</td>
     <td>${t.wpd.toFixed(2)}</td>
     <td class="surp ${t.surplus>=0?'pos':'neg'}">${t.surplus>=0?'+':''}${fM(t.surplus)}</td>
     <td class="l"><span class="vpill ${t.verdict}">${t.verdict==='buy'?'Value':t.verdict==='over'?'Overpay':'Fair'}</span></td>
@@ -969,10 +971,10 @@ function selectLedTeam(team){ ledState.sel=team; renderLedTable(); renderLedTeam
 function renderLedTeam(team){
   const t=LEDGER.find(x=>x.team===team); if(!t){ $id('ledDetail').innerHTML=''; return; }
   const col=(window.tdcTeamColorHex&&tdcTeamColorHex(t.full))||'var(--accent)';
-  const ranked=t.players.slice().sort((a,b)=>b.surplus-a.surplus);
-  const buys=ranked.filter(p=>p.surplus>0).slice(0,5);
-  const overs=ranked.filter(p=>p.surplus<0).sort((a,b)=>a.surplus-b.surplus).slice(0,5);
-  const row=p=>`<div class="gm-p"><div class="nm">${esc(p.name)}<span class="posdot">${posBucket(p.pos)}</span><div class="pt">${p.wa.toFixed(1)} WA · ${fM(p.cost)}</div></div><div class="st"><b style="color:${p.surplus>=0?'var(--green)':'var(--red)'}">${p.surplus>=0?'+':''}${fM(p.surplus)}</b><br><span class="vpill ${p.verdict}" style="font-size:8px;padding:1px 6px">${p.verdict==='buy'?'Buy':p.verdict==='over'?'Over':'Fair'}</span></div></div>`;
+  const ranked=t.players.slice().sort((a,b)=>b.wconSurp-a.wconSurp);
+  const buys=ranked.filter(p=>p.wconSurp>0).slice(0,5);
+  const overs=ranked.filter(p=>p.wconSurp<0).sort((a,b)=>a.wconSurp-b.wconSurp).slice(0,5);
+  const row=p=>`<div class="gm-p"><div class="nm">${esc(p.name)}<span class="posdot">${posBucket(p.pos)}</span><div class="pt">${fM(p.wconVal)} win val · ${fM(p.cost)}</div></div><div class="st"><b style="color:${p.wconSurp>=0?'var(--green)':'var(--red)'}">${p.wconSurp>=0?'+':''}${fM(p.wconSurp)}</b><br><span class="vpill ${p.wconVerdict}" style="font-size:8px;padding:1px 6px">${p.wconVerdict==='buy'?'Buy':p.wconVerdict==='over'?'Over':'Fair'}</span></div></div>`;
   $id('ledDetail').innerHTML=`<div class="card" style="--tc:${col}">
     <div class="led-dh">
       <div><div class="dt">${esc(t.full)} <span class="led-close" id="ledClose" title="Close">×</span></div><div class="dm">${esc(t.conf||'')} · Tier ${t.tier}${t.rank?' · #'+t.rank+' nationally':''}</div></div>
