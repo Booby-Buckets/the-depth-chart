@@ -596,12 +596,13 @@ async function ensureMarketData(){
   // price winning value on ITS OWN $/win rate (wwins is on the owned-WA scale, not the grade-WA
   // scale), so the median player prices ~fair vs cost and buy/overpay measure real deviation.
   // Price winning value CONVEXLY (like the market prices stars) so elite winners are worth
-  // disproportionately more and the top isn't uniformly flagged 'overpay'. Aggregate preserved:
-  // Σ(win value) ≈ Σ(market value) over scored players.
-  const WIN_CVX=1.4;
-  const _sc=arr.filter(p=>p.wwins!=null&&p.wwins>0);
-  const _sMV=_sc.reduce((s,p)=>s+(p.marketVal||0),0), _sWWp=_sc.reduce((s,p)=>s+Math.pow(p.wwins,WIN_CVX),0);
-  const winK=_sWWp>0?_sMV/_sWWp:globalRate;
+  // disproportionately more. Anchor so the MEDIAN player prices FAIR (win value = cost): matching the
+  // aggregate to market instead left the median below 1 (cost is right-skewed), flagging too many as
+  // overpay. Median-anchored → the distribution centers, so a good-but-not-elite starter reads fair.
+  const WIN_CVX=1.55;   // convexity lifts good/elite winners off the median-fair anchor (not a flat level bump)
+  const _sc=arr.filter(p=>p.wwins!=null&&p.wwins>0&&p.cost>0.1);
+  const _ratios=_sc.map(p=>p.cost/Math.pow(p.wwins,WIN_CVX)).filter(x=>isFinite(x)&&x>0).sort((a,b)=>a-b);
+  const winK=(_ratios.length?_ratios[Math.floor(_ratios.length/2)]:globalRate)*1.12;   // median-fair + small lift so good starters clear the overpay line
   const winValueOf=w=>winK*Math.pow(Math.max(0,w),WIN_CVX);
   const winRate=winValueOf(1);   // $/win reference (value of a 1-win player)
   // GM Mode needs a winning contribution for EVERY player; the unscored (freshmen) fall back to
@@ -617,12 +618,12 @@ async function ensureMarketData(){
     // Verdict = Winning Value vs Cost (the true Moneyball inefficiency), when we have a winning score.
     p.winVal=(p.wwins!=null)?winValueOf(p.wwins):null;
     if(p.winVal!=null){ p.winSurplus=p.winVal-p.cost; p.winPct=p.winSurplus/Math.max(p.cost,0.25);
-      p.winVerdict=(p.winPct>=0.25)?'buy':(p.winPct<=-0.25)?'over':'fair'; p.winpd=p.wwins/Math.max(p.cost,0.05); }
+      p.winVerdict=(p.winPct>=0.25)?'buy':(p.winPct<=-0.28)?'over':'fair'; p.winpd=p.wwins/Math.max(p.cost,0.05); }
     else { p.winVal=null; p.winSurplus=null; p.winVerdict=null; p.winpd=null; }
     // winning contribution (all players, freshmen scaled from grade-WA) for GM Mode + the Ledger
     p.wcon=(p.wwins!=null)?p.wwins:Math.max(0,p.wa*waToWcon);
     p.wconVal=winValueOf(p.wcon); p.wconSurp=p.wconVal-p.cost;
-    const _wcp=p.wconSurp/Math.max(p.cost,0.25); p.wconVerdict=_wcp>=0.25?'buy':_wcp<=-0.25?'over':'fair'; });
+    const _wcp=p.wconSurp/Math.max(p.cost,0.25); p.wconVerdict=_wcp>=0.25?'buy':_wcp<=-0.28?'over':'fair'; });
   MKT={players:arr, rate:globalRate, winRate, winValOf:winValueOf, tierRate, rateFor};
   return MKT;
 }
