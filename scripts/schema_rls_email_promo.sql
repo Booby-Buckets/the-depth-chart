@@ -19,7 +19,15 @@
 
 -- 1) Hide email from the public. The app reads explicit profile columns and
 --    never selects email; a user's own email comes from their auth session.
-revoke select (email) on public.profiles from anon, authenticated;
+--    NOTE: a bare `revoke select (email)` is a NO-OP while the role still holds
+--    table-wide SELECT (table-level grant overrides column-level). You MUST
+--    revoke the whole-table SELECT first, then grant back every column but email.
+revoke select on public.profiles from anon, authenticated;
+grant select (
+  id, username, avatar_url, banner_color, banner_url, bio, favorite_team,
+  follower_count, following_count, freshman_projections, plan, sub_expires_at,
+  verified, created_at, updated_at
+) on public.profiles to anon, authenticated;
 
 -- 2) Lock promo_codes entirely (no client read/write). Only service_role and the
 --    definer function below can touch it.
