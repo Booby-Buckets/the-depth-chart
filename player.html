@@ -10,7 +10,7 @@
   <script src="tdc-shotchart.js?v=14"></script>
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-nil.js?v=ped1"></script>
-  <script src="tdc-archetypes.js?v=1"></script>
+  <script src="tdc-archetypes.js?v=2"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-proj.js?v=coach19"></script>
   <script src="tdc-freshman.js?v=pub5"></script>
@@ -3083,7 +3083,27 @@ function _updateHeroGridForSeason(val){
   if(window.TDC_ARCH&&TDC_ARCH.ready) TDC_ARCH.ready.then(function(){
     var a=TDC_ARCH.of(player&&player.espn_id, player&&player.name); if(!a) return;
     var pill=document.getElementById('heroArchPill'), v=document.getElementById('heroArch');
-    if(pill&&v){ v.textContent=a.name; if(a.color) v.style.color=a.color; pill.style.display=''; pill.title=a.desc; }
+    var b=TDC_ARCH.breakout(a.name);
+    var tip=a.desc;
+    if(b){ var pct=Math.round(b.rate*100);
+      tip+=(tip?' · ':'')+pct+'% of young non-star '+a.name+'s grow into stars ('+
+           (b.meta.years?b.meta.years[0]+'–'+b.meta.years[1]:'')+', n='+b.n+')'; }
+    if(pill&&v){ v.textContent=a.name; if(a.color) v.style.color=a.color; pill.style.display=''; pill.title=tip; }
+    // visible Style-breakout pill: the style's base rate. Meaningless once a player is
+    // already a star, so suppress it for stars; otherwise show it for everyone (class year
+    // is too sparse to gate on). Labeled "Style breakout" so it reads as a style stat.
+    if(b){
+      var star=(b.meta&&b.meta.star)||88;
+      var notStar=!(isFinite(g)&&g>=star);
+      var bp=document.getElementById('heroBreakPill'), bv=document.getElementById('heroBreak');
+      if(bp&&bv&&notStar){
+        var pct2=Math.round(b.rate*100);
+        bv.textContent=pct2+'%'; if(a.color) bv.style.color=a.color; bp.style.display='';
+        bp.title='Style base rate — historically '+pct2+'% of '+a.name+'s who were young non-stars (grade ≤ '+
+          ((b.meta&&b.meta.young_max)||84)+') later reached star grade (≥ '+star+'), '+
+          (b.meta.years?b.meta.years[0]+'–'+b.meta.years[1]:'')+'. A style trend, not a projection for this player.';
+      }
+    }
   });
   // national + position rank
   var eN=document.getElementById('heroNatRank'), eP=document.getElementById('heroPosRank'),
@@ -3420,6 +3440,7 @@ function renderPage(){
           <div class="hp"><span class="k">Pos</span><span class="v">${p.position2 ? `${p.position||'—'} / ${p.position2}` : (p.position||'—')}</span></div>
           <div class="hp"><span class="k">Class</span><span class="v">${yr||'—'}</span></div>
           <div class="hp" id="heroArchPill" style="display:none;cursor:help"><span class="k">Style</span><span class="v" id="heroArch"></span></div>
+          <div class="hp" id="heroBreakPill" style="display:none;cursor:help"><span class="k">Style breakout</span><span class="v" id="heroBreak"></span></div>
           ${p.height?`<div class="hp"><span class="k">Ht</span><span class="v">${p.height}${p.weight?` · ${p.weight}`:''}</span></div>`:''}
           <div class="hp" id="heroGpPill"${p.gp?'':' style="display:none;"'}><span class="k">GP</span><span class="v" id="heroGp">${p.gp||''}</span></div>
           ${p.is_injured?`<div class="hp hp-warn"><span class="k">Status</span><span class="v">Injured</span></div>`:''}
