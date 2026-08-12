@@ -94,15 +94,17 @@ def main():
     cost=np.linalg.norm(cent[:,None,:]-T[None,:,:],axis=2)   # K x K
     ri,ci=linear_sum_assignment(cost)
     cluster_name={int(ri[i]):TEMPLATES[int(ci[i])][0] for i in range(len(ri))}
-    players={}
+    def norm(s): return ''.join(ch for ch in (s or '').lower() if ch.isalnum())
+    players={}; by_name={}
     for i,r in enumerate(rows):
-        if r['espn_id'] is not None:
-            players[str(r['espn_id'])]={'a':cluster_name[int(km.labels_[i])]}
+        nm=cluster_name[int(km.labels_[i])]
+        if r['espn_id'] is not None: players[str(r['espn_id'])]={'a':nm}
+        by_name[norm(r['name'])]={'a':nm}
     counts={}
     for v in players.values(): counts[v['a']]=counts.get(v['a'],0)+1
     out={'meta':{'season':SEASON,'k':K,'n':len(players),'features':FEAT},
          'archetypes':[{'name':n,'desc':DESC[n],'color':COLOR[n],'count':counts.get(n,0)} for n,_ in TEMPLATES],
-         'players':players}
+         'players':players,'by_name':by_name}
     path=os.path.join(HERE,'..','archetypes.json')
     json.dump(out,open(path,'w'),separators=(',',':'))
     print('wrote %s  (%d players)'%(os.path.abspath(path),len(players)))
