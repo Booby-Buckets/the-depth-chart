@@ -40,6 +40,7 @@
     .card-nm{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;color:var(--ac);letter-spacing:-.01em;}
     .card-ct{font-size:11px;font-weight:800;color:var(--text3);white-space:nowrap;}
     .card-desc{font-size:12.5px;color:var(--text2);line-height:1.5;margin-top:6px;}
+    .brk{display:inline-block;margin-top:9px;font-size:10.5px;font-weight:800;letter-spacing:.02em;color:var(--ac);background:color-mix(in srgb,var(--ac) 15%,transparent);border:1px solid color-mix(in srgb,var(--ac) 35%,transparent);border-radius:20px;padding:3px 10px;cursor:help;}
     .card-players{display:flex;flex-wrap:wrap;gap:5px;padding:11px 17px 14px;border-top:1px solid var(--border);}
     .pchip{font-size:11px;font-weight:600;color:var(--text2);background:var(--bg3);border-radius:20px;padding:3px 9px;display:inline-flex;align-items:center;gap:5px;}
     .pchip b{color:var(--ac);font-weight:800;font-size:10px;}
@@ -62,6 +63,20 @@
     .dmore{text-align:center;padding:12px;}
     .dmore button{font-family:inherit;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);border-radius:20px;padding:7px 16px;cursor:pointer;}
     .dmore button:hover{border-color:var(--ac);color:var(--text);}
+    /* breakout panel */
+    .brkp{padding:16px 22px 18px;border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--ac) 5%,var(--bg2));}
+    .brkp-h{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:var(--text);display:flex;align-items:baseline;gap:9px;}
+    .brkp-sub{font-family:'Inter';font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);}
+    .brkp-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-top:12px;}
+    .brkp-stat{display:flex;flex-direction:column;gap:2px;}
+    .bs-n{font-family:'Playfair Display',serif;font-weight:900;font-size:26px;line-height:1;}
+    .bs-l{font-size:11.5px;color:var(--text2);line-height:1.4;}
+    .brkp-ex-h{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:15px;margin-bottom:8px;}
+    .brkp-ex{display:flex;flex-wrap:wrap;gap:7px;}
+    .bx{display:inline-flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px 11px;transition:border-color .1s;}
+    .bx:hover{border-color:var(--ac);}
+    .bxn{font-size:12px;font-weight:700;color:var(--text);}
+    .bxg{font-size:11px;font-weight:800;color:var(--ac);font-variant-numeric:tabular-nums;}
   </style>
   <link rel="stylesheet" href="tdc-dense.css?v=29"/>
   <link rel="stylesheet" href="tdc-skin.css?v=7"/>
@@ -71,26 +86,51 @@
 <div class="page">
   <div class="eyebrow" data-anim>⬡ Style, not stats</div>
   <h1 data-anim>Player Archetypes</h1>
-  <div class="sub" data-anim>Every rotation player in Division I, clustered by <b>how he plays</b> — size, ball-dominance, playmaking, spacing, rim pressure, rebounding and defense — not by how good he is. Ten roles emerge, from Rim Protectors to 3&amp;D Wings. Want to know which styles the market <b>underpays</b>? See <a href="moneyball.html?tab=market">Moneyball → Market inefficiency by style</a>.</div>
+  <div class="sub" data-anim>Every rotation player in Division I, clustered by <b>how he plays</b> — size, ball-dominance, playmaking, spacing, rim pressure, rebounding and defense — not by how good he is. Ten roles emerge, from Rim Protectors to 3&amp;D Wings. Each role also carries a <b>breakout rate</b> — how often its young non-stars grow into stars (Rim Protectors most, 3&amp;D Wings least). Want to know which styles the market <b>underpays</b>? See <a href="moneyball.html?tab=market">Moneyball → Market inefficiency by style</a>.</div>
   <div id="body"><div class="loading">Loading archetypes…</div></div>
 </div>
 <script src="tdc-version.js?v=2"></script>
 <script>
 const esc=s=>(''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let DATA=null, sel=null, rosterLimit=24;
-fetch('archetypes.json',{cache:'no-cache'}).then(r=>r.json()).then(j=>{ DATA=j; render(); })
+let DATA=null, BREAK=null, sel=null, rosterLimit=24;
+Promise.all([
+  fetch('archetypes.json',{cache:'no-cache'}).then(r=>r.json()),
+  fetch('breakout.json',{cache:'no-cache'}).then(r=>r.json()).catch(()=>null)
+]).then(([j,b])=>{ DATA=j; BREAK=b; render(); })
   .catch(()=>{ document.getElementById('body').innerHTML='<div class="loading">Archetype data unavailable.</div>'; });
+function brkOf(name){ return (BREAK&&BREAK.archetypes&&BREAK.archetypes[name])||null; }
 
 function plink(p){ return p.e?`player.html?espn=${p.e}&name=${encodeURIComponent(p.n)}`:`player.html?name=${encodeURIComponent(p.n)}`; }
+
+function brkPanel(a){
+  const b=brkOf(a.name); if(!b) return '';
+  const list=DATA.archetypes.map(x=>brkOf(x.name)).filter(Boolean).sort((p,q)=>q.rate-p.rate);
+  const rank=list.findIndex(x=>x===b)+1, of=list.length;
+  const pct=Math.round(b.rate*100);
+  const ex=(b.examples||[]).slice(0,5).map(e=>`<a class="bx" href="player.html?name=${encodeURIComponent(e.n)}"><span class="bxn">${esc(e.n)}</span><span class="bxg">${e.from}→${e.to}</span></a>`).join('');
+  const rankLbl=rank===1?'most likely to break out':rank===of?'least likely to break out':`#${rank} of ${of} in breakout rate`;
+  return `<div class="brkp" data-anim>
+    <div class="brkp-h">Breakout track record <span class="brkp-sub">${BREAK.meta.years[0]}–${BREAK.meta.years[1]}</span></div>
+    <div class="brkp-row">
+      <div class="brkp-stat"><div class="bs-n" style="color:${a.color}">${pct}%</div><div class="bs-l">of young non-stars later hit star grade (${rankLbl})</div></div>
+      <div class="brkp-stat"><div class="bs-n" style="color:${a.color}">+${b.avg_gain}</div><div class="bs-l">average grade gain from first season to peak</div></div>
+      <div class="brkp-stat"><div class="bs-n" style="color:${a.color}">${b.star}</div><div class="bs-l">of ${b.n} tracked young ${esc(a.name)}s broke out</div></div>
+    </div>
+    ${ex?`<div class="brkp-ex-h">Notable breakouts</div><div class="brkp-ex">${ex}</div>`:''}
+  </div>`;
+}
 
 function render(){
   const cards=DATA.archetypes.map(a=>{
     const roster=(DATA.roster&&DATA.roster[a.name])||[];
     const top=roster.slice(0,4);
+    const b=brkOf(a.name);
+    const brk=b?`<span class="brk" title="Share of young non-star ${esc(a.name)}s (grade ≤ ${BREAK.meta.young_max}) who later reached star grade ≥ ${BREAK.meta.star}, ${BREAK.meta.years[0]}–${BREAK.meta.years[1]} (n=${b.n})">${Math.round(b.rate*100)}% break out</span>`:'';
     return `<div class="card" data-a="${esc(a.name)}" style="--ac:${a.color}">
       <div class="card-top">
         <div class="card-h"><div class="card-nm">${esc(a.name)}</div><div class="card-ct">${a.count} players</div></div>
         <div class="card-desc">${esc(a.desc)}</div>
+        ${brk}
       </div>
       <div class="card-players">${top.map(p=>`<span class="pchip"><b>${p.g}</b>${esc(p.n)}</span>`).join('')}</div>
     </div>`;
@@ -117,9 +157,11 @@ function renderDetail(){
       <div class="dh-nm">${esc(a.name)} <span class="dh-ct">${a.count} players</span> <span class="dh-close" id="dClose">×</span></div>
       <div class="dh-desc">${esc(a.desc)}</div>
     </div>
+    ${brkPanel(a)}
     <div class="droster">${shown.map(p=>`<a class="prow" href="${plink(p)}"><span class="g" style="color:${a.color}">${p.g}</span><span style="min-width:0"><div class="nm">${esc(p.n)}</div><div class="tm">${esc(p.t||'')}</div></span></a>`).join('')}</div>
     ${roster.length>rosterLimit?`<div class="dmore"><button id="dMore">Show all ${roster.length}</button></div>`:''}`;
   d.querySelector('#dClose').addEventListener('click',()=>{ d.className='detail'; sel=null; document.querySelectorAll('.card').forEach(c=>c.classList.remove('sel')); });
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(d);
   const mb=d.querySelector('#dMore'); if(mb) mb.addEventListener('click',()=>{ rosterLimit=9999; renderDetail(); });
 }
 </script>
