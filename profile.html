@@ -221,7 +221,7 @@ async function init(){
       if(r.ok){
         currentUser = await r.json();
         // Load profile by auth user ID
-        const pr = await fetch(`${SB}/rest/v1/profiles?id=eq.${currentUser.id}&select=*`,{headers:H});
+        const pr = await fetch(`${SB}/rest/v1/profiles?id=eq.${currentUser.id}&select=id,username,avatar_url,banner_color,banner_url,bio,favorite_team,follower_count,following_count,freshman_projections,plan,sub_expires_at,verified,created_at,updated_at`,{headers:H});
         const profiles = await pr.json();
         currentProfile = profiles[0] || null;
         updateNav();
@@ -231,7 +231,7 @@ async function init(){
 
   if(urlUser){
     // Viewing someone else's profile by username
-    const r = await fetch(`${SB}/rest/v1/profiles?username=eq.${encodeURIComponent(urlUser)}&select=*`,{headers:H});
+    const r = await fetch(`${SB}/rest/v1/profiles?username=eq.${encodeURIComponent(urlUser)}&select=id,username,avatar_url,banner_color,banner_url,bio,favorite_team,follower_count,following_count,freshman_projections,plan,sub_expires_at,verified,created_at,updated_at`,{headers:H});
     const [profile] = await r.json();
     isOwnProfile = currentUser && profile?.id === currentUser.id;
     renderProfile(profile);

@@ -326,7 +326,7 @@ async function checkAuth(){
     const r = await fetch(`${SB}/auth/v1/user`,{headers:{...H,'Authorization':`Bearer ${s.access_token}`}});
     if(!r.ok){ localStorage.removeItem('tdc_session'); return; }
     currentUser = await r.json();
-    const pr = await fetch(`${SB}/rest/v1/profiles?id=eq.${currentUser.id}&select=*`,{headers:H});
+    const pr = await fetch(`${SB}/rest/v1/profiles?id=eq.${currentUser.id}&select=id,username,avatar_url,banner_color,banner_url,bio,favorite_team,follower_count,following_count,freshman_projections,plan,sub_expires_at,verified,created_at,updated_at`,{headers:H});
     const [profile] = await pr.json();
     currentProfile = profile;
     updateNav();

@@ -270,7 +270,7 @@ async function init(){
     const r = await fetch(`${SB}/auth/v1/user`, {headers:{...H, Authorization:`Bearer ${s.access_token}`}});
     if(!r.ok){ location.href='pricing.html'; return; }
     currentUser = await r.json();
-    const pr = await fetch(`${SB}/rest/v1/profiles?id=eq.${currentUser.id}&select=*`, {headers:{...H, Authorization:`Bearer ${s.access_token}`}});
+    const pr = await fetch(`${SB}/rest/v1/profiles?id=eq.${currentUser.id}&select=id,username,avatar_url,banner_color,banner_url,bio,favorite_team,follower_count,following_count,freshman_projections,plan,sub_expires_at,verified,created_at,updated_at`, {headers:{...H, Authorization:`Bearer ${s.access_token}`}});
     const profiles = await pr.json();
     currentProfile = profiles[0]||{};
     renderPage();
@@ -419,24 +419,16 @@ async function redeemPromo(){
   const code = document.getElementById('promoInput').value.trim().toUpperCase();
   if(!code) return;
   try {
-    const r = await fetch(`${SB}/rest/v1/promo_codes?code=eq.${encodeURIComponent(code)}&select=*`, {headers:{apikey:KEY,Authorization:`Bearer ${currentToken}`}});
-    const arr = await r.json();
-    const promo = arr[0];
-    if(!promo) return showMsg('promoMsg','Code not found.','error');
-    if(promo.used) return showMsg('promoMsg','This code has already been used.','error');
-
-    const months = promo.duration?.includes('year') ? 12 : 1;
-    const expires = new Date();
-    expires.setMonth(expires.getMonth() + months);
-
-    await fetch(`${SB}/rest/v1/promo_codes?code=eq.${encodeURIComponent(code)}`, {
-      method:'PATCH', headers:{...H, Authorization:`Bearer ${currentToken}`},
-      body: JSON.stringify({used:true, used_by:currentUser.id, used_at:new Date().toISOString()})
+    // Server-side redemption (SECURITY DEFINER redeem_promo): validates the code,
+    // marks it used, and grants the plan atomically. The client can neither read
+    // the promo_codes table nor set its own plan.
+    const r = await fetch(`${SB}/rest/v1/rpc/redeem_promo`, {
+      method:'POST', headers:{apikey:KEY, Authorization:`Bearer ${currentToken}`, 'Content-Type':'application/json'},
+      body: JSON.stringify({ p_code: code })
     });
-    await fetch(`${SB}/rest/v1/profiles?id=eq.${currentUser.id}`, {
-      method:'PATCH', headers:{...H, Authorization:`Bearer ${currentToken}`},
-      body: JSON.stringify({plan:'premium', sub_expires_at:expires.toISOString()})
-    });
+    const res = r.ok ? await r.json() : { ok:false };
+    if(!res.ok) return showMsg('promoMsg', res.msg || 'Could not apply code.', 'error');
+    const months = res.months || 1;
     showMsg('promoMsg', `✓ ${months===12?'1 year':'1 month'} of Premium activated!`, 'success');
     setTimeout(()=>location.reload(), 1500);
   } catch(e){ showMsg('promoMsg','Something went wrong.','error'); }
