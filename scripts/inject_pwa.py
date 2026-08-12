@@ -15,7 +15,7 @@ BLOCK = """  <link rel="manifest" href="manifest.webmanifest">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="The Depth Chart">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <script src="tdc-pwa.js?v=1" defer></script>
+  <script src="tdc-pwa.js?v=2" defer></script>
 """
 SKIP = {'offline.html'}
 
