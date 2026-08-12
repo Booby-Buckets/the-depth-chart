@@ -25,6 +25,7 @@
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=7"></script>
   <script src="tdc-nil.js?v=ped1"></script>
+  <script src="tdc-archetypes.js?v=1"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -238,6 +239,19 @@
     .led-cols .ch{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
     .led-close{float:right;cursor:pointer;color:var(--text3);font-size:18px;line-height:1;padding:0 4px;}
     .led-close:hover{color:var(--text);}
+
+    /* ── archetype value (Market inefficiency by style) ── */
+    .arch-val{display:flex;flex-direction:column;gap:5px;}
+    .av-row{display:grid;grid-template-columns:158px 1fr 80px;align-items:center;gap:12px;font-size:12.5px;padding:2px 0;}
+    .av-nm{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .av-n{font-weight:600;color:var(--text3);font-size:10px;}
+    .av-track{position:relative;height:13px;background:var(--bg3);border-radius:7px;}
+    .av-track::before{content:'';position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--border2);}
+    .av-bar{position:absolute;top:0;height:100%;border-radius:7px;}
+    .av-bar.pos{background:var(--green);} .av-bar.neg{background:var(--red);}
+    .av-v{text-align:right;font-weight:800;font-variant-numeric:tabular-nums;}
+    .av-v.pos{color:var(--green);} .av-v.neg{color:var(--red);}
+    @media(max-width:600px){.av-row{grid-template-columns:118px 1fr 64px;font-size:11px;}}
   </style>
   <link rel="stylesheet" href="tdc-skin.css?v=7"/>
 </head>
@@ -552,6 +566,7 @@ async function ensureMarketData(){
   if(window.TDC_NIL&&TDC_NIL.dealsReady){ try{ await TDC_NIL.dealsReady; }catch(e){} }   // known real deals before pricing
   try{ await ensureWinVal(); }catch(e){}                                                   // Winning Value (win-driver score)
   try{ if(window.TDC_NIL&&TDC_NIL.pedigreeReady) await TDC_NIL.pedigreeReady; }catch(e){}   // recruiting pedigree (market value only)
+  try{ if(window.TDC_ARCH&&TDC_ARCH.ready) await TDC_ARCH.ready; }catch(e){}                 // style archetypes
   const nt=window.TDC_NIL, dt=(nt&&nt.deTier)?((v,t)=>nt.deTier(v,t)):((v)=>v);
   const arr=[]; const teams=nil.teams;
   Object.keys(teams).forEach(short=>{
@@ -572,6 +587,7 @@ async function ensureMarketData(){
       arr.push({name:pl.name, team:short, full:info.full||short, conf:info.conf||'', espn_id:pl.espn_id,
         pos:(pl.pos||'').toUpperCase(), cls:(pl.cls||'').replace(/\./g,''),
         grade:Math.round(grade), min:Math.round(min), ti, wa, cost, marketVal, tier:T.tier||5, ped:_ped,
+        arch:(window.TDC_ARCH&&TDC_ARCH.of(pl.espn_id,pl.name)||{}).name||null,
         ws:wv?wv.ws:null, wwins:wv?wv.wwins:null});
     });
   });
@@ -653,6 +669,16 @@ function renderMarket(){
   const over=scored.filter(p=>p.winVerdict==='over').length;
   const nTeams=new Set(M.players.map(p=>p.team)).size;
   const confs=[...new Set(M.players.map(p=>p.conf).filter(Boolean))].sort();
+  // Market inefficiency by STYLE — which archetypes the market underpays vs overpays (avg win surplus)
+  const _byA={}; scored.forEach(p=>{ if(p.arch&&p.winSurplus!=null)(_byA[p.arch]=_byA[p.arch]||[]).push(p.winSurplus); });
+  const archStats=Object.keys(_byA).map(a=>{ const v=_byA[a]; return {a,avg:v.reduce((s,x)=>s+x,0)/v.length,n:v.length}; }).filter(x=>x.n>=5).sort((x,y)=>y.avg-x.avg);
+  const _amax=Math.max(0.1,...archStats.map(s=>Math.abs(s.avg)));
+  const _ai=a=>(window.TDC_ARCH&&TDC_ARCH.info(a))||{};
+  const archPanel=archStats.length?`
+    <div class="sec-h" style="margin:22px 0 10px">Market inefficiency by style <span class="note">avg win value − paid, per archetype · the Moneyball edge</span></div>
+    <div class="arch-val">${archStats.map(s=>{ const c=_ai(s.a).color||'var(--text3)'; const pos=s.avg>=0; const w=(50*Math.abs(s.avg)/_amax).toFixed(0);
+      return `<div class="av-row" title="${esc(_ai(s.a).desc||'')}"><div class="av-nm" style="color:${c}">${esc(s.a)} <span class="av-n">${s.n}</span></div><div class="av-track"><span class="av-bar ${pos?'pos':'neg'}" style="width:${w}%;${pos?'left:50%':'right:50%'}"></span></div><div class="av-v ${pos?'pos':'neg'}">${pos?'+':''}${fM(s.avg)}</div></div>`; }).join('')}</div>
+    <div class="disclaimer" style="margin-top:6px">Positive = the market <b style="color:var(--green)">underpays</b> that style — buy it; negative = <b style="color:var(--red)">overpays</b> it. Winning value is production; the gap is what the market tacks on for archetype and hype.</div>`:'';
   $id('mktBody').innerHTML=`
     <div class="mkt-intro">Three numbers on every rotation player across the <b>${nTeams} biggest-spending programs</b>: <b style="color:var(--green)">Win value</b> — what his winning is worth (a win-driver score: efficiency, defense, rebounding, ball-security, priced in dollars); <b>Market value</b> — what the open market would pay him (our model, independent of any deal); and <b>Paid</b> — what he's actually on the books for (a known deal if on file, with any hometown/dream-school discount baked in). Plotted <b>win value vs paid</b>: <b style="color:var(--green)">above the line</b> = wins more than he's paid — the Moneyball buys.</div>
     <div class="mkt-kpis">
@@ -665,6 +691,7 @@ function renderMarket(){
       <div class="scatter-legend"><span><i class="buy"></i>Undervalued</span><span><i class="fair"></i>Fair</span><span><i class="over"></i>Overpaid</span><span><i class="line"></i>Paid = worth</span></div>
       <div id="scatterHost"></div>
     </div>
+    ${archPanel}
     <div class="mkt-ctrl">
       <input class="msearch" id="mSearch" placeholder="Search player or team…" autocomplete="off" value="${esc(mktState.q||'')}">
       <select id="mConf"><option value="all">All conferences</option>${confs.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select>
