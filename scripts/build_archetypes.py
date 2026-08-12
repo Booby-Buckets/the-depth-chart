@@ -71,8 +71,8 @@ def ht_in(s):
     m=re.match(r'(\d+)-(\d+)',s or ''); return int(m.group(1))*12+int(m.group(2)) if m else None
 
 def main():
-    adv={str(r['espn_id']):r for r in pull('/player_advanced?season_year=eq.%d&select=espn_id,usg_pct,ast_pct,orb_pct,drb_pct,blk_pct,stl_pct'%SEASON) if r.get('espn_id') is not None}
-    ph=pull('/player_history?season_year=eq.%d&select=espn_id,name,position,height,fga,tpa,fta,mpg,gp'%SEASON)
+    adv={str(r['espn_id']):r for r in pull('/player_advanced?season_year=eq.%d&select=espn_id,team,usg_pct,ast_pct,orb_pct,drb_pct,blk_pct,stl_pct'%SEASON) if r.get('espn_id') is not None}
+    ph=pull('/player_history?season_year=eq.%d&select=espn_id,name,position,height,fga,tpa,fta,mpg,gp,tdc_grade'%SEASON)
     rows=[]
     for r in ph:
         eid=str(r.get('espn_id')); a=adv.get(eid)
@@ -84,7 +84,8 @@ def main():
             'orb':f(a.get('orb_pct')),'drb':f(a.get('drb_pct')),
             'blk':f(a.get('blk_pct')),'stl':f(a.get('stl_pct')),'ht':ht_in(r.get('height'))}
         if any(v is None for v in ff.values()): continue
-        rows.append({'espn_id':r['espn_id'],'name':r['name'],'f':ff})
+        rows.append({'espn_id':r['espn_id'],'name':r['name'],'f':ff,
+                     'team':(a.get('team') or ''),'grade':f(r.get('tdc_grade')) or 0})
     X=np.array([[r['f'][k] for k in FEAT] for r in rows])
     scaler=StandardScaler().fit(X); Xs=scaler.transform(X)
     km=KMeans(n_clusters=K,n_init=10,random_state=42).fit(Xs)
@@ -95,16 +96,18 @@ def main():
     ri,ci=linear_sum_assignment(cost)
     cluster_name={int(ri[i]):TEMPLATES[int(ci[i])][0] for i in range(len(ri))}
     def norm(s): return ''.join(ch for ch in (s or '').lower() if ch.isalnum())
-    players={}; by_name={}
+    players={}; by_name={}; roster={}
     for i,r in enumerate(rows):
         nm=cluster_name[int(km.labels_[i])]
         if r['espn_id'] is not None: players[str(r['espn_id'])]={'a':nm}
         by_name[norm(r['name'])]={'a':nm}
+        roster.setdefault(nm,[]).append({'n':r['name'],'t':r['team'],'g':round(r['grade']),'e':r['espn_id']})
+    for nm in roster: roster[nm]=sorted(roster[nm],key=lambda x:-x['g'])   # best first
     counts={}
     for v in players.values(): counts[v['a']]=counts.get(v['a'],0)+1
     out={'meta':{'season':SEASON,'k':K,'n':len(players),'features':FEAT},
          'archetypes':[{'name':n,'desc':DESC[n],'color':COLOR[n],'count':counts.get(n,0)} for n,_ in TEMPLATES],
-         'players':players,'by_name':by_name}
+         'players':players,'by_name':by_name,'roster':roster}
     path=os.path.join(HERE,'..','archetypes.json')
     json.dump(out,open(path,'w'),separators=(',',':'))
     print('wrote %s  (%d players)'%(os.path.abspath(path),len(players)))

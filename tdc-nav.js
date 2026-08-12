@@ -31,6 +31,7 @@
       ['compare-players.html', 'Compare Players'],
       ['draft.html',           'Mock Draft'],
       ['development.html',     'Development'],
+      ['archetypes.html',      'Archetypes'],
       ['gradelist.html',       'Grade List'],
     ]],
     ['Analytics', [

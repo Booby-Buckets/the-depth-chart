@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="stylesheet" href="tdc-a11y.css?v=1">
+  <script src="tdc-a11y.js?v=1" defer></script>
+  <meta name="description" content="Every D-I player clustered into style archetypes — 3&D Wings, Rim Protectors, Lead Creators and more — from how they actually play.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Player Archetypes — The Depth Chart">
+  <meta property="og:description" content="Every D-I player clustered into style archetypes from how they actually play.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/archetypes.html">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Player Archetypes — The Depth Chart">
+  <meta charset="UTF-8"/>
+  <script src="tdc-theme.js?v=2"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Player Archetypes — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="tdc-anim.css?v=4"/>
+  <script src="tdc-anim.js?v=5"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+    a{color:inherit;text-decoration:none;}
+    .page{max-width:1080px;margin:0 auto;padding:34px 22px 90px;}
+    .eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:9px;}
+    h1{font-family:'Playfair Display',serif;font-size:clamp(32px,5vw,44px);font-weight:800;letter-spacing:-.01em;margin-bottom:8px;}
+    .sub{font-size:14px;color:var(--text2);max-width:760px;line-height:1.65;}
+    .sub a{color:var(--accent);font-weight:700;}
+    .loading{padding:70px;text-align:center;color:var(--text3);}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:26px;}
+    .card{border:1px solid var(--border);border-radius:16px;background:var(--bg2);padding:0;overflow:hidden;cursor:pointer;transition:transform .14s,border-color .14s,box-shadow .14s;position:relative;}
+    .card:hover{transform:translateY(-2px);border-color:var(--ac);box-shadow:0 12px 30px rgba(0,0,0,.14);}
+    .card.sel{border-color:var(--ac);box-shadow:0 0 0 2px color-mix(in srgb,var(--ac) 40%,transparent);}
+    .card-top{padding:15px 17px 13px;border-top:3px solid var(--ac);}
+    .card-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+    .card-nm{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;color:var(--ac);letter-spacing:-.01em;}
+    .card-ct{font-size:11px;font-weight:800;color:var(--text3);white-space:nowrap;}
+    .card-desc{font-size:12.5px;color:var(--text2);line-height:1.5;margin-top:6px;}
+    .card-players{display:flex;flex-wrap:wrap;gap:5px;padding:11px 17px 14px;border-top:1px solid var(--border);}
+    .pchip{font-size:11px;font-weight:600;color:var(--text2);background:var(--bg3);border-radius:20px;padding:3px 9px;display:inline-flex;align-items:center;gap:5px;}
+    .pchip b{color:var(--ac);font-weight:800;font-size:10px;}
+    /* detail */
+    .detail{margin-top:24px;border:1px solid var(--border);border-radius:18px;background:var(--bg2);overflow:hidden;scroll-margin-top:70px;display:none;}
+    .detail.on{display:block;animation:fade .3s ease both;}
+    @keyframes fade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+    .dh{padding:20px 22px;border-bottom:1px solid var(--border);border-top:4px solid var(--ac);}
+    .dh-nm{font-family:'Playfair Display',serif;font-weight:900;font-size:26px;color:var(--ac);display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+    .dh-ct{font-family:'Inter';font-size:12px;font-weight:800;color:var(--text3);letter-spacing:.04em;}
+    .dh-desc{font-size:13.5px;color:var(--text2);line-height:1.6;margin-top:8px;max-width:720px;}
+    .dh-close{margin-left:auto;cursor:pointer;color:var(--text3);font-size:22px;line-height:1;}
+    .dh-close:hover{color:var(--text);}
+    .droster{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1px;background:var(--border);}
+    .prow{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--bg2);transition:background .1s;}
+    .prow:hover{background:var(--bg3);}
+    .prow .g{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;width:34px;text-align:center;flex-shrink:0;}
+    .prow .nm{font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .prow .tm{font-size:10.5px;color:var(--text3);}
+    .dmore{text-align:center;padding:12px;}
+    .dmore button{font-family:inherit;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);border-radius:20px;padding:7px 16px;cursor:pointer;}
+    .dmore button:hover{border-color:var(--ac);color:var(--text);}
+  </style>
+  <link rel="stylesheet" href="tdc-dense.css?v=29"/>
+  <link rel="stylesheet" href="tdc-skin.css?v=7"/>
+</head>
+<body>
+<script src="tdc-nav.js?v=9"></script>
+<div class="page">
+  <div class="eyebrow" data-anim>⬡ Style, not stats</div>
+  <h1 data-anim>Player Archetypes</h1>
+  <div class="sub" data-anim>Every rotation player in Division I, clustered by <b>how he plays</b> — size, ball-dominance, playmaking, spacing, rim pressure, rebounding and defense — not by how good he is. Ten roles emerge, from Rim Protectors to 3&amp;D Wings. Want to know which styles the market <b>underpays</b>? See <a href="moneyball.html?tab=market">Moneyball → Market inefficiency by style</a>.</div>
+  <div id="body"><div class="loading">Loading archetypes…</div></div>
+</div>
+<script src="tdc-version.js?v=2"></script>
+<script>
+const esc=s=>(''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let DATA=null, sel=null, rosterLimit=24;
+fetch('archetypes.json',{cache:'no-cache'}).then(r=>r.json()).then(j=>{ DATA=j; render(); })
+  .catch(()=>{ document.getElementById('body').innerHTML='<div class="loading">Archetype data unavailable.</div>'; });
+
+function plink(p){ return p.e?`player.html?espn=${p.e}&name=${encodeURIComponent(p.n)}`:`player.html?name=${encodeURIComponent(p.n)}`; }
+
+function render(){
+  const cards=DATA.archetypes.map(a=>{
+    const roster=(DATA.roster&&DATA.roster[a.name])||[];
+    const top=roster.slice(0,4);
+    return `<div class="card" data-a="${esc(a.name)}" style="--ac:${a.color}">
+      <div class="card-top">
+        <div class="card-h"><div class="card-nm">${esc(a.name)}</div><div class="card-ct">${a.count} players</div></div>
+        <div class="card-desc">${esc(a.desc)}</div>
+      </div>
+      <div class="card-players">${top.map(p=>`<span class="pchip"><b>${p.g}</b>${esc(p.n)}</span>`).join('')}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('body').innerHTML=`<div class="grid">${cards}</div><div class="detail" id="detail"></div>`;
+  document.querySelectorAll('.card').forEach(c=>c.addEventListener('click',()=>openArch(c.dataset.a)));
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(document.getElementById('body'));
+}
+
+function openArch(name){
+  sel=name; rosterLimit=24;
+  document.querySelectorAll('.card').forEach(c=>c.classList.toggle('sel',c.dataset.a===name));
+  renderDetail();
+  const d=document.getElementById('detail'); if(d) d.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function renderDetail(){
+  const a=DATA.archetypes.find(x=>x.name===sel); if(!a) return;
+  const roster=(DATA.roster&&DATA.roster[sel])||[];
+  const shown=roster.slice(0,rosterLimit);
+  const d=document.getElementById('detail');
+  d.style.setProperty('--ac',a.color); d.className='detail on';
+  d.innerHTML=`
+    <div class="dh">
+      <div class="dh-nm">${esc(a.name)} <span class="dh-ct">${a.count} players</span> <span class="dh-close" id="dClose">×</span></div>
+      <div class="dh-desc">${esc(a.desc)}</div>
+    </div>
+    <div class="droster">${shown.map(p=>`<a class="prow" href="${plink(p)}"><span class="g" style="color:${a.color}">${p.g}</span><span style="min-width:0"><div class="nm">${esc(p.n)}</div><div class="tm">${esc(p.t||'')}</div></span></a>`).join('')}</div>
+    ${roster.length>rosterLimit?`<div class="dmore"><button id="dMore">Show all ${roster.length}</button></div>`:''}`;
+  d.querySelector('#dClose').addEventListener('click',()=>{ d.className='detail'; sel=null; document.querySelectorAll('.card').forEach(c=>c.classList.remove('sel')); });
+  const mb=d.querySelector('#dMore'); if(mb) mb.addEventListener('click',()=>{ rosterLimit=9999; renderDetail(); });
+}
+</script>
+</body>
+</html>
