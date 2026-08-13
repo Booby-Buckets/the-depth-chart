@@ -13,7 +13,7 @@ function esc(s) {
 }
 
 function buildHead(html, title, desc, url, image) {
-  var keys = ['og:title', 'og:description', 'og:image', 'og:url', 'twitter:title', 'twitter:description', 'twitter:image', 'twitter:card'];
+  var keys = ['og:title', 'og:description', 'og:image', 'og:image:width', 'og:image:height', 'og:url', 'twitter:title', 'twitter:description', 'twitter:image', 'twitter:card'];
   keys.forEach(function (k) {
     html = html.replace(new RegExp('[ \\t]*<meta\\s+(?:property|name)="' + k + '"[^>]*>\\r?\\n?', 'gi'), '');
   });
