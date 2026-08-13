@@ -20,8 +20,8 @@ function buildHead(html, title, desc, url, image) {
   var img = image
     ? '\n  <meta property="og:image" content="' + esc(image) + '">' +
       '\n  <meta name="twitter:image" content="' + esc(image) + '">' +
-      '\n  <meta name="twitter:card" content="summary_large_image">'
-    : '\n  <meta name="twitter:card" content="summary_large_image">';
+      '\n  <meta name="twitter:card" content="summary">'
+    : '\n  <meta name="twitter:card" content="summary">';
   var block =
     '\n  <meta property="og:title" content="' + esc(title) + '">' +
     '\n  <meta name="twitter:title" content="' + esc(title) + '">' +
@@ -79,9 +79,14 @@ module.exports = async function (req, res) {
       title = 'Transfer Fit Report — The Depth Chart';
       desc = 'When a player transfers, a full breakdown of how he fits the new coach, team and system — plus projection and leap potential.';
     }
+    if (team) {
+      try {
+        var teams = await (await fetch(base + '/scripts/data/team_colors.json')).json();
+        var lc = team.toLowerCase();
+        for (var i = 0; i < teams.length; i++) if ((teams[i].location || '').toLowerCase() === lc) { image = teams[i].logo || null; break; }
+      } catch (e) { /* no image */ }
+    }
     var qs = espn ? 'espn=' + encodeURIComponent(espn) : 'name=' + encodeURIComponent(nameParam);
-    // Dynamic 1200×630 card (player + origin→destination logos), rendered by og-transfer-image.
-    image = base + '/api/og-transfer-image?' + qs;
     html = buildHead(html, title, desc, base + '/transfer-fit.html?' + qs, image);
   } catch (e) { /* leave html unmodified */ }
 
