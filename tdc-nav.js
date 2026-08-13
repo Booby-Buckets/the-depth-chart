@@ -28,6 +28,7 @@
     ['Players', [
       ['roster.html',          'Player Grades'],
       ['recent-additions.html','Recent Additions'],
+      ['transfer-fit.html',    'Transfer Fit'],
       ['compare-players.html', 'Compare Players'],
       ['draft.html',           'Mock Draft'],
       ['development.html',     'Development'],
