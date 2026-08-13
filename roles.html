@@ -20,7 +20,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Role &amp; Fit Intelligence — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <script src="auth.js?v=paywall4"></script>
+  <script src="auth.js?v=shotlock1"></script>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=7"></script>
   <script src="tdc-projgrade.js?v=base1"></script>
@@ -155,7 +155,7 @@
 <script>
 const SB_URL='https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
-const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
+const H=(window.tdcH?window.tdcH():{'apikey':KEY,'Authorization':'Bearer '+KEY});
 const el=id=>document.getElementById(id);
 const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
 
@@ -294,7 +294,7 @@ async function loadTeam(){
   if(withId.length){ const ids=withId.map(p=>p.espn_id).join(',');
     try{ [box,shots]=await Promise.all([
       fetch(`${SB_URL}/rest/v1/box_scores?espn_id=in.(${ids})&season_year=eq.2026&min=gte.4&select=espn_id,opp,min,fga,fgm,tpm,fta,ftm,tov,pts,pf&limit=4000`,{headers:H}).then(r=>r.ok?r.json():[]),
-      fetch(`${SB_URL}/rest/v1/shots?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,made,sv,stype&limit=16000`,{headers:H}).then(r=>r.ok?r.json():[])
+      fetch(`${SB_URL}/rest/v1/shots?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,made,sv,stype&limit=16000`,{headers:tdcH()}).then(r=>r.ok?r.json():[])
     ]); }catch(e){}
   }
   const boxBy={},shotBy={}; box.forEach(b=>{(boxBy[b.espn_id]=boxBy[b.espn_id]||[]).push(b);}); shots.forEach(s=>{(shotBy[s.espn_id]=shotBy[s.espn_id]||[]).push(s);});

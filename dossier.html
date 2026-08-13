@@ -20,7 +20,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Player Dossier — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <script src="auth.js?v=paywall4"></script>
+  <script src="auth.js?v=shotlock1"></script>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=7"></script>
   <script src="tdc-teamlink.js?v=2"></script>
@@ -163,7 +163,7 @@
 <script>
 const SB_URL='https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
-const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
+const H=(window.tdcH?window.tdcH():{'apikey':KEY,'Authorization':'Bearer '+KEY});
 const el=id=>document.getElementById(id);
 const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
 const R=v=>{const n=+v;return isNaN(n)?0:n;};
@@ -266,7 +266,7 @@ async function loadPlayer(p, tc, row){
   let log=[], shots=[], team=[];
   try{ [log,shots]=await Promise.all([
     fetch(`${SB_URL}/rest/v1/box_scores?espn_id=eq.${p.espn_id}&season_year=eq.2026&select=game_id,team,opp,min,fga,fgm,tpm,fta,tov,pts&order=date`,{headers:H}).then(r=>r.ok?r.json():[]),
-    fetch(`${SB_URL}/rest/v1/shots?espn_id=eq.${p.espn_id}&season_year=eq.2026&select=made,sv,stype,period,sec_left,home_score,away_score,ast_name,team_id`,{headers:H}).then(r=>r.ok?r.json():[])
+    fetch(`${SB_URL}/rest/v1/shots?espn_id=eq.${p.espn_id}&season_year=eq.2026&select=made,sv,stype,period,sec_left,home_score,away_score,ast_name,team_id`,{headers:tdcH()}).then(r=>r.ok?r.json():[])
   ]); }catch(e){}
   log=log.filter(g=>R(g.min)>0);
   // authoritative engine line (matches the player page); fall back to the light scale only if absent
@@ -331,7 +331,7 @@ async function loadPlayer(p, tc, row){
   const shClock=shots.filter(s=>s.sec_left!=null), myClutch=shClock.filter(isClutch), myRest=shClock.filter(s=>!isClutch(s));
   if(myClutch.length>=6){
     const tid=(shots.find(s=>s.team_id!=null)||{}).team_id; let tm=[];
-    if(tid!=null){ try{ tm=await fetch(`${SB_URL}/rest/v1/shots?team_id=eq.${tid}&season_year=eq.2026&select=sec_left,home_score,away_score,period,made,sv&limit=8000`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){} }
+    if(tid!=null){ try{ tm=await fetch(`${SB_URL}/rest/v1/shots?team_id=eq.${tid}&season_year=eq.2026&select=sec_left,home_score,away_score,period,made,sv&limit=8000`,{headers:tdcH()}).then(r=>r.ok?r.json():[]); }catch(e){} }
     const tmC=tm.filter(s=>s.sec_left!=null), tCl=tmC.filter(isClutch), tRe=tmC.filter(s=>!isClutch(s));
     const shCl=tCl.length?myClutch.length/tCl.length*100:null, shRe=tRe.length?myRest.length/tRe.length*100:null;
     const efgCl=efgSh(myClutch),efgRe=efgSh(myRest), uD=(shCl!=null&&shRe!=null)?shCl-shRe:0, eD=(efgCl!=null&&efgRe!=null)?efgCl-efgRe:0;

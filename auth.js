@@ -102,6 +102,15 @@ window.TDC_PAYWALL_ENABLED = false;
     catch (e) { return null; }
   };
 
+  // Read headers that carry the SIGNED-IN USER's JWT when available (else the anon key).
+  // Used for reads of plan-gated tables (e.g. `shots`) so Supabase can check the caller's
+  // plan via RLS. Safe for public tables too — the authenticated role keeps public read.
+  // Call at fetch time (not captured once) so the token is always fresh.
+  window.tdcH = function () {
+    try { var s = get(); return { apikey: KEY, Authorization: 'Bearer ' + ((s && s.access_token) || KEY) }; }
+    catch (e) { return { apikey: KEY, Authorization: 'Bearer ' + KEY }; }
+  };
+
   // Coach's Tier access check: owner OR profiles.plan in {pro, coach}. Returns a
   // memoized Promise<bool>. This is the SECTION-level gate for a premium widget
   // embedded on an otherwise-public page (e.g. the player-page Lineup Amplifier) —

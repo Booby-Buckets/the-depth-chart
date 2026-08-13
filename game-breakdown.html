@@ -20,7 +20,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Game Breakdown — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <script src="auth.js?v=paywall4"></script>
+  <script src="auth.js?v=shotlock1"></script>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=7"></script>
   <script src="tdc-shotchart.js?v=14"></script>
@@ -231,7 +231,7 @@
 <script>
 const SB_URL='https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
-const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
+const H=(window.tdcH?window.tdcH():{'apikey':KEY,'Authorization':'Bearer '+KEY});
 const el=id=>document.getElementById(id);
 const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
 const R=v=>{const n=+v;return isNaN(n)?0:n;};
@@ -296,7 +296,7 @@ async function loadGame(g, tc){
   const myFin=home?R(g.home_score):R(g.away_score), oppFin=home?R(g.away_score):R(g.home_score), won=myFin>oppFin;
   let shots=[], box=[];
   try{ [shots,box]=await Promise.all([
-    fetch(`${SB_URL}/rest/v1/shots?game_id=eq.${gid}&select=team_id,espn_id,period,sec_left,home_score,away_score,made,sv,stype,x,y,dist,ast_name&limit=1200`,{headers:H}).then(r=>r.ok?r.json():[]),
+    fetch(`${SB_URL}/rest/v1/shots?game_id=eq.${gid}&select=team_id,espn_id,period,sec_left,home_score,away_score,made,sv,stype,x,y,dist,ast_name&limit=1200`,{headers:tdcH()}).then(r=>r.ok?r.json():[]),
     fetch(`${SB_URL}/rest/v1/box_scores?game_id=eq.${gid}&select=team,player,espn_id,pts,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,reb,ast,stl,blk,tov,pf,min,starter`,{headers:H}).then(r=>r.ok?r.json():[])
   ]); }catch(e){}
   if(!DNA){ try{ const all=await fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():{}); DNA=(all['2026']&&all['2026'].teams)||{}; }catch(e){ DNA={}; } }

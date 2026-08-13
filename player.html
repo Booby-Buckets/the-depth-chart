@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="tdc-a11y.css?v=1">
   <script src="tdc-a11y.js?v=1" defer></script>
-  <script src="auth.js?v=coachgate1"></script>
+  <script src="auth.js?v=shotlock1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=2"></script>
@@ -4374,7 +4374,7 @@ async function loadShotChart(season){
   if(!espn){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">No shot data — this player has no ESPN id.</div>'; return; }
   host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Loading shot chart…</div>';
   try{
-    var rows=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.'+season+'&select=x,y,made,sv,dist&limit=1500',{headers:H}).then(r=>r.ok?r.json():[]);
+    var rows=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.'+season+'&select=x,y,made,sv,dist&limit=1500',{headers:tdcH()}).then(r=>r.ok?r.json():[]);
     // how many attempts he ACTUALLY took that season, so the chart can flag partial
     // coverage instead of presenting a third of the shots as the whole story
     var exp=null;
@@ -4411,7 +4411,7 @@ async function loadShotFlow(season){
     // only pull enriched rows (type/assist present) — during the backfill a
     // player can have a mix of enriched + location-only rows; the location-only
     // ones have no type/assist and would pollute the flow
-    var res=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.'+season+'&stype=not.is.null&select=x,y,made,sv,stype,ast_name&limit=2000',{headers:H});
+    var res=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.'+season+'&stype=not.is.null&select=x,y,made,sv,stype,ast_name&limit=2000',{headers:tdcH()});
     var rows=res.ok?await res.json():[];
     if(!Array.isArray(rows) || rows.length<8){
       host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Shot-flow data for this season is still being processed.</div>'; return;

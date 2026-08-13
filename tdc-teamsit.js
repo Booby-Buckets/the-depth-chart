@@ -20,7 +20,7 @@ window.TDC_TEAMSIT = (function () {
   async function fetchAll(path) {
     var out = [], from = 0, PG = 1000;
     for (var i = 0; i < 14; i++) {
-      var r; try { r = await fetch(SB + path, { headers: Object.assign({}, H, { 'Range-Unit': 'items', 'Range': from + '-' + (from + PG - 1) }) }); } catch (e) { break; }
+      var r; try { r = await fetch(SB + path, { headers: Object.assign({}, (window.tdcH?window.tdcH():H), { 'Range-Unit': 'items', 'Range': from + '-' + (from + PG - 1) }) }); } catch (e) { break; }
       if (!r.ok) break; var b = await r.json(); out = out.concat(b); if (b.length < PG) break; from += PG;
     }
     return out;

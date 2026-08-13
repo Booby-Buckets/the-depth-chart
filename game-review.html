@@ -20,7 +20,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Automatic Game Review — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <script src="auth.js?v=paywall4"></script>
+  <script src="auth.js?v=shotlock1"></script>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=7"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
@@ -125,7 +125,7 @@
 <script>
 const SB_URL='https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
-const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
+const H=(window.tdcH?window.tdcH():{'apikey':KEY,'Authorization':'Bearer '+KEY});
 const el=id=>document.getElementById(id);
 const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
 const sn=t=>(window.tdcShortSchool?window.tdcShortSchool(t):t);
@@ -190,7 +190,7 @@ async function review(gid, me){
   el('out').innerHTML='<div class="loading">Breaking down the game…</div>';
   let box=[], shots=[];
   try{ box=await fetch(`${SB_URL}/rest/v1/box_scores?game_id=eq.${gid}&select=team,pts,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,tov`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
-  try{ shots=await fetch(`${SB_URL}/rest/v1/shots?game_id=eq.${gid}&select=team_id,made,sv,stype&limit=800`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  try{ shots=await fetch(`${SB_URL}/rest/v1/shots?game_id=eq.${gid}&select=team_id,made,sv,stype&limit=800`,{headers:tdcH()}).then(r=>r.ok?r.json():[]); }catch(e){}
   const t=agg(box); const teams=Object.keys(t);
   if(teams.length!==2){ el('out').innerHTML='<div class="muted">No box score on file for this game.</div>'; return; }
   const oppName=teams.find(x=>x!==me)||teams.find(x=>x!==teams[0]);

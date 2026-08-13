@@ -13,7 +13,7 @@
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Compare — The Depth Chart">
   <meta name="twitter:description" content="Advanced college basketball roster rankings, team & player analytics, NIL values, and 2026-27 projections for all of Division I.">
-  <script src="auth.js?v=paywall4"></script>
+  <script src="auth.js?v=shotlock1"></script>
   <script src="tdc-gate.js?v=3" data-gate="pro" data-label="player comparison"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
@@ -1730,7 +1730,7 @@ async function _fetchPlayerShots(p){
   const espn=p&&p.espn_id; if(!espn) return [];
   const season=p.season_year||2026;
   try{
-    const r=await fetch(`${SB}/rest/v1/shots?espn_id=eq.${espn}&season_year=eq.${season}&select=x,y,made,sv,dist&limit=1500`,{headers:H});
+    const r=await fetch(`${SB}/rest/v1/shots?espn_id=eq.${espn}&season_year=eq.${season}&select=x,y,made,sv,dist&limit=1500`,{headers:tdcH()});
     return r.ok ? await r.json() : [];
   }catch(e){ return []; }
 }
@@ -1745,7 +1745,7 @@ async function _renderShotCharts(p1,p2){
 async function _fetchPlayerShotsFlow(p){
   const espn=p&&p.espn_id; if(!espn) return [];
   const season=p.season_year||2026;
-  try{ const r=await fetch(`${SB}/rest/v1/shots?espn_id=eq.${espn}&season_year=eq.${season}&stype=not.is.null&select=x,y,made,sv,stype,ast_name&limit=2000`,{headers:H});
+  try{ const r=await fetch(`${SB}/rest/v1/shots?espn_id=eq.${espn}&season_year=eq.${season}&stype=not.is.null&select=x,y,made,sv,stype,ast_name&limit=2000`,{headers:tdcH()});
     return r.ok?await r.json():[]; }catch(e){ return []; }
 }
 async function _renderShotFlows(p1,p2){
@@ -2115,7 +2115,7 @@ async function _renderTeamShotCharts(s1,s2,y1,y2,t1,t2){
   const h1=document.getElementById('tsc1'), h2=document.getElementById('tsc2');
   if((!h1&&!h2)||!window.TDC_SHOTCHART) return;
   const f=async(s,y)=>{ if(!s||s.team_id==null) return null; try{
-    const r=await fetch(`${SB}/rest/v1/shots?team_id=eq.${s.team_id}&season_year=eq.${y}&select=x,y,made,sv,dist&limit=6000`,{headers:H});
+    const r=await fetch(`${SB}/rest/v1/shots?team_id=eq.${s.team_id}&season_year=eq.${y}&select=x,y,made,sv,dist&limit=6000`,{headers:tdcH()});
     return r.ok?await r.json():[]; }catch(e){ return []; } };
   const [a,b]=await Promise.all([f(s1,y1),f(s2,y2)]);
   if(h1&&a) TDC_SHOTCHART.render(h1,a,{subtitle:t1.name,mode:'hex'});
