@@ -36,7 +36,11 @@
     .page{max-width:820px;margin:0 auto;padding:30px 22px 90px;}
     .eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
     h1{font-family:'Playfair Display',serif;font-size:clamp(28px,4.5vw,38px);font-weight:800;letter-spacing:-.01em;margin-bottom:14px;}
+    .searchrow{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;}
+    .searchrow .search{margin-bottom:0;flex:1;min-width:230px;}
     .search{position:relative;max-width:440px;margin-bottom:24px;}
+    .whatif{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:color-mix(in srgb,var(--accent) 15%,transparent);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);border-radius:20px;padding:3px 11px;margin-left:9px;vertical-align:middle;}
+    .destclear{margin-left:8px;font-size:11px;color:var(--text3);cursor:pointer;text-decoration:underline;}
     .search input{width:100%;padding:12px 16px;border:1px solid var(--border2);border-radius:12px;background:var(--bg2);color:var(--text);font:inherit;font-size:14px;outline:none;}
     .search input:focus{border-color:var(--accent);}
     .drop{position:absolute;top:100%;left:0;right:0;z-index:20;background:var(--bg2);border:1px solid var(--border);border-radius:12px;margin-top:5px;overflow:hidden;box-shadow:0 12px 30px rgba(0,0,0,.18);display:none;}
@@ -115,9 +119,15 @@
 <div class="page">
   <div class="eyebrow" data-anim>⇄ Transfer Portal</div>
   <h1 data-anim>Transfer Fit Report</h1>
-  <div class="search" data-anim>
-    <input id="search" type="text" placeholder="Search a transfer… (e.g. a portal addition)" autocomplete="off"/>
-    <div class="drop" id="drop"></div>
+  <div class="searchrow" data-anim>
+    <div class="search">
+      <input id="search" type="text" placeholder="1 · Search any player…" autocomplete="off"/>
+      <div class="drop" id="drop"></div>
+    </div>
+    <div class="search">
+      <input id="destsearch" type="text" placeholder="2 · Fit them to a school…" autocomplete="off"/>
+      <div class="drop" id="destdrop"></div>
+    </div>
   </div>
   <div id="report"><div class="loading">Loading…</div></div>
 </div>
@@ -131,7 +141,7 @@ const esc=s=>(''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','
 const r1=x=>Math.round((parseFloat(x)||0)*10)/10;
 const initials=n=>(n||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
 const barCol=v=>v>=72?'var(--green)':v>=52?'var(--amber)':'var(--red)';
-let TEAMS=[],PROFS={},CURRENT=null;
+let TEAMS=[],PROFS={},CURRENT=null,SELP=null,SELDEST=null;
 
 function toast(msg){ let t=document.querySelector('.share-toast'); if(!t){t=document.createElement('div');t.className='share-toast';document.body.appendChild(t);} t.textContent=msg; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),1900); }
 function shareReport(){
@@ -148,6 +158,18 @@ function projInto(p){ if(p&&window.TDCProjGrade&&TDCProjGrade.gradeSolo&&parseFl
   if(g!=null&&!isNaN(g)) p.tdc_grade=''+g; } return p; }
 const findTeam=nm=>TEAMS.find(t=>t.team===nm||t.full===nm||t.team===(nm||'').replace(/\s+(Blue Devils|Tigers|Wildcats|Bulldogs|Cardinals).*$/,''));
 
+// map a player_history row (portal players not on a current roster) to the players-table shape
+function fromHist(h){ return {id:null,name:h.name,team:h.team,position:h.position,class_year:h.yr,height:h.height,
+  tdc_grade:h.tdc_grade,ppg:h.ppg,rpg:h.rpg,apg:h.apg,mpg:h.mpg,fg_pct:h.fg_pct,tp_pct:h.tp_pct,three_pct:h.tp_pct,
+  tpa:h.tpa,fga:h.fga,blk:h.blk,bpg:h.blk,stl:h.stl,spg:h.stl,usage_pct:null,espn_id:h.espn_id,is_addition:false,hometown:'',_hist:true}; }
+async function loadPlayer(espn,name){
+  const q=espn?`espn_id=eq.${espn}`:`name=eq.${encodeURIComponent(name)}`;
+  let rows=await fetch(`${SB}/rest/v1/players?${q}&select=${PSEL}&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  if(rows&&rows[0]) return rows[0];
+  const hh=await fetch(`${SB}/rest/v1/player_history?${q}&select=name,team,position,height,yr,ppg,rpg,apg,mpg,fga,tpa,fg_pct,tp_pct,blk,stl,tdc_grade,espn_id&order=season_year.desc&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  return hh&&hh[0]?fromHist(hh[0]):null;
+}
+
 async function boot(){
   const [tn,cp]=await Promise.all([
     fetch('scripts/data/team_needs.json').then(r=>r.json()).catch(()=>({teams:[]})),
@@ -157,29 +179,51 @@ async function boot(){
   (Array.isArray(cp)?cp:[]).forEach(p=>{ if(p.coach_slug) PROFS[p.coach_slug]=p; });
   if(window.TDCProjGrade){ try{ await TDCProjGrade.ready; }catch(e){} }
   if(window.TDC_ARCH){ try{ await TDC_ARCH.ready; }catch(e){} }
-  const u=new URLSearchParams(location.search), espn=u.get('espn'), name=u.get('name');
+  const u=new URLSearchParams(location.search), espn=u.get('espn'), name=u.get('name'), to=u.get('to');
+  if(to){ SELDEST=to; $('destsearch').value=to; }
   if(espn||name){
-    const q=espn?`espn_id=eq.${espn}`:`name=eq.${encodeURIComponent(name)}`;
-    const rows=await fetch(`${SB}/rest/v1/players?${q}&select=${PSEL}&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    if(rows&&rows[0]) return show(rows[0]);
+    const p=await loadPlayer(espn,name);
+    if(p){ SELP=p; return show(); }
   }
-  document.getElementById('report').innerHTML='<div class="empty">Search a transfer above to see his landing-spot breakdown — coach &amp; system fit, projection, and leap potential.</div>';
+  document.getElementById('report').innerHTML='<div class="empty">Pick <b>any player</b>, then fit them to <b>any school</b> — coach &amp; system fit, roster need, projection, and leap potential.<br><span style="font-size:12.5px">e.g. a rumored portal move like a star G to a new blue-blood.</span></div>';
 }
 
-function show(p){
+function heroRow(p,fromTeam,destName,grade,style){
+  const ppos=TDCPortalFit.pos(p);
+  return `<div class="rhero" data-anim>
+    <div class="mono">${initials(p.name)}</div>
+    <div class="rh-main">
+      <div class="rh-name">${esc(p.name)}</div>
+      <div class="rh-meta">${esc(ppos)} · ${esc(p.class_year||p.yr||'')}${p.height?' · '+esc(p.height):''}${style?` · ${esc(style.name)}`:''}</div>
+      <div class="rh-move"><span class="rh-from">${esc(fromTeam||'—')}</span><span class="rh-arrow">→</span><span class="rh-to">${esc(destName||'?')}</span></div>
+    </div>
+    <div class="rh-grade"><div class="v">${grade||'—'}</div><div class="l">Proj OVR</div></div>
+  </div>`;
+}
+
+function show(){
+  const p=SELP; const host=document.getElementById('report');
+  if(!p){ host.innerHTML='<div class="empty">Search a player to begin.</div>'; return; }
   projInto(p);
-  history.replaceState(null,'',`transfer-fit.html?espn=${p.espn_id||''}&name=${encodeURIComponent(p.name)}`);
-  const host=document.getElementById('report');
-  const origin=(p.hometown||'').trim();
-  const isTransfer=p.is_addition && origin;
-  if(!isTransfer){
-    host.innerHTML=`<div class="empty"><b>${esc(p.name)}</b> isn’t flagged as a transfer.<br>This report covers portal additions — search a player who transferred in.</div>`;
+  const grade=Math.round(parseFloat(p.tdc_grade)||0);
+  const style=(window.TDC_ARCH&&TDC_ARCH.of(p.espn_id,p.name))||null;
+  // committed portal add → hometown holds the old team; otherwise it's a what-if from his current team
+  const committed=p.is_addition&&(p.hometown||'').trim();
+  const fromTeam=committed?(p.hometown||'').trim():(p.team||'');
+  const destName=SELDEST||(committed?p.team:null);
+  const baseUrl=`transfer-fit.html?espn=${p.espn_id||''}&name=${encodeURIComponent(p.name)}`+(SELDEST?`&to=${encodeURIComponent(SELDEST)}`:'');
+
+  if(!destName){
+    history.replaceState(null,'',baseUrl);
+    host.innerHTML=heroRow(p,fromTeam,null,grade,style)+
+      `<div class="empty">Now pick a <b>destination school</b> above to model how <b>${esc(p.name)}</b> would fit — coach, system, roster need, projection and leap potential.</div>`;
+    if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
     return;
   }
-  const dest=findTeam(p.team);
+  const dest=findTeam(destName);
+  if(!dest){ host.innerHTML=heroRow(p,fromTeam,destName,grade,style)+`<div class="empty">No fit data for <b>${esc(destName)}</b> yet — it isn’t in the coach/needs dataset.</div>`; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host); return; }
   const prof=dest&&dest.coach_slug?PROFS[dest.coach_slug]:null;
-  const grade=Math.round(parseFloat(p.tdc_grade)||0);
-  if(!dest){ host.innerHTML=`<div class="empty">No fit data for <b>${esc(p.team||'this team')}</b> yet — the destination isn’t in the coach/needs dataset.</div>`; return; }
+  const origin=fromTeam;
   const s=TDCPortalFit.scoreTeam(p,dest,prof);
   const cf=TDCPortalFit.coachFit(prof,p);
   const ppos=TDCPortalFit.pos(p);
@@ -187,10 +231,10 @@ function show(p){
   // verdict
   const V=s.overall>=82?['Ideal Landing Spot','var(--green)']:s.overall>=70?['Strong Fit','var(--green)']
         :s.overall>=58?['Solid Fit','var(--amber)']:s.overall>=45?['Questionable Fit','var(--amber)']:['Tough Spot','var(--red)'];
-  CURRENT={name:p.name,origin:origin,team:dest.team,verdict:V[0],score:s.overall};
+  CURRENT={name:p.name,origin:origin,team:dest.team,verdict:V[0],score:s.overall,to:SELDEST||''};
+  history.replaceState(null,'',baseUrl+`&score=${s.overall}&verdict=${encodeURIComponent(V[0])}`);
 
   // leap potential — style breakout rate + coach development + projected trajectory
-  const style=(window.TDC_ARCH&&TDC_ARCH.of(p.espn_id,p.name))||null;
   const brk=style&&window.TDC_ARCH.breakout?TDC_ARCH.breakout(style.name):null;
   const devPctl=prof&&prof.dev_pctl!=null?Math.round(prof.dev_pctl):null;
 
@@ -204,15 +248,8 @@ function show(p){
   const projStr=o=>`${r1(o.ppg)}p · ${r1(o.rpg)}r · ${r1(o.apg)}a`+(o.mpg?` · ${r1(o.mpg)}m`:'');
 
   host.innerHTML=`
-  <div class="rhero" data-anim>
-    <div class="mono">${initials(p.name)}</div>
-    <div class="rh-main">
-      <div class="rh-name">${esc(p.name)}</div>
-      <div class="rh-meta">${esc(ppos)} · ${esc(p.class_year||p.yr||'')}${p.height?' · '+esc(p.height):''}${style?` · ${esc(style.name)}`:''}</div>
-      <div class="rh-move"><span class="rh-from">${esc(origin)}</span><span class="rh-arrow">→</span><span class="rh-to">${esc(dest.full||dest.team)}</span></div>
-    </div>
-    <div class="rh-grade"><div class="v">${grade||'—'}</div><div class="l">Proj OVR</div></div>
-  </div>
+  ${heroRow(p,origin,dest.full||dest.team,grade,style)}
+  ${SELDEST?'<div style="margin:-8px 0 14px;font-size:12.5px;color:var(--text3)"><span class="whatif">What-if</span> hypothetical fit — he hasn’t committed here.</div>':''}
 
   <div class="verdict" data-anim style="--vc:${V[1]}">
     <div class="vd-top"><div class="vd-score">${s.overall}<small>/100</small></div><div class="vd-label">${V[0]}</div></div>
@@ -262,26 +299,48 @@ function show(p){
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
 }
 
-// search transfers
+// ---- search ----
 const $=id=>document.getElementById(id);
-let searchT;
+let searchT,destT;
+
+// player search across all seasons (dedup to latest) so portal players are findable too
 $('search').addEventListener('input',function(){
   const q=this.value.trim(); clearTimeout(searchT);
   if(q.length<2){ $('drop').classList.remove('on'); return; }
   searchT=setTimeout(async()=>{
-    const rows=await fetch(`${SB}/rest/v1/players?name=ilike.*${encodeURIComponent(q)}*&is_addition=eq.true&select=name,team,espn_id,hometown,tdc_grade&order=tdc_grade.desc.nullslast&limit=8`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    if(!rows.length){ $('drop').innerHTML='<div class="drop-item"><span class="t">No transfers match.</span></div>'; $('drop').classList.add('on'); return; }
-    $('drop').innerHTML=rows.map(p=>`<div class="drop-item" data-espn="${p.espn_id||''}" data-name="${esc(p.name)}"><span>${esc(p.name)}</span><span class="t">${esc(p.hometown||'')} → ${esc(p.team||'')}</span></div>`).join('');
+    const rows=await fetch(`${SB}/rest/v1/player_history?name=ilike.*${encodeURIComponent(q)}*&select=name,team,espn_id,season_year&order=season_year.desc&limit=40`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const seen=new Set(),out=[];
+    for(const r of rows){ if(!r.espn_id||seen.has(r.espn_id))continue; seen.add(r.espn_id); out.push(r); if(out.length>=8)break; }
+    if(!out.length){ $('drop').innerHTML='<div class="drop-item"><span class="t">No players match.</span></div>'; $('drop').classList.add('on'); return; }
+    $('drop').innerHTML=out.map(p=>`<div class="drop-item" data-espn="${p.espn_id||''}" data-name="${esc(p.name)}"><span>${esc(p.name)}</span><span class="t">${esc(p.team||'')}</span></div>`).join('');
     $('drop').classList.add('on');
     $('drop').querySelectorAll('.drop-item[data-name]').forEach(el=>el.addEventListener('click',async()=>{
       $('drop').classList.remove('on'); $('search').value='';
-      const q2=el.dataset.espn?`espn_id=eq.${el.dataset.espn}`:`name=eq.${encodeURIComponent(el.dataset.name)}`;
-      const rr=await fetch(`${SB}/rest/v1/players?${q2}&select=${PSEL}&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-      if(rr&&rr[0]){ document.getElementById('report').innerHTML='<div class="loading">Building report…</div>'; show(rr[0]); }
+      $('report').innerHTML='<div class="loading">Loading player…</div>';
+      const p=await loadPlayer(el.dataset.espn,el.dataset.name);
+      if(p){ SELP=p; show(); } else { $('report').innerHTML='<div class="empty">Could not load that player.</div>'; }
     }));
   },200);
 });
-document.addEventListener('click',e=>{ if(!e.target.closest('.search')) $('drop').classList.remove('on'); });
+
+// destination-team search — any school in the coach/needs dataset
+$('destsearch').addEventListener('input',function(){
+  const q=this.value.trim().toLowerCase(); clearTimeout(destT);
+  if(!q){ SELDEST=null; $('destdrop').classList.remove('on'); if(SELP) show(); return; }
+  if(q.length<2){ $('destdrop').classList.remove('on'); return; }
+  destT=setTimeout(()=>{
+    const out=TEAMS.filter(t=>((t.team||'')+' '+(t.full||'')).toLowerCase().includes(q)).slice(0,8);
+    if(!out.length){ $('destdrop').innerHTML='<div class="drop-item"><span class="t">No school matches.</span></div>'; $('destdrop').classList.add('on'); return; }
+    $('destdrop').innerHTML=out.map(t=>`<div class="drop-item" data-team="${esc(t.team)}"><span>${esc(t.full||t.team)}</span><span class="t">${esc(t.coach||'')}</span></div>`).join('');
+    $('destdrop').classList.add('on');
+    $('destdrop').querySelectorAll('.drop-item[data-team]').forEach(el=>el.addEventListener('click',()=>{
+      SELDEST=el.dataset.team; $('destsearch').value=el.dataset.team; $('destdrop').classList.remove('on');
+      if(SELP){ $('report').innerHTML='<div class="loading">Building report…</div>'; show(); }
+    }));
+  },150);
+});
+
+document.addEventListener('click',e=>{ if(!e.target.closest('.search')){ $('drop').classList.remove('on'); $('destdrop').classList.remove('on'); } });
 
 boot();
 </script>

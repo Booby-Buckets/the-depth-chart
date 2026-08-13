@@ -27,13 +27,28 @@ export default async function handler(req) {
   const espn = (searchParams.get('espn') || '').trim();
   const nameParam = (searchParams.get('name') || '').trim();
 
-  let pname = nameParam, team = '', origin = '', pos = '', cls = '';
+  const H = { headers: { apikey: KEY, Authorization: 'Bearer ' + KEY } };
+  let pname = nameParam, curTeam = '', hometown = '', pos = '', cls = '';
   try {
     const q = espn ? 'espn_id=eq.' + encodeURIComponent(espn) : 'name=eq.' + encodeURIComponent(nameParam);
-    const rows = await (await fetch(SB + '/rest/v1/players?' + q + '&select=name,team,hometown,position,class_year&limit=1',
-      { headers: { apikey: KEY, Authorization: 'Bearer ' + KEY } })).json();
-    if (rows && rows[0]) { pname = rows[0].name || pname; team = rows[0].team || ''; origin = (rows[0].hometown || '').trim(); pos = rows[0].position || ''; cls = rows[0].class_year || ''; }
-  } catch (e) { /* fallback card */ }
+    const rows = await (await fetch(SB + '/rest/v1/players?' + q + '&select=name,team,hometown,position,class_year&limit=1', H)).json();
+    if (rows && rows[0]) { pname = rows[0].name || pname; curTeam = rows[0].team || ''; hometown = (rows[0].hometown || '').trim(); pos = rows[0].position || ''; cls = rows[0].class_year || ''; }
+  } catch (e) { /* try history */ }
+  if (!curTeam) { // portal player not on a current roster → most recent season in player_history
+    try {
+      const q = espn ? 'espn_id=eq.' + encodeURIComponent(espn) : 'name=eq.' + encodeURIComponent(nameParam);
+      const rows = await (await fetch(SB + '/rest/v1/player_history?' + q + '&select=name,team,position,yr&order=season_year.desc&limit=1', H)).json();
+      if (rows && rows[0]) { pname = rows[0].name || pname; curTeam = rows[0].team || ''; pos = pos || rows[0].position || ''; cls = cls || rows[0].yr || ''; }
+    } catch (e) { /* fallback card */ }
+  }
+
+  // Destination: an explicit ?to= (what-if) overrides; else the player's team is the destination
+  // and his hometown field (which holds the previous team for committed portal adds) is the origin.
+  const toParam = (searchParams.get('to') || '').trim();
+  const score = (searchParams.get('score') || '').trim();
+  const verdict = (searchParams.get('verdict') || '').trim();
+  const team = toParam || curTeam;
+  const origin = toParam ? curTeam : hometown;
 
   let origLogo = '', destLogo = '', destName = team, origName = origin, c1 = '';
   try {
@@ -62,10 +77,15 @@ export default async function handler(req) {
   // top accent bar
   kids.push(div({ position: 'absolute', top: '0px', left: '0px', width: '1200px', height: '12px', backgroundColor: accent }));
 
-  // eyebrow pill in the team color
-  const eyebrow = div({ display: 'flex', marginTop: '52px' }, [
+  // eyebrow row: team-colored report pill + optional fit-score pill
+  const eyebrowKids = [
     div({ display: 'flex', backgroundColor: accent, color: pillText, fontSize: '23px', fontWeight: 700, letterSpacing: '4px', padding: '11px 22px', borderRadius: '8px' }, 'TRANSFER FIT REPORT')
-  ]);
+  ];
+  if (score) {
+    eyebrowKids.push(div({ display: 'flex', alignItems: 'center', marginLeft: '14px', border: '2px solid ' + rgba(acc, 0.6), color: accentText, fontSize: '22px', fontWeight: 800, letterSpacing: '1px', padding: '9px 20px', borderRadius: '8px' },
+      score + ' / 100' + (verdict ? '   ·   ' + verdict.toUpperCase() : '')));
+  }
+  const eyebrow = div({ display: 'flex', alignItems: 'center', marginTop: '52px' }, eyebrowKids);
 
   // bottom origin → destination row
   const logos = [];

@@ -60,20 +60,34 @@ module.exports = async function (req, res) {
   }
 
   try {
-    var pname = nameParam, team = '', origin = '';
+    var to = (q.to ? String(q.to) : '').trim();
+    var score = (q.score ? String(q.score) : '').trim();
+    var verdict = (q.verdict ? String(q.verdict) : '').trim();
+    var pname = nameParam, curTeam = '', hometown = '';
     var qFilter = espn ? 'espn_id=eq.' + encodeURIComponent(espn) : 'name=eq.' + encodeURIComponent(nameParam);
+    var HH = { headers: { apikey: KEY, Authorization: 'Bearer ' + KEY } };
     try {
-      var rows = await (await fetch(
-        SB + '/rest/v1/players?' + qFilter + '&select=name,team,hometown&limit=1',
-        { headers: { apikey: KEY, Authorization: 'Bearer ' + KEY } }
-      )).json();
-      if (rows && rows[0]) { pname = rows[0].name || pname; team = rows[0].team || ''; origin = (rows[0].hometown || '').trim(); }
+      var rows = await (await fetch(SB + '/rest/v1/players?' + qFilter + '&select=name,team,hometown&limit=1', HH)).json();
+      if (rows && rows[0]) { pname = rows[0].name || pname; curTeam = rows[0].team || ''; hometown = (rows[0].hometown || '').trim(); }
     } catch (e) { /* keep params */ }
+    if (!curTeam) { // portal player not on a current roster
+      try {
+        var hr = await (await fetch(SB + '/rest/v1/player_history?' + qFilter + '&select=name,team&order=season_year.desc&limit=1', HH)).json();
+        if (hr && hr[0]) { pname = hr[0].name || pname; curTeam = hr[0].team || ''; }
+      } catch (e) { /* keep */ }
+    }
+
+    // ?to= (what-if) overrides the destination; else the DB team is the destination.
+    var destTeam = to || curTeam;
+    var fromTeam = to ? curTeam : hometown;
 
     var title, desc, image = null;
-    if (pname && team && origin) {
-      title = pname + '’s Transfer Fit: ' + origin + ' → ' + team + ' — The Depth Chart';
-      desc = 'How ' + pname + ' fits ' + team + ' — coach & system fit, projected 2026-27 line, and whether he’s set to take a leap. Transfer Fit Report on The Depth Chart.';
+    if (pname && destTeam && fromTeam) {
+      title = pname + '’s Transfer Fit: ' + fromTeam + ' → ' + destTeam + ' — The Depth Chart';
+      desc = 'How ' + pname + ' fits ' + destTeam + ' — coach & system fit, projected line, and whether he’s set to take a leap.' + (score ? ' Fit score ' + score + '/100' + (verdict ? ' (' + verdict + ').' : '.') : '') + ' Transfer Fit Report on The Depth Chart.';
+    } else if (pname && destTeam) {
+      title = pname + '’s Transfer Fit at ' + destTeam + ' — The Depth Chart';
+      desc = 'How ' + pname + ' fits ' + destTeam + ' — coach fit, system fit, projection and leap potential.' + (score ? ' Fit score ' + score + '/100.' : '');
     } else if (pname) {
       title = pname + ' — Transfer Fit Report — The Depth Chart';
       desc = pname + '’s landing-spot breakdown: coach fit, system fit, projection and leap potential.';
@@ -82,9 +96,11 @@ module.exports = async function (req, res) {
       desc = 'When a player transfers, a full breakdown of how he fits the new coach, team and system — plus projection and leap potential.';
     }
     var qs = espn ? 'espn=' + encodeURIComponent(espn) : 'name=' + encodeURIComponent(nameParam);
-    // Custom 1200×630 card rendered by api/og-transfer-image.mjs (both logos + player + brand).
-    image = base + '/api/og-transfer-image?' + qs;
-    html = buildHead(html, title, desc, base + '/transfer-fit.html?' + qs, image);
+    var pageQs = qs + (to ? '&to=' + encodeURIComponent(to) : '');
+    var imgQs = pageQs + (score ? '&score=' + encodeURIComponent(score) : '') + (verdict ? '&verdict=' + encodeURIComponent(verdict) : '');
+    // Custom 1200×630 card rendered by api/og-transfer-image.mjs (both logos + player + score).
+    image = base + '/api/og-transfer-image?' + imgQs;
+    html = buildHead(html, title, desc, base + '/transfer-fit.html?' + pageQs, image);
   } catch (e) { /* leave html unmodified */ }
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
