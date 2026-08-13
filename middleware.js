@@ -5,7 +5,7 @@
 // the functions' own plain-UA fetch) falls straight through to the static file. Wrapped in
 // try/catch that continues on any error, so it can never break the page for a human.
 
-export const config = { matcher: ['/team.html', '/player.html'] };
+export const config = { matcher: ['/team.html', '/player.html', '/transfer-fit.html'] };
 
 // Broad but safe: generic markers ("bot", "crawl", "preview", …) never appear in real
 // desktop/mobile browser UAs (Chrome/Safari/Firefox/Edge), so humans still fall through to
@@ -20,7 +20,9 @@ export default function middleware(request) {
     var ua = request.headers.get('user-agent') || '';
     if (!CRAWLER.test(ua)) return;                 // not a crawler → continue to the static file
     var url = new URL(request.url);
-    url.pathname = url.pathname === '/player.html' ? '/api/og-player' : '/api/og-team';
+    url.pathname = url.pathname === '/player.html' ? '/api/og-player'
+                 : url.pathname === '/transfer-fit.html' ? '/api/og-transfer'
+                 : '/api/og-team';
     return Response.redirect(url.toString(), 307); // crawler → OG-injection function (query preserved)
   } catch (e) {
     return;                                         // anything unexpected → serve the page normally
