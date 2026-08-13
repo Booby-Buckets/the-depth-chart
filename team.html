@@ -10,6 +10,7 @@
   <script src="tdc-lineups.js?v=13"></script>
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-nil.js?v=ped1"></script>
+  <script src="tdc-gate.js?v=2"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=1"></script>
   <script src="tdc-proj.js?v=coach19"></script>
@@ -5274,6 +5275,89 @@ function switchTab(id, btn){
   if(id==='report') renderRosterReport();
   if(id==='nil') renderNil();
 }
+
+// ── PAYWALL (Phase A) — team pages. The Depth Chart keeps the starting 5 as the free,
+// indexable preview; the full rotation + stats table and the deep tabs go Premium. The
+// Pro analytics tabs (DNA / On-Off / Projections / Report / Customize) stay OPEN until
+// the Pro checkout link exists. Owner (coach) bypasses everything.
+var TAB_GATE = {
+  nil:    { tier:'premium', label:'the NIL valuation', blurb:'See every player’s NIL market value and the roster’s total. Included with Premium — $4.99/mo.' },
+  losses: { tier:'premium', label:'offseason losses', blurb:'See who this team lost and the impact. Included with Premium — $4.99/mo.' }
+};
+function _lockPanel(pnl, g){
+  if(!pnl || pnl.__locked) return; pnl.__locked = true;
+  pnl.innerHTML = '';
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;justify-content:center;padding:52px 18px;';
+  wrap.appendChild(TDCGate.cardEl(g));
+  pnl.appendChild(wrap);
+}
+// Visual tab switch only — no loaders (so a gated panel isn't populated then replaced).
+function _teamDisplaySwitch(id, btn){
+  document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelectorAll('.hero-tab').forEach(function(b){ b.classList.remove('active'); });
+  var pnl=document.getElementById('panel-'+id); if(pnl) pnl.classList.add('active');
+  if(btn) btn.classList.add('active');
+  var sideCol=document.querySelector('.side-col'), mainCol=document.querySelector('.main-col'), pageBody=document.querySelector('.page-body');
+  if(sideCol && mainCol){ sideCol.style.display='none'; mainCol.style.borderRight='none'; mainCol.style.padding='20px 20px 64px'; if(pageBody) pageBody.style.gridTemplateColumns='1fr'; }
+}
+(function(){
+  var orig = switchTab;
+  window.switchTab = function(id, btn){
+    var g = TAB_GATE[id];
+    if(!g || !window.TDCGate){ return orig(id, btn); }
+    if(TDCGate.resolved()){
+      if(TDCGate.has(g.tier)) return orig(id, btn);
+      _teamDisplaySwitch(id, btn); _lockPanel(document.getElementById('panel-'+id), g); return;
+    }
+    _teamDisplaySwitch(id, btn);
+    TDCGate.ready.then(function(){ if(TDCGate.has(g.tier)) orig(id, btn); else _lockPanel(document.getElementById('panel-'+id), g); });
+  };
+  // Lock icon on gated (visible) tab buttons for non-entitled users.
+  if(window.TDCGate) TDCGate.ready.then(function(){
+    document.querySelectorAll('.hero-tab').forEach(function(btn){
+      var oc = btn.getAttribute('onclick')||'';
+      Object.keys(TAB_GATE).forEach(function(id){
+        if(oc.indexOf("'"+id+"'")>-1 && !TDCGate.has(TAB_GATE[id].tier) && !btn.querySelector('.tab-lock')){
+          var l=document.createElement('span'); l.className='tab-lock'; l.textContent=' 🔒'; l.style.cssText='font-size:.8em;opacity:.7;';
+          btn.appendChild(l);
+        }
+      });
+    });
+  });
+})();
+
+// Partial gate on the Depth Chart: keep each column's starter (.dc-starter) as the free
+// preview (name · position · overall); hide the bench rows + the full-roster stats table
+// and drop in one Premium card. Runs after every renderHistoricRoster (initial + season).
+function _gateDepth(){
+  if(!window.TDCGate) return;
+  var run = function(){
+    var dc = document.getElementById('depthContent'); if(!dc) return;
+    if(TDCGate.has('premium')) return;                          // entitled → full depth chart
+    dc.querySelectorAll('.dc-row:not(.dc-starter)').forEach(function(el){ el.style.display='none'; });
+    dc.querySelectorAll('.hr-wrap').forEach(function(el){ el.style.display='none'; });
+    // Departures/losses render async into #seasonLossesWrap — hide the wrapper so it
+    // stays hidden whenever it's populated (offseason losses = Premium).
+    var slw = dc.querySelector('#seasonLossesWrap'); if(slw) slw.style.display='none';
+    if(!dc.querySelector('.tdc-depth-gate')){
+      var grid = dc.querySelector('.dc-grid');
+      var wrap = document.createElement('div'); wrap.className='tdc-depth-gate';
+      wrap.style.cssText = 'display:flex;justify-content:center;padding:36px 18px 8px;';
+      wrap.appendChild(TDCGate.cardEl({ tier:'premium', label:'the full depth chart',
+        blurb:'See the complete rotation, the bench and every player’s stats. Included with Premium — $4.99/mo.' }));
+      if(grid && grid.parentNode) grid.parentNode.insertBefore(wrap, grid.nextSibling);
+      else dc.appendChild(wrap);
+    }
+  };
+  if(TDCGate.resolved()) run(); else TDCGate.ready.then(run);
+}
+(function(){
+  if(typeof renderHistoricRoster === 'function'){
+    var orig = renderHistoricRoster;
+    window.renderHistoricRoster = function(){ var r = orig.apply(this, arguments); try{ _gateDepth(); }catch(e){} return r; };
+  }
+})();
 
 // ── ROSTER REPORT — AI scouting breakdown from scripts/data/roster_reports.json ──
 async function renderRosterReport(){
