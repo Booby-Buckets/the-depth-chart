@@ -11,6 +11,7 @@
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-nil.js?v=ped1"></script>
   <script src="tdc-archetypes.js?v=2"></script>
+  <script src="tdc-gate.js?v=2"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-proj.js?v=coach19"></script>
   <script src="tdc-freshman.js?v=pub5"></script>
@@ -5128,6 +5129,71 @@ function switchTab(t){
   if(cur&&!cur.id.endsWith(t)){cur.classList.add('leaving');setTimeout(function(){activate(t);},150);}
   else activate(t);
 }
+
+// ── PAYWALL (Phase A) — gate the deep player tabs. Overview / Rankings / Buzz stay
+// free (the indexable preview). Premium unlocks the deep data; the Pro tabs
+// (shotcharts / scheme / portalfit) stay open until the Pro checkout link exists.
+var TAB_GATE = {
+  stats:       { tier:'premium', label:'full stats', blurb:'See the complete game log, splits and career table. Included with Premium — $4.99/mo.' },
+  percentiles: { tier:'premium', label:'percentile rankings', blurb:'See how this player ranks against every peer, category by category. Included with Premium — $4.99/mo.' },
+  nil:         { tier:'premium', label:'NIL valuation', blurb:'See this player’s full NIL market value and the drivers behind it. Included with Premium — $4.99/mo.' },
+  scout:       { tier:'premium', label:'the scouting report', blurb:'Archetype, comparable players and the full scouting breakdown. Included with Premium — $4.99/mo.' }
+};
+var _TABS = ['overview','stats','shotcharts','rankings','scheme','percentiles','scout','nil','buzz','portalfit'];
+function _lockPanel(pnl, g){
+  if(!pnl || pnl.__locked) return; pnl.__locked = true;
+  pnl.innerHTML = '';
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;justify-content:center;padding:56px 18px;';
+  wrap.appendChild(TDCGate.cardEl(g));
+  pnl.appendChild(wrap);
+}
+// Visual tab switch only — NO data loaders (used for gated tabs so the loader can't
+// fetch/populate a panel we're about to replace with a paywall).
+function _displaySwitch(t){
+  _TABS.forEach(function(x){
+    var btn=document.getElementById('tab-'+x), pnl=document.getElementById('panel-'+x);
+    if(btn) btn.classList.toggle('active', x===t);
+    if(pnl){ pnl.classList.remove('entering','leaving'); pnl.classList.toggle('active', x===t); pnl.style.display = (x===t)?'block':'none'; }
+  });
+}
+(function(){
+  var orig = switchTab;
+  window.switchTab = function(t){
+    var g = TAB_GATE[t];
+    if(!g || !window.TDCGate){ return orig(t); }
+    if(TDCGate.resolved()){
+      if(TDCGate.has(g.tier)) return orig(t);          // entitled → normal load
+      _displaySwitch(t);                                // not → switch view, no loader
+      _lockPanel(document.getElementById('panel-'+t), g);
+      return;
+    }
+    // entitlement not known yet: switch visually now, decide once ready
+    _displaySwitch(t);
+    TDCGate.ready.then(function(){
+      if(TDCGate.has(g.tier)) orig(t);                  // re-activate + load real content
+      else _lockPanel(document.getElementById('panel-'+t), g);
+    });
+  };
+  // Mark gated tab buttons with a lock for non-entitled users (signals the paywall).
+  // The tab bar is built during the page's async render, so retry until it exists.
+  function _decorate(tries){
+    Object.keys(TAB_GATE).forEach(function(t){
+      if(TDCGate.has(TAB_GATE[t].tier)) return;
+      var btn = document.getElementById('tab-'+t);
+      if(btn && !btn.querySelector('.tab-lock')){
+        var l = document.createElement('span'); l.className='tab-lock';
+        l.textContent=' 🔒'; l.style.cssText='font-size:.8em;opacity:.7;';
+        btn.appendChild(l);
+      }
+      // If the user is already sitting on a gated tab at load, lock it.
+      var pnl=document.getElementById('panel-'+t);
+      if(pnl && pnl.classList.contains('active')) _lockPanel(pnl, TAB_GATE[t]);
+    });
+    if(!document.getElementById('tab-stats') && (tries||0) < 25) setTimeout(function(){ _decorate((tries||0)+1); }, 150);
+  }
+  if(window.TDCGate) TDCGate.ready.then(function(){ _decorate(0); });
+})();
 
 
 
