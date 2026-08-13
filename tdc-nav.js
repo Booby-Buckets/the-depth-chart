@@ -57,6 +57,7 @@
       ['games.html',           '🎮 Games'],
       ['customize.html',       '✦ Customize'],
       ['pricing.html',         'Pricing'],
+      ['just-added.html',      'Just Added'],
       ['changelog.html',       "What's New"],
     ]],
   ];
