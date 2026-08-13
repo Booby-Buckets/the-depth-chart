@@ -10,12 +10,16 @@
 //   STRIPE_WEBHOOK_SECRET   the whsec_… from the Stripe webhook endpoint
 //   NEW_SERVICE_KEY         the Supabase service_role key (bypasses RLS to set plan)
 //
-// KNOWN LIMITATIONS (Phase 2 — fix before selling Pro/Coach):
-//   • plan is hardcoded to 'premium' — it can't grant 'pro'/'coach'. Needs a
-//     price_id → plan map (read session.line_items / the subscription's price).
+// Tier + interval come from client_reference_id "<userId>__<planKey>" stamped by the
+// site at checkout (planKey: monthly|yearly|pro_monthly|pro_yearly) — so plan is granted
+// correctly per tier without a Stripe price lookup.
+//
+// KNOWN LIMITATIONS (Phase 2):
 //   • no cancellation handling — add a 'customer.subscription.deleted' branch that
 //     sets plan='free' (and subscribe the endpoint to that event in Stripe).
-//   • monthly-vs-yearly is guessed from amount_total >= 5000; fine for Premium only.
+//   • client_reference_id is client-set: a user could in theory pay the cheaper Premium
+//     price but stamp a Pro planKey. To fully harden, add the Stripe secret key and
+//     verify the paid price server-side (fetch the session's line_items) before granting.
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
@@ -39,20 +43,28 @@ serve(async (req) => {
     const session = event.data.object
     const email = session.customer_details?.email || session.customer_email
 
-    // Calculate expiry
+    // client_reference_id is "<userId>__<planKey>" (planKey = monthly | yearly |
+    // pro_monthly | pro_yearly), stamped by the site at checkout. Derive the account,
+    // the tier, and the billing interval from it — no price lookup needed.
+    const ref = session.client_reference_id || ''
+    const sep = ref.indexOf('__')
+    let userId = sep > -1 ? ref.slice(0, sep) : (ref || null)
+    const planKey = sep > -1 ? ref.slice(sep + 2) : ''
+
+    const plan = /pro/i.test(planKey) ? 'pro'
+               : /coach/i.test(planKey) ? 'coach'
+               : 'premium'
+    // Interval from the plan key; fall back to amount for legacy sessions with no key.
+    const isYearly = /year/i.test(planKey) || (!planKey && session.amount_total >= 5000)
+
     const expiry = new Date()
-    const isYearly = session.amount_total >= 5000
     if (isYearly) {
       expiry.setFullYear(expiry.getFullYear() + 1)
     } else {
       expiry.setMonth(expiry.getMonth() + 1)
     }
 
-    // Identify the account. PREFER client_reference_id — the site attaches the signed-in
-    // user's id to checkout, so this is correct even if they paid with a DIFFERENT email
-    // than their account. Fall back to email lookup only for older/legacy sessions.
-    let userId = session.client_reference_id || null
-
+    // Fall back to email lookup only for older/legacy sessions with no client_reference_id.
     if (!userId) {
       if (!email) {
         return new Response('No client_reference_id or email', { status: 400 })
@@ -87,7 +99,7 @@ serve(async (req) => {
           'Prefer': 'return=minimal'
         },
         body: JSON.stringify({
-          plan: 'premium',
+          plan: plan,
           sub_expires_at: expiry.toISOString()
         })
       }
@@ -99,7 +111,7 @@ serve(async (req) => {
       return new Response('Failed to update profile', { status: 500 })
     }
 
-    console.log(`✅ Upgraded ${email} (${userId}) to premium until ${expiry.toISOString()}`)
+    console.log(`✅ Upgraded ${email || userId} to ${plan} until ${expiry.toISOString()}`)
   }
 
   return new Response(JSON.stringify({ received: true }), {

@@ -694,19 +694,19 @@ function startCheckout(plan){
   const LINKS = {
     monthly:       'https://buy.stripe.com/8x25kF67o36U0ticUn33W00',
     yearly:        'https://buy.stripe.com/14AdRbeDUgXKcc0g6z33W01',
-    pro_monthly:   '',   // TODO: paste Stripe Payment Link for Pro $8.99/month
-    pro_yearly:    '',   // TODO: paste Stripe Payment Link for Pro $89/year
-    coach_monthly: '',   // TODO: paste Stripe Payment Link for Coach's Tier (monthly)
-    coach_yearly:  '',   // TODO: paste Stripe Payment Link for Coach's Tier (yearly)
+    pro_monthly:   'https://buy.stripe.com/eVq3cx7bs6j67VK9Ib33W02',
+    pro_yearly:    '',   // TODO: paste Stripe Payment Link for Pro $89/year (if offered)
+    coach_monthly: '',   // Coach's Tier is contact-priced — see contactCoach()
+    coach_yearly:  '',
   };
   const url = LINKS[plan];
   if(!url){ alert('This plan\'s checkout isn\'t live yet — its Stripe payment link still needs to be added.'); return; }
-  // Attach the signed-in account's ID as client_reference_id so the webhook upgrades the
-  // EXACT account even if the customer pays with a different email than they signed up with.
-  // prefilled_email is only a convenience (the user can still change it in Stripe).
+  // Attach the account ID AND the plan key as client_reference_id ("<uuid>__<planKey>") so the
+  // webhook upgrades the EXACT account to the CORRECT tier — even if the customer pays with a
+  // different email than they signed up with. prefilled_email is only a convenience.
   location.href = url
     + '?prefilled_email=' + encodeURIComponent(currentUser.email)
-    + '&client_reference_id=' + encodeURIComponent(currentUser.id);
+    + '&client_reference_id=' + encodeURIComponent(currentUser.id + '__' + plan);
 }
 
 // Coach's Tier is custom-priced (per team / fan community) — no fixed Stripe link.
