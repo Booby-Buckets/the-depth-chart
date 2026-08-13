@@ -72,7 +72,10 @@ window.TDCGate = (function () {
         'text-decoration:none;transition:transform .12s,box-shadow .12s;}' +
       '.tdc-gate-btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(0,0,0,.28);}' +
       '.tdc-gate-alt{display:block;margin-top:11px;font-size:12px;color:var(--text3,#807c74);text-decoration:none;}' +
-      '.tdc-gate-alt:hover{color:var(--text2,#b4b0a8);}';
+      '.tdc-gate-alt:hover{color:var(--text2,#b4b0a8);}' +
+      '.tdc-page-gate-ov{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;' +
+        'justify-content:center;padding:24px;background:color-mix(in srgb,var(--bg,#141416) 78%,transparent);' +
+        '-webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px);}';
     document.head.appendChild(s);
   }
 
@@ -118,6 +121,34 @@ window.TDCGate = (function () {
     el.appendChild(ov);
     return true;
   };
+
+  // Whole-page paywall: a fixed, blurred overlay over the entire viewport with the gate
+  // card. The page content stays in the DOM (so it's still indexable — soft paywall),
+  // just visually gated. Used by the standalone Pro tool pages via the <script data-gate>.
+  G.gatePage = function (opts) {
+    opts = opts || {};
+    var tier = opts.tier || 'pro';
+    function apply() {
+      if (G.has(tier)) return;
+      if (document.getElementById('tdc-page-gate')) return;
+      if (!document.body) { document.addEventListener('DOMContentLoaded', apply); return; }
+      ensureCss();
+      var ov = document.createElement('div');
+      ov.id = 'tdc-page-gate'; ov.className = 'tdc-page-gate-ov';
+      ov.appendChild(G.cardEl(opts));
+      document.body.appendChild(ov);
+      try { document.documentElement.style.overflow = 'hidden'; document.body.style.overflow = 'hidden'; } catch (e) {}
+    }
+    if (G.resolved()) apply(); else G.ready.then(apply);
+  };
+
+  // Declarative: <script src="tdc-gate.js" data-gate="pro" data-label="…"> auto-gates the page.
+  try {
+    var _s = document.currentScript;
+    if (_s && _s.dataset && _s.dataset.gate) {
+      G.gatePage({ tier: _s.dataset.gate, label: _s.dataset.label || '', blurb: _s.dataset.blurb || '' });
+    }
+  } catch (e) {}
 
   return G;
 })();
