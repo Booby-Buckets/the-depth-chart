@@ -273,9 +273,9 @@ body{background:transparent!important;}
     <div class="plan coach">
       <div class="plan-badge" style="background:var(--accent);color:#221c08;">For Staffs</div>
       <div class="plan-name">⬡ Coach's Tier</div>
-      <!-- PLACEHOLDER PRICE — set your real Coach's Tier price here and paste the matching Stripe links in LINKS below -->
-      <div class="plan-price">$29.99<span>/month</span></div>
-      <div class="plan-price-alt">or $299/year — save $60</div>
+      <!-- Custom pricing — negotiated per team / fan community. Contact-based, no fixed Stripe link. -->
+      <div class="plan-price" style="font-size:24px;line-height:1.15;">Contact for pricing</div>
+      <div class="plan-price-alt">Built for your staff or fan community</div>
       <div class="plan-divider"></div>
       <ul class="plan-features">
         <li>Opponent scouting reports</li>
@@ -284,7 +284,7 @@ body{background:transparent!important;}
         <li>Predictive player identifiers</li>
         <li>Game-plan war room — 4 hubs</li>
       </ul>
-      <button class="plan-btn paid" onclick="startCheckout('coach_monthly')">Get Coach's Tier</button>
+      <button class="plan-btn paid" onclick="contactCoach()">Contact us</button>
     </div>
   </div>
 
@@ -392,8 +392,7 @@ body{background:transparent!important;}
           <button class="form-btn secondary" onclick="startCheckout('pro_yearly')" style="margin-top:8px;">Pro — $89/year (save $18)</button>
         </div>
         <div id="upCoachRow" style="margin-top:8px;">
-          <button class="form-btn paid" onclick="startCheckout('coach_monthly')">⬡ Coach's Tier — $29.99/month</button>
-          <button class="form-btn secondary" onclick="startCheckout('coach_yearly')" style="margin-top:8px;">Coach's Tier — $299/year (save $60)</button>
+          <button class="form-btn paid" onclick="contactCoach()">⬡ Coach's Tier — Contact for pricing</button>
         </div>
       </div>
       <button class="form-btn secondary" onclick="handleSignOut()" style="margin-top:10px;">Sign Out</button>
@@ -708,6 +707,14 @@ function startCheckout(plan){
   location.href = url
     + '?prefilled_email=' + encodeURIComponent(currentUser.email)
     + '&client_reference_id=' + encodeURIComponent(currentUser.id);
+}
+
+// Coach's Tier is custom-priced (per team / fan community) — no fixed Stripe link.
+// The button opens an email inquiry instead of a checkout.
+function contactCoach(){
+  const subject = "Coach's Tier inquiry — The Depth Chart";
+  const body = "Hi — I'm interested in the Coach's Tier.\n\nA bit about us:\n- Team / organization:\n- Your role:\n- What you're looking for:\n- Rough size (staff / fan community):\n";
+  location.href = 'mailto:blee4824@gmail.com?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
 }
 
 if(location.search.includes('success=1')){
