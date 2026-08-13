@@ -39,10 +39,6 @@ serve(async (req) => {
     const session = event.data.object
     const email = session.customer_details?.email || session.customer_email
 
-    if (!email) {
-      return new Response('No email found', { status: 400 })
-    }
-
     // Calculate expiry
     const expiry = new Date()
     const isYearly = session.amount_total >= 5000
@@ -52,21 +48,30 @@ serve(async (req) => {
       expiry.setMonth(expiry.getMonth() + 1)
     }
 
-    // Look up user by email in auth.users, then update profiles by id
-    const userRes = await fetch(
-      `${SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`,
-      {
-        headers: {
-          'apikey': SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-        }
-      }
-    )
-    const userData = await userRes.json()
-    const userId = userData?.users?.[0]?.id
+    // Identify the account. PREFER client_reference_id — the site attaches the signed-in
+    // user's id to checkout, so this is correct even if they paid with a DIFFERENT email
+    // than their account. Fall back to email lookup only for older/legacy sessions.
+    let userId = session.client_reference_id || null
 
     if (!userId) {
-      console.error('No user found for email:', email)
+      if (!email) {
+        return new Response('No client_reference_id or email', { status: 400 })
+      }
+      const userRes = await fetch(
+        `${SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`,
+        {
+          headers: {
+            'apikey': SUPABASE_SERVICE_KEY,
+            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+          }
+        }
+      )
+      const userData = await userRes.json()
+      userId = userData?.users?.[0]?.id
+    }
+
+    if (!userId) {
+      console.error('No user found for checkout session:', email, session.client_reference_id)
       return new Response('User not found', { status: 404 })
     }
 
