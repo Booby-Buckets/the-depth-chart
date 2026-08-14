@@ -1245,9 +1245,9 @@
   </div>
   <div class="side-col">
     <div class="panel-bar" id="panelBar" style="display:none;"></div>
-    <div class="side-card live-side" data-pid="coach">
-      <div class="side-card-head" id="gradeCardHead" style="color:var(--accent);">Coach Grades</div>
-      <div class="side-card-body" id="gradeCardBody"></div>
+    <div class="side-card live-side" id="projStatsCard" data-pid="projstats" style="display:none;">
+      <div class="side-card-head" id="projStatsHead" style="color:var(--accent);">2026–27 Projected Stats</div>
+      <div class="side-card-body" id="projStatsBody"><div class="empty-note">Loading…</div></div>
     </div>
     <div class="side-card live-side" data-pid="additions">
       <div class="side-card-head" style="color:var(--accent);">Offseason Additions</div>
@@ -1729,8 +1729,6 @@ function renderHero(t, color, rgb){
   document.getElementById('heroCoach').textContent = t.coach || t.head_coach ? `HC: ${t.coach||t.head_coach}` : '';
   updateHeroCoach(t, t.name, (typeof _rosterSeason!=='undefined'&&_rosterSeason)||2027);
   updateHeroRank((typeof _rosterSeason!=='undefined'&&_rosterSeason)||2027, t);   // async; owns the badge
-  document.getElementById('gradeCardHead').style.color = color;
-  document.getElementById('gradeCardHead').style.borderLeftColor = color;
   document.querySelectorAll('.side-card-head').forEach(el => {
     el.style.borderLeftColor = color;
   });
@@ -1748,7 +1746,6 @@ function renderHero(t, color, rgb){
 // Projected-season grade tiles (Coach / Depth / Recruit / NIL / Tier).
 function heroGradesProjectedHTML(t){
   return [
-    {val: t.coach_grade  || '—', lbl:'Coach', tip:'coach'},
     {val: t.depth_grade   || '—', lbl:'Depth', tip:'depth'},
     {val: t.recruit_grade || '—', lbl:'Recruit', tip:'recruit'},
     {val: t.nil_grade   || '—', lbl:'NIL Eval', tip:'nilteam'},
@@ -2489,17 +2486,10 @@ function renderLosses(losses, gp){
 }
 
 function renderSidebar(t, players, losses, color){
-  // Grades
-  document.getElementById('gradeCardBody').innerHTML = [
-    {label:'Coach Grade',   val: t.coach_grade  || '—'},
-    {label:'Bench Depth',      val: t.depth_grade   || '—'},
-    {label:'Recruiting Class', val: t.recruit_grade || '—'},
-  ].map(g=>`
-    <div class="grade-row">
-      <span class="grade-row-label">${g.label}</span>
-      <span class="grade-row-val ${gc(g.val)}">${g.val}</span>
-    </div>`).join('');
-  syncCoachGrade();
+  // Projected team stats card leads the live sidebar (replaces the old Coach Grades card).
+  const _psc=document.getElementById('projStatsCard');
+  if(_psc) _psc.style.display='';
+  renderProjectedStats();
 
   // Additions — players marked is_addition in DB
   const adds = players.filter(p => p.is_addition);
@@ -6524,9 +6514,10 @@ function onRosterSeason(v){
   }
   if(_rosterSeason >= 2027){
     if(sh) sh.firstChild.textContent='Depth Chart ';
-    live.forEach(c=>c.style.display='');
+    live.forEach(c=>c.style.display='');   // includes the projected-stats card (.live-side)
     if(awardsCard) awardsCard.style.display='none';
     if(statsCard) statsCard.style.display='none';
+    renderProjectedStats();
     if(teamT && teamPlayers){ renderHistoricRoster(teamPlayers, 2027, true); renderSeasonLosses(teamPlayers, 2027); }
     window._histRosterForCustomize=null; customizeForSeason();   // Customize back to the current roster
   } else {
@@ -6549,7 +6540,7 @@ function onRosterSeason(v){
 // ── Side-panel manager: drag to reorder, hide/restore; persisted per browser ──
 const TDCPanels=(function(){
   var KEY='tdc_team_panels';
-  var TITLES={coach:'Coach Grades',additions:'Offseason Additions',turnover:'Roster Turnover',awards:'Season Awards',stats:'Team Stats'};
+  var TITLES={projstats:'Projected Stats',additions:'Offseason Additions',turnover:'Roster Turnover',awards:'Season Awards',stats:'Team Stats'};
   var dragId=null, DEFAULT=null;
   function load(){ try{ return JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ return {}; } }
   function save(s){ try{ localStorage.setItem(KEY, JSON.stringify(s)); }catch(e){} }
@@ -6862,6 +6853,51 @@ async function updateHeroRank(yr, teamObj){
   }catch(e){ _histRankCache[yr]=null; }
   // only write if the user is still on this season (fetch may race a quick switch)
   if(_rosterSeason===yr) el.textContent=_histRankCache[yr]||'';
+}
+// 2026-27 PROJECTED team stats — the forward-looking twin of renderSeasonStats. Box stats come
+// from the canonical team_projections table (same numbers the analytics/index pages read); the
+// Power Rating + national rank come from the projected TDC_RATINGS list. Each projected number is
+// ranked against last completed season's full D1 distribution ("where this would rank").
+async function renderProjectedStats(){
+  const body=document.getElementById('projStatsBody'), head=document.getElementById('projStatsHead');
+  if(!body) return;
+  if(head) head.textContent='2026–27 Projected Stats';
+  body.innerHTML='<div class="empty-note">Loading…</div>';
+  const name=(teamT&&teamT.name)||'';
+  const _n=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const nm=_n(name);
+  let tp=null;
+  try{ const rows=await fetch(`${SB_URL}/rest/v1/team_projections?team=eq.${encodeURIComponent(name)}&select=*&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]); tp=rows&&rows[0]||null; }catch(e){}
+  let pr=null, ratN=0;
+  try{ const D=await TDC_RATINGS.get(); if(D&&D.teams){ ratN=D.teams.length;
+    pr=D.teams.find(t=>_n(t.team)===nm||_n(t.full)===nm)||D.teams.find(t=>nm&&_n(t.full).indexOf(nm)===0); } }catch(e){}
+  if(!tp&&!pr){ body.innerHTML='<div class="empty-note">Projected stats not yet published for this team.</div>'; return; }
+  let nat=window._natRows2026;
+  if(!nat||!nat.length){ try{ nat=await fetch(`${SB_URL}/rest/v1/team_seasons?season_year=eq.2026&select=ppg,rpg,apg,spg,bpg,topg,fg_pct,tp_pct,ft_pct&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]); window._natRows2026=nat; }catch(e){ nat=[]; } }
+  const ord=n=>{const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);};
+  const n1=v=>(v==null||v==='')?'—':(Math.round(parseFloat(v)*10)/10).toFixed(1);
+  const rankVsNat=(val,key,inv)=>{ val=parseFloat(val); if(isNaN(val)||!nat||!nat.length) return '';
+    let better=0,n=0; nat.forEach(r=>{ const x=parseFloat(r[key]); if(isNaN(x)) return; n++; if(inv?x<val:x>val) better++; }); return n?`${ord(better+1)} of ${n}`:''; };
+  const cell=(label,val,rk,col,tipId)=>{ const tip=(tipId&&window.statTip)?statTip(tipId):'';
+    return `<div class="tstat${tip?' has-tip':''}"${tip?` title="${tip.replace(/"/g,'&quot;')}"`:''}><b style="color:${col||'var(--text)'}">${val}</b><span>${label}</span>${rk?`<i class="tstat-rk">${rk}</i>`:''}</div>`; };
+  const rating=pr?Math.round(parseFloat(pr.rating)*10)/10:null;
+  const ratingStr=rating!=null?((rating>0?'+':'')+rating):'—';
+  const ratingCol=rating!=null?(rating>=0?'#3fa66a':'#c75d5d'):'var(--text)';
+  const ratingRk=pr&&pr.rank?`${ord(pr.rank)} of ${ratN||367}`:'';
+  const cells=[ cell('Power Rating',ratingStr,ratingRk,ratingCol,'power') ];
+  if(tp) cells.push(
+    cell('PPG',n1(tp.ppg),rankVsNat(tp.ppg,'ppg'),null,'ppg'),
+    cell('FG%',n1(tp.fg_pct),rankVsNat(tp.fg_pct,'fg_pct'),null,'fg_pct'),
+    cell('3P%',n1(tp.tp_pct),rankVsNat(tp.tp_pct,'tp_pct'),null,'tp_pct'),
+    cell('FT%',n1(tp.ft_pct),rankVsNat(tp.ft_pct,'ft_pct'),null,'ft_pct'),
+    cell('RPG',n1(tp.rpg),rankVsNat(tp.rpg,'rpg'),null,'rpg'),
+    cell('APG',n1(tp.apg),rankVsNat(tp.apg,'apg'),null,'apg'),
+    cell('TOV',n1(tp.tov),rankVsNat(tp.tov,'topg',true),null,'topg'),
+    cell('SPG',n1(tp.stl),rankVsNat(tp.stl,'spg'),null,'spg'),
+    cell('BPG',n1(tp.blk),rankVsNat(tp.blk,'bpg'),null,'bpg')
+  );
+  body.innerHTML=`<div class="tstat-grid">${cells.join('')}</div>
+    <div class="empty-note" style="padding:8px 2px 0;text-align:center;">Projected 2026–27 · ranks vs 2025–26 D1</div>`;
 }
 async function renderSeasonStats(yr){
   const card=document.getElementById('seasonStatsCard'), body=document.getElementById('seasonStatsBody'), head=document.getElementById('seasonStatsHead');
