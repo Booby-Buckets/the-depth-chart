@@ -47,6 +47,12 @@
     .card{border:1px solid var(--border2);border-radius:18px;background:radial-gradient(120% 130% at 0 0,color-mix(in srgb,var(--accent) 8%,var(--bg2)),var(--bg2));padding:22px;margin-top:12px;}
     .qmark{text-align:center;font-family:'Playfair Display',serif;font-weight:800;font-size:16px;}
     .qmark span{font-size:12px;color:var(--text3);font-weight:600;display:block;margin-top:3px;}
+    .diffwrap{text-align:center;margin:16px 0 2px;}
+    .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:3px;gap:3px;flex-wrap:wrap;justify-content:center;}
+    .seg button{font-size:12px;font-weight:800;letter-spacing:.02em;padding:6px 15px;border:none;border-radius:6px;background:none;color:var(--text3);cursor:pointer;font-family:inherit;transition:background .12s,color .12s;}
+    .seg button.on{background:var(--accent);color:#221c08;}
+    .seg button small{display:block;font-size:9px;font-weight:700;letter-spacing:.03em;opacity:.7;margin-top:2px;}
+    @media(max-width:560px){ .seg button{padding:6px 10px;} }
     .tl{margin-top:16px;position:relative;padding-left:26px;}
     .tl::before{content:'';position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:var(--border2);}
     .step{position:relative;padding:9px 0;}
@@ -108,6 +114,7 @@
       <div class="sb"><div class="n" id="sSolved">0</div><div class="l">Solved</div></div>
       <div class="sb"><div class="n" id="sStreak">0</div><div class="l">Streak</div></div>
     </div>
+    <div class="diffwrap" id="diffWrap"></div>
     <div id="content"><div class="loading">Building career paths from 20 years…</div></div>
     <div class="note">Multi-season players (2+ seasons since 2006-07). Only the first stop shows at first; each miss (or “Reveal next stop”) uncovers another season. Points = 6 on the first stop, down to 1. Transfers show more than one school.</div>
   </div>
@@ -128,6 +135,13 @@ const classInfo=y=>{const s=(''+(y||'')).toLowerCase();return s.indexOf('fr')>=0
 
 let CAREERS=null, NAMES=[], CUR=null, revealed=1, tries=0, locked=false, hlIdx=-1;
 let S={score:0,solved:0,streak:0};
+let difficulty='medium';
+// difficulty filters WHICH careers the mystery can be, by the player's peak grade
+const DIFFS={
+  easy:   {lbl:'Easy',   hint:'household names', min:88},
+  medium: {lbl:'Medium', hint:'notable players', min:82},
+  hard:   {lbl:'Hard',   hint:'deep cuts',       min:74}
+};
 
 async function loadCareers(){
   // NOTE: a stable ORDER BY is required — Range pagination without one silently skips/dupes
@@ -148,20 +162,27 @@ async function loadCareers(){
       const g=(+s.gp||0)-(+cur.gp||0);
       if(g>0 || (g===0 && (+s.ppg||0)>(+cur.ppg||0))) byYr[y]=s; });
     const arr=Object.values(byYr).sort((a,b)=>a.season_year-b.season_year);
-    if(arr.length>=2) careers.push(arr);
+    if(arr.length>=2){ arr._peak=Math.max.apply(null,arr.map(s=>+s.tdc_grade||0)); careers.push(arr); }
   });
   return careers;
 }
 
 function renderScore(){ el('sScore').textContent=S.score; el('sSolved').textContent=S.solved; el('sStreak').textContent=S.streak; }
+function renderDiff(){ const w=el('diffWrap'); if(!w) return;
+  w.innerHTML='<div class="seg" title="Difficulty sets how well-known the mystery player can be">'+
+    Object.keys(DIFFS).map(k=>`<button class="${difficulty===k?'on':''}" onclick="setDifficulty('${k}')">${DIFFS[k].lbl}<small>${DIFFS[k].hint}</small></button>`).join('')+'</div>'; }
+function setDifficulty(d){ if(d===difficulty||!DIFFS[d]) return; difficulty=d; renderDiff(); nextRound(); }
 
 function nextRound(){
   if(!CAREERS||!CAREERS.length){ el('content').innerHTML='<div class="loading">No careers available.</div>'; return; }
+  const min=(DIFFS[difficulty]||DIFFS.medium).min;
+  const pool=CAREERS.filter(c=>(c._peak||0)>=min);
+  if(!pool.length){ el('content').innerHTML='<div class="loading">No careers at this difficulty.</div>'; return; }
   // weight toward transfers (2+ distinct schools) ~60%
   let pick;
-  const transfers=CAREERS.filter(c=>new Set(c.map(s=>s.team)).size>=2);
+  const transfers=pool.filter(c=>new Set(c.map(s=>s.team)).size>=2);
   if(transfers.length&&Math.random()<0.6) pick=transfers[Math.floor(Math.random()*transfers.length)];
-  else pick=CAREERS[Math.floor(Math.random()*CAREERS.length)];
+  else pick=pool[Math.floor(Math.random()*pool.length)];
   CUR=pick; revealed=1; tries=0; locked=false; hlIdx=-1;
   const steps=CUR.map((s,i)=>`<div class="step${i<revealed?'':' hidden'}" data-i="${i}"><div class="yr">${seasonLbl(s.season_year)}</div><div class="tm">${esc(s.team)}</div><div class="ln">${classInfo(s.yr)} · ${F(s.ppg)} ppg · ${F(s.rpg)} reb · ${F(s.apg)} ast</div></div>`).join('');
   el('content').innerHTML=`<div class="card" data-anim>
@@ -223,7 +244,7 @@ function finish(cls,word){
 (async function(){
   CAREERS=await loadCareers();
   NAMES=[...new Set(CAREERS.map(c=>c[c.length-1].name))].sort();
-  renderScore(); nextRound();
+  renderScore(); renderDiff(); nextRound();
 })();
 </script>
   <script src="tdc-version.js?v=2"></script>
