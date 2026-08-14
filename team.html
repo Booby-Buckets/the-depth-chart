@@ -461,7 +461,9 @@
     @media(max-width:1120px){.sq-wrap{grid-template-columns:1fr;}.sq-info,.sq-style{position:static;}.sq-court{max-width:640px;margin:0 auto;}}
 
     /* ANALYTICS BAR */
-    .lineup-analytics{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:20px;}
+    .lineup-analytics{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px;}
+    .cz-strength-head{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:2px 0 9px;}
+    .cz-strength-head span{color:var(--text3);opacity:.7;letter-spacing:.02em;text-transform:none;font-weight:600;}
     .analytics-cell{background:var(--bg2);padding:12px 14px;text-align:center;}
     .analytics-val{font-family:'Playfair Display',serif;font-weight:700;font-size:22px;line-height:1;margin-bottom:3px;color:var(--text);}
     .analytics-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
@@ -3123,16 +3125,37 @@ function calcCustomAnalytics(){
   const benchAvg = bench.length ? bench.reduce((s,p)=>s+gradeToNum(p.tdc_grade||''),0)/bench.length : 60;
   const depthScore = avgGrade*0.7 + benchAvg*0.3 - wearPenalty*0.5 - foulRisk*0.3;
 
+  // Projected Power Rating from the lineup's minutes-weighted starter OVR — calibrated across
+  // 99 teams (r=0.75): PowerRating ≈ -92.9 + 1.38 × starterOVR. Reacts live to swaps + minutes,
+  // so adding a star visibly swings the team's projected strength & national rank.
+  const projPower = Math.round((-92.9 + 1.38*avgGrade)*10)/10;
   return {
     avgGrade: Math.round(avgGrade*10)/10,
+    projPower: projPower,
     depthScore: Math.round(Math.max(0,Math.min(100,depthScore))*10)/10,
     wearRisk: Math.round(Math.min(10,wearPenalty+foulRisk)*10)/10,
     offScore: Math.round(offScore*10)/10,
   };
 }
 
+// National-rank interpolation for the live Power Rating readout: cache the projected ratings
+// list once, then a projected Power Rating maps to "≈ #N" by counting teams rated higher.
+let _prSorted=null;
+function _ensureProjRatings(){
+  if(_prSorted||!window.TDC_RATINGS) return;
+  TDC_RATINGS.get().then(D=>{ if(D&&D.teams){ _prSorted=D.teams.map(t=>parseFloat(t.rating)).filter(v=>isFinite(v)).sort((a,b)=>b-a);
+    if(document.querySelector('#customizeContent .lineup-analytics')) rebuildCustomizeUI(); } }).catch(()=>{});
+}
+function projRankFor(pr){
+  if(!_prSorted||!_prSorted.length||pr==null||isNaN(pr)) return null;
+  let lo=0,hi=_prSorted.length;
+  while(lo<hi){ const m=(lo+hi)>>1; if(_prSorted[m]>pr) lo=m+1; else hi=m; }
+  return lo+1;
+}
+
 function renderAnalyticsBar(analytics, base){
   if(!analytics) return '';
+  _ensureProjRatings();
   const delta=(cur,b,inv=false)=>{
     if(!b) return '';
     const d=Math.round((cur-b)*10)/10;
@@ -3147,7 +3170,17 @@ function renderAnalyticsBar(analytics, base){
     :(analytics.avgGrade>=87?'#071e5a':analytics.avgGrade>=80?'#1040b8':analytics.avgGrade>=73?'#4278d4':'#88aadd');
   const wc=analytics.wearRisk>=4?'#cc2200':analytics.wearRisk>=2?'#b07000':'#1a8c3a';
   const dc=isDark?'var(--accent)':'rgba(var(--tc-rgb),.9)';
+  const _rk=projRankFor(analytics.projPower), _brk=base?projRankFor(base.projPower):null;
+  const _rankDelta=(_rk&&_brk&&_rk!==_brk)?`<div class="analytics-delta ${_rk<_brk?'delta-pos':'delta-neg'}">${_rk<_brk?'▲':'▼'}${Math.abs(_brk-_rk)}</div>`:'';
   return `<div class="lineup-analytics">
+    <div class="analytics-cell">
+      <div class="analytics-val" style="color:${qc};font-family:'Playfair Display',serif;">${analytics.projPower>=0?'+':''}${analytics.projPower}</div>
+      <div class="analytics-label">Proj Power Rating</div>${delta(analytics.projPower,base?.projPower)}
+    </div>
+    <div class="analytics-cell">
+      <div class="analytics-val" style="font-family:'Playfair Display',serif;">${_rk?('#'+_rk):'—'}</div>
+      <div class="analytics-label">Nat'l Rank · est</div>${_rankDelta}
+    </div>
     <div class="analytics-cell">
       <div class="analytics-val" style="color:${qc};">${analytics.avgGrade}</div>
       <div class="analytics-label">Lineup Quality</div>${delta(analytics.avgGrade,base?.avgGrade)}
@@ -4272,6 +4305,8 @@ function rebuildCustomizeUI(){
   }).join('');
 
   el.innerHTML=`
+    <div class="cz-strength-head">Projected team strength <span>— updates live as you edit the lineup</span></div>
+    ${renderAnalyticsBar(analytics, baseAnalytics)}
     <div class="cz-subtabs">
       <button class="cz-subtab" data-sub="lineup" onclick="switchCustomizeSubtab('lineup')">Lineup</button>
       <button class="cz-subtab" data-sub="rotation" onclick="switchCustomizeSubtab('rotation')">Rotation</button>
