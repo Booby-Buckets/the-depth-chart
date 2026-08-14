@@ -207,14 +207,20 @@
     // team's overall top talent (alpha) — for usage room
     var topGrade=56; if(team.pos) POS.forEach(function(k){ var b=team.pos[k]&&team.pos[k].best; if(b!=null&&b>topGrade) topGrade=b; });
 
-    var need=clamp(100-Math.max(0,posBest-58)*2.4, 8, 100);
+    // Need = does THIS player improve the spot? Driven by how far he upgrades their best
+    // there (a clear upgrade is a real need even if the incumbent is "decent"), plus an extra
+    // bump when the incumbent is genuinely weak. The old formula keyed ONLY on incumbent
+    // strength, so a player plainly better than a capable starter wrongly read as "not needed."
+    var hole=clamp((66-posBest)*2.2, 0, 30);
+    var need=clamp(50 + upgrade*3.3 + hole, 8, 100);
     // Team-Success = winning at a good program with a role to grab. Team QUALITY leads
     // (a contender scores highest — the whole point of the lens); the upgrade delta is a
     // modifier, not the driver, so a #300 low-major can't top the board just because you'd
     // upgrade its weak starter. (Old formula was 55 + upgrade*3.2, which the 79-team pool hid.)
     var teamQual=rank<=8?100:rank<=20?90:rank<=40?76:rank<=70?60:rank<=110?46:rank<=170?33:20;
     var teamSuccess=clamp(teamQual*0.62 + clamp(upgrade,-6,15)*2.4, 0, 100);
-    var opp=clamp(100-Math.max(0,posBest-58)*2.3, 25, 100);
+    // Opportunity scales with how clearly he beats the incumbent — a clear upgrade starts.
+    var opp=clamp(52 + upgrade*3.0, 25, 100);
     var pace=(prof&&prof.pctl&&prof.pctl.poss_pg!=null)?prof.pctl.poss_pg:50;
     var alphaGap=topGrade-pg;
     var usageRoom=clamp(100-Math.max(0,alphaGap)*4, 30, 100);
@@ -229,7 +235,10 @@
     // program is unrealistic and gets damped hard; a fringe player (low grade) legitimately
     // can, so he's barely touched. gradeFac 0 at ~64 → 1 at ~90; teamQual is the program tier.
     var gradeFac=clamp((pg-64)/26, 0, 1);
-    var realism = 1 - (1 - teamQual/100) * gradeFac * 0.55;
+    // ...but a player evaluated at his OWN team (a committed transfer's landing spot, or a
+    // returner) has by definition already chosen that level — never damp the self-fit.
+    var sameTeam=player.team&&team.team&&(''+player.team).toLowerCase()===(''+team.team).toLowerCase();
+    var realism = sameTeam ? 1 : (1 - (1 - teamQual/100) * gradeFac * 0.55);
     var overall=Math.round((need*W.need + teamSuccess*W.team + playerSuccess*W.player + cf.fit*W.coach) * realism);
 
     // role/opportunity label
@@ -250,8 +259,8 @@
             :                                 'an established alpha is ahead of him for touches';
     var facs=[
       {w:W.need, v:need,
-        hi:'fills a thin '+pp+' spot',
-        lo:'they’re already set at '+pp+(posBest!=null?' ('+Math.round(posBest)+')':'')},
+        hi:(upgrade>=3?'would be their best '+pp+' (their best now is a '+Math.round(posBest)+')':'fills a thin '+pp+' spot'),
+        lo:(upgrade>=-1?'a lateral move at '+pp+' — no real upgrade':'they’re already better at '+pp+(posBest!=null?' ('+Math.round(posBest)+')':''))},
       {w:W.team, v:teamSuccess,
         hi:(rank<=25?'a genuine top-25 contender':rank<=45?'a solid, winning program':'would lift a middling team'),
         lo:(rank>=70?'a rebuilding team (#'+rank+') that won’t contend soon':'limited team upside — not a contender yet')},
