@@ -25,7 +25,8 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_awards_v5_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_awards_v6_'+SEASON, TTL=24*3600*1000;
+  const GVER=2;   // grade version — bump to invalidate any cached/published blob with old grades
 
   function cls(yr){ yr=((yr||'')+'').toLowerCase();
     if(yr.includes('fr')) return 'FR';
@@ -49,19 +50,25 @@
   }
 
   async function compute(){
-    const [teams, players, bb]=await Promise.all([
+    const [teams, players, bb, proj]=await Promise.all([
       fetch(SB+'/rest/v1/teams?select=name,conf,conference&limit=500',{headers:H}).then(r=>r.json()),
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,position,yr,class_year,tdc_grade,ppg,rpg,apg,stl,blk,mpg,is_injured,hometown&order=id.asc'),
       fetchPaged(SB+'/rest/v1/player_advanced?season_year=eq.2026&espn_id=not.is.null&select=espn_id,ti40&order=espn_id.asc'),
+      fetch('scripts/data/stat_overall_projected.json').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
     const confOf={}; (teams||[]).forEach(t=>{ confOf[t.name]=t.conf||t.conference||''; });
     const advById={}; (bb||[]).forEach(r=>{ if(r.espn_id!=null&&r.ti40!=null) advById[r.espn_id]={ti40:r.ti40}; });
+    // canonical projected OVR — the SAME file the index/player/team pages read, so grades match site-wide
+    const ovrById={}; if(proj&&proj.players){ Object.keys(proj.players).forEach(function(e){ var o=proj.players[e]; if(o&&o.ovr!=null) ovrById[e]=+o.ovr; }); }
 
     const cand=[];
     (players||[]).forEach(p=>{
       const hs=(p.hometown||'').trim().toLowerCase();
       if(!p.name||p.is_injured||hs==='injured'||hs==='out') return;   // out for the season (sheet convention)
-      const grade=parseFloat(p.tdc_grade); if(!isFinite(grade)||grade<72) return;
+      const rawGrade=parseFloat(p.tdc_grade); if(!isFinite(rawGrade)||rawGrade<72) return;
+      // grade shown (and scored) = canonical projected OVR so it matches the index/player/team pages;
+      // freshmen without a projection entry keep tdc_grade (which is already their editor-set projection)
+      const grade=(p.espn_id!=null&&ovrById[p.espn_id]!=null)?ovrById[p.espn_id]:rawGrade;
       const conf=confOf[p.team]||'';
       const c=cls(p.yr||p.class_year);
       const adv=p.espn_id!=null?advById[p.espn_id]:null;
@@ -78,7 +85,7 @@
       // bench returners can't crowd the ballot
       if(hasStats&&(parseFloat(p.mpg)||0)<10&&grade<80) return;
       cand.push({
-        name:p.name, team:p.team, conf, pos:p.position||'', yr:p.yr||p.class_year||'', grade,
+        name:p.name, team:p.team, conf, pos:p.position||'', yr:p.yr||p.class_year||'', grade, espn_id:p.espn_id,
         isFr:c==='FR',
         score:+(2.0*projBpm+1.1*(grade-75)+0.55*prod).toFixed(2),
         def:+(2.4*projDbpm+1.5*stocks+0.4*(grade-78)).toFixed(2),
@@ -86,12 +93,12 @@
       });
     });
 
-    const slim=x=>({name:x.name,team:x.team,conf:x.conf,pos:x.pos,yr:x.yr,grade:x.grade});
+    const slim=x=>({name:x.name,team:x.team,conf:x.conf,pos:x.pos,yr:x.yr,grade:x.grade,espn_id:x.espn_id});
     const take=(arr,n)=>arr.slice(0,n).map(slim);
     const teamsOf=(arr,per,count)=>{ const out=[]; for(let i=0;i<count;i++){ const t=take(arr.slice(i*per),per); if(t.length) out.push(t); } return out; };
 
     const national=[...cand].sort((a,b)=>b.score-a.score);
-    const awards={ season:SEASON, generated:new Date().toISOString(),
+    const awards={ season:SEASON, gver:GVER, generated:new Date().toISOString(),
       allAmerica:teamsOf(national,5,3), conferences:{} };
 
     const byConf={};
@@ -136,13 +143,14 @@
     if(_mem) return Promise.resolve(_mem);
     if(_loading) return _loading;
     _loading=(async()=>{
-      // 1. shared DB row wins — same selections for every visitor
+      // 1. shared DB row wins — but only if built with the current grade version (else recompute
+      //    with canonical projected OVR; the owner's next visit republishes the fresh blob)
       const db=await readDb();
-      if(db){ _mem=db; return db; }
-      // 2. fresh local cache
+      if(db&&db.gver===GVER){ _mem=db; return db; }
+      // 2. fresh local cache (same grade-version gate)
       try{
         const c=JSON.parse(localStorage.getItem(LS_KEY)||'null');
-        if(c&&c.t&&Date.now()-c.t<TTL&&c.awards){ _mem=c.awards; return c.awards; }
+        if(c&&c.t&&Date.now()-c.t<TTL&&c.awards&&c.awards.gver===GVER){ _mem=c.awards; return c.awards; }
       }catch(e){}
       // 3. compute, cache, and offer to the DB (no-op until the table exists)
       const awards=await compute();
