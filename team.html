@@ -4356,6 +4356,7 @@ function rebuildCustomizeUI(){
       ${renderSquadView()}
       <div class="customize-bar" style="margin-top:22px;">
         <span class="customize-label">Drag ⠿ to reorder depth · position selector moves columns · ⇄ swap or add from any era · sliders = minutes</span>
+        <button class="rb-auto" id="allTimeBtn" onclick="buildAllTimeBest()" style="padding:7px 13px;font-size:11px;" title="Load this team's best players from the last 20 years — starters + bench">★ All-Time Roster</button>
         <button class="reset-btn" onclick="resetCustomLineup()">↺ Reset</button>
       </div>
       <div class="pos-depth-grid">${colsHtml}</div>
@@ -4763,6 +4764,39 @@ function onMpgChange(playerName, pKey, val){
 }
 
 // ── RESET ─────────────────────────────────────────────────
+// Load a team's ALL-TIME best roster: the top player at each position over the last 20
+// years (starters PG-SG-SF-PF-C) plus the next-best beneath them (bench, up to 3 deep),
+// pulled from player_history and deduped to each player's best-graded season.
+async function buildAllTimeBest(){
+  const teamName=(teamT&&teamT.name)||(teamPlayers&&teamPlayers[0]&&teamPlayers[0].team)||'';
+  if(!teamName) return;
+  const btn=document.getElementById('allTimeBtn'); if(btn){ btn.disabled=true; btn.textContent='Building…'; }
+  const sel='select=name,team,season_year,yr,height,position,tdc_grade,espn_id,ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,oreb,dreb,stl,blk,tovs';
+  let rows=[];
+  try{ rows=await fetch(`${SB_URL}/rest/v1/player_history?team=eq.${encodeURIComponent(teamName)}&tdc_grade=not.is.null&${sel}&order=tdc_grade.desc.nullslast&limit=500`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  if(btn){ btn.disabled=false; btn.textContent='★ All-Time Roster'; }
+  if(!rows||!rows.length) return;
+  const best={}; rows.forEach(r=>{ const g=parseFloat(r.tdc_grade)||0; if(!best[r.name]||g>(parseFloat(best[r.name].tdc_grade)||0)) best[r.name]=r; });
+  const norm=p=>{ let x=(''+(p.position||'')).toUpperCase().split(/[\/, ]/)[0]; if(POS_KEYS.includes(x))return x; if(x==='G')return 'SG'; if(x==='CG')return 'PG'; if(x==='GF')return 'SF'; if(x==='F')return 'PF'; if(x==='FC'||x==='C-F')return 'C'; return 'SF'; };
+  const label=r=>((r.season_year-1)+'-'+((''+r.season_year).slice(2)));
+  const shape=r=>Object.assign({}, r, {class_year:r.yr, _naturalPos:norm(r), _projMin:null, _histSeason:r.season_year, _histLabel:label(r), _allTime:true});
+  const pool=Object.values(best).sort((a,b)=>(parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0));
+  // starters: best available at each spot (natural first, then an adjacent spot)
+  const adj={PG:['SG'],SG:['PG','SF'],SF:['SG','PF'],PF:['SF','C'],C:['PF']};
+  const slot={}; const used=new Set();
+  pool.forEach(r=>{ if(used.has(r.name))return; const nat=norm(r);
+    if(!slot[nat]){slot[nat]=r;used.add(r.name);return;}
+    for(const a of (adj[nat]||[])){ if(!slot[a]){slot[a]=r;used.add(r.name);break;} } });
+  const nd={}; POS_KEYS.forEach(pos=>{ nd[pos]=slot[pos]?[shape(slot[pos])]:[]; });
+  // bench: fill each column to 3 deep with the next-best at that position
+  pool.forEach(r=>{ if(used.has(r.name))return; const nat=norm(r); if(nd[nat]&&nd[nat].length<3){ nd[nat].push(shape(r)); used.add(r.name); } });
+  // guarantee a full five: borrow the best remaining for any empty spot
+  POS_KEYS.forEach(pos=>{ if(!nd[pos].length){ const r=pool.find(x=>!used.has(x.name)); if(r){ nd[pos].push(shape(r)); used.add(r.name); } } });
+  customDepth=nd; customMpg={}; customPos={}; customRole={}; _rotationUserSet=false;
+  _baseCustomProj=buildCustomProjections(); baseAnalytics=calcCustomAnalytics();
+  rebuildCustomizeUI();
+  try{ if(typeof toast==='function') toast(teamName+' all-time roster loaded'); }catch(e){}
+}
 function resetCustomLineup(){
   POS_KEYS.forEach(pos=>{ customDepth[pos]=[...baseDepthSnapshot[pos]]; });
   customMpg={}; customPos={}; customRole={};
