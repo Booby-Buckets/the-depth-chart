@@ -4478,6 +4478,15 @@ function buildCustomProjections(){
   });
 
   const baseProj = buildTeamProjections(readyPlayers, conf);
+  // All-time players are NOT forward-projected — there's no 2026-27 to project a 2011 A. Davis
+  // to. Restore each one's REAL peak-season line. The per-minute production is what carries; the
+  // minutes-edit scaling and the 200-min team normalization below still apply, so a stacked
+  // all-time roster reads as "what these players actually did, fit into one shared rotation".
+  const _realAT={}; readyPlayers.forEach(p=>{ if(p._allTime) _realAT[p.name]=p; });
+  baseProj.forEach(p=>{ const rp=_realAT[p.name]; if(!rp) return; p._allTime=true;
+    ['ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs']
+      .forEach(k=>{ if(rp[k]!=null&&rp[k]!=='') p[k]=parseFloat(rp[k]); });
+  });
   const projRows = baseProj.map(p=>{
     const roleKey=p._role||customRole[p.name]||'none';
     let result={...p};
@@ -4777,21 +4786,41 @@ async function buildAllTimeBest(){
   if(btn){ btn.disabled=false; btn.textContent='★ All-Time Roster'; }
   if(!rows||!rows.length) return;
   const best={}; rows.forEach(r=>{ const g=parseFloat(r.tdc_grade)||0; if(!best[r.name]||g>(parseFloat(best[r.name].tdc_grade)||0)) best[r.name]=r; });
-  const norm=p=>{ let x=(''+(p.position||'')).toUpperCase().split(/[\/, ]/)[0]; if(POS_KEYS.includes(x))return x; if(x==='G')return 'SG'; if(x==='CG')return 'PG'; if(x==='GF')return 'SF'; if(x==='F')return 'PF'; if(x==='FC'||x==='C-F')return 'C'; return 'SF'; };
+  // Height parser ("6-3", "6'3\"") → inches, used to split coarse positions.
+  const htIn=h=>{ if(!h) return 0; h=(''+h).replace(/["]/g,''); const m=h.match(/(\d+)\s*[-']\s*(\d+)/); if(m) return (+m[1])*12+(+m[2]); const f=parseFloat(h); return f>3&&f<8?Math.round(f*12):(f>60&&f<90?f:0); };
+  // Refine a player's spot. The raw `position` field is often just G/F/C, so split guards by
+  // playmaking (apg) and forwards by size/rebounding — otherwise every guard piles into SG.
+  const rp=p=>{ let x=(''+(p.position||'')).toUpperCase().replace(/[^A-Z]/g,'');
+    if(POS_KEYS.includes(x)) return x;
+    const apg=parseFloat(p.apg)||0, rpg=parseFloat(p.rpg)||0, ht=htIn(p.height);
+    if(x==='PGSG') return apg>=4?'PG':'SG';
+    if(x==='G'||x==='CG'||x==='GUARD') return apg>=3.8?'PG':'SG';
+    if(x==='GF'||x==='SGSF'||x==='WING') return 'SF';
+    if(x==='F'||x==='FORWARD'||x==='SFPF') return (ht>=81||rpg>=7)?'PF':'SF';
+    if(x==='FC'||x==='CF'||x==='PFC') return (ht>=83||rpg>=8.5)?'C':'PF';
+    if(x==='C'||x==='CENTER') return 'C';
+    if(ht>=83) return 'C'; if(ht>=80) return 'PF'; if(ht>=78) return 'SF';
+    if(ht>=75) return apg>=3.8?'PG':'SG'; if(ht) return 'PG';
+    return apg>=4?'PG':(rpg>=6?'PF':'SG'); };
   const label=r=>((r.season_year-1)+'-'+((''+r.season_year).slice(2)));
-  const shape=r=>Object.assign({}, r, {class_year:r.yr, _naturalPos:norm(r), _projMin:null, _histSeason:r.season_year, _histLabel:label(r), _allTime:true});
-  const pool=Object.values(best).sort((a,b)=>(parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0));
-  // starters: best available at each spot (natural first, then an adjacent spot)
+  const shape=r=>Object.assign({}, r, {class_year:r.yr, _naturalPos:rp(r), _projMin:null, _histSeason:r.season_year, _histLabel:label(r), _allTime:true});
   const adj={PG:['SG'],SG:['PG','SF'],SF:['SG','PF'],PF:['SF','C'],C:['PF']};
+  const graded=Object.values(best).sort((a,b)=>(parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0));
+  graded.forEach(r=>{ r._rp=rp(r); });
+  // STARTERS: best grade first into their natural spot, else an adjacent open spot.
   const slot={}; const used=new Set();
-  pool.forEach(r=>{ if(used.has(r.name))return; const nat=norm(r);
-    if(!slot[nat]){slot[nat]=r;used.add(r.name);return;}
-    for(const a of (adj[nat]||[])){ if(!slot[a]){slot[a]=r;used.add(r.name);break;} } });
+  graded.forEach(r=>{ if(used.size>=5) return; const nat=r._rp;
+    if(!slot[nat]){ slot[nat]=r; used.add(r.name); return; }
+    for(const a of (adj[nat]||[])){ if(!slot[a]){ slot[a]=r; used.add(r.name); break; } } });
+  // any spot still empty (e.g. no natural SF on the roster) → best UNUSED player plays there.
+  // This is the "some can play out of position" case: only when there's no natural option.
+  POS_KEYS.forEach(pos=>{ if(slot[pos]) return; const r=graded.find(x=>!used.has(x.name)); if(r){ slot[pos]=r; used.add(r.name); } });
   const nd={}; POS_KEYS.forEach(pos=>{ nd[pos]=slot[pos]?[shape(slot[pos])]:[]; });
-  // bench: fill each column to 3 deep with the next-best at that position
-  pool.forEach(r=>{ if(used.has(r.name))return; const nat=norm(r); if(nd[nat]&&nd[nat].length<3){ nd[nat].push(shape(r)); used.add(r.name); } });
-  // guarantee a full five: borrow the best remaining for any empty spot
-  POS_KEYS.forEach(pos=>{ if(!nd[pos].length){ const r=pool.find(x=>!used.has(x.name)); if(r){ nd[pos].push(shape(r)); used.add(r.name); } } });
+  // BENCH: fill each column up to 3 deep with the next-best at its NATURAL position.
+  graded.forEach(r=>{ if(used.has(r.name)) return; const nat=r._rp; if(nd[nat]&&nd[nat].length<3){ nd[nat].push(shape(r)); used.add(r.name); } });
+  // any column still totally empty → borrow the best remaining adjacent piece.
+  POS_KEYS.forEach(pos=>{ if(nd[pos].length) return;
+    for(const a of (adj[pos]||[])){ const x=graded.find(y=>!used.has(y.name)&&y._rp===a); if(x){ nd[pos].push(shape(x)); used.add(x.name); break; } } });
   customDepth=nd; customMpg={}; customPos={}; customRole={}; _rotationUserSet=false;
   _baseCustomProj=buildCustomProjections(); baseAnalytics=calcCustomAnalytics();
   rebuildCustomizeUI();
