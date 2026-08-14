@@ -3213,6 +3213,26 @@ function renderAnalyticsBar(analytics, base){
   const dc=isDark?'var(--accent)':'rgba(var(--tc-rgb),.9)';
   // Depth Score is a rotation OVR — colour it by how deep: team accent when strong, amber/red thin
   const depthC=analytics.depthScore>=78?dc:analytics.depthScore>=68?'#b07000':'#cc2200';
+  // Projected team points/game — the full rotation's projected scoring normalized to a real
+  // 40-min game, straight off the SAME engine as the Projections tab so the two agree.
+  const _teamPPG = proj => { if(!proj||!proj.length) return null;
+    const s=proj.filter(p=>p&&(parseFloat(p.mpg)||0)>0).reduce((a,p)=>a+(parseFloat(p.ppg)||0),0);
+    return isFinite(s)&&s>0?Math.round(s*10)/10:null; };
+  let _curPPG=null,_basePPG=null;
+  try{
+    const curRaw=_teamPPG(buildCustomProjections());
+    const projSeason=(typeof _rosterSeason==='undefined')||_rosterSeason>=2027;
+    if(projSeason && !window._czBuildMode && window._czCanonPPG!=null && window._czBasePPG!=null && curRaw!=null){
+      // Anchor to the team's canonical projected PPG (the sidebar Projected Stats card), then
+      // move by the client engine's delta from the default roster — same idea as Power Rating.
+      // Clamp to a realistic team range: stacking scorers over-sums (one ball caps real scoring),
+      // so a dream-team tops out near the best offense ever rather than an impossible 110+.
+      _curPPG=Math.round(Math.max(52, Math.min(98, window._czCanonPPG + (curRaw - window._czBasePPG)))*10)/10;
+      _basePPG=base?window._czCanonPPG:null;
+    } else {
+      _curPPG=curRaw; _basePPG=base?_teamPPG(_baseCustomProj):null;   // build mode / past season → raw
+    }
+  }catch(e){}
   const _pp=_anchoredProjPower(analytics), _bpp=base?_anchoredProjPower(base):null;
   const _rk=projRankFor(_pp), _brk=_bpp!=null?projRankFor(_bpp):null;
   const _rankDelta=(_rk&&_brk&&_rk!==_brk)?`<div class="analytics-delta ${_rk<_brk?'delta-pos':'delta-neg'}">${_rk<_brk?'▲':'▼'}${Math.abs(_brk-_rk)}</div>`:'';
@@ -3237,9 +3257,9 @@ function renderAnalyticsBar(analytics, base){
       <div class="analytics-val" style="color:${wc};">${analytics.wearRisk}</div>
       <div class="analytics-label">Wear / Foul Risk</div>${delta(analytics.wearRisk,base?.wearRisk,true)}
     </div>
-    <div class="analytics-cell">
-      <div class="analytics-val">${analytics.offScore}</div>
-      <div class="analytics-label">Off. Output Est.</div>${delta(analytics.offScore,base?.offScore)}
+    <div class="analytics-cell has-tip" title="Projected team points per game — the full rotation's projected scoring, normalized to a real 40-minute game. Same projection engine as the Projections tab, so the two agree.">
+      <div class="analytics-val">${_curPPG!=null?_curPPG:(analytics.offScore)}</div>
+      <div class="analytics-label">${_curPPG!=null?'Proj. Points/Game':'Off. Output Est.'}</div>${_curPPG!=null&&_basePPG!=null?delta(_curPPG,_basePPG):''}
     </div>
   </div>`;
 }
@@ -3646,6 +3666,10 @@ function renderCustomize(t, players, color, rgb, gp){
     // Power Rating is always "canonical rating + how far this lineup's quality is from default".
     window._czBaseAvgGrade = baseAnalytics ? baseAnalytics.avgGrade : null;
     _baseCustomProj = buildCustomProjections();
+    // Fixed client-engine PPG of the REAL default roster — the anchor baseline for "Proj.
+    // Points/Game" (so edits move the canonical PPG by the client engine's delta, and All-Time
+    // / Reset don't zero out the change the way the mutable _baseCustomProj would).
+    window._czBasePPG = (function(){ const s=(_baseCustomProj||[]).filter(p=>p&&(parseFloat(p.mpg)||0)>0).reduce((a,p)=>a+(parseFloat(p.ppg)||0),0); return s>0?Math.round(s*10)/10:null; })();
   }
   rebuildCustomizeUI();
 }
@@ -4881,6 +4905,10 @@ function resetCustomLineup(){
   POS_KEYS.forEach(pos=>{ customDepth[pos]=[...baseDepthSnapshot[pos]]; });
   customMpg={}; customPos={}; customRole={};
   _baseCustomProj=buildCustomProjections(); baseAnalytics=calcCustomAnalytics();
+  // re-sync the fixed anchor baselines to the restored default roster so the readouts land
+  // exactly back on the canonical numbers (the client engine drifts slightly across rebuilds)
+  window._czBaseAvgGrade = baseAnalytics ? baseAnalytics.avgGrade : window._czBaseAvgGrade;
+  window._czBasePPG = (function(){ const s=(_baseCustomProj||[]).filter(p=>p&&(parseFloat(p.mpg)||0)>0).reduce((a,p)=>a+(parseFloat(p.ppg)||0),0); return s>0?Math.round(s*10)/10:window._czBasePPG; })();
   _baseAdvanced=null;
   rebuildCustomizeUI();
 }
@@ -6944,6 +6972,12 @@ async function renderProjectedStats(){
     }catch(e){}
   }
   if(!tp&&!pr){ body.innerHTML='<div class="empty-note">Projected stats not yet published for this team.</div>'; return; }
+  // Canonical projected PPG for this team — the Lineup Lab anchors its "Proj. Points/Game" to it
+  // so the default lineup matches this card, then moves off it as you edit.
+  if(tp&&parseFloat(tp.ppg)>0){ window._czCanonPPG=parseFloat(tp.ppg);
+    // if the Lineup Lab is already rendered, re-render so its Proj. Points/Game picks up the anchor
+    if(document.querySelector('#customizeContent .lineup-analytics') && typeof rebuildCustomizeUI==='function') rebuildCustomizeUI();
+  }
   let nat=window._natRows2026;
   if(!nat||!nat.length){ try{ nat=await fetch(`${SB_URL}/rest/v1/team_seasons?season_year=eq.2026&select=ppg,rpg,apg,spg,bpg,topg,fg_pct,tp_pct,ft_pct&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]); window._natRows2026=nat; }catch(e){ nat=[]; } }
   const ord=n=>{const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);};
