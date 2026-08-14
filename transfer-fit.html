@@ -119,6 +119,38 @@
     .share-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--text);color:var(--bg);
       font-size:13px;font-weight:600;padding:10px 18px;border-radius:24px;box-shadow:0 10px 30px rgba(0,0,0,.3);z-index:9999;opacity:0;transition:opacity .2s;}
     .share-toast.on{opacity:1;}
+    /* rotation impact */
+    .rot-status{display:flex;align-items:flex-start;gap:13px;margin-bottom:14px;}
+    .rot-badge{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;padding:7px 15px;border-radius:10px;flex:none;}
+    .rot-badge.starter{background:color-mix(in srgb,var(--green) 22%,transparent);color:var(--green);}
+    .rot-badge.rotation{background:color-mix(in srgb,var(--amber) 22%,transparent);color:var(--amber);}
+    .rot-badge.depth{background:color-mix(in srgb,var(--red) 18%,transparent);color:var(--red);}
+    .rot-line{font-size:13.5px;color:var(--text2);line-height:1.55;padding-top:2px;}
+    .rot-line b{color:var(--text);}
+    .depth-h{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin:14px 0 8px;}
+    .drow{display:flex;align-items:center;gap:11px;padding:5px 0;}
+    .drow .dname{font-size:13px;font-weight:600;width:160px;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text2);}
+    .drow.me .dname{font-weight:800;color:var(--accent);}
+    .drow .dbar{flex:1;height:8px;border-radius:5px;background:var(--bg3);overflow:hidden;}
+    .drow .dbar>span{display:block;height:100%;border-radius:5px;background:var(--border2);}
+    .drow.me .dbar>span{background:var(--accent);}
+    .drow .dg{font-family:'Playfair Display',serif;font-weight:800;font-size:13px;width:28px;text-align:right;flex:none;color:var(--text2);}
+    .drow.me .dg{color:var(--accent);}
+    .dtag{font-size:8.5px;font-weight:800;letter-spacing:.05em;background:var(--accent);color:#141416;border-radius:4px;padding:1px 5px;margin-left:7px;vertical-align:middle;}
+    /* team impact */
+    .ti{display:flex;align-items:center;gap:16px;margin-bottom:11px;flex-wrap:wrap;}
+    .ti-ba{text-align:center;}
+    .ti-n{font-family:'Playfair Display',serif;font-weight:900;font-size:33px;line-height:1;}
+    .ti-l{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-top:5px;}
+    .ti-arrow{font-size:20px;color:var(--text3);}
+    .ti-delta{font-family:'Playfair Display',serif;font-weight:900;font-size:22px;padding:5px 13px;border-radius:10px;}
+    .ti-delta.pos{color:var(--green);background:color-mix(in srgb,var(--green) 15%,transparent);}
+    .ti-delta.flat{color:var(--text3);background:var(--bg3);}
+    .ti-say{font-size:13.5px;color:var(--text2);line-height:1.55;}
+    .styl-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px;}
+    .styl-chip{font-size:11.5px;font-weight:600;background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:4px 11px;color:var(--text2);}
+    .styl-chip.dup{border-color:var(--accent);color:var(--accent);}
+    .rot-empty{font-size:13px;color:var(--text3);padding:6px 0;line-height:1.5;}
   </style>
   <link rel="stylesheet" href="tdc-dense.css?v=29"/>
   <link rel="stylesheet" href="tdc-skin.css?v=7"/>
@@ -226,6 +258,78 @@ function heroRow(p,fromTeam,destName,grade,style){
   </div>`;
 }
 
+// ---- roster-level fit analysis (destination's real roster) ----
+let SHOWSEQ=0;
+function normPos(x){ x=(''+(x||'')).toUpperCase().trim();
+  if(['PG','SG','SF','PF','C'].includes(x))return x;
+  if(x==='G')return 'SG'; if(x==='F')return 'PF'; if(x==='GF'||x==='SG/SF')return 'SF';
+  if(x==='FC'||x==='CF')return 'C'; if(x==='PG/SG')return 'PG'; return x||'SF'; }
+function projOf(p){ const g=(window.TDCProjGrade&&TDCProjGrade.gradeSolo)?TDCProjGrade.gradeSolo({espn_id:p.espn_id,tdc_grade:p.tdc_grade,yr:p.class_year||p.yr}):null;
+  return (g!=null&&!isNaN(g))?Math.round(g):(Math.round(parseFloat(p.tdc_grade))||70); }
+function archOf(espn,name){ return ((window.TDC_ARCH&&TDC_ARCH.of(espn,name))||{}).name||null; }
+async function destRoster(teamName){
+  const rows=await fetch(`${SB}/rest/v1/players?team=eq.${encodeURIComponent(teamName)}&select=name,position,class_year,tdc_grade,mpg,espn_id&order=tdc_grade.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  return rows.map(p=>({name:p.name,pos:normPos(p.position),espn_id:''+(p.espn_id||''),mpg:p.mpg,grade:projOf(p),arch:archOf(p.espn_id,p.name)}));
+}
+function analyzeFit(p, roster, prof){
+  const myPos=TDCPortalFit.pos(p), myGrade=Math.round(parseFloat(p.tdc_grade)||0), myEspn=''+(p.espn_id||'');
+  const rotSize=Math.round((prof&&prof.rotation_size)||9);
+  const pool=roster.filter(r=>r.espn_id!==myEspn);          // roster WITHOUT him (self-fit safe)
+  const POSN=['PG','SG','SF','PF','C'];
+  const bestAt=pos=>{ const c=pool.filter(r=>r.pos===pos); return c.length?Math.max.apply(null,c.map(r=>r.grade)):null; };
+  const avg=a=>{ const v=a.filter(x=>x!=null); return v.length?v.reduce((s,x)=>s+x,0)/v.length:0; };
+  const before=avg(POSN.map(bestAt));
+  const after=avg(POSN.map(pp=> pp===myPos?Math.max(myGrade,bestAt(pp)||0):bestAt(pp)));
+  const samePos=pool.filter(r=>r.pos===myPos).sort((a,b)=>b.grade-a.grade);
+  const ahead=samePos.filter(r=>r.grade>=myGrade);
+  const prevStarter=samePos[0]||null;
+  const starts=!prevStarter||myGrade>prevStarter.grade;
+  const all=pool.concat([{name:p.name,grade:myGrade,me:true}]).sort((a,b)=>b.grade-a.grade);
+  const myRank=all.findIndex(r=>r.me)+1;
+  const tier=starts?'starter':(ahead.length<=1&&myRank<=rotSize)?'rotation':'depth';
+  let push=null;
+  if(starts&&prevStarter) push={txt:`bumps ${prevStarter.name} (${prevStarter.grade}) to a reserve role`};
+  else if(tier==='rotation'){ const sorted=pool.slice().sort((a,b)=>b.grade-a.grade); const bumped=sorted[rotSize-1];
+    if(bumped&&myGrade>bumped.grade) push={txt:`pushes ${bumped.name} (${bumped.grade}) out of the ${rotSize}-man rotation`}; }
+  const depthList=samePos.map(r=>({name:r.name,grade:r.grade,me:false})).concat([{name:p.name,grade:myGrade,me:true}]).sort((a,b)=>b.grade-a.grade);
+  return {myPos,myGrade,myRank,rotSize,total:all.length,samePos,ahead,prevStarter,starts,tier,push,depthList,
+    before:Math.round(before*10)/10,after:Math.round(after*10)/10,delta:Math.round((after-before)*10)/10};
+}
+const _bw=g=>Math.max(8,Math.min(100,Math.round((g-50)/42*100)));
+function renderRotation(a,dest,sameTeam){
+  const rows=a.depthList.map(d=>`<div class="drow ${d.me?'me':''}"><span class="dname">${esc(d.name)}${d.me?'<span class="dtag">HIM</span>':''}</span><span class="dbar"><span style="width:${_bw(d.grade)}%"></span></span><span class="dg">${d.grade}</span></div>`).join('');
+  let line;
+  if(a.tier==='starter') line=a.prevStarter?`Projects as ${esc(dest.team)}’s starting ${a.myPos} — his ${a.myGrade} OVR tops their best there now (${esc(a.prevStarter.name)}, ${a.prevStarter.grade}).`:`Projects as the ${esc(dest.team)} starting ${a.myPos} — no established ${a.myPos} ahead of him.`;
+  else if(a.tier==='rotation') line=`Cracks the rotation at ${a.myPos} — ${a.prevStarter?`behind ${esc(a.prevStarter.name)} (${a.prevStarter.grade})`:'in the mix'}, but a clear rotation piece (#${a.myRank} on the roster by projected OVR).`;
+  else line=`A crowded ${a.myPos} room — ${a.ahead.length} project ahead of him (${a.ahead.slice(0,2).map(x=>esc(x.name)).join(', ')}${a.ahead.length>2?'…':''}). Lands as depth, not rotation.`;
+  const badge=a.tier==='starter'?'Starter':a.tier==='rotation'?'Rotation':'Depth';
+  return `<div class="rot-status"><span class="rot-badge ${a.tier}">${badge}</span><div class="rot-line">${line}${a.push?` <b>He ${a.push.txt}.</b>`:''}</div></div>
+    <div class="depth-h">Projected ${a.myPos} depth · ${esc(dest.team)}</div>${rows}`;
+}
+function renderTeamImpact(a,dest,sameTeam){
+  const cls=a.delta>=0.35?'pos':'flat';
+  const say=a.delta>=1.5?`A clear upgrade — he lifts ${esc(dest.team)}’s starting five.`
+    :a.delta>=0.35?`A modest bump to the starting five.`
+    :a.starts?`He starts, but the spot was already strong — marginal net change.`
+    :`Doesn’t move the starting five, but adds ${a.myPos} depth and insurance.`;
+  return `<div class="ti">
+    <div class="ti-ba"><div class="ti-n">${a.before}</div><div class="ti-l">Starting 5 OVR ${sameTeam?'without him':'now'}</div></div>
+    <div class="ti-arrow">→</div>
+    <div class="ti-ba"><div class="ti-n">${a.after}</div><div class="ti-l">With him</div></div>
+    <div class="ti-delta ${cls}">${a.delta>=0?'+':''}${a.delta}</div>
+  </div><div class="ti-say">${say}</div>`;
+}
+function renderStyle(a,p,dest){
+  const myArch=archOf(p.espn_id,p.name);
+  if(!myArch) return `<div class="rot-empty">His playing style isn’t classified yet (needs a tracked college season). The fit above leans on position, grade and the coach’s system.</div>`;
+  const dup=a.samePos.filter(r=>r.arch===myArch);
+  const posStyles=a.samePos.filter(r=>r.arch);
+  const call=dup.length?`Overlaps with ${esc(dup[0].name)}’s ${esc(myArch)} — a similar ${a.myPos} look, so it’s more of the same.`
+    :`Brings a ${esc(myArch)} look no other classified ${a.myPos} on the roster offers.`;
+  const chips=posStyles.length?posStyles.map(r=>`<span class="styl-chip ${r.arch===myArch?'dup':''}">${esc(r.name)} · ${esc(r.arch)}</span>`).join(''):`<span class="rot-empty">Other ${a.myPos} styles aren’t classified yet.</span>`;
+  return `<div class="proj-line">His style: <b>${esc(myArch)}</b>. ${call}</div><div class="styl-list">${chips}</div>`;
+}
+
 function show(){
   const p=SELP; const host=document.getElementById('report');
   if(!p){ host.innerHTML='<div class="empty">Search a player to begin.</div>'; return; }
@@ -283,6 +387,21 @@ function show(){
   </div>
 
   <div class="sec" data-anim>
+    <div class="sec-h">Rotation impact <span class="tag">does he make it?</span></div>
+    <div id="rotaImpact"><div class="rot-empty">Reading ${esc(dest.team)}’s roster…</div></div>
+  </div>
+
+  <div class="sec" data-anim>
+    <div class="sec-h">Team impact <span class="tag">better or worse?</span></div>
+    <div id="teamImpact"><div class="rot-empty">…</div></div>
+  </div>
+
+  <div class="sec" data-anim>
+    <div class="sec-h">Style fit <span class="tag">archetype match</span></div>
+    <div id="styleFit"><div class="rot-empty">…</div></div>
+  </div>
+
+  <div class="sec" data-anim>
     <div class="sec-h">Why it fits <span class="tag">need · winning · opportunity · coach</span></div>
     <div class="meters">
       ${meter('Roster need',s.need)}${meter('Team success',s.teamSuccess)}${meter('His opportunity',s.playerSuccess)}${meter('Coach fit',s.coachFit)}
@@ -322,6 +441,19 @@ function show(){
     <a href="team.html?team=${encodeURIComponent(dest.team)}">${esc(dest.team)} page</a>
   </div>`;
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
+
+  // roster-level sections load async from the destination's real roster
+  const sameTeam=p.team&&dest.team&&(''+p.team).toLowerCase()===(''+dest.team).toLowerCase();
+  const myseq=++SHOWSEQ;
+  destRoster(dest.team).then(roster=>{
+    if(myseq!==SHOWSEQ) return;                 // a newer render superseded this one
+    const ri=document.getElementById('rotaImpact'), ti=document.getElementById('teamImpact'), sf=document.getElementById('styleFit');
+    if(!roster.length){ const na='<div class="rot-empty">No roster data for '+esc(dest.team)+' yet.</div>'; if(ri)ri.innerHTML=na; if(ti)ti.innerHTML=na; if(sf)sf.innerHTML=na; return; }
+    const a=analyzeFit(p,roster,prof);
+    if(ri) ri.innerHTML=renderRotation(a,dest,sameTeam);
+    if(ti) ti.innerHTML=renderTeamImpact(a,dest,sameTeam);
+    if(sf) sf.innerHTML=renderStyle(a,p,dest);
+  });
 }
 
 // ---- picker UI ----
