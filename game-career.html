@@ -130,16 +130,23 @@ let CAREERS=null, NAMES=[], CUR=null, revealed=1, tries=0, locked=false, hlIdx=-
 let S={score:0,solved:0,streak:0};
 
 async function loadCareers(){
-  const base=SB+'/rest/v1/player_history?select=name,team,season_year,yr,ppg,rpg,apg,tdc_grade,espn_id&espn_id=not.is.null&tdc_grade=gte.74&gp=gte.12&mpg=gte.14';
+  // NOTE: a stable ORDER BY is required — Range pagination without one silently skips/dupes
+  // rows at page boundaries, which dropped the correct season row for transfers (e.g. Akron).
+  const base=SB+'/rest/v1/player_history?select=name,team,season_year,yr,ppg,rpg,apg,gp,tdc_grade,espn_id&espn_id=not.is.null&tdc_grade=gte.74&gp=gte.12&mpg=gte.14&order=espn_id.asc,season_year.asc,team.asc';
   const cr=await fetch(base+'&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact','Range':'0-0','Range-Unit':'items'})});
-  const total=+(cr.headers.get('content-range')||'0/0').split('/')[1]||0; const PG=1000, pages=Math.min(Math.ceil(total/PG),28), jobs=[];
+  const total=+(cr.headers.get('content-range')||'0/0').split('/')[1]||0; const PG=1000, pages=Math.min(Math.ceil(total/PG),60), jobs=[];
   for(let i=0;i<pages;i++) jobs.push(fetch(base,{headers:Object.assign({},H,{'Range-Unit':'items','Range':(i*PG)+'-'+(i*PG+PG-1)})}).then(r=>r.ok?r.json():[]).catch(()=>[]));
   const rows=(await Promise.all(jobs)).reduce((a,b)=>a.concat(b),[]);
   const byId={}; rows.forEach(r=>{ if(!r||r.espn_id==null||!r.name) return; (byId[r.espn_id]=byId[r.espn_id]||[]).push(r); });
   const careers=[];
   Object.values(byId).forEach(seasons=>{
-    // one row per season_year (keep highest ppg if dupes)
-    const byYr={}; seasons.forEach(s=>{ const y=s.season_year; if(!byYr[y]||(+s.ppg||0)>(+byYr[y].ppg||0)) byYr[y]=s; });
+    // one row per season_year. Duplicate (espn_id, season) rows with different teams are a
+    // data artifact (stale rows from an earlier sync); the real season has the most games
+    // played, so prefer highest GP, then ppg — NOT ppg alone (which picked stale rows).
+    const byYr={}; seasons.forEach(s=>{ const y=s.season_year, cur=byYr[y];
+      if(!cur){ byYr[y]=s; return; }
+      const g=(+s.gp||0)-(+cur.gp||0);
+      if(g>0 || (g===0 && (+s.ppg||0)>(+cur.ppg||0))) byYr[y]=s; });
     const arr=Object.values(byYr).sort((a,b)=>a.season_year-b.season_year);
     if(arr.length>=2) careers.push(arr);
   });
