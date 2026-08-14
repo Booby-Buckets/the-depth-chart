@@ -46,6 +46,12 @@
     .g-head{text-align:center;margin-bottom:12px;}
     .g-title{font-family:'Playfair Display',serif;font-weight:800;font-size:32px;letter-spacing:-.01em;}
     .g-sub{font-size:13px;color:var(--text3);margin-top:4px;}
+    .diffwrap{text-align:center;margin:0 0 14px;}
+    .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:3px;gap:3px;flex-wrap:wrap;justify-content:center;}
+    .seg button{font-size:12px;font-weight:800;letter-spacing:.02em;padding:6px 15px;border:none;border-radius:6px;background:none;color:var(--text3);cursor:pointer;font-family:inherit;transition:background .12s,color .12s;}
+    .seg button.on{background:var(--accent);color:#221c08;}
+    .seg button small{display:block;font-size:9px;font-weight:700;letter-spacing:.03em;opacity:.7;margin-top:2px;}
+    @media(max-width:560px){ .seg button{padding:6px 10px;} }
     .topbar{display:flex;align-items:center;justify-content:center;gap:20px;margin:12px 0 16px;flex-wrap:wrap;}
     .stat{text-align:center;}
     .stat .n{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;line-height:1;}
@@ -147,6 +153,7 @@
       <div class="g-title">Hoop Grid</div>
       <div class="g-sub">Fill each square with a player matching its row and column. 9 guesses.</div>
     </div>
+    <div class="diffwrap" id="diffWrap"></div>
     <div id="content"><div class="loading">Building today's grid…</div></div>
   </div>
 
@@ -193,23 +200,29 @@ function aggregate(rows){
 
 // ── criteria catalog ──
 function buildCriteria(){
+  // tier 1 = common/famous (easy), 2 = medium, 3 = rare/obscure (hard). Difficulty caps the tier.
+  // 2026 power confs — the rebuilt "PAC-12" is now a mid-major (Gonzaga/Fresno St/etc.), so it's NOT here
+  var POWER=['acc','big ten','big 12','sec','big east'];
+  var isPow=function(name){ var cl=(''+(name||'')).toLowerCase(); return POWER.some(function(x){return cl.indexOf(x)>=0;}); };
   var teamCount={}; PLAYERS.forEach(function(p){p.teams.forEach(function(t){teamCount[t]=(teamCount[t]||0)+1;});});
   var teams=Object.keys(teamCount).filter(function(t){return teamCount[t]>=12;})
-    .map(function(t){return {type:'team',label:t,test:(function(tm){return function(p){return p.teams.has(tm);};})(t)};});
+    .map(function(t){ var n=teamCount[t]; var tier=isPow(CONF[t])?1:(n>=30?2:3);   // power-conf programs = famous
+      return {type:'team',label:t,tier:tier,test:(function(tm){return function(p){return p.teams.has(tm);};})(t)};});
   var confCount={}; PLAYERS.forEach(function(p){p.confs.forEach(function(c){confCount[c]=(confCount[c]||0)+1;});});
   var confs=Object.keys(confCount).filter(function(c){return confCount[c]>=25;})
-    .map(function(c){return {type:'conf',label:c,test:(function(cf){return function(p){return p.confs.has(cf);};})(c)};});
+    .map(function(c){ var tier=isPow(c)?1:2;
+      return {type:'conf',label:c,tier:tier,test:(function(cf){return function(p){return p.confs.has(cf);};})(c)};});
   var acc=[
-    {type:'acc',fam:'ppg',label:'20+ PPG Season',test:function(p){return p.maxPpg>=20;}},
-    {type:'acc',fam:'ppg',label:'15+ PPG Season',test:function(p){return p.maxPpg>=15;}},
-    {type:'acc',label:'8+ RPG Season',test:function(p){return p.maxRpg>=8;}},
-    {type:'acc',label:'5+ APG Season',test:function(p){return p.maxApg>=5;}},
-    {type:'acc',label:'2+ SPG Season',test:function(p){return p.maxStl>=2;}},
-    {type:'acc',label:'2+ BPG Season',test:function(p){return p.maxBlk>=2;}},
-    {type:'acc',label:'40%+ 3PT Season',test:function(p){return p.max3p>=40;}},
-    {type:'acc',label:'1500+ Career Pts',test:function(p){return p.careerPts>=1500;}},
-    {type:'acc',label:'90+ TDC Grade',test:function(p){return p.peakGrade>=90;}},
-    {type:'acc',label:'4+ Seasons',test:function(p){return p.seasons>=4;}}
+    {type:'acc',fam:'ppg',tier:2,label:'20+ PPG Season',test:function(p){return p.maxPpg>=20;}},
+    {type:'acc',fam:'ppg',tier:1,label:'15+ PPG Season',test:function(p){return p.maxPpg>=15;}},
+    {type:'acc',tier:1,label:'8+ RPG Season',test:function(p){return p.maxRpg>=8;}},
+    {type:'acc',tier:1,label:'5+ APG Season',test:function(p){return p.maxApg>=5;}},
+    {type:'acc',tier:2,label:'2+ SPG Season',test:function(p){return p.maxStl>=2;}},
+    {type:'acc',tier:3,label:'2+ BPG Season',test:function(p){return p.maxBlk>=2;}},
+    {type:'acc',tier:2,label:'40%+ 3PT Season',test:function(p){return p.max3p>=40;}},
+    {type:'acc',tier:1,label:'1500+ Career Pts',test:function(p){return p.careerPts>=1500;}},
+    {type:'acc',tier:2,label:'90+ TDC Grade',test:function(p){return p.peakGrade>=90;}},
+    {type:'acc',tier:1,label:'4+ Seasons',test:function(p){return p.seasons>=4;}}
   ];
   // precompute qualifier name-sets
   function withQual(c){var s=new Set();PLAYERS.forEach(function(p){if(c.test(p))s.add(p.name);});c.qual=s;return c;}
@@ -223,11 +236,16 @@ function inter(a,b){var small=a.size<b.size?a:b,big=a.size<b.size?b:a,n=0;small.
 // conferences PLUS one accolade row — that accolade row × the accolade columns
 // gives genuine stat×stat squares. Every cell is (team|conf|stat) × stat, so
 // no impossible team×team and no trivial conf×team cells.
-function buildGrid(cat, rng){
-  var teamConf=cat.teams.concat(cat.confs);
+function buildGrid(cat, rng, maxTier){
+  maxTier=maxTier||3;
+  var teamConfAll=cat.teams.concat(cat.confs);
+  var teamConf=teamConfAll.filter(function(c){return (c.tier||3)<=maxTier;});
+  var accPool=cat.acc.filter(function(c){return (c.tier||3)<=maxTier;});
+  if(teamConf.length<2) teamConf=teamConfAll;      // never starve the builder
+  if(accPool.length<4) accPool=cat.acc;
   for(var attempt=0; attempt<900; attempt++){
     var tc=shuffle(teamConf,rng).slice(0,2);        // 2 team/conference rows
-    var accs=shuffle(cat.acc,rng);
+    var accs=shuffle(accPool,rng);
     var rowAcc=accs[0];                              // 1 accolade row → stat×stat cells
     var cols=accs.slice(1,4);                        // 3 accolade columns (distinct)
     if(!tc[0]||!tc[1]||!rowAcc||cols.length<3) continue;
@@ -344,8 +362,19 @@ function toast(m){var t=document.createElement('div');t.textContent=m;t.style.cs
 
 // ── start ──
 let _cat=null;
+let difficulty='medium';
+// difficulty caps how rare the row/column categories can be (tier 1 common → 3 obscure)
+const DIFFS={
+  easy:   {lbl:'Easy',   hint:'big schools · common', max:1},
+  medium: {lbl:'Medium', hint:'a mix',                max:2},
+  hard:   {lbl:'Hard',   hint:'deep cuts · rare',     max:3}
+};
+function renderDiff(){ var w=document.getElementById('diffWrap'); if(!w) return;
+  w.innerHTML='<div class="seg" title="Difficulty sets how rare the row & column categories can be">'+
+    Object.keys(DIFFS).map(function(k){return '<button class="'+(difficulty===k?'on':'')+'" onclick="setDifficulty(\''+k+'\')">'+DIFFS[k].lbl+'<small>'+DIFFS[k].hint+'</small></button>';}).join('')+'</div>'; }
+function setDifficulty(d){ if(d===difficulty||!DIFFS[d]) return; difficulty=d; renderDiff(); newGrid(); }
 function startGrid(rng){
-  var grid=buildGrid(_cat,rng);
+  var grid=buildGrid(_cat,rng,(DIFFS[difficulty]||DIFFS.medium).max);
   if(!grid){document.getElementById('content').innerHTML='<div class="loading">Could not build a grid — try New grid.</div>';return;}
   ROWS=grid.rows; COLS=grid.cols;
   CELLS=[]; for(var i=0;i<9;i++)CELLS.push({player:null,missed:false,rarity:0});
@@ -366,6 +395,7 @@ async function init(){
     PLAYERS=aggregate(rows);
     if(!PLAYERS.length){document.getElementById('content').innerHTML='<div class="loading">Could not load players.</div>';return;}
     _cat=buildCriteria();
+    renderDiff();
     startGrid(mulberry32(todayIndex()|0));
   }catch(e){document.getElementById('content').innerHTML='<div class="loading">Error: '+e.message+'</div>';}
 }
