@@ -9,7 +9,11 @@
   function prof(p){ try{ return (global.TDCPortalFit&&TDCPortalFit.profile)?TDCPortalFit.profile(p):{}; }catch(e){ return {}; } }
   function arch(p){ try{ return (global.TDCPortalFit&&TDCPortalFit.archetype)?TDCPortalFit.archetype(p):''; }catch(e){ return ''; } }
   function num(p,k){ var n=parseFloat(p&&p[k]); return isNaN(n)?0:n; }
-  function synCol(v){ return v>=63?'#5ab875':v>=52?'#d4a24a':'#e07070'; }
+  function synCol(v){ return v>=66?'#5ab875':v>=44?'#d4a24a':'#e07070'; }
+  // Lineup synergy is an average of 10 pair scores, so it compresses league-wide into ~46-72
+  // and reads flat/random. Stretch it around the league median (59) into a full 0-100 spread:
+  // ~50 = average fit, 80s = elite, 20s = a real clash. (Matchup math keeps the un-stretched value.)
+  function spreadSyn(x){ x=parseFloat(x); if(isNaN(x)) return x; return Math.max(6, Math.min(97, Math.round(50 + (x - 59) * 3.0))); }
   function ovrCol(g){ g=parseFloat(g); if(isNaN(g))return 'var(--text3)'; if(g>=88)return '#5ab875'; if(g>=80)return 'var(--accent)'; if(g>=72)return 'var(--text)'; return 'var(--text2)'; }
   // The OVR shown everywhere (badges, cards, Lineup OVR) = the PROJECTED overall — the same
   // number as the player card and the rest of the site — not the raw tdc_grade. Using raw for
@@ -59,7 +63,7 @@
       var sc=pairSynergy(ps[i],ps[j]).score; sum+=sc; cnt++;
       pairs.push({a:ps[i],b:ps[j],score:sc});
     }
-    var overall=Math.round(sum/cnt);
+    var synRaw=Math.round(sum/cnt), overall=spreadSyn(synRaw);
     pairs.sort(function(x,y){return y.score-x.score;});
     var best=pairs[0], worst=pairs[pairs.length-1];
     var S=function(k){ return ps.reduce(function(t,p){return t+num(p,k);},0); };
@@ -73,7 +77,7 @@
       'Perimeter D':nz(S('stl'),2,7), 'Rim Protect':nz(anchor*22+second*11+S('blk')*2,10,68) };
     var grades=ps.map(dispGrade).filter(function(g){return !isNaN(g);});
     var rating=grades.length?Math.round(grades.reduce(function(a,b){return a+b;},0)/grades.length):null;
-    return {overall:overall,dims:dims,rating:rating,shooters:spacers,count:ps.length,best:best,worst:worst,starters:ps};
+    return {overall:overall,synRaw:synRaw,dims:dims,rating:rating,shooters:spacers,count:ps.length,best:best,worst:worst,starters:ps};
   }
 
   // pick a starting five from a roster and slot them PG..C by position
@@ -107,7 +111,7 @@
     var dimBar=function(kv){ var k=kv[0],v=kv[1]; return '<div class="chm-dim"><div class="chm-dim-top"><span>'+k+'</span><b>'+v+'</b></div><div class="chm-dim-bar"><span style="width:'+v+'%;background:'+(v>=70?'#5ab875':v>=45?'var(--accent)':'var(--text3)')+';"></span></div></div>'; };
     var ents=Object.keys(an.dims).map(function(k){return [k,an.dims[k]];});
     var top=ents.slice().sort(function(a,b){return b[1]-a[1];})[0], low=ents.slice().sort(function(a,b){return a[1]-b[1];})[0];
-    var word=an.overall>=74?'Elite fit':an.overall>=64?'Complementary':an.overall>=54?'Workable':'Redundant';
+    var word=an.overall>=70?'Elite fit':an.overall>=55?'Complementary':an.overall>=40?'Workable':'Redundant';
     var duo='';
     if(an.best&&an.worst){
       duo='<div class="chm-duos">'
@@ -208,7 +212,7 @@
     pick(pool,5,0,[],function(five){
       var sum=0,cnt=0; for(var i=0;i<5;i++)for(var j=i+1;j<5;j++){sum+=pairSynergy(five[i],five[j]).score;cnt++;}
       var syn=sum/cnt, rating=five.reduce(function(t,p){var gg=dispGrade(p);return t+(isNaN(gg)?0:gg);},0)/5, score=rating*0.6+syn*0.4;
-      if(!best||score>best.score) best={five:five.slice(),syn:Math.round(syn),rating:Math.round(rating),score:score};
+      if(!best||score>best.score) best={five:five.slice(),syn:spreadSyn(Math.round(syn)),rating:Math.round(rating),score:score};
     });
     return best;
   }
@@ -224,8 +228,9 @@
     var winsA=rows.filter(function(r){return r.edge==='A';}).length;
     var winsB=rows.filter(function(r){return r.edge==='B';}).length;
     // matchup power = talent (rating) + fit (synergy) + how many battles you win
-    var powerA=(anA.rating||70)*0.62 + anA.overall*0.28 + winsA*2.0;
-    var powerB=(anB.rating||70)*0.62 + anB.overall*0.28 + winsB*2.0;
+    var sA=(anA.synRaw!=null?anA.synRaw:anA.overall), sB=(anB.synRaw!=null?anB.synRaw:anB.overall);
+    var powerA=(anA.rating||70)*0.62 + sA*0.28 + winsA*2.0;
+    var powerB=(anB.rating||70)*0.62 + sB*0.28 + winsB*2.0;
     var spread=Math.round((powerA-powerB)*1.15*10)/10;   // projected points, lineup-only read
     var favA=spread>=0;
     // 0-100 tug-of-war: team A's share of the bar (>50 when A is stronger)
