@@ -3204,6 +3204,27 @@ function renderAnalyticsBar(analytics, base){
 // intent — the projection engine normalizes every rotation to exactly 200, so
 // the budget bar measures how far your sliders are from a clean game.
 const MAX_TEAM_MINS = 200;
+// Per-position minute cap: a real game is 40 min at each spot; the +2 buffer (≈10 min/team
+// over the 200-min game) covers foul trouble, blowouts and injuries across a normal season.
+// A position column can't exceed this — to give a player more you take it from a teammate.
+const POS_MIN_CAP = 42;
+function _curMpgOf(p){
+  if(!p) return 0;
+  if(customMpg[p.name]!==undefined) return parseFloat(customMpg[p.name])||0;
+  const _pr=(typeof _baseCustomProj!=='undefined'&&_baseCustomProj)?_baseCustomProj.find(r=>r&&r.name===p.name):null;
+  if(_pr&&_pr.mpg!=null&&isFinite(_pr.mpg)) return Math.round(_pr.mpg);
+  if(p._projMin!=null&&isFinite(p._projMin)) return Math.round(p._projMin);
+  return parseFloat(p.mpg)||0;
+}
+function _posColOf(name){ for(const pos of POS_KEYS){ if((customDepth[pos]||[]).some(p=>p&&p.name===name)) return pos; } return null; }
+// the most minutes this player can hold before his position column tops out at 42
+function _capForPlayer(name){
+  const pos=_posColOf(name); if(!pos) return 40;
+  const others=(customDepth[pos]||[]).filter(p=>p&&p.name!==name).reduce((s,p)=>s+_curMpgOf(p),0);
+  return Math.max(0, Math.min(40, POS_MIN_CAP - others));
+}
+// total minutes currently allocated to a position column (for the "x / 42" readout)
+function _colMins(pos){ return (customDepth[pos]||[]).reduce((s,p)=>s+_curMpgOf(p),0); }
 
 function calcStarterMins(){
   // rotation = top 10 minute-getters; those are the 200 real minutes
@@ -3385,7 +3406,7 @@ function autoBuildRotation(){
 function rbStep(name, delta){
   let cur=customMpg[name];
   if(cur===undefined){ cur=12; POS_KEYS.forEach(pos=>{(customDepth[pos]||[]).forEach((p,i)=>{ if(p.name===name) cur=Math.round((p._projMin!=null&&isFinite(p._projMin))?p._projMin:(parseFloat(p.mpg)|| (i===0?26:12))); });}); }
-  customMpg[name]=Math.max(0,Math.min(40,Math.round(cur)+delta));
+  customMpg[name]=Math.max(0,Math.min(_capForPlayer(name),Math.round(cur)+delta));
   _baseCustomProj=buildCustomProjections();
   const sq=document.getElementById('squadView'); if(sq) sq.innerHTML=_squadInner();
   const host=document.getElementById('rotationBuilder'); if(host) host.innerHTML=renderRotationBuilder();
@@ -4230,7 +4251,10 @@ function rebuildCustomizeUI(){
                     : (p._projMin!=null&&isFinite(p._projMin)) ? Math.round(p._projMin)
                     : (parseFloat(p.mpg)||( isStarter?26:15 ));
       const mpgCur  = customMpg[p.name]!==undefined ? customMpg[p.name] : parseFloat(mpgBase).toFixed(1);
-      const maxMpg  = 40;
+      // slider tops out at what's left in this position (42-min cap); floored at the
+      // player's current value so an over-allocated column still renders, then any
+      // increase snaps back to the cap — i.e. you must take minutes off a teammate
+      const maxMpg  = Math.max(Math.round(parseFloat(mpgCur)||0), Math.round(_capForPlayer(p.name)));
       const minMpg  = 0;
 
       const wearWarn = mpgCur>=38?'⚠ Wear risk':mpgCur>=35?'⚠ Fatigue':'';
@@ -4295,7 +4319,7 @@ function rebuildCustomizeUI(){
         ondrop="onColDrop(event,'${pos}')">
       <div class="pos-col-head" style="border-bottom-color:${color};background:rgba(${rgb},.10);">
         <span class="pos-col-label">${pos}</span>
-        <span style="font-size:9px;font-weight:700;color:var(--text3);">${players.length} deep</span>
+        ${(()=>{ const cm=Math.round(_colMins(pos)), over=cm>POS_MIN_CAP; return `<span style="font-size:9px;font-weight:700;color:${over?'#e0685a':'var(--text3)'};" title="Minutes are capped at ${POS_MIN_CAP} per position">${cm}/${POS_MIN_CAP} min · ${players.length} deep</span>`; })()}
       </div>
       <div class="pos-col-body">
         ${rowsHtml}
@@ -4678,9 +4702,9 @@ function stepMpg(playerName, pKey, delta){
 }
 
 function onMpgChange(playerName, pKey, val){
-  // free 0-40 per player — the projection engine normalizes the team to a
-  // real 200-minute game, so no hard total cap is needed
-  const newVal=Math.max(0,Math.min(40,parseInt(val)||0));
+  // capped so this player's position column never exceeds 42 min — to give him more,
+  // take minutes from a teammate at the same spot first
+  const newVal=Math.max(0,Math.min(_capForPlayer(playerName),parseInt(val)||0));
   customMpg[playerName]=newVal;
   val=newVal;
 
