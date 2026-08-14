@@ -3147,7 +3147,24 @@ let _prSorted=null;
 function _ensureProjRatings(){
   if(_prSorted||!window.TDC_RATINGS) return;
   TDC_RATINGS.get().then(D=>{ if(D&&D.teams){ _prSorted=D.teams.map(t=>parseFloat(t.rating)).filter(v=>isFinite(v)).sort((a,b)=>b-a);
+    // Anchor: this team's CANONICAL projected rating (the same +14.6 / #30 the hero and
+    // rankings show). The customize bar pins the default lineup to it, then moves off it by
+    // the regression delta — so the number stays consistent with the rest of the site.
+    try{ const _n=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,''); const nm=_n(teamT&&teamT.name);
+      const me=D.teams.find(t=>_n(t.team)===nm||_n(t.full)===nm)||D.teams.find(t=>nm&&_n(t.full).indexOf(nm)===0);
+      if(me&&me.rating!=null) window._czCanonRating=parseFloat(me.rating);
+    }catch(e){}
     if(document.querySelector('#customizeContent .lineup-analytics')) rebuildCustomizeUI(); } }).catch(()=>{});
+}
+// Proj Power Rating for a lineup: anchor the DEFAULT roster to the canonical rating, then move
+// by the regression slope (1.38 per minutes-weighted OVR point) as the lineup is edited. Falls
+// back to the raw regression until the canonical rating loads (or if this team has none).
+function _anchoredProjPower(a){
+  if(!a) return null;
+  const projSeason = (typeof _rosterSeason==='undefined') || _rosterSeason>=2027;   // anchor only the 2026-27 roster
+  if(projSeason && window._czCanonRating!=null && window._czBaseAvgGrade!=null)
+    return Math.round((window._czCanonRating + 1.38*(a.avgGrade - window._czBaseAvgGrade))*10)/10;
+  return a.projPower;
 }
 function projRankFor(pr){
   if(!_prSorted||!_prSorted.length||pr==null||isNaN(pr)) return null;
@@ -3173,12 +3190,13 @@ function renderAnalyticsBar(analytics, base){
     :(analytics.avgGrade>=87?'#071e5a':analytics.avgGrade>=80?'#1040b8':analytics.avgGrade>=73?'#4278d4':'#88aadd');
   const wc=analytics.wearRisk>=4?'#cc2200':analytics.wearRisk>=2?'#b07000':'#1a8c3a';
   const dc=isDark?'var(--accent)':'rgba(var(--tc-rgb),.9)';
-  const _rk=projRankFor(analytics.projPower), _brk=base?projRankFor(base.projPower):null;
+  const _pp=_anchoredProjPower(analytics), _bpp=base?_anchoredProjPower(base):null;
+  const _rk=projRankFor(_pp), _brk=_bpp!=null?projRankFor(_bpp):null;
   const _rankDelta=(_rk&&_brk&&_rk!==_brk)?`<div class="analytics-delta ${_rk<_brk?'delta-pos':'delta-neg'}">${_rk<_brk?'▲':'▼'}${Math.abs(_brk-_rk)}</div>`:'';
   return `<div class="lineup-analytics">
     <div class="analytics-cell">
-      <div class="analytics-val" style="color:${qc};font-family:'Playfair Display',serif;">${analytics.projPower>=0?'+':''}${analytics.projPower}</div>
-      <div class="analytics-label">Proj Power Rating</div>${delta(analytics.projPower,base?.projPower)}
+      <div class="analytics-val" style="color:${qc};font-family:'Playfair Display',serif;">${_pp>=0?'+':''}${_pp}</div>
+      <div class="analytics-label">Proj Power Rating</div>${delta(_pp,_bpp)}
     </div>
     <div class="analytics-cell">
       <div class="analytics-val" style="font-family:'Playfair Display',serif;">${_rk?('#'+_rk):'—'}</div>
@@ -3600,6 +3618,10 @@ function renderCustomize(t, players, color, rgb, gp){
     // Deep clone for reset
     POS_KEYS.forEach(pos=>{ baseDepthSnapshot[pos]=[...customDepth[pos]]; });
     baseAnalytics = calcCustomAnalytics();
+    // Fixed anchor baseline = the REAL default roster's quality. Unlike baseAnalytics (which
+    // All-Time / Reset overwrite as the working delta reference), this stays put, so the Proj
+    // Power Rating is always "canonical rating + how far this lineup's quality is from default".
+    window._czBaseAvgGrade = baseAnalytics ? baseAnalytics.avgGrade : null;
     _baseCustomProj = buildCustomProjections();
   }
   rebuildCustomizeUI();
