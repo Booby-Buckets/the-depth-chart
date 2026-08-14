@@ -75,6 +75,8 @@
     .table-wrap{overflow-x:auto;padding:0 0 40px;}
     table{width:100%;border-collapse:collapse;font-size:12px;}
     thead tr{border-bottom:2px solid var(--border);}
+    .sig-mark{font-size:8px;color:var(--accent);margin-left:2px;cursor:help;vertical-align:super;opacity:.9;}
+    thead th.sig-col .lbl{cursor:help;}
     th{padding:10px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);white-space:nowrap;cursor:default;user-select:none;position:sticky;top:0;background:var(--bg);z-index:2;}
     th .lbl{cursor:pointer;text-decoration:underline dotted var(--border2);text-underline-offset:4px;text-decoration-thickness:1px;transition:color .12s,text-decoration-color .12s;}
     th .lbl:hover{color:var(--accent);text-decoration-color:var(--accent);}
@@ -291,10 +293,10 @@ body{background:transparent!important;}
     <option value="B">Bigs</option>
   </select>
   <select class="filter-select" id="minGp" onchange="refresh()">
+    <option value="1" selected>All players</option>
     <option value="13">13+ games</option>
     <option value="20">20+ games</option>
     <option value="25">25+ games</option>
-    <option value="1">All (1+)</option>
   </select>
   <select class="filter-select" id="teamSeasonSel" onchange="renderTeams()" style="display:none;"></select>
   <input class="search-box" type="text" id="searchBox" placeholder="Search player or school…" oninput="refresh()"/>
@@ -707,8 +709,11 @@ function renderTable(){
   // header
   var allSeasons = CUR_SEASON==='all';
   var th='<tr><th>#</th><th>Player</th>'+(allSeasons?'<th style="text-align:left">Yr</th>':'')+'<th style="text-align:left;cursor:default">Pos</th>';
-  TABLE_KEYS.forEach(k=>{ var s=SMAP[k]; var tip=((s.desc||s.g)+' — click for the top 50').replace(/"/g,'&quot;');
-    th+='<th class="'+(k===sortKey?'sorted':'')+'"><span class="lbl" onclick="openLeaders(\''+k+'\')" title="'+tip+'">'+s.l+'</span>'
+  TABLE_KEYS.forEach(k=>{ var s=SMAP[k]; var sig=s.g==='Signature';
+    var note=sig?' · Shot-tracking stat: 2025-26 only, and blank where a player has too few charted shots.':'';
+    var tip=((s.desc||s.g)+note+' — click for the top 50').replace(/"/g,'&quot;');
+    var mark=sig?'<sup class="sig-mark" title="Shot-tracking stat · 2025-26 only. Blank where a player has too few charted shots.">◍</sup>':'';
+    th+='<th class="'+(k===sortKey?'sorted':'')+(sig?' sig-col':'')+'"><span class="lbl" onclick="openLeaders(\''+k+'\')" title="'+tip+'">'+s.l+mark+'</span>'
       +'<span class="sort-arrow" onclick="sortBy(\''+k+'\')" title="Sort by '+s.l+'">'+(k===sortKey?(sortAsc?'▲':'▼'):'⇅')+'</span></th>'; });
   th+='</tr>';
   document.getElementById('thead').innerHTML=th;
