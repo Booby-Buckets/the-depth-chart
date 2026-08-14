@@ -6871,6 +6871,17 @@ async function renderProjectedStats(){
   let pr=null, ratN=0;
   try{ const D=await TDC_RATINGS.get(); if(D&&D.teams){ ratN=D.teams.length;
     pr=D.teams.find(t=>_n(t.team)===nm||_n(t.full)===nm)||D.teams.find(t=>nm&&_n(t.full).indexOf(nm)===0); } }catch(e){}
+  // Teams with no published team_projections row — OR a zeroed one (e.g. Gonzaga) — fall back
+  // to the static returners box-fill: projected from each team's roster's real per-game
+  // production, normalized to a 200-min team (scripts/build_team_projected_box.py). Same shape.
+  if(!tp || !(parseFloat(tp.ppg)>0)){
+    try{ if(!window._projBoxFill) window._projBoxFill=await fetch('scripts/data/team_projected_box.json').then(r=>r.ok?r.json():{});
+      const F=window._projBoxFill||{}, full=(pr&&pr.full)||name;
+      let fb=F[full]||F[name]||null;
+      if(!fb){ const fn=_n(full); const k=Object.keys(F).find(x=>_n(x)===fn); if(k) fb=F[k]; }
+      if(fb&&parseFloat(fb.ppg)>0) tp=fb;
+    }catch(e){}
+  }
   if(!tp&&!pr){ body.innerHTML='<div class="empty-note">Projected stats not yet published for this team.</div>'; return; }
   let nat=window._natRows2026;
   if(!nat||!nat.length){ try{ nat=await fetch(`${SB_URL}/rest/v1/team_seasons?season_year=eq.2026&select=ppg,rpg,apg,spg,bpg,topg,fg_pct,tp_pct,ft_pct&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]); window._natRows2026=nat; }catch(e){ nat=[]; } }
