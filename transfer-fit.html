@@ -36,18 +36,36 @@
     .page{max-width:820px;margin:0 auto;padding:30px 22px 90px;}
     .eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
     h1{font-family:'Playfair Display',serif;font-size:clamp(28px,4.5vw,38px);font-weight:800;letter-spacing:-.01em;margin-bottom:14px;}
-    .searchrow{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;}
-    .searchrow .search{margin-bottom:0;flex:1;min-width:230px;}
     .search{position:relative;max-width:440px;margin-bottom:24px;}
-    .whatif{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:color-mix(in srgb,var(--accent) 15%,transparent);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);border-radius:20px;padding:3px 11px;margin-left:9px;vertical-align:middle;}
-    .destclear{margin-left:8px;font-size:11px;color:var(--text3);cursor:pointer;text-decoration:underline;}
+    .picker{display:flex;align-items:flex-end;gap:14px;margin-bottom:14px;flex-wrap:wrap;}
+    .pk-cell{flex:1;min-width:238px;}
+    .pk-lbl{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:7px;padding-left:2px;}
+    .pk-body{position:relative;}
+    .pk-input{position:relative;}
+    .pk-input input{width:100%;padding:13px 16px;border:1px solid var(--border2);border-radius:12px;background:var(--bg2);color:var(--text);font:inherit;font-size:14px;outline:none;transition:border-color .12s,box-shadow .12s;}
+    .pk-input input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent);}
+    .pk-arrow{font-size:20px;color:var(--accent);font-weight:800;padding-bottom:12px;flex:none;}
+    .pk-chip{display:flex;align-items:center;gap:11px;padding:0 10px 0 12px;border:1px solid var(--border2);border-radius:12px;background:var(--bg2);height:49px;}
+    .pk-chip.on{border-color:color-mix(in srgb,var(--accent) 55%,var(--border2));}
+    .pk-logo{width:30px;height:30px;object-fit:contain;flex:none;}
+    .pk-av{width:30px;height:30px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:800;font-size:12px;color:var(--text2);flex:none;}
+    .pk-txt{min-width:0;flex:1;}
+    .pk-name{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .pk-sub{font-size:11.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .pk-x{flex:none;width:26px;height:26px;border-radius:50%;border:none;background:var(--bg3);color:var(--text2);font-size:15px;line-height:1;cursor:pointer;transition:background .12s,color .12s;}
+    .pk-x:hover{background:var(--red);color:#fff;}
+    .pk-hint{font-size:12px;color:var(--text3);margin-bottom:24px;padding-left:2px;}
+    .whatif{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:color-mix(in srgb,var(--accent) 15%,transparent);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);border-radius:20px;padding:3px 11px;margin-right:6px;vertical-align:middle;}
     .search input{width:100%;padding:12px 16px;border:1px solid var(--border2);border-radius:12px;background:var(--bg2);color:var(--text);font:inherit;font-size:14px;outline:none;}
     .search input:focus{border-color:var(--accent);}
     .drop{position:absolute;top:100%;left:0;right:0;z-index:20;background:var(--bg2);border:1px solid var(--border);border-radius:12px;margin-top:5px;overflow:hidden;box-shadow:0 12px 30px rgba(0,0,0,.18);display:none;}
     .drop.on{display:block;}
-    .drop-item{padding:10px 14px;cursor:pointer;font-size:13.5px;display:flex;justify-content:space-between;gap:10px;}
+    .drop-item{padding:9px 12px;cursor:pointer;font-size:13.5px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
     .drop-item:hover{background:var(--bg3);}
-    .drop-item .t{color:var(--text3);font-size:12px;}
+    .drop-item .t{color:var(--text3);font-size:12px;white-space:nowrap;flex:none;}
+    .di-l{display:flex;align-items:center;gap:8px;min-width:0;}
+    .di-logo{width:20px;height:20px;object-fit:contain;flex:none;}
+    .di-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .loading,.empty{padding:56px 20px;text-align:center;color:var(--text3);font-size:14px;line-height:1.7;}
     /* hero */
     .rhero{display:flex;align-items:center;gap:16px;border:1px solid var(--border);border-radius:16px;background:var(--bg2);padding:18px 20px;margin-bottom:16px;}
@@ -119,16 +137,18 @@
 <div class="page">
   <div class="eyebrow" data-anim>⇄ Transfer Portal</div>
   <h1 data-anim>Transfer Fit Report</h1>
-  <div class="searchrow" data-anim>
-    <div class="search">
-      <input id="search" type="text" placeholder="1 · Search any player…" autocomplete="off"/>
-      <div class="drop" id="drop"></div>
+  <div class="picker" id="picker" data-anim>
+    <div class="pk-cell">
+      <div class="pk-lbl">Player</div>
+      <div class="pk-body" id="cellPlayer"></div>
     </div>
-    <div class="search">
-      <input id="destsearch" type="text" placeholder="2 · Fit them to a school…" autocomplete="off"/>
-      <div class="drop" id="destdrop"></div>
+    <div class="pk-arrow">→</div>
+    <div class="pk-cell">
+      <div class="pk-lbl">Destination school</div>
+      <div class="pk-body" id="cellDest"></div>
     </div>
   </div>
+  <div class="pk-hint" data-anim>Pick any player, then any school — even a rumored move that hasn't happened yet.</div>
   <div id="report"><div class="loading">Loading…</div></div>
 </div>
 <script src="tdc-version.js?v=2"></script>
@@ -141,7 +161,7 @@ const esc=s=>(''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','
 const r1=x=>Math.round((parseFloat(x)||0)*10)/10;
 const initials=n=>(n||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
 const barCol=v=>v>=72?'var(--green)':v>=52?'var(--amber)':'var(--red)';
-let TEAMS=[],PROFS={},CURRENT=null,SELP=null,SELDEST=null;
+let TEAMS=[],PROFS={},TC={},CURRENT=null,SELP=null,SELDEST=null;
 
 function toast(msg){ let t=document.querySelector('.share-toast'); if(!t){t=document.createElement('div');t.className='share-toast';document.body.appendChild(t);} t.textContent=msg; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),1900); }
 function shareReport(){
@@ -153,9 +173,11 @@ function shareReport(){
   window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(text)+'&url='+encodeURIComponent(url),'_blank','noopener');
 }
 
-function projInto(p){ if(p&&window.TDCProjGrade&&TDCProjGrade.gradeSolo&&parseFloat(p.mpg)>0){
+// project once, then cache — show() re-runs on every destination change, and re-projecting
+// an already-projected grade would drift it down each time.
+function projInto(p){ if(p&&!p._projected&&window.TDCProjGrade&&TDCProjGrade.gradeSolo&&parseFloat(p.mpg)>0){
   const g=TDCProjGrade.gradeSolo({id:p.id,espn_id:p.espn_id,tdc_grade:p.tdc_grade,yr:p.class_year||p.yr});
-  if(g!=null&&!isNaN(g)) p.tdc_grade=''+g; } return p; }
+  if(g!=null&&!isNaN(g)) p.tdc_grade=''+g; p._projected=true; } return p; }
 const findTeam=nm=>TEAMS.find(t=>t.team===nm||t.full===nm||t.team===(nm||'').replace(/\s+(Blue Devils|Tigers|Wildcats|Bulldogs|Cardinals).*$/,''));
 
 // map a player_history row (portal players not on a current roster) to the players-table shape
@@ -170,22 +192,25 @@ async function loadPlayer(espn,name){
   return hh&&hh[0]?fromHist(hh[0]):null;
 }
 
+const INTRO='<div class="empty">Pick <b>any player</b>, then fit them to <b>any school</b> — coach &amp; system fit, roster need, projection, and leap potential.<br><span style="font-size:12.5px">e.g. a rumored portal move like a star wing to a new blue-blood.</span></div>';
+
 async function boot(){
-  const [tn,cp]=await Promise.all([
+  const [tn,cp,tc]=await Promise.all([
     fetch('scripts/data/team_needs.json').then(r=>r.json()).catch(()=>({teams:[]})),
-    fetch('scripts/data/coach_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]).catch(()=>[])
+    fetch('scripts/data/coach_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+    fetch('scripts/data/team_colors.json').then(r=>r.ok?r.json():[]).catch(()=>[])
   ]);
   TEAMS=tn.teams||[];
   (Array.isArray(cp)?cp:[]).forEach(p=>{ if(p.coach_slug) PROFS[p.coach_slug]=p; });
+  (Array.isArray(tc)?tc:[]).forEach(x=>{ if(x.location) TC[(x.location||'').toLowerCase()]=x; });
   if(window.TDCProjGrade){ try{ await TDCProjGrade.ready; }catch(e){} }
   if(window.TDC_ARCH){ try{ await TDC_ARCH.ready; }catch(e){} }
   const u=new URLSearchParams(location.search), espn=u.get('espn'), name=u.get('name'), to=u.get('to');
-  if(to){ SELDEST=to; $('destsearch').value=to; }
-  if(espn||name){
-    const p=await loadPlayer(espn,name);
-    if(p){ SELP=p; return show(); }
-  }
-  document.getElementById('report').innerHTML='<div class="empty">Pick <b>any player</b>, then fit them to <b>any school</b> — coach &amp; system fit, roster need, projection, and leap potential.<br><span style="font-size:12.5px">e.g. a rumored portal move like a star G to a new blue-blood.</span></div>';
+  if(to) SELDEST=to;
+  if(espn||name){ const p=await loadPlayer(espn,name); if(p) SELP=p; }
+  renderCells();
+  if(SELP) show();
+  else document.getElementById('report').innerHTML=INTRO;
 }
 
 function heroRow(p,fromTeam,destName,grade,style){
@@ -299,48 +324,70 @@ function show(){
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
 }
 
-// ---- search ----
+// ---- picker UI ----
 const $=id=>document.getElementById(id);
 let searchT,destT;
 
+const logoFor=nm=>{ const x=TC[(nm||'').toLowerCase()]; return x&&x.logo?x.logo:''; };
+const destDisplay=nm=>{ const x=TC[(nm||'').toLowerCase()]; if(x&&x.display) return x.display; const t=findTeam(nm); return t?(t.full||t.team):nm; };
+const destCoach=nm=>{ const t=findTeam(nm); return t?(t.coach||''):''; };
+
+function inputHTML(id,dropId,ph){ return `<div class="pk-input"><input id="${id}" type="text" placeholder="${ph}" autocomplete="off"/><div class="drop" id="${dropId}"></div></div>`; }
+function playerChip(){ const lg=logoFor(SELP.team);
+  return `<div class="pk-chip on">${lg?`<img class="pk-logo" src="${lg}" alt="">`:`<div class="pk-av">${initials(SELP.name)}</div>`}<div class="pk-txt"><div class="pk-name">${esc(SELP.name)}</div><div class="pk-sub">${esc(SELP.team||'')}</div></div><button class="pk-x" title="Change player" onclick="clearPick('player')">×</button></div>`; }
+function destChip(){ const lg=logoFor(SELDEST);
+  return `<div class="pk-chip on">${lg?`<img class="pk-logo" src="${lg}" alt="">`:`<div class="pk-av">${initials(destDisplay(SELDEST))}</div>`}<div class="pk-txt"><div class="pk-name">${esc(destDisplay(SELDEST))}</div><div class="pk-sub">${esc(destCoach(SELDEST)||'coach —')}</div></div><button class="pk-x" title="Change school" onclick="clearPick('dest')">×</button></div>`; }
+function renderCells(){
+  $('cellPlayer').innerHTML = SELP ? playerChip() : inputHTML('search','drop','Search any player…');
+  $('cellDest').innerHTML   = SELDEST ? destChip() : inputHTML('destsearch','destdrop','Search any school…');
+  attachInputs();
+}
+function clearPick(which){ if(which==='player') SELP=null; else SELDEST=null; renderCells();
+  if(SELP) show(); else document.getElementById('report').innerHTML=INTRO; }
+
+function attachInputs(){
+  const s=$('search'); if(s) s.oninput=function(){ onPlayerInput(this); };
+  const d=$('destsearch'); if(d) d.oninput=function(){ onDestInput(this); };
+}
+
 // player search across all seasons (dedup to latest) so portal players are findable too
-$('search').addEventListener('input',function(){
-  const q=this.value.trim(); clearTimeout(searchT);
-  if(q.length<2){ $('drop').classList.remove('on'); return; }
+function onPlayerInput(inp){
+  const q=inp.value.trim(); clearTimeout(searchT);
+  const drop=$('drop'); if(q.length<2){ if(drop)drop.classList.remove('on'); return; }
   searchT=setTimeout(async()=>{
     const rows=await fetch(`${SB}/rest/v1/player_history?name=ilike.*${encodeURIComponent(q)}*&select=name,team,espn_id,season_year&order=season_year.desc&limit=40`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
     const seen=new Set(),out=[];
     for(const r of rows){ if(!r.espn_id||seen.has(r.espn_id))continue; seen.add(r.espn_id); out.push(r); if(out.length>=8)break; }
-    if(!out.length){ $('drop').innerHTML='<div class="drop-item"><span class="t">No players match.</span></div>'; $('drop').classList.add('on'); return; }
-    $('drop').innerHTML=out.map(p=>`<div class="drop-item" data-espn="${p.espn_id||''}" data-name="${esc(p.name)}"><span>${esc(p.name)}</span><span class="t">${esc(p.team||'')}</span></div>`).join('');
-    $('drop').classList.add('on');
-    $('drop').querySelectorAll('.drop-item[data-name]').forEach(el=>el.addEventListener('click',async()=>{
-      $('drop').classList.remove('on'); $('search').value='';
-      $('report').innerHTML='<div class="loading">Loading player…</div>';
+    const d=$('drop'); if(!d) return;
+    if(!out.length){ d.innerHTML='<div class="drop-item"><span class="t">No players match.</span></div>'; d.classList.add('on'); return; }
+    d.innerHTML=out.map(p=>{ const lg=logoFor(p.team); return `<div class="drop-item" data-espn="${p.espn_id||''}" data-name="${esc(p.name)}"><span class="di-l">${lg?`<img class="di-logo" src="${lg}" alt="">`:''}<span class="di-name">${esc(p.name)}</span></span><span class="t">${esc(p.team||'')}</span></div>`; }).join('');
+    d.classList.add('on');
+    d.querySelectorAll('.drop-item[data-name]').forEach(el=>el.addEventListener('click',async()=>{
+      document.getElementById('report').innerHTML='<div class="loading">Loading player…</div>';
       const p=await loadPlayer(el.dataset.espn,el.dataset.name);
-      if(p){ SELP=p; show(); } else { $('report').innerHTML='<div class="empty">Could not load that player.</div>'; }
+      if(p){ SELP=p; renderCells(); show(); } else { document.getElementById('report').innerHTML='<div class="empty">Could not load that player.</div>'; }
     }));
   },200);
-});
+}
 
 // destination-team search — any school in the coach/needs dataset
-$('destsearch').addEventListener('input',function(){
-  const q=this.value.trim().toLowerCase(); clearTimeout(destT);
-  if(!q){ SELDEST=null; $('destdrop').classList.remove('on'); if(SELP) show(); return; }
-  if(q.length<2){ $('destdrop').classList.remove('on'); return; }
+function onDestInput(inp){
+  const q=inp.value.trim().toLowerCase(); clearTimeout(destT);
+  const drop=$('destdrop'); if(q.length<2){ if(drop)drop.classList.remove('on'); return; }
   destT=setTimeout(()=>{
     const out=TEAMS.filter(t=>((t.team||'')+' '+(t.full||'')).toLowerCase().includes(q)).slice(0,8);
-    if(!out.length){ $('destdrop').innerHTML='<div class="drop-item"><span class="t">No school matches.</span></div>'; $('destdrop').classList.add('on'); return; }
-    $('destdrop').innerHTML=out.map(t=>`<div class="drop-item" data-team="${esc(t.team)}"><span>${esc(t.full||t.team)}</span><span class="t">${esc(t.coach||'')}</span></div>`).join('');
-    $('destdrop').classList.add('on');
-    $('destdrop').querySelectorAll('.drop-item[data-team]').forEach(el=>el.addEventListener('click',()=>{
-      SELDEST=el.dataset.team; $('destsearch').value=el.dataset.team; $('destdrop').classList.remove('on');
-      if(SELP){ $('report').innerHTML='<div class="loading">Building report…</div>'; show(); }
+    const d=$('destdrop'); if(!d) return;
+    if(!out.length){ d.innerHTML='<div class="drop-item"><span class="t">No school matches.</span></div>'; d.classList.add('on'); return; }
+    d.innerHTML=out.map(t=>{ const lg=logoFor(t.team); return `<div class="drop-item" data-team="${esc(t.team)}"><span class="di-l">${lg?`<img class="di-logo" src="${lg}" alt="">`:''}<span class="di-name">${esc(t.full||t.team)}</span></span><span class="t">${esc(t.coach||'')}</span></div>`; }).join('');
+    d.classList.add('on');
+    d.querySelectorAll('.drop-item[data-team]').forEach(el=>el.addEventListener('click',()=>{
+      SELDEST=el.dataset.team; renderCells();
+      if(SELP){ document.getElementById('report').innerHTML='<div class="loading">Building report…</div>'; show(); }
     }));
   },150);
-});
+}
 
-document.addEventListener('click',e=>{ if(!e.target.closest('.search')){ $('drop').classList.remove('on'); $('destdrop').classList.remove('on'); } });
+document.addEventListener('click',e=>{ if(!e.target.closest('.pk-input')){ const a=$('drop'),b=$('destdrop'); if(a)a.classList.remove('on'); if(b)b.classList.remove('on'); } });
 
 boot();
 </script>
