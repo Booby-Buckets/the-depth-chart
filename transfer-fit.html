@@ -151,6 +151,33 @@
     .styl-chip{font-size:11.5px;font-weight:600;background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:4px 11px;color:var(--text2);}
     .styl-chip.dup{border-color:var(--accent);color:var(--accent);}
     .rot-empty{font-size:13px;color:var(--text3);padding:6px 0;line-height:1.5;}
+    /* destination team-color theming (--tc solid / --tcr readable text) */
+    #report .rhero{border-left:4px solid var(--tc,var(--accent));}
+    #report .rh-grade .v{color:var(--tcr,var(--text));}
+    #report .rh-arrow,#report .arrow{color:var(--tcr,var(--accent));}
+    #report .verdict{border-top-color:var(--tc,var(--accent));}
+    #report .vd-score{color:var(--tcr,var(--accent));}
+    #report .drow.me .dbar>span{background:var(--tc,var(--accent));}
+    #report .drow.me .dname,#report .drow.me .dg{color:var(--tcr,var(--accent));}
+    #report .dtag{background:transparent;border:1px solid var(--tcr,var(--accent));color:var(--tcr,var(--accent));}
+    #report .styl-chip.dup{border-color:var(--tc,var(--accent));color:var(--tcr,var(--accent));}
+    /* player stat tiles */
+    .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:9px;}
+    .stile{background:var(--bg3);border-radius:12px;padding:11px 6px;text-align:center;}
+    .stile .sv{font-family:'Playfair Display',serif;font-weight:800;font-size:21px;line-height:1;color:var(--text);}
+    .stile.hi .sv{color:var(--tcr,var(--accent));}
+    .stile .sl{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-top:5px;}
+    .split-row{display:flex;gap:15px;flex-wrap:wrap;margin-top:12px;font-size:13px;color:var(--text3);align-items:baseline;}
+    .split-row b{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;color:var(--text);margin-left:3px;}
+    .proj2{margin-top:12px;font-size:13.5px;color:var(--text2);line-height:1.6;padding-top:11px;border-top:1px solid var(--border);}
+    .proj2 b{color:var(--text);}
+    /* team profile tiles */
+    .tprofile{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:10px;}
+    .tp-tile{border:1px solid var(--border);border-radius:12px;padding:11px 12px;}
+    .tp-tile .tv{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;line-height:1;color:var(--text);}
+    .tp-tile .tl{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-top:5px;}
+    .tp-tile.net{border-color:var(--tc,var(--accent));}
+    .tp-tile.net .tv{color:var(--tcr,var(--accent));}
   </style>
   <link rel="stylesheet" href="tdc-dense.css?v=29"/>
   <link rel="stylesheet" href="tdc-skin.css?v=7"/>
@@ -188,12 +215,21 @@
 const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H={apikey:KEY,Authorization:'Bearer '+KEY};
-const PSEL='id,name,team,position,class_year,height,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,three_pct,tpa,fga,blk,bpg,stl,spg,usage_pct,espn_id,is_addition,hometown';
+const PSEL='id,name,team,position,class_year,height,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,three_pct,ft_pct,tpa,fga,blk,bpg,stl,spg,usage_pct,espn_id,is_addition,hometown';
 const esc=s=>(''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const r1=x=>Math.round((parseFloat(x)||0)*10)/10;
 const initials=n=>(n||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
 const barCol=v=>v>=72?'var(--green)':v>=52?'var(--amber)':'var(--red)';
-let TEAMS=[],PROFS={},TC={},CURRENT=null,SELP=null,SELDEST=null;
+let TEAMS=[],PROFS={},TC={},_DNA={},CURRENT=null,SELP=null,SELDEST=null;
+// destination team-color helpers → make c1 readable on the current theme
+function _hexRgb(h){h=(''+h).replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return [(n>>16)&255,(n>>8)&255,n&255];}
+function _lum(c){return (0.2126*c[0]+0.7152*c[1]+0.0722*c[2])/255;}
+function _mix(c,t,f){return [Math.round(c[0]+(t[0]-c[0])*f),Math.round(c[1]+(t[1]-c[1])*f),Math.round(c[2]+(t[2]-c[2])*f)];}
+function readableTC(hex,isDark){ let c=_hexRgb(hex),i=0;
+  if(isDark){ while(_lum(c)<0.5&&i<7){c=_mix(c,[255,255,255],0.16);i++;} }
+  else { while(_lum(c)>0.62&&i<7){c=_mix(c,[0,0,0],0.16);i++;} }
+  return 'rgb('+c[0]+','+c[1]+','+c[2]+')'; }
+function isDarkTheme(){ const a=document.documentElement.getAttribute('data-theme')||''; if(a.includes('dark'))return true; if(a.includes('light'))return false; return window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches; }
 
 function toast(msg){ let t=document.querySelector('.share-toast'); if(!t){t=document.createElement('div');t.className='share-toast';document.body.appendChild(t);} t.textContent=msg; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),1900); }
 function shareReport(){
@@ -227,14 +263,16 @@ async function loadPlayer(espn,name){
 const INTRO='<div class="empty">Pick <b>any player</b>, then fit them to <b>any school</b> — coach &amp; system fit, roster need, projection, and leap potential.<br><span style="font-size:12.5px">e.g. a rumored portal move like a star wing to a new blue-blood.</span></div>';
 
 async function boot(){
-  const [tn,cp,tc]=await Promise.all([
+  const [tn,cp,tc,dna]=await Promise.all([
     fetch('scripts/data/team_needs.json').then(r=>r.json()).catch(()=>({teams:[]})),
     fetch('scripts/data/coach_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]).catch(()=>[]),
-    fetch('scripts/data/team_colors.json').then(r=>r.ok?r.json():[]).catch(()=>[])
+    fetch('scripts/data/team_colors.json').then(r=>r.ok?r.json():[]).catch(()=>[]),
+    fetch('scripts/data/team_dna_proj.json').then(r=>r.ok?r.json():{}).catch(()=>({}))
   ]);
   TEAMS=tn.teams||[];
   (Array.isArray(cp)?cp:[]).forEach(p=>{ if(p.coach_slug) PROFS[p.coach_slug]=p; });
   (Array.isArray(tc)?tc:[]).forEach(x=>{ if(x.location) TC[(x.location||'').toLowerCase()]=x; });
+  if(dna&&typeof dna==='object'&&!Array.isArray(dna)){ const yrs=Object.keys(dna).sort(); if(yrs.length) _DNA=dna[yrs[yrs.length-1]]||{}; }
   if(window.TDCProjGrade){ try{ await TDCProjGrade.ready; }catch(e){} }
   if(window.TDC_ARCH){ try{ await TDC_ARCH.ready; }catch(e){} }
   const u=new URLSearchParams(location.search), espn=u.get('espn'), name=u.get('name'), to=u.get('to');
@@ -372,18 +410,51 @@ function show(){
     || '<li><span>A neutral stylistic fit with the staff — no strong push or pull.</span></li>';
 
   // projection now -> destination
-  const cur={ppg:p.ppg,rpg:p.rpg,apg:p.apg,tp_pct:p.tp_pct||p.three_pct};
   const noStat=(+p.ppg||0)<=0&&(+p.rpg||0)<=0&&(+p.apg||0)<=0;
   const projStr=o=>`${r1(o.ppg)}p · ${r1(o.rpg)}r · ${r1(o.apg)}a`+(o.mpg?` · ${r1(o.mpg)}m`:'');
+
+  // theme the report in the destination team's color
+  const tcHex=(TC[(dest.team||'').toLowerCase()]||TC[(destName||'').toLowerCase()]||{}).c1||'';
+  const dk=isDarkTheme();
+  const tc=tcHex||(getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#A8843C');
+  const tcr=tcHex?readableTC(tcHex,dk):tc;
+  host.style.setProperty('--tc',tcr); host.style.setProperty('--tcr',tcr);  // readable on the active theme
+
+  // player stats
+  const g1=x=>{const n=parseFloat(x);return isFinite(n)?(Math.round(n*10)/10):'—';};
+  const pctv=x=>{const n=parseFloat(x);return isFinite(n)&&n>0?(Math.round(n*10)/10+'%'):'—';};
+  const stile=(v,l,hi)=>`<div class="stile ${hi?'hi':''}"><div class="sv">${v}</div><div class="sl">${l}</div></div>`;
+  const fgv=pctv(p.fg_pct), tpv=pctv(p.tp_pct||p.three_pct), ftv=pctv(p.ft_pct), usgv=pctv(p.usage_pct);
+  const spg=g1(p.spg!=null?p.spg:p.stl), bpg=g1(p.bpg!=null?p.bpg:p.blk);
+  const playerStats = noStat
+    ? `<div class="proj-line">No prior college line yet — his production fills in once he logs minutes.</div>`
+    : `<div class="stat-grid">${stile(g1(p.ppg),'PPG',1)}${stile(g1(p.rpg),'RPG')}${stile(g1(p.apg),'APG')}${stile(spg,'SPG')}${stile(bpg,'BPG')}${stile(g1(p.mpg),'MPG')}</div>
+       <div class="split-row"><span>FG<b>${fgv}</b></span><span>3P<b>${tpv}</b></span>${ftv!=='—'?`<span>FT<b>${ftv}</b></span>`:''}${usgv!=='—'?`<span>USG<b>${usgv}</b></span>`:''}</div>
+       <div class="proj2">Projected at <b>${esc(dest.team)}</b>: <b>${projStr(s.proj||{})}</b> — scaled to his new role &amp; system.</div>`;
+
+  // team stats (destination profile)
+  const dna=_DNA[dest.full]||_DNA[dest.team]||null;
+  const tempoWord=prof&&prof.pctl&&prof.pctl.poss_pg!=null?(prof.pctl.poss_pg>=60?'Fast':prof.pctl.poss_pg>=40?'Balanced':'Grind-it-out'):'—';
+  const offWord=prof&&prof.pctl&&prof.pctl.top_scorer_share!=null?(prof.pctl.top_scorer_share>=58?'Star-centric':prof.pctl.top_scorer_share<=42?'Share ball':'Balanced'):(dest.archetype||'—');
+  const tpTile=(v,l,net)=>`<div class="tp-tile ${net?'net':''}"><div class="tv">${v}</div><div class="tl">${l}</div></div>`;
+  const teamStats = `<div class="tprofile">
+      ${tpTile('#'+(dest.rank||'—'),'Nat’l rank')}${tpTile(dest.rating!=null?g1(dest.rating):'—','Power rating')}${dna?tpTile(g1(dna.ORtg),'Off Rtg'):''}${dna?tpTile(g1(dna.DRtg),'Def Rtg'):''}${dna?tpTile((dna.net>=0?'+':'')+g1(dna.net),'Net Rtg',1):''}${tpTile(tempoWord,'Tempo')}
+    </div>
+    <div class="split-row"><span>Conf<b>${esc(dest.conf||'—')}</b></span>${dest.allPlay!=null?`<span>All-play<b>${Math.round(dest.allPlay)}%</b></span>`:''}<span>Offense<b>${esc(offWord)}</b></span></div>`;
 
   host.innerHTML=`
   ${heroRow(p,origin,dest.full||dest.team,grade,style)}
   ${SELDEST?'<div style="margin:-8px 0 14px;font-size:12.5px;color:var(--text3)"><span class="whatif">What-if</span> hypothetical fit — he hasn’t committed here.</div>':''}
 
-  <div class="verdict" data-anim style="--vc:${V[1]}">
+  <div class="verdict" data-anim>
     <div class="vd-top"><div class="vd-score">${s.overall}<small>/100</small></div><div class="vd-label">${V[0]}</div></div>
     <div class="vd-why">${esc(s.why||'')} <b>Projected role: ${esc(s.role)}.</b></div>
     <button class="sharebtn" onclick="shareReport()">↗ Share report</button>
+  </div>
+
+  <div class="sec" data-anim>
+    <div class="sec-h">Player stats <span class="tag">his production</span></div>
+    ${playerStats}
   </div>
 
   <div class="sec" data-anim>
@@ -397,15 +468,13 @@ function show(){
   </div>
 
   <div class="sec" data-anim>
-    <div class="sec-h">Style fit <span class="tag">archetype match</span></div>
-    <div id="styleFit"><div class="rot-empty">…</div></div>
+    <div class="sec-h">${esc(dest.team)} team stats <span class="tag">where he’s landing</span></div>
+    ${teamStats}
   </div>
 
   <div class="sec" data-anim>
-    <div class="sec-h">Why it fits <span class="tag">need · winning · opportunity · coach</span></div>
-    <div class="meters">
-      ${meter('Roster need',s.need)}${meter('Team success',s.teamSuccess)}${meter('His opportunity',s.playerSuccess)}${meter('Coach fit',s.coachFit)}
-    </div>
+    <div class="sec-h">Style fit <span class="tag">archetype match</span></div>
+    <div id="styleFit"><div class="rot-empty">…</div></div>
   </div>
 
   <div class="sec" data-anim>
@@ -417,13 +486,6 @@ function show(){
       ${prof&&prof.pctl&&prof.pctl.top_scorer_share!=null?`<div><div class="k">Offense</div><div class="v">${prof.pctl.top_scorer_share>=58?'Star-centric':prof.pctl.top_scorer_share<=42?'Share the ball':'Balanced'}</div></div>`:''}
     </div>
     <ul class="reasons">${reasons}</ul>
-  </div>
-
-  <div class="sec" data-anim>
-    <div class="sec-h">Projection at ${esc(dest.team)}</div>
-    ${noStat
-      ? `<div class="proj-line">Incoming with no prior college line to scale from — projection fills in once he logs minutes.</div>`
-      : `<div class="proj-line">Last season <b>${projStr(cur)}</b><span class="arrow">→</span>projected <b>${projStr(s.proj||{})}</b> at ${esc(dest.team)}.</div>`}
   </div>
 
   <div class="sec" data-anim>
