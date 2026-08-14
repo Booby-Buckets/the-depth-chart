@@ -42,6 +42,12 @@
     .tabs{display:flex;gap:8px;justify-content:center;margin:14px 0 6px;}
     .tab{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:8px 16px;border:1px solid var(--border2);border-radius:20px;background:var(--bg2);color:var(--text3);cursor:pointer;}
     .tab.on{background:var(--accent);border-color:var(--accent);color:#221c08;}
+    .diffwrap{text-align:center;margin:14px 0 2px;}
+    .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:3px;gap:3px;flex-wrap:wrap;justify-content:center;}
+    .seg button{font-size:12px;font-weight:800;letter-spacing:.02em;padding:6px 15px;border:none;border-radius:6px;background:none;color:var(--text3);cursor:pointer;font-family:inherit;transition:background .12s,color .12s;}
+    .seg button.on{background:var(--accent);color:#221c08;}
+    .seg button small{display:block;font-size:9px;font-weight:700;letter-spacing:.03em;opacity:.7;margin-top:2px;}
+    @media(max-width:560px){ .seg button{padding:6px 10px;} }
     .scorebar{display:flex;justify-content:center;gap:26px;margin:14px 0 6px;}
     .sb{text-align:center;} .sb .n{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1;} .sb .l{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
     .card{border:1px solid var(--border2);border-radius:18px;background:radial-gradient(120% 130% at 0 0,color-mix(in srgb,var(--accent) 8%,var(--bg2)),var(--bg2));padding:22px;margin-top:12px;}
@@ -111,6 +117,7 @@
       <div class="sb"><div class="n" id="sSolved">0</div><div class="l">Solved</div></div>
       <div class="sb"><div class="n" id="sStreak">0</div><div class="l">Streak</div></div>
     </div>
+    <div class="diffwrap" id="diffWrap"></div>
     <div id="content"><div class="loading">Loading players…</div></div>
     <div class="note">Up to 5 guesses. Points = 6 for a first-try solve, down to 1 on the fifth. Position, class, height and (all-time) season are free; team letters unlock as you miss. Pool: qualified rotation players.</div>
   </div>
@@ -132,14 +139,22 @@ const MAX=5;
 
 let scope='year', POOL_YEAR=null, POOL_ALL=null, NAMES=[], TARGET=null, tries=0, locked=false, hlIdx=-1;
 let S={score:0,solved:0,streak:0};
+let difficulty='medium';
+// difficulty gates WHICH player the mystery can be, by that player's tdc_grade (season shown).
+// The guess autocomplete pool (NAMES) stays broad and unchanged.
+const DIFFS={
+  easy:   {lbl:'Easy',   hint:'household names', min:88},
+  medium: {lbl:'Medium', hint:'notable players', min:82},
+  hard:   {lbl:'Hard',   hint:'deep cuts',       min:74}
+};
 function curPool(){ return scope==='year'?POOL_YEAR:POOL_ALL; }
 
 async function loadYear(){
-  const r=await fetch(SB+'/rest/v1/players?select=name,team,position,class_year,yr,height,ppg,rpg,apg,stl,blk,fg_pct,tp_pct,ft_pct,mpg,gp&tdc_grade=gte.70&gp=gte.15&mpg=gte.16&ppg=gte.6&order=name.asc',{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  const r=await fetch(SB+'/rest/v1/players?select=name,team,position,class_year,yr,height,ppg,rpg,apg,stl,blk,fg_pct,tp_pct,ft_pct,mpg,gp,tdc_grade&tdc_grade=gte.70&gp=gte.15&mpg=gte.16&ppg=gte.6&order=name.asc',{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
   return (r||[]).filter(p=>p.name&&p.ppg!=null);
 }
 async function loadAll(){
-  const base=SB+'/rest/v1/player_history?select=name,team,season_year,position,yr,height,ppg,rpg,apg,stl,blk,fg_pct,tp_pct,ft_pct,mpg,gp&tdc_grade=gte.80&gp=gte.20&mpg=gte.22&ppg=gte.9';
+  const base=SB+'/rest/v1/player_history?select=name,team,season_year,position,yr,height,ppg,rpg,apg,stl,blk,fg_pct,tp_pct,ft_pct,mpg,gp,tdc_grade&tdc_grade=gte.80&gp=gte.20&mpg=gte.22&ppg=gte.9';
   const cr=await fetch(base+'&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact','Range':'0-0','Range-Unit':'items'})});
   const total=+(cr.headers.get('content-range')||'0/0').split('/')[1]||0; const PG=1000, pages=Math.min(Math.ceil(total/PG),22), jobs=[];
   for(let i=0;i<pages;i++) jobs.push(fetch(base,{headers:Object.assign({},H,{'Range-Unit':'items','Range':(i*PG)+'-'+(i*PG+PG-1)})}).then(r=>r.ok?r.json():[]));
@@ -154,13 +169,21 @@ async function setScope(s){
   el('content').innerHTML='<div class="loading">'+(s==='all'?'Loading 20 years of players…':'Loading players…')+'</div>';
   if(s==='year'){ if(!POOL_YEAR) POOL_YEAR=await loadYear(); } else { if(!POOL_ALL) POOL_ALL=await loadAll(); }
   NAMES=[...new Set(curPool().map(p=>p.name))].sort();
+  renderDiff();
   nextRound();
 }
 function renderScore(){ el('sScore').textContent=S.score; el('sSolved').textContent=S.solved; el('sStreak').textContent=S.streak; }
+function renderDiff(){ const w=el('diffWrap'); if(!w) return;
+  w.innerHTML='<div class="seg" title="Difficulty sets how well-known the mystery player can be">'+
+    Object.keys(DIFFS).map(k=>`<button class="${difficulty===k?'on':''}" onclick="setDifficulty('${k}')">${DIFFS[k].lbl}<small>${DIFFS[k].hint}</small></button>`).join('')+'</div>'; }
+function setDifficulty(d){ if(d===difficulty||!DIFFS[d]) return; difficulty=d; renderDiff(); nextRound(); }
 
 function nextRound(){
   const pool=curPool(); if(!pool||!pool.length){ el('content').innerHTML='<div class="loading">No players available.</div>'; return; }
-  TARGET=pool[Math.floor(Math.random()*pool.length)]; tries=0; locked=false; hlIdx=-1;
+  const min=(DIFFS[difficulty]||DIFFS.medium).min;
+  const mpool=pool.filter(p=>(+p.tdc_grade||0)>=min);
+  if(!mpool.length){ el('content').innerHTML='<div class="loading">No players at this difficulty.</div>'; return; }
+  TARGET=mpool[Math.floor(Math.random()*mpool.length)]; tries=0; locked=false; hlIdx=-1;
   const t=TARGET;
   const st=(k,v)=>`<div class="st"><div class="v">${v}</div><div class="k">${k}</div></div>`;
   const clues=[t.position,classInfo(t.class_year||t.yr),t.height,(scope==='all'&&t.season_year)?seasonLbl(t.season_year):null].filter(Boolean).map(c=>`<span class="clue">${esc(c)}</span>`).join('');

@@ -50,6 +50,12 @@
     .stat-seg{display:flex;justify-content:center;gap:6px;margin:14px 0 6px;flex-wrap:wrap;}
     .stat-seg button{font-size:12px;font-weight:700;letter-spacing:.03em;padding:7px 14px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;}
     .stat-seg button.on{background:var(--accent);color:#221c08;border-color:var(--accent);}
+    .diffwrap{text-align:center;margin:4px 0 2px;}
+    .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:3px;gap:3px;flex-wrap:wrap;justify-content:center;}
+    .seg button{font-size:12px;font-weight:800;letter-spacing:.02em;padding:6px 15px;border:none;border-radius:6px;background:none;color:var(--text3);cursor:pointer;font-family:inherit;transition:background .12s,color .12s;}
+    .seg button.on{background:var(--accent);color:#221c08;}
+    .seg button small{display:block;font-size:9px;font-weight:700;letter-spacing:.03em;opacity:.7;margin-top:2px;}
+    @media(max-width:560px){ .seg button{padding:6px 10px;} }
     .score-row{display:flex;justify-content:center;gap:26px;margin:12px 0 20px;font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;}
     .score-row b{color:var(--accent);font-size:16px;}
     .cards{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:stretch;}
@@ -131,6 +137,7 @@
       <div class="g-title">Higher or Lower</div>
       <div class="g-sub">Two player-seasons from 20 years of college hoops — does the mystery one rank higher or lower? Chain them for a streak.</div>
     </div>
+    <div class="diffwrap" id="diffWrap"></div>
     <div id="content"><div class="loading">Loading players…</div></div>
   </div>
 
@@ -156,6 +163,14 @@ const STATS=[
   {k:'ft_pct',l:'FT%',        fmt:function(v){return v.toFixed(1)+'%';}, vol:function(p){return Math.max(+p.ftm||0,+p.fta||0)>=1.5;}}
 ];
 let POOL=[], ACTIVE=[], stat=STATS[0], left=null, right=null, streak=0, best=0, over=false, busy=false;
+let difficulty='medium';
+// difficulty filters WHICH player-seasons can appear, by the player's (box-adjusted) grade —
+// more famous seasons = easier. Falls back to the broad pool if a tier is too small to draw pairs.
+const DIFFS={
+  easy:   {lbl:'Easy',   hint:'household names', min:88},
+  medium: {lbl:'Medium', hint:'notable players', min:82},
+  hard:   {lbl:'Hard',   hint:'deep cuts',       min:74}
+};
 
 function val(p){return parseFloat(p[stat.k])||0;}
 function photoOf(p){return (window.tdcShowPhotos&&window.tdcShowPhotos())?(p.photo_url||(p.espn_id?'https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+p.espn_id+'.png':'')):'';}
@@ -163,7 +178,18 @@ function seasonLbl(y){y=+y;return (y-1)+'-'+(''+y).slice(2);}
 function bestKey(){return 'tdc_hilo_best_'+stat.k;}
 function loadBest(){try{best=parseInt(localStorage.getItem(bestKey()))||0;}catch(e){best=0;}}
 function saveBest(){try{if(streak>best){best=streak;localStorage.setItem(bestKey(),best);}}catch(e){}}
-function refreshActive(){ ACTIVE = stat.vol ? POOL.filter(stat.vol) : POOL; }
+function refreshActive(){
+  var min=(DIFFS[difficulty]||DIFFS.medium).min;
+  var base=POOL.filter(function(p){return (parseFloat(p.tdc_grade)||0)>=min;});
+  if(base.length<12) base=POOL; // tier too small to draw pairs — fall back to broad pool
+  ACTIVE = stat.vol ? base.filter(stat.vol) : base;
+  if(ACTIVE.length<2) ACTIVE = stat.vol ? POOL.filter(stat.vol) : POOL; // vol+tier fallback
+}
+function renderDiff(){ var w=document.getElementById('diffWrap'); if(!w) return;
+  w.innerHTML='<div class="seg" title="Difficulty sets how well-known the player-seasons can be">'+
+    Object.keys(DIFFS).map(function(k){return '<button class="'+(difficulty===k?'on':'')+'" onclick="setDifficulty(\''+k+'\')">'+DIFFS[k].lbl+'<small>'+DIFFS[k].hint+'</small></button>';}).join('')+'</div>';
+}
+function setDifficulty(d){ if(d===difficulty||!DIFFS[d]) return; difficulty=d; renderDiff(); newGame(); }
 
 function randPlayer(exclude){
   var arr=ACTIVE.length?ACTIVE:POOL, p, tries=0;
@@ -218,7 +244,7 @@ function answer(higher){
 }
 async function init(){
   try{
-    const base=SB+'/rest/v1/player_history?select=id,name,team,season_year,position,height,tdc_grade,ppg,rpg,apg,stl,blk,tovs,oreb,dreb,mpg,fg_pct,tp_pct,ft_pct,fga,tpm,tpa,ftm,fta,espn_id,photo_url&tdc_grade=gte.82&gp=gte.18&mpg=gte.20';
+    const base=SB+'/rest/v1/player_history?select=id,name,team,season_year,position,height,tdc_grade,ppg,rpg,apg,stl,blk,tovs,oreb,dreb,mpg,fg_pct,tp_pct,ft_pct,fga,tpm,tpa,ftm,fta,espn_id,photo_url&tdc_grade=gte.74&gp=gte.18&mpg=gte.20';
     const cr=await fetch(base+'&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact','Range':'0-0','Range-Unit':'items'})});
     const total=parseInt((cr.headers.get('content-range')||'/0').split('/')[1]||0)||5000;
     const PG=1000, pages=Math.ceil(total/PG), jobs=[];
@@ -232,6 +258,7 @@ async function init(){
     if(window.TDCRating&&TDCRating.boxAdjust) POOL.forEach(p=>{ try{
       const a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(p.season_year)||0);
       if(a&&a.grade!=null) p.tdc_grade=Math.round(a.grade); }catch(e){} });
+    renderDiff();
     newGame();
   }catch(e){document.getElementById('content').innerHTML='<div class="loading">Error: '+e.message+'</div>';}
 }

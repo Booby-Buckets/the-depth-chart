@@ -44,6 +44,12 @@
     .tabs{display:flex;gap:8px;justify-content:center;margin:14px 0 6px;}
     .tab{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:8px 16px;border:1px solid var(--border2);border-radius:20px;background:var(--bg2);color:var(--text3);cursor:pointer;}
     .tab.on{background:var(--accent);border-color:var(--accent);color:#221c08;}
+    .diffwrap{text-align:center;margin:16px 0 2px;}
+    .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:3px;gap:3px;flex-wrap:wrap;justify-content:center;}
+    .seg button{font-size:12px;font-weight:800;letter-spacing:.02em;padding:6px 15px;border:none;border-radius:6px;background:none;color:var(--text3);cursor:pointer;font-family:inherit;transition:background .12s,color .12s;}
+    .seg button.on{background:var(--accent);color:#221c08;}
+    .seg button small{display:block;font-size:9px;font-weight:700;letter-spacing:.03em;opacity:.7;margin-top:2px;}
+    @media(max-width:560px){ .seg button{padding:6px 10px;} }
     .scorebar{display:flex;justify-content:center;gap:26px;margin:14px 0 6px;}
     .sb{text-align:center;} .sb .n{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1;} .sb .l{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
     .prompt{text-align:center;font-size:14px;color:var(--text2);margin:14px 0 4px;}
@@ -106,6 +112,7 @@
       <div class="sb"><div class="n" id="sRounds">0</div><div class="l">Rounds</div></div>
       <div class="sb"><div class="n" id="sPerfect">0</div><div class="l">Perfect</div></div>
     </div>
+    <div class="diffwrap" id="diffWrap"></div>
     <div id="content"><div class="loading">Loading players…</div></div>
     <div class="note">Order the four from most to least. Score = correct positions (0–4); +1 bonus for a perfect board. Pool: qualified rotation players; players are chosen with clearly separated values.</div>
   </div>
@@ -133,7 +140,18 @@ const CATS=[
 ];
 let scope='year', POOL_YEAR=null, POOL_ALL=null, CAT=null, PICKS=[], ORDER=[], locked=false, dragI=-1;
 let S={score:0,rounds:0,perfect:0};
+let difficulty='medium';
+// difficulty filters WHICH players the four ranked come from, by tdc_grade (famous = easier)
+const DIFFS={
+  easy:   {lbl:'Easy',   hint:'household names', min:88},
+  medium: {lbl:'Medium', hint:'notable players', min:82},
+  hard:   {lbl:'Hard',   hint:'deep cuts',       min:74}
+};
 function curPool(){ return scope==='year'?POOL_YEAR:POOL_ALL; }
+function renderDiff(){ const w=el('diffWrap'); if(!w) return;
+  w.innerHTML='<div class="seg" title="Difficulty sets how well-known the four players can be">'+
+    Object.keys(DIFFS).map(k=>`<button class="${difficulty===k?'on':''}" onclick="setDifficulty('${k}')">${DIFFS[k].lbl}<small>${DIFFS[k].hint}</small></button>`).join('')+'</div>'; }
+function setDifficulty(d){ if(d===difficulty||!DIFFS[d]) return; difficulty=d; renderDiff(); nextRound(); }
 
 async function loadYear(){
   const r=await fetch(SB+'/rest/v1/players?select=id,espn_id,name,team,class_year,yr,ppg,rpg,apg,stl,blk,tdc_grade,tp_pct,mpg,gp&tdc_grade=gte.72&gp=gte.15&mpg=gte.16&order=name.asc',{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
@@ -157,6 +175,7 @@ async function setScope(s){
   if(window.TDCProjGrade&&TDCProjGrade.ready){ try{ await TDCProjGrade.ready; }catch(e){} }
   if(window.TDCRating&&TDCRating.ready){ try{ await TDCRating.ready; }catch(e){} }
   _stampGrades(curPool());
+  renderDiff();
   nextRound();
 }
 // Rank by the site's canonical grade: current players (year) → projected OVR (gradeSolo);
@@ -174,10 +193,14 @@ function renderScore(){ el('sScore').textContent=S.score; el('sRounds').textCont
 
 function nextRound(){
   const pool=curPool(); if(!pool||!pool.length){ el('content').innerHTML='<div class="loading">No players available.</div>'; return; }
+  const min=(DIFFS[difficulty]||DIFFS.medium).min;
+  const diffPool=pool.filter(p=>(+p.tdc_grade||0)>=min);
   // pick a category with enough valid players
   for(let attempt=0;attempt<20;attempt++){
     CAT=CATS[Math.floor(Math.random()*CATS.length)];
-    const valid=pool.filter(p=>p[CAT.k]!=null&&!isNaN(+p[CAT.k]));
+    let valid=diffPool.filter(p=>p[CAT.k]!=null&&!isNaN(+p[CAT.k]));
+    // if the difficulty tier is too thin for this stat, relax to the broad pool this round
+    if(valid.length<20) valid=pool.filter(p=>p[CAT.k]!=null&&!isNaN(+p[CAT.k]));
     if(valid.length<20) continue;
     // sample 14, sort desc, take 4 spaced out for clear separation
     const samp=[]; const used=new Set();

@@ -44,6 +44,12 @@
     .tabs{display:flex;gap:8px;justify-content:center;margin:14px 0 6px;}
     .tab{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:8px 16px;border:1px solid var(--border2);border-radius:20px;background:var(--bg2);color:var(--text3);cursor:pointer;}
     .tab.on{background:var(--accent);border-color:var(--accent);color:#221c08;}
+    .diffwrap{text-align:center;margin:16px 0 2px;}
+    .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:3px;gap:3px;flex-wrap:wrap;justify-content:center;}
+    .seg button{font-size:12px;font-weight:800;letter-spacing:.02em;padding:6px 15px;border:none;border-radius:6px;background:none;color:var(--text3);cursor:pointer;font-family:inherit;transition:background .12s,color .12s;}
+    .seg button.on{background:var(--accent);color:#221c08;}
+    .seg button small{display:block;font-size:9px;font-weight:700;letter-spacing:.03em;opacity:.7;margin-top:2px;}
+    @media(max-width:560px){ .seg button{padding:6px 10px;} }
     .scorebar{display:flex;justify-content:center;gap:26px;margin:14px 0 6px;}
     .sb{text-align:center;} .sb .n{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1;} .sb .l{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
     .card{border:1px solid var(--border2);border-radius:18px;background:radial-gradient(120% 130% at 0 0,color-mix(in srgb,var(--accent) 8%,var(--bg2)),var(--bg2));padding:24px 22px;margin-top:12px;}
@@ -107,6 +113,7 @@
       <button class="tab on" id="tYear" onclick="setScope('year')">This year</button>
       <button class="tab" id="tAll" onclick="setScope('all')">All-time · 20 yrs</button>
     </div>
+    <div class="diffwrap" id="diffWrap"></div>
     <div class="scorebar">
       <div class="sb"><div class="n" id="sScore">0</div><div class="l">Score</div></div>
       <div class="sb"><div class="n" id="sRounds">0</div><div class="l">Rounds</div></div>
@@ -131,6 +138,13 @@ const grNum=g=>{const n=+g;return isNaN(n)?null:Math.round(n);};
 
 let scope='year', POOL_YEAR=null, POOL_ALL=null, TARGET=null, guessVal=75, locked=false;
 let S={score:0,rounds:0,nailed:0,missSum:0};
+let difficulty='medium';
+// difficulty filters WHICH player is the mystery, by that player's tdc_grade (= the answer)
+const DIFFS={
+  easy:   {lbl:'Easy',   hint:'household names', min:88},
+  medium: {lbl:'Medium', hint:'notable players', min:82},
+  hard:   {lbl:'Hard',   hint:'deep cuts',       min:74}
+};
 const seasonLbl=y=>y?((y-1)+'-'+String(y).slice(2)):'';
 const classInfo=y=>{const s=(''+(y||'')).toLowerCase();return s.indexOf('fr')>=0?'Fr':s.indexOf('so')>=0?'So':s.indexOf('jr')>=0?'Jr':s.indexOf('sr')>=0?'Sr':(y||'');};
 
@@ -175,9 +189,16 @@ async function setScope(s){
   nextRound();
 }
 function renderScore(){ el('sScore').textContent=S.score; el('sRounds').textContent=S.rounds; el('sNailed').textContent=S.nailed; el('sAvg').textContent=S.rounds?(S.missSum/S.rounds).toFixed(1):'—'; }
+function renderDiff(){ const w=el('diffWrap'); if(!w) return;
+  w.innerHTML='<div class="seg" title="Difficulty sets how well-known the mystery player can be">'+
+    Object.keys(DIFFS).map(k=>`<button class="${difficulty===k?'on':''}" onclick="setDifficulty('${k}')">${DIFFS[k].lbl}<small>${DIFFS[k].hint}</small></button>`).join('')+'</div>'; }
+function setDifficulty(d){ if(d===difficulty||!DIFFS[d]) return; difficulty=d; renderDiff(); nextRound(); }
 
 function nextRound(){
-  const pool=curPool(); if(!pool||!pool.length){ el('content').innerHTML='<div class="loading">No players available.</div>'; return; }
+  const all=curPool(); if(!all||!all.length){ el('content').innerHTML='<div class="loading">No players available.</div>'; return; }
+  const min=(DIFFS[difficulty]||DIFFS.medium).min;
+  const pool=all.filter(p=>{const g=grNum(p.tdc_grade); return g!=null&&g>=min;});
+  if(!pool.length){ el('content').innerHTML='<div class="loading">No players at this difficulty.</div>'; return; }
   TARGET=pool[Math.floor(Math.random()*pool.length)]; guessVal=75; locked=false;
   TARGET._grade=_canonGrade(TARGET);   // canonical grade = the answer, matching the rest of the site
   const t=TARGET, ph=t.photo_url?`<img class="ph" src="${esc(t.photo_url)}" alt="" onerror="this.style.visibility='hidden'">`:`<div class="ph"></div>`;
@@ -214,6 +235,7 @@ function submitGuess(){
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('rev').parentElement);
 }
 
+renderDiff();
 setScope('year');
 </script>
   <script src="tdc-version.js?v=2"></script>
