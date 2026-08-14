@@ -3102,7 +3102,7 @@ function calcCustomAnalytics(){
   const starters = POS_KEYS.map(pos => (customDepth[pos]||[])[0]).filter(Boolean);
   if(!starters.length) return null;
 
-  let weightedGrade=0, totalMins=0, wearPenalty=0, foulRisk=0, offScore=0;
+  let weightedGrade=0, totalMins=0, overload=0, offScore=0;
   starters.forEach(p => {
     const pos = customPos[p.name] || p.position || 'G';
     const fit = calcPositionFit(p, pos);
@@ -3115,18 +3115,32 @@ function calcCustomAnalytics(){
     const mpg = customMpg[p.name] !== undefined ? customMpg[p.name] : mpgBase;
     weightedGrade += effGrade * mpg;
     totalMins += mpg;
-    if(mpg>=38) wearPenalty += (mpg-37)*1.2;
-    else if(mpg>=35) wearPenalty += (mpg-34)*0.5;
-    const isBig=['PF','C'].includes(pos);
-    if(mpg>=36&&isBig) foulRisk += (mpg-35)*0.8;
-    else if(mpg>=38) foulRisk += (mpg-37)*0.4;
+    // Wear/foul risk is grounded in a sustainable starter load: 34 MPG is a full-time starter,
+    // and every minute past that is "overload". Bigs (PF/C) also pick up foul exposure once run
+    // past 32, since heavy frontcourt minutes mean foul trouble.
+    overload += Math.max(0, mpg - 34);
+    if(['PF','C'].includes(pos)) overload += Math.max(0, mpg - 32) * 0.4;
     offScore += (parseFloat(p.ppg)||0 + (parseFloat(p.apg)||0)*1.5) * (mpg/30);
   });
 
   const avgGrade = totalMins>0 ? weightedGrade/totalMins : 70;
-  const bench = POS_KEYS.flatMap(pos=>(customDepth[pos]||[]).slice(1)).filter(Boolean);
-  const benchAvg = bench.length ? bench.reduce((s,p)=>s+gradeToNum(p.tdc_grade||''),0)/bench.length : 60;
-  const depthScore = avgGrade*0.7 + benchAvg*0.3 - wearPenalty*0.5 - foulRisk*0.3;
+
+  // ── Depth Score: the projected OVR of the FULL rotation, on the same scale as Lineup Quality
+  // (which is the starters). The gap between the two is your drop-off when the bench plays. Bench
+  // pieces are weighted by projected minutes (a 20-mpg 6th man counts far more than a 12th man)
+  // and use the same projected OVR the rest of the site shows — not the raw demonstrated grade.
+  const _ovrOf = p => { const g=parseFloat(_gdisp(p)); return isFinite(g)?g:gradeToNum(p.tdc_grade||''); };
+  const _mpgOf = p => { const m=customMpg[p.name]; if(m!==undefined) return parseFloat(m)||0;
+    const pm=parseFloat(p._projMin); if(isFinite(pm)) return pm; return parseFloat(p.mpg)||0; };
+  const benchAll = POS_KEYS.flatMap(pos=>(customDepth[pos]||[]).slice(1)).filter(Boolean);
+  const benchRot = benchAll.map(p=>({ovr:_ovrOf(p), m:Math.max(2,_mpgOf(p))})).sort((a,b)=>b.m-a.m).slice(0,5);
+  const benchW = benchRot.reduce((s,x)=>s+x.m,0);
+  const benchOVR = benchW>0 ? benchRot.reduce((s,x)=>s+x.ovr*x.m,0)/benchW : 58;   // 58 ≈ replacement-level bench
+  const depthScore = 0.62*avgGrade + 0.38*benchOVR;
+
+  // Wear/foul risk (0-10): total starter overload minutes, scaled so one 38-min starter reads
+  // ~2.5 and a whole starting five run into the ground reads ~10.
+  const wearRisk = Math.min(10, overload*0.62);
 
   // Projected Power Rating from the lineup's minutes-weighted starter OVR — calibrated across
   // 99 teams (r=0.75): PowerRating ≈ -92.9 + 1.38 × starterOVR. Reacts live to swaps + minutes,
@@ -3135,8 +3149,9 @@ function calcCustomAnalytics(){
   return {
     avgGrade: Math.round(avgGrade*10)/10,
     projPower: projPower,
-    depthScore: Math.round(Math.max(0,Math.min(100,depthScore))*10)/10,
-    wearRisk: Math.round(Math.min(10,wearPenalty+foulRisk)*10)/10,
+    depthScore: Math.round(Math.max(40,Math.min(99,depthScore))*10)/10,
+    benchOVR: Math.round(benchOVR*10)/10,
+    wearRisk: Math.round(wearRisk*10)/10,
     offScore: Math.round(offScore*10)/10,
   };
 }
@@ -3196,6 +3211,8 @@ function renderAnalyticsBar(analytics, base){
     :(analytics.avgGrade>=87?'#071e5a':analytics.avgGrade>=80?'#1040b8':analytics.avgGrade>=73?'#4278d4':'#88aadd');
   const wc=analytics.wearRisk>=4?'#cc2200':analytics.wearRisk>=2?'#b07000':'#1a8c3a';
   const dc=isDark?'var(--accent)':'rgba(var(--tc-rgb),.9)';
+  // Depth Score is a rotation OVR — colour it by how deep: team accent when strong, amber/red thin
+  const depthC=analytics.depthScore>=78?dc:analytics.depthScore>=68?'#b07000':'#cc2200';
   const _pp=_anchoredProjPower(analytics), _bpp=base?_anchoredProjPower(base):null;
   const _rk=projRankFor(_pp), _brk=_bpp!=null?projRankFor(_bpp):null;
   const _rankDelta=(_rk&&_brk&&_rk!==_brk)?`<div class="analytics-delta ${_rk<_brk?'delta-pos':'delta-neg'}">${_rk<_brk?'▲':'▼'}${Math.abs(_brk-_rk)}</div>`:'';
@@ -3212,11 +3229,11 @@ function renderAnalyticsBar(analytics, base){
       <div class="analytics-val" style="color:${qc};">${analytics.avgGrade}</div>
       <div class="analytics-label">Lineup Quality</div>${delta(analytics.avgGrade,base?.avgGrade)}
     </div>
-    <div class="analytics-cell">
-      <div class="analytics-val" style="color:${dc};">${analytics.depthScore}</div>
+    <div class="analytics-cell has-tip" title="Minutes-weighted projected OVR of your full rotation (starters + key bench) — same scale as Lineup Quality. The gap below Lineup Quality is how far the team drops off when the bench plays.${analytics.benchOVR!=null?' Bench rotation ≈ '+analytics.benchOVR+' OVR.':''}">
+      <div class="analytics-val" style="color:${depthC};">${analytics.depthScore}</div>
       <div class="analytics-label">Depth Score</div>${delta(analytics.depthScore,base?.depthScore)}
     </div>
-    <div class="analytics-cell">
+    <div class="analytics-cell has-tip" title="Starter minutes above a sustainable load: 34 MPG is a full-time starter, and bigs pick up foul exposure past 32. 0 means everyone's rested enough; ~10 means the whole starting five is being run into the ground.">
       <div class="analytics-val" style="color:${wc};">${analytics.wearRisk}</div>
       <div class="analytics-label">Wear / Foul Risk</div>${delta(analytics.wearRisk,base?.wearRisk,true)}
     </div>
