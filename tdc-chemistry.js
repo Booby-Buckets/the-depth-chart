@@ -11,6 +11,15 @@
   function num(p,k){ var n=parseFloat(p&&p[k]); return isNaN(n)?0:n; }
   function synCol(v){ return v>=63?'#5ab875':v>=52?'#d4a24a':'#e07070'; }
   function ovrCol(g){ g=parseFloat(g); if(isNaN(g))return 'var(--text3)'; if(g>=88)return '#5ab875'; if(g>=80)return 'var(--accent)'; if(g>=72)return 'var(--text)'; return 'var(--text2)'; }
+  // The OVR shown everywhere (badges, cards, Lineup OVR) = the PROJECTED overall — the same
+  // number as the player card and the rest of the site — not the raw tdc_grade. Using raw for
+  // the Lineup OVR while the badges showed projected is why the panel read ~4 pts too low.
+  function dispGrade(p){
+    if(!p) return NaN;
+    if(p._projGrade!=null && !isNaN(parseFloat(p._projGrade))) return Math.round(parseFloat(p._projGrade));
+    try{ if(global.TDCProjGrade && TDCProjGrade.gradeSolo && parseFloat(p.mpg)>0){ var g=TDCProjGrade.gradeSolo(p); if(g!=null && !isNaN(g)) return Math.round(g); } }catch(e){}
+    var r=parseFloat(p.tdc_grade); return isNaN(r)?NaN:Math.round(r);
+  }
   function firstLast(n){ var p=(n||'').trim().split(/\s+/); return p.length>1?(p[0][0]+'. '+p[p.length-1]):(n||''); }
 
   // synergy between two players (0-99), + the reasons behind it
@@ -62,7 +71,7 @@
     var dims={ Scoring:nz(S('ppg'),38,78), Spacing:nz(spacers*19+elite*9,8,78),
       Playmaking:nz(S('apg'),7,19), Rebounding:nz(S('rpg'),15,38),
       'Perimeter D':nz(S('stl'),2,7), 'Rim Protect':nz(anchor*22+second*11+S('blk')*2,10,68) };
-    var grades=ps.map(function(p){return parseFloat(p.tdc_grade);}).filter(function(g){return !isNaN(g);});
+    var grades=ps.map(dispGrade).filter(function(g){return !isNaN(g);});
     var rating=grades.length?Math.round(grades.reduce(function(a,b){return a+b;},0)/grades.length):null;
     return {overall:overall,dims:dims,rating:rating,shooters:spacers,count:ps.length,best:best,worst:worst,starters:ps};
   }
@@ -145,7 +154,7 @@
     }
     var showPhoto=(global.tdcShowPhotos&&global.tdcShowPhotos());
     var nodes=pts.map(function(pt){
-      var g=(pt.p.tdc_grade!=null?pt.p.tdc_grade:'')||'', photo=(showPhoto&&pt.p.espn_id)?('https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+pt.p.espn_id+'.png'):'';
+      var _gv=dispGrade(pt.p), g=isNaN(_gv)?'':_gv, photo=(showPhoto&&pt.p.espn_id)?('https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+pt.p.espn_id+'.png'):'';
       // with a photo, show ONLY the headshot (no initials bleeding through the cutout)
       var inner=photo?'<img src="'+photo+'" alt="" loading="lazy" onerror="this.parentNode.classList.add(\'noimg\');this.remove();">':'<span class="chm-init">'+esc(initials(pt.p.name))+'</span>';
       return '<div class="chm-node" style="left:'+pt.x+'%;top:'+pt.y+'%;">'
@@ -174,7 +183,7 @@
     if(!bench||!bench.length) return '';
     var showPhoto=(global.tdcShowPhotos&&global.tdcShowPhotos());
     var chips=bench.map(function(p){
-      var g=(p.tdc_grade!=null?p.tdc_grade:'')||'', photo=(showPhoto&&p.espn_id)?('https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+p.espn_id+'.png'):'';
+      var _gv=dispGrade(p), g=isNaN(_gv)?'':_gv, photo=(showPhoto&&p.espn_id)?('https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+p.espn_id+'.png'):'';
       var pos=((p.position||'')+'').toUpperCase().split(/[\/, ]/)[0]||'';
       return '<div class="chm-bench-chip"><div class="chm-bava'+(photo?'':' noimg')+'">'+(photo?'<img src="'+photo+'" alt="" loading="lazy" onerror="this.parentNode.classList.add(\'noimg\');this.remove();">':'<span>'+esc(initials(p.name))+'</span>')+'</div>'
         +'<div class="chm-bc-txt"><div class="chm-bc-nm">'+esc(firstLast(p.name))+'</div><div class="chm-bc-sub">'+pos+(pos?' · ':'')+num(p,'mpg').toFixed(0)+' mpg</div></div>'
@@ -198,7 +207,7 @@
     var pick=function(arr,k,start,cur,cb){ if(cur.length===k){cb(cur);return;} for(var i=start;i<arr.length;i++){cur.push(arr[i]);pick(arr,k,i+1,cur,cb);cur.pop();} };
     pick(pool,5,0,[],function(five){
       var sum=0,cnt=0; for(var i=0;i<5;i++)for(var j=i+1;j<5;j++){sum+=pairSynergy(five[i],five[j]).score;cnt++;}
-      var syn=sum/cnt, rating=five.reduce(function(t,p){return t+parseFloat(p.tdc_grade);},0)/5, score=rating*0.6+syn*0.4;
+      var syn=sum/cnt, rating=five.reduce(function(t,p){var gg=dispGrade(p);return t+(isNaN(gg)?0:gg);},0)/5, score=rating*0.6+syn*0.4;
       if(!best||score>best.score) best={five:five.slice(),syn:Math.round(syn),rating:Math.round(rating),score:score};
     });
     return best;
