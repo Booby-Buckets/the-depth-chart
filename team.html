@@ -3162,7 +3162,7 @@ function _ensureProjRatings(){
 function _anchoredProjPower(a){
   if(!a) return null;
   const projSeason = (typeof _rosterSeason==='undefined') || _rosterSeason>=2027;   // anchor only the 2026-27 roster
-  if(projSeason && window._czCanonRating!=null && window._czBaseAvgGrade!=null)
+  if(projSeason && !window._czBuildMode && window._czCanonRating!=null && window._czBaseAvgGrade!=null)
     return Math.round((window._czCanonRating + 1.38*(a.avgGrade - window._czBaseAvgGrade))*10)/10;
   return a.projPower;
 }
@@ -3176,6 +3176,12 @@ function projRankFor(pr){
 function renderAnalyticsBar(analytics, base){
   if(!analytics) return '';
   _ensureProjRatings();
+  // Build-a-team mode: the projected strength only makes sense with a full starting five, so
+  // hold the readout (and its extrapolated rating) until all 5 spots are filled.
+  if(window._czBuildMode){
+    const sc=POS_KEYS.map(pos=>(customDepth[pos]||[])[0]).filter(Boolean).length;
+    if(sc<5) return `<div class="lineup-analytics" style="grid-template-columns:1fr;"><div class="analytics-cell" style="text-align:center;"><div class="analytics-label" style="font-size:12px;">Building your team — add a starter at all 5 positions to see projected strength &amp; national rank <b style="color:var(--tc-readable,var(--accent));">(${sc}/5)</b></div></div></div>`;
+  }
   const delta=(cur,b,inv=false)=>{
     if(!b) return '';
     const d=Math.round((cur-b)*10)/10;
@@ -4369,6 +4375,7 @@ function rebuildCustomizeUI(){
       <div class="customize-bar" style="margin-top:22px;">
         <span class="customize-label">Drag ⠿ to reorder depth · position selector moves columns · ⇄ swap or add from any era · sliders = minutes</span>
         <button class="rb-auto" id="allTimeBtn" onclick="buildAllTimeBest()" style="padding:7px 13px;font-size:11px;" title="Load this team's best players from the last 20 years — starters + bench">★ All-Time Roster</button>
+        <button class="rb-auto" id="buildScratchBtn" onclick="buildFromScratch()" style="padding:7px 13px;font-size:11px;" title="Start with an empty lineup and build any team from any players, any era">✎ Build From Scratch</button>
         <button class="reset-btn" onclick="resetCustomLineup()">↺ Reset</button>
       </div>
       <div class="pos-depth-grid">${colsHtml}</div>
@@ -4834,14 +4841,29 @@ async function buildAllTimeBest(){
   POS_KEYS.forEach(pos=>{ if(nd[pos].length) return;
     for(const a of (adj[pos]||[])){ const x=graded.find(y=>!used.has(y.name)&&y._rp===a); if(x){ nd[pos].push(shape(x)); used.add(x.name); break; } } });
   customDepth=nd; customMpg={}; customPos={}; customRole={}; _rotationUserSet=false;
+  window._czBuildMode=false;   // all-time roster is still THIS team → keep the rating anchor
   _baseCustomProj=buildCustomProjections(); baseAnalytics=calcCustomAnalytics();
   rebuildCustomizeUI();
   try{ if(typeof toast==='function') toast(teamName+' all-time roster loaded'); }catch(e){}
 }
+// Blank "Build-a-Team" mode: empty every position, then the owner fills each slot with ANY
+// player from ANY team/era via the + Add picker (defaulted to the All-time source). The Proj
+// Power Rating drops its team anchor here (this is no longer "this team") and reads straight off
+// the regression, so a hand-built dream team still gets a live projected strength + national rank.
+function buildFromScratch(){
+  window._czBuildMode=true;
+  POS_KEYS.forEach(pos=>{ customDepth[pos]=[]; });
+  customMpg={}; customPos={}; customRole={}; _rotationUserSet=false;
+  baseAnalytics=null; _baseCustomProj=[]; _baseAdvanced=null;
+  swapSource='alltime';   // the + Add picker opens straight to any team / any era
+  rebuildCustomizeUI();
+  try{ if(typeof toast==='function') toast('Blank lineup — tap + Add to build any team from any era'); }catch(e){}
+}
 function resetCustomLineup(){
+  window._czBuildMode=false;
   POS_KEYS.forEach(pos=>{ customDepth[pos]=[...baseDepthSnapshot[pos]]; });
   customMpg={}; customPos={}; customRole={};
-  _baseCustomProj=buildCustomProjections();
+  _baseCustomProj=buildCustomProjections(); baseAnalytics=calcCustomAnalytics();
   _baseAdvanced=null;
   rebuildCustomizeUI();
 }
