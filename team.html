@@ -603,8 +603,8 @@
     body.no-color .sortable-table td{background:none!important;color:var(--text2)!important;}
     .stat-header{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 36px 48px 48px 48px 48px 52px 52px 46px 46px 46px 46px 46px 46px 46px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:6px 0;border-bottom:2px solid var(--border2);}
     /* Customize tab — wider MPG column for slider */
-    .cstat-header{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 48px 48px 48px 48px 48px 52px 52px 46px 46px 46px 46px 46px 46px 46px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:6px 0;border-bottom:2px solid var(--border2);}
-    .crotation-row{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 48px 48px 48px 48px 48px 52px 52px 46px 46px 46px 46px 46px 46px 46px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);}
+    .cstat-header{display:grid;grid-template-columns:28px 34px 190px 40px 48px 46px 46px 46px 46px 46px 46px 50px 46px 46px 50px 46px 46px 50px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:6px 0;border-bottom:2px solid var(--border2);}
+    .crotation-row{display:grid;grid-template-columns:28px 34px 190px 40px 48px 46px 46px 46px 46px 46px 46px 50px 46px 46px 50px 46px 46px 50px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);}
     .rotation-row{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 36px 48px 48px 48px 48px 52px 52px 46px 46px 46px 46px 46px 46px 46px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;}
     /* Projections table — same look, 4 extra advanced columns (USG/TS/BPM/WA) */
     .pstat-header{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 36px 48px 48px 48px 48px 52px 52px 46px 46px 46px 46px 46px 46px 46px 40px 40px 40px 40px 40px 44px 44px 42px 42px 44px;align-items:center;gap:4px;padding:6px 0;border-bottom:2px solid var(--border2);}
@@ -635,6 +635,10 @@
     .proj-gs .crotation-row:nth-child(2n){background:color-mix(in srgb,var(--text) 3.5%,transparent);}
     .proj-gs .rot-name a{font-weight:650;}
     .proj-gs .rot-stat.elite,.proj-gs .rot-stat.good{font-weight:700;}
+    /* keep the sheet compact (don't stretch to fill the page) and stop values wrapping */
+    .proj-gs{width:max-content;max-width:100%;}
+    .proj-gs .crotation-row,.proj-gs .cstat-header{width:max-content;min-width:0!important;}
+    .proj-gs .rot-stat,.proj-gs .rot-cls,.proj-gs .rot-name,.proj-gs .rot-num,.proj-gs .rot-pos,.proj-gs .stat-header-cell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .proj-gs .stat-header-cell.proj-sortable{cursor:pointer;user-select:none;transition:color .12s,background .12s;}
     .proj-gs .stat-header-cell.proj-sortable:hover{color:var(--text);background:rgba(128,128,128,.10);}
     .proj-gs .proj-sarr{font-size:8px;color:var(--accent);}
@@ -4525,6 +4529,15 @@ function buildCustomProjections(){
 function renderCustomProjectionsTable(){
   let projected=buildCustomProjections();
   if(!projected.length) return '<div id="customProjTable"></div>';
+  // Row order: the 5 starters in floor order PG→SG→SF→PF→C, then the bench beneath them
+  // by projected minutes (6th man, 7th man, …).
+  (function(){
+    const starterName={}; POS_KEYS.forEach(pos=>{ const s=(customDepth[pos]||[])[0]; if(s&&s.name) starterName[s.name]=pos; });
+    const mpgOf=p=>{ const m=customMpg[p.name]; return m!==undefined?(parseFloat(m)||0):(parseFloat(p.mpg)||0); };
+    const starters=[]; POS_KEYS.forEach(pos=>{ const s=(customDepth[pos]||[])[0]; if(s&&s.name){ const row=projected.find(r=>r&&r.name===s.name); if(row) starters.push(row); } });
+    const bench=projected.filter(p=>p&&!(p.name in starterName)).sort((a,b)=>mpgOf(b)-mpgOf(a));
+    projected=starters.concat(bench);
+  })();
 
   const fmt    = v => v!=null&&v!=='' ? Number(v).toFixed(1) : '—';
   const fmtMpg = v => v!=null&&v!=='' ? Number(v).toFixed(1) : '—';
