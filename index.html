@@ -1181,7 +1181,7 @@
 </style>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
-  <link rel="stylesheet" href="tdc-dense.css?v=32"/>
+  <link rel="stylesheet" href="tdc-dense.css?v=33"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth; releases the dense dark-lock -->
   <link rel="stylesheet" href="tdc-skin.css?v=8"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
@@ -1345,6 +1345,7 @@
     <div class="th">Team</div>
     <div class="th sortable" data-sort="srs" title="Power Rating — how many points better than an average Division I team this team is, on a neutral court and adjusted for who they played. A +18 team would beat an average team by about 18. The gap between two teams' Power Ratings is the projected point spread." style="text-decoration:underline dotted;text-underline-offset:3px;">PRtg<span class="th-arrow"></span></div>
     <div class="th"></div>
+    <div class="th center sortable" data-col="wl" data-sort="wins" title="Win–Loss record. Shown only for seasons that have been played; the projected season leaves it blank.">W-L<span class="th-arrow"></span></div>
     <div class="th center sortable" data-sort="ortg" title="Offensive Rating — points scored per 100 possessions, adjusted for opponent and pace (from the Team DNA engine). Higher = better offense. Sort by this to find the best offenses." style="text-decoration:underline dotted;text-underline-offset:3px;">ORtg<span class="th-arrow"></span></div>
     <div class="th center sortable" data-sort="drtg" title="Defensive Rating — points allowed per 100 possessions, adjusted for opponent and pace (from the Team DNA engine). LOWER = better defense. Sort by this to find the best defenses." style="text-decoration:underline dotted;text-underline-offset:3px;">DRtg<span class="th-arrow"></span></div>
     <div class="th center sortable" data-sort="net" title="Net Rating — offensive rating minus defensive rating, i.e. how many points per 100 possessions this team outscores its opponents by (opponent- and pace-adjusted). The single best one-number measure of team quality. Sort by this to rank teams by efficiency margin." style="text-decoration:underline dotted;text-underline-offset:3px;">Net<span class="th-arrow"></span></div>
@@ -1361,10 +1362,10 @@
     <div class="th center sortable" data-sort="spg">SPG<span class="th-arrow"></span></div>
     <div class="th center sortable" data-sort="bpg">BPG<span class="th-arrow"></span></div>
     <div class="th center sortable" data-sort="topg">TOV<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="shotluck" title="Shot Luck (2026-27) — how far this team's returning players shot ABOVE (or below) the quality of their looks last season, in eFG points. Over-shooting your looks is only partly repeatable, so the projection regresses a hot number down (a positive value is a regression caution) and bumps a cold one up." style="text-decoration:underline dotted;text-underline-offset:3px;">Luck<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="sglq" title="Look Quality (2025-26) — the eFG% a league-average shooter would post on this team's shot diet. How good the LOOKS this team generates are, independent of whether they made them." style="text-decoration:underline dotted;text-underline-offset:3px;">LookQ<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="sgsm" title="Shot-Making (2025-26) — points this team added over an average shooter given its shot diet, per 100 shots, adjusted for competition. Pure finishing skill." style="text-decoration:underline dotted;text-underline-offset:3px;">Sh-Make<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="sgcr" title="Creation (2025-26) — expected points this team's passing generates per game, each assist valued by the quality of the look it created. A corner-3 dime beats a long-two dime." style="text-decoration:underline dotted;text-underline-offset:3px;">Create<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-col="shotluck" data-sort="shotluck" title="Shot Luck (2026-27) — how far this team's returning players shot ABOVE (or below) the quality of their looks last season, in eFG points. Over-shooting your looks is only partly repeatable, so the projection regresses a hot number down (a positive value is a regression caution) and bumps a cold one up." style="text-decoration:underline dotted;text-underline-offset:3px;">Luck<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-col="sglq" data-sort="sglq" title="Look Quality (2025-26) — the eFG% a league-average shooter would post on this team's shot diet. How good the LOOKS this team generates are, independent of whether they made them." style="text-decoration:underline dotted;text-underline-offset:3px;">LookQ<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-col="sgsm" data-sort="sgsm" title="Shot-Making (2025-26) — points this team added over an average shooter given its shot diet, per 100 shots, adjusted for competition. Pure finishing skill." style="text-decoration:underline dotted;text-underline-offset:3px;">Sh-Make<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-col="sgcr" data-sort="sgcr" title="Creation (2025-26) — expected points this team's passing generates per game, each assist valued by the quality of the look it created. A corner-3 dime beats a long-two dime." style="text-decoration:underline dotted;text-underline-offset:3px;">Create<span class="th-arrow"></span></div>
   </div>
   <div id="rankingsList">
     <!-- Branded skeleton loader -->
@@ -1775,10 +1776,19 @@ async function loadSeason(yr){
     if(!r.ok) throw new Error(`Supabase error ${r.status}`);
     const rows = await r.json();
     const effLc = effByLc(await ensureEff(), ''+yr);   // per-100 ORtg/DRtg from Team DNA
+    // Shot Genome (Look Quality / Shot-Making / Creation) exists only for 2025-26 (the
+    // shot-location play-by-play era). Wire it into that season's rows; older seasons
+    // have no shot data, so those columns stay empty and auto-hide.
+    let sgBy={};
+    if(+yr===2026){
+      const sgRaw = await fetch('scripts/data/shot_genome_teams.json').then(x=>x.ok?x.json():null).catch(()=>null);
+      ((sgRaw&&sgRaw.teams)||[]).forEach(g=>{ sgBy[(g.team||'').toLowerCase().trim()]=g; });
+    }
 
     allTeams = rows.map(t => {
       const w=+t.wins||0,l=+t.losses||0,gp=w+l,mc=matchColor(t.team,colors);
       const e=effLc[(t.team||'').toLowerCase().trim()];
+      const sg=sgBy[(t.team||'').toLowerCase().trim()];
       return { name:t.team, short:mc.short, color:(window.tdcTeamColorHex&&tdcTeamColorHex(t.team))||mc.color||'#7c7c8a',
         conf:confAbbr(t.conference), confName:t.conference||'—',
         wins:w, losses:l, gp, winpct:gp?w/gp:0, cw:+t.conf_wins||0, cl:+t.conf_losses||0,
@@ -1787,6 +1797,7 @@ async function loadSeason(yr){
         fg:+t.fg_pct||0, tp:+t.tp_pct||0, ft:+t.ft_pct||0, rpg:+t.rpg||0, apg:+t.apg||0, topg:+t.topg||0,
         spg:+t.spg||0, bpg:+t.bpg||0, orpg:+t.orpg||0, drpg:+t.drpg||0,
         ato:(+t.topg>0?Math.round((+t.apg||0)/(+t.topg)*10)/10:0),
+        sglq:(sg&&sg.off?sg.off.lq:null), sgsm:(sg&&sg.off?sg.off.smAdj:null), sgcr:(sg&&sg.crAdjPg!=null?sg.crAdjPg:null),
         srs:(t.srs!=null?Math.round(+t.srs*10)/10:null), tier:t.tier||null };
     }).filter(t=>t.gp>=5);
     window._useSrs = allTeams.some(t=>t.srs!=null);
@@ -1950,7 +1961,36 @@ function applyFilters(animated){
   }
 }
 
+// Conditional stat columns: shown only when the current season actually has data for
+// them, otherwise hidden so nothing sits empty. W-L (record) exists for played seasons;
+// Luck is 2026-27-only; LookQ/Sh-Make/Create exist for 2025-26 + the projection.
+function applyRankColumns(){
+  const teams = window.allTeams || allTeams || [];
+  const RC = {
+    wl:       teams.some(t=>t.gp>0),
+    shotluck: teams.some(t=>t.shotluck!=null),
+    sglq:     teams.some(t=>t.sglq!=null),
+    sgsm:     teams.some(t=>t.sgsm!=null),
+    sgcr:     teams.some(t=>t.sgcr!=null),
+  };
+  window._rankCols = RC;
+  // show/hide the header cells for the conditional columns
+  document.querySelectorAll('.table-header [data-col]').forEach(th=>{
+    th.style.display = RC[th.dataset.col] ? '' : 'none';
+  });
+  // rebuild the desktop grid track list (>=641px) to only include active columns, so the
+  // row/header widths stay aligned with no empty trailing tracks. Mobile keeps its own grid.
+  let g = '48px minmax(210px,1fr) 82px 74px';           // rank · team · PRtg · trend
+  if(RC.wl) g += ' 58px';                                // W-L
+  g += ' 56px 56px 56px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px'; // ORtg…TOV (always)
+  if(RC.shotluck) g += ' 56px';
+  if(RC.sglq) g += ' 54px';
+  if(RC.sgsm) g += ' 54px';
+  if(RC.sgcr) g += ' 60px';
+  document.documentElement.style.setProperty('--rank-grid', g);
+}
 function renderRows(data, srt, favTeam, favColor, favBg){
+  applyRankColumns();
   if(!data.length){
     document.getElementById('rankingsList').innerHTML =
       '<div style="padding:40px;text-align:center;color:var(--text3);">No teams found</div>';
@@ -1959,6 +1999,8 @@ function renderRows(data, srt, favTeam, favColor, favBg){
   const _useSrs = window._useSrs;
   const mval = t => (_useSrs && t.srs!=null) ? t.srs : t.margin;
   const maxM = Math.max(8, ...data.map(t=>Math.abs(mval(t))));
+  const RC = window._rankCols || {};
+  const hide = k => RC[k] ? '' : ' style="display:none"';   // collapse columns with no data this season
   let html='';
   data.forEach(t=>{
     const v = mval(t);
@@ -1983,6 +2025,7 @@ function renderRows(data, srt, favTeam, favColor, favBg){
         <span class="mbar-val" style="color:${barC};">${pos?'+':''}${v}</span>
       </div>
       <div class="tr-spacer"></div>
+      <div class="tr-stat" data-col="wl"${hide('wl')}><b>${t.gp?`${t.wins}–${t.losses}`:'—'}</b><span>W-L</span></div>
       <div class="tr-stat"><b>${t.ortg!=null?t.ortg.toFixed(1):'—'}</b><span>ORtg</span></div>
       <div class="tr-stat"><b>${t.drtg!=null?t.drtg.toFixed(1):'—'}</b><span>DRtg</span></div>
       <div class="tr-stat">${t.net!=null?`<b style="color:${t.net>0?'#3fa66a':'#c75d5d'}">${t.net>0?'+':''}${t.net.toFixed(1)}</b>`:'<b>—</b>'}<span>Net</span></div>
@@ -1999,10 +2042,10 @@ function renderRows(data, srt, favTeam, favColor, favBg){
       <div class="tr-stat"><b>${t.spg?t.spg.toFixed(1):'—'}</b><span>SPG</span></div>
       <div class="tr-stat"><b>${t.bpg?t.bpg.toFixed(1):'—'}</b><span>BPG</span></div>
       <div class="tr-stat"><b>${t.topg?t.topg.toFixed(1):'—'}</b><span>TOV</span></div>
-      <div class="tr-stat">${t.shotluck!=null?`<b style="color:${t.shotluck>0?'#c78a2f':'#3fa66a'}">${t.shotluck>0?'+':''}${t.shotluck}</b>`:'<b>—</b>'}<span>Luck</span></div>
-      <div class="tr-stat"><b>${t.sglq!=null?t.sglq.toFixed(1):'—'}</b><span>LookQ</span></div>
-      <div class="tr-stat">${t.sgsm!=null?`<b style="color:${t.sgsm>0?'#3fa66a':'#c75d5d'}">${t.sgsm>0?'+':''}${t.sgsm.toFixed(1)}</b>`:'<b>—</b>'}<span>Sh-Make</span></div>
-      <div class="tr-stat"><b>${t.sgcr!=null?t.sgcr.toFixed(1):'—'}</b><span>Create</span></div>
+      <div class="tr-stat" data-col="shotluck"${hide('shotluck')}>${t.shotluck!=null?`<b style="color:${t.shotluck>0?'#c78a2f':'#3fa66a'}">${t.shotluck>0?'+':''}${t.shotluck}</b>`:'<b>—</b>'}<span>Luck</span></div>
+      <div class="tr-stat" data-col="sglq"${hide('sglq')}><b>${t.sglq!=null?t.sglq.toFixed(1):'—'}</b><span>LookQ</span></div>
+      <div class="tr-stat" data-col="sgsm"${hide('sgsm')}>${t.sgsm!=null?`<b style="color:${t.sgsm>0?'#3fa66a':'#c75d5d'}">${t.sgsm>0?'+':''}${t.sgsm.toFixed(1)}</b>`:'<b>—</b>'}<span>Sh-Make</span></div>
+      <div class="tr-stat" data-col="sgcr"${hide('sgcr')}><b>${t.sgcr!=null?t.sgcr.toFixed(1):'—'}</b><span>Create</span></div>
     </div>`;
   });
   document.getElementById('rankingsList').innerHTML = html;
