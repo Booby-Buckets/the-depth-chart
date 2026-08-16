@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="stylesheet" href="tdc-a11y.css?v=1">
+  <script src="tdc-a11y.js?v=1" defer></script>
+  <meta name="description" content="College basketball betting trends & edges — team ATS/scoring trends and player prop trends built on 20 years of our own data, fused with the model's projected lines.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Betting Lab — The Depth Chart">
+  <meta property="og:description" content="Team & player betting trends over 5+ years, model lines, and an edge cheat sheet for college basketball.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/betting.html">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Betting Lab — The Depth Chart">
+  <meta charset="UTF-8"/>
+  <script src="tdc-theme.js?v=2"></script>
+  <script src="auth.js?v=shotlock1"></script>
+  <script src="tdc-gate.js?v=3"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Betting Lab — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="team-colors.js?v=2"></script>
+  <script src="tdc-ratings.js?v=7"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--gold:#C8A020;--green:#1a8c3a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--gold:#C8A020;--green:#5ab875;--red:#e07070;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);}
+    .page{max-width:1240px;margin:0 auto;padding:30px 24px 80px;}
+    h1{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;margin-bottom:4px;}
+    .sub{font-size:13px;color:var(--text3);margin-bottom:8px;max-width:900px;line-height:1.6;}
+    .banner{display:flex;gap:10px;align-items:flex-start;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:11px 14px;margin:14px 0 6px;font-size:12px;color:var(--text2);line-height:1.55;max-width:900px;}
+    .banner b{color:var(--text);}
+    .sec{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:34px 0 12px;padding-bottom:6px;border-bottom:2px solid var(--border2);display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;}
+    .sec .hint{font-weight:600;letter-spacing:0;text-transform:none;font-size:11px;color:var(--text3);}
+    .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;}
+    .pill{font-size:11px;font-weight:700;padding:6px 12px;border:1px solid var(--border2);border-radius:16px;background:none;color:var(--text3);cursor:pointer;white-space:nowrap;}
+    .pill.on{background:var(--accent);color:#221c08;border-color:var(--accent);}
+    [data-theme="dark"] .pill.on{color:#181818;}
+    select,input.search{padding:8px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;}
+    input.search{width:220px;}
+    .tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--bg2);}
+    table{width:100%;border-collapse:collapse;font-size:13px;min-width:820px;}
+    th{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;padding:9px 10px;border-bottom:2px solid var(--border2);white-space:nowrap;cursor:pointer;user-select:none;background:var(--bg3);position:sticky;top:0;}
+    th.l{text-align:left;}
+    th.on{color:var(--accent);}
+    td{padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+    td.l{text-align:left;}
+    tr:last-child td{border-bottom:none;}
+    tbody tr:hover{background:var(--bg3);}
+    td a{color:var(--text);text-decoration:none;font-weight:700;}
+    td a:hover{color:var(--accent);}
+    .pos{color:var(--green);font-weight:700;}
+    .neg{color:var(--red);font-weight:700;}
+    .rk{color:var(--text3);font-size:11px;}
+    .loading{padding:50px;text-align:center;color:var(--text3);}
+    .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:14px;max-width:900px;}
+    /* player prop explorer */
+    .two{display:grid;grid-template-columns:300px 1fr;gap:18px;align-items:start;}
+    @media(max-width:820px){.two{grid-template-columns:1fr;}}
+    .plist{border:1px solid var(--border);border-radius:12px;background:var(--bg2);max-height:520px;overflow-y:auto;}
+    .prow{padding:9px 13px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px;display:flex;justify-content:space-between;gap:8px;}
+    .prow:hover,.prow.on{background:var(--bg3);}
+    .prow .pt{color:var(--text3);font-size:11px;}
+    .pcard{border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:18px;}
+    .statgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:14px;}
+    .stat{border:1px solid var(--border);border-radius:10px;padding:12px 14px;background:var(--bg);}
+    .stat h4{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+    .stat .avg{font-family:'Playfair Display',serif;font-size:26px;font-weight:800;line-height:1;}
+    .stat .rng{font-size:11px;color:var(--text3);margin-top:5px;}
+    .stat .trend{font-size:11px;font-weight:700;margin-top:6px;}
+    .propcalc{display:flex;gap:8px;align-items:center;margin-top:8px;font-size:12px;flex-wrap:wrap;}
+    .propcalc input{width:64px;padding:5px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;text-align:center;}
+    .hit{font-weight:800;}
+    .empty{padding:36px;text-align:center;color:var(--text3);font-size:13px;}
+  </style>
+  <link rel="stylesheet" href="tdc-anim.css?v=4"/>
+  <script src="tdc-anim.js?v=5"></script>
+  <link rel="stylesheet" href="tdc-dense.css?v=33"/>
+  <link rel="stylesheet" href="tdc-skin.css?v=8"/>
+  <style>
+    :root:not([data-theme="dark"]){background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
+  </style>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#FAF9F6" media="(prefers-color-scheme: light)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=2" defer></script>
+</head>
+<body data-anim-auto>
+  <script src="tdc-nav.js?v=14"></script>
+  <div class="page">
+    <h1>Betting Lab</h1>
+    <div class="sub">Team &amp; player betting trends built on <b>20 years of our own game and box-score data</b>, measured against the model's projected lines. Study how teams perform versus the number and how players hit their prop baselines — then turn it into an edge.</div>
+    <div class="banner">
+      <span>📡</span>
+      <div><b>Live lines &amp; edges activate in-season.</b> Real sportsbook spreads, totals and props connect through the odds feed once the season tips and the API key is in. Everything below is live now — it runs on our own data and needs no external feed.</div>
+    </div>
+
+    <!-- ══ TEAM TRENDS ══ -->
+    <div class="sec"><span>Team Trends</span><span class="hint" id="teamHint">last 5 seasons · vs our power-rating line</span></div>
+    <div class="controls">
+      <span style="font-size:11px;font-weight:700;color:var(--text3);">SEASON</span>
+      <button class="pill on" data-season="all">5-yr</button>
+      <button class="pill" data-season="2026">25-26</button>
+      <button class="pill" data-season="2025">24-25</button>
+      <button class="pill" data-season="2024">23-24</button>
+      <button class="pill" data-season="2023">22-23</button>
+      <button class="pill" data-season="2022">21-22</button>
+      <input class="search" id="teamSearch" placeholder="Search team…"/>
+    </div>
+    <div class="tbl-wrap">
+      <table id="teamTbl">
+        <thead><tr>
+          <th class="l" data-k="rk">#</th>
+          <th class="l" data-k="name">Team</th>
+          <th data-k="rec" title="Straight-up record">Record</th>
+          <th data-k="winpct" class="on">Win%</th>
+          <th data-k="homepct" title="Home win %">Home</th>
+          <th data-k="awaypct" title="Away win %">Away</th>
+          <th data-k="margin" title="Average scoring margin">Margin</th>
+          <th data-k="total" title="Average combined points">Total</th>
+          <th data-k="vsLine" title="Average points ABOVE (or below) our power-rating projected line. Positive = the team has beaten our number, i.e. been undervalued.">vs Line</th>
+          <th data-k="favpct" title="How often the team beat our line as a projected favorite">Fav ✓</th>
+          <th data-k="dogpct" title="How often the team beat our line as a projected underdog">Dog ✓</th>
+        </tr></thead>
+        <tbody id="teamBody"><tr><td colspan="11" class="loading">Loading team trends…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="note"><b>vs Line</b> is our own backtest: each game's result compared to the point-spread line implied by our season power ratings (SRS + home court). A team that consistently beats that number has been priced low by the model — a starting point for value, not a guarantee. Real sportsbook lines layer on top once the feed is live.</div>
+
+    <!-- ══ PLAYER PROP TRENDS ══ -->
+    <div class="sec"><span>Player Prop Trends</span><span class="hint" id="playerHint">points · rebounds · assists · threes · P+R+A</span></div>
+    <div class="two">
+      <div>
+        <input class="search" id="playerSearch" placeholder="Search player…" style="width:100%;margin-bottom:10px;"/>
+        <div class="plist" id="playerList"><div class="empty" id="playerListMsg">Loading players…</div></div>
+      </div>
+      <div class="pcard" id="playerCard">
+        <div class="empty">Pick a player to see their prop trends — averages, floor/ceiling, season direction, and an over/under hit-rate estimator for any line.</div>
+      </div>
+    </div>
+    <div class="note">Prop hit-rates are estimated from each player's game-to-game distribution (average + spread) over the selected seasons — a fast read on how often a line is likely to cash. Exact game-log hit-rates and live prop lines arrive with the odds feed.</div>
+  </div>
+
+<script>
+// ═══ TEAM TRENDS ═══════════════════════════════════════════════════════════
+let TEAMS=null, teamSeason='all', teamSort='winpct', teamDir=-1;
+const pct = v => (v==null?'—':Math.round(v*100)+'%');
+const sg = (v,d=1) => (v==null?'—':(v>0?'+':'')+v.toFixed(d));
+
+function teamRow(t){   // resolve the active-season view (all-time vs a specific season)
+  const s = teamSeason==='all' ? t : (t.bySeason&&t.bySeason[teamSeason]);
+  if(!s) return null;
+  return {
+    name:t._name, short:t._short,
+    rec:s.w+'–'+s.l, w:s.w, l:s.l, g:s.g, winpct:s.winpct,
+    homepct:s.home.pct, awaypct:s.away.pct,
+    margin:s.margin, total:s.total, vsLine:s.vsLine,
+    favpct:(s.favBeat.g>=5?s.favBeat.pct:null), dogpct:(s.dogBeat.g>=5?s.dogBeat.pct:null),
+  };
+}
+function renderTeams(){
+  if(!TEAMS){return;}
+  const q=(document.getElementById('teamSearch').value||'').toLowerCase().trim();
+  let rows=TEAMS.map(teamRow).filter(Boolean).filter(r=>r.g>=5);
+  if(q) rows=rows.filter(r=>r.name.toLowerCase().includes(q));
+  const dir=teamDir;
+  rows.sort((a,b)=>{
+    let av=a[teamSort], bv=b[teamSort];
+    if(teamSort==='name'){ return a.name.localeCompare(b.name)*(-dir); }
+    if(teamSort==='rec'){ av=a.winpct; bv=b.winpct; }
+    av=(av==null?-1e9:av); bv=(bv==null?-1e9:bv);
+    return (av-bv)*dir || (b.winpct-a.winpct);
+  });
+  const body=document.getElementById('teamBody');
+  if(!rows.length){ body.innerHTML='<tr><td colspan="11" class="empty">No teams match.</td></tr>'; return; }
+  body.innerHTML=rows.map((r,i)=>{
+    const vc = r.vsLine>0?'pos':(r.vsLine<0?'neg':'');
+    return `<tr>
+      <td class="l rk">${i+1}</td>
+      <td class="l"><a href="team.html?team=${encodeURIComponent(r.short||r.name)}">${r.name}</a></td>
+      <td>${r.rec}</td>
+      <td><b>${pct(r.winpct)}</b></td>
+      <td>${pct(r.homepct)}</td>
+      <td>${pct(r.awaypct)}</td>
+      <td class="${r.margin>0?'pos':(r.margin<0?'neg':'')}">${sg(r.margin)}</td>
+      <td>${r.total?.toFixed(1)??'—'}</td>
+      <td class="${vc}">${sg(r.vsLine)}</td>
+      <td>${r.favpct==null?'—':pct(r.favpct)}</td>
+      <td>${r.dogpct==null?'—':pct(r.dogpct)}</td>
+    </tr>`;
+  }).join('');
+}
+function setTeamSort(k){
+  if(teamSort===k) teamDir=-teamDir;
+  else { teamSort=k; teamDir=(k==='name')?1:-1; }
+  document.querySelectorAll('#teamTbl th').forEach(th=>th.classList.toggle('on',th.dataset.k===k));
+  renderTeams();
+}
+document.querySelectorAll('#teamTbl th').forEach(th=>th.addEventListener('click',()=>setTeamSort(th.dataset.k)));
+document.querySelectorAll('.pill[data-season]').forEach(p=>p.addEventListener('click',()=>{
+  document.querySelectorAll('.pill[data-season]').forEach(x=>x.classList.remove('on'));
+  p.classList.add('on'); teamSeason=p.dataset.season;
+  document.getElementById('teamHint').textContent=(teamSeason==='all'?'last 5 seasons':({'2026':'2025-26','2025':'2024-25','2024':'2023-24','2023':'2022-23','2022':'2021-22'})[teamSeason])+' · vs our power-rating line';
+  renderTeams();
+}));
+document.getElementById('teamSearch').addEventListener('input',renderTeams);
+
+fetch('scripts/data/bet_trends_teams.json').then(r=>r.ok?r.json():null).then(d=>{
+  if(!d){ document.getElementById('teamBody').innerHTML='<tr><td colspan="11" class="empty">Team trends not available yet.</td></tr>'; return; }
+  TEAMS=Object.entries(d.teams).map(([name,t])=>{ t._name=name; t._short=(name.split(' ').slice(0,-1).join(' ')||name); return t; });
+  // prefer a proper short name via team-colors if available
+  TEAMS.forEach(t=>{ if(window.tdcShortSchool){ try{ const s=tdcShortSchool(t._name); if(s) t._short=s; }catch(e){} } });
+  renderTeams();
+}).catch(()=>{ document.getElementById('teamBody').innerHTML='<tr><td colspan="11" class="empty">Team trends failed to load.</td></tr>'; });
+
+// ═══ PLAYER PROP TRENDS ════════════════════════════════════════════════════
+let PLAYERS=null, curPlayer=null;
+const STAT_LABEL={pts:'Points',reb:'Rebounds',ast:'Assists',tpm:'3-Pointers',pra:'P + R + A'};
+// standard normal CDF (Abramowitz-Stegun) for the over/under hit-rate estimate
+function normCdf(z){ const t=1/(1+0.2316419*Math.abs(z));
+  const d=0.3989423*Math.exp(-z*z/2);
+  let p=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));
+  return z>0?1-p:p; }
+function overRate(avg,sd,line){ if(sd<=0) return avg>line?1:(avg<line?0:0.5); return 1-normCdf((line-avg)/sd); }
+
+function renderPlayerList(){
+  const q=(document.getElementById('playerSearch').value||'').toLowerCase().trim();
+  const el=document.getElementById('playerList');
+  if(!PLAYERS){ return; }
+  let arr=PLAYERS;
+  if(q) arr=arr.filter(p=>p.name&&p.name.toLowerCase().includes(q));
+  arr=arr.slice().sort((a,b)=>(b.pts||0)-(a.pts||0)).slice(0,120);
+  if(!arr.length){ el.innerHTML='<div class="empty">No players match.</div>'; return; }
+  el.innerHTML=arr.map(p=>`<div class="prow${curPlayer&&curPlayer.id===p.id?' on':''}" data-id="${p.id}">
+      <span>${p.name||'—'}<div class="pt">${p.team||''}</div></span>
+      <span style="text-align:right;font-variant-numeric:tabular-nums;"><b>${p.pts??'—'}</b><div class="pt">ppg</div></span>
+    </div>`).join('');
+  el.querySelectorAll('.prow').forEach(r=>r.addEventListener('click',()=>selectPlayer(r.dataset.id)));
+}
+function trendTxt(bySeason,key){
+  const yrs=Object.keys(bySeason||{}).sort();
+  if(yrs.length<2) return '';
+  const a=bySeason[yrs[0]], b=bySeason[yrs[yrs.length-1]];
+  if(!a||!b||a[key]==null||b[key]==null) return '';
+  const d=b.avg-a.avg;
+  if(Math.abs(d)<0.6) return '<span style="color:var(--text3)">→ steady</span>';
+  return d>0?`<span class="pos">▲ up ${d.toFixed(1)}</span>`:`<span class="neg">▼ down ${Math.abs(d).toFixed(1)}</span>`;
+}
+function selectPlayer(id){
+  curPlayer=PLAYERS.find(p=>p.id===id); if(!curPlayer) return;
+  renderPlayerList();
+  const p=curPlayer, card=document.getElementById('playerCard');
+  const cards=Object.keys(STAT_LABEL).map(s=>{
+    const d=p.stats[s]; if(!d) return '';
+    const lineDefault=(Math.round(d.avg*2)/2 - 0.5).toFixed(1);
+    return `<div class="stat">
+      <h4>${STAT_LABEL[s]}</h4>
+      <div class="avg">${d.avg}</div>
+      <div class="rng">${d.g} g · range ${d.lo}–${d.hi} · med ${d.med}</div>
+      <div class="trend">${trendTxt(d.bySeason,'avg')}</div>
+      <div class="propcalc">O/U <input type="number" step="0.5" value="${lineDefault}" data-stat="${s}" data-avg="${d.avg}" data-sd="${d.sd}"> → <span class="hit" data-out="${s}"></span></div>
+    </div>`;
+  }).join('');
+  card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
+      <div><div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:800;">${p.name}</div>
+      <div style="font-size:12px;color:var(--text3);">${p.team||''} · prop trends, last ${(TEAMSMETA&&TEAMSMETA.seasons?TEAMSMETA.seasons.length:5)} seasons</div></div>
+      <a href="player.html?id=${p.id}" style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;">Full player page →</a>
+    </div>
+    <div class="statgrid">${cards}</div>`;
+  card.querySelectorAll('.propcalc input').forEach(inp=>{
+    const upd=()=>{ const line=parseFloat(inp.value);
+      const r=overRate(parseFloat(inp.dataset.avg),parseFloat(inp.dataset.sd),line);
+      const out=card.querySelector(`[data-out="${inp.dataset.stat}"]`);
+      const o=Math.round(r*100);
+      out.innerHTML=`<span class="${o>=55?'pos':(o<=45?'neg':'')}">${o}% over</span> · ${100-o}% under`;
+    };
+    inp.addEventListener('input',upd); upd();
+  });
+}
+let TEAMSMETA=null;
+document.getElementById('playerSearch').addEventListener('input',renderPlayerList);
+fetch('scripts/data/bet_trends_players.json').then(r=>r.ok?r.json():null).then(d=>{
+  const msg=document.getElementById('playerListMsg');
+  if(!d){ if(msg) msg.textContent='Player prop trends are still being built — check back shortly.'; return; }
+  TEAMSMETA=d.meta;
+  PLAYERS=Object.entries(d.players).map(([id,p])=>({id,name:p.name,team:p.team,stats:p.stats,pts:(p.stats.pts?p.stats.pts.avg:0)}));
+  renderPlayerList();
+}).catch(()=>{ const msg=document.getElementById('playerListMsg'); if(msg) msg.textContent='Player prop trends failed to load.'; });
+</script>
+</body>
+</html>
