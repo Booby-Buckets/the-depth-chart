@@ -140,6 +140,10 @@
     @keyframes ambC{0%{transform:translate(0,0) scale(1);}100%{transform:translate(-20px,14px) scale(.90);}}
     #particleCanvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;}
     .nav-wrap,.breadcrumb,.team-hero,.page-body,footer{position:relative;z-index:1;}
+    /* While a grouped-tab menu is open, lift the whole hero above .page-body so the dropdown
+       floats in FRONT of the spotlight/depth chart (both were z-index:1 → body won by DOM order) */
+    .team-hero.grp-elevated{z-index:500;}
+    .team-hero:has(.hero-grp.open){z-index:500;}
     .nav-wrap{z-index:200;}
 
     /* HERO */
@@ -7834,10 +7838,12 @@ function toggleTheme(){
 
 <script>
 // ── Grouped hero-tab menus (Analytics ▾ · Coach's Tier 🔒 ▾) ──
+function _tgElevate(){ var h=document.getElementById('teamHero'); if(h) h.classList.toggle('grp-elevated', !!document.querySelector('.hero-grp.open')); }
 function _tgToggle(btn, e){ if(e) e.stopPropagation();
   var grp=btn.parentElement, wasOpen=grp.classList.contains('open');
   document.querySelectorAll('.hero-grp.open').forEach(function(g){ g.classList.remove('open'); });
   if(!wasOpen){ grp.classList.add('open'); _tgLinkTeam(); }
+  _tgElevate();
 }
 // Point the Coach's Tier toolkit links at THIS team so they open pre-loaded, not on a picker.
 function _tgLinkTeam(){
@@ -7848,6 +7854,7 @@ function _tgLinkTeam(){
 }
 function _tgPick(id, btn){
   document.querySelectorAll('.hero-grp.open').forEach(function(g){ g.classList.remove('open'); });
+  _tgElevate();
   switchTab(id, btn); _tgSyncActive();
 }
 function _tgSyncActive(){
@@ -7856,7 +7863,7 @@ function _tgSyncActive(){
     grp.classList.toggle('grp-active', any);
   });
 }
-document.addEventListener('click', function(){ document.querySelectorAll('.hero-grp.open').forEach(function(g){ g.classList.remove('open'); }); });
+document.addEventListener('click', function(){ document.querySelectorAll('.hero-grp.open').forEach(function(g){ g.classList.remove('open'); }); _tgElevate(); });
 // keep the group highlight synced for every tab switch (season changes, deep links, gating)
 (function(){ var o=window.switchTab; window.switchTab=function(){ var r=o.apply(this,arguments); try{ _tgSyncActive(); }catch(e){} return r; }; })();
 // Show 🔒 on a group whose menu contains a tab the user isn't entitled to (Analytics + Coach's
