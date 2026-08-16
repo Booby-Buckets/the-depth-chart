@@ -173,15 +173,14 @@ html{ background:#0A0E18 !important; }
 .team-row{ cursor:pointer; }
 .team-row.tr-open{ background:rgba(91,141,239,.09) !important; }
 .tr-drop{
-  /* the expanded panel is ALWAYS dark navy (below), so pin the dark palette inside it
-     regardless of the page theme — otherwise light-mode text (--text #1A1814) is dark-on-dark
-     and unreadable. Values mirror tdc-dense.css's :root[data-theme="dark"]. */
-  --bg:#0A0E18; --bg2:#101827; --bg3:#18212F; --border:#1b2437; --border2:#2a3550;
-  --text:#EAF0FA; --text2:#9AA6C0; --text3:#66738E; --accent:#5AA9FF;
+  /* Theme-aware: inherits the page palette so the panel is LIGHT in light mode and dark in dark.
+     (It used to pin the dark palette unconditionally, which left it dark-grey in light mode.) */
   overflow:hidden; max-height:0; opacity:0;
-  background:rgba(13,18,32,.7); border-bottom:1px solid rgba(130,150,200,.09);
+  background:var(--bg3); border-bottom:1px solid var(--border);
   transition:max-height .3s cubic-bezier(.4,0,.2,1), opacity .24s ease;
 }
+/* keep the rich navy-translucent look in dark mode */
+:root[data-theme="dark"] .tr-drop{ background:rgba(13,18,32,.7); border-bottom-color:rgba(130,150,200,.09); }
 .tr-drop.open{ max-height:230px; opacity:1; }
 .tr-drop-inner{ display:flex; gap:22px; align-items:flex-start; padding:14px 20px 16px 44px; }
 .td-title{ font-size:10.5px; color:var(--text3); font-weight:700; text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px; }
