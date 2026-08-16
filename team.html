@@ -202,7 +202,7 @@
     .hero-grp-car{font-size:8px;opacity:.6;transition:transform .2s;}
     .hero-grp.open .hero-grp-car{transform:rotate(180deg);}
     .hero-grp-lock{font-size:.82em;opacity:.75;}
-    .hero-grp-menu{position:absolute;top:100%;left:0;background:var(--bg2);border:1px solid var(--border2);border-radius:0 0 12px 12px;padding:6px;min-width:200px;display:none;flex-direction:column;gap:1px;z-index:60;box-shadow:0 12px 30px rgba(0,0,0,.3);}
+    .hero-grp-menu{position:absolute;top:calc(100% + 1px);left:0;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:7px;min-width:210px;display:none;flex-direction:column;gap:1px;z-index:400;box-shadow:0 18px 48px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.3);}
     .hero-grp.open .hero-grp-menu{display:flex;}
     .hero-grp-menu .hero-tab{display:block;width:100%;text-align:left;padding:10px 13px;border-top:none;margin-top:0;border-radius:8px;}
     .hero-grp-menu .hero-tab.active{background:var(--bg3);color:var(--tc-readable,var(--accent));border-top:none;}
@@ -210,6 +210,18 @@
     .hero-grp-div{height:1px;background:var(--border);margin:5px 6px;}
     .hero-grp-ext{display:block;padding:10px 13px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);text-decoration:none;border-radius:8px;}
     .hero-grp-ext:hover{background:var(--bg3);color:var(--tc-readable,var(--accent));}
+    /* Coach's Tier mega-menu — the full coach toolkit in a 2-column card grid */
+    .hero-grp-mega{min-width:520px;max-width:min(94vw,600px);}
+    .hgm-sec{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:8px 10px 5px;}
+    .hgm-item{display:flex;flex-direction:column;gap:1px;width:100%;text-align:left;padding:8px 12px;border:none;border-radius:8px;background:none;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:none;}
+    .hgm-item:hover{background:var(--bg3);}
+    .hgm-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;}
+    .hgm-card{display:flex;flex-direction:column;gap:1px;padding:8px 12px;border-radius:8px;text-decoration:none;cursor:pointer;}
+    .hgm-card:hover{background:var(--bg3);}
+    .hgm-t{font-size:12.5px;font-weight:700;color:var(--text);letter-spacing:0;text-transform:none;display:flex;align-items:center;gap:5px;}
+    .hgm-d{font-size:10.5px;color:var(--text3);font-weight:500;letter-spacing:0;text-transform:none;}
+    .hgm-card .hgm-t::after{content:'↗';font-size:.75em;color:var(--text3);opacity:0;transition:opacity .15s;}
+    .hgm-card:hover .hgm-t::after{opacity:1;}
     .hero-tab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:12px 20px;color:var(--text3);cursor:pointer;border:none;background:none;border-top:2px solid transparent;transition:color .2s,border-color .2s;margin-top:-1px;white-space:nowrap;flex-shrink:0;}
     .hero-tab:hover{color:var(--text2);}
     .hero-tab.active{color:var(--text);border-top-color:var(--tc);}
@@ -1138,12 +1150,21 @@
     </div>
     <div class="hero-grp" data-grp="coach">
       <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Coach's Tier <span class="hero-grp-car">▾</span></button>
-      <div class="hero-grp-menu">
-        <button class="hero-tab" onclick="_tgPick('customize',this)">✦ Customize</button>
-        <button class="hero-tab" onclick="_tgPick('report',this)">Roster Report</button>
-        <div class="hero-grp-div"></div>
-        <a class="hero-grp-ext" href="scout.html">Full Scouting Report ↗</a>
-        <a class="hero-grp-ext" href="moneyball.html">Moneyball ↗</a>
+      <div class="hero-grp-menu hero-grp-mega">
+        <div class="hgm-sec">On this team</div>
+        <button class="hgm-item" onclick="_tgPick('customize',this)"><span class="hgm-t">✦ Customize · Lineup Lab</span><span class="hgm-d">Build lineups, minutes & live projections</span></button>
+        <button class="hgm-item" onclick="_tgPick('report',this)"><span class="hgm-t">Roster Report</span><span class="hgm-d">AI scouting breakdown of the roster</span></button>
+        <div class="hgm-sec">Coach's Tier toolkit</div>
+        <div class="hgm-grid">
+          <a class="hgm-card ctool" href="scout.html"><span class="hgm-t">Opponent Scouting Report</span><span class="hgm-d">Scout any opponent</span></a>
+          <a class="hgm-card ctool" href="self-scout.html"><span class="hgm-t">Self-Scout Report</span><span class="hgm-d">Your own tendencies</span></a>
+          <a class="hgm-card ctool" href="matchup.html"><span class="hgm-t">Matchup Predictor</span><span class="hgm-d">Project any game</span></a>
+          <a class="hgm-card ctool" href="matchup-advantage.html"><span class="hgm-t">Matchup Advantage</span><span class="hgm-d">Edges by position</span></a>
+          <a class="hgm-card ctool" href="offense.html"><span class="hgm-t">Offensive Profile</span><span class="hgm-d">Scheme & shot diet</span></a>
+          <a class="hgm-card ctool" href="defense.html"><span class="hgm-t">Defensive Profile</span><span class="hgm-d">Coverages & rim protection</span></a>
+          <a class="hgm-card ctool" href="moneyball.html"><span class="hgm-t">Moneyball</span><span class="hgm-d">Roster value & goal lab</span></a>
+          <a class="hgm-card ctool" href="roster-dev.html"><span class="hgm-t">Roster Development</span><span class="hgm-d">Who's trending up</span></a>
+        </div>
       </div>
     </div>
     <button class="hero-tab" onclick="switchTab('nil',this)">NIL Value</button>
@@ -7816,7 +7837,14 @@ function toggleTheme(){
 function _tgToggle(btn, e){ if(e) e.stopPropagation();
   var grp=btn.parentElement, wasOpen=grp.classList.contains('open');
   document.querySelectorAll('.hero-grp.open').forEach(function(g){ g.classList.remove('open'); });
-  if(!wasOpen) grp.classList.add('open');
+  if(!wasOpen){ grp.classList.add('open'); _tgLinkTeam(); }
+}
+// Point the Coach's Tier toolkit links at THIS team so they open pre-loaded, not on a picker.
+function _tgLinkTeam(){
+  var nm=(typeof teamT!=='undefined' && teamT && teamT.name) ? teamT.name : ''; if(!nm) return;
+  document.querySelectorAll('.hero-grp .ctool').forEach(function(a){
+    var base=(a.getAttribute('href')||'').split('?')[0]; if(base) a.setAttribute('href', base+'?team='+encodeURIComponent(nm));
+  });
 }
 function _tgPick(id, btn){
   document.querySelectorAll('.hero-grp.open').forEach(function(g){ g.classList.remove('open'); });
