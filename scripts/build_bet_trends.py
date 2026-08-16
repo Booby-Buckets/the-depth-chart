@@ -194,10 +194,15 @@ def build_player_trends(seasons):
                 "lo": sa[0], "hi": sa[-1],
                 "p25": sa[int(0.25 * (n - 1))], "med": sa[int(0.5 * (n - 1))], "p75": sa[int(0.75 * (n - 1))]}
 
+    # keep only players active in the last two seasons — props are only bettable on
+    # current players, and it keeps the file loadable (graduated players just bloat it).
+    active_seasons = set(sorted(seasons)[-2:])
     out = {}
     for eid, P in logs.items():
-        pts_all = P["stat"]["pts"]["all"]
-        if len(pts_all) < MIN_GP_PLAYER:
+        pts = P["stat"]["pts"]
+        if len(pts["all"]) < MIN_GP_PLAYER:
+            continue
+        if not (active_seasons & set(pts["sea"].keys())):
             continue
         rec = {"name": P["name"], "team": P["team"], "stats": {}}
         for s in ["pts", "reb", "ast", "tpm", "pra"]:
@@ -205,7 +210,9 @@ def build_player_trends(seasons):
             base = summ(d["all"])
             if not base:
                 continue
-            base["bySeason"] = {str(yr): summ(v) for yr, v in sorted(d["sea"].items()) if v}
+            # per-season kept lightweight (games + average) — enough for the trend arrow
+            base["bySeason"] = {str(yr): {"g": len(v), "avg": round(sum(v) / len(v), 1)}
+                                for yr, v in sorted(d["sea"].items()) if v}
             rec["stats"][s] = base
         out[str(eid)] = rec
 
