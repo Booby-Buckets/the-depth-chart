@@ -5493,6 +5493,16 @@ async function renderOnOff(){
                  :'No on/off data for this team yet — the lineup pipeline is still building (game-level WOWY from NCAA play-by-play).')+'</div>';
     return;
   }
+  // Reliability gate: on/off is only meaningful with a near-full season of play-by-play. Older
+  // seasons have thin/partial PBP (a few games), so cut any team-season whose largest sample is
+  // well under a full season (~2000 team possessions). Below ~1000 the Impact numbers are noise.
+  const MIN_TEAM_POSS=1000;
+  const teamPoss=rows.reduce((m,r)=>Math.max(m,(+r.on_poss||0)+(+r.off_poss||0)),0);
+  if(teamPoss<MIN_TEAM_POSS){
+    const _sl=(+season-1)+'-'+(''+season).slice(2);
+    host.innerHTML='<div class="sec-head">On/Off &amp; WOWY</div><div style="padding:24px;color:var(--text3);max-width:640px;">On/off (WOWY) needs a near-full season of play-by-play to be reliable, and we don\'t have a large enough sample for '+((teamT&&teamT.name)||'this team')+' in '+_sl+' yet. It’s available for recent seasons (2024-25 on).</div>';
+    return;
+  }
   // Sample-adjusted Impact (matches onoff.html): shrink the raw swing toward 0 by the
   // bench-unit sample so a player with few off-court possessions can't post a fake number.
   rows.forEach(r=>{ const on=+r.on_poss||0, off=+r.off_poss||0, raw=r.onoff_net;
