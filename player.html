@@ -23,6 +23,7 @@
   <script src="tdc-projgrade.js?v=base1"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-owned-seasons.js?v=7"></script>
+  <script src="tdc-season.js?v=1"></script>
   <script src="tdc-pool.js?v=1"></script>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=2"></script>
@@ -854,7 +855,7 @@ body{background:transparent!important;}
   <script src="tdc-pwa.js?v=2" defer></script>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=11"></script>
+<script src="tdc-nav.js?v=12"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 
 <!-- ═══ AMBIENT LAYER ═══════════════════════════════════════ -->
@@ -2655,6 +2656,45 @@ function _ovcSeasonOpts(){
   return {opts:opts, useProj:useProj, seasons:seasons};
 }
 function _ovcInitialStats(){ var o=_ovcSeasonOpts(); return (o.useProj?buildOverviewCards(player,proj):(o.seasons.length?ovrCardsFor(o.seasons[0]):buildOverviewCards(player,proj))); }
+// Mount the shared season selector (tdc-season.js) into #tdcSeasonSlot, scoped to
+// ONLY the seasons this player actually has (from careerHistory via _ovcSeasonOpts),
+// plus the "2026-27 Projected" pseudo-season when applicable. The resulting <select>
+// is re-id'd to 'ovrSeasonSel' and keeps the same value contract ('proj' | year)
+// that setOvrSeason and every downstream reader depend on.
+function _mountSeasonCtl(){
+  var slot=document.getElementById('tdcSeasonSlot');
+  if(!slot) return;
+  if(!(window.TDCSeason && TDCSeason.mount)) return;   // library missing — leave slot empty
+  var o=_ovcSeasonOpts();                               // {opts, useProj, seasons(desc)}
+  var seasons=o.seasons||[];
+  var teamByYear={}, yearSet={}, years=[];
+  seasons.forEach(function(s){ var y=+s.season_year; teamByYear[y]=s.team||''; yearSet[y]=1; years.push(y); });
+  var minY=years.length?Math.min.apply(null,years):2027;
+  var maxY=years.length?Math.max.apply(null,years):2027;
+  var ctl=TDCSeason.mount(slot, {
+    min:minY, max:maxY, current:maxY,
+    title:'Season',
+    // full label override: "2022-23 · Team" (no "· Current" suffix), matching the old options
+    labelFn:function(y){ var t=teamByYear[y]; return _seasonLbl2(y)+(t?(' · '+t):''); },
+    onChange:function(){ var el=document.getElementById('ovrSeasonSel'); if(el) setOvrSeason(el.value); }
+  });
+  if(!ctl||!ctl.select) return;
+  var sel=ctl.select;
+  // Sparse careers: drop the intermediate years the player didn't actually play.
+  for(var i=sel.options.length-1;i>=0;i--){ if(!yearSet[+sel.options[i].value]) sel.remove(i); }
+  // Prepend the projected view as the first option, preserving the 'proj' value token.
+  if(o.useProj){
+    var injOut=!!(typeof proj!=='undefined' && proj && proj._injOut);
+    var po=document.createElement('option');
+    po.value='proj';
+    po.textContent=injOut?(_seasonLbl2(2027)+' · Out'):(_seasonLbl2(2027)+' Projected');
+    sel.insertBefore(po, sel.firstChild);
+    po.selected=true;                 // default view = projected (matches _ovcInitialStats)
+  } else if(years.length){
+    sel.value=String(maxY);           // else newest real season
+  }
+  sel.id='ovrSeasonSel';              // downstream code reads this id + .value ('proj' | year)
+}
 function _ovcPct(v,k,invert){ if(v==null||v===''||!isFinite(+v)) return null; var p=getPctNat(+v,k); return invert?(100-p):p; }
 function _ovcColor(p){ return p>=90?'var(--gold,#E0B24A)':p>=75?'var(--accent)':p>=50?'var(--blue,#5B8DEF)':p>=30?'var(--slate,#6B7893)':'var(--red,#E06A7A)'; }
 function _ovcAdv(s,proje){ var hist=(careerHistory&&careerHistory.length)?careerHistory[careerHistory.length-1]:null; return s._advanced||(proje&&hist&&hist._advanced)||{}; }
@@ -3490,8 +3530,7 @@ function renderPage(){
 
     <!-- OVERVIEW TAB (boxed player card) -->
     <div class="tab-panel active" id="panel-overview">
-      <div class="ovc-seasonbar"><span class="osl">Season</span>
-        <select class="exp-sel" id="ovrSeasonSel" onchange="setOvrSeason(this.value)">${_ovcSeasonOpts().opts}</select></div>
+      <div class="ovc-seasonbar" id="tdcSeasonSlot"></div>
       <div class="ovc-accent"></div>
       <div class="ovc">
         <div class="ovc-box full"><div class="ovc-sl">Stats <span class="sub" id="ovcStatLbl"></span></div><div id="ovrCards">${_ovcInitialStats()}</div></div>
@@ -3599,6 +3638,7 @@ function renderPage(){
     <div class="tab-panel" id="panel-buzz"><div id="buzzContent"></div></div>
     <div class="tab-panel" id="panel-portalfit"><div id="portalfitContent"></div></div>`;
 
+  try{ _mountSeasonCtl(); }catch(e){ console.warn('season ctl', e); }
   // Draw radar after DOM is ready
   setTimeout(animateRadar, 120);
   setTimeout(function(){ growBarsIn(document.getElementById('panel-overview')); }, 130);

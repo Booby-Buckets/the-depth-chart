@@ -26,6 +26,7 @@
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=2"></script>
   <script src="tdc-glossary.js?v=12"></script>
+  <script src="tdc-season.js?v=1"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Stats — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
@@ -235,7 +236,7 @@ body{background:transparent!important;}
   <script src="tdc-pwa.js?v=2" defer></script>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=11"></script>
+<script src="tdc-nav.js?v=12"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 
 <div class="nav-wrap">
@@ -285,7 +286,7 @@ body{background:transparent!important;}
 </div>
 
 <div class="controls">
-  <select class="filter-select" id="seasonSel" onchange="changeSeason(this.value)"></select>
+  <div id="tdcSeasonSlot"></div>
   <select class="filter-select" id="posSel" onchange="refresh()">
     <option value="">All positions</option>
     <option value="G">Guards</option>
@@ -441,6 +442,7 @@ const LEADER_KEYS = ['wa','ti40','ti100','ts','usg','ast_pct','trb_pct'];
 
 // ── State ───────────────────────────────────────────────────────
 let CUR_SEASON = '2026';
+let SEASON_CTL = null;   // shared TDCSeason controller (call .set(y) to sync the dropdown)
 const CUR_YEAR = 2026;
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 let RAW = [];            // flattened rows for current season selection
@@ -822,7 +824,7 @@ function setView(v){
   // the whole filter/search bar is player/team-table specific — hide for the landscape
   document.querySelector('.controls').style.display=v==='landscape'?'none':'';
   // player filters don't apply to team history — search stays (filters teams)
-  ['seasonSel','posSel','minGp'].forEach(id=>{ document.getElementById(id).style.display=v==='teams'?'none':''; });
+  ['tdcSeasonSlot','posSel','minGp'].forEach(id=>{ document.getElementById(id).style.display=v==='teams'?'none':''; });
   document.getElementById('teamSeasonSel').style.display=v==='teams'?'':'none';
   document.getElementById('searchBox').placeholder=v==='teams'?'Search team or conference…':'Search player or school…';
   if(v==='leaders'){ renderLeaders(); renderTable(); }
@@ -1063,11 +1065,13 @@ async function renderTeams(){
 
 // ── Init ────────────────────────────────────────────────────────
 async function load(){
-  // season selector: 2026 → 2007 + all
-  var ss=document.getElementById('seasonSel'), opts='';
-  for(var y=2026;y>=2007;y--) opts+='<option value="'+y+'"'+(y===2026?' selected':'')+'>'+seasonLbl(''+y)+'</option>';
-  opts+='<option value="all">All seasons</option>';
-  ss.innerHTML=opts;
+  // season selector (shared component): 2026 → 2007
+  SEASON_CTL = TDCSeason.mount('#tdcSeasonSlot', {
+    min:2007, max:2026, current:2026, title:false,
+    labelFn:(y)=>seasonLbl(''+y),
+    extras:[{value:'all',label:'All seasons'}],
+    onChange:(y)=>changeSeason(String(y))
+  });
   fillAxisSelectors();
   await changeSeason('2026');
   document.getElementById('leadersView').style.display='block';

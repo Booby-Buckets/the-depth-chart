@@ -24,6 +24,7 @@
   <script src="tdc-charts.js?v=3"></script>
   <script src="tdc-projgrade.js?v=base1"></script>
   <script src="conf-logos.js?v=1"></script>
+  <script src="tdc-season.js?v=1"></script>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--gold:#C8A020;--green:#1a8c3a;--red:#cc2200;}
     [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--gold:#C8A020;--green:#5ab875;--red:#e07070;}
@@ -193,7 +194,7 @@
   <script src="tdc-pwa.js?v=2" defer></script>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=11"></script>
+<script src="tdc-nav.js?v=12"></script>
   <div class="nav-wrap">
     <div class="nav-top">
       <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
@@ -251,7 +252,7 @@
         </div>
       </div>
       <div class="controls">
-        <select id="seasonSel" onchange="loadSeason()"></select>
+        <div id="tdcSeasonSlot"></div>
         <input class="search" id="q" placeholder="Search tournament or team…" oninput="renderList()">
       </div>
       <div class="pills" id="catPills"></div>
@@ -304,10 +305,14 @@ let GAMES=[], curSeason=2025, curCat='', notableOnly=true;
 
 function seasonLbl(y){ return `${y-1}–${(''+y).slice(2)}`; }
 
+let seasonCtl=null;
 (function initSeasons(){
-  const s=document.getElementById('seasonSel'); let o='<option value="2027">2026–27 · Projected</option>';
-  for(let y=2026;y>=2007;y--) o+=`<option value="${y}">${seasonLbl(y)}</option>`;
-  s.innerHTML=o; s.value='2025'; curSeason=2025;
+  curSeason=2025;
+  seasonCtl=TDCSeason.mount('#tdcSeasonSlot', {
+    min:2007, max:2027, current:2025, title:false, currentLabel:'',
+    labelFn:(y)=> y===2027 ? '2026–27 · Projected' : seasonLbl(y),
+    onChange:(y)=>{ curSeason=+y; loadSeason(); }
+  });
   document.getElementById('catPills').innerHTML=CATS.map(([lbl,v])=>
     `<button class="pill ${v===curCat?'on':''}" data-cat="${v}" onclick="setCat('${v}')">${lbl}</button>`).join('');
   loadSeason();
@@ -338,7 +343,6 @@ async function fetchPaged(url){
 }
 let SRS={};   // team -> season SRS, for performance ratings + upset detection
 async function loadSeason(){
-  curSeason=+document.getElementById('seasonSel').value;
   document.getElementById('bracketView').style.display='none';
   document.getElementById('listView').style.display='';
   if(curSeason===2027){ return loadProjected(); }   // client-side projection, no DB

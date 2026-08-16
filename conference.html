@@ -11,6 +11,7 @@
   <script src="tdc-glossary.js?v=12"></script>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=2"></script>
+  <script src="tdc-season.js?v=1"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Conference &mdash; The Depth Chart</title>
   <meta name="description" content="Conference standings, awards, coach rankings and inter-conference records for every season on The Depth Chart."/>
@@ -242,7 +243,7 @@
   <script src="tdc-pwa.js?v=2" defer></script>
 </head>
 <body>
-<script src="tdc-nav.js?v=11"></script>
+<script src="tdc-nav.js?v=12"></script>
 <div class="tdc-bg" aria-hidden="true">
   <div class="tdc-mesh"></div>
   <div class="tdc-blob b1"></div>
@@ -296,7 +297,7 @@
       <div class="cname" id="cname">Loading&hellip;</div>
       <div class="csub" id="csub"></div>
     </div>
-    <div class="seasonsel"><span class="lb">Season</span><select id="yrsel"></select></div>
+    <div class="seasonsel" id="tdcSeasonSlot"></div>
   </div>
 
   <div class="tiles" id="tiles"></div>
@@ -409,15 +410,15 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
 
   function sel(id){ return document.getElementById(id); }
 
-  // ---- season selector ----
-  var ys=[PROJ]; for(var y=MAXY;y>=MINY;y--) ys.push(y);
-  sel('yrsel').innerHTML=ys.map(function(y){
-    return '<option value="'+y+'"'+(y===YEAR?' selected':'')+'>'+
-      (y===PROJ?(label(y)+' \u00b7 Projected'):label(y))+'</option>'; }).join('');
-  sel('yrsel').addEventListener('change',function(){
-    var u=new URL(location.href); u.searchParams.set('season',this.value);
-    if(CONF) u.searchParams.set('conf',CONF); u.searchParams.delete('team');
-    location.href=u.toString();
+  // ---- season selector (shared TDCSeason component) ----
+  TDCSeason.mount('#tdcSeasonSlot', {
+    min:MINY, max:PROJ, current:YEAR, title:'Season',
+    labelFn:function(y){ return y===PROJ ? (label(y)+' \u00b7 Projected') : label(y); },
+    onChange:function(y){
+      var u=new URL(location.href); u.searchParams.set('season',y);
+      if(CONF) u.searchParams.set('conf',CONF); u.searchParams.delete('team');
+      location.href=u.toString();
+    }
   });
 
   var CONF=null, ROWS=[], TEAMCONF={};
