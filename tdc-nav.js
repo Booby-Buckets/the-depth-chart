@@ -1,7 +1,7 @@
 /* tdc-nav.js — shared site navigation bar (grouped dropdowns).
    The site's ~20 destinations used to sit in one flat 25-item row. This renders
-   them as SIX top-level menus (Teams / Players / Analytics / Postseason /
-   Coaches / More), each opening a dropdown on click.
+   them as five top-level menus (Teams / Players / Analytics / Postseason /
+   More), each opening a dropdown on click. (Coach's Tier + Coaching Lab live under More.)
 
    One source of truth: it builds its own `.tdn-wrap` bar with namespaced classes
    and injects a rule that hides any page's OLD inline `.nav-wrap`, so dropping
@@ -48,11 +48,9 @@
       ['bracket.html',         'Bracketology'],
       ['awards.html',          'Awards'],
     ]],
-    ['Coaches', [
-      ['coaches.html',         'Coaching Lab'],
-      ['coach-tier.html',      "⬡ Coach's Tier"],
-    ]],
     ['More', [
+      ['coach-tier.html',      "⬡ Coach's Tier"],
+      ['coaches.html',         'Coaching Lab'],
       ['buzz.html',            'News'],
       ['community.html',       'Community'],
       ['games.html',           '🎮 Games'],
