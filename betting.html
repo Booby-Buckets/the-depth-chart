@@ -53,6 +53,9 @@
     .pos{color:var(--green);font-weight:700;}
     .neg{color:var(--red);font-weight:700;}
     .rk{color:var(--text3);font-size:11px;}
+    /* real-line columns: hidden until a historical lines file is ingested (Phase B) */
+    #teamTbl .hist-col{display:none;}
+    #teamTbl.has-hist .hist-col{display:table-cell;}
     .loading{padding:50px;text-align:center;color:var(--text3);}
     .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:14px;max-width:900px;}
     /* player prop explorer */
@@ -127,6 +130,8 @@
           <th data-k="vsLine" title="Average points ABOVE (or below) our power-rating projected line. Positive = the team has beaten our number, i.e. been undervalued.">vs Line</th>
           <th data-k="favpct" title="How often the team beat our line as a projected favorite">Fav ✓</th>
           <th data-k="dogpct" title="How often the team beat our line as a projected underdog">Dog ✓</th>
+          <th class="hist-col" data-k="atsPct" title="Against-the-spread record vs the real closing line (loaded from the odds feed)">ATS%</th>
+          <th class="hist-col" data-k="ovPct" title="Over percentage vs the real closing total">O/U</th>
         </tr></thead>
         <tbody id="teamBody"><tr><td colspan="11" class="loading">Loading team trends…</td></tr></tbody>
       </table>
@@ -156,12 +161,15 @@ const sg = (v,d=1) => (v==null?'—':(v>0?'+':'')+v.toFixed(d));
 function teamRow(t){   // resolve the active-season view (all-time vs a specific season)
   const s = teamSeason==='all' ? t : (t.bySeason&&t.bySeason[teamSeason]);
   if(!s) return null;
+  // real-line history (Phase B), if a lines file has been ingested for this team/season
+  const h = t.history ? (teamSeason==='all' ? t.history : (t.history.bySeason&&t.history.bySeason[teamSeason])) : null;
   return {
     name:t._name, short:t._short,
     rec:s.w+'–'+s.l, w:s.w, l:s.l, g:s.g, winpct:s.winpct,
     homepct:s.home.pct, awaypct:s.away.pct,
     margin:s.margin, total:s.total, vsLine:s.vsLine,
     favpct:(s.favBeat.g>=5?s.favBeat.pct:null), dogpct:(s.dogBeat.g>=5?s.dogBeat.pct:null),
+    ats:(h?h.ats:null), atsPct:(h?h.atsPct:null), ou:(h?h.ou:null), ovPct:(h?h.ovPct:null),
   };
 }
 function renderTeams(){
@@ -193,6 +201,8 @@ function renderTeams(){
       <td class="${vc}">${sg(r.vsLine)}</td>
       <td>${r.favpct==null?'—':pct(r.favpct)}</td>
       <td>${r.dogpct==null?'—':pct(r.dogpct)}</td>
+      <td class="hist-col">${r.atsPct==null?'—':`<b class="${r.atsPct>0.5?'pos':(r.atsPct<0.5?'neg':'')}">${pct(r.atsPct)}</b> <span class="rk">${r.ats||''}</span>`}</td>
+      <td class="hist-col">${r.ovPct==null?'—':`${pct(r.ovPct)} <span class="rk">${r.ou||''}</span>`}</td>
     </tr>`;
   }).join('');
 }
@@ -216,6 +226,8 @@ fetch('scripts/data/bet_trends_teams.json').then(r=>r.ok?r.json():null).then(d=>
   TEAMS=Object.entries(d.teams).map(([name,t])=>{ t._name=name; t._short=(name.split(' ').slice(0,-1).join(' ')||name); return t; });
   // prefer a proper short name via team-colors if available
   TEAMS.forEach(t=>{ if(window.tdcShortSchool){ try{ const s=tdcShortSchool(t._name); if(s) t._short=s; }catch(e){} } });
+  // reveal the real-line ATS / O-U columns only once a lines file has been ingested (Phase B)
+  if(d.meta&&d.meta.hasHistory){ document.getElementById('teamTbl').classList.add('has-hist'); }
   renderTeams();
 }).catch(()=>{ document.getElementById('teamBody').innerHTML='<tr><td colspan="11" class="empty">Team trends failed to load.</td></tr>'; });
 
