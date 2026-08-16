@@ -978,8 +978,17 @@
     /* ── Roster-over-time year picker + historic roster ── */
     .roster-year-bar{display:flex;align-items:center;gap:12px;padding:12px 2px 16px;min-width:0;}
     .roster-year-bar .rs-label{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);flex-shrink:0;}
-    .roster-year-nav{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 6px;min-width:0;scrollbar-width:thin;-webkit-overflow-scrolling:touch;
+    /* Old 21-pill year row retired in favour of the persistent .team-season-bar dropdown */
+    .roster-year-bar{display:none;}
+    .roster-year-nav{display:none;}
+    .roster-year-nav.legacy{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 6px;min-width:0;scrollbar-width:thin;-webkit-overflow-scrolling:touch;
       -webkit-mask-image:linear-gradient(90deg,transparent,#000 12px,#000 calc(100% - 12px),transparent);mask-image:linear-gradient(90deg,transparent,#000 12px,#000 calc(100% - 12px),transparent);}
+    /* Persistent, clean season selector — sits under the tabs so it's usable from every tab */
+    .team-season-bar{display:flex;align-items:center;gap:10px;padding:11px 0 3px;}
+    .tsb-label{font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);}
+    .tsb-select{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:var(--text);background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:7px 32px 7px 13px;cursor:pointer;appearance:none;-webkit-appearance:none;font-variant-numeric:tabular-nums;transition:border-color .15s;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%23888' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");background-repeat:no-repeat;background-position:right 11px center;}
+    .tsb-select:hover,.tsb-select:focus{border-color:var(--tc,var(--accent));outline:none;}
+    .tsb-hint{font-size:11px;color:var(--text3);font-style:italic;}
     .roster-year-nav::-webkit-scrollbar{height:5px;}
     .ryr-btn{flex:0 0 auto;font-size:11px;font-weight:700;letter-spacing:.01em;padding:5px 11px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);border-radius:8px;cursor:pointer;white-space:nowrap;font-variant-numeric:tabular-nums;transition:color .15s,border-color .15s,background .15s;}
     .ryr-btn:hover{color:var(--text);border-color:var(--border2);}
@@ -1109,6 +1118,11 @@
     <button class="hero-tab" onclick="switchTab('nil',this)">NIL Value</button>
     <button class="hero-tab" onclick="switchTab('report',this)">Roster Report</button>
     <button class="hero-tab" id="followTeamBtn" onclick="toggleTeamFollow()" style="margin-left:auto;padding:6px 16px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:none;border:1px solid var(--border2);color:var(--text3);cursor:pointer;font-family:'Inter',sans-serif;border-radius:0;display:flex;align-items:center;gap:6px;">Follow Team</button>
+  </div>
+  <div class="team-season-bar">
+    <span class="tsb-label">Season</span>
+    <select id="teamSeasonSelect" class="tsb-select" onchange="onRosterSeason(+this.value)" aria-label="Select season"></select>
+    <span class="tsb-hint" id="teamSeasonHint"></span>
   </div>
   <div id="teamFollowerCount" style="font-size:11px;color:var(--text3);padding:6px 0 0;"></div>
   </div><!-- /hero-content-wrap -->
@@ -6587,16 +6601,22 @@ function rosterLbl(yr){ yr=+yr; return yr>=2027 ? '2026-27 · Current' : `${yr-1
 function _teamMascot(){ return (teamT&&teamT.nickname) ? `${teamT.name} ${teamT.nickname}` : (teamT?teamT.name:''); }
 // Year picker — a clickable pill per season (newest first), replacing the slider.
 function buildRosterYearNav(){
-  const nav=document.getElementById('rosterYearNav'); if(!nav) return;
-  let html='';
+  const nav=document.getElementById('rosterYearNav');
+  const sel=document.getElementById('teamSeasonSelect');
+  let html='', opts='';
   for(let y=2027; y>=2007; y--){
     const lbl = y>=2027 ? '2026-27' : `${(''+(y-1)).slice(2)}-${(''+y).slice(2)}`;
     const cur = y>=2027 ? '<span class="ryr-cur">Current</span>' : '';
     html += `<button class="ryr-btn${y===_rosterSeason?' active':''}" data-yr="${y}" onclick="onRosterSeason(${y})">${lbl}${cur}</button>`;
+    opts += `<option value="${y}"${y===_rosterSeason?' selected':''}>${y>=2027?'2026-27 · Current':lbl}</option>`;
   }
-  nav.innerHTML=html;
+  if(nav) nav.innerHTML=html;
+  if(sel) sel.innerHTML=opts;
+  const hint=document.getElementById('teamSeasonHint'); if(hint) hint.textContent=(_rosterSeason>=2027)?'projected roster':'final roster & results';
 }
 function _setActiveYearPill(v){
+  const sel=document.getElementById('teamSeasonSelect'); if(sel) sel.value=String(+v);
+  const hint=document.getElementById('teamSeasonHint'); if(hint) hint.textContent = (+v>=2027)?'projected roster':'final roster & results';
   const nav=document.getElementById('rosterYearNav'); if(!nav) return;
   nav.querySelectorAll('.ryr-btn').forEach(b=>b.classList.toggle('active', +b.dataset.yr===+v));
   const active=nav.querySelector('.ryr-btn.active'); if(active&&active.scrollIntoView) active.scrollIntoView({inline:'center',block:'nearest'});
