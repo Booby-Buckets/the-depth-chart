@@ -1148,10 +1148,10 @@
     <button class="hero-tab active" onclick="switchTab('depth',this)">Depth Chart</button>
     <div class="hero-grp" data-grp="analytics">
       <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Analytics<span class="hero-grp-car">▾</span></button>
-      <div class="hero-grp-menu">
-        <button class="hero-tab" onclick="_tgPick('dna',this)">Team DNA</button>
-        <button class="hero-tab" onclick="_tgPick('onoff',this)">On/Off</button>
-        <button class="hero-tab" id="projTabBtn" onclick="_tgPick('projections',this)">2026-27 Projections</button>
+      <div class="hero-grp-menu" style="min-width:252px;">
+        <button class="hgm-item" onclick="_tgPick('dna',this)"><span class="hgm-t">Team DNA</span><span class="hgm-d">Four factors & winning engine</span></button>
+        <button class="hgm-item" onclick="_tgPick('onoff',this)"><span class="hgm-t">On/Off</span><span class="hgm-d">Impact with each player on vs off</span></button>
+        <button class="hgm-item" id="projTabBtn" onclick="_tgPick('projections',this)"><span class="hgm-t">2026-27 Projections</span><span class="hgm-d">Next season's projected line</span></button>
       </div>
     </div>
     <div class="hero-grp" data-grp="coach">
@@ -5635,7 +5635,7 @@ async function renderOnOff(){
 }
 function switchTab(id, btn){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.hero-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.hero-tab,.hgm-item').forEach(b=>b.classList.remove('active'));
   document.getElementById('panel-'+id).classList.add('active');
   btn.classList.add('active');
   if(id==='analysis' && !window._teamShotInit){ window._teamShotInit=true; _initTeamShot(); }
@@ -5691,7 +5691,7 @@ function _lockPanel(pnl, g){
 // Visual tab switch only — no loaders (so a gated panel isn't populated then replaced).
 function _teamDisplaySwitch(id, btn){
   document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('active'); });
-  document.querySelectorAll('.hero-tab').forEach(function(b){ b.classList.remove('active'); });
+  document.querySelectorAll('.hero-tab,.hgm-item').forEach(function(b){ b.classList.remove('active'); });
   var pnl=document.getElementById('panel-'+id); if(pnl) pnl.classList.add('active');
   if(btn) btn.classList.add('active');
   var sideCol=document.querySelector('.side-col'), mainCol=document.querySelector('.main-col'), pageBody=document.querySelector('.page-body');
@@ -7861,7 +7861,7 @@ function _tgPick(id, btn){
 }
 function _tgSyncActive(){
   document.querySelectorAll('.hero-grp').forEach(function(grp){
-    var any=[].slice.call(grp.querySelectorAll('.hero-tab')).some(function(b){ return b.classList.contains('active'); });
+    var any=[].slice.call(grp.querySelectorAll('.hero-tab,.hgm-item')).some(function(b){ return b.classList.contains('active'); });
     grp.classList.toggle('grp-active', any);
   });
 }
