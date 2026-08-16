@@ -1922,6 +1922,12 @@ async function renderHeroBar(yr, teamObj){
     field.forEach(r=>{ const x=parseFloat(r[key]); if(isNaN(x)) return; n++; if(inv?x<v:x>v) better++; }); return n?(1-better/n):null; };
   const rank=(function(){ const f=field.filter(r=>r.srs!=null).sort((a,b)=>parseFloat(b.srs)-parseFloat(a.srs));
     const i=f.findIndex(r=>(r.team||'')===row.team); return i>=0?i+1:null; })();
+  // Expose this season's REAL power rating + field so the Lineup Lab anchors a past-season custom
+  // lineup to reality (default = the actual +17.3 / #6) instead of extrapolating a projected
+  // rating and ranking it against next year's projected field.
+  window._czSeasonRating = (row.srs!=null && row.srs!=='') ? parseFloat(row.srs) : null;
+  window._czSeasonField = field.filter(r=>r.srs!=null).map(r=>parseFloat(r.srs)).filter(isFinite).sort((a,b)=>b-a);
+  if(document.querySelector('#customizeContent .lineup-analytics') && typeof rebuildCustomizeUI==='function') rebuildCustomizeUI();
   const net=_fmtNet(row.srs);
   // wide ribbon: NET · NCAA seed · final rank · record · conf · result
   const confRec=(row.conf_wins!=null&&row.conf_losses!=null)?`${row.conf_wins}–${row.conf_losses}`:'';
@@ -3176,9 +3182,14 @@ function _ensureProjRatings(){
 // back to the raw regression until the canonical rating loads (or if this team has none).
 function _anchoredProjPower(a){
   if(!a) return null;
-  const projSeason = (typeof _rosterSeason==='undefined') || _rosterSeason>=2027;   // anchor only the 2026-27 roster
-  if(projSeason && !window._czBuildMode && window._czCanonRating!=null && window._czBaseAvgGrade!=null)
-    return Math.round((window._czCanonRating + 1.38*(a.avgGrade - window._czBaseAvgGrade))*10)/10;
+  const projSeason = (typeof _rosterSeason==='undefined') || _rosterSeason>=2027;
+  if(projSeason){
+    if(!window._czBuildMode && window._czCanonRating!=null && window._czBaseAvgGrade!=null)
+      return Math.round((window._czCanonRating + 1.38*(a.avgGrade - window._czBaseAvgGrade))*10)/10;
+  } else if(window._czSeasonRating!=null && window._czBaseAvgGrade!=null){
+    // past season: anchor to that season's REAL power rating, then move by the lineup edits
+    return Math.round((window._czSeasonRating + 1.38*(a.avgGrade - window._czBaseAvgGrade))*10)/10;
+  }
   return a.projPower;
 }
 function projRankFor(pr){
@@ -3186,6 +3197,16 @@ function projRankFor(pr){
   let lo=0,hi=_prSorted.length;
   while(lo<hi){ const m=(lo+hi)>>1; if(_prSorted[m]>pr) lo=m+1; else hi=m; }
   return lo+1;
+}
+// Rank the lineup's rating against the correct field: the 2026-27 projected list for the current
+// roster, or that PAST season's actual power-rating field for a historical roster.
+function _lineupRankFor(pr){
+  const projSeason=(typeof _rosterSeason==='undefined')||_rosterSeason>=2027;
+  if(!projSeason && window._czSeasonField && window._czSeasonField.length && pr!=null && !isNaN(pr)){
+    const arr=window._czSeasonField; let lo=0,hi=arr.length;
+    while(lo<hi){ const m=(lo+hi)>>1; if(arr[m]>pr) lo=m+1; else hi=m; } return lo+1;
+  }
+  return projRankFor(pr);
 }
 
 function renderAnalyticsBar(analytics, base){
@@ -3234,7 +3255,7 @@ function renderAnalyticsBar(analytics, base){
     }
   }catch(e){}
   const _pp=_anchoredProjPower(analytics), _bpp=base?_anchoredProjPower(base):null;
-  const _rk=projRankFor(_pp), _brk=_bpp!=null?projRankFor(_bpp):null;
+  const _rk=_lineupRankFor(_pp), _brk=_bpp!=null?_lineupRankFor(_bpp):null;
   const _rankDelta=(_rk&&_brk&&_rk!==_brk)?`<div class="analytics-delta ${_rk<_brk?'delta-pos':'delta-neg'}">${_rk<_brk?'▲':'▼'}${Math.abs(_brk-_rk)}</div>`:'';
   return `<div class="lineup-analytics">
     <div class="analytics-cell">
