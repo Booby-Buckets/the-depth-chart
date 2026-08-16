@@ -3649,10 +3649,37 @@ function _inferPos(p){
   if(['PG','SG','SF','PF','C'].includes(x)) return x;
   const h=_htIn(p.height)||78, apg=parseFloat(p.apg)||0, rpg=parseFloat(p.rpg)||0,
         blk=parseFloat(p.blk)||0;
-  if(x==='G'||x==='CG') return (apg>=3.5||h<=73)?'PG':'SG';
-  if(x==='F'||x==='GF') return (h>=81||rpg>=6||blk>=1)?'PF':'SF';
   if(x==='C') return 'C';
-  return h<=73?'PG':h<=76?'SG':h<=79?'SF':h<=82?'PF':'C';
+  if(x==='G'||x==='CG') return (apg>=3||h<=74)?'PG':'SG';
+  // coarse "F"/"GF" (pre-2012-ish data has no PG/SG/SF/PF/C, only G/F and no C at all):
+  // split by size — a 6-11+ forward or a real shot-blocker is a center, not a PF.
+  if(x==='F'||x==='GF') return (h>=83||blk>=1.7) ? 'C' : ((h>=80||rpg>=6) ? 'PF' : 'SF');
+  // no/odd letter → infer straight from height
+  return h<=74?'PG':h<=77?'SG':h<=80?'SF':h<=82?'PF':'C';
+}
+// Historical rosters carry only coarse G/F positions (and often no centers), so per-player
+// inference alone piles everyone into SG and never seats a center. Assign the starting five
+// RELATIVELY from who actually played: top-5 by minutes, tallest → C, next big → PF, wings → SF,
+// best playmaker among the guards → PG, other guard → SG; then the bench fills its own columns.
+function _slotHistoricalRoster(players){
+  const HT=p=>_htIn(p.height)||78;
+  const isGuard=p=>{ const x=(p.position||'').toUpperCase(); if(/^(PG|SG|CG|G)/.test(x)) return true; if(/^(C|PF|SF|GF|F)/.test(x)) return false; return HT(p)<=77; };
+  const pool=[...players].filter(p=>p&&p.name&&p.name!=='—').sort((a,b)=>(parseFloat(b.mpg)||0)-(parseFloat(a.mpg)||0));
+  const starters=pool.slice(0,5), bench=pool.slice(5);
+  const bigs=starters.filter(p=>!isGuard(p)).sort((a,b)=>HT(b)-HT(a));
+  const guards=starters.filter(p=>isGuard(p)).sort((a,b)=>(parseFloat(b.apg)||0)-(parseFloat(a.apg)||0));
+  const slot={};
+  if(bigs[0]) slot.C=bigs[0];
+  if(bigs[1]) slot.PF=bigs[1];
+  if(bigs[2]) slot.SF=bigs[2];
+  if(guards[0]) slot.PG=guards[0];
+  if(guards[1]) slot.SG=guards[1];
+  // seat any leftover starters into whatever spots remain (guard-heavy → wings; big-heavy → PF/C)
+  const seated=new Set(Object.values(slot).map(p=>p.name));
+  const leftover=starters.filter(p=>!seated.has(p.name));
+  ['SF','SG','PF','PG','C'].forEach(pos=>{ if(!slot[pos]&&leftover.length){ slot[pos]=leftover.shift(); } });
+  POS_KEYS.forEach(pos=>{ customDepth[pos]=slot[pos]?[slot[pos]]:[]; });
+  bench.forEach(p=>{ const nat=_inferPos(p); if(!POS_KEYS.includes(nat)) return; customDepth[nat].push(p); });
 }
 // Rebuild the Customize tab for the currently selected roster season, so it shows
 // THAT year's roster (not always the 2026-27 projection). Historical rows use
@@ -3688,11 +3715,17 @@ function renderCustomize(t, players, color, rgb, gp){
   if(!Object.keys(customDepth).length){
     // Build position columns from sorted roster
     POS_KEYS.forEach(pos=>{ customDepth[pos]=[]; });
-    sorted.forEach(p=>{
-      const pos=p.position||'G';
-      const col = POS_KEYS.includes(pos) ? pos : pos==='CG'?'SG': POS_KEYS[0];
-      customDepth[col].push(p);
-    });
+    if(_custSeasonHist){
+      // Historical rosters (coarse G/F data, often no centers) → relative slotting so all five
+      // positions fill and a de-facto center is seated.
+      _slotHistoricalRoster(sorted);
+    } else {
+      sorted.forEach(p=>{
+        const pos=p.position||'G';
+        const col = POS_KEYS.includes(pos) ? pos : pos==='CG'?'SG': POS_KEYS[0];
+        customDepth[col].push(p);
+      });
+    }
     // Deep clone for reset
     POS_KEYS.forEach(pos=>{ baseDepthSnapshot[pos]=[...customDepth[pos]]; });
     baseAnalytics = calcCustomAnalytics();
