@@ -1,6 +1,6 @@
 /* tdc-nav.js — shared site navigation bar (grouped dropdowns).
    The site's ~20 destinations used to sit in one flat 25-item row. This renders
-   them as SIX top-level menus (Rankings / Players / Analytics / Postseason /
+   them as SIX top-level menus (Teams / Players / Analytics / Postseason /
    Coaches / More), each opening a dropdown on click.
 
    One source of truth: it builds its own `.tdn-wrap` bar with namespaced classes
@@ -18,7 +18,7 @@
 
   // [group label, [[href, name], …]] — the six top-level menus.
   var GROUPS = [
-    ['Rankings', [
+    ['Teams', [
       ['index.html',           'Team Rankings'],
       ['team.html',            'Teams'],
       ['team-stats.html',      'Team Stats'],
