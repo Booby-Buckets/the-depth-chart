@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-shotchart.js?v=14"></script>
-  <script src="tdc-lineups.js?v=13"></script>
+  <script src="tdc-lineups.js?v=14"></script>
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-nil.js?v=ped1"></script>
   <script src="tdc-gate.js?v=3"></script>
@@ -5431,10 +5431,17 @@ async function loadTeamShotChart(season){
 // ── On/Off (WOWY) — reads scripts/data/player_onoff.json (game-level lineup on/off) ──
 let _onoffData=null;
 async function renderOnOff(){
-  const host=document.getElementById('onoffHost'); if(!host||host._done) return;
+  const host=document.getElementById('onoffHost'); if(!host) return;
+  // Season-aware: a past roster season shows THAT season's on/off; the current roster (2027)
+  // uses the newest available (on/off is "measured last season").
+  const wantSeason=(typeof _rosterSeason!=='undefined'&&_rosterSeason<2027)?String(_rosterSeason):null;
+  const viewKey=wantSeason||'current';
+  if(host._renderedSeason===viewKey) return;   // already showing this season
+  host._renderedSeason=viewKey;
   try{ if(!_onoffData){ const r=await fetch('scripts/data/player_onoff.json'); _onoffData=r.ok?await r.json():{}; } }
   catch(e){ _onoffData={}; }
-  const seasons=Object.keys(_onoffData||{}).sort().reverse();
+  const allSeasons=Object.keys(_onoffData||{}).sort().reverse();
+  const seasons=wantSeason?(allSeasons.includes(wantSeason)?[wantSeason]:[]):allSeasons;
   const nm=s=>(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
   const short=nm((typeof teamName!=='undefined'&&teamName)||(teamT&&teamT.name)||'');
   // The on/off data is keyed by FULL ESPN name ("Florida Gators"), so a bare
@@ -5479,12 +5486,34 @@ async function renderOnOff(){
     }
     if(pick&&pick.length){ season=s; rows=pick; break; }
   }
-  if(!rows.length){ host.innerHTML='<div style="padding:24px;color:var(--text3);">No on/off data for this team yet — the lineup pipeline is still building (game-level WOWY from NCAA play-by-play).</div>'; host._done=true; return; }
+  if(!rows.length){
+    const _lbl=wantSeason?((+wantSeason-1)+'-'+(''+wantSeason).slice(2)):'';
+    host.innerHTML='<div class="sec-head">On/Off &amp; WOWY</div><div style="padding:24px;color:var(--text3);">'+
+      (wantSeason?('No on/off data for '+_lbl+'. On/off (WOWY) is computed from full play-by-play, which we only have for recent seasons.')
+                 :'No on/off data for this team yet — the lineup pipeline is still building (game-level WOWY from NCAA play-by-play).')+'</div>';
+    return;
+  }
   // Sample-adjusted Impact (matches onoff.html): shrink the raw swing toward 0 by the
   // bench-unit sample so a player with few off-court possessions can't post a fake number.
   rows.forEach(r=>{ const on=+r.on_poss||0, off=+r.off_poss||0, raw=r.onoff_net;
     r._adj=(raw!=null&&on>=300&&off>=200)?Math.round(Math.max(-35,Math.min(35,raw))*off/(off+300)*10)/10:null; });
   rows.sort((a,b)=>((b._adj??-99)-(a._adj??-99)));
+  const yl=(+season-1)+'-'+(''+season).slice(2);
+  // ── Paywall: Pro+ sees every player, Premium the top 2, free none ──
+  await (window.TDCGate?TDCGate.ready:Promise.resolve());
+  const _canAll=!window.TDCGate||TDCGate.has('pro');
+  const _canSome=!window.TDCGate||TDCGate.has('premium');
+  const _total=rows.length;
+  if(!_canSome){
+    const card=TDCGate.cardEl({tier:'premium',label:'On/Off Impact',blurb:'See which players actually move the needle — the on/off net-rating swing for every rotation player. Premium shows the top 2; Pro unlocks the full team.'});
+    host.innerHTML='<div class="sec-head">On/Off &amp; WOWY <span style="color:var(--text3);font-weight:600;font-size:12px;">· '+yl+'</span></div>'+
+      '<p style="color:var(--text3);font-size:12.5px;line-height:1.5;max-width:840px;margin:0 0 12px;"><b style="color:var(--text2);">Impact</b> = the on/off swing in net rating (pts/100) — how much better the team is with a player on the floor.</p>'+
+      '<div style="max-width:520px;margin:18px auto 0;">'+card.outerHTML+'</div>';
+    return;
+  }
+  let _gateMsg='';
+  if(!_canAll){ rows=rows.slice(0,2);
+    _gateMsg='<div style="margin:12px 0 0;padding:10px 14px;border:1px dashed var(--border2);border-radius:10px;font-size:12.5px;color:var(--text3);background:var(--bg2);">Showing the top 2 — <a href="pricing.html" style="color:var(--tc-readable,var(--accent));font-weight:700;">upgrade to Pro</a> to see all '+_total+' players.</div>'; }
   const f=(v,d)=>v==null?'—':(+v).toFixed(d==null?1:d);
   const col=v=>v==null?'':(v>0?'#2bb673':v<0?'#e06552':'');
   const impTier=v=>v==null?null:v>=12?{t:'Elite',c:'#1f9d57'}:v>=6?{t:'Strong',c:'#2bb673'}:v>=2?{t:'Positive',c:'#6bbf8a'}:v>-2?{t:'Neutral',c:'#8a93a3'}:v>-6?{t:'Negative',c:'#e0885a'}:{t:'Drag',c:'#e06552'};
@@ -5501,7 +5530,6 @@ async function renderOnOff(){
   const HK=['on_o','on_d','off_o','off_d'], HR={};
   HK.forEach(k=>{ const vs=rows.map(r=>r[k]).filter(v=>v!=null&&isFinite(v)); if(vs.length) HR[k]={lo:Math.min(...vs),hi:Math.max(...vs)}; });
   const heatBg=(k,v,inv)=>{ const h=HR[k]; if(!h||v==null||!isFinite(v)||h.hi<=h.lo) return ''; let n=(v-h.lo)/(h.hi-h.lo); if(inv) n=1-n; return ' style="background:rgba(77,127,214,'+(0.06+n*0.34).toFixed(3)+');"'; };
-  const yl=(+season-1)+'-'+(''+season).slice(2);
   const showPhoto=(window.tdcShowPhotos&&window.tdcShowPhotos());
   const body=rows.map((r,i)=>{
     return `<tr>
@@ -5529,12 +5557,12 @@ async function renderOnOff(){
         <th title="Points scored per 100, player on">On ORtg</th><th title="Points allowed per 100, player on">On DRtg</th>
         <th title="Points scored per 100, player off">Off ORtg</th><th title="Points allowed per 100, player off">Off DRtg</th>
       </tr></thead><tbody>${body}</tbody></table></div>
+    ${_gateMsg}
     <div id="teamLineupHost"></div>`;
-  if(window.TDC_LINEUPS){
+  if(window.TDC_LINEUPS && _canAll){   // the deep five-man/trio/pair breakdown is Pro-only
     var _tf=(typeof teamT!=='undefined'&&teamT&&(teamT.full||teamT.name))||(typeof teamName!=='undefined'?teamName:'');
     TDC_LINEUPS.section(_tf, +season||2026).then(function(h){ var lh=document.getElementById('teamLineupHost'); if(lh&&h) lh.innerHTML=h; });
   }
-  host._done=true;
 }
 function switchTab(id, btn){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
@@ -6701,6 +6729,9 @@ function onRosterSeason(v){
   if(_schedInit){ var _ss=document.getElementById('schedSeasonSel'); if(_ss) _ss.value=String(_sy); loadSchedule(); }
   window._dnaSeason = String(_rosterSeason);
   var _dnaP=document.getElementById('panel-dna'); if(_dnaP && _dnaP.classList.contains('active')) renderTeamDNA();
+  // On/Off is season-aware — invalidate its cached render and refresh if it's the open tab
+  var _ooH=document.getElementById('onoffHost'); if(_ooH){ _ooH._renderedSeason=null;
+    var _ooP=document.getElementById('panel-onoff'); if(_ooP && _ooP.classList.contains('active')) renderOnOff(); }
   try{ if(window.TDCPanels) TDCPanels.refresh(); }catch(e){}
 }
 // ── Side-panel manager: drag to reorder, hide/restore; persisted per browser ──
