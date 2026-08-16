@@ -1181,7 +1181,7 @@
 </style>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
-  <link rel="stylesheet" href="tdc-dense.css?v=30"/>
+  <link rel="stylesheet" href="tdc-dense.css?v=31"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth; releases the dense dark-lock -->
   <link rel="stylesheet" href="tdc-skin.css?v=8"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
@@ -2621,6 +2621,34 @@ function toggleTheme(){
     detail.style.maxHeight=detail.scrollHeight+'px';
     row.classList.add('expanded');
   };
+  // Exposed for the team-card expand dropdown (tdc-dense.js) so it can drop in the same
+  // sheets-style projected-stats grid used here: an efficiency strip (Team DNA engine:
+  // ORtg/DRtg/Net) + the per-game projected line (percentile-colored, ranked vs all D1).
+  window.tdcTeamStatGrid=function(name){
+    var lc=(name||'').toLowerCase().trim();
+    var meta=(window._teamMetaByName||{})[lc];
+    // _teamProjByName is keyed by SHORT team name ("Florida"), not the full name.
+    var p=(window._teamProjByName||{})[lc]
+        || (meta&&meta.short?(window._teamProjByName||{})[(''+meta.short).toLowerCase().trim()]:null);
+    if(!meta && !p) return '';
+    var out='';
+    if(meta && meta.ortg!=null && meta.drtg!=null){
+      var netv=(meta.net!=null)?meta.net:(meta.ortg-meta.drtg);
+      var netc=netv>0?'var(--green)':'var(--red)';
+      out+='<div class="tc-proj-h">Efficiency <span class="tc-sub">per 100 poss · opponent-adjusted</span></div>'
+        +'<div class="tc-proj">'
+        +'<div class="tc-p"><div class="tc-p-v">'+meta.ortg.toFixed(1)+'</div><div class="tc-p-l">ORtg</div></div>'
+        +'<div class="tc-p"><div class="tc-p-v">'+meta.drtg.toFixed(1)+'</div><div class="tc-p-l">DRtg</div></div>'
+        +'<div class="tc-p"><div class="tc-p-v" style="color:'+netc+'">'+(netv>0?'+':'')+netv.toFixed(1)+'</div><div class="tc-p-l">Net</div></div>'
+        +'</div>';
+    }
+    if(p){
+      out+='<div class="tc-proj-h"'+(out?' style="margin-top:12px"':'')+'>Projected Team Stats '
+        +'<span class="tc-sub">per game · rank vs all D1</span></div>'
+        +'<div class="tc-proj">'+projGrid(p)+'</div>';
+    }
+    return out;
+  };
 })();
 </script>
 <style id="tdc-theme-css">
@@ -2656,7 +2684,7 @@ function toggleTheme(){
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 })();
 </script>
-  <script src="tdc-dense.js?v=32"></script>
+  <script src="tdc-dense.js?v=33"></script>
 <script>
 /* A11y: the rankings is a CSS-grid table (divs), so give it ARIA table semantics —
    screen readers then announce it as a real table (columns, headers, row navigation)

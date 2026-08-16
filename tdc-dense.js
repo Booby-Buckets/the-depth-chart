@@ -499,6 +499,18 @@
     inner.appendChild(dropRoster(short, cs, name));
     inner.appendChild(link);
     d.appendChild(inner);
+    // Sheets-style projected stat grid (reuses index.html's percentile grid). Full-width
+    // strip below the offseason report / NET chart — the "more data" panel.
+    try{
+      if(window.tdcTeamStatGrid){
+        var gridHtml=window.tdcTeamStatGrid(name);
+        if(gridHtml){
+          var sg=document.createElement('div'); sg.className='td-statgrid';
+          sg.innerHTML=gridHtml;
+          d.appendChild(sg);
+        }
+      }
+    }catch(e){}
     return d;
   }
   function closeDrops(except){
