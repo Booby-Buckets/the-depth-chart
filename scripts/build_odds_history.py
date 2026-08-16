@@ -27,14 +27,16 @@ Rows that don't match a final game (by date + team) are reported and skipped.
                                                         #   from real results to exercise the
                                                         #   plumbing. Never commit its output.
 """
-import json, os, sys, csv, glob, re
+import json, os, sys, csv, glob, re, time, urllib.request, urllib.parse, urllib.error
 from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(__file__)
 DATA = os.path.join(HERE, "data")
 GAMES = os.path.join(DATA, "games.jsonl")
 RAW_DIR = os.path.join(DATA, "odds_raw")
 HCA = 3.3
+DEFAULT_SEASONS = [2022, 2023, 2024, 2025, 2026]   # last 5 played seasons (the-odds-api covers ~late-2020+)
 
 # ── team-name normalization: reduce "Duke", "Duke Blue Devils", "DUKE" → same key ──
 MASCOT_STOP = set("""blue devils devils wildcats tigers bulldogs cougars gators aggies
@@ -75,14 +77,23 @@ def load_games():
     return by_key, name_full
 
 
+def _shift(date, days):
+    from datetime import datetime, timedelta
+    try:
+        return (datetime.strptime(date, "%Y-%m-%d") + timedelta(days=days)).strftime("%Y-%m-%d")
+    except ValueError:
+        return date
+
 def match_game(by_key, date, home, away):
     nh, na = norm(home), norm(away)
-    g = by_key.get((date, nh, na))
-    if g:
-        return g, False
-    g = by_key.get((date, na, nh))          # feed had teams swapped
-    if g:
-        return g, True
+    # try the given date and ±1 day (UTC/ET rollover in feeds), both team orders
+    for d in (date, _shift(date, -1), _shift(date, 1)):
+        g = by_key.get((d, nh, na))
+        if g:
+            return g, False
+        g = by_key.get((d, na, nh))          # feed had teams swapped
+        if g:
+            return g, True
     return None, None
 
 
@@ -155,6 +166,130 @@ def merge_into_trends(agg):
     print("  merged real-line history onto %d teams" % hit, flush=True)
 
 
+# ── the-odds-api HISTORICAL integration ────────────────────────────────────
+# Docs: https://the-odds-api.com/liveapi/guides/v4/#get-historical-odds
+# Key comes from the ODDS_API_KEY env var — NEVER hardcode/commit it. Historical
+# access requires a paid plan; each request costs 10 credits × markets × regions.
+API_BASE = "https://api.the-odds-api.com/v4"
+SPORT = "basketball_ncaab"
+DEFAULT_SNAPS = ["16:30", "23:30"]      # UTC: ~11:30am ET (day games) + ~6:30pm ET (night games)
+
+
+def game_dates(season):
+    """Dates (YYYY-MM-DD) that actually had final games this season — snapshot only these."""
+    dates = set()
+    with open(GAMES) as f:
+        for line in f:
+            g = json.loads(line)
+            if g.get("season") == season and g.get("status") == "STATUS_FINAL" and g.get("date"):
+                dates.add(g["date"])
+    return sorted(dates)
+
+
+def api_get(url):
+    req = urllib.request.Request(url, headers={"User-Agent": "the-depth-chart/1.0"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        body = json.load(r)
+        rem = r.headers.get("x-requests-remaining")
+        used = r.headers.get("x-requests-last")
+        return body, rem, used
+
+
+def _median(xs):
+    xs = sorted(x for x in xs if x is not None)
+    if not xs:
+        return None
+    n = len(xs)
+    return xs[n // 2] if n % 2 else round((xs[n // 2 - 1] + xs[n // 2]) / 2, 1)
+
+
+def consensus_line(ev):
+    """Median closing spread(home) / total / moneyline across all books in one snapshot event."""
+    home, away = ev.get("home_team"), ev.get("away_team")
+    sp, tot, mlh, mla = [], [], [], []
+    for bk in ev.get("bookmakers", []):
+        for mk in bk.get("markets", []):
+            key = mk.get("key")
+            for o in mk.get("outcomes", []):
+                if key == "spreads" and o.get("name") == home and o.get("point") is not None:
+                    sp.append(float(o["point"]))
+                elif key == "totals" and o.get("name") == "Over" and o.get("point") is not None:
+                    tot.append(float(o["point"]))
+                elif key == "h2h" and o.get("price") is not None:
+                    (mlh if o.get("name") == home else mla).append(float(o["price"]))
+    return {"spread": _median(sp), "total": _median(tot),
+            "ml_home": _median(mlh), "ml_away": _median(mla), "home": home, "away": away}
+
+
+def _et_date(commence_iso):
+    """Map a UTC commence_time to the US-Eastern calendar date (rough -5h; ±1 match covers DST)."""
+    try:
+        dt = datetime.fromisoformat(commence_iso.replace("Z", "+00:00")) - timedelta(hours=5)
+        return dt.strftime("%Y-%m-%d")
+    except Exception:
+        return (commence_iso or "")[:10]
+
+
+def api_backfill(seasons, key, snaps, markets, regions, dry_run):
+    days = []
+    for s in seasons:
+        days += game_dates(s)
+    days = sorted(set(days))
+    calls = len(days) * len(snaps)
+    per = 10 * len(markets.split(",")) * len(regions.split(","))
+    print("Backfill plan: seasons %s · %d game-days · %d snaps/day = %d calls" %
+          (seasons, len(days), len(snaps), calls), flush=True)
+    print("Estimated credits: %d calls × %d = ~%d credits (historical = 10 × markets × regions per call)" %
+          (calls, per, calls * per), flush=True)
+    if dry_run:
+        print("[dry-run] no API calls made. Set ODDS_API_KEY and drop --dry-run to run for real.", flush=True)
+        return None
+    if not key:
+        print("ERROR: ODDS_API_KEY not set. `export ODDS_API_KEY=...` then re-run.", flush=True)
+        return None
+
+    rows_by_key = {}   # (event id) -> best (latest-pre-tip) line row
+    snap_ts_cache = {}
+    for i, d in enumerate(days):
+        # gather each snapshot for the day; keep, per event, the latest snap before tip
+        for snap in snaps:
+            ts = "%sT%s:00Z" % (d, snap)
+            url = "%s/historical/sports/%s/odds?apiKey=%s&regions=%s&markets=%s&oddsFormat=american&date=%s" % (
+                API_BASE, SPORT, urllib.parse.quote(key), regions, markets, ts)
+            try:
+                body, rem, used = api_get(url)
+            except urllib.error.HTTPError as e:
+                print("  HTTP %s at %s — %s" % (e.code, ts, e.read()[:120]), flush=True)
+                if e.code in (401, 422):   # bad key / no historical access — stop
+                    return None
+                continue
+            except Exception as e:
+                print("  fetch error at %s: %s" % (ts, e), flush=True)
+                continue
+            snap_dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            for ev in (body.get("data") or []):
+                ct = ev.get("commence_time")
+                try:
+                    tip = datetime.fromisoformat(ct.replace("Z", "+00:00"))
+                except Exception:
+                    continue
+                if snap_dt >= tip:            # snapshot at/after tip — not a pre-tip line
+                    continue
+                prev = snap_ts_cache.get(ev["id"])
+                if prev is None or snap_dt > prev:   # keep the latest pre-tip snapshot
+                    line = consensus_line(ev)
+                    rows_by_key[ev["id"]] = {"date": _et_date(ct), "home": line["home"], "away": line["away"],
+                                             "spread": line["spread"], "total": line["total"],
+                                             "ml_home": line["ml_home"], "ml_away": line["ml_away"]}
+                    snap_ts_cache[ev["id"]] = snap_dt
+        if (i + 1) % 25 == 0:
+            print("  %d/%d days · %d events · credits remaining: %s" %
+                  (i + 1, len(days), len(rows_by_key), rem if 'rem' in dir() else "?"), flush=True)
+    rows = list(rows_by_key.values())
+    print("Collected %d game lines from the API." % len(rows), flush=True)
+    return rows
+
+
 def demo(season, by_key):
     """LOCAL TEST ONLY — fabricate closing lines from real results to exercise the
     pipeline. Output is NOT committed/deployed; it just proves the math + matching."""
@@ -190,6 +325,30 @@ def main():
                 s=list(agg[t].values())[0]
                 print("   %s: ATS %d-%d-%d  O/U %d-%d  (%d g)" %
                       (t,s["ats_w"],s["ats_l"],s["ats_p"],s["ov"],s["un"],s["g"]), flush=True)
+        return
+    if "--api" in args:
+        # pull historical lines straight from the-odds-api
+        seasons = DEFAULT_SEASONS
+        if "--season" in args:
+            seasons = [int(args[args.index("--season")+1])]
+        elif "--seasons" in args:
+            seasons = [int(x) for x in args[args.index("--seasons")+1].split(",")]
+        snaps = DEFAULT_SNAPS
+        if "--snaps" in args:
+            snaps = args[args.index("--snaps")+1].split(",")
+        markets = args[args.index("--markets")+1] if "--markets" in args else "spreads,totals,h2h"
+        regions = args[args.index("--regions")+1] if "--regions" in args else "us"
+        key = os.environ.get("ODDS_API_KEY", "")
+        rows = api_backfill(seasons, key, snaps, markets, regions, dry_run=("--dry-run" in args))
+        if not rows:
+            return
+        agg, m, u = ingest_rows(rows, by_key)
+        print("matched %d / unmatched %d (%.1f%% matched)" % (m, u, 100*m/(m+u or 1)), flush=True)
+        if m == 0:
+            print("No rows matched — not writing.")
+            return
+        merge_into_trends(agg)
+        print("done.", flush=True)
         return
     files=sorted(glob.glob(os.path.join(RAW_DIR,"*.csv")))
     if not files:

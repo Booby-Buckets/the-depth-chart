@@ -30,12 +30,39 @@ date,home,away,spread,total,ml_home,ml_away
 Rows that don't match a final game are reported and skipped, so a few name
 mismatches are harmless (the script prints the match rate).
 
-## Where to get the data
+## Option A — pull straight from the-odds-api historical (recommended)
 
-- **the-odds-api historical** (paid tier, NCAAB back to ~late 2020) — clean, reliable.
-- A **Kaggle export** or purchased dump — reshape to the columns above.
-- The build script can also call the-odds-api historical directly later via an
-  `ODDS_API_KEY` (Phase C) instead of files.
+No CSV needed. The build script fetches historical closing lines directly.
 
-CSV files in this folder are **git-ignored** (they can be large / licensed); only this
-README is tracked.
+1. Get a plan with **historical access** at the-odds-api.com and copy your key.
+2. Export it (never commit it):
+   ```bash
+   export ODDS_API_KEY=your_key_here
+   ```
+3. Estimate credits first (no API calls):
+   ```bash
+   python3 scripts/build_odds_history.py --api --dry-run --markets spreads,totals
+   ```
+4. Run for real (one season at a time keeps credit use in check):
+   ```bash
+   python3 scripts/build_odds_history.py --api --season 2024 --markets spreads,totals
+   ```
+
+How it works: it snapshots only days that had games (from `games.jsonl`), at two
+UTC times/day (~11:30am & ~6:30pm ET), and keeps each game's **latest pre-tip** line —
+median across books. Then it matches to our results and merges ATS/O-U into the trends.
+
+**Credit cost** (historical = 10 × markets × regions per call):
+- 1 season, `spreads,totals` (2 markets): ~6,000 credits
+- all 5 seasons, `spreads,totals`: ~29,000 credits
+- add `h2h` (moneyline) → 3 markets → +50%
+
+Rough plan fit: ~$30 Starter (20K/mo) does ~3 seasons/month; ~$59 tier (100K/mo) does
+all 5 at once. Add `--snaps 16:30,20:00,23:30` for tighter closing lines (more credits).
+
+## Option B — drop a CSV (Kaggle / purchased export)
+
+Reshape any source to the columns above and drop it here, then run
+`python3 scripts/build_odds_history.py` (no `--api`).
+
+CSV files in this folder are **git-ignored** (large / licensed); only this README is tracked.
