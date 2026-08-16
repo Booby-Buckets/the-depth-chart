@@ -192,8 +192,24 @@
     .hero-grade-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
 
     /* Tab bar */
-    .hero-tabs{display:flex;gap:0;border-top:1px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+    .hero-tabs{display:flex;flex-wrap:wrap;gap:0;border-top:1px solid var(--border);overflow:visible;}
     .hero-tabs::-webkit-scrollbar{display:none;}
+    /* Grouped tab menus (Depth Chart · Analytics ▾ · Coach's Tier 🔒 ▾ · NIL · Schedule) */
+    .hero-grp{position:relative;display:inline-flex;flex-shrink:0;}
+    .hero-grp-btn{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:12px 20px;color:var(--text3);cursor:pointer;border:none;background:none;border-top:2px solid transparent;margin-top:-1px;transition:color .2s,border-color .2s;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;font-family:'Inter',sans-serif;}
+    .hero-grp-btn:hover{color:var(--text2);}
+    .hero-grp.grp-active .hero-grp-btn,.hero-grp.open .hero-grp-btn{color:var(--text);border-top-color:var(--tc);}
+    .hero-grp-car{font-size:8px;opacity:.6;transition:transform .2s;}
+    .hero-grp.open .hero-grp-car{transform:rotate(180deg);}
+    .hero-grp-lock{font-size:.82em;opacity:.75;}
+    .hero-grp-menu{position:absolute;top:100%;left:0;background:var(--bg2);border:1px solid var(--border2);border-radius:0 0 12px 12px;padding:6px;min-width:200px;display:none;flex-direction:column;gap:1px;z-index:60;box-shadow:0 12px 30px rgba(0,0,0,.3);}
+    .hero-grp.open .hero-grp-menu{display:flex;}
+    .hero-grp-menu .hero-tab{display:block;width:100%;text-align:left;padding:10px 13px;border-top:none;margin-top:0;border-radius:8px;}
+    .hero-grp-menu .hero-tab.active{background:var(--bg3);color:var(--tc-readable,var(--accent));border-top:none;}
+    .hero-grp-menu .hero-tab:hover{background:var(--bg3);color:var(--text);}
+    .hero-grp-div{height:1px;background:var(--border);margin:5px 6px;}
+    .hero-grp-ext{display:block;padding:10px 13px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);text-decoration:none;border-radius:8px;}
+    .hero-grp-ext:hover{background:var(--bg3);color:var(--tc-readable,var(--accent));}
     .hero-tab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:12px 20px;color:var(--text3);cursor:pointer;border:none;background:none;border-top:2px solid transparent;transition:color .2s,border-color .2s;margin-top:-1px;white-space:nowrap;flex-shrink:0;}
     .hero-tab:hover{color:var(--text2);}
     .hero-tab.active{color:var(--text);border-top-color:var(--tc);}
@@ -872,14 +888,12 @@
   .hero-grade-val{font-size:20px!important;}
   .hero-grade-label{font-size:7px!important;}
 
-  /* ── Tab bar — horizontal scroll ── */
+  /* ── Tab bar — wrap so the grouped dropdowns aren't clipped on mobile ── */
   .hero-tabs{
-    overflow-x:auto!important;
-    -webkit-overflow-scrolling:touch!important;
-    scrollbar-width:none!important;
-    flex-wrap:nowrap!important;
-    white-space:nowrap!important;
+    overflow:visible!important;
+    flex-wrap:wrap!important;
   }
+  .hero-grp-btn{padding:10px 10px!important;font-size:9px!important;}
   .hero-tabs::-webkit-scrollbar{display:none;}
   .hero-tab{font-size:9px!important;padding:10px 10px!important;white-space:nowrap!important;flex-shrink:0!important;}
 
@@ -1114,14 +1128,27 @@
   </div><!-- /hero-card -->
   <div class="hero-tabs">
     <button class="hero-tab active" onclick="switchTab('depth',this)">Depth Chart</button>
-    <button class="hero-tab" onclick="switchTab('dna',this)">Team DNA</button>
-    <button class="hero-tab" onclick="switchTab('onoff',this)">On/Off</button>
-    <button class="hero-tab" onclick="switchTab('customize',this)">✦ Customize</button>
-    <button class="hero-tab" onclick="switchTab('losses',this)" style="display:none;">Losses</button>
-    <button class="hero-tab" onclick="switchTab('schedule',this)">Schedule</button>
-    <button class="hero-tab" id="projTabBtn" onclick="switchTab('projections',this)">2026-27 Projections</button>
+    <div class="hero-grp" data-grp="analytics">
+      <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Analytics<span class="hero-grp-car">▾</span></button>
+      <div class="hero-grp-menu">
+        <button class="hero-tab" onclick="_tgPick('dna',this)">Team DNA</button>
+        <button class="hero-tab" onclick="_tgPick('onoff',this)">On/Off</button>
+        <button class="hero-tab" id="projTabBtn" onclick="_tgPick('projections',this)">2026-27 Projections</button>
+      </div>
+    </div>
+    <div class="hero-grp" data-grp="coach">
+      <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Coach's Tier <span class="hero-grp-lock">🔒</span><span class="hero-grp-car">▾</span></button>
+      <div class="hero-grp-menu">
+        <button class="hero-tab" onclick="_tgPick('customize',this)">✦ Customize</button>
+        <button class="hero-tab" onclick="_tgPick('report',this)">Roster Report</button>
+        <div class="hero-grp-div"></div>
+        <a class="hero-grp-ext" href="scout.html">Full Scouting Report ↗</a>
+        <a class="hero-grp-ext" href="moneyball.html">Moneyball ↗</a>
+      </div>
+    </div>
     <button class="hero-tab" onclick="switchTab('nil',this)">NIL Value</button>
-    <button class="hero-tab" onclick="switchTab('report',this)">Roster Report</button>
+    <button class="hero-tab" onclick="switchTab('schedule',this)">Schedule</button>
+    <button class="hero-tab" onclick="switchTab('losses',this)" style="display:none;">Losses</button>
     <button class="hero-tab" id="followTeamBtn" onclick="toggleTeamFollow()" style="margin-left:auto;padding:6px 16px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:none;border:1px solid var(--border2);color:var(--text3);cursor:pointer;font-family:'Inter',sans-serif;border-radius:0;display:flex;align-items:center;gap:6px;">Follow Team</button>
   </div>
   <div class="team-season-bar">
@@ -7786,6 +7813,28 @@ function toggleTheme(){
 
   initFollowComments();
 })();
+</script>
+
+<script>
+// ── Grouped hero-tab menus (Analytics ▾ · Coach's Tier 🔒 ▾) ──
+function _tgToggle(btn, e){ if(e) e.stopPropagation();
+  var grp=btn.parentElement, wasOpen=grp.classList.contains('open');
+  document.querySelectorAll('.hero-grp.open').forEach(function(g){ g.classList.remove('open'); });
+  if(!wasOpen) grp.classList.add('open');
+}
+function _tgPick(id, btn){
+  document.querySelectorAll('.hero-grp.open').forEach(function(g){ g.classList.remove('open'); });
+  switchTab(id, btn); _tgSyncActive();
+}
+function _tgSyncActive(){
+  document.querySelectorAll('.hero-grp').forEach(function(grp){
+    var any=[].slice.call(grp.querySelectorAll('.hero-tab')).some(function(b){ return b.classList.contains('active'); });
+    grp.classList.toggle('grp-active', any);
+  });
+}
+document.addEventListener('click', function(){ document.querySelectorAll('.hero-grp.open').forEach(function(g){ g.classList.remove('open'); }); });
+// keep the group highlight synced for every tab switch (season changes, deep links, gating)
+(function(){ var o=window.switchTab; window.switchTab=function(){ var r=o.apply(this,arguments); try{ _tgSyncActive(); }catch(e){} return r; }; })();
 </script>
 
 <script>
