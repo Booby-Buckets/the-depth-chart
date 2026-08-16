@@ -150,6 +150,18 @@
     .tab-grp-div{height:1px;background:var(--border);margin:5px 6px;}
     .tab-grp-ext{display:block;padding:9px 13px;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);text-decoration:none;border-radius:8px;}
     .tab-grp-ext:hover{background:var(--bg3);color:var(--tc-readable,var(--accent));}
+    /* Coach's Tier mega-menu — the full player toolkit in a 2-column card grid */
+    .tab-grp-mega{min-width:440px;max-width:min(92vw,520px);}
+    .hgm-sec{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:8px 10px 5px;}
+    .hgm-item{display:flex;flex-direction:column;gap:1px;width:100%;text-align:left;padding:8px 12px;border:none;border-radius:8px;background:none;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:none;}
+    .hgm-item:hover{background:var(--bg3);}
+    .hgm-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;}
+    .hgm-card{display:flex;flex-direction:column;gap:1px;padding:8px 12px;border-radius:8px;text-decoration:none;cursor:pointer;}
+    .hgm-card:hover{background:var(--bg3);}
+    .hgm-t{font-size:12.5px;font-weight:700;color:var(--text);letter-spacing:0;text-transform:none;}
+    .hgm-d{font-size:10.5px;color:var(--text3);font-weight:500;letter-spacing:0;text-transform:none;}
+    .hgm-card .hgm-t::after{content:'↗';font-size:.75em;color:var(--text3);margin-left:4px;opacity:0;transition:opacity .15s;}
+    .hgm-card:hover .hgm-t::after{opacity:1;}
     .tab-panel{display:none;padding:28px 40px 60px;}
     /* BUZZ TAB — headlines + social (live: player_news.json / player_buzz.json) */
     .buzz-note{font-size:12px;color:var(--text3);background:var(--bg2);border:1px dashed var(--border);border-radius:8px;padding:10px 14px;margin-bottom:24px;line-height:1.5;}
@@ -3546,12 +3558,16 @@ function renderPage(){
       </div>
       <div class="tab-grp" data-grp="coach">
         <button class="tab-grp-btn" onclick="_grpToggle(this,event)">Coach's Tier <span class="tab-grp-lock">🔒</span><span class="tab-grp-car">▾</span></button>
-        <div class="tab-grp-menu">
-          <button class="tab-btn" id="tab-scout" onclick="_grpPick('scout')">Scouting Report</button>
-          <button class="tab-btn" id="tab-scheme" onclick="_grpPick('scheme')">Scheme Lab</button>
-          <div class="tab-grp-div"></div>
-          <a class="tab-grp-ext" href="scout.html">Full Scouting Report ↗</a>
-          <a class="tab-grp-ext" href="moneyball.html">Moneyball ↗</a>
+        <div class="tab-grp-menu tab-grp-mega">
+          <div class="hgm-sec">On this player</div>
+          <button class="hgm-item" onclick="_grpPick('scout')"><span class="hgm-t">Scouting Report</span><span class="hgm-d">Archetype, comps & full breakdown</span></button>
+          <button class="hgm-item" onclick="_grpPick('scheme')"><span class="hgm-t">Scheme Lab</span><span class="hgm-d">How he fits different systems</span></button>
+          <div class="hgm-sec">Coach's Tier toolkit</div>
+          <div class="hgm-grid">
+            <a class="hgm-card ptool" href="dossier.html"><span class="hgm-t">Player Dossier</span><span class="hgm-d">Full one-page scouting dossier</span></a>
+            <a class="hgm-card ptool" href="roles.html"><span class="hgm-t">Role & Fit</span><span class="hgm-d">Best role & lineup fit</span></a>
+            <a class="hgm-card ptool" href="development.html"><span class="hgm-t">Player Development</span><span class="hgm-d">Trajectory & growth areas</span></a>
+          </div>
         </div>
       </div>
       <div class="tab-grp" data-grp="market">
@@ -5279,7 +5295,16 @@ function _displaySwitch(t){
 function _grpToggle(btn, e){ if(e) e.stopPropagation();
   var grp=btn.parentElement, wasOpen=grp.classList.contains('open');
   document.querySelectorAll('.tab-grp.open').forEach(function(g){ g.classList.remove('open'); });
-  if(!wasOpen) grp.classList.add('open');
+  if(!wasOpen){ grp.classList.add('open'); _grpLinkPlayer(); }
+}
+// Point the Coach's Tier toolkit links at THIS player so they open pre-loaded.
+function _grpLinkPlayer(){
+  var qs=location.search||'';
+  if(!qs && typeof player!=='undefined' && player){
+    qs='?'+(player.espn_id?('espn='+player.espn_id):('name='+encodeURIComponent(player.name||'')))+(player.team?('&team='+encodeURIComponent(player.team)):'');
+  }
+  if(!qs) return;
+  document.querySelectorAll('.tab-grp .ptool').forEach(function(a){ var base=(a.getAttribute('href')||'').split('?')[0]; if(base) a.setAttribute('href', base+qs); });
 }
 function _grpPick(id){
   document.querySelectorAll('.tab-grp.open').forEach(function(g){ g.classList.remove('open'); });
