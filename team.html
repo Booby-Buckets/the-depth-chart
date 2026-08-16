@@ -3663,7 +3663,8 @@ function _inferPos(p){
 // best playmaker among the guards → PG, other guard → SG; then the bench fills its own columns.
 function _slotHistoricalRoster(players){
   const HT=p=>_htIn(p.height)||78;
-  const isGuard=p=>{ const x=(p.position||'').toUpperCase(); if(/^(PG|SG|CG|G)/.test(x)) return true; if(/^(C|PF|SF|GF|F)/.test(x)) return false; return HT(p)<=77; };
+  const isGuard=p=>{ if(HT(p)>=80) return false; /* 6-8+ is a frontcourt player, whatever the label says */
+    const x=(p.position||'').toUpperCase(); if(/^(PG|SG|CG|G)/.test(x)) return true; if(/^(C|PF|SF|GF|F)/.test(x)) return false; return HT(p)<=77; };
   const pool=[...players].filter(p=>p&&p.name&&p.name!=='—').sort((a,b)=>(parseFloat(b.mpg)||0)-(parseFloat(a.mpg)||0));
   const starters=pool.slice(0,5), bench=pool.slice(5);
   const bigs=starters.filter(p=>!isGuard(p)).sort((a,b)=>HT(b)-HT(a));
@@ -3674,10 +3675,12 @@ function _slotHistoricalRoster(players){
   if(bigs[2]) slot.SF=bigs[2];
   if(guards[0]) slot.PG=guards[0];
   if(guards[1]) slot.SG=guards[1];
-  // seat any leftover starters into whatever spots remain (guard-heavy → wings; big-heavy → PF/C)
+  // seat any leftover starters by SIZE: tallest fills the most frontcourt empty slot (C→PF→SF),
+  // shortest fills the backcourt (SG→PG). This keeps a guard-heavy five (no true big in the top
+  // five) from parking a 6-1 guard at center — the tallest available takes the 5 instead.
   const seated=new Set(Object.values(slot).map(p=>p.name));
-  const leftover=starters.filter(p=>!seated.has(p.name));
-  ['SF','SG','PF','PG','C'].forEach(pos=>{ if(!slot[pos]&&leftover.length){ slot[pos]=leftover.shift(); } });
+  const leftover=starters.filter(p=>!seated.has(p.name)).sort((a,b)=>HT(b)-HT(a));
+  ['C','PF','SF','SG','PG'].filter(pos=>!slot[pos]).forEach((pos,i)=>{ if(leftover[i]) slot[pos]=leftover[i]; });
   POS_KEYS.forEach(pos=>{ customDepth[pos]=slot[pos]?[slot[pos]]:[]; });
   bench.forEach(p=>{ const nat=_inferPos(p); if(!POS_KEYS.includes(nat)) return; customDepth[nat].push(p); });
 }
