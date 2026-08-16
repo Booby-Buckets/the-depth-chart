@@ -27,11 +27,16 @@
     .nil-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
     .nil-big{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1;}
     .nil-sub{font-size:10px;font-weight:600;color:var(--text3);margin-top:3px;}
-    .nil-table{width:100%;border-collapse:collapse;font-size:12px;max-width:700px;}
-    .nil-table th{text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);padding:8px;border-bottom:1px solid var(--border2);}
+    /* Google-Sheets style: centered bordered card, gridlines, zebra rows, sticky header */
+    .nil-gs{width:max-content;max-width:100%;margin:0 auto;border:1px solid var(--border);border-radius:12px;background:var(--bg);overflow:auto;max-height:70vh;}
+    .nil-table{border-collapse:collapse;font-size:12px;width:max-content;}
+    .nil-table th{position:sticky;top:0;z-index:2;background:var(--bg2);text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);padding:9px 13px;border-bottom:1px solid var(--border2);border-right:1px solid var(--border2);white-space:nowrap;}
     .nil-table th.left,.nil-table td.left{text-align:left;}
-    .nil-table td{text-align:right;padding:8px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;}
+    .nil-table td{text-align:right;padding:7px 13px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-variant-numeric:tabular-nums;white-space:nowrap;}
+    .nil-table th:last-child,.nil-table td:last-child{border-right:none;}
+    .nil-table tbody tr:nth-child(even){background:rgba(127,127,127,.045);}
     .nil-table tbody tr:hover{background:var(--bg2);}
+    .nil-cards{display:flex;flex-wrap:wrap;gap:13px;margin-bottom:20px;justify-content:center;}
   </style>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=2"></script>
@@ -6564,7 +6569,7 @@ async function renderNil(){
   const nProjSpend=(d.projected_spend||0)*_F;
   const spendGap=hasOverrides?round1(nVal-nProjSpend):0;
   function round1(v){ return Math.round(v*1000)/1000; }
-  let html=`<div style="display:flex;flex-wrap:wrap;gap:13px;margin-bottom:20px;">
+  let html=`<div class="nil-cards">
     <div class="nil-card"><div class="nil-lbl">NIL Budget · Tier ${d.tier}</div><div class="nil-big">${fmt(d.budget)}</div></div>
     <div class="nil-card"><div class="nil-lbl">Roster Value · Model</div><div class="nil-big" style="color:var(--tc-readable,${col})">${fmt(nVal)}</div><div class="nil-sub">open-market · tier-neutral</div></div>
     <div class="nil-card"><div class="nil-lbl">Roster Value · Market</div><div class="nil-big" style="color:var(--tc-readable,${col})">${fmt(_rosterMarket)}</div><div class="nil-sub">positional curves</div></div>
@@ -6572,7 +6577,7 @@ async function renderNil(){
     <div class="nil-card"><div class="nil-lbl">Cost / Net Point</div><div class="nil-big">$${Math.round(d.implied_rate*1000)}K</div><div class="nil-sub">market $${Math.round(mkt*1000)}K</div></div>
     ${hasOverrides?`<div class="nil-card"><div class="nil-lbl">Projected Spend</div><div class="nil-big">${fmt(nProjSpend)}</div><div class="nil-sub" style="color:${spendGap>0?'var(--red)':'var(--green)'};font-weight:700;">${spendGap>0?'+':''}${fmt(Math.abs(spendGap))} ${spendGap>0?'above model':'below model'}</div></div>`:''}
   </div>
-  <div style="margin:4px 0 26px;max-width:700px;">
+  <div style="margin:4px auto 26px;max-width:700px;">
     <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--text3);margin-bottom:5px;"><span>Roster value ${fmt(nVal)}</span><span>Budget ${fmt(d.budget)}</span></div>
     <div style="position:relative;height:16px;background:var(--bg3);border-radius:8px;overflow:hidden;">
       <div style="position:absolute;top:0;bottom:0;left:0;width:${valPct}%;background:${deal?'var(--green)':col};"></div>
@@ -6580,7 +6585,7 @@ async function renderNil(){
     </div>
     <div style="font-size:10px;color:var(--text3);margin-top:4px;">Green bar = roster value · vertical line = budget</div>
   </div>
-  <div style="overflow-x:auto;">
+  <div class="nil-gs">
   <table class="nil-table"><thead><tr><th class="left">Player</th><th title="Class / eligibility">Yr</th><th>Pos</th><th>Grade</th><th title="Projected minutes per game">MPG</th><th title="Last season's demonstrated production — points / rebounds / assists per game">PPG/RPG/APG</th><th title="Wins Added — the owned on-court production value (offensive + defensive) the Model is built on. Last season.">WA</th><th title="Production model estimate: grade × projected minutes × market premium. Tier-neutral — the player's open-market worth, not his program's spending tier.">Model Value</th><th title="Positional market curve for this player's grade & slot — set by the owner, independent of minutes">Market Value</th><th title="This player's Market Value as a share of the roster's total market value">% Roster</th><th title="TIER-FAIR: strips team spending, then compares his production to the market price for his grade & slot. UNDERRATED = produces 30%+ above his market price (slept on). OVERRATED = market prices him 30%+ above production. Only real rotation pieces are judged.">Verdict</th></tr></thead><tbody>`;
   const _rosterList=(typeof teamPlayers!=='undefined'&&teamPlayers||[]);
   const _injSet=new Set(_rosterList.filter(p=>p.is_injured).map(p=>(p.name||'').toLowerCase().trim()));
@@ -6631,8 +6636,8 @@ async function renderNil(){
         <div style="font-weight:800;font-size:16px;margin:5px 0 2px;">${x.p.name}</div>
         <div style="font-size:12px;color:var(--text3);">${x.bm.pos} · ${x.p.grade} OVR · Market ${fmt(x.bm.val)} · ${sub(x)}</div>
       </div>`:'';
-    html+=`<div style="font-weight:800;font-size:14px;margin:24px 0 12px;color:var(--text);">Roster insights</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;align-items:start;max-width:900px;">
+    html+=`<div style="font-weight:800;font-size:14px;margin:24px 0 12px;color:var(--text);text-align:center;">Roster insights</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;align-items:start;max-width:900px;margin:0 auto;">
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">
           <div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">Market $ by position</div>
           ${posBars}
