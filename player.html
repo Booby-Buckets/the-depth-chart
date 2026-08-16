@@ -119,7 +119,7 @@
     .stat-toggle-btn.active{background:var(--text);color:var(--bg);}
 
     /* TABS — animated */
-    .tab-row{display:flex;border-bottom:1px solid var(--border);padding:0 40px;overflow-x:auto;scrollbar-width:none;}
+    .tab-row{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--border);padding:0 40px;overflow:visible;}
     .tab-row::-webkit-scrollbar{display:none;}
     /* scroll-hint fade on the right when more tabs are off-screen */
     .tab-row-wrap{position:relative;}
@@ -131,6 +131,25 @@
     .tab-btn.active{color:var(--text);}
     .tab-btn.active::after{transform:scaleX(1);}
     .tab-btn:hover:not(.active){color:var(--text2);}
+    /* ── Grouped tab menus (Overview · Stats & Shots ▾ · Coach's Tier 🔒 ▾ · Market ▾) ── */
+    .tab-grp{position:relative;display:inline-flex;}
+    .tab-grp-btn{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:12px 18px;border:none;background:none;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;font-family:'Inter',sans-serif;transition:color .2s;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;position:relative;}
+    .tab-grp-btn::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background:var(--accent);transform:scaleX(0);transition:transform .25s cubic-bezier(.22,1,.36,1);}
+    .tab-grp.grp-active .tab-grp-btn,.tab-grp.open .tab-grp-btn{color:var(--text);}
+    .tab-grp.grp-active .tab-grp-btn::after,.tab-grp.open .tab-grp-btn::after{transform:scaleX(1);}
+    .tab-grp-btn:hover{color:var(--text2);}
+    .tab-grp-car{font-size:8px;opacity:.6;transition:transform .2s;}
+    .tab-grp.open .tab-grp-car{transform:rotate(180deg);}
+    .tab-grp-lock{font-size:.82em;opacity:.75;}
+    .tab-grp-menu{position:absolute;top:100%;left:0;margin-top:6px;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:6px;min-width:194px;display:none;flex-direction:column;gap:1px;z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.28);}
+    .tab-grp.open .tab-grp-menu{display:flex;}
+    .tab-grp-menu .tab-btn{display:block;width:100%;text-align:left;padding:9px 13px;border-radius:8px;border-bottom:none;margin:0;letter-spacing:.03em;}
+    .tab-grp-menu .tab-btn::after{display:none;}
+    .tab-grp-menu .tab-btn:hover:not(.active){background:var(--bg3);color:var(--text2);}
+    .tab-grp-menu .tab-btn.active{background:var(--bg3);color:var(--tc-readable,var(--accent));}
+    .tab-grp-div{height:1px;background:var(--border);margin:5px 6px;}
+    .tab-grp-ext{display:block;padding:9px 13px;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);text-decoration:none;border-radius:8px;}
+    .tab-grp-ext:hover{background:var(--bg3);color:var(--tc-readable,var(--accent));}
     .tab-panel{display:none;padding:28px 40px 60px;}
     /* BUZZ TAB — headlines + social (live: player_news.json / player_buzz.json) */
     .buzz-note{font-size:12px;color:var(--text3);background:var(--bg2);border:1px dashed var(--border);border-radius:8px;padding:10px 14px;margin-bottom:24px;line-height:1.5;}
@@ -3516,15 +3535,33 @@ function renderPage(){
     <div class="tab-row-wrap">
     <div class="tab-row" id="tabRow" onscroll="_tabScrollHint()">
       <button class="tab-btn active" id="tab-overview" onclick="switchTab('overview')">Overview</button>
-      <button class="tab-btn" id="tab-stats" onclick="switchTab('stats')">Full Stats</button>
-      <button class="tab-btn" id="tab-shotcharts" onclick="switchTab('shotcharts')">Shot Charts</button>
-      <button class="tab-btn" id="tab-rankings" onclick="switchTab('rankings')">Rankings</button>
-      <button class="tab-btn" id="tab-scheme" onclick="switchTab('scheme')">Scheme Lab</button>
-      <button class="tab-btn" id="tab-percentiles" onclick="switchTab('percentiles')">Percentiles</button>
-      <button class="tab-btn" id="tab-scout" onclick="switchTab('scout')">Scouting</button>
-      <button class="tab-btn" id="tab-nil" onclick="switchTab('nil')">NIL Value</button>
-      <button class="tab-btn" id="tab-buzz" onclick="switchTab('buzz')">Buzz</button>
-      <button class="tab-btn" id="tab-portalfit" onclick="switchTab('portalfit')">Portal Fit</button>
+      <div class="tab-grp" data-grp="stats">
+        <button class="tab-grp-btn" onclick="_grpToggle(this,event)">Stats &amp; Shots<span class="tab-grp-car">▾</span></button>
+        <div class="tab-grp-menu">
+          <button class="tab-btn" id="tab-stats" onclick="_grpPick('stats')">Full Stats</button>
+          <button class="tab-btn" id="tab-shotcharts" onclick="_grpPick('shotcharts')">Shot Charts</button>
+          <button class="tab-btn" id="tab-rankings" onclick="_grpPick('rankings')">Rankings</button>
+          <button class="tab-btn" id="tab-percentiles" onclick="_grpPick('percentiles')">Percentiles</button>
+        </div>
+      </div>
+      <div class="tab-grp" data-grp="coach">
+        <button class="tab-grp-btn" onclick="_grpToggle(this,event)">Coach's Tier <span class="tab-grp-lock">🔒</span><span class="tab-grp-car">▾</span></button>
+        <div class="tab-grp-menu">
+          <button class="tab-btn" id="tab-scout" onclick="_grpPick('scout')">Scouting Report</button>
+          <button class="tab-btn" id="tab-scheme" onclick="_grpPick('scheme')">Scheme Lab</button>
+          <div class="tab-grp-div"></div>
+          <a class="tab-grp-ext" href="scout.html">Full Scouting Report ↗</a>
+          <a class="tab-grp-ext" href="moneyball.html">Moneyball ↗</a>
+        </div>
+      </div>
+      <div class="tab-grp" data-grp="market">
+        <button class="tab-grp-btn" onclick="_grpToggle(this,event)">Market<span class="tab-grp-car">▾</span></button>
+        <div class="tab-grp-menu">
+          <button class="tab-btn" id="tab-nil" onclick="_grpPick('nil')">NIL Value</button>
+          <button class="tab-btn" id="tab-buzz" onclick="_grpPick('buzz')">Buzz</button>
+          <button class="tab-btn" id="tab-portalfit" onclick="_grpPick('portalfit')">Portal Fit</button>
+        </div>
+      </div>
     </div>
     </div>
 
@@ -5237,6 +5274,26 @@ function _displaySwitch(t){
   }
   if(window.TDCGate) TDCGate.ready.then(function(){ _decorate(0); });
 })();
+
+// ── Grouped tab menus: open/close a group, pick a tab inside it, reflect which group is active ──
+function _grpToggle(btn, e){ if(e) e.stopPropagation();
+  var grp=btn.parentElement, wasOpen=grp.classList.contains('open');
+  document.querySelectorAll('.tab-grp.open').forEach(function(g){ g.classList.remove('open'); });
+  if(!wasOpen) grp.classList.add('open');
+}
+function _grpPick(id){
+  document.querySelectorAll('.tab-grp.open').forEach(function(g){ g.classList.remove('open'); });
+  switchTab(id); _grpSyncActive();
+}
+function _grpSyncActive(){
+  document.querySelectorAll('.tab-grp').forEach(function(grp){
+    var any=[].slice.call(grp.querySelectorAll('.tab-btn')).some(function(b){ return b.classList.contains('active'); });
+    grp.classList.toggle('grp-active', any);
+  });
+}
+document.addEventListener('click', function(){ document.querySelectorAll('.tab-grp.open').forEach(function(g){ g.classList.remove('open'); }); });
+// keep the group highlight in sync for EVERY tab switch (deep links, gated re-activation, etc.)
+(function(){ var o=window.switchTab; window.switchTab=function(){ var r=o.apply(this,arguments); try{ _grpSyncActive(); }catch(e){} return r; }; })();
 
 
 
