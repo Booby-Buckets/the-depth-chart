@@ -104,6 +104,14 @@
     .stand-row.me .nm{font-weight:800;}
     .stand-row .rec{color:var(--text2);font-variant-numeric:tabular-nums;font-weight:700;font-size:12.5px;}
     .stand-row .ov{color:var(--text3);font-variant-numeric:tabular-nums;font-size:11px;margin-left:8px;}
+    /* team buzz */
+    .buzz{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;}
+    .bz{display:block;border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:13px 15px;transition:border-color .15s,transform .12s;}
+    .bz:hover{border-color:var(--tc,var(--accent));transform:translateY(-1px);}
+    .bz .bt{font-size:13px;font-weight:700;line-height:1.4;color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+    .bz .bm{font-size:11px;color:var(--text3);margin-top:7px;display:flex;gap:7px;align-items:center;flex-wrap:wrap;}
+    .bz .bm .who{color:var(--tc-readable,var(--accent));font-weight:700;}
+    .bz-empty{font-size:12.5px;color:var(--text3);padding:16px;border:1px dashed var(--border);border-radius:12px;grid-column:1/-1;}
     @media(max-width:640px){.hero{padding:24px 20px 24px;}.hero-stats{width:100%;}.hs{flex:1;min-width:0;padding:12px 8px;}}
   </style>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
@@ -155,6 +163,10 @@
       <div class="hq-2col">
         <div><div class="sec"><span id="hqGameLbl">Next game</span></div><div id="hqGame" class="gamecard"></div></div>
         <div><div class="sec"><span id="hqStandLbl">Conference standings</span><span class="h" id="hqStandSub"></span></div><div id="hqStandings" class="stand"></div></div>
+      </div>
+      <div id="hqBuzzSec" style="display:none">
+        <div class="sec"><span>Around the program</span><span class="h">latest headlines on your roster</span></div>
+        <div id="hqBuzz" class="buzz"></div>
       </div>
       <div class="sec"><span>Your command center</span><span class="h" id="hqTeamLbl"></span></div>
       <div class="launch" id="hqLaunch"></div>
@@ -254,8 +266,12 @@ function renderSeason(){
     return '<a class="tool" href="'+t[1]+'?team='+q+sq+'"><span class="ic">'+t[0]+'</span><span style="min-width:0"><span class="tn">'+esc(t[2])+'</span><span class="td">'+t[3]+'</span></span>'+(t[4]?'<span class="lk">'+t[4].toUpperCase()+'</span>':'')+'</a>';
   }).join('');
   document.getElementById('hqTeamLbl').textContent='— every tool, loaded for '+row.full;
-  if(+HQ_SEASON===2027){ projHero(row); projStandings(row); projGame(); }
-  else {
+  var buzzSec=document.getElementById('hqBuzzSec');
+  if(+HQ_SEASON===2027){
+    buzzSec.style.display='block';
+    projHero(row); projStandings(row); projGame(); loadBuzz(row);
+  } else {
+    buzzSec.style.display='none';   // buzz = current news; only meaningful for the projected season
     document.getElementById('hqStats').innerHTML='<div class="hs"><div class="v" style="font-size:15px;color:var(--text3)">···</div><div class="l">Loading</div></div>';
     document.getElementById('hqGameLbl').textContent='Last game';
     loadPast(HQ_SEASON).then(function(P){
@@ -326,6 +342,28 @@ function lastGame(full,year){
         '<div class="gc-res"><span class="'+(win?'w':'l')+'">'+(win?'W':'L')+' '+us+'–'+them+'</span></div>'+
         '<a class="gc-report" href="game.html?id='+m.id+'">Game report →</a>';
     }).catch(function(){ el.innerHTML='<div class="gc-when">Last game</div><div class="gc-empty">Could not load games.</div>'; });
+}
+
+// ── team buzz — recent headlines about the roster's players (from player_news.json) ──
+var NEWS=null;
+function loadNews(){ if(NEWS!==null) return Promise.resolve(NEWS); return fetch('scripts/data/player_news.json').then(function(r){return r.ok?r.json():null;}).then(function(j){ NEWS=(j&&j.players)||{}; return NEWS; }).catch(function(){ NEWS={}; return NEWS; }); }
+function loadBuzz(row){
+  var el=document.getElementById('hqBuzz'); el.innerHTML='<div class="bz-empty">Loading headlines…</div>';
+  var short=row.team||row.full;   // players.team is the SHORT name (ratings row uses .team, not .short)
+  Promise.all([
+    fetch(SB+'/rest/v1/players?team=eq.'+encodeURIComponent(short)+'&select=name,espn_id&espn_id=not.is.null',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}),
+    loadNews()
+  ]).then(function(rr){
+    var players=rr[0], news=rr[1]||{}, items=[];
+    players.forEach(function(p){ var n=news[''+p.espn_id]; if(n&&n.items) n.items.forEach(function(it){ items.push({t:it.title,u:it.url,src:it.source,date:it.date,who:p.name}); }); });
+    var seen={}; items=items.filter(function(x){ if(!x.t||seen[x.t]) return false; seen[x.t]=1; return true; });
+    items.sort(function(a,b){ return (new Date(b.date)||0)-(new Date(a.date)||0); });
+    items=items.slice(0,6);
+    if(!items.length){ el.innerHTML='<div class="bz-empty">No recent headlines on file for this roster yet — buzz refreshes as news breaks on your players.</div>'; return; }
+    el.innerHTML=items.map(function(x){
+      return '<a class="bz" href="'+esc(x.u)+'" target="_blank" rel="noopener"><div class="bt">'+esc(x.t)+'</div><div class="bm"><span class="who">'+esc(x.who)+'</span><span>·</span><span>'+esc(x.src||'')+'</span></div></a>';
+    }).join('');
+  }).catch(function(){ el.innerHTML='<div class="bz-empty">Could not load headlines.</div>'; });
 }
 
 // boot
