@@ -7,7 +7,7 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="The Depth Chart">
   <meta property="og:title" content="Program HQ — The Depth Chart">
-  <meta property="og:description" content="Pick your program. Your colors, your roster, your command center — one launchpad into every tool.">
+  <meta property="og:description" content="Pick your program. Your colors, your coach, your command center — one launchpad into every tool.">
   <meta property="og:url" content="https://www.thedepthchartcbb.com/program-hq.html">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Program HQ — The Depth Chart">
@@ -21,12 +21,13 @@
   <script src="tdc-ratings.js?v=7"></script>
   <script src="tdc-teamlink.js?v=2"></script>
   <script src="tdc-teamgrades.js?v=1"></script>
+  <script src="tdc-projgrade.js?v=1"></script>
   <style>
-    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--red:#cc2200;--tc:#A8843C;--tc-rgb:168,132,60;}
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--red:#cc2200;--tc:#A8843C;--tc-rgb:168,132,60;--tc-ink:#fff;}
     [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--red:#e07070;}
     *{margin:0;padding:0;box-sizing:border-box;}
     body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
-    .wrap{max-width:1160px;margin:0 auto;padding:0 22px 80px;}
+    .wrap{max-width:1180px;margin:0 auto;padding:0 22px 80px;}
     a{color:inherit;text-decoration:none;}
 
     /* ── team picker (no team chosen yet) ── */
@@ -46,28 +47,88 @@
 
     /* ── HQ (team chosen) ── */
     #hq{display:none;}
-    .hero{position:relative;overflow:hidden;border-radius:0 0 22px 22px;padding:34px 40px 30px;
-      background:linear-gradient(150deg,rgba(var(--tc-rgb),.30) 0%,rgba(var(--tc-rgb),.12) 42%,transparent 100%);border-bottom:1px solid var(--border);}
-    [data-theme="dark"] .hero{background:linear-gradient(150deg,rgba(var(--tc-rgb),.40) 0%,rgba(var(--tc-rgb),.16) 42%,transparent 100%);}
-    .hero-orb{position:absolute;border-radius:50%;filter:blur(60px);pointer-events:none;background:radial-gradient(circle at center,rgba(var(--tc-rgb),.22),transparent 66%);width:460px;height:460px;top:-200px;right:-120px;}
+    /* team-color header band — the "dynasty hub" look */
+    .hero{position:relative;overflow:hidden;padding:30px 40px 26px;color:var(--tc-ink,#fff);
+      background:linear-gradient(135deg,var(--tc) 0%,color-mix(in srgb,var(--tc) 70%,#0a0a0a) 100%);}
+    .hero-orb{position:absolute;border-radius:50%;filter:blur(70px);pointer-events:none;background:radial-gradient(circle at center,rgba(255,255,255,.20),transparent 66%);width:460px;height:460px;top:-220px;right:-120px;}
     .hero-in{position:relative;z-index:1;display:flex;align-items:center;gap:22px;flex-wrap:wrap;}
-    .hero-badge{width:82px;height:82px;border-radius:20px;background:var(--bg2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;padding:11px;flex-shrink:0;box-shadow:0 6px 18px rgba(0,0,0,.12);}
+    .hero-badge{width:78px;height:78px;border-radius:18px;background:#fff;display:flex;align-items:center;justify-content:center;padding:10px;flex-shrink:0;box-shadow:0 8px 24px rgba(0,0,0,.30);font-weight:900;color:#333;}
     .hero-badge img{width:100%;height:100%;object-fit:contain;}
     .hero-id{flex:1;min-width:230px;}
-    .hero-k{font-size:10.5px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--tc-readable,var(--accent));margin-bottom:4px;}
-    .hero-id h1{font-family:'Playfair Display',serif;font-weight:900;font-size:clamp(30px,4.4vw,46px);line-height:1;letter-spacing:-.01em;}
-    .hero-sub{font-size:13.5px;color:var(--text2);font-weight:600;margin-top:7px;}
-    .hero-sub b{color:var(--text);}
-    .hero-stats{display:flex;gap:1px;background:var(--border);border-radius:14px;overflow:hidden;flex-shrink:0;}
-    .hs{background:var(--bg2);padding:14px 20px;text-align:center;min-width:86px;}
-    .hs .v{font-family:'Playfair Display',serif;font-weight:800;font-size:28px;line-height:1;}
-    .hs .l{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-top:5px;}
-    .hero-change{background:none;border:1px solid var(--border2);color:var(--text2);font-size:11px;font-weight:700;padding:8px 13px;border-radius:9px;cursor:pointer;}
-    .hero-change:hover{border-color:var(--tc,var(--accent));color:var(--text);}
+    .hero-k{font-size:10.5px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;opacity:.85;margin-bottom:5px;display:flex;align-items:center;gap:8px;}
+    .hero-id h1{font-family:'Playfair Display',serif;font-weight:900;font-size:clamp(27px,3.9vw,44px);line-height:1;letter-spacing:-.01em;text-shadow:0 1px 12px rgba(0,0,0,.14);}
+    .hero-team{font-size:14px;font-weight:700;margin-top:9px;opacity:.94;}
+    .hero-team b{font-weight:800;}
+    .hero-right{display:flex;flex-direction:column;align-items:flex-end;gap:11px;}
+    .hero-stats{display:flex;gap:1px;border-radius:13px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.18);}
+    .hs{background:rgba(0,0,0,.20);padding:11px 18px;text-align:center;min-width:82px;backdrop-filter:blur(2px);}
+    .hs .v{font-family:'Playfair Display',serif;font-weight:800;font-size:25px;line-height:1;}
+    .hs .l{font-size:8.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.82;margin-top:5px;}
+    .hero-ctrls{display:flex;gap:8px;align-items:center;}
+    .hq-seasonsel{padding:7px 11px;border:1px solid rgba(255,255,255,.38);border-radius:9px;background:rgba(0,0,0,.20);color:var(--tc-ink,#fff);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;outline:none;}
+    .hq-seasonsel option{color:#1A1814;}
+    .hero-change{background:rgba(0,0,0,.20);border:1px solid rgba(255,255,255,.38);color:var(--tc-ink,#fff);font-size:11px;font-weight:700;padding:8px 13px;border-radius:9px;cursor:pointer;transition:background .15s;}
+    .hero-change:hover{background:rgba(0,0,0,.34);}
 
-    .sec{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:32px 0 13px;display:flex;align-items:center;gap:10px;}
+    /* dashboard grid */
+    .hq-grid{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;align-items:start;margin-top:22px;}
+    .hq-two{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    @media(max-width:880px){.hq-grid{grid-template-columns:1fr;}.hq-two{grid-template-columns:1fr;}}
+    .panel{border:1px solid var(--border);border-radius:15px;background:var(--bg2);padding:16px 18px;margin-bottom:14px;}
+    .pnl-h{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:13px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+    .pnl-sub{font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);}
+
+    /* game card */
+    .gamecard{min-height:120px;}
+    .gc-when{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--tc-readable,var(--accent));margin-bottom:11px;}
+    .gc-match{display:flex;align-items:center;gap:13px;}
+    .gc-match img{width:44px;height:44px;object-fit:contain;flex-shrink:0;}
+    .gc-vs{font-size:12px;font-weight:800;color:var(--text3);}
+    .gc-opp{font-size:22px;font-weight:900;font-family:'Playfair Display',serif;line-height:1;}
+    .gc-meta{font-size:12px;color:var(--text3);margin-top:9px;}
+    .gc-res{font-size:20px;font-weight:900;margin-top:11px;font-family:'Playfair Display',serif;}
+    .gc-res .w{color:var(--green);} .gc-res .l{color:var(--red);}
+    .gc-report{display:inline-block;margin-top:12px;font-size:11.5px;font-weight:700;color:var(--tc-readable,var(--accent));}
+    .gc-empty{font-size:12.5px;color:var(--text3);line-height:1.55;}
+
+    /* analytics grade bar */
+    .gbar{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+    .gtile{text-align:center;padding:12px 6px;border-radius:11px;background:var(--bg3);}
+    .gtile .gv{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;line-height:1;}
+    .gtile .gl{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:6px;}
+
+    /* roster leaders */
+    .plead{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);}
+    .plead:last-child{border-bottom:0;}
+    .plead .ov{font-family:'Playfair Display',serif;font-weight:800;font-size:23px;width:42px;text-align:center;flex-shrink:0;}
+    .plead .pn{font-weight:700;font-size:13.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .plead .pp{font-size:11px;font-weight:700;color:var(--text3);}
+
+    /* standings */
+    .stand{margin:-2px 0;}
+    .stand-row{display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid var(--border);font-size:13px;}
+    .stand-row:last-child{border-bottom:0;}
+    .stand-row.me{background:color-mix(in srgb,var(--tc,var(--accent)) 13%,var(--bg2));font-weight:800;border-radius:8px;padding:7px 8px;}
+    .stand-row .rk{width:20px;color:var(--text3);font-size:11px;font-weight:700;flex-shrink:0;}
+    .stand-row img{width:20px;height:20px;object-fit:contain;flex-shrink:0;}
+    .stand-row .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;}
+    .stand-row.me .nm{font-weight:800;}
+    .stand-row .rec{color:var(--text2);font-variant-numeric:tabular-nums;font-weight:700;font-size:12.5px;}
+    .stand-row .ov2{color:var(--text3);font-variant-numeric:tabular-nums;font-size:11px;margin-left:8px;}
+
+    /* media / buzz */
+    .buzz{display:flex;flex-direction:column;gap:10px;}
+    .bz{display:block;border-top:1px solid var(--border);padding-top:10px;}
+    .bz:first-child{border-top:0;padding-top:0;}
+    .bz .bt{font-size:13px;font-weight:700;line-height:1.4;color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+    .bz:hover .bt{color:var(--tc-readable,var(--accent));}
+    .bz .bm{font-size:11px;color:var(--text3);margin-top:5px;display:flex;gap:7px;align-items:center;flex-wrap:wrap;}
+    .bz .bm .who{color:var(--tc-readable,var(--accent));font-weight:700;}
+    .bz-empty{font-size:12.5px;color:var(--text3);line-height:1.5;}
+
+    /* command center launchpad */
+    .sec{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:34px 0 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
     .sec .h{font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);}
-    /* launchpad */
     .launch{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:11px;}
     .tool{display:flex;align-items:center;gap:13px;padding:15px 16px;border:1px solid var(--border);border-radius:14px;background:var(--bg2);transition:border-color .15s,transform .12s,background .15s;}
     .tool:hover{border-color:var(--tc,var(--accent));transform:translateY(-2px);}
@@ -76,43 +137,7 @@
     .tool .td{font-size:11.5px;color:var(--text3);font-weight:600;margin-top:2px;display:block;line-height:1.35;}
     .tool .lk{font-size:8px;font-weight:800;letter-spacing:.06em;color:var(--text3);border:1px solid var(--border2);border-radius:6px;padding:1px 5px;margin-left:auto;flex-shrink:0;}
     .note{font-size:11.5px;color:var(--text3);line-height:1.6;margin-top:24px;max-width:760px;}
-    /* season selector */
-    .hq-seasonsel{margin-top:10px;padding:6px 11px;border:1px solid var(--border2);border-radius:9px;background:var(--bg2);color:var(--text);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;outline:none;}
-    .hq-seasonsel:focus{border-color:var(--tc,var(--accent));}
-    /* game + standings 2-col */
-    .hq-2col{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;}
-    @media(max-width:760px){.hq-2col{grid-template-columns:1fr;}}
-    .gamecard{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:16px 18px;min-height:96px;}
-    .gc-when{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:9px;}
-    .gc-match{display:flex;align-items:center;gap:11px;}
-    .gc-match img{width:32px;height:32px;object-fit:contain;flex-shrink:0;}
-    .gc-vs{font-size:11px;font-weight:800;color:var(--text3);}
-    .gc-opp{font-size:16px;font-weight:800;}
-    .gc-meta{font-size:11.5px;color:var(--text3);margin-top:7px;}
-    .gc-res{font-size:13px;font-weight:800;margin-top:6px;}
-    .gc-res .w{color:var(--green);} .gc-res .l{color:var(--red);}
-    .gc-report{display:inline-block;margin-top:10px;font-size:11.5px;font-weight:700;color:var(--tc-readable,var(--accent));}
-    .gc-empty{font-size:12.5px;color:var(--text3);line-height:1.55;}
-    /* standings */
-    .stand{border:1px solid var(--border);border-radius:14px;background:var(--bg2);overflow:hidden;}
-    .stand-row{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border);font-size:13px;}
-    .stand-row:last-child{border-bottom:0;}
-    .stand-row.me{background:color-mix(in srgb,var(--tc,var(--accent)) 12%,var(--bg2));font-weight:800;}
-    .stand-row .rk{width:20px;color:var(--text3);font-size:11px;font-weight:700;flex-shrink:0;}
-    .stand-row img{width:20px;height:20px;object-fit:contain;flex-shrink:0;}
-    .stand-row .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;}
-    .stand-row.me .nm{font-weight:800;}
-    .stand-row .rec{color:var(--text2);font-variant-numeric:tabular-nums;font-weight:700;font-size:12.5px;}
-    .stand-row .ov{color:var(--text3);font-variant-numeric:tabular-nums;font-size:11px;margin-left:8px;}
-    /* team buzz */
-    .buzz{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;}
-    .bz{display:block;border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:13px 15px;transition:border-color .15s,transform .12s;}
-    .bz:hover{border-color:var(--tc,var(--accent));transform:translateY(-1px);}
-    .bz .bt{font-size:13px;font-weight:700;line-height:1.4;color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-    .bz .bm{font-size:11px;color:var(--text3);margin-top:7px;display:flex;gap:7px;align-items:center;flex-wrap:wrap;}
-    .bz .bm .who{color:var(--tc-readable,var(--accent));font-weight:700;}
-    .bz-empty{font-size:12.5px;color:var(--text3);padding:16px;border:1px dashed var(--border);border-radius:12px;grid-column:1/-1;}
-    @media(max-width:640px){.hero{padding:24px 20px 24px;}.hero-stats{width:100%;}.hs{flex:1;min-width:0;padding:12px 8px;}}
+    @media(max-width:640px){.hero{padding:24px 20px 22px;}.hero-right{align-items:stretch;width:100%;}.hero-stats{width:100%;}.hs{flex:1;min-width:0;padding:11px 6px;}.hero-ctrls{justify-content:space-between;}}
   </style>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
@@ -137,7 +162,7 @@
   <div class="pick-hero" id="picker">
     <div class="pick-k">⬡ Program HQ</div>
     <h1>Pick your program.</h1>
-    <p>Choose your team — or your favorite program — and this becomes its home base: your colors, your roster, and one-click into every tool on The Depth Chart, pre-loaded for your team.</p>
+    <p>Choose your team — or your favorite program — and this becomes its home base: your colors, your coach, your roster, and one-click into every tool on The Depth Chart, pre-loaded for your team.</p>
     <div class="pick-box">
       <input id="pick" type="text" placeholder="Search your program…" autocomplete="off"/>
       <div class="pick-list" id="pickList"></div>
@@ -150,23 +175,32 @@
       <div class="hero-in">
         <div class="hero-badge" id="hqBadge"></div>
         <div class="hero-id">
-          <div class="hero-k">⬡ Program HQ</div>
+          <div class="hero-k" id="hqKick">⬡ Program HQ</div>
           <h1 id="hqName">—</h1>
-          <div class="hero-sub" id="hqSub"></div>
-          <select id="hqSeason" class="hq-seasonsel"></select>
+          <div class="hero-team" id="hqTeamName"></div>
         </div>
-        <div class="hero-stats" id="hqStats"></div>
-        <button class="hero-change" onclick="changeTeam()">Change</button>
+        <div class="hero-right">
+          <div class="hero-stats" id="hqStats"></div>
+          <div class="hero-ctrls">
+            <select id="hqSeason" class="hq-seasonsel"></select>
+            <button class="hero-change" onclick="changeTeam()">Change team</button>
+          </div>
+        </div>
       </div>
     </div>
     <div class="wrap">
-      <div class="hq-2col">
-        <div><div class="sec"><span id="hqGameLbl">Next game</span></div><div id="hqGame" class="gamecard"></div></div>
-        <div><div class="sec"><span id="hqStandLbl">Conference standings</span><span class="h" id="hqStandSub"></span></div><div id="hqStandings" class="stand"></div></div>
-      </div>
-      <div id="hqBuzzSec" style="display:none">
-        <div class="sec"><span>Around the program</span><span class="h">latest headlines on your roster</span></div>
-        <div id="hqBuzz" class="buzz"></div>
+      <div class="hq-grid">
+        <div class="hq-main">
+          <div class="panel gamecard" id="hqGame"></div>
+          <div class="hq-two">
+            <div class="panel"><div class="pnl-h" id="hqAnaLbl">Team analytics</div><div id="hqAnalytics"></div></div>
+            <div class="panel"><div class="pnl-h">Roster leaders <span class="pnl-sub">projected OVR</span></div><div id="hqProg"></div></div>
+          </div>
+        </div>
+        <div class="hq-side">
+          <div class="panel"><div class="pnl-h"><span id="hqStandLbl">Conference standings</span><span class="pnl-sub" id="hqStandSub"></span></div><div id="hqStandings" class="stand"></div></div>
+          <div class="panel" id="hqBuzzSec"><div class="pnl-h">Media <span class="pnl-sub">latest on your roster</span></div><div id="hqBuzz" class="buzz"></div></div>
+        </div>
       </div>
       <div class="sec"><span>Your command center</span><span class="h" id="hqTeamLbl"></span></div>
       <div class="launch" id="hqLaunch"></div>
@@ -176,14 +210,17 @@
 
 <script>
 // ═══ PROGRAM HQ ═══════════════════════════════════════════════════════════
-var POOL=[], MY=null, HQ_SEASON=2027, PAST={};
+var POOL=[], MY=null, HQ_SEASON=2027, PAST={}, COACH={};
 var SB='https://izlqhnxowdhtdofkwrho.supabase.co', KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye', H={apikey:KEY,Authorization:'Bearer '+KEY};
 try{ MY=localStorage.getItem('tdc_coach_team')||null; }catch(e){}   // shared with the Coach's Tier command center
+function byId(x){ return document.getElementById(x); }
 function esc(s){ return (''+(s==null?'':s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 function fmtR(r){ return r==null?'—':(r>0?'+':'')+(+r).toFixed(1); }
 function teamColor(row){ try{ if(window.tdcTeamColorHex){ var c=tdcTeamColorHex(row.full)||tdcTeamColorHex(row.team); if(c) return c; } }catch(e){} return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#A8843C'; }
 function hexToRgb(h){ h=(h||'').replace('#',''); if(h.length===3) h=h.split('').map(function(x){return x+x;}).join(''); var n=parseInt(h,16); return isNaN(n)?'168,132,60':((n>>16)&255)+','+((n>>8)&255)+','+(n&255); }
+function inkFor(rgb){ var p=(''+rgb).split(',').map(Number); var lum=0.299*p[0]+0.587*p[1]+0.114*p[2]; return lum>150?'#12100c':'#ffffff'; }
 function logoFor(full){ try{ if(window.TDC_TEAM&&TDC_TEAM.logo) return TDC_TEAM.logo(full); }catch(e){} return null; }
+function coachOf(row){ if(!row) return ''; return COACH[(row.team||'').toLowerCase().trim()]||COACH[(row.full||'').toLowerCase().trim()]||''; }
 
 var LAUNCH=[
   ['📊','team.html','Team Page','depth chart · DNA · projections'],
@@ -203,7 +240,7 @@ var LAUNCH=[
 // searchable picker
 function renderList(q){
   q=(q||'').toLowerCase().trim();
-  var el=document.getElementById('pickList');
+  var el=byId('pickList');
   var m=!q?[]:POOL.filter(function(t){ return ((t.full||'')+' '+(t.team||'')).toLowerCase().indexOf(q)>=0; })
     .sort(function(a,b){ var an=(a.full||'').toLowerCase().indexOf(q), bn=(b.full||'').toLowerCase().indexOf(q); return (an-bn)||((a.rank||999)-(b.rank||999)); }).slice(0,10);
   if(!m.length){ el.style.display='none'; return; }
@@ -220,9 +257,9 @@ function setTeam(full){
 }
 function changeTeam(){
   MY=null; try{ localStorage.removeItem('tdc_coach_team'); }catch(e){}
-  document.getElementById('hq').style.display='none';
-  document.getElementById('picker').style.display='block';
-  var i=document.getElementById('pick'); i.value=''; i.focus();
+  byId('hq').style.display='none';
+  byId('picker').style.display='block';
+  var i=byId('pick'); i.value=''; i.focus();
   window.scrollTo({top:0});
 }
 
@@ -231,7 +268,7 @@ function gradeCol(v){ return v==null?'var(--text)':(v>=80?'var(--green)':v>=64?'
 function recStr(w,l){ return (w==null?0:w)+'–'+(l==null?0:l); }
 
 function ensureSeasonSel(){
-  var sel=document.getElementById('hqSeason');
+  var sel=byId('hqSeason');
   if(!sel.options.length){
     var o='<option value="2027">2026-27 · Projected</option>';
     for(var y=2026;y>=2007;y--) o+='<option value="'+y+'">'+seasonLabel(y)+'</option>';
@@ -243,16 +280,14 @@ function ensureSeasonSel(){
 
 function renderHQ(){
   var row=rowOf(MY); if(!row){ changeTeam(); return; }
-  document.getElementById('picker').style.display='none';
-  document.getElementById('hq').style.display='block';
-  var tc=teamColor(row), rgb=hexToRgb(tc);
-  document.documentElement.style.setProperty('--tc',tc);
-  document.documentElement.style.setProperty('--tc-rgb',rgb);
-  document.documentElement.style.setProperty('--tc-readable',tc);   // brightened readable variant for team-colored text
+  byId('picker').style.display='none';
+  byId('hq').style.display='block';
+  var tc=teamColor(row), rgb=hexToRgb(tc), ds=document.documentElement.style;
+  ds.setProperty('--tc',tc); ds.setProperty('--tc-rgb',rgb); ds.setProperty('--tc-readable',tc); ds.setProperty('--tc-ink',inkFor(rgb));
   var lg=logoFor(row.full);
-  document.getElementById('hqBadge').innerHTML=lg?'<img src="'+lg+'" alt="" onerror="this.parentNode.textContent=\''+esc((row.full||'').slice(0,3).toUpperCase())+'\'">':esc((row.full||'').slice(0,3).toUpperCase());
-  document.getElementById('hqName').textContent=row.full;
-  document.getElementById('hqNote').innerHTML='Locked tools open with a preview and an upgrade prompt if you’re not subscribed. Your program is remembered on this device and shared with the Coach’s Tier command center.';
+  byId('hqBadge').innerHTML=lg?'<img src="'+lg+'" alt="" onerror="this.parentNode.textContent=\''+esc((row.full||'').slice(0,3).toUpperCase())+'\'">':esc((row.full||'').slice(0,3).toUpperCase());
+  byId('hqName').textContent=row.full;
+  byId('hqNote').innerHTML='Locked tools open with a preview and an upgrade prompt if you’re not subscribed. Your program is remembered on this device and shared with the Coach’s Tier command center.';
   ensureSeasonSel();
   renderSeason();
   window.scrollTo({top:0});
@@ -262,47 +297,59 @@ function renderSeason(){
   var row=rowOf(MY); if(!row) return;
   // launchpad — pass the season to tools that understand it (team.html etc.)
   var q=encodeURIComponent(row.full), sq=(+HQ_SEASON===2027?'':'&season='+HQ_SEASON);
-  document.getElementById('hqLaunch').innerHTML=LAUNCH.map(function(t){
+  byId('hqLaunch').innerHTML=LAUNCH.map(function(t){
     return '<a class="tool" href="'+t[1]+'?team='+q+sq+'"><span class="ic">'+t[0]+'</span><span style="min-width:0"><span class="tn">'+esc(t[2])+'</span><span class="td">'+t[3]+'</span></span>'+(t[4]?'<span class="lk">'+t[4].toUpperCase()+'</span>':'')+'</a>';
   }).join('');
-  document.getElementById('hqTeamLbl').textContent='— every tool, loaded for '+row.full;
-  var buzzSec=document.getElementById('hqBuzzSec');
+  byId('hqTeamLbl').textContent='— every tool, loaded for '+row.full;
+  var buzzSec=byId('hqBuzzSec');
+  rosterLeaders(row);   // current roster, both views
   if(+HQ_SEASON===2027){
-    buzzSec.style.display='block';
-    projHero(row); projStandings(row); projGame(); loadBuzz(row);
+    buzzSec.style.display='';
+    byId('hqKick').textContent='⬡ Program HQ · 2026-27 Projected';
+    projHero(row); analyticsProj(row); projStandings(row); projGame(); loadBuzz(row);
   } else {
     buzzSec.style.display='none';   // buzz = current news; only meaningful for the projected season
-    document.getElementById('hqStats').innerHTML='<div class="hs"><div class="v" style="font-size:15px;color:var(--text3)">···</div><div class="l">Loading</div></div>';
-    document.getElementById('hqGameLbl').textContent='Last game';
+    byId('hqKick').textContent='⬡ Program HQ · '+seasonLabel(HQ_SEASON);
+    byId('hqStats').innerHTML='';
+    byId('hqAnalytics').innerHTML='<div class="gc-empty">Loading…</div>';
     loadPast(HQ_SEASON).then(function(P){
       var tr=P.byFull[(row.full||'').toLowerCase().trim()];
-      pastHero(row,tr); pastStandings(P,tr,row); lastGame(row.full,HQ_SEASON);
+      pastHero(row,tr); analyticsPast(P,tr); pastStandings(P,tr,row); lastGame(row.full,HQ_SEASON);
     });
   }
-  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(document.getElementById('hq'));
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(byId('hq'));
 }
 
 // ── projected 2026-27 ──
 function projHero(row){
-  document.getElementById('hqSub').innerHTML='<b>'+esc(row.conf||'')+'</b> · #'+(row.rank||'—')+' projected · '+fmtR(row.rating)+' power rating';
-  var el=document.getElementById('hqStats');
-  el.innerHTML='<div class="hs"><div class="v" style="font-size:18px;color:var(--text3)">···</div><div class="l">Grades</div></div>';
-  function box(lbl,v){ return '<div class="hs"><div class="v" style="color:'+gradeCol(v)+'">'+(v==null?'—':v)+'</div><div class="l">'+lbl+'</div></div>'; }
-  if(window.TDCTeamGrades){ TDCTeamGrades.compute(row).then(function(g){ el.innerHTML=g?(box('Overall',g.overall)+box('Power',g.power)+box('Offense',g.offense)+box('Defense',g.defense)):box('Rank','#'+(row.rank||'—')); }).catch(function(){ el.innerHTML=box('Rank','#'+(row.rank||'—')); }); }
-  else el.innerHTML=box('Rank','#'+(row.rank||'—'));
+  var coach=coachOf(row);
+  byId('hqTeamName').innerHTML=(coach?'<b>'+esc(coach)+'</b> · Head Coach · ':'')+esc(row.conf||'');
+  var inConf=POOL.filter(function(t){return t.conf===row.conf;}).sort(function(a,b){return (a.rank||999)-(b.rank||999);});
+  var cr=inConf.findIndex(function(t){return t.full===row.full;})+1;
+  function chip(v,l){ return '<div class="hs"><div class="v">'+v+'</div><div class="l">'+l+'</div></div>'; }
+  byId('hqStats').innerHTML=chip('#'+(row.rank||'—'),'Nat Rank')+chip(cr?('#'+cr):'—','Conf')+chip(fmtR(row.rating),'Power');
+}
+function analyticsProj(row){
+  var el=byId('hqAnalytics'); byId('hqAnaLbl').textContent='Team analytics — projected';
+  el.innerHTML='<div class="gc-empty">Computing…</div>';
+  function tile(l,v){ return '<div class="gtile"><div class="gv" style="color:'+gradeCol(v)+'">'+(v==null?'—':v)+'</div><div class="gl">'+l+'</div></div>'; }
+  if(window.TDCTeamGrades){
+    TDCTeamGrades.compute(row).then(function(g){
+      el.innerHTML=g?('<div class="gbar">'+tile('Overall',g.overall)+tile('Power',g.power)+tile('Offense',g.offense)+tile('Defense',g.defense)+'</div>'):'<div class="gc-empty">No analytics on file.</div>';
+    }).catch(function(){ el.innerHTML='<div class="gc-empty">Could not compute analytics.</div>'; });
+  } else el.innerHTML='<div class="gc-empty">No analytics on file.</div>';
 }
 function projStandings(row){
-  document.getElementById('hqStandLbl').textContent=(row.conf||'Conference')+' — projected';
-  document.getElementById('hqStandSub').textContent='2026-27 order';
+  byId('hqStandLbl').textContent=(row.conf||'Conference')+' — projected';
+  byId('hqStandSub').textContent='2026-27 order';
   var mine=POOL.filter(function(t){return t.conf===row.conf;}).sort(function(a,b){return (a.rank||999)-(b.rank||999);});
-  var el=document.getElementById('hqStandings');
+  var el=byId('hqStandings');
   el.innerHTML=mine.length?mine.map(function(t,i){ var lg=logoFor(t.full);
     return '<div class="stand-row'+(t.full===row.full?' me':'')+'"><span class="rk">'+(i+1)+'</span>'+(lg?'<img src="'+lg+'" alt="">':'')+'<span class="nm">'+esc(t.full)+'</span><span class="rec">'+fmtR(t.rating)+'</span></div>'; }).join('')
-    :'<div class="gc-empty" style="padding:14px">No conference on file.</div>';
+    :'<div class="gc-empty">No conference on file.</div>';
 }
 function projGame(){
-  document.getElementById('hqGameLbl').textContent='Next game';
-  document.getElementById('hqGame').innerHTML='<div class="gc-when">Upcoming</div><div class="gc-empty">The 2026-27 schedule isn’t out yet — your next game and its scouting report land here once it drops.</div>';
+  byId('hqGame').innerHTML='<div class="gc-when">Next game</div><div class="gc-empty">The 2026-27 schedule isn’t out yet — your next game and its scouting report land here once it drops. In the meantime, jump into <b>Scout an Opponent</b> or <b>Matchup</b> below to game-plan any team.</div>';
 }
 
 // ── past season ──
@@ -314,23 +361,32 @@ function loadPast(year){
     .catch(function(){ PAST[year]={rows:[],byFull:{}}; return PAST[year]; });
 }
 function pastHero(row,tr){
-  var sub=document.getElementById('hqSub'), el=document.getElementById('hqStats');
-  if(!tr){ sub.innerHTML='<b>'+seasonLabel(HQ_SEASON)+'</b> · no season on file for this program'; el.innerHTML=''; return; }
-  sub.innerHTML='<b>'+esc(tr.conference||'')+'</b> · '+recStr(tr.wins,tr.losses)+(tr.ncaa_result?' · '+esc(tr.ncaa_result):'');
-  function box(v,l){ return '<div class="hs"><div class="v" style="font-size:22px">'+v+'</div><div class="l">'+l+'</div></div>'; }
-  el.innerHTML=box(recStr(tr.wins,tr.losses),'Record')+box(tr.conf_wins!=null?recStr(tr.conf_wins,tr.conf_losses):'—','Conf')+box(fmtR(tr.srs),'Power')+box(tr.ncaa_seed?('#'+tr.ncaa_seed):'—','Seed');
+  var sub=byId('hqTeamName'), el=byId('hqStats');
+  if(!tr){ sub.innerHTML='no '+seasonLabel(HQ_SEASON)+' season on file for this program'; el.innerHTML=''; return; }
+  sub.innerHTML='<b>'+esc(tr.conference||'')+'</b>'+(tr.ncaa_result?' · '+esc(tr.ncaa_result):'');
+  function chip(v,l){ return '<div class="hs"><div class="v">'+v+'</div><div class="l">'+l+'</div></div>'; }
+  el.innerHTML=chip(recStr(tr.wins,tr.losses),'Record')+chip(tr.conf_wins!=null?recStr(tr.conf_wins,tr.conf_losses):'—','Conf')+chip(tr.ncaa_seed?('#'+tr.ncaa_seed):'—','Seed');
+}
+function analyticsPast(P,tr){
+  var el=byId('hqAnalytics'); byId('hqAnaLbl').textContent='Team analytics — '+seasonLabel(HQ_SEASON);
+  if(!tr){ el.innerHTML='<div class="gc-empty">No season data on file.</div>'; return; }
+  var ranked=P.rows.filter(function(r){return r.srs!=null;}).sort(function(a,b){return b.srs-a.srs;});
+  var pr=ranked.findIndex(function(r){return r.team===tr.team;})+1;
+  var post=tr.ncaa_result?esc(tr.ncaa_result):(tr.ncaa_seed?('#'+tr.ncaa_seed+' seed'):'—');
+  function tile(v,l){ return '<div class="gtile"><div class="gv" style="font-size:22px">'+v+'</div><div class="gl">'+l+'</div></div>'; }
+  el.innerHTML='<div class="gbar" style="grid-template-columns:repeat(3,1fr)">'+tile(fmtR(tr.srs),'Power')+tile(pr?('#'+pr):'—','Natl Rank')+tile(post,'Postseason')+'</div>';
 }
 function pastStandings(P,tr,row){
-  var conf=tr&&tr.conference, el=document.getElementById('hqStandings');
-  document.getElementById('hqStandLbl').textContent=(conf||'Conference')+' — '+seasonLabel(HQ_SEASON);
-  document.getElementById('hqStandSub').textContent='by conference record';
-  if(!conf){ el.innerHTML='<div class="gc-empty" style="padding:14px">No standings for this program in '+seasonLabel(HQ_SEASON)+'.</div>'; return; }
+  var conf=tr&&tr.conference, el=byId('hqStandings');
+  byId('hqStandLbl').textContent=(conf||'Conference')+' — '+seasonLabel(HQ_SEASON);
+  byId('hqStandSub').textContent='by conference record';
+  if(!conf){ el.innerHTML='<div class="gc-empty">No standings for this program in '+seasonLabel(HQ_SEASON)+'.</div>'; return; }
   var mine=P.rows.filter(function(r){return r.conference===conf;}).sort(function(a,b){ var ac=(a.conf_wins||0)-(a.conf_losses||0), bc=(b.conf_wins||0)-(b.conf_losses||0); return bc-ac || ((b.srs||-99)-(a.srs||-99)); });
   el.innerHTML=mine.map(function(t,i){ var me=(t.team===(tr&&tr.team)); var lg=logoFor(t.team);
-    return '<div class="stand-row'+(me?' me':'')+'"><span class="rk">'+(i+1)+'</span>'+(lg?'<img src="'+lg+'" alt="">':'')+'<span class="nm">'+esc(t.team)+'</span><span class="rec">'+(t.conf_wins!=null?recStr(t.conf_wins,t.conf_losses):'—')+'</span><span class="ov">'+recStr(t.wins,t.losses)+'</span></div>'; }).join('');
+    return '<div class="stand-row'+(me?' me':'')+'"><span class="rk">'+(i+1)+'</span>'+(lg?'<img src="'+lg+'" alt="">':'')+'<span class="nm">'+esc(t.team)+'</span><span class="rec">'+(t.conf_wins!=null?recStr(t.conf_wins,t.conf_losses):'—')+'</span><span class="ov2">'+recStr(t.wins,t.losses)+'</span></div>'; }).join('');
 }
 function lastGame(full,year){
-  var el=document.getElementById('hqGame'); el.innerHTML='<div class="gc-when">Loading…</div>';
+  var el=byId('hqGame'); el.innerHTML='<div class="gc-when">Loading…</div>';
   var q=encodeURIComponent(full);
   fetch(SB+'/rest/v1/games?season_year=eq.'+year+'&or=(home.eq.'+q+',away.eq.'+q+')&status=eq.STATUS_FINAL&select=id,date,home,away,home_score,away_score,neutral&order=date.desc&limit=1',{headers:H})
     .then(function(r){return r.ok?r.json():[];})
@@ -344,11 +400,28 @@ function lastGame(full,year){
     }).catch(function(){ el.innerHTML='<div class="gc-when">Last game</div><div class="gc-empty">Could not load games.</div>'; });
 }
 
+// ── roster leaders — top projected OVR on the current roster (matches the site) ──
+function rosterLeaders(row){
+  var el=byId('hqProg'); el.innerHTML='<div class="gc-empty">Loading roster…</div>';
+  var short=row.team||row.full;
+  fetch(SB+'/rest/v1/players?team=eq.'+encodeURIComponent(short)+'&select=*',{headers:H})
+    .then(function(r){return r.ok?r.json():[];})
+    .then(function(ps){
+      var go=function(){
+        var arr=ps.map(function(p){ var ov=window.TDCProjGrade?TDCProjGrade.gradeSolo(p):(parseFloat(p.tdc_grade)||null); return {name:p.name,pos:p.pos,ov:(ov!=null&&isFinite(ov))?Math.round(ov):null}; })
+          .filter(function(x){ return x.ov!=null && x.name; }).sort(function(a,b){ return b.ov-a.ov; }).slice(0,4);
+        if(!arr.length){ el.innerHTML='<div class="gc-empty">No graded players on file for this roster yet.</div>'; return; }
+        el.innerHTML=arr.map(function(x){ return '<div class="plead"><span class="ov" style="color:'+gradeCol(x.ov)+'">'+x.ov+'</span><span class="pn">'+esc(x.name)+'</span><span class="pp">'+esc(x.pos||'')+'</span></div>'; }).join('');
+      };
+      if(window.TDCProjGrade&&TDCProjGrade.ready) TDCProjGrade.ready.then(go).catch(go); else go();
+    }).catch(function(){ el.innerHTML='<div class="gc-empty">Could not load roster.</div>'; });
+}
+
 // ── team buzz — recent headlines about the roster's players (from player_news.json) ──
 var NEWS=null;
 function loadNews(){ if(NEWS!==null) return Promise.resolve(NEWS); return fetch('scripts/data/player_news.json').then(function(r){return r.ok?r.json():null;}).then(function(j){ NEWS=(j&&j.players)||{}; return NEWS; }).catch(function(){ NEWS={}; return NEWS; }); }
 function loadBuzz(row){
-  var el=document.getElementById('hqBuzz'); el.innerHTML='<div class="bz-empty">Loading headlines…</div>';
+  var el=byId('hqBuzz'); el.innerHTML='<div class="bz-empty">Loading headlines…</div>';
   var short=row.team||row.full;   // players.team is the SHORT name (ratings row uses .team, not .short)
   Promise.all([
     fetch(SB+'/rest/v1/players?team=eq.'+encodeURIComponent(short)+'&select=name,espn_id&espn_id=not.is.null',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}),
@@ -358,7 +431,7 @@ function loadBuzz(row){
     players.forEach(function(p){ var n=news[''+p.espn_id]; if(n&&n.items) n.items.forEach(function(it){ items.push({t:it.title,u:it.url,src:it.source,date:it.date,who:p.name}); }); });
     var seen={}; items=items.filter(function(x){ if(!x.t||seen[x.t]) return false; seen[x.t]=1; return true; });
     items.sort(function(a,b){ return (new Date(b.date)||0)-(new Date(a.date)||0); });
-    items=items.slice(0,6);
+    items=items.slice(0,5);
     if(!items.length){ el.innerHTML='<div class="bz-empty">No recent headlines on file for this roster yet — buzz refreshes as news breaks on your players.</div>'; return; }
     el.innerHTML=items.map(function(x){
       return '<a class="bz" href="'+esc(x.u)+'" target="_blank" rel="noopener"><div class="bt">'+esc(x.t)+'</div><div class="bm"><span class="who">'+esc(x.who)+'</span><span>·</span><span>'+esc(x.src||'')+'</span></div></a>';
@@ -368,9 +441,14 @@ function loadBuzz(row){
 
 // boot
 (function(){
-  var i=document.getElementById('pick');
+  var i=byId('pick');
   i.addEventListener('input',function(){ renderList(i.value); });
-  i.addEventListener('blur',function(){ setTimeout(function(){ document.getElementById('pickList').style.display='none'; },160); });
+  i.addEventListener('blur',function(){ setTimeout(function(){ byId('pickList').style.display='none'; },160); });
+  // coach map (current head coaches) — one lightweight pull
+  fetch(SB+'/rest/v1/teams?select=name,head_coach&head_coach=not.is.null',{headers:H})
+    .then(function(r){return r.ok?r.json():[];})
+    .then(function(rows){ rows.forEach(function(r){ COACH[(r.name||'').toLowerCase().trim()]=r.head_coach; }); if(MY&&rowOf(MY)&&byId('hq').style.display==='block') projHeroRefresh(); })
+    .catch(function(){});
   Promise.all([TDC_RATINGS.get(), (window.TDC_TEAM&&TDC_TEAM.ready)||Promise.resolve()]).then(function(r){
     var D=r[0];
     POOL=(D.teams||[]).filter(function(t){ return t.projected!==false && t.rating!=null; }).sort(function(a,b){ return (a.rank||999)-(b.rank||999); });
@@ -378,10 +456,12 @@ function loadBuzz(row){
     var _sp=new URLSearchParams(location.search);
     var sy=+_sp.get('season'); if(sy>=2007 && sy<=2027) HQ_SEASON=sy;
     var qp=_sp.get('team');
-    if(qp){ var r=rowOf(qp); if(r){ MY=r.full; } }
+    if(qp){ var rr=rowOf(qp); if(rr){ MY=rr.full; } }
     if(MY && rowOf(MY)) renderHQ(); else i.focus();
   }).catch(function(){ i.placeholder='Could not load teams — reload.'; });
 })();
+// if the coach map arrives after the projected hero rendered, patch the coach line in
+function projHeroRefresh(){ if(+HQ_SEASON===2027){ var row=rowOf(MY); if(row) projHero(row); } }
 </script>
 </body>
 </html>
