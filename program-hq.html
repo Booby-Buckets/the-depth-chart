@@ -20,6 +20,7 @@
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-ratings.js?v=7"></script>
   <script src="tdc-teamlink.js?v=2"></script>
+  <script src="tdc-teamgrades.js?v=1"></script>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--red:#cc2200;--tc:#A8843C;--tc-rgb:168,132,60;}
     [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--red:#e07070;}
@@ -191,16 +192,24 @@ function renderHQ(){
   var lg=logoFor(row.full);
   document.getElementById('hqBadge').innerHTML=lg?'<img src="'+lg+'" alt="" onerror="this.parentNode.textContent=\''+esc((row.full||'').slice(0,3).toUpperCase())+'\'">':esc((row.full||'').slice(0,3).toUpperCase());
   document.getElementById('hqName').textContent=row.full;
-  document.getElementById('hqSub').innerHTML='<b>'+esc(row.conf||'')+'</b> · #'+(row.rank||'—')+' projected 2026-27';
-  document.getElementById('hqStats').innerHTML=
-    '<div class="hs"><div class="v">#'+(row.rank||'—')+'</div><div class="l">Proj Rank</div></div>'+
-    '<div class="hs"><div class="v">'+fmtR(row.rating)+'</div><div class="l">Power Rating</div></div>';
+  document.getElementById('hqSub').innerHTML='<b>'+esc(row.conf||'')+'</b> · #'+(row.rank||'—')+' projected · '+fmtR(row.rating)+' power rating';
+  // Overall / Power / Offense / Defense bar — same numbers as the team page (shared module)
+  var statsEl=document.getElementById('hqStats');
+  statsEl.innerHTML='<div class="hs"><div class="v" style="font-size:18px;color:var(--text3)">···</div><div class="l">Grades</div></div>';
+  function gc(v){ return v==null?'var(--text)':(v>=80?'var(--green)':v>=64?'var(--text)':v>=50?'#c99a3a':'var(--red)'); }
+  function box(lbl,v){ return '<div class="hs"><div class="v" style="color:'+gc(v)+'">'+(v==null?'—':v)+'</div><div class="l">'+lbl+'</div></div>'; }
+  if(window.TDCTeamGrades){
+    TDCTeamGrades.compute(row).then(function(g){
+      if(!g){ statsEl.innerHTML=box('Rank','#'+(row.rank||'—')); return; }
+      statsEl.innerHTML=box('Overall',g.overall)+box('Power',g.power)+box('Offense',g.offense)+box('Defense',g.defense);
+    }).catch(function(){ statsEl.innerHTML='<div class="hs"><div class="v">#'+(row.rank||'—')+'</div><div class="l">Proj Rank</div></div>'; });
+  } else { statsEl.innerHTML='<div class="hs"><div class="v">#'+(row.rank||'—')+'</div><div class="l">Proj Rank</div></div>'; }
   document.getElementById('hqTeamLbl').textContent='— every tool, loaded for '+row.full;
   var q=encodeURIComponent(row.full);
   document.getElementById('hqLaunch').innerHTML=LAUNCH.map(function(t){
     return '<a class="tool" href="'+t[1]+'?team='+q+'"><span class="ic">'+t[0]+'</span><span style="min-width:0"><span class="tn">'+esc(t[2])+'</span><span class="td">'+t[3]+'</span></span>'+(t[4]?'<span class="lk">'+t[4].toUpperCase()+'</span>':'')+'</a>';
   }).join('');
-  document.getElementById('hqNote').innerHTML='Locked tools open with a preview and an upgrade prompt if you’re not subscribed. Your program is remembered on this device and shared with the Coach’s Tier command center. <b>Coming soon:</b> the Overall / Offense / Defense bar, live conference standings, and your next game.';
+  document.getElementById('hqNote').innerHTML='Locked tools open with a preview and an upgrade prompt if you’re not subscribed. Your program is remembered on this device and shared with the Coach’s Tier command center. <b>Coming soon:</b> live conference standings and your next game.';
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(document.getElementById('hq'));
   window.scrollTo({top:0});
 }
