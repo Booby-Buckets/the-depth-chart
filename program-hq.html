@@ -76,6 +76,34 @@
     .tool .td{font-size:11.5px;color:var(--text3);font-weight:600;margin-top:2px;display:block;line-height:1.35;}
     .tool .lk{font-size:8px;font-weight:800;letter-spacing:.06em;color:var(--text3);border:1px solid var(--border2);border-radius:6px;padding:1px 5px;margin-left:auto;flex-shrink:0;}
     .note{font-size:11.5px;color:var(--text3);line-height:1.6;margin-top:24px;max-width:760px;}
+    /* season selector */
+    .hq-seasonsel{margin-top:10px;padding:6px 11px;border:1px solid var(--border2);border-radius:9px;background:var(--bg2);color:var(--text);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;outline:none;}
+    .hq-seasonsel:focus{border-color:var(--tc,var(--accent));}
+    /* game + standings 2-col */
+    .hq-2col{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;}
+    @media(max-width:760px){.hq-2col{grid-template-columns:1fr;}}
+    .gamecard{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:16px 18px;min-height:96px;}
+    .gc-when{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:9px;}
+    .gc-match{display:flex;align-items:center;gap:11px;}
+    .gc-match img{width:32px;height:32px;object-fit:contain;flex-shrink:0;}
+    .gc-vs{font-size:11px;font-weight:800;color:var(--text3);}
+    .gc-opp{font-size:16px;font-weight:800;}
+    .gc-meta{font-size:11.5px;color:var(--text3);margin-top:7px;}
+    .gc-res{font-size:13px;font-weight:800;margin-top:6px;}
+    .gc-res .w{color:var(--green);} .gc-res .l{color:var(--red);}
+    .gc-report{display:inline-block;margin-top:10px;font-size:11.5px;font-weight:700;color:var(--tc-readable,var(--accent));}
+    .gc-empty{font-size:12.5px;color:var(--text3);line-height:1.55;}
+    /* standings */
+    .stand{border:1px solid var(--border);border-radius:14px;background:var(--bg2);overflow:hidden;}
+    .stand-row{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border);font-size:13px;}
+    .stand-row:last-child{border-bottom:0;}
+    .stand-row.me{background:color-mix(in srgb,var(--tc,var(--accent)) 12%,var(--bg2));font-weight:800;}
+    .stand-row .rk{width:20px;color:var(--text3);font-size:11px;font-weight:700;flex-shrink:0;}
+    .stand-row img{width:20px;height:20px;object-fit:contain;flex-shrink:0;}
+    .stand-row .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;}
+    .stand-row.me .nm{font-weight:800;}
+    .stand-row .rec{color:var(--text2);font-variant-numeric:tabular-nums;font-weight:700;font-size:12.5px;}
+    .stand-row .ov{color:var(--text3);font-variant-numeric:tabular-nums;font-size:11px;margin-left:8px;}
     @media(max-width:640px){.hero{padding:24px 20px 24px;}.hero-stats{width:100%;}.hs{flex:1;min-width:0;padding:12px 8px;}}
   </style>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
@@ -117,12 +145,17 @@
           <div class="hero-k">⬡ Program HQ</div>
           <h1 id="hqName">—</h1>
           <div class="hero-sub" id="hqSub"></div>
+          <select id="hqSeason" class="hq-seasonsel"></select>
         </div>
         <div class="hero-stats" id="hqStats"></div>
         <button class="hero-change" onclick="changeTeam()">Change</button>
       </div>
     </div>
     <div class="wrap">
+      <div class="hq-2col">
+        <div><div class="sec"><span id="hqGameLbl">Next game</span></div><div id="hqGame" class="gamecard"></div></div>
+        <div><div class="sec"><span id="hqStandLbl">Conference standings</span><span class="h" id="hqStandSub"></span></div><div id="hqStandings" class="stand"></div></div>
+      </div>
       <div class="sec"><span>Your command center</span><span class="h" id="hqTeamLbl"></span></div>
       <div class="launch" id="hqLaunch"></div>
       <div class="note" id="hqNote"></div>
@@ -131,7 +164,8 @@
 
 <script>
 // ═══ PROGRAM HQ ═══════════════════════════════════════════════════════════
-var POOL=[], MY=null;
+var POOL=[], MY=null, HQ_SEASON=2027, PAST={};
+var SB='https://izlqhnxowdhtdofkwrho.supabase.co', KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye', H={apikey:KEY,Authorization:'Bearer '+KEY};
 try{ MY=localStorage.getItem('tdc_coach_team')||null; }catch(e){}   // shared with the Coach's Tier command center
 function esc(s){ return (''+(s==null?'':s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 function fmtR(r){ return r==null?'—':(r>0?'+':'')+(+r).toFixed(1); }
@@ -180,6 +214,21 @@ function changeTeam(){
   window.scrollTo({top:0});
 }
 
+function seasonLabel(y){ return (+y===2027)?'2026-27 · Projected':((y-1)+'-'+(''+y).slice(2)); }
+function gradeCol(v){ return v==null?'var(--text)':(v>=80?'var(--green)':v>=64?'var(--text)':v>=50?'#c99a3a':'var(--red)'); }
+function recStr(w,l){ return (w==null?0:w)+'–'+(l==null?0:l); }
+
+function ensureSeasonSel(){
+  var sel=document.getElementById('hqSeason');
+  if(!sel.options.length){
+    var o='<option value="2027">2026-27 · Projected</option>';
+    for(var y=2026;y>=2007;y--) o+='<option value="'+y+'">'+seasonLabel(y)+'</option>';
+    sel.innerHTML=o;
+    sel.addEventListener('change',function(){ HQ_SEASON=+sel.value; renderSeason(); });
+  }
+  sel.value=HQ_SEASON;
+}
+
 function renderHQ(){
   var row=rowOf(MY); if(!row){ changeTeam(); return; }
   document.getElementById('picker').style.display='none';
@@ -187,31 +236,96 @@ function renderHQ(){
   var tc=teamColor(row), rgb=hexToRgb(tc);
   document.documentElement.style.setProperty('--tc',tc);
   document.documentElement.style.setProperty('--tc-rgb',rgb);
-  // brightened readable variant for team-colored text (dark navies stay legible)
-  document.documentElement.style.setProperty('--tc-readable',tc);
+  document.documentElement.style.setProperty('--tc-readable',tc);   // brightened readable variant for team-colored text
   var lg=logoFor(row.full);
   document.getElementById('hqBadge').innerHTML=lg?'<img src="'+lg+'" alt="" onerror="this.parentNode.textContent=\''+esc((row.full||'').slice(0,3).toUpperCase())+'\'">':esc((row.full||'').slice(0,3).toUpperCase());
   document.getElementById('hqName').textContent=row.full;
-  document.getElementById('hqSub').innerHTML='<b>'+esc(row.conf||'')+'</b> · #'+(row.rank||'—')+' projected · '+fmtR(row.rating)+' power rating';
-  // Overall / Power / Offense / Defense bar — same numbers as the team page (shared module)
-  var statsEl=document.getElementById('hqStats');
-  statsEl.innerHTML='<div class="hs"><div class="v" style="font-size:18px;color:var(--text3)">···</div><div class="l">Grades</div></div>';
-  function gc(v){ return v==null?'var(--text)':(v>=80?'var(--green)':v>=64?'var(--text)':v>=50?'#c99a3a':'var(--red)'); }
-  function box(lbl,v){ return '<div class="hs"><div class="v" style="color:'+gc(v)+'">'+(v==null?'—':v)+'</div><div class="l">'+lbl+'</div></div>'; }
-  if(window.TDCTeamGrades){
-    TDCTeamGrades.compute(row).then(function(g){
-      if(!g){ statsEl.innerHTML=box('Rank','#'+(row.rank||'—')); return; }
-      statsEl.innerHTML=box('Overall',g.overall)+box('Power',g.power)+box('Offense',g.offense)+box('Defense',g.defense);
-    }).catch(function(){ statsEl.innerHTML='<div class="hs"><div class="v">#'+(row.rank||'—')+'</div><div class="l">Proj Rank</div></div>'; });
-  } else { statsEl.innerHTML='<div class="hs"><div class="v">#'+(row.rank||'—')+'</div><div class="l">Proj Rank</div></div>'; }
-  document.getElementById('hqTeamLbl').textContent='— every tool, loaded for '+row.full;
-  var q=encodeURIComponent(row.full);
-  document.getElementById('hqLaunch').innerHTML=LAUNCH.map(function(t){
-    return '<a class="tool" href="'+t[1]+'?team='+q+'"><span class="ic">'+t[0]+'</span><span style="min-width:0"><span class="tn">'+esc(t[2])+'</span><span class="td">'+t[3]+'</span></span>'+(t[4]?'<span class="lk">'+t[4].toUpperCase()+'</span>':'')+'</a>';
-  }).join('');
-  document.getElementById('hqNote').innerHTML='Locked tools open with a preview and an upgrade prompt if you’re not subscribed. Your program is remembered on this device and shared with the Coach’s Tier command center. <b>Coming soon:</b> live conference standings and your next game.';
-  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(document.getElementById('hq'));
+  document.getElementById('hqNote').innerHTML='Locked tools open with a preview and an upgrade prompt if you’re not subscribed. Your program is remembered on this device and shared with the Coach’s Tier command center.';
+  ensureSeasonSel();
+  renderSeason();
   window.scrollTo({top:0});
+}
+
+function renderSeason(){
+  var row=rowOf(MY); if(!row) return;
+  // launchpad — pass the season to tools that understand it (team.html etc.)
+  var q=encodeURIComponent(row.full), sq=(+HQ_SEASON===2027?'':'&season='+HQ_SEASON);
+  document.getElementById('hqLaunch').innerHTML=LAUNCH.map(function(t){
+    return '<a class="tool" href="'+t[1]+'?team='+q+sq+'"><span class="ic">'+t[0]+'</span><span style="min-width:0"><span class="tn">'+esc(t[2])+'</span><span class="td">'+t[3]+'</span></span>'+(t[4]?'<span class="lk">'+t[4].toUpperCase()+'</span>':'')+'</a>';
+  }).join('');
+  document.getElementById('hqTeamLbl').textContent='— every tool, loaded for '+row.full;
+  if(+HQ_SEASON===2027){ projHero(row); projStandings(row); projGame(); }
+  else {
+    document.getElementById('hqStats').innerHTML='<div class="hs"><div class="v" style="font-size:15px;color:var(--text3)">···</div><div class="l">Loading</div></div>';
+    document.getElementById('hqGameLbl').textContent='Last game';
+    loadPast(HQ_SEASON).then(function(P){
+      var tr=P.byFull[(row.full||'').toLowerCase().trim()];
+      pastHero(row,tr); pastStandings(P,tr,row); lastGame(row.full,HQ_SEASON);
+    });
+  }
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(document.getElementById('hq'));
+}
+
+// ── projected 2026-27 ──
+function projHero(row){
+  document.getElementById('hqSub').innerHTML='<b>'+esc(row.conf||'')+'</b> · #'+(row.rank||'—')+' projected · '+fmtR(row.rating)+' power rating';
+  var el=document.getElementById('hqStats');
+  el.innerHTML='<div class="hs"><div class="v" style="font-size:18px;color:var(--text3)">···</div><div class="l">Grades</div></div>';
+  function box(lbl,v){ return '<div class="hs"><div class="v" style="color:'+gradeCol(v)+'">'+(v==null?'—':v)+'</div><div class="l">'+lbl+'</div></div>'; }
+  if(window.TDCTeamGrades){ TDCTeamGrades.compute(row).then(function(g){ el.innerHTML=g?(box('Overall',g.overall)+box('Power',g.power)+box('Offense',g.offense)+box('Defense',g.defense)):box('Rank','#'+(row.rank||'—')); }).catch(function(){ el.innerHTML=box('Rank','#'+(row.rank||'—')); }); }
+  else el.innerHTML=box('Rank','#'+(row.rank||'—'));
+}
+function projStandings(row){
+  document.getElementById('hqStandLbl').textContent=(row.conf||'Conference')+' — projected';
+  document.getElementById('hqStandSub').textContent='2026-27 order';
+  var mine=POOL.filter(function(t){return t.conf===row.conf;}).sort(function(a,b){return (a.rank||999)-(b.rank||999);});
+  var el=document.getElementById('hqStandings');
+  el.innerHTML=mine.length?mine.map(function(t,i){ var lg=logoFor(t.full);
+    return '<div class="stand-row'+(t.full===row.full?' me':'')+'"><span class="rk">'+(i+1)+'</span>'+(lg?'<img src="'+lg+'" alt="">':'')+'<span class="nm">'+esc(t.full)+'</span><span class="rec">'+fmtR(t.rating)+'</span></div>'; }).join('')
+    :'<div class="gc-empty" style="padding:14px">No conference on file.</div>';
+}
+function projGame(){
+  document.getElementById('hqGameLbl').textContent='Next game';
+  document.getElementById('hqGame').innerHTML='<div class="gc-when">Upcoming</div><div class="gc-empty">The 2026-27 schedule isn’t out yet — your next game and its scouting report land here once it drops.</div>';
+}
+
+// ── past season ──
+function loadPast(year){
+  if(PAST[year]) return Promise.resolve(PAST[year]);
+  return fetch(SB+'/rest/v1/team_seasons?season_year=eq.'+year+'&select=team,conference,wins,losses,conf_wins,conf_losses,srs,ncaa_seed,ncaa_result',{headers:H})
+    .then(function(r){return r.ok?r.json():[];})
+    .then(function(rows){ var byFull={}; rows.forEach(function(r){ byFull[(r.team||'').toLowerCase().trim()]=r; }); PAST[year]={rows:rows,byFull:byFull}; return PAST[year]; })
+    .catch(function(){ PAST[year]={rows:[],byFull:{}}; return PAST[year]; });
+}
+function pastHero(row,tr){
+  var sub=document.getElementById('hqSub'), el=document.getElementById('hqStats');
+  if(!tr){ sub.innerHTML='<b>'+seasonLabel(HQ_SEASON)+'</b> · no season on file for this program'; el.innerHTML=''; return; }
+  sub.innerHTML='<b>'+esc(tr.conference||'')+'</b> · '+recStr(tr.wins,tr.losses)+(tr.ncaa_result?' · '+esc(tr.ncaa_result):'');
+  function box(v,l){ return '<div class="hs"><div class="v" style="font-size:22px">'+v+'</div><div class="l">'+l+'</div></div>'; }
+  el.innerHTML=box(recStr(tr.wins,tr.losses),'Record')+box(tr.conf_wins!=null?recStr(tr.conf_wins,tr.conf_losses):'—','Conf')+box(fmtR(tr.srs),'Power')+box(tr.ncaa_seed?('#'+tr.ncaa_seed):'—','Seed');
+}
+function pastStandings(P,tr,row){
+  var conf=tr&&tr.conference, el=document.getElementById('hqStandings');
+  document.getElementById('hqStandLbl').textContent=(conf||'Conference')+' — '+seasonLabel(HQ_SEASON);
+  document.getElementById('hqStandSub').textContent='by conference record';
+  if(!conf){ el.innerHTML='<div class="gc-empty" style="padding:14px">No standings for this program in '+seasonLabel(HQ_SEASON)+'.</div>'; return; }
+  var mine=P.rows.filter(function(r){return r.conference===conf;}).sort(function(a,b){ var ac=(a.conf_wins||0)-(a.conf_losses||0), bc=(b.conf_wins||0)-(b.conf_losses||0); return bc-ac || ((b.srs||-99)-(a.srs||-99)); });
+  el.innerHTML=mine.map(function(t,i){ var me=(t.team===(tr&&tr.team)); var lg=logoFor(t.team);
+    return '<div class="stand-row'+(me?' me':'')+'"><span class="rk">'+(i+1)+'</span>'+(lg?'<img src="'+lg+'" alt="">':'')+'<span class="nm">'+esc(t.team)+'</span><span class="rec">'+(t.conf_wins!=null?recStr(t.conf_wins,t.conf_losses):'—')+'</span><span class="ov">'+recStr(t.wins,t.losses)+'</span></div>'; }).join('');
+}
+function lastGame(full,year){
+  var el=document.getElementById('hqGame'); el.innerHTML='<div class="gc-when">Loading…</div>';
+  var q=encodeURIComponent(full);
+  fetch(SB+'/rest/v1/games?season_year=eq.'+year+'&or=(home.eq.'+q+',away.eq.'+q+')&status=eq.STATUS_FINAL&select=id,date,home,away,home_score,away_score,neutral&order=date.desc&limit=1',{headers:H})
+    .then(function(r){return r.ok?r.json():[];})
+    .then(function(g){
+      if(!g||!g.length){ el.innerHTML='<div class="gc-when">Last game</div><div class="gc-empty">No games on file for '+esc(full)+' in '+seasonLabel(year)+'.</div>'; return; }
+      var m=g[0], home=(m.home===full), opp=home?m.away:m.home, us=home?m.home_score:m.away_score, them=home?m.away_score:m.home_score, win=us>them, lg=logoFor(opp);
+      el.innerHTML='<div class="gc-when">Last game · '+m.date+'</div>'+
+        '<div class="gc-match">'+(lg?'<img src="'+lg+'" alt="">':'')+'<span class="gc-vs">'+(m.neutral?'vs':(home?'vs':'@'))+'</span><span class="gc-opp">'+esc(opp)+'</span></div>'+
+        '<div class="gc-res"><span class="'+(win?'w':'l')+'">'+(win?'W':'L')+' '+us+'–'+them+'</span></div>'+
+        '<a class="gc-report" href="game.html?id='+m.id+'">Game report →</a>';
+    }).catch(function(){ el.innerHTML='<div class="gc-when">Last game</div><div class="gc-empty">Could not load games.</div>'; });
 }
 
 // boot
@@ -222,8 +336,10 @@ function renderHQ(){
   Promise.all([TDC_RATINGS.get(), (window.TDC_TEAM&&TDC_TEAM.ready)||Promise.resolve()]).then(function(r){
     var D=r[0];
     POOL=(D.teams||[]).filter(function(t){ return t.projected!==false && t.rating!=null; }).sort(function(a,b){ return (a.rank||999)-(b.rank||999); });
-    // support ?team= deep link
-    var qp=new URLSearchParams(location.search).get('team');
+    // support ?team= and ?season= deep links
+    var _sp=new URLSearchParams(location.search);
+    var sy=+_sp.get('season'); if(sy>=2007 && sy<=2027) HQ_SEASON=sy;
+    var qp=_sp.get('team');
     if(qp){ var r=rowOf(qp); if(r){ MY=r.full; } }
     if(MY && rowOf(MY)) renderHQ(); else i.focus();
   }).catch(function(){ i.placeholder='Could not load teams — reload.'; });
