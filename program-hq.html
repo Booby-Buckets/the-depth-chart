@@ -151,6 +151,19 @@
     .st.me .nm{font-weight:800;}
     .st .rc{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;color:var(--txt2);}
     .st .ov2{font-size:11px;color:var(--txt3);font-variant-numeric:tabular-nums;margin-left:6px;}
+    .st-scroll{max-height:360px;overflow-y:auto;overflow-x:hidden;margin-right:-8px;padding-right:6px;}
+    .st-scroll::-webkit-scrollbar{width:6px;}
+    .st-scroll::-webkit-scrollbar-thumb{background:var(--line2);border-radius:6px;}
+    .st-scroll::-webkit-scrollbar-track{background:transparent;}
+    .st-more{font-size:10.5px;font-weight:700;color:var(--txt3);text-align:center;padding-top:9px;margin-top:4px;border-top:1px solid var(--line);}
+
+    /* roster leaders (2-col) */
+    .leadgrid{display:grid;grid-template-columns:1fr 1fr;gap:2px 22px;}
+    @media(max-width:560px){.leadgrid{grid-template-columns:1fr;}}
+    .lead{display:flex;align-items:center;gap:11px;padding:8px 2px;border-bottom:1px solid var(--line);}
+    .lead .lo{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:21px;width:34px;text-align:center;flex-shrink:0;}
+    .lead .ln{font-weight:700;font-size:13.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .lead .lp{font-size:11px;font-weight:700;color:var(--txt3);flex-shrink:0;}
 
     /* media */
     .media{display:flex;gap:13px;}
@@ -235,6 +248,7 @@
             <div class="hx-card"><div class="hx-lab" id="hxAnaLbl">Team Analytics</div><div id="hxAnalytics"></div></div>
             <div class="hx-card"><div class="hx-lab">Player Progression</div><div id="hxProg"></div></div>
           </div>
+          <div class="hx-card"><div class="hx-lab">Roster Leaders <span class="sub">projected OVR</span></div><div id="hxLeaders"></div></div>
         </div>
         <div class="hx-col">
           <div class="hx-card"><div class="hx-lab"><span id="hxStandLbl">Conference Standings</span><span class="sub" id="hxStandSub"></span></div><div id="hxStandings"></div></div>
@@ -273,6 +287,8 @@ function colorsOf(row){
   return {c1:c1, sec:sec};
 }
 function barCol(v){ return v==null?'var(--txt3)':(v>=80?'var(--green)':v>=64?'var(--tc)':v>=50?'var(--amber)':'var(--red)'); }
+function wrapStand(rowsHtml,total){ return '<div class="st-scroll">'+rowsHtml+'</div>'+(total>9?'<div class="st-more">scroll for all '+total+' teams</div>':''); }
+function fitStand(){ var c=byId('hxStandings').querySelector('.st-scroll'); if(!c) return; var me=c.querySelector('.st.me'); if(me){ c.scrollTop=Math.max(0, me.offsetTop - c.clientHeight/2 + me.offsetHeight/2); } }
 
 var LAUNCH=[
   ['📊','team.html','Team Page','depth chart · DNA · projections'],
@@ -353,7 +369,7 @@ function renderSeason(){
   }).join('');
   byId('hxTeamLbl').textContent='— every tool, loaded for '+row.full;
   var mediaCard=byId('hxMediaCard');
-  rosterFeatured(row);
+  loadRoster(row);
   if(+HQ_SEASON===2027){
     mediaCard.style.display='';
     byId('hxKick').textContent='⬡ Program HQ · 2026-27 Projected';
@@ -397,9 +413,10 @@ function projStandings(row){
   byId('hxStandSub').textContent='2026-27 projected';
   var mine=POOL.filter(function(t){return t.conf===row.conf;}).sort(function(a,b){return (a.rank||999)-(b.rank||999);});
   var el=byId('hxStandings');
-  el.innerHTML=mine.length?mine.map(function(t,i){ var lg=logoFor(t.full);
-    return '<div class="st'+(t.full===row.full?' me':'')+'"><span class="rk">'+(i+1)+'</span>'+(lg?'<img src="'+lg+'" alt="" onerror="this.style.visibility=\'hidden\'">':'')+'<span class="nm">'+esc(t.full)+'</span><span class="rc">'+fmtR(t.rating)+'</span></div>'; }).join('')
-    :'<div class="hx-empty">No conference on file.</div>';
+  if(!mine.length){ el.innerHTML='<div class="hx-empty">No conference on file.</div>'; return; }
+  var rows=mine.map(function(t,i){ var lg=logoFor(t.full);
+    return '<div class="st'+(t.full===row.full?' me':'')+'"><span class="rk">'+(i+1)+'</span>'+(lg?'<img src="'+lg+'" alt="" onerror="this.style.visibility=\'hidden\'">':'')+'<span class="nm">'+esc(t.full)+'</span><span class="rc">'+fmtR(t.rating)+'</span></div>'; }).join('');
+  el.innerHTML=wrapStand(rows,mine.length); fitStand();
 }
 function projGame(row){
   byId('hxGame').innerHTML='<div class="hx-lab">Next Game <span class="sub">2026-27</span></div>'+
@@ -440,8 +457,9 @@ function pastStandings(P,tr,row){
   byId('hxStandSub').textContent=seasonLabel(HQ_SEASON);
   if(!conf){ el.innerHTML='<div class="hx-empty">No standings for this program in '+seasonLabel(HQ_SEASON)+'.</div>'; return; }
   var mine=P.rows.filter(function(r){return r.conference===conf;}).sort(function(a,b){ var ac=(a.conf_wins||0)-(a.conf_losses||0), bc=(b.conf_wins||0)-(b.conf_losses||0); return bc-ac || ((b.srs||-99)-(a.srs||-99)); });
-  el.innerHTML=mine.map(function(t,i){ var me=(t.team===(tr&&tr.team)); var lg=logoFor(t.team);
+  var rows=mine.map(function(t,i){ var me=(t.team===(tr&&tr.team)); var lg=logoFor(t.team);
     return '<div class="st'+(me?' me':'')+'"><span class="rk">'+(i+1)+'</span>'+(lg?'<img src="'+lg+'" alt="" onerror="this.style.visibility=\'hidden\'">':'')+'<span class="nm">'+esc(t.team)+'</span><span class="rc">'+(t.conf_wins!=null?recStr(t.conf_wins,t.conf_losses):'—')+'</span><span class="ov2">'+recStr(t.wins,t.losses)+'</span></div>'; }).join('');
+  el.innerHTML=wrapStand(rows,mine.length); fitStand();
 }
 function lastGame(full,year){
   var el=byId('hxGame'); el.innerHTML='<div class="hx-lab">Last Game</div><div class="hx-empty">Loading…</div>';
@@ -457,9 +475,10 @@ function lastGame(full,year){
     }).catch(function(){ el.innerHTML='<div class="hx-lab">Last Game</div><div class="hx-empty">Could not load games.</div>'; });
 }
 
-// ── player progression (featured top projected OVR + last-yr→proj) ──
-function rosterFeatured(row){
-  var el=byId('hxProg'); el.innerHTML='<div class="hx-empty">Loading roster…</div>';
+// ── roster: featured progression (top OVR) + roster-leaders list, one fetch ──
+function loadRoster(row){
+  var pe=byId('hxProg'), le=byId('hxLeaders');
+  pe.innerHTML='<div class="hx-empty">Loading roster…</div>'; le.innerHTML='<div class="hx-empty">Loading…</div>';
   var short=row.team||row.full;
   fetch(SB+'/rest/v1/players?team=eq.'+encodeURIComponent(short)+'&select=*',{headers:H})
     .then(function(r){return r.ok?r.json():[];})
@@ -470,7 +489,8 @@ function rosterFeatured(row){
           var last=parseFloat(p.tdc_grade); if(!isFinite(last)) last=null;
           return {name:p.name,pos:p.pos,cls:(p.yr||p.class_year||p.class||''),ov:(ov!=null&&isFinite(ov))?Math.round(ov):null,last:last!=null?Math.round(last):null};
         }).filter(function(x){ return x.ov!=null && x.name; }).sort(function(a,b){ return b.ov-a.ov; });
-        if(!arr.length){ el.innerHTML='<div class="hx-empty">No graded players on file for this roster yet.</div>'; return; }
+        if(!arr.length){ pe.innerHTML='<div class="hx-empty">No graded players on file yet.</div>'; le.innerHTML='<div class="hx-empty">No graded players on file for this roster yet.</div>'; return; }
+        // featured (top OVR)
         var f=arr[0];
         var tag, up=(f.last!=null)?(f.ov-f.last):null;
         if(f.last==null) tag='<span class="tagUp fl">◆ New addition</span>';
@@ -483,10 +503,14 @@ function rosterFeatured(row){
           bars='<div class="mrow" style="margin-top:16px"><span class="ml">Last yr</span><div class="bar"><i style="width:'+f.last+'%;background:var(--line2)"></i></div><span class="mv" style="color:var(--txt3)">'+f.last+'</span></div>'+
                '<div class="mrow"><span class="ml">Proj</span><div class="bar"><i style="width:'+f.ov+'%;background:var(--tc)"></i></div><span class="mv" style="color:var(--tc-readable,var(--tc))">'+f.ov+'</span></div>';
         }
-        el.innerHTML='<div class="prog"><div class="ovr">'+f.ov+'<small>OVR</small></div><div class="pmid"><div class="pn">'+esc(f.name)+'</div><div class="pp">'+esc(meta||'Roster leader')+'</div>'+tag+'</div></div>'+bars;
+        pe.innerHTML='<div class="prog"><div class="ovr">'+f.ov+'<small>OVR</small></div><div class="pmid"><div class="pn">'+esc(f.name)+'</div><div class="pp">'+esc(meta||'Roster leader')+'</div>'+tag+'</div></div>'+bars;
+        // leaders list (top 8, 2-col)
+        le.innerHTML='<div class="leadgrid">'+arr.slice(0,8).map(function(x){
+          return '<div class="lead"><span class="lo" style="color:'+barCol(x.ov)+'">'+x.ov+'</span><span class="ln">'+esc(x.name)+'</span><span class="lp">'+esc(x.pos||'')+'</span></div>';
+        }).join('')+'</div>';
       };
       if(window.TDCProjGrade&&TDCProjGrade.ready) TDCProjGrade.ready.then(go).catch(go); else go();
-    }).catch(function(){ el.innerHTML='<div class="hx-empty">Could not load roster.</div>'; });
+    }).catch(function(){ pe.innerHTML='<div class="hx-empty">Could not load roster.</div>'; le.innerHTML='<div class="hx-empty">Could not load roster.</div>'; });
 }
 
 // ── media / buzz ──
