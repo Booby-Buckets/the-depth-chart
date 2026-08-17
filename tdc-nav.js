@@ -19,7 +19,6 @@
   // [group label, [[href, name], …]] — the six top-level menus.
   var GROUPS = [
     ['Teams', [
-      ['program-hq.html',      '⬡ Program HQ'],
       ['index.html',           'Team Rankings'],
       ['team.html',            'Teams'],
       ['team-stats.html',      'Team Stats'],
