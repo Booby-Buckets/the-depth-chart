@@ -114,6 +114,16 @@
     .wpcard{border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:14px 16px;}
     .wpt{font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);margin-bottom:7px;}
     .wpb{font-size:13px;line-height:1.6;color:var(--text2);}
+    /* tempo & style clash */
+    .tempo{border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:15px 17px;}
+    .tprow2{display:flex;justify-content:space-between;gap:12px;font-size:12px;font-weight:700;margin-bottom:13px;}
+    .tempobar{position:relative;height:8px;border-radius:5px;background:linear-gradient(90deg,rgba(90,140,214,.32),rgba(230,213,168,.32),rgba(224,128,63,.34));}
+    .tempobar .tbdot{position:absolute;top:50%;width:13px;height:13px;border-radius:50%;transform:translate(-50%,-50%);border:2px solid var(--bg2);box-shadow:0 1px 4px rgba(0,0,0,.4);}
+    .tempobar .tbgame{position:absolute;top:-4px;width:2px;height:16px;background:var(--text);transform:translateX(-50%);border-radius:2px;}
+    .tempolbl{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);font-weight:600;margin-top:5px;}
+    .tempolbl b{color:var(--text2);}
+    .temporead{font-size:12.5px;line-height:1.55;color:var(--text2);margin-top:11px;}
+    .temporead b{color:var(--text);}
   </style>
   <!-- new-UI theme layer: navy+blue dark palette (matches index/player); light-mode guard keeps the toggle readable -->
   <link rel="stylesheet" href="tdc-dense.css?v=30"/>
@@ -303,6 +313,26 @@ async function loadGamePlan(a,b,favA,L){
       const aBetter=va>=vb; return `<div class="tprow"><div class="tpv ${aBetter?'w':''}" style="${aBetter?`color:${cA}`:''}">${Math.round(va)}ᵖᶜ</div><div class="tpl">${lab}</div><div class="tpv ${!aBetter?'w':''}" style="${!aBetter?`color:${cB}`:''}">${Math.round(vb)}ᵖᶜ</div></div>`; };
     tapeHtml=`<div class="gph">Tale of the tape <span>ᴾᶜ = national percentile · higher is better</span></div><div class="tape"><div class="tphd"><span style="color:${cA}">${TDC_TEAM.badge(a.full,{label:nA})}</span><span></span><span style="color:${cB}">${TDC_TEAM.badge(b.full,{label:nB})}</span></div>${F.map(rowT).join('')}</div>`;
   }
+  // ── tempo & style clash (projected possessions — data already lives in DNA.tempo) ──
+  let tempoHtml='';
+  if(da&&db&&da.tempo!=null&&db.tempo!=null){
+    const ta=da.tempo, tb=db.tempo;
+    const _tv=Object.values(DNA['2027'].teams).map(t=>t.tempo).filter(x=>x!=null);
+    const avg=_tv.length?_tv.reduce((s,x)=>s+x,0)/_tv.length:69;
+    const game=Math.round((ta*tb/avg)*10)/10;   // KenPom-style expected tempo
+    const desc=v=>v>=72?'up-tempo':v<=66?'grind-it-out':'balanced';
+    const gap=Math.abs(ta-tb);
+    const fast=ta>=tb?{t:ta,n:nA}:{t:tb,n:nB}, slow=ta>=tb?{t:tb,n:nB}:{t:ta,n:nA};
+    const read=gap<2
+      ? 'Both play at a similar pace — tempo won’t be the battleground; this one is decided in the halfcourt.'
+      : `<b>${esc(fast.n)}</b> want to run (${fast.t.toFixed(1)} poss); <b>${esc(slow.n)}</b> would rather grind (${slow.t.toFixed(1)}). It projects to ~${game} possessions — whoever imposes tempo tilts the math. The faster side has to score in transition before the defense sets; the slower side wants long possessions and a shortened game.`;
+    const lo=60,hi=78,px=v=>Math.max(2,Math.min(98,(v-lo)/(hi-lo)*100));
+    tempoHtml=`<div class="gph">Tempo &amp; style clash <span>projected possessions</span></div>`
+      +`<div class="tempo"><div class="tprow2"><span style="color:${cA}">${esc(nA)} · ${ta.toFixed(1)} (${desc(ta)})</span><span style="color:${cB}">${esc(nB)} · ${tb.toFixed(1)} (${desc(tb)})</span></div>`
+      +`<div class="tempobar"><i class="tbdot" style="left:${px(ta)}%;background:${cA}"></i><i class="tbdot" style="left:${px(tb)}%;background:${cB}"></i><i class="tbgame" style="left:${px(game)}%"></i></div>`
+      +`<div class="tempolbl"><span>60 slow</span><span><b>projected ~${game}</b> poss</span><span>fast 78</span></div>`
+      +`<div class="temporead">${read}</div></div>`;
+  }
   // ── how each team wins ──
   function winPath(mine,theirs,nm){
     if(!mine||!mine.pct||!theirs||!theirs.pct) return '';
@@ -317,7 +347,7 @@ async function loadGamePlan(a,b,favA,L){
   }
   const wins=(da&&db)?`<div class="gph">How each team wins</div><div class="wpgrid">${winPath(da,db,nA)}${winPath(db,da,nB)}</div>`:'';
 
-  host.innerHTML=`${kmRows?`<div class="gph">Key matchups <span>projected starter · OVR edge</span></div><div class="kmwrap" style="--cA:${cA};--cB:${cB}"><div class="kmhead"><span>Pos</span><span>${TDC_TEAM.badge(a.full,{label:nA})}</span><span>edge</span><span>${TDC_TEAM.badge(b.full,{label:nB})}</span></div>${kmRows}</div>`:''}${tapeHtml}${wins}`;
+  host.innerHTML=`${kmRows?`<div class="gph">Key matchups <span>projected starter · OVR edge</span></div><div class="kmwrap" style="--cA:${cA};--cB:${cB}"><div class="kmhead"><span>Pos</span><span>${TDC_TEAM.badge(a.full,{label:nA})}</span><span>edge</span><span>${TDC_TEAM.badge(b.full,{label:nB})}</span></div>${kmRows}</div>`:''}${tapeHtml}${tempoHtml}${wins}`;
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
 }
 
