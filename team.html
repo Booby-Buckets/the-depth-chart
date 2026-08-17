@@ -5486,7 +5486,7 @@ async function loadTeamShotChart(season){
   var host=document.getElementById('teamShotHost'); if(!host||!window.TDC_SHOTCHART) return;
   host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Loading team shot chart…</div>';
   var tid=await _teamEspnId();
-  if(!tid){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Team shot data unavailable.</div>'; return; }
+  if(!tid||!season){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Team shot data unavailable.</div>'; return; }
   try{
     var rows=await fetch(SB_URL+'/rest/v1/shots?team_id=eq.'+tid+'&season_year=eq.'+season+'&select=x,y,made,sv,dist&limit=6000',{headers:tdcH()}).then(r=>r.ok?r.json():[]);
     TDC_SHOTCHART.render(host, Array.isArray(rows)?rows:[], {subtitle:(teamT&&teamT.name)||'this team', mode:'hex'});
@@ -6526,7 +6526,8 @@ async function loadLineupShotProfile(){
   if(!rot.length){ wrap.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">No rotation players with shot data. Add players and assign minutes above.</div>'; return; }
   wrap.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Building lineup shot profile…</div>';
   try{
-    var ids=[...new Set(rot.map(p=>p.espn))];
+    var ids=[...new Set(rot.map(p=>p.espn).filter(function(x){return x!=null&&x!=='';}))];
+    if(!ids.length){ wrap.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">No shot data for these players.</div>'; return; }
     var rows=await fetch(SB_URL+'/rest/v1/shots?espn_id=in.('+ids.join(',')+')&season_year=eq.2026&select=espn_id,x,y,made,sv,dist,stype,ast_name&limit=12000',{headers:tdcH()}).then(r=>r.ok?r.json():[]);
     var byP={}; (rows||[]).forEach(function(r){ (byP[r.espn_id]=byP[r.espn_id]||[]).push(r); });
     var maxMin=Math.max.apply(0, rot.map(p=>p.mpg))||1;
