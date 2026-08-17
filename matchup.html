@@ -124,6 +124,11 @@
     .tempolbl b{color:var(--text2);}
     .temporead{font-size:12.5px;line-height:1.55;color:var(--text2);margin-top:11px;}
     .temporead b{color:var(--text);}
+    /* decisive-edge headline */
+    .decisive{border:1px solid var(--accent);border-left:3px solid var(--accent);border-radius:12px;background:color-mix(in srgb,var(--accent) 8%,var(--bg2));padding:14px 17px;margin:22px 0 4px;}
+    .dec-k{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+    .dec-b{font-size:13.5px;line-height:1.55;color:var(--text);}
+    .dec-pc{color:var(--text3);font-weight:700;font-size:11px;white-space:nowrap;margin-left:4px;}
   </style>
   <!-- new-UI theme layer: navy+blue dark palette (matches index/player); light-mode guard keeps the toggle readable -->
   <link rel="stylesheet" href="tdc-dense.css?v=30"/>
@@ -333,6 +338,26 @@ async function loadGamePlan(a,b,favA,L){
       +`<div class="tempolbl"><span>60 slow</span><span><b>projected ~${game}</b> poss</span><span>fast 78</span></div>`
       +`<div class="temporead">${read}</div></div>`;
   }
+  // ── the decisive edge — the single biggest four-factor gap, framed as the pivot ──
+  let decisiveHtml='';
+  if(da&&da.pct&&db&&db.pct){
+    const FAC=[
+      ['oeFG','shot quality',(w,l)=>`${w} generate the cleaner looks — ${l} have to chase them off the line and contest without fouling.`],
+      ['oORB','the offensive glass',(w,l)=>`${w} will get second chances — ${l} must gang-rebound and end possessions with one stop.`],
+      ['oTOV','ball security',(w,l)=>`${w} take care of it — ${l} have to manufacture live-ball turnovers to keep pace.`],
+      ['DRtg','the defensive end',(w,l)=>`${w} get stops — ${l} will have to score in the halfcourt against a set defense.`],
+      ['ORtg','firepower',(w,l)=>`${w} can simply outscore — ${l} need to drag it into a rock fight at a lower number.`],
+    ];
+    let best=null;
+    FAC.forEach(([k,lab,msg])=>{ const va=da.pct[k], vb=db.pct[k]; if(va==null||vb==null) return;
+      const g=Math.abs(va-vb); if(!best||g>best.g) best={k,lab,msg,g,va,vb,aWins:va>=vb}; });
+    if(best && best.g>=12){
+      const W=best.aWins?{n:nA,c:cA,v:best.va}:{n:nB,c:cB,v:best.vb};
+      const L=best.aWins?{n:nB,c:cB,v:best.vb}:{n:nA,c:cA,v:best.va};
+      decisiveHtml=`<div class="decisive"><div class="dec-k">The game turns on ${best.lab}</div>`
+        +`<div class="dec-b">${best.msg(`<b style="color:${W.c}">${esc(W.n)}</b>`,`<b style="color:${L.c}">${esc(L.n)}</b>`)} <span class="dec-pc">${Math.round(W.v)}ᵖᶜ vs ${Math.round(L.v)}ᵖᶜ</span></div></div>`;
+    }
+  }
   // ── how each team wins ──
   function winPath(mine,theirs,nm){
     if(!mine||!mine.pct||!theirs||!theirs.pct) return '';
@@ -347,7 +372,7 @@ async function loadGamePlan(a,b,favA,L){
   }
   const wins=(da&&db)?`<div class="gph">How each team wins</div><div class="wpgrid">${winPath(da,db,nA)}${winPath(db,da,nB)}</div>`:'';
 
-  host.innerHTML=`${kmRows?`<div class="gph">Key matchups <span>projected starter · OVR edge</span></div><div class="kmwrap" style="--cA:${cA};--cB:${cB}"><div class="kmhead"><span>Pos</span><span>${TDC_TEAM.badge(a.full,{label:nA})}</span><span>edge</span><span>${TDC_TEAM.badge(b.full,{label:nB})}</span></div>${kmRows}</div>`:''}${tapeHtml}${tempoHtml}${wins}`;
+  host.innerHTML=`${decisiveHtml}${kmRows?`<div class="gph">Key matchups <span>projected starter · OVR edge</span></div><div class="kmwrap" style="--cA:${cA};--cB:${cB}"><div class="kmhead"><span>Pos</span><span>${TDC_TEAM.badge(a.full,{label:nA})}</span><span>edge</span><span>${TDC_TEAM.badge(b.full,{label:nB})}</span></div>${kmRows}</div>`:''}${tapeHtml}${tempoHtml}${wins}`;
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
 }
 
