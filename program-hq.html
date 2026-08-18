@@ -27,12 +27,12 @@
       /* dashboard tokens — light */
       --hqbase:#eef0f4;--panel:#ffffff;--panel2:#f6f7fa;--line:#e4e7ee;--line2:#d3d8e2;--track:#e7eaf0;
       --txt:#141821;--txt2:#4c5462;--txt3:#8b94a4;--green:#1f9d4d;--amber:#cf8a17;--red:#d6491f;
-      --cardbg:#ffffff;--tint:0%;--fieldA:95%;--fieldB:80%;--sideA:88%;--sideB:50%;--stagebg:rgba(6,8,20,.28);--stageborder:rgba(0,0,0,.16);--crestbg:#ffffff;--crestborder:rgba(0,0,0,.06);--crestsh:0 8px 22px rgba(0,0,0,.26);--wmop:.05;
+      --cardbg:#ffffff;--tint:0%;--fieldA:95%;--fieldB:80%;--sideA:88%;--sideB:50%;--stagebg:rgba(6,8,20,.28);--stageborder:rgba(0,0,0,.16);--crestbg:#ffffff;--crestborder:rgba(0,0,0,.06);--crestsh:0 8px 22px rgba(0,0,0,.26);--wmop:.05;--grain:.22;
       --tc:#0047ba;--sec:#13294b;--tc-ink:#fff;--tc-veil:rgba(0,0,0,.20);--tc-veilb:rgba(255,255,255,.34);}
     [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;
       --hqbase:#0a0c11;--panel:#14171e;--panel2:#1a1e27;--line:#252b36;--line2:#333a48;--track:#10131a;
       --txt:#eef1f6;--txt2:#aab1bf;--txt3:#6f7787;--green:#3ecf6a;--amber:#f2b23c;--red:#f2663c;
-      --cardbg:#161a22;--tint:0%;--fieldA:56%;--fieldB:32%;--sideA:92%;--sideB:60%;--stagebg:rgba(0,0,0,.40);--stageborder:rgba(255,255,255,.10);--crestbg:#1b2130;--crestborder:rgba(255,255,255,.14);--crestsh:0 6px 18px rgba(0,0,0,.45);--wmop:.08;}
+      --cardbg:#161a22;--tint:0%;--fieldA:56%;--fieldB:32%;--sideA:92%;--sideB:60%;--stagebg:rgba(0,0,0,.40);--stageborder:rgba(255,255,255,.10);--crestbg:#1b2130;--crestborder:rgba(255,255,255,.14);--crestsh:0 6px 18px rgba(0,0,0,.45);--wmop:.08;--grain:.18;}
     *{margin:0;padding:0;box-sizing:border-box;}
     body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
     /* team-themed page background (only once a team is active):
@@ -48,6 +48,15 @@
     /* one deliberate brand watermark, anchored in the bottom-left corner
        (diagonally balancing the crest logo in the header's top-right) */
     .bgwm img{position:absolute;width:720px;height:720px;object-fit:contain;opacity:var(--wmop);left:-180px;bottom:-190px;transform:rotate(8deg);filter:saturate(1.1);}
+    /* background texture: film grain + coarse grunge mottle, then an edge vignette for depth */
+    body.hqOn::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+      background-image:
+        url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='170'%20height='170'%3E%3Cfilter%20id='fg'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.9'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='170'%20height='170'%20filter='url(%23fg)'/%3E%3C/svg%3E"),
+        url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='900'%20height='900'%3E%3Cfilter%20id='cg'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.016'%20numOctaves='3'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='900'%20height='900'%20filter='url(%23cg)'/%3E%3C/svg%3E");
+      background-size:170px 170px, 900px 900px;background-repeat:repeat, repeat;background-blend-mode:overlay;
+      mix-blend-mode:overlay;opacity:var(--grain,.13);}
+    body.hqOn::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+      background:radial-gradient(135% 128% at 50% 20%, transparent 48%, rgba(0,0,0,.34) 100%);}
 
     /* ── team picker ── */
     .pick-hero{position:relative;z-index:1;max-width:640px;margin:60px auto 0;text-align:center;padding:0 20px;}
