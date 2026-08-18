@@ -165,6 +165,14 @@
     .lead .ln{font-weight:700;font-size:13.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .lead .lp{font-size:11px;font-weight:700;color:var(--txt3);flex-shrink:0;}
 
+    /* season outlook */
+    .otags{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px;}
+    .otag{font-size:10.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:5px 10px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);color:var(--txt2);}
+    .otag.hot{background:color-mix(in srgb,var(--tc) 16%,transparent);border-color:color-mix(in srgb,var(--tc) 34%,transparent);color:var(--tc-readable,var(--tc));}
+    .otag.good{background:color-mix(in srgb,var(--green) 14%,transparent);border-color:color-mix(in srgb,var(--green) 32%,transparent);color:var(--green);}
+    .otxt{font-size:13px;line-height:1.62;color:var(--txt2);}
+    .otxt b{color:var(--txt);font-weight:700;}
+
     /* media */
     .media{display:flex;gap:13px;}
     .media + .media{margin-top:14px;border-top:1px solid var(--line);padding-top:14px;}
@@ -248,6 +256,7 @@
             <div class="hx-card"><div class="hx-lab" id="hxAnaLbl">Team Analytics</div><div id="hxAnalytics"></div></div>
             <div class="hx-card"><div class="hx-lab">Player Progression</div><div id="hxProg"></div></div>
           </div>
+          <div class="hx-card"><div class="hx-lab" id="hxOutlookLbl">Season Outlook</div><div id="hxOutlook"></div></div>
           <div class="hx-card"><div class="hx-lab">Roster Leaders <span class="sub">projected OVR</span></div><div id="hxLeaders"></div></div>
         </div>
         <div class="hx-col">
@@ -287,6 +296,7 @@ function colorsOf(row){
   return {c1:c1, sec:sec};
 }
 function barCol(v){ return v==null?'var(--txt3)':(v>=80?'var(--green)':v>=64?'var(--tc)':v>=50?'var(--amber)':'var(--red)'); }
+function ord(n){ var v=n%100; if(v>=11&&v<=13) return n+'th'; switch(n%10){case 1:return n+'st';case 2:return n+'nd';case 3:return n+'rd';default:return n+'th';} }
 function wrapStand(rowsHtml,total){ return '<div class="st-scroll">'+rowsHtml+'</div>'+(total>9?'<div class="st-more">scroll for all '+total+' teams</div>':''); }
 function fitStand(){ var c=byId('hxStandings').querySelector('.st-scroll'); if(!c) return; var me=c.querySelector('.st.me'); if(me){ c.scrollTop=Math.max(0, me.offsetTop - c.clientHeight/2 + me.offsetHeight/2); } }
 
@@ -373,14 +383,14 @@ function renderSeason(){
   if(+HQ_SEASON===2027){
     mediaCard.style.display='';
     byId('hxKick').textContent='⬡ Program HQ · 2026-27 Projected';
-    projHero(row); analyticsProj(row); projStandings(row); projGame(row); loadBuzz(row);
+    projHero(row); analyticsProj(row); seasonOutlook(row); projStandings(row); projGame(row); loadBuzz(row);
   } else {
     mediaCard.style.display='none';
     byId('hxKick').textContent='⬡ Program HQ · '+seasonLabel(HQ_SEASON);
     byId('hxAnalytics').innerHTML='<div class="hx-empty">Loading…</div>';
     loadPast(HQ_SEASON).then(function(P){
       var tr=P.byFull[(row.full||'').toLowerCase().trim()];
-      pastHero(row,tr); analyticsPast(P,tr); pastStandings(P,tr,row); lastGame(row.full,HQ_SEASON);
+      pastHero(row,tr); analyticsPast(P,tr); seasonRecap(P,tr,row); pastStandings(P,tr,row); lastGame(row.full,HQ_SEASON);
     });
   }
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(byId('hq'));
@@ -417,6 +427,45 @@ function projStandings(row){
   var rows=mine.map(function(t,i){ var lg=logoFor(t.full);
     return '<div class="st'+(t.full===row.full?' me':'')+'"><span class="rk">'+(i+1)+'</span>'+(lg?'<img src="'+lg+'" alt="" onerror="this.style.visibility=\'hidden\'">':'')+'<span class="nm">'+esc(t.full)+'</span><span class="rc">'+fmtR(t.rating)+'</span></div>'; }).join('');
   el.innerHTML=wrapStand(rows,mine.length); fitStand();
+}
+function seasonOutlook(row){
+  var el=byId('hxOutlook'); byId('hxOutlookLbl').textContent='Season Outlook';
+  var inConf=POOL.filter(function(t){return t.conf===row.conf;}).sort(function(a,b){return (a.rank||999)-(b.rank||999);});
+  var cr=inConf.findIndex(function(t){return t.full===row.full;})+1, nC=inConf.length, rank=row.rank||999, conf=row.conf||'the conference';
+  var natTag = rank<=8?'National title contender' : rank<=20?'Final Four caliber' : rank<=35?'NCAA Tournament team' : rank<=60?'At-large hopeful' : rank<=100?'Postseason contender' : 'Rebuilding year';
+  var confTag = cr===1?(conf+' favorite') : cr<=3?('Top-3 in the '+conf) : (cr && cr<=Math.ceil(nC/2))?('Upper-half '+conf) : ('Lower-half '+conf);
+  el.innerHTML='<div class="otags"><span class="otag hot">'+esc(natTag)+'</span><span class="otag">'+esc(confTag)+'</span><span class="otag" id="hxStyleTag">…</span></div><p class="otxt" id="hxOutlookTxt">Crunching the projection…</p>';
+  if(window.TDCTeamGrades){
+    TDCTeamGrades.compute(row).then(function(g){
+      var off=g&&g.offense, def=g&&g.defense, styleTag='Balanced two-way';
+      if(off!=null&&def!=null){
+        if(off>=85&&def>=82) styleTag='Two-way force';
+        else if(off-def>=15) styleTag='Offense-first';
+        else if(def-off>=15) styleTag='Defense-anchored';
+        else if(off>=85) styleTag='Elite offense';
+        else if(def>=85) styleTag='Elite defense';
+      }
+      var st=byId('hxStyleTag'); if(st) st.textContent=styleTag;
+      var sent='<b>'+esc(row.full)+'</b> enter 2026-27 projected <b>#'+rank+'</b> nationally'+(cr?(' and '+(cr===1?'the favorite in the ':(ord(cr)+' in the '))+esc(conf)):'')+' ('+fmtR(row.rating)+' power rating).';
+      if(off!=null&&def!=null){
+        sent+=' The model sees '+(off>=85?'an elite':(off>=70?'a strong':'a developing'))+' offense ('+off+') '+(off-def>=12?'carrying':'alongside')+' a defense that grades '+(def>=80?'elite':(def>=64?'solid':'as the swing factor'))+' ('+def+').';
+      }
+      var tx=byId('hxOutlookTxt'); if(tx) tx.innerHTML=sent;
+    }).catch(function(){ var tx=byId('hxOutlookTxt'); if(tx) tx.textContent='Outlook unavailable right now.'; });
+  }
+}
+function seasonRecap(P,tr,row){
+  var el=byId('hxOutlook'); byId('hxOutlookLbl').textContent='Season Recap — '+seasonLabel(HQ_SEASON);
+  if(!tr){ el.innerHTML='<p class="otxt">No '+seasonLabel(HQ_SEASON)+' season on file for this program.</p>'; return; }
+  var conf=tr.conference;
+  var mine=P.rows.filter(function(r){return r.conference===conf;}).sort(function(a,b){ var ac=(a.conf_wins||0)-(a.conf_losses||0), bc=(b.conf_wins||0)-(b.conf_losses||0); return bc-ac || ((b.srs||-99)-(a.srs||-99)); });
+  var pos=mine.findIndex(function(r){return r.team===tr.team;})+1;
+  var tags='<span class="otag hot">'+recStr(tr.wins,tr.losses)+' overall</span>';
+  if(pos) tags+='<span class="otag">'+ord(pos)+' in '+esc(conf||'conf')+'</span>';
+  if(tr.ncaa_seed) tags+='<span class="otag good">#'+tr.ncaa_seed+' seed</span>';
+  if(tr.ncaa_result) tags+='<span class="otag">'+esc(tr.ncaa_result)+'</span>';
+  var sent='<b>'+esc(row.full)+'</b> went <b>'+recStr(tr.wins,tr.losses)+'</b>'+(tr.conf_wins!=null?(' ('+recStr(tr.conf_wins,tr.conf_losses)+' '+esc(conf||'')+')'):'')+(pos?(', finishing '+ord(pos)+' in the league'):'')+(tr.ncaa_result?(', and reached the '+esc(tr.ncaa_result)):(tr.ncaa_seed?(' as a #'+tr.ncaa_seed+' seed'):''))+'. Power rating: <b>'+fmtR(tr.srs)+'</b>.';
+  el.innerHTML='<div class="otags">'+tags+'</div><p class="otxt">'+sent+'</p>';
 }
 function projGame(row){
   byId('hxGame').innerHTML='<div class="hx-lab">Next Game <span class="sub">2026-27</span></div>'+
