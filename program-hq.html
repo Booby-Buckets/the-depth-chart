@@ -37,16 +37,12 @@
     body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
     /* team-themed page background (only once a team is active):
        bold PRIMARY-color field, SECONDARY-color accent panels down both sides */
-    /* PRIMARY field with real tonal color-changes: SECONDARY sweeps in top-right + echoes
-       bottom-left, and a soft tonal lift up top — like the Iowa State mockup */
-    body.hqOn{color:var(--txt);
-      background-color:color-mix(in srgb,var(--tc) var(--fieldA),var(--hqbase));
-      background-image:
-        radial-gradient(66% 88% at 106% -12%, color-mix(in srgb,var(--sec) 82%, transparent) 0%, color-mix(in srgb,var(--sec) 34%, transparent) 26%, transparent 52%),
-        radial-gradient(54% 60% at -8% 110%, color-mix(in srgb,var(--sec) 48%, transparent) 0%, transparent 52%),
-        radial-gradient(100% 64% at 50% -16%, rgba(255,255,255,.10) 0%, transparent 55%);
-      background-repeat:no-repeat;background-attachment:fixed;}
+    /* SOLID primary field + SOLID secondary-color angular blocks in the top corners
+       (no gradients — the flat color panels from the mockup) */
+    body.hqOn{color:var(--txt);background-color:color-mix(in srgb,var(--tc) var(--fieldA),var(--hqbase));background-attachment:fixed;}
     .hq-word{display:none!important;}
+    body.hqOn::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+      background:var(--sec);clip-path:polygon(100% 0, 100% 40%, 74% 0);}
     a{color:inherit;text-decoration:none;}
     .bgwm{display:none;}
     body.hqOn .bgwm{display:block;position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
@@ -54,9 +50,9 @@
        (diagonally balancing the crest logo in the header's top-right) */
     .bgwm img{position:absolute;width:min(72vw,1060px);height:auto;object-fit:contain;opacity:var(--wmop);right:-8%;bottom:-16%;transform:rotate(-5deg);filter:saturate(1.08);}
     /* background texture: film grain + coarse grunge mottle, then an edge vignette for depth */
-    /* whisper of edge depth only — no grain, no lines */
+    /* second solid secondary block, small, top-left corner */
     body.hqOn::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
-      background:radial-gradient(150% 140% at 50% -10%, transparent 62%, rgba(0,0,0,.22) 100%);}
+      background:var(--sec);clip-path:polygon(0 0, 15% 0, 0 26%);}
 
     /* ── team picker ── */
     .pick-hero{position:relative;z-index:1;max-width:640px;margin:60px auto 0;text-align:center;padding:0 20px;}
