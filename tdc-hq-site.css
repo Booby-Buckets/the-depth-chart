@@ -1,0 +1,117 @@
+/* ================================================================
+   tdc-hq-site.css — shared "site-accent HQ" skin for global (non-team)
+   pages. Navy field + bordered frosted stage + bracket-seed rankings.
+   Pair with: a .hq-stage wrapper around the page content, and (on the
+   rankings) short team names (t.short). Logos come from tdc-dense.js
+   (.tr-dlogo) and are styled here into team-color blocks w/ a white disc.
+   Load LAST. Reversible: nothing here is pushed until you approve.
+   ================================================================ */
+/* ===== homepage HQ v3 — navy field + one bordered frosted stage ===== */
+.tdc-bg{
+  background-color:#1d2b47 !important;
+  background-image:url("hq-grunge.jpg?v=1") !important;
+  background-size:cover !important; background-position:center !important;
+  background-blend-mode:soft-light !important;
+}
+:root[data-theme="dark"] .tdc-bg{ background-color:#141d31 !important; }
+.tdc-mesh,.tdc-blob,.tdc-grain,.ambient-layer,.orb-1,.orb-2,.orb-3,.hero-orbs,.hero-color-line{ display:none !important; }
+
+/* one soft-transparent stage, small border on all 4 sides */
+.hq-stage{
+  margin:16px; border-radius:22px;
+  background:rgba(255,255,255,.09);
+  border:1px solid rgba(255,255,255,.20);
+  -webkit-backdrop-filter:blur(9px); backdrop-filter:blur(9px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 26px 60px rgba(0,10,40,.32);
+  padding:10px 22px 26px;
+}
+:root[data-theme="dark"] .hq-stage{ background:rgba(8,12,24,.34); border-color:rgba(255,255,255,.10); }
+
+/* sections inside the stage shed their own frames */
+.page-header{ background:transparent !important; border:0 !important; padding:18px 4px 6px !important; }
+.filter-bar{ background:transparent !important; }
+.table-section{ background:transparent !important; border:0 !important; box-shadow:none !important; padding:0 !important; margin:8px 0 0 !important; }
+
+/* text + pills light on the navy-tinted stage */
+.page-header h1,.page-header h1 em{ color:#fff !important; -webkit-text-fill-color:#fff !important; background:none !important; font-style:normal !important; }
+.page-header h1 em{ opacity:.9; }
+.page-header-eyebrow,.page-header-meta,.page-header-meta *{ color:#fff !important; }
+.page-header-eyebrow{ opacity:.82; }
+.sc-label{ color:rgba(255,255,255,.85) !important; }
+.filter-count{ color:rgba(255,255,255,.75) !important; }
+.filter-pills{ background:rgba(0,0,0,.22); border-radius:12px; padding:5px 7px; gap:4px; flex-wrap:wrap; }
+.filter-pills .filter-pill{ color:#fff !important; opacity:.82; padding:6px 12px; font-weight:700; }
+.filter-pills .filter-pill.active,.filter-pills .filter-pill.on{ background:#fff !important; color:#141821 !important; opacity:1; }
+.filter-controls .filter-select,.filter-controls .nav-search{ background:rgba(255,255,255,.94) !important; }
+
+/* ===== bracket-seed row look ===== */
+.table-header{ background:transparent !important; }
+.table-header .th{ color:rgba(255,255,255,.7) !important; }
+.team-row{ align-items:stretch !important; margin:5px 0 !important; border-radius:9px !important;
+  overflow:hidden; background:#ffffff !important;
+  box-shadow:0 2px 6px rgba(0,10,40,.18) !important; }
+:root[data-theme="dark"] .team-row{ background:#e9edf5 !important; }
+.team-row::before{ display:none !important; }
+/* dark rank box */
+.tr-rank-wrap{ background:#141a2b !important; display:flex !important; align-items:center !important; justify-content:center !important;
+  min-width:30px; width:30px; padding:0 !important; box-shadow:none !important; text-align:center; }
+.tr-rank{ color:#fff !important; font-weight:800 !important; font-style:normal !important; font-size:14px !important; width:100% !important; text-align:center !important; margin:0 !important; padding:0 !important; }
+.tr-rank.rank-1,.tr-rank.rank-2,.tr-rank.rank-3{ color:#fff !important; }
+/* team-color logo block */
+
+
+/* uppercase name */
+.tr-team-cell{ align-items:center !important; padding-left:0 !important; }
+.tr-team-name{ text-transform:uppercase !important; font-style:normal !important; font-weight:800 !important;
+  letter-spacing:.01em !important; font-size:15px !important; color:#141a2b !important; }
+.team-row:hover .tr-team-name{ color:#000 !important; }
+.tr-team-conf{ margin-left:8px !important; }
+/* stat cells stay readable on the white row */
+.team-row .tr-stat, .team-row [class*="tr-"]{ color:#1a2033; }
+
+/* the sticky left cells paint var(--bg); force them to the light row color so the dark name shows */
+.tr-team-cell,
+.team-row:hover > .tr-team-cell,
+.table-scroll.scrolled .team-row > .tr-team-cell,
+.table-scroll.scrolled .team-row:hover > .tr-team-cell{ background:#ffffff !important; box-shadow:none !important; }
+:root[data-theme="dark"] .tr-team-cell,
+:root[data-theme="dark"] .team-row:hover > .tr-team-cell,
+:root[data-theme="dark"] .table-scroll.scrolled .team-row > .tr-team-cell,
+:root[data-theme="dark"] .table-scroll.scrolled .team-row:hover > .tr-team-cell{ background:#e9edf5 !important; box-shadow:none !important; }
+
+
+/* keep native grid; just stop the name from truncating + hide mobile-only meta that was wrapping */
+.tr-team-name{ overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; min-width:0; flex:0 1 auto; }
+.tr-meta-mobile, .tr-grades-mobile, .tr-rank-chg-mobile{ display:none !important; }
+
+
+
+
+.tr-team-cell{ overflow:hidden !important; }
+
+/* native tdc-dense logos → full-height team-color block (uses the row's --row-color) */
+.tr-dlogo{
+  align-self:stretch !important;
+  width:54px !important; height:auto !important;
+  padding:7px 9px !important; box-sizing:border-box !important;
+  margin-right:12px !important;
+  background:var(--row-color, #33415c) !important;
+  object-fit:contain !important;
+  flex:0 0 54px !important; border-radius:0 !important;
+}
+
+
+/* connect skinny rank box to color block WITHOUT touching the grid (grid override wraps cells) */
+.tr-rank-wrap{ width:30px !important; min-width:30px !important; justify-self:start !important; box-shadow:19px 0 0 0 var(--row-color, #33415c) !important; }
+.tr-team-cell{ overflow:visible !important; }         /* let the block cover the 18px gap */
+.tr-dlogo{ margin-left:0 !important;
+  filter:drop-shadow(0 0 1.6px rgba(255,255,255,.98)) drop-shadow(0 0 1.6px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.7)) !important; }
+.tr-team-name{ overflow:hidden !important; text-overflow:ellipsis !important; }
+
+/* white disc behind each logo → always visible, team color frames it */
+.tr-dlogo{
+  background:radial-gradient(circle, #ffffff 0 49%, rgba(255,255,255,0) 50%) center/42px 42px no-repeat,
+            var(--row-color, #33415c) !important;
+  filter:none !important;
+  padding:6px 8px !important;
+}

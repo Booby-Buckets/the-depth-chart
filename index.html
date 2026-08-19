@@ -1194,6 +1194,7 @@
   <meta name="apple-mobile-web-app-title" content="The Depth Chart">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="tdc-pwa.js?v=2" defer></script>
+  <link rel="stylesheet" href="tdc-hq-site.css?v=1"/>
 </head>
 <body data-anim-auto>
 <script src="tdc-nav.js?v=16"></script>
@@ -2012,7 +2013,7 @@ function renderRows(data, srt, favTeam, favColor, favBg){
     <div class="team-row${isFav?' fav-row':''}" style="--row-color:${t.color};${isFav&&favColor?`border-left:3px solid ${favColor};background:${favBg};`:''}">
       <div class="tr-rank-wrap"><div class="tr-rank${t.rk===1?' rank-1':t.rk===2?' rank-2':t.rk===3?' rank-3':''}">${t.rk}</div></div>
       <div class="tr-team-cell">
-        <a class="tr-team-name" href="program-hq.html?team=${encodeURIComponent(t.short)}${curSeason===2027?'':'&season='+curSeason}" style="color:inherit;text-decoration:none;">${t.name}</a>
+        <a class="tr-team-name" href="program-hq.html?team=${encodeURIComponent(t.short)}${curSeason===2027?'':'&season='+curSeason}" style="color:inherit;text-decoration:none;">${t.short||t.name}</a>
         <div class="tr-team-conf"><span class="conf-badge">${confAbbr(t.confName)}</span>${tierBadge(t.tier)}${t.projected===false?'<span class="conf-badge" title="No synced roster yet — regressed carryover of the 2025-26 rating" style="opacity:.65;">carry</span>':''}</div>
         <div class="tr-meta-mobile"><b>${Math.round(t.winpct*100)}%</b> ${t.gp?'Win':'All-Play'}<i>·</i><b>${t.ppg?t.ppg.toFixed(1):'—'}</b> PPG</div>
       </div>
@@ -2769,5 +2770,20 @@ function toggleTheme(){
 })();
 </script>
   <script src="tdc-version.js?v=2"></script>
+  <script>
+  /* HQ site skin: wrap the main content in a single bordered "stage" that floats on the field */
+  (function(){
+    function wrap(){
+      if(document.querySelector('.hq-stage')) return;
+      var first=document.querySelector('.page-header'); if(!first||!first.parentNode) return;
+      var stage=document.createElement('div'); stage.className='hq-stage';
+      first.parentNode.insertBefore(stage, first);
+      ['.page-header','.showcase','.filter-bar','.table-section'].forEach(function(sel){
+        var el=document.querySelector(sel); if(el) stage.appendChild(el);
+      });
+    }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',wrap); else wrap();
+  })();
+  </script>
 </body>
 </html>
