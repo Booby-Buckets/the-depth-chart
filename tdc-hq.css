@@ -1,0 +1,52 @@
+/* ================================================================
+   TDC · HQ skin  — shared design system extracted from Program HQ.
+   Loaded LAST so it reskins existing pages without touching their JS.
+   Needs --tc (team primary hex) and --tc-rgb on :root (already set by
+   the page). --sec (secondary hex) is set per-team by tdc-hq-init.
+   ================================================================ */
+
+/* ---- 1. team-color FIELD background (kills the animated mesh/orbs) ---- */
+.tdc-bg{ background:color-mix(in srgb, var(--tc) 90%, #0a0c11) !important; }
+:root[data-theme="dark"] .tdc-bg{ background:color-mix(in srgb, var(--tc) 54%, #0a0c11) !important; }
+.tdc-mesh,.tdc-blob,.tdc-grain,.ambient-layer,.hero-orbs,.hero-color-line,#particleCanvas{ display:none !important; }
+
+/* solid SECONDARY-color panel up the right side + grunge weathering, as fixed layers */
+/* solid SECONDARY-color panel painted ON the field (so it isn't hidden under .tdc-bg) */
+.tdc-bg::after{ content:""; position:absolute; inset:0; pointer-events:none;
+  background:var(--sec, color-mix(in srgb, var(--tc) 45%, #05060d));
+  clip-path:polygon(90% 0, 100% 0, 100% 100%, 94% 100%); }
+body::after{ content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background:url("hq-grunge.jpg?v=1") center/cover no-repeat; mix-blend-mode:soft-light; opacity:.26; }
+
+/* ---- 2. hero → HUD panel that sits on the field ---- */
+.team-hero{ background:transparent !important; border-bottom:0 !important; padding:16px 24px 0 !important; }
+.hero-card{ position:relative; background:color-mix(in srgb, var(--tc) 8%, #ffffff); border:1px solid var(--border2);
+  border-radius:16px; padding:18px 24px; box-shadow:0 14px 34px rgba(0,15,60,.16); }
+:root[data-theme="dark"] .hero-card{ background:rgba(18,21,28,.60); border-color:rgba(255,255,255,.10);
+  -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); }
+.hero-name{ font-family:'Barlow Condensed',sans-serif !important; text-transform:uppercase; font-weight:800 !important;
+  letter-spacing:.01em !important; font-size:46px !important; line-height:.94 !important; }
+
+/* the season bar + tabs + ribbon sit below the card on the field — give them breathing room */
+.team-season-bar{ margin-top:2px; }
+
+/* ---- 3. tab bar → dark segmented pill bar ---- */
+.hero-tabs{ background:rgba(9,11,18,.55) !important; border:0 !important; border-radius:14px; padding:6px 8px !important;
+  margin-top:12px; gap:4px !important; width:-moz-fit-content; width:fit-content; max-width:100%; }
+.hero-tab,.hero-grp-btn{ border-top:0 !important; margin-top:0 !important; border-radius:10px !important; color:#fff !important;
+  opacity:.72; padding:9px 16px !important; transition:opacity .12s,background .12s; }
+.hero-tab:hover,.hero-grp-btn:hover{ opacity:1; }
+.hero-tab.active{ background:#fff !important; color:#141821 !important; opacity:1 !important;
+  box-shadow:0 4px 12px rgba(0,0,0,.28), inset 0 0 0 1.5px color-mix(in srgb, var(--tc) 55%, #fff); }
+.hero-grp.grp-active .hero-grp-btn,.hero-grp.open .hero-grp-btn{ border-top:0 !important; color:#fff !important; opacity:1; }
+#followTeamBtn{ color:#fff !important; border-color:rgba(255,255,255,.32) !important; opacity:.9; border-radius:10px !important; }
+
+/* ---- 4. frosted STAGE panel behind the page content (over the field) ---- */
+.hero-content-wrap{ max-width:1820px; margin:0 auto; }
+.page-body{ max-width:1820px; margin:14px auto 44px; border-radius:22px;
+  background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.16);
+  -webkit-backdrop-filter:blur(7px); backdrop-filter:blur(7px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14); }
+:root[data-theme="dark"] .page-body{ background:rgba(6,8,20,.26); border-color:rgba(255,255,255,.08); }
+.main-col{ border-right:1px solid var(--border) !important; }
+:root[data-theme="dark"] .main-col{ border-right-color:rgba(255,255,255,.08) !important; }
