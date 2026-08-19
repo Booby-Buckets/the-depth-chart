@@ -20,6 +20,7 @@
   <title>Bracketology — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="tdc-ratings.js?v=7"></script>
+  <script src="team-colors.js?v=2"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -66,6 +67,8 @@
     .tm .seed{width:15px;text-align:center;font-size:9.5px;font-weight:800;color:var(--text3);flex-shrink:0;font-variant-numeric:tabular-nums;}
     .tm.w .seed{color:var(--accent);}
     .tm .tdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+    .tm .tlogo{width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .tm .tlogo img{width:16px;height:16px;object-fit:contain;filter:brightness(0) invert(1);}
     .tm .tnm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .tm .tr{font-size:9px;color:var(--text3);flex-shrink:0;font-variant-numeric:tabular-nums;}
     .tm .up{font-size:8px;font-weight:800;color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,transparent);padding:1px 4px;border-radius:5px;flex-shrink:0;letter-spacing:.03em;}
@@ -100,8 +103,9 @@
   <meta name="apple-mobile-web-app-title" content="The Depth Chart">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="tdc-pwa.js?v=2" defer></script>
+  <link rel="stylesheet" href="tdc-hq-site.css?v=5"/>
 </head>
-<body>
+<body class="hqsite">
   <script src="tdc-nav.js?v=16"></script>
   <div class="page">
     <h1 data-anim>Bracketology</h1>
@@ -246,12 +250,15 @@ const fmtR=r=>r==null?'':(r>=0?'+':'')+(+r).toFixed(1);
 
   // one seed line inside a matchup box — NEUTRAL (this is a projected SEED, not a
   // predicted result), so no winner highlight and no upset tag.
-  const teamRow=(full,seed,rating,ff)=>`<div class="tm">
+  const logoFor=full=>{ const s=shortName(full);
+    const c=(window.tdcTeamColor&&(tdcTeamColor(s)||tdcTeamColor(full)))||null; return (c&&c.logo)||''; };
+  const teamRow=(full,seed,rating,ff)=>{ const s=shortName(full), col=teamColor(full,s), lg=logoFor(full);
+    return `<div class="tm">
       <span class="seed">${seed!=null?seed:''}</span>
-      <span class="tdot" style="background:${teamColor(full,shortName(full))}"></span>
-      <span class="tnm">${full}</span>
+      <span class="tlogo" style="background:${col}">${lg?`<img src="${lg}" alt="" onerror="this.style.display='none'">`:''}</span>
+      <span class="tnm">${s}</span>
       ${ff&&playIn.has(full)?'<span class="fftag" title="Reached the field through the Opening Round">First Four</span>':''}
-      <span class="tr">${fmtR(rating)}</span></div>`;
+      <span class="tr">${fmtR(rating)}</span></div>`; };
   const matchBox=(g,ff)=>`<div class="gm">${teamRow(g.home,g.home_seed,g._hr,ff)}${teamRow(g.away,g.away_seed,g._ar,ff)}</div>`;
 
   // ── regions: the projected SEED FIELD (the eight seed-line pairings), no games run ──
