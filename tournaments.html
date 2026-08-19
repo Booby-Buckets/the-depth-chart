@@ -110,6 +110,8 @@
     .box .r.w{background:linear-gradient(90deg,rgba(168,132,60,.14),transparent);}
     .box .r.w .nm{font-weight:800;}
     .box .sd{color:var(--text3);font-size:8.5px;min-width:13px;font-variant-numeric:tabular-nums;}
+    .box .blogo{width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .box .blogo img{width:13px;height:13px;object-fit:contain;filter:brightness(0) invert(1);}
     .box .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);text-decoration:none;}
     .box .nm:hover{color:var(--accent);}
     .box .sc{font-weight:700;font-variant-numeric:tabular-nums;color:var(--text2);min-width:22px;text-align:right;}
@@ -569,9 +571,20 @@ function championOf(games){
 // ── bracket geometry ──
 const BW=150, BH=42, GAPX=46, ROW=52, HEADY=26;
 const seedKey=g=>Math.min(g.home_seed||99, g.away_seed||99);
+// full->short team names for the bracket boxes (populated from ratings on load)
+window._TSHORT=window._TSHORT||{};
+(function(){ try{ if(window.TDC_RATINGS&&TDC_RATINGS.get) TDC_RATINGS.get().then(function(D){
+  (D&&D.teams||[]).forEach(function(t){ window._TSHORT[t.full]=t.team; }); }).catch(function(){}); }catch(e){} })();
 function boxHtml(g,x,y){
   const hw=g.winner_id===g.home_id, aw=g.winner_id===g.away_id;
-  const row=(nm,sc,sd,win)=>`<div class="r ${win?'w':''}"><span class="sd">${sd?sd:''}</span><a class="nm" href="${teamLink(nm)}" onclick="event.stopPropagation()">${nm||'—'}</a><span class="sc">${sc==null?'':sc}</span></div>`;
+  const row=(nm,sc,sd,win)=>{
+    const s=(nm&&window._TSHORT[nm])||nm;
+    const tc=window.tdcTeamColor&&tdcTeamColor(nm);
+    const col=(tc&&tc.c1)||'var(--accent)', lg=(tc&&tc.logo)||'';
+    return `<div class="r ${win?'w':''}"><span class="sd">${sd?sd:''}</span>`+
+      `<span class="blogo" style="background:${col}">${lg?`<img src="${lg}" alt="" onerror="this.style.display='none'">`:''}</span>`+
+      `<a class="nm" href="${teamLink(nm)}" onclick="event.stopPropagation()">${s||'—'}</a>`+
+      `<span class="sc">${sc==null?'':sc}</span></div>`; };
   const r=gameRating(g), up=r&&r.upset?`<div class="upset" title="${r.upset.label}">▲ UPSET</div>`:'';
   return `<div class="box" style="left:${x}px;top:${y}px;" onclick="openGame(${g.id})">${up}${row(g.home,g.home_score,g.home_seed,hw)}${row(g.away,g.away_score,g.away_seed,aw)}</div>`;
 }
