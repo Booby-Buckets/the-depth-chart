@@ -8009,17 +8009,17 @@ function renderProjNatlChart(projected, color, rgb){
   ];
 
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
-  const textCol   = isDark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.80)';
-  const gridCol   = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.30)';
-  const fillOpacity= isDark ? '0.18' : '0.28';
-  const avgLineCol = isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)';
+  // this radar sits on the team-color HQ field in BOTH themes → always draw it light
+  const textCol   = 'rgba(255,255,255,0.90)';
+  const gridCol   = 'rgba(255,255,255,0.26)';
+  const fillOpacity= '0.20';
+  const avgLineCol = 'rgba(255,255,255,0.50)';
 
   if(window._projNatlChart) { try{window._projNatlChart.destroy();}catch(e){} }
   const canvas=document.getElementById('projNatlChart');
   if(!canvas) return;
 
-  // Give the canvas a subtle background in light mode so the chart area is clear
-  canvas.style.background = isDark ? 'transparent' : 'rgba(0,0,0,0.02)';
+  canvas.style.background = 'transparent';
   canvas.style.borderRadius = '6px';
 
   window._projNatlChart=new Chart(canvas,{
@@ -8030,11 +8030,11 @@ function renderProjNatlChart(projected, color, rgb){
         {
           label:'This Team',
           data:teamVals,
-          borderColor:color,
-          backgroundColor:`rgba(${rgb},${fillOpacity})`,
+          borderColor:'#ffffff',
+          backgroundColor:`rgba(255,255,255,${fillOpacity})`,
           borderWidth:2.5,
-          pointBackgroundColor:color,
-          pointBorderColor: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.9)',
+          pointBackgroundColor:'#ffffff',
+          pointBorderColor:'rgba(0,0,0,0.35)',
           pointBorderWidth:1.5,
           pointRadius:5,
           pointHoverRadius:7
@@ -8072,7 +8072,7 @@ function renderProjNatlChart(projected, color, rgb){
   if(leg){
     leg.innerHTML=
       `<span style="display:flex;align-items:center;gap:6px;font-size:11px;color:${textCol};">
-        <span style="width:16px;height:3px;background:${color};border-radius:2px;display:inline-block;flex-shrink:0;"></span>
+        <span style="width:16px;height:3px;background:#ffffff;border-radius:2px;display:inline-block;flex-shrink:0;"></span>
         This team (percentile)
       </span>`
       +`<span style="display:flex;align-items:center;gap:6px;font-size:11px;color:${textCol};">
