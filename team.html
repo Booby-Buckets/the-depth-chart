@@ -1078,7 +1078,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="tdc-pwa.js?v=2" defer></script>
   <script src="tdc-hq-init.js?v=1"></script>
-  <link rel="stylesheet" href="tdc-hq.css?v=3"/>
+  <link rel="stylesheet" href="tdc-hq.css?v=4"/>
 </head>
 <body data-anim-auto>
 <script src="tdc-nav.js?v=16"></script>
@@ -6239,13 +6239,14 @@ async function renderTeamDNA(){
   // strength radar (8 axes of percentile)
   const ax=[['Offense',pct(oK)],['Shooting',pct('oeFG')],['Ball Sec.',pct('oTOV',false)],['Off Reb',pct('oORB')],['Defense',pct(dK,false)],['Force TO',pct('dTOV')],['Def Reb',pct('dDRB')],['Steady',pct('margin_sd',false)]];
   const R=110,cx=140,cy=130,n=ax.length; let rings='',spokes='',poly='',labs='';
-  for(let r=1;r<=4;r++){let p='';for(let i=0;i<n;i++){const a=Math.PI*2*i/n-Math.PI/2;p+=(i?'L':'M')+(cx+Math.cos(a)*R*r/4).toFixed(1)+' '+(cy+Math.sin(a)*R*r/4).toFixed(1);}rings+=`<path d="${p}Z" fill="none" stroke="var(--border)" opacity=".5"/>`;}
+  // radar sits bare on the team-color field (HQ skin) → draw it in white so it reads
+  for(let r=1;r<=4;r++){let p='';for(let i=0;i<n;i++){const a=Math.PI*2*i/n-Math.PI/2;p+=(i?'L':'M')+(cx+Math.cos(a)*R*r/4).toFixed(1)+' '+(cy+Math.sin(a)*R*r/4).toFixed(1);}rings+=`<path d="${p}Z" fill="none" stroke="rgba(255,255,255,.28)"/>`;}
   ax.forEach(([l,v],i)=>{const a=Math.PI*2*i/n-Math.PI/2,x=cx+Math.cos(a)*R,y=cy+Math.sin(a)*R;
-    spokes+=`<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border)" opacity=".5"/>`;
+    spokes+=`<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,.28)"/>`;
     poly+=(i?'L':'M')+(cx+Math.cos(a)*R*v/100).toFixed(1)+' '+(cy+Math.sin(a)*R*v/100).toFixed(1);
     const lx=cx+Math.cos(a)*(R+16),ly=cy+Math.sin(a)*(R+16);
-    labs+=`<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="9" font-weight="700" fill="var(--text3)" text-anchor="middle" dominant-baseline="middle">${l}</text>`;});
-  const radar=`<svg viewBox="-16 -8 312 276" style="width:100%;max-width:320px;">${rings}${spokes}<path d="${poly}Z" fill="rgba(var(--tc-rgb,168,132,60),.22)" stroke="var(--tc,var(--accent))" stroke-width="2"/>${labs}</svg>`;
+    labs+=`<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="9" font-weight="700" fill="rgba(255,255,255,.9)" text-anchor="middle" dominant-baseline="middle">${l}</text>`;});
+  const radar=`<svg viewBox="-16 -8 312 276" style="width:100%;max-width:320px;">${rings}${spokes}<path d="${poly}Z" fill="rgba(255,255,255,.22)" stroke="#ffffff" stroke-width="2"/>${labs}</svg>`;
   // luck + evolution
   const PROJ=!!t.projected;
   const slbl=s=> s==='2027'?'2026-27 · Projected':_dnaSeasonLbl(s);
