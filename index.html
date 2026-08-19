@@ -1194,7 +1194,7 @@
   <meta name="apple-mobile-web-app-title" content="The Depth Chart">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="tdc-pwa.js?v=2" defer></script>
-  <link rel="stylesheet" href="tdc-hq-site.css?v=3"/>
+  <link rel="stylesheet" href="tdc-hq-site.css?v=4"/>
 </head>
 <body data-anim-auto>
 <script src="tdc-nav.js?v=16"></script>
@@ -2783,6 +2783,20 @@ function toggleTheme(){
       });
     }
     if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',wrap); else wrap();
+  })();
+  /* wrap each team logo in a color block so the white-logo filter hits only the logo */
+  (function(){
+    function wrapLogos(){
+      document.querySelectorAll('.tr-dlogo').forEach(function(img){
+        if(img.parentNode && img.parentNode.classList.contains('tr-logowrap')) return;
+        var w=document.createElement('span'); w.className='tr-logowrap';
+        img.parentNode.insertBefore(w, img); w.appendChild(img);
+      });
+    }
+    window.addEventListener('load',function(){ wrapLogos();
+      var h=document.querySelector('.table-scroll')||document.body;
+      new MutationObserver(wrapLogos).observe(h,{childList:true,subtree:true});
+    });
   })();
   </script>
 </body>
