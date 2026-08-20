@@ -155,6 +155,21 @@ window.TDC_CONFS={
 "abbr": "wcc",
 "logo": "https://a.espncdn.com/i/teamlogos/ncaa_conf/500/west_coast.png",
 "short": "WCC"
+},
+"Pac-12 Conference": {
+"abbr": "pac12",
+"logo": "https://a.espncdn.com/i/teamlogos/ncaa_conf/500/pac_12.png",
+"short": "Pac-12"
+},
+"Western Athletic Conference": {
+"abbr": "wac",
+"logo": "https://a.espncdn.com/i/teamlogos/ncaa_conf/500/wac.png",
+"short": "WAC"
+},
+"Great West Conference": {
+"abbr": "gw",
+"logo": "https://a.espncdn.com/i/teamlogos/ncaa_conf/500/great_west.png",
+"short": "Great West"
 }
 };
 window.tdcConf=function(name){var M=window.TDC_CONFS;return (name&&M[name])||null;};

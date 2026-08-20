@@ -23,7 +23,8 @@
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-charts.js?v=3"></script>
   <script src="tdc-projgrade.js?v=base1"></script>
-  <script src="conf-logos.js?v=1"></script>
+  <script src="conf-logos.js?v=2"></script>
+  <script src="tournament-logos.js?v=1"></script>
   <script src="tdc-season.js?v=1"></script>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--gold:#C8A020;--green:#1a8c3a;--red:#cc2200;}
@@ -292,18 +293,38 @@ const CAT_SHORT={NCAA:'NCAA',NIT:'NIT',MTE:'MTE',CONF:'CONF',CBI:'CBI',CIT:'CIT'
 // clean category emblem. Champion team logos (real, ESPN) anchor each card separately.
 function _emblem(cat,size){ const col=CAT_COLOR[cat]||'#8a867a', sh=CAT_SHORT[cat]||cat, s=size||40;
   return `<div class="tcard-emblem" style="width:${s}px;height:${s}px;color:${col};border-color:${col}55;background:${col}1e;font-size:${s>44?12:10}px;">${sh}</div>`; }
+function _confNorm(s){ return (s||'').toLowerCase().replace(/[’']/g,"'")
+    .replace(/\bmen'?s\b/g,' ').replace(/\bchampionship(s)?\b/g,' ')
+    .replace(/\b(conf|conference)\b/g,' ').replace(/\btournament\b/g,' ')
+    .replace(/ at [a-z][a-z .]*$/,' ')            // drop "at charleston sc" host suffix
+    .replace(/[.\-]/g,' ').replace(/\s+/g,' ').trim(); }
 function _confLogoFor(name){ const M=window.TDC_CONFS; if(!M||!name) return '';
-  // conf-tournament names are "{Conf} Tournament" — strip the suffix, then match the
-  // remainder exactly against each conference's base name / short / abbr (no fuzzy
-  // substring, so no false positives).
-  const n=name.toLowerCase().replace(/ (conference )?tournament$/,'').replace(/\./g,'').trim();
+  // conf-tournament names are usually "{Conf} Tournament" but the feed also has sponsor
+  // prefixes ("Phillips 66 Big 12", "New York Life ACC") and host suffixes. Normalize,
+  // then (1) exact match on base name / short / abbr, else (2) longest word-boundary
+  // substring match on the distinctive base/short names (len>=4, so no false positives).
+  const n=_confNorm(name), cpt=n.replace(/ /g,'');
   for(const full in M){ const c=M[full];
-    const cands=[full.toLowerCase().replace(/ conference$/,''),(c.short||'').toLowerCase().replace(/\./g,''),(c.abbr||'').toLowerCase()];
-    if(cands.some(x=>x&&x===n)) return c.logo; }
+    if([_confNorm(full),_confNorm(c.short||''),(c.abbr||'').toLowerCase()].some(x=>x&&x===n)) return c.logo;
+    if([_confNorm(full).replace(/ /g,''),_confNorm(c.short||'').replace(/ /g,'')].some(x=>x&&x===cpt)) return c.logo; }
+  const pad=' '+n+' '; let best='',bestLen=0;
+  for(const full in M){ const c=M[full];
+    for(const cand of [_confNorm(full),_confNorm(c.short||'')]){
+      if(cand.length>=3 && pad.indexOf(' '+cand+' ')>=0 && cand.length>bestLen){ best=c.logo; bestLen=cand.length; } } }
+  return best; }
+// tournament-specific real logo (March Madness, NIT, Maui, Battle 4 Atlantis, …) from
+// tournament-logos.js; matches MTE events by keyword and top-level events by category.
+function _tournLogoFor(cat,name){ const M=window.TDC_TOURN_LOGOS; if(!M) return '';
+  const n=(name||'').toLowerCase();
+  if(M.events){ for(const e of M.events){ if(e.re.test(n)) return e.logo; } }
+  if(M.cat && M.cat[cat]) return M.cat[cat];
   return ''; }
-function _tournMark(cat,name,size){ if(cat==='CONF'){ const cl=_confLogoFor(name);
-    if(cl) return `<img class="tcard-emblem-img" src="${cl}" alt="" loading="lazy" style="width:${size||40}px;height:${size||40}px;">`; }
-  return _emblem(cat,size); }
+function _tournMark(cat,name,size){ const s=size||40;
+  const tl=_tournLogoFor(cat,name);
+  if(tl) return `<img class="tcard-emblem-img" src="${tl}" alt="" loading="lazy" style="width:${s}px;height:${s}px;">`;
+  if(cat==='CONF'){ const cl=_confLogoFor(name);
+    if(cl) return `<img class="tcard-emblem-img" src="${cl}" alt="" loading="lazy" style="width:${s}px;height:${s}px;">`; }
+  return _emblem(cat,s); }
 let GAMES=[], curSeason=2025, curCat='', notableOnly=true;
 
 function seasonLbl(y){ return `${y-1}–${(''+y).slice(2)}`; }
