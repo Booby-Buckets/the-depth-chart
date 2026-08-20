@@ -133,10 +133,19 @@
     .mmz-btn{ font-family:inherit; font-size:12px; font-weight:700; color:#d3e2ff; background:rgba(120,160,240,.10); border:1px solid rgba(140,180,255,.30); border-radius:999px; padding:5px 13px; cursor:pointer; transition:background .12s,border-color .12s,color .12s; }
     .mmz-btn:hover{ background:rgba(120,160,240,.24); border-color:rgba(160,195,255,.5); }
     .mmz-btn.active{ background:#2f86ee; border-color:#2f86ee; color:#fff; box-shadow:0 2px 10px rgba(47,134,238,.4); }
-    .mm-e8grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; max-width:900px; margin:0 auto; padding:14px; border-radius:16px; }
-    .mm-e8cell{ }
-    .mm-e8lbl{ font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#9fc0f5; margin-bottom:6px; }
-    .mm-e8grid .game{ background:#0d1a3a; border:1px solid rgba(120,150,215,.28); border-radius:10px; }
+    .mm-e8grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:22px; padding:20px 10px 12px; }
+    .mm-e8lbl{ font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#9fc0f5; margin-bottom:8px; }
+    .e8game{ background:#0d1a3a; border:1px solid rgba(120,150,215,.30); border-radius:12px; overflow:hidden; cursor:pointer; box-shadow:0 4px 14px rgba(0,10,40,.4); transition:border-color .12s; }
+    .e8game:hover{ border-color:rgba(160,195,255,.55); }
+    .e8r{ display:flex; align-items:center; gap:13px; padding:14px 18px; }
+    .e8r+.e8r{ border-top:1px solid rgba(120,150,215,.22); }
+    .e8r.w{ background:linear-gradient(90deg, rgba(244,196,48,.16), transparent); }
+    .e8sd{ width:22px; text-align:center; font-size:12px; color:#8ea6d8; font-variant-numeric:tabular-nums; flex-shrink:0; }
+    .e8lg{ width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .e8lg img{ width:26px; height:26px; object-fit:contain; filter:drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff); }
+    .e8nm{ flex:1; min-width:0; font-size:18px; font-weight:700; color:#eaf1ff; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .e8r.w .e8nm{ font-weight:800; color:#fff; }
+    .e8sc{ font-size:19px; font-weight:800; color:#c3d3f2; font-variant-numeric:tabular-nums; flex-shrink:0; }
     @media(max-width:640px){ .mm-e8grid{ grid-template-columns:1fr; } }
     .box{position:absolute;width:150px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.06);}
     .box .r{display:flex;align-items:center;gap:4px;height:21px;padding:0 6px;font-size:11px;}
@@ -793,10 +802,18 @@ function zoomBracket(key, btn){
   const c=window._mmCtx;
   if(key==='full' || !c){ stage.innerHTML=window._mmFullHTML||''; fitBracket(); return; }
   if(key==='Elite 8'){
-    const e8=c.gs.filter(g=>/elite\s*(eight|8)/i.test(g.round||''));
-    if(e8.length){ stage.innerHTML=`<div class="mm-e8grid mm-bracket">`+e8.sort((a,b)=>(a.division||'')<(b.division||'')?-1:1).map(g=>
-      `<div class="mm-e8cell"><div class="mm-e8lbl">${(g.division||'').replace(' Region','')} · Elite Eight</div>${gameHtmlCol(g)}</div>`).join('')+`</div>`;
-      return; }
+    const e8=c.gs.filter(g=>/elite\s*(eight|8)/i.test(g.round||''))
+      .sort((a,b)=>(a.division||'')<(b.division||'')?-1:1);
+    if(e8.length){
+      const cell=g=>{
+        const hw=g.winner_id===g.home_id, aw=g.winner_id===g.away_id;
+        const row=(nm,sc,sd,win)=>{ const tc=window.tdcTeamColor&&tdcTeamColor(nm), col=(tc&&tc.c1)||'var(--accent)', lg=(tc&&tc.logo)||'';
+          return `<div class="e8r ${win?'w':''}"><span class="e8sd">${sd?sd:''}</span><span class="e8lg" style="background:${col}">${lg?`<img src="${lg}" alt="" onerror="this.style.display='none'">`:''}</span><a class="e8nm" href="${teamLink(nm)}" onclick="event.stopPropagation()">${nm}</a><span class="e8sc">${sc==null?'':sc}</span></div>`; };
+        return `<div class="mm-e8cell"><div class="mm-e8lbl">${(g.division||'').replace(' Region','')} · Elite Eight</div><div class="e8game" onclick="openGame(${g.id})">${row(g.away,g.away_score,g.away_seed,aw)}${row(g.home,g.home_score,g.home_seed,hw)}</div></div>`;
+      };
+      stage.innerHTML=`<div class="mm-e8grid">`+e8.map(cell).join('')+`</div>`;
+      return;
+    }
   }
   let sub=null;
   if(key==='Final Four') sub=c.gs.filter(g=>g.round==='Final Four'||g.round==='National Championship');
