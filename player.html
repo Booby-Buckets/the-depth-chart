@@ -104,6 +104,11 @@
     .hero-grade{font-family:'Inter','Helvetica Neue',system-ui,sans-serif;font-weight:800;font-size:88px;line-height:.9;letter-spacing:-.02em;font-variant-numeric:tabular-nums;background:linear-gradient(155deg, color-mix(in srgb, var(--tc) 70%, #fff), var(--tc));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;}
     [data-theme="dark"] .hero-grade{background:linear-gradient(155deg, #ffffff, color-mix(in srgb, var(--tc) 38%, #fff));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
     .hero-grade-lbl{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text3);}
+    /* hero tier-shield badges */
+    .badges-cell{display:flex !important;gap:7px;align-items:flex-end;justify-content:center;min-height:30px;}
+    .bshield{display:inline-flex;flex-direction:column;align-items:center;gap:1px;line-height:1;}
+    .bshield svg{width:22px;height:25px;display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));}
+    .bshield b{font-size:12px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;}
     /* NBA Draft prospect sticker */
     .draft-sticker{display:inline-flex;align-items:center;gap:11px;margin-top:14px;padding:7px 16px 7px 11px;border-radius:30px;background:linear-gradient(100deg, color-mix(in srgb, var(--tc) 30%, var(--bg2)), var(--bg2) 80%);border:1px solid color-mix(in srgb, var(--tc) 50%, var(--border2));box-shadow:0 0 0 1px color-mix(in srgb, var(--tc) 16%, transparent), 0 6px 22px color-mix(in srgb, var(--tc) 20%, rgba(0,0,0,.32));animation:gradeStamp .55s .35s cubic-bezier(.34,1.46,.64,1) both;}
     .ds-rank{font-family:'Playfair Display',serif;font-weight:800;font-size:23px;line-height:1;background:linear-gradient(150deg, color-mix(in srgb, var(--tc) 88%, #fff), var(--tc));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;}
@@ -1608,6 +1613,22 @@ function buildBadgeMedal(B){
       '<text x="50" y="57" text-anchor="middle" dominant-baseline="middle" font-family="Playfair Display, serif" font-weight="800" font-size="'+fs+'" fill="#fff" style="paint-order:stroke;stroke:rgba(0,0,0,.28);stroke-width:2px;">'+n+'</text>'+
     '</svg>'+
   '</button>';
+}
+// hero badge display: one tier-colored shield per earned tier, with its count
+function buildBadgeShields(B){
+  if(!B||!B.total) return '<span class="hg-dash">—</span>';
+  var counts={};
+  ['FIN','SHO','PLY','DEF'].forEach(function(c){ (B.badges[c]||[]).forEach(function(b){ if(b.tier) counts[b.tier.name]=(counts[b.tier.name]||0)+1; }); });
+  var GRAD={'All-American':['#ffd76a','#e0952a'],'Star':['#c9b3ff','#8b5cf6'],'Starter':['#9cc0ff','#4f7fe0'],'Prospect':['#d7dde6','#8b94a3']};
+  var out=BADGE_TIERS.filter(function(t){return counts[t.name];}).map(function(t){
+    var g=GRAD[t.name]||['#ccc','#888'], id='bsh'+t.name.replace(/[^a-z]/gi,'');
+    return '<span class="bshield" title="'+counts[t.name]+' '+t.name+'-tier badge'+(counts[t.name]>1?'s':'')+'">'+
+      '<svg viewBox="0 0 40 46" aria-hidden="true"><defs><linearGradient id="'+id+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+g[0]+'"/><stop offset="1" stop-color="'+g[1]+'"/></linearGradient></defs>'+
+      '<path d="M20 1 L38 7 V22 C38 34 30 41 20 45 C10 41 2 34 2 22 V7 Z" fill="url(#'+id+')" stroke="rgba(255,255,255,.55)" stroke-width="1.1"/>'+
+      '<path d="M20 1 L38 7 L20 13 L2 7 Z" fill="#fff" opacity=".2"/></svg>'+
+      '<b>'+counts[t.name]+'</b></span>';
+  }).join('');
+  return out||'<span class="hg-dash">—</span>';
 }
 function buildBadgesSection(p, B){
   B=B||computeBadges(p, null, {});
@@ -3509,6 +3530,7 @@ function renderPage(){
     window._tdcHeroGrade=(v!=='—'&&!isNaN(parseFloat(v)))?parseFloat(v):null;   // canonical for the scouting card etc.
     return v;})();
   const _hBadges=(badgeData&&badgeData.total)||0;
+  const _hBadgeShields=buildBadgeShields(badgeData);
   const _hWA=(function(){var a=player&&player._advanced;
     if(a&&a.ti40!=null&&a.ti40!==''&&typeof _winsAdded==='function'){var w=_winsAdded(a);return (w>0?'+':'')+w.toFixed(1);}
     return '—';})();
@@ -3545,7 +3567,7 @@ function renderPage(){
       <div class="hero-grid">
         <div class="hg"><div class="hg-v grade" id="heroGrade">${_hGrade}</div><div class="hg-l">TDC Grade</div></div>
         <div class="hg"><div class="hg-v wa" id="heroWA">${_hWA}</div><div class="hg-l">Wins Added</div></div>
-        <div class="hg"><div class="hg-v" id="heroBadges">${_hBadges}</div><div class="hg-l">Badges</div></div>
+        <div class="hg"><div class="hg-v badges-cell" id="heroBadges">${_hBadgeShields}</div><div class="hg-l">${_hBadges} Badges</div></div>
         <div class="hg"><div class="hg-v" id="heroNatRank">—</div><div class="hg-l" id="heroNatRankL">’27 Big Board</div></div>
         <div class="hg"><div class="hg-v" id="heroPosRank">—</div><div class="hg-l" id="heroPosRankL">Pos Rank</div></div>
         <div class="hg"><div class="hg-v" id="heroRank">—</div><div class="hg-l">All-Time</div></div>
