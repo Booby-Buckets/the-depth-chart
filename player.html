@@ -599,6 +599,21 @@
     /* badge tier ladder — grouped by tier, pills colored by category */
     /* badge emblem tiles: hex crest (tier-tinted) + category icon + tier ribbon */
     .badge-grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:10px;margin-top:12px;}
+    /* premium framed tier badges */
+    .badge-sub{font-size:11px;color:var(--text3);}
+    .bcats{display:grid;grid-template-columns:1fr 1fr;gap:16px 34px;margin-top:14px;}
+    @media(max-width:640px){.bcats{grid-template-columns:1fr;}}
+    .bcat-h{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);padding-bottom:9px;margin-bottom:10px;border-bottom:1px solid var(--border);}
+    .bcat-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
+    .bbadge{display:flex;align-items:center;gap:13px;padding:7px 0;}
+    .bframe{width:52px;height:52px;flex-shrink:0;position:relative;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+    .bf-disc{position:absolute;inset:0;border-radius:50%;}
+    .bf-rim{position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 2px 2px rgba(255,255,255,.55),inset 0 -3px 6px rgba(0,0,0,.42),0 0 0 2px rgba(255,255,255,.1);}
+    .bf-gloss{position:absolute;top:5px;left:10px;right:10px;height:40%;border-radius:50%;background:linear-gradient(180deg,rgba(255,255,255,.5),transparent);}
+    .bframe svg{width:27px;height:27px;position:relative;z-index:2;filter:drop-shadow(0 1.5px 1px rgba(0,0,0,.5));}
+    .bb-txt{display:flex;flex-direction:column;gap:1px;min-width:0;}
+    .bb-nm{font-size:13.5px;font-weight:800;line-height:1.15;color:var(--text);}
+    .bb-tier{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;}
     .badge-tile{position:relative;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:13px 9px 9px;text-align:center;overflow:hidden;}
     .bt-glow{position:absolute;left:-30%;right:-30%;top:-42%;height:110px;filter:blur(26px);opacity:.45;pointer-events:none;}
     .bt-em{position:relative;width:42px;height:42px;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;}
@@ -1619,7 +1634,7 @@ function buildBadgeShields(B){
   if(!B||!B.total) return '<span class="hg-dash">—</span>';
   var counts={};
   ['FIN','SHO','PLY','DEF'].forEach(function(c){ (B.badges[c]||[]).forEach(function(b){ if(b.tier) counts[b.tier.name]=(counts[b.tier.name]||0)+1; }); });
-  var GRAD={'All-American':['#ffd76a','#e0952a'],'Star':['#c9b3ff','#8b5cf6'],'Starter':['#9cc0ff','#4f7fe0'],'Prospect':['#d7dde6','#8b94a3']};
+  var GRAD={'All-American':['#ffd76a','#e0952a'],'Star':['#c9b3ff','#8b5cf6'],'Starter':['#f6f9fc','#9aa5b5'],'Prospect':['#f2c99b','#96612f']};
   var out=BADGE_TIERS.filter(function(t){return counts[t.name];}).map(function(t){
     var g=GRAD[t.name]||['#ccc','#888'], id='bsh'+t.name.replace(/[^a-z]/gi,'');
     return '<span class="bshield" title="'+counts[t.name]+' '+t.name+'-tier badge'+(counts[t.name]>1?'s':'')+'">'+
@@ -1641,28 +1656,44 @@ function buildBadgesSection(p, B){
     PLY:'<circle cx="5.5" cy="6.5" r="2.6" fill="currentColor"/><circle cx="18.5" cy="6.5" r="2.6" fill="currentColor"/><circle cx="12" cy="18" r="2.6" fill="currentColor"/><path d="M7.6 8.2L11 15.6M16.4 8.2L13 15.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>',
     DEF:'<path d="M12 2.8l7.4 3.1v5.4c0 4.7-3.1 8.5-7.4 10.6C7.7 19.8 4.6 16 4.6 11.3V5.9z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/>'
   };
-  // flatten every earned badge, strongest tier first so the best crests lead
-  var all=[];
-  order.forEach(function(c){ (B.badges[c]||[]).forEach(function(b){ all.push({b:b,cat:c}); }); });
-  all.sort(function(x,y){ return ((y.b.tier&&y.b.tier.pips)||0)-((x.b.tier&&x.b.tier.pips)||0); });
-  var tiles=all.map(function(x){
-    var t=x.b.tier||{name:'',color:'var(--text3)',bg:'transparent'}, cc=CATCOL[x.cat]||'var(--text2)';
-    return '<div class="badge-tile" title="'+(x.b.desc||'').replace(/"/g,'&quot;')+' \u2014 '+t.name+'">'+
-      '<span class="bt-glow" style="background:radial-gradient(circle,'+t.color+',transparent 70%)"></span>'+
-      '<span class="bt-em">'+
-        '<span class="bt-hex" style="background:linear-gradient(160deg,'+t.color+'59,'+t.color+'1a)"></span>'+
-        '<span class="bt-hex bt-in"></span>'+
-        '<svg viewBox="0 0 24 24" style="color:'+cc+'">'+ICON[x.cat]+'</svg>'+
-      '</span>'+
-      '<span class="bt-nm">'+x.b.name+'</span>'+
-      '<span class="bt-tier" style="color:'+t.color+';background:'+t.bg+'">'+t.name+'</span></div>';
+  // tier -> [light, dark, glow] metallic ramp: gold / purple / silver / bronze
+  var RAMP={'All-American':['#ffe08a','#c47f14','#e0952a'],'Star':['#d8c4ff','#7c3fd6','#8b5cf6'],'Starter':['#f6f9fc','#9aa5b5','#c6cfdb'],'Prospect':['#f2c99b','#96612f','#c68a4f']};
+  // one unique bold icon per badge
+  var IC={
+    'Court General':'<path d="M3 8l4 3 5-6 5 6 4-3-2 11H5z" fill="#fff"/><circle cx="12" cy="4" r="1.7" fill="#fff"/>',
+    'Dime Machine':'<circle cx="5" cy="7" r="2.4" fill="#fff"/><circle cx="19" cy="7" r="2.4" fill="#fff"/><path d="M7 8.6C10 12 14 12 17 8.6" fill="none" stroke="#fff" stroke-width="2.2"/><path d="M15.4 11.2l2-2.6-3-.3z" fill="#fff"/><circle cx="12" cy="18" r="2.4" fill="#fff"/>',
+    'Sure Hands':'<path d="M6 11V6.5a1.5 1.5 0 013 0V10m0-.5V5a1.5 1.5 0 013 0v5m0-.5V6a1.5 1.5 0 013 0v6.5c0 4-2.5 7-6 7s-6-2.6-6-6.5V10a1.5 1.5 0 013 0z" fill="#fff"/>',
+    'Offensive Engine':'<path d="M12 2.2l1.4 2.4 2.7-.6.2 2.8 2.6 1-1.3 2.5 1.3 2.5-2.6 1-.2 2.8-2.7-.6L12 21.8l-1.4-2.4-2.7.6-.2-2.8-2.6-1 1.3-2.5L5.1 11l2.6-1 .2-2.8 2.7.6z" fill="#fff"/><circle cx="12" cy="12" r="3" fill="rgba(0,0,0,.32)"/>',
+    'Sniper':'<circle cx="12" cy="12" r="9" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="12" cy="12" r="2.6" fill="#fff"/><path d="M12 1v5M12 18v5M1 12h5M18 12h5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>',
+    'Pure Stroke':'<path d="M6 5h12l-.8 12-4.2 2-4.2-2z" fill="none" stroke="#fff" stroke-width="1.9" stroke-linejoin="round"/><path d="M9.4 5l.5 12M14.6 5l-.5 12M7.5 11h9" stroke="#fff" stroke-width="1.7"/><circle cx="12" cy="3" r="1.9" fill="#fff"/>',
+    'Free-Throw Merchant':'<rect x="6" y="4" width="12" height="2.4" rx="1" fill="#fff"/><path d="M8 6.4v4a4 4 0 008 0v-4" fill="none" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="17.5" r="3.2" fill="#fff"/>',
+    'Floor Spacer':'<path d="M3 19a9 9 0 0118 0" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M3 19h2.6M18.4 19H21" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="7.2" r="2.3" fill="#fff"/>',
+    'Rim Finisher':'<circle cx="12" cy="6.5" r="3.4" fill="#fff"/><path d="M5 13h14M6.4 13l1 6M17.6 13l-1 6M9.2 13l.5 6.6M14.8 13l-.5 6.6M12 13v6.7" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round"/>',
+    'Contact Absorber':'<path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z" fill="#fff"/><path d="M9 12l2 2 4-4.5" stroke="rgba(0,0,0,.38)" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+    'Second-Chance Threat':'<path d="M6 8.4a7 7 0 0111-1.6" fill="none" stroke="#fff" stroke-width="2.2"/><path d="M17.4 3.2v4h-4" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 15.6a7 7 0 01-11 1.6" fill="none" stroke="#fff" stroke-width="2.2"/><path d="M6.6 20.8v-4h4" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.4" fill="#fff"/>',
+    'Downhill Driver':'<path d="M13 2L4 13h5l-2 9 10-12h-5z" fill="#fff"/>',
+    'Rim Guardian':'<path d="M7 21V10.2a1.6 1.6 0 013.1 0V8.7a1.6 1.6 0 013.1 0V9a1.6 1.6 0 013.1 0v7c0 3-2.2 5-5.1 5z" fill="#fff"/><path d="M9.2 3.4l1.9 3M14.8 3.4l-1.9 3M12 2.2v3.6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>',
+    'Passing-Lane Bandit':'<path d="M3.5 12c3.2-4.4 13.8-4.4 17 0-3.2 4.4-13.8 4.4-17 0z" fill="none" stroke="#fff" stroke-width="2.1"/><circle cx="12" cy="12" r="3.1" fill="#fff"/><path d="M14 10l4.5-4" stroke="#fff" stroke-width="2.1" stroke-linecap="round"/>',
+    'Glass Eater':'<rect x="4" y="4" width="16" height="10" rx="1.5" fill="none" stroke="#fff" stroke-width="2.2"/><rect x="9" y="8" width="6" height="4" rx=".6" fill="none" stroke="#fff" stroke-width="1.9"/><circle cx="12" cy="19" r="2.6" fill="#fff"/><path d="M12 14v2.2" stroke="#fff" stroke-width="1.8"/>',
+    'Two-Way Disruptor':'<path d="M6 3l12 12M18 3L6 15" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M4 15l3 6 2-3 2 3 1-8z" fill="#fff"/><path d="M20 15l-3 6" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>'
+  };
+  function frame(nm,t){ var r=RAMP[t.name]||['#dfe6f0','#8b94a3','#aab4c2'];
+    return '<span class="bframe" style="filter:drop-shadow(0 4px 10px rgba(0,0,0,.5)) drop-shadow(0 0 8px '+r[2]+'66)">'+
+      '<span class="bf-disc" style="background:radial-gradient(circle at 50% 30%,'+r[0]+','+r[1]+' 82%)"></span>'+
+      '<span class="bf-rim"></span><span class="bf-gloss"></span>'+
+      '<svg viewBox="0 0 24 24">'+(IC[nm]||ICON[order.find(function(c){return (B.badges[c]||[]).some(function(b){return b.name===nm;});})]||'')+'</svg></span>';
+  }
+  var cats=order.filter(function(c){return (B.badges[c]||[]).length;}).map(function(c){
+    var list=(B.badges[c]||[]).slice().sort(function(a,b){return ((b.tier&&b.tier.pips)||0)-((a.tier&&a.tier.pips)||0);});
+    var rows=list.map(function(b){ var t=b.tier||{name:''}, r=RAMP[t.name]||['#dfe6f0','#8b94a3','#aab4c2'];
+      return '<div class="bbadge" title="'+(b.desc||'').replace(/"/g,'&quot;')+'">'+frame(b.name,t)+
+        '<span class="bb-txt"><span class="bb-nm">'+b.name+'</span><span class="bb-tier" style="color:'+r[2]+'">'+t.name+'</span></span></div>';
+    }).join('');
+    return '<div class="bcat"><div class="bcat-h"><span class="bcat-dot" style="background:'+CATCOL[c]+'"></span>'+CATLBL[c]+'</div>'+rows+'</div>';
   }).join('');
-  var catleg=order.map(function(c){ return '<span class="badge-leg"><span class="badge-pip" style="background:'+CATCOL[c]+';"></span>'+CATLBL[c]+'</span>'; }).join('');
-  return '<div class="badge-head">'+
-      '<span class="badge-count">'+B.total+' earned</span>'+
-      '<span class="badge-legend">'+catleg+'</span></div>'+
-    '<div style="font-size:11px;color:var(--text3);">Earned skills from '+B.basis+' production \u2014 crest colour is the tier, icon is the category.</div>'+
-    '<div class="badge-grid2">'+(tiles||'<div class="badge-empty">No badges yet</div>')+'</div>';
+  return '<div class="badge-head"><span class="badge-count">'+B.total+' earned</span>'+
+    '<span class="badge-sub">Skill badges from '+B.basis+' production \u2014 colour = tier (gold \u203a purple \u203a silver \u203a bronze), icon = the skill.</span></div>'+
+    '<div class="bcats">'+(cats||'<div class="badge-empty">No badges yet</div>')+'</div>';
 }
 
 
