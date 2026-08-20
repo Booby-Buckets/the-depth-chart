@@ -741,8 +741,25 @@ function firstFourStrip(gs){
   return `<div class="ffstrip"><div class="ffhead">${lbl}</div><div class="ffgames">${ff.sort((a,b)=>a.date<b.date?-1:1).map(gameHtmlCol).join('')}</div></div>`;
 }
 
+// A tournament instance lives in one date window. Some feed rows are mis-tagged (e.g.
+// a November early-season game landing under "NIT"); drop any group of games separated
+// from the main body by a big gap so it can't get woven into the bracket.
+function mainDateCluster(gs){
+  const dated=gs.filter(g=>g.date).sort((a,b)=>a.date<b.date?-1:1);
+  if(dated.length<3) return gs;
+  const clusters=[]; let cur=[dated[0]];
+  for(let i=1;i<dated.length;i++){
+    const gap=(new Date(dated[i].date)-new Date(dated[i-1].date))/86400000;
+    if(gap>45){ clusters.push(cur); cur=[dated[i]]; } else cur.push(dated[i]);
+  }
+  clusters.push(cur);
+  if(clusters.length<2) return gs;
+  clusters.sort((a,b)=> b.length-a.length || (a[0].date<b[0].date?1:-1)); // biggest, tie→later
+  const keep=new Set(clusters[0].map(g=>g.id));
+  return gs.filter(g=>!g.date || keep.has(g.id));
+}
 function openBracket(name){
-  const gs=GAMES.filter(g=>g.tournament===name);
+  const gs=mainDateCluster(GAMES.filter(g=>g.tournament===name));
   if(!gs.length) return;
   const cat=gs[0].category;
   const champ=championOf(gs);
