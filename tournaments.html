@@ -23,7 +23,7 @@
   <script src="team-colors.js?v=2"></script>
   <script src="tdc-charts.js?v=3"></script>
   <script src="tdc-projgrade.js?v=base1"></script>
-  <script src="conf-logos.js?v=2"></script>
+  <script src="conf-logos.js?v=3"></script>
   <script src="tournament-logos.js?v=2"></script>
   <script src="tdc-season.js?v=1"></script>
   <style>
@@ -129,10 +129,10 @@
     .mm-bracket .box .r.w .nm{ color:#fff; }
     .mm-centerlogo{ position:absolute; z-index:2; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); pointer-events:none; }
     /* ===== generic branded bracket (NIT / CBI / MTE) — signature colour via --tac ===== */
-    body.hqsite.tbr-bg{ background-color:color-mix(in srgb, var(--tac,#3a5db0) 16%, #080b12) !important;
-      background-image:linear-gradient(101deg, rgba(0,0,0,0) 85.5%, color-mix(in srgb,var(--tac,#3a5db0) 45%,#fff) 86.1%, var(--tac,#3a5db0) 88%, color-mix(in srgb,var(--tac,#3a5db0) 80%,#fff) 100%) !important;
+    body.hqsite.tbr-bg{ background-color:color-mix(in srgb, var(--tac,#3a5db0) 26%, #070a10) !important;
+      background-image:linear-gradient(101deg, color-mix(in srgb,var(--tac,#3a5db0) 10%, transparent) 0%, rgba(0,0,0,0) 60%, rgba(0,0,0,0) 85%, color-mix(in srgb,var(--tac,#3a5db0) 55%,#fff) 85.7%, var(--tac,#3a5db0) 88%, color-mix(in srgb,var(--tac,#3a5db0) 78%,#fff) 100%) !important;
       background-size:cover !important; background-position:center !important; background-attachment:fixed !important; background-repeat:no-repeat !important; }
-    .tbr-themed{ background:radial-gradient(120% 95% at 50% 0%, color-mix(in srgb,var(--tac,#3a5db0) 28%,#0b1020) 0%, color-mix(in srgb,var(--tac,#3a5db0) 13%,#0a0e18) 55%, color-mix(in srgb,var(--tac,#3a5db0) 7%,#080b12) 100%); border-radius:16px; box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 20px 50px rgba(0,10,40,.35); margin:6px 0 4px; }
+    .tbr-themed{ background:radial-gradient(120% 95% at 50% 0%, color-mix(in srgb,var(--tac,#3a5db0) 46%,#0b1020) 0%, color-mix(in srgb,var(--tac,#3a5db0) 22%,#0a0e18) 55%, color-mix(in srgb,var(--tac,#3a5db0) 12%,#080b12) 100%); border-radius:16px; box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 20px 50px rgba(0,10,40,.35); margin:6px 0 4px; overflow:hidden; }
     .tbr-themed .bktsvg polyline{ stroke:color-mix(in srgb, var(--tac,#3a5db0) 45%, #ffffff) !important; opacity:.62; }
     .tbr-themed .box{ background:color-mix(in srgb, var(--tac,#3a5db0) 12%, #0c1220) !important; border-color:color-mix(in srgb,var(--tac,#3a5db0) 32%, rgba(255,255,255,.12)) !important; box-shadow:0 2px 8px rgba(0,8,26,.4) !important; }
     .tbr-themed .box .nm{ color:#eef2fb !important; }
@@ -142,7 +142,7 @@
     .tbr-themed .box .r.w{ background:linear-gradient(90deg, color-mix(in srgb,var(--tac,#3a5db0) 40%, transparent), transparent) !important; }
     .tbr-themed .box .r.w .nm{ color:#fff !important; }
     .tbr-themed .bktregion,.tbr-themed .bktlabel{ color:color-mix(in srgb,var(--tac,#3a5db0) 30%, #cfe0ff) !important; }
-    .tbr-watermark{ position:absolute; z-index:0; opacity:.085; pointer-events:none; filter:drop-shadow(0 4px 12px rgba(0,0,0,.4)); }
+    .tbr-watermark{ position:absolute; z-index:0; opacity:.14; pointer-events:none; filter:drop-shadow(0 4px 12px rgba(0,0,0,.4)); }
     .mm-zoom{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:4px 0 10px; }
     .mm-zoom .mmz-lbl{ font-size:10px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:rgba(200,216,245,.7); margin-right:2px; }
     .mmz-btn{ font-family:inherit; font-size:12px; font-weight:700; color:#d3e2ff; background:rgba(120,160,240,.10); border:1px solid rgba(140,180,255,.30); border-radius:999px; padding:5px 13px; cursor:pointer; transition:background .12s,border-color .12s,color .12s; }
@@ -357,26 +357,28 @@ function _confNorm(s){ return (s||'').toLowerCase().replace(/[’']/g,"'")
     .replace(/\b(conf|conference)\b/g,' ').replace(/\btournament\b/g,' ')
     .replace(/ at [a-z][a-z .]*$/,' ')            // drop "at charleston sc" host suffix
     .replace(/[.\-]/g,' ').replace(/\s+/g,' ').trim(); }
-function _confLogoFor(name){ const M=window.TDC_CONFS; if(!M||!name) return '';
+function _confEntryFor(name){ const M=window.TDC_CONFS; if(!M||!name) return null;
   // conf-tournament names are usually "{Conf} Tournament" but the feed also has sponsor
   // prefixes ("Phillips 66 Big 12", "New York Life ACC") and host suffixes. Normalize,
   // then (1) exact match on base name / short / abbr, else (2) longest word-boundary
-  // substring match on the distinctive base/short names (len>=4, so no false positives).
+  // substring match on the distinctive base/short names (len>=3, so no false positives).
   const n=_confNorm(name), cpt=n.replace(/ /g,'');
   for(const full in M){ const c=M[full];
-    if([_confNorm(full),_confNorm(c.short||''),(c.abbr||'').toLowerCase()].some(x=>x&&x===n)) return c.logo;
-    if([_confNorm(full).replace(/ /g,''),_confNorm(c.short||'').replace(/ /g,'')].some(x=>x&&x===cpt)) return c.logo; }
-  const pad=' '+n+' '; let best='',bestLen=0;
+    if([_confNorm(full),_confNorm(c.short||''),(c.abbr||'').toLowerCase()].some(x=>x&&x===n)) return c;
+    if([_confNorm(full).replace(/ /g,''),_confNorm(c.short||'').replace(/ /g,'')].some(x=>x&&x===cpt)) return c; }
+  const pad=' '+n+' '; let best=null,bestLen=0;
   for(const full in M){ const c=M[full];
     for(const cand of [_confNorm(full),_confNorm(c.short||'')]){
-      if(cand.length>=3 && pad.indexOf(' '+cand+' ')>=0 && cand.length>bestLen){ best=c.logo; bestLen=cand.length; } } }
+      if(cand.length>=3 && pad.indexOf(' '+cand+' ')>=0 && cand.length>bestLen){ best=c; bestLen=cand.length; } } }
   return best; }
-// tournament-specific real logo (March Madness, NIT, Maui, Battle 4 Atlantis, …) from
-// tournament-logos.js; matches MTE events by keyword and top-level events by category.
-function _tournTheme(cat,name){ const M=window.TDC_TOURN_LOGOS; if(!M) return null;
+function _confLogoFor(name){ const c=_confEntryFor(name); return (c&&c.logo)||''; }
+// tournament theme {logo,accent}: March Madness / NIT / MTE from tournament-logos.js,
+// and conference tournaments from the matched conference (logo + brand colour).
+function _tournTheme(cat,name){ const M=window.TDC_TOURN_LOGOS;
   const n=(name||'').toLowerCase();
-  if(M.events){ for(const e of M.events){ if(e.re.test(n)) return e; } }
-  if(M.cat && M.cat[cat]) return M.cat[cat];
+  if(M){ if(M.events){ for(const e of M.events){ if(e.re.test(n)) return e; } }
+    if(M.cat && M.cat[cat]) return M.cat[cat]; }
+  if(cat==='CONF'){ const c=_confEntryFor(name); if(c&&c.logo) return {logo:c.logo, accent:c.color||'#3a5db0'}; }
   return null; }
 function _tournLogoFor(cat,name){ const t=_tournTheme(cat,name); return (t&&t.logo)||''; }
 function _tournMark(cat,name,size){ const s=size||40;
@@ -745,7 +747,7 @@ function layoutTree(games, dir, ox, slotBase){
 function bracketBlock(inner, w, h, theme){
   const cls = theme ? 'bktscroll tbr-themed' : 'bktscroll';
   let wm='';
-  if(theme && theme.logo){ const size=Math.max(180, Math.min(w*0.4, h*0.62, 440));
+  if(theme && theme.logo){ const size=Math.max(260, Math.min(w*0.62, h*1.0, 720));
     wm=`<img class="tbr-watermark" src="${theme.logo}" alt="" style="left:${Math.round((w-size)/2)}px;top:${Math.round((h-size)/2)}px;width:${Math.round(size)}px;">`; }
   return `<div class="${cls}"><div class="bktcanvas" style="width:${w}px;height:${h}px;">${wm}
     <svg class="bktsvg" width="${w}" height="${h}">${inner.lines}</svg>
@@ -811,7 +813,7 @@ function openBracket(name){
   }
   document.getElementById('listView').style.display='none';
   const bv=document.getElementById('bracketView'); bv.style.display=''; bv.innerHTML=html;
-  const isNCAA=!!bv.querySelector('.mm-bracket'), isThemed=!isNCAA&&!!bv.querySelector('.tbr-themed');
+  const isNCAA=!!bv.querySelector('.mm-bracket'), isThemed=!isNCAA&&!!theme;
   document.body.classList.toggle('mm-bg', isNCAA);
   document.body.classList.toggle('tbr-bg', isThemed);
   if(isThemed && theme) document.body.style.setProperty('--tac', theme.accent||'#3a5db0');
