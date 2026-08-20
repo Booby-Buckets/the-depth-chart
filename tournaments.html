@@ -24,7 +24,7 @@
   <script src="tdc-charts.js?v=3"></script>
   <script src="tdc-projgrade.js?v=base1"></script>
   <script src="conf-logos.js?v=2"></script>
-  <script src="tournament-logos.js?v=1"></script>
+  <script src="tournament-logos.js?v=2"></script>
   <script src="tdc-season.js?v=1"></script>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--gold:#C8A020;--green:#1a8c3a;--red:#cc2200;}
@@ -128,6 +128,21 @@
     .mm-bracket .box .r.w{ background:linear-gradient(90deg, rgba(244,196,48,.18), transparent); }
     .mm-bracket .box .r.w .nm{ color:#fff; }
     .mm-centerlogo{ position:absolute; z-index:2; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); pointer-events:none; }
+    /* ===== generic branded bracket (NIT / CBI / MTE) — signature colour via --tac ===== */
+    body.hqsite.tbr-bg{ background-color:color-mix(in srgb, var(--tac,#3a5db0) 16%, #080b12) !important;
+      background-image:linear-gradient(101deg, rgba(0,0,0,0) 85.5%, color-mix(in srgb,var(--tac,#3a5db0) 45%,#fff) 86.1%, var(--tac,#3a5db0) 88%, color-mix(in srgb,var(--tac,#3a5db0) 80%,#fff) 100%) !important;
+      background-size:cover !important; background-position:center !important; background-attachment:fixed !important; background-repeat:no-repeat !important; }
+    .tbr-themed{ background:radial-gradient(120% 95% at 50% 0%, color-mix(in srgb,var(--tac,#3a5db0) 28%,#0b1020) 0%, color-mix(in srgb,var(--tac,#3a5db0) 13%,#0a0e18) 55%, color-mix(in srgb,var(--tac,#3a5db0) 7%,#080b12) 100%); border-radius:16px; box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 20px 50px rgba(0,10,40,.35); margin:6px 0 4px; }
+    .tbr-themed .bktsvg polyline{ stroke:color-mix(in srgb, var(--tac,#3a5db0) 45%, #ffffff) !important; opacity:.62; }
+    .tbr-themed .box{ background:color-mix(in srgb, var(--tac,#3a5db0) 12%, #0c1220) !important; border-color:color-mix(in srgb,var(--tac,#3a5db0) 32%, rgba(255,255,255,.12)) !important; box-shadow:0 2px 8px rgba(0,8,26,.4) !important; }
+    .tbr-themed .box .nm{ color:#eef2fb !important; }
+    .tbr-themed .box .sc{ color:#cdd8ee !important; }
+    .tbr-themed .box .sd{ color:color-mix(in srgb,var(--tac,#3a5db0) 45%, #b6c2da) !important; }
+    .tbr-themed .box .r+.r{ border-top-color:rgba(255,255,255,.08) !important; }
+    .tbr-themed .box .r.w{ background:linear-gradient(90deg, color-mix(in srgb,var(--tac,#3a5db0) 40%, transparent), transparent) !important; }
+    .tbr-themed .box .r.w .nm{ color:#fff !important; }
+    .tbr-themed .bktregion,.tbr-themed .bktlabel{ color:color-mix(in srgb,var(--tac,#3a5db0) 30%, #cfe0ff) !important; }
+    .tbr-watermark{ position:absolute; z-index:0; opacity:.085; pointer-events:none; filter:drop-shadow(0 4px 12px rgba(0,0,0,.4)); }
     .mm-zoom{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:4px 0 10px; }
     .mm-zoom .mmz-lbl{ font-size:10px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:rgba(200,216,245,.7); margin-right:2px; }
     .mmz-btn{ font-family:inherit; font-size:12px; font-weight:700; color:#d3e2ff; background:rgba(120,160,240,.10); border:1px solid rgba(140,180,255,.30); border-radius:999px; padding:5px 13px; cursor:pointer; transition:background .12s,border-color .12s,color .12s; }
@@ -358,11 +373,12 @@ function _confLogoFor(name){ const M=window.TDC_CONFS; if(!M||!name) return '';
   return best; }
 // tournament-specific real logo (March Madness, NIT, Maui, Battle 4 Atlantis, …) from
 // tournament-logos.js; matches MTE events by keyword and top-level events by category.
-function _tournLogoFor(cat,name){ const M=window.TDC_TOURN_LOGOS; if(!M) return '';
+function _tournTheme(cat,name){ const M=window.TDC_TOURN_LOGOS; if(!M) return null;
   const n=(name||'').toLowerCase();
-  if(M.events){ for(const e of M.events){ if(e.re.test(n)) return e.logo; } }
+  if(M.events){ for(const e of M.events){ if(e.re.test(n)) return e; } }
   if(M.cat && M.cat[cat]) return M.cat[cat];
-  return ''; }
+  return null; }
+function _tournLogoFor(cat,name){ const t=_tournTheme(cat,name); return (t&&t.logo)||''; }
 function _tournMark(cat,name,size){ const s=size||40;
   const tl=_tournLogoFor(cat,name);
   if(tl) return `<img class="tcard-emblem-img" src="${tl}" alt="" loading="lazy" style="width:${s}px;height:${s}px;">`;
@@ -726,8 +742,12 @@ function layoutTree(games, dir, ox, slotBase){
   const renderedIds=new Set(main.filter(g=>g._px).map(g=>g.id));
   return {boxes, lines, width, height, slots:slot, labels, nCols, colX, renderedIds};
 }
-function bracketBlock(inner, w, h){
-  return `<div class="bktscroll"><div class="bktcanvas" style="width:${w}px;height:${h}px;">
+function bracketBlock(inner, w, h, theme){
+  const cls = theme ? 'bktscroll tbr-themed' : 'bktscroll';
+  let wm='';
+  if(theme && theme.logo){ const size=Math.max(180, Math.min(w*0.4, h*0.62, 440));
+    wm=`<img class="tbr-watermark" src="${theme.logo}" alt="" style="left:${Math.round((w-size)/2)}px;top:${Math.round((h-size)/2)}px;width:${Math.round(size)}px;">`; }
+  return `<div class="${cls}"><div class="bktcanvas" style="width:${w}px;height:${h}px;">${wm}
     <svg class="bktsvg" width="${w}" height="${h}">${inner.lines}</svg>
     ${inner.labels}${inner.boxes}</div></div>`;
 }
@@ -762,6 +782,7 @@ function openBracket(name){
   const gs=mainDateCluster(GAMES.filter(g=>g.tournament===name));
   if(!gs.length) return;
   const cat=gs[0].category;
+  const theme=_tournTheme(cat,name);   // {logo,accent} — brands NIT / CBI / MTE brackets
   const champ=championOf(gs);
   const _cl=champ?_tlogo(champ.name):'';
   let html=`<div class="bcrumb"><a onclick="backToList()">← ${seasonLbl(curSeason)} tournaments</a></div>
@@ -780,7 +801,7 @@ function openBracket(name){
     // clean single-elimination event -> one flowing bracket
     const L=layoutTree(gs, 1, 0, 0);
     let labels=L.labels.map(l=>labelHtml(l.x,l.name)).join('');
-    html+=bracketBlock({lines:L.lines, labels, boxes:L.boxes}, L.width, L.height);
+    html+=bracketBlock({lines:L.lines, labels, boxes:L.boxes}, L.width, L.height, theme);
     // any games outside the championship bracket (MTE placement/consolation games)
     const extra=gs.filter(g=>!L.renderedIds.has(g.id)&&!/first four|play-?in/i.test(g.round||''));
     if(extra.length) html+=`<div class="region">Placement &amp; consolation</div><div class="rounds">${
@@ -790,7 +811,10 @@ function openBracket(name){
   }
   document.getElementById('listView').style.display='none';
   const bv=document.getElementById('bracketView'); bv.style.display=''; bv.innerHTML=html;
-  document.body.classList.toggle('mm-bg', !!bv.querySelector('.mm-bracket'));
+  const isNCAA=!!bv.querySelector('.mm-bracket'), isThemed=!isNCAA&&!!bv.querySelector('.tbr-themed');
+  document.body.classList.toggle('mm-bg', isNCAA);
+  document.body.classList.toggle('tbr-bg', isThemed);
+  if(isThemed && theme) document.body.style.setProperty('--tac', theme.accent||'#3a5db0');
   window.scrollTo(0,0);
   fitBracket();
   _fillAwards(gs, cat, champ&&champ.name);
@@ -1045,7 +1069,7 @@ function columnFallback(gs){
   });
   return html;
 }
-function backToList(){ document.getElementById('bracketView').style.display='none'; document.getElementById('listView').style.display=''; document.body.classList.remove('mm-bg'); }
+function backToList(){ document.getElementById('bracketView').style.display='none'; document.getElementById('listView').style.display=''; document.body.classList.remove('mm-bg'); document.body.classList.remove('tbr-bg'); }
 
 // ── game detail: box scores + performance ratings + upset ──
 // Hollinger-style game score = single-number performance for player-of-the-game
