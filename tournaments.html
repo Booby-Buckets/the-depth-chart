@@ -98,11 +98,24 @@
     .region{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);margin:22px 0 10px;padding-bottom:5px;border-bottom:2px solid var(--border2);}
     /* real bracket: absolutely-positioned boxes + SVG connector lines.
        full-bleed the scroll container so a wide bracket uses the whole screen */
-    .bktscroll{overflow-x:auto;padding:8px 28px 20px;width:100vw;position:relative;left:50%;margin-left:-50vw;}
+    .bktscroll{overflow-x:auto;padding:10px 14px 18px;width:100%;position:relative;box-sizing:border-box;}
     .bktcanvas{position:relative;}
     .bktsvg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;}
     .bktlabel{position:absolute;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:center;}
     .bktregion{position:absolute;font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:var(--text2);opacity:.5;}
+    /* ===== March Madness theme (NCAA bracket) ===== */
+    .mm-bracket{ --mm-gold:#f4c430; background:radial-gradient(120% 90% at 50% 0%, #16337a 0%, #0c1f52 45%, #081737 100%); border-radius:16px; box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 20px 50px rgba(0,10,40,.35); margin:6px 0 4px; }
+    .mm-bracket .bktsvg polyline{ stroke:rgba(150,185,240,.6) !important; stroke-width:1.6 !important; }
+    .mm-bracket .bktregion{ color:#cfe0ff; opacity:.85; letter-spacing:.03em; text-shadow:0 1px 3px rgba(0,0,0,.5); }
+    .mm-bracket .bktlabel{ color:rgba(190,210,245,.7); }
+    .mm-bracket .box{ background:#0d1a3a; border-color:rgba(120,150,215,.28); box-shadow:0 2px 8px rgba(0,10,40,.4); }
+    .mm-bracket .box .r+.r{ border-top-color:rgba(120,150,215,.22); }
+    .mm-bracket .box .nm{ color:#eaf1ff; }
+    .mm-bracket .box .sc{ color:#c3d3f2; }
+    .mm-bracket .box .sd{ color:#8ea6d8; }
+    .mm-bracket .box .r.w{ background:linear-gradient(90deg, rgba(244,196,48,.18), transparent); }
+    .mm-bracket .box .r.w .nm{ color:#fff; }
+    .mm-centerlogo{ position:absolute; z-index:2; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); pointer-events:none; }
     .box{position:absolute;width:150px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.06);}
     .box .r{display:flex;align-items:center;gap:4px;height:21px;padding:0 6px;font-size:11px;}
     .box .r:first-child{border-radius:6px 6px 0 0;}
@@ -730,8 +743,26 @@ function openBracket(name){
   document.getElementById('listView').style.display='none';
   const bv=document.getElementById('bracketView'); bv.style.display=''; bv.innerHTML=html;
   window.scrollTo(0,0);
+  fitBracket();
   _fillAwards(gs, cat, champ&&champ.name);
 }
+
+// scale each rendered bracket canvas down to fit its container width, so the whole
+// bracket is visible at once instead of overflowing / getting clipped.
+function fitBracket(){
+  document.querySelectorAll('.bktscroll').forEach(function(sc){
+    const cv=sc.querySelector('.bktcanvas'); if(!cv) return;
+    const cw=parseFloat(cv.style.width)||cv.offsetWidth;
+    const chh=parseFloat(cv.style.height)||cv.offsetHeight;
+    const avail=sc.clientWidth-8;
+    const s=Math.min(1, avail/cw);
+    cv.style.transformOrigin='top left';
+    cv.style.transform = s<1 ? 'scale('+s+')' : '';
+    sc.style.height = s<1 ? (chh*s+10)+'px' : '';
+    sc.style.overflowX = s<1 ? 'hidden' : 'auto';
+  });
+}
+window.addEventListener('resize', function(){ if(document.getElementById('bracketView').style.display!=='none') fitBracket(); });
 
 // ── Our-model All-Tournament selection (NOT scraped) ──────────────────────
 // Historical tournaments: aggregate real box scores across the event and rank by
@@ -875,12 +906,16 @@ function ncaaBracket(divs, gs){
   if(f4[0]) cb+=boxHtml(f4[0], cx, cyTop);
   if(f4[1]) cb+=boxHtml(f4[1], cx, cyBot);
   if(title) cb+=boxHtml(title, cx+(BW+GAPX)/2, cyMid);
+  // March Madness logo as the centerpiece, sitting in the empty middle above the Final Four
+  const logoW=190, logoX=totalW/2-logoW/2, logoY=Math.max(topY+6, midY-235);
+  const mmLogo=`<img class="mm-centerlogo" src="assets/tourn/march_madness.svg" alt="March Madness" style="left:${logoX}px;top:${logoY}px;width:${logoW}px;">`;
   const centerBlock=`<div style="position:absolute;left:0;top:0;">
+    ${mmLogo}
     <div class="bktlabel" style="left:${cx}px;top:${cyTop-20}px;width:${BW}px;">Final Four</div>
-    <div class="bktlabel" style="left:${cx+(BW+GAPX)/2}px;top:${cyMid-20}px;width:${BW}px;color:var(--gold);">National Championship</div>
+    <div class="bktlabel" style="left:${cx+(BW+GAPX)/2}px;top:${cyMid-20}px;width:${BW}px;color:var(--mm-gold,#f4c430);">National Championship</div>
     ${cb}</div>`;
   const H=botY+blockH+20;
-  return `<div class="bktscroll"><div class="bktcanvas" style="width:${totalW}px;height:${H}px;">${boxes}${centerBlock}</div></div>`;
+  return `<div class="bktscroll mm-bracket"><div class="bktcanvas" style="width:${totalW}px;height:${H}px;">${boxes}${centerBlock}</div></div>`;
 }
 
 // place/consolation games shown as a small strip under a bracket
