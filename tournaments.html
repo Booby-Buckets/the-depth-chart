@@ -24,7 +24,7 @@
   <script src="tdc-charts.js?v=3"></script>
   <script src="tdc-projgrade.js?v=base1"></script>
   <script src="conf-logos.js?v=3"></script>
-  <script src="tournament-logos.js?v=2"></script>
+  <script src="tournament-logos.js?v=3"></script>
   <script src="tdc-season.js?v=1"></script>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--gold:#C8A020;--green:#1a8c3a;--red:#cc2200;}
@@ -129,20 +129,31 @@
     .mm-bracket .box .r.w .nm{ color:#fff; }
     .mm-centerlogo{ position:absolute; z-index:2; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); pointer-events:none; }
     /* ===== generic branded bracket (NIT / CBI / MTE) — signature colour via --tac ===== */
-    /* two flat solid fills — a darker field + one lighter overlay panel — logo lightly faded
-       behind. No gradients / blur / texture, so the colour reads clean. */
-    body.hqsite.tbr-bg{ background:color-mix(in srgb, var(--tac,#3a5db0) 20%, #0a0e16) !important; }
-    .tbr-themed{ background:color-mix(in srgb, var(--tac,#3a5db0) 34%, #0b1220); border-radius:14px; box-shadow:inset 0 1px 0 rgba(255,255,255,.05); margin:6px 0 4px; overflow:hidden; }
-    .tbr-themed .bktsvg polyline{ stroke:color-mix(in srgb, var(--tac,#3a5db0) 45%, #ffffff) !important; opacity:.62; }
-    .tbr-themed .box{ background:color-mix(in srgb, var(--tac,#3a5db0) 12%, #0c1220) !important; border-color:color-mix(in srgb,var(--tac,#3a5db0) 32%, rgba(255,255,255,.12)) !important; box-shadow:0 2px 8px rgba(0,8,26,.4) !important; }
+    /* FURTHEST BACKGROUND: the tournament's primary colour, its logo tiled faintly behind
+       (overlay blend = tone-on-tone), a secondary-colour stripe up the right side, and a
+       soft gradient. The bracket + content sit on top as dark translucent overlays. */
+    body.hqsite.tbr-bg{
+      background-color:var(--tac,#3a5db0) !important;
+      background-image:
+        linear-gradient(100deg, rgba(0,0,0,0) 84%, var(--sec, color-mix(in srgb,var(--tac,#3a5db0) 42%,#fff)) 84.5%),
+        linear-gradient(150deg, color-mix(in srgb,var(--tac,#3a5db0),transparent 34%) 0%, color-mix(in srgb,var(--tac,#3a5db0),transparent 44%) 55%, color-mix(in srgb,var(--tac,#3a5db0) 88%,#000) 100%),
+        var(--tlogo, none) !important;
+      background-repeat:no-repeat, repeat, repeat !important;
+      background-size:cover, cover, 500px !important;
+      background-position:center, center, center !important;
+      background-blend-mode:normal, normal, normal !important;
+      background-attachment:fixed, fixed, fixed !important;
+    }
+    .tbr-themed{ background:rgba(9,12,20,.62); border-radius:14px; box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 18px 46px rgba(0,6,20,.42); margin:6px 0 4px; overflow:hidden; -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+    .tbr-themed .bktsvg polyline{ stroke:rgba(210,224,248,.5) !important; }
+    .tbr-themed .box{ background:#0d1626 !important; border-color:rgba(255,255,255,.12) !important; box-shadow:0 2px 8px rgba(0,8,26,.45) !important; }
     .tbr-themed .box .nm{ color:#eef2fb !important; }
     .tbr-themed .box .sc{ color:#cdd8ee !important; }
-    .tbr-themed .box .sd{ color:color-mix(in srgb,var(--tac,#3a5db0) 45%, #b6c2da) !important; }
+    .tbr-themed .box .sd{ color:#9fb0cf !important; }
     .tbr-themed .box .r+.r{ border-top-color:rgba(255,255,255,.08) !important; }
-    .tbr-themed .box .r.w{ background:linear-gradient(90deg, color-mix(in srgb,var(--tac,#3a5db0) 40%, transparent), transparent) !important; }
+    .tbr-themed .box .r.w{ background:linear-gradient(90deg, color-mix(in srgb,var(--tac,#3a5db0) 42%, transparent), transparent) !important; }
     .tbr-themed .box .r.w .nm{ color:#fff !important; }
-    .tbr-themed .bktregion,.tbr-themed .bktlabel{ color:color-mix(in srgb,var(--tac,#3a5db0) 30%, #cfe0ff) !important; }
-    .tbr-watermark{ position:absolute; z-index:0; opacity:.08; pointer-events:none; }
+    .tbr-themed .bktregion,.tbr-themed .bktlabel{ color:#cfe0ff !important; }
     .mm-zoom{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:4px 0 10px; }
     .mm-zoom .mmz-lbl{ font-size:10px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:rgba(200,216,245,.7); margin-right:2px; }
     .mmz-btn{ font-family:inherit; font-size:12px; font-weight:700; color:#d3e2ff; background:rgba(120,160,240,.10); border:1px solid rgba(140,180,255,.30); border-radius:999px; padding:5px 13px; cursor:pointer; transition:background .12s,border-color .12s,color .12s; }
@@ -746,10 +757,7 @@ function layoutTree(games, dir, ox, slotBase){
 }
 function bracketBlock(inner, w, h, theme){
   const cls = theme ? 'bktscroll tbr-themed' : 'bktscroll';
-  let wm='';
-  if(theme && theme.logo){ const size=Math.max(260, Math.min(w*0.62, h*1.0, 720));
-    wm=`<img class="tbr-watermark" src="${theme.logo}" alt="" style="left:${Math.round((w-size)/2)}px;top:${Math.round((h-size)/2)}px;width:${Math.round(size)}px;">`; }
-  return `<div class="${cls}"><div class="bktcanvas" style="width:${w}px;height:${h}px;">${wm}
+  return `<div class="${cls}"><div class="bktcanvas" style="width:${w}px;height:${h}px;">
     <svg class="bktsvg" width="${w}" height="${h}">${inner.lines}</svg>
     ${inner.labels}${inner.boxes}</div></div>`;
 }
@@ -816,7 +824,11 @@ function openBracket(name){
   const isNCAA=!!bv.querySelector('.mm-bracket'), isThemed=!isNCAA&&!!theme;
   document.body.classList.toggle('mm-bg', isNCAA);
   document.body.classList.toggle('tbr-bg', isThemed);
-  if(isThemed && theme) document.body.style.setProperty('--tac', theme.accent||'#3a5db0');
+  if(isThemed && theme){
+    document.body.style.setProperty('--tac', theme.accent||'#3a5db0');
+    if(theme.accent2) document.body.style.setProperty('--sec', theme.accent2); else document.body.style.removeProperty('--sec');
+    if(theme.logo) document.body.style.setProperty('--tlogo', 'url("'+theme.logo+'")'); else document.body.style.removeProperty('--tlogo');
+  }
   window.scrollTo(0,0);
   fitBracket();
   _fillAwards(gs, cat, champ&&champ.name);
