@@ -104,7 +104,14 @@
     .bktlabel{position:absolute;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:center;}
     .bktregion{position:absolute;font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:var(--text2);opacity:.5;}
     /* ===== March Madness theme (NCAA bracket) ===== */
-    .mm-bracket{ --mm-gold:#f4c430; background:radial-gradient(120% 90% at 50% 0%, #16337a 0%, #0c1f52 45%, #081737 100%); border-radius:16px; box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 20px 50px rgba(0,10,40,.35); margin:6px 0 4px; }
+    /* the "very back": when an NCAA bracket is open, paint the whole page field the
+       March Madness blue (#005eb8, darkened) with a secondary-color stripe angled up
+       the right side — mirroring the team-page field + .tdc-bg::after treatment. */
+    body.hqsite.mm-bg{ background-color:#081c3e !important;
+      background-image:linear-gradient(102deg, rgba(255,255,255,0) 84%, #1c6bc8 88%, #2f80d8 100%) !important;
+      background-size:cover !important; background-position:center !important;
+      background-attachment:fixed !important; background-repeat:no-repeat !important; }
+    .mm-bracket{ --mm-gold:#f4c430; background:radial-gradient(120% 95% at 50% 0%, #12408f 0%, #0b2b64 45%, #081c3e 100%); border-radius:16px; box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 20px 50px rgba(0,10,40,.35); margin:6px 0 4px; }
     .mm-bracket .bktsvg polyline{ stroke:rgba(150,185,240,.6) !important; stroke-width:1.6 !important; }
     .mm-bracket .bktregion{ color:#cfe0ff; opacity:.85; letter-spacing:.03em; text-shadow:0 1px 3px rgba(0,0,0,.5); }
     .mm-bracket .bktlabel{ color:rgba(190,210,245,.7); }
@@ -742,6 +749,7 @@ function openBracket(name){
   }
   document.getElementById('listView').style.display='none';
   const bv=document.getElementById('bracketView'); bv.style.display=''; bv.innerHTML=html;
+  document.body.classList.toggle('mm-bg', !!bv.querySelector('.mm-bracket'));
   window.scrollTo(0,0);
   fitBracket();
   _fillAwards(gs, cat, champ&&champ.name);
@@ -945,7 +953,7 @@ function columnFallback(gs){
   });
   return html;
 }
-function backToList(){ document.getElementById('bracketView').style.display='none'; document.getElementById('listView').style.display=''; }
+function backToList(){ document.getElementById('bracketView').style.display='none'; document.getElementById('listView').style.display=''; document.body.classList.remove('mm-bg'); }
 
 // ── game detail: box scores + performance ratings + upset ──
 // Hollinger-style game score = single-number performance for player-of-the-game
