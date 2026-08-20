@@ -108,7 +108,12 @@
        March Madness blue (#005eb8, darkened) with a secondary-color stripe angled up
        the right side — mirroring the team-page field + .tdc-bg::after treatment. */
     body.hqsite.mm-bg{ background-color:#081c3e !important;
-      background-image:linear-gradient(102deg, rgba(255,255,255,0) 84%, #1c6bc8 88%, #2f80d8 100%) !important;
+      background-image:linear-gradient(101deg,
+        rgba(0,0,0,0) 85.5%,
+        rgba(140,195,255,.95) 86.1%,   /* crisp bright leading line */
+        #1b63d0 87%,
+        #2f86ee 93%,
+        #5aa9ff 100%) !important;
       background-size:cover !important; background-position:center !important;
       background-attachment:fixed !important; background-repeat:no-repeat !important; }
     .mm-bracket{ --mm-gold:#f4c430; background:radial-gradient(120% 95% at 50% 0%, #12408f 0%, #0b2b64 45%, #081c3e 100%); border-radius:16px; box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 20px 50px rgba(0,10,40,.35); margin:6px 0 4px; }
@@ -123,6 +128,16 @@
     .mm-bracket .box .r.w{ background:linear-gradient(90deg, rgba(244,196,48,.18), transparent); }
     .mm-bracket .box .r.w .nm{ color:#fff; }
     .mm-centerlogo{ position:absolute; z-index:2; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); pointer-events:none; }
+    .mm-zoom{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:4px 0 10px; }
+    .mm-zoom .mmz-lbl{ font-size:10px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:rgba(200,216,245,.7); margin-right:2px; }
+    .mmz-btn{ font-family:inherit; font-size:12px; font-weight:700; color:#d3e2ff; background:rgba(120,160,240,.10); border:1px solid rgba(140,180,255,.30); border-radius:999px; padding:5px 13px; cursor:pointer; transition:background .12s,border-color .12s,color .12s; }
+    .mmz-btn:hover{ background:rgba(120,160,240,.24); border-color:rgba(160,195,255,.5); }
+    .mmz-btn.active{ background:#2f86ee; border-color:#2f86ee; color:#fff; box-shadow:0 2px 10px rgba(47,134,238,.4); }
+    .mm-e8grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; max-width:900px; margin:0 auto; padding:14px; border-radius:16px; }
+    .mm-e8cell{ }
+    .mm-e8lbl{ font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#9fc0f5; margin-bottom:6px; }
+    .mm-e8grid .game{ background:#0d1a3a; border:1px solid rgba(120,150,215,.28); border-radius:10px; }
+    @media(max-width:640px){ .mm-e8grid{ grid-template-columns:1fr; } }
     .box{position:absolute;width:150px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.06);}
     .box .r{display:flex;align-items:center;gap:4px;height:21px;padding:0 6px;font-size:11px;}
     .box .r:first-child{border-radius:6px 6px 0 0;}
@@ -760,14 +775,49 @@ function openBracket(name){
 function fitBracket(){
   document.querySelectorAll('.bktscroll').forEach(function(sc){
     const cv=sc.querySelector('.bktcanvas'); if(!cv) return;
+    cv.style.transform=''; cv.style.transformOrigin='0 0';
     const cw=parseFloat(cv.style.width)||cv.offsetWidth;
-    const chh=parseFloat(cv.style.height)||cv.offsetHeight;
     const avail=sc.clientWidth-8;
     const s=Math.min(1, avail/cw);
-    cv.style.transformOrigin='top left';
-    cv.style.transform = s<1 ? 'scale('+s+')' : '';
-    sc.style.height = s<1 ? (chh*s+10)+'px' : '';
-    sc.style.overflowX = s<1 ? 'hidden' : 'auto';
+    cv.style.zoom = s<1 ? s : '';
+    sc.style.height=''; sc.style.overflow=''; sc.style.overflowX='auto';
+  });
+}
+// zoom = re-render just the chosen region / Elite 8 / Final Four at natural size, then
+// scale it up (CSS zoom) to fill the width. Re-rendering avoids the transform/scroll
+// paint issues and gives clean, fully-readable boxes.
+function zoomBracket(key, btn){
+  const stage=document.getElementById('mmStage'); if(!stage) return;
+  const bar=document.querySelector('.mm-zoom');
+  if(bar){ bar.querySelectorAll('.mmz-btn').forEach(b=>b.classList.remove('active')); if(btn) btn.classList.add('active'); }
+  const c=window._mmCtx;
+  if(key==='full' || !c){ stage.innerHTML=window._mmFullHTML||''; fitBracket(); return; }
+  if(key==='Elite 8'){
+    const e8=c.gs.filter(g=>/elite\s*(eight|8)/i.test(g.round||''));
+    if(e8.length){ stage.innerHTML=`<div class="mm-e8grid mm-bracket">`+e8.sort((a,b)=>(a.division||'')<(b.division||'')?-1:1).map(g=>
+      `<div class="mm-e8cell"><div class="mm-e8lbl">${(g.division||'').replace(' Region','')} · Elite Eight</div>${gameHtmlCol(g)}</div>`).join('')+`</div>`;
+      return; }
+  }
+  let sub=null;
+  if(key==='Final Four') sub=c.gs.filter(g=>g.round==='Final Four'||g.round==='National Championship');
+  else if(c.divs[key]) sub=c.divs[key];
+  const L=(sub&&sub.length)?layoutTree(sub,1,0,0):null;
+  if(!L){ stage.innerHTML=window._mmFullHTML||''; fitBracket(); return; }
+  const inner=`<svg class="bktsvg" width="${L.width}" height="${L.height}">${L.lines}</svg>${L.labels.map(l=>labelHtml(l.x,l.name)).join('')}${L.boxes}`;
+  stage.innerHTML=`<div class="bktscroll mm-bracket"><div class="bktcanvas" style="width:${L.width}px;height:${L.height}px;">${inner}</div></div>`;
+  fitZone();
+}
+// scale a single re-rendered zone up to fill the width (zoom affects layout, so the
+// container grows and the page scrolls — no inner-scroll math needed).
+function fitZone(){
+  requestAnimationFrame(function(){
+    const sc=document.querySelector('#mmStage .bktscroll'); if(!sc) return;
+    const cv=sc.querySelector('.bktcanvas'); if(!cv) return;
+    cv.style.transform='';
+    const cw=parseFloat(cv.style.width)||cv.offsetWidth;
+    const avail=sc.clientWidth-8;
+    cv.style.zoom=Math.min(2.4, avail/cw);
+    sc.style.overflow=''; sc.style.height='';
   });
 }
 window.addEventListener('resize', function(){ if(document.getElementById('bracketView').style.display!=='none') fitBracket(); });
@@ -923,7 +973,15 @@ function ncaaBracket(divs, gs){
     <div class="bktlabel" style="left:${cx+(BW+GAPX)/2}px;top:${cyMid-20}px;width:${BW}px;color:var(--mm-gold,#f4c430);">National Championship</div>
     ${cb}</div>`;
   const H=botY+blockH+20;
-  return `<div class="bktscroll mm-bracket"><div class="bktcanvas" style="width:${totalW}px;height:${H}px;">${boxes}${centerBlock}</div></div>`;
+  window._mmCtx={gs, divs, tl, bl, tr, br};
+  window._mmFullHTML=`<div class="bktscroll mm-bracket"><div class="bktcanvas" style="width:${totalW}px;height:${H}px;">${boxes}${centerBlock}</div></div>`;
+  const rlbl=r=>r.replace(' Region','');
+  const zb=(k,l)=>`<button class="mmz-btn" onclick="zoomBracket('${k.replace(/'/g,"\\'")}',this)">${l}</button>`;
+  const zoomBar=`<div class="mm-zoom"><span class="mmz-lbl">🔍 Zoom</span>`+
+    `<button class="mmz-btn active" onclick="zoomBracket('full',this)">Full Bracket</button>`+
+    zb(tl,rlbl(tl))+zb(bl,rlbl(bl))+zb(tr,rlbl(tr))+zb(br,rlbl(br))+
+    zb('Elite 8','Elite 8')+zb('Final Four','Final Four')+`</div>`;
+  return zoomBar+`<div id="mmStage">${window._mmFullHTML}</div>`;
 }
 
 // place/consolation games shown as a small strip under a bracket
