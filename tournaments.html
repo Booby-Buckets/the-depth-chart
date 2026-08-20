@@ -24,7 +24,7 @@
   <script src="tdc-charts.js?v=3"></script>
   <script src="tdc-projgrade.js?v=base1"></script>
   <script src="conf-logos.js?v=3"></script>
-  <script src="tournament-logos.js?v=3"></script>
+  <script src="tournament-logos.js?v=4"></script>
   <script src="tdc-season.js?v=1"></script>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--gold:#C8A020;--green:#1a8c3a;--red:#cc2200;}
@@ -136,14 +136,20 @@
       background-color:var(--tac,#3a5db0) !important;
       background-image:
         linear-gradient(100deg, rgba(0,0,0,0) 84%, var(--sec, color-mix(in srgb,var(--tac,#3a5db0) 42%,#fff)) 84.5%),
-        linear-gradient(150deg, color-mix(in srgb,var(--tac,#3a5db0),transparent 16%) 0%, color-mix(in srgb,var(--tac,#3a5db0),transparent 24%) 55%, color-mix(in srgb,var(--tac,#3a5db0) 88%,#000) 100%),
-        var(--tlogo, none), var(--tlogo, none), var(--tlogo, none) !important;
-      background-repeat:no-repeat, no-repeat, no-repeat, no-repeat, no-repeat !important;
-      background-position:center, center, 3% 12%, 97% 90%, 60% 48% !important;
-      background-size:cover, cover, 760px, 620px, 560px !important;
-      background-blend-mode:normal, normal, normal, normal, normal !important;
-      background-attachment:fixed, fixed, fixed, fixed, fixed !important;
+        linear-gradient(0deg, color-mix(in srgb, var(--tac,#3a5db0), transparent 50%), color-mix(in srgb, var(--tac,#3a5db0), transparent 50%)),
+        linear-gradient(160deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,0) 42%, rgba(0,0,0,.16) 100%),
+        url("assets/tourn/tex.jpg?v=1") !important;
+      background-repeat:no-repeat, no-repeat, no-repeat, no-repeat !important;
+      background-size:cover, cover, cover, cover !important;
+      background-position:center, center, center, center !important;
+      background-blend-mode:normal, normal, normal, soft-light !important;
+      background-attachment:fixed, fixed, fixed, fixed !important;
     }
+    /* content floats directly on the branded field — no frosted navy stage tinting it */
+    body.hqsite.tbr-bg .page{ position:relative; z-index:1; background:transparent !important; border:0 !important; box-shadow:none !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important; }
+    /* two large, very translucent, slightly-rotated logos behind the content */
+    .tbr-bgart{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+    .tbr-bgart img{ position:absolute; mix-blend-mode:soft-light; opacity:.5; }
     /* no dark panel — the bracket boxes float directly on the branded field */
     .tbr-themed{ background:transparent !important; box-shadow:none !important; margin:6px 0 4px; }
     .tbr-themed .bktsvg polyline{ stroke:rgba(255,255,255,.62) !important; }
@@ -789,6 +795,17 @@ function mainDateCluster(gs){
   const keep=new Set(clusters[0].map(g=>g.id));
   return gs.filter(g=>!g.date || keep.has(g.id));
 }
+// two large, slightly-rotated, very translucent logos placed (non-overlapping) behind
+// the page content on a themed bracket. DOM elements so they can be rotated.
+function _setBgArt(theme){
+  var el=document.getElementById('tbrBgArt');
+  if(!theme||!theme.logo){ if(el) el.remove(); return; }
+  if(!el){ el=document.createElement('div'); el.id='tbrBgArt'; el.className='tbr-bgart'; document.body.insertBefore(el, document.body.firstChild); }
+  var lg=theme.logo;
+  el.innerHTML =
+    '<img src="'+lg+'" alt="" style="left:-4%;top:12%;width:min(42vw,620px);transform:rotate(-8deg);">'+
+    '<img src="'+lg+'" alt="" style="left:47%;top:56%;width:min(34vw,520px);transform:rotate(9deg);">';
+}
 function openBracket(name){
   const gs=mainDateCluster(GAMES.filter(g=>g.tournament===name));
   if(!gs.length) return;
@@ -828,8 +845,8 @@ function openBracket(name){
   if(isThemed && theme){
     document.body.style.setProperty('--tac', theme.accent||'#3a5db0');
     if(theme.accent2) document.body.style.setProperty('--sec', theme.accent2); else document.body.style.removeProperty('--sec');
-    if(theme.logo) document.body.style.setProperty('--tlogo', 'url("'+theme.logo+'")'); else document.body.style.removeProperty('--tlogo');
   }
+  _setBgArt(isThemed ? theme : null);
   window.scrollTo(0,0);
   fitBracket();
   _fillAwards(gs, cat, champ&&champ.name);
@@ -1084,7 +1101,7 @@ function columnFallback(gs){
   });
   return html;
 }
-function backToList(){ document.getElementById('bracketView').style.display='none'; document.getElementById('listView').style.display=''; document.body.classList.remove('mm-bg'); document.body.classList.remove('tbr-bg'); }
+function backToList(){ document.getElementById('bracketView').style.display='none'; document.getElementById('listView').style.display=''; document.body.classList.remove('mm-bg'); document.body.classList.remove('tbr-bg'); _setBgArt(null); }
 
 // ── game detail: box scores + performance ratings + upset ──
 // Hollinger-style game score = single-number performance for player-of-the-game
