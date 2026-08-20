@@ -103,18 +103,18 @@
     .bktlabel{position:absolute;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:center;}
     .bktregion{position:absolute;font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:var(--text2);opacity:.5;}
     .box{position:absolute;width:150px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.06);}
-    .box .r{display:flex;align-items:center;gap:5px;height:21px;padding:0 7px;font-size:11.5px;}
+    .box .r{display:flex;align-items:center;gap:4px;height:21px;padding:0 6px;font-size:11px;}
     .box .r:first-child{border-radius:6px 6px 0 0;}
     .box .r:last-child{border-radius:0 0 6px 6px;}
     .box .r+.r{border-top:1px solid var(--border);}
     .box .r.w{background:linear-gradient(90deg,rgba(168,132,60,.14),transparent);}
     .box .r.w .nm{font-weight:800;}
-    .box .sd{color:var(--text3);font-size:8.5px;min-width:13px;font-variant-numeric:tabular-nums;}
-    .box .blogo{width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-    .box .blogo img{width:13px;height:13px;object-fit:contain;filter:drop-shadow(.9px 0 0 #fff) drop-shadow(-.9px 0 0 #fff) drop-shadow(0 .9px 0 #fff) drop-shadow(0 -.9px 0 #fff);}
-    .box .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);text-decoration:none;}
+    .box .sd{color:var(--text3);font-size:8.5px;min-width:11px;font-variant-numeric:tabular-nums;}
+    .box .blogo{width:16px;height:16px;border-radius:3px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .box .blogo img{width:12px;height:12px;object-fit:contain;filter:drop-shadow(.9px 0 0 #fff) drop-shadow(-.9px 0 0 #fff) drop-shadow(0 .9px 0 #fff) drop-shadow(0 -.9px 0 #fff);}
+    .box .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);text-decoration:none;letter-spacing:-.1px;}
     .box .nm:hover{color:var(--accent);}
-    .box .sc{font-weight:700;font-variant-numeric:tabular-nums;color:var(--text2);min-width:22px;text-align:right;}
+    .box .sc{font-weight:700;font-variant-numeric:tabular-nums;color:var(--text2);min-width:19px;text-align:right;}
     .box{cursor:pointer;}
     .box:hover{border-color:var(--accent);}
     .upset{position:absolute;top:-9px;right:5px;font-size:8px;font-weight:800;letter-spacing:.05em;color:#fff;background:var(--red);border-radius:7px;padding:1px 6px;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.3);white-space:nowrap;}
@@ -575,10 +575,25 @@ const seedKey=g=>Math.min(g.home_seed||99, g.away_seed||99);
 window._TSHORT=window._TSHORT||{};
 (function(){ try{ if(window.TDC_RATINGS&&TDC_RATINGS.get) TDC_RATINGS.get().then(function(D){
   (D&&D.teams||[]).forEach(function(t){ window._TSHORT[t.full]=t.team; }); }).catch(function(){}); }catch(e){} })();
+// universal short name: prefer the ratings map, else drop the mascot by finding the
+// longest word-prefix of the full name that's a key in TDC_TEAM_COLORS (which stores
+// both "alabama state hornets" and "alabama state"). Keeps mid-major/historical teams
+// from truncating in the narrow 1st-round boxes.
+function shortName(nm){
+  if(!nm) return nm;
+  const t=window._TSHORT&&window._TSHORT[nm];
+  if(t&&t!==nm) return t;                       // real ratings short name (skip self-maps)
+  const M=window.TDC_TEAM_COLORS; if(!M) return nm;
+  const words=nm.split(/\s+/);                   // strip mascot: longest school-name prefix wins
+  for(let n=words.length-1;n>=1;n--){
+    if(M[words.slice(0,n).join(' ').toLowerCase()]) return words.slice(0,n).join(' ');
+  }
+  return nm;
+}
 function boxHtml(g,x,y){
   const hw=g.winner_id===g.home_id, aw=g.winner_id===g.away_id;
   const row=(nm,sc,sd,win)=>{
-    const s=(nm&&window._TSHORT[nm])||nm;
+    const s=shortName(nm);
     const tc=window.tdcTeamColor&&tdcTeamColor(nm);
     const col=(tc&&tc.c1)||'var(--accent)', lg=(tc&&tc.logo)||'';
     return `<div class="r ${win?'w':''}"><span class="sd">${sd?sd:''}</span>`+
