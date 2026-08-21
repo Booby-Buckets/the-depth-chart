@@ -890,6 +890,49 @@ body{background:transparent!important;}
     .exp-chart-card{border:1px solid var(--border);border-radius:12px;padding:16px;background:var(--bg2);}
     .exp-chart{position:relative;width:100%;height:520px;}
     .exp-note{font-size:11px;color:var(--text3);margin-top:12px;line-height:1.6;}
+    /* ── Betting Props tab ─────────────────────────────────────────── */
+    .bet-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-bottom:6px;}
+    .bet-head h3{font-size:19px;font-weight:800;margin:0;letter-spacing:-.01em;}
+    .bet-sub{font-size:12px;color:var(--text3);line-height:1.5;margin:0 0 18px;max-width:640px;}
+    .bet-seasons{display:inline-flex;gap:4px;background:var(--bg3);border-radius:9px;padding:3px;flex-wrap:wrap;}
+    .bet-seasons button{border:none;background:none;cursor:pointer;font-family:'Inter',sans-serif;font-weight:700;font-size:12px;color:var(--text3);padding:6px 12px;border-radius:7px;letter-spacing:.02em;}
+    .bet-seasons button.on{background:var(--tc-readable,var(--accent));color:#fff;}
+    .bet-best{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;}
+    .bet-best-card{flex:1;min-width:180px;border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:linear-gradient(160deg,var(--bg2),var(--bg));position:relative;overflow:hidden;}
+    .bet-best-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--tc-readable,var(--accent));}
+    .bet-best-k{font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);}
+    .bet-best-v{font-size:15px;font-weight:800;margin:3px 0 2px;}
+    .bet-best-v .u,.bet-best-v .o{font-size:11px;padding:1px 6px;border-radius:5px;margin-right:5px;vertical-align:middle;}
+    .bet-best-v .o{background:rgba(34,197,94,.16);color:#22c55e;}
+    .bet-best-v .u{background:rgba(239,68,68,.16);color:#ef4444;}
+    .bet-best-m{font-size:11px;color:var(--text3);font-weight:600;}
+    .bet-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;}
+    .bet-card{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:16px 16px 14px;}
+    .bet-card-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;}
+    .bet-stat{font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text);}
+    .bet-proj{font-size:11px;color:var(--text3);font-weight:600;}
+    .bet-proj b{color:var(--text2);font-size:13px;}
+    .bet-line-row{display:flex;align-items:center;justify-content:center;gap:14px;margin:2px 0 14px;}
+    .bet-line-row button{width:30px;height:30px;border-radius:8px;border:1px solid var(--border2);background:var(--bg);color:var(--text);font-size:17px;font-weight:700;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;}
+    .bet-line-row button:hover{border-color:var(--tc-readable,var(--accent));color:var(--tc-readable,var(--accent));}
+    .bet-line-val{text-align:center;min-width:96px;}
+    .bet-line-num{font-size:26px;font-weight:800;line-height:1;letter-spacing:-.02em;}
+    .bet-line-lab{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-top:3px;}
+    .bet-ou{display:flex;gap:8px;margin-bottom:12px;}
+    .bet-ou-side{flex:1;text-align:center;border-radius:10px;padding:9px 6px;border:1px solid var(--border);}
+    .bet-ou-side.hot{border-color:currentColor;}
+    .bet-ou-o{color:#22c55e;}.bet-ou-u{color:#ef4444;}
+    .bet-ou-pct{font-size:20px;font-weight:800;line-height:1;}
+    .bet-ou-lab{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-top:3px;}
+    .bet-ou-side.hot .bet-ou-lab{color:currentColor;}
+    .bet-spark{display:flex;align-items:flex-end;gap:2px;height:44px;margin:4px 0 12px;}
+    .bet-spark i{flex:1;border-radius:2px 2px 0 0;min-height:2px;opacity:.9;background:var(--text3);}
+    .bet-spark i.o{background:#22c55e;}.bet-spark i.u{background:#ef4444;}
+    .bet-facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 6px;border-top:1px solid var(--border);padding-top:11px;}
+    .bet-fact{text-align:center;}
+    .bet-fact b{display:block;font-size:14px;font-weight:800;color:var(--text);}
+    .bet-fact span{font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);}
+    .bet-empty{text-align:center;color:var(--text3);padding:48px 20px;font-size:14px;}
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script src="tdc-engine.js"></script>
@@ -3637,6 +3680,7 @@ function renderPage(){
         <button class="tab-grp-btn" onclick="_grpToggle(this,event)">Market<span class="tab-grp-car">▾</span></button>
         <div class="tab-grp-menu" style="min-width:236px;">
           <button class="hgm-item" id="tab-nil" onclick="_grpPick('nil')"><span class="hgm-t">NIL Value</span><span class="hgm-d">Projected NIL market value</span></button>
+          <button class="hgm-item" id="tab-betting" onclick="_grpPick('betting')"><span class="hgm-t">Betting Props</span><span class="hgm-d">Prop lines, over/under hit rates</span></button>
           <button class="hgm-item" id="tab-buzz" onclick="_grpPick('buzz')"><span class="hgm-t">Buzz</span><span class="hgm-d">Headlines & social buzz</span></button>
           <button class="hgm-item" id="tab-portalfit" onclick="_grpPick('portalfit')"><span class="hgm-t">Portal Fit</span><span class="hgm-d">Best-fit programs, ranked</span></button>
         </div>
@@ -3751,6 +3795,7 @@ function renderPage(){
 
     <!-- BUZZ TAB (headlines + social) -->
     <div class="tab-panel" id="panel-nil"><div id="nilContent"></div></div>
+    <div class="tab-panel" id="panel-betting"><div id="bettingContent"></div></div>
     <div class="tab-panel" id="panel-buzz"><div id="buzzContent"></div></div>
     <div class="tab-panel" id="panel-portalfit"><div id="portalfitContent"></div></div>`;
 
@@ -4208,6 +4253,98 @@ function _ensureBuzzIndex(){
   const idx={}; Object.keys(score).forEach(k=>{ idx[k]={score:score[k], index:pct(score[k])}; });
   return (window._buzzIdx={by:idx, n:vals.length});
 }
+// ── BETTING PROPS TAB ─────────────────────────────────────────────────────────
+// Model/trend-driven prop analysis from the player's OWN box scores (no live
+// sportsbook odds — those are archived forward from the Nov 2026 season). Per prop
+// stat: a suggested .5 line, over/under hit-rate from ACTUAL games, L10 form,
+// floor/ceiling and a game-by-game vs-line strip. Line is adjustable per stat.
+var _BET={ box:null, season:null, lines:{} };
+var BET_STATS=[
+  {k:'pts',lab:'Points',   get:function(g){return g.pts;}},
+  {k:'reb',lab:'Rebounds', get:function(g){return g.reb;}},
+  {k:'ast',lab:'Assists',  get:function(g){return g.ast;}},
+  {k:'tpm',lab:'3-Pointers',get:function(g){return g.tpm;}},
+  {k:'pra',lab:'Pts+Reb+Ast',get:function(g){return (g.pts||0)+(g.reb||0)+(g.ast||0);}},
+  {k:'stk',lab:'Stl+Blk',  get:function(g){return (g.stl||0)+(g.blk||0);}}
+];
+function _betSuggestLine(vals){
+  var s=vals.slice().sort(function(a,b){return a-b;}); var med=s[Math.floor(s.length/2)];
+  var line=Math.round(med*2)/2;
+  if(line===Math.round(line)) line-=0.5;   // keep it a .5 prop line, never a whole number
+  return Math.max(0.5,line);
+}
+async function renderBetting(){
+  var el=document.getElementById('bettingContent');
+  el.innerHTML='<div class="bet-empty">Loading game data…</div>';
+  var espn=window._playerEspn||(window.player&&player.espn_id);
+  if(!espn){ el.innerHTML='<div class="bet-empty">No game data available for prop analysis.</div>'; return; }
+  try{
+    if(!_BET.box){
+      var bx=await fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&select=season_year,date,opp,opp_tier,min,pts,reb,ast,stl,blk,tpm,tov&order=date.asc&limit=400',{headers:H}).then(function(r){return r.json();});
+      _BET.box=Array.isArray(bx)?bx.filter(function(b){return (b.min||0)>0;}):[];
+    }
+    if(!_BET.box.length){ el.innerHTML='<div class="bet-empty">No box-score history yet — prop analysis needs games played.</div>'; return; }
+    var bySea={}; _BET.box.forEach(function(b){ (bySea[b.season_year]=bySea[b.season_year]||[]).push(b); });
+    var seasons=Object.keys(bySea).map(Number).sort(function(a,b){return b-a;});
+    if(_BET.season==null) _BET.season = seasons.find(function(s){return bySea[s].length>=5;}) || seasons[0];
+    _betPaint();
+  }catch(e){ el.innerHTML='<div class="bet-empty">Could not load prop data.</div>'; }
+}
+function _betGames(){ return _BET.season==='career'?_BET.box:_BET.box.filter(function(b){return String(b.season_year)===String(_BET.season);}); }
+function _betPaint(){
+  var el=document.getElementById('bettingContent');
+  var games=_betGames();
+  var bySea={}; _BET.box.forEach(function(b){ (bySea[b.season_year]=bySea[b.season_year]||[]).push(b); });
+  var seasons=Object.keys(bySea).map(Number).sort(function(a,b){return b-a;});
+  var pills=seasons.map(function(s){ return '<button class="'+(String(_BET.season)===String(s)?'on':'')+'" onclick="_betSetSeason('+s+')">’'+String(s).slice(2)+'</button>'; }).join('')
+    +'<button class="'+(_BET.season==='career'?'on':'')+'" onclick="_betSetSeason(&quot;career&quot;)">Career</button>';
+  var cards=[], best=[];
+  BET_STATS.forEach(function(st){
+    var vals=games.map(st.get).filter(function(v){return v!=null;});
+    if(vals.length<3) return;
+    var line=_BET.lines[st.k]; if(line==null){ line=_betSuggestLine(vals); _BET.lines[st.k]=line; }
+    var over=vals.filter(function(v){return v>line;}).length;
+    var pOver=Math.round(100*over/vals.length), pUnder=100-pOver;
+    var avg=vals.reduce(function(a,b){return a+b;},0)/vals.length;
+    var l10=vals.slice(-10), l10o=l10.filter(function(v){return v>line;}).length, pL10=Math.round(100*l10o/l10.length);
+    var sorted=vals.slice().sort(function(a,b){return a-b;});
+    var floor=sorted[0], ceil=sorted[sorted.length-1];
+    var sp=vals.slice(-16).map(function(v){ var h=Math.max(2,Math.round(v/(ceil||1)*44)); return '<i class="'+(v>line?'o':'u')+'" style="height:'+h+'px"></i>'; }).join('');
+    var hotO=pOver>=pUnder;
+    cards.push(
+      '<div class="bet-card">'
+      +'<div class="bet-card-top"><span class="bet-stat">'+st.lab+'</span><span class="bet-proj">Proj <b>'+avg.toFixed(1)+'</b></span></div>'
+      +'<div class="bet-line-row"><button onclick="_betLine(&quot;'+st.k+'&quot;,-1)" aria-label="lower line">−</button>'
+        +'<div class="bet-line-val"><div class="bet-line-num">'+line.toFixed(1)+'</div><div class="bet-line-lab">Prop Line</div></div>'
+        +'<button onclick="_betLine(&quot;'+st.k+'&quot;,1)" aria-label="raise line">+</button></div>'
+      +'<div class="bet-ou">'
+        +'<div class="bet-ou-side bet-ou-o '+(hotO?'hot':'')+'"><div class="bet-ou-pct">'+pOver+'%</div><div class="bet-ou-lab">Over</div></div>'
+        +'<div class="bet-ou-side bet-ou-u '+(!hotO?'hot':'')+'"><div class="bet-ou-pct">'+pUnder+'%</div><div class="bet-ou-lab">Under</div></div>'
+      +'</div>'
+      +'<div class="bet-spark" title="Last '+Math.min(16,vals.length)+' games vs the line">'+sp+'</div>'
+      +'<div class="bet-facts">'
+        +'<div class="bet-fact"><b>'+pL10+'%</b><span>L10 Over</span></div>'
+        +'<div class="bet-fact"><b>'+floor+'</b><span>Floor</span></div>'
+        +'<div class="bet-fact"><b>'+ceil+'</b><span>Ceiling</span></div>'
+      +'</div></div>'
+    );
+    best.push({lab:st.lab,line:line,side:hotO?'o':'u',pct:Math.max(pOver,pUnder),l10:hotO?pL10:100-pL10});
+  });
+  if(!cards.length){ el.innerHTML='<div class="bet-empty">Not enough games in this span for prop analysis.</div>'; return; }
+  best.sort(function(a,b){return b.pct-a.pct;});
+  var bestHtml=best.slice(0,3).map(function(b){
+    return '<div class="bet-best-card"><div class="bet-best-k">'+b.lab+'</div>'
+    +'<div class="bet-best-v"><span class="'+b.side+'">'+(b.side==='o'?'OVER':'UNDER')+'</span>'+b.line.toFixed(1)+'</div>'
+    +'<div class="bet-best-m">Hit '+b.pct+'% · L10 '+b.l10+'%</div></div>'; }).join('');
+  el.innerHTML=
+    '<div class="bet-head"><h3>Betting Props</h3><div class="bet-seasons">'+pills+'</div></div>'
+    +'<p class="bet-sub">Prop lines &amp; over/under hit rates modeled from <b>'+games.length+' games</b> '+(_BET.season==='career'?'across his career':'this season')+'. The hit rate is the share of his actual games that cleared each line — adjust a line with −/+ to see how the edge moves. Model &amp; trend based, not live sportsbook odds.</p>'
+    +'<div class="bet-best">'+bestHtml+'</div>'
+    +'<div class="bet-grid">'+cards.join('')+'</div>';
+}
+function _betSetSeason(s){ _BET.season=s; _BET.lines={}; _betPaint(); }
+function _betLine(k,dir){ _BET.lines[k]=Math.max(0.5,(_BET.lines[k]||0.5)+dir*0.5); _betPaint(); }
+
 async function renderBuzz(){
   const host=document.getElementById('buzzContent'); if(!host) return;
   const p=player||{}; const name=p.name||'This player';
@@ -5250,7 +5387,7 @@ async function renderScheme(){
     <div class="rk-foot" style="margin-top:14px;">Systems apply the same scheme scales the projection engine uses (pace, forced-TO havoc → steals, offensive-rebound rate → boards, assist rate → assists, shot-quality → FG%, 3PA lean). ${isFresh?'':'Neutral strips out '+esc(isTransfer?'his old team':player.team)+"'s system; "}efficiency & role are held constant so only the scheme moves.</div>`;
 }
 function switchTab(t){
-  const tabs=['overview','stats','shotcharts','rankings','scheme','percentiles','scout','nil','buzz','portalfit'];
+  const tabs=['overview','stats','shotcharts','rankings','scheme','percentiles','scout','nil','betting','buzz','portalfit'];
   const cur=tabs.map(x=>document.getElementById('panel-'+x)).find(el=>el&&el.classList.contains('active'));
   function activate(id){
     tabs.forEach(x=>{
@@ -5269,6 +5406,7 @@ function switchTab(t){
     if(id==='rankings')setTimeout(renderRankings,40);
     if(id==='scheme' && !window._schemeLoaded){ window._schemeLoaded=true; setTimeout(renderScheme,40); }
     if(id==='nil' && !window._nilLoaded){ window._nilLoaded=true; setTimeout(renderNilPlayer,40); }
+    if(id==='betting' && !window._bettingLoaded){ window._bettingLoaded=true; setTimeout(renderBetting,40); }
     if(id==='buzz' && !window._buzzLoaded){ window._buzzLoaded=true; setTimeout(renderBuzz,40); }
     if(id==='portalfit' && !window._portalLoaded){ window._portalLoaded=true; setTimeout(renderPortalFit,40); }
     if(id==='scout'){
