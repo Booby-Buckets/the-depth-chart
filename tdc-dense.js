@@ -255,12 +255,25 @@
   // box_scores is per-game truth, so it can only contain players who actually suited
   // up; player_history is then joined on espn_id purely for grade/position/height.
   function seasonRoster(full, season){
-    var _sel='&season_year=eq.'+season+'&select=player,espn_id,min&limit=1500';
+    var _sel='&season_year=eq.'+season+'&select=player,espn_id,min,team&limit=1500';
     var _bx=function(qq){ return fetch(SB+'box_scores?'+qq+_sel,{headers:HD}).then(function(r){return r.ok?r.json():[];}); };
     // box_scores keys the FULL ESPN name ("Utah State Aggies") but the ratings name can be
-    // shorter ("Utah State"); if the exact query is empty, prefix-match to catch the mascot.
+    // shorter ("Utah State"); if the exact query is empty, prefix-match to catch the mascot —
+    // but SAFELY: "Florida" also prefix-matches Florida State / Gulf Coast, so keep only the
+    // one team whose name minus its mascot IS the queried name (else no departures, not wrong ones).
     return _bx('team=eq.'+encodeURIComponent(full))
-      .then(function(bs){ return (bs&&bs.length)?bs:_bx('team=ilike.'+encodeURIComponent(full)+'*'); })
+      .then(function(bs){
+        if(bs&&bs.length) return bs;
+        return _bx('team=ilike.'+encodeURIComponent(full)+'*').then(function(bs2){
+          if(!bs2||!bs2.length) return [];
+          var names={}; bs2.forEach(function(r){ names[r.team]=1; });
+          var keys=Object.keys(names);
+          if(keys.length<=1) return bs2;
+          var fl=String(full).toLowerCase();
+          var pick=keys.filter(function(n){ return n.toLowerCase()===fl || n.split(' ').slice(0,-1).join(' ').toLowerCase()===fl; });
+          return pick.length===1 ? bs2.filter(function(r){ return r.team===pick[0]; }) : [];
+        });
+      })
       .then(function(bs){
         if(!bs||!bs.length) return [];
         var agg={};
