@@ -77,6 +77,59 @@ def fresh_fp(grade,group):
      'ast_pct':fp['ast_pct'],'orb_pct':fp['orb_pct'],'drb_pct':fp['drb_pct'],'stl_pct':fp['stl_pct'],
      'blk_pct':fp['blk_pct'],'bpm':fp['bpm'],'obpm':fp['obpm'],'dbpm':fp['dbpm'],'usg':fp['usg']}
     return fp2
+
+# ---- box line -> fingerprint, for players who have NEVER played D1 -------------------------
+# True freshmen / international / JUCO newcomers have no Player DNA. The user hand-enters their
+# projected per-game line in the depth chart (the `players` table), so the fingerprint must be
+# DRIVEN BY THOSE STATS (editing ppg/reb/blk must move the team). We map the projected line ->
+# BPM/OBPM/DBPM + advanced rates via bridges fit on 20yr of real players; fields the user leaves
+# blank fall back to the position-group median (not zero) so a sparse line isn't punished.
+_OBPM=[-6.1514,1.1412,0.1248,0.3748,-0.012,-0.631,0.1102,-0.0248]  # [1,pts36,reb36,ast36,ts,usg,mpg,grp]
+_DBPM=[-2.9322,0.9485,0.3385,0.0381,-0.0497,0.0145,0.2158]         # [1,stl%,blk%,drb%,orb%,ast%,grp]
+_GI={'G':0,'W':1,'B':2}
+_PRI={'G':{'stl_pct':2.0,'blk_pct':0.7,'orb_pct':2.8,'drb_pct':10.5,'ast_pct':14.0,'usg':19.8,'ts':53.9},
+      'W':{'stl_pct':1.7,'blk_pct':2.4,'orb_pct':7.4,'drb_pct':15.3,'ast_pct':8.7,'usg':18.6,'ts':56.6},
+      'B':{'stl_pct':1.3,'blk_pct':4.7,'orb_pct':9.8,'drb_pct':16.9,'ast_pct':7.4,'usg':17.2,'ts':59.2}}
+def _nf(v):
+    try: return float(v)
+    except (TypeError,ValueError): return None
+def box_to_fp(p, grp_, tempo):
+    G=grp_ if grp_ in 'GWB' else 'W'; pr=_PRI[G]; g=_GI[G]; T=float(tempo or 68.0)
+    m=_nf(p.get('mpg')) or 0
+    if m<4: return None
+    ppg=_nf(p.get('ppg')) or 0; rpg=_nf(p.get('rpg')) or 0; apg=_nf(p.get('apg'))
+    if ppg<=0 and not _nf(p.get('fga')): return None      # no usable projected line
+    spg=_nf(p.get('spg'));  spg=spg if spg is not None else _nf(p.get('stl'))
+    bpg=_nf(p.get('bpg'));  bpg=bpg if bpg is not None else _nf(p.get('blk'))
+    oreb=_nf(p.get('oreb')); dreb=_nf(p.get('dreb'))
+    if (oreb is None or dreb is None) and rpg:
+        orl={'G':0.22,'W':0.30,'B':0.34}[G]; oreb=rpg*orl; dreb=rpg*(1-orl)
+    tov=_nf(p.get('tovs')); tov=tov if tov is not None else (_nf(p.get('tov')) or ((apg or 1.5)*0.8+0.6))
+    fga=_nf(p.get('fga')); fta=_nf(p.get('fta')); fgm=_nf(p.get('fgm')); tpm=_nf(p.get('tpm')); tpa=_nf(p.get('tpa'))
+    def pn(v): v=_nf(v); return (v*100 if (v is not None and v<=1.5) else v)
+    ts=pn(p.get('ts_pct'))
+    if ts is None and fga and (fga+0.44*(fta or 0))>0: ts=100*ppg/(2*(fga+0.44*(fta or 0)))
+    if ts is None: ts=pr['ts']
+    efg=pn(p.get('efg_pct'))
+    if efg is None and fga: efg=100*((fgm or 0)+0.5*(tpm or 0))/fga
+    if efg is None: efg=ts-3.0
+    if not fga:
+        fgp=pn(p.get('fg_pct')) or (efg-4); fga=(ppg*0.62)/max(fgp/100,0.38); fta=ppg*0.22; tpa=fga*0.32
+    usg=pn(p.get('usage_pct'))
+    if usg is None and ppg: usg=max(10.0,min(34.0,7.0+0.85*(ppg*40/m)))
+    if usg is None: usg=pr['usg']
+    def rate(stat,factor,prior): return (100.0*stat*40.0/(m*T*factor)) if (stat is not None) else prior
+    stl_pct=rate(spg,1.0,pr['stl_pct']); blk_pct=rate(bpg,0.46,pr['blk_pct'])
+    orb_pct=rate(oreb,0.24,pr['orb_pct']); drb_pct=rate(dreb,0.76,pr['drb_pct']); ast_pct=rate(apg,0.40,pr['ast_pct'])
+    tov_pct=100*tov/(fga+0.44*(fta or 0)+tov) if (fga+0.44*(fta or 0)+tov)>0 else 15.0
+    tpa_rate=100*(tpa or 0)/fga if fga else 35.0
+    ftr=100*(fta or 0)/fga if fga else 30.0
+    pts36=ppg*36/m; reb36=rpg*36/m; ast36=(apg or 0)*36/m
+    obpm=_OBPM[0]+_OBPM[1]*pts36+_OBPM[2]*reb36+_OBPM[3]*ast36+_OBPM[4]*ts+_OBPM[5]*usg+_OBPM[6]*m+_OBPM[7]*g
+    dbpm=_DBPM[0]+_DBPM[1]*stl_pct+_DBPM[2]*blk_pct+_DBPM[3]*drb_pct+_DBPM[4]*orb_pct+_DBPM[5]*ast_pct+_DBPM[6]*g
+    return {'efg':efg,'ts':ts,'tpa_rate':tpa_rate,'ftr':ftr,'tov_pct':tov_pct,'ast_pct':ast_pct,
+            'orb_pct':orb_pct,'drb_pct':drb_pct,'stl_pct':stl_pct,'blk_pct':blk_pct,
+            'bpm':obpm+dbpm,'obpm':obpm,'dbpm':dbpm,'usg':usg}
 # player_dna lookup by espn_id (most recent season)
 def fp_by_espn(eid):
     for s in ["2026","2025","2024","2023"]:
@@ -94,7 +147,8 @@ for sc,(y,slug) in best.items():
 # ---- pull 2026-27 rosters ----
 rows=[];off=0
 while True:
-    b=json.load(urllib.request.urlopen(urllib.request.Request(SB+f"/rest/v1/players?select=team,name,espn_id,tdc_grade,mpg,position,height&name=neq.%E2%80%94&order=team.asc,name.asc,espn_id.asc&limit=1000&offset={off}",headers=H),timeout=60))
+    _cols="team,name,espn_id,tdc_grade,mpg,position,height,ppg,rpg,apg,spg,bpg,stl,blk,oreb,dreb,tovs,fga,fgm,fta,ftm,tpa,tpm,fg_pct,tp_pct,three_pct,ft_pct,efg_pct,ts_pct,usage_pct,bpm"
+    b=json.load(urllib.request.urlopen(urllib.request.Request(SB+f"/rest/v1/players?select={_cols}&name=neq.%E2%80%94&order=team.asc,name.asc,espn_id.asc&limit=1000&offset={off}",headers=H),timeout=60))
     if not b: break
     rows+=b; off+=1000
     if len(b)<1000: break
@@ -129,8 +183,18 @@ for team,roster in byteam.items():
         proj_ovr=(sp.get("ovr") if sp else None)
         q=(float(proj_ovr) if proj_ovr not in (None,"")
            else (float(g) if g not in (None,"") else None))
-        if fp0 is None and q is None: continue
-        fp=dict(fp0) if fp0 else fresh_fp(q,grp_)   # returner DNA, else projected-line fingerprint
+        tempo=(coachpace.get(team) or 68.0)
+        # Fingerprint priority: (1) real D1 Player DNA for returners/transfers; (2) for players
+        # who NEVER played D1, build it from their hand-entered projected line so stat edits move
+        # the rankings; (3) fall back to the stats-derived OVR (then grade) only when there is no
+        # usable projected line at all.
+        if fp0:
+            fp=dict(fp0)
+        else:
+            fp=box_to_fp(p, grp_, tempo)
+            if fp is None:
+                if q is None: continue
+                fp=fresh_fp(q, grp_)
         # Minutes: recorded mpg -> projected mpg -> quality-based estimate. A mid-quality rotation
         # player (72-77) on a ~12-man roster still plays real minutes, so floor above the 8-min bar.
         mp=p.get("mpg")
