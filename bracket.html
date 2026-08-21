@@ -164,12 +164,22 @@ async function buildProjectedNCAA(){
   const openWinners=[];
   const openBand=(pool,seed)=>{ for(let i=0;i+1<pool.length;i+=2){ pool[i]._seed=seed; pool[i+1]._seed=seed;
     games.push(mk(pool[i],pool[i+1],'Opening Round',0,null,PROJ_DATE.open));
-    const w=proj(pool[i],pool[i+1]); openWinners.push(w); } };
+    const w=proj(pool[i],pool[i+1]); w._playinSeed=seed; openWinners.push(w); } };
   const aqPlay=aqs.slice(-12), aqDirect=aqs.slice(0,aqs.length-12);
   const alPlay=atlarge.slice(-12), alDirect=atlarge.slice(0,atlarge.length-12);
   openBand(aqPlay.slice(0,4),15); openBand(aqPlay.slice(4),16);
   openBand(alPlay.slice(0,4),11); openBand(alPlay.slice(4),12);
-  const field=[...aqDirect,...alDirect,...openWinners].sort((a,b)=>b.rating-a.rating).slice(0,64);
+  // Build the field of 64 in SEED ORDER. A play-in (Opening Round) winner HOLDS the seed
+  // line it played on — a 12-vs-12 winner is a 12 seed, never re-seeded up by rating.
+  // Direct-entry teams fill the remaining slots on each line by rating rank.
+  const directTeams=[...aqDirect,...alDirect].sort((a,b)=>b.rating-a.rating);
+  const winnersBySeed={}; openWinners.forEach(w=>{ (winnersBySeed[w._playinSeed]=winnersBySeed[w._playinSeed]||[]).push(w); });
+  const field=[]; let _di=0;
+  for(let s=1;s<=16;s++){
+    const pins=winnersBySeed[s]||[]; const need=Math.max(0,4-pins.length);
+    directTeams.slice(_di,_di+need).forEach(t=>{ t._seed=s; field.push(t); }); _di+=need;
+    pins.forEach(t=>{ t._seed=s; field.push(t); });
+  }
   const permute=a=>a.length<=1?[a]:a.flatMap((v,i)=>permute(a.slice(0,i).concat(a.slice(i+1))).map(p=>[v,...p]));
   const PERMS=permute([0,1,2,3]);
   const regionTeams=[[],[],[],[]], regConf=[{},{},{},{}];
