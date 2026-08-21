@@ -287,11 +287,15 @@
         // fully translate when a transfer steps UP a level. Regress projected BPM by the size
         // of the jump from his old team's Power Rating to his new team's (capped; no boost for
         // stepping down). Keeps mid-major transfers from projecting like high-major starters.
-        if(isXfer && isFinite(projBpm)){
+        if(isXfer && isFinite(projBpm) && projBpm>0){
+          // Regress a transfer's PRODUCTION toward the mean by the size of the jump up a level
+          // — multiplicative so it scales with how much value he's projected to bring (a
+          // mid-major STAR sheds a lot, a modest role player barely moves and never goes
+          // negative). Only positive projections; no penalty for stepping down.
           const oldSrs=(adv && adv.team && isFinite(srsOf[adv.team]))?srsOf[adv.team]:0;
           const jump=newSrs-oldSrs;
-          if(jump>0) projBpm-=Math.min(5.5, jump*0.20);   // ~2x: the neutral-context blend above
-        }                                                  // adds ~half a mid-major's SRS penalty back
+          if(jump>0) projBpm*=(1-Math.min(0.5, jump*0.02));
+        }
         const isTr=!!(p.hometown&&(''+p.hometown).trim());
         const hasStats=(parseFloat(p.ppg)||0)>0;
         let min=(projMin&&projMin[i]!=null)?projMin[i]
