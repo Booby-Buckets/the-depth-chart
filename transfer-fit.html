@@ -292,7 +292,7 @@ async function boot(){
   ]);
   TEAMS=tn.teams||[];
   (Array.isArray(cp)?cp:[]).forEach(p=>{ if(p.coach_slug) PROFS[p.coach_slug]=p; });
-  (Array.isArray(tc)?tc:[]).forEach(x=>{ if(x.location) TC[(x.location||'').toLowerCase()]=x; });
+  (Array.isArray(tc)?tc:[]).forEach(x=>{ if(x.location) TC[(x.location||'').toLowerCase()]=x; if(x.display) TC[(x.display||'').toLowerCase()]=x; if(x.name) TC[(x.name||'').toLowerCase()]=TC[(x.name||'').toLowerCase()]||x; });
   if(dna&&typeof dna==='object'&&!Array.isArray(dna)){ const yrs=Object.keys(dna).sort(); if(yrs.length) _DNA=dna[yrs[yrs.length-1]]||{}; }
   if(window.TDCProjGrade){ try{ await TDCProjGrade.ready; }catch(e){} }
   if(window.TDC_ARCH){ try{ await TDC_ARCH.ready; }catch(e){} }
@@ -493,7 +493,7 @@ function show(){
 
   <div class="verdict" data-anim>
     <div class="vd-top"><div class="vd-score">${s.overall}<small>/100</small></div><div class="vd-label">${V[0]}</div></div>
-    <div class="vd-why">${esc(s.why||'')} <b>Projected role: ${esc(s.role)}.</b></div>
+    <div class="vd-why">${esc(s.why||'')} <b>Projected role: <span id="vdRole">${esc(s.role)}</span>.</b></div>
     <button class="sharebtn" onclick="shareReport()">↗ Share report</button>
   </div>
 
@@ -538,7 +538,7 @@ function show(){
     <div class="leap-row">
       ${brk?`<div class="leap-stat"><div class="n">${Math.round(brk.rate*100)}%</div><div class="d">of ${esc(style.name)}s who were young non-stars later became stars — his style’s track record.</div></div>`:''}
       ${devPctl!=null?`<div class="leap-stat"><div class="n">${devPctl}<span style="font-size:14px">th</span></div><div class="d">percentile — how strongly ${esc((dest.coach||'this staff').split(' ').slice(-1)[0])}’s staff has developed players year over year.</div></div>`:''}
-      <div class="leap-stat"><div class="n">${s.role.startsWith('Day')?'High':s.role.startsWith('Rotation')?'Some':'Limited'}</div><div class="d">opportunity to leap — driven by his projected role (${esc(s.role).toLowerCase()}) and touches available.</div></div>
+      <div class="leap-stat" id="leapOpp"><div class="n">${s.role.startsWith('Day')?'High':s.role.startsWith('Rotation')?'Some':'Limited'}</div><div class="d">opportunity to leap — driven by his projected role (${esc(s.role).toLowerCase()}) and touches available.</div></div>
     </div>
   </div>
 
@@ -559,6 +559,14 @@ function show(){
       const a=analyzeFit(p,roster,prof);
       if(ri) ri.innerHTML=renderRotation(a,dest,sameTeam);
       if(ti) ti.innerHTML=renderTeamImpact(a,dest,sameTeam);
+      // reconcile the verdict role + leap with the REAL depth-chart tier (the roster is now
+      // loaded), so a 3rd-string SG isn't also called a "Day-1 starter" up top / in leap.
+      const ROLE={starter:'Day-1 starter',rotation:'Rotation piece',depth:'Bench depth'};
+      const roleTxt=ROLE[a.tier]||s.role;
+      const vr=document.getElementById('vdRole'); if(vr) vr.textContent=roleTxt;
+      const lo=document.getElementById('leapOpp');
+      if(lo){ const opp=a.tier==='starter'?'High':a.tier==='rotation'?'Some':'Limited';
+        lo.innerHTML='<div class="n">'+opp+'</div><div class="d">opportunity to leap — driven by his projected role ('+esc(roleTxt.toLowerCase())+') and the touches available.</div>'; }
       if(sf) sf.innerHTML=renderStyle(a,p,dest);
       // team efficiency: show without → with him added (split the net swing across O/D by his lean)
       const dna2=_DNA[dest.full]||_DNA[dest.team]||null;
