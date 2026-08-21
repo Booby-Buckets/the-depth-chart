@@ -26,7 +26,7 @@
       ['predict.html',         'Projections'],
     ]],
     ['Players', [
-      ['roster.html',          'Player Grades'],
+      ['roster.html',          'Player Projected Stats'],
       ['recent-additions.html','Recent Additions'],
       ['transfer-fit.html',    'Transfer Fit'],
       ['compare-players.html', 'Compare Players'],
@@ -37,7 +37,7 @@
     ]],
     ['Analytics', [
       ['betting.html',                  '🎯 Betting Lab'],
-      ['analytics.html',                'Stats'],
+      ['analytics.html',                'Advanced Stats'],
       ['analytics.html?view=explorer',  'Stat Explorer'],
       ['analytics.html?view=teams',     'Team History'],
       ['analytics.html?view=landscape', 'League Landscape'],
