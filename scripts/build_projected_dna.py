@@ -140,6 +140,21 @@ for team,roster in byteam.items():
     dna["tempo"]=round(coachpace.get(team) or 68.0,1)
     dna["projected"]=True
     proj[(SHORT2FULL.get(team.lower()) or espn_key(team,teams26) or team)]=dna
+# ---- reconcile ORtg/DRtg with the trusted net ------------------------------
+# ORtg, DRtg and net are each predicted by a SEPARATE regression, so raw o-d does
+# not equal net and the offense model runs hot (pool mean o-d ~ +4 over mean net).
+# Ranked by raw ORtg that overvalues offense-leaning teams (a mid-major reads top-5
+# on offense while its adjusted net is mid-pack). Rebuild o/d from net + a damped
+# run-and-gun level around a realistic baseline so ORtg - DRtg == net for every
+# consumer of the projected DNA (homepage, team/offense/defense/matchup pages…).
+_pool=[t for t in proj.values() if all(k in t for k in ("ORtg","DRtg","net"))]
+if _pool:
+    _mid=sum((t["ORtg"]+t["DRtg"])/2 for t in _pool)/len(_pool)
+    _BASE,_LD=105.5,0.5
+    for t in _pool:
+        _lvl=((t["ORtg"]+t["DRtg"])/2 - _mid)*_LD
+        t["ORtg"]=round(_BASE+_lvl+t["net"]/2,1)
+        t["DRtg"]=round(_BASE+_lvl-t["net"]/2,1)
 # ---- national percentiles + win-path (weighted by 2026 win model) ----
 allt=list(proj.values()); n=len(allt)
 DIRS={"net":1,"ORtg":1,"DRtg":-1,"oeFG":1,"deFG":-1,"oTOV":-1,"dTOV":1,"oORB":1,"dDRB":1}

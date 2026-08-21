@@ -1719,22 +1719,9 @@ async function loadProjectedSeason(){
     ]);
     const boxFill={}; if(boxFillRaw) Object.keys(boxFillRaw).forEach(k=>boxFill[k.toLowerCase().trim()]=boxFillRaw[k]);
     // Offensive / defensive efficiency (per 100 poss) from the Team DNA engine, projected 2026-27.
+    // ORtg/DRtg/net are reconciled at the source (build_projected_dna.py) so o - d == net
+    // and offense-leaning teams are no longer overvalued by raw scoring — read them directly.
     const effLc = effByLc(await ensureEff(), '2027');
-    // Rationalize projected ORtg/DRtg. The DNA engine's `net` is well opponent-adjusted, but
-    // its raw o/d over-credit offense-leaning teams (a mid-major's ORtg can read top-5 while its
-    // adjusted net is only mid-pack — e.g. Colorado State). Rebuild o/d from the trusted `net`
-    // plus a damped run-and-gun tendency, anchored to a realistic pool baseline, so that
-    // (o - d) == net and the ORtg leaderboard tracks real team quality instead of raw scoring.
-    const _effVals = Object.values(effLc||{}).filter(e=>e&&e.net!=null&&e.o!=null&&e.d!=null);
-    const _midMean = _effVals.length ? _effVals.reduce((s,e)=>s+(e.o+e.d)/2,0)/_effVals.length : 105.4;
-    const EFF_BASE=105.5, EFF_LD=0.5;
-    function _ratEff(e){
-      if(!e||e.net==null||e.o==null||e.d==null) return null;
-      const level=((e.o+e.d)/2 - _midMean)*EFF_LD;
-      const o=+(EFF_BASE+level+e.net/2).toFixed(1);
-      const d=+(EFF_BASE+level-e.net/2).toFixed(1);
-      return { o, d, net:+(o-d).toFixed(1) };
-    }
     // Shot Genome team numbers (2025-26): Look Quality / Shot-Making / Creation, by full name
     const sgBy={}; ((sgTeams&&sgTeams.teams)||[]).forEach(t=>{ sgBy[(t.team||'').toLowerCase().trim()]=t; });
     // projected 2026-27 offense genome (preferred on this projected view; falls back to 2025-26)
@@ -1761,7 +1748,7 @@ async function loadProjectedSeason(){
         srs:+r.rating.toFixed(1), tier:null, rk:r.rank,
         projected:r.projected, allPlay:r.allPlay,
         shotluck:(r.shotLuck!=null?r.shotLuck:null),   // returners' shot-making luck (2026-27 only)
-        ...(function(){ const e=_ratEff(effLc[(r.full||'').toLowerCase().trim()]); return e?{ortg:e.o,drtg:e.d,net:e.net}:{ortg:null,drtg:null,net:null}; })(),
+        ...(function(){ const e=effLc[(r.full||'').toLowerCase().trim()]; return e?{ortg:e.o,drtg:e.d,net:(e.net!=null?e.net:+(e.o-e.d).toFixed(1))}:{ortg:null,drtg:null,net:null}; })(),
         ...(function(){ const k=(r.full||'').toLowerCase().trim(); const sg=sgProjBy[k]||sgBy[k];
           return sg?{ sglq:(sg.off?sg.off.lq:null), sgsm:(sg.off?sg.off.smAdj:null), sgcr:(sg.crAdjPg!=null?sg.crAdjPg:null) }
                   :{ sglq:null, sgsm:null, sgcr:null }; })(),
