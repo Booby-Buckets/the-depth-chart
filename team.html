@@ -1057,6 +1057,28 @@
     .hr-table tbody tr:hover td{background:color-mix(in srgb,var(--tc,#888) 8%,transparent);}
     .hr-ovr-chip{display:inline-block;min-width:34px;padding:3px 0;border-radius:7px;
       font-family:'Playfair Display',serif;font-weight:800;font-size:13px;line-height:1.2;text-align:center;}
+    /* ── Team Betting props board ──────────────────────────────────── */
+    .tbet-note{font-size:12px;color:var(--text3);line-height:1.5;margin:0 0 16px;max-width:680px;}
+    .tbet-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;}
+    table.tbet{width:100%;border-collapse:collapse;font-size:13px;min-width:640px;}
+    table.tbet thead th{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);padding:11px 10px;text-align:center;background:var(--bg2);border-bottom:1px solid var(--border);white-space:nowrap;}
+    table.tbet thead th.name{text-align:left;}
+    table.tbet thead th.sortable{cursor:pointer;user-select:none;}
+    table.tbet thead th.sortable:hover{color:var(--text);}
+    table.tbet thead th.on{color:var(--tc-readable,var(--accent));}
+    table.tbet tbody td{padding:9px 10px;border-bottom:1px solid var(--border);text-align:center;vertical-align:middle;}
+    table.tbet tbody tr:hover td{background:color-mix(in srgb,var(--tc,#888) 7%,transparent);}
+    table.tbet td.name{text-align:left;}
+    table.tbet td.name a{color:var(--text);font-weight:700;text-decoration:none;}
+    table.tbet td.name a:hover{color:var(--tc-readable,var(--accent));}
+    table.tbet td.name .pos{font-size:10px;color:var(--text3);font-weight:600;margin-left:6px;}
+    .tbet-cell .ln{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;}
+    .tbet-cell .pc{font-size:10px;font-weight:700;margin-top:3px;}
+    .tbet-cell.hi .pc{color:#22c55e;}.tbet-cell.lo .pc{color:#ef4444;}.tbet-cell .pc{color:var(--text3);}
+    .tbet-cell.best{position:relative;}
+    .tbet-cell.best .ln{color:var(--tc-readable,var(--accent));}
+    .tbet-cell.na{color:var(--text3);font-weight:600;}
+    .tbet-mut{font-size:11px;color:var(--text3);}
 </style>
   <script src="tdc-engine.js"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
@@ -1183,6 +1205,7 @@
       </div>
     </div>
     <button class="hero-tab" onclick="switchTab('nil',this)">NIL Value</button>
+    <button class="hero-tab" onclick="switchTab('betting',this)">Betting</button>
     <button class="hero-tab" onclick="switchTab('schedule',this)">Schedule</button>
     <button class="hero-tab" onclick="switchTab('losses',this)" style="display:none;">Losses</button>
     <button class="hero-tab" id="followTeamBtn" onclick="toggleTeamFollow()" style="display:flex;align-items:center;gap:6px;">☆ Follow</button>
@@ -1318,6 +1341,10 @@
     <div class="panel" id="panel-report">
       <div class="sec-head">Roster Report <span style="font-size:10px;font-weight:600;color:var(--text3);margin-left:8px;">AI scouting breakdown · starters · bench · second unit · coaching fit</span></div>
       <div id="reportContent"><div class="loading-state"><div class="loading-spinner"></div></div></div>
+    </div>
+    <div class="panel" id="panel-betting">
+      <div class="sec-head">Betting Props <span style="font-size:10px;font-weight:600;color:var(--text3);margin-left:8px;">roster prop board · lines &amp; over rates from last season's games · model based, not live odds</span></div>
+      <div id="teamBettingContent"><div class="loading-state"><div class="loading-spinner"></div></div></div>
     </div>
     <div class="panel" id="panel-dna">
       <div id="teamDnaHost"><div style="padding:24px;color:var(--text3);">Loading Team DNA…</div></div>
@@ -5675,6 +5702,7 @@ function switchTab(id, btn){
   if(id==='schedule') initSchedule();
   if(id==='report') renderRosterReport();
   if(id==='nil') renderNil();
+  if(id==='betting') renderTeamBetting();
 }
 
 // ── PAYWALL (Phase A) — team pages. The Depth Chart keeps the starting 5 as the free,
@@ -5683,6 +5711,7 @@ function switchTab(id, btn){
 // the Pro checkout link exists. Owner (coach) bypasses everything.
 var TAB_GATE = {
   nil:         { tier:'premium', label:'the NIL valuation', blurb:'See every player’s NIL market value and the roster’s total. Included with Premium — $4.99/mo.' },
+  betting:     { tier:'premium', label:'the betting board', blurb:'See every rotation player’s prop lines and over rates in one board. Included with Premium — $4.99/mo.' },
   losses:      { tier:'premium', label:'offseason losses', blurb:'See who this team lost and the impact. Included with Premium — $4.99/mo.' },
   dna:         { tier:'pro', label:'Team DNA', blurb:'The team’s statistical identity — four factors, shot quality and the winning engine. Included with Pro — $8.99/mo.' },
   onoff:       { tier:'pro', label:'On/Off', blurb:'How the team performs with each player on vs off the floor. Included with Pro — $8.99/mo.' },
@@ -6511,6 +6540,68 @@ function _lspAutoBuild(tries){
   if(typeof _lineupRotation==='function' && _lineupRotation().length){ loadLineupShotProfile(); return; }
   if((tries||0)<12) setTimeout(function(){_lspAutoBuild((tries||0)+1);}, 500);
 }
+
+// ── TEAM BETTING — roster prop board ──────────────────────────────────────────
+// A one-table board of every rotation player's prop lines + over rates for last
+// season's games (season_year 2026), computed client-side from box_scores keyed by
+// the roster's espn_ids (so returners AND transfers show their real production).
+// Each row links to that player's full Betting dashboard. Model based, not live odds.
+var _TBET={ box:null, sort:'pts' };
+var TBET_STATS=[
+  {k:'pts',lab:'PTS',get:function(g){return g.pts||0;}},
+  {k:'reb',lab:'REB',get:function(g){return g.reb||0;}},
+  {k:'ast',lab:'AST',get:function(g){return g.ast||0;}},
+  {k:'tpm',lab:'3PM',get:function(g){return g.tpm||0;}},
+  {k:'pra',lab:'P+R+A',get:function(g){return (g.pts||0)+(g.reb||0)+(g.ast||0);}}
+];
+function _tbetSuggest(vals){ var s=vals.slice().sort(function(a,b){return a-b;}); var m=s[Math.floor(s.length/2)]; var l=Math.round(m*2)/2; if(l===Math.round(l)) l-=0.5; return Math.max(0.5,l); }
+async function renderTeamBetting(){
+  var el=document.getElementById('teamBettingContent'); if(!el) return;
+  if(window._teamBettingLoaded){ _tbetPaint(); return; }
+  var seen={}, ids=[];
+  (teamPlayers||[]).forEach(function(p){ var e=p&&p.espn_id; if(e!=null&&e!==''&&!seen[e]){ seen[e]=1; ids.push(String(e)); } });
+  if(!ids.length){ el.innerHTML='<div class="tbet-mut" style="padding:30px;text-align:center;">No rostered players with game history yet.</div>'; return; }
+  el.innerHTML='<div class="loading-state"><div class="loading-spinner"></div></div>';
+  try{
+    var rows=await fetch(SB_URL+'/rest/v1/box_scores?espn_id=in.('+ids.join(',')+')&season_year=eq.2026&select=espn_id,player,min,pts,reb,ast,stl,blk,tpm&limit=8000',{headers:H}).then(function(r){return r.ok?r.json():[];});
+    _TBET.box=(rows||[]).filter(function(b){return (b.min||0)>0;});
+    window._teamBettingLoaded=true;
+    _tbetPaint();
+  }catch(e){ el.innerHTML='<div class="tbet-mut" style="padding:30px;text-align:center;">Could not load prop data.</div>'; }
+}
+function _tbetPaint(){
+  var el=document.getElementById('teamBettingContent'); if(!el) return;
+  var byP={}; (_TBET.box||[]).forEach(function(b){ (byP[b.espn_id]=byP[b.espn_id]||[]).push(b); });
+  // per-player prop profile
+  var players=[];
+  Object.keys(byP).forEach(function(eid){
+    var gms=byP[eid]; if(gms.length<5) return;   // rotation-caliber sample only
+    var props={};
+    TBET_STATS.forEach(function(st){
+      var vals=gms.map(st.get); var line=_tbetSuggest(vals);
+      var over=vals.filter(function(v){return v>line;}).length;
+      props[st.k]={line:line,pct:Math.round(100*over/vals.length),avg:vals.reduce(function(a,b){return a+b;},0)/vals.length};
+    });
+    var name=gms[gms.length-1].player||'—';
+    var rp=(teamPlayers||[]).filter(function(p){return String(p.espn_id)===String(eid);})[0]||{};
+    players.push({eid:eid,name:name,pos:rp.pos||rp.position||'',gp:gms.length,props:props,
+      bestKey:TBET_STATS.map(function(s){return s.k;}).reduce(function(a,b){return props[b].pct>props[a].pct?b:a;})});
+  });
+  if(!players.length){ el.innerHTML='<div class="tbet-mut" style="padding:30px;text-align:center;">Not enough game history for a prop board (players need ≥5 games last season).</div>'; return; }
+  players.sort(function(a,b){ return (b.props[_TBET.sort].avg)-(a.props[_TBET.sort].avg); });
+  var ths=TBET_STATS.map(function(st){ return '<th class="sortable '+(_TBET.sort===st.k?'on':'')+'" onclick="_tbetSort(&quot;'+st.k+'&quot;)">'+st.lab+' ▾</th>'; }).join('');
+  var body=players.map(function(p){
+    var cells=TBET_STATS.map(function(st){
+      var pr=p.props[st.k]; var cls=(pr.pct>=60?'hi':pr.pct<=40?'lo':'')+(st.k===p.bestKey?' best':'');
+      return '<td><div class="tbet-cell '+cls.trim()+'"><div class="ln">O '+pr.line.toFixed(1)+'</div><div class="pc">'+pr.pct+'% · '+pr.avg.toFixed(1)+'</div></div></td>';
+    }).join('');
+    return '<tr><td class="name"><a href="player.html?espn='+p.eid+'&tab=betting">'+p.name+'</a>'+(p.pos?'<span class="pos">'+p.pos+'</span>':'')+'</td><td>'+p.gp+'</td>'+cells+'</tr>';
+  }).join('');
+  el.innerHTML=
+    '<p class="tbet-note">Every rotation player’s suggested prop line, over rate, and average from <b>last season’s games</b>. Green = cleared the over 60%+ of the time, the accent number is each player’s strongest prop. Tap a column to sort; click a name for his full breakdown. Model &amp; trend based — not live sportsbook odds.</p>'
+    +'<div class="tbet-wrap"><table class="tbet"><thead><tr><th class="name">Player</th><th>GP</th>'+ths+'</tr></thead><tbody>'+body+'</tbody></table></div>';
+}
+function _tbetSort(k){ _TBET.sort=k; _tbetPaint(); }
 
 // ── LINEUP SHOT PROFILE — the current rotation's combined, minutes-weighted
 //    shot chart + shot flow (uses the shots we backfilled, keyed by espn_id) ──

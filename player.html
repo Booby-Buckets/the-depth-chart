@@ -6079,6 +6079,14 @@ function toggleTheme(){
 }
 (function(){document.documentElement.setAttribute('data-theme',localStorage.getItem('tdc_theme')||'light');})();
 init();
+// deep-link: ?tab=<id> opens that tab once it's built (e.g. from the team betting board)
+(function(){
+  try{ var want=new URLSearchParams(location.search).get('tab'); if(!want) return;
+    var tries=0, go=function(){ var b=document.getElementById('tab-'+want);
+      if(b){ try{ switchTab(want); }catch(e){} } else if(tries++<40){ setTimeout(go,150); } };
+    setTimeout(go,300);
+  }catch(e){}
+})();
 </script>
 
 <script>
