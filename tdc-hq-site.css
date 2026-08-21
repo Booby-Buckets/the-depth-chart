@@ -153,13 +153,34 @@
    the page's single container (.page / .wrap) as the bordered frosted stage +
    light labels. Scoped to body.hqsite so it never touches the homepage.
    ============================================================================ */
+/* Branded background — matches the homepage (index): a blurred animated colour
+   mesh + film grain, applied via body pseudo-elements so every hqsite page gets
+   it with no per-page markup. (Replaces the old flat hq-grunge texture.) */
 body.hqsite{
-  background-color:#1d2b47 !important;
-  background-image:url("hq-grunge.jpg?v=1") !important; background-size:cover !important;
-  background-position:center !important; background-attachment:fixed !important;
-  background-blend-mode:soft-light !important;
+  background-color:#f7f6f3 !important;
+  background-image:none !important;
 }
 :root[data-theme="dark"] body.hqsite{ background-color:#141d31 !important; }
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) body.hqsite{ background-color:#141d31 !important; } }
+body.hqsite::before{   /* animated colour mesh */
+  content:''; position:fixed; inset:-25%; z-index:-2; pointer-events:none;
+  background:
+    radial-gradient(38% 48% at 22% 26%, rgba(158,158,174,.30), transparent 62%),
+    radial-gradient(44% 52% at 80% 28%, rgba(128,128,146,.28), transparent 62%),
+    radial-gradient(50% 50% at 62% 80%, rgba(176,176,192,.32), transparent 62%),
+    radial-gradient(40% 44% at 14% 82%, rgba(116,116,134,.22), transparent 62%);
+  filter:blur(46px); opacity:.3; animation:tdcHqMesh 28s ease-in-out infinite alternate;
+}
+:root[data-theme="dark"] body.hqsite::before{ opacity:.45; }
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) body.hqsite::before{ opacity:.45; } }
+body.hqsite::after{    /* film grain */
+  content:''; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.4; mix-blend-mode:overlay;
+  background-size:170px 170px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@keyframes tdcHqMesh{0%{transform:translate(0,0) scale(1) rotate(0)}50%{transform:translate(2%,-2.5%) scale(1.08) rotate(2deg)}100%{transform:translate(-2%,2%) scale(1.03) rotate(-2deg)}}
+@media (prefers-reduced-motion:reduce){ body.hqsite::before{ animation:none; } }
+/* the homepage's own bg-layer divs stay hidden on hqsite (pseudo-mesh replaces them) */
 body.hqsite .tdc-bg, body.hqsite .tdc-mesh, body.hqsite .tdc-blob,
 body.hqsite .tdc-grain, body.hqsite .ambient-layer, body.hqsite .hero-orbs{ display:none !important; }
 
