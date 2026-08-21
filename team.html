@@ -5767,23 +5767,29 @@ function _teamDisplaySwitch(id, btn){
 // Partial gate on the Depth Chart: keep each column's starter (.dc-starter) as the free
 // preview (name · position · overall); hide the bench rows + the full-roster stats table
 // and drop in one Premium card. Runs after every renderHistoricRoster (initial + season).
-function _gateDepth(){
+function _gateDepth(season){
   if(!window.TDCGate) return;
   var run = function(){
     var dc = document.getElementById('depthContent'); if(!dc) return;
     if(TDCGate.has('premium')) return;                          // entitled → everything
-    // The full depth chart (whole rotation, every season) is FREE now. Only the content
-    // PAST the depth chart is gated: the per-player stats table + offseason losses.
+    // OLD (historical) seasons: the full depth chart is FREE. The NEW 2026-27 PROJECTED
+    // roster keeps the starting-5 free preview (the projected rotation is the paid value).
+    var isProjected = (+season||2027) >= 2027;
+    if(!isProjected){
+      var g0=dc.querySelector('.tdc-depth-gate'); if(g0) g0.remove();
+      dc.querySelectorAll('.dc-row, .hr-wrap').forEach(function(el){ el.style.display=''; });
+      var slw0=dc.querySelector('#seasonLossesWrap'); if(slw0) slw0.style.display='';
+      return;
+    }
+    dc.querySelectorAll('.dc-row:not(.dc-starter)').forEach(function(el){ el.style.display='none'; });
     dc.querySelectorAll('.hr-wrap').forEach(function(el){ el.style.display='none'; });
-    // Departures/losses render async into #seasonLossesWrap — hide the wrapper so it
-    // stays hidden whenever it's populated (offseason losses = Premium).
     var slw = dc.querySelector('#seasonLossesWrap'); if(slw) slw.style.display='none';
     if(!dc.querySelector('.tdc-depth-gate')){
       var grid = dc.querySelector('.dc-grid');
       var wrap = document.createElement('div'); wrap.className='tdc-depth-gate';
       wrap.style.cssText = 'display:flex;justify-content:center;padding:36px 18px 8px;';
-      wrap.appendChild(TDCGate.cardEl({ tier:'premium', label:'player stats & offseason losses',
-        blurb:'The full depth chart is free — Premium adds every player’s stats table, offseason losses and the deep analytics tabs. $4.99/mo.' }));
+      wrap.appendChild(TDCGate.cardEl({ tier:'premium', label:'the full 2026-27 depth chart',
+        blurb:'See the complete projected rotation, the bench and every player’s stats. Past seasons are free — this is the projected 2026-27 roster. Included with Premium — $4.99/mo.' }));
       if(grid && grid.parentNode) grid.parentNode.insertBefore(wrap, grid.nextSibling);
       else dc.appendChild(wrap);
     }
@@ -5793,7 +5799,7 @@ function _gateDepth(){
 (function(){
   if(typeof renderHistoricRoster === 'function'){
     var orig = renderHistoricRoster;
-    window.renderHistoricRoster = function(){ var r = orig.apply(this, arguments); try{ _gateDepth(); }catch(e){} return r; };
+    window.renderHistoricRoster = function(){ var r = orig.apply(this, arguments); try{ _gateDepth(arguments[1]); }catch(e){} return r; };
   }
 })();
 
