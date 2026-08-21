@@ -10,6 +10,12 @@ D=pathlib.Path(__file__).parent/"data"
 SB="https://izlqhnxowdhtdofkwrho.supabase.co"; K="sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
 H={"apikey":K,"Authorization":"Bearer "+K}
 PD=json.load(open(D/"player_dna.json")); TD=json.load(open(D/"team_dna.json"))
+# Projected 2026-27 per-player line (stats-derived OVR + projected minutes), keyed by espn_id.
+# Newcomers with no D1 Player DNA are fingerprinted from THIS (their projected stats), not from
+# the hand/display tdc_grade — a grade that disagrees with the projected line (e.g. a 90 on a
+# player projected to ~83) must not inflate the team DNA. Grade is only a last-resort fallback.
+try: SOP=json.load(open(D/"stat_overall_projected.json")).get("players",{})
+except Exception: SOP={}
 CP={c["coach_slug"]:c for c in json.load(open(D/"coach_profiles.json"))}
 CS=json.load(open(D/"coach_seasons.json"))
 ALIAS={"Connecticut":"UConn Huskies","Brigham Young":"BYU Cougars","Louisiana State":"LSU Tigers",
@@ -110,27 +116,28 @@ proj={}
 for team,roster in byteam.items():
     R=[]
     for p in roster:
+        eid=str(p["espn_id"]) if p.get("espn_id") not in (None,"") else None
         g=p.get("tdc_grade")
         h=htin(p.get("height")); grp_=grp(p.get("position"),h)
         fp0=fp_by_espn(p["espn_id"]) if p.get("espn_id") else None
-        # A rotation player whose roster grade never synced (a known Sheet->Supabase gap for
-        # transfers, e.g. Xaivian Lee -> Gonzaga) still has a real Player-DNA fingerprint. Keep
-        # them on their fingerprint instead of dropping the team below the 5-player DNA cutoff.
-        # Only truly skip when there is NEITHER a grade NOR a fingerprint (unknown newcomer).
-        if g in (None,""):
-            if fp0 is None: continue
-            g=None
-        else:
-            g=float(g)
-        fp=fp0
-        if fp: fp=dict(fp)
-        else: fp=fresh_fp(g,grp_)   # freshman / no D1 history
+        sp=SOP.get(eid) if eid else None            # projected 2026-27 stat line
+        # Newcomer quality that drives the estimated fingerprint: prefer the projection engine's
+        # stats-derived OVR (reflects the PROJECTED line) over the hand/display grade. Grade is
+        # only used when a player has no projected line at all (a true unknown). A rotation player
+        # whose grade never synced (Sheet->Supabase gap) still keeps their real Player-DNA
+        # fingerprint. Skip only when there is NEITHER DNA, NOR a projected OVR, NOR a grade.
+        proj_ovr=(sp.get("ovr") if sp else None)
+        q=(float(proj_ovr) if proj_ovr not in (None,"")
+           else (float(g) if g not in (None,"") else None))
+        if fp0 is None and q is None: continue
+        fp=dict(fp0) if fp0 else fresh_fp(q,grp_)   # returner DNA, else projected-line fingerprint
+        # Minutes: recorded mpg -> projected mpg -> quality-based estimate. A mid-quality rotation
+        # player (72-77) on a ~12-man roster still plays real minutes, so floor above the 8-min bar.
         mp=p.get("mpg")
-        # Graded player with no recorded mpg: default to a minutes estimate from grade.
-        # A mid-grade rotation player (72-77) on a ~12-man roster still plays real minutes,
-        # so floor them above the 8-min bar rather than at 6 (kept teams like Purdue/Texas
-        # Tech, whose returners' mpg is unfilled, from being dropped entirely).
-        if mp in (None,""): mp=(({ True:26}.get(g>=92) or (22 if g>=88 else 16 if g>=82 else 12 if g>=78 else 9 if g>=72 else 6)) if g is not None else 16)
+        if mp in (None,"") and sp and sp.get("proj_mpg") not in (None,""): mp=sp["proj_mpg"]
+        if mp in (None,""):
+            qq=q if q is not None else 77
+            mp=(26 if qq>=92 else 22 if qq>=88 else 16 if qq>=82 else 12 if qq>=78 else 9 if qq>=72 else 6)
         fp["mpg"]=float(mp)
         R.append(fp)
     F=rfeat(R, minn=5)   # projection is more permissive than the historical fit (6)
