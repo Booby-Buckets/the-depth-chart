@@ -171,7 +171,8 @@
     });
     g+='<text class="tc-ax" x="14" y="'+(H/2)+'" text-anchor="middle" transform="rotate(-90 14 '+(H/2)+')">OFFENSIVE RATING</text>';
     g+='</svg>';
-    var head='<div class="tc-legend"><span><i style="background:#8a8398"></i>Reg-season ORtg</span><span><i style="background:#fff;border:2px solid #888"></i>Tournament ORtg</span><span style="color:var(--text3)">how each team\'s offense held up in March</span></div>';
+    var _sy=(data[0]&&data[0].season)?((data[0].season-1)+'–'+(''+data[0].season).slice(2)):'';
+    var head='<div class="tc-legend"><span><i style="background:#8a8398"></i>Reg-season ORtg</span><span><i style="background:#fff;border:2px solid #888"></i>Tournament ORtg</span><span style="color:var(--text3)">how each team\'s offense held up in March'+(_sy?' · '+_sy:'')+'</span></div>';
     el.innerHTML=head+'<div class="tc-wrap tc-scroll">'+g+'</div>'; wireTip(el);
   }
 

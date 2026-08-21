@@ -18,7 +18,7 @@ SB="https://izlqhnxowdhtdofkwrho.supabase.co"
 KEY="sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
 HDR={"apikey":KEY,"Authorization":"Bearer "+KEY}
 D=os.path.join(os.path.dirname(__file__),"data")
-CUR=2026                                   # current season
+CUR=2026                                   # fallback; auto-detected below so it advances yearly
 
 def get(path):
     for a in range(5):
@@ -28,6 +28,16 @@ def get(path):
         except Exception as e:
             if a==4: raise
             time.sleep(2*(a+1))
+
+def _latest_ncaa_season(fb):
+    """Latest season with a completed NCAA tournament — so the 'offense held up in
+    March' + dropoff charts advance to the current year automatically each season."""
+    try:
+        r=get("postseason_games?tournament=eq.NCAA%20Tournament&select=season_year&order=season_year.desc&limit=1")
+        return int(r[0]["season_year"]) if r else fb
+    except Exception:
+        return fb
+CUR=_latest_ncaa_season(CUR)
 
 def get_all(path, page=1000):
     """paged fetch via Range header"""
@@ -145,7 +155,7 @@ def build_dropoff(quadrant, cur_rows):
         reg_ortg=regmap[team]["ortg"]
         out.append({"team":team,"team_id":regmap[team]["team_id"],"seed":regmap[team]["seed"],
             "reg":round(reg_ortg,1),"tny":round(tny_ortg,1),"diff":round(tny_ortg-reg_ortg,1),
-            "games":a["g"]})
+            "games":a["g"],"season":CUR})
     out.sort(key=lambda x:-x["reg"])
     return out
 
