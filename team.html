@@ -5771,8 +5771,9 @@ function _gateDepth(){
   if(!window.TDCGate) return;
   var run = function(){
     var dc = document.getElementById('depthContent'); if(!dc) return;
-    if(TDCGate.has('premium')) return;                          // entitled → full depth chart
-    dc.querySelectorAll('.dc-row:not(.dc-starter)').forEach(function(el){ el.style.display='none'; });
+    if(TDCGate.has('premium')) return;                          // entitled → everything
+    // The full depth chart (whole rotation, every season) is FREE now. Only the content
+    // PAST the depth chart is gated: the per-player stats table + offseason losses.
     dc.querySelectorAll('.hr-wrap').forEach(function(el){ el.style.display='none'; });
     // Departures/losses render async into #seasonLossesWrap — hide the wrapper so it
     // stays hidden whenever it's populated (offseason losses = Premium).
@@ -5781,8 +5782,8 @@ function _gateDepth(){
       var grid = dc.querySelector('.dc-grid');
       var wrap = document.createElement('div'); wrap.className='tdc-depth-gate';
       wrap.style.cssText = 'display:flex;justify-content:center;padding:36px 18px 8px;';
-      wrap.appendChild(TDCGate.cardEl({ tier:'premium', label:'the full depth chart',
-        blurb:'See the complete rotation, the bench and every player’s stats. Included with Premium — $4.99/mo.' }));
+      wrap.appendChild(TDCGate.cardEl({ tier:'premium', label:'player stats & offseason losses',
+        blurb:'The full depth chart is free — Premium adds every player’s stats table, offseason losses and the deep analytics tabs. $4.99/mo.' }));
       if(grid && grid.parentNode) grid.parentNode.insertBefore(wrap, grid.nextSibling);
       else dc.appendChild(wrap);
     }
