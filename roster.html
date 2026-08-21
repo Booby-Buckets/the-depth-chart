@@ -78,6 +78,18 @@
     .filter-count strong{color:var(--accent);}
     .clear-btn{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);background:none;border:none;cursor:pointer;padding:4px 8px;}
     .clear-btn:hover{color:var(--text);}
+    #queryToggle.on{color:var(--accent);border-color:var(--accent)!important;}
+    /* Query Builder panel */
+    .query-panel{padding:16px 40px;border-bottom:1px solid var(--border);background:var(--bg2);}
+    .q-title{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;}
+    .q-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
+    .q-row .filter-select{min-width:150px;}
+    .q-del{background:none;border:1px solid var(--border);color:var(--text3);border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:13px;flex-shrink:0;}
+    .q-del:hover{border-color:var(--red,#c22);color:var(--red,#c22);}
+    .q-actions{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap;}
+    .q-add{font-size:12px;font-weight:700;color:var(--accent);background:none;border:1px dashed var(--border2);border-radius:9px;padding:8px 15px;cursor:pointer;}
+    .q-add:hover{border-color:var(--accent);}
+    .q-sort{margin-left:auto;display:flex;gap:8px;align-items:center;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);}
 
     /* TABLE */
     .table-wrap{padding:0 40px 60px;overflow-x:auto;}
@@ -355,7 +367,21 @@ body{background:transparent!important;}
   </select>
   <input class="filter-input" type="text" id="searchInput" placeholder="Search player..." oninput="applyFilters()"/>
   <button class="clear-btn" onclick="clearFilters()">Clear</button>
+  <button class="clear-btn" id="queryToggle" onclick="toggleQuery()" style="border:1px solid var(--border);border-radius:8px;">⚙ Query Builder</button>
   <span class="filter-count" id="countEl"></span>
+</div>
+
+<div class="query-panel" id="queryPanel" style="display:none;">
+  <div class="q-title">Query Builder — add stat conditions to narrow the pool, then choose how to rank them</div>
+  <div id="queryRows"></div>
+  <div class="q-actions">
+    <button class="q-add" onclick="qAddCond()">+ Add condition</button>
+    <button class="clear-btn" onclick="qClear()">Reset query</button>
+    <div class="q-sort">Rank by
+      <select class="filter-select" id="qSortStat" onchange="qApplySort()"></select>
+      <select class="filter-select" id="qSortDir" onchange="qApplySort()"><option value="desc">High → Low</option><option value="asc">Low → High</option></select>
+    </div>
+  </div>
 </div>
 
 <div class="table-wrap">
@@ -650,6 +676,48 @@ async function loadData(){
   }
 }
 
+// ── QUERY BUILDER ─────────────────────────────────────────────────────────────
+// Add any number of stat conditions (stat ≥/≤ value) that AND together to narrow
+// the pool, then pick a stat to rank the survivors by. Feeds straight into
+// applyFilters() alongside the dropdown filters.
+var QSTATS=[
+  {k:'tdc_grade',l:'Overall (grade)'},{k:'wa',l:'Wins Added'},{k:'ppg',l:'Points / G'},
+  {k:'rpg',l:'Rebounds / G'},{k:'apg',l:'Assists / G'},{k:'mpg',l:'Minutes / G'},
+  {k:'fg_pct',l:'FG %'},{k:'tp_pct',l:'3P %'},{k:'ft_pct',l:'FT %'},{k:'tpm',l:'3PM / G'},
+  {k:'oreb',l:'Off Reb / G'},{k:'dreb',l:'Def Reb / G'},{k:'stl',l:'Steals / G'},
+  {k:'blk',l:'Blocks / G'},{k:'tovs',l:'Turnovers / G'},{k:'gp',l:'Games'}
+];
+var _qConds=[];
+function _qStatVal(p,k){ return k==='tdc_grade'?parseFloat(_gdisp(p)) : parseFloat(p[k]); }
+function toggleQuery(){
+  var p=document.getElementById('queryPanel'), btn=document.getElementById('queryToggle');
+  var open=p.style.display==='none'; p.style.display=open?'block':'none';
+  btn.classList.toggle('on',open);
+  if(open){
+    if(!document.getElementById('qSortStat').options.length){
+      document.getElementById('qSortStat').innerHTML=QSTATS.map(function(s){return '<option value="'+s.k+'">'+s.l+'</option>';}).join('');
+    }
+    if(!_qConds.length) _qConds.push({stat:'ppg',op:'gte',val:''});
+    renderQuery();
+  }
+}
+function qAddCond(){ _qConds.push({stat:'ppg',op:'gte',val:''}); renderQuery(); }
+function qDelCond(i){ _qConds.splice(i,1); renderQuery(); applyFilters(); }
+function qClear(){ _qConds=[]; renderQuery(); applyFilters(); }
+function qSet(i,field,val){ if(_qConds[i]){ _qConds[i][field]=val; renderQuery(); applyFilters(); } }
+function qApplySort(){ sortCol=document.getElementById('qSortStat').value; sortDir=(document.getElementById('qSortDir').value==='asc')?-1:1; applyFilters(); }
+function renderQuery(){
+  var rows=_qConds.map(function(c,i){
+    var opts=QSTATS.map(function(s){return '<option value="'+s.k+'"'+(s.k===c.stat?' selected':'')+'>'+s.l+'</option>';}).join('');
+    return '<div class="q-row">'
+      +'<select class="filter-select" onchange="qSet('+i+',&quot;stat&quot;,this.value)">'+opts+'</select>'
+      +'<select class="filter-select" style="min-width:120px" onchange="qSet('+i+',&quot;op&quot;,this.value)"><option value="gte"'+(c.op==='gte'?' selected':'')+'>is at least ≥</option><option value="lte"'+(c.op==='lte'?' selected':'')+'>is at most ≤</option></select>'
+      +'<input class="filter-input" style="width:100px" type="number" step="0.1" value="'+(c.val==null?'':c.val)+'" placeholder="value" oninput="qSet('+i+',&quot;val&quot;,this.value)">'
+      +'<button class="q-del" onclick="qDelCond('+i+')" title="remove condition">✕</button>'
+    +'</div>';
+  }).join('');
+  document.getElementById('queryRows').innerHTML=rows||'<div style="font-size:12px;color:var(--text3);">No conditions — showing all players. Add one below.</div>';
+}
 function applyFilters(){
   const conf   = document.getElementById('confFilter').value;
   const team   = document.getElementById('teamFilter').value;
@@ -674,6 +742,13 @@ function applyFilters(){
       if(isNaN(n) || n < min || n > max) return false;
     }
     if(search && !p.name.toLowerCase().includes(search) && !(p.team||'').toLowerCase().includes(search)) return false;
+    for(var qi=0;qi<_qConds.length;qi++){
+      var c=_qConds[qi]; if(c.val===''||c.val==null) continue;
+      var v=_qStatVal(p,c.stat), t=parseFloat(c.val);
+      if(isNaN(v)) return false;
+      if(c.op==='gte' && v<t) return false;
+      if(c.op==='lte' && v>t) return false;
+    }
     return true;
   });
 
@@ -855,6 +930,7 @@ function clearFilters(){
   ['confFilter','teamFilter','posFilter','yrFilter','htFilter','gradeFilter','waFilter']
     .forEach(id=>document.getElementById(id).value='');
   document.getElementById('searchInput').value='';
+  _qConds=[]; if(document.getElementById('queryPanel').style.display!=='none') renderQuery();
   applyFilters();
 }
 
