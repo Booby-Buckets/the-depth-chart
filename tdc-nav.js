@@ -33,7 +33,6 @@
       ['draft.html',           'Mock Draft'],
       ['development.html',     'Development'],
       ['archetypes.html',      'Archetypes'],
-      ['gradelist.html',       'Grade List'],
     ]],
     ['Analytics', [
       ['betting.html',                  '🎯 Betting Lab'],

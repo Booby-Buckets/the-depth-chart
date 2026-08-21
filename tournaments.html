@@ -278,7 +278,7 @@
   <link rel="stylesheet" href="tdc-hq-site.css?v=22"/>
 </head>
 <body data-anim-auto class="hqsite">
-<script src="tdc-nav.js?v=17"></script>
+<script src="tdc-nav.js?v=18"></script>
   <div class="nav-wrap">
     <div class="nav-top">
       <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
@@ -408,15 +408,15 @@ function _tournMark(cat,name,size){ const s=size||40;
   if(cat==='CONF'){ const cl=_confLogoFor(name);
     if(cl) return `<img class="tcard-emblem-img" src="${cl}" alt="" loading="lazy" style="width:${s}px;height:${s}px;">`; }
   return _emblem(cat,s); }
-let GAMES=[], curSeason=2025, curCat='', notableOnly=true;
+let GAMES=[], curSeason=2027, curCat='', notableOnly=true;
 
 function seasonLbl(y){ return `${y-1}–${(''+y).slice(2)}`; }
 
 let seasonCtl=null;
 (function initSeasons(){
-  curSeason=2025;
+  curSeason=2027;   // default to the 2026-27 projected postseason
   seasonCtl=TDCSeason.mount('#tdcSeasonSlot', {
-    min:2007, max:2027, current:2025, title:false, currentLabel:'',
+    min:2007, max:2027, current:2027, title:false, currentLabel:'',
     labelFn:(y)=> y===2027 ? '2026–27 · Projected' : seasonLbl(y),
     onChange:(y)=>{ curSeason=+y; loadSeason(); }
   });
@@ -636,7 +636,15 @@ function tournaments(){
 }
 function renderList(){
   const list=tournaments();
-  if(!list.length){ document.getElementById('tlist').innerHTML='<div class="loading">No tournaments match.</div>'; return; }
+  if(!list.length){
+    let msg='No tournaments match.';
+    if(curSeason===2027){
+      msg = (curCat==='MTE')
+        ? 'More MTE (early-season tournament) projections coming soon — for now the projected NCAA field is under “NCAA”.'
+        : 'More projected brackets (MTE, NIT, conference) coming soon. The projected NCAA field is under “NCAA”.';
+    }
+    document.getElementById('tlist').innerHTML='<div class="loading">'+msg+'</div>'; return;
+  }
   document.getElementById('tlist').innerHTML='<div class="tgrid">'+list.map((t,i)=>{
     const clogo=_tlogo(t.champ);
     return `<div class="tcard" onclick="openBracket('${t.name.replace(/'/g,"\\'")}')">
