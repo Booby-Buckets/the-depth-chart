@@ -290,8 +290,8 @@
         if(isXfer && isFinite(projBpm)){
           const oldSrs=(adv && adv.team && isFinite(srsOf[adv.team]))?srsOf[adv.team]:0;
           const jump=newSrs-oldSrs;
-          if(jump>0) projBpm-=Math.min(3.2, jump*0.11);
-        }
+          if(jump>0) projBpm-=Math.min(5.5, jump*0.20);   // ~2x: the neutral-context blend above
+        }                                                  // adds ~half a mid-major's SRS penalty back
         const isTr=!!(p.hometown&&(''+p.hometown).trim());
         const hasStats=(parseFloat(p.ppg)||0)>0;
         let min=(projMin&&projMin[i]!=null)?projMin[i]
