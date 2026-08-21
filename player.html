@@ -3854,7 +3854,6 @@ function renderPage(){
         <div class="scout-card-body">${buildStatNarrative(p, proj, scout)}</div>
       </div>
       <div id="archetypeContent" style="margin-top:36px;"></div>
-      <div id="spectrumSection" style="margin-top:36px;"></div>
     </div>
 
     <!-- BUZZ TAB (headlines + social) -->
@@ -5579,12 +5578,6 @@ function switchTab(t){
     if(id==='portalfit' && !window._portalLoaded){ window._portalLoaded=true; setTimeout(renderPortalFit,40); }
     if(id==='scout'){
       setTimeout(renderArchetype,60);
-      // Stat Explorer was drawn in a hidden panel (0-size canvas) — redraw once
-      // the container actually has width, retrying briefly to beat layout timing.
-      var _rsTries=0, _rsGo=function(){ var w=document.querySelector('#panel-scout .exp-chart');
-        if(w&&w.getBoundingClientRect().width>0){ try{renderSpectrum();}catch(e){} }
-        else if(_rsTries++<12){ setTimeout(_rsGo,80); } };
-      setTimeout(_rsGo,140);
     }
     setTimeout(function(){ growBarsIn(document.getElementById('panel-'+id)); }, 80);
   }
