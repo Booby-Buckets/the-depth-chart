@@ -250,6 +250,11 @@
     const rows=[];
     Object.keys(byTeam).forEach(short=>{
       const roster=byTeam[short];
+      // new team's own Power Rating (2025-26 SRS) — the level this roster projects INTO.
+      // Used both for the program-anchor blend below and the transfer level-of-comp discount.
+      const full=matchFull(short, tsRows, confOf[short])||short;
+      const prior=srsOf[full];
+      const newSrs=isFinite(prior)?prior:0;
       // PROJECTED minutes from the depth-chart-calibrated model (same one team/player
       // pages use), so the rating weights each player by his projected ROLE, not last
       // season's minutes — a benched transfer stops counting as a starter. Falls back to
@@ -278,6 +283,15 @@
           bpm=bpm-deluck;
         }
         let projBpm=isFinite(bpm)?(0.635+0.785*bpm+(CLS_BUMP[c]||0)):((grade-77)*0.55-0.6);
+        // LEVEL-OF-COMPETITION discount: production earned against a weaker schedule doesn't
+        // fully translate when a transfer steps UP a level. Regress projected BPM by the size
+        // of the jump from his old team's Power Rating to his new team's (capped; no boost for
+        // stepping down). Keeps mid-major transfers from projecting like high-major starters.
+        if(isXfer && isFinite(projBpm)){
+          const oldSrs=(adv && adv.team && isFinite(srsOf[adv.team]))?srsOf[adv.team]:0;
+          const jump=newSrs-oldSrs;
+          if(jump>0) projBpm-=Math.min(3.2, jump*0.11);
+        }
         const isTr=!!(p.hometown&&(''+p.hometown).trim());
         const hasStats=(parseFloat(p.ppg)||0)>0;
         let min=(projMin&&projMin[i]!=null)?projMin[i]
@@ -305,8 +319,6 @@
       // team shot luck: minutes-weighted eFG-over-quality of the rotation's returners
       const sgEnt=rot.filter(e=>e.hasSg); const sgMin=sgEnt.reduce((s,e)=>s+e.min,0);
       const shotLuck=sgMin?+(sgEnt.reduce((s,e)=>s+e.luckEfg*e.min,0)/sgMin).toFixed(1):null;
-      const full=matchFull(short, tsRows, confOf[short])||short;
-      const prior=srsOf[full];
       const cAdj=coachAdjOf[short]||0;
       const cont=(contData&&contData[short])?contData[short].continuity:null;
       const contAdj=cont!=null?+Math.max(-CONT_CAP,Math.min(CONT_CAP,CONT_K*(cont-CONT_BASE))).toFixed(2):0;
