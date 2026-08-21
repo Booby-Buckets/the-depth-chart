@@ -169,14 +169,17 @@
       var diff=(pMk + K*base)/(pAtt + K) - base;
       var zc=isThree?'sc-zt':(dh<=4?'sc-zr':'sc-zm');
       if(b.synth){
-        // full-size, faint, no interaction — pure surface fill
-        g+='<path class="sc-mark sc-hex sc-synth '+zc+'" style="animation-delay:'+Math.min(idx*7,700)+'ms" d="'+hexPath(cx,cy,px(HS)*0.98)+'" fill="'+effColor(diff)+'" stroke="rgba(10,8,20,.22)" stroke-width="0.5"/>';
+        // interior gap-fill: SMALL + faint (they carry zero volume, so in a volume-sized
+        // map they must read as the smallest cells) — a subtle continuity hint, not a
+        // full-size tile that would flatten the size signal.
+        g+='<path class="sc-mark sc-hex sc-synth '+zc+'" style="animation-delay:'+Math.min(idx*7,700)+'ms" d="'+hexPath(cx,cy,px(HS)*0.50)+'" fill="'+effColor(diff)+'" stroke="rgba(10,8,20,.18)" stroke-width="0.4"/>';
         idx++; return;
       }
-      // SIZE: cells now tessellate (high floor) so they touch and cover the court;
-      // volume only nudges the radius, so the paint bulges into a blob while the
-      // perimeter stays a continuous tiled surface — no more floating tallies.
-      var rp=Math.min(px(HS)*1.16, px(HS)*(0.90+0.30*Math.sqrt(b.att/maxAtt)));
+      // SIZE = SHOT VOLUME (the whole point of the hexbin): radius spans a WIDE range so
+      // high-volume zones read as big cells and thin zones as small ones. sqrt keeps it
+      // perceptually fair (area ∝ attempts). Was 0.90–1.16 (a ~29% span — every hex looked
+      // identical, so the size legend was a lie); now 0.48–1.18 (radius >2× → area >5×).
+      var rp=Math.min(px(HS)*1.18, px(HS)*(0.48+0.82*Math.sqrt(b.att/maxAtt)));
       // tooltip carries the RAW numbers (pipe-delimited; wire() builds the card)
       var rawFg=b.mk/b.att, rawDiff=rawFg-base;
       var tip=(rawFg*100).toFixed(1)+'|'+distLabel(dh,isThree)+'|'+b.mk+'/'+b.att+'|'+(base*100).toFixed(1)+'|'+(rawDiff>=0?'+':'')+(rawDiff*100).toFixed(1)+'|'+(rawDiff>=0?'1':'0');
@@ -505,6 +508,7 @@
       '.sc-mark{transform-box:fill-box;transform-origin:center;transition:transform .16s cubic-bezier(.34,1.56,.64,1),opacity .2s;animation:scPop .4s cubic-bezier(.34,1.56,.64,1) backwards;cursor:pointer;}'+
       '.sc-mark:hover{transform:scale(1.9);}'+
       '.sc-hex:hover{stroke:var(--accent);stroke-width:1.6;}'+
+      '.sc-synth{opacity:.45;pointer-events:none;}'+
       '.sc-host.sc-hl .sc-mark{opacity:.07;}'+
       '.sc-host.sc-hl-rim .sc-zr,.sc-host.sc-hl-mid .sc-zm,.sc-host.sc-hl-three .sc-zt{opacity:1;}'+
       '.sc-tip{position:absolute;pointer-events:none;background:var(--text);color:var(--bg);font-size:11px;font-weight:700;padding:5px 9px;border-radius:7px;transform:translate(-50%,-100%);opacity:0;transition:opacity .12s;white-space:nowrap;z-index:20;box-shadow:0 6px 18px rgba(0,0,0,.3);}'+

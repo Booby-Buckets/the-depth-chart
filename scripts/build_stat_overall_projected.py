@@ -333,8 +333,14 @@ for short, roster in roster_by_team.items():
         # over-regression guard — proven returner (>=400 last-yr min) keeping his role
         # (projected mpg >= 85% of last) can't fall more than PROJ_MAXDROP below his
         # demonstrated grade. Transfers excluded (their drop is the real level jump).
-        if not xfer and last_min>=400 and pm>=last_mpg*0.85:
-            ovr=max(ovr,int(r["demo"])-PROJ_MAXDROP)
+        # A proven returner (>=400 last-yr min) can't fall far below his demonstrated grade
+        # from projection alone. If his projected ROLE GROWS (>=5% more minutes), he can't
+        # fall below it AT ALL — a player stepping into a bigger role shouldn't be graded down
+        # just because the team-usage constraint redistributed possessions to teammates (this
+        # was tanking efficiency/defense bigs like Tugler: +19% minutes but proj OVR demo-2).
+        if not xfer and last_min>=400:
+            if pm>=last_mpg*1.05:   ovr=max(ovr,int(r["demo"]))                 # bigger role → floor at demonstrated
+            elif pm>=last_mpg*0.85: ovr=max(ovr,int(r["demo"])-PROJ_MAXDROP)    # role held → within maxdrop
         out[str(e)]={
             "ovr":ovr,"demo_ovr":int(r["demo"]),"proj_mpg":round(pm,1),"last_mpg":round(last_mpg,1),
             "dev_mult":round(dm,3),"proj_usg":round(r["proj_usg"],1),"last_usg":round(r["last_usg"],1),

@@ -564,7 +564,13 @@ function loadRoster(row){
       var go=function(){
         var arr=ps.map(function(p){
           var ov=window.TDCProjGrade?TDCProjGrade.gradeSolo(p):(parseFloat(p.tdc_grade)||null);
-          var last=parseFloat(p.tdc_grade); if(!isFinite(last)) last=null;
+          // "Last yr" must be on the SAME scale as "Proj" (the statistical overall), NOT the raw
+          // tdc_grade — else a held/rising projection reads as a drop (Tugler tdc 89 vs proj 87).
+          // gradeSolo on a demonstrated (2026-tagged) row returns his EARNED overall last season.
+          var last=null;
+          if(window.TDCProjGrade){ var dr={}; for(var kk in p) dr[kk]=p[kk]; dr.season_year=2026;
+            var lv=TDCProjGrade.gradeSolo(dr); if(lv!=null&&isFinite(lv)) last=lv; }
+          if(last==null){ var t=parseFloat(p.tdc_grade); if(isFinite(t)) last=t; }
           return {name:p.name,pos:p.pos,cls:(p.yr||p.class_year||p.class||''),ov:(ov!=null&&isFinite(ov))?Math.round(ov):null,last:last!=null?Math.round(last):null};
         }).filter(function(x){ return x.ov!=null && x.name; }).sort(function(a,b){ return b.ov-a.ov; });
         if(!arr.length){ pe.innerHTML='<div class="hx-empty">No graded players on file yet.</div>'; le.innerHTML='<div class="hx-empty">No graded players on file for this roster yet.</div>'; return; }
