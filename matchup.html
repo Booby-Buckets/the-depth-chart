@@ -16,7 +16,7 @@
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=2"></script>
   <script src="auth.js?v=shotlock1"></script>
-  <script src="tdc-gate.js?v=3" data-gate="coach" data-label="Projected Game Plan"></script>
+  <script src="tdc-gate.js?v=3" data-gate="coach" data-label="Projected Game Spread"></script>
   <script src="tdc-glossary.js?v=12"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -90,7 +90,7 @@
     .gph span{font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;}
     .gph::after{content:'';flex:1;height:1px;background:var(--border);}
     .kmwrap,.tape{border:1px solid var(--border);border-radius:13px;background:var(--bg2);overflow:hidden;}
-    .kmhead,.kmrow{display:grid;grid-template-columns:34px 1fr 46px 1fr;gap:8px;align-items:center;padding:9px 15px;}
+    .kmhead,.kmrow{display:grid;grid-template-columns:58px 1fr 46px 1fr;gap:8px;align-items:center;padding:9px 15px;}
     .kmhead{border-bottom:1px solid var(--border);}
     .kmhead span{font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
     .kmhead span:nth-child(3){text-align:center;}
@@ -165,7 +165,7 @@
   </script>
   <script src="tdc-nav.js?v=18"></script>
   <div class="page">
-    <h1 data-anim>Projected Game Plan</h1>
+    <h1 data-anim>Projected Game Spread</h1>
     <div class="sub" data-anim>Pick your two teams and a venue for the full projection: final score & win probability, the position-by-position matchups from both projected rotations, a team-vs-team tale of the tape, and how each side wins the game — all off the same roster-based engine as the rankings. Neutral court by default.</div>
 
     <div class="picks" data-anim>
@@ -310,7 +310,7 @@ async function loadGamePlan(a,b,favA,L){
     const diff=(m&&o)?(m.ovr-o.ovr):null;
     const side=(pl,edge)=>pl?`<div class="kmp ${edge?'edge':''}"><div class="kmn">${esc(pl.name)}</div><div class="kms">${pl.ovr} OVR · ${pl.ppg.toFixed(1)}p</div></div>`:`<div class="kmp"><div class="kmn" style="color:var(--text3)">—</div></div>`;
     const edgeTxt = diff==null?'—':(diff>0?'+'+diff:diff), edgeCol = diff==null?'var(--text3)':(diff>0?cA:diff<0?cB:'var(--text3)');
-    return `<div class="kmrow"><div class="kmpos" style="font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase">${lab}</div>${side(m,diff!=null&&diff>=3)}<div class="kmvs" style="color:${edgeCol}">${edgeTxt}</div>${side(o,diff!=null&&diff<=-3)}</div>`; }).filter(Boolean).join('');
+    return `<div class="kmrow"><div class="kmpos" style="font-size:8.5px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;line-height:1.2;white-space:normal;">${lab}</div>${side(m,diff!=null&&diff>=3)}<div class="kmvs" style="color:${edgeCol}">${edgeTxt}</div>${side(o,diff!=null&&diff<=-3)}</div>`; }).filter(Boolean).join('');
   // ── tale of the tape (team_dna pct, projected 2027) ──
   const dz=t=>(DNA&&DNA['2027']&&DNA['2027'].teams&&DNA['2027'].teams[t.full])||null;
   const da=dz(a), db=dz(b); let tapeHtml='';
