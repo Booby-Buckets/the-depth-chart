@@ -1,0 +1,53 @@
+name: Rebuild projected DNA
+
+# Regenerates the 2026-27 projected team DNA (ORtg/DRtg/net) from the LIVE rosters in
+# Supabase — so depth-chart edits (freshman/newcomer projected stat lines) flow into the
+# homepage projected rankings — then re-slims team_eff.json and commits, which triggers a
+# Vercel deploy. Runs the same two builders you'd run locally:
+#   build_projected_dna.py  (roster -> fingerprint -> team DNA, reconciled so o-d == net)
+#   build_team_eff.py       (slim ORtg/DRtg/net file the homepage reads)
+#
+# Triggered manually from the owner console (via the rebuild-projections edge function),
+# from the Actions tab, or `gh workflow run rebuild-projections.yml`.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rebuild-projections
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install deps
+        run: pip install numpy
+
+      - name: Rebuild projected DNA from live rosters
+        run: python3 scripts/build_projected_dna.py
+
+      - name: Re-slim team_eff.json
+        run: python3 scripts/build_team_eff.py
+
+      - name: Commit if changed
+        run: |
+          git config user.name "tdc-proj-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/data/team_dna.json scripts/data/team_eff.json
+          if git diff --cached --quiet; then
+            echo "No projection changes."
+          else
+            git commit -m "Auto: rebuild projected DNA from rosters [skip ci]"
+            git push
+          fi

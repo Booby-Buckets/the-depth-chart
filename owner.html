@@ -115,6 +115,13 @@
       </div>
 
       <div class="card">
+        <h2>🔁 Rebuild projections</h2>
+        <div class="desc">Re-runs the projection model against your <b>live rosters</b> so depth-chart edits — a newcomer's projected stat line, a roster move — flow into the projected <b>ORtg / DRtg / net</b> on the homepage. Kicks off a GitHub Actions job that rebuilds <b>team_dna.json / team_eff.json</b> and deploys (~1–2 min). Run this after editing projected stats.</div>
+        <button class="btn" id="rebuildBtn" onclick="rebuildProjections(this)">Rebuild projections</button>
+        <div class="status" id="rebuildStatus"></div>
+      </div>
+
+      <div class="card">
         <h2>🔗 Owner workflows</h2>
         <div class="desc">Jump to the tools where owner-only edits live (freshman projections, depth charts, portal fit).</div>
         <div class="links">
@@ -219,6 +226,29 @@
         var n=(data&&data.teams&&data.teams.length)||0;
         st(s,'✓ Published '+n+' teams. Live for every visitor now.','ok');
         loadRatingsMeta();
+      })
+      .catch(function(e){ st(s,'✗ Failed: '+((e&&e.message)||e),'err'); })
+      .then(function(){ btn.disabled=false; });
+  }
+
+  function rebuildProjections(btn){
+    var s=document.getElementById('rebuildStatus');
+    var tok=ownerToken();
+    if(!tok){ st(s,'You must be signed in as the owner.','err'); return; }
+    btn.disabled=true;
+    st(s,'Starting the rebuild job…','busy');
+    fetch(SB+'/functions/v1/rebuild-projections',{
+      method:'POST',
+      headers:{ apikey:ANON, Authorization:'Bearer '+tok, 'Content-Type':'application/json' }
+    })
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); })
+      .then(function(res){
+        if(res.ok && res.j && res.j.ok){
+          var link=res.j.runsUrl?(' <a href="'+res.j.runsUrl+'" target="_blank" rel="noopener">Watch it run →</a>'):'';
+          st(s,'✓ Rebuild started. team_dna / team_eff update &amp; deploy in ~1–2 min.'+link,'ok');
+        } else {
+          st(s,'✗ '+((res.j&&res.j.error)||'Could not start the rebuild.'),'err');
+        }
       })
       .catch(function(e){ st(s,'✗ Failed: '+((e&&e.message)||e),'err'); })
       .then(function(){ btn.disabled=false; });
