@@ -1499,6 +1499,16 @@ async function loadTeam(name){
       else if(hs.indexOf('waiver')===0){ p.is_waiver=true; p.hometown=''; }
     });
     let players = await pr.json();
+    // Roster name-format fallback: a few sheet entries use a hyphen where the page derives
+    // a space (players table "NC-State" vs the page's "NC State"). If the exact-name query
+    // came back empty, retry with spaces<->hyphens swapped so the roster still loads.
+    if((!Array.isArray(players)||!players.length) && /[ -]/.test(name)){
+      const alts=[]; if(name.indexOf('-')>=0) alts.push(name.replace(/-/g,' ')); if(name.indexOf(' ')>=0) alts.push(name.replace(/ /g,'-'));
+      for(const alt of alts){
+        try{ const p2=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(alt)}&select=*&order=depth_order.asc&limit=500`,{headers:H}).then(r=>r.ok?r.json():[]);
+          if(Array.isArray(p2)&&p2.length){ players=p2; break; } }catch(e){}
+      }
+    }
     // Dedupe the roster at the source — the players table occasionally carries a
     // player twice (e.g. a freshman entered at two depth slots). One row each keeps
     // him off two columns on the depth chart / customize tab and out of double-counts.
