@@ -426,7 +426,16 @@
   function gradeRoster(roster){
     if(!roster || !roster.length) return [];
     var quals = roster.map(function(p){
-      var g = parseFloat(p.tdc_grade); if(!isFinite(g)) return null;
+      var g = parseFloat(p.tdc_grade);
+      if(!isFinite(g)){
+        // No hand grade yet (e.g. a just-added transfer the owner hasn't graded — Jaxon
+        // Kohler). Fall back to the STATISTICAL overall (by espn_id) so he still earns a
+        // role/minutes off his real history instead of being zeroed out of the rotation.
+        // A true freshman with no played season isn't in the stat map → stays null (his
+        // editor OVR should already be in tdc_grade before this is called).
+        var sv = _statOvrOf(p);
+        return (sv != null && isFinite(sv)) ? sv : null;
+      }
       return g;   // NO conference discount in the grade — the level is ALREADY priced into the
                   // projected stat LINE this grade is built on (the projection engine discounts a
                   // transfer's production for the jump). Discounting the grade too double-counts.
@@ -440,7 +449,7 @@
     // touching the grade (which still fully reflects level).
     var mQuals = roster.map(function(p, i){
       if(quals[i] == null) return null;
-      var g = parseFloat(p.tdc_grade);
+      var g = quals[i];   // resolved grade (tdc_grade, or stat-overall fallback for the ungraded)
       var base = g - Math.min(_levelDisc(_originConf(p)), MIN_LEVEL_CAP);
       var mpg = parseFloat(p.mpg) || 0;
       if(mpg >= 6){
