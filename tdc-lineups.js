@@ -34,11 +34,28 @@ window.TDC_LINEUPS = (function () {
     if (v >= 15) return { t: 'Elite', c: '#1f9d57' }; if (v >= 8) return { t: 'Strong', c: '#2bb673' };
     if (v >= 2) return { t: 'Positive', c: '#6bbf8a' }; if (v > -2) return { t: 'Neutral', c: '#8a93a3' };
     if (v > -8) return { t: 'Soft', c: '#e0885a' }; return { t: 'Bleeds', c: '#e06552' }; }
+  // Canonical team match. The data is keyed by FULL ESPN names ("Florida Gators");
+  // the caller may pass a full OR a short name ("Florida"). A loose startsWith()
+  // conflated sibling programs that share a name prefix — Florida vs Florida
+  // Atlantic vs Florida State, Utah vs Utah State, Colorado vs Colorado State —
+  // arbitrarily returning whichever appeared first (FAU under Florida). Resolve
+  // both sides to their canonical SHORT school via tdcShortSchool and require an
+  // exact short-school match; only fall back to a loose prefix when it identifies
+  // exactly one team (never guess among siblings).
+  function _shortSchool(s) { try { return (window.tdcShortSchool ? window.tdcShortSchool(s) : s) || s; } catch (e) { return s; } }
+  function _pickTeam(t, full) {
+    if (t[full]) return t[full];                                    // exact full-name key
+    var nf = norm(full), k;
+    for (k in t) { if (norm(k) === nf) return t[k]; }               // exact (normalized)
+    var sf = norm(_shortSchool(full));
+    if (sf) { for (k in t) { if (norm(_shortSchool(k)) === sf) return t[k]; } }  // canonical short school
+    var hits = [];                                                  // last resort: UNIQUE loose prefix only
+    for (k in t) { var nk = norm(k); if (nk.indexOf(nf) === 0 || nf.indexOf(nk) === 0) hits.push(k); }
+    return hits.length === 1 ? t[hits[0]] : null;
+  }
   function lookup(d, season, full) {
-    var t = d[season] || {}; if (t[full]) return t[full];
-    var nf = norm(full);
-    for (var k in t) { var nk = norm(k); if (nk === nf || nk.indexOf(nf) === 0 || nf.indexOf(nk) === 0) return t[k]; }
-    return [];
+    var t = d[season] || {};
+    return _pickTeam(t, full) || [];
   }
   // full-fidelity combos precomputed by build_pbp_analytics.py (all units, not top-12)
   var _c = null, _cp = null;
@@ -50,10 +67,8 @@ window.TDC_LINEUPS = (function () {
     return _cp;
   }
   function combosLookup(cd, season, full) {
-    var t = (cd && cd[season]) || {}; if (t[full]) return t[full];
-    var nf = norm(full);
-    for (var k in t) { var nk = norm(k); if (nk === nf || nk.indexOf(nf) === 0 || nf.indexOf(nk) === 0) return t[k]; }
-    return null;
+    var t = (cd && cd[season]) || {};
+    return _pickTeam(t, full);   // canonical short-school match (see _pickTeam) — no sibling-prefix mixups
   }
   // team_dna → team-level schedule strength. adjust_team_dna.py stores an opponent-
   // adjusted team net (adjNet); the schedule delta (adjNet − raw net) is the team's SoS
@@ -68,8 +83,8 @@ window.TDC_LINEUPS = (function () {
     return _dnap;
   }
   function sosDeltaFor(dna, season, full) {
-    var t = (dna && dna['' + season] && dna['' + season].teams) || {}, e = t[full];
-    if (!e) { var nf = norm(full); for (var k in t) { var nk = norm(k); if (nk === nf || nk.indexOf(nf) === 0 || nf.indexOf(nk) === 0) { e = t[k]; break; } } }
+    var t = (dna && dna['' + season] && dna['' + season].teams) || {};
+    var e = _pickTeam(t, full);   // same canonical match, so SoS lands on the right sibling
     return (e && e.adjNet != null && e.net != null) ? Math.round((e.adjNet - e.net) * 10) / 10 : null;
   }
   // player positions for EVERYONE who played the team's season (incl. players who've
