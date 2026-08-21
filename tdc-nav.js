@@ -38,7 +38,6 @@
       ['betting.html',                  '🎯 Betting Lab'],
       ['analytics.html',                'Advanced Stats'],
       ['analytics.html?view=explorer',  'Stat Explorer'],
-      ['analytics.html?view=teams',     'Team History'],
       ['analytics.html?view=landscape', 'League Landscape'],
       ['shot-genome.html',              'Shot Genome'],
       ['onoff.html',                    'On / Off'],

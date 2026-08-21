@@ -209,7 +209,7 @@
   <script src="tdc-pwa.js?v=2" defer></script>
 </head>
 <body>
-<script src="tdc-nav.js?v=18"></script>
+<script src="tdc-nav.js?v=19"></script>
 <div class="page">
   <div class="eyebrow" data-anim>⇄ Transfer Portal</div>
   <h1 data-anim>Transfer Fit Report</h1>
@@ -358,7 +358,7 @@ const _bw=g=>Math.max(8,Math.min(100,Math.round((g-50)/42*100)));
 function renderRotation(a,dest,sameTeam){
   const rows=a.depthList.map(d=>`<div class="drow ${d.me?'me':''}"><span class="dname">${esc(d.name)}${d.me?'<span class="dtag">HIM</span>':''}</span><span class="dbar"><span style="width:${_bw(d.grade)}%"></span></span><span class="dg">${d.grade}</span></div>`).join('');
   let line;
-  if(a.tier==='starter') line=a.prevStarter?`Projects as ${esc(dest.team)}’s starting ${a.myPos} — his ${a.myGrade} OVR tops their best there now (${esc(a.prevStarter.name)}, ${a.prevStarter.grade}).`:`Projects as the ${esc(dest.team)} starting ${a.myPos} — no established ${a.myPos} ahead of him.`;
+  if(a.tier==='starter') line=(a.prevStarter&&a.prevStarter.grade>a.myGrade)?`Projected to start at ${a.myPos} for ${esc(dest.team)} — the projected rotation has him in the top unit even though ${esc(a.prevStarter.name)} (${a.prevStarter.grade}) grades a touch higher.`:a.prevStarter?`Projects as ${esc(dest.team)}’s starting ${a.myPos} — his ${a.myGrade} OVR tops their best there now (${esc(a.prevStarter.name)}, ${a.prevStarter.grade}).`:`Projects as the ${esc(dest.team)} starting ${a.myPos} — no established ${a.myPos} ahead of him.`;
   else if(a.tier==='rotation') line=`Cracks the rotation at ${a.myPos} — ${a.prevStarter?`behind ${esc(a.prevStarter.name)} (${a.prevStarter.grade})`:'in the mix'}, but a clear rotation piece (#${a.myRank} on the roster by projected OVR).`;
   else line=`A crowded ${a.myPos} room — ${a.ahead.length} project ahead of him (${a.ahead.slice(0,2).map(x=>esc(x.name)).join(', ')}${a.ahead.length>2?'…':''}). Lands as depth, not rotation.`;
   const badge=a.tier==='starter'?'Starter':a.tier==='rotation'?'Rotation':'Depth';
@@ -557,6 +557,11 @@ function show(){
     const ri=document.getElementById('rotaImpact'), ti=document.getElementById('teamImpact'), sf=document.getElementById('styleFit'), om=document.getElementById('ourMetrics');
     if(roster.length){
       const a=analyzeFit(p,roster,prof);
+      // Role by PROJECTED MINUTES — the same projection that yields his ppg line and the
+      // team-page depth chart. A 30-mpg projection is a starter even if a teammate grades
+      // a touch higher; the raw grade-rank tier alone mislabeled starters as "bench depth".
+      const _pmpg=(s.proj&&isFinite(+s.proj.mpg))?+s.proj.mpg:null;
+      if(_pmpg!=null) a.tier = _pmpg>=24?'starter' : _pmpg>=11?'rotation' : 'depth';
       if(ri) ri.innerHTML=renderRotation(a,dest,sameTeam);
       if(ti) ti.innerHTML=renderTeamImpact(a,dest,sameTeam);
       // reconcile the verdict role + leap with the REAL depth-chart tier (the roster is now
