@@ -24,7 +24,7 @@
   function addLogos(){
     document.querySelectorAll('#rankingsList .tr-team-name:not([data-dl])').forEach(function(a){
       a.setAttribute('data-dl','1');
-      var url=logoFor(a.textContent); if(!url) return;
+      var url=logoFor(a.getAttribute('data-tn')||a.textContent); if(!url) return;
       var cell=a.closest('.tr-team-cell')||a.parentNode;
       var img=document.createElement('img');
       img.src=url; img.alt=''; img.className='tr-dlogo'; img.loading='lazy';

@@ -2019,7 +2019,7 @@ function renderRows(data, srt, favTeam, favColor, favBg){
     <div class="team-row${isFav?' fav-row':''}" style="--row-color:${t.color};${isFav&&favColor?`border-left:3px solid ${favColor};background:${favBg};`:''}">
       <div class="tr-rank-wrap"><div class="tr-rank${t.rk===1?' rank-1':t.rk===2?' rank-2':t.rk===3?' rank-3':''}">${t.rk}</div></div>
       <div class="tr-team-cell">
-        <a class="tr-team-name" href="program-hq.html?team=${encodeURIComponent(t.short)}${curSeason===2027?'':'&season='+curSeason}" style="color:inherit;text-decoration:none;">${_shortNm(t.short||t.name)}</a>
+        <a class="tr-team-name" data-tn="${(t.short||t.name||'').replace(/"/g,'&quot;')}" href="program-hq.html?team=${encodeURIComponent(t.short)}${curSeason===2027?'':'&season='+curSeason}" style="color:inherit;text-decoration:none;">${_shortNm(t.short||t.name)}</a>
         <div class="tr-team-conf"><span class="conf-badge">${confAbbr(t.confName)}</span>${tierBadge(t.tier)}${t.projected===false?'<span class="conf-badge" title="No synced roster yet — regressed carryover of the 2025-26 rating" style="opacity:.65;">carry</span>':''}</div>
         <div class="tr-meta-mobile"><b>${Math.round(t.winpct*100)}%</b> ${t.gp?'Win':'All-Play'}<i>·</i><b>${t.ppg?t.ppg.toFixed(1):'—'}</b> PPG</div>
       </div>
@@ -2732,7 +2732,7 @@ function toggleTheme(){
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 })();
 </script>
-  <script src="tdc-dense.js?v=33"></script>
+  <script src="tdc-dense.js?v=34"></script>
 <script>
 /* A11y: the rankings is a CSS-grid table (divs), so give it ARIA table semantics —
    screen readers then announce it as a real table (columns, headers, row navigation)
