@@ -72,7 +72,10 @@
     // Counting stats sit on small bases (apg~1.3, stl~0.7, blk~0.2), so a pure
     // multiplier barely moves them. Each gets a raw additive term too, so 50→100
     // is a real swing. line() still caps every category to a believable ceiling.
-    line.ppg*=m('scoring',0.45);                                    // overall shot volume / usage
+    // Scoring volume — the headline lever, so make it genuinely swing the ppg: a
+    // stronger multiplier PLUS a raw points term (like the counting stats). A 74 with
+    // scoring maxed lands ~12 ppg, not a timid ~5.5. line() still caps ppg at a ceiling.
+    line.ppg=Math.max(0.4, line.ppg*m('scoring',0.6) + a('scoring', 5.5) );
     line.tp_pct+=a('three',11);                                     // 3-point %
     line.fg_pct+=a('mid',4)+a('paint',6);                          // mid-range jumper + rim finishing both lift 2pt FG%
     line.oreb*=m('paint',0.35); line.ppg*=m('paint',0.10);         // paint = putbacks + rim scoring
