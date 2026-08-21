@@ -255,9 +255,12 @@
   // box_scores is per-game truth, so it can only contain players who actually suited
   // up; player_history is then joined on espn_id purely for grade/position/height.
   function seasonRoster(full, season){
-    return fetch(SB+'box_scores?team=eq.'+encodeURIComponent(full)+'&season_year=eq.'+season
-        +'&select=player,espn_id,min&limit=1500',{headers:HD})
-      .then(function(r){return r.ok?r.json():[];})
+    var _sel='&season_year=eq.'+season+'&select=player,espn_id,min&limit=1500';
+    var _bx=function(qq){ return fetch(SB+'box_scores?'+qq+_sel,{headers:HD}).then(function(r){return r.ok?r.json():[];}); };
+    // box_scores keys the FULL ESPN name ("Utah State Aggies") but the ratings name can be
+    // shorter ("Utah State"); if the exact query is empty, prefix-match to catch the mascot.
+    return _bx('team=eq.'+encodeURIComponent(full))
+      .then(function(bs){ return (bs&&bs.length)?bs:_bx('team=ilike.'+encodeURIComponent(full)+'*'); })
       .then(function(bs){
         if(!bs||!bs.length) return [];
         var agg={};
