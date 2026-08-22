@@ -34,7 +34,7 @@
   <script src="tdc-shotchart.js?v=15"></script>
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-portalfit.js?v=needs8"></script>
-  <script src="tdc-chemistry.js?v=7"></script>
+  <script src="tdc-chemistry.js?v=8"></script>
   <script src="tdc-advstats.js?v=1"></script>
   <style>
     :root{--bg: #FAF9F6;--bg2: #F1EFEA;--bg3: #E6E3DB;--border: #DEDACF;--border2: #C6C0B2;--text: #1A1814;--text2: #4A463C;--text3: #8A867A;--accent: #A8843C;--teal:#3f8d7d;--green:#1a8c3a;--red:#cc2200;--blue:#1a5fbf;}
@@ -1700,9 +1700,19 @@ function _coachOpts(t){
 }
 // the team's original TDC metrics (Look Quality / SM+ / Creation from the shot
 // genome, Net efficiency from Team DNA) for the Lineup Chemistry stat strip
-async function _chemStats(s, y){
+async function _chemStats(s, y, isCurrent){
   if(!s) return null;
   const out={};
+  if(isCurrent){
+    // 2026-27 PROJECTED signature genome (offense) — from returning players' shot
+    // profiles, keyed by full team name. Defense genome + a forward net-efficiency
+    // number aren't projected (they depend on next season's opponents), so the strip
+    // shows the three offensive genome metrics only.
+    const pg=await _ensureSgProj().catch(()=>null);
+    const g=pg && s.team ? pg[s.team] : null;
+    if(g&&g.off){ out.lq=g.off.lq; out.lqPct=g.off.pct?g.off.pct.lq:null; out.sm=g.off.smAdj; out.smPct=g.off.pct?g.off.pct.smAdj:null; out.cr=g.crAdjPg; out.crPct=g.crPct; out._proj=true; }
+    return (out.lq!=null)?out:null;
+  }
   const map=await _ensureSgTeams().catch(()=>null);
   if(map && y===2026 && s.team_id!=null){
     const g=map[s.team_id];
@@ -1717,7 +1727,7 @@ async function _fillTeamChem(r1,r2,t1,t2,c1,c2,s1,s2,y1,y2){
   const rows1=(r1&&r1.rows)||[], rows2=(r2&&r2.rows)||[];
   if(window.TDCChem){   // full lineup-identity + synergy court (shared engine)
     await _ensureCoachProfiles().catch(()=>{});
-    const [st1,st2]=await Promise.all([_chemStats(s1,y1), _chemStats(s2,y2)]);
+    const [st1,st2]=await Promise.all([_chemStats(s1,y1,!t1._isHistory), _chemStats(s2,y2,!t2._isHistory)]);
     if(e1) TDCChem.render(e1, rows1, {coach:_coachOpts(t1), stats:st1});
     if(e2) TDCChem.render(e2, rows2, {coach:_coachOpts(t2), stats:st2});
     if(em) TDCChem.renderMatchup(em, rows1, rows2, {nameA:(t1&&t1.name)||'Team A', nameB:(t2&&t2.name)||'Team B', colorA:c1, colorB:c2});
@@ -2204,6 +2214,16 @@ function _ensureSgTeams(){
     if(!j||!j.teams) return null; const m={}; j.teams.forEach(t=>{ if(t.team_id!=null) m[t.team_id]=t; }); window._sgtById=m; return m;
   }).catch(()=>null);
   return _sgtPromise;
+}
+// ── PROJECTED 2026-27 shot genome (offense only), keyed by FULL team name ──
+let _sgProjPromise=null;
+function _ensureSgProj(){
+  if(window._sgProj27) return Promise.resolve(window._sgProj27);
+  if(_sgProjPromise) return _sgProjPromise;
+  _sgProjPromise=fetch('scripts/data/shot_genome_projected.json?v=1').then(r=>r.ok?r.json():null).then(j=>{
+    const m=(j&&j['2027'])||{}; window._sgProj27=m; return m;
+  }).catch(()=>{ window._sgProj27={}; return window._sgProj27; });
+  return _sgProjPromise;
 }
 function _advShortNm(n){ return (window.tdcShortSchool&&window.tdcShortSchool(n))||n||'—'; }
 function _advHeadline(svA,svB,ddA,ddB,n1,n2,c1,c2){

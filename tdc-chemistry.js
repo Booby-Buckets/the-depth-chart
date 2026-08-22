@@ -322,7 +322,8 @@
       tile('Creation',s.cr,s.crPct,function(v){return v.toFixed(1);}),
       tile('Net Eff',s.net,null,function(v){return (v>0?'+':'')+v.toFixed(1);}) ].filter(Boolean).join('');
     if(!body) return '';
-    return '<div class="chm-stats"><div class="chm-stats-h">Signature Metrics <span>· original TDC stats, 2025-26</span></div><div class="chm-stats-row">'+body+'</div></div>';
+    var _lbl = s._proj ? 'projected 2026-27' : 'original TDC stats, 2025-26';
+    return '<div class="chm-stats"><div class="chm-stats-h">Signature Metrics <span>· '+_lbl+'</span></div><div class="chm-stats-row">'+body+'</div></div>';
   }
   // position-by-position read for a team-vs-team matchup
   function positionMatchup(sA, sB){
