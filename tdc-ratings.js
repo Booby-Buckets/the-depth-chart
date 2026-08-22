@@ -209,16 +209,18 @@
     ]);
     const hcaOf=(hcaData&&hcaData.teams)||{};
     const confOf={}; (teams||[]).forEach(t=>{ confOf[t.name]=t.conf||t.conference||''; });
-    // LEVEL-OF-COMPETITION penalty: the roster projection and coach-lift are both built
-    // on production/results against a team's own schedule, so a mid-major whose league is
-    // far weaker than the power conferences projects too high (Saint Louis, Utah State kept
-    // landing top-15). Dock the final rating by how far its conference's strength sits below
-    // the strongest league — power teams pay ~0, the weaker the league the larger the tax.
+    // LEVEL-OF-COMPETITION regression, applied at the SOURCE (per player, on projected BPM)
+    // rather than as a flat team tax. A mid-major's production is earned against a weaker
+    // schedule, so its top teams' projected rosters run too high (Saint Louis, Utah State kept
+    // landing top-15). Discount each rotation player's positive projected BPM by how far his
+    // LEAGUE sits below the HIGH-MAJOR line — so the tax targets the inflated top-of-conference
+    // rosters (scaled by the value each player brings) and leaves modest mid-major teams alone.
+    // Above the high-major line (top 7 leagues: Big 12…Pac-12) the gap is 0 → power teams untouched.
     const CONF_STR=(levelData&&levelData.conf_strength)||{}, TEAM_CONF=(levelData&&levelData.team_conf)||{};
-    const CONF_TOP=(levelData&&levelData.top)||23.5, LEVEL_K=0.20;
-    function levelPenFor(full){
+    const LEVEL_HM=19.5, LEVEL_BPM_K=0.05, LEVEL_BPM_MAX=0.45;   // high-major line; per-SRS-gap haircut; cap
+    function levelGapFor(full){
       const cf=TEAM_CONF[full]; const str=(cf!=null)?CONF_STR[cf]:null;
-      return (str==null)?0:+(LEVEL_K*Math.max(0, CONF_TOP-str)).toFixed(2);
+      return (str==null)?0:Math.max(0, LEVEL_HM-str);
     }
     // teams.head_coach is maintained from the roster sheet, so it reflects offseason
     // hires the Sports-Reference scrape hasn't seen yet — that's the whole point here.
@@ -267,6 +269,8 @@
       const full=matchFull(short, tsRows, confOf[short])||short;
       const prior=srsOf[full];
       const newSrs=isFinite(prior)?prior:0;
+      // this team's strength-of-competition haircut on projected BPM (0 for high-major leagues)
+      const levelDisc=Math.min(LEVEL_BPM_MAX, LEVEL_BPM_K*levelGapFor(full));
       // PROJECTED minutes from the depth-chart-calibrated model (same one team/player
       // pages use), so the rating weights each player by his projected ROLE, not last
       // season's minutes — a benched transfer stops counting as a starter. Falls back to
@@ -308,6 +312,10 @@
           const jump=newSrs-oldSrs;
           if(jump>0) projBpm*=(1-Math.min(0.5, jump*0.02));
         }
+        // STRENGTH-OF-COMPETITION regression (all rotation players on a sub-high-major team):
+        // scale positive projected BPM down by the league's distance below the high-major line,
+        // so a top mid-major's inflated roster regresses toward reality. Never flips a sign.
+        if(isFinite(projBpm) && projBpm>0 && levelDisc>0) projBpm*=(1-levelDisc);
         const isTr=!!(p.hometown&&(''+p.hometown).trim());
         const hasStats=(parseFloat(p.ppg)||0)>0;
         let min=(projMin&&projMin[i]!=null)?projMin[i]
@@ -356,13 +364,13 @@
           }
         }
       }
-      const levelPen=levelPenFor(full);   // conference strength-of-competition tax
+      // (strength-of-competition now regresses the roster BPM per-player above, so no flat team tax)
       const rating=(((prior!=null)?(BLEND_ROSTER*rosterRating+(1-BLEND_ROSTER)*(ANCHOR*prior))
-                                 :rosterRating) + cAdj + contAdj) - scePen - levelPen;
+                                 :rosterRating) + cAdj + contAdj) - scePen;
       rows.push({team:short, full, conf:confOf[short]||'', rating:+rating.toFixed(2), coachAdj:cAdj,
         contAdj:contAdj, continuity:cont,
         roster:+rosterRating.toFixed(2), prior:prior!=null?+prior.toFixed(1):null, projected:true,
-        scePen:scePen||0, levelPen:levelPen||0, shotLuck:shotLuck, hcaOff:hcaOf[full]!=null?hcaOf[full]:0});
+        scePen:scePen||0, levelDisc:+levelDisc.toFixed(3), shotLuck:shotLuck, hcaOff:hcaOf[full]!=null?hcaOf[full]:0});
     });
     // non-rostered D1 teams: regressed carryover of last season's SRS
     const covered=new Set(rows.map(r=>r.full));
