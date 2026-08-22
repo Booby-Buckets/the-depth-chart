@@ -196,7 +196,7 @@
   // canonical projected rankings — same stat-derived currency as returners.
   let _ovr=null;
   async function compute(){
-    const [teams, players, bb, ts, hcaData, coachData, sgData, contData]=await Promise.all([
+    const [teams, players, bb, ts, hcaData, coachData, sgData, contData, levelData]=await Promise.all([
       fetch(SB+'/rest/v1/teams?select=name,conf,conference,head_coach,coach&limit=500',{headers:H}).then(r=>r.json()),
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,rpg,depth_order,is_injured,hometown&order=id.asc'),
       fetchPaged(SB+'/rest/v1/player_advanced?season_year=eq.2026&espn_id=not.is.null&select=espn_id,team,ts_pct,efg_pct,tp_pct,ft_pct,pts40,reb40,ast40,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,stl_pct,blk_pct,ti40&order=espn_id.asc'),
@@ -205,9 +205,21 @@
       fetch('data/coach-careers.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/shot_genome_players.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('data/continuity.json').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('scripts/data/level_adj.json').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
     const hcaOf=(hcaData&&hcaData.teams)||{};
     const confOf={}; (teams||[]).forEach(t=>{ confOf[t.name]=t.conf||t.conference||''; });
+    // LEVEL-OF-COMPETITION penalty: the roster projection and coach-lift are both built
+    // on production/results against a team's own schedule, so a mid-major whose league is
+    // far weaker than the power conferences projects too high (Saint Louis, Utah State kept
+    // landing top-15). Dock the final rating by how far its conference's strength sits below
+    // the strongest league — power teams pay ~0, the weaker the league the larger the tax.
+    const CONF_STR=(levelData&&levelData.conf_strength)||{}, TEAM_CONF=(levelData&&levelData.team_conf)||{};
+    const CONF_TOP=(levelData&&levelData.top)||23.5, LEVEL_K=0.20;
+    function levelPenFor(full){
+      const cf=TEAM_CONF[full]; const str=(cf!=null)?CONF_STR[cf]:null;
+      return (str==null)?0:+(LEVEL_K*Math.max(0, CONF_TOP-str)).toFixed(2);
+    }
     // teams.head_coach is maintained from the roster sheet, so it reflects offseason
     // hires the Sports-Reference scrape hasn't seen yet — that's the whole point here.
     const cn=s=>(''+(s||'')).toLowerCase().replace(/[.'`]/g,'').replace(/\s+/g,' ').trim();
@@ -344,12 +356,13 @@
           }
         }
       }
+      const levelPen=levelPenFor(full);   // conference strength-of-competition tax
       const rating=(((prior!=null)?(BLEND_ROSTER*rosterRating+(1-BLEND_ROSTER)*(ANCHOR*prior))
-                                 :rosterRating) + cAdj + contAdj) - scePen;
+                                 :rosterRating) + cAdj + contAdj) - scePen - levelPen;
       rows.push({team:short, full, conf:confOf[short]||'', rating:+rating.toFixed(2), coachAdj:cAdj,
         contAdj:contAdj, continuity:cont,
         roster:+rosterRating.toFixed(2), prior:prior!=null?+prior.toFixed(1):null, projected:true,
-        scePen:scePen||0, shotLuck:shotLuck, hcaOff:hcaOf[full]!=null?hcaOf[full]:0});
+        scePen:scePen||0, levelPen:levelPen||0, shotLuck:shotLuck, hcaOff:hcaOf[full]!=null?hcaOf[full]:0});
     });
     // non-rostered D1 teams: regressed carryover of last season's SRS
     const covered=new Set(rows.map(r=>r.full));
