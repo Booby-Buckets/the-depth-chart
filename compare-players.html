@@ -1904,6 +1904,45 @@ async function _phKeyFor(fullName){
 }
 // season roster for a program: player_history first, bbref (indexed slug) when
 // that season was never scraped — same fallback chain as the team page.
+// The 2026-27 PROJECTED roster for a CURRENT program: the live `players` table
+// (which carries this season's additions/transfers/freshmen), graded with the
+// forward-looking projected OVR (gradeSolo) and, where available, the projected
+// stat line (stat_overall_projected.json by espn_id). This is what should show for
+// a team picked on its "2026-27 · Projected" season instead of last year's roster.
+let _soProjLine=undefined;
+async function _projLineMap(){
+  if(_soProjLine!==undefined) return _soProjLine;
+  try{ const j=await fetch('scripts/data/stat_overall_projected.json?v=12').then(r=>r.ok?r.json():null);
+    _soProjLine=(j&&j.players)||{}; }catch(e){ _soProjLine={}; }
+  return _soProjLine;
+}
+const _projRosterCache={};
+async function _projectedRosterFor(shortName){
+  if(!shortName) return {key:null, rows:[]};
+  if(_projRosterCache[shortName]) return _projRosterCache[shortName];
+  const [ps, line]=await Promise.all([
+    fetch(`${SB}/rest/v1/players?team=eq.${encodeURIComponent(shortName)}&select=*&limit=40`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+    _projLineMap()
+  ]);
+  try{ if(window.TDCProjGrade && TDCProjGrade.ready) await TDCProjGrade.ready; }catch(e){}
+  const rows=(ps||[]).filter(p=>p&&p.name&&p.name!=='—').map(p=>{
+    let ov=null;
+    try{ if(window.TDCProjGrade&&TDCProjGrade.gradeSolo){ const g=TDCProjGrade.gradeSolo(p); if(g!=null&&!isNaN(g)) ov=Math.round(g); } }catch(e){}
+    if(ov==null){ const t=parseFloat(p.tdc_grade); if(isFinite(t)) ov=Math.round(t); }
+    const pj=(line && p.espn_id!=null) ? line[String(p.espn_id)] : null;   // projected box line
+    return { name:p.name, position:p.position||p.pos, height:p.height, yr:(p.yr||p.class_year||''),
+      ppg: pj?pj.ppg:p.ppg, rpg: pj?pj.rpg:p.rpg, apg: pj?pj.apg:p.apg, mpg: pj?pj.mpg:p.mpg,
+      tp_pct: pj?pj.tp_pct:p.tp_pct, fg_pct: pj?pj.fg_pct:p.fg_pct, ft_pct: pj?pj.ft_pct:p.ft_pct,
+      fga: pj?pj.fga:p.fga, tpa: pj?pj.tpa:p.tpa, fta: pj?pj.fta:p.fta,
+      stl: pj?pj.stl:p.stl, blk: pj?pj.blk:p.blk, tovs: pj?pj.tovs:p.tovs,
+      oreb: pj?pj.oreb:p.oreb, dreb: pj?pj.dreb:p.dreb,
+      tdc_grade: ov, espn_id:p.espn_id };
+  }).filter(x=>x.name);
+  rows.sort((a,b)=>(parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0));   // best → bench
+  const out={key:shortName, rows};
+  _projRosterCache[shortName]=out;
+  return out;
+}
 async function _rosterFor(fullName, yr){
   const key=await _phKeyFor(fullName);
   let rows=[];
@@ -2295,6 +2334,9 @@ async function renderTeams(){
   const y1=s1?s1.season_year:2026, y2=s2?s2.season_year:2026;
   const [f1,f2]=await Promise.all([tsYear(y1), y2===y1?tsYear(y1):tsYear(y2)]);
   const yl1=_tsLbl(y1), yl2=_tsLbl(y2);
+  // roster labels: a CURRENT program shows its 2026-27 PROJECTED roster (not last year's)
+  const rl1=t1._isHistory?yl1:'2026-27 Projected', rl2=t2._isHistory?yl2:'2026-27 Projected';
+  const sameRl=rl1===rl2;
   const srsRank=(rows,v)=>{ const x=parseFloat(v); if(isNaN(x)||!rows.length) return null;
     return rows.filter(r=>parseFloat(r.srs)>x).length+1; };
   const net=s=>s&&isFinite(parseFloat(s.ppg))&&isFinite(parseFloat(s.oppg))?+(parseFloat(s.ppg)-parseFloat(s.oppg)).toFixed(1):null;
@@ -2395,7 +2437,7 @@ async function renderTeams(){
       <div class="sg-note">Team-level shot-location profile — <b>offense</b> = the looks they generate &amp; make, <b>defense</b> = the looks they force opponents into. Higher Look Quality / SM+ on offense (and lower on defense) is better.</div>
     </div>
 
-    <div class="compare-section-head" style="margin-top:26px;">Rosters${sameYear?` — ${yl1}`:` — ${yl1} vs ${yl2}`}</div>
+    <div class="compare-section-head" style="margin-top:26px;">Rosters${sameRl?` — ${rl1}`:` — ${rl1} vs ${rl2}`}</div>
     <div class="sim-grid">
       <div class="sim-card" id="tRost1" style="border-top:2px solid ${c1};"><div class="sim-row" style="color:var(--text3);">Loading roster…</div></div>
       <div class="sim-card" id="tRost2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Loading roster…</div></div>
@@ -2484,15 +2526,22 @@ async function renderTeams(){
       _fillProgramContext('progCtx2', tr2, s2);
       // rosters + best player seasons on file — then the written scout, which
       // needs both rosters' physical profiles
-      const side=async(fullName, yr, rostId, legId)=>{
-        const {key, rows}=await _rosterFor(fullName, yr);
-        const rEl=document.getElementById(rostId); if(rEl) rEl.innerHTML=_rosterRows(rows, yr);
-        const lEl=document.getElementById(legId);  if(lEl) lEl.innerHTML=_legendRows(await _legendsFor(key));
+      const side=async(pick, fullName, yr, rostId, legId)=>{
+        let key=null, rows=[];
+        // A CURRENT program (picked on its 2026-27 · Projected season) shows the
+        // PROJECTED roster from the live players table; a historical pick uses that
+        // season's roster from player_history.
+        if(pick && !pick._isHistory){ ({key, rows}=await _projectedRosterFor(pick.name)); }
+        if(!rows||!rows.length){ ({key, rows}=await _rosterFor(fullName, yr)); }
+        const rlbl=(pick && !pick._isHistory)?2027:yr;   // player links to the projected season
+        const rEl=document.getElementById(rostId); if(rEl) rEl.innerHTML=_rosterRows(rows, rlbl);
+        const legendKey=(pick && !pick._isHistory)?await _phKeyFor(fullName):key;   // legends = program history
+        const lEl=document.getElementById(legId);  if(lEl) lEl.innerHTML=_legendRows(await _legendsFor(legendKey));
         return {key, rows};
       };
       Promise.all([
-        side(s1?s1.team:t1.name, y1, 'tRost1', 'tLegend1'),
-        side(s2?s2.team:t2.name, y2, 'tRost2', 'tLegend2'),
+        side(t1, s1?s1.team:t1.name, y1, 'tRost1', 'tLegend1'),
+        side(t2, s2?s2.team:t2.name, y2, 'tRost2', 'tLegend2'),
       ]).then(([r1,r2])=>{ _fillTeamChem(r1,r2,t1,t2,c1,c2,s1,s2,y1,y2); return _fillScout(r1,r2,s1,s2,f1,f2,t1.name,t2.name,c1,c2); })
         .catch(()=>{ const el=document.getElementById('scoutWrap'); if(el) el.innerHTML='<div style="color:var(--text3);font-size:12px;">Scout unavailable.</div>'; });
       // head-to-head record + recent meetings
