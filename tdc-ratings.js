@@ -218,6 +218,10 @@
     // Above the high-major line (top 7 leagues: Big 12…Pac-12) the gap is 0 → power teams untouched.
     const CONF_STR=(levelData&&levelData.conf_strength)||{}, TEAM_CONF=(levelData&&levelData.team_conf)||{};
     const LEVEL_HM=19.5, LEVEL_BPM_K=0.05, LEVEL_BPM_MAX=0.45;   // high-major line; per-SRS-gap haircut; cap
+    // proven-elite exception: a mid-major whose OWN schedule-adjusted prior clears this line has
+    // earned its level (SRS already adjusts for schedule) — taper its discount toward FLOOR so an
+    // outlier like Gonzaga isn't treated as a typical mid-major; the rest of its league keeps full.
+    const LEVEL_PROVEN_HM=17.0, LEVEL_PROVEN_SPAN=5.0, LEVEL_PROVEN_FLOOR=0.3;
     function levelGapFor(full){
       const cf=TEAM_CONF[full]; const str=(cf!=null)?CONF_STR[cf]:null;
       return (str==null)?0:Math.max(0, LEVEL_HM-str);
@@ -269,8 +273,11 @@
       const full=matchFull(short, tsRows, confOf[short])||short;
       const prior=srsOf[full];
       const newSrs=isFinite(prior)?prior:0;
-      // this team's strength-of-competition haircut on projected BPM (0 for high-major leagues)
-      const levelDisc=Math.min(LEVEL_BPM_MAX, LEVEL_BPM_K*levelGapFor(full));
+      // this team's strength-of-competition haircut on projected BPM (0 for high-major leagues),
+      // tapered down for a proven-elite mid-major whose own prior clears the proven line (Gonzaga)
+      let levelDisc=Math.min(LEVEL_BPM_MAX, LEVEL_BPM_K*levelGapFor(full));
+      if(levelDisc>0 && isFinite(prior) && prior>LEVEL_PROVEN_HM)
+        levelDisc*=Math.max(LEVEL_PROVEN_FLOOR, 1-(prior-LEVEL_PROVEN_HM)/LEVEL_PROVEN_SPAN);
       // PROJECTED minutes from the depth-chart-calibrated model (same one team/player
       // pages use), so the rating weights each player by his projected ROLE, not last
       // season's minutes — a benched transfer stops counting as a starter. Falls back to
