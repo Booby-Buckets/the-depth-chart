@@ -222,6 +222,14 @@
     // earned its level (SRS already adjusts for schedule) — taper its discount toward FLOOR so an
     // outlier like Gonzaga isn't treated as a typical mid-major; the rest of its league keeps full.
     const LEVEL_PROVEN_HM=17.0, LEVEL_PROVEN_SPAN=5.0, LEVEL_PROVEN_FLOOR=0.3;
+    // coach lift runs through the SAME strength-of-competition logic: a positive lift earned
+    // against a weak schedule is tapered so a mid-major coach can't out-bonus a proven
+    // high-major one (Dutcher/Jacobson were sitting above Izzo). Stronger coefficient than the
+    // roster because the anomaly is starker; the proven-elite taper still spares Few.
+    const COACH_LEVEL_K=0.20, COACH_LEVEL_MAX=0.55;
+    // hand regression on a coach's lift when his career overachievement carries real
+    // uncertainty into a NEW program (we have no reliable first-year-at-a-new-school signal):
+    const COACH_LIFT_MULT={ 'ben jacobson': 0.55 };   // just moved Northern Iowa -> Utah State
     function levelGapFor(full){
       const cf=TEAM_CONF[full]; const str=(cf!=null)?CONF_STR[cf]:null;
       return (str==null)?0:Math.max(0, LEVEL_HM-str);
@@ -242,7 +250,9 @@
       if(!rec){ const il=_il(t.head_coach||t.coach), a=il&&liftByIL[il]; if(a&&a.length===1) rec=a[0]; }
       if(!rec||!rec.n) return;
       const shrunk=rec.lf*(rec.n/(rec.n+COACH_K));          // 3 seasons counts ~3/8
-      coachAdjOf[t.name]=+Math.max(-COACH_CAP,Math.min(COACH_CAP,COACH_W*shrunk)).toFixed(2);
+      let cadj=COACH_W*shrunk;
+      const mult=COACH_LIFT_MULT[cn(t.head_coach||t.coach)]; if(mult!=null) cadj*=mult;   // new-program uncertainty
+      coachAdjOf[t.name]=+Math.max(-COACH_CAP,Math.min(COACH_CAP,cadj)).toFixed(2);
     });
     // Shot Genome per-player: eFG over Look Quality = shot-making luck (in eFG pts)
     const sgByEspn={}; ((sgData&&sgData.players)||[]).forEach(p=>{
@@ -350,7 +360,15 @@
       // team shot luck: minutes-weighted eFG-over-quality of the rotation's returners
       const sgEnt=rot.filter(e=>e.hasSg); const sgMin=sgEnt.reduce((s,e)=>s+e.min,0);
       const shotLuck=sgMin?+(sgEnt.reduce((s,e)=>s+e.luckEfg*e.min,0)/sgMin).toFixed(1):null;
-      const cAdj=coachAdjOf[short]||0;
+      let cAdj=coachAdjOf[short]||0;
+      // taper a POSITIVE coach lift by the program's strength-of-competition (same proven-elite
+      // relief as the roster) — a mid-major coach's overachievement doesn't fully translate.
+      if(cAdj>0){
+        let cd=Math.min(COACH_LEVEL_MAX, COACH_LEVEL_K*levelGapFor(full));
+        if(cd>0 && isFinite(prior) && prior>LEVEL_PROVEN_HM)
+          cd*=Math.max(LEVEL_PROVEN_FLOOR, 1-(prior-LEVEL_PROVEN_HM)/LEVEL_PROVEN_SPAN);
+        if(cd>0) cAdj=+(cAdj*(1-cd)).toFixed(2);
+      }
       const cont=(contData&&contData[short])?contData[short].continuity:null;
       const contAdj=cont!=null?+Math.max(-CONT_CAP,Math.min(CONT_CAP,CONT_K*(cont-CONT_BASE))).toFixed(2):0;
       // Scoring-engine scarcity penalty (see constants). Uses the projected rotation regulars.
