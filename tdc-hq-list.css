@@ -1,0 +1,68 @@
+/* ================================================================
+   TDC · HQ skin — LEAGUE-WIDE LIST / LEADERBOARD pages.
+   Brings the player/team HQ signatures (condensed uppercase headers with a
+   gold accent rule, pill-style controls, sharper framing + grade coloring) to
+   the grade pages that aren't team-specific: Advanced Stats, Player Projected
+   Stats, Draft Room, Roles. Neutral — no team color, so it leans on the brand
+   accent (--accent / --tc-readable). Additive; loaded LAST.
+   ================================================================ */
+
+/* ---- 1. page header → condensed uppercase with a gold accent rail ---- */
+.page-h1{
+  font-family:'Barlow Condensed','Inter',sans-serif !important;
+  text-transform:uppercase !important; font-weight:800 !important;
+  letter-spacing:.012em !important; line-height:.96 !important;
+  font-size:clamp(30px,4.6vw,46px) !important;
+}
+.page-header{ position:relative; padding-left:18px; }
+.page-header::before{
+  content:""; position:absolute; left:0; top:5px; bottom:7px; width:4px; border-radius:3px;
+  background:var(--tc-readable,var(--accent));
+}
+.page-sub{ color:var(--text2) !important; max-width:76ch; line-height:1.55; }
+
+/* ---- 2. filter dropdowns / search → clean HQ pills ---- */
+.filter-select,.filter-sel,.filter-input{
+  border-radius:9px !important; border:1px solid var(--border2) !important;
+  background:var(--bg2) !important; color:var(--text) !important;
+  font-weight:600 !important; letter-spacing:.01em; font-family:'Inter',sans-serif;
+  transition:border-color .15s, box-shadow .15s;
+}
+.filter-select:hover,.filter-sel:hover,.filter-input:hover,
+.filter-select:focus,.filter-sel:focus,.filter-input:focus{
+  border-color:var(--tc-readable,var(--accent)) !important;
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent) !important; outline:none;
+}
+
+/* ---- 3. segmented control (Draft view switch, round picker) → HQ pill bar ---- */
+.seg{
+  display:inline-flex; gap:3px; background:var(--bg2) !important; border:1px solid var(--border) !important;
+  border-radius:11px !important; padding:4px !important;
+}
+.seg button,.seg .seg-btn{
+  border:0 !important; border-radius:8px !important; background:none; cursor:pointer;
+  font-family:'Barlow Condensed','Inter',sans-serif; text-transform:uppercase; letter-spacing:.05em;
+  font-weight:700; font-size:12.5px; color:var(--text3); padding:7px 14px !important;
+  transition:background .14s, color .14s;
+}
+.seg button:hover,.seg .seg-btn:hover{ color:var(--text); }
+.seg button.active,.seg .seg-btn.active,.seg button.on,.seg .active{
+  background:var(--tc-readable,var(--accent)) !important; color:#141821 !important; font-weight:800;
+}
+:root[data-theme="dark"] .seg button.active,:root[data-theme="dark"] .seg .seg-btn.active{ color:#141821 !important; }
+
+/* ---- 4. shell frames → soft frosted card (analytics .an-shell, roster .rp-shell) ---- */
+.an-shell,.rp-shell{
+  background:var(--bg2); border:1px solid var(--border); border-radius:18px;
+  box-shadow:0 14px 34px rgba(0,15,60,.06);
+}
+:root[data-theme="dark"] .an-shell,:root[data-theme="dark"] .rp-shell{
+  background:rgba(20,24,32,.55); border-color:rgba(255,255,255,.08);
+  -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+}
+
+/* ---- 5. grade cells read as HQ tiers wherever a .td-grade/.grade-cell exists ---- */
+.td-grade,.grade-badge,.ovr-grade{
+  font-family:'Barlow Condensed','Inter',sans-serif !important; font-weight:800 !important;
+  font-variant-numeric:tabular-nums;
+}
