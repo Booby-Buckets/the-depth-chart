@@ -139,7 +139,11 @@
       pot=clamp(.30*youth+.30*(.62*sizeUpside+.38*defTools)+.22*gradeNorm+.18*flashes);
       draft=clamp(.42*gradeNorm+.18*ppgP+.22*trans+.12*compLevel(p.team,teamMap)+.06*sizeScore);
     }
-    var lensScore=clamp(.36*trans+.30*pot+.20*ready+.14*draft);
+    // Draft-board weighting: the NBA drafts on UPSIDE + TRANSLATABLE TOOLS, not college
+    // readiness/production, so potential and translatability lead and readiness is a minor
+    // term (a productive senior shouldn't out-rank a toolsy young wing the way a college
+    // performance board would). Rebuilt from .36/.30/.20/.14 (trans/pot/ready/draft).
+    var lensScore=clamp(.33*pot+.32*trans+.23*draft+.12*ready);
     // DRAFT AGE CURVE: NBA drafts on runway, so value slides with age. An elite
     // young player stays top-of-board while an equally good 23-24yo caps out
     // mid-board (they can still rise, just not to the top). When a real age is
@@ -147,9 +151,12 @@
     var age=ageEst(p,ageOvr);
     var hasAgeOvr=!!(ageOvr && ageOvr[(p.name||'').trim()]!=null);
     var effLvl=hasAgeOvr?(age<=19?0:age<=20?1:age<=21?2:3):ci.lvl;
-    var classBoost=[6,3,0,-3][effLvl];   // redshirt age already handled via ageEst → agePen
-    var agePen=Math.max(0,age-21)*1.05;   // 22→1.0, 23→2.1, 24→3.2 (older good players land mid-board, not buried)
-    var blended=.55*gradeNorm+.45*lensScore+classBoost-agePen;
+    // Steeper youth premium — real boards pay up for runway (fr) and fade older classes.
+    var classBoost=[9,4,-1,-6][effLvl];   // redshirt age already handled via ageEst → agePen
+    var agePen=Math.max(0,age-21)*1.35;   // 22→1.35, 23→2.7, 24→4.05 (older prospects slide harder)
+    // Production/grade anchors it but no longer DOMINATES — the scouting lenses (upside/
+    // tools/translatability) carry the board, matching how NBA teams actually rank. Was .55/.45.
+    var blended=.42*gradeNorm+.58*lensScore+classBoost-agePen;
     return {trans:trans,ready:ready,pot:pot,draft:draft,overall:clamp(blended),blended:blended,grp:grp,sizeScore:sizeScore,gradeNorm:gradeNorm,noSample:noSample,age:age};
   }
   function eligible(p,ineligible){
@@ -167,9 +174,16 @@
     var ov=opts.overrides||{}, ineligible={}, ageOvr=ov.age||{};
     (ov.ineligible||[]).forEach(function(n){ ineligible[(''+n).trim()]=1; });
     var pool=(players||[]).filter(function(p){return eligible(p,ineligible);});
-    // Stamp the canonical v5 projected grade for the forward-looking board so the
-    // grade anchor matches the OVR shown on player/team/index pages.
-    if(season==='2627' && window.TDCProjGrade && typeof window.TDCProjGrade.gradeSolo==='function'){
+    // 2028 draft class: current seniors/grads will have exhausted eligibility, so the
+    // pool is the RETURNING underclassmen (Fr/So/Jr now) — a way-too-early watch board
+    // of the players who'll still be around. The steep youth premium in the scoring floats
+    // the young high-upside prospects to the top, which is what a 2028 board should be.
+    if(season==='2728'){
+      pool=pool.filter(function(p){ return classKey(p)!=='sr'; });
+    }
+    // Stamp the canonical v5 projected grade for the forward-looking boards so the grade
+    // anchor matches the OVR shown on player/team/index pages.
+    if((season==='2627'||season==='2728') && window.TDCProjGrade && typeof window.TDCProjGrade.gradeSolo==='function'){
       pool.forEach(function(p){ var gv=window.TDCProjGrade.gradeSolo(p); if(isFinite(gv)) p._projGrade=gv; });
     }
     pool.forEach(function(p){p._s=basisOf(p,season,projById,projReady);});

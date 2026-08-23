@@ -251,6 +251,10 @@ body{background:transparent!important;}
       <button class="on" data-v="board" onclick="setView('board')">Big Board</button>
       <button data-v="mock" onclick="setView('mock')">Mock Draft</button>
     </div>
+    <div class="seg" id="seasonSeg" style="margin-left:auto;">
+      <button class="on" data-s="2627" onclick="setSeason('2627')">2027 Draft</button>
+      <button data-s="2728" onclick="setSeason('2728')">2028 Draft</button>
+    </div>
   </div>
 
   <div id="loadHint" class="load-hint">Loading prospects…</div>
@@ -336,7 +340,7 @@ body{background:transparent!important;}
 <script src="tdc-pos.js"></script>
 <script src="tdc-projgrade.js?v=base2"></script>
 <script src="tdc-proj.js?v=coach19"></script>
-<script src="bigboard-engine.js?v=6"></script>
+<script src="bigboard-engine.js?v=7"></script>
 <script>
 const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -385,9 +389,10 @@ function projPlayer(p){
 // projections pages) — accounts for departures, role/minutes redistribution,
 // and freshman estimates. projPlayer() is only a fallback until it's ready.
 function basisOf(p){
-  if(season==='2627'){
-    if(projReady && projById[p.id]) return Object.assign({}, p, projById[p.id]);
-    return Object.assign({}, p, projPlayer(p));
+  if(season==='2627' || season==='2728'){
+    var base=(projReady && projById[p.id]) ? Object.assign({}, p, projById[p.id]) : Object.assign({}, p, projPlayer(p));
+    if(season==='2728') base=Object.assign({}, base, projPlayer(base));   // 2028 class = one more year of development
+    return base;
   }
   return p;
 }
@@ -491,7 +496,7 @@ function renderBoard(){
     if(q&&!(p.name.toLowerCase().indexOf(q)>=0||(p.team||'').toLowerCase().indexOf(q)>=0))return false;
     return true;
   }).slice(0,cap);
-  var seasonLbl=season==='2526'?'2026 NBA Draft (2025-26 season)':'2027 NBA Draft (2026-27 projected)';
+  var seasonLbl=season==='2728'?'2028 NBA Draft (early — returning underclassmen)':season==='2526'?'2026 NBA Draft (2025-26 season)':'2027 NBA Draft (2026-27 projected)';
   document.getElementById('bbCaption').innerHTML='<b>'+list.length+'</b> prospects · '+seasonLbl+(q||fpos||fcl?' · filtered':'');
   document.getElementById('bbList').innerHTML=list.map(function(p){
     var sc=p._sc, cl=(p.class_year||p.yr||'').replace(/\./g,'')||'—';
@@ -509,7 +514,9 @@ function renderBoard(){
     '</div>';
   }).join('');
   var bn=document.getElementById('basisNote');
-  if(bn)bn.innerHTML=season==='2627'
+  if(bn)bn.innerHTML=season==='2728'
+    ? 'The <b>2028</b> board is a way-too-early watch board — this year’s returning underclassmen, projected a further year forward and ranked on upside. Seniors (out of eligibility) and not-yet-arrived recruits are excluded.'
+    : season==='2627'
     ? 'The <b>2026-27</b> board scores on <b>projected stat lines</b> from the full projection engine (same as the player &amp; projections pages) — accounting for roster departures, minutes redistribution, and freshman estimates'+(projReady?'.':' (still computing… showing a quick estimate).')
     : 'The <b>2025-26</b> board scores on actual season production.';
 }
@@ -571,7 +578,7 @@ function renderNeedsPanel(){
 function renderMock(){
   if(!prospects.length)return;
   var st=curMock(),count=st.count,hasPicks=st.picks&&st.picks.length;
-  document.getElementById('mockInfo').innerHTML=(season==='2526'?'Projected <b>2026 NBA Draft</b>':'Projected <b>2027 NBA Draft</b>')+
+  document.getElementById('mockInfo').innerHTML=(season==='2728'?'Projected <b>2028 NBA Draft</b> (early)':season==='2526'?'Projected <b>2026 NBA Draft</b>':'Projected <b>2027 NBA Draft</b>')+
     ' — set your draft order below (edit any team), optionally assign team needs, then hit <b>Generate Mock Draft</b>. The model fills every pick from the Big Board: best player available, nudged toward each team’s need. Saved to this browser.';
   var html='';
   for(var i=0;i<count;i++){
@@ -665,7 +672,7 @@ async function buildProjections(){
       }catch(e){}
     });
     projReady=true;
-    if(season==='2627'){buildBoard();renderBoard();if(view==='mock')renderMock();}
+    if(season==='2627'||season==='2728'){buildBoard();renderBoard();if(view==='mock')renderMock();}
   }catch(e){}
 }
 load();
