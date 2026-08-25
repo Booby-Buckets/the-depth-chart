@@ -1100,6 +1100,19 @@
     .tbp-trend{margin-bottom:18px;}
     .tbp-chart{margin-bottom:18px;}
     .tbp-cap{font-size:10.5px;color:var(--text3);margin-top:6px;line-height:1.4;}
+    .tbp-pace{margin-bottom:18px;}
+    .tbp-pbar{display:flex;align-items:center;gap:12px;margin:7px 0;}
+    .tbp-pl{font-size:11.5px;font-weight:700;color:var(--text2);min-width:118px;}
+    .tbp-ptrack{flex:1;height:9px;border-radius:5px;background:var(--bg3,rgba(128,128,128,.18));overflow:hidden;}
+    .tbp-ptrack i{display:block;height:100%;border-radius:5px;}
+    .tbp-pv{font-size:12.5px;font-weight:800;font-variant-numeric:tabular-nums;min-width:66px;text-align:right;color:var(--text);}
+    .tbp-fs{display:flex;flex-direction:column;gap:8px;}
+    .tbp-fs-row{display:flex;align-items:center;gap:12px;}
+    .tbp-fs-nm{font-size:13px;font-weight:700;min-width:150px;}
+    .tbp-fs-nm a{color:var(--text);text-decoration:none;}.tbp-fs-nm a:hover{color:var(--tc-readable,var(--accent));}
+    .tbp-fs-bar{flex:1;height:10px;border-radius:5px;background:var(--bg3,rgba(128,128,128,.18));overflow:hidden;}
+    .tbp-fs-bar i{display:block;height:100%;border-radius:5px;background:var(--tc-readable,var(--accent));}
+    .tbp-fs-pct{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;min-width:44px;text-align:right;}
     .tbp-tt,.tbp-ah{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
     .tbp-st{width:100%;border-collapse:collapse;font-size:12.5px;}
     .tbp-st th{font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);text-align:right;padding:6px 10px;border-bottom:1px solid var(--border);}
@@ -6605,7 +6618,8 @@ var TBET_STATS=[
   {k:'pr',lab:'P+R',get:function(g){return (g.pts||0)+(g.reb||0);}},
   {k:'pa',lab:'P+A',get:function(g){return (g.pts||0)+(g.ast||0);}},
   {k:'ra',lab:'R+A',get:function(g){return (g.reb||0)+(g.ast||0);}},
-  {k:'stk',lab:'STK',get:function(g){return (g.stl||0)+(g.blk||0);}}   // steals+blocks ("stocks")
+  {k:'stk',lab:'STK',get:function(g){return (g.stl||0)+(g.blk||0);}},   // steals+blocks ("stocks")
+  {k:'dd',lab:'DD',pctOnly:true,get:function(g){var c=0;if((g.pts||0)>=10)c++;if((g.reb||0)>=10)c++;if((g.ast||0)>=10)c++;return c>=2?1:0;}}   // double-double rate
 ];
 function _tbetSuggest(vals){ var s=vals.slice().sort(function(a,b){return a-b;}); var m=s[Math.floor(s.length/2)]; var l=Math.round(m*2)/2; if(l===Math.round(l)) l-=0.5; return Math.max(0.5,l); }
 async function renderTeamBetting(){
@@ -6618,10 +6632,12 @@ async function renderTeamBetting(){
   try{
     var _both=await Promise.all([
       fetch(SB_URL+'/rest/v1/box_scores?espn_id=in.('+ids.join(',')+')&season_year=eq.2026&select=espn_id,player,min,pts,reb,ast,stl,blk,tpm&limit=8000',{headers:H}).then(function(r){return r.ok?r.json():[];}),
-      _loadBetTeams()
+      _loadBetTeams(),
+      fetch(SB_URL+'/rest/v1/shots?espn_id=in.('+ids.join(',')+')&select=game_id,espn_id,id&order=id.asc&limit=12000',{headers:(window.tdcH?tdcH():H)}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];})
     ]);
     _TBET.box=(_both[0]||[]).filter(function(b){return (b.min||0)>0;});
     _TBET.teamRec=_betTeamRec(_both[1]);
+    _TBET.firstShot=_computeFirstShot(_both[2]);
     window._teamBettingLoaded=true;
     _tbetPaint();
   }catch(e){ el.innerHTML='<div class="tbet-mut" style="padding:30px;text-align:center;">Could not load prop data.</div>'; }
@@ -6641,6 +6657,28 @@ function _betTeamRec(map){
   var short=(window.tdcShortSchool?tdcShortSchool(nm):nm)||nm;
   for(var k in map){ var ks=(window.tdcShortSchool?tdcShortSchool(k):k)||k; if(ks===short||ks===nm) return map[k]; }
   return null;
+}
+// First-shot tendencies: among the returning rotation, who took the game's very first
+// shot most often last season (the tell for first-basket / first-team-to-score props).
+function _computeFirstShot(shots){
+  if(!shots||!shots.length) return null;
+  var firstBy={};
+  shots.forEach(function(s){ if(s.game_id!=null && firstBy[s.game_id]==null) firstBy[s.game_id]=s.espn_id; });
+  var games=Object.keys(firstBy); if(games.length<5) return null;
+  var freq={}; games.forEach(function(g){ var e=firstBy[g]; freq[e]=(freq[e]||0)+1; });
+  var nameByEid={}; (teamPlayers||[]).forEach(function(p){ if(p.espn_id!=null) nameByEid[String(p.espn_id)]=p.name; });
+  var leaders=Object.keys(freq).map(function(e){ return {eid:e,name:nameByEid[String(e)]||'—',n:freq[e],pct:Math.round(100*freq[e]/games.length)}; })
+    .filter(function(x){ return x.name!=='—'; }).sort(function(a,b){ return b.n-a.n; }).slice(0,5);
+  return {games:games.length, leaders:leaders};
+}
+function _tbetFirstShot(){
+  var fs=_TBET.firstShot; if(!fs||!fs.leaders.length) return '';
+  var rows=fs.leaders.map(function(x){
+    return '<div class="tbp-fs-row"><span class="tbp-fs-nm"><a href="player.html?espn='+x.eid+'&tab=betting">'+x.name+'</a></span><div class="tbp-fs-bar"><i style="width:'+Math.max(6,x.pct)+'%"></i></div><span class="tbp-fs-pct">'+x.pct+'%</span></div>';
+  }).join('');
+  return '<div class="tbp-h" style="margin-top:26px;">First-Shot Tendencies <span>· who takes the team’s first shot ('+fs.games+' tracked games)</span></div>'+
+    '<div class="tbp-fs">'+rows+'</div>'+
+    '<div class="tbp-cap" style="margin-top:2px;">Share of games each returning player took the very first shot — the read for first-basket and first-team-to-score angles.</div>';
 }
 // Team-level betting profile: market value (vs our line), fav/dog cover rates, splits,
 // a 5-season trend, and auto-surfaced angles — the deep half of the team Betting board.
@@ -6665,6 +6703,20 @@ function _tbetTeamProfile(r){
     '<div class="tbp-split"><span>Avg Margin</span><b>'+sgn(r.margin)+'</b></div>'+
     '<div class="tbp-split"><span>SU Record</span><b>'+r.w+'–'+r.l+'</b></div>'+
     '</div>';
+  // #2/#3 scoring & pace bars + game-total over/under lean, and #5 win% by venue bars
+  var _bar=function(lbl,val,max,col,valStr){ var w=Math.max(3,Math.min(100,(val||0)/max*100)); return '<div class="tbp-pbar"><span class="tbp-pl">'+lbl+'</span><div class="tbp-ptrack"><i style="width:'+w.toFixed(0)+'%;background:'+col+'"></i></div><span class="tbp-pv">'+valStr+'</span></div>'; };
+  var lgTotal=145, totLean=total>=lgTotal+3?'leans OVER':total<=lgTotal-3?'leans UNDER':'sits right on the number';
+  var pace='<div class="tbp-tt" style="margin-top:6px;">Scoring &amp; Pace</div>'+
+    _bar('Offense',r.ppg,95,'#22c55e',f1(r.ppg)+' pts')+
+    _bar('Defense allowed',r.oppg,95,'#ef4444',f1(r.oppg)+' pts')+
+    _bar('Game total',total,180,'var(--tc-readable,var(--accent))',f1(total))+
+    '<div class="tbp-cap">Their games average <b>'+f1(total)+'</b> total points — <b>'+totLean+'</b> vs a ~'+lgTotal+' Division-I baseline (team total ~<b>'+f1(r.ppg)+'</b>).</div>';
+  var homePct=(r.home&&r.home.g)?r.home.pct*100:0, awayPct=(r.away&&r.away.g)?r.away.pct*100:0, neuP=(r.neutral&&r.neutral.g)?100*r.neutral.w/r.neutral.g:0;
+  var venue='<div class="tbp-tt" style="margin-top:16px;">Win % by Venue</div>'+
+    _bar('Home',homePct,100,'#22c55e',Math.round(homePct)+'%')+
+    _bar('Away',awayPct,100,'#e0a94e',Math.round(awayPct)+'%')+
+    _bar('Neutral',neuP,100,'var(--text2)',Math.round(neuP)+'%')+
+    '<div class="tbp-cap">Straight-up win rate by site — how travel-proof they are (against-the-spread by venue arrives with the live odds feed).</div>';
   var seasons=r.bySeason?Object.keys(r.bySeason).sort():[];
   var strows=seasons.map(function(y){var s=r.bySeason[y];return '<tr><td>'+(y-1)+'–'+(''+y).slice(2)+'</td><td>'+s.w+'–'+s.l+'</td><td class="'+(s.vsLine>0?'g':'r')+'">'+sgn(s.vsLine)+'</td><td>'+f1(s.total)+'</td><td>'+pct(s.favBeat)+'</td></tr>';}).join('');
   // vs-line-by-season bar chart: green above the zero line = beat our number (undervalued),
@@ -6696,6 +6748,7 @@ function _tbetTeamProfile(r){
   var anglesHtml=angles.length?('<div class="tbp-angles"><div class="tbp-ah">Betting angles</div>'+angles.map(function(a){return '<div class="tbp-angle">'+a+'</div>';}).join('')+'</div>'):'';
   return '<div class="tbp-h">Team Market Profile <span>· last 5 seasons ('+r.g+' games) vs our power-rating line</span></div>'+
     '<div class="tbp-tiles">'+tiles+'</div>'+splits+
+    '<div class="tbp-pace">'+pace+venue+'</div>'+
     chart+
     (strows?'<div class="tbp-trend"><div class="tbp-tt">Season Trend</div><div class="tbet-wrap"><table class="tbp-st"><thead><tr><th>Season</th><th>Rec</th><th>vs Line</th><th>Total</th><th>Fav✓</th></tr></thead><tbody>'+strows+'</tbody></table></div></div>':'')+
     anglesHtml+
@@ -6710,7 +6763,13 @@ function _tbetPaint(){
     var gms=byP[eid]; if(gms.length<5) return;   // rotation-caliber sample only
     var props={};
     TBET_STATS.forEach(function(st){
-      var vals=gms.map(st.get); var line=_tbetSuggest(vals);
+      var vals=gms.map(st.get);
+      if(st.pctOnly){   // hit-rate market (e.g. double-double): pct = share of games it happened
+        var hit=vals.filter(function(v){return v>=1;}).length;
+        props[st.k]={pctOnly:true,pct:Math.round(100*hit/vals.length),avg:hit/vals.length};
+        return;
+      }
+      var line=_tbetSuggest(vals);
       var over=vals.filter(function(v){return v>line;}).length;
       props[st.k]={line:line,pct:Math.round(100*over/vals.length),avg:vals.reduce(function(a,b){return a+b;},0)/vals.length};
     });
@@ -6725,6 +6784,7 @@ function _tbetPaint(){
   var body=players.map(function(p){
     var cells=TBET_STATS.map(function(st){
       var pr=p.props[st.k]; var cls=(pr.pct>=60?'hi':pr.pct<=40?'lo':'')+(st.k===p.bestKey?' best':'');
+      if(pr.pctOnly) return '<td><div class="tbet-cell '+cls.trim()+'"><div class="ln">'+pr.pct+'%</div><div class="pc">of games</div></div></td>';
       return '<td><div class="tbet-cell '+cls.trim()+'"><div class="ln">O '+pr.line.toFixed(1)+'</div><div class="pc">'+pr.pct+'% · '+pr.avg.toFixed(1)+'</div></div></td>';
     }).join('');
     return '<tr><td class="name"><a href="player.html?espn='+p.eid+'&tab=betting">'+p.name+'</a>'+(p.pos?'<span class="pos">'+p.pos+'</span>':'')+'</td><td>'+p.gp+'</td>'+cells+'</tr>';
@@ -6732,7 +6792,8 @@ function _tbetPaint(){
   el.innerHTML=
     _tbetTeamProfile(_TBET.teamRec)
     +'<p class="tbet-note">Every rotation player’s suggested prop line, over rate, and average from <b>last season’s games</b>. Green = cleared the over 60%+ of the time, the accent number is each player’s strongest prop. Tap a column to sort; click a name for his full breakdown. Model &amp; trend based — not live sportsbook odds.</p>'
-    +'<div class="tbet-wrap"><table class="tbet"><thead><tr><th class="name">Player</th><th>GP</th>'+ths+'</tr></thead><tbody>'+body+'</tbody></table></div>';
+    +'<div class="tbet-wrap"><table class="tbet"><thead><tr><th class="name">Player</th><th>GP</th>'+ths+'</tr></thead><tbody>'+body+'</tbody></table></div>'
+    +_tbetFirstShot();
 }
 function _tbetSort(k){ _TBET.sort=k; _tbetPaint(); }
 
