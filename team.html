@@ -1084,8 +1084,9 @@
     /* ── Team Market Profile (deep team betting) ── */
     .tbp-h{font-family:'Barlow Condensed','Inter',sans-serif;text-transform:uppercase;font-weight:800;font-size:15px;letter-spacing:.06em;color:var(--text);margin:4px 0 12px;}
     .tbp-h span{font-family:'Inter',sans-serif;text-transform:none;font-weight:600;font-size:10.5px;letter-spacing:.02em;color:var(--text3);margin-left:8px;}
-    .tbp-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;}
-    @media(max-width:640px){.tbp-tiles{grid-template-columns:repeat(2,1fr);}}
+    .tbp-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;}
+    @media(max-width:820px){.tbp-tiles{grid-template-columns:repeat(2,1fr);}}
+    @media(max-width:480px){.tbp-tiles{grid-template-columns:1fr;}}
     .tbp-tile{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:13px 14px;}
     .tbp-tile.good{border-color:color-mix(in srgb,#22c55e 45%,var(--border));background:color-mix(in srgb,#22c55e 7%,var(--bg2));}
     .tbp-tile.bad{border-color:color-mix(in srgb,#ef4444 40%,var(--border));background:color-mix(in srgb,#ef4444 6%,var(--bg2));}
@@ -6690,11 +6691,16 @@ function _tbetTeamProfile(r){
   var pct=function(o){return (o&&o.g)?Math.round(o.pct*100)+'%':'—';};
   var tile=function(v,l,sub,cls){return '<div class="tbp-tile '+(cls||'')+'"><div class="tbp-v">'+v+'</div><div class="tbp-l">'+l+'</div>'+(sub?'<div class="tbp-s">'+sub+'</div>':'')+'</div>';};
   var vsLine=r.vsLine, total=r.total, fav=r.favBeat, dog=r.dogBeat;
+  var ou=r.ouOver, tt=r.ttOver;
+  var ouPct=(ou&&ou.g)?Math.round(ou.pct*100):null, ttPct=(tt&&tt.g)?Math.round(tt.pct*100):null;
+  var _ouTile=function(p,lbl,gms){ return (p==null)?tile('—',lbl,'',''):tile(p+'%',lbl,(gms?gms+' gms':''),p>=54?'good':p<=46?'bad':''); };
   var tiles=
     tile(sgn(vsLine),'vs Our Line',(vsLine>0?'undervalued':'overvalued'),vsLine>0.8?'good':vsLine<-0.8?'bad':'')+
-    tile(f1(total),'Avg Total',f0(r.ppg)+'–'+f0(r.oppg)+' scoring','')+
     tile(pct(fav),'Cover as Fav',(fav&&fav.g?fav.g+' gms':''),(fav&&fav.pct>=0.55)?'good':(fav&&fav.pct<0.47)?'bad':'')+
-    tile(pct(dog),'Cover as Dog',(dog&&dog.g?dog.g+' gms':''),(dog&&dog.pct>=0.53)?'good':(dog&&dog.pct<0.45)?'bad':'');
+    tile(pct(dog),'Cover as Dog',(dog&&dog.g?dog.g+' gms':''),(dog&&dog.pct>=0.53)?'good':(dog&&dog.pct<0.45)?'bad':'')+
+    _ouTile(ouPct,'Games Over',ou&&ou.g)+
+    _ouTile(ttPct,'Team Total Over',tt&&tt.g)+
+    tile(f1(total),'Avg Total',f0(r.ppg)+'–'+f0(r.oppg)+' scoring','');
   var neuPct=(r.neutral&&r.neutral.g)?Math.round(100*r.neutral.w/r.neutral.g)+'%':'—';
   var splits='<div class="tbp-splits">'+
     '<div class="tbp-split"><span>Home</span><b>'+pct(r.home)+'</b></div>'+
@@ -6705,18 +6711,13 @@ function _tbetTeamProfile(r){
     '</div>';
   // #2/#3 scoring & pace bars + game-total over/under lean, and #5 win% by venue bars
   var _bar=function(lbl,val,max,col,valStr){ var w=Math.max(3,Math.min(100,(val||0)/max*100)); return '<div class="tbp-pbar"><span class="tbp-pl">'+lbl+'</span><div class="tbp-ptrack"><i style="width:'+w.toFixed(0)+'%;background:'+col+'"></i></div><span class="tbp-pv">'+valStr+'</span></div>'; };
-  var ou=r.ouOver, tt=r.ttOver;
-  var ouPct=(ou&&ou.g)?Math.round(ou.pct*100):null, ttPct=(tt&&tt.g)?Math.round(tt.pct*100):null;
-  var ouCol=function(p){return p>=54?'#22c55e':p<=46?'#ef4444':'var(--text2)';};
   var ouLean=ouPct==null?'':(ouPct>=54?'an OVER team':ouPct<=46?'an UNDER team':'no strong O/U lean');
-  var pace='<div class="tbp-tt" style="margin-top:6px;">Scoring, Pace &amp; Over/Under</div>'+
+  var pace='<div class="tbp-tt" style="margin-top:6px;">Scoring &amp; Pace</div>'+
     _bar('Offense',r.ppg,95,'#22c55e',f1(r.ppg)+' pts')+
     _bar('Defense allowed',r.oppg,95,'#ef4444',f1(r.oppg)+' pts')+
     _bar('Game total',total,180,'var(--tc-readable,var(--accent))',f1(total))+
-    (ouPct!=null?_bar('Games go OVER',ouPct,100,ouCol(ouPct),ouPct+'%'):'')+
-    (ttPct!=null?_bar('Team total OVER',ttPct,100,ouCol(ttPct),ttPct+'%'):'')+
     (ouPct!=null
-      ? '<div class="tbp-cap">Over 5 seasons their games cleared <b>our projected total</b> <b>'+ouPct+'%</b> of the time — <b>'+ouLean+'</b>'+(ttPct!=null?', and they beat their own projected points <b>'+ttPct+'%</b> of the time':'')+'. Model total, not a sportsbook line.</div>'
+      ? '<div class="tbp-cap">Over 5 seasons their games cleared <b>our projected total</b> <b>'+ouPct+'%</b> of the time — <b>'+ouLean+'</b>'+(ttPct!=null?', and they beat their own projected points <b>'+ttPct+'%</b>':'')+' (see the tiles above). Model total, not a sportsbook line.</div>'
       : '<div class="tbp-cap">Their games average <b>'+f1(total)+'</b> total points (team total ~<b>'+f1(r.ppg)+'</b>).</div>');
   var homePct=(r.home&&r.home.g)?r.home.pct*100:0, awayPct=(r.away&&r.away.g)?r.away.pct*100:0, neuP=(r.neutral&&r.neutral.g)?100*r.neutral.w/r.neutral.g:0;
   var venue='<div class="tbp-tt" style="margin-top:16px;">Win % by Venue</div>'+
