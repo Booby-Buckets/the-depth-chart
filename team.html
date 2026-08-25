@@ -1098,6 +1098,8 @@
     .tbp-split span{font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);}
     .tbp-split b{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;}
     .tbp-trend{margin-bottom:18px;}
+    .tbp-chart{margin-bottom:18px;}
+    .tbp-cap{font-size:10.5px;color:var(--text3);margin-top:6px;line-height:1.4;}
     .tbp-tt,.tbp-ah{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
     .tbp-st{width:100%;border-collapse:collapse;font-size:12.5px;}
     .tbp-st th{font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);text-align:right;padding:6px 10px;border-bottom:1px solid var(--border);}
@@ -6599,7 +6601,11 @@ var TBET_STATS=[
   {k:'reb',lab:'REB',get:function(g){return g.reb||0;}},
   {k:'ast',lab:'AST',get:function(g){return g.ast||0;}},
   {k:'tpm',lab:'3PM',get:function(g){return g.tpm||0;}},
-  {k:'pra',lab:'P+R+A',get:function(g){return (g.pts||0)+(g.reb||0)+(g.ast||0);}}
+  {k:'pra',lab:'P+R+A',get:function(g){return (g.pts||0)+(g.reb||0)+(g.ast||0);}},
+  {k:'pr',lab:'P+R',get:function(g){return (g.pts||0)+(g.reb||0);}},
+  {k:'pa',lab:'P+A',get:function(g){return (g.pts||0)+(g.ast||0);}},
+  {k:'ra',lab:'R+A',get:function(g){return (g.reb||0)+(g.ast||0);}},
+  {k:'stk',lab:'STK',get:function(g){return (g.stl||0)+(g.blk||0);}}   // steals+blocks ("stocks")
 ];
 function _tbetSuggest(vals){ var s=vals.slice().sort(function(a,b){return a-b;}); var m=s[Math.floor(s.length/2)]; var l=Math.round(m*2)/2; if(l===Math.round(l)) l-=0.5; return Math.max(0.5,l); }
 async function renderTeamBetting(){
@@ -6661,6 +6667,24 @@ function _tbetTeamProfile(r){
     '</div>';
   var seasons=r.bySeason?Object.keys(r.bySeason).sort():[];
   var strows=seasons.map(function(y){var s=r.bySeason[y];return '<tr><td>'+(y-1)+'–'+(''+y).slice(2)+'</td><td>'+s.w+'–'+s.l+'</td><td class="'+(s.vsLine>0?'g':'r')+'">'+sgn(s.vsLine)+'</td><td>'+f1(s.total)+'</td><td>'+pct(s.favBeat)+'</td></tr>';}).join('');
+  // vs-line-by-season bar chart: green above the zero line = beat our number (undervalued),
+  // red below = came up short. A quick read on whether the market keeps mis-pricing them.
+  var chart='';
+  if(seasons.length>=2){
+    var W=Math.max(240, seasons.length*62), H=118, mid=60, cap=6, bw=34, gap=(W-seasons.length*bw)/(seasons.length+1);
+    var bars=seasons.map(function(y,i){
+      var v=r.bySeason[y].vsLine||0, cl=Math.max(-cap,Math.min(cap,v));
+      var h=Math.abs(cl)/cap*46, x=gap+(bw+gap)*i, col=v>=0?'#22c55e':'#ef4444';
+      var yy=v>=0?mid-h:mid, lbl=(y-1)+'–'+(''+y).slice(2);
+      return '<rect x="'+x.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+bw+'" height="'+Math.max(2,h).toFixed(1)+'" rx="3" fill="'+col+'" opacity="0.9"/>'+
+        '<text x="'+(x+bw/2).toFixed(1)+'" y="'+(v>=0?yy-4:yy+h+12).toFixed(1)+'" text-anchor="middle" font-size="10" font-weight="700" fill="'+col+'">'+(v>0?'+':'')+v.toFixed(1)+'</text>'+
+        '<text x="'+(x+bw/2).toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle" font-size="9" fill="var(--text3)">'+lbl+'</text>';
+    }).join('');
+    chart='<div class="tbp-chart"><div class="tbp-tt">Value vs Our Line — by Season</div>'+
+      '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:'+W+'px;overflow:visible;">'+
+      '<line x1="0" y1="'+mid+'" x2="'+W+'" y2="'+mid+'" stroke="var(--border2)" stroke-width="1" stroke-dasharray="3 3"/>'+bars+'</svg>'+
+      '<div class="tbp-cap">Bars above the line = beat our projected number (market undervalued them); below = fell short.</div></div>';
+  }
   var angles=[];
   if(vsLine>=1) angles.push('📈 <b>Undervalued</b> — beats our projected line by '+sgn(vsLine)+' per game over 5 seasons.');
   else if(vsLine<=-1) angles.push('📉 <b>Overvalued</b> — falls '+f1(vsLine)+' short of our number on average.');
@@ -6672,6 +6696,7 @@ function _tbetTeamProfile(r){
   var anglesHtml=angles.length?('<div class="tbp-angles"><div class="tbp-ah">Betting angles</div>'+angles.map(function(a){return '<div class="tbp-angle">'+a+'</div>';}).join('')+'</div>'):'';
   return '<div class="tbp-h">Team Market Profile <span>· last 5 seasons ('+r.g+' games) vs our power-rating line</span></div>'+
     '<div class="tbp-tiles">'+tiles+'</div>'+splits+
+    chart+
     (strows?'<div class="tbp-trend"><div class="tbp-tt">Season Trend</div><div class="tbet-wrap"><table class="tbp-st"><thead><tr><th>Season</th><th>Rec</th><th>vs Line</th><th>Total</th><th>Fav✓</th></tr></thead><tbody>'+strows+'</tbody></table></div></div>':'')+
     anglesHtml+
     '<div class="tbp-h" style="margin-top:26px;">Player Prop Board <span>· suggested lines &amp; over rates from last season</span></div>';
