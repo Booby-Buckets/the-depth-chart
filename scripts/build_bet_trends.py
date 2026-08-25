@@ -62,13 +62,23 @@ def build_team_trends(seasons):
         for r in get("team_seasons?season_year=eq.%d&select=team,srs&srs=not.is.null" % yr):
             srs[(yr, r["team"])] = float(r["srs"])
     print("  loaded %d team-season SRS rows" % len(srs), flush=True)
+    # season scoring rates (points for / against) for the model TOTAL line — used for
+    # real over/under hit-rates: a game's projected total is the average of the two teams'
+    # typical game totals (PF+PA), and a team's projected points is (its PF + opp PA)/2.
+    sco = {}
+    for yr in seasons:
+        for r in get("team_seasons?season_year=eq.%d&select=team,ppg,oppg&ppg=not.is.null&oppg=not.is.null" % yr):
+            sco[(yr, r["team"])] = (float(r["ppg"]), float(r["oppg"]))
+    print("  loaded %d team-season scoring rows" % len(sco), flush=True)
 
     # blank aggregate: overall + per-season, straight-up + splits + vs-line
     def blank():
         return {"g": 0, "w": 0, "l": 0, "pf": 0.0, "pa": 0.0,
                 "hg": 0, "hw": 0, "ag": 0, "aw": 0, "ng": 0, "nw": 0,
                 "vsline": 0.0, "vln": 0,               # sum(actual_margin - model_line), count
-                "favg": 0, "favbeat": 0, "dogg": 0, "dogbeat": 0}
+                "favg": 0, "favbeat": 0, "dogg": 0, "dogbeat": 0,
+                "ouover": 0, "oun": 0,                 # game total OVER our projected total, count
+                "ttover": 0, "ttn": 0}                 # team's OWN points OVER their projected points, count
 
     agg = defaultdict(blank)          # team -> overall
     byseason = defaultdict(lambda: defaultdict(blank))   # team -> season -> agg
@@ -119,6 +129,15 @@ def build_team_trends(seasons):
                             bucket["favg"] += 1; bucket["favbeat"] += (tm_margin > line)
                         elif line < 0:    # underdog
                             bucket["dogg"] += 1; bucket["dogbeat"] += (tm_margin > line)
+                # over/under vs our MODEL total (needs both teams' season scoring)
+                sc_t, sc_o = sco.get((yr, team)), sco.get((yr, opp))
+                if sc_t and sc_o:
+                    proj_total = ((sc_t[0] + sc_t[1]) + (sc_o[0] + sc_o[1])) / 2.0
+                    exp_team = (sc_t[0] + sc_o[1]) / 2.0     # team's projected points vs this opp
+                    actual_total = tm_pts + op_pts
+                    for bucket in (agg[team], byseason[team][yr]):
+                        bucket["oun"] += 1; bucket["ouover"] += (actual_total > proj_total)
+                        bucket["ttn"] += 1; bucket["ttover"] += (tm_pts > exp_team)
 
     def pack(b):
         g = b["g"] or 1
@@ -135,6 +154,9 @@ def build_team_trends(seasons):
             "vsLine": round(b["vsline"] / (b["vln"] or 1), 1),
             "favBeat": {"g": b["favg"], "pct": round(b["favbeat"] / (b["favg"] or 1), 3)},
             "dogBeat": {"g": b["dogg"], "pct": round(b["dogbeat"] / (b["dogg"] or 1), 3)},
+            # real over/under hit-rates vs our MODEL total (not a sportsbook line)
+            "ouOver": {"g": b["oun"], "pct": round(b["ouover"] / (b["oun"] or 1), 3)},
+            "ttOver": {"g": b["ttn"], "pct": round(b["ttover"] / (b["ttn"] or 1), 3)},
         }
 
     out = {}

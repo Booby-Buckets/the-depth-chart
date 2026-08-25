@@ -6645,7 +6645,7 @@ async function renderTeamBetting(){
 // 5-season team market trends (scripts/data/bet_trends_teams.json), keyed by full team name
 function _loadBetTeams(){
   if(window._betTeamsData) return Promise.resolve(window._betTeamsData);
-  return fetch('scripts/data/bet_trends_teams.json').then(function(r){return r.ok?r.json():null;})
+  return fetch('scripts/data/bet_trends_teams.json?v=2').then(function(r){return r.ok?r.json():null;})
     .then(function(j){ window._betTeamsData=(j&&j.teams)||{}; window._betTeamsMeta=(j&&j.meta)||{}; return window._betTeamsData; })
     .catch(function(){ window._betTeamsData={}; return window._betTeamsData; });
 }
@@ -6705,12 +6705,19 @@ function _tbetTeamProfile(r){
     '</div>';
   // #2/#3 scoring & pace bars + game-total over/under lean, and #5 win% by venue bars
   var _bar=function(lbl,val,max,col,valStr){ var w=Math.max(3,Math.min(100,(val||0)/max*100)); return '<div class="tbp-pbar"><span class="tbp-pl">'+lbl+'</span><div class="tbp-ptrack"><i style="width:'+w.toFixed(0)+'%;background:'+col+'"></i></div><span class="tbp-pv">'+valStr+'</span></div>'; };
-  var lgTotal=145, totLean=total>=lgTotal+3?'leans OVER':total<=lgTotal-3?'leans UNDER':'sits right on the number';
-  var pace='<div class="tbp-tt" style="margin-top:6px;">Scoring &amp; Pace</div>'+
+  var ou=r.ouOver, tt=r.ttOver;
+  var ouPct=(ou&&ou.g)?Math.round(ou.pct*100):null, ttPct=(tt&&tt.g)?Math.round(tt.pct*100):null;
+  var ouCol=function(p){return p>=54?'#22c55e':p<=46?'#ef4444':'var(--text2)';};
+  var ouLean=ouPct==null?'':(ouPct>=54?'an OVER team':ouPct<=46?'an UNDER team':'no strong O/U lean');
+  var pace='<div class="tbp-tt" style="margin-top:6px;">Scoring, Pace &amp; Over/Under</div>'+
     _bar('Offense',r.ppg,95,'#22c55e',f1(r.ppg)+' pts')+
     _bar('Defense allowed',r.oppg,95,'#ef4444',f1(r.oppg)+' pts')+
     _bar('Game total',total,180,'var(--tc-readable,var(--accent))',f1(total))+
-    '<div class="tbp-cap">Their games average <b>'+f1(total)+'</b> total points — <b>'+totLean+'</b> vs a ~'+lgTotal+' Division-I baseline (team total ~<b>'+f1(r.ppg)+'</b>).</div>';
+    (ouPct!=null?_bar('Games go OVER',ouPct,100,ouCol(ouPct),ouPct+'%'):'')+
+    (ttPct!=null?_bar('Team total OVER',ttPct,100,ouCol(ttPct),ttPct+'%'):'')+
+    (ouPct!=null
+      ? '<div class="tbp-cap">Over 5 seasons their games cleared <b>our projected total</b> <b>'+ouPct+'%</b> of the time — <b>'+ouLean+'</b>'+(ttPct!=null?', and they beat their own projected points <b>'+ttPct+'%</b> of the time':'')+'. Model total, not a sportsbook line.</div>'
+      : '<div class="tbp-cap">Their games average <b>'+f1(total)+'</b> total points (team total ~<b>'+f1(r.ppg)+'</b>).</div>');
   var homePct=(r.home&&r.home.g)?r.home.pct*100:0, awayPct=(r.away&&r.away.g)?r.away.pct*100:0, neuP=(r.neutral&&r.neutral.g)?100*r.neutral.w/r.neutral.g:0;
   var venue='<div class="tbp-tt" style="margin-top:16px;">Win % by Venue</div>'+
     _bar('Home',homePct,100,'#22c55e',Math.round(homePct)+'%')+
@@ -6742,7 +6749,10 @@ function _tbetTeamProfile(r){
   else if(vsLine<=-1) angles.push('📉 <b>Overvalued</b> — falls '+f1(vsLine)+' short of our number on average.');
   if(fav&&fav.g>=20&&fav.pct>=0.56) angles.push('✅ <b>Back as a favorite</b> — covered '+pct(fav)+' when favored.');
   if(dog&&dog.g>=10&&dog.pct<=0.42) angles.push('🚫 <b>Fade as a dog</b> — only '+pct(dog)+' vs the line as an underdog.');
-  if(total>=150) angles.push('⬆️ <b>Over lean</b> — '+f1(total)+' avg total; plays fast and high.');
+  if(ouPct!=null && ou.g>=40){          // real over/under hit-rate vs our model total
+    if(ouPct>=56) angles.push('⬆️ <b>Over team</b> — games cleared our projected total '+ouPct+'% of the time.');
+    else if(ouPct<=44) angles.push('⬇️ <b>Under team</b> — games stayed under our projected total '+(100-ouPct)+'% of the time.');
+  } else if(total>=150) angles.push('⬆️ <b>Over lean</b> — '+f1(total)+' avg total; plays fast and high.');
   else if(total<=138) angles.push('⬇️ <b>Under lean</b> — '+f1(total)+' avg total; grinds it out.');
   if(r.home&&r.away&&r.away.g>=10&&(r.home.pct-r.away.pct)>=0.22) angles.push('🏠 <b>Home-reliant</b> — '+pct(r.home)+' at home vs '+pct(r.away)+' away.');
   var anglesHtml=angles.length?('<div class="tbp-angles"><div class="tbp-ah">Betting angles</div>'+angles.map(function(a){return '<div class="tbp-angle">'+a+'</div>';}).join('')+'</div>'):'';
