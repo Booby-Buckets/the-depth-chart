@@ -1706,7 +1706,7 @@ async function loadProjectedSeason(){
   const banner=document.getElementById('projBanner'); if(banner) banner.style.display='flex';
   try {
     const colors = await ensureColors();
-    const [D, projRows, sgTeams, boxFillRaw, sgProjRaw] = await Promise.all([
+    const [D, projRows, sgTeams, boxFillRaw, sgProjRaw, taRows] = await Promise.all([
       TDC_RATINGS.get(),
       fetch(`${SB_URL}/rest/v1/team_projections?select=*`, { headers: HEADERS })
         .then(r=>r.ok?r.json():[]).catch(()=>[]),
@@ -1716,7 +1716,15 @@ async function loadProjectedSeason(){
       fetch('scripts/data/team_projected_box.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),
       // PROJECTED 2026-27 offense shot genome (build_projected_shot_genome.py), by full name.
       fetch('scripts/data/shot_genome_projected.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),
+      // LAST-SEASON actual team box stats — the fallback for rosterless CARRYOVER teams
+      // (no projection) so their box columns show 2025-26 numbers instead of blanks.
+      fetch(`${SB_URL}/rest/v1/team_actual_stats?select=*`, { headers: HEADERS })
+        .then(r=>r.ok?r.json():[]).catch(()=>[]),
     ]);
+    // carryover box fallback, keyed by canonical short school (Saint Mary's Gaels → saint mary's)
+    var _sch = function(n){ return ((window.tdcShortSchool ? tdcShortSchool(n) : n) || n || '').toLowerCase().trim(); };
+    var actBy = {}; (taRows||[]).forEach(function(a){ var k=_sch(a.espn_name); if(k) actBy[k]=a; });
+    var ACT_KEY = { stl:'spg', blk:'bpg' }, ACT_PCT = { fg_pct:1, tp_pct:1, ft_pct:1 };
     const boxFill={}; if(boxFillRaw) Object.keys(boxFillRaw).forEach(k=>boxFill[k.toLowerCase().trim()]=boxFillRaw[k]);
     // Offensive / defensive efficiency (per 100 poss) from the Team DNA engine, projected 2026-27.
     // ORtg/DRtg/net are reconciled at the source (build_projected_dna.py) so o - d == net
@@ -1733,7 +1741,11 @@ async function loadProjectedSeason(){
       const mc=matchColor(r.full,colors);
       const proj=projBy[(r.team||'').toLowerCase().trim()];
       const bf=boxFill[(r.full||'').toLowerCase().trim()];
-      const num=k=>{ let v=proj?(+proj[k]||0):0; if(!v && bf && bf[k]!=null) v=+bf[k]||0; return v; };
+      const act=actBy[_sch(r.full)];   // last-season actual box (carryover fallback)
+      const num=k=>{ let v=proj?(+proj[k]||0):0;
+        if(!v && bf && bf[k]!=null) v=+bf[k]||0;
+        if(!v && act){ const ak=ACT_KEY[k]||k, av=act[ak]; if(av!=null){ v=+av||0; if(ACT_PCT[k]) v=v/100; } }
+        return v; };
       const code=r.projected?(CODE_FIX[r.conf]||r.conf||''):confAbbr(r.conf);
       return {
         name:r.full, short:r.team,
