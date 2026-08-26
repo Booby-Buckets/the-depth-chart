@@ -1073,7 +1073,12 @@
     table.tbet tbody td{padding:8px 12px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);text-align:center;vertical-align:middle;background:var(--bg);}
     table.tbet tbody tr:nth-child(even) td{background:color-mix(in srgb,var(--bg2) 55%,var(--bg));}
     table.tbet tbody tr:hover td{background:color-mix(in srgb,var(--tc,#888) 10%,var(--bg));}
-    table.tbet td.name,table.tbet th.name{text-align:left;position:sticky;left:0;z-index:2;}
+    /* row-number gutter — the frozen "1,2,3…" left rail like Google Sheets */
+    table.tbet th.rn,table.tbet td.rn{position:sticky;left:0;z-index:2;width:38px;min-width:38px;max-width:38px;text-align:center;font-size:11px;font-weight:700;color:var(--text3);background:var(--bg3,var(--bg2));border-right:1px solid var(--border);padding:8px 0;}
+    table.tbet thead th.rn{z-index:4;}
+    table.tbet tbody tr:nth-child(even) td.rn{background:color-mix(in srgb,var(--bg2) 70%,var(--bg));}
+    table.tbet tbody tr:hover td.rn{background:color-mix(in srgb,var(--tc,#888) 12%,var(--bg));}
+    table.tbet td.name,table.tbet th.name{text-align:left;position:sticky;left:38px;z-index:2;}
     table.tbet td.name{background:var(--bg);border-right:2px solid var(--border2);}
     table.tbet tbody tr:nth-child(even) td.name{background:color-mix(in srgb,var(--bg2) 55%,var(--bg));}
     table.tbet tbody tr:hover td.name{background:color-mix(in srgb,var(--tc,#888) 10%,var(--bg));}
@@ -6798,18 +6803,18 @@ function _tbetPaint(){
   if(!players.length){ el.innerHTML='<div class="tbet-mut" style="padding:30px;text-align:center;">Not enough game history for a prop board (players need ≥5 games last season).</div>'; return; }
   players.sort(function(a,b){ return (b.props[_TBET.sort].avg)-(a.props[_TBET.sort].avg); });
   var ths=TBET_STATS.map(function(st){ return '<th class="sortable '+(_TBET.sort===st.k?'on':'')+'" onclick="_tbetSort(&quot;'+st.k+'&quot;)">'+st.lab+' ▾</th>'; }).join('');
-  var body=players.map(function(p){
+  var body=players.map(function(p,i){
     var cells=TBET_STATS.map(function(st){
       var pr=p.props[st.k]; var cls=(pr.pct>=60?'hi':pr.pct<=40?'lo':'')+(st.k===p.bestKey?' best':'');
       if(pr.pctOnly) return '<td><div class="tbet-cell '+cls.trim()+'"><div class="ln">'+pr.pct+'%</div><div class="pc">of games</div></div></td>';
       return '<td><div class="tbet-cell '+cls.trim()+'"><div class="ln">O '+pr.line.toFixed(1)+'</div><div class="pc">'+pr.pct+'% · '+pr.avg.toFixed(1)+'</div></div></td>';
     }).join('');
-    return '<tr><td class="name"><a href="player.html?espn='+p.eid+'&tab=betting">'+p.name+'</a>'+(p.pos?'<span class="pos">'+p.pos+'</span>':'')+'</td><td>'+p.gp+'</td>'+cells+'</tr>';
+    return '<tr><td class="rn">'+(i+1)+'</td><td class="name"><a href="player.html?espn='+p.eid+'&tab=betting">'+p.name+'</a>'+(p.pos?'<span class="pos">'+p.pos+'</span>':'')+'</td><td>'+p.gp+'</td>'+cells+'</tr>';
   }).join('');
   el.innerHTML=
     _tbetTeamProfile(_TBET.teamRec)
     +'<p class="tbet-note">Every rotation player’s suggested prop line, over rate, and average from <b>last season’s games</b>. Green = cleared the over 60%+ of the time, the accent number is each player’s strongest prop. Tap a column to sort; click a name for his full breakdown. Model &amp; trend based — not live sportsbook odds.</p>'
-    +'<div class="tbet-wrap"><table class="tbet"><thead><tr><th class="name">Player</th><th>GP</th>'+ths+'</tr></thead><tbody>'+body+'</tbody></table></div>'
+    +'<div class="tbet-wrap"><table class="tbet"><thead><tr><th class="rn"></th><th class="name">Player</th><th>GP</th>'+ths+'</tr></thead><tbody>'+body+'</tbody></table></div>'
     +_tbetFirstShot();
 }
 function _tbetSort(k){ _TBET.sort=k; _tbetPaint(); }
