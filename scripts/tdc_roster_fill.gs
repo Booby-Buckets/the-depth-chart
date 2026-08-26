@@ -34,7 +34,10 @@ var COL_MAP = {
   fg_pct:['fg%','fgpct','fg'], tp_pct:['3p%','3pt%','tppct','3p','3pt'], ft_pct:['ft%','ftpct','ft'],
   stl:['stl','spg'], blk:['blk','bpg'],
   // TI = our owned impact metric (computed, no SR). Also fills a legacy "BPM" column.
-  ti:['ti','ti40','impact','bpm']
+  ti:['ti','ti40','impact','bpm'],
+  // read-only context used to REJECT name collisions (never written back):
+  cls:['class','year','yr','cls','grade'],       // to skip true freshmen (no college history)
+  from:['from','transfer','prev','previous','origin']  // transfer's origin school, to corroborate the match
 };
 var NAME_HEADERS = ['name','player'];
 // rows whose name cell equals one of these are section dividers, not players
@@ -55,6 +58,29 @@ function cleanName(raw) {
     .replace(/[*+†#]/g, '')      // roster status markers
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function _normTm(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,' ').replace(/\s+/g,' ').trim(); }
+
+// Decide which (if any) player_history row REALLY belongs to this roster player, given
+// that a name can be shared by several different people. Returns the row, null (no safe
+// match — treat as a freshman/unfound), or 'COLLISION' (ambiguous — flag for manual fix).
+// This is what stops a Duke FRESHMAN "Cameron Williams" from inheriting Portland's stats.
+function _resolveMatch(p, rows) {
+  if (!rows || !rows.length) return null;
+  // a true freshman (no transfer origin) has no college history — never adopt a same-name veteran
+  if (p.isFresh && !p.from) return null;
+  var ids = {}; rows.forEach(function(r){ if (r.espn_id != null) ids[r.espn_id] = 1; });
+  var nDistinct = Object.keys(ids).length;
+  if (p.from) {   // transfer: only accept a row from his stated ORIGIN school
+    var f = _normTm(p.from);
+    var hit = rows.filter(function(r){ var t = _normTm(r.team); return t && f && (t.indexOf(f) === 0 || f.indexOf(t) === 0); });
+    if (hit.length) return hit[0];
+    return nDistinct > 1 ? 'COLLISION' : rows[0];   // name matches, but not his origin → suspect
+  }
+  // returner: one identity is safe; two+ real players sharing the name can't be told apart here
+  if (nDistinct > 1) return 'COLLISION';
+  return rows[0];
 }
 
 function fillRosterFromDB() {
@@ -82,11 +108,15 @@ function fillRosterFromDB() {
   }
   if (headerRow < 0) { ui.alert('Could not find a "Name" column on this sheet.'); return; }
 
-  // Collect player rows to look up.
+  // Collect player rows to look up (+ class & transfer-origin, read-only, to reject collisions).
   var players = [];
   for (var r = headerRow + 1; r < vals.length; r++) {
     var nm = cleanName(vals[r][col.name]);
-    if (nm && !SKIP_NAMES.test(nm) && /[a-z]/i.test(nm)) players.push({ row: r, name: nm });
+    if (nm && !SKIP_NAMES.test(nm) && /[a-z]/i.test(nm)) {
+      var cls  = col.cls  !== undefined ? String(vals[r][col.cls]  || '').toLowerCase() : '';
+      var from = col.from !== undefined ? String(vals[r][col.from] || '').trim()        : '';
+      players.push({ row: r, name: nm, isFresh: /(^|[^a-z])fr\b|fresh/.test(cls), from: from });
+    }
   }
   if (!players.length) { ui.alert('No player names found under the header.'); return; }
 
@@ -95,18 +125,25 @@ function fillRosterFromDB() {
   // tdc_derived.gs can compute our owned TI — no separate bbref/SR request needed.
   var histReqs = players.map(function (p) {
     return {
+      // pull team + espn_id + up to 6 same-name seasons so we can DETECT collisions
+      // ("Cameron Williams" = Portland AND a Duke freshman) instead of blindly taking
+      // the most recent one.
       url: SB_URL + '/rest/v1/player_history?select=height,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk'
-                  + ',fga,fgm,fta,ftm,tpm,tpa,oreb,dreb,tovs,gp,season_year'
-                  + '&name=eq.' + encodeURIComponent(p.name) + '&order=season_year.desc&limit=1',
+                  + ',fga,fgm,fta,ftm,tpm,tpa,oreb,dreb,tovs,gp,season_year,team,espn_id'
+                  + '&name=eq.' + encodeURIComponent(p.name) + '&order=season_year.desc&limit=6',
       headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }, muteHttpExceptions: true
     };
   });
   var histRes = UrlFetchApp.fetchAll(histReqs);
 
-  var filled = 0, unmatched = [];
+  var filled = 0, unmatched = [], collisions = [];
   for (var i = 0; i < players.length; i++) {
-    var p = players[i], h = null;
-    try { var a = JSON.parse(histRes[i].getContentText()); h = (a && a.length) ? a[0] : null; } catch (e) {}
+    var p = players[i], rows = [];
+    try { rows = JSON.parse(histRes[i].getContentText()) || []; } catch (e) {}
+    var h = _resolveMatch(p, rows);
+    if (h === 'COLLISION') {   // same name, more than one real player, no way to tell which → don't guess
+      collisions.push(p.name); sheet.getRange(p.row + 1, 1, 1, vals[0].length).setBackground('#f8d7da'); continue;
+    }
     if (!h) { unmatched.push(p.name); sheet.getRange(p.row + 1, 1, 1, vals[0].length).setBackground('#fff3cd'); continue; }
 
     setIfEmpty(sheet, vals, p.row, col.height, h.height);
@@ -130,10 +167,15 @@ function fillRosterFromDB() {
 
   ui.alert(
     'Filled ' + filled + ' player' + (filled === 1 ? '' : 's') + ' from the database.\n\n' +
+    (collisions.length
+      ? collisions.length + ' AMBIGUOUS name' + (collisions.length === 1 ? '' : 's') + ' — highlighted RED, NOT filled (more than one\n' +
+        'real player shares the name, e.g. a freshman vs a same-named veteran). Fill these\n' +
+        'by hand or add a "From" school so the right one is picked:\n  • ' + collisions.join('\n  • ') + '\n\n'
+      : '') +
     (unmatched.length
       ? unmatched.length + ' not found (true freshmen / never played) — highlighted yellow.\n' +
         'Project these in the site\'s freshman editor:\n  • ' + unmatched.join('\n  • ')
-      : 'Everyone matched.')
+      : (collisions.length ? '' : 'Everyone matched.'))
   );
 }
 
