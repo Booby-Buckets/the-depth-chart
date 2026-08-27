@@ -27,6 +27,7 @@
   <script src="tdc-teamlink.js?v=2"></script>
   <script src="tdc-projgrade.js?v=base2"></script>
   <script src="tdc-proj.js?v=coach19"></script>
+  <script src="tdc-impact.js?v=1"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -90,6 +91,19 @@
     .gph span{font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;}
     .gph::after{content:'';flex:1;height:1px;background:var(--border);}
     .kmwrap,.tape{border:1px solid var(--border);border-radius:13px;background:var(--bg2);overflow:hidden;}
+    .ma-grid{border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:6px 14px;}
+    .ma-row{display:grid;grid-template-columns:1fr 128px 1fr;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border);}
+    .ma-row:first-child{border-top:none;}
+    .ma-side{display:flex;align-items:center;gap:8px;}
+    .ma-side.a{justify-content:flex-end;}
+    .ma-val{font-weight:800;font-size:12.5px;min-width:30px;font-variant-numeric:tabular-nums;}
+    .ma-side.a .ma-val{text-align:right;}
+    .ma-bar{position:relative;height:7px;border-radius:4px;background:var(--bg3);overflow:hidden;flex:1;max-width:130px;}
+    .ma-bar i{position:absolute;top:0;bottom:0;border-radius:4px;}
+    .ma-bar.a i{right:0;} .ma-bar.b i{left:0;}
+    .ma-mid{text-align:center;}
+    .ma-lbl{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text2);line-height:1.2;}
+    .ma-edge{font-size:9.5px;font-weight:700;margin-top:3px;white-space:nowrap;}
     .kmhead,.kmrow{display:grid;grid-template-columns:58px 1fr 46px 1fr;gap:8px;align-items:center;padding:9px 15px;}
     .kmhead{border-bottom:1px solid var(--border);}
     .kmhead span{font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
@@ -296,6 +310,38 @@ async function projTeamLines(row){
     return {name:p.name, pos:((p.position||'').split('/')[0]||'G').replace(/[^A-Z]/g,''), ovr:(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):_n(p.tdc_grade), ppg:_n(l.ppg), rpg:_n(l.rpg), apg:_n(l.apg), mpg:_n(l.mpg)}; }); }
 
 const _POSN=p=>({PG:'PG',G:'PG',CG:'PG',SG:'SG',SF:'SF',F:'SF',PF:'PF',C:'C'}[p]||p);
+// Matchup Advantage — team-level trait head-to-head, minutes-weighted percentiles
+// from player_advanced (2025-26). Edge to the side ≥5 percentile points ahead.
+async function loadMatchupAdvantage(a,b,cA,cB,nA,nB){
+  const host=el('maHost'); if(!host||!window.TDCImpact) return;
+  const T=window.TDCImpact;
+  async function teamTraits(row){
+    let roster=[]; try{ roster=await fetch(`${SB}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=espn_id,mpg,is_injured&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
+    const rot=roster.filter(p=>p.espn_id!=null && !p.is_injured && (+p.mpg||0)>=8);
+    if(!rot.length) return null;
+    const ids=rot.map(p=>p.espn_id).join(','); const mpgBy={}; rot.forEach(p=>mpgBy[p.espn_id]=+p.mpg||0);
+    let adv=[]; try{ adv=await fetch(`${SB}/rest/v1/player_advanced?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,ts_pct,ast_pct,tov_pct,trb_pct,stl_pct,blk_pct`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
+    if(!adv.length) return null;
+    const KEYS=[['ts_pct',false],['ast_pct',false],['tov_pct',true],['trb_pct',false],['blk_pct',false],['stl_pct',false]];
+    const out={};
+    KEYS.forEach(([key,inv])=>{ let w=0,s=0; adv.forEach(r=>{ const v=r[key], m=mpgBy[r.espn_id]||0; if(v==null||m<=0)return; const p=T.pctOf(v,key,inv); if(p==null)return; s+=m*p; w+=m; }); out[key]=w?Math.round(s/w):null; });
+    return out;
+  }
+  let ta,tb; try{ [ta,tb]=await Promise.all([teamTraits(a),teamTraits(b)]); }catch(e){}
+  if(!ta||!tb){ host.innerHTML=''; return; }
+  const TRAITS=[['Shooting','ts_pct'],['Playmaking','ast_pct'],['Ball Security','tov_pct'],['Rebounding','trb_pct'],['Rim Protection','blk_pct'],['Ball Pressure','stl_pct']];
+  const rows=TRAITS.map(([lbl,k])=>{ const A=ta[k], B=tb[k]; if(A==null||B==null) return '';
+    const d=A-B, aWin=d>=5, bWin=d<=-5;
+    const edge=Math.abs(d)<5?'<span style="color:var(--text3)">even</span>':(d>0?`<span style="color:${cA}">◀ ${esc(nA)}</span>`:`<span style="color:${cB}">${esc(nB)} ▶</span>`);
+    return `<div class="ma-row">
+      <div class="ma-side a"><span class="ma-val" style="color:${aWin?cA:'var(--text3)'}">${T.ord(A)}</span><span class="ma-bar a"><i style="width:${A}%;background:${cA}"></i></span></div>
+      <div class="ma-mid"><div class="ma-lbl">${lbl}</div><div class="ma-edge">${edge}</div></div>
+      <div class="ma-side b"><span class="ma-bar b"><i style="width:${B}%;background:${cB}"></i></span><span class="ma-val" style="color:${bWin?cB:'var(--text3)'}">${T.ord(B)}</span></div>
+    </div>`; }).filter(Boolean).join('');
+  if(!rows){ host.innerHTML=''; return; }
+  host.innerHTML=`<div class="gph">Matchup advantage <span>minutes-weighted trait percentile · 2025-26</span></div><div class="ma-grid">${rows}</div>`;
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
+}
 async function loadGamePlan(a,b,favA,L){
   const host=el('gpPlan'); if(!host) return;
   host.innerHTML='<div class="loading" style="padding:40px">Projecting both rotations…</div>';
@@ -374,7 +420,8 @@ async function loadGamePlan(a,b,favA,L){
   }
   const wins=(da&&db)?`<div class="gph">How each team wins</div><div class="wpgrid">${winPath(da,db,nA)}${winPath(db,da,nB)}</div>`:'';
 
-  host.innerHTML=`${decisiveHtml}${kmRows?`<div class="gph">Key matchups <span>projected starter · OVR edge</span></div><div class="kmwrap" style="--cA:${cA};--cB:${cB}"><div class="kmhead"><span>Pos</span><span>${TDC_TEAM.badge(a.full,{label:nA})}</span><span>edge</span><span>${TDC_TEAM.badge(b.full,{label:nB})}</span></div>${kmRows}</div>`:''}${tapeHtml}${tempoHtml}${wins}`;
+  host.innerHTML=`${decisiveHtml}${kmRows?`<div class="gph">Key matchups <span>projected starter · OVR edge</span></div><div class="kmwrap" style="--cA:${cA};--cB:${cB}"><div class="kmhead"><span>Pos</span><span>${TDC_TEAM.badge(a.full,{label:nA})}</span><span>edge</span><span>${TDC_TEAM.badge(b.full,{label:nB})}</span></div>${kmRows}</div>`:''}<div id="maHost"></div>${tapeHtml}${tempoHtml}${wins}`;
+  loadMatchupAdvantage(a,b,cA,cB,nA,nB);
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
 }
 
