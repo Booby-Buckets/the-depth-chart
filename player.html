@@ -818,6 +818,15 @@
     .pk-tbl .pk-s{color:var(--text2);}
     .pk-tbl .pk-p{font-weight:800;}
 
+    /* SITUATIONAL PROFILE (predictive identifiers) */
+    .si-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;}
+    .si-card{background:var(--bg2);border:1px solid var(--border);border-radius:13px;padding:14px 16px;}
+    .si-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px;}
+    .si-t{font-size:12.5px;font-weight:800;color:var(--text);}
+    .si-rating{font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap;}
+    .si-detail{font-family:var(--mono,ui-monospace,monospace);font-size:11.5px;color:var(--text2);margin-bottom:7px;}
+    .si-read{font-size:12px;color:var(--text3);line-height:1.5;}
+
     /* PAGE-LOAD ANIMATIONS */
     @keyframes heroSlideUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
     @keyframes avatarPop{0%{opacity:0;transform:scale(.6);}70%{transform:scale(1.08);}100%{opacity:1;transform:scale(1);}}
@@ -2147,6 +2156,52 @@ function buildImpactDecomp(srcRow, projectedFlag){
     + '<div class="pd-legend" style="margin-bottom:6px;">Each trait is a percentile vs every qualified D-I player-season. The split shows how his value tilts between offense and defense (his offensive &amp; defensive wins added, measured separately). Signature = his top strengths, Liability = where he grades out below the pack.</div>';
 }
 function renderImpDecomp(){ var h=document.getElementById('impDecompHost'); if(!h) return; var x=_skillSrcFor(); h.innerHTML=buildImpactDecomp(x.src,x.projected); }
+
+// Situational Profile — Predictive Identifiers. Splits the player's 2025-26 game log
+// by opponent type (pace / ball-pressure from team DNA) + game margin (clutch) to read
+// HOW his production shifts — a coach-decision layer, not a box-score summary.
+async function loadSituational(){
+  var host=document.getElementById('situationalHost'); if(!host) return;
+  var espn=window._playerEspn||(player&&player.espn_id); if(!espn){ host.innerHTML=''; return; }
+  var bx=[], dna=null, games=[];
+  try{ var r=await Promise.all([
+    fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.2026&select=game_id,opp,pts,tov,pf,min',{headers:H}).then(function(x){return x.ok?x.json():[];}),
+    (window._sitDNA?Promise.resolve(window._sitDNA):fetch('scripts/data/team_dna.json').then(function(x){return x.ok?x.json():null;}))
+  ]); bx=r[0]; dna=r[1]; window._sitDNA=dna; }catch(e){}
+  if(!bx||bx.length<8 || !dna){ host.innerHTML=''; return; }
+  var teams=(dna['2026']&&dna['2026'].teams)||{};
+  // margins for the clutch split (one bulk games fetch)
+  try{ var ids=[].concat.apply([],[[...new Set(bx.map(function(b){return b.game_id;}).filter(Boolean))]]);
+    if(ids.length){ games=await fetch(SB+'/rest/v1/games?id=in.('+ids.join(',')+')&select=id,home_score,away_score',{headers:H}).then(function(x){return x.ok?x.json():[];}); } }catch(e){}
+  var marginBy={}; games.forEach(function(g){ if(g.home_score!=null&&g.away_score!=null) marginBy[g.id]=Math.abs((+g.home_score)-(+g.away_score)); });
+
+  function tert(key){ var v=Object.values(teams).map(function(t){return t[key];}).filter(function(x){return x!=null;}).sort(function(a,b){return a-b;}); return {hi:v[Math.floor(v.length*2/3)], lo:v[Math.floor(v.length/3)]}; }
+  var HAV=tert('dTOV'), PACE=tert('tempo');
+  function per40(list,key){ var m=0,v=0; list.forEach(function(g){ m+=+g.min||0; v+=+g[key]||0; }); return m>=40?v/m*40:null; }
+  var wd=bx.map(function(b){ var d=teams[b.opp]; return {b:b, dTOV:d?d.dTOV:null, tempo:d?d.tempo:null, margin:marginBy[b.game_id]}; });
+  var pick=function(f){ return wd.filter(f).map(function(x){return x.b;}); };
+  var hav=pick(function(x){return x.dTOV!=null&&x.dTOV>=HAV.hi;}), lowh=pick(function(x){return x.dTOV!=null&&x.dTOV<=HAV.lo;});
+  var fast=pick(function(x){return x.tempo!=null&&x.tempo>=PACE.hi;}), slow=pick(function(x){return x.tempo!=null&&x.tempo<=PACE.lo;});
+  var close=pick(function(x){return x.margin!=null&&x.margin<=5;}), comf=pick(function(x){return x.margin!=null&&x.margin>=10;});
+
+  var cards=[];
+  var th=per40(hav,'tov'), tl=per40(lowh,'tov');
+  if(th!=null&&tl!=null){ var dd=th-tl; var rt=dd>=1.2?{t:'Vulnerable',c:'#E06A7A'}:dd<=-0.6?{t:'Handles it',c:'#2DE0A6'}:{t:'Neutral',c:'#6B7893'};
+    cards.push({title:'Pressure Vulnerability', rt:rt, detail:th.toFixed(1)+' TO/40 vs havoc D · '+tl.toFixed(1)+' vs passive ('+(dd>=0?'+':'')+dd.toFixed(1)+')', read: dd>=1.2?'Speed him up — a press rattles him.':dd<=-0.6?'A press won’t bother him; guard him in the half-court.':'Roughly steady under pressure.'}); }
+  var pf_=per40(fast,'pts'), ps_=per40(slow,'pts');
+  if(pf_!=null&&ps_!=null){ var pd=pf_-ps_; var rt2=pd>=2?{t:'Transition',c:'#2DE0A6'}:pd<=-2?{t:'Half-court',c:'#5B8DEF'}:{t:'Pace-neutral',c:'#6B7893'};
+    cards.push({title:'Pace Sensitivity', rt:rt2, detail:pf_.toFixed(1)+' pts/40 vs fast · '+ps_.toFixed(1)+' vs slow ('+(pd>=0?'+':'')+pd.toFixed(1)+')', read: pd>=2?'Thrives in a track meet — slow it down against him.':pd<=-2?'Half-court scorer — pushing pace can quiet him.':'Scores at any tempo.'}); }
+  var pf40=per40(bx,'pf');
+  if(pf40!=null){ var rt3=pf40>=4.5?{t:'High',c:'#E06A7A'}:pf40>=3.2?{t:'Moderate',c:'#6B7893'}:{t:'Low',c:'#2DE0A6'};
+    cards.push({title:'Foul Risk', rt:rt3, detail:pf40.toFixed(1)+' fouls / 40 min', read: pf40>=4.5?'Foul-prone — attack him to draw fouls.':pf40>=3.2?'Average foul rate.':'Disciplined — hard to foul out.'}); }
+  var pc=per40(close,'pts'), pcm=per40(comf,'pts');
+  if(pc!=null && close.length>=3){ var cd=(pcm!=null)?pc-pcm:null; var rt4=cd==null?{t:'—',c:'#6B7893'}:cd>=2?{t:'Rises',c:'#2DE0A6'}:cd<=-2?{t:'Fades',c:'#E06A7A'}:{t:'Steady',c:'#6B7893'};
+    cards.push({title:'Clutch (close games)', rt:rt4, detail:pc.toFixed(1)+' pts/40 in games ≤5'+(pcm!=null?' · '+pcm.toFixed(1)+' in blowouts':'')+(cd!=null?' ('+(cd>=0?'+':'')+cd.toFixed(1)+')':''), read: cd==null?'Limited close-game sample.':cd>=2?'Steps up when it’s tight.':cd<=-2?'Quieter in close games — make someone else beat you late.':'Same player in the clutch.'}); }
+  if(!cards.length){ host.innerHTML=''; return; }
+  var html=cards.map(function(c){ return '<div class="si-card"><div class="si-h"><span class="si-t">'+c.title+'</span><span class="si-rating" style="color:'+c.rt.c+'">'+c.rt.t+'</span></div><div class="si-detail">'+c.detail+'</div><div class="si-read">'+c.read+'</div></div>'; }).join('');
+  host.innerHTML='<div class="skill-section-title">Situational Profile — Predictive Identifiers</div><div class="si-grid">'+html+'</div><div class="pd-legend" style="margin-bottom:6px;">How his production shifts by opponent type — split from his 2025-26 game log against each opponent’s pace &amp; ball-pressure (team DNA) and by final margin. A coach-decision layer, not a box-score summary.</div>';
+  if(window.TDCAnim&&window.TDCAnim.scan) TDCAnim.scan(host);
+}
 function renderCareerExtras(){ var a=document.getElementById('careerTrajHost'); if(a)a.innerHTML=buildCareerTraj(); var b=document.getElementById('peakMetHost'); if(b)b.innerHTML=buildPeakMetrics(); }
 
 // Tournament splits — this player's 2025-26 postseason production vs the regular season.
@@ -4125,6 +4180,7 @@ function renderPage(){
     <div class="tab-panel" id="panel-percentiles">
       <div id="pctDashHost" style="margin-bottom:34px;">${(function(){var x=_skillSrcFor();return buildPctDashboard(x.src,x.projected,x.label);})()}</div>
       <div id="impDecompHost" style="margin-bottom:34px;">${(function(){var x=_skillSrcFor();return buildImpactDecomp(x.src,x.projected);})()}</div>
+      <div id="situationalHost" style="margin-bottom:34px;"></div>
       <div class="sec-title" style="margin-bottom:14px;">Percentile Distributions</div>
       <div class="dist-controls">
         <div class="dist-slider">
@@ -5970,6 +6026,7 @@ function switchTab(t){
     if(id==='stats' && !window._careerExtrasDone){ window._careerExtrasDone=true; try{ ((window.TDCProjGrade&&TDCProjGrade.ready)||Promise.resolve()).then(function(){ renderCareerExtras(); }); }catch(e){ renderCareerExtras(); } loadPlayerMarch(); }
     if(id==='shotcharts' && !window._shotChartLoaded){ window._shotChartLoaded=true; _initShotSeasons(); loadShotGenome(); }
     if(id==='percentiles' && !window._pctDashGenome){ window._pctDashGenome=true; try{ (typeof ensureSgPlayers==='function'?ensureSgPlayers():Promise.resolve()).then(function(){ renderPctDash(); renderImpDecomp(); setTimeout(function(){ growBarsIn(document.getElementById('panel-percentiles')); },60); }); }catch(e){} }
+    if(id==='percentiles' && !window._situationalDone){ window._situationalDone=true; loadSituational(); }
     if(id==='rankings')setTimeout(renderRankings,40);
     if(id==='scheme' && !window._schemeLoaded){ window._schemeLoaded=true; setTimeout(renderScheme,40); }
     if(id==='nil' && !window._nilLoaded){ window._nilLoaded=true; setTimeout(renderNilPlayer,40); }
