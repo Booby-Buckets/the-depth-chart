@@ -689,6 +689,39 @@ async function loadShotProfile(row){
     <div class="card"><div>${['rim','mid','three'].map(row3).join('')}</div><div class="obread"><b>Attack plan:</b> ${plan}</div></div>`;
 }
 
+// ── March profile: which of their returning players stepped up in last year's
+//    postseason (tournament p/r/a vs their regular-season scoring). Empty if the team
+//    didn't play a postseason or has no returning tournament tape. ──
+async function loadMarchProfile(row){
+  const host=el('scoutMarch'); if(!host) return;
+  const esc=s=>(''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+  let ps=[]; try{ ps=await fetch(`${SB_URL}/rest/v1/postseason_games?or=(home.eq.${encodeURIComponent(row.full)},away.eq.${encodeURIComponent(row.full)})&season_year=eq.2026&select=id,tournament,round`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  if(!ps.length){ host.innerHTML=''; return; }
+  let roster=[]; try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,is_injured,ppg,mpg&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
+  const rot=roster.filter(p=>p.espn_id!=null && !p.is_injured && (+p.mpg||0)>=8).slice(0,10);
+  if(!rot.length){ host.innerHTML=''; return; }
+  const gids=ps.map(g=>g.id).join(','), rids=rot.map(p=>p.espn_id).join(',');
+  let bx=[]; try{ bx=await fetch(`${SB_URL}/rest/v1/box_scores?game_id=in.(${gids})&espn_id=in.(${rids})&select=espn_id,pts,reb,ast,min&limit=400`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  if(bx.length<3){ host.innerHTML=''; return; }
+  const agg={}; bx.forEach(b=>{ const a=agg[b.espn_id]=agg[b.espn_id]||{g:0,pts:0,reb:0,ast:0}; a.g++; a.pts+=+b.pts||0; a.reb+=+b.reb||0; a.ast+=+b.ast||0; });
+  const rows=rot.map(p=>{ const a=agg[p.espn_id]; if(!a||a.g<1) return null;
+    const tp=a.pts/a.g, season=+p.ppg||0, d=season>0?tp-season:0;
+    const tag = season<=0 ? '<span style="color:var(--text3)">—</span>'
+      : (d>=2.5?`<span style="color:var(--green,#1a8c3a)">▲ rose +${d.toFixed(1)}</span>`
+      : d<=-2.5?`<span style="color:var(--red,#cc2200)">▼ faded ${d.toFixed(1)}</span>`
+      : '<span style="color:var(--text3)">steady</span>');
+    return {p,a,tp,tag}; }).filter(Boolean).sort((x,y)=>y.tp-x.tp);
+  if(!rows.length){ host.innerHTML=''; return; }
+  const tourney=[...new Set(ps.map(g=>g.tournament).filter(Boolean))].join(' + ')||'the postseason';
+  const body=rows.map(r=>`<div style="display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--border)">
+    <div><b>${esc(r.p.name)}</b> <span style="color:var(--text3);font-size:11px">· ${r.a.g}G · ${esc(r.p.position||'')}</span></div>
+    <div style="text-align:right;font-variant-numeric:tabular-nums"><b>${r.tp.toFixed(1)}</b>/${(r.a.reb/r.a.g).toFixed(1)}/${(r.a.ast/r.a.g).toFixed(1)}<div style="font-size:9.5px;color:var(--text3)">postseason p/r/a</div></div>
+    <div style="text-align:right;min-width:86px;font-size:11px;font-weight:800">${r.tag}</div>
+  </div>`).join('');
+  host.innerHTML=`<div class="sec-h" style="margin-top:22px">March profile — who stepped up <span class="hint">2025-26 ${esc(tourney)} · vs regular-season scoring</span></div><div class="card">${body}</div>`;
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
+}
+
 // ── how they fare vs different opponent STYLES (merged from style-matchups.html):
 //    2025-26 W-L + margin split by opponent tempo / shot profile / strength ──
 let _styleCuts=null;
@@ -828,6 +861,7 @@ async function render(){
     ${plan||'<div class="card"><div class="muted">Team DNA isn\'t on file for this opponent yet, so the auto game plan is unavailable.</div></div>'}
     ${profile}
     <div id="scoutSituational"></div>
+    <div id="scoutMarch"></div>
     <div id="scoutStyle"></div>
     <div id="scoutAttack"></div>
     <div class="sec-h">The Attack Book — how to guard &amp; attack each man <span class="hint">projected line · 2025-26 tendencies</span></div>
@@ -842,6 +876,7 @@ async function render(){
     <div id="scoutLineupHost"></div>
   </div>`;
   loadAttackSheet(r);
+  loadMarchProfile(r);
   loadPersonnel(r);
   if(window.TDC_SITUATIONAL) TDC_SITUATIONAL.section(r, 2026).then(function(h){ var sh=document.getElementById('scoutSituational'); if(sh&&h){ sh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(sh); } });
   if(window.TDC_LINEUPS) TDC_LINEUPS.section(r.full, 2026, {pos:CR.pos}).then(function(h){ var lh=document.getElementById('scoutLineupHost'); if(lh&&h){ lh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(lh); } });
