@@ -800,6 +800,17 @@
     .idc-empty{color:var(--text3);font-size:12px;padding:8px 0;}
     @media(max-width:560px){.idc-cols,.idc-callouts{grid-template-columns:1fr;}}
 
+    /* CAREER TRAJECTORY + PEAK METRICS */
+    .ct-legend{display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:11.5px;font-weight:600;color:var(--text2);margin-bottom:9px;}
+    .ct-legend span{display:inline-flex;align-items:center;gap:7px;}
+    .ct-legend i{width:14px;height:3px;border-radius:2px;}
+    .ct-legend .ct-note{color:var(--text3);font-weight:500;font-size:10.5px;}
+    .ct-wrap{border:1px solid var(--border);border-radius:12px;padding:10px 8px 2px;background:var(--bg2);}
+    .ct-svg{width:100%;height:auto;display:block;max-height:250px;}
+    .pk-tbl .pk-v{font-family:'Playfair Display',serif;font-weight:800;color:var(--text);}
+    .pk-tbl .pk-s{color:var(--text2);}
+    .pk-tbl .pk-p{font-weight:800;}
+
     /* PAGE-LOAD ANIMATIONS */
     @keyframes heroSlideUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
     @keyframes avatarPop{0%{opacity:0;transform:scale(.6);}70%{transform:scale(1.08);}100%{opacity:1;transform:scale(1);}}
@@ -2078,6 +2089,7 @@ function buildImpactDecomp(srcRow, projectedFlag){
     + '<div class="pd-legend" style="margin-bottom:6px;">Each trait is a percentile vs every qualified D-I player-season. The split shows how his value tilts between offense and defense (his offensive &amp; defensive wins added, measured separately). Signature = his top strengths, Liability = where he grades out below the pack.</div>';
 }
 function renderImpDecomp(){ var h=document.getElementById('impDecompHost'); if(!h) return; var x=_skillSrcFor(); h.innerHTML=buildImpactDecomp(x.src,x.projected); }
+function renderCareerExtras(){ var a=document.getElementById('careerTrajHost'); if(a)a.innerHTML=buildCareerTraj(); var b=document.getElementById('peakMetHost'); if(b)b.innerHTML=buildPeakMetrics(); }
 
 
 // ── PERCENTILE HELPERS ──────────────────────────────────
@@ -3992,6 +4004,8 @@ function renderPage(){
       <div style="overflow-x:auto;" id="sm-body-pergame">${renderStatTable(p, proj)}</div>
       <div style="overflow-x:auto;display:none;" id="sm-body-per40">${renderModeTable('per40')}</div>
       <div style="display:none;" id="sm-body-advanced"><div style="overflow-x:auto;">${renderModeTable('advanced')}</div></div>
+      <div id="careerTrajHost">${buildCareerTraj()}</div>
+      <div id="peakMetHost">${buildPeakMetrics()}</div>
       <div class="sec-title" style="margin:34px 0 14px;">Game Log</div>
       <div id="sm-body-gamelog"></div>
     </div>
@@ -4198,6 +4212,66 @@ function _ovrTd(g){ g=parseInt(g); const c=isNaN(g)?'var(--text3)':(g>=85?'#5ab8
   return `<td style="font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:${c};">${isNaN(g)?'—':g}</td>`; }
 function _teamSub(t){ return t?`<div style="font-size:9px;color:var(--text3);font-weight:600;margin-top:1px;">${t}</div>`:''; }
 function _dedupHist(){ const by={}; (careerHistory||[]).forEach(s=>{const y=s.season_year,gp=s.gp||0; if(!by[y]||gp>(by[y].gp||0))by[y]=s;}); return Object.values(by).sort((a,b)=>a.season_year-b.season_year); }
+
+// ── CAREER TRAJECTORY (dual-line SVG: TDC Grade + Wins Added over seasons) ──
+function buildCareerTraj(){
+  var hist=_dedupHist(); if(!hist||hist.length<2) return '';
+  var W=680,H=210,padL=8,padR=8,padT=26,padB=28,n=hist.length;
+  var xat=function(i){return padL+(n===1?0:i*(W-padL-padR)/(n-1));};
+  function series(get){
+    var v=hist.map(get).map(function(x){return (x==null||x===''||isNaN(+x))?null:+x;});
+    var nums=v.filter(function(x){return x!=null;});
+    if(nums.length<2) return null;
+    var mn=Math.min.apply(null,nums), mx=Math.max.apply(null,nums), rng=(mx-mn)||1;
+    var pts=v.map(function(x,i){return x==null?null:{x:xat(i),y:padT+(1-(x-mn)/rng)*(H-padT-padB),v:x};});
+    var last=null; for(var i=pts.length-1;i>=0;i--){ if(pts[i]){ last=pts[i]; break; } }
+    return {pts:pts,last:last};
+  }
+  var g=series(function(s){return _statOvrRow(s.season_year, s.tdc_grade);});   // adjusted OVR (matches the career table)
+  var w=series(function(s){return (s.wa!=null?s.wa:(s._advanced&&s._advanced.wa));});
+  if(!g&&!w) return '';
+  function draw(sr,col){ if(!sr)return ''; var d=''; sr.pts.forEach(function(p){if(p)d+=(d?'L':'M')+p.x.toFixed(1)+' '+p.y.toFixed(1);});
+    var dots=sr.pts.map(function(p){return p?'<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="3" fill="'+col+'"/>':'';}).join('');
+    return '<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>'+dots; }
+  var GC='#2DE0A6', WC='#5B8DEF';
+  var xlabels=hist.map(function(s,i){return '<text x="'+xat(i).toFixed(1)+'" y="'+(H-9)+'" text-anchor="middle" font-size="9.5" fill="var(--text3)">'+_seasonLbl(s.season_year)+'</text>';}).join('');
+  var endLbls='';
+  if(g&&g.last) endLbls+='<text x="'+(g.last.x-7).toFixed(1)+'" y="'+(g.last.y-9).toFixed(1)+'" text-anchor="end" font-size="12.5" font-weight="800" fill="'+GC+'">'+Math.round(g.last.v)+'</text>';
+  if(w&&w.last) endLbls+='<text x="'+(w.last.x-7).toFixed(1)+'" y="'+(w.last.y-9).toFixed(1)+'" text-anchor="end" font-size="12.5" font-weight="800" fill="'+WC+'">'+(w.last.v>=0?'+':'')+(+w.last.v).toFixed(1)+'</text>';
+  return '<div class="sec-title" style="margin:34px 0 8px;">Career Trajectory</div>'
+    +'<div class="ct-legend"><span><i style="background:'+GC+'"></i>TDC Grade</span><span><i style="background:'+WC+'"></i>Wins Added</span><span class="ct-note">each line scaled to its own range — read the shape, endpoints are labeled</span></div>'
+    +'<div class="ct-wrap"><svg viewBox="0 0 '+W+' '+H+'" class="ct-svg" role="img" aria-label="Career trajectory">'
+    + draw(g,GC)+draw(w,WC)+xlabels+endLbls
+    +'</svg></div>';
+}
+// ── PEAK METRICS (best single season for each metric, with percentile) ──
+function buildPeakMetrics(){
+  var hist=_dedupHist(); if(!hist||!hist.length) return '';
+  function tierCol(pct){ return pct>=90?'#E0B24A':pct>=75?'#2DE0A6':pct>=50?'#5B8DEF':pct>=30?'#6B7893':'#E06A7A'; }
+  function peak(get,key,fmt){
+    var best=null,bs=null;
+    hist.forEach(function(s){var v=get(s); if(v==null||v===''||isNaN(+v))return; v=+v; if(best==null||v>best){best=v;bs=s;}});
+    if(best==null) return null;
+    return {disp:fmt(best), season:_seasonLbl(bs.season_year), pct:key?getPctNat(best,key):null};
+  }
+  var mets=[
+    {l:'TDC Grade', r:peak(function(s){return _statOvrRow(s.season_year, s.tdc_grade);},null,function(v){return Math.round(v);})},
+    {l:'Wins Added', r:peak(function(s){return s.wa!=null?s.wa:(s._advanced&&s._advanced.wa);},'wa',function(v){return (v>=0?'+':'')+v.toFixed(1);})},
+    {l:'PPG', r:peak(function(s){return s.ppg;},'ppg',function(v){return v.toFixed(1);})},
+    {l:'RPG', r:peak(function(s){return s.rpg;},'rpg',function(v){return v.toFixed(1);})},
+    {l:'APG', r:peak(function(s){return s.apg;},'apg',function(v){return v.toFixed(1);})},
+    {l:'TS%', r:peak(function(s){return s._advanced&&s._advanced.ts_pct;},'ts_pct',function(v){return (v*100).toFixed(1)+'%';})},
+    {l:'TI / 40', r:peak(function(s){return s._advanced&&s._advanced.ti40;},'ti40',function(v){return v.toFixed(1);})},
+    {l:'USG%', r:peak(function(s){return s._advanced&&s._advanced.usg_pct;},'usg_pct',function(v){return v.toFixed(1)+'%';})}
+  ].filter(function(m){return m.r;});
+  if(!mets.length) return '';
+  var rows=mets.map(function(m){
+    var pc=(m.r.pct!=null)?'<span style="color:'+tierCol(m.r.pct)+'">'+_ord(m.r.pct)+'</span>':'<span style="color:var(--text3)">—</span>';
+    return '<tr><td class="pk-l">'+m.l+'</td><td class="pk-v">'+m.r.disp+'</td><td class="pk-s">'+m.r.season+'</td><td class="pk-p">'+pc+'</td></tr>';
+  }).join('');
+  return '<div class="sec-title" style="margin:34px 0 12px;">Peak Metrics</div>'
+    +'<div class="nl-wrap"><table class="nl-tbl pk-tbl"><thead><tr><th>Metric</th><th>Peak</th><th>Season</th><th>Pctile</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
 const _f1=v=>{const n=parseFloat(v);return isNaN(n)?'—':(Math.round(n*10)/10).toFixed(1);};
 const _fp100=v=>{const n=parseFloat(v);return isNaN(n)?'—':(Math.round(n*1000)/10).toFixed(1)+'%';}; // .639 -> 63.9%
 const _fpRaw=v=>{const n=parseFloat(v);return isNaN(n)?'—':n.toFixed(1)+'%';};                       // 22.2 -> 22.2%
@@ -5805,6 +5879,7 @@ function switchTab(t){
     });
     if(id==='overview')setTimeout(animateRadar,90);
     if(id==='stats' && !window._gamelogLoaded){ window._gamelogLoaded=true; loadGameLog(); }
+    if(id==='stats' && !window._careerExtrasDone){ window._careerExtrasDone=true; try{ ((window.TDCProjGrade&&TDCProjGrade.ready)||Promise.resolve()).then(function(){ renderCareerExtras(); }); }catch(e){ renderCareerExtras(); } }
     if(id==='shotcharts' && !window._shotChartLoaded){ window._shotChartLoaded=true; _initShotSeasons(); loadShotGenome(); }
     if(id==='percentiles' && !window._pctDashGenome){ window._pctDashGenome=true; try{ (typeof ensureSgPlayers==='function'?ensureSgPlayers():Promise.resolve()).then(function(){ renderPctDash(); renderImpDecomp(); setTimeout(function(){ growBarsIn(document.getElementById('panel-percentiles')); },60); }); }catch(e){} }
     if(id==='rankings')setTimeout(renderRankings,40);
