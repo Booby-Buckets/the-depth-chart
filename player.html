@@ -762,6 +762,20 @@
     .pd-pct{font-size:10.5px;font-weight:800;margin-top:6px;}
     .pd-legend{font-size:10.5px;color:var(--text3);line-height:1.7;margin-top:6px;margin-bottom:30px;}
 
+    /* NIL VALUE LEDGER */
+    .nl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;}
+    .nl-tbl{width:100%;border-collapse:collapse;font-size:13px;min-width:400px;}
+    .nl-tbl th{text-align:right;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:10px 12px;border-bottom:1px solid var(--border);background:var(--bg2);}
+    .nl-tbl th:first-child,.nl-tbl td:first-child{text-align:left;}
+    .nl-tbl td{text-align:right;padding:10px 12px;border-bottom:1px solid var(--border);}
+    .nl-tbl tr:last-child td{border-bottom:none;}
+    .nl-tbl tbody tr:hover{background:var(--bg2);}
+    .nl-tbl .nl-yr{font-weight:700;color:var(--text);}
+    .nl-tbl .nl-tm{color:var(--text2);}
+    .nl-tbl .nl-g{font-weight:700;color:var(--text2);}
+    .nl-tbl .nl-wa{font-weight:800;font-family:'Inter',sans-serif;}
+    .nl-tbl .nl-v{font-family:'Playfair Display',serif;font-weight:800;color:var(--text);}
+
     /* PAGE-LOAD ANIMATIONS */
     @keyframes heroSlideUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
     @keyframes avatarPop{0%{opacity:0;transform:scale(.6);}70%{transform:scale(1.08);}100%{opacity:1;transform:scale(1);}}
@@ -5429,6 +5443,33 @@ function _tabScrollHint(){
 }
 window.addEventListener('resize',_tabScrollHint);
 
+// Value Ledger — each season's production (Wins Added) next to the open-market NIL
+// value that production would command today. College has no historical "salary", so
+// this is a value-of-production ledger (like a contracts table), not a paid-vs-value one.
+function _nilLedgerHtml(N, prem, basePos, baseCls){
+  var hist=(typeof _dedupHist==='function')?_dedupHist():[];
+  if(!hist.length || !N.gradeValueNeutral) return '';
+  var fmt=N.fmt, esc=function(s){return (''+(s==null?'':s)).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];});};
+  var rows=hist.slice().reverse().map(function(s){                 // newest first
+    var g=parseFloat(s.tdc_grade); if(isNaN(g)) return '';
+    var mp=(+s.mpg>0)?+s.mpg:18;
+    var cls=(s.class_year||s.yr||baseCls||'');
+    var val=N.gradeValueNeutral(g,mp,prem,cls,basePos)*(N.pedigreeMult?N.pedigreeMult(player&&player.espn_id,cls):1);
+    var wa=(s.wa!=null)?+s.wa:(s._advanced&&s._advanced.wa!=null?+s._advanced.wa:null);
+    var waCol=(wa==null)?'var(--text3)':(wa>=0?'var(--green)':'var(--red)');
+    return '<tr>'
+      +'<td class="nl-yr">'+_seasonLbl(s.season_year)+'</td>'
+      +'<td class="nl-tm">'+esc(s.school||s.team||'')+'</td>'
+      +'<td class="nl-g">'+Math.round(g)+'</td>'
+      +'<td class="nl-wa" style="color:'+waCol+'">'+(wa!=null?((wa>=0?'+':'')+wa.toFixed(1)):'—')+'</td>'
+      +'<td class="nl-v">'+fmt(val)+'</td>'
+      +'</tr>';
+  }).filter(Boolean).join('');
+  if(!rows) return '';
+  return '<div class="sec-title" style="margin:26px 0 12px;">Value Ledger</div>'
+    +'<div class="nilx-note" style="margin-bottom:11px;">Each season\'s <b>Wins Added</b> — what he actually produced — next to the <b>open-market NIL value</b> that production would command today. His worth over time, production and price side by side.</div>'
+    +'<div class="nl-wrap"><table class="nl-tbl"><thead><tr><th>Season</th><th>Team</th><th>Grade</th><th>Wins Added</th><th>Value</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
 async function renderNilPlayer(){
   const host=document.getElementById('nilContent'); if(!host) return;
   const N=window.TDC_NIL; if(!N){ host.innerHTML='<div style="padding:40px;color:var(--text3)">NIL model not loaded.</div>'; return; }
@@ -5513,6 +5554,7 @@ async function renderNilPlayer(){
       <div class="nilx-step final" style="border-color:${col}"><div class="nx-t">Projected NIL value</div><div class="nx-b" style="color:${col};font-size:24px">${fmt(value)}</div></div>
     </div>`}
     <div class="nilx-note">A realistic-market estimate: the player's <b>TDC grade</b> (talent, usage, efficiency, recruiting hype) on a <b>convex curve</b> — stars are worth exponentially more — times <b>projected minutes</b> (role), a <b>market premium</b> (size · scoring · conference), a <b>youth bump</b> for upside, a <b>big premium</b> (good bigs are scarce), and an <b>NBA-prospect premium</b> for young lottery-caliber grades. It's <b>tier-neutral</b> — a player's open-market worth, priced the same whether he's at a blue-blood or a mid-major (talent and role, not the program). Calibrated to real NIL deals.${marketVal!=null?` <b>Market Value</b> is a different lens — a <b>positional market curve</b> (what a 90 / 80 / 70-grade player goes for at each slot, set by the owner) read off by this player's grade &amp; position, independent of minutes. The <b>Verdict</b> is <b>tier-fair</b>: it strips out team spending so talent (not the program) drives it, then compares his production to the market price for his grade &amp; slot — <span style="color:var(--green);font-weight:700;">UNDERRATED</span> = slept on (produces more than the market pays), <span style="color:var(--amber);font-weight:700;">OVERRATED</span> = market pays above production.`:''}</div>
+    ${_nilLedgerHtml(N,prem,pos,cls)}
     ${row?`<div style="margin-top:16px;text-align:center;">
       <a href="moneyball.html?tab=market&q=${encodeURIComponent(player.name||'')}" style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:800;letter-spacing:.02em;color:var(--accent);border:1px solid var(--border2);border-radius:22px;padding:9px 18px;text-decoration:none;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)'">⬡ See ${(player.name||'this player')} in the Moneyball Market →</a>
     </div>`:''}
