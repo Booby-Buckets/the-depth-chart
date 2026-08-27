@@ -2149,6 +2149,34 @@ function buildImpactDecomp(srcRow, projectedFlag){
 function renderImpDecomp(){ var h=document.getElementById('impDecompHost'); if(!h) return; var x=_skillSrcFor(); h.innerHTML=buildImpactDecomp(x.src,x.projected); }
 function renderCareerExtras(){ var a=document.getElementById('careerTrajHost'); if(a)a.innerHTML=buildCareerTraj(); var b=document.getElementById('peakMetHost'); if(b)b.innerHTML=buildPeakMetrics(); }
 
+// Tournament splits — this player's 2025-26 postseason production vs the regular season.
+async function loadPlayerMarch(){
+  var host=document.getElementById('playerMarchHost'); if(!host) return;
+  var espn=window._playerEspn||(player&&player.espn_id); if(!espn){ host.innerHTML=''; return; }
+  var bx=[], ps=[];
+  try{ var r=await Promise.all([
+    fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.2026&select=game_id,pts,reb,ast,fga,fta,min',{headers:H}).then(function(x){return x.ok?x.json():[];}),
+    fetch(SB+'/rest/v1/postseason_games?season_year=eq.2026&select=id',{headers:H}).then(function(x){return x.ok?x.json():[];})
+  ]); bx=r[0]; ps=r[1]; }catch(e){}
+  if(!bx.length || !ps.length){ host.innerHTML=''; return; }
+  var isPost={}; ps.forEach(function(g){ isPost[g.id]=1; });
+  var reg=[], post=[]; bx.forEach(function(b){ (isPost[b.game_id]?post:reg).push(b); });
+  if(post.length<1){ host.innerHTML=''; return; }
+  function agg(list){ if(!list.length) return null; var g=0,pts=0,reb=0,ast=0,fga=0,fta=0; list.forEach(function(b){g++;pts+=+b.pts||0;reb+=+b.reb||0;ast+=+b.ast||0;fga+=+b.fga||0;fta+=+b.fta||0;});
+    var ts=(fga+0.44*fta)>0?pts/(2*(fga+0.44*fta)):0; return {g:g, ppg:pts/g, rpg:reb/g, apg:ast/g, ts:ts}; }
+  var R=agg(reg), P=agg(post); if(!P){ host.innerHTML=''; return; }
+  function d1(v){return v.toFixed(1);} function tp(v){return (v*100).toFixed(1)+'%';}
+  function drow(name,R,P,fmt,key,mult){ var rv=R?fmt(R[key]):'—', pv=P?fmt(P[key]):'—';
+    var delta=(R&&P)?(P[key]-R[key])*(mult||1):null;
+    var col=delta==null?'var(--text3)':(delta>=(key==='ts'?0.02:1.5)?'var(--green)':delta<=(key==='ts'?-0.02:-1.5)?'var(--red)':'var(--text2)');
+    var dtxt=delta==null?'':(key==='ts'?((delta>=0?'+':'')+(delta*100).toFixed(1)+'%'):((delta>=0?'+':'')+delta.toFixed(1)));
+    return '<tr><td class="nl-yr">'+name+'</td><td class="nl-v">'+pv+'</td><td class="pk-s">'+rv+'</td><td class="nl-wa" style="color:'+col+'">'+dtxt+'</td></tr>'; }
+  var body=[['PPG','ppg',d1],['RPG','rpg',d1],['APG','apg',d1],['TS%','ts',tp]].map(function(m){ return drow(m[0],R,P,m[2],m[1]); }).join('');
+  host.innerHTML='<div class="sec-title" style="margin:34px 0 12px;">Tournament splits — March vs the regular season</div>'
+    +'<div class="nl-wrap"><table class="nl-tbl pk-tbl"><thead><tr><th>Metric</th><th>Postseason ('+P.g+'G)</th><th>Regular ('+R.g+'G)</th><th>Δ</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+  if(window.TDCAnim&&window.TDCAnim.scan) TDCAnim.scan(host);
+}
+
 
 // ── PERCENTILE HELPERS ──────────────────────────────────
 function r1(v){return v!=null?Math.round(v*10)/10:null;}
@@ -4065,6 +4093,7 @@ function renderPage(){
       <div style="display:none;" id="sm-body-advanced"><div style="overflow-x:auto;">${renderModeTable('advanced')}</div></div>
       <div id="careerTrajHost">${buildCareerTraj()}</div>
       <div id="peakMetHost">${buildPeakMetrics()}</div>
+      <div id="playerMarchHost"></div>
       <div class="sec-title" style="margin:34px 0 14px;">Game Log</div>
       <div id="sm-body-gamelog"></div>
     </div>
@@ -5938,7 +5967,7 @@ function switchTab(t){
     });
     if(id==='overview')setTimeout(animateRadar,90);
     if(id==='stats' && !window._gamelogLoaded){ window._gamelogLoaded=true; loadGameLog(); }
-    if(id==='stats' && !window._careerExtrasDone){ window._careerExtrasDone=true; try{ ((window.TDCProjGrade&&TDCProjGrade.ready)||Promise.resolve()).then(function(){ renderCareerExtras(); }); }catch(e){ renderCareerExtras(); } }
+    if(id==='stats' && !window._careerExtrasDone){ window._careerExtrasDone=true; try{ ((window.TDCProjGrade&&TDCProjGrade.ready)||Promise.resolve()).then(function(){ renderCareerExtras(); }); }catch(e){ renderCareerExtras(); } loadPlayerMarch(); }
     if(id==='shotcharts' && !window._shotChartLoaded){ window._shotChartLoaded=true; _initShotSeasons(); loadShotGenome(); }
     if(id==='percentiles' && !window._pctDashGenome){ window._pctDashGenome=true; try{ (typeof ensureSgPlayers==='function'?ensureSgPlayers():Promise.resolve()).then(function(){ renderPctDash(); renderImpDecomp(); setTimeout(function(){ growBarsIn(document.getElementById('panel-percentiles')); },60); }); }catch(e){} }
     if(id==='rankings')setTimeout(renderRankings,40);
