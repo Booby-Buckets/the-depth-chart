@@ -749,6 +749,19 @@
     .skill-bar-val{font-family:'Playfair Display',serif;font-weight:700;font-size:12px;width:34px;text-align:right;flex-shrink:0;}
     .skill-bar-pct{font-size:10px;font-weight:700;color:var(--text2);width:32px;text-align:right;flex-shrink:0;}
 
+    /* PERCENTILE DASHBOARD (grouped glanceable tiles) */
+    .pd-sec{margin-bottom:20px;}
+    .pd-sec-h{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);padding-bottom:7px;margin-bottom:11px;border-bottom:1px solid var(--border);}
+    .pd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(124px,1fr));gap:10px;}
+    .pd-tile{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:11px 13px 10px;transition:border-color .15s,transform .15s;}
+    .pd-tile:hover{border-color:var(--border2);transform:translateY(-1px);}
+    .pd-tile-l{font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .pd-tile-v{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;line-height:1;margin:5px 0 9px;color:var(--text);}
+    .pd-bar{height:4px;border-radius:3px;background:var(--bg3);overflow:hidden;}
+    .pd-bar-fill{height:100%;border-radius:3px;transition:width .7s cubic-bezier(.22,1,.36,1);}
+    .pd-pct{font-size:10.5px;font-weight:800;margin-top:6px;}
+    .pd-legend{font-size:10.5px;color:var(--text3);line-height:1.7;margin-top:6px;margin-bottom:30px;}
+
     /* PAGE-LOAD ANIMATIONS */
     @keyframes heroSlideUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
     @keyframes avatarPop{0%{opacity:0;transform:scale(.6);}70%{transform:scale(1.08);}100%{opacity:1;transform:scale(1);}}
@@ -1873,6 +1886,87 @@ function buildSkillBreakdown(srcRow, projectedFlag, label){
     +'<div class="skill-grid"><div>'+rows.slice(0,half).join('')+'</div>'
     +'<div>'+rows.slice(half).join('')+'</div></div>';
 }
+
+// ── PERCENTILE DASHBOARD ────────────────────────────────
+// Glanceable, GROUPED tile summary (Scoring / Playmaking / Rebounding / Defense /
+// Impact) that sits above the detailed Skill Breakdown. Same national percentile
+// source (getPctNat), curated to the key metrics per group, in a card-tile layout.
+function buildPctDashboard(srcRow, projectedFlag, label){
+  var src=srcRow||((proj&&!proj._frosh)?proj:player);
+  var projected=(projectedFlag!=null)?!!projectedFlag:(proj&&!proj._frosh);
+  var hist = careerHistory.length ? careerHistory[careerHistory.length-1] : null;
+  var adv=src._advanced||(projected&&hist&&hist._advanced)||{};
+  var p40=src._per40 ||(projected&&hist&&hist._per40)||{};
+  var pgs=src._pergame||(projected&&hist&&hist._pergame)||{};
+  var sg=null; try{ var _e=window._playerEspn||(player&&player.espn_id); if(window._sgPlayers&&_e!=null) sg=window._sgPlayers[_e]; }catch(e){}
+
+  function tierCol(pct){ return pct>=90?'#E0B24A':pct>=75?'#2DE0A6':pct>=50?'#5B8DEF':pct>=30?'#6B7893':'#E06A7A'; }
+  var num1=function(v){return (v==null||v===''||isNaN(+v))?null:(+v).toFixed(1);};
+  var pc0 =function(v){return (v==null||v===''||isNaN(+v))?null:(+v).toFixed(1)+'%';};       // already 0-100
+  var pc1 =function(v){return (v==null||v===''||isNaN(+v))?null:(+v*100).toFixed(1)+'%';};   // 0-1 decimal
+  var pcW =function(v){return (v==null||v===''||isNaN(+v))?null:Math.round(+v)+'%';};         // whole-% display
+  // national-percentile metric (inv=true for "lower is better" stats)
+  function nat(l,key,v,fmt,inv){ if(v==null||v===''||isNaN(+v))return null; var d=fmt(v); if(d==null)return null; var p=getPctNat(v,key); return {l:l,disp:d,pct:inv?(100-p):p}; }
+  // shot-genome metric (percentile precomputed in the genome data)
+  function gen(l,v,pct,fmt){ if(v==null||isNaN(+v)||pct==null)return null; var d=fmt(v); if(d==null)return null; return {l:l,disp:d,pct:Math.max(0,Math.min(100,Math.round(pct)))}; }
+
+  var groups=[
+    {t:'Scoring', items:[
+      nat('PPG','ppg',src.ppg,num1),
+      nat('PTS / 40','pts40',p40.pts_per_min,num1),
+      nat('TS%','ts_pct',adv.ts_pct,pc1),
+      nat('eFG%','efg_pct',pgs.efg_pct,pc1),
+      nat('3P%','tp_pct',src.tp_pct,pc0),
+      nat('USG%','usg_pct',adv.usg_pct,pc0),
+      sg?gen('Shot-Making',sg.smAdj,sg.smPct,num1):null
+    ]},
+    {t:'Playmaking', items:[
+      nat('APG','apg',src.apg,num1),
+      nat('AST%','ast_pct',adv.ast_pct,pc0),
+      nat('TOV%','tov_pct',adv.tov_pct,pc0,true),
+      sg?gen('Creation',sg.crAdj,sg.crPct,num1):null,
+      sg?gen('Self-Creation',sg.selfPct,sg.selfPctl,pcW):null
+    ]},
+    {t:'Rebounding', items:[
+      nat('RPG','rpg',src.rpg,num1),
+      nat('TRB%','trb_pct',adv.trb_pct,pc0),
+      nat('ORB%','orb_pct',adv.orb_pct,pc0),
+      nat('DRB%','drb_pct',adv.drb_pct,pc0)
+    ]},
+    {t:'Defense', items:[
+      nat('SPG','stl',src.stl,num1),
+      nat('BPG','blk',src.blk,num1),
+      nat('STL%','stl_pct',adv.stl_pct,pc0),
+      nat('BLK%','blk_pct',adv.blk_pct,pc0)
+    ]},
+    {t:'Impact & Efficiency', items:[
+      nat('Wins Added','wa',(src.wa!=null?src.wa:(adv.wa!=null?adv.wa:null)),num1),
+      nat('TI / 40','ti40',adv.ti40,num1),
+      nat('FG%','fg_pct',src.fg_pct,pc0),
+      nat('FT%','ft_pct',src.ft_pct,pc0)
+    ]}
+  ];
+
+  var secs=groups.map(function(g){
+    var tiles=g.items.filter(Boolean).map(function(m){
+      var col=tierCol(m.pct);
+      return '<div class="pd-tile">'
+        +'<div class="pd-tile-l">'+m.l+'</div>'
+        +'<div class="pd-tile-v">'+m.disp+'</div>'
+        +'<div class="pd-bar"><div class="pd-bar-fill" style="width:'+m.pct+'%;background:'+col+';"></div></div>'
+        +'<div class="pd-pct" style="color:'+col+';">'+_ord(m.pct)+'</div>'
+        +'</div>';
+    }).join('');
+    if(!tiles) return '';
+    return '<div class="pd-sec"><div class="pd-sec-h">'+g.t+'</div><div class="pd-grid">'+tiles+'</div></div>';
+  }).filter(Boolean).join('');
+  if(!secs) return '';
+
+  return '<div class="skill-section-title">Percentile Dashboard — '+(projected?'Projected ':(label?label+' ':''))+'vs Every Player (National)</div>'
+    + secs
+    + '<div class="pd-legend"><span style="color:#E0B24A;">●</span> top 10% &nbsp; <span style="color:#2DE0A6;">●</span> top 25% &nbsp; <span style="color:#5B8DEF;">●</span> above average &nbsp; <span style="color:#6B7893;">●</span> below average &nbsp; <span style="color:#E06A7A;">●</span> bottom 30%. Percentile vs every qualified D-I player-season; turnover rate is inverted (fewer is better).</div>';
+}
+function renderPctDash(){ var h=document.getElementById('pctDashHost'); if(!h) return; var x=_skillSrcFor(); h.innerHTML=buildPctDashboard(x.src,x.projected,x.label); }
 
 
 // ── PERCENTILE HELPERS ──────────────────────────────────
@@ -3816,6 +3910,7 @@ function renderPage(){
 
     <!-- PERCENTILES TAB -->
     <div class="tab-panel" id="panel-percentiles">
+      <div id="pctDashHost" style="margin-bottom:34px;">${(function(){var x=_skillSrcFor();return buildPctDashboard(x.src,x.projected,x.label);})()}</div>
       <div class="sec-title" style="margin-bottom:14px;">Percentile Distributions</div>
       <div class="dist-controls">
         <div class="dist-slider">
@@ -5571,6 +5666,7 @@ function switchTab(t){
     if(id==='overview')setTimeout(animateRadar,90);
     if(id==='stats' && !window._gamelogLoaded){ window._gamelogLoaded=true; loadGameLog(); }
     if(id==='shotcharts' && !window._shotChartLoaded){ window._shotChartLoaded=true; _initShotSeasons(); loadShotGenome(); }
+    if(id==='percentiles' && !window._pctDashGenome){ window._pctDashGenome=true; try{ (typeof ensureSgPlayers==='function'?ensureSgPlayers():Promise.resolve()).then(function(){ renderPctDash(); setTimeout(function(){ growBarsIn(document.getElementById('panel-percentiles')); },60); }); }catch(e){} }
     if(id==='rankings')setTimeout(renderRankings,40);
     if(id==='scheme' && !window._schemeLoaded){ window._schemeLoaded=true; setTimeout(renderScheme,40); }
     if(id==='nil' && !window._nilLoaded){ window._nilLoaded=true; setTimeout(renderNilPlayer,40); }
