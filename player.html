@@ -4093,6 +4093,7 @@ function renderPage(){
     <div class="tab-row-wrap">
     <div class="tab-row" id="tabRow" onscroll="_tabScrollHint()">
       <button class="tab-btn active" id="tab-overview" onclick="switchTab('overview')">Overview</button>
+      <button class="tab-btn" id="tab-playerdna" onclick="switchTab('playerdna')">Player DNA</button>
       <div class="tab-grp" data-grp="stats">
         <button class="tab-grp-btn" onclick="_grpToggle(this,event)">Stats &amp; Shots<span class="tab-grp-car">▾</span></button>
         <div class="tab-grp-menu tab-grp-mega">
@@ -4195,10 +4196,14 @@ function renderPage(){
     <div class="tab-panel" id="panel-scheme"><div id="schemeContent"></div></div>
 
     <!-- PERCENTILES TAB -->
-    <div class="tab-panel" id="panel-percentiles">
+    <!-- PLAYER DNA — the analyst's read (percentile dashboard + impact decomp + situational) -->
+    <div class="tab-panel" id="panel-playerdna">
       <div id="pctDashHost" style="margin-bottom:34px;">${(function(){var x=_skillSrcFor();return buildPctDashboard(x.src,x.projected,x.label);})()}</div>
       <div id="impDecompHost" style="margin-bottom:34px;">${(function(){var x=_skillSrcFor();return buildImpactDecomp(x.src,x.projected);})()}</div>
-      <div id="situationalHost" style="margin-bottom:34px;"></div>
+      <div id="situationalHost" style="margin-bottom:8px;"></div>
+    </div>
+
+    <div class="tab-panel" id="panel-percentiles">
       <div class="sec-title" style="margin-bottom:14px;">Percentile Distributions</div>
       <div class="dist-controls">
         <div class="dist-slider">
@@ -6026,7 +6031,7 @@ async function renderScheme(){
     <div class="rk-foot" style="margin-top:14px;">Systems apply the same scheme scales the projection engine uses (pace, forced-TO havoc → steals, offensive-rebound rate → boards, assist rate → assists, shot-quality → FG%, 3PA lean). ${isFresh?'':'Neutral strips out '+esc(isTransfer?'his old team':player.team)+"'s system; "}efficiency & role are held constant so only the scheme moves.</div>`;
 }
 function switchTab(t){
-  const tabs=['overview','stats','shotcharts','rankings','scheme','percentiles','scout','nil','betting','buzz','portalfit'];
+  const tabs=['overview','playerdna','stats','shotcharts','rankings','scheme','percentiles','scout','nil','betting','buzz','portalfit'];
   const cur=tabs.map(x=>document.getElementById('panel-'+x)).find(el=>el&&el.classList.contains('active'));
   function activate(id){
     tabs.forEach(x=>{
@@ -6043,8 +6048,9 @@ function switchTab(t){
     if(id==='stats' && !window._gamelogLoaded){ window._gamelogLoaded=true; loadGameLog(); }
     if(id==='stats' && !window._careerExtrasDone){ window._careerExtrasDone=true; try{ ((window.TDCProjGrade&&TDCProjGrade.ready)||Promise.resolve()).then(function(){ renderCareerExtras(); }); }catch(e){ renderCareerExtras(); } loadPlayerMarch(); }
     if(id==='shotcharts' && !window._shotChartLoaded){ window._shotChartLoaded=true; _initShotSeasons(); loadShotGenome(); }
-    if(id==='percentiles' && !window._pctDashGenome){ window._pctDashGenome=true; try{ (typeof ensureSgPlayers==='function'?ensureSgPlayers():Promise.resolve()).then(function(){ renderPctDash(); renderImpDecomp(); setTimeout(function(){ growBarsIn(document.getElementById('panel-percentiles')); },60); }); }catch(e){} }
-    if(id==='percentiles' && !window._situationalDone){ window._situationalDone=true; loadSituational(); }
+    if(id==='playerdna' && !window._pctDashGenome){ window._pctDashGenome=true; try{ (typeof ensureSgPlayers==='function'?ensureSgPlayers():Promise.resolve()).then(function(){ renderPctDash(); renderImpDecomp(); setTimeout(function(){ growBarsIn(document.getElementById('panel-playerdna')); },60); }); }catch(e){} }
+    if(id==='playerdna' && !window._situationalDone){ window._situationalDone=true; loadSituational(); }
+    if(id==='playerdna'){ setTimeout(function(){ growBarsIn(document.getElementById('panel-playerdna')); }, 80); }
     if(id==='rankings')setTimeout(renderRankings,40);
     if(id==='scheme' && !window._schemeLoaded){ window._schemeLoaded=true; setTimeout(renderScheme,40); }
     if(id==='nil' && !window._nilLoaded){ window._nilLoaded=true; setTimeout(renderNilPlayer,40); }
@@ -6065,6 +6071,7 @@ function switchTab(t){
 // (shotcharts / scheme / portalfit) stay open until the Pro checkout link exists.
 var TAB_GATE = {
   stats:       { tier:'premium', label:'full stats', blurb:'See the complete game log, splits and career table. Included with Premium — $4.99/mo.' },
+  playerdna:   { tier:'premium', label:'Player DNA', blurb:'The full analyst read — percentile dashboard, offense/defense impact decomposition, and the situational profile (how he shifts vs pace, pressure & the clutch). Included with Premium — $4.99/mo.' },
   percentiles: { tier:'premium', label:'percentile rankings', blurb:'See how this player ranks against every peer, category by category. Included with Premium — $4.99/mo.' },
   nil:         { tier:'premium', label:'NIL valuation', blurb:'See this player’s full NIL market value and the drivers behind it. Included with Premium — $4.99/mo.' },
   betting:     { tier:'premium', label:'betting props', blurb:'See this player’s prop lines, over/under hit rates, L10 form and best bets for every stat. Included with Premium — $4.99/mo.' },
@@ -6073,7 +6080,7 @@ var TAB_GATE = {
   scheme:      { tier:'pro', label:'Scheme Lab', blurb:'How this player fits different systems and lineups. Included with Pro — $8.99/mo.' },
   portalfit:   { tier:'pro', label:'Portal Fit', blurb:'Which programs this player best fits, ranked by need, production and coach fit. Included with Pro — $8.99/mo.' }
 };
-var _TABS = ['overview','stats','shotcharts','rankings','scheme','percentiles','scout','nil','betting','buzz','portalfit'];
+var _TABS = ['overview','playerdna','stats','shotcharts','rankings','scheme','percentiles','scout','nil','betting','buzz','portalfit'];
 function _lockPanel(pnl, g){
   if(!pnl || pnl.__locked) return; pnl.__locked = true;
   pnl.innerHTML = '';
