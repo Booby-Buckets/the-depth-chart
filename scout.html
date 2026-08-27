@@ -27,6 +27,7 @@
   <script src="tdc-teamlink.js?v=2"></script>
   <script src="tdc-projgrade.js?v=base2"></script>
   <script src="tdc-proj.js?v=coach19"></script>
+  <script src="tdc-impact.js?v=1"></script>
   <script src="tdc-shotchart.js?v=15"></script>
   <script src="tdc-lineups.js?v=15"></script>
   <script src="tdc-situational.js?v=1"></script>
@@ -107,6 +108,18 @@
     .kms{font-size:10.5px;color:var(--text3);font-weight:600;}
     .kmvs{font-family:'Playfair Display',serif;font-weight:800;font-size:13px;color:var(--text3);font-variant-numeric:tabular-nums;}
     .card{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:18px 20px;}
+    /* attack sheet */
+    .as-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:11px;}
+    .as-card{border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:12px 14px;}
+    .as-hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:9px;border-bottom:1px solid var(--border);padding-bottom:8px;}
+    .as-nm{font-weight:800;font-size:14px;color:var(--text);}
+    .as-meta{font-size:10.5px;color:var(--text3);font-weight:600;white-space:nowrap;}
+    .as-meta b{color:var(--text2);}
+    .as-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:6px 0;}
+    .as-lbl{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;flex:0 0 66px;}
+    .as-chip{font-size:11px;font-weight:600;color:var(--text2);background:color-mix(in srgb,var(--c) 12%,transparent);border:1px solid color-mix(in srgb,var(--c) 32%,transparent);border-radius:20px;padding:2px 9px;white-space:nowrap;}
+    .as-chip b{color:var(--c);font-weight:800;margin-left:2px;}
+    .as-none{font-size:11.5px;color:var(--text3);font-style:italic;}
     /* game plan */
     .plan{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
     @media(max-width:640px){.plan{grid-template-columns:1fr;}}
@@ -463,6 +476,39 @@ function tendencies(opp,sg){
 //    how to GUARD his offense and ATTACK his defense, synthesized from his 2025-26
 //    shot chart (zone efficiency), game log (pressure/consistency/fouls) and season
 //    defensive footprint. Everything below runs off data already fetched here. ──
+// Attack Sheet — quick-scan per-player strengths ("can hurt you") and seams ("attack
+// here"), auto-surfaced from box + player_advanced percentiles (shared tdc-impact.js).
+async function loadAttackSheet(row){
+  const host=el('scoutAttack'); if(!host||!window.TDCImpact) return;
+  const esc=s=>(''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+  let roster=[];
+  try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,is_injured,tdc_grade,ppg,rpg,apg,mpg,tp_pct&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
+  const rot=roster.filter(p=>p.espn_id!=null && !p.is_injured && (+p.mpg||0)>=8).slice(0,9);
+  if(!rot.length){ host.innerHTML=''; return; }
+  // one bulk advanced fetch keyed by espn_id (so transfers get their prior-team 2025-26 rates too)
+  let adv=[]; const ids=rot.map(p=>p.espn_id).join(',');
+  try{ adv=await fetch(`${SB_URL}/rest/v1/player_advanced?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,ts_pct,ast_pct,tov_pct,orb_pct,drb_pct,stl_pct,blk_pct,ti40`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
+  const advBy={}; adv.forEach(a=>{ if(a.espn_id!=null) advBy[a.espn_id]=a; });
+  const T=window.TDCImpact;
+  const chip=(t,col)=>`<span class="as-chip" style="--c:${col}">${esc(t.l)} <b>${T.ord(t.p)}</b></span>`;
+  const cards=rot.map(p=>{
+    const a=advBy[p.espn_id];
+    const grade=(p.tdc_grade!=null)?Math.round(p.tdc_grade):'—';
+    const line=`${(+p.ppg||0).toFixed(1)}/${(+p.rpg||0).toFixed(1)}/${(+p.apg||0).toFixed(1)}`;
+    const hd=`<div class="as-hd"><div class="as-nm">${esc(p.name)}</div><div class="as-meta">${esc(p.position||'')} · <b>${grade}</b> OVR · ${line}</div></div>`;
+    if(!a){ return `<div class="as-card">${hd}<div class="as-row"><span class="as-none">Newcomer — no 2025-26 tape to book yet.</span></div></div>`; }
+    const merged=Object.assign({ppg:p.ppg,tp_pct:p.tp_pct}, a);
+    const sl=T.sigLiab(merged, 3, 30);
+    let sig=sl.signature.filter(t=>t.p>=58); if(!sig.length && sl.signature.length) sig=[sl.signature[0]];
+    const liab=sl.liability;
+    return `<div class="as-card">${hd}
+      <div class="as-row"><span class="as-lbl" style="color:#2DE0A6">Can hurt you</span>${sig.map(t=>chip(t,'#2DE0A6')).join('')}</div>
+      <div class="as-row"><span class="as-lbl" style="color:#E06A7A">Attack here</span>${liab.length?liab.map(t=>chip(t,'#E06A7A')).join(''):'<span class="as-none">no clear weakness</span>'}</div>
+    </div>`;
+  }).join('');
+  host.innerHTML=`<div class="sec-h">Attack Sheet — strengths &amp; seams <span class="hint">2025-26 rates · percentile vs all D-I</span></div><div class="as-grid">${cards}</div>`;
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
+}
 async function loadPersonnel(row){
   const host=el('scoutScorers'); if(!host) return;
   const _R=v=>{const n=+v;return isNaN(n)?0:n;};
@@ -783,6 +829,7 @@ async function render(){
     ${profile}
     <div id="scoutSituational"></div>
     <div id="scoutStyle"></div>
+    <div id="scoutAttack"></div>
     <div class="sec-h">The Attack Book — how to guard &amp; attack each man <span class="hint">projected line · 2025-26 tendencies</span></div>
     <div id="scoutScorers"><div class="muted" style="padding:16px 4px">Projecting their rotation &amp; reading their tendencies…</div></div>
     ${offenseBreakdown(r,RN)}
@@ -794,6 +841,7 @@ async function render(){
     ${renderReportBlock(rep)}
     <div id="scoutLineupHost"></div>
   </div>`;
+  loadAttackSheet(r);
   loadPersonnel(r);
   if(window.TDC_SITUATIONAL) TDC_SITUATIONAL.section(r, 2026).then(function(h){ var sh=document.getElementById('scoutSituational'); if(sh&&h){ sh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(sh); } });
   if(window.TDC_LINEUPS) TDC_LINEUPS.section(r.full, 2026, {pos:CR.pos}).then(function(h){ var lh=document.getElementById('scoutLineupHost'); if(lh&&h){ lh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(lh); } });
