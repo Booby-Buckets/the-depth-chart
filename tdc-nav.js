@@ -48,6 +48,7 @@
       ['awards.html',          'Awards'],
     ]],
     ['More', [
+      ['explore.html',         '✦ Explore all tools'],
       ['coach-tier.html',      "⬡ Coach's Tier"],
       ['coaches.html',         'Coaching Lab'],
       ['buzz.html',            'News'],
