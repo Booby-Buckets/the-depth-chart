@@ -235,6 +235,48 @@ async function rotationSection(row){
   return `<div class="sec-h">Rotation identity <span class="hint">actual 2025-26 · ● = still on the roster</span></div><div class="card">${cards}${read}<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">${players.slice(0,10).map(prow).join('')}</div></div>`;
 }
 
+// Shot-Zone Value Map — where YOU score efficiently (offense) and what you give up
+// (defense), by zone, vs the D-I expected make. Mirror of scout.html's loadShotProfile,
+// extended to both ends. Shots are RLS-gated (owner token via tdcH); degrades to empty
+// for non-owner sessions.
+async function loadZoneValue(row){
+  const host=el('ssZoneHost'); if(!host) return;
+  const EXP={rim:0.5615,mid:0.3848,three:0.341};
+  const _tdch=(window.tdcH?window.tdcH():H);
+  let tid=null;
+  try{ const rows=await fetch(`${SB_URL}/rest/v1/team_seasons?team=eq.${encodeURIComponent(row.full)}&season_year=eq.2026&select=team_id&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]); if(rows.length) tid=rows[0].team_id; }catch(e){}
+  if(tid==null){ host.innerHTML=''; return; }
+  let off=[], games=[], def=[];
+  try{ off=await fetch(`${SB_URL}/rest/v1/shots?team_id=eq.${tid}&season_year=eq.2026&select=made,sv,stype&limit=9000`,{headers:_tdch}).then(r=>r.ok?r.json():[]); }catch(e){}
+  try{ games=await fetch(`${SB_URL}/rest/v1/games?or=(home.eq.${encodeURIComponent(row.full)},away.eq.${encodeURIComponent(row.full)})&season_year=eq.2026&select=id&limit=60`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  if(games.length){ const ids=games.map(g=>g.id).join(','); try{ def=await fetch(`${SB_URL}/rest/v1/shots?game_id=in.(${ids})&team_id=neq.${tid}&select=made,sv,stype&limit=11000`,{headers:_tdch}).then(r=>r.ok?r.json():[]); }catch(e){} }
+  const zoneOf=s=>{ if(s.sv===3) return 'three'; const st=(s.stype||'').toLowerCase(); return /layup|dunk|tip|alley|finger|slam/.test(st)?'rim':'mid'; };
+  function zones(shots){ if(!shots||shots.length<50) return null; const t={rim:{a:0,m:0},mid:{a:0,m:0},three:{a:0,m:0}}; let tot=0;
+    shots.forEach(s=>{const z=zoneOf(s);t[z].a++;if(s.made)t[z].m++;tot++;});
+    const D={}; ['rim','mid','three'].forEach(z=>{const a=t[z].a,fg=a?t[z].m/a:0,efg=z==='three'?fg*1.5:fg,exp=z==='three'?EXP.three*1.5:EXP[z]; D[z]={a,freq:tot?a/tot:0,efg,exp,delta:efg-exp};}); return D; }
+  const O=zones(off), Dd=zones(def);
+  if(!O && !Dd){ host.innerHTML=''; return; }
+  const ZL={rim:'At the rim',mid:'Mid-range',three:'Three'}, pc=v=>Math.round(v*100);
+  function table(D, goodPos, allowedLbl){
+    const rows=['rim','mid','three'].map(z=>{ const r=D[z]; const good = goodPos ? (r.delta>0) : (r.delta<0);
+      const dcol=good?'var(--green,#1a8c3a)':'var(--red,#cc2200)';
+      return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--border)">
+        <div><b>${ZL[z]}</b> <span style="color:var(--text3);font-size:11px">· ${r.a} ${allowedLbl} · ${pc(r.freq)}% of shots</span></div>
+        <div style="text-align:right;font-variant-numeric:tabular-nums"><b>${pc(r.efg)}%</b><div style="font-size:9.5px;color:var(--text3)">eFG ${goodPos?'':'allowed'}</div></div>
+        <div style="text-align:right;min-width:66px;color:${dcol};font-weight:800">${r.delta>0?'+':''}${pc(r.delta)}%<div style="font-size:9.5px;color:var(--text3);font-weight:600">vs ${pc(r.exp)} exp</div></div>
+      </div>`; }).join('');
+    return `<div class="card">${rows}</div>`;
+  }
+  let html='<div class="sec-h" style="margin-top:22px">Shot-zone identity <span class="hint">2025-26 · eFG vs the D-I expected make by zone</span></div>';
+  if(O){ const best=['rim','mid','three'].map(z=>({z,...O[z]})).sort((a,b)=>b.delta-a.delta)[0];
+    html+='<div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--green,#1a8c3a);margin:6px 0 8px">Where you score</div>'+table(O,true,'taken')
+      +`<div class="obread"><b>Your edge:</b> you're most efficient <b>${ZL[best.z].toLowerCase()}</b> (${pc(best.efg)}% eFG, ${best.delta>0?'+':''}${pc(best.delta)}% vs expected). Build offense to that zone.</div>`; }
+  if(Dd){ const soft=['rim','mid','three'].map(z=>({z,...Dd[z]})).sort((a,b)=>b.delta-a.delta)[0];
+    html+='<div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--red,#cc2200);margin:18px 0 8px">What you allow</div>'+table(Dd,false,'allowed')
+      +`<div class="obread"><b>Shore up:</b> opponents feast <b>${ZL[soft.z].toLowerCase()}</b> — ${pc(soft.efg)}% eFG allowed, ${soft.delta>0?'+':''}${pc(soft.delta)}% above what the shot is worth.</div>`; }
+  host.innerHTML=html;
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
+}
 async function loadTeam(){
   const row=poolRow(selKey); if(!row) return; const tc=teamColor(row);
   el('out').innerHTML='<div class="loading">Auditing your team…</div>';
@@ -295,7 +337,8 @@ async function loadTeam(){
     }
   }
 
-  el('out').innerHTML=`<div style="--tc:${tc}">${idHtml}${rotHtml}${offHtml}${defHtml}<div id="ssRotHost"></div><div id="ssTeamSit" style="--tc:${tc}"></div><div id="ssLineupHost"></div></div>`;
+  el('out').innerHTML=`<div style="--tc:${tc}">${idHtml}${rotHtml}${offHtml}${defHtml}<div id="ssZoneHost"></div><div id="ssRotHost"></div><div id="ssTeamSit" style="--tc:${tc}"></div><div id="ssLineupHost"></div></div>`;
+  loadZoneValue(row);
   rotationSection(row).then(function(h){ var rh=document.getElementById('ssRotHost'); if(rh&&h){ rh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(rh); } });
   if(window.TDC_TEAMSIT) TDC_TEAMSIT.section(row).then(function(h){ var th=document.getElementById('ssTeamSit'); if(th&&h){ th.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(th); } });
   if(window.TDC_LINEUPS) TDC_LINEUPS.section(row.full, 2026).then(function(h){ var lh=document.getElementById('ssLineupHost'); if(lh&&h){ lh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(lh); } });
