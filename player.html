@@ -762,6 +762,12 @@
     .pd-pct{font-size:10.5px;font-weight:800;margin-top:6px;}
     .pd-legend{font-size:10.5px;color:var(--text3);line-height:1.7;margin-top:6px;margin-bottom:30px;}
     .pd-pop-seg{display:inline-flex;margin:2px 0 18px;}
+    /* hero signature / liability */
+    .hero-sig{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-top:13px;padding-top:12px;border-top:1px solid var(--border);}
+    .hsig-lbl{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;}
+    .hsig-watch{margin-left:8px;}
+    .hsig-chip{font-size:11.5px;font-weight:600;color:var(--text2);background:color-mix(in srgb,var(--c) 13%,transparent);border:1px solid color-mix(in srgb,var(--c) 34%,transparent);border-radius:20px;padding:2px 10px;white-space:nowrap;}
+    .hsig-chip b{color:var(--c);font-weight:800;margin-left:2px;}
 
     /* NIL VALUE LEDGER */
     .nl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;}
@@ -1063,6 +1069,7 @@ body{background:transparent!important;}
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script src="tdc-engine.js"></script>
+  <script src="tdc-impact.js?v=1"></script>
   <script src="bigboard-engine.js?v=7"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
@@ -2047,6 +2054,26 @@ function buildPctDashboard(srcRow, projectedFlag, label){
     + '<div class="pd-legend"><span style="color:#E0B24A;">●</span> top 10% &nbsp; <span style="color:#2DE0A6;">●</span> top 25% &nbsp; <span style="color:#5B8DEF;">●</span> above average &nbsp; <span style="color:#6B7893;">●</span> below average &nbsp; <span style="color:#E06A7A;">●</span> bottom 30%. Percentile vs every qualified D-I player-season; turnover rate is inverted (fewer is better).</div>';
 }
 function renderPctDash(){ var h=document.getElementById('pctDashHost'); if(!h) return; var x=_skillSrcFor(); h.innerHTML=buildPctDashboard(x.src,x.projected,x.label); }
+
+// Hero signature / liability — the player's own top strengths + one thing to watch,
+// auto-surfaced from box + advanced percentiles (shared tdc-impact.js).
+function buildHeroSig(){
+  if(!window.TDCImpact) return '';
+  var src=(proj&&!proj._frosh)?proj:player;
+  var hist=(careerHistory&&careerHistory.length)?careerHistory[careerHistory.length-1]:null;
+  var adv=(src&&src._advanced)||(hist&&hist._advanced)||{};
+  var row={ ppg:src&&src.ppg, tp_pct:src&&src.tp_pct, ts_pct:adv.ts_pct, ast_pct:adv.ast_pct,
+    tov_pct:adv.tov_pct, orb_pct:adv.orb_pct, drb_pct:adv.drb_pct, stl_pct:adv.stl_pct, blk_pct:adv.blk_pct };
+  var sl=TDCImpact.sigLiab(row, 3, 30);
+  var sig=sl.signature.filter(function(t){return t.p>=60;}).slice(0,3);
+  if(!sig.length && sl.signature.length) sig=[sl.signature[0]];
+  if(!sig.length) return '';
+  var liab=sl.liability.slice(0,1);
+  var chip=function(t,c){ return '<span class="hsig-chip" style="--c:'+c+'">'+t.l+' <b>'+TDCImpact.ord(t.p)+'</b></span>'; };
+  var html='<span class="hsig-lbl" style="color:#2DE0A6">◆ Signature</span>'+sig.map(function(t){return chip(t,'#2DE0A6');}).join('');
+  if(liab.length) html+='<span class="hsig-lbl hsig-watch" style="color:#E06A7A">Watch</span>'+liab.map(function(t){return chip(t,'#E06A7A');}).join('');
+  return '<div class="hero-sig">'+html+'</div>';
+}
 
 // ── IMPACT DECOMPOSITION ────────────────────────────────
 // Where a player's value comes from — offense traits mirrored against defense traits,
@@ -3949,6 +3976,7 @@ function renderPage(){
           ${(window.TDCInjury&&TDCInjury.isOwner())?(function(){var r=TDCInjury.get(p);return '<button class="hero-tag edit'+(r?' inj-on':'')+'" onclick="_openInjuryEditor()">⚕ '+(r?TDCInjury.statusLabel(r):'Add injury')+'</button>';})():''}
         </div>`:''}
         <div id="draftSticker"></div>
+        ${buildHeroSig()}
       </div>
      </div><!-- /hero-idwrap -->
       <div class="hero-grid">
