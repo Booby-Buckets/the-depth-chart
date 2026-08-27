@@ -71,6 +71,12 @@
   var PRIOR={};                 // season -> { fullName: preseason prior NET }  (last season, regressed)
   var LOADING={};               // season -> true while fetching
   function curSeason(){ var s=document.getElementById('seasonSel'); return s?(+s.value||2027):2027; }
+  // normalized keys for trend matching. rawKey = collapse "State"→"St", drop punctuation
+  // & case (matches rows that display the full name w/ mascot). trendKey = rawKey after
+  // stripping the mascot via tdcShortSchool (matches rows that display the short school).
+  // (True aliases like Connecticut↔UConn still need a colors.js alias.)
+  function rawKey(x){ return String(x||'').toLowerCase().replace(/\bstate\b/g,'st').replace(/[^a-z0-9]/g,''); }
+  function trendKey(x){ var s=(typeof tdcShortSchool==='function' && tdcShortSchool(x)) || x; return rawKey(s); }
   function ensureGames(season){
     if(GAMES[season]||LOADING[season]||season>=2027) return;   // 2027 = projection, no games of its own
     LOADING[season]=true;
@@ -118,15 +124,27 @@
     function build(){
       srsP.then(function(srs){
         var m={};
+        // Build the game log keyed by the game's FULL name, then alias each key to BOTH the
+        // short key (trendKey, for rows that display the short school "Florida") and the raw
+        // normalized full name (rawKey, for rows that display the full name w/ mascot,
+        // "Wichita St. Shockers"). addTrend() tries both, so either display style resolves.
         all.forEach(function(g){
           if(g.home_score==null||g.away_score==null) return;
           var mg=g.home_score-g.away_score;
-          // adj = capped game margin + opponent's season NET → opponent-adjusted "how good
-          // was this performance". Margin is capped (diminishing returns) so a 40-point win
-          // over a cupcake isn't 40 points of signal — past MARGIN_CAP each point counts 1/4.
+          // adj = capped game margin + opponent's season NET → opponent-adjusted quality.
           (m[g.home]=m[g.home]||[]).push({opp:g.away, ts:g.home_score, os:g.away_score, home:true,  date:g.date, adj:capMargin(mg)+(srs[g.away]||0)});
           (m[g.away]=m[g.away]||[]).push({opp:g.home, ts:g.away_score, os:g.home_score, home:false, date:g.date, adj:capMargin(-mg)+(srs[g.home]||0)});
         });
+        Object.keys(m).slice().forEach(function(full){
+          var k1=trendKey(full), k2=rawKey(full);
+          if(k1 && m[k1]==null) m[k1]=m[full];
+          if(k2 && m[k2]==null) m[k2]=m[full];
+        });
+        // alias the preseason prior by both keys too, so netTraj()'s anchor is found
+        var pr=PRIOR[season]; if(pr){ Object.keys(pr).slice().forEach(function(f){
+          var k1=trendKey(f), k2=rawKey(f);
+          if(k1 && pr[k1]==null) pr[k1]=pr[f];
+          if(k2 && pr[k2]==null) pr[k2]=pr[f]; }); }
         GAMES[season]=m; LOADING[season]=false; addTrend();
       });
     }
@@ -187,9 +205,10 @@
       var sp=row.querySelector('.tr-spacer'); if(!sp||sp.dataset.tr===''+src) return;
       var a=row.querySelector('.tr-team-name'); if(!a) return;
       sp.dataset.tr=''+src;
-      var nm=a.textContent.trim();
-      var glog=map[nm];
-      var traj=(glog&&glog.length>=2)?netTraj(glog, PRIOR[src]&&PRIOR[src][nm]):null;
+      var nm=a.textContent.trim(), nk=trendKey(nm), rk=rawKey(nm);
+      var glog=map[nk]||map[rk];
+      var pr=PRIOR[src]||{}, prV=(pr[nk]!=null?pr[nk]:pr[rk]);
+      var traj=(glog&&glog.length>=2)?netTraj(glog, prV):null;
       sp.innerHTML=traj?sparkLine(traj):'';
     });
   }
