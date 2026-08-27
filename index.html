@@ -2865,5 +2865,77 @@ function toggleTheme(){
     });
   })();
   </script>
+
+  <!-- ═══ FIRST-VISIT GUIDED TOUR (spotlight, once) ══════════════ -->
+  <style>
+    #tourWrap{position:fixed;inset:0;z-index:9000;display:none;}
+    #tourWrap.on{display:block;}
+    .tour-spot{position:absolute;border-radius:12px;box-shadow:0 0 0 9999px rgba(8,10,18,.74);transition:all .32s cubic-bezier(.22,1,.36,1);pointer-events:none;}
+    .tour-tip{position:absolute;max-width:320px;background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:16px 18px;box-shadow:0 18px 50px -12px rgba(0,0,0,.6);transition:all .32s cubic-bezier(.22,1,.36,1);}
+    .tour-step{font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+    .tour-t{font-weight:800;font-size:15px;color:var(--text);margin-bottom:5px;}
+    .tour-d{font-size:13px;color:var(--text2);line-height:1.5;}
+    .tour-nav{display:flex;align-items:center;justify-content:space-between;margin-top:14px;gap:10px;}
+    .tour-skip{font-size:12px;font-weight:600;color:var(--text3);background:none;border:none;cursor:pointer;padding:4px;}
+    .tour-skip:hover{color:var(--text2);}
+    .tour-next{font-size:12.5px;font-weight:800;color:#141416;background:var(--accent);border:none;border-radius:20px;padding:8px 18px;cursor:pointer;}
+    .tour-dots{display:flex;gap:5px;}
+    .tour-dot{width:6px;height:6px;border-radius:50%;background:var(--border2);}
+    .tour-dot.on{background:var(--accent);}
+  </style>
+  <div id="tourWrap" role="dialog" aria-label="Site tour">
+    <div class="tour-spot" id="tourSpot"></div>
+    <div class="tour-tip" id="tourTip">
+      <div class="tour-step" id="tourStepLbl"></div>
+      <div class="tour-t" id="tourTitle"></div>
+      <div class="tour-d" id="tourDesc"></div>
+      <div class="tour-nav">
+        <button class="tour-skip" onclick="tourEnd()">Skip tour</button>
+        <div class="tour-dots" id="tourDots"></div>
+        <button class="tour-next" id="tourNext" onclick="tourNext()">Next</button>
+      </div>
+    </div>
+  </div>
+  <script>
+  (function(){
+    var STEPS=[
+      { sel:'#whStrip',      t:'Start here',       d:"New here? These four cards are your fastest way in — the full map, your team's HQ, player compare, and opponent scouting." },
+      { sel:'#searchInput',  t:'Find any team',    d:'Type a school to jump straight to it — or use the conference pills just below to filter.' },
+      { sel:'.table-scroll', t:'The rankings',     d:'Every Division-I team, ranked by Power Rating. Click any team name to open its full HQ — depth chart, DNA, projections and more.' },
+      { sel:'.tdn-wrap',     t:'Everything else',  d:'Players, analytics and postseason live up here — and ✦ Explore (under More) is a one-page map of every tool on the site.' }
+    ];
+    var i=0, W=document.getElementById('tourWrap');
+    function done(){ try{ return localStorage.getItem('tdc_tour_done')==='1'; }catch(e){ return true; } }
+    function target(){ try{ return document.querySelector(STEPS[i].sel); }catch(e){ return null; } }
+    function place(){
+      var el=target();
+      // skip missing targets
+      var guard=0; while(!el && i<STEPS.length-1 && guard<STEPS.length){ i++; el=target(); guard++; }
+      if(!el){ tourEnd(); return; }
+      el.scrollIntoView({behavior:'smooth',block:'center'});
+      setTimeout(function(){
+        var r=el.getBoundingClientRect(), pad=8;
+        var spot=document.getElementById('tourSpot');
+        spot.style.left=(r.left-pad)+'px'; spot.style.top=(r.top-pad)+'px';
+        spot.style.width=(r.width+pad*2)+'px'; spot.style.height=(r.height+pad*2)+'px';
+        document.getElementById('tourStepLbl').textContent='Step '+(i+1)+' of '+STEPS.length;
+        document.getElementById('tourTitle').textContent=STEPS[i].t;
+        document.getElementById('tourDesc').textContent=STEPS[i].d;
+        document.getElementById('tourNext').textContent=(i===STEPS.length-1)?'Got it':'Next';
+        document.getElementById('tourDots').innerHTML=STEPS.map(function(_,k){return '<span class="tour-dot'+(k===i?' on':'')+'"></span>';}).join('');
+        // position the tip below the target, or above if it would overflow
+        var tip=document.getElementById('tourTip'); var th=tip.offsetHeight||160, tw=Math.min(320,window.innerWidth-24);
+        var top=r.bottom+14; if(top+th>window.innerHeight-12) top=Math.max(12,r.top-th-14);
+        var left=Math.min(Math.max(12,r.left), window.innerWidth-tw-12);
+        tip.style.top=top+'px'; tip.style.left=left+'px';
+      }, 340);
+    }
+    window.tourNext=function(){ if(i>=STEPS.length-1){ tourEnd(); return; } i++; place(); };
+    window.tourEnd=function(){ try{ localStorage.setItem('tdc_tour_done','1'); }catch(e){} W.classList.remove('on'); window.removeEventListener('resize',place); };
+    function start(){ if(done()) return; W.classList.add('on'); i=0; place(); window.addEventListener('resize',place); }
+    // kick off after the table has had a moment to render
+    window.addEventListener('load',function(){ setTimeout(start, 1200); });
+  })();
+  </script>
 </body>
 </html>
