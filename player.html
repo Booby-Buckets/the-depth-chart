@@ -826,6 +826,11 @@
     .si-rating{font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap;}
     .si-detail{font-family:var(--mono,ui-monospace,monospace);font-size:11.5px;color:var(--text2);margin-bottom:7px;}
     .si-read{font-size:12px;color:var(--text3);line-height:1.5;}
+    /* on/off mini breakdown */
+    .oo-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:11px;padding:10px 0;border-top:1px solid var(--border);}
+    .oo-col{text-align:center;}
+    .oo-v{font-family:var(--mono,ui-monospace,monospace);font-weight:800;font-size:18px;line-height:1;}
+    .oo-l{font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-top:5px;}
 
     /* PAGE-LOAD ANIMATIONS */
     @keyframes heroSlideUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
@@ -2795,15 +2800,28 @@ function _ampStatHtml(a){
   var v=a.amp, pv=a.pct;
   var col = pv>=68?'var(--green)':pv>=40?'var(--text2)':'var(--red)';
   var tier = pv>=88?'Elite lift':pv>=68?'Lifts':pv>=40?'Neutral':pv>=18?'Slight drag':'Drag';
-  var os=a.off_swing, ds=a.def_swing, parts=[];
-  if(os!=null) parts.push('Offense '+(os>=0?'+':'')+Math.round(os)+'/100');
-  if(ds!=null) parts.push('Defense '+(ds>=0?'allows '+Math.round(ds)+' fewer':'allows '+Math.round(-ds)+' more'));
+  var os=a.off_swing, ds=a.def_swing;
+  var sgn=function(x,d){ return (x>=0?'+':'')+(d?x.toFixed(1):Math.round(x)); };
+  // on-court vs off-court net + the swing, spelled out (was hidden before)
+  var oo='';
+  if(a.on_net!=null && a.off_net!=null){
+    var onC=(a.on_net>=0?'var(--green)':'var(--red)');
+    oo='<div class="oo-mini">'
+      +'<div class="oo-col"><div class="oo-v" style="color:'+onC+'">'+sgn(a.on_net,1)+'</div><div class="oo-l">On-court net</div></div>'
+      +'<div class="oo-col"><div class="oo-v" style="color:var(--text2)">'+sgn(a.off_net,1)+'</div><div class="oo-l">Off-court net</div></div>'
+      +'<div class="oo-col"><div class="oo-v" style="color:'+col+'">'+sgn(v,1)+'</div><div class="oo-l">Swing / 100</div></div>'
+      +'</div>';
+  }
+  var parts=[];
+  if(os!=null) parts.push('Offense <b style="color:'+(os>=0?'var(--green)':'var(--red)')+'">'+sgn(os,0)+'/100</b>');
+  if(ds!=null) parts.push('Defense <b style="color:'+(ds>=0?'var(--green)':'var(--red)')+'">'+(ds>=0?'−'+Math.round(ds):'+'+Math.round(-ds))+'/100</b>');
   return '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">'
     +'<span style="font-family:\'Playfair Display\',serif;font-weight:800;font-size:34px;line-height:1;color:'+col+';">'+(v>0?'+':'')+v.toFixed(1)+'</span>'
     +'<span style="font-weight:800;font-size:13px;color:'+col+';">'+tier+'</span></div>'
     +'<div style="font-size:11.5px;color:var(--text3);margin-top:4px;">team net efficiency per 100, on vs off · '+_ampOrd(pv)+' percentile</div>'
+    + oo
     +(parts.length?'<div style="font-size:12px;color:var(--text2);margin-top:8px;font-weight:600;">'+parts.join(' &nbsp;·&nbsp; ')+'</div>':'')
-    +'<div style="font-size:11px;color:var(--text3);margin-top:6px;">'+a.games+'g · '+a.off_poss+' bench-unit poss'+(a.conf==='med'?' · modest off-court sample':'')+'</div>';
+    +'<div style="font-size:11px;color:var(--text3);margin-top:6px;">'+a.games+'g · '+a.on_poss+' on / '+a.off_poss+' off poss'+(a.conf==='med'?' · modest off-court sample':'')+'</div>';
 }
 function _ampLockHtml(){
   return '<div style="display:flex;flex-direction:column;gap:8px;">'
