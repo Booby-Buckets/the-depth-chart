@@ -558,9 +558,15 @@
        whether the table fills a wide screen or overflows into a horizontal scroll.
        Applies down to 641px: tablet/narrow widths keep the full labeled table with a
        pinned rank+team column and horizontal scroll, instead of hiding the header. */
+    /* width:max-content (not 100%) so each grid line grows to the FULL stat-grid width
+       (~1588px) instead of being clamped to the visible container. With width:100% the
+       rows' border-box stopped at the container edge and their overflowing right-hand
+       stat cells (FT% … Create) never painted or hit-tested — the table looked cut off
+       even though the columns were there. min-width:100% still lets them fill the
+       container when the column set is narrow. */
     .table-scroll .table-header,
     .table-scroll .team-row,
-    .table-scroll .skeleton-row { width: 100%; }
+    .table-scroll .skeleton-row { width: max-content; min-width: 100%; }
     /* z-index:6 on the rank so it sits ABOVE the team cell's leftward occluding shadow (below) */
     .table-header > .th:nth-child(1),
     .team-row > .tr-rank-wrap,
@@ -1187,7 +1193,7 @@
 </style>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
-  <link rel="stylesheet" href="tdc-dense.css?v=33"/>
+  <link rel="stylesheet" href="tdc-dense.css?v=35"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth; releases the dense dark-lock -->
   <link rel="stylesheet" href="tdc-skin.css?v=8"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">

@@ -30,6 +30,15 @@ html{ background:#0A0E18 !important; }
 ============================================================ */
 .table-section{ padding:0 22px 48px !important; }
 .table-scroll{ border:1px solid var(--border); border-radius:14px; background:rgba(16,21,34,.5); overflow:hidden; overflow-x:auto; }
+/* The stat grid is wider than the viewport on most screens, so the extra columns
+   (LUCK, LOOK-Q, SH-MAKE, CREATE …) live behind a horizontal scroll. Mac hides its
+   overlay scrollbar, so those columns looked simply missing. Force an always-visible
+   scrollbar so it reads as "scroll for more stats". */
+.table-scroll{ scrollbar-width:thin; scrollbar-color:var(--border2) transparent; }
+.table-scroll::-webkit-scrollbar{ height:11px; }
+.table-scroll::-webkit-scrollbar-track{ background:transparent; }
+.table-scroll::-webkit-scrollbar-thumb{ background:var(--border2); border-radius:7px; border:3px solid transparent; background-clip:content-box; }
+.table-scroll::-webkit-scrollbar-thumb:hover{ background:var(--text3); background-clip:content-box; }
 
 /* header row */
 .table-header{
@@ -94,6 +103,11 @@ html{ background:#0A0E18 !important; }
 }
 /* Tablet (760–1199px): the rail slides in from the right as an overlay drawer */
 @media(min-width:760px) and (max-width:1199px){
+  /* The closed drawer sits off-screen at translateX(101%); as a position:fixed box that
+     still extends the document's scroll width, so the whole PAGE scrolled sideways and
+     nothing fit. Clip it here (rail is fixed, not sticky, in this range — no sticky to
+     break). The table keeps its own .table-scroll overflow-x for the wide stat grid. */
+  html, body{ overflow-x:hidden; }
   .tdc-rail{ position:fixed; top:0; right:0; height:100dvh; width:300px; max-width:86vw; z-index:210;
     display:flex; flex-direction:column; gap:12px; overflow-y:auto; padding:16px 14px 28px;
     background:var(--bg2); border-left:1px solid var(--border); box-shadow:-10px 0 34px rgba(0,0,0,.45);
