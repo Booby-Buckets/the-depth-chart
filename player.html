@@ -761,6 +761,7 @@
     .pd-bar-fill{height:100%;border-radius:3px;transition:width .7s cubic-bezier(.22,1,.36,1);}
     .pd-pct{font-size:10.5px;font-weight:800;margin-top:6px;}
     .pd-legend{font-size:10.5px;color:var(--text3);line-height:1.7;margin-top:6px;margin-bottom:30px;}
+    .pd-pop-seg{display:inline-flex;margin:2px 0 18px;}
 
     /* NIL VALUE LEDGER */
     .nl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;}
@@ -1937,9 +1938,36 @@ function buildSkillBreakdown(srcRow, projectedFlag, label){
 }
 
 // ── PERCENTILE DASHBOARD ────────────────────────────────
+// vs-population helper: national (getPctNat, all keys) OR the player's position group
+// (computed from the projected pool for box/rate stats; advanced stats fall back to
+// national since the projected pool has no advanced columns). Group distro keys are
+// named to match NAT_PCT keys, so lookup is automatic.
+function _pdGroupDistros(){
+  if(window._pdGrpD!==undefined) return window._pdGrpD;
+  window._pdGrpD=null;
+  var pool=window._tdcAllPlayers; if(!pool||!pool.length||!player) return null;
+  var grp=_impPgrp(player.position);
+  var lines=pool.filter(function(r){return _impPgrp(r.position)===grp;}).map(projLine).filter(function(l){return (parseFloat(l.mpg)||0)>=10;});
+  if(lines.length<25) return null;   // need a real sample to be meaningful
+  function arr(get){ return lines.map(get).filter(function(v){return v!=null&&!isNaN(v)&&v>0;}).sort(function(a,b){return a-b;}); }
+  window._pdGrpD={
+    ppg:arr(function(l){return +l.ppg||0;}), rpg:arr(function(l){return +l.rpg||0;}), apg:arr(function(l){return +l.apg||0;}),
+    fg_pct:arr(function(l){return +l.fg_pct||0;}), tp_pct:arr(function(l){return +l.tp_pct||0;}), ft_pct:arr(function(l){return +l.ft_pct||0;}),
+    stl:arr(function(l){return +l.stl||0;}), blk:arr(function(l){return +l.blk||0;}), pts40:arr(function(l){return _imp40(l,'ppg');})
+  };
+  return window._pdGrpD;
+}
+function _pdPct(value, key, inv){
+  if(value==null||value===''||isNaN(+value)) return null;
+  var v=+value;
+  if(window._pdPop==='grp'){ var D=_pdGroupDistros(); if(D&&D[key]&&D[key].length){ var g=_impPctOf(D[key],v); return inv?100-g:g; } }
+  var p=getPctNat(v,key); return inv?100-p:p;
+}
+function setPdPop(pp){ window._pdPop=pp; if(typeof _segSync==='function')_segSync('pdPopSeg',pp==='nat'?0:1); renderPctDash(); setTimeout(function(){ growBarsIn(document.getElementById('panel-percentiles')); },50); }
+
 // Glanceable, GROUPED tile summary (Scoring / Playmaking / Rebounding / Defense /
-// Impact) that sits above the detailed Skill Breakdown. Same national percentile
-// source (getPctNat), curated to the key metrics per group, in a card-tile layout.
+// Impact) that sits above the detailed Skill Breakdown. Percentiles vs the whole
+// database (national) or the player's position group, in a card-tile layout.
 function buildPctDashboard(srcRow, projectedFlag, label){
   var src=srcRow||((proj&&!proj._frosh)?proj:player);
   var projected=(projectedFlag!=null)?!!projectedFlag:(proj&&!proj._frosh);
@@ -1954,8 +1982,8 @@ function buildPctDashboard(srcRow, projectedFlag, label){
   var pc0 =function(v){return (v==null||v===''||isNaN(+v))?null:(+v).toFixed(1)+'%';};       // already 0-100
   var pc1 =function(v){return (v==null||v===''||isNaN(+v))?null:(+v*100).toFixed(1)+'%';};   // 0-1 decimal
   var pcW =function(v){return (v==null||v===''||isNaN(+v))?null:Math.round(+v)+'%';};         // whole-% display
-  // national-percentile metric (inv=true for "lower is better" stats)
-  function nat(l,key,v,fmt,inv){ if(v==null||v===''||isNaN(+v))return null; var d=fmt(v); if(d==null)return null; var p=getPctNat(v,key); return {l:l,disp:d,pct:inv?(100-p):p}; }
+  // percentile metric vs the selected population (inv=true for "lower is better" stats)
+  function nat(l,key,v,fmt,inv){ if(v==null||v===''||isNaN(+v))return null; var d=fmt(v); if(d==null)return null; var p=_pdPct(v,key,inv); return {l:l,disp:d,pct:p}; }
   // shot-genome metric (percentile precomputed in the genome data)
   function gen(l,v,pct,fmt){ if(v==null||isNaN(+v)||pct==null)return null; var d=fmt(v); if(d==null)return null; return {l:l,disp:d,pct:Math.max(0,Math.min(100,Math.round(pct)))}; }
 
@@ -2011,7 +2039,10 @@ function buildPctDashboard(srcRow, projectedFlag, label){
   }).filter(Boolean).join('');
   if(!secs) return '';
 
-  return '<div class="skill-section-title">Percentile Dashboard — '+(projected?'Projected ':(label?label+' ':''))+'vs Every Player (National)</div>'
+  var grpName=({G:'Guards',W:'Wings',B:'Bigs'})[_impPgrp(player&&player.position)]||'Position';
+  var popLbl=(window._pdPop==='grp')?('vs '+grpName):'vs Every Player (National)';
+  return '<div class="skill-section-title">Percentile Dashboard — '+(projected?'Projected ':(label?label+' ':''))+popLbl+'</div>'
+    + '<div class="seg sm pd-pop-seg" id="pdPopSeg"><button class="'+(window._pdPop!=='grp'?'on':'')+'" onclick="setPdPop(\'nat\')">vs All D1</button><button class="'+(window._pdPop==='grp'?'on':'')+'" onclick="setPdPop(\'grp\')">vs '+grpName+'</button></div>'
     + secs
     + '<div class="pd-legend"><span style="color:#E0B24A;">●</span> top 10% &nbsp; <span style="color:#2DE0A6;">●</span> top 25% &nbsp; <span style="color:#5B8DEF;">●</span> above average &nbsp; <span style="color:#6B7893;">●</span> below average &nbsp; <span style="color:#E06A7A;">●</span> bottom 30%. Percentile vs every qualified D-I player-season; turnover rate is inverted (fewer is better).</div>';
 }
