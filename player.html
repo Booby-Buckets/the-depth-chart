@@ -776,6 +776,30 @@
     .nl-tbl .nl-wa{font-weight:800;font-family:'Inter',sans-serif;}
     .nl-tbl .nl-v{font-family:'Playfair Display',serif;font-weight:800;color:var(--text);}
 
+    /* IMPACT DECOMPOSITION */
+    .idc-head{display:flex;align-items:center;gap:22px;margin-bottom:22px;flex-wrap:wrap;}
+    .idc-total-v{font-family:'Playfair Display',serif;font-weight:800;font-size:34px;line-height:1;color:var(--text);}
+    .idc-total-l{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
+    .idc-split{flex:1;min-width:220px;}
+    .idc-split-bar{display:flex;height:9px;border-radius:5px;overflow:hidden;background:var(--bg3);}
+    .idc-split-bar i{display:block;height:100%;transition:width .7s cubic-bezier(.22,1,.36,1);}
+    .idc-split-bar i.off{background:linear-gradient(90deg,#2DE0A6,#1fae80);}
+    .idc-split-bar i.def{background:linear-gradient(90deg,#5B8DEF,#3f6fd0);}
+    .idc-split-lbls{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:7px;}
+    .idc-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px 28px;margin-bottom:20px;}
+    .idc-col-h{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid var(--border);}
+    .idc-row{display:flex;align-items:center;gap:9px;padding:6px 0;}
+    .idc-l{font-size:11.5px;font-weight:600;color:var(--text2);flex:0 0 100px;}
+    .idc-bar{flex:1;height:6px;border-radius:3px;background:var(--bg3);overflow:hidden;}
+    .idc-bar i{display:block;height:100%;border-radius:3px;transition:width .7s cubic-bezier(.22,1,.36,1);}
+    .idc-p{font-size:10.5px;font-weight:800;flex:0 0 34px;text-align:right;}
+    .idc-callouts{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+    .idc-call{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 15px;}
+    .idc-call-h{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:9px;}
+    .idc-call-row{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;font-weight:600;color:var(--text2);padding:4px 0;}
+    .idc-empty{color:var(--text3);font-size:12px;padding:8px 0;}
+    @media(max-width:560px){.idc-cols,.idc-callouts{grid-template-columns:1fr;}}
+
     /* PAGE-LOAD ANIMATIONS */
     @keyframes heroSlideUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
     @keyframes avatarPop{0%{opacity:0;transform:scale(.6);}70%{transform:scale(1.08);}100%{opacity:1;transform:scale(1);}}
@@ -1981,6 +2005,79 @@ function buildPctDashboard(srcRow, projectedFlag, label){
     + '<div class="pd-legend"><span style="color:#E0B24A;">●</span> top 10% &nbsp; <span style="color:#2DE0A6;">●</span> top 25% &nbsp; <span style="color:#5B8DEF;">●</span> above average &nbsp; <span style="color:#6B7893;">●</span> below average &nbsp; <span style="color:#E06A7A;">●</span> bottom 30%. Percentile vs every qualified D-I player-season; turnover rate is inverted (fewer is better).</div>';
 }
 function renderPctDash(){ var h=document.getElementById('pctDashHost'); if(!h) return; var x=_skillSrcFor(); h.innerHTML=buildPctDashboard(x.src,x.projected,x.label); }
+
+// ── IMPACT DECOMPOSITION ────────────────────────────────
+// Where a player's value comes from — offense traits mirrored against defense traits,
+// with the Wins Added split (OWA/DWA) up top and auto signature/liability callouts.
+function buildImpactDecomp(srcRow, projectedFlag){
+  var src=srcRow||((proj&&!proj._frosh)?proj:player);
+  var projected=(projectedFlag!=null)?!!projectedFlag:(proj&&!proj._frosh);
+  var hist=careerHistory.length?careerHistory[careerHistory.length-1]:null;
+  var adv=src._advanced||(projected&&hist&&hist._advanced)||{};
+  var sg=null; try{ var _e=window._playerEspn||(player&&player.espn_id); if(window._sgPlayers&&_e!=null) sg=window._sgPlayers[_e]; }catch(e){}
+  function tierCol(pct){ return pct>=90?'#E0B24A':pct>=75?'#2DE0A6':pct>=50?'#5B8DEF':pct>=30?'#6B7893':'#E06A7A'; }
+  function P(v,k,inv){ if(v==null||v===''||isNaN(+v))return null; var p=getPctNat(v,k); return inv?100-p:p; }
+  var off=[
+    {l:'Scoring',       p:(adv.obpm!=null?P(adv.obpm,'obpm'):P(src.ppg,'ppg'))},
+    {l:'Efficiency',    p:P(adv.ts_pct,'ts_pct')},
+    {l:'Shot-Making',   p:(sg&&sg.smPct!=null?Math.round(sg.smPct):null)},
+    {l:'Playmaking',    p:P(adv.ast_pct,'ast_pct')},
+    {l:'Ball Security', p:P(adv.tov_pct,'tov_pct',true)},
+    {l:'Off. Rebounding',p:P(adv.orb_pct,'orb_pct')}
+  ].filter(function(t){return t.p!=null;});
+  var def=[
+    {l:'Rim Protection', p:P(adv.blk_pct,'blk_pct')},
+    {l:'Perimeter D',    p:P(adv.stl_pct,'stl_pct')},
+    {l:'Def. Rebounding',p:P(adv.drb_pct,'drb_pct')},
+    {l:'Overall Defense',p:(adv.dbpm!=null?P(adv.dbpm,'dbpm'):null)}
+  ].filter(function(t){return t.p!=null;});
+  if(off.length<2 && def.length<2) return '';
+
+  var wa=(adv&&adv.ti40!=null&&adv.ti40!=='')?_winsAdded(adv):(src.wa!=null?+src.wa:null);
+  var owa=(adv.owa!=null&&!isNaN(+adv.owa))?+adv.owa:null;
+  var dwa=(adv.dwa!=null&&!isNaN(+adv.dwa))?+adv.dwa:null;
+
+  function rows(list){ return list.map(function(t){ var col=tierCol(t.p);
+    return '<div class="idc-row"><div class="idc-l">'+t.l+'</div>'
+      +'<div class="idc-bar"><i style="width:'+t.p+'%;background:'+col+'"></i></div>'
+      +'<div class="idc-p" style="color:'+col+'">'+_ord(t.p)+'</div></div>'; }).join(''); }
+
+  // header — WA with offense/defense split bar
+  var head;
+  if(owa!=null && dwa!=null){
+    var mag=Math.max(0.1,Math.abs(owa)+Math.abs(dwa));
+    var oW=Math.round(Math.max(0,owa)/mag*100), dW=Math.round(Math.max(0,dwa)/mag*100);
+    head='<div class="idc-head">'
+      +'<div class="idc-total"><div class="idc-total-v">'+(wa!=null?((wa>=0?'+':'')+wa.toFixed(1)):'—')+'</div><div class="idc-total-l">Wins Added</div></div>'
+      +'<div class="idc-split">'
+        +'<div class="idc-split-bar"><i class="off" style="width:'+oW+'%"></i><i class="def" style="width:'+dW+'%"></i></div>'
+        +'<div class="idc-split-lbls"><span>Offense <b style="color:#2DE0A6">'+(owa>=0?'+':'')+owa.toFixed(1)+'</b></span>'
+        +'<span>Defense <b style="color:#5B8DEF">'+(dwa>=0?'+':'')+dwa.toFixed(1)+'</b></span></div>'
+      +'</div></div>';
+  } else if(wa!=null){
+    head='<div class="idc-head"><div class="idc-total"><div class="idc-total-v">'+((wa>=0?'+':'')+wa.toFixed(1))+'</div><div class="idc-total-l">Wins Added</div></div></div>';
+  } else head='';
+
+  // signature / liability (across both sides)
+  var all=off.map(function(t){return {l:t.l,p:t.p};}).concat(def.map(function(t){return {l:t.l,p:t.p};}));
+  var sorted=all.slice().sort(function(a,b){return b.p-a.p;});
+  var sig=sorted.slice(0,3);
+  var liab=sorted.filter(function(t){return t.p<35;}).slice(-2).reverse();
+  function callList(list,col){ return list.length?list.map(function(t){ return '<div class="idc-call-row"><span>'+t.l+'</span><b style="color:'+col+'">'+_ord(Math.round(t.p))+'</b></div>'; }).join(''):'<div class="idc-call-row" style="color:var(--text3)">—</div>'; }
+
+  return '<div class="skill-section-title">Impact Decomposition — Where His Value Comes From</div>'
+    + head
+    + '<div class="idc-cols">'
+      + '<div class="idc-col"><div class="idc-col-h" style="color:#2DE0A6">Offense</div>'+(off.length?rows(off):'<div class="idc-empty">—</div>')+'</div>'
+      + '<div class="idc-col"><div class="idc-col-h" style="color:#5B8DEF">Defense</div>'+(def.length?rows(def):'<div class="idc-empty">—</div>')+'</div>'
+    + '</div>'
+    + '<div class="idc-callouts">'
+      + '<div class="idc-call"><div class="idc-call-h" style="color:#2DE0A6">◆ Signature</div>'+callList(sig,'#2DE0A6')+'</div>'
+      + '<div class="idc-call"><div class="idc-call-h" style="color:#E06A7A">◆ Liability</div>'+callList(liab,'#E06A7A')+'</div>'
+    + '</div>'
+    + '<div class="pd-legend" style="margin-bottom:6px;">Each trait is a percentile vs every qualified D-I player-season. The split shows how his value tilts between offense and defense (his offensive &amp; defensive wins added, measured separately). Signature = his top strengths, Liability = where he grades out below the pack.</div>';
+}
+function renderImpDecomp(){ var h=document.getElementById('impDecompHost'); if(!h) return; var x=_skillSrcFor(); h.innerHTML=buildImpactDecomp(x.src,x.projected); }
 
 
 // ── PERCENTILE HELPERS ──────────────────────────────────
@@ -3925,6 +4022,7 @@ function renderPage(){
     <!-- PERCENTILES TAB -->
     <div class="tab-panel" id="panel-percentiles">
       <div id="pctDashHost" style="margin-bottom:34px;">${(function(){var x=_skillSrcFor();return buildPctDashboard(x.src,x.projected,x.label);})()}</div>
+      <div id="impDecompHost" style="margin-bottom:34px;">${(function(){var x=_skillSrcFor();return buildImpactDecomp(x.src,x.projected);})()}</div>
       <div class="sec-title" style="margin-bottom:14px;">Percentile Distributions</div>
       <div class="dist-controls">
         <div class="dist-slider">
@@ -5708,7 +5806,7 @@ function switchTab(t){
     if(id==='overview')setTimeout(animateRadar,90);
     if(id==='stats' && !window._gamelogLoaded){ window._gamelogLoaded=true; loadGameLog(); }
     if(id==='shotcharts' && !window._shotChartLoaded){ window._shotChartLoaded=true; _initShotSeasons(); loadShotGenome(); }
-    if(id==='percentiles' && !window._pctDashGenome){ window._pctDashGenome=true; try{ (typeof ensureSgPlayers==='function'?ensureSgPlayers():Promise.resolve()).then(function(){ renderPctDash(); setTimeout(function(){ growBarsIn(document.getElementById('panel-percentiles')); },60); }); }catch(e){} }
+    if(id==='percentiles' && !window._pctDashGenome){ window._pctDashGenome=true; try{ (typeof ensureSgPlayers==='function'?ensureSgPlayers():Promise.resolve()).then(function(){ renderPctDash(); renderImpDecomp(); setTimeout(function(){ growBarsIn(document.getElementById('panel-percentiles')); },60); }); }catch(e){} }
     if(id==='rankings')setTimeout(renderRankings,40);
     if(id==='scheme' && !window._schemeLoaded){ window._schemeLoaded=true; setTimeout(renderScheme,40); }
     if(id==='nil' && !window._nilLoaded){ window._nilLoaded=true; setTimeout(renderNilPlayer,40); }
