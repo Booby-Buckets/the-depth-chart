@@ -2314,13 +2314,25 @@ async function loadDefenseView(){
   var host=document.getElementById('defenseHost'); if(!host) return;
   var espn=window._playerEspn||(player&&player.espn_id);
   try{
-    var box=[];
-    if(espn) box=await fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.2026&select=stl,blk,dreb,oreb,pf,min,tov',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
-    host.innerHTML=renderDefenseView(box);
+    var box=[], oppZones=null, oppGames=0;
+    if(espn){
+      box=await fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.2026&select=stl,blk,dreb,oreb,pf,min,tov',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+      // shots-gated: opponent shot profile vs his team in games he played
+      var _sh=(typeof tdcH==='function'?tdcH():H);
+      var ps=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.2026&select=team_id,game_id',{headers:_sh}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+      var teamId=_dnaModeTeamId(ps);
+      var gids=[]; var seen={}; ps.forEach(function(s){ if(s.game_id!=null&&!seen[s.game_id]){seen[s.game_id]=1;gids.push(s.game_id);} });
+      gids=gids.slice(0,45);
+      if(teamId!=null && gids.length){
+        var opp=await fetch(SB+'/rest/v1/shots?game_id=in.('+gids.join(',')+')&team_id=neq.'+teamId+'&select=made,sv,stype&limit=14000',{headers:_sh}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+        if(opp.length){ oppZones=_dnaShotZones(opp); oppGames=gids.length; }
+      }
+    }
+    host.innerHTML=renderDefenseView(box, oppZones, oppGames);
   }catch(e){ host.innerHTML='<div class="dna-loading">Defense profile unavailable.</div>'; }
   setTimeout(function(){ growBarsIn(host); },40);
 }
-function renderDefenseView(box){
+function renderDefenseView(box, oppZones, oppGames){
   var a=_dnaBoxAgg(box), adv=_dnaAdv();
   var stl40=a.min?a.stl/a.min*40:null, blk40=a.min?a.blk/a.min*40:null, pf40=a.min?a.pf/a.min*40:null;
   var stops40=a.min?(a.stl+a.blk)/a.min*40:null;  // STOP proxy: possession-ending plays / 40
@@ -2339,6 +2351,29 @@ function renderDefenseView(box){
     + _dnaTile('Fouls / 40', pf40!=null?pf40.toFixed(1):null, _dnaLin(pf40,1.0,5.0,true), pf40!=null?'fewer better':null)
     + _dnaTile('Def. Wins Added', adv.dwa!=null?((+adv.dwa>=0?'+':'')+(+adv.dwa).toFixed(1)):null, getPctNat(adv.dwa,'wa'))
     + '</div></div>';
+  // Team Shot Defense — opponent shot profile by zone (shots-gated, team context)
+  if(oppZones && oppZones.tot){
+    var scales={rim:[0.48,0.72], mid:[0.30,0.48], three:[0.28,0.42]};  // opp FG% good→bad; inverted for heat
+    var rows=[['rim','At the Rim'],['mid','Mid-Range'],['three','Three']].map(function(pr){
+      var Z=oppZones.Z[pr[0]]; if(!Z.a) return null;
+      var fg=Z.m/Z.a, efg=(pr[0]==='three'?1.5*fg:fg), freq=oppZones.tot?Z.a/oppZones.tot:0, sc=scales[pr[0]];
+      return {_lbl:pr[1], freq:freq, att:Z.a, fg:fg, efg:efg,
+        _pct:{ fg:_dnaLin(fg, sc[0], sc[1], true), efg:_dnaLin(efg, 0.40, 0.62, true) }};
+    }).filter(Boolean);
+    var cols=[
+      {k:'_lbl',label:'Opp. Zone',left:true,sticky:true,fmt:function(v){return '<span class="hl-season">'+v+'</span>';}},
+      {k:'freq',label:'Freq',fmt:function(v){return (v*100).toFixed(0)+'%';}},
+      {k:'att',label:'FGA',center:true,fmt:function(v){return v;}},
+      {k:'fg',label:'Opp FG%',pctKey:true,fmt:function(v){return (v*100).toFixed(1);}},
+      {k:'efg',label:'Opp eFG%',pctKey:true,fmt:function(v){return (v*100).toFixed(1);}}
+    ];
+    out+='<div class="skill-section-title" style="margin-top:30px;">Team Shot Defense <span class="dna-badge">team · his games</span></div>'
+      +'<p class="pd-legend" style="margin:-4px 0 12px;">College has no per-defender shot tracking, so this is how opponents shoot by zone against <b>his team across the '+(oppGames||'')+' games he played</b> — team context, not his individual defense. Lower opponent accuracy shades green.</p>'
+      + TDCHeat.table({cols:cols, rows:rows, minWidth:480});
+  } else {
+    out+='<div class="dna-lock-note" style="margin-top:26px;"><b>Team Shot Defense</b> — opponent shot-zone accuracy comes from shot-level data (Coach’s Tier). '
+      + (typeof TDCGate!=='undefined'&&TDCGate.has&&TDCGate.has('coach')?'No shot data found for his games.':'Upgrade to unlock.')+'</div>';
+  }
   return out;
 }
 // 6-Factor: the existing impact decomposition + a shot-location value strip when available
