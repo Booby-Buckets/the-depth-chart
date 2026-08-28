@@ -1098,6 +1098,22 @@ body{background:transparent!important;}
     .dna-lock-note{background:var(--bg2);border:1px dashed var(--border2,var(--border));border-radius:12px;padding:16px 18px;margin-top:26px;
       font:500 13px/1.55 'Inter',sans-serif;color:var(--text2);}
     .dna-lock-note b{color:var(--text);font-weight:800;}
+    /* dense dashboard */
+    .dd-band{display:grid;grid-template-columns:repeat(auto-fit,minmax(116px,1fr));gap:9px;margin-bottom:22px;}
+    .dd-hi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px 11px;}
+    .dd-hi-l{font:800 9px/1 'Inter',sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);}
+    .dd-hi-v{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:25px;line-height:1;margin:7px 0 4px;}
+    .dd-hi-s{font:800 9.5px/1 'Inter',sans-serif;letter-spacing:.02em;}
+    .dd-sec{margin-bottom:18px;}
+    .dd-sec-h{font:800 10px/1 'Inter',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);padding-bottom:7px;margin-bottom:10px;border-bottom:1px solid var(--border);}
+    .dd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:7px;}
+    .dd-cell{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:8px 9px 7px;transition:border-color .15s,transform .15s;}
+    .dd-cell:hover{border-color:var(--border2,var(--border));transform:translateY(-1px);}
+    .dd-cell-l{font:700 8.5px/1.1 'Inter',sans-serif;letter-spacing:.02em;text-transform:uppercase;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .dd-cell-v{font:800 16px/1 'Inter',sans-serif;color:var(--text);margin:5px 0 6px;}
+    .dd-cell-bar{height:3px;border-radius:2px;background:var(--bg3,rgba(127,140,170,.14));overflow:hidden;}
+    .dd-cell-bar>i{display:block;height:100%;border-radius:2px;transition:width .7s cubic-bezier(.22,1,.36,1);}
+    .dd-cell-s{font:800 9.5px/1 'Inter',sans-serif;margin-top:5px;display:block;}
   </style>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
@@ -2012,28 +2028,32 @@ function buildPctDashboard(srcRow, projectedFlag, label){
   var pgs=src._pergame||(projected&&hist&&hist._pergame)||{};
   var sg=null; try{ var _e=window._playerEspn||(player&&player.espn_id); if(window._sgPlayers&&_e!=null) sg=window._sgPlayers[_e]; }catch(e){}
 
-  function tierCol(pct){ return pct>=90?'#E0B24A':pct>=75?'#2DE0A6':pct>=50?'#5B8DEF':pct>=30?'#6B7893':'#E06A7A'; }
   var num1=function(v){return (v==null||v===''||isNaN(+v))?null:(+v).toFixed(1);};
   var pc0 =function(v){return (v==null||v===''||isNaN(+v))?null:(+v).toFixed(1)+'%';};       // already 0-100
   var pc1 =function(v){return (v==null||v===''||isNaN(+v))?null:(+v*100).toFixed(1)+'%';};   // 0-1 decimal
   var pcW =function(v){return (v==null||v===''||isNaN(+v))?null:Math.round(+v)+'%';};         // whole-% display
+  var mpg=+src.mpg;
+  var p40v=function(pg){ return (mpg>0 && pg!=null && !isNaN(+pg))?(+pg/mpg*40):null; };      // per-40 from per-game × minutes
   // percentile metric vs the selected population (inv=true for "lower is better" stats)
   function nat(l,key,v,fmt,inv){ if(v==null||v===''||isNaN(+v))return null; var d=fmt(v); if(d==null)return null; var p=_pdPct(v,key,inv); return {l:l,disp:d,pct:p}; }
   // shot-genome metric (percentile precomputed in the genome data)
   function gen(l,v,pct,fmt){ if(v==null||isNaN(+v)||pct==null)return null; var d=fmt(v); if(d==null)return null; return {l:l,disp:d,pct:Math.max(0,Math.min(100,Math.round(pct)))}; }
 
   var groups=[
-    {t:'Scoring', items:[
+    {t:'Scoring & Efficiency', items:[
       nat('PPG','ppg',src.ppg,num1),
-      nat('PTS / 40','pts40',p40.pts_per_min,num1),
+      nat('PTS / 40','pts40',p40v(src.ppg),num1),
       nat('TS%','ts_pct',adv.ts_pct,pc1),
       nat('eFG%','efg_pct',pgs.efg_pct,pc1),
+      nat('FG%','fg_pct',src.fg_pct,pc0),
       nat('3P%','tp_pct',src.tp_pct,pc0),
+      nat('FT%','ft_pct',src.ft_pct,pc0),
       nat('USG%','usg_pct',adv.usg_pct,pc0),
       sg?gen('Shot-Making',sg.smAdj,sg.smPct,num1):null
     ]},
-    {t:'Playmaking', items:[
+    {t:'Playmaking & Ball Security', items:[
       nat('APG','apg',src.apg,num1),
+      nat('AST / 40','ast40',p40v(src.apg),num1),
       nat('AST%','ast_pct',adv.ast_pct,pc0),
       nat('TOV%','tov_pct',adv.tov_pct,pc0,true),
       sg?gen('Creation',sg.crAdj,sg.crPct,num1):null,
@@ -2041,45 +2061,54 @@ function buildPctDashboard(srcRow, projectedFlag, label){
     ]},
     {t:'Rebounding', items:[
       nat('RPG','rpg',src.rpg,num1),
+      nat('REB / 40','reb40',p40v(src.rpg),num1),
       nat('TRB%','trb_pct',adv.trb_pct,pc0),
       nat('ORB%','orb_pct',adv.orb_pct,pc0),
       nat('DRB%','drb_pct',adv.drb_pct,pc0)
     ]},
     {t:'Defense', items:[
       nat('SPG','stl',src.stl,num1),
-      nat('BPG','blk',src.blk,num1),
+      nat('STL / 40','stl40',p40v(src.stl),num1),
       nat('STL%','stl_pct',adv.stl_pct,pc0),
+      nat('BPG','blk',src.blk,num1),
+      nat('BLK / 40','blk40',p40v(src.blk),num1),
       nat('BLK%','blk_pct',adv.blk_pct,pc0)
-    ]},
-    {t:'Impact & Efficiency', items:[
-      nat('Wins Added','wa',(src.wa!=null?src.wa:(adv.wa!=null?adv.wa:null)),num1),
-      nat('TI / 40','ti40',adv.ti40,num1),
-      nat('FG%','fg_pct',src.fg_pct,pc0),
-      nat('FT%','ft_pct',src.ft_pct,pc0)
     ]}
   ];
 
   var secs=groups.map(function(g){
-    var tiles=g.items.filter(Boolean).map(function(m){
-      var col=tierCol(m.pct);
-      return '<div class="pd-tile">'
-        +'<div class="pd-tile-l">'+m.l+'</div>'
-        +'<div class="pd-tile-v">'+m.disp+'</div>'
-        +'<div class="pd-bar"><div class="pd-bar-fill" style="width:'+m.pct+'%;background:'+col+';"></div></div>'
-        +'<div class="pd-pct" style="color:'+col+';">'+_ord(m.pct)+'</div>'
-        +'</div>';
+    var cells=g.items.filter(Boolean).map(function(m){
+      var P=(m.pct==null||isNaN(m.pct))?null:Math.round(m.pct);
+      var col=_dnaTierCol(P);
+      return '<div class="dd-cell"><div class="dd-cell-l">'+m.l+'</div>'
+        +'<div class="dd-cell-v">'+m.disp+'</div>'
+        +'<div class="dd-cell-bar"><i style="width:'+(P!=null?P:0)+'%;background:'+(P!=null?col:'transparent')+';"></i></div>'
+        +'<span class="dd-cell-s" style="color:'+(P!=null?col:'var(--text3)')+';">'+(P!=null?_ord(P):'—')+'</span></div>';
     }).join('');
-    if(!tiles) return '';
-    return '<div class="pd-sec"><div class="pd-sec-h">'+g.t+'</div><div class="pd-grid">'+tiles+'</div></div>';
+    if(!cells) return '';
+    return '<div class="dd-sec"><div class="dd-sec-h">'+g.t+'</div><div class="dd-grid">'+cells+'</div></div>';
   }).filter(Boolean).join('');
   if(!secs) return '';
 
+  // headline impact band — owned wins value (our "top-line RAPM" analog)
+  var wa=(src.wa!=null?src.wa:(adv.wa!=null?adv.wa:null)), owa=adv.owa, dwa=adv.dwa, ti40=adv.ti40;
+  function hi(label, val, fmt, key, signOnly){
+    if(val==null||val===''||isNaN(+val)) return '';
+    var disp=fmt(+val), P=(!signOnly&&key)?Math.round(_pdPct(+val,key)):null;
+    var col=P!=null?_dnaTierCol(P):((+val>=0)?'#2DE0A6':'#E06A7A');
+    var sub=P!=null?(_ord(P)+' pct'):((+val>=0)?'helps team':'hurts team');
+    return '<div class="dd-hi"><div class="dd-hi-l">'+label+'</div><div class="dd-hi-v" style="color:'+col+';">'+disp+'</div><div class="dd-hi-s" style="color:'+col+';">'+sub+'</div></div>';
+  }
+  var signed=function(v){ return (+v>=0?'+':'')+(+v).toFixed(1); };
+  var band=hi('Wins Added',wa,signed,'wa')+hi('Off. Wins Added',owa,signed,null,true)+hi('Def. Wins Added',dwa,signed,null,true)+hi('Team Impact / 40',ti40,num1,'ti40');
+
   var grpName=({G:'Guards',W:'Wings',B:'Bigs'})[_impPgrp(player&&player.position)]||'Position';
   var popLbl=(window._pdPop==='grp')?('vs '+grpName):'vs Every Player (National)';
-  return '<div class="skill-section-title">Percentile Dashboard — '+(projected?'Projected ':(label?label+' ':''))+popLbl+'</div>'
+  return '<div class="skill-section-title">Impact Dashboard — '+(projected?'Projected ':(label?label+' ':''))+popLbl+'</div>'
     + '<div class="seg sm pd-pop-seg" id="pdPopSeg"><button class="'+(window._pdPop!=='grp'?'on':'')+'" onclick="setPdPop(\'nat\')">vs All D1</button><button class="'+(window._pdPop==='grp'?'on':'')+'" onclick="setPdPop(\'grp\')">vs '+grpName+'</button></div>'
+    + (band?'<div class="dd-band">'+band+'</div>':'')
     + secs
-    + '<div class="pd-legend"><span style="color:#E0B24A;">●</span> top 10% &nbsp; <span style="color:#2DE0A6;">●</span> top 25% &nbsp; <span style="color:#5B8DEF;">●</span> above average &nbsp; <span style="color:#6B7893;">●</span> below average &nbsp; <span style="color:#E06A7A;">●</span> bottom 30%. Percentile vs every qualified D-I player-season; turnover rate is inverted (fewer is better).</div>';
+    + '<div class="pd-legend"><span style="color:#E0B24A;">●</span> top 10% &nbsp; <span style="color:#2DE0A6;">●</span> top 25% &nbsp; <span style="color:#7FE8C4;">●</span> above average &nbsp; <span style="color:#8FA0C4;">●</span> below average &nbsp; <span style="color:#E06A7A;">●</span> bottom 30%. Percentile vs every qualified D-I player-season'+(window._pdPop==='grp'?' in his position group':'')+'; turnover rate is inverted (fewer is better).</div>';
 }
 function renderPctDash(){ var h=document.getElementById('pctDashHost'); if(!h) return; var x=_skillSrcFor(); h.innerHTML=buildPctDashboard(x.src,x.projected,x.label); }
 
