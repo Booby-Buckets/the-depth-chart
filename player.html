@@ -2200,6 +2200,23 @@ function _dnaAdv(){
 var _DNA_RIM_RE=/layup|dunk|tip|alley|finger|slam/;
 function _dnaZoneOf(s){ if((+s.sv)===3) return 'three'; return _DNA_RIM_RE.test((s.stype||'').toLowerCase())?'rim':'mid'; }
 function _dnaAst(s){ return !!(s.ast_name && (''+s.ast_name).trim().length); }
+// name normalization + flexible match so Points Created survives ast_name format
+// drift ("Robert Wright" vs "R. Wright" vs "Wright"): exact-normalized OR last name
+// + first initial.
+function _dnaNorm(s){ return (''+(s||'')).toLowerCase().replace(/[.'’`]/g,'').replace(/\s+(jr|sr|ii|iii|iv|v)\b/g,'').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim(); }
+function _dnaNameMatch(a, b){
+  var na=_dnaNorm(a), nb=_dnaNorm(b); if(!na||!nb) return false;
+  if(na===nb) return true;
+  var pa=na.split(' '), pb=nb.split(' ');
+  var la=pa[pa.length-1], lb=pb[pb.length-1];
+  if(la!==lb) return false;                       // last names must agree
+  return pa[0].charAt(0)===pb[0].charAt(0);        // and first initial
+}
+function _dnaModeTeamId(shots){
+  var c={}, best=null, bn=0;
+  (shots||[]).forEach(function(s){ if(s.team_id==null) return; c[s.team_id]=(c[s.team_id]||0)+1; if(c[s.team_id]>bn){bn=c[s.team_id];best=s.team_id;} });
+  return best;
+}
 function _dnaShotZones(shots){
   var Z={rim:{a:0,m:0,p:0},mid:{a:0,m:0,p:0},three:{a:0,m:0,p:0}};
   var madeTot=0, self=0;
@@ -2219,8 +2236,15 @@ async function loadOffenseView(){
     var box=[], shots=[], assists=[];
     if(espn){
       box=await fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.2026&select=fga,fta,ftm,pts,tov,ast,tpm,tpa,fgm,oreb,dreb,stl,blk,pf,min',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
-      shots=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.2026&select=made,sv,stype,ast_name',{headers:(typeof tdcH==='function'?tdcH():H)}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
-      if(name) assists=await fetch(SB+'/rest/v1/shots?ast_name=eq.'+encodeURIComponent(name)+'&season_year=eq.2026&select=made,sv',{headers:(typeof tdcH==='function'?tdcH():H)}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+      var _sh=(typeof tdcH==='function'?tdcH():H);
+      shots=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.2026&select=made,sv,stype,ast_name,team_id',{headers:_sh}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+      // Points Created: match this player against the team's assisted shots by
+      // normalized name, robust to ast_name format drift.
+      var teamId=_dnaModeTeamId(shots);
+      if(name && teamId!=null){
+        var teamShots=await fetch(SB+'/rest/v1/shots?team_id=eq.'+teamId+'&season_year=eq.2026&ast_name=not.is.null&select=sv,ast_name&limit=8000',{headers:_sh}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+        assists=teamShots.filter(function(s){ return _dnaNameMatch(s.ast_name, name); });
+      }
     }
     host.innerHTML=renderOffenseView(box,shots,assists);
   }catch(e){ host.innerHTML='<div class="dna-loading">Offense profile unavailable.</div>'; }
