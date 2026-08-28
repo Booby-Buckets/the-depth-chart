@@ -1084,7 +1084,21 @@ body{background:transparent!important;}
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script src="tdc-engine.js"></script>
   <script src="tdc-impact.js?v=1"></script>
+  <script src="tdc-heat.js?v=1"></script>
   <script src="bigboard-engine.js?v=7"></script>
+  <link rel="stylesheet" href="tdc-heat.css?v=1"/>
+  <style>
+    .dna-sub-seg{display:inline-flex;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:4px;flex-wrap:wrap;}
+    .dna-sub-seg button{font:800 12px/1 'Inter',sans-serif;letter-spacing:.02em;color:var(--text3);background:transparent;border:none;border-radius:7px;padding:8px 15px;cursor:pointer;transition:all .14s;}
+    .dna-sub-seg button:hover{color:var(--text);}
+    .dna-sub-seg button.on{background:var(--tc-readable,var(--accent));color:#141416;}
+    .dna-loading{color:var(--text3);font:600 13px 'Inter',sans-serif;padding:30px 4px;}
+    .dna-badge{display:inline-block;font:800 8.5px/1 'Inter',sans-serif;letter-spacing:.08em;text-transform:uppercase;vertical-align:middle;
+      color:#141416;background:var(--accent);border-radius:4px;padding:3px 5px;margin-left:7px;}
+    .dna-lock-note{background:var(--bg2);border:1px dashed var(--border2,var(--border));border-radius:12px;padding:16px 18px;margin-top:26px;
+      font:500 13px/1.55 'Inter',sans-serif;color:var(--text2);}
+    .dna-lock-note b{color:var(--text);font-weight:800;}
+  </style>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index + team page -->
@@ -2068,6 +2082,241 @@ function buildPctDashboard(srcRow, projectedFlag, label){
     + '<div class="pd-legend"><span style="color:#E0B24A;">●</span> top 10% &nbsp; <span style="color:#2DE0A6;">●</span> top 25% &nbsp; <span style="color:#5B8DEF;">●</span> above average &nbsp; <span style="color:#6B7893;">●</span> below average &nbsp; <span style="color:#E06A7A;">●</span> bottom 30%. Percentile vs every qualified D-I player-season; turnover rate is inverted (fewer is better).</div>';
 }
 function renderPctDash(){ var h=document.getElementById('pctDashHost'); if(!h) return; var x=_skillSrcFor(); h.innerHTML=buildPctDashboard(x.src,x.projected,x.label); }
+
+// ── SEASON LEDGER ───────────────────────────────────────
+// nbarapm-style year-by-year heat table: one row per season, every metric cell
+// tinted by national percentile with the percentile shown beneath. Built off the
+// owned career history (box + advanced), so it works for any player with >1 season.
+function _slSeasonLbl(y){ y=+y; var a=String((y-1)%100).padStart(2,'0'), b=String(y%100).padStart(2,'0'); return "'"+a+"–"+b; }
+function buildSeasonLedger(){
+  if(!window.TDCHeat || typeof getPctNat!=='function') return '';
+  var rows=(careerHistory||[]).filter(function(r){ return r && r.season_year && (parseFloat(r.mpg)||0)>=1; });
+  if(rows.length<1) return '';
+  // build a heat-row from a flat career row (or a synthesized career-total row)
+  function mk(r, opts){
+    opts=opts||{};
+    var adv=r._advanced||{};
+    var ts=adv.ts_pct, usg=adv.usg_pct, astp=adv.ast_pct, tovp=adv.tov_pct,
+        trbp=adv.trb_pct, stlp=adv.stl_pct, blkp=adv.blk_pct,
+        ti=adv.ti40, wa=(adv.wa!=null?adv.wa:r.wa);
+    var d={
+      _total:!!opts.total,
+      _seasonHtml: opts.total
+        ? '<span class="hl-season">Career</span><span class="hl-team">'+(rows.length)+' seasons</span>'
+        : '<span class="hl-season">'+_slSeasonLbl(r.season_year)+'</span><span class="hl-team">'+(r.team||'')+'</span>',
+      gp:r.gp, mpg:r.mpg, ppg:r.ppg, rpg:r.rpg, apg:r.apg,
+      ts_pct:ts, usg_pct:usg, ast_pct:astp, tov_pct:tovp, trb_pct:trbp,
+      stl_pct:stlp, blk_pct:blkp, wa:wa, ti40:ti,
+      _pct:{
+        mpg:getPctNat(r.mpg,'mpg'), ppg:getPctNat(r.ppg,'ppg'), rpg:getPctNat(r.rpg,'rpg'), apg:getPctNat(r.apg,'apg'),
+        ts_pct:getPctNat(ts,'ts_pct'), usg_pct:getPctNat(usg,'usg_pct'), ast_pct:getPctNat(astp,'ast_pct'),
+        tov_pct:getPctNat(tovp,'tov_pct'), trb_pct:getPctNat(trbp,'trb_pct'),
+        stl_pct:getPctNat(stlp,'stl_pct'), blk_pct:getPctNat(blkp,'blk_pct'),
+        wa:getPctNat(wa,'wa'), ti40:getPctNat(ti,'ti40')
+      }
+    };
+    return d;
+  }
+  var hrows=rows.map(function(r){ return mk(r); });
+  // GP-weighted career summary (rates weighted by games; WA summed)
+  if(rows.length>1){
+    var tg=0, acc={}, waSum=0;
+    var keys=['mpg','ppg','rpg','apg','ts_pct','usg_pct','ast_pct','tov_pct','trb_pct','stl_pct','blk_pct','ti40'];
+    keys.forEach(function(k){ acc[k]=0; });
+    rows.forEach(function(r){ var g=parseFloat(r.gp)||0; tg+=g; var adv=r._advanced||{};
+      var src={mpg:r.mpg,ppg:r.ppg,rpg:r.rpg,apg:r.apg,ts_pct:adv.ts_pct,usg_pct:adv.usg_pct,ast_pct:adv.ast_pct,tov_pct:adv.tov_pct,trb_pct:adv.trb_pct,stl_pct:adv.stl_pct,blk_pct:adv.blk_pct,ti40:adv.ti40};
+      keys.forEach(function(k){ var v=parseFloat(src[k]); if(!isNaN(v)) acc[k]+=v*g; });
+      var w=(adv.wa!=null?parseFloat(adv.wa):parseFloat(r.wa)); if(!isNaN(w)) waSum+=w;
+    });
+    var careerRow={season_year:'',team:'',gp:tg,_advanced:{}};
+    keys.forEach(function(k){ var v=tg?acc[k]/tg:null; if(k==='mpg'||k==='ppg'||k==='rpg'||k==='apg') careerRow[k]=v; else careerRow._advanced[k]=v; });
+    careerRow._advanced.wa=waSum;
+    hrows.push(mk(careerRow,{total:true}));
+  }
+  var num1=function(v){ return (v==null||v===''||isNaN(+v))?null:(+v).toFixed(1); };
+  var pc0 =function(v){ return (v==null||v===''||isNaN(+v))?null:(+v).toFixed(1); };       // 0-100 already
+  var pc1 =function(v){ return (v==null||v===''||isNaN(+v))?null:(+v*100).toFixed(1); };   // 0-1 decimal
+  var waf =function(v){ return (v==null||v===''||isNaN(+v))?null:((+v>=0?'+':'')+(+v).toFixed(1)); };
+  var cols=[
+    {k:'_seasonHtml',label:'Season',left:true,sticky:true,fmt:function(v){return v;}},
+    {k:'gp',label:'GP',center:true,fmt:function(v){return (v==null||isNaN(+v))?null:Math.round(+v);}},
+    {k:'mpg',label:'MPG',pctKey:true,fmt:num1},
+    {k:'ppg',label:'PPG',pctKey:true,fmt:num1},
+    {k:'rpg',label:'RPG',pctKey:true,fmt:num1},
+    {k:'apg',label:'APG',pctKey:true,fmt:num1},
+    {k:'ts_pct',label:'TS%',pctKey:true,fmt:pc1,title:'True Shooting %'},
+    {k:'usg_pct',label:'USG%',pctKey:true,fmt:pc0,title:'Usage rate'},
+    {k:'ast_pct',label:'AST%',pctKey:true,fmt:pc0,title:'Assist rate'},
+    {k:'tov_pct',label:'TOV%',pctKey:true,invert:true,fmt:pc0,title:'Turnover rate (fewer is better)'},
+    {k:'trb_pct',label:'TRB%',pctKey:true,fmt:pc0,title:'Total rebound rate'},
+    {k:'stl_pct',label:'STL%',pctKey:true,fmt:pc0,title:'Steal rate'},
+    {k:'blk_pct',label:'BLK%',pctKey:true,fmt:pc0,title:'Block rate'},
+    {k:'wa',label:'WA',pctKey:true,fmt:waf,title:'Wins Added'},
+    {k:'ti40',label:'TI/40',pctKey:true,fmt:num1,title:'Team Impact per 40'}
+  ];
+  return '<div class="skill-section-title">Season Ledger</div>'
+    + '<p class="pd-legend" style="margin:-6px 0 12px;">Every season, every metric — cell shade is national percentile among qualified D-I player-seasons (<b style="color:#2DE0A6">green</b> good, <b style="color:#5B8DEF">blue</b> below average), with the percentile shown beneath. Turnover rate is inverted.</p>'
+    + TDCHeat.table({cols:cols, rows:hrows, minWidth:860});
+}
+function renderSeasonLedger(){ var h=document.getElementById('seasonLedgerHost'); if(!h) return; h.innerHTML=buildSeasonLedger(); }
+
+// ── PLAYER DNA SUB-TABS: Dashboard · Offense · Defense · 6-Factor ─────────
+function dnaSub(tab, btn){
+  var panels={dashboard:'dna-dashboard',offense:'dna-offense',defense:'dna-defense',sixfactor:'dna-sixfactor'};
+  Object.keys(panels).forEach(function(k){ var p=document.getElementById(panels[k]); if(p) p.style.display=(k===tab)?'block':'none'; });
+  var seg=document.getElementById('dnaSubSeg'); if(seg){ [].forEach.call(seg.querySelectorAll('button'),function(b){ b.classList.remove('on'); }); if(btn) btn.classList.add('on'); }
+  if(tab==='offense' && !window._dnaOffLoaded){ window._dnaOffLoaded=true; loadOffenseView(); }
+  if(tab==='defense' && !window._dnaDefLoaded){ window._dnaDefLoaded=true; loadDefenseView(); }
+  if(tab==='sixfactor' && !window._dnaSixLoaded){ window._dnaSixLoaded=true; renderSixFactorExtra(); }
+  setTimeout(function(){ growBarsIn(document.getElementById(panels[tab])); },40);
+}
+
+// linear value→percentile-ish for stats with no national table (fixed sensible scales)
+function _dnaLin(v,lo,hi,inv){ if(v==null||isNaN(+v)) return null; var p=Math.max(0,Math.min(100,(+v-lo)/(hi-lo)*100)); return inv?100-p:p; }
+function _dnaTierCol(p){ return p==null?'var(--text3)':(p>=90?'#E0B24A':p>=75?'#2DE0A6':p>=50?'#7FE8C4':p>=30?'#8FA0C4':'#E06A7A'); }
+function _dnaTile(label, disp, pct, note){
+  if(disp==null) return '';
+  var P=(pct==null||isNaN(pct))?null:Math.round(pct);
+  var col=_dnaTierCol(P);
+  return '<div class="pd-tile">'
+    +'<div class="pd-tile-l">'+label+'</div>'
+    +'<div class="pd-tile-v">'+disp+'</div>'
+    +(P!=null?'<div class="pd-bar"><div class="pd-bar-fill" style="width:'+P+'%;background:'+col+';"></div></div>':'<div class="pd-bar" style="visibility:hidden;"></div>')
+    +'<div class="pd-pct" style="color:'+(P!=null?col:'var(--text3)')+';">'+(note!=null?note:(P!=null?_ord(P):'—'))+'</div>'
+    +'</div>';
+}
+function _dnaBoxAgg(rows){
+  var a={fga:0,fta:0,ftm:0,pts:0,tov:0,ast:0,tpm:0,tpa:0,fgm:0,oreb:0,dreb:0,stl:0,blk:0,pf:0,min:0,g:0};
+  (rows||[]).forEach(function(r){ a.g++; ['fga','fta','ftm','pts','tov','ast','tpm','tpa','fgm','oreb','dreb','stl','blk','pf','min'].forEach(function(k){ var v=parseFloat(r[k]); if(!isNaN(v)) a[k]+=v; }); });
+  return a;
+}
+function _dnaAdv(){
+  var src=(proj&&!proj._frosh)?proj:player;
+  var hist=(careerHistory&&careerHistory.length)?careerHistory[careerHistory.length-1]:null;
+  return (src&&src._advanced)||(hist&&hist._advanced)||{};
+}
+function _dnaShotZones(shots){
+  var Z={rim:{a:0,m:0,p:0},mid:{a:0,m:0,p:0},three:{a:0,m:0,p:0}};
+  var madeTot=0, unast=0, self=0;
+  (shots||[]).forEach(function(s){
+    var sv=+s.sv||2, d=(s.dist==null?null:+s.dist), made=(s.made===true||s.made==='t'||s.made===1);
+    var z = sv>=3 ? 'three' : ((d!=null&&d<=4)?'rim':'mid');
+    Z[z].a++; if(made){ Z[z].m++; Z[z].p+=sv; madeTot++; if(!s.ast_name) self++; }
+  });
+  var tot=Z.rim.a+Z.mid.a+Z.three.a;
+  return {Z:Z, tot:tot, madeTot:madeTot, selfRate:(madeTot?self/madeTot:null)};
+}
+async function loadOffenseView(){
+  var host=document.getElementById('offenseHost'); if(!host) return;
+  var espn=window._playerEspn||(player&&player.espn_id);
+  var name=(player&&player.name)||'';
+  try{
+    var box=[], shots=[], assists=[];
+    if(espn){
+      box=await fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.2026&select=fga,fta,ftm,pts,tov,ast,tpm,tpa,fgm,oreb,dreb,stl,blk,pf,min',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+      shots=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.2026&select=made,sv,dist,ast_name',{headers:(typeof tdcH==='function'?tdcH():H)}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+      if(name) assists=await fetch(SB+'/rest/v1/shots?ast_name=eq.'+encodeURIComponent(name)+'&season_year=eq.2026&select=made,sv',{headers:(typeof tdcH==='function'?tdcH():H)}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+    }
+    host.innerHTML=renderOffenseView(box,shots,assists);
+  }catch(e){ host.innerHTML='<div class="dna-loading">Offense profile unavailable.</div>'; }
+  setTimeout(function(){ growBarsIn(host); },40);
+}
+function renderOffenseView(box,shots,assists){
+  var a=_dnaBoxAgg(box), adv=_dnaAdv();
+  var eFG=a.fga?(a.fgm+0.5*a.tpm)/a.fga:null;
+  var TS =(a.fga||a.fta)?a.pts/(2*(a.fga+0.44*a.fta)):null;
+  var pts40=a.min?a.pts/a.min*40:null;
+  var FTr=a.fga?a.fta/a.fga:null;
+  var tpaRate=a.fga?a.tpa/a.fga:null;
+  var ftPct=a.fta?a.ftm/a.fta:null;
+  var out='<div class="skill-section-title">Offense — 2025-26</div>';
+  // Scoring & efficiency (public, box + advanced)
+  out+='<div class="pd-sec"><div class="pd-sec-h">Scoring &amp; Efficiency</div><div class="pd-grid">'
+    + _dnaTile('PTS / 40', pts40!=null?pts40.toFixed(1):null, getPctNat(pts40,'pts40'))
+    + _dnaTile('True Shooting', TS!=null?(TS*100).toFixed(1)+'%':null, getPctNat(TS,'ts_pct'))
+    + _dnaTile('eFG%', eFG!=null?(eFG*100).toFixed(1)+'%':null, getPctNat(eFG,'efg_pct'))
+    + _dnaTile('Usage', adv.usg_pct!=null?(+adv.usg_pct).toFixed(1)+'%':null, getPctNat(adv.usg_pct,'usg_pct'))
+    + _dnaTile('FT Rate', FTr!=null?FTr.toFixed(2):null, _dnaLin(FTr,0.10,0.55))
+    + _dnaTile('3PA Rate', tpaRate!=null?(tpaRate*100).toFixed(0)+'%':null, null, 'diet')
+    + _dnaTile('FT%', ftPct!=null?(ftPct*100).toFixed(1)+'%':null, getPctNat(ftPct*100,'ft_pct'))
+    + '</div></div>';
+  // Playmaking (public)
+  out+='<div class="pd-sec"><div class="pd-sec-h">Playmaking &amp; Ball Security</div><div class="pd-grid">'
+    + _dnaTile('Assist Rate', adv.ast_pct!=null?(+adv.ast_pct).toFixed(1)+'%':null, getPctNat(adv.ast_pct,'ast_pct'))
+    + _dnaTile('Turnover Rate', adv.tov_pct!=null?(+adv.tov_pct).toFixed(1)+'%':null, adv.tov_pct!=null?100-getPctNat(adv.tov_pct,'tov_pct'):null)
+    + _dnaTile('Off. Wins Added', adv.owa!=null?((+adv.owa>=0?'+':'')+(+adv.owa).toFixed(1)):null, getPctNat(adv.owa,'wa'))
+    + '</div></div>';
+  // Shot profile — shots-gated enrichment
+  if(shots&&shots.length){
+    var z=_dnaShotZones(shots);
+    var rows=[['rim','Rim'],['mid','Mid-Range'],['three','Three']].map(function(pr){
+      var zk=pr[0], Z=z.Z[zk]; if(!Z.a) return null;
+      var fg=Z.m/Z.a, efg=(zk==='three'?(Z.m+0.5*Z.m):Z.m)/Z.a, pps=Z.p/Z.a, freq=z.tot?Z.a/z.tot:0;
+      return {_lbl:pr[1], freq:freq, att:Z.a, fg:fg, pps:pps,
+        _pct:{ fg:_dnaLin(fg,0.28,0.72), pps:_dnaLin(pps,0.7,1.5), freq:null }};
+    }).filter(Boolean);
+    var cols=[
+      {k:'_lbl',label:'Zone',left:true,sticky:true,fmt:function(v){return '<span class="hl-season">'+v+'</span>';}},
+      {k:'freq',label:'Freq',fmt:function(v){return (v*100).toFixed(0)+'%';}},
+      {k:'att',label:'FGA',center:true,fmt:function(v){return v;}},
+      {k:'fg',label:'FG%',pctKey:true,fmt:function(v){return (v*100).toFixed(1);}},
+      {k:'pps',label:'Pts/Shot',pctKey:true,fmt:function(v){return v.toFixed(2);}}
+    ];
+    out+='<div class="skill-section-title" style="margin-top:30px;">Shot Profile <span class="dna-badge">shot-level</span></div>'
+      +'<p class="pd-legend" style="margin:-4px 0 12px;">Where his points come from — zone frequency, accuracy and points-per-shot, straight from shot-location data. Cell shade grades FG% and points-per-shot on an absolute scale.</p>'
+      + TDCHeat.table({cols:cols, rows:rows, minWidth:460});
+    // creation row
+    var pc=(assists||[]).reduce(function(s,x){ return s+(+x.sv||0); },0);
+    var pcThree=(assists||[]).filter(function(x){ return (+x.sv||0)>=3; }).length;
+    var rimRate=z.tot?z.Z.rim.a/z.tot:null;
+    out+='<div class="pd-sec" style="margin-top:22px;"><div class="pd-sec-h">Creation <span class="dna-badge">new</span></div><div class="pd-grid">'
+      + _dnaTile('Self-Created', z.selfRate!=null?(z.selfRate*100).toFixed(0)+'%':null, _dnaLin(z.selfRate,0.10,0.75), z.selfRate!=null?'of makes':null)
+      + _dnaTile('Rim Rate', rimRate!=null?(rimRate*100).toFixed(0)+'%':null, _dnaLin(rimRate,0.10,0.55), 'of shots')
+      + _dnaTile('Points Created', assists&&assists.length?('+'+pc):null, _dnaLin(pc,0,220), 'off assists')
+      + _dnaTile('3PT-Assist Share', assists&&assists.length?Math.round(pcThree/assists.length*100)+'%':null, null, 'of assists')
+      + '</div></div>';
+  } else {
+    out+='<div class="dna-lock-note"><b>Shot Profile &amp; Creation</b> — zone value, self-creation and Points Created come from shot-level data (Coach’s Tier). '
+      + (typeof TDCGate!=='undefined'&&TDCGate.has&&TDCGate.has('coach')?'No shot data found for this player.':'Upgrade to unlock.')+'</div>';
+  }
+  return out;
+}
+async function loadDefenseView(){
+  var host=document.getElementById('defenseHost'); if(!host) return;
+  var espn=window._playerEspn||(player&&player.espn_id);
+  try{
+    var box=[];
+    if(espn) box=await fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.2026&select=stl,blk,dreb,oreb,pf,min,tov',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+    host.innerHTML=renderDefenseView(box);
+  }catch(e){ host.innerHTML='<div class="dna-loading">Defense profile unavailable.</div>'; }
+  setTimeout(function(){ growBarsIn(host); },40);
+}
+function renderDefenseView(box){
+  var a=_dnaBoxAgg(box), adv=_dnaAdv();
+  var stl40=a.min?a.stl/a.min*40:null, blk40=a.min?a.blk/a.min*40:null, pf40=a.min?a.pf/a.min*40:null;
+  var stops40=a.min?(a.stl+a.blk)/a.min*40:null;  // STOP proxy: possession-ending plays / 40
+  var out='<div class="skill-section-title">Defense — 2025-26</div>'
+    + '<p class="pd-legend" style="margin:-4px 0 14px;">College has no lineup-tracking data, so player defense is measured from box events and our owned Defensive Wins Added — not opponent shot tracking. Read these as event-rate signals, not full defensive impact.</p>';
+  out+='<div class="pd-sec"><div class="pd-sec-h">Disruption</div><div class="pd-grid">'
+    + _dnaTile('Steal Rate', adv.stl_pct!=null?(+adv.stl_pct).toFixed(1)+'%':null, getPctNat(adv.stl_pct,'stl_pct'))
+    + _dnaTile('Block Rate', adv.blk_pct!=null?(+adv.blk_pct).toFixed(1)+'%':null, getPctNat(adv.blk_pct,'blk_pct'))
+    + _dnaTile('STL / 40', stl40!=null?stl40.toFixed(1):null, getPctNat(stl40,'stl40'))
+    + _dnaTile('BLK / 40', blk40!=null?blk40.toFixed(1):null, getPctNat(blk40,'blk40'))
+    + _dnaTile('Stops / 40', stops40!=null?stops40.toFixed(1):null, _dnaLin(stops40,0.5,4.0), stops40!=null?'STL+BLK':null)
+    + '</div></div>';
+  out+='<div class="pd-sec"><div class="pd-sec-h">Glass &amp; Discipline</div><div class="pd-grid">'
+    + _dnaTile('Def. Rebound Rate', adv.drb_pct!=null?(+adv.drb_pct).toFixed(1)+'%':null, getPctNat(adv.drb_pct,'drb_pct'))
+    + _dnaTile('Off. Rebound Rate', adv.orb_pct!=null?(+adv.orb_pct).toFixed(1)+'%':null, getPctNat(adv.orb_pct,'orb_pct'))
+    + _dnaTile('Fouls / 40', pf40!=null?pf40.toFixed(1):null, _dnaLin(pf40,1.0,5.0,true), pf40!=null?'fewer better':null)
+    + _dnaTile('Def. Wins Added', adv.dwa!=null?((+adv.dwa>=0?'+':'')+(+adv.dwa).toFixed(1)):null, getPctNat(adv.dwa,'wa'))
+    + '</div></div>';
+  return out;
+}
+// 6-Factor: the existing impact decomposition + a shot-location value strip when available
+function renderSixFactorExtra(){
+  var h=document.getElementById('sixFactorExtraHost'); if(!h) return;
+  h.innerHTML='<p class="pd-legend" style="margin-top:6px;">The mirror above splits owned impact (OWA/DWA) into seven offense/defense channels — our college-built answer to a six-factor decomposition. Positive always helps his team, on both ends.</p>';
+}
 
 // Hero signature / liability — the player's own top strengths + one thing to watch,
 // auto-surfaced from box + advanced percentiles (shared tdc-impact.js).
@@ -4193,9 +4442,27 @@ function renderPage(){
     <!-- PERCENTILES TAB -->
     <!-- PLAYER DNA — the analyst's read (percentile dashboard + impact decomp + situational) -->
     <div class="tab-panel" id="panel-playerdna">
-      <div id="pctDashHost" style="margin-bottom:34px;">${(function(){var x=_skillSrcFor();return buildPctDashboard(x.src,x.projected,x.label);})()}</div>
-      <div id="impDecompHost" style="margin-bottom:34px;">${(function(){var x=_skillSrcFor();return buildImpactDecomp(x.src,x.projected);})()}</div>
-      <div id="situationalHost" style="margin-bottom:8px;"></div>
+      <div class="seg sm dna-sub-seg" id="dnaSubSeg" style="margin-bottom:22px;">
+        <button class="on" onclick="dnaSub('dashboard',this)">Dashboard</button>
+        <button onclick="dnaSub('offense',this)">Offense</button>
+        <button onclick="dnaSub('defense',this)">Defense</button>
+        <button onclick="dnaSub('sixfactor',this)">6-Factor</button>
+      </div>
+      <div class="dna-sub-panel" id="dna-dashboard">
+        <div id="pctDashHost" style="margin-bottom:34px;">${(function(){var x=_skillSrcFor();return buildPctDashboard(x.src,x.projected,x.label);})()}</div>
+        <div id="seasonLedgerHost" style="margin-bottom:34px;">${(function(){try{return buildSeasonLedger();}catch(e){return '';}})()}</div>
+        <div id="situationalHost" style="margin-bottom:8px;"></div>
+      </div>
+      <div class="dna-sub-panel" id="dna-offense" style="display:none;">
+        <div id="offenseHost"><div class="dna-loading">Loading offense profile…</div></div>
+      </div>
+      <div class="dna-sub-panel" id="dna-defense" style="display:none;">
+        <div id="defenseHost"><div class="dna-loading">Loading defense profile…</div></div>
+      </div>
+      <div class="dna-sub-panel" id="dna-sixfactor" style="display:none;">
+        <div id="impDecompHost" style="margin-bottom:24px;">${(function(){var x=_skillSrcFor();return buildImpactDecomp(x.src,x.projected);})()}</div>
+        <div id="sixFactorExtraHost"></div>
+      </div>
     </div>
 
     <div class="tab-panel" id="panel-percentiles">
@@ -6043,7 +6310,7 @@ function switchTab(t){
     if(id==='stats' && !window._gamelogLoaded){ window._gamelogLoaded=true; loadGameLog(); }
     if(id==='stats' && !window._careerExtrasDone){ window._careerExtrasDone=true; try{ ((window.TDCProjGrade&&TDCProjGrade.ready)||Promise.resolve()).then(function(){ renderCareerExtras(); }); }catch(e){ renderCareerExtras(); } loadPlayerMarch(); }
     if(id==='shotcharts' && !window._shotChartLoaded){ window._shotChartLoaded=true; _initShotSeasons(); loadShotGenome(); }
-    if(id==='playerdna' && !window._pctDashGenome){ window._pctDashGenome=true; try{ (typeof ensureSgPlayers==='function'?ensureSgPlayers():Promise.resolve()).then(function(){ renderPctDash(); renderImpDecomp(); setTimeout(function(){ growBarsIn(document.getElementById('panel-playerdna')); },60); }); }catch(e){} }
+    if(id==='playerdna' && !window._pctDashGenome){ window._pctDashGenome=true; try{ (typeof ensureSgPlayers==='function'?ensureSgPlayers():Promise.resolve()).then(function(){ renderPctDash(); renderImpDecomp(); renderSeasonLedger(); setTimeout(function(){ growBarsIn(document.getElementById('panel-playerdna')); },60); }); }catch(e){} }
     if(id==='playerdna' && !window._situationalDone){ window._situationalDone=true; loadSituational(); }
     if(id==='playerdna'){ setTimeout(function(){ growBarsIn(document.getElementById('panel-playerdna')); }, 80); }
     if(id==='rankings')setTimeout(renderRankings,40);
