@@ -2195,13 +2195,18 @@ function _dnaAdv(){
   var hist=(careerHistory&&careerHistory.length)?careerHistory[careerHistory.length-1]:null;
   return (src&&src._advanced)||(hist&&hist._advanced)||{};
 }
+// zone classification mirrors the proven self-scout/dossier logic: three by sv===3,
+// rim by shot-type keyword (layup/dunk/tip/…), else mid. Not distance-based.
+var _DNA_RIM_RE=/layup|dunk|tip|alley|finger|slam/;
+function _dnaZoneOf(s){ if((+s.sv)===3) return 'three'; return _DNA_RIM_RE.test((s.stype||'').toLowerCase())?'rim':'mid'; }
+function _dnaAst(s){ return !!(s.ast_name && (''+s.ast_name).trim().length); }
 function _dnaShotZones(shots){
   var Z={rim:{a:0,m:0,p:0},mid:{a:0,m:0,p:0},three:{a:0,m:0,p:0}};
-  var madeTot=0, unast=0, self=0;
+  var madeTot=0, self=0;
   (shots||[]).forEach(function(s){
-    var sv=+s.sv||2, d=(s.dist==null?null:+s.dist), made=(s.made===true||s.made==='t'||s.made===1);
-    var z = sv>=3 ? 'three' : ((d!=null&&d<=4)?'rim':'mid');
-    Z[z].a++; if(made){ Z[z].m++; Z[z].p+=sv; madeTot++; if(!s.ast_name) self++; }
+    var sv=+s.sv||2, made=!!s.made;
+    var z=_dnaZoneOf(s);
+    Z[z].a++; if(made){ Z[z].m++; Z[z].p+=sv; madeTot++; if(!_dnaAst(s)) self++; }
   });
   var tot=Z.rim.a+Z.mid.a+Z.three.a;
   return {Z:Z, tot:tot, madeTot:madeTot, selfRate:(madeTot?self/madeTot:null)};
@@ -2214,7 +2219,7 @@ async function loadOffenseView(){
     var box=[], shots=[], assists=[];
     if(espn){
       box=await fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.2026&select=fga,fta,ftm,pts,tov,ast,tpm,tpa,fgm,oreb,dreb,stl,blk,pf,min',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
-      shots=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.2026&select=made,sv,dist,ast_name',{headers:(typeof tdcH==='function'?tdcH():H)}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+      shots=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.2026&select=made,sv,stype,ast_name',{headers:(typeof tdcH==='function'?tdcH():H)}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
       if(name) assists=await fetch(SB+'/rest/v1/shots?ast_name=eq.'+encodeURIComponent(name)+'&season_year=eq.2026&select=made,sv',{headers:(typeof tdcH==='function'?tdcH():H)}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
     }
     host.innerHTML=renderOffenseView(box,shots,assists);
