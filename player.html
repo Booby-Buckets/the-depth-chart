@@ -1114,6 +1114,16 @@ body{background:transparent!important;}
     .dd-cell-bar{height:3px;border-radius:2px;background:var(--bg3,rgba(127,140,170,.14));overflow:hidden;}
     .dd-cell-bar>i{display:block;height:100%;border-radius:2px;transition:width .7s cubic-bezier(.22,1,.36,1);}
     .dd-cell-s{font:800 9.5px/1 'Inter',sans-serif;margin-top:5px;display:block;}
+    /* conclusion-first read banner (opens every DNA sub-tab) */
+    .dna-read{display:flex;gap:14px;align-items:flex-start;background:var(--bg2);border:1px solid var(--border);
+      border-left:3px solid var(--tc-readable,var(--accent));border-radius:13px;padding:15px 17px;margin-bottom:24px;}
+    .dna-read-icon{flex:none;font-size:17px;line-height:1.2;opacity:.9;}
+    .dna-read-body{min-width:0;}
+    .dna-read-v{font:800 10px/1 'Inter',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--tc-readable,var(--accent));margin-bottom:7px;}
+    .dna-read-s{font:700 16.5px/1.42 'Inter',sans-serif;color:var(--text);letter-spacing:-.005em;}
+    .dna-read-s b{color:var(--text);font-weight:800;}
+    .dna-read-s .up{color:#2DE0A6;font-weight:800;}
+    .dna-read-s .dn{color:#E06A7A;font-weight:800;}
     /* 6-factor shot-value strip */
     .sf-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
     .sf-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 15px 13px;}
@@ -2113,9 +2123,23 @@ function buildPctDashboard(srcRow, projectedFlag, label){
   var signed=function(v){ return (+v>=0?'+':'')+(+v).toFixed(1); };
   var band=hi('Wins Added',wa,signed,'wa')+hi('Off. Wins Added',owa,signed,null,true)+hi('Def. Wins Added',dwa,signed,null,true)+hi('Team Impact / 40',ti40,num1,'ti40');
 
+  // conclusion-first read — the fast verdict, from his percentiles
+  var _readItems=[
+    {l:'scoring',p:_pdPct(p40v(src.ppg),'pts40')},
+    {l:'scoring efficiency',p:_pdPct(adv.ts_pct,'ts_pct')},
+    {l:'outside shooting',p:_pdPct(src.tp_pct,'tp_pct')},
+    {l:'playmaking',p:_pdPct(adv.ast_pct,'ast_pct')},
+    {l:'ball security',p:_pdPct(adv.tov_pct,'tov_pct',true)},
+    {l:'rebounding',p:_pdPct(adv.trb_pct,'trb_pct')},
+    {l:'getting steals',p:_pdPct(adv.stl_pct,'stl_pct')},
+    {l:'rim protection',p:_pdPct(adv.blk_pct,'blk_pct')}
+  ];
+  var _readBanner=_dnaReadBanner(_dnaVerdict(getPctNat(wa,'wa'),'Star-level two-way impact',null,'Limited role'), _dnaReadSentence(_readItems), '◆');
+
   var grpName=({G:'Guards',W:'Wings',B:'Bigs'})[_impPgrp(player&&player.position)]||'Position';
   var popLbl=(window._pdPop==='grp')?('vs '+grpName):'vs Every Player (National)';
-  return '<div class="skill-section-title">Impact Dashboard — '+(projected?'Projected ':(label?label+' ':''))+popLbl+'</div>'
+  return _readBanner
+    + '<div class="skill-section-title">Impact Dashboard — '+(projected?'Projected ':(label?label+' ':''))+popLbl+'</div>'
     + '<div class="seg sm pd-pop-seg" id="pdPopSeg"><button class="'+(window._pdPop!=='grp'?'on':'')+'" onclick="setPdPop(\'nat\')">vs All D1</button><button class="'+(window._pdPop==='grp'?'on':'')+'" onclick="setPdPop(\'grp\')">vs '+grpName+'</button></div>'
     + (band?'<div class="dd-band">'+band+'</div>':'')
     + secs
@@ -2225,6 +2249,40 @@ function _dnaTile(label, disp, pct, note){
     +'<div class="pd-pct" style="color:'+(P!=null?col:'var(--text3)')+';">'+(note!=null?note:(P!=null?_ord(P):'—'))+'</div>'
     +'</div>';
 }
+// ── conclusion-first read: turn a labeled percentile set into one plain sentence ──
+function _dnaReadBanner(verdict, sentence, icon){
+  if(!sentence) return '';
+  return '<div class="dna-read"><div class="dna-read-icon">'+(icon||'◆')+'</div><div class="dna-read-body">'
+    +'<div class="dna-read-v">'+verdict+'</div><div class="dna-read-s">'+sentence+'</div></div></div>';
+}
+function _dnaVerdict(pct, kindStar, kindMid, kindLow){
+  if(pct==null||isNaN(pct)) return 'The read';
+  if(pct>=93) return kindStar||'Star-level impact';
+  if(pct>=80) return 'All-conference caliber';
+  if(pct>=63) return kindMid||'Quality starter';
+  if(pct>=42) return 'Rotation contributor';
+  return kindLow||'Limited role';
+}
+// items: [{l:'plain phrase', p:percentile}]; builds "Elite A and B, but C is a real hole."
+function _dnaReadSentence(items, subject){
+  var v=items.filter(function(x){return x.p!=null && !isNaN(x.p);});
+  if(v.length<2) return null;
+  var s=v.slice().sort(function(a,b){return b.p-a.p;});
+  var strong=s.filter(function(x){return x.p>=78;}).slice(0,2);
+  var weak=s[s.length-1];
+  var lead;
+  if(strong.length>=2) lead=(strong[0].p>=90?'Elite ':'Strong ')+'<b>'+strong[0].l+'</b> and <b>'+strong[1].l+'</b>';
+  else if(strong.length===1) lead=(strong[0].p>=90?'Elite ':'Strong ')+'<b>'+strong[0].l+'</b>';
+  else { var top=s[0]; lead=(top.p>=55?'Best at ':'Modest across the board — leans on ')+'<b>'+top.l+'</b>'; }
+  var out=(subject||'')+lead;
+  if(weak && weak.p<=27 && !strong.some(function(x){return x.l===weak.l;}))
+    out+=', but <span class="dn">'+weak.l+'</span> is a real hole';
+  else if(strong.length>=2){
+    var mids=s.filter(function(x){return x.p<50 && x.p>27;});
+    if(mids.length) out+='; <span class="dn">'+mids[mids.length-1].l+'</span> lags';
+  }
+  return out+'.';
+}
 function _dnaBoxAgg(rows){
   var a={fga:0,fta:0,ftm:0,pts:0,tov:0,ast:0,tpm:0,tpa:0,fgm:0,oreb:0,dreb:0,stl:0,blk:0,pf:0,min:0,g:0};
   (rows||[]).forEach(function(r){ a.g++; ['fga','fta','ftm','pts','tov','ast','tpm','tpa','fgm','oreb','dreb','stl','blk','pf','min'].forEach(function(k){ var v=parseFloat(r[k]); if(!isNaN(v)) a[k]+=v; }); });
@@ -2299,7 +2357,16 @@ function renderOffenseView(box,shots,assists){
   var FTr=a.fga?a.fta/a.fga:null;
   var tpaRate=a.fga?a.tpa/a.fga:null;
   var ftPct=a.fta?a.ftm/a.fta:null;
-  var out='<div class="skill-section-title">Offense — 2025-26</div>';
+  var _oRead=_dnaReadSentence([
+    {l:'scoring efficiency',p:getPctNat(TS,'ts_pct')},
+    {l:'scoring volume',p:getPctNat(pts40,'pts40')},
+    {l:'shot creation',p:getPctNat(adv.usg_pct,'usg_pct')},
+    {l:'playmaking',p:getPctNat(adv.ast_pct,'ast_pct')},
+    {l:'ball security',p:(adv.tov_pct!=null?100-getPctNat(adv.tov_pct,'tov_pct'):null)},
+    {l:'drawing fouls',p:_dnaLin(FTr,0.10,0.55)}
+  ]);
+  var out=_dnaReadBanner(_dnaVerdict(getPctNat(adv.owa,'wa'),'Elite offensive weapon','Complementary scorer','Low-usage finisher'), _oRead, '⚡')
+    + '<div class="skill-section-title">Offense — 2025-26</div>';
   // Scoring & efficiency (public, box + advanced)
   out+='<div class="pd-sec"><div class="pd-sec-h">Scoring &amp; Efficiency</div><div class="pd-grid">'
     + _dnaTile('PTS / 40', pts40!=null?pts40.toFixed(1):null, getPctNat(pts40,'pts40'))
@@ -2377,7 +2444,14 @@ function renderDefenseView(box, oppZones, oppGames){
   var a=_dnaBoxAgg(box), adv=_dnaAdv();
   var stl40=a.min?a.stl/a.min*40:null, blk40=a.min?a.blk/a.min*40:null, pf40=a.min?a.pf/a.min*40:null;
   var stops40=a.min?(a.stl+a.blk)/a.min*40:null;  // STOP proxy: possession-ending plays / 40
-  var out='<div class="skill-section-title">Defense — 2025-26</div>'
+  var _dRead=_dnaReadSentence([
+    {l:'forcing steals',p:getPctNat(adv.stl_pct,'stl_pct')},
+    {l:'rim protection',p:getPctNat(adv.blk_pct,'blk_pct')},
+    {l:'defensive rebounding',p:getPctNat(adv.drb_pct,'drb_pct')},
+    {l:'avoiding fouls',p:_dnaLin(pf40,1.0,5.0,true)}
+  ]);
+  var out=_dnaReadBanner(_dnaVerdict(getPctNat(adv.dwa,'wa'),'Defensive difference-maker','Steady defender','Defensive liability'), _dRead, '🛡')
+    + '<div class="skill-section-title">Defense — 2025-26</div>'
     + '<p class="pd-legend" style="margin:-4px 0 14px;">College has no lineup-tracking data, so player defense is measured from box events and our owned Defensive Wins Added — not opponent shot tracking. Read these as event-rate signals, not full defensive impact.</p>';
   out+='<div class="pd-sec"><div class="pd-sec-h">Disruption</div><div class="pd-grid">'
     + _dnaTile('Steal Rate', adv.stl_pct!=null?(+adv.stl_pct).toFixed(1)+'%':null, getPctNat(adv.stl_pct,'stl_pct'))
@@ -2420,7 +2494,19 @@ function renderDefenseView(box, oppZones, oppGames){
 // 6-Factor: the existing impact decomposition + an offensive shot-location value strip.
 async function renderSixFactorExtra(){
   var h=document.getElementById('sixFactorExtraHost'); if(!h) return;
-  h.innerHTML='<p class="pd-legend" style="margin-top:6px;">The mirror above splits owned impact (OWA/DWA) into seven offense/defense channels — our college-built answer to a six-factor decomposition. Positive always helps his team, on both ends.</p>'
+  var adv=_dnaAdv(), owa=parseFloat(adv.owa), dwa=parseFloat(adv.dwa), sixRead='';
+  if(!isNaN(owa)&&!isNaN(dwa)){
+    var oStr=(owa>=0?'+':'')+owa.toFixed(1), dStr=(dwa>=0?'+':'')+dwa.toFixed(1), lead;
+    if(owa>=0.5&&dwa>=0.5) lead='<span class="up">Two-way</span> — he helps on both ends (<b>'+oStr+'</b> offense, <b>'+dStr+'</b> defense).';
+    else if(owa>=0.5&&dwa<=-0.5) lead='<b>Scores enough to carry it</b> — strong offense (<b>'+oStr+'</b>) outweighs what he gives back on defense (<span class="dn">'+dStr+'</span>).';
+    else if(owa>=0.5) lead='<b>Offense-first</b> — nearly all his value is scoring &amp; creation (<b>'+oStr+'</b>); roughly neutral on defense.';
+    else if(dwa>=0.5&&owa<=-0.5) lead='<b>Defense carries him</b> — his value is on that end (<b>'+dStr+'</b>); the offense costs the team (<span class="dn">'+oStr+'</span>).';
+    else if(dwa>=0.5) lead='<b>Defense-first</b> — his impact is on that end (<b>'+dStr+'</b>); the offense is complementary.';
+    else lead='Complementary piece — modest owned impact on both ends ('+oStr+' / '+dStr+').';
+    sixRead=_dnaReadBanner('Where his value comes from', lead, '⚖');
+  }
+  var readHost=document.getElementById('sixReadHost'); if(readHost) readHost.innerHTML=sixRead;
+  h.innerHTML='<p class="pd-legend" style="margin:2px 0 6px;">The mirror above splits owned impact into seven offense/defense channels — positive always helps his team, on both ends.</p>'
     +'<div id="sfStripHost"><div class="dna-loading">Loading shot value…</div></div>';
   var shots=window._dnaPlayerShots;
   if(shots===undefined){
@@ -4600,6 +4686,7 @@ function renderPage(){
         <div id="defenseHost"><div class="dna-loading">Loading defense profile…</div></div>
       </div>
       <div class="dna-sub-panel" id="dna-sixfactor" style="display:none;">
+        <div id="sixReadHost"></div>
         <div id="impDecompHost" style="margin-bottom:24px;">${(function(){var x=_skillSrcFor();return buildImpactDecomp(x.src,x.projected);})()}</div>
         <div id="sixFactorExtraHost"></div>
       </div>
