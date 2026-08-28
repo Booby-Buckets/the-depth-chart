@@ -1114,6 +1114,17 @@ body{background:transparent!important;}
     .dd-cell-bar{height:3px;border-radius:2px;background:var(--bg3,rgba(127,140,170,.14));overflow:hidden;}
     .dd-cell-bar>i{display:block;height:100%;border-radius:2px;transition:width .7s cubic-bezier(.22,1,.36,1);}
     .dd-cell-s{font:800 9.5px/1 'Inter',sans-serif;margin-top:5px;display:block;}
+    /* 6-factor shot-value strip */
+    .sf-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
+    .sf-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 15px 13px;}
+    .sf-card-z{font:800 10px/1 'Inter',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .sf-card-efg{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:24px;line-height:1;color:var(--text);margin:9px 0 3px;}
+    .sf-card-efg span{font-family:'Inter',sans-serif;font-size:10px;font-weight:700;color:var(--text3);}
+    .sf-card-delta{font:800 14px/1 'Inter',sans-serif;margin-bottom:11px;}
+    .sf-card-delta span{font-size:9.5px;color:var(--text3);font-weight:700;}
+    .sf-card-freq{height:4px;border-radius:3px;background:var(--bg3,rgba(127,140,170,.14));overflow:hidden;}
+    .sf-card-freq>i{display:block;height:100%;background:var(--tc-readable,#5B8DEF);border-radius:3px;transition:width .7s cubic-bezier(.22,1,.36,1);}
+    .sf-card-freq-l{font:600 10px/1 'Inter',sans-serif;color:var(--text3);margin-top:7px;}
   </style>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
@@ -2267,6 +2278,7 @@ async function loadOffenseView(){
       box=await fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.2026&select=fga,fta,ftm,pts,tov,ast,tpm,tpa,fgm,oreb,dreb,stl,blk,pf,min',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
       var _sh=(typeof tdcH==='function'?tdcH():H);
       shots=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.2026&select=made,sv,stype,ast_name,team_id',{headers:_sh}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+      window._dnaPlayerShots=shots;
       // Points Created: match this player against the team's assisted shots by
       // normalized name, robust to ast_name format drift.
       var teamId=_dnaModeTeamId(shots);
@@ -2405,10 +2417,45 @@ function renderDefenseView(box, oppZones, oppGames){
   }
   return out;
 }
-// 6-Factor: the existing impact decomposition + a shot-location value strip when available
-function renderSixFactorExtra(){
+// 6-Factor: the existing impact decomposition + an offensive shot-location value strip.
+async function renderSixFactorExtra(){
   var h=document.getElementById('sixFactorExtraHost'); if(!h) return;
-  h.innerHTML='<p class="pd-legend" style="margin-top:6px;">The mirror above splits owned impact (OWA/DWA) into seven offense/defense channels — our college-built answer to a six-factor decomposition. Positive always helps his team, on both ends.</p>';
+  h.innerHTML='<p class="pd-legend" style="margin-top:6px;">The mirror above splits owned impact (OWA/DWA) into seven offense/defense channels — our college-built answer to a six-factor decomposition. Positive always helps his team, on both ends.</p>'
+    +'<div id="sfStripHost"><div class="dna-loading">Loading shot value…</div></div>';
+  var shots=window._dnaPlayerShots;
+  if(shots===undefined){
+    var espn=window._playerEspn||(player&&player.espn_id);
+    shots=espn?await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.2026&select=made,sv,stype,ast_name',{headers:(typeof tdcH==='function'?tdcH():H)}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}):[];
+    window._dnaPlayerShots=shots;
+  }
+  var host=document.getElementById('sfStripHost'); if(host) host.innerHTML=buildSixFactorStrip(shots);
+  setTimeout(function(){ growBarsIn(h); },40);
+}
+// Offensive shot-location value: eFG by zone vs the D-I average for that zone.
+// Expected-eFG baselines match the validated self-scout constants.
+function buildSixFactorStrip(shots){
+  var isCoach=(typeof TDCGate!=='undefined'&&TDCGate.has&&TDCGate.has('coach'));
+  if(!shots || !shots.length){
+    return '<div class="dna-lock-note" style="margin-top:24px;"><b>Shot Value by Zone</b> — where his scoring beats or trails the D-I average, from shot-level data (Coach’s Tier). '+(isCoach?'No shot data found for this player.':'Upgrade to unlock.')+'</div>';
+  }
+  var EXP={rim:0.5615, mid:0.3848, three:0.341};   // avg eFG-scale value per zone (self-scout)
+  var z=_dnaShotZones(shots);
+  var cards=[['rim','At the Rim'],['mid','Mid-Range'],['three','Three']].map(function(pr){
+    var Z=z.Z[pr[0]]; if(!Z.a) return '';
+    var fg=Z.m/Z.a, efg=(pr[0]==='three'?fg*1.5:fg), exp=(pr[0]==='three'?EXP.three*1.5:EXP[pr[0]]);
+    var delta=efg-exp, freq=z.tot?Z.a/z.tot:0;
+    var col=delta>=0.03?'#2DE0A6':(delta<=-0.03?'#E06A7A':'#8FA0C4');
+    return '<div class="sf-card">'
+      +'<div class="sf-card-z">'+pr[1]+'</div>'
+      +'<div class="sf-card-efg">'+(efg*100).toFixed(1)+'%<span> eFG</span></div>'
+      +'<div class="sf-card-delta" style="color:'+col+';">'+(delta>=0?'+':'')+(delta*100).toFixed(1)+'<span> vs avg</span></div>'
+      +'<div class="sf-card-freq"><i style="width:'+Math.round(freq*100)+'%;"></i></div>'
+      +'<div class="sf-card-freq-l">'+Math.round(freq*100)+'% of shots · '+Z.a+' FGA</div>'
+      +'</div>';
+  }).join('');
+  return '<div class="skill-section-title" style="margin-top:26px;">Shot Value by Zone <span class="dna-badge">shot-level</span></div>'
+    +'<p class="pd-legend" style="margin:-4px 0 12px;">His effective FG% by zone versus the D-I average for that zone — the offensive shot-location value beneath the impact mirror. <b style="color:#2DE0A6">Green</b> means he scores above average from there.</p>'
+    +'<div class="sf-strip">'+cards+'</div>';
 }
 
 // Hero signature / liability — the player's own top strengths + one thing to watch,
