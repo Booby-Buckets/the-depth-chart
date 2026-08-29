@@ -276,7 +276,7 @@ function leaderboard(id, rows, valKey, pctKey, fmt, unit, isTeam){
   var b='<thead><tr><th class="rk"></th><th class="l">'+(isTeam?'Team':'Player')+'</th><th>'+unit+'</th><th>Pct</th></tr></thead><tbody>';
   rows.forEach(function(r,i){
     var nm, team, href, pct;
-    if(isTeam){ nm=r.team; team=r.conf||''; href='team.html?team='+encodeURIComponent(nm.replace(/ [A-Z].*$/,''));
+    if(isTeam){ nm=r.team; team=r.conf||''; href='team.html?team='+encodeURIComponent(nm);  /* pass FULL name — team.html resolves it via D.teams.full; stripping the mascot produced ambiguous prefixes (e.g. "Loyola Chicago Ramblers" -> "Loyola" -> wrong team) */
       pct=(id==='lbSM')?(r.off&&r.off.pct?r.off.pct.smAdj:''):r.crPct; }
     else { nm=r.name; team=r.team||''; href=r.espn_id?('player.html?espn='+r.espn_id+'&name='+encodeURIComponent(nm)):'#';
       pct=(id==='lbSM')?r.smPct:r.crPct; }

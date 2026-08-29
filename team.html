@@ -1529,7 +1529,19 @@ async function loadTeam(name){
       let ts = await fetch(`${SB_URL}/rest/v1/team_seasons?team=eq.${encodeURIComponent(name)}&select=team,conference,wins,losses,ppg,oppg,srs,tier&order=season_year.desc&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
       // team_seasons keys the full ESPN name ("Colgate Raiders"); a plain-name page
       // ("Colgate") misses on exact match, so fall back to a prefix match.
-      if(!ts.length){ ts = await fetch(`${SB_URL}/rest/v1/team_seasons?team=ilike.${encodeURIComponent(name)}*&select=team,conference,wins,losses,ppg,oppg,srs,tier&order=season_year.desc&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]); }
+      if(!ts.length){
+        const cand = await fetch(`${SB_URL}/rest/v1/team_seasons?team=ilike.${encodeURIComponent(name)}*&select=team,conference,wins,losses,ppg,oppg,srs,tier,season_year&order=season_year.desc&limit=40`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+        // Only accept a match whose mascot-stripped name EQUALS the requested name, so an
+        // ambiguous bare prefix ("Loyola") never silently resolves to a sibling school
+        // ("Loyola Marymount"). Fewest-words-stripped wins (Michigan != Michigan State).
+        const tn=(name||'').toLowerCase().trim(); let matched=[];
+        for(let k=1;k<=3 && !matched.length;k++){ matched=cand.filter(r=>{ const w=(r.team||'').split(' '); return w.length>k && w.slice(0,w.length-k).join(' ').toLowerCase()===tn; }); }
+        if(!matched.length && tn.indexOf(' ')>=0) matched=cand.filter(r=>(r.team||'').toLowerCase().startsWith(tn+' '));
+        // Refuse to guess when the prefix maps to MULTIPLE distinct schools (e.g. "Loyola"
+        // -> Chicago / Maryland / Marymount): showing an arbitrary one is worse than none.
+        const distinct=[...new Set(matched.map(r=>r.team))];
+        ts = (distinct.length===1) ? [matched[0]] : [];
+      }
       const b = ts[0];
       // Never hard-error: if the team still isn't found, build a name-only minimal team
       // so the page loads and its historical rosters (from player_history) still resolve.
@@ -3349,7 +3361,7 @@ function _ensureProjRatings(){
     // rankings show). The customize bar pins the default lineup to it, then moves off it by
     // the regression delta — so the number stays consistent with the rest of the site.
     try{ const _n=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,''); const nm=_n(teamT&&teamT.name);
-      const me=D.teams.find(t=>_n(t.team)===nm||_n(t.full)===nm)||D.teams.find(t=>nm&&_n(t.full).indexOf(nm)===0);
+      const me=D.teams.find(t=>_n(t.team)===nm||_n(t.full)===nm)||(function(){var _ms=D.teams.filter(t=>nm&&(_n(t.full)===nm||_n(t.full).indexOf(nm+' ')===0));return _ms.length===1?_ms[0]:null;})();
       if(me&&me.rating!=null) window._czCanonRating=parseFloat(me.rating);
     }catch(e){}
     if(document.querySelector('#customizeContent .lineup-analytics')) rebuildCustomizeUI(); } }).catch(()=>{});
@@ -7455,7 +7467,7 @@ async function renderProjectedStats(){
   try{ const rows=await fetch(`${SB_URL}/rest/v1/team_projections?team=eq.${encodeURIComponent(name)}&select=*&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]); tp=rows&&rows[0]||null; }catch(e){}
   let pr=null, ratN=0;
   try{ const D=await TDC_RATINGS.get(); if(D&&D.teams){ ratN=D.teams.length;
-    pr=D.teams.find(t=>_n(t.team)===nm||_n(t.full)===nm)||D.teams.find(t=>nm&&_n(t.full).indexOf(nm)===0); } }catch(e){}
+    pr=D.teams.find(t=>_n(t.team)===nm||_n(t.full)===nm)||(function(){var _ms=D.teams.filter(t=>nm&&(_n(t.full)===nm||_n(t.full).indexOf(nm+' ')===0));return _ms.length===1?_ms[0]:null;})(); } }catch(e){}
   // Teams with no published team_projections row — OR a zeroed one (e.g. Gonzaga) — fall back
   // to the static returners box-fill: projected from each team's roster's real per-game
   // production, normalized to a 200-min team (scripts/build_team_projected_box.py). Same shape.
