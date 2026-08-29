@@ -122,6 +122,14 @@
       </div>
 
       <div class="card">
+        <h2>📡 Data feeds</h2>
+        <div class="desc">Per-player content, refreshed daily by the news/buzz GitHub Action. Fan buzz needs a free Reddit app key — if it shows <b>not configured</b>, add <code>REDDIT_CLIENT_ID</code> / <code>REDDIT_CLIENT_SECRET</code> as GitHub repo secrets and the next daily run populates it.</div>
+        <div class="status" id="feedNews"></div>
+        <div class="status" id="feedBuzz"></div>
+        <div class="meta" id="feedHint" style="margin:8px 0 0;"></div>
+      </div>
+
+      <div class="card">
         <h2>🔗 Owner workflows</h2>
         <div class="desc">Jump to the tools where owner-only edits live (freshman projections, depth charts, portal fit).</div>
         <div class="links">
@@ -181,6 +189,7 @@
     if(isOwner){
       document.getElementById('whoEmail').textContent=ownerEmail()||'owner';
       loadRatingsMeta();
+      loadFeedStatus();
     } else {
       var em=ownerEmail();
       if(em) document.getElementById('gateMsg').textContent='Signed in as '+em+' — that’s not the owner account, so these tools are hidden.';
@@ -200,6 +209,29 @@
           m.innerHTML='Last published: <b>never</b> — visitors are recomputing it themselves.';
         }
       }).catch(function(){});
+  }
+  // ── data-feed config checks (headlines + Reddit buzz) ──
+  function loadFeedStatus(){
+    checkFeed('feedNews','scripts/data/player_news.json','Headlines (Google News)',null);
+    checkFeed('feedBuzz','scripts/data/player_buzz.json','Fan buzz (Reddit)',
+      'add REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET as GitHub repo secrets, then the daily Action populates it');
+  }
+  function checkFeed(id,url,label,hint){
+    var el=document.getElementById(id); if(!el) return;
+    st(el,label+': checking…','busy');
+    var lm=null;
+    fetch(url+'?_='+Date.now(),{cache:'no-cache'}).then(function(r){
+      if(!r.ok) throw new Error('missing');
+      lm=r.headers.get('last-modified');
+      return r.json();
+    }).then(function(j){
+      var n=Array.isArray(j)?j.length:Object.keys(j||{}).length;
+      var fresh=lm?(' · updated '+rel(new Date(lm))):'';
+      st(el,label+': <b>on</b> — '+n+' players'+fresh,'ok');
+    }).catch(function(){
+      st(el,label+': <b>not configured</b>','err');
+      if(hint){ var h=document.getElementById('feedHint'); if(h&&!h.innerHTML) h.innerHTML='⚠ '+label+' is off — '+hint+'.'; }
+    });
   }
   function rel(d){
     var s=Math.max(0,(new Date()-d)/1000);
