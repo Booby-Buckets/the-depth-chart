@@ -32,7 +32,7 @@
       ['compare-players.html', 'Compare Players'],
       ['draft.html',           'Mock Draft'],
       ['development.html',     'Development'],
-      ['archetypes.html',      'Archetypes'],
+      ['roles.html#arch',      'Archetypes'],
     ]],
     ['Analytics', [
       ['betting.html',                  '🎯 Betting Lab'],

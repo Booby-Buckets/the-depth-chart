@@ -18,10 +18,9 @@
   <script src="tdc-glossary.js?v=12"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Role &amp; Fit Intelligence — The Depth Chart</title>
+  <title>Roles &amp; Archetypes — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <script src="auth.js?v=shotlock1"></script>
-  <script src="tdc-gate.js?v=3" data-gate="pro" data-label="Personnel Book"></script>
+  <script src="auth.js?v=rolesgate1"></script>
   <script src="team-colors.js?v=4"></script>
   <script src="tdc-ratings.js?v=14"></script>
   <script src="tdc-projgrade.js?v=base2"></script>
@@ -127,31 +126,89 @@
   <script src="tdc-pwa.js?v=2" defer></script>
 </head>
 <body data-anim-auto>
-<script>
-(function(){
-  if(window.TDC_PAYWALL_ENABLED===false||(window.tdcIsOwner&&window.tdcIsOwner())) return;
-  var REQUIRED_PLANS=['coach'];
-  var s=null; try{ s=JSON.parse(localStorage.getItem('tdc_session')||'null'); }catch(e){}
-  if(!s||!s.access_token){ location.href='pricing.html?gate=coach'; return; }
-  fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user.id+'&select=plan',
-    {headers:{apikey:'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye',Authorization:'Bearer '+s.access_token}})
-    .then(function(r){return r.json();}).then(function(rows){var p=rows&&rows[0];
-      if(!p||REQUIRED_PLANS.indexOf(p.plan)<0) location.href='pricing.html?gate=coach';
-    }).catch(function(){ location.href='pricing.html?gate=coach'; });
-})();
-</script>
+<!-- page opens to everyone: the Archetype Explorer tab is free; the Role & Fit tab is coach-gated below -->
 <script src="tdc-nav.js?v=20"></script>
+<style>
+  /* Roles / Archetypes tabs */
+  .rtabs{display:inline-flex;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:4px;margin:16px 0 22px;flex-wrap:wrap;}
+  .rtab-btn{font:800 12.5px/1 'Inter',sans-serif;letter-spacing:.02em;color:var(--text3);background:transparent;border:none;border-radius:7px;padding:9px 16px;cursor:pointer;transition:all .14s;}
+  .rtab-btn:hover{color:var(--text);}
+  .rtab-btn.on{background:var(--accent);color:#141416;}
+  [data-theme="dark"] .rtab-btn.on{color:#141416;}
+  .rlock{border:1px dashed var(--border2);border-radius:16px;background:var(--bg2);padding:30px 26px;text-align:center;max-width:520px;margin:8px auto;}
+  .rlock .rl-k{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:9px;}
+  .rlock h3{font-family:'Playfair Display',serif;font-weight:800;font-size:21px;margin-bottom:8px;}
+  .rlock p{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px;}
+  .rlock a{display:inline-block;font-weight:800;font-size:13px;color:#141416;background:var(--accent);border-radius:10px;padding:10px 18px;text-decoration:none;}
+  /* archetype explorer (absorbed) */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:20px;}
+  .card{border:1px solid var(--border);border-radius:16px;background:var(--bg2);padding:0;overflow:hidden;cursor:pointer;transition:transform .14s,border-color .14s,box-shadow .14s;position:relative;}
+  .card:hover{transform:translateY(-2px);border-color:var(--ac);box-shadow:0 12px 30px rgba(0,0,0,.14);}
+  .card.sel{border-color:var(--ac);box-shadow:0 0 0 2px color-mix(in srgb,var(--ac) 40%,transparent);}
+  .card-top{padding:15px 17px 13px;border-top:3px solid var(--ac);}
+  .card-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+  .card-nm{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;color:var(--ac);letter-spacing:-.01em;}
+  .card-ct{font-size:11px;font-weight:800;color:var(--text3);white-space:nowrap;}
+  .card-desc{font-size:12.5px;color:var(--text2);line-height:1.5;margin-top:6px;}
+  .brk{display:inline-block;margin-top:9px;font-size:10.5px;font-weight:800;letter-spacing:.02em;color:var(--ac);background:color-mix(in srgb,var(--ac) 15%,transparent);border:1px solid color-mix(in srgb,var(--ac) 35%,transparent);border-radius:20px;padding:3px 10px;cursor:help;}
+  .card-players{display:flex;flex-wrap:wrap;gap:5px;padding:11px 17px 14px;border-top:1px solid var(--border);}
+  .pchip{font-size:11px;font-weight:600;color:var(--text2);background:var(--bg3);border-radius:20px;padding:3px 9px;display:inline-flex;align-items:center;gap:5px;}
+  .pchip b{color:var(--ac);font-weight:800;font-size:10px;}
+  .detail{margin-top:24px;border:1px solid var(--border);border-radius:18px;background:var(--bg2);overflow:hidden;scroll-margin-top:70px;display:none;}
+  .detail.on{display:block;animation:rfade .3s ease both;}
+  @keyframes rfade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  .dh{padding:20px 22px;border-bottom:1px solid var(--border);border-top:4px solid var(--ac);}
+  .dh-nm{font-family:'Playfair Display',serif;font-weight:900;font-size:26px;color:var(--ac);display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .dh-ct{font-family:'Inter';font-size:12px;font-weight:800;color:var(--text3);letter-spacing:.04em;}
+  .dh-desc{font-size:13.5px;color:var(--text2);line-height:1.6;margin-top:8px;max-width:720px;}
+  .dh-close{margin-left:auto;cursor:pointer;color:var(--text3);font-size:22px;line-height:1;}
+  .dh-close:hover{color:var(--text);}
+  .droster{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1px;background:var(--border);}
+  .prow{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--bg2);transition:background .1s;}
+  .prow:hover{background:var(--bg3);}
+  .prow .g{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;width:34px;text-align:center;flex-shrink:0;}
+  .prow .nm{font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .prow .tm{font-size:10.5px;color:var(--text3);}
+  .dmore{text-align:center;padding:12px;}
+  .dmore button{font-family:inherit;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);border-radius:20px;padding:7px 16px;cursor:pointer;}
+  .dmore button:hover{border-color:var(--ac);color:var(--text);}
+  .brkp{padding:16px 22px 18px;border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--ac) 5%,var(--bg2));}
+  .brkp-h{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;color:var(--text);display:flex;align-items:baseline;gap:9px;}
+  .brkp-sub{font-family:'Inter';font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);}
+  .brkp-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-top:12px;}
+  .brkp-stat{display:flex;flex-direction:column;gap:2px;}
+  .bs-n{font-family:'Playfair Display',serif;font-weight:900;font-size:26px;line-height:1;}
+  .bs-l{font-size:11.5px;color:var(--text2);line-height:1.4;}
+  .brkp-ex-h{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:15px;margin-bottom:8px;}
+  .brkp-ex{display:flex;flex-wrap:wrap;gap:7px;}
+  .bx{display:inline-flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px 11px;transition:border-color .1s;}
+  .bx:hover{border-color:var(--ac);}
+  .bxn{font-size:12px;font-weight:700;color:var(--text);}
+  .bxg{font-size:11px;font-weight:800;color:var(--ac);font-variant-numeric:tabular-nums;}
+</style>
 <script src="tdc-coachlinks.js?v=21"></script>
 <div class="page">
-  <div class="eyebrow" data-anim>⬡ Coach's Tier <span class="lock">Player Intelligence</span></div>
-  <h1 class="page-h1" data-anim>Role &amp; Fit Intelligence</h1>
-  <div class="sub" data-anim>What is each player, really? Pick a team to read every rotation piece by what they actually do — usage, playmaking, spacing, rebounding, rim protection and disruption — plus how the pieces fit together. The read is yours to make.</div>
+  <div class="eyebrow" data-anim>⬡ Player Style &amp; Role</div>
+  <h1 class="page-h1" data-anim>Roles &amp; Archetypes</h1>
+  <div class="sub" data-anim>Two reads on player style: <b>Role &amp; Fit</b> breaks down one team's rotation by what each man actually does (Coach's Tier), and the <b>Archetype Explorer</b> browses every player in Division I by playing style — free.</div>
 
+  <div class="rtabs" role="tablist" data-anim>
+    <button class="rtab-btn on" id="rt-roles" onclick="rtab('roles')">Role &amp; Fit</button>
+    <button class="rtab-btn" id="rt-arch" onclick="rtab('arch')">Archetype Explorer</button>
+  </div>
+
+  <div id="tabRoles" class="rtab-panel">
   <div class="combo" data-anim><input id="sel" class="search" placeholder="Search a team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
 
   <div id="out"><div class="muted" style="padding:60px 20px;">Pick a team above to read its personnel.</div></div>
 
   <div class="note" data-anim>Role signals are each player's 2025-26 advanced rates: usage, assist %, three-point attempt rate, total-rebound %, block % and steal %, scaled to typical D-I ranges. The archetype is derived from those signals + position; it describes what a player did, not how to use him. Newcomers with no D-I season show once they have a track record.</div>
+  </div><!-- /tabRoles -->
+
+  <div id="tabArch" class="rtab-panel" style="display:none">
+    <div class="sub" data-anim style="margin-bottom:2px">Every D-I player grouped by playing style — click an archetype for its full roster and historical breakout rate. <span style="color:var(--text3)">Free for everyone.</span></div>
+    <div id="archBody"><div class="loading">Loading archetypes…</div></div>
+  </div>
 </div>
 
 <script>
@@ -254,6 +311,7 @@ function nodeHtml(yr,cls,g,ppg,proj){
 }
 
 async function loadTeam(){
+  if(window._rolesLocked) return;   // coach-gated tab
   const row=poolRow(selKey); if(!row) return;
   const tc=teamColor(row);
   el('out').innerHTML='<div class="loading">Reading the personnel…</div>';
@@ -452,6 +510,108 @@ async function loadTeam(){
   const want=(qs.get('team')||'').toLowerCase();
   if(want){ const i=D.teams.findIndex(t=>t.full.toLowerCase()===want||t.team.toLowerCase()===want); if(i>=0){ selKey=i; el('sel').value=labelOf(poolRow(i)); loadTeam(); } }
 })();
+</script>
+<script>
+  // ── tab switcher ──
+  function rtab(name){
+    var isRoles=name==='roles';
+    document.getElementById('tabRoles').style.display=isRoles?'block':'none';
+    document.getElementById('tabArch').style.display=isRoles?'none':'block';
+    document.getElementById('rt-roles').classList.toggle('on',isRoles);
+    document.getElementById('rt-arch').classList.toggle('on',!isRoles);
+    if(!isRoles){ initArch(); if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(document.getElementById('tabArch')); }
+  }
+  // ── coach gate for the Role & Fit tab (Archetype Explorer stays free) ──
+  (function(){
+    function lock(){ window._rolesLocked=true;
+      var c=document.getElementById('sel'); if(c&&c.parentElement) c.parentElement.style.display='none';
+      var note=document.querySelector('#tabRoles .note'); if(note) note.style.display='none';
+      var out=document.getElementById('out'); if(out) out.innerHTML='<div class="rlock"><div class="rl-k">Coach’s Tier</div><h3>Role &amp; Fit Intelligence</h3><p>Read any team’s rotation by what each player actually does — usage, playmaking, spacing, rebounding, rim protection and disruption — plus how the pieces fit together.</p><a href="pricing.html?gate=coach">Unlock Coach’s Tier →</a></div>';
+    }
+    try{
+      if(window.TDC_PAYWALL_ENABLED===false) return;
+      if(window.tdcIsOwner&&window.tdcIsOwner()) return;
+      if(window.tdcHasCoachTier){ window.tdcHasCoachTier().then(function(ok){ if(!ok) lock(); }).catch(function(){ lock(); }); }
+      else { var s=null; try{ s=JSON.parse(localStorage.getItem('tdc_session')||'null'); }catch(e){} if(!s||!s.access_token) lock(); }
+    }catch(e){}
+  })();
+  // deep link: #arch opens the free Archetype Explorer
+  (function(){ try{ if(location.hash==='#arch') setTimeout(function(){ rtab('arch'); },30); }catch(e){} })();
+
+  // ── Archetype Explorer (absorbed from archetypes.html) — IIFE-scoped, #body -> #archBody ──
+  var _archInited=false;
+  function initArch(){
+    if(_archInited) return; _archInited=true;
+    const esc=s=>(''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    let DATA=null, BREAK=null, sel=null, rosterLimit=24;
+    Promise.all([
+      fetch('archetypes.json',{cache:'no-cache'}).then(r=>r.json()),
+      fetch('breakout.json',{cache:'no-cache'}).then(r=>r.json()).catch(()=>null)
+    ]).then(([j,b])=>{ DATA=j; BREAK=b; render(); })
+      .catch(()=>{ document.getElementById('archBody').innerHTML='<div class="loading">Archetype data unavailable.</div>'; });
+    function brkOf(name){ return (BREAK&&BREAK.archetypes&&BREAK.archetypes[name])||null; }
+    function plink(p){ return p.e?`player.html?espn=${p.e}&name=${encodeURIComponent(p.n)}`:`player.html?name=${encodeURIComponent(p.n)}`; }
+    function brkPanel(a){
+      const b=brkOf(a.name); if(!b) return '';
+      const list=DATA.archetypes.map(x=>brkOf(x.name)).filter(Boolean).sort((p,q)=>q.rate-p.rate);
+      const rank=list.findIndex(x=>x===b)+1, of=list.length;
+      const pct=Math.round(b.rate*100);
+      const ex=(b.examples||[]).slice(0,5).map(e=>`<a class="bx" href="player.html?name=${encodeURIComponent(e.n)}"><span class="bxn">${esc(e.n)}</span><span class="bxg">${e.from}→${e.to}</span></a>`).join('');
+      const rankLbl=rank===1?'most likely to break out':rank===of?'least likely to break out':`#${rank} of ${of} in breakout rate`;
+      return `<div class="brkp" data-anim>
+        <div class="brkp-h">Breakout track record <span class="brkp-sub">${BREAK.meta.years[0]}–${BREAK.meta.years[1]}</span></div>
+        <div class="brkp-row">
+          <div class="brkp-stat"><div class="bs-n" style="color:${a.color}">${pct}%</div><div class="bs-l">of young non-stars later hit star grade (${rankLbl})</div></div>
+          <div class="brkp-stat"><div class="bs-n" style="color:${a.color}">+${b.avg_gain}</div><div class="bs-l">average grade gain from first season to peak</div></div>
+          <div class="brkp-stat"><div class="bs-n" style="color:${a.color}">${b.star}</div><div class="bs-l">of ${b.n} tracked young ${esc(a.name)}s broke out</div></div>
+        </div>
+        ${ex?`<div class="brkp-ex-h">Notable breakouts</div><div class="brkp-ex">${ex}</div>`:''}
+      </div>`;
+    }
+    function render(){
+      const cards=DATA.archetypes.map(a=>{
+        const roster=(DATA.roster&&DATA.roster[a.name])||[];
+        const top=roster.slice(0,4);
+        const b=brkOf(a.name);
+        const brk=b?`<span class="brk" title="Share of young non-star ${esc(a.name)}s (grade ≤ ${BREAK.meta.young_max}) who later reached star grade ≥ ${BREAK.meta.star}, ${BREAK.meta.years[0]}–${BREAK.meta.years[1]} (n=${b.n})">${Math.round(b.rate*100)}% break out</span>`:'';
+        return `<div class="card" data-a="${esc(a.name)}" style="--ac:${a.color}">
+          <div class="card-top">
+            <div class="card-h"><div class="card-nm">${esc(a.name)}</div><div class="card-ct">${a.count} players</div></div>
+            <div class="card-desc">${esc(a.desc)}</div>
+            ${brk}
+          </div>
+          <div class="card-players">${top.map(p=>`<span class="pchip"><b>${p.g}</b>${esc(p.n)}</span>`).join('')}</div>
+        </div>`;
+      }).join('');
+      document.getElementById('archBody').innerHTML=`<div class="grid">${cards}</div><div class="detail" id="detail"></div>`;
+      document.querySelectorAll('#archBody .card').forEach(c=>c.addEventListener('click',()=>openArch(c.dataset.a)));
+      if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(document.getElementById('archBody'));
+    }
+    function openArch(name){
+      sel=name; rosterLimit=24;
+      document.querySelectorAll('#archBody .card').forEach(c=>c.classList.toggle('sel',c.dataset.a===name));
+      renderDetail();
+      const d=document.getElementById('detail'); if(d) d.scrollIntoView({behavior:'smooth',block:'nearest'});
+    }
+    function renderDetail(){
+      const a=DATA.archetypes.find(x=>x.name===sel); if(!a) return;
+      const roster=(DATA.roster&&DATA.roster[sel])||[];
+      const shown=roster.slice(0,rosterLimit);
+      const d=document.getElementById('detail');
+      d.style.setProperty('--ac',a.color); d.className='detail on';
+      d.innerHTML=`
+        <div class="dh">
+          <div class="dh-nm">${esc(a.name)} <span class="dh-ct">${a.count} players</span> <span class="dh-close" id="dClose">×</span></div>
+          <div class="dh-desc">${esc(a.desc)}</div>
+        </div>
+        ${brkPanel(a)}
+        <div class="droster">${shown.map(p=>`<a class="prow" href="${plink(p)}"><span class="g" style="color:${a.color}">${p.g}</span><span style="min-width:0"><div class="nm">${esc(p.n)}</div><div class="tm">${esc(p.t||'')}</div></span></a>`).join('')}</div>
+        ${roster.length>rosterLimit?`<div class="dmore"><button id="dMore">Show all ${roster.length}</button></div>`:''}`;
+      d.querySelector('#dClose').addEventListener('click',()=>{ d.className='detail'; sel=null; document.querySelectorAll('#archBody .card').forEach(c=>c.classList.remove('sel')); });
+      if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(d);
+      const mb=d.querySelector('#dMore'); if(mb) mb.addEventListener('click',()=>{ rosterLimit=9999; renderDetail(); });
+    }
+  }
 </script>
   <script src="tdc-version.js?v=2"></script>
 </body>
