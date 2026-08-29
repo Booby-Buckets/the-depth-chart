@@ -544,18 +544,29 @@ function _gpAgg(games){
   games.forEach(g=>{ pts+=_gpN(g.pts); tov+=_gpN(g.tov); fga+=_gpN(g.fga); fgm+=_gpN(g.fgm); tpm+=_gpN(g.tpm); tpa+=_gpN(g.tpa); });
   return {n, pts:pts/n, tov:tov/n, efg:fga?(fgm+0.5*tpm)/fga*100:null, tp:tpa>=8?tpm/tpa*100:null};
 }
-// the D-I defenses most similar to YOUR team, on the axes that define a defensive identity
-function _meLikeSet(meDNA, teams){
+// mean/sd per axis across a season's teams (for z-scoring within that season)
+function _gpZvec(dnaTeams, keys){
+  const Z={}; keys.forEach(k=>{ const v=Object.values(dnaTeams).map(t=>t&&t[k]).filter(x=>x!=null);
+    const m=v.reduce((a,b)=>a+b,0)/(v.length||1); const sd=Math.sqrt(v.reduce((a,b)=>a+(b-m)*(b-m),0)/(v.length||1))||1; Z[k]={m,sd}; });
+  return Z;
+}
+// the defenses most similar to YOUR team, computed SEASON-BY-SEASON so a pooled multi-
+// season split compares each game to teams that played like you *that* year (league
+// pace/style drifts). Your identity is fixed at your reference-season z-position.
+function _gpLikeSets(meDNA, seasons){
   const keys=['adjD','dTOV','deFG','tempo'].filter(k=>meDNA[k]!=null);
   if(keys.length<2) return null;
-  const Z={}; keys.forEach(k=>{ const v=Object.values(teams).map(t=>t&&t[k]).filter(x=>x!=null);
-    const m=v.reduce((a,b)=>a+b,0)/(v.length||1); const sd=Math.sqrt(v.reduce((a,b)=>a+(b-m)*(b-m),0)/(v.length||1))||1; Z[k]={m,sd}; });
-  const dist=t=>{ let s=0,c=0; keys.forEach(k=>{ if(t&&t[k]!=null){ const a=(t[k]-Z[k].m)/Z[k].sd,b=(meDNA[k]-Z[k].m)/Z[k].sd; s+=(a-b)*(a-b); c++; } }); return c?Math.sqrt(s/c):Infinity; };
-  const scored=Object.keys(teams).map(nm=>({nm,d:dist(teams[nm])})).sort((a,b)=>a.d-b.d);
-  // tight: only the defenses that genuinely resemble yours (top ~15%), with a floor
-  // so single-season samples don't collapse
-  const cut=Math.max(40,Math.floor(scored.length*0.15));
-  return new Set(scored.slice(0,cut).map(x=>x.nm));
+  const ref=(DNA['2026']&&DNA['2026'].teams)||{}; const zr=_gpZvec(ref,keys);
+  const meZ={}; keys.forEach(k=>meZ[k]=(meDNA[k]-zr[k].m)/zr[k].sd);
+  const sets={};
+  seasons.forEach(s=>{ const tt=(DNA[s]&&DNA[s].teams); if(!tt) return;
+    const z=_gpZvec(tt,keys);
+    const dist=t=>{ let ss=0,c=0; keys.forEach(k=>{ if(t&&t[k]!=null){ const a=(t[k]-z[k].m)/z[k].sd; ss+=(a-meZ[k])*(a-meZ[k]); c++; } }); return c?Math.sqrt(ss/c):Infinity; };
+    const scored=Object.keys(tt).map(nm=>({nm,d:dist(tt[nm])})).sort((a,b)=>a.d-b.d);
+    const cut=Math.max(40,Math.floor(scored.length*0.15));
+    sets[s]=new Set(scored.slice(0,cut).map(x=>x.nm));
+  });
+  return sets;
 }
 function _gpVH(p){
   const b=p.base,v=p.vs,rim=p.rim,soft=p.score>=5,pc=x=>Math.round(x);
@@ -582,18 +593,26 @@ function _gpChips(p){
     return '<span class="gp-chip '+tone+'">'+lab+' '+arrow+val+u+'</span>';
   }).join('');
 }
-function buildGuardPlanSection(withId, boxBy, teams){
+const GP_SEASONS=[2026,2025,2024];   // pool the last 3 completed seasons to thicken samples
+async function buildGuardPlanSection(withId){
   const host=el('scoutGuardPlan'); if(!host) return;
   const oppShort=sn(poolRow(selKey.Opp).team);
   const meRow=(selKey.Me!=null&&selKey.Me!==selKey.Opp)?poolRow(selKey.Me):null;
   if(!meRow){ host.innerHTML='<div class="gp-empty">Add <b>your team</b> in the second box above to see how '+esc(oppShort)+' breaks down against a defense like yours — a game plan built from how each of their players actually performed vs teams like you.</div>'; return; }
-  const meDNA=dna26Of(meRow)||dnaOf(meRow); if(!meDNA||!teams){ host.innerHTML=''; return; }
-  const likeSet=_meLikeSet(meDNA, teams); if(!likeSet){ host.innerHTML=''; return; }
+  const meDNA=dna26Of(meRow)||dnaOf(meRow); if(!meDNA){ host.innerHTML=''; return; }
+  const sets=_gpLikeSets(meDNA, GP_SEASONS); if(!sets){ host.innerHTML=''; return; }
+  // own pooled box fetch (separate from the single-season attack-book fetch)
+  const _tok=selKey.Opp, ids=withId.map(p=>p.espn_id).join(','); if(!ids) return;
+  let box=[];
+  try{ box=await fetch(SB_URL+'/rest/v1/box_scores?espn_id=in.('+ids+')&season_year=in.('+GP_SEASONS.join(',')+')&min=gte.4&select=espn_id,season_year,opp,min,fga,fgm,tpm,tpa,tov,pts&limit=12000',{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){ box=[]; }
+  if(selKey.Opp!==_tok) return;   // opponent changed mid-fetch
+  const boxBy={}; box.forEach(b=>{(boxBy[b.espn_id]=boxBy[b.espn_id]||[]).push(b);});
+  const inLike=g=>{ const s=sets[g.season_year]; return s && s.has(g.opp); };
   const players=[];
   withId.forEach(p=>{
     const games=(boxBy[p.espn_id]||[]).filter(g=>_gpN(g.min)>=8 && g.fga!=null);
-    if(games.length<6) return;
-    const vs=games.filter(g=>likeSet.has(g.opp)); if(vs.length<4) return;
+    if(games.length<8) return;
+    const vs=games.filter(inLike); if(vs.length<5) return;   // returners pool thick; freshmen stay at ~5, flagged thin
     const base=_gpAgg(games), vAgg=_gpAgg(vs);
     if(!base||!vAgg||base.efg==null||vAgg.efg==null) return;
     const defg=vAgg.efg-base.efg, dtp=(vAgg.tp!=null&&base.tp!=null)?vAgg.tp-base.tp:null;
@@ -613,11 +632,12 @@ function buildGuardPlanSection(withId, boxBy, teams){
         ? 'Your defense turns <b>'+esc(soft[0].name)+'</b> from a threat into a role player. The rest of '+esc(oppShort)+'&rsquo;s rotation holds up &mdash; here&rsquo;s the plan.'
         : 'Your defense makes <b>'+soft.length+' of '+esc(oppShort)+'&rsquo;s scorers</b> tougher to trust &mdash; starting with <b>'+esc(soft[0].name)+'</b>. Here&rsquo;s the plan.')
     : esc(oppShort)+'&rsquo;s rotation holds up well against a defense like yours &mdash; no easy soft spots. Contain and win the glass.';
-  host.innerHTML='<div class="sec-h">How to guard '+esc(oppShort)+' <span class="hint">through '+esc(meNm)+'&rsquo;s defense &middot; vs teams like yours, 2025-26</span></div>'
+  const perSeasonN=(sets[2026]&&sets[2026].size)||(sets[2025]&&sets[2025].size)||40;
+  host.innerHTML='<div class="sec-h">How to guard '+esc(oppShort)+' <span class="hint">through '+esc(meNm)+'&rsquo;s defense &middot; vs teams like yours &middot; last 3 seasons</span></div>'
     +'<p class="gp-lede">'+lede+'</p>'
     +(soft.length?'<div class="gp-sec-h attack"><span>Take these away</span><i></i><span class="gp-cnt">'+soft.length+'</span></div><div class="gp-group">'+soft.map(unit).join('')+'</div>':'')
     +(rest.length?'<div class="gp-sec-h contain"><span>Contain &mdash; don&rsquo;t gamble</span><i></i><span class="gp-cnt">'+rest.length+'</span></div><div class="gp-group">'+rest.map(unit).join('')+'</div>':'')
-    +'<p class="gp-foot">Each player&rsquo;s real 2025-26 games split against the '+likeSet.size+' defenses most like '+esc(meNm)+' (pressure, shot defense, pace). The number is the change vs his season norm &mdash; empirical, single-season samples.</p>';
+    +'<p class="gp-foot">Each player&rsquo;s real games over his last '+GP_SEASONS.length+' seasons, split against the ~'+perSeasonN+' defenses most like '+esc(meNm)+' each season (pressure, shot defense, pace). The number is the change vs his own norm &mdash; empirical; samples pooled across seasons, still flagged where thin.</p>';
 }
 async function loadPersonnel(row){
   const host=el('scoutScorers'); if(!host) return;
@@ -644,7 +664,7 @@ async function loadPersonnel(row){
     fetch(`${SB_URL}/rest/v1/shots?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,made,sv,stype&limit=16000`,{headers:tdcH()}).then(r=>r.ok?r.json():[])
   ]); }catch(e){}
   const boxBy={},shotBy={}; box.forEach(b=>{(boxBy[b.espn_id]=boxBy[b.espn_id]||[]).push(b);}); shots.forEach(s=>{(shotBy[s.espn_id]=shotBy[s.espn_id]||[]).push(s);});
-  try{ buildGuardPlanSection(withId, boxBy, teams); }catch(e){ /* guard plan is additive */ }
+  buildGuardPlanSection(withId).catch(function(){ /* guard plan is additive */ });
   const p40=(g,k)=>{let m=0,v=0;g.forEach(x=>{m+=_R(x.min);v+=_R(x[k]);});return m?v/m*40:0;};
 
   // his shot chart → rim/mid/three frequency + FG% + eFG% (threes ×1.5)
