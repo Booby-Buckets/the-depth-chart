@@ -7913,7 +7913,11 @@ async function _resolveGamesKey(){
       const uniq=[...new Set(list.map(r=>r.team))];
       if(uniq.length){
         uniq.sort((a,b)=>(a.split(/\s+/).length-b.split(/\s+/).length)||(a.length-b.length));
-        t=uniq[0]; break;
+        const minW=uniq[0].split(/\s+/).length;
+        // Only accept a UNIQUE fewest-words winner ("Florida" -> "Florida Gators"). If
+        // several distinct schools tie at the fewest words (the three "Loyola X"), the
+        // bare name is genuinely ambiguous — refuse to guess rather than show a sibling.
+        if(uniq.filter(x=>x.split(/\s+/).length===minW).length===1){ t=uniq[0]; break; }
       }
     }
   }
