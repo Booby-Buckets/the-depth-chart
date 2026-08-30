@@ -284,6 +284,7 @@
           </div>
           <div class="hx-card"><div class="hx-lab" id="hxOutlookLbl">Season Outlook</div><div id="hxOutlook"></div></div>
           <div class="hx-card"><div class="hx-lab">Roster Leaders <span class="sub">projected OVR</span></div><div id="hxLeaders"></div></div>
+          <div class="hx-card"><div class="hx-lab">Shot Distribution <span class="sub">projected shot share · TEND</span></div><div id="hxShot"></div></div>
         </div>
         <div class="hx-col">
           <div class="hx-card"><div class="hx-lab"><span id="hxStandLbl">Conference Standings</span><span class="sub" id="hxStandSub"></span></div><div id="hxStandings"></div></div>
@@ -558,9 +559,11 @@ function loadRoster(row){
   var pe=byId('hxProg'), le=byId('hxLeaders');
   pe.innerHTML='<div class="hx-empty">Loading roster…</div>'; le.innerHTML='<div class="hx-empty">Loading…</div>';
   var short=row.team||row.full;
+  var se=byId('hxShot'); if(se) se.innerHTML='<div class="hx-empty">Loading…</div>';
   fetch(SB+'/rest/v1/players?team=eq.'+encodeURIComponent(short)+'&select=*',{headers:H})
     .then(function(r){return r.ok?r.json():[];})
     .then(function(ps){
+      _fillHxShot(ps);
       var go=function(){
         var arr=ps.map(function(p){
           var ov=window.TDCProjGrade?TDCProjGrade.gradeSolo(p):(parseFloat(p.tdc_grade)||null);
@@ -595,6 +598,32 @@ function loadRoster(row){
       };
       if(window.TDCProjGrade&&TDCProjGrade.ready) TDCProjGrade.ready.then(go).catch(go); else go();
     }).catch(function(){ pe.innerHTML='<div class="hx-empty">Could not load roster.</div>'; le.innerHTML='<div class="hx-empty">Could not load roster.</div>'; });
+}
+
+// ── shot distribution (projected shot share + tendency, same source as the
+// player/team/compare pages) ──
+var _hqShotMap=null;
+function _fillHxShot(ps){
+  var el=byId('hxShot'); if(!el) return;
+  var fill=function(P){
+    var items=[];
+    (ps||[]).forEach(function(p){
+      var e=(p&&p.espn_id!=null)?String(p.espn_id):null; var pr=(e&&P[e])?P[e]:null;
+      if(pr&&pr.shot_share!=null) items.push({name:p.name,share:pr.shot_share,tend:pr.shot_tend,dem:pr.shot_tend_demo});
+    });
+    if(items.length<3){ el.innerHTML='<div class="hx-empty">No projected shot distribution for this roster yet.</div>'; return; }
+    items.sort(function(a,b){ return b.share-a.share; });
+    var max=items[0].share||1;
+    el.innerHTML=items.slice(0,8).map(function(it){
+      var w=Math.max(3,Math.round(it.share/max*100));
+      var moved=(it.dem!=null&&Math.abs(it.tend-it.dem)>=5), ac=it.tend<it.dem?'#e0885a':'#2bb673';
+      return '<div class="mrow"><span class="ml" style="min-width:92px;max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(it.name)+'</span>'+
+        '<div class="bar"><i style="width:'+w+'%;background:var(--tc)"></i></div>'+
+        '<span class="mv" style="color:var(--tc-readable,var(--tc))">'+it.share.toFixed(1)+'%<span style="display:block;font-size:9px;font-weight:600;color:var(--txt3)">tend '+it.tend+(moved?' <span style="color:'+ac+'">'+(it.tend<it.dem?'▼':'▲')+it.dem+'</span>':'')+'</span></span></div>';
+    }).join('');
+  };
+  if(_hqShotMap){ fill(_hqShotMap); return; }
+  fetch('scripts/data/stat_overall_projected.json?v=14').then(function(r){return r.ok?r.json():null;}).then(function(j){ _hqShotMap=(j&&j.players)||{}; fill(_hqShotMap); }).catch(function(){ el.innerHTML='<div class="hx-empty">Shot distribution unavailable.</div>'; });
 }
 
 // ── media / buzz ──
