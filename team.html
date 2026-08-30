@@ -7811,50 +7811,53 @@ function renderHistoricRoster(rows, yr, projected){
 // shots, straight from the projection (stat_overall_projected.json), so it agrees
 // with the player-page Shot Profile and the projected OVRs. Shares are zero-sum
 // (sum ~100%): stack five #1-option transfers and everyone's slice shrinks.
-let _shotProjCache=null;
+let _shotProj=null;   // {players, teams}
 async function _renderShotDist(rows){
   const host=document.getElementById('shotDistCard'); if(!host) return;
   const _e=s=>(''+(s||'')).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
   try{
-    if(!_shotProjCache){
-      const r=await fetch('scripts/data/stat_overall_projected.json?v=14').then(x=>x.ok?x.json():null).catch(()=>null);
-      _shotProjCache=(r&&r.players)?r.players:{};
+    if(!_shotProj){
+      const r=await fetch('scripts/data/stat_overall_projected.json?v=15').then(x=>x.ok?x.json():null).catch(()=>null);
+      _shotProj={players:(r&&r.players)||{}, teams:(r&&r.teams)||{}};
     }
-    const P=_shotProjCache, items=[];
-    // Fill the tendency columns in the roster stat table (histTable) from the same source
+    const P=_shotProj.players, T=_shotProj.teams;
+    const short=(window.teamT&&teamT.name)||(rows&&rows[0]&&rows[0].team)||null;
+    const list=(short&&T[short])?T[short]:null;
+    // name -> entry, so we can fill columns for freshmen (who have no espn_id)
+    const byName={}; if(list) list.forEach(x=>{ if(x.name) byName[(''+x.name).toLowerCase().trim()]=x; });
     const _tcol=(v,head)=>{ const c=v>=75?'#5ab875':v>=50?'var(--text)':v>=30?'var(--text2)':'var(--text3)';
       return '<b style="color:'+c+';font-weight:'+(head?800:600)+'">'+v+'</b>'; };
-    document.querySelectorAll('#depthContent .hr-tend[data-espn]').forEach(function(td){
-      const e=td.getAttribute('data-espn'); const pr=(e&&P[e])?P[e]:null;
-      if(pr&&pr.shot_tend!=null) td.innerHTML=_tcol(pr.shot_tend,true);
+    const _look=td=>{ const e=td.getAttribute('data-espn'); if(e&&P[e]) return P[e];
+      const nm=(td.getAttribute('data-name')||'').toLowerCase().trim(); return (nm&&byName[nm])?byName[nm]:null; };
+    // overall TEND column (returners via players map, freshmen via team list)
+    document.querySelectorAll('#depthContent .hr-tend').forEach(function(td){
+      const pr=_look(td); const v=pr?(pr.shot_tend!=null?pr.shot_tend:pr.tend):null;
+      if(v!=null) td.innerHTML=_tcol(v,true);
     });
-    const _tyKey={three:'tend_three',two:'tend_two',ft:'tend_ft'};
-    document.querySelectorAll('#depthContent .hr-ty[data-espn]').forEach(function(td){
-      const e=td.getAttribute('data-espn'), ty=td.getAttribute('data-ty'); const pr=(e&&P[e])?P[e]:null;
-      const v=pr?pr[_tyKey[ty]]:null;
+    const _pK={three:'tend_three',two:'tend_two',ft:'tend_ft'}, _tK={three:'t3',two:'t2',ft:'tf'};
+    document.querySelectorAll('#depthContent .hr-ty').forEach(function(td){
+      const ty=td.getAttribute('data-ty'), pr=_look(td);
+      const v=pr?(pr[_pK[ty]]!=null?pr[_pK[ty]]:pr[_tK[ty]]):null;
       if(v!=null) td.innerHTML=_tcol(v,false);
     });
-    (rows||[]).forEach(p=>{
-      const e=(p&&p.espn_id!=null)?String(p.espn_id):null;
-      const pr=(e&&P[e])?P[e]:null;
-      if(pr&&pr.shot_share!=null) items.push({name:p.name,share:pr.shot_share,tend:pr.shot_tend,dem:pr.shot_tend_demo});
-    });
-    if(items.length<3){ host.innerHTML=''; return; }
-    items.sort((a,b)=>b.share-a.share);
+    // distribution card — from the per-team list, which INCLUDES freshmen/no-box
+    if(!list||list.length<3){ host.innerHTML=''; return; }
+    const items=list.filter(x=>x.share!=null).slice().sort((a,b)=>b.share-a.share);
     const max=items[0].share||1, tot=items.reduce((s,i)=>s+i.share,0);
     const role=sh=>sh>=24?'Primary':sh>=18?'Featured':sh>=12?'Secondary':sh>=8?'Complementary':'Low-usage';
     const bars=items.map(it=>{
       const w=Math.max(3,Math.round(it.share/max*100));
-      const moved=(it.dem!=null&&Math.abs(it.tend-it.dem)>=5), ac=it.tend<it.dem?'#e0885a':'#5ab875';
+      const dem=(it.espn&&P[it.espn])?P[it.espn].shot_tend_demo:null;
+      const moved=(dem!=null&&Math.abs(it.tend-dem)>=5), ac=(dem!=null&&it.tend<dem)?'#e0885a':'#5ab875';
       return `<div style="display:grid;grid-template-columns:150px 1fr 96px;align-items:center;gap:10px;padding:5px 0;">
-        <div style="font-size:12.5px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_e(it.name)}<span style="display:block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);">${role(it.share)}</span></div>
+        <div style="font-size:12.5px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_e(it.name)}${it.fr?' <span style="font-size:9px;color:var(--accent);font-weight:800;">FR</span>':''}<span style="display:block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);">${role(it.share)}</span></div>
         <div style="position:relative;height:9px;border-radius:5px;background:rgba(128,128,128,.16);overflow:hidden;"><div style="position:absolute;left:0;top:0;bottom:0;width:${w}%;background:linear-gradient(90deg,var(--tc-readable,var(--accent)),${ac});"></div></div>
-        <div style="font-size:12px;font-weight:800;color:var(--text);text-align:right;">${it.share.toFixed(1)}%<span style="display:block;font-size:10px;font-weight:600;color:var(--text2);">tend ${it.tend}${moved?' <span style="color:'+ac+'">'+(it.tend<it.dem?'▼':'▲')+it.dem+'</span>':''}</span></div>
+        <div style="font-size:12px;font-weight:800;color:var(--text);text-align:right;">${it.share.toFixed(1)}%<span style="display:block;font-size:10px;font-weight:600;color:var(--text2);">tend ${it.tend}${moved?' <span style="color:'+ac+'">'+(it.tend<dem?'▼':'▲')+dem+'</span>':''}</span></div>
       </div>`;
     }).join('');
     host.innerHTML=`<div class="sec-head" style="margin-top:28px;">Shot distribution <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· projected share of the team's shots (zero-sum across the rotation)</span></div>
       <div style="margin-top:6px;">${bars}</div>
-      <div style="margin-top:10px;font-size:11.5px;color:var(--text2);line-height:1.55;">Each player's projected shots as a % of the team total (${Math.round(tot)}% shown). A high-volume transfer joining a loaded roster takes a smaller slice than he did as his old team's #1 — <b>tend</b> is his shot tendency (100 = a pure #1 option), and the arrow shows the shift from his prior role.</div>`;
+      <div style="margin-top:10px;font-size:11.5px;color:var(--text2);line-height:1.55;">Each player's projected shots as a % of the team total (${Math.round(tot)}% shown, freshmen included). <b>tend</b> is his shot tendency (100 = a pure #1 option); the arrow shows the shift from his prior role. Freshmen (<b style="color:var(--accent)">FR</b>) have no prior stats, so their shots are estimated from projected role.</div>`;
   }catch(e){ host.innerHTML=''; }
 }
 // Departures: players on the PRIOR season's roster who aren't on this season's, and
@@ -7943,10 +7946,10 @@ function histTable(rows, yr, projected){
     <td>${p.gp||'—'}</td><td>${num(p.mpg)}</td><td>${num(p.ppg)}</td><td>${num(p.rpg)}</td><td>${num(p.apg)}</td>
     <td>${num(p.stl)}</td><td>${num(p.blk)}</td><td>${num(p.tovs)}</td>
     <td>${pct(p.fg_pct)}</td><td>${pct(p.tp_pct)}</td><td>${pct(p.ft_pct)}</td>
-    ${projected?`<td class="hr-tend" data-espn="${p.espn_id||''}"><span style="color:var(--text3)">·</span></td>`
-      +`<td class="hr-ty" data-espn="${p.espn_id||''}" data-ty="three"><span style="color:var(--text3)">·</span></td>`
-      +`<td class="hr-ty" data-espn="${p.espn_id||''}" data-ty="two"><span style="color:var(--text3)">·</span></td>`
-      +`<td class="hr-ty" data-espn="${p.espn_id||''}" data-ty="ft"><span style="color:var(--text3)">·</span></td>`:''}
+    ${projected?(pnm=>`<td class="hr-tend" data-espn="${p.espn_id||''}" data-name="${pnm}"><span style="color:var(--text3)">·</span></td>`
+      +`<td class="hr-ty" data-espn="${p.espn_id||''}" data-name="${pnm}" data-ty="three"><span style="color:var(--text3)">·</span></td>`
+      +`<td class="hr-ty" data-espn="${p.espn_id||''}" data-name="${pnm}" data-ty="two"><span style="color:var(--text3)">·</span></td>`
+      +`<td class="hr-ty" data-espn="${p.espn_id||''}" data-name="${pnm}" data-ty="ft"><span style="color:var(--text3)">·</span></td>`)((p.name||'').replace(/"/g,'&quot;')):''}
     <td>${_ovrChip(projected?_gdisp(p):p.tdc_grade)}</td></tr>`).join('');
   const tth=(lbl,tip)=>`<th class="has-tip" title="${tip}">${lbl}</th>`;
   return `<div class="hr-wrap"><table class="hr-table"><thead><tr>

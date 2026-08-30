@@ -563,7 +563,7 @@ function loadRoster(row){
   fetch(SB+'/rest/v1/players?team=eq.'+encodeURIComponent(short)+'&select=*',{headers:H})
     .then(function(r){return r.ok?r.json():[];})
     .then(function(ps){
-      _fillHxShot(ps);
+      _fillHxShot(ps, short);
       var go=function(){
         var arr=ps.map(function(p){
           var ov=window.TDCProjGrade?TDCProjGrade.gradeSolo(p):(parseFloat(p.tdc_grade)||null);
@@ -602,28 +602,32 @@ function loadRoster(row){
 
 // ── shot distribution (projected shot share + tendency, same source as the
 // player/team/compare pages) ──
-var _hqShotMap=null;
-function _fillHxShot(ps){
+var _hqShot=null;
+function _fillHxShot(ps, short){
   var el=byId('hxShot'); if(!el) return;
-  var fill=function(P){
-    var items=[];
-    (ps||[]).forEach(function(p){
-      var e=(p&&p.espn_id!=null)?String(p.espn_id):null; var pr=(e&&P[e])?P[e]:null;
-      if(pr&&pr.shot_share!=null) items.push({name:p.name,share:pr.shot_share,tend:pr.shot_tend,dem:pr.shot_tend_demo});
-    });
+  var render=function(){
+    var T=_hqShot.teams||{}, P=_hqShot.players||{};
+    var list=(short&&T[short])?T[short]:null, items=[];
+    if(list&&list.length){
+      items=list.filter(function(x){ return x.share!=null; }).slice().sort(function(a,b){ return b.share-a.share; });
+    }else{
+      (ps||[]).forEach(function(p){ var e=(p&&p.espn_id!=null)?String(p.espn_id):null; var pr=(e&&P[e])?P[e]:null;
+        if(pr&&pr.shot_share!=null) items.push({name:p.name,share:pr.shot_share,tend:pr.shot_tend,espn:e,fr:0}); });
+      items.sort(function(a,b){ return b.share-a.share; });
+    }
     if(items.length<3){ el.innerHTML='<div class="hx-empty">No projected shot distribution for this roster yet.</div>'; return; }
-    items.sort(function(a,b){ return b.share-a.share; });
     var max=items[0].share||1;
     el.innerHTML=items.slice(0,8).map(function(it){
       var w=Math.max(3,Math.round(it.share/max*100));
-      var moved=(it.dem!=null&&Math.abs(it.tend-it.dem)>=5), ac=it.tend<it.dem?'#e0885a':'#2bb673';
-      return '<div class="mrow"><span class="ml" style="min-width:92px;max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(it.name)+'</span>'+
+      var dem=(it.espn&&P[it.espn])?P[it.espn].shot_tend_demo:null;
+      var moved=(dem!=null&&Math.abs(it.tend-dem)>=5), ac=(dem!=null&&it.tend<dem)?'#e0885a':'#2bb673';
+      return '<div class="mrow"><span class="ml" style="min-width:92px;max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(it.name)+(it.fr?' <b style="color:var(--tc-readable,var(--tc));font-size:8px">FR</b>':'')+'</span>'+
         '<div class="bar"><i style="width:'+w+'%;background:var(--tc)"></i></div>'+
-        '<span class="mv" style="color:var(--tc-readable,var(--tc))">'+it.share.toFixed(1)+'%<span style="display:block;font-size:9px;font-weight:600;color:var(--txt3)">tend '+it.tend+(moved?' <span style="color:'+ac+'">'+(it.tend<it.dem?'▼':'▲')+it.dem+'</span>':'')+'</span></span></div>';
+        '<span class="mv" style="color:var(--tc-readable,var(--tc))">'+it.share.toFixed(1)+'%<span style="display:block;font-size:9px;font-weight:600;color:var(--txt3)">tend '+it.tend+(moved?' <span style="color:'+ac+'">'+(it.tend<dem?'▼':'▲')+dem+'</span>':'')+'</span></span></div>';
     }).join('');
   };
-  if(_hqShotMap){ fill(_hqShotMap); return; }
-  fetch('scripts/data/stat_overall_projected.json?v=14').then(function(r){return r.ok?r.json():null;}).then(function(j){ _hqShotMap=(j&&j.players)||{}; fill(_hqShotMap); }).catch(function(){ el.innerHTML='<div class="hx-empty">Shot distribution unavailable.</div>'; });
+  if(_hqShot){ render(); return; }
+  fetch('scripts/data/stat_overall_projected.json?v=15').then(function(r){return r.ok?r.json():null;}).then(function(j){ _hqShot={players:(j&&j.players)||{},teams:(j&&j.teams)||{}}; render(); }).catch(function(){ el.innerHTML='<div class="hx-empty">Shot distribution unavailable.</div>'; });
 }
 
 // ── media / buzz ──

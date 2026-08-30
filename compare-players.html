@@ -1756,15 +1756,18 @@ async function _fetchPlayerShots(p){
 }
 // ── side-by-side Shot Profile (role-aware tendency + per-type diet, from the
 // 2026-27 projection so it matches the player & team pages) ──
-let _cmpShotProj=null;
+let _cmpShot=null;
+async function _cmpLoadShot(){
+  if(!_cmpShot){
+    const r=await fetch('scripts/data/stat_overall_projected.json?v=15').then(x=>x.ok?x.json():null).catch(()=>null);
+    _cmpShot={players:(r&&r.players)||{}, teams:(r&&r.teams)||{}};
+  }
+  return _cmpShot;
+}
 async function _fillShotProfiles(p1,p2,c1,c2){
   const h1=document.getElementById('shotprof1'), h2=document.getElementById('shotprof2');
   if(!h1&&!h2) return;
-  if(!_cmpShotProj){
-    const r=await fetch('scripts/data/stat_overall_projected.json?v=14').then(x=>x.ok?x.json():null).catch(()=>null);
-    _cmpShotProj=(r&&r.players)?r.players:{};
-  }
-  const P=_cmpShotProj;
+  const P=(await _cmpLoadShot()).players;
   const card=(p,accent)=>{
     const e=(p&&p.espn_id!=null)?String(p.espn_id):null;
     const pr=(e&&P[e])?P[e]:null;
@@ -1786,32 +1789,34 @@ async function _fillShotProfiles(p1,p2,c1,c2){
   if(h2) h2.innerHTML=card(p2,c2);
 }
 // ── side-by-side team Shot Distribution (each roster's projected shot budget) ──
-async function _fillTeamShotDist(rows1,rows2,c1,c2){
+async function _fillTeamShotDist(rows1,rows2,c1,c2,name1,name2){
   const h1=document.getElementById('tShot1'), h2=document.getElementById('tShot2');
   if(!h1&&!h2) return;
-  if(!_cmpShotProj){
-    const r=await fetch('scripts/data/stat_overall_projected.json?v=14').then(x=>x.ok?x.json():null).catch(()=>null);
-    _cmpShotProj=(r&&r.players)?r.players:{};
-  }
-  const P=_cmpShotProj;
-  const build=(rows,accent)=>{
-    const items=[];
-    (rows||[]).forEach(p=>{ const e=(p&&p.espn_id!=null)?String(p.espn_id):null; const pr=(e&&P[e])?P[e]:null;
-      if(pr&&pr.shot_share!=null) items.push({name:p.name,share:pr.shot_share,tend:pr.shot_tend,dem:pr.shot_tend_demo}); });
+  const S=await _cmpLoadShot(); const P=S.players, T=S.teams;
+  const build=(rows,accent,tname)=>{
+    let items=[];
+    const list=(tname&&T[tname])?T[tname]:null;
+    if(list&&list.length){
+      items=list.filter(x=>x.share!=null).map(x=>({name:x.name,share:x.share,tend:x.tend,espn:x.espn,fr:x.fr}));
+    }else{
+      (rows||[]).forEach(p=>{ const e=(p&&p.espn_id!=null)?String(p.espn_id):null; const pr=(e&&P[e])?P[e]:null;
+        if(pr&&pr.shot_share!=null) items.push({name:p.name,share:pr.shot_share,tend:pr.shot_tend,espn:e,fr:0}); });
+    }
     if(items.length<3) return '<div style="color:var(--text3);font-size:12px;padding:10px 2px;">No projected shot distribution (historical or unentered roster).</div>';
     items.sort((a,b)=>b.share-a.share);
     const max=items[0].share||1;
     return items.map(it=>{ const w=Math.max(3,Math.round(it.share/max*100));
-      const moved=(it.dem!=null&&Math.abs(it.tend-it.dem)>=5), ac=it.tend<it.dem?'#e0885a':'#5ab875';
+      const dem=(it.espn&&P[it.espn])?P[it.espn].shot_tend_demo:null;
+      const moved=(dem!=null&&Math.abs(it.tend-dem)>=5), ac=(dem!=null&&it.tend<dem)?'#e0885a':'#5ab875';
       return '<div style="display:grid;grid-template-columns:112px 1fr 64px;align-items:center;gap:8px;padding:4px 0;">'
-        +'<div style="font-size:12px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+it.name+'</div>'
+        +'<div style="font-size:12px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+it.name+(it.fr?' <b style="font-size:8px;color:'+accent+'">FR</b>':'')+'</div>'
         +'<div style="position:relative;height:8px;border-radius:5px;background:rgba(128,128,128,.16);overflow:hidden;"><div style="position:absolute;left:0;top:0;bottom:0;width:'+w+'%;background:linear-gradient(90deg,'+accent+','+ac+');"></div></div>'
-        +'<div style="font-size:11px;font-weight:800;color:var(--text);text-align:right;">'+it.share.toFixed(1)+'%<span style="display:block;font-size:9.5px;font-weight:600;color:var(--text2);">tend '+it.tend+(moved?' <span style="color:'+ac+'">'+(it.tend<it.dem?'▼':'▲')+it.dem+'</span>':'')+'</span></div>'
+        +'<div style="font-size:11px;font-weight:800;color:var(--text);text-align:right;">'+it.share.toFixed(1)+'%<span style="display:block;font-size:9.5px;font-weight:600;color:var(--text2);">tend '+it.tend+(moved?' <span style="color:'+ac+'">'+(it.tend<dem?'▼':'▲')+dem+'</span>':'')+'</span></div>'
         +'</div>';
     }).join('');
   };
-  if(h1) h1.innerHTML=build(rows1,c1);
-  if(h2) h2.innerHTML=build(rows2,c2);
+  if(h1) h1.innerHTML=build(rows1,c1,name1);
+  if(h2) h2.innerHTML=build(rows2,c2,name2);
 }
 async function _renderShotCharts(p1,p2){
   const h1=document.getElementById('sc1'), h2=document.getElementById('sc2');
@@ -1990,7 +1995,7 @@ async function _phKeyFor(fullName){
 let _soProjLine=undefined;
 async function _projLineMap(){
   if(_soProjLine!==undefined) return _soProjLine;
-  try{ const j=await fetch('scripts/data/stat_overall_projected.json?v=12').then(r=>r.ok?r.json():null);
+  try{ const j=await fetch('scripts/data/stat_overall_projected.json?v=15').then(r=>r.ok?r.json():null);
     _soProjLine=(j&&j.players)||{}; }catch(e){ _soProjLine={}; }
   return _soProjLine;
 }
@@ -2637,7 +2642,7 @@ async function renderTeams(){
       Promise.all([
         side(t1, s1?s1.team:t1.name, y1, 'tRost1', 'tLegend1'),
         side(t2, s2?s2.team:t2.name, y2, 'tRost2', 'tLegend2'),
-      ]).then(([r1,r2])=>{ _fillTeamShotDist(r1&&r1.rows,r2&&r2.rows,c1,c2); _fillTeamChem(r1,r2,t1,t2,c1,c2,s1,s2,y1,y2); return _fillScout(r1,r2,s1,s2,f1,f2,t1.name,t2.name,c1,c2); })
+      ]).then(([r1,r2])=>{ _fillTeamShotDist(r1&&r1.rows,r2&&r2.rows,c1,c2,t1.name,t2.name); _fillTeamChem(r1,r2,t1,t2,c1,c2,s1,s2,y1,y2); return _fillScout(r1,r2,s1,s2,f1,f2,t1.name,t2.name,c1,c2); })
         .catch(()=>{ const el=document.getElementById('scoutWrap'); if(el) el.innerHTML='<div style="color:var(--text3);font-size:12px;">Scout unavailable.</div>'; });
       // head-to-head record + recent meetings
       _fillH2H(s1?s1.team:t1.name, s2?s2.team:t2.name, c1, c2);

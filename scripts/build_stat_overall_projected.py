@@ -123,7 +123,7 @@ def dev_mult(yr,demo,n_prior=None):
 print("Pulling roster, last-year box + advanced, team SOS...",file=sys.stderr)
 adv=pd.DataFrame(sb_get(f"player_advanced?select=espn_id,name,team,g,min,usg_pct,owa,dwa,ti40&season_year=eq.{CUR}"))
 box=pd.DataFrame(sb_get(f"player_history?select=espn_id,ppg,mpg,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,stl,blk,tovs,apg,gp,fg_pct,tp_pct,ft_pct&season_year=eq.{CUR}"))
-pl =pd.DataFrame(sb_get("players?select=espn_id,depth_order,starter,mpg,yr,class_year,team,position,height"))
+pl =pd.DataFrame(sb_get("players?select=espn_id,name,depth_order,starter,mpg,yr,class_year,team,position,height,tdc_grade"))
 ts =pd.DataFrame(sb_get("team_seasons?select=season_year,team,conference,srs"))
 # prior seasons played (through CUR) per player — infers class when the roster's is blank
 _cs=pd.DataFrame(sb_get(f"player_history?select=espn_id,season_year&mpg=gt.2&season_year=lte.{CUR}"))
@@ -383,29 +383,74 @@ def _mk_tend(vals):
     return (lambda x: int(round(100*np.searchsorted(ref,x,side="right")/len(ref))) if len(ref) else 0)
 def _per40(row,k):
     m=row["proj_mpg"]; return (row.get(k,0.0)*40.0/m) if m>0 else 0.0
-_proj_f40={e:_per40(row,"fga") for e,row in out.items()}
-_three40={e:_per40(row,"tpa") for e,row in out.items()}
-_two40  ={e:max(0.0,_per40(row,"fga")-_per40(row,"tpa")) for e,row in out.items()}
-_ft40   ={e:_per40(row,"fta") for e,row in out.items()}
-_tend =_mk_tend(list(_proj_f40.values()))
-_tend3=_mk_tend(list(_three40.values()))
-_tend2=_mk_tend(list(_two40.values()))
-_tendf=_mk_tend(list(_ft40.values()))
-_team_fga={}
-for e,row in out.items():
-    _team_fga[proj_team.get(e)]=_team_fga.get(proj_team.get(e),0.0)+row["fga"]
-for e,row in out.items():
-    tot=_team_fga.get(proj_team.get(e),0.0) or 1.0
-    row["shot_tend"]=_tend(_proj_f40[e])
-    row["shot_tend_demo"]=_tend(row.pop("_demo_f40"))
-    row["shot_share"]=round(100.0*row["fga"]/tot,1)
-    row["tend_three"]=_tend3(_three40[e])
-    row["tend_two"]=_tend2(_two40[e])
-    row["tend_ft"]=_tendf(_ft40[e])
 
-json.dump({"season":"2026-27","scale":{"mu":MU,"sp":SP},"n":len(out),"players":out},
+# FRESHMEN / NO-BOX ROSTER PLAYERS also take shots, so they MUST count in each team's
+# shot budget — else the returners over-share (they'd split 100% among themselves while
+# the freshmen who'll actually shoot are invisible). Only 26 of ~400 freshmen have an
+# espn_id, so we can't key them per-espn; instead we estimate each no-box player's shots
+# from his projected OVR (players.tdc_grade), depth-chart slot and position, fold them
+# into the team denominator + the national tendency distribution, and emit a per-TEAM
+# roster list (by name) that the team-level views read. Per-type (3PT/2PT/FT) stays
+# returner-only — a freshman has no measured shot diet to split.
+_shot_names=advByEspn["name"].to_dict()   # espn(int) -> name
+POS_FGA40={"PG":13.5,"SG":14.5,"CG":14.0,"G":14.0,"SF":13.0,"F":12.0,"PF":11.5,"C":11.0}
+def _fresh_est(grade,depth,starter,position):
+    pm=proj_mpg(depth,0,str(starter).lower() in ("true","t","1"))
+    if pm<5: return None
+    base=POS_FGA40.get(_pos(position),12.5)
+    g=_n(grade,0) or 74.0
+    f40=base*max(0.55,min(1.55,(g/78.0)**1.3))   # star frosh shoot more, deep-bench less
+    return pm,f40,f40*pm/40.0
+
+# per-type national percentiles (players WITH a box line)
+_tend3=_mk_tend([_per40(r,"tpa") for r in out.values()])
+_tend2=_mk_tend([max(0.0,_per40(r,"fga")-_per40(r,"tpa")) for r in out.values()])
+_tendf=_mk_tend([_per40(r,"fta") for r in out.values()])
+
+# build the FULL rotation per team = returners (real line) + freshmen/no-box (estimated)
+roster_full={}
+for e,row in out.items():
+    roster_full.setdefault(proj_team.get(e),[]).append(
+        dict(espn=e,name=_shot_names.get(int(e)),fga=row["fga"],f40=_per40(row,"fga"),fresh=False))
+for r in pl.itertuples():
+    e=int(r.espn_id) if pd.notna(r.espn_id) else None
+    if e is not None and str(e) in out: continue          # already a returner/transfer
+    nm=str(getattr(r,"name","") or "").strip()
+    if not nm or nm.lower() in ("name","—"): continue      # placeholder rows
+    est=_fresh_est(getattr(r,"tdc_grade",None),r.depth_order,r.starter,r.position)
+    if not est: continue
+    pm,f40,fga=est
+    roster_full.setdefault(r.team,[]).append(
+        dict(espn=(str(e) if e is not None else None),name=nm,fga=fga,f40=f40,fresh=True))
+
+# national tendency distribution over EVERYONE (returners + freshmen)
+_tend=_mk_tend([ent["f40"] for lst in roster_full.values() for ent in lst])
+
+# team budgets, per-player shares/tendencies, and the per-team list for team views
+teams_out={}
+for short,lst in roster_full.items():
+    tot=sum(ent["fga"] for ent in lst) or 1.0
+    lst.sort(key=lambda x:-x["fga"])
+    tl=[]
+    for ent in lst:
+        e=ent["espn"]; rrow=out.get(e) if e else None
+        share=round(100.0*ent["fga"]/tot,1); tend=_tend(ent["f40"])
+        t3=_tend3(_per40(rrow,"tpa")) if rrow else None
+        t2=_tend2(max(0.0,_per40(rrow,"fga")-_per40(rrow,"tpa"))) if rrow else None
+        tf=_tendf(_per40(rrow,"fta")) if rrow else None
+        if rrow:   # keep per-espn fields in sync (player page / compare / rankings)
+            rrow["shot_share"]=share; rrow["shot_tend"]=tend
+            rrow["tend_three"]=t3; rrow["tend_two"]=t2; rrow["tend_ft"]=tf
+        tl.append({"name":ent["name"],"espn":e,"share":share,"tend":tend,
+                   "t3":t3,"t2":t2,"tf":tf,"fr":1 if ent["fresh"] else 0})
+    teams_out[short]=tl
+# demonstrated (prior-role) tendency for returners, vs the same full distribution
+for e,row in out.items():
+    if "_demo_f40" in row: row["shot_tend_demo"]=_tend(row.pop("_demo_f40"))
+
+json.dump({"season":"2026-27","scale":{"mu":MU,"sp":SP},"n":len(out),"players":out,"teams":teams_out},
           open(os.path.join(D,"stat_overall_projected.json"),"w"),separators=(",",":"),allow_nan=False)
-print(f"Wrote stat_overall_projected.json ({len(out)} returners)",file=sys.stderr)
+print(f"Wrote stat_overall_projected.json ({len(out)} returners, {sum(len(v) for v in teams_out.values())} rotation slots across {len(teams_out)} teams)",file=sys.stderr)
 prev=pd.DataFrame([{**v,"espn":k} for k,v in out.items()]); prev["move"]=prev["ovr"]-prev["demo_ovr"]
 print("\nTop projected 2026-27:",file=sys.stderr)
 names=advByEspn["name"].to_dict()
