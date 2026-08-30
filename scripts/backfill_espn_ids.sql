@@ -14,7 +14,10 @@
 --   3. still-ambiguous names are left NULL — never guessed (a wrong
 --      id = a wrong face / wrong player's pedigree)
 -- Freshmen (yr/class 'Fr.') are skipped so an incoming freshman can't
--- inherit a same-named former player's id.
+-- inherit a same-named former player's id — AND any wrong id already on a
+-- true freshman (from before this guard) is NULLed on every run (step 0),
+-- so collisions self-heal instead of surviving resyncs. Redshirt freshmen
+-- (R-Fr) kept their prior id.
 --
 -- Run this whole file once in the Supabase SQL editor. It creates a
 -- reusable function AND runs it. The sync then calls it automatically
@@ -22,8 +25,28 @@
 -- ============================================================
 
 create or replace function backfill_espn_ids() returns integer language plpgsql as $$
-declare n integer := 0; m integer;
+declare n integer := 0; m integer; wiped integer;
 begin
+  -- 0) SELF-HEAL / GUARD: a TRUE freshman (yr/class 'Fr.', NOT a redshirt) has no
+  --    college history, so any espn_id on him is a same-name collision — a Duke frosh
+  --    "Cameron Williams" stapled to Portland's id, "JD Jones" wearing "Jay Jones"'s id,
+  --    etc. The steps below already REFUSE to add an id to a freshman, but that only
+  --    prevents NEW breakage; ids set before the guard existed survive a resync. Null
+  --    them here first so a wrong face/pedigree can't persist. Redshirt freshmen (R-Fr)
+  --    DID suit up somewhere, so they legitimately keep their id.
+  update players
+     set espn_id = null
+   where espn_id is not null
+     and (coalesce(yr,'') ilike 'fr%' or coalesce(class_year,'') ilike 'fr%')
+     and coalesce(yr,'')         not ilike 'r-fr%'
+     and coalesce(yr,'')         not ilike 'rfr%'
+     and coalesce(yr,'')         not ilike '%redshirt%'
+     and coalesce(class_year,'') not ilike 'r-fr%'
+     and coalesce(class_year,'') not ilike 'rfr%'
+     and coalesce(class_year,'') not ilike '%redshirt%';
+  get diagnostics wiped = row_count;
+  raise notice 'freshman espn_id guard: cleared % stale/collision id(s)', wiped;
+
   -- 1) unique-name matches: the name maps to exactly one espn_id across all history
   with uniq as (
     select lower(btrim(name)) as lname, min(espn_id) as espn_id
