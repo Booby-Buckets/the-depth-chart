@@ -1447,6 +1447,14 @@ function renderPlayers(){
     ${projRow('MPG',pr1.mpg,pr2.mpg)}${projRow('STL',pr1.stl,pr2.stl)}${projRow('BLK',pr1.blk,pr2.blk)}
     ${projRow('FG%',pr1.fg_pct,pr2.fg_pct)}${projRow('3P%',pr1.tp_pct,pr2.tp_pct)}${projRow('FT%',pr1.ft_pct,pr2.ft_pct)}
 
+    ${(p1.espn_id||p2.espn_id)?`
+    <div class="compare-section-head">Shot Profile · 2026-27 Projected</div>
+    <div class="scc-grid">
+      <div class="scc-col"><div class="scc-lbl" style="color:${c1};border-bottom-color:${c1};">${p1.name}</div><div id="shotprof1" class="scc-host"></div></div>
+      <div class="scc-col"><div class="scc-lbl" style="color:${c2};border-bottom-color:${c2};">${p2.name}</div><div id="shotprof2" class="scc-host"></div></div>
+    </div>
+    <div class="sg-note">Role-aware shot volume from the 2026-27 projection (same source as the player &amp; team pages). <b>Shot Tendency</b> — projected shots when on the floor, 0-100 (100 = a #1 option); the arrow shows the shift from his prior role. <b>3-PT / 2-PT / FT-draw</b> — national percentile of his projected attempts of each type, so a moderate-volume player can still be an elite 3-point shooter.</div>`:''}
+
     ${(nil1||nil2)?`
     <div class="compare-section-head">NIL Market Value</div>
     <div class="ol-grid">
@@ -1482,6 +1490,7 @@ function renderPlayers(){
   _renderShotCharts(p1,p2);
   _renderShotFlows(p1,p2);
   _fillShotGenome(p1,p2);
+  _fillShotProfiles(p1,p2,c1,c2);
   _fillCoachFit(p1,p2,c1,c2);
   const labels=P_AXES.map(a=>a.l);
   const d1=P_AXES.map(a=>a.f(p1)), d2=P_AXES.map(a=>a.f(p2));
@@ -1744,6 +1753,65 @@ async function _fetchPlayerShots(p){
     const r=await fetch(`${SB}/rest/v1/shots?espn_id=eq.${espn}&season_year=eq.${season}&select=x,y,made,sv,dist&limit=1500`,{headers:tdcH()});
     return r.ok ? await r.json() : [];
   }catch(e){ return []; }
+}
+// ── side-by-side Shot Profile (role-aware tendency + per-type diet, from the
+// 2026-27 projection so it matches the player & team pages) ──
+let _cmpShotProj=null;
+async function _fillShotProfiles(p1,p2,c1,c2){
+  const h1=document.getElementById('shotprof1'), h2=document.getElementById('shotprof2');
+  if(!h1&&!h2) return;
+  if(!_cmpShotProj){
+    const r=await fetch('scripts/data/stat_overall_projected.json?v=14').then(x=>x.ok?x.json():null).catch(()=>null);
+    _cmpShotProj=(r&&r.players)?r.players:{};
+  }
+  const P=_cmpShotProj;
+  const card=(p,accent)=>{
+    const e=(p&&p.espn_id!=null)?String(p.espn_id):null;
+    const pr=(e&&P[e])?P[e]:null;
+    if(!pr||pr.shot_tend==null) return '<div style="color:var(--text3);font-size:12px;padding:12px 2px;">No projected shot profile'+((p&&p._isHistory)?' (historical season selected)':'')+'.</div>';
+    const sh=Math.round(pr.shot_share||0), tend=pr.shot_tend, dem=pr.shot_tend_demo;
+    const role=sh>=24?'Primary option':sh>=18?'Featured scorer':sh>=12?'Secondary option':sh>=8?'Complementary scorer':'Low-usage role';
+    const moved=(dem!=null&&Math.abs(tend-dem)>=5), ac=tend<dem?'#e0885a':'#5ab875';
+    const types=[['3-PT',pr.tend_three],['2-PT',pr.tend_two],['FT DRAW',pr.tend_ft]];
+    const tbars=(pr.tend_three!=null)?('<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px;padding-top:9px;border-top:1px solid var(--border);">'
+      +types.map(t=>{const v=t[1]||0;const c=v>=75?'#5ab875':v>=45?accent:'var(--text3)';return '<div><div style="display:flex;justify-content:space-between;font-size:10px;font-weight:700;color:var(--text3);margin-bottom:3px;"><span>'+t[0]+'</span><b style="color:var(--text)">'+v+'</b></div><div style="height:5px;border-radius:3px;background:rgba(128,128,128,.16);overflow:hidden;"><div style="height:100%;width:'+Math.max(3,Math.min(100,v))+'%;background:'+c+';"></div></div></div>';}).join('')
+      +'</div>'):'';
+    return '<div style="padding:12px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);">'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px;"><span style="font-weight:800;font-size:12.5px;color:'+accent+';">'+role+'</span><span style="font-size:11px;color:var(--text2);font-weight:700;">~'+sh+'% of shots</span></div>'
+      +'<div style="position:relative;height:8px;border-radius:5px;background:rgba(128,128,128,.18);overflow:hidden;margin-bottom:6px;"><div style="position:absolute;left:0;top:0;bottom:0;width:'+Math.max(3,Math.min(100,tend))+'%;background:linear-gradient(90deg,'+accent+','+ac+');"></div></div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);"><span>Shot Tendency <b style="color:var(--text)">'+tend+'</b>'+(moved?' <span style="color:'+ac+'">'+(tend<dem?'▼':'▲')+dem+'</span>':'')+'</span><span style="color:var(--text3)">100 = #1 option</span></div>'
+      +tbars+'</div>';
+  };
+  if(h1) h1.innerHTML=card(p1,c1);
+  if(h2) h2.innerHTML=card(p2,c2);
+}
+// ── side-by-side team Shot Distribution (each roster's projected shot budget) ──
+async function _fillTeamShotDist(rows1,rows2,c1,c2){
+  const h1=document.getElementById('tShot1'), h2=document.getElementById('tShot2');
+  if(!h1&&!h2) return;
+  if(!_cmpShotProj){
+    const r=await fetch('scripts/data/stat_overall_projected.json?v=14').then(x=>x.ok?x.json():null).catch(()=>null);
+    _cmpShotProj=(r&&r.players)?r.players:{};
+  }
+  const P=_cmpShotProj;
+  const build=(rows,accent)=>{
+    const items=[];
+    (rows||[]).forEach(p=>{ const e=(p&&p.espn_id!=null)?String(p.espn_id):null; const pr=(e&&P[e])?P[e]:null;
+      if(pr&&pr.shot_share!=null) items.push({name:p.name,share:pr.shot_share,tend:pr.shot_tend,dem:pr.shot_tend_demo}); });
+    if(items.length<3) return '<div style="color:var(--text3);font-size:12px;padding:10px 2px;">No projected shot distribution (historical or unentered roster).</div>';
+    items.sort((a,b)=>b.share-a.share);
+    const max=items[0].share||1;
+    return items.map(it=>{ const w=Math.max(3,Math.round(it.share/max*100));
+      const moved=(it.dem!=null&&Math.abs(it.tend-it.dem)>=5), ac=it.tend<it.dem?'#e0885a':'#5ab875';
+      return '<div style="display:grid;grid-template-columns:112px 1fr 64px;align-items:center;gap:8px;padding:4px 0;">'
+        +'<div style="font-size:12px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+it.name+'</div>'
+        +'<div style="position:relative;height:8px;border-radius:5px;background:rgba(128,128,128,.16);overflow:hidden;"><div style="position:absolute;left:0;top:0;bottom:0;width:'+w+'%;background:linear-gradient(90deg,'+accent+','+ac+');"></div></div>'
+        +'<div style="font-size:11px;font-weight:800;color:var(--text);text-align:right;">'+it.share.toFixed(1)+'%<span style="display:block;font-size:9.5px;font-weight:600;color:var(--text2);">tend '+it.tend+(moved?' <span style="color:'+ac+'">'+(it.tend<it.dem?'▼':'▲')+it.dem+'</span>':'')+'</span></div>'
+        +'</div>';
+    }).join('');
+  };
+  if(h1) h1.innerHTML=build(rows1,c1);
+  if(h2) h2.innerHTML=build(rows2,c2);
 }
 async function _renderShotCharts(p1,p2){
   const h1=document.getElementById('sc1'), h2=document.getElementById('sc2');
@@ -2463,6 +2531,13 @@ async function renderTeams(){
       <div class="sim-card" id="tRost2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Loading roster…</div></div>
     </div>
 
+    <div class="compare-section-head">Shot Distribution${sameRl?` — ${rl1}`:''}</div>
+    <div class="scc-grid">
+      <div class="scc-col"><div class="scc-lbl" style="color:${c1};border-bottom-color:${c1};">${t1.name}</div><div id="tShot1" class="scc-host"><div class="sim-row" style="color:var(--text3);">Loading…</div></div></div>
+      <div class="scc-col"><div class="scc-lbl" style="color:${c2};border-bottom-color:${c2};">${t2.name}</div><div id="tShot2" class="scc-host"><div class="sim-row" style="color:var(--text3);">Loading…</div></div></div>
+    </div>
+    <div class="sg-note">Projected share of each team's shots (zero-sum across the rotation), with per-player <b>Shot Tendency</b> and the shift from his prior role. Same 2026-27 projection as the team pages — so you can see how two rosters divide the ball differently.</div>
+
     <div class="compare-section-head">Lineup Chemistry — starting five, synergy &amp; fit</div>
     <div class="scc-lbl" style="color:${c1};border-bottom-color:${c1};">${t1.name}${sameYear?'':' · '+yl1}</div>
     <div id="tchem1" style="margin-bottom:22px;"><div class="sim-row" style="color:var(--text3);">Analyzing lineup…</div></div>
@@ -2562,7 +2637,7 @@ async function renderTeams(){
       Promise.all([
         side(t1, s1?s1.team:t1.name, y1, 'tRost1', 'tLegend1'),
         side(t2, s2?s2.team:t2.name, y2, 'tRost2', 'tLegend2'),
-      ]).then(([r1,r2])=>{ _fillTeamChem(r1,r2,t1,t2,c1,c2,s1,s2,y1,y2); return _fillScout(r1,r2,s1,s2,f1,f2,t1.name,t2.name,c1,c2); })
+      ]).then(([r1,r2])=>{ _fillTeamShotDist(r1&&r1.rows,r2&&r2.rows,c1,c2); _fillTeamChem(r1,r2,t1,t2,c1,c2,s1,s2,y1,y2); return _fillScout(r1,r2,s1,s2,f1,f2,t1.name,t2.name,c1,c2); })
         .catch(()=>{ const el=document.getElementById('scoutWrap'); if(el) el.innerHTML='<div style="color:var(--text3);font-size:12px;">Scout unavailable.</div>'; });
       // head-to-head record + recent meetings
       _fillH2H(s1?s1.team:t1.name, s2?s2.team:t2.name, c1, c2);
