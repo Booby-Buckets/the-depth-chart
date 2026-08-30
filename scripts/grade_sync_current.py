@@ -134,7 +134,13 @@ def main(write=False):
             elif man is not None:
                 final = man; kind = "graded-no-model"; n_kept += 1
             else:
-                final = mod; kind = "ungraded-model"; n_model += 1
+                # No manual grade (e.g. incoming transfers): the model grade comes
+                # straight off player_history, which runs ~+offset hotter than the
+                # live roster scale. Apply the same recenter used in the hug branch
+                # so transfers land on the SAME scale as everyone else (else a #1
+                # option like Mark Mitchell imports at 97 vs a live board that tops
+                # out ~94). Clamp to the valid 30-99 band.
+                final = round(max(30, min(99, mod + offset))); kind = "ungraded-model"; n_model += 1
         cur_g = None if pd.isna(p.tdc_grade) else str(p.tdc_grade)
         rows.append({"id": int(p.id), "name": p["name"], "team": p.team,
                      "manual": man, "final": int(final), "cur": cur_g, "kind": kind})
