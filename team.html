@@ -7803,7 +7803,46 @@ function renderHistoricRoster(rows, yr, projected){
     ? `<div class="sec-head" style="margin-top:28px;color:#ef4444;">Injured — Out for ${rosterLbl(yr)} <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· stats from last season played · minutes redistributed in projections</span></div>`
       + histTable(injured, yr-1)
     : '';
-  host.innerHTML = `<div class="dc-grid">${colHtml}</div>${histTable(rows, yr, projected)}${injHtml}<div id="seasonLossesWrap"></div>`;
+  host.innerHTML = `<div class="dc-grid">${colHtml}</div>${histTable(rows, yr, projected)}${injHtml}<div id="shotDistCard"></div><div id="seasonLossesWrap"></div>`;
+  if(projected && yr>=2026){ try{ _renderShotDist(rows); }catch(e){} }
+}
+
+// Roster shot distribution — each rotation player's PROJECTED share of the team's
+// shots, straight from the projection (stat_overall_projected.json), so it agrees
+// with the player-page Shot Profile and the projected OVRs. Shares are zero-sum
+// (sum ~100%): stack five #1-option transfers and everyone's slice shrinks.
+let _shotProjCache=null;
+async function _renderShotDist(rows){
+  const host=document.getElementById('shotDistCard'); if(!host) return;
+  const _e=s=>(''+(s||'')).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
+  try{
+    if(!_shotProjCache){
+      const r=await fetch('scripts/data/stat_overall_projected.json?v=13').then(x=>x.ok?x.json():null).catch(()=>null);
+      _shotProjCache=(r&&r.players)?r.players:{};
+    }
+    const P=_shotProjCache, items=[];
+    (rows||[]).forEach(p=>{
+      const e=(p&&p.espn_id!=null)?String(p.espn_id):null;
+      const pr=(e&&P[e])?P[e]:null;
+      if(pr&&pr.shot_share!=null) items.push({name:p.name,share:pr.shot_share,tend:pr.shot_tend,dem:pr.shot_tend_demo});
+    });
+    if(items.length<3){ host.innerHTML=''; return; }
+    items.sort((a,b)=>b.share-a.share);
+    const max=items[0].share||1, tot=items.reduce((s,i)=>s+i.share,0);
+    const role=sh=>sh>=24?'Primary':sh>=18?'Featured':sh>=12?'Secondary':sh>=8?'Complementary':'Low-usage';
+    const bars=items.map(it=>{
+      const w=Math.max(3,Math.round(it.share/max*100));
+      const moved=(it.dem!=null&&Math.abs(it.tend-it.dem)>=5), ac=it.tend<it.dem?'#e0885a':'#5ab875';
+      return `<div style="display:grid;grid-template-columns:150px 1fr 96px;align-items:center;gap:10px;padding:5px 0;">
+        <div style="font-size:12.5px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_e(it.name)}<span style="display:block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);">${role(it.share)}</span></div>
+        <div style="position:relative;height:9px;border-radius:5px;background:rgba(128,128,128,.16);overflow:hidden;"><div style="position:absolute;left:0;top:0;bottom:0;width:${w}%;background:linear-gradient(90deg,var(--tc-readable,var(--accent)),${ac});"></div></div>
+        <div style="font-size:12px;font-weight:800;color:var(--text);text-align:right;">${it.share.toFixed(1)}%<span style="display:block;font-size:10px;font-weight:600;color:var(--text2);">tend ${it.tend}${moved?' <span style="color:'+ac+'">'+(it.tend<it.dem?'▼':'▲')+it.dem+'</span>':''}</span></div>
+      </div>`;
+    }).join('');
+    host.innerHTML=`<div class="sec-head" style="margin-top:28px;">Shot distribution <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· projected share of the team's shots (zero-sum across the rotation)</span></div>
+      <div style="margin-top:6px;">${bars}</div>
+      <div style="margin-top:10px;font-size:11.5px;color:var(--text2);line-height:1.55;">Each player's projected shots as a % of the team total (${Math.round(tot)}% shown). A high-volume transfer joining a loaded roster takes a smaller slice than he did as his old team's #1 — <b>tend</b> is his shot tendency (100 = a pure #1 option), and the arrow shows the shift from his prior role.</div>`;
+  }catch(e){ host.innerHTML=''; }
 }
 // Departures: players on the PRIOR season's roster who aren't on this season's, and
 // who don't reappear in a later season for this team. Shown under the roster table.

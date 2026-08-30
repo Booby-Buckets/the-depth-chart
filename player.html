@@ -5629,7 +5629,7 @@ function renderRankings(){
     window._statOvr=null;
     Promise.all([
       fetch('scripts/data/stat_overall.json?v=4').then(r=>r.ok?r.json():null).catch(()=>null),
-      fetch('scripts/data/stat_overall_projected.json?v=12').then(r=>r.ok?r.json():null).catch(()=>null)
+      fetch('scripts/data/stat_overall_projected.json?v=13').then(r=>r.ok?r.json():null).catch(()=>null)
     ]).then(([demo,proj])=>{
       window._statOvr=(demo&&demo.players)?demo.players:{};
       window._statOvrProj=(proj&&proj.players)?proj.players:{};
@@ -5666,6 +5666,24 @@ function renderRankings(){
         </div>
       </div>
       ${flow}
+      ${(_sop && _sop.shot_share!=null) ? (function(){
+        var sh=Math.round(_sop.shot_share), tend=_sop.shot_tend, dem=_sop.shot_tend_demo;
+        var role = sh>=24?'Primary option':sh>=18?'Featured scorer':sh>=12?'Secondary option':sh>=8?'Complementary scorer':'Low-usage role';
+        var moved = (dem!=null && Math.abs(tend-dem)>=5);
+        var arrow = tend<dem?'▼':'▲', ac = tend<dem?'#e0885a':'#5ab875';
+        var note = moved
+          ? ('Projects <b style="color:'+ac+'">'+(tend<dem?'down':'up')+' from '+dem+'</b> — the rotation around him changes how many shots are his to take, not his willingness to shoot.')
+          : 'Holds near his established shot volume in this role.';
+        return '<div style="margin:10px 0 2px;padding:11px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);">'
+          +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px;">'
+          +'<span style="font-weight:800;font-size:13px;">Shot profile · <span style="color:var(--accent)">'+role+'</span></span>'
+          +'<span style="font-size:12px;color:var(--text2);font-weight:700;">~'+sh+'% of team&#39;s shots</span></div>'
+          +'<div style="position:relative;height:8px;border-radius:5px;background:rgba(128,128,128,.18);overflow:hidden;margin-bottom:7px;">'
+          +'<div style="position:absolute;left:0;top:0;bottom:0;width:'+Math.max(3,Math.min(100,tend))+'%;background:linear-gradient(90deg,var(--accent),'+ac+');"></div></div>'
+          +'<div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--text2);gap:8px;"><span>Shot Tendency <b style="color:var(--text)">'+tend+'</b>'+(moved?' <span style="color:'+ac+'">'+arrow+' was '+dem+'</span>':'')+'</span><span style="color:var(--text3)">100 = a pure #1 option</span></div>'
+          +'<div style="margin-top:7px;font-size:12px;color:var(--text2);line-height:1.5;">'+note+'</div>'
+          +'</div>';
+      })() : ''}
       <div class="so-chips">
         ${chip('Wins Added <em>2025-26</em>', (function(){
             // Show the RAW owned wins-added (same number as the hero + Advanced table), not

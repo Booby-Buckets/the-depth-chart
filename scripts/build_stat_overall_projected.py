@@ -216,6 +216,7 @@ def ti_value(pg, min_season, games=G_PROJ):
     return ti40, owa, mn
 
 out={}
+proj_team={}   # espn(str) -> short team, for roster-normalized shot share
 for short, roster in roster_by_team.items():
     full=S2F.get(short.lower()) or short
     last_roster=adv_by_team.get(full,[])
@@ -355,6 +356,33 @@ for short, roster in roster_by_team.items():
             "fgm":round(fgm,1),"fga":round(fga,1),"tpm":round(tpm,1),"tpa":round(tpa,1),
             "ftm":round(ftm,1),"fta":round(fta,1),
         }
+        proj_team[str(e)]=short
+        out[str(e)]["_demo_f40"]=round(_n(b["fga"])*40.0/max(last_mpg,1),3)   # last-yr shots/40 (portable trait, pre-move)
+
+# ---- Shot Tendency (trait) + Projected Shot Share (roster-normalized) ----
+# Two counting stats surfaced from the SAME projected line that sets the grade, so
+# the player page, team page and OVR can never disagree. Both are derived here, not
+# recomputed downstream:
+#   shot_tend       0-100 percentile of PROJECTED shots per 40 min — how ball-dominant
+#                   the player projects to be in his NEW role (a #1 option who joins a
+#                   loaded team drops, because his projected shots/40 fall)
+#   shot_tend_demo  same percentile on his LAST-YEAR shots/40 — the "as the #1 option"
+#                   number, so the page can show was-85 -> now-70 when a star transfers
+#                   into a crowded rotation
+#   shot_share      % of his team's projected FGA (zero-sum across the roster; sums ~100)
+_proj_f40={e:(row["fga"]*40.0/row["proj_mpg"] if row["proj_mpg"]>0 else 0.0) for e,row in out.items()}
+_ref=np.sort(np.array(list(_proj_f40.values())))
+def _tend(x):
+    if len(_ref)==0: return 0
+    return int(round(100*np.searchsorted(_ref,x,side="right")/len(_ref)))
+_team_fga={}
+for e,row in out.items():
+    _team_fga[proj_team.get(e)]=_team_fga.get(proj_team.get(e),0.0)+row["fga"]
+for e,row in out.items():
+    tot=_team_fga.get(proj_team.get(e),0.0) or 1.0
+    row["shot_tend"]=_tend(_proj_f40[e])
+    row["shot_tend_demo"]=_tend(row.pop("_demo_f40"))
+    row["shot_share"]=round(100.0*row["fga"]/tot,1)
 
 json.dump({"season":"2026-27","scale":{"mu":MU,"sp":SP},"n":len(out),"players":out},
           open(os.path.join(D,"stat_overall_projected.json"),"w"),separators=(",",":"),allow_nan=False)
