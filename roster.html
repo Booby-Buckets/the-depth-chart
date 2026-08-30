@@ -655,8 +655,13 @@ async function loadData(){
     if(window.TDCProjGrade && TDCProjGrade.ready){ try{ await TDCProjGrade.ready; }catch(e){} }   // v5 model data (level/dev)
     // SHEET STATS DON'T MATTER — show real linked player_history stats (by espn_id).
     try{ if(window.TDCRealStats) await TDCRealStats.enrich(allRaw); }catch(e){ console.warn('realstats',e); }
+    // Projected shot tendency / share by espn_id — same source as the player, team
+    // and compare pages, so the TEND columns agree everywhere.
+    let _shotMap={};
+    try{ const _sp=await fetch('scripts/data/stat_overall_projected.json?v=14').then(r=>r.ok?r.json():null); if(_sp&&_sp.players) _shotMap=_sp.players; }catch(e){}
     allPlayers = allRaw.filter(p => p.name && p.name !== '—').map(p => {
       const cw = (p.espn_id!=null && carryWA.has(String(p.espn_id))) ? carryWA.get(String(p.espn_id)) : null;
+      const _sh = (p.espn_id!=null) ? _shotMap[String(p.espn_id)] : null;
       // Displayed OVR override: a freshman's editor OVR (single source of truth) if the
       // owner profiled him, otherwise the forward-looking projected grade for returners
       // (shared tdc-projgrade.js model). Same numbers the player/team pages & strip show.
@@ -671,6 +676,8 @@ async function loadData(){
         conf: (teamMap[p.team]||{}).conf || (teamMap[p.team]||{}).conference || '',
         wa: cw, _waCarried: cw!=null,
         _projGrade: (ovr!=null && !isNaN(ovr)) ? ovr : null,
+        shot_tend: _sh?_sh.shot_tend:null, tend_three: _sh?_sh.tend_three:null,
+        tend_two: _sh?_sh.tend_two:null, tend_ft: _sh?_sh.tend_ft:null, shot_share: _sh?_sh.shot_share:null,
       };
     });
 
@@ -767,7 +774,7 @@ function applyFilters(){
   // Sort
   filtered.sort((a,b) => {
     let av, bv;
-    const numCols = ['wa','ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs','gp','season_year'];
+    const numCols = ['wa','ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs','gp','season_year','shot_tend','tend_three','tend_two','tend_ft'];
     if(numCols.includes(sortCol)){
       av = parseFloat(a[sortCol]??-999)||0; bv = parseFloat(b[sortCol]??-999)||0;
       return (bv-av)*sortDir;
@@ -852,6 +859,10 @@ function renderTable(players){
           ${col('stl','STL','right')}
           ${col('blk','BLK','right')}
           ${col('tovs','TO','right')}
+          ${col('shot_tend','TEND','right')}
+          ${col('tend_three','3PT','right')}
+          ${col('tend_two','2PT','right')}
+          ${col('tend_ft','FT','right')}
         </tr>
       </thead>
       <tbody id="rosterBody"></tbody>
@@ -916,7 +927,21 @@ function _rowHTML(p){
             <td class="td-stat right" style="${sc(p.stl,'stl')}">${fmt(p.stl)}</td>
             <td class="td-stat right" style="${sc(p.blk,'blk')}">${fmt(p.blk)}</td>
             <td class="td-stat right" style="${sc(p.tovs,'tovs')}">${fmt(p.tovs)}</td>
+            <td class="td-stat right" style="${_tendCol(p.shot_tend)}">${p.shot_tend!=null?p.shot_tend:'—'}</td>
+            <td class="td-stat right" style="${_tendCol(p.tend_three)}">${p.tend_three!=null?p.tend_three:'—'}</td>
+            <td class="td-stat right" style="${_tendCol(p.tend_two)}">${p.tend_two!=null?p.tend_two:'—'}</td>
+            <td class="td-stat right" style="${_tendCol(p.tend_ft)}">${p.tend_ft!=null?p.tend_ft:'—'}</td>
           </tr>`;
+}
+// Color the tendency percentile cells (0-100) on the same deep-blue = higher ramp
+// the rest of the table uses, honoring the Stat Colors toggle.
+function _tendCol(v){
+  if(v==null||v==='') return '';
+  if(localStorage.getItem('tdc_roster_colors')==='0') return '';
+  const n=parseFloat(v); if(isNaN(n)) return '';
+  const pct=Math.max(0,Math.min(100,n))/100;
+  const a=(0.10+pct*0.42).toFixed(2);
+  return `background:rgba(60,110,200,${a});color:${pct>0.55?'#fff':'var(--text)'};font-weight:700;`;
 }
 
 function _renderMore(){
