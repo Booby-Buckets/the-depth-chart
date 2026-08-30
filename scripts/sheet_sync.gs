@@ -67,6 +67,14 @@ const COL = {
 // Valid positions — anything else passes through as-is
 const POS_MAP = { PG:'PG', SG:'SG', CG:'CG', SF:'SF', PF:'PF', C:'C' };
 
+// Team-name self-heal — corrects recurring sheet misspellings so a typo in the
+// spreadsheet can't keep reverting the DB (and breaking logos/colors) on resync.
+const TEAM_NAME_FIX = {
+  "Saint Joeseph's": "Saint Joseph's",
+  "Duquense":        "Duquesne",
+};
+function fixTeamName(n) { return TEAM_NAME_FIX[n] || n; }
+
 const TEAM_COLORS = {
   "Clemson":{"color":"#F66733","color2":"#522D80","rgb":"246,103,51"},
   "Miami":{"color":"#F47321","color2":"#005030","rgb":"244,115,33"},
@@ -567,8 +575,15 @@ function parseSheet(rows, confCode) {
   for (const row of rows) {
     const cells = row.map(c => String(c || '').trim());
 
-    // ── Skip column header rows (contain "Name" and "PPG") ──
+    // ── Skip column header rows ──────────────────────────────
+    // Header rows hold the literal column labels. The old check required BOTH
+    // 'Name' and 'PPG'; narrow tabs (several A-10 teams) have no PPG column, so
+    // their header ("Name | Pos. | Ht. | Yr.") slipped through and synced as a
+    // ghost player literally named "Name". Also skip when the Name/Pos cell is
+    // the column label itself, regardless of PPG.
     if (cells.includes('Name') && cells.includes('PPG')) continue;
+    if (cells[COL.NAME] === 'Name') continue;
+    if (cells[COL.POS] === 'Pos.' || cells[COL.POS] === 'Pos') continue;
 
     // ── Coach line: "HC - Name" ──────────────────────────────
     const coachCell = cells.find(c => c.match(/^HC\s*[-–]/i));
@@ -607,7 +622,7 @@ function parseSheet(rows, confCode) {
     }, null);
     if (rosterMatch) {
       team = {
-        name:          rosterMatch[1].trim(),
+        name:          fixTeamName(rosterMatch[1].trim()),
         conf:          confCode,
         coach,
         players:       [],
