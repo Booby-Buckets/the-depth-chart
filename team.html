@@ -1360,6 +1360,7 @@
         <span class="rs-label">Season</span>
         <div class="roster-year-nav" id="rosterYearNav"></div>
       </div>
+      <div id="histRosterBanner" class="hist-roster-note" style="display:none;"></div>
       <div id="depthContent">
         <div class="loading-state"><div class="loading-spinner"></div><div>Loading roster…</div></div>
       </div>
@@ -1575,6 +1576,30 @@ async function loadTeam(name){
         try{ const p2=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(alt)}&select=*&order=depth_order.asc&limit=500`,{headers:H}).then(r=>r.ok?r.json():[]);
           if(Array.isArray(p2)&&p2.length){ players=p2; break; } }catch(e){}
       }
+    }
+    // Roster fallback: some tracked teams (e.g. ~11 AAC programs) have a teams row + a
+    // rank but no CURRENT roster entered in `players` yet. Rather than a blank "No roster
+    // data" page, fall back to their most recent roster from player_history — clearly
+    // labeled in the UI (window._rosterFromHistory) so it never reads as the live roster.
+    window._rosterFromHistory=null;
+    if(!Array.isArray(players)||!players.length){
+      try{
+        const _hy=await fetch(`${SB_URL}/rest/v1/player_history?team=eq.${encodeURIComponent(name)}&select=season_year&order=season_year.desc&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]);
+        const _sy=_hy&&_hy[0]&&_hy[0].season_year;
+        if(_sy){
+          const _hp=await fetch(`${SB_URL}/rest/v1/player_history?team=eq.${encodeURIComponent(name)}&season_year=eq.${_sy}&select=name,espn_id,position,height,yr,tdc_grade,ppg,rpg,apg,mpg&order=mpg.desc.nullslast&limit=500`,{headers:H}).then(r=>r.ok?r.json():[]);
+          if(Array.isArray(_hp)&&_hp.length){
+            players=_hp.map((p,i)=>({name:p.name,espn_id:p.espn_id,position:p.position,height:p.height,yr:p.yr,tdc_grade:p.tdc_grade,ppg:p.ppg,rpg:p.rpg,apg:p.apg,mpg:p.mpg,depth_order:i,_fromHistory:true}));
+            window._rosterFromHistory=_sy;   // season_year of the borrowed roster (2026 = 2025-26)
+            try{ var _b=document.getElementById('histRosterBanner');
+              if(_b){ var _lbl=(_sy-1)+"–"+String(_sy).slice(2);
+                _b.innerHTML="<span style='font-size:15px'>📋</span><span>Showing the <b>"+_lbl+"</b> roster — this team’s <b>current roster hasn’t been entered yet</b>, so last season’s is shown as a placeholder.</span>";
+                _b.style.cssText="display:flex;gap:9px;align-items:center;margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;background:var(--bg2);color:var(--text2);font-size:12.5px;line-height:1.5;font-weight:600;";
+              }
+            }catch(e){}
+          }
+        }
+      }catch(e){}
     }
     // Dedupe the roster at the source — the players table occasionally carries a
     // player twice (e.g. a freshman entered at two depth slots). One row each keeps
