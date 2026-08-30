@@ -370,11 +370,27 @@ for short, roster in roster_by_team.items():
 #                   number, so the page can show was-85 -> now-70 when a star transfers
 #                   into a crowded rotation
 #   shot_share      % of his team's projected FGA (zero-sum across the roster; sums ~100)
-_proj_f40={e:(row["fga"]*40.0/row["proj_mpg"] if row["proj_mpg"]>0 else 0.0) for e,row in out.items()}
-_ref=np.sort(np.array(list(_proj_f40.values())))
-def _tend(x):
-    if len(_ref)==0: return 0
-    return int(round(100*np.searchsorted(_ref,x,side="right")/len(_ref)))
+# PER-TYPE tendency: one aggregate hides the shot diet — a Milan-type can be a 90th-%ile
+# 3-point-VOLUME shooter while his TOTAL is middling, and a Mark-Mitchell-type with the same
+# total is a rim/foul-drawing interior scorer. So also emit a percentile per shot type, each
+# a national percentile of that type's projected attempts/40 (box-derivable for everyone;
+# rim-vs-mid split would need the gated shot-location data, a later 2026-only layer):
+#   tend_three  3PA/40   (floor-spacing / shooting volume)
+#   tend_two    2PA/40   (inside/downhill volume — rim + mid, unsplit at box level)
+#   tend_ft     FTA/40   (rim pressure / foul-drawing)
+def _mk_tend(vals):
+    ref=np.sort(np.array(vals))
+    return (lambda x: int(round(100*np.searchsorted(ref,x,side="right")/len(ref))) if len(ref) else 0)
+def _per40(row,k):
+    m=row["proj_mpg"]; return (row.get(k,0.0)*40.0/m) if m>0 else 0.0
+_proj_f40={e:_per40(row,"fga") for e,row in out.items()}
+_three40={e:_per40(row,"tpa") for e,row in out.items()}
+_two40  ={e:max(0.0,_per40(row,"fga")-_per40(row,"tpa")) for e,row in out.items()}
+_ft40   ={e:_per40(row,"fta") for e,row in out.items()}
+_tend =_mk_tend(list(_proj_f40.values()))
+_tend3=_mk_tend(list(_three40.values()))
+_tend2=_mk_tend(list(_two40.values()))
+_tendf=_mk_tend(list(_ft40.values()))
 _team_fga={}
 for e,row in out.items():
     _team_fga[proj_team.get(e)]=_team_fga.get(proj_team.get(e),0.0)+row["fga"]
@@ -383,6 +399,9 @@ for e,row in out.items():
     row["shot_tend"]=_tend(_proj_f40[e])
     row["shot_tend_demo"]=_tend(row.pop("_demo_f40"))
     row["shot_share"]=round(100.0*row["fga"]/tot,1)
+    row["tend_three"]=_tend3(_three40[e])
+    row["tend_two"]=_tend2(_two40[e])
+    row["tend_ft"]=_tendf(_ft40[e])
 
 json.dump({"season":"2026-27","scale":{"mu":MU,"sp":SP},"n":len(out),"players":out},
           open(os.path.join(D,"stat_overall_projected.json"),"w"),separators=(",",":"),allow_nan=False)
