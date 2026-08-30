@@ -399,7 +399,16 @@ def _fresh_est(grade,depth,starter,position):
     if pm<5: return None
     base=POS_FGA40.get(_pos(position),12.5)
     g=_n(grade,0) or 74.0
-    f40=base*max(0.55,min(1.55,(g/78.0)**1.3))   # star frosh shoot more, deep-bench less
+    # Shot RATE (per-40) must scale with ROLE, not just grade+position — a real bench
+    # returner shoots ~0-14th-%ile per 40, so a 15th-man freshman should too, not read
+    # mid-pack. Two multipliers, both low for low-role players:
+    #   grade scale — steeper, with a low floor (a 58 defers, an 88 dominates the ball)
+    #   depth scale — end-of-bench guys defer even when they're on the floor
+    gs=max(0.30,min(1.30,0.40+(g-58.0)/30.0*0.90))
+    try: d=int(depth) if depth is not None and not pd.isna(depth) else 8
+    except Exception: d=8
+    ds=1.0 if d<=3 else 0.90 if d<=5 else 0.72 if d<=8 else 0.55 if d<=11 else 0.42
+    f40=base*gs*ds
     return pm,f40,f40*pm/40.0
 
 # per-type national percentiles (players WITH a box line)
