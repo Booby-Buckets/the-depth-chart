@@ -7821,12 +7821,18 @@ async function _renderShotDist(rows){
       _shotProjCache=(r&&r.players)?r.players:{};
     }
     const P=_shotProjCache, items=[];
-    // Fill the TEND column in the roster stat table (histTable) from the same source
+    // Fill the tendency columns in the roster stat table (histTable) from the same source
+    const _tcol=(v,head)=>{ const c=v>=75?'#5ab875':v>=50?'var(--text)':v>=30?'var(--text2)':'var(--text3)';
+      return '<b style="color:'+c+';font-weight:'+(head?800:600)+'">'+v+'</b>'; };
     document.querySelectorAll('#depthContent .hr-tend[data-espn]').forEach(function(td){
       const e=td.getAttribute('data-espn'); const pr=(e&&P[e])?P[e]:null;
-      if(pr&&pr.shot_tend!=null){ const t=pr.shot_tend;
-        const c=t>=75?'#5ab875':t>=50?'var(--text)':t>=30?'var(--text2)':'var(--text3)';
-        td.innerHTML='<b style="color:'+c+'">'+t+'</b>'; }
+      if(pr&&pr.shot_tend!=null) td.innerHTML=_tcol(pr.shot_tend,true);
+    });
+    const _tyKey={three:'tend_three',two:'tend_two',ft:'tend_ft'};
+    document.querySelectorAll('#depthContent .hr-ty[data-espn]').forEach(function(td){
+      const e=td.getAttribute('data-espn'), ty=td.getAttribute('data-ty'); const pr=(e&&P[e])?P[e]:null;
+      const v=pr?pr[_tyKey[ty]]:null;
+      if(v!=null) td.innerHTML=_tcol(v,false);
     });
     (rows||[]).forEach(p=>{
       const e=(p&&p.espn_id!=null)?String(p.espn_id):null;
@@ -7937,10 +7943,19 @@ function histTable(rows, yr, projected){
     <td>${p.gp||'—'}</td><td>${num(p.mpg)}</td><td>${num(p.ppg)}</td><td>${num(p.rpg)}</td><td>${num(p.apg)}</td>
     <td>${num(p.stl)}</td><td>${num(p.blk)}</td><td>${num(p.tovs)}</td>
     <td>${pct(p.fg_pct)}</td><td>${pct(p.tp_pct)}</td><td>${pct(p.ft_pct)}</td>
-    ${projected?`<td class="hr-tend" data-espn="${p.espn_id||''}"><span style="color:var(--text3)">·</span></td>`:''}
+    ${projected?`<td class="hr-tend" data-espn="${p.espn_id||''}"><span style="color:var(--text3)">·</span></td>`
+      +`<td class="hr-ty" data-espn="${p.espn_id||''}" data-ty="three"><span style="color:var(--text3)">·</span></td>`
+      +`<td class="hr-ty" data-espn="${p.espn_id||''}" data-ty="two"><span style="color:var(--text3)">·</span></td>`
+      +`<td class="hr-ty" data-espn="${p.espn_id||''}" data-ty="ft"><span style="color:var(--text3)">·</span></td>`:''}
     <td>${_ovrChip(projected?_gdisp(p):p.tdc_grade)}</td></tr>`).join('');
+  const tth=(lbl,tip)=>`<th class="has-tip" title="${tip}">${lbl}</th>`;
   return `<div class="hr-wrap"><table class="hr-table"><thead><tr>
-    <th>#</th><th>Player</th><th>GP</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th><th>STL</th><th>BLK</th><th>TO</th><th>FG%</th><th>3P%</th><th>FT%</th>${projected?'<th class="has-tip" title="Shot Tendency — projected share of shots when on the floor, 0-100 (100 = a pure #1 option). Zero-sum across the roster.">TEND</th>':''}<th>OVR</th>
+    <th>#</th><th>Player</th><th>GP</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th><th>STL</th><th>BLK</th><th>TO</th><th>FG%</th><th>3P%</th><th>FT%</th>${projected?
+      tth('TEND','Shot Tendency — projected share of shots when on the floor, 0-100 (100 = a pure #1 option). Zero-sum across the roster.')
+      +tth('3PT','3-point tendency — national percentile of projected 3PA/40 (100 = elite 3-point volume).')
+      +tth('2PT','Two-point tendency — national percentile of projected 2PA/40, rim + mid (100 = elite inside volume).')
+      +tth('FT','Free-throw-draw tendency — national percentile of projected FTA/40 (100 = elite rim pressure / foul drawing).')
+      :''}<th>OVR</th>
   </tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
