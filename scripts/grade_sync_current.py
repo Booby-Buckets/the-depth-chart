@@ -24,8 +24,9 @@ def _defold(s):  # fold accents: "Dörries"->"dorries", "Amaël"->"amael" so the
     # spelling (usually ASCII) matches the accented history spelling
     return "".join(c for c in unicodedata.normalize("NFKD", str(s)) if not unicodedata.combining(c))
 
-def _strip(n):  # normalize name: fold accents, drop suffix, lowercase
-    return re.sub(r"\s+(jr\.?|sr\.?|ii|iii|iv|v)$", "", _defold(n).strip(), flags=re.I).strip().lower()
+def _strip(n):  # normalize name: fold accents, drop periods in initials (B.J.->BJ), drop suffix, lowercase
+    s = _defold(n).replace(".", "")
+    return re.sub(r"\s+(jr|sr|ii|iii|iv|v)$", "", s.strip(), flags=re.I).strip().lower()
 
 SB = "https://izlqhnxowdhtdofkwrho.supabase.co"
 KEY = os.environ["SUPABASE_SERVICE_KEY"]
