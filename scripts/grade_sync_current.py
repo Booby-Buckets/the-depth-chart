@@ -16,12 +16,16 @@ name + closest stat line so transfers map to the right season.
   python3 grade_sync_current.py           # dry run
   python3 grade_sync_current.py --write
 """
-import os, sys, time, re
+import os, sys, time, re, unicodedata
 import pandas as pd
 import requests
 
-def _strip(n):  # normalize name: drop suffix, lowercase
-    return re.sub(r"\s+(jr\.?|sr\.?|ii|iii|iv|v)$", "", str(n).strip(), flags=re.I).strip().lower()
+def _defold(s):  # fold accents: "Dörries"->"dorries", "Amaël"->"amael" so the roster
+    # spelling (usually ASCII) matches the accented history spelling
+    return "".join(c for c in unicodedata.normalize("NFKD", str(s)) if not unicodedata.combining(c))
+
+def _strip(n):  # normalize name: fold accents, drop suffix, lowercase
+    return re.sub(r"\s+(jr\.?|sr\.?|ii|iii|iv|v)$", "", _defold(n).strip(), flags=re.I).strip().lower()
 
 SB = "https://izlqhnxowdhtdofkwrho.supabase.co"
 KEY = os.environ["SUPABASE_SERVICE_KEY"]
@@ -63,6 +67,9 @@ def main(write=False):
     # most recent actual season by closest stat line, not just 25-26
     hist = fetch_all(f"{SB}/rest/v1/player_history?select=name,team,ppg,mpg,gp,"
                      f"tdc_grade&season_year=in.(2024,2025,2026)&tdc_grade=not.is.null")
+    if cur.empty or hist.empty:
+        sys.exit("No data returned from Supabase — SUPABASE_SERVICE_KEY is likely wrong "
+                 "or a placeholder. Paste your real sb_secret_… key and re-run.")
     hist["ppg_n"] = num(hist.ppg); hist["mpg_n"] = num(hist.mpg)
     hist["_strip"] = hist.name.map(_strip)
     hist["_key"] = hist._strip.map(lambda s: (s[:1], s.split()[-1]) if s else ("", ""))
