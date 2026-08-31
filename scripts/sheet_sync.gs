@@ -743,7 +743,11 @@ function parseStats(row) {
     stl:    n(row[COL.STL]),
     blk:    n(row[COL.BLK]),
     tovs:   n(row[COL.TOV]),
-    gp:     n(row[COL.GP]),
+    // gp is an INTEGER column in the DB — a stray decimal in the sheet (e.g. UTSA's
+    // "16.6", a formula/average left in the GP cell) makes Postgres reject the whole
+    // team's upsert with "invalid input syntax for type integer". Round it so one bad
+    // cell can't crash a team's sync.
+    gp:     (function(){ const x = n(row[COL.GP]); return x == null ? null : Math.round(x); })(),
   };
   // GUARD: made can NEVER exceed attempts. The sheet's shooting columns are ordered
   // inconsistently (FT is FTA[R] then FTM[S], while FG/3P are made-then-attempted), which
