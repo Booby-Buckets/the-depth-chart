@@ -1417,6 +1417,10 @@
       <div class="side-card-head" id="projStatsHead" style="color:var(--accent);">2026–27 Projected Stats</div>
       <div class="side-card-body" id="projStatsBody"><div class="empty-note">Loading…</div></div>
     </div>
+    <div class="side-card" id="shotProfileCard" data-pid="shotprofile" style="display:none;">
+      <div class="side-card-head" style="color:var(--accent);">Shot Profile</div>
+      <div class="side-card-body" id="shotProfileBody"></div>
+    </div>
     <div class="side-card live-side" data-pid="additions">
       <div class="side-card-head" style="color:var(--accent);">Offseason Additions</div>
       <div class="side-card-body" id="additionsBody"><div class="empty-note">Loading…</div></div>
@@ -7826,7 +7830,7 @@ async function _renderHistShot(rows, yr){
   const _g=(p,ph,bb)=>{ let v=p[ph]; if((v==null||v==='')&&p.pergame) v=p.pergame[bb!==undefined?bb:ph]; const n=parseFloat(v); return isNaN(n)?0:n; };
   try{
     if(!_shotRef){ const r=await fetch('scripts/data/shot_tend_ref.json?v=1').then(x=>x.ok?x.json():null).catch(()=>null); _shotRef=(r&&r.seasons)||{}; }
-    const ref=_shotRef[String(yr)]; if(!ref){ host.innerHTML=''; return; }
+    const ref=_shotRef[String(yr)]; if(!ref){ host.innerHTML=''; _hideShotProfileSide(); return; }
     let items=[], totFga=0;
     (rows||[]).forEach(p=>{
       const m=_g(p,'mpg','mp'), fga=_g(p,'fga','fga'), tpa=_g(p,'tpa','fg3a'), fta=_g(p,'fta','fta');
@@ -7836,7 +7840,7 @@ async function _renderHistShot(rows, yr){
         t2:_shotPct(ref.t2, Math.max(0,(fga-tpa)*40/m)), tf:_shotPct(ref.ft, fta*40/m)});
       totFga+=fga;
     });
-    if(items.length<3){ host.innerHTML=''; return; }
+    if(items.length<3){ host.innerHTML=''; _hideShotProfileSide(); return; }
     items.forEach(x=>{ x.share = totFga>0 ? Math.round(x.fga/totFga*1000)/10 : 0; });
     items.sort((a,b)=>b.share-a.share);
     const max=items[0].share||1, tot=items.reduce((s,i)=>s+i.share,0);
@@ -7860,6 +7864,7 @@ async function _renderHistShot(rows, yr){
     host.innerHTML=`<div class="sec-head" style="margin-top:28px;">Shot distribution <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· ${_lbl} actual share of the team's shots</span></div>
       ${teamStrip}<div style="margin-top:6px;">${bars}</div>
       <div style="margin-top:10px;font-size:11.5px;color:var(--text2);line-height:1.55;">Each player's share of the team's shots that season (${Math.round(tot)}% shown, 8+ MPG). <b>tend</b> is his shot tendency — national percentile of his shots per 40 <b>within ${_lbl}</b> (100 = a pure #1 option).</div>`;
+    _fillShotProfileSide(_prof,_threats,_eff,_top);
   }catch(e){ host.innerHTML=''; }
 }
 
@@ -7867,9 +7872,22 @@ async function _renderHistShot(rows, yr){
 // shots, straight from the projection (stat_overall_projected.json), so it agrees
 // with the player-page Shot Profile and the projected OVRs. Shares are zero-sum
 // (sum ~100%): stack five #1-option transfers and everyone's slice shrinks.
+// Compact team shot-profile card for the right rail (fed by both the projected and
+// historic distribution renderers).
+function _fillShotProfileSide(prof, threats, eff, top){
+  const c=document.getElementById('shotProfileCard'), b=document.getElementById('shotProfileBody');
+  if(!c||!b) return;
+  c.style.display='';
+  const row=(k,v)=>`<div class="grade-row"><span class="grade-row-label">${k}</span><span class="grade-row-val">${v}</span></div>`;
+  b.innerHTML=`<div style="font-size:15px;font-weight:800;line-height:1.15;color:${prof.c};margin:0 0 11px;">${prof.l}</div>`
+    +row('Scoring threats', threats+' <span style="font-size:10px;font-weight:600;color:var(--text3);">tend 75+</span>')
+    +row('Shot options', eff.toFixed(1))
+    +row('Top option', top.toFixed(1)+'%');
+}
+function _hideShotProfileSide(){ const c=document.getElementById('shotProfileCard'); if(c) c.style.display='none'; }
 let _shotProj=null;   // {players, teams}
 async function _renderShotDist(rows){
-  const host=document.getElementById('shotDistCard'); if(!host) return;
+  const host=document.getElementById('shotDistCard'); if(!host){ _hideShotProfileSide(); return; }
   const _e=s=>(''+(s||'')).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
   try{
     if(!_shotProj){
@@ -7897,7 +7915,7 @@ async function _renderShotDist(rows){
       if(v!=null) td.innerHTML=_tcol(v,false);
     });
     // distribution card — from the per-team list, which INCLUDES freshmen/no-box
-    if(!list||list.length<3){ host.innerHTML=''; return; }
+    if(!list||list.length<3){ host.innerHTML=''; _hideShotProfileSide(); return; }
     const items=list.filter(x=>x.share!=null).slice().sort((a,b)=>b.share-a.share);
     const max=items[0].share||1, tot=items.reduce((s,i)=>s+i.share,0);
     const role=sh=>sh>=24?'Primary':sh>=18?'Featured':sh>=12?'Secondary':sh>=8?'Complementary':'Low-usage';
@@ -7929,6 +7947,7 @@ async function _renderShotDist(rows){
       ${teamStrip}
       <div style="margin-top:6px;">${bars}</div>
       <div style="margin-top:10px;font-size:11.5px;color:var(--text2);line-height:1.55;">Each player's projected shots as a % of the team total (${Math.round(tot)}% shown, freshmen included). <b>tend</b> is his shot tendency (100 = a pure #1 option); the arrow shows the shift from his prior role. Freshmen (<b style="color:var(--accent)">FR</b>) have no prior stats, so their shots are estimated from projected role.</div>`;
+    _fillShotProfileSide(_prof,_threats,_eff,_top);
   }catch(e){ host.innerHTML=''; }
 }
 // Departures: players on the PRIOR season's roster who aren't on this season's, and
