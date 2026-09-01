@@ -4889,9 +4889,16 @@ function buildCareerTraj(){
     return '<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>'+dots; }
   var GC='#2DE0A6', WC='#5B8DEF';
   var xlabels=hist.map(function(s,i){return '<text x="'+xat(i).toFixed(1)+'" y="'+(H-9)+'" text-anchor="middle" font-size="9.5" fill="var(--text3)">'+_seasonLbl(s.season_year)+'</text>';}).join('');
+  // Endpoint value labels. Both lines end at the same x, and when their endpoints sit
+  // near the same height (they converge here) the two labels overlap into an unreadable
+  // blob. So when the endpoints are within ~18px vertically, stack them — grade ABOVE
+  // its point, Wins Added BELOW — so they never collide; otherwise label each in place.
   var endLbls='';
-  if(g&&g.last) endLbls+='<text x="'+(g.last.x-7).toFixed(1)+'" y="'+(g.last.y-9).toFixed(1)+'" text-anchor="end" font-size="12.5" font-weight="800" fill="'+GC+'">'+Math.round(g.last.v)+'</text>';
-  if(w&&w.last) endLbls+='<text x="'+(w.last.x-7).toFixed(1)+'" y="'+(w.last.y-9).toFixed(1)+'" text-anchor="end" font-size="12.5" font-weight="800" fill="'+WC+'">'+(w.last.v>=0?'+':'')+(+w.last.v).toFixed(1)+'</text>';
+  var _close = (g&&g.last&&w&&w.last) ? Math.abs(g.last.y-w.last.y)<18 : false;
+  if(g&&g.last){ var gy=_close?Math.max(12,g.last.y-11):Math.max(12,g.last.y-9);
+    endLbls+='<text x="'+(g.last.x-7).toFixed(1)+'" y="'+gy.toFixed(1)+'" text-anchor="end" font-size="12.5" font-weight="800" fill="'+GC+'">'+Math.round(g.last.v)+'</text>'; }
+  if(w&&w.last){ var wy=_close?Math.min(H-9,w.last.y+16):Math.max(12,w.last.y-9);
+    endLbls+='<text x="'+(w.last.x-7).toFixed(1)+'" y="'+wy.toFixed(1)+'" text-anchor="end" font-size="12.5" font-weight="800" fill="'+WC+'">'+(w.last.v>=0?'+':'')+(+w.last.v).toFixed(1)+'</text>'; }
   return '<div class="sec-title" style="margin:34px 0 8px;">Career Trajectory</div>'
     +'<div class="ct-legend"><span><i style="background:'+GC+'"></i>TDC Grade</span><span><i style="background:'+WC+'"></i>Wins Added</span><span class="ct-note">each line scaled to its own range — read the shape, endpoints are labeled</span></div>'
     +'<div class="ct-wrap"><svg viewBox="0 0 '+W+' '+H+'" class="ct-svg" role="img" aria-label="Career trajectory">'
