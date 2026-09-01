@@ -2814,6 +2814,17 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
       return pp;
     });
   }
+  // Hard minutes ceiling: no college player realistically averages >35 MPG. A freshman-
+  // editor line (or a runaway projection) that exceeds it is scaled back to 35, with the
+  // counting stats rescaled proportionally so the per-game line stays internally consistent.
+  const _MPG_CAP=35;
+  projected.forEach(pp=>{
+    if(pp._injured||pp._dnp) return;
+    const m=parseFloat(pp.mpg)||0;
+    if(m>_MPG_CAP){ const sc=_MPG_CAP/m;
+      ['ppg','rpg','apg','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','stl','blk','tovs'].forEach(k=>{ if(pp[k]!=null&&pp[k]!=='') pp[k]=Math.round((parseFloat(pp[k])||0)*sc*10)/10; });
+      pp.mpg=_MPG_CAP; }
+  });
   projected.forEach(pp=>{
     if(pp._injured||pp._dnp) return;
     const cls=_projCls(pp.yr||pp.class_year||'');
@@ -2834,10 +2845,16 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
   const POS_RANK={PG:0,G:0.5,SG:1,GF:1.5,SF:2,F:2.5,PF:3,FC:3.5,C:4};
   const _prank=p=>{ const dp=(p._deployedPos||p.position||'').toUpperCase().split('/')[0].replace(/[^A-Z]/g,''); return POS_RANK[dp]!=null?POS_RANK[dp]:9; };
   (function(){
+    // Order by PROJECTED MINUTES, not grade rank — the starting five is the five who
+    // actually play the most, shown PG→C; the bench follows by minutes. (Previously the
+    // top 5 by grade were called "starters," so a higher-graded low-minute freshman
+    // outranked a real 27-mpg starter.)
+    const _mp=p=>parseFloat(p.mpg)||0;
     const inj=projected.filter(p=>p._injured||p._dnp);
-    const act=projected.filter(p=>!(p._injured||p._dnp));
+    const act=projected.filter(p=>!(p._injured||p._dnp))
+      .sort((a,b)=>_mp(b)-_mp(a) || (parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0));
     const starters=act.slice(0,5).sort((a,b)=>_prank(a)-_prank(b));
-    const bench=act.slice(5).sort((a,b)=>_prank(a)-_prank(b));
+    const bench=act.slice(5).sort((a,b)=>_mp(b)-_mp(a));
     projected=[...starters,...bench,...inj];
   })();
   const fmt=v=>v!=null&&v!==''?Number(v).toFixed(1):'—';
