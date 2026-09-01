@@ -7845,6 +7845,20 @@ async function _renderShotDist(rows){
     const items=list.filter(x=>x.share!=null).slice().sort((a,b)=>b.share-a.share);
     const max=items[0].share||1, tot=items.reduce((s,i)=>s+i.share,0);
     const role=sh=>sh>=24?'Primary':sh>=18?'Featured':sh>=12?'Secondary':sh>=8?'Complementary':'Low-usage';
+    // ── team-level shot profile (from the same rotation) ──
+    const _threats=items.filter(x=>(x.tend||0)>=75).length;
+    const _sh=items.map(x=>(x.share||0)/100), _hhi=_sh.reduce((s,v)=>s+v*v,0);
+    const _eff=_hhi>0?(1/_hhi):items.length;                  // effective # of shot options
+    const _top=items[0].share;
+    // thresholds from the league distribution of top-option share (median 18%, p90 21%)
+    const _prof=_top>=21?{l:'Star-driven',c:'#e0885a'}:_top>=18?{l:'Featured-scorer led',c:'var(--accent)'}:{l:'Balanced attack',c:'#5ab875'};
+    const _cell=(k,v,sub)=>`<div><div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:2px;">${k}</div><div style="font-size:15px;font-weight:800;color:var(--text);line-height:1;">${v}${sub?`<span style="font-size:10px;font-weight:600;color:var(--text3);"> ${sub}</span>`:''}</div></div>`;
+    const teamStrip=`<div style="display:flex;gap:22px;flex-wrap:wrap;margin:8px 0 12px;padding:11px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);">
+      <div><div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:2px;">Shot profile</div><div style="font-size:15px;font-weight:800;line-height:1;color:${_prof.c};">${_prof.l}</div></div>
+      ${_cell('Scoring threats',_threats,'tend 75+')}
+      ${_cell('Shot options',_eff.toFixed(1),'effective')}
+      ${_cell('Top option',_top.toFixed(1)+'%','')}
+    </div>`;
     const bars=items.map(it=>{
       const w=Math.max(3,Math.round(it.share/max*100));
       const dem=(it.espn&&P[it.espn])?P[it.espn].shot_tend_demo:null;
@@ -7856,6 +7870,7 @@ async function _renderShotDist(rows){
       </div>`;
     }).join('');
     host.innerHTML=`<div class="sec-head" style="margin-top:28px;">Shot distribution <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· projected share of the team's shots (zero-sum across the rotation)</span></div>
+      ${teamStrip}
       <div style="margin-top:6px;">${bars}</div>
       <div style="margin-top:10px;font-size:11.5px;color:var(--text2);line-height:1.55;">Each player's projected shots as a % of the team total (${Math.round(tot)}% shown, freshmen included). <b>tend</b> is his shot tendency (100 = a pure #1 option); the arrow shows the shift from his prior role. Freshmen (<b style="color:var(--accent)">FR</b>) have no prior stats, so their shots are estimated from projected role.</div>`;
   }catch(e){ host.innerHTML=''; }
