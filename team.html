@@ -7805,6 +7805,62 @@ function renderHistoricRoster(rows, yr, projected){
     : '';
   host.innerHTML = `<div class="dc-grid">${colHtml}</div>${histTable(rows, yr, projected)}${injHtml}<div id="shotDistCard"></div><div id="seasonLossesWrap"></div>`;
   if(projected && yr>=2026){ try{ _renderShotDist(rows); }catch(e){} }
+  else if(!projected && yr>=2012){ try{ _renderHistShot(rows, yr); }catch(e){} }
+}
+
+// Historic shot distribution — for a PAST season the roster carries each player's real
+// box line (fga/mpg/tpa/fta), but no national context to turn a per-40 rate into a
+// tendency. shot_tend_ref.json holds each season's per-40 percentile breakpoints, so we
+// percentile each player against his own season client-side (no big per-player file).
+let _shotRef=null;
+function _shotPct(arr,x){                       // arr = 101 breakpoints p0..p100 -> 0-100
+  if(!arr||!arr.length||!(x>0)) return 0;
+  if(x>=arr[arr.length-1]) return 100;
+  let lo=0,hi=arr.length-1;
+  while(lo<hi){ const mid=(lo+hi)>>1; if(arr[mid]<x) lo=mid+1; else hi=mid; }
+  return Math.round(lo*100/(arr.length-1));
+}
+async function _renderHistShot(rows, yr){
+  const host=document.getElementById('shotDistCard'); if(!host) return;
+  const _e=s=>(''+(s||'')).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
+  const _g=(p,ph,bb)=>{ let v=p[ph]; if((v==null||v==='')&&p.pergame) v=p.pergame[bb!==undefined?bb:ph]; const n=parseFloat(v); return isNaN(n)?0:n; };
+  try{
+    if(!_shotRef){ const r=await fetch('scripts/data/shot_tend_ref.json?v=1').then(x=>x.ok?x.json():null).catch(()=>null); _shotRef=(r&&r.seasons)||{}; }
+    const ref=_shotRef[String(yr)]; if(!ref){ host.innerHTML=''; return; }
+    let items=[], totFga=0;
+    (rows||[]).forEach(p=>{
+      const m=_g(p,'mpg','mp'), fga=_g(p,'fga','fga'), tpa=_g(p,'tpa','fg3a'), fta=_g(p,'fta','fta');
+      if(m<8 || fga<=0) return;
+      items.push({name:p.name, espn:(p.espn_id!=null?String(p.espn_id):null), fga:fga,
+        tend:_shotPct(ref.f40, fga*40/m), t3:_shotPct(ref.t3, tpa*40/m),
+        t2:_shotPct(ref.t2, Math.max(0,(fga-tpa)*40/m)), tf:_shotPct(ref.ft, fta*40/m)});
+      totFga+=fga;
+    });
+    if(items.length<3){ host.innerHTML=''; return; }
+    items.forEach(x=>{ x.share = totFga>0 ? Math.round(x.fga/totFga*1000)/10 : 0; });
+    items.sort((a,b)=>b.share-a.share);
+    const max=items[0].share||1, tot=items.reduce((s,i)=>s+i.share,0);
+    const role=sh=>sh>=24?'Primary':sh>=18?'Featured':sh>=12?'Secondary':sh>=8?'Complementary':'Low-usage';
+    const _threats=items.filter(x=>(x.tend||0)>=75).length;
+    const _sh=items.map(x=>(x.share||0)/100), _hhi=_sh.reduce((s,v)=>s+v*v,0);
+    const _eff=_hhi>0?(1/_hhi):items.length, _top=items[0].share;
+    const _prof=_top>=21?{l:'Star-driven',c:'#e0885a'}:_top>=18?{l:'Featured-scorer led',c:'var(--accent)'}:{l:'Balanced attack',c:'#5ab875'};
+    const _cell=(k,v,sub)=>`<div><div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:2px;">${k}</div><div style="font-size:15px;font-weight:800;color:var(--text);line-height:1;">${v}${sub?`<span style="font-size:10px;font-weight:600;color:var(--text3);"> ${sub}</span>`:''}</div></div>`;
+    const teamStrip=`<div style="display:flex;gap:22px;flex-wrap:wrap;margin:8px 0 12px;padding:11px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);">
+      <div><div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:2px;">Shot profile</div><div style="font-size:15px;font-weight:800;line-height:1;color:${_prof.c};">${_prof.l}</div></div>
+      ${_cell('Scoring threats',_threats,'tend 75+')}${_cell('Shot options',_eff.toFixed(1),'effective')}${_cell('Top option',_top.toFixed(1)+'%','')}</div>`;
+    const bars=items.map(it=>{ const w=Math.max(3,Math.round(it.share/max*100));
+      return `<div style="display:grid;grid-template-columns:150px 1fr 96px;align-items:center;gap:10px;padding:5px 0;">
+        <div style="font-size:12.5px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_e(it.name)}<span style="display:block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);">${role(it.share)}</span></div>
+        <div style="position:relative;height:9px;border-radius:5px;background:rgba(128,128,128,.16);overflow:hidden;"><div style="position:absolute;left:0;top:0;bottom:0;width:${w}%;background:var(--tc-readable,var(--accent));"></div></div>
+        <div style="font-size:12px;font-weight:800;color:var(--text);text-align:right;">${it.share.toFixed(1)}%<span style="display:block;font-size:10px;font-weight:600;color:var(--text2);">tend ${it.tend}</span></div>
+      </div>`;
+    }).join('');
+    const _lbl=(yr-1)+'–'+String(yr).slice(2);
+    host.innerHTML=`<div class="sec-head" style="margin-top:28px;">Shot distribution <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· ${_lbl} actual share of the team's shots</span></div>
+      ${teamStrip}<div style="margin-top:6px;">${bars}</div>
+      <div style="margin-top:10px;font-size:11.5px;color:var(--text2);line-height:1.55;">Each player's share of the team's shots that season (${Math.round(tot)}% shown, 8+ MPG). <b>tend</b> is his shot tendency — national percentile of his shots per 40 <b>within ${_lbl}</b> (100 = a pure #1 option).</div>`;
+  }catch(e){ host.innerHTML=''; }
 }
 
 // Roster shot distribution — each rotation player's PROJECTED share of the team's
