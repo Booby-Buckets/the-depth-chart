@@ -394,6 +394,11 @@ def _per40(row,k):
 # returner-only — a freshman has no measured shot diet to split.
 _shot_names=advByEspn["name"].to_dict()   # espn(int) -> name
 POS_FGA40={"PG":13.5,"SG":14.5,"CG":14.0,"G":14.0,"SF":13.0,"F":12.0,"PF":11.5,"C":11.0}
+# Shot-type PRIOR for no-box players (freshmen etc.) — fraction of their FGA that are
+# 3-pointers, and FTA per FGA — so their 3PT/2PT/FT tendencies aren't blank. Position-
+# based: a freshman guard reads as a shooter, a freshman big as an interior/foul-drawer.
+POS_3FRAC ={"PG":0.42,"SG":0.44,"CG":0.43,"G":0.43,"SF":0.36,"F":0.28,"PF":0.22,"C":0.10}
+POS_FTFRAC={"PG":0.24,"SG":0.24,"CG":0.25,"G":0.25,"SF":0.28,"F":0.34,"PF":0.38,"C":0.44}
 def _fresh_est(grade,depth,starter,position):
     pm=proj_mpg(depth,0,str(starter).lower() in ("true","t","1"))
     if pm<5: return None
@@ -430,7 +435,7 @@ for r in pl.itertuples():
     if not est: continue
     pm,f40,fga=est
     roster_full.setdefault(r.team,[]).append(
-        dict(espn=(str(e) if e is not None else None),name=nm,fga=fga,f40=f40,fresh=True))
+        dict(espn=(str(e) if e is not None else None),name=nm,fga=fga,f40=f40,fresh=True,pos=_pos(r.position)))
 
 # national tendency distribution over EVERYONE (returners + freshmen)
 _tend=_mk_tend([ent["f40"] for lst in roster_full.values() for ent in lst])
@@ -444,9 +449,13 @@ for short,lst in roster_full.items():
     for ent in lst:
         e=ent["espn"]; rrow=out.get(e) if e else None
         share=round(100.0*ent["fga"]/tot,1); tend=_tend(ent["f40"])
-        t3=_tend3(_per40(rrow,"tpa")) if rrow else None
-        t2=_tend2(max(0.0,_per40(rrow,"fga")-_per40(rrow,"tpa"))) if rrow else None
-        tf=_tendf(_per40(rrow,"fta")) if rrow else None
+        if rrow:                              # returner — real per-type rates
+            t3=_tend3(_per40(rrow,"tpa"))
+            t2=_tend2(max(0.0,_per40(rrow,"fga")-_per40(rrow,"tpa")))
+            tf=_tendf(_per40(rrow,"fta"))
+        else:                                 # no-box — split his estimated shots by position
+            _f=ent["f40"]; _p=ent.get("pos","SF"); _3f=POS_3FRAC.get(_p,0.34)
+            t3=_tend3(_f*_3f); t2=_tend2(_f*(1.0-_3f)); tf=_tendf(_f*POS_FTFRAC.get(_p,0.28))
         if rrow:   # keep per-espn fields in sync (player page / compare / rankings)
             rrow["shot_share"]=share; rrow["shot_tend"]=tend
             rrow["tend_three"]=t3; rrow["tend_two"]=t2; rrow["tend_ft"]=tf
