@@ -1106,14 +1106,14 @@ body{background:transparent!important;}
     .dd-hi-s{font:800 9.5px/1 'Inter',sans-serif;letter-spacing:.02em;}
     .dd-sec{margin-bottom:18px;}
     .dd-sec-h{font:800 10px/1 'Inter',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);padding-bottom:7px;margin-bottom:10px;border-bottom:1px solid var(--border);}
-    .dd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:7px;}
-    .dd-cell{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:8px 9px 7px;transition:border-color .15s,transform .15s;}
-    .dd-cell:hover{border-color:var(--border2,var(--border));transform:translateY(-1px);}
-    .dd-cell-l{font:700 8.5px/1.1 'Inter',sans-serif;letter-spacing:.02em;text-transform:uppercase;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .dd-cell-v{font:800 16px/1 'Inter',sans-serif;color:var(--text);margin:5px 0 6px;}
-    .dd-cell-bar{height:3px;border-radius:2px;background:var(--bg3,rgba(127,140,170,.14));overflow:hidden;}
-    .dd-cell-bar>i{display:block;height:100%;border-radius:2px;transition:width .7s cubic-bezier(.22,1,.36,1);}
-    .dd-cell-s{font:800 9.5px/1 'Inter',sans-serif;margin-top:5px;display:block;}
+    /* spreadsheet-style heat cells (match the Season Ledger): shaded background by
+       percentile, value on top, percentile beneath, tight square grid */
+    .dd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:3px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+    .dd-cell{background:var(--bg2);border:none;border-radius:0;padding:9px 10px 8px;transition:filter .12s;}
+    .dd-cell:hover{filter:brightness(1.12);}
+    .dd-cell-l{font:700 8.5px/1.1 'Inter',sans-serif;letter-spacing:.02em;text-transform:uppercase;color:var(--text2,var(--text3));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .dd-cell-v{font:800 16px/1 'Inter',sans-serif;color:var(--text);margin:6px 0 4px;font-variant-numeric:tabular-nums;}
+    .dd-cell-s{font:800 9.5px/1 'Inter',sans-serif;display:block;}
     /* conclusion-first read banner (opens every DNA sub-tab) */
     .dna-read{display:flex;gap:14px;align-items:flex-start;background:var(--bg2);border:1px solid var(--border);
       border-left:3px solid var(--tc-readable,var(--accent));border-radius:13px;padding:15px 17px;margin-bottom:24px;}
@@ -2101,9 +2101,12 @@ function buildPctDashboard(srcRow, projectedFlag, label){
     var cells=g.items.filter(Boolean).map(function(m){
       var P=(m.pct==null||isNaN(m.pct))?null:Math.round(m.pct);
       var col=_dnaTierCol(P);
-      return '<div class="dd-cell"><div class="dd-cell-l">'+m.l+'</div>'
+      // Spreadsheet-style cell: the cell BACKGROUND is the percentile heat (green good /
+      // blue below-avg), value on top, percentile beneath — matching the Season Ledger.
+      var tint=(P!=null&&window.TDCHeat)?TDCHeat.heatBg(P):null;
+      var bg=tint?('linear-gradient('+tint+','+tint+'),var(--bg2)'):'var(--bg2)';
+      return '<div class="dd-cell" style="background:'+bg+';"><div class="dd-cell-l">'+m.l+'</div>'
         +'<div class="dd-cell-v">'+m.disp+'</div>'
-        +'<div class="dd-cell-bar"><i style="width:'+(P!=null?P:0)+'%;background:'+(P!=null?col:'transparent')+';"></i></div>'
         +'<span class="dd-cell-s" style="color:'+(P!=null?col:'var(--text3)')+';">'+(P!=null?_ord(P):'—')+'</span></div>';
     }).join('');
     if(!cells) return '';
