@@ -2927,12 +2927,14 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
     <div style="font-size:9px;color:var(--text3);margin-top:2px;">vs all D1 · 2025-26</div>`;
   };
 
-  const statCard=(label,val,pct)=>`
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;">${label}</div>
+  const statCard=(label,val,pct,href)=>{
+    const inner=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;${href?'transition:border-color .15s;':''}">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;">${label}${href?' <span style="color:var(--tc-readable,var(--accent));font-weight:800;">→</span>':''}</div>
       <div style="font-size:22px;font-weight:800;font-family:'Playfair Display',serif;color:var(--text);line-height:1;margin-bottom:2px;">${val}</div>
       ${pct!=null?pctBar(pct):'<div style="font-size:9px;color:var(--text3);margin-top:10px;">Model projection</div>'}
     </div>`;
+    return href?`<a href="${href}" style="text-decoration:none;display:block;" title="Open the full per-player projected stats for this team">${inner}</a>`:inner;
+  };
 
   // Team-level advanced: possession-weighted TS% + total projected Wins Added
   const teamTs = (tFga+0.44*tFta)>0 ? r1s(fPpg/(2*(tFga+0.44*tFta))*100) : null;
@@ -2941,7 +2943,7 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
   const summaryCards=`<div style="margin-bottom:20px;">
     <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;">2026-27 Team Projection — National Comparison</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;">
-      ${statCard('PPG',fPpg,ppgPct)}
+      ${statCard('PPG',fPpg,ppgPct,'roster.html?team='+encodeURIComponent(((typeof teamT!=='undefined'&&teamT&&teamT.name)||(players&&players[0]&&players[0].team)||'')))}
       ${statCard('RPG',fRpg,rpgPct)}
       ${statCard('APG',fApg,apgPct)}
       ${statCard('FG%',fFgPct+'%',fgPct2)}

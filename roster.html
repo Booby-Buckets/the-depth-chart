@@ -636,6 +636,10 @@ async function loadData(){
       o.value = t.name; o.textContent = t.name;
       teamSel.appendChild(o);
     });
+    // Pre-filter to a team passed via ?team= (e.g. from a team page's projected-PPG link)
+    try{ const _qt=new URLSearchParams(location.search).get('team');
+      if(_qt){ const _m=allTeams.find(t=>(t.name||'').toLowerCase()===_qt.toLowerCase()); if(_m) teamSel.value=_m.name; }
+    }catch(e){}
 
     // Compute global percentiles for color scaling
     const statKeys = ['ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs','gp'];
