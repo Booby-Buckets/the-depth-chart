@@ -633,11 +633,11 @@ function _fillHxShot(ps, short){
     var _prof=_top>=21?{l:'Star-driven',c:'#e0885a'}:_top>=18?{l:'Featured-scorer led',c:'var(--tc-readable,var(--tc))'}:{l:'Balanced attack',c:'#2bb673'};
     var _pc=byId('hxShotProfCard'), _pb=byId('hxShotProf');
     if(_pc&&_pb){ _pc.style.display='';
-      var _row=function(k,v){return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-top:1px solid rgba(128,128,128,.14);font-size:12.5px;"><span style="font-weight:600;opacity:.72;">'+k+'</span><span style="font-weight:800;color:var(--tc-readable,var(--tc));">'+v+'</span></div>';};
-      _pb.innerHTML='<div style="font-size:16px;font-weight:800;line-height:1.15;color:'+_prof.c+';margin:2px 0 10px;">'+_prof.l+'</div>'
-        +_row('Scoring threats', _threats+' <span style="font-size:9px;font-weight:600;opacity:.6;">tend 75+</span>')
-        +_row('Shot options', _eff.toFixed(1))
-        +_row('Top option', _top.toFixed(1)+'%');
+      var _row=function(k,v,tip){return '<div title="'+(tip||'').replace(/"/g,'&quot;')+'" style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-top:1px solid rgba(128,128,128,.14);font-size:12.5px;'+(tip?'cursor:help;':'')+'"><span style="font-weight:600;opacity:.72;border-bottom:'+(tip?'1px dotted rgba(128,128,128,.5);':'none;')+'">'+k+'</span><span style="font-weight:800;color:var(--tc-readable,var(--tc));">'+v+'</span></div>';};
+      _pb.innerHTML='<div title="How the team spreads its shots: Balanced = many players share the load; Star-driven = one player dominates." style="font-size:16px;font-weight:800;line-height:1.15;color:'+_prof.c+';margin:2px 0 10px;cursor:help;">'+_prof.l+'</div>'
+        +_row('Scoring threats', _threats+' <span style="font-size:9px;font-weight:600;opacity:.6;">tend 75+</span>', 'Players who shoot a lot when on the floor (top-quartile shot rate). More threats = harder to key on one scorer.')
+        +_row('Shot options', _eff.toFixed(1), 'Effective number of players who meaningfully share the shots. ~9 = very balanced, ~5 = concentrated in a few hands.')
+        +_row('Top option', _top.toFixed(1)+'%', "Share of the team's shots taken by its single most-used scorer.");
     }
   };
   if(_hqShot){ render(); return; }

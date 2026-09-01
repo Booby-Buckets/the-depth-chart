@@ -7878,11 +7878,11 @@ function _fillShotProfileSide(prof, threats, eff, top){
   const c=document.getElementById('shotProfileCard'), b=document.getElementById('shotProfileBody');
   if(!c||!b) return;
   c.style.display='';
-  const row=(k,v)=>`<div class="grade-row"><span class="grade-row-label">${k}</span><span class="grade-row-val">${v}</span></div>`;
-  b.innerHTML=`<div style="font-size:15px;font-weight:800;line-height:1.15;color:${prof.c};margin:0 0 11px;">${prof.l}</div>`
-    +row('Scoring threats', threats+' <span style="font-size:10px;font-weight:600;color:var(--text3);">tend 75+</span>')
-    +row('Shot options', eff.toFixed(1))
-    +row('Top option', top.toFixed(1)+'%');
+  const row=(k,v,tip)=>`<div class="grade-row"${tip?` title="${tip.replace(/"/g,'&quot;')}" style="cursor:help;"`:''}><span class="grade-row-label"${tip?' style="border-bottom:1px dotted var(--text3);"':''}>${k}</span><span class="grade-row-val">${v}</span></div>`;
+  b.innerHTML=`<div title="How the team spreads its shots: Balanced = many players share the load; Star-driven = one player dominates." style="font-size:15px;font-weight:800;line-height:1.15;color:${prof.c};margin:0 0 11px;cursor:help;">${prof.l}</div>`
+    +row('Scoring threats', threats+' <span style="font-size:10px;font-weight:600;color:var(--text3);">tend 75+</span>', 'Players who shoot a lot when on the floor (top-quartile shot rate). More threats = harder to key on one scorer.')
+    +row('Shot options', eff.toFixed(1), 'Effective number of players who meaningfully share the shots. ~9 = very balanced, ~5 = concentrated in a few hands.')
+    +row('Top option', top.toFixed(1)+'%', "Share of the team's shots taken by its single most-used scorer.");
 }
 function _hideShotProfileSide(){ const c=document.getElementById('shotProfileCard'); if(c) c.style.display='none'; }
 let _shotProj=null;   // {players, teams}
