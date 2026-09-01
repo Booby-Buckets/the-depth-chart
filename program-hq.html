@@ -289,6 +289,7 @@
         <div class="hx-col">
           <div class="hx-card"><div class="hx-lab"><span id="hxStandLbl">Conference Standings</span><span class="sub" id="hxStandSub"></span></div><div id="hxStandings"></div></div>
           <div class="hx-card" id="hxMediaCard"><div class="hx-lab">Media <span class="sub">around the program</span></div><div id="hxMedia"></div></div>
+          <div class="hx-card" id="hxShotProfCard" style="display:none;"><div class="hx-lab">Shot Profile <span class="sub">team-wide</span></div><div id="hxShotProf"></div></div>
         </div>
       </div>
 
@@ -615,7 +616,7 @@ function _fillHxShot(ps, short){
         if(pr&&pr.shot_share!=null) items.push({name:p.name,share:pr.shot_share,tend:pr.shot_tend,espn:e,fr:0}); });
       items.sort(function(a,b){ return b.share-a.share; });
     }
-    if(items.length<3){ el.innerHTML='<div class="hx-empty">No projected shot distribution for this roster yet.</div>'; return; }
+    if(items.length<3){ el.innerHTML='<div class="hx-empty">No projected shot distribution for this roster yet.</div>'; var _pc0=byId('hxShotProfCard'); if(_pc0)_pc0.style.display='none'; return; }
     var max=items[0].share||1;
     el.innerHTML=items.slice(0,8).map(function(it){
       var w=Math.max(3,Math.round(it.share/max*100));
@@ -625,6 +626,19 @@ function _fillHxShot(ps, short){
         '<div class="bar"><i style="width:'+w+'%;background:var(--tc)"></i></div>'+
         '<span class="mv" style="color:var(--tc-readable,var(--tc))">'+it.share.toFixed(1)+'%<span style="display:block;font-size:9px;font-weight:600;color:var(--txt3)">tend '+it.tend+(moved?' <span style="color:'+ac+'">'+(it.tend<dem?'▼':'▲')+dem+'</span>':'')+'</span></span></div>';
     }).join('');
+    // team-wide shot profile → fills the card in the right column
+    var _threats=items.filter(function(x){return (x.tend||0)>=75;}).length;
+    var _sh=items.map(function(x){return (x.share||0)/100;}), _hhi=_sh.reduce(function(s,v){return s+v*v;},0);
+    var _eff=_hhi>0?(1/_hhi):items.length, _top=items[0].share;
+    var _prof=_top>=21?{l:'Star-driven',c:'#e0885a'}:_top>=18?{l:'Featured-scorer led',c:'var(--tc-readable,var(--tc))'}:{l:'Balanced attack',c:'#2bb673'};
+    var _pc=byId('hxShotProfCard'), _pb=byId('hxShotProf');
+    if(_pc&&_pb){ _pc.style.display='';
+      var _row=function(k,v){return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-top:1px solid rgba(128,128,128,.14);font-size:12.5px;"><span style="font-weight:600;opacity:.72;">'+k+'</span><span style="font-weight:800;color:var(--tc-readable,var(--tc));">'+v+'</span></div>';};
+      _pb.innerHTML='<div style="font-size:16px;font-weight:800;line-height:1.15;color:'+_prof.c+';margin:2px 0 10px;">'+_prof.l+'</div>'
+        +_row('Scoring threats', _threats+' <span style="font-size:9px;font-weight:600;opacity:.6;">tend 75+</span>')
+        +_row('Shot options', _eff.toFixed(1))
+        +_row('Top option', _top.toFixed(1)+'%');
+    }
   };
   if(_hqShot){ render(); return; }
   fetch('scripts/data/stat_overall_projected.json?v=18').then(function(r){return r.ok?r.json():null;}).then(function(j){ _hqShot={players:(j&&j.players)||{},teams:(j&&j.teams)||{}}; render(); }).catch(function(){ el.innerHTML='<div class="hx-empty">Shot distribution unavailable.</div>'; });
