@@ -770,13 +770,14 @@
     .hsig-chip b{color:var(--c);font-weight:800;margin-left:2px;}
 
     /* NIL VALUE LEDGER */
-    .nl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;}
+    .nl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--bg2);box-shadow:0 1px 3px rgba(0,0,0,.18);}
     .nl-tbl{width:100%;border-collapse:collapse;font-size:13px;min-width:400px;}
-    .nl-tbl th{text-align:right;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:10px 12px;border-bottom:1px solid var(--border);background:var(--bg2);}
+    .nl-tbl th{text-align:right;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:10px 12px;border-bottom:1px solid var(--border);background:var(--bg3,rgba(127,140,170,.10));}
     .nl-tbl th:first-child,.nl-tbl td:first-child{text-align:left;}
     .nl-tbl td{text-align:right;padding:10px 12px;border-bottom:1px solid var(--border);}
+    .nl-tbl tbody tr:nth-child(even) td{background:rgba(127,140,170,.045);}
     .nl-tbl tr:last-child td{border-bottom:none;}
-    .nl-tbl tbody tr:hover{background:var(--bg2);}
+    .nl-tbl tbody tr:hover td{background:rgba(127,140,170,.10);}
     .nl-tbl .nl-yr{font-weight:700;color:var(--text);}
     .nl-tbl .nl-tm{color:var(--text2);}
     .nl-tbl .nl-g{font-weight:700;color:var(--text2);}
@@ -1106,10 +1107,8 @@ body{background:transparent!important;}
     .dd-hi-l{font:800 9px/1 'Inter',sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);}
     .dd-hi-v{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:25px;line-height:1;margin:7px 0 4px;}
     .dd-hi-s{font:800 9.5px/1 'Inter',sans-serif;letter-spacing:.02em;}
-    /* each category is a labeled row (label left, heat cells right) like the Season Ledger */
-    .dd-sec{display:flex;align-items:stretch;gap:10px;margin-bottom:6px;}
-    .dd-sec-h{flex:0 0 132px;display:flex;align-items:center;font:800 10px/1.25 'Inter',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
-    @media(max-width:640px){.dd-sec{flex-direction:column;gap:5px;}.dd-sec-h{flex:none;}}
+    /* category label above each one-row heat table (dashboard uses TDCHeat.table now) */
+    .dd-sec-h{font:800 10px/1 'Inter',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:18px 0 7px;}
     /* spreadsheet-style heat cells (match the Season Ledger): shaded background by
        percentile, value on top, percentile beneath, tight square grid */
     .dd-grid{flex:1;min-width:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
@@ -2101,21 +2100,17 @@ function buildPctDashboard(srcRow, projectedFlag, label){
     ]}
   ];
 
-  var secs=groups.map(function(g){
-    var cells=g.items.filter(Boolean).map(function(m){
-      var P=(m.pct==null||isNaN(m.pct))?null:Math.round(m.pct);
-      var col=_dnaTierCol(P);
-      // Spreadsheet-style cell: the cell BACKGROUND is the percentile heat (green good /
-      // blue below-avg), value on top, percentile beneath — matching the Season Ledger.
-      var tint=(P!=null&&window.TDCHeat)?TDCHeat.heatBg(P):null;
-      var bg=tint?('linear-gradient('+tint+','+tint+'),var(--bg2)'):'var(--bg2)';
-      return '<div class="dd-cell" style="background:'+bg+';"><div class="dd-cell-l">'+m.l+'</div>'
-        +'<div class="dd-cell-v">'+m.disp+'</div>'
-        +'<span class="dd-cell-s" style="color:'+(P!=null?col:'var(--text3)')+';">'+(P!=null?_ord(P):'—')+'</span></div>';
-    }).join('');
-    if(!cells) return '';
-    return '<div class="dd-sec"><div class="dd-sec-h">'+g.t+'</div><div class="dd-grid">'+cells+'</div></div>';
-  }).filter(Boolean).join('');
+  // Render each category as a one-row heat table — the SAME TDCHeat.table the Season
+  // Ledger uses, so the dashboard is literally the same spreadsheet component (metrics
+  // as columns, the player's line as the row, cells shaded by percentile).
+  var secs=(window.TDCHeat)?groups.map(function(g){
+    var items=g.items.filter(Boolean);
+    if(!items.length) return '';
+    var cols=items.map(function(m,i){ return {k:'c'+i, label:m.l, center:true, pctKey:true, fmt:(function(mm){return function(){return mm.disp;};})(m)}; });
+    var row={_pct:{}};
+    items.forEach(function(m,i){ row['c'+i]=m.disp; row._pct['c'+i]=(m.pct==null||isNaN(m.pct))?null:Math.round(m.pct); });
+    return '<div class="dd-sec-h">'+g.t+'</div>'+TDCHeat.table({cols:cols, rows:[row], minWidth:Math.max(300, items.length*90)});
+  }).filter(Boolean).join(''):'';
   if(!secs) return '';
 
   // headline impact band — owned wins value (our "top-line RAPM" analog)
