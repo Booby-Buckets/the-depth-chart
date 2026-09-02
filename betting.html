@@ -76,6 +76,38 @@
     .propcalc input{width:64px;padding:5px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;text-align:center;}
     .hit{font-weight:800;}
     .empty{padding:36px;text-align:center;color:var(--text3);font-size:13px;}
+    /* ── Model Line matchup card ── */
+    .ml-pick{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:end;margin-bottom:14px;}
+    @media(max-width:640px){.ml-pick{grid-template-columns:1fr;}}
+    .ml-side label{display:block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
+    .ml-side select{width:100%;}
+    .ml-mid{display:flex;flex-direction:column;align-items:center;gap:6px;padding-bottom:2px;}
+    .ml-swap{border:1px solid var(--border2);background:var(--bg);color:var(--text2);border-radius:8px;width:34px;height:34px;font-size:15px;cursor:pointer;line-height:1;}
+    .ml-swap:hover{border-color:var(--accent);color:var(--accent);}
+    .ml-vtag{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .ml-out{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:0;overflow:hidden;}
+    .ml-hero{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;padding:20px 22px;background:linear-gradient(180deg,var(--bg3),var(--bg2));border-bottom:1px solid var(--border);}
+    .ml-team{display:flex;flex-direction:column;gap:5px;min-width:0;}
+    .ml-team.away{align-items:flex-start;} .ml-team.home{align-items:flex-end;text-align:right;}
+    .ml-logo{width:44px;height:44px;border-radius:9px;background:#fff;box-shadow:inset 0 0 0 1px rgba(15,23,42,.10);overflow:hidden;display:flex;align-items:center;justify-content:center;}
+    .ml-logo img{width:34px;height:34px;object-fit:contain;}
+    .ml-nm{font-family:'Playfair Display',serif;font-size:19px;font-weight:800;line-height:1.05;}
+    .ml-meta{font-size:11px;color:var(--text3);}
+    .ml-score{font-family:'Playfair Display',serif;font-size:40px;font-weight:800;line-height:1;text-align:center;}
+    .ml-vs{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);text-align:center;margin-top:4px;}
+    .ml-lines{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);}
+    .ml-cell{background:var(--bg2);padding:14px 12px;text-align:center;}
+    .ml-cell .lab{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
+    .ml-cell .big{font-family:'Playfair Display',serif;font-size:22px;font-weight:800;line-height:1;}
+    .ml-cell .sm{font-size:11px;color:var(--text3);margin-top:4px;}
+    .ml-prob{padding:14px 22px 6px;}
+    .ml-probrow{display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:5px;}
+    .ml-bar{height:9px;border-radius:5px;background:var(--bg3);overflow:hidden;display:flex;}
+    .ml-bar .a{background:var(--accent);} .ml-bar .b{background:var(--border2);}
+    .ml-read{padding:12px 22px 18px;font-size:12px;color:var(--text2);line-height:1.55;}
+    .ml-read b{color:var(--text);}
+    .ml-conf{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:12px;margin-right:8px;vertical-align:middle;}
+    .ml-conf.s3{background:rgba(26,140,58,.16);color:var(--green);} .ml-conf.s2{background:rgba(200,160,32,.18);color:var(--gold);} .ml-conf.s1{background:var(--bg3);color:var(--text3);}
   </style>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
@@ -104,6 +136,20 @@
       <span>📡</span>
       <div><b>Live lines &amp; edges activate in-season.</b> Real sportsbook spreads, totals and props connect through the odds feed once the season tips and the API key is in. Everything below is live now — it runs on our own data and needs no external feed.</div>
     </div>
+
+    <!-- ══ MODEL LINE ══ -->
+    <div class="sec"><span>Model Line</span><span class="hint" id="mlHint">our projected spread, total &amp; win probability for any matchup</span></div>
+    <div class="ml-pick">
+      <div class="ml-side"><label>Away team</label><select id="mlAway"><option>Loading…</option></select></div>
+      <div class="ml-mid">
+        <button class="ml-swap" id="mlSwap" title="Swap home/away">⇄</button>
+        <span class="ml-vtag" id="mlVtag">away @ home</span>
+        <label style="font-size:10px;color:var(--text3);cursor:pointer;user-select:none;"><input type="checkbox" id="mlNeutral" style="vertical-align:-1px;"> neutral court</label>
+      </div>
+      <div class="ml-side"><label>Home team</label><select id="mlHome"><option>Loading…</option></select></div>
+    </div>
+    <div class="ml-out" id="mlOut"><div class="loading">Loading projected ratings…</div></div>
+    <div class="note">The <b>spread</b> and <b>win probability</b> come from our projected power ratings (roster-based, on the point-margin scale) plus home-court edge. The <b>total</b> is modeled from each team's projected tempo and offensive/defensive efficiency (Team DNA). This is the model's own number — a baseline to compare against the book once live lines are in.</div>
 
     <!-- ══ TEAM TRENDS ══ -->
     <div class="sec"><span>Team Trends</span><span class="hint" id="teamHint">last 5 seasons · vs our power-rating line</span></div>
@@ -140,7 +186,7 @@
     <div class="note"><b>vs Line</b> is our own backtest: each game's result compared to the point-spread line implied by our season power ratings (SRS + home court). A team that consistently beats that number has been priced low by the model — a starting point for value, not a guarantee. Real sportsbook lines layer on top once the feed is live.</div>
 
     <!-- ══ PLAYER PROP TRENDS ══ -->
-    <div class="sec"><span>Player Prop Trends</span><span class="hint" id="playerHint">points · rebounds · assists · threes · P+R+A</span></div>
+    <div class="sec"><span>Player Prop Trends</span><span class="hint" id="playerHint">historical baselines + projected 2026-27 lines · pts · reb · ast · 3PM · PRA</span></div>
     <div class="two">
       <div>
         <input class="search" id="playerSearch" placeholder="Search player…" style="width:100%;margin-bottom:10px;"/>
@@ -150,10 +196,93 @@
         <div class="empty">Pick a player to see their prop trends — averages, floor/ceiling, season direction, and an over/under hit-rate estimator for any line.</div>
       </div>
     </div>
-    <div class="note">Prop hit-rates are estimated from each player's game-to-game distribution (average + spread) over the selected seasons — a fast read on how often a line is likely to cash. Exact game-log hit-rates and live prop lines arrive with the odds feed.</div>
+    <div class="note">Each card shows the player's <b>historical average</b> plus our <b>projected 2026-27 line</b> (accent). The O/U box is pre-set to that projected number, and the hit-rate is how often his last-two-season games <i>cleared</i> that line — so a big gap between the projection and his hit-rate flags where the model expects a jump (or a fade). Exact game-log hit-rates and live prop lines arrive with the odds feed.</div>
   </div>
 
 <script>
+// ═══ MODEL LINE ════════════════════════════════════════════════════════════
+// Projected spread + win prob from TDC_RATINGS.lineFor (validated power ratings);
+// projected total from Team DNA tempo × efficiency. The book's number layers on
+// top once live odds are in — this is our own model line to compare against.
+let ML_TEAMS=null, ML_BYFULL={}, ML_DNA={}, ML_LG={tempo:67.5,eff:106};
+function _mlLogo(full){ const t=ML_BYFULL[full]; const s=(t&&t.team)||full;
+  const c=(window.tdcTeamColor&&(tdcTeamColor(s)||tdcTeamColor(full)))||null; return (c&&c.logo)||''; }
+function _mlShort(full){ const t=ML_BYFULL[full]; return (t&&t.team)||full; }
+// modeled total: expected pace (KenPom-style) × combined points-per-100 vs opponent D
+function mlTotal(aFull,bFull){
+  const A=ML_DNA[aFull], B=ML_DNA[bFull];
+  if(!A||!B||A.tempo==null||B.tempo==null||A.ORtg==null||B.ORtg==null||A.DRtg==null||B.DRtg==null) return null;
+  const pace=A.tempo*B.tempo/ML_LG.tempo;                 // expected possessions / 40
+  const aP=A.ORtg+(B.DRtg-ML_LG.eff);                     // A offense vs B defense, league-relative
+  const bP=B.ORtg+(A.DRtg-ML_LG.eff);
+  return (aP+bP)*pace/100;
+}
+function mlConf(prob){ return prob>=78?['s3','Strong lean']:prob>=66?['s2','Clear lean']:prob>=57?['s2','Slight edge']:['s1','Near pick’em']; }
+function renderModelLine(){
+  const out=document.getElementById('mlOut'); if(!ML_TEAMS) return;
+  const awayF=document.getElementById('mlAway').value, homeF=document.getElementById('mlHome').value;
+  const neutral=document.getElementById('mlNeutral').checked;
+  document.getElementById('mlVtag').textContent=neutral?'neutral site':'away @ home';
+  const A=ML_BYFULL[homeF], B=ML_BYFULL[awayF];           // A = home (venue 'home' means A hosts)
+  if(!A||!B){ out.innerHTML='<div class="empty">Pick two teams.</div>'; return; }
+  if(homeF===awayF){ out.innerHTML='<div class="empty">Pick two different teams.</div>'; return; }
+  const tot=mlTotal(homeF,awayF);
+  const L=TDC_RATINGS.lineFor(A,B,neutral?'neutral':'home',tot!=null?tot:undefined);
+  // L.margin is home-relative (A). Favorite = whoever has margin sign.
+  const homeFav=L.margin>=0, favShort=_mlShort(homeFav?homeF:awayF), spr=Math.abs(L.margin).toFixed(1);
+  const homeProb=L.probA, awayProb=L.probB, favProb=Math.max(homeProb,awayProb);
+  const [cc,cl]=mlConf(favProb);
+  const totShown=tot!=null?Math.round(L.scoreA+L.scoreB):null;
+  const teamBlock=(full,side,score,prob)=>{ const lg=_mlLogo(full), t=ML_BYFULL[full];
+    return `<div class="ml-team ${side}">
+      <span class="ml-logo">${lg?`<img src="${lg}" alt="" onerror="this.style.display='none'">`:''}</span>
+      <span class="ml-nm">${_mlShort(full)}</span>
+      <span class="ml-meta">${t&&t.rank?'#'+t.rank+' · ':''}rtg ${t?t.rating.toFixed(1):'—'}${side==='away'&&!neutral?' · away':(side==='home'&&!neutral?' · home':'')}</span>
+    </div>`; };
+  out.innerHTML=`
+    <div class="ml-hero">
+      ${teamBlock(awayF,'away',L.scoreB,awayProb)}
+      <div><div class="ml-score">${L.scoreB} <span style="color:var(--text3)">–</span> ${L.scoreA}</div><div class="ml-vs">projected score</div></div>
+      ${teamBlock(homeF,'home',L.scoreA,homeProb)}
+    </div>
+    <div class="ml-lines">
+      <div class="ml-cell"><div class="lab">Spread</div><div class="big">${favShort} −${spr}</div><div class="sm">model line</div></div>
+      <div class="ml-cell"><div class="lab">Total</div><div class="big">${totShown!=null?totShown:'—'}</div><div class="sm">${tot!=null?'projected O/U':'DNA n/a — est.'}</div></div>
+      <div class="ml-cell"><div class="lab">Win prob</div><div class="big">${Math.round(favProb)}%</div><div class="sm">${_mlShort(homeFav?homeF:awayF)}</div></div>
+    </div>
+    <div class="ml-prob">
+      <div class="ml-probrow"><span>${_mlShort(awayF)} ${Math.round(awayProb)}%</span><span>${Math.round(homeProb)}% ${_mlShort(homeF)}</span></div>
+      <div class="ml-bar"><span class="a" style="width:${awayProb}%"></span><span class="b" style="width:${homeProb}%"></span></div>
+    </div>
+    <div class="ml-read"><span class="ml-conf ${cc}">${cl}</span>
+      Our model makes <b>${_mlShort(homeFav?homeF:awayF)}</b> a <b>${spr}-point</b> favorite${neutral?' on a neutral court':(homeFav?' at home':' on the road')},
+      with a <b>${Math.round(favProb)}%</b> win probability and a projected total of <b>${totShown!=null?totShown:'~146'}</b>. Take the favorite's number as your baseline and shop for value against it.</div>`;
+}
+function initModelLine(){
+  TDC_RATINGS.get().then(D=>{
+    ML_TEAMS=(D.teams||[]).filter(t=>t.rating!=null).slice().sort((a,b)=>b.rating-a.rating);
+    ML_TEAMS.forEach((t,i)=>{ if(t.rank==null) t.rank=i+1; ML_BYFULL[t.full]=t; });
+    const opts=ML_TEAMS.map(t=>`<option value="${t.full.replace(/"/g,'&quot;')}">#${t.rank} ${_mlShort(t.full)}</option>`).join('');
+    const aw=document.getElementById('mlAway'), hm=document.getElementById('mlHome');
+    aw.innerHTML=opts; hm.innerHTML=opts;
+    // sensible default: #2 away @ #1 home (a marquee matchup)
+    hm.selectedIndex=0; aw.selectedIndex=Math.min(1,ML_TEAMS.length-1);
+    aw.addEventListener('change',renderModelLine); hm.addEventListener('change',renderModelLine);
+    document.getElementById('mlNeutral').addEventListener('change',renderModelLine);
+    document.getElementById('mlSwap').addEventListener('click',()=>{ const a=aw.value; aw.value=hm.value; hm.value=a; renderModelLine(); });
+    renderModelLine();
+  }).catch(()=>{ document.getElementById('mlOut').innerHTML='<div class="empty">Could not load projected ratings.</div>'; });
+  // Team DNA for the modeled total (league averages self-calibrated from the set)
+  fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(d=>{
+    ML_DNA=((d&&d['2027'])||{}).teams||{};
+    const vals=Object.values(ML_DNA).filter(t=>t&&t.tempo&&t.ORtg&&t.DRtg);
+    if(vals.length){ ML_LG.tempo=vals.reduce((s,t)=>s+t.tempo,0)/vals.length;
+      ML_LG.eff=vals.reduce((s,t)=>s+(t.ORtg+t.DRtg)/2,0)/vals.length; }
+    if(ML_TEAMS) renderModelLine();
+  }).catch(()=>{});
+}
+initModelLine();
+
 // ═══ TEAM TRENDS ═══════════════════════════════════════════════════════════
 let TEAMS=null, teamSeason='all', teamSort='winpct', teamDir=-1;
 const pct = v => (v==null?'—':Math.round(v*100)+'%');
@@ -233,8 +362,12 @@ fetch('scripts/data/bet_trends_teams.json').then(r=>r.ok?r.json():null).then(d=>
 }).catch(()=>{ document.getElementById('teamBody').innerHTML='<tr><td colspan="11" class="empty">Team trends failed to load.</td></tr>'; });
 
 // ═══ PLAYER PROP TRENDS ════════════════════════════════════════════════════
-let PLAYERS=null, curPlayer=null;
+let PLAYERS=null, curPlayer=null, PROJ={};   // PROJ: espn_id -> projected 2026-27 per-game line
 const STAT_LABEL={pts:'Points',reb:'Rebounds',ast:'Assists',tpm:'3-Pointers',pra:'P + R + A'};
+// map a prop stat to its projected value from stat_overall_projected.json
+function projStat(id,s){ const pr=PROJ[id]; if(!pr) return null;
+  const v={pts:pr.ppg,reb:pr.rpg,ast:pr.apg,tpm:pr.tpm,pra:(pr.ppg||0)+(pr.rpg||0)+(pr.apg||0)}[s];
+  return (v==null||!isFinite(v))?null:v; }
 // standard normal CDF (Abramowitz-Stegun) for the over/under hit-rate estimate
 function normCdf(z){ const t=1/(1+0.2316419*Math.abs(z));
   const d=0.3989423*Math.exp(-z*z/2);
@@ -271,11 +404,15 @@ function selectPlayer(id){
   const p=curPlayer, card=document.getElementById('playerCard');
   const cards=Object.keys(STAT_LABEL).map(s=>{
     const d=p.stats[s]; if(!d) return '';
-    const lineDefault=(Math.round(d.avg*2)/2 - 0.5).toFixed(1);
+    const proj=projStat(p.id,s);   // projected 2026-27 line (returners only)
+    // default the line to the PROJECTED number when we have it, else the historical avg
+    const base=(proj!=null?proj:d.avg);
+    const lineDefault=(Math.round(base*2)/2 - 0.5).toFixed(1);
     return `<div class="stat">
       <h4>${STAT_LABEL[s]}</h4>
       <div class="avg">${d.avg}</div>
       <div class="rng">${d.g} g · range ${d.lo}–${d.hi} · med ${d.med}</div>
+      ${proj!=null?`<div style="font-size:11px;font-weight:800;color:var(--accent);margin-top:5px;">Proj ’26-27 · ${proj.toFixed(1)}</div>`:''}
       <div class="trend">${trendTxt(d.bySeason,'avg')}</div>
       <div class="propcalc">O/U <input type="number" step="0.5" value="${lineDefault}" data-stat="${s}" data-avg="${d.avg}" data-sd="${d.sd}"> → <span class="hit" data-out="${s}"></span></div>
     </div>`;
@@ -298,6 +435,10 @@ function selectPlayer(id){
 }
 let TEAMSMETA=null;
 document.getElementById('playerSearch').addEventListener('input',renderPlayerList);
+// projected 2026-27 per-game lines (returners) — makes the prop tool forward-looking
+fetch('scripts/data/stat_overall_projected.json?v=19').then(r=>r.ok?r.json():null).then(d=>{
+  if(d&&d.players){ PROJ=d.players; if(curPlayer) selectPlayer(curPlayer.id); }
+}).catch(()=>{});
 fetch('scripts/data/bet_trends_players.json').then(r=>r.ok?r.json():null).then(d=>{
   const msg=document.getElementById('playerListMsg');
   if(!d){ if(msg) msg.textContent='Player prop trends are still being built — check back shortly.'; return; }
