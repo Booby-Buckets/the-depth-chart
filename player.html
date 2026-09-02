@@ -82,7 +82,7 @@
     .nav-sub a.active{color:var(--text);}
 
     /* HERO — premium player card */
-    .player-hero{position:relative;padding:34px 40px 28px;border-bottom:1px solid var(--border);display:flex;gap:26px;align-items:center;overflow:hidden;isolation:isolate;}
+    .player-hero{position:relative;padding:22px 40px 20px;border-bottom:1px solid var(--border);display:flex;gap:26px;align-items:center;overflow:hidden;isolation:isolate;}
     .player-hero::before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(102deg, color-mix(in srgb, var(--tc) 13%, transparent) 0%, color-mix(in srgb, var(--tc) 4%, transparent) 34%, transparent 58%);pointer-events:none;}
     .player-hero::after{content:'';position:absolute;top:-55%;right:-4%;width:420px;height:420px;border-radius:50%;z-index:-1;background:radial-gradient(circle, color-mix(in srgb, var(--tc) 16%, transparent), transparent 66%);filter:blur(38px);pointer-events:none;}
     .hero-avatar{width:130px;height:130px;border-radius:26px;background:linear-gradient(155deg, color-mix(in srgb, var(--tc) 34%, var(--bg2)), var(--bg2) 78%);border:1.5px solid color-mix(in srgb, var(--tc) 55%, var(--border2));box-shadow:0 0 0 4px color-mix(in srgb, var(--tc) 13%, transparent), 0 14px 34px rgba(0,0,0,.34);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:800;font-size:52px;color:#fff;flex-shrink:0;text-shadow:0 2px 10px rgba(0,0,0,.4);}
@@ -2063,54 +2063,53 @@ function buildPctDashboard(srcRow, projectedFlag, label){
   // shot-genome metric (percentile precomputed in the genome data)
   function gen(l,v,pct,fmt){ if(v==null||isNaN(+v)||pct==null)return null; var d=fmt(v); if(d==null)return null; return {l:l,disp:d,pct:Math.max(0,Math.min(100,Math.round(pct)))}; }
 
-  var groups=[
-    {t:'Scoring & Efficiency', items:[
-      nat('PPG','ppg',src.ppg,num1),
-      nat('PTS / 40','pts40',p40v(src.ppg),num1),
-      nat('TS%','ts_pct',adv.ts_pct,pc1),
-      nat('eFG%','efg_pct',pgs.efg_pct,pc1),
-      nat('FG%','fg_pct',src.fg_pct,pc0),
-      nat('3P%','tp_pct',src.tp_pct,pc0),
-      nat('FT%','ft_pct',src.ft_pct,pc0),
-      nat('USG%','usg_pct',adv.usg_pct,pc0),
-      sg?gen('Shot-Making',sg.smAdj,sg.smPct,num1):null
-    ]},
-    {t:'Playmaking & Ball Security', items:[
-      nat('APG','apg',src.apg,num1),
-      nat('AST / 40','ast40',p40v(src.apg),num1),
-      nat('AST%','ast_pct',adv.ast_pct,pc0),
-      nat('TOV%','tov_pct',adv.tov_pct,pc0,true),
-      sg?gen('Creation',sg.crAdj,sg.crPct,num1):null,
-      sg?gen('Self-Creation',sg.selfPct,sg.selfPctl,pcW):null
-    ]},
-    {t:'Rebounding', items:[
-      nat('RPG','rpg',src.rpg,num1),
-      nat('REB / 40','reb40',p40v(src.rpg),num1),
-      nat('TRB%','trb_pct',adv.trb_pct,pc0),
-      nat('ORB%','orb_pct',adv.orb_pct,pc0),
-      nat('DRB%','drb_pct',adv.drb_pct,pc0)
-    ]},
-    {t:'Defense', items:[
-      nat('SPG','stl',src.stl,num1),
-      nat('STL / 40','stl40',p40v(src.stl),num1),
-      nat('STL%','stl_pct',adv.stl_pct,pc0),
-      nat('BPG','blk',src.blk,num1),
-      nat('BLK / 40','blk40',p40v(src.blk),num1),
-      nat('BLK%','blk_pct',adv.blk_pct,pc0)
-    ]}
+  // ONE wide per-YEAR heat table (row per season, like the Season Ledger) — every
+  // dashboard metric as a column, cells shaded by national percentile with the
+  // percentile beneath. Combines the old category grids into a single spreadsheet.
+  var p40r=function(r,pg){ var m=+r.mpg; return (m>0&&pg!=null&&!isNaN(+pg))?(+pg/m*40):null; };
+  var A=function(r){return r._advanced||{};}, PGr=function(r){return r._pergame||{};};
+  var METRICS=[
+    {l:'PPG',pk:'ppg',g:function(r){return r.ppg;},f:num1},
+    {l:'PTS/40',pk:'pts40',g:function(r){return p40r(r,r.ppg);},f:num1},
+    {l:'TS%',pk:'ts_pct',g:function(r){return A(r).ts_pct;},f:pc1},
+    {l:'eFG%',pk:'efg_pct',g:function(r){return PGr(r).efg_pct;},f:pc1},
+    {l:'FG%',pk:'fg_pct',g:function(r){return r.fg_pct;},f:pc0},
+    {l:'3P%',pk:'tp_pct',g:function(r){return r.tp_pct;},f:pc0},
+    {l:'FT%',pk:'ft_pct',g:function(r){return r.ft_pct;},f:pc0},
+    {l:'USG%',pk:'usg_pct',g:function(r){return A(r).usg_pct;},f:pc0},
+    {l:'APG',pk:'apg',g:function(r){return r.apg;},f:num1},
+    {l:'AST/40',pk:'ast40',g:function(r){return p40r(r,r.apg);},f:num1},
+    {l:'AST%',pk:'ast_pct',g:function(r){return A(r).ast_pct;},f:pc0},
+    {l:'TOV%',pk:'tov_pct',inv:true,g:function(r){return A(r).tov_pct;},f:pc0,ttl:'Turnover rate (fewer is better)'},
+    {l:'RPG',pk:'rpg',g:function(r){return r.rpg;},f:num1},
+    {l:'REB/40',pk:'reb40',g:function(r){return p40r(r,r.rpg);},f:num1},
+    {l:'TRB%',pk:'trb_pct',g:function(r){return A(r).trb_pct;},f:pc0},
+    {l:'ORB%',pk:'orb_pct',g:function(r){return A(r).orb_pct;},f:pc0},
+    {l:'DRB%',pk:'drb_pct',g:function(r){return A(r).drb_pct;},f:pc0},
+    {l:'SPG',pk:'stl',g:function(r){return r.stl;},f:num1},
+    {l:'STL%',pk:'stl_pct',g:function(r){return A(r).stl_pct;},f:pc0},
+    {l:'BPG',pk:'blk',g:function(r){return r.blk;},f:num1},
+    {l:'BLK%',pk:'blk_pct',g:function(r){return A(r).blk_pct;},f:pc0}
   ];
-
-  // Render each category as a one-row heat table — the SAME TDCHeat.table the Season
-  // Ledger uses, so the dashboard is literally the same spreadsheet component (metrics
-  // as columns, the player's line as the row, cells shaded by percentile).
-  var secs=(window.TDCHeat)?groups.map(function(g){
-    var items=g.items.filter(Boolean);
-    if(!items.length) return '';
-    var cols=items.map(function(m,i){ return {k:'c'+i, label:m.l, center:true, pctKey:true, fmt:(function(mm){return function(){return mm.disp;};})(m)}; });
-    var row={_pct:{}};
-    items.forEach(function(m,i){ row['c'+i]=m.disp; row._pct['c'+i]=(m.pct==null||isNaN(m.pct))?null:Math.round(m.pct); });
-    return '<div class="dd-sec-h">'+g.t+'</div>'+TDCHeat.table({cols:cols, rows:[row], minWidth:Math.max(300, items.length*90)});
-  }).filter(Boolean).join(''):'';
+  var _seasons=(careerHistory||[]).filter(function(r){return r&&r.season_year&&(+r.mpg||0)>=1;});
+  var secs='';
+  if(window.TDCHeat && _seasons.length){
+    var _pcell=function(v,M){ if(v==null||v===''||isNaN(+v))return null; var p=_pdPct(+v,M.pk,M.inv); return (p==null||isNaN(p))?null:Math.round(p); };
+    var mkRow=function(r){ var d={_pct:{}, _seasonHtml:'<span class="hl-season">'+_slSeasonLbl(r.season_year)+'</span><span class="hl-team">'+(r.team||'')+'</span>', gp:r.gp};
+      METRICS.forEach(function(M){ var v=M.g(r); d[M.l]=v; d._pct[M.l]=_pcell(v,M); }); return d; };
+    var hrows=_seasons.map(mkRow);
+    if(_seasons.length>1){ // GP-weighted career row
+      var tg=0, ws={}; METRICS.forEach(function(M){ws[M.l]=0;});
+      _seasons.forEach(function(r){ var g=+r.gp||0; tg+=g; METRICS.forEach(function(M){ var v=M.g(r); if(v!=null&&!isNaN(+v)) ws[M.l]+=(+v)*g; }); });
+      var cr={_total:true,_pct:{},gp:tg,_seasonHtml:'<span class="hl-season">Career</span><span class="hl-team">'+_seasons.length+' seasons</span>'};
+      METRICS.forEach(function(M){ var v=tg?ws[M.l]/tg:null; cr[M.l]=v; cr._pct[M.l]=_pcell(v,M); });
+      hrows.push(cr);
+    }
+    var cols=[{k:'_seasonHtml',label:'Season',left:true,sticky:true,fmt:function(v){return v;}},
+              {k:'gp',label:'GP',center:true,fmt:function(v){return (v==null||isNaN(+v))?null:Math.round(+v);}}];
+    METRICS.forEach(function(M){ cols.push({k:M.l,label:M.l,center:true,pctKey:true,fmt:M.f,title:M.ttl}); });
+    secs=TDCHeat.table({cols:cols, rows:hrows, minWidth:Math.max(1000, cols.length*62)});
+  }
   if(!secs) return '';
 
   // headline impact band — owned wins value (our "top-line RAPM" analog)
@@ -4559,7 +4558,6 @@ function renderPage(){
           ${(window.TDCInjury&&TDCInjury.isOwner())?(function(){var r=TDCInjury.get(p);return '<button class="hero-tag edit'+(r?' inj-on':'')+'" onclick="_openInjuryEditor()">⚕ '+(r?TDCInjury.statusLabel(r):'Add injury')+'</button>';})():''}
         </div>`:''}
         <div id="draftSticker"></div>
-        ${buildHeroSig()}
       </div>
      </div><!-- /hero-idwrap -->
       <div class="hero-grid">
