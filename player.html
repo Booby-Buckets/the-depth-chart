@@ -820,12 +820,14 @@
 
     /* SITUATIONAL PROFILE (predictive identifiers) */
     .si-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;}
-    .si-card{background:var(--bg2);border:1px solid var(--border);border-radius:13px;padding:14px 16px;}
-    .si-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px;}
-    .si-t{font-size:12.5px;font-weight:800;color:var(--text);}
-    .si-rating{font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap;}
-    .si-detail{font-family:var(--mono,ui-monospace,monospace);font-size:11.5px;color:var(--text2);margin-bottom:7px;}
-    .si-read{font-size:12px;color:var(--text3);line-height:1.5;}
+    .si-card{background:var(--bg2);border:1px solid var(--border);border-radius:13px;padding:15px 16px 14px;}
+    .si-t{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:9px;}
+    .si-q{font-weight:600;letter-spacing:0;text-transform:none;opacity:.65;}
+    .si-read{font-size:14px;font-weight:700;color:var(--text);line-height:1.4;margin-bottom:13px;}
+    .si-gauge{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:11px;}
+    .si-seg{text-align:center;font-size:10px;font-weight:700;padding:6px 4px;border:1px solid var(--border);border-radius:6px;color:var(--text3);background:var(--bg3,rgba(127,140,170,.07));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .si-seg.on{font-weight:800;}
+    .si-detail{font-size:10.5px;color:var(--text3);line-height:1.45;}
     /* on/off mini breakdown */
     .oo-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:11px;padding:10px 0;border-top:1px solid var(--border);}
     .oo-col{text-align:center;}
@@ -1104,11 +1106,13 @@ body{background:transparent!important;}
     .dd-hi-l{font:800 9px/1 'Inter',sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);}
     .dd-hi-v{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:25px;line-height:1;margin:7px 0 4px;}
     .dd-hi-s{font:800 9.5px/1 'Inter',sans-serif;letter-spacing:.02em;}
-    .dd-sec{margin-bottom:18px;}
-    .dd-sec-h{font:800 10px/1 'Inter',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);padding-bottom:7px;margin-bottom:10px;border-bottom:1px solid var(--border);}
+    /* each category is a labeled row (label left, heat cells right) like the Season Ledger */
+    .dd-sec{display:flex;align-items:stretch;gap:10px;margin-bottom:6px;}
+    .dd-sec-h{flex:0 0 132px;display:flex;align-items:center;font:800 10px/1.25 'Inter',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    @media(max-width:640px){.dd-sec{flex-direction:column;gap:5px;}.dd-sec-h{flex:none;}}
     /* spreadsheet-style heat cells (match the Season Ledger): shaded background by
        percentile, value on top, percentile beneath, tight square grid */
-    .dd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+    .dd-grid{flex:1;min-width:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
     .dd-cell{background:var(--bg2);border:none;border-radius:0;padding:9px 10px 8px;transition:filter .12s;}
     .dd-cell:hover{filter:brightness(1.12);}
     .dd-cell-l{font:700 8.5px/1.1 'Inter',sans-serif;letter-spacing:.02em;text-transform:uppercase;color:var(--text2,var(--text3));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -2670,18 +2674,24 @@ async function loadSituational(){
   var cards=[];
   var th=per40(hav,'tov'), tl=per40(lowh,'tov');
   if(th!=null&&tl!=null){ var dd=th-tl; var rt=dd>=1.2?{t:'Vulnerable',c:'#E06A7A'}:dd<=-0.6?{t:'Handles it',c:'#2DE0A6'}:{t:'Neutral',c:'#6B7893'};
-    cards.push({title:'Pressure Vulnerability', rt:rt, detail:th.toFixed(1)+' TO/40 vs havoc D · '+tl.toFixed(1)+' vs passive ('+(dd>=0?'+':'')+dd.toFixed(1)+')', read: dd>=1.2?'Speed him up — a press rattles him.':dd<=-0.6?'A press won’t bother him; guard him in the half-court.':'Roughly steady under pressure.'}); }
+    cards.push({title:'Pressure', q:'vs a press', rt:rt, scale:['Handles it','Neutral','Vulnerable'], ti:(dd>=1.2?2:dd<=-0.6?0:1), read: dd>=1.2?'A press rattles him — speed him up to force mistakes.':dd<=-0.6?'A press won’t bother him — guard him in the half-court.':'Roughly steady under pressure.', detail:'Turns it over '+th.toFixed(1)+'×/40 vs pressure defenses, '+tl.toFixed(1)+'× vs passive ones.'}); }
   var pf_=per40(fast,'pts'), ps_=per40(slow,'pts');
-  if(pf_!=null&&ps_!=null){ var pd=pf_-ps_; var rt2=pd>=2?{t:'Transition',c:'#2DE0A6'}:pd<=-2?{t:'Half-court',c:'#5B8DEF'}:{t:'Pace-neutral',c:'#6B7893'};
-    cards.push({title:'Pace Sensitivity', rt:rt2, detail:pf_.toFixed(1)+' pts/40 vs fast · '+ps_.toFixed(1)+' vs slow ('+(pd>=0?'+':'')+pd.toFixed(1)+')', read: pd>=2?'Thrives in a track meet — slow it down against him.':pd<=-2?'Half-court scorer — pushing pace can quiet him.':'Scores at any tempo.'}); }
+  if(pf_!=null&&ps_!=null){ var pd=pf_-ps_; var rt2=pd>=2?{t:'Transition',c:'#2DE0A6'}:pd<=-2?{t:'Half-court',c:'#5B8DEF'}:{t:'Any tempo',c:'#6B7893'};
+    cards.push({title:'Tempo', q:'fast vs slow games', rt:rt2, scale:['Half-court','Any tempo','Transition'], ti:(pd>=2?2:pd<=-2?0:1), read: pd>=2?'Thrives in a track meet — slow the game down against him.':pd<=-2?'A half-court scorer — pushing the pace quiets him.':'Scores at any tempo.', detail:'Scores '+pf_.toFixed(1)+' pts/40 in fast games, '+ps_.toFixed(1)+' in slow ones.'}); }
   var pf40=per40(bx,'pf');
   if(pf40!=null){ var rt3=pf40>=4.5?{t:'High',c:'#E06A7A'}:pf40>=3.2?{t:'Moderate',c:'#6B7893'}:{t:'Low',c:'#2DE0A6'};
-    cards.push({title:'Foul Risk', rt:rt3, detail:pf40.toFixed(1)+' fouls / 40 min', read: pf40>=4.5?'Foul-prone — attack him to draw fouls.':pf40>=3.2?'Average foul rate.':'Disciplined — hard to foul out.'}); }
+    cards.push({title:'Foul Risk', q:'how often he fouls', rt:rt3, scale:['Low','Moderate','High'], ti:(pf40>=4.5?2:pf40>=3.2?1:0), read: pf40>=4.5?'Foul-prone — attack him to get him in foul trouble.':pf40>=3.2?'An average foul rate — nothing unusual.':'Disciplined — hard to foul out.', detail:'Averages '+pf40.toFixed(1)+' fouls per 40 minutes.'}); }
   var pc=per40(close,'pts'), pcm=per40(comf,'pts');
   if(pc!=null && close.length>=3){ var cd=(pcm!=null)?pc-pcm:null; var rt4=cd==null?{t:'—',c:'#6B7893'}:cd>=2?{t:'Rises',c:'#2DE0A6'}:cd<=-2?{t:'Fades',c:'#E06A7A'}:{t:'Steady',c:'#6B7893'};
-    cards.push({title:'Clutch (close games)', rt:rt4, detail:pc.toFixed(1)+' pts/40 in games ≤5'+(pcm!=null?' · '+pcm.toFixed(1)+' in blowouts':'')+(cd!=null?' ('+(cd>=0?'+':'')+cd.toFixed(1)+')':''), read: cd==null?'Limited close-game sample.':cd>=2?'Steps up when it’s tight.':cd<=-2?'Quieter in close games — make someone else beat you late.':'Same player in the clutch.'}); }
+    cards.push({title:'Clutch', q:'in close games', rt:rt4, scale:['Fades','Steady','Rises'], ti:(cd==null?1:cd>=2?2:cd<=-2?0:1), read: cd==null?'Limited close-game sample so far.':cd>=2?'Steps up when it’s tight — a go-to option late.':cd<=-2?'Quieter in close games — make someone else beat you late.':'The same player in the clutch as any other game.', detail:'Scores '+pc.toFixed(1)+' pts/40 in one-possession games'+(pcm!=null?', '+pcm.toFixed(1)+' in blowouts':'')+'.'}); }
   if(!cards.length){ host.innerHTML=''; return; }
-  var html=cards.map(function(c){ return '<div class="si-card"><div class="si-h"><span class="si-t">'+c.title+'</span><span class="si-rating" style="color:'+c.rt.c+'">'+c.rt.t+'</span></div><div class="si-detail">'+c.detail+'</div><div class="si-read">'+c.read+'</div></div>'; }).join('');
+  var html=cards.map(function(c){
+    var gauge=c.scale.map(function(lbl,i){ var on=(i===c.ti);
+      return '<span class="si-seg'+(on?' on':'')+'"'+(on?' style="background:'+c.rt.c+'26;border-color:'+c.rt.c+';color:'+c.rt.c+';"':'')+'>'+lbl+'</span>'; }).join('');
+    return '<div class="si-card"><div class="si-t">'+c.title+' <span class="si-q">'+c.q+'</span></div>'
+      +'<div class="si-read">'+c.read+'</div>'
+      +'<div class="si-gauge">'+gauge+'</div>'
+      +'<div class="si-detail">'+c.detail+'</div></div>'; }).join('');
   host.innerHTML='<div class="skill-section-title">Situational Profile — Predictive Identifiers</div><div class="si-grid">'+html+'</div><div class="pd-legend" style="margin-bottom:6px;">How his production shifts by opponent type — split from his 2025-26 game log against each opponent’s pace &amp; ball-pressure (team DNA) and by final margin. A coach-decision layer, not a box-score summary.</div>';
   if(window.TDCAnim&&window.TDCAnim.scan) TDCAnim.scan(host);
 }
