@@ -1,0 +1,61 @@
+name: Archive live odds
+
+# Phase C — captures the live NCAAB odds board twice a day during the season:
+#   • a morning snapshot (opening lines) and a near-tip evening snapshot (closing lines)
+# It overwrites scripts/data/odds_live.json (the site's Best Bets feed) and appends to
+# scripts/data/odds_archive.jsonl (our own growing open→close archive), then commits —
+# which triggers a Vercel deploy so the Betting Lab's live board refreshes on its own.
+#
+# SETUP: add a repo secret named ODDS_API_KEY (Settings → Secrets and variables →
+# Actions → New repository secret). Until that secret exists the job no-ops safely, so
+# this workflow can be merged now and simply sits idle until you're ready / in-season.
+# Cost: main markets (spreads,totals,h2h) in the US region = ~3 credits per snapshot,
+# ~2 snapshots/day ≈ 180 credits/month — trivial even on the cheapest paid tier.
+
+on:
+  schedule:
+    - cron: '0 16 * * *'    # ~11:00 ET — opening lines for the day's slate
+    - cron: '30 23 * * *'   # ~18:30 ET — near-tip closing lines
+  workflow_dispatch: {}      # manual run from the Actions tab (use this to test)
+
+permissions:
+  contents: write
+
+concurrency:
+  group: archive-odds
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Snapshot the live odds board
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: |
+          if [ -z "$ODDS_API_KEY" ]; then
+            echo "No ODDS_API_KEY secret set — skipping (add it in repo Settings → Secrets to activate)."
+            exit 0
+          fi
+          python3 scripts/archive_live_odds.py --markets spreads,totals,h2h --regions us
+
+      - name: Commit if changed
+        run: |
+          git config user.name "tdc-odds-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # stage only files that exist — odds files are absent until the first live run
+          [ -f scripts/data/odds_live.json ] && git add scripts/data/odds_live.json || true
+          [ -f scripts/data/odds_archive.jsonl ] && git add scripts/data/odds_archive.jsonl || true
+          if git diff --cached --quiet; then
+            echo "No odds changes."
+          else
+            git commit -m "Auto: archive live odds board [skip ci]"
+            git push
+          fi

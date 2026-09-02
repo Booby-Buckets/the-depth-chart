@@ -151,6 +151,28 @@
     <div class="ml-out" id="mlOut"><div class="loading">Loading projected ratings…</div></div>
     <div class="note">The <b>spread</b> and <b>win probability</b> come from our projected power ratings (roster-based, on the point-margin scale) plus home-court edge. The <b>total</b> is modeled from each team's projected tempo and offensive/defensive efficiency (Team DNA). This is the model's own number — a baseline to compare against the book once live lines are in.</div>
 
+    <!-- ══ LIVE EDGE BOARD (in-season; hidden until the odds feed has games) ══ -->
+    <div id="edgeSec" style="display:none;">
+      <div class="sec"><span>Live Edge Board</span><span class="hint">our model line vs the market — biggest disagreements first</span></div>
+      <div class="tbl-wrap" style="max-height:640px;">
+        <table id="edgeTbl">
+          <thead><tr>
+            <th class="l" data-k="rk">#</th>
+            <th class="l" data-k="game">Game</th>
+            <th data-k="book" title="Consensus book spread (median across US books)">Book</th>
+            <th data-k="model" title="Our model spread">Model</th>
+            <th data-k="edge" class="on" title="Points our model disagrees with the book. Bigger = more value on the side shown.">Edge</th>
+            <th data-k="side" class="l" title="The side our model favors relative to the book">Lean</th>
+            <th data-k="btot" title="Consensus book total">Bk Tot</th>
+            <th data-k="mtot" title="Our modeled total">Md Tot</th>
+            <th data-k="tlean" class="l" title="Over/Under lean vs the book total">O/U</th>
+          </tr></thead>
+          <tbody id="edgeBody"></tbody>
+        </table>
+      </div>
+      <div class="note"><b>Edge</b> is how far our model line sits from the market number. A game where we make the home team a 9-point favorite but the book has them −5 is a <b>+4 lean on the home side</b> — the market may be undervaluing them. Shop these against your book; the biggest gaps are where the model thinks there's value. Totals work the same way (model total above the book total → Over lean). <span id="edgeStamp"></span></div>
+    </div>
+
     <!-- ══ TEAM TRENDS ══ -->
     <div class="sec"><span>Team Trends</span><span class="hint" id="teamHint">last 5 seasons · vs our power-rating line</span></div>
     <div class="controls">
@@ -271,6 +293,7 @@ function initModelLine(){
     document.getElementById('mlNeutral').addEventListener('change',renderModelLine);
     document.getElementById('mlSwap').addEventListener('click',()=>{ const a=aw.value; aw.value=hm.value; hm.value=a; renderModelLine(); });
     renderModelLine();
+    if(typeof renderEdge==='function') renderEdge();   // ratings ready → price any live board
   }).catch(()=>{ document.getElementById('mlOut').innerHTML='<div class="empty">Could not load projected ratings.</div>'; });
   // Team DNA for the modeled total (league averages self-calibrated from the set)
   fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(d=>{
@@ -278,10 +301,91 @@ function initModelLine(){
     const vals=Object.values(ML_DNA).filter(t=>t&&t.tempo&&t.ORtg&&t.DRtg);
     if(vals.length){ ML_LG.tempo=vals.reduce((s,t)=>s+t.tempo,0)/vals.length;
       ML_LG.eff=vals.reduce((s,t)=>s+(t.ORtg+t.DRtg)/2,0)/vals.length; }
-    if(ML_TEAMS) renderModelLine();
+    if(ML_TEAMS){ renderModelLine(); if(typeof renderEdge==='function') renderEdge(); }
   }).catch(()=>{});
 }
 initModelLine();
+
+// ═══ LIVE EDGE BOARD ═══════════════════════════════════════════════════════
+// Reads scripts/data/odds_live.json (written in-season by archive_live_odds.py via
+// the Archive-live-odds GitHub Action) and ranks games by how far OUR model line
+// sits from the market. Stays hidden until that file exists with games.
+let LIVE_ODDS=null, EDGE_NMAP=null, edgeSort='edge', edgeDir=-1;
+// same normalizer as scripts/build_odds_history.py norm(), so our team names line up
+// with the archiver's home_norm/away_norm keys.
+const _EDGE_MASCOT=new Set(("blue devils devils wildcats tigers bulldogs cougars gators aggies "+
+  "huskies volunteers cavaliers cyclones boilermakers jayhawks razorbacks fighting illini "+
+  "cardinals hurricanes eagles bears wolverines spartans hawkeyes gaels red raiders seahawks "+
+  "zips rams lopes utes hoosiers buckeyes badgers cornhuskers terrapins nittany lions "+
+  "demon deacons yellow jackets tar heels wolfpack orange hokies seminoles panthers knights "+
+  "bearcats bruins trojans sun devils golden gophers musketeers friars pirates bluejays "+
+  "gamecocks commodores rebels crimson tide mean green golden eagles ragin cajuns owls "+
+  "minutemen catamounts privateers redhawks red storm crimson vandals broncos mustangs "+
+  "lobos aztecs falcons flames phoenix runnin rebels anteaters gauchos toreros dons "+
+  "waves highlanders titans matadors 49ers roadrunners bobcats mountaineers").split(/\s+/));
+function _oNorm(name){ let n=(name||'').toLowerCase().trim().replace(/&/g,'and');
+  n=n.replace(/\bst\.?\b/g,'state').replace(/[^a-z0-9 ]/g,' ').replace(/\b(university|univ|the|of)\b/g,' ');
+  return n.split(/\s+/).filter(t=>t&&!_EDGE_MASCOT.has(t)).join(' ').trim(); }
+function edgeNmap(){ if(EDGE_NMAP||!ML_TEAMS) return EDGE_NMAP; EDGE_NMAP={};
+  ML_TEAMS.forEach(t=>{ const kf=_oNorm(t.full), ks=_oNorm(t.team);
+    if(kf&&!EDGE_NMAP[kf]) EDGE_NMAP[kf]=t; if(ks&&!EDGE_NMAP[ks]) EDGE_NMAP[ks]=t; });
+  return EDGE_NMAP; }
+function _sprTxt(marginHome,home,away){ if(marginHome==null) return '—';
+  return marginHome>=0?`${_mlShort(home.full)} −${marginHome.toFixed(1)}`:`${_mlShort(away.full)} −${(-marginHome).toFixed(1)}`; }
+function edgeRows(){
+  if(!LIVE_ODDS||!LIVE_ODDS.games||!ML_TEAMS) return [];
+  const nm=edgeNmap();
+  return LIVE_ODDS.games.map(g=>{
+    const home=nm[g.home_norm], away=nm[g.away_norm];
+    if(!home||!away||home===away) return null;
+    const tot=mlTotal(home.full,away.full);
+    const L=TDC_RATINGS.lineFor(home,away,'home',tot!=null?tot:undefined);
+    const ourM=L.margin;                                   // + = home favored
+    const bookM=(g.spread==null)?null:-g.spread;           // book spread(home) → margin
+    const spEdge=(bookM==null)?null:+(ourM-bookM).toFixed(1);
+    const totEdge=(tot==null||g.total==null)?null:+(tot-g.total).toFixed(1);
+    return {home,away,ourM,bookM,spEdge,ourTot:tot!=null?Math.round(tot):null,bookTot:g.total,totEdge,commence:g.commence};
+  }).filter(Boolean);
+}
+function renderEdge(){
+  const sec=document.getElementById('edgeSec'); if(!sec) return;
+  let rows=edgeRows();
+  if(!rows.length){ sec.style.display='none'; return; }
+  sec.style.display='';
+  const dir=edgeDir;
+  rows.sort((a,b)=>{
+    if(edgeSort==='edge'){ return (Math.abs(b.spEdge||0)-Math.abs(a.spEdge||0))*(-dir)||0; }
+    if(edgeSort==='game'){ return _mlShort(a.home.full).localeCompare(_mlShort(b.home.full))*(-dir); }
+    const k={book:'bookM',model:'ourM',btot:'bookTot',mtot:'ourTot',tlean:'totEdge'}[edgeSort]||'spEdge';
+    return ((a[k]==null?-1e9:a[k])-(b[k]==null?-1e9:b[k]))*dir;
+  });
+  const body=document.getElementById('edgeBody');
+  body.innerHTML=rows.slice(0,40).map((r,i)=>{
+    const side=(r.spEdge==null)?'':(r.spEdge>0?_mlShort(r.home.full):_mlShort(r.away.full));
+    const ec=(r.spEdge==null)?'':(Math.abs(r.spEdge)>=3?'pos':(Math.abs(r.spEdge)<1?'':'')); // highlight strong edges
+    const ov=(r.totEdge==null)?'':(r.totEdge>0?`<span class="pos">Over</span>`:(r.totEdge<0?`<span class="neg">Under</span>`:'—'));
+    return `<tr>
+      <td class="l rk">${i+1}</td>
+      <td class="l"><a href="team.html?team=${encodeURIComponent(r.away.team)}">${_mlShort(r.away.full)}</a> @ <a href="team.html?team=${encodeURIComponent(r.home.team)}">${_mlShort(r.home.full)}</a></td>
+      <td>${_sprTxt(r.bookM,r.home,r.away)}</td>
+      <td>${_sprTxt(r.ourM,r.home,r.away)}</td>
+      <td class="${ec}"><b>${r.spEdge==null?'—':(r.spEdge>0?'+':'')+r.spEdge}</b></td>
+      <td class="l">${side}</td>
+      <td>${r.bookTot==null?'—':r.bookTot}</td>
+      <td>${r.ourTot==null?'—':r.ourTot}</td>
+      <td class="l">${ov}${r.totEdge!=null&&r.totEdge!==0?` <span class="rk">${Math.abs(r.totEdge).toFixed(1)}</span>`:''}</td>
+    </tr>`;
+  }).join('');
+  const stamp=document.getElementById('edgeStamp');
+  if(stamp&&LIVE_ODDS.generated){ try{ stamp.textContent='Board as of '+new Date(LIVE_ODDS.generated).toLocaleString()+' · '+rows.length+' games priced.'; }catch(e){} }
+}
+document.querySelectorAll('#edgeTbl th').forEach(th=>th.addEventListener('click',()=>{
+  const k=th.dataset.k; if(edgeSort===k) edgeDir=-edgeDir; else { edgeSort=k; edgeDir=(k==='game'||k==='side')?1:-1; }
+  document.querySelectorAll('#edgeTbl th').forEach(x=>x.classList.toggle('on',x.dataset.k===k)); renderEdge();
+}));
+fetch('scripts/data/odds_live.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(d=>{
+  if(d&&d.games&&d.games.length){ LIVE_ODDS=d; renderEdge(); }
+}).catch(()=>{});
 
 // ═══ TEAM TRENDS ═══════════════════════════════════════════════════════════
 let TEAMS=null, teamSeason='all', teamSort='winpct', teamDir=-1;
