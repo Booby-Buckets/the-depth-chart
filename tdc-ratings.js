@@ -326,7 +326,16 @@
           // mid-major STAR sheds a lot, a modest role player barely moves and never goes
           // negative). Only positive projections; no penalty for stepping down.
           const oldSrs=(adv && adv.team && isFinite(srsOf[adv.team]))?srsOf[adv.team]:0;
-          const jump=newSrs-oldSrs;
+          const srsJump=newSrs-oldSrs;
+          // ALSO weigh the LEAGUE-level jump: a low-major star moving to a REBUILDING high-major
+          // has a small team-SRS gap (e.g. Winthrop 1.2 -> Notre Dame 6.7 = +5.5, only 11%) that
+          // badly understates the step up in competition (Big South -> ACC). Use whichever jump
+          // is larger, on the same conf-strength scale as levelDisc, so the tax reflects the real
+          // level change regardless of how good his new team happened to be last year.
+          const _oc=(adv && adv.team)?TEAM_CONF[adv.team]:null, _nc=TEAM_CONF[full];
+          const confJump=(_oc!=null && _nc!=null && CONF_STR[_oc]!=null && CONF_STR[_nc]!=null)
+                         ? (CONF_STR[_nc]-CONF_STR[_oc]) : 0;
+          const jump=Math.max(srsJump, confJump);
           if(jump>0) projBpm*=(1-Math.min(0.5, jump*0.02));
         }
         // STRENGTH-OF-COMPETITION regression (all rotation players on a sub-high-major team):
