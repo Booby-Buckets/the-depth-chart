@@ -55,6 +55,12 @@ TRANSFER_DEF_DAMP=float(os.environ.get("TRANSFER_DEF_DAMP","0.90"))  # share of 
 # the SOS gap old→new (never boosts on a step down). Mirrors the depth-chart engine's
 # conference volume tax so the player page and team page stop disagreeing (Duncomb 21 vs 11).
 XFER_OFF_STR=float(os.environ.get("XFER_OFF_STR","0.7"))  # 0=off, 1=fully apply the SOS-gap discount
+# Level-jump VALUE haircut: a transfer's wins-added (owa) is EARNED at his old level but was
+# being valued at his NEW team's SOS — so a Big South star (SOS .51) got his production credited
+# at ACC weight (.84-.96), inflating the grade ABOVE his demonstrated level (Duncomb 84->89).
+# Value his production at a SOS pulled back toward where it was earned; 1=fully old-level,
+# 0=old behavior. Only bites on a step UP (max(0,...)); step-downs and returners are untouched.
+XFER_SOS_STR=float(os.environ.get("XFER_SOS_STR","0.85"))
 
 def sb_get(path):
     # STABLE ORDER is required: PostgREST offset pagination without ORDER BY returns
@@ -320,8 +326,15 @@ for short, roster in roster_by_team.items():
         if xfer: dwa40=TRANSFER_DEF_DAMP*dwa40   # team-D credit doesn't fully transfer
         dwa_p=dwa40*(mn/40.0)
         sos=sos_of(full)
+        # A transfer's owa was EARNED at his old level; valuing it at the new team's (higher)
+        # SOS inflates a level-jumper above his demonstrated grade. Pull the valuation SOS back
+        # toward the old level by XFER_SOS_STR — only when stepping UP (max(0,...)).
+        sos_val=sos
+        if xfer:
+            sos_old_v=sos_of(demo_team_full)
+            sos_val=sos-XFER_SOS_STR*max(0.0,sos-sos_old_v)
         usg_mult=min(USG_HI,max(USG_LO,(r["proj_usg"]/USG_REF)**USG_POW))
-        wa=(owa*usg_mult+DWA_W*dwa_p)*sos
+        wa=(owa*usg_mult+DWA_W*dwa_p)*sos_val
         per40_p=wa/max(mn/40.0,0.1)
         # RATE reliability comes from his ACTUAL sample, not the projected minutes — a
         # noisy small-minutes line stays shrunk toward the median even projected into a big
