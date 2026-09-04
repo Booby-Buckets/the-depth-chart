@@ -3073,10 +3073,17 @@ async function init(){
       // overall projected line (stat_overall_projected.json). Display THAT same line so the
       // shown stats and the grade come from one source (no more 21ppg-shown-but-graded-at-18).
       try{
+        // WAIT for the projected-overall JSON to finish loading before reading projRowOf —
+        // otherwise it can return null here (timing) and a low-minute returner whose live
+        // depth-chart slot projects to ~0 min falls back to his last actual season instead of
+        // his real projection (e.g. Dallas Thomas showed 2025-26/56 while the team page had 71).
+        if(window.TDCProjGrade && TDCProjGrade.ready){ try{ await TDCProjGrade.ready; }catch(e){} }
         const _spk = (window.TDCProjGrade && TDCProjGrade.projRowOf && player && player.espn_id!=null)
           ? TDCProjGrade.projRowOf(player.espn_id) : null;
         if(_spk && _spk.ppg!=null){
-          proj = Object.assign({}, proj||{}, {_reconciled:true});
+          // projRowOf is authoritative — the SAME source as his OVR/grade and the team page —
+          // so build the projection from it even when the live engine produced nothing/zero.
+          proj = Object.assign({}, proj||{}, {_reconciled:true, _proj:true});
           ['ppg','rpg','apg','mpg','fg_pct','tp_pct','ft_pct','stl','blk','tovs','oreb','dreb',
            'fgm','fga','tpm','tpa','ftm','fta'].forEach(k=>{ if(_spk[k]!=null) proj[k]=_spk[k]; });
         }
