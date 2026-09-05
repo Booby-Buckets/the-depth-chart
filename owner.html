@@ -115,6 +115,13 @@
       </div>
 
       <div class="card">
+        <h2>🏆 Republish awards</h2>
+        <div class="desc">Recomputes the projected 2026-27 <b>All-America</b> + every conference all-conference / all-defense / all-freshman ballot from the current grades and publishes them to <b>award_projections</b> — the shared blob every visitor reads. Run this after a grade change so the ballots match the OVRs.</div>
+        <button class="btn" id="republishAwardsBtn" onclick="republishAwards(this)">Republish awards</button>
+        <div class="status" id="awardsStatus"></div>
+      </div>
+
+      <div class="card">
         <h2>🔁 Rebuild projections</h2>
         <div class="desc">Re-runs the projection model against your <b>live rosters</b> so depth-chart edits — a newcomer's projected stat line, a roster move — flow into the projected <b>ORtg / DRtg / net</b> on the homepage. Kicks off a GitHub Actions job that rebuilds <b>team_dna.json / team_eff.json</b> and deploys (~1–2 min). Run this after editing projected stats.</div>
         <button class="btn" id="rebuildBtn" onclick="rebuildProjections(this)">Rebuild projections</button>
@@ -158,6 +165,7 @@
 <script src="tdc-projgrade.js?v=base2"></script>
 <script src="tdc-freshman.js?v=pub5"></script>
 <script src="tdc-ratings.js?v=15"></script>
+<script src="tdc-awards.js?v=3"></script>
 <script>
   // theme (matches the rest of the site)
   (function(){ try{ var s=localStorage.getItem('tdc_theme'); if(s) document.documentElement.setAttribute('data-theme',s); }catch(e){} })();
@@ -258,6 +266,21 @@
         var n=(data&&data.teams&&data.teams.length)||0;
         st(s,'✓ Published '+n+' teams. Live for every visitor now.','ok');
         loadRatingsMeta();
+      })
+      .catch(function(e){ st(s,'✗ Failed: '+((e&&e.message)||e),'err'); })
+      .then(function(){ btn.disabled=false; });
+  }
+
+  function republishAwards(btn){
+    var s=document.getElementById('awardsStatus');
+    if(!ownerToken()){ st(s,'You must be signed in as the owner.','err'); return; }
+    if(!window.TDC_AWARDS||!TDC_AWARDS.refresh){ st(s,'Awards engine failed to load — reload the page.','err'); return; }
+    btn.disabled=true;
+    st(s,'Recomputing &amp; publishing awards…','busy');
+    TDC_AWARDS.refresh()
+      .then(function(data){
+        var conf=(data&&data.conferences)?Object.keys(data.conferences).length:0;
+        st(s,'✓ Published All-America + '+conf+' conference ballots. Live for every visitor now.','ok');
       })
       .catch(function(e){ st(s,'✗ Failed: '+((e&&e.message)||e),'err'); })
       .then(function(){ btn.disabled=false; });
