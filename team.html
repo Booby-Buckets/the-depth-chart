@@ -7722,7 +7722,12 @@ function renderHistoricRoster(rows, yr, projected){
     const posDist=(p,pos)=>{ const cs=[slot(p)]; const s2=_sl(p.position2); if(s2&&cs.indexOf(s2)<0)cs.push(s2);
       return Math.min.apply(null, cs.map(c=>Math.abs(IDX[c]-IDX[pos]))); };
     const value=(p,pos)=>{ const d=posDist(p,pos);
-      return gr(p) - htFit(p,pos) - d*2 - (d>=3?12:0) + (pos==='C'?Math.max(0,(_htIn(p.height)-80))*0.15:0); };
+      // Prefer his PRIMARY listed spot over his secondary. posDist treats primary and secondary
+      // as equally free, so the optimizer would swap a listed SF (Tyran Stokes) to PF — his
+      // secondary — just to shave a teammate's height misfit at PF, flipping the coach's lineup.
+      // A modest primary bonus keeps him where he's listed unless a real upgrade warrants moving.
+      const primaryPref = (slot(p)===pos) ? 3 : 0;
+      return gr(p) - htFit(p,pos) - d*2 - (d>=3?12:0) + (pos==='C'?Math.max(0,(_htIn(p.height)-80))*0.15:0) + primaryPref; };
     // Starters = the five highest-PROJECTED-MINUTE players (who actually plays), then the
     // optimal assignment slots them into PG..C by fit. Using GRADE here made a high-OVR
     // buried transfer (e.g. a 85 projecting 7 mpg) outrank the real 27-mpg starter; minutes
