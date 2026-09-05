@@ -496,6 +496,13 @@
   var BASELINE_OVR = 50;
   function gradeSolo(row){
     if(!row) return null;
+    // Recruit / no-college-stats freshman: the OVR is the owner's editor profile number — the
+    // SINGLE source of truth the depth chart shows — not a recompute (which re-adds dev+archetype)
+    // nor the possibly-stale players.tdc_grade. Resolve it here so the team page, Program HQ and
+    // Big Board all agree (Tyran Stokes was 89 on the team page but 91 via the recompute).
+    if(row.espn_id == null && typeof window !== 'undefined' && window.TDCFresh && TDCFresh.profileFor){
+      try{ var _fp = TDCFresh.profileFor(row); if(_fp && _fp.ovr != null && isFinite(+_fp.ovr)) return Math.min(99, Math.round(+_fp.ovr)); }catch(e){}
+    }
     var _gp = (row.gp != null && row.gp !== '') ? +row.gp : ((row.g != null && row.g !== '') ? +row.g : null);
     if(_gp != null && _gp > 0 && _gp < 3) return BASELINE_OVR; // played <3 games → baseline (too small a sample to grade)
     var _sv = _statOvrOf(row);                               // LIVE: statistical overall (projected→demonstrated) by espn_id

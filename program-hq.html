@@ -21,7 +21,8 @@
   <script src="tdc-ratings.js?v=15"></script>
   <script src="tdc-teamlink.js?v=2"></script>
   <script src="tdc-teamgrades.js?v=1"></script>
-  <script src="tdc-projgrade.js?v=base2"></script>
+  <script src="tdc-projgrade.js?v=base3"></script>
+  <script src="tdc-freshman.js?v=pub5"></script>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;
       /* dashboard tokens — light */
@@ -597,7 +598,10 @@ function loadRoster(row){
           return '<div class="lead"><span class="lo" style="color:'+barCol(x.ov)+'">'+x.ov+'</span><span class="ln">'+esc(x.name)+'</span><span class="lp">'+esc(x.pos||'')+'</span></div>';
         }).join('')+'</div>';
       };
-      if(window.TDCProjGrade&&TDCProjGrade.ready) TDCProjGrade.ready.then(go).catch(go); else go();
+      // load the owner's freshman editor profiles first so gradeSolo resolves a recruit's OVR to
+      // his profile number (the same value the team page shows) instead of a stale recompute.
+      var _boot=function(){ if(window.TDCProjGrade&&TDCProjGrade.ready) TDCProjGrade.ready.then(go).catch(go); else go(); };
+      if(window.TDCFresh&&TDCFresh.load){ TDCFresh.load().then(_boot).catch(_boot); } else { _boot(); }
     }).catch(function(){ pe.innerHTML='<div class="hx-empty">Could not load roster.</div>'; le.innerHTML='<div class="hx-empty">Could not load roster.</div>'; });
 }
 
