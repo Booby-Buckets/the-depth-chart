@@ -3111,6 +3111,50 @@ async function init(){
       proj = null;
     }
 
+    // AUTHORITATIVE projection fallback (runs OUTSIDE the try above, so an exception in the
+    // live team-projection path can't skip it). If proj is still missing/empty — which happens
+    // for a low-minute returner whose buried depth-chart slot the live engine zeroes, or when
+    // the roster fetch came back thin — build it from projRowOf, the SAME precomputed source as
+    // his OVR/grade and the team page. This is what fixes a player showing his last actual
+    // season (e.g. Dallas Thomas at 56) instead of his real 2026-27 projection (70).
+    if(!window._historicalView && (!proj || !(parseFloat(proj.ppg)>0))){
+      try{
+        if(window.TDCProjGrade && TDCProjGrade.ready){ await TDCProjGrade.ready; }
+        const _pr=(window.TDCProjGrade && TDCProjGrade.projRowOf && player && player.espn_id!=null)
+                  ? TDCProjGrade.projRowOf(player.espn_id) : null;
+        if(_pr && _pr.ppg!=null){
+          proj=Object.assign({}, _pr, {_reconciled:true, _proj:true});
+          if(_pr.ovr!=null){ player._projGrade=Math.round(+_pr.ovr); try{ _setHeroGrade(_projectedGrade()); }catch(e){} }
+        }
+      }catch(e){}
+    }
+
+    // However proj got set (live engine, the reconcile above, or the fallback) the season control
+    // may have been built BEFORE proj existed — so it offered no "2026-27 Projected" option and
+    // defaulted to his last actual season, re-stamping the hero at his demonstrated grade (Dallas
+    // Thomas: 56 instead of his projected 71). If proj is a real projection, force the control to
+    // the projected view once the overview has painted, so every current player defaults to it.
+    if(!window._historicalView && proj && parseFloat(proj.ppg)>0){
+      const _toProj=function(){ try{
+        const _sel=document.getElementById('ovrSeasonSel'); if(!_sel) return false;
+        if(![..._sel.options].some(function(o){return o.value==='proj';})){
+          const _o=document.createElement('option'); _o.value='proj'; _o.textContent='2026-27 Projected';
+          _sel.insertBefore(_o, _sel.firstChild);
+        }
+        if(_sel.value!=='proj'){ _sel.value='proj'; if(typeof setOvrSeason==='function') setOvrSeason('proj'); }
+        return _sel.value==='proj';
+      }catch(e){ return false; } };
+      // The overview / season selector may (re)render AFTER this code runs, on its own schedule,
+      // so a fixed timeout races it. Watch the DOM and re-apply until the projected view sticks,
+      // then stop (idempotent — safe if it already defaults to projected).
+      _toProj();
+      // Keep re-applying across re-renders (the overview can rebuild the selector back to a past
+      // season after we switch). Idempotent — no-op once it's already on 'proj', so it won't loop.
+      const _obs=new MutationObserver(function(){ _toProj(); });
+      try{ _obs.observe(document.body,{childList:true,subtree:true}); }catch(e){}
+      setTimeout(function(){ try{ _obs.disconnect(); }catch(e){} }, 6000);
+    }
+
     // Owner's custom freshman projection (from Supabase) overrides the model line
     try{ if(window.TDCFresh){ await TDCFresh.load(); _applyFreshProfile(); } }catch(e){}
 
