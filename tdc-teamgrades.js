@@ -58,7 +58,11 @@ window.TDCTeamGrades = (function () {
           var pResid = pctIn(defArr, myDef);
           pDef = (pResid != null && pPow != null) ? (0.5 * pPow + 0.5 * pResid) : (pResid != null ? pResid : pPow);
         }
-        return { overall: pctNum(pPow), power: pctNum(pPow), offense: pctNum(pOff), defense: pctNum(pDef) };
+        // overall/power PERCENTILE (1-99, percentile of all D1 by rating) — the same underlying
+        // power rating, shown two ways: `power` (the percentile, for the bar) and `powerRating`
+        // (the raw schedule-adjusted margin, e.g. +7.0). `overall` stays the percentile grade.
+        return { overall: pctNum(pPow), power: pctNum(pPow), powerRating: (isFinite(+rr.rating)?+rr.rating:null),
+                 offense: pctNum(pOff), defense: pctNum(pDef) };
       });
     });
   }

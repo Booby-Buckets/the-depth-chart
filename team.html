@@ -2042,11 +2042,12 @@ async function _projGradeTiles(rr){
       // strong isn't actually a terrible defense, just offense-tilted.
       pDef=(pResid!=null&&pPow!=null)?(0.5*pPow+0.5*pResid):(pResid!=null?pResid:pPow);
     }
-    const tile=(lbl,p,tip)=>{ if(p==null) return ''; const g=_pctNum(p); const tt=(tip||'').replace(/"/g,'&quot;');
+    const tile=(lbl,p,tip,disp)=>{ if(p==null) return ''; const g=(disp!=null?disp:_pctNum(p)); const tt=(tip||'').replace(/"/g,'&quot;');
       return `<div class="hero-grade${tt?' has-tip':''}"${tt?` title="${tt}"`:''}><div class="hero-grade-val">${g}</div><div class="hero-grade-label">${lbl}</div></div>`; };
+    const _rawR=isFinite(+rr.rating)?(( +rr.rating>=0?'+':'')+(+rr.rating).toFixed(1)):null;
     const html=[
-      tile('Overall',pPow,'Projected overall quality — where this roster\'s projected Power Rating ranks among all Division I teams.'),
-      tile('Power',pPow,'Projected Power Rating percentile — points better than an average D1 team, from the roster.'),
+      tile('Overall',pPow,'Percentile among all ~364 Division I teams — 50 is average, so 80 means better than ~80% of teams (roughly a top-70 team nationally).'),
+      tile('Power',pPow,'Schedule-adjusted Power Rating: projected points per game better (or worse) than an average D1 team.',_rawR),
       tile('Offense',pOff,'Projected offense — where the roster\'s projected scoring efficiency (points per possession, pace-adjusted) ranks nationally.'),
       tile('Defense',pDef,'Projected defense is IMPLIED — there\'s no direct defensive projection, so it\'s estimated from overall strength minus offense (a team that outrates its offense is carrying it on defense), shrunk toward the overall grade. A rougher estimate than the offense grade.'),
     ].join('');

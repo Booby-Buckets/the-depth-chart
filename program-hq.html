@@ -20,7 +20,7 @@
   <script src="team-colors.js?v=6"></script>
   <script src="tdc-ratings.js?v=15"></script>
   <script src="tdc-teamlink.js?v=2"></script>
-  <script src="tdc-teamgrades.js?v=1"></script>
+  <script src="tdc-teamgrades.js?v=2"></script>
   <script src="tdc-projgrade.js?v=base3"></script>
   <script src="tdc-freshman.js?v=pub5"></script>
   <style>
@@ -449,10 +449,16 @@ function projHero(row){
 function analyticsProj(row){
   var el=byId('hxAnalytics'); byId('hxAnaLbl').textContent='Team Analytics — Projected';
   el.innerHTML='<div class="hx-empty">Computing…</div>';
-  function mrow(l,v){ return '<div class="mrow"><span class="ml">'+l+'</span><div class="bar"><i style="width:'+(v==null?0:v)+'%;background:'+barCol(v)+'"></i></div><span class="mv" style="color:'+barCol(v)+'">'+(v==null?'—':v)+'</span></div>'; }
+  // v = bar width (percentile 0-99); disp = the number shown (defaults to v); tip = hover explainer
+  function mrow(l,v,tip,disp){ var d=(disp!=null?disp:(v==null?'—':v)); return '<div class="mrow"'+(tip?' title="'+tip.replace(/"/g,'&quot;')+'"':'')+'><span class="ml">'+l+'</span><div class="bar"><i style="width:'+(v==null?0:v)+'%;background:'+barCol(v)+'"></i></div><span class="mv" style="color:'+barCol(v)+'">'+d+'</span></div>'; }
   if(window.TDCTeamGrades){
     TDCTeamGrades.compute(row).then(function(g){
-      el.innerHTML=g?(mrow('Overall',g.overall)+mrow('Power',g.power)+mrow('Offense',g.offense)+mrow('Defense',g.defense)):'<div class="hx-empty">No analytics on file.</div>';
+      el.innerHTML=g?(
+        mrow('Overall',g.overall,'Percentile among all ~364 D1 teams — 50 is average, so 80 means better than ~80% of teams (roughly #70 nationally).')+
+        mrow('Power',g.power,'Schedule-adjusted power rating: projected points per game better (or worse) than an average D1 team.',(g.powerRating!=null?fmtR(g.powerRating):g.power))+
+        mrow('Offense',g.offense,'Projected offensive efficiency — percentile among all D1 teams.')+
+        mrow('Defense',g.defense,'Projected defensive efficiency — percentile among all D1 teams.')
+      ):'<div class="hx-empty">No analytics on file.</div>';
     }).catch(function(){ el.innerHTML='<div class="hx-empty">Could not compute analytics.</div>'; });
   } else el.innerHTML='<div class="hx-empty">No analytics on file.</div>';
 }
