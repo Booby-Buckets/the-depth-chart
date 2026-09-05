@@ -91,6 +91,11 @@
     .hx-pills{display:flex;align-items:center;gap:10px;margin-top:9px;flex-wrap:wrap;font-weight:700;font-size:14px;}
     .hx-pills .rec{font-size:18px;font-weight:800;}
     .hx-pills .pill{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.20);border-radius:999px;padding:3px 11px;font-size:12px;font-weight:800;letter-spacing:.03em;}
+    .hx-rank{margin-left:auto;text-align:center;flex-shrink:0;padding-left:16px;align-self:center;}
+    .hx-rank .n{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:clamp(46px,7vw,72px);line-height:.82;color:#fff;text-shadow:0 3px 16px rgba(0,0,0,.30);}
+    .hx-rank .n small{font-size:.46em;vertical-align:top;opacity:.72;font-weight:700;margin-right:1px;}
+    .hx-rank .lbl{font-size:10px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.78);margin-top:3px;}
+    @media(max-width:560px){ .hx-rank{margin-left:0;padding-left:0;width:100%;text-align:left;margin-top:6px;} .hx-rank .n{font-size:48px;} }
     .hx-nav{position:relative;z-index:1;display:flex;align-items:center;gap:8px;margin-top:16px;flex-wrap:wrap;}
     .hx-tab{font-size:12.5px;font-weight:800;letter-spacing:.02em;color:var(--tc-ink);background:var(--tc-veil);border:1px solid var(--tc-veilb);padding:8px 15px;border-radius:10px;cursor:pointer;text-transform:uppercase;}
     .hx-tab.on{background:#fff;color:#111;border-color:#fff;box-shadow:0 6px 16px rgba(0,0,0,.20);}
@@ -262,6 +267,7 @@
             <div class="hx-name" id="hxName">—</div>
             <div class="hx-pills" id="hxPills"></div>
           </div>
+          <div class="hx-rank" id="hxRank"></div>
         </div>
       </div>
 
@@ -436,9 +442,9 @@ function projHero(row){
   var cr=inConf.findIndex(function(t){return t.full===row.full;})+1;
   byId('hxKick').textContent='⬡ Program HQ · '+(row.conf||'')+' · 2026-27';
   byId('hxPills').innerHTML='<span class="pill">'+esc(row.full)+'</span>'+
-    '<span class="pill">NAT #'+(row.rank||'—')+'</span>'+
     '<span class="pill">CON #'+(cr||'—')+'</span>'+
     '<span class="pill">'+fmtR(row.rating)+' POWER</span>';
+  var _rk=byId('hxRank'); if(_rk){ _rk.innerHTML = row.rank ? ('<div class="n"><small>#</small>'+row.rank+'</div><div class="lbl">National</div>') : ''; }
 }
 function analyticsProj(row){
   var el=byId('hxAnalytics'); byId('hxAnaLbl').textContent='Team Analytics — Projected';
