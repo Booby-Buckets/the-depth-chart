@@ -61,6 +61,13 @@ XFER_OFF_STR=float(os.environ.get("XFER_OFF_STR","0.7"))  # 0=off, 1=fully apply
 # Value his production at a SOS pulled back toward where it was earned; 1=fully old-level,
 # 0=old behavior. Only bites on a step UP (max(0,...)); step-downs and returners are untouched.
 XFER_SOS_STR=float(os.environ.get("XFER_SOS_STR","0.85"))
+# Impact reconciliation: the wa-based grade rewards USAGE + a backward-looking dwa, so an
+# efficient, high-impact forward (Faulkner: 61% FG, out-rebounds/out-blocks a higher-graded
+# teammate) grades BELOW a volume scorer even though his Total Impact (ti40) is higher — which
+# made the TI-driven award (All-ACC) disagree with the OVR. Blend a ti40-based grade in, but
+# LIFT-ONLY: a player is pulled UP toward his impact grade when it exceeds his wa grade, and
+# nobody is dropped (protects the validated board; never demotes to fix the award). 0=off.
+IMPACT_LIFT=float(os.environ.get("IMPACT_LIFT","0.55"))
 
 def sb_get(path):
     # STABLE ORDER is required: PostgREST offset pagination without ORDER BY returns
@@ -371,6 +378,30 @@ for short, roster in roster_by_team.items():
         }
         proj_team[str(e)]=short
         out[str(e)]["_demo_f40"]=round(_n(b["fga"])*40.0/max(last_mpg,1),3)   # last-yr shots/40 (portable trait, pre-move)
+        out[str(e)]["_xfer"]=bool(xfer)   # for the impact-lift guard (don't re-inflate transfers)
+
+# ---- IMPACT RECONCILIATION (lift-only) ----
+# Map each player's Total Impact (ti40) through the SAME percentile→grade curve as the wa
+# grade (built from the rotation's own ti40 distribution, centered on MU/SP). Where a player's
+# IMPACT grade exceeds his wa grade — an efficient, high-impact forward whose usage/dwa dragged
+# his wa down — pull his OVR UP toward it by IMPACT_LIFT. LIFT-ONLY: never lowers a grade, so
+# the already-validated board (top teams, transfer cohort) can only hold or rise, never regress.
+if IMPACT_LIFT>0 and out:
+    _ti_ref=np.sort([v["ti40"] for v in out.values() if v.get("proj_mpg",0)>=10 and v.get("ti40") is not None])
+    if len(_ti_ref)>=30:
+        def _ti_to_grade(t):
+            pct=np.searchsorted(_ti_ref,t,side="right")/(len(_ti_ref)+1); pct=min(max(pct,1e-4),1-1e-4)
+            return min(99.0,max(float(FLOOR),MU+SP*norm.ppf(pct)))
+        for v in out.values():
+            # ROTATION REGULARS ONLY (proj_mpg>=18): a low-minute ti40 is noisy and would
+            # over-lift bench players. RETURNERS ONLY: a transfer's ti40 reflects his OLD-level
+            # production, so lifting it would undo the level-jump SOS discount (re-inflating a
+            # Big-South->high-major big like Duncomb). Both guards keep the lift honest.
+            if v.get("ti40") is None or v.get("proj_mpg",0)<18 or v.get("_xfer"): continue
+            g_ti=_ti_to_grade(v["ti40"])
+            if g_ti>v["ovr"]:
+                v["ovr"]=int(round(min(99, v["ovr"]+IMPACT_LIFT*(g_ti-v["ovr"]))))
+    for v in out.values(): v.pop("_xfer",None)   # internal guard flag — don't ship it
 
 # ---- Shot Tendency (trait) + Projected Shot Share (roster-normalized) ----
 # Two counting stats surfaced from the SAME projected line that sets the grade, so

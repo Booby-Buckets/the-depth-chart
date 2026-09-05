@@ -26,7 +26,7 @@
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
   const SEASON=2027, LS_KEY='tdc_awards_v6_'+SEASON, TTL=24*3600*1000;
-  const GVER=2;   // grade version — bump to invalidate any cached/published blob with old grades
+  const GVER=3;   // grade version — bump to invalidate any cached/published blob with old grades
 
   function cls(yr){ yr=((yr||'')+'').toLowerCase();
     if(yr.includes('fr')) return 'FR';
@@ -87,7 +87,12 @@
       cand.push({
         name:p.name, team:p.team, conf, pos:p.position||'', yr:p.yr||p.class_year||'', grade, espn_id:p.espn_id,
         isFr:c==='FR',
-        score:+(2.0*projBpm+1.1*(grade-75)+0.55*prod).toFixed(2),
+        // Lean on the canonical projected OVR (grade), not the demonstrated ti40, because the
+        // grade already bakes in the level-jump discount for transfers — so a mid-major star
+        // jumping up (Faulkner: Samford SoCon -> Clemson ACC) can't win All-Conference off his
+        // un-discounted old-level production while his OVR correctly sits at 80. projBpm keeps a
+        // small weight for impact nuance; the discounted grade drives the ballot.
+        score:+(0.8*projBpm+2.2*(grade-75)+0.55*prod).toFixed(2),
         def:+(2.4*projDbpm+1.5*stocks+0.4*(grade-78)).toFixed(2),
         rook:+(grade+0.3*prod).toFixed(2),
       });
