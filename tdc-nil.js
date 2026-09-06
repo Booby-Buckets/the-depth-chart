@@ -136,11 +136,16 @@ window.TDC_NIL = {
       .then(function(j){ if(j&&j.players) N.PEDIGREE=j.players; return N.PEDIGREE; }).catch(function(){ return N.PEDIGREE; });
     return N._pedP; };
   N.pedigreeReady = N.loadPedigree();
-  // open-market value of a nil-data player row: known real deals win as-is; baked overrides & walk-ons
-  // as-is; everyone else = model rescaled off their tier × recruiting pedigree (so a deal isn't distorted).
-  N.neutralValueOf = function(p,tier){ if(!p) return 0; var dl=N.dealOf(p.name); if(dl!=null) return dl;
+  // open-market value of a nil-data player row = the MODEL's own estimate for everyone. We never
+  // publish a reported real-deal salary: baked "override" rows carry a hardcoded deal figure, so they
+  // are recomputed from the model (grade × minutes × premium, tier-neutral) × recruiting pedigree —
+  // the same as everyone else. Walk-ons keep their floor; the rest are rescaled off their tier.
+  N.neutralValueOf = function(p,tier){ if(!p) return 0;
+    var dl=N.dealOf(p.name); if(dl!=null) return dl;      // (mechanism retained; nil-deals.json is empty by policy)
     var v=+(p.value); if(!isFinite(v)) return 0;
-    if(p.override||p.walkon) return v; return N.deTier(v,tier)*N.pedOf(p); };
+    if(p.walkon) return v;
+    if(p.override){ var mv=N.gradeValueNeutral(p.grade,p.mpg,p.prem,p.cls,p.pos); return (isFinite(+mv)?+mv:0)*N.pedOf(p); }
+    return N.deTier(v,tier)*N.pedOf(p); };
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };
 })();

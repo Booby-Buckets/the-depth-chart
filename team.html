@@ -9,7 +9,7 @@
   <script src="tdc-shotchart.js?v=15"></script>
   <script src="tdc-lineups.js?v=15"></script>
   <script src="tdc-shotflow.js?v=9"></script>
-  <script src="tdc-nil.js?v=ped1"></script>
+  <script src="tdc-nil.js?v=nodeal1"></script>
   <script src="tdc-gate.js?v=3"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=3"></script>
@@ -6999,10 +6999,13 @@ async function renderNil(){
   // projected_spend = the model's own production estimate for the WHOLE roster,
   // ignoring any known-deal overrides — only worth a card when overrides move the
   // needle (otherwise it's identical to Roster Value and just clutters the row)
-  const hasOverrides=d.players.some(p=>p.override);
-  const nProjSpend=(d.projected_spend||0)*_F;
-  const spendGap=hasOverrides?round1(nVal-nProjSpend):0;
   function round1(v){ return Math.round(v*1000)/1000; }
+  // Projected Spend only earns a card when known-deal overrides actually move the roster total off
+  // the model. We now price every player by the model (no published real-deal figures), so the gap
+  // collapses to ~0 — gate the card on a meaningful divergence so it doesn't show "$0M vs model".
+  const nProjSpend=(d.projected_spend||0)*_F;
+  const spendGap=round1(nVal-nProjSpend);
+  const hasOverrides=Math.abs(spendGap)>=0.1;
   let html=`<div class="nil-cards">
     <div class="nil-card"><div class="nil-lbl">NIL Budget · Tier ${d.tier}</div><div class="nil-big">${fmt(d.budget)}</div></div>
     <div class="nil-card"><div class="nil-lbl">Roster Value · Model</div><div class="nil-big" style="color:var(--tc-readable,${col})">${fmt(nVal)}</div><div class="nil-sub">open-market · tier-neutral</div></div>

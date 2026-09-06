@@ -9,7 +9,7 @@
   <script src="team-colors.js?v=6"></script>
   <script src="tdc-shotchart.js?v=15"></script>
   <script src="tdc-shotflow.js?v=9"></script>
-  <script src="tdc-nil.js?v=ped1"></script>
+  <script src="tdc-nil.js?v=nodeal1"></script>
   <script src="tdc-archetypes.js?v=2"></script>
   <script src="tdc-gate.js?v=3"></script>
   <script src="tdc-pos.js"></script>
@@ -4058,7 +4058,11 @@ async function _ovcLoadNil(){
     if(window._nilData===undefined){ window._nilData=null; try{ window._nilData=await fetch('nil-data.json?v=lift4').then(function(r){return r.ok?r.json():null;}); }catch(e){} }
     var nd=window._nilData, tn=nd&&nd.teams&&nd.teams[player.team]; if(!tn||!tn.players) return;
     var nk=(player.name||'').toLowerCase().trim(), row=tn.players.find(function(p){return (p.name||'').toLowerCase().trim()===nk;});
-    if(!row||row.value==null) return; window._ovcNil=N.fmt(row.value); renderOvcFooter();
+    if(!row||row.value==null) return;
+    // open-market model value (never the baked real-deal figure) — same as the NIL tab / team page
+    if(N.dealsReady) try{ await N.dealsReady; }catch(e){} if(N.pedigreeReady) try{ await N.pedigreeReady; }catch(e){}
+    var _nv=(N.neutralValueOf)?N.neutralValueOf(row, tn.tier):row.value;
+    window._ovcNil=N.fmt(_nv); renderOvcFooter();
   }catch(e){}
 }
 async function _ovcLoadTeamRank(){
@@ -6415,8 +6419,7 @@ async function renderNilPlayer(){
   const bigM=N.bigMult(pos,grade), prospM=N.prospectMult(grade,cls);
   const modelVal=N.gradeValueNeutral(grade,mpg,prem,cls,pos)*(N.pedigreeMult?N.pedigreeMult(player&&player.espn_id,cls):1);   // open-market value (incl recruiting pedigree)
   const _tierModel=N.gradeValue(grade,mpg,nilTier,prem,cls,pos);   // tier-based, production only — ONLY for the tier-fair verdict (no pedigree)
-  if(!override) value=modelVal;   // headline uses the neutral value unless a baked override is on file
-  const _deal=N.dealOf(player&&player.name); if(_deal!=null) value=_deal;   // client-side known real deal wins
+  value=modelVal;   // headline is ALWAYS the model estimate — we never publish a reported real-deal salary
   // Market Value — owner's positional market curve read off by grade & slot (independent of
   // minutes). Respect the owner's live localStorage preview so this matches the team NIL tab.
   let _mkOv=null; try{ _mkOv=JSON.parse(localStorage.getItem('tdc_nil_market')||'null'); }catch(e){}
