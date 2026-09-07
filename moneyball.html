@@ -25,7 +25,7 @@
   <script src="tdc-projgrade.js?v=base3"></script>
   <script src="team-colors.js?v=6"></script>
   <script src="tdc-ratings.js?v=15"></script>
-  <script src="tdc-nil.js?v=nodeal1"></script>
+  <script src="tdc-nil.js?v=gradeled1"></script>
   <script src="tdc-archetypes.js?v=2"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
@@ -590,9 +590,11 @@ async function ensureMarketData(){
       cost=(nt&&nt.neutralValueOf)?nt.neutralValueOf(pl, T.tier):cost;      // PAID = what he's actually paid (real deal if known — includes discounts — else the model estimate)
       // MARKET VALUE = the model's open-market estimate, INDEPENDENT of any deal (what he'd command
       // elsewhere). For deal players (overrides) recompute from grade/role so it isn't the deal itself.
-      let marketVal=(pl.override&&nt&&nt.gradeValueNeutral)?nt.gradeValueNeutral(+pl.grade,+pl.mpg||min,pl.prem,(pl.cls||''),pl.pos):dt(+pl.value, T.tier);
+      // grade-led open-market estimate for EVERY player (not the baked tier value); pedigree is the
+      // market-hype premium layered on top here (Moneyball's market-vs-winning gap), not in the worth.
+      let marketVal=(nt&&nt.gradeValueNeutral)?nt.gradeValueNeutral(+pl.grade,+pl.mpg||min,pl.prem,(pl.cls||''),pl.pos):(+pl.value||0);
       const _ped=(nt&&nt.pedOf)?nt.pedOf(pl):1;                             // recruiting pedigree, decayed by class year
-      marketVal*=_ped;                                                       // MARKET VALUE incl pedigree; cost (neutralValueOf) already folds it in for non-deal players
+      marketVal*=_ped;                                                       // MARKET VALUE incl pedigree (market-hype view only)
       const ti=ti40Of(grade), wa=waOf(ti, min);
       const wv=wvOf(pl);
       arr.push({name:pl.name, team:short, full:info.full||short, conf:info.conf||'', espn_id:pl.espn_id,

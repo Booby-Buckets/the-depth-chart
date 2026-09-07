@@ -104,9 +104,23 @@ window.TDC_NIL = {
   // outlier overpays like Stokes's reported $6M are NOT the star rate, so the scale isn't pushed
   // toward them. Same player is worth the same at a blue-blood or a mid-major — talent/role, not
   // program. (Known real deals still show as-is via neutralValueOf.)
-  N.NEUTRAL_MULT = 0.47;
-  N.gradeValueNeutral = function(grade,mpg,prem,cls,pos){ var b=N.gradeBase(grade); if(b<=0.003) return N.WALKON_VALUE;
-    return b*N.MODEL.top_m*N.NEUTRAL_MULT*N.minFactor(N.estMpg(mpg,grade))*(prem||1)*N.youthMult(cls)*N.bigMult(pos,grade)*N.prospectMult(grade,cls); };
+  N.NEUTRAL_MULT = 0.47;   // (legacy — used only by the deprecated deTier rescale path below)
+  // ── GRADE-LED open-market value (2026-09 rebuild) ──────────────────────────────────────────
+  // The old neutral model let the market premium (scoring/conf) and minutes swing more than the
+  // grade, so g86 volume scorers out-earned g93/g94 stars and freshmen recruits were buried on
+  // last-year minutes. Now the GRADE leads: a steep grade curve separates the top, the market
+  // premium is compressed to a secondary nudge, and the grade-implied minutes floor (estMpg)
+  // keeps projected stars from being penalised for no prior stats. Recruiting pedigree is NOT
+  // applied here — grade already values the stars (kept for Moneyball's market-hype view only).
+  N.NEU_CURVE = 2.6;     // grade steepness (grade leads)
+  N.NEU_PREMW = 0.45;    // marketability weight: a 2.0x premium becomes ~1.45x
+  N.NEU_TOP   = 7.65;    // ceiling anchor → top star (g94) ~$6M
+  N.neuGradeBase = function(g){ if(g==null||!isFinite(+g)) return 0; var x=Math.max(0,Math.min(1,(+g-N.MODEL.grade_floor)/N.MODEL.grade_span)); return Math.pow(x,N.NEU_CURVE); };
+  N.premAdj      = function(pr){ pr=(pr==null||!isFinite(+pr))?1:+pr; return 1+N.NEU_PREMW*(pr-1); };
+  N.neuMinFactor = function(mp){ mp=+mp||0; return Math.max(0.55, Math.pow(Math.min(Math.max(mp,0),30)/30,0.5)); };
+  N.neuYouth     = function(cls){ var c=(''+(cls||'')).toLowerCase(); if(c.indexOf('so')>=0)return 1.10; if(c.indexOf('fr')>=0)return 1.05; if(c.indexOf('jr')>=0)return 1.00; if(c.indexOf('sr')>=0||c.indexOf('gr')>=0)return 0.92; return 1.00; };
+  N.gradeValueNeutral = function(grade,mpg,prem,cls,pos){ var b=N.neuGradeBase(grade); if(b<=0.002) return N.WALKON_VALUE;
+    return b*N.NEU_TOP*N.premAdj(prem)*N.neuMinFactor(N.estMpg(mpg,grade))*N.neuYouth(cls)*N.bigMult(pos,grade); };
   N.deTier = function(value,tier){ if(value==null||!isFinite(+value)||+value<=N.WALKON_VALUE*1.5) return value;  // rescale a precomputed tier-based value to open-market
     var tm=N.MODEL.tier_mult[N.tierNum(tier)]||0.2; return (+value)*N.NEUTRAL_MULT/tm; };
   // ── client-side known deals: real deals that override the model at runtime (no pipeline re-run),
@@ -142,10 +156,13 @@ window.TDC_NIL = {
   // the same as everyone else. Walk-ons keep their floor; the rest are rescaled off their tier.
   N.neutralValueOf = function(p,tier){ if(!p) return 0;
     var dl=N.dealOf(p.name); if(dl!=null) return dl;      // (mechanism retained; nil-deals.json is empty by policy)
-    var v=+(p.value); if(!isFinite(v)) return 0;
-    if(p.walkon) return v;
-    if(p.override){ var mv=N.gradeValueNeutral(p.grade,p.mpg,p.prem,p.cls,p.pos); return (isFinite(+mv)?+mv:0)*N.pedOf(p); }
-    return N.deTier(v,tier)*N.pedOf(p); };
+    var v=+(p.value);
+    if(p.walkon) return isFinite(v)?v:N.WALKON_VALUE;
+    // GRADE-LED: recompute every player live from the model (grade/mpg/premium/class/pos), so the
+    // valuation is controlled entirely by tdc-nil.js — no dependency on the baked tier value, and
+    // baked real-deal "override" figures are never surfaced. tier is unused (open-market worth).
+    var mv=N.gradeValueNeutral(p.grade,p.mpg,p.prem,p.cls,p.pos);
+    return isFinite(+mv)?+mv:(isFinite(v)?v:0); };
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };
 })();
