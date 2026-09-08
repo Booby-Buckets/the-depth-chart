@@ -9,7 +9,7 @@
   <script src="team-colors.js?v=6"></script>
   <script src="tdc-shotchart.js?v=15"></script>
   <script src="tdc-shotflow.js?v=9"></script>
-  <script src="tdc-nil.js?v=gradeled3"></script>
+  <script src="tdc-nil.js?v=gradeled4"></script>
   <script src="tdc-archetypes.js?v=2"></script>
   <script src="tdc-gate.js?v=3"></script>
   <script src="tdc-pos.js"></script>
@@ -6437,7 +6437,9 @@ async function renderNilPlayer(){
   const bigM=N.bigMult(pos,grade), prospM=N.prospectMult(grade,cls);
   const _wa=(row&&row.wa!=null&&isFinite(+row.wa))?+row.wa:null;   // owned production for the reality check (null = freshman/neutral)
   const _defM=(N.defMultOf)?N.defMultOf(player&&player.espn_id):1;   // defensive/foul dock (foul-prone / weak defender)
-  const modelVal=N.gradeValueNeutral(grade,mpg,prem,cls,pos,_wa)*_defM;   // grade-led open-market value (matches the board / team page)
+  const _ppgMkt=(row&&row.ppg!=null)?row.ppg:(player&&player.ppg!=null?player.ppg:null);   // last-yr scoring for marketability
+  const _mktM=(N.mktMult)?N.mktMult(_ppgMkt):1;   // marketability (scoring star-power, size-free)
+  const modelVal=N.gradeValueNeutral(grade,mpg,prem,cls,pos,_wa)*_defM*_mktM;   // grade-led open-market value (matches the board / team page)
   const _tierModel=N.gradeValue(grade,mpg,nilTier,prem,cls,pos);   // tier-based, production only — ONLY for the tier-fair verdict (no pedigree)
   value=modelVal;   // headline is ALWAYS the model estimate — we never publish a reported real-deal salary
   // Market Value — owner's positional market curve read off by grade & slot (independent of

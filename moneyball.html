@@ -25,7 +25,7 @@
   <script src="tdc-projgrade.js?v=base3"></script>
   <script src="team-colors.js?v=6"></script>
   <script src="tdc-ratings.js?v=15"></script>
-  <script src="tdc-nil.js?v=gradeled3"></script>
+  <script src="tdc-nil.js?v=gradeled4"></script>
   <script src="tdc-archetypes.js?v=2"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
@@ -595,6 +595,7 @@ async function ensureMarketData(){
       // market-hype premium layered on top here (Moneyball's market-vs-winning gap), not in the worth.
       let marketVal=(nt&&nt.gradeValueNeutral)?nt.gradeValueNeutral(+pl.grade,+pl.mpg||min,pl.prem,(pl.cls||''),pl.pos,(pl.wa!=null&&isFinite(+pl.wa)?+pl.wa:null)):(+pl.value||0);
       if(nt&&nt.defMultOf) marketVal*=nt.defMultOf(pl);   // defensive/foul dock
+      if(nt&&nt.mktMult) marketVal*=nt.mktMult(pl.ppg);   // marketability (scoring star-power)
       const _ped=(nt&&nt.pedOf)?nt.pedOf(pl):1;                             // recruiting pedigree, decayed by class year
       marketVal*=_ped;                                                       // MARKET VALUE incl pedigree (market-hype view only)
       const ti=ti40Of(grade), wa=waOf(ti, min);

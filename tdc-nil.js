@@ -131,6 +131,13 @@ window.TDC_NIL = {
     return Math.max(0.45, Math.min(1.0, 0.40+0.60*((+wa)/e))); };
   N.gradeValueNeutral = function(grade,mpg,prem,cls,pos,wa){ var b=N.neuGradeBase(grade); if(b<=0.002) return N.WALKON_VALUE;
     return b*N.NEU_TOP*N.premAdj(prem)*N.neuMinFactor(N.estMpg(mpg,grade))*N.neuYouth(cls)*N.bigMult(pos,grade)*N.waCoherence(grade,wa); };
+  // MARKETABILITY — NIL is a brand market, not just a talent market: a featured SCORER draws the
+  // deals, a low-usage role player (however efficient) does not. Signal = scoring VOLUME (last
+  // season's ppg), deliberately SIZE-FREE so it lowers low-scoring bigs without re-inflating them
+  // the way the size premium did. Freshmen (ppg null) are neutral — recruiting hype carries them.
+  N.MKT_PIVOT = 13; N.MKT_SLOPE = 0.026; N.MKT_LO = 0.78; N.MKT_HI = 1.18;
+  N.mktMult = function(ppg){ if(ppg==null||ppg===''||!isFinite(+ppg)) return 1;
+    return Math.max(N.MKT_LO, Math.min(N.MKT_HI, 1+N.MKT_SLOPE*((+ppg)-N.MKT_PIVOT))); };
   N.deTier = function(value,tier){ if(value==null||!isFinite(+value)||+value<=N.WALKON_VALUE*1.5) return value;  // rescale a precomputed tier-based value to open-market
     var tm=N.MODEL.tier_mult[N.tierNum(tier)]||0.2; return (+value)*N.NEUTRAL_MULT/tm; };
   // ── client-side known deals: real deals that override the model at runtime (no pipeline re-run),
@@ -187,7 +194,7 @@ window.TDC_NIL = {
     // baked real-deal "override" figures are never surfaced. tier is unused (open-market worth).
     var mv=N.gradeValueNeutral(p.grade,p.mpg,p.prem,p.cls,p.pos,p.wa);
     mv=isFinite(+mv)?+mv:(isFinite(v)?v:0);
-    return mv*N.defMultOf(p); };   // defensive/foul reality dock (1.0 when no profile)
+    return mv*N.defMultOf(p)*N.mktMult(p.ppg); };   // defensive/foul dock × marketability (scoring star-power)
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };
 })();
