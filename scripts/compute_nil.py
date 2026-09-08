@@ -252,12 +252,25 @@ try:
     def _live(e):
         e=str(e)
         return _ov(_P[e]) if e in _P else (_ov(_demo[e]) if e in _demo else None)
-    _rp=0
-    for _t in out["teams"].values():
+    # freshman editor OVRs (profiles.freshman_projections, keyed tdc_fr:<team>:<name>) — the live
+    # grade for profiled freshmen; the DB tdc_grade this script read doesn't reflect editor edits.
+    _FR={}
+    try:
+        for _pr in fetch("profiles?select=freshman_projections"):
+            _fp=_pr.get("freshman_projections") or {}
+            if any(k.startswith("tdc_fr:") for k in _fp): _FR=_fp; break
+    except Exception: pass
+    _rp=_frp=0
+    for _tn,_t in out["teams"].items():
         for _p in _t.get("players",[]):
             _lg=_live(_p.get("espn_id")) if _p.get("espn_id") is not None else None
-            if _lg is not None and _p.get("grade")!=int(_lg): _p["grade"]=int(_lg); _rp+=1
-    print(f"repointed {_rp} returner grades to live stat_overall",file=_sys.stderr)
+            if _lg is not None:
+                if _p.get("grade")!=int(_lg): _p["grade"]=int(_lg); _rp+=1
+                continue
+            _fr=_FR.get("tdc_fr:%s:%s"%(_tn,_p.get("name")))
+            _fov=_ov(_fr) if _fr else None
+            if _fov is not None and int(round(float(_fov)))!=_p.get("grade"): _p["grade"]=int(round(float(_fov))); _frp+=1
+    print(f"repointed {_rp} returners to stat_overall + {_frp} freshmen to editor OVR",file=_sys.stderr)
 except Exception as _e:
     print("warn: grade repoint skipped —",_e,file=__import__('sys').stderr)
 json.dump(out,open(os.path.join(os.path.dirname(__file__),"..","nil-data.json"),"w"),separators=(',',':'))
