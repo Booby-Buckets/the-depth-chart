@@ -31,7 +31,24 @@ USG_REF=21.0; USG_POW=1.2; USG_LO=0.45; USG_HI=1.08   # match build_stat_overall
 # ---- TI weights (must equal derived_stats.py TI_W) ----
 TIW={"pts":1.0,"oreb":0.8,"dreb":0.3,"ast":0.7,"stl":1.4,"blk":0.9,"miss_fg":-0.5,"miss_ft":-0.35,"tov":-1.0}
 REG_MP=100.0; OWA_REPL=3.0; OWA_A=-0.10; OWA_B=0.0092
-DWA_W=float(os.environ.get("DWA_W","0.62"))   # match build_stat_overall.py — team-defense-heavy DWA carried at reduced weight so defense-driven bigs don't over-rank creators
+DWA_W=float(os.environ.get("DWA_W","0.85"))   # match build_stat_overall.py — reweighted up 0.62->0.85 (defense matters more)
+# FOULS — excess fouls dock wins-added (match build_stat_overall.py). Projected foul rate = last-year
+# pf40 (fouling is a stable trait) applied over projected minutes. Rates from nil-defense.json.
+FOUL_W=float(os.environ.get("FOUL_W","0.012")); FOUL_BASE=float(os.environ.get("FOUL_BASE","2.8"))
+PF40={}
+try:
+    import json as _json
+    _ndp=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),"nil-defense.json")
+    if os.path.exists(_ndp):
+        for _e,_r in _json.load(open(_ndp)).get("by",{}).items():
+            if _r.get("pf40") is not None:
+                try: PF40[int(_e)]=float(_r["pf40"])
+                except: pass
+except Exception as _e: pass
+def foul_pen(espn,minutes):
+    pf=PF40.get(int(espn)) if espn is not None else None
+    if pf is None or FOUL_W<=0: return 0.0
+    return FOUL_W*max(0.0,pf-FOUL_BASE)*(minutes/40.0)
 # Over-regression guard: the rate-reliability shrinkage (cred_a below) is calibrated to keep
 # small-sample flukes from projecting elite, but for a PROVEN, high-minute returner keeping his
 # role it double-counts uncertainty — a demonstrated 96 was projecting 91. Cap how far such a
@@ -196,6 +213,8 @@ d26["sos"]=d26["team"].map(sos_of)
 d26["mp40"]=d26["min"]/40.0
 d26["usg_mult"]=np.clip((pd.to_numeric(d26["usg_pct"],errors="coerce").fillna(USG_REF)/USG_REF)**USG_POW,USG_LO,USG_HI)
 d26["wa"]=(d26["owa"].fillna(0)*d26["usg_mult"]+DWA_W*d26["dwa"].fillna(0))*d26["sos"]
+if FOUL_W>0:   # demonstrated excess-foul dock (matches build_stat_overall.py's 2026 reference)
+    d26["wa"]=d26["wa"]-d26.apply(lambda r: foul_pen(r["espn_id"], r["min"] if pd.notna(r["min"]) else 0), axis=1)
 per40=d26["wa"]/d26["mp40"].clip(lower=0.1)
 MU40=per40.median(); P90=d26["min"].quantile(0.90); cred=d26["min"]/(d26["min"]+400.0)
 d26["C"]=(MU40+cred*(per40-MU40))*np.sqrt((d26["min"]/P90).clip(0,1.3))
@@ -341,7 +360,7 @@ for short, roster in roster_by_team.items():
             sos_old_v=sos_of(demo_team_full)
             sos_val=sos-XFER_SOS_STR*max(0.0,sos-sos_old_v)
         usg_mult=min(USG_HI,max(USG_LO,(r["proj_usg"]/USG_REF)**USG_POW))
-        wa=(owa*usg_mult+DWA_W*dwa_p)*sos_val
+        wa=(owa*usg_mult+DWA_W*dwa_p)*sos_val - foul_pen(e, mn)   # excess-foul dock over projected minutes
         per40_p=wa/max(mn/40.0,0.1)
         # RATE reliability comes from his ACTUAL sample, not the projected minutes — a
         # noisy small-minutes line stays shrunk toward the median even projected into a big

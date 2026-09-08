@@ -34,7 +34,12 @@ USG_REF=21.0; USG_POW=1.2; USG_LO=0.45; USG_HI=1.08   # mostly a DOWNWEIGHT for 
 # over-credits bigs on good defenses (a low-usage rim protector draws ~45% of his value from
 # DWA vs ~15% for a scoring guard). Carry it at less than full weight so defense-driven role
 # bigs don't out-rank higher-usage creators; offense (usage-weighted) then separates the top.
-DWA_W=float(os.environ.get("DWA_W","0.62"))
+DWA_W=float(os.environ.get("DWA_W","0.85"))   # 2026-09: reweighted up 0.62->0.85 (defense matters more; win-corr 0.792->0.796)
+# FOULS — the grade is blind to foul-proneness, a real negative (fouls end possessions, gift FTs,
+# force a player off the floor). Penalize EXCESS fouls (above a normal rate) in wins-added terms.
+# Pulled from box_scores for the current season (each season self-calibrates via per-season probit).
+# FOUL_W = wins docked per excess foul (~0.4 pts/foul ÷ ~34 pts/win ≈ 0.012). Off by default (0.0).
+FOUL_W=float(os.environ.get("FOUL_W","0.012")); FOUL_BASE=float(os.environ.get("FOUL_BASE","2.8"))
 
 def sb_get(path):
     # STABLE ORDER required: PostgREST offset pagination without ORDER BY skips/dupes rows.
@@ -42,10 +47,18 @@ def sb_get(path):
     if "order=" not in path and "select=" in path:
         first=path.split("select=",1)[1].split("&",1)[0].split(",")[0]
         if first: order=f"&order={first}.asc"
+    import time
     out,off=[],0
     while True:
         url=f"{SB}/rest/v1/{path}"+("&" if "?" in path else "?")+f"limit=1000&offset={off}{order}"
-        ch=json.load(urllib.request.urlopen(urllib.request.Request(url,headers=H))); out+=ch
+        ch=None
+        for attempt in range(5):
+            try:
+                ch=json.load(urllib.request.urlopen(urllib.request.Request(url,headers=H),timeout=60)); break
+            except Exception as e:
+                if attempt==4: print(f"FAILED URL: {url}  ({e})",file=sys.stderr); raise
+                time.sleep(1.5*(attempt+1))
+        out+=ch
         if len(ch)<1000: break
         off+=1000
     return out
@@ -59,7 +72,12 @@ def pos_bucket(p):
     return "?"
 
 print("Pulling player_advanced (all seasons), team_seasons, positions...",file=sys.stderr)
-adv=pd.DataFrame(sb_get("player_advanced?select=espn_id,season_year,name,team,g,min,ppg,usg_pct,tov_pct,ti40,owa,dwa"))
+# per-season pulls keep offsets shallow (deep offset pagination on the full 79k table 500s)
+_advp=[]
+for _yr in range(2008, CUR+1):
+    _p=sb_get(f"player_advanced?season_year=eq.{_yr}&select=espn_id,season_year,name,team,g,min,ppg,usg_pct,tov_pct,ti40,owa,dwa")
+    if _p: _advp.append(pd.DataFrame(_p))
+adv=pd.concat(_advp,ignore_index=True)
 ts =pd.DataFrame(sb_get("team_seasons?select=season_year,team,conference,srs,wins,losses"))
 ph =pd.DataFrame(sb_get("player_history?select=espn_id,season_year,position"))
 for c in ["espn_id","season_year","min","g"]: adv[c]=pd.to_numeric(adv[c],errors="coerce")
@@ -108,6 +126,29 @@ def sos_of(row):
     return sos_lookup.get((row["season_year"], row["team"]), 0.80)
 
 adv["sos"]=adv.apply(sos_of,axis=1)
+
+# ---- foul rate (current season only) from box_scores: excess fouls dock wins-added ----
+adv["pf40"]=np.nan
+if FOUL_W>0:
+    # current-season foul rate (pf40) by espn_id. Prefer the precomputed nil-defense.json (fast,
+    # covers rotation players); fall back to a direct box_scores pull if that file is absent.
+    pf_map={}
+    _ndp=os.path.join(os.path.dirname(os.path.dirname(D)),"nil-defense.json")   # repo-root/nil-defense.json
+    if os.path.exists(_ndp):
+        _nd=json.load(open(_ndp)).get("by",{})
+        for e,r in _nd.items():
+            if r.get("pf40") is not None:
+                try: pf_map[int(e)]=float(r["pf40"])
+                except: pass
+        print(f"  foul rates from nil-defense.json for {len(pf_map)} players",file=sys.stderr)
+    else:
+        print(f"Pulling {CUR} box_scores fouls...",file=sys.stderr)
+        bx=pd.DataFrame(sb_get(f"box_scores?season_year=eq.{CUR}&select=espn_id,pf,min"))
+        for c in ["espn_id","pf","min"]: bx[c]=pd.to_numeric(bx[c],errors="coerce")
+        agg=bx.dropna(subset=["espn_id"]).groupby("espn_id").agg(pf=("pf","sum"),bmin=("min","sum"))
+        pf_map={int(k):(v["pf"]/v["bmin"]*40.0) for k,v in agg.iterrows() if v["bmin"]>0}
+    adv["pf40"]=adv.apply(lambda r: pf_map.get(int(r["espn_id"]), np.nan) if r["season_year"]==CUR and pd.notna(r["espn_id"]) else np.nan, axis=1)
+    print(f"  foul rates applied to {adv['pf40'].notna().sum()} current players",file=sys.stderr)
 # A player must have played >= MIN_GP games to get a rating at all (a 1-2 game
 # sample is noise). Everyone else is scored, but the scale is calibrated against the
 # ROTATION pool (>=REF_MIN minutes) so low-minute players land near the floor.
@@ -116,6 +157,10 @@ adv["mp40"]=adv["min"]/40.0
 _usg=pd.to_numeric(adv["usg_pct"],errors="coerce").fillna(USG_REF)
 adv["usg_mult"]=np.clip((_usg/USG_REF)**USG_POW, USG_LO, USG_HI)
 adv["wa"]=(adv["owa"].fillna(0)*adv["usg_mult"] + DWA_W*adv["dwa"].fillna(0))*adv["sos"]
+# excess-foul dock (season-total wins): max(0, pf40 - base) * season minutes/40 * FOUL_W
+if FOUL_W>0:
+    _exc=(adv["pf40"]-FOUL_BASE).clip(lower=0).fillna(0.0)
+    adv["wa"]=adv["wa"] - FOUL_W*_exc*adv["mp40"]
 
 rows=[]
 for yr,g in adv.groupby("season_year"):
