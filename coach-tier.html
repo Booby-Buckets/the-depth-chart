@@ -22,7 +22,7 @@
   <script src="auth.js?v=shotlock1"></script>
   <script src="tdc-ratings.js?v=15"></script>
   <script src="tdc-teamlink.js?v=2"></script>
-  <script src="tdc-nil.js?v=injury1"></script>
+  <script src="tdc-nil.js?v=prog1"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -470,12 +470,13 @@ function renderTop(){
   try{ const arr=await fetch('scripts/data/team_colors.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
     (arr||[]).forEach(e=>{ if(e&&e.c1&&e.location) CMAP[e.location]=e.c1; }); }catch(e){}
   try{ const D=await TDC_RATINGS.get(); RD=(D.teams||[]).filter(t=>t.rating!=null&&t.projected!==false).sort((a,b)=>(a.rank||999)-(b.rank||999)); RD.forEach(t=>{byFull[t.full]=t;}); }catch(e){ RD=[]; }
-  try{ NIL=await fetch('nil-data.json?v=gradesync2',{cache:'no-cache'}).then(r=>r.ok?r.json():null); }catch(e){}
+  try{ NIL=await fetch('nil-data.json?v=gradesync3',{cache:'no-cache'}).then(r=>r.ok?r.json():null); }catch(e){}
   if(window.TDC_NIL&&TDC_NIL.dealsReady){ try{ await TDC_NIL.dealsReady; }catch(e){} }   // known real deals before pricing
   if(window.TDC_NIL&&TDC_NIL.pedigreeReady){ try{ await TDC_NIL.pedigreeReady; }catch(e){} }   // recruiting pedigree (folded into neutralValueOf)
   if(window.TDC_NIL&&TDC_NIL.defenseReady){ try{ await TDC_NIL.defenseReady; }catch(e){} }   // defensive/foul profile before pricing
   if(window.TDC_NIL&&TDC_NIL.adjustReady){ try{ await TDC_NIL.adjustReady; }catch(e){} }   // owner market adjustments before pricing
   if(window.TDC_NIL&&TDC_NIL.injuryReady){ try{ await TDC_NIL.injuryReady; }catch(e){} }   // systematic injury dock before pricing
+  if(window.TDC_NIL&&TDC_NIL.programsReady){ try{ await TDC_NIL.programsReady; }catch(e){} }   // program market + floor before pricing
   // profile favorite_team wins across devices; falls back to the localStorage full name
   try{ const pf=await loadTeamFromProfile(); if(pf){ MY_TEAM=pf; window.MY_TEAM=pf; try{localStorage.setItem('tdc_coach_team',pf);}catch(e){} } }catch(e){}
   renderTop();

@@ -215,6 +215,23 @@ window.TDC_NIL = {
     if(r.timeline==='1-3w') return 0.92;
     if(r.timeline==='day-to-day') return 0.97;
     return 1; };
+  // ── ELITE-FRESHMAN DRAFT BOOST — a projected lottery-pick freshman commands more NIL than his
+  //    college-production value (the collective bets on the draft). No pedigree data for the incoming
+  //    class, so we use the freshman GRADE (the owner's recruit assessment) as the prospect signal.
+  //    Freshmen only (no prior college line); scales with grade above the onset. ──
+  N.DRAFT_MAX = 0.55; N.DRAFT_ONSET = 83;
+  N.draftBoost = function(grade,ppg){ if(ppg!=null&&ppg!=='') return 1;
+    return 1 + N.DRAFT_MAX*Math.max(0,Math.min(1,((+grade||0)-N.DRAFT_ONSET)/11)); };
+  // ── PROGRAM NIL MARKET — programs pay differently (blue-bloods spend up; some spend below market;
+  //    market size varies). Owner-set per-program multiplier + a conference-aware floor so a scholarship
+  //    high-major player isn't priced near zero. From nil-programs.json. Keyed by team (rows carry team). ──
+  N.PROG = {}; N.PROG_FLOOR = {};
+  N.progMultOf = function(team){ if(!team) return 1; var e=N.PROG[(''+team).trim()]; return (e&&isFinite(+e.mult))?+e.mult:1; };
+  N.progFloorOf = function(conf){ var c=(''+(conf||'')).toUpperCase().trim(); var f=N.PROG_FLOOR[c];
+    return (f!=null&&isFinite(+f))?+f:(isFinite(+N.PROG_FLOOR._default)?+N.PROG_FLOOR._default:0); };
+  N.programsReady = fetch('nil-programs.json',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;})
+    .then(function(j){ if(j){ if(j.by_team) N.PROG=j.by_team; if(j.floor_by_conf) N.PROG_FLOOR=j.floor_by_conf; } return N.PROG; })
+    .catch(function(){ return N.PROG; });
   N.injuryReady = (function(){
     var SB='https://izlqhnxowdhtdofkwrho.supabase.co', K='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
     return fetch(SB+'/rest/v1/profiles?select=freshman_projections',{headers:{apikey:K,Authorization:'Bearer '+K}})
@@ -237,7 +254,8 @@ window.TDC_NIL = {
     // baked real-deal "override" figures are never surfaced. tier is unused (open-market worth).
     var mv=N.gradeValueNeutral(p.grade,p.mpg,p.prem,p.cls,p.pos,p.wa);
     mv=isFinite(+mv)?+mv:(isFinite(v)?v:0);
-    return mv*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos)*N.injuryMultOf(p)*N.adjMultOf(p.name); };   // × defense/foul × marketability × pro-upside × injury × owner adjustment
+    mv=mv*N.draftBoost(p.grade,p.ppg)*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos)*N.injuryMultOf(p)*N.adjMultOf(p.name)*N.progMultOf(p.team);
+    return Math.max(N.progFloorOf(p.conf), mv); };   // × draft × defense × mkt × pro × injury × adjust × program, then conf floor
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };
 })();

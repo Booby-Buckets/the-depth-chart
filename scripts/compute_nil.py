@@ -229,7 +229,7 @@ for r in rows:
     for n,g,mp,prem,v,wo,pos,eid,htv,ext in r["pls"]:
         proj=WALKON_VALUE if wo else v; val=pval(n,proj)
         pls.append({"name":n,"grade":(round(g) if g is not None else None),"mpg":round(mp,1),"prem":round(prem,2),
-            "pos":pos,"espn_id":eid,"ht":htv,
+            "pos":pos,"espn_id":eid,"ht":htv,"team":r["name"],"conf":r.get("conf"),
             "cls":ext.get("cls"),"ppg":ext.get("ppg"),"rpg":ext.get("rpg"),"apg":ext.get("apg"),"wa":ext.get("wa"),
             "proj":round(proj,3),"value":round(val,3),"payDiff":round(val-proj,3),"walkon":wo,"override":(n in OVR)})
     pls.sort(key=lambda x:-x["value"])

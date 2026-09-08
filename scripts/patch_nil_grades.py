@@ -50,11 +50,23 @@ def live(e):
 
 FR = fetch_freshman_blob()   # tdc_fr:<team>:<name> -> {ovr,...}
 
+def fetch_conf_map():
+    """team name -> conference code, for the program floor (nil-programs.json floor_by_conf)."""
+    try:
+        req = urllib.request.Request(SB + "/rest/v1/teams?select=name,conf",
+                                     headers={"apikey": KEY, "Authorization": "Bearer " + KEY})
+        return {r["name"]: r.get("conf") for r in json.load(urllib.request.urlopen(req, timeout=30)) if r.get("name")}
+    except Exception as e:
+        print("warn: conf map fetch failed —", e); return {}
+CONF = fetch_conf_map()
+
 path = os.path.join(ROOT, "nil-data.json")
 nil = json.load(open(path))
 patched = fr_patched = kept = 0
 for tn, t in nil.get("teams", {}).items():
     for p in t.get("players", []):
+        p["team"] = tn                       # program NIL market (nil-programs.json by_team)
+        if CONF.get(tn): p["conf"] = CONF[tn]  # conference floor (nil-programs.json floor_by_conf)
         e = p.get("espn_id")
         lg = live(e) if e is not None else None
         if lg is not None:
