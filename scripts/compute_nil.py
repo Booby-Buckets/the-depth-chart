@@ -239,6 +239,27 @@ for r in rows:
         "production":round(r["prod"],2),
         "implied_rate":round(r["budget"]/(r["prod"] or 1),4),"srs":r["srs"],"verdict":"deal" if val<=r["budget"] else "expensive",
         "diff":round(val-r["budget"],2),"players":pls}
+# Repoint returner grades to the LIVE statistical overall (the site's gradeSolo source) so the NIL
+# board shows the SAME grade as the rest of the site — the DB tdc_grade this script reads has drifted
+# from stat_overall. Freshmen / not-in-stat keep their grade (already the live editor OVR). Mirrors
+# scripts/patch_nil_grades.py; NIL value is recomputed client-side from grade, so this fixes values too.
+try:
+    import sys as _sys
+    _D=os.path.join(os.path.dirname(__file__),"data")
+    _P=(lambda j:j.get("players",j))(json.load(open(os.path.join(_D,"stat_overall_projected.json"))))
+    _demo=json.load(open(os.path.join(_D,"stat_overall.json")))["players"]
+    def _ov(x): return x["ovr"] if isinstance(x,dict) else x
+    def _live(e):
+        e=str(e)
+        return _ov(_P[e]) if e in _P else (_ov(_demo[e]) if e in _demo else None)
+    _rp=0
+    for _t in out["teams"].values():
+        for _p in _t.get("players",[]):
+            _lg=_live(_p.get("espn_id")) if _p.get("espn_id") is not None else None
+            if _lg is not None and _p.get("grade")!=int(_lg): _p["grade"]=int(_lg); _rp+=1
+    print(f"repointed {_rp} returner grades to live stat_overall",file=_sys.stderr)
+except Exception as _e:
+    print("warn: grade repoint skipped —",_e,file=__import__('sys').stderr)
 json.dump(out,open(os.path.join(os.path.dirname(__file__),"..","nil-data.json"),"w"),separators=(',',':'))
 fits=sum(1 for r in rows if round(sum(pv[4] for pv in r["pls"]),2)<=r["budget"])
 print(f"teams: {len(rows)} | within budget {fits}/{len(rows)}")

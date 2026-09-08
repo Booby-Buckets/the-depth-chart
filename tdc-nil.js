@@ -114,7 +114,7 @@ window.TDC_NIL = {
   // applied here — grade already values the stars (kept for Moneyball's market-hype view only).
   N.NEU_CURVE = 2.6;     // grade steepness (grade leads)
   N.NEU_PREMW = 0.45;    // marketability weight: a 2.0x premium becomes ~1.45x
-  N.NEU_TOP   = 7.65;    // ceiling anchor → top star (g94) ~$6M
+  N.NEU_TOP   = 6.3;     // ceiling anchor → top star ~$6M (retuned 7.65->6.3 after grades were repointed to the live stat_overall, which shifted the scale)
   N.neuGradeBase = function(g){ if(g==null||!isFinite(+g)) return 0; var x=Math.max(0,Math.min(1,(+g-N.MODEL.grade_floor)/N.MODEL.grade_span)); return Math.pow(x,N.NEU_CURVE); };
   N.premAdj      = function(pr){ pr=(pr==null||!isFinite(+pr))?1:+pr; return 1+N.NEU_PREMW*(pr-1); };
   N.neuMinFactor = function(mp){ mp=+mp||0; return Math.max(0.55, Math.pow(Math.min(Math.max(mp,0),30)/30,0.5)); };
