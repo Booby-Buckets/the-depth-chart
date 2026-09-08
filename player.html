@@ -9,7 +9,7 @@
   <script src="team-colors.js?v=6"></script>
   <script src="tdc-shotchart.js?v=15"></script>
   <script src="tdc-shotflow.js?v=9"></script>
-  <script src="tdc-nil.js?v=gradeled2"></script>
+  <script src="tdc-nil.js?v=gradeled3"></script>
   <script src="tdc-archetypes.js?v=2"></script>
   <script src="tdc-gate.js?v=3"></script>
   <script src="tdc-pos.js"></script>
@@ -1411,6 +1411,16 @@ function buildScoutingReport(p, proj, globalPct){
   if(blk<0.4&&isBig)weaknesses.push('Limited shot-blocking');
   if(ppg<8&&mpg>=20)weaknesses.push('Modest scoring output');
   if(mpg<16&&ppg>0)weaknesses.push('Limited role');
+  // ── owned defensive / foul profile (nil-defense.json via tdc-nil.js) — surfaces what the box
+  //    grade under-weights: foul rate + owned defense. Empty until the profile loads (re-renders). ──
+  try{ var _dfl=(window.TDC_NIL&&TDC_NIL.defFlagsOf)?TDC_NIL.defFlagsOf(p.espn_id):[];
+    if(_dfl.indexOf('foul-prone')>=0) weaknesses.push('Foul-prone — fouls at a high rate for his minutes');
+    if(_dfl.indexOf('defensive-liability')>=0) weaknesses.push('Defensive liability — low owned defensive value (DWA) for his position');
+    if(_dfl.indexOf('poor-rim-protection')>=0) weaknesses.push('Limited rim protection for his size');
+    if(_dfl.indexOf('low-defensive-activity')>=0) weaknesses.push('Low defensive activity / limited lateral quickness');
+    if(_dfl.indexOf('plus-defender')>=0) strengths.push('Plus defender — strong owned defensive value (DWA)');
+    if(_dfl.indexOf('rim-protector')>=0 && strengths.indexOf('Rim protector')<0 && strengths.indexOf('Elite shot blocker')<0) strengths.push('Rim protector — blocks shots at a high rate for a big');
+  }catch(e){}
 
   var tags=[];
   // Signature playing-style tag from the owner-picked archetype leads the row.
@@ -1429,6 +1439,11 @@ function buildScoutingReport(p, proj, globalPct){
   if(apg>4.5)tags.push({t:'Shot Creator',c:'pos'});
   if(grade>=90)tags.push({t:'Top-100 Grade',c:'gold'});
   if(p.hometown)tags.push({t:'Transfer',c:'neu'});
+  try{ var _dft=(window.TDC_NIL&&TDC_NIL.defFlagsOf)?TDC_NIL.defFlagsOf(p.espn_id):[];
+    if(_dft.indexOf('foul-prone')>=0) tags.push({t:'Foul-Prone',c:'neg'});
+    if(_dft.indexOf('defensive-liability')>=0) tags.push({t:'Defensive Liability',c:'neg'});
+    if(_dft.indexOf('plus-defender')>=0) tags.push({t:'Plus Defender',c:'pos'});
+  }catch(e){}
   // de-dupe by label (archetype tag can collide with a stat tag)
   (function(){var seen={};tags=tags.filter(function(t){if(seen[t.t])return false;seen[t.t]=1;return true;});})();
 
@@ -3173,6 +3188,8 @@ async function init(){
       }
     }catch(e){}
 
+    // defensive/foul profile ready before scouting so the flags appear on first render
+    try{ if(window.TDC_NIL&&TDC_NIL.defenseReady) await TDC_NIL.defenseReady; }catch(e){}
     renderPage();
     loadDraftSticker();
   }catch(e){
@@ -4060,7 +4077,7 @@ async function _ovcLoadNil(){
     var nk=(player.name||'').toLowerCase().trim(), row=tn.players.find(function(p){return (p.name||'').toLowerCase().trim()===nk;});
     if(!row||row.value==null) return;
     // open-market model value (never the baked real-deal figure) — same as the NIL tab / team page
-    if(N.dealsReady) try{ await N.dealsReady; }catch(e){} if(N.pedigreeReady) try{ await N.pedigreeReady; }catch(e){}
+    if(N.dealsReady) try{ await N.dealsReady; }catch(e){} if(N.pedigreeReady) try{ await N.pedigreeReady; }catch(e){} if(N.defenseReady) try{ await N.defenseReady; }catch(e){}
     var _nv=(N.neutralValueOf)?N.neutralValueOf(row, tn.tier):row.value;
     window._ovcNil=N.fmt(_nv); renderOvcFooter();
   }catch(e){}
@@ -6389,6 +6406,7 @@ async function renderNilPlayer(){
   const N=window.TDC_NIL; if(!N){ host.innerHTML='<div style="padding:40px;color:var(--text3)">NIL model not loaded.</div>'; return; }
   if(N.dealsReady){ try{ await N.dealsReady; }catch(e){} }   // client-side known deals before pricing
   if(N.pedigreeReady){ try{ await N.pedigreeReady; }catch(e){} }   // recruiting pedigree (market value)
+  if(N.defenseReady){ try{ await N.defenseReady; }catch(e){} }   // defensive/foul profile before pricing
   const col=((typeof teamColor_g!=='undefined')?teamColor_g:null)||'#888', fmt=N.fmt;
   const team=(player&&player.team)||'';
   const conf=((typeof teamData!=='undefined'&&teamData&&(teamData.conf||teamData.conference)))||(player&&(player.conf||player.conference))||'';
@@ -6418,7 +6436,8 @@ async function renderNilPlayer(){
   const base=N.gradeBase(grade), tm=N.MODEL.tier_mult[N.tierNum(nilTier)]||0.2, mf=N.minFactor(N.estMpg(mpg,grade)), ym=N.youthMult(cls);
   const bigM=N.bigMult(pos,grade), prospM=N.prospectMult(grade,cls);
   const _wa=(row&&row.wa!=null&&isFinite(+row.wa))?+row.wa:null;   // owned production for the reality check (null = freshman/neutral)
-  const modelVal=N.gradeValueNeutral(grade,mpg,prem,cls,pos,_wa);   // grade-led open-market value (matches the board / team page)
+  const _defM=(N.defMultOf)?N.defMultOf(player&&player.espn_id):1;   // defensive/foul dock (foul-prone / weak defender)
+  const modelVal=N.gradeValueNeutral(grade,mpg,prem,cls,pos,_wa)*_defM;   // grade-led open-market value (matches the board / team page)
   const _tierModel=N.gradeValue(grade,mpg,nilTier,prem,cls,pos);   // tier-based, production only — ONLY for the tier-fair verdict (no pedigree)
   value=modelVal;   // headline is ALWAYS the model estimate — we never publish a reported real-deal salary
   // Market Value — owner's positional market curve read off by grade & slot (independent of

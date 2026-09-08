@@ -160,6 +160,20 @@ window.TDC_NIL = {
       .then(function(j){ if(j&&j.players) N.PEDIGREE=j.players; return N.PEDIGREE; }).catch(function(){ return N.PEDIGREE; });
     return N._pedP; };
   N.pedigreeReady = N.loadPedigree();
+  // ── defensive / foul profile (nil-defense.json, built by scripts/build_nil_defense.py from owned
+  //    DWA + box-score fouls). The grade rewards efficient scoring; this docks a foul-prone / weak
+  //    defender the grade under-weights. defMult is discount-only (0.80–1.00); no data → 1.0 (freshmen
+  //    & unproven players aren't penalised). Also exposes flags for the scouting report. ──
+  N.DEF = {};
+  N.defOf = function(espn){ if(espn==null) return null; var r=N.DEF[String(espn)]; return r||null; };
+  N.defMultOf = function(p){ if(!p) return 1; var e=(typeof p==='object')?(p.espn_id!=null?p.espn_id:p.espn):p; var r=N.defOf(e);
+    return (r&&isFinite(+r.defMult))?+r.defMult:1; };
+  N.defFlagsOf = function(p){ var e=(p&&typeof p==='object')?(p.espn_id!=null?p.espn_id:p.espn):p; var r=N.defOf(e); return (r&&r.flags)?r.flags:[]; };
+  N.loadDefense = function(){ if(N._defP) return N._defP;
+    N._defP = fetch('nil-defense.json',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;})
+      .then(function(j){ if(j&&j.by) N.DEF=j.by; return N.DEF; }).catch(function(){ return N.DEF; });
+    return N._defP; };
+  N.defenseReady = N.loadDefense();
   // open-market value of a nil-data player row = the MODEL's own estimate for everyone. We never
   // publish a reported real-deal salary: baked "override" rows carry a hardcoded deal figure, so they
   // are recomputed from the model (grade × minutes × premium, tier-neutral) × recruiting pedigree —
@@ -172,7 +186,8 @@ window.TDC_NIL = {
     // valuation is controlled entirely by tdc-nil.js — no dependency on the baked tier value, and
     // baked real-deal "override" figures are never surfaced. tier is unused (open-market worth).
     var mv=N.gradeValueNeutral(p.grade,p.mpg,p.prem,p.cls,p.pos,p.wa);
-    return isFinite(+mv)?+mv:(isFinite(v)?v:0); };
+    mv=isFinite(+mv)?+mv:(isFinite(v)?v:0);
+    return mv*N.defMultOf(p); };   // defensive/foul reality dock (1.0 when no profile)
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };
 })();
