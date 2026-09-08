@@ -25,7 +25,7 @@
   <script src="tdc-projgrade.js?v=base4"></script>
   <script src="team-colors.js?v=6"></script>
   <script src="tdc-ratings.js?v=15"></script>
-  <script src="tdc-nil.js?v=proup1"></script>
+  <script src="tdc-nil.js?v=adj1"></script>
   <script src="tdc-archetypes.js?v=2"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
@@ -578,6 +578,7 @@ async function ensureMarketData(){
   try{ await ensureWinVal(); }catch(e){}                                                   // Winning Value (win-driver score)
   try{ if(window.TDC_NIL&&TDC_NIL.pedigreeReady) await TDC_NIL.pedigreeReady; }catch(e){}   // recruiting pedigree (market value only)
   try{ if(window.TDC_NIL&&TDC_NIL.defenseReady) await TDC_NIL.defenseReady; }catch(e){}   // defensive/foul profile before pricing
+  try{ if(window.TDC_NIL&&TDC_NIL.adjustReady) await TDC_NIL.adjustReady; }catch(e){}   // owner market adjustments
   try{ if(window.TDC_ARCH&&TDC_ARCH.ready) await TDC_ARCH.ready; }catch(e){}                 // style archetypes
   const nt=window.TDC_NIL, dt=(nt&&nt.deTier)?((v,t)=>nt.deTier(v,t)):((v)=>v);
   const arr=[]; const teams=nil.teams;
@@ -597,6 +598,7 @@ async function ensureMarketData(){
       if(nt&&nt.defMultOf) marketVal*=nt.defMultOf(pl);   // defensive/foul dock
       if(nt&&nt.mktMult) marketVal*=nt.mktMult(pl.ppg);   // marketability (scoring star-power)
       if(nt&&nt.proMult) marketVal*=nt.proMult(pl.ht,pl.pos);   // pro/draft upside (undersized-for-NBA dock)
+      if(nt&&nt.adjMultOf) marketVal*=nt.adjMultOf(pl.name);   // owner market adjustment (injury/eligibility/market)
       const _ped=(nt&&nt.pedOf)?nt.pedOf(pl):1;                             // recruiting pedigree, decayed by class year
       marketVal*=_ped;                                                       // MARKET VALUE incl pedigree (market-hype view only)
       const ti=ti40Of(grade), wa=waOf(ti, min);

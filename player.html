@@ -9,7 +9,7 @@
   <script src="team-colors.js?v=6"></script>
   <script src="tdc-shotchart.js?v=15"></script>
   <script src="tdc-shotflow.js?v=9"></script>
-  <script src="tdc-nil.js?v=proup1"></script>
+  <script src="tdc-nil.js?v=adj1"></script>
   <script src="tdc-archetypes.js?v=2"></script>
   <script src="tdc-gate.js?v=3"></script>
   <script src="tdc-pos.js"></script>
@@ -6407,6 +6407,7 @@ async function renderNilPlayer(){
   if(N.dealsReady){ try{ await N.dealsReady; }catch(e){} }   // client-side known deals before pricing
   if(N.pedigreeReady){ try{ await N.pedigreeReady; }catch(e){} }   // recruiting pedigree (market value)
   if(N.defenseReady){ try{ await N.defenseReady; }catch(e){} }   // defensive/foul profile before pricing
+  if(N.adjustReady){ try{ await N.adjustReady; }catch(e){} }   // owner market adjustments before pricing
   const col=((typeof teamColor_g!=='undefined')?teamColor_g:null)||'#888', fmt=N.fmt;
   const team=(player&&player.team)||'';
   const conf=((typeof teamData!=='undefined'&&teamData&&(teamData.conf||teamData.conference)))||(player&&(player.conf||player.conference))||'';
@@ -6441,7 +6442,9 @@ async function renderNilPlayer(){
   const _mktM=(N.mktMult)?N.mktMult(_ppgMkt):1;   // marketability (scoring star-power, size-free)
   const _proHt=(row&&row.ht!=null&&isFinite(+row.ht))?+row.ht:N.htIn(player&&player.height);
   const _proM=(N.proMult)?N.proMult(_proHt,pos):1;   // pro/draft upside (undersized-for-NBA dock)
-  const modelVal=N.gradeValueNeutral(grade,mpg,prem,cls,pos,_wa)*_defM*_mktM*_proM;   // grade-led open-market value (matches the board / team page)
+  const _adj=(N.adjOf)?N.adjOf(player&&player.name):null;   // owner market adjustment (injury/eligibility/market)
+  const _adjM=(_adj&&isFinite(+_adj.mult))?+_adj.mult:1;
+  const modelVal=N.gradeValueNeutral(grade,mpg,prem,cls,pos,_wa)*_defM*_mktM*_proM*_adjM;   // grade-led open-market value (matches the board / team page)
   const _tierModel=N.gradeValue(grade,mpg,nilTier,prem,cls,pos);   // tier-based, production only — ONLY for the tier-fair verdict (no pedigree)
   value=modelVal;   // headline is ALWAYS the model estimate — we never publish a reported real-deal salary
   // Market Value — owner's positional market curve read off by grade & slot (independent of
@@ -6467,6 +6470,7 @@ async function renderNilPlayer(){
         <div class="nilx-lbl">2026-27 Projected NIL Value</div>
         <div class="nilx-val" style="color:${col}">${fmt(value)}</div>
         <div class="nilx-sub">Realistic open-market value</div>
+        ${(_adj&&_adj.reason&&_adjM!==1)?`<div class="nilx-adj" style="margin-top:6px;font-size:11px;color:var(--amber,#c9962b);"><b>Market adjustment:</b> ${String(_adj.reason).replace(/</g,'&lt;')} <span style="color:var(--text3);">(${_adjM<1?'−':'+'}${Math.round(Math.abs(1-_adjM)*100)}%)</span></div>`:''}
       </div>
       <div class="nilx-tiles">
         <div class="nilx-tile"><div class="nx-v">${grade!=null?grade:'—'}</div><div class="nx-l">TDC Grade</div></div>

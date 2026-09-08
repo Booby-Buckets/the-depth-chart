@@ -190,6 +190,18 @@ window.TDC_NIL = {
       .then(function(j){ if(j&&j.by) N.DEF=j.by; return N.DEF; }).catch(function(){ return N.DEF; });
     return N._defP; };
   N.defenseReady = N.loadDefense();
+  // ── owner NIL adjustments (nil-adjust.json) — market factors the model can't derive: injury/
+  //    availability, eligibility runway (grad transfers), program market size. {name:{mult,reason}}.
+  //    mult scales the value; reason is surfaced on the player page. Not a salary — a modifier. ──
+  N.ADJ = {};
+  N.adjOf = function(name){ if(!name) return null; return N.ADJ[(''+name).trim()] || null; };
+  N.adjMultOf = function(name){ var a=N.adjOf(name); return (a&&isFinite(+a.mult))?+a.mult:1; };
+  N.loadAdjust = function(){ if(N._adjP) return N._adjP;
+    N._adjP = fetch('nil-adjust.json',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;})
+      .then(function(j){ var b=j&&j.by_name; if(b) for(var k in b){ if(b[k]) N.ADJ[(''+k).trim()]=b[k]; } return N.ADJ; })
+      .catch(function(){ return N.ADJ; });
+    return N._adjP; };
+  N.adjustReady = N.loadAdjust();
   // open-market value of a nil-data player row = the MODEL's own estimate for everyone. We never
   // publish a reported real-deal salary: baked "override" rows carry a hardcoded deal figure, so they
   // are recomputed from the model (grade × minutes × premium, tier-neutral) × recruiting pedigree —
@@ -203,7 +215,7 @@ window.TDC_NIL = {
     // baked real-deal "override" figures are never surfaced. tier is unused (open-market worth).
     var mv=N.gradeValueNeutral(p.grade,p.mpg,p.prem,p.cls,p.pos,p.wa);
     mv=isFinite(+mv)?+mv:(isFinite(v)?v:0);
-    return mv*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos); };   // × defense/foul × marketability × pro-upside(size)
+    return mv*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos)*N.adjMultOf(p.name); };   // × defense/foul × marketability × pro-upside × owner market adjustment
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };
 })();
