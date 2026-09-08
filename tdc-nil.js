@@ -202,6 +202,28 @@ window.TDC_NIL = {
       .catch(function(){ return N.ADJ; });
     return N._adjP; };
   N.adjustReady = N.loadAdjust();
+  // ── SYSTEMATIC INJURY dock — reads the owner injury tool's records (profiles.freshman_projections,
+  //    keyed tdc_inj:<team>:<name>, {part,timeline,play}). A player who's OUT (season/multi-month or
+  //    play=false) can't play or build value, so NIL craters; shorter timelines dock less. Keyed by
+  //    name (injuries are rare enough that collisions don't matter). Anon read. ──
+  N.INJ = {};
+  N.injuryOf = function(name){ if(!name) return null; return N.INJ[(''+name).trim()] || null; };
+  N.injuryMultOf = function(p){ var r=N.injuryOf(p&&p.name); if(!r) return 1;
+    var out=(r.play===false)||r.timeline==='multi'||r.timeline==='season';
+    if(out) return 0.45;                     // out for the season / months: value cratered
+    if(r.timeline==='1-3m') return 0.78;     // misses ~1-3 months
+    if(r.timeline==='1-3w') return 0.92;
+    if(r.timeline==='day-to-day') return 0.97;
+    return 1; };
+  N.injuryReady = (function(){
+    var SB='https://izlqhnxowdhtdofkwrho.supabase.co', K='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+    return fetch(SB+'/rest/v1/profiles?select=freshman_projections',{headers:{apikey:K,Authorization:'Bearer '+K}})
+      .then(function(r){return r.ok?r.json():[];})
+      .then(function(rows){ for(var i=0;i<rows.length;i++){ var fp=rows[i]&&rows[i].freshman_projections; if(!fp) continue;
+          var has=false; for(var k in fp){ if(k.indexOf('tdc_inj:')===0){ has=true; var nm=k.substring(k.lastIndexOf(':')+1); if(fp[k]) N.INJ[nm.trim()]=fp[k]; } }
+          if(has) break; }
+        return N.INJ; }).catch(function(){ return N.INJ; });
+  })();
   // open-market value of a nil-data player row = the MODEL's own estimate for everyone. We never
   // publish a reported real-deal salary: baked "override" rows carry a hardcoded deal figure, so they
   // are recomputed from the model (grade × minutes × premium, tier-neutral) × recruiting pedigree —
@@ -215,7 +237,7 @@ window.TDC_NIL = {
     // baked real-deal "override" figures are never surfaced. tier is unused (open-market worth).
     var mv=N.gradeValueNeutral(p.grade,p.mpg,p.prem,p.cls,p.pos,p.wa);
     mv=isFinite(+mv)?+mv:(isFinite(v)?v:0);
-    return mv*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos)*N.adjMultOf(p.name); };   // × defense/foul × marketability × pro-upside × owner market adjustment
+    return mv*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos)*N.injuryMultOf(p)*N.adjMultOf(p.name); };   // × defense/foul × marketability × pro-upside × injury × owner adjustment
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };
 })();
