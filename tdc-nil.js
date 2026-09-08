@@ -138,6 +138,15 @@ window.TDC_NIL = {
   N.MKT_PIVOT = 13; N.MKT_SLOPE = 0.026; N.MKT_LO = 0.78; N.MKT_HI = 1.18;
   N.mktMult = function(ppg){ if(ppg==null||ppg===''||!isFinite(+ppg)) return 1;
     return Math.max(N.MKT_LO, Math.min(N.MKT_HI, 1+N.MKT_SLOPE*((+ppg)-N.MKT_PIVOT))); };
+  // PRO / DRAFT UPSIDE — college NIL partly prices a player's pro ceiling (a collective bets on a
+  // future star; a lottery pick is a bigger brand than an undersized senior). Proxy = height vs a
+  // pro-VIABLE size for the position. DISCOUNT-ONLY (cap 1.0) so it never rewards size — it only
+  // docks the clearly undersized-for-the-NBA (esp. sub-6'3" guards, who lack the lottery ceiling).
+  N.PRO_THR = {PG:76,SG:77.5,SF:78.5,PF:80.5,C:82,G:77,F:80};   // inches: NBA-viable height by position
+  N.PRO_SLOPE = 0.05; N.PRO_FLOOR = 0.72;
+  N.proMult = function(htIn,pos){ if(htIn==null||!isFinite(+htIn)) return 1;
+    var t=N.PRO_THR[(''+(pos||'')).toUpperCase().split('/')[0].trim()]||77.5;
+    return Math.max(N.PRO_FLOOR, Math.min(1.0, 1-N.PRO_SLOPE*Math.max(0,t-(+htIn)))); };
   N.deTier = function(value,tier){ if(value==null||!isFinite(+value)||+value<=N.WALKON_VALUE*1.5) return value;  // rescale a precomputed tier-based value to open-market
     var tm=N.MODEL.tier_mult[N.tierNum(tier)]||0.2; return (+value)*N.NEUTRAL_MULT/tm; };
   // ── client-side known deals: real deals that override the model at runtime (no pipeline re-run),
@@ -194,7 +203,7 @@ window.TDC_NIL = {
     // baked real-deal "override" figures are never surfaced. tier is unused (open-market worth).
     var mv=N.gradeValueNeutral(p.grade,p.mpg,p.prem,p.cls,p.pos,p.wa);
     mv=isFinite(+mv)?+mv:(isFinite(v)?v:0);
-    return mv*N.defMultOf(p)*N.mktMult(p.ppg); };   // defensive/foul dock × marketability (scoring star-power)
+    return mv*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos); };   // × defense/foul × marketability × pro-upside(size)
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };
 })();
