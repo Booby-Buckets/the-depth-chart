@@ -2815,6 +2815,20 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
       return pp;
     });
   }
+  // RECONCILE with the player page (single source of truth): a returner's displayed per-game line =
+  // stat_overall_projected (TDCProjGrade.projRowOf), the SAME projection the player page shows. The
+  // live tdc-proj.js engine over-inflates focal players via usage-vacancy on gutted rosters (Bidunga
+  // read 17.4/12.0/33.7 here vs 12.6/8.0/28.4 on his page). Freshmen (no projRow) keep their editor line.
+  try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready; }catch(e){}
+  if(window.TDCProjGrade&&TDCProjGrade.projRowOf){
+    projected=projected.map(pp=>{
+      if(pp._injured||pp._dnp||pp.espn_id==null) return pp;
+      const pr=TDCProjGrade.projRowOf(pp.espn_id); if(!pr) return pp;
+      const m=Object.assign({}, pp);
+      ['ppg','rpg','apg','mpg','fg_pct','tp_pct','ft_pct','stl','blk','tovs','oreb','dreb','fgm','fga','tpm','tpa','ftm','fta'].forEach(k=>{ if(pr[k]!=null&&pr[k]!=='') m[k]=pr[k]; });
+      m._reconciled=true; return m;
+    });
+  }
   // Hard minutes ceiling: no college player realistically averages >35 MPG. A freshman-
   // editor line (or a runaway projection) that exceeds it is scaled back to 35, with the
   // counting stats rescaled proportionally so the per-game line stays internally consistent.
@@ -2876,31 +2890,16 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
   const tStl=r1s(tot('stl')),tBlk=r1s(tot('blk')),tTovs=r1s(tot('tovs'));
   const tOreb=r1s(tot('oreb')),tDreb=r1s(tot('dreb'));
 
-  // ── Team summary = direct sum of wall-scaled player stats ──
-  let fPpg=tPpg,fRpg=tRpg,fApg=tApg,fFgPct=tFgPct,fTpPct=tTpPct,fFtPct=tFtPct;
-  let fFga=tFga,fTpa=tTpa,fTovs=tTovs,fStl=tStl,fBlk=tBlk,fOreb=tOreb,fDreb=tDreb;
-  // The raw sum of every rostered player's projected per-game line OVERSHOOTS a real team (a game is
-  // only ~200 player-minutes; a deep projected roster sums past that — Louisville summed to 45 RPG /
-  // 26 APG, impossible for a team). The canonical team_projections row is the cohesion-adjusted,
-  // 200-minute-normalized projection the index/analytics pages use — prefer it so the National
-  // Comparison is realistic and consistent. Fall back to the sum only when there's no published row.
-  let _usedTP=false;
-  try{
-    const _tpNm=((typeof teamT!=='undefined'&&teamT&&teamT.name)||(players&&players[0]&&players[0].team)||'');
-    if(_tpNm){
-      const _tpr=await fetch(`${SB_URL}/rest/v1/team_projections?team=eq.${encodeURIComponent(_tpNm)}&select=ppg,rpg,apg,fg_pct,tp_pct,ft_pct,oreb,dreb,tov,stl,blk,fga,tpa&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-      const c=_tpr&&_tpr[0];
-      const _n=v=>v!=null&&isFinite(+v)?+v:null;
-      if(c && _n(c.ppg)){
-        _usedTP=true;
-        if(_n(c.ppg)!=null)fPpg=r1s(_n(c.ppg)); if(_n(c.rpg)!=null)fRpg=r1s(_n(c.rpg)); if(_n(c.apg)!=null)fApg=r1s(_n(c.apg));
-        if(_n(c.fg_pct)!=null)fFgPct=r1s(_n(c.fg_pct)); if(_n(c.tp_pct)!=null)fTpPct=r1s(_n(c.tp_pct)); if(_n(c.ft_pct)!=null)fFtPct=r1s(_n(c.ft_pct));
-        if(_n(c.oreb)!=null)fOreb=r1s(_n(c.oreb)); if(_n(c.dreb)!=null)fDreb=r1s(_n(c.dreb));
-        if(_n(c.tov)!=null)fTovs=r1s(_n(c.tov)); if(_n(c.stl)!=null)fStl=r1s(_n(c.stl)); if(_n(c.blk)!=null)fBlk=r1s(_n(c.blk));
-        if(_n(c.fga)!=null)fFga=r1s(_n(c.fga)); if(_n(c.tpa)!=null)fTpa=r1s(_n(c.tpa));
-      }
-    }
-  }catch(e){}
+  // ── Team summary = player sums NORMALIZED to a real team's 200 player-minutes ──
+  // Raw player-sum totals overshoot: a game is only ~200 player-minutes (5 on the floor × 40), but a
+  // deep projected roster's minutes sum past that (Louisville summed to 226 MPG → 45 RPG / 26 APG,
+  // impossible). Scale the counting totals by 200/ΣMPG so they reflect a real rotation. Percentages
+  // are ratios (unaffected). This is robust for EVERY team, independent of the team_projections table
+  // (which was baked from the un-normalized sum and is itself inflated for some teams).
+  const _sumMpg=tot('mpg');
+  const _nf=(_sumMpg>0)?Math.max(0.75,Math.min(1.15,200/_sumMpg)):1;
+  let fPpg=r1s(tPpg*_nf),fRpg=r1s(tRpg*_nf),fApg=r1s(tApg*_nf),fFgPct=tFgPct,fTpPct=tTpPct,fFtPct=tFtPct;
+  let fFga=r1s(tFga*_nf),fTpa=r1s(tTpa*_nf),fTovs=r1s(tTovs*_nf),fStl=r1s(tStl*_nf),fBlk=r1s(tBlk*_nf),fOreb=r1s(tOreb*_nf),fDreb=r1s(tDreb*_nf);
 
   // Save to team_projections so analytics page reads exact same numbers
   const _tn=teamRow?.name||players[0]?.team;
@@ -2931,9 +2930,8 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
   };
 
   // player sums undercount official TEAM rebounds by ~2.5/game (team rebounds aren't credited to a
-  // player) — add them back for a like-for-like ranking. The canonical team_projections values are
-  // already team totals, so skip that adjustment when they're used (_usedTP).
-  const _rebAdj=_usedTP?0:2.5, _orAdj=_usedTP?0:0.8, _drAdj=_usedTP?0:1.7;
+  // player) — add them back for a like-for-like ranking vs team_seasons.
+  const _rebAdj=2.5, _orAdj=0.8, _drAdj=1.7;
   const ppgPct=teamPct(fPpg,'ppg'),rpgPct=teamPct(fRpg+_rebAdj,'rpg'),apgPct=teamPct(fApg,'apg');
   const fgPct2=teamPct(fFgPct,'fg_pct'),tpPct2=teamPct(fTpPct,'tp_pct'),ftPct2=teamPct(fFtPct,'ft_pct');
   const tovPct=teamPct(fTovs,'topg',true),stlPct=teamPct(fStl,'spg'),blkPct=teamPct(fBlk,'bpg');
