@@ -809,6 +809,7 @@
     .impact-val{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;min-width:44px;text-align:right;}
     .impact-chip{font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:20px;white-space:nowrap;}
     .c-pos{color:#2bb673;} .c-neg{color:#e06552;}
+    .impact-lowsamp{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);background:var(--bg3);border:1px solid var(--border);padding:2px 8px;border-radius:20px;white-space:nowrap;}
     .sortable-table td.heat{border-radius:3px;}
     .section-head{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:16px 0 10px;border-bottom:1px solid var(--border);margin-bottom:12px;}
     .loading-spinner{width:32px;height:32px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 16px;}
@@ -5804,7 +5805,7 @@ async function renderOnOff(){
   const impTier=v=>v==null?null:v>=12?{t:'Elite',c:'#1f9d57'}:v>=6?{t:'Strong',c:'#2bb673'}:v>=2?{t:'Positive',c:'#6bbf8a'}:v>-2?{t:'Neutral',c:'#8a93a3'}:v>-6?{t:'Negative',c:'#e0885a'}:{t:'Drag',c:'#e06552'};
   // diverging impact-bar cell (green right / red left) — matches onoff.html
   const impCell=(v,tier,maxAbs)=>{
-    if(v==null||!isFinite(v)) return '<td class="onoff-big" title="Not enough off-court possessions to isolate his impact — he was rarely off the floor, so there\'s no clean baseline to compare against."><div class="impact-wrap"><span class="impact-val" style="color:var(--text3);">—</span></div></td>';
+    if(v==null||!isFinite(v)) return '<td class="onoff-big" title="Sample too low to isolate his impact — see the On/Off possessions. He was almost never off the floor (or barely on it), so there\'s no clean baseline to compare against."><div class="impact-wrap"><span class="impact-lowsamp">low sample</span></div></td>';
     const w=(Math.min(1,Math.abs(v)/maxAbs)*50).toFixed(0);
     const bar='<i class="'+(v>=0?'pos':'neg')+'" style="width:'+w+'%"></i>';
     const chip=tier?'<span class="impact-chip" style="color:'+tier.c+';background:'+tier.c+'22;">'+tier.t+'</span>':'';
@@ -5825,7 +5826,9 @@ async function renderOnOff(){
     return `<tr>
       <td style="text-align:left;color:var(--text3);">${i+1}</td>
       <td style="text-align:left;"><a href="player.html?espn=${r.espn_id}" style="color:var(--text);font-weight:700;text-decoration:none;">${r.name||'—'}</a>${_xf}</td>
-      <td>${f(r.on_poss,0)}</td>
+      ${(()=>{ const on=+r.on_poss||0, off=+r.off_poss||0, lowOn=on<200, lowOff=off<100;
+        const oc=lowOff?'#e06552':'var(--text3)', nc=lowOn?'#e06552':'';
+        return `<td title="On-court / off-court possessions${(lowOn||lowOff)?' — too few '+(lowOn?'on':'off')+'-court possessions for a reliable impact':''}"><span style="color:${nc};">${f(on,0)}</span> <span style="color:var(--text3);">/</span> <span style="color:${oc};font-weight:${lowOff?'700':'400'};">${f(off,0)}</span></td>`; })()}
       ${impCell(r._adj, impTier(r._adj), 20)}
       <td style="color:${col(r.on_net)};">${r.on_net>0?'+':''}${f(r.on_net)}</td>
       <td style="color:${col(r.off_net)};">${r.off_net>0?'+':''}${f(r.off_net)}</td>
@@ -5841,8 +5844,8 @@ async function renderOnOff(){
     <div class="tbl-card"><table class="sortable-table" style="min-width:760px;">
       <thead><tr>
         <th class="left" style="width:28px;"></th><th class="left">Player</th>
-        <th title="Offensive possessions with the player on the floor">On Poss</th>
-        <th title="Impact — how many points per 100 the team is better with him on the floor vs off (on-court net minus off-court net)">Impact</th>
+        <th title="Possessions with the player ON the floor / OFF the floor. Impact needs enough of both — a red off-count means too small a sample to grade.">On / Off Poss</th>
+        <th title="Impact — how many points per 100 the team is better with him on the floor vs off (on-court net minus off-court net). 'low sample' = not enough on- or off-court possessions to isolate it.">Impact</th>
         <th title="Team net efficiency with the player ON">On Net</th>
         <th title="Team net efficiency with the player OFF">Off Net</th>
         <th title="Points scored per 100, player on">On ORtg</th><th title="Points allowed per 100, player on">On DRtg</th>
