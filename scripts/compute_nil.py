@@ -75,8 +75,9 @@ def tier_num(t):
     m=re.search(r'(\d+)',str(t)) if t is not None else None; return int(m.group(1)) if m else None
 def conf_class(c):
     c=(c or "").lower()
-    if any(k in c for k in ["big ten","big 12","southeastern","big east","atlantic coast"]) or c in("acc","sec","b10","b12","be"): return "P"
-    if any(k in c for k in ["american","atlantic 10","mountain west","west coast","conference usa","sun belt","mid-american","missouri valley"]) or c in("aac","a10","mwc","wcc"): return "M"
+    for ch in " -_.": c=c.replace(ch,"")   # normalize "BIG-12"->"big12" (the teams-table code form)
+    if any(k in c for k in ["bigten","big12","southeastern","bigeast","atlanticcoast"]) or c in("acc","sec","b10","b12","be","bigeast","big12","bigten"): return "P"
+    if any(k in c for k in ["american","atlantic10","mountainwest","westcoast","conferenceusa","sunbelt","midamerican","missourivalley","pac12","pacific"]) or c in("aac","a10","mwc","wcc","pac12","pac"): return "M"
     return "L"
 def size_mult(h,pos=None):
     if not h: return 1.0

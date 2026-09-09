@@ -70,9 +70,9 @@ window.TDC_NIL = {
     return z>=0 ? 1+Math.min(z/N.OFF_SPAN,1)*N.OFF_UP : 1+Math.max(z/N.OFF_DOWN_SPAN,-1)*N.OFF_DOWN; };
   N.usageMult   = function(z){ if(z==null) return 1; return 1+Math.min(Math.max(z/N.USG_SPAN,0),1)*N.USG_UP; };
   N.defenseMult = function(z){ if(z==null) return 1; return 1-Math.min(Math.max(z/N.DEF_SPAN,0),1)*N.DEF_DOWN; };
-  N.confClass = function(c){ c=(''+(c||'')).toLowerCase();
-    if(/big ten|big 12|southeastern|big east|atlantic coast/.test(c) || ['acc','sec','b10','b12','be','big-east'].indexOf(c)>=0) return 'P';
-    if(/american|atlantic 10|mountain west|west coast|conference usa|sun belt|mid-american|missouri valley/.test(c) || ['aac','a10','a-10','mwc','wcc'].indexOf(c)>=0) return 'M';
+  N.confClass = function(c){ c=(''+(c||'')).toLowerCase().replace(/[\s\-_.]/g,'');   // normalize: "BIG-12"→"big12"
+    if(/bigten|big12|southeastern|bigeast|atlanticcoast/.test(c) || ['acc','sec','b10','b12','be','bigeast','big12','bigten'].indexOf(c)>=0) return 'P';
+    if(/american|atlantic10|mountainwest|westcoast|conferenceusa|sunbelt|midamerican|missourivalley|pac12|pacific/.test(c) || ['aac','a10','mwc','wcc','pac12','pac'].indexOf(c)>=0) return 'M';
     return 'L'; };
   N.confMult  = function(cls){ return P.conf[cls] || 1; };
   // pillars: {offense,usage,defense,...} z-scores from bbref_seasons.grade_pillars, or null/undefined
@@ -129,6 +129,18 @@ window.TDC_NIL = {
     var lo=Math.floor(g/2)*2, hi=lo+2, a=N.EXP_WA[lo], b=N.EXP_WA[hi]; if(a==null||b==null) return a||b||null; return a+(b-a)*((g-lo)/2); };
   N.waCoherence = function(grade,wa){ if(wa==null||wa===''||!isFinite(+wa)) return 1; var e=N.expWA(grade); if(!e||e<=0) return 1;
     return Math.max(0.45, Math.min(1.0, 0.40+0.60*((+wa)/e))); };
+  // corrected market premium: FRESHMEN have no scoring/pillar data, so their baked prem is just
+  // size×conference — but some baked it with a MIS-CLASSIFIED conference (Big-12/Pac-12 read as
+  // low-major). Recompute cleanly from the row's size + (fixed) confClass. Returners keep their
+  // baked prem (it carries pillar-based efficiency the row can't reproduce).
+  N.premOf = function(p){ if(!p) return 1;
+    if((p.ppg==null||p.ppg==='') && p.conf!=null && p.ht!=null && N.sizeMult) return N.sizeMult(p.ht,p.pos)*N.confMult(N.confClass(p.conf));
+    var pr=(p.prem!=null&&isFinite(+p.prem))?+p.prem:1;
+    // returners: the baked prem mis-classified BIG-12 & PAC-12 as low-major (conf factor 0.90). Only
+    // those two were wrong (B10/SEC/ACC/Big-East/AAC baked right). Correct the conference factor.
+    var c=(''+(p.conf||'')).toUpperCase().replace(/[\s\-_.]/g,'');
+    if(c==='BIG12'||c==='PAC12') pr=pr*(N.confMult(N.confClass(p.conf))/0.90);
+    return pr; };
   N.gradeValueNeutral = function(grade,mpg,prem,cls,pos,wa){ var b=N.neuGradeBase(grade); if(b<=0.002) return N.WALKON_VALUE;
     return b*N.NEU_TOP*N.premAdj(prem)*N.neuMinFactor(N.estMpg(mpg,grade))*N.neuYouth(cls)*N.bigMult(pos,grade)*N.waCoherence(grade,wa); };
   // MARKETABILITY — NIL is a brand market, not just a talent market: a featured SCORER draws the
@@ -252,7 +264,7 @@ window.TDC_NIL = {
     // GRADE-LED: recompute every player live from the model (grade/mpg/premium/class/pos), so the
     // valuation is controlled entirely by tdc-nil.js — no dependency on the baked tier value, and
     // baked real-deal "override" figures are never surfaced. tier is unused (open-market worth).
-    var mv=N.gradeValueNeutral(p.grade,p.mpg,p.prem,p.cls,p.pos,p.wa);
+    var mv=N.gradeValueNeutral(p.grade,p.mpg,N.premOf(p),p.cls,p.pos,p.wa);
     mv=isFinite(+mv)?+mv:(isFinite(v)?v:0);
     mv=mv*N.draftBoost(p.grade,p.ppg)*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos)*N.injuryMultOf(p)*N.adjMultOf(p.name)*N.progMultOf(p.team);
     return Math.max(N.progFloorOf(p.conf), mv); };   // × draft × defense × mkt × pro × injury × adjust × program, then conf floor
