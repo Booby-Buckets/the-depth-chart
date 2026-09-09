@@ -10,6 +10,8 @@
      TDC_LINEUPS.section(full, season, opt) -> Promise<htmlString>  (a ready section;
                                                '' when the team has no lineup data)
    Styles are inline so it renders consistently on any page. */
+// neutral card "back" behind each table so it reads as a panel, not floating on the team tint
+var LU_CARD='overflow-x:auto;-webkit-overflow-scrolling:touch;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:8px 14px 12px;box-shadow:0 1px 3px rgba(0,0,0,.12);';
 window.TDC_LINEUPS = (function () {
   var _d = null, _p = null;
   function load() {
@@ -345,9 +347,9 @@ window.TDC_LINEUPS = (function () {
       return ''
         + '<div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:26px 0 4px;">Lineups, Trios &amp; Pairs <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;">· ' + yl + ' · ' + src + '</span></div>'
         + '<div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:12px;">The five-man units this team played, plus the trios and pairs inside them. <b style="color:var(--text2);">Net</b> = per-100 margin with that group on; <span style="color:#5bb381;">green</span>/<span style="color:#e0885a;">red</span> beats/trails a typical unit. Hover a header for its definition; click to sort.</div>'
-        + colHdr('Five-man lineups · most-used') + lineupCol
-        + '<div style="margin-top:20px;">' + colHdr('Top trios') + trioCol + '</div>'
-        + '<div style="margin-top:20px;">' + colHdr('Top pairs') + pairCol + '</div>';
+        + '<div style="' + LU_CARD + '">' + colHdr('Five-man lineups · most-used') + lineupCol + '</div>'
+        + '<div style="' + LU_CARD + 'margin-top:20px;">' + colHdr('Top trios') + trioCol + '</div>'
+        + '<div style="' + LU_CARD + 'margin-top:20px;">' + colHdr('Top pairs') + pairCol + '</div>';
     });
   }
   return { load: load, forTeam: forTeam, section: section, trios: trios, combo: combo, short: short, tier: tier, _sort: _sort, _filter: _filter };

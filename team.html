@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js?v=6"></script>
   <script src="tdc-shotchart.js?v=15"></script>
-  <script src="tdc-lineups.js?v=15"></script>
+  <script src="tdc-lineups.js?v=16"></script>
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-nil.js?v=prem2"></script>
   <script src="tdc-gate.js?v=3"></script>
@@ -662,6 +662,9 @@
     /* Solid backdrop so the team-colored ambient glow can't wash out the projection
        roster cells (matches the historic roster table). */
     .rot-table-card{overflow-x:auto;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:2px 16px 6px;margin-top:6px;}
+    /* neutral card "back" so tables read as panels, not floating on the team-color tint */
+    .tbl-card{overflow-x:auto;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:4px 14px 8px;margin-top:4px;box-shadow:0 1px 3px rgba(0,0,0,.12);}
+    .oo-xfer{display:inline-block;margin-left:7px;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.02em;color:var(--tc-readable,var(--accent));background:color-mix(in srgb,var(--tc-readable,var(--accent)) 14%,transparent);border:1px solid color-mix(in srgb,var(--tc-readable,var(--accent)) 32%,transparent);vertical-align:middle;white-space:nowrap;}
     /* ── Google-Sheets look — scoped to the projections table (.proj-gs) ── */
     .proj-gs{padding:0!important;}
     .proj-gs .pstat-header,.proj-gs .protation-row{gap:0;}
@@ -5758,6 +5761,18 @@ async function renderOnOff(){
   if(_currentView && rosterIds.size){
     const ret=rows.filter(r=>rosterIds.has(String(r.espn_id)));
     if(ret.length){ _departedN=rows.length-ret.length; rows=ret; }
+    // Transfers IN: a newcomer's on/off lives under his PREVIOUS school, so he never shows in
+    // this team's rows. Pull each roster player whose same-season on/off is under a different
+    // team (best sample) and tag him with where he came from, so the table isn't just returners.
+    const here=new Set(ret.map(r=>String(r.espn_id)));
+    const byId={};
+    (_onoffData[season]||[]).forEach(r=>{ const id=String(r.espn_id);
+      if(!rosterIds.has(id)||here.has(id)) return;              // not on roster, or already a returner
+      const poss=(+r.on_poss||0)+(+r.off_poss||0);
+      const prev=byId[id]; if(!prev||poss>((+prev.on_poss||0)+(+prev.off_poss||0))) byId[id]=r;
+    });
+    const _incoming=Object.values(byId).map(r=>Object.assign({},r,{_fromTeam:r.team}));
+    if(_incoming.length) rows=rows.concat(_incoming);
   }
   // Sample-adjusted Impact (matches onoff.html): shrink the raw swing toward 0 by the
   // bench-unit sample so a player with few off-court possessions can't post a fake number.
@@ -5797,10 +5812,15 @@ async function renderOnOff(){
   HK.forEach(k=>{ const vs=rows.map(r=>r[k]).filter(v=>v!=null&&isFinite(v)); if(vs.length) HR[k]={lo:Math.min(...vs),hi:Math.max(...vs)}; });
   const heatBg=(k,v,inv)=>{ const h=HR[k]; if(!h||v==null||!isFinite(v)||h.hi<=h.lo) return ''; let n=(v-h.lo)/(h.hi-h.lo); if(inv) n=1-n; return ' style="background:rgba(77,127,214,'+(0.06+n*0.34).toFixed(3)+');"'; };
   const showPhoto=(window.tdcShowPhotos&&window.tdcShowPhotos());
+  // "Georgia Tech Yellow Jackets" -> "Georgia Tech" for the transfer-from tag. Prefer the shared
+  // school-name map (handles multi-word mascots); fall back to trimming the last word.
+  const _shortTeam=t=>{ if(window.tdcShortSchool){ try{ const s=window.tdcShortSchool(t); if(s) return s; }catch(e){} }
+    const w=String(t||'').trim().split(/\s+/); return w.length>1?w.slice(0,-1).join(' '):(t||''); };
   const body=rows.map((r,i)=>{
+    const _xf=r._fromTeam?`<span class="oo-xfer" title="Transfer — his on/off is from last season at ${r._fromTeam}">← ${_shortTeam(r._fromTeam)}</span>`:'';
     return `<tr>
       <td style="text-align:left;color:var(--text3);">${i+1}</td>
-      <td style="text-align:left;"><a href="player.html?espn=${r.espn_id}" style="color:var(--text);font-weight:700;text-decoration:none;">${r.name||'—'}</a></td>
+      <td style="text-align:left;"><a href="player.html?espn=${r.espn_id}" style="color:var(--text);font-weight:700;text-decoration:none;">${r.name||'—'}</a>${_xf}</td>
       <td>${f(r.on_poss,0)}</td>
       ${impCell(r._adj, impTier(r._adj), 20)}
       <td style="color:${col(r.on_net)};">${r.on_net>0?'+':''}${f(r.on_net)}</td>
@@ -5809,11 +5829,12 @@ async function renderOnOff(){
       <td class="heat"${heatBg('off_o',r.off_o)}>${f(r.off_o)}</td><td class="heat"${heatBg('off_d',r.off_d,true)}>${f(r.off_d)}</td>
     </tr>`;
   }).join('');
+  const _inN=rows.filter(r=>r._fromTeam).length;
   host.innerHTML=`
-    <div class="sec-head">On/Off &amp; WOWY <span style="color:var(--text3);font-weight:600;font-size:12px;">· ${_currentView?`returning players, ${yl}`:yl}</span></div>
-    <p style="color:var(--text3);font-size:12.5px;line-height:1.5;max-width:840px;margin:0 0 10px;"><b style="color:var(--text2);">Impact</b> = the on/off swing in net rating (pts/100), shrunk for sample size — hover for the raw number. Measured vs teammates, not opponent-adjusted.${_currentView?` <span style="color:var(--text3);">On/off is measured from games played, so these are this roster's <b>returning</b> players' impact last season (${yl}) — the 2026-27 season hasn't started.${_departedN?` ${_departedN} player${_departedN>1?'s':''} from last year's rotation ${_departedN>1?'have':'has'} left.`:''}</span>`:''}</p>
+    <div class="sec-head">On/Off &amp; WOWY <span style="color:var(--text3);font-weight:600;font-size:12px;">· ${_currentView?`${_inN?'returning + incoming':'returning players'}, ${yl}`:yl}</span></div>
+    <p style="color:var(--text3);font-size:12.5px;line-height:1.5;max-width:840px;margin:0 0 10px;"><b style="color:var(--text2);">Impact</b> = the on/off swing in net rating (pts/100), shrunk for sample size — hover for the raw number. Measured vs teammates, not opponent-adjusted.${_currentView?` <span style="color:var(--text3);">On/off is measured from games played, so these are this roster's <b>returning</b> players' impact last season (${yl}) — the 2026-27 season hasn't started.${_departedN?` ${_departedN} player${_departedN>1?'s':''} from last year's rotation ${_departedN>1?'have':'has'} left.`:''}${_inN?` ${_inN} <b>incoming</b> transfer${_inN>1?'s are':' is'} shown with a <span style="color:var(--tc-readable,var(--accent));">← from</span> tag — their numbers are from last season at their previous school.`:''}</span>`:''}</p>
     <div style="display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;font-weight:700;margin:0 0 14px;"><span style="color:#1f9d57;">+12 Elite</span><span style="color:#2bb673;">+6 Strong</span><span style="color:#6bbf8a;">+2 Positive</span><span style="color:#8a93a3;">±2 Neutral</span><span style="color:#e0885a;">−6 Negative</span><span style="color:#e06552;">Drag</span></div>
-    <div style="overflow-x:auto;"><table class="sortable-table" style="min-width:760px;">
+    <div class="tbl-card"><table class="sortable-table" style="min-width:760px;">
       <thead><tr>
         <th class="left" style="width:28px;"></th><th class="left">Player</th>
         <th title="Offensive possessions with the player on the floor">On Poss</th>
