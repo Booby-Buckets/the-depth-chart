@@ -5776,8 +5776,12 @@ async function renderOnOff(){
   }
   // Sample-adjusted Impact (matches onoff.html): shrink the raw swing toward 0 by the
   // bench-unit sample so a player with few off-court possessions can't post a fake number.
+  // Impact needs a real on-court sample AND enough OFF-court possessions to have a baseline to
+  // compare against. The off/(off+300) shrinkage already pulls thin samples toward 0, so the gate
+  // is deliberately loose (a starter who almost never sits — e.g. 16 off poss — still can't be
+  // graded, but a borderline 150-off transfer can). Small off-samples land near 0, not inflated.
   rows.forEach(r=>{ const on=+r.on_poss||0, off=+r.off_poss||0, raw=r.onoff_net;
-    r._adj=(raw!=null&&on>=300&&off>=200)?Math.round(Math.max(-35,Math.min(35,raw))*off/(off+300)*10)/10:null; });
+    r._adj=(raw!=null&&on>=200&&off>=100)?Math.round(Math.max(-35,Math.min(35,raw))*off/(off+300)*10)/10:null; });
   rows.sort((a,b)=>((b._adj??-99)-(a._adj??-99)));
   const yl=(+season-1)+'-'+(''+season).slice(2);
   // ── Paywall: Pro+ sees every player, Premium the top 2, free none ──
@@ -5800,7 +5804,7 @@ async function renderOnOff(){
   const impTier=v=>v==null?null:v>=12?{t:'Elite',c:'#1f9d57'}:v>=6?{t:'Strong',c:'#2bb673'}:v>=2?{t:'Positive',c:'#6bbf8a'}:v>-2?{t:'Neutral',c:'#8a93a3'}:v>-6?{t:'Negative',c:'#e0885a'}:{t:'Drag',c:'#e06552'};
   // diverging impact-bar cell (green right / red left) — matches onoff.html
   const impCell=(v,tier,maxAbs)=>{
-    if(v==null||!isFinite(v)) return '<td class="onoff-big"><div class="impact-wrap"><span class="impact-val">—</span></div></td>';
+    if(v==null||!isFinite(v)) return '<td class="onoff-big" title="Not enough off-court possessions to isolate his impact — he was rarely off the floor, so there\'s no clean baseline to compare against."><div class="impact-wrap"><span class="impact-val" style="color:var(--text3);">—</span></div></td>';
     const w=(Math.min(1,Math.abs(v)/maxAbs)*50).toFixed(0);
     const bar='<i class="'+(v>=0?'pos':'neg')+'" style="width:'+w+'%"></i>';
     const chip=tier?'<span class="impact-chip" style="color:'+tier.c+';background:'+tier.c+'22;">'+tier.t+'</span>':'';
@@ -6032,7 +6036,11 @@ function _dnaCSS(){ if(document.getElementById('dna-css')) return;
   const c=document.createElement('style'); c.id='dna-css';
   c.textContent=`
   #panel-dna{max-width:none;}
-  .dna-grid3{display:grid;grid-template-columns:1.15fr 1.15fr 1fr;gap:26px;margin-bottom:26px;align-items:start;}
+  /* one uniform section card so the currently-bare sections stop floating on the team-color field */
+  .dna-block{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin:0 0 14px;}
+  .dna-block .dna-sec{border-bottom:none;padding-bottom:0;margin-bottom:14px;}
+  .dna-grid3{display:grid;grid-template-columns:1.15fr 1.15fr 1fr;gap:24px;margin-bottom:0;align-items:start;}
+  .dna-grid3 .dna-sec{border-bottom:1px solid var(--border);padding-bottom:6px;}
   .dna-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:4px 0 18px;}
   .dna-title{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;}
   .dna-sub{font-size:12px;color:var(--text3);font-weight:600;}
@@ -6053,9 +6061,9 @@ function _dnaCSS(){ if(document.getElementById('dna-css')) return;
   .sgt-bar i{display:block;height:100%;border-radius:3px;}
   .sgt-pct{font-size:10.5px;font-weight:700;margin-top:5px;}
   .dna-effr{font-size:11px;font-weight:700;color:var(--tc-readable,var(--accent));margin-top:3px;}
-  .dna-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:26px;}
+  .dna-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:0;}
   /* Heat Index meter */
-  .dna-heat{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:-10px 0 26px;}
+  .dna-heat{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:0 0 14px;}
   .dna-heat-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px;}
   .dna-heat-track{height:8px;border-radius:5px;background:linear-gradient(90deg,rgba(79,159,224,.25),rgba(130,150,200,.14),rgba(224,145,58,.28));overflow:hidden;position:relative;}
   .dna-heat-fill{height:100%;border-radius:5px;opacity:.85;}
@@ -6082,7 +6090,7 @@ function _dnaCSS(){ if(document.getElementById('dna-css')) return;
   .dna-luck{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;}
   .dna-luckn{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;}
   /* Winning impact — diverging points-per-game bars */
-  .dna-imp{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:26px;}
+  .dna-imp{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:14px;}
   .dna-imp-row{display:grid;grid-template-columns:180px 1fr 58px;align-items:center;gap:14px;padding:5px 0;}
   .dna-imp-lbl{font-size:12.5px;font-weight:700;color:var(--text2);text-align:right;overflow-wrap:break-word;}
   .dna-imp-track{position:relative;height:15px;background:var(--bg3);border-radius:8px;}
@@ -6456,14 +6464,14 @@ async function renderTeamDNA(){
   // strength radar (8 axes of percentile)
   const ax=[['Offense',pct(oK)],['Shooting',pct('oeFG')],['Ball Sec.',pct('oTOV',false)],['Off Reb',pct('oORB')],['Defense',pct(dK,false)],['Force TO',pct('dTOV')],['Def Reb',pct('dDRB')],['Steady',pct('margin_sd',false)]];
   const R=110,cx=140,cy=130,n=ax.length; let rings='',spokes='',poly='',labs='';
-  // radar sits bare on the team-color field (HQ skin) → draw it in white so it reads
-  for(let r=1;r<=4;r++){let p='';for(let i=0;i<n;i++){const a=Math.PI*2*i/n-Math.PI/2;p+=(i?'L':'M')+(cx+Math.cos(a)*R*r/4).toFixed(1)+' '+(cy+Math.sin(a)*R*r/4).toFixed(1);}rings+=`<path d="${p}Z" fill="none" stroke="rgba(255,255,255,.28)"/>`;}
+  // radar now sits inside a neutral card → theme tokens so it reads in light AND dark
+  for(let r=1;r<=4;r++){let p='';for(let i=0;i<n;i++){const a=Math.PI*2*i/n-Math.PI/2;p+=(i?'L':'M')+(cx+Math.cos(a)*R*r/4).toFixed(1)+' '+(cy+Math.sin(a)*R*r/4).toFixed(1);}rings+=`<path d="${p}Z" fill="none" stroke="var(--border)"/>`;}
   ax.forEach(([l,v],i)=>{const a=Math.PI*2*i/n-Math.PI/2,x=cx+Math.cos(a)*R,y=cy+Math.sin(a)*R;
-    spokes+=`<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,.28)"/>`;
+    spokes+=`<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border)"/>`;
     poly+=(i?'L':'M')+(cx+Math.cos(a)*R*v/100).toFixed(1)+' '+(cy+Math.sin(a)*R*v/100).toFixed(1);
     const lx=cx+Math.cos(a)*(R+16),ly=cy+Math.sin(a)*(R+16);
-    labs+=`<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="9" font-weight="700" fill="rgba(255,255,255,.9)" text-anchor="middle" dominant-baseline="middle">${l}</text>`;});
-  const radar=`<svg viewBox="-16 -8 312 276" style="width:100%;max-width:320px;">${rings}${spokes}<path d="${poly}Z" fill="rgba(255,255,255,.22)" stroke="#ffffff" stroke-width="2"/>${labs}</svg>`;
+    labs+=`<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="9" font-weight="700" fill="var(--text2)" text-anchor="middle" dominant-baseline="middle">${l}</text>`;});
+  const radar=`<svg viewBox="-16 -8 312 276" style="width:100%;max-width:320px;">${rings}${spokes}<path d="${poly}Z" fill="var(--tc,var(--accent))" fill-opacity=".20" stroke="var(--tc,var(--accent))" stroke-width="2"/>${labs}</svg>`;
   // luck + evolution
   const PROJ=!!t.projected;
   const slbl=s=> s==='2027'?'2026-27 · Projected':_dnaSeasonLbl(s);
@@ -6594,7 +6602,7 @@ async function renderTeamDNA(){
     };
     const sgLbl=sgProjRow?'· 2026-27 projected':'· 2025-26';
     sgHtml=`
-      <div class="dna-sec" style="margin-top:26px;">Shot Genome — offense <span style="color:var(--text3);font-weight:600;">${sgLbl}</span></div>
+      <div class="dna-sec" style="margin-top:14px;">Shot Genome — offense <span style="color:var(--text3);font-weight:600;">${sgLbl}</span></div>
       <div class="sgt-grid">
         ${card('Look Quality', o.lq!=null?o.lq.toFixed(1):'—', opc.lq, 'The eFG% a league-average shooter would post on this shot diet — how good the looks the team generates are.')}
         ${card('Shot-Making', o.smAdj!=null?((o.smAdj>=0?'+':'')+o.smAdj.toFixed(1)):'—', opc.smAdj, 'Points added over an average shooter given the shot diet, per 100 shots, competition-adjusted. Pure finishing.')}
@@ -6612,7 +6620,7 @@ async function renderTeamDNA(){
       else dv='Gives up quality looks and does not suppress shooting much.';
       const suppress=(d.smAdj!=null)?(-d.smAdj):null;   // positive = opponents shoot BELOW expected
       sgHtml+=`
-      <div class="dna-sec" style="margin-top:22px;">Shot Genome — defense · Contest vs Funnel</div>
+      <div class="dna-sec" style="margin-top:14px;">Shot Genome — defense · Contest vs Funnel</div>
       <div class="dna-imp-cap" style="text-align:left;margin:-6px 0 10px;">${dv}</div>
       <div class="sgt-grid">
         ${card('Looks allowed', d.lq!=null?d.lq.toFixed(1):'—', dpc.lq, 'Look Quality allowed — how good the shots opponents GET by location. A low number (high percentile) means the defense funnels them into tough shots.')}
@@ -6651,7 +6659,7 @@ async function renderTeamDNA(){
     const connLbl=pn.connectivity>=88?'Egalitarian — creation spread across the roster':pn.connectivity>=78?'Balanced ball movement':pn.connectivity>=70?'Lead-guard driven':'Star-hub — one player sets up most looks';
     const hub=nodes.slice().sort((a,b)=>b.cr-a.cr)[0];
     pnHtml=`
-      <div class="dna-sec" style="margin-top:26px;">Passing Network <span style="color:var(--text3);font-weight:600;">· 2025-26</span></div>
+      <div class="dna-sec" style="margin-top:14px;">Passing Network <span style="color:var(--text3);font-weight:600;">· 2025-26</span></div>
       <div class="dna-imp-cap" style="text-align:left;margin:-6px 0 6px;"><b>Connectivity ${pn.connectivity}</b> (${ord(pn.connPct)} pctile) — ${connLbl}. ${pn.assistedPct}% of makes assisted${hub?`; top creator <b>${last(hub.name)}</b> (${hub.cr} assists)`:''}.</div>
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 8px;">${svg}
         <div style="text-align:center;font-size:10.5px;color:var(--text3);margin-top:2px;">Lines = passing lanes (thicker = more assists). Filled dots create more than they receive; hollow dots finish more than they create.</div>
@@ -6705,20 +6713,20 @@ async function renderTeamDNA(){
     ${_teamChemCard()}
     ${ADJ?`<div class="dna-imp-cap" style="text-align:left;margin:-8px 0 4px;">These efficiency numbers are <b>opponent-adjusted</b> (points per 100 possessions vs an average D1 team, corrected for schedule strength) — so a mid-major that feasts on a weak league doesn't rank like a high-major.</div>`:''}
     ${matchupHtml?`<div style="margin-top:20px;">${matchupHtml}</div>`:''}
-    <div class="dna-chips">${chips.join('')}</div>
+    <div class="dna-block"><div class="dna-sec">Identity</div><div class="dna-chips">${chips.join('')}</div></div>
     ${heatHtml}
     ${impactHtml}
-    <div class="dna-grid3">
+    <div class="dna-block"><div class="dna-grid3">
       <div><div class="dna-sec">Offense — four factors</div>${offFF}</div>
       <div><div class="dna-sec">Defense — four factors</div>${defFF}</div>
       <div><div class="dna-sec">Strength Radar</div><div style="display:flex;justify-content:center;">${radar}</div></div>
-    </div>
+    </div></div>
     ${sgHtml}
     ${pnHtml}
-    ${trendHtml?`<div style="margin-top:26px;">${trendHtml}</div>`:''}
-    ${styleHtml?`<div style="margin-top:26px;">${styleHtml}</div>`:''}
-    <div style="margin-top:26px;">${bottomHtml}</div>
-    <div class="dna-foot" style="border-top:1px solid var(--border);padding-top:12px;margin-top:26px;">${calibFoot}</div>`;
+    ${trendHtml?`<div style="margin-top:14px;">${trendHtml}</div>`:''}
+    ${styleHtml?`<div style="margin-top:14px;">${styleHtml}</div>`:''}
+    <div style="margin-top:14px;">${bottomHtml}</div>
+    <div class="dna-foot" style="border-top:1px solid var(--border);padding-top:12px;margin-top:18px;">${calibFoot}</div>`;
 }
 
 // ── MONEYBALL — NIL value vs impact (uses nil-data.json + the value module) ──
@@ -8831,15 +8839,16 @@ function renderProjNatlChart(projected, color, rgb){
     var arch=archetypeOf(src);
     var pool=poolFor(mode,arch);
     var cacheKey=(mode==='arch')?('arch:'+arch):'natl';
+    var ord=function(n){ var s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); };
     var cols=PCT_DEFS.map(function(d){
       var arr=distFor(pool,cacheKey,d.k);
       var projPct=p?pctRank(arr,p[d.k],d.inv):null;
       var lastPct=a?pctRank(arr,a[d.k],d.inv):null;
-      var bar=function(pct,cls){ if(pct==null)return '';
-        return '<div class="hc-cbar '+cls+'" style="height:'+Math.max(pct,3)+'%;">'+
+      var bar=function(pct,cls,when){ if(pct==null)return '';
+        return '<div class="hc-cbar '+cls+'" style="height:'+Math.max(pct,3)+'%;" title="'+d.l+' — '+ord(pct)+' percentile ('+when+')">'+
           '<div class="hc-cbar-v">'+pct+'</div></div>'; };
       return '<div class="hc-ccol"><div class="hc-cbar-area">'+
-        bar(projPct,'proj')+bar(lastPct,'last')+'</div>'+
+        bar(projPct,'proj','projected')+bar(lastPct,'last','last season')+'</div>'+
         '<div class="hc-clbl">'+d.l+'</div></div>';
     }).join('');
     var label = (mode==='arch')
@@ -8851,7 +8860,8 @@ function renderProjNatlChart(projected, color, rgb){
     var legend='<div class="hc-legend"><span><i style="background:var(--accent);"></i>26-27 Projected</span>'+
       '<span><i style="background:#5b9d8f;"></i>25-26 Actual</span></div>';
     return '<div class="hc-pct-wrap" data-pname="'+(name||'').replace(/"/g,'&quot;')+'" data-mode="'+mode+'">'+
-      '<div class="hc-pct-top"><div class="hc-pct-h">Percentile &mdash; '+label+'</div>'+toggle+'</div>'+
+      '<div class="hc-pct-top"><div class="hc-pct-h">Percentile rank &mdash; '+label+'</div>'+toggle+'</div>'+
+      '<div style="font-size:11px;color:var(--text3);margin:-2px 0 8px;">Each bar is a <b>percentile</b> (0&ndash;99): 90 = better than 90% of players. Not the raw stat.</div>'+
       legend+'<div class="hc-chart">'+cols+'</div></div>';
   }
   function diff(proj,act){ if(act==null||proj==null||isNaN(act)||isNaN(proj))return '';
