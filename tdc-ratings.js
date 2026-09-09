@@ -68,6 +68,11 @@
     return BPM_MU+(s-BPM_MU)*BPM_K;
   }
   const BLEND_ROSTER=0.90, ANCHOR=0.70;    // roster weight; prior-SRS regression
+  // Projected box/DNA efficiency blend: the roster rating (minute-weighted BPM) and the projected net
+  // efficiency (team_eff.json, from the projected box) are two lenses on team strength (corr ~0.90).
+  // Blend EFF_W of the box lens in so the projected stats explicitly move the ranking. net→SRS scale
+  // (EFF_A + EFF_B·net) fit across teams. (Owner must republish for the cached rankings to update.)
+  const EFF_W=0.30, EFF_A=1.69, EFF_B=1.12;
   const CARRY=0.70;                        // rosterless teams: regressed SRS'26 carryover
   // Coach effect. rosterRating is pure TALENT (a BPM→SRS mapping), so it cannot see
   // coaching at all, and the only coach signal in the blend was the program's own
@@ -196,7 +201,7 @@
   // canonical projected rankings — same stat-derived currency as returners.
   let _ovr=null;
   async function compute(){
-    const [teams, players, bb, ts, hcaData, coachData, sgData, contData, levelData]=await Promise.all([
+    const [teams, players, bb, ts, hcaData, coachData, sgData, contData, levelData, effData]=await Promise.all([
       fetch(SB+'/rest/v1/teams?select=name,conf,conference,head_coach,coach&limit=500',{headers:H}).then(r=>r.json()),
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,rpg,depth_order,is_injured,hometown&order=id.asc'),
       fetchPaged(SB+'/rest/v1/player_advanced?season_year=eq.2026&espn_id=not.is.null&select=espn_id,team,ts_pct,efg_pct,tp_pct,ft_pct,pts40,reb40,ast40,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,stl_pct,blk_pct,ti40&order=espn_id.asc'),
@@ -206,7 +211,13 @@
       fetch('scripts/data/shot_genome_players.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('data/continuity.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/level_adj.json').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('scripts/data/team_eff.json?v=3').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
+    // Projected team efficiency (build_projected_dna.py → team_eff.json "2027"), keyed by FULL name:
+    // {o,d,net}. Its NET is the box/DNA lens on team strength; blended into the roster rating so the
+    // projected box explicitly moves the ranking (they correlate ~0.90; the blend mainly pulls the
+    // teams where the two disagree, e.g. Kansas up / a hot-BPM roster down). net→SRS scale ~1.69+1.12·net.
+    const _eff2027=(effData&&effData['2027'])||{};
     const hcaOf=(hcaData&&hcaData.teams)||{};
     const confOf={}; (teams||[]).forEach(t=>{ confOf[t.name]=t.conf||t.conference||''; });
     // LEVEL-OF-COMPETITION regression, applied at the SOURCE (per player, on projected BPM)
@@ -365,7 +376,12 @@
       const rot=entries.filter(e=>e.min>=3);
       const minSum=rot.reduce((s,e)=>s+e.min,0)||1;
       const mw=rot.reduce((s,e)=>s+e.projBpm*(e.min/minSum),0);
-      const rosterRating=CAL_A+CAL_B*mw;
+      let rosterRating=CAL_A+CAL_B*mw;
+      // Blend in the projected box/DNA efficiency (team_eff net → SRS) so the projected stats move the
+      // ranking. Only when the team has a projected-efficiency row; otherwise the BPM roster stands.
+      const _ef=_eff2027[full];
+      if(_ef && isFinite(+_ef.net)){ rosterRating=(1-EFF_W)*rosterRating + EFF_W*(EFF_A+EFF_B*(+_ef.net)); }
+      rosterRating=+rosterRating.toFixed(2);
       // team shot luck: minutes-weighted eFG-over-quality of the rotation's returners
       const sgEnt=rot.filter(e=>e.hasSg); const sgMin=sgEnt.reduce((s,e)=>s+e.min,0);
       const shotLuck=sgMin?+(sgEnt.reduce((s,e)=>s+e.luckEfg*e.min,0)/sgMin).toFixed(1):null;
