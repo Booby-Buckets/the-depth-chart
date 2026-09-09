@@ -2877,8 +2877,30 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
   const tOreb=r1s(tot('oreb')),tDreb=r1s(tot('dreb'));
 
   // ── Team summary = direct sum of wall-scaled player stats ──
-  const fPpg=tPpg,fRpg=tRpg,fApg=tApg,fFgPct=tFgPct,fTpPct=tTpPct,fFtPct=tFtPct;
-  const fFga=tFga,fTpa=tTpa,fTovs=tTovs,fStl=tStl,fBlk=tBlk,fOreb=tOreb,fDreb=tDreb;
+  let fPpg=tPpg,fRpg=tRpg,fApg=tApg,fFgPct=tFgPct,fTpPct=tTpPct,fFtPct=tFtPct;
+  let fFga=tFga,fTpa=tTpa,fTovs=tTovs,fStl=tStl,fBlk=tBlk,fOreb=tOreb,fDreb=tDreb;
+  // The raw sum of every rostered player's projected per-game line OVERSHOOTS a real team (a game is
+  // only ~200 player-minutes; a deep projected roster sums past that — Louisville summed to 45 RPG /
+  // 26 APG, impossible for a team). The canonical team_projections row is the cohesion-adjusted,
+  // 200-minute-normalized projection the index/analytics pages use — prefer it so the National
+  // Comparison is realistic and consistent. Fall back to the sum only when there's no published row.
+  let _usedTP=false;
+  try{
+    const _tpNm=((typeof teamT!=='undefined'&&teamT&&teamT.name)||(players&&players[0]&&players[0].team)||'');
+    if(_tpNm){
+      const _tpr=await fetch(`${SB_URL}/rest/v1/team_projections?team=eq.${encodeURIComponent(_tpNm)}&select=ppg,rpg,apg,fg_pct,tp_pct,ft_pct,oreb,dreb,tov,stl,blk,fga,tpa&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+      const c=_tpr&&_tpr[0];
+      const _n=v=>v!=null&&isFinite(+v)?+v:null;
+      if(c && _n(c.ppg)){
+        _usedTP=true;
+        if(_n(c.ppg)!=null)fPpg=r1s(_n(c.ppg)); if(_n(c.rpg)!=null)fRpg=r1s(_n(c.rpg)); if(_n(c.apg)!=null)fApg=r1s(_n(c.apg));
+        if(_n(c.fg_pct)!=null)fFgPct=r1s(_n(c.fg_pct)); if(_n(c.tp_pct)!=null)fTpPct=r1s(_n(c.tp_pct)); if(_n(c.ft_pct)!=null)fFtPct=r1s(_n(c.ft_pct));
+        if(_n(c.oreb)!=null)fOreb=r1s(_n(c.oreb)); if(_n(c.dreb)!=null)fDreb=r1s(_n(c.dreb));
+        if(_n(c.tov)!=null)fTovs=r1s(_n(c.tov)); if(_n(c.stl)!=null)fStl=r1s(_n(c.stl)); if(_n(c.blk)!=null)fBlk=r1s(_n(c.blk));
+        if(_n(c.fga)!=null)fFga=r1s(_n(c.fga)); if(_n(c.tpa)!=null)fTpa=r1s(_n(c.tpa));
+      }
+    }
+  }catch(e){}
 
   // Save to team_projections so analytics page reads exact same numbers
   const _tn=teamRow?.name||players[0]?.team;
@@ -2908,12 +2930,14 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
     return Math.round(below/vals.length*100);
   };
 
-  const ppgPct=teamPct(fPpg,'ppg'),rpgPct=teamPct(fRpg+2.5,'rpg'),apgPct=teamPct(fApg,'apg');
+  // player sums undercount official TEAM rebounds by ~2.5/game (team rebounds aren't credited to a
+  // player) — add them back for a like-for-like ranking. The canonical team_projections values are
+  // already team totals, so skip that adjustment when they're used (_usedTP).
+  const _rebAdj=_usedTP?0:2.5, _orAdj=_usedTP?0:0.8, _drAdj=_usedTP?0:1.7;
+  const ppgPct=teamPct(fPpg,'ppg'),rpgPct=teamPct(fRpg+_rebAdj,'rpg'),apgPct=teamPct(fApg,'apg');
   const fgPct2=teamPct(fFgPct,'fg_pct'),tpPct2=teamPct(fTpPct,'tp_pct'),ftPct2=teamPct(fFtPct,'ft_pct');
-  const tovPct=teamPct(tTovs,'topg',true),stlPct=teamPct(tStl,'spg'),blkPct=teamPct(tBlk,'bpg');
-  // official team rebounding includes ~2.5 team rebounds/game that player sums
-  // can't credit — add them back so the ranking is like-for-like
-  const orebPct=teamPct(fOreb+0.8,'orpg'),drebPct=teamPct(fDreb+1.7,'drpg');
+  const tovPct=teamPct(fTovs,'topg',true),stlPct=teamPct(fStl,'spg'),blkPct=teamPct(fBlk,'bpg');
+  const orebPct=teamPct(fOreb+_orAdj,'orpg'),drebPct=teamPct(fDreb+_drAdj,'drpg');
 
   const _pOrd=n=>{const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);};
   const pctBar=(pct)=>{
