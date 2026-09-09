@@ -195,10 +195,13 @@ for team,roster in byteam.items():
             if fp is None:
                 if q is None: continue
                 fp=fresh_fp(q, grp_)
-        # Minutes: recorded mpg -> projected mpg -> quality-based estimate. A mid-quality rotation
-        # player (72-77) on a ~12-man roster still plays real minutes, so floor above the 8-min bar.
-        mp=p.get("mpg")
-        if mp in (None,"") and sp and sp.get("proj_mpg") not in (None,""): mp=sp["proj_mpg"]
+        # Minutes: PROJECTED mpg LEADS — this is the 2026-27 projected DNA, so a player's weight
+        # in the roster's efficiency must reflect his projected role, not last year's. Weighting by
+        # recorded mpg buried transfer-starters (e.g. Bethea, 7.9 at Miami -> 29 as Pitt's SF) and
+        # over-weighted players whose role is shrinking. Fall back to recorded mpg, then a quality
+        # estimate. A mid-quality rotation player (72-77) still plays real minutes, floor above 8.
+        mp=sp.get("proj_mpg") if (sp and sp.get("proj_mpg") not in (None,"")) else None
+        if mp in (None,""): mp=p.get("mpg")
         if mp in (None,""):
             qq=q if q is not None else 77
             mp=(26 if qq>=92 else 22 if qq>=88 else 16 if qq>=82 else 12 if qq>=78 else 9 if qq>=72 else 6)
