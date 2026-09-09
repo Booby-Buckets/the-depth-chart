@@ -129,6 +129,13 @@
       </div>
 
       <div class="card">
+        <h2>📊 Refresh team projection box totals</h2>
+        <div class="desc">Recomputes every team's projected per-game team line (PPG/RPG/APG/…) from the live rosters — reconciled to the player-page projection and <b>normalized to a real 200-minute team</b> — and writes them to <b>team_projections</b>, the table the <b>index &amp; analytics</b> pages read. Fixes the inflated totals (e.g. impossible 40+ RPG) baked from the old un-normalized sum. Run after roster/projection changes.</div>
+        <button class="btn" id="teamProjBtn" onclick="refreshTeamProjections(this)">Refresh team projections</button>
+        <div class="status" id="teamProjStatus"></div>
+      </div>
+
+      <div class="card">
         <h2>📡 Data feeds</h2>
         <div class="desc">Per-player content, refreshed daily by the news/buzz GitHub Action. Fan buzz needs a free Reddit app key — if it shows <b>not configured</b>, add <code>REDDIT_CLIENT_ID</code> / <code>REDDIT_CLIENT_SECRET</code> as GitHub repo secrets and the next daily run populates it.</div>
         <div class="status" id="feedNews"></div>
@@ -284,6 +291,69 @@
       })
       .catch(function(e){ st(s,'✗ Failed: '+((e&&e.message)||e),'err'); })
       .then(function(){ btn.disabled=false; });
+  }
+
+  // Batch: recompute every team's projected team box line the SAME way the team page does —
+  // returners take the stat_overall_projected line (TDCProjGrade.projRowOf, the player-page source),
+  // freshmen take their editor line (TDCFresh), everyone else last-year stats — then NORMALIZE the
+  // team totals to a real 200 player-minutes (deep rosters sum past that, inflating counting stats).
+  // Writes team_projections so index/analytics match the (already-fixed) team pages.
+  async function refreshTeamProjections(btn){
+    var s=document.getElementById('teamProjStatus');
+    var tok=ownerToken();
+    if(!tok){ st(s,'You must be signed in as the owner.','err'); return; }
+    if(!(window.TDCProjGrade&&TDCProjGrade.projRowOf)){ st(s,'Projection engine not loaded — reload the page.','err'); return; }
+    btn.disabled=true;
+    st(s,'Loading projections &amp; rosters…','busy');
+    try{
+      if(TDCProjGrade.ready) await TDCProjGrade.ready;
+      if(window.TDCFresh&&TDCFresh.load) await TDCFresh.load();
+      var H={apikey:ANON,Authorization:'Bearer '+ANON};
+      async function paged(sel){ var out=[],off=0; while(true){
+        var r=await fetch(SB+'/rest/v1/players?name=neq.%E2%80%94&select='+sel+'&order=id.asc&limit=1000&offset='+off,{headers:H});
+        var ch=r.ok?await r.json():[]; out=out.concat(ch); if(ch.length<1000) break; off+=1000; } return out; }
+      var players=await paged('name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,rpg,apg,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,stl,blk,tovs,is_injured,hometown');
+      var teamsRows=await fetch(SB+'/rest/v1/teams?select=name,conf,conference&limit=600',{headers:H}).then(function(r){return r.ok?r.json():[];});
+      var confOf={}; teamsRows.forEach(function(t){ if(t.name) confOf[t.name]=t.conf||t.conference||''; });
+      var byTeam={}; players.forEach(function(p){ if(p.team){ (byTeam[p.team]=byTeam[p.team]||[]).push(p); } });
+      var teams=Object.keys(byTeam).filter(function(t){ return byTeam[t].length>=5; });
+      var num=function(v){ var n=parseFloat(v); return isFinite(n)?n:0; };
+      function lineOf(p){
+        var pr=(p.espn_id!=null)?TDCProjGrade.projRowOf(p.espn_id):null;    // returner: player-page projection
+        if(pr) return pr;
+        if(window.TDCFresh&&TDCFresh.isFreshman&&TDCFresh.isFreshman(p)){    // freshman: owner editor line
+          try{ var fl=TDCFresh.line(p, TDCFresh.profileFor(p)); if(fl) return Object.assign({},p,fl); }catch(e){} }
+        return p;                                                           // fallback: last-year stats
+      }
+      var wrote=0, fail=0;
+      for(var i=0;i<teams.length;i++){
+        var tn=teams[i];
+        var roster=byTeam[tn].filter(function(p){ return !p.is_injured && !(p.hometown&&/injured|out/i.test(''+p.hometown)); });
+        // rotation only (mpg>=4) — deep-bench/walk-ons project to ~0 and just inflate ΣMPG, matching
+        // the team page's active projected rotation.
+        var lines=roster.map(lineOf).filter(function(l){ return num(l.mpg)>=4; });
+        var sum=function(k){ return lines.reduce(function(a,l){ return a+num(l[k]); },0); };
+        var sumMpg=sum('mpg'); if(sumMpg<=0){ continue; }
+        var nf=Math.max(0.75,Math.min(1.15,200/sumMpg));
+        var fgm=sum('fgm')*nf, fga=sum('fga')*nf, tpm=sum('tpm')*nf, tpa=sum('tpa')*nf, ftm=sum('ftm')*nf, fta=sum('fta')*nf;
+        var body={ team:tn, conf:confOf[tn]||'',
+          ppg:+(sum('ppg')*nf).toFixed(1), rpg:+(sum('rpg')*nf).toFixed(1), apg:+(sum('apg')*nf).toFixed(1),
+          oreb:+(sum('oreb')*nf).toFixed(1), dreb:+(sum('dreb')*nf).toFixed(1),
+          stl:+(sum('stl')*nf).toFixed(1), blk:+(sum('blk')*nf).toFixed(1), tov:+(sum('tovs')*nf).toFixed(1),
+          fga:+fga.toFixed(1), tpa:+tpa.toFixed(1),
+          fg_pct:fga>0?+(fgm/fga*100).toFixed(1):0, tp_pct:tpa>0?+(tpm/tpa*100).toFixed(1):0, ft_pct:fta>0?+(ftm/fta*100).toFixed(1):0,
+          updated_at:new Date().toISOString() };
+        try{
+          var resp=await fetch(SB+'/rest/v1/team_projections?on_conflict=team',{ method:'POST',
+            headers:{apikey:ANON,Authorization:'Bearer '+tok,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+            body:JSON.stringify(body) });
+          if(resp.ok) wrote++; else fail++;
+        }catch(e){ fail++; }
+        if((i+1)%10===0||i===teams.length-1) st(s,'Refreshing… '+(i+1)+'/'+teams.length+' teams','busy');
+      }
+      st(s,'✓ Refreshed '+wrote+' teams'+(fail?(' ('+fail+' failed)'):'')+'. Index &amp; analytics now read the normalized totals.', fail?'err':'ok');
+    }catch(e){ st(s,'✗ Failed: '+((e&&e.message)||e),'err'); }
+    finally{ btn.disabled=false; }
   }
 
   function rebuildProjections(btn){
