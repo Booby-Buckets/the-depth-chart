@@ -72,7 +72,7 @@
   // efficiency (team_eff.json, from the projected box) are two lenses on team strength (corr ~0.90).
   // Blend EFF_W of the box lens in so the projected stats explicitly move the ranking. net→SRS scale
   // (EFF_A + EFF_B·net) fit across teams. (Owner must republish for the cached rankings to update.)
-  const EFF_W=0.30, EFF_A=1.69, EFF_B=1.12;
+  const EFF_W=0.85, EFF_A=1.69, EFF_B=1.12;   // near-pure projected adjusted-efficiency margin (KenPom/Barttorvik-style); roster-BPM is a light anchor
   const CARRY=0.70;                        // rosterless teams: regressed SRS'26 carryover
   // Coach effect. rosterRating is pure TALENT (a BPM→SRS mapping), so it cannot see
   // coaching at all, and the only coach signal in the blend was the program's own
