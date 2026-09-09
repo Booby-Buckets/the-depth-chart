@@ -119,8 +119,13 @@ SLOT_MIN=[0,31,30,29,27,25,19,16,12,9,7]
 def proj_mpg(d,last,starter):
     d=int(d) if pd.notna(d) else None
     slot=(SLOT_MIN[d] if d and 1<=d<len(SLOT_MIN) else (5 if d and d>=len(SLOT_MIN) else 0))
-    last=last or 0; floor=last*0.9 if last>0 else 0
-    if starter and (d is None or d<=6): floor=max(floor,28)
+    last=last or 0
+    # The DEPTH CHART (slot by depth_order — the top 5 are the starters, exactly like the site's depth
+    # chart display) drives the role. Last year's minutes only NUDGE within that role: a player now
+    # buried on the chart (deep depth_order) does NOT keep his old heavy minutes — cap the last-mpg
+    # lift at +4 over his slot. (The `starter` DB flag is unreliable — e.g. a bench transfer flagged
+    # starter — so it no longer feeds minutes; depth_order is the source of truth, as in the display.)
+    floor=min(last*0.9, slot+4) if last>0 else 0
     pm=max(slot,floor)
     if d is None and last>0: pm=last
     return pm
@@ -304,7 +309,12 @@ for short, roster in roster_by_team.items():
             returner = bool(_lt) and _lt.startswith(_cs)
         xfer = bool(demo_team_full) and not returner
         if xfer:
-            pm=min(pm,last_mpg+MPG_XFER_BUMP)
+            # A transfer's role is uncertain, so cap minutes at last year + a bump — BUT never below
+            # his depth-chart slot: if the owner placed him as a starter (high slot), that IS his role
+            # (e.g. Jalil Bethea, a bench freshman elsewhere now Pitt's SF starter — slot 29, not 17.9).
+            _xd=r["p"].depth_order; _xd=int(_xd) if pd.notna(_xd) else None
+            _xslot=(SLOT_MIN[_xd] if _xd and 1<=_xd<len(SLOT_MIN) else (5 if _xd and _xd>=len(SLOT_MIN) else 0))
+            pm=min(pm,max(_xslot,last_mpg+MPG_XFER_BUMP))
             # Level-jump offensive translation: discount projected usage by the SOS gap
             # old→new (min 1.0 so a step DOWN never inflates). Flows into shot volume via
             # usg_ratio AND into the grade via usg_mult, keeping line and OVR consistent.
