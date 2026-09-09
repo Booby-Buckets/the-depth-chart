@@ -5710,6 +5710,7 @@ async function renderOnOff(){
     }
     if(pick&&pick.length){ season=s; rows=pick; break; }
   }
+  const _currentView = !wantSeason;
   if(!rows.length){
     const _lbl=wantSeason?((+wantSeason-1)+'-'+(''+wantSeason).slice(2)):'';
     host.innerHTML='<div class="sec-head">On/Off &amp; WOWY</div><div style="padding:24px;color:var(--text3);">'+
@@ -5726,6 +5727,15 @@ async function renderOnOff(){
     const _sl=(+season-1)+'-'+(''+season).slice(2);
     host.innerHTML='<div class="sec-head">On/Off &amp; WOWY</div><div style="padding:24px;color:var(--text3);max-width:640px;">On/off (WOWY) needs a near-full season of play-by-play to be reliable, and we don\'t have a large enough sample for '+((teamT&&teamT.name)||'this team')+' in '+_sl+' yet. It’s available for recent seasons (2024-25 on).</div>';
     return;
+  }
+  // Current (2026-27) view: on/off is inherently LAST SEASON, so once the team's full-sample
+  // reliability check has passed, scope the DISPLAY to players actually RETURNING to the projected
+  // roster — departed players (transfers out / graduated) aren't on the 2026-27 team. (Runs after the
+  // reliability gate so a heavy-turnover team isn't wrongly blocked on the returners' smaller sample.)
+  let _departedN=0;
+  if(_currentView && rosterIds.size){
+    const ret=rows.filter(r=>rosterIds.has(String(r.espn_id)));
+    if(ret.length){ _departedN=rows.length-ret.length; rows=ret; }
   }
   // Sample-adjusted Impact (matches onoff.html): shrink the raw swing toward 0 by the
   // bench-unit sample so a player with few off-court possessions can't post a fake number.
@@ -5778,8 +5788,8 @@ async function renderOnOff(){
     </tr>`;
   }).join('');
   host.innerHTML=`
-    <div class="sec-head">On/Off &amp; WOWY <span style="color:var(--text3);font-weight:600;font-size:12px;">· ${yl}</span></div>
-    <p style="color:var(--text3);font-size:12.5px;line-height:1.5;max-width:840px;margin:0 0 10px;"><b style="color:var(--text2);">Impact</b> = the on/off swing in net rating (pts/100), shrunk for sample size — hover for the raw number. Measured vs teammates, not opponent-adjusted.</p>
+    <div class="sec-head">On/Off &amp; WOWY <span style="color:var(--text3);font-weight:600;font-size:12px;">· ${_currentView?`returning players, ${yl}`:yl}</span></div>
+    <p style="color:var(--text3);font-size:12.5px;line-height:1.5;max-width:840px;margin:0 0 10px;"><b style="color:var(--text2);">Impact</b> = the on/off swing in net rating (pts/100), shrunk for sample size — hover for the raw number. Measured vs teammates, not opponent-adjusted.${_currentView?` <span style="color:var(--text3);">On/off is measured from games played, so these are this roster's <b>returning</b> players' impact last season (${yl}) — the 2026-27 season hasn't started.${_departedN?` ${_departedN} player${_departedN>1?'s':''} from last year's rotation ${_departedN>1?'have':'has'} left.`:''}</span>`:''}</p>
     <div style="display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;font-weight:700;margin:0 0 14px;"><span style="color:#1f9d57;">+12 Elite</span><span style="color:#2bb673;">+6 Strong</span><span style="color:#6bbf8a;">+2 Positive</span><span style="color:#8a93a3;">±2 Neutral</span><span style="color:#e0885a;">−6 Negative</span><span style="color:#e06552;">Drag</span></div>
     <div style="overflow-x:auto;"><table class="sortable-table" style="min-width:760px;">
       <thead><tr>
