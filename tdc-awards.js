@@ -26,7 +26,7 @@
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
   const SEASON=2027, LS_KEY='tdc_awards_v6_'+SEASON, TTL=24*3600*1000;
-  const GVER=3;   // grade version — bump to invalidate any cached/published blob with old grades
+  const GVER=4;   // grade version — bump to invalidate any cached/published blob with old grades
 
   function cls(yr){ yr=((yr||'')+'').toLowerCase();
     if(yr.includes('fr')) return 'FR';
@@ -60,15 +60,22 @@
     const advById={}; (bb||[]).forEach(r=>{ if(r.espn_id!=null&&r.ti40!=null) advById[r.espn_id]={ti40:r.ti40}; });
     // canonical projected OVR — the SAME file the index/player/team pages read, so grades match site-wide
     const ovrById={}; if(proj&&proj.players){ Object.keys(proj.players).forEach(function(e){ var o=proj.players[e]; if(o&&o.ovr!=null) ovrById[e]=+o.ovr; }); }
+    // Freshmen have no espn_id, so they're not in the projected file — resolve them to the owner's
+    // editor OVR (the SAME source gradeSolo uses site-wide), NOT the possibly-stale players.tdc_grade.
+    if(window.TDCFresh&&TDCFresh.load){ try{ await TDCFresh.load(); }catch(e){} }
+    const freshOvr=p=>{ if(p.espn_id!=null) return null;
+      if(window.TDCFresh&&TDCFresh.profileFor){ try{ var fp=TDCFresh.profileFor(p);
+        if(fp&&fp.ovr!=null&&isFinite(+fp.ovr)) return Math.min(99,Math.round(+fp.ovr)); }catch(e){} }
+      return null; };
 
     const cand=[];
     (players||[]).forEach(p=>{
       const hs=(p.hometown||'').trim().toLowerCase();
       if(!p.name||p.is_injured||hs==='injured'||hs==='out') return;   // out for the season (sheet convention)
       const rawGrade=parseFloat(p.tdc_grade); if(!isFinite(rawGrade)||rawGrade<72) return;
-      // grade shown (and scored) = canonical projected OVR so it matches the index/player/team pages;
-      // freshmen without a projection entry keep tdc_grade (which is already their editor-set projection)
-      const grade=(p.espn_id!=null&&ovrById[p.espn_id]!=null)?ovrById[p.espn_id]:rawGrade;
+      // grade shown (and scored) = canonical projected OVR (returners) or the editor OVR (freshmen),
+      // so grades match the index/player/team pages exactly; tdc_grade is only the last-ditch fallback
+      const grade=(p.espn_id!=null&&ovrById[p.espn_id]!=null)?ovrById[p.espn_id]:(freshOvr(p)??rawGrade);
       const conf=confOf[p.team]||'';
       const c=cls(p.yr||p.class_year);
       const adv=p.espn_id!=null?advById[p.espn_id]:null;
