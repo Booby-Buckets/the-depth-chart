@@ -1143,7 +1143,7 @@ body{background:transparent!important;}
   <script src="tdc-anim.js?v=5"></script>
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index + team page -->
   <link rel="stylesheet" href="tdc-dense.css?v=31"/>
-  <link rel="stylesheet" href="tdc-player-dense.css?v=21"/>
+  <link rel="stylesheet" href="tdc-player-dense.css?v=22"/>
   <!-- ===== Clean skin (2026): loaded LAST so it wins over dense CSS. Neutral base +
        translucent depth tokens; team color stays on --tc for the minimal accent slots. ===== -->
   <link rel="stylesheet" href="tdc-skin.css?v=8"/>
@@ -6401,7 +6401,7 @@ function _nilBoard(N){
     (tv.players||[]).forEach(function(p){ if(p.walkon) return;
       var v=_nilLiveVal(N,p); if(v==null) return;
       var ps5=(typeof N.POS5==='function')?N.POS5(p.pos):(p.pos||'');
-      arr.push({name:p.name, team:p.team||tk, grade:p.grade, pos5:ps5, val:v});
+      arr.push({name:p.name, team:p.team||tk, grade:p.grade, pos5:ps5, val:v, wa:(p.wa!=null&&isFinite(+p.wa))?+p.wa:null});
     });
   });
   arr.sort(function(a,b){ return b.val-a.val; });
@@ -6444,6 +6444,68 @@ function _nilCompareHtml(N, cur, col){
     +'<div class="nilc-cmp-h">Comparable '+esc(cur.pos5||'')+'s by projected NIL value</div>'
     +'<div class="nilc-list">'+rows+'</div>'
     +'<div class="nilx-note" style="margin-top:10px;">Every player here is re-priced on the same model as the headline, so the values line up. Rank is among rotation players with a graded projection.</div>';
+}
+
+// "Bang for the buck" — production (Wins Added) per NIL dollar, ranked nationally. Surfaces the
+// genuinely under/over-priced players. Needs a real WA track record (freshmen show a note).
+function _nilEfficiencyHtml(N, cur, col){
+  var board=_nilBoard(N); if(!board||!board.length) return '';
+  var fmt=N.fmt;
+  var pool=board.filter(function(p){ return p.wa!=null&&isFinite(p.wa)&&p.wa>0&&p.val>0; });
+  var head='<div class="sec-title" style="margin:26px 0 12px;">Bang for the buck</div>';
+  if(cur.wa==null||!isFinite(cur.wa)||cur.wa<=0){
+    return head+'<div class="nilx-note" style="margin-top:0;">No college production on the books yet, so there\'s nothing to price against — bang-for-buck needs a <b>Wins Added</b> track record. Check back after his first season.</div>';
+  }
+  var eff=function(p){ return p.wa/p.val; };                 // wins added per $M
+  var curEff=cur.wa/cur.val, perWin=cur.val/cur.wa;          // $M per win added
+  pool.sort(function(a,b){ return eff(b)-eff(a); });
+  var rank=1; pool.forEach(function(p){ if(eff(p)>curEff) rank++; });
+  var tot=pool.length, pctile=tot>1?Math.round((1-(rank-1)/(tot-1))*100):50;
+  var tier=pctile>=82?['Elite value','#2DE0A6']:pctile>=60?['Good value','#5ab875']:pctile>=40?['Fair price','var(--text2)']:pctile>=20?['Rich','#e0913a']:['Premium price','#e07070'];
+  return head
+    +'<div class="nile-grid">'
+      +'<div class="nile-card"><div class="nile-v">'+fmt(perWin)+'</div><div class="nile-l">per Win Added<span>his '+fmt(cur.val)+' ÷ '+(cur.wa>0?'+':'')+cur.wa.toFixed(1)+' WA</span></div></div>'
+      +'<div class="nile-card"><div class="nile-v" style="color:'+col+'">#'+rank+'</div><div class="nile-l">production per dollar<span>of '+tot.toLocaleString()+' with a WA record</span></div></div>'
+      +'<div class="nile-card"><div class="nile-v" style="color:'+tier[1]+';font-size:22px;line-height:1.25;">'+tier[0]+'</div><div class="nile-l">'+pctile+'th percentile<span>higher = more production per $</span></div></div>'
+    +'</div>'
+    +'<div class="nilx-note" style="margin-top:10px;">How much on-court production (<b>Wins Added</b>) his projected NIL price buys. A low <b>$/win</b> and a high rank mean he produces more than his price tag — an efficient deal; a high $/win means you\'re paying for name, upside or scarcity more than output.</div>';
+}
+
+// "On his team" — his share of the roster's NIL spend, his rank in the locker room, and a mini
+// bar of the team's top earners with him highlighted.
+function _nilTeamContextHtml(N, cur, col){
+  var nd=window._nilData, t=nd&&nd.teams&&nd.teams[cur.team]; if(!t||!t.players) return '';
+  var fmt=N.fmt, esc=function(s){return (''+(s==null?'':s)).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];});};
+  var pls=t.players.map(function(p){ return {name:p.name, val:(p.walkon?0:(_nilLiveVal(N,p)||0)), walkon:!!p.walkon}; })
+                   .filter(function(p){ return !p.walkon&&p.val>0; });
+  if(pls.length<2) return '';
+  // ensure the current player is on the live scale (headline), not the stored value
+  var me=pls.find(function(p){ return (p.name||'').toLowerCase().trim()===(cur.name||'').toLowerCase().trim(); });
+  if(me) me.val=cur.val; else { pls.push({name:cur.name, val:cur.val}); }
+  pls.sort(function(a,b){ return b.val-a.val; });
+  var total=pls.reduce(function(s,p){ return s+p.val; },0)||1;
+  var rank=pls.findIndex(function(p){ return (p.name||'').toLowerCase().trim()===(cur.name||'').toLowerCase().trim(); })+1;
+  var share=cur.val/total*100;
+  var top=pls.slice(0,5);
+  if(rank>5) top.push(pls[rank-1]);                          // always include the current player
+  var maxV=top[0].val||1;
+  var rows=top.map(function(p){ var meRow=(p.name||'').toLowerCase().trim()===(cur.name||'').toLowerCase().trim();
+    var rk=pls.indexOf(p)+1, w=Math.max(4,Math.round(p.val/maxV*100));
+    return '<div class="nilc-row'+(meRow?' me':'')+'">'
+      +'<div class="nilc-rk">'+rk+'</div>'
+      +'<div class="nilc-nm">'+(meRow?'':'<a href="player.html?name='+encodeURIComponent(p.name)+'">')+esc(p.name)+(meRow?'':'</a>')+'</div>'
+      +'<div class="nilc-track"><i style="width:'+w+'%;background:'+(meRow?col:'var(--border2)')+'"></i></div>'
+      +'<div class="nilc-vl"'+(meRow?' style="color:'+col+'"':'')+'>'+fmt(p.val)+'</div>'
+      +'</div>';
+  }).join('');
+  return '<div class="sec-title" style="margin:26px 0 12px;">On '+esc(cur.team||'his team')+'</div>'
+    +'<div class="nilc-ranks">'
+      +'<div class="nilc-rank"><div class="nilc-rank-v" style="color:'+col+'">'+share.toFixed(0)+'<span style="font-size:20px">%</span></div><div class="nilc-rank-l">of the roster\'s NIL value<span>his slice of the pie</span></div></div>'
+      +'<div class="nilc-rank"><div class="nilc-rank-v" style="color:'+col+'">#'+rank+'</div><div class="nilc-rank-l">on the roster<span>of '+pls.length+' valued players</span></div></div>'
+      +'<div class="nilc-rank"><div class="nilc-rank-v" style="color:'+col+'">'+fmt(total)+'</div><div class="nilc-rank-l">total roster value<span>sum of open-market prices</span></div></div>'
+    +'</div>'
+    +'<div class="nilc-cmp-h">Top earners on '+esc(cur.team||'the roster')+'</div>'
+    +'<div class="nilc-list">'+rows+'</div>';
 }
 
 // Value Ledger — each season's production (Wins Added) next to the open-market NIL
@@ -6573,7 +6635,8 @@ async function renderNilPlayer(){
       <div class="nilx-mm-card"><div class="mm-l">Market Value</div><div class="mm-v" style="color:${col}">${fmt(marketVal)}</div><div class="mm-s">${marketPos} positional curve${(_bm&&_bm.moved)?' · natural pos':''}</div></div>
       <div class="nilx-mm-card" style="${_verdict.tag?`border-left:3px solid ${N.markColor(_verdict.tag)}`:''}"><div class="mm-l">Verdict · vs market</div><div class="mm-v" style="font-size:21px;color:${_verdict.tag?N.markColor(_verdict.tag):'var(--text3)'}">${_verdict.tag?N.markLabel(_verdict.tag):'—'}</div><div class="mm-s">${_verdict.tag==='underrated'?'slept on — production ~'+_verdict.ratio.toFixed(1)+'× his market price':_verdict.tag==='overrated'?'market prices him ~'+_verdict.ratio.toFixed(1)+'× his production':_verdict.tag==='fair'?'market ≈ production (tier-fair)':'not enough role to judge'}</div></div>
     </div>`:''}
-    ${(!walkon)?_nilCompareHtml(N,{name:(player&&player.name)||'',team:_teamNm,pos5:(N.POS5?N.POS5(pos):pos),val:modelVal,grade:grade},col):''}
+    ${(!walkon)?(function(){var _cur={name:(player&&player.name)||'',team:_teamNm,pos5:(N.POS5?N.POS5(pos):pos),val:modelVal,grade:grade,wa:_wa};
+      return _nilCompareHtml(N,_cur,col)+_nilEfficiencyHtml(N,_cur,col)+_nilTeamContextHtml(N,_cur,col);})():''}
     ${walkon?`<div class="nilx-flag" style="border-color:${col}"><b>Walk-on / non-rotation</b> — nominal value; not part of NIL roster spend.</div>`:`
     <div class="sec-title" style="margin:26px 0 14px;">How it's valued</div>
     <div class="nilx-chain">
