@@ -109,6 +109,7 @@
   <link rel="stylesheet" href="tdc-dense.css?v=31"/>
   <link rel="stylesheet" href="tdc-skin.css?v=8"/>
   <link rel="stylesheet" href="tdc-hq-list.css?v=2"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=1"/>
   <style>
     :root:not([data-theme="dark"]){background:var(--bg)!important;}
     :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
@@ -189,13 +190,13 @@
 
 <div id="leadersEl" class="leaders" style="display:none;"></div>
 
-<div class="table-wrap">
+<div class="table-wrap sheet-wrap">
   <div class="loading" id="loadingEl">
     <div class="spinner"></div>
     <div id="loadingMsg">Loading teams…</div>
     <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
   </div>
-  <table id="statsTable" style="display:none;">
+  <table id="statsTable" class="sheet" style="display:none;">
     <thead id="thead"></thead>
     <tbody id="tbody"></tbody>
   </table>
@@ -720,27 +721,27 @@ function sortableTableHtml(players, p80, gp){
   const scaler = gp&&Object.keys(gp).length?gp:p80;
   const rows = players.filter(p=>p.name&&p.name!=='—').map(p=>`
     <tr>
-      <td class="left">${p.name}</td>
-      <td>${p.position||'—'}</td>
-      <td>${p.class_year||p.yr||'—'}</td>
+      <td class="l nm">${p.name}</td>
+      <td class="c dim">${p.position||'—'}</td>
+      <td class="c dim">${p.class_year||p.yr||'—'}</td>
       ${statCols.map(c=>{
         const v = p[c.key];
         return `<td style="${statColor(v,c.key,scaler)}">${fmt(v)}</td>`;
       }).join('')}
-      <td>${_ovrOf(p)||'—'}</td>
+      <td class="strong">${_ovrOf(p)||'—'}</td>
     </tr>`).join('');
 
   return `
     <div class="rotation-section" style="margin-top:24px;">
-      <div class="section-head">Team Stats — Sortable</div>
-      <div style="overflow-x:auto;">
-        <table class="sortable-table" id="statsTable">
+      <div class="sheet-title">Team Stats — Sortable</div>
+      <div class="sheet-wrap">
+        <table class="sheet freeze" id="statsTable">
           <thead><tr>
-            <th class="left" onclick="sortTable('name',this)">Name</th>
-            <th onclick="sortTable('position',this)">Pos</th>
-            <th onclick="sortTable('class_year',this)">Yr</th>
-            ${statCols.map(c=>`<th onclick="sortTable('${c.key}',this)">${c.label}</th>`).join('')}
-            <th onclick="sortTable('tdc_grade',this)">Gr</th>
+            <th class="l sort" onclick="sortTable('name',this)">Name</th>
+            <th class="c sort" onclick="sortTable('position',this)">Pos</th>
+            <th class="c sort" onclick="sortTable('class_year',this)">Yr</th>
+            ${statCols.map(c=>`<th class="sort" onclick="sortTable('${c.key}',this)">${c.label}</th>`).join('')}
+            <th class="sort" onclick="sortTable('tdc_grade',this)">Gr</th>
           </tr></thead>
           <tbody id="statsTableBody">${rows}</tbody>
         </table>
@@ -1567,9 +1568,9 @@ function buildRow(team, conf, proj){
 function buildHeader(){
   const thead = document.getElementById('thead');
   thead.innerHTML = `<tr>
-    <th style="text-align:left;padding-left:40px;">RK</th>
-    <th style="text-align:left;" onclick="setSort('name')">TEAM <span class="sort-arrow">${sortCol==='name'?(sortAsc?'↑':'↓'):'↕'}</span></th>
-    ${COLS.map(c=>`<th id="th_${c.key}" title="${c.desc}" onclick="setSort('${c.key}')">${c.label} <span class="sort-arrow">${sortCol===c.key?(sortAsc?'↑':'↓'):'↕'}</span>${c.inv?'<span style="font-size:8px;color:var(--text3);" title="Lower is better"> ↓</span>':''}</th>`).join('')}
+    <th class="rk">RK</th>
+    <th class="l sort" onclick="setSort('name')">TEAM <span class="sort-arrow">${sortCol==='name'?(sortAsc?'↑':'↓'):'↕'}</span></th>
+    ${COLS.map(c=>`<th id="th_${c.key}" class="sort" title="${c.desc}" onclick="setSort('${c.key}')">${c.label} <span class="sort-arrow">${sortCol===c.key?(sortAsc?'↑':'↓'):'↕'}</span>${c.inv?'<span style="font-size:8px;color:var(--text3);" title="Lower is better"> ↓</span>':''}</th>`).join('')}
   </tr>`;
 }
 
@@ -1643,8 +1644,8 @@ function render(){
   const tbody = document.getElementById('tbody');
   tbody.innerHTML = rows.map((r, i) => `
     <tr>
-      <td>${i+1}</td>
-      <td class="team-cell">
+      <td class="rk">${i+1}</td>
+      <td class="l team-cell">
         <span class="team-dot" style="background:${r.color};"></span>
         <a class="team-name-link" href="team.html?team=${encodeURIComponent(r.name)}">${r.name}</a>
         <span class="conf-badge">${r.conf}</span>

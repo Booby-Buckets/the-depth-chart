@@ -1,0 +1,97 @@
+/* tdc-sheets.css — shared "Google Sheets" informational UI kit.
+   A dense, spreadsheet-style table: bordered grid card, sticky header, gridlines on
+   every cell, zebra rows, tabular numbers, sortable headers, optional frozen first
+   column and heat cells. Theme-aware (light/dark via the site's --bg/--text tokens).
+   Adopt on any page: add this stylesheet, wrap a <table class="sheet"> in
+   <div class="sheet-wrap">, mark text columns with class="l" (numbers default right). */
+
+.sheet-wrap{
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--bg);
+  overflow:auto;
+  max-height:78vh;
+  box-shadow:0 1px 3px rgba(0,0,0,.10);
+  -webkit-overflow-scrolling:touch;
+}
+.sheet{
+  border-collapse:separate;              /* separate so sticky cells keep their borders */
+  border-spacing:0;
+  font-family:'Inter',system-ui,sans-serif;
+  font-size:12.5px;
+  width:max-content;
+  min-width:100%;
+  color:var(--text);
+}
+/* header row — sticky, flat grey, uppercase micro-labels */
+.sheet thead th{
+  position:sticky; top:0; z-index:3;
+  background:var(--bg2);
+  text-align:right;
+  font-size:10px; font-weight:800; letter-spacing:.03em; text-transform:uppercase;
+  color:var(--text3);
+  padding:9px 12px;
+  border-bottom:2px solid var(--border2);
+  border-right:1px solid var(--border);
+  white-space:nowrap;
+}
+.sheet thead th:last-child{ border-right:none; }
+.sheet th.l, .sheet td.l{ text-align:left; }
+.sheet th.c, .sheet td.c{ text-align:center; }
+/* body cells — gridlines everywhere, tabular numbers */
+.sheet tbody td{
+  text-align:right;
+  padding:6px 12px;
+  border-bottom:1px solid var(--border);
+  border-right:1px solid var(--border);
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+.sheet tbody td:last-child{ border-right:none; }
+.sheet tbody tr:last-child td{ border-bottom:none; }
+.sheet tbody tr:nth-child(even) td{ background:color-mix(in srgb, var(--text) 3.5%, transparent); }
+.sheet tbody tr:hover td{ background:color-mix(in srgb, var(--accent) 9%, transparent); }
+/* row-number / rank first column */
+.sheet .rk{ color:var(--text3); font-weight:700; text-align:right; }
+/* name cell — the readable anchor of each row */
+.sheet td.nm{ font-weight:650; }
+.sheet td.nm a{ color:var(--text); text-decoration:none; }
+.sheet td.nm a:hover{ color:var(--accent); text-decoration:underline; }
+.sheet td.dim{ color:var(--text3); }
+.sheet td.strong{ font-weight:800; }
+
+/* frozen first column (add .freeze to .sheet) */
+.sheet.freeze thead th:first-child,
+.sheet.freeze tbody td:first-child{
+  position:sticky; left:0; z-index:2;
+  background:var(--bg);
+  border-right:2px solid var(--border2);
+}
+.sheet.freeze thead th:first-child{ z-index:4; background:var(--bg2); }
+.sheet.freeze tbody tr:nth-child(even) td:first-child{ background:color-mix(in srgb, var(--text) 3.5%, var(--bg)); }
+.sheet.freeze tbody tr:hover td:first-child{ background:color-mix(in srgb, var(--accent) 9%, var(--bg)); }
+
+/* sortable headers */
+.sheet thead th.sort{ cursor:pointer; user-select:none; transition:color .12s, background .12s; }
+.sheet thead th.sort:hover{ color:var(--text); background:color-mix(in srgb, var(--text) 8%, var(--bg2)); }
+.sheet thead th.sort .ar{ opacity:.55; font-size:9px; margin-left:3px; }
+.sheet thead th.sort.on{ color:var(--text); }
+
+/* heat cells — pass --h (0..1); higher = stronger tint of the accent (or red for inverted) */
+.sheet td.heat{ background:color-mix(in srgb, var(--accent) calc(var(--h,0)*38%), transparent) !important; }
+.sheet td.heat.inv{ background:color-mix(in srgb, #e0685230 calc(var(--h,0)*100%), transparent) !important; }
+
+/* value chips inside a cell (grade pills, tags) stay compact */
+.sheet .pill{ display:inline-block; padding:1px 7px; border-radius:5px; font-size:11px; font-weight:800;
+  background:color-mix(in srgb, var(--accent) 14%, transparent); color:var(--accent); }
+
+/* a page-level toolbar above a sheet (search / filters / count) */
+.sheet-bar{ display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:0 0 10px; }
+.sheet-bar .count{ font-size:11px; color:var(--text3); font-weight:600; }
+.sheet-bar input[type=search]{
+  font:inherit; font-size:12.5px; padding:6px 11px; border:1px solid var(--border2);
+  border-radius:8px; background:var(--bg2); color:var(--text); min-width:200px;
+}
+.sheet-title{ font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--text3); margin:0 0 8px; }
+
+@media(max-width:640px){ .sheet{ font-size:12px; } .sheet tbody td{ padding:6px 9px; } .sheet thead th{ padding:8px 9px; } }
