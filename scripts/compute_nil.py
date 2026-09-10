@@ -210,7 +210,7 @@ for name,info in tinfo.items():
         val=base*TOP_M*tmult*min_factor(mp)*prem*youth_mult(p.get("class_year"))*pos_mult(pos)*prospect_mult(g,p.get("class_year"))
         prod+=val; pls.append((p["name"],g,mp,prem,round(val,3),False,pos,eid,htv,ext))
     if prod<=0.05: continue
-    rows.append({"name":name,"tier":tn,"budget":budget,"prod":prod,"srs":team_srs(name),"cls":cls,"pls":pls})
+    rows.append({"name":name,"tier":tn,"budget":budget,"prod":prod,"srs":team_srs(name),"cls":cls,"conf":info.get("conference"),"pls":pls})
 MKT=0.263   # base rate from real salary data (Tennessee anchors); RATE_BY_TIER scales it per team
 # manual overrides (injury risk, versatility, hyped recruits, non-D1 transfers) — things the model can't see
 OVR={}

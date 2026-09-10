@@ -7029,7 +7029,7 @@ async function _nilMarketPublish(btn){
 }
 async function renderNil(){
   const host=document.getElementById('nilContent'); const tT=(typeof teamT!=='undefined')?teamT:null; if(!host||!tT) return;
-  if(!_nilData){ try{ _nilData=await fetch('nil-data.json?v=gradesync4').then(r=>r.json()); }catch(e){ host.innerHTML='<div style="padding:40px;color:var(--text3);">NIL data unavailable.</div>'; return; } }
+  if(!_nilData){ try{ _nilData=await fetch('nil-data.json?v=gradesync5').then(r=>r.json()); }catch(e){ host.innerHTML='<div style="padding:40px;color:var(--text3);">NIL data unavailable.</div>'; return; } }
   if(window.TDC_NIL&&TDC_NIL.dealsReady){ try{ await TDC_NIL.dealsReady; }catch(e){} }   // known real deals before pricing
   if(window.TDC_NIL&&TDC_NIL.pedigreeReady){ try{ await TDC_NIL.pedigreeReady; }catch(e){} }   // recruiting pedigree (folded into neutralValueOf)
   if(window.TDC_NIL&&TDC_NIL.defenseReady){ try{ await TDC_NIL.defenseReady; }catch(e){} }   // defensive/foul profile before pricing
@@ -7152,6 +7152,60 @@ async function renderNil(){
           ${card('Biggest overpay',over,'var(--amber)')||''}
         </div>
       </div>`;
+  })();
+  // ── League context: national NIL rank, comparable rosters, and roster bang-for-buck ──
+  (function(){
+    const N=window.TDC_NIL; if(!N||!N.neutralValueOf) return;
+    const esc=s=>(''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+    // price every roster on the same live model as this page's Roster Value (so the board agrees)
+    if(!window._nilTeamBoard){
+      window._nilTeamBoard=Object.keys(_nilData.teams).map(tk=>{ const t=_nilData.teams[tk]; let v=0,wa=0;
+        (t.players||[]).forEach(p=>{ if(p.walkon) return; v+=N.neutralValueOf(p,t.tier); if(p.wa!=null&&isFinite(+p.wa)&&+p.wa>0) wa+=+p.wa; });
+        return {team:tk, val:v, wa:wa, conf:(t.players&&t.players[0]&&t.players[0].conf)||''};
+      }).filter(x=>x.val>0).sort((a,b)=>b.val-a.val);
+    }
+    const board=window._nilTeamBoard; if(board.length<4) return;
+    const myName=tT.name, myVal=nVal, myConf=(d.players&&d.players[0]&&d.players[0].conf)||'';
+    let natRank=1; board.forEach(x=>{ if(x.val>myVal) natRank++; });
+    const natTot=board.length, pctile=natTot>1?Math.round((1-(natRank-1)/(natTot-1))*100):50;
+    const confBoard=board.filter(x=>x.conf===myConf); let confRank=1; confBoard.forEach(x=>{ if(x.val>myVal) confRank++; });
+    // comparables window — rosters nearest by total value, this team highlighted in place
+    const other=board.filter(x=>x.team!==myName);
+    let at=other.findIndex(x=>x.val<=myVal); if(at<0) at=other.length;
+    other.splice(at,0,{team:myName,val:myVal,_me:true});
+    let start=Math.max(0,at-3), end=Math.min(other.length,start+7); start=Math.max(0,end-7);
+    const win=other.slice(start,end), maxV=Math.max.apply(null,win.map(x=>x.val))||1;
+    const cmpRows=win.map(x=>{ const rk=other.indexOf(x)+1, w=Math.max(4,Math.round(x.val/maxV*100));
+      return `<div style="display:grid;grid-template-columns:34px 1fr minmax(70px,1.1fr) 74px;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid var(--border);${x._me?`background:color-mix(in srgb,${col} 10%,transparent);`:''}">
+        <div style="font-size:11px;font-weight:800;color:var(--text3);text-align:center;">${rk}</div>
+        <div style="font-size:13px;font-weight:${x._me?800:700};color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${x._me?esc(x.team):`<a href="team.html?team=${encodeURIComponent(x.team)}" style="color:var(--text);text-decoration:none;">${esc(x.team)}</a>`}</div>
+        <div style="height:7px;border-radius:5px;background:var(--bg3);overflow:hidden;"><i style="display:block;height:100%;width:${w}%;background:${x._me?col:'var(--border2)'};border-radius:5px;"></i></div>
+        <div style="font-family:'Share Tech Mono',monospace;font-weight:800;font-size:14px;text-align:right;${x._me?`color:${col};`:'color:var(--text);'}">${fmt(x.val)}</div>
+      </div>`; }).join('');
+    // roster bang-for-buck — total production (Wins Added) per NIL dollar
+    const me=board.find(x=>x.team===myName); let effHtml='';
+    if(me&&me.wa>0){
+      const pool=board.filter(x=>x.wa>0), myEff=me.wa/myVal, perWin=myVal/me.wa;
+      let effRank=1; pool.forEach(x=>{ if(x.wa/x.val>myEff) effRank++; });
+      const effTot=pool.length, effPct=effTot>1?Math.round((1-(effRank-1)/(effTot-1))*100):50;
+      const tier=effPct>=80?['Efficient roster','#2DE0A6']:effPct>=55?['Solid value','var(--text2)']:effPct>=30?['Rich','#e0913a']:['Top-heavy spend','#e07070'];
+      effHtml=`<div style="font-weight:800;font-size:14px;margin:26px 0 12px;color:var(--text);text-align:center;">Bang for the buck</div>
+        <div class="nil-cards" style="max-width:760px;margin:0 auto;">
+          <div class="nil-card"><div class="nil-lbl">Per Win Added</div><div class="nil-big">${fmt(perWin)}</div><div class="nil-sub">${fmt(myVal)} ÷ +${me.wa.toFixed(1)} WA</div></div>
+          <div class="nil-card"><div class="nil-lbl">Production / dollar</div><div class="nil-big" style="color:var(--tc-readable,${col})">#${effRank}</div><div class="nil-sub">of ${effTot} rosters w/ a WA record</div></div>
+          <div class="nil-card"><div class="nil-lbl">${effPct}th percentile</div><div class="nil-big" style="color:${tier[1]};font-size:22px;line-height:1.3;">${tier[0]}</div><div class="nil-sub">higher = more output per $</div></div>
+        </div>
+        <div style="font-size:11px;color:var(--text3);line-height:1.6;max-width:760px;margin:10px auto 0;text-align:center;">Total roster production (<b>Wins Added</b>) bought per NIL dollar. A low <b>$/win</b> and high rank mean the roster out-produces its price; a high number means it's paying for name, upside or scarcity.</div>`;
+    }
+    html+=`<div style="font-weight:800;font-size:14px;margin:26px 0 12px;color:var(--text);text-align:center;">How they stack up</div>
+      <div class="nil-cards" style="max-width:760px;margin:0 auto 16px;">
+        <div class="nil-card"><div class="nil-lbl">NIL roster value</div><div class="nil-big" style="color:var(--tc-readable,${col})">#${natRank}</div><div class="nil-sub">of ${natTot} teams nationally</div></div>
+        <div class="nil-card"><div class="nil-lbl">In the ${esc(myConf||'conf')}</div><div class="nil-big" style="color:var(--tc-readable,${col})">#${confRank}</div><div class="nil-sub">of ${confBoard.length} league teams</div></div>
+        <div class="nil-card"><div class="nil-lbl">National percentile</div><div class="nil-big">${pctile}<span style="font-size:16px;">th</span></div><div class="nil-sub">higher = pricier roster</div></div>
+      </div>
+      <div style="font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);max-width:760px;margin:0 auto 8px;">Comparable rosters by NIL value</div>
+      <div style="max-width:760px;margin:0 auto;border:1px solid var(--border);border-radius:12px;background:var(--bg2);overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.18);">${cmpRows}</div>
+      ${effHtml}`;
   })();
   // ── owner-only market anchor editor ──
   if(typeof _isOwner==='function' && _isOwner()){
