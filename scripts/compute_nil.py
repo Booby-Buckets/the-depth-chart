@@ -18,7 +18,10 @@ Run to refresh nil-data.json + print constants for tdc-nil.js."""
 import re,requests,statistics,json,os
 from collections import defaultdict
 SB="https://izlqhnxowdhtdofkwrho.supabase.co"
-key=re.search(r'SB_KEY\s*=\s*"(sb_secret_[^"]+)"',open("load_supabase.py").read()).group(1)
+# This script only READS from Supabase (teams/players/player_advanced/profiles) and writes a LOCAL
+# file, so the read-only publishable (anon) key is sufficient — and it avoids depending on the
+# leaked service_role secret (which should be rotated/revoked). All these tables are public-readable.
+key="sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
 H={"apikey":key,"Authorization":f"Bearer {key}"}
 REPL=-1.0
 FLOOR_PTS=1.6      # rotation-body floor: a player who plays is worth >= this many net pts (×minutes×premium)
@@ -257,7 +260,7 @@ try:
     # grade for profiled freshmen; the DB tdc_grade this script read doesn't reflect editor edits.
     _FR={}
     try:
-        for _pr in fetch("profiles?select=freshman_projections"):
+        for _pr in fetch("profiles?id=eq.c5784cf4-dd77-4429-b0e6-578a0c1c5c8f&select=freshman_projections"):
             _fp=_pr.get("freshman_projections") or {}
             if any(k.startswith("tdc_fr:") for k in _fp): _FR=_fp; break
     except Exception: pass
@@ -267,6 +270,14 @@ try:
             _lg=_live(_p.get("espn_id")) if _p.get("espn_id") is not None else None
             if _lg is not None:
                 if _p.get("grade")!=int(_lg): _p["grade"]=int(_lg); _rp+=1
+                # Use the LIVE projected minutes (same source the player/team pages recompute from),
+                # so the stored mpg matches the site instead of the est_mpg guess.
+                _pe=_P.get(str(_p.get("espn_id")))
+                if isinstance(_pe,dict) and _pe.get("proj_mpg") not in (None,""):
+                    try:
+                        _pm=round(float(_pe["proj_mpg"]),1)
+                        if _pm>0: _p["mpg"]=_pm
+                    except Exception: pass
                 continue
             _fr=_FR.get("tdc_fr:%s:%s"%(_tn,_p.get("name")))
             _fov=_ov(_fr) if _fr else None
