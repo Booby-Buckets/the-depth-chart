@@ -1143,7 +1143,7 @@ body{background:transparent!important;}
   <script src="tdc-anim.js?v=5"></script>
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index + team page -->
   <link rel="stylesheet" href="tdc-dense.css?v=31"/>
-  <link rel="stylesheet" href="tdc-player-dense.css?v=20"/>
+  <link rel="stylesheet" href="tdc-player-dense.css?v=21"/>
   <!-- ===== Clean skin (2026): loaded LAST so it wins over dense CSS. Neutral base +
        translucent depth tokens; team color stays on --tc for the minimal accent slots. ===== -->
   <link rel="stylesheet" href="tdc-skin.css?v=8"/>
@@ -6374,6 +6374,78 @@ function _tabScrollHint(){
 }
 window.addEventListener('resize',_tabScrollHint);
 
+// Re-price one nil-data roster row on the SAME live model the headline uses, so the whole
+// comparison board is on one scale (the published nil-data `value` is stale until the owner
+// reruns compute_nil.py). Mirrors renderNilPlayer's modelVal chain; every lever is guarded so a
+// missing helper just drops out. Skips per-player injury (rare, headline-only).
+function _nilLiveVal(N, p){
+  var g=p.grade; if(g==null||!isFinite(+g)) return null;
+  var cls=p.cls||p.class_year||p.yr||'', ps=p.pos||'', ppg=(p.ppg!=null&&isFinite(+p.ppg))?+p.ppg:null;
+  var wa=(p.wa!=null&&isFinite(+p.wa))?+p.wa:null, ht=(p.ht!=null&&isFinite(+p.ht))?+p.ht:null;
+  var v=N.gradeValueNeutral(+g, (+p.mpg>0?+p.mpg:18), (+p.prem||1), cls, ps, wa);
+  if(typeof N.draftBoost==='function') v*=N.draftBoost(+g, ppg);
+  if(typeof N.defMultOf==='function'&&p.espn!=null) v*=N.defMultOf(p.espn);
+  if(typeof N.mktMult==='function') v*=N.mktMult(ppg);
+  if(typeof N.proMult==='function'&&ht!=null) v*=N.proMult(ht, ps);
+  if(typeof N.adjMultOf==='function') v*=N.adjMultOf(p.name);
+  if(typeof N.progMultOf==='function') v*=N.progMultOf(p.team);
+  if(typeof N.progFloorOf==='function') v=Math.max(N.progFloorOf(p.conf||''), v);
+  return (isFinite(v)&&v>0)?v:null;
+}
+// Build the national NIL board once — all rotation players priced on the live model, sorted.
+function _nilBoard(N){
+  if(window._nilBoardCache) return window._nilBoardCache;
+  var nd=window._nilData; if(!nd||!nd.teams) return null;
+  var arr=[];
+  Object.keys(nd.teams).forEach(function(tk){ var tv=nd.teams[tk];
+    (tv.players||[]).forEach(function(p){ if(p.walkon) return;
+      var v=_nilLiveVal(N,p); if(v==null) return;
+      var ps5=(typeof N.POS5==='function')?N.POS5(p.pos):(p.pos||'');
+      arr.push({name:p.name, team:p.team||tk, grade:p.grade, pos5:ps5, val:v});
+    });
+  });
+  arr.sort(function(a,b){ return b.val-a.val; });
+  window._nilBoardCache=arr; return arr;
+}
+// "How he stacks up" — national + positional NIL rank and a comparables list, all on the
+// live-model scale so the numbers agree with the headline value.
+function _nilCompareHtml(N, cur, col){
+  var board=_nilBoard(N); if(!board||!board.length) return '';
+  var fmt=N.fmt, esc=function(s){return (''+(s==null?'':s)).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];});};
+  var natTot=board.length, natRank=1; for(var i=0;i<natTot;i++){ if(board[i].val>cur.val) natRank++; }
+  var pl=board.filter(function(p){ return p.pos5===cur.pos5; });
+  var posTot=pl.length, posRank=1; pl.forEach(function(p){ if(p.val>cur.val) posRank++; });
+  var pct=natTot>1?Math.round((1-(natRank-1)/(natTot-1))*100):50;
+  // comparables window: same position, nearest by value, current player highlighted in place
+  var plx=pl.filter(function(p){ return (p.name||'').toLowerCase().trim()!==(cur.name||'').toLowerCase().trim(); });
+  var at=plx.findIndex(function(p){ return p.val<=cur.val; }); if(at<0) at=plx.length;
+  plx.splice(at, 0, {name:cur.name, team:cur.team, grade:cur.grade, pos5:cur.pos5, val:cur.val, _me:true});
+  var start=Math.max(0, at-3), end=Math.min(plx.length, start+7); start=Math.max(0, end-7);
+  var win=plx.slice(start, end);
+  var maxV=Math.max.apply(null, win.map(function(p){return p.val;}))||1;
+  var rows=win.map(function(p, k){
+    var rk=start+k+1;                                  // positional rank of this row
+    var w=Math.max(4, Math.round(p.val/maxV*100));
+    return '<div class="nilc-row'+(p._me?' me':'')+'">'
+      +'<div class="nilc-rk">'+rk+'</div>'
+      +'<div class="nilc-nm">'+(p._me?'':'<a href="player.html?name='+encodeURIComponent(p.name)+'">')+esc(p.name)+(p._me?'':'</a>')
+        +'<span class="nilc-tm">'+esc(p.team||'')+'</span></div>'
+      +'<div class="nilc-gr">'+(p.grade!=null?Math.round(p.grade):'—')+'</div>'
+      +'<div class="nilc-track"><i style="width:'+w+'%;background:'+(p._me?col:'var(--border2)')+'"></i></div>'
+      +'<div class="nilc-vl"'+(p._me?' style="color:'+col+'"':'')+'>'+fmt(p.val)+'</div>'
+      +'</div>';
+  }).join('');
+  return '<div class="sec-title" style="margin:26px 0 12px;">How he stacks up</div>'
+    +'<div class="nilc-ranks">'
+      +'<div class="nilc-rank"><div class="nilc-rank-v" style="color:'+col+'">#'+natRank+'</div><div class="nilc-rank-l">NIL value nationally<span>of '+natTot.toLocaleString()+' rotation players</span></div></div>'
+      +'<div class="nilc-rank"><div class="nilc-rank-v" style="color:'+col+'">#'+posRank+'</div><div class="nilc-rank-l">among '+esc(cur.pos5||'')+'s<span>of '+posTot.toLocaleString()+' at the position</span></div></div>'
+      +'<div class="nilc-rank"><div class="nilc-rank-v" style="color:'+col+'">'+pct+'<span style="font-size:18px">th</span></div><div class="nilc-rank-l">percentile<span>higher = more valuable</span></div></div>'
+    +'</div>'
+    +'<div class="nilc-cmp-h">Comparable '+esc(cur.pos5||'')+'s by projected NIL value</div>'
+    +'<div class="nilc-list">'+rows+'</div>'
+    +'<div class="nilx-note" style="margin-top:10px;">Every player here is re-priced on the same model as the headline, so the values line up. Rank is among rotation players with a graded projection.</div>';
+}
+
 // Value Ledger — each season's production (Wins Added) next to the open-market NIL
 // value that production would command today. College has no historical "salary", so
 // this is a value-of-production ledger (like a contracts table), not a paid-vs-value one.
@@ -6435,6 +6507,12 @@ async function renderNilPlayer(){
     walkon=(grade!=null&&N.gradeBase(grade)<=0.003);
     value=(grade==null)?null:N.gradeValue(grade,mpg,nilTier,prem,cls,pos);
   }
+  // Prefer the LIVE projected minutes (same source as the projection & team pages) so PROJ MINUTES
+  // here matches the rest of the site — the published nil-data mpg lags a projection rebuild.
+  try{ if(window.TDCProjGrade&&TDCProjGrade.ready){ await TDCProjGrade.ready; }
+    const _pr=(window.TDCProjGrade&&TDCProjGrade.projRowOf&&player&&player.espn_id!=null)?TDCProjGrade.projRowOf(player.espn_id):null;
+    if(_pr&&_pr.mpg!=null&&isFinite(+_pr.mpg)&&+_pr.mpg>0) mpg=+_pr.mpg;
+  }catch(e){}
   if(value==null){ host.innerHTML='<div style="padding:40px;color:var(--text3);">No NIL valuation — needs a graded roster on an NIL-tiered team.</div>'; return; }
   const base=N.gradeBase(grade), tm=N.MODEL.tier_mult[N.tierNum(nilTier)]||0.2, mf=N.minFactor(N.estMpg(mpg,grade)), ym=N.youthMult(cls);
   const bigM=N.bigMult(pos,grade), prospM=N.prospectMult(grade,cls);
@@ -6493,8 +6571,9 @@ async function renderNilPlayer(){
     <div class="nilx-mm">
       <div class="nilx-mm-card"><div class="mm-l">Model Value</div><div class="mm-v">${fmt(modelVal)}</div><div class="mm-s">production estimate</div></div>
       <div class="nilx-mm-card"><div class="mm-l">Market Value</div><div class="mm-v" style="color:${col}">${fmt(marketVal)}</div><div class="mm-s">${marketPos} positional curve${(_bm&&_bm.moved)?' · natural pos':''}</div></div>
-      <div class="nilx-mm-card"><div class="mm-l">Verdict · vs market</div><div class="mm-v" style="font-size:21px;color:${_verdict.tag?N.markColor(_verdict.tag):'var(--text3)'}">${_verdict.tag?N.markLabel(_verdict.tag):'—'}</div><div class="mm-s">${_verdict.tag==='underrated'?'slept on — production ~'+_verdict.ratio.toFixed(1)+'× his market price':_verdict.tag==='overrated'?'market prices him ~'+_verdict.ratio.toFixed(1)+'× his production':_verdict.tag==='fair'?'market ≈ production (tier-fair)':'not enough role to judge'}</div></div>
+      <div class="nilx-mm-card" style="${_verdict.tag?`border-left:3px solid ${N.markColor(_verdict.tag)}`:''}"><div class="mm-l">Verdict · vs market</div><div class="mm-v" style="font-size:21px;color:${_verdict.tag?N.markColor(_verdict.tag):'var(--text3)'}">${_verdict.tag?N.markLabel(_verdict.tag):'—'}</div><div class="mm-s">${_verdict.tag==='underrated'?'slept on — production ~'+_verdict.ratio.toFixed(1)+'× his market price':_verdict.tag==='overrated'?'market prices him ~'+_verdict.ratio.toFixed(1)+'× his production':_verdict.tag==='fair'?'market ≈ production (tier-fair)':'not enough role to judge'}</div></div>
     </div>`:''}
+    ${(!walkon)?_nilCompareHtml(N,{name:(player&&player.name)||'',team:_teamNm,pos5:(N.POS5?N.POS5(pos):pos),val:modelVal,grade:grade},col):''}
     ${walkon?`<div class="nilx-flag" style="border-color:${col}"><b>Walk-on / non-rotation</b> — nominal value; not part of NIL roster spend.</div>`:`
     <div class="sec-title" style="margin:26px 0 14px;">How it's valued</div>
     <div class="nilx-chain">
