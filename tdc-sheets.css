@@ -95,3 +95,33 @@
 .sheet-title{ font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--text3); margin:0 0 8px; }
 
 @media(max-width:640px){ .sheet{ font-size:12px; } .sheet tbody td{ padding:6px 9px; } .sheet thead th{ padding:8px 9px; } }
+
+/* ── Retrofit: the site's existing data-table classes get the sheet grid on any page that
+   loads this file (non-data pages simply don't include it). Keeps border-collapse so layout
+   widths don't shift — just adds vertical gridlines to the existing horizontal ones, zebra
+   rows, a sticky header, and tabular numbers. Header background stays page-defined. ── */
+.sortable-table, .nil-table, .roster-table, .proj-table, .rk-table, .gl-table, .stats-table{
+  font-variant-numeric:tabular-nums;
+}
+.sortable-table td, .nil-table td, .roster-table td, .proj-table td, .rk-table td, .gl-table td, .stats-table td,
+.sortable-table th, .nil-table th, .roster-table th, .proj-table th, .rk-table th, .gl-table th, .stats-table th{
+  border-right:1px solid var(--border) !important;
+}
+.sortable-table td:last-child, .nil-table td:last-child, .roster-table td:last-child, .proj-table td:last-child, .rk-table td:last-child, .gl-table td:last-child, .stats-table td:last-child,
+.sortable-table th:last-child, .nil-table th:last-child, .roster-table th:last-child, .proj-table th:last-child, .rk-table th:last-child, .gl-table th:last-child, .stats-table th:last-child{
+  border-right:none !important;
+}
+.sortable-table thead th, .nil-table thead th, .roster-table thead th, .proj-table thead th, .rk-table thead th, .gl-table thead th, .stats-table thead th{
+  position:sticky; top:0; z-index:3;
+}
+.sortable-table tbody tr:nth-child(even) td, .nil-table tbody tr:nth-child(even) td, .roster-table tbody tr:nth-child(even) td, .proj-table tbody tr:nth-child(even) td{
+  background:color-mix(in srgb, var(--text) 3.5%, transparent);
+}
+.sortable-table tbody tr:hover td, .nil-table tbody tr:hover td, .roster-table tbody tr:hover td, .proj-table tbody tr:hover td{
+  background:color-mix(in srgb, var(--accent) 9%, transparent);
+}
+/* onoff.html and similar pages use a bare <table> in .tbl-wrap — add the vertical gridlines
+   + zebra so it reads as a sheet (it already has the sticky header / tabular numbers). */
+.tbl-wrap table td, .tbl-wrap table th{ border-right:1px solid var(--border); }
+.tbl-wrap table td:last-child, .tbl-wrap table th:last-child{ border-right:none; }
+.tbl-wrap table tbody tr:nth-child(even) td{ background:color-mix(in srgb, var(--text) 3.5%, transparent); }
