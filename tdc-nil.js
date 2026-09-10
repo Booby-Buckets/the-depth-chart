@@ -127,8 +127,15 @@ window.TDC_NIL = {
   N.EXP_WA = {64:0.2,66:0.2,68:0.3,70:0.6,72:1.0,74:1.5,76:2.0,78:2.5,80:2.9,82:3.3,84:3.4,86:3.7,88:4.1,90:4.2,92:4.2,94:5.1};
   N.expWA = function(g){ g=+g; if(!isFinite(g)) return null; if(g<=64) return N.EXP_WA[64]; if(g>=94) return N.EXP_WA[94];
     var lo=Math.floor(g/2)*2, hi=lo+2, a=N.EXP_WA[lo], b=N.EXP_WA[hi]; if(a==null||b==null) return a||b||null; return a+(b-a)*((g-lo)/2); };
+  // Production weight: value should track PRODUCTION, not just the grade. This is a TWO-SIDED
+  // multiplier on the grade value — a returner who out-produces his grade is rewarded, one who
+  // under-produces is docked (the old version was dock-only + capped at 1.0, so a high grade always
+  // kept full value however little he actually produced — that's the grade-value over-correlation).
+  // Keyed on WA vs expected-for-grade; the 0.29/0.54 center (≈0.83 at expectation) is a compensation
+  // constant that holds the returner AVERAGE and the ceiling (~$6M top) while production redistributes.
+  // Freshmen have no track record → returns 1 (they stay grade/pedigree-priced; upside via youth/prospect).
   N.waCoherence = function(grade,wa){ if(wa==null||wa===''||!isFinite(+wa)) return 1; var e=N.expWA(grade); if(!e||e<=0) return 1;
-    return Math.max(0.45, Math.min(1.0, 0.40+0.60*((+wa)/e))); };
+    return Math.max(0.33, Math.min(1.29, 0.29+0.54*((+wa)/e))); };
   // corrected market premium: FRESHMEN have no scoring/pillar data, so their baked prem is just
   // size×conference — but some baked it with a MIS-CLASSIFIED conference (Big-12/Pac-12 read as
   // low-major). Recompute cleanly from the row's size + (fixed) confClass. Returners keep their
