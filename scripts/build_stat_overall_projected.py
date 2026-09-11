@@ -203,9 +203,17 @@ def srs_of(full_team):
 # SRS 8.8) reads nearly as tough as an elite one (Illinois, 21.9) and the SOS discount barely
 # bites. A high-usage star on a weak team won't command that role on a loaded one — so also cut a
 # transfer's usage by the TEAM-QUALITY gap old->new (SRS points). Only on a step UP; never a boost.
-XFER_TEAMQ_K=float(os.environ.get("XFER_TEAMQ_K","0.010"))    # usage ×(1-K·ΔSRS) per point of quality jump
-XFER_TEAMQ_FLOOR=float(os.environ.get("XFER_TEAMQ_FLOOR","0.78"))
 XFER_VAC_W=float(os.environ.get("XFER_VAC_W","0.35"))         # a transfer's weight when splitting vacated usage (vs 1.0 for returners)
+# Composite up-transfer usage translation (replaces the old SOS-only discount): a step UP shrinks
+# his role by (LEVEL JUMP) × (how SHEDDABLE his usage was). Level jump blends TEAM SUCCESS (SRS
+# gap, 25 pts = full) and CONFERENCE schedule (SOS). Shed-ability: high usage + low impact
+# ("empty shots") gives back the most; an efficient, high-impact star keeps his role anywhere.
+XF_TEAM_W=float(os.environ.get("XF_TEAM_W","0.70"))          # team-success (SRS) weight in the level jump
+XF_TEAM_SPAN=float(os.environ.get("XF_TEAM_SPAN","25.0"))    # SRS gap that counts as a full level jump
+XF_CONF_W=float(os.environ.get("XF_CONF_W","0.50"))          # conference/schedule (SOS) weight
+XF_BASE=float(os.environ.get("XF_BASE","0.25"))              # usage-cut fraction at full level jump for an EFFICIENT star
+XF_EMPTY=float(os.environ.get("XF_EMPTY","0.75"))            # extra cut for empty-shot (high-usage, low-efficiency) volume
+XF_DISC_FLOOR=float(os.environ.get("XF_DISC_FLOOR","0.65"))  # never shed more than 35% of usage on one move
 def sos_of(full_team):
     ov=TEAM_SOS_OVERRIDE.get(full_team)
     if ov is not None: return ov                     # team anomaly pin (overrides conf)
@@ -286,7 +294,11 @@ for short, roster in roster_by_team.items():
         _cf=str(full).lower().strip(); _cs=str(short).lower().strip()
         _ret=(bool(_lt) and (_lt==_cf or _lt.startswith(_cf+" "))) if _cf!=_cs else (bool(_lt) and _lt.startswith(_cs))
         _xfer=bool(a is not None and a["team"]) and not _ret
-        R.append(dict(e=e,p=p,b=b,a=a,last_mpg=last_mpg,pm=pm,xfer=_xfer,
+        # true-shooting % (efficiency): distinguishes an efficient scorer from an "empty shots"
+        # high-volume, low-percentage one. ppg / (2·(FGA+0.44·FTA)); None when he barely shot.
+        _shots=_n(b["fga"])+0.44*_n(b["fta"])
+        _eff=(_n(b["ppg"])/(2.0*_shots)) if _shots>=2 else None
+        R.append(dict(e=e,p=p,b=b,a=a,last_mpg=last_mpg,pm=pm,xfer=_xfer,eff=_eff,
                       last_usg=_n(a["usg_pct"] if a is not None else None,USG_REF) or USG_REF,
                       demo=demo_ovr.get(e,72)))
     if not R: continue
@@ -325,20 +337,28 @@ for short, roster in roster_by_team.items():
             _xd=r["p"].depth_order; _xd=int(_xd) if pd.notna(_xd) else None
             _xslot=(SLOT_MIN[_xd] if _xd and 1<=_xd<len(SLOT_MIN) else (5 if _xd and _xd>=len(SLOT_MIN) else 0))
             pm=min(pm,max(_xslot,last_mpg+MPG_XFER_BUMP))
-            # Level-jump offensive translation: discount projected usage by the SOS gap
-            # old→new (min 1.0 so a step DOWN never inflates). Flows into shot volume via
-            # usg_ratio AND into the grade via usg_mult, keeping line and OVR consistent.
+            # COMPOSITE up-transfer usage translation. A step up shrinks his role by
+            #   (LEVEL JUMP) × (how SHEDDABLE his usage was).
+            # LEVEL JUMP blends TEAM SUCCESS (SRS gap old->new) and CONFERENCE schedule (SOS gap),
+            # each measured only when stepping UP, capped at a full jump. SHED-ABILITY is the
+            # "empty shots" idea: a base amount for everyone, plus more when his usage was HIGH and
+            # his efficiency LOW — those are the possessions that don't travel to a loaded roster.
+            # An efficient, high-impact star (empty≈0) keeps his role anywhere; a high-volume,
+            # low-percentage chucker sheds the most. (Providence's Vaaks: 24.5% usg at 40% FG /
+            # .569 TS -> should regress on Illinois; an efficient star at the same jump barely does.)
             sos_new=sos_of(full); sos_old=sos_of(demo_team_full)
-            xfer_off=min(1.0, sos_old/sos_new) if sos_new>0 else 1.0
-            xfer_off=1.0-(1.0-xfer_off)*XFER_OFF_STR
-            r["proj_usg"]=max(USG_CAP[0], r["proj_usg"]*xfer_off)
-            # Team-quality level-jump: a high-usage star on a WEAK team regresses on a LOADED one.
-            # Cut usage by the SRS gap old->new (only a step UP), which SOS alone misses (Providence
-            # 8.8 -> Illinois 21.9: Vaaks shouldn't out-usage the developing returners).
-            q_new=srs_of(full); q_old=srs_of(demo_team_full)
-            if q_new is not None and q_old is not None and q_new>q_old:
-                teamq=max(XFER_TEAMQ_FLOOR, 1.0-XFER_TEAMQ_K*(q_new-q_old))
-                r["proj_usg"]=max(USG_CAP[0], r["proj_usg"]*teamq)
+            q_new=srs_of(full);   q_old=srs_of(demo_team_full)
+            _cl=lambda x: 0.0 if x<0 else (1.0 if x>1 else x)
+            srs_jump=_cl((q_new-q_old)/XF_TEAM_SPAN) if (q_new is not None and q_old is not None) else 0.0
+            sos_jump=_cl((sos_new-sos_old)/sos_new) if sos_new>0 else 0.0
+            level_jump=min(1.0, XF_TEAM_W*srs_jump + XF_CONF_W*sos_jump)
+            if level_jump>0:
+                usg_hi=_cl((r["last_usg"]-16.0)/12.0)                 # 16%->0, 28%+->1: was he a volume option
+                empty=_cl((0.60-(r["eff"] if r["eff"] is not None else 0.55))/0.13)  # .60 TS->0 (efficient), .47->1
+                shed=XF_BASE+XF_EMPTY*usg_hi*empty                   # efficient star = XF_BASE; empty chucker -> big
+                disc=max(XF_DISC_FLOOR, 1.0-level_jump*shed)
+                r["proj_usg"]=max(USG_CAP[0], r["proj_usg"]*disc)
+                r["_xfdisc"]=disc
         usg_ratio=min(1.6,max(0.6,r["proj_usg"]/max(r["last_usg"],1)))
         dm=dev_mult(p.yr or p.class_year, r["demo"], CAREER_SEASONS.get(e))
         # per-40 last-year rates
@@ -431,6 +451,14 @@ for short, roster in roster_by_team.items():
             "fgm":round(fgm,1),"fga":round(fga,1),"tpm":round(tpm,1),"tpa":round(tpa,1),
             "ftm":round(ftm,1),"fta":round(fta,1),
         }
+        if xfer:
+            out[str(e)]["_xfer"]=1
+            if r.get("_xfdisc") is not None: out[str(e)]["_xfdisc"]=round(r["_xfdisc"],3)
+            if r.get("eff") is not None: out[str(e)]["_ts"]=round(r["eff"],3)
+            _dt=demo_team_full or ""
+            out[str(e)]["_from"]=_dt; out[str(e)]["_to"]=full
+            _qn=srs_of(full); _qo=srs_of(demo_team_full)
+            if _qn is not None and _qo is not None: out[str(e)]["_srsgap"]=round(_qn-_qo,1)
         proj_team[str(e)]=short
         out[str(e)]["_demo_f40"]=round(_n(b["fga"])*40.0/max(last_mpg,1),3)   # last-yr shots/40 (portable trait, pre-move)
         out[str(e)]["_xfer"]=bool(xfer)   # for the impact-lift guard (don't re-inflate transfers)
@@ -456,7 +484,8 @@ if IMPACT_LIFT>0 and out:
             g_ti=_ti_to_grade(v["ti40"])
             if g_ti>v["ovr"]:
                 v["ovr"]=int(round(min(99, v["ovr"]+IMPACT_LIFT*(g_ti-v["ovr"]))))
-    for v in out.values(): v.pop("_xfer",None)   # internal guard flag — don't ship it
+    for v in out.values():
+        for _k in ("_xfer","_xfdisc","_ts","_from","_to","_srsgap"): v.pop(_k,None)   # internal/debug — don't ship
 
 # ---- Shot Tendency (trait) + Projected Shot Share (roster-normalized) ----
 # Two counting stats surfaced from the SAME projected line that sets the grade, so

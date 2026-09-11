@@ -211,7 +211,7 @@
       fetch('scripts/data/shot_genome_players.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('data/continuity.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/level_adj.json').then(r=>r.ok?r.json():null).catch(()=>null),
-      fetch('scripts/data/team_eff.json?v=4').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('scripts/data/team_eff.json?v=5').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
     // Projected team efficiency (build_projected_dna.py → team_eff.json "2027"), keyed by FULL name:
     // {o,d,net}. Its NET is the box/DNA lens on team strength; blended into the roster rating so the
