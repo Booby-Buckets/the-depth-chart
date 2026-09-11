@@ -64,6 +64,7 @@ USG_TOV_EL=0.95      # turnover elasticity to usage
 USG_EFF_PEN=0.06     # FG% drop per +100% usage (usage-efficiency tradeoff)
 REG_FG, REG_TP, REG_FT = 0.15, 0.25, 0.20   # shrink efficiency toward positional mean
 FTIMP_W=0.35         # weight on FT-implied 3P% (0.55*ftpct-10)
+DEV_EFF_HOLD=float(os.environ.get("DEV_EFF_HOLD","0.45"))   # developing young returners keep MORE of their real percentages (regress-to-mean scaled by this)
 TARGET_TEAM_USG=float(os.environ.get("TARGET_TEAM_USG","22.0")); USG_CAP=(9.0,34.0); MPG_XFER_BUMP=10.0
 VAC_CONC=float(os.environ.get("VAC_CONC","2.0"))  # vacancy concentration: weight ∝ last_usg**VAC_CONC (focal points absorb more of a departed rotation, within the team cap)
 TRANSFER_DEF_DAMP=float(os.environ.get("TRANSFER_DEF_DAMP","0.90"))  # share of a transfer's team-D (DWA) credit that follows him
@@ -362,17 +363,25 @@ for short, roster in roster_by_team.items():
                 r["_xfdisc"]=disc
         usg_ratio=min(1.6,max(0.6,r["proj_usg"]/max(r["last_usg"],1)))
         dm=dev_mult(p.yr or p.class_year, r["demo"], CAREER_SEASONS.get(e))
+        developing = dm>=1.04
+        last_min=_n(r["a"]["min"] if r["a"] is not None else 0) or last_mpg*G_PROJ   # real minutes last year (for the dev-hold + guards)
         # per-40 last-year rates
         def p40(k): return _n(b[k])*40.0/max(last_mpg,1)
         fga40=p40("fga")*usg_ratio*dm; tpa40=p40("tpa")*usg_ratio*dm; fta40=p40("fta")*usg_ratio*dm
         ast40=p40("apg")*(usg_ratio**USG_AST_EL); tov40=p40("tovs")*(usg_ratio**USG_TOV_EL)
         oreb40=p40("oreb"); dreb40=p40("dreb"); stl40=p40("stl"); blk40=p40("blk")   # minutes-based
-        # efficiency: regress toward positional mean + FT-implied 3P% + usage penalty
+        # efficiency: regress toward positional mean + FT-implied 3P% + usage penalty.
+        # A DEVELOPING young returner (fr->so / so->jr on the rise) with a real sample keeps MORE
+        # of his own percentages — regressing a 37-game 37.5% sophomore 3P shooter toward the
+        # positional/FT-implied mean paints a rising player as declining, which he isn't (his OVR
+        # is already floored, but the visible LINE shouldn't read as worse). Scale the pull-away-
+        # from-actual by DEV_EFF_HOLD for those players; everyone else regresses as before.
+        rs=DEV_EFF_HOLD if (developing and not xfer and last_min>=400) else 1.0
         ft=_n(b["ft_pct"],POS_FT[pos]); tp=_n(b["tp_pct"],POS_TP[pos]); fg=_n(b["fg_pct"],POS_FG[pos])
         ftimp=0.55*ft-10.0
-        tp_p=(1-REG_TP-FTIMP_W)*tp+REG_TP*POS_TP[pos]+FTIMP_W*ftimp
-        fg_p=((1-REG_FG)*fg+REG_FG*POS_FG[pos])*(1-USG_EFF_PEN*(usg_ratio-1))
-        ft_p=(1-REG_FT)*ft+REG_FT*POS_FT[pos]
+        tp_p=(1-(REG_TP+FTIMP_W)*rs)*tp+(REG_TP*POS_TP[pos]+FTIMP_W*ftimp)*rs
+        fg_p=((1-REG_FG*rs)*fg+REG_FG*rs*POS_FG[pos])*(1-USG_EFF_PEN*(usg_ratio-1))
+        ft_p=(1-REG_FT*rs)*ft+REG_FT*rs*POS_FT[pos]
         fg_p=min(72,max(30,fg_p)); tp_p=min(48,max(20,tp_p)); ft_p=min(95,max(45,ft_p))
         # per-game projected line
         sc=pm/40.0
@@ -395,8 +404,8 @@ for short, roster in roster_by_team.items():
             _,owa_demo,_=ti_value(demo_pg,last_mpg*max(gp_demo,1),games=max(gp_demo,1))
             owa=_n(r["a"]["owa"])+(owa-owa_demo)
         # DWA carries from last year's defensive RATE (team-D can't be projected), scaled to new minutes
-        dwa_last=_n(r["a"]["dwa"] if r["a"] is not None else 0); last_min=_n(r["a"]["min"] if r["a"] is not None else last_mpg*G_PROJ) or 1
-        dwa40=dwa_last/(last_min/40.0)
+        dwa_last=_n(r["a"]["dwa"] if r["a"] is not None else 0)
+        dwa40=dwa_last/(max(last_min,1)/40.0)
         if xfer: dwa40=TRANSFER_DEF_DAMP*dwa40   # team-D credit doesn't fully transfer
         dwa_p=dwa40*(mn/40.0)
         sos=sos_of(full)
@@ -432,7 +441,6 @@ for short, roster in roster_by_team.items():
         # per-minute value rises even as raw counting stats regress. (e.g. David Mirkovic, fr->so:
         # 27 vs 29.5 mpg on a loaded Illinois roster shouldn't read demo 90 -> proj 88.) Older
         # returners (dev_mult ~1.0) still take the maxdrop, and anyone LOSING minutes still drops.
-        developing = dm>=1.04
         if not xfer and last_min>=400:
             if pm>=last_mpg*1.05 or (pm>=last_mpg*0.85 and developing):
                 ovr=max(ovr,int(r["demo"]))                                     # bigger role, or a developing player holding it → no drop
