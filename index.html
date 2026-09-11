@@ -880,11 +880,18 @@
   body.sheet-mode .team-row:hover .grade-val{ transform:none; }
   body.sheet-mode .tr-stat b{ font-size:13px; }
   body.sheet-mode .tr-rank-wrap{ gap:3px; }
-  /* full gridlines incl. the last column; zebra on the scrolling cells only (the frozen
-     Rk/Team columns paint their own opaque bg, so a row-level stripe wouldn't show there) */
+  /* full gridlines incl. the last column */
   body.sheet-mode .team-row > *:nth-child(n+3){ box-shadow: inset -1px 0 0 var(--border); }
+  /* Zebra — clearly visible. Scrolling cells get a real tint; the two frozen columns paint
+     their own opaque bg via box-shadow, so stripe them by overriding that shadow on even rows
+     (keeping the team cell's -48px gap fill). Uses a solid mix over --bg so it reads in dark. */
   body.sheet-mode .team-row:nth-of-type(even) > *:nth-child(n+3){
-    background: color-mix(in srgb, var(--text) 3.5%, transparent); }
+    background: color-mix(in srgb, var(--text) 8%, transparent) !important; }
+  body.sheet-mode .team-row:nth-of-type(even) > .tr-rank-wrap{
+    box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--text) 8%, var(--bg)) !important; }
+  body.sheet-mode .team-row:nth-of-type(even) > .tr-team-cell{
+    box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--text) 8%, var(--bg)),
+                -48px 0 0 0 color-mix(in srgb, var(--text) 8%, var(--bg)) !important; }
 
   /* ============================================================
      SKELETON LOADER
