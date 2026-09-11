@@ -388,9 +388,18 @@ for short, roster in roster_by_team.items():
         # fall below it AT ALL — a player stepping into a bigger role shouldn't be graded down
         # just because the team-usage constraint redistributed possessions to teammates (this
         # was tanking efficiency/defense bigs like Tugler: +19% minutes but proj OVR demo-2).
+        # A DEVELOPING young player (fr->so / so->jr on the rise, dev_mult>=1.04) who HOLDS his
+        # role can't be graded down either: a statistical dip from team success / a deeper roster /
+        # lower tendency-% is not a decline when the age jump makes his minutes MORE impactful — his
+        # per-minute value rises even as raw counting stats regress. (e.g. David Mirkovic, fr->so:
+        # 27 vs 29.5 mpg on a loaded Illinois roster shouldn't read demo 90 -> proj 88.) Older
+        # returners (dev_mult ~1.0) still take the maxdrop, and anyone LOSING minutes still drops.
+        developing = dm>=1.04
         if not xfer and last_min>=400:
-            if pm>=last_mpg*1.05:   ovr=max(ovr,int(r["demo"]))                 # bigger role → floor at demonstrated
-            elif pm>=last_mpg*0.85: ovr=max(ovr,int(r["demo"])-PROJ_MAXDROP)    # role held → within maxdrop
+            if pm>=last_mpg*1.05 or (pm>=last_mpg*0.85 and developing):
+                ovr=max(ovr,int(r["demo"]))                                     # bigger role, or a developing player holding it → no drop
+            elif pm>=last_mpg*0.85:
+                ovr=max(ovr,int(r["demo"])-PROJ_MAXDROP)                        # veteran holding role → within maxdrop
         out[str(e)]={
             "ovr":ovr,"demo_ovr":int(r["demo"]),"proj_mpg":round(pm,1),"last_mpg":round(last_mpg,1),
             "dev_mult":round(dm,3),"proj_usg":round(r["proj_usg"],1),"last_usg":round(r["last_usg"],1),
