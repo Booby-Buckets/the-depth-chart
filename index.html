@@ -854,6 +854,37 @@
   }
 
   /* ============================================================
+     VIEW TOGGLE (Sheet ⇄ Roomy) + SHEET MODE
+     The rankings are already a gridded, frozen-column, sticky-header table.
+     "Sheet" mode tightens it to a dense spreadsheet: shorter rows, flatter
+     rank/grade type, zebra striping on the scrolling cells, no hover zoom.
+     "Roomy" mode is the original spacious look. Toggled via body.sheet-mode.
+  ============================================================ */
+  .view-toggle{ display:inline-flex; border:1px solid var(--border2); border-radius:9px; overflow:hidden; }
+  .vt-btn{ font:inherit; font-size:11px; font-weight:700; letter-spacing:.02em; padding:7px 11px; border:0;
+    background:var(--bg2); color:var(--text3); cursor:pointer; transition:background .12s,color .12s; white-space:nowrap; }
+  .vt-btn + .vt-btn{ border-left:1px solid var(--border2); }
+  .vt-btn.on{ background:var(--accent); color:#fff; }
+  .vt-btn:hover:not(.on){ color:var(--text); }
+
+  /* Sheet = tight rows; Roomy = extra breathing room (both !important to beat tdc-dense.css) */
+  body.sheet-mode .team-row{ padding:5px 0 !important; }
+  body:not(.sheet-mode) .team-row{ padding:12px 0 !important; }
+  body.sheet-mode .tr-rank{ font-size:13px; top:0; }
+  body.sheet-mode .tr-rank.rank-1{ font-size:14px; text-shadow:none; }
+  body.sheet-mode .tr-rank.rank-2,body.sheet-mode .tr-rank.rank-3{ font-size:13px; }
+  body.sheet-mode .team-row:hover .tr-rank{ transform:none; }
+  body.sheet-mode .grade-val{ font-size:14px; }
+  body.sheet-mode .team-row:hover .grade-val{ transform:none; }
+  body.sheet-mode .tr-stat b{ font-size:13px; }
+  body.sheet-mode .tr-rank-wrap{ gap:3px; }
+  /* full gridlines incl. the last column; zebra on the scrolling cells only (the frozen
+     Rk/Team columns paint their own opaque bg, so a row-level stripe wouldn't show there) */
+  body.sheet-mode .team-row > *:nth-child(n+3){ box-shadow: inset -1px 0 0 var(--border); }
+  body.sheet-mode .team-row:nth-of-type(even) > *:nth-child(n+3){
+    background: color-mix(in srgb, var(--text) 3.5%, transparent); }
+
+  /* ============================================================
      SKELETON LOADER
   ============================================================ */
   @keyframes skeletonShimmer {
@@ -1380,9 +1411,30 @@
       <option value="topg">Sort: Fewest Turnovers</option>
     </select>
     <input class="nav-search" id="searchInput" type="text" placeholder="Search teams…" oninput="applyFilters()"/>
+    <div class="view-toggle" role="group" aria-label="Table density">
+      <button type="button" id="viewSheet" class="vt-btn" onclick="setRankView('sheet')" title="Dense spreadsheet view">▦ Sheet</button>
+      <button type="button" id="viewCards" class="vt-btn" onclick="setRankView('cards')" title="Roomy view">▭ Roomy</button>
+    </div>
     <div class="filter-count" id="filterCount"></div>
   </div>
 </div>
+
+<script>
+(function(){
+  // Rankings density toggle. Sheet = dense spreadsheet (default); Roomy = original spacing.
+  function setRankView(mode){
+    var sheet = mode!=='cards';
+    document.body.classList.toggle('sheet-mode', sheet);
+    var s=document.getElementById('viewSheet'), c=document.getElementById('viewCards');
+    if(s) s.classList.toggle('on', sheet);
+    if(c) c.classList.toggle('on', !sheet);
+    try{ localStorage.setItem('tdc_rank_view', sheet?'sheet':'cards'); }catch(e){}
+  }
+  window.setRankView=setRankView;
+  var saved='sheet'; try{ saved=localStorage.getItem('tdc_rank_view')||'sheet'; }catch(e){}
+  setRankView(saved);
+})();
+</script>
 
 <!-- ═══ TABLE ═════════════════════════════════════════════════ -->
 <div class="table-section">
