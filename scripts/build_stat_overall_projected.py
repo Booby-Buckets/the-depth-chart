@@ -196,6 +196,16 @@ top=tcur["strength"].quantile(SOS_REF_PCT)
 tcur["sos"]=(1.0-K_SOS*(1.0-tcur["strength"]/top)).clip(SOS_FLOOR,1.0)
 tconf=tcur.set_index("team")["conference"].to_dict()
 tsos=tcur.set_index("team")["sos"].to_dict()
+tsrs=tcur.set_index("team")["srs"].to_dict()      # raw TEAM QUALITY (point margin), not schedule
+def srs_of(full_team):
+    v=tsrs.get(full_team); return float(v) if v is not None and pd.notna(v) else None
+# Team-quality level-jump: SOS is SCHEDULE strength, so a bad team in a strong league (Providence,
+# SRS 8.8) reads nearly as tough as an elite one (Illinois, 21.9) and the SOS discount barely
+# bites. A high-usage star on a weak team won't command that role on a loaded one — so also cut a
+# transfer's usage by the TEAM-QUALITY gap old->new (SRS points). Only on a step UP; never a boost.
+XFER_TEAMQ_K=float(os.environ.get("XFER_TEAMQ_K","0.010"))    # usage ×(1-K·ΔSRS) per point of quality jump
+XFER_TEAMQ_FLOOR=float(os.environ.get("XFER_TEAMQ_FLOOR","0.78"))
+XFER_VAC_W=float(os.environ.get("XFER_VAC_W","0.35"))         # a transfer's weight when splitting vacated usage (vs 1.0 for returners)
 def sos_of(full_team):
     ov=TEAM_SOS_OVERRIDE.get(full_team)
     if ov is not None: return ov                     # team anomaly pin (overrides conf)
@@ -271,16 +281,26 @@ for short, roster in roster_by_team.items():
         if last_mpg<3: continue
         starter=str(p.starter).lower() in ("true","t")
         pm=proj_mpg(p.depth_order,last_mpg,starter)
-        R.append(dict(e=e,p=p,b=b,a=a,last_mpg=last_mpg,pm=pm,
+        # transfer? (last-year team != this school) — needed BEFORE the vacancy split
+        _lt=str((a["team"] if a is not None else "") or "").lower().strip()
+        _cf=str(full).lower().strip(); _cs=str(short).lower().strip()
+        _ret=(bool(_lt) and (_lt==_cf or _lt.startswith(_cf+" "))) if _cf!=_cs else (bool(_lt) and _lt.startswith(_cs))
+        _xfer=bool(a is not None and a["team"]) and not _ret
+        R.append(dict(e=e,p=p,b=b,a=a,last_mpg=last_mpg,pm=pm,xfer=_xfer,
                       last_usg=_n(a["usg_pct"] if a is not None else None,USG_REF) or USG_REF,
                       demo=demo_ovr.get(e,72)))
     if not R: continue
-    # redistribute vacated usage to returners — CONCENTRATED on the higher-usage options
-    # (weight = last_usg**VAC_CONC × proj_min), so a gutted roster's #1 returner absorbs the
-    # departed shot creation rather than spreading it thin. Team total still capped below.
-    wsum=sum((r["last_usg"]**VAC_CONC)*r["pm"] for r in R) or 1
+    # Redistribute vacated usage — CONCENTRATED on the higher-usage options (weight =
+    # last_usg**VAC_CONC × proj_min), so a gutted roster's #1 returner absorbs the departed shot
+    # creation rather than spreading it thin. Incoming transfers get only a PARTIAL share
+    # (XFER_VAC_W): a newcomer hasn't earned the departed alpha's role, so most of it goes to
+    # returners who are in the system — but he still steps into some of it. (Fully excluding them
+    # over-concentrated it on one returner; letting them grab it at full weight was the
+    # Vaaks-over-Mirkovic bug.)
+    _vw=lambda r: (r["last_usg"]**VAC_CONC)*r["pm"]*(XFER_VAC_W if r["xfer"] else 1.0)
+    wsum=sum(_vw(r) for r in R) or 1
     for r in R:
-        share=((r["last_usg"]**VAC_CONC)*r["pm"])/wsum
+        share=_vw(r)/wsum
         add_usg=(vac_load*RETURNER_VAC*share)/max(r["pm"]*G_PROJ,1.0)   # %·min · frac / min = %
         r["raw_usg"]=r["last_usg"]+add_usg
     # TEAM CONSTRAINT: on-court usages sum to ~100%, so the rotation can't average >~22%.
@@ -295,19 +315,9 @@ for short, roster in roster_by_team.items():
     for r in R:
         p,b,e=r["p"],r["b"],r["e"]; pos=_pos(p.position)
         last_mpg=r["last_mpg"]; pm=r["pm"]
-        # transfer? (played elsewhere last year) — cap the minutes jump
+        # transfer? computed once in the roster loop (r["xfer"]); needs the old team for the discounts
         demo_team_full=(r["a"].team if r["a"] is not None else None)
-        # Transfer detection: match last-year team to the CURRENT team's FULL name (S2F-resolved,
-        # e.g. "Utah Utes"), NOT a bare short-name prefix. player_advanced.team is a full
-        # "School Mascot" string, so a mid-major whose name merely STARTS with the new school
-        # ("Utah Valley Wolverines" vs short "Utah", "Miami (OH)" vs "Miami") no longer reads as
-        # "stayed". Falls back to the legacy short-prefix test only when the team has no S2F map.
-        _lt=str(demo_team_full or "").lower().strip(); _cf=str(full).lower().strip(); _cs=str(short).lower().strip()
-        if _cf!=_cs:
-            returner = bool(_lt) and (_lt==_cf or _lt.startswith(_cf+" "))
-        else:
-            returner = bool(_lt) and _lt.startswith(_cs)
-        xfer = bool(demo_team_full) and not returner
+        xfer = r["xfer"]
         if xfer:
             # A transfer's role is uncertain, so cap minutes at last year + a bump — BUT never below
             # his depth-chart slot: if the owner placed him as a starter (high slot), that IS his role
@@ -322,6 +332,13 @@ for short, roster in roster_by_team.items():
             xfer_off=min(1.0, sos_old/sos_new) if sos_new>0 else 1.0
             xfer_off=1.0-(1.0-xfer_off)*XFER_OFF_STR
             r["proj_usg"]=max(USG_CAP[0], r["proj_usg"]*xfer_off)
+            # Team-quality level-jump: a high-usage star on a WEAK team regresses on a LOADED one.
+            # Cut usage by the SRS gap old->new (only a step UP), which SOS alone misses (Providence
+            # 8.8 -> Illinois 21.9: Vaaks shouldn't out-usage the developing returners).
+            q_new=srs_of(full); q_old=srs_of(demo_team_full)
+            if q_new is not None and q_old is not None and q_new>q_old:
+                teamq=max(XFER_TEAMQ_FLOOR, 1.0-XFER_TEAMQ_K*(q_new-q_old))
+                r["proj_usg"]=max(USG_CAP[0], r["proj_usg"]*teamq)
         usg_ratio=min(1.6,max(0.6,r["proj_usg"]/max(r["last_usg"],1)))
         dm=dev_mult(p.yr or p.class_year, r["demo"], CAREER_SEASONS.get(e))
         # per-40 last-year rates
