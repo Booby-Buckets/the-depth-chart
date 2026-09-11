@@ -55,6 +55,7 @@ def foul_pen(espn,minutes):
 # returner can fall below his demonstrated grade from projection alone. Transfers (level jump)
 # and role-shrinkers are exempt; development/vacancy can still push a grade UP freely.
 PROJ_MAXDROP=int(os.environ.get("PROJ_MAXDROP","2"))
+XFER_MAXDROP=int(os.environ.get("XFER_MAXDROP","13"))   # a proven transfer stepping into a smaller role should regress hard, but not off a cliff to the grade floor
 # ---- projection knobs ----
 RETURNER_VAC=0.70    # share of departed usage that returners (vs incoming frosh) absorb
 USG_SCORE_EL=0.90    # shot volume elasticity to usage
@@ -437,6 +438,13 @@ for short, roster in roster_by_team.items():
                 ovr=max(ovr,int(r["demo"]))                                     # bigger role, or a developing player holding it → no drop
             elif pm>=last_mpg*0.85:
                 ovr=max(ovr,int(r["demo"])-PROJ_MAXDROP)                        # veteran holding role → within maxdrop
+        elif xfer and last_min>=400:
+            # A proven transfer SHOULD regress stepping up into a smaller role — but not free-fall
+            # to the global grade floor. Cushion the drop at XFER_MAXDROP below his demonstrated
+            # grade (much larger than a returner's, so the level jump still bites), softening the
+            # 22-pt cliff (e.g. a 77-grade mid-major star bench-bound at a high-major bottoms near
+            # 64, not 55). Only softens; never inflates.
+            ovr=max(ovr,int(r["demo"])-XFER_MAXDROP)
         out[str(e)]={
             "ovr":ovr,"demo_ovr":int(r["demo"]),"proj_mpg":round(pm,1),"last_mpg":round(last_mpg,1),
             "dev_mult":round(dm,3),"proj_usg":round(r["proj_usg"],1),"last_usg":round(r["last_usg"],1),
