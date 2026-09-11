@@ -492,8 +492,11 @@ if IMPACT_LIFT>0 and out:
             g_ti=_ti_to_grade(v["ti40"])
             if g_ti>v["ovr"]:
                 v["ovr"]=int(round(min(99, v["ovr"]+IMPACT_LIFT*(g_ti-v["ovr"]))))
+    _keep=os.environ.get("KEEP_XF_DEBUG")   # local audit only; shipped build strips these
     for v in out.values():
-        for _k in ("_xfer","_xfdisc","_ts","_from","_to","_srsgap"): v.pop(_k,None)   # internal/debug — don't ship
+        v.pop("_xfer",None)                                                   # internal guard flag — always strip
+        if not _keep:
+            for _k in ("_xfdisc","_ts","_from","_to","_srsgap"): v.pop(_k,None)
 
 # ---- Shot Tendency (trait) + Projected Shot Share (roster-normalized) ----
 # Two counting stats surfaced from the SAME projected line that sets the grade, so
