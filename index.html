@@ -854,46 +854,6 @@
   }
 
   /* ============================================================
-     VIEW TOGGLE (Sheet ⇄ Roomy) + SHEET MODE
-     The rankings are already a gridded, frozen-column, sticky-header table.
-     "Sheet" mode tightens it to a dense spreadsheet: shorter rows, flatter
-     rank/grade type, zebra striping on the scrolling cells, no hover zoom.
-     "Roomy" mode is the original spacious look. Toggled via body.sheet-mode.
-  ============================================================ */
-  .view-wrap{ display:inline-flex; align-items:center; gap:7px; }
-  .vt-lbl{ font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text3); }
-  .view-toggle{ display:inline-flex; border:1px solid var(--border2); border-radius:9px; overflow:hidden; }
-  .vt-btn{ font:inherit; font-size:11px; font-weight:700; letter-spacing:.02em; padding:7px 11px; border:0;
-    background:var(--bg2); color:var(--text3); cursor:pointer; transition:background .12s,color .12s; white-space:nowrap; }
-  .vt-btn + .vt-btn{ border-left:1px solid var(--border2); }
-  .vt-btn.on{ background:var(--accent); color:#fff; }
-  .vt-btn:hover:not(.on){ color:var(--text); }
-
-  /* Sheet = tight rows; Roomy = extra breathing room (both !important to beat tdc-dense.css) */
-  body.sheet-mode .team-row{ padding:5px 0 !important; }
-  body:not(.sheet-mode) .team-row{ padding:12px 0 !important; }
-  body.sheet-mode .tr-rank{ font-size:13px; top:0; }
-  body.sheet-mode .tr-rank.rank-1{ font-size:14px; text-shadow:none; }
-  body.sheet-mode .tr-rank.rank-2,body.sheet-mode .tr-rank.rank-3{ font-size:13px; }
-  body.sheet-mode .team-row:hover .tr-rank{ transform:none; }
-  body.sheet-mode .grade-val{ font-size:14px; }
-  body.sheet-mode .team-row:hover .grade-val{ transform:none; }
-  body.sheet-mode .tr-stat b{ font-size:13px; }
-  body.sheet-mode .tr-rank-wrap{ gap:3px; }
-  /* full gridlines incl. the last column */
-  body.sheet-mode .team-row > *:nth-child(n+3){ box-shadow: inset -1px 0 0 var(--border); }
-  /* Zebra — clearly visible. Scrolling cells get a real tint; the two frozen columns paint
-     their own opaque bg via box-shadow, so stripe them by overriding that shadow on even rows
-     (keeping the team cell's -48px gap fill). Uses a solid mix over --bg so it reads in dark. */
-  body.sheet-mode .team-row:nth-of-type(even) > *:nth-child(n+3){
-    background: color-mix(in srgb, var(--text) 8%, transparent) !important; }
-  body.sheet-mode .team-row:nth-of-type(even) > .tr-rank-wrap{
-    box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--text) 8%, var(--bg)) !important; }
-  body.sheet-mode .team-row:nth-of-type(even) > .tr-team-cell{
-    box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--text) 8%, var(--bg)),
-                -48px 0 0 0 color-mix(in srgb, var(--text) 8%, var(--bg)) !important; }
-
-  /* ============================================================
      SKELETON LOADER
   ============================================================ */
   @keyframes skeletonShimmer {
@@ -1420,34 +1380,9 @@
       <option value="topg">Sort: Fewest Turnovers</option>
     </select>
     <input class="nav-search" id="searchInput" type="text" placeholder="Search teams…" oninput="applyFilters()"/>
-    <div class="view-wrap">
-      <span class="vt-lbl">Rows</span>
-      <div class="view-toggle" role="group" aria-label="Row density — how tightly the rankings are packed">
-        <button type="button" id="viewSheet" class="vt-btn" onclick="setRankView('sheet')" title="Thin rows — fit more teams on screen">Compact</button>
-        <button type="button" id="viewCards" class="vt-btn" onclick="setRankView('cards')" title="Taller rows — more breathing room">Comfortable</button>
-      </div>
-    </div>
     <div class="filter-count" id="filterCount"></div>
   </div>
 </div>
-
-<script>
-(function(){
-  // Rankings density toggle. Sheet = dense spreadsheet (default); Roomy = original spacing.
-  function setRankView(mode){
-    var sheet = mode!=='cards';
-    document.body.classList.toggle('sheet-mode', sheet);
-    var s=document.getElementById('viewSheet'), c=document.getElementById('viewCards');
-    if(s) s.classList.toggle('on', sheet);
-    if(c) c.classList.toggle('on', !sheet);
-    try{ localStorage.setItem('tdc_rank_view', sheet?'sheet':'cards'); }catch(e){}
-    try{ if(window.__tdcHeat) window.__tdcHeat(); }catch(e){}   // repaint heat for the new density
-  }
-  window.setRankView=setRankView;
-  var saved='sheet'; try{ saved=localStorage.getItem('tdc_rank_view')||'sheet'; }catch(e){}
-  setRankView(saved);
-})();
-</script>
 
 <!-- ═══ TABLE ═════════════════════════════════════════════════ -->
 <div class="table-section">
@@ -2857,7 +2792,7 @@ function toggleTheme(){
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 })();
 </script>
-  <script src="tdc-dense.js?v=40"></script>
+  <script src="tdc-dense.js?v=39"></script>
 <script>
 /* A11y: the rankings is a CSS-grid table (divs), so give it ARIA table semantics —
    screen readers then announce it as a real table (columns, headers, row navigation)
