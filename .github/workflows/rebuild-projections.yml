@@ -34,6 +34,12 @@ jobs:
       - name: Install deps
         run: pip install numpy
 
+      # player_dna.json is 50MB and gitignored, so it isn't in the checkout — build it fresh from
+      # Supabase first (self-contained, anon key, stdlib only). Without this build_projected_dna.py
+      # crashes on a missing file, which is why every prior run failed.
+      - name: Build player DNA (roster fingerprints)
+        run: python3 scripts/build_player_dna.py
+
       - name: Rebuild projected DNA from live rosters
         run: python3 scripts/build_projected_dna.py
 
