@@ -36,6 +36,9 @@
   /* ---- per-column heat map ---- */
   var INVERT={ 'OPP':1, 'TOV':1, 'DRtg':1 };      // lower is better (DRtg: fewer points allowed = better D)
   var SKIP={ 'W-L':1 };                  // not numeric
+  // Compact (sheet) view = calm, spreadsheet-clean: heat only the efficiency columns, leave the
+  // raw box stats plain so it reads like the mockup instead of a rainbow. Comfortable = full heat.
+  var KEYHEAT={ 'ORtg':1, 'DRtg':1, 'Net':1 };
   function heat(t, invert){
     if(invert) t=1-t;
     t=Math.max(0,Math.min(1,t));
@@ -45,11 +48,15 @@
   function applyHeat(){
     var rows=document.querySelectorAll('#rankingsList .team-row');
     if(rows.length<3) return;
+    // reset first so a density toggle re-paints cleanly (no stale heat left behind)
+    rows.forEach(function(r){ r.querySelectorAll('.tr-stat').forEach(function(c){ c.style.background=''; }); });
     var nCol=rows[0].querySelectorAll('.tr-stat').length;
     for(var j=0;j<nCol;j++){
       var label=(rows[0].querySelectorAll('.tr-stat')[j].querySelector('span')||{}).textContent||'';
       label=label.trim();
       if(SKIP[label]) continue;
+      var _compact=(typeof document!=='undefined'&&document.body&&document.body.classList.contains('sheet-mode'));
+      if(_compact && !KEYHEAT[label]) continue;   // Compact: only efficiency cols get heat
       var cells=[], vals=[];
       rows.forEach(function(r){
         var c=r.querySelectorAll('.tr-stat')[j]; if(!c) return;
@@ -749,6 +756,7 @@
     var rail=document.querySelector('.tdc-rail'); if(rail) rail.classList.toggle('collapsed', on);
   }
   window.__tdcRail=setRail;
+  window.__tdcHeat=applyHeat;   // let the density toggle re-paint heat for the new mode
 
   function buildRail(){
     var sec=document.querySelector('.table-section'); if(!sec) return;
