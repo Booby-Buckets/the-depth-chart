@@ -64,7 +64,9 @@ USG_TOV_EL=0.95      # turnover elasticity to usage
 USG_EFF_PEN=0.06     # FG% drop per +100% usage (usage-efficiency tradeoff)
 REG_FG, REG_TP, REG_FT = 0.15, 0.25, 0.20   # shrink efficiency toward positional mean
 FTIMP_W=0.35         # weight on FT-implied 3P% (0.55*ftpct-10)
-DEV_EFF_HOLD=float(os.environ.get("DEV_EFF_HOLD","0.45"))   # developing young returners keep MORE of their real percentages (regress-to-mean scaled by this)
+DEV_EFF_HOLD=float(os.environ.get("DEV_EFF_HOLD","0.45"))   # developing young returners keep MORE of their real FG/FT% (regress-to-mean scaled by this)
+REG_TPA_K=float(os.environ.get("REG_TPA_K","36"))           # 3P% is trusted by SAMPLE: keep tpa/(tpa+K) of the real number, regress the rest (152 attempts->.81, 4 attempts->.10)
+TP_PRIOR_POS=float(os.environ.get("TP_PRIOR_POS","0.45"))   # the low-sample 3P prior is 45% positional mean, 55% FT-implied
 TARGET_TEAM_USG=float(os.environ.get("TARGET_TEAM_USG","22.0")); USG_CAP=(9.0,34.0); MPG_XFER_BUMP=10.0
 VAC_CONC=float(os.environ.get("VAC_CONC","2.0"))  # vacancy concentration: weight ∝ last_usg**VAC_CONC (focal points absorb more of a departed rotation, within the team cap)
 TRANSFER_DEF_DAMP=float(os.environ.get("TRANSFER_DEF_DAMP","0.90"))  # share of a transfer's team-D (DWA) credit that follows him
@@ -379,7 +381,14 @@ for short, roster in roster_by_team.items():
         rs=DEV_EFF_HOLD if (developing and not xfer and last_min>=400) else 1.0
         ft=_n(b["ft_pct"],POS_FT[pos]); tp=_n(b["tp_pct"],POS_TP[pos]); fg=_n(b["fg_pct"],POS_FG[pos])
         ftimp=0.55*ft-10.0
-        tp_p=(1-(REG_TP+FTIMP_W)*rs)*tp+(REG_TP*POS_TP[pos]+FTIMP_W*ftimp)*rs
+        # 3P%: trust the real number by SAMPLE SIZE. A proven-volume shooter keeps his stroke; a
+        # 3-for-4 fluke regresses to the prior. This is what separates a real 37.5% sophomore (152
+        # attempts -> keep 81%) from a 100%-on-2 mirage (keep 4%) — the old fixed-weight blend
+        # dragged BOTH down the same amount and painted real shooters as decliners.
+        tpa_tot=_n(b["tpa"])*_n(b["gp"])
+        tp_cred=tpa_tot/(tpa_tot+REG_TPA_K)
+        tp_prior=TP_PRIOR_POS*POS_TP[pos]+(1-TP_PRIOR_POS)*ftimp
+        tp_p=tp_cred*tp+(1-tp_cred)*tp_prior
         fg_p=((1-REG_FG*rs)*fg+REG_FG*rs*POS_FG[pos])*(1-USG_EFF_PEN*(usg_ratio-1))
         ft_p=(1-REG_FT*rs)*ft+REG_FT*rs*POS_FT[pos]
         fg_p=min(72,max(30,fg_p)); tp_p=min(48,max(20,tp_p)); ft_p=min(95,max(45,ft_p))
