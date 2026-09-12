@@ -120,6 +120,24 @@
     .sharp-team:hover{color:var(--accent);}
     .sharp-val{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;}
     .sharp-rec{font-size:10px;color:var(--text3);font-weight:600;margin-left:6px;}
+    /* ── Model Line Accuracy ── */
+    .bt-wrap{display:grid;grid-template-columns:1.1fr 1.4fr;gap:14px;align-items:start;}
+    @media(max-width:720px){.bt-wrap{grid-template-columns:1fr;}}
+    .bt-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px 18px;}
+    .bt-hd{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;}
+    .bt-mae{display:flex;flex-direction:column;gap:11px;}
+    .bt-maerow{display:grid;grid-template-columns:76px 1fr 52px;gap:9px;align-items:center;}
+    .bt-maelab{font-size:12px;font-weight:700;color:var(--text2);}
+    .bt-track{height:9px;border-radius:5px;background:var(--bg3);overflow:hidden;}
+    .bt-track i{display:block;height:100%;border-radius:5px;}
+    .bt-maeval{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;text-align:right;}
+    .bt-verdict{font-size:12px;color:var(--text2);line-height:1.5;margin-top:12px;}
+    .bt-verdict b{color:var(--text);}
+    .bt-tbl{width:100%;border-collapse:collapse;font-size:12.5px;}
+    .bt-tbl th{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);text-align:right;padding:5px 8px;border-bottom:1px solid var(--border2);font-weight:700;}
+    .bt-tbl th:first-child,.bt-tbl td:first-child{text-align:left;}
+    .bt-tbl td{padding:6px 8px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;}
+    .bt-tbl tr:last-child td{border-bottom:none;}
   </style>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
@@ -183,6 +201,13 @@
         </table>
       </div>
       <div class="note"><b>Edge</b> is how far our model line sits from the market number. A game where we make the home team a 9-point favorite but the book has them −5 is a <b>+4 lean on the home side</b> — the market may be undervaluing them. Shop these against your book; the biggest gaps are where the model thinks there's value. Totals work the same way (model total above the book total → Over lean). <span id="edgeStamp"></span></div>
+    </div>
+
+    <!-- ══ MODEL LINE ACCURACY (backtest) ══ -->
+    <div id="backtestSec" style="display:none;">
+      <div class="sec"><span>Model Line Accuracy</span><span class="hint">how our line stacks up to the closing line · 5 seasons</span></div>
+      <div class="bt-wrap" id="btWrap"></div>
+      <div class="note"><b>In-sample calibration, not a live-bet simulation.</b> Our historical power ratings are computed from the full season, so this measures how close our model's number lands to the market's — not a real-money backtest. <b>MAE</b> is average points of error against the actual result (lower = sharper). The <b>edge table</b> shows how the side our model favored fared vs the close when we disagreed by that many points. The true out-of-sample record fills in forward from the live archive as the season plays.</div>
     </div>
 
     <!-- ══ SHARP ANGLES ══ -->
@@ -459,6 +484,34 @@ function renderTeams(){
     </tr>`;
   }).join('');
 }
+// ═══ MODEL LINE ACCURACY (backtest) ════════════════════════════════════════
+function renderBacktest(bt){
+  if(!bt||!bt.g) return;
+  const P = v => v==null?'—':Math.round(v*100)+'%';
+  // MAE bars — shorter bar = sharper. Scale to the worse of the two.
+  const mMax=Math.max(bt.modelMAE||0, bt.marketMAE||0, 1);
+  const bar=(lab,v,col)=>`<div class="bt-maerow"><span class="bt-maelab">${lab}</span>`
+    +`<div class="bt-track"><i style="width:${Math.max(6,(v/mMax)*100).toFixed(0)}%;background:${col}"></i></div>`
+    +`<span class="bt-maeval">${v==null?'—':v.toFixed(1)}</span></div>`;
+  const diff=(bt.modelMAE!=null&&bt.marketMAE!=null)?(bt.modelMAE-bt.marketMAE):null;
+  const verdict = diff==null?'' :
+    (diff<=0.5
+      ? `Our model's line lands about as close to the final result as the market's closing number — within <b>${Math.abs(diff).toFixed(1)} pt</b>.`
+      : `The closing line is <b>${diff.toFixed(1)} pts</b> sharper on average — expected, since it absorbs late info our preseason-style rating can't. Still in the same neighborhood.`);
+  const maeCard=`<div class="bt-card"><div class="bt-hd">Line error vs result (MAE)</div>`
+    +`<div class="bt-mae">${bar('Our model',bt.modelMAE,'var(--accent)')}${bar('Closing line',bt.marketMAE,'var(--text2)')}</div>`
+    +`<div class="bt-verdict">${verdict}</div></div>`;
+  // Edge table — how our preferred side did vs the close, by size of disagreement
+  const edges=Object.keys(bt.byEdge||{}).map(Number).sort((a,b)=>a-b);
+  const rows=edges.map(t=>{const e=bt.byEdge[t];if(!e||!e.g)return '';
+    const cls=e.atsPct>0.5?'pos':(e.atsPct<0.5?'neg':'');
+    return `<tr><td>≥ ${t} pts</td><td>${e.g}</td><td>${e.rec}</td><td class="${cls}"><b>${P(e.atsPct)}</b></td></tr>`;}).join('');
+  const edgeCard=`<div class="bt-card"><div class="bt-hd">Model's side vs the close · ${bt.g} games · ${P(bt.atsPct)} overall</div>`
+    +`<table class="bt-tbl"><thead><tr><th>Disagreement</th><th>Games</th><th>Record</th><th>ATS%</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  document.getElementById('btWrap').innerHTML=maeCard+edgeCard;
+  document.getElementById('backtestSec').style.display='';
+}
+
 // ═══ SHARP ANGLES ══════════════════════════════════════════════════════════
 // Surface the market's most lopsided teams from 5yr of real closing lines. All-time
 // history (t.history) for stability, min games so a tiny sample can't top a board.
@@ -510,6 +563,7 @@ fetch('scripts/data/bet_trends_teams.json').then(r=>r.ok?r.json():null).then(d=>
   TEAMS.forEach(t=>{ if(window.tdcShortSchool){ try{ const s=tdcShortSchool(t._name); if(s) t._short=s; }catch(e){} } });
   // reveal the real-line ATS / O-U columns only once a lines file has been ingested (Phase B)
   if(d.meta&&d.meta.hasHistory){ document.getElementById('teamTbl').classList.add('has-hist'); renderSharp(); }
+  if(d.meta&&d.meta.backtest){ renderBacktest(d.meta.backtest); }
   renderTeams();
 }).catch(()=>{ document.getElementById('teamBody').innerHTML='<tr><td colspan="11" class="empty">Team trends failed to load.</td></tr>'; });
 

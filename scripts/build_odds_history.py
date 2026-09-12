@@ -77,6 +77,26 @@ def load_games():
     return by_key, name_full
 
 
+# ── team power ratings (SRS) for the model-line backtest ───────────────────
+SB = "https://izlqhnxowdhtdofkwrho.supabase.co"
+SB_KEY = "sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"   # anon, read-only
+SB_HDR = {"apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY}
+def load_team_srs(seasons):
+    """{(season, norm(team)) -> srs} so a historical game's model line can be computed."""
+    srs = {}
+    for yr in seasons:
+        try:
+            req = urllib.request.Request(
+                SB + "/rest/v1/team_seasons?season_year=eq.%d&select=team,srs&srs=not.is.null" % yr,
+                headers=SB_HDR)
+            for r in json.load(urllib.request.urlopen(req, timeout=90)):
+                srs[(yr, norm(r["team"]))] = float(r["srs"])
+        except Exception as e:
+            print("  SRS load warning (%s): %s" % (yr, e), flush=True)
+    print("  loaded %d team-season SRS rows (for backtest)" % len(srs), flush=True)
+    return srs
+
+
 def _shift(date, days):
     from datetime import datetime, timedelta
     try:
@@ -164,6 +184,76 @@ def merge_into_trends(agg):
     trends.setdefault("meta",{})["hasHistory"]=hit>0
     json.dump(trends, open(path,"w"), separators=(",",":"))
     print("  merged real-line history onto %d teams" % hit, flush=True)
+
+
+def compute_backtest(rows, by_key, srs):
+    """Model-line-vs-market check. For each matched game with a market spread, build OUR line
+    from season SRS (home_srs - away_srs + HCA, no HCA on neutral courts) and compare to the
+    closing line and the actual result. Reports how often the side our model favored beat the
+    close (bucketed by how big our disagreement was) plus the mean abs error of our line vs the
+    market's. NOTE: season SRS is full-season (in-sample) — a calibration check, not a live-bet
+    simulation; the out-of-sample version fills forward from the live archive."""
+    if not srs:
+        return None
+    def blk(): return {"g":0,"w":0,"l":0,"p":0}
+    overall, by_season, by_edge = blk(), defaultdict(blk), {t:blk() for t in (1,2,3,4,6)}
+    model_ae = market_ae = n_ae = 0.0
+    for r in rows:
+        try:
+            spread = float(r["spread"]) if r.get("spread") not in (None,"") else None
+        except ValueError:
+            spread = None
+        if spread is None: continue
+        g, swapped = match_game(by_key, r["date"], r["home"], r["away"])
+        if not g: continue
+        hs, as_ = g["home_score"], g["away_score"]
+        home_spread = spread if not swapped else -spread          # feed spread is home-perspective
+        yr = g["season"]
+        h_srs = srs.get((yr, norm(g["home"]))); a_srs = srs.get((yr, norm(g["away"])))
+        if h_srs is None or a_srs is None: continue
+        hca = 0.0 if g.get("neutral") else HCA
+        model_home_margin  = h_srs - a_srs + hca                  # what our model expects
+        market_home_margin = -home_spread                         # what the close implies
+        actual_home_margin = hs - as_
+        # line-accuracy (MAE): our number vs the market number, both against reality
+        model_ae  += abs(model_home_margin  - actual_home_margin)
+        market_ae += abs(market_home_margin - actual_home_margin)
+        n_ae += 1
+        edge = model_home_margin - market_home_margin             # >0 we favor home more than the close
+        # cover of the side our model prefers
+        if edge > 0:   res = actual_home_margin + home_spread      # bet home
+        else:          res = -actual_home_margin - home_spread     # bet away
+        rec = "w" if res > 0 else ("l" if res < 0 else "p")
+        for bucket in (overall, by_season[yr]):
+            bucket["g"] += 1; bucket[rec] += 1
+        for thr, b in by_edge.items():
+            if abs(edge) >= thr:
+                b["g"] += 1; b[rec] += 1
+    def pct(b):
+        d = b["w"] + b["l"]; return round(b["w"]/d,3) if d else None
+    if not overall["g"]:
+        return None
+    return {
+        "g": overall["g"], "w": overall["w"], "l": overall["l"], "p": overall["p"],
+        "atsPct": pct(overall),
+        "bySeason": {str(y): {"g":b["g"],"atsPct":pct(b),"rec":"%d-%d%s"%(b["w"],b["l"],("-%d"%b["p"] if b["p"] else ""))}
+                     for y,b in sorted(by_season.items())},
+        "byEdge": {str(t): {"g":b["g"],"atsPct":pct(b),"rec":"%d-%d%s"%(b["w"],b["l"],("-%d"%b["p"] if b["p"] else ""))}
+                   for t,b in sorted(by_edge.items())},
+        "modelMAE": round(model_ae/n_ae,2) if n_ae else None,
+        "marketMAE": round(market_ae/n_ae,2) if n_ae else None,
+        "inSample": True,
+    }
+
+
+def merge_backtest(bt):
+    path = os.path.join(DATA, "bet_trends_teams.json")
+    trends = json.load(open(path))
+    trends.setdefault("meta",{})["backtest"] = bt
+    json.dump(trends, open(path,"w"), separators=(",",":"))
+    o = bt
+    print("  model backtest: %d graded · %s%% ATS overall · line MAE %s vs market %s"
+          % (o["g"], round((o["atsPct"] or 0)*100,1), o["modelMAE"], o["marketMAE"]), flush=True)
 
 
 # ── the-odds-api HISTORICAL integration ────────────────────────────────────
@@ -325,6 +415,9 @@ def main():
                 s=list(agg[t].values())[0]
                 print("   %s: ATS %d-%d-%d  O/U %d-%d  (%d g)" %
                       (t,s["ats_w"],s["ats_l"],s["ats_p"],s["ov"],s["un"],s["g"]), flush=True)
+        bt=compute_backtest(rows, by_key, load_team_srs([yr]))   # plumbing check (no write in demo)
+        if bt: print("   [demo] backtest %d g · %s%% ATS · model MAE %s vs market %s"
+                     % (bt["g"], round((bt["atsPct"] or 0)*100,1), bt["modelMAE"], bt["marketMAE"]), flush=True)
         return
     if "--api" in args:
         # pull historical lines straight from the-odds-api
@@ -336,11 +429,21 @@ def main():
         snaps = DEFAULT_SNAPS
         if "--snaps" in args:
             snaps = args[args.index("--snaps")+1].split(",")
-        markets = args[args.index("--markets")+1] if "--markets" in args else "spreads,totals,h2h"
+        # --backtest-only: cheapest path to the model-line backtest. Pulls SPREADS ONLY
+        # (~1/3 the credits of spreads,totals,h2h) and writes ONLY meta.backtest, leaving the
+        # ATS/O-U history block from a prior full run untouched.
+        backtest_only = "--backtest-only" in args
+        markets = "spreads" if backtest_only else (args[args.index("--markets")+1] if "--markets" in args else "spreads,totals,h2h")
         regions = args[args.index("--regions")+1] if "--regions" in args else "us"
         key = os.environ.get("ODDS_API_KEY", "")
         rows = api_backfill(seasons, key, snaps, markets, regions, dry_run=("--dry-run" in args))
         if not rows:
+            return
+        if backtest_only:
+            bt = compute_backtest(rows, by_key, load_team_srs(seasons))
+            if bt: merge_backtest(bt)
+            else: print("No backtest produced (no SRS or no matched spreads).")
+            print("done.", flush=True)
             return
         agg, m, u = ingest_rows(rows, by_key)
         print("matched %d / unmatched %d (%.1f%% matched)" % (m, u, 100*m/(m+u or 1)), flush=True)
@@ -348,6 +451,8 @@ def main():
             print("No rows matched — not writing.")
             return
         merge_into_trends(agg)
+        bt = compute_backtest(rows, by_key, load_team_srs(seasons))   # model-line-vs-market calibration
+        if bt: merge_backtest(bt)
         print("done.", flush=True)
         return
     files=sorted(glob.glob(os.path.join(RAW_DIR,"*.csv")))
