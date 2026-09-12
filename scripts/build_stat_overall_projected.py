@@ -478,6 +478,8 @@ for short, roster in roster_by_team.items():
             "ftm":round(ftm,1),"fta":round(fta,1),
         }
         out[str(e)]["team"]=full   # CURRENT (2026-27) team — box-score sources carry his old team
+        _cf=tconf.get(full)
+        if _cf: out[str(e)]["conf"]=_cf
         if xfer:
             out[str(e)]["_xfer"]=1
             # SHIPPED flags: a transfer's box-score history is at his OLD team/level. Downstream

@@ -39,6 +39,7 @@
     [data-theme="dark"] .cg button.on{color:#181818;}
     .cg-lab{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-right:2px;align-self:center;}
     input.search{padding:8px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;width:200px;}
+    #confSel{padding:8px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;font-weight:600;outline:none;cursor:pointer;}
     .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:14px;max-width:960px;}
     /* prop table */
     .tbl-wrap{overflow:auto;border:1px solid var(--border);border-radius:12px;background:var(--bg2);}
@@ -119,6 +120,7 @@
         <button data-board="under">Best Unders</button>
         <button data-board="value">Value Movers</button>
       </div>
+      <select id="confSel" title="Filter by conference"><option value="">All conferences</option></select>
       <input class="search" id="propSearch" placeholder="Filter team / player…"/>
     </div>
     <div class="tbl-wrap"><table id="propTbl">
@@ -142,7 +144,20 @@
 // ═══ DATA ═══════════════════════════════════════════════════════════════════
 let PLAYERS=null, PROJ={}, TEAMS=null;
 const STAT_LABEL={pts:'Points',reb:'Rebounds',ast:'Assists',tpm:'3-Pointers',pra:'P+R+A'};
-let curStat='pts', curBoard='over', propSort=null, propDir=-1;
+let curStat='pts', curBoard='over', propSort=null, propDir=-1, curConf='';
+// short labels for the conference dropdown (fall back to the full name)
+const CONF_SHORT={'Atlantic Coast Conference':'ACC','Big Ten Conference':'Big Ten','Southeastern Conference':'SEC',
+  'Big 12 Conference':'Big 12','Big East Conference':'Big East','Atlantic 10 Conference':'A-10',
+  'American Conference':'American','Mountain West Conference':'Mountain West','West Coast Conference':'WCC',
+  'Sun Belt Conference':'Sun Belt','Missouri Valley Conference':'MVC','Conference USA':'C-USA'};
+function populateConfs(){
+  const sel=document.getElementById('confSel'); if(!sel||!PROJ) return;
+  const counts={};
+  Object.values(PROJ).forEach(p=>{ if(p&&p.conf) counts[p.conf]=(counts[p.conf]||0)+1; });
+  const confs=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+  sel.innerHTML='<option value="">All conferences</option>'+confs.map(c=>`<option value="${c}">${CONF_SHORT[c]||c}</option>`).join('');
+  sel.value=curConf;
+}
 
 function projStat(id,s){ const pr=PROJ[id]; if(!pr) return null;
   const v={pts:pr.ppg,reb:pr.rpg,ast:pr.apg,tpm:pr.tpm,pra:(pr.ppg||0)+(pr.rpg||0)+(pr.apg||0)}[s];
@@ -182,6 +197,7 @@ function buildProps(){
     const over=empiricalOver(st,line);                            // raw vs projected line (context only)
     const lean=proj-st.avg;                                        // projection vs his career norm
     const pr=PROJ[p.id]||{};
+    if(curConf && pr.conf!==curConf) return;                       // conference filter
     const curTeam=pr.team||p.team;                                 // his CURRENT (2026-27) team
     const fromShort=pr.xfer_from?shortTeam(pr.xfer_from):null;
     const sameTeam=fromShort && shortTeam(curTeam) && fromShort===shortTeam(curTeam);   // guard false-positive detection
@@ -262,6 +278,7 @@ document.querySelectorAll('#boardPills button').forEach(b=>b.addEventListener('c
   b.classList.add('on'); curBoard=b.dataset.board; renderProps();
 }));
 document.getElementById('propSearch').addEventListener('input',renderProps);
+document.getElementById('confSel').addEventListener('change',e=>{ curConf=e.target.value; renderProps(); });
 // click-to-sort columns: same header toggles direction; a new one starts descending
 // (ascending for the name column). Switching stat/board keeps the chosen sort.
 document.querySelectorAll('#propTbl th[data-sort]').forEach(th=>th.addEventListener('click',()=>{
@@ -295,8 +312,8 @@ function renderSharp(){
 }
 
 // ═══ LOAD ═══════════════════════════════════════════════════════════════════
-fetch('scripts/data/stat_overall_projected.json?v=33').then(r=>r.ok?r.json():null).then(d=>{
-  if(d&&d.players){ PROJ=d.players; if(PLAYERS) renderProps(); }
+fetch('scripts/data/stat_overall_projected.json?v=34').then(r=>r.ok?r.json():null).then(d=>{
+  if(d&&d.players){ PROJ=d.players; populateConfs(); if(PLAYERS) renderProps(); }
 }).catch(()=>{});
 fetch('scripts/data/bet_trends_players.json?v=beat2').then(r=>r.ok?r.json():null).then(d=>{
   if(!d||!d.players){ document.getElementById('propBody').innerHTML='<tr><td colspan="8" class="empty">Prop data not available yet.</td></tr>'; return; }
