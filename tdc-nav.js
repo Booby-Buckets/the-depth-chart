@@ -36,6 +36,7 @@
     ]],
     ['Analytics', [
       ['betting.html',                  '🎯 Betting Lab'],
+      ['cheatsheet.html',               '🧮 Betting Cheat Sheet'],
       ['analytics.html',                'Advanced Stats'],
       ['analytics.html?view=explorer',  'Stat Explorer'],
       ['analytics.html?view=landscape', 'League Landscape'],

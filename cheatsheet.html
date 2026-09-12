@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="stylesheet" href="tdc-a11y.css?v=1">
+  <script src="tdc-a11y.js?v=1" defer></script>
+  <meta name="description" content="College basketball betting cheat sheet — the props hitting most, best value plays, and team ATS/over-under angles, ranked and filterable, built on 20 years of our own data plus the model's projections.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Betting Cheat Sheet — The Depth Chart">
+  <meta property="og:description" content="The props hitting most, best value plays, and team betting angles — ranked, filterable, and honest.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/cheatsheet.html">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Betting Cheat Sheet — The Depth Chart">
+  <meta charset="UTF-8"/>
+  <script src="tdc-theme.js?v=2"></script>
+  <script src="auth.js?v=shotlock1"></script>
+  <script src="tdc-gate.js?v=3" data-gate="coach" data-label="Betting Cheat Sheet"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Betting Cheat Sheet — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="team-colors.js?v=6"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--gold:#C8A020;--green:#1a8c3a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--gold:#C8A020;--green:#5ab875;--red:#e07070;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);}
+    .page{max-width:1240px;margin:0 auto;padding:30px 24px 80px;}
+    h1{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;margin-bottom:4px;}
+    .sub{font-size:13px;color:var(--text3);margin-bottom:8px;max-width:900px;line-height:1.6;}
+    .banner{display:flex;gap:10px;align-items:flex-start;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:11px 14px;margin:14px 0 6px;font-size:12px;color:var(--text2);line-height:1.55;max-width:900px;}
+    .banner b{color:var(--text);}
+    .sec{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:32px 0 12px;padding-bottom:6px;border-bottom:2px solid var(--border2);display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;}
+    .sec .hint{font-weight:600;letter-spacing:0;text-transform:none;font-size:11px;color:var(--text3);}
+    .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:16px 0 4px;}
+    .cg{display:inline-flex;gap:4px;padding:4px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;}
+    .cg button{font-size:12px;font-weight:700;padding:6px 12px;border:none;border-radius:7px;background:none;color:var(--text3);cursor:pointer;white-space:nowrap;font-family:'Inter',sans-serif;}
+    .cg button.on{background:var(--accent);color:#221c08;}
+    [data-theme="dark"] .cg button.on{color:#181818;}
+    .cg-lab{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-right:2px;align-self:center;}
+    input.search{padding:8px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;width:200px;}
+    .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:14px;max-width:960px;}
+    /* prop table */
+    .tbl-wrap{overflow:auto;border:1px solid var(--border);border-radius:12px;background:var(--bg2);}
+    table{width:100%;border-collapse:collapse;font-size:13px;min-width:720px;}
+    th{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);text-align:right;padding:10px 12px;border-bottom:2px solid var(--border2);white-space:nowrap;cursor:pointer;user-select:none;background:var(--bg3);position:sticky;top:0;z-index:2;}
+    th.l{text-align:left;} th.on{color:var(--accent);}
+    td{padding:9px 12px;border-bottom:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+    td.l{text-align:left;}
+    tr:last-child td{border-bottom:none;}
+    tbody tr:hover{background:var(--bg3);}
+    td a{color:var(--text);text-decoration:none;font-weight:700;}
+    td a:hover{color:var(--accent);}
+    .rk{color:var(--text3);font-size:11px;}
+    .pos{color:var(--green);font-weight:800;} .neg{color:var(--red);font-weight:800;}
+    .pick{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:11px;}
+    .pick.o{background:rgba(26,140,58,.14);color:var(--green);} .pick.u{background:rgba(204,34,0,.13);color:var(--red);}
+    [data-theme="dark"] .pick.o{background:rgba(90,184,117,.16);} [data-theme="dark"] .pick.u{background:rgba(224,112,112,.16);}
+    .hitbar{display:inline-flex;align-items:center;gap:7px;justify-content:flex-end;}
+    .hitbar .track{width:52px;height:7px;border-radius:4px;background:var(--bg3);overflow:hidden;}
+    .hitbar .track i{display:block;height:100%;border-radius:4px;}
+    .hitbar b{font-variant-numeric:tabular-nums;min-width:34px;text-align:right;}
+    .team-sub{font-size:10.5px;color:var(--text3);font-weight:600;}
+    .empty{padding:40px;text-align:center;color:var(--text3);font-size:13px;}
+    /* team angles */
+    .sharp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;}
+    .sharp-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 15px;}
+    .sharp-hd{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;margin-bottom:3px;}
+    .sharp-hd .ico{font-size:15px;}
+    .sharp-sub{font-size:10.5px;color:var(--text3);margin-bottom:11px;}
+    .sharp-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--border);}
+    .sharp-row:first-of-type{border-top:none;}
+    .sharp-team{font-size:12.5px;font-weight:600;color:var(--text);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .sharp-team:hover{color:var(--accent);}
+    .sharp-val{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;}
+    .sharp-rec{font-size:10px;color:var(--text3);font-weight:600;margin-left:6px;}
+    .xlink{font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;}
+  </style>
+  <link rel="stylesheet" href="tdc-dense.css?v=35"/>
+  <link rel="stylesheet" href="tdc-skin.css?v=8"/>
+  <style>
+    :root:not([data-theme="dark"]){background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
+  </style>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#FAF9F6" media="(prefers-color-scheme: light)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=2" defer></script>
+  <link rel="stylesheet" href="tdc-hq-site.css?v=22"/>
+</head>
+<body class="hqsite">
+  <script src="tdc-nav.js?v=21"></script>
+  <div class="page">
+    <h1>Betting Cheat Sheet</h1>
+    <div class="sub">The props hitting most, the best value plays, and the team angles that beat the number — ranked and filterable. A fast read on where the edges are.</div>
+    <div class="banner">
+      <span>🧮</span>
+      <div><b>Model &amp; track-record based — not live sportsbook lines (yet).</b> Prop leans compare each player's <b>real game-by-game history</b> to the line we project he'll be priced near; the <b>hit rate</b> is how often his past games cleared that number. Real book lines and live value bets connect through the odds feed once the season tips. <a class="xlink" href="betting.html">Full Betting Lab →</a></div>
+    </div>
+
+    <!-- ══ PLAYER PROPS ══ -->
+    <div class="sec"><span>Player Prop Board</span><span class="hint" id="propHint">ranked by hit rate · our projected line</span></div>
+    <div class="controls">
+      <span class="cg-lab">Stat</span>
+      <div class="cg" id="statPills">
+        <button data-stat="pts" class="on">Points</button>
+        <button data-stat="reb">Rebounds</button>
+        <button data-stat="ast">Assists</button>
+        <button data-stat="tpm">3-Pointers</button>
+        <button data-stat="pra">P+R+A</button>
+      </div>
+      <span class="cg-lab" style="margin-left:6px;">Board</span>
+      <div class="cg" id="boardPills">
+        <button data-board="over" class="on">Best Overs</button>
+        <button data-board="under">Best Unders</button>
+        <button data-board="value">Value Movers</button>
+      </div>
+      <input class="search" id="propSearch" placeholder="Filter team / player…"/>
+    </div>
+    <div class="tbl-wrap"><table id="propTbl">
+      <thead><tr>
+        <th class="l">#</th><th class="l">Player</th><th>Line</th><th id="thPick">Pick</th>
+        <th>Hit rate</th><th>Avg</th><th>Proj ’26-27</th><th>Range</th>
+      </tr></thead>
+      <tbody id="propBody"><tr><td colspan="8" class="empty">Loading prop board…</td></tr></tbody>
+    </table></div>
+    <div class="note" id="propNote"><b>Hit rate</b> is the share of his last-5-seasons games that cleared the line, estimated from his real game distribution. <b>Line</b> is where we expect a book to price him (near our 2026-27 projection, or his baseline). <b>Overs</b> = clears it most often; <b>Unders</b> = misses it most; <b>Value Movers</b> = where our projection diverges most from his recent baseline (the props to watch when lines post). Not a guarantee — a starting point.</div>
+
+    <!-- ══ TEAM ANGLES ══ -->
+    <div id="teamAnglesSec" style="display:none;">
+      <div class="sec"><span>Team Angles</span><span class="hint">the market's most lopsided teams · 5-yr real closing lines</span></div>
+      <div class="sharp-grid" id="sharpGrid"></div>
+      <div class="note">From <b>5 seasons of real closing lines</b>. <b>Over/Under</b> = how often a team's games cleared the market total; <b>ATS</b> = how often they beat the spread. Sample sizes shown. Team-level tendencies regress over time — treat as context, not locks.</div>
+    </div>
+  </div>
+
+<script>
+// ═══ DATA ═══════════════════════════════════════════════════════════════════
+let PLAYERS=null, PROJ={}, TEAMS=null;
+const STAT_LABEL={pts:'Points',reb:'Rebounds',ast:'Assists',tpm:'3-Pointers',pra:'P+R+A'};
+let curStat='pts', curBoard='over', propSort='hit', propDir=-1;
+
+function projStat(id,s){ const pr=PROJ[id]; if(!pr) return null;
+  const v={pts:pr.ppg,reb:pr.rpg,ast:pr.apg,tpm:pr.tpm,pra:(pr.ppg||0)+(pr.rpg||0)+(pr.apg||0)}[s];
+  return (v==null||!isFinite(v))?null:v; }
+
+// Distribution-free hit rate: P(stat > line) interpolated across the known quantile points
+// (lo/p25/med/p75/hi) — honest for skewed box-score stats, no normality assumption.
+function empiricalOver(st,line){
+  const pts=[[st.lo,1.0],[st.p25,0.75],[st.med,0.5],[st.p75,0.25],[st.hi,0.0]]
+    .filter(p=>p[0]!=null).sort((a,b)=>a[0]-b[0]);
+  if(!pts.length) return null;
+  if(line<=pts[0][0]) return 0.97;
+  if(line>=pts[pts.length-1][0]) return 0.03;
+  for(let i=1;i<pts.length;i++){
+    if(line<=pts[i][0]){
+      const [x0,p0]=pts[i-1],[x1,p1]=pts[i];
+      const t=(line-x0)/((x1-x0)||1);
+      return Math.max(0.02,Math.min(0.98, p0+(p1-p0)*t));
+    }
+  }
+  return 0.03;
+}
+// the line a book would price him near — anchored to OUR 2026-27 projection (rounded to the
+// standard half-point). A forward-looking sheet, so we only rank players we actually project.
+function bookLine(proj){ return Math.round(proj*2)/2-0.5; }
+
+// ═══ PLAYER PROP BOARD ══════════════════════════════════════════════════════
+function buildProps(){
+  if(!PLAYERS) return [];
+  const q=(document.getElementById('propSearch').value||'').toLowerCase().trim();
+  const rows=[];
+  PLAYERS.forEach(p=>{
+    const st=p.stats&&p.stats[curStat]; if(!st||st.g<25) return;   // rotation-caliber, real sample
+    const proj=projStat(p.id,curStat); if(proj==null||proj<1) return;   // must have a 2026-27 projection
+    if(q && !((p.name||'').toLowerCase().includes(q) || (p.team||'').toLowerCase().includes(q))) return;
+    const line=bookLine(proj); if(line<0.5) return;
+    const over=empiricalOver(st,line); if(over==null) return;
+    const lean=proj-st.avg;                                        // projection vs his career norm
+    rows.push({id:p.id,name:p.name,team:p.team,line,over,avg:st.avg,proj,lean,
+               lo:st.lo,hi:st.hi,g:st.g,sd:st.sd});
+  });
+  return rows;
+}
+function shortTeam(t){ if(window.tdcShortSchool){ try{ return tdcShortSchool(t)||t; }catch(e){} } return t; }
+// minimum meaningful line per stat, so boards aren't "over 1.5 assists" micro-bets
+const MIN_LINE={pts:6,reb:3,ast:2,tpm:1,pra:10};
+function renderProps(){
+  const rows=buildProps();
+  const body=document.getElementById('propBody');
+  if(!PLAYERS){ return; }
+  const minL=MIN_LINE[curStat]||0;
+  // a "real" consistency line sits in the meat of his track record (not 5x below his average)
+  // and is a meaningful number — otherwise the hit rate is trivially high/low. Big divergences
+  // between our projection and his career norm belong on the Value board instead.
+  const inBand=r=>r.avg>0 && r.line>=minL && r.proj>=0.6*r.avg && r.proj<=1.6*r.avg;
+  let view=rows;
+  if(curBoard==='over')      view=rows.filter(r=>inBand(r)&&r.over>=0.55).sort((a,b)=>b.over-a.over);
+  else if(curBoard==='under')view=rows.filter(r=>inBand(r)&&r.over<=0.45).sort((a,b)=>a.over-b.over);
+  else /* value */           view=rows.filter(r=>r.lean!=null&&Math.abs(r.lean)>=1.5&&r.line>=minL*0.5).sort((a,b)=>Math.abs(b.lean)-Math.abs(a.lean));
+  document.getElementById('thPick').textContent = curBoard==='value'?'Lean':'Pick';
+  document.getElementById('propHint').textContent =
+    curBoard==='over'?'clears the line most often':curBoard==='under'?'misses the line most often':'projection vs recent baseline';
+  view=view.slice(0,60);
+  if(!view.length){ body.innerHTML='<tr><td colspan="8" class="empty">No plays match this filter.</td></tr>'; return; }
+  body.innerHTML=view.map((r,i)=>{
+    const isOver = curBoard==='under' ? false : (curBoard==='value' ? (r.lean>0) : true);
+    const pickTxt = curBoard==='value'
+      ? `<span class="${r.lean>0?'pos':'neg'}">${r.lean>0?'+':''}${r.lean.toFixed(1)}</span>`
+      : `<span class="pick ${isOver?'o':'u'}">${isOver?'OVER':'UNDER'} ${r.line}</span>`;
+    const shown=isOver?r.over:(1-r.over);
+    const col=shown>=0.65?'var(--green)':shown>=0.55?'var(--accent)':'var(--text3)';
+    const hit=`<div class="hitbar"><div class="track"><i style="width:${Math.round(shown*100)}%;background:${col}"></i></div><b>${Math.round(shown*100)}%</b></div>`;
+    return `<tr>
+      <td class="l rk">${i+1}</td>
+      <td class="l"><a href="player.html?espn=${r.id}&tab=betting">${r.name}</a><div class="team-sub">${shortTeam(r.team)}</div></td>
+      <td>${r.line}</td>
+      <td>${pickTxt}</td>
+      <td>${hit}</td>
+      <td>${r.avg}</td>
+      <td>${r.proj!=null?r.proj.toFixed(1):'—'}</td>
+      <td class="rk">${r.lo}–${r.hi}</td>
+    </tr>`;
+  }).join('');
+}
+document.querySelectorAll('#statPills button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#statPills button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); curStat=b.dataset.stat; renderProps();
+}));
+document.querySelectorAll('#boardPills button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#boardPills button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); curBoard=b.dataset.board; renderProps();
+}));
+document.getElementById('propSearch').addEventListener('input',renderProps);
+
+// ═══ TEAM ANGLES (real closing lines) ═══════════════════════════════════════
+const pct=v=>(v==null?'—':Math.round(v*100)+'%');
+function renderSharp(){
+  if(!TEAMS) return;
+  const MIN=40;
+  const pool=TEAMS.map(t=>{ const h=t.history; if(!h||h.g<MIN) return null;
+    return {name:t._name,short:t._short,g:h.g,atsPct:h.atsPct,ats:h.ats,ovPct:h.ovPct,ou:h.ou}; }).filter(Boolean);
+  if(!pool.length){ document.getElementById('teamAnglesSec').style.display='none'; return; }
+  const boards=[
+    {ico:'🔥',t:'Over teams',s:'clear the total most',k:'ovPct',rec:'ou',dir:1, tone:'pos',fmt:v=>pct(v)+' O'},
+    {ico:'🧊',t:'Under teams',s:'stay under the total most',k:'ovPct',rec:'ou',dir:-1,tone:'',   fmt:v=>pct(1-v)+' U'},
+    {ico:'💰',t:'ATS covers',s:'beat the spread most',k:'atsPct',rec:'ats',dir:1, tone:'pos',fmt:v=>pct(v)},
+    {ico:'🎯',t:'ATS fades',s:'beat the spread least',k:'atsPct',rec:'ats',dir:-1,tone:'neg',fmt:v=>pct(v)},
+  ];
+  document.getElementById('sharpGrid').innerHTML=boards.map(b=>{
+    const ranked=pool.slice().filter(p=>p[b.k]!=null).sort((x,y)=>(y[b.k]-x[b.k])*b.dir).slice(0,6);
+    const rows=ranked.map(p=>`<div class="sharp-row"><a class="sharp-team" href="team.html?team=${encodeURIComponent(p.short||p.name)}" title="${p.name}">${p.name}</a>`
+      +`<span class="sharp-val ${b.tone}">${b.fmt(p[b.k])}<span class="sharp-rec">${p[b.rec]||''}</span></span></div>`).join('');
+    return `<div class="sharp-card"><div class="sharp-hd"><span class="ico">${b.ico}</span>${b.t}</div><div class="sharp-sub">${b.s} · ${MIN}+ g</div>${rows}</div>`;
+  }).join('');
+  document.getElementById('teamAnglesSec').style.display='';
+}
+
+// ═══ LOAD ═══════════════════════════════════════════════════════════════════
+fetch('scripts/data/stat_overall_projected.json?v=31').then(r=>r.ok?r.json():null).then(d=>{
+  if(d&&d.players){ PROJ=d.players; if(PLAYERS) renderProps(); }
+}).catch(()=>{});
+fetch('scripts/data/bet_trends_players.json').then(r=>r.ok?r.json():null).then(d=>{
+  if(!d||!d.players){ document.getElementById('propBody').innerHTML='<tr><td colspan="8" class="empty">Prop data not available yet.</td></tr>'; return; }
+  PLAYERS=Object.entries(d.players).map(([id,p])=>({id,name:p.name,team:p.team,stats:p.stats}));
+  renderProps();
+}).catch(()=>{ document.getElementById('propBody').innerHTML='<tr><td colspan="8" class="empty">Prop data failed to load.</td></tr>'; });
+fetch('scripts/data/bet_trends_teams.json').then(r=>r.ok?r.json():null).then(d=>{
+  if(!d||!d.teams) return;
+  TEAMS=Object.entries(d.teams).map(([name,t])=>{ t._name=name; t._short=(name.split(' ').slice(0,-1).join(' ')||name); return t; });
+  TEAMS.forEach(t=>{ if(window.tdcShortSchool){ try{ const s=tdcShortSchool(t._name); if(s) t._short=s; }catch(e){} } });
+  if(d.meta&&d.meta.hasHistory) renderSharp();
+}).catch(()=>{});
+</script>
+</body>
+</html>
