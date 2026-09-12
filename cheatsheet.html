@@ -98,7 +98,7 @@
     <div class="sub">The props hitting most, the best value plays, and the team angles that beat the number — ranked and filterable. A fast read on where the edges are.</div>
     <div class="banner">
       <span>🧮</span>
-      <div><b>Model &amp; track-record based — not live sportsbook lines (yet).</b> Prop leans compare each player's <b>real game-by-game history</b> to the line we project he'll be priced near; the <b>hit rate</b> is how often his past games cleared that number. Real book lines and live value bets connect through the odds feed once the season tips. <a class="xlink" href="betting.html">Full Betting Lab →</a></div>
+      <div><b>Model &amp; track-record based — not live sportsbook lines (yet).</b> Boards rank each player by how often he <b>beat the number expected of him</b> each past season — <b>level-adjusted</b>, so a transfer's tally isn't inflated by weaker competition, and the line shown is our 2026-27 projection. Real book lines and live value bets connect through the odds feed once the season tips. <a class="xlink" href="betting.html">Full Betting Lab →</a></div>
     </div>
 
     <!-- ══ PLAYER PROPS ══ -->
@@ -123,11 +123,11 @@
     <div class="tbl-wrap"><table id="propTbl">
       <thead><tr>
         <th class="l">#</th><th class="l">Player</th><th>Line</th><th id="thPick">Pick</th>
-        <th>Hit rate</th><th>Avg</th><th>Proj ’26-27</th><th>Range</th>
+        <th title="How often he beat the number expected of him each season — level-adjusted, so it travels across a transfer">Beats line</th><th>Career avg</th><th>Proj ’26-27</th><th>Range</th>
       </tr></thead>
       <tbody id="propBody"><tr><td colspan="8" class="empty">Loading prop board…</td></tr></tbody>
     </table></div>
-    <div class="note" id="propNote"><b>Hit rate</b> is the share of his last-5-seasons games that cleared the line, estimated from his real game distribution. <b>Line</b> is where we expect a book to price him (near our 2026-27 projection, or his baseline). <b>Overs</b> = clears it most often; <b>Unders</b> = misses it most; <b>Value Movers</b> = where our projection diverges most from his recent baseline (the props to watch when lines post). <b>Players who transferred UP a level are held off the Over/Under boards</b> — their box scores were built against weaker competition, so they'd clear a tougher new-team line too easily; they show on Value Movers with a ↑ badge instead. Not a guarantee — a starting point.</div>
+    <div class="note" id="propNote"><b>Hit rate is level-adjusted.</b> For each past season we set the line at the number he was <i>expected</i> to hit that year — his prior-season average — and measure how often his games beat it. Because that bar moves with his level every season, the rate <b>travels across a transfer</b>: a low-major who kept topping his line stays a strong over even after a jump to a tougher league (his old raw totals never enter the math). <b>Line</b> is our 2026-27 projection — where a book will likely price him. <b>Overs</b> beat their expected line most; <b>Unders</b> least; <b>Value Movers</b> = the biggest gap between our projection and his career norm (the props to watch when lines post). Needs a couple of seasons to normalize, so newcomers appear only on Value Movers. Not a guarantee — a starting point.</div>
 
     <!-- ══ TEAM ANGLES ══ -->
     <div id="teamAnglesSec" style="display:none;">
@@ -177,14 +177,15 @@ function buildProps(){
     const st=p.stats&&p.stats[curStat]; if(!st||st.g<25) return;   // rotation-caliber, real sample
     const proj=projStat(p.id,curStat); if(proj==null||proj<1) return;   // must have a 2026-27 projection
     const line=bookLine(proj); if(line<0.5) return;
-    const over=empiricalOver(st,line); if(over==null) return;
+    const beat=(st.beat!=null?st.beat:null);                       // LEVEL-NORMALIZED beats-his-line rate
+    const over=empiricalOver(st,line);                            // raw vs projected line (context only)
     const lean=proj-st.avg;                                        // projection vs his career norm
     const pr=PROJ[p.id]||{};
     const curTeam=pr.team||p.team;                                 // his CURRENT (2026-27) team
     const fromShort=pr.xfer_from?shortTeam(pr.xfer_from):null;
     const sameTeam=fromShort && shortTeam(curTeam) && fromShort===shortTeam(curTeam);   // guard false-positive detection
     if(q && !((p.name||'').toLowerCase().includes(q) || (curTeam||'').toLowerCase().includes(q))) return;
-    rows.push({id:p.id,name:p.name,team:curTeam,line,over,avg:st.avg,proj,lean,
+    rows.push({id:p.id,name:p.name,team:curTeam,line,beat,beatG:st.beatG||0,over,avg:st.avg,proj,lean,
                lo:st.lo,hi:st.hi,g:st.g,sd:st.sd,
                xfer:!!pr.xfer&&!sameTeam,xferUp:!!pr.xfer_up&&!sameTeam,xferFrom:pr.xfer_from||null});
   });
@@ -198,21 +199,18 @@ function renderProps(){
   const body=document.getElementById('propBody');
   if(!PLAYERS){ return; }
   const minL=MIN_LINE[curStat]||0;
-  // a "real" consistency line sits in the meat of his track record (not 5x below his average)
-  // and is a meaningful number — otherwise the hit rate is trivially high/low. Big divergences
-  // between our projection and his career norm belong on the Value board instead.
-  const inBand=r=>r.avg>0 && r.line>=minL && r.proj>=0.6*r.avg && r.proj<=1.6*r.avg;
-  // UP-TRANSFERS are excluded from the consistency boards: their box-score history was piled up
-  // at a lower level / weaker conference, so it clears their (correctly-discounted) new line too
-  // easily — an artifact, not a real over. They still appear on Value Movers, where the level
-  // jump IS the story, with a transfer badge.
+  // Over/Under boards rank by the LEVEL-NORMALIZED beat rate (how often he beat the number
+  // expected of him each season) — so a transfer's low-major history is on the same footing as
+  // a returner's, no exclusion needed. Needs enough multi-season history (r.beat present).
+  // Value Movers stays projection-vs-career and takes everyone.
+  const okLine=r=>r.line>=minL;
   let view=rows;
-  if(curBoard==='over')      view=rows.filter(r=>inBand(r)&&!r.xferUp&&r.over>=0.55).sort((a,b)=>b.over-a.over);
-  else if(curBoard==='under')view=rows.filter(r=>inBand(r)&&!r.xferUp&&r.over<=0.45).sort((a,b)=>a.over-b.over);
+  if(curBoard==='over')      view=rows.filter(r=>r.beat!=null&&okLine(r)&&r.beat>=0.55).sort((a,b)=>b.beat-a.beat);
+  else if(curBoard==='under')view=rows.filter(r=>r.beat!=null&&okLine(r)&&r.beat<=0.45).sort((a,b)=>a.beat-b.beat);
   else /* value */           view=rows.filter(r=>r.lean!=null&&Math.abs(r.lean)>=1.5&&r.line>=minL*0.5).sort((a,b)=>Math.abs(b.lean)-Math.abs(a.lean));
   document.getElementById('thPick').textContent = curBoard==='value'?'Lean':'Pick';
   document.getElementById('propHint').textContent =
-    curBoard==='over'?'clears the line most often':curBoard==='under'?'misses the line most often':'projection vs recent baseline';
+    curBoard==='over'?'beats his expected line most (level-adjusted)':curBoard==='under'?'beats his expected line least':'projection vs recent baseline';
   view=view.slice(0,60);
   if(!view.length){ body.innerHTML='<tr><td colspan="8" class="empty">No plays match this filter.</td></tr>'; return; }
   body.innerHTML=view.map((r,i)=>{
@@ -220,12 +218,13 @@ function renderProps(){
     const pickTxt = curBoard==='value'
       ? `<span class="${r.lean>0?'pos':'neg'}">${r.lean>0?'+':''}${r.lean.toFixed(1)}</span>`
       : `<span class="pick ${isOver?'o':'u'}">${isOver?'OVER':'UNDER'} ${r.line}</span>`;
-    const shown=isOver?r.over:(1-r.over);
-    const col=shown>=0.65?'var(--green)':shown>=0.55?'var(--accent)':'var(--text3)';
+    const rate=(r.beat!=null?r.beat:r.over);                       // level-normalized when available
+    const shown=(curBoard==='value')?rate:(isOver?rate:(1-rate));
+    const col=shown>=0.60?'var(--green)':shown>=0.53?'var(--accent)':'var(--text3)';
     const hit=`<div class="hitbar"><div class="track"><i style="width:${Math.round(shown*100)}%;background:${col}"></i></div><b>${Math.round(shown*100)}%</b></div>`;
     return `<tr>
       <td class="l rk">${i+1}</td>
-      <td class="l"><a href="player.html?espn=${r.id}&tab=betting">${r.name}</a>${r.xfer?`<span class="xbadge" title="Transferred — history is at ${shortTeam(r.xferFrom||'')}, ${r.xferUp?'a lower level':'a lateral move'}">${r.xferUp?'↑':'↔'} ${shortTeam(r.xferFrom||'xfer')}</span>`:''}<div class="team-sub">${shortTeam(r.team)}</div></td>
+      <td class="l"><a href="player.html?espn=${r.id}&tab=betting">${r.name}</a>${r.xfer?`<span class="xbadge" title="Transferred from ${shortTeam(r.xferFrom||'')}${r.xferUp?' — up a level':' — lateral move'}. Hit rate is level-adjusted, so his old numbers aren't taken at face value.">${r.xferUp?'↑':'↔'} ${shortTeam(r.xferFrom||'xfer')}</span>`:''}<div class="team-sub">${shortTeam(r.team)}</div></td>
       <td>${r.line}</td>
       <td>${pickTxt}</td>
       <td>${hit}</td>
@@ -272,7 +271,7 @@ function renderSharp(){
 fetch('scripts/data/stat_overall_projected.json?v=33').then(r=>r.ok?r.json():null).then(d=>{
   if(d&&d.players){ PROJ=d.players; if(PLAYERS) renderProps(); }
 }).catch(()=>{});
-fetch('scripts/data/bet_trends_players.json').then(r=>r.ok?r.json():null).then(d=>{
+fetch('scripts/data/bet_trends_players.json?v=beat2').then(r=>r.ok?r.json():null).then(d=>{
   if(!d||!d.players){ document.getElementById('propBody').innerHTML='<tr><td colspan="8" class="empty">Prop data not available yet.</td></tr>'; return; }
   PLAYERS=Object.entries(d.players).map(([id,p])=>({id,name:p.name,team:p.team,stats:p.stats}));
   renderProps();

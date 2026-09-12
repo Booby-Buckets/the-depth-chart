@@ -216,6 +216,51 @@ def build_player_trends(seasons):
                 "lo": sa[0], "hi": sa[-1],
                 "p25": sa[int(0.25 * (n - 1))], "med": sa[int(0.5 * (n - 1))], "p75": sa[int(0.75 * (n - 1))]}
 
+    def beat_rate(sea, growth):
+        """LEVEL-NORMALIZED 'beats his EXPECTED number' rate. For each season, the line is what a
+        book/model would have set going in — his prior-season average scaled by the league's typical
+        year-over-year GROWTH (so ordinary development is already priced in and does NOT count as a
+        beat) — and we count how often that season's games cleared it. Because the bar moves with his
+        level (and expected growth) each year, it measures a transferable tendency: does he beat what
+        was expected of him? A low-major who kept out-performing his projected line stays a strong
+        over after a jump; a player who merely grew at the normal rate lands near 50%. Small samples
+        are shrunk toward 50%. Returns (rate, games) or None if too little history."""
+        yrs = sorted(sea.keys())
+        beat = tot = 0
+        for i in range(1, len(yrs)):
+            prev = sea[yrs[i - 1]]
+            if len(prev) < 5:
+                continue
+            exp = (sum(prev) / len(prev)) * growth              # expected level, development priced in
+            line = round(exp * 2) / 2 - 0.5
+            for v in sea[yrs[i]]:
+                tot += 1
+                beat += 1 if v > line else 0
+        if tot < 20:                                            # need real multi-season evidence
+            return None
+        K = 45.0                                               # Bayesian shrinkage toward 0.5
+        rate = (beat + 0.5 * K) / (tot + K)
+        return round(rate, 3), tot
+
+    # league-typical year-over-year growth per stat (median season/prior ratio across everyone
+    # with a real prior) — so the beat line can price in ordinary development and only credit a
+    # player for beating MORE than the normal rise.
+    def median(xs):
+        xs = sorted(xs); n = len(xs)
+        return 1.0 if not n else (xs[n // 2] if n % 2 else (xs[n // 2 - 1] + xs[n // 2]) / 2)
+    GROWTH = {}
+    for s in ["pts", "reb", "ast", "tpm", "pra"]:
+        ratios = []
+        for P in logs.values():
+            sea = P["stat"][s]["sea"]; yrs = sorted(sea.keys())
+            for i in range(1, len(yrs)):
+                prev, cur = sea[yrs[i - 1]], sea[yrs[i]]
+                pa = sum(prev) / len(prev) if prev else 0
+                if len(prev) >= 5 and len(cur) >= 5 and pa >= 3.0:   # ignore tiny baselines (noisy ratios)
+                    ratios.append((sum(cur) / len(cur)) / pa)
+        GROWTH[s] = round(min(1.25, max(1.0, median(ratios))), 3)   # clamp to a sane band
+    print("  year-over-year growth priced into the beat line: %s" % GROWTH, flush=True)
+
     # keep only players active in the last two seasons — props are only bettable on
     # current players, and it keeps the file loadable (graduated players just bloat it).
     active_seasons = set(sorted(seasons)[-2:])
@@ -235,6 +280,10 @@ def build_player_trends(seasons):
             # per-season kept lightweight (games + average) — enough for the trend arrow
             base["bySeason"] = {str(yr): {"g": len(v), "avg": round(sum(v) / len(v), 1)}
                                 for yr, v in sorted(d["sea"].items()) if v}
+            # level-normalized beats-his-expected-line rate (transferable across levels)
+            br = beat_rate(d["sea"], GROWTH.get(s, 1.08))
+            if br:
+                base["beat"], base["beatG"] = br
             rec["stats"][s] = base
         out[str(eid)] = rec
 
