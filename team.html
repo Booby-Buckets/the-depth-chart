@@ -6894,7 +6894,32 @@ function _tbetTeamProfile(r){
   else if(total<=138) angles.push('⬇️ <b>Under lean</b> — '+f1(total)+' avg total; grinds it out.');
   if(r.home&&r.away&&r.away.g>=10&&(r.home.pct-r.away.pct)>=0.22) angles.push('🏠 <b>Home-reliant</b> — '+pct(r.home)+' at home vs '+pct(r.away)+' away.');
   var anglesHtml=angles.length?('<div class="tbp-angles"><div class="tbp-ah">Betting angles</div>'+angles.map(function(a){return '<div class="tbp-angle">'+a+'</div>';}).join('')+'</div>'):'';
-  return '<div class="tbp-h">Team Market Profile <span>· last 5 seasons ('+r.g+' games) vs our power-rating line</span></div>'+
+  // ── REAL CLOSING LINES (Phase B backfill) — actual sportsbook ATS/O-U, not our model ──
+  var realBlock='';
+  var Hh=r.history;
+  if(Hh && Hh.g>=20){
+    var atsCls=Hh.atsPct>0.53?'good':Hh.atsPct<0.47?'bad':'';
+    var ovCls=Hh.ovPct>0.54?'good':Hh.ovPct<0.46?'bad':'';
+    var unCls=(1-Hh.ovPct)>0.54?'good':(1-Hh.ovPct)<0.46?'bad':'';
+    var rtiles=
+      tile(Math.round(Hh.atsPct*100)+'%','ATS vs Close',(Hh.ats||'')+' · '+Hh.g+'g',atsCls)+
+      tile(Math.round(Hh.ovPct*100)+'%','Over vs Close',(Hh.ou||'')+' O/U',ovCls)+
+      tile(Math.round((1-Hh.ovPct)*100)+'%','Under vs Close','',unCls);
+    var hy=Hh.bySeason?Object.keys(Hh.bySeason).sort():[];
+    var hrows=hy.map(function(y){var s=Hh.bySeason[y];if(!s||!s.g)return '';return '<tr><td>'+(y-1)+'–'+(''+y).slice(2)+'</td><td class="'+(s.atsPct>0.5?'g':'r')+'">'+Math.round(s.atsPct*100)+'% <span style="color:var(--text3)">'+(s.ats||'')+'</span></td><td>'+Math.round(s.ovPct*100)+'% O <span style="color:var(--text3)">'+(s.ou||'')+'</span></td></tr>';}).join('');
+    var ra=[];
+    if(Hh.atsPct>=0.55) ra.push('💰 <b>Covers</b> — '+Math.round(Hh.atsPct*100)+'% ATS vs the real closing spread over 5 seasons ('+Hh.ats+').');
+    else if(Hh.atsPct<=0.45) ra.push('🎯 <b>Fade ATS</b> — just '+Math.round(Hh.atsPct*100)+'% vs the closing spread ('+Hh.ats+').');
+    if(Hh.ovPct>=0.56) ra.push('🔥 <b>Over</b> — cleared the real total '+Math.round(Hh.ovPct*100)+'% of the time ('+Hh.ou+').');
+    else if(Hh.ovPct<=0.44) ra.push('🧊 <b>Under</b> — stayed under the real total '+Math.round((1-Hh.ovPct)*100)+'% of the time ('+Hh.ou+').');
+    var raHtml=ra.length?('<div class="tbp-angles">'+ra.map(function(a){return '<div class="tbp-angle">'+a+'</div>';}).join('')+'</div>'):'';
+    realBlock='<div class="tbp-h">Real Closing Lines <span>· actual sportsbook results · last 5 seasons ('+Hh.g+' g)</span></div>'+
+      '<div class="tbp-tiles">'+rtiles+'</div>'+
+      (hrows?'<div class="tbp-trend"><div class="tbet-wrap"><table class="tbp-st"><thead><tr><th>Season</th><th>ATS</th><th>O/U</th></tr></thead><tbody>'+hrows+'</tbody></table></div></div>':'')+
+      raHtml;
+  }
+  return realBlock+
+    '<div class="tbp-h"'+(realBlock?' style="margin-top:26px;"':'')+'>Team Market Profile <span>· last 5 seasons ('+r.g+' games) vs our power-rating line</span></div>'+
     '<div class="tbp-tiles">'+tiles+'</div>'+splits+
     '<div class="tbp-pace">'+pace+venue+'</div>'+
     chart+

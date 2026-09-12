@@ -108,6 +108,18 @@
     .ml-read b{color:var(--text);}
     .ml-conf{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:12px;margin-right:8px;vertical-align:middle;}
     .ml-conf.s3{background:rgba(26,140,58,.16);color:var(--green);} .ml-conf.s2{background:rgba(200,160,32,.18);color:var(--gold);} .ml-conf.s1{background:var(--bg3);color:var(--text3);}
+    /* ── Sharp Angles board ── */
+    .sharp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;}
+    .sharp-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 15px;}
+    .sharp-hd{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.02em;margin-bottom:3px;}
+    .sharp-hd .ico{font-size:15px;}
+    .sharp-sub{font-size:10.5px;color:var(--text3);margin-bottom:11px;line-height:1.4;}
+    .sharp-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--border);}
+    .sharp-row:first-of-type{border-top:none;}
+    .sharp-team{font-size:12.5px;font-weight:600;color:var(--text);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .sharp-team:hover{color:var(--accent);}
+    .sharp-val{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;}
+    .sharp-rec{font-size:10px;color:var(--text3);font-weight:600;margin-left:6px;}
   </style>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
@@ -171,6 +183,13 @@
         </table>
       </div>
       <div class="note"><b>Edge</b> is how far our model line sits from the market number. A game where we make the home team a 9-point favorite but the book has them −5 is a <b>+4 lean on the home side</b> — the market may be undervaluing them. Shop these against your book; the biggest gaps are where the model thinks there's value. Totals work the same way (model total above the book total → Over lean). <span id="edgeStamp"></span></div>
+    </div>
+
+    <!-- ══ SHARP ANGLES ══ -->
+    <div id="sharpSec" style="display:none;">
+      <div class="sec"><span>Sharp Angles</span><span class="hint">the market's most lopsided teams · 5-yr real closing lines</span></div>
+      <div class="sharp-grid" id="sharpGrid"></div>
+      <div class="note">Built from <b>5 seasons of real closing lines</b>. <b>Over/Under</b> angles are how often a team's games cleared the market <b>total</b>; <b>ATS</b> angles are how often they beat the <b>spread</b>. A team that hit the Over 62% of the time is a live lean toward the Over in its games; a team covering just 41% is a fade. Sample sizes shown — bigger is steadier. Not a guarantee; a starting point to shop against your book.</div>
     </div>
 
     <!-- ══ TEAM TRENDS ══ -->
@@ -440,6 +459,35 @@ function renderTeams(){
     </tr>`;
   }).join('');
 }
+// ═══ SHARP ANGLES ══════════════════════════════════════════════════════════
+// Surface the market's most lopsided teams from 5yr of real closing lines. All-time
+// history (t.history) for stability, min games so a tiny sample can't top a board.
+function renderSharp(){
+  if(!TEAMS) return;
+  const MIN=40;   // min graded games over 5 seasons for a stable read
+  const pool=TEAMS.map(t=>{
+    const h=t.history; if(!h||h.g<MIN) return null;
+    return {name:t._name, short:t._short, g:h.g, atsPct:h.atsPct, ats:h.ats, ovPct:h.ovPct, ou:h.ou};
+  }).filter(Boolean);
+  if(!pool.length){ document.getElementById('sharpSec').style.display='none'; return; }
+  // dir = the sort direction on the metric: +1 highest-first, -1 lowest-first.
+  const boards=[
+    {ico:'🔥',t:'Over teams',s:'games clear the total most often',k:'ovPct',rec:'ou',dir:1, tone:'pos',fmt:v=>pct(v)+' O'},
+    {ico:'🧊',t:'Under teams',s:'games stay under the total most often',k:'ovPct',rec:'ou',dir:-1,tone:'',   fmt:v=>pct(1-v)+' U'},
+    {ico:'💰',t:'ATS covers',s:'beat the spread most often',k:'atsPct',rec:'ats',dir:1, tone:'pos',fmt:v=>pct(v)},
+    {ico:'🎯',t:'ATS fades',s:'beat the spread least often',k:'atsPct',rec:'ats',dir:-1,tone:'neg',fmt:v=>pct(v)},
+  ];
+  const html=boards.map(b=>{
+    const ranked=pool.slice().filter(p=>p[b.k]!=null).sort((x,y)=>(y[b.k]-x[b.k])*b.dir).slice(0,6);
+    const rows=ranked.map(p=>{
+      return `<div class="sharp-row"><a class="sharp-team" href="team.html?team=${encodeURIComponent(p.short||p.name)}" title="${p.name}">${p.name}</a>`
+        +`<span class="sharp-val ${b.tone}">${b.fmt(p[b.k])}<span class="sharp-rec">${p[b.rec]||''}</span></span></div>`;
+    }).join('');
+    return `<div class="sharp-card"><div class="sharp-hd"><span class="ico">${b.ico}</span>${b.t}</div><div class="sharp-sub">${b.s} · ${MIN}+ g</div>${rows}</div>`;
+  }).join('');
+  document.getElementById('sharpGrid').innerHTML=html;
+  document.getElementById('sharpSec').style.display='';
+}
 function setTeamSort(k){
   if(teamSort===k) teamDir=-teamDir;
   else { teamSort=k; teamDir=(k==='name')?1:-1; }
@@ -461,7 +509,7 @@ fetch('scripts/data/bet_trends_teams.json').then(r=>r.ok?r.json():null).then(d=>
   // prefer a proper short name via team-colors if available
   TEAMS.forEach(t=>{ if(window.tdcShortSchool){ try{ const s=tdcShortSchool(t._name); if(s) t._short=s; }catch(e){} } });
   // reveal the real-line ATS / O-U columns only once a lines file has been ingested (Phase B)
-  if(d.meta&&d.meta.hasHistory){ document.getElementById('teamTbl').classList.add('has-hist'); }
+  if(d.meta&&d.meta.hasHistory){ document.getElementById('teamTbl').classList.add('has-hist'); renderSharp(); }
   renderTeams();
 }).catch(()=>{ document.getElementById('teamBody').innerHTML='<tr><td colspan="11" class="empty">Team trends failed to load.</td></tr>'; });
 
