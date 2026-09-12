@@ -356,6 +356,7 @@ for short, roster in roster_by_team.items():
             srs_jump=_cl((q_new-q_old)/XF_TEAM_SPAN) if (q_new is not None and q_old is not None) else 0.0
             sos_jump=_cl((sos_new-sos_old)/sos_new) if sos_new>0 else 0.0
             level_jump=min(1.0, XF_TEAM_W*srs_jump + XF_CONF_W*sos_jump)
+            r["_xfup"]=1 if level_jump>=0.12 else 0   # meaningful step UP in level (his old box scores are vs weaker comp)
             if level_jump>0:
                 usg_hi=_cl((r["last_usg"]-16.0)/12.0)                 # 16%->0, 28%+->1: was he a volume option
                 empty=_cl((0.60-(r["eff"] if r["eff"] is not None else 0.55))/0.13)  # .60 TS->0 (efficient), .47->1
@@ -476,8 +477,15 @@ for short, roster in roster_by_team.items():
             "fgm":round(fgm,1),"fga":round(fga,1),"tpm":round(tpm,1),"tpa":round(tpa,1),
             "ftm":round(ftm,1),"fta":round(fta,1),
         }
+        out[str(e)]["team"]=full   # CURRENT (2026-27) team — box-score sources carry his old team
         if xfer:
             out[str(e)]["_xfer"]=1
+            # SHIPPED flags: a transfer's box-score history is at his OLD team/level. Downstream
+            # (betting cheat sheet) uses these to avoid over-crediting a low-major's numbers now
+            # that he's on a tougher team — his past games aren't at his new level.
+            out[str(e)]["xfer"]=1
+            if r.get("_xfup"): out[str(e)]["xfer_up"]=1     # meaningful step UP in level
+            if demo_team_full: out[str(e)]["xfer_from"]=demo_team_full
             if r.get("_xfdisc") is not None: out[str(e)]["_xfdisc"]=round(r["_xfdisc"],3)
             if r.get("eff") is not None: out[str(e)]["_ts"]=round(r["eff"],3)
             _dt=demo_team_full or ""

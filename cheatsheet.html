@@ -61,6 +61,7 @@
     .hitbar .track i{display:block;height:100%;border-radius:4px;}
     .hitbar b{font-variant-numeric:tabular-nums;min-width:34px;text-align:right;}
     .team-sub{font-size:10.5px;color:var(--text3);font-weight:600;}
+    .xbadge{display:inline-block;margin-left:7px;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:9px;background:rgba(168,132,60,.14);color:var(--accent);vertical-align:1px;}
     .empty{padding:40px;text-align:center;color:var(--text3);font-size:13px;}
     /* team angles */
     .sharp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;}
@@ -126,7 +127,7 @@
       </tr></thead>
       <tbody id="propBody"><tr><td colspan="8" class="empty">Loading prop board…</td></tr></tbody>
     </table></div>
-    <div class="note" id="propNote"><b>Hit rate</b> is the share of his last-5-seasons games that cleared the line, estimated from his real game distribution. <b>Line</b> is where we expect a book to price him (near our 2026-27 projection, or his baseline). <b>Overs</b> = clears it most often; <b>Unders</b> = misses it most; <b>Value Movers</b> = where our projection diverges most from his recent baseline (the props to watch when lines post). Not a guarantee — a starting point.</div>
+    <div class="note" id="propNote"><b>Hit rate</b> is the share of his last-5-seasons games that cleared the line, estimated from his real game distribution. <b>Line</b> is where we expect a book to price him (near our 2026-27 projection, or his baseline). <b>Overs</b> = clears it most often; <b>Unders</b> = misses it most; <b>Value Movers</b> = where our projection diverges most from his recent baseline (the props to watch when lines post). <b>Players who transferred UP a level are held off the Over/Under boards</b> — their box scores were built against weaker competition, so they'd clear a tougher new-team line too easily; they show on Value Movers with a ↑ badge instead. Not a guarantee — a starting point.</div>
 
     <!-- ══ TEAM ANGLES ══ -->
     <div id="teamAnglesSec" style="display:none;">
@@ -175,12 +176,17 @@ function buildProps(){
   PLAYERS.forEach(p=>{
     const st=p.stats&&p.stats[curStat]; if(!st||st.g<25) return;   // rotation-caliber, real sample
     const proj=projStat(p.id,curStat); if(proj==null||proj<1) return;   // must have a 2026-27 projection
-    if(q && !((p.name||'').toLowerCase().includes(q) || (p.team||'').toLowerCase().includes(q))) return;
     const line=bookLine(proj); if(line<0.5) return;
     const over=empiricalOver(st,line); if(over==null) return;
     const lean=proj-st.avg;                                        // projection vs his career norm
-    rows.push({id:p.id,name:p.name,team:p.team,line,over,avg:st.avg,proj,lean,
-               lo:st.lo,hi:st.hi,g:st.g,sd:st.sd});
+    const pr=PROJ[p.id]||{};
+    const curTeam=pr.team||p.team;                                 // his CURRENT (2026-27) team
+    const fromShort=pr.xfer_from?shortTeam(pr.xfer_from):null;
+    const sameTeam=fromShort && shortTeam(curTeam) && fromShort===shortTeam(curTeam);   // guard false-positive detection
+    if(q && !((p.name||'').toLowerCase().includes(q) || (curTeam||'').toLowerCase().includes(q))) return;
+    rows.push({id:p.id,name:p.name,team:curTeam,line,over,avg:st.avg,proj,lean,
+               lo:st.lo,hi:st.hi,g:st.g,sd:st.sd,
+               xfer:!!pr.xfer&&!sameTeam,xferUp:!!pr.xfer_up&&!sameTeam,xferFrom:pr.xfer_from||null});
   });
   return rows;
 }
@@ -196,9 +202,13 @@ function renderProps(){
   // and is a meaningful number — otherwise the hit rate is trivially high/low. Big divergences
   // between our projection and his career norm belong on the Value board instead.
   const inBand=r=>r.avg>0 && r.line>=minL && r.proj>=0.6*r.avg && r.proj<=1.6*r.avg;
+  // UP-TRANSFERS are excluded from the consistency boards: their box-score history was piled up
+  // at a lower level / weaker conference, so it clears their (correctly-discounted) new line too
+  // easily — an artifact, not a real over. They still appear on Value Movers, where the level
+  // jump IS the story, with a transfer badge.
   let view=rows;
-  if(curBoard==='over')      view=rows.filter(r=>inBand(r)&&r.over>=0.55).sort((a,b)=>b.over-a.over);
-  else if(curBoard==='under')view=rows.filter(r=>inBand(r)&&r.over<=0.45).sort((a,b)=>a.over-b.over);
+  if(curBoard==='over')      view=rows.filter(r=>inBand(r)&&!r.xferUp&&r.over>=0.55).sort((a,b)=>b.over-a.over);
+  else if(curBoard==='under')view=rows.filter(r=>inBand(r)&&!r.xferUp&&r.over<=0.45).sort((a,b)=>a.over-b.over);
   else /* value */           view=rows.filter(r=>r.lean!=null&&Math.abs(r.lean)>=1.5&&r.line>=minL*0.5).sort((a,b)=>Math.abs(b.lean)-Math.abs(a.lean));
   document.getElementById('thPick').textContent = curBoard==='value'?'Lean':'Pick';
   document.getElementById('propHint').textContent =
@@ -215,7 +225,7 @@ function renderProps(){
     const hit=`<div class="hitbar"><div class="track"><i style="width:${Math.round(shown*100)}%;background:${col}"></i></div><b>${Math.round(shown*100)}%</b></div>`;
     return `<tr>
       <td class="l rk">${i+1}</td>
-      <td class="l"><a href="player.html?espn=${r.id}&tab=betting">${r.name}</a><div class="team-sub">${shortTeam(r.team)}</div></td>
+      <td class="l"><a href="player.html?espn=${r.id}&tab=betting">${r.name}</a>${r.xfer?`<span class="xbadge" title="Transferred — history is at ${shortTeam(r.xferFrom||'')}, ${r.xferUp?'a lower level':'a lateral move'}">${r.xferUp?'↑':'↔'} ${shortTeam(r.xferFrom||'xfer')}</span>`:''}<div class="team-sub">${shortTeam(r.team)}</div></td>
       <td>${r.line}</td>
       <td>${pickTxt}</td>
       <td>${hit}</td>
@@ -259,7 +269,7 @@ function renderSharp(){
 }
 
 // ═══ LOAD ═══════════════════════════════════════════════════════════════════
-fetch('scripts/data/stat_overall_projected.json?v=31').then(r=>r.ok?r.json():null).then(d=>{
+fetch('scripts/data/stat_overall_projected.json?v=33').then(r=>r.ok?r.json():null).then(d=>{
   if(d&&d.players){ PROJ=d.players; if(PLAYERS) renderProps(); }
 }).catch(()=>{});
 fetch('scripts/data/bet_trends_players.json').then(r=>r.ok?r.json():null).then(d=>{
