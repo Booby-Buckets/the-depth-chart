@@ -6970,10 +6970,12 @@ function _grpToggle(btn, e){ if(e) e.stopPropagation();
 }
 // Point the Coach's Tier toolkit links at THIS player so they open pre-loaded.
 function _grpLinkPlayer(){
-  var qs=location.search||'';
-  if(!qs && typeof player!=='undefined' && player){
+  // Always build from the loaded player so every toolkit link carries BOTH the player id and
+  // his team — the tools need the team to load the roster, then auto-open him.
+  var qs='';
+  if(typeof player!=='undefined' && player && (player.espn_id||player.name)){
     qs='?'+(player.espn_id?('espn='+player.espn_id):('name='+encodeURIComponent(player.name||'')))+(player.team?('&team='+encodeURIComponent(player.team)):'');
-  }
+  } else { qs=location.search||''; }
   if(!qs) return;
   document.querySelectorAll('.tab-grp .ptool').forEach(function(a){ var base=(a.getAttribute('href')||'').split('?')[0]; if(base) a.setAttribute('href', base+qs); });
 }

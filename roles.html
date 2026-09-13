@@ -54,6 +54,7 @@
     .fit b{color:var(--text);}
     /* role card */
     .rc{border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:15px 17px;margin-bottom:10px;}
+    .rc.rc-focus{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent);scroll-margin-top:84px;}
     .rc-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:4px;flex-wrap:wrap;}
     .rc-head{display:flex;align-items:center;gap:13px;margin-bottom:8px;}
     .rc-ovr{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;line-height:1;color:var(--tc,var(--accent));min-width:38px;text-align:center;flex-shrink:0;}
@@ -488,7 +489,7 @@ async function loadTeam(){
     const atkHtml=(gd.length||at.length)?`<div class="rc-atk"><div class="rc-dev-l" style="margin-bottom:9px;">How to attack him</div><div class="ex-cols">${exCol('guard',gd)}${exCol('attack',at)}</div></div>`:'';
     // pass 4: visual scouting profile — shot diet chart + game-scoring distribution
     const profHtml=p.hist?(shotProfileHtml(p.shot)+distHtml(p.gpts,p.cons)):'';
-    return `<div class="rc" style="--tc:${tc}">${head}${body}${devHtml}${profHtml}${atkHtml}</div>`;
+    return `<div class="rc" style="--tc:${tc}" data-espn="${p.raw&&p.raw.espn_id!=null?p.raw.espn_id:''}" data-name="${esc((p.name||'').toLowerCase().trim())}">${head}${body}${devHtml}${profHtml}${atkHtml}</div>`;
   };
 
   el('out').innerHTML=`<div style="--tc:${tc}">
@@ -499,6 +500,20 @@ async function loadTeam(){
   </div>`;
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
+  focusPlayer();
+}
+// Every player gets his OWN role page: when the URL carries ?espn= or ?name= (the player page's
+// Coach's Tier links send both), hoist his card to the top, highlight it, and scroll to it.
+function focusPlayer(){
+  const qs=new URLSearchParams(location.search);
+  const wantEspn=qs.get('espn'), wantName=(qs.get('name')||'').toLowerCase().trim();
+  if(!wantEspn&&!wantName) return;
+  const cards=[...el('out').querySelectorAll('.rc')];
+  const me=cards.find(c=>(wantEspn&&c.dataset.espn===String(wantEspn))||(wantName&&c.dataset.name===wantName));
+  if(!me) return;
+  me.classList.add('rc-focus');
+  const sec=me.parentElement; if(sec){ const hdr=[...sec.querySelectorAll('.sec-h')].find(h=>/Player roles/i.test(h.textContent)); if(hdr) hdr.insertAdjacentElement('afterend', me); }
+  setTimeout(()=>{ me.scrollIntoView({behavior:'smooth',block:'start'}); },250);
 }
 
 (async function(){
@@ -508,7 +523,13 @@ async function loadTeam(){
   D=await TDC_RATINGS.get();
   D.teams=(D.teams||[]).filter(t=>t.projected!==false&&t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999));
   const qs=new URLSearchParams(location.search);
-  const want=(qs.get('team')||'').toLowerCase();
+  let want=(qs.get('team')||'').toLowerCase();
+  // a player-only link (?espn= / ?name= with no team) — resolve his team so his page still opens
+  if(!want&&(qs.get('espn')||qs.get('name'))){
+    try{ const q=qs.get('espn')?`espn_id=eq.${encodeURIComponent(qs.get('espn'))}`:`name=eq.${encodeURIComponent(qs.get('name'))}`;
+      const r=await fetch(`${SB_URL}/rest/v1/players?${q}&select=team&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]);
+      if(r&&r[0]&&r[0].team) want=String(r[0].team).toLowerCase(); }catch(e){}
+  }
   if(want){ const i=D.teams.findIndex(t=>t.full.toLowerCase()===want||t.team.toLowerCase()===want); if(i>=0){ selKey=i; el('sel').value=labelOf(poolRow(i)); loadTeam(); } }
 })();
 </script>

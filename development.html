@@ -106,6 +106,19 @@
   <meta name="apple-mobile-web-app-title" content="The Depth Chart">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="tdc-pwa.js?v=2" defer></script>
+  <link rel="stylesheet" href="tdc-sheets.css?v=3"/>
+  <style>
+    /* per-player focus block (?espn= deep link) */
+    .dv-focus{border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:14px;background:var(--bg2);padding:18px 20px 16px;margin-bottom:26px;}
+    .dv-tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg);margin:12px 0 14px;}
+    .dv-tile{padding:12px 14px;border-right:1px solid var(--border);}
+    .dv-tile:last-child{border-right:none;}
+    .dv-tile .v{font-family:'Sora','Inter',sans-serif;font-weight:800;font-size:24px;line-height:1;color:var(--text);font-variant-numeric:tabular-nums;}
+    .dv-tile .l{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:6px;}
+    .dv-tile .s{font-size:10.5px;color:var(--text3);margin-top:2px;}
+    .dv-focus .sheet-wrap{background:var(--bg);}
+    @media(max-width:760px){ .dv-tiles{grid-template-columns:repeat(2,1fr);} .dv-tile{border-bottom:1px solid var(--border);} .dv-tile:nth-child(odd){border-right:1px solid var(--border);} .dv-tile:nth-last-child(-n+1){border-bottom:none;} }
+  </style>
 </head>
 <body data-anim-auto>
 <script src="tdc-nav.js?v=21"></script>
@@ -305,6 +318,47 @@ function scopeLabel(){
   if(FILT.ymin!==DATA.years[0]||FILT.ymax!==DATA.years[1]) parts.push(((FILT.ymin-1)+'-'+(''+FILT.ymin).slice(2))+' → '+((FILT.ymax-1)+'-'+(''+FILT.ymax).slice(2)));
   return parts.length?parts.join(' · '):'all of Division I, 20 years';
 }
+// Every player gets his OWN development page: when the URL carries ?espn= (or ?name=), lead with
+// that player's season-by-season grade trajectory as a sheet, plus the headline movers, before the
+// league-wide boards. The player page's Coach's Tier links send these params.
+function playerFocusHtml(){
+  var qs=new URLSearchParams(location.search);
+  var wantEspn=qs.get('espn'), wantName=(qs.get('name')||'').toLowerCase().trim();
+  if(!wantEspn&&!wantName) return '';
+  var p=(DATA.players||[]).find(function(x){ return (wantEspn&&String(x[0])===String(wantEspn))||(wantName&&String(x[1]||'').toLowerCase().trim()===wantName); });
+  if(!p){   // deep-linked player with no multi-season graded history on file yet — say so, don't go blank
+    var back=wantEspn?('player.html?espn='+encodeURIComponent(wantEspn)):('player.html?name='+encodeURIComponent(qs.get('name')||''));
+    return '<div class="dv-focus" style="padding:14px 18px;"><div style="font-size:12.5px;color:var(--text2);line-height:1.5;"><b style="color:var(--text);">No development file yet for this player.</b> The trajectory needs at least two graded D-I seasons on record; his shows up here once a second season is in. <a href="'+back+'" style="color:var(--accent);font-weight:700;">← back to his player page</a></div></div>';
+  }
+  var nm=p[1], ss=p[2]||[]; if(!ss.length) return '';
+  var esc=function(s){return (''+(s==null?'':s)).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});};
+  var cls=function(i){ return ['Fr','So','Jr','Sr','5th','6th'][i]||('Yr '+(i+1)); };
+  var first=ss[0], peak=ss[0], last=ss[ss.length-1];
+  for(var i=1;i<ss.length;i++){ if(ss[i][1]>peak[1]) peak=ss[i]; }
+  var rows=ss.map(function(s,i){
+    var prev=i?ss[i-1]:null, d=prev?(s[1]-prev[1]):null;
+    var dTxt=d==null?'<span class="dim">—</span>':(d===0?'<span class="dim">±0</span>':'<span style="color:'+(d>0?'var(--green)':'var(--red)')+';font-weight:800;">'+(d>0?'+':'')+d+'</span>');
+    var moved=prev&&s[3]!==prev[3]&&s[3]>=0&&prev[3]>=0;
+    return '<tr'+(s===peak?' style="background:color-mix(in srgb,var(--accent) 10%,transparent)"':'')+'>'
+      +'<td class="c">'+(s[0]-1)+'–'+String(s[0]).slice(2)+'</td><td class="c dim">'+cls(i)+'</td>'
+      +'<td class="l nm">'+esc(schoolName(s[3]))+(moved?' <span style="font-size:10px;color:var(--accent);font-weight:800;">↗ transfer</span>':'')+'</td>'
+      +'<td class="l dim">'+esc(confName(s[2])||'')+'</td><td style="font-weight:800;color:var(--text);">'+s[1]+'</td><td>'+dTxt+'</td></tr>';
+  }).join('');
+  var gain=peak[1]-first[1], bestJ=0, bestJs=null;
+  for(var j=1;j<ss.length;j++){ var dj=ss[j][1]-ss[j-1][1]; if(ss[j][0]===ss[j-1][0]+1&&dj>bestJ){bestJ=dj;bestJs=ss[j];} }
+  var tile=function(v,l,sub){ return '<div class="dv-tile"><div class="v">'+v+'</div><div class="l">'+l+'</div>'+(sub?'<div class="s">'+sub+'</div>':'')+'</div>'; };
+  var tiles=tile(first[1],'First graded season',(first[0]-1)+'–'+String(first[0]).slice(2))
+    +tile(peak[1],'Career peak',(peak[0]-1)+'–'+String(peak[0]).slice(2)+' · '+esc(schoolName(peak[3])))
+    +tile((gain>0?'+':'')+gain,'First → peak','grade points')
+    +tile(bestJs?('+'+bestJ):'—','Best single-season jump',bestJs?((bestJs[0]-1)+'–'+String(bestJs[0]).slice(2)):'')
+    +tile(last[1],'Latest grade',(last[0]-1)+'–'+String(last[0]).slice(2));
+  return '<div class="dv-focus">'
+    +'<div class="sec-t" style="margin-top:0;">'+esc(nm)+' — Development <span style="color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;">his graded seasons, first to latest · <a href="player.html?espn='+encodeURIComponent(p[0])+'" style="color:var(--accent);">player page →</a></span></div>'
+    +'<div class="dv-tiles">'+tiles+'</div>'
+    +'<div class="sheet-wrap" style="max-height:none;"><table class="sheet" style="width:100%"><thead><tr><th class="c">Season</th><th class="c">Class</th><th class="l">School</th><th class="l">Conference</th><th>TDC grade</th><th>Δ vs prior</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +'<div class="curve-note" style="margin-top:8px;">Highlighted row = career peak. Δ is the year-over-year change in his TDC grade; a ↗ marks a school change. The league-wide boards below put his path in context.</div>'
+    +'</div>';
+}
 function render(){
   computeCurve();
   var el=document.getElementById('content');
@@ -317,6 +371,7 @@ function render(){
   var emptyR='<div class="dv-empty">No qualifying players in this filter.</div>';
   var sub='style="color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;"';
   el.innerHTML=
+    playerFocusHtml()+
     filterBar()+
     '<div class="sec-t">The Development Curve <span '+sub+'>avg TDC grade by class · '+CURVE._total.toLocaleString()+' player-seasons · '+scopeLabel()+'</span></div>'+
     '<div class="curve-card"><div class="curve-top"><div style="font-size:13px;font-weight:700;color:var(--text2);">Grade by class year</div><div class="lg">'+legend+'</div></div>'+
