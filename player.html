@@ -5697,9 +5697,9 @@ function _pfReport(r){
     <div class="pf-rgrid">
       <div>
         <div class="pf-rlab">Fit scorecard</div>
-        <div class="sheet-wrap" style="max-height:none;"><table class="sheet"><thead><tr><th class="l">Factor</th><th>Score</th><th>Weight</th><th class="l">Read</th></tr></thead><tbody>
-          ${(r.reads||[]).map(x=>`<tr><td class="l nm">${esc(x.l)}</td><td style="font-weight:800;color:${heat(x.v)};">${x.v}</td><td class="dim">${Math.round(x.w*100)}%</td><td class="l" style="white-space:normal;">${esc(x.txt)}</td></tr>`).join('')}
-          <tr><td class="l nm">Overall</td><td style="font-weight:800;color:${heat(r.overall)};">${r.overall}</td><td class="dim">blend${r.realism<1?' × '+r.realism+' realism':''}</td><td class="l" style="white-space:normal;">${esc(r.why||'')}</td></tr>
+        <div class="sheet-wrap" style="max-height:none;"><table class="sheet"><thead><tr><th class="l">Factor</th><th>Score</th><th class="l">Read</th></tr></thead><tbody>
+          ${(r.reads||[]).map(x=>`<tr><td class="l nm">${esc(x.l)}</td><td style="font-weight:800;color:${heat(x.v)};">${x.v}</td><td class="l" style="white-space:normal;">${esc(x.txt)}</td></tr>`).join('')}
+          <tr><td class="l nm">Overall</td><td style="font-weight:800;color:${heat(r.overall)};">${r.overall}</td><td class="l" style="white-space:normal;">${esc(r.why||'')}</td></tr>
         </tbody></table></div>
       </div>
       <div>
@@ -5720,7 +5720,7 @@ function _pfReport(r){
         <div class="sheet-wrap" style="max-height:none;"><table class="sheet"><thead><tr><th class="l">Signal</th><th>Δ</th></tr></thead><tbody>${coach}</tbody></table></div>
       </div>
     </div>
-    <div class="pf-rnote">Scores are 0–100 and blend into Overall (need 20 · team 30 · production 25 · coach 25${r.realism<1?', damped ×'+r.realism+' because a player of his caliber rarely chooses a program of this tier':''}). The projected line applies that coach's pace, star-share and rotation size to his per-minute rates in the role he'd earn. A ranking read, not a prediction.</div>
+    <div class="pf-rnote">Scores are 0–100 and blend into the Overall fit${r.realism<1?' (tempered here — a player of his caliber rarely chooses a program of this tier)':''}. The projected line applies that coach's pace, star-share and rotation size to his per-minute rates in the role he'd earn. A ranking read, not a prediction.</div>
   </div>`;
   host.querySelector('#pfReportClose').addEventListener('click',()=>{ _PF.report=null; host.innerHTML=''; });
   host.scrollIntoView({behavior:'smooth',block:'start'});
@@ -5762,7 +5762,7 @@ function _pfPaint(){
         <td><button class="pf-rep" data-team="${esc(r.team)}" title="Open the full fit report">Report</button></td>
       </tr>`).join(''):'<tr><td colspan="11" style="padding:28px;text-align:center;color:var(--text3);">No teams match these filters.</td></tr>'}</tbody>
     </table></div>
-    <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:12px;max-width:900px;">Scores are 0–100. <b>Need</b> = how much he'd upgrade the position vs the roster already there; <b>Team success</b> = program strength (rank/rating); <b>Production</b> = the minutes and numbers he projects to in that rotation; <b>Coach fit</b> = how his style matches the coach's measured tendencies. Overall blends them (need 20 · team 30 · production 25 · coach 25). A ranking, not a prediction — the read column says why.</div>`;
+    <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:12px;max-width:900px;">Scores are 0–100. <b>Need</b> = how much he'd upgrade the position vs the roster already there; <b>Team success</b> = program strength (rank/rating); <b>Production</b> = the minutes and numbers he projects to in that rotation; <b>Coach fit</b> = how his style matches the coach's measured tendencies. Overall blends them. A ranking, not a prediction — the read column says why.</div>`;
   host.querySelectorAll('.pf-rep').forEach(b=>b.addEventListener('click',()=>{ _PF.report=b.dataset.team; _pfReport(rows.find(r=>r.team===b.dataset.team)); }));
   if(_PF.report){ const rr=rows.find(r=>r.team===_PF.report); if(rr) _pfReport(rr); }
   host.querySelectorAll('#pfSortSeg button').forEach(b=>b.addEventListener('click',()=>{ _PF.sort=b.dataset.pfs; _PF.dir=-1; _pfPaint(); }));
