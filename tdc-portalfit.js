@@ -337,6 +337,6 @@
     return rows;
   }
 
-  window.TDCPortalFit={ profile:profile, archetype:archetype, pos:pos, coachFit:coachFit,
+  window.TDCPortalFit={ profile:profile, archetype:archetype, pos:pos, positionsFor:positionsFor, coachFit:coachFit,
     scoreTeam:scoreTeam, rank:rank, rankTargets:rankTargets, DEFAULT_WEIGHTS:DEF_W };
 })();
