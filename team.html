@@ -1114,7 +1114,8 @@
     .tbp-split span{font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);}
     .tbp-split b{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;}
     .tbp-trend{margin-bottom:18px;}
-    .tbp-chart{margin-bottom:18px;}
+    .tbp-chart{margin-bottom:18px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:13px 16px 11px;}
+    .tbp-chart .tbp-tt{margin-top:0;margin-bottom:8px;}
     .tbp-cap{font-size:10.5px;color:var(--text3);margin-top:6px;line-height:1.4;}
     .tbp-pace{margin-bottom:18px;}
     .tbp-pbar{display:flex;align-items:center;gap:12px;margin:7px 0;}
@@ -6868,19 +6869,32 @@ function _tbetTeamProfile(r){
   // red below = came up short. A quick read on whether the market keeps mis-pricing them.
   var chart='';
   if(seasons.length>=2){
-    var W=Math.max(240, seasons.length*62), H=118, mid=60, cap=6, bw=34, gap=(W-seasons.length*bw)/(seasons.length+1);
-    var bars=seasons.map(function(y,i){
-      var v=r.bySeason[y].vsLine||0, cl=Math.max(-cap,Math.min(cap,v));
-      var h=Math.abs(cl)/cap*46, x=gap+(bw+gap)*i, col=v>=0?'#22c55e':'#ef4444';
-      var yy=v>=0?mid-h:mid, lbl=(y-1)+'–'+(''+y).slice(2);
-      return '<rect x="'+x.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+bw+'" height="'+Math.max(2,h).toFixed(1)+'" rx="3" fill="'+col+'" opacity="0.9"/>'+
-        '<text x="'+(x+bw/2).toFixed(1)+'" y="'+(v>=0?yy-4:yy+h+12).toFixed(1)+'" text-anchor="middle" font-size="10" font-weight="700" fill="'+col+'">'+(v>0?'+':'')+v.toFixed(1)+'</text>'+
-        '<text x="'+(x+bw/2).toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle" font-size="9" fill="var(--text3)">'+lbl+'</text>';
+    var n=seasons.length;
+    var maxAbs=Math.max(1.0,Math.max.apply(null,seasons.map(function(y){return Math.abs(r.bySeason[y].vsLine||0);})));
+    var cap=Math.ceil(maxAbs*1.15*2)/2;                              // round up to the nearest .5, with headroom
+    var padL=30,padR=12,padT=14,padB=26, W=Math.max(320,n*76), H=176;
+    var plotW=W-padL-padR, plotH=H-padT-padB, midY=padT+plotH/2, half=plotH/2;
+    var yOf=function(v){ return midY-(Math.max(-cap,Math.min(cap,v))/cap)*half; };
+    var grid=[cap,cap/2,0,-cap/2,-cap].map(function(gv){
+      var gy=yOf(gv), zero=(gv===0);
+      return '<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+gy.toFixed(1)+'" stroke="'+(zero?'var(--border2)':'var(--border)')+'" stroke-width="1"'+(zero?'':' stroke-dasharray="2 4" opacity="0.55"')+'/>'+
+        '<text x="'+(padL-7)+'" y="'+(gy+3).toFixed(1)+'" text-anchor="end" font-size="8.5" fill="var(--text3)">'+(gv>0?'+':'')+(gv%1?gv.toFixed(1):gv)+'</text>';
     }).join('');
-    chart='<div class="tbp-chart"><div class="tbp-tt">Value vs Our Line — by Season</div>'+
-      '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:'+W+'px;overflow:visible;">'+
-      '<line x1="0" y1="'+mid+'" x2="'+W+'" y2="'+mid+'" stroke="var(--border2)" stroke-width="1" stroke-dasharray="3 3"/>'+bars+'</svg>'+
-      '<div class="tbp-cap">Bars above the line = beat our projected number (market undervalued them); below = fell short.</div></div>';
+    var slotW=plotW/n, bw=Math.min(40,slotW*0.5);
+    var bars=seasons.map(function(y,i){
+      var v=r.bySeason[y].vsLine||0, cx=padL+slotW*(i+0.5), x=cx-bw/2;
+      var y1=yOf(v), top=Math.min(midY,y1), h=Math.max(2,Math.abs(y1-midY));
+      var col=v>=0?'color-mix(in srgb,#22c55e 60%,var(--text2))':'color-mix(in srgb,#ef4444 56%,var(--text2))';
+      var lbl=(y-1)+'–'+(''+y).slice(2);
+      return '<rect x="'+x.toFixed(1)+'" y="'+top.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="3" fill="'+col+'"/>'+
+        '<text x="'+cx.toFixed(1)+'" y="'+(v>=0?y1-5:y1+12).toFixed(1)+'" text-anchor="middle" font-size="10" font-weight="800" fill="'+col+'">'+(v>0?'+':'')+v.toFixed(1)+'</text>'+
+        '<text x="'+cx.toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle" font-size="9" font-weight="600" fill="var(--text3)">'+lbl+'</text>';
+    }).join('');
+    chart='<div class="tbp-chart"><div class="tbp-tt">Value vs Our Line — by Season <span style="font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· pts vs the market number</span></div>'+
+      '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:'+W+'px;display:block;">'+
+      '<rect x="'+padL+'" y="'+padT+'" width="'+plotW+'" height="'+plotH+'" rx="7" fill="color-mix(in srgb,var(--text) 3.5%,transparent)"/>'+
+      grid+bars+'</svg>'+
+      '<div class="tbp-cap">Bars above the zero line = beat our projected number (market undervalued them); below = fell short.</div></div>';
   }
   var angles=[];
   if(vsLine>=1) angles.push('📈 <b>Undervalued</b> — beats our projected line by '+sgn(vsLine)+' per game over 5 seasons.');
