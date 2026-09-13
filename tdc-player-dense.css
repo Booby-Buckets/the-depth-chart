@@ -159,16 +159,23 @@
    NIL VALUE TAB — reworked, dense
 ============================================================ */
 .nilx{ max-width:1000px; }
-.nilx-hero{ display:flex; flex-wrap:wrap; gap:18px; align-items:stretch;
-  border:1px solid var(--border); border-radius:16px; overflow:hidden;
-  background:radial-gradient(120% 200% at 0% 0%, rgba(var(--tc-rgb,45,224,166),.10), transparent 55%), var(--bg2); }
-.nilx-main{ padding:22px 24px; display:flex; flex-direction:column; justify-content:center; flex:1 1 260px; }
+/* Hero = ONE sheet band: the headline value cell + four stat cells in a row, shared dividers */
+.nilx-hero{ display:grid; grid-template-columns:minmax(220px,1.7fr) repeat(4,minmax(108px,1fr)); gap:0; align-items:stretch;
+  border:1px solid var(--border); border-radius:12px; overflow:hidden;
+  background:radial-gradient(120% 200% at 0% 0%, rgba(var(--tc-rgb,45,224,166),.08), transparent 55%), var(--bg2); }
+.nilx-main{ padding:18px 22px; display:flex; flex-direction:column; justify-content:center; min-width:0; }
 .nilx-lbl{ font-size:10.5px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--text3); }
-.nilx-val{ font-family:'Sora',sans-serif; font-weight:800; font-size:52px; line-height:1; margin:8px 0 6px; font-variant-numeric:tabular-nums; color:var(--text); }
+.nilx-val{ font-family:'Sora',sans-serif; font-weight:800; font-size:44px; line-height:1; margin:7px 0 5px; font-variant-numeric:tabular-nums; color:var(--text); }
 .nilx-sub{ font-size:12px; color:var(--text3); }
-.nilx-tiles{ display:grid; grid-template-columns:repeat(2,minmax(120px,1fr)); }
-.nilx-tile{ padding:14px 18px; border-left:1px solid var(--border); border-bottom:1px solid var(--border); display:flex; flex-direction:column; justify-content:center; }
-.nilx-tile:nth-child(2n){ } .nilx-tiles .nilx-tile:nth-last-child(-n+2){ border-bottom:none; }
+.nilx-tiles{ display:contents; }
+.nilx-tile{ padding:14px 16px; border-left:1px solid var(--border); display:flex; flex-direction:column; justify-content:center; min-width:0; }
+@media(max-width:820px){
+  .nilx-hero{ grid-template-columns:1fr 1fr; }
+  .nilx-main{ grid-column:1 / -1; border-bottom:1px solid var(--border); }
+  .nilx-tile{ border-left:none; border-top:1px solid var(--border); }
+  .nilx-tile:nth-child(even){ border-left:1px solid var(--border); }
+  .nilx-tile:nth-child(-n+2){ border-top:none; }
+}
 .nx-v{ font-family:'Sora',sans-serif; font-weight:800; font-size:24px; line-height:1; font-variant-numeric:tabular-nums; color:var(--text); }
 .nx-u{ font-size:12px; color:var(--text3); font-weight:600; margin-left:3px; }
 .nx-l{ font-size:9.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--text3); margin-top:6px; }
@@ -206,8 +213,10 @@
 .nilc-rank-l span{ display:block; font-size:10px; font-weight:500; color:var(--text3); margin-top:2px; }
 @media(max-width:640px){ .nilc-ranks{ grid-template-columns:1fr; } .nilc-rank{ border-right:none; border-bottom:1px solid var(--border); } .nilc-rank:last-child{ border-bottom:none; } }
 .nilc-cmp-h{ font-size:10.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--text3); margin:0 0 9px; }
-.nilc-list{ border:1px solid var(--border); border-radius:12px; background:var(--bg2); overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.18); }
-.nilc-row{ display:grid; grid-template-columns:34px 1fr 34px minmax(70px,1.1fr) 74px; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--border); }
+.nilc-list{ border:1px solid var(--border); border-radius:10px; background:var(--bg2); overflow:hidden; }
+.nilc-head{ display:grid; grid-template-columns:34px 1fr 34px minmax(70px,1.1fr) 74px; align-items:center; gap:12px; padding:7px 16px; border-bottom:1px solid var(--border2); background:var(--bg3); font-size:9.5px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--text3); }
+.nilc-head > :nth-child(1),.nilc-head > :nth-child(3){ text-align:center; } .nilc-head > :nth-child(5){ text-align:right; }
+.nilc-row{ display:grid; grid-template-columns:34px 1fr 34px minmax(70px,1.1fr) 74px; align-items:center; gap:12px; padding:9px 16px; border-bottom:1px solid var(--border); }
 .nilc-row:last-child{ border-bottom:none; }
 .nilc-row.me{ background:color-mix(in srgb,var(--tc,var(--accent)) 9%,transparent); }
 .nilc-rk{ font-size:11px; font-weight:800; color:var(--text3); text-align:center; font-variant-numeric:tabular-nums; }
@@ -220,7 +229,7 @@
 .nilc-track{ height:7px; border-radius:5px; background:var(--bg3); overflow:hidden; }
 .nilc-track i{ display:block; height:100%; border-radius:5px; transition:width .6s cubic-bezier(.22,1,.36,1); }
 .nilc-vl{ font-family:'Sora',sans-serif; font-weight:800; font-size:14px; text-align:right; color:var(--text); font-variant-numeric:tabular-nums; }
-@media(max-width:560px){ .nilc-row{ grid-template-columns:26px 1fr 28px 60px; } .nilc-track{ display:none; } }
+@media(max-width:560px){ .nilc-row,.nilc-head{ grid-template-columns:26px 1fr 28px 60px; } .nilc-track,.nilc-head > :nth-child(4){ display:none; } }
 /* Bang-for-the-buck efficiency cards */
 .nile-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:0; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--bg2); }
 .nile-card{ background:transparent; border:none; border-right:1px solid var(--border); border-radius:0; padding:13px 16px; }
