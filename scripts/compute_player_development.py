@@ -92,6 +92,10 @@ def build_school_conf():
     except Exception as e: print("conf_map supplement skipped:",e)
     return byyear,glob
 
+def get_all_page(path,frm):
+    req=urllib.request.Request(SB+"/rest/v1/"+path,headers={**HDR,"Range-Unit":"items","Range":"%d-%d"%(frm,frm+999)})
+    return json.load(urllib.request.urlopen(req,timeout=90))
+
 def conf_of(school,year,byyear,glob):
     k=norm(school)
     return (byyear.get(year,{}).get(k)) or glob.get(k)
@@ -107,6 +111,29 @@ def main():
     rows=[]  # fetch per year so pagination stays shallow (deep offsets 500)
     for yr in range(2007,2027):
         rows+=get_all("bbref_seasons?select=espn_id,player,school,season_year,class,pos,tdc_grade&tdc_grade=not.is.null&espn_id=not.is.null&season_year=eq.%d"%yr)
+    # OUR OWN graded seasons (player_history) as a fallback source: bbref lags on some current
+    # players, so any (espn_id, season) bbref lacks is filled from player_history in the same shape.
+    have={(str(r["espn_id"]),int(r["season_year"])) for r in rows}
+    added=0
+    for yr in range(2007,2027):
+        for r in get_all("player_history?select=espn_id,name,team,season_year,yr,position,tdc_grade&tdc_grade=not.is.null&espn_id=not.is.null&season_year=eq.%d"%yr):
+            k=(str(r["espn_id"]),int(r["season_year"]))
+            if k in have: continue
+            have.add(k); added+=1
+            rows.append({"espn_id":r["espn_id"],"player":r.get("name"),"school":r.get("team"),"season_year":r["season_year"],
+                         "class":r.get("yr"),"pos":r.get("position"),"tdc_grade":r["tdc_grade"]})
+    print("player_history fallback seasons added:",added)
+    # current rosters: these players ALWAYS get a trajectory (the player page's Development tab
+    # reads this file per player), even if their career is "flat" — the flat filter below only
+    # trims historical players who could never top a league-wide board.
+    current=set()
+    frm=0
+    while True:
+        b=get_all_page("players?select=espn_id&espn_id=not.is.null",frm)
+        current|={str(x["espn_id"]) for x in b if x.get("espn_id") is not None}
+        if len(b)<1000: break
+        frm+=1000
+    print("current roster players:",len(current))
 
     # tag every season with conference + level
     matched=0
@@ -143,7 +170,8 @@ def main():
         if len(ss)<2: continue
         grades=[x[3] for x in ss]
         maxj=max((ss[i][3]-ss[i-1][3] for i in range(1,len(ss)) if ss[i][0]==ss[i-1][0]+1), default=0)
-        if (max(grades)-grades[0])<3 and maxj<3: continue   # drop flat careers (never top a list)
+        flat=(max(grades)-grades[0])<3 and maxj<3
+        if flat and str(pid) not in current: continue   # trim flat HISTORICAL careers only; current players always ship
         # season = [year, grade, confIdx, schoolIdx]
         seasons=[[x[0],x[3],confidx.get(x[4],-1),schidx.get(x[2],-1)] for x in ss]
         players.append([pid, ss[-1][1], seasons])
@@ -157,7 +185,8 @@ def main():
     json.dump(out,open(OUT,"w"))
     print("seasons:%d  conf-matched:%d (%.0f%%)  buckets:%d  confs:%d"%(
         len(rows),matched,100*matched/len(rows),len(buckets),len(confs)))
-    print("years:",years[0],"-",years[-1]," players(>=2 seasons, non-flat):",len(players)," schools:",len(schools))
+    incur=sum(1 for pl in players if str(pl[0]) in current)
+    print("years:",years[0],"-",years[-1]," players shipped:",len(players)," schools:",len(schools)," current-roster players covered:",incur)
 
 # level lookup by short conf name
 _LVL={v[0]:v[1] for v in CONF.values()}

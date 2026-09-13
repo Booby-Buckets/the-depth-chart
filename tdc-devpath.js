@@ -9,7 +9,7 @@
 window.TDC_DEVPATH = (function(){
   let DATA=null;
   const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
-  async function ensureData(){ if(DATA) return DATA; try{ DATA=await fetch('scripts/data/development.json').then(r=>r.ok?r.json():null); }catch(e){ DATA=null; } return DATA; }
+  async function ensureData(){ if(DATA) return DATA; try{ DATA=await fetch('scripts/data/development.json?v=2').then(r=>r.ok?r.json():null); }catch(e){ DATA=null; } return DATA; }
   function ensureCss(){
     if(document.getElementById('tdcdv-css')) return;
     const s=document.createElement('style'); s.id='tdcdv-css';
