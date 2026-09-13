@@ -1177,7 +1177,7 @@ body{background:transparent!important;}
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index + team page -->
   <link rel="stylesheet" href="tdc-dense.css?v=31"/>
   <link rel="stylesheet" href="tdc-player-dense.css?v=25"/>
-  <script src="tdc-dossier.js?v=1" defer></script>
+  <script src="tdc-dossier.js?v=2" defer></script>
   <script src="tdc-roles.js?v=3" defer></script>
   <script src="tdc-devpath.js?v=2" defer></script>
   <!-- ===== Clean skin (2026): loaded LAST so it wins over dense CSS. Neutral base +
@@ -4848,6 +4848,7 @@ function renderPage(){
         <div class="scout-card-title">Statistical Summary</div>
         <div class="scout-card-body">${buildStatNarrative(p, proj, scout)}</div>
       </div>
+      <div id="scoutExtras" style="margin-top:28px;"></div>
       <div id="archetypeContent" style="margin-top:36px;"></div>
     </div>
 
@@ -7051,6 +7052,7 @@ function switchTab(t){
     if(id==='portalfit' && !window._portalLoaded){ window._portalLoaded=true; setTimeout(renderPortalFit,40); }
     if(id==='scout'){
       setTimeout(renderArchetype,60);
+      if(!window._scoutXLoaded){ window._scoutXLoaded=true; setTimeout(renderScoutExtras,80); }
     }
     setTimeout(function(){ growBarsIn(document.getElementById('panel-'+id)); }, 80);
   }
@@ -7418,6 +7420,104 @@ async function _fetchHistoryPool(){
   if(!rows.length) throw new Error('empty comp pool');
   if(total && rows.length < total*0.9) throw new Error('short comp pool '+rows.length+'/'+total);
   return rows;
+}
+
+/* ── Scouting Report extras: data-backed sheet sections appended under the narrative ──
+   Durability (GP/GS/MPG by season), efficiency profile (USG/TS/eFG/TOV%/AST% by season with
+   year-over-year deltas from careerHistory), and signature games (his top 2025-26 box lines).
+   Same sheet kit as the other Coach's Tier tabs. */
+async function renderScoutExtras(){
+  var host=document.getElementById('scoutExtras'); if(!host||!player) return;
+  host.innerHTML='<div style="padding:18px;text-align:center;color:var(--text3);font-size:12px;">Pulling his record…</div>';
+  var esc=function(x){return (''+(x==null?'':x)).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});};
+  var f1=function(v,d){ if(v==null||v===''||isNaN(+v)) return '—'; return (+v).toFixed(d==null?1:d); };
+  var secH=function(t,hint){ return '<div class="tdcd-sec" style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:22px 0 10px;display:flex;align-items:center;gap:10px;">'+t+(hint?'<span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);">'+hint+'</span>':'')+'<span style="flex:1;height:1px;background:var(--border);"></span></div>'; };
+  var readBox=function(t){ return '<div style="font-size:12.5px;line-height:1.6;color:var(--text2);padding:10px 14px;border:1px solid var(--border);border-radius:10px;margin-top:8px;">'+t+'</div>'; };
+  var yr=function(y){ return (y-1)+'–'+String(y).slice(2); };
+  var hist=(careerHistory||[]).filter(function(r){return r&&r.season_year&&(+r.gp||0)>0;}).slice().sort(function(a,b){return a.season_year-b.season_year;});
+  var out='';
+
+  // ── Durability ──
+  if(hist.length){
+    var rows=hist.map(function(r){
+      var gp=+r.gp||0, gs=r.gs==null?null:+r.gs, mpg=+r.mpg||0;
+      var tag = gp>=30?'<span style="color:var(--green);font-weight:800;">Full</span>':gp>=22?'<span style="color:var(--text);">Most</span>':gp>=12?'<span style="color:var(--amber,#e0a740);font-weight:800;">Partial</span>':'<span style="color:var(--red);font-weight:800;">Limited</span>';
+      return '<tr><td class="c">'+yr(r.season_year)+'</td><td class="c dim">'+esc(r.class_year||'')+'</td><td class="l nm">'+esc(r.team||'')+'</td><td class="v">'+gp+'</td><td>'+(gs==null?'<span class="dim">—</span>':gs)+'</td><td class="v">'+f1(mpg)+'</td><td>'+f1(mpg*gp,0)+'</td><td>'+tag+'</td></tr>';
+    }).join('');
+    var totG=hist.reduce(function(a,r){return a+(+r.gp||0);},0), full=hist.filter(function(r){return (+r.gp||0)>=30;}).length, lim=hist.filter(function(r){return (+r.gp||0)<12;}).length;
+    var last=hist[hist.length-1];
+    var dRead = hist.length>=2 && full===hist.length ? 'Has answered the bell every year — <b>'+totG+' games</b> across '+hist.length+' seasons without a short one. Availability is not a question.'
+      : lim ? 'There is a <b>short season</b> on the record ('+lim+' of '+hist.length+' under 12 games) — worth knowing why before you bank on a full year.'
+      : hist.length===1 ? 'One season on file — '+(+last.gp||0)+' games, '+f1(last.mpg)+' a night. No availability history to lean on yet.'
+      : totG+' games over '+hist.length+' seasons ('+full+' full). No red flags, but not a spotless card either.';
+    out+=secH('Durability','games and minutes, season by season')+
+      '<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="c">Season</th><th class="c">Class</th><th class="l">School</th><th>GP</th><th>GS</th><th>MPG</th><th>Total min</th><th>Load</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+readBox(dRead);
+  }
+
+  // ── Efficiency profile + year-over-year ──
+  var advRows=hist.filter(function(r){return r._advanced&&(r._advanced.usg_pct!=null||r._advanced.ts_pct!=null);});
+  if(advRows.length){
+    var pct=function(v,raw){ if(v==null||v===''||isNaN(+v)) return null; v=+v; return raw?v:(v<=1.5?v*100:v); };
+    var cell=function(v,d){ return v==null?'<span class="dim">—</span>':f1(v,d==null?1:d); };
+    var delta=function(cur,prev,inv){ if(cur==null||prev==null) return ''; var d=cur-prev; if(Math.abs(d)<0.05) return ' <span class="dim" style="font-size:10px;">±0</span>'; var good=inv?d<0:d>0; return ' <span style="font-size:10px;font-weight:800;color:'+(good?'var(--green)':'var(--red)')+';">'+(d>0?'+':'')+d.toFixed(1)+'</span>'; };
+    var prev=null, erows='';
+    advRows.forEach(function(r){
+      var a=r._advanced, fga=+r.fga||0, mpg=+r.mpg||0, cur={usg:pct(a.usg_pct,true),ts:pct(a.ts_pct),efg:fga?((+r.fgm||0)+0.5*(+r.tpm||0))/fga*100:null,tov:pct(a.tov_pct,true),ast:pct(a.ast_pct,true),pts40:mpg?(+r.ppg||0)/mpg*40:null};
+      erows+='<tr><td class="c">'+yr(r.season_year)+'</td><td class="l nm">'+esc(r.team||'')+'</td>'+
+        '<td class="v">'+cell(cur.usg)+(prev?delta(cur.usg,prev.usg):'')+'</td>'+
+        '<td class="v">'+cell(cur.ts)+(prev?delta(cur.ts,prev.ts):'')+'</td>'+
+        '<td>'+cell(cur.efg)+(prev?delta(cur.efg,prev.efg):'')+'</td>'+
+        '<td>'+cell(cur.tov)+(prev?delta(cur.tov,prev.tov,true):'')+'</td>'+
+        '<td>'+cell(cur.ast)+(prev?delta(cur.ast,prev.ast):'')+'</td>'+
+        '<td>'+cell(cur.pts40)+(prev?delta(cur.pts40,prev.pts40):'')+'</td></tr>';
+      prev=cur;
+    });
+    var L=advRows[advRows.length-1]._advanced, u=pct(L.usg_pct,true), ts=pct(L.ts_pct), tv=pct(L.tov_pct,true);
+    var eRead='';
+    if(u!=null&&ts!=null){
+      eRead = (u>=26&&ts>=58)?'A <b>high-usage, high-efficiency</b> scorer — '+f1(u)+'% usage at a '+f1(ts)+' TS%. That combination is rare and is what drives the grade.'
+        : (u>=26&&ts<53)?'Carries a <b>heavy load</b> ('+f1(u)+'% usage) at a <b>thin</b> '+f1(ts)+' TS%. Volume is there; the shot quality is the question.'
+        : (u<18&&ts>=58)?'<b>Low usage, very efficient</b> ('+f1(u)+'% / '+f1(ts)+' TS%) — a finisher who lives off others. More touches are the growth lever, if the efficiency holds.'
+        : (ts>=58)?'Efficient at '+f1(ts)+' TS% on a '+f1(u)+'% usage — a clean, sustainable profile.'
+        : (ts<50)?'The efficiency is the concern: <b>'+f1(ts)+' TS%</b> on '+f1(u)+'% usage. The role or the shot selection has to change.'
+        : 'Middle-of-the-road efficiency ('+f1(ts)+' TS%) on a '+f1(u)+'% usage.';
+      if(tv!=null&&tv>=20) eRead+=' Turnovers run hot (<b>'+f1(tv)+'% TOV</b>).';
+      if(advRows.length>=2){ var P=advRows[advRows.length-2]._advanced, pts=pct(P.ts_pct), pu=pct(P.usg_pct,true);
+        if(pts!=null&&ts-pts>=3) eRead+=' Efficiency <b>rose '+f1(ts-pts)+' points</b> year over year'+(pu!=null&&u-pu>=2?' while his usage climbed, too — real growth.':'.');
+        else if(pts!=null&&pts-ts>=3) eRead+=' Efficiency <b>slipped '+f1(pts-ts)+' points</b> from the prior year'+(pu!=null&&u-pu>=3?' as his usage rose — the classic bigger-role tax.':'.'); }
+    }
+    out+=secH('Efficiency profile','usage · true shooting · year-over-year')+
+      '<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="c">Season</th><th class="l">School</th><th>USG%</th><th>TS%</th><th>eFG%</th><th>TOV%</th><th>AST%</th><th>PTS/40</th></tr></thead><tbody>'+erows+'</tbody></table></div>'+
+      (eRead?readBox(eRead):'')+'<div style="font-size:10.5px;color:var(--text3);margin-top:6px;">Small figures are the change from the prior season (green = better).</div>';
+  }
+
+  // ── Signature games (2025-26 box lines) ──
+  try{
+    var espn=(player&&player.espn_id)||window._espnId||null;
+    if(espn){
+      var box=await fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.2026&select=game_id,date,opp,min,pts,reb,ast,stl,blk,tov,fgm,fga,tpm,tpa,ftm,fta&order=date',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+      box=(box||[]).filter(function(b){return (+b.min||0)>0;});
+      if(box.length>=5){
+        var gs=function(b){ var fgm=+b.fgm||0,fga=+b.fga||0,ftm=+b.ftm||0,fta=+b.fta||0; return (+b.pts||0)+0.4*fgm-0.7*fga-0.4*(fta-ftm)+0.45*(+b.reb||0)+0.7*(+b.ast||0)+(+b.stl||0)+0.7*(+b.blk||0)-(+b.tov||0); };
+        var scored=box.map(function(b){ return {b:b,g:gs(b)}; }).sort(function(a,b){return b.g-a.g;});
+        var top=scored.slice(0,5), worst=scored[scored.length-1];
+        var avgG=scored.reduce(function(a,x){return a+x.g;},0)/scored.length;
+        var sd=Math.sqrt(scored.reduce(function(a,x){return a+(x.g-avgG)*(x.g-avgG);},0)/scored.length);
+        var dbl=box.filter(function(b){ var c=0; ['pts','reb','ast','stl','blk'].forEach(function(k){ if((+b[k]||0)>=10) c++; }); return c>=2; }).length;
+        var twenty=box.filter(function(b){return (+b.pts||0)>=20;}).length, dud=box.filter(function(b){return (+b.pts||0)<=5;}).length;
+        var line=function(b){ return '<tr><td class="c dim">'+esc((b.date||'').slice(5))+'</td><td class="l nm">'+esc(b.opp||'')+'</td><td>'+(+b.min||0)+'</td><td class="v">'+(+b.pts||0)+'</td><td>'+(+b.reb||0)+'</td><td>'+(+b.ast||0)+'</td><td>'+(+b.stl||0)+'/'+(+b.blk||0)+'</td><td>'+(+b.fgm||0)+'-'+(+b.fga||0)+'</td><td>'+(+b.tpm||0)+'-'+(+b.tpa||0)+'</td><td>'+(+b.ftm||0)+'-'+(+b.fta||0)+'</td><td>'+(+b.tov||0)+'</td></tr>'; };
+        var sRead = sd>=7?'A <b>boom-or-bust</b> profile — his game score swings widely night to night (σ '+f1(sd)+'). '+twenty+' twenty-point games against '+dud+' games of five or fewer.'
+          : sd<=4.5?'<b>Remarkably consistent</b> — game score σ of just '+f1(sd)+'. You know what you are getting.'
+          : 'Normal night-to-night variance (σ '+f1(sd)+'). '+twenty+' twenty-point games, '+dud+' games of five or fewer.';
+        if(dbl) sRead+=' '+dbl+' double-double'+(dbl>1?'s':'')+'.';
+        out+=secH('Signature games','his five best 2025-26 box lines by game score')+
+          '<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="c">Date</th><th class="l">Opp</th><th>Min</th><th>Pts</th><th>Reb</th><th>Ast</th><th>Stl/Blk</th><th>FG</th><th>3P</th><th>FT</th><th>TO</th></tr></thead><tbody>'+top.map(function(x){return line(x.b);}).join('')+
+          '<tr><td colspan="11" class="l dim" style="font-size:10px;padding-top:8px;">Worst night</td></tr>'+line(worst.b)+'</tbody></table></div>'+readBox(sRead);
+      }
+    }
+  }catch(e){ console.warn('scout extras box fetch',e); }
+
+  host.innerHTML = out || '';
 }
 
 async function renderArchetype(){

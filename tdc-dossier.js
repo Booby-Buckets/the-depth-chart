@@ -121,7 +121,7 @@ window.TDC_DOSSIER = (function(){
     await ensureDna();
     let log=[], shots=[];
     try{ [log,shots]=await Promise.all([
-      fetch(`${SB_URL}/rest/v1/box_scores?espn_id=eq.${ctx.espn_id}&season_year=eq.2026&select=game_id,team,opp,min,fga,fgm,tpm,fta,tov,pts&order=date`,{headers:H}).then(r=>r.ok?r.json():[]),
+      fetch(`${SB_URL}/rest/v1/box_scores?espn_id=eq.${ctx.espn_id}&season_year=eq.2026&select=game_id,team,opp,date,min,fga,fgm,tpm,fta,tov,pts,pf&order=date`,{headers:H}).then(r=>r.ok?r.json():[]),
       fetch(`${SB_URL}/rest/v1/shots?espn_id=eq.${ctx.espn_id}&season_year=eq.2026&select=made,sv,stype,period,sec_left,home_score,away_score,ast_name,team_id`,{headers:SH()}).then(r=>r.ok?r.json():[])
     ]); }catch(e){}
     log=(log||[]).filter(g=>R(g.min)>0); shots=shots||[];
@@ -213,12 +213,12 @@ window.TDC_DOSSIER = (function(){
     // who he does it against: opponent quality / venue / close games
     let splitsHtml=''; await ensureSrs();
     const gids=[...new Set(log.map(g=>g.game_id).filter(Boolean))];
-    let gRows=[]; if(gids.length){ try{ gRows=await fetch(`${SB_URL}/rest/v1/games?id=in.(${gids.join(',')})&select=id,home,away,home_score,away_score,neutral`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){} }
+    let gRows=[]; if(gids.length){ try{ gRows=await fetch(`${SB_URL}/rest/v1/games?id=in.(${gids.join(',')})&select=id,home,away,home_score,away_score,neutral,conf_game`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){} }
     const gById={}; gRows.forEach(g=>{gById[g.id]=g;});
     const sAgg=gs=>{ if(!gs.length) return null; let pts=0,fgm=0,fga=0,tpm=0; gs.forEach(g=>{pts+=R(g.pts);fgm+=R(g.fgm);fga+=R(g.fga);tpm+=R(g.tpm);}); return {n:gs.length,ppg:pts/gs.length,efg:fga?(fgm+0.5*tpm)/fga*100:null}; };
     const G=log.map(b=>{ const g=gById[b.game_id]; if(!g) return null; const home=g.home===b.team, oppName=home?g.away:g.home;
       const my=home?R(g.home_score):R(g.away_score), opp=home?R(g.away_score):R(g.home_score);
-      return {pts:R(b.pts),fgm:R(b.fgm),fga:R(b.fga),tpm:R(b.tpm),venue:g.neutral?'N':(home?'H':'A'),oppRank:(SRSRANK[oppName]!=null?SRSRANK[oppName]:999),close:Math.abs(my-opp)<=5}; }).filter(Boolean);
+      return {pts:R(b.pts),fgm:R(b.fgm),fga:R(b.fga),tpm:R(b.tpm),venue:g.neutral?'N':(home?'H':'A'),oppRank:(SRSRANK[oppName]!=null?SRSRANK[oppName]:999),close:Math.abs(my-opp)<=5,conf:!!g.conf_game}; }).filter(Boolean);
     if(G.length>=6){
       const q1=G.filter(g=>g.oppRank<=50), q2=G.filter(g=>g.oppRank>50&&g.oppRank<=150), q3=G.filter(g=>g.oppRank>150);
       const srow=(lab,gs)=>{ const a=sAgg(gs); return a?`<div class="sp2"><div class="spl">${lab}</div><div class="a">${F(a.ppg)}</div><div class="b">${a.n}</div></div>`:''; };
@@ -232,6 +232,51 @@ window.TDC_DOSSIER = (function(){
       if(aClose&&aAll&&aClose.n>=3){ const d=aClose.ppg-aAll.ppg; if(Math.abs(d)>=2) reads.push(d>=0?`Steps up in close games (<b>${F(aClose.ppg)}</b>).`:`Quiets down in close games (<b>${F(aClose.ppg)}</b>).`); }
       if(aRoad&&aAll&&aRoad.n>=3){ const d=aRoad.ppg-aAll.ppg; if(d<=-2.5) reads.push(`Travels poorly — <b>${F(aRoad.ppg)}</b> on the road.`); }
       splitsHtml=`<div class="sec-h">Who he does it against <span class="hint">2025-26 scoring by quality · venue · pressure</span></div><div class="idg">${qCard}${vCard}${cCard}</div>${reads.length?`<div class="idr" style="margin-top:8px;border-radius:10px;border:1px solid var(--border);">${reads.join(' ')}</div>`:''}`;
+    }
+
+    // ── FORM & CONFERENCE PLAY: last-5 / last-10 vs season, and conference vs non-conference ──
+    let formHtml='';
+    if(log.length>=10){
+      const chron=log.slice();   // box is ordered by date asc
+      const agg=gs=>{ if(!gs.length) return null; let pts=0,fgm=0,fga=0,tpm=0,tov=0; gs.forEach(g=>{pts+=R(g.pts);fgm+=R(g.fgm);fga+=R(g.fga);tpm+=R(g.tpm);tov+=R(g.tov);}); return {n:gs.length,ppg:pts/gs.length,efg:fga?(fgm+0.5*tpm)/fga*100:null,tov:tov/gs.length}; };
+      const L5=agg(chron.slice(-5)), L10=agg(chron.slice(-10)), S=agg(chron);
+      const row=(lab,a)=>a?`<tr><td class="l nm">${lab}</td><td>${a.n}</td><td class="v">${F(a.ppg)}</td><td class="v">${F(a.efg,0)}</td><td>${F(a.tov)}</td></tr>`:'';
+      const dP=L10.ppg-S.ppg, dE=(L10.efg!=null&&S.efg!=null)?L10.efg-S.efg:0;
+      const formRead = dP>=2.5&&dE>=0 ? `Closed the season <b>hot</b> — ${F(L10.ppg)} ppg over his last 10 (+${F(dP)} on his average)${dE>=3?' with better efficiency':''}.`
+        : dP<=-2.5 ? `<b>Faded late</b> — ${F(L10.ppg)} ppg over his last 10, ${F(Math.abs(dP))} under his average${dE<=-3?', and his shot went with it':''}.`
+        : dE>=4 ? `Steady volume but a <b>hotter shot</b> down the stretch (eFG +${F(dE,0)} over his last 10).`
+        : dE<=-4 ? `Volume held but his <b>shot cooled</b> late (eFG ${F(dE,0)} over his last 10).`
+        : `Finished about where he lived all year — no late surge or fade.`;
+      const cG=G.filter(g=>g.conf), nG=G.filter(g=>!g.conf);
+      const cA=sAgg(cG), nA=sAgg(nG);
+      const confRows=(cA&&nA&&cA.n>=5&&nA.n>=4)?`<tr><td class="l nm">Conference play</td><td>${cA.n}</td><td class="v">${F(cA.ppg)}</td><td class="v">${F(cA.efg,0)}</td><td class="dim">—</td></tr><tr><td class="l nm">Non-conference</td><td>${nA.n}</td><td class="v">${F(nA.ppg)}</td><td class="v">${F(nA.efg,0)}</td><td class="dim">—</td></tr>`:'';
+      const confRead=(cA&&nA&&cA.n>=5&&nA.n>=4)?(()=>{ const d=cA.ppg-nA.ppg, e=(cA.efg!=null&&nA.efg!=null)?cA.efg-nA.efg:0; return d<=-2.5?` Scoring dipped <b>${F(Math.abs(d))} ppg</b> once league play started${e<=-3?' and his eFG fell '+F(Math.abs(e),0):''} — the non-con numbers flatter him.`:d>=2?` He got <b>better</b> in league play (+${F(d)} ppg).`:` League play didn’t change his output.`; })():'';
+      formHtml=`<div class="sec-h">Form &amp; conference play <span class="hint">how he finished · league vs non-league</span></div>
+        <div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Span</th><th>G</th><th>PPG</th><th>eFG%</th><th>TO/g</th></tr></thead><tbody>${row('Last 5',L5)}${row('Last 10',L10)}${row('Season',S)}${confRows}</tbody></table></div>
+        <div class="idr" style="border:1px solid var(--border);border-radius:10px;margin-top:8px;">${formRead}${confRead}</div>`;
+    }
+
+    // ── AVAILABILITY: foul risk + rotation volatility (Predictive Identifiers) ──
+    let availHtml='';
+    if(log.length>=10){
+      let pf=0,mn=0,four=0,five=0; const mins=log.map(g=>R(g.min));
+      log.forEach(g=>{ pf+=R(g.pf); mn+=R(g.min); if(R(g.pf)>=4) four++; if(R(g.pf)>=5) five++; });
+      const pf40=mn?pf/mn*40:0, fourPct=four/log.length*100;
+      const mMean=mins.reduce((a,b)=>a+b,0)/mins.length, mSd=Math.sqrt(mins.reduce((a,b)=>a+(b-mMean)*(b-mMean),0)/mins.length);
+      const mLo=Math.min(...mins), mHi=Math.max(...mins), under20=mins.filter(m=>m<20).length/mins.length*100;
+      const foulTag=pf40>=4.5?['High','r']:pf40>=3.5?['Moderate','a']:['Low','g'];
+      const volTag=mSd>=8?['Volatile','r']:mSd>=5?['Uneven','a']:['Steady','g'];
+      const foulRead=pf40>=4.5?`Foul trouble is a real lever — <b>${F(pf40)} fouls/40</b>, four-plus in <b>${Math.round(fourPct)}%</b> of games${five?` (fouled out ${five}×)`:''}. Attack him early and he sits.`:pf40>=3.5?`Some foul risk — <b>${F(pf40)}/40</b>, four-plus in ${Math.round(fourPct)}% of games. Worth testing him at the rim.`:`Disciplined — <b>${F(pf40)} fouls/40</b>; foul trouble rarely takes him off the floor.`;
+      const volRead=mSd>=8?`His minutes swing widely (<b>${F(mMean,0)} ± ${F(mSd,0)}</b>, ${mLo}–${mHi}) — ${Math.round(under20)}% of games under 20 min. The role isn’t fixed; game flow decides it.`:mSd>=5?`Minutes are <b>uneven</b> (${F(mMean,0)} ± ${F(mSd,0)}) — a clear role, but matchups and foul trouble move it.`:`A <b>locked-in role</b> — ${F(mMean,0)} ± ${F(mSd,0)} minutes a night, ${mLo}–${mHi} range.`;
+      availHtml=`<div class="sec-h">Availability <span class="hint">foul risk · rotation volatility · ${log.length} g</span></div>
+        <div class="idg">
+          <div class="idcard ${foulTag[1]}"><div class="ih"><div class="inm">Foul Risk</div><div class="isc">${F(pf40)}<small>PF/40 · ${foulTag[0]}</small></div></div>
+            <div class="sheet-wrap"><table class="sheet"><tbody><tr><td class="l nm">Fouls per 40</td><td class="v">${F(pf40)}</td></tr><tr><td class="l nm">Games with 4+ fouls</td><td class="v">${four} <span class="dim">(${Math.round(fourPct)}%)</span></td></tr><tr><td class="l nm">Fouled out</td><td class="v">${five}</td></tr></tbody></table></div>
+            <div class="idr">${foulRead}</div></div>
+          <div class="idcard ${volTag[1]}"><div class="ih"><div class="inm">Rotation Volatility</div><div class="isc">±${F(mSd,0)}<small>min · ${volTag[0]}</small></div></div>
+            <div class="sheet-wrap"><table class="sheet"><tbody><tr><td class="l nm">Minutes per game</td><td class="v">${F(mMean,1)}</td></tr><tr><td class="l nm">Range</td><td class="v">${mLo}–${mHi}</td></tr><tr><td class="l nm">Games under 20 min</td><td class="v">${Math.round(under20)}%</td></tr></tbody></table></div>
+            <div class="idr">${volRead}</div></div>
+        </div>`;
     }
 
     // shot creation
@@ -254,7 +299,7 @@ window.TDC_DOSSIER = (function(){
     }
 
     const [cdot,clab]=confDot(Math.min(fast.length,slow.length,hav.length,lowD.length));
-    host.innerHTML=`<div style="--tc:${tc}">${head}${projHtml}${idg}${splitsHtml}${clutchHtml}${archHtml}${zoneHtml}${creationHtml}
+    host.innerHTML=`<div style="--tc:${tc}">${head}${projHtml}${idg}${splitsHtml}${formHtml}${availHtml}${clutchHtml}${archHtml}${zoneHtml}${creationHtml}
       <div class="note">Situational confidence <span class="conf"><span class="dot" style="background:${cdot}"></span>${clab}</span> — based on the smallest split sample. Thin buckets are directional, not definitive. Projected line = the site's forward-looking projection; splits are cut from his own 2025-26 game and shot logs vs the opponent's tempo / forced-turnover rate / defensive archetype (team_dna), and the clutch (last 5:00 within 5).</div></div>`;
     if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
   }
