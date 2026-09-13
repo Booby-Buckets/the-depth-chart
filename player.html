@@ -1143,7 +1143,7 @@ body{background:transparent!important;}
   <script src="tdc-anim.js?v=5"></script>
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index + team page -->
   <link rel="stylesheet" href="tdc-dense.css?v=31"/>
-  <link rel="stylesheet" href="tdc-player-dense.css?v=23"/>
+  <link rel="stylesheet" href="tdc-player-dense.css?v=24"/>
   <!-- ===== Clean skin (2026): loaded LAST so it wins over dense CSS. Neutral base +
        translucent depth tokens; team color stays on --tc for the minimal accent slots. ===== -->
   <link rel="stylesheet" href="tdc-skin.css?v=8"/>
@@ -6443,9 +6443,9 @@ function _nilCompareHtml(N, cur, col){
   }).join('');
   return '<div class="sec-title" style="margin:26px 0 12px;">How he stacks up</div>'
     +'<div class="nilc-ranks">'
-      +'<div class="nilc-rank"><div class="nilc-rank-v" style="color:'+col+'">#'+natRank+'</div><div class="nilc-rank-l">NIL value nationally<span>of '+natTot.toLocaleString()+' rotation players</span></div></div>'
-      +'<div class="nilc-rank"><div class="nilc-rank-v" style="color:'+col+'">#'+posRank+'</div><div class="nilc-rank-l">among '+esc(cur.pos5||'')+'s<span>of '+posTot.toLocaleString()+' at the position</span></div></div>'
-      +'<div class="nilc-rank"><div class="nilc-rank-v" style="color:'+col+'">'+pct+'<span style="font-size:18px">th</span></div><div class="nilc-rank-l">percentile<span>higher = more valuable</span></div></div>'
+      +'<div class="nilc-rank"><div class="nilc-rank-v">#'+natRank+'</div><div class="nilc-rank-l">NIL value nationally<span>of '+natTot.toLocaleString()+' rotation players</span></div></div>'
+      +'<div class="nilc-rank"><div class="nilc-rank-v">#'+posRank+'</div><div class="nilc-rank-l">among '+esc(cur.pos5||'')+'s<span>of '+posTot.toLocaleString()+' at the position</span></div></div>'
+      +'<div class="nilc-rank"><div class="nilc-rank-v">'+pct+'<span style="font-size:18px">th</span></div><div class="nilc-rank-l">percentile<span>higher = more valuable</span></div></div>'
     +'</div>'
     +'<div class="nilc-cmp-h">Comparable '+esc(cur.pos5||'')+'s by projected NIL value</div>'
     +'<div class="nilc-list">'+rows+'</div>'
@@ -6511,7 +6511,7 @@ function _nilEfficiencyHtml(N, cur, col){
   return head
     +'<div class="nile-grid">'
       +'<div class="nile-card"><div class="nile-v">'+fmt(perWin)+'</div><div class="nile-l">per Win Added<span>his '+fmt(cur.val)+' ÷ '+(cur.wa>0?'+':'')+cur.wa.toFixed(1)+' WA</span></div></div>'
-      +'<div class="nile-card"><div class="nile-v" style="color:'+col+'">#'+rank+'</div><div class="nile-l">production per dollar<span>of '+tot.toLocaleString()+' with a WA record</span></div></div>'
+      +'<div class="nile-card"><div class="nile-v">#'+rank+'</div><div class="nile-l">production per dollar<span>of '+tot.toLocaleString()+' with a WA record</span></div></div>'
       +'<div class="nile-card"><div class="nile-v" style="color:'+tier[1]+';font-size:22px;line-height:1.25;">'+tier[0]+'</div><div class="nile-l">'+pctile+'th percentile<span>higher = more production per $</span></div></div>'
     +'</div>'
     +_nilScatterSVG(N,cur,col)
@@ -6688,7 +6688,7 @@ async function renderNilPlayer(){
     <div class="nilx-hero">
       <div class="nilx-main">
         <div class="nilx-lbl">2026-27 Projected NIL Value</div>
-        <div class="nilx-val" style="color:${col}">${fmt(value)}</div>
+        <div class="nilx-val">${fmt(value)}</div>
         <div class="nilx-sub">Realistic open-market value</div>
         ${(_injRec&&_injM!==1)?`<div class="nilx-adj" style="margin-top:6px;font-size:11px;color:var(--red,#ef4444);"><b>Injury:</b> ${String((_injRec.part||'Injury')).replace(/</g,'&lt;')}${((_injRec.play===false)||_injRec.timeline==='multi'||_injRec.timeline==='season')?' — out':(_injRec.timeline==='1-3m'?' — ~1–3 months':'')} <span style="color:var(--text3);">(−${Math.round((1-_injM)*100)}% NIL)</span></div>`:''}
         ${(_adj&&_adj.reason&&_adjM!==1)?`<div class="nilx-adj" style="margin-top:6px;font-size:11px;color:var(--amber,#c9962b);"><b>Market adjustment:</b> ${String(_adj.reason).replace(/</g,'&lt;')} <span style="color:var(--text3);">(${_adjM<1?'−':'+'}${Math.round(Math.abs(1-_adjM)*100)}%)</span></div>`:''}
@@ -6703,7 +6703,7 @@ async function renderNilPlayer(){
     ${marketVal!=null?`<div class="sec-title" style="margin:24px 0 12px;">Model vs Market</div>
     <div class="nilx-mm">
       <div class="nilx-mm-card"><div class="mm-l">Model Value</div><div class="mm-v">${fmt(modelVal)}</div><div class="mm-s">production estimate</div></div>
-      <div class="nilx-mm-card"><div class="mm-l">Market Value</div><div class="mm-v" style="color:${col}">${fmt(marketVal)}</div><div class="mm-s">${marketPos} positional curve${(_bm&&_bm.moved)?' · natural pos':''}</div></div>
+      <div class="nilx-mm-card"><div class="mm-l">Market Value</div><div class="mm-v">${fmt(marketVal)}</div><div class="mm-s">${marketPos} positional curve${(_bm&&_bm.moved)?' · natural pos':''}</div></div>
       <div class="nilx-mm-card" style="${_verdict.tag?`border-left:3px solid ${N.markColor(_verdict.tag)}`:''}"><div class="mm-l">Verdict · vs market</div><div class="mm-v" style="font-size:21px;color:${_verdict.tag?N.markColor(_verdict.tag):'var(--text3)'}">${_verdict.tag?N.markLabel(_verdict.tag):'—'}</div><div class="mm-s">${_verdict.tag==='underrated'?'slept on — production ~'+_verdict.ratio.toFixed(1)+'× his market price':_verdict.tag==='overrated'?'market prices him ~'+_verdict.ratio.toFixed(1)+'× his production':_verdict.tag==='fair'?'market ≈ production (tier-fair)':'not enough role to judge'}</div></div>
     </div>`:''}
     ${(!walkon)?(function(){var _cur={name:(player&&player.name)||'',team:_teamNm,pos5:(N.POS5?N.POS5(pos):pos),val:modelVal,grade:grade,wa:_wa};
