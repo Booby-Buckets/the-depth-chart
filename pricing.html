@@ -191,7 +191,9 @@ body{background:transparent!important;}
   <script src="tdc-pwa.js?v=2" defer></script>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=22"></script>
+<script src="tdc-badge.js?v=1"></script>
+<script src="tdc-billing.js?v=1"></script>
+<script src="tdc-nav.js?v=23"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 
 <div class="nav-wrap">
@@ -385,6 +387,8 @@ body{background:transparent!important;}
         <div class="form-hint" id="acctPromoHint"></div>
       </div>
 
+      <div id="acctBilling" style="margin-top:20px;"></div>
+
       <div id="acctUpgradeBlock">
         <div class="form-divider">or upgrade</div>
         <div id="upPremiumRow">
@@ -449,6 +453,7 @@ async function showAccount(token){
   const profiles = await r.json();
   const profile = profiles[0] || {};
 
+  if(!profile.username){ location.href='welcome.html'; return; }   // account setup not finished
   document.getElementById('panel-signin').classList.remove('active');
   document.getElementById('panel-signup').classList.remove('active');
   document.getElementById('panel-account').classList.add('active');
@@ -482,6 +487,7 @@ async function showAccount(token){
   if(upPremium) upPremium.style.display = isPaid ? 'none' : '';   // Premium upsell only for free users
   if(upPro) upPro.style.display = isPro ? 'none' : '';            // Pro upsell for free + premium
   if(upBlock) upBlock.style.display = isPro ? 'none' : '';
+  const bill=document.getElementById('acctBilling'); if(bill) bill.innerHTML = (isPaid && window.TDC_BILLING) ? TDC_BILLING.panel(profile) : '';
   if(promoBlock) promoBlock.style.display = isPaid ? 'none' : '';
   if(expLabel) expLabel.textContent = isPaid ? 'Renews' : 'Expires';
 
@@ -565,8 +571,8 @@ async function handleSignUp(){
     // Apply promo code if validated
     if(validatedPromo) await redeemPromo(validatedPromo, token);
 
-    showMsg('signupMsg','Account created! Welcome to The Depth Chart.','success');
-    setTimeout(()=>showAccount(token), 1000);
+    showMsg('signupMsg','Account created! Let’s set up your profile…','success');
+    setTimeout(()=>{ location.href='welcome.html'; }, 700);   // required setup: username → team → interests
   } catch(e){ showMsg('signupMsg','Something went wrong.','error'); }
 }
 

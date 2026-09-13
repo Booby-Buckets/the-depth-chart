@@ -200,7 +200,8 @@ body{background:transparent!important;}
 </head>
 <body data-anim-auto>
 <script src="tdc-badge.js?v=1"></script>
-<script src="tdc-nav.js?v=22"></script>
+<script src="tdc-billing.js?v=1"></script>
+<script src="tdc-nav.js?v=23"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 
 <div class="nav-wrap">
@@ -277,7 +278,7 @@ async function init(){
 
 async function renderPage(){
   const p = currentProfile;
-  const isPremium = p.plan === 'premium';
+  const isPremium = ['premium','pro','coach'].includes(p.plan);
   const uname = p.username || currentUser.email?.split('@')[0] || 'User';
 
   // Update nav
@@ -316,7 +317,7 @@ async function renderPage(){
         <div class="acct-uname">${uname}<span style="font-size:20px;">${heroVb}</span></div>
         <div class="acct-email">${currentUser.email}</div>
         <div class="acct-chips">
-          <span class="plan-badge ${isPremium?'premium':'free'}">${isPremium?'★ Premium':'Free Plan'}</span>
+          <span class="plan-badge ${isPremium?'premium':'free'}">${isPremium?'★ '+(window.TDC_BADGE?TDC_BADGE.label(p):'Premium'):'Free Plan'}</span>
           ${favChip}
         </div>
       </div>
@@ -324,11 +325,7 @@ async function renderPage(){
 
     <!-- SUBSCRIPTION -->
     ${isPremium ? `
-    <div class="glass plan-card premium span2">
-      <div class="plan-status">✓ Active Subscription</div>
-      <div class="plan-h">You're on Premium</div>
-      <div class="plan-sub">${renews ? 'Renews '+renews : 'Active subscription'} · Full access to every team, player grade, projection & tool.</div>
-    </div>` : `
+    <div class="span2">${window.TDC_BILLING?TDC_BILLING.panel(p):''}</div>` : `
     <div class="glass plan-card span2">
       <div class="plan-status">Upgrade</div>
       <div class="plan-h">Unlock Premium</div>
@@ -364,7 +361,7 @@ async function renderPage(){
       <!-- PREFERENCES + INFO -->
       <div class="glass">
         <div class="glass-title">Details & Preferences</div>
-        <div class="info-row"><span class="info-label">Plan</span><span class="info-val"><span class="plan-badge ${isPremium?'premium':'free'}" style="font-size:9px;">${isPremium?'Premium':'Free'}</span></span></div>
+        <div class="info-row"><span class="info-label">Plan</span><span class="info-val"><span class="plan-badge ${isPremium?'premium':'free'}" style="font-size:9px;">${isPremium?(window.TDC_BADGE?TDC_BADGE.label(p):'Premium'):'Free'}</span></span></div>
         <div class="info-row"><span class="info-label">${isPremium?'Renews':'Status'}</span><span class="info-val">${renews||'No active plan'}</span></div>
         <div class="switch-row" style="margin-top:6px;">
           <span class="info-label" style="text-transform:none;letter-spacing:0;font-size:13px;color:var(--text2);">Dark mode</span>

@@ -199,6 +199,12 @@
       .then(function (r) { return r.json(); })
       .then(function (rows) {
         var p = rows && rows[0]; if (!p) return;
+        // First sign-in with no username yet → finish account setup before anything else.
+        // (welcome.html itself, and the sign-in page, are exempt so the flow can't loop.)
+        if (!p.username && !/(^|\/)(welcome|pricing)\.html$/.test(location.pathname)) {
+          var here = location.pathname.split('/').pop() + location.search;
+          location.replace('welcome.html?next=' + encodeURIComponent(here)); return;
+        }
         var u = p.username || (s.user.email ? s.user.email.split('@')[0] : 'User');
         var el = document.getElementById('navActions'); if (!el) return;
         var av = p.avatar_url
