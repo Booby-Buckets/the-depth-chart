@@ -6995,30 +6995,113 @@ async function renderScheme(){
     {k:'tp_pct',l:'3P%',sub:'look quality'},
     {k:'tpa',l:'3PA',sub:'shot diet'}
   ];
+  // ── shared sheet bits ──
+  const secH=(t,hint)=>`<div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:22px 0 10px;display:flex;align-items:center;gap:10px;">${t}${hint?`<span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);">${hint}</span>`:''}<span style="flex:1;height:1px;background:var(--border);"></span></div>`;
+  const readBox=t=>`<div style="font-size:12.5px;line-height:1.6;color:var(--text2);padding:10px 14px;border:1px solid var(--border);border-radius:10px;margin-top:8px;">${t}</div>`;
+  const f1=(v,d)=>(v==null||!isFinite(+v))?'—':(+v).toFixed(d==null?1:d);
+  const sgn=(v,d,suf)=>{ if(v==null||!isFinite(v)) return '<span class="dim">—</span>'; if(Math.abs(v)<(d===0?0.5:0.05)) return '<span class="dim">±0</span>'; return `<span style="font-weight:800;color:${v>0?'var(--green)':'var(--red)'};">${v>0?'+':''}${v.toFixed(d==null?1:d)}${suf||''}</span>`; };
+
+  // ── 1. His system's fingerprint (the real numbers behind the scales) ──
+  const C=window._projCoach||{}, CC=window._projCoachCache||{};
+  const fp=[];
+  const tagOf=(v,lo,hi,a,b,c)=>v<lo?a:v>hi?c:b;
+  if(C.poss_pg) fp.push({l:'Pace',sub:'possessions / game',v:f1(C.poss_pg),lg:f1(C.lgPace),sc:ownScales.pace,tag:tagOf(ownScales.pace,0.97,1.03,'Slow','Average','Fast')});
+  if(C.havoc!=null) fp.push({l:'Havoc',sub:'forced-TO% on defense',v:f1(C.havoc),lg:f1(C.lgHavoc),sc:ownScales.havoc,tag:tagOf(ownScales.havoc,0.95,1.08,'Passive','Average','Pressure')});
+  if(C.oreb!=null) fp.push({l:'Off. rebounding',sub:'team ORB%',v:f1(C.oreb),lg:f1(C.lgOreb),sc:ownScales.orb,tag:tagOf(ownScales.orb,0.95,1.06,'Gets back','Average','Crashes')});
+  if(C.dreb!=null) fp.push({l:'Def. rebounding',sub:'team DRB%',v:f1(C.dreb),lg:f1(C.lgDreb),sc:ownScales.drb,tag:tagOf(ownScales.drb,0.97,1.03,'Leaky','Average','Secure')});
+  if(C.astpp!=null) fp.push({l:'Ball movement',sub:'assists / 100 poss',v:f1(C.astpp),lg:f1(C.lgAstpp),sc:ownScales.ast,tag:tagOf(ownScales.ast,0.94,1.08,'Iso-heavy','Average','Motion')});
+  if(C.three_pa_pctl!=null) fp.push({l:'Three-point lean',sub:'3PA-rate percentile',v:Math.round(C.three_pa_pctl)+'th',lg:'50th',sc:ownScales.lean,tag:tagOf(ownScales.lean,0.95,1.05,'Inside-out','Balanced','Lets it fly')});
+  if(C.lookq!=null) fp.push({l:'Look quality',sub:'xeFG of the shots it creates',v:f1(C.lookq),lg:f1(C.lgLookq),sc:null,fgb:ownScales.fgb,tag:tagOf(ownScales.fgb,-1,1,'Tough looks','Average','Clean looks')});
+  let fpHtml='';
+  if(fp.length){
+    const rows=fp.map(r=>`<tr><td class="l nm">${r.l}<div class="dim" style="font-size:10px;font-weight:600;">${r.sub}</div></td><td class="v">${r.v}</td><td class="dim">${r.lg}</td><td>${r.sc!=null?`×${r.sc.toFixed(2)}`:sgn(r.fgb,1,' FG%')}</td><td style="font-weight:800;color:var(--text);">${r.tag}</td></tr>`).join('');
+    const strong=fp.filter(r=>r.sc!=null?Math.abs(r.sc-1)>=0.08:Math.abs(r.fgb||0)>=1.5);
+    const who=(ownScales.coach?`<b>${esc(ownScales.coach)}</b>'s`:`<b>${esc(player.team)}</b>'s`)+(C.archetype?` <b>${esc(C.archetype)}</b>`:'')+' system';
+    const fpRead=strong.length?`${who} leans on ${strong.map(r=>`<b>${r.tag.toLowerCase()}</b> ${r.l.toLowerCase()}`).join(', ')} — those are the levers that move his line below.`:`${who} sits near the league median on every lever — his line here is close to his neutral line.`;
+    fpHtml=secH('His system’s fingerprint',`${esc(player.team)} · the real 2025-26 numbers behind the scales`)+
+      `<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Lever</th><th>${esc(player.team)}</th><th>League</th><th>Scale</th><th>Read</th></tr></thead><tbody>${rows}</tbody></table></div>`+readBox(fpRead);
+  }
+
+  // ── 2. The same player across systems (sheet) ──
   const cols=SYS.map((s,i)=>{const tint=SYSCOL[i], logo=(s._own||s._old)?_logo(s.team):'';
     const bg=tint?`background:color-mix(in srgb, ${tint} 22%, var(--bg3));`:'';
-    const cls=s._own?'sch-col-own':s._old?'sch-col-old':'';
-    return `<th class="${cls}" style="${bg}">${s.eyebrow?`<span class="sch-eyebrow">${esc(s.eyebrow)}</span>`:''}${logo?`<img class="sch-logo" src="${logo}" alt="" onerror="this.style.display='none'">`:''}<span class="sch-sysname">${esc(s.name)}</span><span class="sch-own-tag">${esc(s.sub)}</span></th>`;
+    return `<th style="${bg}">${s.eyebrow?`<span class="sch-eyebrow">${esc(s.eyebrow)}</span>`:''}${logo?`<img class="sch-logo" src="${logo}" alt="" onerror="this.style.display='none'">`:''}<span class="sch-sysname">${esc(s.name)}</span><span class="sch-own-tag">${esc(s.sub)}</span></th>`;
   }).join('');
   const rowsH=ROWS.map(r=>{
     const vals=lines.map(l=>l[r.k]);
     const mx=Math.max.apply(null,vals), mn=Math.min.apply(null,vals);
-    const tds=vals.map((v,i)=>{const tint=SYSCOL[i], own=SYS[i]._own, old=SYS[i]._old;
+    const tds=vals.map((v,i)=>{const tint=SYSCOL[i], own=SYS[i]._own||SYS[i]._old;
       const hi=Math.abs(v-mx)<1e-6&&mx-mn>0.05, lo=Math.abs(v-mn)<1e-6&&mx-mn>0.05;
       const bg=tint?`background:color-mix(in srgb, ${tint} 13%, var(--bg2));`:'';
-      return `<td class="${own?'sch-col-own ':old?'sch-col-old ':''}${hi?'sch-hi':lo?'sch-lo':''}" style="${bg}">${v.toFixed(1)}${(r.k==='fg_pct'||r.k==='tp_pct')?'%':''}</td>`;}).join('');
-    return `<tr><td class="sch-stat">${r.l}<em>${r.sub}</em></td>${tds}</tr>`;
+      const col=hi?'color:var(--green);':lo?'color:var(--red);':(own?'color:var(--text);':'');
+      return `<td style="${bg}${col}${own?'font-weight:800;':''}">${v.toFixed(1)}${(r.k==='fg_pct'||r.k==='tp_pct')?'%':''}</td>`;}).join('');
+    return `<tr><td class="l nm">${r.l}<div class="dim" style="font-size:10px;font-weight:600;">${r.sub}</div></td>${tds}</tr>`;
   }).join('');
   const intro = isTransfer
-    ? `<b>${esc(player.name)}</b> is transferring from <b>${esc(player.hometown)}</b> to <b>${esc(player.team)}</b>. Here's how our model projects his 2026-27 line under different coaching systems — both real teams are shown (tinted with their colors: where he's <b>coming from</b> and where he's <b>going</b>), holding his talent & role constant so only the <b>scheme</b> moves each stat.`
+    ? `<b>${esc(player.name)}</b> is transferring from <b>${esc(player.hometown)}</b> to <b>${esc(player.team)}</b>. Here's how our model projects his 2026-27 line under different coaching systems — both real teams are shown (tinted with their colors).`
     : isFresh
       ? `<b>${esc(player.name)}</b> hasn't played college minutes yet. This shows how much his projected freshman line would swing based purely on the <b>system he lands in</b> — his current team is highlighted.`
       : `<b>${esc(player.name)}</b>'s stats already bake in <b>${esc(player.team)}</b>'s system (highlighted). This counterfactual re-projects him into other systems to show how much of his production is <b>scheme-driven</b> vs his own game.`;
+  const gridHtml=secH('The same player across systems','green = best of the systems · red = worst')+
+    `<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Stat</th>${cols}</tr></thead><tbody>${rowsH}</tbody></table></div>`;
+
+  // ── 3. Scheme-driven vs his own game ──
+  const ownLine=lines[SYS.length-1], neuLine=lines[0];
+  const DEP=[{k:'stl',l:'Steals'},{k:'oreb',l:'Off. Reb'},{k:'dreb',l:'Def. Reb'},{k:'apg',l:'Assists'},{k:'tpa',l:'3PA'},{k:'fg_pct',l:'FG%',pct:true},{k:'tp_pct',l:'3P%',pct:true}];
+  let depHtml='';
+  if(!isFresh){
+    const dr=DEP.map(d=>{ const o=ownLine[d.k], n=neuLine[d.k], dv=o-n, pc=(!d.pct&&n>0.05)?dv/n*100:null; return {d,o,n,dv,pc}; });
+    const rows=dr.map(x=>`<tr><td class="l nm">${x.d.l}</td><td class="v">${f1(x.o)}${x.d.pct?'%':''}</td><td class="dim">${f1(x.n)}${x.d.pct?'%':''}</td><td>${sgn(x.dv,1,x.d.pct?'%':'')}</td><td>${x.pc==null?'<span class="dim">—</span>':sgn(x.pc,0,'%')}</td></tr>`).join('');
+    const big=dr.filter(x=>x.pc!=null&&Math.abs(x.pc)>=8).sort((a,b)=>Math.abs(b.pc)-Math.abs(a.pc));
+    const depN=dr.filter(x=>x.pc!=null);
+    const depScore=depN.reduce((a,x)=>a+Math.abs(x.pc),0)/Math.max(1,depN.length);
+    const depTag=depScore>=12?'<b>heavily scheme-shaped</b>':depScore>=6?'<b>moderately scheme-shaped</b>':'<b>mostly his own game</b>';
+    const depRead=`His line is ${depTag} (average ${f1(depScore,0)}% swing vs a neutral system). `+(big.length?big.map(x=>`${x.d.l} ${x.pc>0?'gets a <b>+'+f1(x.pc,0)+'%</b> lift from':'is trimmed <b>'+f1(x.pc,0)+'%</b> by'} the system`).join('; ')+'.':'No single stat is being propped up or held back by the scheme.')+(isTransfer?' Because he is changing systems, the neutral column is the fairer baseline for what travels with him.':'');
+    depHtml=secH('Scheme-driven vs his own game','his system vs a neutral system — what the scheme adds or takes')+
+      `<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Stat</th><th>His system</th><th>Neutral</th><th>Δ</th><th>Scheme share</th></tr></thead><tbody>${rows}</tbody></table></div>`+readBox(depRead);
+  }
+
+  // ── 4. Best-fit system ranking (position-weighted production index) ──
+  const W=isBig?{stl:1.6,oreb:1.6,dreb:1.0,apg:1.0,tpm:2.2,fg:0.45}:{stl:2.0,oreb:1.0,dreb:0.7,apg:1.5,tpm:2.4,fg:0.35};
+  const idx=l=>W.stl*l.stl+W.oreb*l.oreb+W.dreb*l.dreb+W.apg*l.apg+W.tpm*(l.tpa*Math.max(0,l.tp_pct)/100)+W.fg*(l.fg_pct-neuLine.fg_pct);
+  const ranked=SYS.map((s,i)=>({s,v:idx(lines[i]),i})).sort((a,b)=>b.v-a.v);
+  const ownV=idx(ownLine), ownRank=ranked.findIndex(r=>r.s._own)+1, best=ranked[0];
+  const gains=l=>[l.apg>=ownLine.apg+0.3?'more playmaking':'',l.stl>=ownLine.stl+0.15?'more havoc':'',l.oreb>=ownLine.oreb+0.3?'more glass':'',l.tpa>=ownLine.tpa+0.4?'more threes':'',l.fg_pct>=ownLine.fg_pct+1.5?'cleaner looks':''].filter(Boolean).join(' · ');
+  const fitRows=ranked.map((r,k)=>{ const tint=SYSCOL[r.i]; const rel=ownV>0?(r.v-ownV)/ownV*100:0;
+    return `<tr${tint?` style="background:color-mix(in srgb, ${tint} 10%, transparent)"`:''}><td class="c">${k+1}</td><td class="l nm">${esc(r.s.name)}<div class="dim" style="font-size:10px;font-weight:600;">${esc(r.s.sub)}</div></td><td class="v">${f1(r.v)}</td><td>${r.s._own?'<span class="dim">—</span>':sgn(rel,0,'%')}</td><td class="l dim">${r.s._own?'his current system':(gains(lines[r.i])||'—')}</td></tr>`; }).join('');
+  const gap=ownV>0?(best.v-ownV)/ownV*100:0;
+  const fitRead=best.s._own?`His current system is the <b>best of the ${SYS.length}</b> for his game — the scheme and the player are pulling the same direction.`
+    :`A <b>${esc(best.s.name)}</b> system gets the most out of him (+${f1(gap,0)}% production index vs his current one); ${esc(player.team)} ranks <b>${ownRank} of ${SYS.length}</b>. ${gap>=8?'That gap is real — the scheme is leaving some of his game on the table.':'The gap is small; system choice is not what decides his year.'}`;
+  const fitHtml=secH('Best-fit system',`${isBig?'big':'perimeter'}-weighted production index · steals, boards, assists, made threes, shot quality`)+
+    `<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="c">#</th><th class="l">System</th><th>Index</th><th>vs his</th><th class="l">What he gains</th></tr></thead><tbody>${fitRows}</tbody></table></div>`+readBox(fitRead);
+
+  // ── 5. Real programs that play the best-fit way (nearest team fingerprints) ──
+  let likeHtml='';
+  try{
+    const target=best.s._own?ranked[1].s:best.s;   // if his own is best, show who else plays like it
+    if(!window._tdcDnaTeams) window._tdcDnaTeams=await fetch('scripts/data/team_dna.json').then(r=>r.ok?r.json():null).then(d=>((d&&d['2026']&&d['2026'].teams)||{})).catch(()=>({}));
+    const dna=window._tdcDnaTeams;
+    const V=2.0, cl=(v,a,b)=>v<a?a:v>b?b:v, A=(raw,lo,hi)=>cl(1+V*(raw-1),lo,hi);
+    const lgPace=CC.lgPace||68, lgH=CC.lgHavoc||15, lgO=CC.lgOreb||28, lgD=CC.lgDreb||71, lgA=CC.lgAstpp||20;
+    const mine=(player.team||'').toLowerCase();
+    const cand=Object.keys(dna).map(full=>{ const t=dna[full]; if(!t||!t.tempo||t.dTOV==null||t.oORB==null) return null;
+      const ap=(CC.astpp||{})[full.toLowerCase()];
+      const sc={pace:A(t.tempo/lgPace,0.80,1.26),havoc:A(t.dTOV/lgH,0.60,1.60),orb:A(t.oORB/lgO,0.64,1.40),drb:A((t.dDRB||lgD)/lgD,0.86,1.16),ast:ap!=null?A(ap/lgA,0.58,1.52):target.ast};
+      const d=Math.sqrt(Math.pow(sc.pace-target.pace,2)+Math.pow(sc.havoc-target.havoc,2)+Math.pow(sc.orb-target.orb,2)+Math.pow(sc.drb-target.drb,2)+Math.pow(sc.ast-target.ast,2));
+      return {full,t,ap,d}; }).filter(Boolean).filter(x=>!(mine&&x.full.toLowerCase().indexOf(mine+' ')===0)).sort((a,b)=>a.d-b.d).slice(0,6);
+    if(cand.length){
+      const rows=cand.map((x,k)=>`<tr><td class="c">${k+1}</td><td class="l nm">${esc(x.full)}</td><td>${x.t.w}-${x.t.l}</td><td class="v">${f1(x.t.tempo)}</td><td>${f1(x.t.dTOV)}</td><td>${f1(x.t.oORB)}</td><td>${x.ap!=null?f1(x.ap):'<span class="dim">—</span>'}</td><td class="dim">${f1(x.t.net)}</td></tr>`).join('');
+      likeHtml=secH(`Programs that play ${esc(target.name)} ball`,'closest 2025-26 team fingerprints to that system')+
+        `<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="c">#</th><th class="l">Team</th><th>W-L</th><th>Tempo</th><th>Forced TO%</th><th>ORB%</th><th>Ast/100</th><th>Net</th></tr></thead><tbody>${rows}</tbody></table></div>`+
+        `<div style="font-size:10.5px;color:var(--text3);margin-top:6px;">Matched on pace, defensive havoc, offensive/defensive rebounding and ball movement. ${best.s._own?'His own system ranked first, so this shows the next-best style.':'These are the programs whose style most resembles his best-fit system — useful context for the portal.'}</div>`;
+    }
+  }catch(e){ console.warn('scheme like-teams',e); }
+
   host.innerHTML=`
     <div class="sec-title" style="margin:2px 0 8px;">Scheme Lab — the same player across systems</div>
     <div class="sch-intro">${intro}</div>
-    <div class="sch-scroll"><table class="sch-tbl"><thead><tr><th class="sch-stat">Stat</th>${cols}</tr></thead><tbody>${rowsH}</tbody></table></div>
-    <div class="rk-foot" style="margin-top:14px;">Systems apply the same scheme scales the projection engine uses (pace, forced-TO havoc → steals, offensive-rebound rate → boards, assist rate → assists, shot-quality → FG%, 3PA lean). ${isFresh?'':'Neutral strips out '+esc(isTransfer?'his old team':player.team)+"'s system; "}efficiency & role are held constant so only the scheme moves.</div>`;
+    ${fpHtml}${gridHtml}${depHtml}${fitHtml}${likeHtml}
+    <div class="rk-foot" style="margin-top:14px;">Systems apply the same scheme scales the projection engine uses (pace, forced-TO havoc → steals, offensive-rebound rate → boards, assist rate → assists, shot-quality → FG%, 3PA lean). ${isFresh?'':'Neutral is his real projected line with his own system stripped back out.'}</div>`;
 }
 function switchTab(t){
   const tabs=['overview','playerdna','stats','shotcharts','rankings','scheme','dossier','role','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
