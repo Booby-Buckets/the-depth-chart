@@ -7,6 +7,10 @@ name: Rebuild projected DNA
 #   build_projected_dna.py  (roster -> fingerprint -> team DNA, reconciled so o-d == net)
 #   build_team_eff.py       (slim ORtg/DRtg/net file the homepage reads)
 #
+# Also regenerates development.json (every player's season-by-season grade path — the
+# player page's Development tab and development.html read it) from bbref_seasons +
+# player_history, so it stays current as grades update.
+#
 # Triggered manually from the owner console (via the rebuild-projections edge function),
 # from the Actions tab, or `gh workflow run rebuild-projections.yml`.
 
@@ -46,14 +50,18 @@ jobs:
       - name: Re-slim team_eff.json
         run: python3 scripts/build_team_eff.py
 
+      # stdlib-only; pulls graded seasons from bbref_seasons + player_history via the anon key
+      - name: Rebuild player development paths (development.json)
+        run: python3 scripts/compute_player_development.py
+
       - name: Commit if changed
         run: |
           git config user.name "tdc-proj-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/data/team_dna.json scripts/data/team_eff.json
+          git add scripts/data/team_dna.json scripts/data/team_eff.json scripts/data/development.json
           if git diff --cached --quiet; then
             echo "No projection changes."
           else
-            git commit -m "Auto: rebuild projected DNA from rosters [skip ci]"
+            git commit -m "Auto: rebuild projected DNA + development paths [skip ci]"
             git push
           fi
