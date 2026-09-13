@@ -555,13 +555,29 @@
     .scout-rating-bar{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
     .scout-rating-fill{height:100%;border-radius:3px;background:var(--accent);}
     .scout-rating-val{font-size:12px;font-weight:700;color:var(--text2);width:28px;text-align:right;flex-shrink:0;}
-    .scout-fc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
-    .scout-fc-card{padding:14px;border:1px solid var(--border);background:var(--bg2);}
-    .scout-fc-label{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
-    .scout-fc-val{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;color:var(--text);margin-bottom:3px;}
+    /* Scouting Report on a SHEET: the fact cards are one bordered cell band (shared dividers,
+       label/value cells), and each narrative card is a bordered section with a shaded header. */
+    .scout-fc-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-bottom:16px;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg2);}
+    .scout-fc-card{padding:12px 14px;border:none;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg2);}
+    .scout-fc-card:nth-child(2n),.scout-fc-card[style*="grid-column"]{border-right:none;}
+    .scout-fc-card:nth-child(odd):not([style*="grid-column"]){background:color-mix(in srgb,var(--text) 2.5%,var(--bg2));}
+    .scout-fc-grid .scout-fc-card:last-child{border-bottom:none;}
+    .pf-ctrls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 12px;}
+    .pf-lbl{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .pf-seg{display:inline-flex;gap:3px;padding:3px;background:var(--bg2);border:1px solid var(--border);border-radius:9px;}
+    .pf-seg button{font-size:11.5px;font-weight:700;padding:5px 11px;border:none;border-radius:6px;background:none;color:var(--text3);cursor:pointer;font-family:'Inter',sans-serif;}
+    .pf-seg button.on{background:var(--accent);color:#181818;}
+    .pf-sel{padding:6px 10px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;outline:none;cursor:pointer;}
+    .pf-sheet th.on{color:var(--accent);}
+    .pf-sheet tbody td{padding:7px 11px;}
+    .scout-fc-label{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
+    .scout-fc-val{font-family:'Sora','Inter',sans-serif;font-weight:800;font-size:18px;color:var(--text);margin-bottom:3px;}
     .scout-fc-desc{font-size:11px;color:var(--text3);line-height:1.5;}
-    .scout-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
-    .scout-card{border:1px solid var(--border);padding:16px;transition:border-color .2s;}
+    .scout-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+    .scout-card{border:1px solid var(--border);border-radius:10px;padding:0;overflow:hidden;background:var(--bg2);transition:border-color .2s;}
+    .scout-card>.scout-card-title{margin:0;padding:8px 14px;background:var(--bg3);border-bottom:1px solid var(--border2);}
+    .scout-card>.scout-card-title::after{display:none;}
+    .scout-card>.scout-card-body{padding:12px 14px;}
     .scout-card:hover{border-color:var(--border2);}
     .scout-card-title{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
     .scout-card-title::after{content:'';flex:1;height:1px;background:rgba(230,213,168,.25);}
@@ -5612,6 +5628,11 @@ async function renderBuzz(){
 }
 
 // ── PORTAL FIT tab — top team fits if this player transfers (shared engine) ──
+// ── PORTAL FIT — the FULL board, in-page, as a sortable sheet (no link-out) ───────────────
+// Every ranked team scored for THIS player by the shared engine (tdc-portalfit.js): need at his
+// position, team success, his projected production there, and coach/system fit — with the same
+// rank-by + team filters the standalone portal offered, plus click-to-sort columns.
+var _PF={ sort:'overall', dir:-1, maxRank:0, conf:'' };
 async function renderPortalFit(){
   const host=document.getElementById('portalfitContent'); if(!host||!window.TDCPortalFit) return;
   host.innerHTML='<div style="padding:44px;text-align:center;color:var(--text3);">Loading portal fits…</div>';
@@ -5620,29 +5641,49 @@ async function renderPortalFit(){
     if(!window._pfCoachProfs){ const cp=await fetch('scripts/data/coach_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
       window._pfCoachProfs={}; (Array.isArray(cp)?cp:[]).forEach(p=>{ if(p.coach_slug) window._pfCoachProfs[p.coach_slug]=p; }); }
   }catch(e){ host.innerHTML='<div style="padding:44px;text-align:center;color:var(--text3);">Portal fit data unavailable.</div>'; return; }
+  _pfPaint();
+}
+function _pfPaint(){
+  const host=document.getElementById('portalfitContent'); if(!host) return;
   const teams=window._pfTeamNeeds.teams||[];
-  const rows=TDCPortalFit.rank(player, teams, window._pfCoachProfs, {sortBy:'overall'}).slice(0,8);
   const ppos=TDCPortalFit.pos(player), arch=TDCPortalFit.archetype(player);
-  const bc=v=>v>=72?'#5ab875':v>=52?'#d4a24a':'#e07070';
-  const chip=(l,v)=>`<span style="font-size:10px;font-weight:700;color:var(--text3);white-space:nowrap;">${l} <b style="color:${bc(v)};">${v}</b></span>`;
-  const link='portal.html?espn='+(window._playerEspn||'')+'&name='+encodeURIComponent(player.name||'');
+  const confs=[...new Set(teams.map(t=>t.conf).filter(Boolean))].sort();
+  let rows=TDCPortalFit.rank(player, teams, window._pfCoachProfs, {sortBy:'overall', filter:{maxRank:_PF.maxRank||null, confs:_PF.conf?[_PF.conf]:null}});
+  const key=_PF.sort;
+  rows.sort((a,b)=>{ if(key==='team') return ((a.full||a.team)>(b.full||b.team)?1:-1)*(-_PF.dir); if(key==='rank') return ((a.rank||999)-(b.rank||999))*(-_PF.dir); return ((b[key]||0)-(a[key]||0))*(-_PF.dir)||(b.overall-a.overall); });
+  const heat=v=>v>=72?'var(--green)':v>=52?'var(--amber,#d4a24a)':'var(--red)';
+  const sc=v=>`<td style="font-weight:800;color:${heat(v)};">${v}</td>`;
+  const th=(k,l,cls)=>`<th class="${cls||''}${_PF.sort===k?' on':''}" data-pf="${k}" style="cursor:pointer;">${l}${_PF.sort===k?(_PF.dir<0?' ↓':' ↑'):''}</th>`;
+  const seg=(k,l)=>`<button class="${_PF.sort===k?'on':''}" data-pfs="${k}">${l}</button>`;
+  const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
   host.innerHTML=`
-    <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px;">
-      <div class="sec-title" style="margin:0;">Best Portal Fits</div>
-      <a href="${link}" style="font-size:12px;font-weight:800;color:var(--accent);">Open full board →</a>
+    <div class="sec-title" style="margin:0 0 4px;">Portal Fit — where he fits best</div>
+    <div style="font-size:12.5px;color:var(--text3);margin-bottom:14px;line-height:1.5;">Every ranked program scored for <b style="color:var(--text2);">${esc(player.name)}</b> (${esc(arch)} · ${esc(ppos)}) if he transfers — <b>Need</b> at his spot, <b>Team success</b>, <b>Production</b> (his projected role and numbers there), and <b>Coach fit</b> with that system, blended into an <b>Overall</b>. Click a column to re-rank.</div>
+    <div class="pf-ctrls">
+      <span class="pf-lbl">Rank by</span>
+      <div class="pf-seg" id="pfSortSeg">${seg('overall','Overall')}${seg('teamSuccess','Team success')}${seg('playerSuccess','Production')}${seg('coachFit','Coach fit')}${seg('need','Need')}</div>
+      <span class="pf-lbl" style="margin-left:8px;">Teams</span>
+      <select id="pfRank" class="pf-sel"><option value="0"${!_PF.maxRank?' selected':''}>All ranked</option><option value="25"${_PF.maxRank==25?' selected':''}>Top 25</option><option value="50"${_PF.maxRank==50?' selected':''}>Top 50</option><option value="100"${_PF.maxRank==100?' selected':''}>Top 100</option></select>
+      <select id="pfConf" class="pf-sel"><option value="">All conferences</option>${confs.map(c=>`<option value="${esc(c)}"${_PF.conf===c?' selected':''}>${esc(c)}</option>`).join('')}</select>
+      <span class="pf-lbl" style="margin-left:auto;color:var(--text3);">${rows.length} teams</span>
     </div>
-    <div style="font-size:12.5px;color:var(--text3);margin-bottom:18px;line-height:1.5;">Where <b style="color:var(--text2);">${player.name}</b> (${arch} · ${ppos}) fits best if he transfers — blended across positional need, team success, his own production &amp; coaching fit, over the ${teams.length} high-major teams with projected rosters.</div>
-    ${rows.map((r,i)=>`<a href="team.html?team=${encodeURIComponent(r.team)}" style="display:grid;grid-template-columns:26px 1fr auto 54px;gap:14px;align-items:center;padding:12px 14px;border:1px solid var(--border);border-radius:11px;background:var(--bg2);margin-bottom:8px;text-decoration:none;color:inherit;">
-      <span style="font-family:'Playfair Display',serif;font-weight:800;font-size:18px;color:var(--text3);text-align:center;">${i+1}</span>
-      <span style="min-width:0;">
-        <div style="font-size:14.5px;font-weight:800;">${r.full||r.team} <span style="font-size:11px;color:var(--text3);font-weight:600;">${r.conf||''}${r.rank?' · #'+r.rank:''}</span></div>
-        <div style="font-size:11px;color:var(--text3);margin-top:2px;">${r.coach?r.coach+(r.archetype?' · '+r.archetype:''):''} · ${ppos}: ${r.slid?'covered by others':(r.starter||'—')} (${r.posBest})${r.upgrade>0?` · <span style="color:#5ab875;">+${r.upgrade}</span>`:''}</div>
-        ${r.why?`<div style="font-size:11px;color:var(--text2);margin-top:4px;">${r.why}</div>`:''}
-        ${r.proj?`<div style="font-size:11px;color:var(--text3);margin-top:4px;font-variant-numeric:tabular-nums;">Projects <b style="color:var(--text2);font-weight:700;">${r.proj.mpg} mpg · ${r.proj.ppg} ppg · ${r.proj.rpg} rpg · ${r.proj.apg} apg${r.proj.tp_pct?` · ${r.proj.tp_pct}% 3P`:''}</b></div>`:''}
-      </span>
-      <span style="display:flex;flex-direction:column;gap:3px;">${chip('Need',r.need)}${chip('Team',r.teamSuccess)}${chip('Prod',r.playerSuccess)}${chip('Coach',r.coachFit)}</span>
-      <span style="text-align:center;"><div style="font-family:'Playfair Display',serif;font-weight:800;font-size:24px;color:${bc(r.overall)};line-height:1;">${r.overall}</div><div style="font-size:8px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:2px;">Fit</div></span>
-    </a>`).join('')}`;
+    <div class="sheet-wrap" style="max-height:none;"><table class="sheet pf-sheet">
+      <thead><tr><th class="rk">#</th>${th('team','Team','l')}${th('rank','Rank')}<th class="l">Coach · system</th>${th('overall','Overall')}${th('need','Need')}${th('teamSuccess','Team success')}${th('playerSuccess','Production')}${th('coachFit','Coach fit')}<th class="l">Read</th></tr></thead>
+      <tbody>${rows.length?rows.map((r,i)=>`<tr>
+        <td class="rk">${i+1}</td>
+        <td class="l nm"><a href="team.html?team=${encodeURIComponent(r.team)}">${esc(r.full||r.team)}</a><div style="font-size:10.5px;color:var(--text3);font-weight:600;">${esc(r.conf||'')}</div></td>
+        <td class="dim">${r.rank!=null?'#'+r.rank:'—'}</td>
+        <td class="l" style="font-size:12px;">${esc(r.coach||'—')}${r.archetype?`<div style="font-size:10.5px;color:var(--text3);">${esc(r.archetype)}</div>`:''}</td>
+        ${sc(r.overall)}${sc(r.need)}${sc(r.teamSuccess)}${sc(r.playerSuccess)}${sc(r.coachFit)}
+        <td class="l" style="white-space:normal;min-width:220px;max-width:340px;font-size:11.5px;color:var(--text2);line-height:1.45;">${esc(ppos)}: ${r.slid?'covered by others':esc(r.starter||'—')}${r.role?' · '+esc(r.role):''}${r.why?`<div style="color:var(--text3);margin-top:2px;">${esc(r.why)}</div>`:''}</td>
+      </tr>`).join(''):'<tr><td colspan="10" style="padding:28px;text-align:center;color:var(--text3);">No teams match these filters.</td></tr>'}</tbody>
+    </table></div>
+    <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:12px;max-width:900px;">Scores are 0–100. <b>Need</b> = how much he'd upgrade the position vs the roster already there; <b>Team success</b> = program strength (rank/rating); <b>Production</b> = the minutes and numbers he projects to in that rotation; <b>Coach fit</b> = how his style matches the coach's measured tendencies. Overall blends them (need 20 · team 30 · production 25 · coach 25). A ranking, not a prediction — the read column says why.</div>`;
+  host.querySelectorAll('#pfSortSeg button').forEach(b=>b.addEventListener('click',()=>{ _PF.sort=b.dataset.pfs; _PF.dir=-1; _pfPaint(); }));
+  host.querySelectorAll('th[data-pf]').forEach(t=>t.addEventListener('click',()=>{ const k=t.dataset.pf; if(_PF.sort===k) _PF.dir=-_PF.dir; else { _PF.sort=k; _PF.dir=(k==='team'||k==='rank')?1:-1; } _pfPaint(); }));
+  const fr=host.querySelector('#pfRank'), fc=host.querySelector('#pfConf');
+  if(fr) fr.addEventListener('change',()=>{ _PF.maxRank=+fr.value||0; _pfPaint(); });
+  if(fc) fc.addEventListener('change',()=>{ _PF.conf=fc.value; _pfPaint(); });
 }
 
 function renderRankings(){
