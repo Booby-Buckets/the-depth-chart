@@ -232,6 +232,13 @@ window.TDC_ROLES = (function(){
     ]); }catch(e){}
     await ensureImpact();
     box=box||[]; shots=shots||[]; hist=hist||[];
+    // his CURRENT roster (2026-27) + teammates' rates — for the fit-in-the-team read
+    let roster=[], radv={};
+    try{ if(raw.team){
+      roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(raw.team)}&name=neq.%E2%80%94&select=name,espn_id,position,position2,depth_order,starter,tdc_grade,mpg,ppg,apg,tpa,fga,height&order=depth_order.asc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]);
+      const ids=roster.map(x=>x.espn_id).filter(v=>v!=null);
+      if(ids.length){ const a=await fetch(`${SB_URL}/rest/v1/player_advanced?espn_id=in.(${ids.join(',')})&season_year=eq.2026&select=espn_id,usg_pct,ast_pct,trb_pct,blk_pct,stl_pct,ts_pct`,{headers:H}).then(r=>r.ok?r.json():[]); a.forEach(x=>{ radv[String(x.espn_id)]=x; }); }
+    }}catch(e){}
     if(adv){ let fga=0,tpa=0; box.forEach(b=>{fga+=R(b.fga);tpa+=R(b.tpa);}); adv.fg3a_per_fga_pct=fga?tpa/fga:0; }
     const dteams=(DNA&&DNA['2026']&&DNA['2026'].teams)||{};
     const dcol=k=>Object.values(dteams).map(t=>t[k]).filter(x=>x!=null).sort((a,b)=>a-b), qf=(v,f)=>v.length?v[Math.floor(v.length*f)]:0;
@@ -271,6 +278,46 @@ window.TDC_ROLES = (function(){
     // ── STYLE SIGNALS as a sheet ──
     const sigRows=hasHist?signals(adv).map(s=>`<tr><td class="l nm">${s[0]}</td><td style="font-weight:800;color:var(--text);">${s[2]}</td><td style="min-width:150px;"><div class="sbar"><div class="sf" style="width:${s[1].toFixed(0)}%"></div></div></td><td class="dim">${s[1]>=75?'elite':s[1]>=55?'above avg':s[1]>=35?'average':'low'}</td></tr>`).join(''):'';
     const sigSheet=hasHist?`<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Signal</th><th>His rate</th><th class="l">Scale</th><th class="l">Read</th></tr></thead><tbody>${sigRows}</tbody></table></div>`:'';
+
+    // ── FIT IN THE TEAM: his rank on the roster per signal, what's around him, and his spot ──
+    let teamFitHtml='';
+    if(roster.length>=5){
+      const me=String(eid);
+      const slotOf=x=>{ const P=(x.position||x.position2||'').toUpperCase(); if(/PG/.test(P)) return 'PG'; if(/SG/.test(P)) return 'SG'; if(/SF/.test(P)) return 'SF'; if(/PF/.test(P)) return 'PF'; if(/^C/.test(P)) return 'C'; if(/G/.test(P)) return 'SG'; if(/F/.test(P)) return 'SF'; return 'SF'; };
+      const rot=roster.filter(x=>x.depth_order==null||+x.depth_order<=10);
+      const rate=(x,k)=>{ const a=radv[String(x.espn_id)]; return a?num(a[k]):null; };
+      const three=x=>{ const f=num(x.fga), t=num(x.tpa); return f>0?t/f:null; };
+      const sigDefs=[['Usage','usg_pct',v=>v.toFixed(0)+'%'],['Playmaking','ast_pct',v=>v.toFixed(0)+'%'],['Spacing','__3pa',v=>Math.round(v*100)+'% 3PA'],['Rebounding','trb_pct',v=>v.toFixed(0)+'%'],['Rim protection','blk_pct',v=>v.toFixed(1)+'%'],['Disruption','stl_pct',v=>v.toFixed(1)+'%']];
+      const valOf=(x,k)=>k==='__3pa'?three(x):rate(x,k);
+      const rankRows=sigDefs.map(([lab,k,fmt])=>{
+        const pool=rot.map(x=>({x,v:valOf(x,k)})).filter(o=>o.v!=null&&isFinite(o.v)).sort((a,b)=>b.v-a.v);
+        const mine=pool.find(o=>String(o.x.espn_id)===me); if(!mine) return '';
+        const rk=pool.indexOf(mine)+1, top=pool[0];
+        const lead=rk===1?'<span style="color:var(--green);font-weight:800;">leads the roster</span>':rk<=2?'<span style="font-weight:700;">top-2 on the roster</span>':rk<=Math.ceil(pool.length/2)?'upper half':'<span class="dim">lower half</span>';
+        return `<tr><td class="l nm">${lab}</td><td style="font-weight:800;color:var(--text);">${fmt(mine.v)}</td><td>${rk}<span class="dim"> / ${pool.length}</span></td><td class="l">${lead}</td><td class="l dim">${rk===1?'—':esc(top.x.name)+' ('+fmt(top.v)+')'}</td></tr>`;
+      }).filter(Boolean).join('');
+      // what's around him
+      const others=rot.filter(x=>String(x.espn_id)!==me);
+      const creators=others.filter(x=>{const a=rate(x,'ast_pct'),u=rate(x,'usg_pct');return (a!=null&&a>=20)||(u!=null&&u>=25&&/G/.test((x.position||'').toUpperCase()));});
+      const shooters=others.filter(x=>{const t=three(x);return t!=null&&t>=0.40&&num(x.tpa)>=2.5;});
+      const rimP=others.filter(x=>{const b=rate(x,'blk_pct');return b!=null&&b>=4;});
+      const mySlot=slotOf(raw), samePos=others.filter(x=>slotOf(x)===mySlot).sort((a,b)=>(+a.depth_order||99)-(+b.depth_order||99));
+      const myD=raw.depth_order!=null?+raw.depth_order:null, isStarter=(raw.starter===true||String(raw.starter).toLowerCase()==='true'||(myD!=null&&myD<=5));
+      const nm=a=>a.map(x=>esc(x.name)).join(', ');
+      const myAst=rate(raw,'ast_pct'), myUsg=rate(raw,'usg_pct'), myThree=three(raw);
+      const iCreate=(myAst!=null&&myAst>=20)||(myUsg!=null&&myUsg>=25);
+      const reads=[];
+      if(iCreate) reads.push(creators.length?`He shares creation with <b>${nm(creators.slice(0,2))}</b> — touches are split, so his usage may cap below last season's.`:`He's the <b>primary creator</b> — no other high-usage playmaker on the roster, so the offense runs through him.`);
+      else reads.push(creators.length?`<b>${nm(creators.slice(0,2))}</b> handle creation — he plays off the ball, which suits a ${myThree!=null&&myThree>=0.4?'shooter':'finisher/cutter'}.`:`No clear creator on the roster — he may be asked to do more with the ball than his profile suggests.`);
+      reads.push(shooters.length>=3?`<b>${shooters.length} high-volume shooters</b> (${nm(shooters.slice(0,3))}) space the floor for his ${iCreate?'drives':'cuts and rolls'}.`:shooters.length?`Spacing comes from <b>${nm(shooters)}</b> — adequate, not elite.`:`<b>Limited floor spacing</b> around him — defenses can pack the paint against his ${iCreate?'drives':'post touches'}.`);
+      reads.push(rimP.length?`Rim protection behind him from <b>${nm(rimP.slice(0,2))}</b>${rate(raw,'stl_pct')!=null&&rate(raw,'stl_pct')>=2?', which lets him gamble on the perimeter':''}.`:`No true rim protector behind him — his own defensive discipline matters more here.`);
+      const spot=isStarter?`He starts at <b>${mySlot}</b>${samePos.length?`; ${nm(samePos.slice(0,2))} ${samePos.length===1?'is':'are'} behind him`:' with no direct backup at the spot'}.`:`He's <b>${myD!=null?'#'+myD+' on the depth chart':'a reserve'}</b> at ${mySlot}${samePos.length?` — ${esc(samePos[0].name)} ${(+samePos[0].depth_order||99)<(myD||99)?'is ahead of him':'competes with him'} for the minutes`:''}.`;
+      const aroundRows=[['Creators',creators.length?nm(creators):'<span class="dim">none besides him</span>'],['High-volume shooters',shooters.length?nm(shooters):'<span class="dim">none</span>'],['Rim protectors',rimP.length?nm(rimP):'<span class="dim">none</span>'],['At his spot ('+mySlot+')',samePos.length?samePos.map(x=>esc(x.name)+(x.depth_order!=null?' <span class="dim">d'+x.depth_order+'</span>':'')).join(', '):'<span class="dim">no one else</span>']];
+      teamFitHtml=secH('Fit in the team','2026-27 '+esc(raw.team||'')+' roster · rotation of '+rot.length)
+        +`<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Signal</th><th>Him</th><th>Roster rank</th><th class="l">Standing</th><th class="l">Roster leader</th></tr></thead><tbody>${rankRows||'<tr><td class="l dim" colspan="5">No 2025-26 rates on file yet to rank him against the roster.</td></tr>'}</tbody></table></div>`
+        +`<div class="sheet-wrap" style="margin-top:8px;"><table class="sheet kv"><tbody>${aroundRows.map(x=>`<tr><td class="l dim k" style="width:170px;">${x[0]}</td><td class="l" style="white-space:normal;">${x[1]}</td></tr>`).join('')}</tbody></table></div>`
+        +`<div class="rc-read">${spot} ${reads.join(' ')}</div>`;
+    }
 
     // ── IMPACT: on/off (2026) ──
     let impactHtml='';
@@ -341,7 +388,7 @@ window.TDC_ROLES = (function(){
     host.innerHTML=`<div class="rc" style="--tc:${tc}">${head}
       ${secH('Role','archetype, traits and where he can play')}${roleSheet}
       ${hasHist?secH('Style signals','how his game is built · 2025-26 rates'):''}${sigSheet}
-      ${impactHtml}${lineupHtml}${devHtml}${hasHist?shotProfileHtml(Z):''}${hasHist?distHtml(gpts,cons):''}${atkHtml}
+      ${teamFitHtml}${impactHtml}${lineupHtml}${devHtml}${hasHist?shotProfileHtml(Z):''}${hasHist?distHtml(gpts,cons):''}${atkHtml}
     </div>`;
     if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
   }
