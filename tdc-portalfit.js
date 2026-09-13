@@ -289,9 +289,16 @@
     return {team:team.team, full:team.full, conf:team.conf, rank:team.rank, rating:team.rating,
       coach:team.coach, coach_slug:team.coach_slug, archetype:team.archetype,
       playerPos:pp, offNatural:!isNatural, posPen:Math.round(posPen*10)/10,
-      posBest:Math.round(posBest*10)/10, starter:slotD.starter, slid:slid, upgrade:Math.round(upgrade*10)/10,
+      posBest:Math.round(posBest*10)/10, starter:slotD.starter, starterGrade:slotD.starterGrade, topReserve:slotD.topReserve||null,
+      slid:slid, upgrade:Math.round(upgrade*10)/10, effGrade:Math.round(eff*10)/10,
       need:Math.round(need), teamSuccess:Math.round(teamSuccess), playerSuccess:Math.round(playerSuccess),
-      coachFit:cf.fit, overall:overall, role:role, why:why, proj:proj};
+      coachFit:cf.fit, overall:overall, role:role, why:why, proj:proj,
+      // per-factor reads + the coach-system reasons, so a full per-team REPORT can be rendered
+      reads:[{k:'need',l:'Need',v:Math.round(need),w:W.need,txt:facs[0].v>=50?facs[0].hi:facs[0].lo},
+             {k:'teamSuccess',l:'Team success',v:Math.round(teamSuccess),w:W.team,txt:facs[1].v>=50?facs[1].hi:facs[1].lo},
+             {k:'playerSuccess',l:'Production',v:Math.round(playerSuccess),w:W.player,txt:facs[2].v>=50?facs[2].hi:facs[2].lo},
+             {k:'coachFit',l:'Coach fit',v:cf.fit,w:W.coach,txt:facs[3].v>=50?facs[3].hi:facs[3].lo}],
+      coachReasons:cf.reasons||[], realism:Math.round(realism*100)/100};
   }
 
   // Rank all teams for a player. opts: {weights, sortBy, filter:{maxRank,confs,minRating}}

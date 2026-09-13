@@ -149,14 +149,30 @@ def main():
             if g is None: continue
             cols[slot(p.get('position'), htin(p.get('height')))].append((g,p))
         posdata={}
+        def dorder(p):
+            try: d=int(p.get('depth_order')) if p.get('depth_order') is not None else None
+            except (TypeError,ValueError): d=None
+            return d
+        def mpg_of(p):
+            try: return float(p.get('mpg') or 0)
+            except (TypeError,ValueError): return 0.0
         for pos in POS:
             lst=sorted(cols.get(pos,[]), key=lambda x:-x[0])
             if lst:
-                st=lst[0][1]
+                # 'best' = highest grade at the slot (the upgrade-math bar). The STARTER is who
+                # actually starts there per the depth chart — lowest depth_order, then most
+                # minutes, then grade — NOT the best-graded body, which can be a bench piece.
+                ranked=sorted(lst, key=lambda x:((dorder(x[1]) if dorder(x[1]) is not None else 99), -mpg_of(x[1]), -x[0]))
+                st_g,st=ranked[0]; sd=dorder(st)
+                # Only a top-5 depth-chart slot is a real starter. If nobody in the top 5 is
+                # slotted here (the starters play adjacent spots), the slot has NO set starter —
+                # name the top reserve instead of promoting a bench piece to "starter".
+                real=(sd is not None and sd<=5)
                 posdata[pos]={'best':round(lst[0][0],1),
                     'second':round(lst[1][0],1) if len(lst)>1 else None,
                     'depth':len([x for x in lst if x[0]>=62]),
-                    'starter':st.get('name'),'starterGrade':round(lst[0][0],1)}
+                    'starter':(st.get('name') if real else None),'starterGrade':(round(st_g,1) if real else None),
+                    'starterDepth':sd,'topReserve':(None if real else st.get('name'))}
             else:
                 posdata[pos]={'best':None,'second':None,'depth':0,'starter':None,'starterGrade':None}
         return posdata

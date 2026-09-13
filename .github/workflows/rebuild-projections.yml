@@ -54,14 +54,19 @@ jobs:
       - name: Rebuild player development paths (development.json)
         run: python3 scripts/compute_player_development.py
 
+      # stdlib-only; per-position need + the real depth-chart STARTER at each slot (drives the
+      # Portal Fit board/report), so depth-chart edits flow into "who's there now"
+      - name: Rebuild team needs (team_needs.json)
+        run: python3 scripts/build_team_needs.py
+
       - name: Commit if changed
         run: |
           git config user.name "tdc-proj-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/data/team_dna.json scripts/data/team_eff.json scripts/data/development.json
+          git add scripts/data/team_dna.json scripts/data/team_eff.json scripts/data/development.json scripts/data/team_needs.json
           if git diff --cached --quiet; then
             echo "No projection changes."
           else
-            git commit -m "Auto: rebuild projected DNA + development paths [skip ci]"
+            git commit -m "Auto: rebuild projected DNA, development paths + team needs [skip ci]"
             git push
           fi
