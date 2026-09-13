@@ -89,12 +89,30 @@
     .path-b{font-size:12px;line-height:1.6;color:var(--text2);}
     .path-b b{color:var(--text);}
 
+    /* ── sheet band: one bordered strip of cells (the NIL-hero pattern) ── */
+    .mb-band{display:grid;grid-template-columns:repeat(var(--n,4),1fr);border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg);margin:0 0 14px;box-shadow:0 1px 3px rgba(0,0,0,.10);}
+    .mb-band .cell{padding:11px 14px;border-right:1px solid var(--border);min-width:0;}
+    .mb-band .cell:last-child{border-right:none;}
+    .mb-band .v{font-family:'Inter',sans-serif;font-weight:800;font-size:21px;line-height:1.1;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap;}
+    .mb-band .v.g{color:var(--green);} .mb-band .v.r{color:var(--red);} .mb-band .v.a{color:var(--accent);}
+    .mb-band .l{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:5px;}
+    .mb-band .s{font-size:10.5px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    @media(max-width:820px){.mb-band{grid-template-columns:repeat(3,1fr);} .mb-band .cell{border-bottom:1px solid var(--border);}}
+    @media(max-width:520px){.mb-band{grid-template-columns:repeat(2,1fr);}}
+    .mb-read{font-size:12.5px;line-height:1.65;color:var(--text2);padding:11px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);margin:10px 0 0;}
+    .mb-read b{color:var(--text);}
+    .mb-read .pos{color:var(--green);font-weight:800;} .mb-read .neg{color:var(--red);font-weight:800;}
+    .sheet-wrap{max-height:none;}
+    .sheet .bar{display:inline-block;height:8px;border-radius:4px;vertical-align:middle;background:var(--tc,var(--accent));}
+    .sheet td.pos{color:var(--green);font-weight:800;} .sheet td.neg{color:var(--red);font-weight:800;}
+    .sheet .pt{font-size:10.5px;color:var(--text3);font-weight:500;}
+    .sheet .act{border:none;background:none;cursor:pointer;font-size:16px;line-height:1;width:24px;height:24px;border-radius:6px;font-weight:800;}
+    .sheet .act.add{color:var(--green);} .sheet .act.add:hover{background:color-mix(in srgb,var(--green) 15%,transparent);}
+    .sheet .act.rm{color:var(--red);} .sheet .act.rm:hover{background:color-mix(in srgb,var(--red) 15%,transparent);}
+    .sheet tbody tr.sel td{background:color-mix(in srgb,var(--accent) 14%,transparent) !important;}
+    .sheet tbody tr.clik{cursor:pointer;}
     /* value board */
     table{width:100%;border-collapse:collapse;font-size:13px;}
-    th{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);}
-    th.l,td.l{text-align:left;}
-    td{padding:8px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;text-align:right;}
-    tr:last-child td{border-bottom:none;}
     .pname{font-weight:700;color:var(--text);}
     .prole{font-size:10.5px;color:var(--text3);}
     .wa{font-weight:800;}
@@ -158,14 +176,7 @@
     .seg2 button{font-family:inherit;font-size:11.5px;font-weight:700;padding:6px 11px;border:none;border-radius:7px;background:none;color:var(--text3);cursor:pointer;transition:all .12s;}
     .seg2 button.on{background:var(--accent);color:#1a1206;}
     /* screener table */
-    .mkt-twrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--bg2);}
-    table.mkt{width:100%;border-collapse:collapse;font-size:13px;min-width:720px;}
-    table.mkt th{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);text-align:right;padding:11px 12px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap;position:sticky;top:0;background:var(--bg2);z-index:2;}
-    table.mkt th.l{text-align:left;} table.mkt th:hover{color:var(--text);}
-    table.mkt th .ar{opacity:.5;font-size:9px;}
-    table.mkt td{padding:9px 12px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;text-align:right;}
-    table.mkt td.l{text-align:left;} table.mkt tr:last-child td{border-bottom:none;}
-    table.mkt tbody tr{transition:background .1s;} table.mkt tbody tr:hover{background:var(--bg3);}
+    .mkt-twrap{margin-top:2px;}
     table.mkt .rk{color:var(--text3);font-size:11px;width:26px;}
     table.mkt .pn{font-weight:700;color:var(--text);}
     table.mkt .pt{font-size:10.5px;color:var(--text3);}
@@ -204,7 +215,7 @@
     @media(max-width:820px){.gm-cols{grid-template-columns:1fr;}}
     .gm-col-h{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);margin-bottom:10px;display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
     .gm-col-h .sub2{font-weight:600;color:var(--text3);letter-spacing:0;text-transform:none;font-size:11px;}
-    .gm-list{border:1px solid var(--border);border-radius:14px;background:var(--bg2);overflow:hidden;max-height:560px;overflow-y:auto;}
+    .gm-list{max-height:600px;overflow-y:auto;}
     .gm-p{display:flex;align-items:center;gap:10px;padding:9px 13px;border-bottom:1px solid var(--border);font-size:13px;}
     .gm-p:last-child{border-bottom:none;}
     .gm-p .nm{font-weight:700;flex:1;min-width:0;}
@@ -222,8 +233,6 @@
     .posdot{font-size:8.5px;font-weight:800;color:var(--text3);border:1px solid var(--border2);border-radius:5px;padding:1px 5px;margin-left:6px;vertical-align:middle;}
 
     /* ── The Ledger ── */
-    table.mkt tbody tr.clik{cursor:pointer;}
-    table.mkt tbody tr.sel{background:color-mix(in srgb,var(--accent) 12%,transparent);}
     .tierpill{font-size:8.5px;font-weight:800;letter-spacing:.03em;color:var(--text3);border:1px solid var(--border2);border-radius:5px;padding:1px 5px;margin-left:6px;vertical-align:middle;}
     .led-detail{margin-top:18px;scroll-margin-top:60px;}
     .led-detail .card{padding:0;overflow:hidden;}
@@ -389,8 +398,15 @@ async function selectTeam(t){
   let adv={};
   if(eids.length){ try{ const a=await fetch(`${SB}/player_advanced?season_year=eq.2026&espn_id=in.(${eids.join(',')})&select=espn_id,ti40,min`,{headers:H}).then(r=>r.ok?r.json():[]);
     (a||[]).forEach(r=>{ if(r.ti40!=null&&r.min!=null) adv[r.espn_id]={wa:(r.ti40-5.0)*(r.min/40)/69.87, ti40:r.ti40, min:r.min}; }); }catch(e){} }
+  try{ await ensureMarketData(); }catch(e){}
   buildModel(t, roster, adv);
 }
+// shared sheet helpers (Front Office / GM / Ledger)
+const secH=(t,hint)=>`<div class="sec-h">${t}${hint?` <span class="note">${hint}</span>`:''}</div>`;
+const band=cells=>`<div class="mb-band" style="--n:${cells.length}">${cells.map(c=>`<div class="cell"><div class="v ${c.cls||''}">${c.v}</div><div class="l">${c.l}</div>${c.s?`<div class="s">${c.s}</div>`:''}</div>`).join('')}</div>`;
+const signed=(v,fmt)=>v==null?'—':((v>=0?'+':'')+(fmt||(x=>x.toFixed(1)))(v));
+// the Market row for a Front Office player (name + team short), if he is priced
+function mktRowFor(name, short){ if(!MKT) return null; const n=_wvNorm(name); return MKT.players.find(p=>p.team===short&&_wvNorm(p.name)===n)||null; }
 
 // Per-player projected Wins Added — computed directly from each player's projected rate
 // (returner: his real ti40; freshman: grade→ti40) and his projected minutes. These are
@@ -430,25 +446,39 @@ function render(t, m){
   const outlook = curTier ? `Projected <b>${curTier.label.toLowerCase()}</b> — ${curTier.blurb}.` : `Projected below the at-large line — this roster needs a real jump to dance.`;
   const ceilWins=Math.min(37, m.teamWins+0.65*(m.ceilRosterWA-m.rosterWA));
   const maxWA=Math.max(...m.rot.map(x=>x.ceilWA),0.1);
+  // ── the money side: match each rotation player to his Market row ──
+  m.rot.forEach(e=>{ e.mk=mktRowFor(e.p.name, t.short); });
+  const priced=m.rot.filter(e=>e.mk);
+  const spend=sum(priced.map(e=>e.mk.cost)), winVal=sum(priced.map(e=>e.mk.wconVal||0));
+  const tier=(priced[0]&&priced[0].mk.tier)||null, tierRate=(MKT&&tier!=null)?MKT.rateFor(tier):null;
+  const cpw=(spend>0&&m.teamWins>0)?spend/m.teamWins:null;
+  const leagueCpw=(MKT&&MKT.leagueCpw)||null;
+  ST.money={spend, winVal, tier, tierRate, cpw};
+  const bestC=priced.slice().sort((a,b)=>(b.mk.wconSurp||0)-(a.mk.wconSurp||0))[0];
+  const worstC=priced.slice().sort((a,b)=>(a.mk.wconSurp||0)-(b.mk.wconSurp||0))[0];
+  const moneyRead = priced.length ? (()=>{
+      const eff=(leagueCpw&&cpw)?(cpw/leagueCpw):null;
+      const effTxt = eff==null?'' : eff<=0.8?`That is <span class="pos">${Math.round((1-eff)*100)}% cheaper per win</span> than the league's ${fM(leagueCpw)}/win — an efficient book.`
+        : eff>=1.25?`That is <span class="neg">${Math.round((eff-1)*100)}% more per win</span> than the league's ${fM(leagueCpw)}/win — this roster is paying up for its wins.`
+        : `Right around the league's ${fM(leagueCpw)}/win — a fairly priced roster.`;
+      return `The roster carries about <b>${fM(spend)}</b> in NIL for <b>${m.teamWins.toFixed(0)} projected wins</b> — <b>${fM(cpw)} per win</b>. ${effTxt}`+
+        (bestC&&bestC.mk.wconSurp>0.05?` Best contract on the book: <b>${esc(bestC.p.name)}</b> (<span class="pos">+${fM(bestC.mk.wconSurp)}</span> of winning value over his price).`:'')+
+        (worstC&&worstC.mk.wconSurp<-0.05?` Most expensive per win: <b>${esc(worstC.p.name)}</b> (<span class="neg">${fM(worstC.mk.wconSurp)}</span>).`:'');
+    })() : 'No NIL pricing on file for this roster yet — the wins side still runs.';
   document.getElementById('body').innerHTML = `
-  <div class="sec-h">Team value <span class="note">projected 2026-27</span></div>
-  <div class="snap">
-    <div class="card">
-      <div class="big-n">${rtg>0?'+':''}${rtg.toFixed(1)}</div>
-      <div class="big-l">Projected Power Rating · #${t.rank}</div>
-      <div class="snap-row" style="margin-top:16px">
-        <div class="kv"><div class="v" id="snapWins">${m.teamWins.toFixed(0)}</div><div class="k">Proj. wins</div></div>
-        <div class="kv"><div class="v" id="snapWA">${m.rosterWA.toFixed(1)}</div><div class="k">Roster Wins Added</div></div>
-        <div class="kv"><div class="v">${ceilWins.toFixed(0)}</div><div class="k">Ceiling wins</div></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="big-l" style="margin:0 0 8px">Outlook</div>
-      <div class="outlook">${outlook}<br><br>The rotation sums to <b>${m.rosterWA.toFixed(1)} Wins Added</b> — its total value in wins. Hit every development ceiling and the roster would win <b>${ceilWins.toFixed(0)}</b>, a +${(ceilWins-m.teamWins).toFixed(1)}-win band of upside.</div>
-    </div>
-  </div>
+  ${secH('Team value','projected 2026-27 · wins and dollars')}
+  ${band([
+    {v:`${rtg>0?'+':''}${rtg.toFixed(1)}`,l:'Power rating',s:'#'+t.rank+' nationally'},
+    {v:`<span id="snapWins">${m.teamWins.toFixed(0)}</span>`,l:'Projected wins',s:curTier?curTier.label:'below the line'},
+    {v:`<span id="snapWA">${m.rosterWA.toFixed(1)}</span>`,l:'Roster wins added',s:'rotation total'},
+    {v:ceilWins.toFixed(0),l:'Ceiling wins',s:'+'+(ceilWins-m.teamWins).toFixed(1)+' if everyone hits'},
+    {v:priced.length?fM(spend):'—',l:'Roster NIL',s:priced.length?priced.length+' priced players':'no pricing'},
+    {v:cpw?fM(cpw):'—',l:'Cost per win',s:leagueCpw?'league '+fM(leagueCpw):''},
+    {v:priced.length?fM(winVal):'—',l:'Winning value',s:priced.length?signed(winVal-spend,fM)+' vs paid':''}
+  ])}
+  <div class="mb-read"><b>Front-office memo.</b> ${outlook} The rotation sums to <b>${m.rosterWA.toFixed(1)} Wins Added</b>; hit every development ceiling and it wins <b>${ceilWins.toFixed(0)}</b>. ${moneyRead}</div>
 
-  <div class="sec-h">Goal Lab <span class="note">set a goal · drag the sliders below to reach it</span></div>
+  ${secH('Goal Lab','set a goal · drag the sliders below to reach it')}
   <div class="goals">${GOALS.map(g=>`<button class="goal-btn ${g.id===ST.goal?'on':''}" data-g="${g.id}">${g.label}</button>`).join('')}</div>
   <div class="gap">
     <div class="gap-head">
@@ -458,29 +488,33 @@ function render(t, m){
     <div class="meter"><span id="meterFill"></span></div>
     <div class="meter-lbls"><span id="nowW"></span><span id="goalW"></span></div>
     <div id="pathsWrap"></div>
-    <div class="disclaimer">Goal prices = the median historical outcome at each Power Rating (17 seasons, r=.77). Wins Added is the owned metric — validated at ~1 team win per player-WA across 2,400 team-seasons — so a win gap converts straight to production.</div>
+    <div class="disclaimer">Goal prices = the median historical outcome at each Power Rating (17 seasons, r=.77). Wins Added is the owned metric — validated at ~1 team win per player-WA across 2,400 team-seasons — so a win gap converts straight to WA to add. Dollar figures use the $-per-win rate of this program's NIL tier.</div>
   </div>
 
-  <div class="sec-h">Value board <span class="note">Wins Added · drag Simulate to run a what-if</span></div>
+  ${secH('Value board','wins added and dollars, per player · drag Simulate to run a what-if')}
   <div class="reset-row"><button class="reset-btn" id="resetBtn" style="display:none">↺ Reset to projection</button></div>
-  <table><thead><tr>
-    <th class="l">Player</th><th>Min</th><th>Grade</th><th>Wins added</th><th class="l barcell">Share</th><th class="l">Simulate ↔</th><th>Ceiling</th>
+  <div class="sheet-wrap"><table class="sheet"><thead><tr>
+    <th class="l">Player</th><th class="l">Role</th><th>Min</th><th>Grade</th><th>Ceiling</th><th>Wins added</th><th class="l">Share</th><th class="l">Simulate ↔</th><th>Paid</th><th>Win value</th><th>Surplus</th>
   </tr></thead><tbody>
     ${m.rot.map((e,i)=>{
       const topRate=Math.max(...m.rot.map(x=>x.waPerMin),0.001);
       const gem = (e.waPerMin>=topRate*0.78 && e.i>=5) || (e.cg-e.g>=4 && e.g>=80);
       const role=e.i<5?`Starter`:`Bench`;
+      const mk=e.mk;
       return `<tr>
-        <td class="l"><span class="pname">${esc(e.p.name)}</span>${gem?'<span class="gem">value</span>':''}<div class="prole">${esc(e.p.position||'')} · ${role}${e.provenWA!=null?` · ${e.provenWA>0?'+':''}${e.provenWA.toFixed(1)} WA last yr`:''}</div></td>
-        <td>${e.mn.toFixed(0)}</td><td>${Math.round(e.g)}</td>
+        <td class="l nm">${esc(e.p.name)}${gem?' <span class="gem">value</span>':''}${e.provenWA!=null?`<div class="pt">${e.provenWA>0?'+':''}${e.provenWA.toFixed(1)} WA last yr</div>`:''}</td>
+        <td class="l dim">${esc(e.p.position||'')} · ${role}</td>
+        <td>${e.mn.toFixed(0)}</td><td>${Math.round(e.g)}</td><td class="dim">${Math.round(e.cg)}</td>
         <td class="wa pos" id="wa${i}">+${e.wa.toFixed(1)}</td>
-        <td class="l barcell"><div class="vbar"><span id="bar${i}"></span></div></td>
+        <td class="l"><span class="bar" id="bar${i}" style="width:${Math.max(2,100*e.wa/maxWA).toFixed(0)}px"></span></td>
         <td class="l"><input type="range" class="pslide" data-i="${i}" min="0" max="${Math.max(0.5,e.ceilWA).toFixed(1)}" step="0.1" value="${e.wa.toFixed(1)}"></td>
-        <td class="ceil">${Math.round(e.cg)}</td>
+        <td>${mk?fM(mk.cost):'<span class="dim">—</span>'}</td>
+        <td>${mk&&mk.wconVal!=null?fM(mk.wconVal):'<span class="dim">—</span>'}</td>
+        <td class="${mk&&mk.wconSurp!=null?(mk.wconSurp>=0?'pos':'neg'):'dim'}">${mk&&mk.wconSurp!=null?signed(mk.wconSurp,fM):'—'}</td>
       </tr>`;
     }).join('')}
-  </tbody></table>
-  <div class="disclaimer">“Value” = a player producing wins out of proportion to his minutes, or a young high-grade player with real ceiling. <b>Simulate</b> pushes a player toward his ceiling (right) or a bust (left) and the goal meter reacts live — that's the art of roster-building.</div>
+  </tbody></table></div>
+  <div class="disclaimer">“Value” = a player producing wins out of proportion to his minutes, or a young high-grade player with real ceiling. <b>Simulate</b> pushes a player toward his ceiling (right) or a bust (left) and the goal meter reacts live — that's the art of roster-building. <b>Paid</b> = his NIL on the books (a known deal if on file, else the model); <b>Win value</b> = what his win-driver production is worth at the market's $/win; <b>Surplus</b> = the difference.</div>
   ${(window.TDC_COACHLINKS&&TDC_COACHLINKS.bar)?TDC_COACHLINKS.bar(t.full):''}
   `;
   document.querySelectorAll('.goal-btn').forEach(btn=>btn.addEventListener('click',()=>{
@@ -512,7 +546,7 @@ function buildPaths(){
     <div class="paths">
       <div class="path"><div class="path-h tgt">Lift the core</div><div class="path-b">${perPlayer.filter(x=>x.add>0.15).slice(0,3).map(x=>`<b>${esc(x.name)}</b> ${x.cur.toFixed(1)}→${x.tgt.toFixed(1)} WA`).join('<br>')||'—'}<br><span class="ceil">each raising his game by the shown wins.</span></div></div>
       <div class="path"><div class="path-h dev">Development path</div><div class="path-b">${devCovers?`If the returners hit their ceilings, the roster reaches <b>${ceilWins.toFixed(0)} wins</b> — <b>covers it</b> from within.`:`Full internal development gets to <b>${ceilWins.toFixed(0)} wins</b> — still <b>${(tgtWins-ceilWins).toFixed(1)} short</b>. You'd need outside help.`}</div></div>
-      <div class="path"><div class="path-h add">Portal path</div><div class="path-b">Roughly <b>${addsNeeded} starter-level add${addsNeeded===1?'':'s'}</b> (grade ~85, ~26 mpg) covers the gap — or ${addsNeeded*2} high-value role players.</div></div>
+      <div class="path"><div class="path-h add">Portal path</div><div class="path-b">Roughly <b>${addsNeeded} starter-level add${addsNeeded===1?'':'s'}</b> (grade ~85, ~26 mpg) covers the gap — or ${addsNeeded*2} high-value role players.${(ST.money&&ST.money.tierRate)?` At this tier's going rate (${fM(ST.money.tierRate)}/win) that is <b>≈ ${fM(winGap*ST.money.tierRate)}</b> of NIL to buy the gap outright.`:''}</div></div>
     </div>`;
 }
 
@@ -536,7 +570,7 @@ function recompute(){
   ST.whatif.forEach((w,i)=>{
     const c=$id('wa'+i); if(c){ c.textContent=(w>=0?'+':'')+w.toFixed(1);
       c.className='wa '+(w>=0?'pos':'neg')+(Math.abs(w-m.rot[i].wa)>0.05?' moved':''); }
-    const bar=$id('bar'+i); if(bar) bar.style.width=Math.max(2,100*w/maxWA).toFixed(0)+'%';
+    const bar=$id('bar'+i); if(bar) bar.style.width=Math.max(2,100*w/maxWA).toFixed(0)+'px';
   });
   $id('resetBtn').style.display=moved?'inline-block':'none';
 }
@@ -666,7 +700,12 @@ async function ensureMarketData(){
     p.wcon=(p.wwins!=null)?p.wwins:Math.max(0,p.wa*waToWcon);
     p.wconVal=winValueOf(p.wcon); p.wconSurp=p.wconVal-p.cost;
     const _wcp=p.wconSurp/Math.max(p.cost,0.25); p.wconVerdict=_wcp>=0.25?'buy':_wcp<=-0.28?'over':'fair'; });
-  MKT={players:arr, rate:globalRate, winRate, winValOf:winValueOf, tierRate, rateFor};
+  // league cost per PROJECTED win at the program level (Σ roster NIL / Σ projected wins) — the
+  // Front Office memo's reference for "is this roster paying more or less per win than the league".
+  let _ls=0,_lw=0; const _bt={}; arr.forEach(p=>{ (_bt[p.team]=_bt[p.team]||[]).push(p); });
+  Object.keys(_bt).forEach(tm=>{ if(_bt[tm].length<5) return; const info=rm[tm]; if(!info||!isFinite(info.rating)) return; _ls+=sum(_bt[tm].map(p=>p.cost)); _lw+=projWins(info.rating); });
+  const leagueCpw=_lw>0?_ls/_lw:null;
+  MKT={players:arr, rate:globalRate, winRate, winValOf:winValueOf, tierRate, rateFor, leagueCpw};
   return MKT;
 }
 async function bootMarket(){
@@ -701,23 +740,41 @@ function renderMarket(){
   const _amax=Math.max(0.1,...archStats.map(s=>Math.abs(s.avg)));
   const _ai=a=>(window.TDC_ARCH&&TDC_ARCH.info(a))||{};
   const archPanel=archStats.length?`
-    <div class="sec-h" style="margin:22px 0 10px">Market inefficiency by style <span class="note">avg win value − paid, per archetype · the Moneyball edge</span></div>
-    <div class="arch-val">${archStats.map(s=>{ const c=_ai(s.a).color||'var(--text3)'; const pos=s.avg>=0; const w=(50*Math.abs(s.avg)/_amax).toFixed(0);
-      return `<div class="av-row" title="${esc(_ai(s.a).desc||'')}"><div class="av-nm" style="color:${c}">${esc(s.a)} <span class="av-n">${s.n}</span></div><div class="av-track"><span class="av-bar ${pos?'pos':'neg'}" style="width:${w}%;${pos?'left:50%':'right:50%'}"></span></div><div class="av-v ${pos?'pos':'neg'}">${pos?'+':''}${fM(s.avg)}</div></div>`; }).join('')}</div>
+    ${secH('Market inefficiency by style','avg win value − paid, per archetype · the Moneyball edge')}
+    <div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Style</th><th>Players</th><th>Avg paid</th><th>Avg win value</th><th>Gap / player</th><th class="l">Market</th></tr></thead><tbody>
+    ${archStats.map(s=>{ const c=_ai(s.a).color||'var(--text)'; const pos=s.avg>=0; const w=Math.max(2,Math.round(90*Math.abs(s.avg)/_amax));
+      const rows=scored.filter(p=>p.arch===s.a); const paid=rows.reduce((a,p)=>a+p.cost,0)/rows.length, wv=rows.reduce((a,p)=>a+p.winVal,0)/rows.length;
+      return `<tr title="${esc(_ai(s.a).desc||'')}"><td class="l nm" style="color:${c}">${esc(s.a)}</td><td class="dim">${s.n}</td><td>${fM(paid)}</td><td>${fM(wv)}</td><td class="${pos?'pos':'neg'}">${signed(s.avg,fM)}</td><td class="l"><span class="bar" style="width:${w}px;background:${pos?'var(--green)':'var(--red)'}"></span> <span class="dim" style="font-size:10.5px">${pos?'underpays':'overpays'}</span></td></tr>`; }).join('')}
+    </tbody></table></div>
     <div class="disclaimer" style="margin-top:6px">Positive = the market <b style="color:var(--green)">underpays</b> that style — buy it; negative = <b style="color:var(--red)">overpays</b> it. Winning value is production; the gap is what the market tacks on for archetype and hype.</div>`:'';
+  // ── the market read ──
+  const fair=scored.length-buys-over;
+  const topBuyStyle=archStats[0], topOverStyle=archStats[archStats.length-1];
+  const byPos={}; scored.forEach(p=>{ const b=posBucket(p.pos); (byPos[b]=byPos[b]||[]).push(p.winSurplus); });
+  const posAvg=Object.keys(byPos).map(b=>({b,avg:byPos[b].reduce((a,x)=>a+x,0)/byPos[b].length})).sort((a,b)=>b.avg-a.avg);
+  const posName={G:'guards',F:'forwards',C:'centers'};
+  const mktRead=`<div class="mb-read"><b>Market read.</b> ${scored.length} priced players with a 2025-26 winning score: <span class="pos">${buys} undervalued</span>, ${fair} fair, <span class="neg">${over} overpaid</span>. The market pays about <b>${fM(M.winRate)}</b> for one win of production.`+
+    (topBuyStyle&&topBuyStyle.avg>0?` The cheapest winning is in <b style="color:${_ai(topBuyStyle.a).color||'inherit'}">${esc(topBuyStyle.a)}</b> profiles (+${fM(topBuyStyle.avg)} of value over price on average)`:'')+
+    (topOverStyle&&topOverStyle.avg<0?`; the most overpaid style is <b style="color:${_ai(topOverStyle.a).color||'inherit'}">${esc(topOverStyle.a)}</b> (${fM(topOverStyle.avg)}).`:'.')+
+    (posAvg.length>=2?` By position the market underpays <b>${posName[posAvg[0].b]}</b> most and overpays <b>${posName[posAvg[posAvg.length-1].b]}</b> most.`:'')+`</div>`;
   $id('mktBody').innerHTML=`
     <div class="mkt-intro">Three numbers on every rotation player across the <b>${nTeams} biggest-spending programs</b>: <b style="color:var(--green)">Win value</b> — what his winning is worth (a win-driver score: efficiency, defense, rebounding, ball-security, priced in dollars); <b>Market value</b> — what the open market would pay him (our model, independent of any deal); and <b>Paid</b> — what he's actually on the books for (a known deal if on file, with any hometown/dream-school discount baked in). Plotted <b>win value vs paid</b>: <b style="color:var(--green)">above the line</b> = wins more than he's paid — the Moneyball buys.</div>
-    <div class="mkt-kpis">
-      <div class="mkt-kpi"><div class="v">${scored.length}</div><div class="l">Players scored</div><div class="s">of ${M.players.length} priced</div></div>
-      <div class="mkt-kpi"><div class="v">${fM(M.rate)}</div><div class="l">Market rate</div><div class="s">league avg / win</div></div>
-      <div class="mkt-kpi"><div class="v" style="color:var(--green)">${buys}</div><div class="l">Undervalued</div><div class="s">win value &gt; cost</div></div>
-      <div class="mkt-kpi"><div class="v" style="color:var(--red)">${over}</div><div class="l">Overpaid</div><div class="s">cost &gt; win value</div></div>
-    </div>
+    ${band([
+      {v:scored.length,l:'Players scored',s:'of '+M.players.length+' priced'},
+      {v:fM(M.winRate),l:'$ per win',s:'winning-value rate'},
+      {v:fM(M.rate),l:'Market rate',s:'league $/win (grade-WA)'},
+      {v:buys,cls:'g',l:'Undervalued',s:'win value > paid'},
+      {v:fair,l:'Fair',s:'within the band'},
+      {v:over,cls:'r',l:'Overpaid',s:'paid > win value'}
+    ])}
+    ${mktRead}
+    ${secH('Win value vs paid','every scored player · hover a dot')}
     <div class="scatter-wrap">
       <div class="scatter-legend"><span><i class="buy"></i>Undervalued</span><span><i class="fair"></i>Fair</span><span><i class="over"></i>Overpaid</span><span><i class="line"></i>Paid = worth</span></div>
       <div id="scatterHost"></div>
     </div>
     ${archPanel}
+    ${secH('Screener','sort any column · filter by conference, position, class, verdict')}
     <div class="mkt-ctrl">
       <input class="msearch" id="mSearch" placeholder="Search player or team…" autocomplete="off" value="${esc(mktState.q||'')}">
       <select id="mConf"><option value="all">All conferences</option>${confs.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select>
@@ -725,9 +782,9 @@ function renderMarket(){
       <select id="mCls"><option value="all">All classes</option><option value="fr">Freshman</option><option value="so">Sophomore</option><option value="jr">Junior</option><option value="sr">Senior</option></select>
       <div class="seg2" id="mVerd"><button data-v="all" class="on">All</button><button data-v="buy">Buys</button><button data-v="fair">Fair</button><button data-v="over">Overpays</button></div>
     </div>
-    <div class="mkt-twrap"><table class="mkt"><thead id="mHead"></thead><tbody id="mBodyRows"></tbody></table></div>
+    <div class="sheet-wrap mkt-twrap"><table class="sheet mkt"><thead id="mHead"></thead><tbody id="mBodyRows"></tbody></table></div>
     <div class="mkt-more" id="mMore"></div>
-    <div class="disclaimer" style="margin-top:12px"><b>Win value</b> = a player's win-driver score (efficiency, defense, rebounding, ball-security — the skills that predict winning, weighted from a 7,000-team-season regression; scoring volume &amp; assists count little), priced so it sits on the same scale as market value. <b>Market value</b> = what the open NIL market would pay him — our model (production + size/scoring/conference + <b>recruiting pedigree</b>, where a former five-star still commands a premium that decays each year as production proves out), <i>independent</i> of what he's actually on the books for, so it shows his worth elsewhere even when he's taking a discount. <b>Paid</b> = the actual deal where known (Kentucky's Jerone Morton is on ~$100K at home but would command more elsewhere — Paid $100K, Market value higher). <b>Undervalued</b> = win value beats what he's paid by 25%+. Freshmen without 2025-26 stats have no win value yet. A screener, not a contract.</div>
+    <div class="disclaimer" style="margin-top:12px"><b>Win value</b> = a player's win-driver score (efficiency, defense, rebounding, ball-security — the skills that predict winning, weighted from a 7,000-team-season regression; scoring volume &amp; assists count little), priced at the market's $-per-win. <b>Market value</b> = the model's open-market estimate. <b>Paid</b> = the known deal if on file, else the model. Players without 2025-26 stats (freshmen) show no win score. A model, not a cap sheet.</div>
     ${(window.TDC_COACHLINKS&&TDC_COACHLINKS.bar)?TDC_COACHLINKS.bar('The Depth Chart'):''}`;
   $id('mSearch').addEventListener('input',e=>{ mktState.q=e.target.value; mktState.limit=60; renderScatter(); renderTable(); });
   $id('mConf').addEventListener('change',e=>{ mktState.conf=e.target.value; mktState.limit=60; renderScatter(); renderTable(); });
@@ -780,18 +837,18 @@ function wireScatterTip(){
 const MCOLS=[['#','l',null],['Player','l',null],['Grd','','grade'],['Win score','','ws'],['Win value','','winVal'],['Market value','','marketVal'],['Paid','','cost'],['Surplus','','winSurplus'],['Value','l',null]];
 function renderTable(){
   const list=marketFiltered();
-  $id('mHead').innerHTML=`<tr>${MCOLS.map(c=>{ const s=c[2]; const ar=s===mktState.sort?(mktState.dir<0?' ▼':' ▲'):'';
-    return `<th class="${c[1]==='l'?'l':''}" ${s?`data-sort="${s}"`:'style="cursor:default"'}>${c[0]}<span class="ar">${ar}</span></th>`; }).join('')}</tr>`;
+  $id('mHead').innerHTML=`<tr>${MCOLS.map(c=>{ const s=c[2]; const on=s===mktState.sort; const ar=on?(mktState.dir<0?'▼':'▲'):'';
+    return `<th class="${c[1]==='l'?'l':''}${s?' sort':''}${on?' on':''}" ${s?`data-sort="${s}"`:''}>${c[0]}${ar?`<span class="ar">${ar}</span>`:''}</th>`; }).join('')}</tr>`;
   const shown=list.slice(0,mktState.limit);
   $id('mBodyRows').innerHTML=shown.map((p,i)=>`<tr>
     <td class="rk">${i+1}</td>
-    <td class="l"><span class="pn">${esc(p.name)}</span><div class="pt">${esc(p.full)} · ${esc(p.pos||'')}${p.cls?' · '+esc(p.cls):''}</div></td>
+    <td class="l nm">${esc(p.name)}<div class="pt">${esc(p.full)} · ${esc(p.pos||'')}${p.cls?' · '+esc(p.cls):''}</div></td>
     <td>${p.grade}</td>
-    <td class="wpd">${p.ws!=null?Math.round(p.ws):'—'}</td>
-    <td>${p.winVal!=null?fM(p.winVal):'—'}</td>
-    <td style="color:var(--text3)">${fM(p.marketVal)}</td>
+    <td class="strong">${p.ws!=null?Math.round(p.ws):'<span class="dim">—</span>'}</td>
+    <td>${p.winVal!=null?fM(p.winVal):'<span class="dim">—</span>'}</td>
+    <td class="dim">${fM(p.marketVal)}</td>
     <td>${fM(p.cost)}</td>
-    <td class="surp ${(p.winSurplus>=0)?'pos':'neg'}">${p.winSurplus!=null?((p.winSurplus>=0?'+':'')+fM(p.winSurplus)):'—'}</td>
+    <td class="${p.winSurplus==null?'dim':(p.winSurplus>=0?'pos':'neg')}">${p.winSurplus!=null?((p.winSurplus>=0?'+':'')+fM(p.winSurplus)):'—'}</td>
     <td class="l">${p.winVerdict?`<span class="vpill ${p.winVerdict}">${p.winVerdict==='buy'?'Buy':p.winVerdict==='over'?'Overpay':'Fair'}</span>`:`<span style="color:var(--text3);font-size:10.5px">no ’26 stats</span>`}</td>
   </tr>`).join('')||`<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:24px">No players match.</td></tr>`;
   $id('mMore').innerHTML=list.length>mktState.limit?`<button id="mMoreBtn">Show more (${list.length-mktState.limit})</button>`:(list.length?`<span style="font-size:11px;color:var(--text3)">${list.length} player${list.length===1?'':'s'}</span>`:'');
@@ -898,23 +955,20 @@ function renderGMDash(){
   const surplus=sum(R.map(p=>(p.wconVal||0)-p.cost));               // winning-value surplus (worth − paid)
   const goal=goalReached(wins), next=nextGoal(wins);
   const pctBar=cap>0?Math.min(100,100*spend/cap):(spend>0?100:0);
-  $id('gmDash').innerHTML=`<div class="gm-dash">
-    <div class="card gm-spend">
-      <div style="display:flex;justify-content:space-between;align-items:baseline"><div class="big-l" style="margin:0">Spend</div><div style="font-weight:800;font-size:15px;color:${over?'var(--red)':'var(--text)'}">${fM(spend)} <span style="color:var(--text3);font-weight:600">/ ${fM(cap)}</span></div></div>
-      <div class="bar ${over?'over':''}"><span style="width:${pctBar.toFixed(0)}%"></span></div>
-      <div style="font-size:11.5px;color:${over?'var(--red)':'var(--text3)'}">${over?('Over budget by '+fM(spend-cap)):(fM(Math.max(0,cap-spend))+' remaining')}${R.length?' · '+R.length+' players ('+posBreak(R)+')':''}</div>
-      <div class="gm-nums" style="margin-top:15px">
-        <div><div class="v">${wins.toFixed(0)}</div><div class="k">Projected wins</div></div>
-        <div><div class="v">${fM(winValTot)}</div><div class="k">Winning value</div></div>
-        <div><div class="v" style="color:${surplus>=0?'var(--green)':'var(--red)'}">${surplus>=0?'+':''}${fM(surplus)}</div><div class="k">Value surplus</div></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="big-l" style="margin:0 0 8px">Goal check</div>
-      <div class="gline" style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:10px">${R.length?(goal?`Reaches <b style="color:var(--text)">${goal.label}</b> — ${goal.blurb}.`:`Below the tournament line — keep building.`):`Add players to see what this roster wins.`}</div>
-      ${next?`<div class="meter"><span id="gmMeter" style="width:${Math.min(100,100*wins/projWins(next.rtg)).toFixed(0)}%"></span></div><div class="meter-lbls"><span>${wins.toFixed(0)} wins</span><span>${next.label}: ${projWins(next.rtg).toFixed(0)}</span></div>`:(R.length?`<div style="font-size:12.5px;color:var(--green);font-weight:800">Title-contender ceiling ✓</div>`:'')}
-    </div>
-  </div>`;
+  const cpw=(R.length&&wins>0)?spend/wins:null, lg=(MKT&&MKT.leagueCpw)||null;
+  const read=!R.length?`Add players from the pool, load a real roster, or hit <b>⚡ Auto-build</b>.`
+    :`${R.length} players (${posBreak(R)}) for <b>${fM(spend)}</b>${over?` — <span class="neg">over the cap by ${fM(spend-cap)}</span>`:` with ${fM(Math.max(0,cap-spend))} left`}. Projects to <b>${wins.toFixed(0)} wins</b>${goal?` — reaches <b>${goal.label}</b> (${goal.blurb})`:' — below the tournament line'}${next?`; ${next.label.toLowerCase()} needs ${projWins(next.rtg).toFixed(0)}`:''}.`+
+     (cpw&&lg?` That is <b>${fM(cpw)} per win</b> vs the league's ${fM(lg)} — ${cpw<=lg*0.8?'<span class="pos">a very efficient build</span>':cpw>=lg*1.25?'<span class="neg">paying up for wins</span>':'about the going rate'}.`:'');
+  $id('gmDash').innerHTML=band([
+    {v:`<span style="color:${over?'var(--red)':'var(--text)'}">${fM(spend)}</span>`,l:'Spend',s:'cap '+fM(cap)},
+    {v:over?`<span style="color:var(--red)">${fM(spend-cap)}</span>`:fM(Math.max(0,cap-spend)),l:over?'Over budget':'Remaining',s:R.length+' players'},
+    {v:wins.toFixed(0),l:'Projected wins',s:goal?goal.label:'below the line'},
+    {v:fM(winValTot),l:'Winning value',s:'minute-constrained'},
+    {v:signed(surplus,fM),cls:surplus>=0?'g':'r',l:'Value surplus',s:'worth − paid'},
+    {v:cpw?fM(cpw):'—',l:'Cost per win',s:lg?'league '+fM(lg):''}
+  ])+`<div class="gm-spend"><div class="bar ${over?'over':''}" style="margin:0 0 6px"><span style="width:${pctBar.toFixed(0)}%"></span></div></div>
+  ${next?`<div class="meter"><span id="gmMeter" style="width:${Math.min(100,100*wins/projWins(next.rtg)).toFixed(0)}%"></span></div><div class="meter-lbls"><span>${wins.toFixed(0)} wins</span><span>${next.label}: ${projWins(next.rtg).toFixed(0)}</span></div>`:''}
+  <div class="mb-read" style="margin-bottom:16px">${read}</div>`;
 }
 
 function renderGMRoster(){
@@ -923,10 +977,11 @@ function renderGMRoster(){
   const mn=rosterMinutes(R);
   const rows=R.map((p,i)=>({p, mn:mn[i], wv:(MKT.winValOf?MKT.winValOf((p.wcon||0)*(mn[i]/Math.max(p.min,1))):0)})).sort((a,b)=>b.wv-a.wv);
   $id('gmRosterSub').textContent=posBreak(R)+' · '+R.length;
-  $id('gmRoster').innerHTML=rows.map(r=>`<div class="gm-p">
-    <div class="nm">${esc(r.p.name)}<span class="posdot">${posBucket(r.p.pos)}</span>${r.p.ws!=null?`<span class="posdot" style="color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,transparent)" title="Winning score">WS ${Math.round(r.p.ws)}</span>`:''}<div class="pt">${esc(r.p.full)} · ${r.mn.toFixed(0)} min</div></div>
-    <div class="st"><b>${fM(r.wv)}</b> win val<br>${fM(r.p.cost)}</div>
-    <button class="act rm" data-k="${esc(pk(r.p))}" title="Release">×</button></div>`).join('');
+  $id('gmRoster').innerHTML=`<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Player</th><th class="c">Pos</th><th>Min</th><th>WS</th><th>Win value</th><th>Paid</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr>
+    <td class="l nm">${esc(r.p.name)}<div class="pt">${esc(r.p.full)}</div></td>
+    <td class="c dim">${posBucket(r.p.pos)}</td><td>${r.mn.toFixed(0)}</td><td class="dim">${r.p.ws!=null?Math.round(r.p.ws):'—'}</td>
+    <td class="strong">${fM(r.wv)}</td><td>${fM(r.p.cost)}</td>
+    <td class="c"><button class="act rm" data-k="${esc(pk(r.p))}" title="Release">×</button></td></tr>`).join('')}</tbody></table></div>`;
   $id('gmRoster').querySelectorAll('.act.rm').forEach(b=>b.addEventListener('click',()=>{ gmState.roster=gmState.roster.filter(x=>pk(x)!==b.dataset.k); renderGMDash(); renderGMRoster(); renderGMPool(); }));
 }
 
@@ -938,10 +993,12 @@ function renderGMPool(){
   if(s.affordOnly) a=a.filter(p=>p.cost<=rem+1e-6);
   a.sort((x,y)=>(y.wconVal/Math.max(y.cost,0.05))-(x.wconVal/Math.max(x.cost,0.05)));   // best winning value per $ first
   const shown=a.slice(0,s.limit);
-  $id('gmPool').innerHTML=(shown.map(p=>{ const vd=p.winVerdict||((p.wconVal>=p.cost*1.25)?'buy':(p.wconVal<=p.cost*0.75)?'over':'fair'); return `<div class="gm-p">
-    <div class="nm">${esc(p.name)}<span class="posdot">${posBucket(p.pos)}</span><div class="pt">${esc(p.full)} · ${fM(p.wconVal)} win val${p.ws!=null?' · WS '+Math.round(p.ws):''}</div></div>
-    <div class="st"><b>${fM(p.cost)}</b><br><span class="vpill ${vd}" style="font-size:8px;padding:1px 6px">${vd==='buy'?'Buy':vd==='over'?'Over':'Fair'}</span></div>
-    <button class="act add" data-k="${esc(pk(p))}" title="Sign">＋</button></div>`;}).join('')||'<div class="gm-empty">No players match.</div>')
+  $id('gmPool').innerHTML=(shown.length?`<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Player</th><th class="c">Pos</th><th>WS</th><th>Win value</th><th>Paid</th><th class="l">Value</th><th></th></tr></thead><tbody>${shown.map(p=>{ const vd=p.winVerdict||((p.wconVal>=p.cost*1.25)?'buy':(p.wconVal<=p.cost*0.75)?'over':'fair'); return `<tr>
+    <td class="l nm">${esc(p.name)}<div class="pt">${esc(p.full)}</div></td>
+    <td class="c dim">${posBucket(p.pos)}</td><td class="dim">${p.ws!=null?Math.round(p.ws):'—'}</td>
+    <td class="strong">${fM(p.wconVal)}</td><td>${fM(p.cost)}</td>
+    <td class="l"><span class="vpill ${vd}" style="font-size:8.5px;padding:1px 6px">${vd==='buy'?'Buy':vd==='over'?'Over':'Fair'}</span></td>
+    <td class="c"><button class="act add" data-k="${esc(pk(p))}" title="Sign">＋</button></td></tr>`;}).join('')}</tbody></table></div>`:'<div class="gm-empty">No players match.</div>')
    + (a.length>s.limit?`<div style="padding:10px;text-align:center"><button class="gm-btn" id="gmMoreBtn" style="padding:6px 14px;font-size:11px">Show more (${a.length-s.limit})</button></div>`:'');
   $id('gmPool').querySelectorAll('.act.add').forEach(b=>b.addEventListener('click',()=>{ const p=MKT.players.find(x=>pk(x)===b.dataset.k); if(p&&!inRoster(p)&&gmState.roster.length<15){ gmState.roster.push(p); renderGMDash(); renderGMRoster(); renderGMPool(); } }));
   const mb=$id('gmMoreBtn'); if(mb) mb.addEventListener('click',()=>{ gmState.limit+=40; renderGMPool(); });
@@ -953,20 +1010,47 @@ function renderGMPool(){
    minus what it costs — the best-run front offices get more winning than they pay for. */
 let LEDGER=null;
 let ledState={sort:'surplus', dir:-1, sel:null};
+/* Programs are judged against their PEERS, not against an absolute "worth": every roster produces
+   some winning even at zero spend, so pricing the whole roster's winning at the player $/win rate
+   put ~all 89 programs "above the line" (uninformative). Instead: cost per win = spend / the
+   roster's winning; each NIL tier's median is the going rate; surplus = what the program saved (or
+   overpaid) vs buying the same winning at its tier's rate. Half the league lands on each side by
+   construction, and the scatter's line is the league's fitted spend→winning curve. */
 function buildLedger(){
   const byTeam={};
   MKT.players.forEach(p=>{ (byTeam[p.team]=byTeam[p.team]||{team:p.team,full:p.full,conf:p.conf,tier:p.tier,players:[]}).players.push(p); });
-  return Object.values(byTeam).map(t=>{
+  const L=Object.values(byTeam).map(t=>{
     t.spend=sum(t.players.map(p=>p.cost));                 // what the program pays
-    t.winning=rosterWinning(t.players);                    // minute-constrained winning contribution (for wins)
-    t.winVal=rosterWinningValue(t.players);                // the roster's winning value ($) — convex per-player
-    t.surplus=t.winVal-t.spend;                            // winning value − cost
-    t.wpd=t.winning/Math.max(t.spend,0.05);                // winning wins per $M
-    t.pct=t.surplus/Math.max(t.spend,0.25);
-    t.verdict=t.pct>=0.15?'buy':t.pct<=-0.15?'over':'fair';
+    t.winning=rosterWinning(t.players);                    // minute-constrained winning contribution (in wins)
+    t.wins=Math.max(0,Math.min(37,rosterWinsRaw(t.players)));
+    t.winVal=rosterWinningValue(t.players);                // the roster's winning value ($) — convex per-player (detail only)
+    t.cpw=t.winning>0.5?t.spend/t.winning:null;            // $M per win of winning
     const info=RATMAP[t.team]||{}; t.rating=info.rating; t.rank=info.rank;
     return t;
-  }).filter(t=>t.players.length>=5);
+  }).filter(t=>t.players.length>=5&&t.cpw!=null);
+  // tier going rate (median cost per win within the tier; thin tiers borrow the league median)
+  const med=a=>{ a=a.slice().sort((x,y)=>x-y); return a.length?a[Math.floor(a.length/2)]:null; };
+  const lgCpw=med(L.map(t=>t.cpw))||1;
+  const byTier={}; L.forEach(t=>{ (byTier[t.tier]=byTier[t.tier]||[]).push(t.cpw); });
+  // thin tiers (<4 programs) borrow the nearest well-sampled tier's rate (a Tier-9 program is judged
+  // against Tier-8 money, not the league median — which would hand it a fake windfall)
+  const tierCpw={}; const solid=Object.keys(byTier).map(Number).filter(k=>byTier[k].length>=4).sort((a,b)=>a-b);
+  Object.keys(byTier).map(Number).forEach(k=>{ if(byTier[k].length>=4){ tierCpw[k]=med(byTier[k]); return; }
+    const near=solid.length?solid.reduce((a,b)=>Math.abs(b-k)<Math.abs(a-k)?b:a):null; tierCpw[k]=near!=null?med(byTier[near]):lgCpw; });
+  // league spend→winning fit (for the scatter's "what the money usually buys" line)
+  const n=L.length, mx=sum(L.map(t=>t.spend))/n, my=sum(L.map(t=>t.winning))/n;
+  let sxy=0,sxx=0; L.forEach(t=>{ sxy+=(t.spend-mx)*(t.winning-my); sxx+=(t.spend-mx)*(t.spend-mx); });
+  const slope=sxx>0?sxy/sxx:0, icpt=my-slope*mx;
+  L.forEach(t=>{
+    t.tierCpw=tierCpw[t.tier]||lgCpw;
+    t.surplus=(t.tierCpw-t.cpw)*t.winning;                 // $ saved vs paying the tier rate for the same winning
+    t.pct=t.surplus/Math.max(t.spend,0.25);
+    t.verdict=t.pct>=0.15?'buy':t.pct<=-0.15?'over':'fair';
+    t.expWinning=icpt+slope*t.spend; t.vsFit=t.winning-t.expWinning;   // wins above what the money usually buys
+    t.wpd=t.winning/Math.max(t.spend,0.05);
+  });
+  L.fit={slope,icpt,lgCpw,tierCpw};
+  return L;
 }
 function bootLedger(){ ensureMarketData().then(d=>{ if(!d){ $id('ledgerBody').innerHTML='<div class="loading">Data unavailable.</div>'; return; } if(!LEDGER) LEDGER=buildLedger();
   const tm=INIT_PARAMS.get('team');   // deep-link a program's balance sheet
@@ -977,24 +1061,37 @@ function bootLedger(){ ensureMarketData().then(d=>{ if(!d){ $id('ledgerBody').in
 function ledSorted(){ const s=ledState; return LEDGER.slice().sort((a,b)=>((a[s.sort]||0)-(b[s.sort]||0))*s.dir); }
 
 function renderLedger(){
-  const total=sum(LEDGER.map(t=>t.spend));
+  const total=sum(LEDGER.map(t=>t.spend)), totalW=sum(LEDGER.map(t=>t.winning));
   const best=LEDGER.slice().sort((a,b)=>b.surplus-a.surplus)[0];
   const worst=LEDGER.slice().sort((a,b)=>a.surplus-b.surplus)[0];
+  const buys=LEDGER.filter(t=>t.verdict==='buy').length, overs=LEDGER.filter(t=>t.verdict==='over').length;
+  const cheapest=LEDGER.slice().sort((a,b)=>a.cpw-b.cpw)[0], dearest=LEDGER.slice().sort((a,b)=>b.cpw-a.cpw)[0];
+  const bigSp=LEDGER.slice().sort((a,b)=>b.spend-a.spend)[0];
+  // tier table: the going rate at every level of the market
+  const tiers=Object.keys(LEDGER.fit.tierCpw).map(k=>+k).sort((a,b)=>a-b).map(k=>{ const rows=LEDGER.filter(t=>t.tier===k); return {k, n:rows.length, cpw:LEDGER.fit.tierCpw[k], spend:sum(rows.map(t=>t.spend))/rows.length, win:sum(rows.map(t=>t.winning))/rows.length}; }).filter(x=>x.n);
   $id('ledgerBody').innerHTML=`
-    <div class="mkt-intro">Every one of the <b>${LEDGER.length} biggest-spending programs</b> as a balance sheet: what its roster <b>costs</b> against the <b style="color:var(--green)">winning value</b> that roster actually produces (its win-driver score — efficiency, defense, rebounding, ball-security — priced in dollars). Programs <b style="color:var(--green)">above the line</b> win more than they pay for — the best-run front offices. Click a team for its smartest and dumbest contracts.</div>
-    <div class="mkt-kpis">
-      <div class="mkt-kpi"><div class="v">${LEDGER.length}</div><div class="l">Programs</div><div class="s">tracked</div></div>
-      <div class="mkt-kpi"><div class="v">${fM(total)}</div><div class="l">Total spend</div><div class="s">roster cost</div></div>
-      <div class="mkt-kpi"><div class="v" style="color:var(--green);font-size:19px">${esc(best.team)}</div><div class="l">Best-run</div><div class="s">+${fM(best.surplus)} over cost</div></div>
-      <div class="mkt-kpi"><div class="v" style="color:var(--red);font-size:19px">${esc(worst.team)}</div><div class="l">Overpaying most</div><div class="s">${fM(worst.surplus)} vs cost</div></div>
-    </div>
+    <div class="mkt-intro">Every one of the <b>${LEDGER.length} biggest-spending programs</b> as a balance sheet: what its roster <b>costs</b> against the <b style="color:var(--green)">winning</b> that roster produces (its win-driver score — efficiency, defense, rebounding, ball-security — minute-constrained over a 200-minute rotation). Programs are judged against their own NIL tier's going rate per win: <b style="color:var(--green)">above the line</b> = more winning than the money usually buys. Click a team for its smartest and dumbest contracts.</div>
+    ${band([
+      {v:LEDGER.length,l:'Programs',s:'tracked'},
+      {v:fM(total),l:'Total spend',s:'roster cost'},
+      {v:fM(total/Math.max(totalW,1)),l:'League $ / win',s:'of winning'},
+      {v:buys,cls:'g',l:'Great value',s:'≥15% under tier rate'},
+      {v:overs,cls:'r',l:'Overpaying',s:'≥15% over tier rate'},
+      {v:esc(best.team),cls:'g',l:'Best-run',s:signed(best.surplus,fM)+' vs tier rate'},
+      {v:esc(worst.team),cls:'r',l:'Overpaying most',s:signed(worst.surplus,fM)+' vs tier rate'}
+    ])}
+    <div class="mb-read"><b>Ledger read.</b> The league pays about <b>${fM(total/Math.max(totalW,1))}</b> per win of winning. <b>${esc(cheapest.full)}</b> buys its winning cheapest (${fM(cheapest.cpw)}/win); <b>${esc(dearest.full)}</b> pays the most (${fM(dearest.cpw)}/win). The biggest book is <b>${esc(bigSp.full)}</b> at ${fM(bigSp.spend)}${bigSp.verdict==='over'?', <span class="neg">and it is overpaying for what it gets</span>':bigSp.verdict==='buy'?', <span class="pos">and it still gets value for it</span>':''}. ${best.full} is the best-run front office in its tier: <span class="pos">${signed(best.surplus,fM)}</span> saved vs the Tier ${best.tier} rate; ${worst.full} is the worst, <span class="neg">${signed(worst.surplus,fM)}</span>.</div>
+    ${secH('Winning vs spend','every program · the line is what the money usually buys')}
     <div class="scatter-wrap">
-      <div class="scatter-legend"><span><i class="buy"></i>Great value</span><span><i class="fair"></i>Fair</span><span><i class="over"></i>Overpaying</span><span><i class="line"></i>Paid = worth</span></div>
+      <div class="scatter-legend"><span><i class="buy"></i>Great value</span><span><i class="fair"></i>Fair</span><span><i class="over"></i>Overpaying</span><span><i class="line"></i>League fit</span></div>
       <div id="ledScatterHost"></div>
     </div>
-    <div class="mkt-twrap"><table class="mkt"><thead id="ledHead"></thead><tbody id="ledRows"></tbody></table></div>
+    ${secH('The going rate by tier','median cost per win inside each NIL tier')}
+    <div class="sheet-wrap"><table class="sheet"><thead><tr><th class="c">Tier</th><th>Programs</th><th>Avg spend</th><th>Avg winning</th><th>$ / win</th></tr></thead><tbody>${tiers.map(x=>`<tr><td class="c strong">T${x.k}</td><td class="dim">${x.n}</td><td>${fM(x.spend)}</td><td>${x.win.toFixed(1)}</td><td class="strong">${fM(x.cpw)}</td></tr>`).join('')}</tbody></table></div>
+    ${secH('Balance sheets','sort any column · click a program')}
+    <div class="sheet-wrap mkt-twrap"><table class="sheet mkt"><thead id="ledHead"></thead><tbody id="ledRows"></tbody></table></div>
     <div class="led-detail" id="ledDetail"></div>
-    <div class="disclaimer" style="margin-top:12px"><b>Winning value</b> = the roster's win-driver production (efficiency, defense, rebounding, ball-security — not empty scoring), minute-constrained over a 200-min rotation and priced at the $-per-win rate. <b>Spend</b> = what the program pays for that rotation. <b>Value surplus</b> = winning value − spend; positive means the program wins more than it pays for. A model, not a cap sheet.</div>
+    <div class="disclaimer" style="margin-top:12px"><b>Winning</b> = the roster's win-driver production (efficiency, defense, rebounding, ball-security — not empty scoring), minute-constrained over a 200-min rotation, in wins. <b>Spend</b> = what the program pays for that rotation. <b>$/win</b> = spend ÷ winning; <b>Surplus</b> = what the program saved (or overpaid) vs buying the same winning at its tier's median rate. A model, not a cap sheet.</div>
     ${(window.TDC_COACHLINKS&&TDC_COACHLINKS.bar)?TDC_COACHLINKS.bar('The Depth Chart'):''}`;
   renderLedScatter(); renderLedTable(); wireLedScatterTip();
   if(ledState.sel) renderLedTeam(ledState.sel);
@@ -1002,19 +1099,18 @@ function renderLedger(){
 
 function renderLedScatter(){
   const L=LEDGER, W=720,H=380,mL=46,mB=32,mT=12,mR=12,pw=W-mL-mR,ph=H-mT-mB;
-  const spends=L.map(t=>t.spend).sort((a,b)=>a-b);
-  const xmax=Math.max(1, spends[Math.floor(spends.length*0.98)]||1);
-  const ymax=Math.max(1, (Math.max(...L.map(t=>t.winVal))||1)*1.05);
-  const mx=Math.max(xmax,ymax);                              // shared scale so the 45° "paid = worth" line reads true
-  const X=c=>mL+Math.min(c,mx)/mx*pw, Y=v=>mT+ph-Math.min(v,mx)/mx*ph;
+  const xmax=Math.max(1,(Math.max(...L.map(t=>t.spend))||1)*1.04);
+  const ys=L.map(t=>t.winning); const ymin=Math.max(0,Math.min(...ys)-2), ymax=Math.max(...ys)+1.5;
+  const X=c=>mL+Math.min(c,xmax)/xmax*pw, Y=v=>mT+ph-(Math.min(Math.max(v,ymin),ymax)-ymin)/(ymax-ymin)*ph;
   const col=v=>v==='buy'?'var(--green)':v==='over'?'var(--red)':'var(--text3)';
-  const ticks=[0,mx*0.25,mx*0.5,mx*0.75,mx];
-  const dots=L.map(t=>`<circle class="dot" cx="${X(t.spend).toFixed(1)}" cy="${Y(t.winVal).toFixed(1)}" r="4.5" fill="${col(t.verdict)}" fill-opacity="0.82" data-n="${esc(t.team)}" data-t="${esc(t.full)}" data-w="${esc(fM(t.winVal))}" data-c="${t.spend.toFixed(3)}" data-v="${t.verdict}" data-s="${t.surplus.toFixed(3)}"></circle>`).join('');
+  const xt=[0,xmax*0.25,xmax*0.5,xmax*0.75,xmax], yt=[0,0.25,0.5,0.75,1].map(f=>ymin+f*(ymax-ymin));
+  const f=L.fit, x0=0, x1=xmax, y0=f.icpt+f.slope*x0, y1=f.icpt+f.slope*x1;
+  const dots=L.map(t=>`<circle class="dot" cx="${X(t.spend).toFixed(1)}" cy="${Y(t.winning).toFixed(1)}" r="4.5" fill="${col(t.verdict)}" fill-opacity="0.85" data-n="${esc(t.team)}" data-t="${esc(t.full)}" data-w="${t.winning.toFixed(1)}" data-c="${t.spend.toFixed(3)}" data-s="${t.surplus.toFixed(3)}" data-p="${t.cpw.toFixed(3)}" data-v="${t.verdict}"></circle>`).join('');
   $id('ledScatterHost').innerHTML=`<svg class="scatter" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
-    ${ticks.map(t=>`<line x1="${mL}" y1="${Y(t).toFixed(1)}" x2="${W-mR}" y2="${Y(t).toFixed(1)}" stroke="var(--border)" stroke-width="1"></line><text x="${mL-6}" y="${(Y(t)+3).toFixed(1)}" font-size="9" text-anchor="end">${esc(fM(t))}</text>`).join('')}
-    ${ticks.map(t=>`<text x="${X(t).toFixed(1)}" y="${H-mB+16}" font-size="9" text-anchor="middle">${esc(fM(t))}</text>`).join('')}
-    <line x1="${X(0).toFixed(1)}" y1="${Y(0).toFixed(1)}" x2="${X(mx).toFixed(1)}" y2="${Y(mx).toFixed(1)}" stroke="var(--border2)" stroke-width="1.5" stroke-dasharray="5 4"></line>
-    <text x="${mL+2}" y="${mT+10}" font-size="9.5">Winning value ↑</text>
+    ${yt.map(t=>`<line x1="${mL}" y1="${Y(t).toFixed(1)}" x2="${W-mR}" y2="${Y(t).toFixed(1)}" stroke="var(--border)" stroke-width="1"></line><text x="${mL-6}" y="${(Y(t)+3).toFixed(1)}" font-size="9" text-anchor="end">${t.toFixed(0)}</text>`).join('')}
+    ${xt.map(t=>`<text x="${X(t).toFixed(1)}" y="${H-mB+16}" font-size="9" text-anchor="middle">${esc(fM(t))}</text>`).join('')}
+    <line x1="${X(x0).toFixed(1)}" y1="${Y(y0).toFixed(1)}" x2="${X(x1).toFixed(1)}" y2="${Y(y1).toFixed(1)}" stroke="var(--border2)" stroke-width="1.5" stroke-dasharray="5 4"></line>
+    <text x="${mL+2}" y="${mT+10}" font-size="9.5">Winning (wins) ↑</text>
     <text x="${W-mR}" y="${H-1}" font-size="9.5" text-anchor="end">Spend →</text>
     ${dots}</svg>`;
 }
@@ -1023,26 +1119,31 @@ function wireLedScatterTip(){
   host.addEventListener('mousemove',e=>{ const d=e.target.closest&&e.target.closest('.dot'); if(!d){ tip.style.display='none'; return; }
     const s=+d.dataset.s;
     tip.innerHTML=`<div class="tn">${d.dataset.t}</div><div class="tm">${d.dataset.v==='buy'?'Best-run':d.dataset.v==='over'?'Overpaying':'Fair value'}</div>
-      <div class="tr"><span>Winning value</span><b>${d.dataset.w}</b></div>
+      <div class="tr"><span>Winning</span><b>${d.dataset.w} wins</b></div>
       <div class="tr"><span>Spend</span><b>${fM(+d.dataset.c)}</b></div>
-      <div class="tr"><span>Surplus</span><b style="color:${d.dataset.v==='buy'?'var(--green)':d.dataset.v==='over'?'var(--red)':'var(--text)'}">${s>=0?'+':''}${fM(s)}</b></div>`;
+      <div class="tr"><span>$ / win</span><b>${fM(+d.dataset.p)}</b></div>
+      <div class="tr"><span>vs tier rate</span><b style="color:${d.dataset.v==='buy'?'var(--green)':d.dataset.v==='over'?'var(--red)':'var(--text)'}">${s>=0?'+':''}${fM(s)}</b></div>`;
     tip.style.display='block'; tip.style.left=Math.min(window.innerWidth-244,e.clientX+14)+'px'; tip.style.top=Math.max(10,e.clientY-10)+'px'; });
   host.addEventListener('mouseleave',()=>{ tip.style.display='none'; });
   host.addEventListener('click',e=>{ const d=e.target.closest&&e.target.closest('.dot'); if(d) selectLedTeam(d.dataset.n); });
 }
 
-const LCOLS=[['#','l',null],['Program','l',null],['Spend','','spend'],['Winning value','','winVal'],['Win/$M','','wpd'],['Surplus','','surplus'],['Value','l',null]];
+const LCOLS=[['#','l',null],['Program','l',null],['Tier','c','tier'],['Spend','','spend'],['Winning','','winning'],['Proj. wins','','wins'],['$ / win','','cpw'],['Tier rate','','tierCpw'],['Surplus','','surplus'],['vs fit','','vsFit'],['Value','l',null]];
 function renderLedTable(){
   const list=ledSorted();
-  $id('ledHead').innerHTML=`<tr>${LCOLS.map(c=>{ const s=c[2]; const ar=s===ledState.sort?(ledState.dir<0?' ▼':' ▲'):'';
-    return `<th class="${c[1]==='l'?'l':''}" ${s?`data-sort="${s}"`:'style="cursor:default"'}>${c[0]}<span class="ar">${ar}</span></th>`; }).join('')}</tr>`;
+  $id('ledHead').innerHTML=`<tr>${LCOLS.map(c=>{ const s=c[2]; const on=s===ledState.sort; const ar=on?(ledState.dir<0?'▼':'▲'):'';
+    return `<th class="${c[1]||''}${s?' sort':''}${on?' on':''}" ${s?`data-sort="${s}"`:''}>${c[0]}${ar?`<span class="ar">${ar}</span>`:''}</th>`; }).join('')}</tr>`;
   $id('ledRows').innerHTML=list.map((t,i)=>`<tr class="clik${ledState.sel===t.team?' sel':''}" data-team="${esc(t.team)}">
     <td class="rk">${i+1}</td>
-    <td class="l"><span class="pn">${esc(t.full)}</span><span class="tierpill">T${t.tier}</span><div class="pt">${esc(t.conf||'')}${t.rank?' · #'+t.rank:''}</div></td>
+    <td class="l nm">${esc(t.full)}<div class="pt">${esc(t.conf||'')}${t.rank?' · #'+t.rank:''}</div></td>
+    <td class="c dim">T${t.tier}</td>
     <td>${fM(t.spend)}</td>
-    <td class="wpd">${fM(t.winVal)}</td>
-    <td>${t.wpd.toFixed(2)}</td>
-    <td class="surp ${t.surplus>=0?'pos':'neg'}">${t.surplus>=0?'+':''}${fM(t.surplus)}</td>
+    <td class="strong">${t.winning.toFixed(1)}</td>
+    <td class="dim">${t.wins.toFixed(0)}</td>
+    <td>${fM(t.cpw)}</td>
+    <td class="dim">${fM(t.tierCpw)}</td>
+    <td class="${t.surplus>=0?'pos':'neg'}">${signed(t.surplus,fM)}</td>
+    <td class="${t.vsFit>=0?'pos':'neg'}">${signed(t.vsFit)}</td>
     <td class="l"><span class="vpill ${t.verdict}">${t.verdict==='buy'?'Value':t.verdict==='over'?'Overpay':'Fair'}</span></td>
   </tr>`).join('');
   $id('ledRows').querySelectorAll('tr.clik').forEach(tr=>tr.addEventListener('click',()=>selectLedTeam(tr.dataset.team)));
@@ -1055,15 +1156,25 @@ function renderLedTeam(team){
   const ranked=t.players.slice().sort((a,b)=>b.wconSurp-a.wconSurp);
   const buys=ranked.filter(p=>p.wconSurp>0).slice(0,5);
   const overs=ranked.filter(p=>p.wconSurp<0).sort((a,b)=>a.wconSurp-b.wconSurp).slice(0,5);
-  const row=p=>`<div class="gm-p"><div class="nm">${esc(p.name)}<span class="posdot">${posBucket(p.pos)}</span><div class="pt">${fM(p.wconVal)} win val · ${fM(p.cost)}</div></div><div class="st"><b style="color:${p.wconSurp>=0?'var(--green)':'var(--red)'}">${p.wconSurp>=0?'+':''}${fM(p.wconSurp)}</b><br><span class="vpill ${p.wconVerdict}" style="font-size:8px;padding:1px 6px">${p.wconVerdict==='buy'?'Buy':p.wconVerdict==='over'?'Over':'Fair'}</span></div></div>`;
+  const sheet=rows=>rows.length?`<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Player</th><th class="c">Pos</th><th>WS</th><th>Win value</th><th>Paid</th><th>Surplus</th></tr></thead><tbody>${rows.map(p=>`<tr><td class="l nm"><a href="player.html?espn=${encodeURIComponent(p.espn_id||'')}&team=${encodeURIComponent(t.team)}">${esc(p.name)}</a></td><td class="c dim">${posBucket(p.pos)}</td><td class="dim">${p.ws!=null?Math.round(p.ws):'—'}</td><td>${fM(p.wconVal)}</td><td>${fM(p.cost)}</td><td class="${p.wconSurp>=0?'pos':'neg'}">${signed(p.wconSurp,fM)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="gm-empty">None.</div>';
+  const top=t.players.slice().sort((a,b)=>b.cost-a.cost)[0];
+  const pctOfBook=top?top.cost/Math.max(t.spend,0.01)*100:0;
+  const read=`<b>${esc(t.full)}</b> pays <b>${fM(t.spend)}</b> for <b>${t.winning.toFixed(1)} wins of winning</b> — <b>${fM(t.cpw)}/win</b> against a Tier ${t.tier} rate of ${fM(t.tierCpw)}: ${t.verdict==='buy'?`<span class="pos">${signed(t.surplus,fM)} of value</span> — it buys winning cheaper than its peers.`:t.verdict==='over'?`<span class="neg">${signed(t.surplus,fM)}</span> — it is paying up for its wins.`:`about the going rate.`} ${t.vsFit>=1?`It also gets <span class="pos">${signed(t.vsFit)} wins</span> more than the league's spend curve predicts.`:t.vsFit<=-1?`It gets <span class="neg">${signed(t.vsFit)} wins</span> vs what the league's spend curve predicts.`:''}${top?` ${esc(top.name)} is ${Math.round(pctOfBook)}% of the book at ${fM(top.cost)}${top.wconSurp!=null?(top.wconSurp>=0?' — and worth it.':' — and not returning it.'):'.'}`:''}`;
   $id('ledDetail').innerHTML=`<div class="card" style="--tc:${col}">
     <div class="led-dh">
       <div><div class="dt">${esc(t.full)} <span class="led-close" id="ledClose" title="Close">×</span></div><div class="dm">${esc(t.conf||'')} · Tier ${t.tier}${t.rank?' · #'+t.rank+' nationally':''}</div></div>
-      <div class="dx"><div class="dv" style="color:${t.surplus>=0?'var(--green)':'var(--red)'}">${t.surplus>=0?'+':''}${fM(t.surplus)}</div><div class="dl">Value surplus</div></div>
+      <div class="dx"><div class="dv" style="color:${t.surplus>=0?'var(--green)':'var(--red)'}">${signed(t.surplus,fM)}</div><div class="dl">vs tier rate</div></div>
     </div>
+    <div style="padding:14px 16px 0">${band([
+      {v:fM(t.spend),l:'Spend',s:t.players.length+' priced'},
+      {v:t.winning.toFixed(1),l:'Winning',s:'wins of production'},
+      {v:t.wins.toFixed(0),l:'Projected wins',s:t.rank?'#'+t.rank:''},
+      {v:fM(t.cpw),l:'$ / win',s:'tier '+fM(t.tierCpw)},
+      {v:signed(t.vsFit),cls:t.vsFit>=0?'g':'r',l:'vs league fit',s:'wins the money buys'}
+    ])}<div class="mb-read" style="margin:0 0 14px">${read}</div></div>
     <div class="led-cols">
-      <div><div class="ch" style="color:var(--green)">Best contracts</div>${buys.map(row).join('')||'<div class="gm-empty">None.</div>'}</div>
-      <div><div class="ch" style="color:var(--red)">Worst contracts</div>${overs.map(row).join('')||'<div class="gm-empty">No overpays — a clean sheet.</div>'}</div>
+      <div><div class="ch" style="color:var(--green)">Best contracts</div>${sheet(buys)}</div>
+      <div><div class="ch" style="color:var(--red)">Worst contracts</div>${overs.length?sheet(overs):'<div class="gm-empty">No overpays — a clean sheet.</div>'}</div>
     </div>
   </div>`;
   const c=$id('ledClose'); if(c) c.addEventListener('click',e=>{ e.stopPropagation(); ledState.sel=null; $id('ledDetail').innerHTML=''; renderLedTable(); });
