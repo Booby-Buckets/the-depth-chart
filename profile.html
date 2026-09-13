@@ -54,6 +54,23 @@
     .verified-badge{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--accent);border-radius:50%;margin-left:6px;flex-shrink:0;vertical-align:middle;}
     .verified-badge svg{width:11px;height:11px;fill:#fff;}
 
+    /* stats band + plan chip */
+    .pf-band{display:grid;grid-template-columns:repeat(6,1fr);border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg);margin:18px 0 0;box-shadow:0 1px 3px rgba(0,0,0,.10);}
+    .pf-band .cell{padding:11px 14px;border-right:1px solid var(--border);min-width:0;}
+    .pf-band .cell:last-child{border-right:none;}
+    .pf-band .cell.clk{cursor:pointer;} .pf-band .cell.clk:hover{background:color-mix(in srgb,var(--accent) 9%,transparent);}
+    .pf-band .v{font-weight:800;font-size:20px;line-height:1.1;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .pf-band .v.txt{font-size:14px;white-space:normal;line-height:1.25;}
+    .pf-band .l{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:5px;}
+    @media(max-width:760px){.pf-band{grid-template-columns:repeat(3,1fr);} .pf-band .cell{border-bottom:1px solid var(--border);}}
+    .plan-chip{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 9px;border-radius:20px;border:1px solid var(--border2);color:var(--text3);vertical-align:middle;margin-left:10px;}
+    .plan-chip.paid{border-color:color-mix(in srgb,var(--accent) 55%,transparent);color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);}
+    .sheet-wrap{max-height:none;margin-top:14px;}
+    .sheet .pt{font-size:10.5px;color:var(--text3);font-weight:500;}
+    .sheet td.nm a{color:var(--text);text-decoration:none;font-weight:700;} .sheet td.nm a:hover{color:var(--accent);}
+    .pf-av{width:26px;height:26px;border-radius:50%;object-fit:cover;border:1px solid var(--border2);vertical-align:middle;margin-right:8px;background:var(--bg2);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--accent);}
+    .profile-username{display:flex;align-items:center;flex-wrap:wrap;}
+
     /* PROFILE INFO */
     .profile-info{max-width:900px;margin:0 auto;padding:0 40px;}
     .profile-info-top{padding-top:64px;padding-bottom:24px;border-bottom:1px solid var(--border);display:flex;align-items:flex-end;justify-content:space-between;}
@@ -131,6 +148,7 @@
   <!-- new-UI theme layer: navy+blue dark palette (matches index/player); light-mode guard keeps the toggle readable -->
   <link rel="stylesheet" href="tdc-dense.css?v=31"/>
   <link rel="stylesheet" href="tdc-skin.css?v=8"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=3"/>
   <style>
     :root:not([data-theme="dark"]){background:var(--bg)!important;}
     :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
@@ -147,7 +165,8 @@
   <script src="tdc-pwa.js?v=2" defer></script>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=21"></script>
+<script src="tdc-badge.js?v=1"></script>
+<script src="tdc-nav.js?v=22"></script>
 
 <div class="nav-wrap">
   <div class="nav-top">
@@ -260,8 +279,7 @@ async function init(){
 function updateNav(){
   if(!currentUser) return;
   const uname = currentProfile?.username || currentUser.email?.split('@')[0] || 'User';
-  const vBadge = currentProfile?.verified
-    ? `<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:var(--accent);border-radius:50%;margin-left:3px;"><svg viewBox="0 0 24 24" style="width:9px;height:9px;fill:#fff;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>` : '';
+  const vBadge = (window.TDC_BADGE?TDC_BADGE.html(currentProfile):'');
   const avatarHtml = currentProfile?.avatar_url
     ? `<img src="${currentProfile.avatar_url}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);" />`
     : `<div style="width:32px;height:32px;border-radius:50%;background:var(--bg2);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);">${uname[0].toUpperCase()}</div>`;
@@ -290,9 +308,9 @@ function renderProfile(profile){
     ? `background-image:url('${profile.banner_url}');background-color:${banner};`
     : `background:${banner};`;
 
-  const verifiedBadge = profile.verified
-    ? `<span class="verified-badge" title="Verified"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>`
-    : '';
+  const verifiedBadge = (window.TDC_BADGE?TDC_BADGE.html(profile,{size:'22px',ml:'8px'}):'');
+  const planLabel=(window.TDC_BADGE?TDC_BADGE.label(profile):(profile.plan==='premium'?'Premium':'Free'));
+  const paid=!!(window.TDC_BADGE&&TDC_BADGE.tierOf(profile));
 
   document.getElementById('profileContent').innerHTML=`
     <div class="profile-banner ${isOwnProfile?'editable':''}" style="${bannerStyle}" onclick="${isOwnProfile?'document.getElementById(\'bannerInput\').click()':''}">
@@ -308,21 +326,23 @@ function renderProfile(profile){
     <div class="profile-info">
       <div class="profile-info-top">
         <div>
-          <div class="profile-username">${uname}${verifiedBadge}</div>
+          <div class="profile-username">${uname}${verifiedBadge}<span class="plan-chip ${paid?'paid':''}">${planLabel}</span></div>
           ${profile.bio?`<div class="profile-bio">${profile.bio}</div>`:''}
-          <div class="profile-meta">
-            ${profile.favorite_team?`<div class="profile-meta-item">🏀 <strong>${profile.favorite_team}</strong></div>`:''}
-            <div class="profile-meta-item">📅 Member since <strong>${joined}</strong></div>
-            <div class="profile-meta-item" id="followerCountMeta" style="cursor:pointer;" onclick="switchTab('followers')">👥 <strong id="followerCount">0</strong> followers</div>
-            <div class="profile-meta-item" id="followingCountMeta">➡️ <strong id="followingCount">0</strong> following</div>
-            ${profile.plan==='premium'?`<div class="profile-meta-item" style="color:var(--green);">✓ <strong>Premium</strong></div>`:''}
-          </div>
         </div>
         ${isOwnProfile?`<button class="edit-btn" onclick="showEditTab()">Edit Profile</button>`:''}
         ${isOwnProfile&&window.tdcOwnerToken&&window.tdcOwnerToken()?`<a class="edit-btn" href="owner.html" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;margin-left:8px;">⚙ Owner Console</a>`:''}
       </div>
 
-      <div class="profile-tabs">
+      <div class="pf-band">
+        <div class="cell clk" onclick="switchTab('followers')"><div class="v" id="followerCount">0</div><div class="l">Followers</div></div>
+        <div class="cell"><div class="v" id="followingCount">0</div><div class="l">Following</div></div>
+        <div class="cell clk" onclick="switchTab('posts')"><div class="v" id="postCount">0</div><div class="l">Posts</div></div>
+        <div class="cell"><div class="v txt">${profile.favorite_team?profile.favorite_team:'—'}</div><div class="l">Favorite team</div></div>
+        <div class="cell"><div class="v txt">${joined}</div><div class="l">Member since</div></div>
+        <div class="cell"><div class="v" style="color:${paid?'var(--accent)':'var(--text2)'}">${planLabel}</div><div class="l">Plan</div></div>
+      </div>
+
+      <div class="profile-tabs" style="margin-top:18px">
         <button class="profile-tab active" id="tab-posts" onclick="switchTab('posts')">Posts</button>
         <button class="profile-tab" id="tab-followers" onclick="switchTab('followers')">Followers</button>
         ${isOwnProfile?`<button class="profile-tab" id="tab-edit" onclick="switchTab('edit')">Edit Profile</button>`:''}
@@ -387,10 +407,10 @@ function renderProfile(profile){
         <div class="edit-section">
           <div class="msg" id="accountMsg"></div>
 
-          ${profile.plan==='premium'?`
+          ${paid?`
           <div style="background:rgba(26,140,58,.07);border:1px solid rgba(26,140,58,.2);padding:20px 24px;margin-bottom:20px;">
             <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#1a8c3a;margin-bottom:6px;">✓ Active Subscription</div>
-            <div style="font-family:'Playfair Display',serif;font-weight:800;font-size:22px;margin-bottom:4px;">You're on Premium</div>
+            <div style="font-family:'Playfair Display',serif;font-weight:800;font-size:22px;margin-bottom:4px;display:flex;align-items:center;">You're on ${planLabel}${verifiedBadge}</div>
             <div style="font-size:13px;color:var(--text3);">${profile.sub_expires_at?'Renews '+new Date(profile.sub_expires_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}):'Active subscription'}</div>
           </div>`:
           `<div style="border:1px solid var(--border);padding:20px;margin-bottom:20px;">
@@ -419,12 +439,10 @@ async function loadUserPosts(userId){
     const posts = await r.json();
     const el = document.getElementById('postsList');
     if(!el) return;
+    const pc=document.getElementById('postCount'); if(pc) pc.textContent=posts.length;
     if(!posts.length){ el.innerHTML='<div style="padding:20px;color:var(--text3);font-size:13px;">No posts yet.</div>'; return; }
-    el.innerHTML = posts.map(p=>`
-      <div class="post-item" onclick="location.href='forum.html'">
-        <div class="post-title">${p.title}</div>
-        <div class="post-meta">${p.category} · ${p.reply_count||0} replies · ${timeAgo(p.created_at)}</div>
-      </div>`).join('');
+    el.innerHTML = `<div class="sheet-wrap" style="margin-top:0"><table class="sheet"><thead><tr><th class="l">Post</th><th class="l">Category</th><th>Replies</th><th class="l">Posted</th></tr></thead><tbody>${posts.map(p=>`
+      <tr style="cursor:pointer" onclick="location.href='forum.html'"><td class="l nm">${p.title}</td><td class="l dim">${p.category||''}</td><td>${p.reply_count||0}</td><td class="l dim">${timeAgo(p.created_at)}</td></tr>`).join('')}</tbody></table></div>`;
   } catch(e){}
 }
 
@@ -481,20 +499,14 @@ async function loadFollowers(){
     const r = await fetch(`${SB}/rest/v1/follows?following_id=eq.${profileId}&select=follower_id,profiles!follower_id(username,avatar_url,verified,plan,favorite_team)`,{headers:H});
     const data = await r.json();
     if(!data.length){ el.innerHTML='<div style="padding:20px;color:var(--text3);font-size:13px;">No followers yet.</div>'; return; }
-    el.innerHTML = data.map(f=>{
+    el.innerHTML = `<div class="sheet-wrap" style="margin-top:0"><table class="sheet"><thead><tr><th class="l">Member</th><th class="l">Favorite team</th><th class="l">Plan</th></tr></thead><tbody>${data.map(f=>{
       const p=f.profiles||{};
       const uname=p.username||'User';
-      const av=p.avatar_url?`<img src="${p.avatar_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--border2);">`:`<div style="width:40px;height:40px;border-radius:50%;background:var(--bg2);border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:var(--accent);">${uname[0].toUpperCase()}</div>`;
-      const vb=p.verified?`<span style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;background:var(--accent);border-radius:50%;margin-left:3px;"><svg viewBox="0 0 24 24" style="width:8px;height:8px;fill:#fff;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>`:'';
-      return `<a href="profile.html?user=${encodeURIComponent(uname)}" style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);text-decoration:none;">
-        ${av}
-        <div>
-          <div style="font-weight:700;font-size:14px;color:var(--text);display:flex;align-items:center;">${uname}${vb}</div>
-          ${p.favorite_team?`<div style="font-size:12px;color:var(--text3);">🏀 ${p.favorite_team}</div>`:''}
-        </div>
-        <span style="margin-left:auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;${p.plan==='premium'?'background:rgba(26,140,58,.1);color:var(--green);':'background:var(--bg2);color:var(--text3);'}">${p.plan==='premium'?'Premium':'Free'}</span>
-      </a>`;
-    }).join('');
+      const av=p.avatar_url?`<img class="pf-av" src="${p.avatar_url}">`:`<span class="pf-av">${uname[0].toUpperCase()}</span>`;
+      const vb=(window.TDC_BADGE?TDC_BADGE.html(p):'');
+      const lab=(window.TDC_BADGE?TDC_BADGE.label(p):(p.plan==='premium'?'Premium':'Free')), pd=!!(window.TDC_BADGE&&TDC_BADGE.tierOf(p));
+      return `<tr><td class="l nm">${av}<a href="profile.html?user=${encodeURIComponent(uname)}">${uname}</a>${vb}</td><td class="l dim">${p.favorite_team||'—'}</td><td class="l" style="color:${pd?'var(--accent)':'var(--text3)'};font-weight:${pd?800:500}">${lab}</td></tr>`;
+    }).join('')}</tbody></table></div>`;
   } catch(e){ el.innerHTML='<div style="padding:20px;color:var(--text3);">Could not load followers.</div>'; }
 }
 

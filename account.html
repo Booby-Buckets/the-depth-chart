@@ -199,7 +199,8 @@ body{background:transparent!important;}
   <script src="tdc-pwa.js?v=2" defer></script>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=21"></script>
+<script src="tdc-badge.js?v=1"></script>
+<script src="tdc-nav.js?v=22"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 
 <div class="nav-wrap">
@@ -254,11 +255,7 @@ let currentToken = null;
 
 function getSession(){ return JSON.parse(localStorage.getItem('tdc_session')||'null'); }
 // Premium = animated star+check seal; verified-only = plain check dot
-function premBadge(p){
-  if(p && p.plan==='premium') return `<span class="tdc-prem" title="Premium member"><svg viewBox="0 0 24 24"><defs><linearGradient id="tvg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E6D5A8"/><stop offset="1" stop-color="#FF4D9D"/></linearGradient></defs><path class="tv-seal" fill="url(#tvg)" d="M12 1.6l3.09 6.26 6.91 1-5 4.87 1.18 6.88L12 17.4l-6.18 3.48L7 13.73l-5-4.87 6.91-1z"/><path class="tv-check" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" d="M8.7 11.9l2.2 2.2 4.3-4.7"/></svg></span>`;
-  if(p && p.verified) return `<span class="verified-dot"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>`;
-  return '';
-}
+function premBadge(p){ return (window.TDC_BADGE?TDC_BADGE.html(p):''); }
 
 async function init(){
   const s = getSession();

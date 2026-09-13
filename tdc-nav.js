@@ -181,11 +181,20 @@
     upgradeAuth();
   }
 
+  // member badge (premium/pro/coach seal or verified dot) — shared module tdc-badge.js; load it if the
+  // page didn't, and re-run the auth upgrade once it lands so the seal appears next to the name.
+  function badge(p) { return (window.TDC_BADGE && TDC_BADGE.html(p)) || ''; }
+  function ensureBadge(cb) {
+    if (window.TDC_BADGE) return cb();
+    if (document.getElementById('tdc-badge-js')) return;
+    var sc = document.createElement('script'); sc.id = 'tdc-badge-js'; sc.src = 'tdc-badge.js?v=1'; sc.onload = cb; document.head.appendChild(sc);
+  }
   // ── Auth-aware actions: avatar/username when signed in, else Sign In/Subscribe ──
   function upgradeAuth() {
+    if (!window.TDC_BADGE) { ensureBadge(upgradeAuth); return; }
     var s; try { s = JSON.parse(localStorage.getItem('tdc_session') || 'null'); } catch (e) { return; }
     if (!s || !s.access_token || !s.user || !s.user.id) return;
-    fetch(SB + '/rest/v1/profiles?id=eq.' + s.user.id + '&select=username,avatar_url,plan',
+    fetch(SB + '/rest/v1/profiles?id=eq.' + s.user.id + '&select=username,avatar_url,plan,verified',
       { headers: { apikey: KEY, Authorization: 'Bearer ' + s.access_token } })
       .then(function (r) { return r.json(); })
       .then(function (rows) {
@@ -198,7 +207,7 @@
         el.innerHTML =
           '<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">' + themeGlyph + '</button>' +
           '<a href="profile.html" style="display:flex;align-items:center;gap:8px;text-decoration:none;">' + av +
-          '<span style="font-size:13px;font-weight:700;color:var(--text);">' + u + '</span></a>';
+          '<span style="display:inline-flex;align-items:center;font-size:13px;font-weight:700;color:var(--text);">' + u + badge(p) + '</span></a>';
       })
       .catch(function () {});
   }

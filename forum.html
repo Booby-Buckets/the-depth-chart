@@ -170,7 +170,8 @@
   <script src="tdc-pwa.js?v=2" defer></script>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=21"></script>
+<script src="tdc-badge.js?v=1"></script>
+<script src="tdc-nav.js?v=22"></script>
 <script>
 // Premium gate check
 (function(){
@@ -305,10 +306,7 @@ function timeAgo(d){
   return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'});
 }
 
-function verifiedBadge(profile){
-  if(!profile?.verified) return '';
-  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:var(--accent);border-radius:50%;margin-left:4px;vertical-align:middle;flex-shrink:0;"><svg viewBox="0 0 24 24" style="width:9px;height:9px;fill:#fff;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>`;
-}
+function verifiedBadge(profile){ return (window.TDC_BADGE?TDC_BADGE.html(profile):''); }
 
 function avatarEl(profile, size=36){
   if(profile?.avatar_url){
@@ -442,7 +440,7 @@ async function openTopic(id){
 
   document.getElementById('mainContent').innerHTML='<div class="loading-state"><div class="loading-spinner"></div></div>';
 
-  const r = await fetch(`${SB}/rest/v1/forum_replies?topic_id=eq.${id}&select=*,profiles(username,avatar_url,verified)&order=created_at.asc`,{headers:H});
+  const r = await fetch(`${SB}/rest/v1/forum_replies?topic_id=eq.${id}&select=*,profiles(username,avatar_url,verified,plan)&order=created_at.asc`,{headers:H});
   const replies = await r.json();
 
   // Fetch author profiles for display

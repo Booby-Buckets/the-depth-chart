@@ -114,7 +114,8 @@
   <script src="tdc-pwa.js?v=2" defer></script>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=21"></script>
+<script src="tdc-badge.js?v=1"></script>
+<script src="tdc-nav.js?v=22"></script>
 
 <script>
 (function(){
@@ -226,8 +227,7 @@ function render(){
       const avatar = m.avatar_url
         ? `<img src="${m.avatar_url}" alt="${uname}"/>`
         : uname[0].toUpperCase();
-      const verified = m.verified
-        ? `<span class="verified-badge"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>` : '';
+      const verified = (window.TDC_BADGE?TDC_BADGE.html(m):'');
       return `<a class="member-card" href="profile.html?user=${encodeURIComponent(uname)}">
         <div class="member-avatar">${avatar}</div>
         <div class="member-name">${uname}${verified}</div>
@@ -261,13 +261,13 @@ function toggleTheme(){
 (function(){
   const s=JSON.parse(localStorage.getItem('tdc_session')||'null');
   if(!s?.access_token||!s?.user?.id) return;
-  fetch(`${SB}/rest/v1/profiles?id=eq.${s.user.id}&select=username,avatar_url,verified`,
+  fetch(`${SB}/rest/v1/profiles?id=eq.${s.user.id}&select=username,avatar_url,verified,plan`,
     {headers:{apikey:KEY,Authorization:'Bearer '+s.access_token}})
   .then(r=>r.json()).then(([p])=>{
     if(!p) return;
     const u=p.username||s.user?.email?.split('@')[0]||'User';
     const av=p.avatar_url?`<img src="${p.avatar_url}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);">`:`<div style="width:32px;height:32px;border-radius:50%;background:var(--bg2);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);">${u[0].toUpperCase()}</div>`;
-    const vb=p.verified?`<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:var(--accent);border-radius:50%;margin-left:3px;"><svg viewBox="0 0 24 24" style="width:9px;height:9px;fill:#fff;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>`:'';
+    const vb=(window.TDC_BADGE?TDC_BADGE.html(p):'');
     const el=document.getElementById('navActions');
     if(el) el.innerHTML=`<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">${localStorage.getItem('tdc_theme')==='dark'?'☀️':'🌙'}</button><a href="profile.html" style="display:flex;align-items:center;gap:8px;text-decoration:none;">${av}<span style="display:flex;align-items:center;font-size:13px;font-weight:700;color:var(--text);">${u}${vb}</span></a>`;
   }).catch(()=>{});

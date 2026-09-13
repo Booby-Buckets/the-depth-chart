@@ -213,7 +213,8 @@ body{background:transparent!important;}
   <script src="tdc-pwa.js?v=2" defer></script>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=21"></script>
+<script src="tdc-badge.js?v=1"></script>
+<script src="tdc-nav.js?v=22"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 
 <script>
@@ -352,11 +353,7 @@ let tabLoaded={forum:false,members:false,feed:false};
 function getSession(){return JSON.parse(localStorage.getItem('tdc_session')||'null');}
 function authH(t){return{...H,Authorization:`Bearer ${t}`};}
 function timeAgo(d){const s=Math.floor((Date.now()-new Date(d))/1000);if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';if(s<604800)return Math.floor(s/86400)+'d ago';return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'});}
-function vBadge(p){
-  if(p&&p.plan==='premium')return`<span class="tdc-prem" title="Premium member"><svg viewBox="0 0 24 24"><defs><linearGradient id="tvg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E6D5A8"/><stop offset="1" stop-color="#FF4D9D"/></linearGradient></defs><path class="tv-seal" fill="url(#tvg)" d="M12 1.6l3.09 6.26 6.91 1-5 4.87 1.18 6.88L12 17.4l-6.18 3.48L7 13.73l-5-4.87 6.91-1z"/><path class="tv-check" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" d="M8.7 11.9l2.2 2.2 4.3-4.7"/></svg></span>`;
-  if(p&&p.verified)return`<span class="verified-badge"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>`;
-  return'';
-}
+function vBadge(p){ return (window.TDC_BADGE?TDC_BADGE.html(p):''); }
 function avatarEl(p,size=36){if(p?.avatar_url)return`<img src="${p.avatar_url}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;">`;const i=(p?.username||'?')[0].toUpperCase();return`<div style="width:${size}px;height:${size}px;border-radius:50%;background:var(--bg2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:${Math.floor(size*.4)}px;">${i}</div>`;}
 function showMsg(id,text,type){const el=document.getElementById(id);if(!el)return;el.textContent=text;el.className=`msg ${type} show`;setTimeout(()=>{if(el)el.className='msg';},3500);}
 
@@ -420,7 +417,7 @@ function renderTopics(){
 async function openTopic(id){
   currentTopicId=id;const topic=allTopics.find(t=>t.id===id);if(!topic)return;
   document.getElementById('forumContent').innerHTML='<div class="loading-state"><div class="loading-spinner"></div></div>';
-  const r=await fetch(`${SB}/rest/v1/forum_replies?topic_id=eq.${id}&select=*,profiles(username,avatar_url,verified)&order=created_at.asc`,{headers:authH(currentToken||KEY)});
+  const r=await fetch(`${SB}/rest/v1/forum_replies?topic_id=eq.${id}&select=*,profiles(username,avatar_url,verified,plan)&order=created_at.asc`,{headers:authH(currentToken||KEY)});
   const replies=await r.json();
   document.getElementById('forumContent').innerHTML=`<button class="back-btn" onclick="backToList()">← Back to Forum</button><div class="thread-header"><div class="thread-title">${topic.title}</div><div class="thread-meta"><span class="topic-cat">${topic.category}</span><span>Posted by <strong>${topic.author_name||'Unknown'}</strong></span><span>${timeAgo(topic.created_at)}</span></div></div>${topic.body?`<div class="op-card"><div class="op-label">Original Post</div><div style="font-size:14px;color:var(--text2);line-height:1.7;">${topic.body}</div></div>`:''}<div id="repliesList">${replies.length?replies.map(rep=>{const p=rep.profiles||{};return`<div class="reply-card"><div class="reply-header">${avatarEl(p,36)}<a href="profile.html?user=${encodeURIComponent(rep.author_name||'')}" class="reply-name">&nbsp;${rep.author_name||'Unknown'}${vBadge(p)}</a><span class="reply-time">${timeAgo(rep.created_at)}</span></div><div class="reply-body">${rep.body}</div></div>`;}).join(''):'<div class="empty-state" style="padding:30px;">No replies yet!</div>'}</div>${currentUser?`<div class="reply-form"><div class="reply-form-title">Leave a Reply</div><div class="msg" id="replyMsg"></div><div class="form-group"><textarea class="form-textarea" id="replyBody" placeholder="Write your reply..."></textarea></div><button class="form-btn" onclick="submitReply()">Post Reply</button></div>`:`<div class="premium-notice"><span>Sign in to reply.</span><a href="pricing.html">Sign In →</a></div>`}`;
 }
