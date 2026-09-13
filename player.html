@@ -1145,6 +1145,8 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-dense.css?v=31"/>
   <link rel="stylesheet" href="tdc-player-dense.css?v=25"/>
   <script src="tdc-dossier.js?v=1" defer></script>
+  <script src="tdc-roles.js?v=1" defer></script>
+  <script src="tdc-devpath.js?v=1" defer></script>
   <!-- ===== Clean skin (2026): loaded LAST so it wins over dense CSS. Neutral base +
        translucent depth tokens; team color stays on --tc for the minimal accent slots. ===== -->
   <link rel="stylesheet" href="tdc-skin.css?v=8"/>
@@ -4668,14 +4670,11 @@ function renderPage(){
         <div class="tab-grp-menu tab-grp-mega">
           <div class="hgm-sec">On this player</div>
           <button class="hgm-item" id="tab-dossier" onclick="_grpPick('dossier')"><span class="hgm-t">Player Dossier</span><span class="hgm-d">Projected line + the real situational splits</span></button>
+          <button class="hgm-item" id="tab-role" onclick="_grpPick('role')"><span class="hgm-t">Role &amp; Fit</span><span class="hgm-d">Archetype, style signals & how to attack him</span></button>
+          <button class="hgm-item" id="tab-devpath" onclick="_grpPick('devpath')"><span class="hgm-t">Development</span><span class="hgm-d">His grade path, season by season</span></button>
           <button class="hgm-item" id="tab-scout" onclick="_grpPick('scout')"><span class="hgm-t">Scouting Report</span><span class="hgm-d">Archetype, comps & full breakdown</span></button>
           <button class="hgm-item" id="tab-scheme" onclick="_grpPick('scheme')"><span class="hgm-t">Scheme Lab</span><span class="hgm-d">How he fits different systems</span></button>
           <button class="hgm-item" id="tab-portalfit" onclick="_grpPick('portalfit')"><span class="hgm-t">Portal Fit</span><span class="hgm-d">Best-fit programs, ranked</span></button>
-          <div class="hgm-sec">Coach's Tier toolkit</div>
-          <div class="hgm-grid">
-            <a class="hgm-card ptool" href="roles.html"><span class="hgm-t">Role & Fit</span><span class="hgm-d">Best role & lineup fit</span></a>
-            <a class="hgm-card ptool" href="development.html"><span class="hgm-t">Player Development</span><span class="hgm-d">Trajectory & growth areas</span></a>
-          </div>
         </div>
       </div>
       <button class="tab-btn" id="tab-nil" onclick="switchTab('nil')">NIL</button>
@@ -4748,6 +4747,8 @@ function renderPage(){
     <div class="tab-panel" id="panel-rankings"><div id="rankingsContent"></div></div>
     <div class="tab-panel" id="panel-scheme"><div id="schemeContent"></div></div>
     <div class="tab-panel" id="panel-dossier"><div id="dossierContent"></div></div>
+    <div class="tab-panel" id="panel-role"><div id="roleContent"></div></div>
+    <div class="tab-panel" id="panel-devpath"><div id="devpathContent"></div></div>
 
     <!-- PERCENTILES TAB -->
     <!-- PLAYER DNA — the analyst's read (percentile dashboard + impact decomp + situational) -->
@@ -6765,6 +6766,25 @@ async function renderDossier(){
     teamFull:full, tc:tc, last:p, ovr:(ovr!=null?Math.round(ovr):null),
     pl: pj?{ppg:+pj.ppg,rpg:+pj.rpg,apg:+pj.apg,mpg:+pj.mpg,fg_pct:+pj.fg_pct,tp_pct:+pj.tp_pct,ft_pct:+pj.ft_pct}:{_fresh:true} });
 }
+// ── ROLE & FIT / DEVELOPMENT (in-page; shared renderers in tdc-roles.js / tdc-devpath.js) ──
+function _coachCtx(){
+  var p=(typeof player!=='undefined'&&player)?player:{}; var pj=(typeof proj!=='undefined'&&proj&&parseFloat(proj.mpg)>0)?proj:null;
+  var ovr=null; try{ ovr=(typeof _projectedGrade==='function')?_projectedGrade():null; }catch(e){}
+  if(ovr==null && p._projGrade!=null) ovr=p._projGrade;
+  var tc=getComputedStyle(document.documentElement).getPropertyValue('--tc').trim()||'var(--accent)';
+  return { p:p, pj:pj, ovr:(ovr!=null?Math.round(ovr):null), tc:tc, espn:(p.espn_id||window._playerEspn) };
+}
+async function renderRole(){
+  var host=document.getElementById('roleContent'); if(!host||!window.TDC_ROLES) return;
+  var c=_coachCtx();
+  TDC_ROLES.renderPlayer(host,{ espn_id:c.espn, name:c.p.name, position:c.p.position, cls:c.p.class_year||c.p.yr, tc:c.tc, raw:c.p, proj:c.ovr,
+    pj: c.pj?Object.assign({tdc_grade:c.ovr},c.pj):null });
+}
+async function renderDevpath(){
+  var host=document.getElementById('devpathContent'); if(!host||!window.TDC_DEVPATH) return;
+  var c=_coachCtx();
+  TDC_DEVPATH.renderPlayer(host,{ espn_id:c.espn, name:c.p.name });
+}
 async function renderScheme(){
   const host=document.getElementById('schemeContent'); if(!host) return;
   const esc=s=>(''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
@@ -6873,7 +6893,7 @@ async function renderScheme(){
     <div class="rk-foot" style="margin-top:14px;">Systems apply the same scheme scales the projection engine uses (pace, forced-TO havoc → steals, offensive-rebound rate → boards, assist rate → assists, shot-quality → FG%, 3PA lean). ${isFresh?'':'Neutral strips out '+esc(isTransfer?'his old team':player.team)+"'s system; "}efficiency & role are held constant so only the scheme moves.</div>`;
 }
 function switchTab(t){
-  const tabs=['overview','playerdna','stats','shotcharts','rankings','scheme','dossier','percentiles','scout','nil','betting','buzz','portalfit'];
+  const tabs=['overview','playerdna','stats','shotcharts','rankings','scheme','dossier','role','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
   const cur=tabs.map(x=>document.getElementById('panel-'+x)).find(el=>el&&el.classList.contains('active'));
   function activate(id){
     tabs.forEach(x=>{
@@ -6896,6 +6916,8 @@ function switchTab(t){
     if(id==='rankings')setTimeout(renderRankings,40);
     if(id==='scheme' && !window._schemeLoaded){ window._schemeLoaded=true; setTimeout(renderScheme,40); }
     if(id==='dossier' && !window._dossierLoaded){ window._dossierLoaded=true; setTimeout(renderDossier,40); }
+    if(id==='role' && !window._roleLoaded){ window._roleLoaded=true; setTimeout(renderRole,40); }
+    if(id==='devpath' && !window._devpathLoaded){ window._devpathLoaded=true; setTimeout(renderDevpath,40); }
     if(id==='nil' && !window._nilLoaded){ window._nilLoaded=true; setTimeout(renderNilPlayer,40); }
     if(id==='betting' && !window._bettingLoaded){ window._bettingLoaded=true; setTimeout(renderBetting,40); }
     if(id==='buzz' && !window._buzzLoaded){ window._buzzLoaded=true; setTimeout(renderBuzz,40); }
@@ -6920,11 +6942,13 @@ var TAB_GATE = {
   betting:     { tier:'premium', label:'betting props', blurb:'See this player’s prop lines, over/under hit rates, L10 form and best bets for every stat. Included with Premium — $4.99/mo.' },
   scout:       { tier:'premium', label:'the scouting report', blurb:'Archetype, comparable players and the full scouting breakdown. Included with Premium — $4.99/mo.' },
   shotcharts:  { tier:'pro', label:'shot charts', blurb:'Shot-location charts and shot-flow — where and how this player scores. Included with Pro — $8.99/mo.' },
+  role:        { tier:'pro', label:'Role & Fit', blurb:'His archetype and style signals, year-over-year development path, shot profile and the "how to attack him" reads. Included with Pro — $8.99/mo.' },
+  devpath:     { tier:'pro', label:'his development path', blurb:'His TDC grade season by season — first graded year to career peak to now, with every jump and transfer marked. Included with Pro — $8.99/mo.' },
   dossier:     { tier:'pro', label:'the Player Dossier', blurb:'The complete file — projected line plus how his efficiency, turnovers and role move with pace, pressure, opponent archetype and the clutch. Included with Pro — $8.99/mo.' },
   scheme:      { tier:'pro', label:'Scheme Lab', blurb:'How this player fits different systems and lineups. Included with Pro — $8.99/mo.' },
   portalfit:   { tier:'pro', label:'Portal Fit', blurb:'Which programs this player best fits, ranked by need, production and coach fit. Included with Pro — $8.99/mo.' }
 };
-var _TABS = ['overview','playerdna','stats','shotcharts','rankings','scheme','dossier','percentiles','scout','nil','betting','buzz','portalfit'];
+var _TABS = ['overview','playerdna','stats','shotcharts','rankings','scheme','dossier','role','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
 function _lockPanel(pnl, g){
   if(!pnl || pnl.__locked) return; pnl.__locked = true;
   pnl.innerHTML = '';
