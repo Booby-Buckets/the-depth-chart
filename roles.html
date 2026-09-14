@@ -129,7 +129,26 @@
 </head>
 <body data-anim-auto>
 <!-- page opens to everyone: the Archetype Explorer tab is free; the Role & Fit tab is coach-gated below -->
+<script src="tdc-archetypes.js?v=2"></script>
 <script src="tdc-nav.js?v=26"></script>
+<link rel="stylesheet" href="tdc-sheets.css?v=3"/>
+<style>
+  .sheet-wrap{max-height:none;} .sheet{width:100% !important;}
+  .sheet td.nm{font-weight:800;color:var(--text);} .sheet td.wrap{white-space:normal !important;line-height:1.5;min-width:220px;} .sheet td.dim{color:var(--text3);}
+  .sheet td a{color:var(--text);text-decoration:none;} .sheet td a:hover{color:var(--tc,var(--accent));}
+  tr.pr{cursor:pointer;} tr.pr td.chev{width:24px;text-align:center;color:var(--text3);font-size:11px;transition:transform .2s;}
+  tr.pr.open td.chev{transform:rotate(180deg);color:var(--tc,var(--accent));} tr.pr.open td{background:color-mix(in srgb,var(--tc,var(--accent)) 12%,transparent) !important;}
+  tr.pd{display:none;} tr.pd.open{display:table-row;} tr.pd>td{white-space:normal !important;padding:0 !important;background:var(--bg) !important;text-align:left;}
+  .pd-in{padding:14px 18px 18px;border-top:2px solid var(--border2);}
+  .pd-in .rc-dev{margin-top:12px;}
+  .sheet .bar{display:inline-block;height:8px;border-radius:4px;vertical-align:middle;background:var(--tc,var(--accent));opacity:.9;}
+  .sheet .sty{display:inline-block;font-size:10px;font-weight:800;padding:2px 7px;border-radius:12px;background:color-mix(in srgb,var(--ac,var(--accent)) 16%,transparent);color:var(--ac,var(--accent));white-space:nowrap;}
+  .sheet .tbadge{font-size:9px;}
+  .mix-read{font-size:12.5px;line-height:1.65;color:var(--text2);padding:11px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);margin-top:10px;} .mix-read b{color:var(--text);}
+  .mix-read .ok,.sheet .ok{color:var(--green);font-weight:800;} .mix-read .thin,.sheet .thin{color:var(--amber,#d8b05a);font-weight:800;} .mix-read .miss,.sheet .miss{color:var(--red,#e07070);font-weight:800;}
+  .band{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg);margin:10px 0 12px;} .band .cell{padding:11px 14px;border-right:1px solid var(--border);} .band .cell:last-child{border-right:none;}
+  .band .v{font-weight:800;font-size:22px;line-height:1.1;font-variant-numeric:tabular-nums;} .band .l{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:5px;} .band .s{font-size:11px;color:var(--text3);margin-top:2px;}
+</style>
 <style>
   /* Roles / Archetypes tabs */
   .rtabs{display:inline-flex;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:4px;margin:16px 0 22px;flex-wrap:wrap;}
@@ -345,6 +364,7 @@ async function loadTeam(){
     try{ adv=await fetch(`${SB_URL}/rest/v1/player_advanced?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,ti40,ts_pct,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,trb_pct,stl_pct,blk_pct,min,g`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
   }
   const advById={}; adv.forEach(a=>{ advById[a.espn_id]={...a,mp:a.min,games:a.g}; });
+  try{ if(window.TDC_ARCH&&TDC_ARCH.ready) await TDC_ARCH.ready; }catch(e){}
   // ── "how to attack him" tendencies (ported from scout's Attack Book): shot-zone
   //    weakness, pressure vulnerability, boom-or-bust, foul-prone, rim/gambler on D ──
   const _R=v=>{const n=+v;return isNaN(n)?0:n;};
@@ -355,11 +375,15 @@ async function loadTeam(){
   let box=[],shots=[];
   if(withId.length){ const ids=withId.map(p=>p.espn_id).join(',');
     try{ [box,shots]=await Promise.all([
-      fetch(`${SB_URL}/rest/v1/box_scores?espn_id=in.(${ids})&season_year=eq.2026&min=gte.4&select=espn_id,opp,min,fga,fgm,tpm,fta,ftm,tov,pts,pf&limit=4000`,{headers:H}).then(r=>r.ok?r.json():[]),
+      fetch(`${SB_URL}/rest/v1/box_scores?espn_id=in.(${ids})&season_year=eq.2026&min=gte.4&select=espn_id,opp,min,fga,fgm,tpa,tpm,fta,ftm,tov,pts,pf&limit=4000`,{headers:H}).then(r=>r.ok?r.json():[]),
       fetch(`${SB_URL}/rest/v1/shots?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,made,sv,stype&limit=16000`,{headers:tdcH()}).then(r=>r.ok?r.json():[])
     ]); }catch(e){}
   }
   const boxBy={},shotBy={}; box.forEach(b=>{(boxBy[b.espn_id]=boxBy[b.espn_id]||[]).push(b);}); shots.forEach(s=>{(shotBy[s.espn_id]=shotBy[s.espn_id]||[]).push(s);});
+  // 3PA rate (spacing) is not in player_advanced — derive it from the box totals, else the roster line
+  Object.keys(advById).forEach(id=>{ const bx=boxBy[id]||[]; let fga=0,tpa=0; bx.forEach(x=>{fga+=_R(x.fga);tpa+=_R(x.tpa);});
+    if(!fga){ const r=roster.find(p=>String(p.espn_id)===String(id)); if(r){ fga=_R(r.fga); tpa=_R(r.tpa); } }
+    advById[id].fg3a_per_fga_pct=fga?tpa/fga:0; });
   const p40=(g,k)=>{let m=0,v=0;g.forEach(x=>{m+=_R(x.min);v+=_R(x[k]);});return m?v/m*40:0;};
   function zones(sh){
     let rimA=0,rimM=0,midA=0,midM=0,thrA=0,thrM=0;
@@ -469,34 +493,69 @@ async function loadTeam(){
     return `<div class="rc-dev"><div class="rc-dev-l" style="margin-bottom:7px;">Game scoring distribution <span style="color:var(--text3);font-weight:600;text-transform:none;letter-spacing:0;">· ${pts.length} games (0 → 30+ pts)</span></div>
       <div style="display:flex;align-items:flex-end;gap:3px;height:46px;">${bars}</div>${foot}</div>`;
   };
-  const card=p=>{
-    const pj=p.pj, raw=p.raw||{};
-    const ovr=(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):(raw.tdc_grade!=null&&!isNaN(+raw.tdc_grade)?Math.round(+raw.tdc_grade):null);
-    const l=(pj&&(+pj.mpg>0))?pj:raw;
-    const lineHtml=`<div class="rc-line"><b>${F(l.ppg)}</b> pts · <b>${F(l.rpg)}</b> reb · <b>${F(l.apg)}</b> ast · ${F(l.mpg,0)} min · ${F(l.fg_pct,0)}/${F(l.tp_pct,0)}/${F(l.ft_pct,0)}</div>`;
-    const tag=p.hist?`<div class="rc-arch">${p.arch.label}</div>`:`<div class="nohist">no D-I track record yet</div>`;
-    const head=`<div class="rc-head"><div class="rc-ovr">${ovr!=null?ovr:'—'}<small>OVR</small></div>
-      <div class="rc-who"><div class="rc-top"><div class="rc-nm">${esc(p.name)}<span class="pos">${esc(p.pos||'')}</span></div>${tag}</div>${lineHtml}</div></div>`;
-    const body=p.hist?`${p.arch.mods.length?`<div class="rc-mods">${p.arch.mods.map(m=>`<span class="mod">${esc(m)}</span>`).join('')}</div>`:''}<div class="sigs">${signals(p.a).map(sig).join('')}</div>`:'';
-    // development trajectory: year-over-year grade path + projected node + trend badge
+  const styleOf=p=>(window.TDC_ARCH&&p.raw?TDC_ARCH.of(p.raw.espn_id,p.name):null);
+  // the expandable detail under a rotation row (everything the old card carried below the header)
+  const detail=p=>{
+    const body=p.hist?`${p.arch.mods.length?`<div class="rc-mods">${p.arch.mods.map(m=>`<span class="mod">${esc(m)}</span>`).join('')}</div>`:''}`:'';
     const [tl,tc2]=p.trend; let path='';
     p.seasons.forEach((s,i)=>{ if(i>0) path+=arrHtml(s.g-p.seasons[i-1].g); path+=nodeHtml("'"+String(s.yr%100).padStart(2,'0'),s.cls,s.g,s.ppg,false); });
     if(p.proj!=null){ if(p.seasons.length) path+=arrHtml(p.proj-p.seasons[p.seasons.length-1].g); path+=nodeHtml("'27",'',p.proj,null,true); }
     const devHtml=path?`<div class="rc-dev"><div class="rc-dev-h"><span class="rc-dev-l">Development</span><span class="tbadge ${tc2}">${tl}</span></div><div class="path">${path}</div></div>`:'';
-    // how to attack him (Attack Book reads)
     const gd=(p.atk&&p.atk.guard)||[], at=(p.atk&&p.atk.attack)||[];
     const exCol=(kind,arr)=>arr.length?`<div><div class="ex-h ${kind}">${kind==='guard'?'Guard his offense':'Attack his defense'}</div>${arr.map(x=>`<div class="ex-row"><b>${esc(x[0])}</b> — ${esc(x[1])}</div>`).join('')}</div>`:'';
     const atkHtml=(gd.length||at.length)?`<div class="rc-atk"><div class="rc-dev-l" style="margin-bottom:9px;">How to attack him</div><div class="ex-cols">${exCol('guard',gd)}${exCol('attack',at)}</div></div>`:'';
-    // pass 4: visual scouting profile — shot diet chart + game-scoring distribution
     const profHtml=p.hist?(shotProfileHtml(p.shot)+distHtml(p.gpts,p.cons)):'';
-    return `<div class="rc" style="--tc:${tc}" data-espn="${p.raw&&p.raw.espn_id!=null?p.raw.espn_id:''}" data-name="${esc((p.name||'').toLowerCase().trim())}">${head}${body}${devHtml}${profHtml}${atkHtml}</div>`;
+    const link=`<div style="margin-top:12px;font-size:12px;"><a href="player.html?espn=${encodeURIComponent((p.raw&&p.raw.espn_id)||'')}&name=${encodeURIComponent(p.name)}" style="color:var(--tc,var(--accent));font-weight:700;">Open his player page →</a></div>`;
+    return `<div class="pd-in">${body}${devHtml}${profHtml}${atkHtml}${link}</div>`;
   };
-
+  const pct=(v,lo,hi)=>Math.round(lvl(v,lo,hi));
+  const cell=(v,lo,hi,txt)=>`<td><span class="bar" style="width:${Math.max(3,Math.round(pct(v,lo,hi)*0.5))}px"></span> <span style="font-variant-numeric:tabular-nums">${txt}</span></td>`;
+  const rowHtml=(p,i)=>{
+    const pj=p.pj, raw=p.raw||{};
+    const ovr=(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):(raw.tdc_grade!=null&&!isNaN(+raw.tdc_grade)?Math.round(+raw.tdc_grade):null);
+    const l=(pj&&(+pj.mpg>0))?pj:raw, a=p.a||{}, st=styleOf(p), [tl,tc2]=p.trend, c=p.cons;
+    const last=p.seasons.length?p.seasons[p.seasons.length-1].g:null, d=(last!=null&&p.proj!=null)?p.proj-last:null;
+    const id='p'+i;
+    return `<tr class="pr" data-id="${id}" data-espn="${raw.espn_id!=null?raw.espn_id:''}" data-name="${esc((p.name||'').toLowerCase().trim())}" onclick="toggleRow('${id}')">
+      <td class="chev">▼</td>
+      <td class="l nm">${esc(p.name)}<div style="font-size:10.5px;color:var(--text3);font-weight:500">${esc(p.pos||'')} · ${F(l.ppg)} / ${F(l.rpg)} / ${F(l.apg)} · ${F(l.mpg,0)} min</div></td>
+      <td class="strong" style="color:var(--tc,var(--accent));font-size:15px">${ovr!=null?ovr:'—'}</td>
+      <td class="l">${p.hist?`<span style="font-weight:700">${p.arch.label}</span>`:'<span class="dim">no D-I record yet</span>'}</td>
+      <td class="l">${st?`<span class="sty" style="--ac:${st.color}" title="${esc(st.desc||'')}">${esc(st.name)}</span>`:'<span class="dim">—</span>'}</td>
+      ${p.hist?cell(num(a.usg_pct),8,32,num(a.usg_pct).toFixed(0)+'%'):'<td class="dim">—</td>'}
+      ${p.hist?cell(num(a.ast_pct),4,28,num(a.ast_pct).toFixed(0)+'%'):'<td class="dim">—</td>'}
+      ${p.hist?cell(num(a.fg3a_per_fga_pct),0.05,0.62,Math.round(num(a.fg3a_per_fga_pct)*100)+'%'):'<td class="dim">—</td>'}
+      ${p.hist?cell(num(a.trb_pct),3,22,num(a.trb_pct).toFixed(0)+'%'):'<td class="dim">—</td>'}
+      ${p.hist?cell(num(a.blk_pct),0.2,7,num(a.blk_pct).toFixed(1)+'%'):'<td class="dim">—</td>'}
+      ${p.hist?cell(num(a.stl_pct),0.6,4,num(a.stl_pct).toFixed(1)+'%'):'<td class="dim">—</td>'}
+      <td class="c"><span class="tbadge ${tc2}">${tl}</span>${d!=null?`<div style="font-size:10.5px;font-weight:800;color:${d>=2?'var(--green)':d<=-2?'var(--red,#e07070)':'var(--text3)'}">${d>0?'+':''}${d}</div>`:''}</td>
+      <td class="dim" style="font-variant-numeric:tabular-nums">${c?`${c.floor} / <b style="color:var(--text)">${c.mean.toFixed(1)}</b> / ${c.ceil}`:'—'}</td>
+    </tr><tr class="pd" data-id="${id}"><td colspan="13">${detail(p)}</td></tr>`;
+  };
+  // ── role mix: what a balanced rotation needs vs who fills it ──
+  const NEEDS=[
+    ['Primary creator','initiates the offense',withHist.filter(p=>num(p.a.ast_pct)>=20||(num(p.a.usg_pct)>=25&&/G/.test(p.pos||''))),2],
+    ['Floor spacing','high-volume shooters (≥40% of shots from three)',withHist.filter(p=>num(p.a.fg3a_per_fga_pct)>=0.4),3],
+    ['Rim protection','blocks ≥4% of opponent shots',withHist.filter(p=>num(p.a.blk_pct)>=4),1],
+    ['Glass','rebounds ≥15% of available boards',withHist.filter(p=>num(p.a.trb_pct)>=15),2],
+    ['Disruption','steals ≥2.5% of opponent possessions',withHist.filter(p=>num(p.a.stl_pct)>=2.5),2],
+    ['Efficient finishing','TS% ≥ 60 on real usage',withHist.filter(p=>num(p.a.ts_pct)>=0.60&&num(p.a.usg_pct)>=15),2],
+  ];
+  const state=(n,want)=>n>=want?['Covered','ok']:n?['Thin','thin']:['Missing','miss'];
+  const mixRows=NEEDS.map(([lbl,how,who,want])=>{ const [st,cls]=state(who.length,want); return `<tr><td class="l nm">${lbl}<div style="font-size:10.5px;color:var(--text3);font-weight:500">${how}</div></td><td class="l wrap">${who.length?who.slice(0,4).map(p=>esc(p.name)).join(', ')+(who.length>4?` +${who.length-4}`:''):'<span class="dim">no one</span>'}</td><td class="c">${who.length} / ${want}</td><td class="c"><span class="${cls}" style="font-weight:800">${st}</span></td></tr>`; }).join('');
+  const missing=NEEDS.filter(([,,who,want])=>!who.length).map(x=>x[0].toLowerCase()), thin=NEEDS.filter(([,,who,want])=>who.length&&who.length<want).map(x=>x[0].toLowerCase());
+  const mixRead=`<div class="mix-read">${bits.join(', ')}. `+(missing.length?`<span class="miss">Missing:</span> ${missing.join(', ')} — the portal need${missing.length>1?'s':''}. `:'')+(thin.length?`<span class="thin">Thin:</span> ${thin.join(', ')} — one injury away. `:'')+(!missing.length&&!thin.length?'<span class="ok">Every role is covered</span> — this is a complete rotation on paper.':'')+`</div>`;
+  const n=withHist.length, avg=k=>withHist.reduce((s,p)=>s+num(p.a[k]),0)/Math.max(1,n);
+  const band=`<div class="band"><div class="cell"><div class="v">${players.length}</div><div class="l">Rotation</div><div class="s">${withHist.length} with a D-I record</div></div><div class="cell"><div class="v">${Math.round(avg('fg3a_per_fga_pct')*100)}%</div><div class="l">3PA rate</div><div class="s">roster average · league ~38%</div></div><div class="cell"><div class="v">${NEEDS.filter(([,,who,want])=>who.length>=want).length}/${NEEDS.length}</div><div class="l">Roles covered</div><div class="s">${missing.length?missing.length+' missing':'none missing'}</div></div></div>`;
+  const TH=`<thead><tr><th></th><th class="l">Player</th><th>OVR</th><th class="l">Role</th><th class="l">Style</th><th>Usage</th><th>Playmaking</th><th>3PA rate</th><th>Reb%</th><th>Blk%</th><th>Stl%</th><th class="c">Trend</th><th>Floor / avg / ceil</th></tr></thead>`;
   el('out').innerHTML=`<div style="--tc:${tc}">
     <div class="sec-h">How the pieces fit</div>
-    ${fit}
-    <div class="sec-h">Player roles</div>
-    ${players.map(card).join('')}
+    ${band}
+    <div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Role need</th><th class="l">Who fills it</th><th class="c">Have / want</th><th class="c">Status</th></tr></thead><tbody>${mixRows}</tbody></table></div>
+    ${mixRead}
+    <div class="sec-h">Player roles <span class="note" style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;">— click a row for his development, shot profile, scoring distribution and how to attack him</span></div>
+    <div class="sheet-wrap"><table class="sheet">${TH}<tbody>${players.map(rowHtml).join('')}</tbody></table></div>
+    <div class="note" style="margin-top:8px">Bars are scaled to typical D-I ranges. Role = what he did in 2025-26 (usage, assist %, 3PA rate, rebound %, block %, steal %); Style = the league-wide archetype cluster. Floor / avg / ceiling = 15th / mean / 85th percentile of his game scoring.</div>
   </div>`;
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
@@ -504,15 +563,16 @@ async function loadTeam(){
 }
 // Every player gets his OWN role page: when the URL carries ?espn= or ?name= (the player page's
 // Coach's Tier links send both), hoist his card to the top, highlight it, and scroll to it.
+function toggleRow(id,force){ const r=document.querySelector(`tr.pr[data-id="${id}"]`), d=document.querySelector(`tr.pd[data-id="${id}"]`); if(!r||!d) return;
+  const open=force==null?!r.classList.contains('open'):force; r.classList.toggle('open',open); d.classList.toggle('open',open); }
 function focusPlayer(){
   const qs=new URLSearchParams(location.search);
   const wantEspn=qs.get('espn'), wantName=(qs.get('name')||'').toLowerCase().trim();
   if(!wantEspn&&!wantName) return;
-  const cards=[...el('out').querySelectorAll('.rc')];
-  const me=cards.find(c=>(wantEspn&&c.dataset.espn===String(wantEspn))||(wantName&&c.dataset.name===wantName));
+  const rows=[...el('out').querySelectorAll('tr.pr')];
+  const me=rows.find(c=>(wantEspn&&c.dataset.espn===String(wantEspn))||(wantName&&c.dataset.name===wantName));
   if(!me) return;
-  me.classList.add('rc-focus');
-  const sec=me.parentElement; if(sec){ const hdr=[...sec.querySelectorAll('.sec-h')].find(h=>/Player roles/i.test(h.textContent)); if(hdr) hdr.insertAdjacentElement('afterend', me); }
+  toggleRow(me.dataset.id,true);
   setTimeout(()=>{ me.scrollIntoView({behavior:'smooth',block:'start'}); },250);
 }
 
@@ -580,14 +640,11 @@ function focusPlayer(){
       const pct=Math.round(b.rate*100);
       const ex=(b.examples||[]).slice(0,5).map(e=>`<a class="bx" href="player.html?name=${encodeURIComponent(e.n)}"><span class="bxn">${esc(e.n)}</span><span class="bxg">${e.from}→${e.to}</span></a>`).join('');
       const rankLbl=rank===1?'most likely to break out':rank===of?'least likely to break out':`#${rank} of ${of} in breakout rate`;
-      return `<div class="brkp" data-anim>
+      const exRows=(b.examples||[]).slice(0,6).map(e=>`<tr><td class="l nm"><a href="player.html?name=${encodeURIComponent(e.n)}">${esc(e.n)}</a></td><td>${e.from}</td><td class="strong" style="color:${a.color}">${e.to}</td><td style="color:var(--green);font-weight:800">+${e.to-e.from}</td></tr>`).join('');
+      return `<div class="brkp" style="padding:14px 0 0;border:none;background:none">
         <div class="brkp-h">Breakout track record <span class="brkp-sub">${BREAK.meta.years[0]}–${BREAK.meta.years[1]}</span></div>
-        <div class="brkp-row">
-          <div class="brkp-stat"><div class="bs-n" style="color:${a.color}">${pct}%</div><div class="bs-l">of young non-stars later hit star grade (${rankLbl})</div></div>
-          <div class="brkp-stat"><div class="bs-n" style="color:${a.color}">+${b.avg_gain}</div><div class="bs-l">average grade gain from first season to peak</div></div>
-          <div class="brkp-stat"><div class="bs-n" style="color:${a.color}">${b.star}</div><div class="bs-l">of ${b.n} tracked young ${esc(a.name)}s broke out</div></div>
-        </div>
-        ${ex?`<div class="brkp-ex-h">Notable breakouts</div><div class="brkp-ex">${ex}</div>`:''}
+        <div class="band"><div class="cell"><div class="v" style="color:${a.color}">${pct}%</div><div class="l">Breakout rate</div><div class="s">${rankLbl}</div></div><div class="cell"><div class="v" style="color:${a.color}">+${b.avg_gain}</div><div class="l">Avg grade gain</div><div class="s">first season → peak</div></div><div class="cell"><div class="v" style="color:${a.color}">${b.star}</div><div class="l">Broke out</div><div class="s">of ${b.n} tracked young ${esc(a.name)}s</div></div></div>
+        ${exRows?`<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Notable breakout</th><th>First</th><th>Peak</th><th>Jump</th></tr></thead><tbody>${exRows}</tbody></table></div>`:''}
       </div>`;
     }
     function render(){
@@ -605,7 +662,12 @@ function focusPlayer(){
           <div class="card-players">${top.map(p=>`<span class="pchip"><b>${p.g}</b>${esc(p.n)}</span>`).join('')}</div>
         </div>`;
       }).join('');
-      document.getElementById('archBody').innerHTML=`<div class="grid">${cards}</div><div class="detail" id="detail"></div>`;
+      // league overview: every archetype in one sheet (count, share, avg grade of the top-25, breakout rate, anchors)
+      const tot=DATA.archetypes.reduce((n,a)=>n+(a.count||0),0)||1;
+      const ov=DATA.archetypes.slice().sort((x,y)=>(y.count||0)-(x.count||0)).map(a=>{ const roster=(DATA.roster&&DATA.roster[a.name])||[]; const top=roster.slice(0,25); const avg=top.length?top.reduce((s,p)=>s+(+p.g||0),0)/top.length:null; const b=brkOf(a.name);
+        return `<tr style="cursor:pointer" onclick="document.querySelector('#archBody .card[data-a=\'${esc(a.name).replace(/'/g,"\\'")}\']').click()"><td class="l nm" style="color:${a.color}">${esc(a.name)}</td><td class="l wrap" style="color:var(--text3);font-size:11.5px">${esc(a.desc)}</td><td>${a.count}</td><td class="dim">${Math.round((a.count||0)/tot*100)}%</td><td>${avg!=null?avg.toFixed(1):'—'}</td><td>${b?Math.round(b.rate*100)+'%':'<span class="dim">—</span>'}</td><td class="dim">${b?'+'+b.avg_gain:'—'}</td><td class="l" style="font-size:11.5px">${roster.slice(0,3).map(p=>esc(p.n)).join(', ')}</td></tr>`; }).join('');
+      const overview=`<div class="sheet-wrap" style="margin-bottom:18px"><table class="sheet"><thead><tr><th class="l">Archetype</th><th class="l">What he does</th><th>Players</th><th>Share</th><th>Top-25 avg grade</th><th>Breakout rate</th><th>Avg jump</th><th class="l">Anchors</th></tr></thead><tbody>${ov}</tbody></table></div>`;
+      document.getElementById('archBody').innerHTML=`${overview}<div class="grid">${cards}</div><div class="detail" id="detail"></div>`;
       document.querySelectorAll('#archBody .card').forEach(c=>c.addEventListener('click',()=>openArch(c.dataset.a)));
       if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(document.getElementById('archBody'));
     }
@@ -627,7 +689,7 @@ function focusPlayer(){
           <div class="dh-desc">${esc(a.desc)}</div>
         </div>
         ${brkPanel(a)}
-        <div class="droster">${shown.map(p=>`<a class="prow" href="${plink(p)}"><span class="g" style="color:${a.color}">${p.g}</span><span style="min-width:0"><div class="nm">${esc(p.n)}</div><div class="tm">${esc(p.t||'')}</div></span></a>`).join('')}</div>
+        <div class="sheet-wrap" style="margin:12px 0 0"><table class="sheet"><thead><tr><th class="c">#</th><th class="l">Player</th><th class="l">Team</th><th>Grade</th></tr></thead><tbody>${shown.map((p,i)=>`<tr><td class="c dim">${i+1}</td><td class="l nm"><a href="${plink(p)}">${esc(p.n)}</a></td><td class="l dim">${esc(p.t||'')}</td><td class="strong" style="color:${a.color}">${p.g}</td></tr>`).join('')}</tbody></table></div>
         ${roster.length>rosterLimit?`<div class="dmore"><button id="dMore">Show all ${roster.length}</button></div>`:''}`;
       d.querySelector('#dClose').addEventListener('click',()=>{ d.className='detail'; sel=null; document.querySelectorAll('#archBody .card').forEach(c=>c.classList.remove('sel')); });
       if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(d);
