@@ -25,6 +25,7 @@
   <script src="tdc-nil.js?v=prod2"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
+  <link rel="stylesheet" href="tdc-sheets.css?v=3"/>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--amber:#b5872a;--pink:#c0417d;}
     [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--amber:#d8b05a;--pink:#ff7db0;}
@@ -107,6 +108,34 @@
     .tool .arr{font-size:13px;color:var(--text3);opacity:0;transition:opacity .15s;margin-top:2px;}
     a.tool:hover .arr{opacity:1;}
     .noresults{padding:50px 0;text-align:center;color:var(--text3);font-size:13.5px;}
+    /* ── sheet look ── */
+    .sheet-wrap{max-height:none;} .sheet{width:100% !important;}
+    .sheet tbody td.wrap, tr.tool-detail>td{white-space:normal !important;}
+    .sheet td.nm{font-weight:800;color:var(--text);} .sheet td.wrap{white-space:normal;line-height:1.5;min-width:240px;} .sheet td.dim{color:var(--text3);}
+    .sheet td a{color:var(--text);text-decoration:none;}
+    tr.tool-row{cursor:pointer;} tr.tool-row.soon{opacity:.6;cursor:default;}
+    tr.tool-row td.chev{width:26px;text-align:center;color:var(--text3);font-size:11px;transition:transform .2s;}
+    tr.tool-row.open td.chev{transform:rotate(180deg);color:var(--hc,var(--accent));}
+    tr.tool-row.open td{background:color-mix(in srgb,var(--hc,var(--accent)) 12%,transparent) !important;}
+    tr.tool-detail{display:none;} tr.tool-detail.open{display:table-row;}
+    tr.tool-detail>td{white-space:normal;padding:0 !important;background:var(--bg) !important;text-align:left;}
+    .tool-how{padding:14px 18px 18px;display:grid;grid-template-columns:1.25fr 1fr;gap:18px;border-top:2px solid var(--border2);}
+    @media(max-width:760px){.tool-how{grid-template-columns:1fr;}}
+    .tb-h{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+    .tb-steps{margin:0;padding-left:22px;font-size:13px;line-height:1.7;color:var(--text2);} .tb-steps li::marker{color:var(--hc,var(--accent));font-weight:800;}
+    .tb-look{margin:0;padding-left:18px;font-size:12.5px;line-height:1.65;color:var(--text2);}
+    .tb-steps b,.tb-look b,.tb-tip b{color:var(--text);}
+    .tb-tip{margin-top:12px;font-size:12.5px;line-height:1.6;color:var(--text2);padding:10px 12px;border-left:3px solid var(--hc,var(--accent));background:color-mix(in srgb,var(--hc,var(--accent)) 8%,transparent);border-radius:0 8px 8px 0;}
+    .tool-open{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#141416 !important;background:var(--hc,var(--accent));border-radius:14px;padding:5px 11px;white-space:nowrap;}
+    .tool-open:hover{opacity:.9;}
+    .hub-actions{margin-left:auto;display:flex;gap:6px;} .hub-actions button{font:700 11px 'Inter',sans-serif;background:none;border:1px solid var(--border);border-radius:16px;padding:5px 10px;color:var(--text3);cursor:pointer;} .hub-actions button:hover{color:var(--text);border-color:var(--border2);}
+    /* command center → sheet band */
+    .cc-band{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg);margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.10);}
+    @media(max-width:760px){.cc-band{grid-template-columns:repeat(2,1fr);} .cc-band .cell{border-bottom:1px solid var(--border);}}
+    .cc-band .cell{padding:12px 14px;border-right:1px solid var(--border);min-width:0;} .cc-band .cell:last-child{border-right:none;}
+    .cc-band .cv{font-family:'Inter',sans-serif;font-weight:800;font-size:22px;line-height:1.1;font-variant-numeric:tabular-nums;color:var(--text);}
+    .cc-band .cl{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:5px;}
+    .cc-band .cd{font-size:11px;color:var(--text3);margin-top:2px;line-height:1.4;}
 
     /* closing cta */
     .close{border:1px solid var(--border);border-radius:20px;margin:14px 0 70px;padding:38px 30px;text-align:center;
@@ -235,42 +264,94 @@
 // focused "more tools" deep-dive, tucked under a collapsible so the hub reads clean.
 const HUBS = [
   { id:'scout', name:'Scouting', ico:'🔍', hc:'#c0417d', tag:'Walk in knowing the opponent better than they know themselves.', tools:[
-    {h:'scout.html', n:'Opponent Scouting Report', d:'The complete dossier — game plan, statistical identity, situational splits (venue · quality · clutch), first vs second half, foul & FT profile, personnel & shot tendencies.', s:'star', deep:true},
-    {h:'matchup.html', n:'Projected Game Plan', d:'Head-to-head projection with attack / neutralize keys.', deep:true},
-    {h:'offense.html', n:'Offensive Profile', d:'Coach identity + projected offensive DNA, broken down by zone & shot type.', deep:true},
-    {h:'defense.html', n:'Defensive Profile', d:'Projected four factors + who protects the rim vs who can be attacked.', deep:true},
-    {h:'shot-genome.html', n:'Shot Charts & Genome', d:'Hex shot charts + look-quality / shot-making / creation.'},
-    {h:'compare-teams.html', n:'Style & DNA Comparison', d:'Two teams’ identities side by side.'},
+    {h:'scout.html', n:'Opponent Scouting Report', d:'The complete dossier — game plan, statistical identity, situational splits, foul & FT profile, personnel & shot tendencies.', s:'star', deep:true,
+      how:['Search the opponent; add your own team (or let your command-center team fill in) for the matchup projection and key matchups.','Read top-down: <b>Matchup projection</b> → <b>Attack sheet</b> (their strengths and seams) → <b>How to guard them</b> → <b>Foul &amp; free-throw profile</b> → <b>How they fare vs different styles</b> → <b>March profile</b> → the <b>Personnel report</b>, player by player.','From the command center, the “Scout an opponent” box opens this with your team already set.'],
+      look:['The <b>seams</b> — the four factors where they are weakest relative to their strengths.','Personnel flags: foul risk, pressure vulnerability, who fades in close games.'],
+      tip:'Read the Self-Scout on your own team first — the attack sheet only matters where it lines up with what you actually do well.'},
+    {h:'matchup.html', n:'Projected Game Plan', d:'Head-to-head projection with attack / neutralize keys.', deep:true,
+      how:['Pick both teams and the venue (home / away / neutral).','Read the projected final, win probability and spread, then the <b>position-by-position matchups</b> from both projected rotations.','Scroll for the tale of the tape and “how each side wins”; pick any player for his splits by opponent archetype.'],
+      look:['A position matchup where the edge flips against the team edge — that is where the game plan lives.']},
+    {h:'offense.html', n:'Offensive Profile', d:'Coach identity + projected offensive DNA, broken down by zone & shot type.', deep:true,
+      how:['Pick a team.','Read the head coach and system, the team offensive identity, <b>where they score</b> (zones and shot types) and the rotation scorers.'],
+      look:['A zone with high volume and low value — the shot you want them taking.']},
+    {h:'defense.html', n:'Defensive Profile', d:'Projected four factors + who protects the rim vs who can be attacked.', deep:true,
+      how:['Pick a team.','Read the defensive identity, <b>where opponents score on them</b>, and the rotation defenders — who protects the rim and who can be attacked.'],
+      look:['The zone where opponents scored most efficiently — the attack point.']},
+    {h:'shot-genome.html', n:'Shot Charts & Genome', d:'Hex shot charts + look-quality / shot-making / creation.',
+      how:['The quadrant plots every player with enough tracked shots: Look Quality (how good his shots are) vs Shot-Making (how much he beats them).','Filter by team / position / minimum shots; click through to a player’s shot chart.'],
+      look:['Top-left = makes tough shots (creators); bottom-right = wastes good looks.']},
+    {h:'compare-teams.html', n:'Style & DNA Comparison', d:'Two teams’ identities side by side.',
+      how:['Pick two teams; read the four factors, shot quality and style DNA side by side.'],
+      look:['Where the two identities collide — pace vs grind, glass vs get-back.']},
   ]},
   { id:'self', name:'Self-Scout', ico:'🪞', hc:'#3b6fd4', tag:'See your own team the way the best analysts do.', tools:[
-    {h:'moneyball.html', n:'Moneyball', d:'Roster value in Wins Added + the Goal Lab — roster-building as math.', s:'star', deep:true},
-    {h:'self-scout.html', n:'Self-Scout Report', d:'Your projected identity, rotation and where you’re exposed.', deep:true},
-    {h:'team.html', n:'Team DNA & Win Formula', d:'Four factors, shot quality and your winning recipe.', deep:true},
-    {h:'lineups.html', n:'Lineup Recommender', d:'Best-fit five-man units built from your rotation.', deep:true},
-    {h:'predict.html', n:'Projected Ratings & Schedule', d:'Your projection + game-by-game odds.', deep:true},
-    {h:'onoff.html', n:'On/Off & WOWY', d:'Who actually moves the needle when they play.'},
-    {h:'consistency.html', n:'Consistency Trends', d:'Each player’s game-to-game reliability.'},
+    {h:'moneyball.html', n:'Moneyball', d:'Roster value in Wins Added + the Goal Lab — roster-building as math.', s:'star', deep:true,
+      how:['<b>Front Office</b> tab: your team’s wins-and-dollars band and memo; pick a goal in the <b>Goal Lab</b> and it prices the win gap in Wins Added and NIL; drag <b>Simulate</b> sliders on the value board to stress-test a bust or a breakout.','<b>The Market</b>: every rotation player as win value vs paid; <b>GM Mode</b>: build a roster under a cap; <b>The Ledger</b>: which programs buy wins cheapest.'],
+      look:['<b>Surplus</b> = win value − paid. Green is value; red is the contract to think about.','The portal path in the Goal Lab — how many starter-level adds close the gap and what that costs at your tier’s rate.']},
+    {h:'self-scout.html', n:'Self-Scout Report', d:'Your projected identity, rotation and where you’re exposed.', deep:true,
+      how:['Search your team.','Read <b>Your identity</b>, <b>Your rotation</b> (each player’s role), <b>Shot-zone identity</b>, <b>Your offense — how you generate</b>, and <b>Your defense — where you’re exposed</b>.'],
+      look:['The exposed zone — it is exactly what an opponent’s scouting report will say about you.']},
+    {h:'team.html', n:'Team DNA & Win Formula', d:'Four factors, shot quality and your winning recipe.', deep:true,
+      how:['Open your team page → <b>Team DNA</b> tab.','Read net efficiency, the four factors on both ends, shot quality, and expected vs actual.'],
+      look:['<b>Net efficiency</b> is the honest strength number; the win formula tells you which factor your record actually rides on.']},
+    {h:'lineups.html', n:'Lineup Recommender', d:'Best-fit five-man units built from your rotation.', deep:true,
+      how:['Pick a team.','Read the <b>recommended starting five</b>, the <b>rotation &amp; roles</b>, and the <b>situational looks</b> (small, big, shooting, defensive).'],
+      look:['A recommended five that differs from your depth chart — that is the conversation starter, not a verdict.']},
+    {h:'predict.html', n:'Projected Ratings & Schedule', d:'Your projection + game-by-game odds.', deep:true,
+      how:['Pick your team; read the projected rating and record, then every game with a win probability and spread.'],
+      look:['The games sitting between 40% and 60% — the season swings on those.']},
+    {h:'onoff.html', n:'On/Off & WOWY', d:'Who actually moves the needle when they play.',
+      how:['Search a player or team; read on-court vs off-court net rating and the with-or-without-you split.'],
+      look:['A big on/off with a modest box score = the glue guy to protect.']},
+    {h:'consistency.html', n:'Consistency Trends', d:'Each player’s game-to-game reliability.',
+      how:['Pick a team; read each player’s floor, ceiling, volatility and how often he clears key lines.'],
+      look:['High floor + low volatility = the player to build a plan around.']},
   ]},
   { id:'player', name:'Player Intelligence', ico:'🧠', hc:'#2f9e6f', tag:'Grade, project and fit every player on your board.', tools:[
-    {h:'dossier.html', n:'Player Dossier', d:'Projected line + full splits on any player.', s:'star', deep:true},
-    {h:'predictive-profile.html', n:'Predictive Profile', d:'The scouting book — how to use him and how to attack him.', deep:true},
-    {h:'roles.html', n:'Personnel Book (Role & Fit)', d:'Projected OVR + archetype, development path & how to attack every man.', deep:true},
-    {h:'portal.html', n:'Transfer Portal Fit', d:'Rank available transfers by fit for your team.', deep:true},
-    {h:'roster-dev.html', n:'Development Timeline', d:'Year-over-year grade path + trajectory read.', deep:true},
-    {h:'roster.html', n:'Skill Grades', d:'Every player’s skill grades at a glance.'},
-    {h:'matchup.html#adv', n:'Matchup Advantage', d:'Where a player wins (or loses) his matchup.'},
+    {h:'dossier.html', n:'Player Dossier', d:'Projected line + situational identifiers, splits, form, availability, matchup archetypes and shot creation.', s:'star', deep:true,
+      how:['Pick a team, then a player (or open the Dossier tab on his player page).','Read the projected line, the <b>situational identifiers</b> (pace sensitivity, pressure vulnerability, clutch role), who he does it against, <b>form &amp; conference play</b>, <b>availability</b> (foul risk, rotation volatility), then matchup archetypes, zones and shot creation.'],
+      look:['Green cards are edges; red cards are levers an opponent can pull.','Foul risk and rotation volatility decide whether the projection is bankable.']},
+    {h:'predictive-profile.html', n:'Predictive Profile', d:'The scouting book — how to use him and how to attack him.', deep:true,
+      how:['Pick a team, then a player; read the predictive scorecard, the projected line and “the book on him”.'],
+      look:['The <b>bottom line</b> paragraph — the dossier in three sentences for a game-plan meeting.']},
+    {h:'roles.html', n:'Personnel Book (Role & Fit)', d:'Projected OVR + archetype, development path & how to attack every man.', deep:true,
+      how:['Pick a team for the roster’s roles and archetype mix.','Open any player’s <b>Role &amp; Fit</b> tab for his traits, <b>fit in the team</b>, on/off impact, lineup fit, shot profile and how to attack him.'],
+      look:['A missing role on the roster (no rim protector, no lead creator).']},
+    {h:'portal.html', n:'Transfer Portal Fit', d:'Rank available transfers by fit for your team.', deep:true,
+      how:['Search a player; the board ranks every program by fit — sort or filter by conference / max rank.','Open a row for the read: the spot he takes (starter vs top reserve, by real depth chart), his projected line there, and system fit.','On your team, the <b>Portal Report</b> button prints the same board for your needs.'],
+      look:['<b>Starter</b> vs <b>top reserve</b> — decided by the depth chart, not by grade alone.']},
+    {h:'roster-dev.html', n:'Development Timeline', d:'Year-over-year grade path + trajectory read.', deep:true,
+      how:['Pick a team; read each returner’s season-by-season grade and the trajectory read.'],
+      look:['Second-to-third-year jumps — the most common breakout window.']},
+    {h:'roster.html', n:'Skill Grades', d:'Every player’s skill grades at a glance.',
+      how:['Filter to your team or conference; sort any skill column.'],
+      look:['Where your rotation ranks by position against the league.']},
+    {h:'matchup.html#adv', n:'Matchup Advantage', d:'Where a player wins (or loses) his matchup.',
+      how:['Open the Matchup Predictor and pick a player to see his splits by opponent archetype.'],
+      look:['Archetypes he feasts on vs the ones that shut him down.']},
     {n:'Recruit Fit Scores', d:'How a recruit projects into your system.', s:'soon'},
   ]},
   { id:'prep', name:'Game Prep', ico:'📋', hc:'#c8963e', tag:'Turn the numbers into a plan your staff can run.', tools:[
-    {h:'scout.html', n:'The Game Plan', d:'Auto prep cards from the opponent’s DNA — attack & neutralize.', s:'star', deep:true},
-    {h:'team.html', n:'AI Personnel Reports', d:'AI scouting report on every roster (starters, bench, coach fit).', s:'beta', deep:true},
-    {h:'game-breakdown.html', n:'Game Breakdown', d:'Flow, runs & top performers, possession by possession.'},
-    {h:'game-review.html', n:'Automatic Game Review', d:'Four-factor autopsy of any game on the schedule.'},
-    {n:'Practice-Plan Export', d:'Ship the plan to a practice sheet.', s:'soon'},
+    {h:'scout.html', n:'The Game Plan', d:'Auto prep cards from the opponent’s DNA — attack & neutralize.', s:'star', deep:true,
+      how:['Open the scouting report on the opponent with your team set; the game-plan cards sit at the top.'],
+      look:['One attack key and one neutralize key per card — the rest is detail.']},
+    {h:'team.html', n:'AI Personnel Reports', d:'AI scouting report on every roster (starters, bench, coach fit).', s:'beta', deep:true,
+      how:['Open a team page → <b>Report</b> tab.'],
+      look:['The second-unit section — the bench is where personnel reports earn their keep.']},
+    {h:'game-breakdown.html', n:'Game Breakdown', d:'Flow, runs & top performers, possession by possession.',
+      how:['Pick a game from a team’s schedule; read the flow chart, the runs and the top performers.'],
+      look:['Where the run started — the lineup on the floor when it did.']},
+    {h:'game-review.html', n:'Automatic Game Review', d:'Four-factor autopsy of any game on the schedule.',
+      how:['Pick a game; read the four-factor comparison and which factor decided it.'],
+      look:['A loss where you won three factors — the fourth is the fix.']},
   ]},
   { id:'betting', name:'Betting Edge', ico:'🎯', hc:'#d0483f', tag:'Turn 20 years of our own data into a wagering edge — trends, lines and the cheat sheet.', tools:[
-    {h:'betting.html', n:'Betting Lab', d:'Team ATS / O-U & player prop trends over 5+ years, our model line vs the market, and an over/under hit-rate estimator. Live lines connect in-season.', s:'star', deep:true},
-    {n:'Edge Cheat Sheet', d:'Auto-ranked value plays — model vs the closing line — once the odds feed is live.', s:'soon'},
+    {h:'betting.html', n:'Betting Lab', d:'Team ATS / O-U & player prop trends, real closing lines, Sharp Angles, and the live edge board in season.', s:'star', deep:true,
+      how:['<b>Team trends</b>: pick a team for its ATS and over/under record by situation, with the real closing lines behind them.','<b>Player props</b>: a player’s hit-rate against projected lines, normalized for transfers.','<b>Sharp Angles</b>: the league-wide boards; in season the <b>Live Edge Board</b> lights up with today’s lines vs the model.'],
+      look:['Trends backed by 40+ games and a real line — small samples are shown, not trusted.']},
+    {h:'cheatsheet.html', n:'Betting Cheat Sheet', d:'Best player bets, value bets, team bets, props and hit-rates — sortable, with a conference filter.', deep:true,
+      how:['Every board is sortable — click a column header; filter by conference.','↑ next to a player marks a transfer moving up a level whose history is normalized.'],
+      look:['<b>Beat rate</b> — how often he cleared his line at the level he actually played at.']},
   ]},
 ];
 
@@ -291,47 +372,56 @@ filtersEl.querySelectorAll('.fbtn').forEach(b=>b.addEventListener('click',()=>{
 qEl.addEventListener('input',()=>{ query=qEl.value.toLowerCase().trim(); clrEl.style.display=query?'block':'none'; render(); });
 clrEl.addEventListener('click',()=>{ qEl.value=''; query=''; clrEl.style.display='none'; qEl.focus(); render(); });
 
-function toolCard(t, hc){
-  const soon=t.s==='soon', live=!t.s||t.s==='star';
+let _tid=0;
+function toolRow(t, hc){
+  const soon=t.s==='soon';
   const chip = t.s==='beta'?'<span class="chip beta">Beta</span>' : t.s==='soon'?'<span class="chip soon">Soon</span>' : t.s==='star'?'<span class="chip star">★ Start</span>' : '';
-  const tag = soon ? 'div' : 'a';
-  const q = (window.MY_TEAM && t.h && t.h.indexOf('.html')>=0) ? ('?team='+encodeURIComponent(window.MY_TEAM)) : '';
-  const href = soon ? '' : `href="${t.h}${q}"`;
-  return `<${tag} class="tool ${soon?'soon locked':''}" ${href} style="--hc:${hc}" data-name="${esc((t.n+' '+t.d).toLowerCase())}">
-    <span class="tdot"></span>
-    <span class="tool-body"><span class="tool-name">${esc(t.n)}${chip}</span><span class="tool-desc">${esc(t.d)}</span></span>
-    ${soon?'':'<span class="arr">→</span>'}
-  </${tag}>`;
+  const q = (window.MY_TEAM && t.h && t.h.indexOf('.html')>=0) ? ((t.h.indexOf('?')>=0?'&':'?')+'team='+encodeURIComponent(window.MY_TEAM)) : '';
+  const id='t'+(++_tid);
+  const text=(t.n+' '+t.d+' '+(t.how||[]).join(' ')+' '+(t.look||[]).join(' ')).replace(/<[^>]+>/g,'').toLowerCase();
+  const row=`<tr class="tool-row${soon?' soon':''}" data-id="${id}" data-name="${esc(text)}" style="--hc:${hc}" ${soon?'':`onclick="toggleTool('${id}')"`}>
+    <td class="chev">${soon?'':'▼'}</td><td class="l nm">${esc(t.n)} ${chip}</td><td class="l wrap dim">${esc(t.d)}</td>
+    <td class="c">${soon?'<span class="dim">—</span>':`<a class="tool-open" href="${t.h}${q}" onclick="event.stopPropagation()">Open →</a>`}</td></tr>`;
+  if(soon) return row;
+  return row+`<tr class="tool-detail" data-id="${id}" style="--hc:${hc}"><td colspan="4"><div class="tool-how">
+      <div><div class="tb-h">How to use it</div><ol class="tb-steps">${(t.how||[]).map(h=>`<li>${h}</li>`).join('')}</ol>${t.tip?`<div class="tb-tip">${t.tip}</div>`:''}</div>
+      <div><div class="tb-h">What to look for</div><ul class="tb-look">${(t.look||[]).map(l=>`<li>${l}</li>`).join('')}</ul></div>
+    </div></td></tr>`;
 }
+function toggleTool(id,force){ const r=document.querySelector(`tr.tool-row[data-id="${id}"]`), d=document.querySelector(`tr.tool-detail[data-id="${id}"]`); if(!r||!d) return;
+  const open=force==null?!r.classList.contains('open'):force; r.classList.toggle('open',open); d.classList.toggle('open',open); }
+function hubAll(hid,open){ document.querySelectorAll(`#hub-${hid} tr.tool-row`).forEach(r=>toggleTool(r.dataset.id,open)); }
+function sheetOf(tools,hc){ return `<div class="sheet-wrap"><table class="sheet"><thead><tr><th></th><th class="l">Tool</th><th class="l">What it does</th><th class="c">Open</th></tr></thead><tbody>${tools.map(t=>toolRow(t,hc)).join('')}</tbody></table></div>`; }
 
 function render(){
-  let shown=0;
+  let shown=0; _tid=0;
   grid.innerHTML = HUBS.map(h=>{
     if(activeHub!=='all' && activeHub!==h.id) return '';
-    const tools=h.tools.filter(t=> !query || (t.n+' '+t.d).toLowerCase().includes(query));
+    const tools=h.tools.filter(t=> !query || (t.n+' '+t.d+' '+(t.how||[]).join(' ')+' '+(t.look||[]).join(' ')).toLowerCase().includes(query));
     if(!tools.length) return '';
     shown+=tools.length;
     const deep=tools.filter(t=>t.deep), extra=tools.filter(t=>!t.deep);
     let toolsHtml;
-    if(query){                       // searching: show every match flat (don't bury hits)
-      toolsHtml=`<div class="tool-grid">${tools.map(t=>toolCard(t,h.hc)).join('')}</div>`;
-    } else {
-      toolsHtml=`<div class="tool-grid">${deep.map(t=>toolCard(t,h.hc)).join('')}</div>`;
-      if(extra.length) toolsHtml+=`<details class="more"><summary>More ${esc(h.name)} deep-dives <span class="mc">${extra.length}</span></summary><div class="tool-grid">${extra.map(t=>toolCard(t,h.hc)).join('')}</div></details>`;
+    if(query){ toolsHtml=sheetOf(tools,h.hc); }
+    else {
+      toolsHtml=sheetOf(deep,h.hc);
+      if(extra.length) toolsHtml+=`<details class="more"><summary>More ${esc(h.name)} deep-dives <span class="mc">${extra.length}</span></summary><div style="margin-top:10px">${sheetOf(extra,h.hc)}</div></details>`;
     }
     const cnt = (!query && deep.length) ? `${deep.length} flagship${deep.length===1?'':'s'}${extra.length?` · +${extra.length} more`:''}` : `${tools.length} tool${tools.length===1?'':'s'}`;
-    return `<div class="hub-sec">
+    return `<div class="hub-sec" id="hub-${h.id}">
       <div class="hub-head">
         <div class="hub-ico" style="--hc:${h.hc}">${h.ico}</div>
         <div class="hub-meta">
           <div class="hub-name">${esc(h.name)} <span class="n">${cnt}</span></div>
           <div class="hub-tag">${esc(h.tag)}</div>
         </div>
+        <div class="hub-actions"><button onclick="hubAll('${h.id}',true)">Expand</button><button onclick="hubAll('${h.id}',false)">Collapse</button></div>
       </div>
       ${toolsHtml}
     </div>`;
   }).join('') || `<div class="noresults">No tools match “${esc(qEl.value)}”. Try “shot”, “clutch”, “portal”, or clear the search.</div>`;
-  fcountEl.textContent = query||activeHub!=='all' ? `${shown} of ${total}` : `${total} tools`;
+  if(query) document.querySelectorAll('tr.tool-row').forEach(r=>toggleTool(r.dataset.id,true));
+  fcountEl.textContent = query||activeHub!=='all' ? `${shown} of ${total}` : `${total} tools · click a row for the walkthrough`;
 }
 
 // ══ Command Center — personalize the whole page to the coach's chosen team ══
@@ -387,17 +477,17 @@ function renderChoose(){
 function renderCommandCenter(row){
   const tc=CMAP[row.team]||CMAP[row.full]||'var(--accent)', q=encodeURIComponent(row.full), logo=teamLogo(row.full);
   const nilT=(NIL&&NIL.teams&&NIL.teams[row.team])||null;
-  const projCard=`<div class="cc-card"><div class="cl">Projected 2026-27</div><div class="cv">#${row.rank||'—'}</div><div class="cd">rating ${fmtRating(row.rating)} · ${esc(row.conf||'')}</div></div>`;
+  const projCard=`<div class="cell"><div class="cv">#${row.rank||'—'}</div><div class="cl">Projected 2026-27</div><div class="cd">rating ${fmtRating(row.rating)} · ${esc(row.conf||'')}</div></div>`;
   // tier-neutral roster value (price the players, not the program); the tier only sets the budget shown
   const _nilF=(nilT&&window.TDC_NIL&&TDC_NIL.deTier)?(TDC_NIL.NEUTRAL_MULT/(TDC_NIL.MODEL.tier_mult[TDC_NIL.tierNum(nilT.tier)]||0.2)):1;
   let nilCard;
   if(nilT){ const nv=(window.TDC_NIL&&TDC_NIL.neutralValueOf)?(nilT.players||[]).reduce((s,p)=>s+TDC_NIL.neutralValueOf(p,nilT.tier),0):(nz(nilT.value)||0)*_nilF, bud=nz(nilT.budget)||0, deal=nv>=bud, vc=deal?'deal':'overpay';
-    nilCard=`<div class="cc-card"><div class="cl">NIL roster value</div><div class="cv">$${nv.toFixed(1)}m</div><div class="cd">open-market · Tier ${nilT.tier||'—'} budget $${bud.toFixed(0)}m</div><span class="cc-badge2 ${vc}">${deal?'DEAL':'PREMIUM'}</span></div>`;
-  } else nilCard=`<div class="cc-card"><div class="cl">NIL roster value</div><div class="cv">—</div><div class="cd">NIL model not on file yet</div></div>`;
+    nilCard=`<div class="cell"><div class="cv">$${nv.toFixed(1)}m</div><div class="cl">NIL roster value</div><div class="cd">open-market · Tier ${nilT.tier||'—'} budget $${bud.toFixed(0)}m <span class="cc-badge2 ${vc}" style="margin:0 0 0 4px">${deal?'DEAL':'PREMIUM'}</span></div></div>`;
+  } else nilCard=`<div class="cell"><div class="cv">—</div><div class="cl">NIL roster value</div><div class="cd">NIL model not on file yet</div></div>`;
   let topP=null; if(nilT&&nilT.players&&nilT.players.length){ topP=[...nilT.players].sort((a,b)=>(nz(b.grade)||0)-(nz(a.grade)||0))[0]; }
-  const topCard=topP?`<div class="cc-card"><div class="cl">Top-rated player</div><div class="cv">${topP.grade||'—'}</div><div class="cd">${esc(topP.name)} · ${esc(topP.pos||'')}</div></div>`
-    :`<div class="cc-card"><div class="cl">Top-rated player</div><div class="cv">—</div><div class="cd">roster loading</div></div>`;
-  const schedCard=`<div class="cc-card" id="ccSchedCard"><div class="cl">Schedule</div><div class="cv" style="font-size:16px;line-height:1.3;margin-top:9px">TBD</div><div class="cd">2026-27 slate not released yet</div></div>`;
+  const topCard=topP?`<div class="cell"><div class="cv">${topP.grade||'—'}</div><div class="cl">Top-rated player</div><div class="cd">${esc(topP.name)} · ${esc(topP.pos||'')}</div></div>`
+    :`<div class="cell"><div class="cv">—</div><div class="cl">Top-rated player</div><div class="cd">roster loading</div></div>`;
+  const schedCard=`<div class="cell" id="ccSchedCard"><div class="cv">TBD</div><div class="cl">Schedule</div><div class="cd">2026-27 slate not released yet</div></div>`;
   const LAUNCH=[
     ['🪞','self-scout.html','Self-Scout Report','identity · rotation · exposures'],
     ['🧠','roles.html','Personnel Book','role &amp; fit · how to use each man'],
@@ -408,10 +498,10 @@ function renderCommandCenter(row){
     ['📅','predict.html','Projected Ratings','rating + game-by-game odds'],
     ['🌱','roster-dev.html','Development','year-over-year trajectory'],
   ];
-  const launch=LAUNCH.map(t=>`<a class="cc-tool" style="--tc:${tc}" href="${t[1]}?team=${q}"><span class="ci">${t[0]}</span><span><span class="cn">${t[2]}</span><span class="cds">${t[3]}</span></span></a>`).join('');
+  const launch=`<div class="sheet-wrap"><table class="sheet"><thead><tr><th></th><th class="l">Tool</th><th class="l">What it gives you</th><th class="c">Open</th></tr></thead><tbody>${LAUNCH.map(t=>`<tr style="cursor:pointer" onclick="location.href='${t[1]}?team=${q}'"><td class="c">${t[0]}</td><td class="l nm">${t[2]}</td><td class="l wrap dim">${t[3]}</td><td class="c"><a class="tool-open" style="--hc:${tc}" href="${t[1]}?team=${q}">Open →</a></td></tr>`).join('')}</tbody></table></div>`;
   let nilList='';
   if(nilT&&nilT.players&&nilT.players.length){ const top=[...nilT.players].filter(p=>nz(p.value)!=null).sort((a,b)=>(nz(b.value)||0)-(nz(a.value)||0)).slice(0,5);
-    nilList=top.map(p=>`<div class="cc-nrow"><span><b>${esc(p.name)}</b> <span style="color:var(--text3)">${esc(p.pos||'')}</span></span><span class="nv">$${((window.TDC_NIL&&TDC_NIL.neutralValueOf)?TDC_NIL.neutralValueOf(p,nilT.tier):(nz(p.value)||0)*_nilF).toFixed(2)}m</span></div>`).join(''); }
+    nilList=`<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Player</th><th class="c">Pos</th><th>Grade</th><th>Market value</th></tr></thead><tbody>${top.map(p=>`<tr><td class="l nm">${esc(p.name)}</td><td class="c dim">${esc(p.pos||'')}</td><td>${p.grade||'—'}</td><td class="strong" style="color:var(--accent)">$${((window.TDC_NIL&&TDC_NIL.neutralValueOf)?TDC_NIL.neutralValueOf(p,nilT.tier):(nz(p.value)||0)*_nilF).toFixed(2)}m</td></tr>`).join('')}</tbody></table></div>`; }
   const nilPanel=`<div class="cc-panel"><h4>Top market values</h4>${nilList||'<div class="cd" style="font-size:12px;color:var(--text3)">No NIL breakdown for this team yet.</div>'}</div>`;
   const scoutPanel=`<div class="cc-panel"><h4>Scout an opponent</h4><div class="cc-oppwrap"><input id="ccOpp" type="text" placeholder="Search an opponent to scout…" autocomplete="off"><div class="cc-list" id="ccOppList"></div></div><div class="cd" style="font-size:11px;color:var(--text3);margin-top:8px">Opens a full scouting report — with your team set as the matchup.</div></div>`;
   ccEl.innerHTML=`
@@ -420,11 +510,11 @@ function renderCommandCenter(row){
       <div class="cc-id"><div class="cc-eyebrow">⬡ Coach's Command Center</div><h1>${esc(row.full)}</h1><div class="cc-sub"><b>${esc(row.conf||'')}</b> · #${row.rank||'—'} projected · rating <b>${fmtRating(row.rating)}</b></div></div>
       <button class="cc-change" onclick="changeTeam()">Change team</button>
     </div>
-    <div class="cc-cards">${projCard}${nilCard}${topCard}${schedCard}</div>
+    <div class="cc-band">${projCard}${nilCard}${topCard}${schedCard}</div>
     <div class="cc-sec">Your command center <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3)">— every tool loaded for ${esc(row.full)}</span></div>
-    <div class="cc-launch">${launch}</div>
+    <div>${launch}</div>
     <div class="cc-sec">Schedule <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3)">— 2026-27, projected win % &amp; spread per game</span></div>
-    <div class="cc-panel" id="ccSched" style="max-height:360px;overflow-y:auto">Loading schedule…</div>
+    <div id="ccSched">Loading schedule…</div>
     <div class="cc-sec">Quick access</div>
     <div class="cc-2col">${scoutPanel}${nilPanel}</div>
     <div class="cc-sec">All tools</div>`;
@@ -440,7 +530,7 @@ async function loadSchedule(row){
   let games=[];
   try{ games=await fetch(`${SB}/rest/v1/games?or=(home.eq.${encodeURIComponent(row.full)},away.eq.${encodeURIComponent(row.full)})&season_year=eq.2027&select=date,home,away,neutral,status&order=date.asc&limit=60`,{headers:{apikey:SBKEY}}).then(r=>r.ok?r.json():[]); }catch(e){}
   if(!games||!games.length){
-    if(host) host.innerHTML=`<div style="font-size:12.5px;color:var(--text3);line-height:1.65">The <b style="color:var(--text2)">2026-27 schedule hasn't been released yet.</b> It'll appear here automatically once games are posted — with a projected win probability and point spread for every matchup. Until then, scout any opponent from the panel below.</div>`;
+    if(host) host.innerHTML=`<div class="cc-panel" style="font-size:12.5px;color:var(--text3);line-height:1.65">The <b style="color:var(--text2)">2026-27 schedule hasn't been released yet.</b> It'll appear here automatically once games are posted — with a projected win probability and point spread for every matchup. Until then, scout any opponent from the panel below.</div>`;
     return;
   }
   let w=0,l=0;
@@ -451,11 +541,11 @@ async function loadSchedule(row){
     const odds = p!=null
       ? `<span style="font-weight:800;color:${p>=50?'var(--green,#1a8c3a)':'var(--red,#cc2200)'}">${p.toFixed(0)}%</span><span style="min-width:66px;text-align:right;color:var(--text3);font-size:11px">${esc(spread)}</span>`
       : `<span style="min-width:66px;text-align:right;color:var(--text3);font-size:11px">—</span>`;
-    return `<div class="cc-nrow"><span style="min-width:64px;color:var(--text3);font-size:11px">${esc(g.date||'')}</span><span style="flex:1">${homeMe?'vs':'at'} <b>${esc(oppFull)}</b></span>${odds}</div>`;
+    return `<tr><td class="l dim">${esc(g.date||'')}</td><td class="l nm">${homeMe?'vs':'at'} ${esc(oppFull)}</td><td class="c dim">${g.neutral?'N':homeMe?'H':'A'}</td><td style="font-weight:800;color:${p==null?'var(--text3)':p>=50?'var(--green,#1a8c3a)':'var(--red,#cc2200)'}">${p!=null?p.toFixed(0)+'%':'—'}</td><td class="dim">${esc(spread)||'—'}</td></tr>`;
   }).join('');
-  if(host) host.innerHTML=`<div style="font-size:12.5px;font-weight:800;margin-bottom:8px">Projected record ${w}-${l} <span style="font-weight:600;color:var(--text3)">· ${games.length} games</span></div>${rows}`;
+  if(host) host.innerHTML=`<div style="font-size:12.5px;font-weight:800;margin-bottom:8px">Projected record ${w}-${l} <span style="font-weight:600;color:var(--text3)">· ${games.length} games</span></div><div class="sheet-wrap" style="max-height:380px"><table class="sheet"><thead><tr><th class="l">Date</th><th class="l">Opponent</th><th class="c">Site</th><th>Win %</th><th>Spread</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   if(card){ const cv=card.querySelector('.cv'), cd=card.querySelector('.cd'), next=games[0], homeMe=next.home===row.full;
-    if(cv){ cv.style.fontSize='27px'; cv.textContent=`${w}-${l}`; } if(cd) cd.textContent=`projected · next ${homeMe?'vs':'at'} ${homeMe?next.away:next.home}`; }
+    if(cv){ cv.textContent=`${w}-${l}`; } if(cd) cd.textContent=`projected · next ${homeMe?'vs':'at'} ${homeMe?next.away:next.home}`; }
 }
 
 function renderTop(){
