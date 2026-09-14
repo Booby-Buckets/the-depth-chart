@@ -59,6 +59,14 @@
     .curve-note{font-size:12px;color:var(--text3);margin-top:8px;}
     /* leaderboard columns */
     .cols{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+    .sheet-wrap{max-height:none;} .sheet{width:100% !important;} .sheet td.nm{font-weight:800;color:var(--text);} .sheet td.dim{color:var(--text3);}
+    .sheet td a{color:var(--text);text-decoration:none;} .sheet td a:hover{color:var(--accent);}
+    .sheet td.up{color:var(--green,#5ab875);font-weight:800;} .sheet td.dn{color:var(--red,#e07070);font-weight:800;}
+    .ss-band{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg);margin:0 0 14px;}
+    @media(max-width:760px){.ss-band{grid-template-columns:repeat(2,1fr);} .ss-band .cell{border-bottom:1px solid var(--border);}}
+    .ss-band .cell{padding:11px 14px;border-right:1px solid var(--border);min-width:0;} .ss-band .cell:last-child{border-right:none;}
+    .ss-band .v{font-weight:800;font-size:21px;line-height:1.1;font-variant-numeric:tabular-nums;color:var(--text);} .ss-band .l{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:5px;} .ss-band .s{font-size:10.5px;color:var(--text3);margin-top:2px;}
+    .ss-read{font-size:12.5px;line-height:1.65;color:var(--text2);padding:11px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);margin:10px 0 0;} .ss-read b{color:var(--text);}
     @media(max-width:760px){.cols{grid-template-columns:1fr;}}
     .lb{border:1px solid var(--border);border-radius:14px;background:var(--bg2);overflow:hidden;}
     .lb h3{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);padding:14px 16px 4px;}
@@ -165,6 +173,7 @@ function toggleTheme(){const d=document.documentElement.getAttribute('data-theme
 (function(){try{var s=localStorage.getItem('tdc_theme');if(s){document.documentElement.setAttribute('data-theme',s);var b=document.getElementById('themeBtn');if(b)b.textContent=s==='dark'?'☀️':'🌙';}}catch(e){}})();
 
 let DATA=null, CONFLVL={}, CURVE=null, FILT={level:'all',conf:'all',ymin:0,ymax:0};
+function esc(s){ return (''+(s==null?'':s)).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
 // on-brand purple ramp (no stray hues) — distinguishable by lightness
 const SERIES=[
   {k:'overall',l:'Overall',c:'#A8843C',on:true},   // accent
@@ -274,13 +283,66 @@ function setFilt(k,v){
   render();
 }
 function resetFilt(){ FILT={level:'all',conf:'all',ymin:DATA.years[0],ymax:DATA.years[1]}; render(); }
+function setSeason(v){ if(v==='all'){ FILT.ymin=DATA.years[0]; FILT.ymax=DATA.years[1]; } else { FILT.ymin=FILT.ymax=+v; } try{ var u=new URL(location.href); if(v==='all') u.searchParams.delete('season'); else u.searchParams.set('season',v); history.replaceState(null,'',u.toString()); }catch(e){} render(); }
+
+// ── one season under the microscope: who developed whom that year ──
+// returners = players graded in both Y-1 and Y (consecutive). Class step is inferred from the
+// season's index in the player's graded career (1st→2nd graded season ≈ Fr→So, etc.).
+function seasonSpotlight(Y){
+  var rows=[], bySchool={}, byStep={1:[],2:[],3:[],4:[]}, graded=0, gsum=0;
+  var baseStep={1:[],2:[],3:[],4:[]};
+  (DATA.players||[]).forEach(function(p){
+    var ss=p[2];
+    for(var i=1;i<ss.length;i++){ var a=ss[i-1], b=ss[i]; if(b[0]!==a[0]+1) continue;
+      var step=Math.min(4,i), d=b[1]-a[1];
+      if(baseStep[step]) baseStep[step].push(d);           // 20-year baseline for that step
+      if(b[0]!==Y) continue;
+      var conf=confName(b[2]), lvl=confLvl(b[2]);
+      if(FILT.conf!=='all'?conf!==FILT.conf:(FILT.level!=='all'&&lvl!==FILT.level)) continue;
+      var r={player:p[1],espn_id:p[0],school:schoolName(b[3]),conf:conf,from:a[1],to:b[1],d:d,step:step,moved:(b[3]!==a[3]&&a[3]>=0&&b[3]>=0)};
+      rows.push(r); if(byStep[step]) byStep[step].push(d);
+      if(!r.moved){ (bySchool[r.school]=bySchool[r.school]||{school:r.school,conf:conf,n:0,sum:0,up:0,best:null}); var S=bySchool[r.school]; S.n++; S.sum+=d; if(d>0) S.up++; if(!S.best||d>S.best.d) S.best=r; }
+    }
+    ss.forEach(function(x){ if(x[0]===Y){ var conf=confName(x[2]), lvl=confLvl(x[2]); if(FILT.conf!=='all'?conf!==FILT.conf:(FILT.level!=='all'&&lvl!==FILT.level)) return; graded++; gsum+=x[1]; } });
+  });
+  if(!rows.length) return '';
+  var avg=function(a){ return a.length?a.reduce(function(s,x){return s+x;},0)/a.length:null; };
+  var ret=rows.length, avgD=avg(rows.map(function(r){return r.d;})), up=rows.filter(function(r){return r.d>0;}).length, big=rows.filter(function(r){return r.d>=5;}).length;
+  var schools=Object.values(bySchool).filter(function(S){return S.n>=3;}).map(function(S){ S.avg=S.sum/S.n; return S; }).sort(function(a,b){return b.avg-a.avg;});
+  var top=schools.slice(0,12), bottom=schools.slice(-5).reverse();
+  var yl=(Y-1)+'-'+(''+Y).slice(2);
+  var srow=function(S,i){ return '<tr><td class="c dim">'+(i+1)+'</td><td class="l nm">'+esc(S.school)+'<div style="font-size:10.5px;color:var(--text3);font-weight:500">'+esc(S.conf||'')+'</div></td><td>'+S.n+'</td><td class="'+(S.avg>=0?'up':'dn')+'">'+(S.avg>0?'+':'')+S.avg.toFixed(1)+'</td><td>'+Math.round(S.up/S.n*100)+'%</td><td class="l"><a href="'+plink(S.best)+'">'+esc(S.best.player)+'</a> <span class="dim">'+S.best.from+'→'+S.best.to+' (+'+S.best.d+')</span></td></tr>'; };
+  var stepL={1:'1st → 2nd season',2:'2nd → 3rd',3:'3rd → 4th',4:'4th → 5th+'};
+  var stepRows=[1,2,3,4].map(function(k){ var a=byStep[k], b=baseStep[k]; if(!a.length) return ''; var m=avg(a), bm=avg(b), diff=(m!=null&&bm!=null)?m-bm:null;
+    return '<tr><td class="l nm" style="font-size:12px">'+stepL[k]+'</td><td>'+a.length+'</td><td class="'+(m>=0?'up':'dn')+'">'+(m>0?'+':'')+m.toFixed(2)+'</td><td class="dim">'+(bm!=null?(bm>0?'+':'')+bm.toFixed(2):'—')+'</td><td class="'+(diff==null?'dim':diff>=0?'up':'dn')+'">'+(diff==null?'—':(diff>0?'+':'')+diff.toFixed(2))+'</td><td>'+Math.round(a.filter(function(x){return x>0;}).length/a.length*100)+'%</td></tr>'; }).join('');
+  var bestStep=[1,2,3,4].filter(function(k){return byStep[k].length>=20;}).sort(function(a,b){return avg(byStep[b])-avg(byStep[a]);})[0];
+  var read='<div class="ss-read"><b>'+yl+'.</b> '+ret.toLocaleString()+' returners were graded in back-to-back seasons; they moved <b>'+(avgD>0?'+':'')+avgD.toFixed(2)+'</b> on average and <b>'+Math.round(up/ret*100)+'%</b> improved ('+big+' jumped 5+ points). '
+    +(top.length?'The best development shop was <b>'+esc(top[0].school)+'</b> (+'+top[0].avg.toFixed(1)+' across '+top[0].n+' returners'+(top[0].best?', led by '+esc(top[0].best.player)+' '+top[0].best.from+'→'+top[0].best.to:'')+')'+(bottom.length&&bottom[0]!==top[0]?'; <b>'+esc(bottom[0].school)+'</b> went the other way ('+(bottom[0].avg>0?'+':'')+bottom[0].avg.toFixed(1)+')':'')+'. ':'')
+    +(bestStep?'The biggest gains came in the <b>'+stepL[bestStep].toLowerCase()+'</b> step.':'')+'</div>';
+  return '<div class="sec-t">Season spotlight <span style="color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;">'+yl+' · who developed whom</span></div>'+
+    '<div class="ss-band">'+
+      '<div class="cell"><div class="v">'+graded.toLocaleString()+'</div><div class="l">Graded players</div><div class="s">avg grade '+(graded?(gsum/graded).toFixed(1):'—')+'</div></div>'+
+      '<div class="cell"><div class="v">'+ret.toLocaleString()+'</div><div class="l">Returners</div><div class="s">graded in '+(Y-2)+'-'+(''+(Y-1)).slice(2)+' too</div></div>'+
+      '<div class="cell"><div class="v" style="color:'+(avgD>=0?'var(--green,#5ab875)':'var(--red,#e07070)')+'">'+(avgD>0?'+':'')+avgD.toFixed(2)+'</div><div class="l">Avg change</div><div class="s">grade points, year over year</div></div>'+
+      '<div class="cell"><div class="v">'+Math.round(up/ret*100)+'%</div><div class="l">Improved</div><div class="s">'+up.toLocaleString()+' of '+ret.toLocaleString()+'</div></div>'+
+      '<div class="cell"><div class="v">'+big+'</div><div class="l">Jumped 5+</div><div class="s">breakout seasons</div></div></div>'+
+    '<div class="cols"><div><div class="sub" style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Program development · returners (min 3)</div>'+
+      '<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="c">#</th><th class="l">School</th><th>Ret.</th><th>Avg Δ</th><th>Improved</th><th class="l">Best jump</th></tr></thead><tbody>'+top.map(srow).join('')+'</tbody></table></div></div>'+
+    '<div><div class="sub" style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Class-by-class · this season vs the 20-year baseline</div>'+
+      '<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Step</th><th>n</th><th>Avg Δ</th><th>20-yr</th><th>Diff</th><th>Up</th></tr></thead><tbody>'+stepRows+'</tbody></table></div>'+
+      (bottom.length?'<div class="sub" style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin:14px 0 8px">Went backwards</div><div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">School</th><th>Ret.</th><th>Avg Δ</th></tr></thead><tbody>'+bottom.map(function(S){return '<tr><td class="l nm">'+esc(S.school)+'</td><td>'+S.n+'</td><td class="'+(S.avg>=0?'up':'dn')+'">'+(S.avg>0?'+':'')+S.avg.toFixed(1)+'</td></tr>';}).join('')+'</tbody></table></div>':'')+
+    '</div></div>'+read;
+}
 function filterBar(){
   var y0=DATA.years[0], y1=DATA.years[1];
   var confs=DATA.conferences.filter(c=>FILT.level==='all'||c.level===FILT.level);
   var yopts=function(sel){ var o=''; for(var y=y1;y>=y0;y--) o+='<option value="'+y+'"'+(y===sel?' selected':'')+'>'+((y-1)+'-'+(''+y).slice(2))+'</option>'; return o; };
   var lopts=['all','high','mid','low'].map(l=>'<option value="'+l+'"'+(l===FILT.level?' selected':'')+'>'+(l==='all'?'All levels':LVL_LBL[l])+'</option>').join('');
   var copts='<option value="all">All conferences</option>'+confs.map(c=>'<option value="'+c.name+'"'+(c.name===FILT.conf?' selected':'')+'>'+c.name+'</option>').join('');
+  var single=(FILT.ymin===FILT.ymax)?FILT.ymin:null;
+  var sopts='<option value="all"'+(single==null?' selected':'')+'>All years</option>'; for(var y=y1;y>=y0;y--) sopts+='<option value="'+y+'"'+(y===single?' selected':'')+'>'+((y-1)+'-'+(''+y).slice(2))+'</option>';
   return '<div class="filt-bar">'+
+    '<label>Season<select onchange="setSeason(this.value)">'+sopts+'</select></label>'+
     '<label>Level<select onchange="setFilt(\'level\',this.value)">'+lopts+'</select></label>'+
     '<label>Conference<select onchange="setFilt(\'conf\',this.value)">'+copts+'</select></label>'+
     '<label>From<select onchange="setFilt(\'ymin\',+this.value)">'+yopts(FILT.ymin)+'</select></label>'+
@@ -373,6 +435,7 @@ function render(){
   el.innerHTML=
     playerFocusHtml()+
     filterBar()+
+    ((FILT.ymin===FILT.ymax)?seasonSpotlight(FILT.ymin):'')+
     '<div class="sec-t">The Development Curve <span '+sub+'>avg TDC grade by class · '+CURVE._total.toLocaleString()+' player-seasons · '+scopeLabel()+'</span></div>'+
     '<div class="curve-card"><div class="curve-top"><div style="font-size:13px;font-weight:700;color:var(--text2);">Grade by class year</div><div class="lg">'+legend+'</div></div>'+
       curveSvg()+
@@ -394,6 +457,7 @@ async function init(){
     DATA=await fetch('scripts/data/development.json?v=2').then(r=>r.json());
     (DATA.conferences||[]).forEach(c=>{CONFLVL[c.name]=c.level;});
     FILT.ymin=DATA.years[0]; FILT.ymax=DATA.years[1];
+    try{ var sy=parseInt(new URLSearchParams(location.search).get('season')||'',10); if(sy>=DATA.years[0]&&sy<=DATA.years[1]){ FILT.ymin=FILT.ymax=sy; } }catch(e){}
     render();
   }
   catch(e){ document.getElementById('content').innerHTML='<div class="loading">Could not load development data. '+e.message+'</div>'; }
