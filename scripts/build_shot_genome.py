@@ -39,8 +39,7 @@ SB = "https://izlqhnxowdhtdofkwrho.supabase.co"
 KEY = "sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
 def _token():
     """The signed-in user's session token (shots is RLS-locked). Env TDC_JWT if set and sane,
-    otherwise prompt for it (hidden input — paste with ⌘V, then Enter)."""
-    import getpass
+    otherwise prompt for it (paste with ⌘V, then Enter)."""
     t = (os.environ.get("TDC_JWT") or "").strip()
     ok = lambda x: x.startswith("eyJ") and x.count(".") == 2 and all(ord(c) < 128 for c in x)
     if t and not ok(t):
@@ -49,7 +48,8 @@ def _token():
     while not t:
         print("This build needs your site login. On thedepthchartcbb.com (signed in) open DevTools → Console and run:")
         print("    copy(JSON.parse(localStorage.tdc_session).access_token)")
-        t = getpass.getpass("then paste it here (it won't show) and press Enter: ").strip()
+        try: t = input("then paste it here and press Enter: ").strip()
+        except EOFError: t = ""
         if not ok(t):
             print("That doesn't look like the token (must start with eyJ). Try the copy() line again.\n"); t = ""
     return t
