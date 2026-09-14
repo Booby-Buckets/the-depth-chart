@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="tdc-a11y.css?v=1">
   <script src="tdc-a11y.js?v=1" defer></script>
-  <meta name="description" content="Explore The Depth Chart — every tool in one place: rankings, player analytics, NIL, scouting, betting, and the full Coach's Tier.">
+  <meta name="description" content="The field guide to The Depth Chart — every tool with a step-by-step walkthrough, guided tours by what you came for, and the numbers explained.">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="The Depth Chart">
   <meta property="og:title" content="Explore — The Depth Chart">
@@ -17,7 +17,7 @@
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=2"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Explore — The Depth Chart</title>
+  <title>Explore &amp; how to use it — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
@@ -32,27 +32,57 @@
     :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
     :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
     .xp{max-width:1160px;margin:0 auto;padding:30px 22px 80px;}
-    .xp-lede{color:var(--text2);max-width:70ch;line-height:1.6;font-size:15px;margin:2px 0 30px;}
-    /* audience filter pills */
-    .xp-filter{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px;}
+    .xp-lede{color:var(--text2);max-width:72ch;line-height:1.6;font-size:15px;margin:2px 0 22px;}
+    .xp-lede b{color:var(--text);}
+    /* toolbar: audience pills + search */
+    .xp-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:26px;position:sticky;top:0;z-index:5;padding:10px 0;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);}
+    .xp-filter{display:flex;flex-wrap:wrap;gap:8px;}
     .xp-fbtn{font:700 12px/1 'Inter',sans-serif;letter-spacing:.02em;color:var(--text2);background:var(--bg2);border:1px solid var(--border);border-radius:22px;padding:9px 16px;cursor:pointer;transition:all .15s;}
     .xp-fbtn:hover{border-color:var(--border2);color:var(--text);}
     .xp-fbtn.on{background:var(--tc-readable,var(--accent));border-color:transparent;color:#141416;}
+    .xp-q{margin-left:auto;font:600 13px 'Inter',sans-serif;padding:9px 14px;border:1px solid var(--border2);border-radius:22px;background:var(--bg2);color:var(--text);min-width:240px;outline:none;}
+    .xp-q:focus{border-color:var(--accent);}
+    .xp-count{font-size:11px;color:var(--text3);font-weight:600;}
+    /* tours */
+    .xp-tours{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-bottom:38px;}
+    .tour{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px 18px;}
+    .tour-h{font-weight:800;font-size:15px;color:var(--text);display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+    .tour-d{font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:10px;}
+    .tour ol{margin:0;padding-left:20px;font-size:12.5px;line-height:1.7;color:var(--text2);}
+    .tour ol a{color:var(--text);font-weight:700;text-decoration:none;border-bottom:1px solid var(--border2);} .tour ol a:hover{color:var(--tc-readable,var(--accent));border-color:currentColor;}
     /* section */
-    .xp-sec{margin-bottom:34px;}
-    .xp-sec-h{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;}
+    .xp-sec{margin-bottom:34px;scroll-margin-top:80px;}
+    .xp-sec-h{display:flex;align-items:baseline;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
     .xp-sec-t{font-family:'Barlow Condensed','Inter',sans-serif;font-weight:800;text-transform:uppercase;letter-spacing:.02em;font-size:22px;color:var(--text);}
     .xp-sec-d{font-size:12.5px;color:var(--text3);}
-    .xp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:12px;}
-    .xp-card{position:relative;display:block;text-decoration:none;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:15px 16px;transition:border-color .15s,transform .15s,box-shadow .15s;}
-    .xp-card:hover{border-color:var(--tc-readable,var(--accent));transform:translateY(-2px);box-shadow:0 8px 26px -14px rgba(0,0,0,.4);}
-    .xp-card-t{font-weight:800;font-size:15px;color:var(--text);display:flex;align-items:center;gap:7px;}
-    .xp-card-d{font-size:12.5px;color:var(--text3);line-height:1.5;margin-top:5px;}
-    .xp-arrow{position:absolute;top:15px;right:15px;color:var(--text3);font-size:15px;transition:transform .15s,color .15s;}
-    .xp-card:hover .xp-arrow{transform:translateX(3px);color:var(--tc-readable,var(--accent));}
+    .xp-list{display:flex;flex-direction:column;gap:8px;}
+    /* tool = expandable walkthrough */
+    .tool{background:var(--bg2);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:border-color .15s;}
+    .tool[open]{border-color:var(--tc-readable,var(--accent));}
+    .tool summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:14px 16px;}
+    .tool summary::-webkit-details-marker{display:none;}
+    .tool-t{font-weight:800;font-size:15px;color:var(--text);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .tool-d{font-size:12.5px;color:var(--text3);line-height:1.5;margin-top:4px;}
+    .tool-r{display:flex;align-items:center;gap:8px;}
+    .tool-open{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#141416;background:var(--tc-readable,var(--accent));border-radius:20px;padding:7px 13px;text-decoration:none;white-space:nowrap;}
+    .tool-open:hover{opacity:.9;}
+    .tool-chev{color:var(--text3);font-size:14px;transition:transform .2s;} .tool[open] .tool-chev{transform:rotate(180deg);}
+    .tool-body{border-top:1px solid var(--border);padding:16px 18px 18px;display:grid;grid-template-columns:1.25fr 1fr;gap:18px;}
+    @media(max-width:760px){.tool-body{grid-template-columns:1fr;} .xp-q{margin-left:0;width:100%;}}
+    .tb-h{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+    .tb-steps{margin:0;padding-left:22px;font-size:13px;line-height:1.7;color:var(--text2);}
+    .tb-steps li::marker{color:var(--tc-readable,var(--accent));font-weight:800;}
+    .tb-steps b,.tb-look b,.tb-tip b{color:var(--text);}
+    .tb-look{margin:0;padding-left:18px;font-size:12.5px;line-height:1.65;color:var(--text2);}
+    .tb-tip{margin-top:12px;font-size:12.5px;line-height:1.6;color:var(--text2);padding:10px 12px;border-left:3px solid var(--tc-readable,var(--accent));background:color-mix(in srgb,var(--accent) 8%,transparent);border-radius:0 8px 8px 0;}
+    .tb-meta{margin-top:12px;font-size:11.5px;color:var(--text3);display:flex;flex-wrap:wrap;gap:12px;}
     .xp-lock{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#141416;background:var(--accent);border-radius:5px;padding:2px 6px;}
-    .xp-lock.premium{background:#5B8DEF;color:#fff;}
+    .xp-lock.premium{background:#5B8DEF;color:#fff;} .xp-lock.pro{background:#8E5CFF;color:#fff;} .xp-lock.free{background:var(--bg3);color:var(--text2);}
     .xp-hide{display:none!important;}
+    .xp-actions{display:flex;gap:8px;margin-left:auto;} .xp-actions button{font:700 11px 'Inter',sans-serif;background:none;border:1px solid var(--border);border-radius:16px;padding:5px 10px;color:var(--text3);cursor:pointer;} .xp-actions button:hover{color:var(--text);border-color:var(--border2);}
+    /* glossary */
+    .gloss{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;}
+    .g{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;} .g b{display:block;font-size:13px;color:var(--text);margin-bottom:3px;} .g span{font-size:12px;color:var(--text3);line-height:1.5;}
   </style>
 </head>
 <body data-anim-auto>
@@ -61,104 +91,288 @@
 <div class="tdc-bg" aria-hidden="true"></div>
 <div class="xp">
   <div class="page-header">
-    <div class="eyebrow" data-anim>⬡ The Depth Chart</div>
-    <h1 class="page-h1" data-anim>Explore</h1>
-    <div class="xp-lede" data-anim>Every tool on the site, in one place. New here? Start at the top and work down — or filter by what you're here for.</div>
+    <div class="eyebrow" data-anim>⬡ The Depth Chart · Field guide</div>
+    <h1 class="page-h1" data-anim>Explore &amp; how to use it</h1>
+    <div class="xp-lede" data-anim>Every tool on the site with a walkthrough: <b>what it is</b>, <b>how to use it</b> step by step, and <b>what to look for</b>. Start with a guided tour for how you use the site, or search for a tool and expand it.</div>
   </div>
 
-  <div class="xp-filter" id="xpFilter">
-    <button class="xp-fbtn on" data-aud="all" onclick="xpFilter('all',this)">Everything</button>
-    <button class="xp-fbtn" data-aud="fan" onclick="xpFilter('fan',this)">For fans</button>
-    <button class="xp-fbtn" data-aud="coach" onclick="xpFilter('coach',this)">For coaches</button>
-    <button class="xp-fbtn" data-aud="market" onclick="xpFilter('market',this)">NIL &amp; portal</button>
-    <button class="xp-fbtn" data-aud="bet" onclick="xpFilter('bet',this)">For bettors</button>
+  <div class="xp-bar">
+    <div class="xp-filter" id="xpFilter">
+      <button class="xp-fbtn on" data-aud="all" onclick="xpFilter('all',this)">Everything</button>
+      <button class="xp-fbtn" data-aud="fan" onclick="xpFilter('fan',this)">For fans</button>
+      <button class="xp-fbtn" data-aud="coach" onclick="xpFilter('coach',this)">For coaches</button>
+      <button class="xp-fbtn" data-aud="market" onclick="xpFilter('market',this)">NIL &amp; portal</button>
+      <button class="xp-fbtn" data-aud="bet" onclick="xpFilter('bet',this)">For bettors</button>
+    </div>
+    <input class="xp-q" id="xpQ" type="search" placeholder="Search tools… (e.g. shot chart, NIL, spread)" autocomplete="off">
+    <div class="xp-actions"><button onclick="xpAll(true)">Expand all</button><button onclick="xpAll(false)">Collapse all</button></div>
+  </div>
+
+  <div class="xp-sec" id="tours">
+    <div class="xp-sec-h"><div class="xp-sec-t">Guided tours</div><div class="xp-sec-d">five-minute paths through the site, by what you came for</div></div>
+    <div class="xp-tours" id="xpTours"></div>
   </div>
 
   <div id="xpBody"></div>
+
+  <div class="xp-sec" id="glossary">
+    <div class="xp-sec-h"><div class="xp-sec-t">The numbers, in one breath</div><div class="xp-sec-d">the handful of stats every page leans on</div></div>
+    <div class="gloss" id="xpGloss"></div>
+  </div>
 </div>
 
 <script>
-// One catalog drives the whole page. aud = audiences the tool serves (for the filter);
-// gate = 'premium' | 'coach' badge; each card links to a real page.
+/* ── The catalog: one entry per tool, each with a walkthrough. ──
+   sec/desc: section; items: {t, d, href, aud[], gate, how[] (steps), look[] (what to read), tip, best} */
+const P='player.html', T='team.html';
 const XP = [
-  { sec:'Start here', desc:'The four doors most people walk through.', aud:['fan'], items:[
-    { t:'Rankings', d:'Power-rating team rankings for all of Division I, with projections and deep team cards.', href:'index.html', aud:['fan'] },
-    { t:'Program HQ', d:'Pick your program and this becomes its front door — every tool pre-loaded for your team.', href:'program-hq.html', aud:['fan','coach'] },
-    { t:'Compare players', d:'Two players side by side — grades, style DNA, head-to-head matchup and fit.', href:'compare-players.html', aud:['fan'] },
-    { t:'Coaching Lab', d:'Head coaches by style, track record and system — the coaching side of the sport.', href:'coaches.html', aud:['fan','coach'] },
+  { sec:'Start here', id:'start', desc:'the four doors most people walk through', aud:['fan'], items:[
+    { t:'Rankings', d:'Power-rating rankings for all of Division I, projected for 2026-27, with an expandable card per team.', href:'index.html', aud:['fan','bet'], gate:'free',
+      how:['Open the homepage — teams are ranked by projected <b>Power Rating</b> (points better than an average team on a neutral floor).','Use the conference / tier pills to narrow the field, or the search box for one program.','Click a team row to expand its card: the projected starting five, top players, offseason report and (in season) its net-rating trajectory.','Click the team name to go to its full team page.'],
+      look:['<b>Rank + Power Rating</b> — the whole site is built off this number; a +20 team is a title contender, +13 is the tournament line.','<b>Projected wins</b> and the goal tier it lands on.','<b>Offseason report</b> — what the roster gained and lost.'],
+      tip:'Sign in and set a favorite team (Program HQ or your profile) and it is pinned to the top of the rankings.' },
+    { t:'Program HQ', d:'Pick your program and the site becomes its front door — themed hero, coach, roster and every tool pre-loaded for your team.', href:'program-hq.html', aud:['fan','coach'], gate:'free',
+      how:['Search your program (or it loads automatically if you set a favorite team).','Read the hero: projected rank, power rating, wins and tier, plus the head coach card.','Use the launchpad — every scouting, projection and analytics tool below is already scoped to your team.','Bookmark it; it remembers your program.'],
+      look:['Where your team sits on the goal ladder (bubble → tournament → protected seed → Sweet 16 → Final Four → title).','The roster block — who starts, who is new, who left.'],
+      tip:'This is the page to send a fan of one team. Everything else on the site is one click from here.' },
+    { t:'Team pages', d:'Depth chart, schedule, Team DNA, on/off, projections, NIL, betting and the roster report for any team.', href:T, aud:['fan','coach','bet'], gate:'free',
+      how:['Search a team from the rankings or the nav. The page opens on the <b>Depth Chart</b> — positions, starters, bench, projected minutes and the projected OVR for every player.','Switch the season selector to see any historic roster back to 2007.','Work the tabs: <b>Schedule</b> (results + projected lines), <b>Projections</b> (the projected box score and win total), <b>Team DNA</b> (four factors, shot quality, expected vs actual), <b>On/Off</b>, <b>NIL</b>, <b>Losses</b> (who left and what it cost), <b>Betting</b> (ATS / O-U history with real closing lines), <b>Report</b> (the written roster report) and <b>Customize</b>.','Click any player name to open his player page.'],
+      look:['The starting five and the <b>minutes column</b> — the projection engine builds everything off this rotation.','<b>Team DNA net efficiency</b> — the honest measure of how good the team is.','The <b>Losses</b> tab before you judge a returning team.'],
+      tip:'Free accounts see the starting five and the schedule; Premium opens the full depth chart, NIL and losses; Pro opens DNA, on/off, projections, the report and Customize.' },
+    { t:'Player pages', d:'One page per player: grade, projected line, Player DNA, shot charts, rankings, percentiles and the whole Coach’s Tier toolkit.', href:P, aud:['fan','coach','market','bet'], gate:'free',
+      how:['Search a player from any page. The <b>Overview</b> shows his OVR grade, Wins Added, style archetype, breakout odds and his projected 2026-27 line next to last season.','<b>Player DNA</b> — the analyst dashboard: percentile bars, offense / defense / six-factor sub-tabs.','<b>Stats</b> — every season on record, per-game, per-40 and advanced (USG%, TS%, BPM…).','<b>Shot Charts</b> — his shot map, zone efficiency and shot flow.','<b>Rankings</b> and <b>Percentiles</b> — where he sits against his position and class.','<b>Coach’s Tier</b> menu — Scouting Report, Scheme Lab, Portal Fit, Player Dossier, Role &amp; Fit, Development: each is a sheet-formatted report built for this player (walkthroughs below).','<b>NIL</b>, <b>Betting</b> (prop hit-rates and the projected line) and <b>Buzz</b> (headlines).'],
+      look:['The <b>projected line vs last year</b> — and the USG% card, which explains most of the change.','<b>Wins Added</b> — his production in wins; ~1 WA ≈ 1 team win.','His <b>archetype</b> badge — it drives comps, fit and the market read.'],
+      tip:'Stats, Percentiles, Scouting and NIL are Premium; Shot Charts, Scheme Lab and Portal Fit are Pro; the rest of the Coach’s Tier menu is Coach’s Tier.' },
   ]},
-  { sec:'Players', desc:'Everything about the guys on the floor.', aud:['fan'], items:[
-    { t:'Player pages · Player DNA', d:'Any player: grade, Wins Added, percentile dashboard, impact decomposition and situational profile.', href:'player.html', aud:['fan','coach'] },
-    { t:'Player Grade List', d:'The full ranked list of every graded player.', href:'gradelist.html', aud:['fan'], gate:'premium' },
-    { t:'Projected Stats', d:'2026-27 projected stat lines for every rotation player.', href:'roster.html', aud:['fan'] },
-    { t:'Shot Genome', d:'Look Quality, Shot-Making and Creation — the DNA of how a player scores.', href:'shot-genome.html', aud:['fan','coach'] },
-    { t:'Role &amp; Fit', d:'Player archetypes and how each role fits different systems.', href:'roles.html', aud:['fan','coach'] },
-    { t:'Player Dossier', d:'The one-page scouting dossier: line, splits, shot profile and confidence.', href:'dossier.html', aud:['coach','fan'] },
-    { t:'Player Development', d:'Trajectory and growth areas — where a player is heading.', href:'development.html', aud:['fan','coach'] },
-    { t:'Predictive Profile', d:'Situational and predictive identifiers — how production shifts by context.', href:'predictive-profile.html', aud:['coach','fan'] },
+  { sec:'Players', id:'players', desc:'everything about the guys on the floor', aud:['fan'], items:[
+    { t:'Player Projected Stats', d:'2026-27 projected stat lines for every rotation player in the country, sortable and filterable.', href:'roster.html', aud:['fan','bet'], gate:'free',
+      how:['Open the page; every projected player is listed with PPG / RPG / APG / shooting and OVR.','Filter by conference, team, position or class; sort any column by clicking its header.','Search a name to jump to one player; click the name for his page.'],
+      look:['<b>Transfers</b> are flagged — their lines are level-adjusted (a mid-major scorer moving up is discounted for the jump in competition).','Freshmen carry a projected line from their recruiting profile.'],
+      tip:'Sort by OVR within a position to build a preseason All-America ballot in a minute.' },
+    { t:'Player Grade List', d:'The full ranked list of every graded player.', href:'gradelist.html', aud:['fan'], gate:'premium',
+      how:['Open the list — every player with a grade, ranked 1 to N.','Filter by class or position; search a name.'],
+      look:['Grade gaps between tiers — the top of the list is deliberately separated so a 95 means something.'] },
+    { t:'Compare Players', d:'Two players side by side — grades, style DNA, shot charts, head-to-head matchup and fit.', href:'compare-players.html', aud:['fan','market'], gate:'pro',
+      how:['Search the first player, then the second.','Read the head-to-head: grade, projected line, percentile bars and Wins Added.','Scroll for the style DNA, shot chart overlay, Shot Genome and team-fit comparison.'],
+      look:['Where the bars diverge — two players with the same grade rarely win the same way.'],
+      tip:'Switch mode to <b>Compare Teams</b> for the same treatment at the team level.' },
+    { t:'Shot Genome', d:'Look Quality, Shot-Making (SM+) and Creation — the DNA of how a player scores.', href:'shot-genome.html', aud:['fan','coach'], gate:'pro',
+      how:['The quadrant plots every player with enough tracked shots: <b>Look Quality</b> (how good the shots he gets are) vs <b>Shot-Making</b> (how much he beats them).','Hover a dot for the player; use the filters for team, position and minimum shots.','Click through to the player page for his full shot profile.'],
+      look:['Top-right = gets good looks <i>and</i> makes them. Top-left = makes tough shots (creators). Bottom-right = wastes good looks.','<b>Creation</b> — how much of his offense he manufactures himself.'] },
+    { t:'Roles &amp; Archetypes', d:'Ten style archetypes, and how each role fits different systems.', href:'roles.html', aud:['fan','coach'], gate:'free',
+      how:['Pick a team to see each rotation player’s archetype and the roster’s role mix.','Open the <b>Archetypes</b> explorer to browse the ten styles and the players who define them.'],
+      look:['A roster missing a role (no rim protector, no lead creator) — the Moneyball market read prices those gaps.'],
+      tip:'On a player page, the Role &amp; Fit tab is the per-player version of this page — with lineup fit and on/off.' },
+    { t:'Player Development', d:'Season-by-season grade trajectories — who climbed, who plateaued, who is about to pop.', href:'development.html', aud:['fan','coach'], gate:'free',
+      how:['Browse the league-wide curve: biggest climbs from first graded season to peak.','Search a player to highlight his path against the curve.','On any player page, the Development tab shows his own trajectory as a sheet.'],
+      look:['Second-to-third-year jumps — the most common breakout window.'] },
+    { t:'Player Dossier', d:'The one-page scouting dossier: projected line, situational identifiers, splits, form, availability, matchup archetypes, zones and shot creation.', href:'dossier.html', aud:['coach','fan'], gate:'coach',
+      how:['Pick a team, then a player (or open the Dossier tab on his player page).','Read top-down: the projected line, the <b>situational identifiers</b> (pace sensitivity, pressure vulnerability, clutch role), who he does it against (quality / venue / close games), <b>form &amp; conference play</b>, <b>availability</b> (foul risk, rotation volatility), then matchup archetypes, zones and shot creation.'],
+      look:['The identifier cards are colored: green = an edge, red = a lever an opponent can pull.','<b>Foul risk</b> and <b>rotation volatility</b> — the two numbers that decide whether the projection is bankable.'] },
+    { t:'Predictive Profile', d:'The whole book on a player on one card — how he responds to pace and pressure, who he feasts on, whether he closes.', href:'predictive-profile.html', aud:['coach','fan'], gate:'coach',
+      how:['Pick a team, then a player.','Read the <b>predictive scorecard</b>, the projected line and the written “book on him”.'],
+      look:['The <b>bottom line</b> paragraph — it is the dossier compressed to three sentences for a game-plan meeting.'] },
   ]},
-  { sec:'Teams &amp; league', desc:'Zoom out to teams, conferences and the whole field.', aud:['fan'], items:[
-    { t:'Team pages', d:'Depth chart, Team DNA, shot charts, projections and NIL for any team.', href:'team.html', aud:['fan','coach'] },
-    { t:'Conferences', d:'Every league, season by season — standings, strength and history.', href:'conference.html', aud:['fan'] },
-    { t:'League Analytics', d:'League-wide visualizations — contender quadrant, scoring, March drop-offs.', href:'analytics.html', aud:['fan'] },
-    { t:'Projected Team Stats', d:'2026-27 offensive and defensive projections for all 360+ teams.', href:'team-stats.html', aud:['fan','coach'] },
-    { t:'Roster Consistency', d:'How steady (or boom-bust) a roster projects to be.', href:'consistency.html', aud:['coach','fan'] },
-    { t:'On/Off &amp; WOWY', d:'How a team performs with a player on the floor vs off.', href:'onoff.html', aud:['coach','fan'] },
+  { sec:'Teams &amp; league', id:'teams', desc:'zoom out to conferences and the whole field', aud:['fan'], items:[
+    { t:'Conferences', d:'Every league, season by season — standings, awards, coach rankings and inter-conference records.', href:'conference.html', aud:['fan'], gate:'free',
+      how:['Pick a conference and a season.','Read standings, the league’s power ratings and its record against other leagues.'],
+      look:['Conference strength — it is baked into every player projection as competition level.'] },
+    { t:'Advanced Stats', d:'Every player-season since 2007 — BPM, Win Shares, Wins Added, PER, TS%, usage — plus the Stat Explorer and League Landscape.', href:'analytics.html', aud:['fan','bet'], gate:'pro',
+      how:['<b>Stats</b> tab: pick a season, sort any column, filter by conference / position / minimum minutes.','<b>Stat Explorer</b> tab: choose any two metrics for the X and Y axis and plot every player; hover for names.','<b>League Landscape</b> tab: the league-wide visuals — contender quadrant, scoring bubbles, March drop-offs.'],
+      look:['Usage vs true shooting is the first plot to make — it separates volume from value.'] },
+    { t:'Projected Team Stats', d:'2026-27 offensive and defensive projections for all 360+ teams.', href:'team-stats.html', aud:['fan','bet'], gate:'free',
+      how:['Click any column to sort — offensive rating, defensive rating, tempo, four factors.','Search a team to find its row.'],
+      look:['Projected <b>net rating</b> and <b>tempo</b> — the two inputs to every game spread on the site.'] },
+    { t:'On/Off &amp; WOWY', d:'How a team performs with a player on the floor vs off, rebuilt from play-by-play lineups.', href:'onoff.html', aud:['coach','fan'], gate:'pro',
+      how:['Search a player or a team.','Read on-court vs off-court net rating and the with-or-without-you split.'],
+      look:['A big positive on/off with modest box-score stats = the glue guy the market underpays.'] },
+    { t:'Roster Consistency', d:'Night-to-night reliability — each returner’s ceiling, floor, volatility and how often he clears key lines.', href:'consistency.html', aud:['coach','fan','bet'], gate:'coach',
+      how:['Pick a team.','Read each player’s distribution: floor, ceiling, volatility, and hit-rates for 20+ points, double-digit boards and so on.'],
+      look:['Low volatility + high floor = the player to build a game plan (or a prop bet) on.'] },
+    { t:'Coaching Lab', d:'Head coaches by style, track record and system.', href:'coaches.html', aud:['fan','coach'], gate:'free',
+      how:['Search a coach or a school.','Read his style archetype (pace, pressure, three-point lean, bench depth), his record and the development score of his players.'],
+      look:['The archetype tags — they are the same “scheme scales” the Scheme Lab applies to a player.'] },
   ]},
-  { sec:'Postseason &amp; draft', desc:'March, the awards race and the next level.', aud:['fan'], items:[
-    { t:'Bracketology', d:'Projected NCAA Tournament bracket and the bubble.', href:'bracket.html', aud:['fan'] },
-    { t:'Projected Awards', d:'Player of the Year, All-Americans and the awards race.', href:'awards.html', aud:['fan'] },
-    { t:'Mock Draft · Big Board', d:'The 2027 &amp; 2028 NBA draft boards, ranked and projected.', href:'draft.html', aud:['fan'] },
+  { sec:'Postseason &amp; draft', id:'post', desc:'March, the awards race and the next level', aud:['fan'], items:[
+    { t:'Bracketology', d:'The projected NCAA Tournament bracket and the bubble.', href:'bracket.html', aud:['fan','bet'], gate:'free',
+      how:['Read the projected field by seed line; the bubble section shows the last teams in and first out.','Click a team for its page.'],
+      look:['Seed vs power rating — a team seeded above its rating is the one to fade in March.'] },
+    { t:'Projected Awards', d:'Player of the Year, three All-America teams and per-conference All-Conference, All-Defensive and All-Freshman teams.', href:'awards.html', aud:['fan'], gate:'free',
+      how:['Browse the national selections, then pick a conference for its teams.'],
+      look:['Selections are slot-limited (five per team), so a snub is a real signal about depth at his position.'] },
+    { t:'Mock Draft · Big Board', d:'The 2027 and 2028 NBA boards, scored on translatability, readiness, upside and draftability — plus a pick-by-pick mock you can run.', href:'draft.html', aud:['fan'], gate:'free',
+      how:['Switch between the Big Board and the Mock Draft.','On the board, sort by the four scores or search a name / team.','In the mock, run it pick by pick, or let it auto-run.'],
+      look:['<b>Readiness vs upside</b> — the two-way tension every front office argues about.'] },
+    { t:'Tournaments', d:'Every NCAA Tournament since 2007 — brackets, upsets, March profiles.', href:'tournaments.html', aud:['fan'], gate:'free',
+      how:['Pick a season; browse the bracket and the March drop-off visuals.'],
+      look:['Which seed lines historically over- and under-perform.'] },
   ]},
-  { sec:'Market, NIL &amp; portal', desc:'Value, money and roster building.', aud:['market'], items:[
-    { t:'Moneyball', d:'Roster value in Wins Added, the Goal Lab, and market inefficiencies by style.', href:'moneyball.html', aud:['market','coach'] },
-    { t:'Portal Fit', d:'Rank the best-fit programs for any transfer — need, production and coach fit.', href:'portal.html', aud:['market','coach'] },
-    { t:'Transfer Fit Report', d:'A full transfer-fit breakdown for a single player.', href:'transfer-fit.html', aud:['market','coach'] },
-    { t:'The Wire — Buzz', d:'Headlines and social buzz around players and programs.', href:'buzz.html', aud:['market','fan'] },
+  { sec:'Market, NIL &amp; portal', id:'market', desc:'value, money and roster building', aud:['market'], items:[
+    { t:'Moneyball', d:'The front office in four tabs: The Market, Front Office, GM Mode and The Ledger — wins per dollar.', href:'moneyball.html', aud:['market','coach'], gate:'pro',
+      how:['<b>The Market</b>: every rotation player on the 90 biggest-spending programs as a stock — win value vs paid. Use the screener (conference / position / class / verdict) and sort any column.','<b>Front Office</b>: pick a team for its wins-and-dollars band, the front-office memo, the Goal Lab (pick a goal; it prices the win gap in Wins Added and NIL) and the value board with Simulate sliders.','<b>GM Mode</b>: set a budget cap, hit Auto-build (best value or win the cap) or sign players yourself; the dash shows spend, projected wins and value surplus.','<b>The Ledger</b>: every program’s balance sheet — cost per win vs its tier’s going rate; click a program for its best and worst contracts.'],
+      look:['<b>Surplus</b> everywhere = win value − paid. Green is the Moneyball buy.','The <b>market inefficiency by style</b> table — which archetypes the market underpays.'],
+      tip:'Winning value is production (efficiency, defense, rebounding, ball-security), not scoring — an empty 20-ppg scorer prices below a 12-ppg winner.' },
+    { t:'Portal Fit', d:'Rank the best-fit programs for any transfer — need at his position, team success, production and coach fit.', href:'portal.html', aud:['market','coach'], gate:'pro',
+      how:['Search a player.','The board ranks every program with roster data by fit; sort by any column, filter by conference or a max rank.','Open a row for the read: the spot he would take (starter vs top reserve, by depth chart), his projected line there vs his current one, and system fit.','On a team, the <b>Portal Report</b> button prints the same board for that program’s needs.'],
+      look:['<b>Starter</b> vs <b>top reserve</b> — decided by the real depth chart, not by grade alone.'] },
+    { t:'Transfer Fit Report', d:'For a player who transferred: how he fits the new coach, team and system, his projection and whether he is set to take a leap.', href:'transfer-fit.html', aud:['market','coach'], gate:'free',
+      how:['Search the player.','Read the fit read, the role he projects into and the leap verdict.'],
+      look:['Level-jump discounts: a scorer moving up two tiers is projected conservatively on purpose.'] },
+    { t:'NIL valuations (player + team)', d:'A grade-centric, realistic-market NIL model for every rotation player and a roster total for every program.', href:P, aud:['market','fan'], gate:'premium',
+      how:['On a player page open the <b>NIL</b> tab: his market value, tier, comparables and the valuation sheet.','On a team page open <b>NIL</b> for the roster total, tier and the most expensive contracts.','For the market-wide view — who is under- and overpaid — use Moneyball’s Market tab.'],
+      look:['<b>Market value vs paid</b> when a real deal is on file.'] },
+    { t:'The Wire — Buzz', d:'Every headline across college hoops in one feed — commitments, transfers, breakout games — attributed to the player.', href:'buzz.html', aud:['market','fan'], gate:'free',
+      how:['Scroll the feed or search a player, team or keyword; tap a card to read the story.'],
+      look:['Portal and commitment news lands here first; the roster sync follows.'] },
   ]},
-  { sec:"Coach's Tier", desc:'Your staff’s analytics department — scouting, self-scout and game prep.', aud:['coach'], items:[
-    { t:"Coach's Tier hub", d:'The command center — pick your team and jump into every coaching tool.', href:'coach-tier.html', aud:['coach'], gate:'coach' },
-    { t:'Opponent Scouting', d:'Full scouting report on any opponent — attack sheet, tendencies and personnel.', href:'scout.html', aud:['coach'], gate:'coach' },
-    { t:'Self-Scout', d:'Audit your own team — identity, rotation, shot-zone value and lineups.', href:'self-scout.html', aud:['coach'], gate:'coach' },
-    { t:'Matchup Predictor', d:'Projected spread, key matchups and the trait-by-trait edge for any game.', href:'matchup.html', aud:['coach'], gate:'coach' },
-    { t:'Offensive Profile', d:'How a team scores — zones, shot diet and who does the damage.', href:'offense.html', aud:['coach'], gate:'coach' },
-    { t:'Defensive Profile', d:'How a team defends — where it holds up and where it bleeds.', href:'defense.html', aud:['coach'], gate:'coach' },
-    { t:'Lineup Recommender', d:'Best five-man groups and rotation combinations.', href:'lineups.html', aud:['coach'], gate:'coach' },
+  { sec:"Coach's Tier", id:'coach', desc:'your staff’s analytics department — scouting, self-scout and game prep', aud:['coach'], items:[
+    { t:"Coach's Tier hub", d:'The command center — pick your team and jump into every coaching tool, pre-scoped.', href:'coach-tier.html', aud:['coach'], gate:'coach',
+      how:['Pick your team once; it is remembered.','The flagships sit on top (Opponent Scouting, Self-Scout, Matchup, Lineups, Moneyball, Betting Lab); the deep-dives are collapsed below.'],
+      look:['Everything here <b>informs</b> — it surfaces intelligence for your own system; it never prescribes drills or methodology.'] },
+    { t:'Opponent Scouting Report', d:'A full scouting dossier on any opponent — projected game plan, identity, attack sheet, shot tendencies, foul profile, key matchups and personnel.', href:'scout.html', aud:['coach'], gate:'coach',
+      how:['Search the opponent. Add your own team for the matchup projection and key matchups.','Read in order: <b>Matchup projection</b>, <b>Attack sheet</b> (strengths and seams), <b>How to guard them</b>, <b>Foul &amp; free-throw profile</b>, <b>How they fare vs different styles</b>, <b>March profile</b>, then the <b>Personnel report</b> player by player.'],
+      look:['The <b>seams</b> — where their four factors are weakest relative to their strengths.','Which of their players has a foul-risk or pressure-vulnerability flag.'] },
+    { t:'Self-Scout Report', d:'Scout your own team the way an opponent will — identity, win formula, rotation and roles, how you score, where you are exposed.', href:'self-scout.html', aud:['coach'], gate:'coach',
+      how:['Search your team.','Read <b>Your identity</b>, <b>Your rotation</b> (each player’s role), <b>Shot-zone identity</b>, <b>Your offense — how you generate</b> and <b>Your defense — where you’re exposed</b>.'],
+      look:['The exposed-zone read — it is exactly what the opponent scouting report will say about you.'] },
+    { t:'Matchup Predictor', d:'Two teams and a venue → projected score, win probability, position-by-position matchups, tale of the tape and how each side wins.', href:'matchup.html', aud:['coach','bet'], gate:'coach',
+      how:['Pick both teams and the venue (home / away / neutral).','Read the projected final, the win probability and spread, then the position matchups from both projected rotations.','Scroll for the tale of the tape and the “how each side wins” reads; pick any player for his by-archetype splits.'],
+      look:['The spread here is the model line the Betting Lab compares to the market.'] },
+    { t:'Lineup Recommender', d:'Which five should start and which combinations fit — scored on talent, spacing, playmaking and interior protection.', href:'lineups.html', aud:['coach'], gate:'coach',
+      how:['Pick a team.','Read the <b>recommended starting five</b>, the <b>rotation &amp; roles</b> and the <b>situational looks</b> (small, big, shooting, defensive).'],
+      look:['A recommended five that differs from the depth chart — that is the conversation starter.'] },
+    { t:'Offensive Profile', d:'How a team scores and where its offense lives — coach, identity, zones and the rotation scorers.', href:'offense.html', aud:['coach'], gate:'coach',
+      how:['Pick a team; read the head coach, the team offensive identity, where they score (zones) and the rotation scorers.'],
+      look:['Zone value vs volume — a team that takes a lot from a zone it does not convert.'] },
+    { t:'Defensive Profile', d:'How a team gets stops and where it gives them up.', href:'defense.html', aud:['coach'], gate:'coach',
+      how:['Pick a team; read the defensive identity, where opponents score on them and the rotation defenders.'],
+      look:['The zone where opponents scored most efficiently — the attack point.'] },
+    { t:'Scheme Lab (per player)', d:'The same player projected across systems — his system’s fingerprint, scheme-driven vs his own game, the best-fit system and programs that play it.', href:P, aud:['coach','market'], gate:'pro',
+      how:['On a player page open Coach’s Tier → <b>Scheme Lab</b>.','Read his system’s fingerprint (pace, havoc, rebounding, ball movement, three-point lean, look quality vs the league), then the across-systems grid, the scheme-share table, the best-fit ranking and the look-alike programs.'],
+      look:['<b>Scheme share</b> — how much of a stat is the system, not the player. It is the number to know before he transfers.'] },
+    { t:'Role &amp; Fit (per player)', d:'Archetype, traits, positions, fit in the team, on/off impact, lineup fit, shot profile and how to attack him.', href:P, aud:['coach','fan'], gate:'coach',
+      how:['On a player page open Coach’s Tier → <b>Role &amp; Fit</b>.','Read the role, the style signals, <b>Fit in the team</b> (where he ranks on his own roster and what is around him), impact on/off, lineup fit, development path and the shot profile.'],
+      look:['<b>How to attack him</b> — the defensive read at the bottom.'] },
+    { t:'Customize (roster sandbox)', d:'Take control of a 2026-27 roster: drag the depth chart, swap positions, hand out minutes, assign roles — projections rebuild live.', href:'customize.html', aud:['coach','fan'], gate:'pro',
+      how:['Find your team.','Drag players between positions and depth slots; set minutes and roles.','Watch the projected record, ratings and analytics rebuild as you go; reset any time.'],
+      look:['How much the projection moves when you promote a bench player — that is his marginal value.'] },
   ]},
-  { sec:'Betting', desc:'Trends and edges on your own 20 years of data.', aud:['bet'], items:[
-    { t:'Betting Lab', d:'Team and player betting trends, prop hit-rates and the over/under lab.', href:'betting.html', aud:['bet'], gate:'coach' },
+  { sec:'Betting', id:'bet', desc:'trends and edges on 20 years of our own data plus real closing lines', aud:['bet'], items:[
+    { t:'Betting Lab', d:'Team ATS / over-under trends, player prop hit-rates, the model line vs the market, Sharp Angles, and the live edge board in season.', href:'betting.html', aud:['bet'], gate:'coach',
+      how:['<b>Team trends</b>: pick a team for its ATS and O/U record by situation (home / away, favorite / dog, rest, conference) with the real closing lines behind them.','<b>Player props</b>: pick a player for his hit-rate against projected lines — normalized for transfers so a mid-major mover is not credited for beating lower lines.','<b>Sharp Angles</b>: the league-wide boards (best overs, unders, covers) ranked highest first.','In season, the <b>Live Edge Board</b> lights up with today’s lines vs the model.'],
+      look:['A trend backed by 40+ games and a real line — small samples are shown, not trusted.'] },
+    { t:'Betting Cheat Sheet', d:'One page: best player bets, value bets, team bets, props and hit-rates — sortable, with a conference filter.', href:'cheatsheet.html', aud:['bet'], gate:'coach',
+      how:['Open the sheet; every board is sortable — click a column header.','Use the conference filter to narrow to the leagues you play.','Read the ↑ / ↔ badges next to a player: ↑ marks a transfer moving up a level, whose history is normalized.'],
+      look:['<b>Beat rate</b> — how often the player has cleared his projected line at the level he was playing at, not the level he is projected for.'] },
+    { t:'Team betting tab', d:'On every team page: ATS and over/under history with the real closing lines, the value-vs-line chart and situational splits.', href:T, aud:['bet'], gate:'premium',
+      how:['Open a team page → <b>Betting</b> tab.','Read the record tiles, the Value-vs-Line chart (how the model line compared to the closing line game by game) and the situational splits.'],
+      look:['A team the market consistently over-prices — the chart runs below the line.'] },
+  ]},
+  { sec:'Play &amp; community', id:'play', desc:'the fun side', aud:['fan'], items:[
+    { t:'Games', d:'Guess the Player, Guess the College, Higher or Lower, Stat Line Guess, Career Path and Grade Guess.', href:'games.html', aud:['fan'], gate:'free',
+      how:['Pick a game; each one is built off the real grade and stats database.'],
+      look:['Grade Guess is the fastest way to calibrate what a 70 vs an 85 looks like.'] },
+    { t:'Community &amp; forum', d:'Members, the forum and the feed.', href:'community.html', aud:['fan'], gate:'free',
+      how:['Sign in, set a username (the site walks you through it on first sign-up), then post, reply and follow members.'],
+      look:['Member badges: the star seal is a paid tier, the check is a verified account.'] },
+    { t:'Your profile &amp; account', d:'Profile, favorite team, plan and subscription.', href:'profile.html', aud:['fan'], gate:'free',
+      how:['Profile: edit your name, photo, bio, favorite team and banner.','Account tab: your plan, renewal date, and <b>Manage subscription</b> — switch Premium ⇄ Pro, change interval or cancel.'],
+      look:['Your favorite team pins to the top of the rankings and pre-loads Program HQ.'] },
   ]},
 ];
 
+// Guided tours — an ordered path per audience.
+const TOURS=[
+  { ic:'🏟️', t:'I follow one team', d:'Five stops to know your program better than the beat writer.', steps:[
+    ['program-hq.html','Program HQ'],'set your team — everything pre-loads',
+    ['team.html','Team page → Depth Chart'],'who starts, who plays, the projected OVRs',
+    ['team.html','Team page → Losses & Projections'],'what left, what the roster projects to',
+    ['player.html','Your best player’s page'],'his projected line and Player DNA',
+    ['index.html','Rankings'],'where you sit on the goal ladder'] },
+  { ic:'🧬', t:'I want to understand players', d:'From a grade to the whole book on a player.', steps:[
+    ['roster.html','Player Projected Stats'],'find him, sort his position',
+    ['player.html','Player page → Overview & DNA'],'grade, Wins Added, percentiles',
+    ['player.html','Shot Charts & Shot Genome'],'how he scores',
+    ['player.html','Coach’s Tier → Player Dossier'],'the situational read',
+    ['compare-players.html','Compare Players'],'against his closest comp'] },
+  { ic:'📋', t:'I coach', d:'A game-prep loop in six pages.', steps:[
+    ['coach-tier.html',"Coach's Tier hub"],'pick your team once',
+    ['self-scout.html','Self-Scout'],'know your identity and seams first',
+    ['scout.html','Opponent Scouting'],'attack sheet, how to guard, personnel',
+    ['matchup.html','Matchup Predictor'],'spread, position matchups, how each side wins',
+    ['lineups.html','Lineup Recommender'],'the five and the situational looks',
+    ['player.html','Player Dossier / Predictive Profile'],'the book on their key guys'] },
+  { ic:'💰', t:'I care about NIL & the portal', d:'Value, fit and who is worth the money.', steps:[
+    ['moneyball.html?tab=market','Moneyball → The Market'],'win value vs paid, the buys',
+    ['moneyball.html?tab=ledger','Moneyball → The Ledger'],'which programs buy wins cheapest',
+    ['portal.html','Portal Fit'],'where a transfer fits — starter or reserve',
+    ['player.html','Player page → Scheme Lab'],'how much of his line is the system',
+    ['transfer-fit.html','Transfer Fit Report'],'the leap verdict after he lands'] },
+  { ic:'🎯', t:'I bet', d:'From the sheet to the receipts.', steps:[
+    ['cheatsheet.html','Betting Cheat Sheet'],'best bets, value bets, props — sortable',
+    ['betting.html','Betting Lab → Sharp Angles'],'league-wide boards',
+    ['team.html','Team page → Betting'],'real closing lines, value-vs-line chart',
+    ['player.html','Player page → Betting'],'prop hit-rates vs his projected line',
+    ['matchup.html','Matchup Predictor'],'the model line for any game'] },
+];
+
+const GLOSS=[
+  ['OVR / grade','A player’s overall on a 0–99 scale — a statistical overall built from owned wins-added, usage-weighted and competition-adjusted; the projected OVR is next season’s.'],
+  ['Power Rating','Points better than an average team on a neutral floor. ~+13 is the tournament line, ~+19 Sweet 16 caliber, ~+26 a title contender.'],
+  ['Wins Added (WA)','A player’s production converted to wins; a roster’s WA sums to its wins (validated at ~1 WA ≈ 1 win).'],
+  ['Winning Score / Win value','A win-driver score (efficiency, defense, rebounding, ball-security — not empty scoring) and what that production is worth in dollars.'],
+  ['Team DNA','Four factors, shot quality and expected-vs-actual for a team — net efficiency is the honest strength number.'],
+  ['Predictive identifiers','Situational scores — pace sensitivity, pressure vulnerability, foul risk, rotation volatility, matchup advantage — for decisions, not summaries.'],
+  ['Level-adjusted','A transfer’s numbers discounted for the jump in competition, team success, usage and “empty” production, so up-transfers are not over-projected.'],
+  ['Beat rate','How often a player has cleared his projected line at the level he was actually playing — the prop hit-rate used on the cheat sheet.'],
+];
+
 const esc = s => (''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
-function card(it){
-  const gate = it.gate==='coach' ? '<span class="xp-lock">Coach</span>' : it.gate==='premium' ? '<span class="xp-lock premium">Premium</span>' : '';
-  return `<a class="xp-card" href="${it.href}" data-aud="${(it.aud||[]).join(' ')}">
-    <span class="xp-arrow">→</span>
-    <div class="xp-card-t">${it.t}${gate}</div>
-    <div class="xp-card-d">${it.d}</div>
-  </a>`;
+const GATE={free:'Free',premium:'Premium',pro:'Pro',coach:"Coach's Tier"};
+function lock(g){ return g&&g!=='free'?`<span class="xp-lock ${g}">${g==='coach'?'Coach':g.charAt(0).toUpperCase()+g.slice(1)}</span>`:'<span class="xp-lock free">Free</span>'; }
+function tool(it){
+  const text=[it.t,it.d,...(it.how||[]),...(it.look||[]),it.tip||''].join(' ').replace(/<[^>]+>/g,'').toLowerCase();
+  return `<details class="tool" data-aud="${(it.aud||[]).join(' ')}" data-q="${esc(text)}">
+    <summary><div><div class="tool-t">${it.t}${lock(it.gate)}</div><div class="tool-d">${it.d}</div></div>
+      <div class="tool-r"><a class="tool-open" href="${it.href}" onclick="event.stopPropagation()">Open →</a><span class="tool-chev">▼</span></div></summary>
+    <div class="tool-body">
+      <div><div class="tb-h">How to use it</div><ol class="tb-steps">${(it.how||[]).map(h=>`<li>${h}</li>`).join('')}</ol>${it.tip?`<div class="tb-tip">${it.tip}</div>`:''}</div>
+      <div><div class="tb-h">What to look for</div><ul class="tb-look">${(it.look||[]).map(l=>`<li>${l}</li>`).join('')}</ul>
+        <div class="tb-meta"><span>Access: <b style="color:var(--text)">${GATE[it.gate||'free']}</b></span><span>For: ${(it.aud||[]).map(a=>({fan:'fans',coach:'coaches',market:'NIL & portal',bet:'bettors'})[a]).join(', ')}</span></div></div>
+    </div></details>`;
 }
 function render(){
+  document.getElementById('xpTours').innerHTML=TOURS.map(t=>{ const li=[]; for(let i=0;i<t.steps.length;i+=2){ const [h,l]=t.steps[i]; li.push(`<li><a href="${h}">${l}</a> — ${t.steps[i+1]}</li>`); }
+    return `<div class="tour"><div class="tour-h"><span>${t.ic}</span>${t.t}</div><div class="tour-d">${t.d}</div><ol>${li.join('')}</ol></div>`; }).join('');
   document.getElementById('xpBody').innerHTML = XP.map(s=>`
-    <div class="xp-sec" data-sec-aud="${(s.aud||[]).join(' ')}">
+    <div class="xp-sec" id="sec-${s.id}" data-sec-aud="${(s.aud||[]).join(' ')}">
       <div class="xp-sec-h"><div class="xp-sec-t">${s.sec}</div><div class="xp-sec-d">${s.desc}</div></div>
-      <div class="xp-grid">${s.items.map(card).join('')}</div>
+      <div class="xp-list">${s.items.map(tool).join('')}</div>
     </div>`).join('');
+  document.getElementById('xpGloss').innerHTML=GLOSS.map(g=>`<div class="g"><b>${g[0]}</b><span>${g[1]}</span></div>`).join('');
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(document.getElementById('xpBody'));
+  // deep-link: #sec-coach scrolls; ?q= pre-fills search
+  const q=new URLSearchParams(location.search).get('q'); if(q){ document.getElementById('xpQ').value=q; applyFilters(); }
 }
-function xpFilter(aud, btn){
-  [...document.querySelectorAll('.xp-fbtn')].forEach(b=>b.classList.toggle('on', b===btn));
-  document.querySelectorAll('.xp-card').forEach(c=>{
+let AUD='all';
+function xpFilter(aud, btn){ AUD=aud; [...document.querySelectorAll('.xp-fbtn')].forEach(b=>b.classList.toggle('on', b===btn)); applyFilters(); }
+function applyFilters(){
+  const q=(document.getElementById('xpQ').value||'').toLowerCase().trim();
+  document.querySelectorAll('.tool').forEach(c=>{
     const a=(c.getAttribute('data-aud')||'').split(' ');
-    c.classList.toggle('xp-hide', aud!=='all' && a.indexOf(aud)<0);
+    const hideAud = AUD!=='all' && a.indexOf(AUD)<0;
+    const hideQ = q && (c.getAttribute('data-q')||'').indexOf(q)<0;
+    c.classList.toggle('xp-hide', hideAud||hideQ);
+    if(q && !hideQ && !hideAud) c.open=true;
   });
-  // hide a whole section if every card in it is hidden
-  document.querySelectorAll('.xp-sec').forEach(sec=>{
-    const any=[...sec.querySelectorAll('.xp-card')].some(c=>!c.classList.contains('xp-hide'));
+  document.querySelectorAll('#xpBody .xp-sec').forEach(sec=>{
+    const any=[...sec.querySelectorAll('.tool')].some(c=>!c.classList.contains('xp-hide'));
     sec.classList.toggle('xp-hide', !any);
   });
+  document.getElementById('tours').classList.toggle('xp-hide', !!q);
 }
+function xpAll(open){ document.querySelectorAll('.tool:not(.xp-hide)').forEach(d=>{ d.open=open; }); }
+document.getElementById('xpQ').addEventListener('input',applyFilters);
 render();
 </script>
 <script src="tdc-pwa.js?v=2" defer></script>
