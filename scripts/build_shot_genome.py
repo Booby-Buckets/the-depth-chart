@@ -19,8 +19,17 @@ Reads the `shots` table (anon key, read-only). Writes:
   data/shot_genome_teams.json    per-team offense+defense LQ/SM+/CR + shot mix + percentiles
   data/shot_genome_players.json  per-player SM+ and CR (rotation filter) + percentiles
 
-  python3 scripts/build_shot_genome.py            # 2026
-  python3 scripts/build_shot_genome.py 2025       # a specific season
+  python3 scripts/build_shot_genome.py            # 2026 -> shot_genome_{teams,players}.json
+  python3 scripts/build_shot_genome.py 2025       # a past season -> shot_genome_{teams,players}_2025.json
+
+`shots` is RLS-locked to Pro/Coach/owner, so the anon key reads nothing. Run it signed in:
+set TDC_JWT to your own session token (site → DevTools console →
+`JSON.parse(localStorage.tdc_session).access_token`; expires in ~1h, never commit it):
+  TDC_JWT=eyJ... python3 scripts/build_shot_genome.py 2025
+
+Past seasons have partial shot coverage (2025 ~24% of games, 2022 ~25%, others less), so the
+player floors scale with the season's shot volume relative to 2026 (never below 40 FGA / 12 ast /
+20 makes) and meta records the coverage; the page shows it.
 """
 import json, os, sys, time, urllib.request, urllib.parse
 from collections import defaultdict
@@ -28,7 +37,7 @@ import grade_conf   # conference-tier competition adjustment (same as the grade 
 
 SB = "https://izlqhnxowdhtdofkwrho.supabase.co"
 KEY = "sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
-HDR = {"apikey": KEY, "Authorization": "Bearer " + KEY}
+HDR = {"apikey": KEY, "Authorization": "Bearer " + (os.environ.get("TDC_JWT") or KEY)}
 D = os.path.join(os.path.dirname(__file__), "data")
 SEASON = int(sys.argv[1]) if len(sys.argv) > 1 else 2026
 
@@ -101,11 +110,25 @@ def main():
 
     # ── pull every shot once, by team (indexed team_id → no deep-offset 500s) ──
     ALL = []
+    global MIN_FGA, MIN_AST, MIN_MAKES
     for i, tid in enumerate(teams):
         sh = get("shots?season_year=eq.%d&team_id=eq.%d&select=game_id,team_id,espn_id,made,sv,dist,y,stype,ast_id,ast_name" % (SEASON, tid))
         ALL += sh
         if (i + 1) % 50 == 0: print("    %d/%d teams pulled (%d shots)" % (i + 1, len(teams), len(ALL)), flush=True)
     print("  %d shots total" % len(ALL), flush=True)
+    # coverage-scaled floors: a past season only carries a fraction of the games, so a 150-FGA
+    # floor would leave almost no one. Scale by the season's shot volume vs the full 2026 pull.
+    COVERAGE = 1.0
+    if SEASON != 2026:
+        try:
+            ref = json.load(open(os.path.join(D, "shot_genome_players.json")))["meta"]["n_shots"]
+            COVERAGE = max(0.05, min(1.0, len(ALL) / float(ref)))
+        except Exception:
+            COVERAGE = 0.25
+        MIN_FGA = max(40, int(round(MIN_FGA * COVERAGE)))
+        MIN_AST = max(12, int(round(MIN_AST * COVERAGE)))
+        MIN_MAKES = max(20, int(round(MIN_MAKES * COVERAGE)))
+        print("  past season: coverage ~%.0f%% of 2026 -> floors %d FGA / %d ast / %d makes" % (COVERAGE*100, MIN_FGA, MIN_AST, MIN_MAKES), flush=True)
 
     # ── league expected make% per (zone, stype) ──
     bucket = defaultdict(lambda: [0, 0])
@@ -202,7 +225,7 @@ def main():
     players = {}
     for eid, shots in pshots.items():
         n = len(shots)
-        if n < MIN_FGA: continue
+        if n < MIN_FGA: continue   # (floor may have been scaled to the season's coverage — see below)
         pts_over = sum((sval(s) if s.get("made") else 0) - exp_pts(s) for s in shots)
         exp_efg = sum(exp_make(s) * (1.5 if sval(s) == 3 else 1) for s in shots) / n * 100
         act_efg = sum((1.5 if sval(s) == 3 else 1) for s in shots if s.get("made")) / n * 100
@@ -252,11 +275,12 @@ def main():
     os.makedirs(D, exist_ok=True)
     meta = {"season": SEASON, "n_shots": len(ALL), "n_teams": len(trows),
             "zone_make": {z: round(v, 4) for z, v in zmake.items()},
-            "min_fga": MIN_FGA, "min_ast": MIN_AST}
+            "min_fga": MIN_FGA, "min_ast": MIN_AST, "coverage": round(COVERAGE, 3)}
+    suf = "" if SEASON == 2026 else "_%d" % SEASON
     json.dump({"meta": meta, "teams": list(trows.values())},
-              open(os.path.join(D, "shot_genome_teams.json"), "w"), separators=(",", ":"))
+              open(os.path.join(D, "shot_genome_teams%s.json" % suf), "w"), separators=(",", ":"))
     json.dump({"meta": meta, "players": sorted(players.values(), key=lambda p: -p.get("sm", -99))},
-              open(os.path.join(D, "shot_genome_players.json"), "w"), separators=(",", ":"))
+              open(os.path.join(D, "shot_genome_players%s.json" % suf), "w"), separators=(",", ":"))
     print("  wrote %d teams, %d players" % (len(trows), len(players)), flush=True)
 
     # ── sanity leaderboards ──
