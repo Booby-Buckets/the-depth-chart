@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="tdc-dense.css?v=31"/>
   <link rel="stylesheet" href="tdc-skin.css?v=8"/>
   <link rel="stylesheet" href="tdc-hq-list.css?v=2"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=3"/>
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#FAF9F6" media="(prefers-color-scheme: light)">
@@ -43,46 +44,44 @@
     .xp-q{margin-left:auto;font:600 13px 'Inter',sans-serif;padding:9px 14px;border:1px solid var(--border2);border-radius:22px;background:var(--bg2);color:var(--text);min-width:240px;outline:none;}
     .xp-q:focus{border-color:var(--accent);}
     .xp-count{font-size:11px;color:var(--text3);font-weight:600;}
-    /* tours */
-    .xp-tours{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-bottom:38px;}
-    .tour{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px 18px;}
-    .tour-h{font-weight:800;font-size:15px;color:var(--text);display:flex;align-items:center;gap:8px;margin-bottom:4px;}
-    .tour-d{font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:10px;}
-    .tour ol{margin:0;padding-left:20px;font-size:12.5px;line-height:1.7;color:var(--text2);}
-    .tour ol a{color:var(--text);font-weight:700;text-decoration:none;border-bottom:1px solid var(--border2);} .tour ol a:hover{color:var(--tc-readable,var(--accent));border-color:currentColor;}
-    /* section */
+    /* sections */
     .xp-sec{margin-bottom:34px;scroll-margin-top:80px;}
-    .xp-sec-h{display:flex;align-items:baseline;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+    .xp-sec-h{display:flex;align-items:baseline;gap:12px;margin-bottom:10px;flex-wrap:wrap;}
     .xp-sec-t{font-family:'Barlow Condensed','Inter',sans-serif;font-weight:800;text-transform:uppercase;letter-spacing:.02em;font-size:22px;color:var(--text);}
     .xp-sec-d{font-size:12.5px;color:var(--text3);}
-    .xp-list{display:flex;flex-direction:column;gap:8px;}
-    /* tool = expandable walkthrough */
-    .tool{background:var(--bg2);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:border-color .15s;}
-    .tool[open]{border-color:var(--tc-readable,var(--accent));}
-    .tool summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:14px 16px;}
-    .tool summary::-webkit-details-marker{display:none;}
-    .tool-t{font-weight:800;font-size:15px;color:var(--text);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-    .tool-d{font-size:12.5px;color:var(--text3);line-height:1.5;margin-top:4px;}
-    .tool-r{display:flex;align-items:center;gap:8px;}
-    .tool-open{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#141416;background:var(--tc-readable,var(--accent));border-radius:20px;padding:7px 13px;text-decoration:none;white-space:nowrap;}
-    .tool-open:hover{opacity:.9;}
-    .tool-chev{color:var(--text3);font-size:14px;transition:transform .2s;} .tool[open] .tool-chev{transform:rotate(180deg);}
-    .tool-body{border-top:1px solid var(--border);padding:16px 18px 18px;display:grid;grid-template-columns:1.25fr 1fr;gap:18px;}
+    .sheet-wrap{max-height:none;}
+    .sheet{width:100%;}
+    .sheet td.nm{font-weight:800;color:var(--text);}
+    .sheet td.wrap{white-space:normal;line-height:1.5;}
+    #xpBody .sheet td.wrap{min-width:260px;}
+    .xp-tours .sheet td:not(.wrap){white-space:normal;}
+    .sheet td.dim{color:var(--text3);}
+    /* tours as sheets */
+    .xp-tours{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;}
+    .tour-h{font-weight:800;font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px;margin:0 0 6px;}
+    .tour-d{font-size:11.5px;color:var(--text3);line-height:1.5;margin-bottom:8px;}
+    .sheet td a{color:var(--text);text-decoration:none;font-weight:700;border-bottom:1px solid var(--border2);} .sheet td a:hover{color:var(--tc-readable,var(--accent));border-color:currentColor;}
+    /* tool rows: a summary row + an expandable walkthrough row */
+    tr.tool-row{cursor:pointer;}
+    tr.tool-row td.chev{width:26px;text-align:center;color:var(--text3);font-size:11px;transition:transform .2s;}
+    tr.tool-row.open td.chev{transform:rotate(180deg);color:var(--tc-readable,var(--accent));}
+    tr.tool-row.open td{background:color-mix(in srgb,var(--accent) 10%,transparent) !important;}
+    tr.tool-detail{display:none;} tr.tool-detail.open{display:table-row;}
+    tr.tool-detail>td{white-space:normal;padding:0 !important;background:var(--bg) !important;text-align:left;}
+    .tool-body{padding:14px 18px 18px;display:grid;grid-template-columns:1.25fr 1fr;gap:18px;border-top:2px solid var(--border2);}
     @media(max-width:760px){.tool-body{grid-template-columns:1fr;} .xp-q{margin-left:0;width:100%;}}
-    .tb-h{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+    .tb-h{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
     .tb-steps{margin:0;padding-left:22px;font-size:13px;line-height:1.7;color:var(--text2);}
     .tb-steps li::marker{color:var(--tc-readable,var(--accent));font-weight:800;}
     .tb-steps b,.tb-look b,.tb-tip b{color:var(--text);}
     .tb-look{margin:0;padding-left:18px;font-size:12.5px;line-height:1.65;color:var(--text2);}
     .tb-tip{margin-top:12px;font-size:12.5px;line-height:1.6;color:var(--text2);padding:10px 12px;border-left:3px solid var(--tc-readable,var(--accent));background:color-mix(in srgb,var(--accent) 8%,transparent);border-radius:0 8px 8px 0;}
-    .tb-meta{margin-top:12px;font-size:11.5px;color:var(--text3);display:flex;flex-wrap:wrap;gap:12px;}
-    .xp-lock{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#141416;background:var(--accent);border-radius:5px;padding:2px 6px;}
+    .tool-open{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#141416;background:var(--tc-readable,var(--accent));border-radius:14px;padding:5px 11px;text-decoration:none !important;border:none !important;white-space:nowrap;}
+    .tool-open:hover{opacity:.9;color:#141416 !important;}
+    .xp-lock{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#141416;background:var(--accent);border-radius:5px;padding:2px 6px;white-space:nowrap;}
     .xp-lock.premium{background:#5B8DEF;color:#fff;} .xp-lock.pro{background:#8E5CFF;color:#fff;} .xp-lock.free{background:var(--bg3);color:var(--text2);}
     .xp-hide{display:none!important;}
     .xp-actions{display:flex;gap:8px;margin-left:auto;} .xp-actions button{font:700 11px 'Inter',sans-serif;background:none;border:1px solid var(--border);border-radius:16px;padding:5px 10px;color:var(--text3);cursor:pointer;} .xp-actions button:hover{color:var(--text);border-color:var(--border2);}
-    /* glossary */
-    .gloss{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;}
-    .g{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;} .g b{display:block;font-size:13px;color:var(--text);margin-bottom:3px;} .g span{font-size:12px;color:var(--text3);line-height:1.5;}
   </style>
 </head>
 <body data-anim-auto>
@@ -117,7 +116,7 @@
 
   <div class="xp-sec" id="glossary">
     <div class="xp-sec-h"><div class="xp-sec-t">The numbers, in one breath</div><div class="xp-sec-d">the handful of stats every page leans on</div></div>
-    <div class="gloss" id="xpGloss"></div>
+    <div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Term</th><th class="l">What it means</th></tr></thead><tbody id="xpGloss"></tbody></table></div>
   </div>
 </div>
 
@@ -330,48 +329,54 @@ const GLOSS=[
 const esc = s => (''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
 const GATE={free:'Free',premium:'Premium',pro:'Pro',coach:"Coach's Tier"};
 function lock(g){ return g&&g!=='free'?`<span class="xp-lock ${g}">${g==='coach'?'Coach':g.charAt(0).toUpperCase()+g.slice(1)}</span>`:'<span class="xp-lock free">Free</span>'; }
+const AUDN={fan:'fans',coach:'coaches',market:'NIL & portal',bet:'bettors'};
+let _tid=0;
 function tool(it){
   const text=[it.t,it.d,...(it.how||[]),...(it.look||[]),it.tip||''].join(' ').replace(/<[^>]+>/g,'').toLowerCase();
-  return `<details class="tool" data-aud="${(it.aud||[]).join(' ')}" data-q="${esc(text)}">
-    <summary><div><div class="tool-t">${it.t}${lock(it.gate)}</div><div class="tool-d">${it.d}</div></div>
-      <div class="tool-r"><a class="tool-open" href="${it.href}" onclick="event.stopPropagation()">Open →</a><span class="tool-chev">▼</span></div></summary>
-    <div class="tool-body">
+  const id='t'+(++_tid);
+  return `<tr class="tool-row" data-id="${id}" data-aud="${(it.aud||[]).join(' ')}" data-q="${esc(text)}" onclick="toggleTool('${id}')">
+      <td class="chev">▼</td><td class="l nm">${it.t}</td><td class="l wrap dim">${it.d}</td><td class="c">${lock(it.gate)}</td><td class="l dim">${(it.aud||[]).map(a=>AUDN[a]).join(', ')}</td>
+      <td class="c"><a class="tool-open" href="${it.href}" onclick="event.stopPropagation()">Open →</a></td></tr>
+    <tr class="tool-detail" data-id="${id}"><td colspan="6"><div class="tool-body">
       <div><div class="tb-h">How to use it</div><ol class="tb-steps">${(it.how||[]).map(h=>`<li>${h}</li>`).join('')}</ol>${it.tip?`<div class="tb-tip">${it.tip}</div>`:''}</div>
-      <div><div class="tb-h">What to look for</div><ul class="tb-look">${(it.look||[]).map(l=>`<li>${l}</li>`).join('')}</ul>
-        <div class="tb-meta"><span>Access: <b style="color:var(--text)">${GATE[it.gate||'free']}</b></span><span>For: ${(it.aud||[]).map(a=>({fan:'fans',coach:'coaches',market:'NIL & portal',bet:'bettors'})[a]).join(', ')}</span></div></div>
-    </div></details>`;
+      <div><div class="tb-h">What to look for</div><ul class="tb-look">${(it.look||[]).map(l=>`<li>${l}</li>`).join('')}</ul></div>
+    </div></td></tr>`;
+}
+function toggleTool(id,force){
+  const r=document.querySelector(`tr.tool-row[data-id="${id}"]`), d=document.querySelector(`tr.tool-detail[data-id="${id}"]`); if(!r||!d) return;
+  const open=force==null?!r.classList.contains('open'):force; r.classList.toggle('open',open); d.classList.toggle('open',open);
 }
 function render(){
-  document.getElementById('xpTours').innerHTML=TOURS.map(t=>{ const li=[]; for(let i=0;i<t.steps.length;i+=2){ const [h,l]=t.steps[i]; li.push(`<li><a href="${h}">${l}</a> — ${t.steps[i+1]}</li>`); }
-    return `<div class="tour"><div class="tour-h"><span>${t.ic}</span>${t.t}</div><div class="tour-d">${t.d}</div><ol>${li.join('')}</ol></div>`; }).join('');
+  document.getElementById('xpTours').innerHTML=TOURS.map(t=>{ const rows=[]; for(let i=0;i<t.steps.length;i+=2){ const [h,l]=t.steps[i]; rows.push(`<tr><td class="c dim">${i/2+1}</td><td class="l"><a href="${h}">${l}</a></td><td class="l wrap dim">${t.steps[i+1]}</td></tr>`); }
+    return `<div><div class="tour-h"><span>${t.ic}</span>${t.t}</div><div class="tour-d">${t.d}</div><div class="sheet-wrap"><table class="sheet"><thead><tr><th class="c">#</th><th class="l">Stop</th><th class="l">Why</th></tr></thead><tbody>${rows.join('')}</tbody></table></div></div>`; }).join('');
   document.getElementById('xpBody').innerHTML = XP.map(s=>`
     <div class="xp-sec" id="sec-${s.id}" data-sec-aud="${(s.aud||[]).join(' ')}">
       <div class="xp-sec-h"><div class="xp-sec-t">${s.sec}</div><div class="xp-sec-d">${s.desc}</div></div>
-      <div class="xp-list">${s.items.map(tool).join('')}</div>
+      <div class="sheet-wrap"><table class="sheet"><thead><tr><th></th><th class="l">Tool</th><th class="l">What it does</th><th class="c">Access</th><th class="l">For</th><th class="c"></th></tr></thead><tbody>${s.items.map(tool).join('')}</tbody></table></div>
     </div>`).join('');
-  document.getElementById('xpGloss').innerHTML=GLOSS.map(g=>`<div class="g"><b>${g[0]}</b><span>${g[1]}</span></div>`).join('');
+  document.getElementById('xpGloss').innerHTML=GLOSS.map(g=>`<tr><td class="l nm">${g[0]}</td><td class="l wrap dim">${g[1]}</td></tr>`).join('');
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(document.getElementById('xpBody'));
-  // deep-link: #sec-coach scrolls; ?q= pre-fills search
   const q=new URLSearchParams(location.search).get('q'); if(q){ document.getElementById('xpQ').value=q; applyFilters(); }
 }
 let AUD='all';
 function xpFilter(aud, btn){ AUD=aud; [...document.querySelectorAll('.xp-fbtn')].forEach(b=>b.classList.toggle('on', b===btn)); applyFilters(); }
 function applyFilters(){
   const q=(document.getElementById('xpQ').value||'').toLowerCase().trim();
-  document.querySelectorAll('.tool').forEach(c=>{
+  document.querySelectorAll('tr.tool-row').forEach(c=>{
     const a=(c.getAttribute('data-aud')||'').split(' ');
     const hideAud = AUD!=='all' && a.indexOf(AUD)<0;
     const hideQ = q && (c.getAttribute('data-q')||'').indexOf(q)<0;
-    c.classList.toggle('xp-hide', hideAud||hideQ);
-    if(q && !hideQ && !hideAud) c.open=true;
+    const hide=hideAud||hideQ, id=c.dataset.id, d=document.querySelector(`tr.tool-detail[data-id="${id}"]`);
+    c.classList.toggle('xp-hide', hide); if(d) d.classList.toggle('xp-hide', hide);
+    if(q && !hide) toggleTool(id,true);
   });
   document.querySelectorAll('#xpBody .xp-sec').forEach(sec=>{
-    const any=[...sec.querySelectorAll('.tool')].some(c=>!c.classList.contains('xp-hide'));
+    const any=[...sec.querySelectorAll('tr.tool-row')].some(c=>!c.classList.contains('xp-hide'));
     sec.classList.toggle('xp-hide', !any);
   });
   document.getElementById('tours').classList.toggle('xp-hide', !!q);
 }
-function xpAll(open){ document.querySelectorAll('.tool:not(.xp-hide)').forEach(d=>{ d.open=open; }); }
+function xpAll(open){ document.querySelectorAll('tr.tool-row:not(.xp-hide)').forEach(r=>toggleTool(r.dataset.id,open)); }
 document.getElementById('xpQ').addEventListener('input',applyFilters);
 render();
 </script>
