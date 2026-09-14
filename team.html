@@ -6,7 +6,7 @@
   <script src="auth.js?v=shotlock1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js?v=6"></script>
-  <script src="tdc-shotchart.js?v=15"></script>
+  <script src="tdc-shotchart.js?v=16"></script>
   <script src="tdc-lineups.js?v=16"></script>
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-nil.js?v=prod2"></script>
@@ -5666,7 +5666,9 @@ async function _teamEspnId(){
 }
 function _initTeamShot(){
   var sel=document.getElementById('teamShotSeason'); if(!sel) return;
-  sel.innerHTML=[2026,2025,2024,2023,2022].map(function(y){return '<option value="'+y+'">'+((y-1)+'-'+(''+y).slice(2))+'</option>';}).join('');
+  // ESPN shot locations exist back to 2013-14 (thin before 2024-25) — offer every season; empty ones say so
+  var yrs=[]; for(var y=2026;y>=2014;y--) yrs.push(y);
+  sel.innerHTML=yrs.map(function(y){return '<option value="'+y+'">'+((y-1)+'-'+(''+y).slice(2))+'</option>';}).join('');
   loadTeamShotChart(2026);
 }
 async function loadTeamShotChart(season){

@@ -65,20 +65,77 @@
     if(x>=19&&x<=31&&y<=19) return 'paint';
     return x<19?'midl':(x>31?'midr':'midc');
   }
-  function court(line){
-    var hx=px(HOOP_X), hy=py(HOOP_Y), g='', CL='class="sc-cl" pathLength="1"';
-    g+='<rect '+CL+' x="1" y="1" width="'+(W-2)+'" height="'+(H-2)+'" fill="none" stroke="'+line+'" stroke-width="2"/>';
-    g+='<rect '+CL+' x="'+px(19)+'" y="'+py(19)+'" width="'+px(12)+'" height="'+(py(0)-py(19))+'" fill="none" stroke="'+line+'" stroke-width="1.5"/>';
-    g+='<circle '+CL+' cx="'+px(25)+'" cy="'+py(19)+'" r="'+px(6)+'" fill="none" stroke="'+line+'" stroke-width="1.5"/>';
-    // sweep flag 1: the restricted arc curves INTO the paint. With flag 0 it bowed
-    // back toward the baseline, inventing court behind the rim that isn't there.
-    g+='<path '+CL+' d="M '+(hx-px(4))+' '+hy+' A '+px(4)+' '+px(4)+' 0 0 1 '+(hx+px(4))+' '+hy+'" fill="none" stroke="'+line+'" stroke-width="1.5"/>';
-    g+='<line '+CL+' x1="'+(px(25)-px(3))+'" y1="'+py(4)+'" x2="'+(px(25)+px(3))+'" y2="'+py(4)+'" stroke="'+line+'" stroke-width="2"/>';
-    g+='<circle '+CL+' cx="'+hx+'" cy="'+hy+'" r="'+px(0.75)+'" fill="none" stroke="'+line+'" stroke-width="2"/>';
-    var cornerX=250-216.5, cornerYtop=hy-46.8;
-    g+='<path '+CL+' d="M '+cornerX+' '+py(0)+' L '+cornerX+' '+cornerYtop+
-        ' A 221.5 221.5 0 0 1 '+(500-cornerX)+' '+cornerYtop+' L '+(500-cornerX)+' '+py(0)+'" fill="none" stroke="'+line+'" stroke-width="1.5"/>';
+  // the three-point line as a closed path (corner → arc → corner, back along the baseline)
+  var ARC_CX=250-216.5, ARC_YT=py(HOOP_Y)-46.8;
+  function arcPath(){ return 'M '+ARC_CX+' '+py(0)+' L '+ARC_CX+' '+ARC_YT+' A 221.5 221.5 0 0 1 '+(500-ARC_CX)+' '+ARC_YT+' L '+(500-ARC_CX)+' '+py(0); }
+  // A real court: floor, a tinted lane, white lines, backboard and an orange rim. `line` is
+  // kept for callers but the panel now draws on its own palette (var(--sc-*) — theme-aware).
+  function court(line, opts){
+    var hx=px(HOOP_X), hy=py(HOOP_Y), g='', CL='class="sc-cl" pathLength="1"', L='var(--sc-line)';
+    var tc=(opts&&opts.color)||'var(--sc-accent)';
+    g+='<rect x="0" y="0" width="'+W+'" height="'+H+'" fill="var(--sc-floor)"/>';
+    g+='<rect x="0" y="0" width="'+W+'" height="'+H+'" fill="url(#scVig)" opacity=".55"/>';
+    // lane (paint) tinted with the team colour; the arc interior a hair lighter than the floor
+    g+='<path d="'+arcPath()+' Z" fill="var(--sc-inside)"/>';
+    g+='<rect x="'+px(19)+'" y="'+py(19)+'" width="'+px(12)+'" height="'+(py(0)-py(19))+'" fill="'+tc+'" opacity=".16"/>';
+    g+='<rect '+CL+' x="1.5" y="1.5" width="'+(W-3)+'" height="'+(H-3)+'" fill="none" stroke="'+L+'" stroke-width="2.5"/>';
+    g+='<rect '+CL+' x="'+px(19)+'" y="'+py(19)+'" width="'+px(12)+'" height="'+(py(0)-py(19))+'" fill="none" stroke="'+L+'" stroke-width="2"/>';
+    g+='<circle '+CL+' cx="'+px(25)+'" cy="'+py(19)+'" r="'+px(6)+'" fill="none" stroke="'+L+'" stroke-width="2"/>';
+    g+='<path '+CL+' d="M '+(hx-px(4))+' '+hy+' A '+px(4)+' '+px(4)+' 0 0 1 '+(hx+px(4))+' '+hy+'" fill="none" stroke="'+L+'" stroke-width="1.6"/>';
+    g+='<path '+CL+' d="'+arcPath()+'" fill="none" stroke="'+L+'" stroke-width="2.4"/>';
+    // backboard + rim
+    g+='<line x1="'+(px(25)-px(3))+'" y1="'+py(4)+'" x2="'+(px(25)+px(3))+'" y2="'+py(4)+'" stroke="var(--sc-board)" stroke-width="3.5" stroke-linecap="round"/>';
+    g+='<circle cx="'+hx+'" cy="'+hy+'" r="'+px(0.75)+'" fill="none" stroke="#f08a3c" stroke-width="2.6"/>';
     return g;
+  }
+  function defs(){
+    return '<defs><radialGradient id="scVig" cx="50%" cy="20%" r="80%"><stop offset="0" stop-color="#ffffff" stop-opacity=".06"/><stop offset="1" stop-color="#000000" stop-opacity=".28"/></radialGradient></defs>';
+  }
+  // ── ZONES mode: the ten zones as filled regions, coloured by FG% vs the D-I average ──
+  var _zid=0;
+  function zonesSvg(shots){
+    var Z={}; Object.keys(ZMETA).forEach(function(k){ Z[k]={m:0,a:0}; });
+    shots.forEach(function(s){ var k=zone10(s); if(!Z[k]) return; Z[k].a++; if(s.made)Z[k].m++; });
+    var id='z'+(++_zid), g='<defs>';
+    // clip regions (px). inside = inside the arc; three = everything else
+    g+='<clipPath id="'+id+'in"><path d="'+arcPath()+' Z"/></clipPath>';
+    g+='<clipPath id="'+id+'out"><path fill-rule="evenodd" clip-rule="evenodd" d="M 0 0 H '+W+' V '+H+' H 0 Z '+arcPath()+' Z"/></clipPath>';
+    g+='</defs>';
+    var cy0=py(CORNER_Y-0.4);
+    // [zone, clip, rect(x,y,w,h in px), label anchor override]
+    var R=function(x0,y0,x1,y1){ return [px(x0),py(y1),px(x1)-px(x0),py(y0)-py(y1)]; };
+    var regions=[
+      ['c3l','out',R(0,YMIN,25,CORNER_Y-0.4)], ['c3r','out',R(25,YMIN,50,CORNER_Y-0.4)],
+      ['w3l','out',R(0,CORNER_Y-0.4,19,YMAX)], ['t3','out',R(19,CORNER_Y-0.4,31,YMAX)], ['w3r','out',R(31,CORNER_Y-0.4,50,YMAX)],
+      ['midl','in',R(0,YMIN,19,YMAX)], ['midr','in',R(31,YMIN,50,YMAX)], ['midc','in',R(19,19,31,YMAX)],
+      ['paint','in',R(19,YMIN,31,19)]
+    ];
+    var floor=Math.max(6, Math.round(shots.length*0.02));
+    var fillFor=function(k){ var z=Z[k]; if(z.a<floor) return 'rgba(140,140,150,.10)';
+      var d=z.m/z.a-ZMETA[k].avg, t=Math.max(-1,Math.min(1,d/0.14));
+      return t>=0 ? 'rgba(240,138,60,'+(0.10+0.34*t).toFixed(2)+')' : 'rgba(76,127,214,'+(0.10+0.34*(-t)).toFixed(2)+')'; };
+    var tipFor=function(k){ var z=Z[k]; return ZMETA[k].n+'|'+(z.a?Math.round(z.m/z.a*100):0)+'|'+z.m+'/'+z.a+'|'+Math.round(ZMETA[k].avg*100)+'|'+(z.a?((z.m/z.a-ZMETA[k].avg>=0?'+':'')+Math.round((z.m/z.a-ZMETA[k].avg)*100)):'—'); };
+    regions.forEach(function(r){ var b=r[2];
+      g+='<rect class="sc-zone" data-zk="'+r[0]+'" data-ztip="'+tipFor(r[0])+'" clip-path="url(#'+id+r[1]+')" x="'+b[0]+'" y="'+b[1]+'" width="'+b[2]+'" height="'+b[3]+'" fill="'+fillFor(r[0])+'" stroke="var(--sc-line)" stroke-opacity=".35" stroke-width="1"/>'; });
+    // the rim zone sits on top of the paint
+    g+='<circle class="sc-zone" data-zk="rim" data-ztip="'+tipFor('rim')+'" cx="'+px(HOOP_X)+'" cy="'+py(HOOP_Y)+'" r="'+px(4)+'" fill="'+fillFor('rim')+'" stroke="var(--sc-line)" stroke-opacity=".5" stroke-width="1"/>';
+    // labels
+    var LAB={rim:[25,8.6],paint:[25,15.5],midl:[10.5,13],midc:[25,23.5],midr:[39.5,13],c3l:[3.3,9],c3r:[46.7,9],w3l:[8.5,25],t3:[25,31.5],w3r:[41.5,25]};
+    Object.keys(LAB).forEach(function(k){ var z=Z[k], at=LAB[k]; if(!z.a) return;
+      var big=z.a>=floor, p=Math.round(z.m/z.a*100);
+      g+='<text class="sc-zlab'+(big?'':' dim')+'" x="'+px(at[0])+'" y="'+py(at[1])+'" text-anchor="middle">'+(big?p+'%':'—')+'</text>'+
+         '<text class="sc-zsub" x="'+px(at[0])+'" y="'+(py(at[1])+12)+'" text-anchor="middle">'+z.m+'/'+z.a+'</text>'; });
+    return g;
+  }
+  function zoneSheet(shots){
+    var Z={}; Object.keys(ZMETA).forEach(function(k){ Z[k]={m:0,a:0}; });
+    shots.forEach(function(s){ var k=zone10(s); if(!Z[k]) return; Z[k].a++; if(s.made)Z[k].m++; });
+    var tot=shots.length||1;
+    var rows=Object.keys(ZMETA).map(function(k){ var z=Z[k]; return {k:k,n:ZMETA[k].n,a:z.a,m:z.m,p:z.a?z.m/z.a:null,avg:ZMETA[k].avg}; })
+      .filter(function(r){ return r.a>0; }).sort(function(a,b){ return b.a-a.a; });
+    var tr=rows.map(function(r){ var d=r.p!=null?(r.p-r.avg)*100:null, eff=r.k.indexOf('3')>=0||r.k==='t3'?(r.p*1.5):r.p;
+      return '<tr data-zk="'+r.k+'"><td class="l nm">'+r.n.charAt(0).toUpperCase()+r.n.slice(1)+'</td><td>'+r.a+'</td><td class="dim">'+Math.round(r.a/tot*100)+'%</td><td class="strong">'+Math.round(r.p*100)+'%</td><td class="dim">'+Math.round(r.avg*100)+'%</td><td style="font-weight:800;color:'+(d>=2?'var(--sc-hot)':d<=-2?'var(--sc-cold)':'var(--text3)')+'">'+(d>0?'+':'')+Math.round(d)+'</td><td class="dim">'+(r.a>=8?Math.round(eff*100)+'%':'—')+'</td></tr>'; }).join('');
+    return '<div class="sheet-wrap sc-sheet"><table class="sheet"><thead><tr><th class="l">Zone</th><th>FGA</th><th>Share</th><th>FG%</th><th>D-I</th><th>Δ</th><th>eFG%</th></tr></thead><tbody>'+tr+'</tbody></table></div>';
   }
   function zones(shots){
     var z={rim:[0,0],mid:[0,0],three:[0,0]};
@@ -98,7 +155,7 @@
   // diverging color for (playerFG - d1avg): below avg = red, above = green
   function effColor(diff){
     var t=Math.max(-1,Math.min(1,diff/0.15));
-    var lo=[207,90,78], mid=[238,238,242], hi=[31,157,87];
+    var lo=[76,127,214], mid=[150,150,160], hi=[240,138,60];
     function lerp(a,b,f){return [a[0]+(b[0]-a[0])*f|0,a[1]+(b[1]-a[1])*f|0,a[2]+(b[2]-a[2])*f|0];}
     var c = t<0 ? lerp(mid,lo,-t) : lerp(mid,hi,t);
     return 'rgb('+c[0]+','+c[1]+','+c[2]+')';
@@ -352,9 +409,14 @@
     var made=shots.filter(function(s){return s.made;}), z=zones(shots);
     var fgp=Math.round(made.length/shots.length*100);
     var efg=Math.round((made.length+0.5*made.filter(function(s){return s.sv===3;}).length)/shots.length*100);
+    var tpr=Math.round(z.three[1]/shots.length*100), rimr=Math.round(z.rim[1]/shots.length*100);
+    var dz=function(a,avg){ return a[1]?(pct(a)-Math.round(avg*100)):null; };
+    var sub=function(d){ return d==null?'':'<span style="color:'+(d>=2?'var(--sc-hot)':d<=-2?'var(--sc-cold)':'var(--text3)')+';font-weight:800">'+(d>0?'+':'')+d+'</span>'; };
     return '<div class="sc-zones">'+statBox('FG%',fgp+'%',made.length+'/'+shots.length,null,0)+
-      statBox('eFG%',efg+'%','shot quality',null,1)+statBox('At Rim',pct(z.rim)+'%',z.rim[1]+' att','rim',2)+
-      statBox('Mid',pct(z.mid)+'%',z.mid[1]+' att','mid',3)+statBox('Three',pct(z.three)+'%',z.three[1]+' att','three',4)+'</div>';
+      statBox('eFG%',efg+'%','shot quality',null,1)+
+      statBox('At rim',pct(z.rim)+'%',z.rim[1]+' att · '+rimr+'% '+(sub(dz(z.rim,0.615))||''),'rim',2)+
+      statBox('Mid-range',pct(z.mid)+'%',z.mid[1]+' att '+(sub(dz(z.mid,0.385))||''),'mid',3)+
+      statBox('Three',pct(z.three)+'%',z.three[1]+' att · '+tpr+'% '+(sub(dz(z.three,0.34))||''),'three',4)+'</div>';
   }
 
   // ESPN only ever published shot coordinates for a subset of games, so a season can
@@ -382,32 +444,41 @@
           (opts.subtitle?' ('+opts.subtitle+' took about '+Math.round(exp0)+' shots)':'')+'.'):
           'ESPN never published coordinates for these games.')+
         '</div>'; return; }
-    var mode=opts.mode||'spots';
+    var mode=opts.mode||'zones';
+    var tcol=opts.color||((getComputedStyle(el).getPropertyValue('--tc')||'').trim())||null;
+    if(tcol&&/^var\(/.test(tcol)) tcol=null;
+    var courtOpts={color:tcol};
     var toggle='<div class="sc-modes">'+
+      '<button class="'+(mode==='zones'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'zones\')">Zones</button>'+
       '<button class="'+(mode==='spots'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'spots\')">Signature spots</button>'+
       '<button class="'+(mode==='hex'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'hex\')">Hexbin</button>'+
       '<button class="'+(mode==='heat'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'heat\')">Heat</button>'+
       '<button class="'+(mode==='shots'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'shots\')">All shots</button></div>';
     var head=(opts.title?'<div class="sc-title">'+opts.title+'</div>':'')+
       '<div class="sc-legend">'+toggle+'<span style="margin-left:auto;color:var(--text3);">'+shots.length+' field-goal attempts</span></div>';
-    var body;
-    if(mode==='spots'){
+    var body, extra='';
+    if(mode==='zones'){
+      body='<div class="sc-mk-legend"><span><i class="sc-hot"></i>Above the D-I average</span><span><i class="sc-cold"></i>Below</span>'+
+        '<span style="margin-left:auto;color:var(--text3);font-size:10px;">FG% · made/attempts \u00b7 hover a zone</span></div>'+
+        '<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+defs()+court(null,courtOpts)+zonesSvg(shots)+'</svg><div class="sc-tip"></div></div>';
+      extra=zoneSheet(shots);
+    } else if(mode==='spots'){
       var so={};
       var sg=spotsSvg(shots,so);
       body='<div class="sc-mk-legend"><span><i class="sc-hot"></i>Best spots</span><span><i class="sc-cold"></i>Worst spots</span>'+
         '<span style="margin-left:auto;color:var(--text3);font-size:10px;">solid = made \u00b7 faded = missed</span></div>'+
-        '<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+court('rgba(130,123,156,.42)')+sg+'</svg><div class="sc-tip"></div></div>'+
+        '<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+defs()+court(null,courtOpts)+sg+'</svg><div class="sc-tip"></div></div>'+
         '<div class="sc-spot-cap">'+spotsCaption(so)+'</div>';
     } else if(mode==='hex'){
-      body='<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+court('rgba(130,123,156,.55)')+hexbinSvg(shots)+'</svg><div class="sc-tip"></div></div>'+
+      body='<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+defs()+court(null,courtOpts)+hexbinSvg(shots)+'</svg><div class="sc-tip"></div></div>'+
         hexSummary(shots)+
         '<div class="sc-eff-legend">'+
           '<div class="sc-effbar"><span>Weak · −10%</span><i class="sc-effgrad"></i><span>+10% · Strong</span></div>'+
-          '<span class="sc-eff-cap">Hex size = shot volume · color = FG% vs Division-1 average · <b>white = league average</b></span>'+
+          '<span class="sc-eff-cap">Hex size = shot volume · color = FG% vs Division-1 average · <b>grey = league average</b></span>'+
         '</div>';
     } else if(mode==='heat'){
       body='<div class="sc-court-wrap sc-heat-wrap"><canvas class="sc-heat"></canvas>'+
-        '<svg class="sc-svg sc-heat-court" viewBox="0 0 '+W+' '+H+'">'+court('rgba(255,255,255,.38)')+'</svg></div>'+
+        '<svg class="sc-svg sc-heat-court" viewBox="0 0 '+W+' '+H+'">'+court(null,{color:'#ffffff'}).replace(/var\(--sc-floor\)|var\(--sc-inside\)/g,'none')+'</svg></div>'+
         '<div class="sc-heat-legend"><span>Shot frequency</span><i class="sc-grad"></i><span style="color:var(--text3)">low → high</span></div>';
     } else {
       var dots=shots.map(function(s,i){
@@ -416,14 +487,14 @@
         var tip=(s.made?'Made':'Missed')+' '+(s.sv===3?'3PT':'2PT')+' · '+Math.round(edist(s))+' ft';
         var dl='style="animation-delay:'+Math.min(i*2,750)+'ms"';
         return s.made
-          ? '<circle class="sc-mark sc-dot '+zc+'" data-t="'+tip+'" '+dl+' cx="'+cx+'" cy="'+cy+'" r="3.6" fill="#1f9d57" fill-opacity="0.85"/>'
-          : '<path class="sc-mark sc-dot '+zc+'" data-t="'+tip+'" '+dl+' d="M '+(cx-3)+' '+(cy-3)+' l 6 6 M '+(cx+3)+' '+(cy-3)+' l -6 6" stroke="#cf5a4e" stroke-width="1.7" stroke-opacity="0.8" fill="none"/>';
+          ? '<circle class="sc-mark sc-dot '+zc+'" data-t="'+tip+'" '+dl+' cx="'+cx+'" cy="'+cy+'" r="3.6" fill="var(--sc-made)" fill-opacity="0.92" stroke="rgba(0,0,0,.25)" stroke-width=".6"/>'
+          : '<path class="sc-mark sc-dot '+zc+'" data-t="'+tip+'" '+dl+' d="M '+(cx-3)+' '+(cy-3)+' l 6 6 M '+(cx+3)+' '+(cy-3)+' l -6 6" stroke="var(--sc-miss)" stroke-width="1.8" stroke-opacity="0.85" fill="none"/>';
       }).join('');
       body='<div class="sc-mk-legend"><span><i class="sc-made"></i>Made</span><span><i class="sc-miss"></i>Missed</span>'+
         '<span style="margin-left:auto;color:var(--text3);font-size:10px;">hover a shot · hover a zone card to isolate it</span></div>'+
-        '<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+court('rgba(130,123,156,.55)')+dots+'</svg><div class="sc-tip"></div></div>';
+        '<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+defs()+court(null,courtOpts)+dots+'</svg><div class="sc-tip"></div></div>';
     }
-    el.innerHTML=head+coverageNote(shots,opts)+'<div class="sc-main"><div class="sc-court-col">'+body+'</div>'+zoneStrip(shots)+'</div>';
+    el.innerHTML=head+coverageNote(shots,opts)+'<div class="sc-main"><div class="sc-court-col">'+body+'</div></div>'+zoneStrip(shots)+extra;
     el.classList.remove('sc-settled');
     if(mode==='heat') drawHeat(el, shots);
     wire(el);
@@ -439,15 +510,19 @@
     var wrap=el.querySelector('.sc-court-wrap'), tip=el.querySelector('.sc-tip');
     if(wrap&&tip){
       wrap.addEventListener('mousemove',function(e){
-        var t=e.target.closest?e.target.closest('[data-tip],[data-t]'):null;
+        var t=e.target.closest?e.target.closest('[data-tip],[data-t],[data-ztip]'):null;
         if(!t){ tip.classList.remove('on'); return; }
         var r=wrap.getBoundingClientRect();
-        if(t.hasAttribute('data-tip')){
+        if(t.hasAttribute('data-ztip')){
+          var zf=t.getAttribute('data-ztip').split('|');
+          tip.innerHTML='<b>'+zf[0].charAt(0).toUpperCase()+zf[0].slice(1)+' · '+zf[1]+'%</b><span class="scq">'+zf[2]+' FG</span><span class="scr">Division-1 here: '+zf[3]+'%</span><span class="scd" style="color:'+(zf[4].charAt(0)==='-'?'var(--sc-cold)':'var(--sc-hot)')+'">'+zf[4]+' vs D-1 avg</span>';
+          tip.classList.add('rich');
+        } else if(t.hasAttribute('data-tip')){
           var f=t.getAttribute('data-tip').split('|');
           tip.innerHTML='<b>FG% here: '+f[0]+'%</b>'+
             '<span class="scq">'+f[1]+' · '+f[2]+' FG</span>'+
             '<span class="scr">Division-1 here: '+f[3]+'%</span>'+
-            '<span class="scd" style="color:'+(f[5]==='1'?'#2bb673':'#e06552')+'">'+f[4]+'% vs D-1 avg</span>';
+            '<span class="scd" style="color:'+(f[5]==='1'?'var(--sc-hot)':'var(--sc-cold)')+'">'+f[4]+'% vs D-1 avg</span>';
           tip.classList.add('rich');
         } else {
           tip.textContent=t.getAttribute('data-t'); tip.classList.remove('rich');
@@ -458,6 +533,16 @@
       });
       wrap.addEventListener('mouseleave',function(){ tip.classList.remove('on'); });
     }
+    el.querySelectorAll('.sc-zone[data-zk]').forEach(function(zn){
+      var k=zn.getAttribute('data-zk');
+      zn.addEventListener('mouseenter',function(){ var row=el.querySelector('tr[data-zk="'+k+'"]'); if(row) row.classList.add('sc-rowhl'); zn.classList.add('sc-zone-hl'); });
+      zn.addEventListener('mouseleave',function(){ var row=el.querySelector('tr[data-zk="'+k+'"]'); if(row) row.classList.remove('sc-rowhl'); zn.classList.remove('sc-zone-hl'); });
+    });
+    el.querySelectorAll('tr[data-zk]').forEach(function(row){
+      var k=row.getAttribute('data-zk');
+      row.addEventListener('mouseenter',function(){ var zn=el.querySelector('.sc-zone[data-zk="'+k+'"]'); if(zn) zn.classList.add('sc-zone-hl'); });
+      row.addEventListener('mouseleave',function(){ var zn=el.querySelector('.sc-zone[data-zk="'+k+'"]'); if(zn) zn.classList.remove('sc-zone-hl'); });
+    });
     el.querySelectorAll('.sc-z[data-zone]').forEach(function(card){
       var z=card.getAttribute('data-zone');
       card.addEventListener('mouseenter',function(){ el.classList.add('sc-hl','sc-hl-'+z); });
@@ -469,6 +554,18 @@
   if(!document.getElementById('sc-styles')){
     var st=document.createElement('style'); st.id='sc-styles';
     st.textContent=
+      // theme-aware court palette: dark = navy hardwood-ish floor with white lines; light = pale maple
+      ':root{--sc-floor:#f1e7d3;--sc-inside:#ead9bb;--sc-line:rgba(60,45,25,.62);--sc-board:#3a3a3a;--sc-accent:#A8843C;--sc-made:#1f9d57;--sc-miss:#c74d3f;--sc-hot:#e06a1e;--sc-cold:#2f66c9;}'+
+      ':root[data-theme="dark"]{--sc-floor:#121a2b;--sc-inside:#172238;--sc-line:rgba(255,255,255,.55);--sc-board:#e8e8f0;--sc-accent:#E6D5A8;--sc-made:#5ee89a;--sc-miss:#ff6b5c;--sc-hot:#f5934a;--sc-cold:#6b9cf0;}'+
+      '@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--sc-floor:#121a2b;--sc-inside:#172238;--sc-line:rgba(255,255,255,.55);--sc-board:#e8e8f0;--sc-accent:#E6D5A8;--sc-made:#5ee89a;--sc-miss:#ff6b5c;--sc-hot:#f5934a;--sc-cold:#6b9cf0;}}'+
+      '.sc-zone{cursor:pointer;transition:filter .15s,stroke-opacity .15s;}'+
+      '.sc-zone.sc-zone-hl{filter:brightness(1.25);stroke:var(--sc-accent);stroke-opacity:1;stroke-width:2;}'+
+      '.sc-zlab{font-family:Inter,system-ui,sans-serif;font-size:14px;font-weight:900;fill:#fff;paint-order:stroke;stroke:rgba(0,0,0,.55);stroke-width:3px;pointer-events:none;}'+
+      '.sc-zlab.dim{fill:rgba(255,255,255,.55);}'+
+      '.sc-zsub{font-family:Inter,system-ui,sans-serif;font-size:9.5px;font-weight:700;fill:rgba(255,255,255,.85);paint-order:stroke;stroke:rgba(0,0,0,.5);stroke-width:2.4px;pointer-events:none;}'+
+      ':root:not([data-theme="dark"]) .sc-zlab{fill:#1a1814;stroke:rgba(255,255,255,.75);} :root:not([data-theme="dark"]) .sc-zsub{fill:#3a342a;stroke:rgba(255,255,255,.7);}'+
+      '.sc-sheet{margin-top:10px;max-height:none;} .sc-sheet .sheet{width:100%;} .sc-sheet tr.sc-rowhl td{background:color-mix(in srgb,var(--sc-accent) 18%,transparent)!important;}'+
+      '.sc-sheet td.nm{font-weight:800;color:var(--text);} .sc-sheet td.dim{color:var(--text3);} .sc-sheet td.strong{font-weight:800;color:var(--text);}'+
       '@keyframes scPop{from{opacity:0;transform:scale(0);}to{opacity:1;transform:scale(1);}}'+
       '@keyframes scUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}'+
       '@keyframes scFade{from{opacity:0;transform:scale(.97);}to{opacity:1;transform:scale(1);}}'+
@@ -481,13 +578,13 @@
       '.sc-modes button.on{background:var(--accent);color:#fff;}'+
       '.sc-mk-legend{display:flex;align-items:center;gap:16px;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:8px;}'+
       '.sc-mk-legend span{display:inline-flex;align-items:center;gap:6px;}'+
-      '.sc-made{width:11px;height:11px;border-radius:50%;background:#1f9d57;display:inline-block;}'+
+      '.sc-made{width:11px;height:11px;border-radius:50%;background:var(--sc-made);display:inline-block;}'+
       '.sc-cov{font-size:11.5px;color:var(--text2);background:var(--bg2);border:1px solid var(--border2);'+
         'border-left:2px solid #E0A030;border-radius:0 8px 8px 0;padding:8px 12px;margin-bottom:10px;}'+
       '.sc-cov b{color:var(--text);}'+
-      '.sc-hot{width:11px;height:11px;border-radius:50%;background:#F2622E;display:inline-block;}'+
-      '.sc-cold{width:11px;height:11px;border-radius:50%;background:#3E7BD9;display:inline-block;}'+
-      '.sc-spot-off{fill:var(--text3);opacity:.20;}'+
+      '.sc-hot{width:11px;height:11px;border-radius:50%;background:var(--sc-hot);display:inline-block;}'+
+      '.sc-cold{width:11px;height:11px;border-radius:50%;background:var(--sc-cold);display:inline-block;}'+
+      '.sc-spot-off{fill:#ffffff;opacity:.22;} :root:not([data-theme="dark"]) .sc-spot-off{fill:#2a2418;opacity:.18;}'+
       '.sc-spot-on{transform-box:fill-box;transform-origin:center;}'+
       '.sc-ring{animation:scPop .5s cubic-bezier(.34,1.56,.64,1) backwards;}'+
       '.sc-lead{animation:scFade .5s ease .4s backwards;}'+
@@ -498,10 +595,11 @@
       '.sc-spot-cap{margin-top:10px;font-size:11.5px;color:var(--text2);padding-left:11px;'+
         'border-left:2px solid var(--border2);animation:scUp .5s ease .35s backwards;}'+
       '.sc-spot-cap b{color:var(--text);}'+
-      '.sc-miss{width:9px;height:9px;border:1.6px solid #cf5a4e;display:inline-block;transform:rotate(45deg);}'+
+      '.sc-miss{width:9px;height:9px;border:1.6px solid var(--sc-miss);display:inline-block;transform:rotate(45deg);}'+
       '.sc-main{display:flex;gap:12px;align-items:stretch;}'+
       '.sc-court-col{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;}'+
-      '.sc-court-wrap{position:relative;min-width:0;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:10px;animation:scFade .5s ease backwards;}'+
+      '.sc-court-wrap{position:relative;min-width:0;background:var(--sc-floor);border:1px solid var(--border);border-radius:14px;padding:0;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.22);animation:scFade .5s ease backwards;}'+
+      '.sc-court-wrap .sc-svg{border-radius:14px;}'+
       '.sc-heat-wrap{background:#07060c;border-color:#1a1626;}'+
       '.sc-svg{width:100%;height:auto;display:block;}'+
       '.sc-cl{stroke-dasharray:1;stroke-dashoffset:0;animation:scDraw 1s ease .1s backwards;}'+
@@ -524,22 +622,23 @@
       '.sc-hexsum b{color:var(--text3);font-weight:800;font-size:9.5px;letter-spacing:.05em;margin-right:3px;}'+
       '.sc-hexsum .sc-hxefg{color:var(--text);}.sc-hexsum .sc-hxefg b{color:var(--accent);}'+
       '.sc-heat{width:100%;height:auto;display:block;border-radius:8px;animation:scFade .8s ease both;}'+
-      '.sc-heat-court{position:absolute;left:10px;top:10px;width:calc(100% - 20px);}'+
+      '.sc-heat-court{position:absolute;left:0;top:0;width:100%;}'+
       '.sc-heat-legend{max-width:580px;margin:10px auto 0;display:flex;align-items:center;gap:10px;font-size:11px;font-weight:600;color:var(--text2);justify-content:center;animation:scUp .5s ease .3s backwards;}'+
       '.sc-grad{width:150px;height:10px;border-radius:5px;display:inline-block;background:linear-gradient(90deg,#0a0614,#22104a,#40287c,#6a2eb2,#8b3fe0,#b078ec,#d6b4f8);}'+
       '.sc-eff-legend{max-width:520px;margin:11px auto 0;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--text2);animation:scUp .5s ease .3s backwards;}'+
       '.sc-effbar{display:flex;align-items:center;gap:9px;}'+
-      '.sc-effgrad{width:190px;height:11px;border-radius:6px;display:inline-block;background:linear-gradient(90deg,#cf5a4e,#eeeef2,#1f9d57);box-shadow:inset 0 0 0 1px rgba(130,123,156,.25);}'+
+      '.sc-effgrad{width:190px;height:11px;border-radius:6px;display:inline-block;background:linear-gradient(90deg,#4c7fd6,#9696a0,#f08a3c);box-shadow:inset 0 0 0 1px rgba(130,123,156,.25);}'+
       '.sc-eff-cap{color:var(--text3);font-weight:600;font-size:10.5px;text-align:center;}'+
       '.sc-eff-cap b{color:var(--text2);font-weight:700;}'+
-      '.sc-zones{display:flex;flex-direction:column;gap:10px;flex:0 0 132px;}'+
-      '.sc-z{flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center;border:1px solid var(--border);border-radius:11px;padding:10px 6px;background:var(--bg2);animation:scUp .45s ease backwards;transition:transform .15s,border-color .15s,box-shadow .15s;}'+
-      '@media(max-width:600px){.sc-main{flex-direction:column;}.sc-zones{flex-direction:row;flex:0 0 auto;}.sc-z{flex:1;}}'+
+      '.sc-zones{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg);margin-top:12px;box-shadow:0 1px 3px rgba(0,0,0,.10);}'+
+      '.sc-z{text-align:left;border-right:1px solid var(--border);padding:11px 14px;background:transparent;animation:scUp .45s ease backwards;transition:background .15s;min-width:0;}'+
+      '.sc-z:last-child{border-right:none;}'+
+      '@media(max-width:600px){.sc-zones{grid-template-columns:repeat(2,1fr);}.sc-z{border-bottom:1px solid var(--border);}}'+
       '.sc-z[data-zone]{cursor:pointer;}'+
-      '.sc-z[data-zone]:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:0 8px 20px rgba(80,40,150,.15);}'+
-      '.sc-zv{font-family:\'Playfair Display\',serif;font-weight:800;font-size:19px;}'+
-      '.sc-zl{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:2px;}'+
-      '.sc-zs{font-size:9px;color:var(--text3);margin-top:1px;}'+
+      '.sc-z[data-zone]:hover{background:color-mix(in srgb,var(--accent) 10%,transparent);}'+
+      '.sc-zv{font-family:Inter,system-ui,sans-serif;font-weight:800;font-size:21px;line-height:1.1;font-variant-numeric:tabular-nums;color:var(--text);}'+
+      '.sc-zl{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:5px;}'+
+      '.sc-zs{font-size:10.5px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'+
       '.sc-settled .sc-lead,.sc-settled .sc-ring,.sc-settled .sc-callout,.sc-settled .sc-calsub,.sc-settled .sc-spot-cap,'+
       '.sc-settled .sc-mark,.sc-settled .sc-cl,.sc-settled .sc-z,.sc-settled .sc-court-wrap,.sc-settled .sc-title,.sc-settled .sc-legend,.sc-settled .sc-heat,.sc-settled .sc-heat-legend,.sc-settled .sc-eff-legend{animation:none!important;}';
     document.head.appendChild(st);
