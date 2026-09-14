@@ -31,13 +31,30 @@ Past seasons have partial shot coverage (2025 ~24% of games, 2022 ~25%, others l
 player floors scale with the season's shot volume relative to 2026 (never below 40 FGA / 12 ast /
 20 makes) and meta records the coverage; the page shows it.
 """
-import json, os, sys, time, urllib.request, urllib.parse
+import json, os, sys, time, urllib.request, urllib.parse, urllib.error
 from collections import defaultdict
 import grade_conf   # conference-tier competition adjustment (same as the grade model)
 
 SB = "https://izlqhnxowdhtdofkwrho.supabase.co"
 KEY = "sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
-HDR = {"apikey": KEY, "Authorization": "Bearer " + (os.environ.get("TDC_JWT") or KEY)}
+def _token():
+    """The signed-in user's session token (shots is RLS-locked). Env TDC_JWT if set and sane,
+    otherwise prompt for it (hidden input — paste with ⌘V, then Enter)."""
+    import getpass
+    t = (os.environ.get("TDC_JWT") or "").strip()
+    ok = lambda x: x.startswith("eyJ") and x.count(".") == 2 and all(ord(c) < 128 for c in x)
+    if t and not ok(t):
+        print("TDC_JWT doesn't look like a session token (should start with eyJ and be plain ASCII) — ignoring it.")
+        t = ""
+    while not t:
+        print("This build needs your site login. On thedepthchartcbb.com (signed in) open DevTools → Console and run:")
+        print("    copy(JSON.parse(localStorage.tdc_session).access_token)")
+        t = getpass.getpass("then paste it here (it won't show) and press Enter: ").strip()
+        if not ok(t):
+            print("That doesn't look like the token (must start with eyJ). Try the copy() line again.\n"); t = ""
+    return t
+_JWT = _token() if (len(sys.argv) > 1 and sys.argv[1] != "2026") or os.environ.get("TDC_JWT") else None
+HDR = {"apikey": KEY, "Authorization": "Bearer " + (_JWT or KEY)}
 D = os.path.join(os.path.dirname(__file__), "data")
 SEASON = int(sys.argv[1]) if len(sys.argv) > 1 else 2026
 
@@ -56,6 +73,13 @@ def get(path, tries=5):
                 h = {**HDR, "Range-Unit": "items", "Range": "%d-%d" % (frm, frm + 999)}
                 req = urllib.request.Request(SB + "/rest/v1/" + path, headers=h)
                 b = json.load(urllib.request.urlopen(req, timeout=90)); break
+            except urllib.error.HTTPError as e:
+                if e.code == 401:
+                    print("\n*** Supabase rejected the token (401). It expires an hour after the site issued it —\n"
+                          "    reload the site tab, run the copy() line again, and rerun this script.")
+                    sys.exit(2)
+                if a == tries - 1: raise
+                time.sleep(1.5 * (a + 1))
             except Exception:
                 if a == tries - 1: raise
                 time.sleep(2 * (a + 1))
