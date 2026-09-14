@@ -231,6 +231,11 @@
       <button class="venue" id="venueBtn" onclick="cycleVenue()">Neutral court</button>
       <div class="combo"><input id="selB" class="search" placeholder="Search team…" autocomplete="off"><div class="combo-list" id="listB"></div></div>
     </div>
+    <div style="display:flex;align-items:center;gap:10px;margin:-6px 0 14px;flex-wrap:wrap" data-anim>
+      <label style="font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Season</label>
+      <select id="seasonSel" class="search" style="max-width:220px;padding:8px 10px;cursor:pointer" onchange="setSeason(this.value)"><option value="2027">2026-27 · projected</option><option value="2026">2025-26</option><option value="2025">2024-25</option><option value="2024">2023-24</option><option value="2023">2022-23</option><option value="2022">2021-22</option><option value="2021">2020-21</option><option value="2020">2019-20</option><option value="2019">2018-19</option><option value="2018">2017-18</option><option value="2017">2016-17</option><option value="2016">2015-16</option><option value="2015">2014-15</option><option value="2014">2013-14</option></select>
+      <span id="seasonNote" style="font-size:11px;color:var(--text3)"></span>
+    </div>
 
     <div id="out"><div class="loading">Loading ratings…</div></div>
 
@@ -254,6 +259,31 @@ function toggleTheme(){ const d=document.documentElement; const dark=d.getAttrib
   if(t==='dark'){ if(!document.querySelector('link[href*="tdc-skin.css"]'))document.documentElement.setAttribute('data-theme','dark'); document.getElementById('themeBtn').textContent='☀'; } })();
 
 let D=null, COLORMAP={}, venues=['neutral','home','away'], vi=0, selKey={A:null,B:null}, DNA=null;
+// SY 2027 = the projected matchup (default). A past season pits the two teams as they were THEN:
+// power rating from team_seasons, that year's Team DNA, that year's rotations and trait rates.
+let SY=2027; const PROJ=()=>SY===2027, OBS=()=>PROJ()?2026:SY, DNAK=()=>PROJ()?'2027':String(SY), SYL=()=>(SY-1)+'-'+String(SY).slice(2);
+let _poolCache={};
+window.PROJ_=()=>PROJ(); window.OBS_=()=>OBS(); window.histRoster_=r=>histRoster(r); window.D_=()=>D;
+async function poolFor(y){
+  if(y===2027){ const d=await TDC_RATINGS.get(); return (d.teams||[]).filter(t=>t.projected!==false && t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999)); }
+  if(_poolCache[y]) return _poolCache[y];
+  let rows=[]; try{ rows=await fetch(`${SB}/rest/v1/team_seasons?season_year=eq.${y}&srs=not.is.null&select=team,conference,srs,wins,losses&order=srs.desc&limit=400`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  const out=(rows||[]).map((r,i)=>({team:r.team, full:r.team, conf:r.conference||'', rating:+r.srs, rank:i+1, wins:r.wins, losses:r.losses, projected:false}));
+  _poolCache[y]=out; return out;
+}
+async function setSeason(v){
+  SY=+v;
+  const keepA=poolRow(selKey.A), keepB=poolRow(selKey.B);
+  D={teams:await poolFor(SY)};
+  const find=r=>{ if(!r) return null; const n=(r.full||'').toLowerCase(); let i=D.teams.findIndex(t=>t.full.toLowerCase()===n); if(i<0){ const sh=sn(r.team).toLowerCase(); i=D.teams.findIndex(t=>sn(t.team).toLowerCase()===sh); } return i>=0?i:null; };
+  selKey.A=find(keepA); selKey.B=find(keepB);
+  if(selKey.A==null) selKey.A=0; if(selKey.B==null) selKey.B=Math.min(1,D.teams.length-1);
+  el('selA').value=labelOf(poolRow(selKey.A)); el('selB').value=labelOf(poolRow(selKey.B));
+  const note=el('seasonNote'); if(note) note.textContent=PROJ()?'':(SYL()+' · final-season power ratings, that year\'s rosters and Team DNA');
+  try{ const u=new URL(location.href); if(PROJ()) u.searchParams.delete('season'); else u.searchParams.set('season',String(SY)); history.replaceState(null,'',u.toString()); }catch(e){}
+  if(window._advReset) window._advReset();
+  renderLine();
+}
 const el=id=>document.getElementById(id);
 const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -323,7 +353,7 @@ function renderLine(){
       <div class="board-in">
         <div class="side">
           <div class="tnm"><span class="dot" style="background:${cA}"></span>${a.full}</div>
-          <div class="trk">#${a.rank||'—'} · rtg ${fmtR(a)}</div>
+          <div class="trk">#${a.rank||'—'}${a.wins!=null?' · '+a.wins+'-'+a.losses:''} · rtg ${fmtR(a)}</div>
           <div class="tsc" style="color:${cA}" data-countup="${L.scoreA}">${L.scoreA}</div>
           <div class="twp" style="color:${cA}"><span data-countup="${wa}">${wa}</span>% win</div>
         </div>
@@ -334,7 +364,7 @@ function renderLine(){
         </div>
         <div class="side">
           <div class="tnm"><span class="dot" style="background:${cB}"></span>${b.full}</div>
-          <div class="trk">#${b.rank||'—'} · rtg ${fmtR(b)}</div>
+          <div class="trk">#${b.rank||'—'}${b.wins!=null?' · '+b.wins+'-'+b.losses:''} · rtg ${fmtR(b)}</div>
           <div class="tsc" style="color:${cB}" data-countup="${L.scoreB}">${L.scoreB}</div>
           <div class="twp" style="color:${cB}"><span data-countup="${wb}">${wb}</span>% win</div>
         </div>
@@ -354,7 +384,20 @@ function renderLine(){
 }
 
 // ── project a roster into per-player lines (same engine as rankings/dossier) ──
+// past-season roster: player_history (short team key = the school) ∪ player_advanced (full name)
+async function histRoster(row){
+  const short=sn(row.team);
+  let ph=[],pa=[];
+  try{ [ph,pa]=await Promise.all([
+    fetch(`${SB}/rest/v1/player_history?team=eq.${encodeURIComponent(short)}&season_year=eq.${SY}&select=name,espn_id,position,tdc_grade,ppg,rpg,apg,mpg,gp`,{headers:H}).then(x=>x.ok?x.json():[]),
+    fetch(`${SB}/rest/v1/player_advanced?team=eq.${encodeURIComponent(row.full)}&season_year=eq.${SY}&select=name,espn_id,ppg,rpg,apg,min,g`,{headers:H}).then(x=>x.ok?x.json():[]) ]); }catch(e){}
+  const by={}; (ph||[]).forEach(p=>{ if(p.espn_id!=null) by[p.espn_id]=p; });
+  (pa||[]).forEach(a=>{ if(a.espn_id==null) return; const g=+a.g||0, mpg=g?(+a.min||0)/g:0; if(by[a.espn_id]){ if(!(+by[a.espn_id].mpg>0)) by[a.espn_id].mpg=mpg; return; } by[a.espn_id]={name:a.name,espn_id:a.espn_id,position:'',tdc_grade:null,ppg:a.ppg,rpg:a.rpg,apg:a.apg,mpg}; });
+  return Object.values(by).filter(p=>(+p.mpg||0)>=5).sort((a,b)=>(+b.mpg||0)-(+a.mpg||0));
+}
 async function projTeamLines(row){
+  if(!PROJ()){ const _n=v=>{const n=+v;return isNaN(n)?0:n;}; const hr=await histRoster(row);
+    return hr.map(p=>({name:p.name, pos:((p.position||'').split('/')[0]||'G').replace(/[^A-Z]/g,'')||'G', ovr:_n(p.tdc_grade), ppg:_n(p.ppg), rpg:_n(p.rpg), apg:_n(p.apg), mpg:_n(p.mpg)})); }
   let roster=[]; try{ roster=await fetch(`${SB}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,position,position2,depth_order,hometown,is_injured,class_year,yr,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
   let map={}; try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready; if(typeof buildTeamProjections==='function'){ const pr=buildTeamProjections(roster.map(x=>Object.assign({},x)), row.conf||''); (pr||[]).forEach(x=>{ if(x&&x.name) map[x.name.toLowerCase().trim()]=x; }); } }catch(e){}
   const _n=v=>{const n=+v;return isNaN(n)?0:n;};
@@ -368,11 +411,11 @@ async function loadMatchupAdvantage(a,b,cA,cB,nA,nB){
   const host=el('maHost'); if(!host||!window.TDCImpact) return;
   const T=window.TDCImpact;
   async function teamTraits(row){
-    let roster=[]; try{ roster=await fetch(`${SB}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=espn_id,mpg,is_injured&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
+    let roster=[]; try{ roster=PROJ()?await fetch(`${SB}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=espn_id,mpg,is_injured&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]):await histRoster(row); }catch(e){}
     const rot=roster.filter(p=>p.espn_id!=null && !p.is_injured && (+p.mpg||0)>=8);
     if(!rot.length) return null;
     const ids=rot.map(p=>p.espn_id).join(','); const mpgBy={}; rot.forEach(p=>mpgBy[p.espn_id]=+p.mpg||0);
-    let adv=[]; try{ adv=await fetch(`${SB}/rest/v1/player_advanced?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,ts_pct,ast_pct,tov_pct,trb_pct,stl_pct,blk_pct`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
+    let adv=[]; try{ adv=await fetch(`${SB}/rest/v1/player_advanced?espn_id=in.(${ids})&season_year=eq.${OBS()}&select=espn_id,ts_pct,ast_pct,tov_pct,trb_pct,stl_pct,blk_pct`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
     if(!adv.length) return null;
     const KEYS=[['ts_pct',false],['ast_pct',false],['tov_pct',true],['trb_pct',false],['blk_pct',false],['stl_pct',false]];
     const out={};
@@ -391,7 +434,7 @@ async function loadMatchupAdvantage(a,b,cA,cB,nA,nB){
       <div class="ma-side b"><span class="ma-bar b"><i style="width:${B}%;background:${cB}"></i></span><span class="ma-val" style="color:${bWin?cB:'var(--text3)'}">${T.ord(B)}</span></div>
     </div>`; }).filter(Boolean).join('');
   if(!rows){ host.innerHTML=''; return; }
-  host.innerHTML=`<div class="gph">Matchup advantage <span>minutes-weighted trait percentile · 2025-26</span></div><div class="ma-grid">${rows}</div>`;
+  host.innerHTML=`<div class="gph">Matchup advantage <span>minutes-weighted trait percentile · ${(OBS()-1)+'-'+String(OBS()).slice(2)}</span></div><div class="ma-grid">${rows}</div>`;
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
 }
 async function loadGamePlan(a,b,favA,L){
@@ -411,7 +454,7 @@ async function loadGamePlan(a,b,favA,L){
     const edgeTxt = diff==null?'—':(diff>0?'+'+diff:diff), edgeCol = diff==null?'var(--text3)':(diff>0?cA:diff<0?cB:'var(--text3)');
     return `<div class="kmrow"><div class="kmpos" style="font-size:8.5px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;line-height:1.2;white-space:normal;">${lab}</div>${side(m,diff!=null&&diff>=3)}<div class="kmvs" style="color:${edgeCol}">${edgeTxt}</div>${side(o,diff!=null&&diff<=-3)}</div>`; }).filter(Boolean).join('');
   // ── tale of the tape (team_dna pct, projected 2027) ──
-  const dz=t=>(DNA&&DNA['2027']&&DNA['2027'].teams&&DNA['2027'].teams[t.full])||null;
+  const dz=t=>(DNA&&DNA[DNAK()]&&DNA[DNAK()].teams&&DNA[DNAK()].teams[t.full])||null;
   const da=dz(a), db=dz(b); let tapeHtml='';
   if(da&&da.pct&&db&&db.pct){ const F=[['net','Overall'],['ORtg','Offense'],['DRtg','Defense'],['oeFG','Shooting'],['oTOV','Ball security',true],['oORB','Off. rebounding']];
     const rowT=([k,lab,inv])=>{ const va=da.pct[k], vb=db.pct[k]; if(va==null||vb==null) return '';
@@ -422,7 +465,7 @@ async function loadGamePlan(a,b,favA,L){
   let tempoHtml='';
   if(da&&db&&da.tempo!=null&&db.tempo!=null){
     const ta=da.tempo, tb=db.tempo;
-    const _tv=Object.values(DNA['2027'].teams).map(t=>t.tempo).filter(x=>x!=null);
+    const _tv=Object.values(DNA[DNAK()].teams).map(t=>t.tempo).filter(x=>x!=null);
     const avg=_tv.length?_tv.reduce((s,x)=>s+x,0)/_tv.length:69;
     const game=Math.round((ta*tb/avg)*10)/10;   // KenPom-style expected tempo
     const desc=v=>v>=72?'up-tempo':v<=66?'grind-it-out':'balanced';
@@ -432,7 +475,7 @@ async function loadGamePlan(a,b,favA,L){
       ? 'Both play at a similar pace — tempo won’t be the battleground; this one is decided in the halfcourt.'
       : `<b>${esc(fast.n)}</b> want to run (${fast.t.toFixed(1)} poss); <b>${esc(slow.n)}</b> would rather grind (${slow.t.toFixed(1)}). It projects to ~${game} possessions — whoever imposes tempo tilts the math. The faster side has to score in transition before the defense sets; the slower side wants long possessions and a shortened game.`;
     const lo=60,hi=78,px=v=>Math.max(2,Math.min(98,(v-lo)/(hi-lo)*100));
-    tempoHtml=`<div class="gph">Tempo &amp; style clash <span>projected possessions</span></div>`
+    tempoHtml=`<div class="gph">Tempo &amp; style clash <span>${PROJ()?'projected':SYL()} possessions</span></div>`
       +`<div class="tempo"><div class="tprow2"><span style="color:${cA}">${esc(nA)} · ${ta.toFixed(1)} (${desc(ta)})</span><span style="color:${cB}">${esc(nB)} · ${tb.toFixed(1)} (${desc(tb)})</span></div>`
       +`<div class="tempobar"><i class="tbdot" style="left:${px(ta)}%;background:${cA}"></i><i class="tbdot" style="left:${px(tb)}%;background:${cB}"></i><i class="tbgame" style="left:${px(game)}%"></i></div>`
       +`<div class="tempolbl"><span>60 slow</span><span><b>projected ~${game}</b> poss</span><span>fast 78</span></div>`
@@ -472,7 +515,7 @@ async function loadGamePlan(a,b,favA,L){
   }
   const wins=(da&&db)?`<div class="gph">How each team wins</div><div class="wpgrid">${winPath(da,db,nA)}${winPath(db,da,nB)}</div>`:'';
 
-  host.innerHTML=`${decisiveHtml}${kmRows?`<div class="gph">Key matchups <span>projected starter · OVR edge</span></div><div class="kmwrap" style="--cA:${cA};--cB:${cB}"><div class="kmhead"><span>Pos</span><span>${TDC_TEAM.badge(a.full,{label:nA})}</span><span>edge</span><span>${TDC_TEAM.badge(b.full,{label:nB})}</span></div>${kmRows}</div>`:''}<div id="maHost"></div>${tapeHtml}${tempoHtml}${wins}`;
+  host.innerHTML=`${decisiveHtml}${kmRows?`<div class="gph">Key matchups <span>${PROJ()?'projected starter':SYL()+' rotation'} · OVR edge</span></div><div class="kmwrap" style="--cA:${cA};--cB:${cB}"><div class="kmhead"><span>Pos</span><span>${TDC_TEAM.badge(a.full,{label:nA})}</span><span>edge</span><span>${TDC_TEAM.badge(b.full,{label:nB})}</span></div>${kmRows}</div>`:''}<div id="maHost"></div>${tapeHtml}${tempoHtml}${wins}`;
   loadMatchupAdvantage(a,b,cA,cB,nA,nB);
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
 }
@@ -487,6 +530,8 @@ async function loadGamePlan(a,b,favA,L){
   // default: top two teams
   selKey.A=0; selKey.B=Math.min(1,D.teams.length-1);
   el('selA').value=labelOf(poolRow(selKey.A)); el('selB').value=labelOf(poolRow(selKey.B));
+  const sy=parseInt(new URLSearchParams(location.search).get('season')||'',10);
+  if(sy>=2014&&sy<=2026){ const ss=el('seasonSel'); if(ss) ss.value=String(sy); await setSeason(sy); return; }
   renderLine();
 })();
 </script>
@@ -510,6 +555,7 @@ async function loadGamePlan(a,b,favA,L){
     const el=id=>document.getElementById(id);
     const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
     let D=null, COLORMAP={}, selKey=null, DNA26=null, T=null, roster=[];
+    window._advReset=function(){ DNA26=null; T=null; if(window.D_&&window.D_()) { D=window.D_(); } selKey=null; el('maRoster').innerHTML=''; el('maOut').innerHTML=''; el('maSel').value=''; };
     const poolRow=k=>k!=null?D.teams[k]:null;
     const labelOf=r=>r?r.full:'';
     function _lum(hex){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');if(hex.length<6)return .5;const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return (0.299*r+0.587*g+0.114*b)/255;}
@@ -541,7 +587,7 @@ async function loadGamePlan(a,b,favA,L){
     async function ensureDna(){
       if(DNA26) return;
       let all={}; try{ all=await fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():{}); }catch(e){}
-      DNA26=(all['2026']&&all['2026'].teams)||{};
+      DNA26=(all[String(window.OBS_())]&&all[String(window.OBS_())].teams)||{};
       const col=k=>{ const v=Object.values(DNA26).map(t=>t[k]).filter(x=>x!=null).sort((a,b)=>a-b); return v; };
       const q=(v,f)=>v.length?v[Math.floor(v.length*f)]:0;
       const tempo=col('tempo'),drtg=col('DRtg'),dtov=col('dTOV'),defg=col('deFG');
@@ -559,7 +605,7 @@ async function loadGamePlan(a,b,favA,L){
       const row=poolRow(selKey); if(!row) return;
       el('maRoster').innerHTML='<div class="loading">Loading roster…</div>'; el('maOut').innerHTML='';
       await ensureDna();
-      try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,mpg&order=mpg.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){ roster=[]; }
+      try{ roster=window.PROJ_()?await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,mpg&order=mpg.desc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]):await window.histRoster_(row); }catch(e){ roster=[]; }
       roster=roster.filter(p=>p.espn_id!=null);
       if(!roster.length){ el('maRoster').innerHTML='<div class="muted">No players with D-I game history on this roster yet.</div>'; return; }
       const tc=teamColor(row);
@@ -576,10 +622,10 @@ async function loadGamePlan(a,b,favA,L){
     async function loadPlayer(p, tc, row){
       el('maOut').innerHTML='<div class="loading">Cutting his log by opponent archetype…</div>';
       let log=[];
-      try{ log=await fetch(`${SB_URL}/rest/v1/box_scores?espn_id=eq.${p.espn_id}&season_year=eq.2026&select=opp,min,fga,fta,pts&order=date`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+      try{ log=await fetch(`${SB_URL}/rest/v1/box_scores?espn_id=eq.${p.espn_id}&season_year=eq.${window.OBS_()}&select=opp,min,fga,fta,pts&order=date`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
       log=log.filter(g=>R(g.min)>0);
       const base=tsPct(log);
-      if(log.length<10||base==null){ el('maOut').innerHTML=`<div class="muted">${esc(p.name)} has too few 2025-26 games (${log.length}) to break out by archetype.</div>`; return; }
+      if(log.length<10||base==null){ el('maOut').innerHTML=`<div class="muted">${esc(p.name)} has too few ${(window.OBS_()-1)+'-'+String(window.OBS_()).slice(2)} games (${log.length}) to break out by archetype.</div>`; return; }
       const dnaG=g=>DNA26[g.opp];
       const buckets=ARCH.map(a=>{ const g=log.filter(x=>{const d=dnaG(x); return d&&a.test(d);});
         return {a, n:g.length, ts:g.length?tsPct(g):null, p40:g.length?pts40(g):0}; }).filter(b=>b.n>=4&&b.ts!=null);
@@ -611,8 +657,9 @@ async function loadGamePlan(a,b,favA,L){
       try{ const arr=await fetch('scripts/data/team_colors.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
         (arr||[]).forEach(e=>{ if(e&&e.c1){ if(e.location) COLORMAP[e.location]=e.c1; if(e.display) COLORMAP[e.display]=e.c1; } });
       }catch(e){}
-      D=await TDC_RATINGS.get();
-      D.teams=(D.teams||[]).filter(t=>t.projected!==false&&t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999));
+      // share the predict tab's pool so a past season lists that year's teams
+      if(window.D_&&window.D_()) D=window.D_();
+      else { D=await TDC_RATINGS.get(); D.teams=(D.teams||[]).filter(t=>t.projected!==false&&t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999)); }
       const qs=new URLSearchParams(location.search);
       const want=(qs.get('team')||qs.get('adv')||'').toLowerCase();
       if(want){ const i=D.teams.findIndex(t=>t.full.toLowerCase()===want||t.team.toLowerCase()===want); if(i>=0){ selKey=i; el('maSel').value=labelOf(poolRow(i)); loadTeam(); } }
