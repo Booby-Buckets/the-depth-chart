@@ -162,6 +162,7 @@
     <input id="search" type="text" placeholder="Search player or team…" autocomplete="off" style="min-width:220px;">
     <span class="count" id="count"></span>
   </div>
+  <div style="font-size:11.5px;color:var(--text3);line-height:1.55;margin:-6px 0 14px;">Seasons on file: <b style="color:var(--text2)">2020-21, 2024-25, 2025-26</b>. On/off needs substitution-level play-by-play (who was on the floor each possession), which the NCAA feed only carries for recent seasons — the 2021-22 through 2023-24 pulls came back partial and are not shown. Each new season is added as it is played.</div>
 
   <div class="tbl-wrap"><table id="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
   <div class="empty" id="empty" style="display:none;"></div>
@@ -347,7 +348,7 @@ function applyMode(){
   if(MODE==='players'){ loadSeason(s); head(); render(); return; }
   var go=function(){ ROWS=(MODE==='lineups')?buildLineups(s):(MODE==='pairs')?buildPairs(s):buildTrios(s); head(); render(); };
   var todo=[];
-  if(!LU) todo.push(fetch('scripts/data/lineups.json').then(function(r){return r.ok?r.json():{};}).then(function(j){LU=j||{};}).catch(function(){LU={};}));
+  if(!LU) todo.push(fetch('scripts/data/lineups.json?v=3').then(function(r){return r.ok?r.json():{};}).then(function(j){LU=j||{};}).catch(function(){LU={};}));
   if(CB===null && (MODE==='trios'||MODE==='pairs')) todo.push(fetch('scripts/data/combos.json').then(function(r){return r.ok?r.json():{};}).then(function(j){CB=j||{};}).catch(function(){CB={};}));
   if(!todo.length){ go(); return; }
   document.getElementById('empty').style.display='block'; document.getElementById('empty').textContent='Loading…'; document.getElementById('tbody').innerHTML='';
@@ -359,7 +360,7 @@ function switchMode(m){ if(m===MODE) return; MODE=m;
   applyMode();
 }
 
-fetch('scripts/data/player_onoff.json').then(function(r){ return r.ok?r.json():{}; }).then(function(j){
+fetch('scripts/data/player_onoff.json?v=3').then(function(r){ return r.ok?r.json():{}; }).then(function(j){
   DATA=j||{};
   var seasons=Object.keys(DATA).sort().reverse();
   var sel=document.getElementById('seasonSel');
