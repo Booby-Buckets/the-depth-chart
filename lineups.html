@@ -25,6 +25,7 @@
   <script src="tdc-projgrade.js?v=base7"></script>
   <script src="team-colors.js?v=6"></script>
   <script src="tdc-ratings.js?v=17"></script>
+  <script src="tdc-lineups.js?v=16"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -115,7 +116,10 @@
   <h1 class="page-h1" data-anim>Lineup Recommender</h1>
   <div class="sub" data-anim>Which five should start — and which combinations fit? Pick a team and the recommender searches your rotation for the best-fitting units: a balanced starting five plus situational looks, scored on talent, spacing, playmaking, and interior presence.</div>
 
-  <div class="combo" data-anim><input id="sel" class="search" placeholder="Search your team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap" data-anim>
+    <div class="combo" style="flex:1;min-width:240px"><input id="sel" class="search" placeholder="Search your team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
+    <select id="seasonSel" class="search" style="max-width:220px;cursor:pointer" title="Season"><option value="2027">2026-27 · recommended</option></select>
+  </div>
 
   <div id="out"><div class="muted" style="padding:60px 20px;">Pick a team above to build its lineups.</div></div>
 
@@ -242,9 +246,22 @@ function luCard(title,desc,bp,tc){
   </div>`;
 }
 
+let SEASON=2027;
+// Past seasons: the five-man units, trios and pairs that ACTUALLY played (from the play-by-play
+// lineup reconstruction in scripts/data/lineups.json / combos.json), via the shared module.
+async function loadActual(row, season, tc){
+  el('out').innerHTML='<div class="loading">Reading the '+(season-1)+'-'+String(season).slice(2)+' lineups…</div>';
+  let html='';
+  try{ html=await TDC_LINEUPS.section(row.full, season, {maxLineups:12, maxTrios:10, maxPairs:10}); }catch(e){ html=''; }
+  if(!html){ el('out').innerHTML='<div class="muted" style="padding:50px 20px;">No lineup data on file for '+esc(row.full)+' in '+(season-1)+'-'+String(season).slice(2)+'. Lineups come from substitution-level play-by-play, which the NCAA feed only carries for some seasons.</div>'; return; }
+  el('out').innerHTML='<div style="--tc:'+tc+'"><div class="sec-h">'+(season-1)+'-'+String(season).slice(2)+' · lineups that actually played <span class="note" style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;">— five-man units, trios and pairs with their efficiency, from play-by-play</span></div>'+html+'</div>';
+  if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
+}
 async function loadTeam(){
   const row=poolRow(selKey); if(!row) return;
   const tc=teamColor(row);
+  if(SEASON!==2027){ return loadActual(row, SEASON, tc); }
   el('out').innerHTML='<div class="loading">Searching lineup combinations…</div>';
   let roster=[];
   try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=id,espn_id,name,position,height,class_year,yr,tdc_grade,mpg,depth_order,apg,tpa,tp_pct,rpg&order=depth_order.asc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
@@ -295,7 +312,14 @@ async function loadTeam(){
   }catch(e){}
   D=await TDC_RATINGS.get();
   D.teams=(D.teams||[]).filter(t=>t.projected!==false&&t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999));
+  // seasons with real lineup data
+  try{ const lu=await fetch('scripts/data/lineups.json?v=3').then(r=>r.ok?r.json():{});
+    const yrs=Object.keys(lu||{}).map(Number).filter(y=>y>0).sort((a,b)=>b-a);
+    const ss=el('seasonSel'); yrs.forEach(y=>{ const o=document.createElement('option'); o.value=y; o.textContent=(y-1)+'-'+String(y).slice(2)+' · actual'; ss.appendChild(o); });
+    ss.addEventListener('change',()=>{ SEASON=+ss.value; if(selKey!=null) loadTeam(); });
+  }catch(e){}
   const qs=new URLSearchParams(location.search);
+  const sy=parseInt(qs.get('season')||'',10); if(sy){ const ss=el('seasonSel'); if([...ss.options].some(o=>+o.value===sy)){ SEASON=sy; ss.value=String(sy); } }
   const want=(qs.get('team')||'').toLowerCase();
   if(want){ const i=D.teams.findIndex(t=>t.full.toLowerCase()===want||t.team.toLowerCase()===want); if(i>=0){ selKey=i; el('sel').value=labelOf(poolRow(i)); loadTeam(); } }
 })();
