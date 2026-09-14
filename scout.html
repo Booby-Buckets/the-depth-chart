@@ -30,7 +30,7 @@
   <script src="tdc-impact.js?v=1"></script>
   <link rel="stylesheet" href="tdc-sheets.css?v=3"/><script src="tdc-shotchart.js?v=16"></script>
   <script src="tdc-lineups.js?v=16"></script>
-  <script src="tdc-situational.js?v=1"></script>
+  <script src="tdc-situational.js?v=2"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <style>
@@ -282,11 +282,15 @@
       <div class="picklab">Opponent to scout</div>
       <div class="combo"><input id="selOpp" class="search opp" placeholder="Search opponent…" autocomplete="off"><div class="combo-list" id="listOpp"></div></div>
     </div>
+    <div>
+      <div class="picklab">Season</div>
+      <select id="selSeason" class="search" style="cursor:pointer" onchange="setSeason(this.value)"><option value="2027">2026-27 · projected</option><option value="2026">2025-26</option><option value="2025">2024-25</option><option value="2024">2023-24</option><option value="2023">2022-23</option><option value="2022">2021-22</option><option value="2021">2020-21</option><option value="2020">2019-20</option><option value="2019">2018-19</option><option value="2018">2017-18</option><option value="2017">2016-17</option><option value="2016">2015-16</option></select>
+    </div>
   </div>
 
   <div id="out"><div class="loading">Loading scouting engine…</div></div>
 
-  <div class="note" data-anim>Scouting is built from each team's 2026-27 projected profile: Team DNA (four factors + efficiency, per 100 possessions), shot tendencies (Shot Genome), and — where generated — an AI personnel report. The game plan is derived automatically from where the opponent ranks nationally. Matchup line uses the point-spread ratings (win % = Φ(margin / 11)); neutral court.</div>
+  <div class="note" data-anim>Scouting is built from each team's 2026-27 projected profile (pick a past season to scout a team as it actually was that year — its DNA, roster, game logs and lineups from that season, no projection layer): Team DNA (four factors + efficiency, per 100 possessions), shot tendencies (Shot Genome), and — where generated — an AI personnel report. The game plan is derived automatically from where the opponent ranks nationally. Matchup line uses the point-spread ratings (win % = Φ(margin / 11)); neutral court.</div>
 </div>
 
 <script>
@@ -297,8 +301,17 @@ const el=id=>document.getElementById(id);
 const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
 
 let D=null, DNA=null, SG={}, REPORTS=null, COLORMAP={}, sgMean={}, PBP=null, PBPNORM={};
+// SY = the OBSERVED season every read is built from; PROJ = the default 2026-27 report (built
+// off 2025-26 tape + the projection engine). Any past season scouts the team as it was then:
+// that year's DNA, roster, game logs, shots, lineups — no projection layer.
+let SY=2026, PROJ=true, TSROW=null;
+const SYL=()=>(SY-1)+'-'+String(SY).slice(2);
+const REPL=()=>PROJ?'2026-27 projected':SYL()+' actual';
+function setSeason(v){ v=+v; PROJ=(v===2027); SY=PROJ?2026:v; _rnCache={}; _dftrDist=null; _oftrDist=null; TSROW=null; if(window._pbpNorms) window._pbpNorms();
+  try{ const u=new URL(location.href); if(PROJ) u.searchParams.delete('season'); else u.searchParams.set('season',String(v)); history.replaceState(null,'',u.toString()); }catch(e){}
+  render(); }
 let selKey={Me:null,Opp:null};
-function pbpOf(r){ if(!PBP) return null; const s=PBP['2026']||PBP[Object.keys(PBP).sort().reverse()[0]]||{}; const t=(s&&s.teams)||s; return (t&&(t[r.full]||t[r.team]))||null; }
+function pbpOf(r){ if(!PBP) return null; const s=PBP[String(SY)]||(PROJ?PBP[Object.keys(PBP).sort().reverse()[0]]:null)||{}; const t=(s&&s.teams)||s; return (t&&(t[r.full]||t[r.team]))||null; }
 // Current-roster name set (normalized) so PBP-derived player references — block
 // leaders, assist feeds, all from LAST season's play-by-play — never name a player
 // who has since graduated/transferred out (e.g. Duke's Maliq Brown on a 2026-27 report).
@@ -306,11 +319,33 @@ function pbpOf(r){ if(!PBP) return null; const s=PBP['2026']||PBP[Object.keys(PB
 let _rnCache={};
 function _normNm(s){ return (''+(s||'')).toLowerCase().replace(/[.'`’]/g,'').replace(/\b(jr|sr|ii|iii|iv|v)\b/g,'').replace(/\s+/g,' ').trim(); }
 async function currentRoster(row){
-  const key=row.team||row.full; if(_rnCache[key]) return _rnCache[key];
+  const key=(row.team||row.full)+'|'+SY+(PROJ?'p':''); if(_rnCache[key]) return _rnCache[key];
   const names=new Set(), pos={};
-  try{ const rs=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,position`,{headers:H}).then(x=>x.ok?x.json():[]);
+  try{ const rs=PROJ
+      ? await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,position`,{headers:H}).then(x=>x.ok?x.json():[])
+      : await fetch(`${SB_URL}/rest/v1/player_history?team=eq.${encodeURIComponent(row.team)}&season_year=eq.${SY}&select=name,position`,{headers:H}).then(x=>x.ok?x.json():[]);
     (rs||[]).forEach(p=>{ if(p&&p.name){ names.add(_normNm(p.name)); if(p.position) pos[p.name]=p.position; } }); }catch(e){}
   const out={names,pos}; _rnCache[key]=out; return out;
+}
+// The season's roster shaped like the `players` table (past seasons: player_history ∪ player_advanced)
+async function rosterFor(row){
+  if(PROJ){ try{ return await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,position2,depth_order,hometown,is_injured,class_year,yr,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){ return []; } }
+  let ph=[],pa=[];
+  try{ [ph,pa]=await Promise.all([
+    fetch(`${SB_URL}/rest/v1/player_history?team=eq.${encodeURIComponent(row.team)}&season_year=eq.${SY}&select=name,espn_id,position,yr,tdc_grade,ppg,rpg,apg,mpg,gp,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb`,{headers:H}).then(x=>x.ok?x.json():[]),
+    fetch(`${SB_URL}/rest/v1/player_advanced?team=eq.${encodeURIComponent(row.full)}&season_year=eq.${SY}&select=name,espn_id,ppg,rpg,apg,fg_pct,tp_pct,ft_pct,min,g`,{headers:H}).then(x=>x.ok?x.json():[]) ]); }catch(e){}
+  const by={}; (ph||[]).forEach(p=>{ if(p.espn_id!=null) by[p.espn_id]={...p,class_year:p.yr}; });
+  (pa||[]).forEach(a=>{ if(a.espn_id==null) return; const g=+a.g||0, mpg=g?(+a.min||0)/g:0;
+    if(by[a.espn_id]){ if(!(+by[a.espn_id].mpg>0)) by[a.espn_id].mpg=mpg; return; }
+    by[a.espn_id]={name:a.name,espn_id:a.espn_id,position:'',tdc_grade:null,ppg:a.ppg,rpg:a.rpg,apg:a.apg,mpg,gp:g,fg_pct:a.fg_pct!=null?+a.fg_pct*100:null,tp_pct:a.tp_pct!=null?+a.tp_pct*100:null,ft_pct:a.ft_pct!=null?+a.ft_pct*100:null}; });
+  return Object.values(by).filter(p=>(+p.mpg||0)>=5).sort((a,b)=>(+b.mpg||0)-(+a.mpg||0)).map((p,i)=>({...p,depth_order:i+1}));
+}
+// past seasons: that year's team_seasons row (record + power rating) replaces the projected rating
+async function seasonRow(row){
+  if(PROJ) return null; if(TSROW&&TSROW._for===row.full) return TSROW;
+  try{ const r=await fetch(`${SB_URL}/rest/v1/team_seasons?season_year=eq.${SY}&team=eq.${encodeURIComponent(row.full)}&select=wins,losses,srs,ncaa_result,conference&limit=1`,{headers:H}).then(x=>x.ok?x.json():[]);
+    TSROW=Object.assign({_for:row.full},(r&&r[0])||{}); }catch(e){ TSROW={_for:row.full}; }
+  return TSROW;
 }
 function _onRoster(RN,nm){ return !RN||!RN.size||RN.has(_normNm(nm)); }
 
@@ -325,16 +360,16 @@ function teamColor(row){
   const dark=document.documentElement.getAttribute('data-theme')==='dark', l=_lum(c);
   if(!dark&&l>0.72) return accent; if(dark&&l<0.16) return accent; return c;
 }
-function dnaOf(r){ return (DNA&&DNA['2027']&&DNA['2027'].teams&&DNA['2027'].teams[r.full])||null; }
-function dna26Of(r){ return (DNA&&DNA['2026']&&DNA['2026'].teams&&DNA['2026'].teams[r.full])||null; }
+function dnaOf(r){ const k=PROJ?'2027':String(SY); return (DNA&&DNA[k]&&DNA[k].teams&&DNA[k].teams[r.full])||null; }
+function dna26Of(r){ const k=String(SY); return (DNA&&DNA[k]&&DNA[k].teams&&DNA[k].teams[r.full])||null; }
 let _dftrDist=null, _oftrDist=null;
-function ftrDist(){ if(_dftrDist) return; const t=(DNA&&DNA['2026']&&DNA['2026'].teams)||{};
+function ftrDist(){ if(_dftrDist) return; const t=(DNA&&DNA[String(SY)]&&DNA[String(SY)].teams)||{};
   _dftrDist=Object.values(t).map(x=>x&&x.dFTr).filter(x=>x!=null).sort((a,b)=>a-b);
   _oftrDist=Object.values(t).map(x=>x&&x.oFTr).filter(x=>x!=null).sort((a,b)=>a-b); }
 function pctlIn(arr,v){ if(!arr||!arr.length||v==null) return null; let n=0; for(const x of arr){ if(x<=v) n++; } return Math.round(100*n/arr.length); }
-function sgOf(r){ return SG[r.full]||SG[(r.full||'').toLowerCase()]||null; }
+function sgOf(r){ if(!PROJ&&SY!==2026) return null; return SG[r.full]||SG[(r.full||'').toLowerCase()]||null; }
 function reportOf(r){
-  if(!REPORTS||!REPORTS.teams) return null;
+  if(!PROJ||!REPORTS||!REPORTS.teams) return null;
   const cand=[r.team, (r.team||'').replace(/ /g,'-'), r.full];
   for(const k of cand){ if(k&&REPORTS.teams[k]) return REPORTS.teams[k]; }
   return null;
@@ -514,7 +549,7 @@ async function loadAttackSheet(row){
   if(!rot.length){ host.innerHTML=''; return; }
   // one bulk advanced fetch keyed by espn_id (so transfers get their prior-team 2025-26 rates too)
   let adv=[]; const ids=rot.map(p=>p.espn_id).join(',');
-  try{ adv=await fetch(`${SB_URL}/rest/v1/player_advanced?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,ts_pct,ast_pct,tov_pct,orb_pct,drb_pct,stl_pct,blk_pct,ti40`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
+  try{ adv=await fetch(`${SB_URL}/rest/v1/player_advanced?espn_id=in.(${ids})&season_year=eq.${SY}&select=espn_id,ts_pct,ast_pct,tov_pct,orb_pct,drb_pct,stl_pct,blk_pct,ti40`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
   const advBy={}; adv.forEach(a=>{ if(a.espn_id!=null) advBy[a.espn_id]=a; });
   const T=window.TDCImpact;
   const chip=(t,col)=>`<span class="as-chip" style="--c:${col}">${esc(t.l)} <b>${T.ord(t.p)}</b></span>`;
@@ -523,7 +558,7 @@ async function loadAttackSheet(row){
     const grade=(p.tdc_grade!=null)?Math.round(p.tdc_grade):'—';
     const line=`${(+p.ppg||0).toFixed(1)}/${(+p.rpg||0).toFixed(1)}/${(+p.apg||0).toFixed(1)}`;
     const hd=`<div class="as-hd"><div class="as-nm">${esc(p.name)}</div><div class="as-meta">${esc(p.position||'')} · <b>${grade}</b> OVR · ${line}</div></div>`;
-    if(!a){ return `<div class="as-card">${hd}<div class="as-row"><span class="as-none">Newcomer — no 2025-26 tape to book yet.</span></div></div>`; }
+    if(!a){ return `<div class="as-card">${hd}<div class="as-row"><span class="as-none">Newcomer — no ${SYL()} tape to book yet.</span></div></div>`; }
     const merged=Object.assign({ppg:p.ppg,tp_pct:p.tp_pct}, a);
     const sl=T.sigLiab(merged, 3, 30);
     let sig=sl.signature.filter(t=>t.p>=58); if(!sig.length && sl.signature.length) sig=[sl.signature[0]];
@@ -533,7 +568,7 @@ async function loadAttackSheet(row){
       <div class="as-row"><span class="as-lbl" style="color:#E06A7A">Attack here</span>${liab.length?liab.map(t=>chip(t,'#E06A7A')).join(''):'<span class="as-none">no clear weakness</span>'}</div>
     </div>`;
   }).join('');
-  host.innerHTML=`<div class="sec-h">Attack Sheet — strengths &amp; seams <span class="hint">2025-26 rates · percentile vs all D-I</span></div><div class="as-grid">${cards}</div>`;
+  host.innerHTML=`<div class="sec-h">Attack Sheet — strengths &amp; seams <span class="hint">${SYL()} rates · percentile vs all D-I</span></div><div class="as-grid">${cards}</div>`;
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
 }
 // ── CONDITIONAL GAME PLAN: how the opponent's players break down vs a defense like YOURS ──
@@ -556,7 +591,7 @@ function _gpZvec(dnaTeams, keys){
 function _gpLikeSets(meDNA, seasons){
   const keys=['adjD','dTOV','deFG','tempo'].filter(k=>meDNA[k]!=null);
   if(keys.length<2) return null;
-  const ref=(DNA['2026']&&DNA['2026'].teams)||{}; const zr=_gpZvec(ref,keys);
+  const ref=(DNA[String(SY)]&&DNA[String(SY)].teams)||{}; const zr=_gpZvec(ref,keys);
   const meZ={}; keys.forEach(k=>meZ[k]=(meDNA[k]-zr[k].m)/zr[k].sd);
   const sets={};
   seasons.forEach(s=>{ const tt=(DNA[s]&&DNA[s].teams); if(!tt) return;
@@ -593,18 +628,18 @@ function _gpChips(p){
     return '<span class="gp-chip '+tone+'">'+lab+' '+arrow+val+u+'</span>';
   }).join('');
 }
-const GP_SEASONS=[2026,2025,2024];   // pool the last 3 completed seasons to thicken samples
+const GP_SEASONS_=()=>[SY,SY-1,SY-2];   // pool the last 3 completed seasons to thicken samples
 async function buildGuardPlanSection(withId){
   const host=el('scoutGuardPlan'); if(!host) return;
   const oppShort=sn(poolRow(selKey.Opp).team);
   const meRow=(selKey.Me!=null&&selKey.Me!==selKey.Opp)?poolRow(selKey.Me):null;
   if(!meRow){ host.innerHTML='<div class="gp-empty">Add <b>your team</b> in the second box above to see how '+esc(oppShort)+' breaks down against a defense like yours — a game plan built from how each of their players actually performed vs teams like you.</div>'; return; }
   const meDNA=dna26Of(meRow)||dnaOf(meRow); if(!meDNA){ host.innerHTML=''; return; }
-  const sets=_gpLikeSets(meDNA, GP_SEASONS); if(!sets){ host.innerHTML=''; return; }
+  const sets=_gpLikeSets(meDNA, GP_SEASONS_()); if(!sets){ host.innerHTML=''; return; }
   // own pooled box fetch (separate from the single-season attack-book fetch)
   const _tok=selKey.Opp, ids=withId.map(p=>p.espn_id).join(','); if(!ids) return;
   let box=[];
-  try{ box=await fetch(SB_URL+'/rest/v1/box_scores?espn_id=in.('+ids+')&season_year=in.('+GP_SEASONS.join(',')+')&min=gte.4&select=espn_id,season_year,opp,min,fga,fgm,tpm,tpa,tov,pts&limit=12000',{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){ box=[]; }
+  try{ box=await fetch(SB_URL+'/rest/v1/box_scores?espn_id=in.('+ids+')&season_year=in.('+GP_SEASONS_().join(',')+')&min=gte.4&select=espn_id,season_year,opp,min,fga,fgm,tpm,tpa,tov,pts&limit=12000',{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){ box=[]; }
   if(selKey.Opp!==_tok) return;   // opponent changed mid-fetch
   const boxBy={}; box.forEach(b=>{(boxBy[b.espn_id]=boxBy[b.espn_id]||[]).push(b);});
   const inLike=g=>{ const s=sets[g.season_year]; return s && s.has(g.opp); };
@@ -632,27 +667,26 @@ async function buildGuardPlanSection(withId){
         ? 'Your defense turns <b>'+esc(soft[0].name)+'</b> from a threat into a role player. The rest of '+esc(oppShort)+'&rsquo;s rotation holds up &mdash; here&rsquo;s the plan.'
         : 'Your defense makes <b>'+soft.length+' of '+esc(oppShort)+'&rsquo;s scorers</b> tougher to trust &mdash; starting with <b>'+esc(soft[0].name)+'</b>. Here&rsquo;s the plan.')
     : esc(oppShort)+'&rsquo;s rotation holds up well against a defense like yours &mdash; no easy soft spots. Contain and win the glass.';
-  const perSeasonN=(sets[2026]&&sets[2026].size)||(sets[2025]&&sets[2025].size)||40;
+  const perSeasonN=(sets[SY]&&sets[SY].size)||(sets[SY-1]&&sets[SY-1].size)||40;
   host.innerHTML='<div class="sec-h">How to guard '+esc(oppShort)+' <span class="hint">through '+esc(meNm)+'&rsquo;s defense &middot; vs teams like yours &middot; last 3 seasons</span></div>'
     +'<p class="gp-lede">'+lede+'</p>'
     +(soft.length?'<div class="gp-sec-h attack"><span>Take these away</span><i></i><span class="gp-cnt">'+soft.length+'</span></div><div class="gp-group">'+soft.map(unit).join('')+'</div>':'')
     +(rest.length?'<div class="gp-sec-h contain"><span>Contain &mdash; don&rsquo;t gamble</span><i></i><span class="gp-cnt">'+rest.length+'</span></div><div class="gp-group">'+rest.map(unit).join('')+'</div>':'')
-    +'<p class="gp-foot">Each player&rsquo;s real games over his last '+GP_SEASONS.length+' seasons, split against the ~'+perSeasonN+' defenses most like '+esc(meNm)+' each season (pressure, shot defense, pace). The number is the change vs his own norm &mdash; empirical; samples pooled across seasons, still flagged where thin.</p>';
+    +'<p class="gp-foot">Each player&rsquo;s real games over his last '+GP_SEASONS_().length+' seasons, split against the ~'+perSeasonN+' defenses most like '+esc(meNm)+' each season (pressure, shot defense, pace). The number is the change vs his own norm &mdash; empirical; samples pooled across seasons, still flagged where thin.</p>';
 }
 async function loadPersonnel(row){
   const host=el('scoutScorers'); if(!host) return;
   const _R=v=>{const n=+v;return isNaN(n)?0:n;};
-  let roster=[];
-  try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,position2,depth_order,hometown,is_injured,class_year,yr,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
+  let roster=await rosterFor(row);
   const withId=roster.filter(p=>p.espn_id!=null);
-  if(!withId.length){ host.innerHTML='<div class="muted" style="padding:14px 4px">No roster on file for this team yet.</div>'; return; }
-  // projected lines from the real engine (same as the player page / rankings)
+  if(!withId.length){ host.innerHTML='<div class="muted" style="padding:14px 4px">No '+(PROJ?'':SYL()+' ')+'roster on file for this team.</div>'; return; }
+  // projected lines from the real engine (same as the player page / rankings) — current season only
   let PJ={};
-  try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready;
+  try{ if(!PROJ) throw 0; if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready;
     if(typeof buildTeamProjections==='function'){ const pr=buildTeamProjections(roster.map(x=>Object.assign({},x)), row.conf||''); (pr||[]).forEach(x=>{ if(x&&x.name) PJ[x.name.toLowerCase().trim()]=x; }); }
   }catch(e){}
   // DNA tertile thresholds for the situational (pressure) attack reads
-  const teams=(DNA&&DNA['2026']&&DNA['2026'].teams)||{};
+  const teams=(DNA&&DNA[String(SY)]&&DNA[String(SY)].teams)||{};
   const col=k=>Object.values(teams).map(t=>t[k]).filter(x=>x!=null).sort((a,b)=>a-b), qf=(v,f)=>v.length?v[Math.floor(v.length*f)]:0;
   const T={havoc:qf(col('dTOV'),2/3),low:qf(col('dTOV'),1/3)};
   const dnaByOpp=o=>teams[o];
@@ -660,8 +694,8 @@ async function loadPersonnel(row){
   const ids=withId.map(p=>p.espn_id).join(',');
   let box=[],shots=[];
   try{ [box,shots]=await Promise.all([
-    fetch(`${SB_URL}/rest/v1/box_scores?espn_id=in.(${ids})&season_year=eq.2026&min=gte.4&select=espn_id,opp,min,fga,fgm,tpm,tpa,fta,ftm,tov,pts,pf&limit=4000`,{headers:H}).then(r=>r.ok?r.json():[]),
-    fetch(`${SB_URL}/rest/v1/shots?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,made,sv,stype&limit=16000`,{headers:tdcH()}).then(r=>r.ok?r.json():[])
+    fetch(`${SB_URL}/rest/v1/box_scores?espn_id=in.(${ids})&season_year=eq.${SY}&min=gte.4&select=espn_id,opp,min,fga,fgm,tpm,tpa,fta,ftm,tov,pts,pf&limit=4000`,{headers:H}).then(r=>r.ok?r.json():[]),
+    fetch(`${SB_URL}/rest/v1/shots?espn_id=in.(${ids})&season_year=eq.${SY}&select=espn_id,made,sv,stype&limit=16000`,{headers:tdcH()}).then(r=>r.ok?r.json():[])
   ]); }catch(e){}
   const boxBy={},shotBy={}; box.forEach(b=>{(boxBy[b.espn_id]=boxBy[b.espn_id]||[]).push(b);}); shots.forEach(s=>{(shotBy[s.espn_id]=shotBy[s.espn_id]||[]).push(s);});
   buildGuardPlanSection(withId).catch(function(){ /* guard plan is additive */ });
@@ -750,7 +784,7 @@ async function loadPersonnel(row){
   const card=({p},i)=>{ const it=intel(p), l=it.line;
     const body=(it.guard.length||it.attack.length)
       ? `<div class="abbody">${exCol('guard',it.guard)}${exCol('attack',it.attack)}</div>`
-      : `<div class="abbody"><div class="abnone">Not enough 2025-26 game data to profile his tendencies yet — the projected line above is the read.</div></div>`;
+      : `<div class="abbody"><div class="abnone">Not enough ${SYL()} game data to profile his tendencies yet — the line above is the read.</div></div>`;
     return `<details class="abcard"${(it.isStar||i<2)?' open':''}>
       <summary class="absum">
         <div class="pcovr">${it.ovr!=null?it.ovr:'—'}</div>
@@ -760,7 +794,7 @@ async function loadPersonnel(row){
         <div class="abtog">▸</div>
       </summary>${body}
     </details>`; };
-  host.innerHTML=`<div class="pchint">Each opponent's projected 2026-27 line plus a deep read on <b>how to guard him</b> and <b>how to attack him</b> — synthesized from his 2025-26 shot chart, game log and defensive footprint. Click a player to open his book.</div>${rows.map(card).join('')}`;
+  host.innerHTML=`<div class="pchint">Each opponent's ${PROJ?'projected 2026-27':SYL()} line plus a deep read on <b>how to guard him</b> and <b>how to attack him</b> — synthesized from his ${SYL()} shot chart, game log and defensive footprint. Click a player to open his book.</div>${rows.map(card).join('')}`;
 }
 
 async function loadShotChart(row){
@@ -776,9 +810,9 @@ async function loadShotChart(row){
   }catch(e){}
   if(tid==null){ host.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3);font-size:12px;">Shot-location data unavailable for this team.</div>'; return; }
   try{
-    const shots=await fetch(SB_URL+'/rest/v1/shots?team_id=eq.'+tid+'&season_year=eq.2026&select=x,y,made,sv,dist&limit=6000',{headers:tdcH()}).then(r=>r.ok?r.json():[]);
+    const shots=await fetch(SB_URL+'/rest/v1/shots?team_id=eq.'+tid+'&season_year=eq.${SY}&select=x,y,made,sv,dist&limit=6000',{headers:tdcH()}).then(r=>r.ok?r.json():[]);
     if(!shots.length){ host.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3);font-size:12px;">No shot-location data on file.</div>'; return; }
-    TDC_SHOTCHART.render(host, shots, {subtitle:row.full+' · 2025-26', mode:'hex'});
+    TDC_SHOTCHART.render(host, shots, {subtitle:row.full+' · '+SYL()});
   }catch(e){ host.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3);font-size:12px;">Could not load shot chart.</div>'; }
 }
 
@@ -796,7 +830,7 @@ async function loadShotProfile(row){
   }catch(e){}
   if(tid==null){ host.innerHTML=''; return; }
   let games=[], def=[];
-  try{ games=await fetch(`${SB_URL}/rest/v1/games?or=(home.eq.${encodeURIComponent(row.full)},away.eq.${encodeURIComponent(row.full)})&season_year=eq.2026&select=id&limit=60`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  try{ games=await fetch(`${SB_URL}/rest/v1/games?or=(home.eq.${encodeURIComponent(row.full)},away.eq.${encodeURIComponent(row.full)})&season_year=eq.${SY}&select=id&limit=60`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
   if(games.length){ const ids=games.map(g=>g.id).join(','); try{ def=await fetch(`${SB_URL}/rest/v1/shots?game_id=in.(${ids})&team_id=neq.${tid}&select=made,sv,stype&limit=8000`,{headers:tdcH()}).then(r=>r.ok?r.json():[]); }catch(e){} }
   if(def.length<50){ host.innerHTML=''; return; }
   const zoneOf=s=>{ if(s.sv===3) return 'three'; const st=(s.stype||'').toLowerCase(); return /layup|dunk|tip|alley|finger|slam/.test(st)?'rim':'mid'; };
@@ -816,7 +850,7 @@ async function loadShotProfile(row){
   const plan = worst.delta>0.005
     ? `<b>Attack ${ZL[worst.z].toLowerCase()}</b> — they allow <b>${pct(worst.efg)}%</b> eFG there, <b>+${pct(worst.delta)}%</b> above what the shot is worth. ${atk[worst.z].charAt(0).toUpperCase()+atk[worst.z].slice(1)}.`
     : `No soft spot — they defend every zone at or below the expected make. Pick your matchups; this is a stingy shot defense.`;
-  host.innerHTML=`<div class="sec-h" style="margin-top:22px">Their defense — shot profile by zone <span class="hint">2025-26 · what opponents make against them · green = they defend it well</span></div>
+  host.innerHTML=`<div class="sec-h" style="margin-top:22px">Their defense — shot profile by zone <span class="hint">${SYL()} · what opponents make against them · green = they defend it well</span></div>
     <div class="card"><div>${['rim','mid','three'].map(row3).join('')}</div><div class="obread"><b>Attack plan:</b> ${plan}</div></div>`;
 }
 
@@ -826,7 +860,7 @@ async function loadShotProfile(row){
 async function loadMarchProfile(row){
   const host=el('scoutMarch'); if(!host) return;
   const esc=s=>(''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
-  let ps=[]; try{ ps=await fetch(`${SB_URL}/rest/v1/postseason_games?or=(home.eq.${encodeURIComponent(row.full)},away.eq.${encodeURIComponent(row.full)})&season_year=eq.2026&select=id,tournament,round`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  let ps=[]; try{ ps=await fetch(`${SB_URL}/rest/v1/postseason_games?or=(home.eq.${encodeURIComponent(row.full)},away.eq.${encodeURIComponent(row.full)})&season_year=eq.${SY}&select=id,tournament,round`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
   if(!ps.length){ host.innerHTML=''; return; }
   let roster=[]; try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,is_injured,ppg,mpg&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
   const rot=roster.filter(p=>p.espn_id!=null && !p.is_injured && (+p.mpg||0)>=8).slice(0,10);
@@ -849,7 +883,7 @@ async function loadMarchProfile(row){
     <div style="text-align:right;font-variant-numeric:tabular-nums"><b>${r.tp.toFixed(1)}</b>/${(r.a.reb/r.a.g).toFixed(1)}/${(r.a.ast/r.a.g).toFixed(1)}<div style="font-size:9.5px;color:var(--text3)">postseason p/r/a</div></div>
     <div style="text-align:right;min-width:86px;font-size:11px;font-weight:800">${r.tag}</div>
   </div>`).join('');
-  host.innerHTML=`<div class="sec-h" style="margin-top:22px">March profile — who stepped up <span class="hint">2025-26 ${esc(tourney)} · vs regular-season scoring</span></div><div class="card">${body}</div>`;
+  host.innerHTML=`<div class="sec-h" style="margin-top:22px">March profile — who stepped up <span class="hint">${SYL()} ${esc(tourney)} · vs regular-season scoring</span></div><div class="card">${body}</div>`;
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
 }
 
@@ -858,14 +892,14 @@ async function loadMarchProfile(row){
 let _styleCuts=null;
 async function loadStyleMatchups(row){
   const host=el('scoutStyle'); if(!host) return;
-  const dna2=(DNA&&DNA['2026']&&DNA['2026'].teams)||{}; if(!Object.keys(dna2).length){ host.innerHTML=''; return; }
+  const dna2=(DNA&&DNA[String(SY)]&&DNA[String(SY)].teams)||{}; if(!Object.keys(dna2).length){ host.innerHTML=''; return; }
   if(!_styleCuts){ const teams=Object.values(dna2), arrf=f=>teams.map(f).filter(v=>v!=null).sort((a,b)=>a-b),
       q=(a,p)=>a.length?a[Math.max(0,Math.min(a.length-1,Math.round(p*(a.length-1))))]:null;
     const th=Object.keys(SG).map(k=>SG[k]&&SG[k].off&&SG[k].off.threeRate).filter(v=>v!=null).sort((a,b)=>a-b);
     _styleCuts={ tFast:q(arrf(t=>t.tempo),.67),tSlow:q(arrf(t=>t.tempo),.33),orHi:q(arrf(t=>t.ORtg),.75),drHi:q(arrf(t=>t.DRtg),.25),thHi:q(th,.67),thLo:q(th,.33) };
   }
   const CUT=_styleCuts, me=row.full;
-  let games=[]; try{ games=await fetch(`${SB_URL}/rest/v1/games?or=(home.eq.${encodeURIComponent(me)},away.eq.${encodeURIComponent(me)})&season_year=eq.2026&home_score=not.is.null&select=home,away,home_score,away_score&limit=60`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  let games=[]; try{ games=await fetch(`${SB_URL}/rest/v1/games?or=(home.eq.${encodeURIComponent(me)},away.eq.${encodeURIComponent(me)})&season_year=eq.${SY}&home_score=not.is.null&select=home,away,home_score,away_score&limit=60`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
   if(games.length<5){ host.innerHTML=''; return; }
   const G=games.map(x=>{ const home=x.home===me, my=home?x.home_score:x.away_score, opp=home?x.away_score:x.home_score, oppName=home?x.away:x.home, od=dna2[oppName], s=SG[oppName];
     return {win:my>opp,margin:my-opp,tempo:od?od.tempo:null,ortg:od?od.ORtg:null,drtg:od?od.DRtg:null,three:s&&s.off?s.off.threeRate:null}; });
@@ -886,7 +920,7 @@ async function loadStyleMatchups(row){
   const rt=best(three),rp=best(paint); if(rt&&rp){ if(rt.mg<=rp.mg-6) parts.push(`<b>vulnerable to three-heavy</b> offenses (${rt.w}–${rt.l})`); else if(rp.mg<=rt.mg-6) parts.push(`<b>tough on jump-shooting teams</b>`); }
   const reo=best(eliteO),red=best(eliteD); if(reo&&red){ if(reo.mg<=red.mg-6) parts.push(`troubled more by <b>elite offenses</b>`); else if(red.mg<=reo.mg-6) parts.push(`challenged most by <b>elite defenses</b>`); }
   const read = parts.length ? `<b>Style read:</b> ${esc(me)} is ${nm(parts)}.` : `<b>Style read:</b> ${esc(me)} handled every style about the same — no obvious stylistic weakness in the 2025-26 results.`;
-  host.innerHTML=`<div class="sec-h" style="margin-top:22px">How they fare vs different styles <span class="hint">2025-26 results by opponent tempo · shot profile · strength</span></div><div class="card">${body}<div class="obread">${read}</div></div>`;
+  host.innerHTML=`<div class="sec-h" style="margin-top:22px">How they fare vs different styles <span class="hint">${SYL()} results by opponent tempo · shot profile · strength</span></div><div class="card">${body}<div class="obread">${read}</div></div>`;
 }
 
 // ── their offense: how they generate + who creates + how to disrupt ──
@@ -908,7 +942,7 @@ function offenseBreakdown(r, RN){
   if(z('off_to_pg')>=0.55) dis.push('value the ball; their offense feeds off live-ball turnovers');
   if(!dis.length) dis.push('a disciplined half-court team — make them earn each possession against a set defense');
   const srcHtml=src.length?`<div class="obchips">${src.map(s=>`<span class="obchip"><b>${s[0]}</b> · ${s[1]}</span>`).join('')}</div>`:`<div class="obchips"><span class="obchip">Balanced half-court offense — no single source stands out above the norm</span></div>`;
-  return `<div class="sec-h">Their offense — how they generate <span class="hint">2025-26 play-by-play</span></div>
+  return `<div class="sec-h">Their offense — how they generate <span class="hint">${SYL()} play-by-play</span></div>
     <div class="card">${srcHtml}${hubHtml}<div class="obread"><b>Disrupt it:</b> ${dis.join('; ')}.</div></div>`;
 }
 // ── their defense: identity + where to attack ──
@@ -927,7 +961,7 @@ function defenseBreakdown(r, RN){
   const attack = weakest.p<45
     ? `Their defense ${weakest.lo} (${Math.round(weakest.p)}ᵗʰ percentile at ${weakest.nm}) — that's the seam to attack.`
     : `A stingy defense with no glaring hole; their best trait is ${strongest.nm} (${Math.round(strongest.p)}ᵗʰ). Move them side-to-side and take the first good look.`;
-  return `<div class="sec-h">Their defense — where to attack <span class="hint">2026-27 projected · percentile vs D-I</span></div>
+  return `<div class="sec-h">Their defense — where to attack <span class="hint">${REPL()} · percentile vs D-I</span></div>
     <div class="card"><div class="dfbars">${bars}</div><div class="obread"><b>Attack plan:</b> ${attack}${rimHtml}</div></div>
     ${foulProfile(r)}`;
 }
@@ -946,7 +980,7 @@ function foulProfile(r){
     : dp<=35
     ? `A <b>disciplined, low-foul defense</b> (${dp}ᵗʰ percentile) — they won't bail you out at the line, so you'll have to earn baskets in the halfcourt. Don't settle for tough twos hoping for a whistle.`
     : `An average-fouling defense (${dp}ᵗʰ percentile) — free throws will be there in stretches but aren't a reliable pressure valve; take the rim attacks the offense gives you.`;
-  return `<div class="sec-h" style="margin-top:22px">Foul &amp; free-throw profile <span class="hint">2025-26 observed · FTA per FGA vs D-I</span></div>
+  return `<div class="sec-h" style="margin-top:22px">Foul &amp; free-throw profile <span class="hint">${SYL()} observed · FTA per FGA vs D-I</span></div>
     <div class="card"><div class="dfbars">${rows.join('')}</div><div class="obread"><b>At the line:</b> ${read}</div></div>`;
 }
 
@@ -956,7 +990,8 @@ async function render(){
   const r=opp.r, tc=teamColor(r), dna=dnaOf(r), sg=sgOf(r), rep=reportOf(r);
   const me=selKey.Me!=null&&selKey.Me!==selKey.Opp?{key:selKey.Me}:null;
   const initials=(r.full||'').split(' ').map(w=>w[0]).slice(0,2).join('');
-  const rec=`#${r.rank||'—'} nationally · rating ${fmtR(r)}`;
+  const TS=await seasonRow(r);
+  const rec=PROJ?`#${r.rank||'—'} nationally · rating ${fmtR(r)}`:(TS&&TS.wins!=null?`${SYL()} · ${TS.wins}-${TS.losses}${TS.srs!=null?' · rating '+((+TS.srs>=0?'+':'')+(+TS.srs).toFixed(1)):''}${TS.ncaa_result?' · '+esc(TS.ncaa_result):''}`:`${SYL()} · no season record on file`);
   // current roster (names to strip departed players from last-season PBP references,
   // + positions to badge the lineup players)
   const _tok=selKey.Opp; const CR=await currentRoster(r); if(selKey.Opp!==_tok) return; const RN=CR.names;
@@ -988,15 +1023,15 @@ async function render(){
       ${(window.TDC_TEAM&&TDC_TEAM.logo(r.full))?`<img class="badge" style="object-fit:contain;padding:7px;background:var(--bg3)" src="${TDC_TEAM.logo(r.full)}" alt="" onerror="this.outerHTML='<div class=\\'badge\\'>${esc(initials)}</div>'">`:`<div class="badge">${esc(initials)}</div>`}
       <div><div class="onm"><a href="${TDC_TEAM.link(r.full)}" style="color:inherit;text-decoration:none">${esc(r.full)}</a></div><div class="omet"><b>${esc(r.conf||'')}</b> · ${rec}${dna?` · ${dna.tempo?dna.tempo.toFixed(0)+' poss/g':''}`:''}</div></div>
     </div>
-    ${me?matchupMini(me,opp):''}
+    ${(me&&PROJ)?matchupMini(me,opp):''}
     <div id="scoutGuardPlan"></div>
-    ${plan||'<div class="card"><div class="muted">Team DNA isn\'t on file for this opponent yet, so the auto game plan is unavailable.</div></div>'}
+    ${plan||'<div class="card"><div class="muted">Team DNA isn\'t on file for this opponent in '+(PROJ?'2026-27':SYL())+', so the auto game plan is unavailable.</div></div>'}
     ${profile}
     <div id="scoutSituational"></div>
     <div id="scoutMarch"></div>
     <div id="scoutStyle"></div>
     <div id="scoutAttack"></div>
-    <div class="sec-h">The Attack Book — how to guard &amp; attack each man <span class="hint">projected line · 2025-26 tendencies</span></div>
+    <div class="sec-h">The Attack Book — how to guard &amp; attack each man <span class="hint">${PROJ?'projected line':SYL()+' line'} · ${SYL()} tendencies</span></div>
     <div id="scoutScorers"><div class="muted" style="padding:16px 4px">Projecting their rotation &amp; reading their tendencies…</div></div>
     ${offenseBreakdown(r,RN)}
     ${defenseBreakdown(r,RN)}
@@ -1010,10 +1045,10 @@ async function render(){
   loadAttackSheet(r);
   loadMarchProfile(r);
   loadPersonnel(r);
-  if(window.TDC_SITUATIONAL) TDC_SITUATIONAL.section(r, 2026).then(function(h){ var sh=document.getElementById('scoutSituational'); if(sh&&h){ sh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(sh); } });
-  if(window.TDC_LINEUPS) TDC_LINEUPS.section(r.full, 2026, {pos:CR.pos}).then(function(h){ var lh=document.getElementById('scoutLineupHost'); if(lh&&h){ lh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(lh); } });
-  if(me) loadKeyMatchups(poolRow(me.key), r);
-  if(sg&&sg.off) loadShotChart(r);
+  if(window.TDC_SITUATIONAL) TDC_SITUATIONAL.section(r, SY).then(function(h){ var sh=document.getElementById('scoutSituational'); if(sh&&h){ sh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(sh); } });
+  if(window.TDC_LINEUPS) TDC_LINEUPS.section(r.full, SY, {pos:CR.pos}).then(function(h){ var lh=document.getElementById('scoutLineupHost'); if(lh&&h){ lh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(lh); } });
+  if(me&&PROJ) loadKeyMatchups(poolRow(me.key), r);
+  if(!PROJ||(sg&&sg.off)) loadShotChart(r);
   loadShotProfile(r);
   loadStyleMatchups(r);
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(r.full));
@@ -1033,10 +1068,10 @@ async function render(){
   ]);
   D=d; DNA=dna; REPORTS=reps; PBP=pbp;
   // D-I norms for the scoring-source stats (z-score the opponent's identity)
-  try{ const s=(PBP&&(PBP['2026']||PBP[Object.keys(PBP).sort().reverse()[0]]))||{}; const tt=(s&&s.teams)||s; const arr=Object.values(tt||{}).filter(x=>x&&x.gp);
+  window._pbpNorms=function(){ try{ const s=(PBP&&(PBP[String(SY)]||(PROJ?PBP[Object.keys(PBP).sort().reverse()[0]]:null)))||{}; const tt=(s&&s.teams)||s; const arr=Object.values(tt||{}).filter(x=>x&&x.gp);
     const stat=k=>{ const v=arr.map(t=>t[k]).filter(x=>x!=null); if(!v.length) return {m:0,sd:1}; const m=v.reduce((a,b)=>a+b,0)/v.length; const sd=Math.sqrt(v.reduce((a,b)=>a+(b-m)*(b-m),0)/v.length)||1; return {m,sd}; };
-    ['transition_rate','off_to_pg','second_chance_pg','and1_pg'].forEach(k=>PBPNORM[k]=stat(k));
-  }catch(e){}
+    ['transition_rate','off_to_pg','second_chance_pg','and1_pg'].forEach(k=>PBPNORM[k]=stat(k)); }catch(e){} };
+  window._pbpNorms();
   D.teams=(D.teams||[]).filter(t=>t.projected!==false&&t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999));
   if(sg&&sg.teams){ sg.teams.forEach(x=>{ SG[x.team]=x; SG[(x.team||'').toLowerCase()]=x; });
     // league mean + SD per shot-diet stat, so the game plan flags a team by how many
@@ -1050,6 +1085,7 @@ async function render(){
   // deep-link support: ?opp=Full Name  &  ?me=Full Name
   const qs=new URLSearchParams(location.search);
   const findByName=n=>{ n=(n||'').toLowerCase(); const i=D.teams.findIndex(t=>t.full.toLowerCase()===n||t.team.toLowerCase()===n); return i>=0?i:null; };
+  const sy=parseInt(qs.get('season')||'',10); if(sy>=2016&&sy<=2026){ PROJ=false; SY=sy; const ss=el('selSeason'); if(ss) ss.value=String(sy); }
   selKey.Opp=findByName(qs.get('opp')||qs.get('team'));   // ?team= alias so the cross-tool deep-link lands on the opponent
   selKey.Me=findByName(qs.get('me'));
   if(selKey.Opp!=null) el('selOpp').value=labelOf(poolRow(selKey.Opp));

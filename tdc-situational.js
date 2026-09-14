@@ -106,7 +106,7 @@ window.TDC_SITUATIONAL = (function () {
       if (cl.n >= 3) parts.push(cl.w >= cl.l ? 'and ' + cl.w + '–' + cl.l + ' in one-possession games (' + (cl.w > cl.l ? 'clutch — a late lead is not safe' : 'even') + ')' : 'and <b>shaky in the clutch</b> (' + cl.w + '–' + cl.l + ' in close ones — hang around and the pressure is on them)');
       var read = parts.length ? '<div class="tread">' + esc(sn(me)) + ' is ' + parts.join(', ') + '.</div>' : '';
 
-      var body = '<div class="sec-h" style="margin-top:26px">Situational — which version shows up <span class="hint">2025-26 · ' + overall.w + '–' + overall.l + ', ' + (overall.mg >= 0 ? '+' : '') + overall.mg.toFixed(1) + ' avg margin</span></div>'
+      var body = '<div class="sec-h" style="margin-top:26px">Situational — which version shows up <span class="hint">' + (season-1) + '-' + String(season).slice(2) + ' · ' + overall.w + '–' + overall.l + ', ' + (overall.mg >= 0 ? '+' : '') + overall.mg.toFixed(1) + ' avg margin</span></div>'
         + '<div class="splits">' + venueSplit + qualSplit + clutchSplit + confSplit + '</div>' + hilite + read;
 
       // half-by-half shooting (offense + defense allowed)
