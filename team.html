@@ -1412,6 +1412,12 @@
     </div>
     <div class="panel" id="panel-dna">
       <div id="teamDnaHost"><div style="padding:24px;color:var(--text3);">Loading Team DNA…</div></div>
+      <div id="teamShotsWrap" style="margin-top:30px;">
+        <div class="sec-head"><span>Shot chart &amp; shot flow <span class="sec-head-sub">every tracked attempt · pick a season</span></span>
+          <select id="teamShotSeason" class="exp-sel" style="padding:6px 9px;font-size:12px;margin-left:auto;"></select></div>
+        <div id="teamShotHost"></div>
+        <div id="teamShotFlowHost" style="margin-top:22px;"></div>
+      </div>
     </div>
     <div class="panel" id="panel-onoff">
       <div id="onoffHost"><div style="padding:24px;color:var(--text3);">Loading On/Off…</div></div>
@@ -5676,9 +5682,17 @@ async function loadTeamShotChart(season){
   host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Loading team shot chart…</div>';
   var tid=await _teamEspnId();
   if(!tid||!season){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Team shot data unavailable.</div>'; return; }
+  var fhost=document.getElementById('teamShotFlowHost'); if(fhost) fhost.innerHTML='';
   try{
-    var rows=await fetch(SB_URL+'/rest/v1/shots?team_id=eq.'+tid+'&season_year=eq.'+season+'&select=x,y,made,sv,dist&limit=6000',{headers:tdcH()}).then(r=>r.ok?r.json():[]);
-    TDC_SHOTCHART.render(host, Array.isArray(rows)?rows:[], {subtitle:(teamT&&teamT.name)||'this team', mode:'hex'});
+    var rows=await fetch(SB_URL+'/rest/v1/shots?team_id=eq.'+tid+'&season_year=eq.'+season+'&select=x,y,made,sv,dist,stype,ast_name&limit=8000',{headers:tdcH()}).then(r=>r.ok?r.json():[]);
+    rows=Array.isArray(rows)?rows:[];
+    TDC_SHOTCHART.render(host, rows, {subtitle:(teamT&&teamT.name)||'this team'});
+    // shot flow (zone → type → outcome → assist) needs the enriched rows; older seasons never got them
+    if(fhost&&window.TDC_SHOTFLOW){
+      var enriched=rows.filter(function(r){return r.stype;});
+      if(enriched.length>=40) TDC_SHOTFLOW.render(fhost, enriched, {subtitle:(teamT&&teamT.name)||'this team', team:(teamT&&teamT.name)});
+      else if(rows.length) fhost.innerHTML='<div style="padding:18px;text-align:center;color:var(--text3);font-size:12.5px;line-height:1.5;">No shot flow for '+((season-1)+'-'+String(season).slice(2))+' — shot type and assist tags were only captured from 2023-24 on; earlier seasons have locations only.</div>';
+    }
   }catch(e){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Could not load shot chart.</div>'; }
 }
 
@@ -5867,8 +5881,7 @@ function switchTab(id, btn){
   document.querySelectorAll('.hero-tab,.hgm-item').forEach(b=>b.classList.remove('active'));
   document.getElementById('panel-'+id).classList.add('active');
   btn.classList.add('active');
-  if(id==='analysis' && !window._teamShotInit){ window._teamShotInit=true; _initTeamShot(); }
-  if(id==='dna'){ renderTeamDNA(); }
+  if(id==='dna'){ renderTeamDNA(); if(!window._teamShotInit){ window._teamShotInit=true; _initTeamShot(); } }
   if(id==='onoff'){ renderOnOff(); }
   // The right sidebar (coach/depth/recruit grades, offseason additions, roster
   // turnover) is 2026-27 depth-chart context — show it only on the Depth Chart tab.

@@ -6052,7 +6052,8 @@ async function loadShotFlow(season){
     var res=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.'+season+'&stype=not.is.null&select=x,y,made,sv,stype,ast_name&limit=2000',{headers:tdcH()});
     var rows=res.ok?await res.json():[];
     if(!Array.isArray(rows) || rows.length<8){
-      host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Shot-flow data for this season is still being processed.</div>'; return;
+      var _sl2=(typeof _seasonLbl2==='function')?_seasonLbl2(season):season;
+      host.innerHTML='<div style="padding:22px;text-align:center;color:var(--text3);font-size:12.5px;line-height:1.5;">'+(+season>=2024?'Shot-flow data for '+_sl2+' is still being processed.':'No shot flow for '+_sl2+' — shot type and assist tags were only captured from 2023-24 on; earlier seasons have shot locations only.')+'</div>'; return;
     }
     var ch=(careerHistory||[]).find(function(s){return +s.season_year===+season;});
     var team=(ch&&(ch.team||ch.school))||(player&&(player.team||player.school))||'';
