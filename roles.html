@@ -219,7 +219,10 @@
   </div>
 
   <div id="tabRoles" class="rtab-panel">
-  <div class="combo" data-anim><input id="sel" class="search" placeholder="Search a team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap" data-anim>
+    <div class="combo" style="flex:1;min-width:240px"><input id="sel" class="search" placeholder="Search a team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
+    <select id="seasonSel" class="search" style="max-width:150px;cursor:pointer" title="Season"><option value="2026">2025–26</option><option value="2025">2024–25</option><option value="2024">2023–24</option><option value="2023">2022–23</option><option value="2022">2021–22</option><option value="2021">2020–21</option><option value="2020">2019–20</option><option value="2019">2018–19</option><option value="2018">2017–18</option><option value="2017">2016–17</option><option value="2016">2015–16</option><option value="2015">2014–15</option><option value="2014">2013–14</option></select>
+  </div>
 
   <div id="out"><div class="muted" style="padding:60px 20px;">Pick a team above to read its personnel.</div></div>
 
@@ -228,6 +231,7 @@
 
   <div id="tabArch" class="rtab-panel" style="display:none">
     <div class="sub" data-anim style="margin-bottom:2px">Every D-I player grouped by playing style — click an archetype for its full roster and historical breakout rate. <span style="color:var(--text3)">Free for everyone.</span></div>
+    <div style="margin:10px 0 14px" data-anim><select id="archSeason" class="search" style="max-width:170px;cursor:pointer" title="Season"><option value="2026">2025–26</option><option value="2025">2024–25</option><option value="2024">2023–24</option><option value="2023">2022–23</option><option value="2022">2021–22</option><option value="2021">2020–21</option><option value="2020">2019–20</option><option value="2019">2018–19</option><option value="2018">2017–18</option><option value="2017">2016–17</option><option value="2016">2015–16</option><option value="2015">2014–15</option><option value="2014">2013–14</option></select> <span style="font-size:11.5px;color:var(--text3);margin-left:8px">same ten style templates, re-clustered on that season’s players</span></div>
     <div id="archBody"><div class="loading">Loading archetypes…</div></div>
   </div>
 </div>
@@ -239,7 +243,7 @@ const H=(window.tdcH?window.tdcH():{'apikey':KEY,'Authorization':'Bearer '+KEY})
 const el=id=>document.getElementById(id);
 const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
 
-let D=null, COLORMAP={}, selKey=null;
+let D=null, COLORMAP={}, selKey=null, SEASON=2026, _loadSeq=0, _archCache={};
 const poolRow=k=>k!=null?D.teams[k]:null;
 const labelOf=r=>r?r.full:'';
 function _lum(hex){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');if(hex.length<6)return .5;const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return (0.299*r+0.587*g+0.114*b)/255;}
@@ -262,6 +266,7 @@ function renderList(){
 function pick(key){ selKey=+key; el('sel').value=labelOf(poolRow(+key)); el('list').style.display='none'; loadTeam(); }
 (function wire(){
   const inp=el('sel'), list=el('list');
+  const ss=el('seasonSel'); if(ss) ss.addEventListener('change',()=>{ SEASON=+ss.value; if(selKey!=null) loadTeam(); });
   inp.addEventListener('focus',()=>{ inp.select(); renderList(); });
   inp.addEventListener('input',()=>renderList());
   inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const f=list.querySelector('.combo-item'); if(f) pick(f.dataset.key); inp.blur(); }
@@ -334,14 +339,35 @@ function nodeHtml(yr,cls,g,ppg,proj){
 async function loadTeam(){
   if(window._rolesLocked) return;   // coach-gated tab
   const row=poolRow(selKey); if(!row) return;
-  const tc=teamColor(row);
+  const tc=teamColor(row), SY=SEASON, CUR=SY===2026, myReq=++_loadSeq;
   el('out').innerHTML='<div class="loading">Reading the personnel…</div>';
   let roster=[];
-  try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,position2,depth_order,hometown,is_injured,class_year,yr,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb&order=depth_order.asc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  if(CUR){
+    try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,position2,depth_order,hometown,is_injured,class_year,yr,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb&order=depth_order.asc.nullslast`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  } else {
+    // a past season: union of that year's player_advanced (full team name; the complete roster) and
+    // player_history (short name; carries position / per-game counting stats). A player missing from
+    // one table still shows — his position falls back to the nearest season we have him in.
+    let ph=[], pa=[];
+    try{ [ph,pa]=await Promise.all([
+      fetch(`${SB_URL}/rest/v1/player_history?team=eq.${encodeURIComponent(row.team)}&season_year=eq.${SY}&select=name,espn_id,position,yr,tdc_grade,ppg,rpg,apg,mpg,gp,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb`,{headers:H}).then(r=>r.ok?r.json():[]),
+      fetch(`${SB_URL}/rest/v1/player_advanced?team=eq.${encodeURIComponent(row.full)}&season_year=eq.${SY}&select=name,espn_id,ppg,rpg,apg,fg_pct,tp_pct,ft_pct,min,g`,{headers:H}).then(r=>r.ok?r.json():[]) ]); }catch(e){}
+    const byId={}; (ph||[]).forEach(p=>{ if(p.espn_id!=null) byId[p.espn_id]={...p,gp:+p.gp||0}; });
+    const missing=[];
+    (pa||[]).forEach(a=>{ if(a.espn_id==null) return; const g=+a.g||0, mpg=g?(+a.min||0)/g:0;
+      if(byId[a.espn_id]){ const h=byId[a.espn_id]; if(!(+h.mpg>0)) h.mpg=mpg; if(!(+h.gp>0)) h.gp=g; return; }
+      byId[a.espn_id]={name:a.name,espn_id:a.espn_id,position:null,tdc_grade:null,ppg:a.ppg,rpg:a.rpg,apg:a.apg,mpg,gp:g,fg_pct:a.fg_pct!=null?+a.fg_pct*100:null,tp_pct:a.tp_pct!=null?+a.tp_pct*100:null,ft_pct:a.ft_pct!=null?+a.ft_pct*100:null,stl:null,blk:null,_fromAdv:true};
+      missing.push(a.espn_id); });
+    if(missing.length){ try{ const anyPos=await fetch(`${SB_URL}/rest/v1/player_history?espn_id=in.(${missing.join(',')})&select=espn_id,position,season_year,tdc_grade&order=season_year.desc`,{headers:H}).then(r=>r.ok?r.json():[]);
+      (anyPos||[]).forEach(x=>{ const h=byId[x.espn_id]; if(h&&!h.position&&x.position) h.position=x.position; }); }catch(e){} }
+    roster=Object.values(byId).filter(p=>(+p.gp||0)>=5&&(+p.mpg||0)>=5).sort((a,b)=>(+b.mpg||0)-(+a.mpg||0)).map((p,i)=>({...p,depth_order:i+1,class_year:p.yr}));
+  }
+  roster=(roster||[]).filter(p=>p.name&&p.name!=='—');
+  if(!roster.length){ if(myReq===_loadSeq) el('out').innerHTML=`<div class="muted" style="padding:50px 20px;">No ${SY-1}–${String(SY).slice(2)} roster on file for ${esc(row.full)}.</div>`; return; }
   const withId=roster.filter(p=>p.espn_id!=null);
   // canonical projected 2026-27 line + OVR (same engine as the rankings/player page)
   let PJ={};
-  try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready;
+  try{ if(!CUR) throw 0; if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready;
     if(typeof buildTeamProjections==='function'){ const pr=buildTeamProjections(roster.map(x=>Object.assign({},x)), row.conf||''); (pr||[]).forEach(x=>{ if(x&&x.name) PJ[x.name.toLowerCase().trim()]=x; }); }
   }catch(e){}
   // year-over-year grade history (owned career, box-adjusted) for the development path
@@ -358,25 +384,27 @@ async function loadTeam(){
       if(a && a.grade!=null) return Math.round(a.grade); }catch(e){}
     return Math.round(+h.tdc_grade);
   };
-  const devById={}; hist.forEach(h=>{ if(h.tdc_grade==null) return; const pg=h.pergame||{}; (devById[h.espn_id]=devById[h.espn_id]||[]).push({yr:h.season_year, cls:CLS[(h.class||'').toUpperCase()]||h.class||'', g:_bbBoxGrade(h), ppg:(pg.pts_per_g!=null?+pg.pts_per_g:(pg.pts!=null?+pg.pts:null))}); });
+  const devById={}; hist.forEach(h=>{ if(h.tdc_grade==null||(+h.season_year>SY)) return; const pg=h.pergame||{}; (devById[h.espn_id]=devById[h.espn_id]||[]).push({yr:h.season_year, cls:CLS[(h.class||'').toUpperCase()]||h.class||'', g:_bbBoxGrade(h), ppg:(pg.pts_per_g!=null?+pg.pts_per_g:(pg.pts!=null?+pg.pts:null))}); });
   let adv=[];
   if(withId.length){ const ids=withId.map(p=>p.espn_id).join(',');
-    try{ adv=await fetch(`${SB_URL}/rest/v1/player_advanced?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,ti40,ts_pct,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,trb_pct,stl_pct,blk_pct,min,g`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+    try{ adv=await fetch(`${SB_URL}/rest/v1/player_advanced?espn_id=in.(${ids})&season_year=eq.${SY}&select=espn_id,ti40,ts_pct,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,trb_pct,stl_pct,blk_pct,min,g`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
   }
   const advById={}; adv.forEach(a=>{ advById[a.espn_id]={...a,mp:a.min,games:a.g}; });
   try{ if(window.TDC_ARCH&&TDC_ARCH.ready) await TDC_ARCH.ready; }catch(e){}
+  // past seasons: that year's archetype clusters (same templates), cached per year
+  let ARCHY=null; if(!CUR){ try{ ARCHY=_archCache[SY]||(_archCache[SY]=await fetch(`archetypes_${SY}.json`,{cache:'no-cache'}).then(r=>r.ok?r.json():null)); }catch(e){ ARCHY=null; } }
   // ── "how to attack him" tendencies (ported from scout's Attack Book): shot-zone
   //    weakness, pressure vulnerability, boom-or-bust, foul-prone, rim/gambler on D ──
   const _R=v=>{const n=+v;return isNaN(n)?0:n;};
   let DNA=null; try{ DNA=await fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null); }catch(e){}
-  const dteams=(DNA&&DNA['2026']&&DNA['2026'].teams)||{};
+  const dteams=(DNA&&DNA[String(SY)]&&DNA[String(SY)].teams)||{};
   const dcol=k=>Object.values(dteams).map(t=>t[k]).filter(x=>x!=null).sort((a,b)=>a-b), qf=(v,f)=>v.length?v[Math.floor(v.length*f)]:0;
   const T={havoc:qf(dcol('dTOV'),2/3),low:qf(dcol('dTOV'),1/3)}, dnaByOpp=o=>dteams[o];
   let box=[],shots=[];
   if(withId.length){ const ids=withId.map(p=>p.espn_id).join(',');
     try{ [box,shots]=await Promise.all([
-      fetch(`${SB_URL}/rest/v1/box_scores?espn_id=in.(${ids})&season_year=eq.2026&min=gte.4&select=espn_id,opp,min,fga,fgm,tpa,tpm,fta,ftm,tov,pts,pf&limit=4000`,{headers:H}).then(r=>r.ok?r.json():[]),
-      fetch(`${SB_URL}/rest/v1/shots?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,made,sv,stype&limit=16000`,{headers:tdcH()}).then(r=>r.ok?r.json():[])
+      fetch(`${SB_URL}/rest/v1/box_scores?espn_id=in.(${ids})&season_year=eq.${SY}&min=gte.4&select=espn_id,opp,min,fga,fgm,tpa,tpm,fta,ftm,tov,pts,pf&limit=4000`,{headers:H}).then(r=>r.ok?r.json():[]),
+      CUR?fetch(`${SB_URL}/rest/v1/shots?espn_id=in.(${ids})&season_year=eq.2026&select=espn_id,made,sv,stype&limit=16000`,{headers:tdcH()}).then(r=>r.ok?r.json():[]):Promise.resolve([])
     ]); }catch(e){}
   }
   const boxBy={},shotBy={}; box.forEach(b=>{(boxBy[b.espn_id]=boxBy[b.espn_id]||[]).push(b);}); shots.forEach(s=>{(shotBy[s.espn_id]=shotBy[s.espn_id]||[]).push(s);});
@@ -435,7 +463,7 @@ async function loadTeam(){
       if(pf40>=4.2) attack.push(['Foul-prone',`${pf40.toFixed(1)} fouls/40 — hunt him in ball screens to get him in trouble.`]);
     }
     const mpg=_R(p.mpg), blk40=mpg?_R(p.blk)/mpg*40:0, stl40=mpg?_R(p.stl)/mpg*40:0;
-    if(mpg>=8){
+    if(mpg>=8&&p.blk!=null&&p.stl!=null){
       if(isBig){
         if(blk40>=1.6) attack.push(['Rim protector',`${blk40.toFixed(1)} blocks/40 — attack away from him; finish through, not into, him.`]);
         else if(blk40<=0.5) attack.push(['No rim deterrent',`Only ${blk40.toFixed(1)} blocks/40 for a big — go right at him.`]);
@@ -446,11 +474,12 @@ async function loadTeam(){
   }
   let players=roster.map(p=>{ const a=advById[p.espn_id]; const pj=PJ[(p.name||'').toLowerCase().trim()];
     const seasons=(devById[p.espn_id]||[]).sort((x,y)=>x.yr-y.yr);
-    const proj=(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):(p.tdc_grade!=null&&!isNaN(+p.tdc_grade)?Math.round(+p.tdc_grade):null);
+    const proj=CUR?((pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):(p.tdc_grade!=null&&!isNaN(+p.tdc_grade)?Math.round(+p.tdc_grade):null)):null;
     const base={name:p.name,pos:p.position||'',order:p.depth_order!=null?+p.depth_order:99,mpg:+p.mpg||0,pj,raw:p,seasons,proj,trend:trendOf(seasons,proj),atk:intel(p),
       shot:zones(shotBy[p.espn_id]||[]), gpts:(boxBy[p.espn_id]||[]).filter(x=>_R(x.min)>=4).map(x=>_R(x.pts)), cons:consistency(boxBy[p.espn_id]||[])};
     if(!a) return {...base,hist:false};
-    return {...base,hist:true,a,arch:archetype(a,p.position||'')}; });
+    let posGuess=p.position||''; if(!posGuess){ const blk=num(a.blk_pct),trb=num(a.trb_pct),ast=num(a.ast_pct); posGuess=(blk>=3||trb>=14)?'F':(ast>=15?'G':'G/F'); base.pos=posGuess; }
+    return {...base,hist:true,a,arch:archetype(a,posGuess)}; });
   players.sort((x,y)=>(x.order-y.order)||(y.mpg-x.mpg));
   const withHist=players.filter(p=>p.hist);
   if(!withHist.length){ el('out').innerHTML='<div class="muted" style="padding:50px 20px;">No D-I track record on file for this roster yet — likely a young or heavily new group. Roles read once players have a season of D-I data.</div>'; return; }
@@ -493,13 +522,16 @@ async function loadTeam(){
     return `<div class="rc-dev"><div class="rc-dev-l" style="margin-bottom:7px;">Game scoring distribution <span style="color:var(--text3);font-weight:600;text-transform:none;letter-spacing:0;">· ${pts.length} games (0 → 30+ pts)</span></div>
       <div style="display:flex;align-items:flex-end;gap:3px;height:46px;">${bars}</div>${foot}</div>`;
   };
-  const styleOf=p=>(window.TDC_ARCH&&p.raw?TDC_ARCH.of(p.raw.espn_id,p.name):null);
+  const styleOf=p=>{ if(CUR) return (window.TDC_ARCH&&p.raw?TDC_ARCH.of(p.raw.espn_id,p.name):null);
+    if(!ARCHY) return null; const nm=(''+(p.name||'')).toLowerCase().replace(/[^a-z0-9]/g,'');
+    const hit=(p.raw&&p.raw.espn_id!=null&&ARCHY.players[String(p.raw.espn_id)])||ARCHY.by_name[nm]; if(!hit) return null;
+    const info=(ARCHY.archetypes||[]).find(a=>a.name===hit.a); return info?{name:info.name,desc:info.desc,color:info.color}:{name:hit.a,desc:'',color:'var(--accent)'}; };
   // the expandable detail under a rotation row (everything the old card carried below the header)
   const detail=p=>{
     const body=p.hist?`${p.arch.mods.length?`<div class="rc-mods">${p.arch.mods.map(m=>`<span class="mod">${esc(m)}</span>`).join('')}</div>`:''}`:'';
     const [tl,tc2]=p.trend; let path='';
     p.seasons.forEach((s,i)=>{ if(i>0) path+=arrHtml(s.g-p.seasons[i-1].g); path+=nodeHtml("'"+String(s.yr%100).padStart(2,'0'),s.cls,s.g,s.ppg,false); });
-    if(p.proj!=null){ if(p.seasons.length) path+=arrHtml(p.proj-p.seasons[p.seasons.length-1].g); path+=nodeHtml("'27",'',p.proj,null,true); }
+    if(CUR&&p.proj!=null){ if(p.seasons.length) path+=arrHtml(p.proj-p.seasons[p.seasons.length-1].g); path+=nodeHtml("'27",'',p.proj,null,true); }
     const devHtml=path?`<div class="rc-dev"><div class="rc-dev-h"><span class="rc-dev-l">Development</span><span class="tbadge ${tc2}">${tl}</span></div><div class="path">${path}</div></div>`:'';
     const gd=(p.atk&&p.atk.guard)||[], at=(p.atk&&p.atk.attack)||[];
     const exCol=(kind,arr)=>arr.length?`<div><div class="ex-h ${kind}">${kind==='guard'?'Guard his offense':'Attack his defense'}</div>${arr.map(x=>`<div class="ex-row"><b>${esc(x[0])}</b> — ${esc(x[1])}</div>`).join('')}</div>`:'';
@@ -514,7 +546,7 @@ async function loadTeam(){
     const pj=p.pj, raw=p.raw||{};
     const ovr=(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):(raw.tdc_grade!=null&&!isNaN(+raw.tdc_grade)?Math.round(+raw.tdc_grade):null);
     const l=(pj&&(+pj.mpg>0))?pj:raw, a=p.a||{}, st=styleOf(p), [tl,tc2]=p.trend, c=p.cons;
-    const last=p.seasons.length?p.seasons[p.seasons.length-1].g:null, d=(last!=null&&p.proj!=null)?p.proj-last:null;
+    const last=p.seasons.length?p.seasons[p.seasons.length-1].g:null, d=(CUR&&last!=null&&p.proj!=null)?p.proj-last:null;
     const id='p'+i;
     return `<tr class="pr" data-id="${id}" data-espn="${raw.espn_id!=null?raw.espn_id:''}" data-name="${esc((p.name||'').toLowerCase().trim())}" onclick="toggleRow('${id}')">
       <td class="chev">▼</td>
@@ -547,15 +579,17 @@ async function loadTeam(){
   const mixRead=`<div class="mix-read">${bits.join(', ')}. `+(missing.length?`<span class="miss">Missing:</span> ${missing.join(', ')} — the portal need${missing.length>1?'s':''}. `:'')+(thin.length?`<span class="thin">Thin:</span> ${thin.join(', ')} — one injury away. `:'')+(!missing.length&&!thin.length?'<span class="ok">Every role is covered</span> — this is a complete rotation on paper.':'')+`</div>`;
   const n=withHist.length, avg=k=>withHist.reduce((s,p)=>s+num(p.a[k]),0)/Math.max(1,n);
   const band=`<div class="band"><div class="cell"><div class="v">${players.length}</div><div class="l">Rotation</div><div class="s">${withHist.length} with a D-I record</div></div><div class="cell"><div class="v">${Math.round(avg('fg3a_per_fga_pct')*100)}%</div><div class="l">3PA rate</div><div class="s">roster average · league ~38%</div></div><div class="cell"><div class="v">${NEEDS.filter(([,,who,want])=>who.length>=want).length}/${NEEDS.length}</div><div class="l">Roles covered</div><div class="s">${missing.length?missing.length+' missing':'none missing'}</div></div></div>`;
-  const TH=`<thead><tr><th></th><th class="l">Player</th><th>OVR</th><th class="l">Role</th><th class="l">Style</th><th>Usage</th><th>Playmaking</th><th>3PA rate</th><th>Reb%</th><th>Blk%</th><th>Stl%</th><th class="c">Trend</th><th>Floor / avg / ceil</th></tr></thead>`;
+  const TH=`<thead><tr><th></th><th class="l">Player</th><th>OVR</th><th class="l">Role</th><th class="l">Style</th><th>Usage</th><th>Playmaking</th><th>3PA rate</th><th>Reb%</th><th>Blk%</th><th>Stl%</th><th class="c">${CUR?'Trend':'Trend to date'}</th><th>Floor / avg / ceil</th></tr></thead>`;
+  if(myReq!==_loadSeq) return;   // a newer team/season request superseded this one
+  const SYL=`${SY-1}–${String(SY).slice(2)}`;
   el('out').innerHTML=`<div style="--tc:${tc}">
-    <div class="sec-h">How the pieces fit</div>
+    <div class="sec-h">How the pieces fit <span class="note" style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;">— ${SYL}</span></div>
     ${band}
     <div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Role need</th><th class="l">Who fills it</th><th class="c">Have / want</th><th class="c">Status</th></tr></thead><tbody>${mixRows}</tbody></table></div>
     ${mixRead}
     <div class="sec-h">Player roles <span class="note" style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;">— click a row for his development, shot profile, scoring distribution and how to attack him</span></div>
     <div class="sheet-wrap"><table class="sheet">${TH}<tbody>${players.map(rowHtml).join('')}</tbody></table></div>
-    <div class="note" style="margin-top:8px">Bars are scaled to typical D-I ranges. Role = what he did in 2025-26 (usage, assist %, 3PA rate, rebound %, block %, steal %); Style = the league-wide archetype cluster. Floor / avg / ceiling = 15th / mean / 85th percentile of his game scoring.</div>
+    <div class="note" style="margin-top:8px">Bars are scaled to typical D-I ranges. Role = what he did in ${SYL} (usage, assist %, 3PA rate, rebound %, block %, steal %); Style = the league-wide archetype cluster. Floor / avg / ceiling = 15th / mean / 85th percentile of his game scoring.</div>
   </div>`;
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
@@ -584,6 +618,7 @@ function focusPlayer(){
   D.teams=(D.teams||[]).filter(t=>t.projected!==false&&t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999));
   const qs=new URLSearchParams(location.search);
   let want=(qs.get('team')||'').toLowerCase();
+  const sy=parseInt(qs.get('season')||'',10); if(sy>=2014&&sy<=2026){ SEASON=sy; const ss=el('seasonSel'); if(ss) ss.value=String(sy); }
   // a player-only link (?espn= / ?name= with no team) — resolve his team so his page still opens
   if(!want&&(qs.get('espn')||qs.get('name'))){
     try{ const q=qs.get('espn')?`espn_id=eq.${encodeURIComponent(qs.get('espn'))}`:`name=eq.${encodeURIComponent(qs.get('name'))}`;
@@ -625,12 +660,18 @@ function focusPlayer(){
   function initArch(){
     if(_archInited) return; _archInited=true;
     const esc=s=>(''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-    let DATA=null, BREAK=null, sel=null, rosterLimit=24;
-    Promise.all([
-      fetch('archetypes.json',{cache:'no-cache'}).then(r=>r.json()),
-      fetch('breakout.json',{cache:'no-cache'}).then(r=>r.json()).catch(()=>null)
-    ]).then(([j,b])=>{ DATA=j; BREAK=b; render(); })
-      .catch(()=>{ document.getElementById('archBody').innerHTML='<div class="loading">Archetype data unavailable.</div>'; });
+    let DATA=null, BREAK=null, sel=null, rosterLimit=24, AY=2026;
+    const fileFor=y=>y===2026?'archetypes.json':`archetypes_${y}.json`;
+    function loadYear(y){
+      AY=y; sel=null; document.getElementById('archBody').innerHTML='<div class="loading">Loading archetypes…</div>';
+      Promise.all([
+        fetch(fileFor(y),{cache:'no-cache'}).then(r=>{ if(!r.ok) throw 0; return r.json(); }),
+        BREAK?Promise.resolve(BREAK):fetch('breakout.json',{cache:'no-cache'}).then(r=>r.json()).catch(()=>null)
+      ]).then(([j,b])=>{ DATA=j; BREAK=b; render(); })
+        .catch(()=>{ document.getElementById('archBody').innerHTML='<div class="loading">Archetype data unavailable for that season.</div>'; });
+    }
+    const asel=document.getElementById('archSeason'); if(asel){ asel.addEventListener('change',()=>loadYear(+asel.value)); }
+    loadYear(asel?+asel.value:2026);
     function brkOf(name){ return (BREAK&&BREAK.archetypes&&BREAK.archetypes[name])||null; }
     function plink(p){ return p.e?`player.html?espn=${p.e}&name=${encodeURIComponent(p.n)}`:`player.html?name=${encodeURIComponent(p.n)}`; }
     function brkPanel(a){
@@ -667,7 +708,8 @@ function focusPlayer(){
       const ov=DATA.archetypes.slice().sort((x,y)=>(y.count||0)-(x.count||0)).map(a=>{ const roster=(DATA.roster&&DATA.roster[a.name])||[]; const top=roster.slice(0,25); const avg=top.length?top.reduce((s,p)=>s+(+p.g||0),0)/top.length:null; const b=brkOf(a.name);
         return `<tr style="cursor:pointer" onclick="document.querySelector('#archBody .card[data-a=\'${esc(a.name).replace(/'/g,"\\'")}\']').click()"><td class="l nm" style="color:${a.color}">${esc(a.name)}</td><td class="l wrap" style="color:var(--text3);font-size:11.5px">${esc(a.desc)}</td><td>${a.count}</td><td class="dim">${Math.round((a.count||0)/tot*100)}%</td><td>${avg!=null?avg.toFixed(1):'—'}</td><td>${b?Math.round(b.rate*100)+'%':'<span class="dim">—</span>'}</td><td class="dim">${b?'+'+b.avg_gain:'—'}</td><td class="l" style="font-size:11.5px">${roster.slice(0,3).map(p=>esc(p.n)).join(', ')}</td></tr>`; }).join('');
       const overview=`<div class="sheet-wrap" style="margin-bottom:18px"><table class="sheet"><thead><tr><th class="l">Archetype</th><th class="l">What he does</th><th>Players</th><th>Share</th><th>Top-25 avg grade</th><th>Breakout rate</th><th>Avg jump</th><th class="l">Anchors</th></tr></thead><tbody>${ov}</tbody></table></div>`;
-      document.getElementById('archBody').innerHTML=`${overview}<div class="grid">${cards}</div><div class="detail" id="detail"></div>`;
+      const yl=`${AY-1}–${String(AY).slice(2)}`;
+      document.getElementById('archBody').innerHTML=`<div class="sec-h" style="margin-top:0">${yl} · ${DATA.meta&&DATA.meta.n?DATA.meta.n.toLocaleString()+' players':''} <span class="note" style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;">— grades are that season's</span></div>${overview}<div class="grid">${cards}</div><div class="detail" id="detail"></div>`;
       document.querySelectorAll('#archBody .card').forEach(c=>c.addEventListener('click',()=>openArch(c.dataset.a)));
       if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(document.getElementById('archBody'));
     }

@@ -12,7 +12,7 @@ espn_id -> archetype name (+ the archetype dictionary with descriptions & colors
 
 Run: python3 scripts/build_archetypes.py
 """
-import json, os, math, re, urllib.request
+import json, os, math, re, sys, urllib.request
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
@@ -21,6 +21,8 @@ from scipy.optimize import linear_sum_assignment
 SB='https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1'
 KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye'
 SEASON=2026; K=10
+# Any season back to 2014 can be clustered with the same templates: `--year 2019` writes
+# archetypes_2019.json (2026 stays archetypes.json). `--all` rebuilds 2014..2026.
 HERE=os.path.dirname(__file__)
 FEAT=['ht','usg','ast','tp_rate','ft_rate','orb','drb','blk','stl']
 
@@ -108,10 +110,16 @@ def main():
     out={'meta':{'season':SEASON,'k':K,'n':len(players),'features':FEAT},
          'archetypes':[{'name':n,'desc':DESC[n],'color':COLOR[n],'count':counts.get(n,0)} for n,_ in TEMPLATES],
          'players':players,'by_name':by_name,'roster':roster}
-    path=os.path.join(HERE,'..','archetypes.json')
+    path=os.path.join(HERE,'..','archetypes.json' if SEASON==2026 else 'archetypes_%d.json'%SEASON)
     json.dump(out,open(path,'w'),separators=(',',':'))
     print('wrote %s  (%d players)'%(os.path.abspath(path),len(players)))
     for n,_ in TEMPLATES: print('  %-22s %d'%(n,counts.get(n,0)))
 
 if __name__=='__main__':
-    main()
+    args=sys.argv[1:]
+    if '--all' in args:
+        for y in range(2014,2027):
+            SEASON=y; print('== %d'%y); main()
+    else:
+        if '--year' in args: SEASON=int(args[args.index('--year')+1])
+        main()
