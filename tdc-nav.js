@@ -27,7 +27,6 @@
     ]],
     ['Players', [
       ['roster.html',          'Player Projected Stats'],
-      ['recent-additions.html','Recent Additions'],
       ['transfer-fit.html',    'Transfer Fit'],
       ['compare-players.html', 'Compare Players'],
       ['draft.html',           'Mock Draft'],
