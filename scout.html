@@ -810,7 +810,7 @@ async function loadShotChart(row){
   }catch(e){}
   if(tid==null){ host.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3);font-size:12px;">Shot-location data unavailable for this team.</div>'; return; }
   try{
-    const shots=await fetch(SB_URL+'/rest/v1/shots?team_id=eq.'+tid+'&season_year=eq.${SY}&select=x,y,made,sv,dist&limit=6000',{headers:tdcH()}).then(r=>r.ok?r.json():[]);
+    const shots=await fetch(SB_URL+'/rest/v1/shots?team_id=eq.'+tid+'&season_year=eq.'+SY+'&select=x,y,made,sv,dist&limit=6000',{headers:tdcH()}).then(r=>r.ok?r.json():[]);
     if(!shots.length){ host.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3);font-size:12px;">No shot-location data on file.</div>'; return; }
     TDC_SHOTCHART.render(host, shots, {subtitle:row.full+' · '+SYL()});
   }catch(e){ host.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3);font-size:12px;">Could not load shot chart.</div>'; }
