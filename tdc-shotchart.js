@@ -663,5 +663,5 @@
       '.sc-settled .sc-mark,.sc-settled .sc-cl,.sc-settled .sc-z,.sc-settled .sc-court-wrap,.sc-settled .sc-title,.sc-settled .sc-legend,.sc-settled .sc-heat,.sc-settled .sc-heat-legend,.sc-settled .sc-eff-legend{animation:none!important;}';
     document.head.appendChild(st);
   }
-  window.TDC_SHOTCHART={render:render,_m:_m};
+  window.TDC_SHOTCHART={render:render,_m:_m,zone10:zone10,avgOf:avgOf,useSeason:useSeason};
 })();

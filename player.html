@@ -7,7 +7,8 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=6"></script>
-  <script src="tdc-shotchart.js?v=17"></script>
+  <script src="tdc-shotchart.js?v=18"></script>
+  <script src="tdc-shotprofile.js?v=1"></script>
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-nil.js?v=prod2"></script>
   <script src="tdc-archetypes.js?v=2"></script>
@@ -4774,6 +4775,7 @@ function renderPage(){
           <div id="shotFlowHost"></div>
         </div>
       </div>
+      <div id="shotTrajHost" style="margin-top:34px;"></div>
     </div>
 
     <!-- RANKINGS TAB -->
@@ -6027,7 +6029,7 @@ async function loadShotChart(season){
     if(_n < _SC_MIN){
       var _who=(player&&player.name)||'this player', _sl=(typeof _seasonLbl2==='function')?_seasonLbl2(season):season;
       var _msg=(_n===0)
-        ? 'ESPN didn’t publish shot-location data for '+_who+' in '+_sl+', so there’s no shot chart to show.'
+        ? 'No shot locations were logged for '+_who+' in '+_sl+' (located shots run from 2019-20 on), so there’s no shot chart to show.'
         : 'Only '+_n+' of '+_who+'’s shots have tracked locations in '+_sl+' — too few to form a readable chart, so it’s hidden.';
       host.innerHTML='<div style="padding:24px 22px;border:1px dashed var(--border2);border-radius:14px;background:var(--bg2);text-align:center;">'
         +'<div style="font-weight:800;color:var(--text2);font-size:13px;letter-spacing:.02em;margin-bottom:6px;">No shot chart</div>'
@@ -6053,7 +6055,7 @@ async function loadShotFlow(season){
     var rows=res.ok?await res.json():[];
     if(!Array.isArray(rows) || rows.length<8){
       var _sl2=(typeof _seasonLbl2==='function')?_seasonLbl2(season):season;
-      host.innerHTML='<div style="padding:22px;text-align:center;color:var(--text3);font-size:12.5px;line-height:1.5;">'+(+season>=2024?'Shot-flow data for '+_sl2+' is still being processed.':'No shot flow for '+_sl2+' — shot type and assist tags were only captured from 2023-24 on; earlier seasons have shot locations only.')+'</div>'; return;
+      host.innerHTML='<div style="padding:22px;text-align:center;color:var(--text3);font-size:12.5px;line-height:1.5;">'+(+season>=2020?'No shot flow for '+_sl2+' — too few tagged shots.':'No shot flow for '+_sl2+' — shot type and assist tags run from 2019-20 on.')+'</div>'; return;
     }
     var ch=(careerHistory||[]).find(function(s){return +s.season_year===+season;});
     var team=(ch&&(ch.team||ch.school))||(player&&(player.team||player.school))||'';
@@ -6186,6 +6188,30 @@ function _initShotSeasons(){
   if(!yrs.length) yrs=[2026];
   sel.innerHTML=yrs.map(function(y){return '<option value="'+y+'">'+((y-1)+'-'+(''+y).slice(2))+'</option>';}).join('');
   loadShotChart(yrs[0]);
+  loadShotTrajectory(yrs);
+}
+// ── SHOT PROFILE BY SEASON — where his shots come from, year over year (precomputed
+//    from the located-shot archive; the live season is added from the shots table) ──
+async function loadShotTrajectory(yrs){
+  var host=document.getElementById('shotTrajHost'); if(!host||!window.TDC_SHOTPROFILE) return;
+  var espn=window._playerEspn; if(!espn){ host.innerHTML=''; return; }
+  try{
+    var seasons=(await TDC_SHOTPROFILE.load(espn))||{};
+    var teams=await TDC_SHOTPROFILE.loadTeams(); var league=(teams&&teams.league)||{};
+    var live=Math.max.apply(null,(yrs||[]).concat([0]));
+    if(live&&!seasons[live]){
+      try{
+        var rows=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.'+live+'&select=x,y,made,sv,ast_id&limit=2000',{headers:tdcH()}).then(function(r){return r.ok?r.json():[];});
+        var row=TDC_SHOTPROFILE.fromShots(rows); if(row&&row[0]>=40){ seasons=Object.assign({},seasons); seasons[live]=row; if(!league[live]) league[live]=league[live-1]; }
+      }catch(e){}
+    }
+    var html=TDC_SHOTPROFILE.sheet(seasons, league, {live:live});
+    if(!html){ host.innerHTML=''; return; }
+    var who=(player&&player.name)?player.name.split(' ').slice(-1)[0]:'He';
+    var rd=TDC_SHOTPROFILE.read(seasons, league, who);
+    host.innerHTML='<div class="sec-title" style="margin:0 0 14px;">Shot Profile by Season</div>'+
+      (rd?'<div style="font-size:13px;color:var(--text2);line-height:1.55;margin:0 0 12px;">'+rd+'</div>':'')+html;
+  }catch(e){ host.innerHTML=''; }
 }
 function _projectedGrade(){
   // A projected freshman's OVR is the editor profile's OVR (single source of truth).

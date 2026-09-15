@@ -23,6 +23,8 @@
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=6"></script>
   <script src="tdc-charts.js?v=4"></script>
+  <link rel="stylesheet" href="tdc-sheets.css?v=3"/>
+  <script src="tdc-shotprofile.js?v=1"></script>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=2"></script>
   <script src="tdc-glossary.js?v=12"></script>
@@ -401,6 +403,11 @@ body{background:transparent!important;}
     <h2 class="ls-h2">The Contender Quadrant</h2>
     <p class="ls-sub">Every D-1 team plotted by offensive vs defensive efficiency (points per 100 possessions). Top-right — score well and defend — is where champions live. Hover any dot.</p>
     <div id="lsQuadrant"><div class="loading" style="padding:40px;">Loading…</div></div>
+  </div>
+  <div class="ls-sec">
+    <h2 class="ls-h2">How D-I Shoots</h2>
+    <p class="ls-sub">Where every field-goal attempt in Division I came from, season by season — built from 3.2 million located shots (2019-20 on). Shares are of all attempts; Corner 3s is the share of threes taken from the corners.</p>
+    <div id="shotTrends"><div class="loading" style="padding:40px;">Loading…</div></div>
   </div>
   <div class="ls-sec">
     <h2 class="ls-h2">NIL Market Movers</h2>
@@ -866,10 +873,30 @@ function setView(v){
 let _lsLoaded=false, _dnaAll=null;
 async function loadLandscape(){
   renderNilMovers();   // independent of Chart.js — draws even if the charts lib failed
+  renderShotTrends();  // league shot mix by season (static JSON, no Chart.js)
   if(_lsLoaded || !window.TDC_CHARTS) return; _lsLoaded=true;
   // per-season efficiency for the Contender Quadrant (ORtg/DRtg/net/w/l per team, any year)
   try{ _dnaAll=await fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null); }catch(e){}
   loadConfTalent();   // populates the year selector + draws conf talent AND the year-synced quadrant
+}
+// ── How D-I shoots: league shot mix by season + the extremes this year ──
+let _shotTrendsDone=false;
+async function renderShotTrends(){
+  const host=document.getElementById('shotTrends'); if(!host||_shotTrendsDone||!window.TDC_SHOTPROFILE) return; _shotTrendsDone=true;
+  const t=await TDC_SHOTPROFILE.loadTeams();
+  if(!t||!t.league){ host.innerHTML='<div class="loading" style="padding:30px;">Shot archive not available.</div>'; return; }
+  const league=t.league, ys=Object.keys(league).map(Number).sort((a,b)=>a-b), last=ys[ys.length-1];
+  const a=TDC_SHOTPROFILE.derive(league[ys[0]]), b=TDC_SHOTPROFILE.derive(league[last]);
+  const pp=v=>Math.round(v*100)+'%', L=TDC_SHOTPROFILE.lbl;
+  const read=`From ${L(ys[0])} to ${L(last)} the three-point share of all attempts went <b>${pp(a.threeSh)} → ${pp(b.threeSh)}</b>, the mid-range share <b>${pp(a.midSh)} → ${pp(b.midSh)}</b>, and rim attempts held at about <b>${pp(b.rimSh)}</b>. League eFG% moved ${pp(a.efg)} → ${pp(b.efg)}; ${pp(b.astPct)} of makes were assisted last season.`;
+  // the extremes: most three-happy and most rim-heavy offenses in the latest season (600+ located FGA)
+  const rows=Object.keys(t.teams).map(id=>{ const tm=t.teams[id], r=tm.seasons&&tm.seasons[String(last)]; const d=r&&TDC_SHOTPROFILE.derive(r); return d&&d.fga>=600?{name:tm.name||id,id:id,d:d}:null; }).filter(Boolean);
+  const mini=(title,list,key)=>'<div><div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:0 0 8px;">'+title+'</div><div class="sheet-wrap"><table class="sheet" style="width:100%"><thead><tr><th class="rk">#</th><th class="l">Team</th><th>'+key+'</th><th>3PA</th><th>Rim</th><th>eFG%</th></tr></thead><tbody>'+
+    list.map((r,i)=>'<tr><td class="rk">'+(i+1)+'</td><td class="l nm"><a href="team.html?team='+encodeURIComponent(r.name||'')+'">'+r.name+'</a></td><td class="strong">'+pp(key==='3PA share'?r.d.threeSh:r.d.rimSh)+'</td><td class="dim">'+pp(r.d.threeSh)+'</td><td class="dim">'+pp(r.d.rimSh)+'</td><td>'+pp(r.d.efg)+'</td></tr>').join('')+'</tbody></table></div></div>';
+  const three=rows.slice().sort((x,y)=>y.d.threeSh-x.d.threeSh).slice(0,10), rim=rows.slice().sort((x,y)=>y.d.rimSh-x.d.rimSh).slice(0,10);
+  host.innerHTML='<div style="font-size:13.5px;color:var(--text2);line-height:1.6;margin:0 0 14px;max-width:760px;">'+read+'</div>'
+    +TDC_SHOTPROFILE.sheet(league, null, {})
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;margin-top:22px;">'+mini('Most three-happy · '+L(last),three,'3PA share')+mini('Most rim-heavy · '+L(last),rim,'Rim share')+'</div>';
 }
 // ── NIL Market Movers (tier-fair Model vs Market) ──────────────────────────
 let _nilMoversDone=false;
