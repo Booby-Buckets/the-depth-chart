@@ -175,10 +175,13 @@ def pull(season, key):
 
 def stats(season):
     ath, team = id_maps(season)
-    n = m = 0; games = {}; unmapped = 0
+    n = m = 0; games = {}; unmapped = 0; seen = set()
     for p in season_plays(season):
         si = p.get("shotInfo")
         if not si or si.get("range") == "free_throw": continue
+        # a game that straddles midnight UTC comes back on both days; count each play once
+        if p.get("sourceId") in seen: continue
+        seen.add(p.get("sourceId"))
         n += 1; g = games.setdefault(p["gameId"], [0, 0]); g[1] += 1
         if (si.get("location") or {}).get("x") is not None:
             m += 1; g[0] += 1
