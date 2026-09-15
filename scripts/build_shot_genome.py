@@ -2,8 +2,8 @@
 """
 build_shot_genome.py — the "Shot Genome": three linked, original metrics that
 decompose offense using our shot-location + shot-type + assist data (which no
-other CBB site has). Current season only (2026 has ~96% shot coverage; earlier
-seasons are too sparse — see the shot-charts memory).
+other CBB site has). 2026 from ESPN (~96% shot coverage); 2019-20 → 2024-25 from
+the collegebasketballdata.com backfill (68-99%) — see the shot-charts memory.
 
 Three numbers, at TEAM and PLAYER level:
   LQ  Look Quality   — expected eFG% from WHERE (and how) you shoot. Shot selection.
@@ -26,8 +26,9 @@ Reads the `shots` table (anon key, read-only). Writes:
 set TDC_JWT to your own session token (site → DevTools console →
 `JSON.parse(localStorage.tdc_session).access_token`; expires in ~1h, never commit it):
   TDC_JWT=eyJ... python3 scripts/build_shot_genome.py 2025
+  python3 scripts/build_shot_genome.py 2023 2022 2021 2020   # several seasons, one token prompt
 
-Past seasons have partial shot coverage (2025 ~24% of games, 2022 ~25%, others less), so the
+Past seasons can have partial shot coverage (2020 ~68% … 2025 ~97% after the CBBD backfill), so the
 player floors scale with the season's shot volume relative to 2026 (never below 40 FGA / 12 ast /
 20 makes) and meta records the coverage; the page shows it.
 """
@@ -53,10 +54,11 @@ def _token():
         if not ok(t):
             print("That doesn't look like the token (must start with eyJ). Try the copy() line again.\n"); t = ""
     return t
-_JWT = _token() if (len(sys.argv) > 1 and sys.argv[1] != "2026") or os.environ.get("TDC_JWT") else None
+_YEARS = [int(a) for a in sys.argv[1:] if a.isdigit()] or [2026]
+_JWT = _token() if any(y != 2026 for y in _YEARS) or os.environ.get("TDC_JWT") else None
 HDR = {"apikey": KEY, "Authorization": "Bearer " + (_JWT or KEY)}
 D = os.path.join(os.path.dirname(__file__), "data")
-SEASON = int(sys.argv[1]) if len(sys.argv) > 1 else 2026
+SEASON = _YEARS[0]   # rebound per season in the __main__ loop
 
 # player-level noise floors
 MIN_FGA = 150   # SM+ needs a real shot sample
@@ -135,6 +137,7 @@ def main():
     # ── pull every shot once, by team (indexed team_id → no deep-offset 500s) ──
     ALL = []
     global MIN_FGA, MIN_AST, MIN_MAKES
+    MIN_FGA, MIN_AST, MIN_MAKES = 150, 40, 60   # reset: a multi-season run must not compound the scaling
     for i, tid in enumerate(teams):
         sh = get("shots?season_year=eq.%d&team_id=eq.%d&select=game_id,team_id,espn_id,made,sv,dist,y,stype,ast_id,ast_name" % (SEASON, tid))
         ALL += sh
@@ -326,4 +329,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # several seasons in one run share one token prompt:  build_shot_genome.py 2023 2022 2021
+    for _y in _YEARS:
+        SEASON = _y
+        main()
