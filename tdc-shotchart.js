@@ -57,6 +57,25 @@
     t3   :{n:'top of the key 3',avg:0.335, at:[25,31]},
     w3r  :{n:'right wing 3', avg:0.335, at:[43,21]}
   };
+  // ── D-I zone benchmarks by season (scripts/data/shot_zone_ref.json, built from ~3.2M
+  //    located shots 2019-20 → 2024-25 by build_shot_zone_ref.py). The ZMETA.avg values are
+  //    only the fallback until the file arrives; a chart drawn before then is redrawn.
+  var ZREF=null, REF=null, REF_YEAR=null;
+  function avgOf(k){ return (REF&&REF[k]&&REF[k].p!=null)?REF[k].p:ZMETA[k].avg; }
+  function useSeason(y){
+    REF=null; REF_YEAR=null; if(!ZREF||!ZREF.seasons) return;
+    var ys=Object.keys(ZREF.seasons).map(Number).sort(function(a,b){return a-b;}); if(!ys.length) return;
+    y=parseInt(y,10); var pick=null;
+    if(y){ ys.forEach(function(v){ if(v<=y) pick=v; }); if(pick==null) pick=ys[0]; } else pick=ys[ys.length-1];
+    REF=ZREF.seasons[String(pick)].zones; REF_YEAR=pick;
+  }
+  try{
+    fetch('scripts/data/shot_zone_ref.json?v=1').then(function(r){return r.ok?r.json():null;}).then(function(j){
+      if(!j) return; ZREF=j;
+      // redraw anything that rendered against the fallback numbers
+      Array.prototype.forEach.call(document.querySelectorAll('[data-sc-host]'),function(el){ if(el._shots) render(el,el._shots,el._opts); });
+    }).catch(function(){});
+  }catch(e){}
   function zone10(s){
     var x=fxf(s.x), y=fyf(s.y), d=edist(s);
     if(s.sv===3) return (y<=CORNER_Y-0.4) ? (x<HOOP_X?'c3l':'c3r')
@@ -112,9 +131,9 @@
     ];
     var floor=Math.max(6, Math.round(shots.length*0.02));
     var fillFor=function(k){ var z=Z[k]; if(z.a<floor) return 'rgba(140,140,150,.10)';
-      var d=z.m/z.a-ZMETA[k].avg, t=Math.max(-1,Math.min(1,d/0.14));
+      var d=z.m/z.a-avgOf(k), t=Math.max(-1,Math.min(1,d/0.14));
       return t>=0 ? 'rgba(240,138,60,'+(0.10+0.34*t).toFixed(2)+')' : 'rgba(76,127,214,'+(0.10+0.34*(-t)).toFixed(2)+')'; };
-    var tipFor=function(k){ var z=Z[k]; return ZMETA[k].n+'|'+(z.a?Math.round(z.m/z.a*100):0)+'|'+z.m+'/'+z.a+'|'+Math.round(ZMETA[k].avg*100)+'|'+(z.a?((z.m/z.a-ZMETA[k].avg>=0?'+':'')+Math.round((z.m/z.a-ZMETA[k].avg)*100)):'—'); };
+    var tipFor=function(k){ var z=Z[k]; return ZMETA[k].n+'|'+(z.a?Math.round(z.m/z.a*100):0)+'|'+z.m+'/'+z.a+'|'+Math.round(avgOf(k)*100)+'|'+(z.a?((z.m/z.a-avgOf(k)>=0?'+':'')+Math.round((z.m/z.a-avgOf(k))*100)):'—'); };
     regions.forEach(function(r){ var b=r[2];
       g+='<rect class="sc-zone" data-zk="'+r[0]+'" data-ztip="'+tipFor(r[0])+'" clip-path="url(#'+id+r[1]+')" x="'+b[0]+'" y="'+b[1]+'" width="'+b[2]+'" height="'+b[3]+'" fill="'+fillFor(r[0])+'" stroke="var(--sc-line)" stroke-opacity=".35" stroke-width="1"/>'; });
     // the rim zone sits on top of the paint
@@ -131,11 +150,11 @@
     var Z={}; Object.keys(ZMETA).forEach(function(k){ Z[k]={m:0,a:0}; });
     shots.forEach(function(s){ var k=zone10(s); if(!Z[k]) return; Z[k].a++; if(s.made)Z[k].m++; });
     var tot=shots.length||1;
-    var rows=Object.keys(ZMETA).map(function(k){ var z=Z[k]; return {k:k,n:ZMETA[k].n,a:z.a,m:z.m,p:z.a?z.m/z.a:null,avg:ZMETA[k].avg}; })
+    var rows=Object.keys(ZMETA).map(function(k){ var z=Z[k]; return {k:k,n:ZMETA[k].n,a:z.a,m:z.m,p:z.a?z.m/z.a:null,avg:avgOf(k)}; })
       .filter(function(r){ return r.a>0; }).sort(function(a,b){ return b.a-a.a; });
     var tr=rows.map(function(r){ var d=r.p!=null?(r.p-r.avg)*100:null, eff=r.k.indexOf('3')>=0||r.k==='t3'?(r.p*1.5):r.p;
       return '<tr data-zk="'+r.k+'"><td class="l nm">'+r.n.charAt(0).toUpperCase()+r.n.slice(1)+'</td><td>'+r.a+'</td><td class="dim">'+Math.round(r.a/tot*100)+'%</td><td class="strong">'+Math.round(r.p*100)+'%</td><td class="dim">'+Math.round(r.avg*100)+'%</td><td style="font-weight:800;color:'+(d>=2?'var(--sc-hot)':d<=-2?'var(--sc-cold)':'var(--text3)')+'">'+(d>0?'+':'')+Math.round(d)+'</td><td class="dim">'+(r.a>=8?Math.round(eff*100)+'%':'—')+'</td></tr>'; }).join('');
-    return '<div class="sheet-wrap sc-sheet"><table class="sheet"><thead><tr><th class="l">Zone</th><th>FGA</th><th>Share</th><th>FG%</th><th>D-I</th><th>Δ</th><th>eFG%</th></tr></thead><tbody>'+tr+'</tbody></table></div>';
+    return '<div class="sheet-wrap sc-sheet"><table class="sheet"><thead><tr><th class="l">Zone</th><th>FGA</th><th>Share</th><th>FG%</th><th>D-I'+(REF_YEAR?' \u2019'+String(REF_YEAR).slice(2):'')+'</th><th>Δ</th><th>eFG%</th></tr></thead><tbody>'+tr+'</tbody></table></div>';
   }
   function zones(shots){
     var z={rim:[0,0],mid:[0,0],three:[0,0]};
@@ -305,7 +324,7 @@
     shots.forEach(function(s){ var k=zone10(s); if(!Z[k]) return; Z[k].a++; if(s.made)Z[k].m++; });
     var floor=Math.max(10, Math.round(shots.length*0.05));
     var ranked=Object.keys(ZMETA).filter(function(k){ return Z[k].a>=floor; })
-      .map(function(k){ return {k:k,a:Z[k].a,p:Z[k].m/Z[k].a,d:Z[k].m/Z[k].a-ZMETA[k].avg}; })
+      .map(function(k){ return {k:k,a:Z[k].a,p:Z[k].m/Z[k].a,d:Z[k].m/Z[k].a-avgOf(k)}; })
       .sort(function(a,b){ return b.d-a.d; });
     var picks=[];
     if(ranked.length>=2){
@@ -428,7 +447,7 @@
     var pct=shots.length/exp;
     if(pct>=0.9) return '';
     return '<div class="sc-cov"><b>'+shots.length+' of about '+Math.round(exp)+' attempts'+
-      ' ('+Math.round(pct*100)+'%)</b> \u2014 ESPN published shot locations for only some '+
+      ' ('+Math.round(pct*100)+'%)</b> \u2014 shot locations were logged for only some '+
       'games this season, so this chart is a partial picture.</div>';
   }
 
@@ -436,13 +455,14 @@
     opts=opts||{}; if(!el) return;
     shots=(shots||[]).filter(function(s){return s.x!=null&&s.y!=null;});
     el.setAttribute('data-sc-host','1'); el.classList.add('sc-host'); el._shots=shots; el._opts=opts;
+    useSeason(opts.season||(shots.length&&shots[0].season_year));
     if(!shots.length){
       var exp0=parseFloat(opts.expected);
       el.innerHTML='<div style="padding:34px 24px;text-align:center;color:var(--text3);font-size:13px;line-height:1.6;">'+
         '<b style="color:var(--text2)">No shot-location data for this season.</b><br>'+
-        (isFinite(exp0)&&exp0>0?('ESPN never published coordinates for these games'+
-          (opts.subtitle?' ('+opts.subtitle+' took about '+Math.round(exp0)+' shots)':'')+'.'):
-          'ESPN never published coordinates for these games.')+
+        (isFinite(exp0)&&exp0>0?('No coordinates were logged for these games'+
+          (opts.subtitle?' ('+opts.subtitle+' took about '+Math.round(exp0)+' shots)':'')+'; located shots go back to 2019-20.'):
+          'No coordinates were logged for these games; located shots go back to 2019-20.')+
         '</div>'; return; }
     var mode=opts.mode||'zones';
     var tcol=opts.color||((getComputedStyle(el).getPropertyValue('--tc')||'').trim())||null;
