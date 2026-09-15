@@ -117,6 +117,12 @@ def parse_pbp(html):
         periods.append(ev)
     return hdr, periods
 
+def pts_of(desc):
+    act = re.sub(r"^[^,]*,\s*", "", desc).strip().lower()
+    if act.startswith("freethrow"): return 1 if re.search(r"\bmade\b", act) else 0
+    m = re.match(r"^(2|3)pt\b", act)
+    return int(m.group(1)) if (m and re.search(r"\bmade\b", act)) else 0
+
 def classify(desc):
     """Action-token classification. Descriptions are "Player, action detail;detail; made|missed";
     tags like 'fromturnover' / '2ndchance' / 'shooting;2freethrow;' describe context, not the
@@ -196,13 +202,11 @@ def process_game(html, og, ncaa):
                 if len(starters) >= 5: break
                 if e not in starters and not first[side].get(e, False): starters.append(e)
             on[side] = set(starters[:5])
-        prev = None
         for tm, side, desc, sL, sR in ev:
-            if sL is not None and prev is not None:
-                dL, dR = sL - prev[0], sR - prev[1]
-                if dL > 0: stint["L"]["pts"] += dL
-                if dR > 0: stint["R"]["pts"] += dR
-            if sL is not None: prev = (sL, sR)
+            # points from the scoring EVENTS, not score deltas: rows sharing a clock time are
+            # listed out of order on stats.ncaa.org, so the running score bounces and deltas
+            # over-count (Georgia 86 vs a real 71). Event points match the box exactly.
+            stint[side]["pts"] += pts_of(desc)
             m = SUB_RE.match(desc)
             if m:
                 close_stint()
