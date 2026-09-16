@@ -91,6 +91,21 @@ def get(path, tries=5):
     return out
 
 
+def cbbd_names(season):
+    """espn_id -> name from scripts/data/cbbd_cache/roster_<season>.json.gz (build_shots_cbbd.py pull)."""
+    import gzip
+    fp = os.path.join(D, "cbbd_cache", "roster_%d.json.gz" % season)
+    out = {}
+    if not os.path.exists(fp): return out
+    try:
+        for t in json.load(gzip.open(fp, "rt")):
+            for pl in t.get("players") or []:
+                try: out[int(pl["sourceId"])] = pl["name"]
+                except Exception: pass
+    except Exception: pass
+    return out
+
+
 def zone(s):
     """rim / paint / mid / corner3 / atb3 — matches build_team_dna."""
     if s.get("sv") == 3:
@@ -133,6 +148,9 @@ def main():
     name_of = {}
     for r in get("bbref_seasons?season_year=eq.%d&espn_id=not.is.null&select=espn_id,player" % SEASON):
         name_of[r["espn_id"]] = r["player"]
+    # players our tables never captured (e.g. Jamarius Burton, Pitt 2023) still shoot in the
+    # CBBD-backfilled rows; name them from the CBBD roster cache when it's on disk
+    name_of.update({k: v for k, v in cbbd_names(SEASON).items() if k not in name_of})
 
     # ── pull every shot once, by team (indexed team_id → no deep-offset 500s) ──
     ALL = []
