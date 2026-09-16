@@ -40,6 +40,12 @@ def main():
     tinfo = {t["id"]: t for t in (B.cget("teams") or [])}
     for y in seasons_in_cache():
         ath, team = B.id_maps(y)
+        # CBBD carries a different ESPN id than our tables for a few players (Baker-Mazara,
+        # Demin, Kuany…); box_fill_remap_<y>.json (build_box_cbbd.py diff) says which
+        rf = os.path.join(D, "box_fill_remap_%d.json" % y)
+        if os.path.exists(rf):
+            rm = {int(k): v["our_id"] for k, v in json.load(open(rf)).items()}
+            ath = {cid: rm.get(e, e) for cid, e in ath.items()}
         P = defaultdict(blank); T = defaultdict(blank); L = blank()
         for r in B.rows_for(y, B.season_plays(y), ath, team):
             z = zone10(r["x"], r["y"] + HOOP_Y, r["sv"]); a = bool(r["ast_id"])
