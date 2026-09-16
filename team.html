@@ -1148,9 +1148,9 @@
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index cover -->
   <script>try{document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
   <link rel="stylesheet" href="tdc-dense.css?v=31"/>
-  <link rel="stylesheet" href="tdc-team-dense.css?v=17"/>
+  <link rel="stylesheet" href="tdc-team-dense.css?v=18"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth -->
-  <link rel="stylesheet" href="tdc-skin.css?v=8"/>
+  <link rel="stylesheet" href="tdc-skin.css?v=9"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
@@ -2073,13 +2073,18 @@ function _seedFromRank(rank){ return Math.max(1,Math.min(16,Math.ceil(rank/4)));
 async function _ratingsRow(t){
   try{ if(!window.TDC_RATINGS) return null; const D=await TDC_RATINGS.get(); if(!D||!D.teams) return null;
     const nm=(t.name||'').toLowerCase(); const gk=(await _resolveGamesKey().catch(()=>null)||'').toLowerCase();
-    return D.teams.find(r=>(r.team||'').toLowerCase()===nm || (r.full||'').toLowerCase()===nm || (gk&&(r.full||'').toLowerCase()===gk)) || null;
+    const row=D.teams.find(r=>(r.team||'').toLowerCase()===nm || (r.full||'').toLowerCase()===nm || (gk&&(r.full||'').toLowerCase()===gk)) || null;
+    if(row){ row.field=D.teams.length; const league=D.teams.filter(r=>r.conf===row.conf).sort((a,b)=>b.rating-a.rating); row.confRank=league.indexOf(row)+1||null; }
+    return row;
   }catch(e){ return null; }
 }
 // ribbon cell: {v,l,col?,cls?,badge?,badgeCls?} — badge renders the gradient seed chip
 function _ribHTML(cells){ return cells.filter(c=>c&&c.v!=null&&c.v!==''&&c.v!=='—').map(c=>{
   var tip=c.tip?(window.statTip?statTip(c.tip):''):'';
-  return `<div class="hrb ${c.cls||''}${tip?' has-tip':''}"${tip?` title="${tip.replace(/"/g,'&quot;')}"`:''}><div class="hrb-v" ${c.col?`style="color:${c.col}"`:''}>${c.badge?`<span class="hrb-seedbadge ${c.badgeCls||''}">${c.badge}</span>`:''}${c.v}</div><div class="hrb-l">${c.l}</div></div>`;
+  // the band is navy, so colour intent travels as a class (amber → warm, red → bad); team
+  // colours (readable on the light hero, not on navy) are dropped
+  var tone=(c.col||'').indexOf('amber')>=0?' warm':(c.col||'').indexOf('red')>=0?' bad':'';
+  return `<div class="hrb ${c.cls||''}${tone}${tip?' has-tip':''}"${tip?` title="${tip.replace(/"/g,'&quot;')}"`:''}><div class="hrb-v">${c.badge?`<span class="hrb-seedbadge ${c.badgeCls||''}">${c.badge}</span>`:''}${c.v}</div><div class="hrb-l">${c.l}</div>${c.s?`<div class="hrb-s">${c.s}</div>`:''}</div>`;
 }).join(''); }
 
 let _heroBarGen=0;
@@ -2112,11 +2117,11 @@ async function renderHeroBar(yr, teamObj){
     else if(rank && rank<=76){ seedCell={v:'Bubble',l:'Projected seed',cls:'seed',badge:'B',badgeCls:'bubble'}; }
     if(seedCell) seedCell.tip='projseed';
     rEl.innerHTML=_ribHTML([
-      {v:net.s,l:'Power Rating',tip:'projrating',col:net.cls==='pos'?'var(--tc-readable)':(net.cls==='neg'?'var(--red)':'')},
+      {v:net.s,l:'Power Rating',tip:'projrating',s:'projected for 2026-27'},
       seedCell,
-      rank?{v:'#'+rank,l:'Proj rank',tip:'projrank'}:null,
-      {v:t.conf||t.conference,l:'Conference'},
-      last?{v:`${last.wins}–${last.losses}`,l:`${last.season_year-1}–${(''+last.season_year).slice(2)}`}:null,
+      rank?{v:'#'+rank,l:'Proj rank',tip:'projrank',s:`of ${(rr&&rr.field)||365} teams`}:null,
+      {v:t.conf||t.conference,l:'Conference',s:(rr&&rr.confRank)?`No. ${rr.confRank} in league`:''},
+      last?{v:`${last.wins}–${last.losses}`,l:`${last.season_year-1}–${(''+last.season_year).slice(2)}`,s:'last season'}:null,
       last&&last.ncaa_result?{v:last.ncaa_result,l:'Last result',col:'var(--amber)'}:null,
       // shot-luck: how far returners shot above/below their shot quality last year.
       // Positive = hot (projection regresses it), negative = cold (projection bumps it).
