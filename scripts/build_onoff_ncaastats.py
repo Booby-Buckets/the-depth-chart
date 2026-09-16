@@ -34,13 +34,14 @@ DATADIR = os.path.join(os.path.dirname(__file__), "data")
 CACHE = os.path.join(DATADIR, "ncaa_pbp_cache")
 BASE = "https://stats.ncaa.org"
 SUB_RE = re.compile(r"^(.*?),\s*substitution (in|out)\s*$", re.I)
+ROTATE_EVERY = 28    # stats.ncaa.org serves ~35 pages per browser session before "Access Denied"
 
 # ── the browser ────────────────────────────────────────────────────────────
 class Browser:
     def __init__(self):
         from playwright.sync_api import sync_playwright
         self._pw = sync_playwright().start()
-        self.fails = 0; self.denials = 0; self.since_denial = 0
+        self.fails = 0; self.denials = 0; self.since_denial = 0; self.in_session = 0
         self._launch()
     def _launch(self):
         self.b = self._pw.chromium.launch(channel="chrome", headless=False,
@@ -51,7 +52,7 @@ class Browser:
     def _relaunch(self):
         try: self.b.close()
         except Exception: pass
-        self._launch(); self.fails = 0
+        self._launch(); self.fails = 0; self.in_session = 0
     def get(self, url, need=None, tries=3):
         for a in range(tries):
             try:
@@ -62,9 +63,14 @@ class Browser:
                         time.sleep(2); continue
                     if need and need not in html:
                         time.sleep(1); continue
-                    self.fails = 0; self.since_denial += 1
+                    self.fails = 0; self.since_denial += 1; self.in_session += 1
                     if self.denials and self.since_denial >= 50: self.denials -= 1   # earn back a shorter pause
-                    time.sleep(2.0 + 1.5 * random.random())    # pace like a reader, not a crawler
+                    # the limit is per SESSION (~35 pages, then Access Denied; a fresh session is
+                    # served at once after a short breath), so rotate before it trips
+                    if self.in_session >= ROTATE_EVERY:
+                        time.sleep(15); self._relaunch()
+                    else:
+                        time.sleep(1.2 + 0.8 * random.random())
                     return html
                 # the page loaded but never showed the marker: after ~30 quick pages the bot
                 # manager starts serving a short stub to this SESSION while a fresh one still
@@ -74,7 +80,7 @@ class Browser:
                     # Akamai rate limit: it lands after ~60-70 pages in a few minutes and clears
                     # on its own after a pause. Back off hard, then start a fresh session.
                     self.denials += 1
-                    wait = min(600, 90 * self.denials)
+                    wait = min(300, 30 * self.denials)
                     print(f"   access denied on {url.rsplit('/',2)[-2]} at {time.strftime('%H:%M:%S')} — pausing {wait}s, then a fresh session (pages since last denial: {self.since_denial})", flush=True)
                     self.since_denial = 0
                     time.sleep(wait); self._relaunch(); continue
