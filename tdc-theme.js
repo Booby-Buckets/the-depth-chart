@@ -33,10 +33,35 @@
   // (1) apply immediately — runs in <head>, before the body paints → persistence + no flash
   apply(cur());
 
+  // Smooth switch: a whole-page crossfade via the View Transitions API where it exists
+  // (Chrome, Edge, Safari 18+), otherwise every colour/background/border tweens for ~350ms
+  // under a temporary class. Either way the change is committed synchronously to storage.
+  var css = null;
+  function ensureCss() {
+    if (css) return;
+    css = document.createElement('style');
+    css.textContent =
+      '::view-transition-old(root),::view-transition-new(root){animation-duration:.42s;animation-timing-function:ease-in-out;}' +
+      'html.tdc-theming, html.tdc-theming *, html.tdc-theming *::before, html.tdc-theming *::after{' +
+      'transition:background-color .35s ease, color .35s ease, border-color .35s ease, fill .35s ease, stroke .35s ease, box-shadow .35s ease !important;}' +
+      '@media (prefers-reduced-motion: reduce){ ::view-transition-old(root),::view-transition-new(root){animation:none;} }';
+    (document.head || document.documentElement).appendChild(css);
+  }
   function set(theme) {
     theme = theme === 'dark' ? 'dark' : 'light';
+    var same = document.documentElement.getAttribute('data-theme') === theme;
     try { localStorage.setItem(KEY, theme); } catch (e) {}
+    if (same) { apply(theme); return; }
+    ensureCss();
+    var reduced = false;
+    try { reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+    if (!reduced && typeof document.startViewTransition === 'function') {
+      try { document.startViewTransition(function () { apply(theme); }); return; } catch (e) {}
+    }
+    var root = document.documentElement;
+    root.classList.add('tdc-theming');
     apply(theme);
+    setTimeout(function () { root.classList.remove('tdc-theming'); }, 400);
   }
   function toggle() { set(cur() === 'dark' ? 'light' : 'dark'); }
   // public API (also what existing inline toggleTheme() writes to — same key, no conflict)
@@ -49,6 +74,9 @@
   var injected = null;
   function realToggle() { return document.querySelector('.theme-toggle, #themeBtn'); } // page/nav toggle, not ours
   function ensureToggle() {
+    // ~60 pages still declare their own toggleTheme() that flips the attribute cold; route
+    // every onclick="toggleTheme()" through the animated switch instead (same storage key).
+    window.toggleTheme = toggle;
     apply(cur()); // keep any per-page button icons in sync
     if (realToggle()) { if (injected) { injected.remove(); injected = null; } return; }
     if (!injected && document.body) {
