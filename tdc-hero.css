@@ -1,0 +1,74 @@
+/* tdc-hero.css — the premium table-page header: a navy hero strip (title left, a KPI band
+   of the pool's vital signs right) with the filter toolbar floating up over its bottom edge
+   as a card. Class names are deliberately NOT .page-header/.filter-bar, which
+   tdc-hq-site.css forces transparent with !important on every page that loads it.
+   Markup:
+     <div class="ph-hero"><div class="ph-left">eyebrow · h1.page-h1 · p.page-sub · .page-meta</div>
+       <div class="ph-band"><div class="ph-tile [acc]"><div class="k">…</div><div class="v">…<small>…</small></div><div class="s">…</div></div>…</div></div>
+     <div class="tdc-toolbar"><div class="f-group"><label class="f-lab"><span>Season</span><select class="filter-select">…</label>…</div>
+       <div class="f-actions"><span class="pool-count">…</span><button class="f-btn">…</button></div><div class="f-break"></div><div class="f-group">…</div></div> */
+.ph-hero{padding:38px 40px 52px;display:flex;align-items:flex-end;justify-content:space-between;gap:28px;flex-wrap:wrap;position:relative;
+  background:linear-gradient(120deg,#0B1220 0%,#121C33 48%,#1A2A4C 100%);color:#fff;}
+.ph-hero::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(700px 240px at 92% 0%, rgba(168,132,60,.22), transparent 70%), radial-gradient(520px 200px at 0% 100%, rgba(90,169,255,.14), transparent 70%);}
+.ph-hero>*{position:relative;z-index:1;}
+.ph-left{max-width:680px;min-width:0;}
+.ph-hero .page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#E6D5A8;margin:0 0 12px;display:flex;align-items:center;gap:10px;}
+.ph-hero .page-eyebrow::before{content:'';width:22px;height:1px;background:#E6D5A8;}
+.ph-hero .page-h1, body.hqsite .ph-hero .page-h1{font-family:'Playfair Display',Georgia,serif !important;font-weight:800;font-size:42px;line-height:1.02;letter-spacing:-.02em;text-transform:none !important;margin:0 0 12px;color:#fff !important;-webkit-text-fill-color:#fff !important;background:none !important;}
+.ph-hero .page-sub{font-size:13.5px;line-height:1.6;color:rgba(255,255,255,.72) !important;margin:0 0 8px;max-width:none;}
+.ph-hero .page-sub b{color:#fff;}
+.ph-hero .page-meta{font-size:12px;color:rgba(255,255,255,.5);font-variant-numeric:tabular-nums;letter-spacing:.02em;}
+.ph-band{display:grid;grid-template-columns:repeat(4,minmax(128px,1fr));border:1px solid rgba(255,255,255,.14);border-radius:14px;overflow:hidden;
+  background:rgba(255,255,255,.05);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 18px 40px rgba(0,8,30,.35);flex:0 0 auto;}
+.ph-band.cols3{grid-template-columns:repeat(3,minmax(128px,1fr));}
+.ph-tile{padding:14px 18px 13px;border-right:1px solid rgba(255,255,255,.12);min-width:0;}
+.ph-tile:last-child{border-right:none;}
+.ph-tile .k{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-bottom:6px;white-space:nowrap;}
+.ph-tile .v{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:26px;line-height:1;color:#fff;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ph-tile .v small{font-family:'Inter',system-ui,sans-serif;font-size:11px;font-weight:600;color:rgba(255,255,255,.55);letter-spacing:.04em;margin-left:5px;}
+.ph-tile .s{font-size:11px;color:rgba(255,255,255,.55);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ph-tile .s b{color:rgba(255,255,255,.88);font-weight:700;}
+.ph-tile.acc .v{color:#E6D5A8;}
+/* view switcher pills living inside the hero */
+.ph-tabs{display:flex;gap:6px;margin-top:16px;flex-wrap:wrap;}
+.ph-tabs button, .ph-tabs .vtab, .ph-tabs .tab-btn{font-family:'Inter',system-ui,sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.72) !important;background:rgba(255,255,255,.06) !important;border:1px solid rgba(255,255,255,.16) !important;border-radius:9px;padding:8px 16px;cursor:pointer;transition:all .15s;border-bottom-width:1px !important;margin:0 !important;}
+.ph-tabs button:hover, .ph-tabs .vtab:hover, .ph-tabs .tab-btn:hover{color:#fff !important;background:rgba(255,255,255,.12) !important;}
+.ph-tabs button.on, .ph-tabs .vtab.on, .ph-tabs .tab-btn.active{background:#E6D5A8 !important;color:#141821 !important;border-color:#E6D5A8 !important;}
+
+/* the toolbar floats up over the hero's bottom edge as a card */
+.tdc-toolbar{margin:-24px 40px 0;padding:14px 18px 16px;border:1px solid var(--border);border-radius:14px;background:var(--bg);box-shadow:0 10px 30px rgba(0,10,40,.14);position:relative;z-index:2;display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;}
+.f-lab{display:flex;flex-direction:column;gap:4px;}
+.f-lab>span{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);padding-left:2px;}
+.f-group{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;}
+.f-actions{display:flex;align-items:center;gap:6px;margin-left:auto;align-self:flex-end;padding-bottom:1px;}
+.f-break{flex-basis:100%;height:2px;}
+.f-btn{font-family:'Inter',system-ui,sans-serif;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text2);background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 12px;cursor:pointer;transition:border-color .15s,color .15s,background .15s;white-space:nowrap;}
+.f-btn:hover{border-color:var(--border2);color:var(--text);background:var(--bg2);}
+.f-btn.on{color:var(--accent);border-color:var(--accent);background:color-mix(in srgb, var(--accent) 8%, transparent);}
+.f-btn.ghost{border-color:transparent;color:var(--text3);}
+.f-btn.ghost:hover{color:var(--text);background:var(--bg2);}
+.pool-count{font-size:12px;font-weight:600;color:var(--text3);border:1px solid var(--border);border-radius:9px;padding:8px 12px;background:var(--bg2);font-variant-numeric:tabular-nums;white-space:nowrap;}
+.pool-count strong{color:var(--accent);font-weight:800;}
+/* inputs inside the toolbar share one look, whatever the page called them */
+.tdc-toolbar .filter-select, .tdc-toolbar select{font-family:'Inter',system-ui,sans-serif;font-size:12px;font-weight:600;background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:8px 30px 8px 12px;border-radius:9px;outline:none;cursor:pointer;max-width:190px;
+  appearance:none;-webkit-appearance:none;-moz-appearance:none;
+  background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="%23847B9C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+  background-repeat:no-repeat;background-position:right 11px center;transition:border-color .15s,background-color .15s,box-shadow .15s;}
+.tdc-toolbar select:hover{border-color:var(--border2);background-color:var(--bg2);}
+.tdc-toolbar select:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);}
+.tdc-toolbar input[type=text], .tdc-toolbar input[type=search]{font-family:'Inter',system-ui,sans-serif;font-size:12px;font-weight:500;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:9px;outline:none;width:200px;transition:border-color .15s,box-shadow .15s;margin:0;}
+.tdc-toolbar input[type=text]:focus, .tdc-toolbar input[type=search]:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);}
+.tdc-toolbar input::placeholder{color:var(--text3);}
+.tdc-toolbar .f-lead select{font-weight:700;color:var(--text);border-color:var(--border2);}
+@media(max-width:768px){
+  .ph-hero{padding:26px 16px 40px;gap:16px;}
+  .ph-hero .page-h1{font-size:28px;}
+  .ph-band{grid-template-columns:repeat(2,1fr);width:100%;}
+  .ph-band.cols3{grid-template-columns:repeat(2,1fr);}
+  .ph-tile{border-bottom:1px solid rgba(255,255,255,.12);}
+  .ph-tile:nth-child(2n){border-right:none;}
+  .ph-tile:nth-last-child(-n+2){border-bottom:none;}
+  .tdc-toolbar{margin:-20px 12px 0;padding:12px 12px 14px;}
+  .f-actions{margin-left:0;width:100%;}
+}

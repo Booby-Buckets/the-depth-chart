@@ -13,7 +13,7 @@
   <script src="tdc-gate.js?v=3"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=3"></script>
-  <script src="tdc-proj.js?v=coach19"></script>
+  <script src="tdc-proj.js?v=coach20"></script>
   <script src="tdc-freshman.js?v=pub5"></script>
   <script src="tdc-injury.js?v=4"></script>
   <script src="tdc-ratings.js?v=17"></script>
@@ -7520,9 +7520,18 @@ async function loadHistoricRoster(yr){
   // Box-only archetype fit for this PAST season — grade it the same way as the
   // projection (per-season centered, weak-team dampened), so the team page's historical
   // OVRs match the player page / rankings for every year. _gdisp reads _projGrade.
+  // THE canonical grade is the statistical overall (gradeSolo, season-aware by espn_id +
+  // season_year) — the same number the player-page hero shows. boxAdjust is the older,
+  // ~1-2 pt hotter formula and is only the fallback for rows gradeSolo can't resolve
+  // (Teagan Moore 2025-26 read 90 here vs 82 on his page until this ran first).
+  if(window.TDCProjGrade && TDCProjGrade.gradeSolo){
+    try{ if(TDCProjGrade.loadHist && parseInt(yr)<=2025) await TDCProjGrade.loadHist(); }catch(e){}
+    rows.forEach(p=>{ if(!p) return; if(p.season_year==null) p.season_year=parseInt(yr)||p.season_year;
+      try{ const g=TDCProjGrade.gradeSolo(p); if(g!=null&&!isNaN(g)&&(p.tdc_grade!=null||g>50)) p._projGrade=g; }catch(e){} });
+  }
   if(window.TDCRating && TDCRating.ready){
     try{ await TDCRating.ready; }catch(e){}
-    if(TDCRating.boxAdjust) rows.forEach(p=>{ if(!p||p.tdc_grade==null) return;
+    if(TDCRating.boxAdjust) rows.forEach(p=>{ if(!p||p.tdc_grade==null||p._projGrade!=null) return;
       try{ const a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(yr)||0);
         if(a&&a.grade!=null) p._projGrade=Math.round(a.grade); }catch(e){} });
   }
@@ -7576,7 +7585,8 @@ async function computeSeasonAwards(rows, yr){
   if(!body) return;
   if(head) head.textContent=`${yr-1}–${(''+yr).slice(2)} Awards`;
   const players=(rows||[]).filter(r=>r.name && (parseFloat(r.gp)||0)>0);
-  const grade=p=>parseFloat(p.tdc_grade)||0, ppg=p=>parseFloat(p.ppg)||0, mpg=p=>parseFloat(p.mpg)||0;
+  // same canonical grade the roster cards and the player hero show (statistical overall)
+  const grade=p=>(p._projGrade!=null?parseFloat(p._projGrade):parseFloat(p.tdc_grade))||0, ppg=p=>parseFloat(p.ppg)||0, mpg=p=>parseFloat(p.mpg)||0;
   if(!players.length || !players.some(p=>grade(p))){ body.innerHTML='<div class="empty-note" style="padding:6px 2px;">Not enough data for awards this season.</div>'; return; }
   const nt=s=>(s||'').toLowerCase().trim();
   const tmatch=(a,b)=>{a=nt(a);b=nt(b);return !!a&&!!b&&(a===b||a.startsWith(b)||b.startsWith(a));};
@@ -7588,7 +7598,12 @@ async function computeSeasonAwards(rows, yr){
     const ids=players.map(p=>p.espn_id).filter(Boolean);
     if(ids.length){
       const pr=await fetch(`${SB_URL}/rest/v1/player_history?espn_id=in.(${ids.join(',')})&season_year=eq.${yr-1}&select=espn_id,team,tdc_grade,ppg`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-      pr.forEach(r=>{ if(r.espn_id) prev[r.espn_id]=r; });
+      // prior-season grade on the same canonical scale (statistical overall), so
+      // "Most Improved 73 → 79" compares like with like
+      let _hl=false; try{ if(window.TDCProjGrade&&TDCProjGrade.loadHist){ await TDCProjGrade.loadHist(); _hl=true; } }catch(e){}
+      pr.forEach(r=>{ if(!r.espn_id) return; r.season_year=yr-1;
+        if(_hl){ try{ const g=TDCProjGrade.gradeSolo(r); if(g!=null&&!isNaN(g)&&r.tdc_grade!=null) r.tdc_grade=g; }catch(e){} }
+        prev[r.espn_id]=r; });
     }
   }
   const pv=p=>p.espn_id?prev[p.espn_id]:null;
