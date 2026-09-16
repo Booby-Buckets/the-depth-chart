@@ -1189,7 +1189,7 @@
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <link rel="stylesheet" href="tdc-dense.css?v=37"/>
-  <link rel="stylesheet" href="tdc-hero.css?v=1"/>
+  <link rel="stylesheet" href="tdc-hero.css?v=2"/>
   <link rel="stylesheet" href="tdc-index-sheet.css?v=1"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth; releases the dense dark-lock -->
   <link rel="stylesheet" href="tdc-skin.css?v=8"/>
@@ -1273,11 +1273,14 @@
       <span id="teamCount">—</span>
     </div>
   </div>
-  <div class="ph-band" id="phBand">
+  <div class="ph-band cols7" id="phBand">
     <div class="ph-tile"><div class="k">Teams</div><div class="v">—</div><div class="s">loading</div></div>
     <div class="ph-tile acc"><div class="k">No. 1</div><div class="v">—</div><div class="s">&nbsp;</div></div>
     <div class="ph-tile"><div class="k">Best offense</div><div class="v">—</div><div class="s">&nbsp;</div></div>
     <div class="ph-tile"><div class="k">Best defense</div><div class="v">—</div><div class="s">&nbsp;</div></div>
+    <div class="ph-tile"><div class="k">Top conference</div><div class="v">—</div><div class="s">&nbsp;</div></div>
+    <div class="ph-tile"><div class="k">Highest scoring</div><div class="v">—</div><div class="s">&nbsp;</div></div>
+    <div class="ph-tile"><div class="k">Best 3-pt shooting</div><div class="v">—</div><div class="s">&nbsp;</div></div>
   </div>
 </div>
 
@@ -1541,10 +1544,21 @@ function fillHeroBand(label){
     const withO=allTeams.filter(t=>t.ortg!=null), withD=allTeams.filter(t=>t.drtg!=null);
     const bestO=withO.slice().sort((a,b)=>b.ortg-a.ortg)[0], bestD=withD.slice().sort((a,b)=>a.drtg-b.drtg)[0];
     const sgn=v=>(v>0?'+':'')+(+v).toFixed(1);
+    const nm=t=>{ const n=t.short||t.name||''; return (window.tdcShortSchool&&n===t.name)?tdcShortSchool(n):n; };   // carryover rows only carry the mascot name
+    // conference strength = average Power Rating of its members (5+ teams)
+    const byConf={}; allTeams.forEach(t=>{ if(!t.conf) return; (byConf[t.conf]=byConf[t.conf]||[]).push(+t.srs||0); });
+    const confs=Object.keys(byConf).filter(c=>byConf[c].length>=5).map(c=>({c, avg:byConf[c].reduce((a,b)=>a+b,0)/byConf[c].length, n:byConf[c].length})).sort((a,b)=>b.avg-a.avg);
+    const topConf=confs[0];
+    const scorer=allTeams.filter(t=>+t.ppg>0).sort((a,b)=>b.ppg-a.ppg)[0];
+    const shooter=allTeams.filter(t=>+t.tp>0).sort((a,b)=>b.tp-a.tp)[0];
+    const pct=v=>(v<=1?v*100:v).toFixed(1);
     band.innerHTML=tile('Teams',allTeams.length,label||'')+
-      (top?tile('No. 1',`${sgn(top.srs)}<small>PRtg</small>`,`<b>${top.short||top.name}</b>`,true):'')+
-      (bestO?tile('Best offense',`${(+bestO.ortg).toFixed(1)}<small>ORtg</small>`,`<b>${bestO.short||bestO.name}</b>`):tile('Best offense','—','&nbsp;'))+
-      (bestD?tile('Best defense',`${(+bestD.drtg).toFixed(1)}<small>DRtg</small>`,`<b>${bestD.short||bestD.name}</b>`):tile('Best defense','—','&nbsp;'));
+      (top?tile('No. 1',`${sgn(top.srs)}<small>PRtg</small>`,`<b>${nm(top)}</b>`,true):'')+
+      (bestO?tile('Best offense',`${(+bestO.ortg).toFixed(1)}<small>ORtg</small>`,`<b>${nm(bestO)}</b>`):tile('Best offense','—','&nbsp;'))+
+      (bestD?tile('Best defense',`${(+bestD.drtg).toFixed(1)}<small>DRtg</small>`,`<b>${nm(bestD)}</b>`):tile('Best defense','—','&nbsp;'))+
+      (topConf?tile('Top conference',`${sgn(topConf.avg)}<small>avg</small>`,`<b>${topConf.c}</b> · ${topConf.n} teams`):tile('Top conference','—','&nbsp;'))+
+      (scorer?tile('Highest scoring',`${(+scorer.ppg).toFixed(1)}<small>PPG</small>`,`<b>${nm(scorer)}</b>`):tile('Highest scoring','—','&nbsp;'))+
+      (shooter?tile('Best 3-pt shooting',`${pct(+shooter.tp)}<small>%</small>`,`<b>${nm(shooter)}</b>`):tile('Best 3-pt shooting','—','&nbsp;'));
   }catch(e){}
 }
 
