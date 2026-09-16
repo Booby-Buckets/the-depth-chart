@@ -1,0 +1,66 @@
+/* tdc-index-sheet.css — the homepage rankings as a SHEET (the Player Projected Stats look):
+   light, framed, boxy gridlined cells with blue percentile fills, navy hero + floating
+   toolbar. Loaded LAST on index.html so it wins over tdc-dense.css's forced-navy skin.
+   tdc-dense.css still supplies the grid tracks, rail, sparkline and row dropdown. */
+
+/* ---- theme-aware page, not forced navy ---- */
+html{ background:var(--bg) !important; }
+.tdc-bg{ background:var(--bg) !important; }
+:root[data-theme="dark"] html{ background:#0A0E18 !important; }
+:root[data-theme="dark"] .tdc-bg{ background:linear-gradient(160deg,#0A0E18 0%,#0C1220 60%,#0A0E18 100%) !important; }
+.nav-wrap{ background:color-mix(in srgb, var(--bg) 88%, transparent) !important; }
+
+/* ---- content shell (same frame as roster.html) ---- */
+.ix-shell{ max-width:var(--table-shell,1600px); margin:14px auto 36px; border:1px solid var(--border2); border-radius:16px; overflow:hidden;
+  background:var(--bg); box-shadow:0 18px 46px rgba(0,10,40,.14); }
+:root[data-theme="dark"] .ix-shell{ box-shadow:0 18px 46px rgba(0,0,0,.5); }
+@media (max-width:1640px){ .ix-shell{ margin:0 0 36px; border-left:none; border-right:none; border-radius:0; } }
+.ix-shell .wh-strip{ margin:18px 40px 0; }
+.ix-shell .showcase{ margin-top:16px; }
+
+/* ---- toolbar: conference pills + season / sort / search ---- */
+.ix-shell .tdc-toolbar{ position:relative; top:auto !important; margin:-24px 40px 0; flex-direction:row; align-items:flex-end; }
+.ix-shell .tdc-toolbar .filter-pills{ flex-basis:100%; order:2; gap:5px; padding-top:10px; margin-top:8px; border-top:1px solid var(--border); }
+.ix-shell .tdc-toolbar .filter-controls{ display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap; order:1; width:100%; }
+.ix-shell .filter-btn{ font-family:'Inter',system-ui,sans-serif; font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--text3); background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:6px 11px; cursor:pointer; transition:all .12s; }
+.ix-shell .filter-btn:hover{ color:var(--text); border-color:var(--border2); background:var(--bg2); }
+.ix-shell .filter-btn.active{ color:#fff; background:#121C33; border-color:#121C33; }
+.ix-shell .tdc-toolbar .filter-count{ margin-left:auto; }
+.ix-shell .tdc-toolbar .nav-search{ font-family:'Inter',system-ui,sans-serif; font-size:12px; background:var(--bg); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:9px; outline:none; width:200px; }
+.ix-shell .tdc-toolbar .nav-search:focus{ border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+
+/* ---- the grid as a sheet ---- */
+.ix-shell .table-section{ padding:16px 40px 48px !important; }
+.ix-shell .table-scroll{ border:1px solid var(--border) !important; border-radius:10px !important; background:var(--bg) !important; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+.ix-shell .table-header{ background:var(--bg2) !important; border-bottom:1px solid var(--border) !important; height:38px; }
+.ix-shell .table-header .th{ font-family:'Inter',system-ui,sans-serif !important; font-size:10px !important; font-weight:800 !important; letter-spacing:.08em; color:var(--text3) !important;
+  border-right:1px solid var(--border); }
+.ix-shell .table-header .th:last-child{ border-right:none; }
+.ix-shell .table-header .th.sorted, .ix-shell .table-header .th[data-sorted]{ color:var(--accent) !important; background:color-mix(in srgb, var(--accent) 8%, transparent); }
+.ix-shell .team-row{ border-bottom:1px solid var(--border) !important; background:var(--bg) !important; }
+.ix-shell .team-row:nth-child(even){ background:color-mix(in srgb, var(--text) 3%, var(--bg)) !important; }
+.ix-shell .team-row:hover{ background:color-mix(in srgb, var(--accent) 9%, var(--bg)) !important; }
+.ix-shell .team-row.tr-open{ background:color-mix(in srgb, var(--accent) 12%, var(--bg)) !important; }
+.ix-shell .tr-rank-wrap, .ix-shell .tr-team-cell, .ix-shell .tr-spacer, .ix-shell .tr-margin, .ix-shell .tr-stat{ border-right:1px solid var(--border) !important; border-left:none !important; height:38px !important; }
+.ix-shell .team-row>*:last-child{ border-right:none !important; }
+.ix-shell .tr-rank{ font-family:'Inter',system-ui,sans-serif !important; font-size:12px !important; color:var(--text3) !important; }
+.ix-shell .tr-rank.rank-1, .ix-shell .tr-rank.rank-2, .ix-shell .tr-rank.rank-3{ color:var(--accent) !important; }
+.ix-shell .tr-team-name{ font-family:'Inter',system-ui,sans-serif !important; font-size:13px !important; font-weight:700 !important; color:var(--text) !important; }
+.ix-shell .tr-team-conf .conf-badge{ background:var(--bg2); color:var(--text3); border:1px solid var(--border); }
+/* stat cells: Inter tabular, the blue percentile fill comes from tdc-dense.js */
+.ix-shell .tr-stat b, .ix-shell .mbar-val{ font-family:'Inter',system-ui,sans-serif !important; font-size:12.5px !important; font-weight:600 !important; font-variant-numeric:tabular-nums; color:var(--text) !important; }
+.ix-shell .tr-stat.ht-on b, .ix-shell .tr-margin.ht-on .mbar-val{ color:#fff !important; font-weight:700 !important; }
+.ix-shell .tr-stat span, .ix-shell .mbar-lbl{ display:none !important; }   /* cell labels live in the header now */
+.ix-shell .tr-margin{ justify-content:center !important; padding-right:0 !important; }
+/* rail cards match the sheet frame */
+.ix-shell .rl-card{ background:var(--bg) !important; border:1px solid var(--border) !important; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.ix-shell .rl-collapse, .rail-reopen{ background:var(--bg2) !important; border-color:var(--border) !important; color:var(--text3) !important; }
+.ix-shell .tr-drop{ background:var(--bg2) !important; border-bottom:1px solid var(--border) !important; }
+/* skeleton tint */
+.ix-shell .skel, .ix-shell .skel-grade{ background:linear-gradient(90deg,var(--bg2),var(--bg3),var(--bg2)) !important; }
+@media(max-width:768px){
+  .ix-shell .tdc-toolbar{ margin:-20px 12px 0; }
+  .ix-shell .table-section{ padding:12px 12px 40px !important; }
+  .ix-shell .wh-strip{ margin:14px 12px 0; }
+}

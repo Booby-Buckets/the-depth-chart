@@ -36,11 +36,14 @@
   /* ---- per-column heat map ---- */
   var INVERT={ 'OPP':1, 'TOV':1, 'DRtg':1 };      // lower is better (DRtg: fewer points allowed = better D)
   var SKIP={ 'W-L':1 };                  // not numeric
+  // Blue percentile fill, the Player Projected Stats scale: nothing below the median,
+  // then four steps of deepening blue (white text once the fill is strong).
+  var STEPS=['', 'rgba(60,120,220,.45)', 'rgba(45,100,210,.58)', 'rgba(30,82,200,.72)', 'rgba(18,60,185,.88)'];
   function heat(t, invert){
     if(invert) t=1-t;
     t=Math.max(0,Math.min(1,t));
-    if(t>=.5){ return 'rgba(52,211,153,'+(0.04+(t-.5)*2*0.30).toFixed(3)+')'; }
-    return 'rgba(248,113,113,'+(0.04+(.5-t)*2*0.30).toFixed(3)+')';
+    var step=t>=.9?4:t>=.75?3:t>=.6?2:t>=.45?1:0;
+    return STEPS[step];
   }
   function applyHeat(){
     var rows=document.querySelectorAll('#rankingsList .team-row');
@@ -58,8 +61,14 @@
         if(isFinite(num)){ cells.push(c); vals.push(num); }
       });
       if(vals.length<3) continue;
-      var mn=Math.min.apply(null,vals), mx=Math.max.apply(null,vals), inv=!!INVERT[label], rng=(mx-mn)||1;
-      for(var i=0;i<cells.length;i++){ cells[i].style.background=heat((vals[i]-mn)/rng, inv); }
+      // rank-based (percentile), not min-max: one outlier no longer washes out the column
+      var inv=!!INVERT[label];
+      var sorted=vals.slice().sort(function(a,b){return a-b;}), n=sorted.length;
+      for(var i=0;i<cells.length;i++){
+        var lo=0, hi=n; while(lo<hi){ var m=(lo+hi)>>1; if(sorted[m]<vals[i]) lo=m+1; else hi=m; }
+        var bg=heat(n>1?lo/(n-1):0.5, inv);
+        cells[i].style.background=bg; cells[i].classList.toggle('ht-on', !!bg);
+      }
     }
   }
 

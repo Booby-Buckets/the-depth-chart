@@ -1189,6 +1189,8 @@
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <link rel="stylesheet" href="tdc-dense.css?v=37"/>
+  <link rel="stylesheet" href="tdc-hero.css?v=1"/>
+  <link rel="stylesheet" href="tdc-index-sheet.css?v=1"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth; releases the dense dark-lock -->
   <link rel="stylesheet" href="tdc-skin.css?v=8"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
@@ -1201,7 +1203,6 @@
   <meta name="apple-mobile-web-app-title" content="The Depth Chart">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="tdc-pwa.js?v=2" defer></script>
-  <link rel="stylesheet" href="tdc-hq-site.css?v=22"/>
 </head>
 <body data-anim-auto>
 <script src="tdc-badge.js?v=1"></script>
@@ -1258,22 +1259,56 @@
 </div>
 
 <!-- ═══ HERO ══════════════════════════════════════════════════ -->
-<div class="page-header" id="pageHeader">
-  <div class="hero-orbs" aria-hidden="true">
-    <div class="hero-orb orb-1"></div>
-    <div class="hero-orb orb-2"></div>
-    <div class="hero-orb orb-3"></div>
-  </div>
-  <div class="hero-content">
-    <div class="page-header-eyebrow" id="heroEyebrow">College Basketball · Team Analytics</div>
-    <h1 id="heroTitle">Team <em>Analytics</em></h1>
-    <div class="page-header-meta">
+<div class="ix-shell">
+<div class="ph-hero" id="pageHeader">
+  <div class="ph-left">
+    <div class="page-eyebrow" id="heroEyebrow">College Basketball · Team Analytics</div>
+    <h1 class="page-h1" id="heroTitle">Team Analytics</h1>
+    <p class="page-sub">Every Division I program ranked by <b>Power Rating</b> — projected from the rosters for 2026-27, or the real numbers for any past season. Click a team to open its card.</p>
+    <div class="page-meta">
       <span id="heroConfSpan">Ranked by Power Rating · all of Division I</span>
       <span class="meta-dot"></span>
       <span id="lastUpdated">Loading…</span>
       <span class="meta-dot"></span>
       <span id="teamCount">—</span>
     </div>
+  </div>
+  <div class="ph-band" id="phBand">
+    <div class="ph-tile"><div class="k">Teams</div><div class="v">—</div><div class="s">loading</div></div>
+    <div class="ph-tile acc"><div class="k">No. 1</div><div class="v">—</div><div class="s">&nbsp;</div></div>
+    <div class="ph-tile"><div class="k">Best offense</div><div class="v">—</div><div class="s">&nbsp;</div></div>
+    <div class="ph-tile"><div class="k">Best defense</div><div class="v">—</div><div class="s">&nbsp;</div></div>
+  </div>
+</div>
+
+<!-- ═══ FILTER BAR ════════════════════════════════════════════ -->
+<div class="filter-bar tdc-toolbar" id="filterBar">
+  <div class="filter-pills" id="filterPills">
+    <button class="filter-btn active" onclick="setConf('',this)">All</button>
+  </div>
+  <div class="filter-controls">
+    <label class="f-lab f-lead"><span>Season</span><select class="filter-select" id="seasonSel" onchange="onSeason(this.value)"></select></label>
+    <label class="f-lab"><span>Sort</span><select class="filter-select" id="sortSel" onchange="setSort(this.value,false)">
+      <option value="srs">Power Rating</option>
+      <option value="ortg">Best Offense (ORtg)</option>
+      <option value="drtg">Best Defense (DRtg)</option>
+      <option value="margin">Scoring Margin</option>
+      <option value="winpct">Win %</option>
+      <option value="wins">Wins</option>
+      <option value="ppg">Points / Game</option>
+      <option value="oppg">Opp Points / Game</option>
+      <option value="fg">FG%</option>
+      <option value="tp">3P%</option>
+      <option value="ft">FT%</option>
+      <option value="drpg">Def Rebounds</option>
+      <option value="apg">Assists / Game</option>
+      <option value="ato">Assist / TO Ratio</option>
+      <option value="spg">Steals / Game</option>
+      <option value="bpg">Blocks / Game</option>
+      <option value="topg">Fewest Turnovers</option>
+    </select></label>
+    <label class="f-lab"><span>Team</span><input class="nav-search" id="searchInput" type="text" placeholder="Search teams…" oninput="applyFilters()"/></label>
+    <div class="filter-count pool-count" id="filterCount"></div>
   </div>
 </div>
 
@@ -1304,11 +1339,12 @@
 <script>
   function whDismiss(){ try{localStorage.setItem('tdc_wh_dismissed','1');}catch(e){} var el=document.getElementById('whStrip'); if(el) el.remove(); }
   (function(){
-    function place(){ var s=document.getElementById('whStrip'), ph=document.getElementById('pageHeader');
+    function place(){ var s=document.getElementById('whStrip'), fb=document.getElementById('filterBar');
       if(!s) return;
       try{ if(localStorage.getItem('tdc_wh_dismissed')==='1'){ s.remove(); return; } }catch(e){}
-      // the page appends its main content after this static strip — hoist it back up under the hero
-      if(ph && ph.nextElementSibling!==s) ph.insertAdjacentElement('afterend', s);
+      // the page appends its main content after this static strip — hoist it back up under the
+      // toolbar (which floats over the hero's bottom edge, so it must stay first)
+      if(fb && fb.nextElementSibling!==s) fb.insertAdjacentElement('afterend', s);
     }
     place();
     document.addEventListener('DOMContentLoaded', place);
@@ -1351,37 +1387,6 @@
   <div id="scPlayersBlock">
     <div class="sc-label" id="scLabel">Top Players <span id="scTeamSeason"></span></div>
     <div class="sc-players" id="scPlayers"></div>
-  </div>
-</div>
-
-<!-- ═══ FILTER BAR ════════════════════════════════════════════ -->
-<div class="filter-bar" id="filterBar">
-  <div class="filter-pills" id="filterPills">
-    <button class="filter-btn active" onclick="setConf('',this)">All</button>
-  </div>
-  <div class="filter-controls">
-    <select class="filter-select" id="seasonSel" onchange="onSeason(this.value)"></select>
-    <select class="filter-select" id="sortSel" onchange="setSort(this.value,false)">
-      <option value="srs">Sort: Power Rating</option>
-      <option value="ortg">Sort: Best Offense (ORtg)</option>
-      <option value="drtg">Sort: Best Defense (DRtg)</option>
-      <option value="margin">Sort: Scoring Margin</option>
-      <option value="winpct">Sort: Win %</option>
-      <option value="wins">Sort: Wins</option>
-      <option value="ppg">Sort: Points / Game</option>
-      <option value="oppg">Sort: Opp Points / Game</option>
-      <option value="fg">Sort: FG%</option>
-      <option value="tp">Sort: 3P%</option>
-      <option value="ft">Sort: FT%</option>
-      <option value="drpg">Sort: Def Rebounds</option>
-      <option value="apg">Sort: Assists / Game</option>
-      <option value="ato">Sort: Assist / TO Ratio</option>
-      <option value="spg">Sort: Steals / Game</option>
-      <option value="bpg">Sort: Blocks / Game</option>
-      <option value="topg">Sort: Fewest Turnovers</option>
-    </select>
-    <input class="nav-search" id="searchInput" type="text" placeholder="Search teams…" oninput="applyFilters()"/>
-    <div class="filter-count" id="filterCount"></div>
   </div>
 </div>
 
@@ -1518,6 +1523,8 @@
   </div>
 </footer>
 
+</div><!-- /ix-shell -->
+
 <!-- ═══ DATA + LOGIC (unchanged) ══════════════════════════════ -->
 <script>
 const SB_URL = 'https://izlqhnxowdhtdofkwrho.supabase.co';
@@ -1525,6 +1532,22 @@ const SB_KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const HEADERS = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` };
 
 let allTeams = [];
+// ── hero band: the league's vital signs for the selected season ──
+function fillHeroBand(label){
+  try{
+    const band=document.getElementById('phBand'); if(!band||!allTeams.length) return;
+    const tile=(k,v,sub,acc)=>`<div class="ph-tile${acc?' acc':''}"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${sub}</div></div>`;
+    const bySrs=allTeams.slice().sort((a,b)=>(b.srs||0)-(a.srs||0)), top=bySrs[0];
+    const withO=allTeams.filter(t=>t.ortg!=null), withD=allTeams.filter(t=>t.drtg!=null);
+    const bestO=withO.slice().sort((a,b)=>b.ortg-a.ortg)[0], bestD=withD.slice().sort((a,b)=>a.drtg-b.drtg)[0];
+    const sgn=v=>(v>0?'+':'')+(+v).toFixed(1);
+    band.innerHTML=tile('Teams',allTeams.length,label||'')+
+      (top?tile('No. 1',`${sgn(top.srs)}<small>PRtg</small>`,`<b>${top.short||top.name}</b>`,true):'')+
+      (bestO?tile('Best offense',`${(+bestO.ortg).toFixed(1)}<small>ORtg</small>`,`<b>${bestO.short||bestO.name}</b>`):tile('Best offense','—','&nbsp;'))+
+      (bestD?tile('Best defense',`${(+bestD.drtg).toFixed(1)}<small>DRtg</small>`,`<b>${bestD.short||bestD.name}</b>`):tile('Best defense','—','&nbsp;'));
+  }catch(e){}
+}
+
 let confFilter = '';
 
 function nilRange(tier){
@@ -1821,6 +1844,7 @@ async function loadProjectedSeason(){
     allTeams.forEach(t => { window._teamMetaByName[t.name.toLowerCase().trim()] = t; });
     document.getElementById('lastUpdated').textContent = '2026–27 · projected from rosters';
     document.getElementById('teamCount').textContent = `${allTeams.length} teams`;
+    fillHeroBand('projected for 2026-27');
     var h1=document.getElementById('heroStat1Num'); if(h1) h1.textContent=allTeams.length;
     var h4=document.getElementById('heroStat4Num'); if(h4) h4.textContent='2026–27';
     applyFilters(false);
@@ -1911,6 +1935,7 @@ async function loadSeason(yr){
 
     document.getElementById('lastUpdated').textContent = seasonLabel(yr)+' season';
     document.getElementById('teamCount').textContent = `${allTeams.length} teams`;
+    fillHeroBand(seasonLabel(yr)+' season');
     var h1=document.getElementById('heroStat1Num'); if(h1) h1.textContent=allTeams.length;
     var h4=document.getElementById('heroStat4Num'); if(h4) h4.textContent=seasonLabel(yr);
     applyFilters(false);
@@ -2791,7 +2816,7 @@ function toggleTheme(){
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 })();
 </script>
-  <script src="tdc-dense.js?v=39"></script>
+  <script src="tdc-dense.js?v=40"></script>
 <script>
 /* A11y: the rankings is a CSS-grid table (divs), so give it ARIA table semantics —
    screen readers then announce it as a real table (columns, headers, row navigation)
@@ -2839,7 +2864,7 @@ function toggleTheme(){
   /* HQ site skin: wrap the main content in a single bordered "stage" that floats on the field */
   (function(){
     function wrap(){
-      if(document.querySelector('.hq-stage')) return;
+      return;   // the hq-stage glass skin is retired on the homepage (sheet look instead)
       var first=document.querySelector('.page-header'); if(!first||!first.parentNode) return;
       var stage=document.createElement('div'); stage.className='hq-stage';
       first.parentNode.insertBefore(stage, first);
