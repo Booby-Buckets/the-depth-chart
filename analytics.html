@@ -678,7 +678,7 @@ function refresh(){
     if(band&&RAW.length){
       var tile=function(k,v,sub,acc){ return '<div class="ph-tile'+(acc?' acc':'')+'"><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="s">'+sub+'</div></div>'; };
       var progs={}; RAW.forEach(function(r){ if(r.school) progs[r.school]=1; });
-      var lead=function(k){ var b=null; RAW.forEach(function(r){ if(r[k]!=null&&isFinite(r[k])&&(!b||r[k]>b[k])) b=r; }); return b; };
+      var lead=function(k){ var b=null; RAW.forEach(function(r){ if(r[k]!=null&&isFinite(r[k])&&qualified(r,k)&&(!b||r[k]>b[k])) b=r; }); return b; };
       var wa=lead('wa'), us=lead('usg');
       var lbl=CUR_SEASON==='all'?'2007 → today':((+CUR_SEASON-1)+'-'+String(CUR_SEASON).slice(2));
       band.innerHTML=tile('Player-seasons',RAW.length.toLocaleString(),lbl)+
@@ -691,12 +691,21 @@ function refresh(){
   else renderExplorer();
 }
 
+// Rate stats (TS%, eFG%, usage, rebound/assist rates…) need a real sample or a 4-shot
+// walk-on tops the board at 150% TS. Counting stats (WA, TI) already scale with minutes.
+var RATE_KEYS={ts:1,efg:1,usg:1,ast_pct:1,tov_pct:1,trb_pct:1,stl_pct:1,blk_pct:1,ti40:1,ti100:1,pts40:1,lq:1,smAdj:1,selfCr:1};
+function qualified(r,k){
+  if(!RATE_KEYS[k]) return true;
+  var gp=+r.gp||0, mpg=+r.mpg||0;
+  // 40% of the team's games and 10 mpg — the same spirit as the NCAA's qualifying floors
+  return gp>=10 && mpg>=10 && gp*mpg>=200;
+}
 function renderLeaders(){
   var el=document.getElementById('leadersEl'); var html='';
   LEADER_KEYS.forEach(k=>{
     var st=SMAP[k];
     var best=null;
-    for(var i=0;i<FILT.length;i++){ var v=FILT[i][k]; if(v===null||!isFinite(v)) continue; if(!best || (st.inv? v<best[k] : v>best[k])) best=FILT[i]; }
+    for(var i=0;i<FILT.length;i++){ var v=FILT[i][k]; if(v===null||!isFinite(v)||!qualified(FILT[i],k)) continue; if(!best || (st.inv? v<best[k] : v>best[k])) best=FILT[i]; }
     if(!best) return;
     var link=best.espn_id?('player.html?espn='+best.espn_id):('player.html?name='+encodeURIComponent(best.name)+'&team='+encodeURIComponent(best.school||''));
     html+='<div class="leader-card" onclick="openLeaders(\''+k+'\')" title="See the top 50 in '+st.l+'"><div class="lc-go">Top 50 →</div><div class="leader-label">'+st.l+' Leader</div>'+
@@ -735,7 +744,7 @@ function closeLeaders(){ document.getElementById('lbOverlay').classList.remove('
 document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeLeaders(); });
 function renderLeaderboard(k){
   var st=SMAP[k]; if(!st) return; _lbKey=k;
-  var rows=FILT.filter(function(r){ var v=r[k]; return v!==null&&isFinite(v); })
+  var rows=FILT.filter(function(r){ var v=r[k]; return v!==null&&isFinite(v)&&qualified(r,k); })
     .sort(function(a,b){ return st.inv ? a[k]-b[k] : b[k]-a[k]; }).slice(0,50);
   var seasonNote = CUR_SEASON==='all' ? 'all seasons · 20 yrs' : seasonLbl(CUR_SEASON);
   var opts=TABLE_KEYS.map(function(kk){ return '<option value="'+kk+'"'+(kk===k?' selected':'')+'>'+SMAP[kk].l+' — '+SMAP[kk].g+'</option>'; }).join('');
