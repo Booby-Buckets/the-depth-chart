@@ -1605,8 +1605,11 @@ async function loadTeam(name){
         if(_sy){
           const _hp=await fetch(`${SB_URL}/rest/v1/player_history?team=eq.${encodeURIComponent(name)}&season_year=eq.${_sy}&select=name,espn_id,position,height,yr,tdc_grade,ppg,rpg,apg,mpg&order=mpg.desc.nullslast&limit=500`,{headers:H}).then(r=>r.ok?r.json():[]);
           if(Array.isArray(_hp)&&_hp.length){
-            players=_hp.map((p,i)=>({name:p.name,espn_id:p.espn_id,position:p.position,height:p.height,yr:p.yr,tdc_grade:p.tdc_grade,ppg:p.ppg,rpg:p.rpg,apg:p.apg,mpg:p.mpg,depth_order:i,_fromHistory:true}));
+            players=_hp.map((p,i)=>({name:p.name,espn_id:p.espn_id,position:p.position,height:p.height,yr:p.yr,tdc_grade:p.tdc_grade,ppg:p.ppg,rpg:p.rpg,apg:p.apg,mpg:p.mpg,depth_order:i,season_year:_sy,_fromHistory:true}));
             window._rosterFromHistory=_sy;   // season_year of the borrowed roster (2026 = 2025-26)
+            // season_year is stamped on each row so gradeSolo returns THAT season's grade (the
+            // player page's number), not a 2026-27 projection for a roster we haven't entered
+            try{ if(+_sy<=2025 && window.TDCProjGrade && TDCProjGrade.loadHist) await TDCProjGrade.loadHist(); }catch(e){}
             try{ var _b=document.getElementById('histRosterBanner');
               if(_b){ var _lbl=(_sy-1)+"–"+String(_sy).slice(2);
                 _b.innerHTML="<span style='font-size:15px'>📋</span><span>Showing the <b>"+_lbl+"</b> roster — this team’s <b>current roster hasn’t been entered yet</b>, so last season’s is shown as a placeholder.</span>";
@@ -8008,7 +8011,7 @@ function renderHistoricRoster(rows, yr, projected){
       const mpg=(_pm!=null&&!isNaN(_pm))?num(_pm)+'m':'';
       const bio=[p.yr, p.height, mpg].filter(Boolean).join(' · ');
       let g=_gdisp(p);   // projected OVR for returners (falls back to demonstrated grade for historic seasons)
-      const _oop=projected?_oopDist(p,c.pos):0;
+      const _oop=(projected&&!window._rosterFromHistory)?_oopDist(p,c.pos):0;   // a borrowed roster's slots are our guess — no out-of-position penalty
       if(_oop>0){ const _n=parseFloat(g);
         if(isFinite(_n)){ const _pen=Math.min(8,_oop*3);
           g=`<span title="Out of position (${p.position}${p.position2?'/'+p.position2:''} → ${c.pos}) · OVR −${_pen}" style="color:var(--amber,#c9962b);">${Math.round(_n-_pen)}<span style="font-size:9px;vertical-align:super;">↓</span></span>`; } }
