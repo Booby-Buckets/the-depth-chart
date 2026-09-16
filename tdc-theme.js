@@ -41,10 +41,13 @@
     if (css) return;
     css = document.createElement('style');
     css.textContent =
-      '::view-transition-old(root),::view-transition-new(root){animation-duration:.42s;animation-timing-function:ease-in-out;}' +
-      'html.tdc-theming, html.tdc-theming *, html.tdc-theming *::before, html.tdc-theming *::after{' +
-      'transition:background-color .35s ease, color .35s ease, border-color .35s ease, fill .35s ease, stroke .35s ease, box-shadow .35s ease !important;}' +
-      '@media (prefers-reduced-motion: reduce){ ::view-transition-old(root),::view-transition-new(root){animation:none;} }';
+      // View Transition: one compositor crossfade of the whole viewport (no per-element work)
+      '::view-transition-old(root),::view-transition-new(root){animation-duration:.38s;animation-timing-function:cubic-bezier(.4,0,.2,1);mix-blend-mode:normal;}' +
+      // Fallback: a single dip-to-and-from — the page eases to 0 opacity, the theme flips,
+      // and it eases back. One motion, no thousand-cell colour tween, so it never stutters.
+      'body.tdc-theme-dip{transition:opacity .16s ease-in !important;opacity:0 !important;}' +
+      'body.tdc-theme-rise{transition:opacity .22s ease-out !important;}' +
+      '@media (prefers-reduced-motion: reduce){ ::view-transition-old(root),::view-transition-new(root){animation:none;} body.tdc-theme-dip{transition:none !important;} }';
     (document.head || document.documentElement).appendChild(css);
   }
   function set(theme) {
@@ -54,14 +57,19 @@
     if (same) { apply(theme); return; }
     ensureCss();
     var reduced = false;
-    try { reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
-    if (!reduced && typeof document.startViewTransition === 'function') {
+    try { reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches && localStorage.getItem('tdc_motion') !== 'force'; } catch (e) {}
+    if (!reduced && typeof document.startViewTransition === 'function' && !document.hidden) {
       try { document.startViewTransition(function () { apply(theme); }); return; } catch (e) {}
     }
-    var root = document.documentElement;
-    root.classList.add('tdc-theming');
-    apply(theme);
-    setTimeout(function () { root.classList.remove('tdc-theming'); }, 400);
+    if (reduced || !document.body) { apply(theme); return; }
+    var body = document.body;
+    body.classList.add('tdc-theme-dip');
+    setTimeout(function () {
+      apply(theme);
+      body.classList.remove('tdc-theme-dip');
+      body.classList.add('tdc-theme-rise');
+      setTimeout(function () { body.classList.remove('tdc-theme-rise'); }, 260);
+    }, 170);
   }
   function toggle() { set(cur() === 'dark' ? 'light' : 'dark'); }
   // public API (also what existing inline toggleTheme() writes to — same key, no conflict)
