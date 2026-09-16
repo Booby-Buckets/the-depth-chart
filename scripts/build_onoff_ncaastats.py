@@ -40,24 +40,44 @@ class Browser:
     def __init__(self):
         from playwright.sync_api import sync_playwright
         self._pw = sync_playwright().start()
+        self.fails = 0
+        self._launch()
+    def _launch(self):
         self.b = self._pw.chromium.launch(channel="chrome", headless=False,
                     args=["--disable-blink-features=AutomationControlled", "--window-position=3000,3000", "--window-size=900,700"])
         self.ctx = self.b.new_context(viewport={"width": 900, "height": 700})
+        self.ctx.add_init_script("Object.defineProperty(navigator,'webdriver',{get:()=>undefined});")
         self.pg = self.ctx.new_page()
-        self.pg.add_init_script("Object.defineProperty(navigator,'webdriver',{get:()=>undefined});")
+    def _relaunch(self):
+        try: self.b.close()
+        except Exception: pass
+        self._launch(); self.fails = 0
     def get(self, url, need=None, tries=3):
         for a in range(tries):
             try:
-                r = self.pg.goto(url, wait_until="load", timeout=60000)
+                self.pg.goto(url, wait_until="domcontentloaded", timeout=45000)
                 for _ in range(15):                      # Akamai interstitial → wait it out
                     html = self.pg.content()
                     if "akamai_validation" in html or "bm-verify" in html:
                         time.sleep(2); continue
                     if need and need not in html:
                         time.sleep(1); continue
+                    self.fails = 0
                     return html
                 return self.pg.content()
             except Exception as e:
+                # a wedged tab never recovers on its own: a run once sat 30 min timing out on
+                # every goto while a fresh browser fetched the same pages in 2 s. Replace the
+                # page, and after three straight misses the whole browser.
+                self.fails += 1
+                print(f"   fetch error ({type(e).__name__}) on {url.rsplit('/',2)[-2]} — {'relaunching browser' if self.fails >= 3 else 'new page'}", flush=True)
+                try:
+                    if self.fails >= 3: self._relaunch()
+                    else:
+                        try: self.pg.close()
+                        except Exception: pass
+                        self.pg = self.ctx.new_page()
+                except Exception: pass
                 time.sleep(3 * (a + 1))
         return ""
     def close(self):
@@ -317,6 +337,7 @@ def run(season, limit=0, verbose=False, resume=False):
                 res, why = process_game(pbp, og, ncaa)
                 if res is None:
                     failed[why] += 1
+                    if why == "no-pbp": print(f"   no play-by-play for nid {g['nid']} {g['teams']} ({d})", flush=True)
                     if verbose and failed[why] <= 3: print(f"   skip {why}: nid {g['nid']} {g['teams']} (page {len(pbp)} chars)", flush=True)
                     continue
                 processed += 1; done.add(g["nid"])
