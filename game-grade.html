@@ -154,11 +154,12 @@ async function loadYear(){
   return (r||[]).filter(p=>grNum(p.tdc_grade)!=null);
 }
 async function loadAll(){
-  const base=SB+'/rest/v1/player_history?select=name,team,season_year,position,yr,height,tdc_grade,ppg,rpg,apg,stl,blk,tpa,fga,fta,oreb,dreb,tovs,fg_pct,tp_pct,mpg,gp,photo_url&tdc_grade=not.is.null&gp=gte.18&mpg=gte.18';
+  const base=SB+'/rest/v1/player_history?select=espn_id,name,team,season_year,position,yr,height,tdc_grade,ppg,rpg,apg,stl,blk,tpa,fga,fta,oreb,dreb,tovs,fg_pct,tp_pct,mpg,gp,photo_url&tdc_grade=not.is.null&gp=gte.18&mpg=gte.18';
   const cr=await fetch(base+'&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact','Range':'0-0','Range-Unit':'items'})});
   const total=+(cr.headers.get('content-range')||'0/0').split('/')[1]||0; const PG=1000, pages=Math.min(Math.ceil(total/PG),22), jobs=[];
   for(let i=0;i<pages;i++) jobs.push(fetch(base,{headers:Object.assign({},H,{'Range-Unit':'items','Range':(i*PG)+'-'+(i*PG+PG-1)})}).then(r=>r.ok?r.json():[]));
   const parts=await Promise.all(jobs);
+  try{ if(window.TDCProjGrade&&TDCProjGrade.loadHist) await TDCProjGrade.loadHist(); }catch(e){}
   return parts.reduce((a,b)=>a.concat(b),[]).filter(p=>p&&p.name&&grNum(p.tdc_grade)!=null);
 }
 function curPool(){ return scope==='year'?POOL_YEAR:POOL_ALL; }
@@ -171,9 +172,13 @@ function _canonGrade(p){
   try{
     if(scope==='year' && window.TDCProjGrade && TDCProjGrade.gradeSolo){
       const g=TDCProjGrade.gradeSolo(p); if(g!=null && !isNaN(g)) return Math.round(g);
-    } else if(scope==='all' && window.TDCRating && TDCRating.boxAdjust){
-      const a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(p.season_year)||0);
-      if(a && a.grade!=null) return Math.round(a.grade);
+    } else if(scope==='all'){
+      // that season's statistical overall (the player page's number); box-adjust only as fallback
+      const so=(function(p){ try{ if(window.TDCProjGrade&&TDCProjGrade.statOvr){ var so=TDCProjGrade.statOvr(p); if(so!=null&&isFinite(so)) return Math.round(so); } }catch(e){} return null; })(p); if(so!=null) return so;
+      if(window.TDCRating && TDCRating.boxAdjust){
+        const a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(p.season_year)||0);
+        if(a && a.grade!=null) return Math.round(a.grade);
+      }
     }
   }catch(e){}
   return grNum(p.tdc_grade);

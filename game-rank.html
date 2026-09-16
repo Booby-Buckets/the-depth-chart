@@ -159,11 +159,12 @@ async function loadYear(){
   return (r||[]).filter(p=>p.name);
 }
 async function loadAll(){
-  const base=SB+'/rest/v1/player_history?select=name,team,season_year,position,height,ppg,rpg,apg,stl,blk,tovs,oreb,dreb,tpa,fga,fta,fg_pct,tdc_grade,tp_pct,mpg,gp&tdc_grade=gte.82&gp=gte.20&mpg=gte.22';
+  const base=SB+'/rest/v1/player_history?select=espn_id,name,team,season_year,position,height,ppg,rpg,apg,stl,blk,tovs,oreb,dreb,tpa,fga,fta,fg_pct,tdc_grade,tp_pct,mpg,gp&tdc_grade=gte.82&gp=gte.20&mpg=gte.22';
   const cr=await fetch(base+'&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact','Range':'0-0','Range-Unit':'items'})});
   const total=+(cr.headers.get('content-range')||'0/0').split('/')[1]||0; const PG=1000, pages=Math.min(Math.ceil(total/PG),22), jobs=[];
   for(let i=0;i<pages;i++) jobs.push(fetch(base,{headers:Object.assign({},H,{'Range-Unit':'items','Range':(i*PG)+'-'+(i*PG+PG-1)})}).then(r=>r.ok?r.json():[]));
   const parts=await Promise.all(jobs);
+  try{ if(window.TDCProjGrade&&TDCProjGrade.loadHist) await TDCProjGrade.loadHist(); }catch(e){}
   return parts.reduce((a,b)=>a.concat(b),[]).filter(p=>p&&p.name);
 }
 
@@ -186,7 +187,7 @@ function _stampGrades(pool){
   pool.forEach(p=>{ if(p._graded) return; p._graded=true;
     try{
       if(scope==='year'){ if(window.TDCProjGrade&&TDCProjGrade.gradeSolo){ const g=TDCProjGrade.gradeSolo(p); if(g!=null&&!isNaN(g)) p.tdc_grade=Math.round(g); } }
-      else if(window.TDCRating&&TDCRating.boxAdjust){ const a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(p.season_year)||0); if(a&&a.grade!=null) p.tdc_grade=Math.round(a.grade); }
+      else { const so=(function(p){ try{ if(window.TDCProjGrade&&TDCProjGrade.statOvr){ var so=TDCProjGrade.statOvr(p); if(so!=null&&isFinite(so)) return Math.round(so); } }catch(e){} return null; })(p); if(so!=null) p.tdc_grade=so; else if(window.TDCRating&&TDCRating.boxAdjust){ const a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(p.season_year)||0); if(a&&a.grade!=null) p.tdc_grade=Math.round(a.grade); } }
     }catch(e){}
   });
 }

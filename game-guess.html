@@ -438,9 +438,11 @@ async function loadAllPool(){
   // Box-adjust each season's grade FIRST (per-season centered, weak-team dampened) so the
   // peak-season pick + the compare/reveal all use the canonical grade.
   if(window.TDCRating&&TDCRating.ready){ try{ await TDCRating.ready; }catch(e){} }
-  if(window.TDCRating&&TDCRating.boxAdjust) all.forEach(function(p){ try{
-    var a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(p.season_year)||0);
-    if(a&&a.grade!=null) p.tdc_grade=Math.round(a.grade); }catch(e){} });
+  try{ if(window.TDCProjGrade&&TDCProjGrade.loadHist) await TDCProjGrade.loadHist(); }catch(e){}
+    all.forEach(function(p){ try{
+    var so=(function(p){ try{ if(window.TDCProjGrade&&TDCProjGrade.statOvr){ var so=TDCProjGrade.statOvr(p); if(so!=null&&isFinite(so)) return Math.round(so); } }catch(e){} return null; })(p); if(so!=null){ p.tdc_grade=so; return; }   // that season's statistical overall first
+    if(window.TDCRating&&TDCRating.boxAdjust){ var a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(p.season_year)||0);
+    if(a&&a.grade!=null) p.tdc_grade=Math.round(a.grade); } }catch(e){} });
   // one row per player = their peak (highest-grade) season
   var best={};
   all.forEach(function(p){ if(!p||!p.name)return; var g=grNum(p.tdc_grade)||0; if(!best[p.name]||g>best[p.name]._g){ p._g=g; best[p.name]=p; } });

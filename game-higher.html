@@ -14,6 +14,7 @@
   <meta name="twitter:title" content="Higher or Lower — The Depth Chart">
   <meta name="twitter:description" content="Advanced college basketball roster rankings, team & player analytics, NIL values, and 2026-27 projections for all of Division I.">
   <script src="auth.js?v=shotlock1"></script>
+  <script src="tdc-projgrade.js?v=base8"></script>
   <script src="tdc-rating.js?v=5"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
@@ -256,9 +257,11 @@ async function init(){
     // Grade = the site's canonical box-adjusted grade for that season (per-season centered,
     // weak-team dampened), so the number matches the player page / rankings for every year.
     if(window.TDCRating&&TDCRating.ready){ try{ await TDCRating.ready; }catch(e){} }
-    if(window.TDCRating&&TDCRating.boxAdjust) POOL.forEach(p=>{ try{
-      const a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(p.season_year)||0);
-      if(a&&a.grade!=null) p.tdc_grade=Math.round(a.grade); }catch(e){} });
+    try{ if(window.TDCProjGrade&&TDCProjGrade.loadHist) await TDCProjGrade.loadHist(); }catch(e){}
+      POOL.forEach(function(p){ try{
+      var so=(function(p){ try{ if(window.TDCProjGrade&&TDCProjGrade.statOvr){ var so=TDCProjGrade.statOvr(p); if(so!=null&&isFinite(so)) return Math.round(so); } }catch(e){} return null; })(p); if(so!=null){ p.tdc_grade=so; return; }   // that season's statistical overall first
+      if(window.TDCRating&&TDCRating.boxAdjust){ var a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(p.season_year)||0);
+      if(a&&a.grade!=null) p.tdc_grade=Math.round(a.grade); } }catch(e){} });
     renderDiff();
     newGame();
   }catch(e){document.getElementById('content').innerHTML='<div class="loading">Error: '+e.message+'</div>';}
