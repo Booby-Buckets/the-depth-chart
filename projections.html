@@ -213,6 +213,7 @@ body{background:transparent!important;}
   <script src="tdc-pwa.js?v=2" defer></script>
   <link rel="stylesheet" href="tdc-hq-site.css?v=22"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=3"/>
+  <link rel="stylesheet" href="tdc-hero.css?v=1"/>
 </head>
 <body class="hqsite">
 <script src="tdc-nav.js?v=26"></script>
@@ -273,40 +274,49 @@ body{background:transparent!important;}
     </div>
 </div>
 
-<div class="page-header">
-  <div class="page-eyebrow">Predictive Model</div>
-  <h1 class="page-h1">2026-27 Projections</h1>
-  <p class="page-sub">Projected stats for next season based on year-over-year progression, conference translation, and TDC grades. Compare actual vs projected or two players' projections side by side.</p>
-</div>
-
-<div class="tab-row">
-  <button class="tab-btn active" id="tab-table" onclick="switchTab('table')">Projection Table</button>
-  <button class="tab-btn" id="tab-compare" onclick="switchTab('compare')">Compare Players</button>
+<div class="ph-hero">
+  <div class="ph-left">
+    <div class="page-eyebrow">Predictive Model</div>
+    <h1 class="page-h1">2026-27 Projections</h1>
+    <p class="page-sub">Projected stats for next season from <b>year-over-year progression, conference translation and TDC grades</b>. Compare actual vs projected, or two players' projections side by side.</p>
+    <div class="ph-tabs tab-row">
+      <button class="tab-btn active" id="tab-table" onclick="switchTab('table')">Projection Table</button>
+      <button class="tab-btn" id="tab-compare" onclick="switchTab('compare')">Compare Players</button>
+    </div>
+  </div>
+  <div class="ph-band" id="phBand">
+    <div class="ph-tile"><div class="k">Players</div><div class="v">—</div><div class="s">loading</div></div>
+    <div class="ph-tile"><div class="k">Teams</div><div class="v">—</div><div class="s">&nbsp;</div></div>
+    <div class="ph-tile acc"><div class="k">Top projection</div><div class="v">—</div><div class="s">&nbsp;</div></div>
+    <div class="ph-tile"><div class="k">Projected scoring leader</div><div class="v">—</div><div class="s">&nbsp;</div></div>
+  </div>
 </div>
 
 <!-- PROJECTION TABLE TAB -->
 <div class="tab-panel active" id="panel-table">
-  <div class="filter-bar">
-    <input class="search-bar" type="text" placeholder="Search player or team..." oninput="applyFilters()" id="searchBar"/>
-    <select class="filter-select" id="confFilter" onchange="applyFilters()">
-      <option value="">All Conferences</option>
-      <option>ACC</option><option>B10</option><option>BIG-12</option>
-      <option>Big-East</option><option>SEC</option><option>PAC-12</option>
-      <option>A10</option><option>AAC</option><option>WCC</option><option>MVC</option>
-    </select>
-    <select class="filter-select" id="posFilter" onchange="applyFilters()">
-      <option value="">All Positions</option>
-      <option>PG</option><option>SG</option><option>CG</option><option>SF</option><option>PF</option><option>C</option>
-    </select>
-    <select class="filter-select" id="yrFilter" onchange="applyFilters()">
-      <option value="">All Years</option>
-      <option value="Fr.">Freshman (Est.)</option>
-      <option value="So.">Sophomore</option>
-      <option value="Jr.">Junior</option>
-      <option value="Sr.">Senior</option>
-      <option value="Gr.">Grad</option>
-    </select>
-    <span class="count-el" id="countEl"></span>
+  <div class="tdc-toolbar">
+    <div class="f-group">
+      <label class="f-lab"><span>Search</span><input class="search-bar" type="text" placeholder="Search player or team..." oninput="applyFilters()" id="searchBar"/></label>
+      <label class="f-lab"><span>Conference</span><select class="filter-select" id="confFilter" onchange="applyFilters()">
+        <option value="">All</option>
+        <option>ACC</option><option>B10</option><option>BIG-12</option>
+        <option>Big-East</option><option>SEC</option><option>PAC-12</option>
+        <option>A10</option><option>AAC</option><option>WCC</option><option>MVC</option>
+      </select></label>
+      <label class="f-lab"><span>Position</span><select class="filter-select" id="posFilter" onchange="applyFilters()">
+        <option value="">All</option>
+        <option>PG</option><option>SG</option><option>CG</option><option>SF</option><option>PF</option><option>C</option>
+      </select></label>
+      <label class="f-lab"><span>Class</span><select class="filter-select" id="yrFilter" onchange="applyFilters()">
+        <option value="">All</option>
+        <option value="Fr.">Freshman (Est.)</option>
+        <option value="So.">Sophomore</option>
+        <option value="Jr.">Junior</option>
+        <option value="Sr.">Senior</option>
+        <option value="Gr.">Grad</option>
+      </select></label>
+    </div>
+    <div class="f-actions"><span class="pool-count" id="countEl"></span></div>
   </div>
   <div class="table-wrap" id="tableWrap">
     <div class="loading-state"><div class="loading-spinner"></div>Loading projections...</div>
@@ -2017,7 +2027,22 @@ function applyFilters(){
     return (a.name||'').localeCompare(b.name||'');
   });
 
-  document.getElementById('countEl').innerHTML=`<strong>${filtered.length}</strong> players`;
+  document.getElementById('countEl').innerHTML=`<strong>${filtered.length}</strong> of ${allPlayers.length} players`;
+  // hero band: the projection pool at a glance
+  try{
+    const band=document.getElementById('phBand');
+    if(band&&allPlayers.length){
+      const tile=(k,v,sub,acc)=>`<div class="ph-tile${acc?' acc':''}"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${sub}</div></div>`;
+      const g=p=>parseFloat(_ovrOf(p))||0;
+      const teams=new Set(allPlayers.map(p=>p.team).filter(Boolean)).size;
+      const top=allPlayers.slice().sort((a,b)=>g(b)-g(a))[0];
+      const sc=allPlayers.filter(p=>p.ppg!=null).sort((a,b)=>(+b.ppg||0)-(+a.ppg||0))[0];
+      band.innerHTML=tile('Players',allPlayers.length.toLocaleString(),'projected for 2026-27')+
+        tile('Teams',teams,'with rosters entered')+
+        (top?tile('Top projection',`${Math.round(g(top))}<small>OVR</small>`,`<b>${top.name}</b> · ${top.team||''}`,true):'')+
+        (sc?tile('Projected scoring leader',`${(+sc.ppg).toFixed(1)}<small>PPG</small>`,`<b>${sc.name}</b> · ${sc.team||''}`):'');
+    }
+  }catch(e){}
   renderTable(filtered);
 }
 

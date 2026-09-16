@@ -223,6 +223,7 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-dense.css?v=31"/>
   <link rel="stylesheet" href="tdc-skin.css?v=8"/>
   <link rel="stylesheet" href="tdc-hq-list.css?v=2"/>
+  <link rel="stylesheet" href="tdc-hero.css?v=1"/>
   <style>
     :root:not([data-theme="dark"]){background:var(--bg)!important;}
     :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
@@ -301,36 +302,47 @@ body{background:transparent!important;}
 </div>
 
 <div class="an-shell">
-<div class="page-header">
-  <div class="page-eyebrow">Stats · Players &amp; Teams</div>
-  <h1 class="page-h1" id="pageTitle">Player Advanced Stats</h1>
-  <p class="page-sub" id="pageSub">Every player-season since 2007 — BPM, Win Shares, Wins Added, PER, TS%, usage, and per-possession rates. Sort, filter, and plot any two metrics.</p>
+<div class="ph-hero">
+  <div class="ph-left">
+    <div class="page-eyebrow">Stats · Players &amp; Teams</div>
+    <h1 class="page-h1" id="pageTitle">Player Advanced Stats</h1>
+    <p class="page-sub" id="pageSub">Every player-season since 2007 — <b>BPM, Win Shares, Wins Added, PER, TS%, usage</b> and per-possession rates. Sort, filter, and plot any two metrics.</p>
+    <div class="ph-tabs view-tabs">
+      <button class="vtab on" id="vtLeaders" onclick="setView('leaders')">Stats</button>
+      <button class="vtab" id="vtExplorer" onclick="setView('explorer')">Stat Explorer</button>
+      <button class="vtab" id="vtTeams" onclick="setView('teams')" style="display:none;">Team History</button>
+      <button class="vtab" id="vtLandscape" onclick="setView('landscape')">League Landscape</button>
+    </div>
+  </div>
+  <div class="ph-band" id="phBand">
+    <div class="ph-tile"><div class="k">Player-seasons</div><div class="v">—</div><div class="s">loading</div></div>
+    <div class="ph-tile"><div class="k">Programs</div><div class="v">—</div><div class="s">&nbsp;</div></div>
+    <div class="ph-tile acc"><div class="k">Wins Added leader</div><div class="v">—</div><div class="s">&nbsp;</div></div>
+    <div class="ph-tile"><div class="k">Usage leader</div><div class="v">—</div><div class="s">&nbsp;</div></div>
+  </div>
 </div>
 
-<div class="view-tabs">
-  <button class="vtab on" id="vtLeaders" onclick="setView('leaders')">Stats</button>
-  <button class="vtab" id="vtExplorer" onclick="setView('explorer')">Stat Explorer</button>
-  <button class="vtab" id="vtTeams" onclick="setView('teams')" style="display:none;">Team History</button>
-  <button class="vtab" id="vtLandscape" onclick="setView('landscape')">League Landscape</button>
-</div>
-
-<div class="controls">
-  <div id="tdcSeasonSlot"></div>
-  <select class="filter-select" id="posSel" onchange="refresh()">
-    <option value="">All positions</option>
-    <option value="G">Guards</option>
-    <option value="W">Wings</option>
-    <option value="B">Bigs</option>
-  </select>
-  <select class="filter-select" id="minGp" onchange="refresh()">
-    <option value="1" selected>All players</option>
-    <option value="13">13+ games</option>
-    <option value="20">20+ games</option>
-    <option value="25">25+ games</option>
-  </select>
-  <select class="filter-select" id="teamSeasonSel" onchange="renderTeams()" style="display:none;"></select>
-  <input class="search-box" type="text" id="searchBox" placeholder="Search player or school…" oninput="refresh()"/>
-  <span class="stat-count" id="countEl"></span>
+<div class="tdc-toolbar controls">
+  <div class="f-group">
+    <label class="f-lab f-lead"><span>Season</span><div id="tdcSeasonSlot"></div></label>
+    <label class="f-lab"><span>Search</span><input class="search-box" type="text" id="searchBox" placeholder="Search player or school…" oninput="refresh()"/></label>
+  </div>
+  <div class="f-group">
+    <label class="f-lab"><span>Position</span><select class="filter-select" id="posSel" onchange="refresh()">
+      <option value="">All</option>
+      <option value="G">Guards</option>
+      <option value="W">Wings</option>
+      <option value="B">Bigs</option>
+    </select></label>
+    <label class="f-lab"><span>Games</span><select class="filter-select" id="minGp" onchange="refresh()">
+      <option value="1" selected>All players</option>
+      <option value="13">13+ games</option>
+      <option value="20">20+ games</option>
+      <option value="25">25+ games</option>
+    </select></label>
+    <select class="filter-select" id="teamSeasonSel" onchange="renderTeams()" style="display:none;"></select>
+  </div>
+  <div class="f-actions"><span class="pool-count" id="countEl"></span></div>
 </div>
 
 <div class="loading" id="loadingEl">
@@ -660,6 +672,21 @@ function refresh(){
     a.sort((x,y)=>x-y); PCT[s.k]=a;
   });
   document.getElementById('countEl').innerHTML='<strong>'+FILT.length.toLocaleString()+'</strong> player-seasons';
+  // hero band: this season's pool at a glance (whole pool, before pos/min/search)
+  try{
+    var band=document.getElementById('phBand');
+    if(band&&RAW.length){
+      var tile=function(k,v,sub,acc){ return '<div class="ph-tile'+(acc?' acc':'')+'"><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="s">'+sub+'</div></div>'; };
+      var progs={}; RAW.forEach(function(r){ if(r.school) progs[r.school]=1; });
+      var lead=function(k){ var b=null; RAW.forEach(function(r){ if(r[k]!=null&&isFinite(r[k])&&(!b||r[k]>b[k])) b=r; }); return b; };
+      var wa=lead('wa'), us=lead('usg');
+      var lbl=CUR_SEASON==='all'?'2007 → today':((+CUR_SEASON-1)+'-'+String(CUR_SEASON).slice(2));
+      band.innerHTML=tile('Player-seasons',RAW.length.toLocaleString(),lbl)+
+        tile('Programs',Object.keys(progs).length.toLocaleString(),'Division I')+
+        (wa?tile('Wins Added leader',(+wa.wa).toFixed(1)+'<small>WA</small>','<b>'+wa.name+'</b> · '+(wa.school||''),true):'')+
+        (us?tile('Usage leader',(+us.usg).toFixed(1)+'<small>%</small>','<b>'+us.name+'</b> · '+(us.school||'')):'');
+    }
+  }catch(e){}
   if(view==='leaders'){ renderLeaders(); renderTable(); }
   else renderExplorer();
 }
