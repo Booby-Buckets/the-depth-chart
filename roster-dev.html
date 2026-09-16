@@ -24,7 +24,7 @@
   <script src="tdc-gate.js?v=3" data-gate="pro" data-label="Development Timeline"></script>
   <script src="team-colors.js?v=6"></script>
   <script src="tdc-ratings.js?v=17"></script>
-  <script src="tdc-projgrade.js?v=base7"></script>
+  <script src="tdc-projgrade.js?v=base8"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-owned-seasons.js?v=7"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
@@ -209,7 +209,11 @@ async function loadTeam(){
   }
   if(window.TDCRating && TDCRating.ready){ try{ await TDCRating.ready; }catch(e){} }   // box-adjust historical grades
   // bbref stores per-40 as *_per_min; mpg=40 identity; pcts 0-1 → ×100
+  // canonical first: the season's statistical overall by espn_id (what the player page shows);
+  // the older box-adjusted grade only where a player-season isn't in the statistical file
+  try{ if(window.TDCProjGrade&&TDCProjGrade.loadHist) await TDCProjGrade.loadHist(); }catch(e){}
   const _bbBoxGrade=h=>{
+    try{ if(window.TDCProjGrade&&TDCProjGrade.statOvr){ const so=TDCProjGrade.statOvr({espn_id:h.espn_id,season_year:h.season_year}); if(so!=null&&isFinite(so)) return Math.round(so); } }catch(e){}
     if(!window.TDCRating || !TDCRating.boxAdjust || h.tdc_grade==null) return Math.round(+h.tdc_grade);
     const g=h.per40||{}, n=v=>{const f=parseFloat(v);return isFinite(f)?f:null;}, pct=v=>{const f=parseFloat(v);return isFinite(f)?f*100:null;};
     const line={ position:h.pos, height:h.height, team:h.school, mpg:40, ppg:n(g.pts_per_min), apg:n(g.ast_per_min),

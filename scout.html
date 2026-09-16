@@ -25,7 +25,7 @@
   <script src="team-colors.js?v=6"></script>
   <script src="tdc-ratings.js?v=17"></script>
   <script src="tdc-teamlink.js?v=2"></script>
-  <script src="tdc-projgrade.js?v=base7"></script>
+  <script src="tdc-projgrade.js?v=base8"></script>
   <script src="tdc-proj.js?v=coach20"></script>
   <script src="tdc-impact.js?v=1"></script>
   <link rel="stylesheet" href="tdc-sheets.css?v=3"/><script src="tdc-shotchart.js?v=18"></script>
@@ -328,8 +328,18 @@ async function currentRoster(row){
   const out={names,pos}; _rnCache[key]=out; return out;
 }
 // The season's roster shaped like the `players` table (past seasons: player_history ∪ player_advanced)
+// THE canonical grade everywhere: statistical overall via gradeSolo (season-aware). Stamped
+// INTO tdc_grade so every read below (matchups, personnel cards, intel) inherits it.
+async function canonGrades(rows, season){
+  if(!window.TDCProjGrade||!TDCProjGrade.gradeSolo||!Array.isArray(rows)) return rows;
+  try{ if(TDCProjGrade.ready) await TDCProjGrade.ready; if(season&&+season<=2025&&TDCProjGrade.loadHist) await TDCProjGrade.loadHist(); }catch(e){}
+  rows.forEach(p=>{ if(!p) return; try{
+    const r=season?Object.assign({},p,{season_year:+season}):p;
+    const g=TDCProjGrade.gradeSolo(r); if(g!=null&&!isNaN(g)) p.tdc_grade=g; }catch(e){} });
+  return rows;
+}
 async function rosterFor(row){
-  if(PROJ){ try{ return await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,position2,depth_order,hometown,is_injured,class_year,yr,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){ return []; } }
+  if(PROJ){ try{ return await canonGrades(await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,position2,depth_order,hometown,is_injured,class_year,yr,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[])); }catch(e){ return []; } }
   let ph=[],pa=[];
   try{ [ph,pa]=await Promise.all([
     fetch(`${SB_URL}/rest/v1/player_history?team=eq.${encodeURIComponent(row.team)}&season_year=eq.${SY}&select=name,espn_id,position,yr,tdc_grade,ppg,rpg,apg,mpg,gp,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb`,{headers:H}).then(x=>x.ok?x.json():[]),
@@ -338,7 +348,7 @@ async function rosterFor(row){
   (pa||[]).forEach(a=>{ if(a.espn_id==null) return; const g=+a.g||0, mpg=g?(+a.min||0)/g:0;
     if(by[a.espn_id]){ if(!(+by[a.espn_id].mpg>0)) by[a.espn_id].mpg=mpg; return; }
     by[a.espn_id]={name:a.name,espn_id:a.espn_id,position:'',tdc_grade:null,ppg:a.ppg,rpg:a.rpg,apg:a.apg,mpg,gp:g,fg_pct:a.fg_pct!=null?+a.fg_pct*100:null,tp_pct:a.tp_pct!=null?+a.tp_pct*100:null,ft_pct:a.ft_pct!=null?+a.ft_pct*100:null}; });
-  return Object.values(by).filter(p=>(+p.mpg||0)>=5).sort((a,b)=>(+b.mpg||0)-(+a.mpg||0)).map((p,i)=>({...p,depth_order:i+1}));
+  return canonGrades(Object.values(by).filter(p=>(+p.mpg||0)>=5).sort((a,b)=>(+b.mpg||0)-(+a.mpg||0)).map((p,i)=>({...p,depth_order:i+1})), SY);
 }
 // past seasons: that year's team_seasons row (record + power rating) replaces the projected rating
 async function seasonRow(row){
@@ -478,6 +488,7 @@ function matchupMini(me,opp){
 // ── key matchups: project BOTH rotations, cross them position by position ──
 async function projTeamLines(row){
   let roster=[]; try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,position,position2,depth_order,hometown,is_injured,class_year,yr,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
+  await canonGrades(roster, PROJ?null:SY);
   let map={}; try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready; if(typeof buildTeamProjections==='function'){ const pr=buildTeamProjections(roster.map(x=>Object.assign({},x)), row.conf||''); (pr||[]).forEach(x=>{ if(x&&x.name) map[x.name.toLowerCase().trim()]=x; }); } }catch(e){}
   return roster.filter(p=>p.name).map(p=>{ const pj=map[(p.name||'').toLowerCase().trim()]; const _n=v=>{const n=+v;return isNaN(n)?0:n;};
     return {name:p.name, pos:((p.position||'').split('/')[0]||'G').replace(/[^A-Z]/g,''), ovr:(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):_n(p.tdc_grade), pts: pj?_n(pj.ppg):_n(p.ppg), mpg: pj?_n(pj.mpg):_n(p.mpg)}; }); }
@@ -545,6 +556,7 @@ async function loadAttackSheet(row){
   const esc=s=>(''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
   let roster=[];
   try{ roster=await fetch(`${SB_URL}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,position,is_injured,tdc_grade,ppg,rpg,apg,mpg,tp_pct&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
+  await canonGrades(roster, PROJ?null:SY);
   const rot=roster.filter(p=>p.espn_id!=null && !p.is_injured && (+p.mpg||0)>=8).slice(0,9);
   if(!rot.length){ host.innerHTML=''; return; }
   // one bulk advanced fetch keyed by espn_id (so transfers get their prior-team 2025-26 rates too)

@@ -24,7 +24,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script src="tdc-nil.js"></script>
-  <script src="tdc-projgrade.js?v=base7"></script>
+  <script src="tdc-projgrade.js?v=base8"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-owned-seasons.js?v=7"></script>
@@ -1291,10 +1291,13 @@ var BENCH_AXES=[
 // Canonical display grade, consistent with every other page: current players show the
 // projected OVR (gradeSolo, box-only + 99 ceiling); a specific historical season shows
 // that season's box-adjusted grade (per-season centered, weak-team dampened).
+try{ if(window.TDCProjGrade&&TDCProjGrade.loadHist) TDCProjGrade.loadHist(); }catch(e){}
 function _cmpGrade(p){
   if(!p) return null;
   try{
     if(p._isHistory){
+      // canonical: that season's statistical overall (same number as the player page)
+      if(window.TDCProjGrade && TDCProjGrade.statOvr){ const so=TDCProjGrade.statOvr({espn_id:p.espn_id, season_year:p.season_year}); if(so!=null && isFinite(so)) return Math.round(so); }
       if(window.TDCRating && TDCRating.boxAdjust){
         const a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(p.season_year)||0);
         if(a && a.grade!=null) return Math.round(a.grade);

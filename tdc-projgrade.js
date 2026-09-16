@@ -551,7 +551,7 @@
   }
 
   window.TDCProjGrade = { projMin: projMin, grade: grade, ovr: ovr, K: K, setPedigree: setPedigree,
-                          gradeRoster: gradeRoster, gradeSolo: gradeSolo, explain: explain, projectMinutes: projectMinutes, setModel: setModel, setCoupled: setCoupled, setVersatility: setVersatility, setArchBonus: setArchBonus, setGpShrink: setGpShrink, setStatOverall: setStatOverall, setStatHist: setStatHist, loadHist: loadHist,
+                          gradeRoster: gradeRoster, gradeSolo: gradeSolo, statOvr: _statOvrOf, explain: explain, projectMinutes: projectMinutes, setModel: setModel, setCoupled: setCoupled, setVersatility: setVersatility, setArchBonus: setArchBonus, setGpShrink: setGpShrink, setStatOverall: setStatOverall, setStatHist: setStatHist, loadHist: loadHist,
                           statMaps: function(){ return { demo: _SO_DEMO, proj: _SO_PROJ, hist: _SO_HIST }; } };
 
   // Self-load the derived pedigree coefficients (tiny, local file) so every page
