@@ -54,7 +54,9 @@ class Browser:
         except Exception: pass
         self._launch(); self.fails = 0; self.in_session = 0
     def get(self, url, need=None, tries=3):
-        for a in range(tries):
+        a = 0
+        while a < tries:
+            a += 1
             try:
                 self.pg.goto(url, wait_until="domcontentloaded", timeout=45000)
                 for _ in range(15):                      # Akamai interstitial → wait it out
@@ -80,10 +82,11 @@ class Browser:
                     # Akamai rate limit: it lands after ~60-70 pages in a few minutes and clears
                     # on its own after a pause. Back off hard, then start a fresh session.
                     self.denials += 1
-                    wait = min(300, 30 * self.denials)
+                    wait = min(600, 30 * self.denials)
                     print(f"   access denied on {url.rsplit('/',2)[-2]} at {time.strftime('%H:%M:%S')} — pausing {wait}s, then a fresh session (pages since last denial: {self.since_denial})", flush=True)
                     self.since_denial = 0
-                    time.sleep(wait); self._relaunch(); continue
+                    time.sleep(wait); self._relaunch()
+                    a -= 1; continue          # a block is not this page's fault: never give up on it
                 stub = re.sub(r"\s+", " ", TAG.sub(" ", html))[:160]
                 print(f"   stub page ({len(html)} chars) on {url.rsplit('/',2)[-2]}: {stub!r} — {'relaunching browser' if self.fails >= 2 else 'retrying'}", flush=True)
                 if self.fails >= 2: self._relaunch()
