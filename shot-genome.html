@@ -179,14 +179,12 @@ function loadSeason(y){
     .then(function(res){ CACHE[y]=res; go(res); })
     .catch(function(){ document.getElementById('quad').innerHTML='<text x="450" y="300" fill="#999" text-anchor="middle">Shot data still processing…</text>'; });
 }
-// discover which past seasons have been built (HEAD each candidate file once)
+// past seasons built from the located-shot archive (2019-20 → 2024-25; see build_shot_genome.py)
 (function(){
   var sel=document.getElementById('seasonSel');
-  var cands=[2025,2024,2023,2022];
-  Promise.all(cands.map(function(y){ return fetch(files(y)[0],{method:'HEAD'}).then(function(r){ return r.ok?y:null; }).catch(function(){ return null; }); }))
-    .then(function(ok){ ok.filter(Boolean).forEach(function(y){ var o=document.createElement('option'); o.value=y; o.textContent=(y-1)+'-'+String(y).slice(2); sel.appendChild(o); });
-      var want=parseInt(new URLSearchParams(location.search).get('season')||'',10);
-      if(want&&[].some.call(sel.options,function(o){return +o.value===want;})){ sel.value=String(want); loadSeason(want); } });
+  [2025,2024,2023,2022,2021,2020].forEach(function(y){ var o=document.createElement('option'); o.value=y; o.textContent=(y-1)+'-'+String(y).slice(2); sel.appendChild(o); });
+  var want=parseInt(new URLSearchParams(location.search).get('season')||'',10);
+  if(want&&[].some.call(sel.options,function(o){return +o.value===want;})){ sel.value=String(want); loadSeason(want); }
   sel.addEventListener('change',function(){ loadSeason(+sel.value); });
 })();
 loadSeason(2026);
