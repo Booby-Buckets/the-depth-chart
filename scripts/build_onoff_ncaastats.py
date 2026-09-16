@@ -23,7 +23,7 @@ Usage:
   --resume continues from the on-disk cache (pages are cached under data/ncaa_pbp_cache).
 Requires: pip3 install playwright   (uses channel="chrome" — the installed Google Chrome).
 """
-import argparse, json, os, re, sys, time
+import argparse, json, os, random, re, sys, time
 from collections import defaultdict
 from datetime import date, timedelta
 sys.path.insert(0, os.path.dirname(__file__))
@@ -63,8 +63,16 @@ class Browser:
                     if need and need not in html:
                         time.sleep(1); continue
                     self.fails = 0
+                    time.sleep(1.0 + random.random())    # pace like a reader, not a crawler
                     return html
-                return self.pg.content()
+                # the page loaded but never showed the marker: after ~30 quick pages the bot
+                # manager starts serving a short stub to this SESSION while a fresh one still
+                # gets the real page — so treat it as a soft failure and rotate the context.
+                self.fails += 1
+                stub = re.sub(r"\s+", " ", TAG.sub(" ", html))[:160]
+                print(f"   stub page ({len(html)} chars) on {url.rsplit('/',2)[-2]}: {stub!r} — {'relaunching browser' if self.fails >= 2 else 'retrying'}", flush=True)
+                if self.fails >= 2: self._relaunch()
+                time.sleep(5 * (a + 1)); continue
             except Exception as e:
                 # a wedged tab never recovers on its own: a run once sat 30 min timing out on
                 # every goto while a fresh browser fetched the same pages in 2 s. Replace the
