@@ -40,7 +40,7 @@ class Browser:
     def __init__(self):
         from playwright.sync_api import sync_playwright
         self._pw = sync_playwright().start()
-        self.fails = 0
+        self.fails = 0; self.denials = 0; self.since_denial = 0
         self._launch()
     def _launch(self):
         self.b = self._pw.chromium.launch(channel="chrome", headless=False,
@@ -62,13 +62,22 @@ class Browser:
                         time.sleep(2); continue
                     if need and need not in html:
                         time.sleep(1); continue
-                    self.fails = 0
-                    time.sleep(1.0 + random.random())    # pace like a reader, not a crawler
+                    self.fails = 0; self.since_denial += 1
+                    if self.denials and self.since_denial >= 50: self.denials -= 1   # earn back a shorter pause
+                    time.sleep(2.0 + 1.5 * random.random())    # pace like a reader, not a crawler
                     return html
                 # the page loaded but never showed the marker: after ~30 quick pages the bot
                 # manager starts serving a short stub to this SESSION while a fresh one still
                 # gets the real page — so treat it as a soft failure and rotate the context.
                 self.fails += 1
+                if "Access Denied" in html:
+                    # Akamai rate limit: it lands after ~60-70 pages in a few minutes and clears
+                    # on its own after a pause. Back off hard, then start a fresh session.
+                    self.denials += 1
+                    wait = min(600, 90 * self.denials)
+                    print(f"   access denied on {url.rsplit('/',2)[-2]} at {time.strftime('%H:%M:%S')} — pausing {wait}s, then a fresh session (pages since last denial: {self.since_denial})", flush=True)
+                    self.since_denial = 0
+                    time.sleep(wait); self._relaunch(); continue
                 stub = re.sub(r"\s+", " ", TAG.sub(" ", html))[:160]
                 print(f"   stub page ({len(html)} chars) on {url.rsplit('/',2)[-2]}: {stub!r} — {'relaunching browser' if self.fails >= 2 else 'retrying'}", flush=True)
                 if self.fails >= 2: self._relaunch()
