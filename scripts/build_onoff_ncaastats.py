@@ -313,7 +313,7 @@ def run(season, limit=0, verbose=False, resume=False):
                     og = B.match_our_game(our, ncaa2)
                 if not og: failed["no-game-match"] += 1; continue
                 matched += 1
-                pbp = cached(g["nid"], "pbp", lambda: br.get(f"{BASE}/contests/{g['nid']}/play_by_play", need="Period"))
+                pbp = cached(g["nid"], "pbp", lambda: br.get(f"{BASE}/contests/{g['nid']}/play_by_play", need="Time</th>"))
                 res, why = process_game(pbp, og, ncaa)
                 if res is None:
                     failed[why] += 1
