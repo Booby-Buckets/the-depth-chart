@@ -117,24 +117,68 @@ def parse_pbp(html):
         periods.append(ev)
     return hdr, periods
 
-def pts_of(desc):
-    act = re.sub(r"^[^,]*,\s*", "", desc).strip().lower()
-    if act.startswith("freethrow"): return 1 if re.search(r"\bmade\b", act) else 0
-    m = re.match(r"^(2|3)pt\b", act)
-    return int(m.group(1)) if (m and re.search(r"\bmade\b", act)) else 0
+# ── event grammar ──────────────────────────────────────────────────────────
+# stats.ncaa.org has TWO play-by-play grammars, and a single season mixes them by game
+# (2018-19 has both):
+#   new  "Player Name, 2pt drivinglayup pointsinthepaint; made"   "Name, substitution in"
+#        "Name, freethrow 1of2 made"  "Team, rebound offensive team"  (2019 spells shots
+#        "2pt jumpshot missed")
+#   old  "LAST,FIRST made Three Point Jumper"  "LAST,FIRST Enters Game" / "Leaves Game"
+#        "TEAM Offensive Rebound"  "TEAM Deadball Rebound"  (uppercase, no space after the comma;
+#        suffixes ride on the last name: "STOCKARD III,LEVI"; ",MICHAEL HUEITT JR" has none)
+# parse_event() folds both into (name, kind, points, sub_dir).
+OLD_RE = re.compile(r"^([A-Z'\-\. ]*),(\S[^,]*?) (Enters Game|Leaves Game|made .*|missed .*|Defensive Rebound|Offensive Rebound|Deadball Rebound|Turnover|Assist|Steal|Commits Foul|Blocked Shot|.*Timeout.*)$")
+OLD_TEAM_RE = re.compile(r"^TEAM (.*)$")
 
-def classify(desc):
-    """Action-token classification. Descriptions are "Player, action detail;detail; made|missed";
-    tags like 'fromturnover' / '2ndchance' / 'shooting;2freethrow;' describe context, not the
-    action, so only the token right after the name decides the class."""
-    act = re.sub(r"^[^,]*,\s*", "", desc).strip().lower()
-    if act.startswith("substitution"): return "sub"
-    if act.startswith("freethrow"): return "ft"
-    if act.startswith("turnover"): return "tov"
-    if act.startswith("rebound offensive"): return "oreb-dead" if "deadball" in act else "oreb"
-    if act.startswith("rebound defensive"): return "dreb"
-    if re.match(r"^(2pt|3pt)\b", act) and ("made" in act or "missed" in act): return "fga"
-    return "other"
+def _old_action(act):
+    """old-grammar action text → (kind, pts, sub_dir)"""
+    a = act.strip(); al = a.lower()
+    if al == "enters game": return "sub", 0, "in"
+    if al == "leaves game": return "sub", 0, "out"
+    if al.startswith("made free throw"): return "ft", 1, None
+    if al.startswith("missed free throw"): return "ft", 0, None
+    if al.startswith("made "): return "fga", (3 if "three point" in al else 2), None
+    if al.startswith("missed "): return "fga", 0, None
+    if al == "offensive rebound": return "oreb", 0, None
+    if al == "defensive rebound": return "dreb", 0, None
+    if al == "turnover": return "tov", 0, None
+    return "other", 0, None
+
+def _new_action(act):
+    """new-grammar action text (everything after the name) → (kind, pts, sub_dir)"""
+    al = act.strip().lower()
+    m = re.match(r"^substitution (in|out)\b", al)
+    if m: return "sub", 0, m.group(1)
+    if al.startswith("freethrow"): return "ft", (1 if re.search(r"\bmade\b", al) else 0), None
+    if al.startswith("turnover"): return "tov", 0, None
+    if al.startswith("rebound offensive"): return ("other" if "deadball" in al else "oreb"), 0, None
+    if al.startswith("rebound defensive"): return "dreb", 0, None
+    m = re.match(r"^(2|3)pt\b", al)
+    if m and ("made" in al or "missed" in al): return "fga", (int(m.group(1)) if re.search(r"\bmade\b", al) else 0), None
+    return "other", 0, None
+
+def parse_event(desc):
+    """→ (name or None for team rows, kind, pts, sub_dir). kind ∈ sub|ft|fga|oreb|dreb|tov|other."""
+    d = desc.strip()
+    m = OLD_TEAM_RE.match(d)
+    if m and ", " not in d:
+        k, p, sd = _old_action(m.group(1)); return None, k, p, sd
+    m = OLD_RE.match(d)
+    if m:
+        name = (m.group(2).strip() + " " + m.group(1).strip()).strip()
+        k, p, sd = _old_action(m.group(3)); return name, k, p, sd
+    # new grammar: the action is the text after the LAST ", " (suffix names carry an
+    # extra comma: "Jimmy Nichols, Jr. , 2pt jumpshot made")
+    if ", " in d:
+        name, act = d.rsplit(", ", 1)
+        k, p, sd = _new_action(act)
+        nl = name.strip().lower()
+        return (None if nl in ("team", "") else name.strip()), k, p, sd
+    return None, "other", 0, None
+
+# kept for callers / tests
+def pts_of(desc): return parse_event(desc)[2]
+def classify(desc): return parse_event(desc)[1]
 
 # ── one game → per-espn tallies (same shapes build_onoff.finish expects) ───
 def process_game(html, og, ncaa):
@@ -191,11 +235,11 @@ def process_game(html, og, ncaa):
         # top up to five from the box (minutes order) if the log leaves a side short.
         first = {"L": {}, "R": {}}
         for tm, side, desc, _, _ in ev:
-            m = re.match(r"^(.*?),\s*(.*)$", desc)
-            if not m: continue
-            eid = resolve(side, m.group(1))
+            name, kind, _, sd = parse_event(desc)
+            if not name: continue
+            eid = resolve(side, name)
             if eid is None or eid in first[side]: continue
-            first[side][eid] = ("substitution in" in desc.lower())
+            first[side][eid] = (kind == "sub" and sd == "in")
         for side in "LR":
             starters = [e for e, sub_in in first[side].items() if not sub_in]
             for e in byMin[side]:
@@ -206,16 +250,15 @@ def process_game(html, og, ncaa):
             # points from the scoring EVENTS, not score deltas: rows sharing a clock time are
             # listed out of order on stats.ncaa.org, so the running score bounces and deltas
             # over-count (Georgia 86 vs a real 71). Event points match the box exactly.
-            stint[side]["pts"] += pts_of(desc)
-            m = SUB_RE.match(desc)
-            if m:
+            name, c, pts, sd = parse_event(desc)
+            stint[side]["pts"] += pts
+            if c == "sub":
                 close_stint()
-                eid = resolve(side, m.group(1))
+                eid = resolve(side, name) if name else None
                 if eid is None: bad += 1; continue
-                if m.group(2).lower() == "in": on[side].add(eid)
+                if sd == "in": on[side].add(eid)
                 else: on[side].discard(eid)
                 continue
-            c = classify(desc)
             if c == "fga": stint[side]["fga"] += 1
             elif c == "ft": stint[side]["fta"] += 1
             elif c == "oreb": stint[side]["oreb"] += 1
@@ -240,8 +283,17 @@ def run(season, limit=0, verbose=False, resume=False):
     br = Browser()
     agg = defaultdict(lambda: {"team":None,"name":None,"onF":0,"onA":0,"onP":0.0,"onDP":0.0,"tF":0,"tA":0,"tP":0.0,"games":0})
     matched = processed = 0; failed = defaultdict(int)
-    done_fp = os.path.join(CACHE, f"done_{season}.json"); done = set()
-    if resume and os.path.exists(done_fp): done = set(json.load(open(done_fp)))
+    # checkpoint = done game ids + the running per-player tallies. A done-list alone is not
+    # enough: resuming would skip those games AND lose their tallies, so the season would be
+    # written from the remainder only.
+    done_fp = os.path.join(CACHE, f"ckpt_{season}.json"); done = set()
+    if resume and os.path.exists(done_fp):
+        ck = json.load(open(done_fp)); done = set(ck["done"])
+        for eid, x in ck["agg"].items(): agg[eid].update(x)
+        matched, processed = ck["matched"], ck["processed"]; failed.update(ck["failed"])
+        print(f"  resumed: {processed} games, {len(agg)} players", flush=True)
+    def checkpoint():
+        json.dump({"done": sorted(done), "agg": agg, "matched": matched, "processed": processed, "failed": failed}, open(done_fp, "w"))
     try:
         for d in season_dates(season):
             sb_url = f"{BASE}/contests/livestream_scoreboards?sport_code=MBB&academic_year={season}&division=1&game_date={d.month:02d}/{d.day:02d}/{d.year}"
@@ -261,7 +313,7 @@ def run(season, limit=0, verbose=False, resume=False):
                     og = B.match_our_game(our, ncaa2)
                 if not og: failed["no-game-match"] += 1; continue
                 matched += 1
-                pbp = cached(g["nid"], "pbp", lambda: br.get(f"{BASE}/contests/{g['nid']}/play_by_play", need="substitution"))
+                pbp = cached(g["nid"], "pbp", lambda: br.get(f"{BASE}/contests/{g['nid']}/play_by_play", need="Period"))
                 res, why = process_game(pbp, og, ncaa)
                 if res is None:
                     failed[why] += 1
@@ -277,20 +329,21 @@ def run(season, limit=0, verbose=False, resume=False):
                     print(f"[{d}] {g['teams'][0]} vs {g['teams'][1]} (nid {g['nid']}, our {og['id']}) players={len(res['acc'])} bad={res['bad']}", flush=True)
                 if processed % 50 == 0:
                     print(f"  ...{processed} games ({d})", flush=True)
-                    json.dump(sorted(done), open(done_fp, "w"))
+                    checkpoint()
                     B.finish(agg, matched, processed, failed, season, write=True, verbose=False)
                 if limit and processed >= limit:
                     return B.finish(agg, matched, processed, failed, season, write=False, verbose=verbose)
-        json.dump(sorted(done), open(done_fp, "w"))
+        checkpoint()
         return B.finish(agg, matched, processed, failed, season, write=True, verbose=verbose)
     finally:
         br.close()
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--season", type=int, required=True)
+    ap.add_argument("--season", type=int, nargs="+", required=True, help="one or more seasons, run in order")
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--verbose", action="store_true")
     ap.add_argument("--resume", action="store_true")
     a = ap.parse_args()
-    run(a.season, a.limit, a.verbose, a.resume)
+    for y in a.season:
+        run(y, a.limit, a.verbose, a.resume)
