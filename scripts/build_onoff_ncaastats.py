@@ -69,10 +69,11 @@ class Browser:
                     if self.denials and self.since_denial >= 50: self.denials -= 1   # earn back a shorter pause
                     # the limit is per SESSION (~35 pages, then Access Denied; a fresh session is
                     # served at once after a short breath), so rotate before it trips
+                    # ~500 pages/hour: ~1,000/h earned an IP-level block that lasted hours
                     if self.in_session >= ROTATE_EVERY:
-                        time.sleep(15); self._relaunch()
+                        time.sleep(30); self._relaunch()
                     else:
-                        time.sleep(1.2 + 0.8 * random.random())
+                        time.sleep(4.0 + 2.0 * random.random())
                     return html
                 # the page loaded but never showed the marker: after ~30 quick pages the bot
                 # manager starts serving a short stub to this SESSION while a fresh one still
