@@ -36,7 +36,7 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v17_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v18_'+SEASON, TTL=24*3600*1000;
   // in-season form: once 2026-27 games are played, each team's rating drifts
   // toward how it's ACTUALLY performing vs our own lines. surprise = actual
   // margin - expected margin; form = sum(surprise)/(n + FORM_PRIOR) capped at
@@ -157,7 +157,13 @@
   // matches both the Fighting Illini and Illinois State, and only the league
   // tells them apart — then fewest words / shortest.
   const CONF_FRAG={'B10':'Big Ten','SEC':'Southeastern','ACC':'Atlantic Coast','BIG-12':'Big 12','Big-East':'Big East'};
+  // roster-sheet abbreviations that don't prefix-match the team_seasons name — without
+  // these the roster projection AND the carryover row both land in the field (ECU and
+  // East Carolina Pirates were ranked as two teams)
+  const SHORT_ALIAS={'ECU':'East Carolina','FAU':'Florida Atlantic','UMass':'Massachusetts','UMKC':'Kansas City',
+    'Pitt':'Pittsburgh','Miami (FL)':'Miami','Hawaii':"Hawai'i",'UNC':'North Carolina','USF':'South Florida','FIU':'Florida International'};
   function matchFull(short, tsRows, confCode){
+    if(SHORT_ALIAS[short]) short=SHORT_ALIAS[short];
     let cands=tsRows.filter(t=>t.team===short||t.team.indexOf(short+' ')===0);
     if(!cands.length&&short.indexOf('-')>=0){   // "NC-State" → "NC State Wolfpack"
       const sp=short.replace(/-/g,' ');
