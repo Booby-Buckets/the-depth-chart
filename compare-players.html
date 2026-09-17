@@ -31,7 +31,7 @@
   <script src="tdc-lineups.js?v=16"></script>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=6"></script>
-  <link rel="stylesheet" href="tdc-sheets.css?v=3"/><script src="tdc-shotchart.js?v=18"></script>
+  <link rel="stylesheet" href="tdc-sheets.css?v=3"/><link rel="stylesheet" href="tdc-hero.css?v=2"/><script src="tdc-shotchart.js?v=18"></script>
   <script src="tdc-shotflow.js?v=9"></script>
   <script src="tdc-portalfit.js?v=needs10"></script>
   <script src="tdc-chemistry.js?v=8"></script>
@@ -55,21 +55,13 @@
     .nav-sub a:first-child{padding-left:0;}
     .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
 
-    .page{max-width:1100px;margin:0 auto;padding:40px;}
+    .page{max-width:1180px;margin:0 auto;padding:26px 40px 40px;}
     .page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:10px;}
     .page-eyebrow::before{content:'';width:20px;height:1px;background:var(--accent);}
     .page-h1{font-family:'Playfair Display',serif;font-weight:800;font-size:36px;letter-spacing:-.02em;margin-bottom:6px;}
     .page-sub{font-size:13px;color:var(--text3);margin-bottom:26px;}
 
-    /* MODE TOGGLE */
-    .mode-toggle{display:inline-flex;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:3px;gap:3px;margin-bottom:30px;}
-    .mode-btn{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);background:transparent;border:none;cursor:pointer;padding:8px 22px;border-radius:6px;transition:all .15s;}
-    .mode-btn.on{background:var(--accent);color:#1a1205;}
-
-    /* PICKERS */
-    .pickers{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:30px;}
-    .picker{border:1px solid var(--border);border-radius:10px;padding:18px;}
-    .picker-label{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;}
+    /* PICKERS (they live inside the floating toolbar card) */
     .search-wrap{position:relative;}
     .search-input{width:100%;padding:10px 14px;border:1px solid var(--border2);border-radius:6px;background:var(--bg);font-family:'Inter',sans-serif;font-size:14px;color:var(--text);outline:none;transition:border-color .15s;}
     .search-input:focus{border-color:var(--accent);}
@@ -197,7 +189,8 @@
     .pd-side .pd-count{font-weight:800;color:var(--text);}
 
     /* RAW STAT TABLE */
-    .compare-section-head{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:10px 18px;background:var(--bg2);border:1px solid var(--border);border-radius:8px 8px 0 0;border-bottom:none;margin-top:26px;}
+    .compare-section-head{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text2);padding:10px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:12px 12px 0 0;border-bottom:none;margin-top:22px;display:flex;align-items:center;gap:10px;}
+    .compare-section-head::before{content:'';width:6px;height:6px;border-radius:2px;background:var(--accent);flex-shrink:0;}
     .compare-row{display:grid;grid-template-columns:1fr 130px 1fr;gap:0;border:1px solid var(--border);border-top:none;}
     .compare-row:last-child{border-radius:0 0 8px 8px;}
     .compare-cell{padding:11px 18px;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;}
@@ -296,7 +289,7 @@
     .footer-logo{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text3);}
     .footer-logo span{color:var(--accent);}
     .footer-meta{font-size:11px;font-weight:600;color:var(--text3);}
-    @media(max-width:760px){.pickers,.chart-grid,.sw-grid,.lineup-grid,.sim-grid,.scc-grid{grid-template-columns:1fr;}.page{padding:20px;}.cmp-heads,.compare-row{grid-template-columns:1fr 40px 1fr;}.compare-cell{padding:9px 12px;font-size:12px;}.nav-top{padding:0 16px;}.nav-sub{padding:0 16px;}}
+    @media(max-width:760px){.chart-grid,.sw-grid,.lineup-grid,.sim-grid,.scc-grid{grid-template-columns:1fr;}.page{padding:20px;}.cmp-heads,.compare-row{grid-template-columns:1fr 40px 1fr;}.compare-cell{padding:9px 12px;font-size:12px;}.nav-top{padding:0 16px;}.nav-sub{padding:0 16px;}}
     @media(max-width:500px){
       .nav-top{padding:0 10px!important;height:44px!important;}
       .nav-logo{font-size:14px!important;}
@@ -305,6 +298,55 @@
       .nav-actions{gap:6px!important;}
     }
   
+    /* ===== Compare v2: navy hero + floating picker bar + sideways stat sheets ===== */
+    .cmp-shell{max-width:1180px;margin:0 auto;}
+    .cmp-bar{display:grid;grid-template-columns:1fr 40px 1fr auto;align-items:start;gap:10px 12px;}
+    .cmp-slot{display:flex;flex-direction:column;gap:5px;min-width:0;}
+    .cmp-slot .search-wrap{position:relative;}
+    .tdc-toolbar .cmp-slot input.search-input{width:100%;font-size:13.5px;font-weight:600;padding:10px 13px;border-radius:10px;}
+    .cmp-vsp{align-self:start;margin-top:26px;text-align:center;font-family:'Playfair Display',serif;font-weight:800;font-size:13px;color:var(--text3);letter-spacing:.04em;}
+    .cmp-bar .f-actions{margin-left:0;margin-top:19px;padding-bottom:0;align-self:start;}
+    /* the pick renders as a compact chip under its input (markup unchanged, restyled) */
+    .selected-player{margin-top:0;}
+    .selected-player>div{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;margin-top:6px!important;padding:5px 10px 5px 10px!important;background:var(--bg2);border-radius:0 8px 8px 0;}
+    .selected-player .sel-name{font-family:'Inter',sans-serif;font-size:13px;font-weight:800;margin:0;}
+    .selected-player .sel-meta{font-size:11.5px;}
+    .selected-player .sel-season-lbl{margin-top:0;flex-basis:100%;}
+    .selected-player .clear-btn{margin:4px 0 0 2px;}
+    .player-search-dropdown{border-radius:0 0 10px 10px;box-shadow:0 14px 30px rgba(0,10,40,.16);}
+    /* head cards pick up a wash of the team color */
+    .cmp-head{background:linear-gradient(135deg,color-mix(in srgb,var(--side) 10%,transparent),transparent 60%),var(--bg);border-radius:14px;padding:18px 20px;}
+    .cmp-head .ch-grade{font-size:34px;}
+    .cmp-head .ch-gl{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-top:6px;}
+    /* stat sheet: a row per side, a column per stat, edge + D-I average underneath */
+    .cs-wrap{border:1px solid var(--border);border-radius:0 0 12px 12px;overflow:auto;background:var(--bg);margin-bottom:22px;scrollbar-width:thin;}
+    .cs{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px;font-variant-numeric:tabular-nums;}
+    .cs th{font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:8px 10px 7px;text-align:right;border-bottom:1px solid var(--border);background:var(--bg2);white-space:nowrap;}
+    .cs td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--border);color:var(--text2);white-space:nowrap;line-height:1.35;}
+    .cs tbody tr:last-child td{border-bottom:none;}
+    .cs th.cs-who,.cs td.cs-who{text-align:left;position:sticky;left:0;z-index:1;min-width:172px;border-right:1px solid var(--border);background:var(--bg);}
+    .cs th.cs-who{background:var(--bg2);}
+    .cs tr.cs-p td.cs-who{padding:6px 12px;}
+    .cs .cs-who .nm{display:flex;align-items:center;gap:7px;font-weight:800;font-size:12.5px;color:var(--text);white-space:nowrap;}
+    .cs .cs-who .nm img{width:18px;height:18px;object-fit:contain;flex-shrink:0;}
+    .cs .cs-who .sb{font-size:10px;font-weight:600;color:var(--text3);margin-top:1px;padding-left:25px;white-space:nowrap;}
+    .cs .cs-who .nm.nologo+.sb{padding-left:0;}
+    .cs td.winner{color:var(--text);font-weight:800;background:color-mix(in srgb,var(--side) 13%,transparent);box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--side) 55%,transparent);}
+    .cs td.loser{color:var(--text3);}
+    .cs tr.cs-avg td{background:var(--bg2);color:var(--text3);font-size:11.5px;}
+    .cs tr.cs-edge td{background:var(--bg2);font-size:11px;font-weight:800;}
+    .cs tr.cs-avg td.cs-who,.cs tr.cs-edge td.cs-who{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);background:var(--bg2);}
+    .cs td .sg-pct{margin-left:4px;}
+    .cs tr.cs-grp th{text-align:center;font-size:9px;letter-spacing:.12em;color:var(--accent);padding:7px 10px 2px;border-bottom:none;}
+    .cs .gs{border-left:1px solid var(--border2);}
+    .adv-head+.cs-wrap{border-radius:12px;}
+    .cs-wrap+.statless-note{margin-top:-10px;margin-bottom:22px;}
+    .compare-subhead{padding:14px 4px 6px;}
+    .compare-section-head+.compare-subhead{padding-top:10px;}
+    @media(max-width:900px){.cmp-bar{grid-template-columns:1fr;}.cmp-vsp{display:none;}.cmp-bar .f-actions{margin-top:0;}}
+    .sim-grid>*,.scc-grid>*,.chart-grid>*,.ol-grid>*{min-width:0;}
+    @media(max-width:760px){.sim-card{overflow:hidden;}.sim-row{flex-wrap:wrap;}.sim-meta{flex-basis:100%;order:5;padding-left:24px;}}
+
 /* ===== ANIMATED NEON BACKGROUND ===== */
 html{background:var(--bg);}
 body{background:transparent!important;}
@@ -396,35 +438,53 @@ body{background:transparent!important;}
   </div>
 </div>
 
-<div class="page">
-  <div class="page-eyebrow">Tools</div>
-  <h1 class="page-h1">Compare</h1>
-  <p class="page-sub">Head-to-head breakdowns with skill charts, archetypes, projected roles, and team strengths.</p>
-
-  <div class="mode-toggle">
-    <button class="mode-btn on" id="modePlayers" onclick="setMode('players')">Players</button>
-    <button class="mode-btn" id="modeTeams" onclick="setMode('teams')">Teams</button>
+<div class="cmp-shell">
+<div class="ph-hero">
+  <div class="ph-left">
+    <div class="page-eyebrow">Tools · Head-to-head</div>
+    <h1 class="page-h1">Compare</h1>
+    <p class="page-sub">Any two players or programs, side by side — <b>stat sheets, skill charts, projections, chemistry</b> and the matchup if they met. Current rosters or any season back to 2006-07.</p>
+    <div class="ph-tabs">
+      <button class="vtab on" id="modePlayers" onclick="setMode('players')">Players</button>
+      <button class="vtab" id="modeTeams" onclick="setMode('teams')">Teams</button>
+    </div>
   </div>
+  <div class="ph-band" id="cmpBand">
+    <div class="ph-tile"><div class="k">Players</div><div class="v">—</div><div class="s">loading pool</div></div>
+    <div class="ph-tile"><div class="k">Programs</div><div class="v">—</div><div class="s">&nbsp;</div></div>
+    <div class="ph-tile"><div class="k">Seasons</div><div class="v">20</div><div class="s">2006-07 → 2025-26</div></div>
+    <div class="ph-tile acc"><div class="k">Stat sheets</div><div class="v">6</div><div class="s">per game · advanced · per-40 …</div></div>
+  </div>
+</div>
 
-  <div class="pickers">
-    <div class="picker" id="picker1">
-      <div class="picker-label" id="pl1">Player 1</div>
+<div class="tdc-toolbar cmp-bar">
+  <div class="cmp-slot" id="picker1">
+    <div class="f-lab f-lead"><span id="pl1">Player 1</span>
       <div class="search-wrap">
         <input class="search-input" id="si1" type="text" placeholder="Search player name..." oninput="onSearch(1,this.value)" onkeydown="_searchKey(event,1)" autocomplete="off"/>
         <div class="player-search-dropdown" id="dropdown1"></div>
       </div>
-      <div class="selected-player" id="selected1"></div>
     </div>
-    <div class="picker" id="picker2">
-      <div class="picker-label" id="pl2">Player 2</div>
+    <div class="selected-player" id="selected1"></div>
+  </div>
+  <div class="cmp-vsp">VS</div>
+  <div class="cmp-slot" id="picker2">
+    <div class="f-lab f-lead"><span id="pl2">Player 2</span>
       <div class="search-wrap">
         <input class="search-input" id="si2" type="text" placeholder="Search player name..." oninput="onSearch(2,this.value)" onkeydown="_searchKey(event,2)" autocomplete="off"/>
         <div class="player-search-dropdown" id="dropdown2"></div>
       </div>
-      <div class="selected-player" id="selected2"></div>
     </div>
+    <div class="selected-player" id="selected2"></div>
   </div>
+  <div class="f-actions">
+    <button class="f-btn ghost" onclick="swapSides()" title="Swap the two sides">⇄ Swap</button>
+    <button class="f-btn ghost" onclick="clearPick(1);clearPick(2)">Clear</button>
+  </div>
+</div>
+</div>
 
+<div class="page">
   <div class="compare-section" id="compareSection"></div>
   <div class="empty-hint" id="emptyHint">Pick two to see the full breakdown.</div>
 </div>
@@ -832,7 +892,7 @@ function clearPick(slot){
   document.getElementById('si'+slot).value='';
   document.getElementById('compareSection').classList.remove('show');
   document.getElementById('emptyHint').style.display='block';
-  destroyCharts();
+  destroyCharts(); fillCmpBand();
 }
 function destroyCharts(){ charts.forEach(c=>{try{c.destroy();}catch(e){}}); charts=[]; }
 async function maybeRender(){
@@ -857,7 +917,7 @@ function setMode(m){
   ['1','2'].forEach(s=>{ document.getElementById('si'+s).value=''; document.getElementById('selected'+s).style.display='none'; });
   document.getElementById('compareSection').classList.remove('show');
   document.getElementById('emptyHint').style.display='block';
-  destroyCharts();
+  destroyCharts(); fillCmpBand();
 }
 
 // ── radial "petal" skill gauge — one player, wedge length + brightness = national percentile ──
@@ -1067,7 +1127,7 @@ function cmpRow(label,av,bv,fmtFn,higher){
   if(higher===undefined) higher=true;
   var a=parseFloat(av),b=parseFloat(bv),hasA=!isNaN(a),hasB=!isNaN(b);
   var wA='',wB=''; if(hasA&&hasB&&a!==b){ var aw=higher?a>b:a<b; wA=aw?'winner':'loser'; wB=aw?'loser':'winner'; }
-  return '<div class="compare-row"><div class="compare-cell '+wA+'">'+(hasA?fmtFn(a):'—')+'</div>'
+  return '<div class="compare-row"'+_rowData(hasA?a:null,hasB?b:null,higher)+'><div class="compare-cell '+wA+'">'+(hasA?fmtFn(a):'—')+'</div>'
     +'<div class="compare-label">'+label+'</div>'
     +'<div class="compare-cell right '+wB+'">'+(hasB?fmtFn(b):'—')+'</div></div>';
 }
@@ -1238,7 +1298,8 @@ function advRow(def,p1,p2){
   var ra=sa?sa[def.k]:null, rb=sb?sb[def.k]:null;
   var av=parseFloat(ra), bv=parseFloat(rb), hasA=!isNaN(av), hasB=!isNaN(bv);
   var wA='',wB=''; if(hasA&&hasB&&av!==bv){ var aw=def.hi?av>bv:av<bv; wA=aw?'winner':'loser'; wB=aw?'loser':'winner'; }
-  return `<div class="compare-row"><div class="compare-cell ${wA}">${hasA?advFmt(ra,def.t):'—'}</div>`
+  const sc=def.t==='pct'?100:1;   // decimal shares print as % — keep the Edge row on the same scale
+  return `<div class="compare-row"${_rowData(hasA?av*sc:null,hasB?bv*sc:null,def.hi)}><div class="compare-cell ${wA}">${hasA?advFmt(ra,def.t):'—'}</div>`
     +`<div class="compare-label">${def.l}</div>`
     +`<div class="compare-cell right ${wB}">${hasB?advFmt(rb,def.t):'—'}</div></div>`;
 }
@@ -1316,11 +1377,11 @@ function renderPlayers(){
   c2=distinctPair(c1,c2); // same team / lookalike brands → keep the two sides distinct
   const sec=document.getElementById('compareSection'); sec.classList.add('show');
   const sl1=_seasonLabel(p1), sl2=_seasonLabel(p2);
-  const head=(p,c,right,sl)=>{ const cg=_cmpGrade(p); return `<div class="cmp-head${right?' right':''}" style="border-color:${c};${right?'border-right':'border-left'}:3px solid ${c};">
+  const head=(p,c,right,sl)=>{ const cg=_cmpGrade(p); return `<div class="cmp-head${right?' right':''}" style="--side:${c};border-color:${c};${right?'border-right':'border-left'}:3px solid ${c};">
       ${(l=>l?`<img class="ch-logo" src="${l}" alt="" loading="lazy">`:'')(_logoFor(p.team))}
       <div class="ch-name">${p._isHistory?p.name:`<a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}">${p.name}</a>`}</div>
       <div class="ch-sub">${p._isHistory?`<span style="color:#5b9d8f;font-weight:700;">${sl} · </span>`:''}${p.team||'—'} · ${p.position||'—'} · ${p.class_year||p.yr||'—'} · ${p.height||'—'}</div>
-      <div class="ch-grade ${gc(cg||'')}">${cg!=null?cg:'—'}</div>
+      <div class="ch-grade ${gc(cg||'')}" style="color:${c}">${cg!=null?cg:'—'}</div><div class="ch-gl">${p._isHistory?sl+' overall':'Projected overall'}</div>
       <div class="ch-tags"><span class="ch-tag gold">${archetypeOf(p)}</span>${p._isHistory?'':`<span class="ch-tag">${roleOf(p)}</span>`}</div>
     </div>`; };
   const bothCurrent=!p1._isHistory&&!p2._isHistory;
@@ -1333,6 +1394,9 @@ function renderPlayers(){
   const a1=adv(p1), a2=adv(p2);
   const nil1=nilOf(p1), nil2=nilOf(p2);
   const nextLbl=p=>{ const y=p._isHistory?(+p.season_year+1):2027; return `${y-1}-${(''+y).slice(2)}`; };
+  _sheetSides=[
+    {name:p1.name, sub:`${p1._isHistory?sl1+' · ':''}${p1.team||'—'} · ${p1.position||'—'}`, color:c1, logo:_logoFor(p1.team)},
+    {name:p2.name, sub:`${p2._isHistory?sl2+' · ':''}${p2.team||'—'} · ${p2.position||'—'}`, color:c2, logo:_logoFor(p2.team)}];
   const statLabel=p1._isHistory||p2._isHistory
     ? (sl1===sl2?`${sl1} Stats`:`Season Stats`)
     : '2025-26 Actual';
@@ -1489,6 +1553,7 @@ function renderPlayers(){
       <div class="sim-card" id="simc2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Building all-time pool…</div></div>
     </div>
   `;
+  sheetify(sec); fillCmpBand();
   fillSimCards(p1,p2);
   _renderShotCharts(p1,p2);
   _renderShotFlows(p1,p2);
@@ -1861,7 +1926,7 @@ function _sgRow(label, v1, v2, pc1, pc2, fmtFn, higher){
   let wA='',wB=''; if(hasA&&hasB&&a!==b){ const aw=higher?a>b:a<b; wA=aw?'winner':'loser'; wB=aw?'loser':'winner'; }
   const chip=pc=>{ const n=parseFloat(pc); return isNaN(n)?'':`<span class="sg-pct">${_ord(Math.round(n))}</span>`; };
   const cell=(has,v,pc)=>has?`${fmtFn(v)}${chip(pc)}`:'—';
-  return `<div class="compare-row"><div class="compare-cell ${wA}">${cell(hasA,a,pc1)}</div>`
+  return `<div class="compare-row"${_rowData(hasA?a:null,hasB?b:null,higher)}><div class="compare-cell ${wA}">${cell(hasA,a,pc1)}</div>`
     +`<div class="compare-label">${label}</div>`
     +`<div class="compare-cell right ${wB}">${cell(hasB,b,pc2)}</div></div>`;
 }
@@ -1913,20 +1978,153 @@ function _statlessNote(p1,p2){
   const many=miss.length>1;
   return `<div class="statless-note">No season box stats on file for <b>${miss.join('</b> & <b>')}</b> — an incoming freshman/newcomer, or the roster line hasn't been filled yet. The percentile charts below read blank for ${many?'them':'that player'} until stats exist.</div>`;
 }
+// ── STAT SHEETS ─────────────────────────────────────────────────────────────
+// Every row builder on the page (statRow / projRow / cmpRow / advRow / _sgRow /
+// gradeRow / infoRow) emits one .compare-row = one stat. sheetify() lays each run
+// of adjacent rows out SIDEWAYS as a table — a row per side, a column per stat,
+// then an Edge row and (where the pool is known) a D-I average — so a section
+// that used to be eleven stacked rows fits in four lines. The numbers ride along
+// on data-a / data-b / data-hi / data-avg so Edge and Average need no re-parsing.
+function _rowData(a,b,hi,avg){
+  return ` data-a="${a!=null&&isFinite(a)?a:''}" data-b="${b!=null&&isFinite(b)?b:''}" data-hi="${hi===false?0:1}"${avg!=null&&isFinite(avg)?` data-avg="${avg}"`:''}`;
+}
+// national mean among rotation players (10+ mpg) for the per-game sheet
+const _LG_KEY={PPG:'ppg',RPG:'rpg',APG:'apg',MPG:'mpg','FG%':'fg_pct','3P%':'tp_pct','FT%':'ft_pct',STL:'stl',BLK:'blk',TO:'tovs',GP:'gp'};
+let _lgAvg={};
+function _leagueAvg(label){
+  if(mode!=='players') return null;
+  const k=_LG_KEY[label]; if(!k) return null;
+  if(_lgAvg[k]!==undefined) return _lgAvg[k];
+  const rot=allPlayers.filter(p=>parseFloat(p.mpg)>=10);
+  const v=rot.map(p=>parseFloat(p[k])).filter(x=>!isNaN(x));
+  _lgAvg[k]=v.length?v.reduce((s,x)=>s+x,0)/v.length:null;
+  return _lgAvg[k];
+}
+let _sheetSides=[null,null];   // {name, sub, color, logo} for the two sides
+// format a derived number the way the cell text is formatted (decimals, %, ×, #)
+function _likeCell(n, sample){
+  const t=(sample||'').replace(/<[^>]*>[^<]*<\/[^>]*>/g,'').trim();
+  const dec=(t.match(/\.(\d+)/)||[,''])[1].length;
+  const pct=/%/.test(t)?'%':'';
+  return n.toFixed(dec)+pct;
+}
+function sheetify(root){
+  root=root||document.getElementById('compareSection'); if(!root) return;
+  const rows=[...root.querySelectorAll('.compare-row')].filter(r=>!r.closest('.cs'));
+  if(!rows.length) return;
+  const runs=[]; let cur=null;
+  rows.forEach(r=>{ if(cur&&cur[cur.length-1].nextElementSibling===r) cur.push(r); else { cur=[r]; runs.push(cur); } });
+  // runs separated only by a .compare-subhead (Efficiency / Offense / Defense …) become
+  // column GROUPS of one wide sheet instead of three narrow ones
+  const isSub=el=>el&&el.classList&&el.classList.contains('compare-subhead');
+  const groups=[]; // [{label, runs:[run,…], subs:[el,…]}]
+  runs.forEach(run=>{
+    const prev=run[0].previousElementSibling, g=groups[groups.length-1];
+    if(g && isSub(prev) && g.runs[g.runs.length-1][g.runs[g.runs.length-1].length-1].nextElementSibling===prev){
+      g.runs.push(run); g.labels.push(prev.textContent.trim()); g.subs.push(prev);
+    } else {
+      const lead=isSub(prev)?prev:null;
+      groups.push({runs:[run], labels:[lead?lead.textContent.trim():''], subs:lead?[lead]:[]});
+    }
+  });
+  groups.forEach(g=>{
+    const run=g.runs.flat();
+    const spans=g.runs.map(r=>r.length), grouped=g.runs.length>1;
+    const cols=run.map(r=>{
+      const cells=r.querySelectorAll('.compare-cell'), lab=r.querySelector('.compare-label');
+      return { label:lab?lab.innerHTML:'', a:cells[0]||null, b:cells[1]||null,
+        na:parseFloat(r.dataset.a), nb:parseFloat(r.dataset.b), avg:parseFloat(r.dataset.avg), hi:r.dataset.hi!=='0' };
+    });
+    // first column of each group gets a divider
+    let k=0; g.runs.forEach((r,gi)=>{ if(gi>0) cols[k].gs=true; k+=r.length; });
+    const colOf=i=>(_sheetSides[i]&&_sheetSides[i].color)||'var(--accent)';
+    const who=i=>{ const sd=_sheetSides[i]||{};
+      return `<td class="cs-who"><div class="nm${sd.logo?'':' nologo'}">${sd.logo?`<img src="${sd.logo}" alt="" loading="lazy">`:''}<span style="color:${colOf(i)}">${sd.name||(i?'Side B':'Side A')}</span></div>${sd.sub?`<div class="sb">${sd.sub}</div>`:''}</td>`; };
+    const td=(cell,i,c)=>{ const cls=(cell?cell.className:'').replace(/\bcompare-cell\b|\bright\b/g,' ').replace(/\s+/g,' ').trim();
+      return `<td class="${cls}${c&&c.gs?' gs':''}" style="--side:${colOf(i)}">${cell?cell.innerHTML:'—'}</td>`; };
+    const hasAvg=cols.some(c=>!isNaN(c.avg));
+    const hasEdge=cols.some(c=>!isNaN(c.na)&&!isNaN(c.nb)&&c.na!==c.nb);
+    const gsc=c=>c.gs?' class="gs"':'';
+    const edge=c=>{ if(isNaN(c.na)||isNaN(c.nb)||c.na===c.nb) return `<td${gsc(c)}>—</td>`;
+      const d=c.na-c.nb, lead=(c.hi?d>0:d<0)?0:1;
+      return `<td${gsc(c)} style="color:${colOf(lead)}">${d>0?'+':'−'}${_likeCell(Math.abs(d), c.a&&c.a.innerHTML)}</td>`; };
+    const avg=c=>`<td${gsc(c)}>${isNaN(c.avg)?'—':_likeCell(c.avg, c.a&&c.a.innerHTML||c.b&&c.b.innerHTML)}</td>`;
+    const grpRow=grouped?`<tr class="cs-grp"><th class="cs-who"></th>${g.labels.map((l,i)=>`<th colspan="${spans[i]}"${i?' class="gs"':''}>${l}</th>`).join('')}</tr>`:'';
+    const wrap=document.createElement('div'); wrap.className='cs-wrap';
+    wrap.innerHTML=`<table class="cs"><thead>${grpRow}<tr><th class="cs-who"></th>${cols.map(c=>`<th${gsc(c)}>${c.label}</th>`).join('')}</tr></thead><tbody>`
+      +`<tr class="cs-p">${who(0)}${cols.map(c=>td(c.a,0,c)).join('')}</tr>`
+      +`<tr class="cs-p">${who(1)}${cols.map(c=>td(c.b,1,c)).join('')}</tr>`
+      +(hasAvg?`<tr class="cs-avg"><td class="cs-who">D-I average</td>${cols.map(avg).join('')}</tr>`:'')
+      +(hasEdge?`<tr class="cs-edge"><td class="cs-who">Edge</td>${cols.map(edge).join('')}</tr>`:'')
+      +`</tbody></table>`;
+    const anchor=g.subs[0]&&g.subs[0]===run[0].previousElementSibling?g.subs[0]:run[0];
+    anchor.before(wrap); run.forEach(r=>r.remove()); g.subs.forEach(el=>el.remove());
+  });
+}
+// async sections (shot genome, team DNA, …) fill in later — lay them out as they land
+new MutationObserver(()=>sheetify()).observe(document.getElementById('compareSection'),{childList:true,subtree:true});
+
+// ── HERO BAND ───────────────────────────────────────────────────────────────
+function _tile(k,v,s,acc,col){ return `<div class="ph-tile${acc?' acc':''}"><div class="k">${k}</div><div class="v"${col?` style="color:${col}"`:''}>${v}</div><div class="s">${s||'&nbsp;'}</div></div>`; }
+function _short(n){ n=(n||'').trim(); return n.length>18?n.split(' ').slice(-1)[0]:n; }
+function fillCmpBand(){
+  const band=document.getElementById('cmpBand'); if(!band) return;
+  const arr=sel[mode==='players'?'players':'teams'];
+  if(!(arr[0]&&arr[1])){
+    band.innerHTML=_tile('Players',allPlayers.length?allPlayers.length.toLocaleString():'—','on 2026-27 rosters')
+      +_tile('Programs',teams.length||'—','Division I')
+      +_tile('Seasons','20','2006-07 → 2025-26')
+      +_tile('Stat sheets',mode==='players'?'6':'5',mode==='players'?'per game · advanced · per-40 …':'résumé · four factors · genome …',true);
+    return;
+  }
+  const [a,b]=arr, s0=_sheetSides[0]||{}, s1=_sheetSides[1]||{};
+  const sheet=document.querySelector('#compareSection .cs');
+  let won=[0,0];
+  if(sheet){ sheet.querySelectorAll('tr.cs-p').forEach((tr,i)=>{ won[i]=tr.querySelectorAll('td.winner').length; }); }
+  const tot=won[0]+won[1], lead=won[0]===won[1]?-1:(won[0]>won[1]?0:1);
+  const edgeCol=lead<0?null:(lead?s1.color:s0.color);
+  if(mode==='players'){
+    const g1=_cmpGrade(a), g2=_cmpGrade(b);
+    const chem=_playerChem(a,b);
+    band.innerHTML=_tile(_short(a.name),g1!=null?g1:'—',(a.team||'—')+' · '+(a.position||'—'),false,s0.color)
+      +_tile(_short(b.name),g2!=null?g2:'—',(b.team||'—')+' · '+(b.position||'—'),false,s1.color)
+      +_tile('Stat edge',tot?`${won[0]}–${won[1]}`:'—',tot?(lead<0?'even split':`<b>${_short(lead?b.name:a.name)}</b> of ${tot} per-game stats`):'per-game categories',false,edgeCol)
+      +(chem?_tile('Chemistry',`${chem.score}<small>/100</small>`,chem.verdict,true):_tile('Seasons',`${_seasonLabel(a)}`,`vs ${_seasonLabel(b)}`,true));
+  } else {
+    const r=t=>{ const s=t._srow; return s?`${s.wins||0}-${s.losses||0}`:'—'; };
+    const pr=t=>{ const s=t._srow; return s&&s.srs!=null?(+s.srs).toFixed(1):'—'; };
+    band.innerHTML=_tile(_short(a.name),pr(a),`${r(a)} · Power Rating`,false,s0.color)
+      +_tile(_short(b.name),pr(b),`${r(b)} · Power Rating`,false,s1.color)
+      +_tile('Stat edge',tot?`${won[0]}–${won[1]}`:'—',tot?(lead<0?'even split':`<b>${_short(lead?b.name:a.name)}</b> of ${tot} team stats`):'team-stat categories',false,edgeCol)
+      +_tile('Meeting',a._isHistory||b._isHistory?'History':'2026-27',a._isHistory||b._isHistory?'season vs season':'projected matchup below',true);
+  }
+}
+function swapSides(){
+  const key=mode==='players'?'players':'teams';
+  const arr=sel[key]; if(!(arr[0]&&arr[1])) return;
+  sel[key]=[arr[1],arr[0]];
+  const t=_teamSel[1]; _teamSel[1]=_teamSel[2]; _teamSel[2]=t;
+  [1,2].forEach(i=>{ const e=document.getElementById('selected'+i); e.dataset.h=e.innerHTML; });
+  const h1=document.getElementById('selected1').dataset.h, h2=document.getElementById('selected2').dataset.h;
+  document.getElementById('selected1').innerHTML=h2.replace(/clearPick\(2\)/g,'clearPick(1)').replace(/_selectTeamSeason\(2,/g,'_selectTeamSeason(1,');
+  document.getElementById('selected2').innerHTML=h1.replace(/clearPick\(1\)/g,'clearPick(2)').replace(/_selectTeamSeason\(1,/g,'_selectTeamSeason(2,');
+  const v=document.getElementById('si1').value; document.getElementById('si1').value=document.getElementById('si2').value; document.getElementById('si2').value=v;
+  maybeRender();
+}
 function statRow(label,a,b,higher=true){
   const av=parseFloat(a),bv=parseFloat(b),hasA=!isNaN(av),hasB=!isNaN(bv);
   let wA='',wB=''; if(hasA&&hasB&&av!==bv){ const aw=higher?av>bv:av<bv; wA=aw?'winner':'loser'; wB=aw?'loser':'winner'; }
-  const isPct=label.includes('%');
-  return `<div class="compare-row"><div class="compare-cell ${wA}">${hasA?(isPct?fmtP(a):fmt(a)):'—'}</div>
+  const isPct=label.includes('%'), f=label==='GP'?(v=>String(Math.round(v))):(isPct?fmtP:fmt);
+  return `<div class="compare-row"${_rowData(hasA?av:null,hasB?bv:null,higher,_leagueAvg(label))}><div class="compare-cell ${wA}">${hasA?f(a):'—'}</div>
     <div class="compare-label">${label}</div>
-    <div class="compare-cell right ${wB}">${hasB?(isPct?fmtP(b):fmt(b)):'—'}</div></div>`;
+    <div class="compare-cell right ${wB}">${hasB?f(b):'—'}</div></div>`;
 }
 function projRow(label,a,b){
   const av=parseFloat(a),bv=parseFloat(b),isPct=label.includes('%'),hasA=!isNaN(av),hasB=!isNaN(bv);
   let wA='',wB=''; if(hasA&&hasB&&av!==bv){ wA=av>bv?'winner':'loser'; wB=bv>av?'winner':'loser'; }
-  return `<div class="compare-row"><div class="compare-cell ${wA}" style="color:var(--accent);">${hasA?(isPct?fmtP(a):fmt(a)):'—'}</div>
+  return `<div class="compare-row"${_rowData(hasA?av:null,hasB?bv:null,true)}><div class="compare-cell proj ${wA}">${hasA?(isPct?fmtP(a):fmt(a)):'—'}</div>
     <div class="compare-label">${label}</div>
-    <div class="compare-cell right ${wB}" style="color:var(--accent);">${hasB?(isPct?fmtP(b):fmt(b)):'—'}</div></div>`;
+    <div class="compare-cell proj right ${wB}">${hasB?(isPct?fmtP(b):fmt(b)):'—'}</div></div>`;
 }
 
 // ── TEAM SEASON MACHINERY (multi-year comparisons) ──
@@ -2264,20 +2462,20 @@ async function _fillTeamDNA(s1,s2,y1,y2){
   const g=(o,k)=>o?o[k]:null, f1=v=>v.toFixed(1), fp=v=>v.toFixed(1)+'%', fpm=v=>(v>0?'+':'')+v.toFixed(1);
   let r='';
   r+='<div class="compare-subhead">Efficiency (adjusted)</div>';
-  r+=cmpRow('Offense (pts/100)', g(a,'adjO'), g(b,'adjO'), f1, true);
-  r+=cmpRow('Defense (pts/100)', g(a,'adjD'), g(b,'adjD'), f1, false);
+  r+=cmpRow('ORtg', g(a,'adjO'), g(b,'adjO'), f1, true);
+  r+=cmpRow('DRtg', g(a,'adjD'), g(b,'adjD'), f1, false);
   r+=cmpRow('Net', g(a,'adjNet'), g(b,'adjNet'), fpm, true);
-  r+=cmpRow('Tempo (poss/40)', g(a,'tempo'), g(b,'tempo'), f1, true);
+  r+=cmpRow('Tempo', g(a,'tempo'), g(b,'tempo'), f1, true);
   r+='<div class="compare-subhead">Offense · Four Factors</div>';
   r+=cmpRow('eFG%', g(a,'oeFG'), g(b,'oeFG'), fp, true);
-  r+=cmpRow('Turnover %', g(a,'oTOV'), g(b,'oTOV'), fp, false);
-  r+=cmpRow('Off Reb %', g(a,'oORB'), g(b,'oORB'), fp, true);
-  r+=cmpRow('FT Rate', g(a,'oFTr'), g(b,'oFTr'), fp, true);
+  r+=cmpRow('TOV%', g(a,'oTOV'), g(b,'oTOV'), fp, false);
+  r+=cmpRow('OREB%', g(a,'oORB'), g(b,'oORB'), fp, true);
+  r+=cmpRow('FTr', g(a,'oFTr'), g(b,'oFTr'), fp, true);
   r+='<div class="compare-subhead">Defense · Four Factors</div>';
   r+=cmpRow('Opp eFG%', g(a,'deFG'), g(b,'deFG'), fp, false);
-  r+=cmpRow('Forced TOV %', g(a,'dTOV'), g(b,'dTOV'), fp, true);
-  r+=cmpRow('Def Reb %', g(a,'dDRB'), g(b,'dDRB'), fp, true);
-  r+=cmpRow('Opp FT Rate', g(a,'dFTr'), g(b,'dFTr'), fp, false);
+  r+=cmpRow('Forced TOV%', g(a,'dTOV'), g(b,'dTOV'), fp, true);
+  r+=cmpRow('DREB%', g(a,'dDRB'), g(b,'dDRB'), fp, true);
+  r+=cmpRow('Opp FTr', g(a,'dFTr'), g(b,'dFTr'), fp, false);
   const w=document.getElementById('tdnaWrap'); if(w) w.innerHTML=r;
   sec.style.display='';
 }
@@ -2335,19 +2533,19 @@ async function _fillTeamGenome(s1,s2,y1,y2){
     const cc1=readableCol(teamColorFor(s1&&s1.team)||'#888'), cc2=readableCol(teamColorFor(s2&&s2.team)||'#888');
     r+=_advHeadline(svA,svB,ddA,ddB,s1?s1.team:'',s2?s2.team:'',cc1,cc2);
   }
-  r+='<div class="compare-subhead">Offense — shots they generate</div>';
-  r+=_sgRow('Look Quality (xeFG%)', off(a,'lq'), off(b,'lq'), offp(a,'lq'), offp(b,'lq'), fp, true);
-  r+=_sgRow('Actual eFG%', off(a,'efg'), off(b,'efg'), offp(a,'efg'), offp(b,'efg'), fp, true);
-  r+=_sgRow('Shot-Making (SM+)', off(a,'smAdj'), off(b,'smAdj'), offp(a,'smAdj'), offp(b,'smAdj'), ps, true);
-  r+=_sgRow('Rim Rate', off(a,'rimRate'), off(b,'rimRate'), null, null, fp, true);
-  r+=_sgRow('3PA Rate', off(a,'threeRate'), off(b,'threeRate'), null, null, fp, true);
-  r+='<div class="compare-subhead">Defense — shots they force</div>';
-  r+=_sgRow('Opp Look Quality', def(a,'lq'), def(b,'lq'), defp(a,'lq'), defp(b,'lq'), fp, false);
+  r+='<div class="compare-subhead">Offense · shots they generate</div>';
+  r+=_sgRow('Look Q. (xeFG%)', off(a,'lq'), off(b,'lq'), offp(a,'lq'), offp(b,'lq'), fp, true);
+  r+=_sgRow('eFG%', off(a,'efg'), off(b,'efg'), offp(a,'efg'), offp(b,'efg'), fp, true);
+  r+=_sgRow('SM+', off(a,'smAdj'), off(b,'smAdj'), offp(a,'smAdj'), offp(b,'smAdj'), ps, true);
+  r+=_sgRow('Rim rate', off(a,'rimRate'), off(b,'rimRate'), null, null, fp, true);
+  r+=_sgRow('3PA rate', off(a,'threeRate'), off(b,'threeRate'), null, null, fp, true);
+  r+='<div class="compare-subhead">Defense · shots they force</div>';
+  r+=_sgRow('Opp Look Q.', def(a,'lq'), def(b,'lq'), defp(a,'lq'), defp(b,'lq'), fp, false);
   r+=_sgRow('Opp eFG%', def(a,'efg'), def(b,'efg'), defp(a,'efg'), defp(b,'efg'), fp, false);
-  r+=_sgRow('Opp Shot-Making', def(a,'smAdj'), def(b,'smAdj'), defp(a,'smAdj'), defp(b,'smAdj'), ps, false);
-  r+='<div class="compare-subhead">Passing / Creation</div>';
-  r+=_sgRow('Creation / game (xPts)', top(a,'crAdjPg'), top(b,'crAdjPg'), top(a,'crPct'), top(b,'crPct'), pn, true);
-  r+=_sgRow('Self-Created Share', top(a,'selfPct'), top(b,'selfPct'), null, null, fp, true);
+  r+=_sgRow('Opp SM+', def(a,'smAdj'), def(b,'smAdj'), defp(a,'smAdj'), defp(b,'smAdj'), ps, false);
+  r+='<div class="compare-subhead">Passing</div>';
+  r+=_sgRow('Creation / g', top(a,'crAdjPg'), top(b,'crAdjPg'), top(a,'crPct'), top(b,'crPct'), pn, true);
+  r+=_sgRow('Self-created', top(a,'selfPct'), top(b,'selfPct'), null, null, fp, true);
   const w=document.getElementById('tsgWrap'); if(w) w.innerHTML=r;
   sec.style.display='';
 }
@@ -2439,7 +2637,7 @@ async function renderTeams(){
   const head=(t,s,rows,c,right)=>{
     const hist=t._isHistory, rk=s?srsRank(rows,s.srs):null;
     const lg=_logoFor(t.name);
-    return `<div class="cmp-head${right?' right':''}" style="border-color:${c};${right?'border-right':'border-left'}:3px solid ${c};">
+    return `<div class="cmp-head${right?' right':''}" style="--side:${c};border-color:${c};${right?'border-right':'border-left'}:3px solid ${c};">
       ${lg?`<img class="ch-logo" src="${lg}" alt="" loading="lazy">`:''}
       <div class="ch-name"><a href="team.html?team=${encodeURIComponent(t.name)}">${t.name}</a></div>
       <div class="ch-sub">${hist?`<span style="color:#5b9d8f;font-weight:700;">${_tsLbl(s.season_year)} · </span>`:''}${t.conf||t.conference||'—'}${s?` · ${s.wins||0}-${s.losses||0}`:''}${!hist&&t.tdc_rank_num?` · #${t.tdc_rank_num} nationally`:''}</div>
@@ -2460,8 +2658,12 @@ async function renderTeams(){
     </div>`;
   };
   const sameYear=y1===y2;
+  t1._srow=s1; t2._srow=s2;
+  _sheetSides=[
+    {name:t1.name, sub:`${yl1}${s1?` · ${s1.wins||0}-${s1.losses||0}`:''} · ${t1.conf||t1.conference||(s1&&s1.conference)||'—'}`, color:c1, logo:_logoFor(t1.name)},
+    {name:t2.name, sub:`${yl2}${s2?` · ${s2.wins||0}-${s2.losses||0}`:''} · ${t2.conf||t2.conference||(s2&&s2.conference)||'—'}`, color:c2, logo:_logoFor(t2.name)}];
   const statHead=sameYear?`${yl1} Team Stats`:`Team Stats · ${yl1} vs ${yl2}`;
-  const infoRow=(label,a,b)=>`<div class="compare-row"><div class="compare-cell">${a??'—'}</div><div class="compare-label">${label}</div><div class="compare-cell right">${b??'—'}</div></div>`;
+  const infoRow=(label,a,b)=>`<div class="compare-row" data-hi="1"><div class="compare-cell">${a??'—'}</div><div class="compare-label">${label}</div><div class="compare-cell right">${b??'—'}</div></div>`;
   const g=(s,k)=>s?s[k]:null;
   sec.innerHTML=`
     <div class="cmp-heads">${head(t1,s1,f1,c1,false)}<div class="cmp-vs">VS</div>${head(t2,s2,f2,c2,true)}</div>
@@ -2599,6 +2801,7 @@ async function renderTeams(){
     <div style="margin-top:26px;">${posDepthTable(t1,t2,c1,c2)}</div>
     `:''}
   `;
+  sheetify(sec); fillCmpBand();
   setTimeout(async()=>{
     _renderTeamShotCharts(s1,s2,y1,y2,t1,t2);
     _fillTeamDNA(s1,s2,y1,y2);
@@ -2928,9 +3131,10 @@ async function _fillH2H(n1,n2,c1,c2){
   }catch(e){ el.innerHTML='<div style="color:var(--text3);font-size:12px;">Meetings unavailable.</div>'; }
 }
 function gradeRow(label,g1,g2){
-  const o1=gradeOrder(g1),o2=gradeOrder(g2);
+  const n1=parseFloat(g1), n2=parseFloat(g2), numeric=!isNaN(n1)&&!isNaN(n2);   // coach grades are 0-100 numbers, the rest letters
+  const o1=numeric?-n1:gradeOrder(g1), o2=numeric?-n2:gradeOrder(g2);
   let w1='',w2=''; if(o1!==o2){ w1=o1<o2?'winner':'loser'; w2=o2<o1?'winner':'loser'; }
-  return `<div class="compare-row"><div class="compare-cell ${w1} ${gc(g1||'')}">${g1||'—'}</div>
+  return `<div class="compare-row"${numeric?_rowData(n1,n2,true):''}><div class="compare-cell ${w1} ${gc(g1||'')}">${g1||'—'}</div>
     <div class="compare-label">${label}</div>
     <div class="compare-cell right ${w2} ${gc(g2||'')}">${g2||'—'}</div></div>`;
 }
@@ -3074,6 +3278,7 @@ function toggleTheme(){
 // Deep-link: ?mode=teams opens the Teams tab straight away (used by the
 // Rankings → Compare Teams nav entry). Optional ?t1=&t2= preselect programs.
 load().then(()=>{
+  fillCmpBand();
   try{
     const q=new URLSearchParams(location.search);
     if((q.get('mode')||'').toLowerCase()==='teams') setMode('teams');
