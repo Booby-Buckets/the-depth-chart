@@ -116,8 +116,11 @@
   }
 
   // ── 3) THE MARCH DROP-OFF (dumbbell by year) ───────────────────────────
+  // opts.metric {short, unit, lower, gridStep} — data rows are {year, reg, tny, diff} in that metric
   function march(el, data, opts){
     opts=opts||{}; if(!el) return; el.classList.add('tc-host');
+    var M=opts.metric||{short:'PPG',unit:'PPG',lower:false};
+    var STEP=M.gridStep||(Math.max.apply(0,data.map(function(d){return Math.max(d.reg,d.tny);}))-Math.min.apply(0,data.map(function(d){return Math.min(d.reg,d.tny);}))>20?5:(M.unit==='pts'||M.unit==='poss/g'?2:5));
     var W=820, H=440, P=48, PB=44;
     var vals=[]; data.forEach(function(d){vals.push(d.reg,d.tny);});
     var lo=Math.min.apply(0,vals)-2, hi=Math.max.apply(0,vals)+2;
@@ -127,11 +130,11 @@
     var cur=data[data.length-1];
     var g='<svg viewBox="0 0 '+W+' '+H+'" class="tc-svg">';
     // gridlines
-    for(var v=Math.ceil(lo/5)*5; v<hi; v+=5){ var y=Y(v); g+='<line x1="'+P+'" y1="'+y+'" x2="'+(W-P)+'" y2="'+y+'" stroke="var(--border)" stroke-width="1"/><text class="tc-ax" x="'+(P-8)+'" y="'+(y+3)+'" text-anchor="end">'+v+'</text>'; }
+    for(var v=Math.ceil(lo/STEP)*STEP; v<hi; v+=STEP){ var y=Y(v); g+='<line x1="'+P+'" y1="'+y+'" x2="'+(W-P)+'" y2="'+y+'" stroke="var(--border)" stroke-width="1"/><text class="tc-ax" x="'+(P-8)+'" y="'+(y+3)+'" text-anchor="end">'+v+'</text>'; }
     data.forEach(function(d,i){
-      var x=X(i), yr=Y(d.reg), yt=Y(d.tny), rise=d.diff>0;
-      g+='<line class="tc-stem" x1="'+x+'" y1="'+yr+'" x2="'+x+'" y2="'+yt+'" stroke="'+(rise?'#1f9d57':'#cf5a4e')+'" stroke-width="3"/>';
-      var tip='<b>'+((d.year-1)+'-'+(''+d.year).slice(2))+'</b><br>Reg season '+d.reg+' · Tourney '+d.tny+'<br>'+(d.diff>0?'+':'')+d.diff+' PPG';
+      var x=X(i), yr=Y(d.reg), yt=Y(d.tny), good=M.lower?(d.diff<0):(d.diff>0);
+      g+='<line class="tc-stem" x1="'+x+'" y1="'+yr+'" x2="'+x+'" y2="'+yt+'" stroke="'+(d.diff===0?'#8a8398':(good?'#1f9d57':'#cf5a4e'))+'" stroke-width="3"/>';
+      var tip='<b>'+((d.year-1)+'-'+(''+d.year).slice(2))+'</b><br>Reg season '+d.reg+' · Tourney '+d.tny+'<br>'+(d.diff>0?'+':'')+d.diff+' '+M.unit;
       g+='<circle data-t="'+tip.replace(/"/g,'&quot;')+'" cx="'+x+'" cy="'+yr+'" r="4.5" fill="#8a8398"/>';
       g+='<circle data-t="'+tip.replace(/"/g,'&quot;')+'" cx="'+x+'" cy="'+yt+'" r="4.5" fill="#fff" stroke="#8a8398" stroke-width="1.5"/>';
       if(i%2===0||i===data.length-1) g+='<text class="tc-ax" x="'+x+'" y="'+(H-14)+'" text-anchor="middle">\''+(''+d.year).slice(2)+'</text>';
@@ -139,8 +142,12 @@
     // current-year callout
     g+='<text class="tc-cur" x="'+X(data.length-1)+'" y="'+(Y(cur.reg)-12)+'" text-anchor="middle">This year</text>';
     g+='</svg>';
-    var head='<div class="tc-note"><b>'+data.length+'-season pattern</b> · scoring drops in March every year · avg <b>'+avgDrop.toFixed(1)+' PPG</b>, this year <b style="color:#cf5a4e">'+cur.diff+' PPG</b></div>'+
-      '<div class="tc-legend"><span><i style="background:#8a8398"></i>Reg-season PPG</span><span><i style="background:#fff;border:1.5px solid #8a8398"></i>Tournament PPG</span></div>';
+    var nDown=data.filter(function(d){return d.diff<0;}).length, nUp=data.filter(function(d){return d.diff>0;}).length;
+    var pattern = nDown===data.length ? M.short+' drops in March every year' : nUp===data.length ? M.short+' rises in March every year'
+                : M.short+' '+(nDown>nUp?'drops':'rises')+' in March in '+Math.max(nDown,nUp)+' of '+data.length+' seasons';
+    var curGood=M.lower?(cur.diff<0):(cur.diff>0);
+    var head='<div class="tc-note"><b>'+data.length+'-season pattern</b> · '+pattern+' · avg <b>'+(avgDrop>0?'+':'')+avgDrop.toFixed(1)+' '+M.unit+'</b>, this year <b style="color:'+(curGood?'#1f9d57':'#cf5a4e')+'">'+(cur.diff>0?'+':'')+cur.diff+' '+M.unit+'</b></div>'+
+      '<div class="tc-legend"><span><i style="background:#8a8398"></i>Reg-season '+M.short+'</span><span><i style="background:#fff;border:1.5px solid #8a8398"></i>Tournament '+M.short+'</span>'+(M.lower?'<span style="color:var(--text3)">lower is better</span>':'')+'</div>';
     el.innerHTML=head+'<div class="tc-wrap">'+g+'</div>'; wireTip(el);
   }
 

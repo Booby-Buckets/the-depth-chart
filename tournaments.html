@@ -21,7 +21,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="tdc-ratings.js?v=18"></script>
   <script src="team-colors.js?v=6"></script>
-  <script src="tdc-charts.js?v=5"></script>
+  <script src="tdc-charts.js?v=6"></script>
   <script src="tdc-projgrade.js?v=base8"></script>
   <script src="conf-logos.js?v=3"></script>
   <script src="tournament-logos.js?v=4"></script>
@@ -332,7 +332,8 @@
       <div id="marchInsights" class="march-insights">
         <div class="mi-sec">
           <h2 class="mi-h2">The March Drop-off</h2>
-          <p class="mi-sub">Every year, the tournament teams score less in March than they did all season — tighter defense, slower tempo, higher stakes. Here's the gap across every tournament we have.</p>
+          <p class="mi-sub">How the tournament changes the game, league-wide, across every year we have — pick a stat. Scoring drops in March every year: tighter defense, slower tempo, higher stakes.</p>
+          <div id="miMarchPills" class="pills" style="margin:0 0 10px;display:flex;flex-wrap:wrap;gap:6px;"></div>
           <div id="miMarch"><div class="loading">Loading…</div></div>
         </div>
         <div class="mi-sec">
@@ -465,6 +466,26 @@ function renderDropoff(){
   TDC_CHARTS.dropoff(host, rows, {metric});
   if(note) note.textContent = curSeason>=2027 ? 'Showing the most recent completed tournament ('+seasonLbl(want)+') — 2026-27 has not been played yet.' : '';
 }
+// league-wide March pattern by year, on any stat: PPG from chart_march.json; every other stat is
+// the mean of that season's tourney teams (regular season) vs the tourney-games-weighted mean
+let _marchPPG=null, _marchMetric='ppg';
+const MARCH_METRICS=[{key:'ppg',label:'Points per game',short:'PPG',unit:'PPG',lower:false}].concat(DROP_METRICS);
+function setMarchMetric(k){ _marchMetric=k; renderMarch(); }
+function renderMarch(){
+  const host=document.getElementById('miMarch'); if(!host||!window.TDC_CHARTS) return;
+  const pills=document.getElementById('miMarchPills');
+  if(pills) pills.innerHTML=MARCH_METRICS.map(m=>`<button class="pill ${m.key===_marchMetric?'on':''}" onclick="setMarchMetric('${m.key}')">${m.short}</button>`).join('');
+  const metric=MARCH_METRICS.find(m=>m.key===_marchMetric)||MARCH_METRICS[0];
+  let rows;
+  if(metric.key==='ppg') rows=_marchPPG||[];
+  else{
+    const by={}; (_dropAll||[]).forEach(r=>{ if(!r.R||!r.T||r.R[metric.key]==null||r.T[metric.key]==null) return;
+      const b=(by[r.season]=by[r.season]||{rs:0,rn:0,ts:0,tn:0}); b.rs+=r.R[metric.key]; b.rn++; b.ts+=r.T[metric.key]*r.games; b.tn+=r.games; });
+    rows=Object.keys(by).map(Number).sort((a,b)=>a-b).map(y=>{ const b=by[y]; const reg=b.rs/b.rn, tny=b.ts/b.tn; return {year:y, reg:+reg.toFixed(1), tny:+tny.toFixed(1), diff:+(tny-reg).toFixed(1)}; });
+  }
+  if(!rows.length){ host.innerHTML='<div class="loading">No data.</div>'; return; }
+  TDC_CHARTS.march(host, rows, {metric});
+}
 (async function loadMarchInsights(){
   if(!window.TDC_CHARTS) return;
   try{
@@ -472,8 +493,7 @@ function renderDropoff(){
       fetch('scripts/data/chart_march.json').then(r=>r.json()),
       fetch('scripts/data/chart_dropoff.json?v=3').then(r=>r.json())
     ]);
-    TDC_CHARTS.march(document.getElementById('miMarch'), m);
-    _dropAll=d; renderDropoff();
+    _marchPPG=m; _dropAll=d; renderMarch(); renderDropoff();
   }catch(e){ document.getElementById('marchInsights').style.display='none'; }
 })();
 
