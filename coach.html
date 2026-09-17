@@ -57,11 +57,22 @@
     .chero .meta{font-size:13.5px;color:var(--text2);font-weight:600;}
     .chero .arch{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#221c08;background:var(--accent);padding:6px 13px;border-radius:20px;display:inline-block;margin-top:12px;}
     /* stat strip */
-    .cstrip{display:flex;flex-wrap:wrap;margin:16px 0 8px;border:1px solid var(--border);border-radius:14px;background:var(--bg2);overflow:hidden;}
-    .cstat{flex:1 1 0;min-width:120px;padding:15px 18px;border-left:1px solid var(--border);}
+    /* career strip = the site's navy KPI band (homepage / team / player / conference) */
+    .cstrip{display:flex;flex-wrap:wrap;margin:16px 0 8px;position:relative;color:#fff;
+      border:1px solid rgba(255,255,255,.14);border-radius:14px;overflow:hidden;
+      background:linear-gradient(120deg,#0B1220 0%,#121C33 48%,#1A2A4C 100%);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 14px 34px rgba(0,8,30,.28);}
+    .cstrip::after{content:'';position:absolute;inset:0;pointer-events:none;
+      background:radial-gradient(560px 180px at 96% 0%, rgba(168,132,60,.20), transparent 70%), radial-gradient(420px 160px at 0% 100%, rgba(var(--accent-rgb,90,169,255),.16), transparent 70%);}
+    .cstat{position:relative;z-index:1;flex:1 1 0;min-width:120px;padding:15px 18px 14px;border-left:1px solid rgba(255,255,255,.12);}
     .cstat:first-child{border-left:none;}
-    .cstat .n{font-family:'Playfair Display',serif;font-weight:800;font-size:25px;line-height:1;}
-    .cstat .l{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:5px;}
+    .cstat .n{font-family:'Playfair Display',serif;font-weight:800;font-size:25px;line-height:1;letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:#fff;white-space:nowrap;}
+    .cstat:first-child .n{color:#E6D5A8;}
+    .cstat.warm .n{color:#4FE3B0;} .cstat.bad .n{color:#FF9B9B;}
+    .cstat .l{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .cstat .s{font-size:11px;color:rgba(255,255,255,.55);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .cstat .s b{color:rgba(255,255,255,.88);font-weight:700;}
+    @media(max-width:640px){ .cstat{flex:1 1 31%;min-width:0;padding:11px 12px 10px;border-bottom:1px solid rgba(255,255,255,.12);} .cstat .n{font-size:19px;} }
     .sec-t{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:34px 0 14px;display:flex;align-items:center;gap:12px;}
     .sec-t::after{content:'';flex:1;height:1px;background:var(--border);}
     .sec-t span{color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;}
@@ -347,7 +358,8 @@ function _readable(hex){ if(!hex) return null; hex=(''+hex).replace('#',''); if(
   return '#'+[h2(pp,q,H+1/3),h2(pp,q,H),h2(pp,q,H-1/3)].map(x=>('0'+Math.round(x*255).toString(16)).slice(-2)).join(''); }
 
 function render(p, ss, pg){
-  var stat=(n,l,c)=>'<div class="cstat"><div class="n"'+(c?' style="color:'+c+'"':'')+'>'+n+'</div><div class="l">'+l+'</div></div>';
+  // colour intent as a class (green → warm/mint, red → bad) — inline colours don't read on navy
+  var stat=(n,l,c,sub)=>'<div class="cstat'+(c?((''+c).indexOf('green')>=0?' warm':(''+c).indexOf('red')>=0?' bad':''):'')+'"><div class="n">'+n+'</div><div class="l">'+l+'</div>'+(sub?'<div class="s">'+sub+'</div>':'')+'</div>';
   var initials=(p.coach||'').trim().split(/\s+/).slice(0,2).map(w=>(w[0]||'')).join('').toUpperCase();
   // current program → team color (recolors the whole page via --accent) + logo (replaces initials)
   var _curSchool=(ss&&ss.length&&ss[ss.length-1].school)||((p.schools||'').split(/[,\/]/)[0].trim());
@@ -370,8 +382,8 @@ function render(p, ss, pg){
       '<div class="meta">'+p.schools+' · '+seasonLbl(p.first_year)+' – '+seasonLbl(p.last_year)+'</div>'+
       '<span class="arch">'+p.archetype+'</span></div>'+gradeBadge+'</div>'+
     partsHtml+
-    '<div class="cstrip" data-stagger="45">'+stat(p.wins+'-'+p.losses,'Record')+stat((p.win_pct*100).toFixed(1)+'%','Win %')+
-      stat(p.seasons,'Seasons')+stat((p.avg_srs>=0?'+':'')+num(p.avg_srs),'Avg SRS')+
+    '<div class="cstrip" data-stagger="45">'+stat(p.wins+'-'+p.losses,'Record',null,(p.win_pct*100).toFixed(1)+'% win rate')+
+      stat(p.seasons,'Seasons',null,seasonLbl(p.first_year)+' – '+seasonLbl(p.last_year))+stat((p.avg_srs>=0?'+':'')+num(p.avg_srs),'Avg Power Rating',null,p.rank?'career rank <b>#'+p.rank+'</b>':'')+
       (tr.titles?stat(tr.titles,'National Titles'):'')+(tr.final_fours?stat(tr.final_fours,'Final Fours'):'')+
       (tr.apps?stat(tr.apps,'NCAA Apps'):'')+
       (pg?stat(pg.players_coached,'Players Coached'):'')+devCell+'</div>';
