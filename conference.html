@@ -134,11 +134,24 @@
     .seasonsel{margin-left:auto;display:flex;align-items:center;gap:9px;}
     .seasonsel .lb{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
     .seasonsel select{background:var(--bg);color:var(--text);border:1px solid var(--border2);border-radius:9px;padding:7px 11px;font-size:13px;font-family:inherit;cursor:pointer;}
-    .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;margin-top:14px;}
-    .tile{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
-    .tile .v{font-weight:800;font-size:21px;font-variant-numeric:tabular-nums;line-height:1.15;}
-    .tile .k{font-size:8.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
-    .tile .s{font-size:10px;color:var(--text3);margin-top:2px;}
+    /* the site's navy KPI band (homepage / team / player heroes): one strip of tiles,
+       Playfair values, small-caps labels, the league's headline (Avg Power Rating) in gold */
+    .tiles{display:grid;grid-template-columns:repeat(var(--n,6),minmax(0,1fr));gap:0;margin-top:14px;position:relative;color:#fff;
+      border:1px solid rgba(255,255,255,.14);border-radius:14px;overflow:hidden;
+      background:linear-gradient(120deg,#0B1220 0%,#121C33 48%,#1A2A4C 100%);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 14px 34px rgba(0,8,30,.28);}
+    .tiles::after{content:'';position:absolute;inset:0;pointer-events:none;
+      background:radial-gradient(560px 180px at 96% 0%, rgba(168,132,60,.20), transparent 70%), radial-gradient(420px 160px at 0% 100%, rgba(90,169,255,.14), transparent 70%);}
+    .tiles:empty{display:none;}
+    .tile{position:relative;z-index:1;background:none;border:none;border-right:1px solid rgba(255,255,255,.12);border-radius:0;padding:14px 18px 13px;min-width:0;}
+    .tile:last-child{border-right:none;}
+    .tile .k{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55);margin:0 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .tile .v{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:24px;line-height:1;letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .tile.acc .v{color:#E6D5A8;}
+    .tile .s{font-size:11px;color:rgba(255,255,255,.55);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .tile .s b{color:rgba(255,255,255,.88);font-weight:700;}
+    @media(max-width:1000px){ .tiles{grid-template-columns:repeat(3,minmax(0,1fr));} .tile{border-bottom:1px solid rgba(255,255,255,.12);} .tile:nth-child(3n){border-right:none;} .tile:nth-last-child(-n+3){border-bottom:none;} }
+    @media(max-width:560px){ .tiles{grid-template-columns:repeat(2,minmax(0,1fr));} .tile:nth-child(3n){border-right:1px solid rgba(255,255,255,.12);} .tile:nth-child(2n){border-right:none;} .tile:nth-last-child(-n+3){border-bottom:1px solid rgba(255,255,255,.12);} .tile:nth-last-child(-n+2){border-bottom:none;} }
     .cols{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;margin-top:16px;align-items:start;}
     @media(max-width:920px){.cols{grid-template-columns:1fr;}}
     .box{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 16px 16px;}
@@ -781,14 +794,17 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
     var best=ROWS.slice().sort(function(a,b){ return (b.srs||-99)-(a.srs||-99); })[0]||{};
     var deepR=ROWS.map(function(r){ return r.ncaa_result; }).filter(Boolean)
                   .sort(function(a,b){ return depth(b)-depth(a); })[0];
-    var t=[['Teams',ROWS.length,''],
-           ['NCAA bids',bids,'of '+ROWS.length+' teams']];
-    if(mine) t.push(['Non-conf record',mine.w+'-'+mine.l,mine.pct+'% &middot; '+ord(myRank)+' of '+nConf]);
-    if(mine) t.push(['Avg Power Rating',mine.avgSrs,'league strength']);
-    t.push(['Best team',esc((best.team||'\u2014').split(' ')[0]),best.srs!=null?('Power '+f1(best.srs)):'']);
-    t.push(['Deepest run',esc(deepR||'\u2014'),'']);
-    sel('tiles').innerHTML=t.map(function(x){
-      return '<div class="tile"><div class="v">'+x[1]+'</div><div class="k">'+x[0]+'</div>'+
+    // label · value · sub · headline?  (headline = gold, like the Power Rating tile on team pages)
+    var t=[];
+    if(mine) t.push(['Avg Power Rating',(mine.avgSrs>0?'+':'')+mine.avgSrs,'league strength &middot; <b>'+ord(myRank)+'</b> of '+nConf,true]);
+    t.push(['Teams',ROWS.length,label(YEAR)]);
+    t.push(['NCAA bids',bids,'of '+ROWS.length+' teams']);
+    if(mine) t.push(['Non-conf record',mine.w+'-'+mine.l,mine.pct+'% win rate']);
+    t.push(['Best team',esc((best.team||'\u2014').split(' ')[0]),best.srs!=null?('Power <b>'+(best.srs>0?'+':'')+f1(best.srs)+'</b>'):'']);
+    t.push(['Deepest run',esc(deepR||'\u2014'),'NCAA Tournament']);
+    var host=sel('tiles'); host.style.setProperty('--n', t.length);
+    host.innerHTML=t.map(function(x){
+      return '<div class="tile'+(x[3]?' acc':'')+'"><div class="k">'+x[0]+'</div><div class="v">'+x[1]+'</div>'+
              (x[2]?'<div class="s">'+x[2]+'</div>':'')+'</div>'; }).join('');
   }
 
