@@ -331,8 +331,9 @@
         </div>
         <div class="mi-sec">
           <h2 class="mi-h2">Whose Offense Held Up</h2>
-          <p class="mi-sub">This year's deepest tournament teams, offensive rating in the regular season vs the tournament. Green rose to the moment; red got tightened up.</p>
+          <p class="mi-sub">The deepest tournament teams of the selected season — offensive rating in the regular season vs the tournament. Green rose to the moment; red got tightened up.</p>
           <div id="miDropoff"><div class="loading">Loading…</div></div>
+          <div id="miDropNote" style="font-size:11.5px;color:var(--text3);margin-top:8px;"></div>
         </div>
       </div>
       <div class="controls">
@@ -419,7 +420,7 @@ let seasonCtl=null;
   seasonCtl=TDCSeason.mount('#tdcSeasonSlot', {
     min:2007, max:2027, current:2027, title:false, currentLabel:'',
     labelFn:(y)=> y===2027 ? '2026–27 · Projected' : seasonLbl(y),
-    onChange:(y)=>{ curSeason=+y; loadSeason(); }
+    onChange:(y)=>{ curSeason=+y; loadSeason(); renderDropoff(); }
   });
   document.getElementById('catPills').innerHTML=CATS.map(([lbl,v])=>
     `<button class="pill ${v===curCat?'on':''}" data-cat="${v}" onclick="setCat('${v}')">${lbl}</button>`).join('');
@@ -427,15 +428,28 @@ let seasonCtl=null;
 })();
 
 // ── March insight charts (precomputed) ──
+// chart_dropoff.json holds EVERY season's tourney teams (2007-08 →); the chart follows the
+// season picker. The projected season shows the latest completed tournament, labelled.
+let _dropAll=null;
+function renderDropoff(){
+  const host=document.getElementById('miDropoff'); if(!host||!_dropAll||!window.TDC_CHARTS) return;
+  const have=[...new Set(_dropAll.map(r=>r.season))].sort((a,b)=>b-a);
+  const want=curSeason>=2027?have[0]:curSeason;
+  const rows=_dropAll.filter(r=>r.season===want);
+  const note=document.getElementById('miDropNote');
+  if(!rows.length){ host.innerHTML='<div class="loading">No tournament box scores for '+seasonLbl(curSeason)+'.</div>'; if(note) note.textContent=''; return; }
+  TDC_CHARTS.dropoff(host, rows);
+  if(note) note.textContent = curSeason>=2027 ? 'Showing the most recent completed tournament ('+seasonLbl(want)+') — 2026-27 has not been played yet.' : '';
+}
 (async function loadMarchInsights(){
   if(!window.TDC_CHARTS) return;
   try{
     const [m,d]=await Promise.all([
       fetch('scripts/data/chart_march.json').then(r=>r.json()),
-      fetch('scripts/data/chart_dropoff.json').then(r=>r.json())
+      fetch('scripts/data/chart_dropoff.json?v=2').then(r=>r.json())
     ]);
     TDC_CHARTS.march(document.getElementById('miMarch'), m);
-    TDC_CHARTS.dropoff(document.getElementById('miDropoff'), d);
+    _dropAll=d; renderDropoff();
   }catch(e){ document.getElementById('marchInsights').style.display='none'; }
 })();
 

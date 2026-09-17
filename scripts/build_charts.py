@@ -159,6 +159,33 @@ def build_dropoff(quadrant, cur_rows):
     out.sort(key=lambda x:-x["reg"])
     return out
 
+def build_dropoff_all(first=2008):
+    """EVERY season's tourney teams: regular-season ORtg (tourney games excluded) vs NCAA-tourney
+    ORtg — so the Tournament Vault chart follows the season picker instead of showing one year.
+    Per season: the tourney teams' box rows only (team=in.(...)), which keeps the pull small."""
+    out=[]
+    for yr in range(first, CUR+1):
+        pg=get("postseason_games?tournament=eq.NCAA%%20Tournament&season_year=eq.%d&select=id,home,away"%yr)
+        if not pg: continue
+        tny_ids=set(g["id"] for g in pg)
+        teams=sorted(set([g["home"] for g in pg]+[g["away"] for g in pg]))
+        ts={t["team"]:t for t in get("team_seasons?season_year=eq.%d&select=team,team_id,ncaa_seed&team=in.(%s)"%(yr, urllib.parse.quote(",".join('"%s"'%t for t in teams))))}
+        rows=get_all("box_scores?season_year=eq.%d&team=in.(%s)&select=game_id,team,pts,fga,fta,oreb,tov"%(yr, urllib.parse.quote(",".join('"%s"'%t for t in teams))))
+        tg=team_game_totals(rows)
+        reg=defaultdict(lambda:{"pts":0,"po":0.0,"g":0}); tny=defaultdict(lambda:{"pts":0,"po":0.0,"g":0})
+        for (gid,team),t in tg.items():
+            a=(tny if gid in tny_ids else reg)[team]; a["pts"]+=t["pts"]; a["po"]+=poss(t); a["g"]+=1
+        n=0
+        for team,a in tny.items():
+            r=reg.get(team)
+            if a["po"]<20 or not r or r["g"]<12: continue
+            reg_o=100*r["pts"]/r["po"]; tny_o=100*a["pts"]/a["po"]; t=ts.get(team,{})
+            out.append({"team":team,"team_id":t.get("team_id"),"seed":t.get("ncaa_seed"),
+                "reg":round(reg_o,1),"tny":round(tny_o,1),"diff":round(tny_o-reg_o,1),"games":a["g"],"season":yr}); n+=1
+        print("  dropoff %d: %d teams"%(yr,n), flush=True)
+    out.sort(key=lambda x:(x["season"],-x["reg"]))
+    return out
+
 def main():
     teamseasons=get("team_seasons?season_year=eq.%d&select=team,team_id,conference,wins,losses,ppg,oppg,srs,ncaa_seed"%CUR)
     rows=season_boxscores(CUR)
@@ -168,8 +195,8 @@ def main():
     print("bubbles: %d players"%len(bub))
     march=build_march()
     print("march: %d seasons"%len(march))
-    drop=build_dropoff(quad, rows)
-    print("dropoff: %d tourney teams"%len(drop))
+    drop=build_dropoff_all()
+    print("dropoff: %d tourney team-seasons"%len(drop))
     json.dump(quad, open(os.path.join(D,"chart_quadrant.json"),"w"))
     json.dump(bub,  open(os.path.join(D,"chart_bubbles.json"),"w"))
     json.dump(march,open(os.path.join(D,"chart_march.json"),"w"))
