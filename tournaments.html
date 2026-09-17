@@ -568,11 +568,82 @@ async function buildProjectedNCAA(){
   _projBuilt={games, srs:rt};
   return _projBuilt;
 }
+// ── 2026-27 early-season events (MTEs), projected from the same ratings ──
+// scripts/data/mte_2027.json holds the announced fields. Published first-round pairings are
+// honoured; where an event hasn't released its bracket, pairings are seeded by our rating
+// (1v8 … 4v5) and the card says so. Every game goes to the better team after the style-matchup
+// edge — the identical rule the projected NCAA bracket uses.
+let _mteBuilt=null;
+async function buildProjectedMTEs(ncaa){
+  if(_mteBuilt) return _mteBuilt;
+  let cfg=null; try{ cfg=await fetch('scripts/data/mte_2027.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null); }catch(e){}
+  if(!cfg||!cfg.events){ _mteBuilt=[]; return _mteBuilt; }
+  const D=await TDC_RATINGS.get();
+  const byFull={}; D.teams.forEach(t=>{ byFull[t.full]=t; });
+  let _dna={}; try{ _dna=((await fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():{}))['2027']||{}).teams||{}; }catch(e){}
+  const _LG={oeFG:53.0,deFG:48.4,oTOV:15.1,dTOV:17.8,oORB:31.2,dDRB:73.2};
+  const edge=(a,b)=>{ const da=_dna[a.full], db=_dna[b.full]; if(!da||!db) return 0;
+    const num=(o,k)=>{ const v=o&&o[k]; return (typeof v==='number'&&isFinite(v))?v:null; };
+    const ex=(o,d)=>{ let s=0; const oE=num(o,'oeFG'),oT=num(o,'oTOV'),oO=num(o,'oORB'),dE=num(d,'deFG'),dT=num(d,'dTOV'),dD=num(d,'dDRB');
+      if(oE!=null&&dE!=null) s+=0.115*((oE-_LG.oeFG)*(dE-_LG.deFG)); if(oT!=null&&dT!=null) s+=0.088*((_LG.oTOV-oT)*(_LG.dTOV-dT)); if(oO!=null&&dD!=null) s+=0.054*((oO-_LG.oORB)*(_LG.dDRB-dD)); return s; };
+    return Math.max(-4,Math.min(4,ex(da,db)-ex(db,da))); };
+  const proj=(a,b)=>((a.rating-b.rating)+edge(a,b))>=0?a:b;
+  let gid=930000000; const games=[];
+  const mk=(ev,a,b,round,rord,date,div)=>{ const w=proj(a,b);
+    games.push({id:gid++, season:2027, date, category:'MTE', tournament:ev.name+' (Projected)', round, round_order:rord,
+      division:div||ev.division||null, neutral:true, _proj:true, notable:true, _venue:ev.venue||'', _seededPairs:!!ev._seeded,
+      home:a.full, home_id:a.full, home_score:null, home_seed:a._seed||null, _hr:a.rating,
+      away:b.full, away_id:b.full, away_score:null, away_seed:b._seed||null, _ar:b.rating,
+      winner:w.full, winner_id:w.full}); return w; };
+  const T=n=>byFull[n]?Object.assign({},byFull[n]):null;
+  const d=(ev,i)=>ev.dates[Math.min(i,ev.dates.length-1)];
+  // single-elimination bracket with the full consolation ladder (an MTE guarantees 3 games)
+  const bracket=(ev,teams,pairs,div,dateOff)=>{
+    dateOff=dateOff||0;
+    let r1=pairs; if(!r1){ ev._seeded=true; const srt=teams.slice().sort((x,y)=>y.rating-x.rating); srt.forEach((t,i)=>{t._seed=i+1;});
+      r1=[]; for(let i=0;i<srt.length/2;i++) r1.push([srt[i],srt[srt.length-1-i]]); }
+    const n=r1.length*2, first=n===8?'Quarterfinal':'Semifinal';
+    const w1=[], l1=[]; r1.forEach(([a,b])=>{ const w=mk(ev,a,b,first,1,d(ev,dateOff),div); w1.push(w); l1.push(w===a?b:a); });
+    if(n===8){
+      const w2=[], l2=[]; for(let i=0;i<4;i+=2){ const w=mk(ev,w1[i],w1[i+1],'Semifinal',2,d(ev,dateOff+1),div); w2.push(w); l2.push(w===w1[i]?w1[i+1]:w1[i]); }
+      const c2=[], cl=[]; for(let i=0;i<4;i+=2){ const w=mk(ev,l1[i],l1[i+1],'Consolation Semifinal',2,d(ev,dateOff+1),div); c2.push(w); cl.push(w===l1[i]?l1[i+1]:l1[i]); }
+      const champ=mk(ev,w2[0],w2[1],'Championship',3,d(ev,dateOff+2),div);
+      mk(ev,l2[0],l2[1],'Third Place',3,d(ev,dateOff+2),div); mk(ev,c2[0],c2[1],'Fifth Place',3,d(ev,dateOff+2),div); mk(ev,cl[0],cl[1],'Seventh Place',3,d(ev,dateOff+2),div);
+      return champ;
+    }
+    const champ=mk(ev,w1[0],w1[1],'Championship',2,d(ev,dateOff+1),div); mk(ev,l1[0],l1[1],'Third Place',2,d(ev,dateOff+1),div); return champ;
+  };
+  cfg.events.forEach(ev=>{
+    const teams=(ev.teams||[]).map(T).filter(Boolean);
+    try{
+      if(ev.format==='bracket16'){
+        const winners=(ev.brackets||[]).map((b,bi)=>{ const pairs=b.pairs.map(pr=>pr.map(T)).filter(pr=>pr[0]&&pr[1]); return bracket(ev,pairs.flat(),pairs,b.name,0); });
+        if(winners.length===2) mk(ev,winners[0],winners[1],'Championship',4,ev.dates[ev.dates.length-1],'Grand Championship');
+      } else if(ev.format==='bracket'){
+        if(teams.length<4) return;
+        const pairs=ev.pairs?ev.pairs.map(pr=>pr.map(T)).filter(pr=>pr[0]&&pr[1]):null;
+        bracket(ev,teams,pairs&&pairs.length===teams.length/2?pairs:null,null,0);
+      } else if(ev.format==='rr'){
+        if(teams.length<2) return; let k=0;
+        for(let i=0;i<teams.length;i++) for(let j=i+1;j<teams.length;j++){ mk(ev,teams[i],teams[j],'Round Robin',1+Math.floor(k/Math.max(1,Math.floor(teams.length/2))),d(ev,Math.floor(k/Math.max(1,Math.floor(teams.length/2)))),null); k++; }
+      } else if(ev.format==='preset'){
+        // set matchups, pairings not published: strongest-vs-weakest on day 1, then rotate (2 games each)
+        if(teams.length<4) return; ev._seeded=true;
+        const srt=teams.slice().sort((x,y)=>y.rating-x.rating), n=srt.length;
+        for(let i=0;i<n/2;i++) mk(ev,srt[i],srt[n-1-i],'Day 1',1,d(ev,0),null);
+        const rot=[srt[0]].concat(srt.slice(2),[srt[1]]);
+        for(let i=0;i<n/2;i++) mk(ev,rot[i],rot[n-1-i],'Day 2',2,d(ev,1),null);
+      }
+    }catch(e){ console.warn('MTE projection failed for',ev.name,e); }
+  });
+  _mteBuilt=games; return _mteBuilt;
+}
 async function loadProjected(){
   document.getElementById('tlist').innerHTML='<div class="loading">Projecting the 2026-27 field from roster ratings…</div>';
   try{
     const {games,srs}=await buildProjectedNCAA();
-    GAMES=games; SRS=srs; renderList();
+    const mte=await buildProjectedMTEs();
+    GAMES=games.concat(mte); SRS=srs; renderList();
   }catch(e){ console.error('projected bracket failed:',e); document.getElementById('tlist').innerHTML='<div class="loading">Could not build projection.</div>'; }
 }
 
@@ -639,9 +710,7 @@ function renderList(){
   if(!list.length){
     let msg='No tournaments match.';
     if(curSeason===2027){
-      msg = (curCat==='MTE')
-        ? 'More MTE (early-season tournament) projections coming soon — for now the projected NCAA field is under “NCAA”.'
-        : 'More projected brackets (MTE, NIT, conference) coming soon. The projected NCAA field is under “NCAA”.';
+      msg = 'More projected brackets (NIT, conference) coming soon. The projected NCAA field is under “NCAA”; the early-season events are under “MTE”.';
     }
     document.getElementById('tlist').innerHTML='<div class="loading">'+msg+'</div>'; return;
   }
