@@ -160,28 +160,62 @@ def build_dropoff(quadrant, cur_rows):
     return out
 
 def build_dropoff_all(first=2008):
-    """EVERY season's tourney teams: regular-season ORtg (tourney games excluded) vs NCAA-tourney
-    ORtg — so the Tournament Vault chart follows the season picker instead of showing one year.
-    Per season: the tourney teams' box rows only (team=in.(...)), which keeps the pull small."""
+    """EVERY season's tourney teams, regular season (tourney games excluded) vs NCAA tournament, on
+    a whole profile: ORtg, DRtg, net, pace, eFG%, 3P%, 3PA rate, FT rate, TOV%, OREB%, opp eFG%.
+    Pulls the tourney teams' box rows AND their opponents' rows (team=in / opp=in) so every game
+    has both sides. Top-level reg/tny/diff stay = ORtg for the legacy single-metric reader."""
+    SEL="game_id,team,opp,pts,fga,fgm,tpa,tpm,fta,oreb,dreb,tov"
     out=[]
     for yr in range(first, CUR+1):
         pg=get("postseason_games?tournament=eq.NCAA%%20Tournament&season_year=eq.%d&select=id,home,away"%yr)
         if not pg: continue
         tny_ids=set(g["id"] for g in pg)
         teams=sorted(set([g["home"] for g in pg]+[g["away"] for g in pg]))
-        ts={t["team"]:t for t in get("team_seasons?season_year=eq.%d&select=team,team_id,ncaa_seed&team=in.(%s)"%(yr, urllib.parse.quote(",".join('"%s"'%t for t in teams))))}
-        rows=get_all("box_scores?season_year=eq.%d&team=in.(%s)&select=game_id,team,pts,fga,fta,oreb,tov"%(yr, urllib.parse.quote(",".join('"%s"'%t for t in teams))))
-        tg=team_game_totals(rows)
-        reg=defaultdict(lambda:{"pts":0,"po":0.0,"g":0}); tny=defaultdict(lambda:{"pts":0,"po":0.0,"g":0})
-        for (gid,team),t in tg.items():
-            a=(tny if gid in tny_ids else reg)[team]; a["pts"]+=t["pts"]; a["po"]+=poss(t); a["g"]+=1
+        q=urllib.parse.quote(",".join('"%s"'%t for t in teams))
+        ts={t["team"]:t for t in get("team_seasons?season_year=eq.%d&select=team,team_id,ncaa_seed&team=in.(%s)"%(yr,q))}
+        rows=get_all("box_scores?season_year=eq.%d&team=in.(%s)&select=%s"%(yr,q,SEL))+get_all("box_scores?season_year=eq.%d&opp=in.(%s)&select=%s"%(yr,q,SEL))
+        tg=defaultdict(lambda:{"pts":0,"fga":0,"fgm":0,"tpa":0,"tpm":0,"fta":0,"oreb":0,"dreb":0,"tov":0,"opp":None})
+        seen=set()
+        for r in rows:
+            k=(r["game_id"],r["team"],r.get("player") or id(r))   # dedupe rows that came back from both pulls
+            k2=(r["game_id"],r["team"],r["pts"],r["fga"],r["fta"],r["oreb"],r["tov"],r.get("fgm"),r.get("tpa"),r.get("dreb"))
+            if k2 in seen: continue
+            seen.add(k2)
+            t=tg[(r["game_id"],r["team"])]
+            for f in ("pts","fga","fgm","tpa","tpm","fta","oreb","dreb","tov"): t[f]+=r.get(f) or 0
+            t["opp"]=r.get("opp")
+        games=defaultdict(dict)
+        for (gid,team),t in tg.items(): games[gid][team]=t
+        Z=lambda:{"pf":0,"pa":0,"po":0.0,"pd":0.0,"fga":0,"fgm":0,"tpa":0,"tpm":0,"fta":0,"oreb":0,"dreb":0,"tov":0,"ofga":0,"ofgm":0,"otpm":0,"odreb":0,"g":0}
+        reg=defaultdict(Z); tny=defaultdict(Z)
+        for gid,sides in games.items():
+            if len(sides)!=2: continue
+            names=list(sides.keys())
+            for i,nm in enumerate(names):
+                if nm not in ts: continue
+                me=sides[nm]; ot=sides[names[1-i]]
+                a=(tny if gid in tny_ids else reg)[nm]
+                a["pf"]+=me["pts"]; a["pa"]+=ot["pts"]; a["po"]+=poss(me); a["pd"]+=poss(ot); a["g"]+=1
+                for f in ("fga","fgm","tpa","tpm","fta","oreb","dreb","tov"): a[f]+=me[f]
+                a["ofga"]+=ot["fga"]; a["ofgm"]+=ot["fgm"]; a["otpm"]+=ot["tpm"]; a["odreb"]+=ot["dreb"]
+        def prof(a):
+            if a["po"]<20 or a["g"]<1: return None
+            efg=lambda m,t3,att: (100.0*(m+0.5*t3)/att) if att else None
+            return {"o":round(100*a["pf"]/a["po"],1),"d":round(100*a["pa"]/a["pd"],1),
+                    "net":round(100*a["pf"]/a["po"]-100*a["pa"]/a["pd"],1),"pace":round(a["po"]/a["g"],1),
+                    "efg":round(efg(a["fgm"],a["tpm"],a["fga"]) or 0,1),"tp":round(100.0*a["tpm"]/a["tpa"],1) if a["tpa"] else None,
+                    "tpr":round(100.0*a["tpa"]/a["fga"],1) if a["fga"] else None,"ftr":round(100.0*a["fta"]/a["fga"],1) if a["fga"] else None,
+                    "tov":round(100.0*a["tov"]/a["po"],1),"oreb":round(100.0*a["oreb"]/(a["oreb"]+a["odreb"]),1) if (a["oreb"]+a["odreb"]) else None,
+                    "oefg":round(efg(a["ofgm"],a["otpm"],a["ofga"]) or 0,1),"g":a["g"]}
         n=0
         for team,a in tny.items():
             r=reg.get(team)
-            if a["po"]<20 or not r or r["g"]<12: continue
-            reg_o=100*r["pts"]/r["po"]; tny_o=100*a["pts"]/a["po"]; t=ts.get(team,{})
-            out.append({"team":team,"team_id":t.get("team_id"),"seed":t.get("ncaa_seed"),
-                "reg":round(reg_o,1),"tny":round(tny_o,1),"diff":round(tny_o-reg_o,1),"games":a["g"],"season":yr}); n+=1
+            if not r or r["g"]<12: continue
+            R,T=prof(r),prof(a)
+            if not R or not T: continue
+            t=ts.get(team,{})
+            out.append({"team":team,"team_id":t.get("team_id"),"seed":t.get("ncaa_seed"),"season":yr,"games":T["g"],
+                        "reg":R["o"],"tny":T["o"],"diff":round(T["o"]-R["o"],1),"R":R,"T":T}); n+=1
         print("  dropoff %d: %d teams"%(yr,n), flush=True)
     out.sort(key=lambda x:(x["season"],-x["reg"]))
     return out

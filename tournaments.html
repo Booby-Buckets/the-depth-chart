@@ -21,7 +21,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="tdc-ratings.js?v=18"></script>
   <script src="team-colors.js?v=6"></script>
-  <script src="tdc-charts.js?v=4"></script>
+  <script src="tdc-charts.js?v=5"></script>
   <script src="tdc-projgrade.js?v=base8"></script>
   <script src="conf-logos.js?v=3"></script>
   <script src="tournament-logos.js?v=4"></script>
@@ -255,6 +255,12 @@
     .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;}
     .nav-sub a:first-child{padding-left:0;}
     .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
+    /* list view sits on the light page field in light mode — the hqsite skin's forced-white
+       title/sub only make sense over a dark bracket field (.mm-bg / .tbr-bg) */
+    :root[data-theme="light"] body.hqsite:not(.mm-bg):not(.tbr-bg) .page > h1,
+    :root:not([data-theme="dark"]) body.hqsite:not(.mm-bg):not(.tbr-bg) .page > h1{ color:var(--text) !important; -webkit-text-fill-color:var(--text) !important; }
+    :root[data-theme="light"] body.hqsite:not(.mm-bg):not(.tbr-bg) .page > .sub,
+    :root:not([data-theme="dark"]) body.hqsite:not(.mm-bg):not(.tbr-bg) .page > .sub{ color:var(--text2) !important; }
   </style>
   <!-- new-UI theme layer: navy+blue dark palette + dark nav (matches index/player) -->
   <link rel="stylesheet" href="tdc-dense.css?v=31"/>
@@ -331,7 +337,8 @@
         </div>
         <div class="mi-sec">
           <h2 class="mi-h2">Whose Offense Held Up</h2>
-          <p class="mi-sub">The deepest tournament teams of the selected season — offensive rating in the regular season vs the tournament. Green rose to the moment; red got tightened up.</p>
+          <p class="mi-sub">The deepest tournament teams of the selected season — regular season vs the tournament, on whichever stat you pick. Green improved in March; red got tightened up.</p>
+          <div id="miDropPills" class="pills" style="margin:0 0 10px;display:flex;flex-wrap:wrap;gap:6px;"></div>
           <div id="miDropoff"><div class="loading">Loading…</div></div>
           <div id="miDropNote" style="font-size:11.5px;color:var(--text3);margin-top:8px;"></div>
         </div>
@@ -430,15 +437,32 @@ let seasonCtl=null;
 // ── March insight charts (precomputed) ──
 // chart_dropoff.json holds EVERY season's tourney teams (2007-08 →); the chart follows the
 // season picker. The projected season shows the latest completed tournament, labelled.
-let _dropAll=null;
+let _dropAll=null, _dropMetric='o';
+const DROP_METRICS=[
+  {key:'o',   label:'Offensive rating', short:'ORtg',  unit:'per 100', lower:false},
+  {key:'d',   label:'Defensive rating', short:'DRtg',  unit:'per 100', lower:true},
+  {key:'net', label:'Net rating',       short:'Net',   unit:'per 100', lower:false},
+  {key:'efg', label:'Effective FG%',    short:'eFG%',  unit:'pts',     lower:false},
+  {key:'tp',  label:'Three-point %',    short:'3P%',   unit:'pts',     lower:false},
+  {key:'tpr', label:'3PA rate',         short:'3PA%',  unit:'pts',     lower:false},
+  {key:'ftr', label:'Free-throw rate',  short:'FTr',   unit:'pts',     lower:false},
+  {key:'tov', label:'Turnover %',       short:'TOV%',  unit:'pts',     lower:true},
+  {key:'oreb',label:'Off. rebound %',   short:'OREB%', unit:'pts',     lower:false},
+  {key:'oefg',label:'Opp. effective FG%',short:'Opp eFG%',unit:'pts',  lower:true},
+  {key:'pace',label:'Pace',             short:'Pace',  unit:'poss/g',  lower:false},
+];
+function setDropMetric(k){ _dropMetric=k; renderDropoff(); }
 function renderDropoff(){
   const host=document.getElementById('miDropoff'); if(!host||!_dropAll||!window.TDC_CHARTS) return;
+  const pills=document.getElementById('miDropPills');
+  if(pills) pills.innerHTML=DROP_METRICS.map(m=>`<button class="pill ${m.key===_dropMetric?'on':''}" onclick="setDropMetric('${m.key}')">${m.short}</button>`).join('');
+  const metric=DROP_METRICS.find(m=>m.key===_dropMetric)||DROP_METRICS[0];
   const have=[...new Set(_dropAll.map(r=>r.season))].sort((a,b)=>b-a);
   const want=curSeason>=2027?have[0]:curSeason;
   const rows=_dropAll.filter(r=>r.season===want);
   const note=document.getElementById('miDropNote');
   if(!rows.length){ host.innerHTML='<div class="loading">No tournament box scores for '+seasonLbl(curSeason)+'.</div>'; if(note) note.textContent=''; return; }
-  TDC_CHARTS.dropoff(host, rows);
+  TDC_CHARTS.dropoff(host, rows, {metric});
   if(note) note.textContent = curSeason>=2027 ? 'Showing the most recent completed tournament ('+seasonLbl(want)+') — 2026-27 has not been played yet.' : '';
 }
 (async function loadMarchInsights(){
@@ -446,7 +470,7 @@ function renderDropoff(){
   try{
     const [m,d]=await Promise.all([
       fetch('scripts/data/chart_march.json').then(r=>r.json()),
-      fetch('scripts/data/chart_dropoff.json?v=2').then(r=>r.json())
+      fetch('scripts/data/chart_dropoff.json?v=3').then(r=>r.json())
     ]);
     TDC_CHARTS.march(document.getElementById('miMarch'), m);
     _dropAll=d; renderDropoff();

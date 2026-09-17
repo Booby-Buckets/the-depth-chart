@@ -145,9 +145,17 @@
   }
 
   // ── 4) TOURNAMENT OFFENSIVE DROP-OFFS (lollipop) ───────────────────────
+  // opts.metric: {key, label, unit, lower} picks a field out of each row's R/T profile
+  // (reg vs tourney); default is offensive rating via the legacy top-level reg/tny.
   function dropoff(el, data, opts){
     opts=opts||{}; if(!el) return; el.classList.add('tc-host');
-    data=data.filter(function(d){return d.games>=2;}).sort(function(a,b){return b.reg-a.reg;}); // teams that advanced
+    var M=opts.metric||{key:'o',label:'Offensive rating',short:'ORtg',unit:'per 100',lower:false};
+    data=data.filter(function(d){return d.games>=2;}).map(function(d){
+      var r=(d.R&&d.R[M.key]!=null)?d.R[M.key]:(M.key==='o'?d.reg:null), t=(d.T&&d.T[M.key]!=null)?d.T[M.key]:(M.key==='o'?d.tny:null);
+      if(r==null||t==null) return null;
+      return Object.assign({}, d, {reg:r, tny:t, diff:Math.round((t-r)*10)/10});
+    }).filter(Boolean).sort(function(a,b){return b.reg-a.reg;}); // teams that advanced
+    if(!data.length){ el.innerHTML='<div class="tc-note">No data for this metric.</div>'; return; }
     if(data.length>20) data=data.slice(0,20);
     var W=Math.max(760, data.length*56), H=460, P=40, PB=70;
     var vals=[]; data.forEach(function(d){vals.push(d.reg,d.tny);});
@@ -160,8 +168,8 @@
     g+='<line x1="'+P+'" y1="'+Y(regAvg)+'" x2="'+(W-P)+'" y2="'+Y(regAvg)+'" stroke="#1f9d57" stroke-dasharray="4 4" stroke-width="1"/><text class="tc-ax" x="'+(W-P)+'" y="'+(Y(regAvg)-4)+'" text-anchor="end" fill="#1f9d57">Reg. avg</text>';
     g+='<line x1="'+P+'" y1="'+Y(tnyAvg)+'" x2="'+(W-P)+'" y2="'+Y(tnyAvg)+'" stroke="#8a8398" stroke-dasharray="4 4" stroke-width="1"/><text class="tc-ax" x="'+(W-P)+'" y="'+(Y(tnyAvg)-4)+'" text-anchor="end">Tourney avg</text>';
     data.forEach(function(d,i){
-      var x=X(i), yr=Y(d.reg), yt=Y(d.tny), rise=d.diff>0, c=rise?'#1f9d57':'#cf5a4e';
-      var tip='<b>'+d.team+'</b>'+(d.seed?' ('+d.seed+' seed)':'')+'<br>Reg ORtg '+d.reg+' → Tourney '+d.tny+'<br>'+(d.diff>0?'+':'')+d.diff+' per 100';
+      var x=X(i), yr=Y(d.reg), yt=Y(d.tny), rise=d.diff>0, good=M.lower?(d.diff<0):(d.diff>0), c=(d.diff===0)?'#8a8398':(good?'#1f9d57':'#cf5a4e');
+      var tip='<b>'+d.team+'</b>'+(d.seed?' ('+d.seed+' seed)':'')+'<br>Reg '+M.short+' '+d.reg+' → Tourney '+d.tny+'<br>'+(d.diff>0?'+':'')+d.diff+(M.unit?' '+M.unit:'');
       g+='<line class="tc-stem" data-t="'+tip.replace(/"/g,'&quot;')+'" x1="'+x+'" y1="'+yr+'" x2="'+x+'" y2="'+yt+'" stroke="'+c+'" stroke-width="4"/>';
       g+='<circle data-t="'+tip.replace(/"/g,'&quot;')+'" cx="'+x+'" cy="'+yr+'" r="4" fill="#8a8398"/>';
       g+='<rect data-t="'+tip.replace(/"/g,'&quot;')+'" x="'+(x-5)+'" y="'+(yt-5)+'" width="10" height="10" rx="2" fill="#fff" stroke="'+c+'" stroke-width="2"/>';
@@ -169,10 +177,10 @@
       var lg=logo(d.team);
       if(lg) g+='<image href="'+lg+'" x="'+(x-11)+'" y="'+(H-PB+16)+'" width="22" height="22" style="pointer-events:none"/>';
     });
-    g+='<text class="tc-ax" x="14" y="'+(H/2)+'" text-anchor="middle" transform="rotate(-90 14 '+(H/2)+')">OFFENSIVE RATING</text>';
+    g+='<text class="tc-ax" x="14" y="'+(H/2)+'" text-anchor="middle" transform="rotate(-90 14 '+(H/2)+')">'+(M.label||'').toUpperCase()+'</text>';
     g+='</svg>';
     var _sy=(data[0]&&data[0].season)?((data[0].season-1)+'–'+(''+data[0].season).slice(2)):'';
-    var head='<div class="tc-legend"><span><i style="background:#8a8398"></i>Reg-season ORtg</span><span><i style="background:#fff;border:2px solid #888"></i>Tournament ORtg</span><span style="color:var(--text3)">how each team\'s offense held up in March'+(_sy?' · '+_sy:'')+'</span></div>';
+    var head='<div class="tc-legend"><span><i style="background:#8a8398"></i>Reg-season '+M.short+'</span><span><i style="background:#fff;border:2px solid #888"></i>Tournament '+M.short+'</span><span style="color:var(--text3)">'+(M.lower?'green = improved (lower is better)':'green = rose to the moment')+(_sy?' · '+_sy:'')+'</span></div>';
     el.innerHTML=head+'<div class="tc-wrap tc-scroll">'+g+'</div>'; wireTip(el);
   }
 
