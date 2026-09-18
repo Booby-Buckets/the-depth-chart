@@ -66,7 +66,7 @@
     const drbK = of.oORB != null && ff.oORB ? (100 - of.oORB) / (100 - ff.oORB) : 1;      // opp's OREB% eats into our defensive boards
     const tovK = of.dTOV != null && ff.dTOV ? of.dTOV / ff.dTOV : 1;                        // opp forces turnovers above/below the norm
     const out = p => p.is_injured || (g.TDCInjury && g.TDCInjury.isOut(p));
-    let rows = players.filter(p => !out(p)).map(p => ({ p, b: baseLine(p) })).filter(x => x.b && x.b.mpg >= 6);
+    let rows = players.filter(p => !out(p)).map(p => ({ p, b: baseLine(p) })).filter(x => x.b && x.b.mpg >= 6 && ((x.b.ppg || 0) > 0 || (x.b.fga || 0) > 0));
     rows.sort((a, b) => b.b.mpg - a.b.mpg);
     rows = rows.slice(0, 11);
     // a game has 200 minutes; season projections drawn up independently can add to more
@@ -88,8 +88,15 @@
     const sumMin = rows.reduce((s, x) => s + x.l.min, 0), sumPts = rows.reduce((s, x) => s + x.l.pts, 0);
     let scaleK = 1;
     if (ctx.score && sumMin >= 170 && sumPts > 0) scaleK = Math.max(0.8, Math.min(1.25, ctx.score / sumPts));
-    rows.forEach(x => { ['pts', 'fga', 'fgm', 'tpa', 'tpm', 'fta', 'ftm'].forEach(k => { x.l[k] *= scaleK; }); x.l.dPts = x.l.pts - (x.b.ppg || 0); });
-    return { rows, paceK, offK, starterK, scaleK, sumMin };
+    rows.forEach(x => { ['pts', 'fga', 'fgm', 'tpa', 'tpm', 'fta', 'ftm'].forEach(k => { x.l[k] *= scaleK; }); });
+    // "vs avg": the matchup's effect only. Season projections are drawn up player by player, so a
+    // roster of scorers can add to more points than the team will score in a typical game; the
+    // baseline is each player's season number scaled to the team's own projected points per game,
+    // and the delta is what THIS pace / defense / spread does on top of that.
+    const seasonPts = E && E.o && E.t ? E.o * E.t / 100 : null, sumPpg = rows.reduce((s, x) => s + (x.b.ppg || 0), 0);
+    const rosterK = seasonPts && sumPpg > 0 ? Math.max(0.7, Math.min(1.3, seasonPts / sumPpg)) : 1;
+    rows.forEach(x => { x.l.base = (x.b.ppg || 0) * rosterK; x.l.dPts = x.l.pts - x.l.base; });
+    return { rows, paceK, offK, starterK, scaleK, sumMin, rosterK, seasonPts, sumPpg };
   }
 
   // ── render ────────────────────────────────────────────────────────────────
@@ -171,10 +178,10 @@
     const tot = T.rows.reduce((s, x) => { K.forEach(k => { s[k] += x.l[k] || 0; }); return s; }, Object.fromEntries(K.map(k => [k, 0])));
     const cls = v => v > 0.4 ? 'pos' : v < -0.4 ? 'neg' : '';
     const ma = (m, a) => `${m.toFixed(1)}–${a.toFixed(1)}`, pct = (m, a) => a > 0 ? (100 * m / a).toFixed(1) : '—';
-    return `<div class="gp-wrap"><table class="gp-t"><thead><tr><th class="l">Player</th><th>Min</th><th>Pts</th><th title="field goals made–attempted">FG</th><th title="threes made–attempted">3P</th><th title="free throws made–attempted">FT</th><th title="offensive rebounds">OR</th><th title="defensive rebounds">DR</th><th>Reb</th><th>Ast</th><th>TO</th><th title="points vs the player's season projection">vs avg</th></tr></thead><tbody>${T.rows.map(x => {
+    return `<div class="gp-wrap"><table class="gp-t"><thead><tr><th class="l">Player</th><th>Min</th><th>Pts</th><th title="field goals made–attempted">FG</th><th title="threes made–attempted">3P</th><th title="free throws made–attempted">FT</th><th title="offensive rebounds">OR</th><th title="defensive rebounds">DR</th><th>Reb</th><th>Ast</th><th>TO</th><th title="points in this game vs the player's typical game (season projection, scaled to the team's own scoring) — the matchup effect">vs typical</th></tr></thead><tbody>${T.rows.map(x => {
       const p = x.p, l = x.l;
       return `<tr><td class="l nm"><a href="${playerHref(p, team)}">${p.name}</a><small>${p.position || ''}${p.class_year ? ' · ' + p.class_year : ''}${x.b.src === 'fresh' ? ' · Fr proj' : x.b.src === 'last' ? ' · last yr' : ''}</small></td>
-        <td>${l.min.toFixed(0)}</td><td class="big">${l.pts.toFixed(1)}</td><td>${ma(l.fgm, l.fga)}</td><td>${ma(l.tpm, l.tpa)}</td><td>${ma(l.ftm, l.fta)}</td><td>${l.oreb.toFixed(1)}</td><td>${l.dreb.toFixed(1)}</td><td>${l.reb.toFixed(1)}</td><td>${l.ast.toFixed(1)}</td><td>${l.tov.toFixed(1)}</td><td class="${cls(l.dPts)}">${sg(l.dPts)}</td></tr>`;
+        <td>${l.min.toFixed(0)}</td><td class="big">${l.pts.toFixed(1)}</td><td>${ma(l.fgm, l.fga)}</td><td>${ma(l.tpm, l.tpa)}</td><td>${ma(l.ftm, l.fta)}</td><td>${l.oreb.toFixed(1)}</td><td>${l.dreb.toFixed(1)}</td><td>${l.reb.toFixed(1)}</td><td>${l.ast.toFixed(1)}</td><td>${l.tov.toFixed(1)}</td><td class="${cls(l.dPts)}" title="typical game ${l.base.toFixed(1)} pts">${sg(l.dPts)}</td></tr>`;
     }).join('')}<tr><td class="l tot">Team</td><td class="tot">${tot.min.toFixed(0)}</td><td class="tot">${tot.pts.toFixed(0)}</td><td class="tot">${ma(tot.fgm, tot.fga)}<small style="color:var(--text3);margin-left:4px">${pct(tot.fgm, tot.fga)}%</small></td><td class="tot">${ma(tot.tpm, tot.tpa)}<small style="color:var(--text3);margin-left:4px">${pct(tot.tpm, tot.tpa)}%</small></td><td class="tot">${ma(tot.ftm, tot.fta)}</td><td class="tot">${tot.oreb.toFixed(1)}</td><td class="tot">${tot.dreb.toFixed(1)}</td><td class="tot">${tot.reb.toFixed(1)}</td><td class="tot">${tot.ast.toFixed(1)}</td><td class="tot">${tot.tov.toFixed(1)}</td><td class="tot"></td></tr></tbody></table></div>`;
   }
 
@@ -237,7 +244,7 @@
       }).join('');
       const tbody = document.querySelector('#gpCmp .gp-t tbody'); if (tbody) tbody.insertAdjacentHTML('beforeend', rowsHtml);
     }
-    const note = (T, n) => T && T.rows.length ? `${sn(n)}: pace ×${T.paceK.toFixed(2)} · vs this defense ×${T.offK.toFixed(2)}${T.starterK < 1 ? ` · starters' minutes ×${T.starterK.toFixed(2)} (blowout)` : ''}${Math.abs(T.scaleK - 1) > 0.005 ? ` · scaled ×${T.scaleK.toFixed(2)} to the team score` : ''}` : '';
+    const note = (T, n) => T && T.rows.length ? `${sn(n)}: pace ×${T.paceK.toFixed(2)} · vs this defense ×${T.offK.toFixed(2)}${T.starterK < 1 ? ` · starters' minutes ×${T.starterK.toFixed(2)} (blowout)` : ''}${Math.abs(T.scaleK - 1) > 0.005 ? ` · scaled ×${T.scaleK.toFixed(2)} to the team score` : ''}${T.rosterK && Math.abs(T.rosterK - 1) > 0.02 ? ` · roster's season lines add to ${T.sumPpg.toFixed(0)} pts vs ${T.seasonPts.toFixed(0)} the team projects, so typical games are scaled ×${T.rosterK.toFixed(2)}` : ''}` : '';
     // injury report: out (removed from the rotation above) and hurt-but-playing, from the owner's injury tool + roster flags
     const injLine = (players, n) => {
       if (!players || !players.length) return '';
@@ -250,7 +257,7 @@
     document.getElementById('gpPlayers').innerHTML = `<div class="gp-h">Projected lines · this game <span>each player's 2026-27 projection, priced for this pace and this defense</span></div>
       <div class="gp-two"><div><div style="font-size:12px;font-weight:800;color:${col(team)};padding:8px 2px;">${sn(team)}</div>${playersTable(team, TA, col(team))}${injLine(pa, team)}</div>
       <div><div style="font-size:12px;font-weight:800;color:${col(oppName)};padding:8px 2px;">${sn(oppName)}</div>${row.oppName ? playersTable(oppName, TB, col(oppName)) : `<div class="gp-wrap"><div class="gp-empty">Opponent to be determined.</div></div>`}${injLine(pb, oppName)}</div></div>
-      <div class="gp-note"><b>How the lines move:</b> ${[note(TA, team), note(TB, oppName)].filter(Boolean).join(' · ')}. Attempts scale with pace and minutes; makes use the matchup-adjusted percentages; offensive boards, defensive boards and turnovers are priced against this opponent's rebounding and turnover-forcing rates. Minutes come from the season projection; "vs avg" is the points swing against the player's season number. Rosters without a projected line yet (walk-ons, unfilled freshmen) are left out.</div>`;
+      <div class="gp-note"><b>How the lines move:</b> ${[note(TA, team), note(TB, oppName)].filter(Boolean).join(' · ')}. Attempts scale with pace and minutes; makes use the matchup-adjusted percentages; offensive boards, defensive boards and turnovers are priced against this opponent's rebounding and turnover-forcing rates. Minutes come from the season projection; "vs typical" is the points swing this matchup causes against the player's typical game (his season projection, scaled so the roster's lines add up to the team's own scoring). Rosters without a projected line yet (walk-ons, unfilled freshmen) are left out.</div>`;
     if (g.TDCGate) { const relock = () => { const el = document.getElementById('gpPlayers'); el.classList.remove('tdc-gate-wrap'); g.TDCGate.lock(el, { tier: 'pro', label: 'projected player lines', blurb: 'Pro, Coach\'s Tier and Betting Lab members see how every rotation player projects in this specific matchup — minutes, points, rebounds, assists and shooting.' }); };
       if (g.TDCGate.resolved && g.TDCGate.resolved()) relock(); else if (g.TDCGate.ready) g.TDCGate.ready.then(relock); }
   }
