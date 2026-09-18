@@ -2079,6 +2079,18 @@ async function _ratingsRow(t){
     return row;
   }catch(e){ return null; }
 }
+// 2026-27 schedule projection (tdc-schedule.js), memoized so the hero ribbon and the
+// Schedule tab share one simulation; keyed by the played-game ids so results refresh it
+let _schedProjMemo={};
+async function _schedProjection(fullName, playedIds){
+  if(!window.TDCSched||!fullName) return null;
+  const key=fullName+'|'+(playedIds||[]).join(',');
+  if(!_schedProjMemo[key]){
+    _schedProjMemo[key]=(async()=>{ try{ return await TDCSched.project(fullName,{playedIds:playedIds||[]}); }catch(e){ console.warn('sched proj',e); return null; } })();
+    _schedProjMemo[key].then(r=>{ if(!r) delete _schedProjMemo[key]; });   // don't pin a miss
+  }
+  return _schedProjMemo[key];
+}
 // ribbon cell: {v,l,col?,cls?,badge?,badgeCls?} — badge renders the gradient seed chip
 function _ribHTML(cells){ return cells.filter(c=>c&&c.v!=null&&c.v!==''&&c.v!=='—').map(c=>{
   var tip=c.tip?(window.statTip?statTip(c.tip):''):'';
@@ -2117,8 +2129,15 @@ async function renderHeroBar(yr, teamObj){
     if(rank && rank<=64){ const s=_seedFromRank(rank); seedCell={v:'No. '+s,l:'Projected seed',cls:'seed',badge:String(s)}; }
     else if(rank && rank<=76){ seedCell={v:'Bubble',l:'Projected seed',cls:'seed',badge:'B',badgeCls:'bubble'}; }
     if(seedCell) seedCell.tip='projseed';
+    // projected record from the schedule simulation (null until the slate is announced)
+    const sp=await _schedProjection(rr&&rr.full);
+    if(stale()||_rosterSeason<2027) return;
+    const spW=sp?Math.round(sp.expW):null;
+    const recCell=sp?{v:`${spW}–${sp.n-spW}`,l:'Proj record',
+      s:`${sp.confN?`${Math.round(sp.expCW)}–${sp.confN-Math.round(sp.expCW)} ${t.conf||t.conference||'conf'} · `:''}${sp.lo}–${sp.n-sp.lo} to ${sp.hi}–${sp.n-sp.hi}`}:null;
     rEl.innerHTML=_ribHTML([
       {v:net.s,l:'Power Rating',tip:'projrating',s:'projected for 2026-27'},
+      recCell,
       seedCell,
       rank?{v:'#'+rank,l:'Proj rank',tip:'projrank',s:`of ${(rr&&rr.field)||365} teams`}:null,
       {v:t.conf||t.conference,l:'Conference',s:(rr&&rr.confRank)?`No. ${rr.confRank} in league`:''},
@@ -8366,7 +8385,7 @@ async function loadSchedule(){
     // 2026-27: the announced slate + the Monte Carlo projection (tdc-schedule.js) — results
     // that have been played (DB rows with a final) lead, the rest of the season is projected
     if(yr>=2027 && window.TDCSched){
-      let R=null; try{ R=await TDCSched.project(mascot,{playedIds:games.map(g=>g.id)}); }catch(e){ console.warn('sched proj',e); }
+      const R=await _schedProjection(mascot, games.map(g=>g.id));
       if(R){
         const rankMap={}; (ranks||[]).forEach((t,i)=>rankMap[t.team]=i+1);
         let w=0,l=0,cw=0,cl=0; const played=[];
