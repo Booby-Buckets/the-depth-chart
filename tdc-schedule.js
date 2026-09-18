@@ -212,6 +212,7 @@
   .tsp-table tr.x td{background:color-mix(in srgb,#d05a5a calc(var(--k)*1%),transparent);}
   .tsp-table tr:hover td{filter:brightness(1.06);}
   .tsp-table td.tsp-d{color:var(--text);font-weight:600;min-width:96px;}
+  .tsp-table td.tsp-o .tsp-lg{display:inline-block;width:18px;height:18px;object-fit:contain;vertical-align:middle;margin:-2px 8px 0 0;}
   .tsp-table td.tsp-o .cfdot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--tc-readable,var(--accent));margin-left:7px;vertical-align:middle;}
   .tsp-table td.tsp-o.cf{font-weight:800;}
   .tsp-table td.tsp-q{font-weight:800;font-size:11.5px;color:var(--text3);}
@@ -257,19 +258,20 @@
     return `<span style="background:color-mix(in srgb,${col} ${Math.round(8 + 30 * k)}%,transparent);">${pc}%</span>`;
   }
   const restTxt = f => f.rest == null ? 'opener' : f.rest <= 1 ? 'b2b' : f.rest + 'd';
+  function logoOf(name) { try { const r = g.tdcTeamColor && g.tdcTeamColor(name); return r && r.logo || ''; } catch (e) { return ''; } }
+  const logoImg = name => { const u = logoOf(name); return u ? `<img class="tsp-lg" src="${u}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : '<i class="tsp-lg"></i>'; };
 
   function render(host, R, opts) {
     ensureCss(); opts = opts || {};
     const sn = g.tdcShortSchool || (x => x);
     let lastMo = null, rows = '';
     const moCls = key => { const c = lastMo !== null && key !== lastMo ? ' mo1' : ''; lastMo = key; return c; };
-    const tint = p => { const k = Math.round(5 + 9 * Math.min(1, Math.abs(p - 0.5) / 0.45)); return `class="${p >= 0.5 ? 'w' : 'x'}" style="--k:${k}"`; };
     (opts.played || []).forEach(x => {          // results already on the books
       const d = dParts(x.date);
       rows += `<tr class="${x.won ? 'w' : 'x'}${moCls(d.key)}" style="--k:18;cursor:${x.href ? 'pointer' : 'default'}" onclick="${x.href ? `location.href='${x.href}'` : ''}">
         <td class="l tsp-d">${d.dw} ${d.num}</td>
         <td class="tsp-rk">${x.rank || ''}</td>
-        <td class="l tsp-o hist">${sn(x.opp)}</td>
+        <td class="l tsp-o hist">${logoImg(x.opp)}${sn(x.opp)}</td>
         <td class="tsp-sc"><span class="tsp-res">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}</span></td>
         <td class="tsp-site"><b class="${x.site}">${x.site}</b></td>
         <td class="tsp-q q${quad(x.rank, x.site) || 0}">${quad(x.rank, x.site) ? 'Q' + quad(x.rank, x.site) : ''}</td>
@@ -280,22 +282,22 @@
     R.rows.forEach(r => {
       const d = dParts(r.g.date);
       const oppTxt = r.bracket ? `${sn(r.bracket[0])} / ${sn(r.bracket[1])}` : r.pool ? 'TBD' : (r.oppName ? sn(r.oppName) : 'TBD');
-      const pre = r.venue === 'A' ? '<span class="pre">at </span>' : r.venue === 'N' ? '<span class="pre">vs </span>' : '';
       const restD = r.restMe - r.restOpp, trip = r.stintMe - r.stintOpp;
       const edge = r.venuePts + r.sit;
       const siteTitle = r.venue === 'H' ? `home edge ${sg(r.venuePts)}` : r.venue === 'A' ? `their building ${sg(r.venuePts)}` : 'neutral floor';
-      const t = tint(r.p), mc = moCls(d.key);
+      const mc = moCls(d.key);
       const rk = r.opp && r.opp.rank ? r.opp.rank : null, q = quad(rk, r.venue);
       const pc = Math.round(r.p * 100), pk = Math.round(8 + 34 * Math.min(1, Math.abs(pc - 50) / 45));
-      rows += `<tr ${t.replace('class="', 'class="' + mc.trim() + ' ')}>
+      const heat = `background:color-mix(in srgb,${pc >= 50 ? '#2f9159' : '#d05a5a'} ${pk}%,transparent)`;
+      rows += `<tr class="${mc.trim()}">
         <td class="l tsp-d">${d.dw} ${d.num}${r.event ? `<span class="tsp-ev">${r.event}</span>` : ''}</td>
         <td class="tsp-rk">${rk || ''}</td>
-        <td class="l tsp-o${r.g.conf ? ' cf' : ''}">${pre}${oppTxt}${r.g.conf ? '<i class="cfdot" title="conference game"></i>' : ''}</td>
-        <td class="tsp-sc">${r.scoreMe}–${r.scoreOpp}</td>
+        <td class="l tsp-o${r.g.conf ? ' cf' : ''}">${r.oppName ? logoImg(r.oppName) : '<i class="tsp-lg"></i>'}${oppTxt}${r.g.conf ? '<i class="cfdot" title="conference game"></i>' : ''}</td>
+        <td class="tsp-sc" style="${heat}">${r.scoreMe}–${r.scoreOpp}</td>
         <td class="tsp-site" title="${siteTitle} · rest ${restTxt(r.mf)} vs ${r.known ? restTxt(r.of) : (r.oppName ? '?' : 'same')}${Math.abs(restD) >= 0.15 ? ` (${sg(restD)})` : ''}${r.mf.stint >= 2 ? ` · ${r.mf.stint}${r.mf.stint === 2 ? 'nd' : r.mf.stint === 3 ? 'rd' : 'th'} straight away` : ''} · situational edge ${sg(edge)}"><b class="${r.venue}">${r.venue}</b></td>
         <td class="tsp-q q${q || 0}" title="NET-style quadrant: opponent rank ${rk || '—'} ${r.venue === 'H' ? 'at home' : r.venue === 'A' ? 'on the road' : 'on a neutral floor'}">${q ? 'Q' + q : ''}</td>
         <td class="tsp-pr">${r.opp && isFinite(r.opp.rating) ? sg(r.opp.rating) : ''}</td>
-        <td class="tsp-p" style="background:color-mix(in srgb,${pc >= 50 ? '#2f9159' : '#d05a5a'} ${pk}%,transparent)" title="${Math.round(r.p0 * 100)}% on the line alone · ${pc}% across simulated seasons">${pc}%</td>
+        <td class="tsp-p" style="${heat}" title="${Math.round(r.p0 * 100)}% on the line alone · ${pc}% across simulated seasons">${pc}%</td>
         <td class="tsp-line">${r.margin >= 0 ? '−' : '+'}${Math.abs(r.margin).toFixed(1)}</td></tr>`;
     });
     const W = Math.round(R.expW), L = R.n - W, cw = Math.round(R.expCW), cl = R.confN - cw;
@@ -349,7 +351,7 @@
       html += `<tr class="${x.won ? 'w' : 'x'}${moCls(d.key)}" style="--k:14;cursor:${x.href ? 'pointer' : 'default'}" onclick="${x.href ? `location.href='${x.href}'` : ''}">
         <td class="l tsp-d">${d.dw} ${d.num}</td>
         <td class="tsp-rk">${x.rank || ''}</td>
-        <td class="l tsp-o${x.conf ? ' cf' : ''}">${x.site === 'A' ? '<span class="pre">at </span>' : x.site === 'N' ? '<span class="pre">vs </span>' : ''}${sn(x.opp)}${x.conf ? '<i class="cfdot" title="conference game"></i>' : ''}</td>
+        <td class="l tsp-o${x.conf ? ' cf' : ''}">${logoImg(x.opp)}${sn(x.opp)}${x.conf ? '<i class="cfdot" title="conference game"></i>' : ''}</td>
         <td class="tsp-sc"><span class="tsp-res ${x.won ? 'w' : 'l'}">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}</span></td>
         <td class="tsp-site"><b class="${x.site}">${x.site}</b></td>
         <td class="tsp-q q${q || 0}">${q ? 'Q' + q : ''}</td>
