@@ -187,65 +187,108 @@
   }
 
   // ── render ────────────────────────────────────────────────────────────────
+  // its own table class (not .sched-table) so the team page's mono/dim overrides don't apply
   const CSS = `
-  .tsp-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:2px 0 14px;}
-  .tsp-tile{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--bg2);}
-  .tsp-tile .k{font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
-  .tsp-tile .v{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1;color:var(--text);}
-  .tsp-tile .v small{font-family:'Inter',sans-serif;font-size:11px;font-weight:600;color:var(--text3);margin-left:4px;}
-  .tsp-tile .s{font-size:11px;color:var(--text3);margin-top:4px;}
-  .tsp-edge{font-size:11px;color:var(--text2);font-variant-numeric:tabular-nums;white-space:nowrap;}
-  .tsp-edge b{color:var(--text);font-weight:800;}
-  .tsp-edge .chip{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:4px;background:var(--bg3,var(--bg2));color:var(--text3);margin-left:4px;vertical-align:middle;}
-  .tsp-edge .chip.neg{color:#bd4b4b;} .tsp-edge .chip.pos{color:#2f9159;}
-  .tsp-p{font-weight:800;font-variant-numeric:tabular-nums;}
-  .tsp-bar{display:inline-block;width:46px;height:5px;border-radius:3px;background:var(--bg3,var(--border));vertical-align:middle;margin-left:6px;overflow:hidden;}
-  .tsp-bar i{display:block;height:100%;border-radius:3px;}
-  .tsp-note{font-size:11.5px;color:var(--text3);line-height:1.55;margin:12px 2px 0;}
+  .tsp{font-family:'Inter',system-ui,sans-serif;}
+  .tsp-sum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 12px;}
+  .tsp-tile{border:1px solid var(--border);border-radius:9px;padding:9px 12px 8px;background:var(--bg2);min-width:0;}
+  .tsp-tile .k{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;white-space:nowrap;}
+  .tsp-tile .v{font-family:'Playfair Display',serif;font-weight:800;font-size:21px;line-height:1;color:var(--text);white-space:nowrap;}
+  .tsp-tile .v small{font-family:'Inter',sans-serif;font-size:10.5px;font-weight:600;color:var(--text3);margin:0 3px;}
+  .tsp-tile .s{font-size:10.5px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tsp-table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums;}
+  .tsp-table th{text-align:right;font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap;}
+  .tsp-table th.l{text-align:left;}
+  .tsp-table td{padding:3px 8px;height:25px;border-bottom:1px solid color-mix(in srgb,var(--border) 60%,transparent);white-space:nowrap;text-align:right;color:var(--text2);line-height:1.3;}
+  .tsp-table td.l{text-align:left;}
+  .tsp-table tr:hover td{background:color-mix(in srgb,var(--text) 4%,transparent);}
+  .tsp-mo td{padding:9px 8px 3px;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--tc-readable,var(--accent));border-bottom:1px solid var(--border);background:transparent!important;}
+  .tsp-table td.tsp-d{color:var(--text2);font-weight:600;width:64px;}
+  .tsp-table td.tsp-d em{font-style:normal;color:var(--text3);font-weight:500;font-size:11px;margin-left:4px;}
+  .tsp-ev{display:block;font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--tc-readable,var(--accent));line-height:1.2;}
+  .tsp-table td.tsp-o{font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;max-width:240px;}
+  .tsp-table td.tsp-o .rk{display:inline-block;min-width:26px;font-size:10.5px;font-weight:800;color:var(--text3);margin-right:4px;}
+  .tsp-table td.tsp-o .pre{font-weight:500;color:var(--text3);}
+  .tsp-table td.tsp-o.hist{font-weight:600;}
+  .tsp-table td.tsp-site{width:72px;}
+  .tsp-table td.tsp-site b{display:inline-block;width:16px;height:15px;line-height:15px;text-align:center;border-radius:4px;font-size:9.5px;font-weight:800;color:var(--text);background:color-mix(in srgb,var(--text) 10%,transparent);margin-right:5px;vertical-align:text-bottom;}
+  .tsp-table td.tsp-site b.H{background:color-mix(in srgb,#2f9159 22%,transparent);color:#2f9159;}
+  .tsp-table td.tsp-site b.A{background:color-mix(in srgb,#bd4b4b 22%,transparent);color:#d05a5a;}
+  .tsp-table td.tsp-rest{width:74px;color:var(--text3);}
+  .tsp-table td.tsp-rest b{font-weight:700;color:var(--text2);}
+  .tsp .pos{color:#2f9159!important;} .tsp .neg{color:#d05a5a!important;}
+  [data-theme="dark"] .tsp .pos{color:#4fc07a!important;} [data-theme="dark"] .tsp .neg{color:#ef6e6e!important;}
+  .tsp-table td.tsp-edge{font-weight:800;color:var(--text);width:52px;}
+  .tsp-table td.tsp-p{font-weight:800;width:60px;color:var(--text);}
+  .tsp-table td.tsp-p span{display:inline-block;min-width:44px;padding:2px 6px;border-radius:5px;text-align:right;color:var(--text);}
+  .tsp-table td.tsp-line{color:var(--text2);font-weight:600;}
+  .tsp-table td.tsp-sc{color:var(--text3);width:56px;}
+  .tsp-res{font-weight:800;} .tsp-res.w{color:#2f9159;} .tsp-res.l{color:#d05a5a;}
+  [data-theme="dark"] .tsp-res.w{color:#4fc07a;} [data-theme="dark"] .tsp-res.l{color:#ef6e6e;}
+  .tsp-note{font-size:11px;color:var(--text3);line-height:1.5;margin:10px 2px 0;}
   .tsp-note b{color:var(--text2);}
-  .tsp-ev{font-size:10px;font-weight:700;color:var(--tc,var(--accent));text-transform:uppercase;letter-spacing:.04em;}
-  @media(max-width:680px){.tsp-hide{display:none;}}`;
+  @media(max-width:760px){.tsp-sum{grid-template-columns:repeat(2,minmax(0,1fr));}.tsp-hide{display:none;}.tsp-o{max-width:150px;}}`;
   function ensureCss() { if (document.getElementById('tsp-css')) return; const s = document.createElement('style'); s.id = 'tsp-css'; s.textContent = CSS; document.head.appendChild(s); }
 
-  function fmtD(d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); }
+  const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], DW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  function dParts(d) { const x = new Date(d + 'T12:00:00'); return { mo: MO[x.getMonth()], day: x.getDate(), dw: DW[x.getDay()], key: x.getFullYear() + '-' + x.getMonth() }; }
   const sg = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1);
+  const cls = v => v > 0.05 ? 'pos' : v < -0.05 ? 'neg' : '';
+  // win-probability cell: tint deepens with confidence either way
+  function pCell(p) {
+    const pc = Math.round(p * 100), good = pc >= 50, k = Math.min(1, Math.abs(pc - 50) / 45);
+    const col = good ? '#2f9159' : '#d05a5a';
+    return `<span style="background:color-mix(in srgb,${col} ${Math.round(8 + 30 * k)}%,transparent);">${pc}%</span>`;
+  }
+  const restTxt = f => f.rest == null ? 'opener' : f.rest <= 1 ? 'b2b' : f.rest + 'd';
 
   function render(host, R, opts) {
     ensureCss(); opts = opts || {};
     const sn = g.tdcShortSchool || (x => x);
-    const green = 'var(--green,#3fa66a)', red = 'var(--red,#c75d5d)';
-    const restTxt = f => f.rest == null ? 'opener' : f.rest <= 1 ? 'b2b' : f.rest + 'd';
-    const rows = R.rows.map(r => {
-      const rk = r.opp && r.opp.rank ? `<span style="opacity:.6">#</span>${r.opp.rank}` : '';
-      const chips = [];
-      if (r.venuePts) chips.push(`<span class="chip ${r.venuePts < 0 ? 'neg' : 'pos'}">${r.venue === 'H' ? 'home' : 'away'} ${sg(r.venuePts)}</span>`);
-      const rest = r.restMe - r.restOpp; if (Math.abs(rest) >= 0.15) chips.push(`<span class="chip ${rest < 0 ? 'neg' : 'pos'}" title="rest: ${restTxt(r.mf)} vs ${r.known ? restTxt(r.of) : '—'}">rest ${sg(rest)}</span>`);
-      const trip = r.stintMe - r.stintOpp; if (Math.abs(trip) >= 0.15) chips.push(`<span class="chip ${trip < 0 ? 'neg' : 'pos'}">trip ${sg(trip)}</span>`);
-      if (r.mf.stint >= 2 && Math.abs(trip) < 0.15) chips.push(`<span class="chip" title="road trips measure ≈ 0 beyond the venue itself">${r.mf.stint}${r.mf.stint === 2 ? 'nd' : r.mf.stint === 3 ? 'rd' : 'th'} road</span>`);
+    let lastMo = null, rows = '';
+    const moRow = key => { if (key === lastMo) return ''; lastMo = key; const [y, m] = key.split('-'); return `<tr class="tsp-mo"><td colspan="8">${MO[+m]} ${y}</td></tr>`; };
+    (opts.played || []).forEach(x => {          // results already on the books
+      const d = dParts(x.date);
+      rows += moRow(d.key) + `<tr onclick="${x.href ? `location.href='${x.href}'` : ''}" style="cursor:${x.href ? 'pointer' : 'default'}">
+        <td class="l tsp-d">${d.mo} ${d.day}<em>${d.dw}</em></td>
+        <td class="l tsp-o hist">${x.rank ? `<span class="rk">#${x.rank}</span>` : '<span class="rk"></span>'}${sn(x.opp)}</td>
+        <td class="l tsp-site"><b class="${x.site}">${x.site}</b></td>
+        <td class="tsp-rest tsp-hide"></td><td class="tsp-edge tsp-hide"></td>
+        <td class="tsp-p"><span class="tsp-res ${x.won ? 'w' : 'l'}">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}</span></td>
+        <td class="tsp-line"></td><td class="tsp-sc">${x.rec}</td></tr>`;
+    });
+    R.rows.forEach(r => {
+      const d = dParts(r.g.date);
+      const rk = r.opp && r.opp.rank ? `<span class="rk">#${r.opp.rank}</span>` : '<span class="rk"></span>';
+      const oppTxt = r.bracket ? `${sn(r.bracket[0])} / ${sn(r.bracket[1])}` : r.pool ? 'TBD' : (r.oppName ? sn(r.oppName) : 'TBD');
+      const pre = r.venue === 'A' ? '<span class="pre">at </span>' : r.venue === 'N' ? '<span class="pre">vs </span>' : '';
+      const restD = r.restMe - r.restOpp, trip = r.stintMe - r.stintOpp;
+      const restCell = `<b>${restTxt(r.mf)}</b>${Math.abs(restD) >= 0.15 ? ` <span class="${cls(restD)}">${sg(restD)}</span>` : ''}${Math.abs(trip) >= 0.15 ? ` <span class="${cls(trip)}" title="road trip">${sg(trip)}</span>` : ''}`;
       const edge = r.venuePts + r.sit;
-      const pc = Math.round(r.p * 100);
-      return `<tr class="sched-row">
-        <td class="sched-date">${fmtD(r.g.date)}${r.event ? `<div class="tsp-ev">${r.event}</div>` : ''}</td>
-        <td class="sched-rk">${rk}</td>
-        <td class="sched-opp">${r.venue === 'A' ? 'at ' : r.venue === 'N' ? 'vs ' : ''}${r.label}</td>
-        <td class="tsp-edge tsp-hide"><b>${sg(edge)}</b>${chips.join('')}</td>
-        <td class="sched-res tsp-p" style="color:${pc >= 50 ? green : red};" title="${Math.round(r.p0 * 100)}% on the line alone · ${pc}% across simulated seasons (rating uncertainty + streaks)">${pc}%<span class="tsp-bar"><i style="width:${pc}%;background:${pc >= 50 ? green : red};"></i></span></td>
-        <td class="sched-loc col-loc">${r.spread}</td>
-        <td class="sched-rec" style="color:var(--text3);">${r.scoreMe}–${r.scoreOpp}</td>
-      </tr>`;
-    }).join('');
-    const L = R.n - Math.round(R.expW), cl = R.confN - Math.round(R.expCW);
+      const siteTitle = r.venue === 'H' ? `home edge ${sg(r.venuePts)}` : r.venue === 'A' ? `their building ${sg(r.venuePts)}` : 'neutral floor';
+      rows += moRow(d.key) + `<tr>
+        <td class="l tsp-d">${d.mo} ${d.day}<em>${d.dw}</em>${r.event ? `<span class="tsp-ev">${r.event}</span>` : ''}</td>
+        <td class="l tsp-o">${rk}${pre}${oppTxt}</td>
+        <td class="l tsp-site" title="${siteTitle}"><b class="${r.venue}">${r.venue}</b>${r.venuePts ? `<span class="${cls(r.venuePts)}">${sg(r.venuePts)}</span>` : ''}</td>
+        <td class="tsp-rest tsp-hide" title="rest: ${restTxt(r.mf)} vs ${r.known ? restTxt(r.of) : (r.oppName ? 'unknown' : 'same')}${r.mf.stint >= 2 ? ` · ${r.mf.stint}${r.mf.stint === 2 ? 'nd' : r.mf.stint === 3 ? 'rd' : 'th'} straight away` : ''}">${restCell}</td>
+        <td class="tsp-edge tsp-hide ${cls(edge)}">${sg(edge)}</td>
+        <td class="tsp-p" title="${Math.round(r.p0 * 100)}% on the line alone · ${Math.round(r.p * 100)}% across simulated seasons">${pCell(r.p)}</td>
+        <td class="tsp-line">${r.spread}</td>
+        <td class="tsp-sc">${r.scoreMe}–${r.scoreOpp}</td></tr>`;
+    });
+    const W = Math.round(R.expW), L = R.n - W, cw = Math.round(R.expCW), cl = R.confN - cw;
+    const pw = (opts.played || []).filter(x => x.won).length, pl = (opts.played || []).length - pw;
     const m = R.model || {};
     const sum = `<div class="tsp-sum">
-      <div class="tsp-tile"><div class="k">Projected record</div><div class="v">${Math.round(R.expW)}–${L}</div><div class="s">${R.expW.toFixed(1)} expected wins of ${R.n}</div></div>
-      <div class="tsp-tile"><div class="k">Likely range</div><div class="v">${R.lo}–${R.n - R.lo}<small>to</small> ${R.hi}–${R.n - R.hi}</div><div class="s">10th–90th pct of ${R.sims.toLocaleString()} seasons</div></div>
-      ${R.confN ? `<div class="tsp-tile"><div class="k">Conference</div><div class="v">${Math.round(R.expCW)}–${cl}</div><div class="s">${R.expCW.toFixed(1)} of ${R.confN} league games</div></div>` : ''}
-      <div class="tsp-tile"><div class="k">20+ wins</div><div class="v">${Math.round(R.p20 * 100)}%</div><div class="s">25+: ${Math.round(R.p25 * 100)}% · .500+: ${Math.round(R.pHalf * 100)}%</div></div>
+      <div class="tsp-tile"><div class="k">Projected record</div><div class="v">${pw + W}–${pl + L}</div><div class="s">${(pw + R.expW).toFixed(1)} expected wins${pw + pl ? ` · ${pw}–${pl} so far` : ''}</div></div>
+      <div class="tsp-tile"><div class="k">Likely range</div><div class="v">${pw + R.lo}–${pl + R.n - R.lo}<small>to</small>${pw + R.hi}–${pl + R.n - R.hi}</div><div class="s">10th–90th pct · ${R.sims.toLocaleString()} sims</div></div>
+      <div class="tsp-tile"><div class="k">Conference</div><div class="v">${R.confN ? `${cw}–${cl}` : '—'}</div><div class="s">${R.confN ? `${R.expCW.toFixed(1)} of ${R.confN} league games` : 'no league games listed yet'}</div></div>
+      <div class="tsp-tile"><div class="k">20+ wins</div><div class="v">${Math.round(R.p20 * 100)}%</div><div class="s">25+ ${Math.round(R.p25 * 100)}% · .500+ ${Math.round(R.pHalf * 100)}%</div></div>
     </div>`;
-    const note = `<div class="tsp-note">Every game is priced off the predictive ratings with the host's <b>measured venue edge</b>, then the whole season is simulated ${R.sims.toLocaleString()} times with each team's true strength drawn around its projection (±${R.tau} pts), so a hot start and the wins it chains together are in the odds. Situational terms come from ${(m.n || 0).toLocaleString()} games since ${m.firstSeason || 2008}: <b>back-to-back ${sg(m.rest && m.rest.b2b || 0)}</b>, 8+ days off ${sg(m.rest && m.rest.r8 || 0)}, season opener ${sg(m.rest && m.rest.opener || 0)}; a 2nd/3rd/4th straight road game measures <b>${sg(m.stint && m.stint.s2 || 0)} / ${sg(m.stint && m.stint.s3 || 0)} / ${sg(m.stint && m.stint.s4 || 0)}</b> beyond the venue (nothing); a win streak is worth <b>${sg(m.streak && m.streak.w24 || 0)}</b> once strength is known. Edge = venue + rest + trip, in points.</div>`;
-    host.innerHTML = `${sum}<table class="sched-table"><thead><tr>
-      <th>Date</th><th>Rk</th><th>Opponent</th><th class="tsp-hide">Edge</th><th>Win %</th><th class="col-loc">Line</th><th>Proj</th>
-    </tr></thead><tbody>${opts.beforeRows || ''}${rows}</tbody></table>${note}`;
+    const note = `<div class="tsp-note"><b>Site</b> = the host's measured edge (opponent-strength curve + venue). <b>Rest</b> = days off, with the swing vs the opponent's rest; from ${(m.n || 0).toLocaleString()} games since ${m.firstSeason || 2008}: back-to-back <b>${sg(m.rest && m.rest.b2b || 0)}</b>, 8+ days off ${sg(m.rest && m.rest.r8 || 0)}, opener ${sg(m.rest && m.rest.opener || 0)}; a 2nd/3rd/4th straight road game measures ${sg(m.stint && m.stint.s2 || 0)}/${sg(m.stint && m.stint.s3 || 0)}/${sg(m.stint && m.stint.s4 || 0)} beyond the venue; a win streak ${sg(m.streak && m.streak.w24 || 0)}. <b>Win %</b> is the share of ${R.sims.toLocaleString()} simulated seasons, each drawing every team's true strength ±${R.tau} around its projection — that uncertainty, not momentum, is what chains wins together.</div>`;
+    host.innerHTML = `<div class="tsp">${sum}<table class="tsp-table"><thead><tr>
+      <th class="l">Date</th><th class="l">Opponent</th><th class="l">Site</th><th class="tsp-hide">Rest</th><th class="tsp-hide">Edge</th><th>Win %</th><th>Line</th><th>Score</th>
+    </tr></thead><tbody>${rows}</tbody></table>${note}</div>`;
   }
 
   g.TDCSched = { load, project, render, gamesFor, extrasFor, SEASON };
