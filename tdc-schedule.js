@@ -304,7 +304,9 @@
       const d = dParts(r.g.date);
       const tl = n => `<a href="team.html?team=${encodeURIComponent(sn(n))}" onclick="event.stopPropagation()">${sn(n)}</a>`;
       const oppTxt = r.bracket ? `${tl(r.bracket[0])} / ${tl(r.bracket[1])}` : r.pool ? 'TBD' : (r.oppName ? tl(r.oppName) : 'TBD');
-      const pv = r.oppName ? `preview.html?team=${encodeURIComponent(team)}&opp=${encodeURIComponent(r.oppName)}&date=${r.g.date}` : '';
+      // encodeURIComponent leaves apostrophes alone, and the href sits inside a single-quoted onclick (St. John's)
+      const enc = x => encodeURIComponent(x).replace(/'/g, '%27');
+      const pv = r.oppName ? `preview.html?team=${enc(team)}&opp=${enc(r.oppName)}&date=${r.g.date}` : '';
       const restD = r.restMe - r.restOpp, trip = r.stintMe - r.stintOpp;
       const edge = r.venuePts + r.sit;
       const siteTitle = r.venue === 'H' ? `home edge ${sg(r.venuePts)}` : r.venue === 'A' ? `their building ${sg(r.venuePts)}` : 'neutral floor';
