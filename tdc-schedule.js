@@ -196,38 +196,39 @@
   .tsp-tile .v{font-family:'Playfair Display',serif;font-weight:800;font-size:21px;line-height:1;color:var(--text);white-space:nowrap;}
   .tsp-tile .v small{font-family:'Inter',sans-serif;font-size:10.5px;font-weight:600;color:var(--text3);margin:0 3px;}
   .tsp-tile .s{font-size:10.5px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .tsp-table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums;}
-  .tsp-table th{text-align:right;font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap;}
-  .tsp-table th.l{text-align:left;}
-  .tsp-table td{padding:3px 8px;height:25px;border-bottom:1px solid color-mix(in srgb,var(--border) 60%,transparent);white-space:nowrap;text-align:right;color:var(--text2);line-height:1.3;}
+  /* kenpom-style grid: bordered cells, no stretching, whole row tinted by the outcome */
+  .tsp-wrap{overflow:auto;}
+  .tsp-table{border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums;width:auto;min-width:640px;margin:0 auto;border:1px solid var(--border);}
+  .tsp-table th{text-align:center;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text2);padding:5px 8px;border:1px solid var(--border);background:var(--bg2);white-space:nowrap;}
+  .tsp-table td{padding:2px 8px;border:1px solid color-mix(in srgb,var(--border) 70%,transparent);white-space:nowrap;text-align:center;color:var(--text);line-height:1.35;height:22px;}
   .tsp-table td.l{text-align:left;}
-  .tsp-table tr:hover td{background:color-mix(in srgb,var(--text) 4%,transparent);}
-  .tsp-mo td{padding:9px 8px 3px;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--tc-readable,var(--accent));border-bottom:1px solid var(--border);background:transparent!important;}
-  .tsp-table td.tsp-d{color:var(--text2);font-weight:600;width:64px;}
+  .tsp-table td.r{text-align:right;}
+  .tsp-table tr.mo1 td{border-top:2px solid var(--border2);}
+  .tsp-table tr.w td{background:color-mix(in srgb,#2f9159 calc(var(--k)*1%),transparent);}
+  .tsp-table tr.x td{background:color-mix(in srgb,#d05a5a calc(var(--k)*1%),transparent);}
+  .tsp-table tr:hover td{filter:brightness(1.06);}
+  .tsp-table td.tsp-d{color:var(--text);font-weight:600;}
   .tsp-table td.tsp-d em{font-style:normal;color:var(--text3);font-weight:500;font-size:11px;margin-left:4px;}
-  .tsp-ev{display:block;font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--tc-readable,var(--accent));line-height:1.2;}
-  .tsp-table td.tsp-o{font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;max-width:240px;}
-  .tsp-table td.tsp-o .rk{display:inline-block;min-width:26px;font-size:10.5px;font-weight:800;color:var(--text3);margin-right:4px;}
+  .tsp-ev{display:block;font-size:8.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);line-height:1.1;}
+  .tsp-table td.tsp-rk{color:var(--text3);font-size:11px;font-weight:600;}
+  .tsp-table td.tsp-o{font-weight:700;overflow:hidden;text-overflow:ellipsis;max-width:210px;}
   .tsp-table td.tsp-o .pre{font-weight:500;color:var(--text3);}
   .tsp-table td.tsp-o.hist{font-weight:600;}
-  .tsp-table td.tsp-site{width:72px;}
-  .tsp-table td.tsp-site b{display:inline-block;width:16px;height:15px;line-height:15px;text-align:center;border-radius:4px;font-size:9.5px;font-weight:800;color:var(--text);background:color-mix(in srgb,var(--text) 10%,transparent);margin-right:5px;vertical-align:text-bottom;}
-  .tsp-table td.tsp-site b.H{background:color-mix(in srgb,#2f9159 22%,transparent);color:#2f9159;}
-  .tsp-table td.tsp-site b.A{background:color-mix(in srgb,#bd4b4b 22%,transparent);color:#d05a5a;}
-  .tsp-table td.tsp-rest{width:74px;color:var(--text3);}
-  .tsp-table td.tsp-rest b{font-weight:700;color:var(--text2);}
+  .tsp-table td.tsp-site b{font-weight:800;margin-right:5px;}
+  .tsp-table td.tsp-site b.H{color:#2f9159;} .tsp-table td.tsp-site b.A{color:#d05a5a;} .tsp-table td.tsp-site b.N{color:var(--text3);}
+  .tsp-table td.tsp-rest{color:var(--text2);}
+  .tsp-table td.tsp-rest b{font-weight:700;color:var(--text);}
   .tsp .pos{color:#2f9159!important;} .tsp .neg{color:#d05a5a!important;}
   [data-theme="dark"] .tsp .pos{color:#4fc07a!important;} [data-theme="dark"] .tsp .neg{color:#ef6e6e!important;}
-  .tsp-table td.tsp-edge{font-weight:800;color:var(--text);width:52px;}
-  .tsp-table td.tsp-p{font-weight:800;width:60px;color:var(--text);}
-  .tsp-table td.tsp-p span{display:inline-block;min-width:44px;padding:2px 6px;border-radius:5px;text-align:right;color:var(--text);}
+  [data-theme="dark"] .tsp-table td.tsp-site b.H{color:#4fc07a;} [data-theme="dark"] .tsp-table td.tsp-site b.A{color:#ef6e6e;}
+  .tsp-table td.tsp-edge{font-weight:700;}
+  .tsp-table td.tsp-p{font-weight:800;}
   .tsp-table td.tsp-line{color:var(--text2);font-weight:600;}
-  .tsp-table td.tsp-sc{color:var(--text3);width:56px;}
-  .tsp-res{font-weight:800;} .tsp-res.w{color:#2f9159;} .tsp-res.l{color:#d05a5a;}
-  [data-theme="dark"] .tsp-res.w{color:#4fc07a;} [data-theme="dark"] .tsp-res.l{color:#ef6e6e;}
+  .tsp-table td.tsp-sc{color:var(--text2);}
+  .tsp-table td .tsp-res{font-weight:800;}
   .tsp-note{font-size:11px;color:var(--text3);line-height:1.5;margin:10px 2px 0;}
   .tsp-note b{color:var(--text2);}
-  @media(max-width:760px){.tsp-sum{grid-template-columns:repeat(2,minmax(0,1fr));}.tsp-hide{display:none;}.tsp-o{max-width:150px;}}`;
+  @media(max-width:760px){.tsp-sum{grid-template-columns:repeat(2,minmax(0,1fr));}.tsp-hide{display:none;}.tsp-table td.tsp-o{max-width:140px;}}`;
   function ensureCss() { if (document.getElementById('tsp-css')) return; const s = document.createElement('style'); s.id = 'tsp-css'; s.textContent = CSS; document.head.appendChild(s); }
 
   const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], DW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -246,33 +247,36 @@
     ensureCss(); opts = opts || {};
     const sn = g.tdcShortSchool || (x => x);
     let lastMo = null, rows = '';
-    const moRow = key => { if (key === lastMo) return ''; lastMo = key; const [y, m] = key.split('-'); return `<tr class="tsp-mo"><td colspan="8">${MO[+m]} ${y}</td></tr>`; };
+    const moCls = key => { const c = lastMo !== null && key !== lastMo ? ' mo1' : ''; lastMo = key; return c; };
+    const tint = p => { const k = Math.round(9 + 16 * Math.min(1, Math.abs(p - 0.5) / 0.45)); return `class="${p >= 0.5 ? 'w' : 'x'}" style="--k:${k}"`; };
     (opts.played || []).forEach(x => {          // results already on the books
       const d = dParts(x.date);
-      rows += moRow(d.key) + `<tr onclick="${x.href ? `location.href='${x.href}'` : ''}" style="cursor:${x.href ? 'pointer' : 'default'}">
+      rows += `<tr class="${x.won ? 'w' : 'x'}${moCls(d.key)}" style="--k:18;cursor:${x.href ? 'pointer' : 'default'}" onclick="${x.href ? `location.href='${x.href}'` : ''}">
         <td class="l tsp-d">${d.mo} ${d.day}<em>${d.dw}</em></td>
-        <td class="l tsp-o hist">${x.rank ? `<span class="rk">#${x.rank}</span>` : '<span class="rk"></span>'}${sn(x.opp)}</td>
-        <td class="l tsp-site"><b class="${x.site}">${x.site}</b></td>
+        <td class="tsp-rk">${x.rank || ''}</td>
+        <td class="l tsp-o hist">${sn(x.opp)}</td>
+        <td class="tsp-site"><b class="${x.site}">${x.site}</b></td>
         <td class="tsp-rest tsp-hide"></td><td class="tsp-edge tsp-hide"></td>
-        <td class="tsp-p"><span class="tsp-res ${x.won ? 'w' : 'l'}">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}</span></td>
+        <td class="tsp-p"><span class="tsp-res">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}</span></td>
         <td class="tsp-line"></td><td class="tsp-sc">${x.rec}</td></tr>`;
     });
     R.rows.forEach(r => {
       const d = dParts(r.g.date);
-      const rk = r.opp && r.opp.rank ? `<span class="rk">#${r.opp.rank}</span>` : '<span class="rk"></span>';
       const oppTxt = r.bracket ? `${sn(r.bracket[0])} / ${sn(r.bracket[1])}` : r.pool ? 'TBD' : (r.oppName ? sn(r.oppName) : 'TBD');
       const pre = r.venue === 'A' ? '<span class="pre">at </span>' : r.venue === 'N' ? '<span class="pre">vs </span>' : '';
       const restD = r.restMe - r.restOpp, trip = r.stintMe - r.stintOpp;
       const restCell = `<b>${restTxt(r.mf)}</b>${Math.abs(restD) >= 0.15 ? ` <span class="${cls(restD)}">${sg(restD)}</span>` : ''}${Math.abs(trip) >= 0.15 ? ` <span class="${cls(trip)}" title="road trip">${sg(trip)}</span>` : ''}`;
       const edge = r.venuePts + r.sit;
       const siteTitle = r.venue === 'H' ? `home edge ${sg(r.venuePts)}` : r.venue === 'A' ? `their building ${sg(r.venuePts)}` : 'neutral floor';
-      rows += moRow(d.key) + `<tr>
+      const t = tint(r.p), mc = moCls(d.key);
+      rows += `<tr ${t.replace('class="', 'class="' + mc.trim() + ' ')}>
         <td class="l tsp-d">${d.mo} ${d.day}<em>${d.dw}</em>${r.event ? `<span class="tsp-ev">${r.event}</span>` : ''}</td>
-        <td class="l tsp-o">${rk}${pre}${oppTxt}</td>
-        <td class="l tsp-site" title="${siteTitle}"><b class="${r.venue}">${r.venue}</b>${r.venuePts ? `<span class="${cls(r.venuePts)}">${sg(r.venuePts)}</span>` : ''}</td>
+        <td class="tsp-rk">${r.opp && r.opp.rank ? r.opp.rank : ''}</td>
+        <td class="l tsp-o">${pre}${oppTxt}</td>
+        <td class="tsp-site" title="${siteTitle}"><b class="${r.venue}">${r.venue}</b>${r.venuePts ? `<span class="${cls(r.venuePts)}">${sg(r.venuePts)}</span>` : ''}</td>
         <td class="tsp-rest tsp-hide" title="rest: ${restTxt(r.mf)} vs ${r.known ? restTxt(r.of) : (r.oppName ? 'unknown' : 'same')}${r.mf.stint >= 2 ? ` · ${r.mf.stint}${r.mf.stint === 2 ? 'nd' : r.mf.stint === 3 ? 'rd' : 'th'} straight away` : ''}">${restCell}</td>
         <td class="tsp-edge tsp-hide ${cls(edge)}">${sg(edge)}</td>
-        <td class="tsp-p" title="${Math.round(r.p0 * 100)}% on the line alone · ${Math.round(r.p * 100)}% across simulated seasons">${pCell(r.p)}</td>
+        <td class="tsp-p" title="${Math.round(r.p0 * 100)}% on the line alone · ${Math.round(r.p * 100)}% across simulated seasons">${Math.round(r.p * 100)}%</td>
         <td class="tsp-line">${r.spread}</td>
         <td class="tsp-sc">${r.scoreMe}–${r.scoreOpp}</td></tr>`;
     });
@@ -286,9 +290,9 @@
       <div class="tsp-tile"><div class="k">20+ wins</div><div class="v">${Math.round(R.p20 * 100)}%</div><div class="s">25+ ${Math.round(R.p25 * 100)}% · .500+ ${Math.round(R.pHalf * 100)}%</div></div>
     </div>`;
     const note = `<div class="tsp-note"><b>Site</b> = the host's measured edge (opponent-strength curve + venue). <b>Rest</b> = days off, with the swing vs the opponent's rest; from ${(m.n || 0).toLocaleString()} games since ${m.firstSeason || 2008}: back-to-back <b>${sg(m.rest && m.rest.b2b || 0)}</b>, 8+ days off ${sg(m.rest && m.rest.r8 || 0)}, opener ${sg(m.rest && m.rest.opener || 0)}; a 2nd/3rd/4th straight road game measures ${sg(m.stint && m.stint.s2 || 0)}/${sg(m.stint && m.stint.s3 || 0)}/${sg(m.stint && m.stint.s4 || 0)} beyond the venue; a win streak ${sg(m.streak && m.streak.w24 || 0)}. <b>Win %</b> is the share of ${R.sims.toLocaleString()} simulated seasons, each drawing every team's true strength ±${R.tau} around its projection — that uncertainty, not momentum, is what chains wins together.</div>`;
-    host.innerHTML = `<div class="tsp">${sum}<table class="tsp-table"><thead><tr>
-      <th class="l">Date</th><th class="l">Opponent</th><th class="l">Site</th><th class="tsp-hide">Rest</th><th class="tsp-hide">Edge</th><th>Win %</th><th>Line</th><th>Score</th>
-    </tr></thead><tbody>${rows}</tbody></table>${note}</div>`;
+    host.innerHTML = `<div class="tsp">${sum}<div class="tsp-wrap"><table class="tsp-table"><thead><tr>
+      <th>Date</th><th>Rk</th><th>Opponent</th><th>Site</th><th class="tsp-hide">Rest</th><th class="tsp-hide">Edge</th><th>Win %</th><th>Line</th><th>Score</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>${note}</div>`;
   }
 
   g.TDCSched = { load, project, render, gamesFor, extrasFor, SEASON };
