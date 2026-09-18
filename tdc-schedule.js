@@ -259,7 +259,6 @@
         <td class="l tsp-o hist">${sn(x.opp)}</td>
         <td class="tsp-sc"><span class="tsp-res">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}</span></td>
         <td class="tsp-site"><b class="${x.site}">${x.site}</b></td>
-        <td class="tsp-rest tsp-hide"></td><td class="tsp-edge tsp-hide"></td>
         <td class="tsp-p"></td>
         <td class="tsp-line">${x.rec}</td></tr>`;
     });
@@ -268,7 +267,6 @@
       const oppTxt = r.bracket ? `${sn(r.bracket[0])} / ${sn(r.bracket[1])}` : r.pool ? 'TBD' : (r.oppName ? sn(r.oppName) : 'TBD');
       const pre = r.venue === 'A' ? '<span class="pre">at </span>' : r.venue === 'N' ? '<span class="pre">vs </span>' : '';
       const restD = r.restMe - r.restOpp, trip = r.stintMe - r.stintOpp;
-      const restCell = `<b>${restTxt(r.mf)}</b>${Math.abs(restD) >= 0.15 ? ` <span class="${cls(restD)}">${sg(restD)}</span>` : ''}${Math.abs(trip) >= 0.15 ? ` <span class="${cls(trip)}" title="road trip">${sg(trip)}</span>` : ''}`;
       const edge = r.venuePts + r.sit;
       const siteTitle = r.venue === 'H' ? `home edge ${sg(r.venuePts)}` : r.venue === 'A' ? `their building ${sg(r.venuePts)}` : 'neutral floor';
       const t = tint(r.p), mc = moCls(d.key);
@@ -277,9 +275,7 @@
         <td class="tsp-rk">${r.opp && r.opp.rank ? r.opp.rank : ''}</td>
         <td class="l tsp-o">${pre}${oppTxt}</td>
         <td class="tsp-sc">${r.scoreMe}–${r.scoreOpp}</td>
-        <td class="tsp-site" title="${siteTitle}"><b class="${r.venue}">${r.venue}</b></td>
-        <td class="tsp-rest tsp-hide" title="rest: ${restTxt(r.mf)} vs ${r.known ? restTxt(r.of) : (r.oppName ? 'unknown' : 'same')}${r.mf.stint >= 2 ? ` · ${r.mf.stint}${r.mf.stint === 2 ? 'nd' : r.mf.stint === 3 ? 'rd' : 'th'} straight away` : ''}">${restCell}</td>
-        <td class="tsp-edge tsp-hide ${cls(edge)}">${sg(edge)}</td>
+        <td class="tsp-site" title="${siteTitle} · rest ${restTxt(r.mf)} vs ${r.known ? restTxt(r.of) : (r.oppName ? '?' : 'same')}${Math.abs(restD) >= 0.15 ? ` (${sg(restD)})` : ''}${r.mf.stint >= 2 ? ` · ${r.mf.stint}${r.mf.stint === 2 ? 'nd' : r.mf.stint === 3 ? 'rd' : 'th'} straight away` : ''} · situational edge ${sg(edge)}"><b class="${r.venue}">${r.venue}</b></td>
         <td class="tsp-p" title="${Math.round(r.p0 * 100)}% on the line alone · ${Math.round(r.p * 100)}% across simulated seasons">${Math.round(r.p * 100)}%</td>
         <td class="tsp-line">${r.margin >= 0 ? '−' : '+'}${Math.abs(r.margin).toFixed(1)}</td></tr>`;
     });
@@ -292,9 +288,9 @@
       <div class="tsp-tile"><div class="k">Conference</div><div class="v">${R.confN ? `${cw}–${cl}` : '—'}</div><div class="s">${R.confN ? `${R.expCW.toFixed(1)} of ${R.confN} league games` : 'no league games listed yet'}</div></div>
       <div class="tsp-tile"><div class="k">20+ wins</div><div class="v">${Math.round(R.p20 * 100)}%</div><div class="s">25+ ${Math.round(R.p25 * 100)}% · .500+ ${Math.round(R.pHalf * 100)}%</div></div>
     </div>`;
-    const note = `<div class="tsp-note"><b>Site</b> = the host's measured edge (opponent-strength curve + venue). <b>Rest</b> = days off, with the swing vs the opponent's rest; from ${(m.n || 0).toLocaleString()} games since ${m.firstSeason || 2008}: back-to-back <b>${sg(m.rest && m.rest.b2b || 0)}</b>, 8+ days off ${sg(m.rest && m.rest.r8 || 0)}, opener ${sg(m.rest && m.rest.opener || 0)}; a 2nd/3rd/4th straight road game measures ${sg(m.stint && m.stint.s2 || 0)}/${sg(m.stint && m.stint.s3 || 0)}/${sg(m.stint && m.stint.s4 || 0)} beyond the venue; a win streak ${sg(m.streak && m.streak.w24 || 0)}. <b>Win %</b> is the share of ${R.sims.toLocaleString()} simulated seasons, each drawing every team's true strength ±${R.tau} around its projection — that uncertainty, not momentum, is what chains wins together.</div>`;
+    const note = `<div class="tsp-note"><b>Line</b> = projected margin (− favored, + underdog), built from the ratings, the host's measured home edge, and rest: back-to-backs cost ${sg(m.rest && m.rest.b2b || 0)} pts, 8+ days off ${sg(m.rest && m.rest.r8 || 0)}, a season opener ${sg(m.rest && m.rest.opener || 0)} (${(m.n || 0).toLocaleString()} games since ${m.firstSeason || 2008}; road trips and win streaks measure ≈ 0). Hover a Site badge for that game's breakdown. <b>Win %</b> is the share of ${R.sims.toLocaleString()} simulated seasons, each drawing every team's true strength ±${R.tau} around its projection.</div>`;
     host.innerHTML = `<div class="tsp">${sum}<div class="tsp-wrap"><table class="tsp-table"><thead><tr>
-      <th>Date</th><th>Rk</th><th>Opponent</th><th>Score</th><th>Site</th><th class="tsp-hide">Rest</th><th class="tsp-hide">Edge</th><th>Win %</th><th>Line</th>
+      <th>Date</th><th>Rk</th><th>Opponent</th><th>Score</th><th>Site</th><th>Win %</th><th>Line</th>
     </tr></thead><tbody>${rows}</tbody></table></div>${note}</div>`;
   }
 
