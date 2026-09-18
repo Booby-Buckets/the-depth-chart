@@ -1127,9 +1127,9 @@ function cmpRow(label,av,bv,fmtFn,higher){
   if(higher===undefined) higher=true;
   var a=parseFloat(av),b=parseFloat(bv),hasA=!isNaN(a),hasB=!isNaN(b);
   var wA='',wB=''; if(hasA&&hasB&&a!==b){ var aw=higher?a>b:a<b; wA=aw?'winner':'loser'; wB=aw?'loser':'winner'; }
-  return '<div class="compare-row"'+_rowData(hasA?a:null,hasB?b:null,higher)+'><div class="compare-cell '+wA+'">'+(hasA?fmtFn(a):'—')+'</div>'
+  return '<div class="compare-row"'+_rowData(hasA?a:null,hasB?b:null,higher)+'><div class="compare-cell '+wA+'">'+(hasA?fmtFn(a,0):'—')+'</div>'
     +'<div class="compare-label">'+label+'</div>'
-    +'<div class="compare-cell right '+wB+'">'+(hasB?fmtFn(b):'—')+'</div></div>';
+    +'<div class="compare-cell right '+wB+'">'+(hasB?fmtFn(b,1):'—')+'</div></div>';
 }
 // ── most similar players: weighted z-distance over an ALL-TIME pool ──
 // The full player-season history can't be scanned in one query (statement
@@ -2004,9 +2004,9 @@ let _sheetSides=[null,null];   // {name, sub, color, logo} for the two sides
 // format a derived number the way the cell text is formatted (decimals, %, ×, #)
 function _likeCell(n, sample){
   const t=(sample||'').replace(/<[^>]*>[^<]*<\/[^>]*>/g,'').trim();
-  const dec=(t.match(/\.(\d+)/)||[,''])[1].length;
-  const pct=/%/.test(t)?'%':'';
-  return n.toFixed(dec)+pct;
+  const tok=(t.match(/-?\d+(\.\d+)?%?/)||[''])[0];   // the leading number decides decimals + unit
+  const dec=(tok.match(/\.(\d+)/)||[,''])[1].length;
+  return n.toFixed(dec)+(/%$/.test(tok)?'%':'');
 }
 function sheetify(root){
   root=root||document.getElementById('compareSection'); if(!root) return;
@@ -2045,7 +2045,7 @@ function sheetify(root){
     const hasAvg=cols.some(c=>!isNaN(c.avg));
     const hasEdge=cols.some(c=>!isNaN(c.na)&&!isNaN(c.nb)&&c.na!==c.nb);
     const gsc=c=>c.gs?' class="gs"':'';
-    const edge=c=>{ if(isNaN(c.na)||isNaN(c.nb)||c.na===c.nb) return `<td${gsc(c)}>—</td>`;
+    const edge=c=>{ if(isNaN(c.na)||isNaN(c.nb)||c.na===c.nb||/\d-\d/.test(c.a&&c.a.textContent||'')) return `<td${gsc(c)}>—</td>`;
       const d=c.na-c.nb, lead=(c.hi?d>0:d<0)?0:1;
       return `<td${gsc(c)} style="color:${colOf(lead)}">${d>0?'+':'−'}${_likeCell(Math.abs(d), c.a&&c.a.innerHTML)}</td>`; };
     const avg=c=>`<td${gsc(c)}>${isNaN(c.avg)?'—':_likeCell(c.avg, c.a&&c.a.innerHTML||c.b&&c.b.innerHTML)}</td>`;
@@ -2065,7 +2065,17 @@ function sheetify(root){
 new MutationObserver(()=>sheetify()).observe(document.getElementById('compareSection'),{childList:true,subtree:true});
 
 // ── HERO BAND ───────────────────────────────────────────────────────────────
-function _tile(k,v,s,acc,col){ return `<div class="ph-tile${acc?' acc':''}"><div class="k">${k}</div><div class="v"${col?` style="color:${col}"`:''}>${v}</div><div class="s">${s||'&nbsp;'}</div></div>`; }
+// the hero is navy in both themes: lift dark brand colors (Gonzaga, Duke navy) so the tile reads
+function _heroCol(c){
+  const m=/^#?([0-9a-f]{6})$/i.exec((c||'').trim()); if(!m) return c;
+  const n=parseInt(m[1],16); let r=n>>16&255,g=n>>8&255,b=n&255;
+  const lum=(0.2126*r+0.7152*g+0.0722*b)/255;
+  if(lum>=0.42) return c;
+  const t=Math.min(0.75,(0.42-lum)/0.42*0.85+0.35);   // darker → more lift
+  r=Math.round(r+(255-r)*t); g=Math.round(g+(255-g)*t); b=Math.round(b+(255-b)*t);
+  return '#'+((1<<24)|(r<<16)|(g<<8)|b).toString(16).slice(1);
+}
+function _tile(k,v,s,acc,col){ col=col?_heroCol(col):col; return `<div class="ph-tile${acc?' acc':''}"><div class="k">${k}</div><div class="v"${col?` style="color:${col}"`:''}>${v}</div><div class="s">${s||'&nbsp;'}</div></div>`; }
 function _short(n){ n=(n||'').trim(); return n.length>18?n.split(' ').slice(-1)[0]:n; }
 function fillCmpBand(){
   const band=document.getElementById('cmpBand'); if(!band) return;
@@ -2078,7 +2088,10 @@ function fillCmpBand(){
     return;
   }
   const [a,b]=arr, s0=_sheetSides[0]||{}, s1=_sheetSides[1]||{};
-  const sheet=document.querySelector('#compareSection .cs');
+  // the "stat edge" tile counts the main stat sheet (Team Stats for programs, the per-game sheet for players)
+  const heads=[...document.querySelectorAll('#compareSection .compare-section-head')];
+  const th=mode==='teams'?heads.find(h=>/Team Stats/.test(h.textContent)):null;
+  const sheet=(th&&th.nextElementSibling&&th.nextElementSibling.querySelector('.cs'))||document.querySelector('#compareSection .cs');
   let won=[0,0];
   if(sheet){ sheet.querySelectorAll('tr.cs-p').forEach((tr,i)=>{ won[i]=tr.querySelectorAll('td.winner').length; }); }
   const tot=won[0]+won[1], lead=won[0]===won[1]?-1:(won[0]>won[1]?0:1);
@@ -2649,14 +2662,6 @@ async function renderTeams(){
       </div>
     </div>`;
   };
-  const resume=(s,c,right)=>{
-    if(!s) return `<div class="ol-card ${right?'right':''}"><div class="ol-sub">No season data</div></div>`;
-    const n=net(s);
-    return `<div class="ol-card ${right?'right':''}">
-      <div class="nil-big" style="color:${c}">${s.wins||0}-${s.losses||0}</div>
-      <div class="nil-sub2">${s.conf_wins!=null?`${s.conf_wins}-${s.conf_losses} conf · `:''}SRS ${s.srs!=null?(+s.srs).toFixed(1):'—'} · Net ${n!=null?(n>0?'+':'')+n:'—'}${s.postseason?` · ${s.postseason}`:''}</div>
-    </div>`;
-  };
   const sameYear=y1===y2;
   t1._srow=s1; t2._srow=s2;
   _sheetSides=[
@@ -2665,21 +2670,27 @@ async function renderTeams(){
   const statHead=sameYear?`${yl1} Team Stats`:`Team Stats · ${yl1} vs ${yl2}`;
   const infoRow=(label,a,b)=>`<div class="compare-row" data-hi="1"><div class="compare-cell">${a??'—'}</div><div class="compare-label">${label}</div><div class="compare-cell right">${b??'—'}</div></div>`;
   const g=(s,k)=>s?s[k]:null;
+  const rec=s=>s?`${s.wins||0}-${s.losses||0}`:'—', crec=s=>s&&s.conf_wins!=null?`${s.conf_wins}-${s.conf_losses}`:'—';
+  const winPct=s=>{ const w=+s.wins||0,l=+s.losses||0; return w+l?100*w/(w+l):null; };
   sec.innerHTML=`
     <div class="cmp-heads">${head(t1,s1,f1,c1,false)}<div class="cmp-vs">VS</div>${head(t2,s2,f2,c2,true)}</div>
 
-    <div class="compare-section-head" style="border-radius:8px;">Season Résumé${sameYear?` — ${yl1}`:''}</div>
-    <div class="ol-grid">${resume(s1,c1,false)}${resume(s2,c2,true)}</div>
+    <div class="compare-section-head">Season Résumé${sameYear?` — ${yl1}`:''}</div>
+    ${cmpRow('Record',s1?winPct(s1):null,s2?winPct(s2):null,(v,i)=>rec(i?s2:s1))}
+    ${cmpRow('Conf',s1&&s1.conf_wins!=null?100*s1.conf_wins/Math.max(1,s1.conf_wins+s1.conf_losses):null,s2&&s2.conf_wins!=null?100*s2.conf_wins/Math.max(1,s2.conf_wins+s2.conf_losses):null,(v,i)=>crec(i?s2:s1))}
+    ${cmpRow('Win%',s1?winPct(s1):null,s2?winPct(s2):null,v=>v.toFixed(1)+'%')}
+    ${cmpRow('Power Rating',g(s1,'srs'),g(s2,'srs'),v=>v.toFixed(1))}
+    ${cmpRow('PR Rank',srsRank(f1,g(s1,'srs')),srsRank(f2,g(s2,'srs')),v=>'#'+Math.round(v),false)}
+    ${cmpRow('Net',net(s1),net(s2),v=>(v>0?'+':'')+v.toFixed(1))}
+    ${cmpRow('Seed',g(s1,'ncaa_seed'),g(s2,'ncaa_seed'),v=>'#'+Math.round(v),false)}
+    ${infoRow('Finish',s1&&s1.postseason?s1.postseason:null,s2&&s2.postseason?s2.postseason:null)}
 
     ${(s1&&s2&&(s1.team!==s2.team||y1!==y2))?_matchupCard(s1,s2,f1,f2,t1.name,t2.name,c1,c2):''}
 
     <div id="posBattle" style="margin-bottom:26px;"></div>
 
     <div class="compare-section-head">Program Context — Last 20 Seasons (2006-26)</div>
-    <div class="sim-grid">
-      <div class="sim-card" id="progCtx1" style="border-top:2px solid ${c1};"><div class="sim-row" style="color:var(--text3);">Computing…</div></div>
-      <div class="sim-card" id="progCtx2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Computing…</div></div>
-    </div>
+    <div id="progCtx"><div class="cs-wrap" style="padding:14px 16px;font-size:12px;color:var(--text3);">Computing…</div></div>
 
     ${(s1||s2)?`
     <div class="chart-grid">
@@ -2698,10 +2709,6 @@ async function renderTeams(){
     </div>
 
     <div class="compare-section-head">${statHead}</div>
-    ${infoRow('Record',s1?`${s1.wins||0}-${s1.losses||0}`:null,s2?`${s2.wins||0}-${s2.losses||0}`:null)}
-    ${infoRow('Conf Record',s1&&s1.conf_wins!=null?`${s1.conf_wins}-${s1.conf_losses}`:null,s2&&s2.conf_wins!=null?`${s2.conf_wins}-${s2.conf_losses}`:null)}
-    ${cmpRow('SRS',g(s1,'srs'),g(s2,'srs'),v=>v.toFixed(1))}
-    ${cmpRow('Net Rating',net(s1),net(s2),v=>(v>0?'+':'')+v.toFixed(1))}
     ${cmpRow('PPG',g(s1,'ppg'),g(s2,'ppg'),v=>v.toFixed(1))}
     ${cmpRow('OPP PPG',g(s1,'oppg'),g(s2,'oppg'),v=>v.toFixed(1),false)}
     ${cmpRow('FG%',g(s1,'fg_pct'),g(s2,'fg_pct'),v=>v.toFixed(1)+'%')}
@@ -2714,7 +2721,6 @@ async function renderTeams(){
     ${cmpRow('SPG',g(s1,'spg'),g(s2,'spg'),v=>v.toFixed(1))}
     ${cmpRow('BPG',g(s1,'bpg'),g(s2,'bpg'),v=>v.toFixed(1))}
     ${cmpRow('TOPG',g(s1,'topg'),g(s2,'topg'),v=>v.toFixed(1),false)}
-    ${cmpRow('NCAA Seed',g(s1,'ncaa_seed'),g(s2,'ncaa_seed'),v=>'#'+Math.round(v),false)}
     `:''}
 
     ${(s1&&s1.team_id)||(s2&&s2.team_id)?`
@@ -2828,8 +2834,7 @@ async function renderTeams(){
       };
       const [tr1,tr2]=await Promise.all([traj(s1,t1,c1,y1),traj(s2,t2,c2,y2)]);
       trajChart('tsTraj',[tr1,tr2]);
-      _fillProgramContext('progCtx1', tr1, s1);
-      _fillProgramContext('progCtx2', tr2, s2);
+      _fillProgramContext(tr1, s1, tr2, s2);
       // rosters + best player seasons on file — then the written scout, which
       // needs both rosters' physical profiles
       const side=async(pick, fullName, yr, rostId, legId)=>{
@@ -2864,38 +2869,42 @@ async function renderTeams(){
   },0);
 }
 // program context: this season's place in program history + all-time D1 history
-async function _fillProgramContext(elId, tr, s){
-  const el=document.getElementById(elId); if(!el) return;
-  const rows=tr.rows||[];
-  if(!rows.length){ el.innerHTML='<div class="sim-row" style="color:var(--text3);">No seasons on file</div>'; return; }
-  const W=rows.reduce((a,r)=>a+(parseFloat(r.wins)||0),0), L=rows.reduce((a,r)=>a+(parseFloat(r.losses)||0),0);
-  const trips=rows.filter(r=>r.ncaa_seed!=null).length;
-  const srsAvg=(()=>{ const v=rows.map(r=>parseFloat(r.srs)).filter(isFinite); return v.length?(v.reduce((a,b)=>a+b,0)/v.length):null; })();
-  // NCAA Tournament game record from postseason results (winner column)
-  let ncaaRec=trips?`${trips} trips, no games on file`:'No trips on file';
-  try{
-    const nm=encodeURIComponent(tr.name);
-    const pg=await fetch(`${SB}/rest/v1/postseason_games?tournament=eq.NCAA%20Tournament&or=(home.eq.${nm},away.eq.${nm})&select=winner&limit=200`,{headers:H}).then(r=>r.ok?r.json():[]);
-    if(pg&&pg.length){
-      const w=pg.filter(g=>g.winner===tr.name).length;
-      ncaaRec=`${w}-${pg.length-w} · ${trips} trips`;
+async function _fillProgramContext(tr1, s1, tr2, s2){
+  const el=document.getElementById('progCtx'); if(!el) return;
+  // one side's numbers: 20-yr record, NCAA game record + trips, avg Power Rating,
+  // and where the picked season sits in the program's file and nationally
+  const side=async(tr,s)=>{
+    const rows=tr.rows||[], o={n:rows.length};
+    if(!rows.length) return o;
+    o.W=rows.reduce((a,r)=>a+(parseFloat(r.wins)||0),0); o.L=rows.reduce((a,r)=>a+(parseFloat(r.losses)||0),0);
+    o.pct=o.W+o.L?100*o.W/(o.W+o.L):null;
+    o.trips=rows.filter(r=>r.ncaa_seed!=null).length;
+    const v=rows.map(r=>parseFloat(r.srs)).filter(isFinite); o.srs=v.length?v.reduce((a,b)=>a+b,0)/v.length:null;
+    try{
+      const nm=encodeURIComponent(tr.name);
+      const pg=await fetch(`${SB}/rest/v1/postseason_games?tournament=eq.NCAA%20Tournament&or=(home.eq.${nm},away.eq.${nm})&select=winner&limit=200`,{headers:H}).then(r=>r.ok?r.json():[]);
+      if(pg&&pg.length){ o.tw=pg.filter(g=>g.winner===tr.name).length; o.tl=pg.length-o.tw; }
+    }catch(e){}
+    if(s&&isFinite(parseFloat(s.srs))){
+      const v=parseFloat(s.srs);
+      o.progRank=rows.filter(r=>parseFloat(r.srs)>v).length+1;
+      const [better,total]=await Promise.all([_countTS(`srs=gt.${v}`),_countTS('srs=not.is.null')]);
+      if(better!=null&&total){ o.natRank=better+1; o.natTot=total; }
     }
-  }catch(e){}
-  const line=(l,v)=>`<div class="sim-row"><span class="sim-meta">${l}</span><span class="sim-stat" style="font-weight:700;color:var(--text);">${v}</span></div>`;
-  let html=line(`Record · last ${rows.length} seasons`, `${W}-${L}`)
-    +line('NCAA Tournament record', ncaaRec)
-    +line(`Avg SRS · last ${rows.length} seasons`, srsAvg!=null?srsAvg.toFixed(1):'—');
-  if(s&&isFinite(parseFloat(s.srs))){
-    const v=parseFloat(s.srs);
-    const progRank=rows.filter(r=>parseFloat(r.srs)>v).length+1;
-    html+=line(`This season among the program's ${rows.length} on file`, progRank===1?'Best on file':`#${progRank} of ${rows.length}`);
-    const [better,total]=await Promise.all([_countTS(`srs=gt.${v}`),_countTS('srs=not.is.null')]);
-    if(better!=null&&total){
-      const topPct=Math.max(0.1,Math.round((better+1)/total*1000)/10);
-      html+=line('Among all D1 team-seasons on file (2006-26)', `#${better+1} of ${total.toLocaleString()} · top ${topPct}%`);
-    }
-  }
-  el.innerHTML=html;
+    return o;
+  };
+  const [a,b]=await Promise.all([side(tr1,s1),side(tr2,s2)]);
+  const n=Math.max(a.n,b.n);
+  const pick=(o,k)=>o[k]!=null?o[k]:null;
+  let r='';
+  r+=cmpRow(`Record · ${n} yrs`, pick(a,'pct'), pick(b,'pct'), (v,i)=>{ const o=i?b:a; return `${o.W}-${o.L}`; });
+  r+=cmpRow('Win%', pick(a,'pct'), pick(b,'pct'), v=>v.toFixed(1)+'%');
+  r+=cmpRow('NCAA W-L', a.tw!=null?a.tw/Math.max(1,a.tw+a.tl):null, b.tw!=null?b.tw/Math.max(1,b.tw+b.tl):null, (v,i)=>{ const o=i?b:a; return `${o.tw}-${o.tl}`; });
+  r+=cmpRow('NCAA Trips', pick(a,'trips'), pick(b,'trips'), v=>String(Math.round(v)));
+  r+=cmpRow('Avg Power Rating', pick(a,'srs'), pick(b,'srs'), v=>v.toFixed(1));
+  r+=cmpRow('Season · in program', pick(a,'progRank'), pick(b,'progRank'), (v,i)=>{ const o=i?b:a; return v===1?'Best on file':`#${Math.round(v)} of ${o.n}`; }, false);
+  r+=cmpRow('Season · all D-I', pick(a,'natRank'), pick(b,'natRank'), (v,i)=>{ const o=i?b:a; return `#${Math.round(v)} · top ${Math.max(0.1,Math.round(v/o.natTot*1000)/10)}%`; }, false);
+  el.innerHTML=r;   // the observer lays it out as a sheet
 }
 // ── AUTOMATED SCOUTING REPORT ────────────────────────────────────────────────
 // Writes the matchup like a scout would: roster physicals (minutes-weighted
@@ -3282,6 +3291,12 @@ load().then(()=>{
   try{
     const q=new URLSearchParams(location.search);
     if((q.get('mode')||'').toLowerCase()==='teams') setMode('teams');
+    const t1=q.get('t1'), t2=q.get('t2');
+    if(mode==='teams'&&t1&&t2){
+      const find=n=>{ const k=_lnorm(n); return teams.find(t=>_lnorm(t.name)===k)||teams.find(t=>_lnorm(t.name).startsWith(k)); };
+      const a=find(t1), b=find(t2);
+      if(a&&b){ pick(1,'t',a.name); pick(2,'t',b.name); }
+    }
   }catch(e){}
 });
 </script>
