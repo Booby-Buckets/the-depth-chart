@@ -210,7 +210,12 @@
   .tsp-table tr.x td{background:color-mix(in srgb,#d05a5a calc(var(--k)*1%),transparent);}
   .tsp-table tr:hover td{filter:brightness(1.06);}
   .tsp-table td.tsp-d{color:var(--text);font-weight:600;min-width:96px;}
-  .tsp-table td.tsp-d em{font-style:normal;color:var(--text3);font-weight:500;font-size:11px;margin-left:4px;}
+  .tsp-table td.tsp-o .cfdot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--tc-readable,var(--accent));margin-left:7px;vertical-align:middle;}
+  .tsp-table td.tsp-o.cf{font-weight:800;}
+  .tsp-table td.tsp-q{font-weight:800;font-size:11.5px;color:var(--text3);}
+  .tsp-table td.tsp-q.q1{color:#1f7a45;} .tsp-table td.tsp-q.q2{color:#3f74c9;} .tsp-table td.tsp-q.q3{color:var(--text2);}
+  [data-theme="dark"] .tsp-table td.tsp-q.q1{color:#4fc07a;} [data-theme="dark"] .tsp-table td.tsp-q.q2{color:#7fb0ff;}
+  .tsp-table td.tsp-pr{color:var(--text2);}
   .tsp-ev{display:block;font-size:8.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);line-height:1.1;}
   .tsp-table td.tsp-rk{color:var(--text3);font-size:11px;font-weight:600;}
   .tsp-table td.tsp-o{font-weight:700;overflow:hidden;text-overflow:ellipsis;max-width:240px;min-width:170px;}
@@ -234,7 +239,13 @@
   function ensureCss() { if (document.getElementById('tsp-css')) return; const s = document.createElement('style'); s.id = 'tsp-css'; s.textContent = CSS; document.head.appendChild(s); }
 
   const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], DW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  function dParts(d) { const x = new Date(d + 'T12:00:00'); return { mo: MO[x.getMonth()], day: x.getDate(), dw: DW[x.getDay()], key: x.getFullYear() + '-' + x.getMonth() }; }
+  function dParts(d) { const x = new Date(d + 'T12:00:00'); return { mo: MO[x.getMonth()], day: x.getDate(), dw: DW[x.getDay()], num: (x.getMonth() + 1) + '/' + x.getDate(), key: x.getFullYear() + '-' + x.getMonth() }; }
+  // NET-style quadrant from opponent rank + site (home 1-30 / neutral 1-50 / away 1-75 = Q1 …)
+  function quad(rank, site) {
+    if (!rank) return null;
+    const cut = site === 'H' ? [30, 75, 160] : site === 'A' ? [75, 135, 240] : [50, 100, 200];
+    return rank <= cut[0] ? 1 : rank <= cut[1] ? 2 : rank <= cut[2] ? 3 : 4;
+  }
   const sg = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1);
   const cls = v => v > 0.05 ? 'pos' : v < -0.05 ? 'neg' : '';
   // win-probability cell: tint deepens with confidence either way
@@ -250,15 +261,17 @@
     const sn = g.tdcShortSchool || (x => x);
     let lastMo = null, rows = '';
     const moCls = key => { const c = lastMo !== null && key !== lastMo ? ' mo1' : ''; lastMo = key; return c; };
-    const tint = p => { const k = Math.round(9 + 16 * Math.min(1, Math.abs(p - 0.5) / 0.45)); return `class="${p >= 0.5 ? 'w' : 'x'}" style="--k:${k}"`; };
+    const tint = p => { const k = Math.round(5 + 9 * Math.min(1, Math.abs(p - 0.5) / 0.45)); return `class="${p >= 0.5 ? 'w' : 'x'}" style="--k:${k}"`; };
     (opts.played || []).forEach(x => {          // results already on the books
       const d = dParts(x.date);
       rows += `<tr class="${x.won ? 'w' : 'x'}${moCls(d.key)}" style="--k:18;cursor:${x.href ? 'pointer' : 'default'}" onclick="${x.href ? `location.href='${x.href}'` : ''}">
-        <td class="l tsp-d">${d.mo} ${d.day}<em>${d.dw}</em></td>
+        <td class="l tsp-d">${d.dw} ${d.num}</td>
         <td class="tsp-rk">${x.rank || ''}</td>
         <td class="l tsp-o hist">${sn(x.opp)}</td>
         <td class="tsp-sc"><span class="tsp-res">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}</span></td>
         <td class="tsp-site"><b class="${x.site}">${x.site}</b></td>
+        <td class="tsp-q q${quad(x.rank, x.site) || 0}">${quad(x.rank, x.site) ? 'Q' + quad(x.rank, x.site) : ''}</td>
+        <td class="tsp-pr"></td>
         <td class="tsp-p"></td>
         <td class="tsp-line">${x.rec}</td></tr>`;
     });
@@ -270,13 +283,17 @@
       const edge = r.venuePts + r.sit;
       const siteTitle = r.venue === 'H' ? `home edge ${sg(r.venuePts)}` : r.venue === 'A' ? `their building ${sg(r.venuePts)}` : 'neutral floor';
       const t = tint(r.p), mc = moCls(d.key);
+      const rk = r.opp && r.opp.rank ? r.opp.rank : null, q = quad(rk, r.venue);
+      const pc = Math.round(r.p * 100), pk = Math.round(8 + 34 * Math.min(1, Math.abs(pc - 50) / 45));
       rows += `<tr ${t.replace('class="', 'class="' + mc.trim() + ' ')}>
-        <td class="l tsp-d">${d.mo} ${d.day}<em>${d.dw}</em>${r.event ? `<span class="tsp-ev">${r.event}</span>` : ''}</td>
-        <td class="tsp-rk">${r.opp && r.opp.rank ? r.opp.rank : ''}</td>
-        <td class="l tsp-o">${pre}${oppTxt}</td>
+        <td class="l tsp-d">${d.dw} ${d.num}${r.event ? `<span class="tsp-ev">${r.event}</span>` : ''}</td>
+        <td class="tsp-rk">${rk || ''}</td>
+        <td class="l tsp-o${r.g.conf ? ' cf' : ''}">${pre}${oppTxt}${r.g.conf ? '<i class="cfdot" title="conference game"></i>' : ''}</td>
         <td class="tsp-sc">${r.scoreMe}–${r.scoreOpp}</td>
         <td class="tsp-site" title="${siteTitle} · rest ${restTxt(r.mf)} vs ${r.known ? restTxt(r.of) : (r.oppName ? '?' : 'same')}${Math.abs(restD) >= 0.15 ? ` (${sg(restD)})` : ''}${r.mf.stint >= 2 ? ` · ${r.mf.stint}${r.mf.stint === 2 ? 'nd' : r.mf.stint === 3 ? 'rd' : 'th'} straight away` : ''} · situational edge ${sg(edge)}"><b class="${r.venue}">${r.venue}</b></td>
-        <td class="tsp-p" title="${Math.round(r.p0 * 100)}% on the line alone · ${Math.round(r.p * 100)}% across simulated seasons">${Math.round(r.p * 100)}%</td>
+        <td class="tsp-q q${q || 0}" title="NET-style quadrant: opponent rank ${rk || '—'} ${r.venue === 'H' ? 'at home' : r.venue === 'A' ? 'on the road' : 'on a neutral floor'}">${q ? 'Q' + q : ''}</td>
+        <td class="tsp-pr">${r.opp && isFinite(r.opp.rating) ? sg(r.opp.rating) : ''}</td>
+        <td class="tsp-p" style="background:color-mix(in srgb,${pc >= 50 ? '#2f9159' : '#d05a5a'} ${pk}%,transparent)" title="${Math.round(r.p0 * 100)}% on the line alone · ${pc}% across simulated seasons">${pc}%</td>
         <td class="tsp-line">${r.margin >= 0 ? '−' : '+'}${Math.abs(r.margin).toFixed(1)}</td></tr>`;
     });
     const W = Math.round(R.expW), L = R.n - W, cw = Math.round(R.expCW), cl = R.confN - cw;
@@ -289,7 +306,7 @@
     </div>`;
     const note = `<div class="tsp-note"><b>Line</b> = projected margin (− favored, + underdog), built from the ratings, the host's measured home edge, and rest: back-to-backs cost ${sg(m.rest && m.rest.b2b || 0)} pts, 8+ days off ${sg(m.rest && m.rest.r8 || 0)}, a season opener ${sg(m.rest && m.rest.opener || 0)} (${(m.n || 0).toLocaleString()} games since ${m.firstSeason || 2008}; road trips and win streaks measure ≈ 0). Hover a Site badge for that game's breakdown. <b>Win %</b> is the share of ${R.sims.toLocaleString()} simulated seasons, each drawing every team's true strength ±${R.tau} around its projection.</div>`;
     host.innerHTML = `<div class="tsp">${sum}<div class="tsp-wrap"><table class="tsp-table"><thead><tr>
-      <th>Date</th><th>Rk</th><th>Opponent</th><th>Score</th><th>Site</th><th>Win %</th><th>Line</th>
+      <th>Date</th><th>Rk</th><th>Opponent</th><th>Score</th><th>Site</th><th title="NET-style quadrant">Quad</th><th title="opponent's projected Power Rating">Opp PRtg</th><th>Win %</th><th>Line</th>
     </tr></thead><tbody>${rows}</tbody></table></div>${note}</div>`;
   }
 
