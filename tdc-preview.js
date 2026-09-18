@@ -101,7 +101,7 @@
   .gp-t td{padding:6px 12px;border-bottom:1px solid color-mix(in srgb,var(--border) 70%,transparent);text-align:right;color:var(--text2);white-space:nowrap;}
   .gp-t tr:last-child td{border-bottom:none;}
   .gp-t td.nm{font-weight:700;color:var(--text);}
-  .gp-t td.nm a{color:inherit;text-decoration:none;} .gp-t td.nm a:hover{color:var(--accent);}
+  .gp-t td.nm a{color:inherit;text-decoration:underline dotted;text-underline-offset:3px;text-decoration-color:color-mix(in srgb,var(--text3) 60%,transparent);} .gp-t td.nm a:hover{color:var(--accent);text-decoration-color:var(--accent);}
   .gp-t td.nm small{font-weight:600;color:var(--text3);margin-left:6px;font-size:11px;}
   .gp-t td.w{color:var(--text);font-weight:800;background:color-mix(in srgb,var(--side) 14%,transparent);}
   .gp-t td.big{font-weight:800;color:var(--text);}
@@ -177,7 +177,13 @@
       <div class="gp-tile"><div class="k">Site</div><div class="v">${row.venue === 'H' ? 'Home' : row.venue === 'A' ? 'Away' : 'Neutral'}</div><div class="s">${row.venuePts ? 'venue edge ' + sg(row.venuePts) : 'no venue edge'}</div></div>
       <div class="gp-tile"><div class="k">Rest</div><div class="v">${row.mf.rest == null ? 'Opener' : row.mf.rest <= 1 ? 'B2B' : row.mf.rest + 'd'}</div><div class="s">${row.known ? 'vs ' + (row.of.rest == null ? 'opener' : row.of.rest <= 1 ? 'b2b' : row.of.rest + 'd') : 'opponent unknown'}${Math.abs(row.sit) >= 0.15 ? ' · ' + sg(row.sit) + ' pts' : ''}</div></div>
     </div>`;
-    host.innerHTML = hero + strip + `<div class="gp-h">Matchup <span>projected 2026-27 profiles · D-I average for scale</span></div>${cmpTable(team, oppName, EA, EB, RA, RB)}<div id="gpPlayers"><div class="gp-h">Projected lines · this game</div><div class="gp-wrap"><div class="gp-empty">Loading rosters…</div></div></div>`;
+    host.innerHTML = hero + `<div id="gpMatch" style="border-radius:12px;">${strip}<div class="gp-h">Matchup <span>projected 2026-27 profiles · D-I average for scale</span></div>${cmpTable(team, oppName, EA, EB, RA, RB)}</div><div id="gpPlayers" style="border-radius:12px;"><div class="gp-h">Projected lines · this game</div><div class="gp-wrap"><div class="gp-empty">Loading rosters…</div></div></div>`;
+    // tiers: the headline (score, odds, line) is free; the matchup profile is Premium; the
+    // per-player game projections are Pro (Coach's Tier and Betting Lab members included)
+    const gate = () => { if (!g.TDCGate) return;
+      g.TDCGate.lock(document.getElementById('gpMatch'), { tier: 'premium', label: 'the matchup profile', blurb: 'Premium members see the full matchup — projected efficiency, tempo, four factors and the situational edges behind the line.' });
+      g.TDCGate.lock(document.getElementById('gpPlayers'), { tier: 'pro', label: 'projected player lines', blurb: 'Pro, Coach\'s Tier and Betting Lab members see how every rotation player projects in this specific matchup — minutes, points, rebounds, assists and shooting.' }); };
+    if (g.TDCGate) { if (g.TDCGate.resolved && g.TDCGate.resolved()) gate(); else if (g.TDCGate.ready) g.TDCGate.ready.then(gate); }
     // players
     const ctx = { pace: row.pace, score: row.scoreMe, margin: row.margin };
     const [pa, pb] = await Promise.all([roster(team), row.oppName ? roster(row.oppName) : Promise.resolve([])]);
@@ -187,6 +193,8 @@
       <div class="gp-two"><div><div style="font-size:12px;font-weight:800;color:${col(team)};padding:8px 2px;">${sn(team)}</div>${playersTable(team, TA, col(team))}</div>
       <div><div style="font-size:12px;font-weight:800;color:${col(oppName)};padding:8px 2px;">${sn(oppName)}</div>${row.oppName ? playersTable(oppName, TB, col(oppName)) : `<div class="gp-wrap"><div class="gp-empty">Opponent to be determined.</div></div>`}</div></div>
       <div class="gp-note"><b>How the lines move:</b> ${[note(TA, team), note(TB, oppName)].filter(Boolean).join(' · ')}. Minutes come from the season projection; "vs avg" is the points swing against the player's season number. Rosters without a projected line yet (walk-ons, unfilled freshmen) are left out.</div>`;
+    if (g.TDCGate) { const relock = () => { const el = document.getElementById('gpPlayers'); el.classList.remove('tdc-gate-wrap'); g.TDCGate.lock(el, { tier: 'pro', label: 'projected player lines', blurb: 'Pro, Coach\'s Tier and Betting Lab members see how every rotation player projects in this specific matchup — minutes, points, rebounds, assists and shooting.' }); };
+      if (g.TDCGate.resolved && g.TDCGate.resolved()) relock(); else if (g.TDCGate.ready) g.TDCGate.ready.then(relock); }
   }
 
   g.TDCPreview = { render };
