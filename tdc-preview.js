@@ -35,11 +35,22 @@
   // ── player lines ──────────────────────────────────────────────────────────
   function baseLine(p) {
     const P = _proj && _proj.players;
-    if (P && p.espn_id && P[String(p.espn_id)]) { const q = P[String(p.espn_id)]; return { src: 'proj', mpg: q.mpg, ppg: q.ppg, rpg: q.rpg, apg: q.apg, fg: q.fg_pct, tp: q.tp_pct, stl: q.stl, blk: q.blk, tov: q.tovs, ovr: q.ovr }; }
+    const mk = (src, q, ovr) => {
+      const n = k => (q[k] == null || q[k] === '' ? null : +q[k]);
+      const b = { src, ovr, mpg: n('mpg'), ppg: n('ppg'), rpg: n('rpg'), apg: n('apg'), fg: n('fg_pct'), tp: n('tp_pct') != null ? n('tp_pct') : n('three_pct'), ft: n('ft_pct'),
+        stl: n('stl') || 0, blk: n('blk') || 0, tov: n('tovs') || 0, fga: n('fga'), fgm: n('fgm'), tpa: n('tpa'), tpm: n('tpm'), fta: n('fta'), ftm: n('ftm'), oreb: n('oreb'), dreb: n('dreb') };
+      // fill shot components when a line only carries the headline numbers
+      if (b.fga == null && b.ppg != null) { const pct = (b.fg || 44) / 100; b.fga = b.ppg * 0.42 / Math.max(0.3, pct) * 0.9; b.fgm = b.fga * pct; }
+      if (b.tpa == null) { b.tpa = (b.fga || 0) * 0.36; b.tpm = b.tpa * ((b.tp || 33) / 100); }
+      if (b.fta == null) { b.fta = (b.fga || 0) * 0.3; b.ftm = b.fta * ((b.ft || 70) / 100); }
+      if (b.oreb == null && b.rpg != null) { b.oreb = b.rpg * 0.28; b.dreb = b.rpg - b.oreb; }
+      return b;
+    };
+    if (P && p.espn_id && P[String(p.espn_id)]) { const q = P[String(p.espn_id)]; return mk('proj', q, q.ovr); }
     if (g.TDCFresh && g.TDCFresh.isFreshman && g.TDCFresh.isFreshman(p)) {
-      try { const l = g.TDCFresh.line(p, g.TDCFresh.profileFor(p)); if (l && l.mpg) return { src: 'fresh', mpg: +l.mpg, ppg: +l.ppg, rpg: +l.rpg, apg: +l.apg, fg: +l.fg_pct, tp: +l.tp_pct, stl: +l.stl, blk: +l.blk, tov: +l.tovs, ovr: l._frOvr || p.tdc_grade }; } catch (e) {}
+      try { const l = g.TDCFresh.line(p, g.TDCFresh.profileFor(p)); if (l && l.mpg) return mk('fresh', l, l._frOvr || p.tdc_grade); } catch (e) {}
     }
-    if (p.mpg && p.ppg != null) return { src: 'last', mpg: +p.mpg, ppg: +p.ppg, rpg: +p.rpg, apg: +p.apg, fg: +p.fg_pct, tp: +(p.tp_pct != null ? p.tp_pct : p.three_pct), stl: +p.stl, blk: +p.blk, tov: +p.tovs, ovr: p.tdc_grade };
+    if (p.mpg && p.ppg != null) return mk('last', p, p.tdc_grade);
     return null;
   }
 
@@ -49,6 +60,11 @@
     const paceK = ctx.pace && E && E.t ? ctx.pace / E.t : 1;
     const offK = E && O ? (E.o + O.d - avgD) / E.o : 1;            // this offense vs this defense, relative to its norm
     const spread = Math.abs(ctx.margin || 0), starterK = Math.max(0.8, 1 - 0.01 * Math.max(0, spread - 12));
+    // rebounds / turnovers vs THIS opponent: their defensive-board and turnover-forcing rates against the D-I norm
+    const ff = _eff && _eff.ffAvg || {}, of = O && O.ff || {};
+    const orbK = of.dDRB != null && ff.dDRB ? (100 - of.dDRB) / (100 - ff.dDRB) : 1;      // opp's DREB% leaves fewer/more offensive boards
+    const drbK = of.oORB != null && ff.oORB ? (100 - of.oORB) / (100 - ff.oORB) : 1;      // opp's OREB% eats into our defensive boards
+    const tovK = of.dTOV != null && ff.dTOV ? of.dTOV / ff.dTOV : 1;                        // opp forces turnovers above/below the norm
     const out = p => p.is_injured || (g.TDCInjury && g.TDCInjury.isOut(p));
     let rows = players.filter(p => !out(p)).map(p => ({ p, b: baseLine(p) })).filter(x => x.b && x.b.mpg >= 6);
     rows.sort((a, b) => b.b.mpg - a.b.mpg);
@@ -57,17 +73,22 @@
     const rawMin = rows.reduce((s, x) => s + x.b.mpg, 0), fitK = rawMin > 205 ? 200 / rawMin : 1;
     rows.forEach((x, i) => {
       const b = x.b, minK = (i < 5 ? starterK : 1 + (1 - starterK) * 0.6) * fitK;
-      const min = Math.min(38, b.mpg * minK);
-      x.l = { min, pts: b.ppg * paceK * offK * minK, reb: b.rpg * paceK * minK, ast: b.apg * paceK * Math.sqrt(offK) * minK,
-        fg: b.fg * Math.sqrt(offK), tp: b.tp * Math.sqrt(offK), stl: (b.stl || 0) * paceK * minK, blk: (b.blk || 0) * paceK * minK, tov: (b.tov || 0) * paceK * minK,
-        dPts: b.ppg * paceK * offK * minK - b.ppg };
+      const min = Math.min(38, b.mpg * minK), vol = paceK * minK;
+      const fgp = Math.min(75, (b.fg || 44) * Math.sqrt(offK)), tpp = Math.min(60, (b.tp || 33) * Math.sqrt(offK)), ftp = b.ft || 70;
+      const fga = (b.fga || 0) * vol, tpa = Math.min(fga, (b.tpa || 0) * vol), fta = (b.fta || 0) * vol;
+      // makes from the matchup-adjusted percentages; twos and threes keep their own rates
+      const tpm = tpa * tpp / 100, twoA = fga - tpa, twoP = fga > 0 && b.fgm != null && b.tpm != null && twoA > 0 ? Math.min(0.8, Math.max(0.3, (b.fgm - b.tpm) / Math.max(0.1, (b.fga - b.tpa)))) * Math.sqrt(offK) : fgp / 100;
+      const fgm = tpm + twoA * twoP, ftm = fta * ftp / 100;
+      const oreb = (b.oreb || 0) * vol * orbK, dreb = (b.dreb || 0) * vol * drbK;
+      x.l = { min, fga, fgm, tpa, tpm, fta, ftm, oreb, dreb, reb: oreb + dreb, ast: (b.apg || 0) * vol * Math.sqrt(offK),
+        stl: b.stl * vol, blk: b.blk * vol, tov: b.tov * vol * tovK, pts: 2 * (fgm - tpm) + 3 * tpm + ftm };
     });
     // coherence: the rotation's points add up to the projected team score (only when the roster is
     // reasonably complete — a missing star would otherwise inflate everyone else)
     const sumMin = rows.reduce((s, x) => s + x.l.min, 0), sumPts = rows.reduce((s, x) => s + x.l.pts, 0);
     let scaleK = 1;
     if (ctx.score && sumMin >= 170 && sumPts > 0) scaleK = Math.max(0.8, Math.min(1.25, ctx.score / sumPts));
-    rows.forEach(x => { x.l.pts *= scaleK; x.l.dPts = x.l.pts - x.b.ppg; });
+    rows.forEach(x => { ['pts', 'fga', 'fgm', 'tpa', 'tpm', 'fta', 'ftm'].forEach(k => { x.l[k] *= scaleK; }); x.l.dPts = x.l.pts - (x.b.ppg || 0); });
     return { rows, paceK, offK, starterK, scaleK, sumMin };
   }
 
@@ -109,11 +130,15 @@
   .gp-t td.pos{color:#2f9159;} .gp-t td.neg{color:#d05a5a;}
   [data-theme="dark"] .gp-t td.pos{color:#4fc07a;} [data-theme="dark"] .gp-t td.neg{color:#ef6e6e;}
   .gp-t td.tot{font-weight:800;color:var(--text);background:var(--bg2);}
-  .gp-two{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .gp-two{display:grid;grid-template-columns:1fr;gap:18px;}
+  .gp-inj{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:11.5px;color:var(--text2);padding:8px 4px 0;}
+  .gp-inj-l{font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
+  .gp-inj-out{color:#d05a5a;} .gp-inj-hurt{color:var(--text2);} .gp-inj b{font-weight:700;color:var(--text);}
+  [data-theme="dark"] .gp-inj-out{color:#ef6e6e;}
   .gp-note{font-size:11.5px;color:var(--text3);line-height:1.5;margin:10px 2px 0;}
   .gp-note b{color:var(--text2);}
   .gp-empty{padding:16px 14px;font-size:12.5px;color:var(--text3);}
-  @media(max-width:860px){.gp-two{grid-template-columns:1fr;}.gp-strip{grid-template-columns:repeat(2,minmax(0,1fr));}.gp-hero{grid-template-columns:1fr;text-align:center;}.gp-side,.gp-side.r{flex-direction:column;text-align:center;}}`;
+  @media(max-width:860px){.gp-strip{grid-template-columns:repeat(2,minmax(0,1fr));}.gp-hero{grid-template-columns:1fr;text-align:center;}.gp-side,.gp-side.r{flex-direction:column;text-align:center;}}`;
   function ensureCss() { if (document.getElementById('gp-css')) return; const s = document.createElement('style'); s.id = 'gp-css'; s.textContent = CSS; document.head.appendChild(s); }
 
   const teamHref = n => `team.html?team=${encodeURIComponent(sn(n))}`;
@@ -142,13 +167,15 @@
 
   function playersTable(team, T, color) {
     if (!T || !T.rows.length) return `<div class="gp-wrap"><div class="gp-empty">No projected lines on file for ${sn(team)}'s roster yet.</div></div>`;
-    const tot = T.rows.reduce((s, x) => { s.min += x.l.min; s.pts += x.l.pts; s.reb += x.l.reb; s.ast += x.l.ast; return s; }, { min: 0, pts: 0, reb: 0, ast: 0 });
+    const K = ['min', 'pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'oreb', 'dreb', 'reb', 'ast', 'tov'];
+    const tot = T.rows.reduce((s, x) => { K.forEach(k => { s[k] += x.l[k] || 0; }); return s; }, Object.fromEntries(K.map(k => [k, 0])));
     const cls = v => v > 0.4 ? 'pos' : v < -0.4 ? 'neg' : '';
-    return `<div class="gp-wrap"><table class="gp-t"><thead><tr><th class="l">Player</th><th>Min</th><th>Pts</th><th>Reb</th><th>Ast</th><th>FG%</th><th>3P%</th><th title="points vs the player's season projection">vs avg</th></tr></thead><tbody>${T.rows.map(x => {
+    const ma = (m, a) => `${m.toFixed(1)}–${a.toFixed(1)}`, pct = (m, a) => a > 0 ? (100 * m / a).toFixed(1) : '—';
+    return `<div class="gp-wrap"><table class="gp-t"><thead><tr><th class="l">Player</th><th>Min</th><th>Pts</th><th title="field goals made–attempted">FG</th><th title="threes made–attempted">3P</th><th title="free throws made–attempted">FT</th><th title="offensive rebounds">OR</th><th title="defensive rebounds">DR</th><th>Reb</th><th>Ast</th><th>TO</th><th title="points vs the player's season projection">vs avg</th></tr></thead><tbody>${T.rows.map(x => {
       const p = x.p, l = x.l;
       return `<tr><td class="l nm"><a href="${playerHref(p, team)}">${p.name}</a><small>${p.position || ''}${p.class_year ? ' · ' + p.class_year : ''}${x.b.src === 'fresh' ? ' · Fr proj' : x.b.src === 'last' ? ' · last yr' : ''}</small></td>
-        <td>${l.min.toFixed(0)}</td><td class="big">${l.pts.toFixed(1)}</td><td>${l.reb.toFixed(1)}</td><td>${l.ast.toFixed(1)}</td><td>${isFinite(l.fg) ? l.fg.toFixed(1) : '—'}</td><td>${isFinite(l.tp) ? l.tp.toFixed(1) : '—'}</td><td class="${cls(l.dPts)}">${sg(l.dPts)}</td></tr>`;
-    }).join('')}<tr><td class="l tot">Rotation</td><td class="tot">${tot.min.toFixed(0)}</td><td class="tot">${tot.pts.toFixed(0)}</td><td class="tot">${tot.reb.toFixed(0)}</td><td class="tot">${tot.ast.toFixed(0)}</td><td class="tot" colspan="3"></td></tr></tbody></table></div>`;
+        <td>${l.min.toFixed(0)}</td><td class="big">${l.pts.toFixed(1)}</td><td>${ma(l.fgm, l.fga)}</td><td>${ma(l.tpm, l.tpa)}</td><td>${ma(l.ftm, l.fta)}</td><td>${l.oreb.toFixed(1)}</td><td>${l.dreb.toFixed(1)}</td><td>${l.reb.toFixed(1)}</td><td>${l.ast.toFixed(1)}</td><td>${l.tov.toFixed(1)}</td><td class="${cls(l.dPts)}">${sg(l.dPts)}</td></tr>`;
+    }).join('')}<tr><td class="l tot">Team</td><td class="tot">${tot.min.toFixed(0)}</td><td class="tot">${tot.pts.toFixed(0)}</td><td class="tot">${ma(tot.fgm, tot.fga)}<small style="color:var(--text3);margin-left:4px">${pct(tot.fgm, tot.fga)}%</small></td><td class="tot">${ma(tot.tpm, tot.tpa)}<small style="color:var(--text3);margin-left:4px">${pct(tot.tpm, tot.tpa)}%</small></td><td class="tot">${ma(tot.ftm, tot.fta)}</td><td class="tot">${tot.oreb.toFixed(1)}</td><td class="tot">${tot.dreb.toFixed(1)}</td><td class="tot">${tot.reb.toFixed(1)}</td><td class="tot">${tot.ast.toFixed(1)}</td><td class="tot">${tot.tov.toFixed(1)}</td><td class="tot"></td></tr></tbody></table></div>`;
   }
 
   async function render(host, opts) {
@@ -190,10 +217,19 @@
     const [pa, pb] = await Promise.all([roster(team), row.oppName ? roster(row.oppName) : Promise.resolve([])]);
     const TA = teamLines(pa, EA, EB, ctx), TB = row.oppName ? teamLines(pb, EB, EA, { pace: row.pace, score: row.scoreOpp, margin: -row.margin }) : null;
     const note = (T, n) => T && T.rows.length ? `${sn(n)}: pace ×${T.paceK.toFixed(2)} · vs this defense ×${T.offK.toFixed(2)}${T.starterK < 1 ? ` · starters' minutes ×${T.starterK.toFixed(2)} (blowout)` : ''}${Math.abs(T.scaleK - 1) > 0.005 ? ` · scaled ×${T.scaleK.toFixed(2)} to the team score` : ''}` : '';
+    // injury report: out (removed from the rotation above) and hurt-but-playing, from the owner's injury tool + roster flags
+    const injLine = (players, n) => {
+      if (!players || !players.length) return '';
+      const I = g.TDCInjury;
+      const outs = players.filter(p => p.is_injured || (I && I.isOut(p))).map(p => { const r = I && I.get(p); return `<b>${p.name}</b>${r ? ` (${r.part} · ${I.statusLabel(r).split(' · ')[1] || ''})` : ' (out)'}`; });
+      const hurt = players.filter(p => I && I.get(p) && !I.isOut(p)).map(p => { const r = I.get(p); return `<b>${p.name}</b> (${r.part} · ${I.statusLabel(r).split(' · ')[1] || ''})`; });
+      if (!outs.length && !hurt.length) return '';
+      return `<div class="gp-inj"><span class="gp-inj-l">${sn(n)} injuries</span>${outs.length ? `<span class="gp-inj-out">Out: ${outs.join(', ')}</span>` : ''}${hurt.length ? `<span class="gp-inj-hurt">Playing hurt: ${hurt.join(', ')}</span>` : ''}</div>`;
+    };
     document.getElementById('gpPlayers').innerHTML = `<div class="gp-h">Projected lines · this game <span>each player's 2026-27 projection, priced for this pace and this defense</span></div>
-      <div class="gp-two"><div><div style="font-size:12px;font-weight:800;color:${col(team)};padding:8px 2px;">${sn(team)}</div>${playersTable(team, TA, col(team))}</div>
-      <div><div style="font-size:12px;font-weight:800;color:${col(oppName)};padding:8px 2px;">${sn(oppName)}</div>${row.oppName ? playersTable(oppName, TB, col(oppName)) : `<div class="gp-wrap"><div class="gp-empty">Opponent to be determined.</div></div>`}</div></div>
-      <div class="gp-note"><b>How the lines move:</b> ${[note(TA, team), note(TB, oppName)].filter(Boolean).join(' · ')}. Minutes come from the season projection; "vs avg" is the points swing against the player's season number. Rosters without a projected line yet (walk-ons, unfilled freshmen) are left out.</div>`;
+      <div class="gp-two"><div><div style="font-size:12px;font-weight:800;color:${col(team)};padding:8px 2px;">${sn(team)}</div>${playersTable(team, TA, col(team))}${injLine(pa, team)}</div>
+      <div><div style="font-size:12px;font-weight:800;color:${col(oppName)};padding:8px 2px;">${sn(oppName)}</div>${row.oppName ? playersTable(oppName, TB, col(oppName)) : `<div class="gp-wrap"><div class="gp-empty">Opponent to be determined.</div></div>`}${injLine(pb, oppName)}</div></div>
+      <div class="gp-note"><b>How the lines move:</b> ${[note(TA, team), note(TB, oppName)].filter(Boolean).join(' · ')}. Attempts scale with pace and minutes; makes use the matchup-adjusted percentages; offensive boards, defensive boards and turnovers are priced against this opponent's rebounding and turnover-forcing rates. Minutes come from the season projection; "vs avg" is the points swing against the player's season number. Rosters without a projected line yet (walk-ons, unfilled freshmen) are left out.</div>`;
     if (g.TDCGate) { const relock = () => { const el = document.getElementById('gpPlayers'); el.classList.remove('tdc-gate-wrap'); g.TDCGate.lock(el, { tier: 'pro', label: 'projected player lines', blurb: 'Pro, Coach\'s Tier and Betting Lab members see how every rotation player projects in this specific matchup — minutes, points, rebounds, assists and shooting.' }); };
       if (g.TDCGate.resolved && g.TDCGate.resolved()) relock(); else if (g.TDCGate.ready) g.TDCGate.ready.then(relock); }
   }
