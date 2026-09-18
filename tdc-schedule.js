@@ -200,12 +200,14 @@
   .tsp-tile .s{font-size:10.5px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   /* kenpom-style grid: bordered cells, no stretching, whole row tinted by the outcome */
   .tsp-wrap{overflow:auto;}
-  .tsp-table{border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums;width:auto;min-width:780px;margin:0 auto;border:1px solid var(--border);}
-  .tsp-table th{text-align:center;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text2);padding:7px 16px;border:1px solid var(--border);background:var(--bg2);white-space:nowrap;}
-  .tsp-table td{padding:4px 16px;border:1px solid color-mix(in srgb,var(--border) 70%,transparent);white-space:nowrap;text-align:center;color:var(--text);line-height:1.35;height:27px;}
+  .tsp-table{border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums;width:auto;min-width:780px;margin:0 auto;border:1px solid color-mix(in srgb,var(--text) 28%,transparent);}
+  .tsp-table th{text-align:center;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#fff;padding:8px 16px;border:1px solid rgba(255,255,255,.18);background:#121C33;white-space:nowrap;}
+  .tsp-table td{padding:4px 16px;border:1px solid color-mix(in srgb,var(--text) 18%,transparent);white-space:nowrap;text-align:center;color:var(--text);line-height:1.35;height:27px;}
+  .tsp-table tr.sec td{background:#1A2A4C!important;color:#fff;font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;text-align:center;padding:6px 16px;}
+  .tsp-table td.tsp-pm{font-weight:700;}
   .tsp-table td.l{text-align:left;}
   .tsp-table td.r{text-align:right;}
-  .tsp-table tr.mo1 td{border-top:2px solid var(--border2);}
+  .tsp-table tr.mo1 td{border-top:2px solid color-mix(in srgb,var(--text) 35%,transparent);}
   .tsp-table tr.w td{background:color-mix(in srgb,#2f9159 calc(var(--k)*1%),transparent);}
   .tsp-table tr.x td{background:color-mix(in srgb,#d05a5a calc(var(--k)*1%),transparent);}
   .tsp-table tr:hover td{filter:brightness(1.06);}
@@ -330,5 +332,36 @@
     return recs;
   }
 
-  g.TDCSched = { load, project, projectAll, render, gamesFor, extrasFor, SEASON };
+  // played season, same grid: Date · Rk · Opponent · Result · Site · Quad · Opp PRtg · Exp · +/- · Record
+  // rows: [{date, opp, rank, oppSrs, site, won, ms, os, rec, conf, href, section}] ; opts.mySrs
+  function renderPast(host, rows, opts) {
+    ensureCss(); opts = opts || {};
+    const sn = g.tdcShortSchool || (x => x);
+    const hca = g.TDC_RATINGS && g.TDC_RATINGS.baseHca ? g.TDC_RATINGS.baseHca : (() => 3.7);
+    let lastMo = null, html = '';
+    const moCls = key => { const c = lastMo !== null && key !== lastMo ? ' mo1' : ''; lastMo = key; return c; };
+    rows.forEach(x => {
+      if (x.section) { html += `<tr class="sec"><td colspan="10">${x.section}</td></tr>`; return; }
+      const d = dParts(x.date), q = quad(x.rank, x.site), m = x.ms - x.os;
+      const exp = (opts.mySrs != null && x.oppSrs != null) ? opts.mySrs - x.oppSrs + (x.site === 'H' ? hca(x.oppSrs) : x.site === 'A' ? -hca(opts.mySrs) : 0) : null;
+      const diff = exp != null ? m - exp : null;
+      const dk = diff == null ? 0 : Math.round(6 + 30 * Math.min(1, Math.abs(diff) / 20));
+      html += `<tr class="${x.won ? 'w' : 'x'}${moCls(d.key)}" style="--k:14;cursor:${x.href ? 'pointer' : 'default'}" onclick="${x.href ? `location.href='${x.href}'` : ''}">
+        <td class="l tsp-d">${d.dw} ${d.num}</td>
+        <td class="tsp-rk">${x.rank || ''}</td>
+        <td class="l tsp-o${x.conf ? ' cf' : ''}">${x.site === 'A' ? '<span class="pre">at </span>' : x.site === 'N' ? '<span class="pre">vs </span>' : ''}${sn(x.opp)}${x.conf ? '<i class="cfdot" title="conference game"></i>' : ''}</td>
+        <td class="tsp-sc"><span class="tsp-res ${x.won ? 'w' : 'l'}">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}</span></td>
+        <td class="tsp-site"><b class="${x.site}">${x.site}</b></td>
+        <td class="tsp-q q${q || 0}">${q ? 'Q' + q : ''}</td>
+        <td class="tsp-pr">${x.oppSrs != null ? sg(x.oppSrs) : ''}</td>
+        <td class="tsp-line" title="expected margin from the two Power Ratings + venue">${exp != null ? sg(exp) : ''}</td>
+        <td class="tsp-pm ${diff > 0 ? 'pos' : diff < 0 ? 'neg' : ''}" style="background:color-mix(in srgb,${diff >= 0 ? '#2f9159' : '#d05a5a'} ${dk}%,transparent)" title="actual margin vs expected">${diff != null ? sg(diff) : ''}</td>
+        <td class="tsp-line">${x.rec}</td></tr>`;
+    });
+    host.innerHTML = `<div class="tsp"><div class="tsp-wrap"><table class="tsp-table"><thead><tr>
+      <th>Date</th><th>Rk</th><th>Opponent</th><th>Result</th><th>Site</th><th title="NET-style quadrant">Quad</th><th title="opponent's Power Rating that season">Opp PRtg</th><th title="expected margin (Power Ratings + venue)">Exp</th><th title="actual margin minus expected">+/−</th><th>Record</th>
+    </tr></thead><tbody>${html}</tbody></table></div></div>`;
+  }
+
+  g.TDCSched = { load, project, projectAll, render, renderPast, gamesFor, extrasFor, SEASON };
 })(window);

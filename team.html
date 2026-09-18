@@ -17,7 +17,7 @@
   <script src="tdc-freshman.js?v=pub5"></script>
   <script src="tdc-injury.js?v=4"></script>
   <script src="tdc-ratings.js?v=18"></script>
-  <script src="tdc-schedule.js?v=12"></script>
+  <script src="tdc-schedule.js?v=13"></script>
   <script src="tdc-projgrade.js?v=base8"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
@@ -8434,31 +8434,37 @@ async function loadSchedule(){
     const mySeed = (ranks||[]).find(t=>t.team===mascot)?.ncaa_seed;
     const postMap = {}; (post||[]).forEach(p=>postMap[p.id]={tour:p.tournament,round:p.round});
 
-    let w=0,l=0,cw=0,cl=0,lastTour=null,rows='';
-    const fmtD = d=>{ const x=new Date(d+'T12:00:00'); return x.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); };
+    const srsMap = {}; (ranks||[]).forEach(t=>{ if(t.srs!=null) srsMap[t.team]=+t.srs; });
+    let w=0,l=0,cw=0,cl=0,lastTour=null; const prows=[];
     games.forEach(g=>{
       const pm = postMap[g.id];
       let tour = pm ? pm.tour : null;
       if(tour && tour!==lastTour){
         const seedTxt = (tour==='NCAA Tournament' && mySeed) ? ` · #${mySeed} seed` : '';
-        rows += `<tr><td colspan="6" class="sched-section">${tour}${seedTxt}</td></tr>`;
+        prows.push({section:tour+seedTxt});
         lastTour = tour;
       }
       const homeMe = g.home===mascot;
       const ms = homeMe?g.home_score:g.away_score, os = homeMe?g.away_score:g.home_score;
       const won = ms>os; won?w++:l++; if(g.conf_game){won?cw++:cl++;}
       const opp = homeMe?g.away:g.home;
-      const rk = rankMap[opp];
-      const loc = g.neutral?'Neutral':(homeMe?'Home':'Away');
-      const ot = ''; // (overtime flag not tracked)
-      rows += `<tr class="sched-row ${won?'win':'loss'}" onclick="location.href='game.html?id=${g.id}'" style="cursor:pointer;">
-        <td class="sched-date">${fmtD(g.date)}</td>
-        <td class="sched-rk">${rk?'<span style="opacity:.6">#</span>'+rk:''}</td>
-        <td class="sched-opp">${opp}</td>
-        <td class="sched-res ${won?'win':'loss'}">${won?'W':'L'}, ${ms}–${os}</td>
-        <td class="sched-loc col-loc">${loc}</td>
-        <td class="sched-rec">${w}–${l}${g.conf_game?` <span style="color:var(--text3)">(${cw}–${cl})</span>`:''}</td>
-      </tr>`;
+      prows.push({date:g.date, opp, rank:rankMap[opp], oppSrs:srsMap[opp], site:g.neutral?'N':(homeMe?'H':'A'), won, ms, os, conf:!!g.conf_game,
+        rec:`${w}–${l}`+(g.conf_game?` (${cw}–${cl})`:''), href:`game.html?id=${g.id}`});
+    });
+    if(window.TDCSched && prows.length && !upRows){
+      TDCSched.renderPast(host, prows, {mySrs:srsMap[mascot]});
+      document.getElementById('schedSummary').textContent = `${w}–${l}` + (cw+cl?` · ${cw}–${cl} conf`:'');
+      return;
+    }
+    // (legacy table — only reached when the shared grid isn't available)
+    let rows='';
+    const fmtD = d=>{ const x=new Date(d+'T12:00:00'); return x.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); };
+    prows.forEach(x=>{
+      if(x.section){ rows += `<tr><td colspan="6" class="sched-section">${x.section}</td></tr>`; return; }
+      rows += `<tr class="sched-row ${x.won?'win':'loss'}" onclick="location.href='${x.href}'" style="cursor:pointer;">
+        <td class="sched-date">${fmtD(x.date)}</td><td class="sched-rk">${x.rank?'<span style="opacity:.6">#</span>'+x.rank:''}</td>
+        <td class="sched-opp">${x.opp}</td><td class="sched-res ${x.won?'win':'loss'}">${x.won?'W':'L'}, ${x.ms}–${x.os}</td>
+        <td class="sched-loc col-loc">${x.site==='N'?'Neutral':x.site==='H'?'Home':'Away'}</td><td class="sched-rec">${x.rec}</td></tr>`;
     });
     document.getElementById('schedSummary').textContent = games.length ? `${w}–${l}` + (cw+cl?` · ${cw}–${cl} conf`:'') : 'projected';
     const upHead = !games.length && upRows;   // schedule not started: label the columns for lines
