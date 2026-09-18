@@ -23,7 +23,7 @@
   const _walkCache = {};
   const TAU = 4.5;          // preseason rating uncertainty, pts (≈ historical projection RMSE)
   const DEFAULT_TOTAL = 145.5;
-  let _sched = null, _model = null, _extras = null, _loading = null;
+  let _sched = null, _model = null, _extras = null, _eff = null, _loading = null;
 
   function load() {
     if (_loading) return _loading;
@@ -31,8 +31,9 @@
       fetch('scripts/data/schedule_2027.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/situational_model.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/schedule_extras_2027.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
-    ]).then(([s, m, x]) => {
-      _sched = s; _model = m || { rest: {}, stint: {}, streak: {}, form: 0 }; _extras = x || {};
+      fetch('scripts/data/team_pace_eff.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([s, m, x, e]) => {
+      _sched = s; _model = m || { rest: {}, stint: {}, streak: {}, form: 0 }; _extras = x || {}; _eff = e || null;
       return { sched: s, model: _model, extras: _extras };
     });
     return _loading;
@@ -82,6 +83,17 @@
     return out;
   }
 
+  // ── pace / efficiency pricing (scores + a light nudge on the spread) ───────
+  // expected pace = tA + tB − avg; each offense vs the other defense, relative to the
+  // league average, over that many possessions. Teams without a line get the flat total.
+  function effLine(a, b) {
+    if (!_eff || !_eff.teams) return null;
+    const A = a && _eff.teams[a], B = b && _eff.teams[b]; if (!A || !B) return null;
+    const pace = A.t + B.t - _eff.avgT, k = pace / 100, avg = (_eff.avgO + _eff.avgD) / 2;
+    const ptsA = (A.o + B.d - avg) * k, ptsB = (B.o + A.d - avg) * k;
+    return { pace, total: ptsA + ptsB, margin: ptsA - ptsB };
+  }
+
   // ── projection ────────────────────────────────────────────────────────────
   function phi(x) { return g.TDC_RATINGS ? g.TDC_RATINGS.phi(x) : 0.5 * (1 + Math.tanh(x * 0.8)); }
   function gauss() { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
@@ -125,7 +137,11 @@
       const restMe = restPts(mf.rest), restOpp = sameEvent ? restMe : known ? restPts(of.rest) : 0;
       const stintMe = stintPts(mf.stint), stintOpp = sameEvent ? stintMe : known ? stintPts(of.stint) : 0;
       const sit = restMe - restOpp + stintMe - stintOpp;
-      return { g: x, opp, oppName, venue, venuePts, sit, mf, of, known, restMe, restOpp, stintMe, stintOpp,
+      const eff = oppName ? effLine(team, oppName) : null;
+      // ratings are points per game at an average pace; a fast game stretches the gap, a slow
+      // one squeezes it (KenPom's tempo step, applied to our ratings gap)
+      const paceK = eff ? eff.pace / _eff.avgT : 1;
+      return { g: x, opp, oppName, venue, venuePts, sit, mf, of, known, restMe, restOpp, stintMe, stintOpp, eff, paceK,
         event: ex && ex.event || '', bracket: ex && ex.bracket ? ex.opps : null, pool: ex && ex.pool || null };
     });
 
@@ -154,7 +170,7 @@
           const cands = r.pool.filter(n => !faced.has(n)); oppName = cands[Math.floor(Math.random() * cands.length)] || r.pool[0];
         }
         const oppR = oppName ? (rOpp[oppName] != null ? rOpp[oppName] : FLOOR.rating) : FLOOR.rating;
-        const m = rMe - oppR + venuePts + r.sit + streakPts(streak);
+        const m = (rMe - oppR) * r.paceK + venuePts + r.sit + streakPts(streak);
         const won = Math.random() < phi(m / SIGMA);
         if (rows[i + 1] && rows[i + 1].bracket && !r.bracket) day1Won = won;   // the game right before a bracket day-2 is our day-1
         if (oppName) faced.add(oppName);
@@ -176,10 +192,12 @@
     rows.forEach((r, i) => {
       r.p = wins[i] / SIMS;
       const oppR = r.opp ? r.opp.rating : (r.bracket ? mean(r.bracket.map(x => pool[x].rating)) : r.pool ? mean(r.pool.map(x => pool[x].rating)) : FLOOR.rating);
-      const margin = me.rating - oppR + r.venuePts + r.sit;
+      const margin = (me.rating - oppR) * r.paceK + r.venuePts + r.sit;
       r.margin = +margin.toFixed(1);
       r.p0 = phi(margin / SIGMA);                                          // point-estimate odds, no rating uncertainty / streak
-      r.scoreMe = Math.round(DEFAULT_TOTAL / 2 + margin / 2); r.scoreOpp = Math.round(DEFAULT_TOTAL / 2 - margin / 2);
+      const total = r.eff ? r.eff.total : DEFAULT_TOTAL;                   // pace + efficiency total, flat when unknown
+      r.total = +total.toFixed(1); r.pace = r.eff ? +r.eff.pace.toFixed(1) : null;
+      r.scoreMe = Math.round(total / 2 + margin / 2); r.scoreOpp = Math.round(total / 2 - margin / 2);
       const oppLabel = r.bracket ? `${sn(r.bracket[0])} / ${sn(r.bracket[1])}` : r.pool ? 'TBD · ' + r.event.replace(/ · day.*/, '') : (r.oppName || 'TBD');
       r.label = oppLabel;
       r.spread = margin >= 0 ? `${sn(team)} −${margin.toFixed(1)}` : `${r.oppName ? sn(r.oppName) : 'Opp'} −${(-margin).toFixed(1)}`;
@@ -293,7 +311,7 @@
         <td class="l tsp-d">${d.dw} ${d.num}${r.event ? `<span class="tsp-ev">${r.event}</span>` : ''}</td>
         <td class="tsp-rk">${rk || ''}</td>
         <td class="l tsp-o${r.g.conf ? ' cf' : ''}">${r.oppName ? logoImg(r.oppName) : '<i class="tsp-lg"></i>'}${oppTxt}${r.g.conf ? '<i class="cfdot" title="conference game"></i>' : ''}</td>
-        <td class="tsp-sc" style="${heat}">${r.scoreMe}–${r.scoreOpp}</td>
+        <td class="tsp-sc" style="${heat}" title="${r.pace ? `${r.pace} possessions · total ${r.total}` : 'league-average total'}">${r.scoreMe}–${r.scoreOpp}</td>
         <td class="tsp-site" title="${siteTitle} · rest ${restTxt(r.mf)} vs ${r.known ? restTxt(r.of) : (r.oppName ? '?' : 'same')}${Math.abs(restD) >= 0.15 ? ` (${sg(restD)})` : ''}${r.mf.stint >= 2 ? ` · ${r.mf.stint}${r.mf.stint === 2 ? 'nd' : r.mf.stint === 3 ? 'rd' : 'th'} straight away` : ''} · situational edge ${sg(edge)}"><b class="${r.venue}">${r.venue}</b></td>
         <td class="tsp-q q${q || 0}" title="NET-style quadrant: opponent rank ${rk || '—'} ${r.venue === 'H' ? 'at home' : r.venue === 'A' ? 'on the road' : 'on a neutral floor'}">${q ? 'Q' + q : ''}</td>
         <td class="tsp-pr">${r.opp && isFinite(r.opp.rating) ? sg(r.opp.rating) : ''}</td>
@@ -316,7 +334,7 @@
 
   // every rated team's projected record for the rankings table — lighter sims, cached in
   // localStorage until the ratings or the schedule file change
-  const LS_ALL = 'tdc_projrec_v2';
+  const LS_ALL = 'tdc_projrec_v3';
   async function projectAll(opts) {
     opts = opts || {};
     await load();
