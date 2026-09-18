@@ -1190,7 +1190,7 @@
   <link rel="stylesheet" href="tdc-anim.css?v=4"/>
   <script src="tdc-anim.js?v=5"></script>
   <link rel="stylesheet" href="tdc-dense.css?v=37"/>
-  <link rel="stylesheet" href="tdc-hero.css?v=2"/>
+  <link rel="stylesheet" href="tdc-hero.css?v=3"/>
   <link rel="stylesheet" href="tdc-index-sheet.css?v=1"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth; releases the dense dark-lock -->
   <link rel="stylesheet" href="tdc-skin.css?v=9"/>
@@ -1274,7 +1274,7 @@
       <span id="teamCount">—</span>
     </div>
   </div>
-  <div class="ph-band cols7" id="phBand">
+  <div class="ph-band cols8" id="phBand">
     <div class="ph-tile"><div class="k">Teams</div><div class="v">—</div><div class="s">loading</div></div>
     <div class="ph-tile acc"><div class="k">No. 1</div><div class="v">—</div><div class="s">&nbsp;</div></div>
     <div class="ph-tile"><div class="k">Best offense</div><div class="v">—</div><div class="s">&nbsp;</div></div>
@@ -1553,8 +1553,14 @@ function fillHeroBand(label){
     const scorer=allTeams.filter(t=>+t.ppg>0).sort((a,b)=>b.ppg-a.ppg)[0];
     const shooter=allTeams.filter(t=>+t.tp>0).sort((a,b)=>b.tp-a.tp)[0];
     const pct=v=>(v<=1?v*100:v).toFixed(1);
+    // best record: played seasons use the real W-L; the projected season uses the simulated
+    // record of teams whose slate is (nearly) fully announced
+    const recTeams=allTeams.filter(t=>t.gp>0||(t.projRec&&t.projRec.n>=28));
+    const bestRec=recTeams.slice().sort((a,b)=>(b.wins-a.wins)||((b.wins/((b.wins+b.losses)||1))-(a.wins/((a.wins+a.losses)||1))))[0];
+    const isProj=curSeason===2027;
     band.innerHTML=tile('Teams',allTeams.length,label||'')+
       (top?tile('No. 1',`${sgn(top.srs)}<small>PRtg</small>`,`<b>${nm(top)}</b>`,true):'')+
+      (bestRec?tile(isProj?'Proj best record':'Best record',`${bestRec.wins}–${bestRec.losses}`,`<b>${nm(bestRec)}</b>${isProj&&bestRec.projRec&&bestRec.projRec.confN?` · ${bestRec.cw}–${bestRec.cl} conf`:''}`):'')+
       (bestO?tile('Best offense',`${(+bestO.ortg).toFixed(1)}<small>ORtg</small>`,`<b>${nm(bestO)}</b>`):tile('Best offense','—','&nbsp;'))+
       (bestD?tile('Best defense',`${(+bestD.drtg).toFixed(1)}<small>DRtg</small>`,`<b>${nm(bestD)}</b>`):tile('Best defense','—','&nbsp;'))+
       (topConf?tile('Top conference',`${sgn(topConf.avg)}<small>avg</small>`,`<b>${topConf.c}</b> · ${topConf.n} teams`):tile('Top conference','—','&nbsp;'))+
