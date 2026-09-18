@@ -61,6 +61,17 @@ def d1_team_ids():
     return ids
 
 
+def et_date(iso):
+    """ESPN gives a UTC timestamp; the game's calendar date is the US-Eastern one (an 8pm PT tip is the
+    next day in UTC). November–March is EST (UTC−5)."""
+    from datetime import datetime, timedelta
+    try:
+        t = datetime.strptime(iso.replace("Z", ""), "%Y-%m-%dT%H:%M")
+        return (t - timedelta(hours=5)).strftime("%Y-%m-%d")
+    except Exception:
+        return iso[:10]
+
+
 def parse_event(e):
     try:
         comp = e["competitions"][0]
@@ -69,7 +80,7 @@ def parse_event(e):
         if not h or not a:
             return None
         return {
-            "id": int(e["id"]), "season": SEASON, "date": e["date"][:10],
+            "id": int(e["id"]), "season": SEASON, "date": et_date(e["date"]),
             "home": h["team"]["displayName"], "home_id": _int(h["team"]["id"]), "home_score": _int((h.get("score") or {}).get("value")) if isinstance(h.get("score"), dict) else _int(h.get("score")),
             "away": a["team"]["displayName"], "away_id": _int(a["team"]["id"]), "away_score": _int((a.get("score") or {}).get("value")) if isinstance(a.get("score"), dict) else _int(a.get("score")),
             "neutral": bool(comp.get("neutralSite")),
@@ -116,8 +127,14 @@ def pull():
     print(f"  {len(empty)} programs with no schedule yet: {', '.join(sorted(empty)[:12])}{' …' if len(empty) > 12 else ''}")
 
 
+# ESPN renamed a few programs since the ratings were built — keep the site on the ratings' spelling
+NAME_FIX = {"St. Thomas Tommies": "St. Thomas-Minnesota Tommies", "LSU New Orleans Privateers": "New Orleans Privateers"}
+
+
 def write_site(rows):
     """{teams:[names], games:[[id, date, homeIdx, awayIdx, neutral, conf]]} — ~150KB for the whole season."""
+    for g in rows:
+        g["home"] = NAME_FIX.get(g["home"], g["home"]); g["away"] = NAME_FIX.get(g["away"], g["away"])
     names = sorted({g["home"] for g in rows} | {g["away"] for g in rows})
     idx = {n: i for i, n in enumerate(names)}
     out = {"season": SEASON, "pulled": time.strftime("%Y-%m-%d"), "teams": names,

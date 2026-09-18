@@ -28,7 +28,7 @@
   function load() {
     if (_loading) return _loading;
     _loading = Promise.all([
-      fetch('scripts/data/schedule_2027.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('scripts/data/schedule_2027.json?v=2').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/situational_model.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/schedule_extras_2027.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/team_pace_eff.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
@@ -110,7 +110,9 @@
 
     // my slate: listed games + hand-added ones, date order; played games (from the DB) are passed in and skipped
     const played = new Set((opts.playedIds || []).map(String));
-    const slate = gamesFor(team).concat(extrasFor(team)).filter(x => !played.has(String(x.id))).sort((a, b) => a.date.localeCompare(b.date));
+    // hand-added extras only fill dates the listed schedule doesn't already cover
+    const listed = gamesFor(team), days = new Set(listed.map(x => x.date));
+    const slate = listed.concat(extrasFor(team).filter(x => !days.has(x.date))).filter(x => !played.has(String(x.id))).sort((a, b) => a.date.localeCompare(b.date));
     if (!slate.length) return null;
     const all = allGames();
     const myWalk = walk(team, slate);
@@ -334,7 +336,7 @@
 
   // every rated team's projected record for the rankings table — lighter sims, cached in
   // localStorage until the ratings or the schedule file change
-  const LS_ALL = 'tdc_projrec_v4';
+  const LS_ALL = 'tdc_projrec_v5';
   async function projectAll(opts) {
     opts = opts || {};
     await load();
