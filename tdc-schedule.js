@@ -233,6 +233,7 @@
   .tsp-table tr:hover td{filter:brightness(1.06);}
   .tsp-table td.tsp-d{color:var(--text);font-weight:600;min-width:96px;}
   .tsp-table td.tsp-o .tsp-lg{display:inline-block;width:18px;height:18px;object-fit:contain;vertical-align:middle;margin:-2px 8px 0 0;}
+  .tsp-table td.tsp-o a{color:inherit;text-decoration:none;} .tsp-table td.tsp-o a:hover{color:var(--tc-readable,var(--accent));text-decoration:underline;}
   .tsp-table td.tsp-o .cfdot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--tc-readable,var(--accent));margin-left:7px;vertical-align:middle;}
   .tsp-table td.tsp-o.cf{font-weight:800;}
   .tsp-table td.tsp-q{font-weight:800;font-size:11.5px;color:var(--text3);}
@@ -283,7 +284,7 @@
 
   function render(host, R, opts) {
     ensureCss(); opts = opts || {};
-    const sn = g.tdcShortSchool || (x => x);
+    const sn = g.tdcShortSchool || (x => x), team = R.team;
     let lastMo = null, rows = '';
     const moCls = key => { const c = lastMo !== null && key !== lastMo ? ' mo1' : ''; lastMo = key; return c; };
     (opts.played || []).forEach(x => {          // results already on the books
@@ -291,7 +292,7 @@
       rows += `<tr class="${x.won ? 'w' : 'x'}${moCls(d.key)}" style="--k:18;cursor:${x.href ? 'pointer' : 'default'}" onclick="${x.href ? `location.href='${x.href}'` : ''}">
         <td class="l tsp-d">${d.dw} ${d.num}</td>
         <td class="tsp-rk">${x.rank || ''}</td>
-        <td class="l tsp-o hist">${logoImg(x.opp)}${sn(x.opp)}</td>
+        <td class="l tsp-o hist">${logoImg(x.opp)}<a href="team.html?team=${encodeURIComponent(sn(x.opp))}" onclick="event.stopPropagation()">${sn(x.opp)}</a></td>
         <td class="tsp-sc"><span class="tsp-res">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}</span></td>
         <td class="tsp-site"><b class="${x.site}">${x.site}</b></td>
         <td class="tsp-q q${quad(x.rank, x.site) || 0}">${quad(x.rank, x.site) ? 'Q' + quad(x.rank, x.site) : ''}</td>
@@ -301,7 +302,9 @@
     });
     R.rows.forEach(r => {
       const d = dParts(r.g.date);
-      const oppTxt = r.bracket ? `${sn(r.bracket[0])} / ${sn(r.bracket[1])}` : r.pool ? 'TBD' : (r.oppName ? sn(r.oppName) : 'TBD');
+      const tl = n => `<a href="team.html?team=${encodeURIComponent(sn(n))}" onclick="event.stopPropagation()">${sn(n)}</a>`;
+      const oppTxt = r.bracket ? `${tl(r.bracket[0])} / ${tl(r.bracket[1])}` : r.pool ? 'TBD' : (r.oppName ? tl(r.oppName) : 'TBD');
+      const pv = r.oppName ? `preview.html?team=${encodeURIComponent(team)}&opp=${encodeURIComponent(r.oppName)}&date=${r.g.date}` : '';
       const restD = r.restMe - r.restOpp, trip = r.stintMe - r.stintOpp;
       const edge = r.venuePts + r.sit;
       const siteTitle = r.venue === 'H' ? `home edge ${sg(r.venuePts)}` : r.venue === 'A' ? `their building ${sg(r.venuePts)}` : 'neutral floor';
@@ -309,7 +312,7 @@
       const rk = r.opp && r.opp.rank ? r.opp.rank : null, q = quad(rk, r.venue);
       const pc = Math.round(r.p * 100), pk = Math.round(8 + 34 * Math.min(1, Math.abs(pc - 50) / 45));
       const heat = `background:color-mix(in srgb,${pc >= 50 ? '#2f9159' : '#d05a5a'} ${pk}%,transparent)`;
-      rows += `<tr class="${mc.trim()}">
+      rows += `<tr class="${mc.trim()}"${pv ? ` style="cursor:pointer" onclick="location.href='${pv}'" title="open the game preview"` : ''}>
         <td class="l tsp-d">${d.dw} ${d.num}${r.event ? `<span class="tsp-ev">${r.event}</span>` : ''}</td>
         <td class="tsp-rk">${rk || ''}</td>
         <td class="l tsp-o${r.g.conf ? ' cf' : ''}">${r.oppName ? logoImg(r.oppName) : '<i class="tsp-lg"></i>'}${oppTxt}${r.g.conf ? '<i class="cfdot" title="conference game"></i>' : ''}</td>
@@ -371,7 +374,7 @@
       html += `<tr class="${x.won ? 'w' : 'x'}${moCls(d.key)}" style="--k:14;cursor:${x.href ? 'pointer' : 'default'}" onclick="${x.href ? `location.href='${x.href}'` : ''}">
         <td class="l tsp-d">${d.dw} ${d.num}</td>
         <td class="tsp-rk">${x.rank || ''}</td>
-        <td class="l tsp-o${x.conf ? ' cf' : ''}">${logoImg(x.opp)}${sn(x.opp)}${x.conf ? '<i class="cfdot" title="conference game"></i>' : ''}</td>
+        <td class="l tsp-o${x.conf ? ' cf' : ''}">${logoImg(x.opp)}<a href="team.html?team=${encodeURIComponent(sn(x.opp))}" onclick="event.stopPropagation()">${sn(x.opp)}</a>${x.conf ? '<i class="cfdot" title="conference game"></i>' : ''}</td>
         <td class="tsp-sc"><span class="tsp-res ${x.won ? 'w' : 'l'}">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}</span></td>
         <td class="tsp-site"><b class="${x.site}">${x.site}</b></td>
         <td class="tsp-q q${q || 0}">${q ? 'Q' + q : ''}</td>

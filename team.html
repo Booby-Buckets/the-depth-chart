@@ -17,7 +17,8 @@
   <script src="tdc-freshman.js?v=pub5"></script>
   <script src="tdc-injury.js?v=4"></script>
   <script src="tdc-ratings.js?v=19"></script>
-  <script src="tdc-schedule.js?v=18"></script>
+  <script src="tdc-schedule.js?v=19"></script>
+  <script src="tdc-preview.js?v=3"></script>
   <script src="tdc-projgrade.js?v=base8"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
@@ -1242,6 +1243,7 @@
   <div class="hero-tabs">
     <button class="hero-tab active" onclick="switchTab('depth',this)">Depth Chart</button>
     <button class="hero-tab" onclick="switchTab('schedule',this)">Schedule</button>
+    <button class="hero-tab" onclick="switchTab('preview',this)">Preview</button>
     <div class="hero-grp" data-grp="analytics">
       <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Analytics<span class="hero-grp-car">▾</span></button>
       <div class="hero-grp-menu" style="min-width:252px;">
@@ -1383,6 +1385,14 @@
       <div id="lossesPanel">
         <div class="loading-state"><div class="loading-spinner"></div></div>
       </div>
+    </div>
+    <div class="panel" id="panel-preview">
+      <div class="sec-head">Game Preview
+        <span class="sec-head-sub" style="display:flex;align-items:center;gap:10px;">
+          <select id="pvPick" class="sched-season" onchange="renderPreviewPick()" style="max-width:320px;"></select>
+        </span>
+      </div>
+      <div id="pvHost"><div class="loading-state"><div class="loading-spinner"></div></div></div>
     </div>
     <div class="panel" id="panel-schedule">
       <div class="sec-head">Schedule
@@ -5933,6 +5943,7 @@ function switchTab(id, btn){
     renderCustomize(teamT, teamPlayers, teamColor_g, teamRgb_g, teamGp);
   }
   if(id==='schedule') initSchedule();
+  if(id==='preview') initPreview();
   if(id==='report') renderRosterReport();
   if(id==='nil') renderNil();
   if(id==='betting') renderTeamBetting();
@@ -8474,6 +8485,25 @@ async function loadSchedule(){
   }catch(e){
     host.innerHTML = `<div style="padding:30px;color:var(--text3);">Could not load schedule. ${e.message}</div>`;
   }
+}
+
+// ── PREVIEW TAB: any game on the 2026-27 slate, defaulting to the next one ──
+let _pvInit=false, _pvRows=null, _pvTeam=null;
+async function initPreview(){
+  const host=document.getElementById('pvHost'), pick=document.getElementById('pvPick');
+  if(_pvInit) return; _pvInit=true;
+  const mascot=(await _resolveGamesKey().catch(()=>null))||teamMascot();
+  const R=await _schedProjection(mascot, []);
+  if(!R||!R.rows.length){ host.innerHTML='<div style="padding:30px;color:var(--text3);">No 2026-27 games on the announced schedule yet.</div>'; pick.style.display='none'; return; }
+  _pvRows=R.rows.filter(r=>r.oppName); _pvTeam=mascot;
+  const sn=x=>window.tdcShortSchool?tdcShortSchool(x):x;
+  const fmt=d=>new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  pick.innerHTML=_pvRows.map((r,i)=>`<option value="${i}">${fmt(r.g.date)} · ${r.venue==='A'?'at ':r.venue==='N'?'vs ':''}${sn(r.oppName)}</option>`).join('');
+  renderPreviewPick();
+}
+function renderPreviewPick(){
+  const i=+document.getElementById('pvPick').value||0, r=_pvRows&&_pvRows[i]; if(!r) return;
+  TDCPreview.render(document.getElementById('pvHost'),{team:_pvTeam,opp:r.oppName,date:r.g.date}).catch(e=>{ document.getElementById('pvHost').innerHTML='<div style="padding:30px;color:var(--text3);">Could not build the preview. '+e.message+'</div>'; });
 }
 
 // Init

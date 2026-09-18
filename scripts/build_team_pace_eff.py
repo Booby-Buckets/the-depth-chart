@@ -26,7 +26,8 @@ DATA = Path(__file__).parent / "data"
 d = json.load(open(DATA / "team_dna.json"))
 proj, last = d["2027"]["teams"], d["2026"]["teams"]
 
-def line(t): return {"o": t.get("ORtg"), "d": t.get("DRtg"), "t": t.get("tempo")}
+FF = ["oeFG", "oTOV", "oORB", "oFTr", "deFG", "dTOV", "dDRB"]     # four factors (game preview shows them)
+def line(t): return {"o": t.get("ORtg"), "d": t.get("DRtg"), "t": t.get("tempo"), "ff": {k: t.get(k) for k in FF if t.get(k) is not None}}
 P = {k: line(v) for k, v in proj.items() if v.get("ORtg") and v.get("DRtg") and v.get("tempo")}
 L = {k: line(v) for k, v in last.items() if v.get("ORtg") and v.get("DRtg") and v.get("tempo")}
 avgO_p = st.mean(v["o"] for v in P.values()); avgD_p = st.mean(v["d"] for v in P.values()); avgT_p = st.mean(v["t"] for v in P.values())
@@ -37,11 +38,12 @@ shrink = round(sd_p / sd_l, 2)
 R = ratings()
 out = {}
 for k, v in P.items():
-    out[k] = {"o": round(v["o"], 1), "d": round(v["d"], 1), "t": round(v["t"], 1), "src": "proj"}
+    out[k] = {"o": round(v["o"], 1), "d": round(v["d"], 1), "t": round(v["t"], 1), "src": "proj", "ff": v["ff"]}
 for k, v in L.items():
     if k in out or k not in R: continue
     net100 = R[k] * 100 / avgT_p            # points per game → per 100 possessions
-    out[k] = {"o": round(avgO_p + net100 / 2, 1), "d": round(avgD_p - net100 / 2, 1), "t": round(v["t"], 1), "src": "rating"}
-json.dump({"avgO": round(avgO_p, 1), "avgD": round(avgD_p, 1), "avgT": round(avgT_p, 1), "shrink": shrink, "teams": out},
+    out[k] = {"o": round(avgO_p + net100 / 2, 1), "d": round(avgD_p - net100 / 2, 1), "t": round(v["t"], 1), "src": "rating", "ff": v["ff"], "ffSrc": "last"}
+ffavg = {k: round(st.mean(v["ff"][k] for v in P.values() if k in v["ff"]), 1) for k in FF}
+json.dump({"avgO": round(avgO_p, 1), "avgD": round(avgD_p, 1), "avgT": round(avgT_p, 1), "shrink": shrink, "ffAvg": ffavg, "teams": out},
           open(DATA / "team_pace_eff.json", "w"), separators=(",", ":"))
 print(f"{len(P)} projected + {len(out) - len(P)} rating-split lines → team_pace_eff.json")

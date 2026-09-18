@@ -1,0 +1,193 @@
+/* tdc-preview.js — game preview for a scheduled 2026-27 game.
+ *
+ * TDCPreview.render(host, {team, opp, date})   team/opp = full names (ratings spelling)
+ *
+ * Pulls the game's line from the schedule simulation (tdc-schedule.js), lays the two
+ * teams side by side (rating, rank, projected offense / defense / tempo, four factors),
+ * then projects every rotation player's stat line FOR THIS GAME:
+ *
+ *   base line   the player's 2026-27 projection (stat_overall_projected.json; freshmen
+ *               from the owner's freshman profiles via tdc-freshman.js)
+ *   pace        × expected possessions ÷ the team's own tempo   (fast game → more of everything)
+ *   defense     scoring × how this offense prices against THIS defense (ORtg + oppDRtg − avg)/ORtg;
+ *               assists half of that; shooting % moves with the square root
+ *   blowout     starters lose minutes once the spread passes ~12
+ *   coherence   the roster's points are scaled so they add up to the projected team score
+ */
+(function (g) {
+  const SB = 'https://izlqhnxowdhtdofkwrho.supabase.co', KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+  const H = { apikey: KEY, Authorization: 'Bearer ' + KEY };
+  let _eff = null, _proj = null, _effP = null, _projP = null;
+  const sn = x => (g.tdcShortSchool ? g.tdcShortSchool(x) : x) || x;
+  const logo = n => { try { const r = g.tdcTeamColor && g.tdcTeamColor(n); return r && r.logo || ''; } catch (e) { return ''; } };
+  const col = n => { try { const r = g.tdcTeamColor && g.tdcTeamColor(n); return r && r.c1 || '#888'; } catch (e) { return '#888'; } };
+  const sg = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1);
+  const f1 = v => v == null || !isFinite(v) ? '—' : (+v).toFixed(1);
+
+  function loadEff() { return _effP || (_effP = fetch('scripts/data/team_pace_eff.json?v=2').then(r => r.ok ? r.json() : null).then(j => (_eff = j)).catch(() => null)); }
+  function loadProj() { return _projP || (_projP = fetch('scripts/data/stat_overall_projected.json?v=34').then(r => r.ok ? r.json() : null).then(j => (_proj = j)).catch(() => null)); }
+  function roster(full) {
+    const short = sn(full);
+    return fetch(`${SB}/rest/v1/players?team=eq.${encodeURIComponent(short)}&select=name,position,class_year,height,espn_id,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,three_pct,ft_pct,stl,blk,tovs,fga,fgm,tpa,tpm,is_injured,yr,starter,depth_order&order=depth_order.asc.nullslast`, { headers: H })
+      .then(r => r.ok ? r.json() : []).catch(() => []);
+  }
+
+  // ── player lines ──────────────────────────────────────────────────────────
+  function baseLine(p) {
+    const P = _proj && _proj.players;
+    if (P && p.espn_id && P[String(p.espn_id)]) { const q = P[String(p.espn_id)]; return { src: 'proj', mpg: q.mpg, ppg: q.ppg, rpg: q.rpg, apg: q.apg, fg: q.fg_pct, tp: q.tp_pct, stl: q.stl, blk: q.blk, tov: q.tovs, ovr: q.ovr }; }
+    if (g.TDCFresh && g.TDCFresh.isFreshman && g.TDCFresh.isFreshman(p)) {
+      try { const l = g.TDCFresh.line(p, g.TDCFresh.profileFor(p)); if (l && l.mpg) return { src: 'fresh', mpg: +l.mpg, ppg: +l.ppg, rpg: +l.rpg, apg: +l.apg, fg: +l.fg_pct, tp: +l.tp_pct, stl: +l.stl, blk: +l.blk, tov: +l.tovs, ovr: l._frOvr || p.tdc_grade }; } catch (e) {}
+    }
+    if (p.mpg && p.ppg != null) return { src: 'last', mpg: +p.mpg, ppg: +p.ppg, rpg: +p.rpg, apg: +p.apg, fg: +p.fg_pct, tp: +(p.tp_pct != null ? p.tp_pct : p.three_pct), stl: +p.stl, blk: +p.blk, tov: +p.tovs, ovr: p.tdc_grade };
+    return null;
+  }
+
+  // one team's lines for this game. E = pace/eff record for the team, O = for the opponent
+  function teamLines(players, E, O, ctx) {
+    const avgD = _eff ? _eff.avgD : 102.7;
+    const paceK = ctx.pace && E && E.t ? ctx.pace / E.t : 1;
+    const offK = E && O ? (E.o + O.d - avgD) / E.o : 1;            // this offense vs this defense, relative to its norm
+    const spread = Math.abs(ctx.margin || 0), starterK = Math.max(0.8, 1 - 0.01 * Math.max(0, spread - 12));
+    let rows = players.filter(p => !p.is_injured).map(p => ({ p, b: baseLine(p) })).filter(x => x.b && x.b.mpg >= 6);
+    rows.sort((a, b) => b.b.mpg - a.b.mpg);
+    rows = rows.slice(0, 11);
+    // a game has 200 minutes; season projections drawn up independently can add to more
+    const rawMin = rows.reduce((s, x) => s + x.b.mpg, 0), fitK = rawMin > 205 ? 200 / rawMin : 1;
+    rows.forEach((x, i) => {
+      const b = x.b, minK = (i < 5 ? starterK : 1 + (1 - starterK) * 0.6) * fitK;
+      const min = Math.min(38, b.mpg * minK);
+      x.l = { min, pts: b.ppg * paceK * offK * minK, reb: b.rpg * paceK * minK, ast: b.apg * paceK * Math.sqrt(offK) * minK,
+        fg: b.fg * Math.sqrt(offK), tp: b.tp * Math.sqrt(offK), stl: (b.stl || 0) * paceK * minK, blk: (b.blk || 0) * paceK * minK, tov: (b.tov || 0) * paceK * minK,
+        dPts: b.ppg * paceK * offK * minK - b.ppg };
+    });
+    // coherence: the rotation's points add up to the projected team score (only when the roster is
+    // reasonably complete — a missing star would otherwise inflate everyone else)
+    const sumMin = rows.reduce((s, x) => s + x.l.min, 0), sumPts = rows.reduce((s, x) => s + x.l.pts, 0);
+    let scaleK = 1;
+    if (ctx.score && sumMin >= 170 && sumPts > 0) scaleK = Math.max(0.8, Math.min(1.25, ctx.score / sumPts));
+    rows.forEach(x => { x.l.pts *= scaleK; x.l.dPts = x.l.pts - x.b.ppg; });
+    return { rows, paceK, offK, starterK, scaleK, sumMin };
+  }
+
+  // ── render ────────────────────────────────────────────────────────────────
+  const CSS = `
+  .gp{font-family:'Inter',system-ui,sans-serif;}
+  .gp-hero{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:center;padding:22px 24px;border:1px solid var(--border);border-radius:16px;background:linear-gradient(120deg,#0B1220 0%,#121C33 55%,#1A2A4C 100%);color:#fff;margin-bottom:14px;}
+  .gp-side{display:flex;align-items:center;gap:14px;min-width:0;}
+  .gp-side.r{flex-direction:row-reverse;text-align:right;}
+  .gp-side img{width:64px;height:64px;object-fit:contain;filter:drop-shadow(0 6px 14px rgba(0,0,0,.35));}
+  .gp-nm{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;line-height:1.05;}
+  .gp-nm a{color:inherit;text-decoration:none;}
+  .gp-sub{font-size:12px;color:rgba(255,255,255,.6);margin-top:4px;font-weight:600;}
+  .gp-sub b{color:#E6D5A8;}
+  .gp-mid{text-align:center;min-width:170px;}
+  .gp-score{font-family:'Playfair Display',serif;font-weight:800;font-size:38px;line-height:1;letter-spacing:-.02em;}
+  .gp-when{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#E6D5A8;margin-bottom:8px;}
+  .gp-odds{font-size:12.5px;color:rgba(255,255,255,.75);margin-top:8px;font-weight:600;}
+  .gp-odds b{color:#fff;}
+  .gp-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:16px;}
+  .gp-tile{border:1px solid var(--border);border-radius:10px;padding:9px 12px 8px;background:var(--bg2);}
+  .gp-tile .k{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;white-space:nowrap;}
+  .gp-tile .v{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;line-height:1;color:var(--text);}
+  .gp-tile .s{font-size:10.5px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .gp-h{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text2);padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:12px 12px 0 0;border-bottom:none;margin-top:16px;display:flex;align-items:center;gap:10px;}
+  .gp-h::before{content:'';width:6px;height:6px;border-radius:2px;background:var(--accent);}
+  .gp-h span{margin-left:auto;font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);}
+  .gp-wrap{border:1px solid var(--border);border-radius:0 0 12px 12px;overflow:auto;background:var(--bg);}
+  .gp-t{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums;}
+  .gp-t th{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:7px 12px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap;background:var(--bg2);}
+  .gp-t th.l,.gp-t td.l{text-align:left;}
+  .gp-t td{padding:6px 12px;border-bottom:1px solid color-mix(in srgb,var(--border) 70%,transparent);text-align:right;color:var(--text2);white-space:nowrap;}
+  .gp-t tr:last-child td{border-bottom:none;}
+  .gp-t td.nm{font-weight:700;color:var(--text);}
+  .gp-t td.nm a{color:inherit;text-decoration:none;} .gp-t td.nm a:hover{color:var(--accent);}
+  .gp-t td.nm small{font-weight:600;color:var(--text3);margin-left:6px;font-size:11px;}
+  .gp-t td.w{color:var(--text);font-weight:800;background:color-mix(in srgb,var(--side) 14%,transparent);}
+  .gp-t td.big{font-weight:800;color:var(--text);}
+  .gp-t td.pos{color:#2f9159;} .gp-t td.neg{color:#d05a5a;}
+  [data-theme="dark"] .gp-t td.pos{color:#4fc07a;} [data-theme="dark"] .gp-t td.neg{color:#ef6e6e;}
+  .gp-t td.tot{font-weight:800;color:var(--text);background:var(--bg2);}
+  .gp-two{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .gp-note{font-size:11.5px;color:var(--text3);line-height:1.5;margin:10px 2px 0;}
+  .gp-note b{color:var(--text2);}
+  .gp-empty{padding:16px 14px;font-size:12.5px;color:var(--text3);}
+  @media(max-width:860px){.gp-two{grid-template-columns:1fr;}.gp-strip{grid-template-columns:repeat(2,minmax(0,1fr));}.gp-hero{grid-template-columns:1fr;text-align:center;}.gp-side,.gp-side.r{flex-direction:column;text-align:center;}}`;
+  function ensureCss() { if (document.getElementById('gp-css')) return; const s = document.createElement('style'); s.id = 'gp-css'; s.textContent = CSS; document.head.appendChild(s); }
+
+  const teamHref = n => `team.html?team=${encodeURIComponent(sn(n))}`;
+  const playerHref = (p, team) => `player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(sn(team))}`;
+
+  function cmpTable(A, B, EA, EB, RA, RB) {
+    const ff = _eff && _eff.ffAvg || {};
+    const rows = [
+      ['Power Rating', RA && RA.rating, RB && RB.rating, v => sg(v), true],
+      ['Nat\'l rank', RA && RA.rank, RB && RB.rank, v => '#' + v, false],
+      ['Proj ORtg', EA && EA.o, EB && EB.o, f1, true], ['Proj DRtg', EA && EA.d, EB && EB.d, f1, false], ['Tempo', EA && EA.t, EB && EB.t, f1, null],
+      ['eFG%', EA && EA.ff && EA.ff.oeFG, EB && EB.ff && EB.ff.oeFG, f1, true], ['TOV%', EA && EA.ff && EA.ff.oTOV, EB && EB.ff && EB.ff.oTOV, f1, false],
+      ['OREB%', EA && EA.ff && EA.ff.oORB, EB && EB.ff && EB.ff.oORB, f1, true], ['FT rate', EA && EA.ff && EA.ff.oFTr, EB && EB.ff && EB.ff.oFTr, f1, true],
+      ['Opp eFG%', EA && EA.ff && EA.ff.deFG, EB && EB.ff && EB.ff.deFG, f1, false], ['Forced TOV%', EA && EA.ff && EA.ff.dTOV, EB && EB.ff && EB.ff.dTOV, f1, true],
+      ['DREB%', EA && EA.ff && EA.ff.dDRB, EB && EB.ff && EB.ff.dDRB, f1, true],
+    ];
+    const ca = col(A), cb = col(B);
+    return `<div class="gp-wrap"><table class="gp-t"><thead><tr><th class="l" style="min-width:170px"></th><th>${sn(A)}</th><th>${sn(B)}</th><th>D-I avg</th></tr></thead><tbody>${rows.map(([l, a, b, f, hi]) => {
+      const ha = a != null && isFinite(a), hb = b != null && isFinite(b);
+      let wa = '', wb = '';
+      if (hi !== null && ha && hb && a !== b) { const aw = hi ? a > b : a < b; wa = aw ? 'w' : ''; wb = aw ? '' : 'w'; }
+      const avg = { 'eFG%': ff.oeFG, 'TOV%': ff.oTOV, 'OREB%': ff.oORB, 'FT rate': ff.oFTr, 'Opp eFG%': ff.deFG, 'Forced TOV%': ff.dTOV, 'DREB%': ff.dDRB, 'Proj ORtg': _eff && _eff.avgO, 'Proj DRtg': _eff && _eff.avgD, 'Tempo': _eff && _eff.avgT }[l];
+      return `<tr><td class="l">${l}</td><td class="${wa}" style="--side:${ca}">${ha ? f(a) : '—'}</td><td class="${wb}" style="--side:${cb}">${hb ? f(b) : '—'}</td><td style="color:var(--text3)">${avg != null ? f1(avg) : ''}</td></tr>`;
+    }).join('')}</tbody></table></div>`;
+  }
+
+  function playersTable(team, T, color) {
+    if (!T || !T.rows.length) return `<div class="gp-wrap"><div class="gp-empty">No projected lines on file for ${sn(team)}'s roster yet.</div></div>`;
+    const tot = T.rows.reduce((s, x) => { s.min += x.l.min; s.pts += x.l.pts; s.reb += x.l.reb; s.ast += x.l.ast; return s; }, { min: 0, pts: 0, reb: 0, ast: 0 });
+    const cls = v => v > 0.4 ? 'pos' : v < -0.4 ? 'neg' : '';
+    return `<div class="gp-wrap"><table class="gp-t"><thead><tr><th class="l">Player</th><th>Min</th><th>Pts</th><th>Reb</th><th>Ast</th><th>FG%</th><th>3P%</th><th title="points vs the player's season projection">vs avg</th></tr></thead><tbody>${T.rows.map(x => {
+      const p = x.p, l = x.l;
+      return `<tr><td class="l nm"><a href="${playerHref(p, team)}">${p.name}</a><small>${p.position || ''}${p.class_year ? ' · ' + p.class_year : ''}${x.b.src === 'fresh' ? ' · Fr proj' : x.b.src === 'last' ? ' · last yr' : ''}</small></td>
+        <td>${l.min.toFixed(0)}</td><td class="big">${l.pts.toFixed(1)}</td><td>${l.reb.toFixed(1)}</td><td>${l.ast.toFixed(1)}</td><td>${isFinite(l.fg) ? l.fg.toFixed(1) : '—'}</td><td>${isFinite(l.tp) ? l.tp.toFixed(1) : '—'}</td><td class="${cls(l.dPts)}">${sg(l.dPts)}</td></tr>`;
+    }).join('')}<tr><td class="l tot">Rotation</td><td class="tot">${tot.min.toFixed(0)}</td><td class="tot">${tot.pts.toFixed(0)}</td><td class="tot">${tot.reb.toFixed(0)}</td><td class="tot">${tot.ast.toFixed(0)}</td><td class="tot" colspan="3"></td></tr></tbody></table></div>`;
+  }
+
+  async function render(host, opts) {
+    ensureCss();
+    const team = opts.team, opp = opts.opp, date = opts.date;
+    host.innerHTML = '<div class="gp-empty">Building the preview…</div>';
+    const [R, E, D] = await Promise.all([g.TDCSched ? g.TDCSched.project(team).catch(() => null) : null, loadEff(), g.TDC_RATINGS ? g.TDC_RATINGS.get() : null, loadProj(),
+      g.TDCFresh && g.TDCFresh.load ? g.TDCFresh.load().catch(() => null) : null]);
+    const row = R && R.rows.find(r => r.g.date === date && (r.oppName === opp || !r.oppName)) || (R && R.rows.find(r => r.oppName === opp));
+    if (!row) { host.innerHTML = `<div class="gp-empty">No projected game between ${sn(team)} and ${sn(opp)} on ${date} in the announced schedule.</div>`; return; }
+    const rowOf = n => D && D.teams.find(t => t.full === n) || null;
+    const RA = rowOf(team), RB = row.oppName ? rowOf(row.oppName) : null;
+    const EA = E && E.teams[team] || null, EB = E && row.oppName && E.teams[row.oppName] || null;
+    const oppName = row.oppName || row.label;
+    // hero: home team on the left, like a scoreboard
+    const homeIsTeam = row.venue !== 'A';
+    const L = homeIsTeam ? { n: team, sc: row.scoreMe, r: RA } : { n: oppName, sc: row.scoreOpp, r: RB };
+    const Rt = homeIsTeam ? { n: oppName, sc: row.scoreOpp, r: RB } : { n: team, sc: row.scoreMe, r: RA };
+    const d = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    const pc = Math.round(row.p * 100);
+    const side = (x, right) => `<div class="gp-side${right ? ' r' : ''}">${logo(x.n) ? `<img src="${logo(x.n)}" alt="">` : ''}<div><div class="gp-nm">${row.oppName || x.n === team ? `<a href="${teamHref(x.n)}">${sn(x.n)}</a>` : x.n}</div><div class="gp-sub">${x.r ? `<b>#${x.r.rank}</b> · ${sg(x.r.rating)} · ${x.r.conf || ''}` : 'unrated'}</div></div></div>`;
+    const hero = `<div class="gp-hero">${side(L, false)}<div class="gp-mid"><div class="gp-when">${d}${row.venue === 'N' ? ' · Neutral' : ''}${row.event ? ' · ' + row.event : ''}</div><div class="gp-score">${L.sc}–${Rt.sc}</div><div class="gp-odds"><b>${sn(team)}</b> ${pc}% to win · line ${row.margin >= 0 ? '−' : '+'}${Math.abs(row.margin).toFixed(1)}</div></div>${side(Rt, true)}</div>`;
+    const strip = `<div class="gp-strip">
+      <div class="gp-tile"><div class="k">Win prob</div><div class="v">${pc}%</div><div class="s">${sn(team)} · ${Math.round(row.p0 * 100)}% on the line alone</div></div>
+      <div class="gp-tile"><div class="k">Line</div><div class="v">${row.margin >= 0 ? sn(team) + ' −' + row.margin.toFixed(1) : sn(oppName) + ' −' + (-row.margin).toFixed(1)}</div><div class="s">projected margin</div></div>
+      <div class="gp-tile"><div class="k">Total</div><div class="v">${row.total ? row.total.toFixed(1) : '—'}</div><div class="s">${row.pace ? row.pace + ' possessions' : 'league-average pace'}</div></div>
+      <div class="gp-tile"><div class="k">Site</div><div class="v">${row.venue === 'H' ? 'Home' : row.venue === 'A' ? 'Away' : 'Neutral'}</div><div class="s">${row.venuePts ? 'venue edge ' + sg(row.venuePts) : 'no venue edge'}</div></div>
+      <div class="gp-tile"><div class="k">Rest</div><div class="v">${row.mf.rest == null ? 'Opener' : row.mf.rest <= 1 ? 'B2B' : row.mf.rest + 'd'}</div><div class="s">${row.known ? 'vs ' + (row.of.rest == null ? 'opener' : row.of.rest <= 1 ? 'b2b' : row.of.rest + 'd') : 'opponent unknown'}${Math.abs(row.sit) >= 0.15 ? ' · ' + sg(row.sit) + ' pts' : ''}</div></div>
+    </div>`;
+    host.innerHTML = hero + strip + `<div class="gp-h">Matchup <span>projected 2026-27 profiles · D-I average for scale</span></div>${cmpTable(team, oppName, EA, EB, RA, RB)}<div id="gpPlayers"><div class="gp-h">Projected lines · this game</div><div class="gp-wrap"><div class="gp-empty">Loading rosters…</div></div></div>`;
+    // players
+    const ctx = { pace: row.pace, score: row.scoreMe, margin: row.margin };
+    const [pa, pb] = await Promise.all([roster(team), row.oppName ? roster(row.oppName) : Promise.resolve([])]);
+    const TA = teamLines(pa, EA, EB, ctx), TB = row.oppName ? teamLines(pb, EB, EA, { pace: row.pace, score: row.scoreOpp, margin: -row.margin }) : null;
+    const note = (T, n) => T && T.rows.length ? `${sn(n)}: pace ×${T.paceK.toFixed(2)} · vs this defense ×${T.offK.toFixed(2)}${T.starterK < 1 ? ` · starters' minutes ×${T.starterK.toFixed(2)} (blowout)` : ''}${Math.abs(T.scaleK - 1) > 0.005 ? ` · scaled ×${T.scaleK.toFixed(2)} to the team score` : ''}` : '';
+    document.getElementById('gpPlayers').innerHTML = `<div class="gp-h">Projected lines · this game <span>each player's 2026-27 projection, priced for this pace and this defense</span></div>
+      <div class="gp-two"><div><div style="font-size:12px;font-weight:800;color:${col(team)};padding:8px 2px;">${sn(team)}</div>${playersTable(team, TA, col(team))}</div>
+      <div><div style="font-size:12px;font-weight:800;color:${col(oppName)};padding:8px 2px;">${sn(oppName)}</div>${row.oppName ? playersTable(oppName, TB, col(oppName)) : `<div class="gp-wrap"><div class="gp-empty">Opponent to be determined.</div></div>`}</div></div>
+      <div class="gp-note"><b>How the lines move:</b> ${[note(TA, team), note(TB, oppName)].filter(Boolean).join(' · ')}. Minutes come from the season projection; "vs avg" is the points swing against the player's season number. Rosters without a projected line yet (walk-ons, unfilled freshmen) are left out.</div>`;
+  }
+
+  g.TDCPreview = { render };
+})(window);
