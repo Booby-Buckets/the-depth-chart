@@ -216,7 +216,7 @@
   .tsp-table td.tsp-o{font-weight:700;overflow:hidden;text-overflow:ellipsis;max-width:210px;}
   .tsp-table td.tsp-o .pre{font-weight:500;color:var(--text3);}
   .tsp-table td.tsp-o.hist{font-weight:600;}
-  .tsp-table td.tsp-site b{font-weight:800;margin-right:5px;}
+  .tsp-table td.tsp-site b{font-weight:800;}
   .tsp-table td.tsp-site b.H{color:#2f9159;} .tsp-table td.tsp-site b.A{color:#d05a5a;} .tsp-table td.tsp-site b.N{color:var(--text3);}
   .tsp-table td.tsp-rest{color:var(--text2);}
   .tsp-table td.tsp-rest b{font-weight:700;color:var(--text);}
@@ -257,10 +257,11 @@
         <td class="l tsp-d">${d.mo} ${d.day}<em>${d.dw}</em></td>
         <td class="tsp-rk">${x.rank || ''}</td>
         <td class="l tsp-o hist">${sn(x.opp)}</td>
+        <td class="tsp-sc"><span class="tsp-res">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}</span></td>
         <td class="tsp-site"><b class="${x.site}">${x.site}</b></td>
         <td class="tsp-rest tsp-hide"></td><td class="tsp-edge tsp-hide"></td>
-        <td class="tsp-p"><span class="tsp-res">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}</span></td>
-        <td class="tsp-line"></td><td class="tsp-sc">${x.rec}</td></tr>`;
+        <td class="tsp-p"></td>
+        <td class="tsp-line">${x.rec}</td></tr>`;
     });
     R.rows.forEach(r => {
       const d = dParts(r.g.date);
@@ -275,12 +276,12 @@
         <td class="l tsp-d">${d.mo} ${d.day}<em>${d.dw}</em>${r.event ? `<span class="tsp-ev">${r.event}</span>` : ''}</td>
         <td class="tsp-rk">${r.opp && r.opp.rank ? r.opp.rank : ''}</td>
         <td class="l tsp-o">${pre}${oppTxt}</td>
-        <td class="tsp-site" title="${siteTitle}"><b class="${r.venue}">${r.venue}</b>${r.venuePts ? `<span class="${cls(r.venuePts)}">${sg(r.venuePts)}</span>` : ''}</td>
+        <td class="tsp-sc">${r.scoreMe}–${r.scoreOpp}</td>
+        <td class="tsp-site" title="${siteTitle}"><b class="${r.venue}">${r.venue}</b></td>
         <td class="tsp-rest tsp-hide" title="rest: ${restTxt(r.mf)} vs ${r.known ? restTxt(r.of) : (r.oppName ? 'unknown' : 'same')}${r.mf.stint >= 2 ? ` · ${r.mf.stint}${r.mf.stint === 2 ? 'nd' : r.mf.stint === 3 ? 'rd' : 'th'} straight away` : ''}">${restCell}</td>
         <td class="tsp-edge tsp-hide ${cls(edge)}">${sg(edge)}</td>
         <td class="tsp-p" title="${Math.round(r.p0 * 100)}% on the line alone · ${Math.round(r.p * 100)}% across simulated seasons">${Math.round(r.p * 100)}%</td>
-        <td class="tsp-line">${r.spread}</td>
-        <td class="tsp-sc">${r.scoreMe}–${r.scoreOpp}</td></tr>`;
+        <td class="tsp-line">${r.margin >= 0 ? '−' : '+'}${Math.abs(r.margin).toFixed(1)}</td></tr>`;
     });
     const W = Math.round(R.expW), L = R.n - W, cw = Math.round(R.expCW), cl = R.confN - cw;
     const pw = (opts.played || []).filter(x => x.won).length, pl = (opts.played || []).length - pw;
@@ -293,7 +294,7 @@
     </div>`;
     const note = `<div class="tsp-note"><b>Site</b> = the host's measured edge (opponent-strength curve + venue). <b>Rest</b> = days off, with the swing vs the opponent's rest; from ${(m.n || 0).toLocaleString()} games since ${m.firstSeason || 2008}: back-to-back <b>${sg(m.rest && m.rest.b2b || 0)}</b>, 8+ days off ${sg(m.rest && m.rest.r8 || 0)}, opener ${sg(m.rest && m.rest.opener || 0)}; a 2nd/3rd/4th straight road game measures ${sg(m.stint && m.stint.s2 || 0)}/${sg(m.stint && m.stint.s3 || 0)}/${sg(m.stint && m.stint.s4 || 0)} beyond the venue; a win streak ${sg(m.streak && m.streak.w24 || 0)}. <b>Win %</b> is the share of ${R.sims.toLocaleString()} simulated seasons, each drawing every team's true strength ±${R.tau} around its projection — that uncertainty, not momentum, is what chains wins together.</div>`;
     host.innerHTML = `<div class="tsp">${sum}<div class="tsp-wrap"><table class="tsp-table"><thead><tr>
-      <th>Date</th><th>Rk</th><th>Opponent</th><th>Site</th><th class="tsp-hide">Rest</th><th class="tsp-hide">Edge</th><th>Win %</th><th>Line</th><th>Score</th>
+      <th>Date</th><th>Rk</th><th>Opponent</th><th>Score</th><th>Site</th><th class="tsp-hide">Rest</th><th class="tsp-hide">Edge</th><th>Win %</th><th>Line</th>
     </tr></thead><tbody>${rows}</tbody></table></div>${note}</div>`;
   }
 
