@@ -1,9 +1,12 @@
-/* ── Injury report (OWNER-ONLY) ─────────────────────────────────────────────
+/* ── Injury report (owner edits, everyone reads) ────────────────────────────
  * Lets the owner mark a player as hurt directly on the player page — a general
  * body part + a recovery timeline — instead of editing the Google Sheet. Records
  * are stored in the owner's profiles.freshman_projections jsonb (via TDCFresh's
  * shared key store) under "tdc_inj:<team>:<name>", so they load/save with the same
- * auth + single blob as the freshman editor. Nothing here renders for the public.
+ * auth + single blob as the freshman editor. The blob is public-readable, so an
+ * "out" record (3+ months / full season) removes the player from the season
+ * everywhere — rankings (rebuilt on save), depth-chart projections, schedule
+ * lines, game previews — while he stays listed on the roster as out.
  *
  * Behavior (per owner spec):
  *   • A disclaimer states the player is hurt (body part + timeline).
@@ -47,10 +50,12 @@
   function key(p){ return 'tdc_inj:'+((p&&p.team)||'')+':'+((p&&p.name)||''); }
 
   function get(p){
-    if(!isOwner()||!p) return null;
+    if(!p) return null;
     var F=fresh(); var r=(F&&F.getKey)?F.getKey(key(p)):null;
     return (r&&r.part)?r:null;
   }
+  // out of the season? (used by tdc-ratings / tdc-proj / tdc-preview; blob must be loaded)
+  function isOut(p){ return outOfRotation(get(p)); }
   function save(p,rec){ var F=fresh(); return (F&&F.setKey)?F.setKey(key(p),rec):Promise.resolve({ok:false}); }
   function clear(p){ var F=fresh(); return (F&&F.setKey)?F.setKey(key(p),null):Promise.resolve({ok:false}); }
 
@@ -192,14 +197,15 @@
   try{ if(document.head) injectCSS(); else document.addEventListener('DOMContentLoaded',injectCSS); }catch(e){}
 
   window.TDCInjury={
-    isOwner:isOwner, load:load, get:get, outOfRotation:outOfRotation, statusLabel:statusLabel,
+    isOwner:isOwner, load:load, get:get, isOut:isOut, outOfRotation:outOfRotation, statusLabel:statusLabel,
     apply:apply, forCards:forCards, bannerHTML:bannerHTML, outHTML:outHTML, heroButtonHTML:heroButtonHTML, badgeHTML:badgeHTML, openEditor:openEditor,
     _open:function(){ if(window.player) openEditor(window.player, window._injOnSaved); },
     _close:close,
     _set:function(k,v){ if(k==='play') _d.play=(v===true||v==='true'); else _d[k]=v;
       if(k==='timeline'&&tl(v).out) _d.play=false;   // >3mo forces out
       render(); },
-    _clear:function(){ var p=_p, cb=_onSaved; clear(p).then(function(){ close(); cb&&cb(); }); },
+    _clear:function(){ var p=_p, cb=_onSaved; clear(p).then(function(){ close(); cb&&cb();
+      var F=fresh(); if(window.TDC_RATINGS && isOwner() && F && F.ratingOverrides) TDC_RATINGS.rebuild(F.ratingOverrides()).catch(function(){}); }); },
     _save:function(){ var p=_p, cb=_onSaved, btn=document.getElementById('injSaveBtn'), msg=document.getElementById('injMsg');
       if(btn){ btn.textContent='Saving…'; btn.disabled=true; }
       if(tl(_d.timeline).out) _d.play=false;
@@ -210,7 +216,14 @@
             msg.classList.add('show'); }
           if(btn){ btn.textContent='Save'; btn.disabled=false; } return; }
         if(msg){ msg.style.color=''; msg.textContent='✓ Saved'; msg.classList.add('show'); }
-        if(cb) cb(); setTimeout(close, 600);
+        if(cb) cb();
+        // an out-of-season player changes the team's projection — republish the shared rankings
+        var F=fresh();
+        if(window.TDC_RATINGS && isOwner() && F && F.ratingOverrides){
+          if(msg) msg.textContent='✓ Saved · updating rankings…';
+          TDC_RATINGS.rebuild(F.ratingOverrides()).then(function(){ if(msg) msg.textContent='✓ Saved · rankings updated'; setTimeout(close, 700); })
+            .catch(function(){ if(msg) msg.textContent='✓ Saved (rankings update on next rebuild)'; setTimeout(close, 900); });
+        } else setTimeout(close, 600);
       });
     }
   };

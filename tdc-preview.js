@@ -28,7 +28,7 @@
   function loadProj() { return _projP || (_projP = fetch('scripts/data/stat_overall_projected.json?v=34').then(r => r.ok ? r.json() : null).then(j => (_proj = j)).catch(() => null)); }
   function roster(full) {
     const short = sn(full);
-    return fetch(`${SB}/rest/v1/players?team=eq.${encodeURIComponent(short)}&select=name,position,class_year,height,espn_id,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,three_pct,ft_pct,stl,blk,tovs,fga,fgm,tpa,tpm,is_injured,yr,starter,depth_order&order=depth_order.asc.nullslast`, { headers: H })
+    return fetch(`${SB}/rest/v1/players?team=eq.${encodeURIComponent(short)}&select=name,team,position,class_year,height,espn_id,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,three_pct,ft_pct,stl,blk,tovs,fga,fgm,tpa,tpm,is_injured,yr,starter,depth_order&order=depth_order.asc.nullslast`, { headers: H })
       .then(r => r.ok ? r.json() : []).catch(() => []);
   }
 
@@ -49,7 +49,8 @@
     const paceK = ctx.pace && E && E.t ? ctx.pace / E.t : 1;
     const offK = E && O ? (E.o + O.d - avgD) / E.o : 1;            // this offense vs this defense, relative to its norm
     const spread = Math.abs(ctx.margin || 0), starterK = Math.max(0.8, 1 - 0.01 * Math.max(0, spread - 12));
-    let rows = players.filter(p => !p.is_injured).map(p => ({ p, b: baseLine(p) })).filter(x => x.b && x.b.mpg >= 6);
+    const out = p => p.is_injured || (g.TDCInjury && g.TDCInjury.isOut(p));
+    let rows = players.filter(p => !out(p)).map(p => ({ p, b: baseLine(p) })).filter(x => x.b && x.b.mpg >= 6);
     rows.sort((a, b) => b.b.mpg - a.b.mpg);
     rows = rows.slice(0, 11);
     // a game has 200 minutes; season projections drawn up independently can add to more

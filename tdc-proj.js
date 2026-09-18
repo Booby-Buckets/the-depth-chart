@@ -722,7 +722,7 @@ function buildTeamProjections(players, conf){
   // BEFORE projection so they take no minutes/shots and aren't double-listed.
   // Honors both the DB flag and the sheet convention ("Injured"/"Out" in the
   // From column) HERE, so every page projects the identical roster.
-  const _isOut = p => { const hs=((p.hometown||'')+'').trim().toLowerCase(); return !!p.is_injured||hs==='injured'||hs==='out'; };
+  const _isOut = p => { const hs=((p.hometown||'')+'').trim().toLowerCase(); return !!p.is_injured||hs==='injured'||hs==='out'||!!(window.TDCInjury&&TDCInjury.isOut(p)); };
   const injuredDnp = players
     .filter(p => p.name && p.name !== '—' && _isOut(p))
     .map(p => ({...p, ppg:0, rpg:0, apg:0, mpg:0, fgm:0, fga:0, tpm:0, tpa:0,

@@ -13,12 +13,12 @@
   <script src="tdc-gate.js?v=3"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=3"></script>
-  <script src="tdc-proj.js?v=coach20"></script>
+  <script src="tdc-proj.js?v=coach21"></script>
   <script src="tdc-freshman.js?v=pub5"></script>
-  <script src="tdc-injury.js?v=4"></script>
-  <script src="tdc-ratings.js?v=19"></script>
+  <script src="tdc-injury.js?v=5"></script>
+  <script src="tdc-ratings.js?v=20"></script>
   <script src="tdc-schedule.js?v=19"></script>
-  <script src="tdc-preview.js?v=4"></script>
+  <script src="tdc-preview.js?v=6"></script>
   <script src="tdc-projgrade.js?v=base8"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
@@ -7901,8 +7901,10 @@ function renderHistoricRoster(rows, yr, projected){
   rows=rows.filter(r=>{ const k=(r.espn_id!=null&&r.espn_id!=='')?('e:'+r.espn_id):('n:'+(r.name||'').toLowerCase().trim()+'|'+(r.height||'')); if(_seenR.has(k)) return false; _seenR.add(k); return true; });
   // Players out for the projected season sit in their own section — no lineup
   // slot, no rotation row. Their table shows the last season they played.
-  const injured = projected ? rows.filter(r=>r.is_injured) : [];
-  if(projected) rows=rows.filter(r=>!r.is_injured);
+  // out for the season: the DB flag, the sheet's "Injured"/"Out", or an owner injury report with a 3+ month timeline
+  const _outR = r => !!r.is_injured || !!(window.TDCInjury && TDCInjury.isOut(r));
+  const injured = projected ? rows.filter(_outR) : [];
+  if(projected) rows=rows.filter(r=>!_outR(r));
   if(!rows.length && !injured.length){ host.innerHTML=`<div style="padding:40px;text-align:center;color:var(--text3);">No roster data for ${rosterLbl(yr)}.</div>`; return; }
   // Expose the exact rendered roster (by name) for the hover spotlight, then set
   // its default to the top-rated player once the DOM has painted.
@@ -8178,7 +8180,11 @@ async function _renderShotDist(rows){
     });
     // distribution card — from the per-team list, which INCLUDES freshmen/no-box
     if(!list||list.length<3){ host.innerHTML=''; _hideShotProfileSide(); return; }
-    const items=list.filter(x=>x.share!=null).slice().sort((a,b)=>b.share-a.share);
+    // a player out for the season (injury report / roster flag) takes no shots; the rest of the
+    // budget is re-split pro rata so the shares still sum to 100
+    const _outN=new Set((rows||[]).map(r=>(''+r.name).toLowerCase().trim()));
+    let items=list.filter(x=>x.share!=null && (!rows||!rows.length||_outN.has((''+x.name).toLowerCase().trim()))).slice().sort((a,b)=>b.share-a.share);
+    if(items.length && items.length<list.filter(x=>x.share!=null).length){ const tot=items.reduce((s,x)=>s+x.share,0)||1; items=items.map(x=>Object.assign({},x,{share:+(x.share*100/tot).toFixed(1)})); }
     const max=items[0].share||1, tot=items.reduce((s,i)=>s+i.share,0);
     const role=sh=>sh>=24?'Primary':sh>=18?'Featured':sh>=12?'Secondary':sh>=8?'Complementary':'Low-usage';
     // ── team-level shot profile (from the same rotation) ──

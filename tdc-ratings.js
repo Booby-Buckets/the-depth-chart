@@ -211,7 +211,10 @@
   // during a rebuild() so a freshman's PROJECTED STATS (not his OVR) move the
   // canonical projected rankings — same stat-derived currency as returners.
   let _ovr=null;
+  // owner-entered injuries (tdc-injury.js, public-readable blob): "out" = off the season
+  function _injOut(p){ try{ return !!(g.TDCInjury && g.TDCInjury.isOut(p)); }catch(e){ return false; } }
   async function compute(){
+    if(g.TDCFresh && g.TDCFresh.load){ try{ await g.TDCFresh.load(); }catch(e){} }
     const [teams, players, bb, ts, hcaData, coachData, sgData, contData, levelData, effData]=await Promise.all([
       fetch(SB+'/rest/v1/teams?select=name,conf,conference,head_coach,coach&limit=500',{headers:H}).then(r=>r.json()),
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,rpg,depth_order,is_injured,hometown&order=id.asc'),
@@ -293,7 +296,7 @@
     const byTeam={};
     (players||[]).forEach(p=>{
       const hs=(p.hometown||'').trim().toLowerCase();
-      if(!p.name||p.is_injured||hs==='injured'||hs==='out') return;
+      if(!p.name||p.is_injured||hs==='injured'||hs==='out'||_injOut(p)) return;
       (byTeam[p.team]=byTeam[p.team]||[]).push(p);
     });
 
