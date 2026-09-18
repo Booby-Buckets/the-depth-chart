@@ -8,6 +8,8 @@
   <script src="team-colors.js?v=6"></script>
   <script src="conf-logos.js?v=3"></script>
   <script src="tdc-awards.js?v=3"></script>
+  <script src="tdc-ratings.js?v=18"></script>
+  <script src="tdc-schedule.js?v=7"></script>
   <script src="tdc-glossary.js?v=12"></script>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=4"></script>
@@ -586,26 +588,45 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
              (x[2]?'<div class="s">'+x[2]+'</div>':'')+'</div>'; }).join('');
   }
 
-  function renderProjStandings(){
+  function renderProjStandings(recs){
     // `rating` is the projection; `prior` is LAST season's SRS that feeds the model.
     // Showing prior here labelled "projected" put Purdue's 31.4 above UCLA's 25.9
     // while ranking Purdue 30th and UCLA 13th.
-    var body=ROWS.map(function(t,i){
-      var r=+t.rating||0, ap=+t.allPlay;
+    // With projected records (tdc-schedule.js, once the slate is announced) the table
+    // becomes real standings: ordered by projected league record, rating breaks ties.
+    recs=recs||{};
+    var withRec=ROWS.filter(function(t){ var p=recs[t.full]; return p&&p.confN>=8; }).length;
+    var rows=ROWS.slice();
+    if(withRec){
+      rows.sort(function(a,b){ var pa=recs[a.full],pb=recs[b.full];
+        var wa=pa&&pa.confN>=8?pa.cw/pa.confN:-1, wb=pb&&pb.confN>=8?pb.cw/pb.confN:-1;
+        return (wb-wa)||((+b.rating||0)-(+a.rating||0)); });
+    }
+    var body=rows.map(function(t,i){
+      var r=+t.rating||0, ap=+t.allPlay, p=recs[t.full];
       var col=r>20?'#1f9d6b':r>12?'#3f74c9':'var(--text2)';
-      return '<tr><td class="l rk">'+(i+1)+'</td>'+
+      var conf=p&&p.confN>=8?p.cw+'-'+p.cl:'\u2014';
+      var ovr=p&&p.n>=20?p.w+'-'+p.l+(p.n<28?'<span style="font-size:10px;color:var(--text3)"> /'+p.n+'</span>':''):'\u2014';
+      var tip=p?' title="'+(p.n>=20?'projected '+p.w+'-'+p.l+' ('+p.lo+'-'+(p.n-p.lo)+' to '+p.hi+'-'+(p.n-p.hi)+') from '+p.n+' announced games':'only '+p.n+' games announced')+'"':'';
+      return '<tr'+tip+'><td class="l rk">'+(i+1)+'</td>'+
         '<td class="l"><span class="tm">'+tLogo(t.full,'tlogo')+
           '<a class="tnm" href="'+teamHref(t.full)+'">'+esc(t.full)+'</a></span></td>'+
+        (withRec?'<td style="font-weight:700">'+conf+'</td><td style="color:var(--text2)">'+ovr+'</td>':'')+
         '<td style="font-weight:700;color:'+col+'">'+f1(r)+'</td>'+
         '<td style="color:var(--text2)">'+(isFinite(ap)?f1(ap)+'%':'\u2014')+'</td>'+
         '<td class="seedc">#'+(t.rank||'\u2014')+'</td></tr>';
     }).join('');
     sel('stand').innerHTML='<thead><tr><th class="l"></th><th class="l">Team</th>'+
+      (withRec?'<th title="projected conference record from simulating the announced schedule">Proj Conf</th><th title="projected overall record (/N = only N games announced so far)">Proj W-L</th>':'')+
       '<th'+(window.tipAttr?tipAttr('projrating'):'')+' style="cursor:help;text-decoration:underline dotted;text-underline-offset:2px;">Proj Power</th><th>All-play</th><th class="seedc">Nat&rsquo;l</th></tr></thead><tbody>'+body+'</tbody>';
     document.querySelector('#stand').closest('.box').querySelector('.sub').innerHTML=
-      'projected rating &middot; all-play win% &middot; national rank';
+      (withRec?'projected league record from the announced schedule &middot; ':'')+'projected rating &middot; all-play win% &middot; national rank';
     // team honours make no sense before a ball is thrown up
     var hon=sel('honours'); if(hon) hon.closest('.box').style.display='none';
+    // projected records arrive after the first paint (one cached simulation of every team)
+    if(!recs._loaded && window.TDCSched){
+      TDCSched.projectAll().then(function(all){ if(!all) return; all._loaded=true; renderProjStandings(all); }).catch(function(){});
+    }
   }
 
   function renderProjAwards(aw){

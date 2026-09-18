@@ -137,7 +137,7 @@
     // ── Monte Carlo season ──
     const wins = new Array(rows.length).fill(0), W = new Int16Array(SIMS), CW = new Int16Array(SIMS);
     // ESPN doesn't flag conference games until the season starts — same league in the ratings = league game
-    rows.forEach(r => { if (!r.g.conf && r.opp && r.opp.conf && me.conf && r.opp.conf === me.conf) r.g.conf = true; });
+    rows.forEach(r => { if (!r.g.conf && !r.g.neutral && r.opp && r.opp.conf && me.conf && r.opp.conf === me.conf) r.g.conf = true; });
     let confN = rows.filter(r => r.g.conf).length;
     for (let s = 0; s < SIMS; s++) {
       const rMe = me.rating + TAU * gauss();
@@ -299,7 +299,7 @@
 
   // every rated team's projected record for the rankings table — lighter sims, cached in
   // localStorage until the ratings or the schedule file change
-  const LS_ALL = 'tdc_projrec_v1';
+  const LS_ALL = 'tdc_projrec_v2';
   async function projectAll(opts) {
     opts = opts || {};
     await load();
