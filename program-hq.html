@@ -19,6 +19,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <script src="team-colors.js?v=6"></script>
   <script src="tdc-ratings.js?v=18"></script>
+  <script src="tdc-schedule.js?v=7"></script>
   <script src="tdc-teamlink.js?v=2"></script>
   <script src="tdc-teamgrades.js?v=2"></script>
   <script src="tdc-projgrade.js?v=base8"></script>
@@ -445,7 +446,17 @@ function projHero(row){
     '<span class="pill">CON #'+(cr||'—')+'</span>'+
     '<span class="pill">'+fmtR(row.rating)+' POWER</span>';
   var _rk=byId('hxRank'); if(_rk){ _rk.innerHTML = row.rank ? ('<div class="n"><small>#</small>'+row.rank+'</div><div class="lbl">National</div>') : ''; }
+  // projected record from the announced schedule (tdc-schedule.js; cached simulation of every team)
+  projRecs().then(function(recs){
+    var p=recs&&recs[row.full]; if(!p||p.n<20||MY!==row.full||+HQ_SEASON!==2027) return;
+    byId('hxPills').innerHTML='<span class="rec" title="projected '+p.w+'-'+p.l+' ('+p.lo+'-'+(p.n-p.lo)+' to '+p.hi+'-'+(p.n-p.hi)+') from '+p.n+' announced games">'+recStr(p.w,p.l)+(p.n<28?'<small style="font-size:11px;font-weight:600;opacity:.7"> proj · '+p.n+' gms</small>':'<small style="font-size:11px;font-weight:600;opacity:.7"> proj</small>')+'</span>'+
+      (p.confN>=8?'<span class="pill">CONF '+recStr(p.cw,p.cl)+'</span>':'')+
+      '<span class="pill">CON #'+(cr||'—')+'</span>'+
+      '<span class="pill">'+fmtR(row.rating)+' POWER</span>';
+  });
 }
+var _projRecsP=null;
+function projRecs(){ if(!_projRecsP){ _projRecsP=(window.TDCSched?TDCSched.projectAll():Promise.resolve({})).catch(function(){ return {}; }); } return _projRecsP; }
 function analyticsProj(row){
   var el=byId('hxAnalytics'); byId('hxAnaLbl').textContent='Team Analytics — Projected';
   el.innerHTML='<div class="hx-empty">Computing…</div>';
@@ -468,9 +479,19 @@ function projStandings(row){
   var mine=POOL.filter(function(t){return t.conf===row.conf;}).sort(function(a,b){return (a.rank||999)-(b.rank||999);});
   var el=byId('hxStandings');
   if(!mine.length){ el.innerHTML='<div class="hx-empty">No conference on file.</div>'; return; }
-  var rows=mine.map(function(t,i){ var lg=logoFor(t.full);
-    return '<div class="st'+(t.full===row.full?' me':'')+'"><span class="rk">'+(i+1)+'</span>'+(lg?'<img src="'+lg+'" alt="" onerror="this.style.visibility=\'hidden\'">':'')+'<span class="nm">'+esc(t.full)+'</span><span class="rc">'+fmtR(t.rating)+'</span></div>'; }).join('');
-  el.innerHTML=wrapStand(rows,mine.length); fitStand();
+  var paint=function(recs){
+    recs=recs||{};
+    var withRec=mine.filter(function(t){ var p=recs[t.full]; return p&&p.confN>=8; }).length;
+    var list=mine.slice();
+    if(withRec) list.sort(function(a,b){ var pa=recs[a.full],pb=recs[b.full]; var wa=pa&&pa.confN>=8?pa.cw/pa.confN:-1, wb=pb&&pb.confN>=8?pb.cw/pb.confN:-1; return (wb-wa)||((+b.rating||0)-(+a.rating||0)); });
+    var rows=list.map(function(t,i){ var lg=logoFor(t.full), p=recs[t.full];
+      return '<div class="st'+(t.full===row.full?' me':'')+'"><span class="rk">'+(i+1)+'</span>'+(lg?'<img src="'+lg+'" alt="" onerror="this.style.visibility=\'hidden\'">':'')+'<span class="nm">'+esc(t.full)+'</span>'+
+        (withRec?'<span class="rc">'+(p&&p.confN>=8?recStr(p.cw,p.cl):'—')+'</span><span class="ov2">'+(p&&p.n>=20?recStr(p.w,p.l):'')+'</span>':'<span class="rc">'+fmtR(t.rating)+'</span>')+'</div>'; }).join('');
+    el.innerHTML=wrapStand(rows,mine.length); fitStand();
+    byId('hxStandSub').textContent=withRec?'2026-27 projected record':'2026-27 projected';
+  };
+  paint(null);
+  projRecs().then(function(recs){ if(MY===row.full&&+HQ_SEASON===2027) paint(recs); });
 }
 function seasonOutlook(row){
   var el=byId('hxOutlook'); byId('hxOutlookLbl').textContent='Season Outlook';
@@ -512,9 +533,24 @@ function seasonRecap(P,tr,row){
   el.innerHTML='<div class="otags">'+tags+'</div><p class="otxt">'+sent+'</p>';
 }
 function projGame(row){
-  byId('hxGame').innerHTML='<div class="hx-lab">Next Game <span class="sub">2026-27</span></div>'+
-    '<div class="hx-empty">The 2026-27 schedule isn’t out yet — your next game and its scouting report land here once it drops. Until then, game-plan any opponent below.</div>'+
-    '<div class="ng-btns"><a class="btn primary" href="scout.html?team='+encodeURIComponent(row.full)+'">Scout an Opponent →</a><a class="btn ghost" href="matchup.html?team='+encodeURIComponent(row.full)+'">Matchup</a></div>';
+  var el=byId('hxGame');
+  var btns='<div class="ng-btns"><a class="btn primary" href="scout.html?team='+encodeURIComponent(row.full)+'">Scout an Opponent →</a><a class="btn ghost" href="matchup.html?team='+encodeURIComponent(row.full)+'">Matchup</a></div>';
+  el.innerHTML='<div class="hx-lab">Next Game <span class="sub">2026-27</span></div><div class="hx-empty">Loading the schedule…</div>'+btns;
+  var notYet=function(){ el.innerHTML='<div class="hx-lab">Next Game <span class="sub">2026-27</span></div>'+
+    '<div class="hx-empty">The 2026-27 schedule isn’t out yet — your next game and its scouting report land here once it drops. Until then, game-plan any opponent below.</div>'+btns; };
+  if(!window.TDCSched) return notYet();
+  TDCSched.project(row.full).then(function(R){
+    if(MY!==row.full||+HQ_SEASON!==2027) return;
+    var g=R&&R.rows&&R.rows[0]; if(!g) return notYet();
+    var opp=g.oppName||g.label||'TBD', lg=g.oppName?logoFor(g.oppName):null, pc=Math.round(g.p*100);
+    var d=new Date(g.g.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+    el.innerHTML='<div class="hx-lab">Next Game <span class="sub">'+d+(g.event?' · '+esc(g.event):'')+'</span></div>'+
+      '<div class="ng-match">'+(lg?'<img class="ng-logo" src="'+lg+'" alt="">':'')+'<div><div class="ng-vs">'+(g.venue==='A'?'at':'vs')+(g.venue==='N'?' · neutral':'')+'</div><div class="ng-opp">'+esc(opp)+'</div>'+
+      '<div class="ng-res"><span class="'+(pc>=50?'w':'l')+'">'+pc+'% to win</span></div>'+
+      '<div class="ng-meta">'+esc(g.spread)+' · proj '+g.scoreMe+'–'+g.scoreOpp+(g.opp&&g.opp.rank?' · opp #'+g.opp.rank:'')+'</div></div></div>'+
+      '<a class="ng-report" href="team.html?team='+encodeURIComponent(row.full)+'&tab=schedule">Full projected schedule →</a>'+
+      '<div class="ng-btns"><a class="btn primary" href="scout.html?team='+encodeURIComponent(row.full)+(g.oppName?'&opp='+encodeURIComponent(g.oppName):'')+'">Scout '+esc(g.oppName?opp:'an Opponent')+' →</a><a class="btn ghost" href="matchup.html?team='+encodeURIComponent(row.full)+'">Matchup</a></div>';
+  }).catch(notYet);
 }
 
 // ── past ──
