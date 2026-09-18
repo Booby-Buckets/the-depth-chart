@@ -117,6 +117,11 @@
   // (~+3.7 vs decent visitors, larger vs weak ones) + a shrunk per-venue
   // offset (r.hcaOff). HOME_ADV is only the no-data fallback.
   const HOME_ADV=3.7, SIGMA=11;
+  // Preseason gaps are compressed: the projection tracks last season's SRS at ~0.85 of its
+  // scale (r=0.97), and scripts/backtest_lines.py shows last season's SRS predicts next
+  // season's margins at slope 0.98 (65k games, 2012-26) — no shrinkage needed — so a gap on
+  // our scale is worth ~1.15× in points. Applied to LINES only; rankings keep the raw rating.
+  const GAP_STRETCH=1.15;
   let _hcaCurve=null;                      // {base:[[srs,edge],...], capMin}
   function baseHca(oppRating){
     if(!_hcaCurve||!_hcaCurve.base||!_hcaCurve.base.length) return HOME_ADV;
@@ -517,7 +522,7 @@
   function lineFor(a,b,venue,totals){
     const hc=venue==='home'?  baseHca(b.rating)+(a.hcaOff||0)
             :venue==='away'?-(baseHca(a.rating)+(b.hcaOff||0)):0;
-    const margin=a.rating-b.rating+hc;
+    const margin=(a.rating-b.rating)*GAP_STRETCH+hc;
     const pA=phi(margin/SIGMA);
     const total=(totals&&isFinite(totals))?totals:145.5;   // league-ish default
     const _sn=window.tdcShortSchool||(x=>x);   // trim carry-team mascots when the map is loaded
@@ -526,5 +531,5 @@
       spread:(margin>=0?`${_sn(a.team)} -${margin.toFixed(1)}`:`${_sn(b.team)} -${(-margin).toFixed(1)}`) };
   }
 
-  g.TDC_RATINGS={get, rebuild, lineFor, phi, applyForm, baseHca, SEASON, HOME_ADV, SIGMA};
+  g.TDC_RATINGS={get, rebuild, lineFor, phi, applyForm, baseHca, SEASON, HOME_ADV, SIGMA, GAP_STRETCH};
 })(window);

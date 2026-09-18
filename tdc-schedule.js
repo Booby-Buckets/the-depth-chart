@@ -103,7 +103,7 @@
     await load();
     if (!_sched || !g.TDC_RATINGS) return null;
     const D = await g.TDC_RATINGS.get();
-    const SIGMA = g.TDC_RATINGS.SIGMA || 11;
+    const SIGMA = g.TDC_RATINGS.SIGMA || 11, STRETCH = g.TDC_RATINGS.GAP_STRETCH || 1;
     const rowOf = n => D.teams.find(t => t.full === n) || null;
     const me = rowOf(team); if (!me) return null;
     const FLOOR = { team: '?', full: '?', rating: -14, hcaOff: 0 };     // unrated (non-D-I) opponents
@@ -170,7 +170,7 @@
           const cands = r.pool.filter(n => !faced.has(n)); oppName = cands[Math.floor(Math.random() * cands.length)] || r.pool[0];
         }
         const oppR = oppName ? (rOpp[oppName] != null ? rOpp[oppName] : FLOOR.rating) : FLOOR.rating;
-        const m = (rMe - oppR) * r.paceK + venuePts + r.sit + streakPts(streak);
+        const m = (rMe - oppR) * STRETCH * r.paceK + venuePts + r.sit + streakPts(streak);
         const won = Math.random() < phi(m / SIGMA);
         if (rows[i + 1] && rows[i + 1].bracket && !r.bracket) day1Won = won;   // the game right before a bracket day-2 is our day-1
         if (oppName) faced.add(oppName);
@@ -192,7 +192,7 @@
     rows.forEach((r, i) => {
       r.p = wins[i] / SIMS;
       const oppR = r.opp ? r.opp.rating : (r.bracket ? mean(r.bracket.map(x => pool[x].rating)) : r.pool ? mean(r.pool.map(x => pool[x].rating)) : FLOOR.rating);
-      const margin = (me.rating - oppR) * r.paceK + r.venuePts + r.sit;
+      const margin = (me.rating - oppR) * STRETCH * r.paceK + r.venuePts + r.sit;
       r.margin = +margin.toFixed(1);
       r.p0 = phi(margin / SIGMA);                                          // point-estimate odds, no rating uncertainty / streak
       const total = r.eff ? r.eff.total : DEFAULT_TOTAL;                   // pace + efficiency total, flat when unknown
@@ -334,7 +334,7 @@
 
   // every rated team's projected record for the rankings table — lighter sims, cached in
   // localStorage until the ratings or the schedule file change
-  const LS_ALL = 'tdc_projrec_v3';
+  const LS_ALL = 'tdc_projrec_v4';
   async function projectAll(opts) {
     opts = opts || {};
     await load();
