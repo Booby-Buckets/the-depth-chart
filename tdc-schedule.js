@@ -200,20 +200,20 @@
   .tsp-tile .s{font-size:10.5px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   /* kenpom-style grid: bordered cells, no stretching, whole row tinted by the outcome */
   .tsp-wrap{overflow:auto;}
-  .tsp-table{border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums;width:auto;min-width:640px;margin:0 auto;border:1px solid var(--border);}
-  .tsp-table th{text-align:center;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text2);padding:5px 8px;border:1px solid var(--border);background:var(--bg2);white-space:nowrap;}
-  .tsp-table td{padding:2px 8px;border:1px solid color-mix(in srgb,var(--border) 70%,transparent);white-space:nowrap;text-align:center;color:var(--text);line-height:1.35;height:22px;}
+  .tsp-table{border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums;width:auto;min-width:780px;margin:0 auto;border:1px solid var(--border);}
+  .tsp-table th{text-align:center;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text2);padding:7px 16px;border:1px solid var(--border);background:var(--bg2);white-space:nowrap;}
+  .tsp-table td{padding:4px 16px;border:1px solid color-mix(in srgb,var(--border) 70%,transparent);white-space:nowrap;text-align:center;color:var(--text);line-height:1.35;height:27px;}
   .tsp-table td.l{text-align:left;}
   .tsp-table td.r{text-align:right;}
   .tsp-table tr.mo1 td{border-top:2px solid var(--border2);}
   .tsp-table tr.w td{background:color-mix(in srgb,#2f9159 calc(var(--k)*1%),transparent);}
   .tsp-table tr.x td{background:color-mix(in srgb,#d05a5a calc(var(--k)*1%),transparent);}
   .tsp-table tr:hover td{filter:brightness(1.06);}
-  .tsp-table td.tsp-d{color:var(--text);font-weight:600;}
+  .tsp-table td.tsp-d{color:var(--text);font-weight:600;min-width:96px;}
   .tsp-table td.tsp-d em{font-style:normal;color:var(--text3);font-weight:500;font-size:11px;margin-left:4px;}
   .tsp-ev{display:block;font-size:8.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);line-height:1.1;}
   .tsp-table td.tsp-rk{color:var(--text3);font-size:11px;font-weight:600;}
-  .tsp-table td.tsp-o{font-weight:700;overflow:hidden;text-overflow:ellipsis;max-width:210px;}
+  .tsp-table td.tsp-o{font-weight:700;overflow:hidden;text-overflow:ellipsis;max-width:240px;min-width:170px;}
   .tsp-table td.tsp-o .pre{font-weight:500;color:var(--text3);}
   .tsp-table td.tsp-o.hist{font-weight:600;}
   .tsp-table td.tsp-site b{font-weight:800;}
