@@ -192,7 +192,7 @@
   // its own table class (not .sched-table) so the team page's mono/dim overrides don't apply
   const CSS = `
   .tsp{font-family:'Inter',system-ui,sans-serif;}
-  .tsp-sum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 12px;}
+  .tsp-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 12px;}
   .tsp-tile{border:1px solid var(--border);border-radius:9px;padding:9px 12px 8px;background:var(--bg2);min-width:0;}
   .tsp-tile .k{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;white-space:nowrap;}
   .tsp-tile .v{font-family:'Playfair Display',serif;font-weight:800;font-size:21px;line-height:1;color:var(--text);white-space:nowrap;}
@@ -283,8 +283,7 @@
     const pw = (opts.played || []).filter(x => x.won).length, pl = (opts.played || []).length - pw;
     const m = R.model || {};
     const sum = `<div class="tsp-sum">
-      <div class="tsp-tile"><div class="k">Projected record</div><div class="v">${pw + W}–${pl + L}</div><div class="s">${(pw + R.expW).toFixed(1)} expected wins${pw + pl ? ` · ${pw}–${pl} so far` : ''}</div></div>
-      <div class="tsp-tile"><div class="k">Likely range</div><div class="v">${pw + R.lo}–${pl + R.n - R.lo}<small>to</small>${pw + R.hi}–${pl + R.n - R.hi}</div><div class="s">10th–90th pct · ${R.sims.toLocaleString()} sims</div></div>
+      <div class="tsp-tile" title="likely range ${pw + R.lo}–${pl + R.n - R.lo} to ${pw + R.hi}–${pl + R.n - R.hi} (10th–90th pct of ${R.sims.toLocaleString()} simulated seasons)"><div class="k">Projected record</div><div class="v">${pw + W}–${pl + L}</div><div class="s">${(pw + R.expW).toFixed(1)} expected wins${pw + pl ? ` · ${pw}–${pl} so far` : ''}</div></div>
       <div class="tsp-tile"><div class="k">Conference</div><div class="v">${R.confN ? `${cw}–${cl}` : '—'}</div><div class="s">${R.confN ? `${R.expCW.toFixed(1)} of ${R.confN} league games` : 'no league games listed yet'}</div></div>
       <div class="tsp-tile"><div class="k">20+ wins</div><div class="v">${Math.round(R.p20 * 100)}%</div><div class="s">25+ ${Math.round(R.p25 * 100)}% · .500+ ${Math.round(R.pHalf * 100)}%</div></div>
     </div>`;
