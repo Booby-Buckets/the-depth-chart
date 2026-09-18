@@ -19,7 +19,8 @@
  */
 (function (g) {
   const SEASON = 2027;
-  const SIMS = 3000;
+  const SIMS_FULL = 3000;
+  const _walkCache = {};
   const TAU = 4.5;          // preseason rating uncertainty, pts (≈ historical projection RMSE)
   const DEFAULT_TOTAL = 145.5;
   let _sched = null, _model = null, _extras = null, _loading = null;
@@ -101,9 +102,10 @@
     if (!slate.length) return null;
     const all = allGames();
     const myWalk = walk(team, slate);
-    const oppWalk = {};                                   // opponent → its own season walk
+    const oppWalk = _walkCache;                           // opponent → its own season walk (shared across teams)
     const oppOf = x => x.home === team ? x.away : x.home;
     slate.forEach(x => { const o = oppOf(x); if (o && o !== 'TBD' && !oppWalk[o]) oppWalk[o] = walk(o, all); });
+    const SIMS = opts.sims || SIMS_FULL;
 
     // per-game deterministic pricing (ratings at their means, no streak)
     const rows = slate.map(x => {
@@ -295,5 +297,25 @@
     </tr></thead><tbody>${rows}</tbody></table></div>${note}</div>`;
   }
 
-  g.TDCSched = { load, project, render, gamesFor, extrasFor, SEASON };
+  // every rated team's projected record for the rankings table — lighter sims, cached in
+  // localStorage until the ratings or the schedule file change
+  const LS_ALL = 'tdc_projrec_v1';
+  async function projectAll(opts) {
+    opts = opts || {};
+    await load();
+    if (!_sched || !g.TDC_RATINGS) return {};
+    const D = await g.TDC_RATINGS.get();
+    const stamp = (D.generated || '') + '|' + (_sched.pulled || '') + '|' + (_sched.games || []).length;
+    try { const c = JSON.parse(localStorage.getItem(LS_ALL) || 'null'); if (c && c.stamp === stamp) return c.recs; } catch (e) {}
+    const recs = {};
+    for (const t of D.teams) {
+      const R = await project(t.full, { sims: opts.sims || 600 });
+      if (R) recs[t.full] = { w: Math.round(R.expW), l: R.n - Math.round(R.expW), cw: Math.round(R.expCW), cl: R.confN - Math.round(R.expCW),
+        n: R.n, confN: R.confN, lo: R.lo, hi: R.hi, p20: +R.p20.toFixed(2) };
+    }
+    try { localStorage.setItem(LS_ALL, JSON.stringify({ stamp, recs })); } catch (e) {}
+    return recs;
+  }
+
+  g.TDCSched = { load, project, projectAll, render, gamesFor, extrasFor, SEASON };
 })(window);

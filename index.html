@@ -7,6 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js?v=6"></script>
   <script src="tdc-ratings.js?v=18"></script>
+  <script src="tdc-schedule.js?v=6"></script>
   <script src="tdc-glossary.js?v=12"></script>
   <script src="tdc-freshman.js?v=pub5"></script>
   <script src="tdc-projgrade.js?v=base8"></script>
@@ -1401,7 +1402,7 @@
     <div class="th">Team</div>
     <div class="th sortable" data-sort="srs" title="Power Rating — how many points better than an average Division I team this team is, on a neutral court and adjusted for who they played. A +18 team would beat an average team by about 18. The gap between two teams' Power Ratings is the projected point spread." style="text-decoration:underline dotted;text-underline-offset:3px;">PRtg<span class="th-arrow"></span></div>
     <div class="th"></div>
-    <div class="th center sortable" data-col="wl" data-sort="wins" title="Win–Loss record. Shown only for seasons that have been played; the projected season leaves it blank.">W-L<span class="th-arrow"></span></div>
+    <div class="th center sortable" data-col="wl" data-sort="wins" title="Win–Loss record. For the projected season it is the expected record from simulating the announced 2026-27 schedule 600 times (hover a team for the likely range); blank until a team's slate is announced.">W-L<span class="th-arrow"></span></div>
     <div class="th center sortable" data-sort="ortg" title="Offensive Rating — points scored per 100 possessions, adjusted for opponent and pace (from the Team DNA engine). Higher = better offense. Sort by this to find the best offenses." style="text-decoration:underline dotted;text-underline-offset:3px;">ORtg<span class="th-arrow"></span></div>
     <div class="th center sortable" data-sort="drtg" title="Defensive Rating — points allowed per 100 possessions, adjusted for opponent and pace (from the Team DNA engine). LOWER = better defense. Sort by this to find the best defenses." style="text-decoration:underline dotted;text-underline-offset:3px;">DRtg<span class="th-arrow"></span></div>
     <div class="th center sortable" data-sort="net" title="Net Rating — offensive rating minus defensive rating, i.e. how many points per 100 possessions this team outscores its opponents by (opponent- and pace-adjusted). The single best one-number measure of team quality. Sort by this to rank teams by efficiency margin." style="text-decoration:underline dotted;text-underline-offset:3px;">Net<span class="th-arrow"></span></div>
@@ -1641,7 +1642,7 @@ async function renderShowcase(){
       <div class="sc-tname">${t.name}</div>
       <div class="sc-net">${t.srs!=null?(t.srs>0?'+':'')+t.srs:(t.margin>0?'+':'')+t.margin}</div>
       <div class="sc-netlbl">${curSeason===2027?'Proj Power Rating':'Power Rating'}</div>
-      <div class="sc-meta">${t.gp?`${t.wins}–${t.losses}`:(t.allPlay!=null?`All-Play ${t.allPlay.toFixed(0)}%`:'Projected')}${tierBadge(t.tier)}</div>
+      <div class="sc-meta">${t.gp?`${t.wins}–${t.losses}`:(t.projRec?`Proj ${t.wins}–${t.losses}`:(t.allPlay!=null?`All-Play ${t.allPlay.toFixed(0)}%`:'Projected'))}${tierBadge(t.tier)}</div>
     </a>`).join('');
   sc.style.display='flex';
   // ── Top players — scoped to the active conference when one is selected ──
@@ -1820,6 +1821,8 @@ async function loadProjectedSeason(){
     const sgProjBy={}; const _sgp=(sgProjRaw&&sgProjRaw['2027'])||{}; Object.keys(_sgp).forEach(k=>{ sgProjBy[k.toLowerCase().trim()]=_sgp[k]; });
     const projBy={}; (projRows||[]).forEach(p=>{ projBy[(p.team||'').toLowerCase().trim()]=p; });
     window._teamProjByName = projBy;
+    // projected W-L from the announced 2026-27 schedule (tdc-schedule.js season simulation; cached)
+    let projRec={}; try{ if(window.TDCSched) projRec=await TDCSched.projectAll(); }catch(e){ console.warn('proj records',e); }
     const CODE_FIX={'BIG-12':'B12','Big-East':'BE','BIG-EAST':'BE'};
     allTeams = D.teams.map(r=>{
       const mc=matchColor(r.full,colors);
@@ -1835,7 +1838,9 @@ async function loadProjectedSeason(){
         name:r.full, short:r.team,
         color:(window.tdcTeamColorHex&&tdcTeamColorHex(r.full))||mc.color||'#7c7c8a',
         conf:code, confName:r.projected?code:(r.conf||'—'),
-        wins:0, losses:0, gp:0, winpct:(r.allPlay||0)/100, cw:0, cl:0,
+        // only once most of the slate is announced (partial schedules would read like a 4–2 team)
+        ...(function(){ const pr=projRec[r.full]; return (pr&&pr.n>=20)?{wins:pr.w,losses:pr.l,cw:pr.cw,cl:pr.cl,projRec:pr}:{wins:0,losses:0,cw:0,cl:0,projRec:null}; })(),
+        gp:0, winpct:(r.allPlay||0)/100,
         ppg:num('ppg'), oppg:0, margin:r.roster!=null?r.roster:r.rating,
         fg:num('fg_pct'), tp:num('tp_pct'), ft:num('ft_pct'),
         rpg:num('rpg'), apg:num('apg'), topg:num('tov'),
@@ -2132,7 +2137,7 @@ function renderRows(data, srt, favTeam, favColor, favBg){
         <span class="mbar-val" style="color:${barC};">${pos?'+':''}${v}</span>
       </div>
       <div class="tr-spacer"></div>
-      <div class="tr-stat" data-col="wl"${hide('wl')}><b>${t.gp?`${t.wins}–${t.losses}`:'—'}</b><span>W-L</span></div>
+      <div class="tr-stat" data-col="wl"${hide('wl')}${t.projRec?` title="Projected ${t.wins}–${t.losses} (${t.projRec.lo}–${t.projRec.n-t.projRec.lo} to ${t.projRec.hi}–${t.projRec.n-t.projRec.hi}) · ${t.cw}–${t.cl} in conference · from ${t.projRec.n} announced games"`:''}><b>${t.gp?`${t.wins}–${t.losses}`:(t.projRec?`${t.wins}–${t.losses}`:'—')}</b><span>${t.projRec&&!t.gp?(t.projRec.n<28?`Proj · ${t.projRec.n} gms`:'Proj W-L'):'W-L'}</span></div>
       <div class="tr-stat"><b>${t.ortg!=null?t.ortg.toFixed(1):'—'}</b><span>ORtg</span></div>
       <div class="tr-stat"><b>${t.drtg!=null?t.drtg.toFixed(1):'—'}</b><span>DRtg</span></div>
       <div class="tr-stat">${t.net!=null?`<b style="color:${t.net>0?'#3fa66a':'#c75d5d'}">${t.net>0?'+':''}${t.net.toFixed(1)}</b>`:'<b>—</b>'}<span>Net</span></div>
