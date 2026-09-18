@@ -205,7 +205,7 @@
       <div class="gp-tile"><div class="k">Site</div><div class="v">${row.venue === 'H' ? 'Home' : row.venue === 'A' ? 'Away' : 'Neutral'}</div><div class="s">${row.venuePts ? 'venue edge ' + sg(row.venuePts) : 'no venue edge'}</div></div>
       <div class="gp-tile"><div class="k">Rest</div><div class="v">${row.mf.rest == null ? 'Opener' : row.mf.rest <= 1 ? 'B2B' : row.mf.rest + 'd'}</div><div class="s">${row.known ? 'vs ' + (row.of.rest == null ? 'opener' : row.of.rest <= 1 ? 'b2b' : row.of.rest + 'd') : 'opponent unknown'}${Math.abs(row.sit) >= 0.15 ? ' · ' + sg(row.sit) + ' pts' : ''}</div></div>
     </div>`;
-    host.innerHTML = hero + `<div id="gpMatch" style="border-radius:12px;">${strip}<div class="gp-h">Matchup <span>projected 2026-27 profiles · D-I average for scale</span></div>${cmpTable(team, oppName, EA, EB, RA, RB)}</div><div id="gpPlayers" style="border-radius:12px;"><div class="gp-h">Projected lines · this game</div><div class="gp-wrap"><div class="gp-empty">Loading rosters…</div></div></div>`;
+    host.innerHTML = hero + `<div id="gpMatch" style="border-radius:12px;">${strip}<div class="gp-h">Matchup <span>projected 2026-27 profiles · D-I average for scale</span></div><div id="gpCmp">${cmpTable(team, oppName, EA, EB, RA, RB)}</div></div><div id="gpPlayers" style="border-radius:12px;"><div class="gp-h">Projected lines · this game</div><div class="gp-wrap"><div class="gp-empty">Loading rosters…</div></div></div>`;
     // tiers: the headline (score, odds, line) is free; the matchup profile is Premium; the
     // per-player game projections are Pro (Coach's Tier and Betting Lab members included)
     const gate = () => { if (!g.TDCGate) return;
@@ -216,6 +216,27 @@
     const ctx = { pace: row.pace, score: row.scoreMe, margin: row.margin };
     const [pa, pb] = await Promise.all([roster(team), row.oppName ? roster(row.oppName) : Promise.resolve([])]);
     const TA = teamLines(pa, EA, EB, ctx), TB = row.oppName ? teamLines(pb, EB, EA, { pace: row.pace, score: row.scoreOpp, margin: -row.margin }) : null;
+    // team shot split for THIS game (the rotations' totals) — appended to the matchup table
+    const totOf = T => T && T.rows.length ? T.rows.reduce((s, x) => { ['fga', 'fgm', 'tpa', 'tpm', 'fta', 'ftm', 'oreb', 'dreb', 'tov', 'ast'].forEach(k => { s[k] += x.l[k] || 0; }); return s; }, { fga: 0, fgm: 0, tpa: 0, tpm: 0, fta: 0, ftm: 0, oreb: 0, dreb: 0, tov: 0, ast: 0 }) : null;
+    const ta = totOf(TA), tb = totOf(TB);
+    if (ta || tb) {
+      const ma = t => `${t.tpm.toFixed(1)}–${t.tpa.toFixed(1)}`;
+      const shot = [
+        ['3PA · 3PM', t => `${t.tpa.toFixed(1)} att · ${t.tpm.toFixed(1)} made <small style="color:var(--text3)">${t.tpa ? (100 * t.tpm / t.tpa).toFixed(0) : 0}%</small>`, t => t.tpm, true],
+        ['3PA share', t => `${t.fga ? (100 * t.tpa / t.fga).toFixed(0) : 0}% of shots`, t => t.tpa / (t.fga || 1), null],
+        ['2PA · 2PM', t => `${(t.fga - t.tpa).toFixed(1)} att · ${(t.fgm - t.tpm).toFixed(1)} made <small style="color:var(--text3)">${(t.fga - t.tpa) ? (100 * (t.fgm - t.tpm) / (t.fga - t.tpa)).toFixed(0) : 0}%</small>`, t => t.fgm - t.tpm, true],
+        ['FTA · FTM', t => `${t.fta.toFixed(1)} att · ${t.ftm.toFixed(1)} made`, t => t.ftm, true],
+        ['Off. rebounds', t => t.oreb.toFixed(1), t => t.oreb, true], ['Def. rebounds', t => t.dreb.toFixed(1), t => t.dreb, true],
+        ['Assists', t => t.ast.toFixed(1), t => t.ast, true], ['Turnovers', t => t.tov.toFixed(1), t => t.tov, false],
+      ];
+      const ca = col(team), cb = col(oppName);
+      const rowsHtml = `<tr><td class="l" colspan="4" style="font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);background:var(--bg2);padding:6px 12px;">Projected shot split · this game</td></tr>` + shot.map(([l, f, v, hi]) => {
+        const a = ta ? v(ta) : null, b = tb ? v(tb) : null; let wa = '', wb = '';
+        if (hi !== null && a != null && b != null && a !== b) { const aw = hi ? a > b : a < b; wa = aw ? 'w' : ''; wb = aw ? '' : 'w'; }
+        return `<tr><td class="l">${l}</td><td class="${wa}" style="--side:${ca}">${ta ? f(ta) : '—'}</td><td class="${wb}" style="--side:${cb}">${tb ? f(tb) : '—'}</td><td></td></tr>`;
+      }).join('');
+      const tbody = document.querySelector('#gpCmp .gp-t tbody'); if (tbody) tbody.insertAdjacentHTML('beforeend', rowsHtml);
+    }
     const note = (T, n) => T && T.rows.length ? `${sn(n)}: pace ×${T.paceK.toFixed(2)} · vs this defense ×${T.offK.toFixed(2)}${T.starterK < 1 ? ` · starters' minutes ×${T.starterK.toFixed(2)} (blowout)` : ''}${Math.abs(T.scaleK - 1) > 0.005 ? ` · scaled ×${T.scaleK.toFixed(2)} to the team score` : ''}` : '';
     // injury report: out (removed from the rotation above) and hurt-but-playing, from the owner's injury tool + roster flags
     const injLine = (players, n) => {
