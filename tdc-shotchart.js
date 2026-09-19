@@ -302,14 +302,17 @@
     var max=(nz.length?nz[Math.floor(nz.length*0.93)]:1)||1;
     var sm=document.createElement('canvas'); sm.width=GW; sm.height=GH; var sc=sm.getContext('2d');
     var im=sc.createImageData(GW,GH), p=im.data;
+    // one ink: density is the ink at rising opacity over the normal court floor
+    var cs=getComputedStyle(el), inkRgb=(cs.getPropertyValue('--sc-ink-rgb')||'26,42,76').trim().split(',').map(function(x){return +x;});
+    var floor=(cs.getPropertyValue('--sc-floor')||'#f1e7d3').trim();
     for(var i=0;i<grid.length;i++){
       var v=Math.min(1,grid[i]/max), o=i*4;
       if(v<0.04){ p[o+3]=0; continue; }
-      var c=inferno(Math.pow(v,0.6)); p[o]=c[0]; p[o+1]=c[1]; p[o+2]=c[2];
-      p[o+3]=Math.min(255, 55+v*255)|0;
+      p[o]=inkRgb[0]; p[o+1]=inkRgb[1]; p[o+2]=inkRgb[2];
+      p[o+3]=Math.min(255, (0.12+0.80*Math.pow(v,0.7))*255)|0;
     }
     sc.putImageData(im,0,0);
-    ctx.fillStyle='#07060c'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle=floor; ctx.fillRect(0,0,W,H);
     ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
     ctx.drawImage(sm,0,0,GW,GH,0,0,W,H);
   }
@@ -485,8 +488,8 @@
         '</div>';
     } else if(mode==='heat'){
       body='<div class="sc-court-wrap sc-heat-wrap"><canvas class="sc-heat"></canvas>'+
-        '<svg class="sc-svg sc-heat-court" viewBox="0 0 '+W+' '+H+'">'+court(null,{color:'#ffffff'}).replace(/var\(--sc-floor\)|var\(--sc-inside\)/g,'none')+'</svg></div>'+
-        '<div class="sc-heat-legend"><span>Shot frequency</span><i class="sc-grad"></i><span style="color:var(--text3)">low → high</span></div>';
+        '<svg class="sc-svg sc-heat-court" viewBox="0 0 '+W+' '+H+'">'+court(null,courtOpts).replace(/var\(--sc-floor\)|var\(--sc-inside\)/g,'none').replace(/url\(#scVig\)/g,'none')+'</svg></div>'+
+        '<div class="sc-heat-legend"><span>Where he shoots from</span><i class="sc-grad"></i><span style="color:var(--text3)">rarely → constantly</span></div>';
     } else {
       var dots=shots.map(function(s,i){
         var cx=px(clampx(fxf(s.x))), cy=py(clampy(fyf(s.y)));
@@ -629,7 +632,6 @@
       '.sc-court-col{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;}'+
       '.sc-court-wrap{position:relative;min-width:0;max-width:760px;margin:0 auto;width:100%;background:var(--sc-floor);border:1px solid var(--border);border-radius:14px;padding:0;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.22);animation:scFade .5s ease backwards;}'+
       '.sc-court-wrap .sc-svg{border-radius:14px;}'+
-      '.sc-heat-wrap{background:#07060c;border-color:#1a1626;}'+
       '.sc-svg{width:100%;height:auto;display:block;}'+
       '.sc-cl{stroke-dasharray:1;stroke-dashoffset:0;animation:scDraw 1s ease .1s backwards;}'+
       '.sc-mark{transform-box:fill-box;transform-origin:center;transition:transform .16s cubic-bezier(.34,1.56,.64,1),opacity .2s;animation:scPop .4s cubic-bezier(.34,1.56,.64,1) backwards;cursor:pointer;}'+
@@ -654,7 +656,7 @@
       '.sc-heat-wrap{max-width:760px;margin:0 auto;}'+
       '.sc-heat-court{position:absolute;left:0;top:0;width:100%;}'+
       '.sc-heat-legend{max-width:580px;margin:10px auto 0;display:flex;align-items:center;gap:10px;font-size:11px;font-weight:600;color:var(--text2);justify-content:center;animation:scUp .5s ease .3s backwards;}'+
-      '.sc-grad{width:150px;height:10px;border-radius:5px;display:inline-block;background:linear-gradient(90deg,#0a0614,#22104a,#40287c,#6a2eb2,#8b3fe0,#b078ec,#d6b4f8);}'+
+      '.sc-grad{width:150px;height:10px;border-radius:5px;display:inline-block;border:1px solid var(--border);background:linear-gradient(90deg,rgba(var(--sc-ink-rgb),.06),rgba(var(--sc-ink-rgb),.92));}'+
       '.sc-eff-legend{max-width:520px;margin:11px auto 0;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--text2);animation:scUp .5s ease .3s backwards;}'+
       '.sc-effbar{display:flex;align-items:center;gap:9px;}'+
       '.sc-effgrad{width:190px;height:11px;border-radius:6px;display:inline-block;background:linear-gradient(90deg,#4c7fd6,#9696a0,#f08a3c);box-shadow:inset 0 0 0 1px rgba(130,123,156,.25);}'+
