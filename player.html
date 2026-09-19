@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=6"></script>
-  <script src="tdc-shotchart.js?v=19"></script>
+  <script src="tdc-shotchart.js?v=20"></script>
   <script src="tdc-shotprofile.js?v=1"></script>
   <script src="tdc-shotflow.js?v=11"></script>
   <script src="tdc-nil.js?v=prod2"></script>
@@ -700,7 +700,15 @@
     .ovc-trend{display:flex;align-items:center;gap:13px;} .ovc-trend .ti{font-size:11.5px;color:var(--text2);line-height:1.5;} .ovc-trend .ti b{color:var(--accent);} .ovc-trend .now{font-family:'Helvetica Neue',sans-serif;font-weight:800;font-size:18px;color:var(--text);}
     .ovc-phys{display:flex;gap:9px;flex-wrap:wrap;} .ovc-ph{flex:1;min-width:80px;background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:9px 8px;text-align:center;} .ovc-ph .v{font-weight:800;font-size:16px;} .ovc-ph .k{font-size:8px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
     /* shot profile */
-    .ovc-shot2{display:flex;flex-direction:column;gap:13px;}
+    .ovc-shot2{display:flex;flex-direction:column;gap:0;}
+    .ovc-prow{display:grid;grid-template-columns:minmax(90px,120px) 52px 1fr 44px;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+    .ovc-pl{font-size:12px;font-weight:600;color:var(--text);display:flex;flex-direction:column;gap:1px;}
+    .ovc-psub{font-size:10px;font-weight:500;color:var(--text3);font-variant-numeric:tabular-nums;}
+    .ovc-pv{font-size:13px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;color:var(--text);}
+    .ovc-ptrack{position:relative;height:8px;background:var(--bg3);border-radius:4px;}
+    .ovc-ptrack i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--pd-ink,#1A2A4C);}
+    .ovc-ptrack b{position:absolute;top:-3px;width:1px;height:14px;background:var(--text3);}
+    .ovc-pd{font-size:12.5px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;} .ovc-pd.pos{color:var(--green);} .ovc-pd.neg{color:var(--red);}
     .ovc-srow .top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;}
     .ovc-srow .lab{font-size:12px;font-weight:700;color:var(--text);}
     .ovc-srow .pct{font-family:var(--mono);font-size:13.5px;font-weight:800;font-variant-numeric:tabular-nums;}
@@ -709,7 +717,7 @@
     .ovc-sfill{position:absolute;top:0;bottom:0;left:0;border-radius:6px;}
     .ovc-savg{position:absolute;top:-4px;bottom:-4px;width:2px;border-radius:1px;background:var(--text3);opacity:.7;}
     .ovc-svol{font-family:var(--mono);font-size:10px;color:var(--text3);white-space:nowrap;min-width:64px;text-align:right;}
-    .ovc-efftitle{font-size:8.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text4,#3d485f);margin:15px 0 8px;padding-top:13px;border-top:1px solid var(--border);}
+    .ovc-efftitle{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:12px 0 0;padding-top:0;}
     .ovc-effrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
     .ovc-eff{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;}
     .ovc-eff .v{font-weight:800;font-size:17px;font-variant-numeric:tabular-nums;}
@@ -3920,23 +3928,18 @@ function renderOvcExtras(val){
       {l:'3-Point',    v:num(s.tp_pct)!=null?num(s.tp_pct):pct(tpm,tpa), m:tpm, a:tpa, avg:34.0},
       {l:'Free Throw', v:num(s.ft_pct)!=null?num(s.ft_pct):pct(ftm,fta), m:ftm, a:fta, avg:71.5}
     ];
-    var col=function(v,avg){ var d=v-avg;
-      return d>=6?'var(--accent)':d>=-1?'var(--blue,#5B8DEF)':d>=-7?'var(--slate,#6B7893)':'var(--red,var(--red))'; };
-    var rows=TYPES.map(function(t){ if(t.v==null||!isFinite(t.v)) return '';
-      var c=col(t.v,t.avg), w=Math.max(2,Math.min(100,t.v));
-      var vol=(isFinite(t.a)&&t.a>0)?(f1(t.m)+' / '+f1(t.a)):'';
-      return '<div class="ovc-srow">'+
-          '<div class="top"><span class="lab">'+t.l+'</span><span class="pct" style="color:'+c+'">'+f1(t.v)+'%</span></div>'+
-          '<div class="bot"><span class="ovc-sbar">'+
-            '<span class="ovc-sfill" style="width:'+w+'%;background:linear-gradient(90deg,'+c+',color-mix(in srgb,'+c+' 62%, transparent))"></span>'+
-            '<span class="ovc-savg" style="left:'+Math.min(99,t.avg)+'%" title="D-I average '+t.avg+'%"></span>'+
-          '</span><span class="ovc-svol">'+vol+'</span></div>'+
-        '</div>'; }).join('');
-    var EFF=[['Field Goal',num(s.fg_pct)!=null?num(s.fg_pct):pct(fgm,fga),45],['eFG%',efg,50],['True Shooting',ts,55]];
-    var tiles=EFF.map(function(e){ var v=e[1]; if(v==null||!isFinite(v)) return '';
-      var c=v>=e[2]+8?'var(--accent)':v>=e[2]?'var(--blue,#5B8DEF)':v>=e[2]-7?'var(--slate,#6B7893)':'var(--red,var(--red))';
-      return '<div class="ovc-eff"><div class="v" style="color:'+c+'">'+f1(v)+'%</div><div class="k">'+e[0]+'</div></div>'; }).join('');
-    shEl.innerHTML=rows?('<div class="ovc-shot2">'+rows+'</div>'+(tiles?'<div class="ovc-efftitle">Overall efficiency</div><div class="ovc-effrow">'+tiles+'</div>':'')):'<div class="ovc-muted">—</div>';
+    // one row per shot type: label · make % · ink bar with the D-I average tick · made/att;
+    // the edge vs D-I is the only coloured (verdict) number
+    var prow=function(l,v,avg,vol){ if(v==null||!isFinite(v)) return '';
+      var d=v-avg, w=Math.max(2,Math.min(100,v));
+      return '<div class="ovc-prow"><div class="ovc-pl">'+l+(vol?'<span class="ovc-psub">'+vol+'</span>':'')+'</div>'+
+        '<div class="ovc-pv">'+f1(v)+'%</div>'+
+        '<div class="ovc-ptrack"><i style="width:'+w+'%"></i><b style="left:'+Math.min(99,avg)+'%" title="D-I average '+avg+'%"></b></div>'+
+        '<div class="ovc-pd '+(d>=0?'pos':'neg')+'">'+(d>=0?'+':'−')+Math.abs(d).toFixed(1)+'</div></div>'; };
+    var rows=TYPES.map(function(t){ var vol=(isFinite(t.a)&&t.a>0)?(f1(t.m)+' / '+f1(t.a)+' per game'):''; return prow(t.l,t.v,t.avg,vol); }).join('');
+    var EFF=[['Field goal %',num(s.fg_pct)!=null?num(s.fg_pct):pct(fgm,fga),45],['Effective FG%',efg,50],['True shooting %',ts,55]];
+    var tiles=EFF.map(function(e){ return prow(e[0],e[1],e[2],''); }).join('');
+    shEl.innerHTML=rows?('<div class="ovc-shot2">'+rows+(tiles?'<div class="ovc-efftitle">Overall efficiency <span class="ovc-psub" style="display:inline;margin-left:6px;">vs D-I average tick</span></div>'+tiles:'')+'</div>'):'<div class="ovc-muted">—</div>';
   }
   // ---- Grade trend ----
   var tEl=document.getElementById('ovcTrend');
