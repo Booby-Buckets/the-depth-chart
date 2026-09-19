@@ -6344,15 +6344,20 @@ function _dnaMatchup(oppKey){
   const teamExpO=O(t)+(D(o)-avgD);          // our offense vs their (adjusted) defense
   const oppExpO =O(o)+(D(t)-avgD);          // their offense vs our (adjusted) defense
   const poss=((t.tempo||68)+(o.tempo||68))/2;
-  const margin=(teamExpO-oppExpO)*poss/100;
-  const wpMe=Math.max(1,Math.min(99,Math.round(100*(0.5*(1+_erf(margin/(11*Math.SQRT2)))))));
+  const L=window._dnaLine&&window._dnaLine[oppKey];
+  const margin=L?L.margin:(teamExpO-oppExpO)*poss/100;
+  const wpMe=L?Math.round(L.prob):Math.max(1,Math.min(99,Math.round(100*(0.5*(1+_erf(margin/(11*Math.SQRT2)))))));
   const fav=margin>=0;
   const per100=Math.abs(teamExpO-oppExpO);   // efficiency margin per 100 possessions
+  const _sgn=v=>(v>=0?'+':'')+(+v).toFixed(1);
+  const how = L
+    ? `<b>${Math.abs(margin).toFixed(1)}</b> is the projected final-score margin on a neutral floor — the same line the Schedule and Preview tabs use: the power-rating gap (${myName} <b>${_sgn(L.rA)}</b> vs ${oppKey} <b>${_sgn(L.rB)}</b>), stretched ×${(window.TDC_RATINGS&&TDC_RATINGS.GAP_STRETCH)||1} per the backtest of last season's spreads. Rating-based — no individual player matchups.`
+    : `<b>${Math.abs(margin).toFixed(1)}</b> is the projected final-score margin — the game spread at an expected <b>${poss.toFixed(0)}</b> possessions. It comes from a <b>${per100.toFixed(1)}</b>-point-per-100-possessions efficiency edge (${myName}'s offense projects to <b>${teamExpO.toFixed(0)}</b> per 100 against ${oppKey}'s defense; ${oppKey}'s offense to <b>${oppExpO.toFixed(0)}</b> against ${myName}'s), scaled down to game length. Neutral floor, efficiency-based — no injuries or individual player matchups.`;
   el.innerHTML=`<div class="dna-mu-res">
       <div class="dna-mu-lbl" style="font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:2px;">Projected final margin · neutral court</div>
       <div class="dna-mu-line">Projected: <b class="${fav?'pos':'neg'}">${fav?myName:oppKey}</b> by <b>${Math.abs(margin).toFixed(1)}</b> points</div>
       <div class="dna-mu-wp">${wpMe}% win probability for ${myName}</div>
-      <div class="dna-mu-sub"><b>${Math.abs(margin).toFixed(1)}</b> is the projected final-score margin — the game spread at an expected <b>${poss.toFixed(0)}</b> possessions. It comes from a <b>${per100.toFixed(1)}</b>-point-per-100-possessions efficiency edge (${myName}'s offense projects to <b>${teamExpO.toFixed(0)}</b> per 100 against ${oppKey}'s defense; ${oppKey}'s offense to <b>${oppExpO.toFixed(0)}</b> against ${myName}'s), scaled down to game length. Neutral floor, efficiency-based — no injuries or individual player matchups.</div>
+      <div class="dna-mu-sub">${how}</div>
     </div>`;
 }
 function _erf(x){ const t=1/(1+0.3275911*Math.abs(x)); const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x); return x>=0?y:-y; }
@@ -6554,11 +6559,23 @@ async function renderTeamDNA(){
   const _adjN=x=>x.adjNet!=null?x.adjNet:x.net;
   const _mO=x=>x.adjO!=null?x.adjO:x.ORtg, _mD=x=>x.adjD!=null?x.adjD:x.DRtg;
   const oppKeys=Object.keys(S.teams).filter(k=>k!==key).sort((a,b)=>(_adjN(S.teams[b])!=null?_adjN(S.teams[b]):-99)-(_adjN(S.teams[a])!=null?_adjN(S.teams[a]):-99));
-  const _projMargin=o=>{ if(_mO(o)==null||_mO(t)==null) return null; const poss=((t.tempo||68)+(o.tempo||68))/2; return ((_mO(t)-_mD(t))-(_mO(o)-_mD(o)))*poss/100; };
-  const oppOpts=oppKeys.map(k=>{ const m=_projMargin(S.teams[k]); const lbl=m==null?'':' ('+(m>=0?'+':'')+m.toFixed(1)+')'; return `<option value="${k.replace(/"/g,'&quot;')}">${k}${lbl}</option>`; }).join('');
+  // Projected season: the line is the SAME one the Schedule/Preview tabs price (power-rating gap
+  // × GAP_STRETCH on a neutral floor, TDC_RATINGS.lineFor) — the projected DNA nets are on a
+  // compressed per-100 scale and read ~half as wide. Completed seasons keep the adjusted-efficiency
+  // matchup (real games, real scale).
+  let LINE=null;
+  if(PROJ && window.TDC_RATINGS){ try{ const D=await TDC_RATINGS.get(); if(D&&D.teams){ const byFull={}; D.teams.forEach(r=>{ if(r.full) byFull[r.full]=r; });
+    const byShort={}; D.teams.forEach(r=>{ if(r.team) byShort[String(r.team).toLowerCase()]=r; });
+    const AL={'ecu':'east carolina'};   // DNA keys that aren't the ratings' full name
+    const find=k=>{ if(byFull[k]) return byFull[k]; const sh=(window.tdcShortSchool?tdcShortSchool(k):k).toLowerCase(); return byShort[sh]||byShort[AL[sh]]||byShort[k.toLowerCase()]||null; };
+    const me=find(key); if(me){ LINE={}; oppKeys.forEach(k=>{ const o=find(k); if(o){ const L=TDC_RATINGS.lineFor(me,o,'neutral'); LINE[k]={margin:L.margin,prob:L.probA,rA:+me.rating,rB:+o.rating}; } }); } } }catch(e){ LINE=null; } }
+  window._dnaLine=LINE;
+  const _projMarginEff=o=>{ if(_mO(o)==null||_mO(t)==null) return null; const poss=((t.tempo||68)+(o.tempo||68))/2; return ((_mO(t)-_mD(t))-(_mO(o)-_mD(o)))*poss/100; };
+  const _projMargin=(o,k)=> LINE ? (LINE[k]?LINE[k].margin:null) : _projMarginEff(o);
+  const oppOpts=oppKeys.map(k=>{ const m=_projMargin(S.teams[k],k); const lbl=m==null?'':' ('+(m>=0?'+':'')+m.toFixed(1)+')'; return `<option value="${k.replace(/"/g,'&quot;')}">${k}${lbl}</option>`; }).join('');
   const _sf=_dnaStyleFit(t, S, oppKeys, teamT.name);
   const _sn=x=>window.tdcShortSchool?tdcShortSchool(x):x;
-  const sfRow=r=>{ const m=_projMargin(S.teams[r.team]); const fav=m!=null&&m>=0;
+  const sfRow=r=>{ const m=_projMargin(S.teams[r.team],r.team); const fav=m!=null&&m>=0;
     return `<div class="dA-mrow"><div><div class="dA-mteam">${_sn(r.team)}</div><div class="dA-cap">style ${r.edge>=0?'+':'−'}${Math.abs(r.edge).toFixed(1)} per 100 · ${r.reason}</div></div>`+
       (m==null?'<div class="dA-rv">—</div>':`<div class="dA-rv ${fav?'pos':'neg'}">${fav?'+':'−'}${Math.abs(m).toFixed(1)}<div class="dA-cap">${fav?teamT.name:_sn(r.team)} by ${Math.abs(m).toFixed(1)}</div></div>`)+`</div>`; };
   const sfHtml=(_sf&&(_sf.favorable.length||_sf.tough.length))?`<div class="dA-mcols"><div><div class="dA-sub">Style favors ${teamT.name}</div>${_sf.favorable.length?_sf.favorable.map(sfRow).join(''):'<div class="dA-cap">No standout edges.</div>'}</div><div><div class="dA-sub">Style works against ${teamT.name}</div>${_sf.tough.length?_sf.tough.map(sfRow).join(''):'<div class="dA-cap">No standout traps.</div>'}</div></div>`:'';
