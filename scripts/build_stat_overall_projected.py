@@ -92,6 +92,12 @@ IMPACT_LIFT=float(os.environ.get("IMPACT_LIFT","0.55"))
 # TEAM FIT (see the team loop): 1 = fully reconcile each roster's minutes to 200 and its points to
 # the team's projected scoring; 0 = off (independent lines, the pre-Sep-2026 behavior).
 TEAM_FIT=float(os.environ.get("TEAM_FIT","1.0"))
+# DEPTH-WEIGHTED minute squeeze: when a roster over-books 200, the bench absorbs the overbooking,
+# not the starters (a pro-rata cut flattened title contenders: Florida's top five at 22-27 mpg).
+# Weights by rotation rank (1-5 / 6-7 / 8-9 / 10+); the solver finds the one intensity that lands
+# the roster on 200. A starter never loses more than ~35% of what a pro-rata cut would take.
+SQZ_W=tuple(float(x) for x in os.environ.get("SQZ_W","0.2,0.55,0.9,1.3").split(","))
+SQZ_DEEP_FLOOR=float(os.environ.get("SQZ_DEEP_FLOOR","5.0"))   # 11th man and deeper can fall to garbage-time minutes
 FRESH_PPS=1.08          # points per FGA (incl. the FTs a shot draws) for a no-box player's estimated shots
 TEAM_PPG={}; TEAM_FIT_LOG={}; FRESH_FIT={}   # FRESH_FIT[short][name] = fitted {mpg, ppg} for no-box players (tdc-freshman.js scales its lines to these)
 try:
@@ -556,6 +562,26 @@ for short, roster in roster_by_team.items():
         _tot=sum(rr["pm"] for rr in R)+_fmin
         _minK=min(1.0, REF_MIN/_tot) if _tot>REF_MIN else 1.0
         _minK=1.0-(1.0-_minK)*TEAM_FIT
+        # depth-weighted squeeze: per-player retention k_i = 1 - lam*w(rank), rank by projected
+        # minutes across the WHOLE roster (freshmen included); bisect lam so the total hits the
+        # fitted 200. Beyond lam=1 (absurd over-booking) the remainder is taken pro rata.
+        _kmap={}; _lam=0.0
+        if _tot>REF_MIN and TEAM_FIT>0:
+            _order=sorted([(rr["pm"],"r",id(rr)) for rr in R]+[(x[0],"f",i) for i,x in enumerate(_fresh)], key=lambda z:-z[0])
+            _rank={(z[1],z[2]):i+1 for i,z in enumerate(_order)}
+            _w=lambda rk: SQZ_W[0] if rk<=5 else SQZ_W[1] if rk<=7 else SQZ_W[2] if rk<=9 else SQZ_W[3]
+            _tgt=REF_MIN+(_tot-REF_MIN)*(1.0-TEAM_FIT)
+            _fl=lambda rk: 5.0 if rk<=10 else SQZ_DEEP_FLOOR
+            def _tot_at(lam):
+                return (sum(max(_fl(_rank[("r",id(rr))]), rr["pm"]*max(0.30,1.0-lam*_w(_rank[("r",id(rr))]))) for rr in R)
+                        +sum(x[0]*max(0.30,1.0-lam*_w(_rank[("f",i)])) for i,x in enumerate(_fresh)))
+            lo,hi=0.0,1.0
+            for _ in range(40):
+                mid=(lo+hi)/2.0
+                if _tot_at(mid)>_tgt: lo=mid
+                else: hi=mid
+            _lam=hi; _rem=min(1.0,_tgt/_tot_at(_lam)) if _tot_at(_lam)>_tgt else 1.0
+            for rr in R: _kmap[id(rr)]=max(0.30,1.0-_lam*_w(_rank[("r",id(rr))]))*_rem; rr["_sqfl"]=_fl(_rank[("r",id(rr))])
         _target=TEAM_PPG.get(full)
         _ptsK=1.0
         if _target:
@@ -563,10 +589,10 @@ for short, roster in roster_by_team.items():
             _fpts=_ffga*FRESH_PPS
             if _sum>0: _ptsK=max(0.75,min(1.15,(_target-_fpts)/_sum))
             _ptsK=1.0+(_ptsK-1.0)*TEAM_FIT
-        TEAM_FIT_LOG[full]=dict(minK=round(_minK,3),ptsK=round(_ptsK,3),n=len(R),fresh=len(_fresh))
+        TEAM_FIT_LOG[full]=dict(minK=round(_minK,3),ptsK=round(_ptsK,3),n=len(R),fresh=len(_fresh),sqz=round(_lam,2))
         if abs(_minK-1.0)>0.005 or abs(_ptsK-1.0)>0.005:
             for rr in R:
-                rr["pm"]=max(5.0, rr["pm"]*_minK)
+                rr["pm"]=max(rr.get("_sqfl",5.0), rr["pm"]*_kmap.get(id(rr),_minK))
                 rr["proj_usg"]=min(USG_CAP[1],max(USG_CAP[0],rr["proj_usg"]*_ptsK))
             for rr in R: _project_one(rr)
         # the freshmen / no-box players get what's LEFT of the team: minutes to 200, points to the
