@@ -89,7 +89,7 @@
     return 'M '+x0+' '+sy0.toFixed(1)+' C '+xm+' '+sy0.toFixed(1)+' '+xm+' '+ty0.toFixed(1)+' '+x1+' '+ty0.toFixed(1)+
       ' L '+x1+' '+ty1.toFixed(1)+' C '+xm+' '+ty1.toFixed(1)+' '+xm+' '+sy1.toFixed(1)+' '+x0+' '+sy1.toFixed(1)+' Z';
   }
-  var W=900, H=500, PADT=20, PADB=36, NW=3, GAP=15, MINH=15; // MINH+GAP >= label-box height (26) so labels never overlap; NW hairline for the ghost look
+  var W=900, H=500, PADT=34, PADB=16, NW=9, GAP=12, MINH=16; // headers sit on top (PADT); solid ink nodes; MINH+GAP >= label height so labels never overlap
   var colX=[]; // computed
   // find px-per-shot for one column so its nodes (each >= MINH tall) + gaps
   // exactly fill usableH; small nodes get pinned at MINH and the rest scale
@@ -134,7 +134,7 @@
       pps=Math.min(pps, fitPps(list.map(function(n){return n.tot;}), usableH));
     });
     // x positions
-    var innerL=120, innerR=W-98, span=innerR-innerL;
+    var innerL=132, innerR=W-104, span=innerR-innerL;
     colX=cols.map(function(_,i){ return innerL + span*i/(cols.length-1); });
 
     // assign node y (center each column stack); small nodes get a min height so
@@ -188,7 +188,7 @@
 
     // ── SVG ──
     var uid=++UID, revId='sfrev'+uid, uniId='sfuni'+uid, grdId='sfgrd'+uid, gmId='sfgm'+uid, gsId='sfgs'+uid;
-    var madeFill='url(#'+gmId+')', missFill='url(#'+gsId+')';
+    var madeFill='rgba(var(--sf-made),.44)', missFill='rgba(var(--sf-miss),.20)';
     var svg='<svg class="sf-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet">';
     // build ribbon paths once; reuse for both the drawn ribbons and the union clip
     var ribsHtml='', clipHtml='';
@@ -201,19 +201,9 @@
     });
     // defs: a left→right reveal clip (entrance) + a union-of-ribbons clip and a
     // bright band gradient (the continuous "flow through every path" shimmer)
-    svg+='<defs>'+
-      '<clipPath id="'+revId+'" clipPathUnits="userSpaceOnUse"><rect class="sf-revrect" x="0" y="0" width="'+W+'" height="'+H+'"/></clipPath>'+
-      '<clipPath id="'+uniId+'" clipPathUnits="userSpaceOnUse">'+clipHtml+'</clipPath>'+
-      '<linearGradient id="'+grdId+'" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>'+
-      // ghost-fade ribbon fills (per-ribbon, objectBoundingBox): transparent at both
-      // ends, brightest mid-hop, so every band dissolves into its nodes
-      '<linearGradient id="'+gmId+'" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="rgb(var(--sf-made))" stop-opacity="0.06"/><stop offset="0.5" stop-color="rgb(var(--sf-made))" stop-opacity="0.62"/><stop offset="1" stop-color="rgb(var(--sf-made))" stop-opacity="0.06"/></linearGradient>'+
-      '<linearGradient id="'+gsId+'" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="rgb(var(--sf-miss))" stop-opacity="0.05"/><stop offset="0.5" stop-color="rgb(var(--sf-miss))" stop-opacity="0.48"/><stop offset="1" stop-color="rgb(var(--sf-miss))" stop-opacity="0.05"/></linearGradient>'+
-      '</defs>';
+    svg+='<defs><clipPath id="'+revId+'" clipPathUnits="userSpaceOnUse"><rect class="sf-revrect" x="0" y="0" width="'+W+'" height="'+H+'"/></clipPath></defs>';
     // ribbons revealed flowing in from the left, then a repeating light sweep
-    svg+='<g clip-path="url(#'+revId+')">'+ribsHtml+
-         '<g clip-path="url(#'+uniId+')"><rect class="sf-sweep" x="-220" y="0" width="200" height="'+H+'" fill="url(#'+grdId+')"/></g>'+
-         '</g>';
+    svg+='<g clip-path="url(#'+revId+')">'+ribsHtml+'</g>';
     // overlay layer for the assist-trace (populated on hover)
     svg+='<g class="sf-trace"></g>';
     // stash link geometry so the hover handler can draw an assister's sub-flow
@@ -228,16 +218,13 @@
         var toLeft=(ci===0||ci===lastCol), anchor=toLeft?'end':'start';
         var edgeX=toLeft?(colX[ci]-7):(colX[ci]+NW+7);
         var cy=(n.y0+n.y1)/2;
-        var tw=Math.max(nm.length*7.2, sub.length*5.6)+10;
-        var bx=toLeft?(edgeX-tw):edgeX-2;
-        svg+='<rect class="sf-lbg" x="'+bx.toFixed(1)+'" y="'+(cy-13).toFixed(1)+'" width="'+tw.toFixed(1)+'" height="26" rx="4"/>';
         svg+='<text class="sf-lbl" x="'+edgeX.toFixed(1)+'" y="'+(cy-2).toFixed(1)+'" text-anchor="'+anchor+'">'+nm+'</text>';
         svg+='<text class="sf-sub" x="'+edgeX.toFixed(1)+'" y="'+(cy+10).toFixed(1)+'" text-anchor="'+anchor+'">'+sub+'</text>';
       });
     });
     // column headers
     cols.forEach(function(c,ci){
-      svg+='<text class="sf-hdr" x="'+(colX[ci]+NW/2)+'" y="'+(H-10)+'" text-anchor="middle">'+c.label+'</text>';
+      svg+='<text class="sf-hdr" x="'+(colX[ci]+NW/2)+'" y="14" text-anchor="middle">'+c.label+'</text>';
     });
     svg+='</svg>';
 
@@ -300,43 +287,36 @@
     var st=document.createElement('style'); st.id='sf-styles';
     st.textContent=
       '@keyframes sfReveal{from{transform:scaleX(0);}to{transform:scaleX(1);}}'+
-      '@keyframes sfSweep{from{transform:translateX(0);}to{transform:translateX(1140px);}}'+
       '.sf-title{font-size:13px;font-weight:700;color:var(--text2);margin-bottom:8px;}'+
       '.sf-legend{display:flex;align-items:center;gap:14px;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:10px;flex-wrap:wrap;}'+
       '.sf-legend span{display:inline-flex;align-items:center;gap:6px;}'+
       '.sf-legend i{width:16px;height:9px;border-radius:2px;display:inline-block;}'+
       '.sf-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}'+
-      '.sf-wrap{position:relative;min-width:660px;max-width:1200px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:8px 6px;}'+
+      '.sf-wrap{position:relative;min-width:660px;max-width:1200px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 8px 6px;}'+
       '.sf-svg{width:100%;height:auto;display:block;overflow:visible;}'+
-      // ghost palette, theme-aware (light default = ink slate on cream; dark = cool blue-grays)
-      '.sf-host{--sf-made:74,94,124;--sf-miss:150,146,136;--sf-trace:38,52,78;}'+
-      '[data-theme="dark"] .sf-host{--sf-made:174,191,216;--sf-miss:112,128,155;--sf-trace:210,222,242;}'+
+      // one ink (the site's --dna-fill navy / light-blue in dark); missed is a neutral grey
+      '.sf-host{--sf-made:26,42,76;--sf-miss:122,132,150;--sf-trace:26,42,76;}'+
+      '[data-theme="dark"] .sf-host{--sf-made:170,192,236;--sf-miss:120,135,165;--sf-trace:210,222,242;}'+
       '.sf-sw{width:16px;height:9px;border-radius:2px;display:inline-block;}'+
-      '.sf-sw-m{background:rgb(var(--sf-made));opacity:.92;}'+
-      '.sf-sw-s{background:rgb(var(--sf-miss));opacity:.78;}'+
-      // entrance: the reveal clip grows left->right so ribbons flow through the columns
-      '.sf-revrect{transform-box:fill-box;transform-origin:left center;animation:sfReveal 1.25s cubic-bezier(.45,.05,.25,1) both;}'+
-      // continuous flow: a light band sweeps through the ribbon union, on a loop
-      '.sf-sweep{pointer-events:none;animation:sfSweep 2.6s linear 1.1s 3;mix-blend-mode:screen;}'+
-      '.sf-rib{transition:fill-opacity .15s,opacity .15s;cursor:pointer;}'+
-      '.sf-rib:hover{fill-opacity:.95!important;}'+
-      '.sf-host.sf-focus .sf-rib{opacity:.12;}'+
+      '.sf-sw-m{background:rgba(var(--sf-made),.7);}'+
+      '.sf-sw-s{background:rgba(var(--sf-miss),.4);}'+
+      '.sf-revrect{transform-box:fill-box;transform-origin:left center;animation:sfReveal .9s cubic-bezier(.45,.05,.25,1) both;}'+
+      '.sf-rib{transition:opacity .15s;cursor:pointer;}'+
+      '.sf-rib:hover{opacity:1;filter:saturate(1.2) brightness(.92);}'+
+      '.sf-host.sf-focus .sf-rib{opacity:.14;}'+
       '.sf-host.sf-focus .sf-rib.sf-on{opacity:1;}'+
-      // assist trace: dim the whole chart, light up just that assister\'s sub-flow
-      '.sf-host.sf-tracing .sf-rib{opacity:.08;}'+
+      '.sf-host.sf-tracing .sf-rib{opacity:.1;}'+
       '.sf-trace{pointer-events:none;}'+
-      '.sf-trace path{stroke:rgb(var(--sf-trace));stroke-opacity:.5;stroke-width:.5;filter:drop-shadow(0 0 3px rgba(0,0,0,.25));}'+
-      '.sf-node{fill:var(--text2);opacity:.62;cursor:pointer;transition:opacity .15s;}'+   // hairline anchor for the ghost ribbons
-      '.sf-node:hover{opacity:1;}'+
-      '.sf-lbg{fill:var(--bg2);opacity:.72;pointer-events:none;}'+
-      '.sf-lbl{font-family:\'Playfair Display\',Georgia,serif;font-weight:700;font-size:12.5px;fill:var(--text);}'+
-      '.sf-sub{font-size:10px;fill:var(--text3);font-weight:600;}'+
-      '.sf-hdr{font-size:11px;font-weight:800;letter-spacing:.12em;fill:var(--text3);}'+
-      '.sf-tip{position:absolute;pointer-events:none;background:var(--text);color:var(--bg);font-size:11px;font-weight:700;padding:5px 9px;border-radius:7px;transform:translate(-50%,-100%);opacity:0;transition:opacity .12s;white-space:nowrap;z-index:20;box-shadow:0 6px 18px rgba(0,0,0,.3);}'+
+      '.sf-trace path{stroke:rgb(var(--sf-trace));stroke-opacity:.6;stroke-width:.6;}'+
+      '.sf-node{fill:rgb(var(--sf-made));cursor:pointer;transition:opacity .15s;}'+
+      '.sf-node:hover{opacity:.75;}'+
+      // labels sit on the ribbons for the middle columns, so they carry a halo in the card colour
+      '.sf-lbl{font-family:\'Inter\',system-ui,sans-serif;font-weight:700;font-size:12px;fill:var(--text);paint-order:stroke;stroke:var(--bg2);stroke-width:3.5px;stroke-linejoin:round;}'+
+      '.sf-sub{font-family:\'Inter\',system-ui,sans-serif;font-size:10.5px;fill:var(--text3);font-weight:600;font-variant-numeric:tabular-nums;paint-order:stroke;stroke:var(--bg2);stroke-width:3px;stroke-linejoin:round;}'+
+      '.sf-hdr{font-family:\'Inter\',system-ui,sans-serif;font-size:10px;font-weight:800;letter-spacing:.14em;fill:var(--text3);}'+
+      '.sf-tip{position:absolute;pointer-events:none;background:var(--text);color:var(--bg);font-size:11px;font-weight:700;padding:5px 9px;border-radius:7px;transform:translate(-50%,-100%);opacity:0;transition:opacity .12s;white-space:nowrap;z-index:2;}'+
       '.sf-tip.on{opacity:1;}'+
-      // settle-guard: if the animation clock is frozen, force the reveal fully open
-      '.sf-settled .sf-revrect{animation:none!important;transform:scaleX(1)!important;}'+
-      '.sf-settled .sf-sweep{animation:none!important;}';
+      '.sf-settled .sf-revrect{animation:none!important;transform:scaleX(1)!important;}';
     document.head.appendChild(st);
   }
   window.TDC_SHOTFLOW={render:render};
