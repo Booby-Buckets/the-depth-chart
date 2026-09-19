@@ -89,6 +89,17 @@ XFER_SOS_STR=float(os.environ.get("XFER_SOS_STR","0.85"))
 # LIFT-ONLY: a player is pulled UP toward his impact grade when it exceeds his wa grade, and
 # nobody is dropped (protects the validated board; never demotes to fix the award). 0=off.
 IMPACT_LIFT=float(os.environ.get("IMPACT_LIFT","0.55"))
+# TEAM FIT (see the team loop): 1 = fully reconcile each roster's minutes to 200 and its points to
+# the team's projected scoring; 0 = off (independent lines, the pre-Sep-2026 behavior).
+TEAM_FIT=float(os.environ.get("TEAM_FIT","1.0"))
+FRESH_PPS=1.08          # points per FGA (incl. the FTs a shot draws) for a no-box player's estimated shots
+TEAM_PPG={}; TEAM_FIT_LOG={}
+try:
+    _pe=json.load(open(os.path.join(D,"team_pace_eff.json")))
+    for _tn,_tv in _pe.get("teams",{}).items():
+        if _tv.get("o") and _tv.get("t"): TEAM_PPG[_tn]=_tv["o"]*_tv["t"]/100.0
+except Exception as _e:
+    print("team_pace_eff.json not found — points fit skipped",file=sys.stderr)
 
 def sb_get(path):
     # STABLE ORDER is required: PostgREST offset pagination without ORDER BY returns
@@ -275,6 +286,31 @@ def ti_value(pg, min_season, games=G_PROJ):
     return ti40, owa, mn
 
 out={}
+_shot_names=advByEspn["name"].to_dict()   # espn(int) -> name
+POS_FGA40={"PG":13.5,"SG":14.5,"CG":14.0,"G":14.0,"SF":13.0,"F":12.0,"PF":11.5,"C":11.0}
+# Shot-type PRIOR for no-box players (freshmen etc.) — fraction of their FGA that are
+# 3-pointers, and FTA per FGA — so their 3PT/2PT/FT tendencies aren't blank. Position-
+# based: a freshman guard reads as a shooter, a freshman big as an interior/foul-drawer.
+POS_3FRAC ={"PG":0.42,"SG":0.44,"CG":0.43,"G":0.43,"SF":0.36,"F":0.28,"PF":0.22,"C":0.10}
+POS_FTFRAC={"PG":0.24,"SG":0.24,"CG":0.25,"G":0.25,"SF":0.28,"F":0.34,"PF":0.38,"C":0.44}
+def _fresh_est(grade,depth,starter,position):
+    pm=proj_mpg(depth,0,str(starter).lower() in ("true","t","1"))
+    if pm<5: return None
+    base=POS_FGA40.get(_pos(position),12.5)
+    g=_n(grade,0) or 74.0
+    # Shot RATE (per-40) must scale with ROLE, not just grade+position — a real bench
+    # returner shoots ~0-14th-%ile per 40, so a 15th-man freshman should too, not read
+    # mid-pack. Two multipliers, both low for low-role players:
+    #   grade scale — steeper, with a low floor (a 58 defers, an 88 dominates the ball)
+    #   depth scale — end-of-bench guys defer even when they're on the floor
+    gs=max(0.30,min(1.30,0.40+(g-58.0)/30.0*0.90))
+    try: d=int(depth) if depth is not None and not pd.isna(depth) else 8
+    except Exception: d=8
+    ds=1.0 if d<=3 else 0.90 if d<=5 else 0.72 if d<=8 else 0.55 if d<=11 else 0.42
+    f40=base*gs*ds
+    return pm,f40,f40*pm/40.0
+
+
 proj_team={}   # espn(str) -> short team, for roster-normalized shot share
 for short, roster in roster_by_team.items():
     full=S2F.get(short.lower()) or short
@@ -328,7 +364,7 @@ for short, roster in roster_by_team.items():
     for r in R:
         r["proj_usg"]=min(USG_CAP[1],max(USG_CAP[0],r["raw_usg"]*scale))
 
-    for r in R:
+    def _project_one(r):
         p,b,e=r["p"],r["b"],r["e"]; pos=_pos(p.position)
         last_mpg=r["last_mpg"]; pm=r["pm"]
         # transfer? computed once in the roster loop (r["xfer"]); needs the old team for the discounts
@@ -497,6 +533,42 @@ for short, roster in roster_by_team.items():
         proj_team[str(e)]=short
         out[str(e)]["_demo_f40"]=round(_n(b["fga"])*40.0/max(last_mpg,1),3)   # last-yr shots/40 (portable trait, pre-move)
         out[str(e)]["_xfer"]=bool(xfer)   # for the impact-lift guard (don't re-inflate transfers)
+    for r in R: _project_one(r)
+
+    # ---- TEAM FIT: a roster of individually-projected lines must still add up to ONE team ----
+    # (1) minutes: returners + the freshmen/no-box players (slot-estimated) share 200 a game;
+    #     if the roster over-books, everyone's role shrinks pro rata (the transfer-heavy trap:
+    #     six 25-mpg lines on one roster).
+    # (2) points: the rotation's points must land on the TEAM's projected scoring (projected
+    #     ORtg x tempo from team_pace_eff.json, freshmen's estimated shots taken off the top);
+    #     the correction flows through projected USAGE, so shots/assists/turnovers and the grade
+    #     all move together and the player page, team page and game previews agree.
+    if R and TEAM_FIT>0:
+        _rids={rr["e"] for rr in R}; _fresh=[]
+        for _p in roster:
+            _e=int(_p.espn_id) if pd.notna(_p.espn_id) else None
+            if _e is not None and _e in _rids: continue
+            _nm=str(getattr(_p,"name","") or "").strip()
+            if not _nm or _nm.lower() in ("name","—"): continue
+            _est=_fresh_est(getattr(_p,"tdc_grade",None),_p.depth_order,_p.starter,_p.position)
+            if _est: _fresh.append(_est)
+        _fmin=sum(x[0] for x in _fresh); _ffga=sum(x[2] for x in _fresh)
+        _tot=sum(rr["pm"] for rr in R)+_fmin
+        _minK=min(1.0, REF_MIN/_tot) if _tot>REF_MIN else 1.0
+        _minK=1.0-(1.0-_minK)*TEAM_FIT
+        _target=TEAM_PPG.get(full)
+        _ptsK=1.0
+        if _target:
+            _sum=sum(out[str(rr["e"])]["ppg"] for rr in R if str(rr["e"]) in out)*_minK
+            _fpts=_ffga*FRESH_PPS
+            if _sum>0: _ptsK=max(0.75,min(1.15,(_target-_fpts)/_sum))
+            _ptsK=1.0+(_ptsK-1.0)*TEAM_FIT
+        TEAM_FIT_LOG[full]=dict(minK=round(_minK,3),ptsK=round(_ptsK,3),n=len(R),fresh=len(_fresh))
+        if abs(_minK-1.0)>0.005 or abs(_ptsK-1.0)>0.005:
+            for rr in R:
+                rr["pm"]=max(5.0, rr["pm"]*_minK)
+                rr["proj_usg"]=min(USG_CAP[1],max(USG_CAP[0],rr["proj_usg"]*_ptsK))
+            for rr in R: _project_one(rr)
 
 # ---- IMPACT RECONCILIATION (lift-only) ----
 # Map each player's Total Impact (ti40) through the SAME percentile→grade curve as the wa
@@ -558,30 +630,6 @@ def _per40(row,k):
 # into the team denominator + the national tendency distribution, and emit a per-TEAM
 # roster list (by name) that the team-level views read. Per-type (3PT/2PT/FT) stays
 # returner-only — a freshman has no measured shot diet to split.
-_shot_names=advByEspn["name"].to_dict()   # espn(int) -> name
-POS_FGA40={"PG":13.5,"SG":14.5,"CG":14.0,"G":14.0,"SF":13.0,"F":12.0,"PF":11.5,"C":11.0}
-# Shot-type PRIOR for no-box players (freshmen etc.) — fraction of their FGA that are
-# 3-pointers, and FTA per FGA — so their 3PT/2PT/FT tendencies aren't blank. Position-
-# based: a freshman guard reads as a shooter, a freshman big as an interior/foul-drawer.
-POS_3FRAC ={"PG":0.42,"SG":0.44,"CG":0.43,"G":0.43,"SF":0.36,"F":0.28,"PF":0.22,"C":0.10}
-POS_FTFRAC={"PG":0.24,"SG":0.24,"CG":0.25,"G":0.25,"SF":0.28,"F":0.34,"PF":0.38,"C":0.44}
-def _fresh_est(grade,depth,starter,position):
-    pm=proj_mpg(depth,0,str(starter).lower() in ("true","t","1"))
-    if pm<5: return None
-    base=POS_FGA40.get(_pos(position),12.5)
-    g=_n(grade,0) or 74.0
-    # Shot RATE (per-40) must scale with ROLE, not just grade+position — a real bench
-    # returner shoots ~0-14th-%ile per 40, so a 15th-man freshman should too, not read
-    # mid-pack. Two multipliers, both low for low-role players:
-    #   grade scale — steeper, with a low floor (a 58 defers, an 88 dominates the ball)
-    #   depth scale — end-of-bench guys defer even when they're on the floor
-    gs=max(0.30,min(1.30,0.40+(g-58.0)/30.0*0.90))
-    try: d=int(depth) if depth is not None and not pd.isna(depth) else 8
-    except Exception: d=8
-    ds=1.0 if d<=3 else 0.90 if d<=5 else 0.72 if d<=8 else 0.55 if d<=11 else 0.42
-    f40=base*gs*ds
-    return pm,f40,f40*pm/40.0
-
 # per-type national percentiles (players WITH a box line)
 _tend3=_mk_tend([_per40(r,"tpa") for r in out.values()])
 _tend2=_mk_tend([max(0.0,_per40(r,"fga")-_per40(r,"tpa")) for r in out.values()])
@@ -634,6 +682,11 @@ for e,row in out.items():
 
 json.dump({"season":"2026-27","scale":{"mu":MU,"sp":SP},"n":len(out),"players":out,"teams":teams_out},
           open(os.path.join(D,"stat_overall_projected.json"),"w"),separators=(",",":"),allow_nan=False)
+if TEAM_FIT_LOG:
+    _mk=[v["minK"] for v in TEAM_FIT_LOG.values()]; _pk=[v["ptsK"] for v in TEAM_FIT_LOG.values()]
+    print(f"team fit: {len(TEAM_FIT_LOG)} rosters · minutes x{np.mean(_mk):.3f} avg (min {min(_mk):.2f}) · points x{np.mean(_pk):.3f} avg (min {min(_pk):.2f}, max {max(_pk):.2f})",file=sys.stderr)
+    for _t in ("Florida Gators","Notre Dame Fighting Irish","Duke Blue Devils","Vanderbilt Commodores"):
+        if _t in TEAM_FIT_LOG: print("  ",_t,TEAM_FIT_LOG[_t],file=sys.stderr)
 print(f"Wrote stat_overall_projected.json ({len(out)} returners, {sum(len(v) for v in teams_out.values())} rotation slots across {len(teams_out)} teams)",file=sys.stderr)
 prev=pd.DataFrame([{**v,"espn":k} for k,v in out.items()]); prev["move"]=prev["ovr"]-prev["demo_ovr"]
 print("\nTop projected 2026-27:",file=sys.stderr)
