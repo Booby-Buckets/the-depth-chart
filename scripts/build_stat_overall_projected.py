@@ -96,7 +96,8 @@ TEAM_FIT=float(os.environ.get("TEAM_FIT","1.0"))
 # not the starters (a pro-rata cut flattened title contenders: Florida's top five at 22-27 mpg).
 # Weights by rotation rank (1-5 / 6-7 / 8-9 / 10+); the solver finds the one intensity that lands
 # the roster on 200. A starter never loses more than ~35% of what a pro-rata cut would take.
-SQZ_W=tuple(float(x) for x in os.environ.get("SQZ_W","0.2,0.55,0.9,1.3").split(","))
+SQZ_W=tuple(float(x) for x in os.environ.get("SQZ_W","0.3,0.7,1.0,1.5").split(","))
+SQZ_TRUST_W=float(os.environ.get("SQZ_TRUST_W","0.08"))   # a proven returner's squeeze weight in the top 7 (he keeps his minutes)
 SQZ_DEEP_FLOOR=float(os.environ.get("SQZ_DEEP_FLOOR","5.0"))   # 11th man and deeper can fall to garbage-time minutes
 FRESH_PPS=1.08          # points per FGA (incl. the FTs a shot draws) for a no-box player's estimated shots
 TEAM_PPG={}; TEAM_FIT_LOG={}; FRESH_FIT={}   # FRESH_FIT[short][name] = fitted {mpg, ppg} for no-box players (tdc-freshman.js scales its lines to these)
@@ -149,10 +150,20 @@ def slot_table(short):
     if not r or not r.get("slots"): return SLOT_MIN
     return [0]+[max(3.0,float(x)) for x in r["slots"]]
 SLOT_CUR=SLOT_MIN   # set per team in the roster loop
-def proj_mpg(d,last,starter):
+TRUST_MIN=float(os.environ.get("TRUST_MIN","20"))     # a returner who played this many mpg for THIS coach is "proven"
+TRUST_KEEP=float(os.environ.get("TRUST_KEEP","0.97"))  # ...and keeps this share of them (cap TRUST_CAP) regardless of the slot
+TRUST_CAP=float(os.environ.get("TRUST_CAP","34"))
+TRUST_SLOT=int(os.environ.get("TRUST_SLOT","7"))
+def proj_mpg(d,last,starter,trusted=False):
     d=int(d) if pd.notna(d) else None
     slot=(SLOT_CUR[d] if d and 1<=d<len(SLOT_CUR) else (5 if d and d>=len(SLOT_CUR) else 0))
     last=last or 0
+    # PROVEN RETURNER: the coach already played him this much last season at this school — that is
+    # revealed preference, not a slot average. He keeps ~all of it (the roster squeeze below barely
+    # touches him); a transfer or a riser still starts from the coach's slot shape.
+    # ...but only while the AUTHORED depth chart still has him in the rotation (slot <= TRUST_SLOT):
+    # a returner the owner buried at 10+ (injury list, demotion) keeps the old +4-over-slot cap.
+    if trusted and last>=TRUST_MIN and d is not None and d<=TRUST_SLOT: return max(slot, min(TRUST_CAP, last*TRUST_KEEP))
     # The DEPTH CHART (slot by depth_order — the top 5 are the starters, exactly like the site's depth
     # chart display) drives the role. Last year's minutes only NUDGE within that role: a player now
     # buried on the chart (deep depth_order) does NOT keep his old heavy minutes — cap the last-mpg
@@ -347,17 +358,19 @@ for short, roster in roster_by_team.items():
         last_mpg=_n(b["mpg"]) or _n(p.mpg) or 0
         if last_mpg<3: continue
         starter=str(p.starter).lower() in ("true","t")
-        pm=proj_mpg(p.depth_order,last_mpg,starter)
-        # transfer? (last-year team != this school) — needed BEFORE the vacancy split
+        # transfer? (last-year team != this school) — needed BEFORE the vacancy split AND the minutes
         _lt=str((a["team"] if a is not None else "") or "").lower().strip()
         _cf=str(full).lower().strip(); _cs=str(short).lower().strip()
         _ret=(bool(_lt) and (_lt==_cf or _lt.startswith(_cf+" "))) if _cf!=_cs else (bool(_lt) and _lt.startswith(_cs))
         _xfer=bool(a is not None and a["team"]) and not _ret
+        _do=int(p.depth_order) if pd.notna(p.depth_order) else None
+        _trust=bool(_ret) and last_mpg>=TRUST_MIN and _do is not None and _do<=TRUST_SLOT
+        pm=proj_mpg(p.depth_order,last_mpg,starter,_trust)
         # true-shooting % (efficiency): distinguishes an efficient scorer from an "empty shots"
         # high-volume, low-percentage one. ppg / (2·(FGA+0.44·FTA)); None when he barely shot.
         _shots=_n(b["fga"])+0.44*_n(b["fta"])
         _eff=(_n(b["ppg"])/(2.0*_shots)) if _shots>=2 else None
-        R.append(dict(e=e,p=p,b=b,a=a,last_mpg=last_mpg,pm=pm,xfer=_xfer,eff=_eff,
+        R.append(dict(e=e,p=p,b=b,a=a,last_mpg=last_mpg,pm=pm,xfer=_xfer,eff=_eff,trust=_trust,
                       last_usg=_n(a["usg_pct"] if a is not None else None,USG_REF) or USG_REF,
                       demo=demo_ovr.get(e,72)))
     if not R: continue
@@ -582,19 +595,21 @@ for short, roster in roster_by_team.items():
         if _tot>REF_MIN and TEAM_FIT>0:
             _order=sorted([(rr["pm"],"r",id(rr)) for rr in R]+[(x[0],"f",i) for i,x in enumerate(_fresh)], key=lambda z:-z[0])
             _rank={(z[1],z[2]):i+1 for i,z in enumerate(_order)}
-            _w=lambda rk: SQZ_W[0] if rk<=5 else SQZ_W[1] if rk<=7 else SQZ_W[2] if rk<=9 else SQZ_W[3]
+            _wr=lambda rk: SQZ_W[0] if rk<=5 else SQZ_W[1] if rk<=7 else SQZ_W[2] if rk<=9 else SQZ_W[3]
+            _trustOf={("r",id(rr)):bool(rr.get("trust")) for rr in R}
+            _w=lambda key: (SQZ_TRUST_W if (_trustOf.get(key) and _rank[key]<=7) else _wr(_rank[key]))
             _tgt=REF_MIN+(_tot-REF_MIN)*(1.0-TEAM_FIT)
             _fl=lambda rk: 5.0 if rk<=10 else SQZ_DEEP_FLOOR
             def _tot_at(lam):
-                return (sum(max(_fl(_rank[("r",id(rr))]), rr["pm"]*max(0.30,1.0-lam*_w(_rank[("r",id(rr))]))) for rr in R)
-                        +sum(x[0]*max(0.30,1.0-lam*_w(_rank[("f",i)])) for i,x in enumerate(_fresh)))
+                return (sum(max(_fl(_rank[("r",id(rr))]), rr["pm"]*max(0.30,1.0-lam*_w(("r",id(rr))))) for rr in R)
+                        +sum(x[0]*max(0.30,1.0-lam*_w(("f",i))) for i,x in enumerate(_fresh)))
             lo,hi=0.0,1.0
             for _ in range(40):
                 mid=(lo+hi)/2.0
                 if _tot_at(mid)>_tgt: lo=mid
                 else: hi=mid
             _lam=hi; _rem=min(1.0,_tgt/_tot_at(_lam)) if _tot_at(_lam)>_tgt else 1.0
-            for rr in R: _kmap[id(rr)]=max(0.30,1.0-_lam*_w(_rank[("r",id(rr))]))*_rem; rr["_sqfl"]=_fl(_rank[("r",id(rr))])
+            for rr in R: _kmap[id(rr)]=max(0.30,1.0-_lam*_w(("r",id(rr))))*_rem; rr["_sqfl"]=_fl(_rank[("r",id(rr))])
         _target=TEAM_PPG.get(full)
         _ptsK=1.0
         if _target:
