@@ -8,7 +8,7 @@
   <script src="team-colors.js?v=6"></script>
   <script src="tdc-shotchart.js?v=19"></script>
   <script src="tdc-lineups.js?v=16"></script>
-  <script src="tdc-shotflow.js?v=10"></script>
+  <script src="tdc-shotflow.js?v=11"></script>
   <script src="tdc-nil.js?v=prod2"></script>
   <script src="tdc-gate.js?v=3"></script>
   <script src="tdc-pos.js"></script>
@@ -5728,7 +5728,7 @@ async function loadTeamShotChart(season){
     // shot flow (zone → type → outcome → assist) needs the enriched rows; older seasons never got them
     if(fhost&&window.TDC_SHOTFLOW){
       var enriched=rows.filter(function(r){return r.stype;});
-      if(enriched.length>=40) TDC_SHOTFLOW.render(fhost, enriched, {subtitle:(teamT&&teamT.name)||'this team', team:(teamT&&teamT.name)});
+      if(enriched.length>=40) TDC_SHOTFLOW.render(fhost, enriched, {subtitle:(teamT&&teamT.name)||'this team', team:(teamT&&teamT.name), who:'Who creates the makes'});
       else if(rows.length) fhost.innerHTML='<div style="padding:18px;text-align:center;color:var(--text3);font-size:12.5px;line-height:1.5;">No shot flow for '+((season-1)+'-'+String(season).slice(2))+' — shot type and assist tags were only captured from 2023-24 on; earlier seasons have locations only.</div>';
     }
   }catch(e){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Could not load shot chart.</div>'; }
@@ -6953,7 +6953,7 @@ async function loadLineupShotProfile(){
       (missing.length?'<div style="font-size:11px;color:var(--text3);margin-top:12px;">No shot data yet (excluded): '+missing.join(', ')+'</div>':'');
     TDC_SHOTCHART.render(document.getElementById('lspChart'), combined, {subtitle:(teamT&&teamT.name)||'lineup'});
     var enriched=combined.filter(function(r){return r.stype;});
-    if(enriched.length>=8 && window.TDC_SHOTFLOW) TDC_SHOTFLOW.render(document.getElementById('lspFlow'), enriched, {subtitle:(teamT&&teamT.name)||'lineup', team:(teamT&&teamT.name)});
+    if(enriched.length>=8 && window.TDC_SHOTFLOW) TDC_SHOTFLOW.render(document.getElementById('lspFlow'), enriched, {subtitle:(teamT&&teamT.name)||'lineup', team:(teamT&&teamT.name), who:'Who creates the makes'});
     else document.getElementById('lspFlow').innerHTML='<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">Shot-flow (type/assist) data for this lineup is still being processed.</div>';
   }catch(e){ wrap.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Could not build shot profile.</div>'; }
 }

@@ -1,4 +1,4 @@
-/* tdc-shotflow.js — Sankey "shot flow" for a player (or team).
+/* tdc-shotflow.js — "shot flow" ledger for a player (or team).
    TDC_SHOTFLOW.render(el, shots, opts)
      shots: [{x,y,made,sv,stype,ast_name}]
      opts:  {title, subtitle, team}   // team name -> brand colors for the ribbons
@@ -84,239 +84,94 @@
     return {cols:cols, vals:vals, made:shots.map(function(s){return s.made;})};
   }
 
-  function ribbonPath(x0,x1,sy0,sy1,ty0,ty1){
-    var xm=(x0+x1)/2;
-    return 'M '+x0+' '+sy0.toFixed(1)+' C '+xm+' '+sy0.toFixed(1)+' '+xm+' '+ty0.toFixed(1)+' '+x1+' '+ty0.toFixed(1)+
-      ' L '+x1+' '+ty1.toFixed(1)+' C '+xm+' '+ty1.toFixed(1)+' '+xm+' '+sy1.toFixed(1)+' '+x0+' '+sy1.toFixed(1)+' Z';
-  }
-  var W=900, H=500, PADT=34, PADB=16, NW=9, GAP=12, MINH=16; // headers sit on top (PADT); solid ink nodes; MINH+GAP >= label height so labels never overlap
-  var colX=[]; // computed
-  // find px-per-shot for one column so its nodes (each >= MINH tall) + gaps
-  // exactly fill usableH; small nodes get pinned at MINH and the rest scale
-  function fitPps(totals, usableH){
-    var n=totals.length; if(!n) return Infinity;
-    var avail=usableH-(n-1)*GAP, pinned={};
-    for(var it=0;it<=n;it++){
-      var freeSum=0, pinH=0;
-      totals.forEach(function(t,i){ if(pinned[i]) pinH+=MINH; else freeSum+=t; });
-      var pps=freeSum>0 ? (avail-pinH)/freeSum : 0;
-      var changed=false;
-      totals.forEach(function(t,i){ if(!pinned[i] && t*pps<MINH){ pinned[i]=1; changed=true; } });
-      if(!changed) return pps;
-    }
-    return avail/Math.max(1,totals.reduce(function(s,t){return s+t;},0));
-  }
   function shortName(n){
     if(n==='Unassisted'||n==='Other') return n;
     var p=n.trim().split(/\s+/); return p.length>1 ? p[p.length-1] : n;
   }
+  // ── SHOT FLOW as a ledger (no Sankey): three row groups in the site's percentile-row
+  //    vocabulary. Each row = a bucket; its bar is the bucket's SHARE of attempts (longest =
+  //    the biggest bucket) split into made-assisted / made-unassisted / missed; the number
+  //    on the right is FG%. WHERE (zone) → HOW (shot type) → WHO SETS HIM UP (assister). ──
+  function tally(shots, keyFn){
+    var m={}, order=[];
+    shots.forEach(function(s){ var k=keyFn(s); if(k==null) return; if(!m[k]){ m[k]={n:0,ma:0,mu:0,x:0}; order.push(k); }
+      var b=m[k]; b.n++; if(s.made){ if(s.ast_name) b.ma++; else b.mu++; } else b.x++; });
+    return {m:m, order:order};
+  }
+  function row(label, sub, b, maxN, val, valSub){
+    var w=maxN?100*b.n/maxN:0, pa=b.n?100*b.ma/b.n:0, pu=b.n?100*b.mu/b.n:0, px=b.n?100*b.x/b.n:0;
+    var tip=b.n+' FGA · '+(b.ma+b.mu)+' made ('+b.ma+' assisted) · '+b.x+' missed';
+    return '<div class="sf2-row" title="'+tip+'"><div class="sf2-l">'+label+(sub?'<span class="sf2-sub">'+sub+'</span>':'')+'</div>'+
+      '<div class="sf2-track"><div class="sf2-bar" style="width:'+w.toFixed(1)+'%"><i class="sf2-ma" style="width:'+pa.toFixed(1)+'%"></i><i class="sf2-mu" style="width:'+pu.toFixed(1)+'%"></i><i class="sf2-x" style="width:'+px.toFixed(1)+'%"></i></div></div>'+
+      '<div class="sf2-v">'+val+(valSub?'<span class="sf2-sub">'+valSub+'</span>':'')+'</div></div>';
+  }
+  function sec(t,cap){ return '<div class="sf2-sec"><span>'+t+'</span><span class="sf2-cap">'+cap+'</span></div>'; }
+  function fgp(b){ return b.n?Math.round(100*(b.ma+b.mu)/b.n)+'%':'—'; }
 
   function render(el, shots, opts){
     opts=opts||{}; if(!el) return;
     shots=(shots||[]).filter(function(s){return s.x!=null;});
     el.classList.add('sf-host'); el._sfShots=shots; el._sfOpts=opts;
-    if(shots.length<8){ el.innerHTML='<div style="padding:36px;text-align:center;color:var(--text3);font-size:13px;">Not enough shot data'+(opts.subtitle?' for '+opts.subtitle:'')+' yet for a flow chart.</div>'; return; }
-    var B=build(shots), cols=B.cols, N=shots.length;
-
-    // node totals per column (through-flow); assist col only counts made shots
-    var nodes=cols.map(function(c,ci){
-      var tot={};
-      B.vals.forEach(function(v){ var k=v[ci]; if(k==null) return; tot[k]=(tot[k]||0)+1; });
-      var order=(c.order||Object.keys(tot)).filter(function(k){return tot[k];});
-      return order.map(function(k){return {col:ci,name:k,tot:tot[k]};});
-    });
-
-    // vertical scale: the most-constrained column (most nodes / most pinned at
-    // MINH) sets pxPerShot; every column then fits usableH with no overlap
-    var usableH=H-PADT-PADB, pps=Infinity;
-    nodes.forEach(function(list){
-      if(!list.length) return;
-      pps=Math.min(pps, fitPps(list.map(function(n){return n.tot;}), usableH));
-    });
-    // x positions
-    var innerL=132, innerR=W-104, span=innerR-innerL;
-    colX=cols.map(function(_,i){ return innerL + span*i/(cols.length-1); });
-
-    // assign node y (center each column stack); small nodes get a min height so
-    // their labels have room to breathe
-    var nodeMap={}; // "col:name" -> node
-    nodes.forEach(function(list,ci){
-      var colH=0; list.forEach(function(n){colH+=Math.max(MINH,n.tot*pps);}); colH+=(list.length-1)*GAP;
-      var y=PADT+(usableH-colH)/2;
-      list.forEach(function(n){ n.h=Math.max(MINH,n.tot*pps); n.y0=y; n.y1=y+n.h; y+=n.h+GAP; nodeMap[ci+':'+n.name]=n; });
-    });
-
-    // links between consecutive columns, keyed by (src,tgt,made) for outcome color.
-    // also record, per link, how its shots break down by ASSIST value (last stage)
-    // so we can trace one assister's shots through the whole chart on hover.
-    var lastIdx=cols.length-1;
-    var links={};
-    B.vals.forEach(function(v,si){
-      var made=B.made[si], ast=v[lastIdx]==null?'__none':v[lastIdx];
-      for(var c=0;c<cols.length-1;c++){
-        var a=v[c], b=v[c+1]; if(a==null||b==null) continue;
-        var key=c+'|'+a+'|'+b+'|'+(made?1:0);
-        var lk=links[key]||(links[key]={col:c,src:a,tgt:b,made:made,w:0,byAst:{}});
-        lk.w++; lk.byAst[ast]=(lk.byAst[ast]||0)+1;
-      }
-    });
-    var L=Object.keys(links).map(function(k){return links[k];});
-    L.forEach(function(l){ l.sn=nodeMap[l.col+':'+l.src]; l.tn=nodeMap[(l.col+1)+':'+l.tgt]; });
-    L=L.filter(function(l){return l.sn&&l.tn;});
-    // consistent assist-slice order within every ribbon band (so one assister's
-    // slices form parallel, non-crossing threads)
-    var astSlots=cols[lastIdx].order.concat(['__none']);
-    L.forEach(function(l){
-      var cum=0; l.slices={};
-      astSlots.forEach(function(av){ var c=l.byAst[av]||0; if(!c) return; l.slices[av]=[cum/l.w,(cum+c)/l.w]; cum+=c; });
-    });
-
-    // stack link bands on source right edges (ordered by target y) and target left edges (by source y)
-    var so={}, to={};
-    L.slice().sort(function(a,b){return a.sn.y0-b.sn.y0 || a.tn.y0-b.tn.y0;}).forEach(function(l){
-      var id=l.col+':'+l.src, off=so[id]||0; l.sy0=l.sn.y0+off; l.sy1=l.sy0+l.w*pps; so[id]=off+l.w*pps;
-    });
-    L.slice().sort(function(a,b){return a.tn.y0-b.tn.y0 || a.sn.y0-b.sn.y0;}).forEach(function(l){
-      var id=(l.col+1)+':'+l.tgt, off=to[id]||0; l.ty0=l.tn.y0+off; l.ty1=l.ty0+l.w*pps; to[id]=off+l.w*pps;
-    });
-
-    // ── ghost-fade palette: monochrome. Made flows brighter, missed dimmer; each
-    //    ribbon fades to near-transparent at both ends (see the two gradients in
-    //    <defs>) so the chart reads as light passing THROUGH the nodes rather than
-    //    solid Sankey bands. Colors come from CSS vars (--sf-made/--sf-miss/--sf-trace)
-    //    so they adapt to light/dark theme live; team-agnostic on purpose. ──
-
-    // ── SVG ──
-    var uid=++UID, revId='sfrev'+uid, uniId='sfuni'+uid, grdId='sfgrd'+uid, gmId='sfgm'+uid, gsId='sfgs'+uid;
-    var madeFill='rgba(var(--sf-made),.44)', missFill='rgba(var(--sf-miss),.20)';
-    var svg='<svg class="sf-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet">';
-    // build ribbon paths once; reuse for both the drawn ribbons and the union clip
-    var ribsHtml='', clipHtml='';
-    L.sort(function(a,b){return b.w-a.w;}).forEach(function(l,i){
-      var x0=colX[l.col]+NW, x1=colX[l.col+1];
-      var d=ribbonPath(x0,x1,l.sy0,l.sy1,l.ty0,l.ty1);
-      var tip=l.src+' → '+l.tgt+' · '+l.w+' shot'+(l.w>1?'s':'')+' ('+(l.made?'made':'missed')+')';
-      ribsHtml+='<path class="sf-rib" data-t="'+tip+'" data-src="'+l.col+':'+l.src+'" data-tgt="'+(l.col+1)+':'+l.tgt+'" d="'+d+'" fill="'+(l.made?madeFill:missFill)+'"/>';
-      clipHtml+='<path d="'+d+'"/>';
-    });
-    // defs: a left→right reveal clip (entrance) + a union-of-ribbons clip and a
-    // bright band gradient (the continuous "flow through every path" shimmer)
-    svg+='<defs><clipPath id="'+revId+'" clipPathUnits="userSpaceOnUse"><rect class="sf-revrect" x="0" y="0" width="'+W+'" height="'+H+'"/></clipPath></defs>';
-    // ribbons revealed flowing in from the left, then a repeating light sweep
-    svg+='<g clip-path="url(#'+revId+')">'+ribsHtml+'</g>';
-    // overlay layer for the assist-trace (populated on hover)
-    svg+='<g class="sf-trace"></g>';
-    // stash link geometry so the hover handler can draw an assister's sub-flow
-    el._sfTrace={ L:L, colX:colX.slice(), NW:NW, lastCol:lastIdx, made:'rgb(var(--sf-trace))' };
-    // nodes + labels (with a readable background box; first & last columns label
-    // to the OUTSIDE, middle columns to the right of their bar)
-    var lastCol=cols.length-1;
-    nodes.forEach(function(list,ci){
-      list.forEach(function(n){
-        svg+='<rect class="sf-node" data-node="'+ci+':'+n.name+'" x="'+colX[ci]+'" y="'+n.y0.toFixed(1)+'" width="'+NW+'" height="'+n.h.toFixed(1)+'" rx="1.5"/>';
-        var nm=(ci===lastCol?shortName(n.name):n.name), sub=n.tot+' ('+Math.round(n.tot/N*100)+'%)';
-        var toLeft=(ci===0||ci===lastCol), anchor=toLeft?'end':'start';
-        var edgeX=toLeft?(colX[ci]-7):(colX[ci]+NW+7);
-        var cy=(n.y0+n.y1)/2;
-        svg+='<text class="sf-lbl" x="'+edgeX.toFixed(1)+'" y="'+(cy-2).toFixed(1)+'" text-anchor="'+anchor+'">'+nm+'</text>';
-        svg+='<text class="sf-sub" x="'+edgeX.toFixed(1)+'" y="'+(cy+10).toFixed(1)+'" text-anchor="'+anchor+'">'+sub+'</text>';
-      });
-    });
-    // column headers
-    cols.forEach(function(c,ci){
-      svg+='<text class="sf-hdr" x="'+(colX[ci]+NW/2)+'" y="14" text-anchor="middle">'+c.label+'</text>';
-    });
-    svg+='</svg>';
-
-    var made=shots.filter(function(s){return s.made;}).length;
-    var asst=shots.filter(function(s){return s.made&&s.ast_name;}).length;
+    if(shots.length<8){ el.innerHTML='<div style="padding:36px;text-align:center;color:var(--text3);font-size:13px;">Not enough shot data'+(opts.subtitle?' for '+opts.subtitle:'')+' yet for a shot flow.</div>'; return; }
+    var N=shots.length, made=shots.filter(function(s){return s.made;}).length, asst=shots.filter(function(s){return s.made&&s.ast_name;}).length;
+    // WHERE
+    var Z=tally(shots, zoneOf), zOrder=ZONE_ORDER.filter(function(k){return Z.m[k];});
+    var zMax=Math.max.apply(null, zOrder.map(function(k){return Z.m[k].n;}));
+    var whereHtml=zOrder.map(function(k){ var b=Z.m[k]; return row(k, b.n+' · '+Math.round(100*b.n/N)+'%', b, zMax, fgp(b), 'FG%'); }).join('');
+    // HOW — shot types; rare ones (<3% of attempts) fold into "Other"
+    var T=tally(shots, typeOf), tOrder=TYPE_ORDER.filter(function(k){return T.m[k];});
+    var other={n:0,ma:0,mu:0,x:0}, keep=[];
+    tOrder.forEach(function(k){ var b=T.m[k]; if(b.n/N<0.03 && k!=='Jump Shot'){ other.n+=b.n; other.ma+=b.ma; other.mu+=b.mu; other.x+=b.x; } else keep.push(k); });
+    keep.sort(function(a,b){return T.m[b].n-T.m[a].n;});
+    var tList=keep.map(function(k){return [k,T.m[k]];}); if(other.n) tList.push(['Other',other]);
+    var tMax=Math.max.apply(null, tList.map(function(x){return x[1].n;}));
+    var howHtml=tList.map(function(x){ return row(x[0], x[1].n+' · '+Math.round(100*x[1].n/N)+'%', x[1], tMax, fgp(x[1]), 'FG%'); }).join('');
+    // WHO — assisters on made shots (share of assisted makes); unassisted makes as the last row
+    var madeShots=shots.filter(function(s){return s.made;});
+    var A=tally(madeShots, function(s){ return s.ast_name||'Unassisted'; });
+    var names=A.order.filter(function(k){return k!=='Unassisted';}).sort(function(a,b){return A.m[b].n-A.m[a].n;});
+    var top=names.slice(0,6), rest=names.slice(6), oth={n:0,ma:0,mu:0,x:0};
+    rest.forEach(function(k){ oth.n+=A.m[k].n; oth.ma+=A.m[k].ma; });
+    var aList=top.map(function(k){return [shortName(k),A.m[k]];}); if(oth.n) aList.push(['Other',oth]);
+    var aMax=Math.max.apply(null, aList.concat(A.m['Unassisted']?[['u',A.m['Unassisted']]]:[]).map(function(x){return x[1].n;}));
+    var whoHtml=aList.map(function(x){ return row(x[0], x[1].n+' assists', x[1], aMax, Math.round(100*x[1].n/Math.max(1,made))+'%', 'of makes'); }).join('');
+    if(A.m['Unassisted']){ var u=A.m['Unassisted']; whoHtml+=row('Unassisted', u.n+' makes', u, aMax, Math.round(100*u.n/Math.max(1,made))+'%', 'of makes'); }
     var head=(opts.title?'<div class="sf-title">'+opts.title+'</div>':'')+
-      '<div class="sf-legend"><span><i class="sf-sw sf-sw-m"></i>Made</span><span><i class="sf-sw sf-sw-s"></i>Missed</span>'+
+      '<div class="sf-legend"><span><i class="sf-sw sf-sw-ma"></i>Made · assisted</span><span><i class="sf-sw sf-sw-mu"></i>Made · unassisted</span><span><i class="sf-sw sf-sw-x"></i>Missed</span>'+
       '<span style="margin-left:auto;color:var(--text3);">'+N+' FGA · '+Math.round(made/N*100)+'% made · '+Math.round(asst/Math.max(1,made)*100)+'% of makes assisted</span></div>';
-    el.innerHTML=head+'<div class="sf-scroll"><div class="sf-wrap">'+svg+'<div class="sf-tip"></div></div></div>';
-    wire(el);
+    el.innerHTML=head+'<div class="sf2">'+
+      sec('Where','zone · attempts · share of shots · FG%')+whereHtml+
+      sec('How','shot type · attempts · share · FG%')+howHtml+
+      (aList.length||A.m['Unassisted']?sec(opts.who||'Who sets him up','assister · assisted makes · share of all makes')+whoHtml:'')+
+      '<div class="sf2-foot">Bar length is the bucket\'s share of attempts (the biggest bucket runs the full width); the split inside is assisted makes / unassisted makes / misses.</div></div>';
     if(!HOSTS.some(function(h){return h.el===el;})) HOSTS.push({el:el});
-    clearTimeout(el._sfSettle); el._sfSettle=setTimeout(function(){el.classList.add('sf-settled');},1500);
-  }
-
-  function wire(el){
-    var wrap=el.querySelector('.sf-wrap'), tip=el.querySelector('.sf-tip');
-    if(!wrap) return;
-    wrap.addEventListener('mousemove',function(e){
-      var t=e.target.closest?e.target.closest('[data-t]'):null;
-      if(!t){ tip.classList.remove('on'); return; }
-      var r=wrap.getBoundingClientRect();
-      tip.textContent=t.getAttribute('data-t');
-      tip.style.left=(e.clientX-r.left)+'px'; tip.style.top=(e.clientY-r.top-12)+'px';
-      tip.classList.add('on');
-    });
-    wrap.addEventListener('mouseleave',function(){ tip.classList.remove('on'); el.classList.remove('sf-focus'); });
-    var traceG=el.querySelector('.sf-trace');
-    function clearTrace(){ if(traceG) traceG.innerHTML=''; el.classList.remove('sf-tracing'); }
-    // draw one assist value's shots as a bright sub-flow threaded through the chart
-    function drawTrace(av){
-      var T=el._sfTrace; if(!T||!traceG) return;
-      var html='';
-      T.L.forEach(function(l){
-        var sl=l.slices&&l.slices[av]; if(!sl) return;
-        var x0=T.colX[l.col]+T.NW, x1=T.colX[l.col+1];
-        var sh=l.sy1-l.sy0, th=l.ty1-l.ty0;
-        html+='<path d="'+ribbonPath(x0,x1, l.sy0+sl[0]*sh, l.sy0+sl[1]*sh, l.ty0+sl[0]*th, l.ty0+sl[1]*th)+'" fill="'+T.made+'"/>';
-      });
-      traceG.innerHTML=html; el.classList.add('sf-tracing');
-    }
-    el.querySelectorAll('.sf-node').forEach(function(nd){
-      var id=nd.getAttribute('data-node'), ci=+id.split(':')[0], name=id.slice(id.indexOf(':')+1);
-      var isAssist=el._sfTrace && ci===el._sfTrace.lastCol;
-      nd.addEventListener('mouseenter',function(){
-        if(isAssist){ drawTrace(name); return; }   // trace this assister's full sub-flow
-        el.classList.add('sf-focus');
-        el.querySelectorAll('.sf-rib').forEach(function(r){
-          var on=r.getAttribute('data-src')===id||r.getAttribute('data-tgt')===id;
-          r.classList.toggle('sf-on',on);
-        });
-      });
-      nd.addEventListener('mouseleave',function(){
-        clearTrace();
-        el.classList.remove('sf-focus'); el.querySelectorAll('.sf-rib.sf-on').forEach(function(r){r.classList.remove('sf-on');});
-      });
-    });
   }
 
   if(!document.getElementById('sf-styles')){
     var st=document.createElement('style'); st.id='sf-styles';
     st.textContent=
-      '@keyframes sfReveal{from{transform:scaleX(0);}to{transform:scaleX(1);}}'+
       '.sf-title{font-size:13px;font-weight:700;color:var(--text2);margin-bottom:8px;}'+
       '.sf-legend{display:flex;align-items:center;gap:14px;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:10px;flex-wrap:wrap;}'+
       '.sf-legend span{display:inline-flex;align-items:center;gap:6px;}'+
-      '.sf-legend i{width:16px;height:9px;border-radius:2px;display:inline-block;}'+
-      '.sf-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}'+
-      '.sf-wrap{position:relative;min-width:660px;max-width:1200px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 8px 6px;}'+
-      '.sf-svg{width:100%;height:auto;display:block;overflow:visible;}'+
-      // one ink (the site's --dna-fill navy / light-blue in dark); missed is a neutral grey
-      '.sf-host{--sf-made:26,42,76;--sf-miss:122,132,150;--sf-trace:26,42,76;}'+
-      '[data-theme="dark"] .sf-host{--sf-made:170,192,236;--sf-miss:120,135,165;--sf-trace:210,222,242;}'+
+      '.sf-host{--sf-ink:26,42,76;}'+
+      '[data-theme="dark"] .sf-host{--sf-ink:170,192,236;}'+
       '.sf-sw{width:16px;height:9px;border-radius:2px;display:inline-block;}'+
-      '.sf-sw-m{background:rgba(var(--sf-made),.7);}'+
-      '.sf-sw-s{background:rgba(var(--sf-miss),.4);}'+
-      '.sf-revrect{transform-box:fill-box;transform-origin:left center;animation:sfReveal .9s cubic-bezier(.45,.05,.25,1) both;}'+
-      '.sf-rib{transition:opacity .15s;cursor:pointer;}'+
-      '.sf-rib:hover{opacity:1;filter:saturate(1.2) brightness(.92);}'+
-      '.sf-host.sf-focus .sf-rib{opacity:.14;}'+
-      '.sf-host.sf-focus .sf-rib.sf-on{opacity:1;}'+
-      '.sf-host.sf-tracing .sf-rib{opacity:.1;}'+
-      '.sf-trace{pointer-events:none;}'+
-      '.sf-trace path{stroke:rgb(var(--sf-trace));stroke-opacity:.6;stroke-width:.6;}'+
-      '.sf-node{fill:rgb(var(--sf-made));cursor:pointer;transition:opacity .15s;}'+
-      '.sf-node:hover{opacity:.75;}'+
-      // labels sit on the ribbons for the middle columns, so they carry a halo in the card colour
-      '.sf-lbl{font-family:\'Inter\',system-ui,sans-serif;font-weight:700;font-size:12px;fill:var(--text);paint-order:stroke;stroke:var(--bg2);stroke-width:3.5px;stroke-linejoin:round;}'+
-      '.sf-sub{font-family:\'Inter\',system-ui,sans-serif;font-size:10.5px;fill:var(--text3);font-weight:600;font-variant-numeric:tabular-nums;paint-order:stroke;stroke:var(--bg2);stroke-width:3px;stroke-linejoin:round;}'+
-      '.sf-hdr{font-family:\'Inter\',system-ui,sans-serif;font-size:10px;font-weight:800;letter-spacing:.14em;fill:var(--text3);}'+
-      '.sf-tip{position:absolute;pointer-events:none;background:var(--text);color:var(--bg);font-size:11px;font-weight:700;padding:5px 9px;border-radius:7px;transform:translate(-50%,-100%);opacity:0;transition:opacity .12s;white-space:nowrap;z-index:2;}'+
-      '.sf-tip.on{opacity:1;}'+
-      '.sf-settled .sf-revrect{animation:none!important;transform:scaleX(1)!important;}';
+      '.sf-sw-ma{background:rgba(var(--sf-ink),1);} .sf-sw-mu{background:rgba(var(--sf-ink),.5);} .sf-sw-x{background:var(--bg3);border:1px solid var(--border2);}'+
+      '.sf2{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:6px 18px 12px;}'+
+      '.sf2-sec{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:2px solid var(--text);padding:12px 0 8px;margin-bottom:2px;}'+
+      '.sf2-sec span:first-child{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text);}'+
+      '.sf2-cap{font-size:11px;color:var(--text3);}'+
+      '.sf2-row{display:grid;grid-template-columns:minmax(120px,170px) 1fr 74px;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid var(--border);}'+
+      '.sf2-l{font-size:12.5px;font-weight:600;color:var(--text);display:flex;flex-direction:column;gap:1px;}'+
+      '.sf2-sub{font-size:10.5px;font-weight:500;color:var(--text3);font-variant-numeric:tabular-nums;}'+
+      '.sf2-track{position:relative;height:12px;}'+
+      '.sf2-bar{position:absolute;left:0;top:0;bottom:0;display:flex;border-radius:3px;overflow:hidden;min-width:6px;background:var(--bg3);}'+
+      '.sf2-bar i{display:block;height:100%;}'+
+      '.sf2-ma{background:rgba(var(--sf-ink),1);} .sf2-mu{background:rgba(var(--sf-ink),.5);} .sf2-x{background:transparent;}'+
+      '.sf2-v{font-size:13px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;color:var(--text);display:flex;flex-direction:column;gap:1px;}'+
+      '.sf2-v .sf2-sub{text-align:right;}'+
+      '.sf2-foot{font-size:11px;color:var(--text3);line-height:1.5;padding:10px 0 0;}'+
+      '@media(max-width:520px){.sf2-row{grid-template-columns:110px 1fr 64px;}}';
     document.head.appendChild(st);
   }
   window.TDC_SHOTFLOW={render:render};
