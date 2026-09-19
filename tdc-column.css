@@ -1,0 +1,87 @@
+/* ===================================================================
+   tdc-column.css — one reading column for every page.
+   The team page set the pattern (tdc-hq.css / tdc-team-dense.css):
+   content sits in a centred 1400px column with 64px gutters below
+   ~1530px, 32px on tablets, 14px on phones; hero bands stay full-bleed
+   with their CONTENT in the same column. This file lays that column on
+   the other pages by re-padding each page's own top-level blocks —
+   nothing structural, no HTML changes.
+   --tdc-pad = the side gutter of a full-bleed block: whichever is larger,
+   the gutter or the space that centres a 1400px column.
+   =================================================================== */
+:root{ --tdc-col:1400px; --tdc-gut:64px; }
+@media(max-width:1100px){ :root{ --tdc-gut:32px; } }
+@media(max-width:760px){ :root{ --tdc-gut:14px; } }
+
+/* ---- shells: the bordered 1600px cards go full-bleed; their blocks take the column ---- */
+.ix-shell, .rp-shell, .an-shell{
+  max-width:none !important; margin:0 0 36px !important; border:none !important; border-radius:0 !important; box-shadow:none !important;
+}
+.ix-shell > .ph-hero, .rp-shell > .ph-hero, .an-shell > .ph-hero, body > .ph-hero,
+.ix-shell > .showcase, .an-shell > #explorerView, .an-shell > #landscapeView,
+body > .tdc-toolbar + .leaders, .an-shell > .leaders, #leadersView > .leaders,
+.ix-shell > footer > .footer-inner,
+.rp-shell > .color-toggle-wrap{
+  padding-left:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+  padding-right:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+}
+.ix-shell > .tdc-toolbar, .rp-shell > .tdc-toolbar, .an-shell > .tdc-toolbar, body > .tdc-toolbar,
+.ix-shell > .wh-strip, .rp-shell > .query-panel{
+  margin-left:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+  margin-right:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+}
+/* the hero stat band fills the column's remaining width (it wraps under the copy at 1400) */
+.ix-shell > .ph-hero > .ph-band, .rp-shell > .ph-hero > .ph-band, .an-shell > .ph-hero > .ph-band, body > .ph-hero > .ph-band{ flex:1 1 auto; }
+/* tables: the ranking sheet on the index keeps its own padding knob; the others get the column */
+.ix-shell > .table-section,
+.an-shell > #leadersView > div[style], .an-shell > #teamsView > div[style]{
+  padding-left:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+  padding-right:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+}
+/* horizontal scrollers (wide stat tables) take margins, so the scroll viewport IS the column */
+.rp-shell > .table-wrap, .an-shell > #leadersView > .table-wrap, .an-shell > #teamsView > .table-wrap,
+body > .table-wrap.sheet-wrap{
+  padding-left:0 !important; padding-right:0 !important;
+  margin-left:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+  margin-right:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+}
+
+/* ---- projections: the hero is full-bleed, each tab panel is a column ---- */
+body > .tab-panel > .tdc-toolbar{ margin-left:0 !important; margin-right:0 !important; }
+body > .tab-panel > .table-wrap{ padding-left:0 !important; padding-right:0 !important; }
+body > .tab-panel{
+  padding-left:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+  padding-right:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+}
+
+/* ---- player page: hero card, tab row and panels share the column ---- */
+.player-hero{
+  margin-left:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+  margin-right:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+}
+#heroSection > .tab-row-wrap{
+  padding-left:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+  padding-right:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+}
+/* the active panel is the translucent stage card (tdc-hq-player.css), so it takes margins */
+#heroSection > .tab-panel.active{
+  margin-left:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+  margin-right:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+}
+
+/* ---- centred-card pages: the frosted stage card (tdc-hq-site.css: .page/.wrap/.cwrap at 1280px)
+   IS the column, exactly like the team page's .page-body — 1400px wide, 64px gutters below that,
+   its own inner padding untouched. :is(body.hqsite, body) matches tdc-hq-site's specificity. ---- */
+:is(body.hqsite, body) .cmp-shell, :is(body.hqsite, body) > .page, :is(body.hqsite, body) .cwrap,
+:is(body.hqsite, body) .hxwrap, :is(body.hqsite, body) > .wrap, :is(body.hqsite, body) .xp{
+  max-width:var(--tdc-col) !important;
+  width:calc(100% - 2 * var(--tdc-gut));
+  margin-left:auto !important; margin-right:auto !important;
+  box-sizing:border-box;
+}
+
+/* ---- footers on the shell-less pages ---- */
+body > footer > .footer-inner, footer.site-footer > .footer-inner{
+  padding-left:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+  padding-right:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+}
