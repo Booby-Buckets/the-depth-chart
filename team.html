@@ -8519,8 +8519,9 @@ loadTeam(teamName).then(()=>{
   // deep link straight into a tab (customize.html sends ?tab=customize)
   const wantTab=new URLSearchParams(window.location.search).get('tab');
   if(wantTab && document.getElementById('panel-'+wantTab)){
-    const btn=document.querySelector(`.hero-tab[onclick*="'${wantTab}'"]`);
-    if(btn) switchTab(wantTab, btn);
+    const btn=document.querySelector(`.hero-tab[onclick*="'${wantTab}'"], .hgm-item[onclick*="'${wantTab}'"]`);
+    if(btn && btn.classList.contains('hgm-item')) _tgPick(wantTab, btn);   // grouped tabs (Analytics / Coach's Tier menus)
+    else if(btn) switchTab(wantTab, btn);
   }
 });
 </script>
