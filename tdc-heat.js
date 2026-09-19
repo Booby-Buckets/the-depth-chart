@@ -6,16 +6,16 @@
    No dependencies; safe to load anywhere. */
 (function(){
   function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
-  // Green above 50th, blue below — intensity scales with distance from average.
+  // ONE ink: cell shade deepens with percentile (0th = bare, 100th = strong); no green/blue split.
   function heatBg(pct){
     if(pct==null||isNaN(pct)) return 'transparent';
     pct=clamp(pct,0,100);
-    if(pct>=50){ var a=(pct-50)/50*0.30; return 'rgba(45,224,166,'+a.toFixed(3)+')'; }
-    var b=(50-pct)/50*0.26; return 'rgba(91,141,239,'+b.toFixed(3)+')';
+    var a=0.03+(pct/100)*0.30; return 'rgba(var(--pd-ink-rgb,26,42,76),'+a.toFixed(3)+')';
   }
   function pctColor(pct){
     if(pct==null||isNaN(pct)) return 'var(--text3)';
-    return pct>=90?'#E0B24A':pct>=75?'#2DE0A6':pct>=50?'#7FE8C4':pct>=30?'#8FA0C4':'#E06A7A';
+    var a=pct>=90?1:pct>=75?.84:pct>=50?.68:pct>=30?.52:.40;
+    return 'rgba(var(--pd-ink-rgb,26,42,76),'+a+')';
   }
   function rankChipClass(r){ return r<=3?'r-gold':(r<=10?'r-silver':'r-plain'); }
   function ord(p){

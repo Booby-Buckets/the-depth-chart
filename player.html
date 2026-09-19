@@ -688,7 +688,7 @@
     .ovc-box #impactSection .rk-wa-wrap,.ovc-box #impactSection .impact-wrap{margin:0;}
     .ovc-read .ins2{display:flex;align-items:center;gap:9px;font-size:12.5px;padding:3px 0;}
     .ovc-read .ic2{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex:0 0 auto;}
-    .ovc-read .good .ic2{background:rgba(45,224,166,.15);color:var(--accent);} .ovc-read .bad .ic2{background:rgba(224,106,122,.15);color:var(--red,#E06A7A);}
+    .ovc-read .good .ic2{background:rgba(45,224,166,.15);color:var(--accent);} .ovc-read .bad .ic2{background:rgba(224,106,122,.15);color:var(--red,var(--red));}
     .ovc-read .tx2{flex:1;} .ovc-read .tx2 b{font-weight:700;} .ovc-read .pc2{color:var(--text3);font-family:var(--mono);font-size:10.5px;}
     .ovc-jr{display:grid;grid-template-columns:44px 1fr 1fr 48px;align-items:center;gap:8px;font-size:12.5px;padding:1.5px 0;}
     .ovc-jr.head{font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text4,#3d485f);}
@@ -825,7 +825,7 @@
     .idc-split{flex:1;min-width:220px;}
     .idc-split-bar{display:flex;height:9px;border-radius:5px;overflow:hidden;background:var(--bg3);}
     .idc-split-bar i{display:block;height:100%;transition:width .7s cubic-bezier(.22,1,.36,1);}
-    .idc-split-bar i.off{background:linear-gradient(90deg,#2DE0A6,#1fae80);}
+    .idc-split-bar i.off{background:var(--pd-ink);}
     .idc-split-bar i.def{background:linear-gradient(90deg,#5B8DEF,#3f6fd0);}
     .idc-split-lbls{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:7px;}
     .idc-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px 28px;margin-bottom:20px;}
@@ -1121,7 +1121,7 @@ body{background:transparent!important;}
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script src="tdc-engine.js"></script>
   <script src="tdc-impact.js?v=1"></script>
-  <script src="tdc-heat.js?v=1"></script>
+  <script src="tdc-heat.js?v=2"></script>
   <script src="bigboard-engine.js?v=7"></script>
   <link rel="stylesheet" href="tdc-heat.css?v=1"/>
   <style>
@@ -1159,8 +1159,8 @@ body{background:transparent!important;}
     .dna-read-v{font:800 10px/1 'Inter',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--tc-readable,var(--accent));margin-bottom:7px;}
     .dna-read-s{font:700 16.5px/1.42 'Inter',sans-serif;color:var(--text);letter-spacing:-.005em;}
     .dna-read-s b{color:var(--text);font-weight:800;}
-    .dna-read-s .up{color:#2DE0A6;font-weight:800;}
-    .dna-read-s .dn{color:#E06A7A;font-weight:800;}
+    .dna-read-s .up{color:var(--green);font-weight:800;}
+    .dna-read-s .dn{color:var(--red);font-weight:800;}
     /* 6-factor shot-value strip */
     .sf-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
     .sf-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 15px 13px;}
@@ -1185,7 +1185,7 @@ body{background:transparent!important;}
        translucent depth tokens; team color stays on --tc for the minimal accent slots. ===== -->
   <link rel="stylesheet" href="tdc-skin.css?v=9"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
-  <link rel="stylesheet" href="tdc-hq-player.css?v=5"/>
+  <link rel="stylesheet" href="tdc-hq-player.css?v=6"/>
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#FAF9F6" media="(prefers-color-scheme: light)">
@@ -1948,7 +1948,7 @@ function buildBadgeShields(B){
 function buildBadgesSection(p, B){
   B=B||computeBadges(p, null, {});
   var order=['FIN','SHO','PLY','DEF'];
-  var CATCOL={FIN:'#2DE0A6',SHO:'#5B8DEF',PLY:'#8B7CFF',DEF:'#F5B942'};
+  var CATCOL={FIN:'var(--pd-ink)',SHO:'#5B8DEF',PLY:'#8B7CFF',DEF:'#F5B942'};
   var CATLBL={FIN:'Finishing',SHO:'Shooting',PLY:'Playmaking',DEF:'Defense'};
   var ICON={
     FIN:'<path d="M12 2v13m0 0l-4.5-4.5M12 15l4.5-4.5" stroke="currentColor" stroke-width="2.1" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>',
@@ -2002,9 +2002,7 @@ function buildBadgesSection(p, B){
 // ── SKILL BREAKDOWN ─────────────────────────────────────
 function buildSkillBreakdown(srcRow, projectedFlag, label){
   // lollipop dot colored by tier (elite gold -> good mint -> avg blue -> slate -> red)
-  function tierCol(pct){
-    return pct>=90?'#E0B24A' : pct>=75?'#2DE0A6' : pct>=50?'#5B8DEF' : pct>=30?'#6B7893' : '#E06A7A';
-  }
+  function tierCol(pct){ return _inkTier(pct); }
   // render the chosen season (or projection) vs the national pool
   var src=srcRow||((proj&&!proj._frosh)?proj:player);
   var projected=(projectedFlag!=null)?!!projectedFlag:(proj&&!proj._frosh);
@@ -2171,7 +2169,7 @@ function buildPctDashboard(srcRow, projectedFlag, label){
   function hi(label, val, fmt, key, signOnly){
     if(val==null||val===''||isNaN(+val)) return '';
     var disp=fmt(+val), P=(!signOnly&&key)?Math.round(_pdPct(+val,key)):null;
-    var col=P!=null?_dnaTierCol(P):((+val>=0)?'#2DE0A6':'#E06A7A');
+    var col=P!=null?_dnaTierCol(P):((+val>=0)?'var(--green)':'var(--red)');
     var sub=P!=null?(_ord(P)+' pct'):((+val>=0)?'helps team':'hurts team');
     return '<div class="dd-hi"><div class="dd-hi-l">'+label+'</div><div class="dd-hi-v" style="color:'+col+';">'+disp+'</div><div class="dd-hi-s" style="color:'+col+';">'+sub+'</div></div>';
   }
@@ -2198,7 +2196,7 @@ function buildPctDashboard(srcRow, projectedFlag, label){
     + '<div class="seg sm pd-pop-seg" id="pdPopSeg"><button class="'+(window._pdPop!=='grp'?'on':'')+'" onclick="setPdPop(\'nat\')">vs All D1</button><button class="'+(window._pdPop==='grp'?'on':'')+'" onclick="setPdPop(\'grp\')">vs '+grpName+'</button></div>'
     + (band?'<div class="dd-band">'+band+'</div>':'')
     + secs
-    + '<div class="pd-legend"><span style="color:#E0B24A;">●</span> top 10% &nbsp; <span style="color:#2DE0A6;">●</span> top 25% &nbsp; <span style="color:#7FE8C4;">●</span> above average &nbsp; <span style="color:#8FA0C4;">●</span> below average &nbsp; <span style="color:#E06A7A;">●</span> bottom 30%. Percentile vs every qualified D-I player-season'+(window._pdPop==='grp'?' in his position group':'')+'; turnover rate is inverted (fewer is better).</div>';
+    + '<div class="pd-legend"><span style="color:rgba(var(--pd-ink-rgb),1);">●</span> top 10% &nbsp; <span style="color:rgba(var(--pd-ink-rgb),.84);">●</span> top 25% &nbsp; <span style="color:rgba(var(--pd-ink-rgb),.68);">●</span> above average &nbsp; <span style="color:rgba(var(--pd-ink-rgb),.52);">●</span> below average &nbsp; <span style="color:rgba(var(--pd-ink-rgb),.40);">●</span> bottom 30% — darker ink = higher percentile</div>';
 }
 function renderPctDash(){ var h=document.getElementById('pctDashHost'); if(!h) return; var x=_skillSrcFor(); h.innerHTML=buildPctDashboard(x.src,x.projected,x.label); }
 
@@ -2274,7 +2272,7 @@ function buildSeasonLedger(){
     {k:'ti40',label:'TI/40',pctKey:true,fmt:num1,title:'Team Impact per 40'}
   ];
   return '<div class="skill-section-title">Season Ledger</div>'
-    + '<p class="pd-legend" style="margin:-6px 0 12px;">Every season, every metric — cell shade is national percentile among qualified D-I player-seasons (<b style="color:#2DE0A6">green</b> good, <b style="color:#5B8DEF">blue</b> below average), with the percentile shown beneath. Turnover rate is inverted.</p>'
+    + '<p class="pd-legend" style="margin:-6px 0 12px;">Every season, every metric — cell shade is national percentile among qualified D-I player-seasons (darker ink = higher percentile), with the percentile shown beneath. Turnover rate is inverted.</p>'
     + TDCHeat.table({cols:cols, rows:hrows, minWidth:860});
 }
 function renderSeasonLedger(){ var h=document.getElementById('seasonLedgerHost'); if(!h) return; h.innerHTML=buildSeasonLedger(); }
@@ -2292,7 +2290,8 @@ function dnaSub(tab, btn){
 
 // linear value→percentile-ish for stats with no national table (fixed sensible scales)
 function _dnaLin(v,lo,hi,inv){ if(v==null||isNaN(+v)) return null; var p=Math.max(0,Math.min(100,(+v-lo)/(hi-lo)*100)); return inv?100-p:p; }
-function _dnaTierCol(p){ return p==null?'var(--text3)':(p>=90?'#E0B24A':p>=75?'#2DE0A6':p>=50?'#7FE8C4':p>=30?'#8FA0C4':'#E06A7A'); }
+function _inkTier(p){ return p==null?'var(--text3)':(p>=90?'rgba(var(--pd-ink-rgb),1)':p>=75?'rgba(var(--pd-ink-rgb),.84)':p>=50?'rgba(var(--pd-ink-rgb),.68)':p>=30?'rgba(var(--pd-ink-rgb),.52)':'rgba(var(--pd-ink-rgb),.40)'); }
+function _dnaTierCol(p){ return _inkTier(p); }   // percentile tiers are ONE ink at five strengths (no gold/mint/red scale)
 function _dnaTile(label, disp, pct, note){
   if(disp==null) return '';
   var P=(pct==null||isNaN(pct))?null:Math.round(pct);
@@ -2585,7 +2584,7 @@ function buildSixFactorStrip(shots){
     var Z=z.Z[pr[0]]; if(!Z.a) return '';
     var fg=Z.m/Z.a, efg=(pr[0]==='three'?fg*1.5:fg), exp=(pr[0]==='three'?EXP.three*1.5:EXP[pr[0]]);
     var delta=efg-exp, freq=z.tot?Z.a/z.tot:0;
-    var col=delta>=0.03?'#2DE0A6':(delta<=-0.03?'#E06A7A':'#8FA0C4');
+    var col=delta>=0.03?'var(--green)':(delta<=-0.03?'var(--red)':'var(--text3)');
     return '<div class="sf-card">'
       +'<div class="sf-card-z">'+pr[1]+'</div>'
       +'<div class="sf-card-efg">'+(efg*100).toFixed(1)+'%<span> eFG</span></div>'
@@ -2595,7 +2594,7 @@ function buildSixFactorStrip(shots){
       +'</div>';
   }).join('');
   return '<div class="skill-section-title" style="margin-top:26px;">Shot Value by Zone <span class="dna-badge">shot-level</span></div>'
-    +'<p class="pd-legend" style="margin:-4px 0 12px;">His effective FG% by zone versus the D-I average for that zone — the offensive shot-location value beneath the impact mirror. <b style="color:#2DE0A6">Green</b> means he scores above average from there.</p>'
+    +'<p class="pd-legend" style="margin:-4px 0 12px;">His effective FG% by zone versus the D-I average for that zone — the offensive shot-location value beneath the impact mirror. <b style="color:var(--green)">Green</b> means he scores above average from there.</p>'
     +'<div class="sf-strip">'+cards+'</div>';
 }
 
@@ -2614,8 +2613,8 @@ function buildHeroSig(){
   if(!sig.length) return '';
   var liab=sl.liability.slice(0,1);
   var chip=function(t,c){ return '<span class="hsig-chip" style="--c:'+c+'">'+t.l+' <b>'+TDCImpact.ord(t.p)+'</b></span>'; };
-  var html='<span class="hsig-lbl" style="color:#2DE0A6">◆ Signature</span>'+sig.map(function(t){return chip(t,'#2DE0A6');}).join('');
-  if(liab.length) html+='<span class="hsig-lbl hsig-watch" style="color:#E06A7A">Watch</span>'+liab.map(function(t){return chip(t,'#E06A7A');}).join('');
+  var html='<span class="hsig-lbl" style="color:var(--pd-ink)">◆ Signature</span>'+sig.map(function(t){return chip(t,'var(--pd-ink)');}).join('');
+  if(liab.length) html+='<span class="hsig-lbl hsig-watch" style="color:var(--red)">Watch</span>'+liab.map(function(t){return chip(t,'var(--red)');}).join('');
   return '<div class="hero-sig">'+html+'</div>';
 }
 
@@ -2628,7 +2627,7 @@ function buildImpactDecomp(srcRow, projectedFlag){
   var hist=careerHistory.length?careerHistory[careerHistory.length-1]:null;
   var adv=src._advanced||(projected&&hist&&hist._advanced)||{};
   var sg=null; try{ var _e=window._playerEspn||(player&&player.espn_id); if(window._sgPlayers&&_e!=null) sg=window._sgPlayers[_e]; }catch(e){}
-  function tierCol(pct){ return pct>=90?'#E0B24A':pct>=75?'#2DE0A6':pct>=50?'#5B8DEF':pct>=30?'#6B7893':'#E06A7A'; }
+  function tierCol(pct){ return _inkTier(pct); }
   function P(v,k,inv){ if(v==null||v===''||isNaN(+v))return null; var p=getPctNat(v,k); return inv?100-p:p; }
   var off=[
     {l:'Scoring',       p:(adv.obpm!=null?P(adv.obpm,'obpm'):P(src.ppg,'ppg'))},
@@ -2664,7 +2663,7 @@ function buildImpactDecomp(srcRow, projectedFlag){
       +'<div class="idc-total"><div class="idc-total-v">'+(wa!=null?((wa>=0?'+':'')+wa.toFixed(1)):'—')+'</div><div class="idc-total-l">Wins Added</div></div>'
       +'<div class="idc-split">'
         +'<div class="idc-split-bar"><i class="off" style="width:'+oW+'%"></i><i class="def" style="width:'+dW+'%"></i></div>'
-        +'<div class="idc-split-lbls"><span>Offense <b style="color:#2DE0A6">'+(owa>=0?'+':'')+owa.toFixed(1)+'</b></span>'
+        +'<div class="idc-split-lbls"><span>Offense <b style="color:var(--pd-ink)">'+(owa>=0?'+':'')+owa.toFixed(1)+'</b></span>'
         +'<span>Defense <b style="color:#5B8DEF">'+(dwa>=0?'+':'')+dwa.toFixed(1)+'</b></span></div>'
       +'</div></div>';
   } else if(wa!=null){
@@ -2681,12 +2680,12 @@ function buildImpactDecomp(srcRow, projectedFlag){
   return '<div class="skill-section-title">Impact Decomposition — Where His Value Comes From</div>'
     + head
     + '<div class="idc-cols">'
-      + '<div class="idc-col"><div class="idc-col-h" style="color:#2DE0A6">Offense</div>'+(off.length?rows(off):'<div class="idc-empty">—</div>')+'</div>'
+      + '<div class="idc-col"><div class="idc-col-h" style="color:var(--pd-ink)">Offense</div>'+(off.length?rows(off):'<div class="idc-empty">—</div>')+'</div>'
       + '<div class="idc-col"><div class="idc-col-h" style="color:#5B8DEF">Defense</div>'+(def.length?rows(def):'<div class="idc-empty">—</div>')+'</div>'
     + '</div>'
     + '<div class="idc-callouts">'
-      + '<div class="idc-call"><div class="idc-call-h" style="color:#2DE0A6">◆ Signature</div>'+callList(sig,'#2DE0A6')+'</div>'
-      + '<div class="idc-call"><div class="idc-call-h" style="color:#E06A7A">◆ Liability</div>'+callList(liab,'#E06A7A')+'</div>'
+      + '<div class="idc-call"><div class="idc-call-h" style="color:var(--pd-ink)">◆ Signature</div>'+callList(sig,'var(--pd-ink)')+'</div>'
+      + '<div class="idc-call"><div class="idc-call-h" style="color:var(--red)">◆ Liability</div>'+callList(liab,'var(--red)')+'</div>'
     + '</div>'
     + '<div class="pd-legend" style="margin-bottom:6px;">Each trait is a percentile vs every qualified D-I player-season. The split shows how his value tilts between offense and defense (his offensive &amp; defensive wins added, measured separately). Signature = his top strengths, Liability = where he grades out below the pack.</div>';
 }
@@ -2721,16 +2720,16 @@ async function loadSituational(){
 
   var cards=[];
   var th=per40(hav,'tov'), tl=per40(lowh,'tov');
-  if(th!=null&&tl!=null){ var dd=th-tl; var rt=dd>=1.2?{t:'Vulnerable',c:'#E06A7A'}:dd<=-0.6?{t:'Handles it',c:'#2DE0A6'}:{t:'Neutral',c:'#6B7893'};
+  if(th!=null&&tl!=null){ var dd=th-tl; var rt=dd>=1.2?{t:'Vulnerable',c:'var(--red)'}:dd<=-0.6?{t:'Handles it',c:'var(--green)'}:{t:'Neutral',c:'var(--text3)'};
     cards.push({title:'Pressure', q:'vs a press', rt:rt, scale:['Handles it','Neutral','Vulnerable'], ti:(dd>=1.2?2:dd<=-0.6?0:1), read: dd>=1.2?'A press rattles him — speed him up to force mistakes.':dd<=-0.6?'A press won’t bother him — guard him in the half-court.':'Roughly steady under pressure.', detail:'Turns it over '+th.toFixed(1)+'×/40 vs pressure defenses, '+tl.toFixed(1)+'× vs passive ones.'}); }
   var pf_=per40(fast,'pts'), ps_=per40(slow,'pts');
-  if(pf_!=null&&ps_!=null){ var pd=pf_-ps_; var rt2=pd>=2?{t:'Transition',c:'#2DE0A6'}:pd<=-2?{t:'Half-court',c:'#5B8DEF'}:{t:'Any tempo',c:'#6B7893'};
+  if(pf_!=null&&ps_!=null){ var pd=pf_-ps_; var rt2=pd>=2?{t:'Transition',c:'var(--green)'}:pd<=-2?{t:'Half-court',c:'#5B8DEF'}:{t:'Any tempo',c:'var(--text3)'};
     cards.push({title:'Tempo', q:'fast vs slow games', rt:rt2, scale:['Half-court','Any tempo','Transition'], ti:(pd>=2?2:pd<=-2?0:1), read: pd>=2?'Thrives in a track meet — slow the game down against him.':pd<=-2?'A half-court scorer — pushing the pace quiets him.':'Scores at any tempo.', detail:'Scores '+pf_.toFixed(1)+' pts/40 in fast games, '+ps_.toFixed(1)+' in slow ones.'}); }
   var pf40=per40(bx,'pf');
-  if(pf40!=null){ var rt3=pf40>=4.5?{t:'High',c:'#E06A7A'}:pf40>=3.2?{t:'Moderate',c:'#6B7893'}:{t:'Low',c:'#2DE0A6'};
+  if(pf40!=null){ var rt3=pf40>=4.5?{t:'High',c:'var(--red)'}:pf40>=3.2?{t:'Moderate',c:'var(--text3)'}:{t:'Low',c:'var(--green)'};
     cards.push({title:'Foul Risk', q:'how often he fouls', rt:rt3, scale:['Low','Moderate','High'], ti:(pf40>=4.5?2:pf40>=3.2?1:0), read: pf40>=4.5?'Foul-prone — attack him to get him in foul trouble.':pf40>=3.2?'An average foul rate — nothing unusual.':'Disciplined — hard to foul out.', detail:'Averages '+pf40.toFixed(1)+' fouls per 40 minutes.'}); }
   var pc=per40(close,'pts'), pcm=per40(comf,'pts');
-  if(pc!=null && close.length>=3){ var cd=(pcm!=null)?pc-pcm:null; var rt4=cd==null?{t:'—',c:'#6B7893'}:cd>=2?{t:'Rises',c:'#2DE0A6'}:cd<=-2?{t:'Fades',c:'#E06A7A'}:{t:'Steady',c:'#6B7893'};
+  if(pc!=null && close.length>=3){ var cd=(pcm!=null)?pc-pcm:null; var rt4=cd==null?{t:'—',c:'var(--text3)'}:cd>=2?{t:'Rises',c:'var(--green)'}:cd<=-2?{t:'Fades',c:'var(--red)'}:{t:'Steady',c:'var(--text3)'};
     cards.push({title:'Clutch', q:'in close games', rt:rt4, scale:['Fades','Steady','Rises'], ti:(cd==null?1:cd>=2?2:cd<=-2?0:1), read: cd==null?'Limited close-game sample so far.':cd>=2?'Steps up when it’s tight — a go-to option late.':cd<=-2?'Quieter in close games — make someone else beat you late.':'The same player in the clutch as any other game.', detail:'Scores '+pc.toFixed(1)+' pts/40 in one-possession games'+(pcm!=null?', '+pcm.toFixed(1)+' in blowouts':'')+'.'}); }
   if(!cards.length){ host.innerHTML=''; return; }
   var html=cards.map(function(c){
@@ -3864,7 +3863,7 @@ function _mountSeasonCtl(){
   sel.id='ovrSeasonSel';              // downstream code reads this id + .value ('proj' | year)
 }
 function _ovcPct(v,k,invert){ if(v==null||v===''||!isFinite(+v)) return null; var p=getPctNat(+v,k); return invert?(100-p):p; }
-function _ovcColor(p){ return p>=90?'var(--gold,#E0B24A)':p>=75?'var(--accent)':p>=50?'var(--blue,#5B8DEF)':p>=30?'var(--slate,#6B7893)':'var(--red,#E06A7A)'; }
+function _ovcColor(p){ return _inkTier(p); }
 function _ovcAdv(s,proje){ var hist=(careerHistory&&careerHistory.length)?careerHistory[careerHistory.length-1]:null; return s._advanced||(proje&&hist&&hist._advanced)||{}; }
 function renderOvcExtras(val){
   var x=_skillSrcFor(val); var s=x.src||player; var proje=x.projected; var adv=_ovcAdv(s,proje);
@@ -3901,7 +3900,7 @@ function renderOvcExtras(val){
       var jr=[['PPG','ppg'],['APG','apg'],['RPG','rpg'],['3P%','tp_pct']];
       var h='<div class="ovc-jr head"><span></span><span class="ja">'+_seasonLbl2(prior.season_year).slice(2)+'</span><span class="jb">'+(proje?'Proj':_seasonLbl2(selYr).slice(2))+'</span><span></span></div>';
       h+=jr.map(function(r){ var a=+prior[r[1]], b=+selRow[r[1]]; if(!isFinite(a)||!isFinite(b)) return ''; var d=b-a; var ds=(d>=0?'+':'')+f1(d);
-        return '<div class="ovc-jr"><span class="jk">'+r[0]+'</span><span class="ja">'+f1(a)+'</span><span class="jb">'+f1(b)+'</span><span class="jd" style="color:'+(d>=0?'var(--accent)':'var(--red,#E06A7A)')+'">'+ds+'</span></div>'; }).join('');
+        return '<div class="ovc-jr"><span class="jk">'+r[0]+'</span><span class="ja">'+f1(a)+'</span><span class="jb">'+f1(b)+'</span><span class="jd" style="color:'+(d>=0?'var(--accent)':'var(--red,var(--red))')+'">'+ds+'</span></div>'; }).join('');
       jEl.innerHTML=h;
     }
   }
@@ -3921,7 +3920,7 @@ function renderOvcExtras(val){
       {l:'Free Throw', v:num(s.ft_pct)!=null?num(s.ft_pct):pct(ftm,fta), m:ftm, a:fta, avg:71.5}
     ];
     var col=function(v,avg){ var d=v-avg;
-      return d>=6?'var(--accent)':d>=-1?'var(--blue,#5B8DEF)':d>=-7?'var(--slate,#6B7893)':'var(--red,#E06A7A)'; };
+      return d>=6?'var(--accent)':d>=-1?'var(--blue,#5B8DEF)':d>=-7?'var(--slate,#6B7893)':'var(--red,var(--red))'; };
     var rows=TYPES.map(function(t){ if(t.v==null||!isFinite(t.v)) return '';
       var c=col(t.v,t.avg), w=Math.max(2,Math.min(100,t.v));
       var vol=(isFinite(t.a)&&t.a>0)?(f1(t.m)+' / '+f1(t.a)):'';
@@ -3934,7 +3933,7 @@ function renderOvcExtras(val){
         '</div>'; }).join('');
     var EFF=[['Field Goal',num(s.fg_pct)!=null?num(s.fg_pct):pct(fgm,fga),45],['eFG%',efg,50],['True Shooting',ts,55]];
     var tiles=EFF.map(function(e){ var v=e[1]; if(v==null||!isFinite(v)) return '';
-      var c=v>=e[2]+8?'var(--accent)':v>=e[2]?'var(--blue,#5B8DEF)':v>=e[2]-7?'var(--slate,#6B7893)':'var(--red,#E06A7A)';
+      var c=v>=e[2]+8?'var(--accent)':v>=e[2]?'var(--blue,#5B8DEF)':v>=e[2]-7?'var(--slate,#6B7893)':'var(--red,var(--red))';
       return '<div class="ovc-eff"><div class="v" style="color:'+c+'">'+f1(v)+'%</div><div class="k">'+e[0]+'</div></div>'; }).join('');
     shEl.innerHTML=rows?('<div class="ovc-shot2">'+rows+'</div>'+(tiles?'<div class="ovc-efftitle">Overall efficiency</div><div class="ovc-effrow">'+tiles+'</div>':'')):'<div class="ovc-muted">—</div>';
   }
@@ -5009,7 +5008,7 @@ function buildCareerTraj(){
   function draw(sr,col){ if(!sr)return ''; var d=''; sr.pts.forEach(function(p){if(p)d+=(d?'L':'M')+p.x.toFixed(1)+' '+p.y.toFixed(1);});
     var dots=sr.pts.map(function(p){return p?'<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="3" fill="'+col+'"/>':'';}).join('');
     return '<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>'+dots; }
-  var GC='#2DE0A6', WC='#5B8DEF';
+  var GC='var(--pd-ink)', WC='#5B8DEF';
   var xlabels=hist.map(function(s,i){return '<text x="'+xat(i).toFixed(1)+'" y="'+(H-9)+'" text-anchor="middle" font-size="9.5" fill="var(--text3)">'+_seasonLbl(s.season_year)+'</text>';}).join('');
   // Endpoint value labels. Both lines end at the same x, and when their endpoints sit
   // near the same height (they converge here) the two labels overlap into an unreadable
@@ -5030,7 +5029,7 @@ function buildCareerTraj(){
 // ── PEAK METRICS (best single season for each metric, with percentile) ──
 function buildPeakMetrics(){
   var hist=_dedupHist(); if(!hist||!hist.length) return '';
-  function tierCol(pct){ return pct>=90?'#E0B24A':pct>=75?'#2DE0A6':pct>=50?'#5B8DEF':pct>=30?'#6B7893':'#E06A7A'; }
+  function tierCol(pct){ return _inkTier(pct); }
   function peak(get,key,fmt){
     var best=null,bs=null;
     hist.forEach(function(s){var v=get(s); if(v==null||v===''||isNaN(+v))return; v=+v; if(best==null||v>best){best=v;bs=s;}});
@@ -6665,7 +6664,7 @@ function _nilEfficiencyHtml(N, cur, col){
   pool.sort(function(a,b){ return eff(b)-eff(a); });
   var rank=1; pool.forEach(function(p){ if(eff(p)>curEff) rank++; });
   var tot=pool.length, pctile=tot>1?Math.round((1-(rank-1)/(tot-1))*100):50;
-  var tier=pctile>=82?['Elite value','#2DE0A6']:pctile>=60?['Good value','#5ab875']:pctile>=40?['Fair price','var(--text2)']:pctile>=20?['Rich','#e0913a']:['Premium price','#e07070'];
+  var tier=pctile>=82?['Elite value','var(--green)']:pctile>=60?['Good value','#5ab875']:pctile>=40?['Fair price','var(--text2)']:pctile>=20?['Rich','#e0913a']:['Premium price','#e07070'];
   return head
     +'<div class="nile-grid">'
       +'<div class="nile-card"><div class="nile-v">'+fmt(perWin)+'</div><div class="nile-l">per Win Added<span>his '+fmt(cur.val)+' ÷ '+(cur.wa>0?'+':'')+cur.wa.toFixed(1)+' WA</span></div></div>'
