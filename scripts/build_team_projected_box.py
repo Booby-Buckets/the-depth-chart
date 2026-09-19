@@ -17,7 +17,7 @@ from collections import defaultdict
 D = pathlib.Path(__file__).parent / "data"
 SB = "https://izlqhnxowdhtdofkwrho.supabase.co"; K = "sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
 H = {"apikey": K, "Authorization": "Bearer " + K}
-SLOT_MIN = [0, 31, 30, 29, 27, 25, 19, 16, 12, 9, 7]
+SLOT_MIN = [0, 33, 31, 30, 28, 26, 18, 15, 11, 8, 6]
 
 def sb(path):
     # STABLE ORDER required: PostgREST offset pagination without ORDER BY skips/dupes rows.

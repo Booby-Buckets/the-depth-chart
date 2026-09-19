@@ -20,7 +20,7 @@ DATA = os.path.join(os.path.dirname(__file__), "data")
 DEV = json.load(open(os.path.join(DATA, "dev_curves.json")))
 BR = json.load(open(os.path.join(DATA, "projgrade_bridge.json")))
 LV = json.load(open(os.path.join(DATA, "level_adj.json")))
-SLOT_MIN = [0, 31, 30, 29, 27, 25, 19, 16, 12, 9, 7]
+SLOT_MIN = [0, 33, 31, 30, 28, 26, 18, 15, 11, 8, 6]
 
 
 def level_discount(conf):

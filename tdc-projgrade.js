@@ -26,7 +26,7 @@
   'use strict';
   var K = 11;                                  // composite-delta → grade-points scale
   // projected 2026-27 minutes by depth-chart slot (≈200 team minutes over the top 10)
-  var SLOT_MIN = [0, 31, 30, 29, 27, 25, 19, 16, 12, 9, 7];   // index = depth_order
+  var SLOT_MIN = [0, 33, 31, 30, 28, 26, 18, 15, 11, 8, 6];   // index = depth_order
 
   function _num(v){ var n = parseFloat(v); return isFinite(n) ? n : 0; }
   function projMin(row){
@@ -610,6 +610,6 @@
   window.TDCProjGrade.projRowOf = function(espn){ return (espn!=null && _SO_PROJ_ROW) ? (_SO_PROJ_ROW['' + espn] || null) : null; };
   window.TDCProjGrade.ready = Promise.all([
     _loadSO('scripts/data/stat_overall.json?v=6').then(function(m){ if(m) setStatOverall(m, null); }),
-    _loadProjRows('scripts/data/stat_overall_projected.json?v=37').then(function(m){ if(m) setStatOverall(null, m); })
+    _loadProjRows('scripts/data/stat_overall_projected.json?v=38').then(function(m){ if(m) setStatOverall(null, m); })
   ]).then(function(){ return true; }).catch(function(){ return true; });   // history is lazy — see loadHist()
 })();

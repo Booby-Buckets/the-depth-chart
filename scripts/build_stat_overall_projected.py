@@ -136,7 +136,7 @@ def _pos(p):
     if p.startswith("G"): return "G"
     if p.startswith("F"): return "F"
     return "SF"
-SLOT_MIN=[0,31,30,29,27,25,19,16,12,9,7]
+SLOT_MIN=[0,33,31,30,28,26,18,15,11,8,6]   # starters 148 of 200 (real contenders), bench 58; matches the live depth-chart engine (tdc-proj.js ~30.5±3.5)
 def proj_mpg(d,last,starter):
     d=int(d) if pd.notna(d) else None
     slot=(SLOT_MIN[d] if d and 1<=d<len(SLOT_MIN) else (5 if d and d>=len(SLOT_MIN) else 0))
