@@ -17,7 +17,15 @@ from collections import defaultdict
 D = pathlib.Path(__file__).parent / "data"
 SB = "https://izlqhnxowdhtdofkwrho.supabase.co"; K = "sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
 H = {"apikey": K, "Authorization": "Bearer " + K}
-SLOT_MIN = [0, 33, 31, 30, 28, 26, 18, 15, 11, 8, 6]
+SLOT_MIN = [0, 33, 31, 30, 28, 26, 18, 15, 11, 8, 6]   # fallback; the live table is per team (coach_rotation.json)
+import os as _os
+try:
+    COACH_ROT = json.load(open(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "data", "coach_rotation.json")))
+except Exception:
+    COACH_ROT = {}
+def slot_table(short):
+    r = COACH_ROT.get(short) or COACH_ROT.get("_natl")
+    return SLOT_MIN if not r or not r.get("slots") else [0] + [max(3.0, float(x)) for x in r["slots"]]
 
 def sb(path):
     # STABLE ORDER required: PostgREST offset pagination without ORDER BY skips/dupes rows.
@@ -38,11 +46,12 @@ def num(v):
     try: return float(v)
     except (TypeError, ValueError): return None
 
-def proj_mpg(depth, last, starter):
+def proj_mpg(depth, last, starter, team=None):
     d = None
     try: d = int(depth)
     except (TypeError, ValueError): d = None
-    slot = (SLOT_MIN[d] if d and 1 <= d < len(SLOT_MIN) else (5 if d and d >= len(SLOT_MIN) else 0))
+    SL = slot_table(team) if team else SLOT_MIN
+    slot = (SL[d] if d and 1 <= d < len(SL) else (5 if d and d >= len(SL) else 0))
     last = last or 0
     floor = last * 0.9 if last > 0 else 0
     if starter and (d is None or d <= 6): floor = max(floor, 28)
@@ -86,7 +95,7 @@ for team, roster in by.items():
         mpg = num(h.get("mpg")) or 0
         if mpg < 4: continue
         pm = proj_mpg(p.get("depth_order"), num(p.get("mpg")) or mpg,
-                      str(p.get("starter")).lower() in ("true", "t"))
+                      str(p.get("starter")).lower() in ("true", "t"), team)
         rp.append((h, mpg, pm))
     if len(rp) < 4: continue                      # too little to form a team line
     tot_pm = sum(x[2] for x in rp) or 1

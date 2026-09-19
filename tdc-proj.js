@@ -51,7 +51,12 @@ function computePlayerMpg(p, teamRoster){
   roster.forEach((r,i)=>{
     const g=pg(r),slot=i+1;
     let base;
-    if(slot<=5){const gn=Math.max(-1,Math.min(1,(g-teamGradeAvg)/15));base=30.5+gn*3.5;}
+    // COACH ROTATION SHAPE (coach_rotation.json via loadProjCoachStyle): this coach's own
+    // minutes-by-rank from his recent seasons — Self's #1 ~35, Willard's ~25 — with the
+    // grade nudge (±11%) preserved for the starters. Falls back to the generic shape.
+    const ROT=(window._projRot&&window._projRot.length>=10)?window._projRot:null;
+    if(ROT&&slot<=10){ base=ROT[slot-1]; if(slot<=5){const gn=Math.max(-1,Math.min(1,(g-teamGradeAvg)/15));base=base*(1+gn*0.11);} }
+    else if(slot<=5){const gn=Math.max(-1,Math.min(1,(g-teamGradeAvg)/15));base=30.5+gn*3.5;}
     else if(slot===6)base=18;else if(slot===7)base=13;else if(slot===8)base=10;
     else if(slot===9)base=8;else if(slot===10)base=5;else base=Math.max(2,4-(slot-10)*1);
     base=base*(1+((g-teamGradeAvg)/20)*0.10);
@@ -497,16 +502,17 @@ function estimateAdvanced(grade, projMpg, fgaPerG){
 // context differs) get pulled to the coach's system. Keeps shooting %s intact
 // (makes + attempts scale together).
 async function loadProjCoachStyle(team, headCoach){
-  window._projCoach=null;
+  window._projCoach=null; window._projRot=null;
   if(!team) return;
   try{
     if(!window._projCoachCache){
-      const [prof,seas,dna,sgt,bmv]=await Promise.all([
+      const [prof,seas,dna,sgt,bmv,rot]=await Promise.all([
         fetch('scripts/data/coach_profiles.json').then(r=>r.ok?r.json():[]).catch(()=>[]),
         fetch('scripts/data/coach_seasons.json').then(r=>r.ok?r.json():[]).catch(()=>[]),
         fetch('scripts/data/team_dna.json').then(r=>r.ok?r.json():null).catch(()=>null),
         fetch('scripts/data/shot_genome_teams.json').then(r=>r.ok?r.json():null).catch(()=>null),
-        fetch('scripts/data/team_ballmovement.json').then(r=>r.ok?r.json():null).catch(()=>null)
+        fetch('scripts/data/team_ballmovement.json').then(r=>r.ok?r.json():null).catch(()=>null),
+        fetch('scripts/data/coach_rotation.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null)
       ]);
       const bySlug={}; prof.forEach(p=>bySlug[p.coach_slug]=p);
       // name + (first-initial|last) maps so a CURRENT hire from teams.head_coach resolves to
@@ -548,9 +554,12 @@ async function loadProjCoachStyle(team, headCoach){
       // team BALL MOVEMENT (assists per 100 poss — pace-independent, precomputed): a motion/
       // pass-heavy system (Purdue ~30) lifts a newcomer's assists; an iso-heavy one trims them.
       const astpp=(bmv&&bmv.astpp)||{}, lgAstpp=(bmv&&bmv.lg)||20;
-      window._projCoachCache={bySlug,byTeam,byName,byIL,lgPace,havoc,lgHavoc,lookq,lgLookq,oreb,lgOreb,dreb,lgDreb,astpp,lgAstpp};
+      window._projCoachCache={bySlug,byTeam,byName,byIL,lgPace,havoc,lgHavoc,lookq,lgLookq,oreb,lgOreb,dreb,lgDreb,astpp,lgAstpp,rot:rot||{}};
     }
-    const {bySlug,byTeam,byName,byIL,lgPace,havoc,lgHavoc,lookq,lgLookq,oreb,lgOreb,dreb,lgDreb,astpp,lgAstpp}=window._projCoachCache;
+    const {bySlug,byTeam,byName,byIL,lgPace,havoc,lgHavoc,lookq,lgLookq,oreb,lgOreb,dreb,lgDreb,astpp,lgAstpp,rot}=window._projCoachCache;
+    // this program's rotation shape (slot minutes by rank) — keyed by the roster's short name
+    { const rr=(rot&&(rot[team]||rot[Object.keys(rot).find(k=>k!=='_natl'&&k.toLowerCase()===String(team).toLowerCase())]||rot._natl))||null;
+      window._projRot=(rr&&Array.isArray(rr.slots)&&rr.slots.length>=10)?rr.slots.map(x=>Math.max(3,+x)):null; }
     // resolve this team's defensive havoc + offensive look-quality (full team_dna/genome
     // name vs the roster's short name)
     // Short roster name (e.g. "Houston") -> full team_dna key ("houston cougars"). Must NOT

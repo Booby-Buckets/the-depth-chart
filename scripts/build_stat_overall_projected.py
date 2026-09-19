@@ -136,10 +136,22 @@ def _pos(p):
     if p.startswith("G"): return "G"
     if p.startswith("F"): return "F"
     return "SF"
-SLOT_MIN=[0,33,31,30,28,26,18,15,11,8,6]   # starters 148 of 200 (real contenders), bench 58; matches the live depth-chart engine (tdc-proj.js ~30.5±3.5)
+SLOT_MIN=[0,33,31,30,28,26,18,15,11,8,6]   # fallback role minutes by depth_order (starters 148 of 200); the live table is per team
+# COACH ROTATION SHAPE (build_coach_rotation.py -> coach_rotation.json): each program's slot minutes
+# come from its current coach's recent seasons (share of 200 by rank, recency-weighted, shrunk to
+# the national shape by evidence). Bill Self's starters ~147 of 200, Kevin Willard's ~112.
+try:
+    COACH_ROT=json.load(open(os.path.join(D,"coach_rotation.json")))
+except Exception:
+    COACH_ROT={}
+def slot_table(short):
+    r=COACH_ROT.get(short) or COACH_ROT.get("_natl")
+    if not r or not r.get("slots"): return SLOT_MIN
+    return [0]+[max(3.0,float(x)) for x in r["slots"]]
+SLOT_CUR=SLOT_MIN   # set per team in the roster loop
 def proj_mpg(d,last,starter):
     d=int(d) if pd.notna(d) else None
-    slot=(SLOT_MIN[d] if d and 1<=d<len(SLOT_MIN) else (5 if d and d>=len(SLOT_MIN) else 0))
+    slot=(SLOT_CUR[d] if d and 1<=d<len(SLOT_CUR) else (5 if d and d>=len(SLOT_CUR) else 0))
     last=last or 0
     # The DEPTH CHART (slot by depth_order — the top 5 are the starters, exactly like the site's depth
     # chart display) drives the role. Last year's minutes only NUDGE within that role: a player now
@@ -320,6 +332,7 @@ def _fresh_est(grade,depth,starter,position):
 proj_team={}   # espn(str) -> short team, for roster-normalized shot share
 for short, roster in roster_by_team.items():
     full=S2F.get(short.lower()) or short
+    SLOT_CUR=slot_table(short)   # this coach's rotation shape drives every role-minute call below
     last_roster=adv_by_team.get(full,[])
     returner_ids={int(p.espn_id) for p in roster if pd.notna(p.espn_id) and int(p.espn_id) in BOX_IDS}
     # departures = last-year rotation (real minutes) not returning
@@ -381,7 +394,7 @@ for short, roster in roster_by_team.items():
             # his depth-chart slot: if the owner placed him as a starter (high slot), that IS his role
             # (e.g. Jalil Bethea, a bench freshman elsewhere now Pitt's SF starter — slot 29, not 17.9).
             _xd=r["p"].depth_order; _xd=int(_xd) if pd.notna(_xd) else None
-            _xslot=(SLOT_MIN[_xd] if _xd and 1<=_xd<len(SLOT_MIN) else (5 if _xd and _xd>=len(SLOT_MIN) else 0))
+            _xslot=(SLOT_CUR[_xd] if _xd and 1<=_xd<len(SLOT_CUR) else (5 if _xd and _xd>=len(SLOT_CUR) else 0))
             pm=min(pm,max(_xslot,last_mpg+MPG_XFER_BUMP))
             # COMPOSITE up-transfer usage translation. A step up shrinks his role by
             #   (LEVEL JUMP) × (how SHEDDABLE his usage was).
