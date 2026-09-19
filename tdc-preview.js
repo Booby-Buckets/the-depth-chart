@@ -197,12 +197,12 @@
     }).join('')}</tbody></table></div>`;
   }
 
-  function playersTable(team, T, color) {
+  function playersTable(team, T, color, potg) {
     if (!T || !T.rows.length) return `<div class="gp-wrap"><div class="gp-empty">No projected lines on file for ${sn(team)}'s roster yet.</div></div>`;
     const K = ['min', 'pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'oreb', 'dreb', 'reb', 'ast', 'tov', 'gs'];
     const rc = r => r >= 8 ? '#1f9d57' : r >= 6.5 ? '#3d8f6b' : r >= 5.5 ? '#c2912f' : '#cf5a4e';
     const chip = r => `<span class="gp-rtg" style="background:${rc(r)}">${r.toFixed(1)}</span>`;
-    const best = T.rows.reduce((m, x) => (!m || x.l.gs > m.l.gs) ? x : m, null);
+    const best = potg || null;
     const tot = T.rows.reduce((s, x) => { K.forEach(k => { s[k] += x.l[k] || 0; }); return s; }, Object.fromEntries(K.map(k => [k, 0])));
     const cls = v => v > 0.4 ? 'pos' : v < -0.4 ? 'neg' : '';
     const ma = (m, a) => `${m.toFixed(1)}–${a.toFixed(1)}`, pct = (m, a) => a > 0 ? (100 * m / a).toFixed(1) : '—';
@@ -251,6 +251,8 @@
     const ctx = { pace: row.pace, score: row.scoreMe, margin: row.margin };
     const [pa, pb] = await Promise.all([roster(team), row.oppName ? roster(row.oppName) : Promise.resolve([])]);
     const TA = teamLines(pa, EA, EB, ctx), TB = row.oppName ? teamLines(pb, EB, EA, { pace: row.pace, score: row.scoreOpp, margin: -row.margin }) : null;
+    // one player of the game across both rosters
+    const potg = [...(TA ? TA.rows : []), ...(TB ? TB.rows : [])].reduce((m, x) => (!m || x.l.gs > m.l.gs) ? x : m, null);
     // team shot split for THIS game (the rotations' totals) — appended to the matchup table
     const totOf = T => T && T.rows.length ? T.rows.reduce((s, x) => { ['fga', 'fgm', 'tpa', 'tpm', 'fta', 'ftm', 'oreb', 'dreb', 'tov', 'ast'].forEach(k => { s[k] += x.l[k] || 0; }); return s; }, { fga: 0, fgm: 0, tpa: 0, tpm: 0, fta: 0, ftm: 0, oreb: 0, dreb: 0, tov: 0, ast: 0 }) : null;
     const ta = totOf(TA), tb = totOf(TB);
@@ -283,8 +285,8 @@
       return `<div class="gp-inj"><span class="gp-inj-l">${sn(n)} injuries</span>${outs.length ? `<span class="gp-inj-out">Out: ${outs.join(', ')}</span>` : ''}${hurt.length ? `<span class="gp-inj-hurt">Playing hurt: ${hurt.join(', ')}</span>` : ''}</div>`;
     };
     document.getElementById('gpPlayers').innerHTML = `<div class="gp-h">Projected lines · this game <span>each player's 2026-27 projection, priced for this pace and this defense</span></div>
-      <div class="gp-two"><div><div style="font-size:12px;font-weight:800;color:${col(team)};padding:8px 2px;">${sn(team)}</div>${playersTable(team, TA, col(team))}${injLine(pa, team)}</div>
-      <div><div style="font-size:12px;font-weight:800;color:${col(oppName)};padding:8px 2px;">${sn(oppName)}</div>${row.oppName ? playersTable(oppName, TB, col(oppName)) : `<div class="gp-wrap"><div class="gp-empty">Opponent to be determined.</div></div>`}${injLine(pb, oppName)}</div></div>
+      <div class="gp-two"><div><div style="font-size:12px;font-weight:800;color:${col(team)};padding:8px 2px;">${sn(team)}</div>${playersTable(team, TA, col(team), potg)}${injLine(pa, team)}</div>
+      <div><div style="font-size:12px;font-weight:800;color:${col(oppName)};padding:8px 2px;">${sn(oppName)}</div>${row.oppName ? playersTable(oppName, TB, col(oppName), potg) : `<div class="gp-wrap"><div class="gp-empty">Opponent to be determined.</div></div>`}${injLine(pb, oppName)}</div></div>
       <div class="gp-note"><b>How the lines move:</b> ${[note(TA, team), note(TB, oppName)].filter(Boolean).join(' · ')}. Attempts scale with pace and minutes; makes use the matchup-adjusted percentages; offensive boards, defensive boards and turnovers are priced against this opponent's rebounding and turnover-forcing rates. Minutes come from the season projection; "vs typical" is the points swing this matchup causes against the player's typical game (his season projection, scaled so the roster's lines add up to the team's own scoring). Rosters without a projected line yet (walk-ons, unfilled freshmen) are left out.</div>`;
     if (g.TDCGate) { const relock = () => { const el = document.getElementById('gpPlayers'); el.classList.remove('tdc-gate-wrap'); g.TDCGate.lock(el, { tier: 'pro', label: 'projected player lines', blurb: 'Pro, Coach\'s Tier and Betting Lab members see how every rotation player projects in this specific matchup — minutes, points, rebounds, assists and shooting.' }); };
       if (g.TDCGate.resolved && g.TDCGate.resolved()) relock(); else if (g.TDCGate.ready) g.TDCGate.ready.then(relock); }
