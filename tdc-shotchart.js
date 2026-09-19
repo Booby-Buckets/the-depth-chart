@@ -369,25 +369,35 @@
     out.sig.concat(out.soft).forEach(function(r){ var at=SPOT_LAB[r.k]; if(!at) return;
       var x=px(at[0]), y=py(at[1]), d=Math.round(r.d*100);
       var anc=r.k==='c3l'?'start':r.k==='c3r'?'end':'middle'; if(anc==='start') x=px(1.6); if(anc==='end') x=px(48.4);
-      g+='<text class="sc-zlab" x="'+x+'" y="'+y+'" text-anchor="'+anc+'">'+Math.round(r.p*100)+'%</text>'+
-         '<text class="sc-zsub" x="'+x+'" y="'+(y+12)+'" text-anchor="'+anc+'">'+Math.round(r.share*100)+'% of shots \u00b7 '+(d>=0?'+':'\u2212')+Math.abs(d)+'</text>'; });
+      g+='<text class="sc-zlab" x="'+x+'" y="'+(y+4)+'" text-anchor="'+anc+'">'+Math.round(r.p*100)+'%<tspan class="sc-zedge"> '+(d>=0?'+':'\u2212')+Math.abs(d)+'</tspan></text>'; });
     return g;
   }
   // the ledger under the court: signature spots, soft spots — percentile-row language
   function spotsLedger(out){
     if(!out.rows) return '';
     var maxShare=Math.max.apply(null,out.rows.map(function(r){return r.share;}).concat([0.01]));
+    var cap=function(t){ return t.charAt(0).toUpperCase()+t.slice(1); };
     var row=function(r,kind){ var d=Math.round(r.d*100), w=100*r.share/maxShare;
-      return '<div class="sc-srow" data-zk="'+r.k+'"><div class="sc-sl">'+r.n.charAt(0).toUpperCase()+r.n.slice(1)+'<span class="sc-ssub">'+r.a+' att · '+Math.round(r.share*100)+'% of shots</span></div>'+
-        '<div class="sc-strack"><i class="'+kind+'" style="width:'+w.toFixed(1)+'%"></i></div>'+
-        '<div class="sc-sv">'+Math.round(r.p*100)+'%<span class="sc-ssub">D-I '+Math.round(r.avg*100)+'%</span></div>'+
-        '<div class="sc-sd '+(d>=0?'pos':'neg')+'">'+(d>=0?'+':'−')+Math.abs(d)+'</div></div>'; };
+      return '<div class="sc-srow" data-zk="'+r.k+'"><div class="sc-sl">'+cap(r.n)+'</div>'+
+        '<div class="sc-strack"><i class="'+kind+'" style="width:'+w.toFixed(1)+'%"></i><span class="sc-ssub">'+Math.round(r.share*100)+'% of his shots</span></div>'+
+        '<div class="sc-sv">'+Math.round(r.p*100)+'%<span class="sc-ssub">D-I avg '+Math.round(r.avg*100)+'%</span></div>'+
+        '<div class="sc-sd '+(d>=0?'pos':'neg')+'">'+(d>=0?'+':'\u2212')+Math.abs(d)+'<span class="sc-ssub">'+(d>=0?'better':'worse')+'</span></div></div>'; };
     var h='<div class="sc-ledger">';
-    h+='<div class="sc-lsec"><span>Signature spots</span><span class="sc-lcap">zone · share of attempts · FG% · vs D-I</span></div>';
-    h+=out.sig.length?out.sig.map(function(r){return row(r,'sig');}).join(''):'<div class="sc-lempty">No zone clears both bars yet — '+out.floor+'+ attempts and above the D-I average.</div>';
-    if(out.soft.length){ h+='<div class="sc-lsec"><span>Soft spots</span><span class="sc-lcap">volume, but below the D-I average</span></div>'+out.soft.map(function(r){return row(r,'soft');}).join(''); }
-    h+='<div class="sc-lfoot">A spot needs '+out.floor+'+ attempts to qualify; signature = clearly above the D-I average there, weighted by how often he shoots from it. Bar = share of all attempts.</div></div>';
+    h+='<div class="sc-lsec"><span>His spots</span><span class="sc-lcap">shoots from here a lot AND makes more than the D-I average from there</span></div>';
+    h+='<div class="sc-lhead"><span>Zone</span><span>How often he shoots from here</span><span>FG%</span><span>vs D-I</span></div>';
+    h+=out.sig.length?out.sig.map(function(r){return row(r,'sig');}).join(''):'<div class="sc-lempty">No zone qualifies yet \u2014 needs '+out.floor+'+ attempts from one spot and a make rate above the D-I average there.</div>';
+    if(out.soft.length){ h+='<div class="sc-lsec" style="margin-top:6px;"><span>Trouble spots</span><span class="sc-lcap">shoots from here a lot, but makes less than the D-I average from there</span></div>'+out.soft.map(function(r){return row(r,'soft');}).join(''); }
+    h+='<div class="sc-lfoot">A zone only counts once he has taken '+out.floor+'+ shots from it. "vs D-I" is his make rate minus what the average Division-I player makes from that same zone.</div></div>';
     return h;
+  }
+  function spotsRead(out){
+    var s=out.sig||[], w=out.soft||[];
+    if(!s.length&&!w.length) return '';
+    var ph=function(r){ return r.n+' <b>'+Math.round(r.p*100)+'%</b> (<b class="'+(r.d>=0?'pos':'neg')+'">'+(r.d>=0?'+':'\u2212')+Math.abs(Math.round(r.d*100))+'</b> vs D-I)'; };
+    var t='';
+    if(s.length) t+='Best from '+s.map(ph).join(s.length>2?', ':' and ')+'.';
+    if(w.length) t+=(t?' ':'')+'Struggles from '+w.map(ph).join(' and ')+'.';
+    return '<div class="sc-read">'+t+'</div>';
   }
   function spotsCaption(out){
     var s=out.sig||[], w=out.soft||[];
@@ -446,7 +456,7 @@
     var courtOpts={color:tcol};
     var toggle='<div class="sc-modes">'+
       '<button class="'+(mode==='zones'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'zones\')">Zones</button>'+
-      '<button class="'+(mode==='spots'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'spots\')">Signature spots</button>'+
+      '<button class="'+(mode==='spots'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'spots\')">His spots</button>'+
       '<button class="'+(mode==='hex'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'hex\')">Hexbin</button>'+
       '<button class="'+(mode==='heat'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'heat\')">Heat</button>'+
       '<button class="'+(mode==='shots'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'shots\')">All shots</button></div>';
@@ -461,8 +471,9 @@
     } else if(mode==='spots'){
       var so={};
       var sg=spotsSvg(shots,so);
-      body='<div class="sc-mk-legend"><span><i class="sc-sig"></i>Signature spot</span><span><i class="sc-softsw"></i>Soft spot</span>'+
-        '<span style="margin-left:auto;color:var(--text3);font-size:10px;">FG% · share of attempts · edge vs D-I</span></div>'+
+      body=spotsRead(so)+
+        '<div class="sc-mk-legend"><span><i class="sc-sig"></i>Makes more than the D-I average here</span><span><i class="sc-softsw"></i>Makes less</span>'+
+        '<span style="margin-left:auto;color:var(--text3);font-size:10px;">label = his FG% and the gap vs D-I</span></div>'+
         '<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+defs()+court(null,courtOpts)+sg+'</svg><div class="sc-tip"></div></div>';
       extra=spotsLedger(so);
     } else if(mode==='hex'){
@@ -586,14 +597,18 @@
       '.sc-lsec{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:2px solid var(--text);padding:12px 0 8px;}'+
       '.sc-lsec span:first-child{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text);}'+
       '.sc-lcap{font-size:11px;color:var(--text3);}'+
-      '.sc-srow{display:grid;grid-template-columns:minmax(120px,170px) 1fr 74px 44px;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);cursor:default;}'+
+      '.sc-srow{display:grid;grid-template-columns:minmax(120px,170px) 1fr 74px 54px;align-items:start;gap:12px;padding:8px 0 18px;border-bottom:1px solid var(--border);cursor:default;}'+
       '.sc-sl{font-size:12.5px;font-weight:600;color:var(--text);display:flex;flex-direction:column;gap:1px;}'+
       '.sc-ssub{font-size:10.5px;font-weight:500;color:var(--text3);font-variant-numeric:tabular-nums;}'+
       '.sc-strack{position:relative;height:8px;background:var(--bg3);border-radius:4px;}'+
       '.sc-strack i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:rgb(var(--sc-ink-rgb));}'+
       '.sc-strack i.soft{background:repeating-linear-gradient(45deg,var(--sc-soft) 0 2px,transparent 2px 5px);}'+
       '.sc-sv{font-size:13px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;color:var(--text);display:flex;flex-direction:column;gap:1px;} .sc-sv .sc-ssub{text-align:right;}'+
-      '.sc-sd{font-size:13px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;} .sc-sd.pos{color:var(--green);} .sc-sd.neg{color:var(--red);}'+
+      '.sc-sd{font-size:13px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;display:flex;flex-direction:column;gap:1px;} .sc-sd .sc-ssub{text-align:right;} .sc-sd.pos{color:var(--green);} .sc-sd.neg{color:var(--red);}'+
+      '.sc-lhead{display:grid;grid-template-columns:minmax(120px,170px) 1fr 74px 54px;gap:12px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:8px 0 2px;} .sc-lhead span:nth-child(n+3){text-align:right;}'+
+      '.sc-strack .sc-ssub{position:absolute;left:0;top:11px;white-space:nowrap;}'+
+      '.sc-read{font-size:13.5px;line-height:1.5;color:var(--text);margin:0 0 10px;} .sc-read b{font-weight:700;} .sc-read .pos{color:var(--green);} .sc-read .neg{color:var(--red);}'+
+      '.sc-zedge{font-size:11px;font-weight:800;}'+
       '.sc-lempty{font-size:12px;color:var(--text3);padding:10px 0;}'+
       '.sc-lfoot{font-size:11px;color:var(--text3);line-height:1.5;padding:10px 0 2px;}'+
       '.sc-hot{width:11px;height:11px;border-radius:50%;background:var(--sc-hot);display:inline-block;}'+
