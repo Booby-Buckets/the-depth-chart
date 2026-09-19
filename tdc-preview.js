@@ -68,7 +68,11 @@
     const avgD = _eff ? _eff.avgD : 102.7;
     const paceK = ctx.pace && E && E.t ? ctx.pace / E.t : 1;
     const offK = E && O ? (E.o + O.d - avgD) / E.o : 1;            // this offense vs this defense, relative to its norm
-    const spread = Math.abs(ctx.margin || 0), starterK = Math.max(0.8, 1 - 0.01 * Math.max(0, spread - 12));
+    // rotation vs the spread: a season line is an average of tight games and cupcakes. In a close
+    // game the starters go 32-36 (×1.22 at a pick'em, ×1.08 at a 10-point line, ×1.0 near 16); in a blowout
+    // they sit and the bench spreads out (×0.8 past ~27). Whatever the starters take, the bench
+    // gives back so the team still plays 200.
+    const spread = Math.abs(ctx.margin || 0), starterK = Math.max(0.8, Math.min(1.22, 1.22 - 0.014 * spread));
     // rebounds / turnovers vs THIS opponent: their defensive-board and turnover-forcing rates against the D-I norm
     const ff = _eff && _eff.ffAvg || {}, of = O && O.ff || {};
     const orbK = of.dDRB != null && ff.dDRB ? (100 - of.dDRB) / (100 - ff.dDRB) : 1;      // opp's DREB% leaves fewer/more offensive boards
@@ -80,9 +84,13 @@
     rows = rows.slice(0, 11);
     // a game has 200 minutes; season projections drawn up independently can add to more
     const rawMin = rows.reduce((s, x) => s + x.b.mpg, 0), fitK = rawMin > 205 ? 200 / rawMin : 1;
+    // starters first, then the bench absorbs the difference so minutes sum to (about) 200
+    const stMin = rows.slice(0, 5).reduce((s, x) => s + Math.min(38, x.b.mpg * fitK * starterK), 0);
+    const bnRaw = rows.slice(5).reduce((s, x) => s + x.b.mpg * fitK, 0);
+    const benchK = bnRaw > 0 ? Math.max(0.6, Math.min(1.5, (Math.min(200, rawMin * fitK) - stMin) / bnRaw)) : 1;
     rows.forEach((x, i) => {
-      const b = x.b, minK = (i < 5 ? starterK : 1 + (1 - starterK) * 0.6) * fitK;
-      const min = Math.min(38, b.mpg * minK), vol = paceK * minK;
+      const b = x.b, minK = (i < 5 ? starterK : benchK) * fitK;
+      const min = Math.min(i < 5 ? 38 : 34, b.mpg * minK), vol = paceK * (min / Math.max(0.1, b.mpg));
       const fgp = Math.min(75, (b.fg || 44) * Math.sqrt(offK)), tpp = Math.min(60, (b.tp || 33) * Math.sqrt(offK)), ftp = b.ft || 70;
       const fga = (b.fga || 0) * vol, tpa = Math.min(fga, (b.tpa || 0) * vol), fta = (b.fta || 0) * vol;
       // makes from the matchup-adjusted percentages; twos and threes keep their own rates
@@ -92,6 +100,10 @@
       x.l = { min, fga, fgm, tpa, tpm, fta, ftm, oreb, dreb, reb: oreb + dreb, ast: (b.apg || 0) * vol * Math.sqrt(offK),
         stl: b.stl * vol, blk: b.blk * vol, tov: b.tov * vol * tovK, pts: 2 * (fgm - tpm) + 3 * tpm + ftm };
     });
+    // 0-10 projected game rating: Hollinger game score on the projected line, on the same scale
+    // as the game reports (5.0 + 0.135·GS), so a preview reads like the box score it predicts
+    const gs = l => l.pts + 0.4 * l.fgm - 0.7 * l.fga - 0.4 * (l.fta - l.ftm) + 0.7 * l.oreb + 0.3 * l.dreb + l.stl + 0.7 * l.ast + 0.7 * l.blk - l.tov;
+    rows.forEach(x => { x.l.gs = gs(x.l); x.l.rtg = Math.max(2, Math.min(10, Math.round((5 + 0.135 * x.l.gs) * 10) / 10)); });
     // coherence: the rotation's points add up to the projected team score (only when the roster is
     // reasonably complete — a missing star would otherwise inflate everyone else)
     const sumMin = rows.reduce((s, x) => s + x.l.min, 0), sumPts = rows.reduce((s, x) => s + x.l.pts, 0);
@@ -105,6 +117,8 @@
     const seasonPts = E && E.o && E.t ? E.o * E.t / 100 : null, sumPpg = rows.reduce((s, x) => s + (x.b.ppg || 0), 0);
     const rosterK = seasonPts && sumPpg > 0 ? Math.max(0.7, Math.min(1.3, seasonPts / sumPpg)) : 1;
     rows.forEach(x => { x.l.base = (x.b.ppg || 0) * rosterK; x.l.dPts = x.l.pts - x.l.base; });
+    // re-grade after the score scaling
+    rows.forEach(x => { x.l.gs = gs(x.l); x.l.rtg = Math.max(2, Math.min(10, Math.round((5 + 0.135 * x.l.gs) * 10) / 10)); });
     return { rows, paceK, offK, starterK, scaleK, sumMin, rosterK, seasonPts, sumPpg };
   }
 
@@ -147,6 +161,8 @@
   [data-theme="dark"] .gp-t td.pos{color:#4fc07a;} [data-theme="dark"] .gp-t td.neg{color:#ef6e6e;}
   .gp-t td.tot{font-weight:800;color:var(--text);background:var(--bg2);}
   .gp-two{display:grid;grid-template-columns:1fr;gap:18px;}
+  .gp-rtg{display:inline-block;min-width:34px;text-align:center;font-weight:800;font-size:11px;color:#fff;border-radius:5px;padding:2px 6px;font-variant-numeric:tabular-nums;}
+  .gp-potg{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.04em;background:#E6D5A8;color:#141821;border-radius:4px;padding:1px 6px;margin-right:7px;vertical-align:1px;}
   .gp-inj{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:11.5px;color:var(--text2);padding:8px 4px 0;}
   .gp-inj-l{font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
   .gp-inj-out{color:#d05a5a;} .gp-inj-hurt{color:var(--text2);} .gp-inj b{font-weight:700;color:var(--text);}
@@ -183,15 +199,18 @@
 
   function playersTable(team, T, color) {
     if (!T || !T.rows.length) return `<div class="gp-wrap"><div class="gp-empty">No projected lines on file for ${sn(team)}'s roster yet.</div></div>`;
-    const K = ['min', 'pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'oreb', 'dreb', 'reb', 'ast', 'tov'];
+    const K = ['min', 'pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'oreb', 'dreb', 'reb', 'ast', 'tov', 'gs'];
+    const rc = r => r >= 8 ? '#1f9d57' : r >= 6.5 ? '#3d8f6b' : r >= 5.5 ? '#c2912f' : '#cf5a4e';
+    const chip = r => `<span class="gp-rtg" style="background:${rc(r)}">${r.toFixed(1)}</span>`;
+    const best = T.rows.reduce((m, x) => (!m || x.l.gs > m.l.gs) ? x : m, null);
     const tot = T.rows.reduce((s, x) => { K.forEach(k => { s[k] += x.l[k] || 0; }); return s; }, Object.fromEntries(K.map(k => [k, 0])));
     const cls = v => v > 0.4 ? 'pos' : v < -0.4 ? 'neg' : '';
     const ma = (m, a) => `${m.toFixed(1)}–${a.toFixed(1)}`, pct = (m, a) => a > 0 ? (100 * m / a).toFixed(1) : '—';
-    return `<div class="gp-wrap"><table class="gp-t"><thead><tr><th class="l">Player</th><th>Min</th><th>Pts</th><th title="field goals made–attempted">FG</th><th title="threes made–attempted">3P</th><th title="free throws made–attempted">FT</th><th title="offensive rebounds">OR</th><th title="defensive rebounds">DR</th><th>Reb</th><th>Ast</th><th>TO</th><th title="points in this game vs the player's typical game (season projection, scaled to the team's own scoring) — the matchup effect">vs typical</th></tr></thead><tbody>${T.rows.map(x => {
+    return `<div class="gp-wrap"><table class="gp-t"><thead><tr><th class="l">Player</th><th title="projected 0-10 game rating (Hollinger game score on the projected line), same scale as the game reports">Rtg</th><th>Min</th><th>Pts</th><th title="field goals made–attempted">FG</th><th title="threes made–attempted">3P</th><th title="free throws made–attempted">FT</th><th title="offensive rebounds">OR</th><th title="defensive rebounds">DR</th><th>Reb</th><th>Ast</th><th>TO</th><th title="points in this game vs the player's typical game (season projection, scaled to the team's own scoring) — the matchup effect">vs typical</th></tr></thead><tbody>${T.rows.map(x => {
       const p = x.p, l = x.l;
-      return `<tr><td class="l nm"><a href="${playerHref(p, team)}">${p.name}</a><small>${p.position || ''}${p.class_year ? ' · ' + p.class_year : ''}${x.b.src === 'fresh' ? ' · Fr proj' : x.b.src === 'last' || x.b.src === 'lastfit' ? ' · last yr' : ''}</small></td>
-        <td>${l.min.toFixed(0)}</td><td class="big">${l.pts.toFixed(1)}</td><td>${ma(l.fgm, l.fga)}</td><td>${ma(l.tpm, l.tpa)}</td><td>${ma(l.ftm, l.fta)}</td><td>${l.oreb.toFixed(1)}</td><td>${l.dreb.toFixed(1)}</td><td>${l.reb.toFixed(1)}</td><td>${l.ast.toFixed(1)}</td><td>${l.tov.toFixed(1)}</td><td class="${cls(l.dPts)}" title="typical game ${l.base.toFixed(1)} pts">${sg(l.dPts)}</td></tr>`;
-    }).join('')}<tr><td class="l tot">Team</td><td class="tot">${tot.min.toFixed(0)}</td><td class="tot">${tot.pts.toFixed(0)}</td><td class="tot">${ma(tot.fgm, tot.fga)}<small style="color:var(--text3);margin-left:4px">${pct(tot.fgm, tot.fga)}%</small></td><td class="tot">${ma(tot.tpm, tot.tpa)}<small style="color:var(--text3);margin-left:4px">${pct(tot.tpm, tot.tpa)}%</small></td><td class="tot">${ma(tot.ftm, tot.fta)}</td><td class="tot">${tot.oreb.toFixed(1)}</td><td class="tot">${tot.dreb.toFixed(1)}</td><td class="tot">${tot.reb.toFixed(1)}</td><td class="tot">${tot.ast.toFixed(1)}</td><td class="tot">${tot.tov.toFixed(1)}</td><td class="tot"></td></tr></tbody></table></div>`;
+      return `<tr><td class="l nm">${x === best ? '<span class="gp-potg">★ POTG</span>' : ''}<a href="${playerHref(p, team)}">${p.name}</a><small>${p.position || ''}${p.class_year ? ' · ' + p.class_year : ''}${x.b.src === 'fresh' ? ' · Fr proj' : x.b.src === 'last' || x.b.src === 'lastfit' ? ' · last yr' : ''}</small></td>
+        <td>${chip(l.rtg)}</td><td>${l.min.toFixed(0)}</td><td class="big">${l.pts.toFixed(1)}</td><td>${ma(l.fgm, l.fga)}</td><td>${ma(l.tpm, l.tpa)}</td><td>${ma(l.ftm, l.fta)}</td><td>${l.oreb.toFixed(1)}</td><td>${l.dreb.toFixed(1)}</td><td>${l.reb.toFixed(1)}</td><td>${l.ast.toFixed(1)}</td><td>${l.tov.toFixed(1)}</td><td class="${cls(l.dPts)}" title="typical game ${l.base.toFixed(1)} pts">${sg(l.dPts)}</td></tr>`;
+    }).join('')}<tr><td class="l tot">Team</td><td class="tot"></td><td class="tot">${tot.min.toFixed(0)}</td><td class="tot">${tot.pts.toFixed(0)}</td><td class="tot">${ma(tot.fgm, tot.fga)}<small style="color:var(--text3);margin-left:4px">${pct(tot.fgm, tot.fga)}%</small></td><td class="tot">${ma(tot.tpm, tot.tpa)}<small style="color:var(--text3);margin-left:4px">${pct(tot.tpm, tot.tpa)}%</small></td><td class="tot">${ma(tot.ftm, tot.fta)}</td><td class="tot">${tot.oreb.toFixed(1)}</td><td class="tot">${tot.dreb.toFixed(1)}</td><td class="tot">${tot.reb.toFixed(1)}</td><td class="tot">${tot.ast.toFixed(1)}</td><td class="tot">${tot.tov.toFixed(1)}</td><td class="tot"></td></tr></tbody></table></div>`;
   }
 
   async function render(host, opts) {
