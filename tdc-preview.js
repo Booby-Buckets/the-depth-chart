@@ -274,7 +274,6 @@
       }).join('');
       const tbody = document.querySelector('#gpCmp .gp-t tbody'); if (tbody) tbody.insertAdjacentHTML('beforeend', rowsHtml);
     }
-    const note = (T, n) => T && T.rows.length ? `${sn(n)}: pace ×${T.paceK.toFixed(2)} · vs this defense ×${T.offK.toFixed(2)}${T.starterK < 1 ? ` · starters' minutes ×${T.starterK.toFixed(2)} (blowout)` : ''}${Math.abs(T.scaleK - 1) > 0.005 ? ` · scaled ×${T.scaleK.toFixed(2)} to the team score` : ''}${T.rosterK && Math.abs(T.rosterK - 1) > 0.02 ? ` · roster's season lines add to ${T.sumPpg.toFixed(0)} pts vs ${T.seasonPts.toFixed(0)} the team projects, so typical games are scaled ×${T.rosterK.toFixed(2)}` : ''}` : '';
     // injury report: out (removed from the rotation above) and hurt-but-playing, from the owner's injury tool + roster flags
     const injLine = (players, n) => {
       if (!players || !players.length) return '';
@@ -287,7 +286,7 @@
     document.getElementById('gpPlayers').innerHTML = `<div class="gp-h">Projected lines · this game <span>each player's 2026-27 projection, priced for this pace and this defense</span></div>
       <div class="gp-two"><div><div style="font-size:12px;font-weight:800;color:${col(team)};padding:8px 2px;">${sn(team)}</div>${playersTable(team, TA, col(team), potg)}${injLine(pa, team)}</div>
       <div><div style="font-size:12px;font-weight:800;color:${col(oppName)};padding:8px 2px;">${sn(oppName)}</div>${row.oppName ? playersTable(oppName, TB, col(oppName), potg) : `<div class="gp-wrap"><div class="gp-empty">Opponent to be determined.</div></div>`}${injLine(pb, oppName)}</div></div>
-      <div class="gp-note"><b>How the lines move:</b> ${[note(TA, team), note(TB, oppName)].filter(Boolean).join(' · ')}. Attempts scale with pace and minutes; makes use the matchup-adjusted percentages; offensive boards, defensive boards and turnovers are priced against this opponent's rebounding and turnover-forcing rates. Minutes come from the season projection; "vs typical" is the points swing this matchup causes against the player's typical game (his season projection, scaled so the roster's lines add up to the team's own scoring). Rosters without a projected line yet (walk-ons, unfilled freshmen) are left out.</div>`;
+`;
     if (g.TDCGate) { const relock = () => { const el = document.getElementById('gpPlayers'); el.classList.remove('tdc-gate-wrap'); g.TDCGate.lock(el, { tier: 'pro', label: 'projected player lines', blurb: 'Pro, Coach\'s Tier and Betting Lab members see how every rotation player projects in this specific matchup — minutes, points, rebounds, assists and shooting.' }); };
       if (g.TDCGate.resolved && g.TDCGate.resolved()) relock(); else if (g.TDCGate.ready) g.TDCGate.ready.then(relock); }
   }
