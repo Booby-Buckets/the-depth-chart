@@ -1185,7 +1185,7 @@ body{background:transparent!important;}
        translucent depth tokens; team color stays on --tc for the minimal accent slots. ===== -->
   <link rel="stylesheet" href="tdc-skin.css?v=9"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
-  <link rel="stylesheet" href="tdc-hq-player.css?v=3"/>
+  <link rel="stylesheet" href="tdc-hq-player.css?v=4"/>
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#FAF9F6" media="(prefers-color-scheme: light)">
@@ -3517,8 +3517,7 @@ function _distSvg(arr,val,mean,lo,hi,tc){
     '<path d="'+d+'" fill="var(--bg3)"/>'+
     '<path d="'+d+'" fill="none" stroke="var(--border2)" stroke-width="1"/>'+
     '<line x1="'+ax.toFixed(1)+'" y1="'+topY+'" x2="'+ax.toFixed(1)+'" y2="'+baseY+'" stroke="var(--text3)" stroke-width="1" stroke-dasharray="3 3" opacity=".7"/>'+
-    '<line x1="'+vx.toFixed(1)+'" y1="'+(topY-4)+'" x2="'+vx.toFixed(1)+'" y2="'+baseY+'" stroke="'+tc+'" stroke-width="2.4"/>'+
-    '<circle cx="'+vx.toFixed(1)+'" cy="'+baseY+'" r="3.6" fill="'+tc+'"/>'+
+    '<line x1="'+vx.toFixed(1)+'" y1="'+(topY-4)+'" x2="'+vx.toFixed(1)+'" y2="'+baseY+'" stroke="'+tc+'" stroke-width="2.4" stroke-linecap="round"/>'+
     '</svg>';
 }
 function _segSync(id,idx){var seg=document.getElementById(id);if(!seg)return;var b=seg.querySelectorAll('button');for(var i=0;i<b.length;i++)b[i].classList.toggle('on',i===idx);}
@@ -3589,10 +3588,10 @@ function renderDist(){
     var rank=s.inv?(li+1):((N-ui)+1);
     var valTxt=s.pct?fmtP(v):fmt(v), loTxt=s.pct?fmtP(lo):fmt(lo), hiTxt=s.pct?fmtP(hi):fmt(hi);
     return '<div class="dist-card">'+
-      '<div class="dist-top"><div class="dist-name">'+s.l+'</div>'+
-        '<div class="dist-rank" style="color:'+tc+';"><b>'+_ord(pct)+'</b> percentile<span>'+_ord(rank)+' of '+N+'</span></div></div>'+
-      '<div class="dist-val">'+valTxt+'</div>'+
-      _distSvg(arr,v,mean,lo,hi,tc)+
+      '<div class="dist-row"><div class="dist-name">'+s.l+'</div><div class="dist-val">'+valTxt+'</div>'+
+        '<div class="dist-track"><i style="width:'+Math.max(0,Math.min(100,pct))+'%"></i><b></b></div>'+
+        '<div class="dist-rank"><b>'+_ord(pct)+'</b><span>'+_ord(rank)+' of '+N+'</span></div></div>'+
+      _distSvg(arr,v,mean,lo,hi,'var(--pd-ink)')+
       '<div class="dist-axis"><span>'+loTxt+'</span><span>avg</span><span>'+hiTxt+'</span></div>'+
     '</div>';
   }).join('');
