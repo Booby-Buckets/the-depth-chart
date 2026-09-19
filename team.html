@@ -1164,7 +1164,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="tdc-pwa.js?v=2" defer></script>
   <script src="tdc-hq-init.js?v=1"></script>
-  <link rel="stylesheet" href="tdc-hq.css?v=9"/>
+  <link rel="stylesheet" href="tdc-hq.css?v=10"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=3"/>
 </head>
 <body data-anim-auto>
@@ -6252,7 +6252,7 @@ async function _dnaStyleSplits(key, season, S, teams){
 // a weak defensive-rebounding opponent, beyond the raw rating gap. Returns the
 // residual (matchup margin − strength-implied margin) in points per 100, so ANY
 // team can surface — favorable/tough is about style, not ranking.
-function _dnaStyleFit(t, S, oppKeys){
+function _dnaStyleFit(t, S, oppKeys, name){
   try{
     const teams=Object.values(S.teams), wm=S.meta&&S.meta.win_model; if(!wm||!t) return null;
     const avg=k=>{ const a=teams.map(x=>x[k]).filter(v=>v!=null&&isFinite(v)); return a.length?a.reduce((s,x)=>s+x,0)/a.length:0; };
@@ -6271,28 +6271,31 @@ function _dnaStyleFit(t, S, oppKeys){
     // has help/hurt variants (multiple wordings, picked by a per-team hash so a team's
     // phrasing is stable but differs from its neighbors). PHR = primary clause, PH2 = a
     // short second-dimension tag from a DIFFERENT factor, so most rows show two ideas.
+    // Third person only — {T} is the team's own name; "they/their" is always the opponent.
+    const T=(name||'This team').replace(/\$/g,'$$$$');
     const PHR={
-      eFGoff:[['they give up efficient looks','their defense yields clean shots','we get better looks than usual against them'],
-              ['they contest everything — our looks get tougher','their shot defense makes us grind','we shoot into a wall against them']],
-      eFGdef:[['our shot defense smothers their scoring','we take away their clean looks','they can’t get good looks on us'],
-              ['they can shoot over our defense','they get the looks they want','our shot defense springs leaks against them']],
-      tovoff:[['they rarely force turnovers','their low-pressure defense lets our offense flow','we take care of it against their scheme'],
-              ['their ball pressure gets into our handling','they speed us up into mistakes','our guards get sped up by their pressure']],
-      tovdef:[['we can pressure their ball-handling','we speed them into mistakes','our defense forces them into turnovers'],
-              ['they protect the ball against our pressure','our pressure doesn’t rattle them','they don’t beat themselves against us']],
-      orboff:[['their soft defensive glass gives us second shots','we crash and they can’t clear it','extra possessions on the offensive glass'],
-              ['they lock the defensive glass — one shot and done','no second chances against their rebounding','they end our possessions on the boards']],
-      orbdef:[['we clean the defensive glass against them','we hold them to one shot','no second chances for them'],
-              ['they crash the offensive boards on us','they get extra cracks at our rim','we struggle to end their possessions']],
+      eFGoff:[['they give up efficient looks','their defense yields clean shots','{T} gets better looks than usual against them'],
+              ['they contest everything — {T}\'s looks get tougher','their shot defense makes {T} grind','{T} shoots into a wall against them']],
+      eFGdef:[['{T}\'s shot defense smothers their scoring','{T} takes away their clean looks','they can’t get good looks on {T}'],
+              ['they can shoot over {T}\'s defense','they get the looks they want','{T}\'s shot defense springs leaks against them']],
+      tovoff:[['they rarely force turnovers','their low-pressure defense lets {T}\'s offense flow','{T} takes care of the ball against their scheme'],
+              ['their ball pressure gets into {T}\'s handling','they speed {T} up into mistakes','{T}\'s guards get sped up by their pressure']],
+      tovdef:[['{T} can pressure their ball-handling','{T} speeds them into mistakes','{T}\'s defense forces them into turnovers'],
+              ['they protect the ball against {T}\'s pressure','{T}\'s pressure doesn’t rattle them','they don’t beat themselves against {T}']],
+      orboff:[['their soft defensive glass gives {T} second shots','{T} crashes and they can’t clear it','extra possessions for {T} on the offensive glass'],
+              ['they lock the defensive glass — one shot and done','no second chances against their rebounding','they end {T}\'s possessions on the boards']],
+      orbdef:[['{T} cleans the defensive glass against them','{T} holds them to one shot','no second chances for them'],
+              ['they crash the offensive boards on {T}','they get extra cracks at {T}\'s rim','{T} struggles to end their possessions']],
     };
     const PH2={
-      eFGoff:['plus cleaner looks','plus tougher looks'], eFGdef:['plus we defend the shot','plus they shoot over us'],
-      tovoff:['plus we protect the ball','plus they pressure our handle'], tovdef:['plus we force turnovers','plus they’re secure with it'],
-      orboff:['plus we own the offensive glass','plus they own the defensive glass'], orbdef:['plus we control the glass','plus they crash on us'],
+      eFGoff:['plus cleaner looks','plus tougher looks'], eFGdef:['plus {T} defends the shot','plus they shoot over {T}'],
+      tovoff:['plus {T} protects the ball','plus they pressure {T}\'s handle'], tovdef:['plus {T} forces turnovers','plus they’re secure with it'],
+      orboff:['plus {T} owns the offensive glass','plus they own the defensive glass'], orbdef:['plus {T} controls the glass','plus they crash on {T}'],
     };
+    const _T=str=>str.replace(/\{T\}/g,T);
     const _h=s=>{ let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0; return Math.abs(h); };
-    const _phr=(sub,h)=>{ const a=PHR[sub.stat+sub.side]; if(!a) return ''; const v=a[sub.v>=0?0:1]; return v[h%v.length]; };
-    const _ph2=(sub)=>{ const a=PH2[sub.stat+sub.side]; return a?a[sub.v>=0?0:1]:''; };
+    const _phr=(sub,h)=>{ const a=PHR[sub.stat+sub.side]; if(!a) return ''; const v=a[sub.v>=0?0:1]; return _T(v[h%v.length]); };
+    const _ph2=(sub)=>{ const a=PH2[sub.stat+sub.side]; return a?_T(a[sub.v>=0?0:1]):''; };
     const P=(O,D)=>offParts(O,D);
     const facs=['eFG','tov','orb'];
     const rows=oppKeys.map(k=>{ const O=S.teams[k]; if(!O) return null;
@@ -6349,7 +6352,7 @@ function _dnaMatchup(oppKey){
       <div class="dna-mu-lbl" style="font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:2px;">Projected final margin · neutral court</div>
       <div class="dna-mu-line">Projected: <b class="${fav?'pos':'neg'}">${fav?myName:oppKey}</b> by <b>${Math.abs(margin).toFixed(1)}</b> points</div>
       <div class="dna-mu-wp">${wpMe}% win probability for ${myName}</div>
-      <div class="dna-mu-sub"><b>${Math.abs(margin).toFixed(1)}</b> is the projected final-score margin — the game spread at an expected <b>${poss.toFixed(0)}</b> possessions. It comes from a <b>${per100.toFixed(1)}</b>-point-per-100-possessions efficiency edge (${myName}'s offense projects to <b>${teamExpO.toFixed(0)}</b> per 100 vs their defense, the opponent's to <b>${oppExpO.toFixed(0)}</b> vs yours), scaled down to game length. Neutral floor, efficiency-based — no injuries or individual player matchups.</div>
+      <div class="dna-mu-sub"><b>${Math.abs(margin).toFixed(1)}</b> is the projected final-score margin — the game spread at an expected <b>${poss.toFixed(0)}</b> possessions. It comes from a <b>${per100.toFixed(1)}</b>-point-per-100-possessions efficiency edge (${myName}'s offense projects to <b>${teamExpO.toFixed(0)}</b> per 100 against ${oppKey}'s defense; ${oppKey}'s offense to <b>${oppExpO.toFixed(0)}</b> against ${myName}'s), scaled down to game length. Neutral floor, efficiency-based — no injuries or individual player matchups.</div>
     </div>`;
 }
 function _erf(x){ const t=1/(1+0.3275911*Math.abs(x)); const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x); return x>=0?y:-y; }
@@ -6553,13 +6556,15 @@ async function renderTeamDNA(){
   const oppKeys=Object.keys(S.teams).filter(k=>k!==key).sort((a,b)=>(_adjN(S.teams[b])!=null?_adjN(S.teams[b]):-99)-(_adjN(S.teams[a])!=null?_adjN(S.teams[a]):-99));
   const _projMargin=o=>{ if(_mO(o)==null||_mO(t)==null) return null; const poss=((t.tempo||68)+(o.tempo||68))/2; return ((_mO(t)-_mD(t))-(_mO(o)-_mD(o)))*poss/100; };
   const oppOpts=oppKeys.map(k=>{ const m=_projMargin(S.teams[k]); const lbl=m==null?'':' ('+(m>=0?'+':'')+m.toFixed(1)+')'; return `<option value="${k.replace(/"/g,'&quot;')}">${k}${lbl}</option>`; }).join('');
-  const _sf=_dnaStyleFit(t, S, oppKeys);
+  const _sf=_dnaStyleFit(t, S, oppKeys, teamT.name);
   const _sn=x=>window.tdcShortSchool?tdcShortSchool(x):x;
-  const sfRow=r=>`<div class="dA-mrow"><div><div class="dA-mteam">${_sn(r.team)}</div><div class="dA-cap">${r.reason}</div></div><div class="dA-rv ${r.edge>=0?'pos':'neg'}">${r.edge>=0?'+':'−'}${Math.abs(r.edge).toFixed(1)}</div></div>`;
-  const sfHtml=(_sf&&(_sf.favorable.length||_sf.tough.length))?`<div class="dA-mcols"><div><div class="dA-sub">Favorable</div>${_sf.favorable.length?_sf.favorable.map(sfRow).join(''):'<div class="dA-cap">No standout edges.</div>'}</div><div><div class="dA-sub">Tough</div>${_sf.tough.length?_sf.tough.map(sfRow).join(''):'<div class="dA-cap">No standout traps.</div>'}</div></div>`:'';
-  const matchupHtml=oppKeys.length?card(sec('Matchup projector','style edge in pts/100 vs an equal-strength opponent')+sfHtml+
+  const sfRow=r=>{ const m=_projMargin(S.teams[r.team]); const fav=m!=null&&m>=0;
+    return `<div class="dA-mrow"><div><div class="dA-mteam">${_sn(r.team)}</div><div class="dA-cap">style ${r.edge>=0?'+':'−'}${Math.abs(r.edge).toFixed(1)} per 100 · ${r.reason}</div></div>`+
+      (m==null?'<div class="dA-rv">—</div>':`<div class="dA-rv ${fav?'pos':'neg'}">${fav?'+':'−'}${Math.abs(m).toFixed(1)}<div class="dA-cap">${fav?teamT.name:_sn(r.team)} by ${Math.abs(m).toFixed(1)}</div></div>`)+`</div>`; };
+  const sfHtml=(_sf&&(_sf.favorable.length||_sf.tough.length))?`<div class="dA-mcols"><div><div class="dA-sub">Style favors ${teamT.name}</div>${_sf.favorable.length?_sf.favorable.map(sfRow).join(''):'<div class="dA-cap">No standout edges.</div>'}</div><div><div class="dA-sub">Style works against ${teamT.name}</div>${_sf.tough.length?_sf.tough.map(sfRow).join(''):'<div class="dA-cap">No standout traps.</div>'}</div></div>`:'';
+  const matchupHtml=oppKeys.length?card(sec('Matchup projector',`projected margin per game for ${teamT.name} · neutral floor`)+sfHtml+
     `<div class="dA-pick"><label for="dnaOppSel">Project against</label><select id="dnaOppSel" class="dna-mu-sel" onchange="_dnaMatchup(this.value)"><option value="">Select a team…</option>${oppOpts}</select></div><div id="dnaMatchupOut"></div>`+
-    `<div class="dA-foot">Style edges are how many points per 100 possessions better (or worse) ${teamT.name} matches up than a generic opponent of the same strength — fit, not ranking. The dropdown is ordered strongest → weakest; the number in parentheses is ${teamT.name}'s projected margin per game on a neutral floor.</div>`):'';
+    `<div class="dA-foot">The big number is the projected final margin (+ = ${teamT.name} wins). The style line underneath is separate: how many points per 100 possessions better or worse ${teamT.name} matches up than a generic opponent of the same strength — so a team can be a good style fit and still be the underdog. The dropdown is ordered strongest → weakest; the number in parentheses is the same projected margin.</div>`):'';
   // shot genome + passing (offense rows; defense rows on actual seasons)
   let shotHtml='';
   const sgProjRow=(PROJ && window._sgProj && key)?window._sgProj[key]:null;
