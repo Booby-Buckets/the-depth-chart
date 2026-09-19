@@ -25,7 +25,7 @@
   const f1 = v => v == null || !isFinite(v) ? '—' : (+v).toFixed(1);
 
   function loadEff() { return _effP || (_effP = fetch('scripts/data/team_pace_eff.json?v=2').then(r => r.ok ? r.json() : null).then(j => (_eff = j)).catch(() => null)); }
-  function loadProj() { return _projP || (_projP = fetch('scripts/data/stat_overall_projected.json?v=35').then(r => r.ok ? r.json() : null).then(j => (_proj = j)).catch(() => null)); }
+  function loadProj() { return _projP || (_projP = fetch('scripts/data/stat_overall_projected.json?v=36').then(r => r.ok ? r.json() : null).then(j => (_proj = j)).catch(() => null)); }
   function roster(full) {
     const short = sn(full);
     return fetch(`${SB}/rest/v1/players?team=eq.${encodeURIComponent(short)}&select=name,team,position,class_year,height,espn_id,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,three_pct,ft_pct,stl,blk,tovs,fga,fgm,tpa,tpm,is_injured,yr,starter,depth_order&order=depth_order.asc.nullslast`, { headers: H })
@@ -44,13 +44,22 @@
       if (b.tpa == null) { b.tpa = (b.fga || 0) * 0.36; b.tpm = b.tpa * ((b.tp || 33) / 100); }
       if (b.fta == null) { b.fta = (b.fga || 0) * 0.3; b.ftm = b.fta * ((b.ft || 70) / 100); }
       if (b.oreb == null && b.rpg != null) { b.oreb = b.rpg * 0.28; b.dreb = b.rpg - b.oreb; }
+      // the shot components must reproduce the headline points (a hand-set freshman line's ppg and
+      // its fga/fg% are set independently) — scale attempts + makes so 2·twos + 3·threes + FTs = ppg
+      const cp = 2 * ((b.fgm || 0) - (b.tpm || 0)) + 3 * (b.tpm || 0) + (b.ftm || 0);
+      if (b.ppg > 0 && cp > 0 && Math.abs(cp - b.ppg) / b.ppg > 0.03) { const k = b.ppg / cp; ['fga', 'fgm', 'tpa', 'tpm', 'fta', 'ftm'].forEach(k2 => { b[k2] = (b[k2] || 0) * k; }); }
       return b;
     };
+    // a player with last-year stats but no projection (a transfer the build couldn't key) still gets
+    // the team-fitted role the build left him
+    const fitLast = b => { const f = g.TDCFresh && g.TDCFresh.fitFor && g.TDCFresh.fitFor(p); if (!f || !f.mpg || !b.mpg) return b;
+      const km = Math.max(0.4, Math.min(1.6, f.mpg / b.mpg)), kp = Math.max(0.4, Math.min(1.6, (f.ppg || 0) / Math.max(0.1, b.ppg || 0.1)));
+      ['rpg', 'apg', 'oreb', 'dreb', 'stl', 'blk', 'tov'].forEach(k => { b[k] = (b[k] || 0) * km; }); ['ppg', 'fga', 'fgm', 'tpa', 'tpm', 'fta', 'ftm'].forEach(k => { b[k] = (b[k] || 0) * kp; }); b.mpg = f.mpg; b.src = 'lastfit'; return b; };
     if (P && p.espn_id && P[String(p.espn_id)]) { const q = P[String(p.espn_id)]; return mk('proj', q, q.ovr); }
     if (g.TDCFresh && g.TDCFresh.isFreshman && g.TDCFresh.isFreshman(p)) {
       try { const l = g.TDCFresh.line(p, g.TDCFresh.profileFor(p)); if (l && l.mpg) return mk('fresh', l, l._frOvr || p.tdc_grade); } catch (e) {}
     }
-    if (p.mpg && p.ppg != null) return mk('last', p, p.tdc_grade);
+    if (p.mpg && p.ppg != null) return fitLast(mk('last', p, p.tdc_grade));
     return null;
   }
 
@@ -180,7 +189,7 @@
     const ma = (m, a) => `${m.toFixed(1)}–${a.toFixed(1)}`, pct = (m, a) => a > 0 ? (100 * m / a).toFixed(1) : '—';
     return `<div class="gp-wrap"><table class="gp-t"><thead><tr><th class="l">Player</th><th>Min</th><th>Pts</th><th title="field goals made–attempted">FG</th><th title="threes made–attempted">3P</th><th title="free throws made–attempted">FT</th><th title="offensive rebounds">OR</th><th title="defensive rebounds">DR</th><th>Reb</th><th>Ast</th><th>TO</th><th title="points in this game vs the player's typical game (season projection, scaled to the team's own scoring) — the matchup effect">vs typical</th></tr></thead><tbody>${T.rows.map(x => {
       const p = x.p, l = x.l;
-      return `<tr><td class="l nm"><a href="${playerHref(p, team)}">${p.name}</a><small>${p.position || ''}${p.class_year ? ' · ' + p.class_year : ''}${x.b.src === 'fresh' ? ' · Fr proj' : x.b.src === 'last' ? ' · last yr' : ''}</small></td>
+      return `<tr><td class="l nm"><a href="${playerHref(p, team)}">${p.name}</a><small>${p.position || ''}${p.class_year ? ' · ' + p.class_year : ''}${x.b.src === 'fresh' ? ' · Fr proj' : x.b.src === 'last' || x.b.src === 'lastfit' ? ' · last yr' : ''}</small></td>
         <td>${l.min.toFixed(0)}</td><td class="big">${l.pts.toFixed(1)}</td><td>${ma(l.fgm, l.fga)}</td><td>${ma(l.tpm, l.tpa)}</td><td>${ma(l.ftm, l.fta)}</td><td>${l.oreb.toFixed(1)}</td><td>${l.dreb.toFixed(1)}</td><td>${l.reb.toFixed(1)}</td><td>${l.ast.toFixed(1)}</td><td>${l.tov.toFixed(1)}</td><td class="${cls(l.dPts)}" title="typical game ${l.base.toFixed(1)} pts">${sg(l.dPts)}</td></tr>`;
     }).join('')}<tr><td class="l tot">Team</td><td class="tot">${tot.min.toFixed(0)}</td><td class="tot">${tot.pts.toFixed(0)}</td><td class="tot">${ma(tot.fgm, tot.fga)}<small style="color:var(--text3);margin-left:4px">${pct(tot.fgm, tot.fga)}%</small></td><td class="tot">${ma(tot.tpm, tot.tpa)}<small style="color:var(--text3);margin-left:4px">${pct(tot.tpm, tot.tpa)}%</small></td><td class="tot">${ma(tot.ftm, tot.fta)}</td><td class="tot">${tot.oreb.toFixed(1)}</td><td class="tot">${tot.dreb.toFixed(1)}</td><td class="tot">${tot.reb.toFixed(1)}</td><td class="tot">${tot.ast.toFixed(1)}</td><td class="tot">${tot.tov.toFixed(1)}</td><td class="tot"></td></tr></tbody></table></div>`;
   }

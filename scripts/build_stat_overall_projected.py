@@ -93,7 +93,7 @@ IMPACT_LIFT=float(os.environ.get("IMPACT_LIFT","0.55"))
 # the team's projected scoring; 0 = off (independent lines, the pre-Sep-2026 behavior).
 TEAM_FIT=float(os.environ.get("TEAM_FIT","1.0"))
 FRESH_PPS=1.08          # points per FGA (incl. the FTs a shot draws) for a no-box player's estimated shots
-TEAM_PPG={}; TEAM_FIT_LOG={}
+TEAM_PPG={}; TEAM_FIT_LOG={}; FRESH_FIT={}   # FRESH_FIT[short][name] = fitted {mpg, ppg} for no-box players (tdc-freshman.js scales its lines to these)
 try:
     _pe=json.load(open(os.path.join(D,"team_pace_eff.json")))
     for _tn,_tv in _pe.get("teams",{}).items():
@@ -545,13 +545,13 @@ for short, roster in roster_by_team.items():
     #     all move together and the player page, team page and game previews agree.
     if R and TEAM_FIT>0:
         _rids={rr["e"] for rr in R}; _fresh=[]
-        for _p in roster:
+        for _p in pl[pl.team==short].itertuples():          # the FULL roster — freshmen have no espn_id
             _e=int(_p.espn_id) if pd.notna(_p.espn_id) else None
             if _e is not None and _e in _rids: continue
             _nm=str(getattr(_p,"name","") or "").strip()
             if not _nm or _nm.lower() in ("name","—"): continue
             _est=_fresh_est(getattr(_p,"tdc_grade",None),_p.depth_order,_p.starter,_p.position)
-            if _est: _fresh.append(_est)
+            if _est: _fresh.append(_est+(_nm,))
         _fmin=sum(x[0] for x in _fresh); _ffga=sum(x[2] for x in _fresh)
         _tot=sum(rr["pm"] for rr in R)+_fmin
         _minK=min(1.0, REF_MIN/_tot) if _tot>REF_MIN else 1.0
@@ -569,6 +569,17 @@ for short, roster in roster_by_team.items():
                 rr["pm"]=max(5.0, rr["pm"]*_minK)
                 rr["proj_usg"]=min(USG_CAP[1],max(USG_CAP[0],rr["proj_usg"]*_ptsK))
             for rr in R: _project_one(rr)
+        # the freshmen / no-box players get what's LEFT of the team: minutes to 200, points to the
+        # team's projected scoring after the (fitted) returners — one fitted {mpg, ppg} per player,
+        # which the freshman line engine scales its own line to
+        if _fresh:
+            _rmin=sum(out[str(rr["e"])]["mpg"] for rr in R if str(rr["e"]) in out)
+            _rpts=sum(out[str(rr["e"])]["ppg"] for rr in R if str(rr["e"]) in out)
+            _fm=sum(x[0] for x in _fresh) or 1.0; _fp=sum(x[2]*FRESH_PPS for x in _fresh) or 1.0
+            _kmin=max(0.5,min(1.3,max(0.0,REF_MIN-_rmin)/_fm))
+            _kpts=max(0.5,min(1.3,max(0.0,(_target or (_rpts+_fp))-_rpts)/_fp))
+            FRESH_FIT[short]={x[3]:{"mpg":round(x[0]*_kmin,1),"ppg":round(x[2]*FRESH_PPS*_kpts,1)} for x in _fresh}
+            TEAM_FIT_LOG[full].update(fresh_min_k=round(_kmin,2),fresh_pts_k=round(_kpts,2))
 
 # ---- IMPACT RECONCILIATION (lift-only) ----
 # Map each player's Total Impact (ti40) through the SAME percentile→grade curve as the wa
@@ -680,6 +691,7 @@ for short,lst in roster_full.items():
 for e,row in out.items():
     if "_demo_f40" in row: row["shot_tend_demo"]=_tend(row.pop("_demo_f40"))
 
+json.dump(FRESH_FIT,open(os.path.join(D,"fresh_fit.json"),"w"),separators=(",",":"))
 json.dump({"season":"2026-27","scale":{"mu":MU,"sp":SP},"n":len(out),"players":out,"teams":teams_out},
           open(os.path.join(D,"stat_overall_projected.json"),"w"),separators=(",",":"),allow_nan=False)
 if TEAM_FIT_LOG:

@@ -119,12 +119,25 @@
     var cap=function(v,mx){ return Math.min(v, mx); };
     base.apg=cap(base.apg*scale, 6.0)/scale; base.ppg=cap(base.ppg*scale*usg, 22)/(scale*usg);
     base.rpg=cap(base.rpg*scale, 11)/scale; base.stl=cap(base.stl*scale, 2.3)/scale; base.blk=cap(base.blk*scale, 3.0)/scale;
-    return Object.assign({}, p, { mpg:r1(mpg), ppg:r1(base.ppg*scale*usg), rpg:r1(base.rpg*scale), apg:r1(base.apg*scale),
-      fg_pct:r1(base.fg_pct), tp_pct:r1(base.tp_pct), ft_pct:r1(base.ft_pct),
-      fga:r1(fga), fgm:r1(fga*base.fg_pct/100), tpa:r1(fga*0.42), tpm:r1(fga*0.42*base.tp_pct/100),
-      fta:r1(mpg*0.09*usg), ftm:r1(mpg*0.09*usg*base.ft_pct/100),
-      oreb:r1(base.oreb*scale), dreb:r1(base.dreb*scale), stl:r1(base.stl*scale), blk:r1(base.blk*scale), tovs:r1(base.tovs*scale),
-      tdc_grade:(ovr!=null?''+Math.round(ovr):p.tdc_grade), _frOvr:ovr!=null, _noStatEst:true, _frProfiled:!!profile });
+    var L={ mpg:mpg, ppg:base.ppg*scale*usg, rpg:base.rpg*scale, apg:base.apg*scale,
+      fg_pct:base.fg_pct, tp_pct:base.tp_pct, ft_pct:base.ft_pct,
+      fga:fga, fgm:fga*base.fg_pct/100, tpa:fga*0.42, tpm:fga*0.42*base.tp_pct/100,
+      fta:mpg*0.09*usg, ftm:mpg*0.09*usg*base.ft_pct/100,
+      oreb:base.oreb*scale, dreb:base.dreb*scale, stl:base.stl*scale, blk:base.blk*scale, tovs:base.tovs*scale };
+    // TEAM FIT: the projection build (build_stat_overall_projected.py) hands every no-box player the
+    // minutes and points LEFT on his team after the returners — so the freshman line keeps its shape
+    // (percentages, archetype tendencies) but its volume fits the roster, and the player page, team
+    // page and game previews add up to one team.
+    var fit=_fit&&_fit[p.team]&&_fit[p.team][p.name];
+    var fitted=false;
+    if(fit&&fit.mpg>0&&L.mpg>0){
+      var km=Math.max(0.4,Math.min(1.6,fit.mpg/L.mpg)), kp=Math.max(0.4,Math.min(1.6,(fit.ppg||0)/Math.max(0.1,L.ppg)));
+      ['rpg','apg','oreb','dreb','stl','blk','tovs'].forEach(function(k){ L[k]*=km; });
+      ['ppg','fga','fgm','tpa','tpm','fta','ftm'].forEach(function(k){ L[k]*=kp; });
+      L.mpg=fit.mpg; fitted=true;
+    }
+    var O={}; Object.keys(L).forEach(function(k){ O[k]=r1(L[k]); });
+    return Object.assign({}, p, O, { tdc_grade:(ovr!=null?''+Math.round(ovr):p.tdc_grade), _frOvr:ovr!=null, _noStatEst:true, _frProfiled:!!profile, _frFit:fitted });
   }
 
   // ── storage ──
@@ -132,7 +145,10 @@
   function isOwner(){ var s=session(); return !!(s&&s.user&&(s.user.email||'').toLowerCase()===OWNER); }
   function isFreshman(p){ return !!p && !(parseFloat(p.ppg)>0); }
   function frKey(p){ return 'tdc_fr:'+((p&&p.team)||'')+':'+((p&&p.name)||''); }
-  var _blob=null, _loaded=false, _loading=null;
+  var _blob=null, _loaded=false, _loading=null, _fit=null;
+  // per-team fitted {mpg, ppg} for no-box players, from the projection build (small file)
+  function loadFit(){ if(_fit) return Promise.resolve(_fit);
+    return fetch('scripts/data/fresh_fit.json?v=1').then(function(r){ return r.ok?r.json():{}; }).then(function(j){ _fit=j||{}; return _fit; }).catch(function(){ _fit={}; return _fit; }); }
   function profileFor(p){ var k=frKey(p); if(_blob&&typeof _blob==='object') return _blob[k]||null;
     try{ var s=localStorage.getItem(k); return s?JSON.parse(s):null; }catch(e){ return null; } }
   function pushBlob(){ var s=session(); if(!isOwner()||!s||!s.access_token||!s.user||!s.user.id) return Promise.resolve({ok:false});
@@ -159,8 +175,8 @@
       ? SB+'/rest/v1/profiles?id=eq.'+s.user.id+'&select=freshman_projections'
       : SB+'/rest/v1/profiles?id=eq.'+OWNER_ID+'&select=freshman_projections';
     var hdr = owner ? {apikey:KEY,Authorization:'Bearer '+s.access_token} : {apikey:KEY};
-    _loading=fetch(url,{headers:hdr})
-      .then(function(r){return r.ok?r.json():[];}).then(function(rows){
+    _loading=Promise.all([loadFit(), fetch(url,{headers:hdr})
+      .then(function(r){return r.ok?r.json():[];})]).then(function(both){ var rows=both[1];
         _blob=(rows&&rows[0]&&rows[0].freshman_projections)||{};
         if(owner){  // migrate any legacy localStorage entries into the owner's blob
           var migrated=false;
@@ -271,7 +287,7 @@
 
   window.TDCFresh={
     isOwner:isOwner, isFreshman:isFreshman, load:load, profileFor:profileFor, line:line, archetypeOf:archetypeOf, openEditor:openEditor, estBPM:estBPM, ratingOverrides:ratingOverrides,
-    getKey:getKey, setKey:setKey,
+    getKey:getKey, setKey:setKey, fitFor:function(p){ return (_fit&&p&&_fit[p.team]&&_fit[p.team][p.name])||null; },
     _set:function(k,v){ if(k==='archetype')_d.archetype=v; else if(k==='role')_d.role=v; render(); },
     _setSlider:function(k,v){ _d.sliders[k]=+v; preview(); },
     _setOvr:function(v){ _d.ovr=+v; preview(); },
