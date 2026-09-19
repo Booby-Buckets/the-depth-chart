@@ -6099,22 +6099,24 @@ function _dnaCSS(){ if(document.getElementById('dna-css')) return;
   #panel-dna{max-width:none;}
   :root{--dna-fill:#1A2A4C;}
   :root[data-theme="dark"]{--dna-fill:#8fa8dc;}
-  .dA-head{background:#0B1220;color:#fff;border-radius:14px;padding:22px 24px 20px;display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;margin:0 0 18px;}
-  .dA-hl{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1 1 420px;}
+  .dA-head{background:#0B1220;color:#fff;border-radius:14px;padding:22px 24px 20px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:18px 32px;margin:0 0 18px;}
+  .dA-hl{display:flex;flex-direction:column;gap:6px;min-width:0;max-width:640px;}
   .dA-eyebrow{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#E6D5A8;}
-  .dA-h1{font-family:'Playfair Display',Georgia,serif;font-size:28px;font-weight:800;line-height:1.08;color:#fff;}
+  .dA-h1{font-family:'Playfair Display',Georgia,serif;font-size:27px;font-weight:800;line-height:1.1;color:#fff;text-wrap:balance;}
   .dA-hsub{font-size:12.5px;color:#b8c0cf;line-height:1.5;}
   .dA-hr{display:flex;flex-direction:column;align-items:flex-end;gap:10px;}
   .dA-sel{padding:6px 10px;border:1px solid #2a3652;border-radius:8px;background:#121C33;color:#fff;font-size:12px;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;}
-  .dA-tiles{display:flex;gap:8px;flex-wrap:wrap;}
-  .dA-tile{min-width:112px;padding:10px 12px;border:1px solid #2a3652;border-radius:10px;display:flex;flex-direction:column;gap:2px;}
+  .dA-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+  .dA-tile{min-width:108px;padding:10px 12px;border:1px solid #2a3652;border-radius:10px;display:flex;flex-direction:column;gap:2px;}
   .dA-tile .dA-tv{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;line-height:1.05;color:#fff;}
-  .dA-tile .dA-tl{color:#b8c0cf;}
-  .dA-tile .dA-tr{font-size:11px;color:#E6D5A8;}
+  .dA-tile .dA-tl{color:#b8c0cf;white-space:nowrap;}
+  .dA-tile .dA-tr{font-size:11px;color:#E6D5A8;white-space:nowrap;}
+  @media(max-width:1100px){.dA-head{grid-template-columns:1fr;} .dA-hl{max-width:none;} .dA-hr{align-items:stretch;flex-direction:row-reverse;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;} .dA-tiles{flex:1 1 100%;}}
+  @media(max-width:560px){.dA-tiles{grid-template-columns:repeat(2,minmax(0,1fr));} .dA-tile .dA-tr{white-space:normal;}}
   .dA-tl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);font-weight:700;}
   .dA-tv{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;line-height:1.05;}
   .dA-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start;}
-  @media(max-width:880px){.dA-cols{grid-template-columns:1fr;} .dA-head{padding:18px;} .dA-hr{align-items:flex-start;}}
+  @media(max-width:880px){.dA-cols{grid-template-columns:1fr;} .dA-head{padding:18px;}}
   .dA-col{display:flex;flex-direction:column;gap:16px;min-width:0;}
   .dA-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px 12px;}
   .dA-sec{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:2px solid var(--text);padding-bottom:8px;margin-bottom:6px;}
@@ -6460,8 +6462,8 @@ async function renderTeamDNA(){
   const LO={oeFG:'can\'t make shots',oTOV:'turns it over',oORB:'doesn\'t chase its misses',oFTr:'rarely gets to the line',deFG:'gives up easy shots',dTOV:'never forces a turnover',dDRB:'leaks offensive rebounds',dFTr:'fouls too much'};
   const FP={oeFG:pct('oeFG'),oTOV:pct('oTOV',false),oORB:pct('oORB'),oFTr:pct('oFTr'),deFG:pct('deFG',false),dTOV:pct('dTOV'),dDRB:pct('dDRB'),dFTr:pct('dFTr',false)};
   const fk=Object.keys(FP).filter(k=>t[k]!=null); const best=fk.slice().sort((a,b)=>FP[b]-FP[a])[0], worst=fk.slice().sort((a,b)=>FP[a]-FP[b])[0];
-  let headline=wp.summary||'';
-  if(!headline && best && worst){ headline = (FP[best]>=60 && FP[worst]<=40) ? `A team that ${HI[best]} — and ${LO[worst]}.` : (FP[best]>=60 ? `A team that ${HI[best]}, with no glaring hole.` : (FP[worst]<=40 ? `No elite trait, and it ${LO[worst]}.` : 'A balanced profile with no extreme trait.')); }
+  let headline='';
+  if(best && worst){ headline = (FP[best]>=60 && FP[worst]<=40) ? `A team that ${HI[best]} — and ${LO[worst]}.` : (FP[best]>=60 ? `A team that ${HI[best]}, with no glaring hole.` : (FP[worst]<=40 ? `No elite trait, and it ${LO[worst]}.` : 'A balanced profile with no extreme trait.')); }
   const subline = PROJ ? `Projected from the 2026-27 roster · ranks vs the ${N} teams with rosters entered · every bar is a national percentile, tick = D-I median`
     : `${t.w}–${t.l}${t.exp_wins!=null?` · expected ${t.exp_wins} wins (${(t.luck>=0?'+':'')+t.luck} luck)`:''}${ADJ?' · efficiency is opponent-adjusted':''} · every bar is a national percentile, tick = D-I median`;
   // four factors
