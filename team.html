@@ -1150,7 +1150,7 @@
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index cover -->
   <script>try{document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
   <link rel="stylesheet" href="tdc-dense.css?v=31"/>
-  <link rel="stylesheet" href="tdc-team-dense.css?v=21"/>
+  <link rel="stylesheet" href="tdc-team-dense.css?v=22"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth -->
   <link rel="stylesheet" href="tdc-skin.css?v=9"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
@@ -9085,6 +9085,7 @@ function renderProjNatlChart(projected, color, rgb){
     });
     return {gold:g,silver:si,bronze:b,total:g+si+b};
   }
+  function _spOrd(r){var t=['th','st','nd','rd'],v=r%100;return r+(t[(v-20)%10]||t[v]||t[0]);}
   function spotInitials(n){return (n||'').trim().split(/\s+/).slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase();}
   function spotData(name){var lc=(name||'').toLowerCase().trim();
     return (window._depthRosterByName||{})[lc]||(window._actualByName||{})[lc]||(window._projByName||{})[lc]||null;}
@@ -9100,43 +9101,29 @@ function renderProjNatlChart(projected, color, rgb){
     var sk=SPOT_SKILLS.map(function(d){var v=parseFloat(s[d.k]); if(isNaN(v))return null;
       var arr=distFor(pool,'natl',d.k); var pct=pctRank(arr,v,0); return pct==null?null:{l:d.l,pct:pct};})
       .filter(Boolean).sort(function(a,b){return b.pct-a.pct;}).slice(0,3);
-    var skillsHtml=sk.length?('<div class="pspot-skills">'+sk.map(function(x){
-      var col=x.pct>=80?'#1f9d57':x.pct>=62?'var(--text)':'var(--text2)';
-      return '<span class="pspot-skill" style="color:'+col+'"><span>'+x.l+'</span><b>'+x.pct+'</b></span>';}).join('')+'</div>'):'';
+    // skills as percentile rows (label · ink bar with the D-I median tick · pct)
+    var skillsHtml=sk.length?('<div class="ps2-skills">'+sk.map(function(x){
+      return '<div class="ps2-srow"><span class="ps2-sl">'+x.l+'</span><span class="ps2-track"><i style="width:'+x.pct+'%"></i><b></b></span><span class="ps2-sp">'+_spOrd(x.pct)+'</span></div>';}).join('')+'</div>'):'';
     var STAT=[{l:'PPG',k:'ppg'},{l:'RPG',k:'rpg'},{l:'APG',k:'apg'},{l:'FG%',k:'fg_pct',p:1},{l:'3P%',k:'tp_pct',p:1},{l:'MPG',k:'mpg'}];
-    var statHtml=STAT.map(function(d){return '<div class="pspot-stat"><div class="pspot-stat-v">'+(d.p?fp(s[d.k]):f1(s[d.k]))+'</div><div class="pspot-stat-l">'+d.l+'</div></div>';}).join('');
+    var statHtml=STAT.map(function(d){return '<div class="ps2-stat"><div class="ps2-sv">'+(d.p?fp(s[d.k]):f1(s[d.k]))+'</div><div class="ps2-sk">'+d.l+'</div></div>';}).join('');
     var gcol=hasG?gradeColor(grade):'var(--text3)';
     var C=2*Math.PI*44, frac=hasG?Math.max(0,Math.min(1,grade/99)):0, off=C*(1-frac);
     var ring='<svg class="pspot-ring" viewBox="0 0 96 96" width="96" height="96"><circle cx="48" cy="48" r="44" fill="none" stroke="var(--border2)" stroke-width="4"/>'+
-      (hasG?'<circle cx="48" cy="48" r="44" fill="none" stroke="'+gcol+'" stroke-width="4" stroke-linecap="round" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'" transform="rotate(-90 48 48)"/>':'')+'</svg>';
+      (hasG?'<circle cx="48" cy="48" r="44" fill="none" stroke="var(--dna-fill,#1A2A4C)" stroke-width="4" stroke-linecap="round" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'" transform="rotate(-90 48 48)"/>':'')+'</svg>';
     var img=(espn&&window.tdcShowPhotos&&window.tdcShowPhotos())?'<img src="https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+espn+'.png" alt="" onerror="this.remove()"/>':'';
     var link='player.html?'+(espn?'espn='+espn+'&':'')+'name='+encodeURIComponent(nm);
-    var badge=hasG?'<div class="pspot-badge" style="color:'+gcol+';border-color:'+gcol+'">'+Math.round(grade)+'<span class="pspot-badge-l">OVR</span></div>':'';
-    // Badges shield (team-colored), with gold/silver/bronze tier counts
+    var badge=hasG?'<div class="pspot-badge" style="color:'+gcol+'">'+Math.round(grade)+'<span class="pspot-badge-l">OVR</span></div>':'';
     var bdg=spotBadges(s);
-    var rgb=(typeof teamRgb_g!=='undefined'&&teamRgb_g)?teamRgb_g:'168,132,60';
-    var uid=(window.__shieldUid=(window.__shieldUid||0)+1);
-    var badgesHtml=bdg.total?'<div class="pspot-badges">'+
-      '<div class="pspot-shield"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">'+
-        '<defs><linearGradient id="shg'+uid+'" x1="0" y1="0" x2="0" y2="1">'+
-          '<stop offset="0" stop-color="rgba('+rgb+',.98)"/><stop offset="1" stop-color="rgba('+rgb+',.62)"/></linearGradient></defs>'+
-        '<path d="M50 3 L93 26 L93 74 L50 97 L7 74 L7 26 Z" fill="url(#shg'+uid+')" stroke="rgba(255,255,255,.5)" stroke-width="3"/>'+
-        '<path d="M50 12 L85 31 L85 69 L50 88 L15 69 L15 31 Z" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.3"/>'+
-        '<path d="M50 3 L93 26 L50 41 L7 26 Z" fill="rgba(255,255,255,.15)"/>'+
-      '</svg><span class="pspot-shield-n">'+bdg.total+'</span></div>'+
-      '<div class="pspot-badges-l">Badges</div>'+
-      '<div class="pspot-badges-tiers">'+
-        (bdg.gold?'<span><i class="t-gold"></i>'+bdg.gold+'</span>':'')+
-        (bdg.silver?'<span><i class="t-silver"></i>'+bdg.silver+'</span>':'')+
-        (bdg.bronze?'<span><i class="t-bronze"></i>'+bdg.bronze+'</span>':'')+
-      '</div></div>':'';
-    host.innerHTML='<div class="pspot">'+
+    var badgesHtml=bdg.total?'<div class="ps2-badges"><span class="ps2-bn">'+bdg.total+'</span><span class="ps2-bl">badges</span>'+
+        (bdg.gold?'<span class="ps2-bt"><i class="t-gold"></i>'+bdg.gold+'</span>':'')+
+        (bdg.silver?'<span class="ps2-bt"><i class="t-silver"></i>'+bdg.silver+'</span>':'')+
+        (bdg.bronze?'<span class="ps2-bt"><i class="t-bronze"></i>'+bdg.bronze+'</span>':'')+'</div>':'';
+    host.innerHTML='<div class="pspot ps2">'+
       '<div class="pspot-photo">'+ring+'<div class="pspot-av">'+img+'<span class="pspot-init">'+spotInitials(nm)+'</span></div>'+badge+'</div>'+
       '<div class="pspot-mid"><div class="pspot-poswrap">'+(pos?'<span class="pspot-pos">'+pos+'</span>':'')+'<span class="pspot-arch">'+arch+'</span></div>'+
         '<div class="pspot-name"><a href="'+link+'">'+nm+'</a></div>'+
-        '<div class="pspot-bio">'+(bio||'&nbsp;')+'</div>'+skillsHtml+'</div>'+
-      badgesHtml+
-      '<div class="pspot-stats">'+statHtml+'</div></div>';
+        '<div class="pspot-bio">'+(bio||'&nbsp;')+'</div>'+badgesHtml+'</div>'+
+      '<div class="ps2-right">'+skillsHtml+'<div class="ps2-stats">'+statHtml+'</div></div></div>';
     host.style.display='';
     window.__spotCur=name;
   }
