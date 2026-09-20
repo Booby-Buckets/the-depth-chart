@@ -1248,6 +1248,7 @@
       <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Analytics<span class="hero-grp-car">▾</span></button>
       <div class="hero-grp-menu" style="min-width:252px;">
         <button class="hgm-item" onclick="_tgPick('dna',this)"><span class="hgm-t">Team DNA</span><span class="hgm-d">Four factors & winning engine</span></button>
+        <button class="hgm-item" onclick="_tgPick('shots',this)"><span class="hgm-t">Shot Charts</span><span class="hgm-d">Where the team shoots from, by season</span></button>
         <button class="hgm-item" onclick="_tgPick('onoff',this)"><span class="hgm-t">On/Off</span><span class="hgm-d">Impact with each player on vs off</span></button>
         <button class="hgm-item" id="projTabBtn" onclick="_tgPick('projections',this)"><span class="hgm-t">2026-27 Projections</span><span class="hgm-d">Next season's projected line</span></button>
       </div>
@@ -1423,11 +1424,16 @@
     </div>
     <div class="panel" id="panel-dna">
       <div id="teamDnaHost"><div style="padding:24px;color:var(--text3);">Loading Team DNA…</div></div>
-      <div id="teamShotsWrap" class="dA-card" style="margin-top:16px;">
-        <div class="dA-sec"><span>Shot chart &amp; shot flow</span><span class="dA-cap" style="display:flex;align-items:center;gap:10px;">every tracked attempt · pick a season
+    </div>
+    <div class="panel" id="panel-shots">
+      <div id="teamShotsWrap" class="dA-card">
+        <div class="dA-sec"><span>Shot chart</span><span class="dA-cap" style="display:flex;align-items:center;gap:10px;">every tracked attempt · pick a season
           <select id="teamShotSeason" class="dna-mu-sel" style="min-width:0;padding:5px 8px;font-size:12px;"></select></span></div>
         <div id="teamShotHost"></div>
-        <div id="teamShotFlowHost" style="margin-top:22px;"></div>
+      </div>
+      <div class="dA-card" style="margin-top:16px;">
+        <div class="dA-sec"><span>Shot flow</span><span class="dA-cap">where · how · who creates the makes</span></div>
+        <div id="teamShotFlowHost" style="margin-top:10px;"></div>
       </div>
     </div>
     <div class="panel" id="panel-onoff">
@@ -5919,7 +5925,8 @@ function switchTab(id, btn){
   document.querySelectorAll('.hero-tab,.hgm-item').forEach(b=>b.classList.remove('active'));
   document.getElementById('panel-'+id).classList.add('active');
   btn.classList.add('active');
-  if(id==='dna'){ renderTeamDNA(); if(!window._teamShotInit){ window._teamShotInit=true; _initTeamShot(); } }
+  if(id==='dna'){ renderTeamDNA(); }
+  if(id==='shots'){ _dnaCSS(); if(!window._teamShotInit){ window._teamShotInit=true; _initTeamShot(); } }
   if(id==='onoff'){ renderOnOff(); }
   // The right sidebar (coach/depth/recruit grades, offseason additions, roster
   // turnover) is 2026-27 depth-chart context — show it only on the Depth Chart tab.
@@ -5957,6 +5964,7 @@ var TAB_GATE = {
   nil:         { tier:'premium', label:'the NIL valuation', blurb:'See every player’s NIL market value and the roster’s total. Included with Premium — $4.99/mo.' },
   betting:     { tier:'premium', label:'the betting board', blurb:'See every rotation player’s prop lines and over rates in one board. Included with Premium — $4.99/mo.' },
   losses:      { tier:'premium', label:'offseason losses', blurb:'See who this team lost and the impact. Included with Premium — $4.99/mo.' },
+  shots:       { tier:'pro', label:'Shot Charts', blurb:'Every tracked attempt on a half court — zones, signature spots, hexbin, heat — plus the shot flow. Included with Pro — $8.99/mo.' },
   dna:         { tier:'pro', label:'Team DNA', blurb:'The team’s statistical identity — four factors, shot quality and the winning engine. Included with Pro — $8.99/mo.' },
   onoff:       { tier:'pro', label:'On/Off', blurb:'How the team performs with each player on vs off the floor. Included with Pro — $8.99/mo.' },
   projections: { tier:'pro', label:'2026-27 projections', blurb:'Cohesion-adjusted minutes and scoring projections for next season. Included with Pro — $8.99/mo.' },
@@ -7276,7 +7284,7 @@ function onRosterSeason(v){
   window._dnaSeason = String(_rosterSeason);
   var _dnaP=document.getElementById('panel-dna'); if(_dnaP && _dnaP.classList.contains('active')) renderTeamDNA();
   // the shot chart / shot flow block follows the roster season too (2026-27 roster → last played season)
-  var _ss=document.getElementById('teamShotSeason'); if(_ss){ _ss.value=String(_sy); if(window._teamShotInit && _dnaP && _dnaP.classList.contains('active')) loadTeamShotChart(_sy); }
+  var _ss=document.getElementById('teamShotSeason'), _shP=document.getElementById('panel-shots'); if(_ss){ _ss.value=String(_sy); if(window._teamShotInit && _shP && _shP.classList.contains('active')) loadTeamShotChart(_sy); }
   // On/Off is season-aware — invalidate its cached render and refresh if it's the open tab
   var _ooH=document.getElementById('onoffHost'); if(_ooH){ _ooH._renderedSeason=null;
     var _ooP=document.getElementById('panel-onoff'); if(_ooP && _ooP.classList.contains('active')) renderOnOff(); }
