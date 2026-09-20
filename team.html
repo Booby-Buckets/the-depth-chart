@@ -5920,7 +5920,10 @@ async function renderOnOff(){
     TDC_LINEUPS.section(_tf, +season||2026).then(function(h){ var lh=document.getElementById('teamLineupHost'); if(lh&&h) lh.innerHTML=h; });
   }
 }
+// keep the open tab in the URL (?tab=) so a reload — or a shared link — lands on the same tab
+function _tabUrl(id, dflt){ try{ var u=new URL(location.href); if(!id||id===dflt) u.searchParams.delete('tab'); else u.searchParams.set('tab',id); history.replaceState(history.state,'',u.toString()); }catch(e){} }
 function switchTab(id, btn){
+  _tabUrl(id,'depth');
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.hero-tab,.hgm-item').forEach(b=>b.classList.remove('active'));
   document.getElementById('panel-'+id).classList.add('active');
@@ -5981,6 +5984,7 @@ function _lockPanel(pnl, g){
 }
 // Visual tab switch only — no loaders (so a gated panel isn't populated then replaced).
 function _teamDisplaySwitch(id, btn){
+  _tabUrl(id,'depth');
   document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('active'); });
   document.querySelectorAll('.hero-tab,.hgm-item').forEach(function(b){ b.classList.remove('active'); });
   var pnl=document.getElementById('panel-'+id); if(pnl) pnl.classList.add('active');

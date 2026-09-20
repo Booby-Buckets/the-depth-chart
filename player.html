@@ -7133,7 +7133,10 @@ async function renderScheme(){
     ${fpHtml}${gridHtml}${depHtml}${fitHtml}${likeHtml}
     <div class="rk-foot" style="margin-top:14px;">Systems apply the same scheme scales the projection engine uses (pace, forced-TO havoc → steals, offensive-rebound rate → boards, assist rate → assists, shot-quality → FG%, 3PA lean). ${isFresh?'':'Neutral is his real projected line with his own system stripped back out.'}</div>`;
 }
+// keep the open tab in the URL (?tab=) so a reload — or a shared link — lands on the same tab
+function _tabUrl(id, dflt){ try{ var u=new URL(location.href); if(!id||id===dflt) u.searchParams.delete('tab'); else u.searchParams.set('tab',id); history.replaceState(history.state,'',u.toString()); }catch(e){} }
 function switchTab(t){
+  _tabUrl(t,'overview');
   const tabs=['overview','playerdna','stats','shotcharts','rankings','scheme','dossier','role','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
   const cur=tabs.map(x=>document.getElementById('panel-'+x)).find(el=>el&&el.classList.contains('active'));
   function activate(id){
