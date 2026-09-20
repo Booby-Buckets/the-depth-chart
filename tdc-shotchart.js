@@ -278,6 +278,10 @@
 
   // ── heat colormap (on-brand purple ramp: dark -> accent -> light) ──
   var INF=[[8,5,16],[34,16,64],[64,28,124],[104,46,178],[139,63,224],[176,116,236],[214,180,248]];
+  // yellow -> orange -> red (the familiar heat look), interpolated
+  var HEAT=[[255,222,89],[255,180,48],[251,120,32],[228,58,32],[168,18,28]];
+  function heatRamp(v){ v=v<0?0:v>1?1:v; var n=HEAT.length-1,x=v*n,i=Math.floor(x),f=x-i,a=HEAT[i],b=HEAT[Math.min(n,i+1)];
+    return [a[0]+(b[0]-a[0])*f|0, a[1]+(b[1]-a[1])*f|0, a[2]+(b[2]-a[2])*f|0]; }
   function inferno(v){ v=v<0?0:v>1?1:v; var n=INF.length-1,x=v*n,i=Math.floor(x),f=x-i,a=INF[i],b=INF[Math.min(n,i+1)];
     return [a[0]+(b[0]-a[0])*f|0, a[1]+(b[1]-a[1])*f|0, a[2]+(b[2]-a[2])*f|0]; }
 
@@ -302,14 +306,15 @@
     var max=(nz.length?nz[Math.floor(nz.length*0.93)]:1)||1;
     var sm=document.createElement('canvas'); sm.width=GW; sm.height=GH; var sc=sm.getContext('2d');
     var im=sc.createImageData(GW,GH), p=im.data;
-    // one ink: density is the ink at rising opacity over the normal court floor
-    var cs=getComputedStyle(el), inkRgb=(cs.getPropertyValue('--sc-ink-rgb')||'26,42,76').trim().split(',').map(function(x){return +x;});
+    // classic heat: yellow → orange → red, painted over the normal court floor; opacity rises
+    // with density so the sparse edges stay translucent and the hot spots go solid red
+    var cs=getComputedStyle(el);
     var floor=(cs.getPropertyValue('--sc-floor')||'#f1e7d3').trim();
     for(var i=0;i<grid.length;i++){
       var v=Math.min(1,grid[i]/max), o=i*4;
       if(v<0.04){ p[o+3]=0; continue; }
-      p[o]=inkRgb[0]; p[o+1]=inkRgb[1]; p[o+2]=inkRgb[2];
-      p[o+3]=Math.min(255, (0.12+0.80*Math.pow(v,0.7))*255)|0;
+      var c=heatRamp(Math.pow(v,0.7)); p[o]=c[0]; p[o+1]=c[1]; p[o+2]=c[2];
+      p[o+3]=Math.min(255, (0.35+0.62*Math.pow(v,0.6))*255)|0;
     }
     sc.putImageData(im,0,0);
     ctx.fillStyle=floor; ctx.fillRect(0,0,W,H);
@@ -656,7 +661,7 @@
       '.sc-heat-wrap{max-width:760px;margin:0 auto;}'+
       '.sc-heat-court{position:absolute;left:0;top:0;width:100%;}'+
       '.sc-heat-legend{max-width:580px;margin:10px auto 0;display:flex;align-items:center;gap:10px;font-size:11px;font-weight:600;color:var(--text2);justify-content:center;animation:scUp .5s ease .3s backwards;}'+
-      '.sc-grad{width:150px;height:10px;border-radius:5px;display:inline-block;border:1px solid var(--border);background:linear-gradient(90deg,rgba(var(--sc-ink-rgb),.06),rgba(var(--sc-ink-rgb),.92));}'+
+      '.sc-grad{width:150px;height:10px;border-radius:5px;display:inline-block;border:1px solid var(--border);background:linear-gradient(90deg,rgba(255,222,89,.35),#ffb430,#fb7820,#e43a20,#a8121c);}'+
       '.sc-eff-legend{max-width:520px;margin:11px auto 0;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--text2);animation:scUp .5s ease .3s backwards;}'+
       '.sc-effbar{display:flex;align-items:center;gap:9px;}'+
       '.sc-effgrad{width:190px;height:11px;border-radius:6px;display:inline-block;border:1px solid var(--border);background:linear-gradient(90deg,rgba(var(--sc-ink-rgb),.10),rgba(var(--sc-ink-rgb),.95));}'+
