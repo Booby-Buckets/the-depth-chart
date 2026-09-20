@@ -173,11 +173,11 @@
   }
   // diverging color for (playerFG - d1avg): below avg = red, above = green
   function effColor(diff){
+    // ONE ink: FG% vs the D-I baseline from that distance maps to ink strength —
+    // −10% (or worse) is a faint wash, the baseline is mid, +10% is solid ink.
     var t=Math.max(-1,Math.min(1,diff/0.15));
-    var lo=[76,127,214], mid=[150,150,160], hi=[240,138,60];
-    function lerp(a,b,f){return [a[0]+(b[0]-a[0])*f|0,a[1]+(b[1]-a[1])*f|0,a[2]+(b[2]-a[2])*f|0];}
-    var c = t<0 ? lerp(mid,lo,-t) : lerp(mid,hi,t);
-    return 'rgb('+c[0]+','+c[1]+','+c[2]+')';
+    var a=0.10+0.85*((t+1)/2);
+    return 'rgba(var(--sc-ink-rgb),'+a.toFixed(3)+')';
   }
   // ── hex grid (pointy-top) ── smaller cells than before for a denser, smoother map
   var HS=1.15;                                           // hex size in feet
@@ -248,7 +248,7 @@
         // interior gap-fill: SMALL + faint (they carry zero volume, so in a volume-sized
         // map they must read as the smallest cells) — a subtle continuity hint, not a
         // full-size tile that would flatten the size signal.
-        g+='<path class="sc-mark sc-hex sc-synth '+zc+'" style="animation-delay:'+Math.min(idx*7,700)+'ms" d="'+hexPath(cx,cy,px(HS)*0.50)+'" fill="'+effColor(diff)+'" stroke="rgba(10,8,20,.18)" stroke-width="0.4"/>';
+        g+='<path class="sc-mark sc-hex sc-synth '+zc+'" style="animation-delay:'+Math.min(idx*7,700)+'ms" d="'+hexPath(cx,cy,px(HS)*0.50)+'" fill="'+effColor(diff)+'" stroke="rgba(var(--sc-ink-rgb),.25)" stroke-width="0.4"/>';
         idx++; return;
       }
       // SIZE = SHOT VOLUME (the whole point of the hexbin): radius spans a WIDE range so
@@ -259,7 +259,7 @@
       // tooltip carries the RAW numbers (pipe-delimited; wire() builds the card)
       var rawFg=b.mk/b.att, rawDiff=rawFg-base;
       var tip=(rawFg*100).toFixed(1)+'|'+distLabel(dh,isThree)+'|'+b.mk+'/'+b.att+'|'+(base*100).toFixed(1)+'|'+(rawDiff>=0?'+':'')+(rawDiff*100).toFixed(1)+'|'+(rawDiff>=0?'1':'0');
-      g+='<path class="sc-mark sc-hex '+zc+'" data-tip="'+tip+'" style="animation-delay:'+Math.min(idx*7,700)+'ms" d="'+hexPath(cx,cy,rp)+'" fill="'+effColor(diff)+'" stroke="rgba(10,8,20,.28)" stroke-width="0.5"/>';
+      g+='<path class="sc-mark sc-hex '+zc+'" data-tip="'+tip+'" style="animation-delay:'+Math.min(idx*7,700)+'ms" d="'+hexPath(cx,cy,rp)+'" fill="'+effColor(diff)+'" stroke="rgba(var(--sc-ink-rgb),.45)" stroke-width="0.6"/>';
       idx++;
     });
     return g;
@@ -483,8 +483,8 @@
       body='<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+defs()+court(null,courtOpts)+hexbinSvg(shots)+'</svg><div class="sc-tip"></div></div>'+
         hexSummary(shots)+
         '<div class="sc-eff-legend">'+
-          '<div class="sc-effbar"><span>Weak · −10%</span><i class="sc-effgrad"></i><span>+10% · Strong</span></div>'+
-          '<span class="sc-eff-cap">Hex size = shot volume · color = FG% vs Division-1 average · <b>grey = league average</b></span>'+
+          '<div class="sc-effbar"><span>−10% · worse than D-I</span><i class="sc-effgrad"></i><span>better · +10%</span></div>'+
+          '<span class="sc-eff-cap">Hex size = how many shots from there · ink = FG% vs the D-I average from that distance · <b>mid ink = league average</b></span>'+
         '</div>';
     } else if(mode==='heat'){
       body='<div class="sc-court-wrap sc-heat-wrap"><canvas class="sc-heat"></canvas>'+
@@ -659,7 +659,7 @@
       '.sc-grad{width:150px;height:10px;border-radius:5px;display:inline-block;border:1px solid var(--border);background:linear-gradient(90deg,rgba(var(--sc-ink-rgb),.06),rgba(var(--sc-ink-rgb),.92));}'+
       '.sc-eff-legend{max-width:520px;margin:11px auto 0;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--text2);animation:scUp .5s ease .3s backwards;}'+
       '.sc-effbar{display:flex;align-items:center;gap:9px;}'+
-      '.sc-effgrad{width:190px;height:11px;border-radius:6px;display:inline-block;background:linear-gradient(90deg,#4c7fd6,#9696a0,#f08a3c);box-shadow:inset 0 0 0 1px rgba(130,123,156,.25);}'+
+      '.sc-effgrad{width:190px;height:11px;border-radius:6px;display:inline-block;border:1px solid var(--border);background:linear-gradient(90deg,rgba(var(--sc-ink-rgb),.10),rgba(var(--sc-ink-rgb),.95));}'+
       '.sc-eff-cap{color:var(--text3);font-weight:600;font-size:10.5px;text-align:center;}'+
       '.sc-eff-cap b{color:var(--text2);font-weight:700;}'+
       '.sc-zones{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg);margin-top:12px;box-shadow:0 1px 3px rgba(0,0,0,.10);}'+
