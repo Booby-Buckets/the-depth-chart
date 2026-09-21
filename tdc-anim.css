@@ -14,14 +14,17 @@
 }
 .tdc-anim-ready:not(.tdc-anim-gentle) [data-anim="fade"]{ transform:none; }
 .tdc-anim-ready:not(.tdc-anim-gentle) [data-anim="scale"]{ transform:scale(.975); }
-.tdc-anim-ready:not(.tdc-anim-gentle) [data-anim].in-view{ opacity:1 !important; transform:none; }
+.tdc-anim-ready:not(.tdc-anim-gentle) [data-anim].in-view{ opacity:1 !important; transform:none; will-change:auto; }
+/* will-change:transform makes every animated block a stacking context for as long as it's set, so a
+   dropdown INSIDE one (transfer-fit's school picker) painted underneath the next animated block.
+   Once revealed the hint has done its job — drop it so normal z-index applies again. */
 
 .tdc-anim-ready:not(.tdc-anim-gentle) [data-stagger]>*{
   opacity:0 !important; transform:translateY(16px);
   transition:opacity .5s ease, transform .55s cubic-bezier(.22,.68,.32,1);
   will-change:opacity,transform;
 }
-.tdc-anim-ready:not(.tdc-anim-gentle) [data-stagger].in-view>*{ opacity:1 !important; transform:none; }
+.tdc-anim-ready:not(.tdc-anim-gentle) [data-stagger].in-view>*{ opacity:1 !important; transform:none; will-change:auto; }
 
 /* bar fill — the element keeps its real inline width by default (graceful if no JS);
    full mode collapses it to 0 then fills to the captured --fill-w on reveal. */
