@@ -31,7 +31,7 @@
       fetch('scripts/data/schedule_2027.json?v=2').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/situational_model.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/schedule_extras_2027.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch('scripts/data/team_pace_eff.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('scripts/data/team_pace_eff.json?v=3').then(r => r.ok ? r.json() : null).catch(() => null),
     ]).then(([s, m, x, e]) => {
       _sched = s; _model = m || { rest: {}, stint: {}, streak: {}, form: 0 }; _extras = x || {}; _eff = e || null;
       return { sched: s, model: _model, extras: _extras };

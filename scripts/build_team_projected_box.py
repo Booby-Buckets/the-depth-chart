@@ -40,15 +40,42 @@ short_conf = {t["name"]: t.get("conference") or "" for t in teams}
 proj = json.load(open(D / "stat_overall_projected.json"))["players"]
 # full team name -> the sheet's short name, learned from the roster rows themselves (no alias table):
 # every projected player carries his FULL team; the players table carries his SHORT team.
-_pl = sb("players?select=espn_id,team&espn_id=not.is.null&order=id.asc")
+_pl = sb("players?select=espn_id,team,name,position,height&order=id.asc")
 _short_of_espn = {str(r["espn_id"]): r["team"] for r in _pl if r.get("team")}
 _votes = defaultdict(lambda: defaultdict(int))
 for e, v in proj.items():
     sh = _short_of_espn.get(e)
     if sh: _votes[v["team"]][sh] += 1
 FULL2SHORT = {full: max(c.items(), key=lambda kv: kv[1])[0] for full, c in _votes.items()}
+def _isbig(r):
+    """C / PF, or 6-8+ not listed at guard — the players who take a team's frontcourt minutes"""
+    pos = (r.get("position") or "").upper(); h = r.get("height") or ""
+    try: hi = int(h.split("-")[0]) * 12 + int(h.split("-")[1])
+    except Exception: hi = None
+    return pos in ("C", "PF") or bool(hi and hi >= 80 and pos not in ("PG", "SG"))
+BIG_ESPN = {str(r["espn_id"]) for r in _pl if r.get("espn_id") and _isbig(r)}
+BIG_NAME = {(r["team"], (r.get("name") or "").strip().lower()) for r in _pl if _isbig(r)}
+BIG_MIN = 72.0   # a team plays two bigs: ~72 of its 200 minutes go to the frontcourt
 fresh = json.load(open(D / "fresh_fit.json"))
 pace = json.load(open(D / "team_pace_eff.json"))
+# Rebounds are a TEAM resource (misses x rebound rates), not a sum of last year's individual rates
+# — a guard-heavy roster's guards rebound more than they did next to a big, and a roster whose
+# bigs aren't linked yet has no one to sum. So the team's rebounds are half the roster's sum and
+# half a team-level target from its projected DNA: rpg ~ tempo + ORB% + DRB% + eFG + opp eFG,
+# fit live on every 2026 team-season (r 0.92, rmse 1.0).
+import numpy as np
+_dna = json.load(open(D / "team_dna.json"))
+_ts = sb("team_seasons?select=team,rpg&season_year=eq.2026&order=team_id.asc")
+_rp = {t["team"]: float(t["rpg"]) for t in _ts if t.get("rpg")}
+def _rebx(t): return [1.0, t["tempo"], t["oORB"], t["dDRB"], t.get("oeFG", 50.0), t.get("deFG", 50.0)]
+_X = []; _y = []
+for k, t in _dna["2026"]["teams"].items():
+    if k in _rp and t.get("tempo") and t.get("oORB") and t.get("dDRB"): _X.append(_rebx(t)); _y.append(_rp[k])
+_REBC = np.linalg.lstsq(np.array(_X), np.array(_y), rcond=None)[0]
+def reb_target(full):
+    t = _dna["2027"]["teams"].get(full)
+    if not t or not (t.get("tempo") and t.get("oORB") and t.get("dDRB")): return None
+    return float(np.array(_rebx(t)) @ _REBC)
 import re
 _MARK = re.compile(r"\b(atlantic|christian|baptist|state|southern|a&m|a&t|international|wesleyan|of|valley|pine bluff|gulf coast|tech|central|northern|western|eastern|st)\b")
 def full_to_short(full):
@@ -68,11 +95,20 @@ def full_to_short(full):
 
 CNT = ["ppg", "rpg", "apg", "oreb", "dreb", "stl", "blk", "tov", "fga", "fgm", "tpa", "tpm", "fta", "ftm", "mpg"]
 by = defaultdict(lambda: {k: 0.0 for k in CNT})
-for v in proj.values():
+bigmin = defaultdict(float)
+_bg = {"m": 0.0, "rpg": 0.0, "oreb": 0.0, "dreb": 0.0, "blk": 0.0}; _nb = dict(_bg)
+for e, v in proj.items():
     t = by[v["team"]]
     for k in CNT:
         src = "tovs" if k == "tov" else k
         t[k] += float(v.get(src) or 0)
+    acc = _bg if e in BIG_ESPN else _nb
+    if e in BIG_ESPN: bigmin[v["team"]] += float(v.get("mpg") or 0)
+    acc["m"] += float(v.get("mpg") or 0)
+    for k in ("rpg", "oreb", "dreb", "blk"): acc[k] += float(v.get(k) or 0)
+# per-minute rebounding / shot-blocking of a big vs everyone else, from the projections themselves
+BIGR = {k: _bg[k] / max(_bg["m"], 1) for k in ("rpg", "oreb", "dreb", "blk")}
+NBR = {k: _nb[k] / max(_nb["m"], 1) for k in ("rpg", "oreb", "dreb", "blk")}
 
 # league-average per-minute / per-point shape from full rosters, for the ones we barely know
 _full = [t for t in by.values() if t["mpg"] >= 180]
@@ -85,11 +121,14 @@ for full, t in by.items():
     fr = fresh.get(short, {}) if short else {}
     f_mpg = sum(float(x.get("mpg") or 0) for x in fr.values()); f_ppg = sum(float(x.get("ppg") or 0) for x in fr.values())
     line = dict(t)
+    f_big = sum(float(x.get("mpg") or 0) for nm, x in fr.items() if (short, nm.strip().lower()) in BIG_NAME)
     if f_mpg > 0 and t["mpg"] > 0:
-        # freshmen: fitted points + minutes; rebounds/assists/etc. half at the roster's own per-minute
-        # rates, half at the league's (the fit doesn't know their positions — a guard-only returning
-        # core would otherwise hand its freshman bigs a guard's rebounding)
-        for k in ("rpg", "apg", "oreb", "dreb", "stl", "blk", "tov"): line[k] += f_mpg * LG[k]   # positions unknown -> league shape
+        # freshmen: fitted points + minutes; assists/steals/turnovers at the league's per-minute shape,
+        # rebounds and blocks at a big's or a guard's rate by their listed position (the fit doesn't
+        # know positions — a guard-only returning core would otherwise hand its freshman bigs a
+        # guard's rebounding)
+        for k in ("apg", "stl", "tov"): line[k] += f_mpg * LG[k]
+        for k in ("rpg", "oreb", "dreb", "blk"): line[k] += f_big * BIGR[k] + (f_mpg - f_big) * NBR[k]
         for k in ("fga", "fgm", "tpa", "tpm", "fta", "ftm"): line[k] += f_ppg * (0.5 * t[k] / max(t["ppg"], 1) + 0.5 * LGP[k])
         line["ppg"] += f_ppg; line["mpg"] += f_mpg
     # A SHORT roster (unlinked players, freshmen the fit doesn't know) can't read as the worst team
@@ -100,14 +139,29 @@ for full, t in by.items():
     pt = pace["teams"].get(full)
     pts_target = (pt["o"] * pt["t"] / 100.0) if pt else line["ppg"] * 200.0 / max(line["mpg"], 1)
     miss_min = max(0.0, 200.0 - line["mpg"]); miss_pts = max(0.0, pts_target - line["ppg"])
-    for k in ("rpg", "apg", "oreb", "dreb", "stl", "blk", "tov"):
+    for k in ("apg", "stl", "tov"):
         line[k] += miss_min * LG[k]                          # the players we can't see: league shape
+    # the players we can't see are the frontcourt first: a team plays two bigs (~72 of 200 minutes),
+    # so unseen minutes fill the frontcourt up to that at a big's rebounding / blocking rate, the rest
+    # at a guard's. If the roster still comes up short of two bigs after that (linked centers squeezed
+    # to 5-8 mpg behind a guard-heavy grade order), those minutes are reassigned to bigs at the rate
+    # difference — whoever ends up playing them will be a big.
+    bm = bigmin.get(full, 0.0) + f_big
+    big_fill = min(miss_min, max(0.0, BIG_MIN - bm)); other_fill = miss_min - big_fill
+    for k in ("rpg", "oreb", "dreb", "blk"):
+        line[k] += big_fill * BIGR[k] + other_fill * NBR[k]
+    short_big = max(0.0, BIG_MIN - bm - big_fill)
+    for k in ("rpg", "oreb", "dreb", "blk"):
+        line[k] += short_big * (BIGR[k] - NBR[k])
     for k in ("fga", "fgm", "tpa", "tpm", "fta", "ftm"):
         own = line[k] / max(line["ppg"], 1)
         line[k] += miss_pts * (known * own + (1 - known) * LGP[k])
     line["ppg"] = max(line["ppg"], pts_target) if line["mpg"] < 200 else line["ppg"]
     line["mpg"] = max(line["mpg"], 200.0)
-    if line["rpg"] < 28.0 and line["rpg"] > 0:               # no D-I team rebounds this little — the bigs aren't linked yet
+    rt = reb_target(full)
+    if rt and line["rpg"] > 0:
+        f = (0.5 * line["rpg"] + 0.5 * rt) / line["rpg"]; line["rpg"] *= f; line["oreb"] *= f; line["dreb"] *= f
+    if line["rpg"] < 28.0 and line["rpg"] > 0:               # no D-I team rebounds this little — last guard
         f = 28.0 / line["rpg"]; line["rpg"] = 28.0; line["oreb"] *= f; line["dreb"] *= f
     row = {k: round(line[k], 1) for k in ("ppg", "rpg", "apg", "oreb", "dreb", "stl", "blk", "tov", "fga", "tpa")}
     row["mpg"] = round(line["mpg"], 1)

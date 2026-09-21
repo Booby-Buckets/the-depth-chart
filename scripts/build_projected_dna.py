@@ -136,14 +136,35 @@ def fp_by_espn(eid):
         p=PD.get(s,{}).get("players",{}).get(str(eid))
         if p: return p
     return None
-# coach pace per team (latest coach_seasons)
-coachpace={}
-best={}
+# coach pace per team: the REAL tempo (possessions/40, team_dna) of the teams the current coach
+# ran over the last PACE_YEARS seasons, recency-weighted, shrunk a little toward the D-I mean.
+# (coach_profiles.poss_pg is a 20-year box-score sum with holes in the old seasons — it had
+# Tad Boyle at 59 possessions when Colorado played 71.5 last year; nobody in D-I plays 59.)
+PACE_YEARS=3; PACE_W=[1.0,0.7,0.45]; PACE_KEEP=0.95
+_tempo_pool=[t["tempo"] for t in TD["2026"]["teams"].values() if t.get("tempo")]
+_TEMPO_MEAN=sum(_tempo_pool)/len(_tempo_pool)
+_cur_slug={}; _slug_ts=defaultdict(list)
 for c in CS:
     sc=c["school"]; y=c["season_year"]
-    if sc not in best or y>best[sc][0]: best[sc]=(y,c.get("coach_slug"))
-for sc,(y,slug) in best.items():
-    pp=(CP.get(slug) or {}).get("poss_pg"); coachpace[sc]=pp
+    if sc not in _cur_slug or y>_cur_slug[sc][0]: _cur_slug[sc]=(y,c.get("coach_slug"))
+    if c.get("coach_slug"): _slug_ts[c["coach_slug"]].append((y,sc))
+def _real_tempo(school,year):
+    tt=TD.get(str(year),{}).get("teams",{})
+    k=espn_key(school,tt)
+    return (tt.get(k) or {}).get("tempo") if k else None
+coachpace={}
+for sc,(y,slug) in _cur_slug.items():
+    hist=[]
+    for yy,school in sorted(_slug_ts.get(slug,[]),key=lambda x:-x[0]):
+        if yy<2026-PACE_YEARS+1: continue
+        t=_real_tempo(school,yy)
+        if t: hist.append(t)
+    if not hist:
+        t=_real_tempo(sc,2026); hist=[t] if t else []
+    if hist:
+        w=[PACE_W[i] if i<len(PACE_W) else 0.3 for i in range(len(hist))]
+        raw=sum(wi*h for wi,h in zip(w,hist))/sum(w)
+        coachpace[sc]=_TEMPO_MEAN+(raw-_TEMPO_MEAN)*PACE_KEEP
 # ---- pull 2026-27 rosters ----
 rows=[];off=0
 while True:
@@ -166,6 +187,15 @@ try:
         if _t.get("team") and _t.get("full"): SHORT2FULL[_t["team"].lower()]=_t["full"]
 except Exception as _e:
     print("warn: could not load predictive_ratings short->full map (%s); using espn_key only" % _e)
+def team_tempo(team):
+    """coach's recent real tempo; a sheet short name the SR crosswalk doesn't know (SMU) falls back
+    to the school's own 2026 tempo, then the D-I mean"""
+    t=coachpace.get(team)
+    if not t:
+        full=SHORT2FULL.get(team.lower()) or espn_key(team,teams26)
+        t=(teams26.get(full) or {}).get("tempo") if full else None
+        if t: t=_TEMPO_MEAN+(t-_TEMPO_MEAN)*PACE_KEEP
+    return t or _TEMPO_MEAN
 proj={}
 for team,roster in byteam.items():
     R=[]
@@ -183,7 +213,7 @@ for team,roster in byteam.items():
         proj_ovr=(sp.get("ovr") if sp else None)
         q=(float(proj_ovr) if proj_ovr not in (None,"")
            else (float(g) if g not in (None,"") else None))
-        tempo=(coachpace.get(team) or 68.0)
+        tempo=team_tempo(team)
         # Fingerprint priority: (1) real D1 Player DNA for returners/transfers; (2) for players
         # who NEVER played D1, build it from their hand-entered projected line so stat edits move
         # the rankings; (3) fall back to the stats-derived OVR (then grade) only when there is no
@@ -211,7 +241,7 @@ for team,roster in byteam.items():
     if not F: continue
     dna={}
     for t,(fe,c) in COEF.items(): dna[t]=round(float(c[0]+sum(c[i+1]*F[fe[i]] for i in range(len(fe)))),1)
-    dna["tempo"]=round(coachpace.get(team) or 68.0,1)
+    dna["tempo"]=round(team_tempo(team),1)
     dna["projected"]=True
     proj[(SHORT2FULL.get(team.lower()) or espn_key(team,teams26) or team)]=dna
 # ---- reconcile ORtg/DRtg with the trusted net ------------------------------
@@ -224,7 +254,12 @@ for team,roster in byteam.items():
 _pool=[t for t in proj.values() if all(k in t for k in ("ORtg","DRtg","net"))]
 if _pool:
     _mid=sum((t["ORtg"]+t["DRtg"])/2 for t in _pool)/len(_pool)
-    _BASE,_LD=105.5,0.5
+    # baseline = the SAME teams' real 2026 scoring level (mean of (ORtg+DRtg)/2), not a national
+    # average: this pool is high-majors, whose games run ~1.3 pts/100 above D-I as a whole. A
+    # 105.5 constant had every offense ~3.5 too low and the pool's ppg 74 vs 78 actual.
+    _l26=[(TD["2026"]["teams"][k]["ORtg"]+TD["2026"]["teams"][k]["DRtg"])/2 for k in proj if k in TD["2026"]["teams"] and TD["2026"]["teams"][k].get("ORtg") and TD["2026"]["teams"][k].get("DRtg")]
+    _BASE=(sum(_l26)/len(_l26)) if _l26 else 108.9
+    _LD=1.0
     for t in _pool:
         _lvl=((t["ORtg"]+t["DRtg"])/2 - _mid)*_LD
         t["ORtg"]=round(_BASE+_lvl+t["net"]/2,1)
