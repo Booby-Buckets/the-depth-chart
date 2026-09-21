@@ -402,7 +402,45 @@
       if(rm <= 0) break;
       for(var i = 0; i < n; i++){ var c = Math.min(cap[i], DEPTH_MAX); if(m[i] > 0 && m[i] < c) m[i] += ov * (c - m[i]) / rm; }
     }
+    // ── POSITIONAL REBALANCE ─────────────────────────────────────────────────
+    // (mirrors build_stat_overall_projected.py pos_rebalance / tdc-proj.js posRebalance)
+    // A team plays two bigs and two guards. The slots are positionless, so a guard-heavy
+    // chart could run three point guards while a returning center sat at 8 mpg. Frontcourt
+    // (C / PF / 6-9+ forwards) and backcourt (PG / SG) each hold at least 28% of the roster's
+    // minutes and no group more than 62.5%; the deficit moves between groups pro rata.
+    m = posRebalance(roster.map(function(p, i){ return { grp: posGroup(p.position, p.height), m: m[i] }; }));
     for(var i = 0; i < n; i++) m[i] = Math.round(m[i] * 10) / 10;
+    return m;
+  }
+  var POS_MIN = 0.28, POS_MAX = 0.625, POS_FLOOR_MPG = 3;
+  function _hin(h){ var mm = /^(\d+)-(\d+)/.exec(String(h || '')); return mm ? (+mm[1]) * 12 + (+mm[2]) : null; }
+  function posGroup(position, height){
+    var pos = String(position || '').toUpperCase().replace(/\s|\d/g, '').split('/')[0], h = _hin(height);
+    if(pos === 'C' || pos === 'PF') return 'B';
+    if(pos === 'PG' || pos === 'SG' || pos === 'G' || pos === 'CG') return 'G';
+    if(pos === 'SF' || pos === 'F' || pos === 'GF' || pos === 'FG') return (h && h >= 81) ? 'B' : 'W';
+    if(h) return h >= 81 ? 'B' : (h <= 75 ? 'G' : 'W');
+    return 'W';
+  }
+  function posRebalance(items){
+    var m = items.map(function(x){ return x.m || 0; }), grp = items.map(function(x){ return x.grp; });
+    var tot = m.reduce(function(a, b){ return a + b; }, 0);
+    if(tot <= 0) return m;
+    var idx = m.map(function(v, i){ return i; });
+    var sum = function(g){ return m.reduce(function(a, v, i){ return a + (grp[i] === g ? v : 0); }, 0); };
+    var shift = function(src, dst, amt){
+      var give = idx.filter(function(i){ return src.indexOf(grp[i]) >= 0 && m[i] > POS_FLOOR_MPG; });
+      var take = idx.filter(function(i){ return grp[i] === dst && m[i] > 0; });
+      if(!give.length || !take.length) return;
+      amt = Math.min(amt, give.reduce(function(a, i){ return a + m[i] - POS_FLOOR_MPG; }, 0)); if(amt <= 0) return;
+      var gs = give.reduce(function(a, i){ return a + m[i]; }, 0), ts = take.reduce(function(a, i){ return a + m[i]; }, 0);
+      give.forEach(function(i){ m[i] -= amt * m[i] / gs; }); take.forEach(function(i){ m[i] += amt * m[i] / ts; });
+    };
+    ['B', 'G'].forEach(function(g){ var cur = sum(g); if(cur > 0 && cur < POS_MIN * tot) shift(['B', 'G', 'W'].filter(function(x){ return x !== g; }), g, POS_MIN * tot - cur); });
+    ['B', 'G', 'W'].forEach(function(g){ var cur = sum(g); if(cur > POS_MAX * tot){
+      var over = cur - POS_MAX * tot, take = idx.filter(function(i){ return grp[i] !== g && m[i] > 0; }), give = idx.filter(function(i){ return grp[i] === g; });
+      if(!take.length) return; var ts = take.reduce(function(a, i){ return a + m[i]; }, 0), gs = give.reduce(function(a, i){ return a + m[i]; }, 0);
+      give.forEach(function(i){ m[i] -= over * m[i] / gs; }); take.forEach(function(i){ m[i] += over * m[i] / ts; }); } });
     return m;
   }
 
@@ -551,7 +589,7 @@
   }
 
   window.TDCProjGrade = { projMin: projMin, grade: grade, ovr: ovr, K: K, setPedigree: setPedigree,
-                          gradeRoster: gradeRoster, gradeSolo: gradeSolo, statOvr: _statOvrOf, explain: explain, projectMinutes: projectMinutes, setModel: setModel, setCoupled: setCoupled, setVersatility: setVersatility, setArchBonus: setArchBonus, setGpShrink: setGpShrink, setStatOverall: setStatOverall, setStatHist: setStatHist, loadHist: loadHist,
+                          gradeRoster: gradeRoster, gradeSolo: gradeSolo, posGroup: posGroup, posRebalance: posRebalance, statOvr: _statOvrOf, explain: explain, projectMinutes: projectMinutes, setModel: setModel, setCoupled: setCoupled, setVersatility: setVersatility, setArchBonus: setArchBonus, setGpShrink: setGpShrink, setStatOverall: setStatOverall, setStatHist: setStatHist, loadHist: loadHist,
                           statMaps: function(){ return { demo: _SO_DEMO, proj: _SO_PROJ, hist: _SO_HIST }; } };
 
   // Self-load the derived pedigree coefficients (tiny, local file) so every page
@@ -610,6 +648,6 @@
   window.TDCProjGrade.projRowOf = function(espn){ return (espn!=null && _SO_PROJ_ROW) ? (_SO_PROJ_ROW['' + espn] || null) : null; };
   window.TDCProjGrade.ready = Promise.all([
     _loadSO('scripts/data/stat_overall.json?v=7').then(function(m){ if(m) setStatOverall(m, null); }),
-    _loadProjRows('scripts/data/stat_overall_projected.json?v=43').then(function(m){ if(m) setStatOverall(null, m); })
+    _loadProjRows('scripts/data/stat_overall_projected.json?v=44').then(function(m){ if(m) setStatOverall(null, m); })
   ]).then(function(){ return true; }).catch(function(){ return true; });   // history is lazy — see loadHist()
 })();

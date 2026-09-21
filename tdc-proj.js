@@ -21,6 +21,35 @@ function _projGradeOf(r){
   if(!isFinite(v)) v = parseFloat(r.tdc_grade);
   return isFinite(v) ? v : 70;
 }
+const POS_MIN=0.28, POS_MAX=0.625, POS_FLOOR_MPG=3;
+function _hin(h){const m=/^(\d+)-(\d+)/.exec(String(h||''));return m?(+m[1])*12+(+m[2]):null;}
+function posGroup(position,height){
+  const pos=String(position||'').toUpperCase().replace(/\s|\d/g,'').split('/')[0], h=_hin(height);
+  if(pos==='C'||pos==='PF') return 'B';
+  if(pos==='PG'||pos==='SG'||pos==='G'||pos==='CG') return 'G';
+  if(pos==='SF'||pos==='F'||pos==='GF'||pos==='FG') return (h&&h>=81)?'B':'W';
+  if(h) return h>=81?'B':(h<=75?'G':'W');
+  return 'W';
+}
+function posRebalance(items){
+  const m=items.map(x=>x.m), grp=items.map(x=>x.grp), tot=m.reduce((a,b)=>a+b,0);
+  if(tot<=0) return m;
+  const sum=g=>m.reduce((a,v,i)=>a+(grp[i]===g?v:0),0);
+  const shift=(src,dst,amt)=>{
+    const give=m.map((v,i)=>i).filter(i=>src.includes(grp[i])&&m[i]>POS_FLOOR_MPG);
+    const take=m.map((v,i)=>i).filter(i=>grp[i]===dst&&m[i]>0);
+    if(!give.length||!take.length) return;
+    amt=Math.min(amt, give.reduce((a,i)=>a+m[i]-POS_FLOOR_MPG,0)); if(amt<=0) return;
+    const gs=give.reduce((a,i)=>a+m[i],0), ts=take.reduce((a,i)=>a+m[i],0);
+    give.forEach(i=>{m[i]-=amt*m[i]/gs;}); take.forEach(i=>{m[i]+=amt*m[i]/ts;});
+  };
+  ['B','G'].forEach(g=>{const cur=sum(g); if(cur>0&&cur<POS_MIN*tot) shift(['B','G','W'].filter(x=>x!==g),g,POS_MIN*tot-cur);});
+  ['B','G','W'].forEach(g=>{const cur=sum(g); if(cur>POS_MAX*tot){
+    const over=cur-POS_MAX*tot, take=m.map((v,i)=>i).filter(i=>grp[i]!==g&&m[i]>0), give=m.map((v,i)=>i).filter(i=>grp[i]===g);
+    if(!take.length) return; const ts=take.reduce((a,i)=>a+m[i],0), gs=give.reduce((a,i)=>a+m[i],0);
+    give.forEach(i=>{m[i]-=over*m[i]/gs;}); take.forEach(i=>{m[i]+=over*m[i]/ts;}); }});
+  return m;
+}
 function computePlayerMpg(p, teamRoster){
   const pg = _projGradeOf;
   const base=(Array.isArray(teamRoster)?teamRoster:[]).filter(r=>r.name&&r.name!=='—');
@@ -135,6 +164,11 @@ function computePlayerMpg(p, teamRoster){
     const floor=rAMpg*floorPct;
     if((mpgMap[r.name]||0)<floor) mpgMap[r.name]=floor;
   });
+  // POSITIONAL REBALANCE (mirrors build_stat_overall_projected.py pos_rebalance): a team plays two
+  // bigs and two guards. Frontcourt (C / PF / 6-9+ forwards) and backcourt (PG / SG) each hold at
+  // least 28% of the roster's minutes, no group more than 62.5%; the deficit moves pro rata.
+  posRebalance(roster.map(r=>({grp:posGroup(r.position,r.height),m:mpgMap[r.name]||0})))
+    .forEach((m,i)=>{mpgMap[roster[i].name]=m;});
   const result=mpgMap[p.name];
   if(result!=null)return Math.max(1,Math.min(38,result));
   const d=p.depth_order||8;return d<=1?32:d<=2?30:d<=3?27:d<=4?25:d<=5?23:d===6?20:d===7?17:d===8?14:d===9?11:d===10?8:5;

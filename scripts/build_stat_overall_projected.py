@@ -143,6 +143,53 @@ def _pos(p):
     if p.startswith("G"): return "G"
     if p.startswith("F"): return "F"
     return "SF"
+# POSITIONAL MINUTES (mirrored in tdc-proj.js posRebalance): a team plays two bigs and two guards.
+# The slot table and the authored depth order are positionless, so a guard-heavy chart could run
+# three point guards while a returning center sat at 8 mpg. After the roster squeeze, each team's
+# FRONTCOURT (C / PF / 6-9+ forwards) and BACKCOURT (PG / SG) must each hold at least POS_MIN of
+# the team's minutes and no group more than POS_MAX; the deficit moves between groups pro rata to
+# minutes (no one under 3). Real D-I 2025-26: frontcourt median 73 of 200, 10th pct ~53.
+POS_MIN=float(os.environ.get("POS_MIN","0.28")); POS_MAX=float(os.environ.get("POS_MAX","0.625")); POS_FLOOR_MPG=3.0
+def _hin(h):
+    try: a,b=str(h).split("-"); return int(a)*12+int(b)
+    except Exception: return None
+def pos_group(position,height):
+    """'B' frontcourt, 'G' backcourt, 'W' wing"""
+    pos=(position or "").upper().replace(" ","").split("/")[0]; h=_hin(height)
+    if pos in ("C","PF"): return "B"
+    if pos in ("PG","SG","G","CG"): return "G"
+    if pos in ("SF","F","GF","FG"): return "B" if (h and h>=81) else "W"
+    if h: return "B" if h>=81 else ("G" if h<=75 else "W")
+    return "W"
+def pos_rebalance(items):
+    """items: list of [group, minutes]; returns new minutes (same order), total preserved"""
+    tot=sum(m for _,m in items)
+    if tot<=0: return [m for _,m in items]
+    m=[x[1] for x in items]; grp=[x[0] for x in items]
+    def _shift(src,dst,amt):
+        """move amt minutes from groups in src to group dst, pro rata to minutes"""
+        give=[i for i in range(len(m)) if grp[i] in src and m[i]>POS_FLOOR_MPG]
+        take=[i for i in range(len(m)) if grp[i]==dst and m[i]>0]
+        if not give or not take: return
+        room=sum(m[i]-POS_FLOOR_MPG for i in give); amt=min(amt,room)
+        if amt<=0: return
+        gs=sum(m[i] for i in give); ts=sum(m[i] for i in take)
+        for i in give: m[i]-=amt*m[i]/gs
+        for i in take: m[i]+=amt*m[i]/ts
+    for g in ("B","G"):                                   # floors first
+        cur=sum(m[i] for i in range(len(m)) if grp[i]==g)
+        if 0<cur<POS_MIN*tot: _shift({x for x in "BGW" if x!=g},g,POS_MIN*tot-cur)
+    for g in ("B","G","W"):                               # then caps
+        cur=sum(m[i] for i in range(len(m)) if grp[i]==g)
+        if cur>POS_MAX*tot:
+            over=cur-POS_MAX*tot; others=[x for x in "BGW" if x!=g]
+            take=[i for i in range(len(m)) if grp[i] in others and m[i]>0]
+            give=[i for i in range(len(m)) if grp[i]==g]
+            if take:
+                ts=sum(m[i] for i in take); gs=sum(m[i] for i in give)
+                for i in give: m[i]-=over*m[i]/gs
+                for i in take: m[i]+=over*m[i]/ts
+    return m
 SLOT_MIN=[0,33,31,30,28,26,18,15,11,8,6]   # fallback role minutes by depth_order (starters 148 of 200); the live table is per team
 # COACH ROTATION SHAPE (build_coach_rotation.py -> coach_rotation.json): each program's slot minutes
 # come from its current coach's recent seasons (share of 200 by rank, recency-weighted, shrunk to
@@ -653,6 +700,7 @@ for short, roster in roster_by_team.items():
         # the freshmen / no-box players get what's LEFT of the team: minutes to 200, points to the
         # team's projected scoring after the (fitted) returners — one fitted {mpg, ppg} per player,
         # which the freshman line engine scales its own line to
+        _kmin=1.0; _kpts=1.0
         if _fresh:
             _rmin=sum(out[str(rr["e"])]["mpg"] for rr in R if str(rr["e"]) in out)
             _rpts=sum(out[str(rr["e"])]["ppg"] for rr in R if str(rr["e"]) in out)
@@ -661,6 +709,29 @@ for short, roster in roster_by_team.items():
             _kpts=max(0.5,min(1.3,max(0.0,(_target or (_rpts+_fp))-_rpts)/_fp))
             FRESH_FIT[short]={x[3]:{"mpg":round(x[0]*_kmin,1),"ppg":round(x[2]*FRESH_PPS*_kpts,1)} for x in _fresh}
             TEAM_FIT_LOG[full].update(fresh_min_k=round(_kmin,2),fresh_pts_k=round(_kpts,2))
+        # POSITIONAL REBALANCE over the whole roster (fitted returners + fitted freshmen): two bigs,
+        # two guards — see pos_rebalance. A returner whose minutes move is re-projected on them
+        # (his line, usage and grade follow); a freshman's fitted line scales with his minutes.
+        _fpos={}
+        for _p in pl[pl.team==short].itertuples():
+            _fpos[str(getattr(_p,"name","") or "").strip()]=pos_group(getattr(_p,"position",None),getattr(_p,"height",None))
+        _items=[[pos_group(rr["p"].position,getattr(rr["p"],"height",None)),float(out[str(rr["e"])]["mpg"])] for rr in R if str(rr["e"]) in out]
+        _Rk=[rr for rr in R if str(rr["e"]) in out]
+        _fk=list(FRESH_FIT.get(short,{}).items()) if _fresh else []
+        _items+=[[_fpos.get(nm,"W"),float(v["mpg"])] for nm,v in _fk]
+        _new=pos_rebalance(_items)
+        _moved=0
+        for i,rr in enumerate(_Rk):
+            if abs(_new[i]-_items[i][1])>0.05:
+                rr["pm"]=max(POS_FLOOR_MPG,_new[i]); _project_one(rr); _moved+=1
+        for j,(nm,v) in enumerate(_fk):
+            i=len(_Rk)+j
+            if abs(_new[i]-_items[i][1])>0.05 and v["mpg"]>0:
+                k=_new[i]/v["mpg"]; FRESH_FIT[short][nm]={"mpg":round(_new[i],1),"ppg":round(v["ppg"]*k,1)}; _moved+=1
+        if _moved:
+            _gb=lambda g: round(sum(x[1] for x in _items if x[0]==g),1)
+            _ga=lambda g: round(sum(_new[i] for i,x in enumerate(_items) if x[0]==g),1)
+            TEAM_FIT_LOG[full].update(pos_moved=_moved,pos_before={g:_gb(g) for g in "BGW"},pos_after={g:_ga(g) for g in "BGW"})
 
 # ---- IMPACT RECONCILIATION (lift-only) ----
 # Map each player's Total Impact (ti40) through the SAME percentile→grade curve as the wa
