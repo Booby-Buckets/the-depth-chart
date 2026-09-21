@@ -9,7 +9,7 @@ grade-statistical-overall.
 Per season:
   1. SOS factor per team from that season's conference SRS (team_seasons), so
      realignment is handled per-year:  factor = 1 - k*(1 - conf_srs/top_srs).
-  2. Balanced value = SOS-adj wins added -> per-40 (minutes-shrunk) -> x role credit.
+  2. Balanced value = SOS-adj wins added -> per-40 (minutes-shrunk) -> x role credit (floored at ROLE_FLOOR: the grade is the player, minutes carry Wins Added).
   3. Probit scale (MU=73, SP=7.3): percentile -> inverse-normal -> grade, clip 55..99.
 
 Writes (read-only w.r.t. the DB; local files only):
@@ -24,6 +24,8 @@ from scipy.stats import norm
 SB="https://izlqhnxowdhtdofkwrho.supabase.co"; KEY="sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
 H={"apikey":KEY,"Authorization":"Bearer "+KEY}
 D=os.path.join(os.path.dirname(os.path.abspath(__file__)),"data")
+ROLE_FLOOR=float(os.environ.get("ROLE_FLOOR","0.75"))   # talent-first grade; 0 = the old pure sqrt(minutes) role credit
+ROLE_FLOOR_MIN=float(os.environ.get("ROLE_FLOOR_MIN","500"))   # season minutes that earn the full floor
 CUR=2026; K_SOS=0.42; MU=73.0; SP=7.6; FLOOR=55; MIN_GP=3; REF_MIN=200
 # Usage weighting: a low-usage finisher's efficiency is "easier" (uncontested rim
 # finishes) and less valuable than the same efficiency carried at high volume, so we
@@ -173,7 +175,12 @@ for yr,g in adv.groupby("season_year"):
         per40=gg["wa"]/gg["mp40"].clip(lower=0.1)
         cred=gg["min"]/(gg["min"]+400.0)
         b=mu40+cred*(per40-mu40)
-        return b*np.sqrt((gg["min"]/P90).clip(0,1.3))
+        # ROLE CREDIT with a floor: the grade is the player, not his minutes (a 6-mpg big with a
+        # starter's per-40 keeps most of it); volume lives in Wins Added. Must match the projected build.
+        # ...but only once he has SHOWN it: the floor is earned by sample (full at ROLE_FLOOR_MIN
+        # minutes), so a 40-minute walk-on with a median-shrunk per-40 still grades near the floor.
+        ff=ROLE_FLOOR*(gg["min"]/ROLE_FLOOR_MIN).clip(0,1)
+        return b*(ff+(1.0-ff)*np.sqrt((gg["min"]/P90).clip(0,1.3)))
     g["_c"]=_craw(g)
     refc=np.sort(_craw(ref).values)             # rotation-pool reference distribution
     pct=(np.searchsorted(refc,g["_c"].values,side="right"))/(len(refc)+1)

@@ -56,7 +56,12 @@ def foul_pen(espn,minutes):
 # and role-shrinkers are exempt; development/vacancy can still push a grade UP freely.
 PROJ_MAXDROP=int(os.environ.get("PROJ_MAXDROP","2"))
 XFER_MAXDROP=int(os.environ.get("XFER_MAXDROP","13"))
-ROLE_FLOOR=float(os.environ.get("ROLE_FLOOR","0"))   # see the role-credit note in _project_one; 0 = minutes-heavy (old), 0.75 = talent-heavy   # a proven transfer stepping into a smaller role should regress hard, but not off a cliff to the grade floor
+ROLE_FLOOR=float(os.environ.get("ROLE_FLOOR","0.75"))   # see the role-credit note in _project_one; 0 = minutes-heavy (old), 0.75 = talent-first
+# The GRADE values a player at the usage he has SHOWN, moved only GRADE_USG_W of the way toward his
+# projected usage; the STAT LINE still uses the full projected usage. A Wofford volume scorer who
+# becomes a 12%-usage piece at UConn keeps most of his grade; his projected points still shrink.
+GRADE_USG_W=float(os.environ.get("GRADE_USG_W","0.35"))
+ROLE_FLOOR_MIN=float(os.environ.get("ROLE_FLOOR_MIN","500"))   # last-year minutes that earn the full floor   # a proven transfer stepping into a smaller role should regress hard, but not off a cliff to the grade floor
 # ---- projection knobs ----
 RETURNER_VAC=0.70    # share of departed usage that returners (vs incoming frosh) absorb
 USG_SCORE_EL=0.90    # shot volume elasticity to usage
@@ -285,7 +290,8 @@ if FOUL_W>0:   # demonstrated excess-foul dock (matches build_stat_overall.py's 
     d26["wa"]=d26["wa"]-d26.apply(lambda r: foul_pen(r["espn_id"], r["min"] if pd.notna(r["min"]) else 0), axis=1)
 per40=d26["wa"]/d26["mp40"].clip(lower=0.1)
 MU40=per40.median(); P90=d26["min"].quantile(0.90); cred=d26["min"]/(d26["min"]+400.0)
-d26["C"]=(MU40+cred*(per40-MU40))*np.sqrt((d26["min"]/P90).clip(0,1.3))
+_ff=ROLE_FLOOR*(d26["min"]/ROLE_FLOOR_MIN).clip(0,1)   # floor earned by sample (matches build_stat_overall.py)
+d26["C"]=(MU40+cred*(per40-MU40))*(_ff+(1.0-_ff)*np.sqrt((d26["min"]/P90).clip(0,1.3)))
 REF=np.sort(d26["C"].values)
 def to_grade(c):
     pct=np.searchsorted(REF,c,side="right")/(len(REF)+1); pct=min(max(pct,1e-4),1-1e-4)
@@ -439,54 +445,65 @@ for short, roster in roster_by_team.items():
         last_min=_n(r["a"]["min"] if r["a"] is not None else 0) or last_mpg*G_PROJ   # real minutes last year (for the dev-hold + guards)
         # per-40 last-year rates
         def p40(k): return _n(b[k])*40.0/max(last_mpg,1)
-        fga40=p40("fga")*usg_ratio*dm; tpa40=p40("tpa")*usg_ratio*dm; fta40=p40("fta")*usg_ratio*dm
-        ast40=p40("apg")*(usg_ratio**USG_AST_EL); tov40=p40("tovs")*(usg_ratio**USG_TOV_EL)
-        oreb40=p40("oreb"); dreb40=p40("dreb"); stl40=p40("stl"); blk40=p40("blk")   # minutes-based
-        # efficiency: regress toward positional mean + FT-implied 3P% + usage penalty.
-        # A DEVELOPING young returner (fr->so / so->jr on the rise) with a real sample keeps MORE
-        # of his own percentages — regressing a 37-game 37.5% sophomore 3P shooter toward the
-        # positional/FT-implied mean paints a rising player as declining, which he isn't (his OVR
-        # is already floored, but the visible LINE shouldn't read as worse). Scale the pull-away-
-        # from-actual by DEV_EFF_HOLD for those players; everyone else regresses as before.
-        rs=DEV_EFF_HOLD if (developing and not xfer and last_min>=400) else 1.0
-        ft=_n(b["ft_pct"],POS_FT[pos]); tp=_n(b["tp_pct"],POS_TP[pos]); fg=_n(b["fg_pct"],POS_FG[pos])
-        ftimp=0.55*ft-10.0
-        # 3P%: trust the real number by SAMPLE SIZE. A proven-volume shooter keeps his stroke; a
-        # 3-for-4 fluke regresses to the prior. This is what separates a real 37.5% sophomore (152
-        # attempts -> keep 81%) from a 100%-on-2 mirage (keep 4%) — the old fixed-weight blend
-        # dragged BOTH down the same amount and painted real shooters as decliners.
-        tpa_tot=_n(b["tpa"])*_n(b["gp"])
-        tp_cred=tpa_tot/(tpa_tot+REG_TPA_K)
-        tp_prior=TP_PRIOR_POS*POS_TP[pos]+(1-TP_PRIOR_POS)*ftimp
-        tp_p=tp_cred*tp+(1-tp_cred)*tp_prior
-        fg_p=((1-REG_FG*rs)*fg+REG_FG*rs*POS_FG[pos])*(1-USG_EFF_PEN*(usg_ratio-1))
-        ft_p=(1-REG_FT*rs)*ft+REG_FT*rs*POS_FT[pos]
-        fg_p=min(72,max(30,fg_p)); tp_p=min(48,max(20,tp_p)); ft_p=min(95,max(45,ft_p))
-        # per-game projected line
-        sc=pm/40.0
-        fga=fga40*sc; tpa=tpa40*sc; fta=fta40*sc
-        fgm=fga*fg_p/100.0; tpm=tpa*tp_p/100.0; ftm=fta*ft_p/100.0
-        pts=2*fgm+tpm+ftm
-        pg=dict(mpg=pm,pts=pts,fga=fga,fgm=fgm,tpa=tpa,tpm=tpm,fta=fta,ftm=ftm,
-                oreb=oreb40*sc,dreb=dreb40*sc,ast=ast40*sc,stl=stl40*sc,blk=blk40*sc,tov=tov40*sc)
-        rpg=pg["oreb"]+pg["dreb"]
-        # value it
-        ti40,owa,mn=ti_value(pg,pm*G_PROJ)
-        # ANCHOR OWA to the stored value: my TI formula drifts from the site's stored OWA
-        # per-player, so carry only the PROJECTED CHANGE off the stored anchor.
-        #   proj_owa = stored_owa + (my_owa(projected) - my_owa(demonstrated))
-        if r["a"] is not None and _n(r["a"]["owa"]) != 0:
-            gp_demo=_n(b["gp"]) or (last_min/max(last_mpg,1))
-            demo_pg=dict(mpg=last_mpg,pts=_n(b["ppg"]),fga=_n(b["fga"]),fgm=_n(b["fgm"]),
-                         fta=_n(b["fta"]),ftm=_n(b["ftm"]),oreb=_n(b["oreb"]),dreb=_n(b["dreb"]),
-                         ast=_n(b["apg"]),stl=_n(b["stl"]),blk=_n(b["blk"]),tov=_n(b["tovs"]))
-            _,owa_demo,_=ti_value(demo_pg,last_mpg*max(gp_demo,1),games=max(gp_demo,1))
-            owa=_n(r["a"]["owa"])+(owa-owa_demo)
-        # DWA carries from last year's defensive RATE (team-D can't be projected), scaled to new minutes
-        dwa_last=_n(r["a"]["dwa"] if r["a"] is not None else 0)
-        dwa40=dwa_last/(max(last_min,1)/40.0)
-        if xfer: dwa40=TRANSFER_DEF_DAMP*dwa40   # team-D credit doesn't fully transfer
-        dwa_p=dwa40*(mn/40.0)
+        def _line_value(ur):
+            """projected per-game line at usage ratio `ur` -> (pg, rpg, pts, ti40, owa, mn, dwa_p)"""
+            usg_ratio=ur
+            fga40=p40("fga")*usg_ratio*dm; tpa40=p40("tpa")*usg_ratio*dm; fta40=p40("fta")*usg_ratio*dm
+            ast40=p40("apg")*(usg_ratio**USG_AST_EL); tov40=p40("tovs")*(usg_ratio**USG_TOV_EL)
+            oreb40=p40("oreb"); dreb40=p40("dreb"); stl40=p40("stl"); blk40=p40("blk")   # minutes-based
+            # efficiency: regress toward positional mean + FT-implied 3P% + usage penalty.
+            # A DEVELOPING young returner (fr->so / so->jr on the rise) with a real sample keeps MORE
+            # of his own percentages — regressing a 37-game 37.5% sophomore 3P shooter toward the
+            # positional/FT-implied mean paints a rising player as declining, which he isn't (his OVR
+            # is already floored, but the visible LINE shouldn't read as worse). Scale the pull-away-
+            # from-actual by DEV_EFF_HOLD for those players; everyone else regresses as before.
+            rs=DEV_EFF_HOLD if (developing and not xfer and last_min>=400) else 1.0
+            ft=_n(b["ft_pct"],POS_FT[pos]); tp=_n(b["tp_pct"],POS_TP[pos]); fg=_n(b["fg_pct"],POS_FG[pos])
+            ftimp=0.55*ft-10.0
+            # 3P%: trust the real number by SAMPLE SIZE. A proven-volume shooter keeps his stroke; a
+            # 3-for-4 fluke regresses to the prior. This is what separates a real 37.5% sophomore (152
+            # attempts -> keep 81%) from a 100%-on-2 mirage (keep 4%) — the old fixed-weight blend
+            # dragged BOTH down the same amount and painted real shooters as decliners.
+            tpa_tot=_n(b["tpa"])*_n(b["gp"])
+            tp_cred=tpa_tot/(tpa_tot+REG_TPA_K)
+            tp_prior=TP_PRIOR_POS*POS_TP[pos]+(1-TP_PRIOR_POS)*ftimp
+            tp_p=tp_cred*tp+(1-tp_cred)*tp_prior
+            fg_p=((1-REG_FG*rs)*fg+REG_FG*rs*POS_FG[pos])*(1-USG_EFF_PEN*(usg_ratio-1))
+            ft_p=(1-REG_FT*rs)*ft+REG_FT*rs*POS_FT[pos]
+            fg_p=min(72,max(30,fg_p)); tp_p=min(48,max(20,tp_p)); ft_p=min(95,max(45,ft_p))
+            # per-game projected line
+            sc=pm/40.0
+            fga=fga40*sc; tpa=tpa40*sc; fta=fta40*sc
+            fgm=fga*fg_p/100.0; tpm=tpa*tp_p/100.0; ftm=fta*ft_p/100.0
+            pts=2*fgm+tpm+ftm
+            pg=dict(mpg=pm,pts=pts,fga=fga,fgm=fgm,tpa=tpa,tpm=tpm,fta=fta,ftm=ftm,
+                    oreb=oreb40*sc,dreb=dreb40*sc,ast=ast40*sc,stl=stl40*sc,blk=blk40*sc,tov=tov40*sc)
+            rpg=pg["oreb"]+pg["dreb"]
+            # value it
+            ti40,owa,mn=ti_value(pg,pm*G_PROJ)
+            # ANCHOR OWA to the stored value: my TI formula drifts from the site's stored OWA
+            # per-player, so carry only the PROJECTED CHANGE off the stored anchor.
+            #   proj_owa = stored_owa + (my_owa(projected) - my_owa(demonstrated))
+            if r["a"] is not None and _n(r["a"]["owa"]) != 0:
+                gp_demo=_n(b["gp"]) or (last_min/max(last_mpg,1))
+                demo_pg=dict(mpg=last_mpg,pts=_n(b["ppg"]),fga=_n(b["fga"]),fgm=_n(b["fgm"]),
+                             fta=_n(b["fta"]),ftm=_n(b["ftm"]),oreb=_n(b["oreb"]),dreb=_n(b["dreb"]),
+                             ast=_n(b["apg"]),stl=_n(b["stl"]),blk=_n(b["blk"]),tov=_n(b["tovs"]))
+                _,owa_demo,_=ti_value(demo_pg,last_mpg*max(gp_demo,1),games=max(gp_demo,1))
+                owa=_n(r["a"]["owa"])+(owa-owa_demo)
+            # DWA carries from last year's defensive RATE (team-D can't be projected), scaled to new minutes
+            dwa_last=_n(r["a"]["dwa"] if r["a"] is not None else 0)
+            dwa40=dwa_last/(max(last_min,1)/40.0)
+            if xfer: dwa40=TRANSFER_DEF_DAMP*dwa40   # team-D credit doesn't fully transfer
+            dwa_p=dwa40*(mn/40.0)
+
+            pg['_fg_p']=fg_p; pg['_tp_p']=tp_p; pg['_ft_p']=ft_p
+            return pg, rpg, pts, ti40, owa, mn, dwa_p
+        # the STAT LINE at the projected usage; the GRADE at the usage he has shown (softened)
+        pg, rpg, pts, ti40, owa_line, mn, dwa_p = _line_value(usg_ratio)
+        usg_grade=r["last_usg"]+GRADE_USG_W*(r["proj_usg"]-r["last_usg"])
+        usg_ratio_g=min(1.6,max(0.6,usg_grade/max(r["last_usg"],1)))
+        _pg_g, _rpg_g, _pts_g, _ti_g, owa, _mn_g, _dwa_g = _line_value(usg_ratio_g)
         sos=sos_of(full)
         # A transfer's owa was EARNED at his old level; valuing it at the new team's (higher)
         # SOS inflates a level-jumper above his demonstrated grade. Pull the valuation SOS back
@@ -495,8 +512,10 @@ for short, roster in roster_by_team.items():
         if xfer:
             sos_old_v=sos_of(demo_team_full)
             sos_val=sos-XFER_SOS_STR*max(0.0,sos-sos_old_v)
-        usg_mult=min(USG_HI,max(USG_LO,(r["proj_usg"]/USG_REF)**USG_POW))
-        wa=(owa*usg_mult+DWA_W*dwa_p)*sos_val - foul_pen(e, mn)   # excess-foul dock over projected minutes
+        usg_mult=min(USG_HI,max(USG_LO,(usg_grade/USG_REF)**USG_POW))
+        wa=(owa*usg_mult+DWA_W*dwa_p)*sos_val - foul_pen(e, mn)   # GRADE value (softened usage)
+        _um_line=min(USG_HI,max(USG_LO,(r["proj_usg"]/USG_REF)**USG_POW))
+        wa_line=(owa_line*_um_line+DWA_W*dwa_p)*sos_val - foul_pen(e, mn)   # Wins Added at the projected role
         per40_p=wa/max(mn/40.0,0.1)
         # RATE reliability comes from his ACTUAL sample, not the projected minutes — a
         # noisy small-minutes line stays shrunk toward the median even projected into a big
@@ -508,7 +527,10 @@ for short, roster in roster_by_team.items():
         # per-40 quality even in a small role (0 = the old pure sqrt(minutes) scaling, where a
         # 10th man's grade collapsed with his minutes); volume still drives Wins Added and the
         # stat line, and team ratings are minutes-weighted, so a deep bench doesn't inflate a team.
-        c_p=b_p*(ROLE_FLOOR+(1.0-ROLE_FLOOR)*math.sqrt(min(max(mn/P90,0),1.3)))
+        # ...earned by his DEMONSTRATED sample (full floor at ROLE_FLOOR_MIN last-year minutes), so a
+        # walk-on projected into a small role still grades near the floor.
+        ff=ROLE_FLOOR*min(1.0,last_min/ROLE_FLOOR_MIN)
+        c_p=b_p*(ff+(1.0-ff)*math.sqrt(min(max(mn/P90,0),1.3)))
         ovr=to_grade(c_p)
         # over-regression guard — proven returner (>=400 last-yr min) keeping his role
         # (projected mpg >= 85% of last) can't fall more than PROJ_MAXDROP below his
@@ -539,16 +561,16 @@ for short, roster in roster_by_team.items():
         out[str(e)]={
             "ovr":ovr,"demo_ovr":int(r["demo"]),"proj_mpg":round(pm,1),"last_mpg":round(last_mpg,1),
             "dev_mult":round(dm,3),"proj_usg":round(r["proj_usg"],1),"last_usg":round(r["last_usg"],1),
-            "proj_wa":round(wa,1),"ti40":round(ti40,1),"usg":round(r["proj_usg"],1),
+            "proj_wa":round(wa_line,1),"ti40":round(ti40,1),"usg":round(r["proj_usg"],1),
             "dwa":round(dwa_p,2),"sos":round(sos,2),
             # projected box line (per-game) for the player page
             "ppg":round(pts,1),"rpg":round(rpg,1),"apg":round(pg["ast"],1),"mpg":round(pm,1),
-            "fg_pct":round(fg_p,1),"tp_pct":round(tp_p,1),"ft_pct":round(ft_p,1),
+            "fg_pct":round(pg["_fg_p"],1),"tp_pct":round(pg["_tp_p"],1),"ft_pct":round(pg["_ft_p"],1),
             "stl":round(pg["stl"],1),"blk":round(pg["blk"],1),"tovs":round(pg["tov"],1),
             "oreb":round(pg["oreb"],1),"dreb":round(pg["dreb"],1),
             # makes/attempts so the player page can render the FULL line off THIS (graded) source
-            "fgm":round(fgm,1),"fga":round(fga,1),"tpm":round(tpm,1),"tpa":round(tpa,1),
-            "ftm":round(ftm,1),"fta":round(fta,1),
+            "fgm":round(pg["fgm"],1),"fga":round(pg["fga"],1),"tpm":round(pg["tpm"],1),"tpa":round(pg["tpa"],1),
+            "ftm":round(pg["ftm"],1),"fta":round(pg["fta"],1),
         }
         out[str(e)]["team"]=full   # CURRENT (2026-27) team — box-score sources carry his old team
         _cf=tconf.get(full)

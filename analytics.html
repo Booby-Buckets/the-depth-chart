@@ -17,7 +17,7 @@
   <script src="tdc-gate.js?v=3" data-gate="pro" data-label="advanced analytics"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-owned-seasons.js?v=7"></script>
-  <script src="tdc-freshman.js?v=pub12"></script>
+  <script src="tdc-freshman.js?v=pub13"></script>
   <script src="tdc-nil.js?v=prod2"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-pos.js"></script>
@@ -523,7 +523,7 @@ async function _ensureGenome(){
 let _SOH=null;
 async function _ensureSOH(){
   if(_SOH) return _SOH;
-  try{ _SOH=await fetch('scripts/data/stat_overall_history.json?v=4').then(function(r){return r.ok?r.json():null;}); }catch(e){}
+  try{ _SOH=await fetch('scripts/data/stat_overall_history.json?v=6').then(function(r){return r.ok?r.json():null;}); }catch(e){}
   _SOH=_SOH||{}; return _SOH;
 }
 // Box-only archetype fit — grade every season the same box way as the rest of the site
@@ -943,7 +943,7 @@ async function renderNilMovers(){
   _nilMoversDone=true;
   const N=window.TDC_NIL;
   let nd=null, curves=null;
-  try{ nd=await fetch('nil-data.json?v=gradesync10').then(r=>r.ok?r.json():null); }catch(e){}
+  try{ nd=await fetch('nil-data.json?v=gradesync11').then(r=>r.ok?r.json():null); }catch(e){}
   try{ if(window.TDCFresh&&TDCFresh.load){ await TDCFresh.load(); const pub=TDCFresh.getKey&&TDCFresh.getKey('nil_market'); if(pub&&pub.curves) curves=pub.curves; } }catch(e){}
   if(!curves){ try{ const a=await fetch('scripts/data/nil_market_anchors.json?v=lift1').then(r=>r.ok?r.json():null); curves=a&&a.curves; }catch(e){} }
   if(!nd||!nd.teams||!curves){ host.innerHTML='<div style="padding:30px;color:var(--text3);">NIL data unavailable.</div>'; return; }
