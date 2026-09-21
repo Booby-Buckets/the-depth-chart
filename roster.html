@@ -19,7 +19,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-freshman.js?v=pub13"></script>
-  <script src="tdc-projgrade.js?v=base17"></script>
+  <script src="tdc-projgrade.js?v=base18"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
   <meta charset="UTF-8"/>
@@ -736,7 +736,7 @@ async function loadData(){
     // Projected shot tendency / share by espn_id — same source as the player, team
     // and compare pages, so the TEND columns agree everywhere.
     let _shotMap={};
-    try{ const _sp=await fetch('scripts/data/stat_overall_projected.json?v=46').then(r=>r.ok?r.json():null); if(_sp&&_sp.players) _shotMap=_sp.players; }catch(e){}
+    try{ const _sp=await fetch('scripts/data/stat_overall_projected.json?v=47').then(r=>r.ok?r.json():null); if(_sp&&_sp.players) _shotMap=_sp.players; }catch(e){}
     allPlayers = allRaw.filter(p => p.name && p.name !== '—').map(p => {
       const cw = (p.espn_id!=null && carryWA.has(String(p.espn_id))) ? carryWA.get(String(p.espn_id)) : null;
       const _sh = (p.espn_id!=null) ? _shotMap[String(p.espn_id)] : null;
@@ -747,8 +747,16 @@ async function loadData(){
       const fp = (window.TDCFresh && TDCFresh.profileFor) ? TDCFresh.profileFor({team:p.team, name:p.name}) : null;
       if(fp && fp.ovr!=null){ ovr = Math.round(parseFloat(fp.ovr)); }
       else if(window.TDCProjGrade && TDCProjGrade.gradeSolo){ const g = TDCProjGrade.gradeSolo(p); if(g!=null && !isNaN(g)) ovr = g; }
+      // The 2026-27 row shows the PROJECTED line (same stat_overall_projected row as the player and
+      // team pages) — not last season's sheet box next to a projected OVR (a 73 next to a 6.4 ppg
+      // line that the projection says is 2.4 ppg). The sheet line stays for players with no row.
+      const _pl = {};
+      if(_sh && parseFloat(_sh.mpg)>0){
+        ['ppg','rpg','apg','mpg','fg_pct','tp_pct','ft_pct','stl','blk','tovs','oreb','dreb','fgm','fga','tpm','tpa','ftm','fta'].forEach(k=>{ const v=parseFloat(_sh[k]); if(isFinite(v)) _pl[k]=v; });
+        _pl._projLine = true;
+      }
       return {
-        ...p,
+        ...p, ..._pl,
         season_year: 2027, _hist: false,
         teamData: teamMap[p.team] || {},
         conf: (teamMap[p.team]||{}).conf || (teamMap[p.team]||{}).conference || '',

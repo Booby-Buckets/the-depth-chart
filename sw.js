@@ -4,12 +4,13 @@
    Strategy:
    - Navigations / .html  -> network-first (always fresh online; respects the no-cache
                              HTML deploy discipline), cache fallback, else offline.html.
-   - Same-origin static   -> stale-while-revalidate (versioned ?v= URLs make this safe;
-     (js/css/svg/png/json)   .json shows last-loaded data instantly and refreshes next load).
+   - scripts/data/*.json  -> network-first (data must agree across pages; cache = offline only).
+   - Same-origin static   -> stale-while-revalidate (versioned ?v= URLs make this safe).
+     (js/css/svg/png)
    - Cross-origin GET      -> network-first with runtime-cache fallback (Supabase data,
                              Google Fonts still render the last-seen values offline).
 */
-const CACHE = 'tdc-v208';
+const CACHE = 'tdc-v209';
 const CORE = ['index.html', 'offline.html', 'favicon.svg',
               'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
@@ -46,7 +47,22 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Same-origin static -> stale-while-revalidate
+  // Same-origin DATA (scripts/data/*.json) -> network-first. These files change with every
+  // rebuild while their URLs may not, and serving the last-loaded copy first meant page A showed a
+  // player's grade from yesterday's projection while page B (loaded after the SW refreshed) showed
+  // today's — "overalls not matching everywhere". Online they now always come from the network;
+  // the cached copy is only the offline fallback.
+  if (sameOrigin && url.pathname.includes('/scripts/data/') && url.pathname.endsWith('.json')) {
+    e.respondWith(
+      fetch(req).then((res) => {
+        if (res && res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); }
+        return res;
+      }).catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  // Same-origin static (js/css/img, all ?v= versioned) -> stale-while-revalidate
   if (sameOrigin) {
     e.respondWith(
       caches.match(req).then((hit) => {

@@ -21,7 +21,7 @@
   <script src="tdc-glossary.js?v=12"></script>
   <script src="tdc-leaderboard.js?v=2"></script>
   <script src="tdc-portalfit.js?v=needs10"></script>
-  <script src="tdc-projgrade.js?v=base17"></script>
+  <script src="tdc-projgrade.js?v=base18"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-owned-seasons.js?v=8"></script>
@@ -4279,7 +4279,10 @@ function _updateHeroGridForSeason(val){
     var eid=player.espn_id!=null?String(player.espn_id):null;
     var projO=(maps&&eid)?maps.proj[eid]:null;
     var sy=row?+row.season_year:null, hg=null;
-    if(isProj){ hg=(projO!=null)?projO:null; }
+    // Projected view: the SAME number the depth chart / roster / rankings show — gradeSolo
+    // (projected stat overall + development + tapered archetype bonus), not the raw stat ovr
+    // underneath it (that read 71 here while the team page said 73 for the same player).
+    if(isProj){ var _pg=_projectedGrade(); hg=(_pg!=null&&!isNaN(_pg))?_pg:((projO!=null)?projO:null); }
     else if(window.TDCProjGrade&&TDCProjGrade.gradeSolo){   // season-aware: demonstrated(2026) or historical
       hg=TDCProjGrade.gradeSolo({espn_id:player.espn_id, season_year:sy, tdc_grade:row&&row.tdc_grade});
     }
@@ -5854,7 +5857,7 @@ function renderRankings(){
     window._statOvr=null;
     Promise.all([
       fetch('scripts/data/stat_overall.json?v=7').then(r=>r.ok?r.json():null).catch(()=>null),
-      fetch('scripts/data/stat_overall_projected.json?v=46').then(r=>r.ok?r.json():null).catch(()=>null)
+      fetch('scripts/data/stat_overall_projected.json?v=47').then(r=>r.ok?r.json():null).catch(()=>null)
     ]).then(([demo,proj])=>{
       window._statOvr=(demo&&demo.players)?demo.players:{};
       window._statOvrProj=(proj&&proj.players)?proj.players:{};

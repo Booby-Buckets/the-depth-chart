@@ -25,7 +25,7 @@
   const f1 = v => v == null || !isFinite(v) ? '—' : (+v).toFixed(1);
 
   function loadEff() { return _effP || (_effP = fetch('scripts/data/team_pace_eff.json?v=5').then(r => r.ok ? r.json() : null).then(j => (_eff = j)).catch(() => null)); }
-  function loadProj() { return _projP || (_projP = fetch('scripts/data/stat_overall_projected.json?v=46').then(r => r.ok ? r.json() : null).then(j => (_proj = j)).catch(() => null)); }
+  function loadProj() { return _projP || (_projP = fetch('scripts/data/stat_overall_projected.json?v=47').then(r => r.ok ? r.json() : null).then(j => (_proj = j)).catch(() => null)); }
   function roster(full) {
     const short = sn(full);
     return fetch(`${SB}/rest/v1/players?team=eq.${encodeURIComponent(short)}&select=name,team,position,class_year,height,espn_id,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,three_pct,ft_pct,stl,blk,tovs,fga,fgm,tpa,tpm,is_injured,yr,starter,depth_order&order=depth_order.asc.nullslast`, { headers: H })

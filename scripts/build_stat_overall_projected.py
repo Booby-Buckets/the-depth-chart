@@ -456,6 +456,10 @@ for short, roster in roster_by_team.items():
         if pd.isna(p.espn_id) or int(p.espn_id) not in BOX_IDS: continue
         e=int(p.espn_id); b=box.loc[e]; a=advByEspn.loc[e] if e in advByEspn.index else None
         if _n(a["g"] if a is not None else 0)<3 and _n(b["gp"])<3: continue
+        # a history row with no box (a phantom stamped under the wrong team, stats all null) must not
+        # become a 0-point line that still carries minutes and a grade (Devin Brown, Notre Dame, 81 OVR
+        # on 0.0 ppg) — treat him like an unlinked player (the roster-line path) until the row is repaired
+        if not (pd.notna(b["ppg"]) and pd.notna(b["fga"]) and _n(b["gp"])>=1): continue
         last_mpg=_n(b["mpg"]) or _n(p.mpg) or 0
         if last_mpg<3: continue
         starter=str(p.starter).lower() in ("true","t")
