@@ -638,15 +638,53 @@ function pPct(p,key,inv){ return pctRank(playerDist(key), p[key], inv); }
 function tPct(t,key,inv){ return pctRank(teamDist(key), t[key], inv); }
 
 // light projection (class-year progression) — labelled an estimate
+// Next-season line for one player.
+//   CURRENT player  → the site's canonical 2026-27 projection (stat_overall_projected.json by
+//                     espn_id — the same line the player page, team page and rankings use).
+//   HISTORICAL season (e.g. Jalen Brunson 2015-16) → "if he had played the next year": his
+//                     per-minute rates carried into the following season with the site's
+//                     class-development curve (dev_curves.json: fr→so / so→jr / jr→sr rate
+//                     multipliers by grade tier) and a role step toward starter minutes (the
+//                     same headroom fractions the rotation model uses). A senior season has no
+//                     next college year → every row reads "—" and the section says so.
+//   Fallback (no canonical row) → the same development-curve model on last season's line.
+let _devCurves=null;
+async function _loadDevCurves(){
+  if(_devCurves) return _devCurves;
+  try{ const j=await fetch('scripts/data/dev_curves.json?v=1').then(r=>r.ok?r.json():null); _devCurves=(j&&j.rate_mult)||null; }catch(e){}
+  if(!_devCurves) _devCurves={"sr":{"low":1.044,"high":0.998,"mid":1.01},"so":{"mid":1.087,"low":1.119,"high":1.07},"jr":{"mid":1.04,"low":1.075,"high":1.046}};
+  return _devCurves;
+}
+const _PROJ_KEYS=['ppg','rpg','apg','mpg','stl','blk','oreb','dreb','tovs','fgm','fga','tpm','tpa','ftm','fta','fg_pct','tp_pct','ft_pct'];
+function _devTrans(p){
+  const y=((p.class_year||p.yr||'')+'').toLowerCase();
+  if(/fr/.test(y)) return 'so'; if(/so/.test(y)) return 'jr'; if(/jr/.test(y)) return 'sr';
+  if(/sr|gr/.test(y)) return null;
+  const n=p._priorSeasons;                      // class unknown → infer from seasons already played
+  if(n==null) return 'jr';
+  return n<=0?'so':n===1?'jr':n===2?'sr':null;
+}
 function projPlayer(p){
-  var yr=((p.class_year||p.yr||'')+'').toLowerCase();
-  var mult = yr.includes('fr')?1.12 : yr.includes('so')?1.10 : yr.includes('jr')?1.05 : 0.99;
-  var pctBump = yr.includes('fr')?1.5 : yr.includes('so')?1.0 : yr.includes('jr')?0.5 : 0;
-  var o={};
-  ['ppg','rpg','apg','mpg','stl','blk','oreb','dreb','tovs','fgm','fga','tpm','tpa','ftm','fta'].forEach(k=>{
-    o[k]=Math.round(((parseFloat(p[k])||0)*mult)*10)/10;
-  });
-  ['fg_pct','tp_pct','ft_pct'].forEach(k=>{ o[k]=Math.round(((parseFloat(p[k])||0)+pctBump)*10)/10; });
+  const o={};
+  if(!p._isHistory && p.espn_id!=null && _soProjLine && _soProjLine[String(p.espn_id)]){
+    const l=_soProjLine[String(p.espn_id)];
+    _PROJ_KEYS.forEach(k=>{ const v=parseFloat(l[k]); o[k]=isFinite(v)?v:null; });
+    o._src='model'; return o;
+  }
+  const trans=_devTrans(p);
+  if(trans===null){ _PROJ_KEYS.forEach(k=>o[k]=null); o._final=true; return o; }
+  const g=parseFloat(_cmpGrade(p)); const tier=!isFinite(g)?'mid':(g<73?'low':(g<84?'mid':'high'));
+  const curves=_devCurves||{"sr":{"low":1.044,"high":0.998,"mid":1.01},"so":{"mid":1.087,"low":1.119,"high":1.07},"jr":{"mid":1.04,"low":1.075,"high":1.046}};
+  const mult=(curves[trans]&&curves[trans][tier])||1.0;
+  const frac=trans==='so'?0.62:trans==='jr'?0.55:0.48;        // share of the headroom to a starter's minutes he realizes
+  const m0=parseFloat(p.mpg)||0;
+  const m1=m0<=0?0:(m0<32?Math.min(34,m0+(32-m0)*frac):Math.min(34,m0));
+  const k=m0>0?(m1/m0)*mult:1;
+  ['ppg','rpg','apg','stl','blk','oreb','dreb','tovs','fgm','fga','tpm','tpa','ftm','fta'].forEach(key=>{
+    const v=parseFloat(p[key]); o[key]=isFinite(v)?Math.round(v*k*10)/10:null; });
+  o.mpg=Math.round(m1*10)/10;
+  ['fg_pct','tp_pct','ft_pct'].forEach(key=>{ const v=parseFloat(p[key]); o[key]=isFinite(v)?Math.round(v*10)/10:null; });
+  o._src='curve'; o._trans=trans; o._tier=tier; o._mult=mult; o._m0=m0;
   return o;
 }
 
@@ -934,7 +972,7 @@ async function maybeRender(){
   const arr=sel[mode==='players'?'players':'teams'];
   if(arr[0]&&arr[1]){
     document.getElementById('emptyHint').style.display='none';
-    if(mode==='players'){ await Promise.all([attachBbref(arr[0]),attachBbref(arr[1])]); renderPlayers(); }
+    if(mode==='players'){ await Promise.all([attachBbref(arr[0]),attachBbref(arr[1]),_projLineMap(),_loadDevCurves()]); renderPlayers(); }
     else renderTeams();
   }
 }
@@ -1349,6 +1387,10 @@ async function attachBbref(p){
   try{
     if(window.TDCOwnedSeasons){
       let all = p.espn_id ? await TDCOwnedSeasons.byEspn(p.espn_id) : (p.name ? await TDCOwnedSeasons.byName(p.name) : []);
+      // seasons played BEFORE this one → infers the class when the bio is blank (pre-2020 rows
+      // often have yr=null): 0 prior = freshman, 1 = sophomore, 2 = junior, 3+ = senior
+      p._priorSeasons=(all||[]).filter(r=>+r.season_year<+yr).length;
+      p._laterSeasons=(all||[]).filter(r=>+r.season_year>+yr).length;
       rows=(all||[]).filter(r=>String(r.season_year)===String(yr));
       if(rows.length>1 && p.team){
         const tl=(p.team||'').toLowerCase().trim();
@@ -1493,15 +1535,6 @@ function renderPlayers(){
       <div class="chart-legend"><span><i style="background:${c1}"></i>${p1.name} · ${_psArch(p1)}</span><span><i style="background:${c2}"></i>${p2.name} · ${_psArch(p2)}</span></div>
     </div>`:''}
 
-    ${window.TDCPortalFit?`
-    <div id="cfitSection">
-      <div class="compare-section-head">System &amp; Coach Fit — 2026-27</div>
-      <div class="sim-grid">
-        <div class="sim-card" id="cfit1" style="border-top:2px solid ${c1};"><div class="sim-row" style="color:var(--text3);">Computing fit…</div></div>
-        <div class="sim-card" id="cfit2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Computing fit…</div></div>
-      </div>
-    </div>`:''}
-
     ${matchup?`
     <div class="compare-section-head">Head-to-Head Matchup · If They Guarded Each Other</div>
     <div class="mu-card">
@@ -1548,8 +1581,9 @@ function renderPlayers(){
     ${projRow('PPG',pr1.ppg,pr2.ppg)}${projRow('RPG',pr1.rpg,pr2.rpg)}${projRow('APG',pr1.apg,pr2.apg)}
     ${projRow('MPG',pr1.mpg,pr2.mpg)}${projRow('STL',pr1.stl,pr2.stl)}${projRow('BLK',pr1.blk,pr2.blk)}
     ${projRow('FG%',pr1.fg_pct,pr2.fg_pct)}${projRow('3P%',pr1.tp_pct,pr2.tp_pct)}${projRow('FT%',pr1.ft_pct,pr2.ft_pct)}
+    <div class="sg-note">${[[p1,pr1,nextLbl(p1)],[p2,pr2,nextLbl(p2)]].map(([p,pr,nl])=>_projNote(p,pr,nl)).filter(Boolean).join(' · ')}</div>
 
-    ${(p1.espn_id||p2.espn_id)?`
+    ${bothCurrent&&(p1.espn_id||p2.espn_id)?`
     <div class="compare-section-head">Shot Profile · 2026-27 Projected</div>
     <div class="scc-grid">
       <div class="scc-col"><div class="scc-lbl" style="color:${c1};border-bottom-color:${c1};">${p1.name}</div><div id="shotprof1" class="scc-host"></div></div>
@@ -1594,7 +1628,6 @@ function renderPlayers(){
   _renderShotFlows(p1,p2);
   _fillShotGenome(p1,p2);
   _fillShotProfiles(p1,p2,c1,c2);
-  _fillCoachFit(p1,p2,c1,c2);
   const labels=P_AXES.map(a=>a.l);
   const d1=P_AXES.map(a=>a.f(p1)), d2=P_AXES.map(a=>a.f(p2));
   // each player benchmarks against All-Americans at HIS position group
@@ -2168,6 +2201,13 @@ function statRow(label,a,b,higher=true){
   return `<div class="compare-row"${_rowData(hasA?av:null,hasB?bv:null,higher,_leagueAvg(label))}><div class="compare-cell ${wA}">${hasA?f(a):'—'}</div>
     <div class="compare-label">${label}</div>
     <div class="compare-cell right ${wB}">${hasB?f(b):'—'}</div></div>`;
+}
+function _projNote(p,pr,nl){
+  if(!pr) return '';
+  if(pr._final) return `<b>${p.name}</b> — ${_seasonLabel(p)} was a senior season, so there is no next college year to project`;
+  if(pr._src==='model') return `<b>${p.name}</b> — the site's 2026-27 projection (role, usage and development on the projected roster)`;
+  const t={so:'freshman → sophomore',jr:'sophomore → junior',sr:'junior → senior'}[pr._trans]||'year-over-year';
+  return `<b>${p.name}</b> — his ${_seasonLabel(p)} rates carried into ${nl} on the ${t} development curve (×${(pr._mult||1).toFixed(2)} for a ${pr._tier}-tier grade) with minutes stepping ${Math.round(pr._m0)} → ${Math.round(pr.mpg)}`;
 }
 function projRow(label,a,b){
   const av=parseFloat(a),bv=parseFloat(b),isPct=label.includes('%'),hasA=!isNaN(av),hasB=!isNaN(bv);
