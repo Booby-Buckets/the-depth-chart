@@ -190,6 +190,53 @@ def pos_rebalance(items):
                 for i in give: m[i]-=over*m[i]/gs
                 for i in take: m[i]+=over*m[i]/ts
     return m
+# PROVEN-AT-HIS-SPOT FLOOR (mirrored in tdc-projgrade.js posFloors): these rosters aren't adding
+# more bigs, so the bigs they have play. A frontcourt / backcourt player who played >= DEMO_MIN mpg
+# in D-I last season projects to at least POS_KEEP of those minutes (level-discounted for a step
+# UP: 3% per point of team-strength gap, floor 0.55), the spot's floors together capped at
+# POS_NEED of the team. The minutes come first from UNPROVEN members of the same group (no D-I
+# role yet, < UNPROVEN_MAX mpg — at most half of each one's minutes), then from the other groups pro rata. A 26-mpg
+# Big East center slotted 10th on a three-point-guard chart no longer projects to 8 minutes. Only
+# for players the chart still has in a plausible rotation (depth <= POS_FLOOR_DEPTH); 12th+ is a
+# deliberate parking spot (redshirt, leaving, medical) and is left alone.
+POS_FLOOR_DEPTH=int(os.environ.get("POS_FLOOR_DEPTH","11")); DEMO_MIN=float(os.environ.get("DEMO_MIN","15")); UNPROVEN_MAX=float(os.environ.get("UNPROVEN_MAX","6")); POS_KEEP=float(os.environ.get("POS_KEEP","0.7")); POS_NEED=float(os.environ.get("POS_NEED","0.36"))
+def level_factor(gap):
+    """gap = new team strength - old team strength (SRS points); a step up shrinks the proven minutes"""
+    try: g=float(gap)
+    except (TypeError,ValueError): return 1.0
+    return max(0.55,min(1.0,1.0-0.03*max(0.0,g)))
+def pos_floors(items):
+    """items: list of [group, minutes, demo_eff] (demo_eff = last mpg x level factor; 0 = unproven);
+    returns new minutes, total preserved"""
+    tot=sum(x[1] for x in items)
+    if tot<=0: return [x[1] for x in items]
+    m=[x[1] for x in items]; grp=[x[0] for x in items]; demo=[x[2] for x in items]
+    for g in ("B","G"):
+        mem=[i for i in range(len(m)) if grp[i]==g]
+        proven=[i for i in mem if demo[i]>=DEMO_MIN]
+        if not proven: continue
+        fl={i:POS_KEEP*demo[i] for i in proven}
+        cap=POS_NEED*tot; sf=sum(fl.values())
+        if sf>cap: fl={i:v*cap/sf for i,v in fl.items()}
+        need={i:max(0.0,fl[i]-m[i]) for i in proven}; D=sum(need.values())
+        if D<=0.05: continue
+        got=0.0
+        unp=[i for i in mem if demo[i]<UNPROVEN_MAX and m[i]>POS_FLOOR_MPG]   # no D-I role yet (freshmen, fresh-fit)
+        room=sum(min(0.5*m[i],m[i]-POS_FLOOR_MPG) for i in unp)
+        if unp and room>0:
+            take=min(D,room)
+            for i in unp: m[i]-=take*min(0.5*m[i],m[i]-POS_FLOOR_MPG)/room
+            got+=take
+        if got<D-0.05:
+            oth=[i for i in range(len(m)) if grp[i]!=g and m[i]>POS_FLOOR_MPG]
+            room=sum(m[i]-POS_FLOOR_MPG for i in oth)
+            if oth and room>0:
+                take=min(D-got,room)
+                for i in oth: m[i]-=take*(m[i]-POS_FLOOR_MPG)/room
+                got+=take
+        if got>0:
+            for i in proven: m[i]+=got*need[i]/D
+    return m
 SLOT_MIN=[0,33,31,30,28,26,18,15,11,8,6]   # fallback role minutes by depth_order (starters 148 of 200); the live table is per team
 # COACH ROTATION SHAPE (build_coach_rotation.py -> coach_rotation.json): each program's slot minutes
 # come from its current coach's recent seasons (share of 200 by rank, recency-weighted, shrunk to
@@ -255,7 +302,7 @@ def dev_mult(yr,demo,n_prior=None):
 print("Pulling roster, last-year box + advanced, team SOS...",file=sys.stderr)
 adv=pd.DataFrame(sb_get(f"player_advanced?select=espn_id,name,team,g,min,usg_pct,owa,dwa,ti40&season_year=eq.{CUR}"))
 box=pd.DataFrame(sb_get(f"player_history?select=espn_id,ppg,mpg,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,stl,blk,tovs,apg,gp,fg_pct,tp_pct,ft_pct&season_year=eq.{CUR}"))
-pl =pd.DataFrame(sb_get("players?select=espn_id,name,depth_order,starter,mpg,yr,class_year,team,position,height,tdc_grade"))
+pl =pd.DataFrame(sb_get("players?select=espn_id,name,depth_order,starter,mpg,yr,class_year,team,position,height,tdc_grade,is_injured"))
 ts =pd.DataFrame(sb_get("team_seasons?select=season_year,team,conference,srs"))
 # prior seasons played (through CUR) per player — infers class when the roster's is blank
 _cs=pd.DataFrame(sb_get(f"player_history?select=espn_id,season_year&mpg=gt.2&season_year=lte.{CUR}"))
@@ -720,6 +767,17 @@ for short, roster in roster_by_team.items():
         _fk=list(FRESH_FIT.get(short,{}).items()) if _fresh else []
         _items+=[[_fpos.get(nm,"W"),float(v["mpg"])] for nm,v in _fk]
         _new=pos_rebalance(_items)
+        # then the proven-at-his-spot floors (level-discounted last-year minutes; injured rows excluded)
+        def _demo_eff(rr):
+            if str(getattr(rr["p"],"is_injured","")).lower() in ("true","t","1"): return 0.0
+            _d=rr["p"].depth_order
+            if pd.notna(_d) and int(_d)>POS_FLOOR_DEPTH: return 0.0    # parked 12th+ on the chart = a deliberate non-rotation call
+            lv=1.0
+            if rr["xfer"] and rr["a"] is not None:
+                _qn=srs_of(full); _qo=srs_of(rr["a"].team)
+                if _qn is not None and _qo is not None: lv=level_factor(_qn-_qo)
+            return rr["last_mpg"]*lv
+        _new=pos_floors([[_items[i][0],_new[i],(_demo_eff(_Rk[i]) if i<len(_Rk) else 0.0)] for i in range(len(_items))])
         _moved=0
         for i,rr in enumerate(_Rk):
             if abs(_new[i]-_items[i][1])>0.05:

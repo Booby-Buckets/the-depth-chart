@@ -409,7 +409,55 @@
     // (C / PF / 6-9+ forwards) and backcourt (PG / SG) each hold at least 28% of the roster's
     // minutes and no group more than 62.5%; the deficit moves between groups pro rata.
     m = posRebalance(roster.map(function(p, i){ return { grp: posGroup(p.position, p.height), m: m[i] }; }));
+    // then the proven-at-his-spot floors (see posFloors): level-discounted last-year minutes
+    m = posFloors(roster.map(function(p, i){ return { grp: posGroup(p.position, p.height), m: m[i], demo: demoEff(p) }; }));
     for(var i = 0; i < n; i++) m[i] = Math.round(m[i] * 10) / 10;
+    return m;
+  }
+  // PROVEN-AT-HIS-SPOT FLOOR (mirrors build_stat_overall_projected.py pos_floors): these rosters
+  // aren't adding more bigs, so the bigs they have play. A frontcourt / backcourt player who
+  // played >= DEMO_MIN mpg in D-I last season projects to at least POS_KEEP of those minutes
+  // (level-discounted for a step UP: 3% per point of league-strength gap, floor 0.55), the spot's
+  // floors together capped at POS_NEED of the team. Minutes come first from UNPROVEN members of
+  // the same group (no D-I role yet, < UNPROVEN_MAX mpg — at most half of each one's minutes),
+  // then from the other groups pro rata. Only for players the chart still has in a plausible
+  // rotation (depth <= POS_FLOOR_DEPTH); 12th+ is a deliberate parking spot and is left alone.
+  var DEMO_MIN = 15, UNPROVEN_MAX = 6, POS_KEEP = 0.7, POS_NEED = 0.36, POS_FLOOR_DEPTH = 11;
+  function levelFactor(gap){ var g = parseFloat(gap); if(!isFinite(g)) return 1; return Math.max(0.55, Math.min(1, 1 - 0.03 * Math.max(0, g))); }
+  function demoEff(p){
+    if(!p) return 0;
+    if(p.is_injured === true || p.is_injured === 'true' || p.is_injured === 't') return 0;
+    var d = parseInt(p.depth_order, 10); if(isFinite(d) && d > POS_FLOOR_DEPTH) return 0;
+    var demo = parseFloat(p.mpg) || 0, lv = 1;
+    var oc = _originConf(p), dc = _confOf(p.team);
+    if(_LV && _LV.conf_strength && oc && dc && oc !== dc) lv = levelFactor((_LV.conf_strength[dc] || 0) - (_LV.conf_strength[oc] || 0));
+    return demo * lv;
+  }
+  function posFloors(items){
+    var m = items.map(function(x){ return x.m || 0; }), grp = items.map(function(x){ return x.grp; }), demo = items.map(function(x){ return x.demo || 0; });
+    var tot = m.reduce(function(a, b){ return a + b; }, 0);
+    if(tot <= 0) return m;
+    var idx = m.map(function(v, i){ return i; });
+    ['B', 'G'].forEach(function(g){
+      var mem = idx.filter(function(i){ return grp[i] === g; });
+      var proven = mem.filter(function(i){ return demo[i] >= DEMO_MIN; });
+      if(!proven.length) return;
+      var fl = {}, sf = 0; proven.forEach(function(i){ fl[i] = POS_KEEP * demo[i]; sf += fl[i]; });
+      var cap = POS_NEED * tot; if(sf > cap) proven.forEach(function(i){ fl[i] *= cap / sf; });
+      var need = {}, D = 0; proven.forEach(function(i){ need[i] = Math.max(0, fl[i] - m[i]); D += need[i]; });
+      if(D <= 0.05) return;
+      var got = 0;
+      var unp = mem.filter(function(i){ return demo[i] < UNPROVEN_MAX && m[i] > POS_FLOOR_MPG; });
+      var roomOf = function(i){ return Math.min(0.5 * m[i], m[i] - POS_FLOOR_MPG); };
+      var room = unp.reduce(function(a, i){ return a + roomOf(i); }, 0);
+      if(unp.length && room > 0){ var take = Math.min(D, room); unp.forEach(function(i){ m[i] -= take * roomOf(i) / room; }); got += take; }
+      if(got < D - 0.05){
+        var oth = idx.filter(function(i){ return grp[i] !== g && m[i] > POS_FLOOR_MPG; });
+        var room2 = oth.reduce(function(a, i){ return a + m[i] - POS_FLOOR_MPG; }, 0);
+        if(oth.length && room2 > 0){ var take2 = Math.min(D - got, room2); oth.forEach(function(i){ m[i] -= take2 * (m[i] - POS_FLOOR_MPG) / room2; }); got += take2; }
+      }
+      if(got > 0) proven.forEach(function(i){ m[i] += got * need[i] / D; });
+    });
     return m;
   }
   var POS_MIN = 0.28, POS_MAX = 0.625, POS_FLOOR_MPG = 3;
@@ -589,7 +637,7 @@
   }
 
   window.TDCProjGrade = { projMin: projMin, grade: grade, ovr: ovr, K: K, setPedigree: setPedigree,
-                          gradeRoster: gradeRoster, gradeSolo: gradeSolo, posGroup: posGroup, posRebalance: posRebalance, statOvr: _statOvrOf, explain: explain, projectMinutes: projectMinutes, setModel: setModel, setCoupled: setCoupled, setVersatility: setVersatility, setArchBonus: setArchBonus, setGpShrink: setGpShrink, setStatOverall: setStatOverall, setStatHist: setStatHist, loadHist: loadHist,
+                          gradeRoster: gradeRoster, gradeSolo: gradeSolo, posGroup: posGroup, posRebalance: posRebalance, posFloors: posFloors, demoEff: demoEff, statOvr: _statOvrOf, explain: explain, projectMinutes: projectMinutes, setModel: setModel, setCoupled: setCoupled, setVersatility: setVersatility, setArchBonus: setArchBonus, setGpShrink: setGpShrink, setStatOverall: setStatOverall, setStatHist: setStatHist, loadHist: loadHist,
                           statMaps: function(){ return { demo: _SO_DEMO, proj: _SO_PROJ, hist: _SO_HIST }; } };
 
   // Self-load the derived pedigree coefficients (tiny, local file) so every page
@@ -648,6 +696,6 @@
   window.TDCProjGrade.projRowOf = function(espn){ return (espn!=null && _SO_PROJ_ROW) ? (_SO_PROJ_ROW['' + espn] || null) : null; };
   window.TDCProjGrade.ready = Promise.all([
     _loadSO('scripts/data/stat_overall.json?v=7').then(function(m){ if(m) setStatOverall(m, null); }),
-    _loadProjRows('scripts/data/stat_overall_projected.json?v=44').then(function(m){ if(m) setStatOverall(null, m); })
+    _loadProjRows('scripts/data/stat_overall_projected.json?v=45').then(function(m){ if(m) setStatOverall(null, m); })
   ]).then(function(){ return true; }).catch(function(){ return true; });   // history is lazy — see loadHist()
 })();

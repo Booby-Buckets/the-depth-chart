@@ -169,6 +169,12 @@ function computePlayerMpg(p, teamRoster){
   // least 28% of the roster's minutes, no group more than 62.5%; the deficit moves pro rata.
   posRebalance(roster.map(r=>({grp:posGroup(r.position,r.height),m:mpgMap[r.name]||0})))
     .forEach((m,i)=>{mpgMap[roster[i].name]=m;});
+  // proven-at-his-spot floors (the rule + level data live in tdc-projgrade.js)
+  const _PG=(typeof window!=='undefined')?window.TDCProjGrade:null;
+  if(_PG&&_PG.posFloors&&_PG.demoEff){
+    _PG.posFloors(roster.map(r=>({grp:posGroup(r.position,r.height),m:mpgMap[r.name]||0,demo:_PG.demoEff(r)})))
+      .forEach((m,i)=>{mpgMap[roster[i].name]=m;});
+  }
   const result=mpgMap[p.name];
   if(result!=null)return Math.max(1,Math.min(38,result));
   const d=p.depth_order||8;return d<=1?32:d<=2?30:d<=3?27:d<=4?25:d<=5?23:d===6?20:d===7?17:d===8?14:d===9?11:d===10?8:5;
