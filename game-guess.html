@@ -14,6 +14,7 @@
   <meta name="twitter:title" content="Guess the Player — The Depth Chart">
   <meta name="twitter:description" content="Advanced college basketball roster rankings, team & player analytics, NIL values, and 2026-27 projections for all of Division I.">
   <script src="auth.js?v=shotlock1"></script>
+  <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-projgrade.js?v=base17"></script>
   <script src="tdc-rating.js?v=5"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
@@ -434,7 +435,7 @@ async function loadAllPool(){
   const PG=1000, pages=Math.ceil(total/PG), jobs=[];
   for(let i=0;i<pages;i++) jobs.push(fetch(base,{headers:Object.assign({},H,{'Range-Unit':'items','Range':(i*PG)+'-'+(i*PG+PG-1)})}).then(r=>r.ok?r.json():[]));
   const parts=await Promise.all(jobs);
-  var all=parts.reduce(function(a,b){return a.concat(b);},[]);
+  var all=TDCTeamName.fix(parts.reduce(function(a,b){return a.concat(b);},[]));
   // Box-adjust each season's grade FIRST (per-season centered, weak-team dampened) so the
   // peak-season pick + the compare/reveal all use the canonical grade.
   if(window.TDCRating&&TDCRating.ready){ try{ await TDCRating.ready; }catch(e){} }

@@ -14,6 +14,7 @@
   <meta name="twitter:title" content="Rank &#x27;Em — The Depth Chart">
   <meta name="twitter:description" content="Advanced college basketball roster rankings, team & player analytics, NIL values, and 2026-27 projections for all of Division I.">
   <script src="auth.js?v=shotlock1"></script>
+  <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-projgrade.js?v=base17"></script>
   <script src="tdc-rating.js?v=5"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
@@ -165,7 +166,7 @@ async function loadAll(){
   for(let i=0;i<pages;i++) jobs.push(fetch(base,{headers:Object.assign({},H,{'Range-Unit':'items','Range':(i*PG)+'-'+(i*PG+PG-1)})}).then(r=>r.ok?r.json():[]));
   const parts=await Promise.all(jobs);
   try{ if(window.TDCProjGrade&&TDCProjGrade.loadHist) await TDCProjGrade.loadHist(); }catch(e){}
-  return parts.reduce((a,b)=>a.concat(b),[]).filter(p=>p&&p.name);
+  return TDCTeamName.fix(parts.reduce((a,b)=>a.concat(b),[])).filter(p=>p&&p.name);
 }
 
 async function setScope(s){

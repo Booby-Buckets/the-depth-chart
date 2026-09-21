@@ -16,6 +16,7 @@
   <script src="auth.js?v=shotlock1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
+  <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-theme.js?v=4"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Career Path — The Depth Chart</title>
@@ -151,7 +152,7 @@ async function loadCareers(){
   const cr=await fetch(base+'&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact','Range':'0-0','Range-Unit':'items'})});
   const total=+(cr.headers.get('content-range')||'0/0').split('/')[1]||0; const PG=1000, pages=Math.min(Math.ceil(total/PG),60), jobs=[];
   for(let i=0;i<pages;i++) jobs.push(fetch(base,{headers:Object.assign({},H,{'Range-Unit':'items','Range':(i*PG)+'-'+(i*PG+PG-1)})}).then(r=>r.ok?r.json():[]).catch(()=>[]));
-  const rows=(await Promise.all(jobs)).reduce((a,b)=>a.concat(b),[]);
+  const rows=TDCTeamName.fix((await Promise.all(jobs)).reduce((a,b)=>a.concat(b),[]));
   const byId={}; rows.forEach(r=>{ if(!r||r.espn_id==null||!r.name) return; (byId[r.espn_id]=byId[r.espn_id]||[]).push(r); });
   const careers=[];
   Object.values(byId).forEach(seasons=>{

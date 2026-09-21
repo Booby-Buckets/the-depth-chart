@@ -13,6 +13,7 @@
   <meta name="twitter:title" content="Guess the College — The Depth Chart">
   <meta name="twitter:description" content="You're shown a player — guess where they went to college.">
   <script src="auth.js?v=shotlock1"></script>
+  <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-projgrade.js?v=base17"></script>
   <script src="tdc-rating.js?v=5"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
@@ -342,7 +343,7 @@ async function loadAllPool(){
   const PG=1000, pages=Math.ceil(total/PG), jobs=[];
   for(let i=0;i<pages;i++) jobs.push(fetch(base,{headers:Object.assign({},H,{'Range-Unit':'items','Range':(i*PG)+'-'+(i*PG+PG-1)})}).then(r=>r.ok?r.json():[]));
   const parts=await Promise.all(jobs);
-  var all=parts.reduce(function(a,b){return a.concat(b);},[]);
+  var all=TDCTeamName.fix(parts.reduce(function(a,b){return a.concat(b);},[]));
   if(window.TDCRating&&TDCRating.ready){ try{ await TDCRating.ready; }catch(e){} }
   try{ if(window.TDCProjGrade&&TDCProjGrade.loadHist) await TDCProjGrade.loadHist(); }catch(e){}
     all.forEach(function(p){ try{

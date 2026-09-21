@@ -16,6 +16,7 @@
   <script src="auth.js?v=shotlock1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
+  <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-theme.js?v=4"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Stat Line Guess — The Depth Chart</title>
@@ -160,7 +161,7 @@ async function loadAll(){
   const total=+(cr.headers.get('content-range')||'0/0').split('/')[1]||0; const PG=1000, pages=Math.min(Math.ceil(total/PG),22), jobs=[];
   for(let i=0;i<pages;i++) jobs.push(fetch(base,{headers:Object.assign({},H,{'Range-Unit':'items','Range':(i*PG)+'-'+(i*PG+PG-1)})}).then(r=>r.ok?r.json():[]));
   const parts=await Promise.all(jobs);
-  return parts.reduce((a,b)=>a.concat(b),[]).filter(p=>p&&p.name&&p.ppg!=null);
+  return TDCTeamName.fix(parts.reduce((a,b)=>a.concat(b),[])).filter(p=>p&&p.name&&p.ppg!=null);
 }
 
 async function setScope(s){
