@@ -24,7 +24,7 @@
   const sg = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1);
   const f1 = v => v == null || !isFinite(v) ? '—' : (+v).toFixed(1);
 
-  function loadEff() { return _effP || (_effP = fetch('scripts/data/team_pace_eff.json?v=4').then(r => r.ok ? r.json() : null).then(j => (_eff = j)).catch(() => null)); }
+  function loadEff() { return _effP || (_effP = fetch('scripts/data/team_pace_eff.json?v=5').then(r => r.ok ? r.json() : null).then(j => (_eff = j)).catch(() => null)); }
   function loadProj() { return _projP || (_projP = fetch('scripts/data/stat_overall_projected.json?v=46').then(r => r.ok ? r.json() : null).then(j => (_proj = j)).catch(() => null)); }
   function roster(full) {
     const short = sn(full);

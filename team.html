@@ -16,7 +16,7 @@
   <script src="tdc-proj.js?v=coach24"></script>
   <script src="tdc-freshman.js?v=pub13"></script>
   <script src="tdc-injury.js?v=5"></script>
-  <script src="tdc-ratings.js?v=20"></script>
+  <script src="tdc-ratings.js?v=21"></script>
   <script src="tdc-schedule.js?v=20"></script>
   <script src="tdc-preview.js?v=22"></script>
   <script src="tdc-projgrade.js?v=base17"></script>
@@ -2956,6 +2956,22 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
   const _nf=(_sumMpg>0)?Math.max(0.75,Math.min(1.15,200/_sumMpg)):1;
   let fPpg=r1s(tPpg*_nf),fRpg=r1s(tRpg*_nf),fApg=r1s(tApg*_nf),fFgPct=tFgPct,fTpPct=tTpPct,fFtPct=tFtPct;
   let fFga=r1s(tFga*_nf),fTpa=r1s(tTpa*_nf),fTovs=r1s(tTovs*_nf),fStl=r1s(tStl*_nf),fBlk=r1s(tBlk*_nf),fOreb=r1s(tOreb*_nf),fDreb=r1s(tDreb*_nf);
+  // ONE team line everywhere: when the canonical team_projections row exists (the reconciled
+  // build — the same numbers the Team Stats page, the index and the Projected Stats panel show),
+  // the summary cards use it instead of this page's live-engine sum. The live sum only fills in
+  // for a team the build hasn't published (incomplete roster).
+  let _canonLine=false;
+  try{
+    const _tn=(typeof teamT!=='undefined'&&teamT&&teamT.name)||'';
+    const _tpr=_tn?await fetch(`${SB_URL}/rest/v1/team_projections?team=eq.${encodeURIComponent(_tn)}&select=*&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]):[];
+    const _tp=_tpr&&_tpr[0];
+    if(_tp&&parseFloat(_tp.ppg)>0){
+      const _v=(k,cur)=>{ const x=parseFloat(_tp[k]); return isFinite(x)?r1s(x):cur; };
+      fPpg=_v('ppg',fPpg); fRpg=_v('rpg',fRpg); fApg=_v('apg',fApg); fFgPct=_v('fg_pct',fFgPct); fTpPct=_v('tp_pct',fTpPct); fFtPct=_v('ft_pct',fFtPct);
+      fFga=_v('fga',fFga); fTpa=_v('tpa',fTpa); fTovs=_v('tov',fTovs); fStl=_v('stl',fStl); fBlk=_v('blk',fBlk); fOreb=_v('oreb',fOreb); fDreb=_v('dreb',fDreb);
+      _canonLine=true;
+    }
+  }catch(e){}
 
   // team_projections is written ONLY by scripts/build_team_projected_box.py --upload (the reconciled
   // player projections). This page used to upsert its own live-engine line here on every owner visit,
@@ -2979,7 +2995,7 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
 
   // player sums undercount official TEAM rebounds by ~2.5/game (team rebounds aren't credited to a
   // player) — add them back for a like-for-like ranking vs team_seasons.
-  const _rebAdj=2.5, _orAdj=0.8, _drAdj=1.7;
+  const _rebAdj=_canonLine?0:2.5, _orAdj=_canonLine?0:0.8, _drAdj=_canonLine?0:1.7;   // the canonical line is already a TEAM total
   const ppgPct=teamPct(fPpg,'ppg'),rpgPct=teamPct(fRpg+_rebAdj,'rpg'),apgPct=teamPct(fApg,'apg');
   const fgPct2=teamPct(fFgPct,'fg_pct'),tpPct2=teamPct(fTpPct,'tp_pct'),ftPct2=teamPct(fFtPct,'ft_pct');
   const tovPct=teamPct(fTovs,'topg',true),stlPct=teamPct(fStl,'spg'),blkPct=teamPct(fBlk,'bpg');
