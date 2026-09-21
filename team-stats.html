@@ -1472,81 +1472,37 @@ function buildTeamProjections(players, conf){
 async function load(){
   const msg = document.getElementById('loadingMsg');
   const fill = document.getElementById('progressFill');
-
-  msg.textContent = 'Loading teams…';
-  const [teamRes, playerRes] = await Promise.all([
+  // The projected team lines come from ONE source: team_projections, written by
+  // scripts/build_team_projected_box.py from the reconciled player projections (minutes to 200,
+  // points to each team's projected ORtg × tempo, transfers level-adjusted, freshmen fitted) and
+  // range-guarded before upload. This page used to re-run its own in-browser engine over the raw
+  // roster sheet — unlinked players and partial rosters made ECU read 54 ppg / 22 rpg.
+  msg.textContent = 'Loading projected team lines…';
+  const [teamRes, projRes] = await Promise.all([
     fetch(`${SB}/rest/v1/teams?select=name,conf,conference,color,color_rgb&limit=500`, {headers:H}),
-    fetch(`${SB}/rest/v1/players?select=*&limit=10000&order=team.asc,depth_order.asc`, {headers:H})
+    fetch(`${SB}/rest/v1/team_projections?select=*&order=team.asc`, {headers:H})
   ]);
-  const teams   = await teamRes.json();
-  const players = await playerRes.json();
-  // Coupled OVR (v5 grade + projected-line coupling) for DISPLAY only — matches the
-  // rest of the site. tdc_grade stays the projection-math input; _ovr is display-only.
-  window._ovrById={};
-  try{
-    if(window.TDCProjGrade && TDCProjGrade.gradeSolo){
-      players.forEach(p=>{ const g=TDCProjGrade.gradeSolo(p); if(g!=null){ p._ovr=g; window._ovrById[p.id]=g; } });
-    }
-  }catch(e){}
-  fill.style.width = '40%';
-  msg.textContent = `Running projections for ${teams.length} teams…`;
-
-  // Group players by team
-  const byTeam = {};
-  players.forEach(p => {
-    if(!p.team) return;
-    if(!byTeam[p.team]) byTeam[p.team] = [];
-    byTeam[p.team].push(p);
-  });
-
-  // Fetch career history for all players so projections match the team page exactly
-  msg.textContent = 'Loading career stats…';
-  fill.style.width = '20%';
-  let history = [];
-  try {
-    // Fetch in two chunks to avoid URL length limits
-    const [h1, h2] = await Promise.all([
-      fetch(`${SB}/rest/v1/player_history?select=*&limit=8000&offset=0&order=name.asc`, {headers:H}),
-      fetch(`${SB}/rest/v1/player_history?select=*&limit=8000&offset=8000&order=name.asc`, {headers:H})
-    ]);
-    history = [...(await h1.json()), ...(await h2.json())];
-  } catch(e) { console.warn('Career history load failed, using season stats only'); }
-
-  window._careerHistoryMap = {};
-  history.forEach(h => {
-    const key = (h.name||'').toLowerCase().trim();
-    if(!window._careerHistoryMap[key]) window._careerHistoryMap[key] = [];
-    window._careerHistoryMap[key].push(h);
-  });
-
-  // SHEET STATS DON'T MATTER — the roster sheet's stat columns are partial/stale (Braden
-  // Huff carried ppg but no fga; freshmen had their OVR sitting in `fga`), which sent the
-  // engine to 116 ppg for Gonzaga. Link every row to its real player_history line by
-  // espn_id first, exactly as team.html does, so this page projects the same roster.
-  msg.textContent = 'Linking real stats…';
-  try{ if(window.TDCRealStats) await TDCRealStats.enrich(players); }catch(e){ console.warn('Roster stat-link error:', e); }
-  players.forEach(p => { if(p.mpg == null || p.mpg === '') { ['fga','fgm','tpa','tpm','fta','ftm'].forEach(k => { if(p[k] != null && +p[k] > 40) p[k] = null; }); } });
-
-  let done = 0;
+  const teams = await teamRes.json();
+  const projRows = await projRes.json();
+  const byName = {}; teams.forEach(t => { byName[t.name] = t; });
+  fill.style.width = '70%';
+  const r1 = v => v!=null ? Math.round((+v+Number.EPSILON)*10)/10 : 0;
   allRows = [];
-  for(const t of teams){
-    const tPlayers = byTeam[t.name] || [];
-    if(tPlayers.length < 2){ done++; continue; }
-    const conf = t.conf || t.conference || '';
-    try{
-      const proj = buildTeamProjections(tPlayers, conf);
-      const row = buildRow(t, conf, proj);
-      if(row) allRows.push(row);
-    }catch(e){ /* skip broken team */ }
-    done++;
-    if(done % 10 === 0) fill.style.width = (40 + done/teams.length*55) + '%';
-  }
-
+  projRows.forEach(pr => {
+    const t = byName[pr.team] || {};
+    if(!(+pr.ppg > 0)) return;
+    allRows.push({
+      name: pr.team,
+      conf: t.conf || t.conference || pr.conf || '',
+      color: t.color || '#666',
+      stats: { ppg:r1(pr.ppg), rpg:r1(pr.rpg), apg:r1(pr.apg), fg:r1(pr.fg_pct), tp:r1(pr.tp_pct), ft:r1(pr.ft_pct),
+               fga:r1(pr.fga), tpa:r1(pr.tpa), tov:r1(pr.tov), stl:r1(pr.stl), blk:r1(pr.blk), oreb:r1(pr.oreb), dreb:r1(pr.dreb) }
+    });
+  });
   fill.style.width = '100%';
   document.getElementById('loadingEl').style.display = 'none';
   document.getElementById('statsTable').style.display = 'table';
   document.getElementById('leadersEl').style.display = 'grid';
-
   buildHeader();
   render();
 }
