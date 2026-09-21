@@ -156,7 +156,11 @@ for full, t in by.items():
     for k in ("fga", "fgm", "tpa", "tpm", "fta", "ftm"):
         own = line[k] / max(line["ppg"], 1)
         line[k] += miss_pts * (known * own + (1 - known) * LGP[k])
-    line["ppg"] = max(line["ppg"], pts_target) if line["mpg"] < 200 else line["ppg"]
+    # points ALWAYS land on the team's projected scoring (ORtg x tempo): a roster of low-usage
+    # returners hits the per-player fit clamps and comes up short (Seton Hall 64 vs 72) — the
+    # missing points are the ones nobody on the sheet is credited with yet, filled above at the
+    # league's attempt shape
+    line["ppg"] = max(line["ppg"], pts_target)
     line["mpg"] = max(line["mpg"], 200.0)
     rt = reb_target(full)
     if rt and line["rpg"] > 0:
