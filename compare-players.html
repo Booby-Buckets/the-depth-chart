@@ -29,7 +29,7 @@
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-owned-seasons.js?v=8"></script>
-  <script src="tdc-lineups.js?v=16"></script>
+  <script src="tdc-lineups.js?v=17"></script>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=6"></script>
   <link rel="stylesheet" href="tdc-sheets.css?v=3"/><link rel="stylesheet" href="tdc-hero.css?v=3"/><script src="tdc-shotchart.js?v=25"></script>
@@ -346,6 +346,39 @@
     .compare-section-head+.compare-subhead{padding-top:10px;}
     @media(max-width:900px){.cmp-bar{grid-template-columns:1fr;}.cmp-vsp{display:none;}.cmp-bar .f-actions{margin-top:0;}}
     .sim-grid>*,.scc-grid>*,.chart-grid>*,.ol-grid>*{min-width:0;}
+    /* ---- tablet (iPad portrait 768 / landscape 1024): two-column cards are ~300-470px wide, so
+       the roster / similar-player rows wrap their meta line under the name instead of ellipsing it
+       to "J…", stat sheets tighten their cells and show a scroll shadow where a column runs past
+       the card edge, and long text cells wrap instead of pushing the sheet wider ---- */
+    @media(max-width:1024px){
+      .lineup-grid{grid-template-columns:1fr;}   /* two 10-column lineup sheets can't share 768px */
+      .sim-card{overflow:hidden;}
+      .sim-row{flex-wrap:wrap;row-gap:2px;}
+      /* the name takes the slack and wraps inside it; stats + grade stay on the name's line */
+      .sim-name{flex:1 1 60px;min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.2;}
+      .sim-stat,.sim-pct,.sim-ovr,.sim-grade{flex:none;}
+      .sim-meta{flex:0 0 100%;order:5;padding-left:24px;white-space:normal;overflow:visible;text-overflow:clip;}
+      .cs{font-size:12px;}
+      .cs th,.cs td{padding:7px 7px;}
+      .cs th.cs-who,.cs td.cs-who{min-width:148px;max-width:190px;}
+      .cs td.cs-who,.cs th.cs-who{white-space:normal;overflow-wrap:anywhere;overflow:hidden;}
+      .cs .cs-who .nm{white-space:normal;align-items:flex-start;line-height:1.2;}
+      .cs .cs-who .nm span{min-width:0;overflow-wrap:anywhere;}
+      .cs .cs-who .sb{white-space:normal;}
+      .cs td.cs-txt{white-space:normal;max-width:160px;text-align:left;}
+      .cs-wrap{
+        background:
+          linear-gradient(90deg,var(--bg) 40%,transparent) 0 0 / 28px 100% no-repeat local,
+          linear-gradient(270deg,var(--bg) 40%,transparent) 100% 0 / 28px 100% no-repeat local,
+          radial-gradient(farthest-side at 0 50%,rgba(0,0,0,.16),transparent) 0 0 / 12px 100% no-repeat scroll,
+          radial-gradient(farthest-side at 100% 50%,rgba(0,0,0,.16),transparent) 100% 0 / 12px 100% no-repeat scroll,
+          var(--bg);
+      }
+      .cs td:not(.cs-who):not(.winner){background:transparent;}
+      .compare-cell,.compare-label{min-width:0;overflow-wrap:anywhere;}
+      .sel-name,.dropdown-item span:first-child{overflow-wrap:anywhere;}
+      .cmp-head-name,.hero-name{overflow-wrap:anywhere;}
+    }
     @media(max-width:760px){.sim-card{overflow:hidden;}.sim-row{flex-wrap:wrap;}.sim-meta{flex-basis:100%;order:5;padding-left:24px;}}
 
 /* ===== ANIMATED NEON BACKGROUND ===== */
@@ -2043,7 +2076,9 @@ function sheetify(root){
     const who=i=>{ const sd=_sheetSides[i]||{};
       return `<td class="cs-who"><div class="nm${sd.logo?'':' nologo'}">${sd.logo?`<img src="${sd.logo}" alt="" loading="lazy">`:''}<span style="color:${colOf(i)}">${sd.name||(i?'Side B':'Side A')}</span></div>${sd.sub?`<div class="sb">${sd.sub}</div>`:''}</td>`; };
     const td=(cell,i,c)=>{ const cls=(cell?cell.className:'').replace(/\bcompare-cell\b|\bright\b/g,' ').replace(/\s+/g,' ').trim();
-      return `<td class="${cls}${c&&c.gs?' gs':''}" style="--side:${colOf(i)}">${cell?cell.innerHTML:'—'}</td>`; };
+      // a prose cell (postseason finish, tier…) may wrap on a tablet; numbers never do
+      const txt=cell&&/[A-Za-z]{4,}\s+[A-Za-z]/.test(cell.textContent||'')?' cs-txt':'';
+      return `<td class="${cls}${c&&c.gs?' gs':''}${txt}" style="--side:${colOf(i)}">${cell?cell.innerHTML:'—'}</td>`; };
     const hasAvg=cols.some(c=>!isNaN(c.avg));
     const hasEdge=cols.some(c=>!isNaN(c.na)&&!isNaN(c.nb)&&c.na!==c.nb);
     const gsc=c=>c.gs?' class="gs"':'';

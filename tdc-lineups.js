@@ -270,7 +270,7 @@ window.TDC_LINEUPS = (function () {
     var body = rows.length ? rows.map(function (r, i) { return s.kind === 'five' ? luRow(r, s.idx, i, s.sos) : comboRow(r, s.idx, i, s.sos); }).join('')
       : '<tr><td colspan="' + hs.length + '" style="padding:16px;text-align:center;color:var(--text3);font-size:12px;border:1px solid var(--border);">No units at this possession cutoff.</td></tr>';
     return filterBar(s)
-      + '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><div style="min-width:' + minw + 'px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">'
+      + '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><div style="min-width:max(' + minw + 'px,100%);width:max-content;border:1px solid var(--border);border-radius:8px;overflow:hidden;">'
       + '<table style="border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;">' + head + '<tbody>' + body + '</tbody></table></div></div>';
   }
   function rerender(id) { var s = _reg[id], el = document.getElementById(id); if (s && el) el.innerHTML = renderBlock(s); }
