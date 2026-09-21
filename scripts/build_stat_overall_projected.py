@@ -55,7 +55,8 @@ def foul_pen(espn,minutes):
 # returner can fall below his demonstrated grade from projection alone. Transfers (level jump)
 # and role-shrinkers are exempt; development/vacancy can still push a grade UP freely.
 PROJ_MAXDROP=int(os.environ.get("PROJ_MAXDROP","2"))
-XFER_MAXDROP=int(os.environ.get("XFER_MAXDROP","13"))   # a proven transfer stepping into a smaller role should regress hard, but not off a cliff to the grade floor
+XFER_MAXDROP=int(os.environ.get("XFER_MAXDROP","13"))
+ROLE_FLOOR=float(os.environ.get("ROLE_FLOOR","0"))   # see the role-credit note in _project_one; 0 = minutes-heavy (old), 0.75 = talent-heavy   # a proven transfer stepping into a smaller role should regress hard, but not off a cliff to the grade floor
 # ---- projection knobs ----
 RETURNER_VAC=0.70    # share of departed usage that returners (vs incoming frosh) absorb
 USG_SCORE_EL=0.90    # shot volume elasticity to usage
@@ -503,7 +504,11 @@ for short, roster in roster_by_team.items():
         # drive only the volume/role credit below.
         cred_a=last_min/(last_min+400.0)
         b_p=MU40+cred_a*(per40_p-MU40)
-        c_p=b_p*math.sqrt(min(max(mn/P90,0),1.3))
+        # ROLE CREDIT: the grade is the player, not the minutes. ROLE_FLOOR keeps most of the
+        # per-40 quality even in a small role (0 = the old pure sqrt(minutes) scaling, where a
+        # 10th man's grade collapsed with his minutes); volume still drives Wins Added and the
+        # stat line, and team ratings are minutes-weighted, so a deep bench doesn't inflate a team.
+        c_p=b_p*(ROLE_FLOOR+(1.0-ROLE_FLOOR)*math.sqrt(min(max(mn/P90,0),1.3)))
         ovr=to_grade(c_p)
         # over-regression guard — proven returner (>=400 last-yr min) keeping his role
         # (projected mpg >= 85% of last) can't fall more than PROJ_MAXDROP below his
