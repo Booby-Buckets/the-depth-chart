@@ -161,6 +161,7 @@
   [data-theme="dark"] .gp-t td.pos{color:#4fc07a;} [data-theme="dark"] .gp-t td.neg{color:#ef6e6e;}
   .gp-t td.tot{font-weight:800;color:var(--text);background:var(--bg2);}
   .gp-two{display:grid;grid-template-columns:1fr;gap:18px;}
+  .gp-two>*{min-width:0;}   /* a grid item's auto min-width is the table's full width — that pushed the sheet 400px past an iPad's edge instead of scrolling inside .gp-wrap */
   .gp-rtg{display:inline-block;min-width:34px;text-align:center;font-weight:800;font-size:11px;color:#fff;border-radius:5px;padding:2px 6px;font-variant-numeric:tabular-nums;}
   .gp-potg{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.04em;background:#E6D5A8;color:#141821;border-radius:4px;padding:1px 6px;margin-right:7px;vertical-align:1px;}
   .gp-inj{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:11.5px;color:var(--text2);padding:8px 4px 0;}

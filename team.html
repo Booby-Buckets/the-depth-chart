@@ -18,7 +18,7 @@
   <script src="tdc-injury.js?v=5"></script>
   <script src="tdc-ratings.js?v=20"></script>
   <script src="tdc-schedule.js?v=20"></script>
-  <script src="tdc-preview.js?v=21"></script>
+  <script src="tdc-preview.js?v=22"></script>
   <script src="tdc-projgrade.js?v=base17"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
@@ -7999,8 +7999,8 @@ async function _renderHistShot(rows, yr){
       <div><div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:2px;">Shot profile</div><div style="font-size:15px;font-weight:800;line-height:1;color:${_prof.c};">${_prof.l}</div></div>
       ${_cell('Scoring threats',_threats,'tend 75+')}${_cell('Shot options',_eff.toFixed(1),'effective')}${_cell('Top option',_top.toFixed(1)+'%','')}</div>`;
     const bars=items.map(it=>{ const w=Math.max(3,Math.round(it.share/max*100));
-      return `<div style="display:grid;grid-template-columns:150px 1fr 96px;align-items:center;gap:10px;padding:5px 0;">
-        <div style="font-size:12.5px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_e(it.name)}<span style="display:block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);">${role(it.share)}</span></div>
+      return `<div style="display:grid;grid-template-columns:minmax(150px,32%) 1fr 96px;align-items:center;gap:10px;padding:5px 0;">
+        <div style="font-size:12.5px;font-weight:700;color:var(--text);line-height:1.2;overflow-wrap:anywhere;">${_e(it.name)}<span style="display:block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);">${role(it.share)}</span></div>
         <div style="position:relative;height:9px;border-radius:5px;background:rgba(128,128,128,.16);overflow:hidden;"><div style="position:absolute;left:0;top:0;bottom:0;width:${w}%;background:var(--tc-readable,var(--accent));"></div></div>
         <div style="font-size:12px;font-weight:800;color:var(--text);text-align:right;">${it.share.toFixed(1)}%<span style="display:block;font-size:10px;font-weight:600;color:var(--text2);">tend ${it.tend}</span></div>
       </div>`;
@@ -8087,7 +8087,7 @@ async function _renderShotDist(rows){
       const w=Math.max(3,Math.round(it.share/max*100));
       const dem=(it.espn&&P[it.espn])?P[it.espn].shot_tend_demo:null;
       const moved=(dem!=null&&Math.abs(it.tend-dem)>=5), ac=(dem!=null&&it.tend<dem)?'#e0885a':'#5ab875';
-      return `<div style="display:grid;grid-template-columns:150px 1fr 96px;align-items:center;gap:10px;padding:5px 0;">
+      return `<div style="display:grid;grid-template-columns:minmax(150px,32%) 1fr 96px;align-items:center;gap:10px;padding:5px 0;">
         <div style="font-size:12.5px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_e(it.name)}${it.fr?' <span style="font-size:9px;color:var(--accent);font-weight:800;">FR</span>':''}<span style="display:block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);">${role(it.share)}</span></div>
         <div style="position:relative;height:9px;border-radius:5px;background:rgba(128,128,128,.16);overflow:hidden;"><div style="position:absolute;left:0;top:0;bottom:0;width:${w}%;background:linear-gradient(90deg,var(--tc-readable,var(--accent)),${ac});"></div></div>
         <div style="font-size:12px;font-weight:800;color:var(--text);text-align:right;">${it.share.toFixed(1)}%<span style="display:block;font-size:10px;font-weight:600;color:var(--text2);">tend ${it.tend}${moved?' <span style="color:'+ac+'">'+(it.tend<dem?'▼':'▲')+dem+'</span>':''}</span></div>
