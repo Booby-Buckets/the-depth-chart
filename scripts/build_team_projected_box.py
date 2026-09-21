@@ -114,10 +114,19 @@ NBR = {k: _nb[k] / max(_nb["m"], 1) for k in ("rpg", "oreb", "dreb", "blk")}
 _full = [t for t in by.values() if t["mpg"] >= 180]
 LG = {k: sum(t[k] for t in _full) / max(1, sum(t["mpg"] for t in _full)) for k in ("rpg", "apg", "oreb", "dreb", "stl", "blk", "tov")}   # per minute
 LGP = {k: sum(t[k] for t in _full) / max(1, sum(t["ppg"] for t in _full)) for k in ("fga", "fgm", "tpa", "tpm", "fta", "ftm")}          # per point
+# A roster the sheet hasn't filled in yet (fewer than MIN_ROSTER names) is NOT projected: a
+# six-man sheet with no center would read as a real team line. The row is left out of the JSON
+# and removed from team_projections until the roster is complete (UTSA, Sept 2026).
+MIN_ROSTER = 8
+_cnt = defaultdict(int)
+for r in _pl:
+    if (r.get("name") or "").strip() and (r.get("name") or "").strip() != "\u2014": _cnt[r["team"]] += 1
 out = {}
 for full, t in by.items():
     if t["mpg"] < 40: continue                           # nothing to project from
     short = full_to_short(full)
+    if short and 0 < _cnt.get(short, 0) < MIN_ROSTER:
+        print(f"  skipped {full}: only {_cnt[short]} players on the sheet — roster incomplete, not projected"); continue
     fr = fresh.get(short, {}) if short else {}
     f_mpg = sum(float(x.get("mpg") or 0) for x in fr.values()); f_ppg = sum(float(x.get("ppg") or 0) for x in fr.values())
     line = dict(t)
