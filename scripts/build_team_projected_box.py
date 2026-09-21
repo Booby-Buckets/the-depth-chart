@@ -17,7 +17,7 @@ team-page projected-stats panel agree with the player projections.
   python3 scripts/build_team_projected_box.py                  # JSON only (anon, read-only)
   SUPABASE_SERVICE_KEY=... python3 scripts/build_team_projected_box.py --upload
 """
-import json, os, sys, urllib.request, urllib.error, pathlib
+import json, os, sys, urllib.request, urllib.error, urllib.parse, pathlib
 from collections import defaultdict
 
 SB = "https://izlqhnxowdhtdofkwrho.supabase.co"; K = "sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
@@ -127,14 +127,22 @@ if UPLOAD:
     key = os.environ.get("SUPABASE_SERVICE_KEY")
     if not key: sys.exit("Set SUPABASE_SERVICE_KEY to upload.")
     HH = {"apikey": key, "Authorization": "Bearer " + key, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"}
-    rows, seen = [], {}
+    import datetime
+    now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    # SANITY GUARD: nothing outside real D-I team ranges reaches the site. A row that fails is
+    # printed and left out (the old row stays), and the run exits non-zero so it gets looked at.
+    RANGE = {"ppg": (58, 96), "rpg": (26, 46), "apg": (8, 23), "fg_pct": (38, 57), "tp_pct": (26, 43), "ft_pct": (58, 85), "fga": (46, 76), "tov": (6, 21)}
+    rows, seen, rejected = [], {}, []
     for full, r in sorted(out.items(), key=lambda kv: -kv[1]["mpg"]):
         short = full_to_short(full)
         if not short: continue
         if short in seen: print(f"  skip {full}: '{short}' already taken by {seen[short]}"); continue
+        bad = [k for k, (lo, hi) in RANGE.items() if not (lo <= float(r.get(k) or 0) <= hi)]
+        if bad: rejected.append((short, {k: r[k] for k in bad})); continue
         seen[short] = full
-        rows.append({"team": short, "conf": short_conf.get(short) or "",
+        rows.append({"team": short, "conf": short_conf.get(short) or "", "updated_at": now,
                      **{k: r[k] for k in ("ppg", "rpg", "apg", "fg_pct", "tp_pct", "ft_pct", "fga", "tpa", "tov", "stl", "blk", "oreb", "dreb")}})
+    for t, b in rejected: print(f"  REJECTED (out of D-I range, not uploaded): {t} {b}")
     ok = 0
     for i in range(0, len(rows), 40):
         ch = rows[i:i + 40]
@@ -144,3 +152,14 @@ if UPLOAD:
         except urllib.error.HTTPError as e:
             print("  upsert failed:", e.code, e.read()[:200], [c["team"] for c in ch][:5])
     print(f"team_projections: upserted {ok} of {len(rows)} rows")
+    # rows the build didn't produce are leftovers from the old in-browser engine — remove them so
+    # nothing on the site shows a number no model made
+    try:
+        cur = json.load(urllib.request.urlopen(urllib.request.Request(SB + "/rest/v1/team_projections?select=team", headers=HH), timeout=60))
+        extra = [c["team"] for c in cur if c["team"] not in seen]
+        if extra:
+            req = urllib.request.Request(SB + "/rest/v1/team_projections?team=in.(" + ",".join(urllib.parse.quote(t, safe='') for t in extra) + ")", headers=HH, method="DELETE")
+            with urllib.request.urlopen(req, timeout=60) as resp: print(f"  removed {len(extra)} row(s) no build produced: {extra}")
+    except Exception as e:
+        print("  cleanup skipped:", e)
+    if rejected: sys.exit(2)
