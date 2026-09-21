@@ -174,7 +174,11 @@
     return out(pg);
   }
   // Convenience: the value to DISPLAY as the OVR (projected if we can, else demonstrated).
-  function ovr(row){ var p = grade(row); return (p != null && !isNaN(p)) ? p : parseInt(row && row.tdc_grade, 10); }
+  // The ONE displayed OVR: gradeSolo (stat overall + dev + tapered archetype bonus). The old v4
+  // grade() below it is only a fallback for a row gradeSolo can't rate (index team cards read this).
+  function ovr(row){
+    try{ var s = gradeSolo(row); if(s != null && !isNaN(s)) return s; }catch(e){}
+    var p = grade(row); return (p != null && !isNaN(p)) ? p : parseInt(row && row.tdc_grade, 10); }
 
   // ═══════════════════════════════════════════════════════════════════════
   //  PROJECTION MODEL v5 — projected line LEADS the ranking.
@@ -210,7 +214,12 @@
   // grade equal the TDC Rating. Matches tdc-rating.js's archBonus exactly.
   var _ARCH = {};
   function setArchBonus(m){ if(m && typeof m === 'object') _ARCH = m; }
-  function _archOf(row){ var i = row && row.id; return (i != null && _ARCH['' + i] != null) ? _ARCH['' + i] : 0; }
+  var _ARCH_E = {};
+  // keyed by players.id, with an espn_id-keyed copy so a page that fetched a roster without `id`
+  // (awards, previews, matchup rosters) still applies the SAME bonus — otherwise the same player
+  // read 95 there and 96 on his page
+  function _archOf(row){ var i = row && row.id; if(i != null && _ARCH['' + i] != null) return _ARCH['' + i];
+    var e = row && row.espn_id; return (e != null && _ARCH_E['' + e] != null) ? _ARCH_E['' + e] : 0; }
   // Archetype-bonus TAPER: the +bonus stays full strength for mid grades (where it does its
   // real job — distinguishing role players by how unusual they are for their position), but
   // shrinks as the anchor grade nears the ceiling, so it can NOT turn a very-good season into
@@ -222,7 +231,9 @@
   // rests on too few games (build_gp_regression.py), keyed by players.id.
   var _GPS = {};
   function setGpShrink(m){ if(m && typeof m === 'object') _GPS = m; }
-  function _gpsOf(row){ var i = row && row.id; return (i != null && _GPS['' + i] != null) ? _GPS['' + i] : 0; }
+  var _GPS_E = {};
+  function _gpsOf(row){ var i = row && row.id; if(i != null && _GPS['' + i] != null) return _GPS['' + i];
+    var e = row && row.espn_id; return (e != null && _GPS_E['' + e] != null) ? _GPS_E['' + e] : 0; }
 
   // ── STATISTICAL OVERALL (the live grade, keyed by espn_id) ────────────────
   // Since 2026-08: the site grade IS the first-principles statistical overall
@@ -548,6 +559,19 @@
       return base;
     });
     var mins = projectMinutesByDepth(roster, mQuals);
+    // ONE set of minutes everywhere: where the build published a projected line for this player
+    // (stat_overall_projected by espn_id — the line his grade, points and the team totals are built
+    // on) the depth chart shows THAT mpg; a freshman / no-box player takes his team-fitted minutes
+    // (fresh_fit via TDCFresh). The live rotation model above only fills in for players the build
+    // hasn't seen (a just-added transfer) — so the chart, the player page and the Player Database
+    // can't disagree by 4 mpg. Rebuild the projection to move these.
+    roster.forEach(function(p, i){
+      if(!p || quals[i] == null) return;
+      var row = (p.espn_id != null && _SO_PROJ_ROW) ? _SO_PROJ_ROW['' + p.espn_id] : null;
+      var m = row ? parseFloat(row.proj_mpg != null ? row.proj_mpg : row.mpg) : NaN;
+      if(!isFinite(m) && window.TDCFresh && window.TDCFresh.fitFor){ try{ var f = window.TDCFresh.fitFor(p); if(f && f.mpg != null) m = parseFloat(f.mpg); }catch(e){} }
+      if(isFinite(m) && m >= 0) mins[i] = Math.round(m * 10) / 10;
+    });
     return roster.map(function(p, i){
       if(quals[i] == null) return { min: 0, grade: null, qual: null };
       var g = _gradeV5(quals[i], p.yr || p.class_year, mins[i]);
@@ -660,19 +684,21 @@
 
   // Archetype bonus (calibrated expectation-relative + custom composite → grade points,
   // keyed by players.id). This is what makes the grade equal the TDC Rating.
+  var _archP = Promise.resolve(false);
   try{
-    fetch('scripts/data/arch_bonus.json?v=5')
+    _archP = fetch('scripts/data/arch_bonus.json?v=6', { cache: 'no-cache' })
       .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){ if(j && j.bonuses) setArchBonus(j.bonuses); })
-      .catch(function(){});
+      .then(function(j){ if(j && j.bonuses) setArchBonus(j.bonuses); if(j && j.bonuses_espn) _ARCH_E = j.bonuses_espn; return true; })
+      .catch(function(){ return false; });
   }catch(e){}
 
   // Small-sample (games-played) regression (negative, keyed by players.id).
+  var _gpsP = Promise.resolve(false);
   try{
-    fetch('scripts/data/gp_shrink.json?v=3')
+    _gpsP = fetch('scripts/data/gp_shrink.json?v=4', { cache: 'no-cache' })
       .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){ if(j && j.deltas) setGpShrink(j.deltas); })
-      .catch(function(){});
+      .then(function(j){ if(j && j.deltas) setGpShrink(j.deltas); if(j && j.deltas_espn) _GPS_E = j.deltas_espn; return true; })
+      .catch(function(){ return false; });
   }catch(e){}
 
   // Model data inlined (small) so setModel runs SYNCHRONOUSLY at load — no fetch race.
@@ -694,8 +720,11 @@
       .catch(function(){ return null; });
   }
   window.TDCProjGrade.projRowOf = function(espn){ return (espn!=null && _SO_PROJ_ROW) ? (_SO_PROJ_ROW['' + espn] || null) : null; };
+  // ready = EVERY input of gradeSolo (stat overalls + archetype bonus + gp shrink). A page that graded
+  // after only the stat files had landed showed 95 for a player whose page (bonus loaded) said 96.
   window.TDCProjGrade.ready = Promise.all([
     _loadSO('scripts/data/stat_overall.json?v=7').then(function(m){ if(m) setStatOverall(m, null); }),
-    _loadProjRows('scripts/data/stat_overall_projected.json?v=47').then(function(m){ if(m) setStatOverall(null, m); })
+    _loadProjRows('scripts/data/stat_overall_projected.json?v=47').then(function(m){ if(m) setStatOverall(null, m); }),
+    _archP, _gpsP
   ]).then(function(){ return true; }).catch(function(){ return true; });   // history is lazy — see loadHist()
 })();

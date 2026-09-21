@@ -25,7 +25,7 @@
   <script src="team-colors.js?v=6"></script>
   <script src="tdc-ratings.js?v=21"></script>
   <script src="tdc-teamlink.js?v=2"></script>
-  <script src="tdc-projgrade.js?v=base18"></script>
+  <script src="tdc-projgrade.js?v=base19"></script>
   <script src="tdc-proj.js?v=coach24"></script>
   <script src="tdc-impact.js?v=1"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=5"/>
@@ -399,11 +399,15 @@ async function histRoster(row){
 async function projTeamLines(row){
   if(!PROJ()){ const _n=v=>{const n=+v;return isNaN(n)?0:n;}; const hr=await histRoster(row);
     return hr.map(p=>({name:p.name, pos:((p.position||'').split('/')[0]||'G').replace(/[^A-Z]/g,'')||'G', ovr:_n(p.tdc_grade), ppg:_n(p.ppg), rpg:_n(p.rpg), apg:_n(p.apg), mpg:_n(p.mpg)})); }
-  let roster=[]; try{ roster=await fetch(`${SB}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,position,position2,depth_order,hometown,is_injured,class_year,yr,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
+  let roster=[]; try{ roster=await fetch(`${SB}/rest/v1/players?team=eq.${encodeURIComponent(row.team)}&name=neq.%E2%80%94&select=name,espn_id,id,position,position2,depth_order,hometown,is_injured,class_year,yr,tdc_grade,ppg,rpg,apg,mpg,fg_pct,tp_pct,ft_pct,stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb&order=mpg.desc.nullslast`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
   let map={}; try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready; if(typeof buildTeamProjections==='function'){ const pr=buildTeamProjections(roster.map(x=>Object.assign({},x)), row.conf||''); (pr||[]).forEach(x=>{ if(x&&x.name) map[x.name.toLowerCase().trim()]=x; }); } }catch(e){}
   const _n=v=>{const n=+v;return isNaN(n)?0:n;};
   return roster.filter(p=>p.name).map(p=>{ const pj=map[(p.name||'').toLowerCase().trim()]; const l=(pj&&_n(pj.mpg)>0)?pj:p;
-    return {name:p.name, pos:((p.position||'').split('/')[0]||'G').replace(/[^A-Z]/g,''), ovr:(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):_n(p.tdc_grade), ppg:_n(l.ppg), rpg:_n(l.rpg), apg:_n(l.apg), mpg:_n(l.mpg)}; }); }
+    // canonical projected row (same line/OVR as the player page) beats the live engine when it exists
+    const cr=(window.TDCProjGrade&&TDCProjGrade.projRowOf&&p.espn_id!=null)?TDCProjGrade.projRowOf(p.espn_id):null; const L=(cr&&_n(cr.mpg)>0)?cr:l;
+    let ov=null; try{ if(window.TDCProjGrade&&TDCProjGrade.gradeSolo){ const gs=TDCProjGrade.gradeSolo(p); if(gs!=null&&isFinite(gs)) ov=Math.round(gs); } }catch(e){}
+    if(ov==null) ov=(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):_n(p.tdc_grade);
+    return {name:p.name, pos:((p.position||'').split('/')[0]||'G').replace(/[^A-Z]/g,''), ovr:ov, ppg:_n(L.ppg), rpg:_n(L.rpg), apg:_n(L.apg), mpg:_n(L.mpg)}; }); }
 
 const _POSN=p=>({PG:'PG',G:'PG',CG:'PG',SG:'SG',SF:'SF',F:'SF',PF:'PF',C:'C'}[p]||p);
 // Matchup Advantage — team-level trait head-to-head, minutes-weighted percentiles

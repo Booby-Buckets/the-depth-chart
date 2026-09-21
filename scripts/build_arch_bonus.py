@@ -71,6 +71,7 @@ def main():
     cur = ag.get("players?tdc_grade=not.is.null&height=not.is.null&mpg=gte.12&gp=gte.15",
                  "id,espn_id,name,team,position,height,mpg,gp,ppg,rpg,apg,stl,blk,tpa,fga,fta,tovs,oreb,dreb,fg_pct,tp_pct,ft_pct,tdc_grade")
     out = {}
+    out_espn = {}   # same bonuses keyed by espn_id — a page that fetched a roster without `id` still resolves it
     ndamp = 0
     for r in cur:
         c = box_composite(exp, r)
@@ -81,10 +82,12 @@ def main():
         if d <= -0.05:
             ndamp += 1
         out[str(r["id"])] = round(clamp(raw + d, AMIN, AMAX), 1)
+        if r.get("espn_id") is not None:
+            out_espn[str(r["espn_id"])] = out[str(r["id"])]
     print("  weak-team dampener applied to %d players" % ndamp)
     path = os.path.join(D, "arch_bonus.json")
     json.dump({"season": 2026, "n": len(out), "box_only": True,
-               "center": CENTER, "calibration": CAL, "bonuses": out}, open(path, "w"))
+               "center": CENTER, "calibration": CAL, "bonuses": out, "bonuses_espn": out_espn}, open(path, "w"))
     vals = sorted(out.values()); n = len(vals)
     print("wrote %s — %d players; bonus min %.1f / median %.1f / max %.1f"
           % (path, n, vals[0], vals[n // 2], vals[-1]))

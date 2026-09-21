@@ -40,8 +40,9 @@ def get(path):
 
 
 def main():
-    players = get("players?select=id,name,team,tdc_grade,gp,mpg&tdc_grade=not.is.null&order=id.asc")
+    players = get("players?select=id,espn_id,name,team,tdc_grade,gp,mpg&tdc_grade=not.is.null&order=id.asc")
     out = {}
+    out_espn = {}   # espn_id-keyed copy for pages whose roster rows carry no `id`
     rows_dbg = []
     for p in players:
         try:
@@ -59,10 +60,12 @@ def main():
         delta = round(adjusted - grade, 1)
         if delta <= -MIN_DELTA:
             out[str(p["id"])] = delta
+            if p.get("espn_id") is not None:
+                out_espn[str(p["espn_id"])] = delta
             rows_dbg.append((delta, p["name"], p["team"], grade, int(gp)))
 
     path = os.path.join(D, "gp_shrink.json")
-    json.dump({"gp_full": GP_FULL, "baseline": BASELINE, "n": len(out), "deltas": out},
+    json.dump({"gp_full": GP_FULL, "baseline": BASELINE, "n": len(out), "deltas": out, "deltas_espn": out_espn},
               open(path, "w"))
     print("wrote %s — %d players regressed" % (path, len(out)))
     rows_dbg.sort()

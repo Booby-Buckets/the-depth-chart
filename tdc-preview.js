@@ -55,7 +55,10 @@
     const fitLast = b => { const f = g.TDCFresh && g.TDCFresh.fitFor && g.TDCFresh.fitFor(p); if (!f || !f.mpg || !b.mpg) return b;
       const km = Math.max(0.4, Math.min(1.6, f.mpg / b.mpg)), kp = Math.max(0.4, Math.min(1.6, (f.ppg || 0) / Math.max(0.1, b.ppg || 0.1)));
       ['rpg', 'apg', 'oreb', 'dreb', 'stl', 'blk', 'tov'].forEach(k => { b[k] = (b[k] || 0) * km; }); ['ppg', 'fga', 'fgm', 'tpa', 'tpm', 'fta', 'ftm'].forEach(k => { b[k] = (b[k] || 0) * kp; }); b.mpg = f.mpg; b.src = 'lastfit'; return b; };
-    if (P && p.espn_id && P[String(p.espn_id)]) { const q = P[String(p.espn_id)]; return mk('proj', q, q.ovr); }
+    if (P && p.espn_id && P[String(p.espn_id)]) { const q = P[String(p.espn_id)];
+      // displayed OVR = gradeSolo (the one number every page shows); raw JSON ovr only as a fallback
+      let ov = q.ovr; try { if (g.TDCProjGrade && g.TDCProjGrade.gradeSolo) { const gs = g.TDCProjGrade.gradeSolo(p); if (gs != null && isFinite(gs)) ov = Math.round(gs); } } catch (e) {}
+      return mk('proj', q, ov); }
     if (g.TDCFresh && g.TDCFresh.isFreshman && g.TDCFresh.isFreshman(p)) {
       try { const l = g.TDCFresh.line(p, g.TDCFresh.profileFor(p)); if (l && l.mpg) return mk('fresh', l, l._frOvr || p.tdc_grade); } catch (e) {}
     }
