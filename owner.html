@@ -303,6 +303,9 @@
     var s=document.getElementById('teamProjStatus');
     var tok=ownerToken();
     if(!tok){ st(s,'You must be signed in as the owner.','err'); return; }
+    // The canonical team line is built server-side from the reconciled projections (with a D-I range
+    // guard) — the in-browser recompute was the source of the bad rows, so it no longer writes.
+    st(s,'This now runs from the terminal so every row passes the range guard: <code>SUPABASE_SERVICE_KEY=… python3 scripts/build_team_projected_box.py --upload</code> (after build_stat_overall_projected.py).','err'); return;
     if(!(window.TDCProjGrade&&TDCProjGrade.projRowOf)){ st(s,'Projection engine not loaded — reload the page.','err'); return; }
     btn.disabled=true;
     st(s,'Loading projections &amp; rosters…','busy');

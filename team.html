@@ -2957,18 +2957,10 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
   let fPpg=r1s(tPpg*_nf),fRpg=r1s(tRpg*_nf),fApg=r1s(tApg*_nf),fFgPct=tFgPct,fTpPct=tTpPct,fFtPct=tFtPct;
   let fFga=r1s(tFga*_nf),fTpa=r1s(tTpa*_nf),fTovs=r1s(tTovs*_nf),fStl=r1s(tStl*_nf),fBlk=r1s(tBlk*_nf),fOreb=r1s(tOreb*_nf),fDreb=r1s(tDreb*_nf);
 
-  // Save to team_projections so analytics page reads exact same numbers
-  const _tn=teamRow?.name||players[0]?.team;
-  const _tc=teamRow?.conf||teamRow?.conference||conf;
-  const _ownTok = (window.tdcOwnerToken && window.tdcOwnerToken()) || null;  // owner-only publish (RLS)
-  if(_tn && _ownTok) fetch(`${SB_URL}/rest/v1/team_projections?on_conflict=team`,{
-    method:'POST',
-    headers:{...H,'Authorization':'Bearer '+_ownTok,'Content-Type':'application/json','Prefer':'return=minimal'},
-    body:JSON.stringify({team:_tn,conf:_tc,
-      ppg:fPpg,rpg:fRpg,apg:fApg,fg_pct:fFgPct,tp_pct:fTpPct,ft_pct:fFtPct,
-      fga:fFga,tpa:fTpa,tov:fTovs,stl:fStl,blk:fBlk,oreb:fOreb,dreb:fDreb,
-      updated_at:new Date().toISOString()})
-  }).catch(()=>{});
+  // team_projections is written ONLY by scripts/build_team_projected_box.py --upload (the reconciled
+  // player projections). This page used to upsert its own live-engine line here on every owner visit,
+  // which is how un-normalized / partial-roster numbers (Fresno 54.9 ppg, SDSU 17.8% FG) reached
+  // the Team Stats page and the index. The live line stays local to this page.
 
 
   // ── NATIONAL PERCENTILE CALC ─────────────────────────────
