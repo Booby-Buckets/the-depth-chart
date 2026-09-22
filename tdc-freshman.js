@@ -155,6 +155,29 @@
         ['ppg','fga','fgm','tpa','tpm','fta','ftm'].forEach(function(k){ L[k]*=kc; });
       }
     }
+    // ── SHOTS MUST MATCH THE POINTS ────────────────────────────────────────────────────────
+    // Attempts were built from the ROLE's minutes and never moved with the sliders, so the line
+    // contradicted itself: Jason Crowe read 8.4 points on 10.8 attempts at 48% (that is 11+ points),
+    // and turning Scoring volume UP made attempts go DOWN. Rebuild the attempts from the final
+    // points and the final percentages instead, so ppg, FG%, 3P%, FT% and the attempt counts are
+    // one coherent line — and the shot fields (which feed shot tendency and the team's shot budget)
+    // move the right way when a slider moves.
+    (function(){
+      var sl=(isOwner()&&profile&&profile.sliders)||null;
+      var sv=function(k){ return (sl&&sl[k]!=null)?sl[k]:50; };
+      // 3-point share of his attempts: the 3PT slider raises it, Paint / finishing lowers it
+      var tpr=Math.max(0.10,Math.min(0.72, 0.42 + ((sv('three')-50)/50)*0.18 - ((sv('paint')-50)/50)*0.10));
+      var ftr=Math.max(0.12,Math.min(0.55, 0.28 + ((sv('paint')-50)/50)*0.10 + ((sv('ft')-50)/50)*0.04));
+      var fg=(L.fg_pct||45)/100, tp=(L.tp_pct||33)/100, ftp=(L.ft_pct||70)/100;
+      // points per field-goal attempt at this shot mix: 2 per make, +1 more on a three, plus the
+      // free throws that come with the same volume
+      var pps=2*fg + tpr*tp + ftr*ftp;
+      if(pps>0.2){
+        L.fga=Math.max(0.3, L.ppg/pps);
+        L.tpa=L.fga*tpr; L.fta=L.fga*ftr;
+        L.fgm=L.fga*fg; L.tpm=L.tpa*tp; L.ftm=L.fta*ftp;
+      }
+    })();
     var O={}; Object.keys(L).forEach(function(k){ O[k]=r1(L[k]); });
     return Object.assign({}, p, O, { tdc_grade:(ovr!=null?''+Math.round(ovr):p.tdc_grade), _frOvr:ovr!=null, _noStatEst:true, _frProfiled:!!profile, _frFit:fitted });
   }
