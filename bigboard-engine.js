@@ -6,8 +6,14 @@
 //     opts: { season:'2526'|'2627', projById:{id->projectedStats}, projReady:bool }
 //     returns { prospects:[...sorted, each with .rank/.posRank/.posLabel/._sc], byId:{} }
 (function(global){
-  var POWER=['ACC','Big Ten','Big 12','SEC','Big East','B1G','BIG TEN','BIG 12'];
-  var HIGH=['Mountain West','American','A-10','Atlantic 10','WCC','West Coast','Conference USA','C-USA','Sun Belt','MAC','MWC','AAC'];
+  // Conference strength. The teams table spells these 'B10' / 'BIG-12' / 'Big-East' / 'PAC-12',
+  // which the old POWER/HIGH lists did not contain — every Big Ten, Big 12 and Big East prospect
+  // was being scored at low-major level while ACC and SEC got the power bonus.
+  var CONF_LVL={'ACC':88,'SEC':88,'B10':88,'B1G':88,'BIG-10':88,'BIG TEN':88,'BIG-12':88,'BIG 12':88,
+    'BIG-EAST':84,'BIG EAST':84,'PAC-12':70,'PAC 12':70,'PAC-10':70,
+    'AAC':62,'AMERICAN':62,'A10':62,'A-10':62,'ATLANTIC 10':62,
+    'MWC':58,'MOUNTAIN WEST':58,'WCC':58,'WEST COAST':58,
+    'C-USA':46,'CONFERENCE USA':46,'SUN BELT':46,'MAC':46,'IVY':44};
 
   function num(v){var x=parseFloat(v);return isNaN(x)?0:x;}
   function htIn(h){if(!h)return 0;var m=(''+h).match(/(\d+)\s*[-']\s*(\d+)/);return m?(+m[1])*12+(+m[2]):0;}
@@ -56,8 +62,19 @@
     var poss=num(s.fga)+0.44*num(s.fta)+num(s.tovs);
     return 100*poss/Math.max(1,(mpg/40)*68);
   }
-  function compLevel(team,teamMap){var t=teamMap&&teamMap[team];var c=((t&&(t.conf||t.conference))||'')+'';
-    if(POWER.indexOf(c)>=0)return 88; if(HIGH.indexOf(c)>=0)return 60; return 46;}
+  function confLevel(team,teamMap){var t=teamMap&&teamMap[team];
+    var c=(((t&&(t.conf||t.conference))||'')+'').toUpperCase().trim();
+    return CONF_LVL[c]!=null?CONF_LVL[c]:50;}
+  // Team strength, from the site's own ranking. A conference label alone treats the 77th-best
+  // team in the country like Duke because they share a league — and the leading scorer on a bad
+  // high-major puts his numbers up against a softer slate, with weaker teammates drawing the
+  // defence, which is exactly the profile NBA teams write off as empty stats.
+  function teamStrength(team,teamMap,nTeams){var t=teamMap&&teamMap[team];
+    var r=t?parseFloat(t.tdc_rank_num):NaN;
+    if(!isFinite(r)||r<=0) return 55;
+    return clamp(100-(r-1)/Math.max(1,(nTeams||115)-1)*78);}   // #1 -> 100, last -> 22
+  function compLevel(team,teamMap,nTeams){
+    return clamp(0.55*confLevel(team,teamMap)+0.45*teamStrength(team,teamMap,nTeams));}
 
   function projPlayer(p){
     var yr=((p.class_year||p.yr||'')+'').toLowerCase();
@@ -96,7 +113,10 @@
     // turnovers, additionally bucketed by position group (G/W/B) — ball security is
     // judged within position so guards (ball-dominant, naturally more TOs) aren't
     // over-taxed vs bigs, which was inflating post players at the top of the board.
-    ['G','W','B'].forEach(function(gp){ dist['tovs_'+gp]=[]; });
+    ['G','W','B'].forEach(function(gp){ dist['tovs_'+gp]=[];
+      // athletic markers are ranked WITHIN the position group — fixed absolute anchors made
+      // two of the three components saturate at 100 for any high-usage guard
+      dist['ftr_'+gp]=[]; dist['orb_'+gp]=[]; dist['stk_'+gp]=[]; });
     pool.forEach(function(pr){
       var s=pr._s;
       dist.ppg.push(num(s.ppg));dist.rpg.push(num(s.rpg));dist.apg.push(num(s.apg));
@@ -105,6 +125,10 @@
       dist.ts.push(tsOf(s));dist.per36.push(num(s.mpg)>0?num(s.ppg)*36/num(s.mpg):0);dist.tovs.push(num(s.tovs));
       dist.usg.push(usgOf(s));
       var _gp=pgrp(pr.position); if(dist['tovs_'+_gp]) dist['tovs_'+_gp].push(num(s.tovs));
+      if(dist['ftr_'+_gp] && num(s.mpg)>=8){ var _mm=Math.max(1,num(s.mpg));
+        dist['ftr_'+_gp].push(num(s.fga)>0?num(s.fta)/num(s.fga):0);
+        dist['orb_'+_gp].push(num(s.oreb)*36/_mm);
+        dist['stk_'+_gp].push((num(s.stl)+num(s.blk))*36/_mm); }
     });
     Object.keys(dist).forEach(function(k){dist[k]=dist[k].filter(function(v){return v>0;}).sort(function(a,b){return a-b;});});
     return dist;
@@ -114,7 +138,7 @@
     var lo=0,hi=arr.length;while(lo<hi){var m=(lo+hi)>>1;if(arr[m]<v)lo=m+1;else hi=m;}
     var p=Math.round(lo/arr.length*100);return inv?100-p:p;}
 
-  function scoreProspect(p,dist,teamMap,ageOvr){
+  function scoreProspect(p,dist,teamMap,ageOvr,nTeams){
     var s=p._s, grp=pgrp(p.position), ht=htIn(p.height), ci=classInfo(p);
     var age=ageEst(p,ageOvr);   // needed by youth/size-upside below, not just the final curve
     // Grade anchor: use the canonical v5 projected grade (level-adjusted + dev),
@@ -152,15 +176,37 @@
     var _m=Math.max(1,num(s.mpg));
     var ftr=num(s.fga)>0?num(s.fta)/num(s.fga):0;                       // free-throw rate = drives, not jumpers
     var orb36=num(s.oreb)*36/_m, stk36=(num(s.stl)+num(s.blk))*36/_m;
-    var ftrN=clamp(ftr/0.42*100), orbN=clamp(orb36/(grp==='B'?3.4:grp==='W'?2.0:1.1)*100), stkN=clamp(stk36/(grp==='B'?3.4:grp==='W'?2.4:2.2)*100);
-    var athl=clamp(.34*ftrN+.30*orbN+.36*stkN);
-    var shooting=clamp(.6*tpP+.4*ftP);
+    // Each marker is RANKED WITHIN THE POSITION GROUP and only lightly anchored to an absolute
+    // bar. Pure absolute anchors saturated: a high-usage guard who lives at the line maxed the
+    // free-throw term AND the offensive-rebound term and read as a 96 athlete on a jump-shot-less
+    // 14-point season. FT rate is the most usage-contaminated marker, so it carries the least;
+    // steals + blocks per minute, which a player cannot pad by being allowed to shoot, the most.
+    function mix(key,val,absD){return 0.70*pctOf(dist,key,val)+0.30*clamp(val/absD*100);}
+    var ftrN=mix('ftr_'+grp,ftr,grp==='B'?0.52:grp==='W'?0.46:0.55),
+        orbN=mix('orb_'+grp,orb36,grp==='B'?4.4:grp==='W'?2.8:1.9),
+        stkN=mix('stk_'+grp,stk36,grp==='B'?4.0:grp==='W'?3.0:3.0);
+    var athl=clamp(.28*ftrN+.32*orbN+.40*stkN);
+    // SHOOTING, VOLUME-GATED. A jump shot only counts if he takes them: a 6-2 guard attempting
+    // one three a game has no NBA shot whatever the percentage, and 40% on half an attempt is
+    // noise. The percentage is faded toward a floor until the volume makes it credible, and
+    // the volume itself is scored, because NBA teams buy range they can count on.
+    var tpa36=num(s.tpa)*36/_m;
+    var credD=grp==='B'?2.0:3.0, volD=grp==='B'?4.0:6.0, shFloor=grp==='B'?42:28;
+    var cred=Math.min(1,tpa36/credD), tpVol=clamp(tpa36/volD*100);
+    var tpAdj=tpP*cred+shFloor*(1-cred);
+    var shooting=grp==='B' ? clamp(.42*tpAdj+.14*tpVol+.44*ftP)
+                           : clamp(.52*tpAdj+.22*tpVol+.26*ftP);
     var eff=clamp(.65*tsP+.35*fgP);
+    var lvl=compLevel(p.team,teamMap,nTeams);
     // ROLE SIZE: usage — the share of the offence he finishes — separates a 12-point scorer who
     // carries his team from a 12-point scorer riding four better players, and it is the single
     // biggest lever on a freshman's projection. It sits inside production and nudges the draft
     // lens, where NBA boards reward on-ball creation.
-    var production=clamp(.42*ppgP+.24*mpgP+.16*apgP+.18*usgP);
+    var production=clamp(.34*ppgP+.19*mpgP+.14*apgP+.15*usgP+.18*tsP);
+    // EMPTY CALORIES. Volume is only worth what it is scored at. When a player's share of the
+    // offence runs well ahead of his efficiency he is scoring because he is the one allowed to
+    // shoot, not because he is good at it — the single profile NBA scouts discount hardest.
+    var emptyCal=clamp((usgP-tsP)-12);
     var ballSec=tovP||40;
     // youth/experience from AGE too (a 21-year-old redshirt sophomore is not a young prospect)
     var youth=clamp(100-Math.max(0,(age-18.5))*15);      // 19→93, 20→78, 21→63, 22→48, 23→33
@@ -183,10 +229,11 @@
       var sc=selfCreate(p); var scN=(sc!=null)?clamp(sc/70*100):clamp(usgP);
       // trajectory: grade change year over year, ±6 points of grade maps to the full range
       var tj=trajOf(p); var tjN=(tj!=null)?clamp(50+tj*8):50;
-      trans=clamp(.24*sizeScore+.22*athl+.18*shooting+.12*defTools+.10*vers+.08*eff+.06*ballSec);
-      ready=clamp(.38*production+.20*tsP+.24*expS+.12*(.5*ftP+.5*ballSec)+.06*scN);
+      trans=clamp(.22*sizeScore+.22*athl+.18*shooting+.12*defTools+.08*vers+.12*eff+.06*ballSec);
+      // readiness is a claim about college production, so it is worth what the competition was
+      ready=clamp(.32*production+.18*tsP+.20*expS+.10*(.5*ftP+.5*ballSec)+.06*scN+.14*lvl);
       pot=clamp(.24*youth+.22*athl+.18*(.62*sizeUpside+.38*defTools)+.14*tjN+.12*scN+.10*gradeNorm);
-      draft=clamp(.34*gradeNorm+.13*ppgP+.08*usgP+.09*scN+.19*trans+.12*compLevel(p.team,teamMap)+.05*sizeScore);
+      draft=clamp(.32*gradeNorm+.11*ppgP+.07*usgP+.09*scN+.19*trans+.17*lvl+.05*sizeScore);
     }
     // Draft-board weighting: the NBA drafts on UPSIDE + TRANSLATABLE TOOLS, not college
     // readiness/production, so potential and translatability lead and readiness is a minor
@@ -211,8 +258,15 @@
     // tools/translatability) carry the board, matching how NBA teams actually rank. Was .55/.45.
     // College value is an anchor, not the board. A grade rewards exactly the polished older
     // player an NBA team would pass on, so it carries less than the scouting lenses now.
-    var blended=.34*gradeNorm+.66*lensScore+classBoost-agePen;
-    return {trans:trans,ready:ready,pot:pot,draft:draft,overall:clamp(blended),blended:blended,grp:grp,sizeScore:sizeScore,gradeNorm:gradeNorm,noSample:noSample,age:age,athl:(typeof athl!=='undefined'?athl:null)};
+    // OPPORTUNITY. A projected line of three minutes a night is not evidence of anything: the
+    // percentile ranks still reward the rates, and the empty-calorie check cannot fire because
+    // there is no volume to check — which floated deep-bench freshmen into the top 100. What the
+    // college season says about a player is faded out below a real rotation role.
+    var oppPen=(1-Math.min(1,num(s.mpg)/12))*9;
+    var blended=.34*gradeNorm+.66*lensScore+classBoost-agePen-(noSample?0:emptyCal*0.08)-oppPen;
+    return {trans:trans,ready:ready,pot:pot,draft:draft,overall:clamp(blended),blended:blended,grp:grp,sizeScore:sizeScore,gradeNorm:gradeNorm,noSample:noSample,age:age,
+            athl:(typeof athl!=='undefined'?athl:null),shoot:(typeof shooting!=='undefined'?shooting:null),
+            lvl:(typeof lvl!=='undefined'?lvl:null),empty:(noSample?0:emptyCal),opp:Math.round(oppPen*10)/10};
   }
   function eligible(p,ineligible){
     if(ineligible && ineligible[(p.name||'').trim()]) return false;   // manual ineligible list
@@ -243,7 +297,8 @@
     }
     pool.forEach(function(p){p._s=basisOf(p,season,projById,projReady);});
     var dist=buildDist(pool);
-    pool.forEach(function(p){p._sc=scoreProspect(p,dist,teamMap,ageOvr);});
+    var _nT=Object.keys(teamMap||{}).length||115;
+    pool.forEach(function(p){p._sc=scoreProspect(p,dist,teamMap,ageOvr,_nT);});
     pool.sort(function(a,b){return b._sc.blended-a._sc.blended || (parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0);});
     var hi=pool.length?pool[0]._sc.blended:100;
     var loIdx=Math.min(pool.length-1,59);

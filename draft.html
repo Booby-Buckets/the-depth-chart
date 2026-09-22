@@ -308,10 +308,14 @@ body{background:transparent!important;}
       <div class="method-body">
         <div class="mp">Every prospect is graded 0–100 on four lenses, then blended into the Board score with an <b>NBA-style, upside-led</b> weighting (Upside 35% · Translatability 33% · Stock 22% · Readiness 10%).</div>
         <div class="mp"><b>Translatability</b> — how the game projects to the next level: size for position, <b>athletic tools</b>, shooting touch (3P% + FT%), defensive playmaking, scoring efficiency (TS%), and ball security.</div>
-        <div class="mp"><b>Readiness</b> — how NBA-ready right now: current production and role, efficiency at volume, college experience, and polish.</div>
+        <div class="mp"><b>Readiness</b> — how NBA-ready right now: current production and role, efficiency at volume, college experience, polish, and the level he did it against.</div>
         <div class="mp"><b>Upside</b> — ceiling: youth, <b>athletic tools</b>, length and defensive playmaking, scouting-grade ceiling, and per-minute flashes.</div>
-        <div class="mp"><b>Stock (Draftability)</b> — the market read: scouting grade, production, <b>usage</b> (how much of the offence runs through him), translatable skill, and level of competition.</div>
-        <div class="mp"><b>Athletic tools</b> — there is no combine data in college basketball, so athleticism is read from the box score: how often he gets to the free-throw line (driving, not settling for jumpers), offensive rebounds (second jumps) and blocks + steals (length and quickness), each per minute and judged against his own position. It is why a ground-bound shooter and an explosive wing with the same scoring line no longer rank alike.</div>
+        <div class="mp"><b>Stock (Draftability)</b> — the market read: scouting grade, production, <b>usage</b> (how much of the offence runs through him), translatable skill, and level of competition (conference + team quality).</div>
+        <div class="mp"><b>Athletic tools</b> — there is no combine data in college basketball, so athleticism is read from the box score: how often he gets to the free-throw line (driving, not settling for jumpers), offensive rebounds (second jumps) and blocks + steals (length and quickness), each per minute and <b>ranked against every other player at his position</b>. Blocks and steals carry the most weight because they are the one marker a player cannot pad simply by being the one allowed to shoot. It is why a ground-bound shooter and an explosive wing with the same scoring line no longer rank alike.</div>
+        <div class="mp"><b>Empty calories</b> — volume is only worth what it is scored at. When a player's share of the offence runs well ahead of his efficiency, he is scoring because he is the one allowed to shoot rather than because he is good at it, and the board docks him for it. This is the profile NBA teams discount hardest: the leading scorer on a bad team whose numbers do not survive a closer look.</div>
+        <div class="mp"><b>Level of competition</b> — his conference <i>and</i> how good his own team is. A conference label on its own treats the 77th-ranked team in the country like Duke because they share a league, so the site's own team ranking is blended in: the same 15 points a night mean less against a softer slate with weaker teammates drawing the defence.</div>
+        <div class="mp"><b>Shooting, volume-gated</b> — a jump shot only counts if he takes them. A 6-2 guard attempting one three a game has no NBA shot whatever his percentage is, and 40% on half an attempt a night is noise, so the percentage is faded toward a floor until the volume makes it believable — and the volume itself is credited, because the league buys range it can count on.</div>
+        <div class="mp"><b>Opportunity</b> — a projected line of three minutes a night is not evidence. Per-minute rates off a tiny role used to float deep-bench players up the board, so what the college season says about a player is faded out below a real rotation role.</div>
         <div class="mp"><b>Age</b> — the NBA drafts runway, so value fades from about 19.5 onward and a redshirt year counts against a prospect rather than resetting the clock. A 19-year-old freshman, a 21-year-old redshirt sophomore and a 23-year-old senior are graded on the same production very differently.</div>
         <div class="mp"><b>Trajectory</b> — "is he getting better?" is one of the biggest questions on a real board, so the change in his grade from one season to the next is scored directly. A riser is worth more than a flat producer with the same line.</div>
         <div class="mp"><b>Self-creation</b> — the share of his makes he generated himself (Shot Genome), because the league pays for players who can get their own shot rather than only finish someone else's.</div>
@@ -363,7 +367,7 @@ body{background:transparent!important;}
 <script src="tdc-freshman.js?v=pub15"></script>   <!-- the Big Board ranks freshmen off the owner's projected line -->
 <script src="tdc-projgrade.js?v=base20"></script>
 <script src="tdc-proj.js?v=coach25"></script>
-<script src="bigboard-engine.js?v=15"></script>
+<script src="bigboard-engine.js?v=16"></script>
 <script>
 const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -375,124 +379,14 @@ let draftOverrides={};              // eligibility + age overrides (draft-overri
 let prospects=[];           // scored + ranked for current season
 let prospectById={};
 let projById={}, projReady=false;   // real per-player 2026-27 projections (engine)
-const POWER=['ACC','Big Ten','Big 12','SEC','Big East','B1G','BIG TEN','BIG 12'];
-const HIGH=['Mountain West','American','A-10','Atlantic 10','WCC','West Coast','Conference USA','C-USA','Sun Belt','MAC','MWC','AAC'];
-
-// ── parsing helpers ──
-function num(v){var x=parseFloat(v);return isNaN(x)?0:x;}
+// The Big Board model lives in bigboard-engine.js — draft.html and player.html both call
+// TDC_BIGBOARD.compute so a prospect ranks identically on either page. A stale copy of the
+// whole model used to sit here 'for reference' and had already drifted (its own conference
+// table, its own weights); it is gone so there is only one board to change.
 function htIn(h){if(!h)return 0;var m=(''+h).match(/(\d+)\s*[-']\s*(\d+)/);return m?(+m[1])*12+(+m[2]):0;}
-function pgrp(pos){pos=((pos||'')+'').toUpperCase().split(/[\/,\s]/)[0];
-  if(pos==='PG'||pos==='SG'||pos==='G'||pos==='CG')return 'G';
-  if(pos==='SF'||pos==='F')return 'W';
-  if(pos==='PF'||pos==='C')return 'B'; return 'W';}
-function classInfo(p){var y=((p.class_year||p.yr||'')+'').toLowerCase();
-  var rs=y.indexOf('r-')>=0||y.indexOf('rs')>=0;
-  var lvl=y.indexOf('fr')>=0?0:y.indexOf('so')>=0?1:y.indexOf('jr')>=0?2:(y.indexOf('sr')>=0||y.indexOf('gr')>=0)?3:1;
-  return {lvl:lvl,rs:rs};}
 function classKey(p){var y=((p.class_year||p.yr||'')+'').toLowerCase();
   return y.indexOf('fr')>=0?'fr':y.indexOf('so')>=0?'so':y.indexOf('jr')>=0?'jr':(y.indexOf('sr')>=0||y.indexOf('gr')>=0)?'sr':'';}
 function clamp(x){return Math.round(Math.max(0,Math.min(100,x)));}
-function tsOf(s){var fga=num(s.fga),fta=num(s.fta),pts=num(s.ppg);var d=2*(fga+0.44*fta);return d>0?pts/d*100:0;}
-function compLevel(team){var t=teamMap[team];var c=((t&&(t.conf||t.conference))||'')+'';
-  if(POWER.indexOf(c)>=0)return 88;
-  if(HIGH.indexOf(c)>=0)return 60; return 46;}
-
-// light projection (class-year progression) for the 2026-27 basis
-function projPlayer(p){
-  var yr=((p.class_year||p.yr||'')+'').toLowerCase();
-  var mult=yr.indexOf('fr')>=0?1.12:yr.indexOf('so')>=0?1.10:yr.indexOf('jr')>=0?1.05:0.99;
-  var bump=yr.indexOf('fr')>=0?1.5:yr.indexOf('so')>=0?1.0:yr.indexOf('jr')>=0?0.5:0;
-  var o={};
-  ['ppg','rpg','apg','mpg','stl','blk','oreb','dreb','tovs','fgm','fga','tpm','tpa','ftm','fta'].forEach(function(k){o[k]=Math.round(num(p[k])*mult*10)/10;});
-  ['fg_pct','tp_pct','ft_pct'].forEach(function(k){o[k]=Math.round((num(p[k])+bump)*10)/10;});
-  return o;
-}
-// the stat basis used for scoring in the active season.
-// 2026-27 uses the REAL per-player projection engine (same as the player /
-// projections pages) — accounts for departures, role/minutes redistribution,
-// and freshman estimates. projPlayer() is only a fallback until it's ready.
-function basisOf(p){
-  if(season==='2627' || season==='2728'){
-    var base=(projReady && projById[p.id]) ? Object.assign({}, p, projById[p.id]) : Object.assign({}, p, projPlayer(p));
-    if(season==='2728') base=Object.assign({}, base, projPlayer(base));   // 2028 class = one more year of development
-    return base;
-  }
-  return p;
-}
-
-// ── distributions / percentiles (rebuilt per season) ──
-let _dist={};
-function buildDist(pool){
-  _dist={};
-  var keys=['ppg','rpg','apg','stl','blk','mpg','fg_pct','tp_pct','ft_pct','ts','per36','tovs'];
-  keys.forEach(function(k){_dist[k]=[];});
-  pool.forEach(function(pr){
-    var s=pr._s;
-    _dist.ppg.push(num(s.ppg));_dist.rpg.push(num(s.rpg));_dist.apg.push(num(s.apg));
-    _dist.stl.push(num(s.stl));_dist.blk.push(num(s.blk));_dist.mpg.push(num(s.mpg));
-    _dist.fg_pct.push(num(s.fg_pct));_dist.tp_pct.push(num(s.tp_pct));_dist.ft_pct.push(num(s.ft_pct));
-    _dist.ts.push(tsOf(s));_dist.per36.push(num(s.mpg)>0?num(s.ppg)*36/num(s.mpg):0);_dist.tovs.push(num(s.tovs));
-  });
-  Object.keys(_dist).forEach(function(k){_dist[k]=_dist[k].filter(function(v){return v>0;}).sort(function(a,b){return a-b;});});
-}
-function pctOf(key,val,inv){
-  var arr=_dist[key];if(!arr||!arr.length)return 0;var v=num(val);if(v<=0)return inv?(_dist[key].length?5:0):0;
-  var lo=0,hi=arr.length;while(lo<hi){var m=(lo+hi)>>1;if(arr[m]<v)lo=m+1;else hi=m;}
-  var p=Math.round(lo/arr.length*100);return inv?100-p:p;}
-
-// ── per-prospect scoring ──
-function scoreProspect(p){
-  var s=p._s, grp=pgrp(p.position), ht=htIn(p.height), ci=classInfo(p);
-  var g=parseFloat(p.tdc_grade), hasG=isFinite(g);
-  var ppgP=pctOf('ppg',s.ppg),apgP=pctOf('apg',s.apg),rpgP=pctOf('rpg',s.rpg),
-      stlP=pctOf('stl',s.stl),blkP=pctOf('blk',s.blk),mpgP=pctOf('mpg',s.mpg),
-      fgP=pctOf('fg_pct',s.fg_pct),tpP=pctOf('tp_pct',s.tp_pct),ftP=pctOf('ft_pct',s.ft_pct),
-      tsP=pctOf('ts',tsOf(s)),p36=pctOf('per36',num(s.mpg)>0?num(s.ppg)*36/num(s.mpg):0),
-      tovP=pctOf('tovs',s.tovs,true);
-  // tools
-  var posBase={G:74,W:78,B:81}[grp];
-  var sizeScore=ht>0?clamp(50+(ht-posBase)*6.5):44;
-  var dW=grp==='G'?{s:.72,b:.28}:grp==='B'?{s:.30,b:.70}:{s:.5,b:.5};
-  var defTools=clamp(dW.s*stlP+dW.b*blkP);
-  var shooting=clamp(.6*tpP+.4*ftP);
-  var eff=clamp(.65*tsP+.35*fgP);
-  var production=clamp(.5*ppgP+.3*mpgP+.2*apgP);
-  var ballSec=tovP||40;
-  var youth=clamp([95,72,48,26][ci.lvl]-(ci.rs?6:0));
-  var expS=clamp([34,58,80,92][ci.lvl]+(ci.rs?4:0));
-  var gradeNorm=hasG?clamp((g-58)/41*100):clamp(.6*ppgP+.4*tsP);
-  var flashes=clamp(.6*p36+.4*Math.max(blkP,stlP,tpP));
-  // unproven recruit (incoming freshman, no college sample) — the production
-  // lenses would read 0 and bury elite recruits. Score them like real boards
-  // do: on pedigree (grade), youth, and size, not stats they haven't posted.
-  var noSample=num(s.mpg)<3 && num(s.ppg)<1;
-  var trans,ready,pot,draft;
-  if(noSample){
-    trans=clamp(.50*gradeNorm+.35*sizeScore+.15*youth);
-    ready=clamp(.45*expS+.35*gradeNorm+.20*38);   // genuinely not NBA-ready yet
-    pot=clamp(.46*youth+.34*gradeNorm+.20*sizeScore);
-    draft=clamp(.58*gradeNorm+.26*youth+.16*sizeScore);
-  }else{
-    trans=clamp(.30*sizeScore+.28*shooting+.18*defTools+.16*eff+.08*ballSec);
-    ready=clamp(.40*production+.22*tsP+.24*expS+.14*(.5*ftP+.5*ballSec));
-    pot=clamp(.34*youth+.26*(.55*sizeScore+.45*defTools)+.22*gradeNorm+.18*flashes);
-    draft=clamp(.45*gradeNorm+.20*ppgP+.20*trans+.15*compLevel(p.team));
-  }
-  // GRADE-ANCHORED board: the scouting grade sets the baseline; the four
-  // upside-led lenses nudge a prospect up or down. A class-year tilt rewards
-  // youth — draft boards pay for development runway, so freshmen rise above
-  // equal-graded upperclassmen. Display scale is stretched in buildBoard().
-  var lensScore=clamp(.36*trans+.30*pot+.20*ready+.14*draft);
-  var classBoost=[7,3,0,-4][ci.lvl]-(ci.rs?2.5:0);
-  var blended=.55*gradeNorm+.45*lensScore+classBoost;
-  return {trans:trans,ready:ready,pot:pot,draft:draft,overall:clamp(blended),blended:blended,grp:grp,sizeScore:sizeScore,gradeNorm:gradeNorm,noSample:noSample};
-}
-function eligible(p){
-  var g=parseFloat(p.tdc_grade);
-  var hasStats=num(p.mpg)>=8 && p.ppg!=null;
-  return isFinite(g)||hasStats;
-}
-
 // saving a freshman projection changes his line, so the board must be rebuilt
 window.addEventListener('tdc:fresh-updated', function(){
   // a saved projection changes his line, so rebuild the lines AND the board
@@ -502,7 +396,6 @@ window.addEventListener('tdc:fresh-updated', function(){
 });
 function buildBoard(){
   // Delegate scoring to the shared engine so player.html's prospect sticker
-  // ranks identically. (Local scoreProspect/buildDist/etc. remain for reference.)
   var res=TDC_BIGBOARD.compute(allPlayers, teamMap, {season:season, projById:projById, projReady:projReady, overrides:draftOverrides});
   prospects=res.prospects;
   prospectById=res.byId;
