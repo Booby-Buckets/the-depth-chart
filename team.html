@@ -7853,11 +7853,18 @@ function renderHistoricRoster(rows, yr, projected){
     // A player at his LISTED secondary position (position2) is NOT out of position, so it
     // costs nothing — a PF/SF (Wiggins) fills the 3 before a PF-only big (Huff) gets dragged
     // there. Distance = the closest of his listed slots to the target.
-    const _sl=x=>{ x=(''+(x||'')).toUpperCase().trim();
-      if(x==='PG')return 'PG'; if(x==='SG'||x==='CG'||x==='G')return 'SG';
-      if(x==='SF'||x==='GF')return 'SF'; if(x==='PF'||x==='F')return 'PF'; if(x==='C')return 'C'; return null; };
-    const posDist=(p,pos)=>{ const cs=[slot(p)]; const s2=_sl(p.position2); if(s2&&cs.indexOf(s2)<0)cs.push(s2);
-      return Math.min.apply(null, cs.map(c=>Math.abs(IDX[c]-IDX[pos]))); };
+    // A combo label covers BOTH of its spots: a CG is a real point guard AND a two, a G is either
+    // guard, an F is a 3 or a 4. Treating "CG" as only a two flagged Saint Louis's Trey Green as
+    // out of position at the point, which he is not.
+    const _sls=x=>{ x=(''+(x||'')).toUpperCase().trim();
+      if(x==='PG')return ['PG']; if(x==='SG')return ['SG']; if(x==='G'||x==='CG')return ['PG','SG'];
+      if(x==='SF')return ['SF']; if(x==='GF')return ['SG','SF']; if(x==='F')return ['SF','PF'];
+      if(x==='PF')return ['PF']; if(x==='C')return ['C']; return []; };
+    const _sl=x=>{ var a=_sls(x); return a.length?a[a.length-1]:null; };
+    const listedOf=p=>{ var cs=_sls(p.position).concat(_sls(p.position2));
+      if(!cs.length) cs=[slot(p)];
+      return cs.filter(function(v,i,a){ return a.indexOf(v)===i; }); };
+    const posDist=(p,pos)=> Math.min.apply(null, listedOf(p).map(c=>Math.abs(IDX[c]-IDX[pos])));
     const _pm=p=>(p._projMin!=null&&isFinite(p._projMin))?p._projMin:(parseFloat(p.mpg)||0);
     // NOBODY is shown at a position he isn't listed at. A player is eligible for his listed
     // primary or secondary spot (d=0) and, only if a spot would otherwise be empty, one slot
@@ -7877,7 +7884,17 @@ function renderHistoricRoster(rows, yr, projected){
     // five biggest-minute players contain no centre used to have one of them dragged to the 5.
     // With a wider pool the optimiser can start the real centre (Creighton's Erhunmwunse) and
     // leave the SF/PF at the 3 or 4 where he is listed.
-    const poolS=[...rows].sort((a,b)=>_pm(b)-_pm(a)).slice(0, Math.min(rows.length,8));
+    const _byMin=[...rows].sort((a,b)=>_pm(b)-_pm(a));
+    const poolS=_byMin.slice(0, Math.min(rows.length,8));
+    // …and if a column has NO listed player inside that pool, pull in the roster's best listed one
+    // (by minutes) so the spot is filled by someone who actually plays there. Without this, a team
+    // whose only centre is a deep reserve started a power forward at the 5 (Loyola Chicago, Amos
+    // ahead of three listed centres) — the same error as a wing at centre, one slot smaller.
+    POS.forEach(pos=>{
+      if(poolS.some(p=>posDist(p,pos)===0)) return;
+      const cand=_byMin.find(p=>posDist(p,pos)===0 && poolS.indexOf(p)<0);
+      if(cand) poolS.push(cand);
+    });
     let bestAsg={tot:-1e9, map:null};
     (function rec(i, usedI, map, tot){
       if(i===POS.length){ if(tot>bestAsg.tot) bestAsg={tot, map:Object.assign({},map)}; return; }
@@ -7946,10 +7963,15 @@ function renderHistoricRoster(rows, yr, projected){
   // secondary position takes an overall hit (a 4 dragged to the 3, a guard to the 4) — scaled
   // by how far off (−3 per slot, cap −8). Display-only on the depth chart; his true grade
   // elsewhere is unchanged. Projected season only (historic positions are too noisy).
-  const _rsl=x=>{ x=(''+(x||'')).toUpperCase().trim(); return x==='PG'?'PG':(x==='SG'||x==='CG'||x==='G')?'SG':(x==='SF'||x==='GF')?'SF':(x==='PF'||x==='F')?'PF':x==='C'?'C':null; };
+  // out-of-position distance for the OVR reducer — same combo-aware sets as the assignment above
+  const _rsls=x=>{ x=(''+(x||'')).toUpperCase().trim();
+    if(x==='PG')return ['PG']; if(x==='SG')return ['SG']; if(x==='G'||x==='CG')return ['PG','SG'];
+    if(x==='SF')return ['SF']; if(x==='GF')return ['SG','SF']; if(x==='F')return ['SF','PF'];
+    if(x==='PF')return ['PF']; if(x==='C')return ['C']; return []; };
+  const _rsl=x=>{ var a=_rsls(x); return a.length?a[a.length-1]:null; };
   const _IDXd={PG:0,SG:1,SF:2,PF:3,C:4};
   const _oopDist=(p,colPos)=>{ const cs=_rsl(colPos); if(cs==null) return 0;
-    const L=[_rsl(p.position),_rsl(p.position2)].filter(Boolean); if(!L.length) return 0;
+    const L=_rsls(p.position).concat(_rsls(p.position2)); if(!L.length) return 0;
     return Math.min.apply(null, L.map(s=>Math.abs(_IDXd[s]-_IDXd[cs]))); };
   const colHtml=cols.map(c=>{
     const head=`<div class="dc-head" style="border-bottom-color:${color};background:rgba(${rgb},.07);">${c.pos}</div>`;
