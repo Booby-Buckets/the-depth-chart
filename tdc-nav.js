@@ -29,7 +29,7 @@
       ['roster.html',          'Player Projected Stats'],
       ['transfer-fit.html',    'Transfer Fit'],
       ['compare-players.html', 'Compare Players'],
-      ['draft.html',           'Mock Draft'],
+      ['draft.html',           'Big Board'],
       ['development.html',     'Development'],
       ['roles.html#arch',      'Archetypes'],
     ]],

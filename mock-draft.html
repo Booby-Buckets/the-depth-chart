@@ -4,11 +4,11 @@
   <link rel="stylesheet" href="tdc-a11y.css?v=1">
   <script src="tdc-a11y.js?v=1" defer></script>
   <!-- SEO / social (auto-added) -->
-  <meta name="description" content="The Depth Chart's NBA Big Board — every college prospect ranked for the NBA draft on upside, translatable tools, level of competition and stock.">
+  <meta name="description" content="Run a pick-by-pick NBA mock draft off The Depth Chart's Big Board — set the order, give each team a need, and let the model fill all 60 picks.">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="The Depth Chart">
-  <meta property="og:title" content="NBA Big Board — The Depth Chart">
-  <meta property="og:description" content="The Depth Chart's NBA Big Board — every college prospect ranked for the NBA draft on upside, translatable tools, level of competition and stock.">
+  <meta property="og:title" content="Mock Draft — The Depth Chart">
+  <meta property="og:description" content="Run a pick-by-pick NBA mock draft off The Depth Chart's Big Board — set the order, give each team a need, and let the model fill all 60 picks.">
   <meta property="og:url" content="https://www.thedepthchartcbb.com/draft.html">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Draft — The Depth Chart">
@@ -19,7 +19,7 @@
   <script src="tdc-theme.js?v=4"></script>
   <script src="tdc-glossary.js?v=12"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>NBA Big Board — The Depth Chart</title>
+  <title>Mock Draft — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <style>
     :root{--bg: #FAF9F6;--bg2: #F1EFEA;--bg3: #E6E3DB;--border: #DEDACF;--border2: #C6C0B2;--text: #1A1814;--text2: #4A463C;--text3: #8A867A;--accent: #A8843C;--teal:#3f8d7d;--green:#1a8c3a;--red:#cc2200;--blue:#1a5fbf;}
@@ -250,76 +250,40 @@ body{background:transparent!important;}
 
 <div class="page">
   <div class="page-eyebrow">NBA Draft</div>
-  <h1 class="page-h1">NBA Big Board</h1>
-  <p class="page-sub">Every college player in our database ranked as an <b>NBA draft prospect</b> — not as a college player. A prospect is scored on what the league actually pays for: upside and runway, tools that translate, the level he produced at, and his standing on a real board. That is why a polished 23-year-old scorer sits below a 19-year-old with a jump shot and a first step.</p>
-
-  <div class="ctl-row">
-    <div class="seg" id="seasonSeg" style="margin-left:auto;">
-      <button class="on" data-s="2627" onclick="setSeason('2627')">2027 Draft</button>
-      <button data-s="2728" onclick="setSeason('2728')">2028 Draft</button>
-    </div>
-  </div>
+  <h1 class="page-h1">Mock Draft</h1>
+  <p class="page-sub">A pick-by-pick NBA mock run off the <a href="draft.html">Big Board</a>: set the draft order, give each team a positional need, and the model fills every pick with the best prospect available.</p>
 
   <div id="loadHint" class="load-hint">Loading prospects…</div>
 
-  <!-- BIG BOARD -->
-  <div class="view show" id="viewBoard">
-    <div class="ctl-row" style="margin-bottom:14px;">
-      <input class="filter-input" id="bbSearch" type="text" placeholder="Search name or team…" oninput="renderBoard()" autocomplete="off"/>
-      <select class="filter-sel" id="bbPos" onchange="renderBoard()">
-        <option value="">All positions</option>
-        <option value="G">Guards</option>
-        <option value="W">Wings</option>
-        <option value="B">Bigs</option>
-      </select>
-      <select class="filter-sel" id="bbClass" onchange="renderBoard()">
-        <option value="">All classes</option>
-        <option value="fr">Freshmen</option>
-        <option value="so">Sophomores</option>
-        <option value="jr">Juniors</option>
-        <option value="sr">Seniors / Grad</option>
-      </select>
-      <select class="filter-sel" id="bbCount" onchange="renderBoard()">
-        <option value="60">Top 60</option>
-        <option value="30">Top 30</option>
-        <option value="14">Lottery 14</option>
-        <option value="100">Top 100</option>
-      </select>
+  <!-- MOCK DRAFT -->
+  <div class="view show" id="viewMock">
+    <div class="mock-soon" id="mockSoon">
+      <div class="ms-icon">🚧</div>
+      <div class="ms-h">Mock Draft Tool — Coming Soon</div>
+      <div class="ms-p">The mock is its own tool now, separate from the Big Board, and it is being rebuilt to run off the new board — full two-round order, team needs, and a cleaner draft flow. The Big Board itself is live and complete.</div>
+      <a class="btn" href="draft.html">← Go to the NBA Big Board</a>
     </div>
-    <div class="bb-note" id="bbCaption"></div>
-    <div class="bb-head">
-      <div class="c">#</div>
-      <div>Prospect</div>
-      <div class="c">Grd</div>
-      <div class="c hidem">Trans</div>
-      <div class="c hidem">Ready</div>
-      <div class="c hidem">Upside</div>
-      <div class="c hidem">Stock</div>
-      <div class="c">Board</div>
-    </div>
-    <div class="bb-list" id="bbList"></div>
-
-    <details class="method">
-      <summary>How the Big Board score is built</summary>
-      <div class="method-body">
-        <div class="mp">Every prospect is graded 0–100 on four lenses, then blended into the Board score with an <b>NBA-style, upside-led</b> weighting (Upside 35% · Translatability 33% · Stock 22% · Readiness 10%).</div>
-        <div class="mp"><b>Translatability</b> — how the game projects to the next level: size for position, <b>athletic tools</b>, shooting touch (3P% + FT%), defensive playmaking, scoring efficiency (TS%), and ball security.</div>
-        <div class="mp"><b>Readiness</b> — how NBA-ready right now: current production and role, efficiency at volume, college experience, polish, and the level he did it against.</div>
-        <div class="mp"><b>Upside</b> — ceiling: youth, <b>athletic tools</b>, length and defensive playmaking, scouting-grade ceiling, and per-minute flashes.</div>
-        <div class="mp"><b>Stock (Draftability)</b> — the market read: scouting grade, production, <b>usage</b> (how much of the offence runs through him), translatable skill, and level of competition (conference + team quality).</div>
-        <div class="mp"><b>Athletic tools</b> — there is no combine data in college basketball, so athleticism is read from the box score: how often he gets to the free-throw line (driving, not settling for jumpers), offensive rebounds (second jumps) and blocks + steals (length and quickness), each per minute and <b>ranked against every other player at his position</b>. Blocks and steals carry the most weight because they are the one marker a player cannot pad simply by being the one allowed to shoot. It is why a ground-bound shooter and an explosive wing with the same scoring line no longer rank alike.</div>
-        <div class="mp"><b>Empty calories</b> — volume is only worth what it is scored at. When a player's share of the offence runs well ahead of his efficiency, he is scoring because he is the one allowed to shoot rather than because he is good at it, and the board docks him for it. This is the profile NBA teams discount hardest: the leading scorer on a bad team whose numbers do not survive a closer look.</div>
-        <div class="mp"><b>Level of competition</b> — his conference <i>and</i> how good his own team is. A conference label on its own treats the 77th-ranked team in the country like Duke because they share a league, so the site's own team ranking is blended in: the same 15 points a night mean less against a softer slate with weaker teammates drawing the defence.</div>
-        <div class="mp"><b>Shooting, volume-gated</b> — a jump shot only counts if he takes them. A 6-2 guard attempting one three a game has no NBA shot whatever his percentage is, and 40% on half an attempt a night is noise, so the percentage is faded toward a floor until the volume makes it believable — and the volume itself is credited, because the league buys range it can count on.</div>
-        <div class="mp"><b>Opportunity</b> — a projected line of three minutes a night is not evidence. Per-minute rates off a tiny role used to float deep-bench players up the board, so what the college season says about a player is faded out below a real rotation role.</div>
-        <div class="mp"><b>Age</b> — the NBA drafts runway, so value fades from about 19.5 onward and a redshirt year counts against a prospect rather than resetting the clock. A 19-year-old freshman, a 21-year-old redshirt sophomore and a 23-year-old senior are graded on the same production very differently.</div>
-        <div class="mp"><b>Trajectory</b> — "is he getting better?" is one of the biggest questions on a real board, so the change in his grade from one season to the next is scored directly. A riser is worth more than a flat producer with the same line.</div>
-        <div class="mp"><b>Self-creation</b> — the share of his makes he generated himself (Shot Genome), because the league pays for players who can get their own shot rather than only finish someone else's.</div>
-        <div class="mp"><b>Versatility</b> — a listed second position plus real two-way activity: the "can he guard more than one spot" bet teams make on wings.</div>
-        <div class="mp" id="basisNote"></div>
-        <div class="mp">The <b>Mock Draft</b> is a separate tool — it takes this board and fills a pick-by-pick order. <a href="mock-draft.html">See the Mock Draft →</a> (rebuild in progress).</div>
+    <!-- tool kept intact, hidden until the rebuild ships -->
+    <div id="mockTool" style="display:none;">
+    <div class="ctl-row">
+      <div class="seg" id="seasonSeg" style="margin-left:auto;">
+        <button class="on" data-s="2627" onclick="setSeason('2627')">2027 Draft</button>
+        <button data-s="2728" onclick="setSeason('2728')">2028 Draft</button>
       </div>
-    </details>
+    </div>
+    <div class="mock-info" id="mockInfo"></div>
+    <div class="mock-toolbar">
+      <button class="btn primary" onclick="generateMock()">⚡ Generate Mock Draft</button>
+      <button class="btn" onclick="toggleNeeds()" id="needsToggleBtn">Team needs ▸</button>
+      <button class="btn" onclick="resetOrder()">Reset order</button>
+      <div class="seg sm" id="roundSeg" style="margin-left:auto;">
+        <button data-n="30" class="on" onclick="setRounds(30)">Round 1</button>
+        <button data-n="60" onclick="setRounds(60)">2 Rounds</button>
+      </div>
+    </div>
+    <div id="needsPanel" class="needs-panel" style="display:none;"></div>
+    <div id="mockBody"></div>
+    </div>
   </div>
 
   <div class="empty-hint" id="errHint" style="display:none;">Couldn’t load prospect data. Try refreshing.</div>
@@ -327,7 +291,7 @@ body{background:transparent!important;}
 
 <footer>
   <div class="footer-logo">The Depth <span>Chart</span></div>
-  <div class="footer-meta">NBA Draft Prospect Rankings · 2026–27</div>
+  <div class="footer-meta">NBA Mock Draft · 2026–27</div>
 </footer>
 
 <!-- Canonical projection engine (same as team/player pages) so the big board's
@@ -345,122 +309,128 @@ const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H   = {'apikey':KEY,'Authorization':`Bearer ${KEY}`};
 
-let allPlayers=[], teamMap={}, teamColors={};
-let season='2627';   // the Big Board runs on the 2027 and 2028 classes
-let draftOverrides={};              // eligibility + age overrides (draft-overrides.json)
-let prospects=[];           // scored + ranked for current season
-let prospectById={};
-let projById={}, projReady=false;   // real per-player 2026-27 projections (engine)
-// The Big Board model lives in bigboard-engine.js — draft.html and player.html both call
-// TDC_BIGBOARD.compute so a prospect ranks identically on either page. A stale copy of the
-// whole model used to sit here 'for reference' and had already drifted (its own conference
-// table, its own weights); it is gone so there is only one board to change.
-function htIn(h){if(!h)return 0;var m=(''+h).match(/(\d+)\s*[-']\s*(\d+)/);return m?(+m[1])*12+(+m[2]):0;}
-function classKey(p){var y=((p.class_year||p.yr||'')+'').toLowerCase();
-  return y.indexOf('fr')>=0?'fr':y.indexOf('so')>=0?'so':y.indexOf('jr')>=0?'jr':(y.indexOf('sr')>=0||y.indexOf('gr')>=0)?'sr':'';}
-function clamp(x){return Math.round(Math.max(0,Math.min(100,x)));}
-// saving a freshman projection changes his line, so the board must be rebuilt
-window.addEventListener('tdc:fresh-updated', function(){
-  // a saved projection changes his line, so rebuild the lines AND the board
-  Promise.resolve(TDC_BIGBOARD.buildProjById(allPlayers, teamMap)).then(function(m){
-    projById=m||projById; projReady=true; buildBoard(); renderBoard();
-  }).catch(function(){});
-});
-function buildBoard(){
-  // Delegate scoring to the shared engine so player.html's prospect sticker
-  var res=TDC_BIGBOARD.compute(allPlayers, teamMap, {season:season, projById:projById, projReady:projReady, overrides:draftOverrides});
-  prospects=res.prospects;
-  prospectById=res.byId;
-}
+// The mock does not rank anyone — the ranking is the Big Board's job and lives in
+// bigboard-engine.js. This page asks for the finished board and fills picks from it,
+// so a prospect's rank here is the same one draft.html and his player page show.
+let allPlayers=[], teamMap={}, prospects=[], prospectById={};
+let season='2627';
 
-// ── color for pillar values ──
-function valColor(v){var h=Math.round(v*1.35);return 'hsl('+h+',64%,'+(document.documentElement.getAttribute('data-theme')==='dark'?'62%':'40%')+')';}
-
-// ── BIG BOARD render ──
-function pcell(v,hide){var c=valColor(v);
-  return '<div class="pcell'+(hide?' hidem':'')+'" style="color:'+c+';">'+v+'<div class="pb"><i style="width:'+v+'%;background:'+c+';"></i></div></div>';}
-function renderBoard(){
-  if(!prospects.length)return;
-  var q=(document.getElementById('bbSearch').value||'').toLowerCase().trim();
-  var fpos=document.getElementById('bbPos').value;
-  var fcl=document.getElementById('bbClass').value;
-  var cap=parseInt(document.getElementById('bbCount').value)||60;
-  var list=prospects.filter(function(p){
-    if(fpos&&p._sc.grp!==fpos)return false;
-    if(fcl&&classKey(p)!==fcl)return false;
-    if(q&&!(p.name.toLowerCase().indexOf(q)>=0||(p.team||'').toLowerCase().indexOf(q)>=0))return false;
-    return true;
-  }).slice(0,cap);
-  var seasonLbl=season==='2728'?'2028 NBA Draft (early — returning underclassmen)':season==='2526'?'2026 NBA Draft (2025-26 season)':'2027 NBA Draft (2026-27 projected)';
-  document.getElementById('bbCaption').innerHTML='<b>'+list.length+'</b> prospects · '+seasonLbl+(q||fpos||fcl?' · filtered':'');
-  document.getElementById('bbList').innerHTML=list.map(function(p){
-    var sc=p._sc, cl=(p.class_year||p.yr||'').replace(/\./g,'')||'—';
-    // Grade column = forward-looking projected OVR (gradeSolo, coupled override via id) to
-    // match the player/team pages; incoming freshmen (no prior minutes) keep their editor OVR.
-    var _pg=(parseFloat(p.mpg)>0&&window.TDCProjGrade&&TDCProjGrade.gradeSolo)?TDCProjGrade.gradeSolo(p):null;
-    var grdTxt=(_pg!=null&&!isNaN(_pg))?_pg:(isFinite(parseFloat(p.tdc_grade))?p.tdc_grade:'—');
-    return '<div class="bb-row">'+
-      '<div class="bb-rank'+(p.rank<=14?' t1':'')+'">'+p.rank+'</div>'+
-      '<div class="bb-id"><div class="nm"><a href="player.html?id='+p.id+'">'+p.name+'</a></div>'+
-        '<div class="mt"><span class="pos">'+(p.position||'')+'</span> · '+(p.team||'')+' · '+cl+(htIn(p.height)?' · '+p.height:'')+'</div></div>'+
-      '<div class="bb-grade">'+grdTxt+'</div>'+
-      pcell(sc.trans,true)+pcell(sc.ready,true)+pcell(sc.pot,true)+pcell(sc.draft,true)+
-      '<div class="bb-overall"><div class="bb-ov-num" style="color:'+valColor(sc.overall)+';">'+sc.overall+'</div><div class="bb-ov-lbl">Board</div></div>'+
-    '</div>';
-  }).join('');
-  var bn=document.getElementById('basisNote');
-  if(bn)bn.innerHTML=season==='2728'
-    ? 'The <b>2028</b> board is a way-too-early watch board — this year’s returning underclassmen, projected a further year forward and ranked on upside. Seniors (out of eligibility) and not-yet-arrived recruits are excluded.'
-    : season==='2627'
-    ? 'The <b>2026-27</b> board scores on <b>projected stat lines</b> from the full projection engine (same as the player &amp; projections pages) — accounting for roster departures, minutes redistribution, and freshman estimates'+(projReady?'.':' (still computing… showing a quick estimate).')
-    : 'The <b>2025-26</b> board scores on actual season production.';
-}
-
-// ── season switching ──
+function num(v){var x=parseFloat(v);return isNaN(x)?0:x;}
 function syncSeg(segId,attr,val){
   var seg=document.getElementById(segId);if(!seg)return;
   Array.prototype.forEach.call(seg.querySelectorAll('button'),function(b){b.classList.toggle('on',b.getAttribute('data-'+attr)==(''+val));});
 }
-function setSeason(s){
-  season=s;syncSeg('seasonSeg','s',s);
-  buildBoard();renderBoard();
+
+// ── MOCK DRAFT (model-generated) ──
+// You set the draft order (which team picks where) + optional team needs;
+// the model fills every pick from the Big Board: best player available,
+// nudged toward a team's positional need when the value is close.
+const NBA_DEFAULT_ORDER=['Washington','Indiana','Brooklyn','Utah','Sacramento','Memphis','Dallas','New Orleans','Chicago','Milwaukee','Golden St.','LA Clippers','Miami','Charlotte','Portland','Orlando','Phoenix','Philadelphia','Atlanta','Toronto','Minnesota','Cleveland','Houston','New York','LA Lakers','Denver','Boston','Detroit','San Antonio','Oklahoma City'];
+const NEED_OPTS=['Any','PG','SG','SF','PF','C','Guard','Wing','Big'];
+const NEED_BONUS=5;   // board-point nudge toward a team's positional need
+let mock={'2526':null,'2627':null};
+function freshMock(){return {count:30, order:NBA_DEFAULT_ORDER.concat(NBA_DEFAULT_ORDER), needs:{}, picks:[]};}
+function curMock(){if(!mock[season])mock[season]=freshMock();return mock[season];}
+function loadMock(){
+  try{var m=JSON.parse(localStorage.getItem('tdc_mock_v2')||'null');if(m)mock=m;}catch(e){}
+  ['2526','2627'].forEach(function(s){
+    if(!mock[s])mock[s]=freshMock();
+    if(!mock[s].order||mock[s].order.length<60)mock[s].order=NBA_DEFAULT_ORDER.concat(NBA_DEFAULT_ORDER);
+    if(!mock[s].needs)mock[s].needs={};
+    if(!mock[s].picks)mock[s].picks=[];
+    if(!mock[s].count)mock[s].count=30;
+  });
+}
+function saveMock(){try{localStorage.setItem('tdc_mock_v2',JSON.stringify(mock));}catch(e){}}
+function setRounds(n){curMock().count=n;saveMock();syncSeg('roundSeg','n',n);renderMock();}
+function resetOrder(){curMock().order=NBA_DEFAULT_ORDER.concat(NBA_DEFAULT_ORDER);saveMock();renderMock();renderNeedsPanel();}
+function setPickTeam(i,v){curMock().order[i]=v;saveMock();renderNeedsPanel();}
+function setTeamNeed(team,need){curMock().needs[team]=need;saveMock();}
+function toggleNeeds(){var el=document.getElementById('needsPanel'),b=document.getElementById('needsToggleBtn');var show=el.style.display==='none';el.style.display=show?'block':'none';if(b)b.textContent='Team needs '+(show?'▾':'▸');if(show)renderNeedsPanel();}
+function uniqueTeams(){var st=curMock(),seen={},out=[];st.order.slice(0,st.count).forEach(function(t){var k=(t||'').trim();if(k&&!seen[k]){seen[k]=1;out.push(k);}});return out;}
+function fitsNeed(p,need){var pos=((p.position||'')+'').toUpperCase().split(/[\/,\s]/)[0];var grp=p._sc.grp;
+  if(need==='Guard')return grp==='G';if(need==='Wing')return grp==='W';if(need==='Big')return grp==='B';return pos===need;}
+function generateMock(){
+  if(!prospects.length)return;
+  var st=curMock(),needs=st.needs||{},used={},picks=[];
+  for(var i=0;i<st.count;i++){
+    var team=(st.order[i]||'').trim(),need=needs[team]||'Any',best=null,bs=-1;
+    for(var j=0;j<prospects.length;j++){
+      var p=prospects[j];if(used[p.id])continue;
+      var bonus=(need!=='Any'&&fitsNeed(p,need))?NEED_BONUS:0;
+      var sc=p._sc.overall+bonus;
+      if(sc>bs){bs=sc;best=p;}
+    }
+    if(best){used[best.id]=1;picks.push(best.id);}else picks.push(null);
+  }
+  st.picks=picks;saveMock();renderMock();
+}
+function renderNeedsPanel(){
+  var el=document.getElementById('needsPanel');if(!el||el.style.display==='none')return;
+  var st=curMock(),teams=uniqueTeams();
+  el.innerHTML='<div class="needs-h">Give each team a positional need — the model nudges toward it (+'+NEED_BONUS+' board pts) when the value is close. Leave on “Any” for pure best-player-available.</div>'+
+    '<div class="needs-grid">'+teams.map(function(t){
+      var cur=st.needs[t]||'Any', te=(''+t).replace(/'/g,"\\'");
+      return '<div class="need-row"><span class="need-team">'+t+'</span><select class="need-sel" onchange="setTeamNeed(\''+te+'\',this.value)">'+
+        NEED_OPTS.map(function(o){return '<option'+(o===cur?' selected':'')+'>'+o+'</option>';}).join('')+'</select></div>';
+    }).join('')+'</div>';
+}
+function renderMock(){
+  if(!prospects.length)return;
+  var st=curMock(),count=st.count,hasPicks=st.picks&&st.picks.length;
+  document.getElementById('mockInfo').innerHTML=(season==='2728'?'Projected <b>2028 NBA Draft</b> (early)':season==='2526'?'Projected <b>2026 NBA Draft</b>':'Projected <b>2027 NBA Draft</b>')+
+    ' — set your draft order below (edit any team), optionally assign team needs, then hit <b>Generate Mock Draft</b>. The model fills every pick from the Big Board: best player available, nudged toward each team’s need. Saved to this browser.';
+  var html='';
+  for(var i=0;i<count;i++){
+    if(i===0)html+='<div class="rnd-head">Round 1</div>';
+    if(i===30)html+='<div class="rnd-head">Round 2</div>';
+    var team=st.order[i]||'',need=st.needs[(team||'').trim()]||'Any',lotto=i<14;
+    var pid=hasPicks?st.picks[i]:null,pr=pid?prospectById[pid]:null;
+    var pick=pr
+      ? '<a class="pk-pick" href="player.html?id='+pr.id+'"><span class="pk-bb">BB'+pr.rank+'</span><span class="pk-nm">'+pr.name+'</span><span class="pk-meta">'+(pr.position||'')+' · '+(pr.team||'')+' · '+(function(){var _g=(parseFloat(pr.mpg)>0&&window.TDCProjGrade&&TDCProjGrade.gradeSolo)?TDCProjGrade.gradeSolo(pr):null;return (_g!=null&&!isNaN(_g))?_g+' grd':(isFinite(parseFloat(pr.tdc_grade))?pr.tdc_grade+' grd':'—');})()+' · '+pr._sc.overall+' board</span></a>'
+      : '<span class="pk-empty">— hit Generate —</span>';
+    html+='<div class="mock-pick'+(lotto?' lotto':'')+'">'+
+      '<div class="pk-num"><b>'+(i+1)+'</b>'+(lotto?'<small>lotto</small>':'')+'</div>'+
+      '<div class="pk-teamwrap"><input class="pk-team" value="'+(''+team).replace(/"/g,'&quot;')+'" placeholder="Team" oninput="setPickTeam('+i+',this.value)"/>'+(need!=='Any'?'<span class="pk-need">needs '+need+'</span>':'')+'</div>'+
+      '<div class="pk-pro">'+pick+'</div>'+
+    '</div>';
+  }
+  document.getElementById('mockBody').innerHTML=html;
+  syncSeg('roundSeg','n',count);
 }
 
-// ── boot ──
+
+// ── season / boot ──
+async function buildBoard(){
+  var res=await TDC_BIGBOARD.board(allPlayers, teamMap, {season:season});
+  prospects=res.prospects; prospectById=res.byId;
+}
+async function setSeason(s){
+  season=s;syncSeg('seasonSeg','s',s);
+  await buildBoard();
+  if(document.getElementById('mockTool').style.display!=='none') renderMock();
+}
 async function load(){
   try{
-    try{ draftOverrides=await fetch('draft-overrides.json').then(function(r){return r.ok?r.json():{};}); }catch(e){ draftOverrides={}; }
     var tr=await fetch(SB+'/rest/v1/teams?select=*',{headers:H});
-    (await tr.json()).forEach(function(t){teamMap[t.name]=t;teamColors[t.name]=t.color||'#888';});
-    // the SAME shared pool the player page uses — one fetch, one set of columns, one board
-    allPlayers=(window.TDCPool?await TDCPool.get():[]).map(TDC_BIGBOARD.sane);
+    (await tr.json()).forEach(function(t){teamMap[t.name]=t;});
+    allPlayers=(window.TDCPool?await TDCPool.get():[]);
     if(!allPlayers.length)throw new Error('no players');
-    // the owner's freshman projections (and the grade module they feed) must be in hand before
-    // the first board is built, or a profiled freshman is ranked off a generic estimate
     try{ if(window.TDCFresh&&TDCFresh.load) await TDCFresh.load(); }catch(e){}
     try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready; }catch(e){}
-    buildBoard();
+    loadMock();
+    await buildBoard();
     document.getElementById('loadHint').style.display='none';
-    renderBoard();
-    buildProjections();   // fill real 2026-27 projections in the background
+    if(document.getElementById('mockTool').style.display!=='none') renderMock();
   }catch(e){
     document.getElementById('loadHint').style.display='none';
     document.getElementById('errHint').style.display='block';
   }
 }
-// Compute real per-player 2026-27 projections with the shared engine, grouped
-// by team (the engine redistributes minutes across each roster).
-async function buildProjections(){
-  try{
-    if(typeof buildTeamProjections!=='function'||typeof applyPredictionWalls!=='function')return;
-    window._careerHistoryMap={};
-    var hr=await fetch(SB+'/rest/v1/player_history?select=*&order=season_year.asc&limit=10000',{headers:H});
-    if(hr.ok){var hd=await hr.json();if(Array.isArray(hd))hd.forEach(function(row){var k=(row.name||'').toLowerCase().trim();if(!window._careerHistoryMap[k])window._careerHistoryMap[k]=[];window._careerHistoryMap[k].push(row);});}
-    projById=await TDC_BIGBOARD.buildProjById(allPlayers, teamMap);
-    projReady=true;
-    if(season==='2627'||season==='2728'){buildBoard();renderBoard();}
-  }catch(e){}
-}
+// a saved freshman projection changes the board, so the mock's pool changes with it
+window.addEventListener('tdc:fresh-updated', function(){
+  buildBoard().then(function(){ if(document.getElementById('mockTool').style.display!=='none') renderMock(); });
+});
 load();
 </script>
 
@@ -490,7 +460,6 @@ load();
     document.documentElement.setAttribute('data-theme',next);
     try{localStorage.setItem('tdc_theme',next);}catch(e){}
     syncBtn(next);
-    if(typeof renderBoard==='function')renderBoard();
   };
   try{var s=localStorage.getItem('tdc_theme'); if(s) document.documentElement.setAttribute('data-theme',s);}catch(e){}
   function init(){ syncBtn(document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light'); }

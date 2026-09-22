@@ -194,10 +194,14 @@
       { sel:'#tableWrap',   t:'The table',         html:bl(G.ovr, '<b>Projected line</b> — minutes, points, rebounds, assists, shooting for the coming season, built from his real production, his class\'s development curve and his role on the projected roster.', 'The same numbers his player page and his team\'s depth chart show.') }
     ],
     'draft.html': [
-      { sel:'#viewSeg',  t:'Draft',        d:'Two views: the Big Board (every prospect ranked) and the Mock (a projected draft order).' },
-      { sel:'#bbSearch', t:'Filters',      d:'Search a name, or narrow by position and class.' },
-      { sel:'#bbList',   t:'The Big Board', html:'Prospects ranked by projected value:' + bl(G.ovr, G.wa, 'Age and class matter: a sophomore at 85 is a better bet than a senior at 85 because he has more development left — the board reflects that.') },
-      { sel:'#viewMock', t:'The mock',     d:'A projected draft order from the same board, adjusted for position value and team needs.', before:function(){ try{ document.querySelector('#viewSeg [data-v="mock"], #viewSeg button:last-child').click(); }catch(e){} } }
+      { sel:'.page-h1',  t:'What this is',  d:'An NBA draft board, not a college one. Everyone here is ranked by how good an NBA PROSPECT he is — so a polished older scorer can sit below a younger player who has more room to grow.' },
+      { sel:'#seasonSeg',t:'Which class',   d:'The 2027 board is this season\u2019s prospects. The 2028 board is a way-too-early look: the same players a year further on, with seniors dropped.' },
+      { sel:'#bbSearch', t:'Filters',       d:'Search a name, or narrow by position and class.' },
+      { sel:'#bbList',   t:'The Big Board', html:'Prospects ranked by projected NBA value:' + bl(G.ovr, G.wa, 'Age and class matter: a sophomore at 85 is a better bet than a senior at 85 because he has more development left \u2014 the board reflects that.') },
+      { sel:'.method',   t:'How it is scored', d:'Open this for the full method: the four lenses, athletic tools read from the box score, age and runway, level of competition, and the empty-calories check that docks volume scoring the efficiency does not back up.' }
+    ],
+    'mock-draft.html': [
+      { sel:'.page-h1',  t:'The Mock Draft', d:'A separate tool from the Big Board. It does not rank anyone \u2014 it takes the finished board and fills a pick-by-pick NBA draft order from it. It is being rebuilt; the Big Board itself is live.' }
     ],
     'newcomers.html': [
       { sel:'#teamSel', t:'Newcomer OVRs',  d:'Every incoming freshman and international/JUCO player who has no college statistics yet, by team.' },
