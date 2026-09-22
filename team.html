@@ -7858,19 +7858,26 @@ function renderHistoricRoster(rows, yr, projected){
       if(x==='SF'||x==='GF')return 'SF'; if(x==='PF'||x==='F')return 'PF'; if(x==='C')return 'C'; return null; };
     const posDist=(p,pos)=>{ const cs=[slot(p)]; const s2=_sl(p.position2); if(s2&&cs.indexOf(s2)<0)cs.push(s2);
       return Math.min.apply(null, cs.map(c=>Math.abs(IDX[c]-IDX[pos]))); };
-    const value=(p,pos)=>{ const d=posDist(p,pos);
-      // Prefer his PRIMARY listed spot over his secondary. posDist treats primary and secondary
-      // as equally free, so the optimizer would swap a listed SF (Tyran Stokes) to PF — his
-      // secondary — just to shave a teammate's height misfit at PF, flipping the coach's lineup.
-      // A modest primary bonus keeps him where he's listed unless a real upgrade warrants moving.
-      const primaryPref = (slot(p)===pos) ? 3 : 0;
-      return gr(p) - htFit(p,pos) - d*2 - (d>=3?12:0) + (pos==='C'?Math.max(0,(_htIn(p.height)-80))*0.15:0) + primaryPref; };
-    // Starters = the five highest-PROJECTED-MINUTE players (who actually plays), then the
-    // optimal assignment slots them into PG..C by fit. Using GRADE here made a high-OVR
-    // buried transfer (e.g. a 85 projecting 7 mpg) outrank the real 27-mpg starter; minutes
-    // are the role signal and match the projections table. gr() still drives position fit.
     const _pm=p=>(p._projMin!=null&&isFinite(p._projMin))?p._projMin:(parseFloat(p.mpg)||0);
-    const poolS=[...rows].sort((a,b)=>_pm(b)-_pm(a)).slice(0, Math.min(rows.length,5));
+    // NOBODY is shown at a position he isn't listed at. A player is eligible for his listed
+    // primary or secondary spot (d=0) and, only if a spot would otherwise be empty, one slot
+    // away (d=1) at a heavy cost. Two or more slots away is impossible — that is what put a
+    // listed SF/PF (Jackson McAndrew, who has never played the 5) at centre ahead of the
+    // roster's actual centre, and then docked his OVR for being "out of position".
+    const OOP_BLOCK = -1e6, OOP_1 = 45;
+    // MINUTES lead: within the players eligible for a spot, the one who projects to play the
+    // most gets it (grade only breaks ties / rewards quality), so the starting five is the five
+    // who actually play — subject to being positionally real.
+    const value=(p,pos)=>{ const d=posDist(p,pos);
+      if(d>=2) return OOP_BLOCK;
+      const primaryPref = (slot(p)===pos) ? 2.5 : 0;   // his primary beats his secondary on a tie
+      return _pm(p)*1.0 + gr(p)*0.22 - htFit(p,pos)*0.5 - (d===1?OOP_1:0)
+             + (pos==='C'?Math.max(0,(_htIn(p.height)-80))*0.15:0) + primaryPref; };
+    // The starter pool is the top EIGHT by projected minutes, not the top five: a roster whose
+    // five biggest-minute players contain no centre used to have one of them dragged to the 5.
+    // With a wider pool the optimiser can start the real centre (Creighton's Erhunmwunse) and
+    // leave the SF/PF at the 3 or 4 where he is listed.
+    const poolS=[...rows].sort((a,b)=>_pm(b)-_pm(a)).slice(0, Math.min(rows.length,8));
     let bestAsg={tot:-1e9, map:null};
     (function rec(i, usedI, map, tot){
       if(i===POS.length){ if(tot>bestAsg.tot) bestAsg={tot, map:Object.assign({},map)}; return; }
@@ -7884,7 +7891,12 @@ function renderHistoricRoster(rows, yr, projected){
     // spread across positions (bigs back up bigs) instead of stacking one spot deep.
     const colByPos={}; cols=POS.map(pos=>{ const c={pos, list:st[pos]?[st[pos]]:[]}; colByPos[pos]=c; return c; });
     [...rows].filter(p=>!used.has(p)).sort((a,b)=>_pm(b)-_pm(a)).forEach(p=>{
-      let bp=POS[0], bv=-1e9; POS.forEach(pos=>{ const v=value(p,pos)-colByPos[pos].list.length*4; if(v>bv){bv=v;bp=pos;} }); colByPos[bp].list.push(p);
+      // a backup also only appears at a spot he is listed for; the depth penalty spreads them
+      let bp=null, bv=-1e9;
+      POS.forEach(pos=>{ if(posDist(p,pos)>0) return; const v=value(p,pos)-colByPos[pos].list.length*4; if(v>bv){bv=v;bp=pos;} });
+      if(bp==null){ POS.forEach(pos=>{ if(posDist(p,pos)>1) return; const v=value(p,pos)-colByPos[pos].list.length*4; if(v>bv){bv=v;bp=pos;} }); }
+      if(bp==null) bp=slot(p);
+      colByPos[bp].list.push(p);
     });
   } else {
   // Historical rosters carry only coarse, noisy positions (a 6-9 forward is routinely
