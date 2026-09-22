@@ -116,6 +116,7 @@
 
   function scoreProspect(p,dist,teamMap,ageOvr){
     var s=p._s, grp=pgrp(p.position), ht=htIn(p.height), ci=classInfo(p);
+    var age=ageEst(p,ageOvr);   // needed by youth/size-upside below, not just the final curve
     // Grade anchor: use the canonical v5 projected grade (level-adjusted + dev),
     // stamped by compute() for the projected season, so the board's grade term
     // matches the OVR shown everywhere else on the site. Falls back to the raw
@@ -143,6 +144,16 @@
     var sizeUpside=ht>0?clamp(52+htDev*6.5+(ci.lvl<=1?9:ci.lvl===2?4:0)):44;
     var dW=grp==='G'?{s:.72,b:.28}:grp==='B'?{s:.30,b:.70}:{s:.5,b:.5};
     var defTools=clamp(dW.s*stlP+dW.b*blkP);
+    // ATHLETICISM / PHYSICAL TOOLS — the board had none, so a ground-bound shooter and a
+    // explosive wing with the same numbers looked identical, and the polished older player won.
+    // There is no combine data, so this is the box-score fingerprint of an athlete: how often he
+    // gets to the line (rim pressure), offensive rebounds (second jumps), and blocks + steals
+    // (length and quickness), all per minute and judged against his own position group.
+    var _m=Math.max(1,num(s.mpg));
+    var ftr=num(s.fga)>0?num(s.fta)/num(s.fga):0;                       // free-throw rate = drives, not jumpers
+    var orb36=num(s.oreb)*36/_m, stk36=(num(s.stl)+num(s.blk))*36/_m;
+    var ftrN=clamp(ftr/0.42*100), orbN=clamp(orb36/(grp==='B'?3.4:grp==='W'?2.0:1.1)*100), stkN=clamp(stk36/(grp==='B'?3.4:grp==='W'?2.4:2.2)*100);
+    var athl=clamp(.34*ftrN+.30*orbN+.36*stkN);
     var shooting=clamp(.6*tpP+.4*ftP);
     var eff=clamp(.65*tsP+.35*fgP);
     // ROLE SIZE: usage — the share of the offence he finishes — separates a 12-point scorer who
@@ -151,7 +162,8 @@
     // lens, where NBA boards reward on-ball creation.
     var production=clamp(.42*ppgP+.24*mpgP+.16*apgP+.18*usgP);
     var ballSec=tovP||40;
-    var youth=clamp([95,72,48,26][ci.lvl]-(ci.rs?6:0));
+    // youth/experience from AGE too (a 21-year-old redshirt sophomore is not a young prospect)
+    var youth=clamp(100-Math.max(0,(age-18.5))*15);      // 19→93, 20→78, 21→63, 22→48, 23→33
     var expS=clamp([34,58,80,92][ci.lvl]+(ci.rs?4:0));
     var gradeNorm=hasG?clamp((g-58)/41*100):clamp(.6*ppgP+.4*tsP);
     var flashes=clamp(.6*p36+.4*Math.max(blkP,stlP,tpP));
@@ -165,9 +177,9 @@
       pot=clamp(.42*youth+.32*gradeNorm+.26*sizeUpside);
       draft=clamp(.55*gradeNorm+.24*youth+.21*sizeScore);
     }else{
-      trans=clamp(.34*sizeScore+.26*shooting+.18*defTools+.14*eff+.08*ballSec);
+      trans=clamp(.28*sizeScore+.22*athl+.20*shooting+.14*defTools+.10*eff+.06*ballSec);
       ready=clamp(.40*production+.22*tsP+.24*expS+.14*(.5*ftP+.5*ballSec));
-      pot=clamp(.30*youth+.30*(.62*sizeUpside+.38*defTools)+.22*gradeNorm+.18*flashes);
+      pot=clamp(.28*youth+.24*athl+.22*(.62*sizeUpside+.38*defTools)+.14*gradeNorm+.12*flashes);
       draft=clamp(.40*gradeNorm+.15*ppgP+.08*usgP+.21*trans+.11*compLevel(p.team,teamMap)+.05*sizeScore);
     }
     // Draft-board weighting: the NBA drafts on UPSIDE + TRANSLATABLE TOOLS, not college
@@ -179,16 +191,21 @@
     // young player stays top-of-board while an equally good 23-24yo caps out
     // mid-board (they can still rise, just not to the top). When a real age is
     // known, derive the class boost from it (class year may be Unk. or misleading).
-    var age=ageEst(p,ageOvr);
-    var hasAgeOvr=!!(ageOvr && ageOvr[(p.name||'').trim()]!=null);
-    var effLvl=hasAgeOvr?(age<=19?0:age<=20?1:age<=21?2:3):ci.lvl;
-    // Steeper youth premium — real boards pay up for runway (fr) and fade older classes.
-    var classBoost=[9,4,-1,-6][effLvl];   // redshirt age already handled via ageEst → agePen
-    var agePen=Math.max(0,age-21)*1.35;   // 22→1.35, 23→2.7, 24→4.05 (older prospects slide harder)
+    // AGE, not the class label, drives the runway premium. Reading it off the class let a
+    // 21-year-old redshirt sophomore collect a sophomore's boost (+4) and pay no age penalty,
+    // which is how a polished 6-7 shooter finished ahead of every freshman. An NBA board fades a
+    // prospect from 20 onward; a redshirt year counts against you, it does not reset the clock.
+    var effLvl=age<=19?0:age<=20?1:age<=21?2:3;
+    var classBoost=[9,4,-2,-6][effLvl];
+    var agePen=Math.max(0,age-19.5)*1.8;   // 20→0.9, 21→2.7, 22→4.5, 23→6.3 (with the class term,
+                                           // a 23-year-old carries about -12, which is a late-second
+                                           // round fade, not off the board)
     // Production/grade anchors it but no longer DOMINATES — the scouting lenses (upside/
     // tools/translatability) carry the board, matching how NBA teams actually rank. Was .55/.45.
-    var blended=.42*gradeNorm+.58*lensScore+classBoost-agePen;
-    return {trans:trans,ready:ready,pot:pot,draft:draft,overall:clamp(blended),blended:blended,grp:grp,sizeScore:sizeScore,gradeNorm:gradeNorm,noSample:noSample,age:age};
+    // College value is an anchor, not the board. A grade rewards exactly the polished older
+    // player an NBA team would pass on, so it carries less than the scouting lenses now.
+    var blended=.34*gradeNorm+.66*lensScore+classBoost-agePen;
+    return {trans:trans,ready:ready,pot:pot,draft:draft,overall:clamp(blended),blended:blended,grp:grp,sizeScore:sizeScore,gradeNorm:gradeNorm,noSample:noSample,age:age,athl:(typeof athl!=='undefined'?athl:null)};
   }
   function eligible(p,ineligible){
     if(ineligible && ineligible[(p.name||'').trim()]) return false;   // manual ineligible list
