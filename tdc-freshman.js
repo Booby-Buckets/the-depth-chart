@@ -105,6 +105,7 @@
     var pos=['PG','SG','SF','PF','C'].indexOf(p.position)>=0?p.position:(p.position==='CG'?'SG':'SG');
     var tier=grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
     var base=Object.assign({}, (B[tier]&&B[tier][pos])||(B['75-84']&&B['75-84']['SG'])||FR_BASE_FALLBACK['75-84']['SG']);
+    var base0=Object.assign({}, base);   // the same line with NO archetype and NO sliders — the anchor the team fit scales (see below)
     // the custom PLAY STYLE (archetype + slider tendencies) is OWNER-ONLY: the public
     // sees the projected OVR + a generic line, and a stat-derived archetype elsewhere.
     if(isOwner()){
@@ -131,10 +132,28 @@
     var fit=_fit&&_fit[p.team]&&_fit[p.team][p.name];
     var fitted=false;
     if(fit&&fit.mpg>0&&L.mpg>0){
-      var km=Math.max(0.4,Math.min(1.6,fit.mpg/L.mpg)), kp=Math.max(0.4,Math.min(1.6,(fit.ppg||0)/Math.max(0.1,L.ppg)));
+      // The fit multipliers must be computed from the UNEDITED line, not the edited one. Taking
+      // kp = fit.ppg / L.ppg made the final ppg land on fit.ppg no matter what — every point the
+      // Scoring-volume slider added was divided straight back out, so the headline lever did
+      // nothing while the other sliders (scaled by the minutes ratio, which sliders don't touch)
+      // worked fine. Anchoring on the neutral line keeps the roster fit AND lets the sliders move it.
+      var ppg0=cap(base0.ppg*scale*usg, 22);
+      // the old 0.4-1.6 clamp also stopped a star freshman from ever reaching the points his own
+      // team projection allots him (Tyran Stokes: 13.1 shown where the team line budgets 17.7),
+      // so the player page and the team total disagreed. The fit is our own build — let it land.
+      var km=Math.max(0.4,Math.min(1.8,fit.mpg/L.mpg)), kp=Math.max(0.35,Math.min(2.6,(fit.ppg||0)/Math.max(0.1,ppg0)));
       ['rpg','apg','oreb','dreb','stl','blk','tovs'].forEach(function(k){ L[k]*=km; });
       ['ppg','fga','fgm','tpa','tpm','fta','ftm'].forEach(function(k){ L[k]*=kp; });
       L.mpg=fit.mpg; fitted=true;
+      // A freshman's points still can't run past a believable first-year ceiling — but a HARD cap
+      // makes the top of the slider feel dead (75 and 100 both landing on the cap), so the excess
+      // above a soft ceiling is compressed instead of clipped: the slider keeps moving all the way
+      // up, with diminishing returns, and can never pass ~0.95 points per minute.
+      var soft=0.55*L.mpg, hard=Math.min(24, 0.95*L.mpg);
+      if(L.ppg>soft){
+        var pv=Math.min(hard, soft+(L.ppg-soft)*0.45), kc=pv/L.ppg;
+        ['ppg','fga','fgm','tpa','tpm','fta','ftm'].forEach(function(k){ L[k]*=kc; });
+      }
     }
     var O={}; Object.keys(L).forEach(function(k){ O[k]=r1(L[k]); });
     return Object.assign({}, p, O, { tdc_grade:(ovr!=null?''+Math.round(ovr):p.tdc_grade), _frOvr:ovr!=null, _noStatEst:true, _frProfiled:!!profile, _frFit:fitted });
