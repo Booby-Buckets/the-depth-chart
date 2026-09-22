@@ -354,9 +354,11 @@ body{background:transparent!important;}
      v5 rotation minutes + role-based shot allocation, not the old flat line. -->
 <script src="tdc-nil.js?v=prod2"></script>
 <script src="tdc-pos.js"></script>
+<script src="tdc-pool.js?v=5"></script>
+<script src="tdc-freshman.js?v=pub15"></script>   <!-- the Big Board ranks freshmen off the owner's projected line -->
 <script src="tdc-projgrade.js?v=base20"></script>
-<script src="tdc-proj.js?v=coach24"></script>
-<script src="bigboard-engine.js?v=7"></script>
+<script src="tdc-proj.js?v=coach25"></script>
+<script src="bigboard-engine.js?v=11"></script>
 <script>
 const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -486,6 +488,13 @@ function eligible(p){
   return isFinite(g)||hasStats;
 }
 
+// saving a freshman projection changes his line, so the board must be rebuilt
+window.addEventListener('tdc:fresh-updated', function(){
+  // a saved projection changes his line, so rebuild the lines AND the board
+  Promise.resolve(TDC_BIGBOARD.buildProjById(allPlayers, teamMap)).then(function(m){
+    projById=m||projById; projReady=true; buildBoard(); renderBoard(); if(view==='mock') renderMock();
+  }).catch(function(){});
+});
 function buildBoard(){
   // Delegate scoring to the shared engine so player.html's prospect sticker
   // ranks identically. (Local scoreProspect/buildDist/etc. remain for reference.)
@@ -639,16 +648,13 @@ async function load(){
     try{ draftOverrides=await fetch('draft-overrides.json').then(function(r){return r.ok?r.json():{};}); }catch(e){ draftOverrides={}; }
     var tr=await fetch(SB+'/rest/v1/teams?select=*',{headers:H});
     (await tr.json()).forEach(function(t){teamMap[t.name]=t;teamColors[t.name]=t.color||'#888';});
-    var page=0,PAGE=1000;
-    while(true){
-      var from=page*PAGE,to=from+PAGE-1;
-      var pr=await fetch(SB+'/rest/v1/players?select=*&order=name.asc&name=neq.—',{headers:Object.assign({},H,{'Range-Unit':'items','Range':from+'-'+to})});
-      var batch=await pr.json();
-      if(!Array.isArray(batch)||!batch.length)break;
-      allPlayers=allPlayers.concat(batch.filter(function(p){return p.name&&p.name!=='—';}));
-      if(batch.length<PAGE)break; page++;
-    }
+    // the SAME shared pool the player page uses — one fetch, one set of columns, one board
+    allPlayers=(window.TDCPool?await TDCPool.get():[]).map(TDC_BIGBOARD.sane);
     if(!allPlayers.length)throw new Error('no players');
+    // the owner's freshman projections (and the grade module they feed) must be in hand before
+    // the first board is built, or a profiled freshman is ranked off a generic estimate
+    try{ if(window.TDCFresh&&TDCFresh.load) await TDCFresh.load(); }catch(e){}
+    try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready; }catch(e){}
     loadMock();
     buildBoard();
     document.getElementById('loadHint').style.display='none';
@@ -668,26 +674,7 @@ async function buildProjections(){
     window._careerHistoryMap={};
     var hr=await fetch(SB+'/rest/v1/player_history?select=*&order=season_year.asc&limit=10000',{headers:H});
     if(hr.ok){var hd=await hr.json();if(Array.isArray(hd))hd.forEach(function(row){var k=(row.name||'').toLowerCase().trim();if(!window._careerHistoryMap[k])window._careerHistoryMap[k]=[];window._careerHistoryMap[k].push(row);});}
-    var byTeam={};
-    allPlayers.forEach(function(p){if(!byTeam[p.team])byTeam[p.team]=[];byTeam[p.team].push(p);});
-    projById={};
-    Object.keys(byTeam).forEach(function(tn){
-      var conf=(teamMap[tn]&&(teamMap[tn].conf||teamMap[tn].conference))||'';
-      // Normalize each depth chart by talent before projecting — the stored
-      // depth_order is unreliable (e.g. a grade-97 returning star slotted 9th),
-      // which would feed the engine bad minutes. Re-slot by grade + production.
-      var roster=byTeam[tn].map(function(p){return Object.assign({},p);});
-      roster.sort(function(a,b){
-        return ((parseFloat(b.tdc_grade)||55)+0.15*(parseFloat(b.ppg)||0))
-             - ((parseFloat(a.tdc_grade)||55)+0.15*(parseFloat(a.ppg)||0));
-      });
-      roster.forEach(function(p,i){p.depth_order=i+1;});
-      try{
-        var raw=buildTeamProjections(roster,conf);
-        var proj=applyPredictionWalls(raw);
-        (proj||[]).forEach(function(pp){if(pp&&pp.id!=null)projById[pp.id]=pp;});
-      }catch(e){}
-    });
+    projById=await TDC_BIGBOARD.buildProjById(allPlayers, teamMap);
     projReady=true;
     if(season==='2627'||season==='2728'){buildBoard();renderBoard();if(view==='mock')renderMock();}
   }catch(e){}

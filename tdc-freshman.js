@@ -240,6 +240,9 @@
   function saveProfile(p,prof){ var k=frKey(p); _blob=_blob||{};
     if(prof){ _blob[k]=prof; try{localStorage.setItem(k,JSON.stringify(prof));}catch(e){} }
     else { delete _blob[k]; try{localStorage.removeItem(k);}catch(e){} }
+    // every surface built on a freshman's line (Big Board, rankings, team projections) listens
+    // for this, so saving a projection updates the page you are on without a reload
+    try{ window.dispatchEvent(new CustomEvent('tdc:fresh-updated',{detail:{player:p,profile:prof||null}})); }catch(e){}
     return pushBlob(); }
   // The OWNER publishes the shared OVR overrides into their own profile's
   // freshman_projections blob. Everyone else PUBLIC-reads that same blob (profiles

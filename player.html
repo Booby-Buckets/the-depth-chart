@@ -14,7 +14,7 @@
   <script src="tdc-archetypes.js?v=2"></script>
   <script src="tdc-gate.js?v=3"></script>
   <script src="tdc-pos.js"></script>
-  <script src="tdc-proj.js?v=coach24"></script>
+  <script src="tdc-proj.js?v=coach25"></script>
   <script src="tdc-freshman.js?v=pub15"></script>
   <script src="tdc-injury.js?v=5"></script>
   <script src="tdc-ratings.js?v=21"></script>
@@ -26,7 +26,7 @@
   <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-owned-seasons.js?v=8"></script>
   <script src="tdc-season.js?v=1"></script>
-  <script src="tdc-pool.js?v=2"></script>
+  <script src="tdc-pool.js?v=5"></script>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=4"></script>
   <style>
@@ -1132,7 +1132,7 @@ body{background:transparent!important;}
   <script src="tdc-engine.js"></script>
   <script src="tdc-impact.js?v=1"></script>
   <script src="tdc-heat.js?v=2"></script>
-  <script src="bigboard-engine.js?v=7"></script>
+  <script src="bigboard-engine.js?v=11"></script>
   <link rel="stylesheet" href="tdc-heat.css?v=1"/>
   <style>
     .dna-sub-seg{display:inline-flex;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:4px;flex-wrap:wrap;}
@@ -4392,28 +4392,10 @@ async function loadDraftSticker(){
     // from the pool with the canonical engine so the card's rank matches the board
     // (a returner who projects into a bigger role rises here too, not just on /draft).
     if(typeof TDC_BIGBOARD!=='undefined'){
-      var _projById={};
-      if(typeof buildTeamProjections==='function'){
-        var _byTeam={};
-        players.forEach(function(p){ if(p.team){ (_byTeam[p.team]=_byTeam[p.team]||[]).push(p); } });
-        Object.keys(_byTeam).forEach(function(tn){
-          var conf=(teamMap[tn]&&(teamMap[tn].conf||teamMap[tn].conference))||'';
-          var roster=_byTeam[tn].map(function(p){return Object.assign({},p);});
-          roster.sort(function(a,b){
-            return ((parseFloat(b.tdc_grade)||55)+0.15*(parseFloat(b.ppg)||0))
-                 - ((parseFloat(a.tdc_grade)||55)+0.15*(parseFloat(a.ppg)||0)); });
-          roster.forEach(function(p,i){p.depth_order=i+1;});
-          try{
-            var raw=buildTeamProjections(roster,conf);
-            var proj=(typeof applyPredictionWalls==='function')?applyPredictionWalls(raw):raw;
-            (proj||[]).forEach(function(pp){ if(pp&&pp.id!=null) _projById[pp.id]=pp; });
-          }catch(e){}
-        });
-      }
-      var _haveProj=Object.keys(_projById).length>0;
-      // same manual eligibility/age overrides the Draft page applies, so the rank matches
-      var _ov={}; try{ _ov=await fetch('draft-overrides.json').then(function(r){return r.ok?r.json():{};}); }catch(e){ _ov={}; }
-      var res=TDC_BIGBOARD.compute(players, teamMap, {season:_haveProj?'2627':'2526', projById:_projById, projReady:_haveProj, overrides:_ov});
+      // ONE call — the same sanitised pool, projection pass, overrides and season the Big Board
+      // page uses, so the rank here and the rank there can never disagree.
+      var res=await TDC_BIGBOARD.board(players, teamMap);
+      var _haveProj=true;
       var me=res.byId[player.id];
       // header 2×2 grid — this-year national + position rank from the Big Board
       if(me){
@@ -4612,7 +4594,9 @@ function _applyFreshProfile(){
 }
 function _openFreshEditor(){
   if(!window.TDCFresh || !player) return;
-  TDCFresh.openEditor(player, { onSaved:function(){ _applyFreshProfile(); renderPage(); } });
+  TDCFresh.openEditor(player, { onSaved:function(){ _applyFreshProfile(); renderPage();
+    // the Big Board ranks him off his projected line, so a saved projection must re-rank him
+    try{ loadDraftSticker(); }catch(e){} } });
 }
 // Owner-only injury report: marks the player hurt (body part + timeline) and drives the
 // existing DNP / projection display off proj._injured / proj._injHurt. Public unaffected.

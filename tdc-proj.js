@@ -909,6 +909,19 @@ function buildTeamProjections(players, conf){
     // reading 8 OREB/G). Regress these to a grade/position baseline instead.
     const tinySample = !hasCareerStats && hasCurrentStats && (parseFloat(p.mpg||0)||0) < 6;
     if((!hasCareerStats && !hasCurrentStats) || tinySample){
+      // OWNER'S FRESHMAN PROJECTION WINS. If he has profiled this player in the freshman editor
+      // (OVR, archetype, role, minutes, usage, playstyle), that IS the projection — every surface
+      // built on this engine (team page, Big Board, rankings) must use it instead of the generic
+      // grade/position estimate below, or the editor and the rest of the site disagree.
+      try{
+        if(window.TDCFresh && TDCFresh.profileFor && TDCFresh.line){
+          const _frp = TDCFresh.profileFor(p);
+          if(_frp){
+            const _frl = TDCFresh.line(p, _frp);
+            if(_frl && parseFloat(_frl.mpg)>0) return {..._frl, _frosh:true, _noStatEst:true, _frProfiled:true, _deployedPos:deployedPos, _posFit:posFitMult};
+          }
+        }
+      }catch(e){}
       const fb   = getFrBase(grade, posNorm);
       const effMpg = newMpg < 12 ? Math.min(13, newMpg*1.35)
                    : newMpg < 20 ? Math.min(22, newMpg*(grade>=87?1.15:1.08))

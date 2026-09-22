@@ -47,6 +47,15 @@
     return y.indexOf('fr')>=0?'fr':y.indexOf('so')>=0?'so':y.indexOf('jr')>=0?'jr':(y.indexOf('sr')>=0||y.indexOf('gr')>=0)?'sr':'';}
   function clamp(x){return Math.round(Math.max(0,Math.min(100,x)));}
   function tsOf(s){var fga=num(s.fga),fta=num(s.fta),pts=num(s.ppg);var d=2*(fga+0.44*fta);return d>0?pts/d*100:0;}
+  // usage % — the share of his team's possessions he finishes on the floor. An explicit value
+  // (the freshman editor sets one) wins; otherwise estimate it from his shot and turnover volume.
+  function usgOf(s){
+    var u=num(s.usg)||num(s.usg_pct)||num(s.usage_pct)||num(s.proj_usg);
+    if(u>0) return u;
+    var mpg=num(s.mpg); if(mpg<=0) return 0;
+    var poss=num(s.fga)+0.44*num(s.fta)+num(s.tovs);
+    return 100*poss/Math.max(1,(mpg/40)*68);
+  }
   function compLevel(team,teamMap){var t=teamMap&&teamMap[team];var c=((t&&(t.conf||t.conference))||'')+'';
     if(POWER.indexOf(c)>=0)return 88; if(HIGH.indexOf(c)>=0)return 60; return 46;}
 
@@ -59,8 +68,22 @@
     ['fg_pct','tp_pct','ft_pct'].forEach(function(k){o[k]=Math.round((num(p[k])+bump)*10)/10;});
     return o;
   }
+  // A player with no college stats (a freshman) has no line to percentile-rank him on, so the
+  // board used to fall back to a grade+size-only score — which meant the owner's freshman
+  // projection (minutes, usage, playstyle) never reached the Big Board at all. Take his projected
+  // line from the freshman editor instead, so editing a projection moves his rank.
+  function freshLine(p){
+    try{
+      if(typeof window==='undefined' || !window.TDCFresh || !window.TDCFresh.line) return null;
+      var prof=window.TDCFresh.profileFor?window.TDCFresh.profileFor(p):null;
+      var L=window.TDCFresh.line(p, prof);
+      return (L && num(L.mpg)>0) ? L : null;
+    }catch(e){ return null; }
+  }
+  function hasNoStats(p){ return !(num(p.mpg)>=3 || num(p.ppg)>0); }
   function basisOf(p,season,projById,projReady){
-    if(season==='2627'){
+    if(season==='2627'||season==='2728'){
+      if(hasNoStats(p)){ var fl=freshLine(p); if(fl) return Object.assign({}, p, fl); }
       if(projReady && projById[p.id]) return Object.assign({}, p, projById[p.id]);
       return Object.assign({}, p, projPlayer(p));
     }
@@ -68,7 +91,7 @@
   }
 
   function buildDist(pool){
-    var dist={}, keys=['ppg','rpg','apg','stl','blk','mpg','fg_pct','tp_pct','ft_pct','ts','per36','tovs'];
+    var dist={}, keys=['ppg','rpg','apg','stl','blk','mpg','fg_pct','tp_pct','ft_pct','ts','per36','tovs','usg'];
     keys.forEach(function(k){dist[k]=[];});
     // turnovers, additionally bucketed by position group (G/W/B) — ball security is
     // judged within position so guards (ball-dominant, naturally more TOs) aren't
@@ -80,6 +103,7 @@
       dist.stl.push(num(s.stl));dist.blk.push(num(s.blk));dist.mpg.push(num(s.mpg));
       dist.fg_pct.push(num(s.fg_pct));dist.tp_pct.push(num(s.tp_pct));dist.ft_pct.push(num(s.ft_pct));
       dist.ts.push(tsOf(s));dist.per36.push(num(s.mpg)>0?num(s.ppg)*36/num(s.mpg):0);dist.tovs.push(num(s.tovs));
+      dist.usg.push(usgOf(s));
       var _gp=pgrp(pr.position); if(dist['tovs_'+_gp]) dist['tovs_'+_gp].push(num(s.tovs));
     });
     Object.keys(dist).forEach(function(k){dist[k]=dist[k].filter(function(v){return v>0;}).sort(function(a,b){return a-b;});});
@@ -100,7 +124,8 @@
     var ppgP=pctOf(dist,'ppg',s.ppg),apgP=pctOf(dist,'apg',s.apg),rpgP=pctOf(dist,'rpg',s.rpg),
         stlP=pctOf(dist,'stl',s.stl),blkP=pctOf(dist,'blk',s.blk),mpgP=pctOf(dist,'mpg',s.mpg),
         fgP=pctOf(dist,'fg_pct',s.fg_pct),tpP=pctOf(dist,'tp_pct',s.tp_pct),ftP=pctOf(dist,'ft_pct',s.ft_pct),
-        tsP=pctOf(dist,'ts',tsOf(s)),p36=pctOf(dist,'per36',num(s.mpg)>0?num(s.ppg)*36/num(s.mpg):0);
+        tsP=pctOf(dist,'ts',tsOf(s)),p36=pctOf(dist,'per36',num(s.mpg)>0?num(s.ppg)*36/num(s.mpg):0),
+        usgP=pctOf(dist,'usg',usgOf(s));
     // ball security judged within position group (falls back to the whole pool when a
     // group is thin), blended 65/35 toward position so it's a light nudge, not a swing.
     var _tovG=dist['tovs_'+grp];
@@ -120,12 +145,18 @@
     var defTools=clamp(dW.s*stlP+dW.b*blkP);
     var shooting=clamp(.6*tpP+.4*ftP);
     var eff=clamp(.65*tsP+.35*fgP);
-    var production=clamp(.5*ppgP+.3*mpgP+.2*apgP);
+    // ROLE SIZE: usage — the share of the offence he finishes — separates a 12-point scorer who
+    // carries his team from a 12-point scorer riding four better players, and it is the single
+    // biggest lever on a freshman's projection. It sits inside production and nudges the draft
+    // lens, where NBA boards reward on-ball creation.
+    var production=clamp(.42*ppgP+.24*mpgP+.16*apgP+.18*usgP);
     var ballSec=tovP||40;
     var youth=clamp([95,72,48,26][ci.lvl]-(ci.rs?6:0));
     var expS=clamp([34,58,80,92][ci.lvl]+(ci.rs?4:0));
     var gradeNorm=hasG?clamp((g-58)/41*100):clamp(.6*ppgP+.4*tsP);
     var flashes=clamp(.6*p36+.4*Math.max(blkP,stlP,tpP));
+    // with the freshman editor's line in hand, a freshman is scored on the SAME model as everyone
+    // else; noSample now only catches a player with no line from any source
     var noSample=num(s.mpg)<3 && num(s.ppg)<1;
     var trans,ready,pot,draft;
     if(noSample){
@@ -137,7 +168,7 @@
       trans=clamp(.34*sizeScore+.26*shooting+.18*defTools+.14*eff+.08*ballSec);
       ready=clamp(.40*production+.22*tsP+.24*expS+.14*(.5*ftP+.5*ballSec));
       pot=clamp(.30*youth+.30*(.62*sizeUpside+.38*defTools)+.22*gradeNorm+.18*flashes);
-      draft=clamp(.42*gradeNorm+.18*ppgP+.22*trans+.12*compLevel(p.team,teamMap)+.06*sizeScore);
+      draft=clamp(.40*gradeNorm+.15*ppgP+.08*usgP+.21*trans+.11*compLevel(p.team,teamMap)+.05*sizeScore);
     }
     // Draft-board weighting: the NBA drafts on UPSIDE + TRANSLATABLE TOOLS, not college
     // readiness/production, so potential and translatability lead and readiness is a minor
@@ -205,5 +236,71 @@
     return {prospects:pool, byId:byId};
   }
 
-  global.TDC_BIGBOARD={compute:compute, pgrp:pgrp, posLabel:posLabel, classKey:classKey};
+  // A low-minute player's per-game stats can be nonsense (a 4-minute reserve reading 8 rebounds),
+  // which used to warp the board's percentiles on one page and not the other. Sanitising lives
+  // here now, so every caller starts from the same pool.
+  var STAT_CAPS={ppg:1.4,rpg:0.75,apg:0.6,stl:0.28,blk:0.30,tovs:0.45,oreb:0.45,dreb:0.55};
+  function sane(p){
+    var mpg=num(p&&p.mpg); if(mpg<=0||mpg>=8) return p;
+    var out=null;
+    for(var k in STAT_CAPS){ var v=parseFloat(p[k]);
+      if(!isNaN(v) && v>mpg*STAT_CAPS[k]){ if(!out) out=Object.assign({},p); out[k]=Math.round(mpg*STAT_CAPS[k]*10)/10; } }
+    return out||p;
+  }
+
+  // ── ONE projection pass for the board ────────────────────────────────────────────────────
+  // draft.html and player.html each used to build their own projById with their own roster
+  // sorting and their own readiness checks, so the same player could rank #27 on the board and
+  // #40 on his page. Both now call this: wait for the owner's freshman projections and the grade
+  // module, then project every roster with the canonical engine.
+  function buildProjById(players, teamMap){
+    // THE projected line for the board is the site's canonical one — the same
+    // stat_overall_projected row the player page, the team page and the rankings use, keyed by
+    // espn_id — with the owner's freshman editor line for players who have never played.
+    //
+    // It used to run the LIVE projection engine (buildTeamProjections) over every roster, which
+    // reads ambient page state (prefetched advanced rows, a swapped coach, injuries). That made
+    // the board depend on which page you were on: the same player ranked #28 on the Big Board and
+    // #31 on his own page. Reading the published line makes the board deterministic.
+    var out={};
+    var ready=[];
+    try{ if(global.TDCFresh&&global.TDCFresh.load) ready.push(global.TDCFresh.load()); }catch(e){}
+    try{ if(global.TDCProjGrade&&global.TDCProjGrade.ready) ready.push(global.TDCProjGrade.ready); }catch(e){}
+    return Promise.all(ready).catch(function(){}).then(function(){
+      var rowOf=(global.TDCProjGrade&&global.TDCProjGrade.projRowOf)?global.TDCProjGrade.projRowOf:null;
+      var KEYS=['ppg','rpg','apg','mpg','stl','blk','tovs','oreb','dreb','fg_pct','tp_pct','ft_pct','fga','fgm','tpa','tpm','fta','ftm'];
+      (players||[]).forEach(function(p){
+        if(!p||p.id==null) return;
+        var r=(rowOf&&p.espn_id!=null)?rowOf(p.espn_id):null;
+        if(r && num(r.mpg)>0){
+          var o={}; KEYS.forEach(function(k){ if(r[k]!=null) o[k]=r[k]; });
+          o.usg=(r.proj_usg!=null?r.proj_usg:r.usg); out[p.id]=o; return;
+        }
+        if(hasNoStats(p)){ var fl=freshLine(p); if(fl) out[p.id]=fl; }
+      });
+      return out;
+    });
+  }
+
+  // THE entry point: sanitise, project, apply the manual overrides, compute. Both the Big Board
+  // page and the player page's rank call this, so a player's rank is the same number everywhere.
+  var _ovP=null;
+  function overrides(){
+    if(_ovP) return _ovP;
+    _ovP=(typeof fetch==='function')
+      ? fetch('draft-overrides.json').then(function(r){ return r.ok?r.json():{}; }).catch(function(){ return {}; })
+      : Promise.resolve({});
+    return _ovP;
+  }
+  function board(players, teamMap, opts){
+    opts=opts||{};
+    var pool=(players||[]).map(sane);
+    var projP=opts.projById?Promise.resolve(opts.projById):buildProjById(pool, teamMap);
+    return Promise.all([projP, opts.overrides?Promise.resolve(opts.overrides):overrides()]).then(function(r){
+      var proj=r[0]||{}, ov=r[1]||{}, ready=Object.keys(proj).length>0;
+      return compute(pool, teamMap, {season:opts.season||(ready?'2627':'2526'), projById:proj, projReady:ready, overrides:ov});
+    });
+  }
+
+  global.TDC_BIGBOARD={board:board, compute:compute, buildProjById:buildProjById, sane:sane, overrides:overrides, pgrp:pgrp, posLabel:posLabel, classKey:classKey};
 })(typeof window!=='undefined'?window:this);

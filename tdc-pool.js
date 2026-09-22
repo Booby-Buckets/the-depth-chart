@@ -18,11 +18,17 @@
   'use strict';
   var SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1';
   var KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
-  var SS_KEY = 'tdc_pool_v2', TTL = 20 * 60 * 1000;   // 20 min per tab session (v2: paginated full pool)
+  var SS_KEY = 'tdc_pool_v4', TTL = 20 * 60 * 1000;   // 20 min per tab session (v4: select *)
   // Superset of every column any consumer needs (percentiles + comps + swap modal).
-  var COLS = 'id,name,team,position,height,class_year,yr,depth_order,tdc_grade,' +
-             'ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,' +
-             'oreb,dreb,stl,blk,tovs,gp';
+  // hometown / is_injured / espn_id / position2 / usage_pct are needed by the Big Board:
+  // eligibility (a returning pro or a player out for the season is not in the draft class) and
+  // the usage term. Without them the player page ranked a slightly different pool than the Big
+  // Board page did, so the same player showed two different ranks.
+  // SELECT * — the projection engine reads columns this list kept missing (usage_pct, ts_pct,
+  // efg_pct, starter, is_addition, bpm…), so a page using the trimmed pool projected players
+  // differently from the Big Board page and the same player showed two different ranks. One
+  // cached fetch per tab; the extra columns cost far less than a second source of truth.
+  var COLS = '*';
   var _mem = null, _loading = null;
 
   function _fromSS(){
