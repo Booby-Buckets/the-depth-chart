@@ -66,27 +66,49 @@
     /* BIG BOARD */
     .bb-note{font-size:12px;color:var(--text3);margin-bottom:16px;}
     .bb-note b{color:var(--text2);}
-    .bb-head,.bb-row{display:grid;grid-template-columns:38px 1fr 46px repeat(4,60px) 70px;gap:0;align-items:center;}
-    .bb-head{padding:9px 14px;font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);background:var(--bg2);border:1px solid var(--border);border-radius:9px 9px 0 0;position:sticky;top:88px;z-index:5;}
-    .bb-head .c{text-align:center;}
-    .bb-list{border:1px solid var(--border);border-top:none;border-radius:0 0 9px 9px;overflow:hidden;}
-    .bb-row{padding:11px 14px;border-bottom:1px solid var(--border);transition:background .12s;}
-    .bb-row:last-child{border-bottom:none;}
-    .bb-row:hover{background:var(--bg2);}
-    .bb-rank{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;color:var(--text3);text-align:center;}
-    .bb-rank.t1{color:var(--accent);}
-    .bb-id .nm{font-weight:700;font-size:14px;}
-    .bb-id .nm a{color:inherit;text-decoration:none;}
-    .bb-id .nm a:hover{color:var(--accent);}
-    .bb-id .mt{font-size:11px;color:var(--text3);margin-top:2px;display:flex;flex-wrap:wrap;gap:5px;align-items:center;}
-    .bb-id .pos{font-weight:700;color:var(--text2);}
-    .bb-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:16px;text-align:center;}
-    .pcell{text-align:center;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums;}
-    .pcell .pb{height:4px;border-radius:2px;margin:5px auto 0;width:38px;background:var(--bg3);overflow:hidden;}
-    .pcell .pb i{display:block;height:100%;border-radius:2px;}
-    .bb-overall{text-align:center;}
-    .bb-ov-num{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1;}
-    .bb-ov-lbl{font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
+    /* THE BOARD — built to read like a scouting spreadsheet: a real grid with a frozen
+       header row and frozen rank/name columns, dense rows, tabular figures, and
+       conditional-format shading on every scored column. */
+    .bb-wrap{border:1px solid var(--border);border-radius:8px;overflow:auto;background:var(--bg);
+             max-height:calc(100vh - 230px);position:relative;
+             box-shadow:0 1px 2px rgba(0,0,0,.06);}
+    table.bb{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px;
+             font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1;}
+    .bb th{position:sticky;top:0;z-index:3;background:var(--bg2);
+           font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);
+           padding:7px 6px;text-align:center;white-space:nowrap;cursor:pointer;user-select:none;
+           border-bottom:1px solid var(--border);border-right:1px solid var(--border);}
+    .bb th:hover{color:var(--text);background:var(--bg3);}
+    .bb th .ar{opacity:0;font-size:8px;margin-left:2px;}
+    .bb th.sorted{color:var(--accent);} .bb th.sorted .ar{opacity:1;}
+    .bb td{padding:6px 7px;text-align:center;white-space:nowrap;color:var(--text2);
+           border-bottom:1px solid var(--border);border-right:1px solid var(--border);}
+    .bb tbody tr:nth-child(even) td{background:var(--bg2);}
+    .bb tbody tr:hover td{background:var(--bg3);}
+    .bb td.num{font-weight:700;color:var(--text);}
+    .bb td.dim{color:var(--text3);font-size:11px;}
+    /* frozen columns */
+    /* frozen block: rank, who he is, and what the board says — the three you always
+       want on screen. Everything else scrolls under them. */
+    .bb .s1,.bb .s2,.bb .s3{position:sticky;z-index:2;}
+    .bb .s1{left:0;width:40px;min-width:40px;}
+    .bb .s2{left:40px;text-align:left;width:186px;min-width:186px;max-width:186px;
+            overflow:hidden;text-overflow:ellipsis;}
+    .bb .s3{left:226px;width:54px;min-width:54px;box-shadow:1px 0 0 var(--border);}
+    .bb th.s1,.bb th.s2,.bb th.s3{z-index:4;}
+    .bb tbody td.s1,.bb tbody td.s2,.bb tbody td.s3{background-color:var(--bg);}
+    .bb tbody tr:nth-child(even) td.s1,.bb tbody tr:nth-child(even) td.s2,.bb tbody tr:nth-child(even) td.s3{background-color:var(--bg2);}
+    .bb tbody tr:hover td.s1,.bb tbody tr:hover td.s2,.bb tbody tr:hover td.s3{background-color:var(--bg3);}
+    .bb td.s1{font-weight:800;color:var(--text3);}
+    .bb tr.lotto td.s1{color:var(--accent);}
+    .bb td.lt{text-align:left;}
+    .bb td.s2 a{color:var(--text);font-weight:700;text-decoration:none;}
+    .bb td.s2 a:hover{color:var(--accent);text-decoration:underline;}
+    .bb tr.cut td{border-bottom:2px solid var(--text3);}
+    .bb td.brd{font-weight:800;font-size:13.5px;color:var(--text);}
+    .bb-legend{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:10px;font-size:10.5px;color:var(--text3);}
+    .bb-legend .sw{display:inline-block;width:34px;height:9px;border-radius:2px;vertical-align:-1px;margin-right:5px;
+                   background:linear-gradient(90deg,hsla(0,72%,45%,.34),hsla(60,72%,45%,.10),hsla(125,72%,45%,.34));}
     .bb-more{text-align:center;margin-top:16px;}
 
     details.method{margin-top:22px;border:1px solid var(--border);border-radius:9px;padding:0 16px;background:var(--bg2);}
@@ -98,43 +120,6 @@
     .method-body b{color:var(--text2);}
     .method-body .mp{margin-bottom:8px;}
 
-    /* MOCK DRAFT */
-    .mock-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px;}
-    .mock-info{font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.6;border-left:2px solid var(--accent);padding-left:12px;}
-    .mock-soon{max-width:520px;margin:48px auto;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:44px 34px;}
-    .mock-soon .ms-icon{font-size:38px;line-height:1;margin-bottom:16px;}
-    .mock-soon .ms-h{font-family:'Barlow Condensed','Inter',sans-serif;text-transform:uppercase;font-weight:800;letter-spacing:.02em;font-size:26px;margin-bottom:12px;color:var(--text);}
-    .mock-soon .ms-p{font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:22px;}
-    .mock-soon .btn{display:inline-block;}
-    .rnd-head{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;margin:22px 0 10px;display:flex;align-items:center;gap:10px;}
-    .rnd-head::after{content:'';flex:1;height:1px;background:var(--border);}
-    .mock-pick{display:grid;grid-template-columns:48px 168px 1fr;gap:12px;align-items:center;padding:9px 12px;border:1px solid var(--border);border-radius:9px;margin-bottom:8px;background:var(--bg);transition:border-color .12s;}
-    .mock-pick:hover{border-color:var(--border2);}
-    .mock-pick.lotto{background:linear-gradient(90deg,rgba(230,213,168,.06),transparent 60%);}
-    .pk-num{display:flex;flex-direction:column;align-items:center;justify-content:center;}
-    .pk-num b{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;line-height:1;}
-    .pk-num small{font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-top:2px;}
-    .pk-teamwrap{display:flex;flex-direction:column;gap:4px;min-width:0;}
-    .pk-team{width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);font-family:'Inter',sans-serif;font-size:12.5px;font-weight:700;color:var(--text);outline:none;}
-    .pk-team:focus{border-color:var(--accent);}
-    .pk-team::placeholder{color:var(--text3);font-weight:500;}
-    .pk-need{font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);padding-left:2px;}
-    .pk-pro{display:flex;align-items:center;min-width:0;}
-    .pk-pick{display:flex;align-items:center;gap:10px;min-width:0;text-decoration:none;flex-wrap:wrap;}
-    .pk-pick .pk-bb{font-size:9px;font-weight:800;letter-spacing:.03em;color:#221c08;background:var(--accent);border-radius:4px;padding:2px 6px;white-space:nowrap;}
-    [data-theme="dark"] .pk-pick .pk-bb{color:#0a0710;}
-    .pk-pick .pk-nm{font-weight:700;font-size:14px;color:var(--text);}
-    .pk-pick:hover .pk-nm{color:var(--accent);}
-    .pk-pick .pk-meta{font-size:11px;color:var(--text3);}
-    .pk-empty{font-size:12px;color:var(--text3);font-style:italic;}
-    .needs-panel{border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:18px;background:var(--bg2);}
-    .needs-h{font-size:12px;color:var(--text3);line-height:1.6;margin-bottom:14px;}
-    .needs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:9px 16px;}
-    .need-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
-    .need-team{font-size:12.5px;font-weight:700;color:var(--text2);}
-    .need-sel{padding:5px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--bg);font-family:'Inter',sans-serif;font-size:11.5px;font-weight:600;color:var(--text);outline:none;cursor:pointer;}
-    .need-sel:focus{border-color:var(--accent);}
-
     .empty-hint{border:1px dashed var(--border2);border-radius:10px;padding:40px;text-align:center;color:var(--text3);font-size:13px;}
     .load-hint{text-align:center;color:var(--text3);font-size:13px;padding:50px;}
     footer{border-top:1px solid var(--border);padding:28px 40px;display:flex;align-items:center;justify-content:space-between;margin-top:40px;}
@@ -143,17 +128,18 @@
     .footer-meta{font-size:11px;font-weight:600;color:var(--text3);}
 
     @media(max-width:820px){
-      .bb-head,.bb-row{grid-template-columns:30px 1fr 40px 52px 60px;}
-      .bb-head .c.hidem,.pcell.hidem{display:none;}
-      .mock-pick{grid-template-columns:42px 1fr;gap:8px;}
-      .mock-pick .pk-pro{grid-column:1/-1;}
+      .bb-wrap{max-height:72vh;}
+      table.bb{font-size:11.5px;}
+      .bb th,.bb td{padding:5px 6px;}
+      .bb .s1{width:30px;min-width:30px;}
+      .bb .s2{left:30px;width:132px;min-width:132px;max-width:132px;}
+      .bb .s3{left:162px;width:44px;min-width:44px;}
     }
     @media(max-width:500px){
       .page{padding:18px;}
       .nav-top{padding:0 12px;height:46px;}
       .nav-logo{font-size:15px;}
       .nav-sub{padding:0 12px;}
-      .bb-head{top:80px;}
     }
 
 /* ===== ANIMATED NEON BACKGROUND ===== */
@@ -287,17 +273,13 @@ body{background:transparent!important;}
       </select>
     </div>
     <div class="bb-note" id="bbCaption"></div>
-    <div class="bb-head">
-      <div class="c">#</div>
-      <div>Prospect</div>
-      <div class="c">Grd</div>
-      <div class="c hidem">Trans</div>
-      <div class="c hidem">Ready</div>
-      <div class="c hidem">Upside</div>
-      <div class="c hidem">Stock</div>
-      <div class="c">Board</div>
+    <div class="bb-wrap">
+      <table class="bb">
+        <thead><tr id="bbHead"></tr></thead>
+        <tbody id="bbList"></tbody>
+      </table>
     </div>
-    <div class="bb-list" id="bbList"></div>
+    <div class="bb-legend"><span><span class="sw"></span>weak → strong, shaded like a conditional format</span><span>Click any column heading to sort · rank, name and Board stay frozen while you scroll</span></div>
 
     <details class="method">
       <summary>How the Big Board score is built</summary>
@@ -355,6 +337,7 @@ let projById={}, projReady=false;   // real per-player 2026-27 projections (engi
 // TDC_BIGBOARD.compute so a prospect ranks identically on either page. A stale copy of the
 // whole model used to sit here 'for reference' and had already drifted (its own conference
 // table, its own weights); it is gone so there is only one board to change.
+function num(v){var x=parseFloat(v);return isNaN(x)?0:x;}
 function htIn(h){if(!h)return 0;var m=(''+h).match(/(\d+)\s*[-']\s*(\d+)/);return m?(+m[1])*12+(+m[2]):0;}
 function classKey(p){var y=((p.class_year||p.yr||'')+'').toLowerCase();
   return y.indexOf('fr')>=0?'fr':y.indexOf('so')>=0?'so':y.indexOf('jr')>=0?'jr':(y.indexOf('sr')>=0||y.indexOf('gr')>=0)?'sr':'';}
@@ -374,11 +357,61 @@ function buildBoard(){
 }
 
 // ── color for pillar values ──
-function valColor(v){var h=Math.round(v*1.35);return 'hsl('+h+',64%,'+(document.documentElement.getAttribute('data-theme')==='dark'?'62%':'40%')+')';}
+// Conditional-format shading, the way a scouting sheet colours a column: red at the
+// bottom of the scale, pale through the middle, green at the top. Kept at low alpha so
+// the number stays the thing you read, in either theme.
+function heat(v){
+  if(v==null||isNaN(v))return '';
+  var t=Math.max(0,Math.min(100,v))/100;
+  var a=0.08+0.26*Math.abs(t-0.5)*2;
+  var c='hsla('+Math.round(t*125)+',70%,'+(document.documentElement.getAttribute('data-theme')==='dark'?'46%':'48%')+','+a.toFixed(3)+')';
+  return 'background-image:linear-gradient('+c+','+c+');';
+}
+function valColor(v){var h=Math.round(v*1.35);return 'hsl('+h+',64%,'+(document.documentElement.getAttribute('data-theme')==='dark'?'62%':'40%')+');';}
 
-// ── BIG BOARD render ──
-function pcell(v,hide){var c=valColor(v);
-  return '<div class="pcell'+(hide?' hidem':'')+'" style="color:'+c+';">'+v+'<div class="pb"><i style="width:'+v+'%;background:'+c+';"></i></div></div>';}
+// column spec: key, label, how to pull the value, and whether it is shaded 0-100
+var BB_COLS=[
+  {k:'rank', l:'#',      cls:'s1',      get:function(p){return p.rank;}},
+  {k:'name', l:'Prospect',cls:'s2',     get:function(p){return p.name;},
+     html:function(p){return '<a href="player.html?id='+p.id+'" title="'+p.name.replace(/"/g,'&quot;')+'">'+p.name+'</a>';}},
+  {k:'ovr',  l:'Board',  cls:'brd s3', shade:true, get:function(p){return p._sc.overall;}},
+  {k:'pos',  l:'Pos',    cls:'dim',     get:function(p){return p.position||'';}},
+  {k:'team', l:'Team',   cls:'dim',     get:function(p){return p.team||'';}, left:true},
+  {k:'cl',   l:'Cl',     cls:'dim',     get:function(p){return ((p.class_year||p.yr||'')+'').replace(/\./g,'')||'—';}},
+  {k:'ht',   l:'Ht',     cls:'dim',     get:function(p){return htIn(p.height)?p.height:'—';}},
+  {k:'age',  l:'Age',    cls:'dim',     get:function(p){return p._sc.age;}},
+  {k:'ppg',  l:'PPG',    cls:'',        get:function(p){return num(p._s.ppg);}, dec:1},
+  {k:'rpg',  l:'RPG',    cls:'',        get:function(p){return num(p._s.rpg);}, dec:1},
+  {k:'apg',  l:'APG',    cls:'',        get:function(p){return num(p._s.apg);}, dec:1},
+  {k:'mpg',  l:'MPG',    cls:'',        get:function(p){return num(p._s.mpg);}, dec:1},
+  {k:'grd',  l:'Grd',    cls:'num',     get:function(p){
+      var g=(parseFloat(p.mpg)>0&&window.TDCProjGrade&&TDCProjGrade.gradeSolo)?TDCProjGrade.gradeSolo(p):null;
+      return (g!=null&&!isNaN(g))?g:(isFinite(parseFloat(p.tdc_grade))?parseFloat(p.tdc_grade):null);}},
+  {k:'athl', l:'Tools',  cls:'num', shade:true, get:function(p){return p._sc.athl;}},
+  {k:'shoot',l:'Shot',   cls:'num', shade:true, get:function(p){return p._sc.shoot;}},
+  {k:'lvl',  l:'Level',  cls:'num', shade:true, get:function(p){return p._sc.lvl;}},
+  {k:'trans',l:'Trans',  cls:'num', shade:true, get:function(p){return p._sc.trans;}},
+  {k:'ready',l:'Ready',  cls:'num', shade:true, get:function(p){return p._sc.ready;}},
+  {k:'pot',  l:'Upside', cls:'num', shade:true, get:function(p){return p._sc.pot;}},
+  {k:'draft',l:'Stock',  cls:'num', shade:true, get:function(p){return p._sc.draft;}}
+];
+var bbSort={k:'rank', dir:1};
+function setSort(k){
+  // a click sorts a column best-first; clicking the same one again flips it. Rank is the
+  // board's own order, so it starts ascending.
+  if(bbSort.k===k) bbSort.dir=-bbSort.dir;
+  else bbSort={k:k, dir:(k==='rank'||k==='name'||k==='age')?1:-1};
+  renderBoard();
+}
+function renderHead(){
+  var tr=document.getElementById('bbHead');if(!tr)return;
+  tr.innerHTML=BB_COLS.map(function(c){
+    var on=bbSort.k===c.k;
+    var hc=/\bs[123]\b/.test(c.cls)?c.cls.match(/\bs[123]\b/)[0]:'';
+    return '<th class="'+hc+(on?' sorted':'')+'" onclick="setSort(\''+c.k+'\')" title="Sort by '+c.l+'">'+
+      c.l+'<span class="ar">'+(on?(bbSort.dir>0?'▲':'▼'):'▲')+'</span></th>';
+  }).join('');
+}
 function renderBoard(){
   if(!prospects.length)return;
   var q=(document.getElementById('bbSearch').value||'').toLowerCase().trim();
@@ -391,26 +424,36 @@ function renderBoard(){
     if(q&&!(p.name.toLowerCase().indexOf(q)>=0||(p.team||'').toLowerCase().indexOf(q)>=0))return false;
     return true;
   }).slice(0,cap);
+  // sorting happens AFTER the cut, so "Top 60" always means the board's top 60 and a sort
+  // reorders that set rather than pulling a different 60 out of 1,300 players.
+  var col=BB_COLS.filter(function(c){return c.k===bbSort.k;})[0]||BB_COLS[0];
+  list=list.slice().sort(function(a,b){
+    var x=col.get(a), y=col.get(b);
+    if(typeof x==='string'||typeof y==='string'){
+      return (''+x).localeCompare(''+y)*bbSort.dir;
+    }
+    x=(x==null||isNaN(x))?-1:x; y=(y==null||isNaN(y))?-1:y;
+    return (x-y)*bbSort.dir || a.rank-b.rank;
+  });
   var seasonLbl=season==='2728'?'2028 NBA Draft (early — returning underclassmen)':season==='2526'?'2026 NBA Draft (2025-26 season)':'2027 NBA Draft (2026-27 projected)';
   document.getElementById('bbCaption').innerHTML='<b>'+list.length+'</b> prospects · '+seasonLbl+(q||fpos||fcl?' · filtered':'');
-  document.getElementById('bbList').innerHTML=list.map(function(p){
-    var sc=p._sc, cl=(p.class_year||p.yr||'').replace(/\./g,'')||'—';
-    // Grade column = forward-looking projected OVR (gradeSolo, coupled override via id) to
-    // match the player/team pages; incoming freshmen (no prior minutes) keep their editor OVR.
-    var _pg=(parseFloat(p.mpg)>0&&window.TDCProjGrade&&TDCProjGrade.gradeSolo)?TDCProjGrade.gradeSolo(p):null;
-    var grdTxt=(_pg!=null&&!isNaN(_pg))?_pg:(isFinite(parseFloat(p.tdc_grade))?p.tdc_grade:'—');
-    return '<div class="bb-row">'+
-      '<div class="bb-rank'+(p.rank<=14?' t1':'')+'">'+p.rank+'</div>'+
-      '<div class="bb-id"><div class="nm"><a href="player.html?id='+p.id+'">'+p.name+'</a></div>'+
-        '<div class="mt"><span class="pos">'+(p.position||'')+'</span> · '+(p.team||'')+' · '+cl+(htIn(p.height)?' · '+p.height:'')+'</div></div>'+
-      '<div class="bb-grade">'+grdTxt+'</div>'+
-      pcell(sc.trans,true)+pcell(sc.ready,true)+pcell(sc.pot,true)+pcell(sc.draft,true)+
-      '<div class="bb-overall"><div class="bb-ov-num" style="color:'+valColor(sc.overall)+';">'+sc.overall+'</div><div class="bb-ov-lbl">Board</div></div>'+
-    '</div>';
+  renderHead();
+  var byRank=(bbSort.k==='rank'&&bbSort.dir>0);
+  document.getElementById('bbList').innerHTML=list.map(function(p,i){
+    var cls=(p.rank<=14?' lotto':'')+((byRank&&(p.rank===14||p.rank===30))?' cut':'');
+    return '<tr class="'+cls.trim()+'">'+BB_COLS.map(function(c){
+      var v=c.get(p), txt;
+      if(c.html) txt=c.html(p);
+      else if(v==null||v==='') txt='—';
+      else if(typeof v==='number') txt=(c.dec!=null)?v.toFixed(c.dec):v;
+      else txt=v;
+      var k=c.cls;
+      return '<td class="'+k+(c.left?' lt':'')+'"'+(c.shade?' style="'+heat(v)+'"':'')+'>'+txt+'</td>';
+    }).join('')+'</tr>';
   }).join('');
   var bn=document.getElementById('basisNote');
   if(bn)bn.innerHTML=season==='2728'
-    ? 'The <b>2028</b> board is a way-too-early watch board — this year’s returning underclassmen, projected a further year forward and ranked on upside. Seniors (out of eligibility) and not-yet-arrived recruits are excluded.'
+    ? 'The <b>2028</b> board is a way-too-early watch board — this year\u2019s returning underclassmen, projected a further year forward and ranked on upside. Seniors (out of eligibility) and not-yet-arrived recruits are excluded.'
     : season==='2627'
     ? 'The <b>2026-27</b> board scores on <b>projected stat lines</b> from the full projection engine (same as the player &amp; projections pages) — accounting for roster departures, minutes redistribution, and freshman estimates'+(projReady?'.':' (still computing… showing a quick estimate).')
     : 'The <b>2025-26</b> board scores on actual season production.';
