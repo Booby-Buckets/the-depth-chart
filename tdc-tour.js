@@ -174,6 +174,94 @@
       { sel:'#quad', t:'The quadrant', d:'Every player placed by the quality of his shots (across) and his shot-making (up). Top right: great looks and makes them — the elite. Top left: makes hard shots. Bottom right: gets good looks but misses them.' }
     ],
 
+    'program-hq.html': [
+      { sel:'#picker',      t:'Program HQ',        d:'Your team\'s front door. Pick your program once and this page — and every tool it launches — is built around it.' },
+      { sel:'.hx-hero',     t:'The header',        html:bl(G.power, '<b>Projected record, seed and rank</b> for the coming season.', 'The style tag is the team\'s identity from its DNA (Up-Tempo Shooters, Grind-It-Out Bigs…).') },
+      { sel:'#hxOutlook',   t:'Outlook',           d:'A plain-English read on the season ahead: what the roster returns, what changed, where the model sees the ceiling and the floor.' },
+      { sel:'#hxGame',      t:'Next game',         html:bl(G.spread, 'One click opens the full preview or the scouting report on that opponent.') },
+      { sel:'#hxStandings', t:'Standings',         d:'The conference table with each team\'s Power Rating.' },
+      { sel:'#hxLeaders',   t:'Leaders',           d:'Your top players by projected OVR and Wins Added.' },
+      { sel:'#hqLaunch',    t:'The launchpad',     d:'Twelve tools — depth chart, schedule, DNA, scouting, portal, NIL, betting… — each pre-loaded with your team. Every one of them has its own Explain button.' }
+    ],
+    'projections.html': [
+      { sel:'.ph-hero',     t:'Projections',       d:'Every player\'s projected line for the coming season in one table, and a compare view for putting two next to each other.' },
+      { sel:'.tdc-toolbar', t:'Filters',           d:'Search, conference, position and class. Click any column header to sort.' },
+      { sel:'#tableWrap',   t:'The table',         html:bl(G.ovr, '<b>Projected line</b> — minutes, points, rebounds, assists, shooting for the coming season, built from his real production, his class\'s development curve and his role on the projected roster.', 'The same numbers his player page and his team\'s depth chart show.') }
+    ],
+    'draft.html': [
+      { sel:'#viewSeg',  t:'Draft',        d:'Two views: the Big Board (every prospect ranked) and the Mock (a projected draft order).' },
+      { sel:'#bbSearch', t:'Filters',      d:'Search a name, or narrow by position and class.' },
+      { sel:'#bbList',   t:'The Big Board', html:'Prospects ranked by projected value:' + bl(G.ovr, G.wa, 'Age and class matter: a sophomore at 85 is a better bet than a senior at 85 because he has more development left — the board reflects that.') },
+      { sel:'#viewMock', t:'The mock',     d:'A projected draft order from the same board, adjusted for position value and team needs.', before:function(){ try{ document.querySelector('#viewSeg [data-v="mock"], #viewSeg button:last-child').click(); }catch(e){} } }
+    ],
+    'newcomers.html': [
+      { sel:'#teamSel', t:'Newcomer OVRs',  d:'Every incoming freshman and international/JUCO player who has no college statistics yet, by team.' },
+      { sel:'#missTog', t:'Missing grades', d:'Filter to newcomers who don\'t have an evaluation yet.' },
+      { sel:'.tablewrap', t:'The list',    html:bl('A newcomer\'s <b>OVR</b> is an evaluation, not a statistic — recruiting rank, profile and comparable players — until he plays college games.', 'His projected line is fitted to the minutes and points left on his team\'s roster after the returners.') }
+    ],
+    'gradelist.html': [
+      { sel:'.controls', t:'Grade list',   d:'Every player\'s projected OVR in a plain list — filter by conference, team and position, and pick a format to copy.' },
+      { sel:'.card',     t:'The list',     html:bl(G.ovr, 'The numbers here are the same projected OVRs every other page shows; the copy button gives you the list as text for a spreadsheet.') }
+    ],
+    'coaches.html': [
+      { sel:'.filters',  t:'Coaching Lab',    d:'Every head coach graded on one scale. Filter by conference or search a name.' },
+      { sel:'#content',  t:'The rankings',    html:bl('<b>TDC Coach Grade</b> — 0-100, from four parts: winning adjusted for the talent he had, tournament peak, player development and consistency.', '<b>Style</b> — his archetype from how his teams actually play (pace, shot diet, rotation).', 'Click a coach for his full page.') },
+      { sel:'#msheet',   t:'Style sheet',     d:'Every coach\'s tendencies side by side — pace, three-point rate, bench minutes, how much the offense runs through one star.' }
+    ],
+    'development.html': [
+      { sel:'.ss-band', t:'Player development', html:'How much players improve, and who improves them.' + bl('<b>Development</b> here is the gap between how a player\'s grade changed and how a player of his class and starting grade typically changes. +2 means he beat the usual curve by two grade points.', 'Programs and coaches are ranked by the average development of their players.') },
+      { sel:'.sheet-wrap', t:'The sheet', d:'Every player-season with his grade before and after and the development delta. Filter by team, coach or class; sort by any column.' }
+    ],
+    'bracket.html': [
+      { sel:'#out', t:'Bracketology', html:'A projected NCAA tournament field built from the Power Ratings:' + bl('<b>Seeds</b> 1-16 by projected strength, with automatic bids for projected conference champions.', '<b>Regions</b> follow the real bracketing rules — top seeds spread across regions, conference rivals kept apart where possible.', 'Once the real bracket is announced, the page shows it with the model\'s pick for every game.') }
+    ],
+    'games.html': [
+      { sel:'.page-h1', t:'Games',  d:'Eight quick games built on the site\'s own data — a fun way to learn what the numbers mean.' },
+      { sel:'#grid',    t:'Pick one', html:bl('<b>Guess the Player / College</b> — from a stat line or a career path.', '<b>Grade Guess</b> — guess a player\'s OVR from his line; teaches the grade scale fast.', '<b>Higher or Lower</b> and <b>Rank \'Em</b> — order players by a stat.', '<b>Hoop Grid</b> — the tic-tac-toe of teams and accolades.') }
+    ],
+    'game.html': [
+      { sel:'#content', t:'Box score', html:'One game in full.' + bl('The header has the final, the four factors for each side and the player of the game.', 'Each player\'s line, with his <b>game impact</b> — how much he swung the result, from his stats in that game.', 'Below: the flow of the game and the runs that decided it.') }
+    ],
+    'buzz.html': [
+      { sel:'#q',     t:'The Wire',   d:'News and posts about players and programs, searchable.' },
+      { sel:'#trend', t:'Trending',   d:'Who is being talked about most right now.' },
+      { sel:'#feed',  t:'The feed',   d:'Headlines first, newest at the top; click a name to jump to that player or team.' }
+    ],
+    'just-added.html': [
+      { sel:'#feed', t:'Just added', d:'Everything new on the site — players added to rosters, transfers, new tools — newest first.' }
+    ],
+    'preview.html': [
+      { sel:'#gpSub',  t:'Game preview', d:'A full matchup report for one game: pick the team and opponent in the address (team= and opp=) or open it from a schedule.' },
+      { sel:'#gpHost', t:'The report',   html:bl(G.spread, '<b>Four-factor edges</b> — which side wins shooting, turnovers, rebounding and free throws, and by how much.', '<b>Projected box score</b> — every player\'s line in this game, based on the opponent\'s defense.', '<b>Injuries</b> and who is out.') }
+    ],
+    'customize.html': [
+      { sel:'.controls', t:'Customize', d:'Pick a team to open its Lineup Lab: build your own five, adjust minutes, and see the projected lineup stats change.' },
+      { sel:'#grid',     t:'Teams',     d:'Every rostered program; click one.' }
+    ],
+    'game-guess.html': [
+      { sel:'#content', t:'Guess the Player', html:'A stat line from a real season; name the player.' + bl('The clues are his stats and bio, revealed one at a time — fewer clues used, more points.', 'It is a quick way to learn what a 15-and-8 line looks like against a 20-and-4.') }
+    ],
+    'game-college.html': [
+      { sel:'#content', t:'Guess the College', d:'A player\'s line and bio; name the school he played for. Difficulty changes how famous the player is.' }
+    ],
+    'game-grade.html': [
+      { sel:'#content', t:'Grade Guess', html:'A real stat line; guess the OVR the site gave it.' + bl(G.ovr, 'Playing a few rounds is the fastest way to calibrate: what an 80 looks like, what a 92 looks like.') }
+    ],
+    'game-higher.html': [
+      { sel:'#cards', t:'Higher or Lower', d:'Two players — does the one on the right have a higher or lower number in the stat shown? Keep the streak alive.' }
+    ],
+    'game-rank.html': [
+      { sel:'#rows', t:"Rank 'Em", d:'Five players; drag them into order by the stat named at the top, then reveal.' }
+    ],
+    'game-statline.html': [
+      { sel:'#content', t:'Stat Line Guess', d:'A season stat line, one clue at a time; name the player before the clues run out.' }
+    ],
+    'game-career.html': [
+      { sel:'#content', t:'Career Path', d:'A player\'s career, season by season, revealed one year at a time; name him as early as you can.' }
+    ],
+    'game-grid.html': [
+      { sel:'#content', t:'Hoop Grid', d:'A 3×3 grid: each square needs a player who fits both its row and its column — a team and a conference, a stat threshold and an accolade. Nine correct fills the board.' }
+    ],
     'explore.html': [
       { sel:'#xpFilter', t:'Every tool on the site', d:'Filter the map by what you are trying to do — understand a player, a team, a matchup, the portal, the postseason.' },
       { sel:'#xpBody', t:'The map', d:'Every page with a one-line description of what it answers. Start anywhere; every page has its own Explain button.' },
