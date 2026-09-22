@@ -5,8 +5,7 @@
  *   • steps per page, keyed by the page filename below (sel = what to spotlight, t/d = copy,
  *     tab = a page tab to open first via switchTab, before = any prep function)
  *   • missing targets are skipped, so a gated/blurred section or an empty state can't strand it
- *   • the homepage still auto-plays once on a first visit (localStorage tdc_tour_done); every
- *     other page is on demand only
+ *   • on demand only: nothing opens by itself on any page (the old first-visit auto-tour is gone)
  * Add a page: TDCTour.register('foo.html', [ {sel:'#x', t:'…', d:'…'}, … ]) or edit TOURS below.
  */
 (function (g) {
@@ -120,6 +119,88 @@
       { sel:'#mode',  t:'Look Quality vs Shot-Making', d:'Two original metrics: how good a player\'s looks are, and how much he adds on top of them.' },
       { sel:'#quad',  t:'The quadrant',          d:'Every player placed by the quality of his shots and his finishing — the top right is the elite.' }
     ],
+    'coach-tier.html': [
+      { sel:'#marketingHero', t:"Coach's Tier",        d:'Four hubs — Scouting, Self-Scout, Player Intelligence and Game Prep — plus the Betting Edge. Everything here is built to inform your staff, not to prescribe a system.' },
+      { sel:'#ccPick',        t:'Pick your program',   d:'Set the team you represent once; every tool below opens pre-loaded with it and your next opponent.' },
+      { sel:'#ccSchedCard',   t:'Command center',      d:'Your next games with a one-click scouting report on each opponent.' },
+      { sel:'#filters',       t:'Find a tool',         d:'Filter the hubs by what you need tonight — an opponent, your own rotation, a player, a plan.' },
+      { sel:'#grid',          t:'The hubs',            d:'Flagship tools first, deep-dives folded underneath. Open → launches the tool with your team already selected.' }
+    ],
+    'scout.html': [
+      { sel:'#selMe',          t:'You and the opponent', d:'Pick your team and the opponent; the season switcher scouts any past year too.' },
+      { sel:'#scoutStyle',     t:'Identity',             d:'How they play — pace, shot diet, four factors — against the national field.' },
+      { sel:'#scoutScorers',   t:'Personnel',            d:'Who scores, how, and where each man is vulnerable.' },
+      { sel:'#scoutShotHost',  t:'Shot chart',           d:'Where their shots come from and where they hurt you.' },
+      { sel:'#scoutAttack',    t:'Attack & neutralize',  d:'The prep cards: what to attack, what to take away — surfaced from the numbers for your staff to turn into a plan.' },
+      { sel:'#scoutSituational', t:'Situations',         d:'Close games, foul trouble, pace swings — how they behave when it matters.' },
+      { sel:'#keyMatchups',    t:'Key matchups',         d:'Player-on-player edges at each spot.' }
+    ],
+    'self-scout.html': [
+      { sel:'#sel',        t:'Your team',       d:'Pick your program.' },
+      { sel:'#ssZoneHost', t:'Where you score', d:'Your projected shot zones — what your offense will live on.' },
+      { sel:'#ssRotHost',  t:'Rotation',        d:'Projected minutes and roles, and where the rotation is thin.' },
+      { sel:'#ssTeamSit',  t:'Exposures',       d:'The situations and matchups that expose you — before an opponent finds them.' }
+    ],
+    'matchup.html': [
+      { sel:'#selA',      t:'Two teams',           d:'Pick both sides; the season switcher runs past matchups too.' },
+      { sel:'#tabPredict',t:'Projected game plan', d:'Spread, total and win probability, then attack / neutralize keys for each side.', before:function(){ try{ mtab('predict'); }catch(e){} } },
+      { sel:'#tabAdv',    t:'Matchup advantage',   d:'Player-by-player: where each man wins or loses his matchup.', before:function(){ try{ mtab('adv'); }catch(e){} } }
+    ],
+    'dossier.html': [
+      { sel:'#sel',    t:'Pick a player',  d:'Any player on any roster.' },
+      { sel:'#roster', t:'The roster',     d:'Jump between teammates without leaving the dossier.' },
+      { sel:'#out',    t:'The dossier',    d:'Projected line, situational identifiers (pace, pressure, foul risk), splits, form and how he creates his shots.' }
+    ],
+    'predictive-profile.html': [
+      { sel:'#sel', t:'Pick a player',     d:'Any player on any roster.' },
+      { sel:'#out', t:'The scouting book', d:'How to use him and how to attack him — predictive identifiers built from twenty seasons of play-by-play.' }
+    ],
+    'lineups.html': [
+      { sel:'#sel', t:'Your team',           d:'Pick the program and season.' },
+      { sel:'#out', t:'Lineup recommender',  d:'Best-fit five-man units from the projected rotation, with the on-floor net rating each unit projects to.' }
+    ],
+    'game-breakdown.html': [
+      { sel:'#sel',   t:'Your team',    d:'Pick the program, then a game from its schedule.' },
+      { sel:'#games', t:'The games',    d:'Every game on the slate — click one.' },
+      { sel:'#out',   t:'Breakdown',    d:'Scoring flow, the runs that decided it and the top performers, possession by possession.' }
+    ],
+    'game-review.html': [
+      { sel:'#sel', t:'Your team',    d:'Pick the program and a game.' },
+      { sel:'#out', t:'The review',   d:'A four-factor autopsy: what won or lost the game and what it says about the next one.' }
+    ],
+    'offense.html': [
+      { sel:'#sel', t:'Pick a team',        d:'Any program, current or past.' },
+      { sel:'#out', t:'Offensive profile',  d:'Coach identity plus projected offensive DNA by zone and shot type, and who carries each piece of it.' }
+    ],
+    'defense.html': [
+      { sel:'#sel', t:'Pick a team',        d:'Any program, current or past.' },
+      { sel:'#out', t:'Defensive profile',  d:'Projected four factors on defense, who protects the rim and who can be attacked.' }
+    ],
+    'roles.html': [
+      { sel:'#sel',      t:'Pick a team',        d:'Any program.' },
+      { sel:'#out',      t:'Personnel book',     d:'Projected OVR and archetype for every man, his development path and how to attack him.', before:function(){ try{ rtab('roles'); }catch(e){} } },
+      { sel:'#archBody', t:'Archetypes',         d:'The ten style clusters and where each player sits.', before:function(){ try{ rtab('arch'); }catch(e){} } }
+    ],
+    'onoff.html': [
+      { sel:'#search',  t:'Find a player',   d:'On/off and WOWY — how the team performs with him on the floor versus off it.' }
+    ],
+    'consistency.html': [
+      { sel:'#sel', t:'Pick a team',    d:'Any program.' },
+      { sel:'#out', t:'Consistency',    d:'Each player\'s game-to-game reliability — who you can count on and who swings.' }
+    ],
+    'roster-dev.html': [
+      { sel:'#sel', t:'Pick a team',          d:'Any program.' },
+      { sel:'#out', t:'Development timeline', d:'Year-over-year grade path for every player and a trajectory read.' }
+    ],
+    'predict.html': [
+      { sel:'#q',          t:'Find a team',        d:'Your projection with game-by-game odds and a simulated season.' },
+      { sel:'#sweepPanel', t:'Conference sweep',   d:'Every team in a league projected side by side.' }
+    ],
+    'cheatsheet.html': [
+      { sel:'#statPills',     t:'Pick a stat',   d:'Points, rebounds, assists, threes — the prop market you want.' },
+      { sel:'#boardPills',    t:'The board',     d:'Best player bets, value bets and team bets, sortable, with hit-rates and a conference filter.' },
+      { sel:'#teamAnglesSec', t:'Team angles',   d:'ATS and over/under trends from twenty seasons of real lines.' }
+    ],
     'explore.html': [
       { sel:'#xpFilter', t:'Every tool',      d:'Filter the map by what you are trying to do — a player, a team, a matchup, the portal.' },
       { sel:'#xpBody',   t:'The map',         d:'Every page on the site with a one-line description. Start anywhere.' },
@@ -196,7 +277,7 @@
     }
   }
   function next(){ if (i >= STEPS.length - 1) { end(); return; } i++; place(); }
-  function end(){ if (!W) return; _seq++; W.classList.remove('on'); window.removeEventListener('resize', place); try { if (page() === 'index.html') localStorage.setItem('tdc_tour_done', '1'); } catch (e) {} }
+  function end(){ if (!W) return; _seq++; W.classList.remove('on'); window.removeEventListener('resize', place); }
   function start(steps){
     STEPS = steps || TOURS[page()]; if (!STEPS || !STEPS.length) return false;
     ensureDom(); i = 0; W.classList.add('on'); place(); window.addEventListener('resize', place); return true;
@@ -208,13 +289,7 @@
     b.addEventListener('click', function () { start(); });
     document.body.appendChild(b);
   }
-  function boot(){
-    button();
-    if (page() === 'index.html') {
-      var done = true; try { done = localStorage.getItem('tdc_tour_done') === '1'; } catch (e) {}
-      if (!done) setTimeout(function () { start(); }, 1200);   // first visit: auto-play once, like before
-    }
-  }
+  function boot(){ button(); }   // on demand only — the walkthrough never opens by itself
   if (document.readyState === 'complete') setTimeout(boot, 400); else window.addEventListener('load', function () { setTimeout(boot, 400); });
   g.TDCTour = { start: start, end: end, register: function (pg, steps) { TOURS[pg] = steps; if (pg === page()) button(); }, tours: TOURS };
 })(window);
