@@ -177,16 +177,23 @@
       pot=clamp(.42*youth+.32*gradeNorm+.26*sizeUpside);
       draft=clamp(.55*gradeNorm+.24*youth+.21*sizeScore);
     }else{
-      trans=clamp(.28*sizeScore+.22*athl+.20*shooting+.14*defTools+.10*eff+.06*ballSec);
-      ready=clamp(.40*production+.22*tsP+.24*expS+.14*(.5*ftP+.5*ballSec));
-      pot=clamp(.28*youth+.24*athl+.22*(.62*sizeUpside+.38*defTools)+.14*gradeNorm+.12*flashes);
-      draft=clamp(.40*gradeNorm+.15*ppgP+.08*usgP+.21*trans+.11*compLevel(p.team,teamMap)+.05*sizeScore);
+      var vers=versatile(p,defTools);
+      // self-creation: the share of his makes he generated himself (Shot Genome). Missing for a
+      // player with no located shots — fall back to his usage, which is the same idea, coarser.
+      var sc=selfCreate(p); var scN=(sc!=null)?clamp(sc/70*100):clamp(usgP);
+      // trajectory: grade change year over year, ±6 points of grade maps to the full range
+      var tj=trajOf(p); var tjN=(tj!=null)?clamp(50+tj*8):50;
+      trans=clamp(.24*sizeScore+.22*athl+.18*shooting+.12*defTools+.10*vers+.08*eff+.06*ballSec);
+      ready=clamp(.38*production+.20*tsP+.24*expS+.12*(.5*ftP+.5*ballSec)+.06*scN);
+      pot=clamp(.24*youth+.22*athl+.18*(.62*sizeUpside+.38*defTools)+.14*tjN+.12*scN+.10*gradeNorm);
+      draft=clamp(.34*gradeNorm+.13*ppgP+.08*usgP+.09*scN+.19*trans+.12*compLevel(p.team,teamMap)+.05*sizeScore);
     }
     // Draft-board weighting: the NBA drafts on UPSIDE + TRANSLATABLE TOOLS, not college
     // readiness/production, so potential and translatability lead and readiness is a minor
     // term (a productive senior shouldn't out-rank a toolsy young wing the way a college
     // performance board would). Rebuilt from .36/.30/.20/.14 (trans/pot/ready/draft).
-    var lensScore=clamp(.33*pot+.32*trans+.23*draft+.12*ready);
+    // Upside and translatable tools lead; college readiness is the smallest term, as on a real board
+    var lensScore=clamp(.35*pot+.33*trans+.22*draft+.10*ready);
     // DRAFT AGE CURVE: NBA drafts on runway, so value slides with age. An elite
     // young player stays top-of-board while an equally good 23-24yo caps out
     // mid-board (they can still rise, just not to the top). When a real age is
@@ -253,6 +260,43 @@
     return {prospects:pool, byId:byId};
   }
 
+  // ── INTANGIBLES the NBA actually weighs, from data we own ────────────────────────────────
+  // TRAJECTORY — "is he getting better?" is one of the biggest inputs on a real board, and the
+  // site already grades every player-season. Year-over-year grade change, from
+  // stat_overall_history.json (loaded lazily by tdc-projgrade).
+  function trajOf(p){
+    try{
+      if(!global.TDCProjGrade || !global.TDCProjGrade.statMaps || p.espn_id==null) return null;
+      var H=(global.TDCProjGrade.statMaps()||{}).hist; if(!H) return null;
+      var yrs=Object.keys(H).map(Number).sort(function(a,b){return b-a;});
+      var got=[];
+      for(var i=0;i<yrs.length && got.length<2;i++){
+        var v=H[yrs[i]] && H[yrs[i]][''+p.espn_id];
+        if(v!=null && isFinite(v)) got.push(+v);
+      }
+      return got.length===2 ? (got[0]-got[1]) : null;   // latest minus the season before it
+    }catch(e){ return null; }
+  }
+  // SELF-CREATION — the NBA pays for players who generate their own shot. Shot Genome's
+  // self-created share of makes (build_shot_genome.py), by espn_id.
+  var _sgP=null, _sgBy=null;
+  function loadGenome(){
+    if(_sgP) return _sgP;
+    _sgP=(typeof fetch==='function')
+      ? fetch('scripts/data/shot_genome_players.json').then(function(r){ return r.ok?r.json():null; })
+          .then(function(j){ _sgBy={}; ((j&&j.players)||[]).forEach(function(x){ if(x&&x.espn_id!=null) _sgBy[''+x.espn_id]=x; }); return _sgBy; })
+          .catch(function(){ _sgBy={}; return _sgBy; })
+      : Promise.resolve({});
+    return _sgP;
+  }
+  function selfCreate(p){ var r=(_sgBy&&p.espn_id!=null)?_sgBy[''+p.espn_id]:null; return (r&&r.selfPct!=null)?num(r.selfPct):null; }
+  // POSITIONAL VERSATILITY — a listed second position plus real two-way activity is the
+  // "can he guard more than one spot" bet teams make on wings.
+  function versatile(p,defToolsPct){
+    var two=!!(p.position2 && (''+p.position2).trim());
+    return clamp((two?58:38) + (defToolsPct-50)*0.5);
+  }
+
   // A low-minute player's per-game stats can be nonsense (a 4-minute reserve reading 8 rebounds),
   // which used to warp the board's percentiles on one page and not the other. Sanitising lives
   // here now, so every caller starts from the same pool.
@@ -313,7 +357,8 @@
     opts=opts||{};
     var pool=(players||[]).map(sane);
     var projP=opts.projById?Promise.resolve(opts.projById):buildProjById(pool, teamMap);
-    return Promise.all([projP, opts.overrides?Promise.resolve(opts.overrides):overrides()]).then(function(r){
+    return Promise.all([projP, opts.overrides?Promise.resolve(opts.overrides):overrides(), loadGenome(),
+      (global.TDCProjGrade&&global.TDCProjGrade.loadHist)?global.TDCProjGrade.loadHist():null]).then(function(r){
       var proj=r[0]||{}, ov=r[1]||{}, ready=Object.keys(proj).length>0;
       return compute(pool, teamMap, {season:opts.season||(ready?'2627':'2526'), projById:proj, projReady:ready, overrides:ov});
     });
