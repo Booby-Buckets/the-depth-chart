@@ -94,6 +94,12 @@
       '.tdn-group.open .tdn-btn .car{transform:rotate(225deg) translateY(2px);}',
       '.tdn-menu{position:absolute;top:calc(100% + 4px);left:0;min-width:190px;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;box-shadow:0 16px 44px rgba(0,0,0,.26);padding:6px;opacity:0;visibility:hidden;transform:translateY(-6px);transition:opacity .16s,transform .16s;z-index:60;}',
       '.tdn-row .tdn-group:first-child .tdn-menu{left:0;}',
+      // a CLOSED menu still occupies layout (visibility:hidden), and a right-hand group's panel
+      // stuck past the phone's edge, so every page scrolled sideways ~50px. Closed = no layout.
+      '.tdn-menu{display:none;}',
+      '.tdn-group.open .tdn-menu{display:block;}',
+      // and it can never hang off the right edge of a phone
+      '@media(max-width:760px){.tdn-menu{left:auto;right:0;max-width:calc(100vw - 24px);}}',
       '.tdn-group.open .tdn-menu{opacity:1;visibility:visible;transform:translateY(0);}',
       '.tdn-menu a{display:block;font-size:12.5px;font-weight:600;letter-spacing:.01em;text-transform:none;color:var(--text2);text-decoration:none;padding:9px 13px;border-radius:8px;white-space:nowrap;transition:background .13s,color .13s;}',
       '.tdn-menu a:hover{background:var(--bg3);color:var(--text);}',

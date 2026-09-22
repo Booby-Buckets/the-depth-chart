@@ -97,7 +97,38 @@
     .hx-rank .n{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:clamp(46px,7vw,72px);line-height:.82;color:#fff;text-shadow:0 3px 16px rgba(0,0,0,.30);}
     .hx-rank .n small{font-size:.46em;vertical-align:top;opacity:.72;font-weight:700;margin-right:1px;}
     .hx-rank .lbl{font-size:10px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.78);margin-top:3px;}
-    @media(max-width:560px){ .hx-rank{margin-left:0;padding-left:0;width:100%;text-align:left;margin-top:6px;} .hx-rank .n{font-size:48px;} }
+    /* ── phone: the hero stacks. The crest, the name and the rank were three flex items in one
+       nowrap row on a 390px screen, so the name column was squeezed to ~120px ("MARK / POPE"
+       over two lines) and the rank collapsed on top of the record. Now: crest + kicker/name on
+       the first row, rank on its own line under it, pills below that. ── */
+    @media(max-width:560px){
+      .hx-hero{padding:16px 16px 18px;}
+      .hx-top{flex-wrap:wrap;gap:12px;align-items:flex-start;}
+      .hx-crest{width:56px;height:56px;border-radius:12px;padding:7px;}
+      .hx-id{flex:1 1 180px;min-width:0;}
+      .hx-k{font-size:9.5px;letter-spacing:.12em;line-height:1.35;}
+      .hx-name{font-size:clamp(26px,8.2vw,34px);line-height:1.02;overflow-wrap:anywhere;}
+      .hx-rank{flex:0 0 100%;margin-left:0;padding-left:0;text-align:left;margin-top:2px;display:flex;align-items:baseline;gap:8px;}
+      .hx-rank .n{font-size:38px;line-height:1;}
+      .hx-rank .lbl{margin-top:0;font-size:9.5px;letter-spacing:.12em;}
+      .hx-pills{gap:7px;margin-top:8px;font-size:13px;}
+      .hx-pills .rec{font-size:16px;}
+      .hx-pills .pill{font-size:11px;padding:3px 9px;}
+      .hx-wm{width:170px;right:-46px;opacity:.11;}
+    }
+    @media(max-width:560px){
+      .hx-stage{padding:12px;border-radius:16px;}
+      .hx-card{padding:14px 14px;}
+      .hx-lab{flex-wrap:wrap;gap:4px 10px;}
+      .ng-match{gap:11px;}
+      .ng-opp{font-size:22px;line-height:1.05;overflow-wrap:anywhere;}
+      .ng-meta{font-size:11.5px;overflow-wrap:anywhere;}
+      .ng-btns{flex-wrap:wrap;}
+      .ng-btns .btn{flex:1 1 100%;text-align:center;white-space:normal;}
+      .mrow{gap:9px;}
+      .hxwrap{padding-left:12px;padding-right:12px;}
+    }
+    @media(max-width:380px){ .hx-name{font-size:24px;} .hx-crest{width:48px;height:48px;} }
     .hx-nav{position:relative;z-index:1;display:flex;align-items:center;gap:8px;margin-top:16px;flex-wrap:wrap;}
     .hx-tab{font-size:12.5px;font-weight:800;letter-spacing:.02em;color:var(--tc-ink);background:var(--tc-veil);border:1px solid var(--tc-veilb);padding:8px 15px;border-radius:10px;cursor:pointer;text-transform:uppercase;}
     .hx-tab.on{background:#fff;color:#111;border-color:#fff;box-shadow:0 6px 16px rgba(0,0,0,.20);}
@@ -118,10 +149,15 @@
     /* translucent stage behind the dashboard content */
     .hx-stage{background:var(--stagebg);border:1px solid var(--stageborder);border-radius:22px;padding:16px;margin-top:12px;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);}
     /* grid */
-    .hx-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-top:0;align-items:start;}
-    .hx-col{display:flex;flex-direction:column;gap:16px;}
-    .hx-row2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-    @media(max-width:900px){.hx-grid{grid-template-columns:1fr;}.hx-row2{grid-template-columns:1fr;}}
+    /* minmax(0,…) + min-width:0 everywhere: a grid/flex item's DEFAULT minimum is its content's
+       min-content width, so one long line (a button label, a meta line) made the whole column
+       wider than the phone and the cards ran off the right edge. */
+    .hx-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;margin-top:0;align-items:start;}
+    .hx-col{display:flex;flex-direction:column;gap:16px;min-width:0;}
+    .hx-col>*{min-width:0;}
+    .hx-row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;}
+    .hx-row2>*{min-width:0;}
+    @media(max-width:900px){.hx-grid{grid-template-columns:minmax(0,1fr);}.hx-row2{grid-template-columns:minmax(0,1fr);}}
     .hx-card{background:var(--cardbg);border:1px solid var(--line);border-radius:16px;padding:18px 20px;box-shadow:0 16px 38px rgba(10,15,35,.20);}
     .hx-lab{font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--txt2);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
     .hx-lab .sub{color:var(--txt3);font-weight:700;letter-spacing:.02em;}
@@ -245,7 +281,7 @@
   <div class="hq-word" id="hqWord" aria-hidden="true"></div>
   <div class="bgwm"><img id="wm1" src="" alt=""></div>
   <div class="bggrunge" aria-hidden="true"></div>
-  <script src="tdc-nav.js?v=26"></script>
+  <script src="tdc-nav.js?v=27"></script>
 
   <!-- team picker -->
   <div class="pick-hero" id="picker">
