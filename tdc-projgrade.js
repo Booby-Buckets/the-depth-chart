@@ -567,8 +567,14 @@
     // can't disagree by 4 mpg. Rebuild the projection to move these.
     roster.forEach(function(p, i){
       if(!p || quals[i] == null) return;
-      var row = (p.espn_id != null && _SO_PROJ_ROW) ? _SO_PROJ_ROW['' + p.espn_id] : null;
-      var m = row ? parseFloat(row.proj_mpg != null ? row.proj_mpg : row.mpg) : NaN;
+      // an owner-set "Minutes per game" in the freshman editor wins over everything, so the depth
+      // chart shows the minutes he typed rather than the roster-fitted default
+      var m = NaN;
+      if(window.TDCFresh && window.TDCFresh.profileFor){ try{ var pr = window.TDCFresh.profileFor(p); if(pr && pr.mpg != null && pr.mpg !== '') m = parseFloat(pr.mpg); }catch(e){} }
+      if(!isFinite(m)){
+        var row = (p.espn_id != null && _SO_PROJ_ROW) ? _SO_PROJ_ROW['' + p.espn_id] : null;
+        m = row ? parseFloat(row.proj_mpg != null ? row.proj_mpg : row.mpg) : NaN;
+      }
       if(!isFinite(m) && window.TDCFresh && window.TDCFresh.fitFor){ try{ var f = window.TDCFresh.fitFor(p); if(f && f.mpg != null) m = parseFloat(f.mpg); }catch(e){} }
       if(isFinite(m) && m >= 0) mins[i] = Math.round(m * 10) / 10;
     });

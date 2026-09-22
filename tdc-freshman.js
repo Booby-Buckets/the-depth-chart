@@ -155,6 +155,20 @@
         ['ppg','fga','fgm','tpa','tpm','fta','ftm'].forEach(function(k){ L[k]*=kc; });
       }
     }
+    // ── EXPLICIT MINUTES ───────────────────────────────────────────────────────────────────
+    // The roster fit hands a freshman the minutes LEFT on his team, which can disagree with the
+    // role you gave him (a Starter fitted to 17 minutes). An explicit "Minutes per game" wins:
+    // his per-minute production is held and everything is rescaled to the minutes you set.
+    // Leave it on Auto and nothing changes — the fitted minutes still rule.
+    var mOv=(profile&&profile.mpg!=null&&profile.mpg!=='')?parseFloat(profile.mpg):null;
+    if(mOv!=null&&isFinite(mOv)&&mOv>0&&L.mpg>0&&Math.abs(mOv-L.mpg)>0.05){
+      var kmv=mOv/L.mpg;
+      ['ppg','rpg','apg','stl','blk','oreb','dreb','tovs','fga','fgm','tpa','tpm','fta','ftm'].forEach(function(k){ L[k]*=kmv; });
+      L.mpg=mOv; fitted=true;
+      var sfc=0.55*L.mpg, hrd=Math.min(24,0.95*L.mpg);        // keep the points ceiling honest at the new minutes
+      if(L.ppg>sfc){ var pv2=Math.min(hrd, sfc+(L.ppg-sfc)*0.45), kc2=pv2/L.ppg;
+        ['ppg','fga','fgm','tpa','tpm','fta','ftm'].forEach(function(k){ L[k]*=kc2; }); }
+    }
     // ── SHOTS MUST MATCH THE POINTS ────────────────────────────────────────────────────────
     // Attempts were built from the ROLE's minutes and never moved with the sliders, so the line
     // contradicted itself: Jason Crowe read 8.4 points on 10.8 attempts at 48% (that is 11+ points),
@@ -248,6 +262,7 @@
     '.fr-roles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}',
     '.fr-role{padding:8px 4px;border:1px solid var(--border);background:var(--bg);color:var(--text2);font-family:Inter,sans-serif;font-size:11px;font-weight:700;border-radius:8px;cursor:pointer;}',
     '.fr-role.on{background:var(--tc-readable,var(--accent));color:#221c08;border-color:var(--tc-readable,var(--accent));}',
+    '.fr-hint{font-size:11px;color:var(--text3);margin-top:6px;}'+
     '.fr-sliders{display:flex;flex-direction:column;gap:12px;}.fr-sl-top{display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-bottom:4px;}',
     '.fr-sl-top b{font-family:Share Tech Mono,monospace;color:var(--tc-readable,var(--accent));}',
     '.fr-range{width:100%;height:5px;-webkit-appearance:none;appearance:none;background:var(--bg3);border-radius:4px;outline:none;}',
@@ -268,6 +283,8 @@
     var cells=[['PPG',L.ppg],['RPG',L.rpg],['APG',L.apg],['MPG',L.mpg],['FG%',L.fg_pct+'%'],['3P%',L.tp_pct+'%'],['STL',L.stl],['BLK',L.blk]];
     host.innerHTML=cells.map(function(c){return '<div class="fr-pv"><div class="fr-pv-v">'+c[1]+'</div><div class="fr-pv-l">'+c[0]+'</div></div>';}).join(''); }
   function preview(){ if(!_p) return; paintPrev(line(_p,_d)); }   // direct, fully-responsive line (every slider shows immediately)
+  // what the model gives him with no manual minutes — his role fitted to the roster
+  function _autoMpg(){ try{ var d2=Object.assign({},_d); delete d2.mpg; return line(_p,d2).mpg; }catch(e){ return ''; } }
   function render(){ var m=el(), p=_p, d=_d;
     var archOpts=Object.keys(FR_ARCH).map(function(a){return '<option value="'+a+'"'+(a===d.archetype?' selected':'')+'>'+a+'</option>';}).join('');
     var roleBtns=Object.keys(FR_ROLE).map(function(r){return '<button class="fr-role'+(r===d.role?' on':'')+'" onclick="TDCFresh._set(\''+'role\',\''+r+'\')">'+FR_ROLE[r].label+'</button>';}).join('');
@@ -277,6 +294,12 @@
         '<div class="fr-field"><label>Overall (OVR) — how good you think he is</label><div class="fr-ovr-row"><b class="fr-ovr-v" id="frOvrV">'+d.ovr+'</b><input type="range" min="55" max="99" step="1" value="'+d.ovr+'" class="fr-range" oninput="document.getElementById(\'frOvrV\').textContent=this.value;TDCFresh._setOvr(this.value)"/></div></div>'+
         '<div class="fr-field"><label>Archetype — how he plays</label><select class="fr-select" onchange="TDCFresh._set(\'archetype\',this.value)">'+archOpts+'</select></div>'+
         '<div class="fr-field"><label>Role — how big a part he is</label><div class="fr-roles">'+roleBtns+'</div></div>'+
+        '<div class="fr-field"><label>Minutes per game</label><div class="fr-ovr-row">'+
+          '<b class="fr-ovr-v" id="frMpgV">'+(d.mpg!=null?d.mpg:_autoMpg())+'</b>'+
+          '<input type="range" min="0" max="38" step="0.5" value="'+(d.mpg!=null?d.mpg:_autoMpg())+'" class="fr-range" '+
+            'oninput="document.getElementById(\'frMpgV\').textContent=this.value;TDCFresh._set(\'mpg\',this.value)">'+
+          '<button class="fr-role'+(d.mpg==null?' on':'')+'" style="margin-left:10px;" onclick="TDCFresh._set(\'mpg\',null)">Auto</button>'+
+        '</div><div class="fr-hint" id="frMpgHint">'+(d.mpg==null?('Auto — '+_autoMpg()+' from his role and the minutes left on the roster'):('Set by hand — the model would give him '+_autoMpg()))+'</div></div>'+
         '<div class="fr-field"><label>Playstyle — fine-tune his tendencies</label><div class="fr-sliders">'+sliders+'</div></div>'+
         '<div class="fr-field"><label>Projected line</label><div class="fr-prev" id="frPrev"></div></div>'+
       '</div>'+
@@ -330,7 +353,13 @@
   window.TDCFresh={
     isOwner:isOwner, isFreshman:isFreshman, load:load, profileFor:profileFor, line:line, archetypeOf:archetypeOf, openEditor:openEditor, estBPM:estBPM, ratingOverrides:ratingOverrides,
     getKey:getKey, setKey:setKey, fitFor:function(p){ return (_fit&&p&&_fit[p.team]&&_fit[p.team][p.name])||null; },
-    _set:function(k,v){ if(k==='archetype')_d.archetype=v; else if(k==='role')_d.role=v; render(); },
+    _set:function(k,v){ if(k==='archetype')_d.archetype=v; else if(k==='role')_d.role=v;
+      else if(k==='mpg'){ _d.mpg=(v==null||v==='')?null:+v;
+        if(v!=null){ preview(); var h=document.getElementById('frMpgV'); if(h)h.textContent=_d.mpg;
+          var hint=document.getElementById('frMpgHint'); if(hint) hint.textContent='Set by hand — the model would give him '+_autoMpg();
+          var ab=document.querySelector('#frMpgHint'); var btn=document.querySelector('.fr-field .fr-ovr-row .fr-role'); if(btn) btn.classList.remove('on');
+          return; } }
+      render(); },
     _setSlider:function(k,v){ _d.sliders[k]=+v; preview(); },
     _setOvr:function(v){ _d.ovr=+v; preview(); },
     _close:close,
