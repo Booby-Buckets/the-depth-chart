@@ -15,7 +15,7 @@
   <script src="tdc-gate.js?v=3"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-proj.js?v=coach24"></script>
-  <script src="tdc-freshman.js?v=pub14"></script>
+  <script src="tdc-freshman.js?v=pub15"></script>
   <script src="tdc-injury.js?v=5"></script>
   <script src="tdc-ratings.js?v=21"></script>
   <script src="tdc-glossary.js?v=12"></script>
@@ -1187,7 +1187,7 @@ body{background:transparent!important;}
   <script src="tdc-anim.js?v=5"></script>
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index + team page -->
   <link rel="stylesheet" href="tdc-dense.css?v=31"/>
-  <link rel="stylesheet" href="tdc-player-dense.css?v=26"/>
+  <link rel="stylesheet" href="tdc-player-dense.css?v=27"/>
   <script src="tdc-dossier.js?v=2" defer></script>
   <script src="tdc-roles.js?v=3" defer></script>
   <script src="tdc-devpath.js?v=2" defer></script>
@@ -4426,12 +4426,16 @@ async function loadDraftSticker(){
           var _hprL=document.getElementById('heroPosRankL'); if(_hprL && me.posLabel) _hprL.textContent=me.posLabel+' Rank';
         }
       }
-      var el=document.getElementById('draftSticker');
-      if(el && me && me.rank<=100){
-        el.innerHTML='<a class="bb-badge" href="#" title="Ranked #'+me.rank+' on The Depth Chart Big Board — '+(_haveProj?'2027 NBA Draft (2026-27 projected)':'2026 NBA Draft')+'" onclick="switchTab(\'rankings\');return false;">'+
-          '<span class="bb-num">#'+me.rank+'</span>'+
-          '<span class="bb-meta"><span class="bb-t1">Big Board &middot; Top 100</span><span class="bb-t2">#'+me.posRank+' '+me.posLabel+'</span></span>'+
-        '</a>';
+      // The gold "Big Board · Top 100" badge under the name is gone: the hero grid already shows
+      // the same two numbers ('27 Big Board and the position rank), so it was the same information
+      // twice. Those tiles now carry its click-through to the Rankings tab instead.
+      if(me && me.rank<=100){
+        var _bbT=document.getElementById('heroNatRank'), _bbP=document.getElementById('heroPosRank');
+        [_bbT,_bbP].forEach(function(n){ var cell=n&&n.parentElement; if(!cell||cell._bbLink) return;
+          cell._bbLink=true; cell.style.cursor='pointer';
+          cell.title='Ranked #'+me.rank+' on The Depth Chart Big Board — '+(_haveProj?'2027 NBA Draft (2026-27 projected)':'2026 NBA Draft')+'. Open the Rankings tab.';
+          cell.addEventListener('click',function(){ try{ switchTab('rankings'); }catch(e){} });
+        });
       }
     }
     // predictive impact, spectrum, and distribution cards (all use the pool)
@@ -4679,7 +4683,6 @@ function renderPage(){
           ${(window.TDCFresh&&TDCFresh.isOwner()&&TDCFresh.isFreshman(p))?`<button class="hero-tag edit" onclick="_openFreshEditor()">⚙ ${TDCFresh.profileFor(p)?'Edit':'Project'} playstyle${TDCFresh.profileFor(p)?' · custom':''}</button>`:''}
           ${(window.TDCInjury&&TDCInjury.isOwner())?(function(){var r=TDCInjury.get(p);return '<button class="hero-tag edit'+(r?' inj-on':'')+'" onclick="_openInjuryEditor()">⚕ '+(r?TDCInjury.statusLabel(r):'Add injury')+'</button>';})():''}
         </div>`:''}
-        <div id="draftSticker"></div>
       </div>
      </div><!-- /hero-idwrap -->
       <div class="hero-grid">

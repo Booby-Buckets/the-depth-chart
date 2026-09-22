@@ -21,6 +21,10 @@
   var KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 
   var FR_ROLE={ star:{mpg:30,usg:1.16,label:'Star'}, starter:{mpg:24,usg:1.0,label:'Starter'}, rotation:{mpg:15,usg:0.85,label:'Rotation'}, bench:{mpg:9,usg:0.72,label:'Bench'} };
+  // the usage % (share of team possessions finished) each role implies — 20 is a league-average
+  // rotation player, 28+ is a first option
+  var FR_USG={ star:24.5, starter:20.0, rotation:17.0, bench:15.0 };
+  function _roleUsg(r){ return FR_USG[r]!=null?FR_USG[r]:20.0; }
   var FR_ARCH={
     'Lead Guard':{apg:1.22,ppg:1.05,tovs:1.1}, 'Floor General':{apg:1.32,ppg:0.85,tovs:1.15,tp_pct:2,stl:1.15},
     'Combo Guard':{ppg:1.05,apg:1.02}, 'Scoring Guard':{ppg:1.22,apg:0.82,tp_pct:2},
@@ -169,6 +173,26 @@
       if(L.ppg>sfc){ var pv2=Math.min(hrd, sfc+(L.ppg-sfc)*0.45), kc2=pv2/L.ppg;
         ['ppg','fga','fgm','tpa','tpm','fta','ftm'].forEach(function(k){ L[k]*=kc2; }); }
     }
+    // ── EXPLICIT USAGE ─────────────────────────────────────────────────────────────────────
+    // Usage — the share of his team's possessions he finishes while on the floor — is the biggest
+    // lever on a freshman's line: at 17 minutes, 15% usage is a spot-up role and 28% is the
+    // offence running through him. The role sets a default (Star ~24, Starter ~20, Rotation ~17,
+    // Bench ~15); setting it by hand scales his shot volume, his points and his turnovers around
+    // that, leaving his EFFICIENCY (FG%, 3P%, FT%) and his off-ball work (rebounds, steals,
+    // blocks) alone — more shots, not a different player.
+    var uAuto=Math.round(_roleUsg(role)*10)/10;
+    var uOv=(profile&&profile.usg!=null&&profile.usg!=='')?parseFloat(profile.usg):null;
+    L._usgAuto=uAuto;
+    L.usg=(uOv!=null&&isFinite(uOv)&&uOv>0)?uOv:uAuto;
+    if(uOv!=null&&isFinite(uOv)&&uOv>0&&Math.abs(uOv-uAuto)>0.05){
+      var ku=Math.max(0.25,Math.min(2.6,uOv/Math.max(6,uAuto)));
+      ['ppg','fga','fgm','tpa','tpm','fta','ftm','tovs'].forEach(function(k){ L[k]*=ku; });
+      L.apg*=Math.max(0.8,Math.min(1.25,1+(ku-1)*0.30));   // a higher-usage guard creates a little more too
+      var sfu=0.55*L.mpg, hru=Math.min(26,1.05*L.mpg);
+      if(L.ppg>sfu){ var pvu=Math.min(hru, sfu+(L.ppg-sfu)*0.5), kcu=pvu/L.ppg;
+        ['ppg','fga','fgm','tpa','tpm','fta','ftm'].forEach(function(k){ L[k]*=kcu; }); }
+      fitted=true;
+    }
     // ── SHOTS MUST MATCH THE POINTS ────────────────────────────────────────────────────────
     // Attempts were built from the ROLE's minutes and never moved with the sliders, so the line
     // contradicted itself: Jason Crowe read 8.4 points on 10.8 attempts at 48% (that is 11+ points),
@@ -192,7 +216,7 @@
         L.fgm=L.fga*fg; L.tpm=L.tpa*tp; L.ftm=L.fta*ftp;
       }
     })();
-    var O={}; Object.keys(L).forEach(function(k){ O[k]=r1(L[k]); });
+    var O={}; Object.keys(L).forEach(function(k){ O[k]=(k.charAt(0)==='_')?L[k]:r1(L[k]); });
     return Object.assign({}, p, O, { tdc_grade:(ovr!=null?''+Math.round(ovr):p.tdc_grade), _frOvr:ovr!=null, _noStatEst:true, _frProfiled:!!profile, _frFit:fitted });
   }
 
@@ -280,11 +304,12 @@
   function close(){ var m=document.getElementById('frModal'); if(m) m.remove(); _p=null; _d=null; _onSaved=null; }
   var _pvTimer=null;
   function paintPrev(L){ var host=document.getElementById('frPrev'); if(!host) return;
-    var cells=[['PPG',L.ppg],['RPG',L.rpg],['APG',L.apg],['MPG',L.mpg],['FG%',L.fg_pct+'%'],['3P%',L.tp_pct+'%'],['STL',L.stl],['BLK',L.blk]];
+    var cells=[['PPG',L.ppg],['RPG',L.rpg],['APG',L.apg],['MPG',L.mpg],['USG%',(L.usg!=null?L.usg:'—')+'%'],['FG%',L.fg_pct+'%'],['3P%',L.tp_pct+'%'],['FGA',L.fga]];
     host.innerHTML=cells.map(function(c){return '<div class="fr-pv"><div class="fr-pv-v">'+c[1]+'</div><div class="fr-pv-l">'+c[0]+'</div></div>';}).join(''); }
   function preview(){ if(!_p) return; paintPrev(line(_p,_d)); }   // direct, fully-responsive line (every slider shows immediately)
   // what the model gives him with no manual minutes — his role fitted to the roster
   function _autoMpg(){ try{ var d2=Object.assign({},_d); delete d2.mpg; return line(_p,d2).mpg; }catch(e){ return ''; } }
+  function _autoUsg(){ try{ return Math.round(_roleUsg((_d&&_d.role)||'starter')*10)/10; }catch(e){ return 20; } }
   function render(){ var m=el(), p=_p, d=_d;
     var archOpts=Object.keys(FR_ARCH).map(function(a){return '<option value="'+a+'"'+(a===d.archetype?' selected':'')+'>'+a+'</option>';}).join('');
     var roleBtns=Object.keys(FR_ROLE).map(function(r){return '<button class="fr-role'+(r===d.role?' on':'')+'" onclick="TDCFresh._set(\''+'role\',\''+r+'\')">'+FR_ROLE[r].label+'</button>';}).join('');
@@ -300,6 +325,12 @@
             'oninput="document.getElementById(\'frMpgV\').textContent=this.value;TDCFresh._set(\'mpg\',this.value)">'+
           '<button class="fr-role'+(d.mpg==null?' on':'')+'" style="margin-left:10px;" onclick="TDCFresh._set(\'mpg\',null)">Auto</button>'+
         '</div><div class="fr-hint" id="frMpgHint">'+(d.mpg==null?('Auto — '+_autoMpg()+' from his role and the minutes left on the roster'):('Set by hand — the model would give him '+_autoMpg()))+'</div></div>'+
+        '<div class="fr-field"><label>Usage % — how much of the offence runs through him</label><div class="fr-ovr-row">'+
+          '<b class="fr-ovr-v" id="frUsgV">'+(d.usg!=null?d.usg:_autoUsg())+'</b>'+
+          '<input type="range" min="8" max="36" step="0.5" value="'+(d.usg!=null?d.usg:_autoUsg())+'" class="fr-range" '+
+            'oninput="document.getElementById(\'frUsgV\').textContent=this.value;TDCFresh._set(\'usg\',this.value)">'+
+          '<button class="fr-role'+(d.usg==null?' on':'')+'" style="margin-left:10px;" onclick="TDCFresh._set(\'usg\',null)">Auto</button>'+
+        '</div><div class="fr-hint" id="frUsgHint">'+(d.usg==null?('Auto — '+_autoUsg()+'% from his role. 20% is an average rotation player, 28%+ is a first option.'):('Set by hand — his role implies '+_autoUsg()+'%'))+'</div></div>'+
         '<div class="fr-field"><label>Playstyle — fine-tune his tendencies</label><div class="fr-sliders">'+sliders+'</div></div>'+
         '<div class="fr-field"><label>Projected line</label><div class="fr-prev" id="frPrev"></div></div>'+
       '</div>'+
@@ -354,6 +385,10 @@
     isOwner:isOwner, isFreshman:isFreshman, load:load, profileFor:profileFor, line:line, archetypeOf:archetypeOf, openEditor:openEditor, estBPM:estBPM, ratingOverrides:ratingOverrides,
     getKey:getKey, setKey:setKey, fitFor:function(p){ return (_fit&&p&&_fit[p.team]&&_fit[p.team][p.name])||null; },
     _set:function(k,v){ if(k==='archetype')_d.archetype=v; else if(k==='role')_d.role=v;
+      else if(k==='usg'){ _d.usg=(v==null||v==='')?null:+v;
+        if(v!=null){ preview(); var uh=document.getElementById('frUsgV'); if(uh)uh.textContent=_d.usg;
+          var uhint=document.getElementById('frUsgHint'); if(uhint) uhint.textContent='Set by hand — his role implies '+_autoUsg()+'%';
+          return; } }
       else if(k==='mpg'){ _d.mpg=(v==null||v==='')?null:+v;
         if(v!=null){ preview(); var h=document.getElementById('frMpgV'); if(h)h.textContent=_d.mpg;
           var hint=document.getElementById('frMpgHint'); if(hint) hint.textContent='Set by hand — the model would give him '+_autoMpg();
@@ -369,7 +404,7 @@
       if(btn){ btn.textContent='Saving…'; btn.disabled=true; }
       // Store the projected line's stat-derived BPM + minutes so the rankings value
       // him by his projected STATS (not his OVR), same currency as returners.
-      try{ var L=line(p,_d); _d._bpm=Math.round(estBPM(L)*100)/100; _d._min=parseFloat(L.mpg)||null; if(p.espn_id!=null&&p.espn_id!=='') _d._espn=p.espn_id; }catch(e){}
+      try{ var L=line(p,_d); _d._bpm=Math.round(estBPM(L)*100)/100; _d._min=parseFloat(L.mpg)||null; _d._usg=parseFloat(L.usg)||null; if(p.espn_id!=null&&p.espn_id!=='') _d._espn=p.espn_id; }catch(e){}
       saveProfile(p,_d).then(function(res){
         var ok=!!(res&&res.ok);
         if(!ok){
