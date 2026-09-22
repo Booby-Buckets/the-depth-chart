@@ -4432,7 +4432,6 @@ const FR_ARCH = {
   'Post Scorer':{ppg:1.25,fg_pct:3,rpg:1.1,tp_pct:-8,blk:0.9}, 'Glass Cleaner':{rpg:1.35,oreb:1.5,dreb:1.25,ppg:0.9,blk:1.1},
   'Interior Big':{rpg:1.1,fg_pct:3,blk:1.1,tp_pct:-10}
 };
-const FR_SLIDERS=[['scoring','Scoring'],['shooting','Shooting'],['playmaking','Playmaking'],['interior','Interior'],['athleticism','Athleticism'],['defense','Defense'],['rebounding','Rebounding']];
 const TDC_OWNER_EMAIL='blee4824@gmail.com';   // freshman projections are the owner's personal preferences
 function _isOwner(){ try{ const s=JSON.parse(localStorage.getItem('tdc_session')||'null'); return !!(s&&s.user&&(s.user.email||'').toLowerCase()===TDC_OWNER_EMAIL); }catch(e){ return false; } }
 function _frKey(p){ return 'tdc_fr:'+((teamT&&teamT.name)||'')+':'+((p&&p.name)||''); }
@@ -4473,12 +4472,25 @@ async function _frInit(){
   }catch(e){ window._frProfiles=window._frProfiles||{}; console.warn('freshman load failed',e); }
 }
 function _frApply(line,mods){ Object.keys(mods||{}).forEach(k=>{ const v=mods[k]; if(/_pct$/.test(k)) line[k]=(parseFloat(line[k])||0)+v; else line[k]=(parseFloat(line[k])||0)*v; }); }
-function _frSliders(line,sl){ const s=k=>((sl&&sl[k]!=null)?sl[k]:50), m=(k,r)=>1+((s(k)-50)/50)*r, a=(k,r)=>((s(k)-50)/50)*r;
-  line.ppg*=m('scoring',0.32); line.tp_pct+=a('shooting',8); line.ft_pct+=a('shooting',5);
-  line.apg*=m('playmaking',0.5); line.tovs*=m('playmaking',0.18); line.fg_pct+=a('interior',5); line.oreb*=m('interior',0.35); line.ppg*=m('interior',0.10);
-  line.stl*=m('defense',0.5); line.blk*=m('defense',0.5); line.rpg*=m('rebounding',0.38); line.oreb*=m('rebounding',0.35); line.dreb*=m('rebounding',0.35);
-  line.fg_pct+=a('athleticism',5); line.oreb*=m('athleticism',0.4); line.blk*=m('athleticism',0.35); line.stl*=m('athleticism',0.2); line.ppg*=m('athleticism',0.06); }
+// legacy fallback only — reads the CURRENT slider keys (three/mid/paint/steals/blocks/ready),
+// falling back to the retired names so an old saved profile still reads sensibly
+function _frSliders(line,sl){ const s=(k,alt)=>((sl&&sl[k]!=null)?sl[k]:((alt&&sl&&sl[alt]!=null)?sl[alt]:50)),
+    m=(k,r,alt)=>1+((s(k,alt)-50)/50)*r, a=(k,r,alt)=>((s(k,alt)-50)/50)*r;
+  line.ppg=Math.max(0.4, line.ppg*m('scoring',0.6)+a('scoring',5.5));
+  line.tp_pct+=a('three',11,'shooting'); line.ft_pct+=a('ft',12,'shooting');
+  line.fg_pct+=a('mid',4)+a('paint',6,'interior');
+  line.oreb*=m('paint',0.35,'interior'); line.ppg*=m('paint',0.10,'interior');
+  line.apg=Math.max(0.1, line.apg*m('playmaking',0.7)+a('playmaking',2.2)); line.tovs*=m('playmaking',0.20);
+  line.stl*=m('steals',0.6,'defense'); line.blk*=m('blocks',0.6,'defense');
+  line.rpg*=m('rebounding',0.5); line.oreb*=m('rebounding',0.4); line.dreb*=m('rebounding',0.4);
+  line.fg_pct+=a('athleticism',5); line.oreb*=m('athleticism',0.45); line.blk*=m('athleticism',0.4); line.stl*=m('athleticism',0.25); line.ppg*=m('athleticism',0.07);
+  const rd=(sl&&sl.ready!=null)?sl.ready:50, pm=1+((rd-50)/50)*0.22;
+  ['ppg','rpg','apg','stl','blk','oreb','dreb'].forEach(k=>{ line[k]*=pm; });
+  line.fg_pct+=((rd-50)/50)*4; line.tp_pct+=((rd-50)/50)*3; line.ft_pct+=((rd-50)/50)*2; line.tovs*=1-((rd-50)/50)*0.20; }
 function _freshmanLine(p,profile){
+  // the shared module is the single source of truth (new sliders, the minutes override, coherent
+  // attempts); this legacy math only runs if tdc-freshman.js failed to load
+  if(window.TDCFresh && TDCFresh.line) return TDCFresh.line(p,profile);
   const ovrOverride=(profile&&profile.ovr!=null&&profile.ovr!=='')?parseFloat(profile.ovr):null;
   const grade=(ovrOverride!=null?ovrOverride:parseFloat(p.tdc_grade))||70;
   const posNorm=['PG','SG','SF','PF','C'].includes(p.position)?p.position:(p.position==='CG'?'SG':'SG');
@@ -4490,7 +4502,9 @@ function _freshmanLine(p,profile){
   }
   base.fg_pct=Math.max(30,Math.min(70,base.fg_pct)); base.tp_pct=Math.max(0,Math.min(48,base.tp_pct)); base.ft_pct=Math.max(45,Math.min(95,base.ft_pct));
   const role=(profile&&profile.role)||(grade>=90?'star':grade>=82?'starter':grade>=74?'rotation':'bench');
-  const R=FR_ROLE[role]||FR_ROLE.starter, mpg=R.mpg, scale=mpg/32, usg=R.usg, fga=Math.max(2,mpg*0.30*usg);
+  const R=FR_ROLE[role]||FR_ROLE.starter;
+  const _mo=(profile&&profile.mpg!=null&&profile.mpg!=='')?parseFloat(profile.mpg):null;
+  const mpg=(_mo!=null&&isFinite(_mo)&&_mo>0)?_mo:R.mpg, scale=mpg/32, usg=R.usg, fga=Math.max(2,mpg*0.30*usg);
   return {...p, mpg:r1t(mpg), ppg:r1t(base.ppg*scale*usg), rpg:r1t(base.rpg*scale), apg:r1t(base.apg*scale),
     fg_pct:r1t(base.fg_pct), tp_pct:r1t(base.tp_pct), ft_pct:r1t(base.ft_pct),
     fga:r1t(fga), fgm:r1t(fga*base.fg_pct/100), tpa:r1t(fga*0.42), tpm:r1t(fga*0.42*base.tp_pct/100),
@@ -4499,50 +4513,11 @@ function _freshmanLine(p,profile){
     tdc_grade:(ovrOverride!=null?''+Math.round(ovrOverride):p.tdc_grade), _frOvr:ovrOverride!=null,
     _noStatEst:true, _frProfiled:!!profile };
 }
-// modal editor
-let _frDraft=null, _frEditP=null;
-function _openFreshmanEditor(name){
-  const f=_findSquadPlayer(name); if(!f) return; _frEditP=f.p;
-  const g=parseFloat(f.p.tdc_grade)||70;
-  _frDraft=_loadFreshmanProfile(f.p)||{ archetype:_sqArchetype(f.p), role:(g>=90?'star':g>=82?'starter':g>=74?'rotation':'bench'), sliders:{} };
-  _frDraft.sliders=_frDraft.sliders||{};
-  FR_SLIDERS.forEach(([k])=>{ if(_frDraft.sliders[k]==null) _frDraft.sliders[k]=50; });
-  if(_frDraft.ovr==null) _frDraft.ovr=Math.round(parseFloat(f.p.tdc_grade)||75);
-  _renderFrModal();
-}
-function _frModalEl(){ let m=document.getElementById('frModal'); if(!m){ m=document.createElement('div'); m.id='frModal'; m.className='fr-overlay'; m.onclick=e=>{ if(e.target===m) _closeFrModal(); }; document.body.appendChild(m); } return m; }
-function _closeFrModal(){ const m=document.getElementById('frModal'); if(m) m.remove(); _frEditP=null; _frDraft=null; }
-function _frSet(k,v){ if(k==='archetype')_frDraft.archetype=v; else if(k==='role')_frDraft.role=v; _frPreview(); if(k!=='slider')_renderFrModal(); }
-function _frSetSlider(k,v){ _frDraft.sliders[k]=+v; _frPreview(); }
-function _frSetOvr(v){ _frDraft.ovr=+v; _frPreview(); }
-function _frPreview(){
-  const line=_freshmanLine(_frEditP,_frDraft), host=document.getElementById('frPrev'); if(!host) return;
-  const cells=[['PPG',line.ppg],['RPG',line.rpg],['APG',line.apg],['MPG',line.mpg],['FG%',line.fg_pct+'%'],['3P%',line.tp_pct+'%'],['STL',line.stl],['BLK',line.blk]];
-  host.innerHTML=cells.map(c=>`<div class="fr-pv"><div class="fr-pv-v">${c[1]}</div><div class="fr-pv-l">${c[0]}</div></div>`).join('');
-}
-function _renderFrModal(){
-  const m=_frModalEl(), p=_frEditP, d=_frDraft;
-  const archOpts=Object.keys(FR_ARCH).map(a=>`<option value="${a}"${a===d.archetype?' selected':''}>${a}</option>`).join('');
-  const roleBtns=Object.keys(FR_ROLE).map(r=>`<button class="fr-role${r===d.role?' on':''}" onclick="_frSet('role','${r}')">${FR_ROLE[r].label}</button>`).join('');
-  const sliders=FR_SLIDERS.map(([k,lbl])=>`<div class="fr-sl"><div class="fr-sl-top"><span>${lbl}</span><b id="frv-${k}">${d.sliders[k]}</b></div>
-    <input type="range" min="0" max="100" step="5" value="${d.sliders[k]}" class="mpg-range" oninput="document.getElementById('frv-${k}').textContent=this.value;_frSetSlider('${k}',this.value)"/></div>`).join('');
-  m.innerHTML=`<div class="fr-modal">
-    <div class="fr-head"><div><div class="fr-eyebrow">Freshman Projection</div><div class="fr-name">${p.name}</div><div class="fr-sub">${p.position||''} · ${p.class_year||p.yr||'Fr.'} · grade ${p.tdc_grade||'—'}</div></div><button class="fr-x" onclick="_closeFrModal()">×</button></div>
-    <div class="fr-body">
-      <div class="fr-field"><label>Overall (OVR) — how good you think he is</label>
-        <div class="fr-ovr-row"><b class="fr-ovr-v" id="frOvrV">${d.ovr}</b><input type="range" min="55" max="99" step="1" value="${d.ovr}" class="mpg-range" oninput="document.getElementById('frOvrV').textContent=this.value;_frSetOvr(this.value)"/></div>
-      </div>
-      <div class="fr-field"><label>Archetype — how he plays</label><select class="pos-change-select" style="width:100%;" onchange="_frSet('archetype',this.value)">${archOpts}</select></div>
-      <div class="fr-field"><label>Role — how big a part he is</label><div class="fr-roles">${roleBtns}</div></div>
-      <div class="fr-field"><label>Playstyle — fine-tune his tendencies</label><div class="fr-sliders">${sliders}</div></div>
-      <div class="fr-field"><label>Projected line</label><div class="fr-prev" id="frPrev"></div></div>
-    </div>
-    <div class="fr-foot"><button class="fr-btn ghost" onclick="_frReset()">Reset to model</button><button class="fr-btn primary" onclick="_frSave()">Save projection</button></div>
-  </div>`;
-  _frPreview();
-}
-function _frSave(){ _saveFreshmanProfile(_frEditP,_frDraft); _closeFrModal(); if(typeof rebuildCustomizeUI==='function') rebuildCustomizeUI(); }
-function _frReset(){ _saveFreshmanProfile(_frEditP,null); _closeFrModal(); if(typeof rebuildCustomizeUI==='function') rebuildCustomizeUI(); }
+// The freshman editor lives in tdc-freshman.js (one modal, one set of sliders, one line).
+// The inline copy that used to live here drifted: it had the old five sliders, no Minutes
+// control, and its own line math — so a profile saved in the real editor was read wrong.
+function _openFreshmanEditor(name){ const f=_findSquadPlayer(name); if(!f||!window.TDCFresh) return;
+  TDCFresh.openEditor(f.p, { onSaved:function(){ if(typeof rebuildCustomizeUI==='function') rebuildCustomizeUI(); if(typeof renderAll==='function') renderAll(); } }); }
 
 // ── RENDER ────────────────────────────────────────────────
 // ── COACH ↔ ROSTER SYNERGY (Customize tab) ───────────────────────────────
@@ -8524,8 +8499,10 @@ function toggleTheme(){
 
     // Get user profile for comments
     const pr = await fetch(`${SB}/rest/v1/profiles?id=eq.${uid}&select=username,avatar_url,verified`,{headers:{apikey:KEY,Authorization:`Bearer ${tok}`}});
-    const [p] = await pr.json();
-    userProfile = p;
+    // an expired/invalid token returns an error OBJECT, not an array — destructuring it threw and
+    // killed the rest of this block (follows, comments)
+    const prj = pr.ok ? await pr.json().catch(()=>null) : null;
+    userProfile = Array.isArray(prj) ? prj[0] : null;
 
     // Check if following
     const fr = await fetch(`${SB}/rest/v1/team_follows?user_id=eq.${uid}&team_name=eq.${encodeURIComponent(teamName)}&select=id`,{headers:{apikey:KEY,Authorization:`Bearer ${tok}`}});
