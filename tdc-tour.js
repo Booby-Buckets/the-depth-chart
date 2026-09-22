@@ -74,7 +74,12 @@
       { sel:'#teamShotHost', t:'Shot charts', d:'Where the team shoots from and how well. Filled dots are makes, hollow are misses; the heat view shades the floor by how often they shoot from each spot. "His spots" on a player page works the same way for one player.', tab:'shots' },
       { sel:'#onoffHost', t:'On / Off', d:'How the team performs with each player on the floor versus off it, in points per 100 possessions. A big positive on/off means the team is much better when he plays — the closest thing to a plus-minus that box scores can\'t give you.', tab:'onoff' },
       { sel:'#nilContent', t:'NIL value', d:'The estimated market value of each player and the roster in name-image-likeness money, from his projected value and the market for players like him. Not what anyone is actually paid — what the production is worth.', tab:'nil' },
-      { sel:'#customizeContent', t:'Lineup Lab', d:'Build your own five: drag players in and out, adjust minutes, and the projected lineup stats update live. Use it to answer "what if he started" questions.', tab:'customize' }
+      { sel:'#customizeContent', t:'Lineup Lab', d:'Build your own five: drag players in and out, adjust minutes, and the projected lineup stats update live. Use it to answer "what if he started" questions.', tab:'customize' },
+      { sel:'#rrEssence',  t:"Roster Report (Coach's Tier)", d:'A written scouting report on this roster, generated from the projected lines, the depth chart and the coach\'s history — the kind of one-page read an assistant would hand the staff. This top paragraph is the essence: what this roster is, in three sentences.', tab:'report' },
+      { sel:'#rrStarters', t:'Starting five', d:'The projected starters\' positives and flaws. Each point names the player and the statistical reason behind it — a shooting weakness is a real three-point number, a rebounding strength is a real rebound rate — so you can check it against the numbers on the depth chart.', tab:'report' },
+      { sel:'#rrBench',    t:'Bench & depth', d:'Who helps off the bench and who hurts: which reserves the model trusts with real minutes, and where the drop from starter to backup is steep.', tab:'report' },
+      { sel:'#rrSecond',   t:'Second unit', d:'The bench as a group — its strength and its weakness when the starters sit, which decides how the rotation survives foul trouble and injuries.', tab:'report' },
+      { sel:'#rrCoach',    t:'Coaching fit', d:'How the current coach\'s habits (pace, rotation size, shot diet, from his real seasons) line up with this roster — where the personnel suits how he coaches and where it doesn\'t. It surfaces the fit; it does not prescribe a system.', tab:'report' }
     ],
 
     'player.html': [

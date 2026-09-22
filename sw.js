@@ -10,7 +10,7 @@
    - Cross-origin GET      -> network-first with runtime-cache fallback (Supabase data,
                              Google Fonts still render the last-seen values offline).
 */
-const CACHE = 'tdc-v214';
+const CACHE = 'tdc-v215';
 const CORE = ['index.html', 'offline.html', 'favicon.svg',
               'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
