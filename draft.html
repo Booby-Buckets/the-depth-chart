@@ -66,49 +66,14 @@
     /* BIG BOARD */
     .bb-note{font-size:12px;color:var(--text3);margin-bottom:16px;}
     .bb-note b{color:var(--text2);}
-    /* THE BOARD — built to read like a scouting spreadsheet: a real grid with a frozen
-       header row and frozen rank/name columns, dense rows, tabular figures, and
-       conditional-format shading on every scored column. */
-    .bb-wrap{border:1px solid var(--border);border-radius:8px;overflow:auto;background:var(--bg);
-             max-height:calc(100vh - 230px);position:relative;
-             box-shadow:0 1px 2px rgba(0,0,0,.06);}
-    table.bb{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px;
-             font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1;}
-    .bb th{position:sticky;top:0;z-index:3;background:var(--bg2);
-           font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);
-           padding:7px 6px;text-align:center;white-space:nowrap;cursor:pointer;user-select:none;
-           border-bottom:1px solid var(--border);border-right:1px solid var(--border);}
-    .bb th:hover{color:var(--text);background:var(--bg3);}
-    .bb th .ar{opacity:0;font-size:8px;margin-left:2px;}
-    .bb th.sorted{color:var(--accent);} .bb th.sorted .ar{opacity:1;}
-    .bb td{padding:6px 7px;text-align:center;white-space:nowrap;color:var(--text2);
-           border-bottom:1px solid var(--border);border-right:1px solid var(--border);}
-    .bb tbody tr:nth-child(even) td{background:var(--bg2);}
-    .bb tbody tr:hover td{background:var(--bg3);}
-    .bb td.num{font-weight:700;color:var(--text);}
-    .bb td.dim{color:var(--text3);font-size:11px;}
-    /* frozen columns */
-    /* frozen block: rank, who he is, and what the board says — the three you always
-       want on screen. Everything else scrolls under them. */
-    .bb .s1,.bb .s2,.bb .s3{position:sticky;z-index:2;}
-    .bb .s1{left:0;width:40px;min-width:40px;}
-    .bb .s2{left:40px;text-align:left;width:186px;min-width:186px;max-width:186px;
-            overflow:hidden;text-overflow:ellipsis;}
-    .bb .s3{left:226px;width:54px;min-width:54px;box-shadow:1px 0 0 var(--border);}
-    .bb th.s1,.bb th.s2,.bb th.s3{z-index:4;}
-    .bb tbody td.s1,.bb tbody td.s2,.bb tbody td.s3{background-color:var(--bg);}
-    .bb tbody tr:nth-child(even) td.s1,.bb tbody tr:nth-child(even) td.s2,.bb tbody tr:nth-child(even) td.s3{background-color:var(--bg2);}
-    .bb tbody tr:hover td.s1,.bb tbody tr:hover td.s2,.bb tbody tr:hover td.s3{background-color:var(--bg3);}
-    .bb td.s1{font-weight:800;color:var(--text3);}
-    .bb tr.lotto td.s1{color:var(--accent);}
-    .bb td.lt{text-align:left;}
-    .bb td.s2 a{color:var(--text);font-weight:700;text-decoration:none;}
-    .bb td.s2 a:hover{color:var(--accent);text-decoration:underline;}
-    .bb tr.cut td{border-bottom:2px solid var(--text3);}
-    .bb td.brd{font-weight:800;font-size:13.5px;color:var(--text);}
-    .bb-legend{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:10px;font-size:10.5px;color:var(--text3);}
-    .bb-legend .sw{display:inline-block;width:34px;height:9px;border-radius:2px;vertical-align:-1px;margin-right:5px;
-                   background:linear-gradient(90deg,hsla(0,72%,45%,.34),hsla(60,72%,45%,.10),hsla(125,72%,45%,.34));}
+    /* The grid is tdc-sheets.css (shared with roster / team stats / analytics).
+       Only the frozen-column widths and the lottery marks are the board's own. */
+    #bbSheet{--c1:40px;--c2:186px;--c3:54px;max-height:calc(100vh - 230px);}
+    #bbSheet .sheet tbody td,#bbSheet .sheet thead th{text-align:center;}
+    #bbSheet .sheet td.l,#bbSheet .sheet th.l{text-align:left;}
+    #bbSheet .sheet tbody tr.hi td:first-child{color:var(--accent);}
+    #bbSheet .sheet tbody tr.cut td{border-bottom:2px solid var(--text3);}
+    @media(max-width:820px){ #bbSheet{--c1:30px;--c2:132px;--c3:44px;max-height:72vh;} }
     .bb-more{text-align:center;margin-top:16px;}
 
     details.method{margin-top:22px;border:1px solid var(--border);border-radius:9px;padding:0 16px;background:var(--bg2);}
@@ -128,12 +93,6 @@
     .footer-meta{font-size:11px;font-weight:600;color:var(--text3);}
 
     @media(max-width:820px){
-      .bb-wrap{max-height:72vh;}
-      table.bb{font-size:11.5px;}
-      .bb th,.bb td{padding:5px 6px;}
-      .bb .s1{width:30px;min-width:30px;}
-      .bb .s2{left:30px;width:132px;min-width:132px;max-width:132px;}
-      .bb .s3{left:162px;width:44px;min-width:44px;}
     }
     @media(max-width:500px){
       .page{padding:18px;}
@@ -181,7 +140,7 @@ body{background:transparent!important;}
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="tdc-pwa.js?v=2" defer></script>
   <link rel="stylesheet" href="tdc-hq-site.css?v=22"/>
-  <link rel="stylesheet" href="tdc-sheets.css?v=3"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=4"/>
   <link rel="stylesheet" href="tdc-column.css?v=1"/>
 </head>
 <body data-anim-auto class="hqsite">
@@ -273,13 +232,13 @@ body{background:transparent!important;}
       </select>
     </div>
     <div class="bb-note" id="bbCaption"></div>
-    <div class="bb-wrap">
-      <table class="bb">
+    <div class="sheet-wrap" id="bbSheet">
+      <table class="sheet dense freeze3">
         <thead><tr id="bbHead"></tr></thead>
         <tbody id="bbList"></tbody>
       </table>
     </div>
-    <div class="bb-legend"><span><span class="sw"></span>weak → strong, shaded like a conditional format</span><span>Click any column heading to sort · rank, name and Board stay frozen while you scroll</span></div>
+    <div class="sheet-legend"><span><span class="sw"></span>weak → strong, shaded like a conditional format</span><span>Click any column heading to sort · rank, name and Board stay frozen while you scroll</span></div>
 
     <details class="method">
       <summary>How the Big Board score is built</summary>
@@ -371,12 +330,12 @@ function valColor(v){var h=Math.round(v*1.35);return 'hsl('+h+',64%,'+(document.
 
 // column spec: key, label, how to pull the value, and whether it is shaded 0-100
 var BB_COLS=[
-  {k:'rank', l:'#',      cls:'s1',      get:function(p){return p.rank;}},
-  {k:'name', l:'Prospect',cls:'s2',     get:function(p){return p.name;},
+  {k:'rank', l:'#',      cls:'rk',      get:function(p){return p.rank;}},
+  {k:'name', l:'Prospect',cls:'nm l',     get:function(p){return p.name;},
      html:function(p){return '<a href="player.html?id='+p.id+'" title="'+p.name.replace(/"/g,'&quot;')+'">'+p.name+'</a>';}},
-  {k:'ovr',  l:'Board',  cls:'brd s3', shade:true, get:function(p){return p._sc.overall;}},
+  {k:'ovr',  l:'Board',  cls:'big', shade:true, get:function(p){return p._sc.overall;}},
   {k:'pos',  l:'Pos',    cls:'dim',     get:function(p){return p.position||'';}},
-  {k:'team', l:'Team',   cls:'dim',     get:function(p){return p.team||'';}, left:true},
+  {k:'team', l:'Team',   cls:'dim l',  get:function(p){return p.team||'';}},
   {k:'cl',   l:'Cl',     cls:'dim',     get:function(p){return ((p.class_year||p.yr||'')+'').replace(/\./g,'')||'—';}},
   {k:'ht',   l:'Ht',     cls:'dim',     get:function(p){return htIn(p.height)?p.height:'—';}},
   {k:'age',  l:'Age',    cls:'dim',     get:function(p){return p._sc.age;}},
@@ -407,8 +366,8 @@ function renderHead(){
   var tr=document.getElementById('bbHead');if(!tr)return;
   tr.innerHTML=BB_COLS.map(function(c){
     var on=bbSort.k===c.k;
-    var hc=/\bs[123]\b/.test(c.cls)?c.cls.match(/\bs[123]\b/)[0]:'';
-    return '<th class="'+hc+(on?' sorted':'')+'" onclick="setSort(\''+c.k+'\')" title="Sort by '+c.l+'">'+
+    var hc=(c.cls.indexOf('l')>=0&&/\bl\b/.test(c.cls))?'l':'';
+    return '<th class="sort '+hc+(on?' on':'')+'" onclick="setSort(\''+c.k+'\')" title="Sort by '+c.l+'">'+
       c.l+'<span class="ar">'+(on?(bbSort.dir>0?'▲':'▼'):'▲')+'</span></th>';
   }).join('');
 }
@@ -440,7 +399,7 @@ function renderBoard(){
   renderHead();
   var byRank=(bbSort.k==='rank'&&bbSort.dir>0);
   document.getElementById('bbList').innerHTML=list.map(function(p,i){
-    var cls=(p.rank<=14?' lotto':'')+((byRank&&(p.rank===14||p.rank===30))?' cut':'');
+    var cls=(p.rank<=14?' hi':'')+((byRank&&(p.rank===14||p.rank===30))?' cut':'');
     return '<tr class="'+cls.trim()+'">'+BB_COLS.map(function(c){
       var v=c.get(p), txt;
       if(c.html) txt=c.html(p);
@@ -448,7 +407,7 @@ function renderBoard(){
       else if(typeof v==='number') txt=(c.dec!=null)?v.toFixed(c.dec):v;
       else txt=v;
       var k=c.cls;
-      return '<td class="'+k+(c.left?' lt':'')+'"'+(c.shade?' style="'+heat(v)+'"':'')+'>'+txt+'</td>';
+      return '<td class="'+k+'"'+(c.shade?' style="'+heat(v)+'"':'')+'>'+txt+'</td>';
     }).join('')+'</tr>';
   }).join('');
   var bn=document.getElementById('basisNote');

@@ -24,7 +24,7 @@
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=6"></script>
   <script src="tdc-charts.js?v=6"></script>
-  <link rel="stylesheet" href="tdc-sheets.css?v=3"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=4"/>
   <script src="tdc-shotprofile.js?v=1"></script>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=4"></script>
@@ -77,6 +77,11 @@
     @media(prefers-reduced-motion:reduce){.cubes .item{animation:none;}}
     /* TABLE */
     .table-wrap{overflow-x:auto;padding:0 0 40px;}
+    /* the shared sheet right-aligns every cell; the identity columns read left */
+    #apSheet .sheet tbody td:nth-child(-n+3),#apSheet .sheet thead th:nth-child(-n+3),
+    #atSheet .sheet tbody td:nth-child(-n+3),#atSheet .sheet thead th:nth-child(-n+3){text-align:left;}
+    #apSheet .sheet tbody td:first-child,#apSheet .sheet thead th:first-child,
+    #atSheet .sheet tbody td:first-child,#atSheet .sheet thead th:first-child{text-align:right;}
     table{width:100%;border-collapse:collapse;font-size:12px;}
     thead tr{border-bottom:2px solid var(--border);}
     .sig-mark{font-size:8px;color:var(--accent);margin-left:2px;cursor:help;vertical-align:super;opacity:.9;}
@@ -102,16 +107,8 @@
     .team-name-link{text-decoration:none;color:var(--text);font-weight:600;font-size:13px;}
     .team-name-link:hover{color:var(--accent);}
     .conf-badge{font-size:10px;color:var(--text3);font-weight:600;margin-left:5px;}
-    /* STAT CELL COLORING */
-    .c0{}
-    .c1{background:rgba(60,120,220,.25);color:#1a50c8;font-weight:700;}
-    .c2{background:rgba(45,100,210,.45);color:#fff;font-weight:700;}
-    .c3{background:rgba(30,82,200,.65);color:#fff;font-weight:700;}
-    .c4{background:rgba(18,60,185,.85);color:#fff;font-weight:700;}
-    [data-theme="dark"] .c1{background:rgba(60,120,220,.30);color:#7ab0ff;}
-    [data-theme="dark"] .c2{background:rgba(45,100,210,.50);color:#c0d8ff;}
-    [data-theme="dark"] .c3{background:rgba(30,82,200,.68);color:#fff;}
-    [data-theme="dark"] .c4{background:rgba(18,60,185,.88);color:#fff;}
+    /* Stat cell colouring is the shared red-to-green conditional format in
+       tdc-sheets.css (.c0 … .c4) — the pool's own percentile buckets drive it. */
     .pl-name{text-decoration:none;color:var(--text);font-weight:700;font-size:13px;}
     .pl-name:hover{color:var(--accent);}
     .pl-school{font-size:11px;color:var(--text3);font-weight:600;}
@@ -357,7 +354,8 @@ body{background:transparent!important;}
 <div id="leadersView" style="display:none;">
   <div id="leadersEl" class="leaders"></div>
   <div style="padding:0 40px 10px;font-size:11.5px;color:var(--text3);">🏆 Click any <b style="color:var(--text2)">stat name</b> in the table for its top-50 leaderboard · click the <span style="color:var(--text2)">⇅</span> to sort.</div>
-  <div class="table-wrap"><table id="statsTable"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+  <div class="sheet-wrap" id="apSheet" style="--c1:44px;--c2:190px;"><table id="statsTable" class="sheet dense freeze2"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+  <div class="sheet-legend"><span><span class="sw"></span>weak → strong, shaded on this pool's own percentiles</span><span>Click any column heading to sort · rank and name stay frozen while you scroll</span></div>
 </div>
 
 <!-- STAT EXPLORER VIEW -->
@@ -377,7 +375,7 @@ body{background:transparent!important;}
 
 <!-- TEAM HISTORY VIEW -->
 <div id="teamsView" style="display:none;">
-  <div class="table-wrap"><table id="teamsTable"><thead id="teamsThead"></thead><tbody id="teamsTbody"></tbody></table></div>
+  <div class="sheet-wrap" id="atSheet" style="--c1:44px;--c2:200px;"><table id="teamsTable" class="sheet dense freeze2"><thead id="teamsThead"></thead><tbody id="teamsTbody"></tbody></table></div>
   <div style="padding:0 40px 40px;font-size:10.5px;color:var(--text3);">Every team-season since 2006-07 — pick a year, browse all seasons, or switch to Program averages for 20-year numbers. Click any column to sort; search filters by team or conference (sorting by Team groups a program's seasons together, newest first).</div>
 </div>
 
@@ -581,9 +579,9 @@ function pctRank(key,v){ var arr=PCT[key]; if(!arr||!arr.length||v===null) retur
 function _gradeCol(v){ v=+v; var dark=document.documentElement.getAttribute('data-theme')==='dark';
   return v>=90?(dark?'#8ab8ff':'#1746b8'):v>=82?(dark?'#6f9fe6':'#2f66c0'):v>=74?(dark?'#7f93b8':'#5f7bb0'):'var(--text2)'; }
 function colorCls(key,v){
-  var st=SMAP[key]; var p=pctRank(key,v); if(p===null) return 'c0';
+  var st=SMAP[key]; var p=pctRank(key,v); if(p===null) return '';
   if(st.inv) p=1-p;
-  return p>=.95?'c4':p>=.85?'c3':p>=.70?'c2':p>=.50?'c1':'c0';
+  return p>=.90?'c4':p>=.75?'c3':p>=.55?'c2':p>=.35?'c1':'c0';
 }
 
 // ── Data loading ────────────────────────────────────────────────
@@ -803,7 +801,7 @@ function renderTable(){
       '<td style="text-align:left"><span class="pos-tag">'+r.posg+'</span></td>';
     TABLE_KEYS.forEach(k=>{
       var s=SMAP[k], v=r[k];
-      var cls = (k==='grade'||k==='gp') ? 'c0' : colorCls(k,v);
+      var cls = (k==='grade'||k==='gp') ? '' : colorCls(k,v);
       var disp = (k==='grade') ? (v!=null?'<span class="grade-pill" style="color:'+_gradeCol(v)+'">'+v.toFixed(0)+'</span>':'—') : fmt(v,s);
       body+='<td class="'+cls+'">'+disp+'</td>';
     });

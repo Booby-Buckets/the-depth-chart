@@ -132,7 +132,16 @@
 
     /* TABLE */
     .table-wrap{padding:0 40px 60px;overflow-x:auto;}
-    .roster-table{width:100%;border-collapse:collapse;min-width:800px;}
+    .roster-table{width:100%;min-width:800px;}
+    #rkSheet{max-height:calc(100vh - 210px);--c1:52px;--c2:200px;}
+    /* the shared sheet right-aligns every cell; this table already marks its numeric
+       columns .right, so the text columns go back to the left */
+    #rkSheet .sheet tbody td,#rkSheet .sheet thead th{text-align:left;}
+    #rkSheet .sheet tbody td.right,#rkSheet .sheet thead th.right{text-align:right;}
+    #rkSheet .roster-table td{padding:5px 8px;}
+    #rkSheet .roster-table th{padding:7px 8px;}
+    #rkSheet .td-name{padding:2px 6px;}
+    #rkSheet .td-team a{padding:1px 6px;}
     .roster-table th{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:10px 12px;border-bottom:2px solid var(--border2);text-align:left;white-space:nowrap;cursor:pointer;user-select:none;background:var(--bg);}
     .roster-table th:hover{color:var(--text);}
     .roster-table th.sorted{color:var(--accent);}
@@ -153,14 +162,14 @@
     .td-stat{font-family:'Playfair Display',serif;font-size:13px;font-weight:700;text-align:right;background:var(--bg2);padding:2px 6px;border-radius:2px;margin:0 1px;}
     .color-toggle-wrap{display:flex;align-items:center;gap:8px;padding:10px 40px 0;}
     .color-toggle-label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
-    .ckey-grad{display:inline-block;width:54px;height:9px;border-radius:5px;background:linear-gradient(to right,rgba(60,120,220,.4),rgba(45,100,210,.6),rgba(30,82,200,.78),rgba(18,60,185,.95));}
+    .ckey-grad{display:inline-block;width:54px;height:9px;border-radius:3px;background:linear-gradient(to right,hsla(0,70%,48%,.34),hsla(60,70%,48%,.12),hsla(125,70%,48%,.40));}
     .toggle-switch{position:relative;width:36px;height:20px;cursor:pointer;}
     .toggle-switch input{opacity:0;width:0;height:0;}
     .toggle-slider{position:absolute;inset:0;background:var(--border2);border-radius:20px;transition:.2s;}
     .toggle-slider:before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;}
     .toggle-switch input:checked+.toggle-slider{background:var(--accent);}
     .toggle-switch input:checked+.toggle-slider:before{transform:translateX(16px);}
-    body.no-color .td-stat{background:var(--bg2)!important;color:var(--text2)!important;}
+    body.no-color .td-stat{background:var(--bg2)!important;background-image:none!important;color:var(--text2)!important;}
     .td-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;text-align:right;letter-spacing:-.01em;}
     /* Single blue quality ramp (deeper/brighter blue = better; muted grey-blue = weaker).
        One system site-wide — no traffic-light green/amber/red on rating numbers. */
@@ -275,7 +284,7 @@ body{background:transparent!important;}
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="tdc-pwa.js?v=2" defer></script>
   <link rel="stylesheet" href="tdc-hq-site.css?v=22"/>
-  <link rel="stylesheet" href="tdc-sheets.css?v=3"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=4"/>
   <link rel="stylesheet" href="tdc-column.css?v=1"/>
 </head>
 <body data-anim-auto class="hqsite">
@@ -911,10 +920,11 @@ function renderTable(players){
         <input type="checkbox" id="colorToggle" ${localStorage.getItem('tdc_roster_colors')!=='0'?'checked':''} onchange="toggleColors(this)"/>
         <span class="toggle-slider"></span>
       </label>
-      <span class="color-key" style="font-size:11px;color:var(--text3);display:inline-flex;align-items:center;gap:7px;">National percentile<span class="ckey-grad"></span>deeper blue = higher</span>
+      <span class="color-key" style="font-size:11px;color:var(--text3);display:inline-flex;align-items:center;gap:7px;">National percentile<span class="ckey-grad"></span>red = low, green = high</span>
       ${(document.getElementById('seasonFilter')||{}).value==='2027' ? '<span style="font-size:11px;color:var(--text3);margin-left:auto;"><b style="color:var(--text2);">WA*</b> = 2025-26 Wins Added, carried forward</span>' : ''}
     </div>
-    <table class="roster-table">
+    <div class="sheet-wrap" id="rkSheet" style="--c1:52px;--c2:200px;">
+    <table class="roster-table sheet dense freeze2">
       <thead>
         <tr>
           ${col('tdc_grade','OVR','right')}
@@ -952,10 +962,13 @@ function renderTable(players){
         </tr>
       </thead>
       <tbody id="rosterBody"></tbody>
-    </table>`;
+    </table></div>
+    <div class="sheet-legend"><span><span class="sw"></span>weak → strong, shaded on the national percentile</span><span>Click any column heading to sort · OVR and player stay frozen while you scroll</span></div>`;
   _rendered = 0;
   _renderMore();
   if(!_rkScrollBound){ window.addEventListener('scroll', _onRosterScroll, {passive:true}); _rkScrollBound=true; }
+  var _pane=document.getElementById('rkSheet');
+  if(_pane && !_pane._rkBound){ _pane.addEventListener('scroll', _onRosterScroll, {passive:true}); _pane._rkBound=true; }
 }
 
 function _statColor(v,k){
@@ -966,9 +979,11 @@ function _statColor(v,k){
   let pct;
   if(inv){if(n<=p20)pct=4;else if(n<=p40)pct=3;else if(n<=p60)pct=2;else if(n<=p80)pct=1;else pct=0;}
   else{if(n>=p80)pct=4;else if(n>=p60)pct=3;else if(n>=p40)pct=2;else if(n>=p20)pct=1;else pct=0;}
-  if(pct===0) return '';
-  const bg=['','rgba(60,120,220,.45)','rgba(45,100,210,.58)','rgba(30,82,200,.72)','rgba(18,60,185,.88)'][pct];
-  return `background:${bg};color:#fff;font-weight:700;`;
+  // Same red-to-green conditional format the Big Board and the team-stats sheet use.
+  // Painted as a background IMAGE so it composes over the zebra banding instead of
+  // replacing it, which is what let the frozen columns go transparent before.
+  const c=['hsla(0,70%,48%,.34)','hsla(30,70%,48%,.15)','hsla(95,70%,48%,.15)','hsla(115,70%,48%,.26)','hsla(125,70%,48%,.40)'][pct];
+  return `background-image:linear-gradient(${c},${c});${pct===0||pct>=3?'font-weight:700;color:var(--text);':''}`;
 }
 
 function _rowHTML(p){
@@ -1025,9 +1040,10 @@ function _tendCol(v){
   if(v==null||v==='') return '';
   if(localStorage.getItem('tdc_roster_colors')==='0') return '';
   const n=parseFloat(v); if(isNaN(n)) return '';
-  const pct=Math.max(0,Math.min(100,n))/100;
-  const a=(0.10+pct*0.42).toFixed(2);
-  return `background:rgba(60,110,200,${a});color:${pct>0.55?'#fff':'var(--text)'};font-weight:700;`;
+  const t=Math.max(0,Math.min(100,n))/100;
+  const a=(0.08+0.26*Math.abs(t-0.5)*2).toFixed(3);
+  const c=`hsla(${Math.round(t*125)},70%,48%,${a})`;
+  return `background-image:linear-gradient(${c},${c});font-weight:700;color:var(--text);`;
 }
 
 function _renderMore(){
@@ -1040,6 +1056,11 @@ function _renderMore(){
 
 function _onRosterScroll(){
   if(_rendered>=_filtered.length) return;
+  var pane=document.getElementById('rkSheet');
+  if(pane && pane.scrollHeight>pane.clientHeight+4){
+    if(pane.scrollTop + pane.clientHeight > pane.scrollHeight - 800) _renderMore();
+    return;
+  }
   if(window.innerHeight + window.scrollY > document.body.offsetHeight - 800) _renderMore();
 }
 

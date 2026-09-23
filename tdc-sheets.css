@@ -125,3 +125,83 @@
 .tbl-wrap table td, .tbl-wrap table th{ border-right:1px solid var(--border); }
 .tbl-wrap table td:last-child, .tbl-wrap table th:last-child{ border-right:none; }
 .tbl-wrap table tbody tr:nth-child(even) td{ background:color-mix(in srgb, var(--text) 3.5%, transparent); }
+
+
+/* ══ Big-Board grade (Sept 2026) ══════════════════════════════════════════════
+   Three additions the NBA Big Board needed, now shared so any sheet can use them:
+   a denser row, a frozen BLOCK of two or three leading columns instead of one, and
+   a red-to-green conditional format. ─────────────────────────────────────────── */
+
+/* dense — the board's proportions: micro headers, tight rows, thin gridlines */
+.sheet.dense{ font-size:12.5px; }
+.sheet.dense thead th{ font-size:9px; letter-spacing:.07em; padding:7px 7px;
+  border-bottom:1px solid var(--border); }
+.sheet.dense tbody td{ padding:6px 7px; }
+.sheet.dense tbody tr:last-child td{ border-bottom:1px solid var(--border); }
+.sheet.dense td.big{ font-weight:800; font-size:13.5px; color:var(--text); }
+.sheet.dense td.sm{ font-size:11px; color:var(--text3); }
+
+/* frozen BLOCK — .freeze2 / .freeze3 pin the first two or three columns, so rank,
+   name and the one score you are reading stay on screen while the rest scrolls.
+   The page sets the widths: .sheet{--c1:40px;--c2:186px;--c3:54px} */
+.sheet.freeze2 thead th:nth-child(-n+2), .sheet.freeze2 tbody td:nth-child(-n+2),
+.sheet.freeze3 thead th:nth-child(-n+3), .sheet.freeze3 tbody td:nth-child(-n+3){
+  position:sticky; z-index:2; background:var(--bg); }
+.sheet.freeze2 thead th:nth-child(-n+2),
+.sheet.freeze3 thead th:nth-child(-n+3){ z-index:4; background:var(--bg2); }
+.sheet.freeze2 thead th:nth-child(1), .sheet.freeze2 tbody td:nth-child(1),
+.sheet.freeze3 thead th:nth-child(1), .sheet.freeze3 tbody td:nth-child(1){
+  left:0; width:var(--c1,44px); min-width:var(--c1,44px); }
+.sheet.freeze2 thead th:nth-child(2), .sheet.freeze2 tbody td:nth-child(2),
+.sheet.freeze3 thead th:nth-child(2), .sheet.freeze3 tbody td:nth-child(2){
+  left:var(--c1,44px); width:var(--c2,190px); min-width:var(--c2,190px);
+  max-width:var(--c2,190px); overflow:hidden; text-overflow:ellipsis; }
+.sheet.freeze3 thead th:nth-child(3), .sheet.freeze3 tbody td:nth-child(3){
+  left:calc(var(--c1,44px) + var(--c2,190px)); width:var(--c3,54px); min-width:var(--c3,54px); }
+.sheet.freeze2 thead th:nth-child(2), .sheet.freeze2 tbody td:nth-child(2),
+.sheet.freeze3 thead th:nth-child(3), .sheet.freeze3 tbody td:nth-child(3){
+  border-right:2px solid var(--border2); }
+/* the zebra and hover tints are translucent, so the frozen block needs them mixed
+   into an OPAQUE colour or the scrolling columns show through it */
+.sheet.freeze2 tbody tr:nth-child(even) td:nth-child(-n+2),
+.sheet.freeze3 tbody tr:nth-child(even) td:nth-child(-n+3){
+  background:color-mix(in srgb, var(--text) 3.5%, var(--bg)); }
+.sheet.freeze2 tbody tr:hover td:nth-child(-n+2),
+.sheet.freeze3 tbody tr:hover td:nth-child(-n+3){
+  background:color-mix(in srgb, var(--accent) 9%, var(--bg)); }
+
+/* CONDITIONAL FORMAT — five buckets, worst to best, the way a scouting sheet
+   colours a column. Drawn as a background IMAGE so it composes over the zebra
+   banding and stays opaque on a frozen column instead of replacing them.
+   A page's existing percentile buckets can drive it with no logic change:
+   c0 bottom · c1 below median · c2 above median · c3 strong · c4 elite. */
+.sheet td.c0{ background-image:linear-gradient(hsla(0,70%,48%,.34),hsla(0,70%,48%,.34)); }
+.sheet td.c1{ background-image:linear-gradient(hsla(30,70%,48%,.15),hsla(30,70%,48%,.15)); }
+.sheet td.c2{ background-image:linear-gradient(hsla(95,70%,48%,.15),hsla(95,70%,48%,.15)); }
+.sheet td.c3{ background-image:linear-gradient(hsla(115,70%,48%,.26),hsla(115,70%,48%,.26)); }
+.sheet td.c4{ background-image:linear-gradient(hsla(125,70%,48%,.40),hsla(125,70%,48%,.40)); }
+.sheet td.c0,.sheet td.c3,.sheet td.c4{ font-weight:700; color:var(--text); }
+[data-theme="dark"] .sheet td.c0{ background-image:linear-gradient(hsla(0,70%,46%,.36),hsla(0,70%,46%,.36)); }
+[data-theme="dark"] .sheet td.c4{ background-image:linear-gradient(hsla(125,70%,46%,.42),hsla(125,70%,46%,.42)); }
+/* the same scale for the retrofitted page tables */
+.roster-table td.c0,.proj-table td.c0{ background-image:linear-gradient(hsla(0,70%,48%,.34),hsla(0,70%,48%,.34)); }
+.roster-table td.c1,.proj-table td.c1{ background-image:linear-gradient(hsla(30,70%,48%,.15),hsla(30,70%,48%,.15)); }
+.roster-table td.c2,.proj-table td.c2{ background-image:linear-gradient(hsla(95,70%,48%,.15),hsla(95,70%,48%,.15)); }
+.roster-table td.c3,.proj-table td.c3{ background-image:linear-gradient(hsla(115,70%,48%,.26),hsla(115,70%,48%,.26)); }
+.roster-table td.c4,.proj-table td.c4{ background-image:linear-gradient(hsla(125,70%,48%,.40),hsla(125,70%,48%,.40)); }
+.roster-table td.c0,.roster-table td.c3,.roster-table td.c4,
+.proj-table td.c0,.proj-table td.c3,.proj-table td.c4{ font-weight:700; color:var(--text); }
+/* NOTE: no global body.no-color off-switch here on purpose. Two pages already use
+   that body class for their OWN narrower toggles (roster.html's Stat Colors, and
+   team-stats.html's per-team drawer, which defaults to off) — a blanket rule here
+   silently blanked the shading on every sheet those pages render. Pages scope their
+   own switch. */
+
+/* the shading key that goes under a sheet */
+.sheet-legend{ display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin-top:10px;
+  font-size:10.5px; color:var(--text3); }
+.sheet-legend .sw{ display:inline-block; width:34px; height:9px; border-radius:2px;
+  vertical-align:-1px; margin-right:5px;
+  background:linear-gradient(90deg,hsla(0,70%,48%,.34),hsla(60,70%,48%,.12),hsla(125,70%,48%,.40)); }
+.sheet thead th.sort .ar{ opacity:0; }
+.sheet thead th.sort.on .ar,.sheet thead th.sort.sorted .ar{ opacity:1; }

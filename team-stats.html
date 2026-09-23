@@ -62,7 +62,7 @@
     .progress-bar{width:200px;height:3px;background:var(--border2);margin:12px auto;border-radius:2px;overflow:hidden;}
     .progress-fill{height:100%;background:var(--accent);width:0%;transition:width .3s;}
     /* TABLE */
-    .table-wrap{overflow-x:auto;padding:0 0 40px;}
+    .table-wrap{padding:0 0 40px;}
     table{width:100%;border-collapse:collapse;font-size:12px;}
     thead tr{border-bottom:2px solid var(--border);}
     th{padding:10px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);white-space:nowrap;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--bg);z-index:2;}
@@ -80,16 +80,8 @@
     .team-name-link{text-decoration:none;color:var(--text);font-weight:600;font-size:13px;}
     .team-name-link:hover{color:var(--accent);}
     .conf-badge{font-size:10px;color:var(--text3);font-weight:600;margin-left:5px;}
-    /* STAT CELL COLORING */
-    .c0{}
-    .c1{background:rgba(60,120,220,.25);color:#1a50c8;font-weight:700;}
-    .c2{background:rgba(45,100,210,.45);color:#fff;font-weight:700;}
-    .c3{background:rgba(30,82,200,.65);color:#fff;font-weight:700;}
-    .c4{background:rgba(18,60,185,.85);color:#fff;font-weight:700;}
-    [data-theme="dark"] .c1{background:rgba(60,120,220,.30);color:#7ab0ff;}
-    [data-theme="dark"] .c2{background:rgba(45,100,210,.50);color:#c0d8ff;}
-    [data-theme="dark"] .c3{background:rgba(30,82,200,.68);color:#fff;}
-    [data-theme="dark"] .c4{background:rgba(18,60,185,.88);color:#fff;}
+    /* Stat cell colouring is the shared red-to-green conditional format in
+       tdc-sheets.css (.c0 … .c4) — the league's own percentile buckets drive it. */
     /* LEADERS */
     .leaders{padding:24px 40px 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px;}
     .leader-card{border:1px solid var(--border);padding:14px 16px;}
@@ -110,7 +102,7 @@
   <link rel="stylesheet" href="tdc-skin.css?v=9"/>
   <link rel="stylesheet" href="tdc-hq-list.css?v=2"/>
   <link rel="stylesheet" href="tdc-hero.css?v=3"/>
-  <link rel="stylesheet" href="tdc-sheets.css?v=3"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=4"/>
   <style>
     :root:not([data-theme="dark"]){background:var(--bg)!important;}
     :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
@@ -209,10 +201,13 @@
     <div id="loadingMsg">Loading teams…</div>
     <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
   </div>
-  <table id="statsTable" class="sheet" style="display:none;">
-    <thead id="thead"></thead>
-    <tbody id="tbody"></tbody>
-  </table>
+  <div class="sheet-wrap" id="tsSheet" style="display:none;--c1:46px;--c2:230px;">
+    <table id="statsTable" class="sheet dense freeze2">
+      <thead id="thead"></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <div class="sheet-legend" id="tsLegend" style="display:none;"><span><span class="sw"></span>weak → strong, shaded on the league's own percentiles</span><span>Click any column heading to sort · rank and team stay frozen while you scroll</span></div>
 </div>
 
 <footer>
@@ -1501,7 +1496,8 @@ async function load(){
   });
   fill.style.width = '100%';
   document.getElementById('loadingEl').style.display = 'none';
-  document.getElementById('statsTable').style.display = 'table';
+  document.getElementById('tsSheet').style.display = '';
+  document.getElementById('tsLegend').style.display = '';
   document.getElementById('leadersEl').style.display = 'grid';
   buildHeader();
   render();
@@ -1546,8 +1542,8 @@ function buildHeader(){
   const thead = document.getElementById('thead');
   thead.innerHTML = `<tr>
     <th class="rk">RK</th>
-    <th class="l sort" onclick="setSort('name')">TEAM <span class="sort-arrow">${sortCol==='name'?(sortAsc?'↑':'↓'):'↕'}</span></th>
-    ${COLS.map(c=>`<th id="th_${c.key}" class="sort" title="${c.desc}" onclick="setSort('${c.key}')">${c.label} <span class="sort-arrow">${sortCol===c.key?(sortAsc?'↑':'↓'):'↕'}</span>${c.inv?'<span style="font-size:8px;color:var(--text3);" title="Lower is better"> ↓</span>':''}</th>`).join('')}
+    <th class="l sort${sortCol==='name'?' on':''}" onclick="setSort('name')">TEAM <span class="sort-arrow">${sortCol==='name'?(sortAsc?'↑':'↓'):'↕'}</span></th>
+    ${COLS.map(c=>`<th id="th_${c.key}" class="sort${sortCol===c.key?' on':''}" title="${c.desc}" onclick="setSort('${c.key}')">${c.label} <span class="sort-arrow">${sortCol===c.key?(sortAsc?'↑':'↓'):'↕'}</span>${c.inv?'<span style="font-size:8px;color:var(--text3);" title="Lower is better"> ↓</span>':''}</th>`).join('')}
   </tr>`;
 }
 
