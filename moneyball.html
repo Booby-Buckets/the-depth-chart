@@ -176,7 +176,11 @@
     .seg2 button{font-family:inherit;font-size:11.5px;font-weight:700;padding:6px 11px;border:none;border-radius:7px;background:none;color:var(--text3);cursor:pointer;transition:all .12s;}
     .seg2 button.on{background:var(--accent);color:#1a1206;}
     /* screener table */
-    .mkt-twrap{margin-top:2px;}
+    .mkt-twrap{margin-top:2px;max-height:calc(100vh - 260px);}
+    /* .dim / .strong set a colour; the conditional format needs to win on the cells
+       that carry both, and a selected row must stay opaque under the frozen columns */
+    table.mkt tbody td.c0,table.mkt tbody td.c3,table.mkt tbody td.c4{color:var(--text);}
+    table.mkt tbody tr.sel td:nth-child(-n+2){background:color-mix(in srgb, var(--accent) 14%, var(--bg));}
     table.mkt .rk{color:var(--text3);font-size:11px;width:26px;}
     table.mkt .pn{font-weight:700;color:var(--text);}
     table.mkt .pt{font-size:10.5px;color:var(--text3);}
@@ -783,7 +787,7 @@ function renderMarket(){
       <select id="mCls"><option value="all">All classes</option><option value="fr">Freshman</option><option value="so">Sophomore</option><option value="jr">Junior</option><option value="sr">Senior</option></select>
       <div class="seg2" id="mVerd"><button data-v="all" class="on">All</button><button data-v="buy">Buys</button><button data-v="fair">Fair</button><button data-v="over">Overpays</button></div>
     </div>
-    <div class="sheet-wrap mkt-twrap"><table class="sheet mkt"><thead id="mHead"></thead><tbody id="mBodyRows"></tbody></table></div>
+    <div class="sheet-wrap mkt-twrap" style="--c1:34px;--c2:190px;"><table class="sheet mkt dense freeze2"><thead id="mHead"></thead><tbody id="mBodyRows"></tbody></table></div><div id="mLegend"></div>
     <div class="mkt-more" id="mMore"></div>
     <div class="disclaimer" style="margin-top:12px"><b>Win value</b> = a player's win-driver score (efficiency, defense, rebounding, ball-security — the skills that predict winning, weighted from a 7,000-team-season regression; scoring volume &amp; assists count little), priced at the market's $-per-win. <b>Market value</b> = the model's open-market estimate. <b>Paid</b> = the known deal if on file, else the model. Players without 2025-26 stats (freshmen) show no win score. A model, not a cap sheet.</div>
     ${(window.TDC_COACHLINKS&&TDC_COACHLINKS.bar)?TDC_COACHLINKS.bar('The Depth Chart'):''}`;
@@ -835,24 +839,44 @@ function wireScatterTip(){
   host.addEventListener('mouseleave',()=>{ tip.style.display='none'; });
 }
 
+
+/* Conditional format for the two screeners: this view's OWN quartiles, on the same
+   red-to-green scale as the Big Board and the roster / stats sheets. `keys` maps a
+   field to 1 when lower is better ($ per win). Dollar columns and the signed surplus
+   columns keep their own pos/neg colouring — shading "expensive" green would lie. */
+function mbShade(list, keys){
+  const bk={};
+  Object.keys(keys).forEach(k=>{
+    const v=list.map(r=>+r[k]).filter(x=>isFinite(x)).sort((a,b)=>a-b);
+    bk[k]=v.length>=12?{p25:v[(v.length*.25)|0],p50:v[(v.length*.5)|0],p75:v[(v.length*.75)|0],p90:v[(v.length*.9)|0]}:null;
+  });
+  return (k,val)=>{ const b=bk[k], n=+val; if(!b||!isFinite(n)) return '';
+    const q = keys[k] ? (n<=b.p25?4:n<=b.p50?3:n<=b.p75?2:n<=b.p90?1:0)
+                      : (n>=b.p90?4:n>=b.p75?3:n>=b.p50?2:n>=b.p25?1:0);
+    return ' c'+q; };
+}
+const MB_LEGEND='<div class="sheet-legend"><span><span class="sw"></span>weak \u2192 strong, shaded on this view\u2019s own quartiles</span><span>Click any column heading to sort \u00b7 rank and name stay frozen while you scroll</span></div>';
+
 const MCOLS=[['#','l',null],['Player','l',null],['Grd','','grade'],['Win score','','ws'],['Win value','','winVal'],['Market value','','marketVal'],['Paid','','cost'],['Surplus','','winSurplus'],['Value','l',null]];
 function renderTable(){
   const list=marketFiltered();
   $id('mHead').innerHTML=`<tr>${MCOLS.map(c=>{ const s=c[2]; const on=s===mktState.sort; const ar=on?(mktState.dir<0?'▼':'▲'):'';
     return `<th class="${c[1]==='l'?'l':''}${s?' sort':''}${on?' on':''}" ${s?`data-sort="${s}"`:''}>${c[0]}${ar?`<span class="ar">${ar}</span>`:''}</th>`; }).join('')}</tr>`;
   const shown=list.slice(0,mktState.limit);
+  const sh=mbShade(list,{grade:0,ws:0,winVal:0});
   $id('mBodyRows').innerHTML=shown.map((p,i)=>`<tr>
     <td class="rk">${i+1}</td>
     <td class="l nm">${esc(p.name)}<div class="pt">${esc(p.full)} · ${esc(p.pos||'')}${p.cls?' · '+esc(p.cls):''}</div></td>
-    <td>${p.grade}</td>
-    <td class="strong">${p.ws!=null?Math.round(p.ws):'<span class="dim">—</span>'}</td>
-    <td>${p.winVal!=null?fM(p.winVal):'<span class="dim">—</span>'}</td>
+    <td class="${sh('grade',p.grade).trim()}">${p.grade}</td>
+    <td class="strong${sh('ws',p.ws)}">${p.ws!=null?Math.round(p.ws):'<span class="dim">—</span>'}</td>
+    <td class="${sh('winVal',p.winVal).trim()}">${p.winVal!=null?fM(p.winVal):'<span class="dim">—</span>'}</td>
     <td class="dim">${fM(p.marketVal)}</td>
     <td>${fM(p.cost)}</td>
     <td class="${p.winSurplus==null?'dim':(p.winSurplus>=0?'pos':'neg')}">${p.winSurplus!=null?((p.winSurplus>=0?'+':'')+fM(p.winSurplus)):'—'}</td>
     <td class="l">${p.winVerdict?`<span class="vpill ${p.winVerdict}">${p.winVerdict==='buy'?'Buy':p.winVerdict==='over'?'Overpay':'Fair'}</span>`:`<span style="color:var(--text3);font-size:10.5px">no ’26 stats</span>`}</td>
   </tr>`).join('')||`<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:24px">No players match.</td></tr>`;
   $id('mMore').innerHTML=list.length>mktState.limit?`<button id="mMoreBtn">Show more (${list.length-mktState.limit})</button>`:(list.length?`<span style="font-size:11px;color:var(--text3)">${list.length} player${list.length===1?'':'s'}</span>`:'');
+  $id('mLegend').innerHTML=MB_LEGEND;
   const mb=$id('mMoreBtn'); if(mb) mb.addEventListener('click',()=>{ mktState.limit+=60; renderTable(); });
   $id('mHead').querySelectorAll('th[data-sort]').forEach(th=>th.addEventListener('click',()=>{
     const k=th.dataset.sort; if(mktState.sort===k) mktState.dir*=-1; else { mktState.sort=k; mktState.dir=-1; } renderTable(); }));
@@ -1090,7 +1114,7 @@ function renderLedger(){
     ${secH('The going rate by tier','median cost per win inside each NIL tier')}
     <div class="sheet-wrap"><table class="sheet"><thead><tr><th class="c">Tier</th><th>Programs</th><th>Avg spend</th><th>Avg winning</th><th>$ / win</th></tr></thead><tbody>${tiers.map(x=>`<tr><td class="c strong">T${x.k}</td><td class="dim">${x.n}</td><td>${fM(x.spend)}</td><td>${x.win.toFixed(1)}</td><td class="strong">${fM(x.cpw)}</td></tr>`).join('')}</tbody></table></div>
     ${secH('Balance sheets','sort any column · click a program')}
-    <div class="sheet-wrap mkt-twrap"><table class="sheet mkt"><thead id="ledHead"></thead><tbody id="ledRows"></tbody></table></div>
+    <div class="sheet-wrap mkt-twrap" style="--c1:34px;--c2:200px;"><table class="sheet mkt dense freeze2"><thead id="ledHead"></thead><tbody id="ledRows"></tbody></table></div><div id="ledLegend"></div>
     <div class="led-detail" id="ledDetail"></div>
     <div class="disclaimer" style="margin-top:12px"><b>Winning</b> = the roster's win-driver production (efficiency, defense, rebounding, ball-security — not empty scoring), minute-constrained over a 200-min rotation, in wins. <b>Spend</b> = what the program pays for that rotation. <b>$/win</b> = spend ÷ winning; <b>Surplus</b> = what the program saved (or overpaid) vs buying the same winning at its tier's median rate. A model, not a cap sheet.</div>
     ${(window.TDC_COACHLINKS&&TDC_COACHLINKS.bar)?TDC_COACHLINKS.bar('The Depth Chart'):''}`;
@@ -1134,19 +1158,21 @@ function renderLedTable(){
   const list=ledSorted();
   $id('ledHead').innerHTML=`<tr>${LCOLS.map(c=>{ const s=c[2]; const on=s===ledState.sort; const ar=on?(ledState.dir<0?'▼':'▲'):'';
     return `<th class="${c[1]||''}${s?' sort':''}${on?' on':''}" ${s?`data-sort="${s}"`:''}>${c[0]}${ar?`<span class="ar">${ar}</span>`:''}</th>`; }).join('')}</tr>`;
+  const sh=mbShade(list,{winning:0,wins:0,cpw:1});
   $id('ledRows').innerHTML=list.map((t,i)=>`<tr class="clik${ledState.sel===t.team?' sel':''}" data-team="${esc(t.team)}">
     <td class="rk">${i+1}</td>
     <td class="l nm">${esc(t.full)}<div class="pt">${esc(t.conf||'')}${t.rank?' · #'+t.rank:''}</div></td>
     <td class="c dim">T${t.tier}</td>
     <td>${fM(t.spend)}</td>
-    <td class="strong">${t.winning.toFixed(1)}</td>
-    <td class="dim">${t.wins.toFixed(0)}</td>
-    <td>${fM(t.cpw)}</td>
+    <td class="strong${sh('winning',t.winning)}">${t.winning.toFixed(1)}</td>
+    <td class="dim${sh('wins',t.wins)}">${t.wins.toFixed(0)}</td>
+    <td class="${sh('cpw',t.cpw).trim()}">${fM(t.cpw)}</td>
     <td class="dim">${fM(t.tierCpw)}</td>
     <td class="${t.surplus>=0?'pos':'neg'}">${signed(t.surplus,fM)}</td>
     <td class="${t.vsFit>=0?'pos':'neg'}">${signed(t.vsFit)}</td>
     <td class="l"><span class="vpill ${t.verdict}">${t.verdict==='buy'?'Value':t.verdict==='over'?'Overpay':'Fair'}</span></td>
   </tr>`).join('');
+  $id('ledLegend').innerHTML=MB_LEGEND;
   $id('ledRows').querySelectorAll('tr.clik').forEach(tr=>tr.addEventListener('click',()=>selectLedTeam(tr.dataset.team)));
   $id('ledHead').querySelectorAll('th[data-sort]').forEach(th=>th.addEventListener('click',()=>{ const k=th.dataset.sort; if(ledState.sort===k) ledState.dir*=-1; else { ledState.sort=k; ledState.dir=-1; } renderLedTable(); }));
 }

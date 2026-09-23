@@ -75,7 +75,12 @@
 
     /* PROJECTIONS TABLE */
     .table-wrap{padding:0 40px 60px;overflow-x:auto;margin-top:16px;}
-    .proj-table{width:100%;border-collapse:collapse;min-width:1000px;}
+    .proj-table{width:100%;min-width:1000px;}
+    #pjSheet{max-height:calc(100vh - 230px);}
+    #pjSheet .proj-table td{padding:5px 8px;}
+    #pjSheet .proj-table th{padding:7px 8px;}
+    /* the stat pill used to carry its own padding/radius; inside the grid the CELL is the box */
+    #pjSheet .td-stat{padding:0;border-radius:0;margin:0;font-family:inherit;font-size:12.5px;}
     .proj-table th{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:8px 10px;border-bottom:2px solid var(--border2);text-align:right;cursor:pointer;user-select:none;white-space:nowrap;}
     .proj-table th:hover{color:var(--text);}
     .proj-table th.sorted{color:var(--accent);}
@@ -2061,8 +2066,25 @@ function renderTable(players){
 
   const th=(key,label,cls='',style='')=>`<th class="${sortCol===key?'sorted':''} ${cls}" style="${style}" onclick="setSort('${key}')">${label}</th>`;
 
+  // Conditional format on the stat columns, from THIS view's own percentiles — the same
+  // red-to-green scale the Big Board and the roster/stats sheets use. Turnovers invert.
+  const SHADE={ppg:0,rpg:0,apg:0,mpg:0,fg_pct:0,tp_pct:0,ft_pct:0,stl:0,blk:0,tovs:1};
+  const _bk={};
+  Object.keys(SHADE).forEach(k=>{
+    const v=players.map(p=>parseFloat(p[k])).filter(x=>!isNaN(x)&&x>0).sort((a,b)=>a-b);
+    _bk[k]=v.length>=20?{p25:v[(v.length*.25)|0],p50:v[(v.length*.5)|0],p75:v[(v.length*.75)|0],p90:v[(v.length*.9)|0]}:null;
+  });
+  const sc=(k,val)=>{
+    const b=_bk[k], n=parseFloat(val); if(!b||isNaN(n)||n<=0) return 'td-stat';
+    const inv=SHADE[k];
+    const q = inv ? (n<=b.p25?4:n<=b.p50?3:n<=b.p75?2:n<=b.p90?1:0)
+                  : (n>=b.p90?4:n>=b.p75?3:n>=b.p50?2:n>=b.p25?1:0);
+    return 'td-stat c'+q;
+  };
+
   document.getElementById('tableWrap').innerHTML=`
-    <table class="proj-table">
+    <div class="sheet-wrap" id="pjSheet" style="--c1:56px;--c2:188px;">
+    <table class="proj-table sheet dense freeze2">
       <thead><tr>
         ${th('tdc_grade','OVR','left','min-width:44px;')}
         <th class="left" style="min-width:160px;">Player</th>
@@ -2099,20 +2121,21 @@ function renderTable(players){
             <td class="left"><a href="team.html?team=${encodeURIComponent(p.team)}" style="font-size:11px;font-weight:700;padding:2px 6px;background:${color};color:#fff;text-decoration:none;border-radius:2px;">${p.team||'—'}</a></td>
             <td><span class="yr-badge">${yr}</span></td>
             <td style="font-size:11px;font-weight:700;color:var(--text3);">${p.position||'—'}</td>
-            <td class="td-stat">${fmt(p.ppg)}</td>
-            <td class="td-stat">${fmt(p.rpg)}</td>
-            <td class="td-stat">${fmt(p.apg)}</td>
-            <td class="td-stat">${fmt(p.mpg)}</td>
-            <td class="td-stat">${fmtP(p.fg_pct)}</td>
-            <td class="td-stat">${fmtP(p.tp_pct)}</td>
-            <td class="td-stat">${fmtP(p.ft_pct)}</td>
-            <td class="td-stat">${fmt(p.stl)}</td>
-            <td class="td-stat">${fmt(p.blk)}</td>
-            <td class="td-stat">${fmt(p.tovs)}</td>
+            <td class="${sc('ppg',p.ppg)}">${fmt(p.ppg)}</td>
+            <td class="${sc('rpg',p.rpg)}">${fmt(p.rpg)}</td>
+            <td class="${sc('apg',p.apg)}">${fmt(p.apg)}</td>
+            <td class="${sc('mpg',p.mpg)}">${fmt(p.mpg)}</td>
+            <td class="${sc('fg_pct',p.fg_pct)}">${fmtP(p.fg_pct)}</td>
+            <td class="${sc('tp_pct',p.tp_pct)}">${fmtP(p.tp_pct)}</td>
+            <td class="${sc('ft_pct',p.ft_pct)}">${fmtP(p.ft_pct)}</td>
+            <td class="${sc('stl',p.stl)}">${fmt(p.stl)}</td>
+            <td class="${sc('blk',p.blk)}">${fmt(p.blk)}</td>
+            <td class="${sc('tovs',p.tovs)}">${fmt(p.tovs)}</td>
           </tr>`;
         }).join('')}
       </tbody>
-    </table>`;
+    </table></div>
+    <div class="sheet-legend"><span><span class="sw"></span>weak → strong, shaded on this view's own percentiles</span><span>Click any column heading to sort · OVR and player stay frozen while you scroll</span></div>`;
 }
 
 // ── COMPARE ─────────────────────────────────────────────
