@@ -106,4 +106,13 @@ by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!
       Supabase supports Google OAuth; needs the provider enabled + redirect URLs, then a
       button that calls `/auth/v1/authorize?provider=google` and a callback that stores the
       session in the same shape the rest of the site expects.
+- [x] **"Could not save" on the welcome username step** *(fixed 2026-09-23)* — the profiles
+      column lockdown denies a PATCH touching even ONE ungranted column, and the app sent two:
+      `updated_at` (not user data) and `banner_color`. Onboarding step 1, step 2 and profile
+      editing were all 403ing, so nobody could finish signup. Client no longer sends
+      `updated_at` (a trigger maintains it); `scripts/fix_profiles_column_grants.sql` grants
+      banner_color/banner_url. Third time this shape has bitten — freshman_projections was first.
+- [x] **Promo codes for existing accounts** — already worked (account.html "Redeem Promo Code"),
+      but the success message hardcoded "of Premium" and the placeholder showed the wrong format.
+      Both now read the granted tier from the server response.
 - [ ] **"Some other things"** — not yet specified.

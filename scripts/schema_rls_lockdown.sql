@@ -104,11 +104,14 @@ begin
     create policy "tdc_update_own"    on public.profiles for update to authenticated using (auth.uid() = id) with check (auth.uid() = id);
     create policy "tdc_owner_profiles" on public.profiles for all to authenticated
       using ((auth.jwt() ->> 'email') = 'blee4824@gmail.com') with check ((auth.jwt() ->> 'email') = 'blee4824@gmail.com');
-    -- column lockdown: a user can't escalate plan/verified even on their own row, but
-    -- freshman_projections IS owner-writable (the freshman editor saves it via PATCH) —
-    -- leaving it off this list is what 403'd the save. RLS still limits it to one's own row.
+    -- column lockdown: a user can't escalate plan/verified even on their own row. NOTE the
+    -- failure mode: a PATCH touching even ONE ungranted column is denied ENTIRELY, so anything
+    -- the app legitimately writes must be listed. freshman_projections 403'd the freshman editor;
+    -- banner_color/banner_url 403'd onboarding and profile editing. updated_at is deliberately
+    -- absent — a trigger maintains it (fix_profiles_column_grants.sql) so no client sends it.
+    -- RLS still limits every one of these to the user's own row.
     revoke update on public.profiles from authenticated;
-    foreach c in array array['username','avatar_url','bio','favorite_team','display_name','freshman_projections'] loop
+    foreach c in array array['username','avatar_url','bio','favorite_team','display_name','freshman_projections','banner_color','banner_url'] loop
       if exists (select 1 from information_schema.columns where table_schema='public' and table_name='profiles' and column_name=c) then
         execute format('grant update (%I) on public.profiles to authenticated', c);
       end if;

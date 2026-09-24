@@ -374,7 +374,7 @@ async function renderPage(){
       <div class="glass span2">
         <div class="glass-title">Redeem Promo Code</div>
         <div class="promo-row">
-          <input class="form-input" type="text" id="promoInput" placeholder="TDC-XXXX-XXXX-XXXX" style="text-transform:uppercase;"/>
+          <input class="form-input" type="text" id="promoInput" placeholder="DEPTH-XXXX-XXXX" style="text-transform:uppercase;"/>
           <button class="form-btn accent" onclick="redeemPromo()">Apply</button>
         </div>
         <div class="msg" id="promoMsg"></div>
@@ -424,7 +424,12 @@ async function redeemPromo(){
     const res = r.ok ? await r.json() : { ok:false };
     if(!res.ok) return showMsg('promoMsg', res.msg || 'Could not apply code.', 'error');
     const months = res.months || 1;
-    showMsg('promoMsg', `✓ ${months===12?'1 year':'1 month'} of Premium activated!`, 'success');
+    // report what was actually granted — a code can now carry any tier, and can be permanent
+    const TIER = { premium:'Premium', pro:'Pro', coach:"Coach's Tier" };
+    const tier = TIER[res.plan] || 'Premium';
+    showMsg('promoMsg', res.forever
+      ? `✓ ${tier} activated — no expiry.`
+      : `✓ ${months===12?'1 year':'1 month'} of ${tier} activated!`, 'success');
     setTimeout(()=>location.reload(), 1500);
   } catch(e){ showMsg('promoMsg','Something went wrong.','error'); }
 }

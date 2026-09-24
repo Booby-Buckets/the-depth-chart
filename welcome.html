@@ -180,7 +180,7 @@ async function saveStep1(){
   if(state.avatarFile){ try{ const ext=(state.avatarFile.name.split('.').pop()||'jpg').toLowerCase(); const path=`${S.user.id}/avatar.${ext}`;
       const up=await fetch(`${SB}/storage/v1/object/avatars/${path}`,{method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+S.access_token,'Content-Type':state.avatarFile.type,'x-upsert':'true'},body:state.avatarFile});
       if(up.ok) avatar_url=`${SB}/storage/v1/object/public/avatars/${path}?t=${Date.now()}`; }catch(e){} }
-  try{ const r=await fetch(`${SB}/rest/v1/profiles?id=eq.${S.user.id}`,{method:'PATCH',headers:{...authH(),Prefer:'return=minimal'},body:JSON.stringify({username:state.username,avatar_url,updated_at:new Date().toISOString()})});
+  try{ const r=await fetch(`${SB}/rest/v1/profiles?id=eq.${S.user.id}`,{method:'PATCH',headers:{...authH(),Prefer:'return=minimal'},body:JSON.stringify({username:state.username,avatar_url})});
     if(!r.ok){ const t=await r.text(); throw new Error(/username_key/.test(t)?'That username is already taken.':'Could not save.'); }
     state.avatarUrl=avatar_url; go(1);
   }catch(e){ const m=$('m1'); m.textContent=e.message; m.classList.add('show'); b.disabled=false; b.textContent='Continue →'; }
@@ -225,7 +225,7 @@ async function paintProg(){
 async function saveStep2(){
   const b=$('next2'); b.disabled=true; b.textContent='Saving…';
   const col=state.teamFull?(tdcTeamColorHex(state.teamFull)||null):null;
-  try{ await fetch(`${SB}/rest/v1/profiles?id=eq.${S.user.id}`,{method:'PATCH',headers:{...authH(),Prefer:'return=minimal'},body:JSON.stringify({favorite_team:state.team,...(col?{banner_color:col}:{}),updated_at:new Date().toISOString()})});
+  try{ await fetch(`${SB}/rest/v1/profiles?id=eq.${S.user.id}`,{method:'PATCH',headers:{...authH(),Prefer:'return=minimal'},body:JSON.stringify({favorite_team:state.team,...(col?{banner_color:col}:{})})});
     try{ localStorage.setItem('tdc_fav',state.team); }catch(e){} }catch(e){}
   go(2);
 }
