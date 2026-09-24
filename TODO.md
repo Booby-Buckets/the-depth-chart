@@ -78,3 +78,22 @@ by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!
       (rim/mid/three frequency bars colored by efficiency) + a game-scoring distribution
       (per-game points histogram with floor/avg/ceiling). Renders per player with shot/box
       data; freshmen/no-data players skip gracefully. Verified on Houston, no console errors.
+
+---
+
+## Captured 2026-09-23 (from Aidan)
+
+- [x] **Comp codes for free subscriptions** — `promo_codes` + `redeem_promo` already existed but
+      granted only `premium` for one month, both hardcoded. `scripts/promo_codes_comp_2026.sql`
+      adds `plan` / `never_expires` / `note`, teaches the function to honour them and to report
+      which tier it granted, and issues 12 single-use codes at `coach` (full access, no expiry).
+      Also fixed: the signup form's **Apply** button called `checkPromoCode()`, which does not
+      exist anywhere — it threw and did nothing. *(Aidan must run the SQL.)*
+- [ ] **Fix some headers** — which pages / what's wrong? Not yet specified.
+- [ ] **Fix some colors** — which pages / which colors? Not yet specified.
+- [ ] **Sign in with Google** — no OAuth anywhere today; auth is email+password via
+      `/auth/v1/token` (pricing.html) with the session in `localStorage.tdc_session`.
+      Supabase supports Google OAuth; needs the provider enabled + redirect URLs, then a
+      button that calls `/auth/v1/authorize?provider=google` and a callback that stores the
+      session in the same shape the rest of the site expects.
+- [ ] **"Some other things"** — not yet specified.

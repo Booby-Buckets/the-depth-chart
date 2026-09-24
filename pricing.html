@@ -568,8 +568,16 @@ async function handleSignUp(){
       });
     }
 
-    // Apply promo code if validated
-    if(validatedPromo) await redeemPromo(validatedPromo, token);
+    // Redeem the code now that there is an account to redeem against, and say what actually
+    // happened — a bad code used to fail silently and the user would never know.
+    if(validatedPromo){
+      const pr = await redeemPromo(validatedPromo, token);
+      if(!pr.ok){
+        showMsg('signupMsg','Account created, but that code did not apply: ' + (pr.msg || 'unknown error'),'error');
+        setTimeout(()=>{ location.href='welcome.html'; }, 2200);
+        return;
+      }
+    }
 
     showMsg('signupMsg','Account created! Let’s set up your profile…','success');
     setTimeout(()=>{ location.href='welcome.html'; }, 700);   // required setup: username → team → interests
@@ -589,20 +597,19 @@ async function handleSignOut(){
 }
 
 // ── PROMO CODES ─────────────────────────────────────────────
+// This button used to call checkPromoCode(), which does not exist anywhere in the codebase —
+// clicking Apply on the signup form threw a ReferenceError and nothing happened. It cannot
+// validate server-side either: redeem_promo keys off auth.uid(), so there is no account to
+// redeem against until signup completes, and a public "is this code real?" endpoint would hand
+// anyone an oracle for guessing codes. So hold the code and redeem it the moment the account
+// exists — handleSignup() reports whatever the server actually says.
 async function applyPromo(){
   const code = document.getElementById('signupPromo').value.trim().toUpperCase();
-  if(!code) return;
-  const result = await checkPromoCode(code);
-  if(result.valid){
-    validatedPromo = code;
-    const months = result.promo?.duration?.includes('year') ? 12 : 1;
-    const label = months === 12 ? '1 year' : '1 month';
-    document.getElementById('promoHint').textContent = `✓ Code applied — ${label} of Premium on signup!`;
-    document.getElementById('promoHint').style.color = 'var(--green)';
-  } else {
-    document.getElementById('promoHint').textContent = result.msg;
-    document.getElementById('promoHint').style.color = 'var(--red)';
-  }
+  const hint = document.getElementById('promoHint');
+  if(!code){ hint.textContent = ''; validatedPromo = null; return; }
+  validatedPromo = code;
+  hint.textContent = '✓ ' + code + ' will be applied when your account is created.';
+  hint.style.color = 'var(--text3)';
 }
 
 async function applyPromoAccount(){
@@ -616,8 +623,13 @@ async function applyPromoAccount(){
     document.getElementById('acctPromoHint').style.color = 'var(--red)';
     return;
   }
-  const m = res.months || 1;
-  document.getElementById('acctPromoHint').textContent = `✓ Code applied — ${m} free month${m>1?'s':''} added!`;
+  // say what was actually granted rather than assuming a month of Premium
+  const TIER = { premium:'Premium', pro:'Pro', coach:"Coach's Tier" };
+  const tier = TIER[res.plan] || 'Premium';
+  const m = res.months;
+  document.getElementById('acctPromoHint').textContent = res.forever
+    ? `✓ Code applied — ${tier}, no expiry.`
+    : `✓ Code applied — ${m || 1} free month${(m || 1) > 1 ? 's' : ''} of ${tier}!`;
   document.getElementById('acctPromoHint').style.color = 'var(--green)';
   setTimeout(()=>showAccount(session.access_token), 1000);
 }
