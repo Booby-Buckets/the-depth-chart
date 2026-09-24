@@ -89,6 +89,16 @@ by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!
       which tier it granted, and issues 12 single-use codes at `coach` (full access, no expiry).
       Also fixed: the signup form's **Apply** button called `checkPromoCode()`, which does not
       exist anywhere — it threw and did nothing. *(Aidan must run the SQL.)*
+- [x] **White-on-white text in LIGHT mode — awards.html and bracket.html** *(fixed)* *(Aidan, screenshot
+      2026-09-23)*. On Projected Awards the h1 "Projected Awards", the season pills, the
+      description line, and the section headers ("ALL-AMERICA TEAMS", "CONFERENCE AWARDS",
+      "A10 — ALL-CONFERENCE") all render white on the cream background — invisible. Player
+      names/teams inside the cards are fine, so it is the chrome, not the content. Same on
+      bracketology. ROOT CAUSE: tdc-hq-site.css's `body.hqsite` heading/label block hardcoded
+      `color:rgba(255,255,255,.92)` + `-webkit-text-fill-color:#fff` with `!important`. The
+      hqsite FIELD is theme-aware (cream light / navy dark) but the TEXT never followed, so all
+      **22** hqsite pages were broken in light mode, not just these two. Colours handed back to
+      var(--text)/var(--text3)/var(--border2); override strength kept. Verified both themes.
 - [ ] **Fix some headers** — which pages / what's wrong? Not yet specified.
 - [ ] **Fix some colors** — which pages / which colors? Not yet specified.
 - [ ] **Sign in with Google** — no OAuth anywhere today; auth is email+password via
