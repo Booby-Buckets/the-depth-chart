@@ -423,7 +423,15 @@ async function redeemPromo(){
       method:'POST', headers:{apikey:KEY, Authorization:`Bearer ${currentToken}`, 'Content-Type':'application/json'},
       body: JSON.stringify({ p_code: code })
     });
-    const res = r.ok ? await r.json() : { ok:false };
+    if(!r.ok){
+      // report the real failure — a non-200 here is almost always an expired session, and
+      // "could not apply code" sends people hunting for a bad code that is perfectly fine
+      const detail = await r.text().catch(()=> '');
+      if(r.status === 401 || r.status === 403) return showMsg('promoMsg','Your session has expired — sign out and back in, then try again.','error');
+      console.warn('redeem_promo failed', r.status, detail);
+      return showMsg('promoMsg', `Could not reach the redeem service (HTTP ${r.status}).`, 'error');
+    }
+    const res = await r.json();
     if(!res.ok) return showMsg('promoMsg', res.msg || 'Could not apply code.', 'error');
     const months = res.months || 1;
     // report what was actually granted — a code can now carry any tier, and can be permanent

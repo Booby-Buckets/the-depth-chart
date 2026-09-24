@@ -656,7 +656,17 @@ async function redeemPromoProfile(){
       headers:{ apikey:KEY, Authorization:`Bearer ${s.access_token}`, 'Content-Type':'application/json' },
       body: JSON.stringify({ p_code: code })
     });
-    if(!r.ok) return showMsg('pfPromoMsg','Could not verify that code.','error');
+    if(!r.ok){
+      // Say what actually happened. A bare "could not verify" sent us round in circles once
+      // already: the RPC is healthy, so a non-200 here is almost always an expired session,
+      // and the user needs to be told to sign in again rather than to try another code.
+      const detail = await r.text().catch(()=> '');
+      if(r.status === 401 || r.status === 403){
+        return showMsg('pfPromoMsg','Your session has expired — sign out and back in, then try again.','error');
+      }
+      console.warn('redeem_promo failed', r.status, detail);
+      return showMsg('pfPromoMsg', `Could not reach the redeem service (HTTP ${r.status}). ${String(detail).slice(0,160)}`,'error');
+    }
     const res = await r.json();
     if(!res?.ok) return showMsg('pfPromoMsg', res?.msg || 'Could not apply that code.','error');
     const TIER = { premium:'Premium', pro:'Pro', coach:"Coach's Tier" };
