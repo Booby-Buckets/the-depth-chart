@@ -501,10 +501,12 @@ for short, roster in roster_by_team.items():
         _lt=str((a["team"] if a is not None else "") or (_fi or {}).get("last_team") or "").lower().strip()
         _cf=str(full).lower().strip(); _cs=str(short).lower().strip()
         _ret=(bool(_lt) and (_lt==_cf or _lt.startswith(_cf+" "))) if _cf!=_cs else (bool(_lt) and _lt.startswith(_cs))
-        if a is not None:
-            _xfer=bool(a["team"]) and not _ret
-        else:
-            _xfer=bool(_fi and _fi.get("is_addition")) and not _ret
+        # Where a last school is known it decides the question outright — it is a fact, not a
+        # flag. Where it is not (a sheet line whose school we never learned), fall back to the
+        # owner's is_addition; sos_of then defaults to 0.80, a real haircut but a blunt one.
+        if _lt:            _xfer=not _ret
+        elif a is not None: _xfer=False
+        else:               _xfer=bool(_fi and _fi.get("is_addition"))
         _do=int(p.depth_order) if pd.notna(p.depth_order) else None
         _trust=bool(_ret) and last_mpg>=TRUST_MIN and _do is not None and _do<=TRUST_SLOT
         pm=proj_mpg(p.depth_order,last_mpg,starter,_trust)
@@ -698,12 +700,12 @@ for short, roster in roster_by_team.items():
         # neutral baseline, and on a short season that valuation is noise. A ten-game line was
         # producing an 89. Shrink the distance from neutral by games played; a full season is
         # untouched. Judge the grade, never the line: his per-game stats are real either way.
-        _fi=FILL.get(str(e))
-        if _fi and _fi.get("gp"):
-            _cred=min(1.0, float(_fi["gp"])/FILL_FULL_GP)
+        _fi=FILL.get(str(e)); _shortfill=0
+        if _fi and (_fi.get("cred") is not None or _fi.get("gp")):
+            # the fill states how much the GRADE built on this line can be trusted: short seasons
+            # and a year away both lower it. The LINE itself is never touched — it is what he did.
+            _cred=_fi["cred"] if _fi.get("cred") is not None else min(1.0,float(_fi["gp"])/FILL_FULL_GP)
             if _cred<1.0: ovr=int(round(FILL_NEUTRAL+(ovr-FILL_NEUTRAL)*_cred)); _shortfill=1
-            else: _shortfill=0
-        else: _shortfill=0
         out[str(e)]={
             "_shortfill":_shortfill,
             "ovr":ovr,"demo_ovr":int(r["demo"]),"proj_mpg":round(pm,1),"last_mpg":round(last_mpg,1),

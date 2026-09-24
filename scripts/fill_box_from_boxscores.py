@@ -53,9 +53,18 @@ def num(v):
     except (TypeError, ValueError):
         return 0.0
 
+# A player who sat out last season has no CUR line anywhere and never will — CBBD cannot help
+# either, because there is nothing to pull. His last real season is the only evidence there is.
+# LAYOFF_MAX=1 keeps this to players who missed exactly one year: the further back the baseline,
+# the less it says, and a large gap is almost always a WRONG espn_id rather than a long redshirt
+# (six roster rows, all listed as freshmen, are linked to other players' completed careers —
+# a listed freshman cannot have a prior college season, hence the class guard below).
+LAYOFF_MAX  = int(os.environ.get("LAYOFF_MAX", "1"))
+LAYOFF_CRED = float(os.environ.get("LAYOFF_CRED", "0.80"))   # a year out makes the grade less certain
+
 def main():
     print("Pulling roster, existing history, box scores…", file=sys.stderr)
-    SHEET = ("espn_id,name,team,is_addition,gp,mpg,ppg,apg,oreb,dreb,stl,blk,tovs,"
+    SHEET = ("espn_id,name,team,is_addition,class_year,yr,gp,mpg,ppg,apg,oreb,dreb,stl,blk,tovs,"
              "fgm,fga,tpm,tpa,ftm,fta,fg_pct,tp_pct,ft_pct")
     pl   = get(f"players?select={SHEET}&order=id.asc")
     hist = get(f"player_history?select=espn_id&season_year=eq.{CUR}&order=id.asc")
@@ -157,12 +166,58 @@ def main():
         r["min"] = round(mpg * gp, 1)
         out[e] = r
 
+    # ── third source: the last season he actually played ───────────────────────────
+    hist_all = get(f"player_history?select=espn_id,name,team,season_year,gp,mpg,ppg,apg,oreb,dreb,"
+                   f"stl,blk,tovs,fgm,fga,tpm,tpa,ftm,fta,fg_pct,tp_pct,ft_pct&season_year=lt.{CUR}&order=id.asc")
+    prior = {}
+    for r in hist_all:
+        if r.get("espn_id") is None: continue
+        if num(r.get("mpg")) < 3 or num(r.get("gp")) < 3: continue
+        e = str(int(r["espn_id"]))
+        if e not in prior or r["season_year"] > prior[e]["season_year"]: prior[e] = r
+    # player_advanced carries the ESPN team for that season; player_history's team column is
+    # sometimes stamped with the player's CURRENT school, which would hide a transfer
+    adv = {}
+    for c in chunks(want, 80):
+        q = ",".join(str(x) for x in c)
+        for r in get(f"player_advanced?select=espn_id,team,season_year&espn_id=in.({q})&order=espn_id.asc,season_year.asc"):
+            if r.get("espn_id") is None: continue
+            e = str(int(r["espn_id"]))
+            if e not in adv or r["season_year"] > adv[e]["season_year"]: adv[e] = r
+    nlay = 0
+    for e in map(str, want):
+        if e in out: continue
+        p, pr = sheet.get(e), prior.get(e)
+        if not p or not pr: continue
+        gap = CUR - pr["season_year"]
+        if gap < 1 or gap > LAYOFF_MAX: continue
+        cls = ((p.get("class_year") or p.get("yr") or "")).lower()
+        if "fr" in cls and "r-" not in cls and not cls.startswith("rs"): continue   # see LAYOFF_MAX note
+        r = {"espn_id": int(e), "name": pr.get("name"), "gp": int(num(pr["gp"])),
+             "src": "prior_season", "layoff": gap,
+             "team": (adv.get(e) or {}).get("team") or pr.get("team")}
+        for k in ("mpg","ppg","apg","oreb","dreb","stl","blk","tovs","fgm","fga","tpm","tpa",
+                  "ftm","fta","fg_pct","tp_pct","ft_pct"):
+            v = pr.get(k); r[k] = None if v is None else num(v)
+        r["min"] = round(num(pr["mpg"]) * num(pr["gp"]), 1)
+        out[e] = r; nlay += 1
+
     # is_addition is the owner's own "new to this roster" flag, and the only trustworthy
     # transfer signal for a filled player — player_advanced has no row for him by definition.
     for e, r in out.items():
         p = sheet.get(e)
         r["is_addition"] = bool(p and p.get("is_addition"))
-        r["last_team"] = r.get("team") if r["is_addition"] else None
+        # CBBD, box_scores and player_advanced all name the team the ESPN way, which is what the
+        # projection compares against — so for those the old school is a fact and the comparison
+        # itself decides whether he transferred. Only the roster-sheet path needs is_addition:
+        # its school comes from bbref in Sports-Reference spelling, which would fail to match a
+        # returner's own team and hand him a transfer discount he has not earned.
+        r["last_team"] = r.get("team") if (r["src"] != "roster_sheet" or r["is_addition"]) else None
+        # credibility of the GRADE built on this line — never of the line itself, which is real.
+        # Short seasons and a year away both make the valuation less certain.
+        cred = min(1.0, float(r["gp"]) / 20.0)
+        if r.get("layoff"): cred = min(cred, LAYOFF_CRED ** r["layoff"])
+        r["cred"] = round(cred, 3)
 
     covered = set(out)
     still = [e for e in want if str(e) in by and str(e) not in covered]
@@ -171,7 +226,9 @@ def main():
     nbox = sum(1 for r in out.values() if r["src"] == "box_scores")
     print(f"\nrebuilt from CBBD            : {ncb}", file=sys.stderr)
     print(f"rebuilt from our box scores  : {nbox}", file=sys.stderr)
-    print(f"rebuilt from the roster sheet: {len(out)-ncb-nbox}", file=sys.stderr)
+    nlay = sum(1 for r in out.values() if r["src"] == "prior_season")
+    print(f"rebuilt from the roster sheet: {len(out)-ncb-nbox-nlay}", file=sys.stderr)
+    print(f"projected off their last real season (sat out {LAYOFF_MAX}y max): {nlay}", file=sys.stderr)
     print(f"total season lines recovered : {len(out)}", file=sys.stderr)
     print(f"still with nothing to project: {len(want)-len(out)}  (no 2025-26 line anywhere — true freshmen and 1-2 game cameos)", file=sys.stderr)
     print(f"  of those recovered, flagged as newcomers: {sum(1 for r in out.values() if r['is_addition'])}"
