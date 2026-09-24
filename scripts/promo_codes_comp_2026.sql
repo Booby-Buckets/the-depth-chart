@@ -5,8 +5,15 @@
 -- both hardcoded in the function. This teaches it to grant any tier and to grant it forever,
 -- then issues twelve single-use codes at the top tier.
 --
--- Run the whole file in the Supabase SQL editor. Safe to re-run: the columns use IF NOT EXISTS,
--- the function is CREATE OR REPLACE, and the insert skips codes that are already there.
+-- Run the whole file in the Supabase SQL editor. Safe to re-run.
+--
+-- FIX 2026-09-23: the first version ended with `on conflict (code) do nothing`, which needs a
+-- unique constraint on promo_codes.code. Without one Postgres raises 42P10 and the INSERT never
+-- runs — the columns and the function were created, the codes were not, and redeeming returned
+-- "Code not found". The insert below needs no constraint.
+
+-- 0) what is actually in there right now (check this output if anything looks wrong)
+select count(*) as total_codes, count(*) filter (where used) as used_codes from public.promo_codes;
 
 -- 1) what a code grants. Existing rows keep today's behaviour: premium, one month.
 alter table public.promo_codes add column if not exists plan          text    not null default 'premium';
@@ -26,7 +33,7 @@ declare
   v_uid     uuid := auth.uid();
 begin
   if v_uid is null then return json_build_object('ok', false, 'msg', 'Not signed in'); end if;
-  select * into v from public.promo_codes where code = upper(btrim(p_code));
+  select * into v from public.promo_codes where upper(btrim(code)) = upper(btrim(p_code));
   if not found then return json_build_object('ok', false, 'msg', 'Code not found'); end if;
   if v.used    then return json_build_object('ok', false, 'msg', 'This code has already been used'); end if;
 
@@ -51,21 +58,30 @@ revoke all on function public.redeem_promo(text) from public;
 grant execute on function public.redeem_promo(text) to authenticated;
 
 -- 3) the codes. Single use each (redeem_promo marks `used`), so one per person.
-insert into public.promo_codes (code, plan, never_expires, note) values
-  ('DEPTH-9MXW-QMBM', 'coach', true, 'comp — full access, no expiry'),
-  ('DEPTH-3YL3-L7C9', 'coach', true, 'comp — full access, no expiry'),
-  ('DEPTH-4MZY-4BFJ', 'coach', true, 'comp — full access, no expiry'),
-  ('DEPTH-GGM3-Q5SF', 'coach', true, 'comp — full access, no expiry'),
-  ('DEPTH-RWWE-QN5E', 'coach', true, 'comp — full access, no expiry'),
-  ('DEPTH-DX25-48XT', 'coach', true, 'comp — full access, no expiry'),
-  ('DEPTH-7BSG-K266', 'coach', true, 'comp — full access, no expiry'),
-  ('DEPTH-KWHQ-PBF3', 'coach', true, 'comp — full access, no expiry'),
-  ('DEPTH-D3DT-B38E', 'coach', true, 'comp — full access, no expiry'),
-  ('DEPTH-W5GF-6JQ7', 'coach', true, 'comp — full access, no expiry'),
-  ('DEPTH-F6DJ-2DST', 'coach', true, 'comp — full access, no expiry'),
-  ('DEPTH-Q6EZ-6YU3', 'coach', true, 'comp — full access, no expiry')
-on conflict (code) do nothing;
+--    NOT NULL columns the original table may have (e.g. duration) are filled explicitly.
+insert into public.promo_codes (code, duration, used, plan, never_expires, note)
+select c.code, 'forever', false, 'coach', true, 'comp - full access, no expiry'
+from (values
+    ('DEPTH-9MXW-QMBM'),
+    ('DEPTH-3YL3-L7C9'),
+    ('DEPTH-4MZY-4BFJ'),
+    ('DEPTH-GGM3-Q5SF'),
+    ('DEPTH-RWWE-QN5E'),
+    ('DEPTH-DX25-48XT'),
+    ('DEPTH-7BSG-K266'),
+    ('DEPTH-KWHQ-PBF3'),
+    ('DEPTH-D3DT-B38E'),
+    ('DEPTH-W5GF-6JQ7'),
+    ('DEPTH-F6DJ-2DST'),
+    ('DEPTH-Q6EZ-6YU3')
+) as c(code)
+where not exists (
+  select 1 from public.promo_codes p where upper(btrim(p.code)) = c.code
+);
 
--- what you just created
-select code, plan, never_expires, used, note from public.promo_codes
-where note = 'comp — full access, no expiry' order by code;
+-- 4) VERIFY — you should see twelve rows, plan=coach, never_expires=t, used=f.
+--    If this comes back empty, the insert did not run: read the error above it.
+select code, plan, never_expires, used, note
+from public.promo_codes
+where note = 'comp - full access, no expiry'
+order by code;
