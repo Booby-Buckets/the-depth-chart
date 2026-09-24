@@ -333,7 +333,7 @@ advByEspn=adv.dropna(subset=["espn_id"]).drop_duplicates("espn_id").set_index("e
 # we have the games, and from the roster sheet where we do not, and records the school he
 # actually played for so the transfer level discount still applies.
 FILL={}
-_fp=os.path.join(os.path.dirname(os.path.abspath(__file__)),"data","box_fill_%d.json"%CUR)
+_fp=os.path.join(os.path.dirname(os.path.abspath(__file__)),"data","season_line_fill_%d.json"%CUR)
 if os.path.exists(_fp):
     _f=json.load(open(_fp)); FILL={str(k):v for k,v in (_f.get("players") or {}).items()}
     _add=[]

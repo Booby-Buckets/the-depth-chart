@@ -11,7 +11,11 @@ box_scores is ours and game-level, and it carries the team he actually played fo
 is also the signal the projection needs to apply the transfer level discount.
 
     python3 scripts/fill_box_from_boxscores.py            # report coverage
-    python3 scripts/fill_box_from_boxscores.py --write    # write scripts/data/box_fill_2026.json
+    python3 scripts/fill_box_from_boxscores.py --write    # write scripts/data/season_line_fill_2026.json
+
+Sources, best first: CBBD per-game rows (scripts/data/box_fill_YYYY.json, written by
+build_box_cbbd.py diff — full D-I coverage), then our own box_scores, then the roster sheet.
+Re-run this after a CBBD pull and the better data supersedes the sheet automatically.
 
 The JSON is read by build_stat_overall_projected.py; nothing here writes to Supabase.
 """
@@ -20,7 +24,12 @@ import json, os, sys, urllib.request, urllib.parse, collections
 KEY = os.environ.get("SUPABASE_ANON_KEY", "sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye")
 BASE = "https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/"
 CUR  = int(os.environ.get("CUR_SEASON", "2026"))
-OUT  = os.path.join(os.path.dirname(__file__), "data", "box_fill_%d.json" % CUR)
+DATA = os.path.join(os.path.dirname(__file__), "data")
+OUT  = os.path.join(DATA, "season_line_fill_%d.json" % CUR)
+# build_box_cbbd.py `diff` writes box_fill_YYYY.json (a flat list of per-GAME rows) into the same
+# directory — do not reuse that name, and do read it when it is there: CBBD covers all of D-I,
+# which is exactly what our own box_scores does not.
+CBBD = os.path.join(DATA, "box_fill_%d.json" % CUR)
 
 def get(path, page=1000):
     """Paged GET. Every paginated pull needs a stable ORDER BY or rows silently drop."""
@@ -72,12 +81,30 @@ def main():
         for r in get(f"bbref_seasons?select=espn_id,school&season_year=eq.{CUR}&espn_id=in.({q})&order=bbref_id.asc"):
             if r.get("espn_id") is not None and r.get("school"): bb[str(int(r["espn_id"]))] = r["school"]
 
-    rows = []
+    rows, src_of = [], {}
+    if os.path.exists(CBBD):
+        cb = json.load(open(CBBD))
+        wantset = set(want)
+        cb = [r for r in cb if r.get("espn_id") in wantset]
+        rows += cb
+        for r in cb: src_of[str(int(r["espn_id"]))] = "cbbd"
+        print(f"CBBD per-game rows for those players: {len(cb)}", file=sys.stderr)
+    else:
+        print("no CBBD pull on disk (scripts/data/box_fill_%d.json) — run build_box_cbbd.py to cover the low-majors" % CUR,
+              file=sys.stderr)
+
+    ours = []
     for c in chunks(want, 80):
         q = ",".join(str(x) for x in c)
-        rows += get(f"box_scores?select=espn_id,player,team,min,pts,reb,oreb,dreb,ast,stl,blk,tov,fgm,fga,tpm,tpa,ftm,fta"
+        ours += get(f"box_scores?select=espn_id,player,team,min,pts,reb,oreb,dreb,ast,stl,blk,tov,fgm,fga,tpm,tpa,ftm,fta"
                     f"&season_year=eq.{CUR}&espn_id=in.({q})&order=game_id.asc")
-    print(f"box_scores rows for those players: {len(rows)}", file=sys.stderr)
+    # CBBD wins where both have him — it is the complete source, and mixing two game sets for one
+    # player would double-count the games they share
+    have_cbbd = set(src_of)
+    ours = [r for r in ours if str(int(r["espn_id"])) not in have_cbbd]
+    for r in ours: src_of.setdefault(str(int(r["espn_id"])), "box_scores")
+    rows += ours
+    print(f"our box_scores rows added: {len(ours)}", file=sys.stderr)
 
     by = collections.defaultdict(list)
     for r in rows:
@@ -107,7 +134,7 @@ def main():
             "tp_pct": round(tpm / tpa * 100, 1) if tpa else None,
             "ft_pct": round(ftm / fta * 100, 1) if fta else None,
             "min":    round(S("min"), 1),
-            "src": "box_scores",
+            "src": src_of.get(e, "box_scores"),
         }
 
     # ── second source: the roster sheet ────────────────────────────────────────────
@@ -140,9 +167,11 @@ def main():
     covered = set(out)
     still = [e for e in want if str(e) in by and str(e) not in covered]
     none_ = [e for e in want if str(e) not in by]
+    ncb  = sum(1 for r in out.values() if r["src"] == "cbbd")
     nbox = sum(1 for r in out.values() if r["src"] == "box_scores")
-    print(f"\nrebuilt from our box scores : {nbox}", file=sys.stderr)
-    print(f"rebuilt from the roster sheet: {len(out)-nbox}", file=sys.stderr)
+    print(f"\nrebuilt from CBBD            : {ncb}", file=sys.stderr)
+    print(f"rebuilt from our box scores  : {nbox}", file=sys.stderr)
+    print(f"rebuilt from the roster sheet: {len(out)-ncb-nbox}", file=sys.stderr)
     print(f"total season lines recovered : {len(out)}", file=sys.stderr)
     print(f"still with nothing to project: {len(want)-len(out)}  (no 2025-26 line anywhere — true freshmen and 1-2 game cameos)", file=sys.stderr)
     print(f"  of those recovered, flagged as newcomers: {sum(1 for r in out.values() if r['is_addition'])}"
