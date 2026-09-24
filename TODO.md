@@ -119,4 +119,9 @@ by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!
       a Followers tab; there was no Following equivalent and the Following count was not
       clickable. Both directions now share one renderer (`loadFollowList`), the count cells both
       open their tab, and the list is newest-first.
+- [x] **profiles.plan rejected 'coach'** *(2026-09-23)* — redeeming a Coach's Tier comp failed
+      with 23514 check_violation. The CHECK on profiles.plan predates Coach's Tier; tdc-gate.js
+      has ranked four tiers for a while but the column was never widened. Latent beyond comps:
+      stripe-webhook sets plan='coach' for a coach checkout, so the first real Coach's Tier sale
+      would have failed identically. `scripts/fix_profiles_plan_check.sql`.
 - [ ] **"Some other things"** — not yet specified.
