@@ -88,6 +88,9 @@ XFER_OFF_STR=float(os.environ.get("XFER_OFF_STR","0.7"))  # 0=off, 1=fully apply
 # Value his production at a SOS pulled back toward where it was earned; 1=fully old-level,
 # 0=old behavior. Only bites on a step UP (max(0,...)); step-downs and returners are untouched.
 XFER_SOS_STR=float(os.environ.get("XFER_SOS_STR","0.85"))
+# a recovered season line with fewer than FILL_FULL_GP games has its GRADE pulled toward neutral
+FILL_FULL_GP=float(os.environ.get("FILL_FULL_GP","20"))
+FILL_NEUTRAL=float(os.environ.get("FILL_NEUTRAL","72"))
 # Impact reconciliation: the wa-based grade rewards USAGE + a backward-looking dwa, so an
 # efficient, high-impact forward (Faulkner: 61% FG, out-rebounds/out-blocks a higher-graded
 # teammate) grades BELOW a volume scorer even though his Total Impact (ti40) is higher — which
@@ -320,6 +323,33 @@ for _m,_a in (("tpm","tpa"),("ftm","fta")):
     _lo=box[[_m,_a]].min(axis=1); _hi=box[[_m,_a]].max(axis=1)
     box[_m]=_lo; box[_a]=_hi
 advByEspn=adv.dropna(subset=["espn_id"]).drop_duplicates("espn_id").set_index("espn_id")
+
+# ── BOX COVERAGE FILL ────────────────────────────────────────────────────────────────
+# player_history is built from ESPN team-stats pages for the teams we cover, so a player who
+# spent last season somewhere we do not cover — which is most of the incoming transfer class —
+# has no row, and the `espn_id in BOX_IDS` gate below dropped him from the projection entirely.
+# He then showed up across the site on a crude fallback line instead of a real projection.
+# scripts/fill_box_from_boxscores.py rebuilds those season lines from our own box_scores where
+# we have the games, and from the roster sheet where we do not, and records the school he
+# actually played for so the transfer level discount still applies.
+FILL={}
+_fp=os.path.join(os.path.dirname(os.path.abspath(__file__)),"data","box_fill_%d.json"%CUR)
+if os.path.exists(_fp):
+    _f=json.load(open(_fp)); FILL={str(k):v for k,v in (_f.get("players") or {}).items()}
+    _add=[]
+    for _e,_r in FILL.items():
+        _ei=int(_e)
+        if _ei in box.index: continue
+        _row={c: _r.get(c) for c in box.columns}
+        _row["espn_id"]=_ei; _add.append(_row)
+    if _add:
+        _df=pd.DataFrame(_add).set_index("espn_id")
+        box=pd.concat([box,_df])
+        for _c in box.columns: box[_c]=pd.to_numeric(box[_c],errors="coerce")
+        # a filled player has one more season on his odometer than player_history knows about
+        for _r in _add: CAREER_SEASONS[_r["espn_id"]]=CAREER_SEASONS.get(_r["espn_id"],0)+1
+    print("box fill: %d season lines recovered (%d added to the pool)"%(len(FILL),len(_add)),file=sys.stderr)
+
 BOX_IDS=set(int(x) for x in box.index)   # plain-int membership (Int64Index `in` is unreliable)
 
 # ---- SOS: TEAM-LEVEL strength blended with conference, then HAND-TUNED conference targets
@@ -464,10 +494,17 @@ for short, roster in roster_by_team.items():
         if last_mpg<3: continue
         starter=str(p.starter).lower() in ("true","t")
         # transfer? (last-year team != this school) — needed BEFORE the vacancy split AND the minutes
-        _lt=str((a["team"] if a is not None else "") or "").lower().strip()
+        # A filled player has no player_advanced row by construction, so his last school comes
+        # from the fill instead, and the owner's own is_addition flag is the transfer signal.
+        # Without this he would read as a returner and collect no level discount at all.
+        _fi=FILL.get(str(e))
+        _lt=str((a["team"] if a is not None else "") or (_fi or {}).get("last_team") or "").lower().strip()
         _cf=str(full).lower().strip(); _cs=str(short).lower().strip()
         _ret=(bool(_lt) and (_lt==_cf or _lt.startswith(_cf+" "))) if _cf!=_cs else (bool(_lt) and _lt.startswith(_cs))
-        _xfer=bool(a is not None and a["team"]) and not _ret
+        if a is not None:
+            _xfer=bool(a["team"]) and not _ret
+        else:
+            _xfer=bool(_fi and _fi.get("is_addition")) and not _ret
         _do=int(p.depth_order) if pd.notna(p.depth_order) else None
         _trust=bool(_ret) and last_mpg>=TRUST_MIN and _do is not None and _do<=TRUST_SLOT
         pm=proj_mpg(p.depth_order,last_mpg,starter,_trust)
@@ -505,7 +542,7 @@ for short, roster in roster_by_team.items():
         p,b,e=r["p"],r["b"],r["e"]; pos=_pos(p.position)
         last_mpg=r["last_mpg"]; pm=r["pm"]
         # transfer? computed once in the roster loop (r["xfer"]); needs the old team for the discounts
-        demo_team_full=(r["a"].team if r["a"] is not None else None)
+        demo_team_full=(r["a"].team if r["a"] is not None else (FILL.get(str(r["e"]),{}) or {}).get("last_team"))
         xfer = r["xfer"]
         if xfer:
             # A transfer's role is uncertain, so cap minutes at last year + a bump — BUT never below
@@ -656,7 +693,19 @@ for short, roster in roster_by_team.items():
             # 22-pt cliff (e.g. a 77-grade mid-major star bench-bound at a high-major bottoms near
             # 64, not 55). Only softens; never inflates.
             ovr=max(ovr,int(r["demo"])-XFER_MAXDROP)
+        # SAMPLE-SIZE GUARD on a filled player. He has no player_advanced row by construction,
+        # so there is no demonstrated grade behind him — the model values his box line against a
+        # neutral baseline, and on a short season that valuation is noise. A ten-game line was
+        # producing an 89. Shrink the distance from neutral by games played; a full season is
+        # untouched. Judge the grade, never the line: his per-game stats are real either way.
+        _fi=FILL.get(str(e))
+        if _fi and _fi.get("gp"):
+            _cred=min(1.0, float(_fi["gp"])/FILL_FULL_GP)
+            if _cred<1.0: ovr=int(round(FILL_NEUTRAL+(ovr-FILL_NEUTRAL)*_cred)); _shortfill=1
+            else: _shortfill=0
+        else: _shortfill=0
         out[str(e)]={
+            "_shortfill":_shortfill,
             "ovr":ovr,"demo_ovr":int(r["demo"]),"proj_mpg":round(pm,1),"last_mpg":round(last_mpg,1),
             "dev_mult":round(dm,3),"proj_usg":round(r["proj_usg"],1),"last_usg":round(r["last_usg"],1),
             "proj_wa":round(wa_line,1),"ti40":round(ti40,1),"usg":round(r["proj_usg"],1),
@@ -811,14 +860,16 @@ if IMPACT_LIFT>0 and out:
             # ROTATION REGULARS ONLY (proj_mpg>=18): a low-minute ti40 is noisy and would
             # over-lift bench players. RETURNERS ONLY: a transfer's ti40 reflects his OLD-level
             # production, so lifting it would undo the level-jump SOS discount (re-inflating a
-            # Big-South->high-major big like Duncomb). Both guards keep the lift honest.
-            if v.get("ti40") is None or v.get("proj_mpg",0)<18 or v.get("_xfer"): continue
+            # Big-South->high-major big like Duncomb). SHORT RECOVERED SEASONS TOO: a ten-game
+            # line has just been shrunk toward neutral for exactly this reason, and the lift
+            # would hand the noise straight back. All three guards keep the lift honest.
+            if v.get("ti40") is None or v.get("proj_mpg",0)<18 or v.get("_xfer") or v.get("_shortfill"): continue
             g_ti=_ti_to_grade(v["ti40"])
             if g_ti>v["ovr"]:
                 v["ovr"]=int(round(min(99, v["ovr"]+IMPACT_LIFT*(g_ti-v["ovr"]))))
     _keep=os.environ.get("KEEP_XF_DEBUG")   # local audit only; shipped build strips these
     for v in out.values():
-        v.pop("_xfer",None)                                                   # internal guard flag — always strip
+        v.pop("_xfer",None); v.pop("_shortfill",None)                                                   # internal guard flag — always strip
         if not _keep:
             for _k in ("_xfdisc","_ts","_from","_to","_srsgap"): v.pop(_k,None)
 
