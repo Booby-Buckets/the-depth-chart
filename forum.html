@@ -503,17 +503,15 @@ async function submitReply(){
       method:'POST',headers:{...authH(s.access_token),'Prefer':'return=minimal'},
       body:JSON.stringify({topic_id:currentTopicId,body,author_id:currentUser.id,author_name:uname})
     });
-    if(!r.ok) throw new Error();
-    // Increment reply count
-    await fetch(`${SB}/rest/v1/forum_topics?id=eq.${currentTopicId}`,{
-      method:'PATCH',headers:authH(s.access_token),
-      body:JSON.stringify({reply_count:(allTopics.find(t=>t.id===currentTopicId)?.reply_count||0)+1,updated_at:new Date().toISOString()})
-    });
+    if(!r.ok) return showMsg('replyMsg', await postError(r), 'error');
+    // The reply count is the trg_reply_count trigger's job. The client used to PATCH it here,
+    // which could never work on anyone else's thread — RLS on forum_topics only lets you write
+    // rows where author_id is you — and would double-count on your own once the trigger landed.
     document.getElementById('replyBody').value='';
     showMsg('replyMsg','Reply posted!','success');
     openTopic(currentTopicId);
     loadTopics();
-  } catch(e){ showMsg('replyMsg','Could not post reply.','error'); }
+  } catch(e){ showMsg('replyMsg','Could not post reply: '+(e.message||e),'error'); }
 }
 
 // ── NEW TOPIC ────────────────────────────────────────────────
@@ -532,12 +530,27 @@ async function submitTopic(){
       method:'POST',headers:{...authH(s.access_token),'Prefer':'return=minimal'},
       body:JSON.stringify({title,body:body||null,category:cat,author_id:currentUser.id,author_name:uname})
     });
-    if(!r.ok) throw new Error(await r.text());
+    if(!r.ok) return showMsg('topicMsg', await postError(r), 'error');
     closeModal();
     document.getElementById('topicTitle').value='';
     document.getElementById('topicBody').value='';
     loadTopics();
-  } catch(e){ showMsg('topicMsg','Could not post topic. Make sure you have a Premium account.','error'); }
+  } catch(e){ showMsg('topicMsg','Could not post topic: '+(e.message||e),'error'); }
+}
+
+// Say what the server actually said. Posting used to fail with "Could not post topic. Make
+// sure you have a Premium account." — a cause invented by the client, which is wrong (the forum
+// is not plan-gated) and sends people to the pricing page instead of to the real problem. Every
+// forum write is an ordinary PostgREST call, so its errors are readable and worth reading.
+async function postError(r){
+  let detail = '';
+  try { detail = await r.text(); } catch(e){}
+  console.warn('forum write failed', r.status, detail);
+  if(r.status === 401) return 'Your session has expired — sign out and back in, then try again.';
+  if(r.status === 403) return 'The server refused that write (403). If you are signed in, this is a permissions rule, not your account.';
+  let msg = '';
+  try { const j = JSON.parse(detail); msg = j.message || j.hint || j.details || ''; } catch(e){ msg = String(detail).slice(0,200); }
+  return `Could not post (HTTP ${r.status}). ${msg}`;
 }
 
 function showMsg(id,text,type){
