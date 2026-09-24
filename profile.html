@@ -418,6 +418,16 @@ function renderProfile(profile){
           <div style="margin-bottom:20px">${window.TDC_BILLING?TDC_BILLING.panel(profile):''}</div>
 
           <div style="border:1px solid var(--border);padding:20px;margin-bottom:20px;">
+            <div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;">Redeem a promo code</div>
+            <div style="font-size:13px;color:var(--text3);margin-bottom:12px;">Have a code? Enter it here — it applies to this account straight away.</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <input class="form-input" type="text" id="pfPromo" placeholder="DEPTH-XXXX-XXXX" style="flex:1;min-width:180px;text-transform:uppercase;" autocomplete="off"/>
+              <button class="form-btn" onclick="redeemPromoProfile()">Apply</button>
+            </div>
+            <div class="msg" id="pfPromoMsg"></div>
+          </div>
+
+          <div style="border:1px solid var(--border);padding:20px;margin-bottom:20px;">
             <div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;">Account</div>
             <div style="font-size:13px;color:var(--text3);margin-bottom:16px;">${currentUser?.email||''}</div>
             <button class="form-btn" style="background:var(--red);" onclick="signOut()">Sign Out</button>
@@ -627,6 +637,36 @@ async function signOut(){
   if(s) await fetch(`${SB}/auth/v1/logout`,{method:'POST',headers:{...H,'Authorization':`Bearer ${s.access_token}`}}).catch(()=>{});
   localStorage.removeItem('tdc_session');
   location.href='index.html';
+}
+
+// Redeeming from the Account tab. This is the page the nav sends a signed-in user to —
+// account.html has the same panel but nothing links to it, and both of those panels used to
+// hide themselves from anyone already on a paid plan. That is wrong now that a code can carry
+// a HIGHER tier than the one you are on: a Premium member redeeming a Coach's Tier comp had
+// nowhere to type it. Shown to every signed-in user; the server decides what it grants.
+async function redeemPromoProfile(){
+  const el = document.getElementById('pfPromo');
+  const code = (el?.value || '').trim().toUpperCase();
+  if(!code) return showMsg('pfPromoMsg','Enter a code first.','error');
+  const s = getSession();
+  if(!s?.access_token) return showMsg('pfPromoMsg','Please sign in first.','error');
+  try{
+    const r = await fetch(`${SB}/rest/v1/rpc/redeem_promo`,{
+      method:'POST',
+      headers:{ apikey:KEY, Authorization:`Bearer ${s.access_token}`, 'Content-Type':'application/json' },
+      body: JSON.stringify({ p_code: code })
+    });
+    if(!r.ok) return showMsg('pfPromoMsg','Could not verify that code.','error');
+    const res = await r.json();
+    if(!res?.ok) return showMsg('pfPromoMsg', res?.msg || 'Could not apply that code.','error');
+    const TIER = { premium:'Premium', pro:'Pro', coach:"Coach's Tier" };
+    const tier = TIER[res.plan] || 'Premium';
+    showMsg('pfPromoMsg', res.forever
+      ? `✓ ${tier} activated — no expiry.`
+      : `✓ ${res.months === 12 ? '1 year' : '1 month'} of ${tier} activated!`, 'success');
+    el.value = '';
+    setTimeout(()=>location.reload(), 1400);   // re-read the plan so the page reflects it
+  }catch(e){ showMsg('pfPromoMsg','Something went wrong.','error'); }
 }
 
 function showMsg(id,text,type){
