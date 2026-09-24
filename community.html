@@ -224,7 +224,7 @@ body{background:transparent!important;}
   if(!s?.access_token){location.href='pricing.html?gate=1';return;}
   fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user?.id+'&select=plan',{
     headers:{'apikey':'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye','Authorization':'Bearer '+s.access_token}
-  }).then(r=>r.json()).then(([p])=>{if(!(window.tdcIsOwner&&window.tdcIsOwner())&&(!p||p.plan!=='premium'))location.href='pricing.html?gate=1';}).catch(()=>location.href='pricing.html?gate=1');
+  }).then(r=>r.json()).then(([p])=>{if(!(window.tdcIsOwner&&window.tdcIsOwner())&&(!p||['premium','pro','coach'].indexOf(p.plan)<0))location.href='pricing.html?gate=1';}).catch(()=>location.href='pricing.html?gate=1');
 })();
 </script>
 
@@ -408,7 +408,7 @@ function updateCounts(){
 function setCategory(cat,btn){currentCategory=cat;document.querySelectorAll('.cat-item').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderTopics();}
 function renderTopics(){
   const filtered=currentCategory?allTopics.filter(t=>t.category===currentCategory):allTopics;
-  const isPremium=currentProfile?.plan==='premium';
+  const isPremium=['premium','pro','coach'].includes(currentProfile?.plan);   // a tier ABOVE premium is still paid
   const postBtn=`<button class="new-topic-btn" onclick="openModal()" ${!currentUser||!isPremium?'disabled':''}>+ New Topic</button>`;
   const notice=!currentUser?`<div class="premium-notice">Sign in to join. <a href="pricing.html">Sign In →</a></div>`:!isPremium?`<div class="premium-notice">Premium members can post. <a href="pricing.html">Upgrade →</a></div>`:'';
   if(!filtered.length){document.getElementById('forumContent').innerHTML=`<div class="main-header"><div class="main-title">${currentCategory||'All Topics'}</div>${postBtn}</div>${notice}<div class="empty-state">No topics yet!</div>`;return;}
@@ -468,11 +468,11 @@ function renderMembers(){
     const isMe=currentUser&&m.id===currentUser.id;
     const isFollowing=myFollows.has(m.id);
     const followBtn=isMe?'':`<button class="follow-btn${isFollowing?' following':''}" onclick="toggleFollow(event,'${m.id}',this)">${isFollowing?'Following':'Follow'}</button>`;
-    return`<a class="member-card${m.plan==='premium'?' prem':''}" href="profile.html?user=${encodeURIComponent(uname)}" onclick="return!event.target.classList.contains('follow-btn')">
+    return`<a class="member-card${['premium','pro','coach'].includes(m.plan)?' prem':''}" href="profile.html?user=${encodeURIComponent(uname)}" onclick="return!event.target.classList.contains('follow-btn')">
       <div class="member-avatar">${av}</div>
       <div class="member-name">${uname}${vBadge(m)}</div>
       ${m.favorite_team?`<div class="member-team">🏀 ${m.favorite_team}</div>`:''}
-      <span class="member-plan ${m.plan==='premium'?'premium':'free'}">${m.plan==='premium'?'Premium':'Free'}</span>
+      <span class="member-plan ${['premium','pro','coach'].includes(m.plan)?'premium':'free'}">${window.TDC_BADGE?TDC_BADGE.label(m):(['premium','pro','coach'].includes(m.plan)?'Premium':'Free')}</span>
       <div class="member-followers">${m.follower_count||0} follower${m.follower_count!==1?'s':''}</div>
       ${followBtn}
     </a>`;

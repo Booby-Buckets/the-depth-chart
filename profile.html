@@ -310,7 +310,7 @@ function renderProfile(profile){
     : `background:${banner};`;
 
   const verifiedBadge = (window.TDC_BADGE?TDC_BADGE.html(profile,{size:'22px',ml:'8px'}):'');
-  const planLabel=(window.TDC_BADGE?TDC_BADGE.label(profile):(profile.plan==='premium'?'Premium':'Free'));
+  const planLabel=(window.TDC_BADGE?TDC_BADGE.label(profile):(['premium','pro','coach'].includes(profile.plan)?'Premium':'Free'));
   const paid=!!(window.TDC_BADGE&&TDC_BADGE.tierOf(profile));
 
   document.getElementById('profileContent').innerHTML=`
@@ -528,7 +528,7 @@ async function loadFollowList(dir){
       const uname=p.username||'User';
       const av=p.avatar_url?`<img class="pf-av" src="${p.avatar_url}">`:`<span class="pf-av">${uname[0].toUpperCase()}</span>`;
       const vb=(window.TDC_BADGE?TDC_BADGE.html(p):'');
-      const lab=(window.TDC_BADGE?TDC_BADGE.label(p):(p.plan==='premium'?'Premium':'Free')), pd=!!(window.TDC_BADGE&&TDC_BADGE.tierOf(p));
+      const lab=(window.TDC_BADGE?TDC_BADGE.label(p):(['premium','pro','coach'].includes(p.plan)?'Premium':'Free')), pd=!!(window.TDC_BADGE&&TDC_BADGE.tierOf(p));
       return `<tr><td class="l nm">${av}<a href="profile.html?user=${encodeURIComponent(uname)}">${uname}</a>${vb}</td><td class="l dim">${p.favorite_team||'—'}</td><td class="l" style="color:${pd?'var(--accent)':'var(--text3)'};font-weight:${pd?800:500}">${lab}</td></tr>`;
     }).join('')}</tbody></table></div>`;
   } catch(e){ el.innerHTML=`<div style="padding:20px;color:var(--text3);">${cfg.err}</div>`; }

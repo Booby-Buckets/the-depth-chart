@@ -63,8 +63,46 @@
     .member-name{font-family:'Playfair Display',serif;font-weight:700;font-size:15px;text-align:center;margin-bottom:4px;color:var(--text);display:flex;align-items:center;justify-content:center;gap:4px;}
     .member-team{font-size:11px;font-weight:600;color:var(--text3);text-align:center;margin-bottom:6px;}
     .member-plan{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;text-align:center;display:inline-block;}
-    .member-plan.premium{background:rgba(26,140,58,.1);color:var(--green);}
+    .member-plan.premium{background:rgba(230,213,168,.16);color:#A8843C;}
+    .member-plan.pro{background:rgba(142,92,255,.14);color:#7A5CFF;}
+    .member-plan.coach{background:linear-gradient(90deg,rgba(90,184,117,.20),rgba(230,213,168,.24));color:#2E7D4F;}
     .member-plan.free{background:var(--bg2);color:var(--text3);}
+    [data-theme="dark"] .member-plan.premium{color:#E6D5A8;}
+    [data-theme="dark"] .member-plan.pro{color:#B9A3FF;}
+    [data-theme="dark"] .member-plan.coach{color:#8FE0A8;}
+
+    /* Coach's Tier members read as the top tier at a glance: the seal's own green→gold
+       gradient as a border, and a faint wash so the card stands out in a grid of plain ones.
+       border-box/padding-box layering keeps the gradient on the border only. */
+    .member-card.coach{
+      position:relative;
+      border:2px solid transparent;
+      /* three layers: the tint, an OPAQUE base beneath it, then the gradient on the border.
+         Without the opaque middle layer the border gradient shows through the whole card. */
+      background:
+        linear-gradient(160deg,rgba(90,184,117,.08),rgba(230,213,168,.12)) padding-box,
+        linear-gradient(var(--bg),var(--bg)) padding-box,
+        linear-gradient(120deg,#5AB875,#E6D5A8 42%,#C8A020 58%,#5AB875) border-box;
+      box-shadow:0 6px 20px rgba(90,184,117,.14);
+    }
+    /* a corner seal so it still reads as the top tier at a glance in a dense grid,
+       where a border alone gets lost */
+    .member-card.coach::after{
+      content:'';position:absolute;top:0;right:0;width:34px;height:34px;pointer-events:none;
+      background:linear-gradient(225deg,rgba(230,213,168,.55) 0 48%,transparent 48%);
+    }
+    .member-card.coach:hover{
+      transform:translateY(-2px);
+      box-shadow:0 12px 30px rgba(90,184,117,.26);
+    }
+    [data-theme="dark"] .member-card.coach{
+      background:
+        linear-gradient(160deg,rgba(90,184,117,.14),rgba(230,213,168,.10)) padding-box,
+        linear-gradient(var(--bg2),var(--bg2)) padding-box,
+        linear-gradient(120deg,#5AB875,#E6D5A8 42%,#C8A020 58%,#5AB875) border-box;
+    }
+    .member-card.pro{border-color:rgba(142,92,255,.45);}
+    .member-card.premium{border-color:rgba(230,213,168,.55);}
     .member-joined{font-size:10px;color:var(--text3);text-align:center;margin-top:6px;}
     .verified-badge{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;background:var(--accent);border-radius:50%;flex-shrink:0;}
     .verified-badge svg{width:8px;height:8px;fill:#fff;}
@@ -123,7 +161,7 @@
   if(!s?.access_token){location.href='pricing.html?gate=1';return;}
   fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user?.id+'&select=plan',{
     headers:{'apikey':'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye','Authorization':'Bearer '+s.access_token}
-  }).then(r=>r.json()).then(([p])=>{if(!(window.tdcIsOwner&&window.tdcIsOwner())&&(!p||p.plan!=='premium'))location.href='pricing.html?gate=1';}).catch(()=>location.href='pricing.html?gate=1');
+  }).then(r=>r.json()).then(([p])=>{if(!(window.tdcIsOwner&&window.tdcIsOwner())&&(!p||['premium','pro','coach'].indexOf(p.plan)<0))location.href='pricing.html?gate=1';}).catch(()=>location.href='pricing.html?gate=1');
 })();
 </script>
 
@@ -228,12 +266,13 @@ function render(){
         ? `<img src="${m.avatar_url}" alt="${uname}"/>`
         : uname[0].toUpperCase();
       const verified = (window.TDC_BADGE?TDC_BADGE.html(m):'');
-      return `<a class="member-card" href="profile.html?user=${encodeURIComponent(uname)}">
+      const tier = (window.TDC_BADGE && TDC_BADGE.tierOf(m)) || '';   // premium | pro | coach | ''
+      return `<a class="member-card${tier?' '+tier:''}" href="profile.html?user=${encodeURIComponent(uname)}">
         <div class="member-avatar">${avatar}</div>
         <div class="member-name">${uname}${verified}</div>
         ${m.favorite_team?`<div class="member-team">🏀 ${m.favorite_team}</div>`:''}
         <div class="member-footer">
-          <span class="member-plan ${m.plan==='premium'?'premium':'free'}">${m.plan==='premium'?'Premium':'Free'}</span>
+          <span class="member-plan ${tier||'free'}">${window.TDC_BADGE?TDC_BADGE.label(m):(tier?'Premium':'Free')}</span>
           <div class="member-joined">Joined ${timeAgo(m.created_at)}</div>
         </div>
       </a>`;

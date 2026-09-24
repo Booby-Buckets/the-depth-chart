@@ -182,7 +182,7 @@
   fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user?.id+'&select=plan',{
     headers:{'apikey':'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye','Authorization':'Bearer '+s.access_token}
   }).then(r=>r.json()).then(([p])=>{
-    if(!(window.tdcIsOwner&&window.tdcIsOwner())&&(!p||p.plan!=='premium')) location.href='pricing.html?gate=1';
+    if(!(window.tdcIsOwner&&window.tdcIsOwner())&&(!p||['premium','pro','coach'].indexOf(p.plan)<0)) location.href='pricing.html?gate=1';
   }).catch(()=>location.href='pricing.html?gate=1');
 })();
 </script>
@@ -349,7 +349,9 @@ function updateNav(){
   // Show user card in sidebar
   document.getElementById('userCard').style.display='block';
   document.getElementById('sidebarUsername').textContent = uname;
-  document.getElementById('sidebarPlan').textContent = currentProfile?.plan==='premium'?'Premium Member':'Free Member';
+  document.getElementById('sidebarPlan').textContent = (window.TDC_BADGE&&TDC_BADGE.tierOf(currentProfile))
+    ? TDC_BADGE.label(currentProfile)+' Member'
+    : (['premium','pro','coach'].includes(currentProfile?.plan)?'Premium Member':'Free Member');
   const av = document.getElementById('sidebarAvatar');
   if(currentProfile?.avatar_url){
     av.innerHTML=`<img src="${currentProfile.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"/>`;
@@ -387,7 +389,7 @@ function setCategory(cat, btn){
 
 function renderTopics(){
   const filtered = currentCategory ? allTopics.filter(t=>t.category===currentCategory) : allTopics;
-  const isPremium = currentProfile?.plan==='premium';
+  const isPremium = ['premium','pro','coach'].includes(currentProfile?.plan);   // a tier ABOVE premium is still paid
 
   const postBtn = `<button class="new-topic-btn" onclick="openModal()" ${!currentUser?'disabled title="Sign in to post"':!isPremium?'disabled title="Premium required to post"':''}>+ New Topic</button>`;
 
@@ -444,7 +446,7 @@ async function openTopic(id){
   const replies = await r.json();
 
   // Fetch author profiles for display
-  const isPremium = currentProfile?.plan==='premium';
+  const isPremium = ['premium','pro','coach'].includes(currentProfile?.plan);   // a tier ABOVE premium is still paid
   const canReply = currentUser; // any logged in user can reply
 
   document.getElementById('mainContent').innerHTML=`
