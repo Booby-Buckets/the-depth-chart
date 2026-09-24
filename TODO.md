@@ -115,4 +115,8 @@ by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!
 - [x] **Promo codes for existing accounts** — already worked (account.html "Redeem Promo Code"),
       but the success message hardcoded "of Premium" and the placeholder showed the wrong format.
       Both now read the granted tier from the server response.
+- [x] **Follow list — who I follow / who follows me** *(2026-09-23)* — profile.html already had
+      a Followers tab; there was no Following equivalent and the Following count was not
+      clickable. Both directions now share one renderer (`loadFollowList`), the count cells both
+      open their tab, and the list is newest-first.
 - [ ] **"Some other things"** — not yet specified.

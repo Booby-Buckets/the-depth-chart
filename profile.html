@@ -336,7 +336,7 @@ function renderProfile(profile){
 
       <div class="pf-band">
         <div class="cell clk" onclick="switchTab('followers')"><div class="v" id="followerCount">0</div><div class="l">Followers</div></div>
-        <div class="cell"><div class="v" id="followingCount">0</div><div class="l">Following</div></div>
+        <div class="cell clk" onclick="switchTab('following')"><div class="v" id="followingCount">0</div><div class="l">Following</div></div>
         <div class="cell clk" onclick="switchTab('posts')"><div class="v" id="postCount">0</div><div class="l">Posts</div></div>
         <div class="cell"><div class="v txt">${profile.favorite_team?profile.favorite_team:'—'}</div><div class="l">Favorite team</div></div>
         <div class="cell"><div class="v txt">${joined}</div><div class="l">Member since</div></div>
@@ -346,6 +346,7 @@ function renderProfile(profile){
       <div class="profile-tabs" style="margin-top:18px">
         <button class="profile-tab active" id="tab-posts" onclick="switchTab('posts')">Posts</button>
         <button class="profile-tab" id="tab-followers" onclick="switchTab('followers')">Followers</button>
+        <button class="profile-tab" id="tab-following" onclick="switchTab('following')">Following</button>
         ${isOwnProfile?`<button class="profile-tab" id="tab-edit" onclick="switchTab('edit')">Edit Profile</button>`:''}
         ${isOwnProfile?`<button class="profile-tab" id="tab-account" onclick="switchTab('account')">Account</button>`:''}
       </div>
@@ -358,6 +359,12 @@ function renderProfile(profile){
 
       <div id="tab-content-followers" style="display:none;">
         <div class="posts-section" id="followersList">
+          <div class="loading-spinner" style="margin:20px auto;"></div>
+        </div>
+      </div>
+
+      <div id="tab-content-following" style="display:none;">
+        <div class="posts-section" id="followingList">
           <div class="loading-spinner" style="margin:20px auto;"></div>
         </div>
       </div>
@@ -448,13 +455,14 @@ async function loadTeamsForEdit(favTeam){
 }
 
 function switchTab(tab){
-  ['posts','followers','edit','account'].forEach(t=>{
+  ['posts','followers','following','edit','account'].forEach(t=>{
     const btn=document.getElementById('tab-'+t);
     const content=document.getElementById('tab-content-'+t);
     if(btn) btn.classList.toggle('active',t===tab);
     if(content) content.style.display=t===tab?'block':'none';
   });
   if(tab==='followers') loadFollowers();
+  if(tab==='following') loadFollowing();
 }
 
 async function loadFollowCounts(profileId){
@@ -472,10 +480,21 @@ async function loadFollowCounts(profileId){
   } catch(e){}
 }
 
-async function loadFollowers(){
-  const el = document.getElementById('followersList');
+// Followers and Following are the same list read in opposite directions, so they share one
+// renderer — the only differences are which column of `follows` is the anchor, which side the
+// embedded profile hangs off, and the empty-state wording.
+const FOLLOW_DIR = {
+  followers: { el:'followersList', anchor:'following_id', join:'follower_id',
+               empty:'No followers yet.',            err:'Could not load followers.' },
+  following: { el:'followingList', anchor:'follower_id', join:'following_id',
+               empty:'Not following anyone yet.',    err:'Could not load the following list.' }
+};
+
+async function loadFollowList(dir){
+  const cfg = FOLLOW_DIR[dir];
+  const el = document.getElementById(cfg.el);
   if(!el) return;
-  // Get profile id from URL or own profile
+  // whose profile is this — the ?user= in the URL, else your own
   const urlUser = new URLSearchParams(location.search).get('user');
   let profileId = currentUser?.id;
   if(urlUser){
@@ -487,9 +506,13 @@ async function loadFollowers(){
   }
   if(!profileId){ el.innerHTML='<div style="padding:20px;color:var(--text3);">Not found.</div>'; return; }
   try {
-    const r = await fetch(`${SB}/rest/v1/follows?following_id=eq.${profileId}&select=follower_id,profiles!follower_id(username,avatar_url,verified,plan,favorite_team)`,{headers:H});
+    const r = await fetch(`${SB}/rest/v1/follows?${cfg.anchor}=eq.${profileId}`
+      + `&select=${cfg.join},created_at,profiles!${cfg.join}(username,avatar_url,verified,plan,favorite_team)`
+      + `&order=created_at.desc`, {headers:H});
     const data = await r.json();
-    if(!data.length){ el.innerHTML='<div style="padding:20px;color:var(--text3);font-size:13px;">No followers yet.</div>'; return; }
+    if(!Array.isArray(data) || !data.length){
+      el.innerHTML=`<div style="padding:20px;color:var(--text3);font-size:13px;">${cfg.empty}</div>`; return;
+    }
     el.innerHTML = `<div class="sheet-wrap" style="margin-top:0"><table class="sheet"><thead><tr><th class="l">Member</th><th class="l">Favorite team</th><th class="l">Plan</th></tr></thead><tbody>${data.map(f=>{
       const p=f.profiles||{};
       const uname=p.username||'User';
@@ -498,8 +521,11 @@ async function loadFollowers(){
       const lab=(window.TDC_BADGE?TDC_BADGE.label(p):(p.plan==='premium'?'Premium':'Free')), pd=!!(window.TDC_BADGE&&TDC_BADGE.tierOf(p));
       return `<tr><td class="l nm">${av}<a href="profile.html?user=${encodeURIComponent(uname)}">${uname}</a>${vb}</td><td class="l dim">${p.favorite_team||'—'}</td><td class="l" style="color:${pd?'var(--accent)':'var(--text3)'};font-weight:${pd?800:500}">${lab}</td></tr>`;
     }).join('')}</tbody></table></div>`;
-  } catch(e){ el.innerHTML='<div style="padding:20px;color:var(--text3);">Could not load followers.</div>'; }
+  } catch(e){ el.innerHTML=`<div style="padding:20px;color:var(--text3);">${cfg.err}</div>`; }
 }
+
+async function loadFollowers(){ return loadFollowList('followers'); }
+async function loadFollowing(){ return loadFollowList('following'); }
 
 function showEditTab(){ switchTab('edit'); document.getElementById('tab-content-edit')?.scrollIntoView({behavior:'smooth'}); }
 
