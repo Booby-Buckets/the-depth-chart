@@ -16,3 +16,23 @@ window.TDC_TEAM_COLORS={"st joes":{"c1":"#9e1b32","c2":"#6c6f70","logo":"https:/
     return full;
   };
 })();
+
+/* tdcBandColor(hex) — a team colour for a HEADER BAND that carries white text: the colour
+   darkened only as far as white needs (WCAG 4.5:1), the same rule The Depth Chart CFB's
+   paintTeam uses. A fixed darken muddies every team; no darken makes light colours
+   (a pale gold, a light blue) unreadable. Returns rgb(). Used by the team and player pages. */
+window.tdcBandColor = function (hex) {
+  var h = String(hex || '').replace('#', '');
+  if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
+  if (!/^[0-9a-f]{6}$/i.test(h)) return 'rgb(11,18,32)';
+  var c = [0, 2, 4].map(function (i) { return parseInt(h.substr(i, 2), 16); });
+  function lum(r) {
+    var v = r.map(function (x) { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); });
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+  }
+  for (var t = 0; t <= 1.0001; t += 0.05) {
+    var m = c.map(function (v) { return Math.round(v * (1 - t)); });
+    if (1.05 / (lum(m) + 0.05) >= 4.5) return 'rgb(' + m.join(',') + ')';
+  }
+  return 'rgb(0,0,0)';
+};

@@ -9,7 +9,7 @@
    per-page nav edits. Auth-aware (avatar when signed in); current page's group
    is auto-highlighted.
 
-   Usage: `<script src="tdc-nav.js?v=3"></script>` near the top of <body>. */
+   Usage: `<script src="tdc-nav.js?v=28"></script>` near the top of <body>. */
 (function () {
   if (window.__tdcNav) return; window.__tdcNav = 1;
 
@@ -68,12 +68,21 @@
     css.id = 'tdc-nav-css';
     css.textContent = [
       '.nav-wrap{display:none!important;}',            // suppress legacy inline nav on older pages
-      '.tdn-wrap{border-bottom:1px solid var(--border);background:rgba(250,249,246,.72);backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);position:sticky;top:0;z-index:400;}',
-      '[data-theme="dark"] .tdn-wrap{background:rgba(20,20,22,.86);border-bottom-color:rgba(26,43,68,.9);}',
-      '.tdn-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;min-width:0;}',
-      '@keyframes tdnLogo{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:translateX(0);}}',
-      ".tdn-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;letter-spacing:-.01em;white-space:nowrap;animation:tdnLogo .55s cubic-bezier(.22,1,.36,1) both;}",
+      '.tdn-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:400;}',
+      // the bar's contents sit in the same 1400px column as the page, like CFB
+      // same column maths as tdc-column.css, so the bar lines up with the page at EVERY width:
+      // content starts at max(gutter, the space that centres a 1400px column)
+      ':root{--tdc-col:1400px;--tdc-gut:64px;}',
+      '@media(max-width:1100px){:root{--tdc-gut:32px;}}',
+      '@media(max-width:760px){:root{--tdc-gut:14px;}}',
+      '.tdn-col{padding:0 max(var(--tdc-gut),calc((100% - var(--tdc-col)) / 2));}',
+      '.tdn-top{height:52px;display:flex;align-items:center;justify-content:space-between;min-width:0;}',
+      ".tdn-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;letter-spacing:-.01em;white-space:nowrap;}",
       '.tdn-logo span{color:var(--accent);}',
+      // sport badge, mirroring CFB's green turf 'CFB': basketball's is hardwood
+      ".tdn-logo em{font-style:normal;font-family:'Inter',sans-serif;font-size:10px;font-weight:800;letter-spacing:.14em;color:var(--court-on,#fff);background:var(--court,#A8531F);padding:3px 6px;margin-left:8px;vertical-align:3px;border-radius:3px;}",
+      '.tdn-x{font-size:11px!important;font-weight:700!important;letter-spacing:.08em!important;}',
+      '@media(max-width:520px){.tdn-x{display:none!important;}}',
       '.tdn-actions{display:flex;align-items:center;gap:20px;}',
       '.tdn-actions a{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;transition:color .15s;}',
       '.tdn-actions a:hover{color:var(--text);}',
@@ -81,9 +90,10 @@
       '.tdn-signin:hover{opacity:.85;}',
       '.tdn-wrap .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:border-color .15s,color .15s;}',
       '.tdn-wrap .theme-toggle:hover{border-color:var(--accent);color:var(--text);}',
-      '.tdn-row{border-top:1px solid var(--border);padding:0 40px;display:flex;flex-wrap:wrap;align-items:stretch;gap:2px;position:relative;}',
+      '.tdn-rowwrap{border-top:1px solid var(--border);}',
+      '.tdn-row{display:flex;flex-wrap:wrap;align-items:stretch;gap:2px;position:relative;}',
       '.tdn-group{position:relative;display:flex;align-items:stretch;flex-shrink:0;}',
-      '.tdn-btn{font-family:inherit;background:none;border:none;cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:0 15px;height:38px;display:flex;align-items:center;gap:6px;white-space:nowrap;position:relative;transition:color .18s;}',
+      '.tdn-btn{font-family:inherit;background:none;border:none;cursor:pointer;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:0 14px;height:36px;display:flex;align-items:center;gap:6px;white-space:nowrap;position:relative;transition:color .18s;}',
       '.tdn-row .tdn-group:first-child .tdn-btn{padding-left:0;}',
       '.tdn-btn .car{width:7px;height:7px;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:rotate(45deg) translateY(-1px);opacity:.65;transition:transform .2s;}',
       '.tdn-btn:hover{color:var(--text);}',
@@ -92,7 +102,7 @@
       '.tdn-row .tdn-group:first-child .tdn-btn.active::after{left:0;}',
       '.tdn-group.open .tdn-btn{color:var(--text);}',
       '.tdn-group.open .tdn-btn .car{transform:rotate(225deg) translateY(2px);}',
-      '.tdn-menu{position:absolute;top:calc(100% + 4px);left:0;min-width:190px;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;box-shadow:0 16px 44px rgba(0,0,0,.26);padding:6px;opacity:0;visibility:hidden;transform:translateY(-6px);transition:opacity .16s,transform .16s;z-index:60;}',
+      '.tdn-menu{position:absolute;top:100%;left:0;min-width:200px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;box-shadow:0 10px 26px rgba(0,0,0,.10);padding:6px;opacity:0;visibility:hidden;transform:translateY(-6px);transition:opacity .16s,transform .16s;z-index:60;}',
       '.tdn-row .tdn-group:first-child .tdn-menu{left:0;}',
       // a CLOSED menu still occupies layout (visibility:hidden), and a right-hand group's panel
       // stuck past the phone's edge, so every page scrolled sideways ~50px. Closed = no layout.
@@ -101,17 +111,17 @@
       // and it can never hang off the right edge of a phone
       '@media(max-width:760px){.tdn-menu{left:auto;right:0;max-width:calc(100vw - 24px);}}',
       '.tdn-group.open .tdn-menu{opacity:1;visibility:visible;transform:translateY(0);}',
-      '.tdn-menu a{display:block;font-size:12.5px;font-weight:600;letter-spacing:.01em;text-transform:none;color:var(--text2);text-decoration:none;padding:9px 13px;border-radius:8px;white-space:nowrap;transition:background .13s,color .13s;}',
+      '.tdn-menu a{display:block;font-size:12.5px;font-weight:600;letter-spacing:.01em;text-transform:none;color:var(--text2);text-decoration:none;padding:8px 12px;border-radius:4px;white-space:nowrap;transition:background .13s,color .13s;}',
       '.tdn-menu a:hover{background:var(--bg3);color:var(--text);}',
       '.tdn-menu a.active{color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);}',
       '@media(max-width:900px){',
-      '.tdn-top{height:44px;padding:0 12px!important;}',
+      '.tdn-top{height:44px;}',
       '.tdn-logo{font-size:15px;}',
       '.tdn-signin{padding:5px 8px;font-size:10px;letter-spacing:.02em;}',
       '.tdn-actions{gap:8px;}',
       '.tdn-actions a{font-size:10px;}',
       '.tdn-wrap .theme-toggle{width:28px;height:28px;font-size:13px;}',
-      '.tdn-row{padding:0 12px!important;}',
+      
       '.tdn-btn{padding:0 10px;height:34px;font-size:10px;letter-spacing:.04em;}',
       '.tdn-menu{min-width:170px;}',
       '}',
@@ -148,15 +158,16 @@
   var wrap = document.createElement('div');
   wrap.className = 'tdn-wrap';
   wrap.innerHTML =
-    '<div class="tdn-top">' +
-      '<a class="tdn-logo" href="index.html">The Depth <span>Chart</span></a>' +
+    '<div class="tdn-col"><div class="tdn-top">' +
+      '<a class="tdn-logo" href="index.html">The <span>Depth</span> Chart<em>CBB</em></a>' +
+      '<div class="tdn-actions"><a class="tdn-x" href="https://www.thedepthchartcfb.com" title="The Depth Chart — college football">Football \u2197</a>' +
       '<div class="tdn-actions" id="navActions">' +
         '<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">' + themeGlyph + '</button>' +
         '<a href="pricing.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;">Sign In</a>' +
         '<a href="pricing.html" class="tdn-signin">Subscribe</a>' +
-      '</div>' +
-    '</div>' +
-    '<div class="tdn-row">' + groupsHtml + '</div>';
+      '</div></div>' +
+    '</div></div>' +
+    '<div class="tdn-rowwrap"><div class="tdn-col"><div class="tdn-row">' + groupsHtml + '</div></div></div>';
 
   // ── Dropdown behavior: click to toggle, click-outside / Escape to close ──
   function wireMenus() {

@@ -7,32 +7,41 @@
    minimal accent slots; grades keep their own tier color.
    =================================================================== */
 
-/* ---- LIGHT base: white / cool-grey ---- */
+/* ---- TOKENS: mirrored from The Depth Chart CFB (cfb.css) — Sept 2026 ------------------
+   The CFB site was built later with a smaller, flatter system: warm cream + gold in light,
+   navy + cream-gold in dark, and cards that are the SAME colour as the page, set apart by a
+   1px border instead of a shadow. Basketball now wears the same tokens so the two sites read
+   as one product. (This is close to basketball's own ORIGINAL inline palette, before this
+   file repainted it cool-grey + blue.) Keep these in step with cfb.css. */
 :root[data-theme="light"], :root:not([data-theme="dark"]){
   color-scheme: light;   /* native controls (dropdown popups, scrollbars) match the light theme even on a dark-OS machine */
-  --bg:#f6f7f9; --bg2:#ffffff; --bg3:#eef1f6;
-  --border:#e6e9ef; --border2:#d7dce4;
-  --text:#181b21; --text2:#5c6572; --text3:#98a1ad;
-  --accent:#2952e0;
-  --green:#12996a; --red:#e0533b;
-  /* translucent depth for stat trays + tiles */
-  --tray-bg:rgba(255,255,255,.42); --tray-border:rgba(28,40,74,.10); --tray-shadow:rgba(24,32,58,.06);
-  --tile-bg:rgba(255,255,255,.74); --tile-border:rgba(28,40,74,.11); --tile-hi:rgba(255,255,255,.85);
-  --tile-shadow:0 1px 2px rgba(20,26,40,.04),0 6px 16px rgba(20,26,40,.05);
+  --bg:#FAF9F6; --bg2:#F1EFEA; --bg3:#E6E3DB;
+  --border:#DEDACF; --border2:#C6C0B2;
+  --text:#1A1814; --text2:#4A463C; --text3:#8A867A;
+  --accent:#A8843C;
+  --turf:#2F6B3A; --court:#A8531F; --court-on:#FFFFFF;   /* sport badges: CFB turf, CBB hardwood */
+  --green:#2F6B3A; --red:#cc2200;
+  /* flat, like CFB: panels are the page colour with a hairline border — no glass, no drop shadow */
+  --tray-bg:var(--bg); --tray-border:var(--border); --tray-shadow:transparent;
+  --tile-bg:var(--bg); --tile-border:var(--border); --tile-hi:var(--bg);
+  --tile-shadow:none;
 }
 
-/* ---- DARK base: dark-grey / light-grey / white ---- */
 :root[data-theme="dark"]{
   color-scheme: dark;
-  --bg:#101216; --bg2:#181b20; --bg3:#22262d;
-  --border:#2b2f37; --border2:#3b3f49;
-  --text:#ffffff; --text2:#aeb4bd; --text3:#6c727c;
-  --accent:#8fa2ff;
-  --green:#3fd39a; --red:#ff6b6b;
-  --tray-bg:rgba(255,255,255,.028); --tray-border:rgba(255,255,255,.08); --tray-shadow:rgba(0,0,0,.28);
-  --tile-bg:rgba(255,255,255,.05); --tile-border:rgba(255,255,255,.10); --tile-hi:rgba(255,255,255,.06);
-  --tile-shadow:0 2px 10px rgba(0,0,0,.26);
+  --bg:#0A0E18; --bg2:#111726; --bg3:#1A2133;
+  --border:#232B3E; --border2:#34405A;
+  --text:#EEF1F7; --text2:#AEB6C8; --text3:#7A849A;
+  --accent:#E6D5A8;
+  --turf:#6FBF7E; --court:#E0894B; --court-on:#0A0E18;
+  --green:#6FBF7E; --red:#ff6b6b;
+  --tray-bg:var(--bg); --tray-border:var(--border); --tray-shadow:transparent;
+  --tile-bg:var(--bg); --tile-border:var(--border); --tile-hi:var(--bg);
+  --tile-shadow:none;
 }
+
+/* the animated mesh / blobs / film grain behind older pages: CFB's field is flat */
+.tdc-mesh, .tdc-blob, .tdc-grain{ display:none !important; }
 
 /* ---- neutralize tdc-dense.css's hardcoded navy field: make the ground theme-aware ---- */
 html{ background:var(--bg) !important; }
@@ -67,22 +76,10 @@ html{ background:var(--bg) !important; }
    team.html/setColor and player.html/applyTeamTheme) for the light wash so the hue reads.
    Falls back to raw --tc-rgb for greyscale/unknown teams (stays neutral). Dark mode is
    untouched (the raw --tc-rgb wash over the dark ground already reads fine). ===== */
-:root[data-theme="light"] .hero-top, :root:not([data-theme="dark"]) .hero-top{
-  background:
-    radial-gradient(130% 220% at 0% 0%, rgba(var(--tc-hero-rgb,var(--tc-rgb)),.28), transparent 55%),
-    linear-gradient(100deg, rgba(var(--tc-hero-rgb,var(--tc-rgb)),.16), var(--bg2) 70%) !important;
-}
-/* Light mode: at ~.15 opacity the tint washed out to pale lavender behind the logo; pushed
-   up so it reads as the team's actual color (using the brightened --tc-hero-rgb). */
-:root[data-theme="light"] .team-hero, :root:not([data-theme="dark"]) .team-hero{
-  background:linear-gradient(145deg, rgba(var(--tc-hero-rgb,var(--tc-rgb)),.28) 0%, rgba(var(--tc-hero-rgb,var(--tc-rgb)),.13) 46%, transparent 100%) !important;
-}
-:root[data-theme="light"] .player-hero::before, :root:not([data-theme="dark"]) .player-hero::before{
-  background:linear-gradient(102deg, rgba(var(--tc-hero-rgb,var(--tc-rgb)),.22) 0%, rgba(var(--tc-hero-rgb,var(--tc-rgb)),.08) 34%, transparent 58%) !important;
-}
-:root[data-theme="light"] .player-hero::after, :root:not([data-theme="dark"]) .player-hero::after{
-  background:radial-gradient(circle, rgba(var(--tc-hero-rgb,var(--tc-rgb)),.26), transparent 66%) !important;
-}
+/* (The TEAM page's light-mode header wash lived here. The CFB mirror moved the team colour
+   into a solid header band — tdc-hq.css + --tc-band — so the wash is gone rather than
+   overridden; leaving it would have out-specified the band and put white text on pale blue.) */
+/* (the PLAYER page's light-mode header wash was here — replaced by the CFB header band) */
 
 /* ===== RANKINGS / HOME (index): tdc-dense.css hardcodes the grid + rail panels dark
    (rgba(16,21,34,…), #0d1220) → grey in light. Make theme-aware; rail panels get depth. ===== */
@@ -90,3 +87,32 @@ html{ background:var(--bg) !important; }
 .table-header{ background:var(--bg3) !important; }
 .rl-card{ background:var(--tile-bg) !important; border:1px solid var(--tile-border) !important;
   box-shadow:inset 0 1px 0 var(--tile-hi), var(--tile-shadow) !important; }
+
+/* ==== Page header — mirrors The Depth Chart CFB (app/styles/chrome.css), Sept 2026 ====
+   Every page wrote its own header: glyph-prefixed labels (⬡ ✦ ⇄), a gold italic word inside
+   the title, and a sub-line at a different size, weight and colour on each page. One rule set
+   now: a gold 11px uppercase label, a plain title, and one quiet sub-line. :root lifts these
+   past tdc-hq-site.css's `body.hqsite .sub`, which paints every .sub on those pages. */
+.page-eyebrow,
+:is(.eyebrow,.ey,.kicker,.hero-eyebrow,.pick-k):has(+ h1){
+  font-family:'Inter',system-ui,sans-serif !important; font-size:11px !important; font-weight:700 !important;
+  line-height:1.3 !important; letter-spacing:.14em !important; text-transform:uppercase !important;
+  margin:0 0 8px !important; padding:0 !important; opacity:1 !important;
+  background:none !important; border:0 !important; box-shadow:none !important;
+}
+.page-eyebrow:not(#heroEyebrow),
+:is(.eyebrow,.ey,.kicker,.hero-eyebrow,.pick-k):has(+ h1){ color:var(--accent) !important; -webkit-text-fill-color:var(--accent) !important; }
+.page-eyebrow::before, .page-eyebrow::after,
+:is(.eyebrow,.ey,.kicker,.hero-eyebrow,.pick-k):has(+ h1)::before{ content:none !important; display:none !important; }
+h1 em, .page-h1 em{ font-style:normal !important; color:inherit !important; -webkit-text-fill-color:currentColor !important; opacity:1 !important; }
+:root :is(h1,.page-h1) + :is(.sub,.page-sub,.lede,.hero-sub,.xp-lede),
+:root :is(.hd,.pick-hero) > h1 + p,
+:root h1 + .pills + .sub{
+  font-family:'Inter',system-ui,sans-serif !important; font-size:13.5px !important; font-weight:400 !important;
+  line-height:1.6 !important; letter-spacing:0 !important; max-width:720px !important;
+  color:var(--text2) !important; -webkit-text-fill-color:var(--text2) !important; opacity:1 !important;
+}
+:root :is(h1,.page-h1) + :is(.sub,.page-sub,.lede,.hero-sub,.xp-lede) b,
+:root :is(h1,.page-h1) + :is(.sub,.page-sub,.lede,.hero-sub,.xp-lede) strong{ font-weight:600; color:var(--text) !important; -webkit-text-fill-color:var(--text) !important; }
+/* labels that sit on a dark hero band keep their light gold (coach.html) */
+.chero .ey{ color:#E6D5A8 !important; -webkit-text-fill-color:#E6D5A8 !important; }

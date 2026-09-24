@@ -36,13 +36,16 @@
   /* ---- per-column heat map ---- */
   var INVERT={ 'OPP':1, 'TOV':1, 'DRtg':1 };      // lower is better (DRtg: fewer points allowed = better D)
   var SKIP={ 'W-L':1 };                  // not numeric
-  // Blue percentile fill, the Player Projected Stats scale: nothing below the median,
-  // then four steps of deepening blue (white text once the fill is strong).
-  var STEPS=['', 'rgba(60,120,220,.45)', 'rgba(45,100,210,.58)', 'rgba(30,82,200,.72)', 'rgba(18,60,185,.88)'];
+  // The conditional-format scale CFB's rankings table uses, and every sheet on this site
+  // (tdc-sheets.css .c0-.c4): red at the bottom, pale through the middle, green at the top —
+  // so a weak number reads as weak instead of simply unshaded. Was a one-sided blue ramp with
+  // white text, which belonged to the old blue skin. Fills are translucent, so the text keeps
+  // the theme's own colour and the zebra/hover rows still show through.
+  var STEPS=['hsla(0,70%,48%,.30)', 'hsla(30,70%,48%,.14)', 'hsla(95,70%,48%,.15)', 'hsla(115,70%,48%,.26)', 'hsla(125,70%,48%,.40)'];
   function heat(t, invert){
     if(invert) t=1-t;
     t=Math.max(0,Math.min(1,t));
-    var step=t>=.9?4:t>=.75?3:t>=.6?2:t>=.45?1:0;
+    var step=t>=.9?4:t>=.75?3:t>=.55?2:t>=.35?1:0;
     return STEPS[step];
   }
   function applyHeat(){
@@ -67,7 +70,8 @@
       for(var i=0;i<cells.length;i++){
         var lo=0, hi=n; while(lo<hi){ var m=(lo+hi)>>1; if(sorted[m]<vals[i]) lo=m+1; else hi=m; }
         var bg=heat(n>1?lo/(n-1):0.5, inv);
-        cells[i].style.background=bg; cells[i].classList.toggle('ht-on', !!bg);
+        // ht-on used to flip the text white for the deep blue fills; these are pale, so it stays off
+        cells[i].style.background=bg; cells[i].classList.remove('ht-on');
       }
     }
   }

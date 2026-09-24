@@ -7,7 +7,7 @@
   <script src="auth.js?v=shotlock1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-pos.js"></script>
-  <script src="team-colors.js?v=6"></script>
+  <script src="team-colors.js?v=8"></script>
   <script src="tdc-shotchart.js?v=25"></script>
   <script src="tdc-shotprofile.js?v=1"></script>
   <script src="tdc-shotflow.js?v=11"></script>
@@ -1187,16 +1187,16 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-anim.css?v=5"/>
   <script src="tdc-anim.js?v=5"></script>
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index + team page -->
-  <link rel="stylesheet" href="tdc-dense.css?v=31"/>
+  <link rel="stylesheet" href="tdc-dense.css?v=38"/>
   <link rel="stylesheet" href="tdc-player-dense.css?v=27"/>
   <script src="tdc-dossier.js?v=2" defer></script>
   <script src="tdc-roles.js?v=3" defer></script>
   <script src="tdc-devpath.js?v=2" defer></script>
   <!-- ===== Clean skin (2026): loaded LAST so it wins over dense CSS. Neutral base +
        translucent depth tokens; team color stays on --tc for the minimal accent slots. ===== -->
-  <link rel="stylesheet" href="tdc-skin.css?v=9"/>
+  <link rel="stylesheet" href="tdc-skin.css?v=10"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
-  <link rel="stylesheet" href="tdc-hq-player.css?v=7"/>
+  <link rel="stylesheet" href="tdc-hq-player.css?v=8"/>
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#FAF9F6" media="(prefers-color-scheme: light)">
@@ -1206,11 +1206,11 @@ body{background:transparent!important;}
   <meta name="apple-mobile-web-app-title" content="The Depth Chart">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="tdc-pwa.js?v=2" defer></script>
-  <link rel="stylesheet" href="tdc-sheets.css?v=4"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=5"/>
   <link rel="stylesheet" href="tdc-column.css?v=1"/>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=27"></script>
+<script src="tdc-nav.js?v=28"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 
 <!-- ═══ AMBIENT LAYER ═══════════════════════════════════════ -->
@@ -4371,6 +4371,8 @@ function applyTeamTheme(color){
   // wash instead of the old off-team teal/purple hue shifts.
   var team=_vivid(hsl,0), g1='#8c8c94', g2='#6d6d75';
   rs.setProperty('--tc',color);
+  // header band, mirrored from CFB: the team colour darkened only as far as white text needs
+  if(window.tdcBandColor) rs.setProperty('--tc-band', tdcBandColor(color));
   rs.setProperty('--tcr',team);   // readable team color for text/accents on dark
   rs.setProperty('--tc-rgb',rgb.r+','+rgb.g+','+rgb.b);
   var vr=_hexToRgb(team); if(vr){ rs.setProperty('--tcr-rgb',vr.r+','+vr.g+','+vr.b); rs.setProperty('--tc-hero-rgb',vr.r+','+vr.g+','+vr.b); } // vivid rgb for visible washes (--tc-hero-rgb = light-mode hero tint)

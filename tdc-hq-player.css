@@ -1,70 +1,87 @@
 /* ================================================================
-   TDC · HQ skin — PLAYER page variant.
-   Mirrors tdc-hq.css (the team-page HQ skin) onto the player page's
-   class names so the player page wears the same identity: a team-color
-   FIELD background, a frosted hero HUD card, a dark segmented pill tab
-   bar, and frosted content stages. Loaded LAST.
-   Needs --tc / --tc-rgb on :root — already set by applyTeamTheme() from
-   the player's team color; --sec falls back to a darker primary here.
+   TDC · HQ skin — PLAYER page, mirrored from The Depth Chart CFB (Sept 2026). Loaded LAST.
+
+   Same move as the team page (tdc-hq.css): the page stops being flooded with the team colour
+   (90% --tc field, secondary wedge, grunge), the header stops floating as a frosted card, and
+   the tabs leave the dark pill bar. CFB's player page is a neutral page with the team colour
+   in ONE place — a header band — and a flat stat strip attached beneath it.
+
+   The header was a side-by-side row (identity left, a navy KPI grid inset right). It is now a
+   column: identity on the band, the five KPIs as the strip. Needs --tc-band, set by
+   applyTeamTheme() via team-colors.js tdcBandColor(); unknown/greyscale teams fall back to navy.
    ================================================================ */
 
-/* ---- 1. team-color FIELD background (same .tdc-bg element as the team page) ---- */
-.tdc-bg{ background:color-mix(in srgb, var(--tc) 90%, #0a0c11) !important; }
-:root[data-theme="dark"] .tdc-bg{ background:color-mix(in srgb, var(--tc) 54%, #0a0c11) !important; }
-/* kill the animated mesh / blobs / grain / ambient orbs the field replaces */
+/* ---- 1. FIELD: the page colour ---- */
+.tdc-bg{ background:var(--bg) !important; }
+.tdc-bg::after{ content:none !important; }
 .tdc-bg .tdc-mesh,.tdc-bg .tdc-blob,.tdc-bg .tdc-grain,.ambient-layer,#particleCanvas{ display:none !important; }
-/* solid SECONDARY-color wedge up the right edge (real --sec if the page set one,
-   else a darker shade of the primary) + soft-light grunge weathering */
-.tdc-bg::after{ content:""; position:absolute; inset:0; pointer-events:none;
-  background:var(--sec, color-mix(in srgb, var(--tc) 45%, #05060d));
-  clip-path:polygon(90% 0, 100% 0, 100% 100%, 94% 100%); }
-body::after{ content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
-  background:url("hq-grunge.jpg?v=1") center/cover no-repeat; mix-blend-mode:soft-light; opacity:.24; }
+body::after{ content:none !important; }
 
-/* ---- 2. hero → frosted HUD card floating on the field ---- */
-.player-hero{ margin:16px 22px 0 !important; border-radius:16px;
-  border:1px solid var(--border2) !important; border-bottom:1px solid var(--border2) !important;
-  background:color-mix(in srgb, var(--tc) 8%, #ffffff) !important;
-  box-shadow:0 14px 34px rgba(0,15,60,.16) !important; padding:22px 28px 20px !important; }
-:root[data-theme="dark"] .player-hero{ background:rgba(18,21,28,.62) !important;
-  border-color:rgba(255,255,255,.10) !important; -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); }
-/* the old radial/linear team-tint washes fought the frosted card — drop them */
-.player-hero::before,.player-hero::after{ display:none !important; }
-.hero-name{ font-family:'Barlow Condensed',sans-serif !important; text-transform:uppercase;
-  font-weight:800 !important; letter-spacing:.01em !important; }
+/* ---- 2. HEADER: band + strip, in the column ---- */
+.breadcrumb, .breadcrumb a{ color:var(--text3) !important; }
+.breadcrumb a:hover{ color:var(--text) !important; }
 
-/* ---- 3. tab bar → dark segmented pill bar ---- */
-.tab-row-wrap{ margin:12px 22px 0; }
-.tab-row{ background:rgba(9,11,18,.55) !important; border:0 !important; border-bottom:0 !important;
-  border-radius:14px; padding:6px 8px !important; gap:4px; flex-wrap:nowrap;
-  width:-moz-fit-content; width:fit-content; max-width:100%;
-  overflow:visible !important; }   /* MUST stay visible — the tab dropdown menus live inside .tab-row */
-.tab-row-wrap{ overflow:visible !important; }
-.tab-row-wrap::after{ display:none !important; }   /* old scroll-fade */
-.tab-btn,.tab-grp-btn{ border-bottom:0 !important; margin-bottom:0 !important; border-radius:10px !important;
-  color:#fff !important; opacity:.72; padding:9px 15px !important; transition:opacity .12s, background .12s; }
-/* grouped tabs (Shots & Rankings, Coach's Tier) match the plain tabs — same case, size, weight (was ALL CAPS) */
-.tab-grp-btn{ text-transform:none !important; letter-spacing:0 !important; font-size:12.5px !important; font-weight:700 !important; font-family:inherit !important; padding:8px 14px !important; }
-.tab-btn::after,.tab-grp-btn::after{ display:none !important; }   /* kill the underline slider */
-.tab-btn:hover,.tab-grp-btn:hover{ opacity:1; color:#fff !important; }
-.tab-btn.active{ background:#fff !important; color:#141821 !important; opacity:1 !important;
-  box-shadow:0 4px 12px rgba(0,0,0,.28), inset 0 0 0 1.5px color-mix(in srgb, var(--tc) 55%, #fff); }
-/* the pill is always white → its text is always dark, in every theme */
-:root[data-theme="dark"] .tab-btn.active{ color:#141821 !important; }
-.tab-grp.grp-active .tab-grp-btn,.tab-grp.open .tab-grp-btn{ color:#fff !important; opacity:1; }
-/* dropdown menus keep their own dark card + item styling (they open off the pill bar) */
-.tab-grp-menu .tab-btn,.tab-grp-menu .hgm-item{ color:var(--text) !important; opacity:1 !important; }
+/* position in the column is tdc-column.css's job (margins); this file only styles */
+.player-hero{ margin-top:14px !important; padding:0 !important; flex-direction:column !important; align-items:stretch !important;
+  background:var(--bg) !important; border:1px solid var(--border) !important; border-radius:14px !important;
+  overflow:hidden; box-shadow:none !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important; }
+.player-hero::before, .player-hero::after{ display:none !important; }
+.hero-wm{ display:none !important; }                      /* the faded logo watermark: CFB has none */
 
-/* ---- 4. content panels → frosted stage sheets over the field ---- */
-.tab-panel.active{ margin:14px 22px 46px !important; padding:8px 20px 22px !important; border-radius:20px;
-  background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.18);
-  -webkit-backdrop-filter:blur(7px); backdrop-filter:blur(7px);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.16); }
-:root[data-theme="dark"] .tab-panel.active{ background:rgba(6,8,20,.30); border-color:rgba(255,255,255,.08); }
+.hero-idwrap{ background:var(--tc-band, #0B1220); color:#fff; padding:22px 26px !important; gap:20px !important; }
+.hero-avatar{ background:rgba(255,255,255,.14) !important; border:1px solid rgba(255,255,255,.26) !important;
+  color:#fff !important; box-shadow:none !important; }
+.hero-crest{ background:rgba(255,255,255,.95) !important; border-radius:50% !important; padding:5px !important;
+  box-shadow:0 0 0 2px var(--tc-band, #0B1220) !important; box-sizing:border-box; }
+.hero-name{ font-family:'Playfair Display',Georgia,serif !important; text-transform:none !important; font-weight:800 !important;
+  letter-spacing:-.02em !important; font-size:40px !important; line-height:1.04 !important; color:#fff !important; }
+.hero-teamline, .hero-teamline a, .hero-team, .hero-home{ color:rgba(255,255,255,.88) !important; }
+.hero-teamline > *:not(:first-child)::before{ color:rgba(255,255,255,.55) !important; }
+.hero-team .team-dot{ box-shadow:0 0 0 1.5px rgba(255,255,255,.7); }
+/* the conference chip was styled for a light card and vanished on the band */
+.hero-teamline .hsub-conf{ color:rgba(255,255,255,.92) !important; border-color:rgba(255,255,255,.40) !important;
+  background:rgba(255,255,255,.10) !important; }
+.hp{ background:rgba(255,255,255,.10) !important; border:1px solid rgba(255,255,255,.22) !important; }
+.hp .k{ color:rgba(255,255,255,.66) !important; }
+.hp .v{ color:#fff !important; }
+.hp.hp-warn .v{ color:#FFB4B4 !important; }
+.hero-tag{ color:#fff !important; border-color:rgba(255,255,255,.35) !important; background:rgba(255,255,255,.08) !important; }
 
-/* ---- 5. any bare field-level text goes light (breadcrumb sits on the field) ---- */
-.breadcrumb, .breadcrumb a{ color:rgba(255,255,255,.80) !important; }
-.breadcrumb a:hover{ color:#fff !important; }
+/* the five KPIs: CFB's flat tile strip under the band */
+.hero-grid{ margin:0 !important; align-self:stretch !important; border:0 !important; border-top:1px solid var(--border) !important;
+  border-radius:0 !important; background:var(--bg) !important; box-shadow:none !important; }
+.hero-grid::after{ content:none !important; }
+.hg{ border-left:1px solid var(--border) !important; }
+.hg:first-child{ border-left:none !important; }
+.hg-v, .hg-v.grade, .hg-v.wa{ color:var(--text) !important; }
+.hg-l{ color:var(--text3) !important; }
+.hg-dash{ color:var(--text3) !important; }
+
+/* ---- 3. TABS: CFB's outline chips (active = filled) ---- */
+.tab-row-wrap{ margin-top:16px !important; overflow:visible !important; }   /* column padding: tdc-column.css */
+.tab-row-wrap::after{ display:none !important; }
+.tab-row{ background:transparent !important; border:0 !important; border-radius:0 !important; padding:0 !important;
+  gap:6px !important; flex-wrap:wrap !important; width:auto !important; overflow:visible !important; }  /* menus live inside */
+.tab-btn, .tab-grp-btn{ background:var(--bg) !important; border:1px solid var(--border2) !important; border-radius:999px !important;
+  color:var(--text2) !important; opacity:1 !important; padding:6px 13px !important; margin:0 !important;
+  font-family:inherit !important; font-size:12px !important; font-weight:600 !important; text-transform:none !important; letter-spacing:0 !important;
+  box-shadow:none !important; transition:border-color .12s, color .12s, background .12s; }
+.tab-btn::after, .tab-grp-btn::after{ display:none !important; }
+.tab-btn:hover, .tab-grp-btn:hover{ border-color:var(--text3) !important; color:var(--text) !important; }
+.tab-btn.active, :root[data-theme="dark"] .tab-btn.active{ background:var(--text) !important; color:var(--bg) !important;
+  border-color:var(--text) !important; box-shadow:none !important; }
+.tab-grp.grp-active .tab-grp-btn, .tab-grp.open .tab-grp-btn{ color:var(--text) !important; border-color:var(--text) !important; }
+.tab-grp-menu .tab-btn, .tab-grp-menu .hgm-item{ color:var(--text) !important; opacity:1 !important; border:0 !important;
+  border-radius:4px !important; background:transparent !important; }
+
+/* ---- 4. CONTENT: no stage — the column, on the page colour ---- */
+.tab-panel.active{ margin-top:18px !important; margin-bottom:46px !important; padding:0 !important; border-radius:0; background:transparent;
+  border:0; -webkit-backdrop-filter:none; backdrop-filter:none; box-shadow:none; box-sizing:border-box; }
+
+@media(max-width:760px){
+  .hero-idwrap{ padding:18px !important; }
+  .hero-name{ font-size:30px !important; }
+}
 
 /* ---- Percentile Distributions: the Team DNA vocabulary (one percentile row per stat, one ink,
    monochrome curve, no colored badges) ---- */

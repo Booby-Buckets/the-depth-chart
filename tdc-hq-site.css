@@ -132,47 +132,28 @@
    the page's single container (.page / .wrap) as the bordered frosted stage +
    light labels. Scoped to body.hqsite so it never touches the homepage.
    ============================================================================ */
-/* Branded background — matches the homepage (index): a blurred animated colour
-   mesh + film grain, applied via body pseudo-elements so every hqsite page gets
-   it with no per-page markup. (Replaces the old flat hq-grunge texture.) */
-body.hqsite{
-  background-color:#f7f6f3 !important;
-  background-image:none !important;
-}
-:root[data-theme="dark"] body.hqsite{ background-color:#141d31 !important; }
-@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) body.hqsite{ background-color:#141d31 !important; } }
-body.hqsite::before{   /* animated colour mesh */
-  content:''; position:fixed; inset:-25%; z-index:-2; pointer-events:none;
-  background:
-    radial-gradient(38% 48% at 22% 26%, rgba(158,158,174,.30), transparent 62%),
-    radial-gradient(44% 52% at 80% 28%, rgba(128,128,146,.28), transparent 62%),
-    radial-gradient(50% 50% at 62% 80%, rgba(176,176,192,.32), transparent 62%),
-    radial-gradient(40% 44% at 14% 82%, rgba(116,116,134,.22), transparent 62%);
-  filter:blur(46px); opacity:.3; animation:tdcHqMesh 28s ease-in-out infinite alternate;
-}
-:root[data-theme="dark"] body.hqsite::before{ opacity:.45; }
-@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) body.hqsite::before{ opacity:.45; } }
-body.hqsite::after{    /* film grain */
-  content:''; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.4; mix-blend-mode:overlay;
-  background-size:170px 170px;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-@keyframes tdcHqMesh{0%{transform:translate(0,0) scale(1) rotate(0)}50%{transform:translate(2%,-2.5%) scale(1.08) rotate(2deg)}100%{transform:translate(-2%,2%) scale(1.03) rotate(-2deg)}}
-@media (prefers-reduced-motion:reduce){ body.hqsite::before{ animation:none; } }
-/* the homepage's own bg-layer divs stay hidden on hqsite (pseudo-mesh replaces them) */
+/* FIELD + STAGE — flattened to mirror The Depth Chart CFB (Sept 2026).
+   This used to paint an animated colour mesh + film grain behind the page and lift the page's
+   single container into a rounded, frosted, drop-shadowed "stage". CFB has none of that: the
+   page is the page colour, and content sits in the same 1400px column as the nav. The
+   selectors stay so every hqsite page is covered; they now remove the stage instead of
+   drawing it. */
+body.hqsite{ background-color:var(--bg) !important; background-image:none !important; }
+body.hqsite::before, body.hqsite::after{ content:none !important; display:none !important; }
 body.hqsite .tdc-bg, body.hqsite .tdc-mesh, body.hqsite .tdc-blob,
 body.hqsite .tdc-grain, body.hqsite .ambient-layer, body.hqsite .hero-orbs{ display:none !important; }
 
-/* main container -> bordered frosted stage */
+/* The box IS the column (same convention as tdc-column.css: 1400px, gutter outside via width),
+   so it takes no side padding of its own — adding some doubled the gutter and pushed content
+   64px right of the nav. Top padding is CFB's header breathing room. */
+:root{ --tdc-col:1400px; --tdc-gut:64px; }
+@media(max-width:1100px){ :root{ --tdc-gut:32px; } }
+@media(max-width:760px){ :root{ --tdc-gut:14px; } }
 body.hqsite .page, body.hqsite .wrap, body.hqsite .cwrap, body.hqsite .hq-main{
-  margin:16px auto !important; max-width:1280px !important; border-radius:22px !important;
-  background:rgba(255,255,255,.09) !important; border:1px solid rgba(255,255,255,.20) !important;
-  -webkit-backdrop-filter:blur(9px); backdrop-filter:blur(9px);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 26px 60px rgba(0,10,40,.32) !important;
-  padding:26px 30px 56px !important;
-}
-:root[data-theme="dark"] body.hqsite .page, :root[data-theme="dark"] body.hqsite .wrap, :root[data-theme="dark"] body.hqsite .cwrap, :root[data-theme="dark"] body.hqsite .hq-main{
-  background:rgba(8,12,24,.36) !important; border-color:rgba(255,255,255,.10) !important;
+  margin:0 auto !important; max-width:var(--tdc-col) !important; width:calc(100% - 2 * var(--tdc-gut)) !important;
+  border-radius:0 !important; background:transparent !important; border:0 !important;
+  -webkit-backdrop-filter:none; backdrop-filter:none; box-shadow:none !important;
+  padding:32px 0 56px !important; box-sizing:border-box;
 }
 
 /* stage-level labels/headers go light (cards keep their own text) */

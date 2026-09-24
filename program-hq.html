@@ -16,8 +16,8 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Program HQ — The Depth Chart</title>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-  <script src="team-colors.js?v=6"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <script src="team-colors.js?v=8"></script>
   <script src="tdc-ratings.js?v=21"></script>
   <script src="tdc-schedule.js?v=20"></script>
   <script src="tdc-teamlink.js?v=2"></script>
@@ -257,17 +257,55 @@
   </style>
   <link rel="stylesheet" href="tdc-anim.css?v=5"/>
   <script src="tdc-anim.js?v=5"></script>
-  <link rel="stylesheet" href="tdc-dense.css?v=35"/>
-  <link rel="stylesheet" href="tdc-skin.css?v=9"/>
+  <link rel="stylesheet" href="tdc-dense.css?v=38"/>
+  <link rel="stylesheet" href="tdc-skin.css?v=10"/>
   <style>
-    /* root bg must match the page (tdc-dense.css forces html{background:#0A0E18!important},
-       which otherwise peeks as a dark strip at the very top). --hqbase is light in light
-       mode, dark in dark mode, so the top edge matches either way. */
-    :root:not([data-theme="dark"]){background:#ffffff!important;}
-    :root[data-theme="dark"]{background:var(--hqbase)!important;}
-    /* the shared nav is .tdn-wrap (semi-transparent cream by default, which tinted
-       the field). In light mode make the very-top header solid white. */
-    :root:not([data-theme="dark"]) .tdn-wrap{background:#ffffff!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;}
+    /* ── The Depth Chart CFB look (Sept 2026) ────────────────────────────────────────────
+       This page used to paint the whole screen in the team's primary colour, with a
+       secondary-colour slab, grunge texture and a giant watermark, then float translucent
+       cards over it. The site now follows CFB: a neutral page, team colour only in the header
+       band (--tc-band = the primary darkened until white text passes 4.5:1, from
+       team-colors.js), flat bordered cards, chip tabs and Playfair headings. Everything
+       below overrides the rules further up rather than deleting them, so the page's JS
+       hooks and layout are untouched. */
+    :root{ background:var(--bg) !important;
+      --hqbase:var(--bg); --panel:var(--bg); --panel2:var(--bg2); --line:var(--border); --line2:var(--border2);
+      --track:var(--bg3); --txt:var(--text); --txt2:var(--text2); --txt3:var(--text3); --cardbg:var(--bg);
+      --stagebg:transparent; --stageborder:transparent; }
+    body.hqOn{ background:var(--bg) !important; color:var(--text); }
+    body.hqOn::before, body.hqOn .bggrunge, body.hqOn .bgwm, .hx-wm{ display:none !important; }
+
+    .pick-hero h1{ font-family:'Playfair Display',Georgia,serif; text-transform:none; letter-spacing:-.015em; font-size:clamp(30px,4vw,40px); line-height:1.08; }
+
+    /* same 1400px column + gutter as the nav (tdc-column.css), so the band's edges line up with it */
+    .hxwrap{ max-width:var(--tdc-col,1400px); width:calc(100% - 2 * var(--tdc-gut,64px)); padding:18px 0 70px; }
+    .hx-hero{ background:var(--tc-band,#0B1220); border:0; border-radius:14px; box-shadow:none; padding:22px 26px; }
+    .hx-crest{ background:#fff; border:0; border-radius:50%; box-shadow:none; }
+    .hx-name{ font-family:'Playfair Display',Georgia,serif; text-transform:none; letter-spacing:-.015em; line-height:1.05; text-shadow:none; font-size:clamp(28px,3.6vw,40px); }
+    .hx-rank .n{ font-family:'Playfair Display',Georgia,serif; text-shadow:none; line-height:1; }   /* Barlow sat at .82; Playfair's taller figures ran into the label */
+    .hx-rank .lbl{ margin-top:6px; }
+
+    /* tab strip → CFB chips on the page, under the band */
+    .hx-tabbar{ background:transparent; border:0; border-radius:0; padding:0; margin:16px 0 0; color:var(--text); gap:6px; }
+    .hx-tab2{ font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; padding:6px 13px; border-radius:999px;
+      color:var(--text2); opacity:1; border:1px solid var(--border2); background:transparent; }
+    .hx-tab2:hover{ color:var(--text); border-color:var(--text3); }
+    .hx-tab2.on{ background:var(--text); color:var(--bg); border-color:var(--text); box-shadow:none; }
+    .hx-sel2, .hx-change2{ color:var(--text2); background:var(--bg); border:1px solid var(--border2); border-radius:8px; }
+    .hx-sel2 option{ color:var(--text); background:var(--bg); }
+
+    .hx-stage{ background:transparent; border:0; border-radius:0; padding:0; margin-top:18px; -webkit-backdrop-filter:none; backdrop-filter:none; }
+    .hx-card{ background:var(--bg); border:1px solid var(--border); border-radius:10px; box-shadow:none; }
+    .hx-lab{ color:var(--text3); }
+
+    .ng-logo{ filter:none; }
+    .ng-opp, .prog .pn, .cond{ font-family:'Playfair Display',Georgia,serif; text-transform:none; letter-spacing:-.01em; }
+    .ng-res, .mrow .mv, .stile .sv, .prog .ovr, .st .rc{ font-family:'Playfair Display',Georgia,serif; }
+    .btn{ font-family:'Inter',sans-serif; font-size:12px; letter-spacing:.08em; font-weight:700; border-radius:8px; }
+    .btn.primary{ background:var(--tc-band,#0B1220); color:#fff; box-shadow:none; }
+    .btn.ghost{ background:var(--bg); color:var(--text); border-color:var(--border2); }
+    .st.me{ background:color-mix(in srgb,var(--tc) 10%,transparent); }
+    @media(max-width:560px){ .hx-hero{ padding:16px 16px 18px; } .hxwrap{ padding-left:0; padding-right:0; } }
   </style>
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
@@ -281,13 +319,13 @@
   <div class="hq-word" id="hqWord" aria-hidden="true"></div>
   <div class="bgwm"><img id="wm1" src="" alt=""></div>
   <div class="bggrunge" aria-hidden="true"></div>
-  <script src="tdc-nav.js?v=27"></script>
+  <script src="tdc-nav.js?v=28"></script>
 
   <!-- team picker -->
   <div class="pick-hero" id="picker">
-    <div class="pick-k">⬡ Program HQ</div>
-    <h1>Pick your program.</h1>
-    <p>Choose your team — or your favorite program — and this becomes its home base: your colors, your coach, your roster, and one-click into every tool on The Depth Chart, pre-loaded for your team.</p>
+    <div class="pick-k">Program HQ</div>
+    <h1>Pick your program</h1>
+    <p>Choose your team and this page becomes its home base, with your team's colors, coach and roster, and quick links into every tool on the site.</p>
     <div class="pick-box">
       <input id="pick" type="text" placeholder="Search your program…" autocomplete="off"/>
       <div class="pick-list" id="pickList"></div>
@@ -424,6 +462,7 @@ function renderHQ(){
   document.body.classList.add('hqOn');
   var col=colorsOf(row), ds=document.documentElement.style;
   ds.setProperty('--tc',col.c1); ds.setProperty('--sec',col.sec);
+  if(window.tdcBandColor) ds.setProperty('--tc-band', tdcBandColor(col.c1));
   var ink=(lum(col.c1)>176)?'#14181f':'#ffffff';
   ds.setProperty('--tc-ink',ink);
   ds.setProperty('--tc-veil', ink==='#ffffff'?'rgba(0,0,0,.20)':'rgba(255,255,255,.34)');
