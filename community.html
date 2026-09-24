@@ -414,11 +414,30 @@ function renderTopics(){
   if(!filtered.length){document.getElementById('forumContent').innerHTML=`<div class="main-header"><div class="main-title">${currentCategory||'All Topics'}</div>${postBtn}</div>${notice}<div class="empty-state">No topics yet!</div>`;return;}
   document.getElementById('forumContent').innerHTML=`<div class="main-header"><div class="main-title">${currentCategory||'All Topics'}</div>${postBtn}</div>${notice}${filtered.map(t=>`<div class="topic-card${t.pinned?' pinned':''}" onclick="openTopic(${t.id})"><div><div class="topic-title">${t.pinned?'📌 ':''}${t.title}</div><div class="topic-meta"><span class="topic-author">${t.author_name||'Unknown'}</span><span class="topic-cat">${t.category}</span><span>${timeAgo(t.created_at)}</span></div></div><div class="topic-stats"><div class="topic-replies">${t.reply_count||0}</div><div class="topic-replies-lbl">Replies</div></div></div>`).join('')}`;
 }
+// forum_replies has NO foreign key to profiles, so PostgREST cannot embed the author: asking
+// for `select=*,profiles(...)` returns HTTP 400 (PGRST200, "could not find a relationship").
+// The old code parsed that error object as the reply list, found no `.length`, and rendered
+// "No replies yet. Be the first!" — on every thread, for every reply ever posted. The replies
+// were in the database the whole time. Fetch them plain, then fetch their authors in ONE
+// second query and join here, so the page never depends on a relationship that isn't there.
+async function attachAuthors(rows, hdrs){
+  if(!Array.isArray(rows) || !rows.length) return [];
+  const ids = [...new Set(rows.map(r=>r.author_id).filter(Boolean))];
+  if(!ids.length) return rows;
+  try{
+    const pr = await fetch(`${SB}/rest/v1/profiles?id=in.(${ids.join(',')})&select=id,username,avatar_url,verified,plan`,{headers:hdrs});
+    const ps = pr.ok ? await pr.json() : [];
+    const byId = Object.fromEntries((Array.isArray(ps)?ps:[]).map(p=>[p.id,p]));
+    rows.forEach(r=>{ r.profiles = byId[r.author_id] || {}; });
+  }catch(e){ rows.forEach(r=>{ r.profiles = r.profiles || {}; }); }
+  return rows;
+}
 async function openTopic(id){
   currentTopicId=id;const topic=allTopics.find(t=>t.id===id);if(!topic)return;
   document.getElementById('forumContent').innerHTML='<div class="loading-state"><div class="loading-spinner"></div></div>';
-  const r=await fetch(`${SB}/rest/v1/forum_replies?topic_id=eq.${id}&select=*,profiles(username,avatar_url,verified,plan)&order=created_at.asc`,{headers:authH(currentToken||KEY)});
-  const replies=await r.json();
+  const r=await fetch(`${SB}/rest/v1/forum_replies?topic_id=eq.${id}&select=*&order=created_at.asc`,{headers:authH(currentToken||KEY)});
+  if(!r.ok) console.warn('forum replies failed', r.status, await r.text().catch(()=> ''));
+  const replies=await attachAuthors(r.ok?await r.json():[], authH(currentToken||KEY));
   document.getElementById('forumContent').innerHTML=`<button class="back-btn" onclick="backToList()">← Back to Forum</button><div class="thread-header"><div class="thread-title">${topic.title}</div><div class="thread-meta"><span class="topic-cat">${topic.category}</span><span>Posted by <strong>${topic.author_name||'Unknown'}</strong></span><span>${timeAgo(topic.created_at)}</span></div></div>${topic.body?`<div class="op-card"><div class="op-label">Original Post</div><div style="font-size:14px;color:var(--text2);line-height:1.7;">${topic.body}</div></div>`:''}<div id="repliesList">${replies.length?replies.map(rep=>{const p=rep.profiles||{};return`<div class="reply-card"><div class="reply-header">${avatarEl(p,36)}<a href="profile.html?user=${encodeURIComponent(rep.author_name||'')}" class="reply-name">&nbsp;${rep.author_name||'Unknown'}${vBadge(p)}</a><span class="reply-time">${timeAgo(rep.created_at)}</span></div><div class="reply-body">${rep.body}</div></div>`;}).join(''):'<div class="empty-state" style="padding:30px;">No replies yet!</div>'}</div>${currentUser?`<div class="reply-form"><div class="reply-form-title">Leave a Reply</div><div class="msg" id="replyMsg"></div><div class="form-group"><textarea class="form-textarea" id="replyBody" placeholder="Write your reply..."></textarea></div><button class="form-btn" onclick="submitReply()">Post Reply</button></div>`:`<div class="premium-notice"><span>Sign in to reply.</span><a href="pricing.html">Sign In →</a></div>`}`;
 }
 function backToList(){currentTopicId=null;renderTopics();}

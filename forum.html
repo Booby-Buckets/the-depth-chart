@@ -435,6 +435,25 @@ function renderTopics(){
 }
 
 // ── THREAD ───────────────────────────────────────────────────
+// forum_replies has NO foreign key to profiles, so PostgREST cannot embed the author: asking
+// for `select=*,profiles(...)` returns HTTP 400 (PGRST200, "could not find a relationship").
+// The old code parsed that error object as the reply list, found no `.length`, and rendered
+// "No replies yet. Be the first!" — on every thread, for every reply ever posted. The replies
+// were in the database the whole time. Fetch them plain, then fetch their authors in ONE
+// second query and join here, so the page never depends on a relationship that isn't there.
+async function attachAuthors(rows, hdrs){
+  if(!Array.isArray(rows) || !rows.length) return [];
+  const ids = [...new Set(rows.map(r=>r.author_id).filter(Boolean))];
+  if(!ids.length) return rows;
+  try{
+    const pr = await fetch(`${SB}/rest/v1/profiles?id=in.(${ids.join(',')})&select=id,username,avatar_url,verified,plan`,{headers:hdrs});
+    const ps = pr.ok ? await pr.json() : [];
+    const byId = Object.fromEntries((Array.isArray(ps)?ps:[]).map(p=>[p.id,p]));
+    rows.forEach(r=>{ r.profiles = byId[r.author_id] || {}; });
+  }catch(e){ rows.forEach(r=>{ r.profiles = r.profiles || {}; }); }
+  return rows;
+}
+
 async function openTopic(id){
   currentTopicId = id;
   const topic = allTopics.find(t=>t.id===id);
@@ -442,8 +461,9 @@ async function openTopic(id){
 
   document.getElementById('mainContent').innerHTML='<div class="loading-state"><div class="loading-spinner"></div></div>';
 
-  const r = await fetch(`${SB}/rest/v1/forum_replies?topic_id=eq.${id}&select=*,profiles(username,avatar_url,verified,plan)&order=created_at.asc`,{headers:H});
-  const replies = await r.json();
+  const r = await fetch(`${SB}/rest/v1/forum_replies?topic_id=eq.${id}&select=*&order=created_at.asc`,{headers:H});
+  if(!r.ok) console.warn('forum replies failed', r.status, await r.text().catch(()=> ''));
+  const replies = await attachAuthors(r.ok ? await r.json() : [], H);
 
   // Fetch author profiles for display
   const isPremium = ['premium','pro','coach'].includes(currentProfile?.plan);   // a tier ABOVE premium is still paid
