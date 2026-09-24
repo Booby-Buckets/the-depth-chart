@@ -76,6 +76,11 @@
   function compLevel(team,teamMap,nTeams){
     return clamp(0.55*confLevel(team,teamMap)+0.45*teamStrength(team,teamMap,nTeams));}
 
+  // The fallback line for a player the published projection does not cover (his 2026 box
+  // row never made it into player_history, so build_stat_overall_projected skipped him).
+  // Exported as TDC_BIGBOARD.fallbackLine so the projections page runs the SAME function
+  // instead of inventing its own guess — two different fallbacks is how the board and the
+  // projections page ended up disagreeing about the players nobody had a real line for.
   function projPlayer(p){
     var yr=((p.class_year||p.yr||'')+'').toLowerCase();
     var mult=yr.indexOf('fr')>=0?1.12:yr.indexOf('so')>=0?1.10:yr.indexOf('jr')>=0?1.05:0.99;
@@ -89,19 +94,30 @@
   // board used to fall back to a grade+size-only score — which meant the owner's freshman
   // projection (minutes, usage, playstyle) never reached the Big Board at all. Take his projected
   // line from the freshman editor instead, so editing a projection moves his rank.
-  function freshLine(p){
+  // onlyProfiled: return a line ONLY when the owner has actually profiled him in the
+  // freshman editor. That profile outranks everything; the generic no-stat estimate does not.
+  function freshLine(p, onlyProfiled){
     try{
       if(typeof window==='undefined' || !window.TDCFresh || !window.TDCFresh.line) return null;
       var prof=window.TDCFresh.profileFor?window.TDCFresh.profileFor(p):null;
+      if(onlyProfiled && !prof) return null;
       var L=window.TDCFresh.line(p, prof);
       return (L && num(L.mpg)>0) ? L : null;
     }catch(e){ return null; }
   }
   function hasNoStats(p){ return !(num(p.mpg)>=3 || num(p.ppg)>0); }
+  // ONE PRECEDENCE, used here and by buildProjById — they used to disagree, which is how a
+  // player with a published projection still showed the freshman editor's generic default on
+  // the board while the projections page showed his real line:
+  //   1. a projection the owner actually entered   (his judgement outranks the model)
+  //   2. the published canonical row               (stat_overall_projected)
+  //   3. the generic no-stat estimate              (a freshman nobody has profiled)
+  //   4. the fallback line                         (has played, but the model never saw him)
   function basisOf(p,season,projById,projReady){
     if(season==='2627'||season==='2728'){
-      if(hasNoStats(p)){ var fl=freshLine(p); if(fl) return Object.assign({}, p, fl); }
+      var fp=freshLine(p,true); if(fp) return Object.assign({}, p, fp);
       if(projReady && projById[p.id]) return Object.assign({}, p, projById[p.id]);
+      if(hasNoStats(p)){ var fl=freshLine(p); if(fl) return Object.assign({}, p, fl); }
       return Object.assign({}, p, projPlayer(p));
     }
     return p;
@@ -387,6 +403,7 @@
       var KEYS=['ppg','rpg','apg','mpg','stl','blk','tovs','oreb','dreb','fg_pct','tp_pct','ft_pct','fga','fgm','tpa','tpm','fta','ftm'];
       (players||[]).forEach(function(p){
         if(!p||p.id==null) return;
+        var fp=freshLine(p,true); if(fp){ out[p.id]=fp; return; }     // owner's own projection
         var r=(rowOf&&p.espn_id!=null)?rowOf(p.espn_id):null;
         if(r && num(r.mpg)>0){
           var o={}; KEYS.forEach(function(k){ if(r[k]!=null) o[k]=r[k]; });
@@ -419,5 +436,5 @@
     });
   }
 
-  global.TDC_BIGBOARD={board:board, compute:compute, buildProjById:buildProjById, sane:sane, overrides:overrides, pgrp:pgrp, posLabel:posLabel, classKey:classKey};
+  global.TDC_BIGBOARD={board:board, compute:compute, buildProjById:buildProjById, sane:sane, overrides:overrides, pgrp:pgrp, posLabel:posLabel, classKey:classKey, fallbackLine:projPlayer};
 })(typeof window!=='undefined'?window:this);

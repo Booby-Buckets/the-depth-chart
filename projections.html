@@ -1985,14 +1985,86 @@ async function init(){
   const byTeam={};
   allPlayers.forEach(p=>{if(!byTeam[p.team]) byTeam[p.team]=[];byTeam[p.team].push(p);});
 
+  // ── ONE PROJECTED LINE, SITE-WIDE ─────────────────────────────────────────
+  // The live tdc-proj.js engine redistributes usage inside a roster and drifts from the
+  // published projection, so this page disagreed with the player page and the Big Board
+  // about the same player (Kevair Kennedy read 9.5 ppg here and 14.7 on both of those).
+  // stat_overall_projected is the single source of truth, so a returner's line is read
+  // from it and a freshman's from the freshman editor — the same two places the player
+  // page, the team page and the board read. This is the reconcile team.html already got.
+  try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready; }catch(e){}
+  try{ if(window.TDCFresh&&TDCFresh.load) await TDCFresh.load(); }catch(e){}
+  const PR_KEYS=['ppg','rpg','apg','mpg','fg_pct','tp_pct','ft_pct','stl','blk','tovs',
+                 'oreb','dreb','fgm','fga','tpm','tpa','ftm','fta'];
+  const canProj = !!(window.TDCProjGrade && TDCProjGrade.projRowOf);
+  const reconcile = (pp, orig) => {
+    // same precedence as the board: a projection the owner actually entered outranks the model
+    if(orig && window.TDCFresh && TDCFresh.line && TDCFresh.profileFor){
+      try{
+        const prof=TDCFresh.profileFor(orig);
+        if(prof){ const L=TDCFresh.line(orig, prof);
+          if(L && (parseFloat(L.mpg)||0)>0) return Object.assign({}, pp, L, {_frosh:true, _reconciled:true}); }
+      }catch(e){}
+    }
+    if(!canProj || pp._injured || pp._dnp || pp.espn_id==null) return pp;
+    // a published row with no minutes is not a usable line — the board skips it and falls
+    // through to the freshman editor, so do the same or the two disagree on those players
+    const pr=TDCProjGrade.projRowOf(pp.espn_id);
+    if(!pr || !((parseFloat(pr.mpg)||0)>0)) return pp;
+    // The published row wins; where it has nothing to say, fall back to what the player
+    // ACTUALLY did, never to the live engine's invented value — otherwise a stat the
+    // canonical projection does not carry (a freshman's FT%) silently kept an engine number
+    // and the pages disagreed on it.
+    const m=Object.assign({}, pp);
+    PR_KEYS.forEach(k=>{
+      if(pr[k]!=null&&pr[k]!=='') m[k]=pr[k];
+      else if(orig) m[k]=(orig[k]!=null&&orig[k]!=='')?orig[k]:null;
+    });
+    m._reconciled=true; return m;
+  };
+  // No published row. Two cases, and the board resolves both the same way, so this does too:
+  //   never played  -> the freshman editor's line (TDCFresh), not a generic recruit estimate
+  //   has played    -> TDC_BIGBOARD.fallbackLine, the SAME function the board falls back to.
+  // The second case is a coverage hole, not a modelling choice: ~46 players' 2026 box rows
+  // never reached player_history, so build_stat_overall_projected skipped them. Running two
+  // different guesses for those players is exactly what made the pages disagree.
+  const uncovered = (orig0, pp) => {
+    if(!orig0) return pp;
+    // the board sanitises the pool before deciding who has never played, so do the same here
+    let orig=orig0;
+    try{ if(window.TDC_BIGBOARD&&TDC_BIGBOARD.sane) orig=TDC_BIGBOARD.sane(orig0); }catch(e){}
+    const played = ((parseFloat(orig.mpg)||0)>=3) || ((parseFloat(orig.ppg)||0)>0);
+    if(!played){
+      if(!window.TDCFresh || !TDCFresh.line) return pp;
+      try{
+        const L=TDCFresh.line(orig, TDCFresh.profileFor?TDCFresh.profileFor(orig):null);
+        if(L && (parseFloat(L.mpg)||0)>0) return Object.assign({}, pp, L, {_frosh:true});
+      }catch(e){}
+      return pp;
+    }
+    if(!(window.TDC_BIGBOARD && TDC_BIGBOARD.fallbackLine)) return pp;
+    try{
+      return Object.assign({}, pp, TDC_BIGBOARD.fallbackLine(orig), {_uncovered:true});
+    }catch(e){ return pp; }
+  };
+
   projPlayers=[];
   for(const [teamName,roster] of Object.entries(byTeam)){
     const teamRow=teamRows[teamName]||{conf:teamConfs[teamName]||''};
+    // key the roster by espn_id AND by a punctuation-stripped name: the projected object is a
+    // copy, and a name that round-trips through the engine with different spacing/punctuation
+    // silently missed the lookup, leaving a handful of players on the live engine's line
+    const _nk=n=>(''+(n||'')).toLowerCase().replace(/[^a-z0-9]/g,'');
+    const origBy={}; roster.forEach(p=>{ origBy[_nk(p.name)]=p; if(p.espn_id!=null) origBy['e'+p.espn_id]=p; });
+    const origOf=pp=>(pp.espn_id!=null&&origBy['e'+pp.espn_id])||origBy[_nk(pp.name)];
     try{
       const raw=buildTeamProjections(roster,teamRow?.conf||'');
       const proj=applyPredictionWalls(raw);
       proj.forEach(pp=>{
-        projPlayers.push({...pp,team:teamName});
+        const orig=origOf(pp);
+        let out=reconcile(pp, orig);
+        if(!out._reconciled) out=uncovered(orig, out);
+        projPlayers.push({...out,team:teamName});
       });
     }catch(e){}
   }
@@ -2313,6 +2385,8 @@ init();
      runs later inside the async loader, after these have loaded. -->
 <script src="tdc-nil.js?v=prod2"></script>
 <script src="tdc-pos.js"></script>
+<script src="bigboard-engine.js?v=17"></script>   <!-- shared fallback line for players the published projection misses -->
+<script src="tdc-freshman.js?v=pub15"></script>   <!-- freshmen take their line from the editor, same as the board -->
 <script src="tdc-proj.js?v=coach25"></script>
 
 <script>
