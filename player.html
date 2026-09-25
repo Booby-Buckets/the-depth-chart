@@ -1199,7 +1199,7 @@ body{background:transparent!important;}
        translucent depth tokens; team color stays on --tc for the minimal accent slots. ===== -->
   <link rel="stylesheet" href="tdc-skin.css?v=11"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
-  <link rel="stylesheet" href="tdc-hq-player.css?v=8"/>
+  <link rel="stylesheet" href="tdc-hq-player.css?v=9"/>
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#FAF9F6" media="(prefers-color-scheme: light)">
@@ -1210,7 +1210,7 @@ body{background:transparent!important;}
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="tdc-pwa.js?v=2" defer></script>
   <link rel="stylesheet" href="tdc-sheets.css?v=5"/>
-  <link rel="stylesheet" href="tdc-column.css?v=1"/>
+  <link rel="stylesheet" href="tdc-column.css?v=2"/>
 </head>
 <body data-anim-auto>
 <script src="tdc-nav.js?v=28"></script>
@@ -5825,7 +5825,7 @@ function renderRankings(){
     if(!_exp.coupled && Math.abs(_exp.devDelta)>=0.05)
       parts.push(_buRow('Class development','year-over-year growth curve for his class', _exp.devDelta, true, false));
     if(_exp.archetype!=null && Math.abs(_exp.archetype)>=0.05)
-      parts.push(_buRow('Archetype fit', 'how unusual he is for his height &amp; position vs raw production — graded the same box way every season (breakdown below)', _exp.archetype, true, false));
+      parts.push(_buRow('Archetype fit', 'how unusual he is for that height &amp; position vs raw production — graded the same box way every season (breakdown below)', _exp.archetype, true, false));
     if(_exp.gpShrink!=null && _exp.gpShrink<=-0.05)
       parts.push(_buRow('Small-sample regression', (_lastAct&&_lastAct.gp!=null?'only '+_lastAct.gp+' games last season — ':'')+'pulled toward baseline until proven over a fuller season', _exp.gpShrink, true, false));
     parts.push(_buRow('Projected 2026-27 OVR','',_exp.final,false,true));
@@ -5861,16 +5861,20 @@ function renderRankings(){
   const _so=(window._statOvr&&_sid)?window._statOvr[_sid]:null;                 // demonstrated 2025-26
   const _sop=(window._statOvrProj&&_sid)?window._statOvrProj[_sid]:null;        // projected 2026-27
   let _statBlock='';
-  if(_so){
+  // Render whenever there's a projection. It used to need a 2025-26 demonstrated overall too,
+  // which comes from last season's advanced line; transfers whose line came from the box-score
+  // fill (e.g. Josh Harris, North Florida -> FAU) have none, so they got no card and no Shot
+  // profile at all. Without it: no demonstrated -> projected flow and no 2025-26 chips.
+  if(_so||_sop){
     // Lead with the PROJECTED overall (forward-looking) when we have it; both come
     // from the SAME statistical valuation — projected just runs it on the projected
     // stat line (role + class-dev), so demonstrated and projected share one scale.
-    const head=_sop?_sop.ovr:_so.ovr;
+    const head=_sop?_sop.ovr:_so.ovr, _hasDemo=!!_so;
     const soC=head>=95?'#5ab875':head>=88?'var(--accent)':head>=78?'var(--text)':'var(--text2)';
     const chip=(k,v)=>`<span class="so-chip"><span class="so-chip-k">${k}</span>${v}</span>`;
-    const mv=_sop?(_sop.ovr-_so.ovr):null;
+    const mv=(_sop&&_so)?(_sop.ovr-_so.ovr):null;
     const mvC=mv>0?'#5ab875':mv<0?'#e0885a':'var(--text3)';
-    const flow=_sop?`<div class="so-flow">
+    const flow=(_sop&&_so)?`<div class="so-flow">
         <span class="so-flow-item"><span class="so-flow-k">Demonstrated 2025-26</span><span class="so-flow-v">${_so.ovr}</span></span>
         <span class="so-flow-arrow">→</span>
         <span class="so-flow-item"><span class="so-flow-k">Projected role · ~${_sop.proj_mpg} MPG${_sop.dev_mult!==1?' · dev ×'+_sop.dev_mult:''}</span><span class="so-flow-v" style="color:${mvC}">${mv>0?'+':''}${mv}</span></span>
@@ -5883,32 +5887,34 @@ function renderRankings(){
         <div class="so-num" style="color:${soC}">${head}</div>
         <div class="so-headtxt">
           <div class="so-lbl">${_sop?'Projected 2026-27 Overall':'Statistical Overall'}</div>
-          <div class="so-sub">${_sop?'projected stat line run through the same valuation':'2025-26'} · built only from on-court winning value — no hand grades</div>
+          <div class="so-sub">${_sop?'projected stat line run through the same valuation':'2025-26'}${_hasDemo?'':' · no 2025-26 advanced line on file, so no demonstrated overall to compare'} · built only from on-court winning value, no hand grades</div>
         </div>
       </div>
       ${flow}
       ${(_sop && _sop.shot_share!=null) ? (function(){
+        // Same reading as the team page / Program HQ Shot Distribution: role from share of the
+        // team's shots, tendency as a percentile with last season's value written out.
         var sh=Math.round(_sop.shot_share), tend=_sop.shot_tend, dem=_sop.shot_tend_demo;
         var role = sh>=24?'Primary option':sh>=18?'Featured scorer':sh>=12?'Secondary option':sh>=8?'Complementary scorer':'Low-usage role';
-        var moved = (dem!=null && Math.abs(tend-dem)>=5);
-        var arrow = tend<dem?'▼':'▲', ac = tend<dem?'#e0885a':'#5ab875';
+        var moved = (dem!=null && tend!=null && Math.abs(tend-dem)>=5), up = moved && tend>dem;
+        var chg = moved ? '<span class="sp-chg '+(up?'up':'dn')+'">'+(up?'▲':'▼')+' '+(up?'up':'down')+' from '+dem+' last season</span>' : (dem!=null?'<span class="sp-chg">about the same as last season ('+dem+')</span>':'');
         var note = moved
-          ? ('Projects <b style="color:'+ac+'">'+(tend<dem?'down':'up')+' from '+dem+'</b> — the rotation around him changes how many shots are his to take, not his willingness to shoot.')
-          : 'Holds near his established shot volume in this role.';
-        return '<div style="margin:10px 0 2px;padding:11px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);">'
-          +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px;">'
-          +'<span style="font-weight:800;font-size:13px;">Shot profile · <span style="color:var(--accent)">'+role+'</span></span>'
-          +'<span style="font-size:12px;color:var(--text2);font-weight:700;">~'+sh+'% of team&#39;s shots</span></div>'
-          +'<div style="position:relative;height:8px;border-radius:5px;background:rgba(128,128,128,.18);overflow:hidden;margin-bottom:7px;">'
-          +'<div style="position:absolute;left:0;top:0;bottom:0;width:'+Math.max(3,Math.min(100,tend))+'%;background:linear-gradient(90deg,var(--accent),'+ac+');"></div></div>'
-          +'<div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--text2);gap:8px;"><span>Shot Tendency <b style="color:var(--text)">'+tend+'</b>'+(moved?' <span style="color:'+ac+'">'+arrow+' was '+dem+'</span>':'')+'</span><span style="color:var(--text3)">100 = a pure #1 option</span></div>'
-          +'<div style="margin-top:7px;font-size:12px;color:var(--text2);line-height:1.5;">'+note+'</div>'
-          + ((_sop.tend_three!=null)?('<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px;padding-top:9px;border-top:1px solid var(--border);">'
-              +[['3-PT',_sop.tend_three,'How often he shoots from three — percentile of 3-point attempts per 40 min. Volume, not accuracy.'],['2-PT',_sop.tend_two,'How often he scores inside the arc — percentile of 2-point (rim + mid) attempts per 40 min.'],['FT DRAW',_sop.tend_ft,'How often he gets to the FOUL LINE — percentile of free-throw attempts per 40 min. Measures rim pressure / drawing fouls, NOT free-throw accuracy (that is FT%).']].map(function(t){var v=t[1]||0;var c=v>=75?"#5ab875":v>=45?"var(--accent)":"var(--text3)";return '<div title="'+t[2]+'" style="cursor:help;"><div style="display:flex;justify-content:space-between;font-size:10px;letter-spacing:.03em;font-weight:700;color:var(--text3);margin-bottom:3px;"><span style="border-bottom:1px dotted var(--text3);">'+t[0]+'</span><b style="color:var(--text)">'+v+'</b></div><div style="height:5px;border-radius:3px;background:rgba(128,128,128,.16);overflow:hidden;"><div style="height:100%;width:'+Math.max(3,Math.min(100,v))+'%;background:'+c+';"></div></div></div>';}).join('')
-              +'</div><div style="margin-top:6px;font-size:10.5px;color:var(--text3);">Shot type — national percentile of his projected attempts of each type. 100 = elite volume of that shot.</div>'):'')
+          ? 'The rotation around the player changes how many shots are available, not the willingness to shoot.'
+          : '';
+        var types=(_sop.tend_three!=null)?[['3-PT',_sop.tend_three,'Share of attempts from three: percentile of 3-point attempts per 40 minutes. Volume, not accuracy.'],
+                                            ['2-PT',_sop.tend_two,'Scoring inside the arc: percentile of 2-point (rim + mid-range) attempts per 40 minutes.'],
+                                            ['FT draw',_sop.tend_ft,'Getting to the line: percentile of free-throw attempts per 40 minutes. Measures drawing fouls, not free-throw accuracy (that is FT%).']]:null;
+        return '<div class="sp-box">'
+          +'<div class="sp-top"><span class="sp-t">Shot profile <span class="sp-role">'+role+'</span></span><span class="sp-share"><b>'+sh+'%</b> of team\'s projected shots</span></div>'
+          +'<div class="sp-tend"><span class="sp-k">Shot tendency</span><b class="sp-v">'+tend+'</b>'+chg+'<span class="sp-scale">100 = a pure #1 option</span></div>'
+          +'<div class="sp-bar"><i style="width:'+Math.max(3,Math.min(100,tend))+'%"></i></div>'
+          +(note?'<div class="sp-note">'+note+'</div>':'')
+          +(types?('<div class="sp-types">'+types.map(function(t){ var v=t[1]||0;
+              return '<div class="sp-type" title="'+t[2]+'"><div class="sp-type-h"><span>'+t[0]+'</span><b>'+v+'</b></div><div class="sp-bar sm"><i style="width:'+Math.max(3,Math.min(100,v))+'%"></i></div></div>'; }).join('')
+            +'</div><div class="sp-foot">Shot type: national percentile of the player\'s projected attempts of each type (100 = top volume).</div>'):'')
           +'</div>';
       })() : ''}
-      <div class="so-chips">
+      ${_hasDemo?`<div class="so-chips">
         ${chip('Wins Added <em>2025-26</em>', (function(){
             // Show the RAW owned wins-added (same number as the hero + Advanced table), not
             // the SOS/usage-adjusted grade input — the "Competition ×sos" chip below shows the
@@ -5924,8 +5930,8 @@ function renderRankings(){
         ${chip('Defense <em>DWA</em>', (_so.dwa>=0?'+':'')+_so.dwa)}
         ${chip('Usage', _so.usg+'%')}
         ${chip('Competition', '×'+_so.sos)}
-      </div>
-      <p class="so-note">One valuation, two inputs: <b>demonstrated</b> runs it on his actual 2025-26 line; <b>projected</b> runs the same math on his projected role (minutes + class-development curve). The metric — SOS-adjusted wins added, per-minute quality × role — tracks team win% at <b>r≈0.69</b> in back-testing vs r≈0.43 for the old box grade. No hand grades anywhere.</p>
+      </div>`:''}
+      ${_hasDemo?`<p class="so-note">One valuation, two inputs: <b>demonstrated</b> runs it on the player's actual 2025-26 line; <b>projected</b> runs the same math on the projected role (minutes + class-development curve). The metric — SOS-adjusted wins added, per-minute quality × role — tracks team win% at <b>r≈0.69</b> in back-testing vs r≈0.43 for the old box grade. No hand grades anywhere.</p>`:''}
     </div>`;
   }
   host.innerHTML=`
@@ -5935,13 +5941,13 @@ function renderRankings(){
       ${conf?`<span class="rk-chip"><span class="rk-chip-k">Conference</span>${conf}</span>`:''}
       <span class="rk-chip"><span class="rk-chip-k">Height</span>${s.height||player.height||'—'}</span>
     </div>
-    <div class="sec-title" style="margin:24px 0 4px;">His 2025-26 box-score profile</div>
+    <div class="sec-title" style="margin:24px 0 4px;">2025-26 box-score profile</div>
     <div class="rk-sub">The raw production behind the overall — each stat ranked within its own season and adjusted for conference.</div>
     <div class="rk-drivers">${rows}</div>
-    <div class="rk-foot">Bars show his level vs a strong-${GRP_LBL[grp]||'player'} benchmark for his height &amp; position. The overall itself is the statistical valuation above — SOS-adjusted wins added, per-minute quality × role.</div>`;
+    <div class="rk-foot">Bars show the player's level vs a strong-${GRP_LBL[grp]||'player'} benchmark for that height &amp; position. The overall itself is the statistical valuation above — SOS-adjusted wins added, per-minute quality × role.</div>`;
   setTimeout(()=>host.querySelectorAll('.rk-fill').forEach(el=>{el.style.width=el.getAttribute('data-w')+'%';}),60);
   // Archetype fit — the box-only, every-year-consistent breakdown. Shows exactly how
-  // each stat area moves the grade: z = how unusual he is for his height & position,
+  // each stat area moves the grade: z = how unusual he is for that height & position,
   // × its weight × K = grade points. Summed and re-centered on the season's average
   // rotation player = the "Archetype fit" adjustment applied to the demonstrated grade.
   // Graded the SAME box way for every season (2013 == 2026), so it works historically.
@@ -5989,7 +5995,7 @@ function renderRankings(){
         if(bd) bd.innerHTML=`<div class="sec-title" style="margin:22px 0 8px;">How the grade is built</div>
           <div class="rk-buildup">
             <div class="bu-row"><span class="bu-lbl">Demonstrated grade<em>${_seasonLbl(_season)||_season} · trained model on his full box-score profile</em></span><span class="bu-val">${g}</span></div>
-            <div class="bu-row"><span class="bu-lbl">Archetype fit<em>how unusual he is for his height &amp; position vs raw production (box-only, per-season)</em></span><span class="bu-val ${bonus>0.05?'pos':bonus<-0.05?'neg':''}">${bonus>=0?'+':''}${_f1(bonus)}</span></div>
+            <div class="bu-row"><span class="bu-lbl">Archetype fit<em>how unusual he is for that height &amp; position vs raw production (box-only, per-season)</em></span><span class="bu-val ${bonus>0.05?'pos':bonus<-0.05?'neg':''}">${bonus>=0?'+':''}${_f1(bonus)}</span></div>
             <div class="bu-row total"><span class="bu-lbl">${_seasonLbl(_season)||_season} Overall</span><span class="bu-val">${adj}</span></div>
           </div>`;
       }
