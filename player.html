@@ -3651,6 +3651,8 @@ function buildOverviewCards(p, proj){
   // Attach last-year usage from the projected blob so the USG% card + its diff render on the
   // actual column. Shallow-copy so we never mutate the shared career-season object.
   if(proj && proj.last_usg!=null && actual && typeof actual==='object'){ actual = Object.assign({}, actual, {usg: proj.last_usg}); }
+  // the season the "actual" column really is (a player who sat out 2025-26 shows his last season played)
+  const _actLbl = (actual && actual.season_year) ? (_seasonLbl(actual.season_year)+' Actual') : '2025-26 Actual';
 
   if(!proj){
     return '<div class="stat-cards" style="margin-bottom:24px;">'+cards(actual, false, null)+'</div>';
@@ -3671,7 +3673,7 @@ function buildOverviewCards(p, proj){
     return [
       '<div class="ov-split" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">',
       '<div>',
-      '<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">2025-26 Actual</div>',
+      '<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">'+_actLbl+'</div>',
       '<div class="stat-cards">' + cards(actual, false, null) + '</div>',
       '</div>',
       '<div>',
@@ -3694,7 +3696,7 @@ function buildOverviewCards(p, proj){
   const estBadge = proj._frosh ? ' <span style="font-size:9px;padding:1px 4px;background:rgba(139,105,20,.12);">EST</span>' : '';
   return _injBanner+'<div class="ov-split" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">'
     +'<div>'
-    +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">2025-26 Actual</div>'
+    +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">'+_actLbl+'</div>'
     +'<div class="stat-cards">'+cards(actual, false, null)+'</div>'
     +'</div>'
     +'<div>'
@@ -4659,6 +4661,10 @@ function renderPage(){
         <div class="hero-teamline">
           <a class="hero-team" id="heroTeam" href="team.html?team=${encodeURIComponent(p.team||'')}"><span class="team-dot" style="background:${color};"></span>${p.team||'—'}${_confChip(teamData?.conf||'', p.team||'', null)}</a>
           ${(geoHome||p.hometown)?`<span class="hero-home">${geoHome||p.hometown}</span>`:''}
+          ${(function(){ // current-roster player whose last season on file is 2024-25: sat out / redshirted 2025-26
+              var ys=(careerHistory||[]).map(function(x){return +x.season_year||0;}); var ly=ys.length?Math.max.apply(null,ys):null;
+              var onRoster=(p.depth_order!=null||p.is_addition!=null||p.starter!=null);
+              return (onRoster&&ly===2025)?'<span class="hero-home" title="No 2025-26 season on file: sat out, redshirted or did not play">Sat out 2025-26</span>':''; })()}
         </div>
         <div class="hero-pills">
           <div class="hp"><span class="k">Pos</span><span class="v">${p.position2 ? `${p.position||'—'} / ${p.position2}` : (p.position||'—')}</span></div>
@@ -5793,6 +5799,12 @@ function renderRankings(){
   // Profile shows the DEMONSTRATED season — the actual box-score line the grade model
   // was trained on (returners); freshmen fall back to the projected line.
   const _prof = _projRet ? (_lastAct||s) : s;
+  // Label the season the profile actually shows. It was hard-coded "2025-26", so a player whose
+  // last season was 2024-25 (sat out / redshirted 2025-26, e.g. Josh Harris) had those older
+  // numbers presented as last season's.
+  const _profYr = parseInt((_prof&&(_prof.season_year||_prof.season))||0) || null;
+  const _profLbl = _profYr ? _seasonLbl(_profYr) : '2025-26';
+  const _satOut = _projRet && _profYr && _profYr < 2026;   // on a 2026-27 roster, no 2025-26 season on file
   const tsv=_tsPct(_prof);
   const val=k=> k==='ts' ? tsv
     : k==='ast_to' ? ((parseFloat(_prof.tovs)||0)>0 ? (parseFloat(_prof.apg)||0)/parseFloat(_prof.tovs) : (parseFloat(_prof.apg)||0))
@@ -5819,7 +5831,7 @@ function renderRankings(){
   };
   let _buildup='';
   if(_exp){
-    const parts=[_buRow('Demonstrated grade','2025-26 · trained model on his full box-score profile',_exp.demonstrated,false,false)];
+    const parts=[_buRow('Demonstrated grade',_profLbl+' · trained model on the full box-score profile',_exp.demonstrated,false,false)];
     if(_exp.coupled && Math.abs(_exp.roleDelta)>=0.05)
       parts.push(_buRow('Projected role &amp; usage', _exp.roleDelta>0?'graded up for a bigger role in the offense':'graded down for a reduced role', _exp.roleDelta, true, false));
     if(!_exp.coupled && Math.abs(_exp.devDelta)>=0.05)
@@ -5941,8 +5953,8 @@ function renderRankings(){
       ${conf?`<span class="rk-chip"><span class="rk-chip-k">Conference</span>${conf}</span>`:''}
       <span class="rk-chip"><span class="rk-chip-k">Height</span>${s.height||player.height||'—'}</span>
     </div>
-    <div class="sec-title" style="margin:24px 0 4px;">2025-26 box-score profile</div>
-    <div class="rk-sub">The raw production behind the overall — each stat ranked within its own season and adjusted for conference.</div>
+    <div class="sec-title" style="margin:24px 0 4px;">${_profLbl} box-score profile</div>
+    <div class="rk-sub">${_satOut?`No 2025-26 season on file (sat out or did not play), so this is the last season played, ${_profLbl}. `:''}The raw production behind the overall, each stat ranked within its own season and adjusted for conference.</div>
     <div class="rk-drivers">${rows}</div>
     <div class="rk-foot">Bars show the player's level vs a strong-${GRP_LBL[grp]||'player'} benchmark for that height &amp; position. The overall itself is the statistical valuation above — SOS-adjusted wins added, per-minute quality × role.</div>`;
   setTimeout(()=>host.querySelectorAll('.rk-fill').forEach(el=>{el.style.width=el.getAttribute('data-w')+'%';}),60);

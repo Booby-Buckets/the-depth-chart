@@ -1169,7 +1169,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="tdc-pwa.js?v=2" defer></script>
   <script src="tdc-hq-init.js?v=1"></script>
-  <link rel="stylesheet" href="tdc-hq.css?v=12"/>
+  <link rel="stylesheet" href="tdc-hq.css?v=13"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=5"/>
 </head>
 <body data-anim-auto>
@@ -2773,6 +2773,22 @@ function renderLosses(losses, gp){
   <div style="font-size:11px;color:var(--text3);margin-top:8px;padding:0 4px;">Stats shown are from their last season. Colors reflect national percentile.</div>`;
 }
 
+// An addition whose last season on file is 2024-25 sat out (or redshirted) 2025-26: say so, since
+// the "via" text comes from the roster sheet and names only the last school they PLAYED for
+// (Josh Harris: "via North Florida (24-25)" skipped a non-playing year at Indiana). Only the
+// exactly-one-year gap is labelled; an older last season usually means a mismatched espn_id.
+async function _markSatOut(adds){
+  try{
+    const ids=(adds||[]).map(a=>a.espn_id).filter(x=>x!=null); if(!ids.length) return;
+    const rows=await fetch(`${SB_URL}/rest/v1/player_history?espn_id=in.(${ids.join(',')})&select=espn_id,season_year&order=season_year.desc&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const last={}; rows.forEach(r=>{ const e=String(r.espn_id); if(!(e in last)||r.season_year>last[e]) last[e]=r.season_year; });
+    document.querySelectorAll('#additionsBody .portal-from[data-espn]').forEach(el=>{
+      const e=el.getAttribute('data-espn'); if(!e||last[e]!==2025||el.querySelector('.sat-out')) return;
+      el.insertAdjacentHTML('beforeend',' · <span class="sat-out" title="No 2025-26 season on file: sat out, redshirted or did not play">sat out 25-26</span>');
+    });
+  }catch(e){}
+}
+
 function renderSidebar(t, players, losses, color){
   // Projected team stats card leads the live sidebar (replaces the old Coach Grades card).
   const _psc=document.getElementById('projStatsCard');
@@ -2787,10 +2803,11 @@ function renderSidebar(t, players, losses, color){
         <span class="portal-pos">${a.position||''}</span>
         <div style="flex:1;">
           <div class="portal-name">${a.name}</div>
-          <div class="portal-from">${a.class_year||a.yr||''}${a.hometown ? ' · via '+a.hometown : ''}</div>
+          <div class="portal-from" data-espn="${a.espn_id!=null?a.espn_id:''}">${a.class_year||a.yr||''}${a.hometown ? ' · via '+a.hometown : ''}</div>
         </div>
       </div>`).join('')
     : '<div class="empty-note">None listed</div>';
+  _markSatOut(adds);
 
   // Key Losses side card removed — full Departures table lives under the depth
   // chart, and the Roster Turnover card (filled by renderSeasonLosses from the
