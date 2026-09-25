@@ -192,7 +192,7 @@
   <link rel="stylesheet" href="tdc-skin.css?v=11"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=5"/>
   <script src="tdc-shotprofile.js?v=1"></script>
-  <script src="team-colors.js?v=9"></script>
+  <script src="team-colors.js?v=10"></script>
   <style>
     :root:not([data-theme="dark"]){background:var(--bg)!important;}
     :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
@@ -349,7 +349,7 @@ function winsChart(ss){
 function _teamOf(school){ var M=window.TDC_TEAM_COLORS||{};
   var k=(school||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
   if(!k) return null; if(M[k]) return M[k];
-  for(var key in M){ if(k.indexOf(key)===0||key.indexOf(k)===0) return M[key]; } return null; }
+  return (window.tdcTeamColor&&window.tdcTeamColor(school))||null; }   // was: first key sharing ANY prefix, either way — wrong school for "Michigan St" etc.
 // legible team color on the (default dark) theme — dark team colors get lightened via HSL
 function _readable(hex){ if(!hex) return null; hex=(''+hex).replace('#',''); if(hex.length===3) hex=hex.split('').map(c=>c+c).join('');
   var r=parseInt(hex.slice(0,2),16)/255,g=parseInt(hex.slice(2,4),16)/255,b=parseInt(hex.slice(4,6),16)/255;

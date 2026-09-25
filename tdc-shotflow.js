@@ -19,7 +19,7 @@
   function cdist(a,b){ var dr=a[0]-b[0],dg=a[1]-b[1],db=a[2]-b[2]; return Math.sqrt(dr*dr+dg*dg+db*db); }
   function usable(c){ return c && lum(c)>=26 && lum(c)<=228; }
   function teamColors(name){
-    var CO=window.TDC_TEAM_COLORS||{}, t=CO[(name||'').toLowerCase()];
+    var CO=window.TDC_TEAM_COLORS||{}, t=CO[(name||'').toLowerCase()]||(window.tdcTeamColor&&window.tdcTeamColor(name));
     if(!t) return null;
     var c1=hexRgb(t.c1), c2=hexRgb(t.c2); if(!c1) return null;
     // if the primary is near-white/near-black, swap in the secondary as "made"

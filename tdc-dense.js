@@ -17,9 +17,9 @@
   function logoFor(name){
     var C=window.TDC_TEAM_COLORS; if(!C||!name) return null;
     var n=norm(name); if(C[n]&&C[n].logo) return C[n].logo;
-    var p=n.split(' ');
-    for(var i=p.length;i>0;i--){ var k=p.slice(0,i).join(' '); if(C[k]&&C[k].logo) return C[k].logo; }
-    return null;
+    // no blind prefix loop: it gave "Michigan St" Michigan's logo. The shared resolver only
+    // drops words that are the school's own mascot.
+    var r=window.tdcTeamColor&&window.tdcTeamColor(name); return (r&&r.logo)||null;
   }
   function addLogos(){
     document.querySelectorAll('#rankingsList .tr-team-name:not([data-dl])').forEach(function(a){

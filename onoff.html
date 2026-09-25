@@ -169,7 +169,7 @@
   <div class="empty" id="empty" style="display:none;"></div>
 </div>
 
-<script src="team-colors.js?v=9"></script>
+<script src="team-colors.js?v=10"></script>
 <script>
 function toggleTheme(){ var d=document.documentElement; var dark=d.getAttribute('data-theme')==='dark'; d.setAttribute('data-theme',dark?'light':'dark'); try{localStorage.setItem('tdc_theme',dark?'light':'dark');}catch(e){} document.getElementById('themeBtn').textContent=dark?'🌙':'☀️'; }
 (function(){ var t=localStorage.getItem('tdc_theme')||'light'; document.documentElement.setAttribute('data-theme',t); var b=document.getElementById('themeBtn'); if(b) b.textContent=t==='dark'?'☀️':'🌙'; })();
@@ -224,7 +224,7 @@ var POSSOPTS={
 var DEFSORT={players:'adj', lineups:'net', trios:'net', pairs:'net'}, DEFMIN={players:'400', lineups:'40', trios:'175', pairs:'350'};
 var COLS=COLSETS.players;
 var _lnorm=s=>(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[&.'’]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
-function logoFor(name){ var M=window.TDC_TEAM_COLORS||{}; var t=M[_lnorm(name)]; if(!t){ var n=_lnorm(name); for(var k in M){ if(n.indexOf(k)===0||k.indexOf(n)===0){t=M[k];break;} } } return (t&&t.logo)||''; }
+function logoFor(name){ var M=window.TDC_TEAM_COLORS||{}; var t=M[_lnorm(name)]||(window.tdcTeamColor&&window.tdcTeamColor(name)); return (t&&t.logo)||''; }
 function fnum(v,d){ return (v===null||v===undefined)?'—':(+v).toFixed(d===undefined?1:d); }
 function cls(v){ if(v===null||v===undefined) return ''; return v>0?'c-pos':v<0?'c-neg':''; }
 function adjTier(pct){ if(pct==null) return null;

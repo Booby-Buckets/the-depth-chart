@@ -6,7 +6,7 @@
    Data comes from scripts/data/chart_*.json (built by scripts/build_charts.py). */
 (function(){
   var CO=(window.TDC_TEAM_COLORS)||{};
-  function col(name){ var k=(name||'').toLowerCase(); return CO[k]||{c1:'#7c6fb0',c2:'#cfc8e6',logo:''}; }
+  function col(name){ var k=(name||'').toLowerCase(); return CO[k]||(window.tdcTeamColor&&window.tdcTeamColor(name))||{c1:'#7c6fb0',c2:'#cfc8e6',logo:''}; }
   function logo(name){ return col(name).logo||''; }
   function med(a){ a=a.slice().sort(function(x,y){return x-y;}); var m=a.length>>1; return a.length%2?a[m]:(a[m-1]+a[m])/2; }
   function lastName(n){ var p=(n||'').trim().split(/\s+/); while(p.length>1&&/^(jr|sr|ii|iii|iv|v)\.?$/i.test(p[p.length-1])) p.pop(); return p[p.length-1]||n; }

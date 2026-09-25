@@ -31,9 +31,9 @@
   <script src="tdc-owned-seasons.js?v=8"></script>
   <script src="tdc-lineups.js?v=17"></script>
   <script src="tdc-pos.js"></script>
-  <script src="team-colors.js?v=9"></script>
+  <script src="team-colors.js?v=10"></script>
   <link rel="stylesheet" href="tdc-sheets.css?v=5"/><link rel="stylesheet" href="tdc-hero.css?v=4"/><script src="tdc-shotchart.js?v=25"></script>
-  <script src="tdc-shotflow.js?v=11"></script>
+  <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-portalfit.js?v=needs10"></script>
   <script src="tdc-chemistry.js?v=8"></script>
   <script src="tdc-advstats.js?v=1"></script>
@@ -896,7 +896,7 @@ function pickTeamHist(slot, idx){
 // team logo (ESPN, via team-colors.js) — works for short or full names
 function _lnorm(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[&.'’]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
 function _logoFor(name){ const M=window.TDC_TEAM_COLORS||{}; let t=M[_lnorm(name)]||M[(name||'').toLowerCase()];
-  if(!t){ const n=_lnorm(name); for(const k in M){ if(n.indexOf(k)===0||k.indexOf(n)===0){ t=M[k]; break; } } }
+  if(!t&&window.tdcTeamColor) t=window.tdcTeamColor(name);   // shared mascot-aware resolver, not a loose prefix scan
   return (t&&t.logo)||''; }
 // chart legend entry: team logo (falls back to a color chip) + name in team color
 function _legendChip(name, color, suffix){

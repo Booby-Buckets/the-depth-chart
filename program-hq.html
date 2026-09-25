@@ -17,7 +17,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Program HQ — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-  <script src="team-colors.js?v=9"></script>
+  <script src="team-colors.js?v=10"></script>
   <script src="tdc-ratings.js?v=21"></script>
   <script src="tdc-schedule.js?v=20"></script>
   <script src="tdc-teamlink.js?v=2"></script>
@@ -317,7 +317,7 @@
 </head>
 <body data-anim-auto>
   <div class="hq-word" id="hqWord" aria-hidden="true"></div>
-  <div class="bgwm"><img id="wm1" src="" alt=""></div>
+  <div class="bgwm"><img id="wm1" alt=""></div>
   <div class="bggrunge" aria-hidden="true"></div>
   <script src="tdc-nav.js?v=28"></script>
 
@@ -336,7 +336,7 @@
   <div id="hq">
     <div class="hxwrap">
       <div class="hx-hero">
-        <img class="hx-wm" id="hxWm" src="" alt="">
+        <img class="hx-wm" id="hxWm" alt="">
         <div class="hx-top">
           <div class="hx-crest" id="hxCrest"></div>
           <div class="hx-id">
@@ -470,7 +470,7 @@ function renderHQ(){
   ds.setProperty('--tc-readable', readableTc(col.c1));
   var lg=logoFor(row.full)||(function(){try{var c=tdcTeamColor(row.full)||tdcTeamColor(row.team);return c&&c.logo;}catch(e){return null;}})();
   byId('hxCrest').innerHTML=lg?'<img src="'+lg+'" alt="" onerror="this.parentNode.textContent=\''+esc((row.full||'').slice(0,3).toUpperCase())+'\'">':esc((row.full||'').slice(0,3).toUpperCase());
-  byId('hxWm').src=lg||''; byId('wm1').src=lg||'';
+  ['hxWm','wm1'].forEach(function(id){ var im=byId(id); if(lg) im.src=lg; else im.removeAttribute('src'); });   // src='' makes the browser fetch the page itself as an image
   byId('hqWord').textContent=(row.team||row.full||'').toUpperCase();
   byId('hqNote').innerHTML='Locked tools open with a preview and an upgrade prompt if you’re not subscribed. Your program is remembered on this device and shared with the Coach’s Tier command center.';
   ensureSeasonSel();
