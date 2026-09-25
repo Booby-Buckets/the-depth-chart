@@ -73,3 +73,31 @@
   font-family:'Barlow Condensed','Inter',sans-serif !important; font-weight:800 !important;
   font-variant-numeric:tabular-nums;
 }
+
+/* ---- 6. the page column: content starts where the nav's logo does ----
+   These pages each centred their own box (820–1080px wide, plus 22–40px of side padding),
+   so the title sat 150–280px right of the logo on a desktop. The top-level container now
+   IS the nav's column (tdc-column.css maths: 1400px, gutter outside via width) and takes
+   no side padding of its own. Only direct children of <body>, so nested .wrap/.page
+   blocks inside cards are untouched. */
+:root{ --tdc-col:1400px; --tdc-gut:64px; }
+@media(max-width:1100px){ :root{ --tdc-gut:32px; } }
+@media(max-width:760px){ :root{ --tdc-gut:14px; } }
+body > :is(.page,.wrap,.xp){
+  max-width:var(--tdc-col) !important; width:calc(100% - 2 * var(--tdc-gut)) !important;
+  margin-left:auto !important; margin-right:auto !important;
+  padding-left:0 !important; padding-right:0 !important; box-sizing:border-box;
+}
+/* pages whose header and body are full-bleed bands (community, customize) pad into the column instead */
+body > :is(.page-header,.content,.hero){
+  padding-left:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+  padding-right:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
+  max-width:none !important; margin-left:0 !important; margin-right:0 !important; text-align:left !important;
+}
+/* headers that were centred inside their old narrow box read left, like everywhere else */
+body > :is(.page,.wrap,.xp) > .hero{ text-align:left !important; }
+/* long reading text keeps a readable measure now that the column is wider */
+body > :is(.page,.wrap) > :is(.prose,.lede) { max-width:760px; }
+/* a full-bleed hero that nests its own narrow .wrap (coach-tier's marketing hero): the hero
+   already pads into the column, so the inner box just fills it */
+body > .hero > .wrap{ max-width:none !important; width:auto !important; margin:0 !important; padding-left:0 !important; padding-right:0 !important; }
