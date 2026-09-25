@@ -16,7 +16,7 @@
   <script src="auth.js?v=shotlock1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
-  <script src="tdc-theme.js?v=4"></script>
+  <script src="tdc-theme.js?v=5"></script>
   <script src="tdc-glossary.js?v=12"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Projections — The Depth Chart</title>
@@ -31,7 +31,7 @@
     .nav-wrap{border-bottom:1px solid var(--border);background:rgba(250,249,246,.66);backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);position:sticky;top:0;z-index:200;}
     [data-theme="dark"] .nav-wrap{background:rgba(12,10,22,.62);border-bottom-color:rgba(26,43,68,.9);}
     .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
-    @keyframes logoReveal{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:translateX(0);}}
+    @keyframes logoReveal{from,to{opacity:1;transform:none;}}
     .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;letter-spacing:-.01em;white-space:nowrap;animation:logoReveal .55s cubic-bezier(.22,1,.36,1) both;}
     .nav-logo span{color:var(--accent);}
     .nav-actions{display:flex;align-items:center;gap:14px;}
@@ -160,13 +160,16 @@
     #particleCanvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;}
     .nav-wrap{z-index:200!important;}
     /* fade-up for page header content */
-    @keyframes fadeUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+    /* Entrance motion is off, like The Depth Chart CFB: content is simply there on first paint instead of
+       fading/sliding in (and flickering out and back as scripts re-rendered it). Keyframes kept as no-ops
+       so every rule that names them still resolves. */
+    @keyframes fadeUp{from,to{opacity:1;transform:none;}}
     .page-eyebrow{animation:fadeUp .45s .06s cubic-bezier(.22,1,.36,1) both;}
     .page-h1{animation:fadeUp .5s .12s cubic-bezier(.22,1,.36,1) both;}
     .page-sub{animation:fadeUp .5s .18s cubic-bezier(.22,1,.36,1) both;}
     /* tab panel fade */
     .tab-panel.active{animation:panelIn .28s cubic-bezier(.22,1,.36,1) forwards;}
-    @keyframes panelIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+    @keyframes panelIn{from,to{opacity:1;transform:none;}}
   
 /* ===== ANIMATED NEON BACKGROUND ===== */
 html{background:var(--bg);}
@@ -200,8 +203,8 @@ body{background:transparent!important;}
   <!-- canonical grade module: displayed OVRs = the coupled v5 grade shown site-wide -->
   <script src="tdc-projgrade.js?v=base22"></script>
   <!-- new-UI theme layer: navy+blue dark palette (matches index/player); light-mode guard keeps the toggle readable -->
-  <link rel="stylesheet" href="tdc-dense.css?v=38"/>
-  <link rel="stylesheet" href="tdc-skin.css?v=10"/>
+  <link rel="stylesheet" href="tdc-dense.css?v=39"/>
+  <link rel="stylesheet" href="tdc-skin.css?v=11"/>
   <style>
     :root:not([data-theme="dark"]){background:var(--bg)!important;}
     :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
@@ -2524,6 +2527,6 @@ init();
 })();
 </script>
   <script src="tdc-version.js?v=2"></script>
-  <script src="tdc-tour.js?v=6"></script>
+  <script src="tdc-tour.js?v=7"></script>
 </body>
 </html>

@@ -42,7 +42,7 @@
     .nil-cards{display:flex;flex-wrap:wrap;gap:13px;margin-bottom:20px;justify-content:center;}
   </style>
   <meta charset="UTF-8"/>
-  <script src="tdc-theme.js?v=4"></script>
+  <script src="tdc-theme.js?v=5"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Team — The Depth Chart</title>
   <meta name="description" content="Team depth chart, roster grades, projected 2026-27 stats, and Team DNA on The Depth Chart."/>
@@ -87,7 +87,7 @@
     *{margin:0;padding:0;box-sizing:border-box;}
     html{background:var(--bg);-webkit-text-size-adjust:100%;text-size-adjust:100%;}   /* stop iOS Safari from auto-inflating big text blocks so mobile sizes match the CSS */
     body{background:transparent;color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;opacity:0;animation:fadeIn .3s ease forwards;}
-    @keyframes fadeIn{to{opacity:1;}}
+    @keyframes fadeIn{from,to{opacity:1;transform:none;}}
     :root{--bgc1:#9a9aa8;--bgc2:#7c7c8c;--bgc3:#adadbd;--bgm1:rgba(158,158,174,.30);--bgm2:rgba(128,128,146,.28);--bgm3:rgba(176,176,192,.32);--bgm4:rgba(116,116,134,.22);}
     .tdc-bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:var(--bg);}
     .tdc-mesh{position:absolute;inset:-25%;background:radial-gradient(38% 48% at 22% 26%, var(--bgm1), transparent 62%),radial-gradient(44% 52% at 80% 28%, var(--bgm2), transparent 62%),radial-gradient(50% 50% at 62% 80%, var(--bgm3), transparent 62%),radial-gradient(40% 44% at 14% 82%, var(--bgm4), transparent 62%);filter:blur(46px);animation:tdcMesh 28s ease-in-out infinite alternate;transition:background 1.1s ease;}
@@ -108,7 +108,7 @@
     .nav-wrap{border-bottom:1px solid var(--border);background:rgba(250,249,246,.66);backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);position:sticky;top:0;z-index:200;}
     [data-theme="dark"] .nav-wrap{background:rgba(12,10,22,.62);border-bottom-color:rgba(26,43,68,.9);}
     .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;min-width:0;}
-    @keyframes logoReveal{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:translateX(0);}}
+    @keyframes logoReveal{from,to{opacity:1;transform:none;}}
     .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;letter-spacing:-.01em;white-space:nowrap;animation:logoReveal .55s cubic-bezier(.22,1,.36,1) both;}
     .nav-logo span{color:var(--accent);}
     .nav-actions{display:flex;align-items:center;gap:24px;}
@@ -150,7 +150,10 @@
     .nav-wrap{z-index:200;}
 
     /* HERO */
-    @keyframes fadeUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+    /* Entrance motion is off, like The Depth Chart CFB: content is simply there on first paint instead of
+       fading/sliding in (and flickering out and back as scripts re-rendered it). Keyframes kept as no-ops
+       so every rule that names them still resolves. */
+    @keyframes fadeUp{from,to{opacity:1;transform:none;}}
     .team-hero{padding:40px 40px 0;background:linear-gradient(145deg,rgba(var(--tc-rgb),.14) 0%,rgba(var(--tc-rgb),.06) 45%,transparent 100%);border-bottom:1px solid var(--border);position:relative;overflow:hidden;transition:background .5s ease;}
     /* Team-colored hero orbs */
     .hero-orbs{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
@@ -184,7 +187,7 @@
     .hero-rank:hover{background:rgba(var(--tc-rgb),.12);border-color:rgba(var(--tc-rgb),.35);color:var(--tc-readable,var(--accent));}
 
     /* Grade boxes — stagger reveal */
-    @keyframes gradeReveal{from{opacity:0;transform:translateY(10px) scale(.96);}to{opacity:1;transform:translateY(0) scale(1);}}
+    @keyframes gradeReveal{from,to{opacity:1;transform:none;}}
     .hero-grades{display:flex;gap:1px;background:var(--border);flex-shrink:0;animation:fadeUp .5s .28s cubic-bezier(.22,1,.36,1) both;}
     .hero-grades.hist-hidden{display:none!important;}
     .hero-grade{background:var(--bg2);padding:16px 24px;text-align:center;min-width:88px;opacity:0;animation:gradeReveal .4s cubic-bezier(.22,1,.36,1) both;transition:background .2s;}
@@ -250,7 +253,7 @@
     .main-col{padding:32px 40px 64px;border-right:1px solid var(--border);min-width:0;}
     .side-col{padding:32px 32px 64px;min-width:0;}
     .panel{display:none;}.panel.active{display:block;width:100%;box-sizing:border-box;animation:panelIn .28s cubic-bezier(.22,1,.36,1) forwards;}
-    @keyframes panelIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+    @keyframes panelIn{from,to{opacity:1;transform:none;}}
     #customizeContent{width:100%;max-width:100%;overflow-x:hidden;box-sizing:border-box;}
     /* Customize sub-tabs (keep the lower charts from all showing at once) */
     .cz-subtabs{display:inline-flex;gap:3px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:4px;margin:22px 0 20px;max-width:100%;overflow-x:auto;scrollbar-width:none;}
@@ -1146,14 +1149,15 @@
     .tbp-angle b{color:var(--text);}
 </style>
   <script src="tdc-engine.js"></script>
-  <link rel="stylesheet" href="tdc-anim.css?v=5"/>
-  <script src="tdc-anim.js?v=5"></script>
-  <!-- Dense "spreadsheet" reskin (dark-first) — matches the index cover -->
-  <script>try{document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
-  <link rel="stylesheet" href="tdc-dense.css?v=38"/>
+  <link rel="stylesheet" href="tdc-anim.css?v=6"/>
+  <script src="tdc-anim.js?v=6"></script>
+  <!-- Dense "spreadsheet" reskin — matches the index cover. (A line here used to force
+       data-theme="dark" after tdc-theme.js had applied the saved theme, so light-mode visitors got
+       a dark first paint that flipped to light a moment later. tdc-theme.js owns the theme.) -->
+  <link rel="stylesheet" href="tdc-dense.css?v=39"/>
   <link rel="stylesheet" href="tdc-team-dense.css?v=22"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth -->
-  <link rel="stylesheet" href="tdc-skin.css?v=10"/>
+  <link rel="stylesheet" href="tdc-skin.css?v=11"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
@@ -8649,6 +8653,8 @@ function toggleTheme(){
 /* ── Particle system ─────────────────────────────────────────── */
 (function initParticles(){
   const canvas = document.getElementById('particleCanvas');
+  // tdc-dense.css hides this canvas site-wide; don't run a 60fps particle loop nobody can see
+  if(canvas && getComputedStyle(canvas).display==='none') return;
   if(!canvas) return;
   const ctx = canvas.getContext('2d');
   const COUNT=14, SPEED_MIN=5, SPEED_MAX=8, SIZE_MIN=1.0, SIZE_MAX=2.0, OP_MIN=0.05, OP_MAX=0.16;
@@ -9214,6 +9220,6 @@ function renderProjNatlChart(projected, color, rgb){
 </script>
 <script src="tdc-team-dense.js?v=5"></script>
   <script src="tdc-version.js?v=2"></script>
-  <script src="tdc-tour.js?v=6"></script>
+  <script src="tdc-tour.js?v=7"></script>
 </body>
 </html>

@@ -33,43 +33,26 @@
   // (1) apply immediately — runs in <head>, before the body paints → persistence + no flash
   apply(cur());
 
-  // Smooth switch: a whole-page crossfade via the View Transitions API where it exists
-  // (Chrome, Edge, Safari 18+), otherwise every colour/background/border tweens for ~350ms
-  // under a temporary class. Either way the change is committed synchronously to storage.
-  var css = null;
-  function ensureCss() {
-    if (css) return;
-    css = document.createElement('style');
-    css.textContent =
-      // View Transition: one compositor crossfade of the whole viewport (no per-element work)
-      '::view-transition-old(root),::view-transition-new(root){animation-duration:.38s;animation-timing-function:cubic-bezier(.4,0,.2,1);mix-blend-mode:normal;}' +
-      // Fallback: a single dip-to-and-from — the page eases to 0 opacity, the theme flips,
-      // and it eases back. One motion, no thousand-cell colour tween, so it never stutters.
-      'body.tdc-theme-dip{transition:opacity .16s ease-in !important;opacity:0 !important;}' +
-      'body.tdc-theme-rise{transition:opacity .22s ease-out !important;}' +
-      '@media (prefers-reduced-motion: reduce){ ::view-transition-old(root),::view-transition-new(root){animation:none;} body.tdc-theme-dip{transition:none !important;} }';
-    (document.head || document.documentElement).appendChild(css);
-  }
+  // Instant switch, like The Depth Chart CFB. This used to crossfade the whole page (View
+  // Transitions, ~0.4s, or an opacity dip), but the snapshot took ~0.7s to start on the big
+  // pages and every element with its own colour transition then tweened at its own speed,
+  // so the switch showed a garbled half-light/half-dark frame. Now the attribute flips in one
+  // frame, and colour transitions are paused for that frame so nothing tweens after it.
+  var still = null;
   function set(theme) {
     theme = theme === 'dark' ? 'dark' : 'light';
-    var same = document.documentElement.getAttribute('data-theme') === theme;
     try { localStorage.setItem(KEY, theme); } catch (e) {}
-    if (same) { apply(theme); return; }
-    ensureCss();
-    var reduced = false;
-    try { reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches && localStorage.getItem('tdc_motion') !== 'force'; } catch (e) {}
-    if (!reduced && typeof document.startViewTransition === 'function' && !document.hidden) {
-      try { document.startViewTransition(function () { apply(theme); }); return; } catch (e) {}
+    if (document.documentElement.getAttribute('data-theme') === theme) { apply(theme); return; }
+    if (!still) {
+      still = document.createElement('style');
+      still.textContent = 'html.tdc-theme-switching *,html.tdc-theme-switching *::before,html.tdc-theme-switching *::after{transition:none !important;}';
+      (document.head || document.documentElement).appendChild(still);
     }
-    if (reduced || !document.body) { apply(theme); return; }
-    var body = document.body;
-    body.classList.add('tdc-theme-dip');
-    setTimeout(function () {
-      apply(theme);
-      body.classList.remove('tdc-theme-dip');
-      body.classList.add('tdc-theme-rise');
-      setTimeout(function () { body.classList.remove('tdc-theme-rise'); }, 260);
-    }, 170);
+    var root = document.documentElement;
+    root.classList.add('tdc-theme-switching');
+    apply(theme);
+    void root.offsetHeight;                        // commit the new colours with transitions off
+    requestAnimationFrame(function () { requestAnimationFrame(function () { root.classList.remove('tdc-theme-switching'); }); });
   }
   function toggle() { set(cur() === 'dark' ? 'light' : 'dark'); }
   // public API (also what existing inline toggleTheme() writes to — same key, no conflict)
@@ -82,8 +65,8 @@
   var injected = null;
   function realToggle() { return document.querySelector('.theme-toggle, #themeBtn'); } // page/nav toggle, not ours
   function ensureToggle() {
-    // ~60 pages still declare their own toggleTheme() that flips the attribute cold; route
-    // every onclick="toggleTheme()" through the animated switch instead (same storage key).
+    // ~60 pages still declare their own toggleTheme(); route every onclick="toggleTheme()"
+    // through this one switch (same storage key, same instant repaint).
     window.toggleTheme = toggle;
     apply(cur()); // keep any per-page button icons in sync
     if (realToggle()) { if (injected) { injected.remove(); injected = null; } return; }

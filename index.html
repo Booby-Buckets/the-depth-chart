@@ -14,7 +14,7 @@
   <script src="tdc-projgrade.js?v=base22"></script>
   <script src="tdc-rating.js?v=5"></script>
   <meta charset="UTF-8"/>
-  <script src="tdc-theme.js?v=4"></script>
+  <script src="tdc-theme.js?v=5"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>The Depth Chart — College Basketball Roster Rankings</title>
   <meta name="description" content="College basketball roster rankings, player grades, and 2026-27 projections — every team, every player, one depth chart."/>
@@ -162,10 +162,7 @@
   }
 
   /* Logo with load animation */
-  @keyframes logoReveal {
-    from { opacity:0; transform:translateX(-8px); }
-    to   { opacity:1; transform:translateX(0); }
-  }
+  @keyframes logoReveal{from,to{opacity:1;transform:none;}}
   .nav-logo {
     font-family: 'Playfair Display', serif;
     font-weight: 800;
@@ -362,10 +359,10 @@
   /* Hero content */
   .hero-content { position:relative; z-index:1; }
 
-  @keyframes fadeUp {
-    from { opacity:0; transform:translateY(16px); }
-    to   { opacity:1; transform:translateY(0); }
-  }
+  /* Entrance motion is off, like The Depth Chart CFB: content is simply there on first paint instead of
+       fading/sliding in (and flickering out and back as scripts re-rendered it). Keyframes kept as no-ops
+       so every rule that names them still resolves. */
+    @keyframes fadeUp{from,to{opacity:1;transform:none;}}
 
   .page-header-eyebrow {
     font-size: 11px;
@@ -651,13 +648,7 @@
     flex: 1; height: 1px;
     background: linear-gradient(90deg, rgba(230,213,168,.45), transparent 70%);
   }
-  @keyframes tierGlow {
-    0%,100% { opacity:.25; }
-    50%      { opacity:.7; }
-  }
-  .grade-group-label.revealed::after {
-    animation: tierGlow 3.5s ease-in-out infinite;
-  }
+  .grade-group-label.revealed::after { opacity:.5; }   /* was an endless 3.5s pulse; a still rule, like CFB */
 
   /* ---- Team rows ---- */
   .team-row {
@@ -1078,8 +1069,7 @@
   .spark-fill {
     height: 100%;
     border-radius: 2px;
-    /* width animated via JS data-w; transition handles the motion */
-    transition: width .85s cubic-bezier(.22,1,.36,1);
+    /* width set by JS from data-w, no grow-in */
   }
 
   /* ============================================================
@@ -1188,13 +1178,13 @@
     .tdc-prem:hover .tv-check{animation:tvDraw .5s .18s both;}
     @media (prefers-reduced-motion: reduce){.tdc-prem:hover .tv-seal,.tdc-prem:hover .tv-check{animation:none;}}
 </style>
-  <link rel="stylesheet" href="tdc-anim.css?v=5"/>
-  <script src="tdc-anim.js?v=5"></script>
-  <link rel="stylesheet" href="tdc-dense.css?v=38"/>
+  <link rel="stylesheet" href="tdc-anim.css?v=6"/>
+  <script src="tdc-anim.js?v=6"></script>
+  <link rel="stylesheet" href="tdc-dense.css?v=39"/>
   <link rel="stylesheet" href="tdc-hero.css?v=4"/>
   <link rel="stylesheet" href="tdc-index-sheet.css?v=2"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth; releases the dense dark-lock -->
-  <link rel="stylesheet" href="tdc-skin.css?v=10"/>
+  <link rel="stylesheet" href="tdc-skin.css?v=11"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
@@ -2260,22 +2250,13 @@ function scoreToLetter(score){
 
 /* ─── Swap a hero stat with a crossfade ─────────────────────── */
 function swapStat(statId, newNum, newLbl, shouldCount){
-  const stat   = document.getElementById(statId);
+  // Written straight in (no fade-out/count-up): this runs several times while the data
+  // arrives, and each pass used to blank the number again. CFB-style: it's just there.
   const numEl  = document.getElementById(statId + 'Num');
   const lblEl  = document.getElementById(statId + 'Lbl');
-  if(!stat || !numEl || !lblEl) return;
-
-  stat.classList.add('swapping');
-  setTimeout(() => {
-    if(shouldCount && typeof newNum === 'number'){
-      numEl.textContent = '0';
-      countUp(numEl, newNum, 700);
-    } else {
-      numEl.textContent = newNum;
-    }
-    lblEl.textContent = newLbl;
-    stat.classList.remove('swapping');
-  }, 210);
+  if(!numEl || !lblEl) return;
+  numEl.textContent = newNum;
+  lblEl.textContent = newLbl;
 }
 
 /* ─── Main hero updater ──────────────────────────────────────── */
@@ -2295,8 +2276,7 @@ function updateHeroForConf(conf, teams){
     header.classList.remove('conf-active');
     header.style.removeProperty('--conf-overlay');
     eyebrow.style.color = '';
-    titleEl.classList.add('swapping');
-    setTimeout(() => { titleEl.innerHTML = 'Team <em>Analytics</em>'; titleEl.classList.remove('swapping'); }, 230);
+    titleEl.innerHTML = 'Team <em>Analytics</em>';   // instant: this runs on every data pass, and the old 230ms fade kept the title hidden for ~1.5s on load
     confSpan.textContent = 'Ranked by Power Rating · all of Division I';
     swapStat('heroStat1', teams.length, 'Teams', true);
     swapStat('heroStat2', '118,780',    'Games', false);
@@ -2310,8 +2290,7 @@ function updateHeroForConf(conf, teams){
     header.style.setProperty('--conf-overlay', meta.overlay);
     header.classList.add('conf-active');
     eyebrow.style.color = meta.color;
-    titleEl.classList.add('swapping');
-    setTimeout(() => { titleEl.innerHTML = `${meta.name} <em>Analytics</em>`; titleEl.classList.remove('swapping'); }, 230);
+    titleEl.innerHTML = `${meta.name} <em>Analytics</em>`;
     confSpan.textContent = `${meta.full} Conference · ${teams.length} teams`;
     swapStat('heroStat1', teams.length, 'Teams', true);
     swapStat('heroStat2', top ? (top.margin>0?'+':'')+top.margin : '—', 'Top Margin', false);
@@ -2322,11 +2301,8 @@ function updateHeroForConf(conf, teams){
 
 /* ----- Strength bar fill animation ----- */
 function animateBars(){
-  document.querySelectorAll('.spark-fill[data-w]').forEach((el, i) => {
-    setTimeout(() => {
-      el.style.width = el.dataset.w;
-    }, i * 18); // 18ms stagger per bar
-  });
+  // bars take their width straight away (no staggered grow-in), like CFB
+  document.querySelectorAll('.spark-fill[data-w]').forEach(el => { el.style.width = el.dataset.w; });
 }
 
 /* ----- Hero counter ----- */
@@ -2380,6 +2356,8 @@ window.addEventListener('scroll', () => {
  * ═══════════════════════════════════════════════════════════ */
 (function initParticles(){
   const canvas = document.getElementById('particleCanvas');
+  // tdc-dense.css hides this canvas site-wide; don't run a 60fps particle loop nobody can see
+  if(canvas && getComputedStyle(canvas).display==='none') return;
   if(!canvas) return;
   const ctx = canvas.getContext('2d');
 
@@ -2917,6 +2895,6 @@ function toggleTheme(){
   })();
   </script>
 
-  <script src="tdc-tour.js?v=6"></script>
+  <script src="tdc-tour.js?v=7"></script>
 </body>
 </html>

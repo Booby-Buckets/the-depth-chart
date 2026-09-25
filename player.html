@@ -29,7 +29,7 @@
   <script src="tdc-season.js?v=1"></script>
   <script src="tdc-pool.js?v=5"></script>
   <meta charset="UTF-8"/>
-  <script src="tdc-theme.js?v=4"></script>
+  <script src="tdc-theme.js?v=5"></script>
   <style>
     .nil-card{border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:130px;background:var(--bg2);}
     .nil-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
@@ -64,7 +64,7 @@
     .nav-wrap{border-bottom:1px solid var(--border);background:rgba(250,249,246,.66);backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);position:sticky;top:0;z-index:200;}
     [data-theme="dark"] .nav-wrap{background:rgba(12,10,22,.62);border-bottom-color:rgba(26,43,68,.9);}
     .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
-    @keyframes logoReveal{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:translateX(0);}}
+    @keyframes logoReveal{from,to{opacity:1;transform:none;}}
     .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;letter-spacing:-.01em;white-space:nowrap;animation:logoReveal .55s cubic-bezier(.22,1,.36,1) both;}
     .nav-logo span{color:var(--accent);}
     .nav-actions{display:flex;align-items:center;gap:14px;}
@@ -416,8 +416,8 @@
     .rk-wt{font-size:12px;font-weight:800;color:var(--text2);text-align:right;font-variant-numeric:tabular-nums;}
     .rk-foot{font-size:11.5px;color:var(--text3);font-style:italic;margin-top:18px;line-height:1.5;}
     @media(max-width:640px){.rk-top{grid-template-columns:1fr;}.rk-row{grid-template-columns:120px 46px 1fr 44px;gap:9px;}}
-    @keyframes tabIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
-    @keyframes tabOut{from{opacity:1;}to{opacity:0;transform:translateY(-5px);}}
+    @keyframes tabIn{from,to{opacity:1;transform:none;}}
+    @keyframes tabOut{from,to{opacity:1;transform:none;}}
     .tab-panel.entering{animation:tabIn .26s cubic-bezier(.22,1,.36,1) both;}
     .tab-panel.leaving{animation:tabOut .14s ease forwards;pointer-events:none;}
 
@@ -881,10 +881,10 @@
     .oo-l{font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-top:5px;}
 
     /* PAGE-LOAD ANIMATIONS */
-    @keyframes heroSlideUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
-    @keyframes avatarPop{0%{opacity:0;transform:scale(.6);}70%{transform:scale(1.08);}100%{opacity:1;transform:scale(1);}}
-    @keyframes gradeStamp{0%{opacity:0;transform:scale(.5) rotate(-4deg);}65%{transform:scale(1.1) rotate(1deg);}100%{opacity:1;transform:scale(1) rotate(0deg);}}
-    @keyframes statCardIn{from{opacity:0;transform:translateY(10px) scale(.96);}to{opacity:1;transform:translateY(0) scale(1);}}
+    @keyframes heroSlideUp{from,to{opacity:1;transform:none;}}
+    @keyframes avatarPop{from,to{opacity:1;transform:none;}}
+    @keyframes gradeStamp{from,to{opacity:1;transform:none;}}
+    @keyframes statCardIn{from,to{opacity:1;transform:none;}}
 
     .player-hero{animation:heroSlideUp .5s .05s cubic-bezier(.22,1,.36,1) both;}
     .hero-avatar{animation:avatarPop .55s .15s cubic-bezier(.34,1.56,.64,1) both!important;}
@@ -941,13 +941,16 @@
     #particleCanvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;}
     .nav-wrap{z-index:200!important;}
     /* fade-up for page header content */
-    @keyframes fadeUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+    /* Entrance motion is off, like The Depth Chart CFB: content is simply there on first paint instead of
+       fading/sliding in (and flickering out and back as scripts re-rendered it). Keyframes kept as no-ops
+       so every rule that names them still resolves. */
+    @keyframes fadeUp{from,to{opacity:1;transform:none;}}
     .page-eyebrow{animation:fadeUp .45s .06s cubic-bezier(.22,1,.36,1) both;}
     .page-h1{animation:fadeUp .5s .12s cubic-bezier(.22,1,.36,1) both;}
     .page-sub{animation:fadeUp .5s .18s cubic-bezier(.22,1,.36,1) both;}
     /* tab panel fade */
     .tab-panel.active{animation:panelIn .28s cubic-bezier(.22,1,.36,1) forwards;}
-    @keyframes panelIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+    @keyframes panelIn{from,to{opacity:1;transform:none;}}
   
 /* ===== ANIMATED NEON BACKGROUND ===== */
 html{background:var(--bg);}
@@ -1184,17 +1187,17 @@ body{background:transparent!important;}
     .sf-card-freq>i{display:block;height:100%;background:var(--tc-readable,#5B8DEF);border-radius:3px;transition:width .7s cubic-bezier(.22,1,.36,1);}
     .sf-card-freq-l{font:600 10px/1 'Inter',sans-serif;color:var(--text3);margin-top:7px;}
   </style>
-  <link rel="stylesheet" href="tdc-anim.css?v=5"/>
-  <script src="tdc-anim.js?v=5"></script>
+  <link rel="stylesheet" href="tdc-anim.css?v=6"/>
+  <script src="tdc-anim.js?v=6"></script>
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index + team page -->
-  <link rel="stylesheet" href="tdc-dense.css?v=38"/>
+  <link rel="stylesheet" href="tdc-dense.css?v=39"/>
   <link rel="stylesheet" href="tdc-player-dense.css?v=27"/>
   <script src="tdc-dossier.js?v=2" defer></script>
   <script src="tdc-roles.js?v=3" defer></script>
   <script src="tdc-devpath.js?v=2" defer></script>
   <!-- ===== Clean skin (2026): loaded LAST so it wins over dense CSS. Neutral base +
        translucent depth tokens; team color stays on --tc for the minimal accent slots. ===== -->
-  <link rel="stylesheet" href="tdc-skin.css?v=10"/>
+  <link rel="stylesheet" href="tdc-skin.css?v=11"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
   <link rel="stylesheet" href="tdc-hq-player.css?v=8"/>
   <link rel="manifest" href="manifest.webmanifest">
@@ -6503,28 +6506,11 @@ function drawRadar(progress){
 }
 function _radarToggle(lbl){ var v=window._radarVis=window._radarVis||{}; v[lbl]=(v[lbl]===false); drawRadar(1); }
 function animateRadar(){
-  var start=null, dur=780, done=false;
-  function ease(t){return 1-Math.pow(1-t,3);}
-  function step(ts){ if(start===null)start=ts; var p=Math.min(1,(ts-start)/dur); drawRadar(ease(p)); if(p<1)requestAnimationFrame(step); else done=true; }
-  requestAnimationFrame(step);
-  // safety net: if rAF is throttled/never ticks, guarantee the final render
-  setTimeout(function(){ if(!done) drawRadar(1); }, dur+260);
+  drawRadar(1);   // drawn in its final state (no 0.8s grow-in), like the rest of the page
 }
-// Grow horizontal/vertical bars from 0 → target with a stagger.
 function growBarsIn(root){
-  if(!root) return;
-  var i=0;
-  root.querySelectorAll('.pct-fill,.skill-bar-fill,.scout-rating-fill,.impact-fill').forEach(function(el){
-    var w=el.style.width; if(!w||w==='0%'||w==='0px') return;
-    el.style.width='0'; el.getBoundingClientRect();
-    (function(el,w,d){ setTimeout(function(){ el.style.width=w; }, 60+d*40); })(el,w,i++);
-  });
-  var j=0;
-  root.querySelectorAll('.arch-bar').forEach(function(el){
-    var h=el.style.height; if(!h||h==='0%'||h==='0px') return;
-    el.style.height='0'; el.getBoundingClientRect();
-    (function(el,h,d){ setTimeout(function(){ el.style.height=h; }, 60+d*35); })(el,h,j++);
-  });
+  // Bars keep the widths they were rendered with. This used to zero every bar and regrow it
+  // with a 40ms stagger each time a tab rendered; the page now paints finished, like CFB.
 }
 
 function _tabScrollHint(){
@@ -7462,11 +7448,7 @@ function drawArchFit(progress){
   });
 }
 function animateArchFit(){
-  var start=null, dur=760, done=false;
-  function ease(t){return 1-Math.pow(1-t,3);}
-  function step(ts){ if(start===null)start=ts; var p=Math.min(1,(ts-start)/dur); drawArchFit(ease(p)); if(p<1)requestAnimationFrame(step); else done=true; }
-  requestAnimationFrame(step);
-  setTimeout(function(){ if(!done) drawArchFit(1); }, dur+260);
+  drawArchFit(1);   // drawn in its final state (no 0.8s grow-in), like the rest of the page
 }
 
 // Comp pool: every player-season with real minutes, ~50k rows.
@@ -7782,6 +7764,8 @@ init();
 /* ── Particle system ──────────────────────────────────────── */
 (function(){
   const cv=document.getElementById('particleCanvas');
+  // tdc-dense.css hides this canvas site-wide; don't run a 60fps particle loop nobody can see
+  if(cv && getComputedStyle(cv).display==='none') return;
   if(!cv) return;
   const ctx=cv.getContext('2d');
   const N=14,SMIN=5,SMAX=8,RMIN=1.0,RMAX=2.0,OMIN=0.05,OMAX=0.16;
@@ -7928,6 +7912,6 @@ init();
 </script>
 <script src="tdc-player-dense.js?v=2"></script>
   <script src="tdc-version.js?v=2"></script>
-  <script src="tdc-tour.js?v=6"></script>
+  <script src="tdc-tour.js?v=7"></script>
 </body>
 </html>

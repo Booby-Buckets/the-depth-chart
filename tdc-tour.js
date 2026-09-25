@@ -387,9 +387,14 @@
   function q(sel){ try { var parts = String(sel).split(','), first = null; for (var k = 0; k < parts.length; k++) { var el = document.querySelector(parts[k].trim()); if (!el) continue; if (visible(el)) return el; if (!first) first = el; } return first; } catch (e) { return null; } }
   function visible(el){ if (!el) return false; var r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }
 
+  // The button's styles live in CSS too, so inject them with the button, not only when a tour
+  // opens: until now the "Explain this page" button rendered as a bare browser button, painted
+  // in the top-left while the page was still empty and then pushed below the content.
+  var cssIn = false;
+  function ensureCss(){ if (cssIn) return; cssIn = true; var st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st); }
   function ensureDom(){
     if (W) return;
-    var st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
+    ensureCss();
     W = document.createElement('div'); W.id = 'tdcTourWrap'; W.setAttribute('role', 'dialog'); W.setAttribute('aria-label', 'Page walkthrough');
     W.innerHTML = '<div class="tdc-tour-spot" id="tdcTourSpot"></div>'
       + '<div class="tdc-tour-tip" id="tdcTourTip"><div class="tdc-tour-step" id="tdcTourStep"></div><div class="tdc-tour-t" id="tdcTourTitle"></div><div class="tdc-tour-d" id="tdcTourDesc"></div>'
@@ -458,6 +463,7 @@
   }
   function button(){
     if (!TOURS[page()] || document.querySelector('.tdc-explain')) return;
+    ensureCss();
     var b = document.createElement('button'); b.type = 'button'; b.className = 'tdc-explain'; b.setAttribute('aria-label', 'Explain this page');
     b.innerHTML = '<i>?</i><span>Explain this page</span>';
     b.addEventListener('click', function () { start(); });

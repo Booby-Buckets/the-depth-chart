@@ -1,97 +1,15 @@
-/* tdc-anim.js — shared subtle-premium motion engine.
-   - data-anim / data-stagger : fade/slide in (on load if in view, else on scroll)
-   - data-countup="N"         : counts 0→N when revealed
-   - data-fill                : bar animates 0→its width
-   Robust by design: elements in view on load reveal immediately (no reliance on
-   IntersectionObserver); off-screen ones reveal on scroll via IO; and a safety
-   timeout reveals ANYTHING still hidden — so content can never get stuck invisible
-   if IO is unsupported/flaky. Skipped entirely under prefers-reduced-motion
-   (content just shows). Load in <head> (no defer) so the pre-reveal state is set
-   before first paint — no flash. `?anim=force` overrides reduced-motion (preview). */
+/* tdc-anim.js — entrance motion, switched OFF (Sept 2026) to match The Depth Chart CFB.
+
+   This used to hide every [data-anim] / [data-stagger] block before first paint and fade/slide
+   it in (counting numbers up from 0 and growing bars from 0 as they appeared). On a real load
+   that read as flicker: content painted, vanished as the engine armed, then drifted back in,
+   and anything a script re-rendered animated again. CFB simply paints the page, so this does too.
+
+   The attributes stay in the markup and the public API stays, so callers keep working:
+   every element already carries its final text / inline width, and nothing is ever hidden.
+   Delete the attributes page by page later if wanted; they are inert now. */
 (function(){
   'use strict';
-  var mm = window.matchMedia;
-  var force = /[?&]anim=force/.test(location.search);
-  // gentle mode under reduced-motion: still fade content in (accessible), but no
-  // movement / count-up / bar-fill.
-  var gentle = !force && mm && mm('(prefers-reduced-motion: reduce)').matches;
-  document.documentElement.classList.add('tdc-anim-ready');
-  if(gentle) document.documentElement.classList.add('tdc-anim-gentle');
-  var hasIO = 'IntersectionObserver' in window;
-
-  function raf2(fn){ requestAnimationFrame(function(){ requestAnimationFrame(fn); }); }
-  function inView(el){ var r=el.getBoundingClientRect(), h=window.innerHeight||document.documentElement.clientHeight;
-    return r.top < h*1.05 && r.bottom > -60; }
-  function reveal(el){ el.classList.add('in-view'); }
-  function staggerDelays(el){ var step=parseFloat(el.getAttribute('data-stagger'))||55;
-    [].forEach.call(el.children, function(c,i){ c.style.transitionDelay=Math.min(i*step,520)+'ms'; }); }
-
-  var io = hasIO ? new IntersectionObserver(function(ents,obs){
-    ents.forEach(function(e){ if(e.isIntersecting){ reveal(e.target); obs.unobserve(e.target); } }); },
-    {rootMargin:'0px 0px -6% 0px', threshold:0.05}) : null;
-
-  function ease(p){ return 1 - Math.pow(1-p, 3); }
-  function countUp(el){
-    var target=parseFloat(el.getAttribute('data-countup')); if(isNaN(target)) return;
-    var dec=parseInt(el.getAttribute('data-countup-dec')||'0',10);
-    var suf=el.getAttribute('data-countup-suffix')||'', pre=el.getAttribute('data-countup-prefix')||'';
-    var dur=Math.abs(target)>=200?900:700, t0=null;
-    function frame(ts){ if(!t0)t0=ts; var p=Math.min(1,(ts-t0)/dur);
-      el.textContent=pre+(target*ease(p)).toFixed(dec)+suf;
-      if(p<1) requestAnimationFrame(frame); else el.textContent=pre+target.toFixed(dec)+suf; }
-    requestAnimationFrame(frame);
-  }
-  var ioCount = hasIO ? new IntersectionObserver(function(ents,obs){
-    ents.forEach(function(e){ if(e.isIntersecting){ countUp(e.target); obs.unobserve(e.target); } }); },
-    {threshold:0.4}) : null;
-
-  // Auto mode: pages with <body data-anim-auto> get their content sections faded in
-  // with zero per-element markup. Opacity-only (no layout risk); nav/tiny elements
-  // skipped; nested sections skipped so a card inside a panel doesn't double-animate.
-  var AUTO_SEL='.card,.sec-t,.sec-head,.cstrip,.grid2,.cols,[class*=hero],[class*=panel],[class*=board],section';
-  function autoTag(node){
-    var body=document.body;
-    if(!body || !body.hasAttribute('data-anim-auto')) return;
-    var sel=body.getAttribute('data-anim-auto')||AUTO_SEL;
-    (node||document).querySelectorAll(sel).forEach(function(el){
-      if(el.hasAttribute('data-anim')||el.hasAttribute('data-stagger')) return;
-      if(el.closest('nav,header,.nav-wrap,.nav-sub,[data-anim],[data-stagger]')) return;
-      if(el.getBoundingClientRect().height<8) return;
-      el.setAttribute('data-anim','fade');
-    });
-  }
-  function scan(node){
-    node=node||document; if(!node.querySelectorAll) return;
-    autoTag(node);
-    node.querySelectorAll('[data-anim]:not(.in-view),[data-stagger]:not(.in-view),[data-fill]:not(.in-view)').forEach(function(el){
-      if(el.hasAttribute('data-stagger')) staggerDelays(el);
-      if(el.hasAttribute('data-fill') && !el.style.getPropertyValue('--fill-w'))
-        el.style.setProperty('--fill-w', el.style.width || getComputedStyle(el).width);
-      if(!io || inView(el)) raf2(function(){ reveal(el); });   // in view now → animate over the next frames
-      else io.observe(el);
-    });
-    if(!gentle) node.querySelectorAll('[data-countup]:not([data-cu])').forEach(function(el){
-      el.setAttribute('data-cu','1');
-      var dec=parseInt(el.getAttribute('data-countup-dec')||'0',10);
-      el.textContent=(el.getAttribute('data-countup-prefix')||'')+(0).toFixed(dec)+(el.getAttribute('data-countup-suffix')||'');
-      if(!ioCount || inView(el)) raf2(function(){ countUp(el); });
-      else ioCount.observe(el);
-    });
-  }
-  function revealAll(){
-    document.querySelectorAll('[data-anim]:not(.in-view),[data-stagger]:not(.in-view),[data-fill]:not(.in-view)').forEach(reveal);
-    document.querySelectorAll('[data-countup]:not([data-cu])').forEach(function(el){ el.setAttribute('data-cu','1'); countUp(el); });
-  }
-  window.TDCAnim = { scan: scan, revealAll: revealAll };
-
-  function init(){
-    scan();
-    if(window.MutationObserver){
-      var pending=false;
-      new MutationObserver(function(){ if(pending) return; pending=true;
-        requestAnimationFrame(function(){ pending=false; scan(); }); }).observe(document.body, {childList:true, subtree:true});
-    }
-    setTimeout(revealAll, 3200);   // safety net: nothing stays hidden if IO never fires
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+  function noop(){}
+  window.TDCAnim = { scan: noop, revealAll: noop };
 })();
