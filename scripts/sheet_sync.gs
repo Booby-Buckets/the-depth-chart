@@ -22,6 +22,27 @@
 const SUPABASE_URL = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const SUPABASE_KEY = 'PASTE_LEGACY_SERVICE_ROLE_JWT_HERE';   // eyJ... (legacy service_role) — DO NOT COMMIT THE REAL KEY
 
+// ── KEEP OVERALLS ALREADY IN THE DATABASE (Sept 2026) ─────────────────────────
+// Experienced players' tdc_grade is never sent (see insertPlayers). Freshmen used to get the
+// sheet's grade column written over whatever the DB had, and NULL when the cell was blank.
+// With this on, a freshman who already has a grade in the DB keeps it; the sheet grade is used
+// only for a brand-new row or one whose DB grade is empty. Set to false to push sheet grades.
+const KEEP_EXISTING_GRADES = true;
+var _dbGrades = null;   // 'team|name' -> tdc_grade currently in the DB, loaded once per sync
+function loadDbGrades() {
+  _dbGrades = {};
+  for (var off = 0; off < 20000; off += 1000) {
+    var r = sbGet('/rest/v1/players?select=team,name,tdc_grade&order=id&offset=' + off + '&limit=1000');
+    if (r.code >= 400) throw new Error('Could not read existing grades (' + r.code + '): ' + r.body.slice(0, 200));
+    var rows = JSON.parse(r.body);
+    rows.forEach(function (x) {
+      if (x.tdc_grade !== null && x.tdc_grade !== undefined && x.tdc_grade !== '') _dbGrades[x.team + '|' + x.name] = x.tdc_grade;
+    });
+    if (rows.length < 1000) break;
+  }
+  Logger.log('Existing grades that will be kept: ' + Object.keys(_dbGrades).length);
+}
+
 // Tab name in spreadsheet → conference code stored in DB
 const CONF_TABS = {
   'ACC':      'ACC',
@@ -242,6 +263,7 @@ function debugTeam() {
  *  espn_id/stats and remove departed players. */
 function syncToSupabase() {
   Logger.log('=== TDC SYNC START ===');
+  if (KEEP_EXISTING_GRADES) loadDbGrades();   // before any write: if this fails, nothing is touched
 
   // ── Wipe losses (fully rebuilt each run). PLAYERS are UPSERTed on (name,team),
   // NOT wiped, so a returning player keeps the SAME id across syncs — which keeps
@@ -478,7 +500,11 @@ function insertPlayers(team) {
     const nm = p.name || '—';
     if (!nm || nm === '—' || nm === '-') return;   // skip empty slots
     const row = base(p, i);
-    if (_isFreshman(p)) { row.tdc_grade = p.tdc_grade || null; froshRows.push(row); }
+    if (_isFreshman(p)) {
+      var kept = KEEP_EXISTING_GRADES && _dbGrades && _dbGrades[team.name + '|' + nm] !== undefined;
+      if (kept) expRows.push(row);   // already graded in the DB → send no grade, DB value stays
+      else { row.tdc_grade = p.tdc_grade || null; froshRows.push(row); }
+    }
     else expRows.push(row);   // no tdc_grade key → DB data grade preserved
   });
 
