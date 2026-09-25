@@ -1169,7 +1169,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="tdc-pwa.js?v=2" defer></script>
   <script src="tdc-hq-init.js?v=1"></script>
-  <link rel="stylesheet" href="tdc-hq.css?v=11"/>
+  <link rel="stylesheet" href="tdc-hq.css?v=12"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=5"/>
 </head>
 <body data-anim-auto>
@@ -4016,6 +4016,7 @@ function customizeForSeason(){
   window.__teamDefCoach=undefined; window._teamCoachProfCache=undefined;   // recompute coach for this season
   if(!roster||!roster.length){
     el.innerHTML='<div style="padding:44px;text-align:center;color:var(--text3);">No roster data for '+rosterLbl(_rosterSeason)+'.</div>';
+    if(typeof _hideShotProfileSide==='function') _hideShotProfileSide();
     return;
   }
   renderCustomize(teamT, roster, teamColor_g, teamRgb_g, teamGp);
@@ -5205,7 +5206,9 @@ async function buildAllTimeBest(){
   const btn=document.getElementById('allTimeBtn'); if(btn){ btn.disabled=true; btn.textContent='Building…'; }
   const sel='select=name,team,season_year,yr,height,position,tdc_grade,espn_id,ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,oreb,dreb,stl,blk,tovs';
   let rows=[];
-  try{ rows=await fetch(`${SB_URL}/rest/v1/player_history?team=eq.${encodeURIComponent(teamName)}&tdc_grade=not.is.null&${sel}&order=tdc_grade.desc.nullslast&limit=500`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
+  // history keys some programs by formal name (UConn -> Connecticut, FAU -> Florida Atlantic)
+  const _phk=(typeof _resolvePhTeamKey==='function' ? await _resolvePhTeamKey().catch(()=>null) : null) || teamName;
+  try{ rows=await fetch(`${SB_URL}/rest/v1/player_history?team=eq.${encodeURIComponent(_phk)}&tdc_grade=not.is.null&${sel}&order=tdc_grade.desc.nullslast&limit=500`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
   if(btn){ btn.disabled=false; btn.textContent='★ All-Time Roster'; }
   if(!rows||!rows.length) return;
   const best={}; rows.forEach(r=>{ const g=parseFloat(r.tdc_grade)||0; if(!best[r.name]||g>(parseFloat(best[r.name].tdc_grade)||0)) best[r.name]=r; });
@@ -7347,6 +7350,10 @@ window.TDCPanels=TDCPanels;
 // which programs _resolvePhTeamKey() could not resolve.
 const PH_FORMAL_NAME={
   'byu':'Brigham Young',
+  'fau':'Florida Atlantic',
+  'ecu':'East Carolina',
+  'vcu':'Virginia Commonwealth',
+  'loyola chicago':'Loyola (IL)',
   'uconn':'Connecticut',
   'lsu':'Louisiana State',
   'usc':'Southern California',
@@ -7785,7 +7792,7 @@ function renderHistoricRoster(rows, yr, projected){
   const _outR = r => !!r.is_injured || !!(window.TDCInjury && TDCInjury.isOut(r));
   const injured = projected ? rows.filter(_outR) : [];
   if(projected) rows=rows.filter(r=>!_outR(r));
-  if(!rows.length && !injured.length){ host.innerHTML=`<div style="padding:40px;text-align:center;color:var(--text3);">No roster data for ${rosterLbl(yr)}.</div>`; return; }
+  if(!rows.length && !injured.length){ host.innerHTML=`<div style="padding:40px;text-align:center;color:var(--text3);">No roster data for ${rosterLbl(yr)}.</div>`; _hideShotProfileSide(); return; }   // else the sidebar keeps the previous season's shot profile
   // Expose the exact rendered roster (by name) for the hover spotlight, then set
   // its default to the top-rated player once the DOM has painted.
   window._depthRosterByName={};
@@ -8001,6 +8008,28 @@ function _shotPct(arr,x){                       // arr = 101 breakpoints p0..p10
   while(lo<hi){ const mid=(lo+hi)>>1; if(arr[mid]<x) lo=mid+1; else hi=mid; }
   return Math.round(lo*100/(arr.length-1));
 }
+// One Shot Distribution table for both views (projected + past season), same layout as Program
+// HQ: Player (with role), bar, Share, Tendency. The change from last season is spelled out
+// ("▲ from 85") instead of "tend 97 ▲85", bars are the plain team colour (they used to fade
+// into green/orange by trend), and the Shot profile / threats / options / top-option strip is
+// gone from the card because the Team Shot Tendency side panel shows exactly those numbers.
+function _sdTable(items, prior, note){
+  const _e=s=>(''+(s||'')).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+  const max=items[0].share||1;
+  const role=sh=>sh>=24?'Primary option':sh>=18?'Featured':sh>=12?'Secondary':sh>=8?'Complementary':'Low usage';
+  const rows=items.map(it=>{
+    const w=Math.max(3,Math.round(it.share/max*100));
+    const was=prior?prior(it):null, moved=(was!=null&&it.tend!=null&&Math.abs(it.tend-was)>=5), up=moved&&it.tend>was;
+    const tip='Shot tendency '+(it.tend!=null?it.tend:'—')+(moved?' (was '+was+' last season)':'');
+    return `<div class="sd-row">
+      <span class="sd-name"><b title="${_e(it.name)}">${_e(it.name)}</b>${it.fr?'<em class="sd-fr">FR</em>':''}<small>${role(it.share)}</small></span>
+      <span class="sd-bar"><i style="width:${w}%"></i></span>
+      <span class="sd-share">${it.share.toFixed(1)}%</span>
+      <span class="sd-tend" title="${tip}">${it.tend!=null?it.tend:'—'}${moved?`<small class="${up?'up':'dn'}">${up?'▲':'▼'} from ${was}</small>`:''}</span>
+    </div>`;
+  }).join('');
+  return `<div class="sd-table"><div class="sd-row sd-head"><span>Player</span><span></span><span>Share</span><span>Tendency</span></div>${rows}</div><div class="sd-note">${note}</div>`;
+}
 async function _renderHistShot(rows, yr){
   const host=document.getElementById('shotDistCard'); if(!host) return;
   const _e=s=>(''+(s||'')).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
@@ -8021,26 +8050,13 @@ async function _renderHistShot(rows, yr){
     items.forEach(x=>{ x.share = totFga>0 ? Math.round(x.fga/totFga*1000)/10 : 0; });
     items.sort((a,b)=>b.share-a.share);
     const max=items[0].share||1, tot=items.reduce((s,i)=>s+i.share,0);
-    const role=sh=>sh>=24?'Primary':sh>=18?'Featured':sh>=12?'Secondary':sh>=8?'Complementary':'Low-usage';
     const _threats=items.filter(x=>(x.tend||0)>=75).length;
     const _sh=items.map(x=>(x.share||0)/100), _hhi=_sh.reduce((s,v)=>s+v*v,0);
     const _eff=_hhi>0?(1/_hhi):items.length, _top=items[0].share;
     const _prof=_top>=21?{l:'Star-driven',c:'#e0885a'}:_top>=18?{l:'Featured-scorer led',c:'var(--accent)'}:{l:'Balanced attack',c:'#5ab875'};
-    const _cell=(k,v,sub)=>`<div><div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:2px;">${k}</div><div style="font-size:15px;font-weight:800;color:var(--text);line-height:1;">${v}${sub?`<span style="font-size:10px;font-weight:600;color:var(--text3);"> ${sub}</span>`:''}</div></div>`;
-    const teamStrip=`<div style="display:flex;gap:22px;flex-wrap:wrap;margin:8px 0 12px;padding:11px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);">
-      <div><div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:2px;">Shot profile</div><div style="font-size:15px;font-weight:800;line-height:1;color:${_prof.c};">${_prof.l}</div></div>
-      ${_cell('Scoring threats',_threats,'tend 75+')}${_cell('Shot options',_eff.toFixed(1),'effective')}${_cell('Top option',_top.toFixed(1)+'%','')}</div>`;
-    const bars=items.map(it=>{ const w=Math.max(3,Math.round(it.share/max*100));
-      return `<div style="display:grid;grid-template-columns:minmax(150px,32%) 1fr 96px;align-items:center;gap:10px;padding:5px 0;">
-        <div style="font-size:12.5px;font-weight:700;color:var(--text);line-height:1.2;overflow-wrap:anywhere;">${_e(it.name)}<span style="display:block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);">${role(it.share)}</span></div>
-        <div style="position:relative;height:9px;border-radius:5px;background:rgba(128,128,128,.16);overflow:hidden;"><div style="position:absolute;left:0;top:0;bottom:0;width:${w}%;background:var(--tc-readable,var(--accent));"></div></div>
-        <div style="font-size:12px;font-weight:800;color:var(--text);text-align:right;">${it.share.toFixed(1)}%<span style="display:block;font-size:10px;font-weight:600;color:var(--text2);">tend ${it.tend}</span></div>
-      </div>`;
-    }).join('');
     const _lbl=(yr-1)+'–'+String(yr).slice(2);
-    host.innerHTML=`<div class="sec-head" style="margin-top:28px;">Shot distribution <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· ${_lbl} actual share of the team's shots</span></div>
-      ${teamStrip}<div style="margin-top:6px;">${bars}</div>
-      <div style="margin-top:10px;font-size:11.5px;color:var(--text2);line-height:1.55;">Each player's share of the team's shots that season (${Math.round(tot)}% shown, 8+ MPG). <b>tend</b> is his shot tendency — national percentile of his shots per 40 <b>within ${_lbl}</b> (100 = a pure #1 option).</div>`;
+    host.innerHTML=`<div class="sec-head" style="margin-top:28px;">Shot distribution <span class="sd-sub">${_lbl} share of the team's shots</span></div>`+
+      _sdTable(items, null, `Share: each player's slice of the team's shots that season (${Math.round(tot)}% shown, players averaging 8+ minutes). Tendency: how shot-hungry the player's role was, as a national percentile of shots per 40 within ${_lbl} (100 = a pure #1 option).`);
     _fillShotProfileSide(_prof,_threats,_eff,_top);
   }catch(e){ host.innerHTML=''; }
 }
@@ -8100,7 +8116,6 @@ async function _renderShotDist(rows){
     let items=list.filter(x=>x.share!=null && (!rows||!rows.length||_outN.has((''+x.name).toLowerCase().trim()))).slice().sort((a,b)=>b.share-a.share);
     if(items.length && items.length<list.filter(x=>x.share!=null).length){ const tot=items.reduce((s,x)=>s+x.share,0)||1; items=items.map(x=>Object.assign({},x,{share:+(x.share*100/tot).toFixed(1)})); }
     const max=items[0].share||1, tot=items.reduce((s,i)=>s+i.share,0);
-    const role=sh=>sh>=24?'Primary':sh>=18?'Featured':sh>=12?'Secondary':sh>=8?'Complementary':'Low-usage';
     // ── team-level shot profile (from the same rotation) ──
     const _threats=items.filter(x=>(x.tend||0)>=75).length;
     const _sh=items.map(x=>(x.share||0)/100), _hhi=_sh.reduce((s,v)=>s+v*v,0);
@@ -8108,27 +8123,9 @@ async function _renderShotDist(rows){
     const _top=items[0].share;
     // thresholds from the league distribution of top-option share (median 18%, p90 21%)
     const _prof=_top>=21?{l:'Star-driven',c:'#e0885a'}:_top>=18?{l:'Featured-scorer led',c:'var(--accent)'}:{l:'Balanced attack',c:'#5ab875'};
-    const _cell=(k,v,sub)=>`<div><div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:2px;">${k}</div><div style="font-size:15px;font-weight:800;color:var(--text);line-height:1;">${v}${sub?`<span style="font-size:10px;font-weight:600;color:var(--text3);"> ${sub}</span>`:''}</div></div>`;
-    const teamStrip=`<div style="display:flex;gap:22px;flex-wrap:wrap;margin:8px 0 12px;padding:11px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);">
-      <div><div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:2px;">Shot profile</div><div style="font-size:15px;font-weight:800;line-height:1;color:${_prof.c};">${_prof.l}</div></div>
-      ${_cell('Scoring threats',_threats,'tend 75+')}
-      ${_cell('Shot options',_eff.toFixed(1),'effective')}
-      ${_cell('Top option',_top.toFixed(1)+'%','')}
-    </div>`;
-    const bars=items.map(it=>{
-      const w=Math.max(3,Math.round(it.share/max*100));
-      const dem=(it.espn&&P[it.espn])?P[it.espn].shot_tend_demo:null;
-      const moved=(dem!=null&&Math.abs(it.tend-dem)>=5), ac=(dem!=null&&it.tend<dem)?'#e0885a':'#5ab875';
-      return `<div style="display:grid;grid-template-columns:minmax(150px,32%) 1fr 96px;align-items:center;gap:10px;padding:5px 0;">
-        <div style="font-size:12.5px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_e(it.name)}${it.fr?' <span style="font-size:9px;color:var(--accent);font-weight:800;">FR</span>':''}<span style="display:block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);">${role(it.share)}</span></div>
-        <div style="position:relative;height:9px;border-radius:5px;background:rgba(128,128,128,.16);overflow:hidden;"><div style="position:absolute;left:0;top:0;bottom:0;width:${w}%;background:linear-gradient(90deg,var(--tc-readable,var(--accent)),${ac});"></div></div>
-        <div style="font-size:12px;font-weight:800;color:var(--text);text-align:right;">${it.share.toFixed(1)}%<span style="display:block;font-size:10px;font-weight:600;color:var(--text2);">tend ${it.tend}${moved?' <span style="color:'+ac+'">'+(it.tend<dem?'▼':'▲')+dem+'</span>':''}</span></div>
-      </div>`;
-    }).join('');
-    host.innerHTML=`<div class="sec-head" style="margin-top:28px;">Shot distribution <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· projected share of the team's shots (zero-sum across the rotation)</span></div>
-      ${teamStrip}
-      <div style="margin-top:6px;">${bars}</div>
-      <div style="margin-top:10px;font-size:11.5px;color:var(--text2);line-height:1.55;">Each player's projected shots as a % of the team total (${Math.round(tot)}% shown, freshmen included). <b>tend</b> is his shot tendency (100 = a pure #1 option); the arrow shows the shift from his prior role. Freshmen (<b style="color:var(--accent)">FR</b>) have no prior stats, so their shots are estimated from projected role.</div>`;
+    host.innerHTML=`<div class="sec-head" style="margin-top:28px;">Shot distribution <span class="sd-sub">2026-27 projected share of the team's shots</span></div>`+
+      _sdTable(items, it=>(it.espn&&P[it.espn])?P[it.espn].shot_tend_demo:null,
+        `Share: each player's slice of the team's projected shots (${Math.round(tot)}% shown). Tendency: how shot-hungry the player's role is, as a national percentile of shots per 40 (100 = a pure #1 option); the arrow shows the change from last season. Freshmen (FR) have no college stats, so their shots are estimated from their projected role.`);
     _fillShotProfileSide(_prof,_threats,_eff,_top);
   }catch(e){ host.innerHTML=''; }
 }
