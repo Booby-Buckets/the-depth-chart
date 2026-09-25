@@ -305,6 +305,34 @@
     .btn.primary{ background:var(--tc-band,#0B1220); color:#fff; box-shadow:none; }
     .btn.ghost{ background:var(--bg); color:var(--text); border-color:var(--border2); }
     .st.me{ background:color-mix(in srgb,var(--tc) 10%,transparent); }
+    /* Command center: the heading and footnote were --tc-ink (the old team-tinted field's
+       text colour, white for most teams), so on the neutral page they vanished. Tool cards go
+       flat like CFB's: page background, hairline border, no drop shadow or hover lift. */
+    .hx-sec{ color:var(--text3); opacity:1; text-shadow:none; }
+    .hx-sec .h{ color:var(--text3); opacity:1; }
+    .note{ color:var(--text3); opacity:1; }
+    .tool{ background:var(--bg); border:1px solid var(--border); border-radius:10px; box-shadow:none; transition:border-color .15s; }
+    .tool:hover{ border-color:var(--border2); transform:none; }
+    .tool .ic{ background:var(--bg2); border-radius:8px; }
+    .tool .tn{ color:var(--text); }
+    .tool .td{ color:var(--text3); font-weight:500; }
+    .tool .lk{ color:var(--text3); border-color:var(--border2); }
+    /* Shot Distribution rows */
+    .sd-row{ display:grid; grid-template-columns:minmax(110px,34%) 1fr 58px 88px; align-items:center; gap:12px; padding:7px 0; }
+    .sd-row + .sd-row{ border-top:1px solid var(--border); }
+    .sd-head{ padding:0 0 6px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--text3); }
+    .sd-head span:nth-child(3), .sd-head span:nth-child(4){ text-align:right; }
+    .sd-name{ font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+    .sd-fr{ font-style:normal; font-size:9px; font-weight:800; letter-spacing:.06em; color:var(--text3); border:1px solid var(--border2); border-radius:4px; padding:0 4px; margin-left:4px; vertical-align:1px; }
+    .sd-bar{ height:8px; border-radius:4px; background:var(--bg3); overflow:hidden; min-width:0; }
+    .sd-bar i{ display:block; height:100%; border-radius:4px; background:var(--tc-band,var(--tc)); }
+    :root[data-theme="dark"] .sd-bar i{ background:var(--tc-readable,var(--tc)); }   /* navy teams vanish on the dark page */
+    .sd-share{ text-align:right; font-size:13px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; }
+    .sd-tend{ text-align:right; font-size:13px; font-weight:600; color:var(--text2); font-variant-numeric:tabular-nums; line-height:1.15; }
+    .sd-tend small{ display:block; font-size:10.5px; font-weight:600; }
+    .sd-tend small.up{ color:var(--green,#2f8a4a); } .sd-tend small.dn{ color:var(--red,#c2410c); }
+    .sd-note{ margin-top:12px; font-size:11.5px; line-height:1.55; color:var(--text3); }
+    @media(max-width:560px){ .sd-row{ grid-template-columns:minmax(90px,38%) 1fr 50px 64px; gap:8px; } }
     @media(max-width:560px){ .hx-hero{ padding:16px 16px 18px; } .hxwrap{ padding-left:0; padding-right:0; } }
   </style>
   <link rel="manifest" href="manifest.webmanifest">
@@ -368,7 +396,7 @@
           </div>
           <div class="hx-card"><div class="hx-lab" id="hxOutlookLbl">Season Outlook</div><div id="hxOutlook"></div></div>
           <div class="hx-card"><div class="hx-lab">Roster Leaders <span class="sub">projected OVR</span></div><div id="hxLeaders"></div></div>
-          <div class="hx-card"><div class="hx-lab">Shot Distribution <span class="sub">projected shot share · TEND</span></div><div id="hxShot"></div></div>
+          <div class="hx-card"><div class="hx-lab">Shot Distribution <span class="sub">2026-27 projected</span></div><div id="hxShot"></div></div>
         </div>
         <div class="hx-col">
           <div class="hx-card"><div class="hx-lab"><span id="hxStandLbl">Conference Standings</span><span class="sub" id="hxStandSub"></span></div><div id="hxStandings"></div></div>
@@ -747,14 +775,25 @@ function _fillHxShot(ps, short){
     }
     if(items.length<3){ el.innerHTML='<div class="hx-empty">No projected shot distribution for this roster yet.</div>'; var _pc0=byId('hxShotProfCard'); if(_pc0)_pc0.style.display='none'; return; }
     var max=items[0].share||1;
-    el.innerHTML=items.slice(0,8).map(function(it){
-      var w=Math.max(3,Math.round(it.share/max*100));
-      var dem=(it.espn&&P[it.espn])?P[it.espn].shot_tend_demo:null;
-      var moved=(dem!=null&&Math.abs(it.tend-dem)>=5), ac=(dem!=null&&it.tend<dem)?'#e0885a':'#2bb673';
-      return '<div class="mrow"><span class="ml" style="min-width:92px;max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(it.name)+(it.fr?' <b style="color:var(--tc-readable,var(--tc));font-size:8px">FR</b>':'')+'</span>'+
-        '<div class="bar"><i style="width:'+w+'%;background:var(--tc)"></i></div>'+
-        '<span class="mv" style="color:var(--tc-readable,var(--tc))">'+it.share.toFixed(1)+'%<span style="display:block;font-size:9px;font-weight:600;color:var(--txt3)">tend '+it.tend+(moved?' <span style="color:'+ac+'">'+(it.tend<dem?'▼':'▲')+dem+'</span>':'')+'</span></span></div>';
-    }).join('');
+    // One grid row per player, CFB table style: full name (FR tag for freshmen), the bar, the
+    // share, then TEND with the change from last season spelled out. This used to squeeze the
+    // name into 92px of caps ("KANAAN CA…") and the share into a 32px box, so "30.3%" ran out of
+    // the card.
+    el.innerHTML='<div class="sd-row sd-head"><span>Player</span><span></span><span>Share</span><span>Tendency</span></div>'+
+      items.slice(0,8).map(function(it){
+        var w=Math.max(3,Math.round(it.share/max*100));
+        var dem=(it.espn&&P[it.espn])?P[it.espn].shot_tend_demo:null;
+        var moved=(dem!=null&&it.tend!=null&&Math.abs(it.tend-dem)>=5), up=moved&&it.tend>dem;
+        var tip='Shot tendency '+(it.tend!=null?it.tend:'—')+(moved?' (was '+dem+' last season)':'');
+        return '<div class="sd-row">'+
+          '<span class="sd-name" title="'+esc(it.name||'')+'">'+esc(it.name||'—')+(it.fr?' <em class="sd-fr">FR</em>':'')+'</span>'+
+          '<span class="sd-bar"><i style="width:'+w+'%"></i></span>'+
+          '<span class="sd-share">'+it.share.toFixed(1)+'%</span>'+
+          '<span class="sd-tend" title="'+tip+'">'+(it.tend!=null?it.tend:'—')+
+            (moved?'<small class="'+(up?'up':'dn')+'">'+(up?'▲':'▼')+' from '+dem+'</small>':'')+'</span>'+
+        '</div>';
+      }).join('')+
+      '<div class="sd-note">Share: each player\'s slice of the team\'s projected shots. Tendency: how shot-hungry the player\'s role is, as a national percentile of shots per 40 (100 = a pure #1 option); the arrow shows the change from last season.</div>';
     // team-wide shot profile → fills the card in the right column
     var _threats=items.filter(function(x){return (x.tend||0)>=75;}).length;
     var _sh=items.map(function(x){return (x.share||0)/100;}), _hhi=_sh.reduce(function(s,v){return s+v*v;},0);
@@ -771,7 +810,7 @@ function _fillHxShot(ps, short){
     }
   };
   if(_hqShot){ render(); return; }
-  fetch('scripts/data/stat_overall_projected.json?v=49').then(function(r){return r.ok?r.json():null;}).then(function(j){ _hqShot={players:(j&&j.players)||{},teams:(j&&j.teams)||{}}; render(); }).catch(function(){ el.innerHTML='<div class="hx-empty">Shot distribution unavailable.</div>'; });
+  fetch('scripts/data/stat_overall_projected.json?v=50').then(function(r){return r.ok?r.json():null;}).then(function(j){ _hqShot={players:(j&&j.players)||{},teams:(j&&j.teams)||{}}; render(); }).catch(function(){ el.innerHTML='<div class="hx-empty">Shot distribution unavailable.</div>'; });
 }
 
 // ── media / buzz ──

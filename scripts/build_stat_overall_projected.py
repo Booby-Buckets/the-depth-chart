@@ -915,9 +915,14 @@ _tendf=_mk_tend([_per40(r,"fta") for r in out.values()])
 
 # build the FULL rotation per team = returners (real line) + freshmen/no-box (estimated)
 roster_full={}
+# name: last season's advanced line first, else the current roster. 34 returners/transfers whose
+# projected line came from the box-score fill had no advanced row, so they shipped with name None
+# and rendered as a blank row in every team's Shot Distribution.
+_roster_names={int(r.espn_id):str(r.name).strip() for r in pl.itertuples()
+               if pd.notna(r.espn_id) and str(getattr(r,"name","") or "").strip()}
 for e,row in out.items():
     roster_full.setdefault(proj_team.get(e),[]).append(
-        dict(espn=e,name=_shot_names.get(int(e)),fga=row["fga"],f40=_per40(row,"fga"),fresh=False))
+        dict(espn=e,name=_shot_names.get(int(e)) or _roster_names.get(int(e)),fga=row["fga"],f40=_per40(row,"fga"),fresh=False))
 for r in pl.itertuples():
     e=int(r.espn_id) if pd.notna(r.espn_id) else None
     if e is not None and str(e) in out: continue          # already a returner/transfer
