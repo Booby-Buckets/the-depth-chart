@@ -19,8 +19,9 @@
 -- Each UPDATE is keyed on BOTH the row id and the current wrong espn_id, so it is a no-op if
 -- anything has changed since this was written. Run it in the Supabase SQL editor.
 --
--- ALSO FIX THE SHEET: the roster sync writes espn_id from the Google Sheet, so blank these six
--- ids there too or the next sync puts the wrong ids back.
+-- STOPPING IT RECURRING: the sheet does not carry espn_id (the sync omits it). After each sync,
+-- backfill_espn_ids() re-links ids by name, which would put these back for non-freshmen. Run
+-- scripts/espn_id_blocklist.sql once; it blocks these pairs for good.
 
 UPDATE players SET espn_id = NULL    WHERE id = 50769 AND espn_id = 45182;    -- Juan Fernandez, South Carolina
 UPDATE players SET espn_id = NULL    WHERE id = 50067 AND espn_id = 58744;    -- Christian Collins, USC

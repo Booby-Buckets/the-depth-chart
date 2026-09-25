@@ -19,8 +19,8 @@
 -- Each UPDATE is keyed on BOTH the row id and the wrong espn_id, so it is a no-op if anything
 -- has changed since this was written. Run it in the Supabase SQL editor.
 --
--- ROOT CAUSE: the roster autofill matches on name alone and grabs an older namesake, so this
--- WILL recur on the next sheet sync. Clear the id column for these six in the sheet as well.
+-- ROOT CAUSE: after each sync, backfill_espn_ids() re-links ids by name alone (the sheet does not
+-- carry espn_id). Run scripts/espn_id_blocklist.sql once so these can never be re-linked.
 
 UPDATE players SET espn_id = NULL WHERE id = 50125 AND espn_id = 56615;    -- Alex Smith, Ohio State
 UPDATE players SET espn_id = NULL WHERE id = 50348 AND espn_id = 61554;    -- Eric Jacobsen, Colorado
