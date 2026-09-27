@@ -198,8 +198,6 @@ window.TDC_ROLES = (function(){
 .tdcr .vpos{display:inline-flex;flex-direction:column;align-items:center;font-size:12px;font-weight:800;color:var(--text);border:1px solid var(--border2);border-radius:8px;padding:4px 10px;margin:2px 6px 2px 0;}
 .tdcr .vpos.nat{border-color:var(--tc-readable,var(--accent));color:var(--tc-readable,var(--accent));}
 .tdcr .vpos small{font-size:9px;font-weight:600;color:var(--text3);margin-top:1px;}
-.tdcr .ex-tag{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:9px;}
-.tdcr .ex-tag.guard{color:var(--red);background:color-mix(in srgb,var(--red) 14%,transparent);} .tdcr .ex-tag.attack{color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent);}
 .tdcr .loading{padding:26px;text-align:center;color:var(--text3);font-size:13px;}`;
     document.head.appendChild(s);
   }
@@ -212,7 +210,9 @@ window.TDC_ROLES = (function(){
   }
   const F1=(v,d)=>(v==null||isNaN(v))?'—':(+v).toFixed(d==null?1:d);
   const sgn=(v,d)=>(v==null||isNaN(v))?'—':((v>0?'+':'')+(+v).toFixed(d==null?1:d));
-  const tone=v=>v>0.5?'var(--green)':v<-0.5?'var(--red)':'var(--text2)';
+  // sheet-kit conditional format (tdc-sheets.css c0..c4) for the same good / neutral / bad read
+  const toneC=v=>v>0.5?'c4':v<-0.5?'c0':'';
+  const pctC=p=>'c'+Math.max(0,Math.min(4,Math.floor(p/20)));
   const secH=(t,hint)=>`<div class="rc-sec"><span>${t}</span>${hint?`<span class="hint">${hint}</span>`:''}</div>`;
 
   async function renderPlayer(host, ctx){
@@ -276,8 +276,8 @@ window.TDC_ROLES = (function(){
     const roleSheet=`<div class="sheet-wrap"><table class="sheet kv"><tbody>${roleRows.map(x=>`<tr><td class="l dim k">${x[0]}</td><td class="l" style="white-space:normal;">${x[1]}</td></tr>`).join('')}</tbody></table></div>`;
 
     // ── STYLE SIGNALS as a sheet ──
-    const sigRows=hasHist?signals(adv).map(s=>`<tr><td class="l nm">${s[0]}</td><td style="font-weight:800;color:var(--text);">${s[2]}</td><td style="min-width:150px;"><div class="sbar"><div class="sf" style="width:${s[1].toFixed(0)}%"></div></div></td><td class="dim">${s[1]>=75?'elite':s[1]>=55?'above avg':s[1]>=35?'average':'low'}</td></tr>`).join(''):'';
-    const sigSheet=hasHist?`<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Signal</th><th>His rate</th><th class="l">Scale</th><th class="l">Read</th></tr></thead><tbody>${sigRows}</tbody></table></div>`:'';
+    const sigRows=hasHist?signals(adv).map(s=>`<tr><td class="l nm">${s[0]}</td><td>${s[2]}</td><td class="${pctC(s[1])}">${s[1].toFixed(0)}</td><td class="l dim">${s[1]>=75?'elite':s[1]>=55?'above avg':s[1]>=35?'average':'low'}</td></tr>`).join(''):'';
+    const sigSheet=hasHist?`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Signal</th><th>His rate</th><th title="where his rate sits on the D-I scale, 0 to 100">Scale</th><th class="l">Read</th></tr></thead><tbody>${sigRows}</tbody></table></div>`:'';
 
     // ── FIT IN THE TEAM: his rank on the roster per signal, what's around him, and his spot ──
     let teamFitHtml='';
@@ -293,8 +293,9 @@ window.TDC_ROLES = (function(){
         const pool=rot.map(x=>({x,v:valOf(x,k)})).filter(o=>o.v!=null&&isFinite(o.v)).sort((a,b)=>b.v-a.v);
         const mine=pool.find(o=>String(o.x.espn_id)===me); if(!mine) return '';
         const rk=pool.indexOf(mine)+1, top=pool[0];
-        const lead=rk===1?'<span style="color:var(--green);font-weight:800;">leads the roster</span>':rk<=2?'<span style="font-weight:700;">top-2 on the roster</span>':rk<=Math.ceil(pool.length/2)?'upper half':'<span class="dim">lower half</span>';
-        return `<tr><td class="l nm">${lab}</td><td style="font-weight:800;color:var(--text);">${fmt(mine.v)}</td><td>${rk}<span class="dim"> / ${pool.length}</span></td><td class="l">${lead}</td><td class="l dim">${rk===1?'—':esc(top.x.name)+' ('+fmt(top.v)+')'}</td></tr>`;
+        const lead=rk===1?'leads the roster':rk<=2?'top-2 on the roster':rk<=Math.ceil(pool.length/2)?'upper half':'lower half';
+        const rkC=pool.length>1?'c'+Math.max(0,4-Math.floor((rk-1)/(pool.length-1)*5)):'';
+        return `<tr><td class="l nm">${lab}</td><td class="${rkC}">${fmt(mine.v)}</td><td>${rk} / ${pool.length}</td><td class="l${rk>Math.ceil(pool.length/2)?' dim':''}">${lead}</td><td class="l dim">${rk===1?'—':esc(top.x.name)+' ('+fmt(top.v)+')'}</td></tr>`;
       }).filter(Boolean).join('');
       // what's around him
       const others=rot.filter(x=>String(x.espn_id)!==me);
@@ -314,7 +315,7 @@ window.TDC_ROLES = (function(){
       const spot=isStarter?`He starts at <b>${mySlot}</b>${samePos.length?`; ${nm(samePos.slice(0,2))} ${samePos.length===1?'is':'are'} behind him`:' with no direct backup at the spot'}.`:`He's <b>${myD!=null?'#'+myD+' on the depth chart':'a reserve'}</b> at ${mySlot}${samePos.length?` — ${esc(samePos[0].name)} ${(+samePos[0].depth_order||99)<(myD||99)?'is ahead of him':'competes with him'} for the minutes`:''}.`;
       const aroundRows=[['Creators',creators.length?nm(creators):'<span class="dim">none besides him</span>'],['High-volume shooters',shooters.length?nm(shooters):'<span class="dim">none</span>'],['Rim protectors',rimP.length?nm(rimP):'<span class="dim">none</span>'],['At his spot ('+mySlot+')',samePos.length?samePos.map(x=>esc(x.name)+(x.depth_order!=null?' <span class="dim">d'+x.depth_order+'</span>':'')).join(', '):'<span class="dim">no one else</span>']];
       teamFitHtml=secH('Fit in the team','2026-27 '+esc(raw.team||'')+' roster · rotation of '+rot.length)
-        +`<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Signal</th><th>Him</th><th>Roster rank</th><th class="l">Standing</th><th class="l">Roster leader</th></tr></thead><tbody>${rankRows||'<tr><td class="l dim" colspan="5">No 2025-26 rates on file yet to rank him against the roster.</td></tr>'}</tbody></table></div>`
+        +`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Signal</th><th>Him</th><th>Roster rank</th><th class="l">Standing</th><th class="l">Roster leader</th></tr></thead><tbody>${rankRows||'<tr><td class="l dim" colspan="5">No 2025-26 rates on file yet to rank him against the roster.</td></tr>'}</tbody></table></div>`
         +`<div class="sheet-wrap" style="margin-top:8px;"><table class="sheet kv"><tbody>${aroundRows.map(x=>`<tr><td class="l dim k" style="width:170px;">${x[0]}</td><td class="l" style="white-space:normal;">${x[1]}</td></tr>`).join('')}</tbody></table></div>`
         +`<div class="rc-read">${spot} ${reads.join(' ')}</div>`;
     }
@@ -330,10 +331,10 @@ window.TDC_ROLES = (function(){
         : swing<=-4 ? `The team was <b>${sgn(swing)}</b> per 100 with him on — the lineups around him outperformed the ones he anchored.`
         : `Roughly neutral (<b>${sgn(swing)}</b>) — the team plays about the same with or without him.`;
       impactHtml=secH('Impact — on / off the floor','2025-26 · '+esc(oo.team||'')+' · '+oo.games+' g')
-        +`<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l"></th><th>Poss</th><th>Off rtg</th><th>Def rtg</th><th>Net</th></tr></thead><tbody>
-          <tr><td class="l nm">With him on</td><td>${oo.on_poss}</td><td>${F1(oo.on_o)}</td><td>${F1(oo.on_d)}</td><td style="font-weight:800;color:${tone(oo.on_net)}">${sgn(oo.on_net)}</td></tr>
-          <tr><td class="l nm">With him off</td><td>${oo.off_poss}</td><td>${F1(oo.off_o)}</td><td>${F1(oo.off_d)}</td><td style="font-weight:800;color:${tone(oo.off_net)}">${sgn(oo.off_net)}</td></tr>
-          <tr><td class="l nm">Swing</td><td class="dim">${Math.round(pct)}% of poss on</td><td style="color:${tone(oo.on_o-oo.off_o)}">${sgn(oo.on_o-oo.off_o)}</td><td style="color:${tone(oo.off_d-oo.on_d)}">${sgn(oo.on_d-oo.off_d)}</td><td style="font-weight:800;color:${tone(swing)}">${sgn(swing)}</td></tr>
+        +`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l"></th><th>Poss</th><th>Off rtg</th><th>Def rtg</th><th>Net</th></tr></thead><tbody>
+          <tr><td class="l nm">With him on</td><td>${oo.on_poss}</td><td>${F1(oo.on_o)}</td><td>${F1(oo.on_d)}</td><td class="${toneC(oo.on_net)}">${sgn(oo.on_net)}</td></tr>
+          <tr><td class="l nm">With him off</td><td>${oo.off_poss}</td><td>${F1(oo.off_o)}</td><td>${F1(oo.off_d)}</td><td class="${toneC(oo.off_net)}">${sgn(oo.off_net)}</td></tr>
+          <tr><td class="l nm">Swing</td><td class="dim">${Math.round(pct)}% of poss on</td><td class="${toneC(oo.on_o-oo.off_o)}">${sgn(oo.on_o-oo.off_o)}</td><td class="${toneC(oo.off_d-oo.on_d)}">${sgn(oo.on_d-oo.off_d)}</td><td class="${toneC(swing)}">${sgn(swing)}</td></tr>
         </tbody></table></div><div class="rc-read">${read}</div>`;
     }
 
@@ -347,10 +348,10 @@ window.TDC_ROLES = (function(){
         const most=mine.slice().sort((a,b)=>b.poss-a.poss)[0];
         const eligible=mine.filter(L=>L.poss>=80), best=eligible.length?eligible.slice().sort((a,b)=>b.net-a.net)[0]:null;
         const partners=L=>(L.players||[]).filter(n=>String(n).toLowerCase().trim()!==String(ctx.name||'').toLowerCase().trim()).map(esc).join(' · ');
-        const row=(lab,L)=>L?`<tr><td class="l nm">${lab}</td><td class="l" style="white-space:normal;">${partners(L)}</td><td>${L.poss}</td><td>${F1(L.off_rtg)}</td><td>${F1(L.def_rtg)}</td><td style="font-weight:800;color:${tone(L.net)}">${sgn(L.net)}</td><td>${F1(L.efg)}%</td></tr>`:'';
+        const row=(lab,L)=>L?`<tr><td class="l nm">${lab}</td><td class="l dim">${partners(L)}</td><td>${L.poss}</td><td>${F1(L.off_rtg)}</td><td>${F1(L.def_rtg)}</td><td class="${toneC(L.net)}">${sgn(L.net)}</td><td>${F1(L.efg)}%</td></tr>`:'';
         const sameBest=best&&most&&best===most;
         lineupHtml=secH('Lineup fit — who he plays best with','2025-26 · '+mine.length+' five-man groups he appeared in')
-          +`<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Lineup</th><th class="l">With</th><th>Poss</th><th>Off</th><th>Def</th><th>Net</th><th>eFG%</th></tr></thead><tbody>${row('Most used',most)}${(!sameBest&&best)?row('Best (80+ poss)',best):''}</tbody></table></div>`
+          +`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Lineup</th><th class="l">With</th><th>Poss</th><th>Off</th><th>Def</th><th>Net</th><th>eFG%</th></tr></thead><tbody>${row('Most used',most)}${(!sameBest&&best)?row('Best (80+ poss)',best):''}</tbody></table></div>`
           +`<div class="rc-read">${best?(sameBest?`His most-used group was also his best — <b>${sgn(best.net)}</b> per 100 over ${best.poss} possessions.`:`His best group ran <b>${sgn(best.net)}</b> per 100 (${best.poss} poss) vs <b>${sgn(most.net)}</b> for the one he played most — the partners matter.`):`No group with him reached 80 possessions, so lineup reads are thin.`}</div>`;
       }
     }
@@ -362,11 +363,11 @@ window.TDC_ROLES = (function(){
     const devHtml=path?secH('Development',`<span class="tbadge ${tc2}">${tl2}</span>`)+`<div class="rc-box"><div class="path">${path}</div></div>`:'';
 
     // ── SHOT PROFILE + SCORING DISTRIBUTION ──
-    const zoneColor=efg=>efg>=54?'var(--green)':efg>=46?'var(--tc,var(--accent))':'var(--red)';
     const shotProfileHtml=Z=>{
       if(!Z||Z.total<25) return '';
-      const rows=[['At the rim',Z.rim],['Mid-range',Z.mid],['Three',Z.three]].map(([lbl,z])=>`<tr><td class="l nm">${lbl}</td><td>${Math.round(z.freq)}%</td><td style="min-width:120px;"><div class="sbar"><div class="sf" style="width:${Math.round(z.freq)}%;background:${zoneColor(z.efg)}"></div></div></td><td style="font-weight:800;color:${zoneColor(z.efg)}">${Math.round(z.fg)}%</td><td class="dim">${z.a}</td></tr>`).join('');
-      return secH('Shot profile',`${Z.total} FGA · share of his shots, colored by efficiency`)+`<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Zone</th><th>Share</th><th class="l"></th><th>FG%</th><th>Att</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      const effC=efg=>efg>=54?'c4':efg>=46?'c2':'c0';
+      const rows=[['At the rim',Z.rim],['Mid-range',Z.mid],['Three',Z.three]].map(([lbl,z])=>`<tr><td class="l nm">${lbl}</td><td>${Math.round(z.freq)}%</td><td class="${effC(z.efg)}">${Math.round(z.fg)}%</td><td class="dim">${z.a}</td></tr>`).join('');
+      return secH('Shot profile',`${Z.total} FGA · share of his shots, FG% shaded by efficiency`)+`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Zone</th><th>Share</th><th title="shaded by effective FG% for the zone">FG%</th><th>Att</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     };
     const distHtml=(pts,c)=>{
       if(!pts||pts.length<6) return '';
@@ -380,8 +381,8 @@ window.TDC_ROLES = (function(){
 
     // ── HOW TO ATTACK HIM ──
     const gd=atk.guard||[], at=atk.attack||[];
-    const exRows=(kind,arr)=>arr.map(x=>`<tr><td class="l"><span class="ex-tag ${kind}">${kind==='guard'?'Guard':'Attack'}</span></td><td class="l nm">${esc(x[0])}</td><td class="l" style="white-space:normal;">${esc(x[1])}</td></tr>`).join('');
-    const atkHtml=(gd.length||at.length)?secH('How to attack him','guard his offense · attack his defense')+`<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l"></th><th class="l">Read</th><th class="l">Detail</th></tr></thead><tbody>${exRows('guard',gd)}${exRows('attack',at)}</tbody></table></div>`:'';
+    const exRows=(kind,arr)=>arr.map(x=>`<tr><td class="l dim">${kind==='guard'?'Guard':'Attack'}</td><td class="l nm">${esc(x[0])}</td><td class="l" style="white-space:normal;">${esc(x[1])}</td></tr>`).join('');
+    const atkHtml=(gd.length||at.length)?secH('How to attack him','guard his offense · attack his defense')+`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l"></th><th class="l">Read</th><th class="l">Detail</th></tr></thead><tbody>${exRows('guard',gd)}${exRows('attack',at)}</tbody></table></div>`:'';
 
     const lineHtml=`<div class="rc-line"><b>${F(l.ppg)}</b> pts · <b>${F(l.rpg)}</b> reb · <b>${F(l.apg)}</b> ast · ${F(l.mpg,0)} min · ${F(l.fg_pct,0)}/${F(l.tp_pct,0)}/${F(l.ft_pct,0)}</div>`;
     const head=`<div class="rc-head"><div class="rc-ovr">${proj!=null?proj:'—'}<small>OVR</small></div><div class="rc-who"><div class="rc-top"><div class="rc-nm">${esc(p.name)}<span class="pos">${esc(p.pos||'')}</span></div>${hasHist?`<div class="rc-arch">${arch.label}</div>`:''}</div>${lineHtml}</div></div>`;

@@ -96,12 +96,6 @@
     .traj.fl{color:var(--text2);background:var(--bg3);}
     /* projected line */
     .projline{border:1px solid var(--border);border-radius:14px;background:var(--bg2);overflow:hidden;}
-    .pl-h{display:grid;grid-template-columns:1.1fr repeat(7,1fr);gap:2px;padding:10px 16px 8px;font-size:9.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);text-align:center;}
-    .pl-h span:first-child{text-align:left;}
-    .pl-r{display:grid;grid-template-columns:1.1fr repeat(7,1fr);gap:2px;padding:10px 16px;border-top:1px solid var(--border);align-items:center;text-align:center;}
-    .pl-r .rl{text-align:left;font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
-    .pl-r .v{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;font-variant-numeric:tabular-nums;}
-    .pl-r.proj .v{color:var(--accent);}
     /* verdict */
     .verdict{border:1px solid var(--border2);border-left:3px solid var(--accent);border-radius:12px;background:var(--bg2);padding:15px 18px;}
     .verdict .vl{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
@@ -133,6 +127,8 @@
   <meta name="apple-mobile-web-app-title" content="The Depth Chart">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="tdc-pwa.js?v=2" defer></script>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <style>.sheet-wrap{max-height:none;} .sheet{width:100%;}</style>
 </head>
 <body data-anim-auto>
 <script>
@@ -297,13 +293,12 @@ async function loadPlayer(p, tc, row){
       <div class="tags">${lastGrade?`<span class="arch">'25-26 grade ${lastGrade}</span>`:''}${traj?`<span class="traj ${traj.cls}">${traj.t}</span>`:''}</div></div></div>`;
   let projHtml='';
   if(!pl._fresh){
-    const prow=(v,d,sz)=>`<div class="v"${sz?` style="font-size:14px;color:var(--text3)"`:''}>${F(v,d)}</div>`;
+    const prow=(v,d,dim)=>`<td${dim?' class="dim"':''}>${F(v,d)}</td>`;
     projHtml=`<div class="sec-h">Projected 2026-27 line <span class="hint">last season → projected</span></div>
-      <div class="projline">
-        <div class="pl-h"><span>Per game</span><span>PPG</span><span>RPG</span><span>APG</span><span>MPG</span><span>FG%</span><span>3P%</span><span>FT%</span></div>
-        <div class="pl-r proj"><div class="rl">Projected</div>${prow(pl.ppg)}${prow(pl.rpg)}${prow(pl.apg)}${prow(pl.mpg,0)}${prow(pl.fg_pct,0)}${prow(pl.tp_pct,0)}${prow(pl.ft_pct,0)}</div>
-        <div class="pl-r"><div class="rl" style="color:var(--text3)">Last year</div>${prow(p.ppg,1,1)}${prow(p.rpg,1,1)}${prow(p.apg,1,1)}${prow(p.mpg,0,1)}${prow(p.fg_pct,0,1)}${prow(p.tp_pct,0,1)}${prow(p.ft_pct,0,1)}</div>
-      </div>`;
+      <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Per game</th><th>PPG</th><th>RPG</th><th>APG</th><th>MPG</th><th>FG%</th><th>3P%</th><th>FT%</th></tr></thead><tbody>
+        <tr><td class="l nm">Projected</td>${prow(pl.ppg)}${prow(pl.rpg)}${prow(pl.apg)}${prow(pl.mpg,0)}${prow(pl.fg_pct,0)}${prow(pl.tp_pct,0)}${prow(pl.ft_pct,0)}</tr>
+        <tr><td class="l dim">Last year</td>${prow(p.ppg,1,1)}${prow(p.rpg,1,1)}${prow(p.apg,1,1)}${prow(p.mpg,0,1)}${prow(p.fg_pct,0,1)}${prow(p.tp_pct,0,1)}${prow(p.ft_pct,0,1)}</tr>
+      </tbody></table></div>`;
   } else {
     projHtml=`<div class="sec-h">Projected 2026-27 line</div><div class="projline"><div class="muted">Incoming / limited D-I sample — projection carried by grade (OVR ${ovr!=null?ovr:'—'}); the predictive read below needs game history.</div></div>`;
   }

@@ -23,9 +23,7 @@
   .lg-ps{color:var(--accent);font-size:10px;margin-left:6px;vertical-align:3px;}
   .lg-status{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px 16px;font-size:13px;color:var(--text2);border-top:1px solid var(--border);padding-top:10px;}
   .lg-live{color:var(--red);font-weight:800;}
-  .lg-ls{border-collapse:collapse;font-size:12px;width:auto!important;}
-  .lg-ls th,.lg-ls td{padding:2px 8px!important;border:none!important;text-align:right!important;font-variant-numeric:tabular-nums;}
-  .lg-ls th{font-size:9.5px;} .lg-ls td:first-child,.lg-ls th:first-child{text-align:left!important;}
+  .lg-lsw{max-height:none;}
   .lg-wph{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 12px;}
   .lg-wph span{font-size:13px;color:var(--text2);} .lg-wph b{color:var(--text);}
   .lg-chart{width:100%;height:auto;display:block;margin-top:8px;overflow:visible;}
@@ -42,8 +40,7 @@
   .lg-run b{font-size:15px;color:var(--text);font-variant-numeric:tabular-nums;min-width:58px;}
   .lg-chip{font:600 12px/1 'Inter',sans-serif;padding:6px 11px;border-radius:999px;border:1px solid var(--border2,var(--border));background:transparent;color:var(--text2);cursor:pointer;margin-top:10px;}
   .lg-chip:hover{color:var(--text);border-color:var(--text3);}
-  .lg-ts td:first-child{font-weight:600!important;color:var(--text2)!important;}
-  .lg-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .sheet.lg-box tbody tr.totals td{border-top:2px solid var(--border2);}
   .lg-err{font-size:12.5px;color:var(--red);}
   @media(max-width:640px){.lg-board{grid-template-columns:1fr;}.lg-sc{font-size:30px;}.lg-tn .n{font-size:19px;}.lg-card{padding:12px;}}`;
   let cssDone = false;
@@ -124,8 +121,8 @@
           <small>${home ? (game.neutral ? 'Neutral site' : 'Home') : 'Away'}${t.record ? ' · ' + esc(t.record) : ''}</small></div>
         <div class="lg-sc">${pre ? '–' : (t.score != null ? t.score : '–')}</div></div>`;
       const nq = Math.max(h.halves.length, a.halves.length);
-      const ls = nq ? `<table class="lg-ls"><thead><tr><th></th>${Array.from({ length: nq }, (_, i) => `<th>${periodName(i + 1)}</th>`).join('')}<th>T</th></tr></thead><tbody>
-        ${[a, h].map(t => `<tr><td>${esc(t.abbr)}</td>${Array.from({ length: nq }, (_, i) => `<td>${t.halves[i] != null ? t.halves[i] : ''}</td>`).join('')}<td><b>${t.score != null ? t.score : ''}</b></td></tr>`).join('')}</tbody></table>` : '';
+      const ls = nq ? `<div class="sheet-wrap lg-lsw"><table class="sheet dense lg-ls"><thead><tr><th class="l">Team</th>${Array.from({ length: nq }, (_, i) => `<th>${periodName(i + 1)}</th>`).join('')}<th>T</th></tr></thead><tbody>
+        ${[a, h].map(t => `<tr><td class="l nm">${esc(t.abbr)}</td>${Array.from({ length: nq }, (_, i) => `<td>${t.halves[i] != null ? t.halves[i] : ''}</td>`).join('')}<td class="big">${t.score != null ? t.score : ''}</td></tr>`).join('')}</tbody></table></div>` : '';
       const status = live ? `<span class="lg-live">LIVE · ${esc(game.detail)}</span>` : `<b>${esc(game.detail)}</b>`;
       return `<section class="lg-card"><div class="lg-board">${team(a, h, false)}${team(h, a, true)}
         <div class="lg-status"><span>${status}${game.venue ? ` · ${esc(game.venue)}` : ''}${err ? ' · <span class="lg-err">feed hiccup, retrying</span>' : ''}</span>${ls}</div></div></section>`;
@@ -175,8 +172,8 @@
       const skip = /^(Team Turnovers|Total Turnovers|Technical Fouls|Total Technical Fouls|Flagrant Fouls)$/;
       const bx = game.box, byId = {}; bx.forEach(b => { byId[b.id] = b; });
       const A = byId[a.id], Hh = byId[h.id];
-      const ts = A && Hh ? `<div class="lg-scroll"><table class="lg-ts"><thead><tr><th>Stat</th><th>${esc(a.abbr)}</th><th>${esc(h.abbr)}</th></tr></thead><tbody>
-          ${Hh.stats.filter(([l]) => !skip.test(l)).map(([l, v]) => { const av = (A.stats.find(x => x[0] === l) || [])[1]; return `<tr><td>${esc(l)}</td><td>${esc(av != null ? av : '')}</td><td>${esc(v)}</td></tr>`; }).join('')}
+      const ts = A && Hh ? `<div class="sheet-wrap"><table class="sheet dense lg-ts"><thead><tr><th class="l">Stat</th><th>${esc(a.abbr)}</th><th>${esc(h.abbr)}</th></tr></thead><tbody>
+          ${Hh.stats.filter(([l]) => !skip.test(l)).map(([l, v]) => { const av = (A.stats.find(x => x[0] === l) || [])[1]; return `<tr><td class="l dim">${esc(l)}</td><td>${esc(av != null ? av : '')}</td><td>${esc(v)}</td></tr>`; }).join('')}
         </tbody></table></div>` : '<div class="lg-note">Team stats appear once the game starts.</div>';
       return `<div class="lg-cols">
         <section class="lg-card"><h2>Scoring runs</h2>${runsHtml}<h2 style="margin-top:16px">Biggest swings</h2>${swingHtml}</section>
@@ -196,20 +193,25 @@
           return g.playerRating({ pts: +v(st, 'PTS'), fgm, fga, tpm, tpa, ftm, fta, oreb: +v(st, 'OREB'), dreb: +v(st, 'DREB'), stl: +v(st, 'STL'), ast: +v(st, 'AST'), blk: +v(st, 'BLK'), pf: +v(st, 'PF'), tov: +v(st, 'TO') });
         };
         const played = tp.athletes.filter(a => !a.dnp).sort((x, y) => (y.starter ? 1 : 0) - (x.starter ? 1 : 0) || (+v(y.stats, 'MIN') || 0) - (+v(x.stats, 'MIN') || 0));
+        // the site sheet: one line per player, plain numbers shaded within the team (tdcSheetHeat, run in draw());
+        // FG/3PT/FT shade by their percentage; the totals row spans Player+Role so the shading skips it
+        const pv = x => { const [m, at] = split(x); return at > 0 ? (m / at * 100).toFixed(1) : ''; };
+        const stat = (st, k, cls) => `<td${cls || ''}>${esc(v(st, k))}</td>`;
+        const shoot = (st, k, cls) => `<td${cls || ''} data-v="${pv(v(st, k))}">${esc(v(st, k))}</td>`;
         const rows = played.map(a => {
           const r = rate(a.stats);
-          const rc = r == null ? '' : `<span class="rtg" style="background:${g.ratingColor ? g.ratingColor(r) : 'var(--text3)'}" title="0-10 game rating so far">${r.toFixed(1)}</span>`;
-          return `<tr class="${a.starter ? 'starter' : ''}"><td><a class="bs-name" href="player.html?espn=${esc(a.id)}&name=${encodeURIComponent(a.name)}">${esc(a.name)}</a></td>
-            <td>${rc}</td><td>${esc(v(a.stats, 'MIN'))}</td><td class="h">${esc(v(a.stats, 'FG'))}</td><td class="h">${esc(v(a.stats, '3PT'))}</td><td class="h">${esc(v(a.stats, 'FT'))}</td>
-            <td>${esc(v(a.stats, 'REB'))}</td><td>${esc(v(a.stats, 'AST'))}</td><td class="h">${esc(v(a.stats, 'STL'))}</td><td class="h">${esc(v(a.stats, 'BLK'))}</td>
-            <td class="h">${esc(v(a.stats, 'TO'))}</td><td class="h">${esc(v(a.stats, 'PF'))}</td><td class="pts">${esc(v(a.stats, 'PTS'))}</td></tr>`;
+          return `<tr><td class="l nm"><a href="player.html?espn=${esc(a.id)}&name=${encodeURIComponent(a.name)}">${esc(a.name)}</a></td><td class="l dim">${a.starter ? 'Starter' : 'Bench'}</td>
+            <td title="0-10 game rating so far">${r == null ? '' : r.toFixed(1)}</td>${stat(a.stats, 'MIN')}${shoot(a.stats, 'FG')}${shoot(a.stats, '3PT')}${shoot(a.stats, 'FT')}
+            ${stat(a.stats, 'REB')}${stat(a.stats, 'AST')}${stat(a.stats, 'STL')}${stat(a.stats, 'BLK')}
+            ${stat(a.stats, 'TO')}${stat(a.stats, 'PF')}<td class="big">${esc(v(a.stats, 'PTS'))}</td></tr>`;
         }).join('');
-        const T = tp.totals || [];
-        const tot = T.length ? `<tr class="totals"><td>Team</td><td></td><td></td><td class="h">${esc(v(T, 'FG'))}</td><td class="h">${esc(v(T, '3PT'))}</td><td class="h">${esc(v(T, 'FT'))}</td>
-          <td>${esc(v(T, 'REB'))}</td><td>${esc(v(T, 'AST'))}</td><td class="h">${esc(v(T, 'STL'))}</td><td class="h">${esc(v(T, 'BLK'))}</td><td class="h">${esc(v(T, 'TO'))}</td><td class="h">${esc(v(T, 'PF'))}</td><td class="pts">${esc(v(T, 'PTS'))}</td></tr>` : '';
-        return `<div class="bs"><div class="bs-team">${esc(nameOf(t))}</div><div class="lg-scroll"><table><thead><tr>
-          <th>Player</th><th title="0-10 game rating so far, same scale as the player pages">RTG</th><th>Min</th><th class="h">FG</th><th class="h">3PT</th><th class="h">FT</th>
-          <th>Reb</th><th>Ast</th><th class="h">Stl</th><th class="h">Blk</th><th class="h">TO</th><th class="h">PF</th><th>Pts</th></tr></thead><tbody>${rows}${tot}</tbody></table></div></div>`;
+        const T = tp.totals || [], S = ' class="strong"';
+        const tot = T.length ? `<tr class="totals"><td class="l strong" colspan="2">Team</td><td></td><td></td>${shoot(T, 'FG', S)}${shoot(T, '3PT', S)}${shoot(T, 'FT', S)}
+          ${stat(T, 'REB', S)}${stat(T, 'AST', S)}${stat(T, 'STL', S)}${stat(T, 'BLK', S)}${stat(T, 'TO', S)}${stat(T, 'PF', S)}<td class="big">${esc(v(T, 'PTS'))}</td></tr>` : '';
+        const th = (l, heat, tip) => `<th${heat ? ` data-heat="${heat}"` : ''}${tip ? ` title="${tip}"` : ''}>${l}</th>`;
+        return `<div class="bs"><div class="bs-team">${esc(nameOf(t))}</div><div class="sheet-wrap"><table class="sheet dense freeze lg-box"><thead><tr>
+          <th class="l">Player</th><th class="l">Role</th>${th('RTG', 1, '0-10 game rating so far, same scale as the player pages')}${th('Min')}${th('FG', 1, 'Field goals made-attempted, shaded by FG%')}${th('3PT', 1, 'Threes made-attempted, shaded by 3P%')}${th('FT', 1, 'Free throws made-attempted, shaded by FT%')}
+          ${th('Reb', 1)}${th('Ast', 1)}${th('Stl', 1)}${th('Blk', 1)}${th('TO', -1)}${th('PF', -1)}${th('Pts', 1)}</tr></thead><tbody>${rows}${tot}</tbody></table></div></div>`;
       }).join('');
     }
 
@@ -228,6 +230,7 @@
       const hasPlays = game.plays.length > 0;
       const pbox = playerBox();
       host.innerHTML = `<div class="lg">${board()}${hasPlays || game.state !== 'pre' ? chart() : ''}${hasPlays ? sidebars() : ''}${pbox ? `<section class="lg-card"><h2>Box score</h2>${pbox}</section>` : ''}${feed()}</div>`;
+      if (g.tdcSheetHeat) host.querySelectorAll('table.lg-box').forEach(t => g.tdcSheetHeat(t));
     }
     return { stop };
   }

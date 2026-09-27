@@ -216,18 +216,13 @@
     .gwin{color:var(--accent);}
     .grate{font-size:11px;font-weight:800;margin-top:4px;}
     .ratepill{display:inline-block;color:#fff;font-weight:800;font-variant-numeric:tabular-nums;border-radius:5px;padding:1px 6px;font-size:12px;}
-    .ratepill.sm{padding:0 5px;font-size:10.5px;}
     .gupset{margin:10px 20px 0;padding:8px 12px;border:1px solid var(--red);border-radius:8px;background:rgba(204,34,0,.08);font-size:12px;font-weight:700;color:var(--red);}
     .gpog{margin:12px 20px 0;font-size:12px;color:var(--text2);}
     .gpog b{color:var(--text);}
     .gbody{padding:12px 16px 20px;}
-    .gbx{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:6px;}
-    .gbx th{font-size:8.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);text-align:right;padding:5px 6px;border-bottom:1px solid var(--border2);}
-    .gbx th.l{text-align:left;}
-    .gbx td{text-align:right;padding:5px 6px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;}
-    .gbx td.l{text-align:left;}
-    .gbx td.l a{color:var(--text);text-decoration:none;font-weight:600;}
-    .gbx tr.pog td{background:rgba(168,132,60,.07);}
+    /* game box score = the site sheet (tdc-sheets.css) */
+    .gbody .sheet-wrap{max-height:none;}
+    .sheet .pog-tag{font-size:9px;font-weight:800;letter-spacing:.06em;color:var(--text3);margin-left:6px;}
     .gbxh{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;margin:16px 6px 2px;}
     /* column fallback for non-bracket events (conf w/ byes, place games) */
     .rounds{display:flex;gap:16px;overflow-x:auto;padding-bottom:12px;align-items:flex-start;}
@@ -283,6 +278,7 @@
   <script src="tdc-pwa.js?v=2" defer></script>
   <link rel="stylesheet" href="tdc-hq-site.css?v=24"/>
   <link rel="stylesheet" href="tdc-column.css?v=2"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
 </head>
 <body data-anim-auto class="hqsite">
 <script src="tdc-nav.js?v=28"></script>
@@ -1305,24 +1301,30 @@ async function openGame(id){
     [g.home,g.away].forEach(tn=>{
       const rows=bx.filter(p=>p.team===tn).sort((a,b)=>(b.starter-a.starter)||(b.min-a.min));
       if(!rows.length) return;
-      html+=`<div class="gbxh">${tn}</div><table class="gbx"><thead><tr>
-        <th class="l">Player</th><th title="0-10 game rating, same scale as the player pages">RTG</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>FG</th><th>3P</th><th>FT</th><th>TO</th></tr></thead><tbody>`;
+      // the site sheet: one line per player, plain numbers shaded within the team (tdcSheetHeat
+      // after render); FG/3P/FT shade by their percentage
+      const pv=(m,a)=>(a||0)>0?((m||0)/a*100).toFixed(1):'';
+      html+=`<div class="gbxh">${tn}</div><div class="sheet-wrap"><table class="sheet dense freeze gbx"><thead><tr>
+        <th class="l">Player</th><th class="l">Role</th><th data-heat="1" title="0-10 game rating, same scale as the player pages">RTG</th><th>MIN</th><th data-heat="1">PTS</th><th data-heat="1">REB</th><th data-heat="1">AST</th><th data-heat="1">STL</th><th data-heat="1">BLK</th><th data-heat="1" title="Shaded by FG%">FG</th><th data-heat="1" title="Shaded by 3P%">3P</th><th data-heat="1" title="Shaded by FT%">FT</th><th data-heat="-1">TO</th></tr></thead><tbody>`;
       rows.forEach(p=>{ const pr=(p.min||0)>0?playerRating(p):null;
-        html+=`<tr class="${p===pog?'pog':''}">
-        <td class="l"><a href="${p.espn_id?`player.html?espn=${p.espn_id}`:teamLink(tn)}">${p.player}${p.starter?'':' <span style="color:var(--text3);font-size:9px;">(b)</span>'}</a></td>
-        <td>${pr!=null?`<span class="ratepill sm" style="background:${ratingColor(pr)};">${pr.toFixed(1)}</span>`:''}</td>
-        <td>${p.min??''}</td><td><b>${p.pts??0}</b></td><td>${p.reb??0}</td><td>${p.ast??0}</td><td>${p.stl??0}</td><td>${p.blk??0}</td>
-        <td>${p.fgm}-${p.fga}</td><td>${p.tpm}-${p.tpa}</td><td>${p.ftm}-${p.fta}</td><td>${p.tov??0}</td></tr>`; });
-      html+='</tbody></table>';
+        html+=`<tr>
+        <td class="l nm"><a href="${p.espn_id?`player.html?espn=${p.espn_id}`:teamLink(tn)}">${p.player}</a>${p===pog?'<span class="pog-tag" title="Player of the game">POG</span>':''}</td>
+        <td class="l dim">${p.starter?'Starter':'Bench'}</td>
+        <td>${pr!=null?pr.toFixed(1):''}</td>
+        <td>${p.min??''}</td><td class="big">${p.pts??0}</td><td>${p.reb??0}</td><td>${p.ast??0}</td><td>${p.stl??0}</td><td>${p.blk??0}</td>
+        <td data-v="${pv(p.fgm,p.fga)}">${p.fgm}-${p.fga}</td><td data-v="${pv(p.tpm,p.tpa)}">${p.tpm}-${p.tpa}</td><td data-v="${pv(p.ftm,p.fta)}">${p.ftm}-${p.fta}</td><td>${p.tov??0}</td></tr>`; });
+      html+='</tbody></table></div>';
     });
     html+='</div>';
   } else {
     html+='<div class="gbody"><div class="loading" style="padding:30px;">No box score on file for this game.</div></div>';
   }
   c.innerHTML=html;
+  if(window.tdcSheetHeat) c.querySelectorAll('table.gbx').forEach(t=>tdcSheetHeat(t));
 }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape')closeGame(); });
 </script>
+  <script src="tdc-sheets.js?v=1"></script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=8"></script>
 </body>

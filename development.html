@@ -61,7 +61,6 @@
     .cols{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
     .sheet-wrap{max-height:none;} .sheet{width:100% !important;} .sheet td.nm{font-weight:800;color:var(--text);} .sheet td.dim{color:var(--text3);}
     .sheet td a{color:var(--text);text-decoration:none;} .sheet td a:hover{color:var(--accent);}
-    .sheet td.up{color:var(--green,#5ab875);font-weight:800;} .sheet td.dn{color:var(--red,#e07070);font-weight:800;}
     .ss-band{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg);margin:0 0 14px;}
     @media(max-width:760px){.ss-band{grid-template-columns:repeat(2,1fr);} .ss-band .cell{border-bottom:1px solid var(--border);}}
     .ss-band .cell{padding:11px 14px;border-right:1px solid var(--border);min-width:0;} .ss-band .cell:last-child{border-right:none;}
@@ -71,19 +70,7 @@
     .lb{border:1px solid var(--border);border-radius:14px;background:var(--bg2);overflow:hidden;}
     .lb h3{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);padding:14px 16px 4px;}
     .lb .sub{font-size:10.5px;color:var(--text3);padding:0 16px 10px;}
-    .dv-row{display:flex;align-items:center;gap:11px;padding:9px 16px;border-top:1px solid var(--border);transition:background .12s;}
-    .dv-row:hover{background:var(--bg3);}
-    .dv-rk{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;color:var(--text3);width:18px;flex-shrink:0;text-align:center;}
-    .dv-nm{flex:1;line-height:1.2;}
-    .dv-nm .n{font-size:13.5px;font-weight:700;}
-    .dv-nm .s{font-size:10.5px;color:var(--text3);}
-    .dv-arc{display:flex;align-items:center;gap:6px;flex-shrink:0;font-variant-numeric:tabular-nums;}
-    .dv-arc .g0{font-size:13px;font-weight:700;color:var(--text3);}
-    .dv-arc .ar{color:var(--text3);font-size:12px;}
-    .dv-arc .g1{font-family:'Playfair Display',serif;font-size:17px;font-weight:800;}
-    .dv-arc .d{font-size:11px;font-weight:800;padding:2px 6px;border-radius:5px;margin-left:4px;}
-    .up{color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent);}
-    .down{color:var(--red);background:color-mix(in srgb,var(--red) 14%,transparent);}
+    .lb .sheet-wrap{border:none;border-top:1px solid var(--border);border-radius:0;background:var(--bg);}
     .loading{padding:70px;text-align:center;color:var(--text3);}
     .filt-bar{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin:6px 0 4px;padding:16px 18px;border:1px solid var(--border);border-radius:14px;background:var(--bg2);}
     .filt-bar label{display:flex;flex-direction:column;gap:5px;font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);}
@@ -312,10 +299,10 @@ function seasonSpotlight(Y){
   var schools=Object.values(bySchool).filter(function(S){return S.n>=3;}).map(function(S){ S.avg=S.sum/S.n; return S; }).sort(function(a,b){return b.avg-a.avg;});
   var top=schools.slice(0,12), bottom=schools.slice(-5).reverse();
   var yl=(Y-1)+'-'+(''+Y).slice(2);
-  var srow=function(S,i){ return '<tr><td class="c dim">'+(i+1)+'</td><td class="l nm">'+esc(S.school)+'<div style="font-size:10.5px;color:var(--text3);font-weight:500">'+esc(S.conf||'')+'</div></td><td>'+S.n+'</td><td class="'+(S.avg>=0?'up':'dn')+'">'+(S.avg>0?'+':'')+S.avg.toFixed(1)+'</td><td>'+Math.round(S.up/S.n*100)+'%</td><td class="l"><a href="'+plink(S.best)+'">'+esc(S.best.player)+'</a> <span class="dim">'+S.best.from+'→'+S.best.to+' (+'+S.best.d+')</span></td></tr>'; };
+  var srow=function(S,i){ return '<tr><td class="rk">'+(i+1)+'</td><td class="l nm">'+esc(S.school)+'</td><td class="l dim">'+esc(S.conf||'')+'</td><td>'+S.n+'</td><td>'+(S.avg>0?'+':'')+S.avg.toFixed(1)+'</td><td>'+Math.round(S.up/S.n*100)+'%</td><td class="l"><a href="'+plink(S.best)+'">'+esc(S.best.player)+'</a> <span class="dim">'+S.best.from+'→'+S.best.to+' (+'+S.best.d+')</span></td></tr>'; };
   var stepL={1:'1st → 2nd season',2:'2nd → 3rd',3:'3rd → 4th',4:'4th → 5th+'};
   var stepRows=[1,2,3,4].map(function(k){ var a=byStep[k], b=baseStep[k]; if(!a.length) return ''; var m=avg(a), bm=avg(b), diff=(m!=null&&bm!=null)?m-bm:null;
-    return '<tr><td class="l nm" style="font-size:12px">'+stepL[k]+'</td><td>'+a.length+'</td><td class="'+(m>=0?'up':'dn')+'">'+(m>0?'+':'')+m.toFixed(2)+'</td><td class="dim">'+(bm!=null?(bm>0?'+':'')+bm.toFixed(2):'—')+'</td><td class="'+(diff==null?'dim':diff>=0?'up':'dn')+'">'+(diff==null?'—':(diff>0?'+':'')+diff.toFixed(2))+'</td><td>'+Math.round(a.filter(function(x){return x>0;}).length/a.length*100)+'%</td></tr>'; }).join('');
+    return '<tr><td class="l nm">'+stepL[k]+'</td><td>'+a.length+'</td><td>'+(m>0?'+':'')+m.toFixed(2)+'</td><td class="dim">'+(bm!=null?(bm>0?'+':'')+bm.toFixed(2):'—')+'</td><td'+(diff==null?' class="dim"':'')+'>'+(diff==null?'—':(diff>0?'+':'')+diff.toFixed(2))+'</td><td>'+Math.round(a.filter(function(x){return x>0;}).length/a.length*100)+'%</td></tr>'; }).join('');
   var bestStep=[1,2,3,4].filter(function(k){return byStep[k].length>=20;}).sort(function(a,b){return avg(byStep[b])-avg(byStep[a]);})[0];
   var read='<div class="ss-read"><b>'+yl+'.</b> '+ret.toLocaleString()+' returners were graded in back-to-back seasons; they moved <b>'+(avgD>0?'+':'')+avgD.toFixed(2)+'</b> on average and <b>'+Math.round(up/ret*100)+'%</b> improved ('+big+' jumped 5+ points). '
     +(top.length?'The best development shop was <b>'+esc(top[0].school)+'</b> (+'+top[0].avg.toFixed(1)+' across '+top[0].n+' returners'+(top[0].best?', led by '+esc(top[0].best.player)+' '+top[0].best.from+'→'+top[0].best.to:'')+')'+(bottom.length&&bottom[0]!==top[0]?'; <b>'+esc(bottom[0].school)+'</b> went the other way ('+(bottom[0].avg>0?'+':'')+bottom[0].avg.toFixed(1)+')':'')+'. ':'')
@@ -328,10 +315,10 @@ function seasonSpotlight(Y){
       '<div class="cell"><div class="v">'+Math.round(up/ret*100)+'%</div><div class="l">Improved</div><div class="s">'+up.toLocaleString()+' of '+ret.toLocaleString()+'</div></div>'+
       '<div class="cell"><div class="v">'+big+'</div><div class="l">Jumped 5+</div><div class="s">breakout seasons</div></div></div>'+
     '<div class="cols"><div><div class="sub" style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Program development · returners (min 3)</div>'+
-      '<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="c">#</th><th class="l">School</th><th>Ret.</th><th>Avg Δ</th><th>Improved</th><th class="l">Best jump</th></tr></thead><tbody>'+top.map(srow).join('')+'</tbody></table></div></div>'+
+      '<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="rk">#</th><th class="l">School</th><th class="l">Conf</th><th title="returners graded in both seasons">Ret.</th><th title="average year-over-year change in TDC grade">Avg Δ</th><th title="share of returners who improved">Improved</th><th class="l">Best jump</th></tr></thead><tbody>'+top.map(srow).join('')+'</tbody></table></div></div>'+
     '<div><div class="sub" style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Class-by-class · this season vs the 20-year baseline</div>'+
-      '<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Step</th><th>n</th><th>Avg Δ</th><th>20-yr</th><th>Diff</th><th>Up</th></tr></thead><tbody>'+stepRows+'</tbody></table></div>'+
-      (bottom.length?'<div class="sub" style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin:14px 0 8px">Went backwards</div><div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">School</th><th>Ret.</th><th>Avg Δ</th></tr></thead><tbody>'+bottom.map(function(S){return '<tr><td class="l nm">'+esc(S.school)+'</td><td>'+S.n+'</td><td class="'+(S.avg>=0?'up':'dn')+'">'+(S.avg>0?'+':'')+S.avg.toFixed(1)+'</td></tr>';}).join('')+'</tbody></table></div>':'')+
+      '<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Step</th><th>n</th><th data-heat="1" title="average change in TDC grade this season">Avg Δ</th><th title="20-year average change for this step">20-yr</th><th data-heat="1" title="this season minus the 20-year baseline">Diff</th><th data-heat="1" title="share who improved">Up</th></tr></thead><tbody>'+stepRows+'</tbody></table></div>'+
+      (bottom.length?'<div class="sub" style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin:14px 0 8px">Went backwards</div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">School</th><th class="l">Conf</th><th>Ret.</th><th title="average year-over-year change in TDC grade">Avg Δ</th></tr></thead><tbody>'+bottom.map(function(S){return '<tr><td class="l nm">'+esc(S.school)+'</td><td class="l dim">'+esc(S.conf||'')+'</td><td>'+S.n+'</td><td>'+(S.avg>0?'+':'')+S.avg.toFixed(1)+'</td></tr>';}).join('')+'</tbody></table></div>':'')+
     '</div></div>'+read;
 }
 function filterBar(){
@@ -351,28 +338,19 @@ function filterBar(){
     (isFiltered()?'<button class="filt-reset" onclick="resetFilt()">Reset</button>':'')+'</div>';
 }
 
-function riserRow(r,i){
-  var d=r.gain;
-  return '<a class="dv-row" href="'+plink(r)+'"><span class="dv-rk">'+(i+1)+'</span>'+
-    '<span class="dv-nm"><div class="n">'+r.player+'</div><div class="s">'+r.from_school+(r.peak_school!==r.from_school?' → '+r.peak_school:'')+' · '+r.seasons+' seasons</div></span>'+
-    '<span class="dv-arc"><span class="g0">'+r.from+'</span><span class="ar">→</span><span class="g1">'+r.peak+'</span><span class="d up">+'+d+'</span></span></a>';
+// Leaderboards as sheets: one line per player, school + season in their own dim columns, the
+// change column shaded by tdcSheetHeat (called after render).
+function lbSheet(rows,headTo,dir){
+  return '<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l">School</th><th class="l">'+(headTo==='Peak'?'Seasons':'Season')+'</th><th title="TDC grade at the start">From</th><th title="TDC grade at the end">'+headTo+'</th><th title="change in TDC grade">Δ</th></tr></thead><tbody>'+rows.join('')+'</tbody></table></div>';
 }
-function jumpRow(j,i){
-  return '<a class="dv-row" href="'+plink(j)+'"><span class="dv-rk">'+(i+1)+'</span>'+
-    '<span class="dv-nm"><div class="n">'+j.player+'</div><div class="s">'+j.school+' · '+((j.year-1)+'-'+(''+j.year).slice(2))+'</div></span>'+
-    '<span class="dv-arc"><span class="g0">'+j.from+'</span><span class="ar">→</span><span class="g1">'+j.to+'</span><span class="d up">+'+j.jump+'</span></span></a>';
+function lbRow(i,p,school,season,from,to,d){
+  return '<tr><td class="rk">'+(i+1)+'</td><td class="l nm"><a href="'+plink(p)+'">'+esc(p.player)+'</a></td><td class="l dim">'+esc(school)+'</td><td class="l dim">'+season+'</td><td class="dim">'+from+'</td><td class="big">'+to+'</td><td>'+(d>0?'+':'')+d+'</td></tr>';
 }
-function fallerRow(f,i){
-  return '<a class="dv-row" href="'+plink(f)+'"><span class="dv-rk">'+(i+1)+'</span>'+
-    '<span class="dv-nm"><div class="n">'+f.player+'</div><div class="s">'+f.school+' · '+((f.year-1)+'-'+(''+f.year).slice(2))+'</div></span>'+
-    '<span class="dv-arc"><span class="g0">'+f.from+'</span><span class="ar">→</span><span class="g1">'+f.to+'</span><span class="d down">'+f.drop+'</span></span></a>';
-}
-function transferRow(t,i){
-  var d=t.delta;
-  return '<a class="dv-row" href="'+plink(t)+'"><span class="dv-rk">'+(i+1)+'</span>'+
-    '<span class="dv-nm"><div class="n">'+t.player+'</div><div class="s">'+t.from_school+' → '+t.to_school+' · '+((t.year-1)+'-'+(''+t.year).slice(2))+'</div></span>'+
-    '<span class="dv-arc"><span class="g0">'+t.from+'</span><span class="ar">→</span><span class="g1">'+t.to+'</span><span class="d '+(d>=0?'up':'down')+'">'+(d>=0?'+':'')+d+'</span></span></a>';
-}
+var yrLbl=function(y){ return (y-1)+'-'+(''+y).slice(2); };
+function riserRow(r,i){ return lbRow(i,r,r.from_school+(r.peak_school!==r.from_school?' → '+r.peak_school:''),r.seasons,r.from,r.peak,r.gain); }
+function jumpRow(j,i){ return lbRow(i,j,j.school,yrLbl(j.year),j.from,j.to,j.jump); }
+function fallerRow(f,i){ return lbRow(i,f,f.school,yrLbl(f.year),f.from,f.to,f.drop); }
+function transferRow(t,i){ return lbRow(i,t,t.from_school+' → '+t.to_school,yrLbl(t.year),t.from,t.to,t.delta); }
 
 function scopeLabel(){
   var parts=[];
@@ -400,12 +378,13 @@ function playerFocusHtml(){
   for(var i=1;i<ss.length;i++){ if(ss[i][1]>peak[1]) peak=ss[i]; }
   var rows=ss.map(function(s,i){
     var prev=i?ss[i-1]:null, d=prev?(s[1]-prev[1]):null;
-    var dTxt=d==null?'<span class="dim">—</span>':(d===0?'<span class="dim">±0</span>':'<span style="color:'+(d>0?'var(--green)':'var(--red)')+';font-weight:800;">'+(d>0?'+':'')+d+'</span>');
+    var dTxt=d==null?'—':(d===0?'±0':(d>0?'+':'')+d);
     var moved=prev&&s[3]!==prev[3]&&s[3]>=0&&prev[3]>=0;
-    return '<tr'+(s===peak?' style="background:color-mix(in srgb,var(--accent) 10%,transparent)"':'')+'>'
-      +'<td class="c">'+(s[0]-1)+'–'+String(s[0]).slice(2)+'</td><td class="c dim">'+cls(i)+'</td>'
-      +'<td class="l nm">'+esc(schoolName(s[3]))+(moved?' <span style="font-size:10px;color:var(--accent);font-weight:800;">↗ transfer</span>':'')+'</td>'
-      +'<td class="l dim">'+esc(confName(s[2])||'')+'</td><td style="font-weight:800;color:var(--text);">'+s[1]+'</td><td>'+dTxt+'</td></tr>';
+    var note=[s===peak?'Career peak':'',moved?'Transfer':''].filter(Boolean).join(' · ');
+    return '<tr>'
+      +'<td class="l">'+(s[0]-1)+'–'+String(s[0]).slice(2)+'</td><td class="l dim">'+cls(i)+'</td>'
+      +'<td class="l nm">'+esc(schoolName(s[3]))+'</td>'
+      +'<td class="l dim">'+esc(confName(s[2])||'')+'</td><td class="big">'+s[1]+'</td><td'+(d==null||d===0?' class="dim"':'')+'>'+dTxt+'</td><td class="l dim">'+note+'</td></tr>';
   }).join('');
   var gain=peak[1]-first[1], bestJ=0, bestJs=null;
   for(var j=1;j<ss.length;j++){ var dj=ss[j][1]-ss[j-1][1]; if(ss[j][0]===ss[j-1][0]+1&&dj>bestJ){bestJ=dj;bestJs=ss[j];} }
@@ -418,8 +397,8 @@ function playerFocusHtml(){
   return '<div class="dv-focus">'
     +'<div class="sec-t" style="margin-top:0;">'+esc(nm)+' — Development <span style="color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;">his graded seasons, first to latest · <a href="player.html?espn='+encodeURIComponent(p[0])+'" style="color:var(--accent);">player page →</a></span></div>'
     +'<div class="dv-tiles">'+tiles+'</div>'
-    +'<div class="sheet-wrap" style="max-height:none;"><table class="sheet" style="width:100%"><thead><tr><th class="c">Season</th><th class="c">Class</th><th class="l">School</th><th class="l">Conference</th><th>TDC grade</th><th>Δ vs prior</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
-    +'<div class="curve-note" style="margin-top:8px;">Highlighted row = career peak. Δ is the year-over-year change in his TDC grade; a ↗ marks a school change. The league-wide boards below put his path in context.</div>'
+    +'<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense" style="width:100%"><thead><tr><th class="l">Season</th><th class="l">Class</th><th class="l">School</th><th class="l">Conference</th><th data-heat="1">TDC grade</th><th data-heat="1" title="year-over-year change in TDC grade">Δ vs prior</th><th class="l">Note</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +'<div class="curve-note" style="margin-top:8px;">Δ is the year-over-year change in his TDC grade; the Note column flags his career peak and any school change. The league-wide boards below put his path in context.</div>'
     +'</div>';
 }
 function render(){
@@ -443,14 +422,15 @@ function render(){
       '<div class="curve-note">Average TDC grade at each class year for the selected scope. Toggle the position lines, or filter by level, conference and season above.</div></div>'+
     '<div class="sec-t">Biggest Risers <span '+sub+'>first season → career peak</span></div>'+
     '<div class="cols"><div class="lb"><h3>Career Risers</h3><div class="sub">largest climb from first graded season to peak</div>'+
-      (risers.length?risers.map(riserRow).join(''):emptyR)+'</div>'+
+      (risers.length?lbSheet(risers.map(riserRow),'Peak',1):emptyR)+'</div>'+
     '<div class="lb"><h3>Breakout Seasons</h3><div class="sub">biggest single-season grade jump</div>'+
-      (jumps.length?jumps.map(jumpRow).join(''):emptyR)+'</div></div>'+
+      (jumps.length?lbSheet(jumps.map(jumpRow),'To',1):emptyR)+'</div></div>'+
     '<div class="sec-t">The Other Direction <span '+sub+'>declines &amp; the biggest transfer swings</span></div>'+
     '<div class="cols"><div class="lb"><h3>Season Fallers</h3><div class="sub">biggest single-season grade drop</div>'+
-      (fallers.length?fallers.map(fallerRow).join(''):emptyR)+'</div>'+
+      (fallers.length?lbSheet(fallers.map(fallerRow),'To',1):emptyR)+'</div>'+
     '<div class="lb"><h3>Best Transfers</h3><div class="sub">biggest grade jump after changing schools</div>'+
-      (transfers.length?transfers.map(transferRow).join(''):emptyR)+'</div></div>';
+      (transfers.length?lbSheet(transfers.map(transferRow),'To',1):emptyR)+'</div></div>';
+  if(window.tdcSheetHeat) el.querySelectorAll('table.sheet').forEach(function(t){ tdcSheetHeat(t); });
 }
 
 async function init(){
@@ -467,5 +447,6 @@ init();
 </script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=8"></script>
+  <script src="tdc-sheets.js?v=1"></script>
 </body>
 </html>

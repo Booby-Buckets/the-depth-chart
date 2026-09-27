@@ -28,8 +28,8 @@
   <script src="tdc-projgrade.js?v=base24"></script>
   <script src="tdc-proj.js?v=coach26"></script>
   <script src="tdc-impact.js?v=1"></script>
-  <link rel="stylesheet" href="tdc-sheets.css?v=6"/><script src="tdc-shotchart.js?v=25"></script>
-  <script src="tdc-lineups.js?v=17"></script>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/><script src="tdc-shotchart.js?v=25s"></script>
+  <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-situational.js?v=2"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=6"/>
   <script src="tdc-anim.js?v=6"></script>
@@ -94,19 +94,9 @@
     .dfbar{height:8px;border-radius:4px;background:var(--bg3);overflow:hidden;}
     .dfbar .dff{height:100%;border-radius:4px;}
     .dfp{font-size:12px;font-weight:800;color:var(--text2);text-align:right;font-variant-numeric:tabular-nums;}
-    .kmwrap{border:1px solid var(--border);border-radius:12px;background:var(--bg2);overflow:hidden;}
-    .kmhead,.kmrow{display:grid;grid-template-columns:34px 1fr 44px 1fr;gap:8px;align-items:center;padding:9px 14px;}
-    .kmhead{border-bottom:1px solid var(--border);}
-    .kmhead span{font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
-    .kmhead span:nth-child(3),.kmrow .kmvs{text-align:center;}
-    .kmrow{border-top:1px solid var(--border);}
-    .kmpos{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;color:var(--text3);}
-    .kmp{min-width:0;}
-    .kmp.edge{}
-    .kmn{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .kmp.edge .kmn{color:var(--accent);}
-    .kms{font-size:10.5px;color:var(--text3);font-weight:600;}
-    .kmvs{font-family:'Playfair Display',serif;font-weight:800;font-size:13px;color:var(--text3);font-variant-numeric:tabular-nums;}
+    /* data tables = the site sheet (tdc-sheets.css) */
+    .sheet .up{color:var(--green);font-weight:700;} .sheet .dn{color:var(--red);font-weight:700;}
+    .card .sheet-wrap+.obread{margin-top:12px;}
     .card{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:18px 20px;}
     /* attack sheet */
     .as-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:11px;}
@@ -163,17 +153,6 @@
     .gchip .gv{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;margin-top:3px;}
     .gchip .gs{font-size:10px;color:var(--text3);margin-top:1px;}
     .muted{font-size:12.5px;color:var(--text3);line-height:1.7;padding:26px 20px;text-align:center;}
-    /* opponent scorers */
-    .scrhead,.scr{display:grid;grid-template-columns:1fr 84px 74px 104px;gap:10px;align-items:center;}
-    .scrhead{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);padding:0 14px 6px;}
-    .scrhead span:not(:first-child){text-align:right;}
-    .scr{padding:11px 14px;border:1px solid var(--border);border-radius:11px;background:var(--bg2);margin-bottom:7px;}
-    .scn{font-weight:800;font-size:13.5px;}
-    .scn .scp{font-size:10px;font-weight:700;color:var(--accent);margin-left:7px;}
-    .scavg{text-align:right;font-size:12px;color:var(--text3);font-variant-numeric:tabular-nums;}
-    .scavg b{color:var(--text);font-size:14px;}
-    .scfc{text-align:right;font-size:11.5px;color:var(--text3);font-variant-numeric:tabular-nums;}
-    .sctag{text-align:right;font-size:11px;font-weight:800;}
     /* ── per-player attack book (expandable) ── */
     .abcard{border:1px solid var(--border);border-radius:12px;background:var(--bg2);margin-bottom:8px;overflow:hidden;}
     .abcard[open]{border-color:var(--border2);box-shadow:0 4px 16px rgba(0,0,0,.05);}
@@ -502,11 +481,14 @@ async function loadKeyMatchups(meRow, oppRow){
   const meNm=sn(meRow?poolRow(selKey.Me).team:''), oppNm=sn(oppRow.team);
   const rows=POS.map(pos=>{ const m=starter(meP,pos), o=starter(oppP,pos); if(!m&&!o) return '';
     const diff=(m?m.ovr:0)-(o?o.ovr:0); const meEdge=diff>=3, oppEdge=diff<=-3;
-    const side=(pl,edge)=>pl?`<div class="kmp ${edge?'edge':''}"><div class="kmn">${esc(pl.name)}</div><div class="kms">${pl.ovr} OVR · ${pl.pts.toFixed(1)} pts</div></div>`:`<div class="kmp"><div class="kmn" style="color:var(--text3)">—</div></div>`;
-    return `<div class="kmrow"><div class="kmpos">${pos}</div>${side(m,meEdge)}<div class="kmvs">${diff>0?'+'+diff:diff}</div>${side(o,oppEdge)}</div>`;
+    // one line per spot: each side's starter, OVR and projected points in their own columns;
+    // the edge (my OVR minus theirs) is shaded by tdcSheetHeat, and the side with a 3+ edge is bold
+    const side=(pl,edge)=>pl?`<td class="l nm"${edge?' style="font-weight:800"':''}>${esc(pl.name)}</td><td>${pl.ovr}</td><td>${pl.pts.toFixed(1)}</td>`:'<td class="l dim">—</td><td></td><td></td>';
+    return `<tr><td class="l dim">${pos}</td>${side(m,meEdge)}<td class="big">${diff>0?'+'+diff:diff}</td>${side(o,oppEdge)}</tr>`;
   }).filter(Boolean).join('');
   host.innerHTML=`<div class="sec-h" style="margin-top:22px">Key matchups <span class="hint">projected starter at each spot · OVR edge</span></div>
-    <div class="kmwrap"><div class="kmhead"><span>Pos</span><span>${esc(meNm)}</span><span>edge</span><span>${esc(oppNm)}</span></div>${rows}</div>`;
+    <div class="sheet-wrap"><table class="sheet dense" id="kmTbl"><thead><tr><th class="l">Pos</th><th class="l">${esc(meNm)}</th><th data-heat="1">OVR</th><th data-heat="1">Pts</th><th data-heat="1" title="${esc(meNm)} OVR minus ${esc(oppNm)} OVR at the spot">Edge</th><th class="l">${esc(oppNm)}</th><th data-heat="1">OVR</th><th data-heat="1">Pts</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  if(window.tdcSheetHeat) tdcSheetHeat(el('kmTbl'));
 }
 
 function renderReportBlock(rep){
@@ -851,19 +833,17 @@ async function loadShotProfile(row){
   def.forEach(s=>{ const z=zoneOf(s); t[z].a++; if(s.made) t[z].m++; tot++; });
   const Dp={}; ['rim','mid','three'].forEach(z=>{ const a=t[z].a, fg=a?t[z].m/a:0, efg=z==='three'?fg*1.5:fg; Dp[z]={a,freq:tot?a/tot:0,efg,exp:expEfg(z),delta:efg-expEfg(z)}; });
   const ZL={rim:'At the rim',mid:'Mid-range',three:'Three'}, pct=v=>Math.round(v*100);
-  const row3=z=>{ const r=Dp[z], dcol=r.delta<0?'var(--green,#1a8c3a)':'var(--red,#cc2200)';
-    return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--border)">
-      <div><b>${ZL[z]}</b> <span style="color:var(--text3);font-size:11px">· ${r.a} allowed · ${pct(r.freq)}% of shots</span></div>
-      <div style="text-align:right;font-variant-numeric:tabular-nums"><b>${pct(r.efg)}%</b><div style="font-size:9.5px;color:var(--text3)">eFG allowed</div></div>
-      <div style="text-align:right;min-width:66px;color:${dcol};font-weight:800">${r.delta>0?'+':''}${pct(r.delta)}%<div style="font-size:9.5px;color:var(--text3);font-weight:600">vs ${pct(r.exp)} exp</div></div>
-    </div>`; };
+  // one line per zone; vs-expected is a genuine change value: up (green) = they defend it well
+  const row3=z=>{ const r=Dp[z];
+    return `<tr><td class="l nm">${ZL[z]}</td><td>${r.a}</td><td>${pct(r.freq)}%</td><td class="big">${pct(r.efg)}%</td><td class="dim">${pct(r.exp)}%</td>
+      <td><span class="${r.delta<0?'up':'dn'}">${r.delta>0?'+':''}${pct(r.delta)}%</span></td></tr>`; };
   const worst=['rim','mid','three'].map(z=>({z,...Dp[z]})).sort((a,b)=>b.delta-a.delta)[0];
   const atk={rim:'get downhill and finish at the rim',mid:'work the two-point game — pull-ups and floaters',three:'let it fly from three'};
   const plan = worst.delta>0.005
     ? `<b>Attack ${ZL[worst.z].toLowerCase()}</b> — they allow <b>${pct(worst.efg)}%</b> eFG there, <b>+${pct(worst.delta)}%</b> above what the shot is worth. ${atk[worst.z].charAt(0).toUpperCase()+atk[worst.z].slice(1)}.`
     : `No soft spot — they defend every zone at or below the expected make. Pick your matchups; this is a stingy shot defense.`;
   host.innerHTML=`<div class="sec-h" style="margin-top:22px">Their defense — shot profile by zone <span class="hint">${SYL()} · what opponents make against them · green = they defend it well</span></div>
-    <div class="card"><div>${['rim','mid','three'].map(row3).join('')}</div><div class="obread"><b>Attack plan:</b> ${plan}</div></div>`;
+    <div class="card"><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Zone</th><th>Allowed</th><th>Of shots</th><th>eFG allowed</th><th>Expected</th><th title="eFG allowed minus the expected make; green = they defend it well">vs exp</th></tr></thead><tbody>${['rim','mid','three'].map(row3).join('')}</tbody></table></div><div class="obread"><b>Attack plan:</b> ${plan}</div></div>`;
 }
 
 // ── March profile: which of their returning players stepped up in last year's
@@ -883,19 +863,17 @@ async function loadMarchProfile(row){
   const agg={}; bx.forEach(b=>{ const a=agg[b.espn_id]=agg[b.espn_id]||{g:0,pts:0,reb:0,ast:0}; a.g++; a.pts+=+b.pts||0; a.reb+=+b.reb||0; a.ast+=+b.ast||0; });
   const rows=rot.map(p=>{ const a=agg[p.espn_id]; if(!a||a.g<1) return null;
     const tp=a.pts/a.g, season=+p.ppg||0, d=season>0?tp-season:0;
-    const tag = season<=0 ? '<span style="color:var(--text3)">—</span>'
-      : (d>=2.5?`<span style="color:var(--green,#1a8c3a)">▲ rose +${d.toFixed(1)}</span>`
-      : d<=-2.5?`<span style="color:var(--red,#cc2200)">▼ faded ${d.toFixed(1)}</span>`
-      : '<span style="color:var(--text3)">steady</span>');
+    const tag = season<=0 ? '—'
+      : (d>=2.5?`<span class="up">▲ rose +${d.toFixed(1)}</span>`
+      : d<=-2.5?`<span class="dn">▼ faded ${d.toFixed(1)}</span>`
+      : 'steady');
     return {p,a,tp,tag}; }).filter(Boolean).sort((x,y)=>y.tp-x.tp);
   if(!rows.length){ host.innerHTML=''; return; }
   const tourney=[...new Set(ps.map(g=>g.tournament).filter(Boolean))].join(' + ')||'the postseason';
-  const body=rows.map(r=>`<div style="display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--border)">
-    <div><b>${esc(r.p.name)}</b> <span style="color:var(--text3);font-size:11px">· ${r.a.g}G · ${esc(r.p.position||'')}</span></div>
-    <div style="text-align:right;font-variant-numeric:tabular-nums"><b>${r.tp.toFixed(1)}</b>/${(r.a.reb/r.a.g).toFixed(1)}/${(r.a.ast/r.a.g).toFixed(1)}<div style="font-size:9.5px;color:var(--text3)">postseason p/r/a</div></div>
-    <div style="text-align:right;min-width:86px;font-size:11px;font-weight:800">${r.tag}</div>
-  </div>`).join('');
-  host.innerHTML=`<div class="sec-h" style="margin-top:22px">March profile — who stepped up <span class="hint">${SYL()} ${esc(tourney)} · vs regular-season scoring</span></div><div class="card">${body}</div>`;
+  const body=rows.map(r=>`<tr><td class="l nm">${esc(r.p.name)}</td><td class="l dim">${esc(r.p.position||'')}</td><td>${r.a.g}</td>
+    <td class="big">${r.tp.toFixed(1)}</td><td>${(r.a.reb/r.a.g).toFixed(1)}</td><td>${(r.a.ast/r.a.g).toFixed(1)}</td><td class="l">${r.tag}</td></tr>`).join('');
+  host.innerHTML=`<div class="sec-h" style="margin-top:22px">March profile — who stepped up <span class="hint">${SYL()} ${esc(tourney)} · vs regular-season scoring</span></div><div class="sheet-wrap"><table class="sheet dense" id="marchTbl"><thead><tr><th class="l">Player</th><th class="l">Pos</th><th>G</th><th data-heat="1" title="Postseason points per game">Pts</th><th data-heat="1" title="Postseason rebounds per game">Reb</th><th data-heat="1" title="Postseason assists per game">Ast</th><th class="l" title="Postseason scoring vs regular season">vs season</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  if(window.tdcSheetHeat) tdcSheetHeat(el('marchTbl'));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
 }
 
@@ -919,20 +897,20 @@ async function loadStyleMatchups(row){
         three=G.filter(g=>g.three!=null&&g.three>=CUT.thHi), paint=G.filter(g=>g.three!=null&&g.three<=CUT.thLo),
         eliteO=G.filter(g=>g.ortg!=null&&g.ortg>=CUT.orHi), eliteD=G.filter(g=>g.drtg!=null&&g.drtg<=CUT.drHi);
   const rec=gs=>{ const w=gs.filter(g=>g.win).length; return {w,l:gs.length-w,mg:gs.length?gs.reduce((s,g)=>s+g.margin,0)/gs.length:0}; };
-  const mgcol=m=>m>=0.5?'var(--green,#1a8c3a)':m<=-0.5?'var(--red,#cc2200)':'var(--text3)';
-  const vrow=(cx,desc,gs)=>{ if(gs.length<3) return ''; const r=rec(gs);
-    return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--border)"><div><b>${cx}</b> <span style="color:var(--text3);font-size:11px">${desc}</span></div><div style="font-weight:700;font-variant-numeric:tabular-nums">${r.w}–${r.l}</div><div style="min-width:52px;text-align:right;font-weight:800;color:${mgcol(r.mg)}">${r.mg>=0?'+':''}${r.mg.toFixed(1)}</div></div>`; };
+  const vrow=(ax,cx,desc,gs)=>{ if(gs.length<3) return ''; const r=rec(gs);
+    return `<tr><td class="l dim">${ax}</td><td class="l nm">${cx}</td><td class="l dim">${desc}</td><td>${r.w}–${r.l}</td><td class="big">${r.mg>=0?'+':''}${r.mg.toFixed(1)}</td></tr>`; };
   const axes=[['Tempo',[['vs Fast','top-third pace',fast],['vs Slow','bottom-third pace',slow]]],
     ['Shot profile',[['vs Three-heavy','perimeter offenses',three],['vs Paint-bound','interior offenses',paint]]],
     ['Opponent strength',[['vs Elite offenses','top-25% ORtg',eliteO],['vs Elite defenses','top-25% DRtg',eliteD]]]];
-  const body=axes.map(a=>{ const rows=a[1].map(x=>vrow(x[0],x[1],x[2])).join(''); return rows?`<div style="font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin:12px 0 0">${a[0]}</div>${rows}`:''; }).join('');
+  const body=axes.map(a=>a[1].map(x=>vrow(a[0],x[0],x[1],x[2])).join('')).join('');
   if(!body){ host.innerHTML=''; return; }
   const best=gs=>gs.length>=3?rec(gs):null, nm=a=>a.length===1?a[0]:a.length===2?a[0]+' and '+a[1]:a.slice(0,-1).join(', ')+' and '+a[a.length-1], parts=[];
   const rf=best(fast),rs=best(slow); if(rf&&rs){ if(rf.mg<=rs.mg-6) parts.push(`<b>tested by pace</b> (${rf.w}–${rf.l} vs fast teams — push tempo)`); else if(rs.mg<=rf.mg-6) parts.push(`<b>at their best up-tempo</b> (slow it down)`); }
   const rt=best(three),rp=best(paint); if(rt&&rp){ if(rt.mg<=rp.mg-6) parts.push(`<b>vulnerable to three-heavy</b> offenses (${rt.w}–${rt.l})`); else if(rp.mg<=rt.mg-6) parts.push(`<b>tough on jump-shooting teams</b>`); }
   const reo=best(eliteO),red=best(eliteD); if(reo&&red){ if(reo.mg<=red.mg-6) parts.push(`troubled more by <b>elite offenses</b>`); else if(red.mg<=reo.mg-6) parts.push(`challenged most by <b>elite defenses</b>`); }
   const read = parts.length ? `<b>Style read:</b> ${esc(me)} is ${nm(parts)}.` : `<b>Style read:</b> ${esc(me)} handled every style about the same — no obvious stylistic weakness in the 2025-26 results.`;
-  host.innerHTML=`<div class="sec-h" style="margin-top:22px">How they fare vs different styles <span class="hint">${SYL()} results by opponent tempo · shot profile · strength</span></div><div class="card">${body}<div class="obread">${read}</div></div>`;
+  host.innerHTML=`<div class="sec-h" style="margin-top:22px">How they fare vs different styles <span class="hint">${SYL()} results by opponent tempo · shot profile · strength</span></div><div class="card"><div class="sheet-wrap"><table class="sheet dense" id="styleTbl"><thead><tr><th class="l">Axis</th><th class="l">Split</th><th class="l">Opponents</th><th>W-L</th><th data-heat="1" title="Average scoring margin">Margin</th></tr></thead><tbody>${body}</tbody></table></div><div class="obread">${read}</div></div>`;
+  if(window.tdcSheetHeat) tdcSheetHeat(el('styleTbl'));
 }
 
 // ── their offense: how they generate + who creates + how to disrupt ──
@@ -1105,6 +1083,7 @@ async function render(){
   render();
 })();
 </script>
+  <script src="tdc-sheets.js?v=1"></script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=8"></script>
 </body>

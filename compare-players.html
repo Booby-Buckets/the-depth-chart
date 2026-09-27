@@ -29,10 +29,10 @@
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-owned-seasons.js?v=8"></script>
-  <script src="tdc-lineups.js?v=17"></script>
+  <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=10"></script>
-  <link rel="stylesheet" href="tdc-sheets.css?v=6"/><link rel="stylesheet" href="tdc-hero.css?v=4"/><script src="tdc-shotchart.js?v=25"></script>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/><link rel="stylesheet" href="tdc-hero.css?v=4"/><script src="tdc-shotchart.js?v=25s"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-portalfit.js?v=needs10"></script>
   <script src="tdc-chemistry.js?v=8"></script>
@@ -321,26 +321,18 @@
     .cmp-head .ch-gl{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-top:6px;}
     /* stat sheet: a row per side, a column per stat, edge + D-I average underneath */
     .cs-wrap{border:1px solid var(--border);border-radius:0 0 12px 12px;overflow:auto;background:var(--bg);margin-bottom:22px;scrollbar-width:thin;}
-    .cs{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px;font-variant-numeric:tabular-nums;}
-    .cs th{font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:8px 10px 7px;text-align:right;border-bottom:1px solid var(--border);background:var(--bg2);white-space:nowrap;}
-    .cs td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--border);color:var(--text2);white-space:nowrap;line-height:1.35;}
-    .cs tbody tr:last-child td{border-bottom:none;}
-    .cs th.cs-who,.cs td.cs-who{text-align:left;position:sticky;left:0;z-index:1;min-width:172px;border-right:1px solid var(--border);background:var(--bg);}
-    .cs th.cs-who{background:var(--bg2);}
-    .cs tr.cs-p td.cs-who{padding:6px 12px;}
-    .cs .cs-who .nm{display:flex;align-items:center;gap:7px;font-weight:800;font-size:12.5px;color:var(--text);white-space:nowrap;}
-    .cs .cs-who .nm img{width:18px;height:18px;object-fit:contain;flex-shrink:0;}
-    .cs .cs-who .sb{font-size:10px;font-weight:600;color:var(--text3);margin-top:1px;padding-left:25px;white-space:nowrap;}
-    .cs .cs-who .nm.nologo+.sb{padding-left:0;}
-    .cs td.winner{color:var(--text);font-weight:800;background:color-mix(in srgb,var(--side) 13%,transparent);box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--side) 55%,transparent);}
-    .cs td.loser{color:var(--text3);}
-    .cs tr.cs-avg td{background:var(--bg2);color:var(--text3);font-size:11.5px;}
-    .cs tr.cs-edge td{background:var(--bg2);font-size:11px;font-weight:800;}
-    .cs tr.cs-avg td.cs-who,.cs tr.cs-edge td.cs-who{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);background:var(--bg2);}
+    /* the grid itself is tdc-sheets.css (.sheet.dense.freeze); only the head-to-head extras live here */
+    .cs-wrap.sheet-wrap{border-radius:0 0 10px 10px;max-height:none;}
+    .cs td.nm img{width:16px;height:16px;object-fit:contain;vertical-align:-3px;margin-right:7px;}
+    .cs tr.cs-avg td,.cs tr.cs-edge td.cs-who{color:var(--text3);}
+    .cs tr.cs-edge td{font-weight:700;}
+    .cs tr.cs-avg td.cs-who,.cs tr.cs-edge td.cs-who{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;}
     .cs td .sg-pct{margin-left:4px;}
-    .cs tr.cs-grp th{text-align:center;font-size:9px;letter-spacing:.12em;color:var(--accent);padding:7px 10px 2px;border-bottom:none;}
+    .cs thead tr.cs-grp th{text-align:center;padding-bottom:3px;border-bottom:none;position:static;}
     .cs .gs{border-left:1px solid var(--border2);}
-    .adv-head+.cs-wrap{border-radius:12px;}
+    /* ranked player lists (similar players, roster top 10, program legends) as small sheets */
+    .sim-card>.sheet-wrap{margin:6px 0;}
+    .adv-head+.cs-wrap{border-radius:10px;}
     .cs-wrap+.statless-note{margin-top:-10px;margin-bottom:22px;}
     .compare-subhead{padding:14px 4px 6px;}
     .compare-section-head+.compare-subhead{padding-top:10px;}
@@ -358,23 +350,6 @@
       .sim-name{flex:1 1 60px;min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.2;}
       .sim-stat,.sim-pct,.sim-ovr,.sim-grade{flex:none;}
       .sim-meta{flex:0 0 100%;order:5;padding-left:24px;white-space:normal;overflow:visible;text-overflow:clip;}
-      .cs{font-size:12px;}
-      .cs th,.cs td{padding:7px 7px;}
-      .cs th.cs-who,.cs td.cs-who{min-width:148px;max-width:190px;}
-      .cs td.cs-who,.cs th.cs-who{white-space:normal;overflow-wrap:anywhere;overflow:hidden;}
-      .cs .cs-who .nm{white-space:normal;align-items:flex-start;line-height:1.2;}
-      .cs .cs-who .nm span{min-width:0;overflow-wrap:anywhere;}
-      .cs .cs-who .sb{white-space:normal;}
-      .cs td.cs-txt{white-space:normal;max-width:160px;text-align:left;}
-      .cs-wrap{
-        background:
-          linear-gradient(90deg,var(--bg) 40%,transparent) 0 0 / 28px 100% no-repeat local,
-          linear-gradient(270deg,var(--bg) 40%,transparent) 100% 0 / 28px 100% no-repeat local,
-          radial-gradient(farthest-side at 0 50%,rgba(0,0,0,.16),transparent) 0 0 / 12px 100% no-repeat scroll,
-          radial-gradient(farthest-side at 100% 50%,rgba(0,0,0,.16),transparent) 100% 0 / 12px 100% no-repeat scroll,
-          var(--bg);
-      }
-      .cs td:not(.cs-who):not(.winner){background:transparent;}
       .compare-cell,.compare-label{min-width:0;overflow-wrap:anywhere;}
       .sel-name,.dropdown-item span:first-child{overflow-wrap:anywhere;}
       .cmp-head-name,.hero-name{overflow-wrap:anywhere;}
@@ -1280,15 +1255,22 @@ function similarAllTime(p,pool,z,n){
   }
   return top;
 }
+// a ranked list as a small sheet; the wrapper's "sim-ranked" class doubles as the
+// "already filled" marker fillSimCards looks for
+function _rankSheet(head, rows){
+  return '<div class="sheet-wrap sim-ranked"><table class="sheet dense"><thead><tr><th class="rk">#</th>'+head+'</tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
 function _simRows(p,pool,z){
-  return similarAllTime(p,pool,z,5).map(function(x,i){
+  var rows=similarAllTime(p,pool,z,5).map(function(x,i){
     var c=x.p, yr=c.season_year, sl=(yr-1)+'-'+((''+yr).slice(2));
-    return '<div class="sim-row"><span class="sim-rank">'+(i+1)+'</span>'
-      +'<span class="sim-name"><a href="player.html?name='+encodeURIComponent(c.player)+'&team='+encodeURIComponent(c.school||'')+'&season='+yr+'">'+c.player+'</a></span>'
-      +'<span class="sim-meta">'+sl+' · '+(c.school||'—')+' · '+(c.pos||'—')+' · '+(c.height||'—')+'</span>'
-      +'<span class="sim-stat">'+fmt(c.ppg)+'p '+fmt(c.rpg)+'r '+fmt(c.apg)+'a</span>'
-      +'<span class="sim-pct">'+x.sim+'%</span></div>';
-  }).join('')||'<div class="sim-row" style="color:var(--text3);">No matches</div>';
+    return '<tr><td class="rk">'+(i+1)+'</td>'
+      +'<td class="l nm"><a href="player.html?name='+encodeURIComponent(c.player)+'&team='+encodeURIComponent(c.school||'')+'&season='+yr+'">'+c.player+'</a></td>'
+      +'<td class="l dim">'+sl+'</td><td class="l dim">'+(c.school||'—')+'</td><td class="l dim">'+(c.pos||'—')+'</td><td class="l dim">'+(c.height||'—')+'</td>'
+      +'<td>'+fmt(c.ppg)+'</td><td>'+fmt(c.rpg)+'</td><td>'+fmt(c.apg)+'</td>'
+      +'<td class="big">'+x.sim+'%</td></tr>';
+  }).join('');
+  return rows?_rankSheet('<th class="l">Player</th><th class="l">Season</th><th class="l">Team</th><th class="l">Pos</th><th class="l">Ht</th><th>PPG</th><th>RPG</th><th>APG</th><th title="Similarity">Sim</th>',rows)
+    :'<div class="sim-row" style="color:var(--text3);">No matches</div>';
 }
 // async fill: render placeholders immediately, populate when the pool is ready
 function fillSimCards(p1,p2){
@@ -1296,8 +1278,8 @@ function fillSimCards(p1,p2){
   if(!e1||!e2) return;
   var prog=function(d,t){
     var msg='<div class="sim-row" style="color:var(--text3);">Building all-time pool… '+d+'/'+t+' seasons</div>';
-    if(e1.innerHTML.indexOf('sim-rank')<0) e1.innerHTML=msg;
-    if(e2.innerHTML.indexOf('sim-rank')<0) e2.innerHTML=msg;
+    if(e1.innerHTML.indexOf('sim-ranked')<0) e1.innerHTML=msg;
+    if(e2.innerHTML.indexOf('sim-ranked')<0) e2.innerHTML=msg;
   };
   allTimePool(prog).then(function(pool){
     if(!pool||!pool.length){ e1.innerHTML=e2.innerHTML='<div class="sim-row" style="color:var(--text3);">Pool unavailable</div>'; return; }
@@ -2091,26 +2073,27 @@ function sheetify(root){
     // first column of each group gets a divider
     let k=0; g.runs.forEach((r,gi)=>{ if(gi>0) cols[k].gs=true; k+=r.length; });
     const colOf=i=>(_sheetSides[i]&&_sheetSides[i].color)||'var(--accent)';
+    // one line per side: logo + name in the frozen column, the side's bio line in its own dim column
     const who=i=>{ const sd=_sheetSides[i]||{};
-      return `<td class="cs-who"><div class="nm${sd.logo?'':' nologo'}">${sd.logo?`<img src="${sd.logo}" alt="" loading="lazy">`:''}<span style="color:${colOf(i)}">${sd.name||(i?'Side B':'Side A')}</span></div>${sd.sub?`<div class="sb">${sd.sub}</div>`:''}</td>`; };
-    const td=(cell,i,c)=>{ const cls=(cell?cell.className:'').replace(/\bcompare-cell\b|\bright\b/g,' ').replace(/\s+/g,' ').trim();
-      // a prose cell (postseason finish, tier…) may wrap on a tablet; numbers never do
-      const txt=cell&&/[A-Za-z]{4,}\s+[A-Za-z]/.test(cell.textContent||'')?' cs-txt':'';
-      return `<td class="${cls}${c&&c.gs?' gs':''}${txt}" style="--side:${colOf(i)}">${cell?cell.innerHTML:'—'}</td>`; };
+      return `<td class="l nm cs-who">${sd.logo?`<img src="${sd.logo}" alt="" loading="lazy">`:''}<span style="color:${colOf(i)}">${sd.name||(i?'Side B':'Side A')}</span></td><td class="l dim cs-sb">${sd.sub||''}</td>`; };
+    // the better side of each stat keeps its .winner class (the hero's Stat-edge tile counts it)
+    // and is shaded with the sheet's green; grade-letter colour classes are dropped
+    const td=(cell,i,c)=>{ const cls=(cell?cell.className:'').replace(/\bcompare-cell\b|\bright\b|\bg(?:A|B|C|D)(?:p|m)?\b|\bgF\b/g,' ').replace(/\s+/g,' ').trim();
+      return `<td class="${cls}${/\bwinner\b/.test(cls)?' c3':''}${c&&c.gs?' gs':''}">${cell?cell.innerHTML:'—'}</td>`; };
     const hasAvg=cols.some(c=>!isNaN(c.avg));
     const hasEdge=cols.some(c=>!isNaN(c.na)&&!isNaN(c.nb)&&c.na!==c.nb);
     const gsc=c=>c.gs?' class="gs"':'';
     const edge=c=>{ if(isNaN(c.na)||isNaN(c.nb)||c.na===c.nb||/\d-\d/.test(c.a&&c.a.textContent||'')) return `<td${gsc(c)}>—</td>`;
       const d=c.na-c.nb, lead=(c.hi?d>0:d<0)?0:1;
-      return `<td${gsc(c)} style="color:${colOf(lead)}">${d>0?'+':'−'}${_likeCell(Math.abs(d), c.a&&c.a.innerHTML)}</td>`; };
+      return `<td${gsc(c)} title="${String((_sheetSides[lead]||{}).name||'').replace(/"/g,'&quot;')} leads">${d>0?'+':'−'}${_likeCell(Math.abs(d), c.a&&c.a.innerHTML)}</td>`; };
     const avg=c=>`<td${gsc(c)}>${isNaN(c.avg)?'—':_likeCell(c.avg, c.a&&c.a.innerHTML||c.b&&c.b.innerHTML)}</td>`;
-    const grpRow=grouped?`<tr class="cs-grp"><th class="cs-who"></th>${g.labels.map((l,i)=>`<th colspan="${spans[i]}"${i?' class="gs"':''}>${l}</th>`).join('')}</tr>`:'';
-    const wrap=document.createElement('div'); wrap.className='cs-wrap';
-    wrap.innerHTML=`<table class="cs"><thead>${grpRow}<tr><th class="cs-who"></th>${cols.map(c=>`<th${gsc(c)}>${c.label}</th>`).join('')}</tr></thead><tbody>`
+    const grpRow=grouped?`<tr class="cs-grp"><th class="cs-who"></th><th></th>${g.labels.map((l,i)=>`<th colspan="${spans[i]}"${i?' class="gs"':''}>${l}</th>`).join('')}</tr>`:'';
+    const wrap=document.createElement('div'); wrap.className='cs-wrap sheet-wrap';
+    wrap.innerHTML=`<table class="cs sheet dense freeze"><thead>${grpRow}<tr><th class="l cs-who"></th><th class="l"></th>${cols.map(c=>`<th${gsc(c)}>${c.label}</th>`).join('')}</tr></thead><tbody>`
       +`<tr class="cs-p">${who(0)}${cols.map(c=>td(c.a,0,c)).join('')}</tr>`
       +`<tr class="cs-p">${who(1)}${cols.map(c=>td(c.b,1,c)).join('')}</tr>`
-      +(hasAvg?`<tr class="cs-avg"><td class="cs-who">D-I average</td>${cols.map(avg).join('')}</tr>`:'')
-      +(hasEdge?`<tr class="cs-edge"><td class="cs-who">Edge</td>${cols.map(edge).join('')}</tr>`:'')
+      +(hasAvg?`<tr class="cs-avg"><td class="l cs-who">D-I average</td><td class="l"></td>${cols.map(avg).join('')}</tr>`:'')
+      +(hasEdge?`<tr class="cs-edge"><td class="l cs-who">Edge</td><td class="l"></td>${cols.map(edge).join('')}</tr>`:'')
       +`</tbody></table>`;
     const anchor=g.subs[0]&&g.subs[0]===run[0].previousElementSibling?g.subs[0]:run[0];
     anchor.before(wrap); run.forEach(r=>r.remove()); g.subs.forEach(el=>el.remove());
@@ -2349,28 +2332,27 @@ async function _legendsFor(key){
   (rows||[]).forEach(r=>{ const k=(r.name||'').toLowerCase(); if(seen.has(k)) return; seen.add(k); out.push(r); });
   return out.slice(0,5);
 }
+// the OVR cell of a ranked list: plain number, the tier word kept as its tooltip
 function _seasonBadge(g){
-  const n=parseFloat(g); if(isNaN(n)) return '';
-  if(n>=95) return '<span class="sim-pct" style="background:rgba(200,160,32,.18);color:#C8A020;">ALL-TIME · '+n+'</span>';
-  if(n>=92) return '<span class="sim-pct">ELITE · '+n+'</span>';
-  return '<span class="sim-pct" style="background:var(--bg3);color:var(--text2);">'+n+'</span>';
+  const n=parseFloat(g); if(isNaN(n)) return '<td class="big">—</td>';
+  if(n>=95) return '<td class="big" title="All-time season">'+n+'</td>';
+  if(n>=92) return '<td class="big" title="Elite season">'+n+'</td>';
+  return '<td class="big">'+n+'</td>';
 }
 function _plink(p,yr){ return p.espn_id?`player.html?espn=${p.espn_id}&name=${encodeURIComponent(p.name)}&season=${yr||''}`:`player.html?name=${encodeURIComponent(p.name)}&season=${yr||''}`; }
 function _rosterRows(rows, yr){
   if(!rows.length) return '<div class="sim-row" style="color:var(--text3);">No roster on file</div>';
-  return rows.slice(0,10).map((p,i)=>`<div class="sim-row"><span class="sim-rank">${i+1}</span>
-    <span class="sim-name"><a href="${_plink(p,yr)}">${p.name}</a></span>
-    <span class="sim-meta">${[p.yr,p.position,p.height].filter(Boolean).join(' · ')}</span>
-    <span class="sim-stat">${fmt(p.ppg)}p ${fmt(p.rpg)}r ${fmt(p.apg)}a</span>
-    ${_seasonBadge(p.tdc_grade)}</div>`).join('');
+  return _rankSheet('<th class="l">Player</th><th class="l">Yr</th><th class="l">Pos</th><th class="l">Ht</th><th>PPG</th><th>RPG</th><th>APG</th><th>OVR</th>',
+    rows.slice(0,10).map((p,i)=>`<tr><td class="rk">${i+1}</td><td class="l nm"><a href="${_plink(p,yr)}">${p.name}</a></td>
+    <td class="l dim">${p.yr||''}</td><td class="l dim">${p.position||''}</td><td class="l dim">${p.height||''}</td>
+    <td>${fmt(p.ppg)}</td><td>${fmt(p.rpg)}</td><td>${fmt(p.apg)}</td>${_seasonBadge(p.tdc_grade)}</tr>`).join(''));
 }
 function _legendRows(rows){
   if(!rows.length) return '<div class="sim-row" style="color:var(--text3);">No graded seasons ≥88 on file</div>';
-  return rows.map((p,i)=>`<div class="sim-row"><span class="sim-rank">${i+1}</span>
-    <span class="sim-name"><a href="${_plink(p,p.season_year)}">${p.name}</a></span>
-    <span class="sim-meta">${_tsLbl(p.season_year)}</span>
-    <span class="sim-stat">${fmt(p.ppg)}p ${fmt(p.rpg)}r ${fmt(p.apg)}a</span>
-    ${_seasonBadge(p.tdc_grade)}</div>`).join('');
+  return _rankSheet('<th class="l">Player</th><th class="l">Season</th><th>PPG</th><th>RPG</th><th>APG</th><th>OVR</th>',
+    rows.map((p,i)=>`<tr><td class="rk">${i+1}</td><td class="l nm"><a href="${_plink(p,p.season_year)}">${p.name}</a></td>
+    <td class="l dim">${_tsLbl(p.season_year)}</td>
+    <td>${fmt(p.ppg)}</td><td>${fmt(p.rpg)}</td><td>${fmt(p.apg)}</td>${_seasonBadge(p.tdc_grade)}</tr>`).join(''));
 }
 // ── PROJECTED MATCHUP — "who wins if they played?" ──
 // Neutral-court model: SRS is points-above-an-average-D1-team within its own
@@ -3183,14 +3165,11 @@ async function _fillH2H(n1,n2,c1,c2){
     const short=n=>n.split(/\s+/).slice(0,2).join(' ');
     const row=g=>{
       const homeIs1=g.home===n1, hw=g.home_score>g.away_score, oneWon=(homeIs1&&hw)||(!homeIs1&&!hw);
-      const col=oneWon?c1:c2, winner=oneWon?n1:n2;
-      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid var(--border);font-size:12px;">
-        <span style="color:var(--text3);min-width:64px;">${_tsLbl(g.season_year)}</span>
-        <span style="flex:1;">${short(g.away)} at ${short(g.home)}</span>
-        <span style="font-weight:700;color:${col};">${short(winner)} ${Math.max(g.home_score,g.away_score)}–${Math.min(g.home_score,g.away_score)}</span>
-      </div>`;
+      const winner=oneWon?n1:n2;
+      return `<tr><td class="l dim">${_tsLbl(g.season_year)}</td><td class="l">${short(g.away)} at ${short(g.home)}</td>
+        <td class="l nm">${short(winner)}</td><td>${Math.max(g.home_score,g.away_score)}–${Math.min(g.home_score,g.away_score)}</td></tr>`;
     };
-    const recent=played.slice(0,6).map(row).join('');
+    const recent=`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Season</th><th class="l">Game</th><th class="l">Winner</th><th>Score</th></tr></thead><tbody>${played.slice(0,6).map(row).join('')}</tbody></table></div>`;
     el.innerHTML=`
       <div style="display:flex;align-items:center;justify-content:center;gap:26px;padding:8px 0 14px;">
         <span style="font-family:'Playfair Display',serif;font-size:30px;font-weight:800;color:${c1};">${w1}</span>
@@ -3398,5 +3377,6 @@ load().then(()=>{
 </script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=8"></script>
+  <script src="tdc-sheets.js?v=1"></script>
 </body>
 </html>

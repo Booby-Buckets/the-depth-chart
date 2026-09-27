@@ -27,7 +27,7 @@
   <script src="tdc-teamlink.js?v=2"></script>
   <script src="tdc-projgrade.js?v=base24"></script>
   <script src="tdc-proj.js?v=coach26"></script>
-  <script src="tdc-lineups.js?v=17"></script>
+  <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-teamsit.js?v=1"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=6"/>
   <script src="tdc-anim.js?v=6"></script>
@@ -54,6 +54,9 @@
     .sec-h .hint{font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;}
     .sec-h::after{content:'';flex:1;height:1px;background:var(--border);}
     .card{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:16px 18px;}
+    /* data tables = the site sheet (tdc-sheets.css) */
+    .sheet .up{color:var(--green);font-weight:700;} .sheet .dn{color:var(--red);font-weight:700;}
+    .card>.sheet-wrap+.sheet-wrap,.card>.obread+.sheet-wrap{margin-top:12px;}
     .idbar{display:flex;align-items:center;gap:14px;border:1px solid var(--border2);border-radius:16px;background:radial-gradient(120% 130% at 0 0,color-mix(in srgb,var(--accent) 8%,var(--bg2)),var(--bg2));padding:18px 20px;}
     .idbar .badge{width:52px;height:52px;border-radius:13px;background:var(--tc,var(--accent));color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:800;font-size:20px;flex-shrink:0;}
     .idbar .onm{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;}
@@ -70,12 +73,6 @@
     .winpath{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:13px;line-height:1.65;color:var(--text2);}
     .winpath b{color:var(--text);}
     /* personnel */
-    .pcard{border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:12px 15px;margin-bottom:8px;}
-    .pchead{display:flex;align-items:center;gap:13px;}
-    .pcovr{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;color:var(--accent);min-width:34px;text-align:center;flex-shrink:0;line-height:1;}
-    .pcwho{min-width:0;flex:1;} .pcn{font-weight:800;font-size:14px;} .pcn .pcpos{font-size:10px;font-weight:700;color:var(--accent);margin-left:6px;}
-    .pcline{font-size:11.5px;color:var(--text3);margin-top:2px;font-variant-numeric:tabular-nums;} .pcline b{color:var(--text2);}
-    .pcrole{font-size:11px;font-weight:800;color:var(--text2);background:color-mix(in srgb,var(--accent) 10%,var(--bg));border:1px solid var(--border);border-radius:16px;padding:3px 10px;flex-shrink:0;}
     .obchips{display:flex;flex-wrap:wrap;gap:7px;}
     .obchip{font-size:11.5px;color:var(--text2);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 11px;} .obchip b{color:var(--text);}
     .obsub{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin:14px 0 6px;}
@@ -93,6 +90,7 @@
   <link rel="stylesheet" href="tdc-dense.css?v=39"/>
   <link rel="stylesheet" href="tdc-skin.css?v=12"/>
   <link rel="stylesheet" href="tdc-hq-list.css?v=4"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
   <style>
     :root:not([data-theme="dark"]){background:var(--bg)!important;}
     :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
@@ -227,15 +225,15 @@ async function rotationSection(row){
   const core=players.slice(0,9), coreCV=mean(core.map(p=>p.cv));
   const rvs=Math.max(0,Math.min(100,Math.round(coreCV*140*0.55+churn*100*0.45)));
   const rvsCls=rvs<=33?'g':rvs<=55?'a':'r', rvsLab=rvs<=33?'Set rotation':rvs<=55?'Flexible':'Matchup-driven';
-  const maxMpg=Math.max(...players.map(p=>p.mpg),1);
   const tile=(l,v,d,cls)=>`<div style="border:1px solid var(--border);border-radius:11px;background:var(--bg);padding:12px 14px;"><div style="font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3)">${l}</div><div style="font-family:'Playfair Display',serif;font-weight:800;font-size:26px;line-height:1.1;margin-top:4px;${cls==='g'?'color:var(--green)':cls==='r'?'color:var(--red)':cls==='a'?'color:var(--amber)':''}">${v}</div><div style="font-size:10.5px;color:var(--text3);margin-top:2px">${d}</div></div>`;
   const cards=`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">${tile('Rotation size',avgRot.toFixed(1),'players 8+ min a game')}${tile('Starter reliance',avgStartShare.toFixed(0)+'%','of minutes to starters')}${tile('Bench scoring',avgBench.toFixed(1),'pts a game off the bench')}${tile('Rotation volatility',rvs,rvsLab+' · '+nFives+' starting fives',rvsCls)}</div>`;
   const depthWord=avgRot>=9.5?'goes deep with a':avgRot>=8?'runs a':'plays a tight';
   const fiveWord=churn<0.25?`the same starting five in ${topFive} of ${ng} games`:`${nFives} different starting fives across ${ng} games`;
   const read=`<div class="obread" style="margin-top:12px"><b>${esc(row.full)}</b> ${depthWord} <b>${avgRot.toFixed(1)}-man</b> rotation and gives the starters <b>${avgStartShare.toFixed(0)}%</b> of the minutes — ${fiveWord}. The bench chipped in <b>${avgBench.toFixed(1)}</b> points a night.</div>`;
-  const prow=p=>{ const tag=p.started>=ng*0.7?'Starter':p.started<=ng*0.15?'Bench':'Spot starter', volT=p.cv<0.22?'Steady':p.cv<0.38?'Variable':'Swingy';
-    return `<div class="pcard" style="display:flex;align-items:center;gap:12px"><div class="pcwho" style="flex:1;min-width:0"><div class="pcn">${p.ret?'<span style="color:var(--accent)">●</span> ':''}${esc(p.name)}<span class="pcpos">${tag} · ${volT}</span></div><div style="height:6px;border-radius:3px;background:var(--bg3);margin-top:6px;overflow:hidden"><div style="height:100%;width:${Math.round(p.mpg/maxMpg*100)}%;background:var(--tc,var(--accent))"></div></div></div><div style="text-align:right;min-width:78px"><div style="font-family:'Playfair Display',serif;font-weight:800;font-size:16px">${p.mpg.toFixed(1)}</div><div style="font-size:9.5px;color:var(--text3)">mpg ±${p.sd.toFixed(1)}</div></div></div>`; };
-  return `<div class="sec-h">Rotation identity <span class="hint">actual 2025-26 · ● = still on the roster</span></div><div class="card">${cards}${read}<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">${players.slice(0,10).map(prow).join('')}</div></div>`;
+  // the rotation as a sheet: one line per player, minutes shaded within the rotation (tdcSheetHeat)
+  const prow=(p,i)=>{ const tag=p.started>=ng*0.7?'Starter':p.started<=ng*0.15?'Bench':'Spot starter', volT=p.cv<0.22?'Steady':p.cv<0.38?'Variable':'Swingy';
+    return `<tr><td class="rk">${i+1}</td><td class="l nm">${esc(p.name)}</td><td class="l dim">${p.ret?'Returning':''}</td><td class="l">${tag}</td><td class="l dim">${volT}</td><td class="big">${p.mpg.toFixed(1)}</td><td class="dim">±${p.sd.toFixed(1)}</td></tr>`; };
+  return `<div class="sec-h">Rotation identity <span class="hint">actual 2025-26 · Returning = still on the roster</span></div><div class="card">${cards}${read}<div class="sheet-wrap" style="margin-top:12px"><table class="sheet dense ss-rot"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l" title="Still on the roster">Roster</th><th class="l">Role</th><th class="l" title="How much his minutes swing game to game">Minutes</th><th data-heat="1">MPG</th><th title="Game-to-game standard deviation of minutes">± SD</th></tr></thead><tbody>${players.slice(0,10).map(prow).join('')}</tbody></table></div></div>`;
 }
 
 // Shot-Zone Value Map — where YOU score efficiently (offense) and what you give up
@@ -261,14 +259,11 @@ async function loadZoneValue(row){
   if(!O && !Dd){ host.innerHTML=''; return; }
   const ZL={rim:'At the rim',mid:'Mid-range',three:'Three'}, pc=v=>Math.round(v*100);
   function table(D, goodPos, allowedLbl){
+    // one line per zone; vs-expected is a genuine change value: up (green) = good for you
     const rows=['rim','mid','three'].map(z=>{ const r=D[z]; const good = goodPos ? (r.delta>0) : (r.delta<0);
-      const dcol=good?'var(--green,#1a8c3a)':'var(--red,#cc2200)';
-      return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--border)">
-        <div><b>${ZL[z]}</b> <span style="color:var(--text3);font-size:11px">· ${r.a} ${allowedLbl} · ${pc(r.freq)}% of shots</span></div>
-        <div style="text-align:right;font-variant-numeric:tabular-nums"><b>${pc(r.efg)}%</b><div style="font-size:9.5px;color:var(--text3)">eFG ${goodPos?'':'allowed'}</div></div>
-        <div style="text-align:right;min-width:66px;color:${dcol};font-weight:800">${r.delta>0?'+':''}${pc(r.delta)}%<div style="font-size:9.5px;color:var(--text3);font-weight:600">vs ${pc(r.exp)} exp</div></div>
-      </div>`; }).join('');
-    return `<div class="card">${rows}</div>`;
+      return `<tr><td class="l nm">${ZL[z]}</td><td>${r.a}</td><td>${pc(r.freq)}%</td><td class="big">${pc(r.efg)}%</td><td class="dim">${pc(r.exp)}%</td>
+        <td><span class="${good?'up':'dn'}">${r.delta>0?'+':''}${pc(r.delta)}%</span></td></tr>`; }).join('');
+    return `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Zone</th><th>${allowedLbl==='taken'?'Taken':'Allowed'}</th><th>Of shots</th><th>eFG${goodPos?'':' allowed'}</th><th>Expected</th><th title="eFG minus the D-I expected make; green = good for you">vs exp</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
   let html='<div class="sec-h" style="margin-top:22px">Shot-zone identity <span class="hint">2025-26 · eFG vs the D-I expected make by zone</span></div>';
   if(O){ const best=['rim','mid','three'].map(z=>({z,...O[z]})).sort((a,b)=>b.delta-a.delta)[0];
@@ -307,7 +302,11 @@ async function loadTeam(){
   // ── your rotation (projected + roles) ──
   const rot=[...roster].filter(p2=>p2.mpg>0).sort((a,b)=>b.mpg-a.mpg).slice(0,9);
   const rotHtml=`<div class="sec-h">Your rotation <span class="hint">projected 2026-27 line + role</span></div>`
-    + rot.map(pl=>`<div class="pcard"><div class="pchead"><div class="pcovr">${pl.ovr||'—'}</div><div class="pcwho"><div class="pcn">${esc(pl.name)}<span class="pcpos">${esc(pl.pos)}</span></div><div class="pcline"><b>${F(pl.ppg)}</b> pts · <b>${F(pl.rpg)}</b> reb · <b>${F(pl.apg)}</b> ast · ${F(pl.mpg,0)} min · ${F(pl.fg_pct,0)}/${F(pl.tp_pct,0)}/${F(pl.ft_pct,0)}</div></div><div class="pcrole">${roleOf(pl)}</div></div></div>`).join('');
+    // the site sheet, like the team page roster: one line per player, stats shaded within the rotation
+    + `<div class="sheet-wrap"><table class="sheet dense freeze2 ss-proj" style="--c1:36px;--c2:180px"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l">Pos</th><th class="l">Role</th>`
+    + `<th data-heat="1">MIN</th><th data-heat="1">PTS</th><th data-heat="1">REB</th><th data-heat="1">AST</th><th data-heat="1">FG%</th><th data-heat="1">3P%</th><th data-heat="1">FT%</th><th data-heat="1">OVR</th></tr></thead><tbody>`
+    + rot.map((pl,i)=>`<tr><td class="rk">${i+1}</td><td class="l nm">${esc(pl.name)}</td><td class="l dim">${esc(pl.pos)}</td><td class="l dim">${roleOf(pl)}</td><td>${F(pl.mpg,0)}</td><td>${F(pl.ppg)}</td><td>${F(pl.rpg)}</td><td>${F(pl.apg)}</td><td>${F(pl.fg_pct,0)}</td><td>${F(pl.tp_pct,0)}</td><td>${F(pl.ft_pct,0)}</td><td class="big">${pl.ovr||'—'}</td></tr>`).join('')
+    + `</tbody></table></div>`;
 
   // ── your offense ──
   let offHtml='';
@@ -341,8 +340,9 @@ async function loadTeam(){
   }
 
   el('out').innerHTML=`<div style="--tc:${tc}">${idHtml}${rotHtml}${offHtml}${defHtml}<div id="ssZoneHost"></div><div id="ssRotHost"></div><div id="ssTeamSit" style="--tc:${tc}"></div><div id="ssLineupHost"></div></div>`;
+  if(window.tdcSheetHeat) el('out').querySelectorAll('table.ss-proj').forEach(t=>tdcSheetHeat(t));
   loadZoneValue(row);
-  rotationSection(row).then(function(h){ var rh=document.getElementById('ssRotHost'); if(rh&&h){ rh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(rh); } });
+  rotationSection(row).then(function(h){ var rh=document.getElementById('ssRotHost'); if(rh&&h){ rh.innerHTML=h; if(window.tdcSheetHeat) rh.querySelectorAll('table.sheet').forEach(function(t){ tdcSheetHeat(t); }); if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(rh); } });
   if(window.TDC_TEAMSIT) TDC_TEAMSIT.section(row).then(function(h){ var th=document.getElementById('ssTeamSit'); if(th&&h){ th.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(th); } });
   if(window.TDC_LINEUPS) TDC_LINEUPS.section(row.full, 2026).then(function(h){ var lh=document.getElementById('ssLineupHost'); if(lh&&h){ lh.innerHTML=h; if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(lh); } });
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
@@ -360,6 +360,7 @@ async function loadTeam(){
   if(want){ const i=D.teams.findIndex(t=>t.full.toLowerCase()===want||t.team.toLowerCase()===want); if(i>=0){ selKey=i; el('sel').value=labelOf(poolRow(i)); loadTeam(); } }
 })();
 </script>
+  <script src="tdc-sheets.js?v=1"></script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=8"></script>
 </body>

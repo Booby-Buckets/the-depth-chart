@@ -48,17 +48,10 @@ input[type=search]:focus,select:focus{border-color:var(--accent);}
 .count{color:var(--text3);font-size:12.5px;}
 .msg{font-size:13px;font-weight:600;min-height:18px;margin-left:auto;}
 .msg.ok{color:var(--good);} .msg.err{color:#e0885a;}
-.tablewrap{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow-x:auto;}
-table{border-collapse:collapse;width:100%;min-width:640px;}
-thead th{position:sticky;top:0;background:var(--panel);text-align:left;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);font-weight:700;padding:11px 12px;border-bottom:1px solid var(--border);white-space:nowrap;}
-tbody td{padding:8px 12px;border-bottom:1px solid var(--border);white-space:nowrap;}
-tbody tr:last-child td{border-bottom:0;}
-tbody tr.dirty{background:color-mix(in srgb,var(--accent) 8%,transparent);}
-tbody tr.missing td:first-child{box-shadow:inset 3px 0 0 var(--warn);}
-.pname{font-weight:700;}
+.sheet tbody tr.dirty td{background:color-mix(in srgb,var(--accent) 8%,transparent);}
+.sheet tbody tr.missing td:first-child{box-shadow:inset 3px 0 0 var(--warn);}
 .pmeta{color:var(--text3);font-size:12px;}
-.team{color:var(--text2);font-size:12.5px;}
-.ovr-in{width:56px;background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:7px;padding:6px 8px;font-size:14px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums;}
+.ovr-in{width:52px;background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:2px 6px;font:inherit;font-size:13px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums;}
 .ovr-in:focus{border-color:var(--accent);outline:none;}
 .ovr-in.set{border-color:var(--good);}
 .pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;background:var(--bg2);color:var(--text3);}
@@ -96,9 +89,9 @@ tbody tr.missing td:first-child{box-shadow:inset 3px 0 0 var(--warn);}
   </div>
   <div class="count" id="count"></div>
 
-  <div class="tablewrap">
-    <table>
-      <thead><tr><th>#</th><th>Player</th><th>Team</th><th>Pos</th><th>Ht</th><th>Class</th><th>Suggested</th><th>OVR</th></tr></thead>
+  <div class="tablewrap sheet-wrap">
+    <table class="sheet dense">
+      <thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l">Team</th><th class="l">Pos</th><th class="l">Ht</th><th class="l">Class</th><th>Suggested</th><th class="c">OVR</th></tr></thead>
       <tbody id="tb"></tbody>
     </table>
   </div>
@@ -175,16 +168,16 @@ function render(){
     const k=frKey(p), sv=savedOvr(p), dv=(k in DIRTY)?DIRTY[k]:sv, val=(dv!=null?dv:''), sug=suggest(p);
     const dirty=(k in DIRTY)?'dirty':'', missing=(sv==null)?'missing':'';
     return `<tr class="${dirty} ${missing}" data-k="${k}">
-      <td class="pmeta">${i+1}</td>
-      <td><span class="pname">${p.name}</span> <span class="pmeta">${p.yr||p.class_year||''}</span></td>
-      <td class="team">${p.team||''}</td>
-      <td>${p.position||'—'}</td>
-      <td class="pmeta">${p.height||'—'}</td>
-      <td class="pmeta">${p.yr||p.class_year||'—'}</td>
-      <td class="pmeta">${sug}</td>
-      <td><input class="ovr-in ${sv!=null?'set':''}" type="number" min="55" max="99" value="${val}" placeholder="${sug}" data-k="${k}"></td>
+      <td class="rk">${i+1}</td>
+      <td class="l nm">${p.name}</td>
+      <td class="l dim">${p.team||''}</td>
+      <td class="l dim">${p.position||'—'}</td>
+      <td class="l dim">${p.height||'—'}</td>
+      <td class="l dim">${p.yr||p.class_year||'—'}</td>
+      <td class="dim">${sug}</td>
+      <td class="c"><input class="ovr-in ${sv!=null?'set':''}" type="number" min="55" max="99" value="${val}" placeholder="${sug}" data-k="${k}"></td>
     </tr>`;
-  }).join('') + (rows.length>700?`<tr><td colspan="8" class="pmeta" style="padding:12px">Showing first 700 — filter by team or search to narrow.</td></tr>`:'');
+  }).join('') + (rows.length>700?`<tr><td colspan="8" class="l dim" style="padding:12px">Showing first 700 — filter by team or search to narrow.</td></tr>`:'');
 }
 
 document.addEventListener('input',e=>{

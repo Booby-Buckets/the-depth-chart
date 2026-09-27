@@ -90,7 +90,7 @@
     .gph{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:28px 0 12px;display:flex;align-items:center;gap:10px;}
     .gph span{font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;}
     .gph::after{content:'';flex:1;height:1px;background:var(--border);}
-    .kmwrap,.tape{border:1px solid var(--border);border-radius:13px;background:var(--bg2);overflow:hidden;}
+    /* key matchups + tale of the tape = the site sheet (tdc-sheets.css) */
     .ma-grid{border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:6px 14px;}
     .ma-row{display:grid;grid-template-columns:1fr 128px 1fr;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border);}
     .ma-row:first-child{border-top:none;}
@@ -104,25 +104,6 @@
     .ma-mid{text-align:center;}
     .ma-lbl{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text2);line-height:1.2;}
     .ma-edge{font-size:9.5px;font-weight:700;margin-top:3px;white-space:nowrap;}
-    .kmhead,.kmrow{display:grid;grid-template-columns:58px 1fr 46px 1fr;gap:8px;align-items:center;padding:9px 15px;}
-    .kmhead{border-bottom:1px solid var(--border);}
-    .kmhead span{font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
-    .kmhead span:nth-child(3){text-align:center;}
-    .kmrow{border-top:1px solid var(--border);}
-    .kmpos{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;color:var(--text3);}
-    .kmp{min-width:0;} .kmn{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .kmp.edge .kmn{color:var(--accent);}
-    .kms{font-size:10.5px;color:var(--text3);font-weight:600;}
-    .kmvs{font-family:'Playfair Display',serif;font-weight:800;font-size:13px;text-align:center;font-variant-numeric:tabular-nums;}
-    .tphd{display:grid;grid-template-columns:1fr 1.2fr 1fr;padding:9px 16px;border-bottom:1px solid var(--border);}
-    .tphd span{font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;}
-    .tphd span:nth-child(2){text-align:center;} .tphd span:last-child{text-align:right;}
-    .tprow{display:grid;grid-template-columns:1fr 1.2fr 1fr;align-items:center;padding:9px 16px;border-top:1px solid var(--border);}
-    .tprow:first-of-type{border-top:none;}
-    .tpl{text-align:center;font-size:11.5px;font-weight:700;color:var(--text2);}
-    .tpv{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;font-variant-numeric:tabular-nums;color:var(--text3);}
-    .tpv:last-child{text-align:right;}
-    .tpv.w{color:var(--text)!important;}
     .wpgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
     @media(max-width:640px){.wpgrid{grid-template-columns:1fr;}}
     .wpcard{border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:14px 16px;}
@@ -164,6 +145,7 @@
   <script src="tdc-pwa.js?v=2" defer></script>
   <link rel="stylesheet" href="tdc-hq-site.css?v=24"/>
   <link rel="stylesheet" href="tdc-column.css?v=2"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
 </head>
 <body class="hqsite">
   <script>
@@ -456,16 +438,18 @@ async function loadGamePlan(a,b,favA,L){
   const slots=[['G',0,'Lead guard'],['G',1,'Guard'],['W',0,'Wing'],['B',0,'Forward'],['B',1,'Center']];
   const kmRows=slots.map(([bk,ix,lab])=>{ const m=gA[bk][ix], o=gB[bk][ix]; if(!m&&!o) return '';
     const diff=(m&&o)?(m.ovr-o.ovr):null;
-    const side=(pl,edge)=>pl?`<div class="kmp ${edge?'edge':''}"><div class="kmn">${esc(pl.name)}</div><div class="kms">${pl.ovr} OVR · ${pl.ppg.toFixed(1)}p</div></div>`:`<div class="kmp"><div class="kmn" style="color:var(--text3)">—</div></div>`;
-    const edgeTxt = diff==null?'—':(diff>0?'+'+diff:diff), edgeCol = diff==null?'var(--text3)':(diff>0?cA:diff<0?cB:'var(--text3)');
-    return `<div class="kmrow"><div class="kmpos" style="font-size:8.5px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;line-height:1.2;white-space:normal;">${lab}</div>${side(m,diff!=null&&diff>=3)}<div class="kmvs" style="color:${edgeCol}">${edgeTxt}</div>${side(o,diff!=null&&diff<=-3)}</div>`; }).filter(Boolean).join('');
+    // one line per slot: each side's player, OVR and points in their own columns; the edge
+    // (A's OVR minus B's) is shaded by tdcSheetHeat and the side with a 3+ edge is bold
+    const side=(pl,edge)=>pl?`<td class="l nm"${edge?' style="font-weight:800"':''}>${esc(pl.name)}</td><td>${pl.ovr}</td><td>${pl.ppg.toFixed(1)}</td>`:'<td class="l dim">—</td><td></td><td></td>';
+    const edgeTxt = diff==null?'—':(diff>0?'+'+diff:diff);
+    return `<tr><td class="l dim">${lab}</td>${side(m,diff!=null&&diff>=3)}<td class="big">${edgeTxt}</td>${side(o,diff!=null&&diff<=-3)}</tr>`; }).filter(Boolean).join('');
   // ── tale of the tape (team_dna pct, projected 2027) ──
   const dz=t=>(DNA&&DNA[DNAK()]&&DNA[DNAK()].teams&&DNA[DNAK()].teams[t.full])||null;
   const da=dz(a), db=dz(b); let tapeHtml='';
   if(da&&da.pct&&db&&db.pct){ const F=[['net','Overall'],['ORtg','Offense'],['DRtg','Defense'],['oeFG','Shooting'],['oTOV','Ball security',true],['oORB','Off. rebounding']];
     const rowT=([k,lab,inv])=>{ const va=da.pct[k], vb=db.pct[k]; if(va==null||vb==null) return '';
-      const aBetter=va>=vb; return `<div class="tprow"><div class="tpv ${aBetter?'w':''}" style="${aBetter?`color:${cA}`:''}">${Math.round(va)}ᵖᶜ</div><div class="tpl">${lab}</div><div class="tpv ${!aBetter?'w':''}" style="${!aBetter?`color:${cB}`:''}">${Math.round(vb)}ᵖᶜ</div></div>`; };
-    tapeHtml=`<div class="gph">Tale of the tape <span>ᴾᶜ = national percentile · higher is better</span></div><div class="tape"><div class="tphd"><span style="color:${cA}">${TDC_TEAM.badge(a.full,{label:nA})}</span><span></span><span style="color:${cB}">${TDC_TEAM.badge(b.full,{label:nB})}</span></div>${F.map(rowT).join('')}</div>`;
+      const aBetter=va>=vb; return `<tr><td class="l nm">${lab}</td><td${aBetter?' class="strong"':''}>${Math.round(va)}ᵖᶜ</td><td${!aBetter?' class="strong"':''}>${Math.round(vb)}ᵖᶜ</td></tr>`; };
+    tapeHtml=`<div class="gph">Tale of the tape <span>ᴾᶜ = national percentile · higher is better · the better side is bold</span></div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Metric</th><th>${esc(nA)}</th><th>${esc(nB)}</th></tr></thead><tbody>${F.map(rowT).join('')}</tbody></table></div>`;
   }
   // ── tempo & style clash (projected possessions — data already lives in DNA.tempo) ──
   let tempoHtml='';
@@ -521,7 +505,8 @@ async function loadGamePlan(a,b,favA,L){
   }
   const wins=(da&&db)?`<div class="gph">How each team wins</div><div class="wpgrid">${winPath(da,db,nA)}${winPath(db,da,nB)}</div>`:'';
 
-  host.innerHTML=`${decisiveHtml}${kmRows?`<div class="gph">Key matchups <span>${PROJ()?'projected starter':SYL()+' rotation'} · OVR edge</span></div><div class="kmwrap" style="--cA:${cA};--cB:${cB}"><div class="kmhead"><span>Pos</span><span>${TDC_TEAM.badge(a.full,{label:nA})}</span><span>edge</span><span>${TDC_TEAM.badge(b.full,{label:nB})}</span></div>${kmRows}</div>`:''}<div id="maHost"></div>${tapeHtml}${tempoHtml}${wins}`;
+  host.innerHTML=`${decisiveHtml}${kmRows?`<div class="gph">Key matchups <span>${PROJ()?'projected starter':SYL()+' rotation'} · OVR edge</span></div><div class="sheet-wrap"><table class="sheet dense km-sheet"><thead><tr><th class="l">Pos</th><th class="l">${esc(nA)}</th><th data-heat="1">OVR</th><th data-heat="1">Pts</th><th data-heat="1" title="${esc(nA)} OVR minus ${esc(nB)} OVR">Edge</th><th class="l">${esc(nB)}</th><th data-heat="1">OVR</th><th data-heat="1">Pts</th></tr></thead><tbody>${kmRows}</tbody></table></div>`:''}<div id="maHost"></div>${tapeHtml}${tempoHtml}${wins}`;
+  if(window.tdcSheetHeat) host.querySelectorAll('table.km-sheet').forEach(t=>tdcSheetHeat(t));
   loadMatchupAdvantage(a,b,cA,cB,nA,nB);
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
 }
@@ -674,6 +659,7 @@ async function loadGamePlan(a,b,favA,L){
   // deep link: #adv opens the Player Advantages tab (team preload handled inside initAdv)
   (function(){ try{ if(location.hash==='#adv') setTimeout(function(){ mtab('adv'); }, 30); }catch(e){} })();
   </script>
+  <script src="tdc-sheets.js?v=1"></script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=8"></script>
 </body>

@@ -41,29 +41,10 @@
     input.search{padding:8px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;width:200px;}
     #confSel{padding:8px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;font-weight:600;outline:none;cursor:pointer;}
     .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:14px;max-width:960px;}
-    /* prop table */
-    .tbl-wrap{overflow:auto;border:1px solid var(--border);border-radius:12px;background:var(--bg2);}
-    table{width:100%;border-collapse:collapse;font-size:13px;min-width:720px;}
-    th{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);text-align:right;padding:10px 12px;border-bottom:2px solid var(--border2);white-space:nowrap;cursor:pointer;user-select:none;background:var(--bg3);position:sticky;top:0;z-index:2;}
-    th.l{text-align:left;} th.on{color:var(--accent);}
-    #propTbl th[data-sort]{cursor:pointer;} #propTbl th[data-arrow]::after{content:attr(data-arrow);color:var(--accent);font-weight:800;}
-    td{padding:9px 12px;border-bottom:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
-    td.l{text-align:left;}
-    tr:last-child td{border-bottom:none;}
-    tbody tr:hover{background:var(--bg3);}
-    td a{color:var(--text);text-decoration:none;font-weight:700;}
-    td a:hover{color:var(--accent);}
-    .rk{color:var(--text3);font-size:11px;}
+    /* prop table = the site sheet (tdc-sheets.css) */
+    #propTbl{--c1:40px;--c2:190px;}
+    .sheet td.empty{text-align:center;}
     .pos{color:var(--green);font-weight:800;} .neg{color:var(--red);font-weight:800;}
-    .pick{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:11px;}
-    .pick.o{background:rgba(26,140,58,.14);color:var(--green);} .pick.u{background:rgba(204,34,0,.13);color:var(--red);}
-    [data-theme="dark"] .pick.o{background:rgba(90,184,117,.16);} [data-theme="dark"] .pick.u{background:rgba(224,112,112,.16);}
-    .hitbar{display:inline-flex;align-items:center;gap:7px;justify-content:flex-end;}
-    .hitbar .track{width:52px;height:7px;border-radius:4px;background:var(--bg3);overflow:hidden;}
-    .hitbar .track i{display:block;height:100%;border-radius:4px;}
-    .hitbar b{font-variant-numeric:tabular-nums;min-width:34px;text-align:right;}
-    .team-sub{font-size:10.5px;color:var(--text3);font-weight:600;}
-    .xbadge{display:inline-block;margin-left:7px;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:9px;background:rgba(168,132,60,.14);color:var(--accent);vertical-align:1px;}
     .empty{padding:40px;text-align:center;color:var(--text3);font-size:13px;}
     /* team angles */
     .sharp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;}
@@ -93,6 +74,7 @@
   <script src="tdc-pwa.js?v=2" defer></script>
   <link rel="stylesheet" href="tdc-hq-site.css?v=24"/>
   <link rel="stylesheet" href="tdc-column.css?v=2"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
 </head>
 <body class="hqsite">
   <script src="tdc-nav.js?v=28"></script>
@@ -124,12 +106,13 @@
       <select id="confSel" title="Filter by conference"><option value="">All conferences</option></select>
       <input class="search" id="propSearch" placeholder="Filter team / player…"/>
     </div>
-    <div class="tbl-wrap"><table id="propTbl">
+    <div class="sheet-wrap"><table id="propTbl" class="sheet dense freeze2">
       <thead><tr>
-        <th class="l">#</th><th class="l" data-sort="name">Player</th><th data-sort="line">Line</th><th id="thPick">Pick</th>
-        <th data-sort="beat" title="How often he beat the number expected of him each season — level-adjusted, so it travels across a transfer">Beats line</th><th data-sort="avg">Career avg</th><th data-sort="proj">Proj ’26-27</th><th data-sort="hi">Range</th>
+        <th class="rk">#</th><th class="l sort" data-sort="name">Player<span class="ar"></span></th><th class="l">Team</th><th class="l" title="Transferred from (↑ up a level, ↔ lateral move). Hit rate is level-adjusted, so old numbers aren't taken at face value.">From</th>
+        <th class="sort" data-sort="line">Line<span class="ar"></span></th><th class="l" id="thPick">Pick</th>
+        <th class="sort" data-sort="beat" data-heat="1" title="How often he beat the number expected of him each season — level-adjusted, so it travels across a transfer">Beats line<span class="ar"></span></th><th class="sort" data-sort="avg">Career avg<span class="ar"></span></th><th class="sort" data-sort="proj">Proj ’26-27<span class="ar"></span></th><th class="sort" data-sort="hi">Range<span class="ar"></span></th>
       </tr></thead>
-      <tbody id="propBody"><tr><td colspan="8" class="empty">Loading prop board…</td></tr></tbody>
+      <tbody id="propBody"><tr><td colspan="10" class="empty">Loading prop board…</td></tr></tbody>
     </table></div>
     <div class="note" id="propNote"><b>Hit rate is level-adjusted.</b> For each past season we set the line at the number he was <i>expected</i> to hit that year — his prior-season average — and measure how often his games beat it. Because that bar moves with his level every season, the rate <b>travels across a transfer</b>: a low-major who kept topping his line stays a strong over even after a jump to a tougher league (his old raw totals never enter the math). <b>Line</b> is our 2026-27 projection — where a book will likely price him. <b>Overs</b> beat their expected line most; <b>Unders</b> least; <b>Value Movers</b> = the biggest gap between our projection and his career norm (the props to watch when lines post). Needs a couple of seasons to normalize, so newcomers appear only on Value Movers. Not a guarantee — a starting point.</div>
 
@@ -242,33 +225,37 @@ function renderProps(){
   document.querySelectorAll('#propTbl th[data-sort]').forEach(th=>{
     const on=propSort===th.dataset.sort;
     th.classList.toggle('on',on);
-    th.dataset.arrow=on?(propDir<0?' ↓':' ↑'):'';
+    const ar=th.querySelector('.ar'); if(ar) ar.textContent=on?(propDir<0?'▼':'▲'):'';
   });
   document.getElementById('thPick').textContent = curBoard==='value'?'Lean':'Pick';
   document.getElementById('propHint').textContent =
     curBoard==='over'?'beats his expected line most (level-adjusted)':curBoard==='under'?'beats his expected line least':'projection vs recent baseline';
   view=view.slice(0,60);
-  if(!view.length){ body.innerHTML='<tr><td colspan="8" class="empty">No plays match this filter.</td></tr>'; return; }
+  if(!view.length){ body.innerHTML='<tr><td colspan="10" class="empty">No plays match this filter.</td></tr>'; return; }
   body.innerHTML=view.map((r,i)=>{
     const isOver = curBoard==='under' ? false : (curBoard==='value' ? (r.lean>0) : true);
     const pickTxt = curBoard==='value'
-      ? `<span class="${r.lean>0?'pos':'neg'}">${r.lean>0?'+':''}${r.lean.toFixed(1)}</span>`
-      : `<span class="pick ${isOver?'o':'u'}">${isOver?'OVER':'UNDER'} ${r.line}</span>`;
+      ? `${r.lean>0?'+':''}${r.lean.toFixed(1)}`
+      : `${isOver?'Over':'Under'} ${r.line}`;
     const rate=(r.beat!=null?r.beat:r.over);                       // level-normalized when available
     const shown=(curBoard==='value')?rate:(isOver?rate:(1-rate));
-    const col=shown>=0.60?'var(--green)':shown>=0.53?'var(--accent)':'var(--text3)';
-    const hit=`<div class="hitbar"><div class="track"><i style="width:${Math.round(shown*100)}%;background:${col}"></i></div><b>${Math.round(shown*100)}%</b></div>`;
+    // one line per player: team and transfer origin in their own dim columns; the hit rate is a
+    // plain % shaded by tdcSheetHeat (higher = the stronger play on this board)
+    const from=r.xfer?`<span title="Transferred from ${shortTeam(r.xferFrom||'')}${r.xferUp?' — up a level':' — lateral move'}. Hit rate is level-adjusted, so his old numbers aren't taken at face value.">${r.xferUp?'↑':'↔'} ${shortTeam(r.xferFrom||'xfer')}</span>`:'';
     return `<tr>
-      <td class="l rk">${i+1}</td>
-      <td class="l"><a href="player.html?espn=${r.id}&tab=betting">${r.name}</a>${r.xfer?`<span class="xbadge" title="Transferred from ${shortTeam(r.xferFrom||'')}${r.xferUp?' — up a level':' — lateral move'}. Hit rate is level-adjusted, so his old numbers aren't taken at face value.">${r.xferUp?'↑':'↔'} ${shortTeam(r.xferFrom||'xfer')}</span>`:''}<div class="team-sub">${shortTeam(r.team)}</div></td>
+      <td class="rk">${i+1}</td>
+      <td class="l nm"><a href="player.html?espn=${r.id}&tab=betting">${r.name}</a></td>
+      <td class="l dim">${shortTeam(r.team)}</td>
+      <td class="l dim">${from}</td>
       <td>${r.line}</td>
-      <td>${pickTxt}</td>
-      <td>${hit}</td>
+      <td class="l">${pickTxt}</td>
+      <td class="big">${Math.round(shown*100)}%</td>
       <td>${r.avg}</td>
       <td>${r.proj!=null?r.proj.toFixed(1):'—'}</td>
-      <td class="rk">${r.lo}–${r.hi}</td>
+      <td class="dim">${r.lo}–${r.hi}</td>
     </tr>`;
   }).join('');
+  if(window.tdcSheetHeat) tdcSheetHeat(document.getElementById('propTbl'));
 }
 document.querySelectorAll('#statPills button').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('#statPills button').forEach(x=>x.classList.remove('on'));
@@ -317,10 +304,10 @@ fetch('scripts/data/stat_overall_projected.json?v=55').then(r=>r.ok?r.json():nul
   if(d&&d.players){ PROJ=d.players; populateConfs(); if(PLAYERS) renderProps(); }
 }).catch(()=>{});
 fetch('scripts/data/bet_trends_players.json?v=beat2').then(r=>r.ok?r.json():null).then(d=>{
-  if(!d||!d.players){ document.getElementById('propBody').innerHTML='<tr><td colspan="8" class="empty">Prop data not available yet.</td></tr>'; return; }
+  if(!d||!d.players){ document.getElementById('propBody').innerHTML='<tr><td colspan="10" class="empty">Prop data not available yet.</td></tr>'; return; }
   PLAYERS=Object.entries(d.players).map(([id,p])=>({id,name:p.name,team:p.team,stats:p.stats}));
   renderProps();
-}).catch(()=>{ document.getElementById('propBody').innerHTML='<tr><td colspan="8" class="empty">Prop data failed to load.</td></tr>'; });
+}).catch(()=>{ document.getElementById('propBody').innerHTML='<tr><td colspan="10" class="empty">Prop data failed to load.</td></tr>'; });
 fetch('scripts/data/bet_trends_teams.json').then(r=>r.ok?r.json():null).then(d=>{
   if(!d||!d.teams) return;
   TEAMS=Object.entries(d.teams).map(([name,t])=>{ t._name=name; t._short=(name.split(' ').slice(0,-1).join(' ')||name); return t; });
@@ -328,6 +315,7 @@ fetch('scripts/data/bet_trends_teams.json').then(r=>r.ok?r.json():null).then(d=>
   if(d.meta&&d.meta.hasHistory) renderSharp();
 }).catch(()=>{});
 </script>
+  <script src="tdc-sheets.js?v=1"></script>
   <script src="tdc-tour.js?v=8"></script>
 </body>
 </html>

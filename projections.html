@@ -75,28 +75,12 @@
 
     /* PROJECTIONS TABLE */
     .table-wrap{padding:0 40px 60px;overflow-x:auto;margin-top:16px;}
-    .proj-table{width:100%;min-width:1000px;}
     #pjSheet{max-height:calc(100vh - 230px);}
-    #pjSheet .proj-table td{padding:5px 8px;}
-    #pjSheet .proj-table th{padding:7px 8px;}
-    /* the stat pill used to carry its own padding/radius; inside the grid the CELL is the box */
-    #pjSheet .td-stat{padding:0;border-radius:0;margin:0;font-family:inherit;font-size:12.5px;}
-    .proj-table th{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:8px 10px;border-bottom:2px solid var(--border2);text-align:right;cursor:pointer;user-select:none;white-space:nowrap;}
-    .proj-table th:hover{color:var(--text);}
-    .proj-table th.sorted{color:var(--accent);}
-    .proj-table th.sorted::after{content:' ▼';font-size:9px;}
-    .proj-table th.sorted.asc::after{content:' ▲';}
-    .proj-table th.left{text-align:left;}
-    .proj-table td{padding:9px 10px;border-bottom:1px solid var(--border);font-size:13px;text-align:right;white-space:nowrap;}
-    .proj-table tr:hover td{background:var(--bg2);}  .proj-table td{transition:background .12s;}
-    .proj-table td.left{text-align:left;}
-    .td-name{font-weight:700;color:var(--text);cursor:pointer;}
-    .td-name:hover{color:var(--accent);}  .td-name{transition:color .15s;}
-    .td-team{font-size:11px;color:var(--text3);}
-    .td-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;}
-    .td-stat{font-family:'Playfair Display',serif;font-size:13px;font-weight:700;color:var(--text2);padding:2px 6px;border-radius:2px;margin:0 1px;}
+    #pjSheet .tag{font-size:9px;font-weight:800;letter-spacing:.05em;color:var(--text3);margin-left:5px;}
+    #pjSheet td.tm a{color:var(--text);text-decoration:none;font-weight:600;}
+    #pjSheet td.tm a:hover{color:var(--accent);text-decoration:underline;}
+    #pjSheet tr.out td{opacity:.65;}
     .proj-badge{font-size:9px;font-weight:700;letter-spacing:.06em;padding:1px 4px;background:rgba(139,105,20,.12);color:var(--accent);margin-left:4px;vertical-align:middle;}
-    .yr-badge{font-size:10px;font-weight:700;letter-spacing:.04em;padding:1px 5px;border:1px solid var(--border2);color:var(--text3);}
 
     /* COMPARE TAB */
     .compare-wrap{max-width:900px;padding:32px 40px 60px;}
@@ -2139,7 +2123,7 @@ function renderTable(players){
     return;
   }
 
-  const th=(key,label,cls='',style='')=>`<th class="${sortCol===key?'sorted':''} ${cls}" style="${style}" onclick="setSort('${key}')">${label}</th>`;
+  const th=(key,label,cls='')=>`<th class="sort${sortCol===key?' on':''} ${cls}" onclick="setSort('${key}')">${label}<span class="ar">${sortCol===key?(sortDir>0?'▼':'▲'):''}</span></th>`;
 
   // Conditional format on the stat columns, from THIS view's own percentiles — the same
   // red-to-green scale the Big Board and the roster/stats sheets use. Turnovers invert.
@@ -2150,52 +2134,49 @@ function renderTable(players){
     _bk[k]=v.length>=20?{p25:v[(v.length*.25)|0],p50:v[(v.length*.5)|0],p75:v[(v.length*.75)|0],p90:v[(v.length*.9)|0]}:null;
   });
   const sc=(k,val)=>{
-    const b=_bk[k], n=parseFloat(val); if(!b||isNaN(n)||n<=0) return 'td-stat';
+    const b=_bk[k], n=parseFloat(val); if(!b||isNaN(n)||n<=0) return '';
     const inv=SHADE[k];
     const q = inv ? (n<=b.p25?4:n<=b.p50?3:n<=b.p75?2:n<=b.p90?1:0)
                   : (n>=b.p90?4:n>=b.p75?3:n>=b.p50?2:n>=b.p25?1:0);
-    return 'td-stat c'+q;
+    return 'c'+q;
   };
 
   document.getElementById('tableWrap').innerHTML=`
     <div class="sheet-wrap" id="pjSheet" style="--c1:56px;--c2:188px;">
     <table class="proj-table sheet dense freeze2">
       <thead><tr>
-        ${th('tdc_grade','OVR','left','min-width:44px;')}
-        <th class="left" style="min-width:160px;">Player</th>
-        <th class="left">Team</th>
-        <th>Yr</th>
-        <th>Pos</th>
+        ${th('tdc_grade','OVR')}
+        <th class="l">Player</th>
+        <th class="l">Team</th>
+        <th class="l">Yr</th>
+        <th class="l">Pos</th>
         ${th('ppg','PPG')}${th('rpg','RPG')}${th('apg','APG')}${th('mpg','MPG')}
         ${th('fg_pct','FG%')}${th('tp_pct','3P%')}${th('ft_pct','FT%')}
         ${th('stl','STL')}${th('blk','BLK')}${th('tovs','TO')}
       </tr></thead>
       <tbody>
         ${players.map(p=>{
-          const color=teamColors[p.team]||'#888';
           const yr=p.yr||p.class_year||'';
-          const gc=g=>{if(!g)return '';const n=parseFloat(g);if(!isNaN(n)){if(n>=90)return '#1a8c3a';if(n>=80)return '#4a9a4a';if(n>=70)return '#b8860b';if(n>=60)return '#cc5500';return '#cc2200';}return '#888';};
+          const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+          const plink=`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team)}`;
+          const teamTd=`<td class="l tm"><a href="team.html?team=${encodeURIComponent(p.team)}">${p.team||'—'}</a></td>`;
           const inj=p._injured||p._dnp;
           if(inj){
-            return `<tr style="opacity:.65;">
-              <td class="left"><span class="td-grade" style="color:${gc(_ovrOf(p))};font-family:'Playfair Display',serif;font-weight:800;font-size:15px;">${_ovrOf(p)||'—'}</span></td>
-              <td class="left">
-                <div class="td-name" onclick="location='player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team)}'">${p.name}<span class="proj-badge" style="background:rgba(220,38,38,.12);color:#ef4444;border:1px solid rgba(220,38,38,.3);">🏥 INJ</span></div>
-              </td>
-              <td class="left"><a href="team.html?team=${encodeURIComponent(p.team)}" style="font-size:11px;font-weight:700;padding:2px 6px;background:${color};color:#fff;text-decoration:none;border-radius:2px;">${p.team||'—'}</a></td>
-              <td><span class="yr-badge">${yr}</span></td>
-              <td style="font-size:11px;font-weight:700;color:var(--text3);">${p.position||'—'}</td>
-              <td class="td-stat" colspan="10" style="text-align:center;font-style:italic;color:var(--text3);">Projected DNP — out for 2026-27</td>
+            return `<tr class="out">
+              <td class="big">${_ovrOf(p)||'—'}</td>
+              <td class="l nm"><a href="${plink}" title="${esc(p.name)}">${p.name}</a><span class="tag" title="Injured">INJ</span></td>
+              ${teamTd}
+              <td class="l dim">${yr}</td>
+              <td class="l dim">${p.position||'—'}</td>
+              <td class="c dim" colspan="10" style="font-style:italic;">Projected DNP — out for 2026-27</td>
             </tr>`;
           }
           return `<tr>
-            <td class="left"><span class="td-grade" style="color:${gc(_ovrOf(p))};font-family:'Playfair Display',serif;font-weight:800;font-size:15px;">${_ovrOf(p)||'—'}</span></td>
-            <td class="left">
-              <div class="td-name" onclick="location='player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team)}'">${p.name}${p._isFrosh?'<span class="proj-badge">EST</span>':''}${p._isTransfer&&p._originConf?`<span class="proj-badge" style="background:rgba(26,95,191,.1);color:#1a5fbf;">${p._originConf}→${p._conf||'?'}</span>`:''}</div>
-            </td>
-            <td class="left"><a href="team.html?team=${encodeURIComponent(p.team)}" style="font-size:11px;font-weight:700;padding:2px 6px;background:${color};color:#fff;text-decoration:none;border-radius:2px;">${p.team||'—'}</a></td>
-            <td><span class="yr-badge">${yr}</span></td>
-            <td style="font-size:11px;font-weight:700;color:var(--text3);">${p.position||'—'}</td>
+            <td class="big">${_ovrOf(p)||'—'}</td>
+            <td class="l nm"><a href="${plink}" title="${esc(p.name)}">${p.name}</a>${p._isFrosh?'<span class="tag" title="Estimated freshman line">EST</span>':''}${p._isTransfer&&p._originConf?`<span class="tag" title="Transfer: conference move">${p._originConf}→${p._conf||'?'}</span>`:''}</td>
+            ${teamTd}
+            <td class="l dim">${yr}</td>
+            <td class="l dim">${p.position||'—'}</td>
             <td class="${sc('ppg',p.ppg)}">${fmt(p.ppg)}</td>
             <td class="${sc('rpg',p.rpg)}">${fmt(p.rpg)}</td>
             <td class="${sc('apg',p.apg)}">${fmt(p.apg)}</td>

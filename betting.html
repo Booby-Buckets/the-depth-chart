@@ -39,20 +39,12 @@
     [data-theme="dark"] .pill.on{color:#181818;}
     select,input.search{padding:8px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;}
     input.search{width:220px;}
-    .tbl-wrap{overflow:auto;max-height:600px;border:1px solid var(--border);border-radius:12px;background:var(--bg2);}
-    table{width:100%;border-collapse:collapse;font-size:13px;min-width:820px;}
-    th{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:right;padding:9px 10px;border-bottom:2px solid var(--border2);white-space:nowrap;cursor:pointer;user-select:none;background:var(--bg3);position:sticky;top:0;}
-    th.l{text-align:left;}
-    th.on{color:var(--accent);}
-    td{padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
-    td.l{text-align:left;}
-    tr:last-child td{border-bottom:none;}
-    tbody tr:hover{background:var(--bg3);}
-    td a{color:var(--text);text-decoration:none;font-weight:700;}
-    td a:hover{color:var(--accent);}
+    /* data tables = the site sheet (tdc-sheets.css) */
+    .sheet span.dim{color:var(--text3);font-size:11px;font-weight:500;}
+    .sheet td.loading,.sheet td.empty{text-align:center;}
+    #teamTbl{--c1:40px;--c2:210px;}
     .pos{color:var(--green);font-weight:700;}
     .neg{color:var(--red);font-weight:700;}
-    .rk{color:var(--text3);font-size:11px;}
     /* real-line columns: hidden until a historical lines file is ingested (Phase B) */
     #teamTbl .hist-col{display:none;}
     #teamTbl.has-hist .hist-col{display:table-cell;}
@@ -139,6 +131,7 @@
   <script src="tdc-pwa.js?v=2" defer></script>
   <link rel="stylesheet" href="tdc-hq-site.css?v=24"/>
   <link rel="stylesheet" href="tdc-column.css?v=2"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
 </head>
 <body data-anim-auto class="hqsite">
   <script src="tdc-nav.js?v=28"></script>
@@ -167,18 +160,18 @@
     <!-- ══ LIVE EDGE BOARD (in-season; hidden until the odds feed has games) ══ -->
     <div id="edgeSec" style="display:none;">
       <div class="sec"><span>Live Edge Board</span><span class="hint">our model line vs the market — biggest disagreements first</span></div>
-      <div class="tbl-wrap" style="max-height:640px;">
-        <table id="edgeTbl">
+      <div class="sheet-wrap">
+        <table id="edgeTbl" class="sheet dense">
           <thead><tr>
-            <th class="l" data-k="rk">#</th>
-            <th class="l" data-k="game">Game</th>
-            <th data-k="book" title="Consensus book spread (median across US books)">Book</th>
-            <th data-k="model" title="Our model spread">Model</th>
-            <th data-k="edge" class="on" title="Points our model disagrees with the book. Bigger = more value on the side shown.">Edge</th>
-            <th data-k="side" class="l" title="The side our model favors relative to the book">Lean</th>
-            <th data-k="btot" title="Consensus book total">Bk Tot</th>
-            <th data-k="mtot" title="Our modeled total">Md Tot</th>
-            <th data-k="tlean" class="l" title="Over/Under lean vs the book total">O/U</th>
+            <th class="rk sort" data-k="rk">#<span class="ar"></span></th>
+            <th class="l sort" data-k="game">Game<span class="ar"></span></th>
+            <th class="sort" data-k="book" title="Consensus book spread (median across US books)">Book<span class="ar"></span></th>
+            <th class="sort" data-k="model" title="Our model spread">Model<span class="ar"></span></th>
+            <th data-k="edge" class="sort on" data-heat="1" title="Points our model disagrees with the book. Bigger = more value on the side shown (shaded by size).">Edge<span class="ar">▼</span></th>
+            <th data-k="side" class="l sort" title="The side our model favors relative to the book">Lean<span class="ar"></span></th>
+            <th class="sort" data-k="btot" title="Consensus book total">Bk Tot<span class="ar"></span></th>
+            <th class="sort" data-k="mtot" title="Our modeled total">Md Tot<span class="ar"></span></th>
+            <th data-k="tlean" class="l sort" title="Over/Under lean vs the book total">O/U<span class="ar"></span></th>
           </tr></thead>
           <tbody id="edgeBody"></tbody>
         </table>
@@ -205,22 +198,22 @@
       <button class="pill" data-season="2022">21-22</button>
       <input class="search" id="teamSearch" placeholder="Search team…"/>
     </div>
-    <div class="tbl-wrap">
-      <table id="teamTbl">
+    <div class="sheet-wrap">
+      <table id="teamTbl" class="sheet dense freeze2">
         <thead><tr>
-          <th class="l" data-k="rk">#</th>
-          <th class="l" data-k="name">Team</th>
-          <th data-k="rec" title="Straight-up record">Record</th>
-          <th data-k="winpct" class="on">Win%</th>
-          <th data-k="homepct" title="Home win %">Home</th>
-          <th data-k="awaypct" title="Away win %">Away</th>
-          <th data-k="margin" title="Average scoring margin">Margin</th>
-          <th data-k="total" title="Average combined points">Total</th>
-          <th data-k="vsLine" title="Average points ABOVE (or below) our power-rating projected line. Positive = the team has beaten our number, i.e. been undervalued.">vs Line</th>
-          <th data-k="favpct" title="How often the team beat our line as a projected favorite">Fav ✓</th>
-          <th data-k="dogpct" title="How often the team beat our line as a projected underdog">Dog ✓</th>
-          <th class="hist-col" data-k="atsPct" title="Against-the-spread record vs the real closing line (loaded from the odds feed)">ATS%</th>
-          <th class="hist-col" data-k="ovPct" title="Over percentage vs the real closing total">O/U</th>
+          <th class="rk sort" data-k="rk">#<span class="ar"></span></th>
+          <th class="l sort" data-k="name">Team<span class="ar"></span></th>
+          <th class="sort" data-k="rec" title="Straight-up record">Record<span class="ar"></span></th>
+          <th data-k="winpct" class="sort on" data-heat="1">Win%<span class="ar">▼</span></th>
+          <th class="sort" data-k="homepct" data-heat="1" title="Home win %">Home<span class="ar"></span></th>
+          <th class="sort" data-k="awaypct" data-heat="1" title="Away win %">Away<span class="ar"></span></th>
+          <th class="sort" data-k="margin" data-heat="1" title="Average scoring margin">Margin<span class="ar"></span></th>
+          <th class="sort" data-k="total" title="Average combined points">Total<span class="ar"></span></th>
+          <th class="sort" data-k="vsLine" data-heat="1" title="Average points ABOVE (or below) our power-rating projected line. Positive = the team has beaten our number, i.e. been undervalued.">vs Line<span class="ar"></span></th>
+          <th class="sort" data-k="favpct" data-heat="1" title="How often the team beat our line as a projected favorite">Fav beat<span class="ar"></span></th>
+          <th class="sort" data-k="dogpct" data-heat="1" title="How often the team beat our line as a projected underdog">Dog beat<span class="ar"></span></th>
+          <th class="hist-col sort" data-k="atsPct" data-heat="1" title="Against-the-spread record vs the real closing line (loaded from the odds feed)">ATS%<span class="ar"></span></th>
+          <th class="hist-col sort" data-k="ovPct" title="Over percentage vs the real closing total">O/U<span class="ar"></span></th>
         </tr></thead>
         <tbody id="teamBody"><tr><td colspan="11" class="loading">Loading team trends…</td></tr></tbody>
       </table>
@@ -382,26 +375,27 @@ function renderEdge(){
   const body=document.getElementById('edgeBody');
   body.innerHTML=rows.slice(0,40).map((r,i)=>{
     const side=(r.spEdge==null)?'':(r.spEdge>0?_mlShort(r.home.full):_mlShort(r.away.full));
-    const ec=(r.spEdge==null)?'':(Math.abs(r.spEdge)>=3?'pos':(Math.abs(r.spEdge)<1?'':'')); // highlight strong edges
-    const ov=(r.totEdge==null)?'':(r.totEdge>0?`<span class="pos">Over</span>`:(r.totEdge<0?`<span class="neg">Under</span>`:'—'));
+    // Edge is shaded by its size (tdcSheetHeat, data-v = |edge|): the bigger the gap, the more value
+    const ov=(r.totEdge==null)?'':(r.totEdge>0?'Over':(r.totEdge<0?'Under':'—'));
     return `<tr>
-      <td class="l rk">${i+1}</td>
-      <td class="l"><a href="team.html?team=${encodeURIComponent(r.away.team)}">${_mlShort(r.away.full)}</a> @ <a href="team.html?team=${encodeURIComponent(r.home.team)}">${_mlShort(r.home.full)}</a></td>
+      <td class="rk">${i+1}</td>
+      <td class="l nm"><a href="team.html?team=${encodeURIComponent(r.away.team)}">${_mlShort(r.away.full)}</a> @ <a href="team.html?team=${encodeURIComponent(r.home.team)}">${_mlShort(r.home.full)}</a></td>
       <td>${_sprTxt(r.bookM,r.home,r.away)}</td>
       <td>${_sprTxt(r.ourM,r.home,r.away)}</td>
-      <td class="${ec}"><b>${r.spEdge==null?'—':(r.spEdge>0?'+':'')+r.spEdge}</b></td>
+      <td class="big" data-v="${r.spEdge==null?'':Math.abs(r.spEdge)}">${r.spEdge==null?'—':(r.spEdge>0?'+':'')+r.spEdge}</td>
       <td class="l">${side}</td>
       <td>${r.bookTot==null?'—':r.bookTot}</td>
       <td>${r.ourTot==null?'—':r.ourTot}</td>
-      <td class="l">${ov}${r.totEdge!=null&&r.totEdge!==0?` <span class="rk">${Math.abs(r.totEdge).toFixed(1)}</span>`:''}</td>
+      <td class="l">${ov}${r.totEdge!=null&&r.totEdge!==0?` <span class="dim">${Math.abs(r.totEdge).toFixed(1)}</span>`:''}</td>
     </tr>`;
   }).join('');
+  if(window.tdcSheetHeat) tdcSheetHeat(document.getElementById('edgeTbl'));
   const stamp=document.getElementById('edgeStamp');
   if(stamp&&LIVE_ODDS.generated){ try{ stamp.textContent='Board as of '+new Date(LIVE_ODDS.generated).toLocaleString()+' · '+rows.length+' games priced.'; }catch(e){} }
 }
 document.querySelectorAll('#edgeTbl th').forEach(th=>th.addEventListener('click',()=>{
   const k=th.dataset.k; if(edgeSort===k) edgeDir=-edgeDir; else { edgeSort=k; edgeDir=(k==='game'||k==='side')?1:-1; }
-  document.querySelectorAll('#edgeTbl th').forEach(x=>x.classList.toggle('on',x.dataset.k===k)); renderEdge();
+  document.querySelectorAll('#edgeTbl th').forEach(x=>{ const on=x.dataset.k===k; x.classList.toggle('on',on); const a=x.querySelector('.ar'); if(a) a.textContent=on?(edgeDir>0?'▲':'▼'):''; }); renderEdge();
 }));
 fetch('scripts/data/odds_live.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(d=>{
   if(d&&d.games&&d.games.length){ LIVE_ODDS=d; renderEdge(); }
@@ -442,23 +436,23 @@ function renderTeams(){
   const body=document.getElementById('teamBody');
   if(!rows.length){ body.innerHTML='<tr><td colspan="11" class="empty">No teams match.</td></tr>'; return; }
   body.innerHTML=rows.map((r,i)=>{
-    const vc = r.vsLine>0?'pos':(r.vsLine<0?'neg':'');
     return `<tr>
-      <td class="l rk">${i+1}</td>
-      <td class="l"><a href="team.html?team=${encodeURIComponent(r.short||r.name)}">${r.name}</a></td>
+      <td class="rk">${i+1}</td>
+      <td class="l nm"><a href="team.html?team=${encodeURIComponent(r.short||r.name)}">${r.name}</a></td>
       <td>${r.rec}</td>
-      <td><b>${pct(r.winpct)}</b></td>
+      <td class="big">${pct(r.winpct)}</td>
       <td>${pct(r.homepct)}</td>
       <td>${pct(r.awaypct)}</td>
-      <td class="${r.margin>0?'pos':(r.margin<0?'neg':'')}">${sg(r.margin)}</td>
+      <td>${sg(r.margin)}</td>
       <td>${r.total?.toFixed(1)??'—'}</td>
-      <td class="${vc}">${sg(r.vsLine)}</td>
+      <td>${sg(r.vsLine)}</td>
       <td>${r.favpct==null?'—':pct(r.favpct)}</td>
       <td>${r.dogpct==null?'—':pct(r.dogpct)}</td>
-      <td class="hist-col">${r.atsPct==null?'—':`<b class="${r.atsPct>0.5?'pos':(r.atsPct<0.5?'neg':'')}">${pct(r.atsPct)}</b> <span class="rk">${r.ats||''}</span>`}</td>
-      <td class="hist-col">${r.ovPct==null?'—':`${pct(r.ovPct)} <span class="rk">${r.ou||''}</span>`}</td>
+      <td class="hist-col" data-v="${r.atsPct==null?'':r.atsPct}">${r.atsPct==null?'—':`${pct(r.atsPct)} <span class="dim">${r.ats||''}</span>`}</td>
+      <td class="hist-col" data-v="${r.ovPct==null?'':r.ovPct}">${r.ovPct==null?'—':`${pct(r.ovPct)} <span class="dim">${r.ou||''}</span>`}</td>
     </tr>`;
   }).join('');
+  if(window.tdcSheetHeat) tdcSheetHeat(document.getElementById('teamTbl'));
 }
 // ═══ SHARP ANGLES ══════════════════════════════════════════════════════════
 // Surface the market's most lopsided teams from 5yr of real closing lines. All-time
@@ -492,7 +486,7 @@ function renderSharp(){
 function setTeamSort(k){
   if(teamSort===k) teamDir=-teamDir;
   else { teamSort=k; teamDir=(k==='name')?1:-1; }
-  document.querySelectorAll('#teamTbl th').forEach(th=>th.classList.toggle('on',th.dataset.k===k));
+  document.querySelectorAll('#teamTbl th').forEach(th=>{ const on=th.dataset.k===k; th.classList.toggle('on',on); const a=th.querySelector('.ar'); if(a) a.textContent=on?(teamDir>0?'▲':'▼'):''; });
   renderTeams();
 }
 document.querySelectorAll('#teamTbl th').forEach(th=>th.addEventListener('click',()=>setTeamSort(th.dataset.k)));
@@ -600,6 +594,7 @@ fetch('scripts/data/bet_trends_players.json').then(r=>r.ok?r.json():null).then(d
   renderPlayerList();
 }).catch(()=>{ const msg=document.getElementById('playerListMsg'); if(msg) msg.textContent='Player prop trends failed to load.'; });
 </script>
+  <script src="tdc-sheets.js?v=1"></script>
   <script src="tdc-tour.js?v=8"></script>
 </body>
 </html>

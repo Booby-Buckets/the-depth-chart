@@ -84,31 +84,8 @@
     .ctrls select{padding:8px 10px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);border-radius:8px;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;}
     .rank-note{font-size:11px;color:var(--text3);margin:6px 0 18px;}
     /* results */
-    .rrow{display:grid;grid-template-columns:34px 1fr 240px 62px;gap:14px;align-items:center;padding:13px 16px;border:1px solid var(--border);border-radius:12px;background:var(--bg2);margin-bottom:9px;transition:border-color .15s,transform .15s;}
-    .rrow:hover{border-color:var(--accent);transform:translateY(-1px);}
-    .rrk{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text3);text-align:center;}
-    .rteam{font-size:15px;font-weight:800;}
-    .rteam a:hover{color:var(--accent);}
-    .rteam .tr{font-size:11px;color:var(--text3);font-weight:600;margin-top:2px;}
-    .rwhy{font-size:11.5px;color:var(--text2);margin-top:5px;line-height:1.4;}
-    .posflex{font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);background:rgba(200,160,60,.14);padding:1px 5px;border-radius:5px;}
-    .rrole{font-size:9.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);margin-top:4px;}
-    .rproj{font-size:11px;color:var(--text3);margin-top:5px;font-variant-numeric:tabular-nums;display:flex;flex-wrap:wrap;align-items:center;gap:7px;}
-    .rproj b{color:var(--text2);font-weight:700;}
-    .rp-arrow{opacity:.55;}
-    .rp-new{color:var(--text3);}
-    .rproj-none{font-style:italic;}
-    .bars{display:flex;flex-direction:column;gap:4px;}
-    .bar{display:grid;grid-template-columns:64px 1fr 22px;gap:6px;align-items:center;}
-    .bar .bl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;color:var(--text3);}
-    .bar .bt{height:5px;border-radius:3px;background:var(--bg3);overflow:hidden;}
-    .bar .bf{height:100%;border-radius:3px;}
-    .bar .bv{font-size:9.5px;font-weight:800;text-align:right;color:var(--text2);font-variant-numeric:tabular-nums;}
-    .rovr{text-align:center;}
-    .rovr .v{font-family:'Playfair Display',serif;font-weight:800;font-size:28px;line-height:1;}
-    .rovr .l{font-size:8px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:1px;}
+    #results .sheet td.why{max-width:360px;overflow:hidden;text-overflow:ellipsis;}
     .loading{padding:70px;text-align:center;color:var(--text3);}
-    @media(max-width:760px){.rrow{grid-template-columns:28px 1fr 60px;}.bars{display:none;}}
   </style>
   <link rel="stylesheet" href="tdc-anim.css?v=6"/>
   <script src="tdc-anim.js?v=6"></script>
@@ -131,6 +108,7 @@
   <script src="tdc-pwa.js?v=2" defer></script>
   <link rel="stylesheet" href="tdc-hq-site.css?v=24"/>
   <link rel="stylesheet" href="tdc-column.css?v=2"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
 </head>
 <body data-anim-auto class="hqsite">
   <script src="tdc-nav.js?v=28"></script>
@@ -208,19 +186,24 @@ function updateWvals(){ const nw=normW();
   document.querySelectorAll('#wgrid .wslider').forEach(el=>{ el.querySelector('.wval').textContent=Math.round(nw[el.dataset.k]*100)+'%'; }); }
 const $=id=>document.getElementById(id);
 const initials=n=>(n||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
-const barCol=v=>v>=72?'var(--green)':v>=52?'var(--amber)':'var(--red)';
 const round1=x=>Math.round((parseFloat(x)||0)*10)/10;
 function projLineStr(o,withMpg){ return (withMpg&&o.mpg?o.mpg+' mpg · ':'')+`${round1(o.ppg)}p · ${round1(o.rpg)}r · ${round1(o.apg)}a`+(o.tp_pct?` · ${round1(o.tp_pct)}% 3P`:''); }
-// "Now · CurrentTeam → Destination" projected-stat comparison (or an honest note
-// for incoming players with no prior college line to scale from)
-function projCompare(cur, curTeam, proj, destName){
-  if(!proj) return '';
+// the same "now → destination" comparison as two sheet cells (or an honest note for
+// incoming players with no prior college line to scale from)
+function projCells(cur, proj){
+  if(!proj) return '<td class="l dim">—</td>';
   const noStats=(!cur || ((+cur.ppg||0)<=0 && (+cur.rpg||0)<=0 && (+cur.apg||0)<=0));
-  if(noStats) return '<div class="rproj rproj-none">Incoming — no prior college stats to project from yet.</div>';
-  return '<div class="rproj"><span class="rp-now">Now · '+(curTeam||'—')+': '+projLineStr(cur)+'</span>'
-       + '<span class="rp-arrow">→</span>'
-       + '<span class="rp-new">'+(destName||'here')+': <b>'+projLineStr(proj,true)+'</b></span></div>';
+  if(noStats) return '<td class="l dim">Incoming — no prior college stats</td>';
+  return '<td class="l">'+projLineStr(proj,true)+'</td>';
 }
+const escA=s=>String(s==null?'':s).replace(/<[^>]+>/g,'').replace(/"/g,'&quot;');
+function fitTable(head, body){
+  $('results').innerHTML=body?`<div class="sheet-wrap"><table class="sheet dense freeze2" style="--c1:36px;--c2:190px"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`:'';
+  if(window.tdcSheetHeat){ const t=$('results').querySelector('table.sheet'); if(t) tdcSheetHeat(t); }
+}
+const FIT_TH=`<th data-heat="1" title="overall fit">Fit</th><th data-heat="1" title="positional need">Need</th><th data-heat="1" title="team success">Team</th><th data-heat="1" title="production">Prod</th><th data-heat="1" title="coach fit">Coach</th>`;
+const fitTds=r=>`<td class="big">${r.overall}</td><td>${r.need}</td><td>${r.teamSuccess}</td><td>${r.playerSuccess}</td><td>${r.coachFit}</td>`;
+const whyTd=r=>`<td class="l dim why" title="${escA(r.why)}">${r.why||''}</td>`;
 
 async function boot(){
   const [tn,cp]=await Promise.all([
@@ -296,19 +279,19 @@ async function renderTeam(){
   const rows=TDCPortalFit.rankTargets(TEAM, TEAM.coach_slug?PROFS[TEAM.coach_slug]:null, pool,
     {sortBy, weights:normW(), filter:{pos:posF||undefined, excludeTeam:true}}).slice(0,40);
   $('rankNote').textContent=`${rows.length} candidates · ranked by ${({overall:'overall fit',teamSuccess:'team success',playerSuccess:'their production',coachFit:'coach fit',need:'positional need'})[sortBy]}${posF?` · ${posF} only`:''}`;
-  const bar=(lbl,v)=>`<div class="bar"><span class="bl">${lbl}</span><span class="bt"><span class="bf" style="width:${v}%;background:${barCol(v)};"></span></span><span class="bv">${v}</span></div>`;
-  $('results').innerHTML=rows.map((r,i)=>`<div class="rrow">
-    <div class="rrk">${i+1}</div>
-    <div>
-      <div class="rteam"><a href="player.html?espn=${r.espn_id||''}&name=${encodeURIComponent(r.player)}">${r.player}</a> <span style="font-size:11px;color:var(--text3);font-weight:600;">${r.playerPos} · ${r.playerGrade} · ${r.playerTeam||''}</span></div>
-      <div class="tr">${r.playerArch||''} · fills ${r.playerPos}${r.offNatural?` <span class="posflex">from ${r.naturalPos}</span>`:''}: now ${r.slid?'covered by others':(r.starter||'—')} (${r.posBest})${r.upgrade>0?` · <span style="color:var(--green);">+${r.upgrade} upgrade</span>`:''}</div>
-      <div class="rrole">${r.role}</div>
-      ${r.why?`<div class="rwhy">${r.why}</div>`:''}
-      ${projCompare(r.cur, r.playerTeam, r.proj, (TEAM.full||TEAM.team))}
-    </div>
-    <div class="bars">${bar('Need',r.need)}${bar('Team',r.teamSuccess)}${bar('Prod',r.playerSuccess)}${bar('Coach',r.coachFit)}</div>
-    <div class="rovr"><div class="v" style="color:${barCol(r.overall)};">${r.overall}</div><div class="l">Fit</div></div>
-  </div>`).join('')||'<div class="loading">No candidates match.</div>';
+  const head=`<th class="rk">#</th><th class="l">Player</th>${FIT_TH}<th class="l">Pos</th><th data-heat="1">Grade</th><th class="l">School</th><th class="l">Archetype</th><th class="l">Fills</th><th class="l">Now at spot</th><th data-heat="1" title="grade upgrade at the spot">Upgrade</th><th class="l">Role</th><th class="l">Now</th><th class="l">Projected here</th><th class="l">Why</th>`;
+  const body=rows.map((r,i)=>`<tr>
+    <td class="rk">${i+1}</td>
+    <td class="l nm"><a href="player.html?espn=${r.espn_id||''}&name=${encodeURIComponent(r.player)}">${r.player}</a></td>${fitTds(r)}
+    <td class="l dim">${r.playerPos}</td><td>${r.playerGrade}</td><td class="l dim">${r.playerTeam||''}</td><td class="l dim">${r.playerArch||''}</td>
+    <td class="l dim">${r.playerPos}${r.offNatural?` (from ${r.naturalPos})`:''}</td>
+    <td class="l dim">${r.slid?'covered by others':(r.starter||'—')} (${r.posBest})</td>
+    <td${r.upgrade>0?'':' class="dim"'}>${r.upgrade>0?'+'+r.upgrade:'—'}</td>
+    <td class="l">${r.role}</td>
+    <td class="l dim">${(r.cur&&((+r.cur.ppg||0)>0||(+r.cur.rpg||0)>0||(+r.cur.apg||0)>0))?projLineStr(r.cur):'—'}</td>${projCells(r.cur, r.proj)}${whyTd(r)}
+  </tr>`).join('');
+  fitTable(head, body);
+  if(!rows.length) $('results').innerHTML='<div class="loading">No candidates match.</div>';
 }
 function renderPlayerFits(){
   if(!PLAYER) return;
@@ -317,21 +300,21 @@ function renderPlayerFits(){
   const rows=TDCPortalFit.rank(PLAYER, TEAMS, PROFS, {sortBy, weights:normW(), filter});
   const ppos=TDCPortalFit.pos(PLAYER);
   $('rankNote').textContent=`${rows.length} teams · ranked by ${({overall:'overall fit',teamSuccess:'team success',playerSuccess:'his production',coachFit:'coach fit',need:'positional need'})[sortBy]} · showing his fit at ${ppos}`;
-  const bar=(lbl,v)=>`<div class="bar"><span class="bl">${lbl}</span><span class="bt"><span class="bf" style="width:${v}%;background:${barCol(v)};"></span></span><span class="bv">${v}</span></div>`;
-  $('results').innerHTML=rows.map((r,i)=>`<div class="rrow">
-    <div class="rrk">${i+1}</div>
-    <div>
-      <div class="rteam"><a href="team.html?team=${encodeURIComponent(r.team)}">${r.full||r.team}</a> <span style="font-size:11px;color:var(--text3);font-weight:600;">${r.conf||''}${r.rank?' · #'+r.rank:''}</span></div>
-      <div class="tr">${r.coach?`${r.coach}${r.archetype?' · '+r.archetype:''}`:'coach n/a'} · plays ${r.playerPos}${r.offNatural?` <span class="posflex">from ${r.naturalPos}</span>`:''}: now ${r.slid?'covered by others':(r.starter||'—')} (${r.posBest})${r.upgrade>0?` · <span style="color:var(--green);">+${r.upgrade} upgrade</span>`:''}</div>
-      <div class="rrole">${r.role}</div>
-      ${r.why?`<div class="rwhy">${r.why}</div>`:''}
-      ${projCompare({ppg:PLAYER.ppg,rpg:PLAYER.rpg,apg:PLAYER.apg,tp_pct:(PLAYER.tp_pct||PLAYER.three_pct)}, PLAYER.team, r.proj, (r.full||r.team))}
-    </div>
-    <div class="bars">
-      ${bar('Need',r.need)}${bar('Team',r.teamSuccess)}${bar('Prod',r.playerSuccess)}${bar('Coach',r.coachFit)}
-    </div>
-    <div class="rovr"><div class="v" style="color:${barCol(r.overall)};">${r.overall}</div><div class="l">Fit</div></div>
-  </div>`).join('')||'<div class="loading">No teams match these filters.</div>';
+  const cur={ppg:PLAYER.ppg,rpg:PLAYER.rpg,apg:PLAYER.apg,tp_pct:(PLAYER.tp_pct||PLAYER.three_pct)};
+  if((+cur.ppg||0)>0||(+cur.rpg||0)>0||(+cur.apg||0)>0) $('rankNote').textContent+=` · now at ${PLAYER.team||'—'}: ${projLineStr(cur)}`;
+  const head=`<th class="rk">#</th><th class="l">Team</th>${FIT_TH}<th class="l">Conf</th><th title="projected national rank">Rk</th><th class="l">Coach</th><th class="l">Style</th><th class="l">Plays</th><th class="l">Now at spot</th><th data-heat="1" title="grade upgrade at the spot">Upgrade</th><th class="l">Role</th><th class="l">Projected there</th><th class="l">Why</th>`;
+  const body=rows.map((r,i)=>`<tr>
+    <td class="rk">${i+1}</td>
+    <td class="l nm"><a href="team.html?team=${encodeURIComponent(r.team)}">${r.full||r.team}</a></td>${fitTds(r)}
+    <td class="l dim">${r.conf||''}</td><td class="dim">${r.rank||'—'}</td>
+    <td class="l dim">${r.coach||'n/a'}</td><td class="l dim">${r.coach&&r.archetype?r.archetype:''}</td>
+    <td class="l dim">${r.playerPos}${r.offNatural?` (from ${r.naturalPos})`:''}</td>
+    <td class="l dim">${r.slid?'covered by others':(r.starter||'—')} (${r.posBest})</td>
+    <td${r.upgrade>0?'':' class="dim"'}>${r.upgrade>0?'+'+r.upgrade:'—'}</td>
+    <td class="l">${r.role}</td>${projCells(cur, r.proj)}${whyTd(r)}
+  </tr>`).join('');
+  fitTable(head, body);
+  if(!rows.length) $('results').innerHTML='<div class="loading">No teams match these filters.</div>';
 }
 // sort segment
 $('sortSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return;
@@ -364,5 +347,6 @@ boot();
 </script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=8"></script>
+  <script src="tdc-sheets.js?v=1"></script>
 </body>
 </html>

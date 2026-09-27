@@ -63,23 +63,9 @@
     .progress-fill{height:100%;background:var(--accent);width:0%;transition:width .3s;}
     /* TABLE */
     .table-wrap{padding:0 0 40px;}
-    table{width:100%;border-collapse:collapse;font-size:12px;}
-    thead tr{border-bottom:2px solid var(--border);}
-    th{padding:10px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);white-space:nowrap;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--bg);z-index:2;}
-    th:first-child,th:nth-child(2){text-align:left;padding-left:40px;}
-    th:hover{color:var(--text);}
-    th.sorted{color:var(--accent);}
-    th .sort-arrow{display:inline-block;margin-left:3px;opacity:0.4;font-size:9px;}
-    th.sorted .sort-arrow{opacity:1;color:var(--accent);}
-    tbody tr{border-bottom:1px solid var(--border);}
-    tbody tr:hover{background:var(--bg2);}
-    td{padding:9px 8px;text-align:right;white-space:nowrap;}
-    td:first-child{text-align:left;padding-left:40px;font-size:11px;font-weight:700;color:var(--text3);width:40px;}
-    td.team-cell{text-align:left;padding-left:8px;}
+    /* the outer holder keeps .sheet-wrap only for tdc-column.css's column margins; the inner #tsSheet is the bordered sheet */
+    .table-wrap.sheet-wrap{border:none;border-radius:0;background:none;overflow:visible;max-height:none;}
     .team-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;flex-shrink:0;}
-    .team-name-link{text-decoration:none;color:var(--text);font-weight:600;font-size:13px;}
-    .team-name-link:hover{color:var(--accent);}
-    .conf-badge{font-size:10px;color:var(--text3);font-weight:600;margin-left:5px;}
     /* Stat cell colouring is the shared red-to-green conditional format in
        tdc-sheets.css (.c0 … .c4) — the league's own percentile buckets drive it. */
     /* LEADERS */
@@ -94,7 +80,6 @@
     .footer-logo span{color:var(--accent);}
     @media(max-width:600px){
       .nav-top,.nav-sub,.page-header,.controls,.leaders{padding-left:16px;padding-right:16px;}
-      td:first-child,th:first-child,th:nth-child(2){padding-left:16px;}
     }
   </style>
   <!-- new-UI theme layer: navy+blue dark palette (matches index/player); light-mode guard keeps the toggle readable -->
@@ -1541,9 +1526,10 @@ function buildRow(team, conf, proj){
 function buildHeader(){
   const thead = document.getElementById('thead');
   thead.innerHTML = `<tr>
-    <th class="rk">RK</th>
-    <th class="l sort${sortCol==='name'?' on':''}" onclick="setSort('name')">TEAM <span class="sort-arrow">${sortCol==='name'?(sortAsc?'↑':'↓'):'↕'}</span></th>
-    ${COLS.map(c=>`<th id="th_${c.key}" class="sort${sortCol===c.key?' on':''}" title="${c.desc}" onclick="setSort('${c.key}')">${c.label} <span class="sort-arrow">${sortCol===c.key?(sortAsc?'↑':'↓'):'↕'}</span>${c.inv?'<span style="font-size:8px;color:var(--text3);" title="Lower is better"> ↓</span>':''}</th>`).join('')}
+    <th class="rk">#</th>
+    <th class="l sort${sortCol==='name'?' on':''}" onclick="setSort('name')">Team<span class="ar">${sortCol==='name'?(sortAsc?'▲':'▼'):''}</span></th>
+    <th class="l">Conf</th>
+    ${COLS.map(c=>`<th id="th_${c.key}" class="sort${sortCol===c.key?' on':''}" title="${c.desc}" onclick="setSort('${c.key}')">${c.label}<span class="ar">${sortCol===c.key?(sortAsc?'▲':'▼'):''}</span></th>`).join('')}
   </tr>`;
 }
 
@@ -1634,11 +1620,8 @@ function render(){
   tbody.innerHTML = rows.map((r, i) => `
     <tr>
       <td class="rk">${i+1}</td>
-      <td class="l team-cell">
-        <span class="team-dot" style="background:${r.color};"></span>
-        <a class="team-name-link" href="team.html?team=${encodeURIComponent(r.name)}">${r.name}</a>
-        <span class="conf-badge">${r.conf}</span>
-      </td>
+      <td class="l nm team-cell"><span class="team-dot" style="background:${r.color};"></span><a href="team.html?team=${encodeURIComponent(r.name)}">${r.name}</a></td>
+      <td class="l dim">${r.conf||''}</td>
       ${COLS.map(c => {
         const v = r.stats[c.key];
         const cls = cellClass(c.key, v);

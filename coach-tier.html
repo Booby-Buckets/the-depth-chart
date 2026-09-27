@@ -392,7 +392,7 @@ function toolRow(t, hc){
 function toggleTool(id,force){ const r=document.querySelector(`tr.tool-row[data-id="${id}"]`), d=document.querySelector(`tr.tool-detail[data-id="${id}"]`); if(!r||!d) return;
   const open=force==null?!r.classList.contains('open'):force; r.classList.toggle('open',open); d.classList.toggle('open',open); }
 function hubAll(hid,open){ document.querySelectorAll(`#hub-${hid} tr.tool-row`).forEach(r=>toggleTool(r.dataset.id,open)); }
-function sheetOf(tools,hc){ return `<div class="sheet-wrap"><table class="sheet"><thead><tr><th></th><th class="l">Tool</th><th class="l">What it does</th><th class="c">Open</th></tr></thead><tbody>${tools.map(t=>toolRow(t,hc)).join('')}</tbody></table></div>`; }
+function sheetOf(tools,hc){ return `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th></th><th class="l">Tool</th><th class="l">What it does</th><th class="c">Open</th></tr></thead><tbody>${tools.map(t=>toolRow(t,hc)).join('')}</tbody></table></div>`; }
 
 function render(){
   let shown=0; _tid=0;
@@ -499,10 +499,10 @@ function renderCommandCenter(row){
     ['📅','predict.html','Projected Ratings','rating + game-by-game odds'],
     ['🌱','roster-dev.html','Development','year-over-year trajectory'],
   ];
-  const launch=`<div class="sheet-wrap"><table class="sheet"><thead><tr><th></th><th class="l">Tool</th><th class="l">What it gives you</th><th class="c">Open</th></tr></thead><tbody>${LAUNCH.map(t=>`<tr style="cursor:pointer" onclick="location.href='${t[1]}?team=${q}'"><td class="c">${t[0]}</td><td class="l nm">${t[2]}</td><td class="l wrap dim">${t[3]}</td><td class="c"><a class="tool-open" style="--hc:${tc}" href="${t[1]}?team=${q}">Open →</a></td></tr>`).join('')}</tbody></table></div>`;
+  const launch=`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Tool</th><th class="l">What it gives you</th><th class="c">Open</th></tr></thead><tbody>${LAUNCH.map(t=>`<tr style="cursor:pointer" onclick="location.href='${t[1]}?team=${q}'"><td class="l nm">${t[2]}</td><td class="l wrap dim">${t[3]}</td><td class="c"><a class="tool-open" style="--hc:${tc}" href="${t[1]}?team=${q}">Open →</a></td></tr>`).join('')}</tbody></table></div>`;
   let nilList='';
   if(nilT&&nilT.players&&nilT.players.length){ const top=[...nilT.players].filter(p=>nz(p.value)!=null).sort((a,b)=>(nz(b.value)||0)-(nz(a.value)||0)).slice(0,5);
-    nilList=`<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Player</th><th class="c">Pos</th><th>Grade</th><th>Market value</th></tr></thead><tbody>${top.map(p=>`<tr><td class="l nm">${esc(p.name)}</td><td class="c dim">${esc(p.pos||'')}</td><td>${p.grade||'—'}</td><td class="strong" style="color:var(--accent)">$${((window.TDC_NIL&&TDC_NIL.neutralValueOf)?TDC_NIL.neutralValueOf(p,nilT.tier):(nz(p.value)||0)*_nilF).toFixed(2)}m</td></tr>`).join('')}</tbody></table></div>`; }
+    nilList=`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th class="l">Pos</th><th data-heat="1">Grade</th><th data-heat="1" title="estimated NIL market value">Market value</th></tr></thead><tbody>${top.map(p=>`<tr><td class="l nm">${esc(p.name)}</td><td class="l dim">${esc(p.pos||'')}</td><td>${p.grade||'—'}</td><td class="big">$${((window.TDC_NIL&&TDC_NIL.neutralValueOf)?TDC_NIL.neutralValueOf(p,nilT.tier):(nz(p.value)||0)*_nilF).toFixed(2)}m</td></tr>`).join('')}</tbody></table></div>`; }
   const nilPanel=`<div class="cc-panel"><h4>Top market values</h4>${nilList||'<div class="cd" style="font-size:12px;color:var(--text3)">No NIL breakdown for this team yet.</div>'}</div>`;
   const scoutPanel=`<div class="cc-panel"><h4>Scout an opponent</h4><div class="cc-oppwrap"><input id="ccOpp" type="text" placeholder="Search an opponent to scout…" autocomplete="off"><div class="cc-list" id="ccOppList"></div></div><div class="cd" style="font-size:11px;color:var(--text3);margin-top:8px">Opens a full scouting report — with your team set as the matchup.</div></div>`;
   ccEl.innerHTML=`
@@ -520,6 +520,7 @@ function renderCommandCenter(row){
     <div class="cc-2col">${scoutPanel}${nilPanel}</div>
     <div class="cc-sec">All tools</div>`;
   wirePicker('ccOpp','ccOppList', full=>{ location.href='scout.html?opp='+encodeURIComponent(full)+'&me='+q; }, row.full);
+  if(window.tdcSheetHeat) ccEl.querySelectorAll('table.sheet').forEach(t=>tdcSheetHeat(t));
   loadSchedule(row);
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(ccEl);
 }
@@ -542,9 +543,10 @@ async function loadSchedule(row){
     const odds = p!=null
       ? `<span style="font-weight:800;color:${p>=50?'var(--green,#1a8c3a)':'var(--red,#cc2200)'}">${p.toFixed(0)}%</span><span style="min-width:66px;text-align:right;color:var(--text3);font-size:11px">${esc(spread)}</span>`
       : `<span style="min-width:66px;text-align:right;color:var(--text3);font-size:11px">—</span>`;
-    return `<tr><td class="l dim">${esc(g.date||'')}</td><td class="l nm">${homeMe?'vs':'at'} ${esc(oppFull)}</td><td class="c dim">${g.neutral?'N':homeMe?'H':'A'}</td><td style="font-weight:800;color:${p==null?'var(--text3)':p>=50?'var(--green,#1a8c3a)':'var(--red,#cc2200)'}">${p!=null?p.toFixed(0)+'%':'—'}</td><td class="dim">${esc(spread)||'—'}</td></tr>`;
+    return `<tr><td class="l dim">${esc(g.date||'')}</td><td class="l nm">${homeMe?'vs':'at'} ${esc(oppFull)}</td><td class="c dim">${g.neutral?'N':homeMe?'H':'A'}</td><td${p==null?' class="dim"':''}>${p!=null?p.toFixed(0)+'%':'—'}</td><td class="dim">${esc(spread)||'—'}</td></tr>`;
   }).join('');
-  if(host) host.innerHTML=`<div style="font-size:12.5px;font-weight:800;margin-bottom:8px">Projected record ${w}-${l} <span style="font-weight:600;color:var(--text3)">· ${games.length} games</span></div><div class="sheet-wrap" style="max-height:380px"><table class="sheet"><thead><tr><th class="l">Date</th><th class="l">Opponent</th><th class="c">Site</th><th>Win %</th><th>Spread</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  if(host) host.innerHTML=`<div style="font-size:12.5px;font-weight:800;margin-bottom:8px">Projected record ${w}-${l} <span style="font-weight:600;color:var(--text3)">· ${games.length} games</span></div><div class="sheet-wrap" style="max-height:380px"><table class="sheet dense"><thead><tr><th class="l">Date</th><th class="l">Opponent</th><th class="c">Site</th><th data-heat="1" title="projected win probability">Win %</th><th>Spread</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  if(host&&window.tdcSheetHeat) host.querySelectorAll('table.sheet').forEach(t=>tdcSheetHeat(t));
   if(card){ const cv=card.querySelector('.cv'), cd=card.querySelector('.cd'), next=games[0], homeMe=next.home===row.full;
     if(cv){ cv.textContent=`${w}-${l}`; } if(cd) cd.textContent=`projected · next ${homeMe?'vs':'at'} ${homeMe?next.away:next.home}`; }
 }
@@ -575,5 +577,6 @@ function renderTop(){
 </script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=8"></script>
+  <script src="tdc-sheets.js?v=1"></script>
 </body>
 </html>

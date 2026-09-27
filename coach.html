@@ -111,16 +111,7 @@
     .plist{border:1px solid var(--border);border-radius:14px;background:var(--bg2);overflow:hidden;}
     .plist h3{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text);padding:15px 18px 3px;}
     .plist .sub{font-size:10.5px;color:var(--text3);padding:0 18px 10px;}
-    .prow{display:flex;align-items:center;gap:12px;padding:9px 18px;border-top:1px solid var(--border);transition:background .12s;}
-    .prow:hover{background:var(--bg3);}
-    .prk{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;color:var(--text3);width:16px;text-align:center;flex-shrink:0;}
-    .pnm{flex:1;min-width:0;} .pnm .n{font-size:13.5px;font-weight:700;line-height:1.15;}
-    .pnm .s{font-size:10.5px;color:var(--text3);font-weight:500;}
-    .parc{display:flex;align-items:center;gap:7px;flex-shrink:0;font-variant-numeric:tabular-nums;}
-    .parc .g0{color:var(--text3);font-weight:700;font-size:13px;} .parc .ar{color:var(--text3);}
-    .parc .g1{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;}
-    .parc .d{font-size:11px;font-weight:800;color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent);padding:2px 7px;border-radius:6px;}
-    .grade-badge{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;flex-shrink:0;}
+    .plist .sheet-wrap{border:none;border-top:1px solid var(--border);border-radius:0;background:var(--bg);max-height:none;}
     .chero-grade{margin-left:auto;text-align:right;flex-shrink:0;padding:12px 16px;border:1px solid #2a3652;border-radius:10px;}
     .chero-grade .cg-num{font-family:'Playfair Display',serif;font-weight:800;font-size:44px;line-height:1;color:#fff;}
     .chero-grade .cg-lbl{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#b8c0cf;margin-top:6px;}
@@ -191,7 +182,7 @@
   <link rel="stylesheet" href="tdc-dense.css?v=39"/>
   <link rel="stylesheet" href="tdc-skin.css?v=12"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
-  <script src="tdc-shotprofile.js?v=1"></script>
+  <script src="tdc-shotprofile.js?v=1s"></script>
   <script src="team-colors.js?v=10"></script>
   <style>
     :root:not([data-theme="dark"]){background:var(--bg)!important;}
@@ -430,12 +421,12 @@ function render(p, ss, pg){
         '<div class="bt-roster">'+(bt.roster||[]).map(r=>'<a class="bt-p" href="'+plink(r.espn_id,r.player)+'"><span class="g" style="color:'+gradeColor(r.grade)+'">'+r.grade+'</span><span><div class="pn">'+r.player+'</div><div class="pp">'+(r.pos||'')+'</div></span></a>').join('')+'</div></div>';
     }
     // best players + developers
-    var pr=(pg.best_players||[]).map((r,i)=>'<a class="prow" href="'+plink(r.espn_id,r.player)+'"><span class="prk">'+(i+1)+'</span>'+
-      '<span class="pnm"><div class="n">'+r.player+'</div><div class="s">'+(r.pos||'')+' · '+(r.years?seasonLbl(r.years[0])+(r.years[1]!==r.years[0]?'–'+(''+r.years[1]).slice(2):''):'')+' · '+r.seasons+' yr</div></span>'+
-      '<span class="grade-badge" style="color:'+gradeColor(r.grade)+'">'+r.grade+'</span></a>').join('');
-    var dv=(pg.dev_players||[]).map((r,i)=>'<a class="prow" href="'+plink(r.espn_id,r.player)+'"><span class="prk">'+(i+1)+'</span>'+
-      '<span class="pnm"><div class="n">'+r.player+'</div><div class="s">'+seasonLbl(r.from_year)+' → '+seasonLbl(r.to_year)+'</div></span>'+
-      '<span class="parc"><span class="g0">'+r.from+'</span><span class="ar">→</span><span class="g1" style="color:'+gradeColor(r.to)+'">'+r.to+'</span><span class="d">+'+r.gain+'</span></span></a>').join('');
+    // ranked lists as sheets: one line per player, bio in its own dim columns, grades shaded
+    var yrs=r=>r.years?seasonLbl(r.years[0])+(r.years[1]!==r.years[0]?'–'+(''+r.years[1]).slice(2):''):'';
+    var pr=(pg.best_players||[]).length?'<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l">Pos</th><th class="l">Years</th><th>Yrs</th><th title="peak TDC grade under this coach">Peak</th></tr></thead><tbody>'+
+      pg.best_players.map((r,i)=>'<tr><td class="rk">'+(i+1)+'</td><td class="l nm"><a href="'+plink(r.espn_id,r.player)+'">'+r.player+'</a></td><td class="l dim">'+(r.pos||'')+'</td><td class="l dim">'+yrs(r)+'</td><td class="dim">'+r.seasons+'</td><td class="big">'+r.grade+'</td></tr>').join('')+'</tbody></table></div>':'';
+    var dv=(pg.dev_players||[]).length?'<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l">Span</th><th title="TDC grade at the start">From</th><th title="TDC grade at the end">To</th><th title="grade climb under him">Gain</th></tr></thead><tbody>'+
+      pg.dev_players.map((r,i)=>'<tr><td class="rk">'+(i+1)+'</td><td class="l nm"><a href="'+plink(r.espn_id,r.player)+'">'+r.player+'</a></td><td class="l dim">'+seasonLbl(r.from_year)+' → '+seasonLbl(r.to_year)+'</td><td class="dim">'+r.from+'</td><td class="big">'+r.to+'</td><td>+'+r.gain+'</td></tr>').join('')+'</tbody></table></div>':'';
     html+='<div class="sec-t">The Talent <span>who he coached & who grew most</span></div>'+
       '<div class="cols" data-anim><div class="plist"><h3>Best Players Coached</h3><div class="sub">by peak TDC grade under this coach</div>'+(pr||'<div class="sub" style="padding:14px 18px;">No graded players.</div>')+'</div>'+
       '<div class="plist"><h3>Top Developers</h3><div class="sub">biggest grade climb while under him</div>'+(dv||'<div class="sub" style="padding:14px 18px;">Not enough multi-season players.</div>')+'</div></div>';
@@ -444,6 +435,7 @@ function render(p, ss, pg){
   html+='<div id="rosterfit"></div>';  // current-roster fit (fetched per-coach)
   html+='<div id="rundown"></div>';   // season-by-season rundown (lazily fetched per-coach)
   document.getElementById('content').innerHTML=html;
+  if(window.tdcSheetHeat) document.querySelectorAll('#content .plist table.sheet').forEach(t=>tdcSheetHeat(t));
 }
 
 // ── SEASON-BY-SEASON RUNDOWN — every team the coach led, with style, roster,
@@ -569,5 +561,6 @@ init();
 </script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=8"></script>
+  <script src="tdc-sheets.js?v=1"></script>
 </body>
 </html>

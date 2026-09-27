@@ -143,34 +143,15 @@ window.TDC_LINEUPS = (function () {
       + '<div style="font-size:10.5px;color:var(--text3);margin-top:2px;">' + l.poss + ' poss · ' + (+l.off_rtg).toFixed(0) + ' ORtg · ' + (+l.def_rtg).toFixed(0) + ' DRtg</div></div>'
       + '<div style="white-space:nowrap;flex-shrink:0;">' + nchip(l.net) + '</div></div>';
   }
-  // ── deep five-man table (Hoop-Explorer-style: the four factors per unit, already in
-  //    lineups.json) with position badges + subtle per-cell heat vs league baselines ──
-  function heat(v, base, spread, hiGood) {
-    if (v == null || isNaN(v)) return 'var(--text3)';
-    var d = (v - base) / spread; if (!hiGood) d = -d; d = Math.max(-1, Math.min(1, d));
-    if (d > 0.15) return d > 0.55 ? '#1f9d57' : '#5bb381';
-    if (d < -0.15) return d < -0.55 ? '#e06552' : '#e0885a';
-    return 'var(--text2)';
-  }
   // normalize any position label to a consistent G / F / C (player_history is already
   // G/F/C; the current roster is granular PG/SG/SF/PF/C — collapse it so the whole
   // column reads the same all the way down).
   function toGFC(p) { p = ('' + (p || '')).toUpperCase().trim(); if (!p) return '';
     if (p.indexOf('C') >= 0 && p.indexOf('G') < 0 && p.indexOf('F') < 0) return 'C';
     if (p.indexOf('F') >= 0) return 'F'; return 'G'; }
-  // small diverging net bar (green right / red left) under the NET value — the on/off
-  // visual language shared with onoff.html + the team On/Off tab.
-  function netBarMini(v, maxAbs) {
-    if (v == null || isNaN(v)) return '';
-    var w = (Math.min(1, Math.abs(v) / maxAbs) * 50).toFixed(0);
-    var color = v >= 0 ? '#2bb673' : '#e06552', side = v >= 0 ? 'left:50%;' : 'right:50%;';
-    return '<div style="position:relative;height:5px;width:52px;margin:3px auto 0;background:var(--bg3);border-radius:3px;">'
-      + '<div style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:var(--border2);"></div>'
-      + '<div style="position:absolute;top:0;bottom:0;' + side + 'width:' + w + '%;background:' + color + ';border-radius:2px;"></div></div>';
-  }
   function posKey(s) { return norm(s).replace(/\b(jr|sr|ii|iii|iv|v)\b/g, '').replace(/\s+/g, ' ').trim(); }
   function posIndex(map) { var idx = {}; if (map) for (var k in map) { if (map[k]) idx[posKey(k)] = ('' + map[k]).toUpperCase(); } return idx; }
-  function posBadge(p) { return p ? '<sup style="font-size:8px;font-weight:800;color:var(--accent);margin-left:1px;letter-spacing:.02em;">' + p + '</sup>' : ''; }
+  function posBadge(p) { return p ? '<sup style="font-size:8px;font-weight:700;color:var(--text3);margin-left:1px;">' + p + '</sup>' : ''; }
   function lineupNames(players, idx) {
     var sn = shortNames(players);
     return players.map(function (p, i) { return '<span title="' + p.replace(/"/g, '&quot;') + '">' + sn[i] + posBadge(idx && idx[posKey(p)]) + '</span>'; })
@@ -184,21 +165,20 @@ window.TDC_LINEUPS = (function () {
     var lab = g >= 4 ? '4-Guard' : c >= 2 ? 'Twin Towers' : g === 3 ? '3-Guard' : g <= 1 ? 'Jumbo' : c === 0 ? 'Small Ball' : 'Balanced';
     return { lab: lab, mk: g + 'G · ' + f + 'F · ' + c + 'C' };
   }
-  function archTag(a) {
-    return a ? '<div style="margin-top:4px;"><span title="' + a.mk + '" style="display:inline-block;font-size:8px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:1px 7px;cursor:help;">' + a.lab + '</span></div>' : '';
-  }
-  // ── spreadsheet-style grid: a real <table> with collapsed 1px gridlines + a grey
-  //    header row (Google-Sheets look). Three stat groups (POSS·NET | ORtg·DRtg | four
-  //    factors) split by a heavier vertical rule; banded rows; numbers keep green/red
-  //    heat text. ──
-  var LU_MINW = 660, LU_DIVB = 'border-left:2px solid var(--border2);';   // group separator
-  function td(v, dec, color, extra) {
-    return '<td style="padding:7px 9px;border:1px solid var(--border);text-align:center;font-weight:700;font-size:12px;color:' + color + ';' + (extra || '') + '">'
+  function archTag(a) { return a ? '<span title="' + a.mk + '">' + a.lab + '</span>' : ''; }
+  // ── the site sheet (tdc-sheets.css .sheet.dense): gridlines, zebra, sticky header,
+  //    frozen lineup column. Three stat groups (POSS·NET | ORtg·DRtg | four factors) split
+  //    by a heavier vertical rule; numbers are shaded red-to-green within the table by
+  //    tdcSheetHeat (tdc-sheets.js) via data-heat on the headers. ──
+  var LU_DIVB = 'border-left:2px solid var(--border2);';   // group separator
+  function td(v, dec, cls, extra) {
+    return '<td' + (cls ? ' class="' + cls + '"' : '') + (extra ? ' style="' + extra + '"' : '') + '>'
       + (v == null || isNaN(v) ? '—' : (+v).toFixed(dec == null ? 0 : dec)) + '</td>';
   }
+  function sgn(v) { return v == null || isNaN(v) ? '—' : (v > 0 ? '+' : '') + (+v).toFixed(1); }
   // adjusted-net cell (row net + team SoS delta) + a SoS cell (the team constant)
-  function adjCell(net, sos) { var a = (+net || 0) + (sos || 0), c = a > 0 ? '#2bb673' : a < 0 ? '#e06552' : 'var(--text2)'; return td(a, 1, c); }
-  function sosCell(sos) { return td(sos, 1, sos > 0 ? '#5bb381' : sos < 0 ? '#e0885a' : 'var(--text3)'); }
+  function adjCell(net, sos) { return '<td>' + sgn((+net || 0) + (sos || 0)) + '</td>'; }
+  function sosCell(sos) { return '<td class="dim">' + sgn(sos) + '</td>'; }
   // hover descriptions for every stat column (self-contained so tooltips work on every
   // page this module renders on, whether or not tdc-glossary.js is loaded).
   var TT = {
@@ -215,38 +195,37 @@ window.TDC_LINEUPS = (function () {
     units: 'How many distinct five-man lineups this combo appeared in together. More units and possessions make the numbers more trustworthy.'
   };
   var TT_ID = { 'POSS': 'poss', 'NET': 'net', 'Adj': 'adj', 'SoS': 'sos', 'ORtg': 'ortg', 'DRtg': 'drtg', 'eFG%': 'efg', 'TOV%': 'tov', 'ORB%': 'orb', 'FTr': 'ftr', 'Units': 'units' };
-  function thLabel(label) { var t = TT[TT_ID[label]]; return t ? '<span title="' + t.replace(/"/g, '&quot;') + '" style="border-bottom:1px dotted currentColor;cursor:help;">' + label + '</span>' : label; }
   // header column specs + click-to-sort machinery
-  var FIVE_HS = [['Lineup', 'left', 0], ['POSS', 'center', 0], ['NET', 'center', 0], ['Adj', 'center', 0], ['SoS', 'center', 0], ['ORtg', 'center', 1], ['DRtg', 'center', 0], ['eFG%', 'center', 1], ['TOV%', 'center', 0], ['ORB%', 'center', 0], ['FTr', 'center', 0]];
-  var COMBO_HS = [['Players', 'left', 0], ['POSS', 'center', 0], ['NET', 'center', 0], ['Adj', 'center', 0], ['SoS', 'center', 0], ['ORtg', 'center', 1], ['DRtg', 'center', 0], ['eFG%', 'center', 1], ['TOV%', 'center', 0], ['ORB%', 'center', 0], ['FTr', 'center', 0], ['Units', 'center', 1]];
+  // [label, align, isGroupStart, data-heat]
+  var FIVE_HS = [['Lineup', 'l', 0, 0], ['Type', 'l', 0, 0], ['POSS', '', 0, 0], ['NET', '', 0, 1], ['Tier', 'l', 0, 0], ['Adj', '', 0, 1], ['SoS', '', 0, 0], ['ORtg', '', 1, 1], ['DRtg', '', 0, -1], ['eFG%', '', 1, 1], ['TOV%', '', 0, -1], ['ORB%', '', 0, 1], ['FTr', '', 0, 1]];
+  var COMBO_HS = [['Players', 'l', 0, 0], ['POSS', '', 0, 0], ['NET', '', 0, 1], ['Tier', 'l', 0, 0], ['Adj', '', 0, 1], ['SoS', '', 0, 0], ['ORtg', '', 1, 1], ['DRtg', '', 0, -1], ['eFG%', '', 1, 1], ['TOV%', '', 0, -1], ['ORB%', '', 0, 1], ['FTr', '', 0, 1], ['Units', '', 1, 0]];
   var SORT_KEY = { 'POSS': 'poss', 'NET': 'net', 'Adj': 'net', 'ORtg': 'off_rtg', 'DRtg': 'def_rtg', 'eFG%': 'efg', 'TOV%': 'tov_pct', 'ORB%': 'orb_pct', 'FTr': 'ftr', 'Units': 'units' };
   var LOWER_BETTER = { def_rtg: 1, tov_pct: 1 };
   var _reg = {}, _rn = 0;
-  function thCell(h, sc) {   // h = [label, align, isGroupStart]; sc = sort context (or null)
-    var tip = !!TT[TT_ID[h[0]]], sk = sc && SORT_KEY[h[0]], active = sk && sc.sortKey === sk;
-    var ind = active ? (sc.sortDir === 'desc' ? ' ▾' : ' ▴') : '';
+  function thCell(h, sc) {   // h = [label, align, isGroupStart, heat]; sc = sort context (or null)
+    var t = TT[TT_ID[h[0]]] || (h[0] === 'Type' ? 'Personnel archetype from the unit\'s G/F/C makeup (hover a cell for the count).' : h[0] === 'Tier' ? 'How the unit\'s net rating grades against a typical unit.' : '');
+    var sk = sc && SORT_KEY[h[0]], active = sk && sc.sortKey === sk;
+    var cls = [h[1], sk ? 'sort' : '', active ? 'on' : ''].filter(Boolean).join(' ');
     var onclick = sk ? ' onclick="window.TDC_LINEUPS&&TDC_LINEUPS._sort(\'' + sc.id + '\',\'' + h[0] + '\')"' : '';
-    var cursor = sk ? 'cursor:pointer;' : (tip ? 'cursor:help;' : '');
-    return '<th' + onclick + ' style="padding:7px 9px;border:1px solid var(--border);background:var(--bg3);text-align:' + h[1] + ';font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:' + (active ? 'var(--text)' : 'var(--text3)') + ';white-space:nowrap;' + (h[2] ? LU_DIVB : '') + cursor + '">' + thLabel(h[0]) + ind + '</th>';
+    return '<th' + (cls ? ' class="' + cls + '"' : '') + (h[3] ? ' data-heat="' + h[3] + '"' : '') + (t ? ' title="' + t.replace(/"/g, '&quot;') + '"' : '') + onclick
+      + (h[2] ? ' style="' + LU_DIVB + '"' : '') + '>' + h[0] + (sk ? '<span class="ar">' + (active ? (sc.sortDir === 'desc' ? '▼' : '▲') : '') + '</span>' : '') + '</th>';
   }
   function luRow(l, idx, i, sos) {
-    var tr = tier(l.net), netc = l.net > 0 ? '#2bb673' : l.net < 0 ? '#e06552' : 'var(--text2)';
-    var zebra = (i % 2) ? 'background:color-mix(in srgb,var(--text3) 5%,transparent);' : '';
-    var netInner = '<div style="font-weight:800;font-size:13px;color:' + netc + ';line-height:1.05;">' + (l.net > 0 ? '+' : '') + (+l.net).toFixed(1) + '</div>'
-      + (tr ? '<div style="font-size:7.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:' + tr.c + ';margin-top:1px;">' + tr.t + '</div>' : '')
-      + netBarMini(l.net, 25);
-    return '<tr style="' + zebra + '">'
-      + '<td style="padding:8px 10px;border:1px solid var(--border);text-align:left;font-weight:700;font-size:12px;line-height:1.4;min-width:180px;">' + lineupNames(l.players, idx) + archTag(archetypeOf(l.players, idx)) + '</td>'
-      + td(l.poss, 0, 'var(--text2)')
-      + '<td style="padding:5px 9px;border:1px solid var(--border);text-align:center;">' + netInner + '</td>'
+    var tr = tier(l.net);
+    return '<tr>'
+      + '<td class="l nm">' + lineupNames(l.players, idx) + '</td>'
+      + '<td class="l dim">' + archTag(archetypeOf(l.players, idx)) + '</td>'
+      + td(l.poss, 0, 'dim')
+      + '<td class="strong">' + sgn(l.net) + '</td>'
+      + '<td class="l dim">' + (tr ? tr.t : '') + '</td>'
       + adjCell(l.net, sos)
       + sosCell(sos)
-      + td(l.off_rtg, 0, heat(l.off_rtg, 77, 20, true), LU_DIVB)
-      + td(l.def_rtg, 0, heat(l.def_rtg, 74, 20, false))
-      + td(l.efg, 1, heat(l.efg, 47.5, 8, true), LU_DIVB)
-      + td(l.tov_pct, 1, heat(l.tov_pct, 16, 5, false))
-      + td(l.orb_pct, 1, heat(l.orb_pct, 6, 6, true))
-      + td(l.ftr, 1, heat(l.ftr, 21, 12, true))
+      + td(l.off_rtg, 0, '', LU_DIVB)
+      + td(l.def_rtg, 0)
+      + td(l.efg, 1, '', LU_DIVB)
+      + td(l.tov_pct, 1)
+      + td(l.orb_pct, 1)
+      + td(l.ftr, 1)
       + '</tr>';
   }
   // min-possessions filter chips
@@ -265,15 +244,21 @@ window.TDC_LINEUPS = (function () {
       .slice().sort(function (a, b) { var av = a[key], bv = b[key]; av = (av == null ? -1e9 : av); bv = (bv == null ? -1e9 : bv); return dir === 'desc' ? bv - av : av - bv; })
       .slice(0, s.max);
     var sc = { id: s.id, sortKey: s.sortKey, sortDir: s.sortDir };
-    var hs = s.kind === 'five' ? FIVE_HS : COMBO_HS, minw = s.kind === 'five' ? 756 : 812;
+    var hs = s.kind === 'five' ? FIVE_HS : COMBO_HS;
     var head = '<thead><tr>' + hs.map(function (h) { return thCell(h, sc); }).join('') + '</tr></thead>';
     var body = rows.length ? rows.map(function (r, i) { return s.kind === 'five' ? luRow(r, s.idx, i, s.sos) : comboRow(r, s.idx, i, s.sos); }).join('')
-      : '<tr><td colspan="' + hs.length + '" style="padding:16px;text-align:center;color:var(--text3);font-size:12px;border:1px solid var(--border);">No units at this possession cutoff.</td></tr>';
+      : '<tr><td colspan="' + hs.length + '" class="c dim">No units at this possession cutoff.</td></tr>';
     return filterBar(s)
-      + '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><div style="min-width:max(' + minw + 'px,100%);width:max-content;border:1px solid var(--border);border-radius:8px;overflow:hidden;">'
-      + '<table style="border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;">' + head + '<tbody>' + body + '</tbody></table></div></div>';
+      + '<div class="sheet-wrap"><table class="sheet dense freeze">' + head + '<tbody>' + body + '</tbody></table></div>';
   }
-  function rerender(id) { var s = _reg[id], el = document.getElementById(id); if (s && el) el.innerHTML = renderBlock(s); }
+  // red-to-green column shading (tdc-sheets.js) — the section HTML is inserted by the caller
+  // after the promise resolves, so wait for the block to reach the page before shading it
+  function shade(id, tries) {
+    var el = document.getElementById(id), t = el && el.querySelector('table.sheet');
+    if (t) { if (window.tdcSheetHeat) window.tdcSheetHeat(t); return; }
+    if ((tries || 0) < 40) setTimeout(function () { shade(id, (tries || 0) + 1); }, 100);
+  }
+  function rerender(id) { var s = _reg[id], el = document.getElementById(id); if (s && el) { el.innerHTML = renderBlock(s); shade(id, 40); } }
   function _sort(id, label) { var s = _reg[id]; if (!s) return; var key = SORT_KEY[label]; if (!key) return;
     if (s.sortKey === key) s.sortDir = s.sortDir === 'desc' ? 'asc' : 'desc';
     else { s.sortKey = key; s.sortDir = LOWER_BETTER[key] ? 'asc' : 'desc'; } rerender(id); }
@@ -282,29 +267,27 @@ window.TDC_LINEUPS = (function () {
   function block(kind, rows, idx, sos, max, minPoss, sortKey, sortDir) {
     var id = 'tdclu' + (++_rn);
     _reg[id] = { id: id, kind: kind, rows: rows || [], idx: idx, sos: sos, max: max, minPoss: minPoss || 0, sortKey: sortKey, sortDir: sortDir };
+    setTimeout(function () { shade(id, 0); }, 0);
     return '<div id="' + id + '">' + renderBlock(_reg[id]) + '</div>';
   }
   // trios / pairs — SAME spreadsheet grid + full stat set as the five-man table (net,
   // ORtg, DRtg + four factors, blended from the units they share), plus a Units column.
   function comboRow(t, idx, i, sos) {
-    var tr = tier(t.net), netc = t.net > 0 ? '#2bb673' : t.net < 0 ? '#e06552' : 'var(--text2)';
-    var zebra = (i % 2) ? 'background:color-mix(in srgb,var(--text3) 5%,transparent);' : '';
-    var netInner = '<div style="font-weight:800;font-size:12.5px;color:' + netc + ';line-height:1.05;">' + (t.net > 0 ? '+' : '') + (+t.net).toFixed(1) + '</div>'
-      + (tr ? '<div style="font-size:7px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:' + tr.c + ';margin-top:1px;">' + tr.t + '</div>' : '')
-      + netBarMini(t.net, 25);
-    return '<tr style="' + zebra + '">'
-      + '<td style="padding:7px 10px;border:1px solid var(--border);text-align:left;font-weight:700;font-size:11.5px;line-height:1.4;min-width:168px;">' + lineupNames(t.players, idx) + '</td>'
-      + td(t.poss, 0, 'var(--text2)')
-      + '<td style="padding:5px 9px;border:1px solid var(--border);text-align:center;">' + netInner + '</td>'
+    var tr = tier(t.net);
+    return '<tr>'
+      + '<td class="l nm">' + lineupNames(t.players, idx) + '</td>'
+      + td(t.poss, 0, 'dim')
+      + '<td class="strong">' + sgn(t.net) + '</td>'
+      + '<td class="l dim">' + (tr ? tr.t : '') + '</td>'
       + adjCell(t.net, sos)
       + sosCell(sos)
-      + td(t.off_rtg, 0, heat(t.off_rtg, 77, 20, true), LU_DIVB)
-      + td(t.def_rtg, 0, heat(t.def_rtg, 74, 20, false))
-      + td(t.efg, 1, heat(t.efg, 47.5, 8, true), LU_DIVB)
-      + td(t.tov_pct, 1, heat(t.tov_pct, 16, 5, false))
-      + td(t.orb_pct, 1, heat(t.orb_pct, 6, 6, true))
-      + td(t.ftr, 1, heat(t.ftr, 21, 12, true))
-      + td(t.units, 0, 'var(--text3)', LU_DIVB)
+      + td(t.off_rtg, 0, '', LU_DIVB)
+      + td(t.def_rtg, 0)
+      + td(t.efg, 1, '', LU_DIVB)
+      + td(t.tov_pct, 1)
+      + td(t.orb_pct, 1)
+      + td(t.ftr, 1)
+      + td(t.units, 0, 'dim', LU_DIVB)
       + '</tr>';
   }
   function rowC(t) {   // a trio or pair row (both carry .players)
@@ -346,7 +329,7 @@ window.TDC_LINEUPS = (function () {
       var pairCol = (pairRows && pairRows.length) ? block('combo', pairRows, pIdx, sos, maxP, trioMin, 'net', 'desc') : emptyCol();
       return ''
         + '<div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:26px 0 4px;">Lineups, Trios &amp; Pairs <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;">· ' + yl + ' · ' + src + '</span></div>'
-        + '<div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:12px;">The five-man units this team played, plus the trios and pairs inside them. <b style="color:var(--text2);">Net</b> = per-100 margin with that group on; <span style="color:#5bb381;">green</span>/<span style="color:#e0885a;">red</span> beats/trails a typical unit. Hover a header for its definition; click to sort.</div>'
+        + '<div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:12px;">The five-man units this team played, plus the trios and pairs inside them. <b style="color:var(--text2);">Net</b> = per-100 margin with that group on; each stat column is shaded red (worst) to green (best) within its table. Hover a header for its definition; click to sort.</div>'
         + '<div style="' + LU_CARD + '">' + colHdr('Five-man lineups · most-used') + lineupCol + '</div>'
         + '<div style="' + LU_CARD + 'margin-top:20px;">' + colHdr('Top trios') + trioCol + '</div>'
         + '<div style="' + LU_CARD + 'margin-top:20px;">' + colHdr('Top pairs') + pairCol + '</div>';

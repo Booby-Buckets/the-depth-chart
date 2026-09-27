@@ -10,7 +10,7 @@
   <script src="tdc-projgrade.js?v=base24"></script>
   <script src="tdc-awards.js?v=6"></script>
   <script src="tdc-ratings.js?v=21"></script>
-  <script src="tdc-schedule.js?v=20"></script>
+  <script src="tdc-schedule.js?v=20s"></script>
   <script src="tdc-glossary.js?v=13"></script>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=5"></script>
@@ -166,21 +166,15 @@
     .box.full{margin-top:16px;}
     .sl{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-bottom:11px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
     .sl .sub{color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;font-size:10px;opacity:.85;}
-    /* standings */
-    .ctab{width:100%;border-collapse:collapse;}
-    .ctab th{font-size:8.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);text-align:right;padding:0 0 8px;}
-    .ctab th.l{text-align:left;}
-    .ctab td{padding:7px 0;border-top:1px solid var(--border);font-size:12.5px;text-align:right;font-variant-numeric:tabular-nums;}
-    .ctab td.l{text-align:left;}
-    .ctab tbody tr:hover td{background:rgba(128,128,128,.06);}
-    .rk{color:var(--text3);font-family:var(--cmono);font-size:11px;width:24px;}
-    .tm{display:flex;align-items:center;gap:8px;}
-    .tlogo{width:22px;height:22px;object-fit:contain;flex:0 0 auto;}
-    .tnm{font-weight:700;color:var(--text);text-decoration:none;}
-    .tnm:hover{color:var(--accent);}
-    .cbadge{font-family:var(--cmono);font-size:8px;font-weight:800;padding:1px 5px;border-radius:4px;margin-left:6px;letter-spacing:.04em;white-space:nowrap;}
-    .ctab .seedc{font-family:var(--cmono);font-size:10.5px;color:var(--text3);padding-left:14px;}
-    .ctab .res{font-size:11px;color:var(--text2);padding-left:16px;}
+    /* standings + coach rankings = the site sheet (tdc-sheets.css) */
+    #stand{--c1:34px;--c2:280px;}
+    .sheet .tm{display:inline-flex;align-items:center;gap:8px;vertical-align:middle;}
+    .sheet .tlogo{width:18px;height:18px;object-fit:contain;flex:0 0 auto;}
+    .sheet .tnm{color:var(--text);text-decoration:none;}
+    .sheet .tnm:hover{color:var(--accent);text-decoration:underline;}
+    .sheet .tag{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-left:6px;}
+    .sheet span.dim{color:var(--text3);font-size:10.5px;}
+    .sheet td.cload{text-align:left;color:var(--text3);}
     /* awards */
     .aw{display:flex;align-items:center;gap:10px;padding:8px 0;}
     .aw + .aw{border-top:1px solid var(--border);}
@@ -216,20 +210,6 @@
     .seg button.on{background:var(--bg2);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.18);}
     .cohint{font-size:10.5px;color:var(--text3);margin:-4px 0 10px;}
     .cohint b{color:var(--text2);}
-    .coy{display:grid;grid-template-columns:26px 1fr 62px 60px 108px 78px;align-items:center;gap:11px;padding:8px 0;}
-    .co{display:grid;grid-template-columns:26px 1fr 62px 92px 68px;align-items:center;gap:11px;padding:8px 0;}
-    .coy + .coy,.co + .co{border-top:1px solid var(--border);}
-    @media(max-width:760px){.coy,.co{grid-template-columns:22px 1fr 68px;}.coy .coar,.coy .arrow,.co .coar{display:none;}}
-    .cork{font-family:var(--cmono);font-size:11px;color:var(--text3);text-align:right;}
-    .conm{display:flex;align-items:center;gap:9px;min-width:0;}
-    .conm .n{font-size:12.5px;font-weight:700;}
-    .conm .s{font-size:10px;color:var(--text3);}
-    .coar{font-size:10.5px;color:var(--text2);text-align:right;}
-    .cog{font-family:var(--cmono);font-weight:800;font-size:14px;text-align:right;}
-    .conr{font-family:var(--cmono);font-size:10px;color:var(--text3);text-align:right;}
-    .lift{font-family:var(--cmono);font-weight:800;font-size:14px;text-align:right;}
-    .liftk{font-size:8px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);text-align:right;}
-    .arrow{font-family:var(--cmono);font-size:10.5px;color:var(--text3);text-align:right;}
     .note{font-size:11.5px;color:var(--text3);margin-top:12px;padding:10px 13px;border-left:2px solid var(--border2);background:var(--bg);border-radius:0 8px 8px 0;}
     .note b{color:var(--text2);}
     .empty{color:var(--text3);font-size:12px;padding:6px 0;}
@@ -329,7 +309,7 @@
   <div class="cols">
     <div class="box">
       <div class="sl"><span>Standings</span><span class="sub">conference record &middot; Power Rating &middot; NCAA result</span></div>
-      <div class="sheet-wrap" style="border:none;box-shadow:none;border-radius:0;max-height:none;"><table class="ctab sheet" id="stand"><tbody><tr><td class="cload">Loading&hellip;</td></tr></tbody></table></div>
+      <div class="sheet-wrap"><table class="sheet dense freeze2" id="stand"><tbody><tr><td class="cload">Loading&hellip;</td></tr></tbody></table></div>
     </div>
     <div>
       <div class="box" id="awbox">
@@ -611,21 +591,21 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
     }
     var body=rows.map(function(t,i){
       var r=+t.rating||0, ap=+t.allPlay, p=recs[t.full];
-      var col=r>20?'#1f9d6b':r>12?'#3f74c9':'var(--text2)';
       var conf=p&&p.confN>=8?p.cw+'-'+p.cl:'\u2014';
-      var ovr=p&&p.n>=20?p.w+'-'+p.l+(p.n<28?'<span style="font-size:10px;color:var(--text3)"> /'+p.n+'</span>':''):'\u2014';
+      var ovr=p&&p.n>=20?p.w+'-'+p.l+(p.n<28?'<span class="dim"> /'+p.n+'</span>':''):'\u2014';
       var tip=p?' title="'+(p.n>=20?'projected '+p.w+'-'+p.l+' ('+p.lo+'-'+(p.n-p.lo)+' to '+p.hi+'-'+(p.n-p.hi)+') from '+p.n+' announced games':'only '+p.n+' games announced')+'"':'';
-      return '<tr'+tip+'><td class="l rk">'+(i+1)+'</td>'+
-        '<td class="l"><span class="tm">'+tLogo(t.full,'tlogo')+
+      return '<tr'+tip+'><td class="rk">'+(i+1)+'</td>'+
+        '<td class="l nm"><span class="tm">'+tLogo(t.full,'tlogo')+
           '<a class="tnm" href="'+teamHref(t.full)+'">'+esc(t.full)+'</a></span></td>'+
-        (withRec?'<td style="font-weight:700">'+conf+'</td><td style="color:var(--text2)">'+ovr+'</td>':'')+
-        '<td style="font-weight:700;color:'+col+'">'+f1(r)+'</td>'+
-        '<td style="color:var(--text2)">'+(isFinite(ap)?f1(ap)+'%':'\u2014')+'</td>'+
-        '<td class="seedc">#'+(t.rank||'\u2014')+'</td></tr>';
+        (withRec?'<td class="strong">'+conf+'</td><td>'+ovr+'</td>':'')+
+        '<td class="big">'+f1(r)+'</td>'+
+        '<td>'+(isFinite(ap)?f1(ap)+'%':'\u2014')+'</td>'+
+        '<td class="dim">#'+(t.rank||'\u2014')+'</td></tr>';
     }).join('');
-    sel('stand').innerHTML='<thead><tr><th class="l"></th><th class="l">Team</th>'+
+    sel('stand').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Team</th>'+
       (withRec?'<th title="projected conference record from simulating the announced schedule">Proj Conf</th><th title="projected overall record (/N = only N games announced so far)">Proj W-L</th>':'')+
-      '<th'+(window.tipAttr?tipAttr('projrating'):'')+' style="cursor:help;text-decoration:underline dotted;text-underline-offset:2px;">Proj Power</th><th>All-play</th><th class="seedc">Nat&rsquo;l</th></tr></thead><tbody>'+body+'</tbody>';
+      '<th data-heat="1"'+(window.tipAttr?tipAttr('projrating'):'')+' style="cursor:help;">Proj Power</th><th data-heat="1">All-play</th><th>Nat&rsquo;l</th></tr></thead><tbody>'+body+'</tbody>';
+    if(window.tdcSheetHeat) tdcSheetHeat(sel('stand'));
     document.querySelector('#stand').closest('.box').querySelector('.sub').innerHTML=
       (withRec?'projected league record from the announced schedule &middot; ':'')+'projected rating &middot; all-play win% &middot; national rank';
     // team honours make no sense before a ball is thrown up
@@ -687,19 +667,19 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
   function renderStandings(){
     var champ=ROWS[0];
     var body=ROWS.map(function(r,i){
-      var mark=(r===champ)?'<span class="cbadge" style="color:#C9962F;background:rgba(201,150,47,.16)">REG CHAMP</span>':'';
-      var srsCol=r.srs>25?'#1f9d6b':r.srs>18?'#3f74c9':'var(--text2)';
-      return '<tr><td class="l rk">'+(i+1)+'</td>'+
-        '<td class="l"><span class="tm">'+tLogo(r.team,'tlogo')+
+      var mark=(r===champ)?'<span class="tag" title="Regular-season champion">Reg champ</span>':'';
+      return '<tr><td class="rk">'+(i+1)+'</td>'+
+        '<td class="l nm"><span class="tm">'+tLogo(r.team,'tlogo')+
           '<a class="tnm" href="'+teamHref(r.team)+'">'+esc(r.team)+'</a>'+mark+'</span></td>'+
-        '<td>'+r.conf_wins+'-'+r.conf_losses+'</td>'+
-        '<td style="color:var(--text2)">'+r.wins+'-'+r.losses+'</td>'+
-        '<td style="font-weight:700;color:'+srsCol+'">'+f1(r.srs)+'</td>'+
-        '<td class="seedc">'+(r.ncaa_seed?('#'+r.ncaa_seed):'\u2014')+'</td>'+
-        '<td class="l res">'+esc(r.ncaa_result||'\u2014')+'</td></tr>';
+        '<td class="strong">'+r.conf_wins+'-'+r.conf_losses+'</td>'+
+        '<td>'+r.wins+'-'+r.losses+'</td>'+
+        '<td class="big">'+f1(r.srs)+'</td>'+
+        '<td class="dim">'+(r.ncaa_seed?('#'+r.ncaa_seed):'\u2014')+'</td>'+
+        '<td class="l dim">'+esc(r.ncaa_result||'\u2014')+'</td></tr>';
     }).join('');
-    sel('stand').innerHTML='<thead><tr><th class="l"></th><th class="l">Team</th><th>Conf</th>'+
-      '<th>Overall</th><th'+(window.tipAttr?tipAttr('power'):'')+' style="cursor:help;text-decoration:underline dotted;text-underline-offset:2px;">Power Rtg</th><th class="seedc">Seed</th><th class="l res">NCAA</th></tr></thead><tbody>'+body+'</tbody>';
+    sel('stand').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Team</th><th>Conf</th>'+
+      '<th>Overall</th><th data-heat="1"'+(window.tipAttr?tipAttr('power'):'')+' style="cursor:help;">Power Rtg</th><th>Seed</th><th class="l">NCAA</th></tr></thead><tbody>'+body+'</tbody>';
+    if(window.tdcSheetHeat) tdcSheetHeat(sel('stand'));
 
     // team honours
     var best=ROWS.slice().sort(function(a,b){ return (b.srs||-99)-(a.srs||-99); })[0];
@@ -869,38 +849,41 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
       hint.innerHTML='Ranked by <b>career coach grade</b> \u2014 every season on record, not just this one.';
       var L=CO.filter(function(c){ return CAREER[c.c]&&CAREER[c.c].g!=null; })
               .sort(function(a,b){ return CAREER[b.c].g-CAREER[a.c].g; });
-      html=L.map(function(c,i){
+      html='<div class="sheet-wrap"><table class="sheet dense" id="coTbl"><thead><tr><th class="rk">#</th><th class="l">Coach</th><th class="l">Team</th><th>Seasons</th><th>W-L</th><th class="l">Style</th><th data-heat="1">Grade</th><th>Nat&rsquo;l</th></tr></thead><tbody>'+
+        L.map(function(c,i){
         var k=CAREER[c.c], g=k.g;
-        var col=g>=90?'#1f9d6b':g>=84?'#3f74c9':g>=78?'var(--text2)':'var(--text3)';
-        return '<div class="co"><span class="cork">'+(i+1)+'</span>'+
-          '<span class="conm">'+tLogo(c.tm)+'<span><div class="n">'+esc(c.n)+'</div>'+
-            '<div class="s">'+esc(c.tm)+' &middot; '+k.s+' season'+(k.s===1?'':'s')+'</div></span></span>'+
-          '<span class="coar">'+c.w+'-'+c.l+'</span>'+
-          '<span class="coar">'+esc(k.a||'')+'</span>'+
-          '<span><div class="cog" style="color:'+col+'">'+g+'</div>'+
-            '<div class="conr">#'+k.r+' nat\u2019l</div></span></div>';
-      }).join('');
+        return '<tr><td class="rk">'+(i+1)+'</td>'+
+          '<td class="l nm">'+esc(c.n)+'</td>'+
+          '<td class="l dim"><span class="tm">'+tLogo(c.tm,'tlogo')+esc(c.tm)+'</span></td>'+
+          '<td>'+k.s+'</td>'+
+          '<td>'+c.w+'-'+c.l+'</td>'+
+          '<td class="l dim">'+esc(k.a||'')+'</td>'+
+          '<td class="big">'+g+'</td>'+
+          '<td class="dim">#'+k.r+'</td></tr>';
+      }).join('')+'</tbody></table></div>';
     } else {
       hint.innerHTML='Ranked by <b>Rating lift</b> \u2014 how far the team beat the Power Rating its roster talent predicted. '+
         'Isolates the coaching from the roster.';
       var L2=CO.filter(function(c){ return c.lf!=null; })
                .sort(function(a,b){ return b.lf-a.lf; });
       if(!L2.length){ host.innerHTML='<div class="empty">No lift data for this season.</div>'; return; }
-      html=L2.map(function(c,i){
-        var v=c.lf, col=v>=6?'#1f9d6b':v>=1?'#3f74c9':v>=-2?'var(--text2)':'#c0455a';
-        var wl=(c.wl!=null)?((c.wl>=0?'+':'')+c.wl.toFixed(1)+' wins'):'';
-        return '<div class="coy"><span class="cork">'+(i+1)+'</span>'+
-          '<span class="conm">'+tLogo(c.tm)+'<span><div class="n">'+esc(c.n)+'</div>'+
-            '<div class="s">'+esc(c.tm)+(c.nc?' &middot; '+esc(c.nc):'')+'</div></span></span>'+
-          '<span class="coar">'+c.w+'-'+c.l+'</span>'+
-          '<span class="coar">'+f1(c.tal)+'<div class="liftk">talent</div></span>'+
-          '<span class="arrow">'+f1(c.exp)+' \u2192 <b style="color:var(--text)">'+f1(c.srs)+'</b>'+
-            '<div class="liftk">exp \u2192 actual rating</div></span>'+
-          '<span><div class="lift" style="color:'+col+'">'+(v>=0?'+':'')+v.toFixed(1)+'</div>'+
-            '<div class="liftk">'+(wl||'rating lift')+'</div></span></div>';
-      }).join('');
+      html='<div class="sheet-wrap"><table class="sheet dense" id="coTbl"><thead><tr><th class="rk">#</th><th class="l">Coach</th><th class="l">Team</th><th class="l">NCAA</th><th>W-L</th><th data-heat="1" title="Roster talent">Talent</th><th title="Power Rating the roster talent predicted">Exp rtg</th><th data-heat="1" title="Actual Power Rating">Actual rtg</th><th data-heat="1" title="Actual minus expected Power Rating">Lift</th><th data-heat="1" title="Wins above what the roster predicted">+Wins</th></tr></thead><tbody>'+
+        L2.map(function(c,i){
+        var v=c.lf;
+        return '<tr><td class="rk">'+(i+1)+'</td>'+
+          '<td class="l nm">'+esc(c.n)+'</td>'+
+          '<td class="l dim"><span class="tm">'+tLogo(c.tm,'tlogo')+esc(c.tm)+'</span></td>'+
+          '<td class="l dim">'+(c.nc?esc(c.nc):'')+'</td>'+
+          '<td>'+c.w+'-'+c.l+'</td>'+
+          '<td>'+f1(c.tal)+'</td>'+
+          '<td class="dim">'+f1(c.exp)+'</td>'+
+          '<td>'+f1(c.srs)+'</td>'+
+          '<td class="big">'+(v>=0?'+':'')+v.toFixed(1)+'</td>'+
+          '<td>'+(c.wl!=null?(c.wl>=0?'+':'')+c.wl.toFixed(1):'')+'</td></tr>';
+      }).join('')+'</tbody></table></div>';
     }
     host.innerHTML=html;
+    if(window.tdcSheetHeat) tdcSheetHeat(document.getElementById('coTbl'));
     [].forEach.call(document.querySelectorAll('#coseg button'),function(b){
       b.classList.toggle('on',b.getAttribute('data-m')===mode); });
   }
@@ -910,6 +893,7 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
   syncThemeBtn(document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light');
 })();
 </script>
+  <script src="tdc-sheets.js?v=1"></script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=8"></script>
 </body>

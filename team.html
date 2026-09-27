@@ -7,8 +7,8 @@
   <script src="auth.js?v=shotlock1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js?v=10"></script>
-  <script src="tdc-shotchart.js?v=25"></script>
-  <script src="tdc-lineups.js?v=17"></script>
+  <script src="tdc-shotchart.js?v=25s"></script>
+  <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-nil.js?v=prod2"></script>
   <script src="tdc-gate.js?v=3"></script>
@@ -18,8 +18,8 @@
   <script src="tdc-freshman.js?v=pub15"></script>
   <script src="tdc-injury.js?v=5"></script>
   <script src="tdc-ratings.js?v=21"></script>
-  <script src="tdc-schedule.js?v=20"></script>
-  <script src="tdc-preview.js?v=23"></script>
+  <script src="tdc-schedule.js?v=20s"></script>
+  <script src="tdc-preview.js?v=23s"></script>
   <script src="tdc-projgrade.js?v=base24"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
@@ -30,16 +30,11 @@
     .nil-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
     .nil-big{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1;}
     .nil-sub{font-size:10px;font-weight:600;color:var(--text3);margin-top:3px;}
-    /* Google-Sheets style: centered bordered card, gridlines, zebra rows, sticky header */
-    .nil-gs{width:max-content;max-width:100%;margin:0 auto;border:1px solid var(--border);border-radius:12px;background:var(--bg);overflow:auto;max-height:70vh;}
-    .nil-table{border-collapse:collapse;font-size:12px;width:max-content;}
-    .nil-table th{position:sticky;top:0;z-index:2;background:var(--bg2);text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);padding:9px 13px;border-bottom:1px solid var(--border2);border-right:1px solid var(--border2);white-space:nowrap;}
-    .nil-table th.left,.nil-table td.left{text-align:left;}
-    .nil-table td{text-align:right;padding:7px 13px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-variant-numeric:tabular-nums;white-space:nowrap;}
-    .nil-table th:last-child,.nil-table td:last-child{border-right:none;}
-    .nil-table tbody tr:nth-child(even){background:rgba(127,127,127,.045);}
-    .nil-table tbody tr:hover{background:var(--bg2);}
     .nil-cards{display:flex;flex-wrap:wrap;gap:13px;margin-bottom:20px;justify-content:center;}
+    /* sheet extras (tdc-sheets.css): a genuine up/down change tag, and a section-label row */
+    .sheet span.up{color:#1a8c3a;font-weight:700;} .sheet span.dn{color:#cc2200;font-weight:700;}
+    [data-theme="dark"] .sheet span.up{color:#5ab875;} [data-theme="dark"] .sheet span.dn{color:#e07070;}
+    .sheet.dense tbody tr.sec td{background:var(--bg2);color:var(--text3);font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;text-align:left;}
   </style>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=5"></script>
@@ -656,49 +651,14 @@
     body.no-color .sortable-table td{background:none!important;color:var(--text2)!important;}
     .stat-header{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 36px 48px 48px 48px 48px 52px 52px 46px 46px 46px 46px 46px 46px 46px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:6px 0;border-bottom:2px solid var(--border2);}
     /* Customize tab — wider MPG column for slider */
-    .cstat-header{display:grid;grid-template-columns:28px 34px 190px 40px 48px 46px 46px 46px 46px 46px 46px 50px 46px 46px 50px 46px 46px 50px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:6px 0;border-bottom:2px solid var(--border2);}
-    .crotation-row{display:grid;grid-template-columns:28px 34px 190px 40px 48px 46px 46px 46px 46px 46px 46px 50px 46px 46px 50px 46px 46px 50px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);}
     .rotation-row{display:grid;grid-template-columns:28px 36px 1fr 38px 36px 36px 48px 48px 48px 48px 52px 52px 46px 46px 46px 46px 46px 46px 46px 40px 40px 40px 40px 40px 44px;align-items:center;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;}
     /* Projections table — same look, 4 extra advanced columns (USG/TS/BPM/WA) */
-    .pstat-header{display:grid;grid-template-columns:30px 40px minmax(150px,1fr) 44px 50px 50px 50px 50px 50px 50px 54px 58px 50px 50px 58px 50px 50px 58px 48px 44px 44px 44px 46px 58px 58px 48px 48px 48px 44px;align-items:center;gap:4px;padding:6px 0;border-bottom:2px solid var(--border2);}
-    .protation-row{display:grid;grid-template-columns:30px 40px minmax(150px,1fr) 44px 50px 50px 50px 50px 50px 50px 54px 58px 50px 50px 58px 50px 50px 58px 48px 44px 44px 44px 46px 58px 58px 48px 48px 48px 44px;align-items:center;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;}
-    .protation-row:hover{background:rgba(128,128,128,.05);}
     .stat-header-cell{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);text-align:right;}
     .stat-header-cell.left{text-align:left;}
     /* Solid backdrop so the team-colored ambient glow can't wash out the projection
        roster cells (matches the historic roster table). */
     .rot-table-card{overflow-x:auto;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:2px 16px 6px;margin-top:6px;}
-    /* neutral card "back" so tables read as panels, not floating on the team-color tint */
-    .tbl-card{overflow-x:auto;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:4px 14px 8px;margin-top:4px;box-shadow:0 1px 3px rgba(0,0,0,.12);}
     .oo-xfer{display:inline-block;margin-left:7px;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.02em;color:var(--tc-readable,var(--accent));background:color-mix(in srgb,var(--tc-readable,var(--accent)) 14%,transparent);border:1px solid color-mix(in srgb,var(--tc-readable,var(--accent)) 32%,transparent);vertical-align:middle;white-space:nowrap;}
-    /* ── Google-Sheets look — scoped to the projections table (.proj-gs) ── */
-    .proj-gs{padding:0!important;}
-    .proj-gs .pstat-header,.proj-gs .protation-row{gap:0;}
-    .proj-gs .pstat-header{position:sticky;top:0;z-index:6;background:var(--bg3);border-bottom:2px solid var(--border2);padding:0;}
-    .proj-gs .stat-header-cell{padding:8px 6px;border-right:1px solid var(--border);}
-    .proj-gs .protation-row{border-bottom:1px solid var(--border);cursor:default;padding:0;}
-    .proj-gs .protation-row:nth-child(even){background:rgba(128,128,128,.04);}
-    .proj-gs .protation-row:hover{background:rgba(128,128,128,.10);}
-    .proj-gs .rot-num,.proj-gs .rot-pos,.proj-gs .rot-name,.proj-gs .rot-cls,.proj-gs .rot-stat,.proj-gs .rot-grade{border-right:1px solid var(--border);padding:7px 6px;margin:0;border-radius:0;}
-    .proj-gs .rot-grade{border-right:none;}
-    .proj-gs .rot-stat{font-family:'Inter',system-ui,sans-serif;font-variant-numeric:tabular-nums;font-weight:600;font-size:12.5px;background:transparent!important;}
-    .proj-gs .rot-grade{font-variant-numeric:tabular-nums;}
-    /* fuller spreadsheet look: sticky header, gridlines, zebra rows, flat cells */
-    .proj-gs .cstat-header{position:sticky;top:0;z-index:3;background:var(--bg2);border-bottom:2px solid var(--border2);}
-    .proj-gs .stat-header-cell{border-right:1px solid var(--border);padding:8px 6px;font-weight:800;font-size:10px;letter-spacing:.02em;color:var(--text2);text-transform:uppercase;}
-    .proj-gs .stat-header-cell:last-child{border-right:none;}
-    .proj-gs .crotation-row{border-bottom:1px solid var(--border);}
-    .proj-gs .crotation-row:nth-child(2n){background:color-mix(in srgb,var(--text) 3.5%,transparent);}
-    .proj-gs .rot-name a{font-weight:650;}
-    .proj-gs .rot-stat.elite,.proj-gs .rot-stat.good{font-weight:700;}
-    /* compact sheet, centered on the page, in a bordered card like the main Projections view */
-    .proj-gs{width:max-content;max-width:100%;margin:0 auto;border:1px solid var(--border);border-radius:12px;background:var(--bg);}
-    .proj-gs .cstat-header{border-radius:12px 12px 0 0;}
-    .proj-gs .crotation-row,.proj-gs .cstat-header{width:max-content;min-width:0!important;}
-    .proj-gs .rot-stat,.proj-gs .rot-cls,.proj-gs .rot-name,.proj-gs .rot-num,.proj-gs .rot-pos,.proj-gs .stat-header-cell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .proj-gs .stat-header-cell.proj-sortable{cursor:pointer;user-select:none;transition:color .12s,background .12s;}
-    .proj-gs .stat-header-cell.proj-sortable:hover{color:var(--text);background:rgba(128,128,128,.10);}
-    .proj-gs .proj-sarr{font-size:8px;color:var(--accent);}
 
     /* GRADE COLORS — blue scale, dark=elite, light=poor */
     .gAp{color:#0a3fd4;}.gA{color:#0a3fd4;}.gAm{color:#1a52e0;}
@@ -954,8 +914,6 @@
     min-width:900px!important;
   }
   .stat-header,.rotation-row{min-width:900px!important;}
-  .pstat-header,.protation-row{min-width:1440px!important;}
-  .cstat-header,.crotation-row{min-width:960px!important;}
 
   /* Sticky pos+number+name columns while scrolling right */
   .rot-name{
@@ -965,17 +923,7 @@
     z-index:3!important;
     padding-right:8px!important;
   }
-  /* …but the PROJECTIONS table's name is a wide 1fr grid cell, so a sticky name there
-     covered the scrolling stats (and its header cell isn't sticky, so they'd misalign).
-     Let that one name column scroll with the rest of the table. */
-  .protation-row .rot-name{
-    position:static!important;
-    left:auto!important;
-    background:transparent!important;
-    z-index:auto!important;
-    padding-right:0!important;
-  }
-
+  
   /* ── Depth chart starters — single column, cards shrink to fit ── */
   .starters-grid{
     grid-template-columns:1fr!important;
@@ -1015,21 +963,6 @@
     @media (prefers-reduced-motion: reduce){.tdc-prem:hover .tv-seal,.tdc-prem:hover .tv-check{animation:none;}}
     /* ── Schedule tab ── */
     .sched-season{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;padding:4px 8px;border:1px solid var(--border2);background:var(--bg);color:var(--text);border-radius:6px;cursor:pointer;}
-    .sched-table{width:100%;border-collapse:collapse;font-size:13px;}
-    .sched-table th{text-align:left;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);padding:6px 10px;border-bottom:1px solid var(--border);}
-    .sched-table td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
-    .sched-row.win{background:color-mix(in srgb,#3fa66a 7%,transparent);}
-    .sched-row.loss{background:color-mix(in srgb,#c75d5d 9%,transparent);}
-    .sched-row:hover{background:color-mix(in srgb,var(--tc,#888) 9%,transparent);}
-    .sched-date{color:var(--text2);white-space:nowrap;font-variant-numeric:tabular-nums;}
-    .sched-rk{color:var(--text3);font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;width:30px;}
-    .sched-opp{font-weight:700;color:var(--text);}
-    .sched-res{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;}
-    .sched-res.win{color:#2f9159;} .sched-res.loss{color:#bd4b4b;}
-    .sched-loc{color:var(--text2);font-size:12px;}
-    .sched-rec{font-variant-numeric:tabular-nums;color:var(--text2);white-space:nowrap;}
-    .sched-section{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--tc,var(--accent));padding:14px 10px 6px;border-bottom:2px solid color-mix(in srgb,var(--tc,var(--accent)) 40%,transparent);}
-    @media(max-width:680px){.sched-loc,.sched-table th.col-loc{display:none;}}
     /* ── Roster-over-time year picker + historic roster ── */
     .roster-year-bar{display:flex;align-items:center;gap:12px;padding:12px 2px 16px;min-width:0;}
     .roster-year-bar .rs-label{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);flex-shrink:0;}
@@ -1053,35 +986,7 @@
     /* ── Team Betting props board ──────────────────────────────────── */
     .tbet-note{font-size:12px;color:var(--text3);line-height:1.5;margin:0 0 16px;max-width:680px;}
     /* ── Google-Sheets-style grid: full gridlines, frozen header + Player column, zebra rows ── */
-    .tbet-wrap{overflow:auto;max-height:600px;border:1px solid var(--border2);border-radius:10px;background:var(--bg);-webkit-overflow-scrolling:touch;}
-    table.tbet{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;min-width:640px;font-variant-numeric:tabular-nums;}
-    table.tbet thead th{position:sticky;top:0;z-index:3;font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text2);padding:10px 12px;text-align:center;background:var(--bg3,var(--bg2));border-right:1px solid var(--border);border-bottom:2px solid var(--border2);white-space:nowrap;}
-    table.tbet thead th.name{text-align:left;position:sticky;left:0;z-index:4;border-right:2px solid var(--border2);}
-    table.tbet thead th.sortable{cursor:pointer;user-select:none;}
-    table.tbet thead th.sortable:hover{color:var(--text);}
-    table.tbet thead th.on{color:var(--tc-readable,var(--accent));}
-    table.tbet th:last-child,table.tbet td:last-child{border-right:none;}
-    table.tbet tbody td{padding:8px 12px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);text-align:center;vertical-align:middle;background:var(--bg);}
-    table.tbet tbody tr:nth-child(even) td{background:color-mix(in srgb,var(--bg2) 55%,var(--bg));}
-    table.tbet tbody tr:hover td{background:color-mix(in srgb,var(--tc,#888) 10%,var(--bg));}
     /* row-number gutter — the frozen "1,2,3…" left rail like Google Sheets */
-    table.tbet th.rn,table.tbet td.rn{position:sticky;left:0;z-index:2;width:38px;min-width:38px;max-width:38px;text-align:center;font-size:11px;font-weight:700;color:var(--text3);background:var(--bg3,var(--bg2));border-right:1px solid var(--border);padding:8px 0;}
-    table.tbet thead th.rn{z-index:4;}
-    table.tbet tbody tr:nth-child(even) td.rn{background:color-mix(in srgb,var(--bg2) 70%,var(--bg));}
-    table.tbet tbody tr:hover td.rn{background:color-mix(in srgb,var(--tc,#888) 12%,var(--bg));}
-    table.tbet td.name,table.tbet th.name{text-align:left;position:sticky;left:38px;z-index:2;}
-    table.tbet td.name{background:var(--bg);border-right:2px solid var(--border2);}
-    table.tbet tbody tr:nth-child(even) td.name{background:color-mix(in srgb,var(--bg2) 55%,var(--bg));}
-    table.tbet tbody tr:hover td.name{background:color-mix(in srgb,var(--tc,#888) 10%,var(--bg));}
-    table.tbet td.name a{color:var(--text);font-weight:700;text-decoration:none;}
-    table.tbet td.name a:hover{color:var(--tc-readable,var(--accent));}
-    table.tbet td.name .pos{font-size:10px;color:var(--text3);font-weight:600;margin-left:6px;}
-    .tbet-cell .ln{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;}
-    .tbet-cell .pc{font-size:10px;font-weight:700;margin-top:3px;}
-    .tbet-cell.hi .pc{color:#22c55e;}.tbet-cell.lo .pc{color:#ef4444;}.tbet-cell .pc{color:var(--text3);}
-    .tbet-cell.best{position:relative;}
-    .tbet-cell.best .ln{color:var(--tc-readable,var(--accent));}
-    .tbet-cell.na{color:var(--text3);font-weight:600;}
     .tbet-mut{font-size:11px;color:var(--text3);}
     /* ── Team Market Profile (deep team betting) ── */
     .tbp-h{font-family:'Barlow Condensed','Inter',sans-serif;text-transform:uppercase;font-weight:800;font-size:15px;letter-spacing:.06em;color:var(--text);margin:4px 0 12px;}
@@ -1118,13 +1023,6 @@
     .tbp-fs-bar i{display:block;height:100%;border-radius:5px;background:var(--tc-readable,var(--accent));}
     .tbp-fs-pct{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;min-width:44px;text-align:right;}
     .tbp-tt,.tbp-ah{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
-    .tbp-st{width:100%;border-collapse:collapse;font-size:12.5px;}
-    .tbp-st th{font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);text-align:right;padding:6px 10px;border-bottom:1px solid var(--border);}
-    .tbp-st th:first-child{text-align:left;}
-    .tbp-st td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;}
-    .tbp-st td:first-child{text-align:left;font-weight:700;}
-    .tbp-st tr:last-child td{border-bottom:none;}
-    .tbp-st td.g{color:#16a34a;font-weight:700;}.tbp-st td.r{color:#dc2626;font-weight:700;}
     .tbp-angles{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--tc-readable,var(--accent));border-radius:0 12px 12px 0;padding:13px 16px;margin-bottom:8px;}
     .tbp-angle{font-size:13px;color:var(--text2);line-height:1.5;padding:3px 0;}
     .tbp-angle b{color:var(--text);}
@@ -2728,31 +2626,28 @@ function renderLosses(losses, gp){
   const el = document.getElementById('lossesPanel');
   if(!el) return;
   if(!losses.length){ el.innerHTML='<div style="padding:20px;color:var(--text3);font-size:13px;">No significant losses listed.</div>'; return; }
-  el.innerHTML = `<div style="overflow-x:auto;"><table class="sortable-table">
+  // the site sheet (tdc-sheets.css): frozen # + name, bio in dim columns, stats shaded by tdcSheetHeat
+  const K=[['ppg','PPG',1],['rpg','RPG',1],['apg','APG',1],['mpg','MPG',1],['fgm','FGM',1],['fga','FGA',1],['fg_pct','FG%',1],
+    ['tpm','3PM',1],['tpa','3PA',1],['tp_pct','3P%',1],['ftm','FTM',1],['fta','FTA',1],['ft_pct','FT%',1],
+    ['oreb','OR',1],['dreb','DR',1],['stl','STL',1],['blk','BLK',1],['tovs','TO',-1]];
+  el.innerHTML = `<div class="sheet-wrap"><table class="sheet dense freeze2" id="lossesSheet" style="--c1:36px;--c2:180px;">
     <thead><tr>
-      <th class="left">Name</th>
-      <th class="left">Pos</th>
-      <th>Yr</th>
-      <th>Ht</th>
-      <th>GP</th>
-      <th>PPG</th><th>RPG</th><th>APG</th><th>MPG</th>
-      <th>FGM</th><th>FGA</th><th>FG%</th>
-      <th>3PM</th><th>3PA</th><th>3P%</th>
-      <th>FTM</th><th>FTA</th><th>FT%</th>
-      <th>OR</th><th>DR</th><th>STL</th><th>BLK</th><th>TO</th>
+      <th class="rk">#</th><th class="l">Name</th><th class="l">Pos</th><th class="l">Yr</th><th class="l">Ht</th><th>GP</th>
+      ${K.map(k=>`<th data-heat="${k[2]}">${k[1]}</th>`).join('')}
     </tr></thead>
-    <tbody>${losses.map(l=>`<tr>
-      <td class="left">${l.name}</td>
-      <td class="left" style="color:var(--text3);font-size:11px;">${l.pos||'—'}</td>
-      <td>${l.yr||'—'}</td>
-      <td>${l.height||'—'}</td>
+    <tbody>${losses.map((l,i)=>`<tr>
+      <td class="rk">${i+1}</td>
+      <td class="l nm">${l.name}</td>
+      <td class="l dim">${l.pos||'—'}</td>
+      <td class="l dim">${l.yr||'—'}</td>
+      <td class="l dim">${l.height||'—'}</td>
       <td>${l.gp||'—'}</td>
-      ${['ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs'].map(k=>`
-        <td style="${statColor(l[k],k,gp)}">${fmt(l[k])}</td>`).join('')}
+      ${K.map(k=>`<td>${fmt(l[k[0]])}</td>`).join('')}
     </tr>`).join('')}
     </tbody>
   </table></div>
-  <div style="font-size:11px;color:var(--text3);margin-top:8px;padding:0 4px;">Stats shown are from their last season. Colors reflect national percentile.</div>`;
+  <div style="font-size:11px;color:var(--text3);margin-top:8px;padding:0 4px;">Stats shown are from their last season. Shading ranks each stat within this list, red (lowest) to green (highest).</div>`;
+  if(window.tdcSheetHeat) tdcSheetHeat(document.getElementById('lossesSheet'));
 }
 
 // An addition whose last season on file is 2024-25 sat out (or redshirted) 2025-26: say so, since
@@ -3051,101 +2946,65 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
       ${statCard('WINS ADDED',teamWa,null)}
     </div>
   </div>`;
-  const sc=(v,k)=>{
-    if(!gp||!gp[k]||v==null) return '';
-    const n=parseFloat(v); if(isNaN(n)||n===0) return '';
-    const {p20,p40,p60,p80}=gp[k];
-    const inv=k==='tovs';
-    let pct;
-    if(inv){if(n<=p20)pct=4;else if(n<=p40)pct=3;else if(n<=p60)pct=2;else if(n<=p80)pct=1;else pct=0;}
-    else{if(n>=p80)pct=4;else if(n>=p60)pct=3;else if(n>=p40)pct=2;else if(n>=p20)pct=1;else pct=0;}
-    if(pct===0) return '';
-    const bg  =['','rgba(60,120,220,.38)','rgba(45,100,210,.52)','rgba(30,82,200,.66)','rgba(18,60,185,.82)'][pct];
-    return `background:${bg};color:#ffffff;font-weight:700;`;
-  };
-
   window._projRows=projected;   // source for the sortable-header handler (_projSortBy)
   window._projSortState={key:'pos',dir:1};
+  // the site sheet (tdc-sheets.css): frozen # + name, one line per player — bio and the projection
+  // flags (EST / transfer factor / FINAL / role jump) in their own dim columns; stat columns
+  // shaded red→green within the roster by tdcSheetHeat
+  const _pc=[{k:'mpg',l:'MPG',h:1},{k:'ppg',l:'PPG',h:1},{k:'rpg',l:'RPG',h:1},{k:'apg',l:'APG',h:1},
+     {k:'fgm',l:'FGM',h:1},{k:'fga',l:'FGA',h:1},{k:'fg_pct',l:'FG%',h:1,p:1},
+     {k:'tpm',l:'3PM',h:1},{k:'tpa',l:'3PA',h:1},{k:'tp_pct',l:'3P%',h:1,p:1},
+     {k:'ftm',l:'FTM',h:1},{k:'fta',l:'FTA',h:1},{k:'ft_pct',l:'FT%',h:1,p:1},
+     {k:'oreb',l:'OR',h:1},{k:'dreb',l:'DR',h:1},{k:'stl',l:'STL',h:1},{k:'blk',l:'BLK',h:1},{k:'tovs',l:'TO',h:-1}];
+  const _pth=(c)=>`<th class="${c.left?'l ':''}${c.k?'sort':''}"${c.h?` data-heat="${c.h}"`:''}${c.k?` onclick="_projSortBy('${c.k}')" title="${c.t||'Sort by '+c.l}"`:(c.t?` title="${c.t}"`:'')}>${c.l}${c.k?`<span class="ar proj-sarr" id="parr-${c.k}"></span>`:''}</th>`;
+  const _pcols=[{l:'#',rk:1},{k:'name',l:'Name',left:1},{k:'pos',l:'Pos',left:1},{l:'Yr→',left:1},{k:'ht',l:'Ht',left:1},
+     {l:'Note',left:1,t:'EST = freshman estimate · ×n = transfer factor · FINAL = last season · ↑ ROLE = projected minutes jump'},
+     ..._pc,{k:'usg',l:'USG%',h:1},{k:'ts',l:'TS%',h:1},{k:'ti40',l:'TI',h:1},{k:'wa',l:'WA',h:1},{k:'tdc_grade',l:'Gr',h:1}];
+  const _ncol=_pcols.length;
   el.innerHTML=`
     ${summaryCards}
     <div id="projAwardsWrap"></div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px;padding:4px 0;">
-      <div style="font-size:11px;color:var(--text3);"><span style="background:rgba(139,105,20,.12);color:var(--accent);padding:2px 5px;font-weight:700;">EST</span> = Freshman estimate &nbsp; <span style="background:rgba(26,95,191,.1);color:#1a5fbf;padding:2px 5px;font-weight:700;">×</span> = Transfer factor &nbsp; <span style="background:rgba(180,50,0,.1);color:#cc3300;padding:2px 5px;font-weight:700;">FINAL</span> = Last season &nbsp; <span style="color:var(--text3);font-style:italic;">USG/TS/BPM/WA = projected advanced</span></div>
+      <div style="font-size:11px;color:var(--text3);"><b>EST</b> = Freshman estimate &nbsp; <b>×</b> = Transfer factor &nbsp; <b>FINAL</b> = Last season &nbsp; <span style="font-style:italic;">USG/TS/BPM/WA = projected advanced</span></div>
     </div>
-    <div class="rot-table-card proj-gs">
-    <div style="min-width:1440px;">
-      <div class="pstat-header" style="min-width:1440px;">
-        ${[{l:''},{k:'pos',l:'Pos',left:1},{k:'name',l:'Name',left:1},{l:'Yr→'},{k:'ht',l:'Ht'},
-           {k:'mpg',l:'MPG'},{k:'ppg',l:'PPG'},{k:'rpg',l:'RPG'},{k:'apg',l:'APG'},
-           {k:'fgm',l:'FGM'},{k:'fga',l:'FGA'},{k:'fg_pct',l:'FG%'},
-           {k:'tpm',l:'3PM'},{k:'tpa',l:'3PA'},{k:'tp_pct',l:'3P%'},
-           {k:'ftm',l:'FTM'},{k:'fta',l:'FTA'},{k:'ft_pct',l:'FT%'},
-           {k:'oreb',l:'OR'},{k:'dreb',l:'DR'},{k:'stl',l:'STL'},{k:'blk',l:'BLK'},{k:'tovs',l:'TO'},
-           {k:'usg',l:'USG%'},{k:'ts',l:'TS%'},{k:'ti40',l:'TI'},{k:'wa',l:'WA'},{k:'tdc_grade',l:'Gr'}]
-          .map(c=>`<div class="stat-header-cell${c.left?' left':''}${c.k?' proj-sortable':''}"${c.k?` onclick="_projSortBy('${c.k}')" title="Sort by ${c.l}"`:''}>${c.l}${c.k?`<span class="proj-sarr" id="parr-${c.k}"></span>`:''}</div>`).join('')}
-      </div>
-      <div id="projBody">${projected.map((p,i)=>{
+    <div class="sheet-wrap"><table class="sheet dense freeze2" id="projSheet" style="--c1:36px;--c2:180px;">
+      <thead><tr>${_pcols.map(c=>c.rk?'<th class="rk">#</th>':_pth(c)).join('')}</tr></thead>
+      <tbody id="projBody">${projected.map((p,i)=>{
         if(p._injured||p._dnp){
-          return `<div class="protation-row" data-k="${i}" style="min-width:1440px;opacity:.7;border-left:2px solid #ef4444;padding-left:6px;">
-            <div class="rot-num" style="color:#ef4444;">—</div>
-            <div class="rot-pos" style="color:var(--text3);">${p._deployedPos||p.position||''}</div>
-            <div class="rot-name">
-              <a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team)}" style="color:inherit;text-decoration:none;">${p.name}</a>
-              <span style="font-size:8px;font-weight:700;padding:1px 4px;background:rgba(220,38,38,.12);color:#ef4444;border:1px solid rgba(220,38,38,.3);border-radius:3px;margin-left:4px;">INJ</span>
-            </div>
-            <div class="rot-cls" style="color:var(--accent);font-size:11px;">${p.yr||p.class_year||'—'}</div>
-            <div class="rot-stat" style="font-size:11px;color:var(--text3);">${p.height||'—'}</div>
-            <div class="rot-stat" style="grid-column:6/-1;text-align:left;color:var(--text3);font-style:italic;white-space:nowrap;">Projected DNP — minutes redistributed</div>
-          </div>`;
+          return `<tr class="proj-row" data-k="${i}">
+            <td class="rk proj-num">—</td>
+            <td class="l nm"><a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team)}">${p.name}</a></td>
+            <td class="l dim">${p._deployedPos||p.position||''}</td>
+            <td class="l dim">${p.yr||p.class_year||'—'}</td>
+            <td class="l dim">${p.height||'—'}</td>
+            <td class="l dim">INJ</td>
+            <td class="l dim" colspan="${_ncol-6}">Projected DNP — minutes redistributed</td>
+          </tr>`;
         }
-        const isStarter=!!p._sRow;
         const yr=p.yr||p.class_year||'';
-        // Show next year
         const nextYr=yr||'—';
-        const srBadge=p._isSr?`<span style="font-size:8px;font-weight:700;padding:1px 3px;background:rgba(180,50,0,.1);color:#cc3300;margin-left:3px;">FINAL</span>`:'';
-        const transBadge=p._transferFactor&&Math.abs(p._transferFactor-1)>0.05?`<span style="font-size:8px;font-weight:700;padding:1px 3px;background:rgba(26,95,191,.1);color:#1a5fbf;margin-left:3px;">×${r1t(p._transferFactor)}</span>`:'';
-        const froshBadge=p._isFrosh?`<span style="font-size:8px;font-weight:700;padding:1px 3px;background:rgba(139,105,20,.12);color:var(--accent);margin-left:3px;">EST</span>`:'';
         const projMpg=parseFloat(p.mpg)||0, prevMpg=parseFloat(p._rawMpg)||projMpg;
-        const roleBadge=(!p._isFrosh&&!p._isSr&&projMpg>prevMpg*1.25)?`<span style="font-size:8px;font-weight:700;padding:1px 3px;background:rgba(26,140,58,.12);color:#1a8c3a;margin-left:3px;">↑ ROLE</span>`:'';
+        const notes=[p._isFrosh?'EST':'', p._transferFactor&&Math.abs(p._transferFactor-1)>0.05?'×'+r1t(p._transferFactor):'',
+          p._isSr?'FINAL':'', (!p._isFrosh&&!p._isSr&&projMpg>prevMpg*1.25)?'↑ ROLE':''].filter(Boolean).join(' · ');
         const A=p._projAdv||{};
-        const advCell=(v,suffix)=>`<div class="rot-stat" style="${A._est?'color:var(--text3);font-style:italic;':''}">${v!=null&&isFinite(v)?Number(v).toFixed(1)+(suffix||''):'—'}</div>`;
-        return `
-        <div class="protation-row" data-k="${i}" style="min-width:1440px;${isStarter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
-          <div class="rot-num" style="${isStarter?`color:var(--tc-readable,${color});font-weight:700;`:''}">${i+1}</div>
-          <div class="rot-pos" style="${isStarter?`color:var(--tc-readable,${color});`:''}">${(()=>{const dp=p._deployedPos||p.position||'';const oop=dp&&p.position&&dp!==p.position;return oop?dp+`<span title="Primary: ${p.position}" style="font-size:8px;color:var(--text3);margin-left:2px;vertical-align:super;">&#x21D5;</span>`:dp;})()}</div>
-          <div class="rot-name">
-            <a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team)}" style="color:inherit;text-decoration:none;font-weight:${isStarter?700:500};">${p.name}</a>
-            ${froshBadge}${transBadge}${srBadge}${roleBadge}
-          </div>
-          <div class="rot-cls" style="color:var(--accent);font-size:11px;">${nextYr}</div>
-          <div class="rot-stat" style="font-size:11px;color:var(--text3);">${p.height||'—'}</div>
-          <div class="rot-stat" style="${sc(p.mpg,'mpg')}">${fmt(p.mpg)}</div>
-          <div class="rot-stat" style="${sc(p.ppg,'ppg')}">${fmt(p.ppg)}</div>
-          <div class="rot-stat" style="${sc(p.rpg,'rpg')}">${fmt(p.rpg)}</div>
-          <div class="rot-stat" style="${sc(p.apg,'apg')}">${fmt(p.apg)}</div>
-          <div class="rot-stat" style="${sc(p.fgm,'fgm')}">${fmt(p.fgm)}</div>
-          <div class="rot-stat" style="${sc(p.fga,'fga')}">${fmt(p.fga)}</div>
-          <div class="rot-stat" style="${sc(p.fg_pct,'fg_pct')}">${fmtP(p.fg_pct)}</div>
-          <div class="rot-stat" style="${sc(p.tpm,'tpm')}">${fmt(p.tpm)}</div>
-          <div class="rot-stat" style="${sc(p.tpa,'tpa')}">${fmt(p.tpa)}</div>
-          <div class="rot-stat" style="${sc(p.tp_pct,'tp_pct')}">${fmtP(p.tp_pct)}</div>
-          <div class="rot-stat" style="${sc(p.ftm,'ftm')}">${fmt(p.ftm)}</div>
-          <div class="rot-stat" style="${sc(p.fta,'fta')}">${fmt(p.fta)}</div>
-          <div class="rot-stat" style="${sc(p.ft_pct,'ft_pct')}">${fmtP(p.ft_pct)}</div>
-          <div class="rot-stat" style="${sc(p.oreb,'oreb')}">${fmt(p.oreb)}</div>
-          <div class="rot-stat" style="${sc(p.dreb,'dreb')}">${fmt(p.dreb)}</div>
-          <div class="rot-stat" style="${sc(p.stl,'stl')}">${fmt(p.stl)}</div>
-          <div class="rot-stat" style="${sc(p.blk,'blk')}">${fmt(p.blk)}</div>
-          <div class="rot-stat" style="${sc(p.tovs,'tovs')}">${fmt(p.tovs)}</div>
+        const advCell=(v,suffix)=>`<td${A._est?' class="dim"':''}>${v!=null&&isFinite(v)?Number(v).toFixed(1)+(suffix||''):'—'}</td>`;
+        const dp=p._deployedPos||p.position||'', oop=dp&&p.position&&dp!==p.position;
+        return `<tr class="proj-row" data-k="${i}">
+          <td class="rk proj-num">${i+1}</td>
+          <td class="l nm"><a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team)}">${p.name}</a></td>
+          <td class="l dim"${oop?` title="Primary: ${p.position}"`:''}>${dp}${oop?' &#x21D5;':''}</td>
+          <td class="l dim">${nextYr}</td>
+          <td class="l dim">${p.height||'—'}</td>
+          <td class="l dim">${notes}</td>
+          ${_pc.map(c=>`<td>${c.p?fmtP(p[c.k]):fmt(p[c.k])}</td>`).join('')}
           ${advCell(A.usg,'%')}
           ${advCell(A.ts,'%')}
           ${advCell(A.ti40)}
           ${advCell(A.wa)}
-          <div class="rot-grade ${gc(p.tdc_grade||'')}">${_gdisp(p)}</div>
-        </div>`;
-      }).join('')}</div>
-    </div>
-    </div>
+          <td class="big">${_gdisp(p)}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>
     <div style="margin-top:24px;" id="projChartWrap">
       <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;">National Comparison — Projected vs D1 Average</div>
       <div style="position:relative;width:100%;height:280px;">
@@ -3155,6 +3014,7 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
     </div>`;
   // Render chart after HTML is set
   setTimeout(()=>renderProjNatlChart(projected, color, rgb), 0);
+  if(window.tdcSheetHeat) tdcSheetHeat(document.getElementById('projSheet'));
   _fillProjAwards(projected);
 }
 
@@ -3176,7 +3036,7 @@ function _projSortBy(key){
     if(key==='usg'||key==='ts'||key==='ti40'||key==='wa') return num((p._projAdv||{})[key]);
     if(key==='tdc_grade') return num(p.tdc_grade); return num(p[key]); };
   const isInj=p=>!!(p._injured||p._dnp);
-  const els=[...body.querySelectorAll('.protation-row')];
+  const els=[...body.querySelectorAll('.proj-row')];
   els.sort((ea,eb)=>{
     const a=rows[+ea.dataset.k], b=rows[+eb.dataset.k]; if(!a||!b) return 0;
     if(isInj(a)!==isInj(b)) return isInj(a)?1:-1;      // injured always last
@@ -3188,9 +3048,9 @@ function _projSortBy(key){
     const va=val(a), vb=val(b);
     return (typeof va==='string') ? dir*va.localeCompare(vb) : dir*(va-vb);
   });
-  els.forEach((el,i)=>{ body.appendChild(el); const n=el.querySelector('.rot-num'); const p=rows[+el.dataset.k]; if(n&&!isInj(p)) n.textContent=i+1; });
-  document.querySelectorAll('.proj-sarr').forEach(s=>s.textContent='');
-  const arr=document.getElementById('parr-'+key); if(arr) arr.textContent=dir<0?' ▼':' ▲';
+  els.forEach((el,i)=>{ body.appendChild(el); const n=el.querySelector('.proj-num'); const p=rows[+el.dataset.k]; if(n&&!isInj(p)) n.textContent=i+1; });
+  document.querySelectorAll('.proj-sarr').forEach(s=>{ s.textContent=''; s.parentElement.classList.remove('on'); });
+  const arr=document.getElementById('parr-'+key); if(arr){ arr.textContent=dir<0?'▼':'▲'; arr.parentElement.classList.add('on'); }
 }
 
 // ── CUSTOMIZE LINEUP ENGINE ──────────────────────────────
@@ -4988,95 +4848,53 @@ function renderCustomProjectionsTable(){
     if(!base||base[key]==null) return '';
     const d = Math.round((parseFloat(cur[key]||0)-parseFloat(base[key]||0))*(pct?10:1))/(pct?10:1);
     if(Math.abs(d)<(pct?0.1:0.5)) return '';
-    const col = d>0 ? '#1a8c3a' : '#cc2200';
-    return `<span style="font-size:8px;font-weight:700;color:${col};margin-left:2px;">${d>0?'+':''}${d}${pct?'%':''}</span>`;
+    return `<span class="${d>0?'up':'dn'}" style="font-size:9px;margin-left:3px;">${d>0?'+':''}${d}${pct?'%':''}</span>`;
   }
+  // the site sheet (tdc-sheets.css): frozen # + name, bio in dim columns, stat columns shaded
+  // red→green within the roster by tdcSheetHeat (data-v carries the number past the change tag)
+  const dv=v=>{ const n=parseFloat(v); return isFinite(n)?` data-v="${n}"`:''; };
+  const C=[['ppg','PPG',0,1],['rpg','RPG',0,1],['apg','APG',0,1],['fgm','FGM',0,0],['fga','FGA',0,0],['fg_pct','FG%',1,1],
+    ['tpm','3PM',0,0],['tpa','3PA',0,0],['tp_pct','3P%',1,1],['ftm','FTM',0,0],['fta','FTA',0,0],['ft_pct','FT%',1,0],
+    ['oreb','OR',0,0],['dreb','DR',0,0],['stl','STL',0,0],['blk','BLK',0,0],['tovs','TO',0,0]];   // [key, label, isPct, showsChange]
 
   const rows = projected.map((p,i)=>{
-    const isStarter = i<5;
     const base = baseMap[p.name];
-    const pKey = `cproj-${i}`;
     const curMpg = customMpg[p.name]!==undefined ? customMpg[p.name] : parseFloat(p.mpg||0).toFixed(1);
-    return `
-    <div class="crotation-row" style="min-width:960px;${isStarter?`background:rgba(${rgb},.04);border-left:2px solid ${color};padding-left:6px;`:''}">
-      <div class="rot-num" style="${isStarter?`color:var(--tc-readable,${color});font-weight:700;`:''}">${i+1}</div>
-      <div class="rot-pos" style="${isStarter?`color:var(--tc-readable,${color});`:''}">${p.position||''}</div>
-      <div class="rot-name" style="min-width:120px;">
-        <a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}" style="color:inherit;text-decoration:none;font-weight:${isStarter?700:500};">${p.name}</a>
-        ${p._frosh?'<span style="font-size:8px;padding:1px 3px;background:rgba(139,105,20,.12);color:var(--accent);margin-left:3px;">EST</span>':''}
-      </div>
-      <div class="rot-cls" style="color:var(--accent);font-size:11px;">${p.class_year||p.yr||'—'}</div>
-      <div class="rot-stat" style="font-size:11px;color:var(--text3);">${p.height||'—'}</div>
-      <div class="rot-stat" style="font-weight:700;color:${color};">
-        ${Number(curMpg).toFixed(1)}${diffSpan(p,base,'mpg',false)}
-      </div>
-      <div class="rot-stat" style="${statColor(p.ppg,'ppg',teamGp)}">${fmt(p.ppg)}${diffSpan(p,base,'ppg',false)}</div>
-      <div class="rot-stat" style="${statColor(p.rpg,'rpg',teamGp)}">${fmt(p.rpg)}${diffSpan(p,base,'rpg',false)}</div>
-      <div class="rot-stat" style="${statColor(p.apg,'apg',teamGp)}">${fmt(p.apg)}${diffSpan(p,base,'apg',false)}</div>
-      <div class="rot-stat" style="${statColor(p.fgm,'fgm',teamGp)}">${fmt(p.fgm)}</div>
-      <div class="rot-stat" style="${statColor(p.fga,'fga',teamGp)}">${fmt(p.fga)}</div>
-      <div class="rot-stat" style="${statColor(p.fg_pct,'fg_pct',teamGp)}">${fmtP(p.fg_pct)}${diffSpan(p,base,'fg_pct',true)}</div>
-      <div class="rot-stat" style="${statColor(p.tpm,'tpm',teamGp)}">${fmt(p.tpm)}</div>
-      <div class="rot-stat" style="${statColor(p.tpa,'tpa',teamGp)}">${fmt(p.tpa)}</div>
-      <div class="rot-stat" style="${statColor(p.tp_pct,'tp_pct',teamGp)}">${fmtP(p.tp_pct)}${diffSpan(p,base,'tp_pct',true)}</div>
-      <div class="rot-stat" style="${statColor(p.ftm,'ftm',teamGp)}">${fmt(p.ftm)}</div>
-      <div class="rot-stat" style="${statColor(p.fta,'fta',teamGp)}">${fmt(p.fta)}</div>
-      <div class="rot-stat" style="${statColor(p.ft_pct,'ft_pct',teamGp)}">${fmtP(p.ft_pct)}</div>
-      <div class="rot-stat" style="${statColor(p.oreb,'oreb',teamGp)}">${fmt(p.oreb)}</div>
-      <div class="rot-stat" style="${statColor(p.dreb,'dreb',teamGp)}">${fmt(p.dreb)}</div>
-      <div class="rot-stat" style="${statColor(p.stl,'stl',teamGp)}">${fmt(p.stl)}</div>
-      <div class="rot-stat" style="${statColor(p.blk,'blk',teamGp)}">${fmt(p.blk)}</div>
-      <div class="rot-stat" style="${statColor(p.tovs,'tovs',teamGp)}">${fmt(p.tovs)}</div>
-      <div class="rot-grade ${gc(p.tdc_grade||'')}">${_gdisp(p)}</div>
-    </div>`;
+    return `<tr>
+      <td class="rk">${i+1}</td>
+      <td class="l nm"><a href="player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}">${p.name}</a></td>
+      <td class="l dim">${p.position||''}</td>
+      <td class="l dim">${p.class_year||p.yr||'—'}${p._frosh?' · EST':''}</td>
+      <td class="l dim">${p.height||'—'}</td>
+      <td class="strong"${dv(curMpg)}>${Number(curMpg).toFixed(1)}${diffSpan(p,base,'mpg',false)}</td>
+      ${C.map(c=>`<td${dv(p[c[0]])}>${c[2]?fmtP(p[c[0]]):fmt(p[c[0]])}${c[3]?diffSpan(p,base,c[0],!!c[2]):''}</td>`).join('')}
+      <td class="big">${_gdisp(p)}</td>
+    </tr>`;
   }).join('');
 
   const teamPpg = projected.slice(0,8).reduce((s,p)=>s+(parseFloat(p.ppg)||0),0);
   const totalMins = projected.reduce((s,p)=>s+(parseFloat(p.mpg)||0),0);
   const budgetCol = '#1a8c3a';
+  setTimeout(()=>{ const t=document.getElementById('cprojSheet'); if(t&&window.tdcSheetHeat) tdcSheetHeat(t); },0);
 
-  return `<div id="customProjTable" style="margin-top:20px;width:max-content;max-width:100%;margin-left:auto;margin-right:auto;">
+  return `<div id="customProjTable" style="margin-top:20px;">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
       <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">
         2026-27 Projected — Customize View
-        <span style="font-weight:400;font-size:10px;text-transform:none;letter-spacing:0;margin-left:8px;color:var(--text3);">green/red = change vs baseline</span>
+        <span style="font-weight:400;font-size:10px;text-transform:none;letter-spacing:0;margin-left:8px;color:var(--text3);">+/− tags = change vs baseline</span>
       </div>
       <div style="display:flex;gap:16px;align-items:center;">
         <span style="font-size:12px;color:var(--text3);">Est. Team PPG: <strong style="color:var(--text);">${Math.round(teamPpg)}</strong></span>
         <span style="font-size:12px;font-weight:700;color:${budgetCol};">⏱ ${Math.round(totalMins)} min · normalized 200-min game</span>
       </div>
     </div>
-    <div style="overflow-x:auto;">
-    <div class="proj-gs" style="min-width:960px;">
-      <div class="cstat-header" style="min-width:960px;">
-        <div class="stat-header-cell"></div>
-        <div class="stat-header-cell left">Pos</div>
-        <div class="stat-header-cell left">Name</div>
-        <div class="stat-header-cell">Yr</div>
-        <div class="stat-header-cell">Ht</div>
-        <div class="stat-header-cell">MPG</div>
-        <div class="stat-header-cell">PPG</div>
-        <div class="stat-header-cell">RPG</div>
-        <div class="stat-header-cell">APG</div>
-        <div class="stat-header-cell">FGM</div>
-        <div class="stat-header-cell">FGA</div>
-        <div class="stat-header-cell">FG%</div>
-        <div class="stat-header-cell">3PM</div>
-        <div class="stat-header-cell">3PA</div>
-        <div class="stat-header-cell">3P%</div>
-        <div class="stat-header-cell">FTM</div>
-        <div class="stat-header-cell">FTA</div>
-        <div class="stat-header-cell">FT%</div>
-        <div class="stat-header-cell">OR</div>
-        <div class="stat-header-cell">DR</div>
-        <div class="stat-header-cell">STL</div>
-        <div class="stat-header-cell">BLK</div>
-        <div class="stat-header-cell">TO</div>
-        <div class="stat-header-cell">Gr</div>
-      </div>
-      ${rows}
-    </div>
-    </div>
+    <div class="sheet-wrap"><table class="sheet dense freeze2" id="cprojSheet" style="--c1:36px;--c2:180px;">
+      <thead><tr>
+        <th class="rk">#</th><th class="l">Name</th><th class="l">Pos</th><th class="l">Yr</th><th class="l">Ht</th>
+        <th data-heat="1">MPG</th>${C.map(c=>`<th data-heat="${c[0]==='tovs'?-1:1}">${c[1]}</th>`).join('')}<th data-heat="1">Gr</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
     <div style="font-size:10px;color:var(--text3);margin-top:8px;font-style:italic;">
       Will slightly vary based on projected minutes. Adjusting MPG changes stats proportionally. Sorted by minutes high → low.
     </div>
@@ -5855,58 +5673,53 @@ async function renderOnOff(){
   if(!_canAll){ rows=rows.slice(0,2);
     _gateMsg='<div style="margin:12px 0 0;padding:10px 14px;border:1px dashed var(--border2);border-radius:10px;font-size:12.5px;color:var(--text3);background:var(--bg2);">Showing the top 2 — <a href="pricing.html" style="color:var(--tc-readable,var(--accent));font-weight:700;">upgrade to Pro</a> to see all '+_total+' players.</div>'; }
   const f=(v,d)=>v==null?'—':(+v).toFixed(d==null?1:d);
-  const col=v=>v==null?'':(v>0?'#2bb673':v<0?'#e06552':'');
-  const impTier=v=>v==null?null:v>=12?{t:'Elite',c:'#1f9d57'}:v>=6?{t:'Strong',c:'#2bb673'}:v>=2?{t:'Positive',c:'#6bbf8a'}:v>-2?{t:'Neutral',c:'#8a93a3'}:v>-6?{t:'Negative',c:'#e0885a'}:{t:'Drag',c:'#e06552'};
-  // diverging impact-bar cell (green right / red left) — matches onoff.html
-  const impCell=(v,tier,maxAbs)=>{
-    if(v==null||!isFinite(v)) return '<td class="onoff-big" title="Sample too low to isolate his impact — see the On/Off possessions. He was almost never off the floor (or barely on it), so there\'s no clean baseline to compare against."><div class="impact-wrap"><span class="impact-lowsamp">low sample</span></div></td>';
-    const w=(Math.min(1,Math.abs(v)/maxAbs)*50).toFixed(0);
-    const bar='<i class="'+(v>=0?'pos':'neg')+'" style="width:'+w+'%"></i>';
-    const chip=tier?'<span class="impact-chip" style="color:'+tier.c+';background:'+tier.c+'22;">'+tier.t+'</span>':'';
-    const vc=v>0?'c-pos':v<0?'c-neg':'';
-    return '<td class="onoff-big" title="Raw swing '+(v>0?'+':'')+f(v)+' — sample-adjusted"><div class="impact-wrap">'+chip+'<span class="impact-bar">'+bar+'</span><span class="impact-val '+vc+'">'+(v>0?'+':'')+f(v,1)+'</span></div></td>';
-  };
-  // per-column blue heat (deeper = more efficient; DRtg inverted) across the shown rows
-  const HK=['on_o','on_d','off_o','off_d'], HR={};
-  HK.forEach(k=>{ const vs=rows.map(r=>r[k]).filter(v=>v!=null&&isFinite(v)); if(vs.length) HR[k]={lo:Math.min(...vs),hi:Math.max(...vs)}; });
-  const heatBg=(k,v,inv)=>{ const h=HR[k]; if(!h||v==null||!isFinite(v)||h.hi<=h.lo) return ''; let n=(v-h.lo)/(h.hi-h.lo); if(inv) n=1-n; return ' style="background:rgba(77,127,214,'+(0.06+n*0.34).toFixed(3)+');"'; };
+  const sg=(v,d)=>v==null||!isFinite(v)?'—':(v>0?'+':'')+f(v,d);
+  const impTier=v=>v==null?null:v>=12?'Elite':v>=6?'Strong':v>=2?'Positive':v>-2?'Neutral':v>-6?'Negative':'Drag';
   const showPhoto=(window.tdcShowPhotos&&window.tdcShowPhotos());
   // "Georgia Tech Yellow Jackets" -> "Georgia Tech" for the transfer-from tag. Prefer the shared
   // school-name map (handles multi-word mascots); fall back to trimming the last word.
   const _shortTeam=t=>{ if(window.tdcShortSchool){ try{ const s=window.tdcShortSchool(t); if(s) return s; }catch(e){} }
     const w=String(t||'').trim().split(/\s+/); return w.length>1?w.slice(0,-1).join(' '):(t||''); };
+  // the site sheet (tdc-sheets.css): frozen # + player, one value per cell, every efficiency
+  // column shaded red→green within the team by tdcSheetHeat (DRtg inverted)
   const body=rows.map((r,i)=>{
-    const _xf=r._fromTeam?`<span class="oo-xfer" title="Transfer — his on/off is from last season at ${r._fromTeam}">← ${_shortTeam(r._fromTeam)}</span>`:'';
+    const on=+r.on_poss||0, off=+r.off_poss||0, lowOn=on<200, lowOff=off<100;
+    const low=r._adj==null||!isFinite(r._adj);
+    const lowTip=(lowOn||lowOff)?' — too few '+(lowOn?'on':'off')+'-court possessions for a reliable impact':'';
     return `<tr>
-      <td style="text-align:left;color:var(--text3);">${i+1}</td>
-      <td style="text-align:left;"><a href="player.html?espn=${r.espn_id}" style="color:var(--text);font-weight:700;text-decoration:none;">${r.name||'—'}</a>${_xf}</td>
-      ${(()=>{ const on=+r.on_poss||0, off=+r.off_poss||0, lowOn=on<200, lowOff=off<100;
-        const oc=lowOff?'#e06552':'var(--text3)', nc=lowOn?'#e06552':'';
-        return `<td title="On-court / off-court possessions${(lowOn||lowOff)?' — too few '+(lowOn?'on':'off')+'-court possessions for a reliable impact':''}"><span style="color:${nc};">${f(on,0)}</span> <span style="color:var(--text3);">/</span> <span style="color:${oc};font-weight:${lowOff?'700':'400'};">${f(off,0)}</span></td>`; })()}
-      ${impCell(r._adj, impTier(r._adj), 20)}
-      <td style="color:${col(r.on_net)};">${r.on_net>0?'+':''}${f(r.on_net)}</td>
-      <td style="color:${col(r.off_net)};">${r.off_net>0?'+':''}${f(r.off_net)}</td>
-      <td class="heat"${heatBg('on_o',r.on_o)}>${f(r.on_o)}</td><td class="heat"${heatBg('on_d',r.on_d,true)}>${f(r.on_d)}</td>
-      <td class="heat"${heatBg('off_o',r.off_o)}>${f(r.off_o)}</td><td class="heat"${heatBg('off_d',r.off_d,true)}>${f(r.off_d)}</td>
+      <td class="rk">${i+1}</td>
+      <td class="l nm"><a href="player.html?espn=${r.espn_id}">${r.name||'—'}</a></td>
+      <td class="l dim"${r._fromTeam?` title="Transfer — his on/off is from last season at ${r._fromTeam}"`:''}>${r._fromTeam?'← '+_shortTeam(r._fromTeam):''}</td>
+      <td class="dim" title="Possessions with the player ON the floor${lowTip}">${f(on,0)}</td>
+      <td class="dim" title="Possessions with the player OFF the floor${lowTip}">${f(off,0)}</td>
+      ${low?`<td class="dim" title="Sample too low to isolate his impact — see the On/Off possessions. He was almost never off the floor (or barely on it), so there's no clean baseline to compare against.">low sample</td>`
+           :`<td class="big" data-v="${r._adj}" title="Raw swing ${sg(r._adj)} — sample-adjusted">${sg(r._adj)}</td>`}
+      <td class="l dim">${low?'':impTier(r._adj)}</td>
+      <td>${sg(r.on_net)}</td><td>${sg(r.off_net)}</td>
+      <td>${f(r.on_o)}</td><td>${f(r.on_d)}</td><td>${f(r.off_o)}</td><td>${f(r.off_d)}</td>
     </tr>`;
   }).join('');
   const _inN=rows.filter(r=>r._fromTeam).length;
   host.innerHTML=`
     <div class="sec-head">On/Off &amp; WOWY <span style="color:var(--text3);font-weight:600;font-size:12px;">· ${_currentView?`${_inN?'returning + incoming':'returning players'}, ${yl}`:yl}</span></div>
     <p style="color:var(--text3);font-size:12.5px;line-height:1.5;max-width:840px;margin:0 0 10px;"><b style="color:var(--text2);">Impact</b> = the on/off swing in net rating (pts/100), shrunk for sample size — hover for the raw number. Measured vs teammates, not opponent-adjusted.${_currentView?` <span style="color:var(--text3);">On/off is measured from games played, so these are this roster's <b>returning</b> players' impact last season (${yl}) — the 2026-27 season hasn't started.${_departedN?` ${_departedN} player${_departedN>1?'s':''} from last year's rotation ${_departedN>1?'have':'has'} left.`:''}${_inN?` ${_inN} <b>incoming</b> transfer${_inN>1?'s are':' is'} shown with a <span style="color:var(--tc-readable,var(--accent));">← from</span> tag — their numbers are from last season at their previous school.`:''}</span>`:''}</p>
-    <div style="display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;font-weight:700;margin:0 0 14px;"><span style="color:#1f9d57;">+12 Elite</span><span style="color:#2bb673;">+6 Strong</span><span style="color:#6bbf8a;">+2 Positive</span><span style="color:#8a93a3;">±2 Neutral</span><span style="color:#e0885a;">−6 Negative</span><span style="color:#e06552;">Drag</span></div>
-    <div class="tbl-card"><table class="sortable-table" style="min-width:760px;">
+    <div style="font-size:11px;color:var(--text3);margin:0 0 14px;">Impact tiers: +12 Elite · +6 Strong · +2 Positive · ±2 Neutral · −6 Negative · below −6 Drag</div>
+    <div class="sheet-wrap"><table class="sheet dense freeze2" id="onoffSheet" style="--c1:36px;--c2:180px;">
       <thead><tr>
-        <th class="left" style="width:28px;"></th><th class="left">Player</th>
-        <th title="Possessions with the player ON the floor / OFF the floor. Impact needs enough of both — a red off-count means too small a sample to grade.">On / Off Poss</th>
-        <th title="Impact — how many points per 100 the team is better with him on the floor vs off (on-court net minus off-court net). 'low sample' = not enough on- or off-court possessions to isolate it.">Impact</th>
-        <th title="Team net efficiency with the player ON">On Net</th>
-        <th title="Team net efficiency with the player OFF">Off Net</th>
-        <th title="Points scored per 100, player on">On ORtg</th><th title="Points allowed per 100, player on">On DRtg</th>
-        <th title="Points scored per 100, player off">Off ORtg</th><th title="Points allowed per 100, player off">Off DRtg</th>
+        <th class="rk">#</th><th class="l">Player</th>
+        <th class="l" title="Incoming transfer: his on/off is from last season at his previous school">From</th>
+        <th title="Possessions with the player ON the floor. Impact needs enough of both on and off.">On Poss</th>
+        <th title="Possessions with the player OFF the floor. Too few off-court possessions means too small a sample to grade.">Off Poss</th>
+        <th data-heat="1" title="Impact — how many points per 100 the team is better with him on the floor vs off (on-court net minus off-court net). 'low sample' = not enough on- or off-court possessions to isolate it.">Impact</th>
+        <th class="l" title="Impact tier: +12 Elite, +6 Strong, +2 Positive, ±2 Neutral, −6 Negative, below that Drag">Tier</th>
+        <th data-heat="1" title="Team net efficiency with the player ON">On Net</th>
+        <th data-heat="1" title="Team net efficiency with the player OFF">Off Net</th>
+        <th data-heat="1" title="Points scored per 100, player on">On ORtg</th><th data-heat="-1" title="Points allowed per 100, player on">On DRtg</th>
+        <th data-heat="1" title="Points scored per 100, player off">Off ORtg</th><th data-heat="-1" title="Points allowed per 100, player off">Off DRtg</th>
       </tr></thead><tbody>${body}</tbody></table></div>
     ${_gateMsg}
     <div id="teamLineupHost"></div>`;
+  if(window.tdcSheetHeat) tdcSheetHeat(document.getElementById('onoffSheet'));
   if(window.TDC_LINEUPS && _canAll){   // the deep five-man/trio/pair breakdown is Pro-only
     var _tf=(typeof teamT!=='undefined'&&teamT&&(teamT.full||teamT.name))||(typeof teamName!=='undefined'?teamName:'');
     TDC_LINEUPS.section(_tf, +season||2026).then(function(h){ var lh=document.getElementById('teamLineupHost'); if(lh&&h) lh.innerHTML=h; });
@@ -6800,7 +6613,7 @@ function _tbetTeamProfile(r){
     _bar('Neutral',neuP,100,'var(--text2)',Math.round(neuP)+'%')+
     '<div class="tbp-cap">Straight-up win rate by site — how travel-proof they are (against-the-spread by venue arrives with the live odds feed).</div>';
   var seasons=r.bySeason?Object.keys(r.bySeason).sort():[];
-  var strows=seasons.map(function(y){var s=r.bySeason[y];return '<tr><td>'+(y-1)+'–'+(''+y).slice(2)+'</td><td>'+s.w+'–'+s.l+'</td><td class="'+(s.vsLine>0?'g':'r')+'">'+sgn(s.vsLine)+'</td><td>'+f1(s.total)+'</td><td>'+pct(s.favBeat)+'</td></tr>';}).join('');
+  var strows=seasons.map(function(y){var s=r.bySeason[y];return '<tr><td class="l">'+(y-1)+'–'+(''+y).slice(2)+'</td><td>'+s.w+'–'+s.l+'</td><td>'+sgn(s.vsLine)+'</td><td>'+f1(s.total)+'</td><td>'+pct(s.favBeat)+'</td></tr>';}).join('');
   // vs-line-by-season bar chart: green above the zero line = beat our number (undervalued),
   // red below = came up short. A quick read on whether the market keeps mis-pricing them.
   var chart='';
@@ -6856,7 +6669,7 @@ function _tbetTeamProfile(r){
       tile(Math.round(Hh.ovPct*100)+'%','Over vs Close',(Hh.ou||'')+' O/U',ovCls)+
       tile(Math.round((1-Hh.ovPct)*100)+'%','Under vs Close','',unCls);
     var hy=Hh.bySeason?Object.keys(Hh.bySeason).sort():[];
-    var hrows=hy.map(function(y){var s=Hh.bySeason[y];if(!s||!s.g)return '';return '<tr><td>'+(y-1)+'–'+(''+y).slice(2)+'</td><td class="'+(s.atsPct>0.5?'g':'r')+'">'+Math.round(s.atsPct*100)+'% <span style="color:var(--text3)">'+(s.ats||'')+'</span></td><td>'+Math.round(s.ovPct*100)+'% O <span style="color:var(--text3)">'+(s.ou||'')+'</span></td></tr>';}).join('');
+    var hrows=hy.map(function(y){var s=Hh.bySeason[y];if(!s||!s.g)return '';return '<tr><td class="l">'+(y-1)+'–'+(''+y).slice(2)+'</td><td>'+Math.round(s.atsPct*100)+'%</td><td class="dim">'+(s.ats||'')+'</td><td>'+Math.round(s.ovPct*100)+'%</td><td class="dim">'+(s.ou||'')+'</td></tr>';}).join('');
     var ra=[];
     if(Hh.atsPct>=0.55) ra.push('💰 <b>Covers</b> — '+Math.round(Hh.atsPct*100)+'% ATS vs the real closing spread over 5 seasons ('+Hh.ats+').');
     else if(Hh.atsPct<=0.45) ra.push('🎯 <b>Fade ATS</b> — just '+Math.round(Hh.atsPct*100)+'% vs the closing spread ('+Hh.ats+').');
@@ -6865,7 +6678,7 @@ function _tbetTeamProfile(r){
     var raHtml=ra.length?('<div class="tbp-angles">'+ra.map(function(a){return '<div class="tbp-angle">'+a+'</div>';}).join('')+'</div>'):'';
     realBlock='<div class="tbp-h">Real Closing Lines <span>· actual sportsbook results · last 5 seasons ('+Hh.g+' g)</span></div>'+
       '<div class="tbp-tiles">'+rtiles+'</div>'+
-      (hrows?'<div class="tbp-trend"><div class="tbet-wrap"><table class="tbp-st"><thead><tr><th>Season</th><th>ATS</th><th>O/U</th></tr></thead><tbody>'+hrows+'</tbody></table></div></div>':'')+
+      (hrows?'<div class="tbp-trend"><div class="sheet-wrap"><table class="sheet dense tbp-sheet"><thead><tr><th class="l">Season</th><th data-heat="1" title="Share of games they covered the real closing spread">ATS %</th><th title="ATS record (W-L-P)">ATS Rec</th><th title="Share of games that went over the real closing total">Over %</th><th title="Over/under record">O/U Rec</th></tr></thead><tbody>'+hrows+'</tbody></table></div></div>':'')+
       raHtml;
   }
   return realBlock+
@@ -6873,7 +6686,7 @@ function _tbetTeamProfile(r){
     '<div class="tbp-tiles">'+tiles+'</div>'+splits+
     '<div class="tbp-pace">'+pace+venue+'</div>'+
     chart+
-    (strows?'<div class="tbp-trend"><div class="tbp-tt">Season Trend</div><div class="tbet-wrap"><table class="tbp-st"><thead><tr><th>Season</th><th>Rec</th><th>vs Line</th><th>Total</th><th>Fav✓</th></tr></thead><tbody>'+strows+'</tbody></table></div></div>':'')+
+    (strows?'<div class="tbp-trend"><div class="tbp-tt">Season Trend</div><div class="sheet-wrap"><table class="sheet dense tbp-sheet"><thead><tr><th class="l">Season</th><th>Rec</th><th data-heat="1" title="Average points per game vs our projected line (+ = beat it)">vs Line</th><th title="Average game total">Total</th><th data-heat="1" title="As the favorite: share of games they beat our line">Fav %</th></tr></thead><tbody>'+strows+'</tbody></table></div></div>':'')+
     anglesHtml+
     '<div class="tbp-h" style="margin-top:26px;">Player Prop Board <span>· suggested lines &amp; over rates from last season</span></div>';
 }
@@ -6903,20 +6716,23 @@ function _tbetPaint(){
   });
   if(!players.length){ el.innerHTML='<div class="tbet-mut" style="padding:30px;text-align:center;">Not enough game history for a prop board (players need ≥5 games last season).</div>'; return; }
   players.sort(function(a,b){ return (b.props[_TBET.sort].avg)-(a.props[_TBET.sort].avg); });
-  var ths=TBET_STATS.map(function(st){ return '<th class="sortable '+(_TBET.sort===st.k?'on':'')+'" onclick="_tbetSort(&quot;'+st.k+'&quot;)">'+st.lab+' ▾</th>'; }).join('');
+  // the site sheet: one line per cell (suggested line · over rate · average); each prop column is
+  // shaded red→green by its over rate (data-v) via tdcSheetHeat; bold = the player's strongest prop
+  var ths=TBET_STATS.map(function(st){ var on=_TBET.sort===st.k; return '<th class="sort'+(on?' on':'')+'" data-heat="1" title="'+(st.pctOnly?'Share of games he had a double-double':'Suggested over line · share of games he cleared it · his average')+' — click to sort by the average" onclick="_tbetSort(&quot;'+st.k+'&quot;)">'+st.lab+'<span class="ar">'+(on?'▼':'')+'</span></th>'; }).join('');
   var body=players.map(function(p,i){
     var cells=TBET_STATS.map(function(st){
-      var pr=p.props[st.k]; var cls=(pr.pct>=60?'hi':pr.pct<=40?'lo':'')+(st.k===p.bestKey?' best':'');
-      if(pr.pctOnly) return '<td><div class="tbet-cell '+cls.trim()+'"><div class="ln">'+pr.pct+'%</div><div class="pc">of games</div></div></td>';
-      return '<td><div class="tbet-cell '+cls.trim()+'"><div class="ln">O '+pr.line.toFixed(1)+'</div><div class="pc">'+pr.pct+'% · '+pr.avg.toFixed(1)+'</div></div></td>';
+      var pr=p.props[st.k];
+      if(pr.pctOnly) return '<td data-v="'+pr.pct+'">'+pr.pct+'% of games</td>';
+      return '<td data-v="'+pr.pct+'">O '+pr.line.toFixed(1)+' · '+pr.pct+'% · '+pr.avg.toFixed(1)+'</td>';
     }).join('');
-    return '<tr><td class="rn">'+(i+1)+'</td><td class="name"><a href="player.html?espn='+p.eid+'&tab=betting">'+p.name+'</a>'+(p.pos?'<span class="pos">'+p.pos+'</span>':'')+'</td><td>'+p.gp+'</td>'+cells+'</tr>';
+    return '<tr><td class="rk">'+(i+1)+'</td><td class="l nm"><a href="player.html?espn='+p.eid+'&tab=betting">'+p.name+'</a></td><td class="l dim">'+(p.pos||'')+'</td><td>'+p.gp+'</td><td class="l strong">'+((TBET_STATS.filter(function(st){return st.k===p.bestKey;})[0]||{}).lab||'')+'</td>'+cells+'</tr>';
   }).join('');
   el.innerHTML=
     _tbetTeamProfile(_TBET.teamRec)
-    +'<p class="tbet-note">Every rotation player’s suggested prop line, over rate, and average from <b>last season’s games</b>. Green = cleared the over 60%+ of the time, the accent number is each player’s strongest prop. Tap a column to sort; click a name for his full breakdown. Model &amp; trend based — not live sportsbook odds.</p>'
-    +'<div class="tbet-wrap"><table class="tbet"><thead><tr><th class="rn"></th><th class="name">Player</th><th>GP</th>'+ths+'</tr></thead><tbody>'+body+'</tbody></table></div>'
+    +'<p class="tbet-note">Every rotation player’s suggested prop line (O), over rate (%), and average from <b>last season’s games</b>. Each column is shaded by over rate, red (lowest) to green (highest); <b>Best</b> = the player’s strongest prop. Tap a column to sort; click a name for his full breakdown. Model &amp; trend based — not live sportsbook odds.</p>'
+    +'<div class="sheet-wrap"><table class="sheet dense freeze2" id="tbetSheet" style="--c1:36px;--c2:170px;"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l">Pos</th><th>GP</th><th class="l" title="His strongest prop: the market he cleared most often">Best</th>'+ths+'</tr></thead><tbody>'+body+'</tbody></table></div>'
     +_tbetFirstShot();
+  if(window.tdcSheetHeat) el.querySelectorAll('table.sheet').forEach(function(t){ tdcSheetHeat(t); });
 }
 function _tbetSort(k){ _TBET.sort=k; _tbetPaint(); }
 
@@ -7050,6 +6866,7 @@ async function renderNil(){
   const nProjSpend=(d.projected_spend||0)*_F;
   const spendGap=round1(nVal-nProjSpend);
   const hasOverrides=Math.abs(spendGap)>=0.1;
+  const _anyInj=(typeof teamPlayers!=='undefined'&&teamPlayers||[]).some(p=>p.is_injured&&d.players.some(x=>(x.name||'').toLowerCase().trim()===(p.name||'').toLowerCase().trim()));
   let html=`<div class="nil-cards">
     <div class="nil-card"><div class="nil-lbl">NIL Budget · Tier ${d.tier}</div><div class="nil-big">${fmt(d.budget)}</div></div>
     <div class="nil-card"><div class="nil-lbl">Roster Value · Model</div><div class="nil-big" style="color:var(--tc-readable,${col})">${fmt(nVal)}</div><div class="nil-sub">open-market · tier-neutral</div></div>
@@ -7066,34 +6883,30 @@ async function renderNil(){
     </div>
     <div style="font-size:10px;color:var(--text3);margin-top:4px;">Green bar = roster value · vertical line = budget</div>
   </div>
-  <div class="nil-gs">
-  <table class="nil-table"><thead><tr><th class="left">Player</th><th title="Class / eligibility">Yr</th><th>Pos</th><th>Grade</th><th title="Projected minutes per game">MPG</th><th title="Last season's demonstrated production — points / rebounds / assists per game">PPG/RPG/APG</th><th title="Wins Added — the owned on-court production value (offensive + defensive) the Model is built on. Last season.">WA</th><th title="Production model estimate: grade × projected minutes × market premium. Tier-neutral — the player's open-market worth, not his program's spending tier.">Model Value</th><th title="Positional market curve for this player's grade & slot — set by the owner, independent of minutes">Market Value</th><th title="This player's Market Value as a share of the roster's total market value">% Roster</th><th title="TIER-FAIR: strips team spending, then compares his production to the market price for his grade & slot. UNDERRATED = produces 30%+ above his market price (slept on). OVERRATED = market prices him 30%+ above production. Only real rotation pieces are judged.">Verdict</th></tr></thead><tbody>`;
+  <div class="sheet-wrap"><table class="sheet dense freeze2" id="nilSheet" style="--c1:36px;--c2:180px;"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l" title="Class / eligibility">Yr</th><th class="l" title="The position the market prices him at (his natural one, if he plays out of position)">Pos</th>${_anyInj?'<th class="l" title="Out for the 2026-27 season (injury report)">Status</th>':''}<th data-heat="1">Grade</th><th data-heat="1" title="Projected minutes per game">MPG</th><th data-heat="1" title="Last season's demonstrated production — points per game">PPG</th><th data-heat="1" title="Last season's rebounds per game">RPG</th><th data-heat="1" title="Last season's assists per game">APG</th><th data-heat="1" title="Wins Added — the owned on-court production value (offensive + defensive) the Model is built on. Last season.">WA</th><th data-heat="1" title="Production model estimate: grade × projected minutes × market premium. Tier-neutral — the player's open-market worth, not his program's spending tier.">Model Value</th><th data-heat="1" title="Positional market curve for this player's grade & slot — set by the owner, independent of minutes">Market Value</th><th title="This player's Market Value as a share of the roster's total market value">% Roster</th><th class="l" title="TIER-FAIR: strips team spending, then compares his production to the market price for his grade & slot. UNDERRATED = produces 30%+ above his market price (slept on). OVERRATED = market prices him 30%+ above production. Only real rotation pieces are judged.">Verdict</th></tr></thead><tbody>`;
   const _rosterList=(typeof teamPlayers!=='undefined'&&teamPlayers||[]);
   const _injSet=new Set(_rosterList.filter(p=>p.is_injured).map(p=>(p.name||'').toLowerCase().trim()));
   const _byName={}; _rosterList.forEach(p=>{ _byName[(p.name||'').toLowerCase().trim()]=p; });
-  d.players.forEach(p=>{ const gr=(p.grade!=null?p.grade:'—');
+  const _dv=v=>(v==null||!isFinite(+v))?'':` data-v="${+v}"`;
+  d.players.forEach((p,_i)=>{ const gr=(p.grade!=null?p.grade:'—');
     const key=(p.name||'').toLowerCase().trim();
     const inj=_injSet.has(key);
-    const injTag=inj?` <span style="font-size:8px;font-weight:700;padding:1px 4px;background:rgba(220,38,38,.12);color:#ef4444;border:1px solid rgba(220,38,38,.3);border-radius:3px;">OUT 2026-27</span>`:'';
     const rp=_byName[key];
     const href=rp&&rp.espn_id?`player.html?espn=${rp.espn_id}&name=${encodeURIComponent(p.name)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(tT.name||'')}`;
-    const nameCell=`<a href="${href}" style="color:inherit;text-decoration:none;">${p.name}</a>`;
+    const nameCell=`<a href="${href}">${p.name}</a>`;
     const model=p.proj!=null?p.proj:p.value;          // tier-based — feeds the tier-fair verdict
     const modelShown=(window.TDC_NIL&&TDC_NIL.neutralValueOf)?TDC_NIL.neutralValueOf(p,d.tier):model;   // open-market — for display (real deals as-is)
     const _bm=_bmOf(p);
     const mktV=_bm.val;
     const posC=_bm.pos||'—';   // shows the position the market prices him at (natural, if out of position)
     const vd=(mktV!=null&&window.TDC_NIL&&TDC_NIL.marketVerdict)?TDC_NIL.marketVerdict(model,mktV,{grade:p.grade,mpg:p.mpg,tier:d.tier}):{tag:null};
-    const vCol=vd.tag==='underrated'?'var(--green)':'var(--amber)';
     const vCell=(vd.tag==='underrated'||vd.tag==='overrated')
-      ? `<span style="font-size:9px;font-weight:800;letter-spacing:.02em;padding:2px 6px;border-radius:4px;color:${vCol};border:1px solid ${vCol};background:color-mix(in srgb, ${vCol} 13%, transparent);">${vd.tag==='underrated'?'UNDERRATED':'OVERRATED'}</span>`
-      : `<span style="color:var(--text3);font-size:10px;">${vd.tag==='fair'?'fair':'—'}</span>`;
-    const _n1=v=>(v==null||!isFinite(+v))?null:(+v).toFixed(1);
-    const prodCell=(_n1(p.ppg)!=null)?`${_n1(p.ppg)}<span style="color:var(--text3);"> / ${_n1(p.rpg)||'—'} / ${_n1(p.apg)||'—'}</span>`:'<span style="color:var(--text3);">—</span>';
-    const waCell=(p.wa!=null&&isFinite(+p.wa))?`<span style="font-weight:700;color:${+p.wa>=4?'var(--green)':'inherit'};">${(+p.wa>0?'+':'')}${(+p.wa).toFixed(1)}</span>`:'<span style="color:var(--text3);">—</span>';
+      ? `<td class="l strong">${vd.tag==='underrated'?'Underrated':'Overrated'}</td>`
+      : `<td class="l dim">${vd.tag==='fair'?'fair':'—'}</td>`;
+    const _n1=v=>(v==null||!isFinite(+v))?'—':(+v).toFixed(1);
+    const waCell=(p.wa!=null&&isFinite(+p.wa))?`${(+p.wa>0?'+':'')}${(+p.wa).toFixed(1)}`:'—';
     const pctRoster=(_rosterMarket>0&&mktV!=null)?Math.round(mktV/_rosterMarket*100):null;
-    const clsCell=p.cls||'<span style="color:var(--text3);">—</span>';
-    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="left">${nameCell}${injTag}</td><td style="color:var(--text2);">${clsCell}</td><td>${posC}</td><td>${gr}</td><td>${Math.round(p.mpg)}</td><td style="white-space:nowrap;">${prodCell}</td><td>${waCell}</td><td style="color:var(--text3);">${fmt(modelShown)}</td><td style="font-weight:700;color:var(--tc-readable,${col})${inj?';text-decoration:line-through;':''}">${mktV!=null?fmt(mktV):'—'}</td><td style="color:var(--text3);">${pctRoster!=null?pctRoster+'%':'—'}</td><td>${vCell}</td></tr>`; });
+    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="rk">${_i+1}</td><td class="l nm">${nameCell}</td><td class="l dim">${p.cls||'—'}</td><td class="l dim">${posC}</td>${_anyInj?`<td class="l dim">${inj?'Out 2026-27':''}</td>`:''}<td>${gr}</td><td>${Math.round(p.mpg)}</td><td>${_n1(p.ppg)}</td><td>${_n1(p.rpg)}</td><td>${_n1(p.apg)}</td><td>${waCell}</td><td${_dv(modelShown)}>${fmt(modelShown)}</td><td class="big"${inj?'':_dv(mktV)}${inj?' style="text-decoration:line-through;"':''}>${mktV!=null?fmt(mktV):'—'}</td><td class="dim">${pctRoster!=null?pctRoster+'%':'—'}</td>${vCell}</tr>`; });
   html+=`</tbody></table></div>`;
   // ── roster insights (fills the page): market $ by position + best value / biggest overpay ──
   (function(){
@@ -7207,6 +7020,7 @@ async function renderNil(){
     <a href="moneyball.html?tab=ledger&team=${encodeURIComponent(tT.name)}" style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:800;letter-spacing:.02em;color:var(--accent);border:1px solid var(--border2);border-radius:22px;padding:9px 18px;text-decoration:none;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)'">📊 This program on The Ledger →</a>
   </div>`;
   host.innerHTML=html;
+  if(window.tdcSheetHeat) tdcSheetHeat(document.getElementById('nilSheet'));
 }
 
 // ── ROSTER OVER TIME (season slider on the Depth Chart tab) ───────────────
@@ -8017,18 +7831,22 @@ function _sdTable(items, prior, note){
   const _e=s=>(''+(s||'')).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
   const max=items[0].share||1;
   const role=sh=>sh>=24?'Primary option':sh>=18?'Featured':sh>=12?'Secondary':sh>=8?'Complementary':'Low usage';
-  const rows=items.map(it=>{
+  // the site sheet (tdc-sheets.css): one line per player; the share bar keeps its own column
+  const rows=items.map((it,i)=>{
     const w=Math.max(3,Math.round(it.share/max*100));
     const was=prior?prior(it):null, moved=(was!=null&&it.tend!=null&&Math.abs(it.tend-was)>=5), up=moved&&it.tend>was;
     const tip='Shot tendency '+(it.tend!=null?it.tend:'—')+(moved?' (was '+was+' last season)':'');
-    return `<div class="sd-row">
-      <span class="sd-name"><b title="${_e(it.name)}">${_e(it.name)}</b>${it.fr?'<em class="sd-fr">FR</em>':''}<small>${role(it.share)}</small></span>
-      <span class="sd-bar"><i style="width:${w}%"></i></span>
-      <span class="sd-share">${it.share.toFixed(1)}%</span>
-      <span class="sd-tend" title="${tip}">${it.tend!=null?it.tend:'—'}${moved?`<small class="${up?'up':'dn'}">${up?'▲':'▼'} from ${was}</small>`:''}</span>
-    </div>`;
+    return `<tr>
+      <td class="rk">${i+1}</td>
+      <td class="l nm" title="${_e(it.name)}">${_e(it.name)}</td>
+      <td class="l dim">${it.fr?'Fr · ':''}${role(it.share)}</td>
+      <td class="l"><span class="sd-bar" style="display:block;width:160px;"><i style="width:${w}%"></i></span></td>
+      <td class="strong">${it.share.toFixed(1)}%</td>
+      <td title="${tip}">${it.tend!=null?it.tend:'—'}</td>
+      ${prior?`<td>${moved?`<span class="${up?'up':'dn'}">${up?'▲':'▼'} from ${was}</span>`:''}</td>`:''}
+    </tr>`;
   }).join('');
-  return `<div class="sd-table"><div class="sd-row sd-head"><span>Player</span><span></span><span>Share</span><span>Tendency</span></div>${rows}</div><div class="sd-note">${note}</div>`;
+  return `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l" title="Role by share of the team's shots (Fr = freshman, estimated from the projected role)">Role</th><th class="l"></th><th title="The player's slice of the team's shots">Share</th><th title="Shot tendency: national percentile of shots per 40 (100 = a pure #1 option)">Tendency</th>${prior?'<th title="Change in shot tendency from last season (5+ points)">vs Last Yr</th>':''}</tr></thead><tbody>${rows}</tbody></table></div><div class="sd-note">${note}</div>`;
 }
 async function _renderHistShot(rows, yr){
   const host=document.getElementById('shotDistCard'); if(!host) return;
@@ -8343,16 +8161,16 @@ async function loadSchedule(){
           if(!me||!opp) return;
           const L=TDC_RATINGS.lineFor(me,opp,g.neutral?'neutral':(homeMe?'home':'away'));
           const p=L.probA;
-          upRows+=`<tr class="sched-row">
-            <td class="sched-date">${g.date?fmtU(g.date):''}</td>
-            <td class="sched-rk">${opp.rank?'<span style="opacity:.6">#</span>'+opp.rank:''}</td>
-            <td class="sched-opp">${homeMe?'':'at '}${homeMe?g.away:g.home}</td>
-            <td class="sched-res" style="color:${p>=50?'var(--green,#3fa66a)':'var(--red,#c75d5d)'};font-weight:700;">${p.toFixed(0)}%</td>
-            <td class="sched-loc col-loc">${L.spread}</td>
-            <td class="sched-rec" style="color:var(--text3);">${L.scoreA}–${L.scoreB}</td>
+          upRows+=`<tr>
+            <td class="l dim">${g.date?fmtU(g.date):''}</td>
+            <td class="dim">${opp.rank||''}</td>
+            <td class="l nm">${homeMe?'':'at '}${homeMe?g.away:g.home}</td>
+            <td class="c strong">${p.toFixed(0)}%</td>
+            <td class="l dim">${L.spread}</td>
+            <td class="dim">${L.scoreA}–${L.scoreB}</td>
           </tr>`;
         });
-        if(upRows) upRows=`<tr><td colspan="6" class="sched-section">Upcoming · projected</td></tr>`+upRows;
+        if(upRows) upRows=`<tr class="sec"><td colspan="6" class="l">Upcoming · projected</td></tr>`+upRows;
       }catch(e){}
     }
     if(!games.length && !upRows){ host.innerHTML = `<div style="padding:30px;color:var(--text3);">No games found for ${yr-1}–${(''+yr).slice(2)}.</div>`; return; }
@@ -8386,17 +8204,17 @@ async function loadSchedule(){
     let rows='';
     const fmtD = d=>{ const x=new Date(d+'T12:00:00'); return x.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); };
     prows.forEach(x=>{
-      if(x.section){ rows += `<tr><td colspan="6" class="sched-section">${x.section}</td></tr>`; return; }
-      rows += `<tr class="sched-row ${x.won?'win':'loss'}" onclick="location.href='${x.href}'" style="cursor:pointer;">
-        <td class="sched-date">${fmtD(x.date)}</td><td class="sched-rk">${x.rank?'<span style="opacity:.6">#</span>'+x.rank:''}</td>
-        <td class="sched-opp">${x.opp}</td><td class="sched-res ${x.won?'win':'loss'}">${x.won?'W':'L'}, ${x.ms}–${x.os}</td>
-        <td class="sched-loc col-loc">${x.site==='N'?'Neutral':x.site==='H'?'Home':'Away'}</td><td class="sched-rec">${x.rec}</td></tr>`;
+      if(x.section){ rows += `<tr class="sec"><td colspan="6" class="l">${x.section}</td></tr>`; return; }
+      rows += `<tr onclick="location.href='${x.href}'" style="cursor:pointer;">
+        <td class="l dim">${fmtD(x.date)}</td><td class="dim">${x.rank||''}</td>
+        <td class="l nm">${x.opp}</td><td class="c strong">${x.won?'W':'L'}, ${x.ms}–${x.os}</td>
+        <td class="l dim">${x.site==='N'?'Neutral':x.site==='H'?'Home':'Away'}</td><td>${x.rec}</td></tr>`;
     });
     document.getElementById('schedSummary').textContent = games.length ? `${w}–${l}` + (cw+cl?` · ${cw}–${cl} conf`:'') : 'projected';
     const upHead = !games.length && upRows;   // schedule not started: label the columns for lines
-    host.innerHTML = `<table class="sched-table"><thead><tr>
-      <th>Date</th><th>Rk</th><th>Opponent</th><th>${upHead?'Win %':'Result'}</th><th class="col-loc">${upHead?'Line':'Location'}</th><th>${upHead?'Proj Score':'Record'}</th>
-    </tr></thead><tbody>${rows}${upRows}</tbody></table>`;
+    host.innerHTML = `<div class="sheet-wrap"><table class="sheet dense"><thead><tr>
+      <th class="l">Date</th><th title="opponent's rank">Rk</th><th class="l">Opponent</th><th class="c">${upHead?'Win %':'Result'}</th><th class="l">${upHead?'Line':'Location'}</th><th>${upHead?'Proj Score':'Record'}</th>
+    </tr></thead><tbody>${rows}${upRows}</tbody></table></div>`;
   }catch(e){
     host.innerHTML = `<div style="padding:30px;color:var(--text3);">Could not load schedule. ${e.message}</div>`;
   }

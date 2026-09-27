@@ -19,7 +19,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <script src="team-colors.js?v=10"></script>
   <script src="tdc-ratings.js?v=21"></script>
-  <script src="tdc-schedule.js?v=20"></script>
+  <script src="tdc-schedule.js?v=20s"></script>
   <script src="tdc-teamlink.js?v=2"></script>
   <script src="tdc-teamgrades.js?v=2"></script>
   <script src="tdc-projgrade.js?v=base24"></script>
@@ -201,29 +201,15 @@
     .tagUp.dn{background:color-mix(in srgb,var(--amber) 15%,transparent);color:var(--amber);border:1px solid color-mix(in srgb,var(--amber) 34%,transparent);}
     .tagUp.fl{background:color-mix(in srgb,var(--tc) 14%,transparent);color:var(--tc-readable,var(--tc));border:1px solid color-mix(in srgb,var(--tc) 32%,transparent);}
 
-    /* standings */
-    .st{display:flex;align-items:center;gap:11px;padding:8px 8px;border-radius:9px;font-size:13.5px;}
-    .st + .st{margin-top:1px;}
-    .st.me{background:linear-gradient(90deg, color-mix(in srgb,var(--tc) 18%,transparent), color-mix(in srgb,var(--tc) 4%,transparent));border:1px solid color-mix(in srgb,var(--tc) 36%,transparent);font-weight:800;}
-    .st .rk{width:18px;color:var(--txt3);font-weight:800;font-size:12px;}
-    .st img{width:22px;height:22px;object-fit:contain;}
-    .st .nm{flex:1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .st.me .nm{font-weight:800;}
-    .st .rc{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;color:var(--txt2);}
-    .st .ov2{font-size:11px;color:var(--txt3);font-variant-numeric:tabular-nums;margin-left:6px;}
-    .st-scroll{position:relative;max-height:360px;overflow-y:auto;overflow-x:hidden;margin-right:-8px;padding-right:6px;}
-    .st-scroll::-webkit-scrollbar{width:6px;}
-    .st-scroll::-webkit-scrollbar-thumb{background:var(--line2);border-radius:6px;}
-    .st-scroll::-webkit-scrollbar-track{background:transparent;}
-    .st-more{font-size:10.5px;font-weight:700;color:var(--txt3);text-align:center;padding-top:9px;margin-top:4px;border-top:1px solid var(--line);}
+    /* standings (sheet) */
+    .st-scroll{max-height:360px;}
+    .st-scroll .sheet{width:100%;}
+    .st-scroll .sheet tbody tr.me td{background:color-mix(in srgb,var(--tc) 16%,var(--bg));font-weight:800;}
+    .st-scroll td.nm img{width:18px;height:18px;object-fit:contain;vertical-align:-4px;margin-right:7px;}
+    .st-more{font-size:10.5px;font-weight:700;color:var(--txt3);text-align:center;padding-top:9px;margin-top:4px;}
 
-    /* roster leaders (2-col) */
-    .leadgrid{display:grid;grid-template-columns:1fr 1fr;gap:2px 22px;}
-    @media(max-width:560px){.leadgrid{grid-template-columns:1fr;}}
-    .lead{display:flex;align-items:center;gap:11px;padding:8px 2px;border-bottom:1px solid var(--line);}
-    .lead .lo{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:21px;width:34px;text-align:center;flex-shrink:0;}
-    .lead .ln{font-weight:700;font-size:13.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .lead .lp{font-size:11px;font-weight:700;color:var(--txt3);flex-shrink:0;}
+    #hxLeaders .sheet, #hxShot .sheet{width:100%;}
+    #hxLeaders .sheet-wrap, #hxShot .sheet-wrap{max-height:none;}
 
     /* season outlook */
     .otags{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px;}
@@ -317,22 +303,7 @@
     .tool .tn{ color:var(--text); }
     .tool .td{ color:var(--text3); font-weight:500; }
     .tool .lk{ color:var(--text3); border-color:var(--border2); }
-    /* Shot Distribution rows */
-    .sd-row{ display:grid; grid-template-columns:minmax(110px,34%) 1fr 58px 88px; align-items:center; gap:12px; padding:7px 0; }
-    .sd-row + .sd-row{ border-top:1px solid var(--border); }
-    .sd-head{ padding:0 0 6px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--text3); }
-    .sd-head span:nth-child(3), .sd-head span:nth-child(4){ text-align:right; }
-    .sd-name{ font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
-    .sd-fr{ font-style:normal; font-size:9px; font-weight:800; letter-spacing:.06em; color:var(--text3); border:1px solid var(--border2); border-radius:4px; padding:0 4px; margin-left:4px; vertical-align:1px; }
-    .sd-bar{ height:8px; border-radius:4px; background:var(--bg3); overflow:hidden; min-width:0; }
-    .sd-bar i{ display:block; height:100%; border-radius:4px; background:var(--tc-band,var(--tc)); }
-    :root[data-theme="dark"] .sd-bar i{ background:var(--tc-readable,var(--tc)); }   /* navy teams vanish on the dark page */
-    .sd-share{ text-align:right; font-size:13px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; }
-    .sd-tend{ text-align:right; font-size:13px; font-weight:600; color:var(--text2); font-variant-numeric:tabular-nums; line-height:1.15; }
-    .sd-tend small{ display:block; font-size:10.5px; font-weight:600; }
-    .sd-tend small.up{ color:var(--green,#2f8a4a); } .sd-tend small.dn{ color:var(--red,#c2410c); }
     .sd-note{ margin-top:12px; font-size:11.5px; line-height:1.55; color:var(--text3); }
-    @media(max-width:560px){ .sd-row{ grid-template-columns:minmax(90px,38%) 1fr 50px 64px; gap:8px; } }
     @media(max-width:560px){ .hx-hero{ padding:16px 16px 18px; } .hxwrap{ padding-left:0; padding-right:0; } }
   </style>
   <link rel="manifest" href="manifest.webmanifest">
@@ -342,6 +313,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="tdc-pwa.js?v=2" defer></script>
   <link rel="stylesheet" href="tdc-column.css?v=2"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
 </head>
 <body data-anim-auto>
   <div class="hq-word" id="hqWord" aria-hidden="true"></div>
@@ -439,8 +411,9 @@ function colorsOf(row){
 }
 function barCol(v){ return v==null?'var(--txt3)':(v>=80?'var(--green)':v>=64?'var(--tc)':v>=50?'var(--amber)':'var(--red)'); }
 function ord(n){ var v=n%100; if(v>=11&&v<=13) return n+'th'; switch(n%10){case 1:return n+'st';case 2:return n+'nd';case 3:return n+'rd';default:return n+'th';} }
-function wrapStand(rowsHtml,total){ return '<div class="st-scroll">'+rowsHtml+'</div>'+(total>9?'<div class="st-more">scroll for all '+total+' teams</div>':''); }
-function fitStand(){ var c=byId('hxStandings').querySelector('.st-scroll'); if(!c) return; var me=c.querySelector('.st.me'); if(me){ c.scrollTop=Math.max(0, me.offsetTop - c.clientHeight/2 + me.offsetHeight/2); } }
+function wrapStand(rowsHtml,total,head){ return '<div class="sheet-wrap st-scroll"><table class="sheet dense"><thead><tr>'+head+'</tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+(total>9?'<div class="st-more">scroll for all '+total+' teams</div>':''); }
+function standRow(i,me,name,cells){ var lg=logoFor(name); return '<tr'+(me?' class="me"':'')+'><td class="rk">'+(i+1)+'</td><td class="l nm">'+(lg?'<img src="'+lg+'" alt="" onerror="this.style.visibility=\'hidden\'">':'')+esc(name)+'</td>'+cells+'</tr>'; }
+function fitStand(){ var c=byId('hxStandings').querySelector('.st-scroll'); if(!c) return; if(window.tdcSheetHeat) tdcSheetHeat(c.querySelector('table')); var me=c.querySelector('tr.me'); if(me){ c.scrollTop=Math.max(0, me.offsetTop - c.clientHeight/2 + me.offsetHeight/2); } }
 
 var LAUNCH=[
   ['📊','team.html','Team Page','depth chart · DNA · projections'],
@@ -589,10 +562,10 @@ function projStandings(row){
     var withRec=mine.filter(function(t){ var p=recs[t.full]; return p&&p.confN>=8; }).length;
     var list=mine.slice();
     if(withRec) list.sort(function(a,b){ var pa=recs[a.full],pb=recs[b.full]; var wa=pa&&pa.confN>=8?pa.cw/pa.confN:-1, wb=pb&&pb.confN>=8?pb.cw/pb.confN:-1; return (wb-wa)||((+b.rating||0)-(+a.rating||0)); });
-    var rows=list.map(function(t,i){ var lg=logoFor(t.full), p=recs[t.full];
-      return '<div class="st'+(t.full===row.full?' me':'')+'"><span class="rk">'+(i+1)+'</span>'+(lg?'<img src="'+lg+'" alt="" onerror="this.style.visibility=\'hidden\'">':'')+'<span class="nm">'+esc(t.full)+'</span>'+
-        (withRec?'<span class="rc">'+(p&&p.confN>=8?recStr(p.cw,p.cl):'—')+'</span><span class="ov2">'+(p&&p.n>=20?recStr(p.w,p.l):'')+'</span>':'<span class="rc">'+fmtR(t.rating)+'</span>')+'</div>'; }).join('');
-    el.innerHTML=wrapStand(rows,mine.length); fitStand();
+    var rows=list.map(function(t,i){ var p=recs[t.full];
+      return standRow(i,t.full===row.full,t.full,
+        withRec?'<td>'+(p&&p.confN>=8?recStr(p.cw,p.cl):'—')+'</td><td class="dim">'+(p&&p.n>=20?recStr(p.w,p.l):'')+'</td>':'<td>'+fmtR(t.rating)+'</td>'); }).join('');
+    el.innerHTML=wrapStand(rows,mine.length,'<th class="rk">#</th><th class="l">Team</th>'+(withRec?'<th title="projected conference record">Conf</th><th title="projected overall record">Overall</th>':'<th data-heat="1" title="projected Power Rating">Rating</th>')); fitStand();
     byId('hxStandSub').textContent=withRec?'2026-27 projected record':'2026-27 projected';
   };
   paint(null);
@@ -691,9 +664,9 @@ function pastStandings(P,tr,row){
   byId('hxStandSub').textContent=seasonLabel(HQ_SEASON);
   if(!conf){ el.innerHTML='<div class="hx-empty">No standings for this program in '+seasonLabel(HQ_SEASON)+'.</div>'; return; }
   var mine=P.rows.filter(function(r){return r.conference===conf;}).sort(function(a,b){ var ac=(a.conf_wins||0)-(a.conf_losses||0), bc=(b.conf_wins||0)-(b.conf_losses||0); return bc-ac || ((b.srs||-99)-(a.srs||-99)); });
-  var rows=mine.map(function(t,i){ var me=(t.team===(tr&&tr.team)); var lg=logoFor(t.team);
-    return '<div class="st'+(me?' me':'')+'"><span class="rk">'+(i+1)+'</span>'+(lg?'<img src="'+lg+'" alt="" onerror="this.style.visibility=\'hidden\'">':'')+'<span class="nm">'+esc(t.team)+'</span><span class="rc">'+(t.conf_wins!=null?recStr(t.conf_wins,t.conf_losses):'—')+'</span><span class="ov2">'+recStr(t.wins,t.losses)+'</span></div>'; }).join('');
-  el.innerHTML=wrapStand(rows,mine.length); fitStand();
+  var rows=mine.map(function(t,i){ var me=(t.team===(tr&&tr.team));
+    return standRow(i,me,t.team,'<td>'+(t.conf_wins!=null?recStr(t.conf_wins,t.conf_losses):'—')+'</td><td class="dim">'+recStr(t.wins,t.losses)+'</td>'); }).join('');
+  el.innerHTML=wrapStand(rows,mine.length,'<th class="rk">#</th><th class="l">Team</th><th>Conf</th><th>Overall</th>'); fitStand();
 }
 function lastGame(full,year){
   var el=byId('hxGame'); el.innerHTML='<div class="hx-lab">Last Game</div><div class="hx-empty">Loading…</div>';
@@ -747,9 +720,10 @@ function loadRoster(row){
         }
         pe.innerHTML='<div class="prog"><div class="ovr">'+f.ov+'<small>OVR</small></div><div class="pmid"><div class="pn">'+esc(f.name)+'</div><div class="pp">'+esc(meta||'Roster leader')+'</div>'+tag+'</div></div>'+bars;
         // leaders list (top 8, 2-col)
-        le.innerHTML='<div class="leadgrid">'+arr.slice(0,8).map(function(x){
-          return '<div class="lead"><span class="lo" style="color:'+barCol(x.ov)+'">'+x.ov+'</span><span class="ln">'+esc(x.name)+'</span><span class="lp">'+esc(x.pos||'')+'</span></div>';
-        }).join('')+'</div>';
+        le.innerHTML='<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l">Pos</th><th data-heat="1" title="projected OVR">OVR</th></tr></thead><tbody>'+arr.slice(0,8).map(function(x,i){
+          return '<tr><td class="rk">'+(i+1)+'</td><td class="l nm">'+esc(x.name)+'</td><td class="l dim">'+esc(x.pos||'')+'</td><td class="big">'+x.ov+'</td></tr>';
+        }).join('')+'</tbody></table></div>';
+        if(window.tdcSheetHeat) tdcSheetHeat(le.querySelector('table'));
       };
       // load the owner's freshman editor profiles first so gradeSolo resolves a recruit's OVR to
       // his profile number (the same value the team page shows) instead of a stale recompute.
@@ -774,26 +748,21 @@ function _fillHxShot(ps, short){
       items.sort(function(a,b){ return b.share-a.share; });
     }
     if(items.length<3){ el.innerHTML='<div class="hx-empty">No projected shot distribution for this roster yet.</div>'; var _pc0=byId('hxShotProfCard'); if(_pc0)_pc0.style.display='none'; return; }
-    var max=items[0].share||1;
     // One grid row per player, CFB table style: full name (FR tag for freshmen), the bar, the
     // share, then TEND with the change from last season spelled out. This used to squeeze the
     // name into 92px of caps ("KANAAN CA…") and the share into a 32px box, so "30.3%" ran out of
     // the card.
-    el.innerHTML='<div class="sd-row sd-head"><span>Player</span><span></span><span>Share</span><span>Tendency</span></div>'+
+    el.innerHTML='<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th class="l">Yr</th><th title="share of the team\'s projected shots">Share</th><th title="national percentile of shots per 40">Tendency</th><th title="change in tendency from last season (shown when it moved 5+)">Change</th></tr></thead><tbody>'+
       items.slice(0,8).map(function(it){
-        var w=Math.max(3,Math.round(it.share/max*100));
         var dem=(it.espn&&P[it.espn])?P[it.espn].shot_tend_demo:null;
-        var moved=(dem!=null&&it.tend!=null&&Math.abs(it.tend-dem)>=5), up=moved&&it.tend>dem;
+        var moved=(dem!=null&&it.tend!=null&&Math.abs(it.tend-dem)>=5);
         var tip='Shot tendency '+(it.tend!=null?it.tend:'—')+(moved?' (was '+dem+' last season)':'');
-        return '<div class="sd-row">'+
-          '<span class="sd-name" title="'+esc(it.name||'')+'">'+esc(it.name||'—')+(it.fr?' <em class="sd-fr">FR</em>':'')+'</span>'+
-          '<span class="sd-bar"><i style="width:'+w+'%"></i></span>'+
-          '<span class="sd-share">'+it.share.toFixed(1)+'%</span>'+
-          '<span class="sd-tend" title="'+tip+'">'+(it.tend!=null?it.tend:'—')+
-            (moved?'<small class="'+(up?'up':'dn')+'">'+(up?'▲':'▼')+' from '+dem+'</small>':'')+'</span>'+
-        '</div>';
-      }).join('')+
-      '<div class="sd-note">Share: each player\'s slice of the team\'s projected shots. Tendency: how shot-hungry the player\'s role is, as a national percentile of shots per 40 (100 = a pure #1 option); the arrow shows the change from last season.</div>';
+        return '<tr><td class="l nm">'+esc(it.name||'—')+'</td><td class="l dim">'+(it.fr?'FR':'')+'</td>'+
+          '<td>'+it.share.toFixed(1)+'%</td>'+
+          '<td title="'+tip+'">'+(it.tend!=null?it.tend:'—')+'</td>'+
+          '<td class="dim">'+(moved?(it.tend>dem?'+':'')+(it.tend-dem)+' from '+dem:'')+'</td></tr>';
+      }).join('')+'</tbody></table></div>'+
+      '<div class="sd-note">Share: each player\'s slice of the team\'s projected shots. Tendency: how shot-hungry the player\'s role is, as a national percentile of shots per 40 (100 = a pure #1 option); Change is the move from last season.</div>';
     // team-wide shot profile → fills the card in the right column
     var _threats=items.filter(function(x){return (x.tend||0)>=75;}).length;
     var _sh=items.map(function(x){return (x.share||0)/100;}), _hhi=_sh.reduce(function(s,v){return s+v*v;},0);
@@ -855,5 +824,6 @@ function loadBuzz(row){
 })();
 </script>
   <script src="tdc-tour.js?v=8"></script>
+  <script src="tdc-sheets.js?v=1"></script>
 </body>
 </html>

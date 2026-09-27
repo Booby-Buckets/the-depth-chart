@@ -153,8 +153,8 @@
     var rows=Object.keys(ZMETA).map(function(k){ var z=Z[k]; return {k:k,n:ZMETA[k].n,a:z.a,m:z.m,p:z.a?z.m/z.a:null,avg:avgOf(k)}; })
       .filter(function(r){ return r.a>0; }).sort(function(a,b){ return b.a-a.a; });
     var tr=rows.map(function(r){ var d=r.p!=null?(r.p-r.avg)*100:null, eff=r.k.indexOf('3')>=0||r.k==='t3'?(r.p*1.5):r.p;
-      return '<tr data-zk="'+r.k+'"><td class="l nm">'+r.n.charAt(0).toUpperCase()+r.n.slice(1)+'</td><td>'+r.a+'</td><td class="dim">'+Math.round(r.a/tot*100)+'%</td><td class="strong">'+Math.round(r.p*100)+'%</td><td class="dim">'+Math.round(r.avg*100)+'%</td><td style="font-weight:800;color:'+(d>=2?'var(--green)':d<=-2?'var(--red)':'var(--text3)')+'">'+(d>0?'+':'')+Math.round(d)+'</td><td class="dim">'+(r.a>=8?Math.round(eff*100)+'%':'—')+'</td></tr>'; }).join('');
-    return '<div class="sheet-wrap sc-sheet"><table class="sheet"><thead><tr><th class="l">Zone</th><th>FGA</th><th>Share</th><th>FG%</th><th>D-I'+(REF_YEAR?' \u2019'+String(REF_YEAR).slice(2):'')+'</th><th>Δ</th><th>eFG%</th></tr></thead><tbody>'+tr+'</tbody></table></div>';
+      return '<tr data-zk="'+r.k+'"><td class="l nm">'+r.n.charAt(0).toUpperCase()+r.n.slice(1)+'</td><td>'+r.a+'</td><td class="dim">'+Math.round(r.a/tot*100)+'%</td><td class="strong">'+Math.round(r.p*100)+'%</td><td class="dim">'+Math.round(r.avg*100)+'%</td><td'+(d>=5?' class="c4"':d>=2?' class="c3"':d<=-5?' class="c0"':d<=-2?' class="c1"':'')+'>'+(d>0?'+':'')+Math.round(d)+'</td><td class="dim">'+(r.a>=8?Math.round(eff*100)+'%':'—')+'</td></tr>'; }).join('');
+    return '<div class="sheet-wrap sc-sheet"><table class="sheet dense"><thead><tr><th class="l">Zone</th><th>FGA</th><th>Share</th><th>FG%</th><th>D-I'+(REF_YEAR?' \u2019'+String(REF_YEAR).slice(2):'')+'</th><th title="FG% minus the D-I figure, in points (shaded green above, red below by 2+)">Δ</th><th>eFG%</th></tr></thead><tbody>'+tr+'</tbody></table></div>';
   }
   function zones(shots){
     var z={rim:[0,0],mid:[0,0],three:[0,0]};

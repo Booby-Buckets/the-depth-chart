@@ -1,8 +1,9 @@
 /* tdc-shotprofile.js — shot profile by season, on the sheet kit.
    Data: build_shot_profiles.py rows (flat int lists, see ZONES order below), one per
    season, for a player (scripts/data/shot_profiles/<espn_id % 40>.json), a team or the
-   whole league (scripts/data/shot_team_profiles.json). FG% cells are coloured vs the
-   SAME season's D-I figure, shares are plain — a rising 3PA rate is a fact, not a grade.
+   whole league (scripts/data/shot_team_profiles.json). FG% cells are shaded (the sheet kit's
+   c0..c4) by the gap to the SAME season's D-I figure, shares are plain — a rising 3PA rate
+   is a fact, not a grade.
    Needs tdc-sheets.css on the page.
 
      TDC_SHOTPROFILE.sheet(seasons, league, opts)   -> html   (seasons = {year: row})
@@ -30,12 +31,13 @@
   }
   function lbl(y){ y=+y; return (y-1)+'-'+String(y).slice(2); }
   function P(v,d){ return v==null?'—':(v*100).toFixed(d||0)+'%'; }
-  // FG% cell coloured by the gap to the league that season; ±2 pts is noise
+  // FG% cell shaded by the gap to the league that season; ±2 pts is noise (unshaded),
+  // 2-5 pts light green/orange, 5+ pts strong green/red
   function cell(v,l,min){
     if(v==null) return '<td class="dim">—</td>';
     if(l==null||min===false) return '<td>'+P(v)+'</td>';
-    var d=(v-l)*100, c=d>=2?'var(--sc-hot,#f08a3c)':d<=-2?'var(--sc-cold,#5b8def)':'inherit';
-    return '<td style="color:'+c+';font-weight:'+(Math.abs(d)>=2?800:500)+'" title="D-I '+P(l)+' that season">'+P(v)+'</td>';
+    var d=(v-l)*100, b=d>=5?'c4':d>=2?'c3':d<=-5?'c0':d<=-2?'c1':'';
+    return '<td'+(b?' class="'+b+'"':'')+' title="D-I '+P(l)+' that season">'+P(v)+'</td>';
   }
   function sheet(seasons, league, opts){
     opts=opts||{};
@@ -46,17 +48,17 @@
     var body=ys.map(function(y){
       var d=derive(seasons[y]), L=league&&league[y]?derive(league[y]):null, minFga=d.fga>=40;
       var extra=opts.label?'<td class="l dim">'+((opts.labels&&opts.labels[y])||'')+'</td>':'';
-      return '<tr><td class="l nm">'+lbl(y)+(opts.live&&+y===opts.live?' <span class="dim" style="font-weight:500">live</span>':'')+'</td>'+extra+
+      return '<tr><td class="l nm">'+lbl(y)+(opts.live&&+y===opts.live?' <span class="dim">live</span>':'')+'</td>'+extra+
         '<td class="dim">'+d.fga+'</td><td>'+P(d.rimSh)+'</td><td>'+P(d.paintSh)+'</td><td>'+P(d.midSh)+'</td><td class="strong">'+P(d.threeSh)+'</td><td>'+P(d.cornerSh)+'</td><td>'+P(d.astPct)+'</td>'+
         cell(d.rimP,L&&L.rimP,minFga)+cell(d.midP,L&&L.midP,minFga)+cell(d.threeP,L&&L.threeP,minFga)+cell(d.efg,L&&L.efg,minFga)+'</tr>';
     }).join('');
     var foot='';
     if(league&&opts.leagueRow!==false){
       var ly=ys[ys.length-1], L=league[ly]?derive(league[ly]):null;
-      if(L) foot='<tr style="opacity:.75"><td class="l dim">D-I '+lbl(ly)+'</td>'+(opts.label?'<td></td>':'')+'<td class="dim">—</td><td class="dim">'+P(L.rimSh)+'</td><td class="dim">'+P(L.paintSh)+'</td><td class="dim">'+P(L.midSh)+'</td><td class="dim">'+P(L.threeSh)+'</td><td class="dim">'+P(L.cornerSh)+'</td><td class="dim">'+P(L.astPct)+'</td><td class="dim">'+P(L.rimP)+'</td><td class="dim">'+P(L.midP)+'</td><td class="dim">'+P(L.threeP)+'</td><td class="dim">'+P(L.efg)+'</td></tr>';
+      if(L) foot='<tr><td class="l dim">D-I '+lbl(ly)+'</td>'+(opts.label?'<td></td>':'')+'<td class="dim">—</td><td class="dim">'+P(L.rimSh)+'</td><td class="dim">'+P(L.paintSh)+'</td><td class="dim">'+P(L.midSh)+'</td><td class="dim">'+P(L.threeSh)+'</td><td class="dim">'+P(L.cornerSh)+'</td><td class="dim">'+P(L.astPct)+'</td><td class="dim">'+P(L.rimP)+'</td><td class="dim">'+P(L.midP)+'</td><td class="dim">'+P(L.threeP)+'</td><td class="dim">'+P(L.efg)+'</td></tr>';
     }
-    return '<div class="sheet-wrap"><table class="sheet" style="width:100%"><thead>'+head+'</thead><tbody>'+body+foot+'</tbody></table></div>'+
-      '<div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.5;">Rim / Paint / Mid / 3PA = share of attempts; Corner 3s = share of threes taken from the corners. FG% cells are coloured against the D-I figure for that same season (<span style="color:var(--sc-hot,#f08a3c);font-weight:800">above</span> / <span style="color:var(--sc-cold,#5b8def);font-weight:800">below</span> by 2+ pts). Located shots cover most games from 2019-20 on.</div>';
+    return '<div class="sheet-wrap"><table class="sheet dense" style="width:100%"><thead>'+head+'</thead><tbody>'+body+foot+'</tbody></table></div>'+
+      '<div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.5;">Rim / Paint / Mid / 3PA = share of attempts; Corner 3s = share of threes taken from the corners. FG% cells are shaded against the D-I figure for that same season: green above, red below, by 2+ pts (deeper at 5+). Located shots cover most games from 2019-20 on.</div>';
   }
   function read(seasons, league, who){
     var ys=Object.keys(seasons||{}).map(Number).sort(function(a,b){return a-b;}).filter(function(y){ var d=derive(seasons[y]); return d&&d.fga>=60; });

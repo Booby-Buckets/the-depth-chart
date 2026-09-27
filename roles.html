@@ -132,7 +132,6 @@
 <!-- page opens to everyone: the Archetype Explorer tab is free; the Role & Fit tab is coach-gated below -->
 <script src="tdc-archetypes.js?v=2"></script>
 <script src="tdc-nav.js?v=28"></script>
-<link rel="stylesheet" href="tdc-sheets.css?v=6"/>
 <style>
   .sheet-wrap{max-height:none;} .sheet{width:100% !important;}
   .sheet td.nm{font-weight:800;color:var(--text);} .sheet td.wrap{white-space:normal !important;line-height:1.5;min-width:220px;} .sheet td.dim{color:var(--text3);}
@@ -142,9 +141,7 @@
   tr.pd{display:none;} tr.pd.open{display:table-row;} tr.pd>td{white-space:normal !important;padding:0 !important;background:var(--bg) !important;text-align:left;}
   .pd-in{padding:14px 18px 18px;border-top:2px solid var(--border2);}
   .pd-in .rc-dev{margin-top:12px;}
-  .sheet .bar{display:inline-block;height:8px;border-radius:4px;vertical-align:middle;background:var(--tc,var(--accent));opacity:.9;}
-  .sheet .sty{display:inline-block;font-size:10px;font-weight:800;padding:2px 7px;border-radius:12px;background:color-mix(in srgb,var(--ac,var(--accent)) 16%,transparent);color:var(--ac,var(--accent));white-space:nowrap;}
-  .sheet .tbadge{font-size:9px;}
+  .sheet td.desc{max-width:340px;overflow:hidden;text-overflow:ellipsis;}
   .mix-read{font-size:12.5px;line-height:1.65;color:var(--text2);padding:11px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);margin-top:10px;} .mix-read b{color:var(--text);}
   .mix-read .ok,.sheet .ok{color:var(--green);font-weight:800;} .mix-read .thin,.sheet .thin{color:var(--amber,#d8b05a);font-weight:800;} .mix-read .miss,.sheet .miss{color:var(--red,#e07070);font-weight:800;}
   .band{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg);margin:10px 0 12px;} .band .cell{padding:11px 14px;border-right:1px solid var(--border);} .band .cell:last-child{border-right:none;}
@@ -546,7 +543,7 @@ async function loadTeam(){
     return `<div class="pd-in">${body}${devHtml}${profHtml}${atkHtml}${link}</div>`;
   };
   const pct=(v,lo,hi)=>Math.round(lvl(v,lo,hi));
-  const cell=(v,lo,hi,txt)=>`<td><span class="bar" style="width:${Math.max(3,Math.round(pct(v,lo,hi)*0.5))}px"></span> <span style="font-variant-numeric:tabular-nums">${txt}</span></td>`;
+  const cell=(v,lo,hi,txt)=>`<td>${txt}</td>`;
   const rowHtml=(p,i)=>{
     const pj=p.pj, raw=p.raw||{};
     const ovr=(pj&&pj.tdc_grade!=null&&!isNaN(+pj.tdc_grade))?Math.round(+pj.tdc_grade):(raw.tdc_grade!=null&&!isNaN(+raw.tdc_grade)?Math.round(+raw.tdc_grade):null);
@@ -555,19 +552,20 @@ async function loadTeam(){
     const id='p'+i;
     return `<tr class="pr" data-id="${id}" data-espn="${raw.espn_id!=null?raw.espn_id:''}" data-name="${esc((p.name||'').toLowerCase().trim())}" onclick="toggleRow('${id}')">
       <td class="chev">▼</td>
-      <td class="l nm">${esc(p.name)}<div style="font-size:10.5px;color:var(--text3);font-weight:500">${esc(p.pos||'')} · ${F(l.ppg)} / ${F(l.rpg)} / ${F(l.apg)} · ${F(l.mpg,0)} min</div></td>
-      <td class="strong" style="color:var(--tc,var(--accent));font-size:15px">${ovr!=null?ovr:'—'}</td>
-      <td class="l">${p.hist?`<span style="font-weight:700">${p.arch.label}</span>`:'<span class="dim">no D-I record yet</span>'}</td>
-      <td class="l">${st?`<span class="sty" style="--ac:${st.color}" title="${esc(st.desc||'')}">${esc(st.name)}</span>`:'<span class="dim">—</span>'}</td>
+      <td class="l nm">${esc(p.name)}</td>
+      <td class="l dim">${esc(p.pos||'')}</td><td class="dim">${F(l.mpg,0)}</td><td>${F(l.ppg)}</td><td>${F(l.rpg)}</td><td>${F(l.apg)}</td>
+      <td class="big">${ovr!=null?ovr:'—'}</td>
+      <td class="l${p.hist?'':' dim'}">${p.hist?p.arch.label:'no D-I record yet'}</td>
+      <td class="l${st?'':' dim'}"${st?` title="${esc(st.desc||'')}"`:''}>${st?esc(st.name):'—'}</td>
       ${p.hist?cell(num(a.usg_pct),8,32,num(a.usg_pct).toFixed(0)+'%'):'<td class="dim">—</td>'}
       ${p.hist?cell(num(a.ast_pct),4,28,num(a.ast_pct).toFixed(0)+'%'):'<td class="dim">—</td>'}
       ${p.hist?cell(num(a.fg3a_per_fga_pct),0.05,0.62,Math.round(num(a.fg3a_per_fga_pct)*100)+'%'):'<td class="dim">—</td>'}
       ${p.hist?cell(num(a.trb_pct),3,22,num(a.trb_pct).toFixed(0)+'%'):'<td class="dim">—</td>'}
       ${p.hist?cell(num(a.blk_pct),0.2,7,num(a.blk_pct).toFixed(1)+'%'):'<td class="dim">—</td>'}
       ${p.hist?cell(num(a.stl_pct),0.6,4,num(a.stl_pct).toFixed(1)+'%'):'<td class="dim">—</td>'}
-      <td class="c"><span class="tbadge ${tc2}">${tl}</span>${d!=null?`<div style="font-size:10.5px;font-weight:800;color:${d>=2?'var(--green)':d<=-2?'var(--red,#e07070)':'var(--text3)'}">${d>0?'+':''}${d}</div>`:''}</td>
-      <td class="dim" style="font-variant-numeric:tabular-nums">${c?`${c.floor} / <b style="color:var(--text)">${c.mean.toFixed(1)}</b> / ${c.ceil}`:'—'}</td>
-    </tr><tr class="pd" data-id="${id}"><td colspan="13">${detail(p)}</td></tr>`;
+      <td class="l">${tl}</td><td${d!=null?'':' class="dim"'}>${d!=null?(d>0?'+':'')+d:'—'}</td>
+      <td class="dim">${c?c.floor:'—'}</td><td>${c?c.mean.toFixed(1):'—'}</td><td class="dim">${c?c.ceil:'—'}</td>
+    </tr><tr class="pd" data-id="${id}"><td colspan="20">${detail(p)}</td></tr>`;
   };
   // ── role mix: what a balanced rotation needs vs who fills it ──
   const NEEDS=[
@@ -579,23 +577,24 @@ async function loadTeam(){
     ['Efficient finishing','TS% ≥ 60 on real usage',withHist.filter(p=>num(p.a.ts_pct)>=0.60&&num(p.a.usg_pct)>=15),2],
   ];
   const state=(n,want)=>n>=want?['Covered','ok']:n?['Thin','thin']:['Missing','miss'];
-  const mixRows=NEEDS.map(([lbl,how,who,want])=>{ const [st,cls]=state(who.length,want); return `<tr><td class="l nm">${lbl}<div style="font-size:10.5px;color:var(--text3);font-weight:500">${how}</div></td><td class="l wrap">${who.length?who.slice(0,4).map(p=>esc(p.name)).join(', ')+(who.length>4?` +${who.length-4}`:''):'<span class="dim">no one</span>'}</td><td class="c">${who.length} / ${want}</td><td class="c"><span class="${cls}" style="font-weight:800">${st}</span></td></tr>`; }).join('');
+  const mixRows=NEEDS.map(([lbl,how,who,want])=>{ const [st,cls]=state(who.length,want); return `<tr><td class="l nm">${lbl}</td><td class="l dim">${how}</td><td class="l${who.length?'':' dim'}">${who.length?who.slice(0,4).map(p=>esc(p.name)).join(', ')+(who.length>4?` +${who.length-4}`:''):'no one'}</td><td class="c">${who.length} / ${want}</td><td class="l ${cls==='ok'?'c3':cls==='thin'?'c1':'c0'}">${st}</td></tr>`; }).join('');
   const missing=NEEDS.filter(([,,who,want])=>!who.length).map(x=>x[0].toLowerCase()), thin=NEEDS.filter(([,,who,want])=>who.length&&who.length<want).map(x=>x[0].toLowerCase());
   const mixRead=`<div class="mix-read">${bits.join(', ')}. `+(missing.length?`<span class="miss">Missing:</span> ${missing.join(', ')} — the portal need${missing.length>1?'s':''}. `:'')+(thin.length?`<span class="thin">Thin:</span> ${thin.join(', ')} — one injury away. `:'')+(!missing.length&&!thin.length?'<span class="ok">Every role is covered</span> — this is a complete rotation on paper.':'')+`</div>`;
   const n=withHist.length, avg=k=>withHist.reduce((s,p)=>s+num(p.a[k]),0)/Math.max(1,n);
   const band=`<div class="band"><div class="cell"><div class="v">${players.length}</div><div class="l">Rotation</div><div class="s">${withHist.length} with a D-I record</div></div><div class="cell"><div class="v">${Math.round(avg('fg3a_per_fga_pct')*100)}%</div><div class="l">3PA rate</div><div class="s">roster average · league ~38%</div></div><div class="cell"><div class="v">${NEEDS.filter(([,,who,want])=>who.length>=want).length}/${NEEDS.length}</div><div class="l">Roles covered</div><div class="s">${missing.length?missing.length+' missing':'none missing'}</div></div></div>`;
-  const TH=`<thead><tr><th></th><th class="l">Player</th><th>OVR</th><th class="l">Role</th><th class="l">Style</th><th>Usage</th><th>Playmaking</th><th>3PA rate</th><th>Reb%</th><th>Blk%</th><th>Stl%</th><th class="c">${CUR?'Trend':'Trend to date'}</th><th>Floor / avg / ceil</th></tr></thead>`;
+  const TH=`<thead><tr><th></th><th class="l">Player</th><th class="l">Pos</th><th>Min</th><th data-heat="1">PPG</th><th data-heat="1">RPG</th><th data-heat="1">APG</th><th data-heat="1">OVR</th><th class="l">Role</th><th class="l">Style</th><th title="usage rate">Usage</th><th data-heat="1" title="assist rate">Playmaking</th><th title="share of shots from three">3PA rate</th><th data-heat="1">Reb%</th><th data-heat="1">Blk%</th><th data-heat="1">Stl%</th><th class="l">${CUR?'Trend':'Trend to date'}</th><th data-heat="1" title="projected grade change">Δ</th><th title="15th percentile of his game scoring">Floor</th><th data-heat="1" title="mean game scoring">Avg</th><th title="85th percentile of his game scoring">Ceil</th></tr></thead>`;
   if(myReq!==_loadSeq) return;   // a newer team/season request superseded this one
   const SYL=`${SY-1}–${String(SY).slice(2)}`;
   el('out').innerHTML=`<div style="--tc:${tc}">
     <div class="sec-h">How the pieces fit <span class="note" style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;">— ${SYL}</span></div>
     ${band}
-    <div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Role need</th><th class="l">Who fills it</th><th class="c">Have / want</th><th class="c">Status</th></tr></thead><tbody>${mixRows}</tbody></table></div>
+    <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Role need</th><th class="l">What it means</th><th class="l">Who fills it</th><th class="c">Have / want</th><th class="l">Status</th></tr></thead><tbody>${mixRows}</tbody></table></div>
     ${mixRead}
     <div class="sec-h">Player roles <span class="note" style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;">— click a row for his development, shot profile, scoring distribution and how to attack him</span></div>
-    <div class="sheet-wrap"><table class="sheet">${TH}<tbody>${players.map(rowHtml).join('')}</tbody></table></div>
-    <div class="note" style="margin-top:8px">Bars are scaled to typical D-I ranges. Role = what he did in ${SYL} (usage, assist %, 3PA rate, rebound %, block %, steal %); Style = the league-wide archetype cluster. Floor / avg / ceiling = 15th / mean / 85th percentile of his game scoring.</div>
+    <div class="sheet-wrap"><table class="sheet dense">${TH}<tbody>${players.map(rowHtml).join('')}</tbody></table></div>
+    <div class="note" style="margin-top:8px">Shading ranks each column within this roster. Role = what he did in ${SYL} (usage, assist %, 3PA rate, rebound %, block %, steal %); Style = the league-wide archetype cluster. Floor / avg / ceiling = 15th / mean / 85th percentile of his game scoring.</div>
   </div>`;
+  if(window.tdcSheetHeat) el('out').querySelectorAll('table.sheet').forEach(t=>tdcSheetHeat(t));
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
   focusPlayer();
@@ -686,11 +685,11 @@ function focusPlayer(){
       const pct=Math.round(b.rate*100);
       const ex=(b.examples||[]).slice(0,5).map(e=>`<a class="bx" href="player.html?name=${encodeURIComponent(e.n)}"><span class="bxn">${esc(e.n)}</span><span class="bxg">${e.from}→${e.to}</span></a>`).join('');
       const rankLbl=rank===1?'most likely to break out':rank===of?'least likely to break out':`#${rank} of ${of} in breakout rate`;
-      const exRows=(b.examples||[]).slice(0,6).map(e=>`<tr><td class="l nm"><a href="player.html?name=${encodeURIComponent(e.n)}">${esc(e.n)}</a></td><td>${e.from}</td><td class="strong" style="color:${a.color}">${e.to}</td><td style="color:var(--green);font-weight:800">+${e.to-e.from}</td></tr>`).join('');
+      const exRows=(b.examples||[]).slice(0,6).map(e=>`<tr><td class="l nm"><a href="player.html?name=${encodeURIComponent(e.n)}">${esc(e.n)}</a></td><td class="dim">${e.from}</td><td class="big">${e.to}</td><td>+${e.to-e.from}</td></tr>`).join('');
       return `<div class="brkp" style="padding:14px 0 0;border:none;background:none">
         <div class="brkp-h">Breakout track record <span class="brkp-sub">${BREAK.meta.years[0]}–${BREAK.meta.years[1]}</span></div>
         <div class="band"><div class="cell"><div class="v" style="color:${a.color}">${pct}%</div><div class="l">Breakout rate</div><div class="s">${rankLbl}</div></div><div class="cell"><div class="v" style="color:${a.color}">+${b.avg_gain}</div><div class="l">Avg grade gain</div><div class="s">first season → peak</div></div><div class="cell"><div class="v" style="color:${a.color}">${b.star}</div><div class="l">Broke out</div><div class="s">of ${b.n} tracked young ${esc(a.name)}s</div></div></div>
-        ${exRows?`<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Notable breakout</th><th>First</th><th>Peak</th><th>Jump</th></tr></thead><tbody>${exRows}</tbody></table></div>`:''}
+        ${exRows?`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Notable breakout</th><th>First</th><th data-heat="1">Peak</th><th data-heat="1">Jump</th></tr></thead><tbody>${exRows}</tbody></table></div>`:''}
       </div>`;
     }
     function render(){
@@ -711,10 +710,11 @@ function focusPlayer(){
       // league overview: every archetype in one sheet (count, share, avg grade of the top-25, breakout rate, anchors)
       const tot=DATA.archetypes.reduce((n,a)=>n+(a.count||0),0)||1;
       const ov=DATA.archetypes.slice().sort((x,y)=>(y.count||0)-(x.count||0)).map(a=>{ const roster=(DATA.roster&&DATA.roster[a.name])||[]; const top=roster.slice(0,25); const avg=top.length?top.reduce((s,p)=>s+(+p.g||0),0)/top.length:null; const b=brkOf(a.name);
-        return `<tr style="cursor:pointer" onclick="document.querySelector('#archBody .card[data-a=\'${esc(a.name).replace(/'/g,"\\'")}\']').click()"><td class="l nm" style="color:${a.color}">${esc(a.name)}</td><td class="l wrap" style="color:var(--text3);font-size:11.5px">${esc(a.desc)}</td><td>${a.count}</td><td class="dim">${Math.round((a.count||0)/tot*100)}%</td><td>${avg!=null?avg.toFixed(1):'—'}</td><td>${b?Math.round(b.rate*100)+'%':'<span class="dim">—</span>'}</td><td class="dim">${b?'+'+b.avg_gain:'—'}</td><td class="l" style="font-size:11.5px">${roster.slice(0,3).map(p=>esc(p.n)).join(', ')}</td></tr>`; }).join('');
-      const overview=`<div class="sheet-wrap" style="margin-bottom:18px"><table class="sheet"><thead><tr><th class="l">Archetype</th><th class="l">What he does</th><th>Players</th><th>Share</th><th>Top-25 avg grade</th><th>Breakout rate</th><th>Avg jump</th><th class="l">Anchors</th></tr></thead><tbody>${ov}</tbody></table></div>`;
+        return `<tr style="cursor:pointer" onclick="document.querySelector('#archBody .card[data-a=\'${esc(a.name).replace(/'/g,"\\'")}\']').click()"><td class="l nm">${esc(a.name)}</td><td class="l dim desc" title="${esc(a.desc)}">${esc(a.desc)}</td><td>${a.count}</td><td class="dim">${Math.round((a.count||0)/tot*100)}%</td><td>${avg!=null?avg.toFixed(1):'—'}</td><td${b?'':' class="dim"'}>${b?Math.round(b.rate*100)+'%':'—'}</td><td${b?'':' class="dim"'}>${b?'+'+b.avg_gain:'—'}</td><td class="l dim">${roster.slice(0,3).map(p=>esc(p.n)).join(', ')}</td></tr>`; }).join('');
+      const overview=`<div class="sheet-wrap" style="margin-bottom:18px"><table class="sheet dense"><thead><tr><th class="l">Archetype</th><th class="l">What he does</th><th>Players</th><th>Share</th><th data-heat="1">Top-25 avg grade</th><th data-heat="1">Breakout rate</th><th data-heat="1">Avg jump</th><th class="l">Anchors</th></tr></thead><tbody>${ov}</tbody></table></div>`;
       const yl=`${AY-1}–${String(AY).slice(2)}`;
       document.getElementById('archBody').innerHTML=`<div class="sec-h" style="margin-top:0">${yl} · ${DATA.meta&&DATA.meta.n?DATA.meta.n.toLocaleString()+' players':''} <span class="note" style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;">— grades are that season's</span></div>${overview}<div class="grid">${cards}</div><div class="detail" id="detail"></div>`;
+      if(window.tdcSheetHeat) document.querySelectorAll('#archBody table.sheet').forEach(t=>tdcSheetHeat(t));
       document.querySelectorAll('#archBody .card').forEach(c=>c.addEventListener('click',()=>openArch(c.dataset.a)));
       if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(document.getElementById('archBody'));
     }
@@ -736,8 +736,9 @@ function focusPlayer(){
           <div class="dh-desc">${esc(a.desc)}</div>
         </div>
         ${brkPanel(a)}
-        <div class="sheet-wrap" style="margin:12px 0 0"><table class="sheet"><thead><tr><th class="c">#</th><th class="l">Player</th><th class="l">Team</th><th>Grade</th></tr></thead><tbody>${shown.map((p,i)=>`<tr><td class="c dim">${i+1}</td><td class="l nm"><a href="${plink(p)}">${esc(p.n)}</a></td><td class="l dim">${esc(p.t||'')}</td><td class="strong" style="color:${a.color}">${p.g}</td></tr>`).join('')}</tbody></table></div>
+        <div class="sheet-wrap" style="margin:12px 0 0"><table class="sheet dense"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l">Team</th><th data-heat="1">Grade</th></tr></thead><tbody>${shown.map((p,i)=>`<tr><td class="rk">${i+1}</td><td class="l nm"><a href="${plink(p)}">${esc(p.n)}</a></td><td class="l dim">${esc(p.t||'')}</td><td class="big">${p.g}</td></tr>`).join('')}</tbody></table></div>
         ${roster.length>rosterLimit?`<div class="dmore"><button id="dMore">Show all ${roster.length}</button></div>`:''}`;
+      if(window.tdcSheetHeat) d.querySelectorAll('table.sheet').forEach(t=>tdcSheetHeat(t));
       d.querySelector('#dClose').addEventListener('click',()=>{ d.className='detail'; sel=null; document.querySelectorAll('#archBody .card').forEach(c=>c.classList.remove('sel')); });
       if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(d);
       const mb=d.querySelector('#dMore'); if(mb) mb.addEventListener('click',()=>{ rosterLimit=9999; renderDetail(); });
@@ -746,5 +747,6 @@ function focusPlayer(){
 </script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=8"></script>
+  <script src="tdc-sheets.js?v=1"></script>
 </body>
 </html>

@@ -79,15 +79,6 @@ window.TDC_DOSSIER = (function(){
 .tdcd .idcard.g .isc{color:var(--green);} .tdcd .idcard.r .isc{color:var(--red);} .tdcd .idcard.a .isc{color:var(--amber);} .tdcd .idcard.n .isc{color:var(--text2);}
 .tdcd .idcard .sheet-wrap{margin:0;border-left:none;border-right:none;border-radius:0;border-bottom:none;}
 .tdcd .idcard .sheet tbody td{padding:6px 12px;}
-.tdcd .sp2{display:grid;grid-template-columns:1fr 84px 84px;gap:0;padding:0;border-top:1px solid var(--border);font-size:12.5px;align-items:stretch;}
-.tdcd .sp2 > *{padding:6px 12px;border-right:1px solid var(--border);display:flex;align-items:center;}
-.tdcd .sp2 > *:last-child{border-right:none;}
-.tdcd .sp2 .spl{color:var(--text);font-weight:650;flex-direction:column;align-items:flex-start;justify-content:center;}
-.tdcd .sp2 .spl small{color:var(--text3);font-weight:500;display:block;font-size:10px;}
-.tdcd .sp2 .a,.tdcd .sp2 .b{justify-content:flex-end;font-weight:800;font-size:13px;font-variant-numeric:tabular-nums;color:var(--text);}
-.tdcd .sp2:nth-child(even):not(.hd) > *{background:color-mix(in srgb,var(--text) 3.5%,transparent);}
-.tdcd .sp2.hd{border-top:none;border-bottom:2px solid var(--border2);}
-.tdcd .sp2.hd > *{background:var(--bg2);color:var(--text3);font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:8px 12px;}
 .tdcd .idr{font-size:12px;color:var(--text2);line-height:1.6;padding:11px 15px;border-top:1px solid var(--border);background:color-mix(in srgb,var(--tc,var(--accent)) 4%,var(--bg2));}
 .tdcd .idr b{color:var(--text);}
 .tdcd .arch-tb{border:1px solid var(--border);border-radius:12px;background:var(--bg2);overflow:hidden;}
@@ -132,9 +123,9 @@ window.TDC_DOSSIER = (function(){
       <div class="who"><div class="pn">${esc(ctx.name)}</div><div class="pm">${esc(ctx.position||'')} · ${esc(ctx.cls||'')} · ${esc(teamFull)}</div>${p.tdc_grade?`<span class="arch">'25-26 grade ${R(p.tdc_grade)}</span>`:''}</div></div>`;
     let projHtml='';
     if(!pl._fresh && R(pl.mpg)>0){
-      const dlt=(a,b,dec)=>{ if(a==null||b==null||isNaN(a)||isNaN(b)) return ''; const d=+(a-b).toFixed(dec==null?1:dec); if(!d) return '<span class="dim"> ±0</span>'; return `<span style="color:${d>0?'var(--green)':'var(--red)'};font-size:10.5px;font-weight:700;"> ${d>0?'+':''}${d}</span>`; };
+      const dlt=(a,b,dec)=>{ if(a==null||b==null||isNaN(a)||isNaN(b)) return ''; const d=+(a-b).toFixed(dec==null?1:dec); if(!d) return '<span class="dim"> ±0</span>'; return `<span class="dim"> ${d>0?'+':''}${d}</span>`; };
       projHtml=`<div class="sec-h">Projected 2026-27 line <span class="hint">last season → projected</span></div>
-        <div class="sheet-wrap"><table class="sheet">
+        <div class="sheet-wrap"><table class="sheet dense">
           <thead><tr><th class="l">Per game</th><th>PPG</th><th>RPG</th><th>APG</th><th>MPG</th><th>FG%</th><th>3P%</th><th>FT%</th></tr></thead>
           <tbody>
             <tr><td class="l nm">Projected</td><td class="proj">${F(pl.ppg)}${dlt(pl.ppg,R(p.ppg))}</td><td class="proj">${F(pl.rpg)}${dlt(pl.rpg,R(p.rpg))}</td><td class="proj">${F(pl.apg)}${dlt(pl.apg,R(p.apg))}</td><td class="proj">${F(pl.mpg,0)}${dlt(pl.mpg,R(p.mpg),0)}</td><td class="proj">${F(pl.fg_pct,0)}${dlt(pl.fg_pct,R(p.fg_pct),0)}</td><td class="proj">${F(pl.tp_pct,0)}${dlt(pl.tp_pct,R(p.tp_pct),0)}</td><td class="proj">${F(pl.ft_pct,0)}${dlt(pl.ft_pct,R(p.ft_pct),0)}</td></tr>
@@ -153,9 +144,9 @@ window.TDC_DOSSIER = (function(){
     const lowD=log.filter(g=>{const d=dnaG(g);return d&&d.dTOV!=null&&d.dTOV<=T.low;});
 
     function splitCard(nm, aLab, bLab, rows, score, read){
-      const body=rows.map(r=>`<tr><td class="l nm">${r.l}${r.s?`<span class="dim" style="font-weight:500;margin-left:5px;">${r.s}</span>`:''}</td><td class="v">${r.a}</td><td class="v">${r.b}</td></tr>`).join('');
+      const body=rows.map(r=>`<tr><td class="l nm">${r.l}${r.s?` <span class="dim">${r.s}</span>`:''}</td><td class="v">${r.a}</td><td class="v">${r.b}</td></tr>`).join('');
       return `<div class="idcard ${score.cls}"><div class="ih"><div class="inm">${nm}</div><div class="isc">${score.v}<small>${score.lab}</small></div></div>
-        <div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Split</th><th>${aLab}</th><th>${bLab}</th></tr></thead><tbody>${body}</tbody></table></div>
+        <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Split</th><th>${aLab}</th><th>${bLab}</th></tr></thead><tbody>${body}</tbody></table></div>
         <div class="idr">${read}</div></div>`;
     }
     let cards=[];
@@ -185,9 +176,10 @@ window.TDC_DOSSIER = (function(){
       const role=uD>=6?(eD>=-4?{lab:'Closer',cls:'g'}:{lab:'Heat-check',cls:'a'}):uD<=-6?{lab:'Defers',cls:'n'}:{lab:'Steady',cls:'n'};
       clutchHtml=`<div class="sec-h">Clutch <span class="hint">last 5:00 · within 5 · ${myClutch.length} shots</span></div>
         <div class="idg"><div class="idcard ${role.cls}"><div class="ih"><div class="inm">Clutch Role</div><div class="isc">${role.lab}</div></div>
-          <div class="sp2 hd"><div class="spl"></div><div class="a">Clutch</div><div class="b">Rest</div></div>
-          <div class="sp2"><div class="spl">Shot load<small>% of team FGA</small></div><div class="a">${shCl==null?'—':Math.round(shCl)+'%'}</div><div class="b">${shRe==null?'—':Math.round(shRe)+'%'}</div></div>
-          <div class="sp2"><div class="spl">eFG%</div><div class="a">${F(efgCl,0)}</div><div class="b">${F(efgRe,0)}</div></div>
+          <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Split</th><th>Clutch</th><th>Rest</th></tr></thead><tbody>
+          <tr><td class="l nm">Shot load <span class="dim">% of team FGA</span></td><td class="v">${shCl==null?'—':Math.round(shCl)+'%'}</td><td class="v">${shRe==null?'—':Math.round(shRe)+'%'}</td></tr>
+          <tr><td class="l nm">eFG%</td><td class="v">${F(efgCl,0)}</td><td class="v">${F(efgRe,0)}</td></tr>
+          </tbody></table></div>
           <div class="idr">${role.lab==='Closer'?`Wants the ball late — his share of the team's shots <b>rises ${Math.round(uD)} pts</b> in the clutch and he keeps his efficiency.`:role.lab==='Heat-check'?`Takes over late (<b>+${Math.round(uD)}</b> pts of shot share) but his eFG drops <b>${Math.abs(Math.round(eD))}</b> — the volume is there, the quality slips.`:role.lab==='Defers'?`Steps back in crunch time — shot share drops <b>${Math.abs(Math.round(uD))}</b> pts. Someone else is the closer.`:`His role holds steady late; no clutch surge or fade.`}</div>
         </div></div>`;
     }
@@ -221,8 +213,8 @@ window.TDC_DOSSIER = (function(){
       return {pts:R(b.pts),fgm:R(b.fgm),fga:R(b.fga),tpm:R(b.tpm),venue:g.neutral?'N':(home?'H':'A'),oppRank:(SRSRANK[oppName]!=null?SRSRANK[oppName]:999),close:Math.abs(my-opp)<=5,conf:!!g.conf_game}; }).filter(Boolean);
     if(G.length>=6){
       const q1=G.filter(g=>g.oppRank<=50), q2=G.filter(g=>g.oppRank>50&&g.oppRank<=150), q3=G.filter(g=>g.oppRank>150);
-      const srow=(lab,gs)=>{ const a=sAgg(gs); return a?`<div class="sp2"><div class="spl">${lab}</div><div class="a">${F(a.ppg)}</div><div class="b">${a.n}</div></div>`:''; };
-      const card=(title,rows)=>rows?`<div class="idcard n"><div class="ih"><div class="inm">${title}</div></div><div class="sp2 hd"><div class="spl"></div><div class="a">PPG</div><div class="b">Gms</div></div>${rows}</div>`:'';
+      const srow=(lab,gs)=>{ const a=sAgg(gs); return a?`<tr><td class="l nm">${lab}</td><td class="v">${F(a.ppg)}</td><td>${a.n}</td></tr>`:''; };
+      const card=(title,rows)=>rows?`<div class="idcard n"><div class="ih"><div class="inm">${title}</div></div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Split</th><th>PPG</th><th>Gms</th></tr></thead><tbody>${rows}</tbody></table></div></div>`:'';
       const qCard=card('By opponent quality', srow('vs Top-50',q1)+srow('vs 51–150',q2)+srow('vs 151+',q3));
       const vCard=card('By venue', srow('Home',G.filter(g=>g.venue==='H'))+srow('Neutral',G.filter(g=>g.venue==='N'))+srow('Road',G.filter(g=>g.venue==='A')));
       const cCard=card('Pressure', srow('Close (≤5)',G.filter(g=>g.close))+srow('Decided by 6+',G.filter(g=>!g.close)));
@@ -252,7 +244,7 @@ window.TDC_DOSSIER = (function(){
       const confRows=(cA&&nA&&cA.n>=5&&nA.n>=4)?`<tr><td class="l nm">Conference play</td><td>${cA.n}</td><td class="v">${F(cA.ppg)}</td><td class="v">${F(cA.efg,0)}</td><td class="dim">—</td></tr><tr><td class="l nm">Non-conference</td><td>${nA.n}</td><td class="v">${F(nA.ppg)}</td><td class="v">${F(nA.efg,0)}</td><td class="dim">—</td></tr>`:'';
       const confRead=(cA&&nA&&cA.n>=5&&nA.n>=4)?(()=>{ const d=cA.ppg-nA.ppg, e=(cA.efg!=null&&nA.efg!=null)?cA.efg-nA.efg:0; return d<=-2.5?` Scoring dipped <b>${F(Math.abs(d))} ppg</b> once league play started${e<=-3?' and his eFG fell '+F(Math.abs(e),0):''} — the non-con numbers flatter him.`:d>=2?` He got <b>better</b> in league play (+${F(d)} ppg).`:` League play didn’t change his output.`; })():'';
       formHtml=`<div class="sec-h">Form &amp; conference play <span class="hint">how he finished · league vs non-league</span></div>
-        <div class="sheet-wrap"><table class="sheet"><thead><tr><th class="l">Span</th><th>G</th><th>PPG</th><th>eFG%</th><th>TO/g</th></tr></thead><tbody>${row('Last 5',L5)}${row('Last 10',L10)}${row('Season',S)}${confRows}</tbody></table></div>
+        <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Span</th><th>G</th><th>PPG</th><th>eFG%</th><th>TO/g</th></tr></thead><tbody>${row('Last 5',L5)}${row('Last 10',L10)}${row('Season',S)}${confRows}</tbody></table></div>
         <div class="idr" style="border:1px solid var(--border);border-radius:10px;margin-top:8px;">${formRead}${confRead}</div>`;
     }
 
@@ -271,10 +263,10 @@ window.TDC_DOSSIER = (function(){
       availHtml=`<div class="sec-h">Availability <span class="hint">foul risk · rotation volatility · ${log.length} g</span></div>
         <div class="idg">
           <div class="idcard ${foulTag[1]}"><div class="ih"><div class="inm">Foul Risk</div><div class="isc">${F(pf40)}<small>PF/40 · ${foulTag[0]}</small></div></div>
-            <div class="sheet-wrap"><table class="sheet"><tbody><tr><td class="l nm">Fouls per 40</td><td class="v">${F(pf40)}</td></tr><tr><td class="l nm">Games with 4+ fouls</td><td class="v">${four} <span class="dim">(${Math.round(fourPct)}%)</span></td></tr><tr><td class="l nm">Fouled out</td><td class="v">${five}</td></tr></tbody></table></div>
+            <div class="sheet-wrap"><table class="sheet dense"><tbody><tr><td class="l nm">Fouls per 40</td><td class="v">${F(pf40)}</td></tr><tr><td class="l nm">Games with 4+ fouls</td><td class="v">${four} <span class="dim">(${Math.round(fourPct)}%)</span></td></tr><tr><td class="l nm">Fouled out</td><td class="v">${five}</td></tr></tbody></table></div>
             <div class="idr">${foulRead}</div></div>
           <div class="idcard ${volTag[1]}"><div class="ih"><div class="inm">Rotation Volatility</div><div class="isc">±${F(mSd,0)}<small>min · ${volTag[0]}</small></div></div>
-            <div class="sheet-wrap"><table class="sheet"><tbody><tr><td class="l nm">Minutes per game</td><td class="v">${F(mMean,1)}</td></tr><tr><td class="l nm">Range</td><td class="v">${mLo}–${mHi}</td></tr><tr><td class="l nm">Games under 20 min</td><td class="v">${Math.round(under20)}%</td></tr></tbody></table></div>
+            <div class="sheet-wrap"><table class="sheet dense"><tbody><tr><td class="l nm">Minutes per game</td><td class="v">${F(mMean,1)}</td></tr><tr><td class="l nm">Range</td><td class="v">${mLo}–${mHi}</td></tr><tr><td class="l nm">Games under 20 min</td><td class="v">${Math.round(under20)}%</td></tr></tbody></table></div>
             <div class="idr">${volRead}</div></div>
         </div>`;
     }
@@ -289,11 +281,12 @@ window.TDC_DOSSIER = (function(){
       const label=selfPct>=55?'Shot creator':selfPct>=40?'Balanced':'Setup scorer', cls=selfPct>=55?'g':selfPct>=40?'n':'a';
       creationHtml=`<div class="sec-h">Shot creation <span class="hint">self-created vs assisted · ${madeSh.length} makes</span></div>
         <div class="idg"><div class="idcard ${cls}"><div class="ih"><div class="inm">${label}</div><div class="isc">${selfPct}%<small>self-created</small></div></div>
-          <div class="sp2 hd"><div class="spl"></div><div class="a">Makes</div><div class="b">Share</div></div>
-          <div class="sp2"><div class="spl">Self-created</div><div class="a">${self}</div><div class="b">${selfPct}%</div></div>
-          <div class="sp2"><div class="spl">Assisted</div><div class="a">${ast}</div><div class="b">${100-selfPct}%</div></div>
-          ${twoAst!=null?`<div class="sp2"><div class="spl">2-pt makes assisted</div><div class="a">—</div><div class="b">${twoAst}%</div></div>`:''}
-          ${thAst!=null?`<div class="sp2"><div class="spl">3-pt makes assisted</div><div class="a">—</div><div class="b">${thAst}%</div></div>`:''}
+          <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Makes</th><th>Count</th><th>Share</th></tr></thead><tbody>
+          <tr><td class="l nm">Self-created</td><td class="v">${self}</td><td class="v">${selfPct}%</td></tr>
+          <tr><td class="l nm">Assisted</td><td class="v">${ast}</td><td class="v">${100-selfPct}%</td></tr>
+          ${twoAst!=null?`<tr><td class="l nm">2-pt makes assisted</td><td class="dim">—</td><td class="v">${twoAst}%</td></tr>`:''}
+          ${thAst!=null?`<tr><td class="l nm">3-pt makes assisted</td><td class="dim">—</td><td class="v">${thAst}%</td></tr>`:''}
+          </tbody></table></div>
           <div class="idr">${selfPct>=55?`Creates his own — <b>${selfPct}%</b> of his makes are unassisted; hand him the ball and let him work.`:selfPct<=35?`A finisher — <b>${100-selfPct}%</b> of his makes come off a pass; get him touches in rhythm.`:`Balanced — creates and finishes about equally.`}${twoAst!=null&&twoAst<=35?` Low 2-pt assist rate — he gets to the rim off the bounce.`:''}${thAst!=null&&thAst>=80?` His threes are almost all catch-and-shoot.`:''}</div>
         </div></div>`;
     }

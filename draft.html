@@ -69,8 +69,6 @@
     /* The grid is tdc-sheets.css (shared with roster / team stats / analytics).
        Only the frozen-column widths and the lottery marks are the board's own. */
     #bbSheet{--c1:40px;--c2:186px;--c3:54px;max-height:calc(100vh - 230px);}
-    #bbSheet .sheet tbody td,#bbSheet .sheet thead th{text-align:center;}
-    #bbSheet .sheet td.l,#bbSheet .sheet th.l{text-align:left;}
     #bbSheet .sheet tbody tr.hi td:first-child{color:var(--accent);}
     #bbSheet .sheet tbody tr.cut td{border-bottom:2px solid var(--text3);}
     @media(max-width:820px){ #bbSheet{--c1:30px;--c2:132px;--c3:44px;max-height:72vh;} }
@@ -315,35 +313,22 @@ function buildBoard(){
   prospectById=res.byId;
 }
 
-// ── color for pillar values ──
-// Conditional-format shading, the way a scouting sheet colours a column: red at the
-// bottom of the scale, pale through the middle, green at the top. Kept at low alpha so
-// the number stays the thing you read, in either theme.
-function heat(v){
-  if(v==null||isNaN(v))return '';
-  var t=Math.max(0,Math.min(100,v))/100;
-  var a=0.08+0.26*Math.abs(t-0.5)*2;
-  var c='hsla('+Math.round(t*125)+',70%,'+(document.documentElement.getAttribute('data-theme')==='dark'?'46%':'48%')+','+a.toFixed(3)+')';
-  return 'background-image:linear-gradient('+c+','+c+');';
-}
-function valColor(v){var h=Math.round(v*1.35);return 'hsl('+h+',64%,'+(document.documentElement.getAttribute('data-theme')==='dark'?'62%':'40%')+');';}
-
 // column spec: key, label, how to pull the value, and whether it is shaded 0-100
 var BB_COLS=[
   {k:'rank', l:'#',      cls:'rk',      get:function(p){return p.rank;}},
   {k:'name', l:'Prospect',cls:'nm l',     get:function(p){return p.name;},
      html:function(p){return '<a href="player.html?id='+p.id+'" title="'+p.name.replace(/"/g,'&quot;')+'">'+p.name+'</a>';}},
   {k:'ovr',  l:'Board',  cls:'big', shade:true, get:function(p){return p._sc.overall;}},
-  {k:'pos',  l:'Pos',    cls:'dim',     get:function(p){return p.position||'';}},
+  {k:'pos',  l:'Pos',    cls:'dim l',     get:function(p){return p.position||'';}},
   {k:'team', l:'Team',   cls:'dim l',  get:function(p){return p.team||'';}},
-  {k:'cl',   l:'Cl',     cls:'dim',     get:function(p){return ((p.class_year||p.yr||'')+'').replace(/\./g,'')||'—';}},
-  {k:'ht',   l:'Ht',     cls:'dim',     get:function(p){return htIn(p.height)?p.height:'—';}},
+  {k:'cl',   l:'Cl',     cls:'dim l',     get:function(p){return ((p.class_year||p.yr||'')+'').replace(/\./g,'')||'—';}},
+  {k:'ht',   l:'Ht',     cls:'dim l',     get:function(p){return htIn(p.height)?p.height:'—';}},
   {k:'age',  l:'Age',    cls:'dim',     get:function(p){return p._sc.age;}},
-  {k:'ppg',  l:'PPG',    cls:'',        get:function(p){return num(p._s.ppg);}, dec:1},
-  {k:'rpg',  l:'RPG',    cls:'',        get:function(p){return num(p._s.rpg);}, dec:1},
-  {k:'apg',  l:'APG',    cls:'',        get:function(p){return num(p._s.apg);}, dec:1},
-  {k:'mpg',  l:'MPG',    cls:'',        get:function(p){return num(p._s.mpg);}, dec:1},
-  {k:'grd',  l:'Grd',    cls:'num',     get:function(p){
+  {k:'ppg',  l:'PPG',    cls:'',        shade:true, get:function(p){return num(p._s.ppg);}, dec:1},
+  {k:'rpg',  l:'RPG',    cls:'',        shade:true, get:function(p){return num(p._s.rpg);}, dec:1},
+  {k:'apg',  l:'APG',    cls:'',        shade:true, get:function(p){return num(p._s.apg);}, dec:1},
+  {k:'mpg',  l:'MPG',    cls:'',        shade:true, get:function(p){return num(p._s.mpg);}, dec:1},
+  {k:'grd',  l:'Grd',    cls:'num', shade:true, get:function(p){
       var g=(parseFloat(p.mpg)>0&&window.TDCProjGrade&&TDCProjGrade.gradeSolo)?TDCProjGrade.gradeSolo(p):null;
       return (g!=null&&!isNaN(g))?g:(isFinite(parseFloat(p.tdc_grade))?parseFloat(p.tdc_grade):null);}},
   {k:'athl', l:'Tools',  cls:'num', shade:true, get:function(p){return p._sc.athl;}},
@@ -367,7 +352,7 @@ function renderHead(){
   tr.innerHTML=BB_COLS.map(function(c){
     var on=bbSort.k===c.k;
     var hc=(c.cls.indexOf('l')>=0&&/\bl\b/.test(c.cls))?'l':'';
-    return '<th class="sort '+hc+(on?' on':'')+'" onclick="setSort(\''+c.k+'\')" title="Sort by '+c.l+'">'+
+    return '<th class="sort '+hc+(on?' on':'')+'"'+(c.shade?' data-heat="1"':'')+' onclick="setSort(\''+c.k+'\')" title="Sort by '+c.l+'">'+
       c.l+'<span class="ar">'+(on?(bbSort.dir>0?'▲':'▼'):'▲')+'</span></th>';
   }).join('');
 }
@@ -407,9 +392,11 @@ function renderBoard(){
       else if(typeof v==='number') txt=(c.dec!=null)?v.toFixed(c.dec):v;
       else txt=v;
       var k=c.cls;
-      return '<td class="'+k+'"'+(c.shade?' style="'+heat(v)+'"':'')+'>'+txt+'</td>';
+      return '<td class="'+k+'">'+txt+'</td>';
     }).join('')+'</tr>';
   }).join('');
+  // shade every stat column in five buckets within the rows on show (tdc-sheets.js)
+  if(window.tdcSheetHeat) tdcSheetHeat(document.querySelector('#bbSheet table'));
   var bn=document.getElementById('basisNote');
   if(bn)bn.innerHTML=season==='2728'
     ? 'The <b>2028</b> board is a way-too-early watch board — this year\u2019s returning underclassmen, projected a further year forward and ranked on upside. Seniors (out of eligibility) and not-yet-arrived recruits are excluded.'
@@ -501,5 +488,6 @@ load();
 </script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=8"></script>
+  <script src="tdc-sheets.js?v=1"></script>
 </body>
 </html>

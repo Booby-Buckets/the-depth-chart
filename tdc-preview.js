@@ -150,23 +150,14 @@
   .gp-h::before{content:'';width:6px;height:6px;border-radius:2px;background:var(--accent);}
   .gp-h span{margin-left:auto;font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);}
   .gp-wrap{border:1px solid var(--border);border-radius:0 0 12px 12px;overflow:auto;background:var(--bg);}
-  .gp-t{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums;}
-  .gp-t th{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:7px 12px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap;background:var(--bg2);}
-  .gp-t th.l,.gp-t td.l{text-align:left;}
-  .gp-t td{padding:6px 12px;border-bottom:1px solid color-mix(in srgb,var(--border) 70%,transparent);text-align:right;color:var(--text2);white-space:nowrap;}
-  .gp-t tr:last-child td{border-bottom:none;}
-  .gp-t td.nm{font-weight:700;color:var(--text);}
-  .gp-t td.nm a{color:inherit;text-decoration:underline dotted;text-underline-offset:3px;text-decoration-color:color-mix(in srgb,var(--text3) 60%,transparent);} .gp-t td.nm a:hover{color:var(--accent);text-decoration-color:var(--accent);}
-  .gp-t td.nm small{font-weight:600;color:var(--text3);margin-left:6px;font-size:11px;}
-  .gp-t td.w{color:var(--text);font-weight:800;background:color-mix(in srgb,var(--side) 14%,transparent);}
-  .gp-t td.big{font-weight:800;color:var(--text);}
-  .gp-t td.pos{color:#2f9159;} .gp-t td.neg{color:#d05a5a;}
-  [data-theme="dark"] .gp-t td.pos{color:#4fc07a;} [data-theme="dark"] .gp-t td.neg{color:#ef6e6e;}
-  .gp-t td.tot{font-weight:800;color:var(--text);background:var(--bg2);}
+  /* the tables are the site sheet (tdc-sheets.css .sheet.dense) — only the extras here */
+  .gp-wrap.sheet-wrap{border-radius:0 0 12px 12px;}
+  .gp-t small{font-size:10.5px;font-weight:600;color:var(--text3);margin-left:4px;}
+  .gp-t tbody tr.sec td{background:var(--bg2);color:var(--text3);font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;text-align:left;}
+  .gp-t tfoot td{text-align:right;padding:6px 7px;font-weight:800;color:var(--text);background:var(--bg2);border-top:2px solid var(--border2);border-right:1px solid var(--border);white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .gp-t tfoot td:last-child{border-right:none;} .gp-t tfoot td.l{text-align:left;}
   .gp-two{display:grid;grid-template-columns:1fr;gap:18px;}
   .gp-two>*{min-width:0;}   /* a grid item's auto min-width is the table's full width — that pushed the sheet 400px past an iPad's edge instead of scrolling inside .gp-wrap */
-  .gp-rtg{display:inline-block;min-width:34px;text-align:center;font-weight:800;font-size:11px;color:#fff;border-radius:5px;padding:2px 6px;font-variant-numeric:tabular-nums;}
-  .gp-potg{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.04em;background:#E6D5A8;color:#141821;border-radius:4px;padding:1px 6px;margin-right:7px;vertical-align:1px;}
   .gp-inj{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:11.5px;color:var(--text2);padding:8px 4px 0;}
   .gp-inj-l{font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
   .gp-inj-out{color:#d05a5a;} .gp-inj-hurt{color:var(--text2);} .gp-inj b{font-weight:700;color:var(--text);}
@@ -191,30 +182,30 @@
       ['Opp eFG%', EA && EA.ff && EA.ff.deFG, EB && EB.ff && EB.ff.deFG, f1, false], ['Forced TOV%', EA && EA.ff && EA.ff.dTOV, EB && EB.ff && EB.ff.dTOV, f1, true],
       ['DREB%', EA && EA.ff && EA.ff.dDRB, EB && EB.ff && EB.ff.dDRB, f1, true],
     ];
-    const ca = col(A), cb = col(B);
-    return `<div class="gp-wrap"><table class="gp-t"><thead><tr><th class="l" style="min-width:170px"></th><th>${sn(A)}</th><th>${sn(B)}</th><th>D-I avg</th></tr></thead><tbody>${rows.map(([l, a, b, f, hi]) => {
+    return `<div class="sheet-wrap gp-wrap"><table class="sheet dense gp-t"><thead><tr><th class="l" style="min-width:170px"></th><th>${sn(A)}</th><th>${sn(B)}</th><th>D-I avg</th></tr></thead><tbody>${rows.map(([l, a, b, f, hi]) => {
       const ha = a != null && isFinite(a), hb = b != null && isFinite(b);
       let wa = '', wb = '';
-      if (hi !== null && ha && hb && a !== b) { const aw = hi ? a > b : a < b; wa = aw ? 'w' : ''; wb = aw ? '' : 'w'; }
+      if (hi !== null && ha && hb && a !== b) { const aw = hi ? a > b : a < b; wa = aw ? 'strong' : ''; wb = aw ? '' : 'strong'; }
       const avg = { 'eFG%': ff.oeFG, 'TOV%': ff.oTOV, 'OREB%': ff.oORB, 'FT rate': ff.oFTr, 'Opp eFG%': ff.deFG, 'Forced TOV%': ff.dTOV, 'DREB%': ff.dDRB, 'Proj ORtg': _eff && _eff.avgO, 'Proj DRtg': _eff && _eff.avgD, 'Tempo': _eff && _eff.avgT }[l];
-      return `<tr><td class="l">${l}</td><td class="${wa}" style="--side:${ca}">${ha ? f(a) : '—'}</td><td class="${wb}" style="--side:${cb}">${hb ? f(b) : '—'}</td><td style="color:var(--text3)">${avg != null ? f1(avg) : ''}</td></tr>`;
+      return `<tr><td class="l">${l}</td><td class="${wa}">${ha ? f(a) : '—'}</td><td class="${wb}">${hb ? f(b) : '—'}</td><td class="dim">${avg != null ? f1(avg) : ''}</td></tr>`;
     }).join('')}</tbody></table></div>`;
   }
 
   function playersTable(team, T, color, potg) {
     if (!T || !T.rows.length) return `<div class="gp-wrap"><div class="gp-empty">No projected lines on file for ${sn(team)}'s roster yet.</div></div>`;
     const K = ['min', 'pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'oreb', 'dreb', 'reb', 'ast', 'tov', 'gs'];
-    const rc = r => r >= 8 ? '#1f9d57' : r >= 6.5 ? '#3d8f6b' : r >= 5.5 ? '#c2912f' : '#cf5a4e';
-    const chip = r => `<span class="gp-rtg" style="background:${rc(r)}">${r.toFixed(1)}</span>`;
     const best = potg || null;
     const tot = T.rows.reduce((s, x) => { K.forEach(k => { s[k] += x.l[k] || 0; }); return s; }, Object.fromEntries(K.map(k => [k, 0])));
-    const cls = v => v > 0.4 ? 'pos' : v < -0.4 ? 'neg' : '';
     const ma = (m, a) => `${m.toFixed(1)}–${a.toFixed(1)}`, pct = (m, a) => a > 0 ? (100 * m / a).toFixed(1) : '—';
-    return `<div class="gp-wrap"><table class="gp-t"><thead><tr><th class="l">Player</th><th title="projected 0-10 game rating (Hollinger game score on the projected line), same scale as the game reports">Rtg</th><th>Min</th><th>Pts</th><th title="field goals made–attempted">FG</th><th title="threes made–attempted">3P</th><th title="free throws made–attempted">FT</th><th title="offensive rebounds">OR</th><th title="defensive rebounds">DR</th><th>Reb</th><th>Ast</th><th>TO</th><th title="points in this game vs the player's typical game (season projection, scaled to the team's own scoring) — the matchup effect">vs typical</th></tr></thead><tbody>${T.rows.map(x => {
+    // one line per player: bio + the projection's source in their own dim columns; the team
+    // total sits in <tfoot> so the column shading (tdcSheetHeat) ranks players only
+    const note = x => [x === best ? 'Player of the game' : '', x.b.src === 'fresh' ? 'Fr proj' : x.b.src === 'last' || x.b.src === 'lastfit' ? 'last yr' : ''].filter(Boolean).join(' · ');
+    const html = `<div class="sheet-wrap gp-wrap"><table class="sheet dense freeze gp-t"><thead><tr><th class="l">Player</th><th class="l">Pos</th><th class="l">Yr</th><th data-heat="1" title="projected 0-10 game rating (Hollinger game score on the projected line), same scale as the game reports">Rtg</th><th data-heat="1">Min</th><th data-heat="1">Pts</th><th title="field goals made–attempted">FG</th><th title="threes made–attempted">3P</th><th title="free throws made–attempted">FT</th><th data-heat="1" title="offensive rebounds">OR</th><th data-heat="1" title="defensive rebounds">DR</th><th data-heat="1">Reb</th><th data-heat="1">Ast</th><th data-heat="-1">TO</th><th data-heat="1" title="points in this game vs the player's typical game (season projection, scaled to the team's own scoring) — the matchup effect">vs typical</th><th class="l" title="Player of the game = the best projected game score across both rosters · Fr proj = freshman projection · last yr = last season's line">Note</th></tr></thead><tbody>${T.rows.map(x => {
       const p = x.p, l = x.l;
-      return `<tr><td class="l nm">${x === best ? '<span class="gp-potg">★ POTG</span>' : ''}<a href="${playerHref(p, team)}">${p.name}</a><small>${p.position || ''}${p.class_year ? ' · ' + p.class_year : ''}${x.b.src === 'fresh' ? ' · Fr proj' : x.b.src === 'last' || x.b.src === 'lastfit' ? ' · last yr' : ''}</small></td>
-        <td>${chip(l.rtg)}</td><td>${l.min.toFixed(0)}</td><td class="big">${l.pts.toFixed(1)}</td><td>${ma(l.fgm, l.fga)}</td><td>${ma(l.tpm, l.tpa)}</td><td>${ma(l.ftm, l.fta)}</td><td>${l.oreb.toFixed(1)}</td><td>${l.dreb.toFixed(1)}</td><td>${l.reb.toFixed(1)}</td><td>${l.ast.toFixed(1)}</td><td>${l.tov.toFixed(1)}</td><td class="${cls(l.dPts)}" title="typical game ${l.base.toFixed(1)} pts">${sg(l.dPts)}</td></tr>`;
-    }).join('')}<tr><td class="l tot">Team</td><td class="tot"></td><td class="tot">${tot.min.toFixed(0)}</td><td class="tot">${tot.pts.toFixed(0)}</td><td class="tot">${ma(tot.fgm, tot.fga)}<small style="color:var(--text3);margin-left:4px">${pct(tot.fgm, tot.fga)}%</small></td><td class="tot">${ma(tot.tpm, tot.tpa)}<small style="color:var(--text3);margin-left:4px">${pct(tot.tpm, tot.tpa)}%</small></td><td class="tot">${ma(tot.ftm, tot.fta)}</td><td class="tot">${tot.oreb.toFixed(1)}</td><td class="tot">${tot.dreb.toFixed(1)}</td><td class="tot">${tot.reb.toFixed(1)}</td><td class="tot">${tot.ast.toFixed(1)}</td><td class="tot">${tot.tov.toFixed(1)}</td><td class="tot"></td></tr></tbody></table></div>`;
+      return `<tr><td class="l nm"><a href="${playerHref(p, team)}">${p.name}</a></td><td class="l dim">${p.position || ''}</td><td class="l dim">${p.class_year || ''}</td>
+        <td>${l.rtg.toFixed(1)}</td><td>${l.min.toFixed(0)}</td><td class="big">${l.pts.toFixed(1)}</td><td>${ma(l.fgm, l.fga)}</td><td>${ma(l.tpm, l.tpa)}</td><td>${ma(l.ftm, l.fta)}</td><td>${l.oreb.toFixed(1)}</td><td>${l.dreb.toFixed(1)}</td><td>${l.reb.toFixed(1)}</td><td>${l.ast.toFixed(1)}</td><td>${l.tov.toFixed(1)}</td><td title="typical game ${l.base.toFixed(1)} pts">${sg(l.dPts)}</td><td class="l dim">${note(x)}</td></tr>`;
+    }).join('')}</tbody><tfoot><tr><td class="l">Team</td><td></td><td></td><td></td><td>${tot.min.toFixed(0)}</td><td>${tot.pts.toFixed(0)}</td><td>${ma(tot.fgm, tot.fga)}<small>${pct(tot.fgm, tot.fga)}%</small></td><td>${ma(tot.tpm, tot.tpa)}<small>${pct(tot.tpm, tot.tpa)}%</small></td><td>${ma(tot.ftm, tot.fta)}</td><td>${tot.oreb.toFixed(1)}</td><td>${tot.dreb.toFixed(1)}</td><td>${tot.reb.toFixed(1)}</td><td>${tot.ast.toFixed(1)}</td><td>${tot.tov.toFixed(1)}</td><td></td><td></td></tr></tfoot></table></div>`;
+    return html;
   }
 
   async function render(host, opts) {
@@ -263,18 +254,17 @@
     if (ta || tb) {
       const ma = t => `${t.tpm.toFixed(1)}–${t.tpa.toFixed(1)}`;
       const shot = [
-        ['3PA · 3PM', t => `${t.tpa.toFixed(1)} att · ${t.tpm.toFixed(1)} made <small style="color:var(--text3)">${t.tpa ? (100 * t.tpm / t.tpa).toFixed(0) : 0}%</small>`, t => t.tpm, true],
+        ['3PA · 3PM', t => `${t.tpa.toFixed(1)} att · ${t.tpm.toFixed(1)} made <small>${t.tpa ? (100 * t.tpm / t.tpa).toFixed(0) : 0}%</small>`, t => t.tpm, true],
         ['3PA share', t => `${t.fga ? (100 * t.tpa / t.fga).toFixed(0) : 0}% of shots`, t => t.tpa / (t.fga || 1), null],
-        ['2PA · 2PM', t => `${(t.fga - t.tpa).toFixed(1)} att · ${(t.fgm - t.tpm).toFixed(1)} made <small style="color:var(--text3)">${(t.fga - t.tpa) ? (100 * (t.fgm - t.tpm) / (t.fga - t.tpa)).toFixed(0) : 0}%</small>`, t => t.fgm - t.tpm, true],
+        ['2PA · 2PM', t => `${(t.fga - t.tpa).toFixed(1)} att · ${(t.fgm - t.tpm).toFixed(1)} made <small>${(t.fga - t.tpa) ? (100 * (t.fgm - t.tpm) / (t.fga - t.tpa)).toFixed(0) : 0}%</small>`, t => t.fgm - t.tpm, true],
         ['FTA · FTM', t => `${t.fta.toFixed(1)} att · ${t.ftm.toFixed(1)} made`, t => t.ftm, true],
         ['Off. rebounds', t => t.oreb.toFixed(1), t => t.oreb, true], ['Def. rebounds', t => t.dreb.toFixed(1), t => t.dreb, true],
         ['Assists', t => t.ast.toFixed(1), t => t.ast, true], ['Turnovers', t => t.tov.toFixed(1), t => t.tov, false],
       ];
-      const ca = col(team), cb = col(oppName);
-      const rowsHtml = `<tr><td class="l" colspan="4" style="font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);background:var(--bg2);padding:6px 12px;">Projected shot split · this game</td></tr>` + shot.map(([l, f, v, hi]) => {
+      const rowsHtml = `<tr class="sec"><td class="l" colspan="4">Projected shot split · this game</td></tr>` + shot.map(([l, f, v, hi]) => {
         const a = ta ? v(ta) : null, b = tb ? v(tb) : null; let wa = '', wb = '';
-        if (hi !== null && a != null && b != null && a !== b) { const aw = hi ? a > b : a < b; wa = aw ? 'w' : ''; wb = aw ? '' : 'w'; }
-        return `<tr><td class="l">${l}</td><td class="${wa}" style="--side:${ca}">${ta ? f(ta) : '—'}</td><td class="${wb}" style="--side:${cb}">${tb ? f(tb) : '—'}</td><td></td></tr>`;
+        if (hi !== null && a != null && b != null && a !== b) { const aw = hi ? a > b : a < b; wa = aw ? 'strong' : ''; wb = aw ? '' : 'strong'; }
+        return `<tr><td class="l">${l}</td><td class="${wa}">${ta ? f(ta) : '—'}</td><td class="${wb}">${tb ? f(tb) : '—'}</td><td></td></tr>`;
       }).join('');
       const tbody = document.querySelector('#gpCmp .gp-t tbody'); if (tbody) tbody.insertAdjacentHTML('beforeend', rowsHtml);
     }
@@ -291,6 +281,7 @@
       <div class="gp-two"><div><div style="font-size:12px;font-weight:800;color:${col(team)};padding:8px 2px;">${sn(team)}</div>${playersTable(team, TA, col(team), potg)}${injLine(pa, team)}</div>
       <div><div style="font-size:12px;font-weight:800;color:${col(oppName)};padding:8px 2px;">${sn(oppName)}</div>${row.oppName ? playersTable(oppName, TB, col(oppName), potg) : `<div class="gp-wrap"><div class="gp-empty">Opponent to be determined.</div></div>`}${injLine(pb, oppName)}</div></div>
 `;
+    if (g.tdcSheetHeat) document.querySelectorAll('#gpPlayers table.sheet').forEach(t => g.tdcSheetHeat(t));
     if (g.TDCGate) { const relock = () => { const el = document.getElementById('gpPlayers'); el.classList.remove('tdc-gate-wrap'); g.TDCGate.lock(el, { tier: 'pro', label: 'projected player lines', blurb: 'Pro, Coach\'s Tier and Betting Lab members see how every rotation player projects in this specific matchup — minutes, points, rebounds, assists and shooting.' }); };
       if (g.TDCGate.resolved && g.TDCGate.resolved()) relock(); else if (g.TDCGate.ready) g.TDCGate.ready.then(relock); }
   }

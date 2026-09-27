@@ -40,18 +40,13 @@
     .pills{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px;}
     .pill{font-size:12px;font-weight:700;padding:6px 14px;border:1px solid var(--border2);border-radius:16px;background:none;color:var(--text3);cursor:pointer;}
     .pill.on{background:var(--accent);color:#221c08;border-color:var(--accent);}
-    table{width:100%;border-collapse:collapse;font-size:13px;}
-    th{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);text-align:right;padding:8px;border-bottom:2px solid var(--border2);}
-    th.l{text-align:left;}
-    td{padding:8px;border-bottom:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums;}
-    td.l{text-align:left;}
-    td a{color:var(--text);text-decoration:none;font-weight:700;}
-    td a:hover{color:var(--accent);}
-    .chip{font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;background:var(--bg3);color:var(--text3);margin-left:6px;}
+    /* data tables = the site sheet (tdc-sheets.css) */
+    #rankTbl{--c1:44px;--c2:220px;}
+    .sheet td.loading{padding:40px;}
     .search{width:260px;padding:9px 13px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;}
     select,button.venue{padding:9px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;}
     .line-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:center;margin-top:14px;}
-    .big{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;}
+    .line-grid .big{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;}
     .loading{padding:60px;text-align:center;color:var(--text3);}
     .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:30px;max-width:860px;}
     .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;border-radius:6px;}
@@ -86,6 +81,7 @@
   <script src="tdc-pwa.js?v=2" defer></script>
   <link rel="stylesheet" href="tdc-hq-site.css?v=24"/>
   <link rel="stylesheet" href="tdc-column.css?v=2"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
 </head>
 <body data-anim-auto class="hqsite">
   <script src="tdc-nav.js?v=28"></script>
@@ -123,10 +119,10 @@
       <input class="search" id="q" placeholder="Search team…" oninput="renderTable()">
       <div class="pills" id="confPills" style="margin:0;"></div>
     </div>
-    <div class="card" style="padding:4px 14px;overflow-x:auto;">
-      <table>
-        <thead><tr><th>#</th><th class="l">Team</th><th class="l">Conf</th><th>Rating</th><th>Roster Proj</th><th>’25-26 SRS</th><th>All-Play %</th></tr></thead>
-        <tbody id="tbody"><tr><td colspan="7" class="loading">Building ratings…</td></tr></tbody>
+    <div class="sheet-wrap">
+      <table class="sheet dense freeze2" id="rankTbl">
+        <thead><tr><th class="rk">#</th><th class="l">Team</th><th class="l">Conf</th><th class="l" title="Carryover = no synced roster yet, so the team keeps an adjusted 2025-26 rating">Basis</th><th data-heat="1">Rating</th><th data-heat="1">Roster Proj</th><th data-heat="1">’25-26 SRS</th><th data-heat="1">All-Play %</th></tr></thead>
+        <tbody id="tbody"><tr><td colspan="8" class="loading">Building ratings…</td></tr></tbody>
       </table>
     </div>
     <div class="note"><b>Reading it:</b> Rating is points better than an average D1 team on a neutral floor — a +25 team is a 10-point favorite over a +15 team. All-Play % answers "if this team played everyone, how often does it win?" Ratings are built from 2026-27 projections, not last season's stats; the ’25-26 SRS column is shown only as the anchor.</div>
@@ -181,14 +177,16 @@ function renderTable(){
   const q=(document.getElementById('q').value||'').toLowerCase();
   const rows=D.teams.filter(r=>(curConf==='All'||r.conf===curConf)&&(!q||r.full.toLowerCase().includes(q)||r.team.toLowerCase().includes(q)));
   document.getElementById('tbody').innerHTML=rows.slice(0,400).map(r=>`
-    <tr><td>${r.rank}</td>
-      <td class="l"><a href="team.html?team=${encodeURIComponent(r.team)}">${r.full}</a>${r.projected?'':'<span class="chip">carryover</span>'}</td>
-      <td class="l" style="color:var(--text3);">${r.conf||'—'}</td>
-      <td style="font-weight:800;">${r.rating>=0?'+':''}${r.rating.toFixed(1)}</td>
-      <td style="color:var(--text2);">${r.roster!=null?(r.roster>=0?'+':'')+r.roster.toFixed(1):'—'}</td>
-      <td style="color:var(--text3);">${r.prior!=null?(r.prior>=0?'+':'')+r.prior.toFixed(1):'—'}</td>
+    <tr><td class="rk">${r.rank}</td>
+      <td class="l nm"><a href="team.html?team=${encodeURIComponent(r.team)}">${r.full}</a></td>
+      <td class="l dim">${r.conf||'—'}</td>
+      <td class="l dim">${r.projected?'':'carryover'}</td>
+      <td class="big">${r.rating>=0?'+':''}${r.rating.toFixed(1)}</td>
+      <td>${r.roster!=null?(r.roster>=0?'+':'')+r.roster.toFixed(1):'—'}</td>
+      <td>${r.prior!=null?(r.prior>=0?'+':'')+r.prior.toFixed(1):'—'}</td>
       <td>${r.allPlay.toFixed(1)}%</td></tr>`).join('')
-    ||'<tr><td colspan="7" class="loading">No teams match</td></tr>';
+    ||'<tr><td colspan="8" class="loading">No teams match</td></tr>';
+  if(window.tdcSheetHeat) tdcSheetHeat(document.getElementById('rankTbl'));
 }
 function renderPills(){
   const confs=['All',...new Set(D.teams.filter(r=>r.projected).map(r=>r.conf).filter(Boolean))];
@@ -300,18 +298,16 @@ async function runSweep(){
     if(!opp) return '';
     const L=TDC_RATINGS.lineFor(me,opp,homeMe?'home':'away');
     const p=L.probA; p>=50?w++:l++;
-    return `<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;">
-      <span style="color:var(--text3);min-width:70px;">${g.date||''}</span>
-      <span style="flex:1;">${homeMe?'vs':'at'} ${(homeMe?g.away:g.home)}</span>
-      <span style="font-weight:700;color:${p>=50?'var(--green)':'var(--red)'};">${p.toFixed(0)}%</span>
-      <span style="color:var(--text3);min-width:88px;text-align:right;">${L.spread}</span>
-    </div>`;
+    return `<tr><td class="l dim">${g.date||''}</td><td class="l nm">${homeMe?'vs':'at'} ${(homeMe?g.away:g.home)}</td><td class="big">${p.toFixed(0)}%</td><td class="dim">${L.spread}</td></tr>`;
   }).join('');
-  out.innerHTML=`<div style="font-size:13px;font-weight:800;margin-bottom:8px;color:var(--text);">Projected record: ${w}-${l}</div>${rows}`;
+  out.innerHTML=`<div style="font-size:13px;font-weight:800;margin-bottom:8px;color:var(--text);">Projected record: ${w}-${l}</div>
+    <div class="sheet-wrap"><table class="sheet dense" id="sweepTbl"><thead><tr><th class="l">Date</th><th class="l">Opponent</th><th data-heat="1" title="Win probability">Win %</th><th>Line</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  if(window.tdcSheetHeat) tdcSheetHeat(document.getElementById('sweepTbl'));
 }
 TDC_RATINGS.get().then(d=>{ D=d; renderPills(); renderTable(); fillSelects(); renderLine(); })
-  .catch(e=>{ document.getElementById('tbody').innerHTML='<tr><td colspan="7" class="loading">Could not build ratings.</td></tr>'; });
+  .catch(e=>{ document.getElementById('tbody').innerHTML='<tr><td colspan="8" class="loading">Could not build ratings.</td></tr>'; });
 </script>
+  <script src="tdc-sheets.js?v=1"></script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=8"></script>
 </body>

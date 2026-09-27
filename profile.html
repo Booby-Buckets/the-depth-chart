@@ -449,7 +449,7 @@ async function loadUserPosts(userId){
     if(!el) return;
     const pc=document.getElementById('postCount'); if(pc) pc.textContent=posts.length;
     if(!posts.length){ el.innerHTML='<div style="padding:20px;color:var(--text3);font-size:13px;">No posts yet.</div>'; return; }
-    el.innerHTML = `<div class="sheet-wrap" style="margin-top:0"><table class="sheet"><thead><tr><th class="l">Post</th><th class="l">Category</th><th>Replies</th><th class="l">Posted</th></tr></thead><tbody>${posts.map(p=>`
+    el.innerHTML = `<div class="sheet-wrap" style="margin-top:0"><table class="sheet dense"><thead><tr><th class="l">Post</th><th class="l">Category</th><th>Replies</th><th class="l">Posted</th></tr></thead><tbody>${posts.map(p=>`
       <tr style="cursor:pointer" onclick="location.href='forum.html'"><td class="l nm">${p.title}</td><td class="l dim">${p.category||''}</td><td>${p.reply_count||0}</td><td class="l dim">${timeAgo(p.created_at)}</td></tr>`).join('')}</tbody></table></div>`;
   } catch(e){}
 }
@@ -523,13 +523,13 @@ async function loadFollowList(dir){
     if(!Array.isArray(data) || !data.length){
       el.innerHTML=`<div style="padding:20px;color:var(--text3);font-size:13px;">${cfg.empty}</div>`; return;
     }
-    el.innerHTML = `<div class="sheet-wrap" style="margin-top:0"><table class="sheet"><thead><tr><th class="l">Member</th><th class="l">Favorite team</th><th class="l">Plan</th></tr></thead><tbody>${data.map(f=>{
+    el.innerHTML = `<div class="sheet-wrap" style="margin-top:0"><table class="sheet dense"><thead><tr><th class="l">Member</th><th class="l">Favorite team</th><th class="l">Plan</th></tr></thead><tbody>${data.map(f=>{
       const p=f.profiles||{};
       const uname=p.username||'User';
       const av=p.avatar_url?`<img class="pf-av" src="${p.avatar_url}">`:`<span class="pf-av">${uname[0].toUpperCase()}</span>`;
       const vb=(window.TDC_BADGE?TDC_BADGE.html(p):'');
       const lab=(window.TDC_BADGE?TDC_BADGE.label(p):(['premium','pro','coach'].includes(p.plan)?'Premium':'Free')), pd=!!(window.TDC_BADGE&&TDC_BADGE.tierOf(p));
-      return `<tr><td class="l nm">${av}<a href="profile.html?user=${encodeURIComponent(uname)}">${uname}</a>${vb}</td><td class="l dim">${p.favorite_team||'—'}</td><td class="l" style="color:${pd?'var(--accent)':'var(--text3)'};font-weight:${pd?800:500}">${lab}</td></tr>`;
+      return `<tr><td class="l nm">${av}<a href="profile.html?user=${encodeURIComponent(uname)}">${uname}</a>${vb}</td><td class="l dim">${p.favorite_team||'—'}</td><td class="l${pd?'':' dim'}">${lab}</td></tr>`;
     }).join('')}</tbody></table></div>`;
   } catch(e){ el.innerHTML=`<div style="padding:20px;color:var(--text3);">${cfg.err}</div>`; }
 }
