@@ -108,7 +108,7 @@
 
       <div class="card primary">
         <h2>⚡ Republish projected ratings</h2>
-        <div class="desc">Recomputes the shared 2026-27 team power ratings (with your freshman projections applied) and publishes them to <b>predictive_ratings</b> — the single source of truth every visitor reads. Run this after a grade, coach, or roster change that moves team strength. The site otherwise only republishes when you save a freshman projection.</div>
+        <div class="desc">Recomputes the shared 2026-27 team power ratings (with your freshman projections applied) and publishes them to <b>predictive_ratings</b> — the single source of truth every visitor reads. Run this after a grade, coach, or roster change that moves team strength. It also refreshes the <b>projected awards</b> from the same grades. The site otherwise only republishes when you save a freshman projection.</div>
         <div class="meta" id="ratingsMeta">Last published: <b>checking…</b></div>
         <button class="btn" id="republishBtn" onclick="republishRatings(this)">Republish ratings</button>
         <div class="status" id="ratingsStatus"></div>
@@ -274,6 +274,18 @@
         var n=(data&&data.teams&&data.teams.length)||0;
         st(s,'✓ Published '+n+' teams. Live for every visitor now.','ok');
         loadRatingsMeta();
+        // The awards ballot is a separate saved blob built from the same grades, and it only
+        // refreshed from its own button, so it went stale (Sep 25 list still naming Lubin and Fallah
+        // All-Americans two republishes later). Refresh it here too; a failure is reported on the
+        // awards card and does not undo the ratings publish.
+        if(window.TDC_AWARDS&&TDC_AWARDS.refresh){
+          var as=document.getElementById('awardsStatus');
+          st(as,'Refreshing awards from the new grades…','busy');
+          return TDC_AWARDS.refresh()
+            .then(function(a){ var c=(a&&a.conferences)?Object.keys(a.conferences).length:0;
+              st(as,'✓ Published All-America + '+c+' conference ballots (with the ratings).','ok'); })
+            .catch(function(e){ st(as,'✗ Awards refresh failed: '+((e&&e.message)||e)+' — use Republish awards.','err'); });
+        }
       })
       .catch(function(e){ st(s,'✗ Failed: '+((e&&e.message)||e),'err'); })
       .then(function(){ btn.disabled=false; });
