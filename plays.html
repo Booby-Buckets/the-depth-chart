@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="stylesheet" href="tdc-a11y.css?v=1">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta name="description" content="Search every men's college basketball play since 2008 by team, player, shot type, clutch situation and more — sorted by win probability added or points over expected.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Play Finder — The Depth Chart">
+  <meta property="og:description" content="Search every men's college basketball play since 2008, sorted by win probability added or points over expected.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/plays.html">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Play Finder — The Depth Chart">
+  <meta charset="UTF-8"/>
+  <script src="tdc-theme.js?v=5"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Play Finder — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="tdc-column.css?v=3"/>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+    a{color:inherit;text-decoration:none;}
+    .wrap{max-width:1180px;margin:0 auto;padding:0 22px;}
+    .hero{padding:36px 0 18px;}
+    .kicker{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);}
+    h1{font-family:'Playfair Display',serif;font-weight:900;font-size:clamp(32px,5vw,46px);letter-spacing:-.02em;line-height:1.05;margin-top:6px;}
+    .lede{font-size:14px;color:var(--text2);max-width:760px;margin-top:10px;line-height:1.6;}
+    /* the film-room panel: always dark, gold accent */
+    .pf{--pbg:#0f1115;--pbg2:#171a21;--pline:#262a33;--ptext:#e8e6df;--ptext2:#a9a79f;--ptext3:#7c7a73;--gold:#d4a94a;
+      background:var(--pbg);color:var(--ptext);border:1px solid var(--pline);border-radius:14px;overflow:hidden;margin:6px 0 50px;}
+    .pf-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:16px 20px;border-bottom:1px solid var(--pline);flex-wrap:wrap;}
+    .pf-h b{color:var(--gold);letter-spacing:.14em;font-size:15px;font-weight:900;}
+    .pf-h span{color:var(--ptext3);font-size:12.5px;}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px 12px;padding:16px 20px 6px;}
+    .grid label{display:grid;gap:5px;font-size:11.5px;color:var(--ptext3);font-weight:600;}
+    .pf select,.pf input{background:var(--pbg2);color:var(--ptext);border:1px solid var(--pline);border-radius:7px;padding:8px 10px;font:600 13.5px Inter,system-ui,sans-serif;min-width:0;}
+    .pf select:disabled{opacity:.45;}
+    .pf select:focus,.pf input:focus{outline:none;border-color:var(--gold);}
+    .row2{display:flex;flex-wrap:wrap;gap:8px;padding:10px 20px 14px;}
+    .row2 .op{width:64px;} .row2 .val{width:100px;} .row2 .txt{flex:1;min-width:180px;}
+    .go{background:var(--gold);color:#1a1406;border:0;border-radius:7px;padding:8px 20px;font-weight:800;font-size:13.5px;cursor:pointer;}
+    .clear{background:transparent;color:var(--ptext2);border:1px solid var(--pline);border-radius:7px;padding:8px 14px;font-weight:700;cursor:pointer;}
+    .filters{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline;padding:11px 20px;border-top:1px solid var(--pline);border-bottom:1px solid var(--pline);font-size:12.5px;}
+    .filters>span{color:var(--ptext2);font-weight:700;margin-right:8px;}
+    .filters em{font-style:normal;color:var(--ptext3);font-weight:800;letter-spacing:.06em;font-size:11px;}
+    .filters b{color:var(--gold);font-weight:700;}
+    .filters b+b::before{content:"·";color:var(--ptext3);margin-right:8px;}
+    .filters i{color:var(--ptext3);}
+    .prog{height:3px;background:var(--pline);} .prog i{display:block;height:100%;width:0;background:var(--gold);transition:width .2s;}
+    .res{max-height:900px;overflow-y:auto;}
+    .res.busy{opacity:.55;}
+    .play{display:block;padding:13px 20px;border-bottom:1px solid var(--pline);color:var(--ptext);}
+    .play:hover{background:var(--pbg2);}
+    .desc{font-size:14.5px;line-height:1.45;}
+    .desc .clk{color:var(--ptext2);}
+    .meta{display:flex;flex-wrap:wrap;gap:4px 0;margin-top:5px;font:500 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ptext3);}
+    .meta span+span::before{content:"·";margin:0 8px;color:var(--ptext3);}
+    .pos{color:#4ade80;} .neg{color:#f87171;} .wpa{color:var(--gold);}
+    .empty{padding:18px 20px;color:var(--ptext3);font-size:13px;}
+    .foot{padding:12px 20px 16px;font-size:12px;color:var(--ptext3);border-top:1px solid var(--pline);line-height:1.55;}
+    @media (max-width:640px){.grid,.row2,.filters,.play,.pf-h,.foot{padding-left:14px;padding-right:14px;}}
+  </style>
+  <link rel="manifest" href="manifest.webmanifest">
+  <script src="tdc-pwa.js?v=2" defer></script>
+</head>
+<body>
+<script src="tdc-nav.js?v=30"></script>
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">Every D-I play · 2008 to now</div>
+    <h1>Play Finder</h1>
+    <p class="lede">Search every men's college basketball play by team, player, shot type and game situation, and sort by what it was worth.
+      <b>WP added</b> is how much a play moved the team's chance of winning (our live win-probability model, counting who has the ball).
+      <b>xPts</b> is what the average D-I shot from that spot is worth, so <b>points over expected</b> shows shot-making.</p>
+  </header>
+
+  <div class="pf" id="pf">
+    <div class="pf-h"><b>PLAY FINDER</b><span id="status">Loading…</span></div>
+    <div class="grid">
+      <label>Season<select id="f-season"></select></label>
+      <label>Team<select id="f-team"><option value="">Any team (standout plays)</option></select></label>
+      <label>Side<select id="f-side" disabled><option value="team">Team's plays</option><option value="opp">Opponents' plays</option><option value="both">Both</option></select></label>
+      <label>Player<select id="f-player" disabled><option value="">Pick a team first</option></select></label>
+      <label>Play type<select id="f-kind">
+        <option value="">Any</option><option value="fga">Any shot</option><option value="three">3PT</option><option value="two">Any 2PT</option><option value="jumper">2PT jumper</option>
+        <option value="layup">Layup</option><option value="dunk">Dunk</option><option value="tip">Tip-in</option><option value="ft">Free throw</option>
+        <option value="to">Turnover</option><option value="stl">Steal</option><option value="blk">Block</option><option value="oreb">Off. rebound</option><option value="dreb">Def. rebound</option><option value="foul">Foul</option>
+      </select></label>
+      <label>Result<select id="f-made"><option value="">Any</option><option value="1">Made</option><option value="0">Missed</option><option value="ast">Assisted</option></select></label>
+      <label>Period<select id="f-per"><option value="">Any</option><option value="1">1st half</option><option value="2">2nd half</option><option value="3">Overtime</option></select></label>
+      <label>Situation<select id="f-sit">
+        <option value="">Any</option><option value="clutch">Clutch (last 5:00, within 5)</option><option value="min">Final minute, within 3</option>
+        <option value="buzzer">Last 5 seconds</option><option value="tie">Tie or go-ahead</option>
+      </select></label>
+      <label>Sort<select id="f-sort">
+        <option value="wpa">WP added high</option><option value="-wpa">WP added low</option><option value="poe">Points over expected</option>
+        <option value="dist">Longest shots</option><option value="time">Game order</option>
+      </select></label>
+    </div>
+    <form class="row2" id="f-form">
+      <select id="f-col" aria-label="Column"><option value="">Any column</option><option value="wpa">WP added %</option><option value="dist">Shot distance (ft)</option><option value="xpts">xPts</option><option value="poe">Pts over expected</option><option value="margin">Score margin</option></select>
+      <select id="f-op" class="op" aria-label="Comparison"><option value=">=">≥</option><option value="<=">≤</option><option value="=">=</option></select>
+      <input id="f-val" class="val" placeholder="Value" inputmode="decimal" aria-label="Value">
+      <input id="f-text" class="txt" placeholder="Text in the play description" aria-label="Text">
+      <button class="go" type="submit">Search</button>
+      <button class="clear" type="button" id="f-clear">Clear</button>
+    </form>
+    <div class="filters" id="chips"></div>
+    <div class="prog"><i id="prog"></i></div>
+    <div class="res" id="res"></div>
+    <div class="foot" id="foot"></div>
+  </div>
+</div>
+
+<script src="tdc-plays.js?v=1"></script>
+<script>
+(function(){
+  const SB='https://izlqhnxowdhtdofkwrho.supabase.co', KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye', H={apikey:KEY,Authorization:'Bearer '+KEY};
+  const ESPN=['https://site.api.espn.com','https://site.web.api.espn.com'], SUM='/apis/site/v2/sports/basketball/mens-college-basketball/summary?event=';
+  const FIRST=2008, LAST=2026;                      // seasons with ESPN play-by-play (season = the spring year)
+  const $=id=>document.getElementById(id);
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const P=window.TDC_PLAYS;
+  const state={season:LAST,teams:[],srs:{},zones:null,loaded:{},rows:[],games:{},top:null,token:0};
+  const F=['season','team','side','player','kind','made','per','sit','sort','col','op','val','text'];
+
+  // ---------- data ----------
+  async function sb(path){ const r=await fetch(SB+'/rest/v1/'+path,{headers:H}); if(!r.ok) throw new Error('supabase '+r.status); return r.json(); }
+  async function espn(id){
+    for(const h of ESPN){ try{ const r=await fetch(h+SUM+id); if(r.ok) return await r.json(); }catch(e){} }
+    return null;
+  }
+  let zoneRef=null;
+  async function zonesFor(y){
+    if(!zoneRef) zoneRef=await fetch('scripts/data/shot_zone_ref.json?v=1').then(r=>r.json()).catch(()=>({seasons:{}}));
+    const s=zoneRef.seasons||{}; return (s[String(y)]||s[String(zoneRef.latest)]||{}).zones||null;
+  }
+  async function loadSeason(y){
+    state.season=y; state.loaded={}; state.rows=[]; state.games={}; state.top=null;
+    const ts=await sb(`team_seasons?season_year=eq.${y}&select=team,team_id,conference,srs&order=team.asc`);
+    state.teams=ts.filter(t=>t.team_id); state.srs={}; ts.forEach(t=>{ if(t.team_id!=null&&t.srs!=null) state.srs[String(t.team_id)]=+t.srs; });
+    state.zones=await zonesFor(y);
+    const sel=$('f-team'), cur=sel.value;
+    sel.innerHTML='<option value="">Any team (standout plays)</option>'+state.teams.map(t=>`<option value="${t.team_id}">${esc(t.team)}</option>`).join('');
+    if(cur && state.teams.some(t=>String(t.team_id)===cur)) sel.value=cur;
+  }
+  async function loadTeam(tid){
+    const tok=++state.token;
+    const games=await sb(`games?season_year=eq.${state.season}&or=(home_id.eq.${tid},away_id.eq.${tid})&status=eq.STATUS_FINAL&select=id,date,home,home_id,away,away_id,home_score,away_score&order=date.asc`);
+    const todo=games.filter(g=>!state.loaded[g.id]);
+    let done=games.length-todo.length;
+    const step=()=>{ $('prog').style.width=(100*done/Math.max(1,games.length))+'%'; $('status').textContent=`Loading ${state.season} games: ${done} of ${games.length}`; };
+    step();
+    const queue=todo.slice();
+    async function worker(){
+      while(queue.length){
+        const g=queue.shift();
+        const s=await espn(g.id);
+        if(tok!==state.token) return;
+        if(s){ const r=P.parseGame(s,{srs:state.srs,zones:state.zones}); state.games[g.id]=r.game; r.rows.forEach(x=>x.g=String(g.id)); state.loaded[g.id]=r.rows; }
+        else state.loaded[g.id]=[];
+        done++; step();
+      }
+    }
+    await Promise.all(Array.from({length:6},worker));
+    if(tok!==state.token) return false;
+    state.rows=games.flatMap(g=>state.loaded[g.id]||[]);
+    // players who made a play for this team
+    const seen=new Map();
+    state.rows.forEach(r=>{ if(r.team===String(tid)&&r.pid&&r.pname){ const e=seen.get(r.pid)||{n:0,name:r.pname}; e.n++; seen.set(r.pid,e); } });
+    const ps=[...seen.entries()].filter(([,v])=>v.n>=5).sort((a,b)=>a[1].name.localeCompare(b[1].name));
+    const psel=$('f-player'), want=psel.dataset.want||psel.value;
+    psel.innerHTML='<option value="">Any</option>'+ps.map(([id,v])=>`<option value="${id}">${esc(v.name)}</option>`).join('');
+    if(want&&seen.has(want)) psel.value=want; psel.dataset.want='';
+    psel.disabled=false; $('f-side').disabled=false;
+    $('prog').style.width='0';
+    return true;
+  }
+  async function loadTop(y){
+    if(state.top) return state.top;
+    try{ const d=await fetch(`scripts/data/plays_top/${y}.json?v=1`).then(r=>{ if(!r.ok) throw 0; return r.json(); }); state.top=d; }
+    catch(e){ state.top={rows:[],games:{},missing:true}; }
+    return state.top;
+  }
+
+  // ---------- filter + render ----------
+  const v=id=>$('f-'+id).value;
+  const num=s=>s===''||s==null||isNaN(+s)?null:+s;
+  const tname=id=>{ const t=state.teams.find(x=>String(x.team_id)===String(id)); return t?t.team:null; };
+  function short(g,id){ if(!g) return ''; return String(g.home.id)===String(id)?(g.home.abbr||g.home.name):(g.away.abbr||g.away.name); }
+  function match(r){
+    const tid=v('team'), side=v('side'), pl=v('player'), k=v('kind'), made=v('made'), per=v('per'), sit=v('sit'), text=v('text').toLowerCase();
+    if(tid && !pl){ if(side==='team'&&r.team!==tid) return false; if(side==='opp'&&r.opp!==tid) return false; }
+    if(pl && r.pid!==pl && r.aid!==pl) return false;
+    if(k){
+      if(k==='fga'){ if(!['three','jumper','layup','dunk','tip'].includes(r.kind)) return false; }
+      else if(k==='two'){ if(!['jumper','layup','dunk','tip'].includes(r.kind)) return false; }
+      else if(r.kind!==k) return false;
+    }
+    if(made==='1'&&r.made!==true) return false;
+    if(made==='0'&&r.made!==false) return false;
+    if(made==='ast'&&!r.ast) return false;
+    if(per&&(per==='3'?r.per<3:r.per!==+per)) return false;
+    const before=r.margin-((r.made&&r.sv)?r.sv:0);          // the acting team's margin before the play
+    if(sit==='clutch'&&!(r.per>=2&&r.secs<=300&&Math.abs(before)<=5)) return false;
+    if(sit==='min'&&!(r.per>=2&&r.secs<=60&&Math.abs(before)<=3)) return false;
+    if(sit==='buzzer'&&!(r.per>=2&&r.secs<=5)) return false;
+    if(sit==='tie'&&!(r.made&&before<=0&&r.margin>=0)) return false;
+    if(text&&!r.text.toLowerCase().includes(text)&&!(r.pname||'').toLowerCase().includes(text)) return false;
+    const col=v('col'), op=v('op'), val=num(v('val'));
+    if(col&&val!=null){
+      const x=col==='wpa'?r.wpa*100:r[col];
+      if(x==null||(op==='>='?x<val:op==='<='?x>val:x!==val)) return false;
+    }
+    return true;
+  }
+  const SORT={wpa:r=>r.wpa,'-wpa':r=>-r.wpa,poe:r=>r.poe==null?-99:r.poe,dist:r=>r.dist==null?-1:r.dist};
+  function chips(){
+    const out=[], tid=v('team');
+    if(tid) out.push(`${v('side')==='opp'?'Opponents of':v('side')==='both'?'Games of':'Team ='} ${tname(tid)||tid}`);
+    if(v('player')) out.push('Player = '+$('f-player').selectedOptions[0].textContent);
+    const lab=id=>$('f-'+id).selectedOptions[0].textContent;
+    ['kind','made','per','sit'].forEach(k=>{ if(v(k)) out.push(lab(k)); });
+    if(v('col')&&v('val')) out.push(`${lab('col')} ${v('op')==='>='?'≥':v('op')==='<='?'≤':'='} ${v('val')}`);
+    if(v('text')) out.push(`Text “${v('text')}”`);
+    $('chips').innerHTML='<span>Filters</span>'+(out.length?'<em>INCLUDE</em> '+out.map(c=>`<b>${esc(c)}</b>`).join(''):`<i>none: ${state.season}'s standout plays across D-I</i>`);
+  }
+  const perName=r=>r.per===1?'1st':r.per===2?'2nd':r.per===3?'OT':(r.per-2)+'OT';
+  const sgn=(x,d)=>(x>0?'+':'')+x.toFixed(d);
+  function render(rows, games, scopeNote){
+    const s=v('sort');
+    let out=rows.filter(match);
+    if(s!=='time') out.sort((a,b)=>SORT[s](b)-SORT[s](a));
+    const n=out.length; out=out.slice(0,150);
+    $('res').innerHTML=out.length?out.map(r=>{
+      const g=games[r.g]||{}, us=short(g,r.team), them=short(g,r.opp);
+      const at=g.home&&String(g.home.id)===r.team?'vs':'@';
+      const d=g.date?new Date(g.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
+      const hsc=g.home?`${g.away.abbr||g.away.name} ${r.as}–${r.hs} ${g.home.abbr||g.home.name}`:'';
+      const shot=r.xpts!=null&&r.kind!=='ft'?`<span>${esc(P.KINDS[r.kind])}${r.dist!=null?' '+r.dist+' ft':''}</span><span>xPts ${r.xpts.toFixed(2)}</span><span class="${r.poe>=0?'pos':'neg'}">POE ${sgn(r.poe,2)}</span>`:(r.kind==='ft'?'':`<span>${esc(P.KINDS[r.kind]||'')}</span>`);
+      return `<a class="play" href="game.html?id=${esc(r.g)}"><div class="desc"><span class="clk">(${esc(r.clock)})</span> ${esc(r.text)}</div>
+        <div class="meta"><span>${esc(us)} ${at} ${esc(them)}</span><span>${esc(d)}</span><span>${perName(r)} ${esc(r.clock)}</span><span>${esc(hsc)}</span>${shot}<span class="wpa">WP added ${sgn(r.wpa*100,1)}%</span></div></a>`;
+    }).join(''):'<div class="empty">No plays match. Loosen a filter.</div>';
+    $('status').textContent=`${state.season-1}-${String(state.season).slice(2)} · ${n.toLocaleString()} matching plays${n>150?' (top 150 shown)':''}`;
+    $('foot').innerHTML=scopeNote+' Click a play for the box score. Shot locations come from ESPN (most games since 2014); shots without one use the D-I make rate for that shot type.';
+  }
+
+  // ---------- run ----------
+  function syncURL(){
+    const q=new URLSearchParams(); F.forEach(k=>{ const x=v(k); if(x&&!(k==='sort'&&x==='wpa')&&!(k==='side'&&x==='team')&&!(k==='op'&&x==='>=')&&!(k==='season'&&+x===LAST)) q.set(k,x); });
+    try{ history.replaceState(null,'','plays.html'+(q.toString()?'?'+q:'')); }catch(e){}
+  }
+  let running=false;
+  async function run(){
+    syncURL(); chips();
+    const tid=v('team');
+    $('res').classList.add('busy');
+    try{
+      if(tid){
+        if(!state.rows.length||state.rows._tid!==tid){ const ok=await loadTeam(tid); if(ok===false) return; state.rows._tid=tid; }
+        render(state.rows, state.games, `${tname(tid)}: every play of its ${state.season} games, loaded live from ESPN.`);
+      } else {
+        $('f-player').disabled=true; $('f-side').disabled=true;
+        $('f-player').innerHTML='<option value="">Pick a team first</option>';
+        const T=await loadTop(state.season);
+        if(T.missing){ $('res').innerHTML=`<div class="empty">Pick a team to search every ${state.season} play. (Standout plays across all of D-I are built for recent seasons.)</div>`; $('status').textContent=`${state.season} · pick a team`; $('foot').textContent=''; }
+        else render(T.rows, T.games, `No team picked: the ${state.season} season's standout plays across D-I (the biggest win-probability swings and shot-making). Pick a team to search all of its plays.`);
+      }
+    } catch(e){ $('res').innerHTML=`<div class="empty">Couldn't load plays (${esc(e.message||e)}). Try again.</div>`; }
+    finally{ $('res').classList.remove('busy'); }
+  }
+
+  async function init(){
+    const sel=$('f-season');
+    for(let y=LAST;y>=FIRST;y--) sel.insertAdjacentHTML('beforeend',`<option value="${y}">${y-1}-${String(y).slice(2)}</option>`);
+    const q=new URLSearchParams(location.search);
+    const y=+(q.get('season')||LAST); sel.value=String(y>=FIRST&&y<=LAST?y:LAST);
+    await loadSeason(+sel.value);
+    F.forEach(k=>{ if(k!=='season'&&q.get(k)!=null){ if(k==='player') $('f-player').dataset.want=q.get(k); else $('f-'+k).value=q.get(k); } });
+    if(v('team')) $('f-side').disabled=false;
+    run();
+    sel.addEventListener('change',async()=>{ $('f-team').value=''; await loadSeason(+sel.value); run(); });
+    $('f-team').addEventListener('change',()=>{ $('f-player').value=''; state.rows=[]; run(); });
+    ['side','player','kind','made','per','sit','sort'].forEach(k=>$('f-'+k).addEventListener('change',run));
+    $('f-form').addEventListener('submit',e=>{ e.preventDefault(); run(); });
+    $('f-clear').addEventListener('click',()=>{ ['team','player','kind','made','per','sit','col','val','text'].forEach(k=>$('f-'+k).value=''); $('f-sort').value='wpa'; $('f-side').value='team'; $('f-op').value='>='; state.rows=[]; run(); });
+  }
+  init().catch(e=>{ $('status').textContent='Couldn\'t load: '+(e.message||e); });
+})();
+</script>
+<script src="tdc-version.js?v=2"></script>
+</body>
+</html>
