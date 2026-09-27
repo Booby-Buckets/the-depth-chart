@@ -81,6 +81,45 @@
   <script src="tdc-pwa.js?v=2" defer></script>
   <link rel="stylesheet" href="tdc-hq-site.css?v=24"/>
   <link rel="stylesheet" href="tdc-column.css?v=2"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=5"/>
+  <style>
+    /* ── Award odds (trained models, scripts/build_award_odds.py) ── */
+    .odds-lead{font-size:13px;color:var(--text2);line-height:1.55;max-width:760px;margin:-2px 0 14px;}
+    .odds-tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:10px;border:1px solid var(--border2);color:var(--text3);margin-left:8px;vertical-align:middle;}
+    .odds-wrap{max-height:none;}
+    .sheet.odds{width:100%;min-width:0;}
+    .sheet.odds td.nm{white-space:normal;}
+    .sheet.odds td.nm .tm{display:block;font-size:11px;font-weight:500;color:var(--text3);margin-top:1px;}
+    .sheet.odds td.bar-td{width:42%;min-width:120px;}
+    .sheet.odds .ln-m{display:none;}
+    .pbar{display:flex;align-items:center;gap:8px;}
+    .pbar .trk{flex:1;height:8px;border-radius:4px;background:color-mix(in srgb,var(--text) 8%,transparent);overflow:hidden;min-width:40px;}
+    .pbar .fill{height:100%;border-radius:4px;background:var(--accent);}
+    .pbar .pct{width:44px;text-align:right;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);font-size:12.5px;}
+    .odds-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;}
+    .ocard{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;min-width:0;}
+    .ocard-h{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:2px;}
+    .ocard-s{font-size:11px;color:var(--text3);margin-bottom:8px;}
+    .orow{padding:7px 0;border-bottom:1px solid var(--border);}
+    .orow:last-child{border-bottom:none;}
+    .orow .top a{color:var(--text);text-decoration:none;font-weight:700;font-size:13px;overflow-wrap:anywhere;}
+    .orow .top a:hover{color:var(--accent);}
+    .orow .top .meta{display:block;font-size:11px;color:var(--text3);margin-top:1px;}
+    .orow .pbar{margin-top:4px;}
+    .odds-note{font-size:12px;color:var(--text2);line-height:1.65;margin-top:30px;max-width:780px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 18px;}
+    .odds-note b{color:var(--text);}
+    .odds-note ul{margin:6px 0 6px 18px;}
+    .odds-note li{margin:3px 0;}
+    .odds-empty{font-size:12px;color:var(--text3);padding:8px 0;}
+    @media(max-width:640px){
+      .sheet.odds .ln{display:none;}
+      .sheet.odds .ln-m{display:inline;}
+      .sheet.odds td,.sheet.odds th{padding:6px 8px;}
+      .sheet.odds td.bar-td{width:46%;min-width:0;}
+      .pbar .pct{width:38px;font-size:12px;}
+      .odds-grid{grid-template-columns:1fr;}
+    }
+  </style>
 </head>
 <body data-anim-auto class="hqsite">
   <script src="tdc-nav.js?v=28"></script>
@@ -89,6 +128,7 @@
     <h1>Projected Awards</h1>
     <div class="sub" id="subLine">Projected 2026-27 honors: three All-America teams nationally, and three All-Conference, two All-Defensive and two All-Freshman teams in each conference, five players per team.</div>
     <div class="pills" id="seasonPills" style="margin:14px 0 6px;"></div>
+    <div class="pills" id="viewPills" style="margin:4px 0 10px;"></div>
     <div id="content"><div class="loading">Building projections…</div></div>
     <div class="note" id="methodNote"><b>How selections are made:</b> every rostered D1 player is scored with the same deterministic model — projected BPM (last season's Box Plus/Minus run through the measured year-over-year lag model, with class-progression bumps), TDC grade, and projected production. Players marked out for the season are excluded. The top five in each pool make the 1st team, the next five the 2nd, and so on — so a conference can never have more than five players on any one team.</div>
   </div>
@@ -115,13 +155,96 @@ function renderSeasonPills(){
   document.getElementById('seasonPills').innerHTML=html;
 }
 function setSeason(y){
-  curSeason=y; curConf=null; renderSeasonPills();
+  curSeason=y; curConf=null; renderSeasonPills(); renderViewPills();
   document.getElementById('subLine').textContent = y===2027
     ? 'Projected 2026-27 honors: three All-America teams nationally, and three All-Conference, two All-Defensive and two All-Freshman teams in each conference, five players per team.'
     : 'The actual '+seasonLbl(y)+' honors: consensus All-America teams and conference awards, from the historical record.';
-  document.getElementById('methodNote').style.display = y===2027?'':'none';
-  if(y===2027){ if(AW) render(); else document.getElementById('content').innerHTML='<div class="loading">Building projections…</div>'; }
+  document.getElementById('methodNote').style.display = (y===2027&&curView==='teams')?'':'none';
+  if(y===2027) show2027();
   else loadHistory(y);
+}
+/* ── 2026-27 sub-views: projected teams | award odds ── */
+let curView=/odds/.test(location.hash)?'odds':'teams';
+function renderViewPills(){
+  const el=document.getElementById('viewPills');
+  if(curSeason!==2027){ el.style.display='none'; return; }
+  el.style.display='';
+  el.innerHTML=[['teams','Projected teams'],['odds','Award odds']].map(([k,l])=>`<button class="pill ${k===curView?'on':''}" onclick="setView('${k}')">${l}</button>`).join('');
+}
+function setView(v){
+  curView=v;
+  try{ history.replaceState(null,'',v==='odds'?'#odds':location.pathname+location.search); }catch(e){}
+  renderViewPills(); show2027();
+}
+function show2027(){
+  document.getElementById('methodNote').style.display=curView==='teams'?'':'none';
+  document.getElementById('subLine').textContent = curView==='odds'
+    ? 'Preseason odds for the individual awards: National Player of the Year, and each conference\'s Player, Defensive Player, Freshman and Sixth Man of the Year — from models trained on 20 years of real winners.'
+    : 'Projected 2026-27 honors: three All-America teams nationally, and three All-Conference, two All-Defensive and two All-Freshman teams in each conference, five players per team.';
+  if(curView==='odds'){ renderOdds(); return; }
+  if(AW) render(); else document.getElementById('content').innerHTML='<div class="loading">Building projections…</div>';
+}
+let ODDS=null, oddsConf=null;
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function pctTxt(p){ if(!(p>0)||p<0.005) return '<1%'; if(p<0.1) return (p*100).toFixed(1)+'%'; return Math.round(p*100)+'%'; }
+function pbar(p,max){ const w=max>0?Math.max(2,Math.round(p/max*100)):0;
+  return `<div class="pbar" aria-label="${pctTxt(p)} chance"><div class="trk"><div class="fill" style="width:${w}%"></div></div><span class="pct">${pctTxt(p)}</span></div>`; }
+function f1(v){ return (+v||0).toFixed(1); }
+function oLine(x,def){ return def ? `${f1(x.spg)} stl · ${f1(x.bpg)} blk · ${f1(x.rpg)} reb` : `${f1(x.ppg)} / ${f1(x.rpg)} / ${f1(x.apg)}`; }
+function oddsCard(title,sub,list,def){
+  const max=list.length?list[0].p:0;
+  return `<div class="ocard"><div class="ocard-h">${title}</div><div class="ocard-s">${sub}</div>
+    ${list.length?list.map(x=>`<div class="orow"><div class="top"><a href="${plink(x)}">${esc(x.name)}</a>
+      <span class="meta">${[x.team,x.pos,x.yr].filter(Boolean).map(esc).join(' · ')} · ${oLine(x,def)}</span></div>${pbar(x.p,max)}</div>`).join('')
+      :'<div class="odds-empty">No eligible players on the 2026-27 rosters we have.</div>'}</div>`;
+}
+function pc(v){ return Math.round(v*100)+'%'; }
+function oddsNote(o){
+  const V=o.validation||{}, n=V.npoy||{}, P=V.poy||{}, D=V.dpoy||{}, R=V.roy||{}, S=V.sixth||{};
+  const B=(o.temperature_backtest||{}).board||{};
+  const row=(v,lbl,base)=>`<li><b>${lbl}</b> — ${v.races} races: the real winner was the model's #1 in <b>${pc(v.top1_pct)}</b>, top 3 in <b>${pc(v.top3_pct)}</b>${base?` (just picking the ${base} leader: ${pc(v.baseline_top1_pct)})`:''}.</li>`;
+  return `<div class="odds-note"><b>How the odds work.</b> Each award is its own trained model — a conditional logit, the same method our football site uses for the Heisman. It learns from every real winner since 2006-07 what separates him from the rest of his field: points, rebounds, assists, steals and blocks, shooting efficiency, usage, games played, our statistical overall, and how good his team was (win %, Power Rating, where it finished in the league). A race is one season for National Player of the Year and one conference-season for the conference awards; freshmen-only for Freshman of the Year, and players who started under 40% of their games for Sixth Man.
+    <br><br><b>Checked on seasons it never saw</b> (each season held out in turn):
+    <ul>
+      <li><b>National Player of the Year</b> — the winner was #1 in <b>${n.top1} of ${n.races}</b> seasons and top 3 in <b>${n.top3}</b> (just picking the scoring leader: ${Math.round((n.baseline_top1_pct||0)*(n.races||0))}).</li>
+      ${row(P,'Conference Player of the Year','scoring')}
+      ${row(D,'Defensive Player of the Year','blocks')}
+      ${row(R,'Freshman of the Year','scoring')}
+      ${row(S,'Sixth Man of the Year','scoring')}
+    </ul>
+    <b>Why the preseason board is flat.</b> Those numbers use the full season's stats. Before a game is played we feed the models each player's <i>projected</i> 2026-27 line and his team's projected Power Rating, simulate the season ${o.sims} times (production, team strength and health all drift), and average — then soften the odds with a temperature (${(+o.temperature).toFixed(1)}) picked by backtesting past preseasons${B.poy?`: from a last-season-stats board, the eventual conference Player of the Year was the preseason favourite ${pc(B.poy.top1/B.poy.races)} of the time and top 3 ${pc(B.poy.top3/B.poy.races)}`:''}. As games are played, season-to-date stats blend in and the odds sharpen.
+    <br><br><span style="color:var(--text3);">Covers the ${o.fields.teams} programs with 2026-27 rosters (${Object.keys(o.conferences).length} conferences); players ruled out for the season are excluded. Freshman lines are the site's projected freshman lines. Updated ${esc(o.built)}.</span></div>`;
+}
+async function renderOdds(){
+  const box=document.getElementById('content');
+  if(!ODDS){
+    box.innerHTML='<div class="loading">Loading award odds…</div>';
+    try{ const r=await fetch('scripts/data/award_odds.json?v=1'); if(!r.ok) throw 0; ODDS=await r.json(); }
+    catch(e){ box.innerHTML='<div class="loading">Could not load award odds.</div>'; return; }
+    if(curSeason!==2027||curView!=='odds') return;
+  }
+  const o=ODDS, confs=Object.keys(o.conferences).sort((a,b)=>o.conferences[a].label.localeCompare(o.conferences[b].label));
+  if(!oddsConf||!o.conferences[oddsConf]) oddsConf=confs[0];
+  const C=o.conferences[oddsConf], nat=o.national||[], max=nat.length?nat[0].p:0;
+  const tag=o.mode==='preseason'?'Preseason odds':'Live odds';
+  box.innerHTML=`
+    <div class="sec">National Player of the Year <span class="odds-tag">${tag}</span></div>
+    <div class="odds-lead">Chance each player wins the national award, from ${o.fields.national} contenders. Line = projected points / rebounds / assists per game.</div>
+    <div class="sheet-wrap odds-wrap"><table class="sheet odds">
+      <thead><tr><th class="rk">#</th><th class="l">Player</th><th class="ln">Proj. line</th><th class="l">Chance</th></tr></thead>
+      <tbody>${nat.map((x,i)=>`<tr><td class="rk">${i+1}</td>
+        <td class="l nm"><a href="${plink(x)}">${esc(x.name)}</a><span class="tm">${[x.team,x.pos,x.yr].filter(Boolean).map(esc).join(' · ')}<span class="ln-m"> · ${oLine(x)}</span></span></td>
+        <td class="ln">${oLine(x)}</td><td class="l bar-td">${pbar(x.p,max)}</td></tr>`).join('')}</tbody>
+    </table></div>
+    <div class="sec" style="border-bottom:none;margin-bottom:2px;">Conference Awards <span class="odds-tag">${tag}</span></div>
+    <div class="pills">${confs.map(c=>`<button class="pill ${c===oddsConf?'on':''}" onclick="oddsConf='${c.replace(/'/g,"\\'")}';renderOdds();">${esc(o.conferences[c].label)}</button>`).join('')}</div>
+    <div class="odds-grid">
+      ${oddsCard('Player of the Year',C.label+' · top 5',C.poy||[])}
+      ${oddsCard('Defensive Player of the Year',C.label+' · top 5',C.dpoy||[],true)}
+      ${oddsCard('Freshman of the Year',C.label+' · freshmen only',C.roy||[])}
+      ${oddsCard('Sixth Man of the Year',C.label+' · projected bench',C.sixth||[])}
+    </div>
+    ${oddsNote(o)}`;
 }
 async function loadHistory(y){
   document.getElementById('content').innerHTML='<div class="loading">Loading '+seasonLbl(y)+' awards…</div>';
@@ -188,9 +311,9 @@ function render(){
     <div class="pills">${confs.map(cf=>`<button class="pill ${cf===curConf?'on':''}" onclick="curConf='${cf.replace(/'/g,"\\'")}';render();">${cf}</button>`).join('')}</div>
     ${curConf?confSection(curConf):''}`;
 }
-renderSeasonPills();
-TDC_AWARDS.get().then(a=>{ AW=a; if(curSeason===2027) render(); })
-  .catch(e=>{ if(curSeason===2027) document.getElementById('content').innerHTML='<div class="loading">Could not build award projections.</div>'; });
+renderSeasonPills(); renderViewPills(); show2027();
+TDC_AWARDS.get().then(a=>{ AW=a; if(curSeason===2027&&curView==='teams') render(); })
+  .catch(e=>{ if(curSeason===2027&&curView==='teams') document.getElementById('content').innerHTML='<div class="loading">Could not build award projections.</div>'; });
 </script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=7"></script>
