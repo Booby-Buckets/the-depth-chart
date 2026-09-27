@@ -75,6 +75,33 @@ REG_TPA_K=float(os.environ.get("REG_TPA_K","36"))           # 3P% is trusted by 
 TP_PRIOR_POS=float(os.environ.get("TP_PRIOR_POS","0.45"))   # the low-sample 3P prior is 45% positional mean, 55% FT-implied
 TARGET_TEAM_USG=float(os.environ.get("TARGET_TEAM_USG","22.0")); USG_CAP=(9.0,34.0); MPG_XFER_BUMP=10.0
 VAC_CONC=float(os.environ.get("VAC_CONC","2.0"))  # vacancy concentration: weight ∝ last_usg**VAC_CONC (focal points absorb more of a departed rotation, within the team cap)
+# PROJECTED USAGE — calibrated on 6,782 same-team returner seasons (player_advanced 2020-26,
+# 12+ mpg then 16+ mpg). Rows = share of last season's team usage load that departed; columns =
+# the player's own last usage. Real returners barely move: a gutted roster adds ~+1 to +3 pts, and
+# high-usage players still REGRESS. The old vacancy split handed the whole departed load to the
+# few returners with a box line, so 34 players sat at the 34% cap (17% -> 34% jumps). Now:
+#   projection = last usage + the mean change for (usage, vacated share)
+#   ceiling    = last usage + the 95th-percentile change for the same cell (nobody out-jumps ~all history)
+USG_GRID_U=[15.0,22.5,27.0,32.0]           # last-season usage cell centres
+USG_GRID_V=[0.12,0.35,0.55,0.83]           # vacated-share cell centres
+USG_DMEAN=[[0.3,-0.1,-1.0,-1.9],[1.2,0.5,-0.1,-2.1],[1.9,1.2,0.0,-1.9],[2.9,1.1,0.4,-3.1]]
+USG_DP95 =[[5.4,5.3,3.1,2.4],[6.1,6.0,5.1,2.4],[7.6,7.4,5.1,4.6],[10.2,7.6,6.6,5.9]]
+# TRANSFER usage — calibrated on 3,104 transfers (16+ mpg before, 10+ after, player_advanced 2020-26):
+# share of last season's usage he KEEPS, by his last usage x the step in team Power Rating (new-old).
+# A 30%+ scorer taking a big step up still keeps ~74% (lands ~23.5%); the old composite discount
+# kept 31-54% and ran twice on refit teams, pushing some to the 9% floor.
+XF_GRID_U=[18.0,24.0,28.0,33.0]            # last-season usage cell centres
+XF_GRID_J=[-6.0,1.0,8.5,16.0]              # Power Rating step: down / lateral / up / big step up
+XF_KEEP=[[1.21,1.04,0.90,0.85],[1.09,0.92,0.86,0.81],[0.96,0.87,0.79,0.73],[0.90,0.80,0.74,0.74]]
+def _usg_cell(grid,u,v,gu=None,gv=None):
+    def seg(x,xs):
+        x=min(max(x,xs[0]),xs[-1])
+        for k in range(len(xs)-1):
+            if x<=xs[k+1]: return k,(x-xs[k])/(xs[k+1]-xs[k])
+        return len(xs)-2,1.0
+    i,fu=seg(u,gu or USG_GRID_U); j,fv=seg(v,gv or USG_GRID_V)
+    a=grid[j][i]*(1-fu)+grid[j][i+1]*fu; b=grid[j+1][i]*(1-fu)+grid[j+1][i+1]*fu
+    return a*(1-fv)+b*fv
 TRANSFER_DEF_DAMP=float(os.environ.get("TRANSFER_DEF_DAMP","0.90"))  # share of a transfer's team-D (DWA) credit that follows him
 # Offensive level-jump translation: a transfer stepping UP in competition (e.g. Big South
 # → ACC) does NOT carry his mid-major usage/scoring rate intact — usage doesn't travel, and
@@ -518,19 +545,14 @@ for short, roster in roster_by_team.items():
                       last_usg=_n(a["usg_pct"] if a is not None else None,USG_REF) or USG_REF,
                       demo=demo_ovr.get(e,72)))
     if not R: continue
-    # Redistribute vacated usage — CONCENTRATED on the higher-usage options (weight =
-    # last_usg**VAC_CONC × proj_min), so a gutted roster's #1 returner absorbs the departed shot
-    # creation rather than spreading it thin. Incoming transfers get only a PARTIAL share
-    # (XFER_VAC_W): a newcomer hasn't earned the departed alpha's role, so most of it goes to
-    # returners who are in the system — but he still steps into some of it. (Fully excluding them
-    # over-concentrated it on one returner; letting them grab it at full weight was the
-    # Vaaks-over-Mirkovic bug.)
-    _vw=lambda r: (r["last_usg"]**VAC_CONC)*r["pm"]*(XFER_VAC_W if r["xfer"] else 1.0)
-    wsum=sum(_vw(r) for r in R) or 1
+    # Vacated usage -> each player's expected change, from the calibrated grid above (not a split of
+    # the whole departed load across only the players who have a box line).
+    tot_load=sum(_n(r.usg_pct,USG_REF)*_n(r.min) for r in last_roster if _n(r.min)>=150) or 1.0
+    vfrac=min(1.0,vac_load/tot_load)
     for r in R:
-        share=_vw(r)/wsum
-        add_usg=(vac_load*RETURNER_VAC*share)/max(r["pm"]*G_PROJ,1.0)   # %·min · frac / min = %
-        r["raw_usg"]=r["last_usg"]+add_usg
+        u=r["last_usg"]
+        r["usg_ceil"]=u+_usg_cell(USG_DP95,u,vfrac)
+        r["raw_usg"]=u if r["xfer"] else u+_usg_cell(USG_DMEAN,u,vfrac)   # transfers: see XF_KEEP in _project_one
     # TEAM CONSTRAINT: on-court usages sum to ~100%, so the rotation can't average >~22%.
     # If the vacancy pushed the returners' minute-weighted usage over target, scale it back
     # (preserving who's higher-usage) — a gutted roster still can't field five 34%-usage guys.
@@ -538,7 +560,7 @@ for short, roster in roster_by_team.items():
     mw=sum(r["raw_usg"]*r["pm"] for r in R)/tmin
     scale=min(1.0, TARGET_TEAM_USG/mw) if mw>0 else 1.0
     for r in R:
-        r["proj_usg"]=min(USG_CAP[1],max(USG_CAP[0],r["raw_usg"]*scale))
+        r["proj_usg"]=min(USG_CAP[1],r["usg_ceil"],max(USG_CAP[0],r["raw_usg"]*scale))
 
     def _project_one(r):
         p,b,e=r["p"],r["b"],r["e"]; pos=_pos(p.position)
@@ -569,13 +591,15 @@ for short, roster in roster_by_team.items():
             sos_jump=_cl((sos_new-sos_old)/sos_new) if sos_new>0 else 0.0
             level_jump=min(1.0, XF_TEAM_W*srs_jump + XF_CONF_W*sos_jump)
             r["_xfup"]=1 if level_jump>=0.12 else 0   # meaningful step UP in level (his old box scores are vs weaker comp)
-            if level_jump>0:
-                usg_hi=_cl((r["last_usg"]-16.0)/12.0)                 # 16%->0, 28%+->1: was he a volume option
-                empty=_cl((0.60-(r["eff"] if r["eff"] is not None else 0.55))/0.13)  # .60 TS->0 (efficient), .47->1
-                shed=XF_BASE+XF_EMPTY*usg_hi*empty                   # efficient star = XF_BASE; empty chucker -> big
-                disc=max(XF_DISC_FLOOR, 1.0-level_jump*shed)
-                r["proj_usg"]=max(USG_CAP[0], r["proj_usg"]*disc)
-                r["_xfdisc"]=disc
+            # calibrated keep-share (XF_KEEP), nudged +-5% by efficiency ("empty shots" travel worst),
+            # applied to a STORED base: _project_one runs again after the team fit, and applying the
+            # discount to an already-discounted value compounded it (29% -> the 9% floor).
+            if "_usg_base" not in r: r["_usg_base"]=r["proj_usg"]
+            _jump=(q_new-q_old) if (q_new is not None and q_old is not None) else 1.0
+            empty=_cl((0.60-(r["eff"] if r["eff"] is not None else 0.55))/0.13)  # .60 TS->0 (efficient), .47->1
+            disc=_usg_cell(XF_KEEP,r["last_usg"],_jump,XF_GRID_U,XF_GRID_J)*(1.05-0.10*empty)
+            r["proj_usg"]=min(USG_CAP[1],r.get("usg_ceil",USG_CAP[1]),max(USG_CAP[0],r["_usg_base"]*disc))
+            r["_xfdisc"]=disc
         usg_ratio=min(1.6,max(0.6,r["proj_usg"]/max(r["last_usg"],1)))
         dm=dev_mult(p.yr or p.class_year, r["demo"], CAREER_SEASONS.get(e))
         developing = dm>=1.04
@@ -797,7 +821,8 @@ for short, roster in roster_by_team.items():
         if abs(_minK-1.0)>0.005 or abs(_ptsK-1.0)>0.005:
             for rr in R:
                 rr["pm"]=max(rr.get("_sqfl",5.0), rr["pm"]*_kmap.get(id(rr),_minK))
-                rr["proj_usg"]=min(USG_CAP[1],max(USG_CAP[0],rr["proj_usg"]*_ptsK))
+                if "_usg_base" in rr: rr["_usg_base"]=max(USG_CAP[0],rr["_usg_base"]*_ptsK)   # transfer: rescale the base; _project_one re-applies the keep-share once
+                else: rr["proj_usg"]=min(USG_CAP[1],rr.get("usg_ceil",USG_CAP[1]),max(USG_CAP[0],rr["proj_usg"]*_ptsK))   # the team-points fit may not push anyone past his usage ceiling
             for rr in R: _project_one(rr)
         # the freshmen / no-box players get what's LEFT of the team: minutes to 200, points to the
         # team's projected scoring after the (fitted) returners — one fitted {mpg, ppg} per player,
