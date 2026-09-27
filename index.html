@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <link rel="stylesheet" href="tdc-a11y.css?v=1">
-  <script src="tdc-a11y.js?v=1" defer></script>
+  <script src="tdc-a11y.js?v=2" defer></script>
   <script src="auth.js?v=shotlock1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js?v=10"></script>
@@ -1182,7 +1182,8 @@
   <script src="tdc-anim.js?v=6"></script>
   <link rel="stylesheet" href="tdc-dense.css?v=39"/>
   <link rel="stylesheet" href="tdc-hero.css?v=4"/>
-  <link rel="stylesheet" href="tdc-index-sheet.css?v=2"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=5"/>
+  <link rel="stylesheet" href="tdc-index-sheet.css?v=3"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth; releases the dense dark-lock -->
   <link rel="stylesheet" href="tdc-skin.css?v=11"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
@@ -1257,7 +1258,7 @@
   <div class="ph-left">
     <div class="page-eyebrow" id="heroEyebrow">Division I · Rankings</div>
     <h1 class="page-h1" id="heroTitle">Team Analytics</h1>
-    <p class="page-sub">Every Division I team ranked by Power Rating, projected from 2026-27 rosters. Pick a past season to see actual results, or click a team to open its card.</p>
+    <p class="page-sub">Every Division I team ranked by Power Rating, projected from 2026-27 rosters. Pick a past season to see actual results, or click a team to open its page.</p>
     <div class="page-meta">
       <span id="heroConfSpan">Ranked by Power Rating · all of Division I</span>
       <span class="meta-dot"></span>
@@ -1393,127 +1394,37 @@
 
 <!-- ═══ TABLE ═════════════════════════════════════════════════ -->
 <div class="table-section">
-  <div class="table-scroll">
-  <div class="table-header">
-    <div class="th">Rk</div>
-    <div class="th">Team</div>
-    <div class="th sortable" data-sort="srs" title="Power Rating — how many points better than an average Division I team this team is, on a neutral court and adjusted for who they played. A +18 team would beat an average team by about 18. The gap between two teams' Power Ratings is the projected point spread." style="text-decoration:underline dotted;text-underline-offset:3px;">PRtg<span class="th-arrow"></span></div>
-    <div class="th"></div>
-    <div class="th center sortable" data-col="wl" data-sort="wins" title="Win–Loss record. For the projected season it is the expected record from simulating the announced 2026-27 schedule 600 times (hover a team for the likely range); blank until a team's slate is announced.">W-L<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="ortg" title="Offensive Rating — points scored per 100 possessions, adjusted for opponent and pace (from the Team DNA engine). Higher = better offense. Sort by this to find the best offenses." style="text-decoration:underline dotted;text-underline-offset:3px;">ORtg<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="drtg" title="Defensive Rating — points allowed per 100 possessions, adjusted for opponent and pace (from the Team DNA engine). LOWER = better defense. Sort by this to find the best defenses." style="text-decoration:underline dotted;text-underline-offset:3px;">DRtg<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="net" title="Net Rating — offensive rating minus defensive rating, i.e. how many points per 100 possessions this team outscores its opponents by (opponent- and pace-adjusted). The single best one-number measure of team quality. Sort by this to rank teams by efficiency margin." style="text-decoration:underline dotted;text-underline-offset:3px;">Net<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="winpct">Win%<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="ppg">PPG<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="oppg">OPP<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="fg">FG%<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="tp">3P%<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="ft">FT%<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="orpg">OReb<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="drpg">DReb<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="apg">APG<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="ato">A/TO<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="spg">SPG<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="bpg">BPG<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-sort="topg">TOV<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-col="shotluck" data-sort="shotluck" title="Shot Luck (2026-27) — how far this team's returning players shot ABOVE (or below) the quality of their looks last season, in eFG points. Over-shooting your looks is only partly repeatable, so the projection regresses a hot number down (a positive value is a regression caution) and bumps a cold one up." style="text-decoration:underline dotted;text-underline-offset:3px;">Luck<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-col="sglq" data-sort="sglq" title="Look Quality (2025-26) — the eFG% a league-average shooter would post on this team's shot diet. How good the LOOKS this team generates are, independent of whether they made them." style="text-decoration:underline dotted;text-underline-offset:3px;">LookQ<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-col="sgsm" data-sort="sgsm" title="Shot-Making (2025-26) — points this team added over an average shooter given its shot diet, per 100 shots, adjusted for competition. Pure finishing skill." style="text-decoration:underline dotted;text-underline-offset:3px;">Sh-Make<span class="th-arrow"></span></div>
-    <div class="th center sortable" data-col="sgcr" data-sort="sgcr" title="Creation (2025-26) — expected points this team's passing generates per game, each assist valued by the quality of the look it created. A corner-3 dime beats a long-two dime." style="text-decoration:underline dotted;text-underline-offset:3px;">Create<span class="th-arrow"></span></div>
-  </div>
-  <div id="rankingsList">
-    <!-- Branded skeleton loader -->
-    <div id="skeletonLoader">
-      <div class="skeleton-row">
-        <div class="skel skel-rank"></div>
-        <div class="skel-name"><div class="skel skel-n1"></div><div class="skel skel-n2"></div></div>
-        <div class="skel-spark"><div class="skel skel-s skel-s1"></div><div class="skel skel-s skel-s2"></div><div class="skel skel-s skel-s3"></div><div class="skel skel-s skel-s4"></div></div>
-        <div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-      </div>
-      <div class="skeleton-row">
-        <div class="skel skel-rank"></div>
-        <div class="skel-name"><div class="skel skel-n1"></div><div class="skel skel-n2"></div></div>
-        <div class="skel-spark"><div class="skel skel-s skel-s1"></div><div class="skel skel-s skel-s2"></div><div class="skel skel-s skel-s3"></div><div class="skel skel-s skel-s4"></div></div>
-        <div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-      </div>
-      <div class="skeleton-row">
-        <div class="skel skel-rank"></div>
-        <div class="skel-name"><div class="skel skel-n1"></div><div class="skel skel-n2"></div></div>
-        <div class="skel-spark"><div class="skel skel-s skel-s1"></div><div class="skel skel-s skel-s2"></div><div class="skel skel-s skel-s3"></div><div class="skel skel-s skel-s4"></div></div>
-        <div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-      </div>
-      <div class="skeleton-row">
-        <div class="skel skel-rank"></div>
-        <div class="skel-name"><div class="skel skel-n1"></div><div class="skel skel-n2"></div></div>
-        <div class="skel-spark"><div class="skel skel-s skel-s1"></div><div class="skel skel-s skel-s2"></div><div class="skel skel-s skel-s3"></div><div class="skel skel-s skel-s4"></div></div>
-        <div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-      </div>
-      <div class="skeleton-row">
-        <div class="skel skel-rank"></div>
-        <div class="skel-name"><div class="skel skel-n1"></div><div class="skel skel-n2"></div></div>
-        <div class="skel-spark"><div class="skel skel-s skel-s1"></div><div class="skel skel-s skel-s2"></div><div class="skel skel-s skel-s3"></div><div class="skel skel-s skel-s4"></div></div>
-        <div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-      </div>
-      <div class="skeleton-row">
-        <div class="skel skel-rank"></div>
-        <div class="skel-name"><div class="skel skel-n1"></div><div class="skel skel-n2"></div></div>
-        <div class="skel-spark"><div class="skel skel-s skel-s1"></div><div class="skel skel-s skel-s2"></div><div class="skel skel-s skel-s3"></div><div class="skel skel-s skel-s4"></div></div>
-        <div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-      </div>
-      <div class="skeleton-row">
-        <div class="skel skel-rank"></div>
-        <div class="skel-name"><div class="skel skel-n1"></div><div class="skel skel-n2"></div></div>
-        <div class="skel-spark"><div class="skel skel-s skel-s1"></div><div class="skel skel-s skel-s2"></div><div class="skel skel-s skel-s3"></div><div class="skel skel-s skel-s4"></div></div>
-        <div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-      </div>
-      <div class="skeleton-row">
-        <div class="skel skel-rank"></div>
-        <div class="skel-name"><div class="skel skel-n1"></div><div class="skel skel-n2"></div></div>
-        <div class="skel-spark"><div class="skel skel-s skel-s1"></div><div class="skel skel-s skel-s2"></div><div class="skel skel-s skel-s3"></div><div class="skel skel-s skel-s4"></div></div>
-        <div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-        <div class="skel-grade"><div class="skel skel-gval"></div><div class="skel skel-glbl"></div></div>
-      </div>
-    </div>
-  </div>
+  <div class="sheet-wrap ix-sheet">
+  <table class="sheet dense freeze2 ix-table" aria-label="Division I team power rankings">
+    <thead><tr id="rankHead">
+      <th class="rk">RK</th>
+      <th class="l">Team</th>
+      <th class="l">Conf</th>
+      <th class="c sort" data-sort="wins" data-col="wl" title="Win–Loss record. For the projected season it is the expected record from simulating the announced 2026-27 schedule 600 times (hover a team for the likely range); blank until a team's slate is announced.">W-L<span class="ar"></span></th>
+      <th class="sort" data-sort="srs" title="Power Rating — how many points better than an average Division I team this team is, on a neutral court and adjusted for who they played. A +18 team would beat an average team by about 18. The gap between two teams' Power Ratings is the projected point spread.">Rating<span class="ar"></span></th>
+      <th class="sort" data-sort="ortg" title="Offensive Rating — points scored per 100 possessions, adjusted for opponent and pace (from the Team DNA engine). Higher = better offense. Sort by this to find the best offenses.">ORtg<span class="ar"></span></th>
+      <th class="sort" data-sort="drtg" title="Defensive Rating — points allowed per 100 possessions, adjusted for opponent and pace (from the Team DNA engine). LOWER = better defense. Sort by this to find the best defenses.">DRtg<span class="ar"></span></th>
+      <th class="sort" data-sort="net" title="Net Rating — offensive rating minus defensive rating, i.e. how many points per 100 possessions this team outscores its opponents by (opponent- and pace-adjusted). The single best one-number measure of team quality. Sort by this to rank teams by efficiency margin.">Net<span class="ar"></span></th>
+      <th class="sort" data-sort="winpct">Win%<span class="ar"></span></th>
+      <th class="sort" data-sort="ppg">PPG<span class="ar"></span></th>
+      <th class="sort" data-sort="oppg">OPP<span class="ar"></span></th>
+      <th class="sort" data-sort="fg">FG%<span class="ar"></span></th>
+      <th class="sort" data-sort="tp">3P%<span class="ar"></span></th>
+      <th class="sort" data-sort="ft">FT%<span class="ar"></span></th>
+      <th class="sort" data-sort="orpg">OReb<span class="ar"></span></th>
+      <th class="sort" data-sort="drpg">DReb<span class="ar"></span></th>
+      <th class="sort" data-sort="apg">APG<span class="ar"></span></th>
+      <th class="sort" data-sort="ato">A/TO<span class="ar"></span></th>
+      <th class="sort" data-sort="spg">SPG<span class="ar"></span></th>
+      <th class="sort" data-sort="bpg">BPG<span class="ar"></span></th>
+      <th class="sort" data-sort="topg">TOV<span class="ar"></span></th>
+      <th class="sort" data-sort="shotluck" data-col="shotluck" title="Shot Luck (2026-27) — how far this team's returning players shot ABOVE (or below) the quality of their looks last season, in eFG points. Over-shooting your looks is only partly repeatable, so the projection regresses a hot number down (a positive value is a regression caution) and bumps a cold one up.">Luck<span class="ar"></span></th>
+      <th class="sort" data-sort="sglq" data-col="sglq" title="Look Quality (2025-26) — the eFG% a league-average shooter would post on this team's shot diet. How good the LOOKS this team generates are, independent of whether they made them.">LookQ<span class="ar"></span></th>
+      <th class="sort" data-sort="sgsm" data-col="sgsm" title="Shot-Making (2025-26) — points this team added over an average shooter given its shot diet, per 100 shots, adjusted for competition. Pure finishing skill.">Sh-Make<span class="ar"></span></th>
+      <th class="sort" data-sort="sgcr" data-col="sgcr" title="Creation (2025-26) — expected points this team's passing generates per game, each assist valued by the quality of the look it created. A corner-3 dime beats a long-two dime.">Create<span class="ar"></span></th>
+    </tr></thead>
+    <tbody id="rankingsList"><tr><td class="ix-msg" colspan="25">Loading rankings…</td></tr></tbody>
+  </table>
   </div>
 </div>
 
@@ -1872,11 +1783,8 @@ async function loadProjectedSeason(){
     applyFilters(false);
     renderShowcase();
   } catch(e) {
-    document.getElementById('rankingsList').innerHTML = `
-      <div class="error-state">
-        <h3>Could not build projections</h3>
-        <p>${e.message}</p>
-      </div>`;
+    document.getElementById('rankingsList').innerHTML =
+      `<tr><td class="ix-msg" colspan="25"><b>Could not build projections.</b> ${e.message}</td></tr>`;
   }
 }
 
@@ -1963,12 +1871,8 @@ async function loadSeason(yr){
     applyFilters(false);
     renderShowcase();   // top players for the selected season, at the top of the page
   } catch(e) {
-    document.getElementById('rankingsList').innerHTML = `
-      <div class="error-state">
-        <h3>Could not load rankings</h3>
-        <p>Make sure your Supabase tables are populated.</p>
-        <p>${e.message}</p>
-      </div>`;
+    document.getElementById('rankingsList').innerHTML =
+      `<tr><td class="ix-msg" colspan="25"><b>Could not load rankings.</b> ${e.message}</td></tr>`;
   }
 }
 
@@ -2031,10 +1935,10 @@ function setSort(key, fromHeader){
   applyFilters(true);
 }
 function updateSortHeaders(){
-  document.querySelectorAll('.table-header [data-sort]').forEach(th=>{
+  document.querySelectorAll('#rankHead [data-sort]').forEach(th=>{
     const on = th.dataset.sort===curSort;
-    th.classList.toggle('sorted', on);
-    const a = th.querySelector('.th-arrow');
+    th.classList.toggle('on', on);
+    const a = th.querySelector('.ar');
     if(a) a.textContent = on ? (curSortDir<0 ? '▼' : '▲') : '';
   });
 }
@@ -2042,13 +1946,6 @@ function applyFilters(animated){
   const search  = document.getElementById('searchInput').value.toLowerCase().trim();
   const srt     = curSort;
   const favTeam = localStorage.getItem('tdc_fav') || '';
-  const favData = favTeam ? allTeams.find(t=>t.name===favTeam) : null;
-  const favColor= favData?.color || null;
-  const favBg   = favColor ? (()=>{
-    const h=favColor.replace('#','');
-    const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
-    return `rgba(${r},${g},${b},.07)`;
-  })() : null;
 
   let data = allTeams.filter(t=>{
     if(confFilter && t.conf!==confFilter) return false;
@@ -2066,156 +1963,119 @@ function applyFilters(animated){
   document.getElementById('filterCount').innerHTML =
     `<strong>${data.length}</strong> of ${allTeams.length} teams`;
 
-  if(animated){
-    // Phase 1: fade out existing rows
-    const existing = document.querySelectorAll('#rankingsList .team-row, #rankingsList .grade-group-label');
-    existing.forEach(el => el.classList.add('fading-out'));
-    setTimeout(() => renderRows(data, srt, favTeam, favColor, favBg), 210);
-  } else {
-    renderRows(data, srt, favTeam, favColor, favBg);
-  }
+  renderRows(data, srt, favTeam);
 }
 
 // Conditional stat columns: shown only when the current season actually has data for
-// them, otherwise hidden so nothing sits empty. W-L (record) exists for played seasons;
-// Luck is 2026-27-only; LookQ/Sh-Make/Create exist for 2025-26 + the projection.
+// them, otherwise hidden so nothing sits empty. W-L (record) is always shown ("—" when a
+// season has no games); Luck is 2026-27-only; LookQ/Sh-Make/Create exist for 2025-26 + the projection.
 function applyRankColumns(){
   const teams = window.allTeams || allTeams || [];
   const RC = {
-    wl:       true,   // always show the W-L column; cells are blank ("—") for unplayed seasons
+    wl:       true,
     shotluck: teams.some(t=>t.shotluck!=null),
     sglq:     teams.some(t=>t.sglq!=null),
     sgsm:     teams.some(t=>t.sgsm!=null),
     sgcr:     teams.some(t=>t.sgcr!=null),
   };
   window._rankCols = RC;
-  // show/hide the header cells for the conditional columns
-  document.querySelectorAll('.table-header [data-col]').forEach(th=>{
+  document.querySelectorAll('#rankHead [data-col]').forEach(th=>{
     th.style.display = RC[th.dataset.col] ? '' : 'none';
   });
-  // rebuild the desktop grid track list (>=641px) to only include active columns, so the
-  // row/header widths stay aligned with no empty trailing tracks. Mobile keeps its own grid.
-  let g = '48px 232px 82px 74px';           // rank · team · PRtg · trend
-  if(RC.wl) g += ' 58px';                                // W-L
-  g += ' 56px 56px 56px 52px 56px 56px 54px 54px 54px 56px 56px 54px 52px 52px 52px 54px'; // ORtg…TOV (always)
-  if(RC.shotluck) g += ' 56px';
-  if(RC.sglq) g += ' 54px';
-  if(RC.sgsm) g += ' 54px';
-  if(RC.sgcr) g += ' 60px';
-  document.documentElement.style.setProperty('--rank-grid', g);
 }
-function renderRows(data, srt, favTeam, favColor, favBg){
+// Rankings table: the CFB sheet (tdc-sheets.css .sheet.dense.freeze2). Every stat column is
+// shaded in five buckets over the whole field (c0 bottom … c4 top), like the football table.
+const RANK_COLS = [
+  // key, cell text, heat (1 = higher is better, -1 = lower is better, 0 = none), optional data-col
+  ['wins',   t => t.gp||t.projRec ? `${t.wins}–${t.losses}` : '—', 0, 'wl'],
+  ['srs',    t => { const v=(window._useSrs&&t.srs!=null)?t.srs:t.margin; return v==null?'—':(v>0?'+':'')+(+v).toFixed(1); }, 1],
+  ['ortg',   t => t.ortg!=null?t.ortg.toFixed(1):'—', 1],
+  ['drtg',   t => t.drtg!=null?t.drtg.toFixed(1):'—', -1],
+  ['net',    t => t.net!=null?(t.net>0?'+':'')+t.net.toFixed(1):'—', 1],
+  ['winpct', t => t.winpct!=null?Math.round(t.winpct*100)+'%':'—', 1],
+  ['ppg',    t => t.ppg?t.ppg.toFixed(1):'—', 1],
+  ['oppg',   t => t.oppg?t.oppg.toFixed(1):'—', -1],
+  ['fg',     t => t.fg?t.fg.toFixed(1):'—', 1],
+  ['tp',     t => t.tp?t.tp.toFixed(1):'—', 1],
+  ['ft',     t => t.ft?t.ft.toFixed(1):'—', 1],
+  ['orpg',   t => t.orpg?t.orpg.toFixed(1):'—', 1],
+  ['drpg',   t => t.drpg?t.drpg.toFixed(1):'—', 1],
+  ['apg',    t => t.apg?t.apg.toFixed(1):'—', 1],
+  ['ato',    t => t.ato?t.ato.toFixed(1):'—', 1],
+  ['spg',    t => t.spg?t.spg.toFixed(1):'—', 1],
+  ['bpg',    t => t.bpg?t.bpg.toFixed(1):'—', 1],
+  ['topg',   t => t.topg?t.topg.toFixed(1):'—', -1],
+  ['shotluck', t => t.shotluck!=null?(t.shotluck>0?'+':'')+t.shotluck:'—', 0, 'shotluck'],
+  ['sglq',   t => t.sglq!=null?t.sglq.toFixed(1):'—', 1, 'sglq'],
+  ['sgsm',   t => t.sgsm!=null?(t.sgsm>0?'+':'')+t.sgsm.toFixed(1):'—', 1, 'sgsm'],
+  ['sgcr',   t => t.sgcr!=null?t.sgcr.toFixed(1):'—', 1, 'sgcr'],
+];
+// the heat value of a cell: statVal() uses -999 for missing, and a 0 box stat means no data
+function _heatVal(t,k){ const v=statVal(t,k); return (v==null||!isFinite(v)||v<=-998||(v===0&&k!=='srs'&&k!=='net'&&k!=='sgsm'))?null:v; }
+function _rankHeat(){
+  // quintile cut points per column over every team this season (not just the filtered view)
+  const out={}, teams=window.allTeams||allTeams||[];
+  RANK_COLS.forEach(([k,,dir])=>{
+    if(!dir) return;
+    const vals=teams.map(t=>_heatVal(t,k)).filter(v=>v!=null).sort((a,b)=>a-b);
+    if(vals.length<5) return;
+    const cuts=[.2,.4,.6,.8].map(p=>vals[Math.floor(p*(vals.length-1))]);
+    out[k]=v=>{ if(v==null||!isFinite(v)) return ''; let b=cuts.filter(x=>v>x).length; if(dir<0) b=4-b; return 'c'+b; };
+  });
+  return out;
+}
+function _rankLogo(t){
+  const f=window.tdcTeamColor; if(!f) return '';
+  const r=f(t.short||t.name)||f(t.name); if(!r||!r.logo) return '';
+  const m=String(r.logo).match(/^https?:\/\/a\.espncdn\.com(\/i\/teamlogos\/[^?#]+)/);
+  return m?`https://a.espncdn.com/combiner/i?img=${m[1]}&w=48&h=48`:r.logo;
+}
+function renderRows(data, srt, favTeam){
   applyRankColumns();
+  const list=document.getElementById('rankingsList');
   if(!data.length){
-    document.getElementById('rankingsList').innerHTML =
-      '<div style="padding:40px;text-align:center;color:var(--text3);">No teams found</div>';
+    list.innerHTML='<tr><td class="ix-msg" colspan="25">No teams found</td></tr>';
     return;
   }
-  const _useSrs = window._useSrs;
-  const mval = t => (_useSrs && t.srs!=null) ? t.srs : t.margin;
-  const maxM = Math.max(8, ...data.map(t=>Math.abs(mval(t))));
   const RC = window._rankCols || {};
-  const hide = k => RC[k] ? '' : ' style="display:none"';   // collapse columns with no data this season
+  const heat = _rankHeat();
+  const q = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
   let html='';
   data.forEach(t=>{
-    const v = mval(t);
-    const pos = v>=0;
-    const pct = Math.min(100, Math.abs(v)/maxM*100);
-    const barC = pos ? '#3fa66a' : '#c75d5d';
-    const isFav = t.short===favTeam || t.name===favTeam;
-    html+=`
-    <div class="team-row${isFav?' fav-row':''}" style="--row-color:${t.color};${isFav&&favColor?`border-left:3px solid ${favColor};background:${favBg};`:''}">
-      <div class="tr-rank-wrap"><div class="tr-rank${t.rk===1?' rank-1':t.rk===2?' rank-2':t.rk===3?' rank-3':''}">${t.rk}</div></div>
-      <div class="tr-team-cell">
-        <a class="tr-team-name" data-tn="${(t.short||t.name||'').replace(/"/g,'&quot;')}" href="program-hq.html?team=${encodeURIComponent(t.short)}${curSeason===2027?'':'&season='+curSeason}" style="color:inherit;text-decoration:none;">${_shortNm(t.short||t.name)}</a>
-        <div class="tr-team-conf"><span class="conf-badge">${confAbbr(t.confName)}</span>${tierBadge(t.tier)}${t.projected===false?'<span class="conf-badge carry-badge" title="No 2026-27 roster synced yet — power rating is a regressed carryover, and the box stats shown are this team\'s 2025-26 actuals (not a projection).">&rsquo;25-26</span>':''}</div>
-        <div class="tr-meta-mobile"><b>${Math.round(t.winpct*100)}%</b> ${t.gp?'Win':'All-Play'}<i>·</i><b>${t.ppg?t.ppg.toFixed(1):'—'}</b> PPG</div>
-      </div>
-      <div class="tr-grades-mobile">
-        <span class="mg-val" style="color:${barC};">${pos?'+':''}${v}</span>
-        <span class="mg-lbl">${_useSrs?'PWR':'MRG'}</span>
-      </div>
-      <div class="tr-margin">
-        <div class="mbar-track"><div class="mbar-fill" style="width:0;background:${barC};" data-w="${pct}"></div></div>
-        <span class="mbar-val" style="color:${barC};">${pos?'+':''}${v}</span>
-      </div>
-      <div class="tr-spacer"></div>
-      <div class="tr-stat" data-col="wl"${hide('wl')}${t.projRec?` title="Projected ${t.wins}–${t.losses} (${t.projRec.lo}–${t.projRec.n-t.projRec.lo} to ${t.projRec.hi}–${t.projRec.n-t.projRec.hi}) · ${t.cw}–${t.cl} in conference · from ${t.projRec.n} announced games"`:''}><b>${t.gp?`${t.wins}–${t.losses}`:(t.projRec?`${t.wins}–${t.losses}`:'—')}</b><span>${t.projRec&&!t.gp?(t.projRec.n<28?`Proj · ${t.projRec.n} gms`:'Proj W-L'):'W-L'}</span></div>
-      <div class="tr-stat"><b>${t.ortg!=null?t.ortg.toFixed(1):'—'}</b><span>ORtg</span></div>
-      <div class="tr-stat"><b>${t.drtg!=null?t.drtg.toFixed(1):'—'}</b><span>DRtg</span></div>
-      <div class="tr-stat">${t.net!=null?`<b style="color:${t.net>0?'#3fa66a':'#c75d5d'}">${t.net>0?'+':''}${t.net.toFixed(1)}</b>`:'<b>—</b>'}<span>Net</span></div>
-      <div class="tr-stat"><b>${Math.round(t.winpct*100)}%</b><span>${t.gp?'Win':'A-Play'}</span></div>
-      <div class="tr-stat"><b>${t.ppg?t.ppg.toFixed(1):'—'}</b><span>PPG</span></div>
-      <div class="tr-stat"><b>${t.oppg?t.oppg.toFixed(1):'—'}</b><span>OPP</span></div>
-      <div class="tr-stat"><b>${t.fg?t.fg.toFixed(1):'—'}</b><span>FG%</span></div>
-      <div class="tr-stat"><b>${t.tp?t.tp.toFixed(1):'—'}</b><span>3P%</span></div>
-      <div class="tr-stat"><b>${t.ft?t.ft.toFixed(1):'—'}</b><span>FT%</span></div>
-      <div class="tr-stat"><b>${t.orpg?t.orpg.toFixed(1):'—'}</b><span>OReb</span></div>
-      <div class="tr-stat"><b>${t.drpg?t.drpg.toFixed(1):'—'}</b><span>DReb</span></div>
-      <div class="tr-stat"><b>${t.apg?t.apg.toFixed(1):'—'}</b><span>APG</span></div>
-      <div class="tr-stat"><b>${t.ato?t.ato.toFixed(1):'—'}</b><span>A/TO</span></div>
-      <div class="tr-stat"><b>${t.spg?t.spg.toFixed(1):'—'}</b><span>SPG</span></div>
-      <div class="tr-stat"><b>${t.bpg?t.bpg.toFixed(1):'—'}</b><span>BPG</span></div>
-      <div class="tr-stat"><b>${t.topg?t.topg.toFixed(1):'—'}</b><span>TOV</span></div>
-      <div class="tr-stat" data-col="shotluck"${hide('shotluck')}>${t.shotluck!=null?`<b style="color:${t.shotluck>0?'#c78a2f':'#3fa66a'}">${t.shotluck>0?'+':''}${t.shotluck}</b>`:'<b>—</b>'}<span>Luck</span></div>
-      <div class="tr-stat" data-col="sglq"${hide('sglq')}><b>${t.sglq!=null?t.sglq.toFixed(1):'—'}</b><span>LookQ</span></div>
-      <div class="tr-stat" data-col="sgsm"${hide('sgsm')}>${t.sgsm!=null?`<b style="color:${t.sgsm>0?'#3fa66a':'#c75d5d'}">${t.sgsm>0?'+':''}${t.sgsm.toFixed(1)}</b>`:'<b>—</b>'}<span>Sh-Make</span></div>
-      <div class="tr-stat" data-col="sgcr"${hide('sgcr')}><b>${t.sgcr!=null?t.sgcr.toFixed(1):'—'}</b><span>Create</span></div>
-    </div>`;
-  });
-  document.getElementById('rankingsList').innerHTML = html;
-  requestAnimationFrame(()=>document.querySelectorAll('.mbar-fill').forEach(f=>{ f.style.width=(f.dataset.w||0)+'%'; }));
-
-  // Scroll-reveal
-  observeRows();
-  // Bar animation — tick after paint so transition fires
-  requestAnimationFrame(() => requestAnimationFrame(animateBars));
-  // Update hero for current conf
-  updateHeroForConf(confFilter, data);
-  // Freeze the Rk/Team columns with an opaque background once the stats scroll
-  // sideways — otherwise the heat-mapped cells slide visibly behind them.
-  wireStickyScroll();
-}
-function wireStickyScroll(){
-  const sc=document.querySelector('.table-scroll'); if(!sc||sc._stickyWired) return;
-  sc._stickyWired=true;
-  // The expanded team report (.tr-drop) is a full-canvas-width row, so scrolling the
-  // stat columns right drags it off the left. CSS sticky can't fix it (no slide room).
-  // Instead, size each open drop to the visible viewport and counter-translate it by
-  // scrollLeft so it stays pinned to the left edge at any horizontal scroll position.
-  const pinDrops=()=>{
-    const x=sc.scrollLeft, w=sc.clientWidth;
-    sc.querySelectorAll('.tr-drop').forEach(d=>{
-      d.style.width=w+'px';
-      d.style.transform=x?('translateX('+x+'px)'):'';
+    const isFav = favTeam && (t.short===favTeam || t.name===favTeam);
+    const href = `program-hq.html?team=${encodeURIComponent(t.short)}${curSeason===2027?'':'&season='+curSeason}`;
+    const logo = _rankLogo(t);
+    const carry = t.projected===false ? `<span class="ix-carry" title="No 2026-27 roster synced yet. The rating is a regressed carryover and the box stats are this team's 2025-26 actuals.">’25-26</span>` : '';
+    const rec = t.projRec ? ` title="Projected ${t.wins}–${t.losses} (${t.projRec.lo}–${t.projRec.n-t.projRec.lo} to ${t.projRec.hi}–${t.projRec.n-t.projRec.hi}) · ${t.cw}–${t.cl} in conference · from ${t.projRec.n} announced games"` : '';
+    let row = `<tr${isFav?' class="fav"':''}>`
+      + `<td class="rk">${t.rk}</td>`
+      + `<td class="l nm"><a href="${href}" data-tn="${q(t.short||t.name)}">${logo?`<img src="${logo}" alt="" loading="lazy" onerror="this.remove()">`:'<i class="ix-nologo"></i>'}<span>${_shortNm(t.short||t.name)}</span></a>${carry}</td>`
+      + `<td class="l dim">${confAbbr(t.confName)}</td>`;
+    RANK_COLS.forEach(([k,f,dir,col])=>{
+      if(col && !RC[col]) return;
+      const cls=[k==='wins'?'c':'', k==='srs'?'big':'', dir&&heat[k]?heat[k](_heatVal(t,k)):''].filter(Boolean).join(' ');
+      row += `<td${cls?` class="${cls}"`:''}${k==='wins'?rec:''}>${f(t)}</td>`;
     });
-  };
-  const upd=()=>{ sc.classList.toggle('scrolled', sc.scrollLeft>0); pinDrops(); };
-  sc.addEventListener('scroll', upd, {passive:true});
-  // Re-pin when a drop is inserted/removed (expand/collapse) and on viewport resize.
-  const list=document.getElementById('rankingsList');
-  if(list && window.MutationObserver){ new MutationObserver(pinDrops).observe(list,{childList:true}); }
-  window.addEventListener('resize', pinDrops, {passive:true});
-  upd();
+    html += row + '</tr>';
+  });
+  list.innerHTML = html;
+  updateHeroForConf(confFilter, data);
 }
 
 (function bootRankings(){
   const sel=document.getElementById('seasonSel');
   if(sel){ let o='<option value="2027">2026–27 · Projected</option>'; for(let y=2026;y>=2007;y--) o+=`<option value="${y}">${y-1}–${(''+y).slice(2)}</option>`; sel.innerHTML=o; sel.value='2027'; }
-  // Pin the team-name column only once the stats are actually scrolled sideways
-  const tsc=document.querySelector('.table-scroll');
-  if(tsc){ tsc.addEventListener('scroll',()=>{ tsc.classList.toggle('scrolled', tsc.scrollLeft>2); },{passive:true}); }
   // Click-to-sort column headers
-  const thead=document.querySelector('.table-header');
+  const thead=document.getElementById('rankHead');
   if(thead){ thead.addEventListener('click',e=>{ const th=e.target.closest('[data-sort]'); if(th) setSort(th.dataset.sort,true); }); }
   // Stat-header tooltips: pull plain-English descriptions from the shared glossary and
   // apply them to any rankings column that doesn't already carry a custom tooltip.
   (function(){
     const MAP={srs:'power',ortg:'ortg',drtg:'drtg',wins:'record',winpct:'winpct',ppg:'ppg',oppg:'oppg',fg:'fg_pct',tp:'tp_pct',ft:'ft_pct',orpg:'oreb',drpg:'dreb',apg:'apg',ato:'ato',spg:'spg',bpg:'bpg',topg:'topg',shotluck:'shotluck',sglq:'lookq',sgsm:'shotmaking',sgcr:'creation'};
-    document.querySelectorAll('.table-header [data-sort]').forEach(th=>{
+    document.querySelectorAll('#rankHead [data-sort]').forEach(th=>{
       if(th.getAttribute('title')) return;                 // keep existing custom tooltips
       const t=window.statTip?statTip(MAP[th.dataset.sort]):''; if(!t) return;
-      th.setAttribute('title',t); th.style.textDecoration='underline dotted'; th.style.textUnderlineOffset='3px'; th.style.cursor='help';
+      th.setAttribute('title',t);
     });
   })();
   updateSortHeaders();
@@ -2826,49 +2686,7 @@ function toggleTheme(){
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 })();
 </script>
-  <script src="tdc-dense.js?v=42"></script>
-<script>
-/* A11y: the rankings is a CSS-grid table (divs), so give it ARIA table semantics —
-   screen readers then announce it as a real table (columns, headers, row navigation)
-   with none of the layout/sticky/sort risk of converting the DOM to <table> elements.
-   Re-applied after each sort/filter render via a MutationObserver on the row list. */
-(function(){
-  function apply(){
-    var scroll=document.querySelector('.table-scroll'); if(!scroll) return;
-    scroll.setAttribute('role','table');
-    if(!scroll.getAttribute('aria-label')) scroll.setAttribute('aria-label','Division I team power rankings');
-    var hdr=scroll.querySelector('.table-header');
-    if(hdr){
-      hdr.setAttribute('role','row');
-      hdr.querySelectorAll('.th').forEach(function(th){
-        if(th.getAttribute('role')!=='columnheader') th.setAttribute('role','columnheader');
-        if(th.classList.contains('sortable'))
-          th.setAttribute('aria-sort', th.classList.contains('sorted') ? (th.classList.contains('asc')?'ascending':'descending') : 'none');
-      });
-    }
-    var body=document.getElementById('rankingsList');
-    if(body){
-      body.setAttribute('role','rowgroup');
-      body.querySelectorAll('.team-row').forEach(function(row){
-        if(row.getAttribute('role')!=='row') row.setAttribute('role','row');
-        var cells=row.children;
-        for(var c=0;c<cells.length;c++){
-          var want=cells[c].classList.contains('tr-team-cell')?'rowheader':'cell';
-          if(cells[c].getAttribute('role')!==want) cells[c].setAttribute('role',want);
-        }
-      });
-    }
-  }
-  function boot(){
-    apply();
-    var body=document.getElementById('rankingsList');
-    if(body){ try{ new MutationObserver(apply).observe(body,{childList:true}); }catch(e){} }
-    var hdr=document.querySelector('.table-header');
-    if(hdr){ hdr.addEventListener('click',function(){ setTimeout(apply,0); }); }
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
-})();
-</script>
+  <script src="tdc-dense.js?v=43"></script>
   <script src="tdc-version.js?v=2"></script>
   <script>
   /* HQ site skin: wrap the main content in a single bordered "stage" that floats on the field */
@@ -2884,22 +2702,8 @@ function toggleTheme(){
     }
     if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',wrap); else wrap();
   })();
-  /* wrap each team logo in a color block so the white-logo filter hits only the logo */
-  (function(){
-    function wrapLogos(){
-      document.querySelectorAll('.tr-dlogo').forEach(function(img){
-        if(img.parentNode && img.parentNode.classList.contains('tr-logowrap')) return;
-        var w=document.createElement('span'); w.className='tr-logowrap';
-        img.parentNode.insertBefore(w, img); w.appendChild(img);
-      });
-    }
-    window.addEventListener('load',function(){ wrapLogos();
-      var h=document.querySelector('.table-scroll')||document.body;
-      new MutationObserver(wrapLogos).observe(h,{childList:true,subtree:true});
-    });
-  })();
   </script>
 
-  <script src="tdc-tour.js?v=7"></script>
+  <script src="tdc-tour.js?v=8"></script>
 </body>
 </html>

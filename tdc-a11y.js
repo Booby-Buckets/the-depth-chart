@@ -48,7 +48,7 @@
   function addSkipLink() {
     try {
       if (document.querySelector('.tdc-skip-link')) return;
-      var target = document.querySelector('main, [role="main"], .content-wrap, .table-scroll, .cards-wrap, .page, .hero-card');
+      var target = document.querySelector('main, [role="main"], .content-wrap, .ix-sheet, .table-scroll, .cards-wrap, .page, .hero-card');
       if (!target) return;
       if (!target.id) target.id = 'tdc-main';
       var a = document.createElement('a');
