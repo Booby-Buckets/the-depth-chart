@@ -192,19 +192,23 @@ def pos_group(position,height):
     if h: return "B" if h>=81 else ("G" if h<=75 else "W")
     return "W"
 def pos_rebalance(items):
-    """items: list of [group, minutes]; returns new minutes (same order), total preserved"""
-    tot=sum(m for _,m in items)
-    if tot<=0: return [m for _,m in items]
+    """items: list of [group, minutes(, keep)]; returns new minutes (same order), total preserved.
+    keep = minutes a player has already earned (level-adjusted last-year mpg): the floor phase never
+    takes a donor below it, so a short frontcourt is not filled by cutting a returning starter
+    (Tyler Tanner, 33.5 mpg for Vanderbilt, projected at 30.0)."""
+    tot=sum(x[1] for x in items)
+    if tot<=0: return [x[1] for x in items]
     m=[x[1] for x in items]; grp=[x[0] for x in items]
+    kp=[max(POS_FLOOR_MPG,(x[2] if len(x)>2 else 0.0) or 0.0) for x in items]
     def _shift(src,dst,amt):
-        """move amt minutes from groups in src to group dst, pro rata to minutes"""
-        give=[i for i in range(len(m)) if grp[i] in src and m[i]>POS_FLOOR_MPG]
+        """move amt minutes from groups in src to group dst, pro rata to each donor's spare minutes"""
+        give=[i for i in range(len(m)) if grp[i] in src and m[i]>kp[i]]
         take=[i for i in range(len(m)) if grp[i]==dst and m[i]>0]
         if not give or not take: return
-        room=sum(m[i]-POS_FLOOR_MPG for i in give); amt=min(amt,room)
+        room=sum(m[i]-kp[i] for i in give); amt=min(amt,room)
         if amt<=0: return
-        gs=sum(m[i] for i in give); ts=sum(m[i] for i in take)
-        for i in give: m[i]-=amt*m[i]/gs
+        ts=sum(m[i] for i in take)
+        for i in give: m[i]-=amt*(m[i]-kp[i])/room
         for i in take: m[i]+=amt*m[i]/ts
     for g in ("B","G"):                                   # floors first
         cur=sum(m[i] for i in range(len(m)) if grp[i]==g)
@@ -230,6 +234,12 @@ def pos_rebalance(items):
 # for players the chart still has in a plausible rotation (depth <= POS_FLOOR_DEPTH); 12th+ is a
 # deliberate parking spot (redshirt, leaving, medical) and is left alone.
 POS_FLOOR_DEPTH=int(os.environ.get("POS_FLOOR_DEPTH","11")); DEMO_MIN=float(os.environ.get("DEMO_MIN","15")); UNPROVEN_MAX=float(os.environ.get("UNPROVEN_MAX","6")); POS_KEEP=float(os.environ.get("POS_KEEP","0.7")); POS_NEED=float(os.environ.get("POS_NEED","0.36"))
+# A floor only fills a SHORT spot: the group is lifted to at most POS_FILL of the team (two of the
+# five on the floor = 0.40), and a player in another group only gives minutes above his own
+# demonstrated (level-adjusted) minutes. Before this, AJ Brown (Ohio transfer, 10th on Florida's
+# chart) was floored to 18.6 mpg out of an 84-minute backcourt, paid for by cutting Haugh, Condon
+# and Chinyelu 3-4 mpg each below the minutes they played for the same coach.
+POS_FILL=float(os.environ.get("POS_FILL","0.40"))
 def level_factor(gap):
     """gap = new team strength - old team strength (SRS points); a step up shrinks the proven minutes"""
     try: g=float(gap)
@@ -249,7 +259,9 @@ def pos_floors(items):
         cap=POS_NEED*tot; sf=sum(fl.values())
         if sf>cap: fl={i:v*cap/sf for i,v in fl.items()}
         need={i:max(0.0,fl[i]-m[i]) for i in proven}; D=sum(need.values())
-        if D<=0.05: continue
+        gap=POS_FILL*tot-sum(m[i] for i in mem)          # the spot is only short by this much
+        if gap<=0.05 or D<=0.05: continue
+        if D>gap: need={i:v*gap/D for i,v in need.items()}; D=gap
         got=0.0
         unp=[i for i in mem if demo[i]<UNPROVEN_MAX and m[i]>POS_FLOOR_MPG]   # no D-I role yet (freshmen, fresh-fit)
         room=sum(min(0.5*m[i],m[i]-POS_FLOOR_MPG) for i in unp)
@@ -258,11 +270,12 @@ def pos_floors(items):
             for i in unp: m[i]-=take*min(0.5*m[i],m[i]-POS_FLOOR_MPG)/room
             got+=take
         if got<D-0.05:
-            oth=[i for i in range(len(m)) if grp[i]!=g and m[i]>POS_FLOOR_MPG]
-            room=sum(m[i]-POS_FLOOR_MPG for i in oth)
+            keep=lambda i: max(POS_FLOOR_MPG,demo[i])            # nobody gives up minutes he has already earned
+            oth=[i for i in range(len(m)) if grp[i]!=g and m[i]>keep(i)]
+            room=sum(m[i]-keep(i) for i in oth)
             if oth and room>0:
                 take=min(D-got,room)
-                for i in oth: m[i]-=take*(m[i]-POS_FLOOR_MPG)/room
+                for i in oth: m[i]-=take*(m[i]-keep(i))/room
                 got+=take
         if got>0:
             for i in proven: m[i]+=got*need[i]/D
@@ -846,8 +859,7 @@ for short, roster in roster_by_team.items():
         _Rk=[rr for rr in R if str(rr["e"]) in out]
         _fk=list(FRESH_FIT.get(short,{}).items()) if _fresh else []
         _items+=[[_fpos.get(nm,"W"),float(v["mpg"])] for nm,v in _fk]
-        _new=pos_rebalance(_items)
-        # then the proven-at-his-spot floors (level-discounted last-year minutes; injured rows excluded)
+        # the proven-at-his-spot floors and the rebalance's keep (level-discounted last-year minutes; injured rows excluded)
         def _demo_eff(rr):
             if str(getattr(rr["p"],"is_injured","")).lower() in ("true","t","1"): return 0.0
             _d=rr["p"].depth_order
@@ -857,7 +869,9 @@ for short, roster in roster_by_team.items():
                 _qn=srs_of(full); _qo=srs_of(rr["a"].team)
                 if _qn is not None and _qo is not None: lv=level_factor(_qn-_qo)
             return rr["last_mpg"]*lv
-        _new=pos_floors([[_items[i][0],_new[i],(_demo_eff(_Rk[i]) if i<len(_Rk) else 0.0)] for i in range(len(_items))])
+        _dem=[(_demo_eff(_Rk[i]) if i<len(_Rk) else 0.0) for i in range(len(_items))]
+        _new=pos_rebalance([[_items[i][0],_items[i][1],_dem[i]] for i in range(len(_items))])
+        _new=pos_floors([[_items[i][0],_new[i],_dem[i]] for i in range(len(_items))])
         _moved=0
         for i,rr in enumerate(_Rk):
             if abs(_new[i]-_items[i][1])>0.05:

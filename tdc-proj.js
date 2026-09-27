@@ -35,13 +35,16 @@ function posRebalance(items){
   const m=items.map(x=>x.m), grp=items.map(x=>x.grp), tot=m.reduce((a,b)=>a+b,0);
   if(tot<=0) return m;
   const sum=g=>m.reduce((a,v,i)=>a+(grp[i]===g?v:0),0);
+  // keep = minutes already earned (demoEff): a donor never drops below them (see the build's pos_rebalance)
+  const kp=items.map(x=>Math.max(POS_FLOOR_MPG,x.keep||0));
   const shift=(src,dst,amt)=>{
-    const give=m.map((v,i)=>i).filter(i=>src.includes(grp[i])&&m[i]>POS_FLOOR_MPG);
+    const give=m.map((v,i)=>i).filter(i=>src.includes(grp[i])&&m[i]>kp[i]);
     const take=m.map((v,i)=>i).filter(i=>grp[i]===dst&&m[i]>0);
     if(!give.length||!take.length) return;
-    amt=Math.min(amt, give.reduce((a,i)=>a+m[i]-POS_FLOOR_MPG,0)); if(amt<=0) return;
-    const gs=give.reduce((a,i)=>a+m[i],0), ts=take.reduce((a,i)=>a+m[i],0);
-    give.forEach(i=>{m[i]-=amt*m[i]/gs;}); take.forEach(i=>{m[i]+=amt*m[i]/ts;});
+    const room=give.reduce((a,i)=>a+m[i]-kp[i],0);
+    amt=Math.min(amt,room); if(amt<=0) return;
+    const ts=take.reduce((a,i)=>a+m[i],0);
+    give.forEach(i=>{m[i]-=amt*(m[i]-kp[i])/room;}); take.forEach(i=>{m[i]+=amt*m[i]/ts;});
   };
   ['B','G'].forEach(g=>{const cur=sum(g); if(cur>0&&cur<POS_MIN*tot) shift(['B','G','W'].filter(x=>x!==g),g,POS_MIN*tot-cur);});
   ['B','G','W'].forEach(g=>{const cur=sum(g); if(cur>POS_MAX*tot){
@@ -167,10 +170,11 @@ function computePlayerMpg(p, teamRoster){
   // POSITIONAL REBALANCE (mirrors build_stat_overall_projected.py pos_rebalance): a team plays two
   // bigs and two guards. Frontcourt (C / PF / 6-9+ forwards) and backcourt (PG / SG) each hold at
   // least 28% of the roster's minutes, no group more than 62.5%; the deficit moves pro rata.
-  posRebalance(roster.map(r=>({grp:posGroup(r.position,r.height),m:mpgMap[r.name]||0})))
+  const _PG=(typeof window!=='undefined')?window.TDCProjGrade:null;
+  const _keep=r=>(_PG&&_PG.demoEff)?_PG.demoEff(r):0;
+  posRebalance(roster.map(r=>({grp:posGroup(r.position,r.height),m:mpgMap[r.name]||0,keep:_keep(r)})))
     .forEach((m,i)=>{mpgMap[roster[i].name]=m;});
   // proven-at-his-spot floors (the rule + level data live in tdc-projgrade.js)
-  const _PG=(typeof window!=='undefined')?window.TDCProjGrade:null;
   if(_PG&&_PG.posFloors&&_PG.demoEff){
     _PG.posFloors(roster.map(r=>({grp:posGroup(r.position,r.height),m:mpgMap[r.name]||0,demo:_PG.demoEff(r)})))
       .forEach((m,i)=>{mpgMap[roster[i].name]=m;});

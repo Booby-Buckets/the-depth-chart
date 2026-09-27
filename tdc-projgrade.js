@@ -424,7 +424,7 @@
     // chart could run three point guards while a returning center sat at 8 mpg. Frontcourt
     // (C / PF / 6-9+ forwards) and backcourt (PG / SG) each hold at least 28% of the roster's
     // minutes and no group more than 62.5%; the deficit moves between groups pro rata.
-    m = posRebalance(roster.map(function(p, i){ return { grp: posGroup(p.position, p.height), m: m[i] }; }));
+    m = posRebalance(roster.map(function(p, i){ return { grp: posGroup(p.position, p.height), m: m[i], keep: demoEff(p) }; }));
     // then the proven-at-his-spot floors (see posFloors): level-discounted last-year minutes
     m = posFloors(roster.map(function(p, i){ return { grp: posGroup(p.position, p.height), m: m[i], demo: demoEff(p) }; }));
     for(var i = 0; i < n; i++) m[i] = Math.round(m[i] * 10) / 10;
@@ -461,22 +461,26 @@
       var fl = {}, sf = 0; proven.forEach(function(i){ fl[i] = POS_KEEP * demo[i]; sf += fl[i]; });
       var cap = POS_NEED * tot; if(sf > cap) proven.forEach(function(i){ fl[i] *= cap / sf; });
       var need = {}, D = 0; proven.forEach(function(i){ need[i] = Math.max(0, fl[i] - m[i]); D += need[i]; });
-      if(D <= 0.05) return;
+      // only a SHORT spot gets filled, and only up to POS_FILL of the team (see the build's POS_FILL)
+      var gap = POS_FILL * tot - mem.reduce(function(a, i){ return a + m[i]; }, 0);
+      if(gap <= 0.05 || D <= 0.05) return;
+      if(D > gap){ proven.forEach(function(i){ need[i] *= gap / D; }); D = gap; }
       var got = 0;
       var unp = mem.filter(function(i){ return demo[i] < UNPROVEN_MAX && m[i] > POS_FLOOR_MPG; });
       var roomOf = function(i){ return Math.min(0.5 * m[i], m[i] - POS_FLOOR_MPG); };
       var room = unp.reduce(function(a, i){ return a + roomOf(i); }, 0);
       if(unp.length && room > 0){ var take = Math.min(D, room); unp.forEach(function(i){ m[i] -= take * roomOf(i) / room; }); got += take; }
       if(got < D - 0.05){
-        var oth = idx.filter(function(i){ return grp[i] !== g && m[i] > POS_FLOOR_MPG; });
-        var room2 = oth.reduce(function(a, i){ return a + m[i] - POS_FLOOR_MPG; }, 0);
-        if(oth.length && room2 > 0){ var take2 = Math.min(D - got, room2); oth.forEach(function(i){ m[i] -= take2 * (m[i] - POS_FLOOR_MPG) / room2; }); got += take2; }
+        var keep = function(i){ return Math.max(POS_FLOOR_MPG, demo[i]); };   // nobody gives up minutes he has already earned
+        var oth = idx.filter(function(i){ return grp[i] !== g && m[i] > keep(i); });
+        var room2 = oth.reduce(function(a, i){ return a + m[i] - keep(i); }, 0);
+        if(oth.length && room2 > 0){ var take2 = Math.min(D - got, room2); oth.forEach(function(i){ m[i] -= take2 * (m[i] - keep(i)) / room2; }); got += take2; }
       }
       if(got > 0) proven.forEach(function(i){ m[i] += got * need[i] / D; });
     });
     return m;
   }
-  var POS_MIN = 0.28, POS_MAX = 0.625, POS_FLOOR_MPG = 3;
+  var POS_MIN = 0.28, POS_MAX = 0.625, POS_FLOOR_MPG = 3, POS_FILL = 0.40;
   function _hin(h){ var mm = /^(\d+)-(\d+)/.exec(String(h || '')); return mm ? (+mm[1]) * 12 + (+mm[2]) : null; }
   function posGroup(position, height){
     var pos = String(position || '').toUpperCase().replace(/\s|\d/g, '').split('/')[0], h = _hin(height);
@@ -492,13 +496,16 @@
     if(tot <= 0) return m;
     var idx = m.map(function(v, i){ return i; });
     var sum = function(g){ return m.reduce(function(a, v, i){ return a + (grp[i] === g ? v : 0); }, 0); };
+    // keep = minutes already earned (demoEff): a donor never drops below them (see the build's pos_rebalance)
+    var kp = items.map(function(x){ return Math.max(POS_FLOOR_MPG, x.keep || 0); });
     var shift = function(src, dst, amt){
-      var give = idx.filter(function(i){ return src.indexOf(grp[i]) >= 0 && m[i] > POS_FLOOR_MPG; });
+      var give = idx.filter(function(i){ return src.indexOf(grp[i]) >= 0 && m[i] > kp[i]; });
       var take = idx.filter(function(i){ return grp[i] === dst && m[i] > 0; });
       if(!give.length || !take.length) return;
-      amt = Math.min(amt, give.reduce(function(a, i){ return a + m[i] - POS_FLOOR_MPG; }, 0)); if(amt <= 0) return;
-      var gs = give.reduce(function(a, i){ return a + m[i]; }, 0), ts = take.reduce(function(a, i){ return a + m[i]; }, 0);
-      give.forEach(function(i){ m[i] -= amt * m[i] / gs; }); take.forEach(function(i){ m[i] += amt * m[i] / ts; });
+      var room = give.reduce(function(a, i){ return a + m[i] - kp[i]; }, 0);
+      amt = Math.min(amt, room); if(amt <= 0) return;
+      var ts = take.reduce(function(a, i){ return a + m[i]; }, 0);
+      give.forEach(function(i){ m[i] -= amt * (m[i] - kp[i]) / room; }); take.forEach(function(i){ m[i] += amt * m[i] / ts; });
     };
     ['B', 'G'].forEach(function(g){ var cur = sum(g); if(cur > 0 && cur < POS_MIN * tot) shift(['B', 'G', 'W'].filter(function(x){ return x !== g; }), g, POS_MIN * tot - cur); });
     ['B', 'G', 'W'].forEach(function(g){ var cur = sum(g); if(cur > POS_MAX * tot){
@@ -737,7 +744,7 @@
   // after only the stat files had landed showed 95 for a player whose page (bonus loaded) said 96.
   window.TDCProjGrade.ready = Promise.all([
     _loadSO('scripts/data/stat_overall.json?v=7').then(function(m){ if(m) setStatOverall(m, null); }),
-    _loadProjRows('scripts/data/stat_overall_projected.json?v=53').then(function(m){ if(m) setStatOverall(null, m); }),
+    _loadProjRows('scripts/data/stat_overall_projected.json?v=54').then(function(m){ if(m) setStatOverall(null, m); }),
     _archP, _gpsP
   ]).then(function(){ return true; }).catch(function(){ return true; });   // history is lazy — see loadHist()
 })();
