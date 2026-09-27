@@ -43,7 +43,10 @@
     .nil-table th{text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);padding:8px;border-bottom:1px solid var(--border2);}
     .nil-table th.left,.nil-table td.left{text-align:left;}
     .nil-table td{text-align:right;padding:8px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;}
-  </style>
+    .ov-sheet tr.ov-proj td{font-weight:700;}
+  .ov-sheet td.up{color:#2e8b57;font-weight:700;} .ov-sheet td.dn{color:#c75d5d;font-weight:700;}
+  [data-theme="dark"] .ov-sheet td.up{color:#6fbf7e;} [data-theme="dark"] .ov-sheet td.dn{color:#e07a7a;}
+</style>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Player — The Depth Chart</title>
   <meta name="description" content="Player grades, projected 2026-27 stats, scouting report, badges, and NIL value on The Depth Chart."/>
@@ -3538,30 +3541,35 @@ function buildOverviewCards(p, proj){
     {l:'USG%',k:'usg',pct:true},
     {l:'FG%',k:'fg_pct',pct:true,lb:'fg'},{l:'3P%',k:'tp_pct',pct:true,lb:'fg3'},{l:'FT%',k:'ft_pct',pct:true,lb:'ft'},
     {l:'STL',k:'stl',lb:'stl'},{l:'BLK',k:'blk',lb:'blk'},{l:'TO',k:'tovs'}];
-
-  function card(val, label, accent, diff, invert, lb){
-    const col = accent ? 'color:var(--tcr,var(--accent));' : '';   // projected stats in the team color, not generic accent
-    let cls = 'eq';
-    if(diff != null){
-      if(invert) cls = diff < -0.05 ? 'up' : diff > 0.05 ? 'dn' : 'eq';
-      else cls = diff > 0.05 ? 'up' : diff < -0.05 ? 'dn' : 'eq';
-    }
-    const diffHtml = diff != null ? '<div class="stat-card-diff '+cls+'">'+(diff>0.05?'+':'')+diff+'</div>' : '';
-    const clk = lb ? ' style="cursor:pointer" onclick="window.TDC_LEADERBOARD&&TDC_LEADERBOARD.open(\''+lb+'\')" title="'+label+' — see the top 50"' : '';
-    return '<div class="stat-card"'+clk+'><div class="stat-card-val" style="'+col+'">'+val+'</div><div class="stat-card-label">'+label+'</div>'+diffHtml+'</div>';
+  // the site's sheet table: one row per line (last season, projection, change), each stat shaded by
+  // its national percentile (STAT_PCTL) so the projection reads against all of D-I
+  const PK={ppg:'pts_per_g',rpg:'trb_per_g',apg:'ast_per_g',mpg:'mp_per_g',usg:'usg_pct',fg_pct:'fg_pct',tp_pct:'fg3_pct',ft_pct:'ft_pct',stl:'stl_per_g',blk:'blk_per_g',tovs:'tov_per_g'};
+  function shade(k, v){
+    const key=PK[k]; if(!key||typeof pctColor!=='function') return '';
+    let x=parseFloat(v); if(isNaN(x)) return '';
+    if(/pct$/.test(key)&&key!=='usg_pct'&&x>1) x=x/100;   // the table holds fractions
+    return pctColor(x,key);
   }
-
-  function cards(src, accent, compare){
-    return STATS.map(s=>{
-      const v = s.pct ? fmtP(src[s.k]) : fmt(src[s.k]);
-      let diff = null;
-      if(compare != null){
-        const d = r1((parseFloat(src[s.k])||0)-(parseFloat(compare[s.k])||0));
-        diff = d;
-      }
-      return card(v, s.l, accent, diff, s.l === 'TO', s.lb);
-    }).join('');
+  function row(label, src, cls){
+    return '<tr'+(cls?' class="'+cls+'"':'')+'><td class="l nm">'+label+'</td>'+STATS.map(s=>{
+      const v=src?src[s.k]:null, t=s.pct?fmtP(v):fmt(v), c=shade(s.k,v);
+      return '<td'+(c?' class="'+c+'"':'')+'>'+t+'</td>'; }).join('')+'</tr>';
   }
+  function diffRow(a, b){
+    return '<tr class="ov-chg"><td class="l nm dim">Change</td>'+STATS.map(s=>{
+      const x=parseFloat(a&&a[s.k]), y=parseFloat(b&&b[s.k]);
+      if(isNaN(x)||isNaN(y)) return '<td class="dim">—</td>';
+      const d=r1(x-y), good=s.k==='tovs'?d<-0.05:d>0.05, bad=s.k==='tovs'?d>0.05:d<-0.05;
+      return '<td class="'+(good?'up':bad?'dn':'dim')+'">'+(d>0?'+':'')+d+'</td>'; }).join('')+'</tr>';
+  }
+  function sheet(rows){
+    const head='<th class="l">Season</th>'+STATS.map(s=>s.lb
+      ? '<th style="cursor:pointer" onclick="window.TDC_LEADERBOARD&&TDC_LEADERBOARD.open(\''+s.lb+'\')" title="'+s.l+': see the top 50">'+s.l+'</th>'
+      : '<th>'+s.l+'</th>').join('');
+    return '<div class="sheet-wrap ov-sheet" style="margin-bottom:24px;"><table class="sheet dense freeze"><thead><tr>'+head+'</tr></thead><tbody>'+rows+'</tbody></table></div>';
+  }
+  // kept for the season selector's single-season view
+  function cards(src){ return row('', src); }
 
   const hasActual = p.ppg && parseFloat(p.ppg) > 0;
   // The "actual" column must show his REAL latest-season line (careerHistory, from
@@ -3576,55 +3584,27 @@ function buildOverviewCards(p, proj){
   const _actLbl = (actual && actual.season_year) ? (_seasonLbl(actual.season_year)+' Actual') : '2025-26 Actual';
 
   if(!proj){
-    return '<div class="stat-cards" style="margin-bottom:24px;">'+cards(actual, false, null)+'</div>';
+    return sheet(row(_actLbl, actual));
   }
 
-  // Injured & out of rotation — show the out banner instead of projection stats.
+  // Injured & out of rotation — the projection row becomes the out notice.
   // The owner injury report (proj._injInfo) supplies the body part + timeline; falls
   // back to the generic DNP copy for legacy sheet-flagged players.
   const _inj = (window.TDCInjury && proj) ? TDCInjury.forCards(proj) : null;
   if((proj._injured || player.is_injured) && (!_inj || _inj.out)){
     const outCol = (_inj && _inj.out)
       ? TDCInjury.outHTML(proj._injInfo)
-      : ['<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 16px;background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.2);border-radius:8px;text-align:center;gap:10px;">',
-         '<div style="font-size:28px;">🏥</div>',
-         '<div style="font-size:14px;font-weight:700;color:#ef4444;">Projected DNP</div>',
-         '<div style="font-size:12px;color:var(--text3);line-height:1.5;max-width:220px;">Expected to miss the 2026-27 season. Minutes redistributed to healthy teammates.</div>',
-         '</div>'].join('');
-    return [
-      '<div class="ov-split" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">',
-      '<div>',
-      '<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">'+_actLbl+'</div>',
-      '<div class="stat-cards">' + cards(actual, false, null) + '</div>',
-      '</div>',
-      '<div>',
-      '<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#ef4444;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #ef4444;">2026-27 Projected</div>',
-      outCol,
-      '</div>',
-      '</div>'
-    ].join('');
+      : '<div class="pr-out" style="padding:14px 16px;border:1px solid var(--border);border-radius:10px;font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:24px;"><b style="color:var(--text)">Projected to miss 2026-27.</b> His minutes go to healthy teammates.</div>';
+    return sheet(row(_actLbl, actual)+'<tr><td class="l nm">2026-27 Projected</td><td class="l dim" colspan="'+STATS.length+'">Out for the season</td></tr>')+outCol;
   }
   // Hurt but expected to play — keep the projection, lead with the "hurt" disclaimer.
   const _injBanner = (_inj && !_inj.out) ? _inj.banner : '';
 
+  const projLbl = '2026-27 Projected'+(proj._frosh?' (est.)':'');
   if(!hasActual){
-    return _injBanner+'<div style="margin-bottom:24px;">'
-      +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tcr,var(--accent));margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--tcr,var(--accent));display:flex;align-items:center;gap:8px;">2026-27 Projected <span style="font-size:9px;padding:1px 4px;background:rgba(139,105,20,.12);">EST</span></div>'
-      +'<div class="stat-cards">'+cards(proj, true, null)+'</div>'
-      +'</div>';
+    return _injBanner+sheet(row(projLbl, proj, 'ov-proj'));
   }
-
-  const estBadge = proj._frosh ? ' <span style="font-size:9px;padding:1px 4px;background:rgba(139,105,20,.12);">EST</span>' : '';
-  return _injBanner+'<div class="ov-split" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">'
-    +'<div>'
-    +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border2);">'+_actLbl+'</div>'
-    +'<div class="stat-cards">'+cards(actual, false, null)+'</div>'
-    +'</div>'
-    +'<div>'
-    +'<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--accent);">2026-27 Projected'+estBadge+'</div>'
-    +'<div class="stat-cards">'+cards(proj, true, actual)+'</div>'
-    +'</div>'
-    +'</div>';
+  return _injBanner+sheet(row(_actLbl, actual)+row(projLbl, proj, 'ov-proj')+diffRow(proj, actual));
 }
 
 // ── OVERVIEW season selector (view any season's stats, recolor to that team) ──
@@ -3656,9 +3636,16 @@ function _teamAccent(tn){
   return e.c1||e.c2||null;
 }
 function ovrCardsFor(src){
-  var ST=[['PPG','ppg'],['RPG','rpg'],['APG','apg'],['MPG','mpg'],['FG%','fg_pct',1],['3P%','tp_pct',1],['FT%','ft_pct',1],['STL','stl'],['BLK','blk'],['TO','tovs']];
-  return '<div class="stat-cards" style="margin-bottom:24px;">'+ST.map(function(s){var v=s[2]?fmtP(src[s[1]]):fmt(src[s[1]]);return '<div class="stat-card"><div class="stat-card-val">'+v+'</div><div class="stat-card-label">'+s[0]+'</div></div>';}).join('')+'</div>';
+  // one past season as a single-row sheet, same columns and shading as the overview table
+  var ST=[['PPG','ppg','pts_per_g'],['RPG','rpg','trb_per_g'],['APG','apg','ast_per_g'],['MPG','mpg','mp_per_g'],['FG%','fg_pct','fg_pct',1],['3P%','tp_pct','fg3_pct',1],['FT%','ft_pct','ft_pct',1],['STL','stl','stl_per_g'],['BLK','blk','blk_per_g'],['TO','tovs','tov_per_g']];
+  var lbl=(src&&src.season_year)?(_seasonLbl2(src.season_year)+(src.team?' · '+src.team:'')):'Season';
+  var tds=ST.map(function(s){ var v=src?src[s[1]]:null, x=parseFloat(v), c='';
+    if(!isNaN(x)&&typeof pctColor==='function'){ c=pctColor((s[3]&&x>1)?x/100:x, s[2]); }
+    return '<td'+(c?' class="'+c+'"':'')+'>'+(s[3]?fmtP(v):fmt(v))+'</td>'; }).join('');
+  return '<div class="sheet-wrap ov-sheet" style="margin-bottom:24px;"><table class="sheet dense freeze"><thead><tr><th class="l">Season</th>'
+    +ST.map(function(s){return '<th>'+s[0]+'</th>';}).join('')+'</tr></thead><tbody><tr><td class="l nm">'+esc0(lbl)+'</td>'+tds+'</tr></tbody></table></div>';
 }
+function esc0(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 function _ovrSeasonRow(yr){ var r=(careerHistory||[]).filter(function(s){return +s.season_year===+yr && s.ppg!=null;}); return r.length?r.sort(function(a,b){return (+b.gp||0)-(+a.gp||0);})[0]:null; }
 function _ovrSeasons(){
   var byYear={}; (careerHistory||[]).forEach(function(s){ if(s.ppg==null && (s.gp==null||s.gp===0)) return; var y=+s.season_year, gp=+s.gp||0; if(!byYear[y]||gp>(+byYear[y].gp||0)) byYear[y]=s; });
