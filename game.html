@@ -105,6 +105,8 @@
     <div id="content"><div class="loading">Loading box score…</div></div>
   </div>
 
+<script src="tdc-live.js?v=1"></script>
+<script src="tdc-livegame.js?v=1"></script>
 <script>
 const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -173,16 +175,28 @@ function tableFor(team,players,potgId,teamRating){
     </tbody></table></div>`;
 }
 
-async function load(){
+// Live mode (tdc-live.js + tdc-livegame.js): a game that isn't final, or isn't in our
+// box_scores yet, is shown from ESPN's live summary and polled every 20s. ?live=1 forces it,
+// ?livetest=1 feeds the recorded mid-game fixture (scripts/data/live-fixture-*.json).
+let liveView=null;
+function goLive(c){
+  if(liveView||!window.TDCLiveGame||!window.TDC_LIVE){ if(!liveView) c.innerHTML='<div class="err">No box score available for this game.</div>'; return; }
+  const forced=qs.has('livetest')||qs.get('live')==='1';
+  liveView=TDCLiveGame.mount(c,gid,{onFinal:forced?null:()=>{ load(true); }});
+}
+async function load(afterLive){
   const c=document.getElementById('content');
   if(!gid){c.innerHTML='<div class="err">No game specified.</div>';return;}
+  if(!afterLive && (qs.has('livetest')||qs.get('live')==='1')){ goLive(c); return; }
   try{
     const [gA,bA]=await Promise.all([
       fetch(`${SB}/rest/v1/games?id=eq.${gid}&select=*&limit=1`,{headers:H}).then(r=>r.json()),
       fetch(`${SB}/rest/v1/box_scores?game_id=eq.${gid}&select=*`,{headers:H}).then(r=>r.json()),
     ]);
     const g=gA&&gA[0];
-    if(!bA||!bA.length){c.innerHTML='<div class="err">No box score available for this game.</div>';return;}
+    const notFinal=g&&g.status&&g.status!=='STATUS_FINAL';
+    if(!bA||!bA.length||notFinal){ if(!afterLive) goLive(c); return; }   // once final, the ESPN view stays until our box lands
+    if(liveView){ liveView.stop(); liveView=null; }
     // group by team
     const byTeam={}; bA.forEach(p=>{(byTeam[p.team]=byTeam[p.team]||[]).push(p);});
     let home,away,hs,as_,date,loc;
@@ -223,7 +237,7 @@ async function load(){
     Object.keys(byTeam).forEach(t=>{ if(!order.includes(t)) order.push(t); });
     const trFor=t=>tr?(t===home?tr.home:t===away?tr.away:null):null;
     c.innerHTML=header+callout+order.map(t=>tableFor(t,byTeam[t],potgId,trFor(t))).join('');
-  }catch(e){ c.innerHTML='<div class="err">Could not load box score. '+e.message+'</div>'; }
+  }catch(e){ if(afterLive) return; if(window.TDCLiveGame){ goLive(c); return; } c.innerHTML='<div class="err">Could not load box score. '+e.message+'</div>'; }
 }
 load();
 </script>

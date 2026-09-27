@@ -390,5 +390,32 @@
     </tr></thead><tbody>${html}</tbody></table></div></div>`;
   }
 
-  g.TDCSched = { load, project, projectAll, render, renderPast, gamesFor, extrasFor, SEASON };
+  // One game's pregame line from the HOME team's side — the same deterministic pricing project()
+  // uses per game (ratings gap × stretch × pace, venue edge, rest), for the live scores layer.
+  // q = {id, home, away, neutral, date} with ESPN full names; the listed game (by ESPN id) wins.
+  async function lineFor(q) {
+    await load();
+    if (!g.TDC_RATINGS) return null;
+    const D = await g.TDC_RATINGS.get();
+    const rowOf = n => D.teams.find(t => t.full === n) || null;
+    const listed = q.id != null ? allGames().find(r => String(r.id) === String(q.id)) : null;
+    const x = listed || { id: q.id, date: q.date, home: q.home, away: q.away, neutral: !!q.neutral };
+    const H = rowOf(x.home), A = rowOf(x.away);
+    if (!H || !A) return null;
+    const STRETCH = g.TDC_RATINGS.GAP_STRETCH || 1, SIGMA = g.TDC_RATINGS.SIGMA || 11;
+    const venue = x.neutral ? 0 : g.TDC_RATINGS.baseHca(A.rating) + (H.hcaOff || 0);
+    let sit = 0;
+    if (listed) {                                   // rest / road stint only when both slates are known
+      const all = allGames();
+      const wh = (_walkCache[x.home] = _walkCache[x.home] || walk(x.home, all))[x.date];
+      const wa = (_walkCache[x.away] = _walkCache[x.away] || walk(x.away, all))[x.date];
+      if (wh && wa) sit = restPts(wh.rest) - restPts(wa.rest) + stintPts(wh.stint) - stintPts(wa.stint);
+    }
+    const eff = effLine(x.home, x.away), paceK = eff ? eff.pace / _eff.avgT : 1;
+    const margin = (H.rating - A.rating) * STRETCH * paceK + venue + sit;
+    return { margin: +margin.toFixed(1), p: phi(margin / SIGMA), total: eff ? +eff.total.toFixed(1) : DEFAULT_TOTAL,
+      home: H.team, away: A.team };
+  }
+
+  g.TDCSched = { load, project, projectAll, render, renderPast, gamesFor, extrasFor, lineFor, SEASON };
 })(window);

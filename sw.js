@@ -9,8 +9,11 @@
      (js/css/svg/png)
    - Cross-origin GET      -> network-first with runtime-cache fallback (Supabase data,
                              Google Fonts still render the last-seen values offline).
+   - LIVE data             -> network-only, never cached: ESPN's scoreboard/summary APIs
+                             (tdc-live.js) and the live test fixtures. A cached live score is a
+                             wrong score, and caching every 20s poll would bloat the runtime cache.
 */
-const CACHE = 'tdc-v252';
+const CACHE = 'tdc-v253';
 const CORE = ['index.html', 'offline.html', 'favicon.svg',
               'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
@@ -34,6 +37,10 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;             // never cache writes (Supabase POST/PATCH)
   const url = new URL(req.url);
   const sameOrigin = url.origin === self.location.origin;
+
+  // Live scores: straight to the network, no cache read or write (let the browser handle it)
+  if (/(^|\.)espn\.com$/.test(url.hostname) && url.pathname.includes('/apis/')) return;
+  if (sameOrigin && /\/scripts\/data\/live-fixture/.test(url.pathname)) return;
 
   // HTML / navigations -> network-first
   if (sameOrigin && isHTML(req, url)) {
