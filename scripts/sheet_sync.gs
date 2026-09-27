@@ -29,18 +29,28 @@ const SUPABASE_KEY = 'PASTE_LEGACY_SERVICE_ROLE_JWT_HERE';   // eyJ... (legacy s
 // only for a brand-new row or one whose DB grade is empty. Set to false to push sheet grades.
 const KEEP_EXISTING_GRADES = true;
 var _dbGrades = null;   // 'team|name' -> tdc_grade currently in the DB, loaded once per sync
+// WEBSITE DEPTH CHARTS: a team whose order was set on the team page (players.depth_set_at, see
+// scripts/depth_chart_editor.sql) keeps that order; players new to the sheet go to the bottom.
+var _webDepth = null;  // team -> { name: depth_order } for teams edited on the website
 function loadDbGrades() {
-  _dbGrades = {};
+  _dbGrades = {}; _webDepth = {};
+  var cols = 'team,name,tdc_grade,depth_order,depth_set_at';
   for (var off = 0; off < 20000; off += 1000) {
-    var r = sbGet('/rest/v1/players?select=team,name,tdc_grade&order=id&offset=' + off + '&limit=1000');
-    if (r.code >= 400) throw new Error('Could not read existing grades (' + r.code + '): ' + r.body.slice(0, 200));
+    var r = sbGet('/rest/v1/players?select=' + cols + '&order=id&offset=' + off + '&limit=1000');
+    if (r.code >= 400 && cols.indexOf('depth_set_at') >= 0) {   // column not created yet: grades only
+      cols = 'team,name,tdc_grade'; off -= 1000; continue;
+    }
+    if (r.code >= 400) throw new Error('Could not read existing players (' + r.code + '): ' + r.body.slice(0, 200));
     var rows = JSON.parse(r.body);
     rows.forEach(function (x) {
       if (x.tdc_grade !== null && x.tdc_grade !== undefined && x.tdc_grade !== '') _dbGrades[x.team + '|' + x.name] = x.tdc_grade;
     });
+    rows.forEach(function (x) { if (x.depth_set_at) _webDepth[x.team] = _webDepth[x.team] || {}; });
+    rows.forEach(function (x) { if (_webDepth[x.team] && x.depth_order != null) _webDepth[x.team][x.name] = x.depth_order; });
     if (rows.length < 1000) break;
   }
   Logger.log('Existing grades that will be kept: ' + Object.keys(_dbGrades).length);
+  Logger.log('Teams keeping their website depth chart: ' + Object.keys(_webDepth).length);
 }
 
 // Tab name in spreadsheet → conference code stored in DB
@@ -263,7 +273,7 @@ function debugTeam() {
  *  espn_id/stats and remove departed players. */
 function syncToSupabase() {
   Logger.log('=== TDC SYNC START ===');
-  if (KEEP_EXISTING_GRADES) loadDbGrades();   // before any write: if this fails, nothing is touched
+  loadDbGrades();   // grades + website depth charts; before any write: if this fails, nothing is touched
 
   // ── Wipe losses (fully rebuilt each run). PLAYERS are UPSERTed on (name,team),
   // NOT wiped, so a returning player keeps the SAME id across syncs — which keeps
@@ -496,10 +506,15 @@ function insertPlayers(team) {
   // placeholders are SKIPPED — they'd collide on the full (name,team) unique key and
   // they're excluded from rankings anyway.
   const froshRows = [], expRows = [];
+  // website-edited team: existing players keep their depth_order, new ones go after the last
+  const web = _webDepth && _webDepth[team.name];
+  var webNext = 0;
+  if (web) { for (var k in web) webNext = Math.max(webNext, web[k]); }
   team.players.forEach(function (p, i) {
     const nm = p.name || '—';
     if (!nm || nm === '—' || nm === '-') return;   // skip empty slots
     const row = base(p, i);
+    if (web) row.depth_order = (web[nm] != null) ? web[nm] : ++webNext;
     if (_isFreshman(p)) {
       var kept = KEEP_EXISTING_GRADES && _dbGrades && _dbGrades[team.name + '|' + nm] !== undefined;
       if (kept) expRows.push(row);   // already graded in the DB → send no grade, DB value stays

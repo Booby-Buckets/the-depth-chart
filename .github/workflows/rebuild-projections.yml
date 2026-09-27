@@ -7,6 +7,9 @@ name: Rebuild projected DNA
 #   build_projected_dna.py  (roster -> fingerprint -> team DNA, reconciled so o-d == net)
 #   build_team_eff.py       (slim ORtg/DRtg/net file the homepage reads)
 #
+# Also rebuilds stat_overall_projected.json (every player's projected minutes/line/grade), so a
+# depth chart reordered on the team page reaches the player pages and rankings.
+#
 # Also regenerates development.json (every player's season-by-season grade path — the
 # player page's Development tab and development.html read it) from bbref_seasons +
 # player_history, so it stays current as grades update.
@@ -36,7 +39,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install deps
-        run: pip install numpy
+        run: pip install numpy pandas scipy
 
       # player_dna.json is 50MB and gitignored, so it isn't in the checkout — build it fresh from
       # Supabase first (self-contained, anon key, stdlib only). Without this build_projected_dna.py
@@ -59,11 +62,16 @@ jobs:
       - name: Rebuild team needs (team_needs.json)
         run: python3 scripts/build_team_needs.py
 
+      # the per-player 2026-27 projection (minutes by depth_order, line, grade) that the player
+      # page, team page and rankings read; depth charts edited on the team page flow in here
+      - name: Rebuild player projections (stat_overall_projected.json)
+        run: python3 scripts/build_stat_overall_projected.py
+
       - name: Commit if changed
         run: |
           git config user.name "tdc-proj-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/data/team_dna.json scripts/data/team_eff.json scripts/data/development.json scripts/data/team_needs.json
+          git add scripts/data/team_dna.json scripts/data/team_eff.json scripts/data/development.json scripts/data/team_needs.json scripts/data/stat_overall_projected.json scripts/data/fresh_fit.json
           if git diff --cached --quiet; then
             echo "No projection changes."
           else

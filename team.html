@@ -1755,6 +1755,7 @@ async function loadTeam(name){
     }
     // Store globally for projection slider
     teamPlayers=[...players]; teamConf=t.conf||t.conference||''; teamGp=globalPercentiles; teamColor_g=teamColor; teamRgb_g=teamRgb; teamT=t;
+    if(window.TDCDepthEditor) TDCDepthEditor.attach();   // owner-only "Edit depth chart" button
     // Expose actual stats + team color by name for hover micro-cards
     window._actualByName={}; players.forEach(pl=>{ window._actualByName[(pl.name||'').toLowerCase().trim()]=pl; });
     window._hoverTeamColor=teamColor;
@@ -7255,6 +7256,7 @@ function _setActiveYearPill(v){
 }
 function onRosterSeason(v){
   _rosterSeason = +v;
+  if(window.TDCDepthEditor) TDCDepthEditor.attach();   // the editor only works on the current roster
   _setActiveYearPill(v);
   if(teamT) updateHeroCoach(teamT, teamT.name, +v);
   window._teamCoachProfCache=undefined; syncCoachGrade();   // re-sync computed coach grade for this season's coach
@@ -9235,5 +9237,6 @@ function renderProjNatlChart(projected, color, rgb){
 <script src="tdc-team-dense.js?v=6"></script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=8"></script>
+  <script src="tdc-depth-editor.js?v=1"></script>
 </body>
 </html>
