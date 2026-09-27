@@ -26,6 +26,7 @@
       ['predict.html',         'Projections'],
     ]],
     ['Players', [
+      ['player-rankings.html', 'Player Rankings'],
       ['roster.html',          'Player Projected Stats'],
       ['transfer-fit.html',    'Transfer Fit'],
       ['compare-players.html', 'Compare Players'],
