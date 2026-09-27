@@ -24,7 +24,7 @@
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-pool.js?v=5"></script>
-  <script src="tdc-glossary.js?v=12"></script>
+  <script src="tdc-glossary.js?v=13"></script>
   <style>
     .nil-card{border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:132px;background:var(--bg2);}
     .nil-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
@@ -1050,25 +1050,6 @@
     .ryr-btn.active{color:var(--tc-readable,var(--accent));border-color:var(--tc,var(--accent));background:rgba(var(--tc-rgb),.14);font-weight:800;}
     .ryr-btn .ryr-cur{font-size:8px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-left:5px;}
     .ryr-btn.active .ryr-cur{color:var(--tc-readable,var(--accent));}
-    /* Solid backdrop so the team-colored ambient glow behind the page can't wash
-       out the numbers on the right-hand columns. */
-    .hr-wrap{margin-top:22px;overflow-x:auto;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:4px 16px;}
-    .hr-table{width:100%;border-collapse:collapse;font-size:13px;}
-    .hr-table th{text-align:right;font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);padding:6px 9px;border-bottom:1px solid var(--border);}
-    .hr-table th:nth-child(2){text-align:left;}
-    .hr-table td{text-align:right;padding:8px 9px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;color:var(--text);}
-    .hr-table td:nth-child(2){text-align:left;}
-    .hr-rk{color:var(--text3);font-weight:700;width:26px;}
-    .hr-name{font-weight:700;color:var(--text);text-decoration:none;}
-    .hr-name:hover{color:var(--accent);text-decoration:underline;}
-    .hr-meta{font-size:11px;color:var(--text3);}
-    .hr-ovr{font-family:'Playfair Display',serif;font-weight:800;color:var(--tc,var(--text));}
-    .hr-table td{padding:9px 10px;}                                   /* a touch more air */
-    .hr-table thead th{position:sticky;top:0;background:var(--bg2);z-index:2;}
-    .hr-table tbody tr:nth-child(2n) td{background:rgba(128,128,128,.03);}  /* subtle zebra */
-    .hr-table tbody tr:hover td{background:color-mix(in srgb,var(--tc,#888) 8%,transparent);}
-    .hr-ovr-chip{display:inline-block;min-width:34px;padding:3px 0;border-radius:7px;
-      font-family:'Playfair Display',serif;font-weight:800;font-size:13px;line-height:1.2;text-align:center;}
     /* ── Team Betting props board ──────────────────────────────────── */
     .tbet-note{font-size:12px;color:var(--text3);line-height:1.5;margin:0 0 16px;max-width:680px;}
     /* ── Google-Sheets-style grid: full gridlines, frozen header + Player column, zebra rows ── */
@@ -1155,9 +1136,9 @@
        data-theme="dark" after tdc-theme.js had applied the saved theme, so light-mode visitors got
        a dark first paint that flipped to light a moment later. tdc-theme.js owns the theme.) -->
   <link rel="stylesheet" href="tdc-dense.css?v=39"/>
-  <link rel="stylesheet" href="tdc-team-dense.css?v=22"/>
+  <link rel="stylesheet" href="tdc-team-dense.css?v=23"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth -->
-  <link rel="stylesheet" href="tdc-skin.css?v=11"/>
+  <link rel="stylesheet" href="tdc-skin.css?v=12"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
@@ -8112,21 +8093,21 @@ async function _renderShotDist(rows){
     const list=(short&&T[short])?T[short]:null;
     // name -> entry, so we can fill columns for freshmen (who have no espn_id)
     const byName={}; if(list) list.forEach(x=>{ if(x.name) byName[(''+x.name).toLowerCase().trim()]=x; });
-    const _tcol=(v,head)=>{ const c=v>=75?'#5ab875':v>=50?'var(--text)':v>=30?'var(--text2)':'var(--text3)';
-      return '<b style="color:'+c+';font-weight:'+(head?800:600)+'">'+v+'</b>'; };
+    const _tcol=v=>String(v);   // plain number; the column shading comes from tdcSheetHeat below
     const _look=td=>{ const e=td.getAttribute('data-espn'); if(e&&P[e]) return P[e];
       const nm=(td.getAttribute('data-name')||'').toLowerCase().trim(); return (nm&&byName[nm])?byName[nm]:null; };
     // overall TEND column (returners via players map, freshmen via team list)
     document.querySelectorAll('#depthContent .hr-tend').forEach(function(td){
       const pr=_look(td); const v=pr?(pr.shot_tend!=null?pr.shot_tend:pr.tend):null;
-      if(v!=null) td.innerHTML=_tcol(v,true);
+      if(v!=null) td.innerHTML=_tcol(v);
     });
     const _pK={three:'tend_three',two:'tend_two',ft:'tend_ft'}, _tK={three:'t3',two:'t2',ft:'tf'};
     document.querySelectorAll('#depthContent .hr-ty').forEach(function(td){
       const ty=td.getAttribute('data-ty'), pr=_look(td);
       const v=pr?(pr[_pK[ty]]!=null?pr[_pK[ty]]:pr[_tK[ty]]):null;
-      if(v!=null) td.innerHTML=_tcol(v,false);
+      if(v!=null) td.innerHTML=_tcol(v);
     });
+    if(window.tdcSheetHeat) document.querySelectorAll('#depthContent table.hr-sheet').forEach(t=>tdcSheetHeat(t));
     // distribution card — from the per-team list, which INCLUDES freshmen/no-box
     if(!list||list.length<3){ host.innerHTML=''; _hideShotProfileSide(); return; }
     // a player out for the season (injury report / roster flag) takes no shots; the rest of the
@@ -8208,47 +8189,45 @@ function _appendDepthLosses(yr){
   if(!document.getElementById('seasonLossesWrap')) dc.insertAdjacentHTML('beforeend','<div id="seasonLossesWrap"></div>');
   renderSeasonLosses(teamPlayers||[], yr);
 }
-// Color-graded OVR chip for the roster table — elite green → good blue → mid slate → muted.
-function _ovrChip(g){
-  var n=parseInt(g,10);
-  if(isNaN(n)) return '<span class="hr-ovr-chip" style="color:var(--text3)">—</span>';
-  // Single blue quality ramp (deeper = better) — matches the site-wide grade scale.
-  var bg,fg='#fff';
-  if(n>=90) bg='#1746b8';
-  else if(n>=83) bg='#2f66c0';
-  else if(n>=76) bg='#5a86c8';
-  else if(n>=68){ bg='#c3d3ee'; fg='#1a2b4a'; }
-  else { bg='rgba(128,128,128,.16)'; fg='var(--text2)'; }
-  return '<span class="hr-ovr-chip" style="background:'+bg+';color:'+fg+'">'+n+'</span>';
-}
 function histTable(rows, yr, projected){
   const r=projected
     ? [...rows].sort((a,b)=>(parseFloat(a.depth_order)||999)-(parseFloat(b.depth_order)||999) || (parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0))
     : [...rows].sort((a,b)=>(parseFloat(b.mpg)||0)-(parseFloat(a.mpg)||0));
   const num=(v)=>{const n=parseFloat(v);return isNaN(n)?'—':n.toFixed(1);};
   const pct=(v)=>{const n=parseFloat(v);return isNaN(n)?'—':n.toFixed(1)+'%';};
+  const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   const link=p=> p.espn_id?`player.html?espn=${p.espn_id}&name=${encodeURIComponent(p.name)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}&season=${yr}`;
-  const body=r.map((p,i)=>`<tr>
-    <td class="hr-rk">${i+1}</td>
-    <td><a class="hr-name" href="${link(p)}">${p.name}</a> <span class="hr-meta">${[p.yr,p.position,p.height].filter(Boolean).join(' · ')}</span></td>
+  const ovr=g=>{const n=parseInt(g,10);return isNaN(n)?'—':n;};
+  // the site's sheet table (tdc-sheets.css): frozen # + player, one line per player, bio in its
+  // own dim columns, every stat shaded c0-c4 within the roster by tdcSheetHeat
+  const body=r.map((p,i)=>{ const pnm=esc(p.name);
+    return `<tr>
+    <td class="rk">${i+1}</td>
+    <td class="l nm"><a href="${link(p)}">${esc(p.name)}</a></td>
+    <td class="l dim">${esc(p.yr||p.class_year||'')}</td><td class="l dim">${esc(p.position||'')}</td><td class="l dim">${esc(p.height||'')}</td>
     <td>${p.gp||'—'}</td><td>${num(p.mpg)}</td><td>${num(p.ppg)}</td><td>${num(p.rpg)}</td><td>${num(p.apg)}</td>
     <td>${num(p.stl)}</td><td>${num(p.blk)}</td><td>${num(p.tovs)}</td>
     <td>${pct(p.fg_pct)}</td><td>${pct(p.tp_pct)}</td><td>${pct(p.ft_pct)}</td>
-    ${projected?(pnm=>`<td class="hr-tend" data-espn="${p.espn_id||''}" data-name="${pnm}"><span style="color:var(--text3)">·</span></td>`
-      +`<td class="hr-ty" data-espn="${p.espn_id||''}" data-name="${pnm}" data-ty="three"><span style="color:var(--text3)">·</span></td>`
-      +`<td class="hr-ty" data-espn="${p.espn_id||''}" data-name="${pnm}" data-ty="two"><span style="color:var(--text3)">·</span></td>`
-      +`<td class="hr-ty" data-espn="${p.espn_id||''}" data-name="${pnm}" data-ty="ft"><span style="color:var(--text3)">·</span></td>`)((p.name||'').replace(/"/g,'&quot;')):''}
-    <td>${_ovrChip(projected?_gdisp(p):p.tdc_grade)}</td></tr>`).join('');
-  const tth=(lbl,tip)=>`<th class="has-tip" title="${tip}">${lbl}</th>`;
-  return `<div class="hr-wrap"><table class="hr-table"><thead><tr>
-    <th>#</th><th>Player</th><th>GP</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th><th>STL</th><th>BLK</th><th>TO</th><th>FG%</th><th>3P%</th><th>FT%</th>${projected?
-      tth('TEND','Shot Tendency — projected share of shots when on the floor, 0-100 (100 = a pure #1 option). Zero-sum across the roster.')
-      +tth('3PT','3-point tendency — national percentile of projected 3PA/40 (100 = elite 3-point volume).')
-      +tth('2PT','Two-point tendency — national percentile of projected 2PA/40, rim + mid (100 = elite inside volume).')
-      +tth('FT','Free-throw-draw tendency — how often he gets to the foul line (national percentile of free-throw attempts per 40). Measures rim pressure / drawing fouls, NOT free-throw accuracy (that is the FT% column).')
-      :''}<th>OVR</th>
+    ${projected?`<td class="hr-tend" data-espn="${p.espn_id||''}" data-name="${pnm}">—</td>`
+      +`<td class="hr-ty" data-espn="${p.espn_id||''}" data-name="${pnm}" data-ty="three">—</td>`
+      +`<td class="hr-ty" data-espn="${p.espn_id||''}" data-name="${pnm}" data-ty="two">—</td>`
+      +`<td class="hr-ty" data-espn="${p.espn_id||''}" data-name="${pnm}" data-ty="ft">—</td>`:''}
+    <td class="big">${ovr(projected?_gdisp(p):p.tdc_grade)}</td></tr>`; }).join('');
+  const th=(lbl,heat,tip,cls)=>`<th${cls?` class="${cls}"`:''}${heat?` data-heat="${heat}"`:''}${tip?` title="${tip}"`:''}>${lbl}</th>`;
+  const id='hrt'+(++histTable._n);
+  // shade once the rows are in the page (and again after the tendency columns fill in)
+  setTimeout(()=>{ const t=document.getElementById(id); if(t&&window.tdcSheetHeat) tdcSheetHeat(t); },0);
+  return `<div class="sheet-wrap hr-wrap"><table class="sheet dense freeze2 hr-sheet" id="${id}"><thead><tr>
+    <th class="rk">#</th>${th('Player',0,'','l')}${th('Yr',0,'','l')}${th('Pos',0,'','l')}${th('Ht',0,'','l')}
+    ${th('GP')}${th('MPG',1)}${th('PPG',1)}${th('RPG',1)}${th('APG',1)}${th('STL',1)}${th('BLK',1)}${th('TO',-1)}${th('FG%',1)}${th('3P%',1)}${th('FT%',1)}${projected?
+      th('Tend',1,'Shot Tendency: projected share of shots when on the floor, 0-100 (100 = a pure #1 option). Zero-sum across the roster.')
+      +th('3PT',1,'3-point tendency: national percentile of projected 3PA/40 (100 = elite 3-point volume).')
+      +th('2PT',1,'Two-point tendency: national percentile of projected 2PA/40, rim + mid (100 = elite inside volume).')
+      +th('FT',1,'Free-throw-draw tendency: how often he gets to the foul line (national percentile of free-throw attempts per 40). Measures rim pressure and drawing fouls, not free-throw accuracy (that is the FT% column).')
+      :''}${th('OVR',1)}
   </tr></thead><tbody>${body}</tbody></table></div>`;
 }
+histTable._n=0;
 
 // ── SCHEDULE TAB ──────────────────────────────────────────────────────────
 let _schedSeason = 2027, _schedInit = false;
@@ -9219,6 +9198,7 @@ function renderProjNatlChart(projected, color, rgb){
 <script src="tdc-team-dense.js?v=6"></script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=8"></script>
+  <script src="tdc-sheets.js?v=1"></script>
   <script src="tdc-depth-editor.js?v=1"></script>
 </body>
 </html>

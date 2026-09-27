@@ -154,8 +154,10 @@
     (root || document).querySelectorAll(sel).forEach(function (el) {
       if (el.getAttribute('title')) return;
       var t = tipByLabel(el.textContent); if (!t) return;
-      el.setAttribute('title', t); el.style.textDecoration = 'underline dotted';
-      el.style.textUnderlineOffset = '2px'; el.style.cursor = 'help';
+      el.setAttribute('title', t); el.style.cursor = 'help';
+      // table headers keep the hover explanation but no underline: every table uses the plain
+      // sheet header (tdc-sheets.css), like the CFB site
+      if (el.tagName !== 'TH' && !(el.classList && el.classList.contains('th'))) { el.style.textDecoration = 'underline dotted'; el.style.textUnderlineOffset = '2px'; }
     });
   }
   // advanced per-player RATE stats shown in the Coach's-Tier "footprint" spans
