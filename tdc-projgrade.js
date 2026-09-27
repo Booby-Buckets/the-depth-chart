@@ -242,6 +242,7 @@
   // site ranks on), DEMONSTRATED as fallback. Freshmen / players with no played
   // season aren't in these maps and fall through to the legacy logic (editor OVR).
   var _SO_DEMO = {}, _SO_PROJ = {}, _SO_HIST = {};   // demonstrated(2026), projected(2026-27), historical {season:{espn:ovr}}
+  var _SO_NOBOX = {};
   function setStatOverall(demo, proj){ if(demo) _SO_DEMO = demo; if(proj) _SO_PROJ = proj; }
   function setStatHist(h){ if(h) _SO_HIST = h; }
   // Historical grades (~280KB gz) are LAZY — only pages that actually show a past
@@ -267,6 +268,10 @@
     if(sy && sy <= 2025){ if(!_histLoaded){ loadHist(); return null; } var hy = _SO_HIST['' + sy]; return (hy && hy[k] != null) ? hy[k] : null; }
     if(sy === 2026) return (_SO_DEMO[k] != null) ? _SO_DEMO[k] : null;
     if(_SO_PROJ[k] != null) return _SO_PROJ[k];
+    // The projection build had no usable line for him (under 3 mpg / 3 games last season) and
+    // projected him like a newcomer, from his sheet grade. Grading him off that same tiny sample
+    // instead gave Jacob Furphy (2.4 mpg at UConn) a 60 next to an 8-ppg projected line.
+    if(_SO_NOBOX[k]) return null;
     if(_SO_DEMO[k] != null) return _SO_DEMO[k];
     return null;
   }
@@ -722,6 +727,8 @@
   function _loadProjRows(url){
     return fetch(url, { cache: 'no-cache' }).then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ if(!j || !j.players) return null; _SO_PROJ_ROW = j.players; var m = {};
+        // roster players the build projected WITHOUT a box line (fr=1) even though they have an espn_id
+        for(var t in (j.teams || {})){ (j.teams[t] || []).forEach(function(x){ if(x && x.fr && x.espn != null) _SO_NOBOX['' + x.espn] = 1; }); }
         for(var k in j.players){ var v = j.players[k]; m[k] = (v && v.ovr != null) ? v.ovr : v; } return m; })
       .catch(function(){ return null; });
   }
