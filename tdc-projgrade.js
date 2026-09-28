@@ -252,7 +252,7 @@
   var _histLoaded = false, _histPromise = null;
   function loadHist(){
     if(_histPromise) return _histPromise;
-    _histPromise = fetch('scripts/data/stat_overall_history.json?v=6')
+    _histPromise = fetch('scripts/data/stat_overall_history.json?v=7')
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ if(j) setStatHist(j); _histLoaded = true; return true; })
       .catch(function(){ _histLoaded = true; return false; });
