@@ -23,6 +23,11 @@
   <script src="tdc-projgrade.js?v=base24"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-archetypes.js?v=2"></script>
+  <script src="tdc-nil.js?v=prod2"></script>
+  <script src="tdc-pos.js"></script>
+  <script src="tdc-pool.js?v=5"></script>
+  <script src="tdc-proj.js?v=coach26"></script>
+  <script src="bigboard-engine.js?v=17"></script>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;}
@@ -36,7 +41,7 @@
     .page-sub{font-size:13.5px;color:var(--text2);max-width:720px;line-height:1.55;margin-bottom:22px;}
     .pr-bar{display:flex;flex-direction:column;gap:10px;padding:16px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:16px;}
     .pr-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-    .pr-lab{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);width:68px;flex:none;}
+    .pr-lab{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);width:92px;flex:none;}
     .chip{font:600 11.5px 'Inter',system-ui,sans-serif;letter-spacing:.02em;background:var(--bg);border:1px solid var(--border2);color:var(--text2);padding:5px 11px;border-radius:999px;cursor:pointer;}
     .chip:hover{color:var(--text);border-color:var(--text3);}
     .chip.on{background:var(--text);color:var(--bg);border-color:var(--text);}
@@ -49,6 +54,8 @@
     .pr-table td.nm a{color:var(--text);text-decoration:none;}
     .pr-table td.nm a:hover{color:var(--accent);text-decoration:underline;}
     .pr-table th.on{color:var(--text);}
+    .pr-table td.up{color:#2e8b57;font-weight:800;} .pr-table td.dn{color:#c75d5d;font-weight:800;}
+    [data-theme="dark"] .pr-table td.up{color:#6fbf7e;} [data-theme="dark"] .pr-table td.dn{color:#e07a7a;}
     .pr-table td.tm a{display:inline-flex;align-items:center;gap:8px;color:inherit;text-decoration:none;vertical-align:middle;}
     .pr-table td.tm a:hover span{color:var(--accent);text-decoration:underline;}
     .pr-table td.tm img,.pr-table td.tm i{width:20px;height:20px;object-fit:contain;flex:none;}
@@ -92,6 +99,7 @@
     <div class="pr-row" id="grpRow"><span class="pr-lab">Group</span></div>
     <div class="pr-row" id="subRow"></div>
     <div class="pr-row" id="byRow"><span class="pr-lab">Rank by</span></div>
+    <div class="pr-row" id="confRow"><span class="pr-lab">Conference</span></div>
   </div>
 
   <div class="pr-head">
@@ -106,7 +114,7 @@
     </table>
   </div>
   <button type="button" class="chip pr-more" id="prMore" style="display:none">Show 100 more</button>
-  <p class="pr-legend">OVR is the projected 2026-27 overall shown across the site. Stats are each player's projected 2026-27 line; players with no projection yet show last season's. Shading compares every player in the rotation (10+ projected minutes): green is the top fifth of Division I, red the bottom fifth. Stat lists only include rotation players, and percentage lists need real volume (5 FGA, 2 3PA or 2 FTA a game).</p>
+  <p class="pr-legend">OVR is the projected 2026-27 overall shown across the site. Stats are each player's projected 2026-27 line; players with no projection yet show last season's. Shading compares every player in the rotation (10+ projected minutes): green is the top fifth of Division I, red the bottom fifth. Stat lists only include rotation players, and percentage lists need real volume (5 FGA, 2 3PA or 2 FTA a game). Move is the change in national rank from 2025-26 (by grade); Movers compares each player's projected overall with last season's grade. NIL is the projected open-market value; Board is the NBA Big Board rank.</p>
 </div>
 
 <script>
@@ -129,6 +137,8 @@
     {k:'class',l:'Class', of:classKey, subs:[['fr','Freshmen'],['so','Sophomores'],['jr','Juniors'],['sr','Seniors']]},
     {k:'type', l:'Type', of:typeKey, subs:[['ret','Returners'],['xfer','Transfers'],['fresh','Incoming freshmen']]},
     {k:'role', l:'Playing style', of:p=>p._arch||'', subs:[]},   // filled from archetypes.json
+    // risers / fallers: projected 2026-27 OVR against his 2025-26 grade (players who played last season)
+    {k:'move', l:'Movers', of:p=>p._dOvr==null?'':(p._dOvr>0?'up':p._dOvr<0?'down':''), subs:[['up','Biggest risers'],['down','Biggest fallers']]},
   ];
 
   // ── rank-by columns (every one is also a table column) ─────────────────────
@@ -147,11 +157,14 @@
     {k:'usg',  l:'Usage', h:'USG', heat:0, pct:1, tip:'Projected usage rate: the share of team possessions he ends while on the floor'},
     {k:'mpg',  l:'Minutes', h:'MPG', heat:0},
     {k:'tovs', l:'Turnovers', h:'TO', heat:-1},
+    {k:'wa',   l:'Wins Added', h:'WA', heat:1, f:v=>(v>0?'+':'')+(+v).toFixed(1), tip:'Projected 2026-27 Wins Added: the wins his production is worth over a replacement player'},
+    {k:'nil',  l:'NIL value', h:'NIL', heat:1, all:1, f:v=>v>=1?('$'+(+v).toFixed(2)+'M'):('$'+Math.round(v*1000)+'K'), tip:'Projected open-market NIL value, the same model as the player and team NIL tabs'},
+    {k:'bb',   l:'Big Board', h:'BOARD', heat:-1, all:1, f:v=>'#'+v, tip:'Rank on The Depth Chart NBA Big Board (2027 draft)'},
   ];
   const ROT_MPG=10;
 
-  let ALL=[], CUTS={}, state={g:'all', v:'', by:'ovr', n:PAGE, q:''};
-  try{ const u=new URLSearchParams(location.search); ['g','v','by'].forEach(k=>{ if(u.get(k)) state[k]=u.get(k); }); }catch(e){}
+  let ALL=[], CUTS={}, CONFS=[], state={g:'all', v:'', by:'ovr', c:'', n:PAGE, q:''};
+  try{ const u=new URLSearchParams(location.search); ['g','v','by','c'].forEach(k=>{ if(u.get(k)) state[k]=u.get(k); }); }catch(e){}
 
   // team logo via the shared resolver (team-colors.js), sized through ESPN's resizer like the rankings table
   const _logoCache={};
@@ -198,6 +211,7 @@
       const fp1=fline(true);
       if(fp1) take(fp1);
       else if(sh&&parseFloat(sh.mpg)>0){ take(sh); o.usg=sh.proj_usg; }
+      if(sh&&sh.proj_wa!=null) o.wa=+sh.proj_wa;
       else if(!o._hasLine){ const g=fline(false); if(g) take(g); }
       // the site's displayed OVR: the owner's freshman-editor number, else the projected grade
       let ovr=null; const fp=(window.TDCFresh&&TDCFresh.profileFor)?TDCFresh.profileFor({team:p.team,name:p.name}):null;
@@ -205,6 +219,10 @@
       else if(window.TDCProjGrade&&TDCProjGrade.gradeSolo){ const g=TDCProjGrade.gradeSolo(p); if(g!=null&&!isNaN(g)) ovr=g; }
       if(ovr==null){ const g=parseFloat(p.tdc_grade); if(isFinite(g)) ovr=g; }
       o._ovr=ovr;
+      // last season's grade (2025-26, the demonstrated stat overall) for the risers / fallers view
+      const prev=(p.espn_id!=null&&window.TDCProjGrade&&TDCProjGrade.statOvr)?TDCProjGrade.statOvr({espn_id:p.espn_id,season_year:2026}):null;
+      o._prev=(prev!=null&&isFinite(+prev))?Math.round(+prev):null;
+      o._dOvr=(o._prev!=null&&ovr!=null)?Math.round(ovr)-o._prev:null;
       o._conf=confOf[p.team]||'';
       // style only from the player's own espn id (a name match could be a namesake)
       const a=(p.espn_id!=null&&window.TDC_ARCH)?TDC_ARCH.of(p.espn_id,null):null; o._arch=a?a.name:'';
@@ -212,14 +230,43 @@
       o._logo=logoOf(p.team);
       return o;
     });
+    // national ranks now vs last season (players with a 2025-26 grade), for the movement column
+    ALL.slice().filter(p=>p._ovr!=null).sort((a,b)=>b._ovr-a._ovr).forEach((p,i)=>{ p._rkNow=i+1; });
+    ALL.slice().filter(p=>p._prev!=null).sort((a,b)=>b._prev-a._prev).forEach((p,i)=>{ p._rkPrev=i+1; });
+    // NIL: the open-market value the team NIL tab shows (nil-data.json row priced by TDC_NIL)
+    try{
+      const N=window.TDC_NIL, nd=await fetch('nil-data.json?v=gradesync11').then(r=>r.ok?r.json():null);
+      if(N&&nd&&nd.teams&&N.neutralValueOf){
+        for(const k of ['dealsReady','pedigreeReady','defenseReady','adjustReady','injuryReady','programsReady']){ if(N[k]){ try{ await N[k]; }catch(e){} } }
+        const byTeam={}; for(const t in nd.teams){ const T=nd.teams[t]; (T.players||[]).forEach(r=>{ byTeam[t+'|'+String(r.name||'').toLowerCase().trim()]={r,tier:T.tier}; }); }
+        ALL.forEach(p=>{ const h=byTeam[p.team+'|'+String(p.name).toLowerCase().trim()]; if(h&&!h.r.walkon){ const v=N.neutralValueOf(h.r,h.tier); if(v>0) p.nil=v; } });
+      }
+    }catch(e){}
+    CONFS=Object.entries(ALL.reduce((m,p)=>{ if(p._conf) m[p._conf]=(m[p._conf]||0)+1; return m; },{})).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
     const roles=[...new Set(ALL.map(p=>p._arch).filter(Boolean))].sort();
     GROUPS.find(g=>g.k==='role').subs=roles.map(r=>[r,r]);
     // heat cut points over the national rotation, so a top-100 list isn't graded against itself
     const rot=ALL.filter(p=>(num(p.mpg)||0)>=ROT_MPG);
     STATS.forEach(s=>{ if(!s.heat) return;
-      const v=rot.filter(p=>!s.q||s.q(p)).map(p=>val(p,s.k)).filter(x=>x!=null).sort((a,b)=>a-b);
+      const v=(s.all?ALL:rot).filter(p=>!s.q||s.q(p)).map(p=>val(p,s.k)).filter(x=>x!=null).sort((a,b)=>a-b);
       if(v.length>20) CUTS[s.k]=[.2,.4,.6,.8].map(q=>v[Math.floor(q*(v.length-1))]); });
     paintControls(); render();
+    loadBoard();
+  }
+  // Big Board ranks come from the shared engine (same pool, projections and overrides as the Big
+  // Board page and the player pages), filled in once computed so the table isn't held up by it
+  async function loadBoard(){
+    try{
+      if(!window.TDC_BIGBOARD||!window.TDCPool) return;
+      const tm={}; (await fetch(`${SB}/rest/v1/teams?select=*`,{headers:H}).then(r=>r.ok?r.json():[])).forEach(t=>{ tm[t.name]=t; });
+      const pool=(await TDCPool.get()).map(TDC_BIGBOARD.sane);
+      const res=await TDC_BIGBOARD.board(pool, tm);
+      const byId=(res&&res.byId)||{};
+      ALL.forEach(p=>{ const m=byId[p.id]; if(m&&m.rank) p.bb=m.rank; });
+      const v=ALL.map(p=>p.bb).filter(x=>x!=null).sort((a,b)=>a-b);
+      if(v.length>20) CUTS.bb=[.2,.4,.6,.8].map(q=>v[Math.floor(q*(v.length-1))]);
+      render();
+    }catch(e){}
   }
 
   function heatCls(s,v){ const c=CUTS[s.k]; if(!c||v==null) return ''; let b=c.filter(x=>v>x).length; if(s.heat<0) b=4-b; return 'c'+b; }
@@ -233,12 +280,24 @@
       if(!G.subs.some(s=>s[0]===state.v)) state.v=G.subs[0][0];
       sub.style.display=''; sub.innerHTML='<span class="pr-lab">'+esc(G.l)+'</span>'+G.subs.map(s=>chip(s[1],state.v===s[0],`data-v="${esc(s[0])}"`)).join('');
     } else { state.v=''; sub.style.display='none'; sub.innerHTML=''; }
-    document.getElementById('byRow').innerHTML='<span class="pr-lab">Rank by</span>'+STATS.map(s=>chip(s.l,state.by===s.k,`data-by="${s.k}"`)).join('');
+    // Movers are ranked by the change in grade, so the rank-by row steps aside for them
+    const byRow=document.getElementById('byRow');
+    byRow.style.display=state.g==='move'?'none':'';
+    byRow.innerHTML='<span class="pr-lab">Rank by</span>'+STATS.map(s=>chip(s.l,state.by===s.k,`data-by="${s.k}"`)).join('');
+    const CL={B10:'Big Ten',B12:'Big 12',BE:'Big East',P12:'Pac-12',A10:'A-10'};
+    document.getElementById('confRow').innerHTML='<span class="pr-lab">Conference</span>'+chip('All',!state.c,'data-c=""')+CONFS.map(c=>chip(CL[c]||c,state.c===c,`data-c="${esc(c)}"`)).join('');
   }
   function listFor(){
     const G=GROUPS.find(g=>g.k===state.g)||GROUPS[0], S=STATS.find(s=>s.k===state.by)||STATS[0];
-    let L=ALL.filter(p=>!G.of||G.of(p)===state.v);
-    if(S.k!=='ovr') L=L.filter(p=>(num(p.mpg)||0)>=ROT_MPG && (!S.q||S.q(p)));
+    let L=ALL.filter(p=>(!G.of||G.of(p)===state.v) && (!state.c||p._conf===state.c));
+    if(G.k==='move'){
+      // risers / fallers: players who played last season and project into a real role this one
+      L=L.filter(p=>p._dOvr!=null && (num(p.mpg)||0)>=ROT_MPG);
+      const d=state.v==='down'?1:-1;
+      L.sort((a,b)=>(a._dOvr-b._dOvr)*d || ((b._ovr||0)-(a._ovr||0)));
+      return {G,S:STATS[0],L};
+    }
+    if(S.k!=='ovr' && !S.all) L=L.filter(p=>(num(p.mpg)||0)>=ROT_MPG && (!S.q||S.q(p)));
     L=L.filter(p=>val(p,S.k)!=null);
     const dir=S.heat<0?1:-1;
     L.sort((a,b)=>(val(a,S.k)-val(b,S.k))*dir || ((b._ovr||0)-(a._ovr||0)));
@@ -250,32 +309,46 @@
     const q=state.q.trim().toLowerCase();
     const shown=(q?ranked.filter(x=>(x.p.name+' '+x.p.team).toLowerCase().includes(q)):ranked).slice(0,state.n);
     const sub=G.subs?((G.subs.find(s=>s[0]===state.v)||[])[1]||''):'';
-    const who=G.k==='all'?'All Division I players':sub;
-    document.getElementById('listTitle').textContent=S.k==='ovr'?who:`${who}: ${S.l.toLowerCase()} leaders`;
-    document.getElementById('listNote').textContent=`${L.length.toLocaleString()} ranked`+(S.k==='ovr'?' by projected 2026-27 overall':` by projected ${S.l.toLowerCase()}`+(S.k==='tovs'?' (fewest first)':''))+(S.k!=='ovr'?' · rotation players only':'');
+    const CL={B10:'Big Ten',B12:'Big 12',BE:'Big East',P12:'Pac-12',A10:'A-10'};
+    const cName=state.c?(CL[state.c]||state.c):'';
+    const who=(G.k==='all'?(cName?cName+' players':'All Division I players'):(cName?cName+' '+sub.toLowerCase():sub));
+    const isMove=G.k==='move', byL=S.k==='bb'?'Big Board rank':S.k==='nil'?'NIL value':S.l.toLowerCase();
+    document.getElementById('listTitle').textContent=isMove||S.k==='ovr'?who:`${who}: ${byL} leaders`;
+    document.getElementById('listNote').textContent=isMove
+      ? `${L.length.toLocaleString()} players · projected 2026-27 overall against his 2025-26 grade · projected for 10+ minutes`
+      : `${L.length.toLocaleString()} ranked`+(S.k==='ovr'?' by projected 2026-27 overall':` by ${S.k==='bb'?'Big Board rank':'projected '+byL}`+(S.k==='tovs'?' (fewest first)':''))+((S.k!=='ovr'&&!S.all)?' · rotation players only':'');
     const cols=[
-      ['rk','RK','rk'],['nm','Player','l'],['tm','Team','l'],['cf','Conf','l dim'],['ps','Pos','l dim'],['yr','Class','l dim'],['ar','Style','l dim'],
+      ['rk','RK','rk'],['nm','Player','l'],['mv',isMove?'Change':'Move',''],['tm','Team','l'],['cf','Conf','l dim'],['ps','Pos','l dim'],['yr','Class','l dim'],['ar','Style','l dim'],
     ];
-    document.getElementById('prHead').innerHTML=cols.map(c=>`<th class="${c[2]}">${c[1]}</th>`).join('')
+    const mvTip=isMove?'Projected 2026-27 overall minus his 2025-26 grade':'National rank now vs his 2025-26 national rank (by grade). New = no 2025-26 grade';
+    document.getElementById('prHead').innerHTML=cols.map(c=>`<th class="${c[2]}"${c[0]==='mv'?` title="${mvTip}"`:''}>${c[1]}</th>`).join('')
       +STATS.map(s=>`<th class="${s.k===S.k?'on':''}"${s.tip?` title="${esc(s.tip)}"`:''}>${s.h}</th>`).join('');
     const body=shown.map(({p,rk})=>{
       const link=`player.html?${p.espn_id?('espn='+p.espn_id+'&'):''}name=${encodeURIComponent(p.name)}`;
-      return `<tr><td class="rk">${rk}</td><td class="l nm"><a href="${link}">${esc(p.name)}</a></td>`
+      // movement: rank change nationally (or the grade change in the Movers lists)
+      let mv='<td class="dim">New</td>';
+      if(isMove) mv=`<td class="${p._dOvr>0?'up':'dn'}" title="${p._prev} → ${Math.round(p._ovr)}">${p._dOvr>0?'+':''}${p._dOvr}</td>`;
+      else if(p._rkPrev!=null&&p._rkNow!=null){ const d=p._rkPrev-p._rkNow;
+        mv=d===0?'<td class="dim">–</td>':`<td class="${d>0?'up':'dn'}" title="#${p._rkPrev} last season → #${p._rkNow} now">${d>0?'▲':'▼'}${Math.abs(d)}</td>`; }
+      return `<tr><td class="rk">${rk}</td><td class="l nm"><a href="${link}">${esc(p.name)}</a></td>${mv}`
         +`<td class="l tm"><a href="team.html?team=${encodeURIComponent(p.team)}">${p._logo?`<img src="${p._logo}" alt="" loading="lazy" onerror="this.remove()">`:'<i></i>'}<span>${esc(p._team)}</span></a></td>`
         +`<td class="l dim">${esc(p._conf)}</td><td class="l dim">${esc(p.position||'')}</td><td class="l dim">${esc(p.yr||p.class_year||'')}</td><td class="l dim">${esc(p._arch)}</td>`
         +STATS.map(s=>{ const v=val(p,s.k); const cls=[s.k===S.k||s.k==='ovr'?'big':'', s.heat?heatCls(s,v):''].filter(Boolean).join(' ');
           return `<td${cls?` class="${cls}"`:''}>${fmt(s,v)}</td>`; }).join('')+'</tr>';
     }).join('');
     document.getElementById('prBody').innerHTML=body||`<tr><td class="pr-empty" colspan="${cols.length+STATS.length}">No players in this list.</td></tr>`;
+    // the Big Board column fills in once the shared engine has run
+    if(S.k==='bb' && !ALL.some(p=>p.bb!=null)) document.getElementById('listNote').textContent='Computing the Big Board…';
     const more=document.getElementById('prMore');
     const total=q?ranked.filter(x=>(x.p.name+' '+x.p.team).toLowerCase().includes(q)).length:ranked.length;
     more.style.display=total>state.n?'':'none';
-    try{ const u=new URLSearchParams(); if(state.g!=='all') u.set('g',state.g); if(state.v) u.set('v',state.v); if(state.by!=='ovr') u.set('by',state.by);
+    try{ const u=new URLSearchParams(); if(state.g!=='all') u.set('g',state.g); if(state.v) u.set('v',state.v); if(state.by!=='ovr') u.set('by',state.by); if(state.c) u.set('c',state.c);
       history.replaceState(null,'',location.pathname+(u.toString()?'?'+u:'')); }catch(e){}
   }
 
   document.addEventListener('click',e=>{
-    const b=e.target.closest('.pr-bar [data-g],.pr-bar [data-v],.pr-bar [data-by]'); if(!b) return;
+    const b=e.target.closest('.pr-bar [data-g],.pr-bar [data-v],.pr-bar [data-by],.pr-bar [data-c]'); if(!b) return;
+    if(b.dataset.c!=null){ state.c=b.dataset.c; }
     if(b.dataset.g){ state.g=b.dataset.g; state.v=''; }
     if(b.dataset.v!=null&&b.dataset.v!=='') state.v=b.dataset.v;
     if(b.dataset.by) state.by=b.dataset.by;
