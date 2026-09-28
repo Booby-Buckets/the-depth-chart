@@ -368,6 +368,10 @@
       { sel:'#out', t:'Year over year', d:'Each player\'s grade season by season, with the trajectory read: ahead of the usual development curve for his class, on it, or behind it.' }
     ],
 
+    'predict.html': [
+      { sel:'#q', t:'Projected Ratings & Schedule', html:'Find a team.' + bl(G.power, '<b>Game-by-game odds</b> — the projected line and win probability for every game.', '<b>Simulated season</b> — the season played thousands of times, giving a range of records rather than one number.') },
+      { sel:'#sweepPanel', t:'Conference sweep', d:'Every team in a league projected side by side — the projected standings.' }
+    ],
 
     'cheatsheet.html': [
       { sel:'#statPills', t:'Betting Cheat Sheet', d:'Pick the prop market — points, rebounds, assists, threes.' },
