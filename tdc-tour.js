@@ -243,7 +243,7 @@
       { sel:'#gpHost', t:'The report',   html:bl(G.spread, '<b>Four-factor edges</b> — which side wins shooting, turnovers, rebounding and free throws, and by how much.', '<b>Projected box score</b> — every player\'s line in this game, based on the opponent\'s defense.', '<b>Injuries</b> and who is out.') }
     ],
     'customize.html': [
-      { sel:'.controls', t:'Customize', d:'Pick a team to open its Lineup Lab: build your own five, adjust minutes, and see the projected lineup stats change.' },
+      { sel:'.cz-controls', t:'Customize', d:'Pick a team to open its Lineup Lab: build your own five, adjust minutes, and see the projected lineup stats change.' },
       { sel:'#grid',     t:'Teams',     d:'Every rostered program; click one.' }
     ],
     'game-guess.html': [
