@@ -22,81 +22,51 @@
   <title>Hoop Grid — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <style>
-    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;}
-    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;}
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--hit:#1f9d57;--miss:#cf5a4e;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--hit:#4cc07f;--miss:#e0776c;}
     *{margin:0;padding:0;box-sizing:border-box;}
     html{background:var(--bg);}
     body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
     a{color:inherit;}
-    .nav-wrap{border-bottom:1px solid var(--border);background:rgba(250,249,246,.66);backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);position:sticky;top:0;z-index:200;}
-    [data-theme="dark"] .nav-wrap{background:rgba(20,20,22,.84);border-bottom-color:rgba(26,43,68,.9);}
-    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
-    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;letter-spacing:-.01em;}
-    .nav-logo span{color:var(--accent);}
-    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
-    .theme-toggle:hover{border-color:var(--accent);color:var(--text);}
-    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
-    .nav-sub::-webkit-scrollbar{display:none;}
-    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;position:relative;white-space:nowrap;flex-shrink:0;transition:color .2s;}
-    .nav-sub a:first-child{padding-left:0;}
-    .nav-sub a::after{content:'';position:absolute;bottom:0;left:14px;right:14px;height:2px;background:var(--accent);transform:scaleX(0);transform-origin:left center;transition:transform .22s;}
-    .nav-sub a:first-child::after{left:0;}
-    .nav-sub a:hover{color:var(--text);} .nav-sub a:hover::after{transform:scaleX(1);}
-    .nav-sub a.active{color:var(--text);} .nav-sub a.active::after{transform:scaleX(1);}
-    .wrap{max-width:640px;margin:0 auto;padding:22px 16px 90px;}
-    .g-head{text-align:center;margin-bottom:12px;}
-    .g-title{font-family:'Playfair Display',serif;font-weight:800;font-size:32px;letter-spacing:-.01em;}
-    .g-sub{font-size:13px;color:var(--text3);margin-top:4px;}
-    .diffwrap{text-align:center;margin:0 0 14px;}
-    .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:3px;gap:3px;flex-wrap:wrap;justify-content:center;}
-    .seg button{font-size:12px;font-weight:800;letter-spacing:.02em;padding:6px 15px;border:none;border-radius:6px;background:none;color:var(--text3);cursor:pointer;font-family:inherit;transition:background .12s,color .12s;}
-    .seg button.on{background:var(--accent);color:#221c08;}
-    .seg button small{display:block;font-size:9px;font-weight:700;letter-spacing:.03em;opacity:.7;margin-top:2px;}
-    @media(max-width:560px){ .seg button{padding:6px 10px;} }
-    .topbar{display:flex;align-items:center;justify-content:center;gap:20px;margin:12px 0 16px;flex-wrap:wrap;}
-    .stat{text-align:center;}
-    .stat .n{font-family:'Playfair Display',serif;font-weight:800;font-size:24px;line-height:1;}
-    .stat .l{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:3px;}
-    .newbtn{font-size:12px;font-weight:700;padding:8px 14px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;}
-    .newbtn:hover{border-color:var(--accent);}
+    .hg-top{display:flex;align-items:center;justify-content:space-between;gap:10px 20px;flex-wrap:wrap;margin-bottom:16px;}
+    .hg-top .gm-score{margin:0;}
     /* grid */
-    .grid{display:grid;grid-template-columns:88px 1fr 1fr 1fr;grid-template-rows:74px 1fr 1fr 1fr;gap:7px;}
-    .ghead{display:flex;align-items:center;justify-content:center;text-align:center;font-size:11.5px;font-weight:800;line-height:1.15;padding:5px;border-radius:9px;background:var(--bg2);border:1px solid var(--border);}
-    .ghead.corner{background:none;border:none;}
-    .ghead.rowh{font-size:11px;}
-    .cell{position:relative;aspect-ratio:1/1;border-radius:11px;background:var(--bg3);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden;transition:border-color .15s,transform .1s;}
-    .cell:not(.done):hover{border-color:var(--accent);transform:translateY(-1px);}
+    .grid{display:grid;grid-template-columns:96px repeat(3,minmax(0,1fr));grid-template-rows:auto repeat(3,auto);gap:6px;max-width:560px;}
+    .ghead{display:flex;align-items:flex-end;justify-content:center;text-align:center;font-size:11.5px;font-weight:800;line-height:1.2;padding:6px 4px;color:var(--text);border-bottom:2px solid var(--border2);}
+    .ghead.corner{border:none;}
+    .ghead.rowh{font-size:11px;align-items:center;justify-content:flex-start;text-align:left;border-bottom:none;border-right:2px solid var(--border2);padding-right:8px;}
+    .cell{position:relative;aspect-ratio:1/1;border-radius:6px;background:var(--bg2);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden;transition:border-color .15s;font:inherit;color:inherit;padding:0;}
+    .cell:not(.done):hover,.cell:not(.done):focus-visible{border-color:var(--accent);outline:none;}
     .cell.done{cursor:default;}
-    .cell.hit{border-color:#1f9d57;}
-    .cell.miss{border-color:#cf5a4e;background:rgba(207,90,78,.08);}
+    .cell.hit{border-color:var(--hit);box-shadow:inset 0 0 0 1px var(--hit);}
+    .cell.miss{border-color:var(--miss);background:color-mix(in srgb,var(--miss) 8%,var(--bg2));}
     .cell .ph{width:100%;height:100%;object-fit:cover;}
-    .cell .pin{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:5px;background:linear-gradient(transparent 45%,rgba(0,0,0,.72));}
-    .cell .pin .nm{font-size:9.5px;font-weight:800;color:#fff;text-align:center;line-height:1.1;text-shadow:0 1px 3px rgba(0,0,0,.8);}
-    .cell .pin .rar{font-size:8px;font-weight:700;color:#ffe;opacity:.9;}
-    .cell .xmark{font-size:30px;color:#cf5a4e;font-weight:800;}
-    .cell .noph{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;color:var(--accent);}
+    .cell .pin{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:5px;}
+    .cell .ph + .pin{background:linear-gradient(transparent 45%,rgba(0,0,0,.72));}
+    .cell .ph + .pin .nm{color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8);} .cell .ph + .pin .rar{color:#eee;}
+    .cell .pin .nm{font-size:10px;font-weight:800;color:var(--text);text-align:center;line-height:1.15;}
+    .cell .pin .rar{font-size:8.5px;font-weight:700;color:var(--text3);margin-top:1px;}
+    .cell .xmark{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--miss);}
+    .cell .noph{position:absolute;top:28%;font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:28px;color:var(--accent);opacity:.55;}
     .cell .plus{font-size:24px;color:var(--text3);font-weight:300;}
-    /* modal */
-    .modal{position:fixed;inset:0;background:rgba(10,6,20,.55);display:none;align-items:flex-start;justify-content:center;z-index:300;padding:14vh 16px 16px;}
+    /* search sheet */
+    .modal{position:fixed;inset:0;background:rgba(10,8,6,.5);display:none;align-items:flex-start;justify-content:center;z-index:300;padding:14vh 16px 16px;}
     .modal.on{display:flex;}
-    .msheet{width:100%;max-width:440px;background:var(--bg);border:1px solid var(--border2);border-radius:14px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.3);}
-    .mhead{padding:14px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:700;}
+    .msheet{width:100%;max-width:440px;background:var(--bg);border:1px solid var(--border2);border-radius:10px;overflow:hidden;}
+    .mhead{padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:10px;}
     .mhead b{color:var(--accent);}
-    .msearch{position:relative;padding:12px 14px;}
-    .msearch input{width:100%;padding:12px 14px;font-size:15px;font-weight:600;color:var(--text);background:var(--bg2);border:1.5px solid var(--border2);border-radius:9px;outline:none;}
-    .msearch input:focus{border-color:var(--accent);}
+    .mclose{cursor:pointer;color:var(--text3);border:none;background:none;font:700 11.5px 'Inter',system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase;flex-shrink:0;}
+    .mclose:hover{color:var(--text);}
+    .msearch{padding:12px 14px;}
     .mdrop{max-height:280px;overflow-y:auto;}
     .mopt{padding:10px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--border);}
     .mopt:hover,.mopt.sel{background:var(--bg2);}
     .mopt .nm{font-weight:700;font-size:14px;} .mopt .tm{font-size:11px;color:var(--text3);}
-    .mclose{float:right;cursor:pointer;color:var(--text3);border:none;background:none;font-size:16px;}
-    .g-result{text-align:center;margin-top:20px;padding:18px;border:1px solid var(--border);border-radius:12px;background:var(--bg2);display:none;}
-    .g-result.on{display:block;}
-    .g-result .rz{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;}
-    .g-btn{display:inline-block;margin-top:12px;padding:10px 18px;font-size:13px;font-weight:700;border-radius:9px;border:none;cursor:pointer;background:var(--accent);color:#221c08;}
-    .g-btn.ghost{background:none;border:1px solid var(--border2);color:var(--text2);margin-left:8px;}
-    .loading{padding:60px;text-align:center;color:var(--text3);}
-    @media(max-width:520px){.nav-top,.nav-sub{padding-left:14px;padding-right:14px;}.grid{grid-template-columns:64px 1fr 1fr 1fr;grid-template-rows:60px 1fr 1fr 1fr;gap:5px;}.ghead{font-size:9.5px;}.ghead.rowh{font-size:9px;}.g-title{font-size:26px;}}
+    .loading{padding:40px 0;color:var(--text3);}
+    .hg-h{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
+    .hg-rules{margin-top:18px;line-height:1.6;}
+    #gmDailyNote[hidden],.gm-seg[hidden],#gmStatsPanel[hidden]{display:none;}
+    @media(max-width:520px){.grid{grid-template-columns:66px repeat(3,minmax(0,1fr));gap:4px;}.ghead{font-size:9.5px;padding:4px 2px;}.ghead.rowh{font-size:9.5px;padding-right:4px;}.cell .pin .nm{font-size:9px;}}
   </style>
   <link rel="stylesheet" href="tdc-anim.css?v=6"/>
   <script src="tdc-anim.js?v=6"></script>
@@ -104,10 +74,11 @@
   <link rel="stylesheet" href="tdc-dense.css?v=39"/>
   <link rel="stylesheet" href="tdc-skin.css?v=14"/>
   <link rel="stylesheet" href="tdc-hq-game.css?v=2"/>
+  <link rel="stylesheet" href="tdc-games.css?v=1"/>
+  <link rel="stylesheet" href="tdc-column.css?v=2"/>
   <style>
     :root:not([data-theme="dark"]){background:var(--bg)!important;}
     :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
-    :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
   </style>
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
@@ -121,62 +92,45 @@
 </head>
 <body data-anim-auto>
 <script src="tdc-nav.js?v=33"></script>
-  <div class="nav-wrap">
-    <div class="nav-top">
-      <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
-      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">🌙</button>
-    </div>
-    <div class="nav-sub">
-      <a href="index.html">Rankings</a>
-      <a href="roster.html">Players</a>
-      <a href="compare-players.html">Compare</a>
-      <a href="draft.html">Big Board</a>
-      <a href="analytics.html">Stats</a>
-      <a href="shot-genome.html">Shot Genome</a>
-      <a href="onoff.html">On/Off</a>
-      <a href="tournaments.html">Tournaments</a>
-      <a href="predict.html">Predict</a>
-      <a href="awards.html">Awards</a>
-      <a href="bracket.html">Bracket</a>
-      <a href="buzz.html">News</a>
-      <a href="coaches.html">Coaches</a>
-      <a href="development.html">Development</a>
-      <a href="games.html">🎮 Games</a>
-      <a href="community.html">Community</a>
-      <a href="team.html">Teams</a>
-      <a href="coach-tier.html">⬡ Coach's Tier</a>
-    <a href="customize.html">✦ Customize</a>
-      <a href="pricing.html">Pricing</a>
-    </div>
-  </div>
 
-  <div class="wrap">
-    <div class="g-head">
-      <div class="g-title">Hoop Grid</div>
-      <div class="g-sub">Fill each square with a player matching its row and column. 9 guesses.</div>
+  <div class="page gm-page">
+    <a class="gm-back" href="games.html">← All games</a>
+    <div class="gm-eyebrow" id="gmEyebrow">Games · Daily</div>
+    <h1 class="gm-title">Hoop Grid</h1>
+    <div class="gm-controls">
+      <div id="gmModes"></div>
+      <div class="gm-seg" id="segDiff" title="Difficulty sets how rare the row and column categories can be"></div>
+      <span class="gm-note" id="gmDailyNote" hidden>Daily: Medium · one grid for everyone</span>
     </div>
-    <div class="diffwrap" id="diffWrap"></div>
-    <div id="content"><div class="loading">Building today's grid…</div></div>
+    <div class="gm-play">
+      <div id="content"><div class="loading">Building today's grid…</div></div>
+      <div class="gm-panel" id="gmStatsPanel">
+        <div class="hg-h">Your stats</div>
+        <div id="gmStats"></div>
+      </div>
+      <div class="gm-note game-rules hg-rules">Fill each square with a player who matches both its row and its column. Nine guesses, one player per square, and a player can only be used once. Rarity scores how deep a cut your pick is among everyone who fits (higher = rarer). Six squares is a win. Pool: player-seasons with a TDC grade of 80+ over 20 years.</div>
+    </div>
   </div>
 
   <div class="modal" id="modal">
-    <div class="msheet">
-      <div class="mhead"><button class="mclose" onclick="closeModal()">✕</button><span id="mtitle"></span></div>
-      <div class="msearch"><input id="mi" type="text" autocomplete="off" placeholder="Name a player…" oninput="onInput(this.value)" onkeydown="onKey(event)"></div>
+    <div class="msheet" role="dialog" aria-modal="true" aria-labelledby="mtitle">
+      <div class="mhead"><span id="mtitle"></span><button type="button" class="mclose" onclick="closeModal()">Close</button></div>
+      <div class="msearch"><input id="mi" class="gm-input" type="text" autocomplete="off" placeholder="Name a player…" oninput="onInput(this.value)" onkeydown="onKey(event)"></div>
       <div class="mdrop" id="mdrop"></div>
     </div>
   </div>
 
+<script src="tdc-games.js?v=1"></script>
 <script>
 const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H={apikey:KEY,Authorization:'Bearer '+KEY};
-function toggleTheme(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');document.getElementById('themeBtn').textContent=d?'🌙':'☀️';try{localStorage.setItem('tdc_theme',d?'light':'dark');}catch(e){}}
-(function(){try{var s=localStorage.getItem('tdc_theme');if(s){document.documentElement.setAttribute('data-theme',s);var b=document.getElementById('themeBtn');if(b)b.textContent=s==='dark'?'☀️':'🌙';}}catch(e){}})();
+const T=window.TDCGames, GID='grid', WIN_AT=6;
+const esc=T.esc;
 
-let CONF={}, PLAYERS=[], BYNAME={}, ROWS=[], COLS=[], CELLS=[], guessesLeft=9, active=null, done=false;
+let CONF={}, PLAYERS=[], BYNAME={}, ROWS=[], COLS=[], CELLS=[], guessesLeft=9, active=null, done=false, recorded=false;
+let mode='daily', _tok=0;
 
-function todayIndex(){const et=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));return Math.floor(Date.UTC(et.getFullYear(),et.getMonth(),et.getDate())/86400000);}
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 function shuffle(arr,rng){arr=arr.slice();for(var i=arr.length-1;i>0;i--){var j=Math.floor(rng()*(i+1));var t=arr[i];arr[i]=arr[j];arr[j]=t;}return arr;}
 function grNum(g){var n=parseInt(g);return isNaN(n)?0:n;}
@@ -206,12 +160,13 @@ function buildCriteria(){
   // 2026 power confs — the rebuilt "PAC-12" is now a mid-major (Gonzaga/Fresno St/etc.), so it's NOT here
   var POWER=['acc','big ten','big 12','sec','big east'];
   var isPow=function(name){ var cl=(''+(name||'')).toLowerCase(); return POWER.some(function(x){return cl.indexOf(x)>=0;}); };
+  var byLabel=function(a,b){return a<b?-1:a>b?1:0;};   // stable category order → the daily grid is the same for everyone
   var teamCount={}; PLAYERS.forEach(function(p){p.teams.forEach(function(t){teamCount[t]=(teamCount[t]||0)+1;});});
-  var teams=Object.keys(teamCount).filter(function(t){return teamCount[t]>=12;})
+  var teams=Object.keys(teamCount).filter(function(t){return teamCount[t]>=12;}).sort(byLabel)
     .map(function(t){ var n=teamCount[t]; var tier=isPow(CONF[t])?1:(n>=30?2:3);   // power-conf programs = famous
       return {type:'team',label:t,tier:tier,test:(function(tm){return function(p){return p.teams.has(tm);};})(t)};});
   var confCount={}; PLAYERS.forEach(function(p){p.confs.forEach(function(c){confCount[c]=(confCount[c]||0)+1;});});
-  var confs=Object.keys(confCount).filter(function(c){return confCount[c]>=25;})
+  var confs=Object.keys(confCount).filter(function(c){return confCount[c]>=25;}).sort(byLabel)
     .map(function(c){ var tier=isPow(c)?1:2;
       return {type:'conf',label:c,tier:tier,test:(function(cf){return function(p){return p.confs.has(cf);};})(c)};});
   var acc=[
@@ -231,6 +186,15 @@ function buildCriteria(){
   return {teams:teams.map(withQual), confs:confs.map(withQual), acc:acc.map(withQual)};
 }
 function inter(a,b){var small=a.size<b.size?a:b,big=a.size<b.size?b:a,n=0;small.forEach(function(x){if(big.has(x))n++;});return n;}
+// a player can fill only one square, so "solvable" = the nine squares can take nine DIFFERENT
+// players at once (bipartite matching over each square's qualifiers)
+function solvable(rows,cols){
+  var opts=[]; for(var r=0;r<3;r++)for(var c=0;c<3;c++){ var o=[]; rows[r].qual.forEach(function(n){ if(cols[c].qual.has(n)) o.push(n); }); opts.push(o.sort()); }
+  var owner={};
+  function place(i,seen){ for(var k=0;k<opts[i].length;k++){ var n=opts[i][k]; if(seen[n])continue; seen[n]=1; if(owner[n]==null||place(owner[n],seen)){ owner[n]=i; return true; } } return false; }
+  for(var i=0;i<9;i++){ if(!place(i,{})) return false; }
+  return true;
+}
 
 // ── construct a solvable grid ──
 // Columns are always accolades so a conference can never sit above its own
@@ -260,48 +224,50 @@ function buildGrid(cat, rng, maxTier){
     if(dup) continue;
     var ok=true;
     for(var r=0;r<3&&ok;r++)for(var cc=0;cc<3;cc++){ if(inter(rows[r].qual,cols[cc].qual)<2){ok=false;break;} }
+    if(ok&&!solvable(rows,cols)) ok=false;
     if(ok) return {rows:rows,cols:cols};
   }
   return null;
 }
 
 // ── rendering ──
+function filledCells(){return CELLS.filter(function(c){return c.player;});}
+function avgRarity(){var f=filledCells();return f.length?Math.round(f.reduce(function(s,c){return s+c.rarity;},0)/f.length):0;}
 function render(){
   var host=document.getElementById('content');
-  var correct=CELLS.filter(function(c){return c.player;}).length;
-  var rar=CELLS.filter(function(c){return c.player;});
-  var avgRar=rar.length?Math.round(rar.reduce(function(s,c){return s+c.rarity;},0)/rar.length):0;
-  var top='<div class="topbar">'+
-    '<div class="stat"><div class="n">'+guessesLeft+'</div><div class="l">Guesses</div></div>'+
-    '<div class="stat"><div class="n">'+correct+'/9</div><div class="l">Filled</div></div>'+
-    '<div class="stat"><div class="n">'+avgRar+'</div><div class="l">Avg Rarity</div></div>'+
-    '<button class="newbtn" onclick="newGrid()">↻ New grid</button></div>';
+  var correct=filledCells().length;
+  var top='<div class="hg-top"><dl class="gm-score">'+
+    '<div><dt>Guesses</dt><dd>'+guessesLeft+'</dd></div>'+
+    '<div><dt>Filled</dt><dd>'+correct+'/9</dd></div>'+
+    '<div><dt>Avg rarity</dt><dd>'+avgRarity()+'</dd></div></dl>'+
+    (mode==='practice'?'<button type="button" class="gm-btn ghost" onclick="newGrid()">New grid</button>':'')+'</div>';
   var g='<div class="grid"><div class="ghead corner"></div>';
-  COLS.forEach(function(c){ g+='<div class="ghead">'+c.label+'</div>'; });
+  COLS.forEach(function(c){ g+='<div class="ghead">'+esc(c.label)+'</div>'; });
   for(var r=0;r<3;r++){
-    g+='<div class="ghead rowh">'+ROWS[r].label+'</div>';
+    g+='<div class="ghead rowh">'+esc(ROWS[r].label)+'</div>';
     for(var cc=0;cc<3;cc++){ g+=cellHtml(r,cc); }
   }
   g+='</div>';
-  host.innerHTML=top+g+'<div class="g-result" id="gr"></div>';
+  host.innerHTML=top+g+'<div id="gr"></div>';
   if(done) showResult();
 }
 function cellHtml(r,c){
   var cell=CELLS[r*3+c];
   if(cell.player){
-    var p=cell.player, ph=photoOf(p);
-    var img=ph?'<img class="ph" src="'+ph+'" onerror="this.outerHTML=\'<span class=&quot;noph&quot;>'+(p.name||'?')[0]+'</span>\'">':'<span class="noph">'+(p.name||'?')[0]+'</span>';
-    return '<div class="cell done hit">'+img+'<div class="pin"><span class="nm">'+p.name+'</span><span class="rar">'+cell.rarity+' rarity</span></div></div>';
+    var p=cell.player, ph=photoOf(p), ini=esc((p.name||'?')[0]);
+    var img=ph?'<img class="ph" src="'+esc(ph)+'" alt="" onerror="this.outerHTML=\'<span class=&quot;noph&quot;>'+ini+'</span>\'">':'<span class="noph">'+ini+'</span>';
+    return '<div class="cell done hit">'+img+'<div class="pin"><span class="nm">'+esc(p.name)+'</span><span class="rar">'+cell.rarity+' rarity</span></div></div>';
   }
-  if(cell.missed) return '<div class="cell done miss"><span class="xmark">✗</span></div>';
-  return '<div class="cell" onclick="openCell('+r+','+c+')"><span class="plus">+</span></div>';
+  if(cell.missed) return '<div class="cell done miss"><span class="xmark">Miss</span></div>';
+  if(done) return '<div class="cell done"></div>';
+  return '<button type="button" class="cell" aria-label="'+esc(ROWS[r].label+' and '+COLS[c].label)+'" onclick="openCell('+r+','+c+')"><span class="plus">+</span></button>';
 }
 
 // ── guessing ──
 function openCell(r,c){
   if(done||guessesLeft<=0)return;
   active={r:r,c:c};
-  document.getElementById('mtitle').innerHTML='<b>'+ROWS[r].label+'</b> &nbsp;×&nbsp; <b>'+COLS[c].label+'</b>';
+  document.getElementById('mtitle').innerHTML='<b>'+esc(ROWS[r].label)+'</b> &nbsp;×&nbsp; <b>'+esc(COLS[c].label)+'</b>';
   document.getElementById('mdrop').innerHTML=''; document.getElementById('mi').value='';
   document.getElementById('modal').classList.add('on');
   setTimeout(function(){document.getElementById('mi').focus();},50);
@@ -316,7 +282,7 @@ function onInput(v){
   _matches=PLAYERS.filter(function(p){return p.name.toLowerCase().indexOf(v)>=0 && !used[p.name];})
     .sort(function(a,b){return b.peakGrade-a.peakGrade;}).slice(0,8);
   _sel=-1;
-  d.innerHTML=_matches.map(function(p,i){return '<div class="mopt" data-i="'+i+'" onclick="choose('+i+')"><span class="nm">'+p.name+'</span><span class="tm">'+p.lastTeam+'</span></div>';}).join('');
+  d.innerHTML=_matches.map(function(p,i){return '<div class="mopt" data-i="'+i+'" onclick="choose('+i+')"><span class="nm">'+esc(p.name)+'</span><span class="tm">'+esc(p.lastTeam)+'</span></div>';}).join('');
 }
 function onKey(e){
   if(e.key==='ArrowDown'){e.preventDefault();_sel=Math.min(_sel+1,_matches.length-1);hl();}
@@ -325,69 +291,118 @@ function onKey(e){
   else if(e.key==='Escape'){closeModal();}
 }
 function hl(){[].forEach.call(document.querySelectorAll('.mopt'),function(o,i){o.classList.toggle('sel',i===_sel);});}
+// rarity: how deep-a-cut is this pick among qualifiers (by peak grade). higher=rarer
+function rarityOf(r,c,p){
+  var q=[]; PLAYERS.forEach(function(x){if(ROWS[r].test(x)&&COLS[c].test(x))q.push(x.peakGrade);});
+  var below=q.filter(function(g){return g<=p.peakGrade;}).length;
+  return Math.max(1,Math.round(100*(1-(below/Math.max(1,q.length)))));
+}
 function choose(i){
-  var p=_matches[i]; if(!p||!active)return;
+  var p=_matches[i]; if(!p||!active||done)return;
   var r=active.r,c=active.c,cell=CELLS[r*3+c];
   var okRow=ROWS[r].test(p), okCol=COLS[c].test(p);
   guessesLeft--;
-  if(okRow&&okCol){
-    cell.player=p;
-    // rarity: how deep-a-cut is this pick among qualifiers (by peak grade). higher=rarer
-    var q=[]; PLAYERS.forEach(function(x){if(ROWS[r].test(x)&&COLS[c].test(x))q.push(x.peakGrade);});
-    q.sort(function(a,b){return a-b;});
-    var below=q.filter(function(g){return g<=p.peakGrade;}).length;
-    cell.rarity=Math.max(1,Math.round(100*(1-(below/Math.max(1,q.length)))));
-  } else { cell.missed=true; }
+  if(okRow&&okCol){ cell.player=p; cell.rarity=rarityOf(r,c,p); }
+  else { cell.missed=true; }
   closeModal();
-  if(guessesLeft<=0||CELLS.every(function(c){return c.player||c.missed;})) done=true;
+  if(guessesLeft<=0||CELLS.every(function(c){return c.player||c.missed;})){ done=true; finish(); }
   render();
+}
+
+// ── end of a grid: record once, then the shared result block ──
+function shareFor(daily){
+  var emo=CELLS.map(function(c){return c.player?'🟩':c.missed?'🟥':'⬜';});
+  return T.shareText(GID,daily,[filledCells().length+'/9 · rarity '+avgRarity(),emo.slice(0,3).join(''),emo.slice(3,6).join(''),emo.slice(6,9).join('')]);
+}
+function finish(){
+  if(recorded) return; recorded=true;
+  var daily=mode==='daily', filled=filledCells().length;
+  T.record(GID,{daily:daily,win:filled>=WIN_AT,score:filled,share:shareFor(daily),
+    detail:{rows:ROWS.map(function(x){return x.label;}),cols:COLS.map(function(x){return x.label;}),
+      cells:CELLS.map(function(c){return c.player?{n:c.player.name,r:c.rarity}:(c.missed?{m:1}:{});}),rarity:avgRarity()}});
 }
 function showResult(){
   var el=document.getElementById('gr'); if(!el)return;
-  var correct=CELLS.filter(function(c){return c.player;}).length;
-  var rar=CELLS.filter(function(c){return c.player;});
-  var avg=rar.length?Math.round(rar.reduce(function(s,c){return s+c.rarity;},0)/rar.length):0;
-  el.innerHTML='<div class="rz">'+correct+' / 9 squares</div>'+
-    '<div style="font-size:13px;color:var(--text3);margin-top:4px;">Average rarity '+avg+' · higher = deeper cuts</div>'+
-    '<div><button class="g-btn" onclick="share()">Share</button><button class="g-btn ghost" onclick="newGrid()">New grid</button></div>';
-  el.classList.add('on');
+  var daily=mode==='daily', saved=daily&&T.dailyResult(GID);
+  var filled=saved?(+saved.score||0):filledCells().length, rar=(saved&&saved.detail&&saved.detail.rarity!=null)?saved.detail.rarity:avgRarity();
+  var text=(saved&&saved.share)||shareFor(daily);
+  el.innerHTML=T.resultHtml(GID,{title:filled+' of 9 squares',line:'Average rarity '+rar+' (higher = deeper cuts). '+(filled>=WIN_AT?'A winning grid.':'Six squares is a win.'),
+    shareText:text,statsOpts:{score:'Avg squares'},again:daily?'Play practice':'Play again',daily:daily});
+  T.wireResult(el,text,function(){ if(daily){ setMode('practice'); } else newGrid(); });
+  renderStats(false);
 }
-function share(){
-  var emo=CELLS.map(function(c){return c.player?'🟩':'⬛';});
-  var lines=emo[0]+emo[1]+emo[2]+'\n'+emo[3]+emo[4]+emo[5]+'\n'+emo[6]+emo[7]+emo[8];
-  var correct=CELLS.filter(function(c){return c.player;}).length;
-  var txt='The Depth Chart — Hoop Grid  '+correct+'/9\n'+lines+'\nplay: booby-buckets.github.io/the-depth-chart/game-grid.html';
-  if(navigator.clipboard)navigator.clipboard.writeText(txt).then(function(){toast('Copied!');},function(){});
-  else toast('Copy not supported');
-}
-function toast(m){var t=document.createElement('div');t.textContent=m;t.style.cssText='position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;z-index:999;';document.body.appendChild(t);setTimeout(function(){t.remove();},2000);}
+function renderStats(show){ document.getElementById('gmStats').innerHTML=T.statsHtml(GID,{score:'Avg squares'}); document.getElementById('gmStatsPanel').hidden=show===false; }
 
-// ── start ──
+// ── modes + difficulty ──
 let _cat=null;
-let difficulty='medium';
+let difficulty='medium';                // practice choice; the daily is always medium
 // difficulty caps how rare the row/column categories can be (tier 1 common → 3 obscure)
 const DIFFS={
   easy:   {lbl:'Easy',   hint:'big schools · common', max:1},
   medium: {lbl:'Medium', hint:'a mix',                max:2},
   hard:   {lbl:'Hard',   hint:'deep cuts · rare',     max:3}
 };
-function renderDiff(){ var w=document.getElementById('diffWrap'); if(!w) return;
-  w.innerHTML='<div class="seg" title="Difficulty sets how rare the row & column categories can be">'+
-    Object.keys(DIFFS).map(function(k){return '<button class="'+(difficulty===k?'on':'')+'" onclick="setDifficulty(\''+k+'\')">'+DIFFS[k].lbl+'<small>'+DIFFS[k].hint+'</small></button>';}).join('')+'</div>'; }
-function setDifficulty(d){ if(d===difficulty||!DIFFS[d]) return; difficulty=d; renderDiff(); newGrid(); }
-function startGrid(rng){
-  var grid=buildGrid(_cat,rng,(DIFFS[difficulty]||DIFFS.medium).max);
-  if(!grid){document.getElementById('content').innerHTML='<div class="loading">Could not build a grid — try New grid.</div>';return;}
+function renderControls(){
+  var daily=mode==='daily';
+  T.modeBar('gmModes',mode,setMode);
+  document.getElementById('gmEyebrow').textContent=daily?('Games · Daily #'+T.dayNumber()):'Games · Practice';
+  var w=document.getElementById('segDiff'); w.hidden=daily; document.getElementById('gmDailyNote').hidden=!daily;
+  w.innerHTML=Object.keys(DIFFS).map(function(k){return '<button type="button" class="chip'+(difficulty===k?' on':'')+'" data-diff="'+k+'" title="'+DIFFS[k].hint+'">'+DIFFS[k].lbl+'</button>';}).join('');
+}
+document.getElementById('segDiff').onclick=function(e){var b=e.target.closest('[data-diff]'); if(b) setDifficulty(b.getAttribute('data-diff'));};
+function setDifficulty(d){ if(mode!=='practice'||d===difficulty||!DIFFS[d]) return; difficulty=d; renderControls(); newGrid(); }
+function setMode(m){ if(m===mode) return; mode=m; closeModal(); renderControls(); start(); }
+
+function resetBoard(grid){
   ROWS=grid.rows; COLS=grid.cols;
   CELLS=[]; for(var i=0;i<9;i++)CELLS.push({player:null,missed:false,rarity:0});
-  guessesLeft=9; done=false; active=null; render();
+  guessesLeft=9; done=false; recorded=false; active=null;
 }
-function newGrid(){ startGrid(mulberry32((Math.floor(todayIndex())*7919 + Date.now()%100000)|0)); }
-async function init(){
+function startGrid(rng,maxTier){
+  var grid=buildGrid(_cat,rng,maxTier)||buildGrid(_cat,rng,3);
+  if(!grid){document.getElementById('content').innerHTML='<div class="loading">Could not build a grid'+(mode==='practice'?'. Try New grid.':'.')+'</div>';return;}
+  resetBoard(grid); renderStats(); render();
+}
+// today's grid: the seed picks the rows/columns (medium), the same for everyone
+function dailyGrid(){ return buildGrid(_cat,T.seeded(GID),DIFFS.medium.max)||buildGrid(_cat,T.seeded(GID+'|any'),3); }
+function newGrid(){ if(mode!=='practice'||!_cat) return; startGrid(mulberry32((Date.now()*7919+Math.floor(Math.random()*1e6))|0),(DIFFS[difficulty]||DIFFS.medium).max); }
+function findCrit(label){ var all=_cat.teams.concat(_cat.confs,_cat.acc); for(var i=0;i<all.length;i++) if(all[i].label===label) return all[i]; return null; }
+// the daily is done: rebuild the finished board from what was saved, never a fresh puzzle
+function showFinished(r){
+  var d=r.detail||{}, grid=null;
+  if(d.rows&&d.cols){ var rows=d.rows.map(findCrit), cols=d.cols.map(findCrit); if(rows.every(Boolean)&&cols.every(Boolean)) grid={rows:rows,cols:cols}; }
+  grid=grid||dailyGrid();
+  if(!grid){ document.getElementById('content').innerHTML='<div id="gr"></div>'; showResult(); return; }
+  resetBoard(grid);
+  (d.cells||[]).forEach(function(c,i){ if(!CELLS[i])return;
+    if(c.n){ CELLS[i].player=BYNAME[c.n]||{name:c.n,peakGrade:0}; CELLS[i].rarity=c.r||0; } else if(c.m) CELLS[i].missed=true; });
+  guessesLeft=0; done=true; recorded=true; render();
+}
+async function start(){
+  var tok=++_tok;
+  if(!_cat){
+    // a finished daily shows its result straight away; the board fills in once the players load
+    if(mode==='daily'&&T.dailyResult(GID)){ document.getElementById('content').innerHTML='<div class="loading">Loading your board…</div><div id="gr"></div>'; showResult(); }
+    else document.getElementById('content').innerHTML='<div class="loading">'+(mode==='daily'?'Building today\'s grid…':'Building a grid…')+'</div>';
+    await ready;
+  }
+  if(tok!==_tok||!_cat) return;
+  if(mode==='daily'){
+    var saved=T.dailyResult(GID);
+    if(saved){ showFinished(saved); return; }
+    var g=dailyGrid();
+    if(!g){ document.getElementById('content').innerHTML='<div class="loading">Could not build today\'s grid.</div>'; return; }
+    resetBoard(g); renderStats(); render();
+  } else {
+    newGrid();
+  }
+}
+async function load(){
   try{
-    var tm=await fetch(SB+'/rest/v1/teams?select=name,conf',{headers:H}).then(r=>r.json()).catch(function(){return[];});
+    var tm=await fetch(SB+'/rest/v1/teams?select=name,conf&order=name.asc',{headers:H}).then(r=>r.json()).catch(function(){return[];});
     (Array.isArray(tm)?tm:[]).forEach(function(t){CONF[t.name]=t.conf||'';});
-    const base=SB+'/rest/v1/player_history?select=name,team,season_year,tdc_grade,ppg,rpg,apg,stl,blk,tp_pct,tpm,tpa,gp,espn_id,photo_url&tdc_grade=gte.80&gp=gte.15';
+    // stable ORDER BY: pages can't skip/duplicate rows, and every visitor builds the same category pool
+    const base=SB+'/rest/v1/player_history?select=name,team,season_year,tdc_grade,ppg,rpg,apg,stl,blk,tp_pct,tpm,tpa,gp,espn_id,photo_url&tdc_grade=gte.80&gp=gte.15&order=id.asc';
     const cr=await fetch(base+'&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact','Range':'0-0','Range-Unit':'items'})});
     const total=parseInt((cr.headers.get('content-range')||'/0').split('/')[1]||0)||7500;
     const PG=1000,pages=Math.ceil(total/PG),jobs=[];
@@ -395,14 +410,16 @@ async function init(){
     const parts=await Promise.all(jobs);
     var rows=TDCTeamName.fix(parts.reduce(function(a,b){return a.concat(b);},[]));
     PLAYERS=aggregate(rows);
+    BYNAME={}; PLAYERS.forEach(function(p){BYNAME[p.name]=p;});
     if(!PLAYERS.length){document.getElementById('content').innerHTML='<div class="loading">Could not load players.</div>';return;}
     _cat=buildCriteria();
-    renderDiff();
-    startGrid(mulberry32(todayIndex()|0));
-  }catch(e){document.getElementById('content').innerHTML='<div class="loading">Error: '+e.message+'</div>';}
+  }catch(e){document.getElementById('content').innerHTML='<div class="loading">Error: '+esc(e.message)+'</div>';}
 }
 document.getElementById('modal').addEventListener('click',function(e){if(e.target.id==='modal')closeModal();});
-init();
+const ready=load();
+renderControls();
+renderStats();
+start();
 </script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=11"></script>

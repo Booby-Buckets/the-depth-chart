@@ -72,13 +72,21 @@
     ['college','Guess the College','Shown a player, name his college in one guess and build a streak.'],
   ];
   const T=window.TDCGames, esc=T.esc;
+  // today's result in each game's own terms
+  const OUT={college:10,statline:30,career:30,rank:25,grade:500,grid:9};
+  function scoreText(id,r){
+    if(id==='guess') return r.win&&r.score!=null?('Solved in '+r.score):'Not solved';
+    if(id==='higher') return 'Streak '+(r.score||0);
+    if(r.score!=null&&OUT[id]) return r.score+' / '+OUT[id];
+    return r.win?'Solved':'Played';
+  }
   let doneN=0, best=0;
   document.getElementById('ghEyebrow').textContent='Games · Daily #'+T.dayNumber();
   document.getElementById('ghList').innerHTML=G.map(([id,name,desc])=>{
     const r=T.dailyResult(id), g=T.stats(id), ds=T.liveDailyStreak(g);
     if(r) doneN++; best=Math.max(best,ds);
     const status=r
-      ? `<div class="gh-daily done">Today's done<span>${r.score!=null?('Score '+esc(r.score)):(r.win?'Solved':'Played')}</span></div>`
+      ? `<div class="gh-daily done">Today's done<span>${esc(scoreText(id,r))}</span></div>`
       : `<div class="gh-daily todo">Play today's #${T.dayNumber()}<span>${g.played?(g.played+' played'):'New'}</span></div>`;
     return `<a class="gh-row" href="${T.PAGES[id]}"><div><div class="gh-name">${esc(name)}</div><div class="gh-desc">${esc(desc)}</div></div>${status}<div class="gh-streak"><b>${ds}</b><span>Daily streak</span></div></a>`;
   }).join('');

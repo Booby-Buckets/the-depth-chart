@@ -13,7 +13,7 @@
                              (tdc-live.js) and the live test fixtures. A cached live score is a
                              wrong score, and caching every 20s poll would bloat the runtime cache.
 */
-const CACHE = 'tdc-v291';
+const CACHE = 'tdc-v292';
 const CORE = ['index.html', 'offline.html', 'favicon.svg',
               'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 

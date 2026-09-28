@@ -24,78 +24,46 @@
   <title>Higher or Lower — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <style>
-    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;}
-    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;}
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#0A0E18;--bg2:#111726;--bg3:#1A2133;--border:#232B3E;--border2:#34405A;--text:#EEF1F7;--text2:#AEB6C8;--text3:#7A849A;--accent:#E6D5A8;--green:#5ab875;--red:#e07070;}
     *{margin:0;padding:0;box-sizing:border-box;}
     html{background:var(--bg);}
     body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
     a{color:inherit;}
-    .nav-wrap{border-bottom:1px solid var(--border);background:rgba(250,249,246,.66);backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);position:sticky;top:0;z-index:200;}
-    [data-theme="dark"] .nav-wrap{background:rgba(20,20,22,.84);border-bottom-color:rgba(26,43,68,.9);}
-    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;}
-    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;letter-spacing:-.01em;}
-    .nav-logo span{color:var(--accent);}
-    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
-    .theme-toggle:hover{border-color:var(--accent);color:var(--text);}
-    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
-    .nav-sub::-webkit-scrollbar{display:none;}
-    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;position:relative;white-space:nowrap;flex-shrink:0;transition:color .2s;}
-    .nav-sub a:first-child{padding-left:0;}
-    .nav-sub a::after{content:'';position:absolute;bottom:0;left:14px;right:14px;height:2px;background:var(--accent);transform:scaleX(0);transform-origin:left center;transition:transform .22s;}
-    .nav-sub a:first-child::after{left:0;}
-    .nav-sub a:hover{color:var(--text);} .nav-sub a:hover::after{transform:scaleX(1);}
-    .nav-sub a.active{color:var(--text);} .nav-sub a.active::after{transform:scaleX(1);}
-    .wrap{max-width:760px;margin:0 auto;padding:24px 20px 90px;}
-    .g-head{text-align:center;margin-bottom:14px;}
-    .g-title{font-family:'Playfair Display',serif;font-weight:800;font-size:34px;letter-spacing:-.01em;}
-    .g-sub{font-size:13px;color:var(--text3);margin-top:4px;}
-    .stat-seg{display:flex;justify-content:center;gap:6px;margin:14px 0 6px;flex-wrap:wrap;}
-    .stat-seg button{font-size:12px;font-weight:700;letter-spacing:.03em;padding:7px 14px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;}
-    .stat-seg button.on{background:var(--accent);color:#221c08;border-color:var(--accent);}
-    .diffwrap{text-align:center;margin:4px 0 2px;}
-    .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:3px;gap:3px;flex-wrap:wrap;justify-content:center;}
-    .seg button{font-size:12px;font-weight:800;letter-spacing:.02em;padding:6px 15px;border:none;border-radius:6px;background:none;color:var(--text3);cursor:pointer;font-family:inherit;transition:background .12s,color .12s;}
-    .seg button.on{background:var(--accent);color:#221c08;}
-    .seg button small{display:block;font-size:9px;font-weight:700;letter-spacing:.03em;opacity:.7;margin-top:2px;}
-    @media(max-width:560px){ .seg button{padding:6px 10px;} }
-    .score-row{display:flex;justify-content:center;gap:26px;margin:12px 0 20px;font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;}
-    .score-row b{color:var(--accent);font-size:16px;}
-    .cards{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:stretch;}
-    .card{position:relative;border:1px solid var(--border);border-radius:16px;background:var(--bg2);padding:22px 16px;text-align:center;overflow:hidden;transition:transform .15s,border-color .2s;}
-    .card .photo{width:96px;height:96px;border-radius:20px;object-fit:cover;background:var(--bg3);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:800;font-size:38px;color:var(--accent);border:1px solid var(--border2);}
-    .card .nm{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;line-height:1.1;}
-    .card .tm{font-size:12px;color:var(--text3);margin-top:3px;font-weight:600;}
-    .card .val{font-family:'Playfair Display',serif;font-weight:800;font-size:40px;margin-top:12px;color:var(--accent);min-height:48px;}
-    .card .val .lbl{font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-family:'Inter';display:block;margin-top:2px;}
-    .card .btns{display:flex;flex-direction:column;gap:9px;margin-top:14px;}
-    .card .btns button{font-size:14px;font-weight:700;padding:11px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg);color:var(--text);cursor:pointer;transition:background .12s,border-color .12s;}
-    .card .btns button:hover{border-color:var(--accent);}
-    .card .btns button.hi:hover{background:rgba(31,157,87,.14);}
-    .card .btns button.lo:hover{background:rgba(207,90,78,.14);}
-    .card.correct{border-color:#1f9d57;} .card.wrong{border-color:#cf5a4e;}
-    .vs{display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:800;font-size:18px;color:var(--text3);}
-    .g-result{text-align:center;margin-top:24px;display:none;}
-    .g-result.on{display:block;animation:pop .35s cubic-bezier(.34,1.46,.64,1);}
-    @keyframes pop{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
-    .g-result .rz-final{font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#cf5a4e;}
-    .g-result .rz-streak{font-family:'Playfair Display',serif;font-weight:800;font-size:44px;margin:4px 0;}
-    .g-btn{display:inline-block;margin-top:12px;padding:11px 22px;font-size:14px;font-weight:700;border-radius:10px;border:none;cursor:pointer;background:var(--accent);color:#221c08;}
-    .loading{padding:60px;text-align:center;color:var(--text3);}
-    @media(max-width:560px){.nav-top,.nav-sub{padding-left:16px;padding-right:16px;}.cards{grid-template-columns:1fr;}.vs{padding:4px;}.g-title{font-size:27px;}.card .val{font-size:34px;}}
+    .gm-stats-panel{margin-top:28px;}
+    .gm-panel-h{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
+    /* the two player-seasons: flat columns under a top rule, no card fill */
+    .cards{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:18px;align-items:stretch;}
+    .card{border-top:2px solid var(--border2);padding:18px 6px 8px;text-align:center;transition:border-color .2s;min-width:0;}
+    .card.correct{border-top-color:var(--green);} .card.wrong{border-top-color:var(--red);}
+    .card .photo{width:84px;height:84px;border-radius:50%;object-fit:cover;background:var(--bg2);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:800;font-size:32px;color:var(--text3);border:1px solid var(--border);}
+    .card .nm{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;line-height:1.15;overflow-wrap:anywhere;}
+    .card .tm{font-size:12px;color:var(--text3);margin-top:4px;font-weight:600;}
+    .card .val{font-family:'Playfair Display',serif;font-weight:800;font-size:40px;margin-top:12px;color:var(--text);min-height:48px;font-variant-numeric:tabular-nums;}
+    .card .val.hid{color:var(--text3);}
+    .card .val .lbl{font-size:10px;color:var(--text3);font-weight:800;text-transform:uppercase;letter-spacing:.08em;font-family:'Inter',sans-serif;display:block;margin-top:2px;}
+    .card .btns{display:flex;gap:8px;justify-content:center;margin-top:14px;}
+    .card .btns .gm-btn{flex:1;justify-content:center;max-width:140px;}
+    .vs{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
+    .loading{padding:40px 0;color:var(--text3);}
+    /* phones: keep the pair side by side so the Higher/Lower buttons stay on screen */
+    @media(max-width:640px){ .cards{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;} .vs{display:none;} .card{padding:14px 2px 6px;}
+      .card .photo{width:56px;height:56px;font-size:22px;margin-bottom:8px;} .card .nm{font-size:16px;} .card .tm{font-size:11px;}
+      .card .val{font-size:32px;min-height:38px;margin-top:8px;} .card .btns{flex-direction:column;align-items:stretch;} .card .btns .gm-btn{max-width:none;} }
   </style>
   <link rel="stylesheet" href="tdc-anim.css?v=6"/>
   <script src="tdc-anim.js?v=6"></script>
   <!-- new-UI theme layer: navy+blue dark palette (matches index/player); light-mode guard keeps the toggle readable -->
   <link rel="stylesheet" href="tdc-dense.css?v=39"/>
   <link rel="stylesheet" href="tdc-skin.css?v=14"/>
-  <link rel="stylesheet" href="tdc-hq-game.css?v=2"/>
+  <link rel="stylesheet" href="tdc-games.css?v=1"/>
+  <link rel="stylesheet" href="tdc-column.css?v=2"/>
   <style>
     :root:not([data-theme="dark"]){background:var(--bg)!important;}
     :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
-    :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
   </style>
   <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#0A0E18" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#FAF9F6" media="(prefers-color-scheme: light)">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -106,50 +74,28 @@
 </head>
 <body data-anim-auto>
 <script src="tdc-nav.js?v=33"></script>
-  <div class="nav-wrap">
-    <div class="nav-top">
-      <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
-      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">🌙</button>
-    </div>
-    <div class="nav-sub">
-      <a href="index.html">Rankings</a>
-      <a href="roster.html">Players</a>
-      <a href="compare-players.html">Compare</a>
-      <a href="draft.html">Big Board</a>
-      <a href="analytics.html">Stats</a>
-      <a href="shot-genome.html">Shot Genome</a>
-      <a href="onoff.html">On/Off</a>
-      <a href="tournaments.html">Tournaments</a>
-      <a href="predict.html">Predict</a>
-      <a href="awards.html">Awards</a>
-      <a href="bracket.html">Bracket</a>
-      <a href="buzz.html">News</a>
-      <a href="coaches.html">Coaches</a>
-      <a href="development.html">Development</a>
-      <a href="games.html">🎮 Games</a>
-      <a href="community.html">Community</a>
-      <a href="team.html">Teams</a>
-      <a href="coach-tier.html">⬡ Coach's Tier</a>
-    <a href="customize.html">✦ Customize</a>
-      <a href="pricing.html">Pricing</a>
-    </div>
+<div class="page gm-page">
+  <a class="gm-back" href="games.html">← All games</a>
+  <div class="gm-eyebrow" id="gmEyebrow">Games · Daily</div>
+  <h1 class="gm-title">Higher or Lower</h1>
+  <div class="gm-controls">
+    <div id="gmModes"></div>
+    <div class="gm-seg" id="diffSeg" title="Difficulty sets how well-known the player-seasons can be"></div>
+    <div class="gm-seg" id="statSeg"></div>
+    <span class="gm-note" id="gmNote"></span>
   </div>
-
-  <div class="wrap">
-    <div class="g-head">
-      <div class="g-title">Higher or Lower</div>
-      <div class="g-sub">Two player-seasons from 20 years of college hoops — does the mystery one rank higher or lower? Chain them for a streak.</div>
-    </div>
-    <div class="diffwrap" id="diffWrap"></div>
+  <div class="gm-play">
     <div id="content"><div class="loading">Loading players…</div></div>
+    <div class="gm-panel gm-stats-panel" id="gmStatsPanel"><div class="gm-panel-h">Your stats</div><div id="gmStats"></div></div>
   </div>
+</div>
 
+<script src="tdc-games.js?v=1"></script>
 <script>
 const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H={apikey:KEY,Authorization:'Bearer '+KEY};
-function toggleTheme(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');document.getElementById('themeBtn').textContent=d?'🌙':'☀️';try{localStorage.setItem('tdc_theme',d?'light':'dark');}catch(e){}}
-(function(){try{var s=localStorage.getItem('tdc_theme');if(s){document.documentElement.setAttribute('data-theme',s);var b=document.getElementById('themeBtn');if(b)b.textContent=s==='dark'?'☀️':'🌙';}}catch(e){}})();
+const T=window.TDCGames, GID='higher', DAILY_PAIRS=25, WIN_AT=5;
 
 // makes/attempts are swapped in the data for 3P & FT, so % stats gate volume
 // on max(made,att) as an attempts proxy, and we never show raw makes.
@@ -167,6 +113,8 @@ const STATS=[
 ];
 let POOL=[], ACTIVE=[], stat=STATS[0], left=null, right=null, streak=0, best=0, over=false, busy=false;
 let difficulty='medium';
+// mode: 'daily' = today's fixed chain (Grade, Medium, up to 25 pairs, one attempt); 'practice' = the open game
+let mode='daily', practice={stat:0, diff:'medium'}, SEQ=null, seqI=0, marks=[], gen=0; // gen guards stale timers after a mode switch
 // difficulty filters WHICH player-seasons can appear, by the player's (box-adjusted) grade —
 // more famous seasons = easier. Falls back to the broad pool if a tier is too small to draw pairs.
 const DIFFS={
@@ -176,6 +124,7 @@ const DIFFS={
 };
 
 function val(p){return parseFloat(p[stat.k])||0;}
+function esc(s){return T.esc(s);}
 function photoOf(p){return (window.tdcShowPhotos&&window.tdcShowPhotos())?(p.photo_url||(p.espn_id?'https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+p.espn_id+'.png':'')):'';}
 function seasonLbl(y){y=+y;return (y-1)+'-'+(''+y).slice(2);}
 function bestKey(){return 'tdc_hilo_best_'+stat.k;}
@@ -188,11 +137,34 @@ function refreshActive(){
   ACTIVE = stat.vol ? base.filter(stat.vol) : base;
   if(ACTIVE.length<2) ACTIVE = stat.vol ? POOL.filter(stat.vol) : POOL; // vol+tier fallback
 }
-function renderDiff(){ var w=document.getElementById('diffWrap'); if(!w) return;
-  w.innerHTML='<div class="seg" title="Difficulty sets how well-known the player-seasons can be">'+
-    Object.keys(DIFFS).map(function(k){return '<button class="'+(difficulty===k?'on':'')+'" onclick="setDifficulty(\''+k+'\')">'+DIFFS[k].lbl+'<small>'+DIFFS[k].hint+'</small></button>';}).join('')+'</div>';
+
+// ---- controls: Daily / Practice, then difficulty + stat chips (practice only) ----
+function renderControls(){
+  T.modeBar('gmModes', mode, setMode);
+  document.getElementById('gmEyebrow').textContent = mode==='daily' ? 'Games · Daily #'+T.dayNumber() : 'Games · Practice';
+  var ds=document.getElementById('diffSeg'), ss=document.getElementById('statSeg'), note=document.getElementById('gmNote');
+  var daily=mode==='daily';
+  ds.style.display=ss.style.display=daily?'none':'';
+  note.textContent = daily ? 'Daily: Grade · Medium · up to '+DAILY_PAIRS+' pairs, one try' : (DIFFS[difficulty].lbl+': '+DIFFS[difficulty].hint);
+  ds.innerHTML=Object.keys(DIFFS).map(function(k){return '<button type="button" class="chip'+(difficulty===k?' on':'')+'" title="'+DIFFS[k].hint+'" onclick="setDifficulty(\''+k+'\')">'+DIFFS[k].lbl+'</button>';}).join('');
+  ss.innerHTML=STATS.map(function(s,i){return '<button type="button" class="chip'+(s.k===stat.k?' on':'')+'" onclick="setStat('+i+')">'+s.l+'</button>';}).join('');
 }
-function setDifficulty(d){ if(d===difficulty||!DIFFS[d]) return; difficulty=d; renderDiff(); newGame(); }
+function renderStats(){ document.getElementById('gmStats').innerHTML=T.statsHtml(GID,{score:'Avg streak'}); }
+// the page stats panel hides while a result block (which carries its own stats row) is on screen
+function statsPanel(on){ document.getElementById('gmStatsPanel').style.display=on?'':'none'; }
+function setMode(m){
+  if(m===mode) return; mode=m;
+  if(m==='daily'){ stat=STATS[0]; difficulty='medium'; } else { stat=STATS[practice.stat]; difficulty=practice.diff; }
+  renderControls(); start();
+}
+function setDifficulty(d){ if(mode!=='practice'||d===difficulty||!DIFFS[d]) return; difficulty=practice.diff=d; renderControls(); newGame(); }
+function setStat(i){ if(mode!=='practice') return; stat=STATS[i]; practice.stat=i; renderControls(); newGame(); }
+
+function start(){
+  if(!POOL.length) return;
+  if(mode==='daily'){ var r=T.dailyResult(GID); if(r) return showDailyDone(r); dailyGame(); }
+  else newGame();
+}
 
 function randPlayer(exclude){
   var arr=ACTIVE.length?ACTIVE:POOL, p, tries=0;
@@ -200,54 +172,112 @@ function randPlayer(exclude){
   while(tries<50 && exclude && (p.id===exclude.id || p.name===exclude.name || Math.abs(val(p)-val(exclude))<0.05));
   return p;
 }
-function newGame(){ streak=0; over=false; busy=false; loadBest(); refreshActive(); left=randPlayer(null); right=randPlayer(left); render(); }
-function setStat(i){ stat=STATS[i]; newGame(); }
+// today's chain: 26 player-seasons (25 pairs) drawn with the seeded RNG from the id-sorted
+// Medium/Grade pool, so every visitor gets the same sequence. No player repeats in the chain.
+function buildDailySeq(){
+  var pool=ACTIVE.slice().sort(function(a,b){return (+a.id)-(+b.id);});
+  var r=T.seeded(GID), seq=[pool[Math.floor(r()*pool.length)]];
+  while(seq.length<DAILY_PAIRS+1){
+    var prev=seq[seq.length-1], p, tries=0;
+    do{ p=pool[Math.floor(r()*pool.length)]; tries++; }
+    while(tries<200 && (seq.some(function(q){return q.id===p.id||q.name===p.name;}) || Math.abs(val(p)-val(prev))<0.05));
+    seq.push(p);
+  }
+  return seq;
+}
+function newGame(){ gen++; streak=0; over=false; busy=false; marks=[]; loadBest(); refreshActive(); left=randPlayer(null); right=randPlayer(left); render(); }
+function dailyGame(){ gen++; streak=0; over=false; busy=false; marks=[]; refreshActive(); SEQ=buildDailySeq(); seqI=1; left=SEQ[0]; right=SEQ[1]; render(); }
 
 function cardHtml(p, side, revealed){
-  var photo=photoOf(p);
-  var img=photo?'<img class="photo" src="'+photo+'" onerror="this.outerHTML=\'<div class=&quot;photo&quot;>'+(p.name||'?')[0]+'</div>\'">':'<div class="photo">'+(p.name||'?')[0]+'</div>';
+  var photo=photoOf(p), ini=esc((p.name||'?')[0]);
+  var img=photo?'<img class="photo" src="'+photo+'" alt="" onerror="this.outerHTML=\'<div class=&quot;photo&quot;>'+ini+'</div>\'">':'<div class="photo">'+ini+'</div>';
   var valHtml=revealed
     ? '<div class="val">'+stat.fmt(val(p))+'<span class="lbl">'+stat.l+'</span></div>'
-    : '<div class="val" style="color:var(--text3);">?<span class="lbl">'+stat.l+'</span></div>';
+    : '<div class="val hid">?<span class="lbl">'+stat.l+'</span></div>';
   var btns=(side==='right'&&!revealed&&!over)
-    ? '<div class="btns"><button class="hi" onclick="answer(true)">▲ Higher</button><button class="lo" onclick="answer(false)">▼ Lower</button></div>'
+    ? '<div class="btns"><button type="button" class="gm-btn hi" onclick="answer(true)">Higher</button><button type="button" class="gm-btn ghost lo" onclick="answer(false)">Lower</button></div>'
     : '';
-  return '<div class="card" id="card-'+side+'">'+img+'<div class="nm">'+p.name+'</div><div class="tm">'+seasonLbl(p.season_year)+' · '+p.team+'</div>'+valHtml+btns+'</div>';
+  return '<div class="card" id="card-'+side+'">'+img+'<div class="nm">'+esc(p.name)+'</div><div class="tm">'+seasonLbl(p.season_year)+' · '+esc(p.team)+'</div>'+valHtml+btns+'</div>';
+}
+function scoreHtml(){
+  var cells = mode==='daily'
+    ? [['Streak',streak],['Pair',Math.min(seqI,DAILY_PAIRS)+' / '+DAILY_PAIRS],['Stat',stat.l]]
+    : [['Streak',streak],['Best',best],['Stat',stat.l]];
+  return cells.map(function(c){return '<div><dt>'+c[0]+'</dt><dd>'+c[1]+'</dd></div>';}).join('');
 }
 function render(){
+  statsPanel(true);
   document.getElementById('content').innerHTML=
-    '<div class="stat-seg">'+STATS.map(function(s,i){return '<button class="'+(s.k===stat.k?'on':'')+'" onclick="setStat('+i+')">'+s.l+'</button>';}).join('')+'</div>'+
-    '<div class="score-row"><span>Streak <b>'+streak+'</b></span><span>Best <b>'+best+'</b></span></div>'+
+    '<dl class="gm-score" id="scoreRow">'+scoreHtml()+'</dl>'+
     '<div class="cards" id="cards"><div id="leftWrap">'+cardHtml(left,'left',true)+'</div><div class="vs">vs</div><div id="rightWrap">'+cardHtml(right,'right',false)+'</div></div>'+
-    '<div class="g-result" id="gr"></div>';
+    '<div id="gr"></div>';
 }
 function answer(higher){
   if(busy||over)return; busy=true;
   var lv=val(left), rv=val(right);
   var correct=(rv>lv&&higher)||(rv<lv&&!higher)||(rv===lv); // tie counts as correct
+  marks.push(correct);
   document.getElementById('rightWrap').innerHTML=cardHtml(right,'right',true);
   var rc=document.getElementById('card-right'); if(rc)rc.classList.add(correct?'correct':'wrong');
   if(correct){
-    streak++; saveBest();
-    document.querySelector('.score-row').innerHTML='<span>Streak <b>'+streak+'</b></span><span>Best <b>'+best+'</b></span>';
-    setTimeout(function(){ left=right; right=randPlayer(left); busy=false;
+    streak++; if(mode==='practice') saveBest();
+    if(mode==='daily' && seqI>=DAILY_PAIRS){ document.getElementById('scoreRow').innerHTML=scoreHtml(); return endRun(true); }
+    document.getElementById('scoreRow').innerHTML=scoreHtml();
+    var g0=gen;
+    setTimeout(function(){
+      if(g0!==gen) return;
+      if(mode==='daily'){ left=right; seqI++; right=SEQ[seqI]; } else { left=right; right=randPlayer(left); }
+      busy=false;
+      document.getElementById('scoreRow').innerHTML=scoreHtml();
       document.getElementById('leftWrap').innerHTML=cardHtml(left,'left',true);
       document.getElementById('rightWrap').innerHTML=cardHtml(right,'right',false);
     }, 850);
   } else {
-    over=true; saveBest();
-    setTimeout(function(){
-      var el=document.getElementById('gr');
-      el.innerHTML='<div class="rz-final">Streak ended</div><div class="rz-streak">'+streak+'</div>'+
-        '<div style="font-size:13px;color:var(--text3);">Best: '+best+' · '+stat.l+'</div>'+
-        '<div><button class="g-btn" onclick="newGame()">Play again</button></div>';
-      el.classList.add('on');
-    }, 700);
+    if(mode==='practice') saveBest();
+    endRun(false);
   }
 }
+// share: streak + one square per pick (green = right, red = the miss), 10 to a row
+function shareFor(daily, score, ms){
+  var sq=ms.map(function(ok){return ok?'🟩':'🟥';}).join(''), rows=[];
+  var arr=Array.from(sq); for(var i=0;i<arr.length;i+=10) rows.push(arr.slice(i,i+10).join(''));
+  var head='Streak '+score+(daily?' / '+DAILY_PAIRS:'')+(score>=WIN_AT?' 🔥':'');
+  var lines=[head]; if(!daily) lines.push(stat.l+' · '+DIFFS[difficulty].lbl);
+  return T.shareText(GID, daily, lines.concat(rows));
+}
+function endRun(perfect){
+  over=true;
+  var daily=mode==='daily', score=streak, win=score>=WIN_AT, share=shareFor(daily, score, marks);
+  // record immediately so a reload can't replay a finished daily
+  T.record(GID,{daily:daily, win:win, score:score, share:share, detail:{stat:stat.k, diff:difficulty, marks:marks.map(function(m){return m?1:0;})}});
+  renderStats();
+  var g0=gen;
+  setTimeout(function(){
+    if(g0!==gen) return;
+    var title = perfect ? 'Perfect chain' : 'Streak of '+score;
+    var line = daily
+      ? (perfect ? 'All '+DAILY_PAIRS+' pairs right on Grade.' : 'You got <b>'+score+'</b> of '+DAILY_PAIRS+' pairs in a row on Grade.')
+      : 'Best on '+esc(stat.l)+' ('+DIFFS[difficulty].lbl+'): <b>'+best+'</b>.';
+    var el=document.getElementById('gr'); statsPanel(false);
+    el.innerHTML=T.resultHtml(GID,{title:title, line:line, shareText:share, statsOpts:{score:'Avg streak'}, again:daily?'Play practice':'Play again', daily:daily});
+    T.wireResult(el, share, daily ? function(){ setMode('practice'); } : newGame);
+  }, 700);
+}
+function showDailyDone(r){
+  gen++; statsPanel(false);
+  var s=r.score!=null?r.score:0;
+  document.getElementById('content').innerHTML='<div id="gr">'+T.resultHtml(GID,{
+    title:"Today's daily is done",
+    line:'Your streak: <b>'+esc(s)+'</b> of '+DAILY_PAIRS+' on Grade. A new chain unlocks at midnight ET.',
+    shareText:r.share, statsOpts:{score:'Avg streak'}, again:'Play practice', daily:true})+'</div>';
+  T.wireResult('gr', r.share, function(){ setMode('practice'); });
+}
+
 async function init(){
+  renderControls(); renderStats();
   try{
-    const base=SB+'/rest/v1/player_history?select=id,name,team,season_year,position,height,tdc_grade,ppg,rpg,apg,stl,blk,tovs,oreb,dreb,mpg,fg_pct,tp_pct,ft_pct,fga,tpm,tpa,ftm,fta,espn_id,photo_url&tdc_grade=gte.74&gp=gte.18&mpg=gte.20';
+    // order=id keeps the pool in a stable order across visitors (the daily chain depends on it)
+    const base=SB+'/rest/v1/player_history?select=id,name,team,season_year,position,height,tdc_grade,ppg,rpg,apg,stl,blk,tovs,oreb,dreb,mpg,fg_pct,tp_pct,ft_pct,fga,tpm,tpa,ftm,fta,espn_id,photo_url&tdc_grade=gte.74&gp=gte.18&mpg=gte.20&order=id.asc';
     const cr=await fetch(base+'&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact','Range':'0-0','Range-Unit':'items'})});
     const total=parseInt((cr.headers.get('content-range')||'/0').split('/')[1]||0)||5000;
     const PG=1000, pages=Math.ceil(total/PG), jobs=[];
@@ -259,13 +289,12 @@ async function init(){
     // weak-team dampened), so the number matches the player page / rankings for every year.
     if(window.TDCRating&&TDCRating.ready){ try{ await TDCRating.ready; }catch(e){} }
     try{ if(window.TDCProjGrade&&TDCProjGrade.loadHist) await TDCProjGrade.loadHist(); }catch(e){}
-      POOL.forEach(function(p){ try{
+    POOL.forEach(function(p){ try{
       var so=(function(p){ try{ if(window.TDCProjGrade&&TDCProjGrade.statOvr){ var so=TDCProjGrade.statOvr(p); if(so!=null&&isFinite(so)) return Math.round(so); } }catch(e){} return null; })(p); if(so!=null){ p.tdc_grade=so; return; }   // that season's statistical overall first
       if(window.TDCRating&&TDCRating.boxAdjust){ var a=TDCRating.boxAdjust(p.tdc_grade,{position:p.position,height:p.height},p,parseInt(p.season_year)||0);
       if(a&&a.grade!=null) p.tdc_grade=Math.round(a.grade); } }catch(e){} });
-    renderDiff();
-    newGame();
-  }catch(e){document.getElementById('content').innerHTML='<div class="loading">Error: '+e.message+'</div>';}
+    start();
+  }catch(e){document.getElementById('content').innerHTML='<div class="loading">Error: '+esc(e.message)+'</div>';}
 }
 init();
 </script>
