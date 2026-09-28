@@ -1258,14 +1258,6 @@
   <div class="ph-left">
     <div class="page-eyebrow" id="heroEyebrow">Division I · Rankings</div>
     <h1 class="page-h1" id="heroTitle">Team Analytics</h1>
-    <p class="page-sub">Every Division I team ranked by Power Rating, projected from 2026-27 rosters. Pick a past season to see actual results, or click a team to open its page.</p>
-    <div class="page-meta">
-      <span id="heroConfSpan">Ranked by Power Rating · all of Division I</span>
-      <span class="meta-dot"></span>
-      <span id="lastUpdated">Loading…</span>
-      <span class="meta-dot"></span>
-      <span id="teamCount">—</span>
-    </div>
   </div>
 </div>
 
@@ -1766,8 +1758,6 @@ async function loadProjectedSeason(){
     renderConfPills();
     window._teamMetaByName = {};
     allTeams.forEach(t => { window._teamMetaByName[t.name.toLowerCase().trim()] = t; });
-    document.getElementById('lastUpdated').textContent = '2026–27 · projected from rosters';
-    document.getElementById('teamCount').textContent = `${allTeams.length} teams`;
     fillHeroBand('projected for 2026-27');
     var h1=document.getElementById('heroStat1Num'); if(h1) h1.textContent=allTeams.length;
     var h4=document.getElementById('heroStat4Num'); if(h4) h4.textContent='2026–27';
@@ -1854,8 +1844,6 @@ async function loadSeason(yr){
         });
       }).catch(()=>{ window._teamActualByName = {}; window._teamActualList = []; });
 
-    document.getElementById('lastUpdated').textContent = seasonLabel(yr)+' season';
-    document.getElementById('teamCount').textContent = `${allTeams.length} teams`;
     fillHeroBand(seasonLabel(yr)+' season');
     var h1=document.getElementById('heroStat1Num'); if(h1) h1.textContent=allTeams.length;
     var h4=document.getElementById('heroStat4Num'); if(h4) h4.textContent=seasonLabel(yr);
@@ -2133,7 +2121,7 @@ function updateHeroForConf(conf, teams){
     header.style.removeProperty('--conf-overlay');
     eyebrow.style.color = '';
     titleEl.innerHTML = 'Team <em>Analytics</em>';   // instant: this runs on every data pass, and the old 230ms fade kept the title hidden for ~1.5s on load
-    confSpan.textContent = 'Ranked by Power Rating · all of Division I';
+    if(confSpan) confSpan.textContent = 'Ranked by Power Rating · all of Division I';
     swapStat('heroStat1', teams.length, 'Teams', true);
     swapStat('heroStat2', '118,780',    'Games', false);
     swapStat('heroStat3', 20,           'Seasons', true);
@@ -2147,7 +2135,7 @@ function updateHeroForConf(conf, teams){
     header.classList.add('conf-active');
     eyebrow.style.color = meta.color;
     titleEl.innerHTML = `${meta.name} <em>Analytics</em>`;
-    confSpan.textContent = `${meta.full} Conference · ${teams.length} teams`;
+    if(confSpan) confSpan.textContent = `${meta.full} Conference · ${teams.length} teams`;
     swapStat('heroStat1', teams.length, 'Teams', true);
     swapStat('heroStat2', top ? (top.margin>0?'+':'')+top.margin : '—', 'Top Margin', false);
     swapStat('heroStat3', (avgMargin>0?'+':'')+avgMargin.toFixed(1), 'Avg Margin', false);
