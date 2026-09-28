@@ -317,6 +317,22 @@ def proj_mpg(d,last,starter,trusted=False):
     if d is None and last>0: pm=last
     return pm
 DEV=json.load(open(os.path.join(D,"dev_curves.json")))["rate_mult"]
+# PER-STAT DEVELOPMENT (scripts/build_stat_dev.py -> stat_dev.json): next per-40 = a + b*this for
+# rebounds, assists, steals, blocks and turnovers, per class step, fit on ~17k same-school returner
+# pairs. b<1 pulls an outlier season back toward normal, a is the step's typical growth (assists
+# +6-9%, defensive boards +2-4%, FT% +1). These rates used to be copied flat from last season, so a
+# returning senior's line could only shrink with his minutes and read as "no prediction".
+try:
+    STAT_DEV=json.load(open(os.path.join(D,"stat_dev.json")))
+except Exception:
+    STAT_DEV={"rate":{},"pct":{}}
+def dev_step(yr):
+    """the class step a 2026-27 roster player is taking (roster yr = the class he WILL be)"""
+    y=str(yr or "").lower().replace("r-","").replace(".","").strip()[:2]
+    return {"so":"so","jr":"jr","sr":"sr","gr":"gr"}.get(y)
+def dev_rate(step,k,v):
+    c=(STAT_DEV.get("rate",{}).get(step) or {}).get(k)
+    return max(0.0,c["a"]+c["b"]*v) if (c and v is not None) else v
 def cls_trans(yr):
     # roster `yr` is the class the player WILL BE in 2026-27, and dev_curves keys are named by
     # the class he BECOMES (rate_mult["so"] = the fr->so jump; see build_dev_curves.py). So map
@@ -623,8 +639,10 @@ for short, roster in roster_by_team.items():
             """projected per-game line at usage ratio `ur` -> (pg, rpg, pts, ti40, owa, mn, dwa_p)"""
             usg_ratio=ur
             fga40=p40("fga")*usg_ratio*dm; tpa40=p40("tpa")*usg_ratio*dm; fta40=p40("fta")*usg_ratio*dm
-            ast40=p40("apg")*(usg_ratio**USG_AST_EL); tov40=p40("tovs")*(usg_ratio**USG_TOV_EL)
-            oreb40=p40("oreb"); dreb40=p40("dreb"); stl40=p40("stl"); blk40=p40("blk")   # minutes-based
+            _st=dev_step(p.yr or p.class_year)
+            ast40=dev_rate(_st,"ast",p40("apg"))*(usg_ratio**USG_AST_EL); tov40=dev_rate(_st,"tov",p40("tovs"))*(usg_ratio**USG_TOV_EL)
+            oreb40=dev_rate(_st,"oreb",p40("oreb")); dreb40=dev_rate(_st,"dreb",p40("dreb"))   # minutes-based, developed
+            stl40=dev_rate(_st,"stl",p40("stl")); blk40=dev_rate(_st,"blk",p40("blk"))
             # efficiency: regress toward positional mean + FT-implied 3P% + usage penalty.
             # A DEVELOPING young returner (fr->so / so->jr on the rise) with a real sample keeps MORE
             # of his own percentages — regressing a 37-game 37.5% sophomore 3P shooter toward the
@@ -644,6 +662,8 @@ for short, roster in roster_by_team.items():
             tp_p=tp_cred*tp+(1-tp_cred)*tp_prior
             fg_p=((1-REG_FG*rs)*fg+REG_FG*rs*POS_FG[pos])*(1-USG_EFF_PEN*(usg_ratio-1))
             ft_p=(1-REG_FT*rs)*ft+REG_FT*rs*POS_FT[pos]
+            _ftc=(STAT_DEV.get("pct",{}).get(dev_step(p.yr or p.class_year)) or {}).get("ft")
+            if _ftc and _n(b["fta"])>=1.0: ft_p+=(_ftc["mean_next"]-_ftc["mean_this"])   # a year of reps at the line
             fg_p=min(72,max(30,fg_p)); tp_p=min(48,max(20,tp_p)); ft_p=min(95,max(45,ft_p))
             # per-game projected line
             sc=pm/40.0
