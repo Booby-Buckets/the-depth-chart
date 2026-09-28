@@ -3530,6 +3530,56 @@ function _curMpgOf(p){
   if(p._projMin!=null&&isFinite(p._projMin)) return Math.round(p._projMin);
   return parseFloat(p.mpg)||0;
 }
+// Seed fit: the projection's minutes don't know the depth-chart columns, so a column can open
+// over its 42 (Florida PG 50, SF 59). Starters keep their minutes (owner rule: returning
+// starters must not lose time). 1) a bench player whose minutes don't fit moves to a
+// neighbouring column with room if he fits there (his minutes come with him); 2) anything still
+// over is trimmed from that column's bench; 3) trimmed minutes go to columns with room (capped
+// at 34 so nobody is pushed into the fatigue band) so the game still totals 200.
+// Writes customMpg (+ may move bench players); callers rebuild _baseCustomProj/baseline after.
+function _czFitColumns(){
+  if(window._czBuildMode) return false;
+  const cur={};
+  POS_KEYS.forEach(pos=>{ customDepth[pos]=(customDepth[pos]||[]).filter(p=>p&&p.name); customDepth[pos].forEach(p=>{ cur[p.name]=_curMpgOf(p); }); });
+  const sum=pos=>customDepth[pos].reduce((s,p)=>s+cur[p.name],0);
+  if(!POS_KEYS.some(pos=>sum(pos)>POS_MIN_CAP+0.5)) return false;
+  const lim={}; Object.keys(cur).forEach(n=>{ lim[n]=Math.min(40,Math.max(34,cur[n])); });
+  const ADJ={PG:['SG'],SG:['PG','SF'],SF:['SG','PF'],PF:['SF','C'],C:['PF']};
+  // 1) relocate bench players, bottom of the column up
+  POS_KEYS.forEach(pos=>{ const col=customDepth[pos];
+    for(let i=col.length-1;i>=1&&sum(pos)>POS_MIN_CAP+0.5;i--){
+      const p=col[i], m=cur[p.name]; if(!(m>0)) continue;
+      let best=null;
+      (ADJ[pos]||[]).forEach(np=>{ const room=POS_MIN_CAP-sum(np); if(room<m) return;
+        let adj=0; try{ adj=calcPositionFit(p,np).adjGrade||0; }catch(e){}
+        if(adj<-3) return;   // best fit first, then the roomier column
+        if(!best||adj>best.adj||(adj===best.adj&&room>best.room)) best={np,room,adj}; });
+      if(best){ col.splice(i,1); customDepth[best.np].push(p); }
+    } });
+  // 2) trim what is still over from the bench (starter only if he alone is over)
+  let excess=0;
+  POS_KEYS.forEach(pos=>{ const s=sum(pos); if(s<=POS_MIN_CAP+0.5) return;
+    let cut=s-POS_MIN_CAP; excess+=cut;
+    const bench=customDepth[pos].slice(1), bs=bench.reduce((a,p)=>a+cur[p.name],0);
+    if(bs>0){ const k=Math.max(0,(bs-cut)/bs); bench.forEach(p=>{ cur[p.name]*=k; }); cut=Math.max(0,cut-bs); }
+    if(cut>0){ const st=customDepth[pos][0]; cur[st.name]=Math.max(0,cur[st.name]-cut); } });
+  // 3) hand the trimmed minutes to columns with room (by room, then by each player's minutes)
+  for(let pass=0;pass<3&&excess>0.5;pass++){
+    const open=POS_KEYS.filter(pos=>customDepth[pos].length&&sum(pos)<POS_MIN_CAP-0.5);
+    const room=open.reduce((s,pos)=>s+(POS_MIN_CAP-sum(pos)),0); if(room<=0.5) break;
+    const give=Math.min(excess,room); let given=0;
+    open.forEach(pos=>{ const col=customDepth[pos], s=sum(pos), share=give*(POS_MIN_CAP-s)/room;
+      col.forEach(p=>{ const w=s>0?cur[p.name]/s:1/col.length, add=Math.min(share*w,lim[p.name]-cur[p.name]);
+        if(add>0){ cur[p.name]+=add; given+=add; } }); });
+    excess-=given; if(given<0.5) break;
+  }
+  // whole minutes; a column that rounds past 42 gives the extra back from its biggest share
+  POS_KEYS.forEach(pos=>{ const col=customDepth[pos]; col.forEach(p=>{ customMpg[p.name]=Math.round(cur[p.name]); });
+    let over=col.reduce((s,p)=>s+customMpg[p.name],0)-POS_MIN_CAP;
+    const byMin=col.slice(1).filter(p=>customMpg[p.name]>0).sort((a,b)=>customMpg[b.name]-customMpg[a.name]).concat(col.slice(0,1));
+    for(let i=0;over>0&&byMin.length;i++,over--){ customMpg[byMin[i%byMin.length].name]--; } });   // bench first, starter last
+  return true;
+}
 function _posColOf(name){ for(const pos of POS_KEYS){ if((customDepth[pos]||[]).some(p=>p&&p.name===name)) return pos; } return null; }
 // the most minutes this player can hold before his position column tops out at 42
 function _capForPlayer(name){
@@ -3946,6 +3996,8 @@ function renderCustomize(t, players, color, rgb, gp){
     }
     // Deep clone for reset
     POS_KEYS.forEach(pos=>{ baseDepthSnapshot[pos]=[...customDepth[pos]]; });
+    // fit the projection's minutes to the 42-minute columns before the baseline is taken
+    _baseCustomProj = buildCustomProjections(); _czFitColumns();
     baseAnalytics = calcCustomAnalytics();
     // Fixed anchor baseline = the REAL default roster's quality. Unlike baseAnalytics (which
     // All-Time / Reset overwrite as the working delta reference), this stays put, so the Proj
@@ -4922,9 +4974,6 @@ function renderCustomProjectionsTable(){
       </tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
-    <div style="font-size:10px;color:var(--text3);margin-top:8px;font-style:italic;">
-      Will slightly vary based on projected minutes. Adjusting MPG changes stats proportionally. Sorted by minutes high → low.
-    </div>
   </div>`;
 }
 
@@ -5099,7 +5148,8 @@ async function buildAllTimeBest(){
     for(const a of (adj[pos]||[])){ const x=graded.find(y=>!used.has(y.name)&&y._rp===a); if(x){ nd[pos].push(shape(x)); used.add(x.name); break; } } });
   customDepth=nd; customMpg={}; customPos={}; customRole={}; _rotationUserSet=false;
   window._czBuildMode=false;   // all-time roster is still THIS team → keep the rating anchor
-  _baseCustomProj=buildCustomProjections(); baseAnalytics=calcCustomAnalytics();
+  _baseCustomProj=buildCustomProjections(); if(_czFitColumns()) _baseCustomProj=buildCustomProjections();
+  baseAnalytics=calcCustomAnalytics();
   rebuildCustomizeUI();
   try{ if(typeof toast==='function') toast(teamName+' all-time roster loaded'); }catch(e){}
 }
@@ -5120,7 +5170,8 @@ function resetCustomLineup(){
   window._czBuildMode=false;
   POS_KEYS.forEach(pos=>{ customDepth[pos]=[...baseDepthSnapshot[pos]]; });
   customMpg={}; customPos={}; customRole={};
-  _baseCustomProj=buildCustomProjections(); baseAnalytics=calcCustomAnalytics();
+  _baseCustomProj=buildCustomProjections(); if(_czFitColumns()) _baseCustomProj=buildCustomProjections();
+  baseAnalytics=calcCustomAnalytics();
   // re-sync the fixed anchor baselines to the restored default roster so the readouts land
   // exactly back on the canonical numbers (the client engine drifts slightly across rebuilds)
   window._czBaseAvgGrade = baseAnalytics ? baseAnalytics.avgGrade : window._czBaseAvgGrade;
