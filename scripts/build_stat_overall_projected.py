@@ -133,7 +133,10 @@ TEAM_FIT=float(os.environ.get("TEAM_FIT","1.0"))
 # Weights by rotation rank (1-5 / 6-7 / 8-9 / 10+); the solver finds the one intensity that lands
 # the roster on 200. A starter never loses more than ~35% of what a pro-rata cut would take.
 SQZ_W=tuple(float(x) for x in os.environ.get("SQZ_W","0.3,0.7,1.0,1.5").split(","))
-SQZ_TRUST_W=float(os.environ.get("SQZ_TRUST_W","0.08"))   # a proven returner's squeeze weight in the top 7 (he keeps his minutes)
+# a proven returner's squeeze weight in the top 7. 20 years of same-school returners: even on the
+# teams that brought in the most new talent, 25+ mpg returners lost only ~0.5 mpg, and their TS%
+# held flat (so trimming a star's minutes buys no efficiency). The crowding comes out of the bench.
+SQZ_TRUST_W=float(os.environ.get("SQZ_TRUST_W","0.02"))
 SQZ_DEEP_FLOOR=float(os.environ.get("SQZ_DEEP_FLOOR","5.0"))   # 11th man and deeper can fall to garbage-time minutes
 FRESH_PPS=1.08          # points per FGA (incl. the FTs a shot draws) for a no-box player's estimated shots
 TEAM_PPG={}; TEAM_FIT_LOG={}; FRESH_FIT={}   # FRESH_FIT[short][name] = fitted {mpg, ppg} for no-box players (tdc-freshman.js scales its lines to these)
@@ -294,7 +297,7 @@ def slot_table(short):
     return [0]+[max(3.0,float(x)) for x in r["slots"]]
 SLOT_CUR=SLOT_MIN   # set per team in the roster loop
 TRUST_MIN=float(os.environ.get("TRUST_MIN","20"))     # a returner who played this many mpg for THIS coach is "proven"
-TRUST_KEEP=float(os.environ.get("TRUST_KEEP","0.97"))  # ...and keeps this share of them (cap TRUST_CAP) regardless of the slot
+TRUST_KEEP=float(os.environ.get("TRUST_KEEP","0.985"))  # ...and keeps this share of them (cap TRUST_CAP) regardless of the slot (was .97; see SQZ_TRUST_W)
 TRUST_CAP=float(os.environ.get("TRUST_CAP","34"))
 TRUST_SLOT=int(os.environ.get("TRUST_SLOT","7"))
 def proj_mpg(d,last,starter,trusted=False):
