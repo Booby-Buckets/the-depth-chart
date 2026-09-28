@@ -54,6 +54,8 @@
     .pr-table td.nm a{color:var(--text);text-decoration:none;}
     .pr-table td.nm a:hover{color:var(--accent);text-decoration:underline;}
     .pr-table th.on{color:var(--text);}
+    .pr-table tbody tr.fav td{background-color:color-mix(in srgb,var(--accent) 16%,var(--bg))!important;}
+    .pr-table tbody tr.fav td.nm{box-shadow:inset 3px 0 0 var(--accent);font-weight:800;}
     .pr-table td.up{color:#2e8b57;font-weight:800;} .pr-table td.dn{color:#c75d5d;font-weight:800;}
     [data-theme="dark"] .pr-table td.up{color:#6fbf7e;} [data-theme="dark"] .pr-table td.dn{color:#e07a7a;}
     .pr-table td.tm a{display:inline-flex;align-items:center;gap:8px;color:inherit;text-decoration:none;vertical-align:middle;}
@@ -138,6 +140,7 @@
     {k:'type', l:'Type', of:typeKey, subs:[['ret','Returners'],['xfer','Transfers'],['fresh','Incoming freshmen']]},
     {k:'role', l:'Playing style', of:p=>p._arch||'', subs:[]},   // filled from archetypes.json
     // risers / fallers: projected 2026-27 OVR against his 2025-26 grade (players who played last season)
+    {k:'mine', l:'My team', of:p=>(FAV&&p.team===FAV)?'y':'', subs:null, hidden:true},
     {k:'move', l:'Movers', of:p=>p._dOvr==null?'':(p._dOvr>0?'up':p._dOvr<0?'down':''), subs:[['up','Biggest risers'],['down','Biggest fallers']]},
   ];
 
@@ -163,7 +166,8 @@
   ];
   const ROT_MPG=10;
 
-  let ALL=[], CUTS={}, CONFS=[], state={g:'all', v:'', by:'ovr', c:'', n:PAGE, q:''};
+  let ALL=[], CUTS={}, CONFS=[], state={g:'all', v:'', by:'ovr', c:'', dir:1, n:PAGE, q:''};
+  let FAV='';   // the viewer's favorite team (set at sign-up / on the profile)
   try{ const u=new URLSearchParams(location.search); ['g','v','by','c'].forEach(k=>{ if(u.get(k)) state[k]=u.get(k); }); }catch(e){}
 
   // team logo via the shared resolver (team-colors.js), sized through ESPN's resizer like the rankings table
@@ -185,7 +189,18 @@
       const b=r.ok?await r.json():[]; rows.push(...b); if(b.length<1000) break; }
     return rows;
   }
+  async function loadFav(){
+    try{ FAV=localStorage.getItem('tdc_fav')||''; }catch(e){}
+    if(FAV) return;
+    try{   // signed in on a new device: the profile holds it
+      const ss=JSON.parse(localStorage.getItem('tdc_session')||'null'); const uid=ss&&ss.user&&ss.user.id;
+      if(!uid||!window.tdcH) return;
+      const r=await fetch(`${SB}/rest/v1/profiles?id=eq.${uid}&select=favorite_team`,{headers:tdcH()}).then(x=>x.ok?x.json():[]);
+      FAV=(r&&r[0]&&r[0].favorite_team)||'';
+    }catch(e){}
+  }
   async function load(){
+    await loadFav();
     if(window.TDCFresh&&TDCFresh.load){ try{ await TDCFresh.load(); }catch(e){} }
     const [raw, teams, proj] = await Promise.all([
       pull(),
@@ -271,7 +286,8 @@
 
   function chip(label,on,data){ return `<button type="button" class="chip${on?' on':''}" ${data}>${esc(label)}</button>`; }
   function paintControls(){
-    document.getElementById('grpRow').innerHTML='<span class="pr-lab">Group</span>'+GROUPS.map(g=>chip(g.l,state.g===g.k,`data-g="${g.k}"`)).join('');
+    const favShort=FAV?((window.tdcShortSchool&&tdcShortSchool(FAV))||FAV):'';
+    document.getElementById('grpRow').innerHTML='<span class="pr-lab">Group</span>'+GROUPS.filter(g=>!g.hidden||(g.k==='mine'&&FAV)).map(g=>chip(g.k==='mine'?('My team: '+favShort):g.l,state.g===g.k,`data-g="${g.k}"`)).join('');
     const G=GROUPS.find(g=>g.k===state.g)||GROUPS[0], sub=document.getElementById('subRow');
     if(G.subs&&G.subs.length){
       if(!G.subs.some(s=>s[0]===state.v)) state.v=G.subs[0][0];
@@ -286,7 +302,7 @@
   }
   function listFor(){
     const G=GROUPS.find(g=>g.k===state.g)||GROUPS[0], S=STATS.find(s=>s.k===state.by)||STATS[0];
-    let L=ALL.filter(p=>(!G.of||G.of(p)===state.v) && (!state.c||p._conf===state.c));
+    let L=ALL.filter(p=>(!G.of||(G.subs?G.of(p)===state.v:!!G.of(p))) && (!state.c||p._conf===state.c));
     if(G.k==='move'){
       // risers / fallers: players who played last season and project into a real role this one
       L=L.filter(p=>p._dOvr!=null && (num(p.mpg)||0)>=ROT_MPG);
@@ -296,7 +312,7 @@
     }
     if(S.k!=='ovr' && !S.all) L=L.filter(p=>(num(p.mpg)||0)>=ROT_MPG && (!S.q||S.q(p)));
     L=L.filter(p=>val(p,S.k)!=null);
-    const dir=S.heat<0?1:-1;
+    const dir=(S.heat<0?1:-1)*state.dir;   // state.dir -1 = the header was clicked again (reverse)
     L.sort((a,b)=>(val(a,S.k)-val(b,S.k))*dir || ((b._ovr||0)-(a._ovr||0)));
     return {G,S,L};
   }
@@ -308,7 +324,8 @@
     const sub=G.subs?((G.subs.find(s=>s[0]===state.v)||[])[1]||''):'';
     const CL={B10:'Big Ten',B12:'Big 12',BE:'Big East',P12:'Pac-12',A10:'A-10'};
     const cName=state.c?(CL[state.c]||state.c):'';
-    const who=(G.k==='all'?(cName?cName+' players':'All Division I players'):(cName?cName+' '+sub.toLowerCase():sub));
+    const favShort=FAV?((window.tdcShortSchool&&tdcShortSchool(FAV))||FAV):'';
+    const who=G.k==='mine'?favShort:(G.k==='all'?(cName?cName+' players':'All Division I players'):(cName?cName+' '+sub.toLowerCase():sub));
     const isMove=G.k==='move', byL=S.k==='bb'?'Big Board rank':S.k==='nil'?'NIL value':S.l.toLowerCase();
     document.getElementById('listTitle').textContent=isMove||S.k==='ovr'?who:`${who}: ${byL} leaders`;
     document.getElementById('listNote').textContent=isMove
@@ -319,12 +336,13 @@
     ];
     const mvTip='Projected 2026-27 overall minus his 2025-26 grade';
     document.getElementById('prHead').innerHTML=cols.map(c=>`<th class="${c[2]}"${c[0]==='mv'?` title="${mvTip}"`:''}>${c[1]}</th>`).join('')
-      +STATS.map(s=>`<th class="${s.k===S.k?'on':''}"${s.tip?` title="${esc(s.tip)}"`:''}>${s.h}</th>`).join('');
+      +STATS.map(s=>{ const on=!isMove&&s.k===S.k, best=(s.heat<0)?'▲':'▼', worst=(s.heat<0)?'▼':'▲';
+        return `<th class="${isMove?'':'sort'}${on?' on':''}" data-sort="${s.k}"${s.tip?` title="${esc(s.tip)}"`:''}>${s.h}<span class="ar">${on?(state.dir>0?best:worst):''}</span></th>`; }).join('');
     const body=shown.map(({p,rk})=>{
       const link=`player.html?${p.espn_id?('espn='+p.espn_id+'&'):''}name=${encodeURIComponent(p.name)}`;
       // the Movers lists show the grade change; the other lists have no movement column
       const mv=isMove?`<td class="${p._dOvr>0?'up':'dn'}" title="${p._prev} last season → ${Math.round(p._ovr)} projected">${p._dOvr>0?'+':''}${p._dOvr}</td>`:'';
-      return `<tr><td class="rk">${rk}</td><td class="l nm"><a href="${link}">${esc(p.name)}</a></td>${mv}`
+      return `<tr${FAV&&p.team===FAV&&G.k!=='mine'?' class="fav" title="Your team"':''}><td class="rk">${rk}</td><td class="l nm"><a href="${link}">${esc(p.name)}</a></td>${mv}`
         +`<td class="l tm"><a href="team.html?team=${encodeURIComponent(p.team)}">${p._logo?`<img src="${p._logo}" alt="" loading="lazy" onerror="this.remove()">`:'<i></i>'}<span>${esc(p._team)}</span></a></td>`
         +`<td class="l dim">${esc(p._conf)}</td><td class="l dim">${esc(p.position||'')}</td><td class="l dim">${esc(p.yr||p.class_year||'')}</td><td class="l dim">${esc(p._arch)}</td>`
         +STATS.map(s=>{ const v=val(p,s.k); const cls=[s.k===S.k||s.k==='ovr'?'big':'', s.heat?heatCls(s,v):''].filter(Boolean).join(' ');
@@ -345,7 +363,14 @@
     if(b.dataset.c!=null){ state.c=b.dataset.c; }
     if(b.dataset.g){ state.g=b.dataset.g; state.v=''; }
     if(b.dataset.v!=null&&b.dataset.v!=='') state.v=b.dataset.v;
-    if(b.dataset.by) state.by=b.dataset.by;
+    if(b.dataset.by){ state.by=b.dataset.by; state.dir=1; }
+    state.n=PAGE; paintControls(); render();
+  });
+  // click a stat header to rank by it; click it again to flip the order
+  document.getElementById('prHead').addEventListener('click',e=>{
+    const th=e.target.closest('th[data-sort]'); if(!th||state.g==='move') return;
+    const k=th.dataset.sort;
+    if(state.by===k) state.dir=-state.dir; else { state.by=k; state.dir=1; }
     state.n=PAGE; paintControls(); render();
   });
   document.getElementById('prMore').addEventListener('click',()=>{ state.n+=PAGE; render(); });
