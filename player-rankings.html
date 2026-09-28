@@ -49,6 +49,9 @@
     .pr-table td.nm a{color:var(--text);text-decoration:none;}
     .pr-table td.nm a:hover{color:var(--accent);text-decoration:underline;}
     .pr-table th.on{color:var(--text);}
+    .pr-table td.tm a{display:inline-flex;align-items:center;gap:8px;color:inherit;text-decoration:none;vertical-align:middle;}
+    .pr-table td.tm a:hover span{color:var(--accent);text-decoration:underline;}
+    .pr-table td.tm img,.pr-table td.tm i{width:20px;height:20px;object-fit:contain;flex:none;}
     .pr-more{margin:14px auto 0;display:block;}
     .pr-empty{padding:48px 12px;text-align:center;color:var(--text3);}
     .pr-legend{margin-top:12px;font-size:11.5px;color:var(--text3);line-height:1.6;max-width:900px;}
@@ -150,6 +153,15 @@
   let ALL=[], CUTS={}, state={g:'all', v:'', by:'ovr', n:PAGE, q:''};
   try{ const u=new URLSearchParams(location.search); ['g','v','by'].forEach(k=>{ if(u.get(k)) state[k]=u.get(k); }); }catch(e){}
 
+  // team logo via the shared resolver (team-colors.js), sized through ESPN's resizer like the rankings table
+  const _logoCache={};
+  function logoOf(team){
+    if(team in _logoCache) return _logoCache[team];
+    const r=window.tdcTeamColor&&tdcTeamColor(team); let u=(r&&r.logo)||'';
+    const m=String(u).match(/^https?:\/\/a\.espncdn\.com(\/i\/teamlogos\/[^?#]+)/);
+    if(m) u=`https://a.espncdn.com/combiner/i?img=${m[1]}&w=48&h=48`;
+    return (_logoCache[team]=u);
+  }
   const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const num=v=>{ const n=parseFloat(v); return isFinite(n)?n:null; };
   const val=(p,k)=>k==='ovr'?p._ovr:num(p[k]);
@@ -197,6 +209,7 @@
       // style only from the player's own espn id (a name match could be a namesake)
       const a=(p.espn_id!=null&&window.TDC_ARCH)?TDC_ARCH.of(p.espn_id,null):null; o._arch=a?a.name:'';
       o._team=(window.tdcShortSchool&&tdcShortSchool(p.team))||p.team;
+      o._logo=logoOf(p.team);
       return o;
     });
     const roles=[...new Set(ALL.map(p=>p._arch).filter(Boolean))].sort();
@@ -248,7 +261,7 @@
     const body=shown.map(({p,rk})=>{
       const link=`player.html?${p.espn_id?('espn='+p.espn_id+'&'):''}name=${encodeURIComponent(p.name)}`;
       return `<tr><td class="rk">${rk}</td><td class="l nm"><a href="${link}">${esc(p.name)}</a></td>`
-        +`<td class="l"><a href="team.html?team=${encodeURIComponent(p.team)}" style="color:inherit;text-decoration:none">${esc(p._team)}</a></td>`
+        +`<td class="l tm"><a href="team.html?team=${encodeURIComponent(p.team)}">${p._logo?`<img src="${p._logo}" alt="" loading="lazy" onerror="this.remove()">`:'<i></i>'}<span>${esc(p._team)}</span></a></td>`
         +`<td class="l dim">${esc(p._conf)}</td><td class="l dim">${esc(p.position||'')}</td><td class="l dim">${esc(p.yr||p.class_year||'')}</td><td class="l dim">${esc(p._arch)}</td>`
         +STATS.map(s=>{ const v=val(p,s.k); const cls=[s.k===S.k||s.k==='ovr'?'big':'', s.heat?heatCls(s,v):''].filter(Boolean).join(' ');
           return `<td${cls?` class="${cls}"`:''}>${fmt(s,v)}</td>`; }).join('')+'</tr>';
