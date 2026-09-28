@@ -70,7 +70,8 @@ def main():
         if (f(r["gp"]) or 0) < MIN_GP:
             continue
         by.setdefault(int(r["espn_id"]), {})[int(r["season_year"])] = r
-    RATE = {"oreb": "oreb", "dreb": "dreb", "ast": "apg", "stl": "stl", "blk": "blk", "tov": "tovs"}
+    # pts: scoring per 40 fit directly — out of sample (2025-26) it beats shots x regressed % (1.66 vs 1.97 ppg MAE)
+    RATE = {"pts": "ppg", "oreb": "oreb", "dreb": "dreb", "ast": "apg", "stl": "stl", "blk": "blk", "tov": "tovs"}
     PCT = {"fg": ("fg_pct", "fga", 3.0), "tp": ("tp_pct", "tpa", 1.5), "ft": ("ft_pct", "fta", 1.0)}
     pairs = {}
     for e, seasons in by.items():

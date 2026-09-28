@@ -330,6 +330,8 @@ def dev_step(yr):
     """the class step a 2026-27 roster player is taking (roster yr = the class he WILL be)"""
     y=str(yr or "").lower().replace("r-","").replace(".","").strip()[:2]
     return {"so":"so","jr":"jr","sr":"sr","gr":"gr"}.get(y)
+USG_V_TYP=float(os.environ.get("USG_V_TYP","0.35"))   # a typical team's vacated usage share (USG grid midpoint)
+USG_PTS_EL=float(os.environ.get("USG_PTS_EL","1.0"))  # points move one-for-one with usage beyond the typical returner's
 def dev_rate(step,k,v):
     c=(STAT_DEV.get("rate",{}).get(step) or {}).get(k)
     return max(0.0,c["a"]+c["b"]*v) if (c and v is not None) else v
@@ -670,6 +672,17 @@ for short, roster in roster_by_team.items():
             fga=fga40*sc; tpa=tpa40*sc; fta=fta40*sc
             fgm=fga*fg_p/100.0; tpm=tpa*tp_p/100.0; ftm=fta*ft_p/100.0
             pts=2*fgm+tpm+ftm
+            # RETURNER SCORING from the per-40 points fit (stat_dev.json "pts": next = a + b*this per class
+            # step), which out of sample beats shots x regressed % (2025-26 backtest: 1.66 vs 1.97 ppg MAE).
+            # The fit already holds a typical returner's usage growth, so the usage ratio counts only
+            # RELATIVE to that (a bigger vacancy -> more; a crowded roster -> less). The shot mix and
+            # percentages stay; attempts scale so the line adds up to the new points.
+            _pf=(STAT_DEV.get("rate",{}).get(_st) or {}).get("pts")
+            if _pf and not xfer and pts>0 and _n(b["ppg"])>0:
+                _typ=(r["last_usg"]+_usg_cell(USG_DMEAN,r["last_usg"],USG_V_TYP))/max(r["last_usg"],1)
+                _pts=dev_rate(_st,"pts",p40("ppg"))*(usg_ratio/max(_typ,0.5))**USG_PTS_EL*sc
+                _k=_pts/pts
+                fga*=_k; tpa*=_k; fta*=_k; fgm*=_k; tpm*=_k; ftm*=_k; pts=_pts
             pg=dict(mpg=pm,pts=pts,fga=fga,fgm=fgm,tpa=tpa,tpm=tpm,fta=fta,ftm=ftm,
                     oreb=oreb40*sc,dreb=dreb40*sc,ast=ast40*sc,stl=stl40*sc,blk=blk40*sc,tov=tov40*sc)
             rpg=pg["oreb"]+pg["dreb"]

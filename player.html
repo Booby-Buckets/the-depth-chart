@@ -3609,7 +3609,8 @@ function buildOverviewCards(p, proj){
   if(!hasActual){
     return _injBanner+sheet(row(projLbl, proj, 'ov-proj'));
   }
-  return _injBanner+sheet(row(_actLbl, actual)+row(projLbl, proj, 'ov-proj')+diffRow(proj, actual));
+  return _injBanner+sheet(row(_actLbl, actual)+row(projLbl, proj, 'ov-proj')+diffRow(proj, actual))
+    +'<div style="margin:-16px 0 22px;font-size:12px;color:var(--text3);">We replayed last season blind: these projections beat last year\'s line for about two-thirds of players. <a href="projection-accuracy.html" style="color:var(--accent);font-weight:700;text-decoration:none;">How accurate are our projections? →</a></div>';
 }
 
 // ── OVERVIEW season selector (view any season's stats, recolor to that team) ──
@@ -5777,7 +5778,7 @@ function renderRankings(){
     window._statOvr=null;
     Promise.all([
       fetch('scripts/data/stat_overall.json?v=7').then(r=>r.ok?r.json():null).catch(()=>null),
-      fetch('scripts/data/stat_overall_projected.json?v=56').then(r=>r.ok?r.json():null).catch(()=>null)
+      fetch('scripts/data/stat_overall_projected.json?v=57').then(r=>r.ok?r.json():null).catch(()=>null)
     ]).then(([demo,proj])=>{
       window._statOvr=(demo&&demo.players)?demo.players:{};
       window._statOvrProj=(proj&&proj.players)?proj.players:{};
