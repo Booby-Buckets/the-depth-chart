@@ -114,7 +114,7 @@
     </table>
   </div>
   <button type="button" class="chip pr-more" id="prMore" style="display:none">Show 100 more</button>
-  <p class="pr-legend">OVR is the projected 2026-27 overall shown across the site. Stats are each player's projected 2026-27 line; players with no projection yet show last season's. Shading compares every player in the rotation (10+ projected minutes): green is the top fifth of Division I, red the bottom fifth. Stat lists only include rotation players, and percentage lists need real volume (5 FGA, 2 3PA or 2 FTA a game). Move is the change in national rank from 2025-26 (by grade); Movers compares each player's projected overall with last season's grade. NIL is the projected open-market value; Board is the NBA Big Board rank.</p>
+  <p class="pr-legend">OVR is the projected 2026-27 overall shown across the site. Stats are each player's projected 2026-27 line; players with no projection yet show last season's. Shading compares every player in the rotation (10+ projected minutes): green is the top fifth of Division I, red the bottom fifth. Stat lists only include rotation players, and percentage lists need real volume (5 FGA, 2 3PA or 2 FTA a game). Move is how many places a player has moved on the list you are viewing since 2025-26 (by last season's grade, or last season's number for a stat list), counting only players who played last season; Movers compares each player's projected overall with last season's grade. NIL is the projected open-market value; Board is the NBA Big Board rank.</p>
 </div>
 
 <script>
@@ -205,6 +205,7 @@
       // the Big Board's line precedence: the owner's freshman-editor projection, then the published
       // projection, then the generic freshman estimate for a player with no college stats
       const KEYS=['ppg','rpg','apg','mpg','fg_pct','tp_pct','ft_pct','stl','blk','tovs','fga','tpm','tpa','fta'];
+      o._last={}; if(o._hasLine) KEYS.forEach(k=>{ const v=parseFloat(p[k]); if(isFinite(v)) o._last[k]=v; });
       const take=L=>KEYS.forEach(k=>{ const v=parseFloat(L[k]); if(isFinite(v)) o[k]=v; });
       const fline=only=>{ try{ if(!window.TDCFresh||!TDCFresh.line) return null; const pf=TDCFresh.profileFor?TDCFresh.profileFor(p):null;
         if(only&&!pf) return null; const L=TDCFresh.line(p,pf); return (L&&parseFloat(L.mpg)>0)?L:null; }catch(e){ return null; } };
@@ -306,6 +307,19 @@
   function render(){
     const {G,S,L}=listFor();
     const ranked=L.map((p,i)=>({p,rk:i+1}));
+    // MOVE, relative to THIS list: among the players on it who also have a 2025-26 season, his spot by
+    // last season's number (grade for Overall, last season's stat for a stat list) vs his spot now.
+    // New players (no 2025-26 season) are left out of both, so a freshman landing above you doesn't
+    // read as you dropping a place. NIL, Wins Added and Big Board have no 2025-26 number to compare.
+    const prevOf=p=>{ if(S.k==='ovr') return p._prev;
+      if(S.k==='nil'||S.k==='bb'||S.k==='wa'||S.k==='usg') return null;
+      const L0=p._last||{}; if(L0.mpg==null||L0.mpg<ROT_MPG*0.5) return null;
+      if(S.k==='fg_pct'&&!(L0.fga>=5)) return null; if(S.k==='tp_pct'&&!(L0.tpa>=2)) return null; if(S.k==='ft_pct'&&!(L0.fta>=2)) return null;
+      return L0[S.k]!=null?L0[S.k]:null; };
+    const mvDir=S.heat<0?1:-1, cmp=L.filter(p=>prevOf(p)!=null);
+    const nowRk=new Map(), prevRk=new Map();
+    cmp.forEach((p,i)=>nowRk.set(p,i+1));
+    cmp.slice().sort((a,b)=>(prevOf(a)-prevOf(b))*mvDir||((b._ovr||0)-(a._ovr||0))).forEach((p,i)=>prevRk.set(p,i+1));
     const q=state.q.trim().toLowerCase();
     const shown=(q?ranked.filter(x=>(x.p.name+' '+x.p.team).toLowerCase().includes(q)):ranked).slice(0,state.n);
     const sub=G.subs?((G.subs.find(s=>s[0]===state.v)||[])[1]||''):'';
@@ -320,7 +334,7 @@
     const cols=[
       ['rk','RK','rk'],['nm','Player','l'],['mv',isMove?'Change':'Move',''],['tm','Team','l'],['cf','Conf','l dim'],['ps','Pos','l dim'],['yr','Class','l dim'],['ar','Style','l dim'],
     ];
-    const mvTip=isMove?'Projected 2026-27 overall minus his 2025-26 grade':'National rank now vs his 2025-26 national rank (by grade). New = no 2025-26 grade';
+    const mvTip=isMove?'Projected 2026-27 overall minus his 2025-26 grade':'Places moved on this list since 2025-26, among the players on it who played last season. New = no 2025-26 season';
     document.getElementById('prHead').innerHTML=cols.map(c=>`<th class="${c[2]}"${c[0]==='mv'?` title="${mvTip}"`:''}>${c[1]}</th>`).join('')
       +STATS.map(s=>`<th class="${s.k===S.k?'on':''}"${s.tip?` title="${esc(s.tip)}"`:''}>${s.h}</th>`).join('');
     const body=shown.map(({p,rk})=>{
@@ -328,8 +342,9 @@
       // movement: rank change nationally (or the grade change in the Movers lists)
       let mv='<td class="dim">New</td>';
       if(isMove) mv=`<td class="${p._dOvr>0?'up':'dn'}" title="${p._prev} → ${Math.round(p._ovr)}">${p._dOvr>0?'+':''}${p._dOvr}</td>`;
-      else if(p._rkPrev!=null&&p._rkNow!=null){ const d=p._rkPrev-p._rkNow;
-        mv=d===0?'<td class="dim">–</td>':`<td class="${d>0?'up':'dn'}" title="#${p._rkPrev} last season → #${p._rkNow} now">${d>0?'▲':'▼'}${Math.abs(d)}</td>`; }
+      else if(S.k==='nil'||S.k==='bb'||S.k==='wa'||S.k==='usg') mv='<td class="dim">—</td>';
+      else if(prevRk.has(p)){ const a=prevRk.get(p), n=nowRk.get(p), d=a-n;
+        mv=d===0?`<td class="dim" title="#${a} on this list last season, #${n} now">–</td>`:`<td class="${d>0?'up':'dn'}" title="#${a} on this list last season → #${n} now">${d>0?'▲':'▼'}${Math.abs(d)}</td>`; }
       return `<tr><td class="rk">${rk}</td><td class="l nm"><a href="${link}">${esc(p.name)}</a></td>${mv}`
         +`<td class="l tm"><a href="team.html?team=${encodeURIComponent(p.team)}">${p._logo?`<img src="${p._logo}" alt="" loading="lazy" onerror="this.remove()">`:'<i></i>'}<span>${esc(p._team)}</span></a></td>`
         +`<td class="l dim">${esc(p._conf)}</td><td class="l dim">${esc(p.position||'')}</td><td class="l dim">${esc(p.yr||p.class_year||'')}</td><td class="l dim">${esc(p._arch)}</td>`
